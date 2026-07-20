@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh:*)",
+      "Bash(grep:*)",
+      "Bash(pwd)",
+      "Bash(pwd:*)",
+      "Bash(base64:*)",
+      "Bash(rm -f pr:*)",
+      "Bash(date:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git diff:*)",
+      "Bash(git status:*)",
+      "Bash(find:*)",
+      "Bash(rg:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Read",
+      "Grep",
+      "Glob",
+      "WebFetch",
+      "Write(state/**)",
+      "Task"
+    ]
+  }
+}

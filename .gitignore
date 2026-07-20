@@ -1,0 +1,10 @@
+# dependencias (o instalador baixa/embute o Electron; nao versionar 360MB)
+node_modules/
+
+# artefatos de distribuicao (vao pras releases do GitHub, nao pro git)
+dist/
+
+# estado/config nunca vivem na fonte (ficam em ~/.farol), mas por seguranca:
+config.json
+state/
+*.log

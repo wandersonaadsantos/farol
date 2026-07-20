@@ -1,0 +1,47 @@
+# Farol: publica uma release no GitHub (biudtech/farol) pras copias instaladas
+# se atualizarem sozinhas. Sobe DOIS artefatos:
+#   - farol-vX.Y.Z.zip           (leve, sem node_modules): e o que o UPDATE baixa.
+#   - Farol-Offline-Windows-vX.Y.Z.zip (Electron embutido): pra PRIMEIRA instalacao.
+# O .command offline do macOS deve ser gerado num Mac (tools/make-offline-mac.sh)
+# e anexado com:  gh release upload vX.Y.Z dist/Farol-Instalar-mac.command --repo biudtech/farol
+#
+# Pre-req: o codigo desta versao ja commitado e no repo (git push), pra a tag
+# apontar pro codigo certo. Requer gh autenticado com acesso ao repo.
+$ErrorActionPreference = 'Stop'
+
+$Src = Split-Path -Parent $PSScriptRoot
+$pkg = Get-Content (Join-Path $Src 'package.json') -Raw | ConvertFrom-Json
+$version = $pkg.version
+$repo = 'biudtech/farol'
+$tag = "v$version"
+
+Write-Host ''
+Write-Host "  Farol · publicar release $tag em $repo" -ForegroundColor Yellow
+
+# --- build dos artefatos ------------------------------------------------------
+Write-Host '  -> Gerando o pacote leve (update)' -ForegroundColor Cyan
+& (Join-Path $PSScriptRoot 'make-package.ps1') | Out-Null
+$light = Join-Path $Src "dist\farol-v$version.zip"
+if (-not (Test-Path $light)) { throw "pacote leve nao gerado: $light" }
+
+Write-Host '  -> Gerando o pacote offline Windows (primeira instalacao)' -ForegroundColor Cyan
+& (Join-Path $PSScriptRoot 'make-offline.ps1') | Out-Null
+$offline = Join-Path $Src "dist\Farol-Offline-Windows-v$version.zip"
+if (-not (Test-Path $offline)) { throw "pacote offline nao gerado: $offline" }
+
+# --- release ------------------------------------------------------------------
+$exists = (& gh release view $tag --repo $repo 2>$null)
+if ($LASTEXITCODE -eq 0) {
+  Write-Host "  -> Release $tag ja existe; subindo/atualizando os anexos" -ForegroundColor Cyan
+  & gh release upload $tag $light $offline --repo $repo --clobber
+} else {
+  Write-Host "  -> Criando a release $tag" -ForegroundColor Cyan
+  & gh release create $tag $light $offline --repo $repo --title $tag --generate-notes
+}
+if ($LASTEXITCODE -ne 0) { throw "gh release falhou (codigo $LASTEXITCODE)" }
+
+Write-Host ''
+Write-Host "  ok  release $tag publicada em $repo" -ForegroundColor Green
+Write-Host '      As copias instaladas (>= 1.15.0) vao ver o update no proximo ciclo.' -ForegroundColor DarkGray
+Write-Host '      macOS: gere o .command num Mac e anexe com gh release upload.' -ForegroundColor DarkGray
+Write-Host ''
