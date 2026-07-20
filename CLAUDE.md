@@ -20,6 +20,7 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
 | `tools/make-package.ps1` | Gera o zip LEVE de distribuição (sem node_modules) com auditoria anti-vazamento |
 | `tools/make-offline.ps1` | Gera o pacote OFFLINE do Windows (`dist/Farol-Offline-Windows-vX.Y.Z.zip`): app + Electron embutido; a pessoa extrai e dá duplo clique em `Instalar.cmd` (sem Node/npm/download) |
 | `tools/make-offline-mac.sh` | Gera o instalador OFFLINE do macOS (`dist/Farol-Instalar-mac.command`): autoextraível único, Electron embutido; RODAR NUM MAC (baixa o Electron darwin e monta o `.app` localmente) |
+| `tools/publish-release.ps1` | Publica a release no GitHub (`biudtech/farol`): sobe o pacote leve (update) + o offline Windows. É como as cópias distribuídas recebem atualização |
 | `tools/make-icns.sh` | Gera `assets/farol.icns` (rodar num Mac) |
 
 ## Invariantes do projeto (não negociar)
@@ -85,6 +86,12 @@ Quando validar (ou corrigir) qualquer item acima, **atualize esta seção**: ris
 1. Bump de `version` no `package.json` (semver).
 2. `powershell -ExecutionPolicy Bypass -File tools\make-package.ps1` gera `dist/farol-vX.Y.Z.zip` auditado (leve, sem node_modules; serve pros dois SOs pra quem já tem Node).
 3. Quem tem instalação local atualiza pelo botão em Sistema (a fonte em `~/Documents/farol` com versão maior acende o botão) ou rodando o instalador da versão nova.
+
+**Publicar update pras cópias distribuídas (auto-update):**
+- `powershell -ExecutionPolicy Bypass -File tools\publish-release.ps1` builda o pacote leve + o offline Windows e cria/atualiza a release `vX.Y.Z` em `biudtech/farol`. As cópias instaladas (>= 1.15.0) leem a última release via `gh` (`updateRepo` no config, default `biudtech/farol`) e se atualizam sozinhas no próximo ciclo, baixando só o pacote leve (o Electron já está instalado).
+- Precedência: se existe pasta-fonte local (`~/Documents/farol`), o update é local (fluxo do mantenedor); sem ela, é remoto (releases).
+- macOS: gere o `.command` num Mac (`tools/make-offline-mac.sh`) e anexe com `gh release upload vX.Y.Z dist/Farol-Instalar-mac.command --repo biudtech/farol`.
+- Bootstrap: cópias antigas (< 1.15.0) não têm o auto-update; instale a 1.15.0 uma vez (offline). Daí pra frente, automático.
 
 **Distribuição offline (sem pré-requisitos):**
 - Windows: `powershell -ExecutionPolicy Bypass -File tools\make-offline.ps1` gera `dist/Farol-Offline-Windows-vX.Y.Z.zip` (Electron embutido). A pessoa extrai e dá duplo clique em `Instalar.cmd`. Sem Node/npm/download/terminal.

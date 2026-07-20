@@ -57,7 +57,14 @@ O instalador copia o app para `~/.farol/app` e cria o lançador `~/Applications/
 
 ### Versão e atualização
 
-A versão instalada aparece ao lado do logo e em **Sistema → Versão e atualização**. Quando a pasta da fonte (`Documents\farol` por padrão; configurável em `updateSource` no config.json) tem uma versão mais nova, aparece o botão **Atualizar agora**: ele roda o instalador da fonte, que encerra as instâncias, troca os arquivos sem duplicar a instalação (estado, memória do time e configurações ficam intactos, os atalhos são recriados no mesmo lugar) e reabre o app sozinho. Quem recebe o Farol por zip atualiza rodando o `Instalar.cmd` da versão nova, com as mesmas garantias.
+A versão instalada aparece ao lado do logo e em **Sistema → Versão e atualização**. Quando há uma versão mais nova, aparece o botão **Atualizar agora**: o app encerra as instâncias, troca os arquivos sem duplicar a instalação (estado, memória do time e configurações ficam intactos, os atalhos são recriados no mesmo lugar) e reabre sozinho.
+
+O Farol procura a versão nova em dois canais, nesta ordem:
+
+1. **Pasta local** (`Documents\farol` por padrão; configurável em `updateSource`): é o fluxo do mantenedor, que tem o código-fonte na máquina.
+2. **Releases do GitHub** (`updateRepo`, por padrão `biudtech/farol`): quando não há pasta local (as cópias distribuídas), o Farol checa as releases via o `gh` que você já usa e **se atualiza sozinho**. O download é leve (só os arquivos do app; o Electron já está instalado). Assim, toda versão que o mantenedor publicar chega nas máquinas do time no próximo ciclo de checagem.
+
+Sem nenhum dos dois configurados, o update fica manual (rodar o instalador da versão nova).
 
 ### Revisão autônoma (padrão)
 
