@@ -55,11 +55,18 @@ if (-not $body) {
   Write-Host "  !  CHANGELOG.md sem secao v$version; usando nota generica" -ForegroundColor Yellow
   $body = "Farol v$version."
 }
-# rodape padrao (Instalar/Atualizar + Anexos): SEMPRE presente, com a versao
-# preenchida. Lido como UTF-8 pra nao mojibakear. Assim o CHANGELOG so descreve
-# o que mudou e o padrao das notas fica garantido em toda release.
+# rodape padrao (Instalar/Atualizar + Anexos): por padrao SEMPRE presente, com a
+# versao preenchida. Lido como UTF-8 pra nao mojibakear. Assim o CHANGELOG so
+# descreve o que mudou e o padrao das notas fica garantido em toda release.
 $footerFile = Join-Path $Src 'tools\release-footer.md'
-if (Test-Path $footerFile) {
+if (-not (Test-Path $footerFile)) {
+  Write-Host "  !  tools\release-footer.md ausente; release sai SEM o rodape Instalar/Anexos" -ForegroundColor Yellow
+}
+elseif ($body -match '(?m)^#{2,}\s+.*Instalar') {
+  # o CHANGELOG desta versao ja trouxe um bloco Instalar manual: nao duplica
+  Write-Host "  !  a secao do CHANGELOG ja tem um bloco 'Instalar'; nao anexo o rodape (evita duplicar)" -ForegroundColor Yellow
+}
+else {
   $footer = ((Get-Content $footerFile -Encoding UTF8) -join "`n").Replace('{VERSION}', $version)
   $body = $body.TrimEnd() + "`n`n" + $footer.Trim()
 }
