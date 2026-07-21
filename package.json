@@ -1,7 +1,7 @@
 {
   "name": "farol",
   "productName": "Farol",
-  "version": "1.17.0",
+  "version": "1.18.0",
   "description": "Radar de Pull Requests: monitora o GitHub e abre o Claude Code quando chega revisão pra você.",
   "main": "main.js",
   "author": "Wanderson Santos",

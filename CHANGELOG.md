@@ -9,6 +9,13 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v1.18.0
+
+Autoanálise que virou passado não engana mais: commit novo zera o veredito.
+
+### Melhorias
+- **A autoanálise de um PR é descartada quando entra commit novo.** Se você analisa, vê o veredito, e depois empurra um commit que muda o cenário, o card volta pra "não analisado" (em vez de mostrar o resultado velho, que já não vale). É só reanalisar quando quiser.
+
 ## v1.17.0
 
 Configurar quem revisa ficou visual: escolha as pessoas e times de uma lista, por projeto.

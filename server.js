@@ -185,7 +185,6 @@ class Engine extends EventEmitter {
     this.myPRs = [];                 // PRs abertos de autoria minha (fonte da autoanalise)
     this.selfAnalyses = readJson(SELF_FILE, {}); // key do PR -> resultado da autoanalise
     this.mergeStates = {};            // key do PR -> mergeabilidade real (só p/ aprovaveis)
-    this.prBranches = {};             // key do PR -> { head, base } (cache, branch nao muda)
     this.reviewerCands = null;        // { at, data:{members,teams} } candidatos p/ o seletor de reviewers
     this.activeReviews = new Map();  // id -> { keys, label, mode, startedAt }
     this.sessionSeq = 0;
@@ -1110,21 +1109,27 @@ class Engine extends EventEmitter {
   // GitHub num PR aberto, entao o cache expira e rebusca (retarget aparece em ate
   // ~30min). Chave que fechou sai do cache.
   async enrichMyPRBranches() {
-    const TTL = 30 * 60 * 1000;
-    const now = Date.now();
-    const openKeys = new Set((this.myPRs || []).map(p => p.key));
-    for (const k of Object.keys(this.prBranches)) if (!openKeys.has(k)) delete this.prBranches[k];
+    // uma chamada gh por PR meu: branch de origem/destino (o card mostra o de/para)
+    // + o SHA do head. O SHA e buscado FRESCO a cada ciclo (muda a cada push, sem
+    // cache) e serve pra invalidar a autoanalise quando entra commit novo: se o
+    // head mudou desde a analise, a analise vira desatualizada e e descartada, o
+    // card volta a "nao analisado" (mostrar veredito velho iludiria). Buscar
+    // fresco tambem cobre retarget da base sem depender de TTL.
+    let pruned = false;
     for (const pr of (this.myPRs || [])) {
-      const c = this.prBranches[pr.key];
-      if (!c || (now - (c.at || 0)) > TTL) {
-        const r = await run('gh', ['pr', 'view', pr.url, '--json', 'headRefName,baseRefName'], { env: this.ghEnv() });
-        if (r.ok) {
-          try { const j = JSON.parse(r.stdout || '{}'); this.prBranches[pr.key] = { head: j.headRefName || '', base: j.baseRefName || '', at: now }; } catch { }
-        }
+      const r = await run('gh', ['pr', 'view', pr.url, '--json', 'headRefName,baseRefName,headRefOid'], { env: this.ghEnv() });
+      if (!r.ok) continue;
+      let j; try { j = JSON.parse(r.stdout || '{}'); } catch { continue; }
+      pr.head = j.headRefName || ''; pr.base = j.baseRefName || ''; pr.headSha = j.headRefOid || '';
+      const a = this.selfAnalyses[pr.key];
+      if (a && a.headSha && pr.headSha && a.headSha !== pr.headSha) {
+        delete this.selfAnalyses[pr.key];
+        delete this.mergeStates[pr.key];
+        this.log('WARN', `autoanálise de ${pr.key} descartada: PR mudou (commit novo)`);
+        pruned = true;
       }
-      const b = this.prBranches[pr.key];
-      if (b) { pr.head = b.head; pr.base = b.base; }
     }
+    if (pruned) this.saveSelfAnalyses();
   }
 
   // O repo tem "Allow auto-merge" ligado? Sem isso, o botao Auto-merge nao adianta
@@ -1329,10 +1334,15 @@ class Engine extends EventEmitter {
         onEvent: (e) => this.pushActivity(id, e.kind, e.text)
       });
       const result = this.parseSelfResult(res.text);
+      // SHA do commit analisado: se o head mudar depois, a analise vira stale e
+      // e descartada no proximo ciclo (enrichMyPRBranches), voltando pra "nao analisado".
+      const shaR = await run('gh', ['pr', 'view', pr.url, '--json', 'headRefOid', '--jq', '.headRefOid'], { env: this.ghEnv() });
+      const headSha = shaR.ok ? shaR.stdout.trim() : (pr.headSha || null);
       this.selfAnalyses[pr.key] = {
         key: pr.key,
         pr: { repo: pr.repo, number: pr.number, url: pr.url, title: pr.title },
         at: Date.now(),
+        headSha,
         sessionId: res.sessionId || null,
         card: result.card || null,
         cardMet: result.cardMet ?? null,
