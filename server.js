@@ -1031,17 +1031,25 @@ class Engine extends EventEmitter {
     // 1) me atribui
     const asg = await run('gh', ['pr', 'edit', url, '--add-assignee', this.config.ghUser], { env: this.ghEnv() });
     if (!asg.ok) this.log('WARN', `não consegui me atribuir em ${key}: ${asg.stderr.trim().slice(0, 200)}`);
-    // 2) peço review (pessoas e times org/slug; gh aceita os dois em --add-reviewer)
-    const rv = await run('gh', ['pr', 'edit', url, '--add-reviewer', reviewers.join(',')], { env: this.ghEnv() });
-    if (!rv.ok) {
-      const msg = (rv.stderr || rv.stdout || 'erro').trim().slice(0, 300);
-      this.log('ERROR', `setar reviewers ${key}: ${msg}`);
-      this.emit('toast', { kind: 'error', text: `Não consegui setar os reviewers de ${key}: ${msg}` });
-      return { ok: false, error: msg };
+    // 2) peço review de CADA UM individualmente. O --add-reviewer (e a API de
+    //    requested_reviewers atras) e all-or-nothing: um handle invalido (typo,
+    //    nao-colaborador, time sem acesso) devolve 422 e zera o pedido inteiro.
+    //    Como a lista e texto livre e o botao aplica num clique, pedir um a um
+    //    garante que os validos entram mesmo com um invalido no meio.
+    const okd = [], failed = [];
+    for (const person of reviewers) {
+      const rv = await run('gh', ['pr', 'edit', url, '--add-reviewer', person], { env: this.ghEnv() });
+      if (rv.ok) okd.push(person);
+      else { failed.push(person); this.log('WARN', `reviewer ${person} em ${key}: ${(rv.stderr || rv.stdout || '').trim().slice(0, 150)}`); }
+    }
+    if (!okd.length) {
+      this.emit('toast', { kind: 'error', text: `Não consegui setar nenhum reviewer de ${key}. Confira os handles em Sistema (falharam: ${failed.join(', ')}).` });
+      return { ok: false, error: 'nenhum reviewer válido', failed };
     }
     const asgNote = asg.ok ? '' : ' (não consegui te atribuir, confira no GitHub)';
-    this.emit('toast', { kind: 'ok', text: `👥 ${key}: reviewers pedidos (${reviewers.join(', ')}) e você atribuído${asgNote}.` });
-    return { ok: true, reviewers };
+    const failNote = failed.length ? ` Não entraram (confira em Sistema): ${failed.join(', ')}.` : '';
+    this.emit('toast', { kind: failed.length ? 'info' : 'ok', text: `👥 ${key}: review pedido de ${okd.join(', ')} e você atribuído${asgNote}.${failNote}` });
+    return { ok: true, reviewers: okd, failed };
   }
 
   // --- autoanalise: revisa um PR MEU so pra mim, nunca posta nada -------------
