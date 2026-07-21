@@ -159,6 +159,7 @@ class Engine extends EventEmitter {
     this.myPRs = [];                 // PRs abertos de autoria minha (fonte da autoanalise)
     this.selfAnalyses = readJson(SELF_FILE, {}); // key do PR -> resultado da autoanalise
     this.mergeStates = {};            // key do PR -> mergeabilidade real (só p/ aprovaveis)
+    this.prBranches = {};             // key do PR -> { head, base } (cache, branch nao muda)
     this.activeReviews = new Map();  // id -> { keys, label, mode, startedAt }
     this.sessionSeq = 0;
     this.headlessQueue = [];
@@ -471,6 +472,8 @@ class Engine extends EventEmitter {
           this.launchReview(retry.map(p => p.url), 'auto');
         }
       }
+      // branch origem->destino de cada PR meu (o card mostra de/para)
+      try { await this.enrichMyPRBranches(); } catch (e) { this.log('WARN', `enrichMyPRBranches: ${e.message}`); }
       // mergeabilidade real dos PRs aprovaveis (gate honesto do botao Merge)
       try { await this.refreshMergeStates(); } catch (e) { this.log('WARN', `refreshMergeStates: ${e.message}`); }
       // atualizacao (releases do GitHub pras copias distribuidas) a cada ciclo
@@ -998,6 +1001,24 @@ class Engine extends EventEmitter {
       const j = JSON.parse(r.stdout || '{}');
       return { mergeable: j.mergeable || 'UNKNOWN', status: j.mergeStateStatus || 'UNKNOWN', isDraft: !!j.isDraft, state: j.state || '', at: Date.now() };
     } catch { return null; }
+  }
+
+  // Anexa a branch de origem/destino em cada "Meu PR" (o gh search prs nao traz
+  // branch; so gh pr view). Cacheia por PR (branch nao muda no ciclo de vida do
+  // PR), entao so busca as chaves novas: custo baixo mesmo a cada checagem.
+  async enrichMyPRBranches() {
+    const openKeys = new Set((this.myPRs || []).map(p => p.key));
+    for (const k of Object.keys(this.prBranches)) if (!openKeys.has(k)) delete this.prBranches[k];
+    for (const pr of (this.myPRs || [])) {
+      if (!this.prBranches[pr.key]) {
+        const r = await run('gh', ['pr', 'view', pr.url, '--json', 'headRefName,baseRefName'], { env: this.ghEnv() });
+        if (r.ok) {
+          try { const j = JSON.parse(r.stdout || '{}'); this.prBranches[pr.key] = { head: j.headRefName || '', base: j.baseRefName || '' }; } catch { }
+        }
+      }
+      const b = this.prBranches[pr.key];
+      if (b) { pr.head = b.head; pr.base = b.base; }
+    }
   }
 
   // O repo tem "Allow auto-merge" ligado? Sem isso, o botao Auto-merge nao adianta

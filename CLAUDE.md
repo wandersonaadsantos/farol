@@ -18,9 +18,10 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
 | `installer/install.sh` / `uninstall.sh` | Instalador macOS |
 | `Instalar.cmd` / `Instalar.command` | Atalhos de duplo clique (Windows / macOS) |
 | `tools/make-package.ps1` | Gera o zip LEVE de distribuição (sem node_modules) com auditoria anti-vazamento |
-| `tools/make-offline.ps1` | Gera o pacote OFFLINE do Windows (`dist/Farol-Offline-Windows-vX.Y.Z.zip`): app + Electron embutido; a pessoa extrai e dá duplo clique em `Instalar.cmd` (sem Node/npm/download) |
+| `tools/make-installer.ps1` + `installer/farol.nsi` | Gera o INSTALADOR ÚNICO do Windows (`dist/Farol-Setup-vX.Y.Z.exe`, NSIS): um `.exe`, duplo clique instala e abre (roda o `install.ps1` por dentro). Requer `makensis` (vem com o Tauri em `AppData\Local\tauri\NSIS`). É o instalador de primeira instalação |
+| `tools/make-offline.ps1` | (legado) Gera o pacote OFFLINE do Windows em zip (`dist/Farol-Offline-Windows-vX.Y.Z.zip`); substituído pelo instalador único acima |
 | `tools/make-offline-mac.sh` | Gera o instalador OFFLINE do macOS (`dist/Farol-Instalar-mac.command`): autoextraível único, Electron embutido; RODAR NUM MAC (baixa o Electron darwin e monta o `.app` localmente) |
-| `tools/publish-release.ps1` | Publica a release no GitHub (`biudtech/farol`): sobe o pacote leve (update) + o offline Windows. É como as cópias distribuídas recebem atualização |
+| `tools/publish-release.ps1` | Publica a release no GitHub (`biudtech/farol`): sobe o pacote leve (update) + o instalador único Windows. É como as cópias distribuídas recebem atualização |
 | `tools/make-icns.sh` | Gera `assets/farol.icns` (rodar num Mac) |
 
 ## Invariantes do projeto (não negociar)
@@ -88,12 +89,12 @@ Quando validar (ou corrigir) qualquer item acima, **atualize esta seção**: ris
 3. Quem tem instalação local atualiza pelo botão em Sistema (a fonte em `~/Documents/farol` com versão maior acende o botão) ou rodando o instalador da versão nova.
 
 **Publicar update pras cópias distribuídas (auto-update):**
-- `powershell -ExecutionPolicy Bypass -File tools\publish-release.ps1` builda o pacote leve + o offline Windows e cria/atualiza a release `vX.Y.Z` em `biudtech/farol`. As cópias instaladas (>= 1.15.0) leem a última release via `gh` (`updateRepo` no config, default `biudtech/farol`) e se atualizam sozinhas no próximo ciclo, baixando só o pacote leve (o Electron já está instalado).
+- `powershell -ExecutionPolicy Bypass -File tools\publish-release.ps1` builda o pacote leve + o instalador único Windows (`Farol-Setup-vX.Y.Z.exe`) e cria/atualiza a release `vX.Y.Z` em `biudtech/farol`. As cópias instaladas (>= 1.15.0) leem a última release via `gh` (`updateRepo` no config, default `biudtech/farol`) e se atualizam sozinhas no próximo ciclo, baixando só o pacote leve (o Electron já está instalado).
 - Precedência: se existe pasta-fonte local (`~/Documents/farol`), o update é local (fluxo do mantenedor); sem ela, é remoto (releases).
 - macOS: gere o `.command` num Mac (`tools/make-offline-mac.sh`) e anexe com `gh release upload vX.Y.Z dist/Farol-Instalar-mac.command --repo biudtech/farol`.
 - Bootstrap: cópias antigas (< 1.15.0) não têm o auto-update; instale a 1.15.0 uma vez (offline). Daí pra frente, automático.
 
 **Distribuição offline (sem pré-requisitos):**
-- Windows: `powershell -ExecutionPolicy Bypass -File tools\make-offline.ps1` gera `dist/Farol-Offline-Windows-vX.Y.Z.zip` (Electron embutido). A pessoa extrai e dá duplo clique em `Instalar.cmd`. Sem Node/npm/download/terminal.
+- Windows: `powershell -ExecutionPolicy Bypass -File tools\make-installer.ps1` gera `dist/Farol-Setup-vX.Y.Z.exe` (NSIS, Electron embutido). A pessoa dá **um** duplo clique: instala e abre, sem extrair zip nem escolher arquivo. Sem Node/npm/download/terminal.
 - macOS: **num Mac**, `bash tools/make-offline-mac.sh` gera `dist/Farol-Instalar-mac.command` (autoextraível único, Electron embutido). Duplo clique instala; na 1ª vez, botão direito > Abrir (quarentena, sem assinatura). O `.app` é montado localmente, então o Gatekeeper não bloqueia por assinatura.
 - Nenhum dos dois é assinado/notarizado (exige conta paga): SmartScreen/Gatekeeper ainda avisam uma vez.

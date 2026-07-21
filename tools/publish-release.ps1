@@ -1,9 +1,11 @@
 # Farol: publica uma release no GitHub (biudtech/farol) pras copias instaladas
 # se atualizarem sozinhas. Sobe DOIS artefatos:
-#   - farol-vX.Y.Z.zip           (leve, sem node_modules): e o que o UPDATE baixa.
-#   - Farol-Offline-Windows-vX.Y.Z.zip (Electron embutido): pra PRIMEIRA instalacao.
-# O .command offline do macOS deve ser gerado num Mac (tools/make-offline-mac.sh)
-# e anexado com:  gh release upload vX.Y.Z dist/Farol-Instalar-mac.command --repo biudtech/farol
+#   - farol-vX.Y.Z.zip     (leve, sem node_modules): e o que o UPDATE baixa.
+#   - Farol-Setup-vX.Y.Z.exe (Electron embutido): PRIMEIRA instalacao, arquivo unico
+#     (duplo clique instala e abre, sem extrair zip).
+# O instalador offline do macOS (.command) deve ser gerado num Mac
+# (tools/make-offline-mac.sh) e anexado com:
+#   gh release upload vX.Y.Z dist/Farol-Instalar-mac.command --repo biudtech/farol
 #
 # Pre-req: o codigo desta versao ja commitado e no repo (git push), pra a tag
 # apontar pro codigo certo. Requer gh autenticado com acesso ao repo.
@@ -24,10 +26,10 @@ Write-Host '  -> Gerando o pacote leve (update)' -ForegroundColor Cyan
 $light = Join-Path $Src "dist\farol-v$version.zip"
 if (-not (Test-Path $light)) { throw "pacote leve nao gerado: $light" }
 
-Write-Host '  -> Gerando o pacote offline Windows (primeira instalacao)' -ForegroundColor Cyan
-& (Join-Path $PSScriptRoot 'make-offline.ps1') | Out-Null
-$offline = Join-Path $Src "dist\Farol-Offline-Windows-v$version.zip"
-if (-not (Test-Path $offline)) { throw "pacote offline nao gerado: $offline" }
+Write-Host '  -> Gerando o instalador unico do Windows (primeira instalacao)' -ForegroundColor Cyan
+& (Join-Path $PSScriptRoot 'make-installer.ps1') | Out-Null
+$offline = Join-Path $Src "dist\Farol-Setup-v$version.exe"
+if (-not (Test-Path $offline)) { throw "instalador nao gerado: $offline" }
 
 # --- release ------------------------------------------------------------------
 # checa existencia sem deixar o stderr do gh virar erro terminante (ErrorAction=Stop)

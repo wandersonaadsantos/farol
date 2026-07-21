@@ -194,6 +194,9 @@ main { max-width: 980px; margin: 0 auto; padding: 20px 24px 60px; }
 .mypr-block, .mypr-tips { margin-top: 8px; font-size: 13px; }
 .mypr-block > b, .mypr-tips > b { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
 .mypr-block .dec-reasons li::marker, .mypr-tips .dec-reasons li::marker { color: transparent; }
+.pr-branches { font-size: 11.5px; margin: 3px 0 1px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pr-branches code { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; color: var(--muted); font-size: 11px; }
+.pr-branches .arrow { color: var(--accent); font-weight: 700; }
 .mypr-fixrow { margin-top: 12px; }
 .relnote { padding: 10px 0; border-bottom: 1px solid var(--border); }
 .relnote:last-child { border-bottom: 0; }
