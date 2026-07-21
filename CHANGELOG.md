@@ -8,6 +8,17 @@ Convenção: cada versão tem uma linha de resumo, os grupos **Novidades**,
 **Melhorias** e **Correções** (só os que existirem) e, quando muda algo de
 instalação, um bloco **Instalar / Atualizar**.
 
+## v1.17.0
+
+Configurar quem revisa ficou visual: escolha as pessoas e times de uma lista, por projeto.
+
+### Novidades
+- **Seletor de reviewers por projeto.** Em Sistema, cada repo tem seus reviewers escolhidos de uma lista dos membros e times da organização (chips), sem digitar handle na mão (nada de typo). Os times aparecem pelo nome.
+- **Botão "Reviewers" sem config leva pra tela de configuração.** Se o repo ainda não tem reviewers definidos, clicar no botão abre a configuração já com o projeto pronto pra você escolher, em vez de mostrar um erro.
+
+### Correções
+- Release notes deixam de sair com acentos e emojis quebrados (o publish-release passou a ler o CHANGELOG como UTF-8).
+
 ## v1.16.0
 
 Instalar ficou um clique: um único `.exe` que instala e abre. E cada PR seu passou a mostrar de onde pra onde ele vai.
