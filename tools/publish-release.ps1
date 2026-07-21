@@ -31,6 +31,30 @@ Write-Host '  -> Gerando o instalador unico do Windows (primeira instalacao)' -F
 $offline = Join-Path $Src "dist\Farol-Setup-v$version.exe"
 if (-not (Test-Path $offline)) { throw "instalador nao gerado: $offline" }
 
+# --- notas: extrai a secao desta versao do CHANGELOG.md -----------------------
+$changelog = Join-Path $Src 'CHANGELOG.md'
+$notesFile = Join-Path $Src "dist\release-notes-v$version.md"
+$body = $null
+if (Test-Path $changelog) {
+  $lines = Get-Content $changelog
+  $start = -1
+  for ($i = 0; $i -lt $lines.Count; $i++) {
+    if ($lines[$i] -match "^##\s+v$([regex]::Escape($version))\b") { $start = $i + 1; break }
+  }
+  if ($start -ge 0) {
+    $end = $lines.Count
+    for ($j = $start; $j -lt $lines.Count; $j++) {
+      if ($lines[$j] -match '^##\s') { $end = $j; break }
+    }
+    $body = ($lines[$start..($end - 1)] -join "`n").Trim()
+  }
+}
+if (-not $body) {
+  Write-Host "  !  CHANGELOG.md sem secao v$version; usando nota generica" -ForegroundColor Yellow
+  $body = "Farol v$version. Veja o CHANGELOG.md do repositorio."
+}
+[IO.File]::WriteAllText($notesFile, $body, (New-Object Text.UTF8Encoding($false)))
+
 # --- release ------------------------------------------------------------------
 # checa existencia sem deixar o stderr do gh virar erro terminante (ErrorAction=Stop)
 $ErrorActionPreference = 'Continue'
@@ -38,11 +62,12 @@ $ErrorActionPreference = 'Continue'
 $exists = ($LASTEXITCODE -eq 0)
 $ErrorActionPreference = 'Stop'
 if ($exists) {
-  Write-Host "  -> Release $tag ja existe; subindo/atualizando os anexos" -ForegroundColor Cyan
+  Write-Host "  -> Release $tag ja existe; atualizando notas e anexos" -ForegroundColor Cyan
+  & gh release edit $tag --repo $repo --title $tag --notes-file $notesFile
   & gh release upload $tag $light $offline --repo $repo --clobber
 } else {
   Write-Host "  -> Criando a release $tag" -ForegroundColor Cyan
-  & gh release create $tag $light $offline --repo $repo --title $tag --generate-notes
+  & gh release create $tag $light $offline --repo $repo --title $tag --notes-file $notesFile
 }
 if ($LASTEXITCODE -ne 0) { throw "gh release falhou (codigo $LASTEXITCODE)" }
 
