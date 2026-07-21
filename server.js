@@ -91,8 +91,34 @@ const DEFAULTS = {
   port: 47170,
   // repos onde o botao Merge (Meus PRs) fica desativado, respeitando regras de
   // review do time (ex.: nunca self-merge no biud-frontend). Editavel em Sistema.
-  mergeBlockedRepos: ['biudtech/biud-frontend']
+  mergeBlockedRepos: ['biudtech/biud-frontend'],
+  // reviewers padrao por projeto: { "owner/repo": ["login", "org/time", ...] }.
+  // O botao "Setar reviewers" (Meus PRs) atribui voce e pede review dessa lista
+  // num clique. Editavel em Sistema. Aceita pessoas e times (org/time-slug).
+  projectReviewers: {}
 };
+
+// Parseia a config de reviewers por projeto. Aceita ja um objeto (map) ou o
+// texto do textarea de Sistema, uma linha por repo: "owner/repo: login1, org/time".
+function parseProjectReviewers(val) {
+  if (val && typeof val === 'object' && !Array.isArray(val)) {
+    const out = {};
+    for (const k of Object.keys(val)) {
+      const list = Array.isArray(val[k]) ? val[k] : String(val[k]).split(/[,;]+/);
+      const people = list.map(s => String(s).trim()).filter(Boolean);
+      if (people.length) out[k.trim()] = people;
+    }
+    return out;
+  }
+  const map = {};
+  for (const line of String(val || '').split(/\r?\n/)) {
+    const m = line.match(/^\s*([^\s:]+\/[^\s:]+)\s*:\s*(.+)$/);
+    if (!m) continue;
+    const people = m[2].split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+    if (people.length) map[m[1].trim()] = people;
+  }
+  return map;
+}
 
 // --- Utilitarios ------------------------------------------------------------
 function ensureDir(p) { fs.mkdirSync(p, { recursive: true }); }
@@ -159,6 +185,7 @@ class Engine extends EventEmitter {
     this.myPRs = [];                 // PRs abertos de autoria minha (fonte da autoanalise)
     this.selfAnalyses = readJson(SELF_FILE, {}); // key do PR -> resultado da autoanalise
     this.mergeStates = {};            // key do PR -> mergeabilidade real (só p/ aprovaveis)
+    this.prBranches = {};             // key do PR -> { head, base } (cache, branch nao muda)
     this.activeReviews = new Map();  // id -> { keys, label, mode, startedAt }
     this.sessionSeq = 0;
     this.headlessQueue = [];
@@ -471,6 +498,8 @@ class Engine extends EventEmitter {
           this.launchReview(retry.map(p => p.url), 'auto');
         }
       }
+      // branch origem->destino de cada PR meu (o card mostra de/para)
+      try { await this.enrichMyPRBranches(); } catch (e) { this.log('WARN', `enrichMyPRBranches: ${e.message}`); }
       // mergeabilidade real dos PRs aprovaveis (gate honesto do botao Merge)
       try { await this.refreshMergeStates(); } catch (e) { this.log('WARN', `refreshMergeStates: ${e.message}`); }
       // atualizacao (releases do GitHub pras copias distribuidas) a cada ciclo
@@ -976,6 +1005,53 @@ class Engine extends EventEmitter {
     }
   }
 
+  // --- setar reviewers de um PR meu num clique (Meus PRs) --------------------
+  // Atribui o autor (voce) e pede review da lista configurada pro repo em
+  // config.projectReviewers, sem confirmacao. Aceita pessoas e times (org/time).
+  async setReviewers(url) {
+    if (!url) return { ok: false, error: 'sem PR' };
+    if (!this.token) await this.refreshToken();
+    if (!this.tokenOk) {
+      this.emit('toast', { kind: 'error', text: `Conta ${this.config.ghUser || '(nenhuma)'} não autenticada no gh. Rode: gh auth login` });
+      return { ok: false, error: 'gh sem token' };
+    }
+    const me = (this.config.ghUser || '').toLowerCase();
+    const m = String(url).match(/github\.com\/([^\/]+\/[^\/]+)\/pull\/(\d+)/i);
+    if (!m) return { ok: false, error: 'não reconheci a URL do PR' };
+    const repo = m[1];
+    const key = `${repo}#${m[2]}`;
+    const cfg = this.config.projectReviewers || {};
+    const raw = cfg[repo] || cfg[repo.toLowerCase()] || [];
+    // nao da pra pedir review de si mesmo; o autor entra como assignee, nao reviewer
+    const reviewers = raw.map(String).map(s => s.trim()).filter(r => r && r.toLowerCase() !== me);
+    if (!reviewers.length) {
+      this.emit('toast', { kind: 'error', text: `Nenhum reviewer configurado pra ${repo} (aba Sistema > Reviewers por projeto).` });
+      return { ok: false, error: 'sem reviewers configurados' };
+    }
+    // 1) me atribui
+    const asg = await run('gh', ['pr', 'edit', url, '--add-assignee', this.config.ghUser], { env: this.ghEnv() });
+    if (!asg.ok) this.log('WARN', `não consegui me atribuir em ${key}: ${asg.stderr.trim().slice(0, 200)}`);
+    // 2) peço review de CADA UM individualmente. O --add-reviewer (e a API de
+    //    requested_reviewers atras) e all-or-nothing: um handle invalido (typo,
+    //    nao-colaborador, time sem acesso) devolve 422 e zera o pedido inteiro.
+    //    Como a lista e texto livre e o botao aplica num clique, pedir um a um
+    //    garante que os validos entram mesmo com um invalido no meio.
+    const okd = [], failed = [];
+    for (const person of reviewers) {
+      const rv = await run('gh', ['pr', 'edit', url, '--add-reviewer', person], { env: this.ghEnv() });
+      if (rv.ok) okd.push(person);
+      else { failed.push(person); this.log('WARN', `reviewer ${person} em ${key}: ${(rv.stderr || rv.stdout || '').trim().slice(0, 150)}`); }
+    }
+    if (!okd.length) {
+      this.emit('toast', { kind: 'error', text: `Não consegui setar nenhum reviewer de ${key}. Confira os handles em Sistema (falharam: ${failed.join(', ')}).` });
+      return { ok: false, error: 'nenhum reviewer válido', failed };
+    }
+    const asgNote = asg.ok ? '' : ' (não consegui te atribuir, confira no GitHub)';
+    const failNote = failed.length ? ` Não entraram (confira em Sistema): ${failed.join(', ')}.` : '';
+    this.emit('toast', { kind: failed.length ? 'info' : 'ok', text: `👥 ${key}: review pedido de ${okd.join(', ')} e você atribuído${asgNote}.${failNote}` });
+    return { ok: true, reviewers: okd, failed };
+  }
+
   // --- autoanalise: revisa um PR MEU so pra mim, nunca posta nada -------------
   saveSelfAnalyses() {
     try { fs.writeFileSync(SELF_FILE, JSON.stringify(this.selfAnalyses, null, 2)); }
@@ -998,6 +1074,29 @@ class Engine extends EventEmitter {
       const j = JSON.parse(r.stdout || '{}');
       return { mergeable: j.mergeable || 'UNKNOWN', status: j.mergeStateStatus || 'UNKNOWN', isDraft: !!j.isDraft, state: j.state || '', at: Date.now() };
     } catch { return null; }
+  }
+
+  // Anexa a branch de origem/destino em cada "Meu PR" (o gh search prs nao traz
+  // branch; so gh pr view). Cacheia por PR pra nao chamar gh toda hora, mas com
+  // TTL: a head e imutavel, porem a BASE pode ser retargetada pela UI/API do
+  // GitHub num PR aberto, entao o cache expira e rebusca (retarget aparece em ate
+  // ~30min). Chave que fechou sai do cache.
+  async enrichMyPRBranches() {
+    const TTL = 30 * 60 * 1000;
+    const now = Date.now();
+    const openKeys = new Set((this.myPRs || []).map(p => p.key));
+    for (const k of Object.keys(this.prBranches)) if (!openKeys.has(k)) delete this.prBranches[k];
+    for (const pr of (this.myPRs || [])) {
+      const c = this.prBranches[pr.key];
+      if (!c || (now - (c.at || 0)) > TTL) {
+        const r = await run('gh', ['pr', 'view', pr.url, '--json', 'headRefName,baseRefName'], { env: this.ghEnv() });
+        if (r.ok) {
+          try { const j = JSON.parse(r.stdout || '{}'); this.prBranches[pr.key] = { head: j.headRefName || '', base: j.baseRefName || '', at: now }; } catch { }
+        }
+      }
+      const b = this.prBranches[pr.key];
+      if (b) { pr.head = b.head; pr.base = b.base; }
+    }
   }
 
   // O repo tem "Allow auto-merge" ligado? Sem isso, o botao Auto-merge nao adianta
@@ -1790,7 +1889,8 @@ class Engine extends EventEmitter {
 
   updateSettings(patch) {
     const allowed = ['ghUser', 'owners', 'intervalSeconds', 'autoReview', 'skipPermissions',
-      'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos'];
+      'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos',
+      'projectReviewers'];
     let intervalChanged = false, userChanged = false;
     for (const k of allowed) {
       if (!(k in patch)) continue;
@@ -1798,6 +1898,7 @@ class Engine extends EventEmitter {
       if (k === 'intervalSeconds') { v = Math.min(3600, Math.max(60, parseInt(v, 10) || DEFAULTS.intervalSeconds)); intervalChanged = true; }
       if (k === 'owners') v = Array.isArray(v) ? v.map(s => String(s).trim()).filter(Boolean) : String(v).split(/[,;\s]+/).filter(Boolean);
       if (k === 'mergeBlockedRepos') v = Array.isArray(v) ? v.map(s => String(s).trim()).filter(Boolean) : String(v).split(/[,;\s]+/).filter(Boolean);
+      if (k === 'projectReviewers') v = parseProjectReviewers(v);
       if (k === 'ghUser') { v = String(v).trim(); userChanged = v !== this.config.ghUser; }
       this.config[k] = v;
     }
@@ -1981,6 +2082,7 @@ function startServer(engine, onReady) {
         if (p === '/api/self-review') return send(200, await engine.launchSelfAnalysis(String(body.url || '')));
         if (p === '/api/self-review/clear') return send(200, engine.clearSelfAnalysis(String(body.key || '')));
         if (p === '/api/self-review/merge') return send(200, await engine.mergeSelfPR(String(body.url || ''), { mode: body.mode }));
+        if (p === '/api/self-review/reviewers') return send(200, await engine.setReviewers(String(body.url || '')));
         if (p === '/api/decide') return send(200, await engine.decide(String(body.id || ''), String(body.action || '')));
         if (p === '/api/ignore') { engine.ignore(String(body.key || '')); return send(200, { ok: true }); }
         if (p === '/api/restore') { engine.restore(String(body.key || '')); return send(200, { ok: true }); }
@@ -2029,7 +2131,7 @@ function start(onReady) {
   return { engine, server, port: engine.config.port };
 }
 
-module.exports = { start, HOME, WORKSPACE, Engine, modelLabel, isPermanentBranch };
+module.exports = { start, HOME, WORKSPACE, Engine, modelLabel, isPermanentBranch, parseProjectReviewers };
 
 // execucao direta: modo servidor (fallback sem Electron, ou desenvolvimento)
 if (require.main === module) {

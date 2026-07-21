@@ -172,6 +172,11 @@
         <small>Nesses repos o botão Merge (em Meus PRs) fica desativado, respeitando as regras de review do time. Separe por vírgula.</small>
       </div>
       <div class="field">
+        <label for="setReviewers">Reviewers por projeto</label>
+        <textarea id="setReviewers" rows="3" spellcheck="false" placeholder="biudtech/biud-frontend: gabrielk5, thiagocarvalho-dev, biudtech/desenvolvimento"></textarea>
+        <small>Uma linha por repo: <code>owner/repo: login1, login2, org/time</code>. É a lista que o botão "👥 Reviewers" (em Meus PRs) aplica num clique. Aceita pessoas e times.</small>
+      </div>
+      <div class="field">
         <label for="setInterval">Intervalo de checagem</label>
         <select id="setInterval">
           <option value="60">1 minuto</option>

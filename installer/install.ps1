@@ -26,8 +26,10 @@ Write-Host '  Farol · instalador' -ForegroundColor Yellow
 Write-Host '  ==================' -ForegroundColor DarkGray
 
 # --- pre-requisitos ---------------------------------------------------------
-if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Die 'Node.js nao encontrado no PATH. Instale em https://nodejs.org' }
-if (-not (Get-Command npm  -ErrorAction SilentlyContinue)) { Die 'npm nao encontrado no PATH.' }
+# Node/npm NAO sao exigidos no modo offline (o Electron ja viaja embutido no
+# pacote e so e copiado). So o caminho de fallback (baixar o Electron) precisa
+# de npm, e a checagem vive la embaixo. gh e claude sao avisos (o app precisa
+# deles pra funcionar, mas instala sem).
 foreach ($opt in @(@('gh', 'GitHub CLI (https://cli.github.com)'), @('claude', 'Claude Code CLI'))) {
   if (-not (Get-Command $opt[0] -ErrorAction SilentlyContinue)) {
     Write-Host ("  !  '{0}' nao encontrado no PATH: o Farol instala, mas precisa dele pra funcionar ({1})." -f $opt[0], $opt[1]) -ForegroundColor Yellow
@@ -59,6 +61,9 @@ if (Test-Path (Join-Path $Src 'node_modules\electron\dist\electron.exe')) {
   robocopy (Join-Path $Src 'node_modules') (Join-Path $App 'node_modules') /E /NFL /NDL /NJH /NJS /NP | Out-Null
   if ($LASTEXITCODE -ge 8) { Die 'Falha ao copiar node_modules.' }
 } elseif (-not (Test-Path $electronExe)) {
+  if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+    Die 'Electron nao veio embutido e npm nao esta no PATH pra baixa-lo. Use o instalador offline (Farol-Setup.exe), que ja traz o Electron.'
+  }
   Step 'Baixando o Electron (npm install, pode levar alguns minutos)'
   Push-Location $App
   npm install --omit=dev --no-audit --no-fund 2>&1 | Out-Null

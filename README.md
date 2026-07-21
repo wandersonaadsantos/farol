@@ -8,12 +8,12 @@ Radar de Pull Requests para Windows e macOS. O Farol monitora o GitHub em segund
 
 ### Jeito mais fácil (offline, sem pré-requisitos)
 
-Um pacote com o Electron já embutido: não precisa de Node, npm nem download.
+Um arquivo único com o Electron já embutido: não precisa de Node, npm nem download.
 
-- **Windows**: extraia o `Farol-Offline-Windows-vX.Y.Z.zip` e dê dois cliques em `Instalar.cmd`.
+- **Windows**: dê dois cliques em `Farol-Setup-vX.Y.Z.exe`. Instala e abre sozinho, sem extrair zip nem escolher arquivo.
 - **macOS**: dê dois cliques em `Farol-Instalar-mac.command` (na 1ª vez, botão direito > Abrir, por causa da quarentena de arquivos baixados).
 
-Ainda são necessários o **GitHub CLI** (`gh auth login`) e o **Claude Code** (`claude`) no PATH pra o Farol funcionar (é o que ele orquestra), mas não pra instalar. Os pacotes offline são gerados por `tools/make-offline.ps1` (Windows) e `tools/make-offline-mac.sh` (rodar num Mac). Sem assinatura de código, o SmartScreen/Gatekeeper avisa uma vez.
+Ainda são necessários o **GitHub CLI** (`gh auth login`) e o **Claude Code** (`claude`) no PATH pra o Farol funcionar (é o que ele orquestra), mas não pra instalar. O instalador do Windows é gerado por `tools/make-installer.ps1` e o do macOS por `tools/make-offline-mac.sh` (rodar num Mac). Sem assinatura de código, o SmartScreen/Gatekeeper avisa uma vez.
 
 ### Jeito leve (precisa de Node)
 
