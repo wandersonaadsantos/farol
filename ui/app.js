@@ -760,7 +760,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
-  ['1.17.0', ['Reviewers por projeto agora é um seletor de pessoas e times da organização (chips), sem digitar handle na mão', 'Clicar em "Reviewers" num repo sem config leva pra tela de configuração, em vez de dar erro']],
+  ['1.17.0', ['Reviewers por projeto agora é um seletor de pessoas e times da organização (chips), sem digitar handle na mão', 'Copiar o grupo de reviewers pra outros repos de uma vez ("copiar pra…")', 'Clicar em "Reviewers" num repo sem config leva pra tela de configuração, em vez de dar erro']],
   ['1.16.0', ['Instalador de arquivo único no Windows: um .exe, duplo clique instala e abre (sem extrair zip nem escolher arquivo)', 'Cada PR em "Meus PRs" mostra de qual branch pra qual branch vai (origem → destino)', 'Botão "Reviewers": configure os reviewers por projeto (Sistema) e, num clique, o Farol te atribui e pede review dessa lista']],
   ['1.15.0', ['Atualização automática: as cópias instaladas checam as releases do GitHub e se atualizam sozinhas (o update é leve, só troca os arquivos do app)']],
   ['1.14.0', ['Instalador offline: Windows (zip com Electron embutido, extrai e dá duplo clique) e macOS (arquivo único autoextraível). Sem Node, sem npm, sem download']],
@@ -785,6 +785,7 @@ function renderReleaseNotes() {
 let reviewerCands = { members: [], teams: [] };
 let reviewerCandsLoaded = false;
 const pendingRepoRows = new Set(); // repos com row aberto mas ainda sem reviewer
+const copyOpenRepos = new Set();   // repos com o form "copiar pra..." aberto
 
 async function loadReviewerCands(force) {
   if (reviewerCandsLoaded && !force) return;
@@ -828,11 +829,18 @@ function renderReviewersEditor() {
       ...reviewerCands.members.filter(x => x.toLowerCase() !== me && !has(x)).map(x => `<option value="${esc(x)}">${esc(x)}</option>`),
       ...reviewerCands.teams.filter(t => !has(t.id)).map(t => `<option value="${esc(t.id)}">${esc(t.name)} (time)</option>`)
     ].join('');
+    const copyForm = copyOpenRepos.has(repo) ? `<div class="rev-copyform">
+        <input class="rev-copytargets" data-repo="${esc(repo)}" list="revRepoList" placeholder="owner/repo, outro/repo" spellcheck="false">
+        <button class="btn sm ok rev-copygo" data-repo="${esc(repo)}">Copiar grupo</button>
+      </div>` : '';
     return `<div class="rev-row" data-repo="${esc(repo)}">
-      <div class="rev-repohead"><code>${esc(repo)}</code><button class="rev-delrepo" data-repo="${esc(repo)}" title="remover este projeto">remover</button></div>
+      <div class="rev-repohead"><code>${esc(repo)}</code>
+        ${list.length ? `<button class="rev-copy" data-repo="${esc(repo)}" title="replicar estes reviewers em outros repos">copiar pra…</button>` : ''}
+        <button class="rev-delrepo" data-repo="${esc(repo)}" title="remover este projeto">remover</button></div>
       <div class="rev-chips">${chips || '<span class="rev-empty">sem reviewers ainda</span>'}
         <select class="rev-add" data-repo="${esc(repo)}"><option value="">${reviewerCandsLoaded ? '+ adicionar…' : 'carregando…'}</option>${opts}</select>
       </div>
+      ${copyForm}
     </div>`;
   }).join('');
   const dl = knownRepos().map(r => `<option value="${esc(r)}"></option>`).join('');
@@ -863,8 +871,34 @@ $('#reviewersEditor').addEventListener('click', (e) => {
   const del = e.target.closest('.rev-delrepo');
   if (del) {
     const repo = del.dataset.repo, map = reviewerMap();
-    delete map[repo]; pendingRepoRows.delete(repo);
+    delete map[repo]; pendingRepoRows.delete(repo); copyOpenRepos.delete(repo);
     applyReviewers(map);
+    return;
+  }
+  const copy = e.target.closest('.rev-copy');
+  if (copy) {
+    const repo = copy.dataset.repo;
+    if (copyOpenRepos.has(repo)) copyOpenRepos.delete(repo); else copyOpenRepos.add(repo);
+    renderReviewersEditor();
+    return;
+  }
+  const copyGo = e.target.closest('.rev-copygo');
+  if (copyGo) {
+    const repo = copyGo.dataset.repo, map = reviewerMap();
+    const inp = document.querySelector(`.rev-copytargets[data-repo="${CSS.escape(repo)}"]`);
+    const targets = String(inp && inp.value || '').split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+    const bad = targets.filter(t => !/^[^\s/]+\/[^\s/]+$/.test(t));
+    if (!targets.length || bad.length) { toast('error', 'Informe os repos de destino no formato owner/repo, separados por vírgula.'); return; }
+    const src = map[repo] || [];
+    for (const t of targets) {
+      if (t === repo) continue;
+      const cur = map[t] || [];
+      for (const rv of src) if (!cur.some(x => x.toLowerCase() === rv.toLowerCase())) cur.push(rv);
+      map[t] = cur;
+    }
+    copyOpenRepos.delete(repo);
+    applyReviewers(map);
+    toast('ok', `Grupo de ${repo} copiado pra: ${targets.filter(t => t !== repo).join(', ')}.`, 4000);
     return;
   }
   const addRepo = e.target.closest('#revAddRepo');
