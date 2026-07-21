@@ -4,9 +4,22 @@ Notas de versão do Farol (radar de Pull Requests). O `tools/publish-release.ps1
 publica a seção da versão atual como corpo da release no GitHub, então escreva
 aqui pensando em quem instala e usa, não no código.
 
-Convenção: cada versão tem uma linha de resumo, os grupos **Novidades**,
-**Melhorias** e **Correções** (só os que existirem) e, quando muda algo de
-instalação, um bloco **Instalar / Atualizar**.
+Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
+**Melhorias** e **Correções** (só os que existirem). Descreva só o que mudou:
+o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
+e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
+
+## v1.18.0
+
+Autoanálise que virou passado não engana mais: commit novo zera o veredito.
+
+### Melhorias
+- **A autoanálise de um PR é descartada quando entra commit novo.** Se você analisa, vê o veredito, e depois empurra um commit que muda o cenário, o card volta pra "não analisado" (em vez de mostrar o resultado velho, que já não vale). É só reanalisar quando quiser.
+- **"Merge (admin)" não aparece quando não resolve.** Se o repo usa ruleset que o `--admin` não fura, o card mostra "Precisa de aprovação" em vez do botão que ia falhar.
+
+### Correções
+- Times enterprise (que o GitHub não aceita como reviewer de PR) saíram do seletor de reviewers e não são mais tentados, então o log parou de encher de aviso. Merge admin barrado por ruleset virou aviso, não erro, no log.
+- **Fonte de update = release do GitHub (git), uma só.** O app instalado passa a atualizar só a partir das releases publicadas, nunca de código local ainda não mergeado. A pasta-fonte local vira opt-in (só se `updateSource` apontar um caminho no config).
 
 ## v1.17.0
 
@@ -31,12 +44,6 @@ Instalar ficou um clique: um único `.exe` que instala e abre. E cada PR seu pas
 
 ### Correções
 - O instalador não exige mais `node`/`npm` no modo offline (o Electron já viaja embutido e só é copiado), coerente com o "sem pré-requisitos".
-
-### Instalar / Atualizar
-- **Primeira instalação (Windows):** baixe o `Farol-Setup-v1.16.0.exe` abaixo e dê um duplo clique.
-- **Quem já tem o Farol 1.15.0+:** não precisa fazer nada, a atualização chega sozinha (o app checa as releases e se atualiza).
-- **Pré-requisitos** (uma vez, o time já costuma ter): `gh` autenticado (`gh auth login`) e `claude` no PATH. O Farol usa os dois; o instalador não os traz.
-- Na 1ª execução o SmartScreen pode avisar (app sem assinatura paga): **Mais informações → Executar assim mesmo**.
 
 ## v1.15.0
 

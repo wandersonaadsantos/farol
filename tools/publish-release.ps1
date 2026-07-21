@@ -53,7 +53,30 @@ if (Test-Path $changelog) {
 }
 if (-not $body) {
   Write-Host "  !  CHANGELOG.md sem secao v$version; usando nota generica" -ForegroundColor Yellow
-  $body = "Farol v$version. Veja o CHANGELOG.md do repositorio."
+  $body = "Farol v$version."
+}
+# rodape padrao (Instalar/Atualizar + Anexos): por padrao SEMPRE presente, com a
+# versao preenchida. Lido como UTF-8 pra nao mojibakear. Assim o CHANGELOG so
+# descreve o que mudou e o padrao das notas fica garantido em toda release.
+$footerFile = Join-Path $Src 'tools\release-footer.md'
+if (-not (Test-Path $footerFile)) {
+  Write-Host "  !  tools\release-footer.md ausente; release sai SEM o rodape Instalar/Anexos" -ForegroundColor Yellow
+}
+else {
+  $footerRaw = ((Get-Content $footerFile -Encoding UTF8) -join "`n").Replace('{VERSION}', $version)
+  # separa Instalar/Atualizar de Anexos, pra o dedup atingir SO o bloco duplicado
+  # (se o CHANGELOG trouxe um Instalar manual, os Anexos ainda entram).
+  $idx = $footerRaw.IndexOf('## Anexos')
+  $install = if ($idx -ge 0) { $footerRaw.Substring(0, $idx).Trim() } else { $footerRaw.Trim() }
+  $anexos = if ($idx -ge 0) { $footerRaw.Substring($idx).Trim() } else { '' }
+  $add = @()
+  if ($body -match '(?m)^#{2,}\s+.*Instalar') {
+    Write-Host "  !  o CHANGELOG ja tem 'Instalar'; anexo so os Anexos (nao duplico o bloco Instalar)" -ForegroundColor Yellow
+  } else {
+    $add += $install
+  }
+  if ($anexos -and ($body -notmatch '(?m)^#{2,}\s+Anexos')) { $add += $anexos }
+  if ($add.Count) { $body = $body.TrimEnd() + "`n`n" + ($add -join "`n`n") }
 }
 [IO.File]::WriteAllText($notesFile, $body, (New-Object Text.UTF8Encoding($false)))
 
@@ -65,12 +88,12 @@ $exists = ($LASTEXITCODE -eq 0)
 $ErrorActionPreference = 'Stop'
 if ($exists) {
   Write-Host "  -> Release $tag ja existe; atualizando notas e anexos" -ForegroundColor Cyan
-  & gh release edit $tag --repo $repo --title $tag --notes-file $notesFile
+  & gh release edit $tag --repo $repo --title "Farol $tag" --notes-file $notesFile
   if ($LASTEXITCODE -ne 0) { throw "gh release edit falhou (codigo $LASTEXITCODE)" }
   & gh release upload $tag $light $offline --repo $repo --clobber
 } else {
   Write-Host "  -> Criando a release $tag" -ForegroundColor Cyan
-  & gh release create $tag $light $offline --repo $repo --title $tag --notes-file $notesFile
+  & gh release create $tag $light $offline --repo $repo --title "Farol $tag" --notes-file $notesFile
 }
 if ($LASTEXITCODE -ne 0) { throw "gh release falhou (codigo $LASTEXITCODE)" }
 

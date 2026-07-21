@@ -83,7 +83,7 @@ const DEFAULTS = {
   soundEnabled: true,
   theme: 'dark',
   autostart: false,
-  updateSource: '',        // vazio = procurar a fonte em ~/Documents/farol
+  updateSource: '',        // vazio = fonte de verdade e a release do GitHub (git). So defina um caminho aqui pra testar build local (opt-in de dev)
   // canal de update remoto pras copias distribuidas: releases do GitHub, lidas
   // pelo gh que todo usuario ja tem. So vale quando NAO ha fonte local (a pasta
   // ~/Documents/farol tem precedencia, pro fluxo de dev do mantenedor).
@@ -185,7 +185,8 @@ class Engine extends EventEmitter {
     this.myPRs = [];                 // PRs abertos de autoria minha (fonte da autoanalise)
     this.selfAnalyses = readJson(SELF_FILE, {}); // key do PR -> resultado da autoanalise
     this.mergeStates = {};            // key do PR -> mergeabilidade real (só p/ aprovaveis)
-    this.prBranches = {};             // key do PR -> { head, base } (cache, branch nao muda)
+    this.adminBlockedRepos = {};      // repo -> true quando admin nao fura o ruleset (o UI esconde "Merge admin")
+    this.ruleBlockCache = {};         // "repo@base" -> { blocked, at } cache do ruleset bloqueante
     this.reviewerCands = null;        // { at, data:{members,teams} } candidatos p/ o seletor de reviewers
     this.activeReviews = new Map();  // id -> { keys, label, mode, startedAt }
     this.sessionSeq = 0;
@@ -1022,7 +1023,9 @@ class Engine extends EventEmitter {
       if (rt.ok) rt.stdout.split(/\r?\n/).filter(Boolean).forEach(line => {
         const i = line.indexOf('\t'); const slug = (i < 0 ? line : line.slice(0, i)).trim();
         const name = (i < 0 ? slug : line.slice(i + 1)).trim();
-        if (slug) teams.set(`${owner}/${slug}`, name || slug);
+        // times ENTERPRISE (slug com ':', ex.: 'ent:...') NAO podem ser reviewer
+        // de PR (o GitHub recusa com "not a collaborator"), entao nao entram no seletor.
+        if (slug && !slug.includes(':')) teams.set(`${owner}/${slug}`, name || slug);
       });
     }
     const data = {
@@ -1064,20 +1067,29 @@ class Engine extends EventEmitter {
     //    nao-colaborador, time sem acesso) devolve 422 e zera o pedido inteiro.
     //    Como a lista e texto livre e o botao aplica num clique, pedir um a um
     //    garante que os validos entram mesmo com um invalido no meio.
-    const okd = [], failed = [];
+    const okd = [], failed = [], skipped = [];
     for (const person of reviewers) {
+      // time ENTERPRISE (slug com ':'): o GitHub nao aceita como reviewer de PR.
+      // pular sem chamar gh (evita o WARN "Could not resolve team" a cada clique).
+      if (person.includes('/') && person.split('/').slice(1).join('/').includes(':')) {
+        skipped.push(person);
+        continue;
+      }
       const rv = await run('gh', ['pr', 'edit', url, '--add-reviewer', person], { env: this.ghEnv() });
       if (rv.ok) okd.push(person);
       else { failed.push(person); this.log('WARN', `reviewer ${person} em ${key}: ${(rv.stderr || rv.stdout || '').trim().slice(0, 150)}`); }
     }
+    if (skipped.length) this.log('WARN', `reviewers ignorados em ${key} (time enterprise, não pedível): ${skipped.join(', ')}`);
     if (!okd.length) {
-      this.emit('toast', { kind: 'error', text: `Não consegui setar nenhum reviewer de ${key}. Confira os handles em Sistema (falharam: ${failed.join(', ')}).` });
-      return { ok: false, error: 'nenhum reviewer válido', failed };
+      const why = skipped.length ? ` (times enterprise não podem ser reviewer: ${skipped.join(', ')})` : ` Confira os handles em Sistema (falharam: ${failed.join(', ')}).`;
+      this.emit('toast', { kind: 'error', text: `Não consegui setar reviewer em ${key}.${why}` });
+      return { ok: false, error: 'nenhum reviewer válido', failed, skipped };
     }
     const asgNote = asg.ok ? '' : ' (não consegui te atribuir, confira no GitHub)';
-    const failNote = failed.length ? ` Não entraram (confira em Sistema): ${failed.join(', ')}.` : '';
-    this.emit('toast', { kind: failed.length ? 'info' : 'ok', text: `👥 ${key}: review pedido de ${okd.join(', ')} e você atribuído${asgNote}.${failNote}` });
-    return { ok: true, reviewers: okd, failed };
+    const notEntered = [...failed, ...skipped];
+    const failNote = notEntered.length ? ` Não entraram: ${notEntered.join(', ')}${skipped.length ? ' (time enterprise não pode ser reviewer)' : ''}.` : '';
+    this.emit('toast', { kind: notEntered.length ? 'info' : 'ok', text: `👥 ${key}: review pedido de ${okd.join(', ')} e você atribuído${asgNote}.${failNote}` });
+    return { ok: true, reviewers: okd, failed, skipped };
   }
 
   // --- autoanalise: revisa um PR MEU so pra mim, nunca posta nada -------------
@@ -1110,21 +1122,27 @@ class Engine extends EventEmitter {
   // GitHub num PR aberto, entao o cache expira e rebusca (retarget aparece em ate
   // ~30min). Chave que fechou sai do cache.
   async enrichMyPRBranches() {
-    const TTL = 30 * 60 * 1000;
-    const now = Date.now();
-    const openKeys = new Set((this.myPRs || []).map(p => p.key));
-    for (const k of Object.keys(this.prBranches)) if (!openKeys.has(k)) delete this.prBranches[k];
+    // uma chamada gh por PR meu: branch de origem/destino (o card mostra o de/para)
+    // + o SHA do head. O SHA e buscado FRESCO a cada ciclo (muda a cada push, sem
+    // cache) e serve pra invalidar a autoanalise quando entra commit novo: se o
+    // head mudou desde a analise, a analise vira desatualizada e e descartada, o
+    // card volta a "nao analisado" (mostrar veredito velho iludiria). Buscar
+    // fresco tambem cobre retarget da base sem depender de TTL.
+    let pruned = false;
     for (const pr of (this.myPRs || [])) {
-      const c = this.prBranches[pr.key];
-      if (!c || (now - (c.at || 0)) > TTL) {
-        const r = await run('gh', ['pr', 'view', pr.url, '--json', 'headRefName,baseRefName'], { env: this.ghEnv() });
-        if (r.ok) {
-          try { const j = JSON.parse(r.stdout || '{}'); this.prBranches[pr.key] = { head: j.headRefName || '', base: j.baseRefName || '', at: now }; } catch { }
-        }
+      const r = await run('gh', ['pr', 'view', pr.url, '--json', 'headRefName,baseRefName,headRefOid'], { env: this.ghEnv() });
+      if (!r.ok) continue;
+      let j; try { j = JSON.parse(r.stdout || '{}'); } catch { continue; }
+      pr.head = j.headRefName || ''; pr.base = j.baseRefName || ''; pr.headSha = j.headRefOid || '';
+      const a = this.selfAnalyses[pr.key];
+      if (a && a.headSha && pr.headSha && a.headSha !== pr.headSha) {
+        delete this.selfAnalyses[pr.key];
+        delete this.mergeStates[pr.key];
+        this.log('WARN', `autoanálise de ${pr.key} descartada: PR mudou (commit novo)`);
+        pruned = true;
       }
-      const b = this.prBranches[pr.key];
-      if (b) { pr.head = b.head; pr.base = b.base; }
     }
+    if (pruned) this.saveSelfAnalyses();
   }
 
   // O repo tem "Allow auto-merge" ligado? Sem isso, o botao Auto-merge nao adianta
@@ -1133,6 +1151,25 @@ class Engine extends EventEmitter {
     const r = await run('gh', ['api', `repos/${repo}`, '--jq', '.allow_auto_merge'], { env: this.ghEnv() });
     if (!r.ok) return null;
     return String(r.stdout).trim() === 'true';
+  }
+
+  // A branch de destino tem REPOSITORY RULESET exigindo revisao/checks? Se sim, o
+  // --admin NAO fura (diferente da protecao classica), entao o UI nao deve oferecer
+  // "Merge admin". Cache por repo@base (ruleset muda pouco). null = nao deu pra saber.
+  async fetchRuleBlocked(repo, base) {
+    if (!repo || !base) return null;
+    const cacheKey = `${repo}@${base}`;
+    const c = this.ruleBlockCache[cacheKey];
+    if (c && (Date.now() - c.at) < 30 * 60 * 1000) return c.blocked;
+    const r = await run('gh', ['api', `repos/${repo}/rules/branches/${base}`, '--jq', '[.[].type]'], { env: this.ghEnv() });
+    if (!r.ok) return null;
+    let blocked = null;
+    try {
+      const types = JSON.parse(r.stdout || '[]');
+      blocked = types.some(t => ['pull_request', 'required_status_checks', 'required_signatures', 'required_deployments'].includes(t));
+    } catch { blocked = null; }
+    if (blocked !== null) this.ruleBlockCache[cacheKey] = { blocked, at: Date.now() };
+    return blocked;
   }
 
   // Atualiza a mergeabilidade só dos PRs que interessam pro botao Merge: meus,
@@ -1153,6 +1190,12 @@ class Engine extends EventEmitter {
       const repo = pr.repo || (pr.key || '').split('#')[0];
       if (!autoByRepo.has(repo)) autoByRepo.set(repo, await this.fetchAutoMergeAllowed(repo));
       ms.autoAllowed = autoByRepo.get(repo);
+      // so quando esta BLOCKED (quando auto/admin apareceriam) vale checar o ruleset:
+      // se a base tem ruleset bloqueante, o --admin nao fura, entao esconde o admin.
+      if (ms.status === 'BLOCKED') {
+        const rb = await this.fetchRuleBlocked(repo, pr.base || ms.baseRefName);
+        ms.adminBlocked = rb === true || !!this.adminBlockedRepos[repo];
+      }
       next[pr.key] = ms;
     }
     this.mergeStates = next;
@@ -1237,11 +1280,23 @@ class Engine extends EventEmitter {
       //    re-tentar nao adianta, a saida e Merge (admin) ou ligar a opcao no repo.
       const policyBlock = mode === 'normal' && /base branch policy|not mergeable|protected|--auto|--admin/i.test(raw);
       const autoUnavailable = mode === 'auto' && /auto[ -]?merge is not allowed|enablePullRequestAutoMerge/i.test(raw);
-      this.log(policyBlock || autoUnavailable ? 'WARN' : 'ERROR', `merge de ${key} (${mode}) falhou: ${raw}`);
+      //  - ruleBlock: o repo usa REPOSITORY RULESET (nao protecao classica) exigindo
+      //    revisao/checks; o --admin NAO fura ruleset sem bypass. Retentar nao adianta,
+      //    a saida e uma aprovacao (ou bypass no ruleset). Condicao conhecida = WARN.
+      const ruleBlock = /repository rule violations|approving review is required|required status check|changes must be made through a pull request/i.test(raw);
+      this.log(policyBlock || autoUnavailable || ruleBlock ? 'WARN' : 'ERROR', `merge de ${key} (${mode}) falhou: ${raw}`);
       if (autoUnavailable) {
         const nice = `Auto-merge não está habilitado em ${repo}. Ligue "Allow auto-merge" nas settings do repo, ou use "Merge (admin)" se você for admin.`;
         this.emit('toast', { kind: 'error', text: `${key}: ${nice}` });
         return { ok: false, blocked: 'autoUnavailable', error: nice };
+      }
+      if (ruleBlock) {
+        // marca o repo: o UI para de oferecer o Merge (admin), que nao resolve aqui
+        this.adminBlockedRepos = this.adminBlockedRepos || {};
+        this.adminBlockedRepos[repo] = true;
+        const nice = `Merge admin não fura o ruleset de ${repo} sem bypass. Precisa de uma aprovação (ou um bypass no ruleset).`;
+        this.emit('toast', { kind: 'error', text: `${key}: ${nice}` });
+        return { ok: false, blocked: 'rule', error: nice };
       }
       if (!policyBlock) this.emit('toast', { kind: 'error', text: `Merge de ${key} falhou: ${raw}` });
       return { ok: false, blocked: policyBlock ? 'policy' : undefined, error: raw };
@@ -1329,10 +1384,15 @@ class Engine extends EventEmitter {
         onEvent: (e) => this.pushActivity(id, e.kind, e.text)
       });
       const result = this.parseSelfResult(res.text);
+      // SHA do commit analisado: se o head mudar depois, a analise vira stale e
+      // e descartada no proximo ciclo (enrichMyPRBranches), voltando pra "nao analisado".
+      const shaR = await run('gh', ['pr', 'view', pr.url, '--json', 'headRefOid', '--jq', '.headRefOid'], { env: this.ghEnv() });
+      const headSha = shaR.ok ? shaR.stdout.trim() : (pr.headSha || null);
       this.selfAnalyses[pr.key] = {
         key: pr.key,
         pr: { repo: pr.repo, number: pr.number, url: pr.url, title: pr.title },
         at: Date.now(),
+        headSha,
         sessionId: res.sessionId || null,
         card: result.card || null,
         cardMet: result.cardMet ?? null,
@@ -1740,7 +1800,13 @@ class Engine extends EventEmitter {
   // Atualizar = rodar o installer da fonte, que ja mata as instancias, migra
   // estado e recria os atalhos (sem duplicar instalacao), e reabrir o app.
   resolveUpdateSource() {
-    const cand = this.config.updateSource || path.join(os.homedir(), 'Documents', 'farol');
+    // A pasta local so e fonte de update quando updateSource e definido EXPLICITAMENTE
+    // no config. Sem isso (padrao), a fonte de verdade e a RELEASE do GitHub (git):
+    // o app instalado nunca "atualiza" pra codigo que ainda nao foi mergeado/publicado,
+    // evitando duas fontes de verdade. O caminho local vira opt-in so pra testar build
+    // local durante o desenvolvimento.
+    const cand = (this.config.updateSource || '').trim();
+    if (!cand) return null;
     try {
       const pkg = JSON.parse(fs.readFileSync(path.join(cand, 'package.json'), 'utf8'));
       if (pkg.name !== 'farol' || !pkg.version) return null;

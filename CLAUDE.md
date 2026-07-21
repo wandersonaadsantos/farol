@@ -90,7 +90,7 @@ Quando validar (ou corrigir) qualquer item acima, **atualize esta seção**: ris
 
 **Publicar update pras cópias distribuídas (auto-update):**
 - `powershell -ExecutionPolicy Bypass -File tools\publish-release.ps1` builda o pacote leve + o instalador único Windows (`Farol-Setup-vX.Y.Z.exe`) e cria/atualiza a release `vX.Y.Z` em `biudtech/farol`. As cópias instaladas (>= 1.15.0) leem a última release via `gh` (`updateRepo` no config, default `biudtech/farol`) e se atualizam sozinhas no próximo ciclo, baixando só o pacote leve (o Electron já está instalado).
-- Precedência: se existe pasta-fonte local (`~/Documents/farol`), o update é local (fluxo do mantenedor); sem ela, é remoto (releases).
+- Fonte de verdade: a RELEASE do GitHub (git). Por padrão o app instalado atualiza só a partir das releases, nunca de código local não-mergeado (uma fonte só). A pasta-fonte local é opt-in: só vale se `config.updateSource` apontar um caminho explícito (teste de build local de dev).
 - macOS: gere o `.command` num Mac (`tools/make-offline-mac.sh`) e anexe com `gh release upload vX.Y.Z dist/Farol-Instalar-mac.command --repo biudtech/farol`.
 - Bootstrap: cópias antigas (< 1.15.0) não têm o auto-update; instale a 1.15.0 uma vez (offline). Daí pra frente, automático.
 

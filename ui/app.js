@@ -420,6 +420,9 @@ const mergeBlockedByPolicy = new Set();
 // PRs cujo auto-merge o repo recusou nesta sessão (repo sem "Allow auto-merge"):
 // desabilita o botão Auto-merge até o próximo refresh confirmar o estado do repo.
 const autoUnavailableKeys = new Set();
+// PRs cujo Merge (admin) foi recusado por ruleset nesta sessão: esconde o botão
+// admin até o próximo refresh confirmar (o --admin não fura ruleset).
+const adminUnavailableKeys = new Set();
 function renderMyPRs() {
   const list = STATE.myPRs || [];
   const analyses = STATE.selfAnalyses || {};
@@ -455,9 +458,16 @@ function renderMyPRs() {
     // auto-merge indisponível: repo sem "Allow auto-merge" (autoAllowed===false) ou
     // já recusou numa tentativa nesta sessão. Nesse caso só admin resolve.
     const autoOff = (ms && ms.autoAllowed === false) || autoUnavailableKeys.has(pr.key);
+    // admin indisponível: a base usa ruleset que o --admin não fura (ms.adminBlocked)
+    // ou já recusou por isso nesta sessão. Nesse caso o botão Merge (admin) some.
+    const adminOff = (ms && ms.adminBlocked === true) || adminUnavailableKeys.has(pr.key);
     const btnMerge = (dis, title) => `<button class="btn ok sm act-self-merge" ${dataAttrs} ${dis ? 'disabled' : ''} title="${esc(title)}">Merge</button>`;
-    const btnOptions = () => `<button class="btn ok sm act-merge-auto" ${dataAttrs} ${autoOff ? 'disabled' : ''} title="${esc(autoOff ? "Este repo não tem 'Allow auto-merge' ligado (Settings do repo). Use Merge (admin) ou ligue a opção lá." : 'Ativa o auto-merge: o GitHub mergeia sozinho quando aprovação e checks passarem (não burla a proteção)')}">⏳ Auto-merge</button>
-         <button class="btn sm act-merge-admin" ${dataAttrs} title="Bypassa a proteção da branch e mergeia agora, ignorando revisões e checks obrigatórios (só funciona se você for admin do repo)">Merge (admin)</button>`;
+    const btnOptions = () => {
+      if (autoOff && adminOff) return `<button class="btn sm act-self-merge" ${dataAttrs} disabled title="A proteção deste repo exige aprovação (ruleset), e nem auto-merge nem admin resolvem. Consiga uma aprovação.">Precisa de aprovação</button>`;
+      const auto = `<button class="btn ok sm act-merge-auto" ${dataAttrs} ${autoOff ? 'disabled' : ''} title="${esc(autoOff ? "Este repo não tem 'Allow auto-merge' ligado (Settings do repo)." : 'Ativa o auto-merge: o GitHub mergeia sozinho quando aprovação e checks passarem (não burla a proteção)')}">⏳ Auto-merge</button>`;
+      const admin = adminOff ? '' : `<button class="btn sm act-merge-admin" ${dataAttrs} title="Bypassa a proteção da branch e mergeia agora, ignorando revisões e checks obrigatórios (só funciona se você for admin e a proteção não for ruleset)">Merge (admin)</button>`;
+      return auto + (admin ? '\n         ' + admin : '');
+    };
     let mergeBtns = '';
     if (canMerge) {
       if (running || queued) mergeBtns = btnMerge(true, 'Aguarde a análise terminar');
@@ -637,6 +647,10 @@ $('#myPRs').addEventListener('click', (e) => {
     mAdmin.disabled = true; mAdmin.textContent = 'Mergeando…';
     api('/api/self-review/merge', { url: mAdmin.dataset.url, mode: 'admin' }).then(r => {
       if (r?.ok) { mergeBlockedByPolicy.delete(key); return; } // state push atualiza
+      if (r?.blocked === 'rule') {
+        // ruleset não é furado por admin: esconde o botão (o servidor já avisou)
+        adminUnavailableKeys.add(key); renderMyPRs(); return;
+      }
       toast('error', esc(r?.error || 'não consegui mergear como admin'));
       mAdmin.disabled = false; mAdmin.textContent = 'Merge (admin)';
     });
@@ -760,6 +774,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['1.18.0', ['A autoanálise de um PR é descartada quando entra commit novo: o card volta a "não analisado", pra não mostrar veredito velho que já não vale', '"Merge (admin)" só aparece quando realmente resolve (some quando o repo usa ruleset que o admin não fura)', 'Times enterprise saíram do seletor de reviewers (o GitHub não os aceita como reviewer de PR)']],
   ['1.17.0', ['Reviewers por projeto agora é um seletor de pessoas e times da organização (chips), sem digitar handle na mão', 'Copiar o grupo de reviewers pra outros repos de uma vez ("copiar pra…")', 'Clicar em "Reviewers" num repo sem config leva pra tela de configuração, em vez de dar erro']],
   ['1.16.0', ['Instalador de arquivo único no Windows: um .exe, duplo clique instala e abre (sem extrair zip nem escolher arquivo)', 'Cada PR em "Meus PRs" mostra de qual branch pra qual branch vai (origem → destino)', 'Botão "Reviewers": configure os reviewers por projeto (Sistema) e, num clique, o Farol te atribui e pede review dessa lista']],
   ['1.15.0', ['Atualização automática: as cópias instaladas checam as releases do GitHub e se atualizam sozinhas (o update é leve, só troca os arquivos do app)']],
@@ -823,7 +838,12 @@ function renderReviewersEditor() {
   const repos = Object.keys(map).sort();
   const rows = repos.map(repo => {
     const list = map[repo] || [];
-    const chips = list.map(rv => `<span class="rev-chip${rv.includes('/') ? ' team' : ''}">${esc(rv.includes('/') ? teamName(rv) + ' (time)' : rv)}<button class="rev-x" data-repo="${esc(repo)}" data-rv="${esc(rv)}" title="remover">×</button></span>`).join('');
+    const chips = list.map(rv => {
+      const isTeam = rv.includes('/');
+      const ent = isTeam && rv.split('/').slice(1).join('/').includes(':'); // time enterprise: nao pedivel
+      const label = ent ? `${rv.split('/').pop()} (enterprise, não pedível)` : (isTeam ? teamName(rv) + ' (time)' : rv);
+      return `<span class="rev-chip${ent ? ' bad' : isTeam ? ' team' : ''}" ${ent ? 'title="Time enterprise não pode ser reviewer de PR (o GitHub recusa). Remova daqui."' : ''}>${esc(label)}<button class="rev-x" data-repo="${esc(repo)}" data-rv="${esc(rv)}" title="remover">×</button></span>`;
+    }).join('');
     const has = (v) => list.some(l => l.toLowerCase() === String(v).toLowerCase());
     const opts = [
       ...reviewerCands.members.filter(x => x.toLowerCase() !== me && !has(x)).map(x => `<option value="${esc(x)}">${esc(x)}</option>`),
