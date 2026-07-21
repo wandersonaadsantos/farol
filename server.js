@@ -186,6 +186,7 @@ class Engine extends EventEmitter {
     this.selfAnalyses = readJson(SELF_FILE, {}); // key do PR -> resultado da autoanalise
     this.mergeStates = {};            // key do PR -> mergeabilidade real (só p/ aprovaveis)
     this.prBranches = {};             // key do PR -> { head, base } (cache, branch nao muda)
+    this.reviewerCands = null;        // { at, data:{members,teams} } candidatos p/ o seletor de reviewers
     this.activeReviews = new Map();  // id -> { keys, label, mode, startedAt }
     this.sessionSeq = 0;
     this.headlessQueue = [];
@@ -1003,6 +1004,33 @@ class Engine extends EventEmitter {
       this.writeInflight();
       this.pushState();
     }
+  }
+
+  // Candidatos pro seletor de reviewers: membros e times das orgs monitoradas.
+  // Cacheado (mudam pouco). Assim a config vira escolha de uma lista, sem digitar
+  // handle na mao (e sem typo que zera o pedido).
+  async reviewerCandidates() {
+    const TTL = 60 * 60 * 1000;
+    if (this.reviewerCands && (Date.now() - this.reviewerCands.at) < TTL) return this.reviewerCands.data;
+    if (!this.token) await this.refreshToken();
+    const members = new Set(), teams = new Map(); // teams: id "owner/slug" -> nome amigavel
+    for (const owner of (this.config.owners || [])) {
+      const rm = await run('gh', ['api', `orgs/${owner}/members`, '--paginate', '--jq', '.[].login'], { env: this.ghEnv() });
+      if (rm.ok) rm.stdout.split(/\r?\n/).map(s => s.trim()).filter(Boolean).forEach(l => members.add(l));
+      // slug (id que o gh --add-reviewer usa) + nome (pra exibir); \t separa
+      const rt = await run('gh', ['api', `orgs/${owner}/teams`, '--paginate', '--jq', '.[] | .slug + "\\t" + .name'], { env: this.ghEnv() });
+      if (rt.ok) rt.stdout.split(/\r?\n/).filter(Boolean).forEach(line => {
+        const i = line.indexOf('\t'); const slug = (i < 0 ? line : line.slice(0, i)).trim();
+        const name = (i < 0 ? slug : line.slice(i + 1)).trim();
+        if (slug) teams.set(`${owner}/${slug}`, name || slug);
+      });
+    }
+    const data = {
+      members: [...members].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())),
+      teams: [...teams.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+    };
+    this.reviewerCands = { at: Date.now(), data };
+    return data;
   }
 
   // --- setar reviewers de um PR meu num clique (Meus PRs) --------------------
@@ -2061,6 +2089,7 @@ function startServer(engine, onReady) {
         if (p === '/api/team') return send(200, parseTeam());
         if (p === '/api/log') return send(200, tailLog(parseInt(url.searchParams.get('lines'), 10) || 300));
         if (p === '/api/doctor') return send(200, await engine.doctor());
+        if (p === '/api/reviewer-candidates') return send(200, await engine.reviewerCandidates());
 
         if (p === '/api/events') {
           res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' });

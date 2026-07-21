@@ -36,7 +36,9 @@ $changelog = Join-Path $Src 'CHANGELOG.md'
 $notesFile = Join-Path $Src "dist\release-notes-v$version.md"
 $body = $null
 if (Test-Path $changelog) {
-  $lines = Get-Content $changelog
+  # -Encoding UTF8: sem isso o PS 5.1 le o CHANGELOG (UTF-8) como ANSI e dobra a
+  # codificacao, mojibakeando acentos/emojis no corpo da release.
+  $lines = Get-Content $changelog -Encoding UTF8
   $start = -1
   for ($i = 0; $i -lt $lines.Count; $i++) {
     if ($lines[$i] -match "^##\s+v$([regex]::Escape($version))\b") { $start = $i + 1; break }

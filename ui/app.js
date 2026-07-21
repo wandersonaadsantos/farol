@@ -63,14 +63,16 @@ $('#btnTheme').onclick = () => {
 };
 
 /* ---------- abas ---------- */
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+  if (name === 'destaques') loadHighlights();
+  if (name === 'time') loadTeam();
+  if (name === 'sistema') { loadLog(); renderDoctor(); loadReviewerCands(); }
+}
 $('#tabs').addEventListener('click', (e) => {
   const btn = e.target.closest('.tab');
-  if (!btn) return;
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === btn));
-  document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + btn.dataset.tab));
-  if (btn.dataset.tab === 'destaques') loadHighlights();
-  if (btn.dataset.tab === 'time') loadTeam();
-  if (btn.dataset.tab === 'sistema') { loadLog(); renderDoctor(); }
+  if (btn) switchTab(btn.dataset.tab);
 });
 
 /* ---------- render: topo/status ---------- */
@@ -562,7 +564,20 @@ $('#myPRs').addEventListener('click', (e) => {
   }
   const rev = e.target.closest('.act-set-reviewers');
   if (rev) {
-    // sem confirmação: aplica na hora
+    const card = rev.closest('.mypr-card');
+    const repo = String(card?.dataset.key || '').split('#')[0];
+    const cfg = ((STATE.config || {}).projectReviewers || {})[repo];
+    // sem reviewers configurados: leva pra tela de config (em vez de erro)
+    if (!cfg || !cfg.length) {
+      if (repo) pendingRepoRows.add(repo);
+      switchTab('sistema');
+      loadReviewerCands();
+      renderReviewersEditor();
+      setTimeout(() => { const el = $('#reviewersEditor'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 60);
+      toast('info', `Configure os reviewers de ${repo} aqui, depois é só clicar em Reviewers no PR.`, 6000);
+      return;
+    }
+    // tem config: aplica na hora, sem confirmação
     rev.disabled = true; rev.textContent = 'Setando…';
     api('/api/self-review/reviewers', { url: rev.dataset.url }).then(r => {
       if (!r?.ok) toast('error', esc(r?.error || 'não consegui setar os reviewers'));
@@ -745,6 +760,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['1.17.0', ['Reviewers por projeto agora é um seletor de pessoas e times da organização (chips), sem digitar handle na mão', 'Copiar o grupo de reviewers pra outros repos de uma vez ("copiar pra…")', 'Clicar em "Reviewers" num repo sem config leva pra tela de configuração, em vez de dar erro']],
   ['1.16.0', ['Instalador de arquivo único no Windows: um .exe, duplo clique instala e abre (sem extrair zip nem escolher arquivo)', 'Cada PR em "Meus PRs" mostra de qual branch pra qual branch vai (origem → destino)', 'Botão "Reviewers": configure os reviewers por projeto (Sistema) e, num clique, o Farol te atribui e pede review dessa lista']],
   ['1.15.0', ['Atualização automática: as cópias instaladas checam as releases do GitHub e se atualizam sozinhas (o update é leve, só troca os arquivos do app)']],
   ['1.14.0', ['Instalador offline: Windows (zip com Electron embutido, extrai e dá duplo clique) e macOS (arquivo único autoextraível). Sem Node, sem npm, sem download']],
@@ -765,6 +781,136 @@ function renderReleaseNotes() {
     </div>`).join('');
 }
 
+/* ---------- editor de reviewers por projeto ---------- */
+let reviewerCands = { members: [], teams: [] };
+let reviewerCandsLoaded = false;
+const pendingRepoRows = new Set(); // repos com row aberto mas ainda sem reviewer
+const copyOpenRepos = new Set();   // repos com o form "copiar pra..." aberto
+
+async function loadReviewerCands(force) {
+  if (reviewerCandsLoaded && !force) return;
+  const r = await get('/api/reviewer-candidates');
+  if (r) { reviewerCands = { members: r.members || [], teams: r.teams || [] }; reviewerCandsLoaded = true; }
+  renderReviewersEditor();
+}
+function knownRepos() {
+  const set = new Set();
+  (STATE.myPRs || []).forEach(p => set.add(p.key.split('#')[0]));
+  (STATE.panorama || []).forEach(p => set.add(String(p.key || '').split('#')[0]));
+  Object.keys((STATE.config || {}).projectReviewers || {}).forEach(r => set.add(r));
+  return [...set].filter(Boolean).sort();
+}
+function reviewerMap() {
+  const cfg = (STATE.config || {}).projectReviewers || {};
+  const map = {};
+  for (const k of Object.keys(cfg)) map[k] = [...(cfg[k] || [])];
+  for (const r of pendingRepoRows) if (!(r in map)) map[r] = [];
+  return map;
+}
+function applyReviewers(map) {
+  const clean = {};
+  for (const k of Object.keys(map)) if ((map[k] || []).length) clean[k] = map[k];
+  if (!STATE.config) STATE.config = {};
+  STATE.config.projectReviewers = clean; // otimista, o SSE confirma depois
+  renderReviewersEditor();
+  api('/api/settings', { projectReviewers: clean });
+}
+function renderReviewersEditor() {
+  const box = $('#reviewersEditor'); if (!box) return;
+  const map = reviewerMap();
+  const me = ((STATE.config || {}).ghUser || '').toLowerCase();
+  const teamName = (id) => (reviewerCands.teams.find(t => t.id === id) || {}).name || id;
+  const repos = Object.keys(map).sort();
+  const rows = repos.map(repo => {
+    const list = map[repo] || [];
+    const chips = list.map(rv => `<span class="rev-chip${rv.includes('/') ? ' team' : ''}">${esc(rv.includes('/') ? teamName(rv) + ' (time)' : rv)}<button class="rev-x" data-repo="${esc(repo)}" data-rv="${esc(rv)}" title="remover">×</button></span>`).join('');
+    const has = (v) => list.some(l => l.toLowerCase() === String(v).toLowerCase());
+    const opts = [
+      ...reviewerCands.members.filter(x => x.toLowerCase() !== me && !has(x)).map(x => `<option value="${esc(x)}">${esc(x)}</option>`),
+      ...reviewerCands.teams.filter(t => !has(t.id)).map(t => `<option value="${esc(t.id)}">${esc(t.name)} (time)</option>`)
+    ].join('');
+    const copyForm = copyOpenRepos.has(repo) ? `<div class="rev-copyform">
+        <input class="rev-copytargets" data-repo="${esc(repo)}" list="revRepoList" placeholder="owner/repo, outro/repo" spellcheck="false">
+        <button class="btn sm ok rev-copygo" data-repo="${esc(repo)}">Copiar grupo</button>
+      </div>` : '';
+    return `<div class="rev-row" data-repo="${esc(repo)}">
+      <div class="rev-repohead"><code>${esc(repo)}</code>
+        ${list.length ? `<button class="rev-copy" data-repo="${esc(repo)}" title="replicar estes reviewers em outros repos">copiar pra…</button>` : ''}
+        <button class="rev-delrepo" data-repo="${esc(repo)}" title="remover este projeto">remover</button></div>
+      <div class="rev-chips">${chips || '<span class="rev-empty">sem reviewers ainda</span>'}
+        <select class="rev-add" data-repo="${esc(repo)}"><option value="">${reviewerCandsLoaded ? '+ adicionar…' : 'carregando…'}</option>${opts}</select>
+      </div>
+      ${copyForm}
+    </div>`;
+  }).join('');
+  const dl = knownRepos().map(r => `<option value="${esc(r)}"></option>`).join('');
+  box.innerHTML = `${rows || '<div class="rev-empty">Nenhum projeto configurado ainda. Adicione um abaixo.</div>'}
+    <div class="rev-addrepo">
+      <input id="revNewRepo" list="revRepoList" placeholder="owner/repo" spellcheck="false">
+      <datalist id="revRepoList">${dl}</datalist>
+      <button class="btn sm" id="revAddRepo">Adicionar projeto</button>
+    </div>`;
+}
+$('#reviewersEditor').addEventListener('change', (e) => {
+  const add = e.target.closest('.rev-add');
+  if (add && add.value) {
+    const repo = add.dataset.repo, map = reviewerMap();
+    map[repo] = [...(map[repo] || []), add.value];
+    applyReviewers(map);
+  }
+});
+$('#reviewersEditor').addEventListener('click', (e) => {
+  const x = e.target.closest('.rev-x');
+  if (x) {
+    const repo = x.dataset.repo, map = reviewerMap();
+    map[repo] = (map[repo] || []).filter(r => r !== x.dataset.rv);
+    if (!map[repo].length) pendingRepoRows.add(repo); // mantem a linha visivel
+    applyReviewers(map);
+    return;
+  }
+  const del = e.target.closest('.rev-delrepo');
+  if (del) {
+    const repo = del.dataset.repo, map = reviewerMap();
+    delete map[repo]; pendingRepoRows.delete(repo); copyOpenRepos.delete(repo);
+    applyReviewers(map);
+    return;
+  }
+  const copy = e.target.closest('.rev-copy');
+  if (copy) {
+    const repo = copy.dataset.repo;
+    if (copyOpenRepos.has(repo)) copyOpenRepos.delete(repo); else copyOpenRepos.add(repo);
+    renderReviewersEditor();
+    return;
+  }
+  const copyGo = e.target.closest('.rev-copygo');
+  if (copyGo) {
+    const repo = copyGo.dataset.repo, map = reviewerMap();
+    const inp = document.querySelector(`.rev-copytargets[data-repo="${CSS.escape(repo)}"]`);
+    const targets = String(inp && inp.value || '').split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+    const bad = targets.filter(t => !/^[^\s/]+\/[^\s/]+$/.test(t));
+    if (!targets.length || bad.length) { toast('error', 'Informe os repos de destino no formato owner/repo, separados por vírgula.'); return; }
+    const src = map[repo] || [];
+    for (const t of targets) {
+      if (t === repo) continue;
+      const cur = map[t] || [];
+      for (const rv of src) if (!cur.some(x => x.toLowerCase() === rv.toLowerCase())) cur.push(rv);
+      map[t] = cur;
+    }
+    copyOpenRepos.delete(repo);
+    applyReviewers(map);
+    toast('ok', `Grupo de ${repo} copiado pra: ${targets.filter(t => t !== repo).join(', ')}.`, 4000);
+    return;
+  }
+  const addRepo = e.target.closest('#revAddRepo');
+  if (addRepo) {
+    const inp = $('#revNewRepo'), repo = (inp.value || '').trim();
+    if (!/^[^\s/]+\/[^\s/]+$/.test(repo)) { toast('error', 'Informe o repo no formato owner/repo.'); return; }
+    pendingRepoRows.add(repo); inp.value = '';
+    renderReviewersEditor();
+    return;
+  }
+});
+
 function renderSettings() {
   renderReleaseNotes();
   const c = STATE.config;
@@ -772,8 +918,7 @@ function renderSettings() {
   setIf($('#setUser'), c.ghUser);
   setIf($('#setOwners'), (c.owners || []).join(', '));
   setIf($('#setMergeBlocked'), (c.mergeBlockedRepos || []).join(', '));
-  const pr = c.projectReviewers || {};
-  setIf($('#setReviewers'), Object.keys(pr).map(k => `${k}: ${(pr[k] || []).join(', ')}`).join('\n'));
+  renderReviewersEditor();
   $('#setInterval').value = String(c.intervalSeconds);
   $('#setAutoReview').checked = !!c.autoReview;
   $('#setSkipPerms').checked = !!c.skipPermissions;
@@ -940,7 +1085,6 @@ const settingsMap = [
   ['#setUser', 'ghUser', el => el.value],
   ['#setOwners', 'owners', el => el.value],
   ['#setMergeBlocked', 'mergeBlockedRepos', el => el.value],
-  ['#setReviewers', 'projectReviewers', el => el.value],
   ['#setInterval', 'intervalSeconds', el => parseInt(el.value, 10)],
   ['#setAutoReview', 'autoReview', el => el.checked],
   ['#setSkipPerms', 'skipPermissions', el => el.checked],
