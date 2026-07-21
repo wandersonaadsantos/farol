@@ -1004,16 +1004,21 @@ class Engine extends EventEmitter {
   }
 
   // Anexa a branch de origem/destino em cada "Meu PR" (o gh search prs nao traz
-  // branch; so gh pr view). Cacheia por PR (branch nao muda no ciclo de vida do
-  // PR), entao so busca as chaves novas: custo baixo mesmo a cada checagem.
+  // branch; so gh pr view). Cacheia por PR pra nao chamar gh toda hora, mas com
+  // TTL: a head e imutavel, porem a BASE pode ser retargetada pela UI/API do
+  // GitHub num PR aberto, entao o cache expira e rebusca (retarget aparece em ate
+  // ~30min). Chave que fechou sai do cache.
   async enrichMyPRBranches() {
+    const TTL = 30 * 60 * 1000;
+    const now = Date.now();
     const openKeys = new Set((this.myPRs || []).map(p => p.key));
     for (const k of Object.keys(this.prBranches)) if (!openKeys.has(k)) delete this.prBranches[k];
     for (const pr of (this.myPRs || [])) {
-      if (!this.prBranches[pr.key]) {
+      const c = this.prBranches[pr.key];
+      if (!c || (now - (c.at || 0)) > TTL) {
         const r = await run('gh', ['pr', 'view', pr.url, '--json', 'headRefName,baseRefName'], { env: this.ghEnv() });
         if (r.ok) {
-          try { const j = JSON.parse(r.stdout || '{}'); this.prBranches[pr.key] = { head: j.headRefName || '', base: j.baseRefName || '' }; } catch { }
+          try { const j = JSON.parse(r.stdout || '{}'); this.prBranches[pr.key] = { head: j.headRefName || '', base: j.baseRefName || '', at: now }; } catch { }
         }
       }
       const b = this.prBranches[pr.key];

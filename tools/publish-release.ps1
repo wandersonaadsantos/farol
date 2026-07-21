@@ -64,6 +64,7 @@ $ErrorActionPreference = 'Stop'
 if ($exists) {
   Write-Host "  -> Release $tag ja existe; atualizando notas e anexos" -ForegroundColor Cyan
   & gh release edit $tag --repo $repo --title $tag --notes-file $notesFile
+  if ($LASTEXITCODE -ne 0) { throw "gh release edit falhou (codigo $LASTEXITCODE)" }
   & gh release upload $tag $light $offline --repo $repo --clobber
 } else {
   Write-Host "  -> Criando a release $tag" -ForegroundColor Cyan

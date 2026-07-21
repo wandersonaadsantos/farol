@@ -20,9 +20,12 @@ Unicode true
 Name "Farol ${VERSION}"
 OutFile "${OUTFILE}"
 Icon "${PAYLOAD}\assets\farol.ico"
-; instala no perfil do usuario, sem exigir admin
+; instala no perfil do usuario, sem exigir admin. NAO usamos $INSTDIR/InstallDir:
+; quem decide o destino real e o install.ps1 (~/.farol), pra onde este .nsi
+; extrai o payload ($PLUGINSDIR) e delega. Desinstalacao: pelo Desinstalar.cmd
+; que acompanha a instalacao (uma entrada em "Aplicativos e recursos" fica como
+; follow-up, ja que o app se instala em ~/.farol, nao via $INSTDIR).
 RequestExecutionLevel user
-InstallDir "$LOCALAPPDATA\Farol"
 SetCompressor /SOLID lzma
 ShowInstDetails show
 BrandingText "Farol v${VERSION}"
