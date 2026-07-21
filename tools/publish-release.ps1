@@ -30,8 +30,12 @@ $offline = Join-Path $Src "dist\Farol-Offline-Windows-v$version.zip"
 if (-not (Test-Path $offline)) { throw "pacote offline nao gerado: $offline" }
 
 # --- release ------------------------------------------------------------------
-$exists = (& gh release view $tag --repo $repo 2>$null)
-if ($LASTEXITCODE -eq 0) {
+# checa existencia sem deixar o stderr do gh virar erro terminante (ErrorAction=Stop)
+$ErrorActionPreference = 'Continue'
+& gh release view $tag --repo $repo 1>$null 2>$null
+$exists = ($LASTEXITCODE -eq 0)
+$ErrorActionPreference = 'Stop'
+if ($exists) {
   Write-Host "  -> Release $tag ja existe; subindo/atualizando os anexos" -ForegroundColor Cyan
   & gh release upload $tag $light $offline --repo $repo --clobber
 } else {
