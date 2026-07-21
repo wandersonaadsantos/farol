@@ -497,6 +497,7 @@ function renderMyPRs() {
         </div>
         <div class="pr-actions">
           <button class="btn primary sm act-self" data-url="${esc(pr.url)}" ${running || queued ? 'disabled' : ''}>${btnLabel}</button>
+          <button class="btn sm ghost act-set-reviewers" data-url="${esc(pr.url)}" title="Atribui você e pede review dos reviewers configurados deste repo (aba Sistema). Aplica na hora, sem confirmação.">👥 Reviewers</button>
           ${mergeBtns}
           ${a ? `<button class="btn sm ghost act-self-clear" data-key="${esc(pr.key)}" title="Ocultar esta autoanálise (é só sua, some da tela; dá pra reanalisar quando quiser)">Ocultar</button>` : ''}
         </div>
@@ -557,6 +558,16 @@ $('#myPRs').addEventListener('click', (e) => {
     copyToClipboard(prompt).then(ok => ok
       ? toast('ok', 'Prompt copiado. É só colar no chat que está resolvendo o PR.', 3500)
       : toast('error', 'Não consegui copiar (permissão do navegador).'));
+    return;
+  }
+  const rev = e.target.closest('.act-set-reviewers');
+  if (rev) {
+    // sem confirmação: aplica na hora
+    rev.disabled = true; rev.textContent = 'Setando…';
+    api('/api/self-review/reviewers', { url: rev.dataset.url }).then(r => {
+      if (!r?.ok) toast('error', esc(r?.error || 'não consegui setar os reviewers'));
+      rev.disabled = false; rev.textContent = '👥 Reviewers';
+    });
     return;
   }
   const run = e.target.closest('.act-self');
@@ -734,7 +745,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
-  ['1.16.0', ['Instalador de arquivo único no Windows: um .exe, duplo clique instala e abre (sem extrair zip nem escolher arquivo)', 'Cada PR em "Meus PRs" mostra de qual branch pra qual branch vai (origem → destino)']],
+  ['1.16.0', ['Instalador de arquivo único no Windows: um .exe, duplo clique instala e abre (sem extrair zip nem escolher arquivo)', 'Cada PR em "Meus PRs" mostra de qual branch pra qual branch vai (origem → destino)', 'Botão "Reviewers": configure os reviewers por projeto (Sistema) e, num clique, o Farol te atribui e pede review dessa lista']],
   ['1.15.0', ['Atualização automática: as cópias instaladas checam as releases do GitHub e se atualizam sozinhas (o update é leve, só troca os arquivos do app)']],
   ['1.14.0', ['Instalador offline: Windows (zip com Electron embutido, extrai e dá duplo clique) e macOS (arquivo único autoextraível). Sem Node, sem npm, sem download']],
   ['1.13.0', ['Auto-merge só é oferecido quando o repo tem "Allow auto-merge" ligado; senão sobra o Merge (admin), com aviso claro', 'Repo sem auto-merge deixou de poluir o log como erro (vira aviso)']],
@@ -761,6 +772,8 @@ function renderSettings() {
   setIf($('#setUser'), c.ghUser);
   setIf($('#setOwners'), (c.owners || []).join(', '));
   setIf($('#setMergeBlocked'), (c.mergeBlockedRepos || []).join(', '));
+  const pr = c.projectReviewers || {};
+  setIf($('#setReviewers'), Object.keys(pr).map(k => `${k}: ${(pr[k] || []).join(', ')}`).join('\n'));
   $('#setInterval').value = String(c.intervalSeconds);
   $('#setAutoReview').checked = !!c.autoReview;
   $('#setSkipPerms').checked = !!c.skipPermissions;
@@ -927,6 +940,7 @@ const settingsMap = [
   ['#setUser', 'ghUser', el => el.value],
   ['#setOwners', 'owners', el => el.value],
   ['#setMergeBlocked', 'mergeBlockedRepos', el => el.value],
+  ['#setReviewers', 'projectReviewers', el => el.value],
   ['#setInterval', 'intervalSeconds', el => parseInt(el.value, 10)],
   ['#setAutoReview', 'autoReview', el => el.checked],
   ['#setSkipPerms', 'skipPermissions', el => el.checked],

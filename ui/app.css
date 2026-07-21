@@ -309,13 +309,14 @@ main { max-width: 980px; margin: 0 auto; padding: 20px 24px 60px; }
 .settings { display: flex; flex-direction: column; gap: 16px; padding: 18px; }
 .field label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 5px; }
 .field small, .switch-row small { color: var(--muted); font-weight: 400; }
-.field input, .field select {
+.field input, .field select, .field textarea {
   width: 100%; max-width: 420px;
   background: var(--surface-2); color: var(--text);
   border: 1px solid var(--border); border-radius: 8px;
   padding: 8px 11px; font: inherit;
 }
-.field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
+.field textarea { resize: vertical; min-height: 56px; line-height: 1.5; }
+.field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--accent); }
 
 .switch-row { display: flex; align-items: flex-start; gap: 11px; cursor: pointer; font-size: 13.5px; }
 .switch-row input { position: absolute; opacity: 0; }

@@ -91,8 +91,34 @@ const DEFAULTS = {
   port: 47170,
   // repos onde o botao Merge (Meus PRs) fica desativado, respeitando regras de
   // review do time (ex.: nunca self-merge no biud-frontend). Editavel em Sistema.
-  mergeBlockedRepos: ['biudtech/biud-frontend']
+  mergeBlockedRepos: ['biudtech/biud-frontend'],
+  // reviewers padrao por projeto: { "owner/repo": ["login", "org/time", ...] }.
+  // O botao "Setar reviewers" (Meus PRs) atribui voce e pede review dessa lista
+  // num clique. Editavel em Sistema. Aceita pessoas e times (org/time-slug).
+  projectReviewers: {}
 };
+
+// Parseia a config de reviewers por projeto. Aceita ja um objeto (map) ou o
+// texto do textarea de Sistema, uma linha por repo: "owner/repo: login1, org/time".
+function parseProjectReviewers(val) {
+  if (val && typeof val === 'object' && !Array.isArray(val)) {
+    const out = {};
+    for (const k of Object.keys(val)) {
+      const list = Array.isArray(val[k]) ? val[k] : String(val[k]).split(/[,;]+/);
+      const people = list.map(s => String(s).trim()).filter(Boolean);
+      if (people.length) out[k.trim()] = people;
+    }
+    return out;
+  }
+  const map = {};
+  for (const line of String(val || '').split(/\r?\n/)) {
+    const m = line.match(/^\s*([^\s:]+\/[^\s:]+)\s*:\s*(.+)$/);
+    if (!m) continue;
+    const people = m[2].split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+    if (people.length) map[m[1].trim()] = people;
+  }
+  return map;
+}
 
 // --- Utilitarios ------------------------------------------------------------
 function ensureDir(p) { fs.mkdirSync(p, { recursive: true }); }
@@ -979,6 +1005,45 @@ class Engine extends EventEmitter {
     }
   }
 
+  // --- setar reviewers de um PR meu num clique (Meus PRs) --------------------
+  // Atribui o autor (voce) e pede review da lista configurada pro repo em
+  // config.projectReviewers, sem confirmacao. Aceita pessoas e times (org/time).
+  async setReviewers(url) {
+    if (!url) return { ok: false, error: 'sem PR' };
+    if (!this.token) await this.refreshToken();
+    if (!this.tokenOk) {
+      this.emit('toast', { kind: 'error', text: `Conta ${this.config.ghUser || '(nenhuma)'} não autenticada no gh. Rode: gh auth login` });
+      return { ok: false, error: 'gh sem token' };
+    }
+    const me = (this.config.ghUser || '').toLowerCase();
+    const m = String(url).match(/github\.com\/([^\/]+\/[^\/]+)\/pull\/(\d+)/i);
+    if (!m) return { ok: false, error: 'não reconheci a URL do PR' };
+    const repo = m[1];
+    const key = `${repo}#${m[2]}`;
+    const cfg = this.config.projectReviewers || {};
+    const raw = cfg[repo] || cfg[repo.toLowerCase()] || [];
+    // nao da pra pedir review de si mesmo; o autor entra como assignee, nao reviewer
+    const reviewers = raw.map(String).map(s => s.trim()).filter(r => r && r.toLowerCase() !== me);
+    if (!reviewers.length) {
+      this.emit('toast', { kind: 'error', text: `Nenhum reviewer configurado pra ${repo} (aba Sistema > Reviewers por projeto).` });
+      return { ok: false, error: 'sem reviewers configurados' };
+    }
+    // 1) me atribui
+    const asg = await run('gh', ['pr', 'edit', url, '--add-assignee', this.config.ghUser], { env: this.ghEnv() });
+    if (!asg.ok) this.log('WARN', `não consegui me atribuir em ${key}: ${asg.stderr.trim().slice(0, 200)}`);
+    // 2) peço review (pessoas e times org/slug; gh aceita os dois em --add-reviewer)
+    const rv = await run('gh', ['pr', 'edit', url, '--add-reviewer', reviewers.join(',')], { env: this.ghEnv() });
+    if (!rv.ok) {
+      const msg = (rv.stderr || rv.stdout || 'erro').trim().slice(0, 300);
+      this.log('ERROR', `setar reviewers ${key}: ${msg}`);
+      this.emit('toast', { kind: 'error', text: `Não consegui setar os reviewers de ${key}: ${msg}` });
+      return { ok: false, error: msg };
+    }
+    const asgNote = asg.ok ? '' : ' (não consegui te atribuir, confira no GitHub)';
+    this.emit('toast', { kind: 'ok', text: `👥 ${key}: reviewers pedidos (${reviewers.join(', ')}) e você atribuído${asgNote}.` });
+    return { ok: true, reviewers };
+  }
+
   // --- autoanalise: revisa um PR MEU so pra mim, nunca posta nada -------------
   saveSelfAnalyses() {
     try { fs.writeFileSync(SELF_FILE, JSON.stringify(this.selfAnalyses, null, 2)); }
@@ -1816,7 +1881,8 @@ class Engine extends EventEmitter {
 
   updateSettings(patch) {
     const allowed = ['ghUser', 'owners', 'intervalSeconds', 'autoReview', 'skipPermissions',
-      'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos'];
+      'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos',
+      'projectReviewers'];
     let intervalChanged = false, userChanged = false;
     for (const k of allowed) {
       if (!(k in patch)) continue;
@@ -1824,6 +1890,7 @@ class Engine extends EventEmitter {
       if (k === 'intervalSeconds') { v = Math.min(3600, Math.max(60, parseInt(v, 10) || DEFAULTS.intervalSeconds)); intervalChanged = true; }
       if (k === 'owners') v = Array.isArray(v) ? v.map(s => String(s).trim()).filter(Boolean) : String(v).split(/[,;\s]+/).filter(Boolean);
       if (k === 'mergeBlockedRepos') v = Array.isArray(v) ? v.map(s => String(s).trim()).filter(Boolean) : String(v).split(/[,;\s]+/).filter(Boolean);
+      if (k === 'projectReviewers') v = parseProjectReviewers(v);
       if (k === 'ghUser') { v = String(v).trim(); userChanged = v !== this.config.ghUser; }
       this.config[k] = v;
     }
@@ -2007,6 +2074,7 @@ function startServer(engine, onReady) {
         if (p === '/api/self-review') return send(200, await engine.launchSelfAnalysis(String(body.url || '')));
         if (p === '/api/self-review/clear') return send(200, engine.clearSelfAnalysis(String(body.key || '')));
         if (p === '/api/self-review/merge') return send(200, await engine.mergeSelfPR(String(body.url || ''), { mode: body.mode }));
+        if (p === '/api/self-review/reviewers') return send(200, await engine.setReviewers(String(body.url || '')));
         if (p === '/api/decide') return send(200, await engine.decide(String(body.id || ''), String(body.action || '')));
         if (p === '/api/ignore') { engine.ignore(String(body.key || '')); return send(200, { ok: true }); }
         if (p === '/api/restore') { engine.restore(String(body.key || '')); return send(200, { ok: true }); }
@@ -2055,7 +2123,7 @@ function start(onReady) {
   return { engine, server, port: engine.config.port };
 }
 
-module.exports = { start, HOME, WORKSPACE, Engine, modelLabel, isPermanentBranch };
+module.exports = { start, HOME, WORKSPACE, Engine, modelLabel, isPermanentBranch, parseProjectReviewers };
 
 // execucao direta: modo servidor (fallback sem Electron, ou desenvolvimento)
 if (require.main === module) {
