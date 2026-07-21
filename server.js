@@ -83,7 +83,7 @@ const DEFAULTS = {
   soundEnabled: true,
   theme: 'dark',
   autostart: false,
-  updateSource: '',        // vazio = procurar a fonte em ~/Documents/farol
+  updateSource: '',        // vazio = fonte de verdade e a release do GitHub (git). So defina um caminho aqui pra testar build local (opt-in de dev)
   // canal de update remoto pras copias distribuidas: releases do GitHub, lidas
   // pelo gh que todo usuario ja tem. So vale quando NAO ha fonte local (a pasta
   // ~/Documents/farol tem precedencia, pro fluxo de dev do mantenedor).
@@ -1800,7 +1800,13 @@ class Engine extends EventEmitter {
   // Atualizar = rodar o installer da fonte, que ja mata as instancias, migra
   // estado e recria os atalhos (sem duplicar instalacao), e reabrir o app.
   resolveUpdateSource() {
-    const cand = this.config.updateSource || path.join(os.homedir(), 'Documents', 'farol');
+    // A pasta local so e fonte de update quando updateSource e definido EXPLICITAMENTE
+    // no config. Sem isso (padrao), a fonte de verdade e a RELEASE do GitHub (git):
+    // o app instalado nunca "atualiza" pra codigo que ainda nao foi mergeado/publicado,
+    // evitando duas fontes de verdade. O caminho local vira opt-in so pra testar build
+    // local durante o desenvolvimento.
+    const cand = (this.config.updateSource || '').trim();
+    if (!cand) return null;
     try {
       const pkg = JSON.parse(fs.readFileSync(path.join(cand, 'package.json'), 'utf8'));
       if (pkg.name !== 'farol' || !pkg.version) return null;
