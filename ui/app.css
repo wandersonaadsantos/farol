@@ -330,6 +330,7 @@ main { max-width: 980px; margin: 0 auto; padding: 20px 24px 60px; }
 .rev-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .rev-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 3px 6px 3px 9px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); }
 .rev-chip.team { background: var(--info-soft); color: var(--info); }
+.rev-chip.bad { background: var(--danger-soft); color: var(--danger); }
 .rev-chip .rev-x { background: none; border: 0; color: inherit; cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; opacity: .7; }
 .rev-chip .rev-x:hover { opacity: 1; }
 .rev-add { font: inherit; font-size: 12px; padding: 4px 8px; border-radius: 8px; background: var(--surface); color: var(--text); border: 1px solid var(--border); }

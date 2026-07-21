@@ -185,6 +185,8 @@ class Engine extends EventEmitter {
     this.myPRs = [];                 // PRs abertos de autoria minha (fonte da autoanalise)
     this.selfAnalyses = readJson(SELF_FILE, {}); // key do PR -> resultado da autoanalise
     this.mergeStates = {};            // key do PR -> mergeabilidade real (só p/ aprovaveis)
+    this.adminBlockedRepos = {};      // repo -> true quando admin nao fura o ruleset (o UI esconde "Merge admin")
+    this.ruleBlockCache = {};         // "repo@base" -> { blocked, at } cache do ruleset bloqueante
     this.reviewerCands = null;        // { at, data:{members,teams} } candidatos p/ o seletor de reviewers
     this.activeReviews = new Map();  // id -> { keys, label, mode, startedAt }
     this.sessionSeq = 0;
@@ -1021,7 +1023,9 @@ class Engine extends EventEmitter {
       if (rt.ok) rt.stdout.split(/\r?\n/).filter(Boolean).forEach(line => {
         const i = line.indexOf('\t'); const slug = (i < 0 ? line : line.slice(0, i)).trim();
         const name = (i < 0 ? slug : line.slice(i + 1)).trim();
-        if (slug) teams.set(`${owner}/${slug}`, name || slug);
+        // times ENTERPRISE (slug com ':', ex.: 'ent:...') NAO podem ser reviewer
+        // de PR (o GitHub recusa com "not a collaborator"), entao nao entram no seletor.
+        if (slug && !slug.includes(':')) teams.set(`${owner}/${slug}`, name || slug);
       });
     }
     const data = {
@@ -1063,20 +1067,29 @@ class Engine extends EventEmitter {
     //    nao-colaborador, time sem acesso) devolve 422 e zera o pedido inteiro.
     //    Como a lista e texto livre e o botao aplica num clique, pedir um a um
     //    garante que os validos entram mesmo com um invalido no meio.
-    const okd = [], failed = [];
+    const okd = [], failed = [], skipped = [];
     for (const person of reviewers) {
+      // time ENTERPRISE (slug com ':'): o GitHub nao aceita como reviewer de PR.
+      // pular sem chamar gh (evita o WARN "Could not resolve team" a cada clique).
+      if (person.includes('/') && person.split('/').slice(1).join('/').includes(':')) {
+        skipped.push(person);
+        continue;
+      }
       const rv = await run('gh', ['pr', 'edit', url, '--add-reviewer', person], { env: this.ghEnv() });
       if (rv.ok) okd.push(person);
       else { failed.push(person); this.log('WARN', `reviewer ${person} em ${key}: ${(rv.stderr || rv.stdout || '').trim().slice(0, 150)}`); }
     }
+    if (skipped.length) this.log('WARN', `reviewers ignorados em ${key} (time enterprise, não pedível): ${skipped.join(', ')}`);
     if (!okd.length) {
-      this.emit('toast', { kind: 'error', text: `Não consegui setar nenhum reviewer de ${key}. Confira os handles em Sistema (falharam: ${failed.join(', ')}).` });
-      return { ok: false, error: 'nenhum reviewer válido', failed };
+      const why = skipped.length ? ` (times enterprise não podem ser reviewer: ${skipped.join(', ')})` : ` Confira os handles em Sistema (falharam: ${failed.join(', ')}).`;
+      this.emit('toast', { kind: 'error', text: `Não consegui setar reviewer em ${key}.${why}` });
+      return { ok: false, error: 'nenhum reviewer válido', failed, skipped };
     }
     const asgNote = asg.ok ? '' : ' (não consegui te atribuir, confira no GitHub)';
-    const failNote = failed.length ? ` Não entraram (confira em Sistema): ${failed.join(', ')}.` : '';
-    this.emit('toast', { kind: failed.length ? 'info' : 'ok', text: `👥 ${key}: review pedido de ${okd.join(', ')} e você atribuído${asgNote}.${failNote}` });
-    return { ok: true, reviewers: okd, failed };
+    const notEntered = [...failed, ...skipped];
+    const failNote = notEntered.length ? ` Não entraram: ${notEntered.join(', ')}${skipped.length ? ' (time enterprise não pode ser reviewer)' : ''}.` : '';
+    this.emit('toast', { kind: notEntered.length ? 'info' : 'ok', text: `👥 ${key}: review pedido de ${okd.join(', ')} e você atribuído${asgNote}.${failNote}` });
+    return { ok: true, reviewers: okd, failed, skipped };
   }
 
   // --- autoanalise: revisa um PR MEU so pra mim, nunca posta nada -------------
@@ -1140,6 +1153,25 @@ class Engine extends EventEmitter {
     return String(r.stdout).trim() === 'true';
   }
 
+  // A branch de destino tem REPOSITORY RULESET exigindo revisao/checks? Se sim, o
+  // --admin NAO fura (diferente da protecao classica), entao o UI nao deve oferecer
+  // "Merge admin". Cache por repo@base (ruleset muda pouco). null = nao deu pra saber.
+  async fetchRuleBlocked(repo, base) {
+    if (!repo || !base) return null;
+    const cacheKey = `${repo}@${base}`;
+    const c = this.ruleBlockCache[cacheKey];
+    if (c && (Date.now() - c.at) < 30 * 60 * 1000) return c.blocked;
+    const r = await run('gh', ['api', `repos/${repo}/rules/branches/${base}`, '--jq', '[.[].type]'], { env: this.ghEnv() });
+    if (!r.ok) return null;
+    let blocked = null;
+    try {
+      const types = JSON.parse(r.stdout || '[]');
+      blocked = types.some(t => ['pull_request', 'required_status_checks', 'required_signatures', 'required_deployments'].includes(t));
+    } catch { blocked = null; }
+    if (blocked !== null) this.ruleBlockCache[cacheKey] = { blocked, at: Date.now() };
+    return blocked;
+  }
+
   // Atualiza a mergeabilidade só dos PRs que interessam pro botao Merge: meus,
   // com autoanalise aprovavel e fora da lista bloqueada. Mantem o custo baixo
   // (poucas chamadas gh, auto-merge por repo em cache) e o botao honesto: so
@@ -1158,6 +1190,12 @@ class Engine extends EventEmitter {
       const repo = pr.repo || (pr.key || '').split('#')[0];
       if (!autoByRepo.has(repo)) autoByRepo.set(repo, await this.fetchAutoMergeAllowed(repo));
       ms.autoAllowed = autoByRepo.get(repo);
+      // so quando esta BLOCKED (quando auto/admin apareceriam) vale checar o ruleset:
+      // se a base tem ruleset bloqueante, o --admin nao fura, entao esconde o admin.
+      if (ms.status === 'BLOCKED') {
+        const rb = await this.fetchRuleBlocked(repo, pr.base || ms.baseRefName);
+        ms.adminBlocked = rb === true || !!this.adminBlockedRepos[repo];
+      }
       next[pr.key] = ms;
     }
     this.mergeStates = next;
@@ -1242,11 +1280,23 @@ class Engine extends EventEmitter {
       //    re-tentar nao adianta, a saida e Merge (admin) ou ligar a opcao no repo.
       const policyBlock = mode === 'normal' && /base branch policy|not mergeable|protected|--auto|--admin/i.test(raw);
       const autoUnavailable = mode === 'auto' && /auto[ -]?merge is not allowed|enablePullRequestAutoMerge/i.test(raw);
-      this.log(policyBlock || autoUnavailable ? 'WARN' : 'ERROR', `merge de ${key} (${mode}) falhou: ${raw}`);
+      //  - ruleBlock: o repo usa REPOSITORY RULESET (nao protecao classica) exigindo
+      //    revisao/checks; o --admin NAO fura ruleset sem bypass. Retentar nao adianta,
+      //    a saida e uma aprovacao (ou bypass no ruleset). Condicao conhecida = WARN.
+      const ruleBlock = /repository rule violations|approving review is required|required status check|changes must be made through a pull request/i.test(raw);
+      this.log(policyBlock || autoUnavailable || ruleBlock ? 'WARN' : 'ERROR', `merge de ${key} (${mode}) falhou: ${raw}`);
       if (autoUnavailable) {
         const nice = `Auto-merge não está habilitado em ${repo}. Ligue "Allow auto-merge" nas settings do repo, ou use "Merge (admin)" se você for admin.`;
         this.emit('toast', { kind: 'error', text: `${key}: ${nice}` });
         return { ok: false, blocked: 'autoUnavailable', error: nice };
+      }
+      if (ruleBlock) {
+        // marca o repo: o UI para de oferecer o Merge (admin), que nao resolve aqui
+        this.adminBlockedRepos = this.adminBlockedRepos || {};
+        this.adminBlockedRepos[repo] = true;
+        const nice = `Merge admin não fura o ruleset de ${repo} sem bypass. Precisa de uma aprovação (ou um bypass no ruleset).`;
+        this.emit('toast', { kind: 'error', text: `${key}: ${nice}` });
+        return { ok: false, blocked: 'rule', error: nice };
       }
       if (!policyBlock) this.emit('toast', { kind: 'error', text: `Merge de ${key} falhou: ${raw}` });
       return { ok: false, blocked: policyBlock ? 'policy' : undefined, error: raw };
