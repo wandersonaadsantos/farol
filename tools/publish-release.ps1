@@ -62,13 +62,21 @@ $footerFile = Join-Path $Src 'tools\release-footer.md'
 if (-not (Test-Path $footerFile)) {
   Write-Host "  !  tools\release-footer.md ausente; release sai SEM o rodape Instalar/Anexos" -ForegroundColor Yellow
 }
-elseif ($body -match '(?m)^#{2,}\s+.*Instalar') {
-  # o CHANGELOG desta versao ja trouxe um bloco Instalar manual: nao duplica
-  Write-Host "  !  a secao do CHANGELOG ja tem um bloco 'Instalar'; nao anexo o rodape (evita duplicar)" -ForegroundColor Yellow
-}
 else {
-  $footer = ((Get-Content $footerFile -Encoding UTF8) -join "`n").Replace('{VERSION}', $version)
-  $body = $body.TrimEnd() + "`n`n" + $footer.Trim()
+  $footerRaw = ((Get-Content $footerFile -Encoding UTF8) -join "`n").Replace('{VERSION}', $version)
+  # separa Instalar/Atualizar de Anexos, pra o dedup atingir SO o bloco duplicado
+  # (se o CHANGELOG trouxe um Instalar manual, os Anexos ainda entram).
+  $idx = $footerRaw.IndexOf('## Anexos')
+  $install = if ($idx -ge 0) { $footerRaw.Substring(0, $idx).Trim() } else { $footerRaw.Trim() }
+  $anexos = if ($idx -ge 0) { $footerRaw.Substring($idx).Trim() } else { '' }
+  $add = @()
+  if ($body -match '(?m)^#{2,}\s+.*Instalar') {
+    Write-Host "  !  o CHANGELOG ja tem 'Instalar'; anexo so os Anexos (nao duplico o bloco Instalar)" -ForegroundColor Yellow
+  } else {
+    $add += $install
+  }
+  if ($anexos -and ($body -notmatch '(?m)^#{2,}\s+Anexos')) { $add += $anexos }
+  if ($add.Count) { $body = $body.TrimEnd() + "`n`n" + ($add -join "`n`n") }
 }
 [IO.File]::WriteAllText($notesFile, $body, (New-Object Text.UTF8Encoding($false)))
 
