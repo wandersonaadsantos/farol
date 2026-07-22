@@ -44,6 +44,8 @@ Só é blocker se **pelo menos uma** for "sim", e você **comprovou no código**
 
 "Não" para todas → não é blocker. **Teste é proporcional ao risco:** falta de teste só é 🔴 quando o risco é alto (regra crítica, fluxo central, cross-cutting sem cobertura); senão é 🟡.
 
+**Antes de marcar 🔴, descarte dois falsos positivos:** (a) **idioma deliberado** (narrowing de tipo em TS como `x || 'default'` pra virar `string`, fail-fast em env obrigatória, guard defensivo) não é defeito, mesmo que o "fallback nunca rode"; (b) **código de scaffold/boilerplate** (rota dummy, auth comentado de propósito, PR que se declara exemplo/padrão) não cobra régua de produção. Se a intenção não está clara, vire ❓ **question** ("isso é intencional pra X?"), não 🔴. Fato técnico certo com severidade errada continua sendo erro de review.
+
 # Ordem da análise
 
 1. **Card → regra esperada** (1-2 frases, se vieram critérios).
@@ -154,6 +156,7 @@ Regras de link/precisão:
 # Anti-padrões
 
 - Bloquear por preferência/refactor/"boa prática" que não se aplica ao stack.
+- Cravar 🔴/gravidade alta num idioma intencional (ex.: narrowing de tipo `x || default`) ou em PR de boilerplate/scaffold declarado, aplicando régua de produção sem entender a decisão de design.
 - Pedir mudança **fora do card** como condição de aprovação.
 - Marcar blocker não comprovado no código. Reescrever o diff. Inflar a lista ou repetir o mesmo ponto.
 - Tratar drift de propagação de hotfix (mesma head pra release/develop) como escopo-extra do autor.
