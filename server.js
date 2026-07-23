@@ -77,6 +77,13 @@ const UI_DIR = path.join(__dirname, 'ui');
 const DEFAULTS = {
   ghUser: '',              // vazio = detectar a conta ativa do gh na primeira execucao
   owners: ['biudtech'],
+  // multi-conta: observar mais de uma identidade do gh ao mesmo tempo (ex.: conta
+  // de trabalho + conta pessoal). Cada item: { user, owners }. Vazio = usa a conta
+  // unica legada acima (ghUser + owners). A conta [0] e a primaria (identidade
+  // default e usada em chamadas gh nao ligadas a um PR, como update). Cada PR
+  // carrega a conta dona; toda operacao gh nesse PR usa o token dela. Os logins
+  // ficam so aqui no config local do usuario, nunca no fonte (auditoria do zip).
+  accounts: [],
   intervalSeconds: 300,
   autoReview: true,        // revisao autonoma interna (headless); so chama o humano nas excecoes
   skipPermissions: false,  // vale so pra sessoes no TERMINAL; o modo interno roda sem prompts por design
@@ -118,6 +125,28 @@ function parseProjectReviewers(val) {
     if (people.length) map[m[1].trim()] = people;
   }
   return map;
+}
+
+// Parseia a lista de contas monitoradas. Aceita ja um array de { user, owners }
+// ou o texto do textarea de Sistema, uma linha por conta: "login: org1, org2".
+// A ordem importa: a 1a e a primaria.
+function parseAccounts(val) {
+  const norm = (user, owners) => ({
+    user: String(user || '').trim(),
+    owners: (Array.isArray(owners) ? owners : String(owners || '').split(/[,;\s]+/))
+      .map(s => String(s).trim()).filter(Boolean)
+  });
+  if (Array.isArray(val)) {
+    return val.map(a => norm(a && a.user, a && a.owners)).filter(a => a.user);
+  }
+  const out = [];
+  for (const line of String(val || '').split(/\r?\n/)) {
+    const i = line.indexOf(':');
+    if (i < 0) { const u = line.trim(); if (u) out.push(norm(u, [])); continue; }
+    const a = norm(line.slice(0, i), line.slice(i + 1));
+    if (a.user) out.push(a);
+  }
+  return out;
 }
 
 // --- Utilitarios ------------------------------------------------------------
@@ -176,6 +205,8 @@ class Engine extends EventEmitter {
     super();
     this.config = { ...DEFAULTS, ...readJson(CONFIG_FILE, {}) };
     delete this.config.autoOpenReview; // chave antiga (terminal); o modo autonomo tem semantica nova
+    this.config.accounts = parseAccounts(this.config.accounts); // normaliza (array de {user,owners})
+    this.tokens = {};                // token por conta (login -> token), preenchido no refreshTokens
     this.status = 'starting';        // starting | checking | idle | error
     this.lastError = null;
     this.lastCheckAt = null;
@@ -335,6 +366,44 @@ class Engine extends EventEmitter {
   unsee(key) { if (this.seen.delete(key)) this.saveSeen(); }
 
   // --- GitHub ---
+  // lista normalizada de contas monitoradas: [{ user, owners }]. Sem config.accounts,
+  // cai na conta unica legada (ghUser + owners). A [0] e a primaria.
+  accountList() {
+    const raw = Array.isArray(this.config.accounts) ? this.config.accounts : [];
+    const norm = raw
+      .map(a => ({
+        user: String((a && a.user) || '').trim(),
+        owners: Array.isArray(a && a.owners) ? a.owners.map(String).map(s => s.trim()).filter(Boolean) : []
+      }))
+      .filter(a => a.user);
+    if (norm.length) return norm;
+    return [{ user: (this.config.ghUser || '').trim(), owners: this.config.owners || [] }];
+  }
+
+  // login da conta primaria (identidade default; chamadas gh nao ligadas a um PR)
+  primaryUser() { return (this.accountList()[0] || {}).user || this.config.ghUser || ''; }
+
+  // uniao dos owners de todas as contas (panorama, candidatos de reviewer)
+  allOwners() {
+    const set = new Set();
+    for (const a of this.accountList()) for (const o of a.owners) set.add(o);
+    return [...set];
+  }
+
+  // conta monitorada dona de um owner (org); fallback = primaria
+  accountForOwner(owner) {
+    const o = String(owner || '').toLowerCase();
+    const hit = this.accountList().find(a => a.owners.some(x => String(x).toLowerCase() === o));
+    return (hit && hit.user) || this.primaryUser();
+  }
+
+  // conta a usar num PR: a que ele ja veio marcada, senao pela org do repo
+  accountForPr(pr) {
+    if (pr && pr.account) return pr.account;
+    const repo = (pr && (pr.repo || (pr.key || '').split('#')[0])) || '';
+    return this.accountForOwner(repo.split('/')[0]);
+  }
+
   // sem conta configurada, detecta a conta ativa do gh desta maquina: cada
   // pessoa do time usa a propria autenticacao, nada viaja com o app
   async resolveAccount() {
@@ -348,34 +417,48 @@ class Engine extends EventEmitter {
     }
   }
 
-  async refreshToken() {
-    const args = ['auth', 'token'];
-    if (this.config.ghUser) args.push('--user', this.config.ghUser);
-    const r = await run('gh', args);
-    this.token = r.ok ? r.stdout.trim() : null;
-    this.tokenOk = !!this.token;
-    if (!this.tokenOk) this.log('ERROR', `gh ${args.join(' ')} falhou: ${r.stderr.trim() || 'sem saida'}`);
-    return this.tokenOk;
+  // token por conta (map login -> token), buscado on-demand do gh (nunca persistido).
+  // this.token = token da conta primaria (compat com chamadas gh sem conta).
+  async refreshTokens() {
+    this.tokens = this.tokens || {};
+    const primary = this.primaryUser();
+    let primaryOk = false;
+    for (const acc of this.accountList()) {
+      if (!acc.user) continue;
+      const r = await run('gh', ['auth', 'token', '--user', acc.user]);
+      const tok = r.ok ? r.stdout.trim() : null;
+      if (tok) this.tokens[acc.user] = tok; else delete this.tokens[acc.user];
+      if (!tok) this.log('ERROR', `gh auth token --user ${acc.user} falhou: ${r.stderr.trim() || 'sem saida'}`);
+      if (acc.user === primary) { this.token = tok; primaryOk = !!tok; }
+    }
+    this.tokenOk = primaryOk;
+    return primaryOk;
   }
 
-  ghEnv() {
+  // compat: alguns caminhos chamam refreshToken (singular)
+  async refreshToken() { return this.refreshTokens(); }
+
+  // env de child-process com o GH_TOKEN da conta pedida (default = primaria)
+  ghEnv(user) {
     const env = { ...process.env, GH_PAGER: 'cat', PAGER: 'cat', GH_PROMPT_DISABLED: '1' };
-    if (this.token) env.GH_TOKEN = this.token;
+    const tok = (user && this.tokens && this.tokens[user]) || this.token;
+    if (tok) env.GH_TOKEN = tok;
     if (this.gitBash) env.CLAUDE_CODE_GIT_BASH_PATH = this.gitBash;
     return env;
   }
 
-  async searchPRs(extraArgs) {
+  async searchPRs(extraArgs, user) {
     const args = ['search', 'prs', ...extraArgs, '--state', 'open', '--limit', '100',
       '--json', 'url,title,isDraft,author,number,repository,updatedAt'];
-    const r = await run('gh', args, { env: this.ghEnv() });
+    const r = await run('gh', args, { env: this.ghEnv(user) });
     if (!r.ok) {
-      this.log('WARN', `gh search falhou (${extraArgs.join(' ')}): ${r.stderr.trim().slice(0, 300)}`);
+      this.log('WARN', `gh search falhou (${user || 'primaria'}: ${extraArgs.join(' ')}): ${r.stderr.trim().slice(0, 300)}`);
       return null;
     }
     let items;
     try { items = JSON.parse(r.stdout || '[]'); } catch { return null; }
-    const me = (this.config.ghUser || '').toLowerCase();
+    const acc = user || this.primaryUser();
+    const me = (acc || '').toLowerCase();
     return items
       .filter(p => !p.isDraft)
       .filter(p => ((p.author && p.author.login) || '').toLowerCase() !== me)
@@ -386,20 +469,22 @@ class Engine extends EventEmitter {
         author: (p.author && p.author.login) || '',
         repo: p.repository.nameWithOwner,
         number: p.number,
-        updatedAt: p.updatedAt
+        updatedAt: p.updatedAt,
+        account: acc
       }));
   }
 
   // PRs abertos de AUTORIA minha (fonte da autoanalise). Diferente de searchPRs:
   // nao filtra a mim (obvio) e MANTEM rascunhos (autoanalisar um draft antes de
   // marcar ready e justamente o uso principal). So leitura, zero tokens de IA.
-  async myAuthoredPRs() {
-    const me = (this.config.ghUser || '').toLowerCase();
+  async myAuthoredPRs(user) {
+    const acc = user || this.primaryUser();
+    const me = (acc || '').toLowerCase();
     if (!me) return null;
     const r = await run('gh', ['search', 'prs', '--author', '@me', '--state', 'open', '--limit', '50',
-      '--json', 'url,title,isDraft,author,number,repository,updatedAt'], { env: this.ghEnv() });
+      '--json', 'url,title,isDraft,author,number,repository,updatedAt'], { env: this.ghEnv(user) });
     if (!r.ok) {
-      this.log('WARN', `gh search prs --author @me falhou: ${r.stderr.trim().slice(0, 300)}`);
+      this.log('WARN', `gh search prs --author @me (${acc}) falhou: ${r.stderr.trim().slice(0, 300)}`);
       return null;
     }
     let items;
@@ -412,7 +497,8 @@ class Engine extends EventEmitter {
       repo: p.repository.nameWithOwner,
       number: p.number,
       updatedAt: p.updatedAt,
-      isDraft: !!p.isDraft
+      isDraft: !!p.isDraft,
+      account: acc
     }));
   }
 
@@ -422,34 +508,62 @@ class Engine extends EventEmitter {
     this.setStatus('checking');
     try {
       await this.resolveAccount();
-      if (!this.token) await this.refreshToken();
+      await this.refreshTokens();
+      const accounts = this.accountList();
 
-      // painel: todos os PRs abertos das orgs monitoradas (sem alerta)
+      // painel: todos os PRs abertos das orgs monitoradas (sem alerta). Cada conta
+      // busca nas SUAS orgs com o proprio token; dedup por chave (1a conta vence).
       const seenKeys = new Set();
       const panorama = [];
       let anyOk = false;
-      for (const owner of this.config.owners) {
-        const list = await this.searchPRs(['--owner', owner]);
-        if (list === null) continue;
-        anyOk = true;
-        for (const pr of list) {
-          if (seenKeys.has(pr.key)) continue;
-          seenKeys.add(pr.key);
-          panorama.push(pr);
+      for (const acc of accounts) {
+        for (const owner of acc.owners) {
+          const list = await this.searchPRs(['--owner', owner], acc.user);
+          if (list === null) continue;
+          anyOk = true;
+          for (const pr of list) {
+            if (seenKeys.has(pr.key)) continue;
+            seenKeys.add(pr.key);
+            panorama.push(pr);
+          }
         }
       }
 
-      // alerta + fila: so os PRs onde sou o revisor pedido
-      const mine = await this.searchPRs(['--review-requested=@me']);
+      // alerta + fila: PRs onde sou o revisor pedido, em QUALQUER conta (o @me
+      // resolve por token, entao cada conta acha os seus). Dedup por chave.
+      let mine = null, mineAnyOk = false;
+      const mineMap = new Map();
+      for (const acc of accounts) {
+        const part = await this.searchPRs(['--review-requested=@me'], acc.user);
+        if (part === null) continue;
+        mineAnyOk = true;
+        for (const pr of part) if (!mineMap.has(pr.key)) mineMap.set(pr.key, pr);
+      }
+      if (mineAnyOk) mine = [...mineMap.values()];
       if (mine === null && !anyOk) throw new Error('todas as buscas gh falharam (veja o log)');
 
-      // indicador no panorama: PRs abertos que EU ja revisei (inclusive fora do
-      // Farol). Se a busca falhar, preserva o que ja se sabia do ciclo anterior.
-      const reviewed = await this.searchPRs(['--reviewed-by=@me']);
-      if (reviewed !== null) this.reviewedKeys = new Set(reviewed.map(p => p.key));
+      // indicador no panorama: PRs que EU ja revisei (qualquer conta, inclusive fora
+      // do Farol). Se todas as buscas falharem, preserva o que ja se sabia.
+      const revSet = new Set();
+      let revAnyOk = false;
+      for (const acc of accounts) {
+        const part = await this.searchPRs(['--reviewed-by=@me'], acc.user);
+        if (part === null) continue;
+        revAnyOk = true;
+        for (const pr of part) revSet.add(pr.key);
+      }
+      if (revAnyOk) this.reviewedKeys = revSet;
 
-      // meus PRs abertos (autoanalise): preserva o que se sabia se a busca falhar
-      const mineAuthored = await this.myAuthoredPRs();
+      // meus PRs abertos (autoanalise), de todas as contas. Preserva se todas falharem.
+      let mineAuthored = null, authAnyOk = false;
+      const authMap = new Map();
+      for (const acc of accounts) {
+        const part = await this.myAuthoredPRs(acc.user);
+        if (part === null) continue;
+        authAnyOk = true;
+        for (const pr of part) if (!authMap.has(pr.key)) authMap.set(pr.key, pr);
+      }
+      if (authAnyOk) mineAuthored = [...authMap.values()];
       if (mineAuthored !== null) {
         mineAuthored.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
         this.myPRs = mineAuthored;
@@ -555,11 +669,12 @@ class Engine extends EventEmitter {
   // O "open" retorna na hora (nao da pra acompanhar o processo), entao o
   // proprio script avisa o app quando termina (trap EXIT -> /api/session-exit)
   // e se apaga. O GH_TOKEN e obtido DENTRO do script (nada de token em disco).
-  buildSessionScriptMac(slash, id) {
+  buildSessionScriptMac(slash, id, user) {
     const stub = process.env.FAROL_REVIEW_CMD;
     const skip = this.config.skipPermissions ? ' --dangerously-skip-permissions' : '';
     const claudeLine = stub ? `${stub} '${slash}'` : `claude${skip} '${slash}'`;
-    const userArg = this.config.ghUser ? ` --user '${this.config.ghUser}'` : '';
+    const acc = user || this.primaryUser();
+    const userArg = acc ? ` --user '${acc}'` : '';
     return [
       '#!/bin/bash',
       '# Farol: sessao interativa do Claude. Este arquivo se apaga ao terminar.',
@@ -578,12 +693,12 @@ class Engine extends EventEmitter {
     ].join('\n') + '\n';
   }
 
-  spawnConsoleMac(slash, label, keys = []) {
+  spawnConsoleMac(slash, label, keys = [], account) {
     const sessionsDir = path.join(HOME, 'sessions');
     ensureDir(sessionsDir);
     const id = `t${++this.sessionSeq}`;
     const script = path.join(sessionsDir, `sessao-${Date.now()}.command`);
-    fs.writeFileSync(script, this.buildSessionScriptMac(slash, id), { mode: 0o755 });
+    fs.writeFileSync(script, this.buildSessionScriptMac(slash, id, account), { mode: 0o755 });
     this.activeReviews.set(id, { id, keys, label, mode: 'terminal', startedAt: Date.now() });
     const child = spawn('open', ['-a', 'Terminal', script], { stdio: 'ignore' });
     child.on('error', (err) => {
@@ -607,8 +722,8 @@ class Engine extends EventEmitter {
     return { ok: true };
   }
 
-  spawnConsole(slash, label, keys = []) {
-    if (!IS_WIN) return this.spawnConsoleMac(slash, label, keys);
+  spawnConsole(slash, label, keys = [], account) {
+    if (!IS_WIN) return this.spawnConsoleMac(slash, label, keys, account);
     const sessionsDir = path.join(HOME, 'sessions');
     ensureDir(sessionsDir);
     const script = path.join(sessionsDir, `sessao-${Date.now()}.cmd`);
@@ -618,9 +733,11 @@ class Engine extends EventEmitter {
     // sem "detached": DETACHED_PROCESS + CREATE_NO_WINDOW sao flags de console
     // incompativeis e o powershell morre na hora. O console do claude nasce via
     // ShellExecute (Start-Process) e nao depende deste wrapper para viver.
+    // o GH_TOKEN vem do env do wrapper (a sessao Windows herda), por isso o token
+    // da conta certa e injetado aqui.
     const child = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', ps], {
       cwd: WORKSPACE,
-      env: this.ghEnv(),
+      env: this.ghEnv(account),
       stdio: 'ignore',
       windowsHide: true
     });
@@ -653,21 +770,22 @@ class Engine extends EventEmitter {
 
   async launchReview(urls, mode = 'auto') {
     if (!urls || !urls.length) return { ok: false, error: 'sem PRs para revisar' };
-    if (!this.token) await this.refreshToken();
+    if (!this.token) await this.refreshTokens();
     if (!this.tokenOk) {
-      this.emit('toast', { kind: 'error', text: `Conta ${this.config.ghUser || '(nenhuma)'} não autenticada no gh. Rode: gh auth login` });
+      this.emit('toast', { kind: 'error', text: `Conta ${this.primaryUser() || '(nenhuma)'} não autenticada no gh. Rode: gh auth login` });
       return { ok: false, error: 'gh sem token' };
     }
     // requested = o PR pediu a MINHA revisão (fila). Revisão iniciada por clique
     // no panorama (ou por URL avulsa) nunca posta nada sozinha: sempre passa
-    // pela seção "Precisa de você".
+    // pela seção "Precisa de você". Cada item carrega a conta dona (accountForPr
+    // deduz pela org quando veio de URL avulsa) pro token certo em todo o fluxo.
     const items = urls.map(u => {
       const q = this.queue.find(p => p.url === u);
-      if (q) return { ...q, requested: true };
+      if (q) return { ...q, account: this.accountForPr(q), requested: true };
       const pano = this.panorama.find(p => p.url === u);
-      if (pano) return { ...pano, requested: !!pano.mine };
+      if (pano) return { ...pano, account: this.accountForPr(pano), requested: !!pano.mine };
       const pr = this.prFromUrl(u);
-      return pr ? { ...pr, requested: false } : null;
+      return pr ? { ...pr, account: this.accountForPr(pr), requested: false } : null;
     }).filter(Boolean);
     for (const it of items) this.markSeen(it.key);
     this.queue = this.queue.filter(p => !urls.includes(p.url));
@@ -676,7 +794,9 @@ class Engine extends EventEmitter {
     if (mode === 'terminal') {
       const keys = items.map(p => p.key);
       const label = keys.length === 1 ? `Revisão de ${keys[0]}` : `Revisão de ${urls.length} PRs`;
-      this.spawnConsole(`/pr-review ${urls.join(' ')}`, label, keys);
+      // a sessao no terminal usa 1 token; pega a conta do 1o PR (lotes costumam
+      // ser da mesma conta). Mistura de contas num mesmo terminal recai na 1a.
+      this.spawnConsole(`/pr-review ${urls.join(' ')}`, label, keys, this.accountForPr(items[0]));
       this.emit('toast', { kind: 'ok', text: `${label} aberta no terminal do Claude.` });
       return { ok: true, mode };
     }
@@ -828,10 +948,11 @@ class Engine extends EventEmitter {
     const cmdline = extra ? `${base} ${extra}` : base;
     const onEvent = opts.onEvent || (() => { });
     return new Promise((resolve, reject) => {
+      const env = this.ghEnv(opts.account);
       const child = IS_WIN
         ? spawn('cmd.exe', ['/d', '/s', '/c', `"${cmdline}"`], {
           cwd: WORKSPACE,
-          env: this.ghEnv(),
+          env,
           stdio: ['pipe', 'pipe', 'pipe'],
           windowsHide: true,
           windowsVerbatimArguments: true
@@ -839,7 +960,7 @@ class Engine extends EventEmitter {
         // -l pra carregar o PATH do perfil; detached = grupo próprio (killTree)
         : spawn('/bin/sh', ['-lc', cmdline], {
           cwd: WORKSPACE,
-          env: this.ghEnv(),
+          env,
           stdio: ['pipe', 'pipe', 'pipe'],
           detached: true
         });
@@ -961,6 +1082,7 @@ class Engine extends EventEmitter {
     try {
       const res = await this.runClaudeStream(this.headlessPromptFor(pr.url), {
         id,
+        account: this.accountForPr(pr),
         onModel: (m) => this.setSessionModel(id, m),
         onEvent: (e) => this.pushActivity(id, e.kind, e.text)
       });
@@ -1013,13 +1135,14 @@ class Engine extends EventEmitter {
   async reviewerCandidates() {
     const TTL = 60 * 60 * 1000;
     if (this.reviewerCands && (Date.now() - this.reviewerCands.at) < TTL) return this.reviewerCands.data;
-    if (!this.token) await this.refreshToken();
+    if (!this.token) await this.refreshTokens();
     const members = new Set(), teams = new Map(); // teams: id "owner/slug" -> nome amigavel
-    for (const owner of (this.config.owners || [])) {
-      const rm = await run('gh', ['api', `orgs/${owner}/members`, '--paginate', '--jq', '.[].login'], { env: this.ghEnv() });
+    for (const owner of this.allOwners()) {
+      const env = this.ghEnv(this.accountForOwner(owner));
+      const rm = await run('gh', ['api', `orgs/${owner}/members`, '--paginate', '--jq', '.[].login'], { env });
       if (rm.ok) rm.stdout.split(/\r?\n/).map(s => s.trim()).filter(Boolean).forEach(l => members.add(l));
       // slug (id que o gh --add-reviewer usa) + nome (pra exibir); \t separa
-      const rt = await run('gh', ['api', `orgs/${owner}/teams`, '--paginate', '--jq', '.[] | .slug + "\\t" + .name'], { env: this.ghEnv() });
+      const rt = await run('gh', ['api', `orgs/${owner}/teams`, '--paginate', '--jq', '.[] | .slug + "\\t" + .name'], { env });
       if (rt.ok) rt.stdout.split(/\r?\n/).filter(Boolean).forEach(line => {
         const i = line.indexOf('\t'); const slug = (i < 0 ? line : line.slice(0, i)).trim();
         const name = (i < 0 ? slug : line.slice(i + 1)).trim();
@@ -1041,16 +1164,19 @@ class Engine extends EventEmitter {
   // config.projectReviewers, sem confirmacao. Aceita pessoas e times (org/time).
   async setReviewers(url) {
     if (!url) return { ok: false, error: 'sem PR' };
-    if (!this.token) await this.refreshToken();
-    if (!this.tokenOk) {
-      this.emit('toast', { kind: 'error', text: `Conta ${this.config.ghUser || '(nenhuma)'} não autenticada no gh. Rode: gh auth login` });
-      return { ok: false, error: 'gh sem token' };
-    }
-    const me = (this.config.ghUser || '').toLowerCase();
+    if (!this.token) await this.refreshTokens();
     const m = String(url).match(/github\.com\/([^\/]+\/[^\/]+)\/pull\/(\d+)/i);
     if (!m) return { ok: false, error: 'não reconheci a URL do PR' };
     const repo = m[1];
     const key = `${repo}#${m[2]}`;
+    // conta dona deste PR (pela org do repo): token e assignee corretos
+    const acc = this.accountForOwner(repo.split('/')[0]);
+    const env = this.ghEnv(acc);
+    if (!acc || !(this.tokens && this.tokens[acc]) && !this.token) {
+      this.emit('toast', { kind: 'error', text: `Conta ${acc || '(nenhuma)'} não autenticada no gh. Rode: gh auth login` });
+      return { ok: false, error: 'gh sem token' };
+    }
+    const me = (acc || '').toLowerCase();
     const cfg = this.config.projectReviewers || {};
     const raw = cfg[repo] || cfg[repo.toLowerCase()] || [];
     // nao da pra pedir review de si mesmo; o autor entra como assignee, nao reviewer
@@ -1060,7 +1186,7 @@ class Engine extends EventEmitter {
       return { ok: false, error: 'sem reviewers configurados' };
     }
     // 1) me atribui
-    const asg = await run('gh', ['pr', 'edit', url, '--add-assignee', this.config.ghUser], { env: this.ghEnv() });
+    const asg = await run('gh', ['pr', 'edit', url, '--add-assignee', acc], { env });
     if (!asg.ok) this.log('WARN', `não consegui me atribuir em ${key}: ${asg.stderr.trim().slice(0, 200)}`);
     // 2) peço review de CADA UM individualmente. O --add-reviewer (e a API de
     //    requested_reviewers atras) e all-or-nothing: um handle invalido (typo,
@@ -1075,7 +1201,7 @@ class Engine extends EventEmitter {
         skipped.push(person);
         continue;
       }
-      const rv = await run('gh', ['pr', 'edit', url, '--add-reviewer', person], { env: this.ghEnv() });
+      const rv = await run('gh', ['pr', 'edit', url, '--add-reviewer', person], { env });
       if (rv.ok) okd.push(person);
       else { failed.push(person); this.log('WARN', `reviewer ${person} em ${key}: ${(rv.stderr || rv.stdout || '').trim().slice(0, 150)}`); }
     }
@@ -1108,7 +1234,8 @@ class Engine extends EventEmitter {
   // BLOCKED = protecao exige requisitos (auto/admin); DIRTY = conflito; BEHIND =
   // atras da base; DRAFT = rascunho. Devolve null se nao deu pra ler.
   async fetchMergeState(url) {
-    const r = await run('gh', ['pr', 'view', url, '--json', 'mergeable,mergeStateStatus,isDraft,state'], { env: this.ghEnv() });
+    const m = String(url).match(/github\.com\/([^/]+)\//i);
+    const r = await run('gh', ['pr', 'view', url, '--json', 'mergeable,mergeStateStatus,isDraft,state'], { env: this.ghEnv(this.accountForOwner(m && m[1])) });
     if (!r.ok) return null;
     try {
       const j = JSON.parse(r.stdout || '{}');
@@ -1130,7 +1257,7 @@ class Engine extends EventEmitter {
     // fresco tambem cobre retarget da base sem depender de TTL.
     let pruned = false;
     for (const pr of (this.myPRs || [])) {
-      const r = await run('gh', ['pr', 'view', pr.url, '--json', 'headRefName,baseRefName,headRefOid'], { env: this.ghEnv() });
+      const r = await run('gh', ['pr', 'view', pr.url, '--json', 'headRefName,baseRefName,headRefOid'], { env: this.ghEnv(this.accountForPr(pr)) });
       if (!r.ok) continue;
       let j; try { j = JSON.parse(r.stdout || '{}'); } catch { continue; }
       pr.head = j.headRefName || ''; pr.base = j.baseRefName || ''; pr.headSha = j.headRefOid || '';
@@ -1148,7 +1275,7 @@ class Engine extends EventEmitter {
   // O repo tem "Allow auto-merge" ligado? Sem isso, o botao Auto-merge nao adianta
   // (o gh recusa com enablePullRequestAutoMerge). null = nao deu pra saber.
   async fetchAutoMergeAllowed(repo) {
-    const r = await run('gh', ['api', `repos/${repo}`, '--jq', '.allow_auto_merge'], { env: this.ghEnv() });
+    const r = await run('gh', ['api', `repos/${repo}`, '--jq', '.allow_auto_merge'], { env: this.ghEnv(this.accountForOwner(String(repo).split('/')[0])) });
     if (!r.ok) return null;
     return String(r.stdout).trim() === 'true';
   }
@@ -1161,7 +1288,7 @@ class Engine extends EventEmitter {
     const cacheKey = `${repo}@${base}`;
     const c = this.ruleBlockCache[cacheKey];
     if (c && (Date.now() - c.at) < 30 * 60 * 1000) return c.blocked;
-    const r = await run('gh', ['api', `repos/${repo}/rules/branches/${base}`, '--jq', '[.[].type]'], { env: this.ghEnv() });
+    const r = await run('gh', ['api', `repos/${repo}/rules/branches/${base}`, '--jq', '[.[].type]'], { env: this.ghEnv(this.accountForOwner(String(repo).split('/')[0])) });
     if (!r.ok) return null;
     let blocked = null;
     try {
@@ -1213,19 +1340,21 @@ class Engine extends EventEmitter {
   async mergeSelfPR(url, opts = {}) {
     const mode = opts.mode === 'auto' ? 'auto' : opts.mode === 'admin' ? 'admin' : 'normal';
     if (!url) return { ok: false, error: 'sem PR para mergear' };
-    if (!this.token) await this.refreshToken();
-    if (!this.tokenOk) {
-      this.emit('toast', { kind: 'error', text: `Conta ${this.config.ghUser || '(nenhuma)'} não autenticada no gh. Rode: gh auth login` });
-      return { ok: false, error: 'gh sem token' };
-    }
-    const me = (this.config.ghUser || '').toLowerCase();
-    if (!me) return { ok: false, error: 'conta do GitHub não configurada' };
-
+    if (!this.token) await this.refreshTokens();
     const m = String(url).match(/github\.com\/([^\/]+\/[^\/]+)\/pull\/(\d+)/i);
     if (!m) return { ok: false, error: 'não reconheci a URL do PR' };
     const repo = m[1];
     const number = parseInt(m[2], 10);
     const key = `${repo}#${number}`;
+    // conta dona deste PR (pela org): token e identidade de autor corretos
+    const acc = this.accountForOwner(repo.split('/')[0]);
+    const env = this.ghEnv(acc);
+    const me = (acc || '').toLowerCase();
+    if (!me) return { ok: false, error: 'conta do GitHub não configurada' };
+    if (!(this.tokens && this.tokens[acc]) && !this.token) {
+      this.emit('toast', { kind: 'error', text: `Conta ${acc || '(nenhuma)'} não autenticada no gh. Rode: gh auth login` });
+      return { ok: false, error: 'gh sem token' };
+    }
 
     // gate 1: so mergeia o que a MINHA autoanalise marcou como aprovavel
     const analysis = this.selfAnalyses[key];
@@ -1242,7 +1371,7 @@ class Engine extends EventEmitter {
 
     // estado FRESCO do PR (nunca decidir por dado velho da tela)
     const info = await run('gh', ['pr', 'view', url, '--json',
-      'state,isDraft,mergeable,author,headRefName,baseRefName,title'], { env: this.ghEnv() });
+      'state,isDraft,mergeable,author,headRefName,baseRefName,title'], { env });
     if (!info.ok) {
       const msg = (info.stderr || info.stdout || 'erro').trim().slice(0, 200);
       return { ok: false, error: `não consegui ler o PR: ${msg}` };
@@ -1260,7 +1389,7 @@ class Engine extends EventEmitter {
     if (pr.mergeable === 'CONFLICTING') return { ok: false, error: 'o PR tem conflito com a branch de destino; resolva antes de mergear.' };
 
     // 1) garantir que estou atribuido; se nao estiver, atribui
-    const asg = await run('gh', ['pr', 'edit', url, '--add-assignee', this.config.ghUser], { env: this.ghEnv() });
+    const asg = await run('gh', ['pr', 'edit', url, '--add-assignee', acc], { env });
     if (!asg.ok) this.log('WARN', `não consegui me atribuir em ${key}: ${asg.stderr.trim().slice(0, 200)}`);
 
     // 2) merge commit (coerente com o fluxo, sem squash/rebase); deleta a branch
@@ -1270,7 +1399,7 @@ class Engine extends EventEmitter {
     if (mode === 'auto') args.push('--auto');
     if (mode === 'admin') args.push('--admin');
     if (canDelete) args.push('--delete-branch');
-    const mg = await run('gh', args, { env: this.ghEnv() });
+    const mg = await run('gh', args, { env });
     if (!mg.ok) {
       const raw = (mg.stderr || mg.stdout || 'erro desconhecido').trim().slice(0, 300);
       // Condicoes CONHECIDAS e ja tratadas pelo UI: nao sao bug do Farol, ficam WARN
@@ -1349,14 +1478,14 @@ class Engine extends EventEmitter {
 
   async launchSelfAnalysis(url) {
     if (!url) return { ok: false, error: 'sem PR para analisar' };
-    if (!this.token) await this.refreshToken();
+    if (!this.token) await this.refreshTokens();
     if (!this.tokenOk) {
-      this.emit('toast', { kind: 'error', text: `Conta ${this.config.ghUser || '(nenhuma)'} não autenticada no gh. Rode: gh auth login` });
+      this.emit('toast', { kind: 'error', text: `Conta ${this.primaryUser() || '(nenhuma)'} não autenticada no gh. Rode: gh auth login` });
       return { ok: false, error: 'gh sem token' };
     }
     const found = this.myPRs.find(p => p.url === url) || this.prFromUrl(url);
     if (!found) return { ok: false, error: 'não reconheci esse PR' };
-    const pr = { ...found, kind: 'self' };
+    const pr = { ...found, account: this.accountForPr(found), kind: 'self' };
     // ja tem uma autoanalise deste PR rodando ou na fila? nao duplica
     const busy = [...this.activeReviews.values()].some(s => s.mode === 'self' && (s.keys || []).includes(pr.key)) ||
       this.headlessQueue.some(p => p.kind === 'self' && p.key === pr.key);
@@ -1380,13 +1509,14 @@ class Engine extends EventEmitter {
     try {
       const res = await this.runClaudeStream(this.selfPromptFor(pr.url), {
         id,
+        account: this.accountForPr(pr),
         onModel: (m) => this.setSessionModel(id, m),
         onEvent: (e) => this.pushActivity(id, e.kind, e.text)
       });
       const result = this.parseSelfResult(res.text);
       // SHA do commit analisado: se o head mudar depois, a analise vira stale e
       // e descartada no proximo ciclo (enrichMyPRBranches), voltando pra "nao analisado".
-      const shaR = await run('gh', ['pr', 'view', pr.url, '--json', 'headRefOid', '--jq', '.headRefOid'], { env: this.ghEnv() });
+      const shaR = await run('gh', ['pr', 'view', pr.url, '--json', 'headRefOid', '--jq', '.headRefOid'], { env: this.ghEnv(this.accountForPr(pr)) });
       const headSha = shaR.ok ? shaR.stdout.trim() : (pr.headSha || null);
       this.selfAnalyses[pr.key] = {
         key: pr.key,
@@ -1484,22 +1614,24 @@ class Engine extends EventEmitter {
   async myReviewStates(pr) {
     const repo = pr.repo || (pr.key || '').split('#')[0];
     const number = pr.number || parseInt((pr.key || '').split('#')[1], 10);
-    const me = (this.config.ghUser || '').toLowerCase();
+    const acc = this.accountForPr(pr);
+    const me = (acc || '').toLowerCase();
     if (!repo || !number || !me) return null;
     const r = await run('gh', ['api', `repos/${repo}/pulls/${number}/reviews`,
-      '--jq', `[.[] | select((.user.login | ascii_downcase) == "${me}") | .state]`], { env: this.ghEnv() });
+      '--jq', `[.[] | select((.user.login | ascii_downcase) == "${me}") | .state]`], { env: this.ghEnv(acc) });
     if (!r.ok) return null;
     try { return JSON.parse(r.stdout || '[]'); } catch { return null; }
   }
 
   async postReview(pr, payload) {
     try {
-      if (!this.token) await this.refreshToken();
+      if (!this.token) await this.refreshTokens();
+      const acc = this.accountForPr(pr);
       const file = path.join(STATE_DIR, 'pr-review-payload.json');
       fs.writeFileSync(file, JSON.stringify(payload, null, 2));
       const repo = pr.repo || (pr.key || '').split('#')[0];
       const number = pr.number || parseInt((pr.key || '').split('#')[1], 10);
-      let r = await run('gh', ['api', `repos/${repo}/pulls/${number}/reviews`, '--input', file], { env: this.ghEnv() });
+      let r = await run('gh', ['api', `repos/${repo}/pulls/${number}/reviews`, '--input', file], { env: this.ghEnv(acc) });
       if (!r.ok && /line could not be resolved|422/i.test(r.stderr) && (payload.comments || []).length) {
         // ancora inline invalida: recua os pontos pro corpo e tenta de novo
         const fallback = {
@@ -1509,7 +1641,7 @@ class Engine extends EventEmitter {
           comments: []
         };
         fs.writeFileSync(file, JSON.stringify(fallback, null, 2));
-        r = await run('gh', ['api', `repos/${repo}/pulls/${number}/reviews`, '--input', file], { env: this.ghEnv() });
+        r = await run('gh', ['api', `repos/${repo}/pulls/${number}/reviews`, '--input', file], { env: this.ghEnv(acc) });
       }
       if (!r.ok) {
         const msg = (r.stderr || r.stdout || 'erro desconhecido').trim().slice(0, 300);
@@ -1960,7 +2092,8 @@ class Engine extends EventEmitter {
   // --- diagnostico de pre-requisitos ---
   async doctor() {
     const tokenArgs = ['auth', 'token'];
-    if (this.config.ghUser) tokenArgs.push('--user', this.config.ghUser);
+    const primary = this.primaryUser();
+    if (primary) tokenArgs.push('--user', primary);
     const [gh, claude, auth] = await Promise.all([
       run('gh', ['--version']),
       runShell('claude --version'),
@@ -1982,7 +2115,7 @@ class Engine extends EventEmitter {
   }
 
   updateSettings(patch) {
-    const allowed = ['ghUser', 'owners', 'intervalSeconds', 'autoReview', 'skipPermissions',
+    const allowed = ['ghUser', 'owners', 'accounts', 'intervalSeconds', 'autoReview', 'skipPermissions',
       'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos',
       'projectReviewers'];
     let intervalChanged = false, userChanged = false;
@@ -1993,11 +2126,12 @@ class Engine extends EventEmitter {
       if (k === 'owners') v = Array.isArray(v) ? v.map(s => String(s).trim()).filter(Boolean) : String(v).split(/[,;\s]+/).filter(Boolean);
       if (k === 'mergeBlockedRepos') v = Array.isArray(v) ? v.map(s => String(s).trim()).filter(Boolean) : String(v).split(/[,;\s]+/).filter(Boolean);
       if (k === 'projectReviewers') v = parseProjectReviewers(v);
-      if (k === 'ghUser') { v = String(v).trim(); userChanged = v !== this.config.ghUser; }
+      if (k === 'accounts') { v = parseAccounts(v); userChanged = true; }
+      if (k === 'ghUser') { v = String(v).trim(); userChanged = userChanged || v !== this.config.ghUser; }
       this.config[k] = v;
     }
     this.saveConfig();
-    if (userChanged) { this.token = null; this.tokenOk = false; }
+    if (userChanged) { this.token = null; this.tokenOk = false; this.tokens = {}; }
     if (intervalChanged || userChanged) this.checkNow();
     this.emit('settings-changed', this.config);
     this.pushState();
@@ -2008,7 +2142,10 @@ class Engine extends EventEmitter {
       app: { name: APP_NAME, version: APP_VERSION, platform: process.platform },
       status: this.status,
       error: this.lastError,
-      account: { user: this.config.ghUser, tokenOk: this.tokenOk },
+      account: { user: this.primaryUser(), tokenOk: this.tokenOk },
+      accounts: this.accountList().map(a => ({
+        user: a.user, owners: a.owners, tokenOk: !!(this.tokens && this.tokens[a.user])
+      })),
       config: { ...this.config },
       lastCheckAt: this.lastCheckAt,
       nextCheckAt: this.nextCheckAt,
@@ -2226,7 +2363,7 @@ function start(onReady) {
   return { engine, server, port: engine.config.port };
 }
 
-module.exports = { start, HOME, WORKSPACE, Engine, modelLabel, isPermanentBranch, parseProjectReviewers };
+module.exports = { start, HOME, WORKSPACE, Engine, modelLabel, isPermanentBranch, parseProjectReviewers, parseAccounts };
 
 // execucao direta: modo servidor (fallback sem Electron, ou desenvolvimento)
 if (require.main === module) {
