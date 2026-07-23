@@ -1,11 +1,11 @@
-# Farol: publica uma release no GitHub (biudtech/farol) pras copias instaladas
+# Farol: publica uma release no GitHub (wandersonaadsantos/farol) pras copias instaladas
 # se atualizarem sozinhas. Sobe DOIS artefatos:
 #   - farol-vX.Y.Z.zip     (leve, sem node_modules): e o que o UPDATE baixa.
 #   - Farol-Setup-vX.Y.Z.exe (Electron embutido): PRIMEIRA instalacao, arquivo unico
 #     (duplo clique instala e abre, sem extrair zip).
 # O instalador offline do macOS (.command) deve ser gerado num Mac
 # (tools/make-offline-mac.sh) e anexado com:
-#   gh release upload vX.Y.Z dist/Farol-Instalar-mac.command --repo biudtech/farol
+#   gh release upload vX.Y.Z dist/Farol-Instalar-mac.command --repo wandersonaadsantos/farol
 #
 # Pre-req: o codigo desta versao ja commitado e no repo (git push), pra a tag
 # apontar pro codigo certo. Requer gh autenticado com acesso ao repo.
@@ -14,7 +14,7 @@ $ErrorActionPreference = 'Stop'
 $Src = Split-Path -Parent $PSScriptRoot
 $pkg = Get-Content (Join-Path $Src 'package.json') -Raw | ConvertFrom-Json
 $version = $pkg.version
-$repo = 'biudtech/farol'
+$repo = 'wandersonaadsantos/farol'
 $tag = "v$version"
 
 Write-Host ''

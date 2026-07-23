@@ -94,7 +94,7 @@ const DEFAULTS = {
   // canal de update remoto pras copias distribuidas: releases do GitHub, lidas
   // pelo gh que todo usuario ja tem. So vale quando NAO ha fonte local (a pasta
   // ~/Documents/farol tem precedencia, pro fluxo de dev do mantenedor).
-  updateRepo: 'biudtech/farol',
+  updateRepo: 'wandersonaadsantos/farol',
   port: 47170,
   // repos onde o botao Merge (Meus PRs) fica desativado, respeitando regras de
   // review do time (ex.: nunca self-merge no biud-frontend). Editavel em Sistema.
