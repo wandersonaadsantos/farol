@@ -1222,9 +1222,13 @@ class Engine extends EventEmitter {
     const TTL = 60 * 60 * 1000;
     if (this.reviewerCands && (Date.now() - this.reviewerCands.at) < TTL) return this.reviewerCands.data;
     if (!this.token) await this.refreshTokens();
-    const members = new Set(), teams = new Map(); // teams: id "owner/slug" -> nome amigavel
+    // POR ORGANIZAÇÃO: cada org lista só os SEUS membros e times, pra o seletor de
+    // reviewers de um projeto não oferecer gente de outra org (não faz sentido pedir
+    // review de quem não faz parte daquela org). Formato: { org: { members, teams } }.
+    const byOrg = {};
     for (const owner of this.allOwners()) {
       const env = this.ghEnv(this.accountForOwner(owner));
+      const members = new Set(), teams = new Map();
       const rm = await run('gh', ['api', `orgs/${owner}/members`, '--paginate', '--jq', '.[].login'], { env });
       if (rm.ok) rm.stdout.split(/\r?\n/).map(s => s.trim()).filter(Boolean).forEach(l => members.add(l));
       // slug (id que o gh --add-reviewer usa) + nome (pra exibir); \t separa
@@ -1236,13 +1240,13 @@ class Engine extends EventEmitter {
         // de PR (o GitHub recusa com "not a collaborator"), entao nao entram no seletor.
         if (slug && !slug.includes(':')) teams.set(`${owner}/${slug}`, name || slug);
       });
+      byOrg[owner] = {
+        members: [...members].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())),
+        teams: [...teams.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+      };
     }
-    const data = {
-      members: [...members].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())),
-      teams: [...teams.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
-    };
-    this.reviewerCands = { at: Date.now(), data };
-    return data;
+    this.reviewerCands = { at: Date.now(), data: byOrg };
+    return byOrg;
   }
 
   // --- setar reviewers de um PR meu num clique (Meus PRs) --------------------

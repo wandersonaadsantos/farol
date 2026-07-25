@@ -1097,6 +1097,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.6.1', ['O seletor de reviewers agora lista só quem faz parte daquela organização: antes, ao configurar os reviewers de um projeto, o dropdown misturava as pessoas de todas as orgs monitoradas (na conta pessoal aparecia gente do trabalho, o que não fazia sentido). Cada org passa a oferecer só os próprios membros e times. Org sem membros enumeráveis vira um campo pra digitar o handle na mão.']],
   ['2.6.0', ['Destaques e Time separados por conta: quando você monitora mais de uma conta do GitHub, cada aba agrupa por conta (com a barra de contas de volta pra filtrar), em vez de misturar trabalho e pessoal no mesmo balaio. A partir desta versão a memória do time guarda a org de cada review pra atribuir a conta; registros antigos (sem essa marca) aparecem num grupo "Geral" até o autor ser re-revisado.']],
   ['2.5.0', ['Reviewers por projeto reinventado, o fim da repetição: agora você define um grupo padrão por organização (aplicado a TODOS os repos dela no botão Reviewers), e só os projetos que fogem do padrão aparecem, como um diff enxuto ("padrão − fulano" / "padrão + ciclano"). Os demais colapsam numa linha só. Quem já tinha listas repetidas ganha um botão "Criar padrão" que detecta o grupo comum e recolhe tudo num clique. E o botão "👥 Reviewers" passa a funcionar em qualquer repo da org, mesmo sem config própria, usando o padrão.']],
   ['2.4.2', ['A barra de contas agora aparece só no Radar, onde ela realmente filtra. Nas abas Sistema, Time e Destaques ela sumiu (lá trocar de conta não mudava nada e só confundia): Sistema é global, e Time/Destaques são memória do time.']],
@@ -1128,7 +1129,7 @@ function renderReleaseNotes() {
 }
 
 /* ---------- editor de reviewers: padrão por org + exceções por repo ---------- */
-let reviewerCands = { members: [], teams: [] };
+let reviewerCands = {}; // { org: { members, teams } } (candidatos POR organização)
 let reviewerCandsLoaded = false;
 const openExceptions = new Set(); // repos (owner/repo) com o editor de exceção aberto
 const foldedOpen = new Set();     // orgs com a lista "seguem o padrão" expandida
@@ -1137,7 +1138,7 @@ const pendingExc = new Set();     // repos novos sendo criados como exceção
 async function loadReviewerCands(force) {
   if (reviewerCandsLoaded && !force) return;
   const r = await get('/api/reviewer-candidates');
-  if (r) { reviewerCands = { members: r.members || [], teams: r.teams || [] }; reviewerCandsLoaded = true; }
+  if (r) { reviewerCands = r; reviewerCandsLoaded = true; }
   renderReviewersEditor();
 }
 
@@ -1160,7 +1161,7 @@ function reviewerLabel(rv) {
   const isTeam = rv.includes('/');
   const ent = isTeam && rv.split('/').slice(1).join('/').includes(':');
   if (ent) return { label: `${rv.split('/').pop()} (enterprise, não pedível)`, cls: 'bad', ent: true };
-  if (isTeam) { const t = reviewerCands.teams.find(t => t.id === rv); return { label: (t ? t.name : rv.split('/').pop()) + ' (time)', cls: 'team' }; }
+  if (isTeam) { const org = rv.split('/')[0]; const t = ((reviewerCands[org] || {}).teams || []).find(t => t.id === rv); return { label: (t ? t.name : rv.split('/').pop()) + ' (time)', cls: 'team' }; }
   return { label: rv, cls: '' };
 }
 function repoShort(repo) { return repo.split('/').slice(1).join('/') || repo; }
@@ -1186,14 +1187,20 @@ function chipHtml(rv, xClass, dataAttrs) {
   const r = reviewerLabel(rv);
   return `<span class="rev-chip${r.cls ? ' ' + r.cls : ''}" ${r.ent ? 'title="Time enterprise não pode ser reviewer de PR (o GitHub recusa). Remova daqui."' : ''}>${esc(r.label)}<button class="${xClass}" ${dataAttrs} title="remover">×</button></span>`;
 }
-function addSelect(cls, dataAttrs, list) {
-  const me = ((STATE.config || {}).ghUser || '').toLowerCase();
+// seletor de adicionar reviewer, SÓ com os candidatos da org. Quando a org não
+// tem membros enumeráveis (ex.: conta pessoal, namespace sem org no GitHub), cai
+// num campo pra digitar o handle na mão (Enter adiciona).
+function addControl(cls, dataAttrs, list, org) {
+  const c = reviewerCands[org] || { members: [], teams: [] };
+  const me = (OWNER2USER[String(org || '').toLowerCase()] || (STATE.config || {}).ghUser || '').toLowerCase();
   const has = v => (list || []).some(l => l.toLowerCase() === String(v).toLowerCase());
+  if (!reviewerCandsLoaded) return `<select class="rev-add ${cls}" ${dataAttrs}><option value="">carregando…</option></select>`;
+  if (!c.members.length && !c.teams.length) return `<input class="rev-add rev-manual ${cls}" ${dataAttrs} placeholder="+ digite um handle e Enter…" spellcheck="false">`;
   const opts = [
-    ...reviewerCands.members.filter(x => x.toLowerCase() !== me && !has(x)).map(x => `<option value="${esc(x)}">${esc(x)}</option>`),
-    ...reviewerCands.teams.filter(t => !has(t.id)).map(t => `<option value="${esc(t.id)}">${esc(t.name)} (time)</option>`)
+    ...c.members.filter(x => x.toLowerCase() !== me && !has(x)).map(x => `<option value="${esc(x)}">${esc(x)}</option>`),
+    ...c.teams.filter(t => !has(t.id)).map(t => `<option value="${esc(t.id)}">${esc(t.name)} (time)</option>`)
   ].join('');
-  return `<select class="rev-add ${cls}" ${dataAttrs}><option value="">${reviewerCandsLoaded ? '+ adicionar…' : 'carregando…'}</option>${opts}</select>`;
+  return `<select class="rev-add ${cls}" ${dataAttrs}><option value="">+ adicionar…</option>${opts}</select>`;
 }
 
 /* ---- persistência otimista ---- */
@@ -1248,7 +1255,7 @@ function renderOrgBlock(org, accent) {
     const chips = def.map(rv => chipHtml(rv, 'rev-def-x', `data-org="${esc(org)}" data-rv="${esc(rv)}"`)).join('');
     defCard = `<div class="rev-default">
       <div class="rev-default-top"><span class="t">Reviewers padrão</span><span class="scope">${esc(org)}</span></div>
-      <div class="rev-chips">${chips}${addSelect('rev-def-add', `data-org="${esc(org)}"`, def)}</div>
+      <div class="rev-chips">${chips}${addControl('rev-def-add', `data-org="${esc(org)}"`, def, org)}</div>
       <div class="rev-hint">Aplicado a todos os projetos de <code>${esc(org)}</code> quando você clica em "👥 Reviewers", salvo as exceções abaixo.</div>
     </div>`;
   } else {
@@ -1260,7 +1267,7 @@ function renderOrgBlock(org, accent) {
         ? `<div class="rev-hint">Detectei ${sug.length} reviewers comuns nos seus projetos de ${esc(org)}. Vira o padrão num clique, e os projetos iguais colapsam:</div>
            <div class="rev-chips">${sugChips}</div>
            <button class="btn sm ok rev-make-default" data-org="${esc(org)}">Criar padrão com estes ${sug.length}</button>`
-        : `<div class="rev-chips">${addSelect('rev-def-add', `data-org="${esc(org)}"`, [])}</div>
+        : `<div class="rev-chips">${addControl('rev-def-add', `data-org="${esc(org)}"`, [], org)}</div>
            <div class="rev-hint">Escolha os reviewers padrão de <code>${esc(org)}</code>.</div>`}
     </div>`;
   }
@@ -1274,7 +1281,7 @@ function renderOrgBlock(org, accent) {
         <div class="rev-exc-head"><code>${esc(repoShort(repo))}</code>
           <button class="rev-exc-reset" data-repo="${esc(repo)}" title="remover a exceção e voltar ao padrão da org">voltar ao padrão</button>
           <button class="rev-exc-toggle" data-repo="${esc(repo)}">fechar</button></div>
-        <div class="rev-chips">${chips || '<span class="rev-empty">sem reviewers</span>'}${addSelect('rev-exc-add', `data-repo="${esc(repo)}"`, list)}</div>
+        <div class="rev-chips">${chips || '<span class="rev-empty">sem reviewers</span>'}${addControl('rev-exc-add', `data-repo="${esc(repo)}"`, list, repo.split('/')[0])}</div>
       </div>`;
     }
     const d = diffVs(def, list);
@@ -1330,18 +1337,26 @@ function renderReviewersEditor() {
 
 $('#reviewersEditor').addEventListener('change', (e) => {
   const defAdd = e.target.closest('.rev-def-add');
-  if (defAdd && defAdd.value) {
-    const org = defAdd.dataset.org, map = { ...cfgDefaults() };
-    map[org] = [...defaultFor(org), defAdd.value];
+  if (defAdd) {
+    const val = (defAdd.value || '').trim(); if (!val) return;
+    const org = defAdd.dataset.org, cur = defaultFor(org);
+    if (cur.some(x => x.toLowerCase() === val.toLowerCase())) return;
+    const map = { ...cfgDefaults() }; map[org] = [...cur, val];
     applyDefaults(map); return;
   }
   const excAdd = e.target.closest('.rev-exc-add');
-  if (excAdd && excAdd.value) {
-    const repo = excAdd.dataset.repo, map = { ...cfgProjects() };
+  if (excAdd) {
+    const val = (excAdd.value || '').trim(); if (!val) return;
+    const repo = excAdd.dataset.repo;
     const cur = overrideFor(repo) || (pendingExc.has(repo) ? [...defaultFor(repo.split('/')[0])] : []);
-    map[repo] = [...cur, excAdd.value];
+    if (cur.some(x => x.toLowerCase() === val.toLowerCase())) return;
+    const map = { ...cfgProjects() }; map[repo] = [...cur, val];
     applyProjects(map, repo); return;
   }
+});
+// campo manual (org sem membros): Enter adiciona (dispara o change)
+$('#reviewersEditor').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('rev-manual')) { e.preventDefault(); e.target.blur(); }
 });
 $('#reviewersEditor').addEventListener('click', (e) => {
   const defX = e.target.closest('.rev-def-x');
