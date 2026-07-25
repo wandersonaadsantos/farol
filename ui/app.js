@@ -48,6 +48,223 @@ function toast(kind, html, ms = 5000) {
   return el;
 }
 
+/* ---------- camada de contas (separação por identidade) ---------- */
+let SCOPE = localStorage.getItem('farol-scope') || 'all';   // 'all' ou o login de uma conta
+let silencedOpen = false;
+const TWEAK = {
+  muted: localStorage.getItem('farol-muted-handling') || 'Recolher',   // Recolher | Esmaecer | Ocultar
+  ident: localStorage.getItem('farol-identity-style') || 'Barra + etiqueta', // Barra + etiqueta | Só barra | Só ponto
+};
+let ACCT = {};        // user(lower) -> metadados da conta
+let OWNER2USER = {};  // owner/org(lower) -> user dono
+function hexToRgba(hex, a) {
+  const m = String(hex || '').replace('#', '');
+  if (m.length !== 6) return `rgba(255,180,84,${a})`;
+  const r = parseInt(m.slice(0, 2), 16), g = parseInt(m.slice(2, 4), 16), b = parseInt(m.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+function rebuildAccounts() {
+  ACCT = {}; OWNER2USER = {};
+  const list = (STATE && STATE.accounts) || [];
+  list.forEach((a, i) => {
+    const color = a.color || '#ffb454';
+    ACCT[String(a.user).toLowerCase()] = {
+      user: a.user, label: a.label || a.user, org: (a.owners || [])[0] || '',
+      kind: a.kind || '', color, soft: hexToRgba(color, .16), ink: '#0b0e14',
+      muted: !!a.muted, primary: !!a.primary, tokenOk: !!a.tokenOk, owners: a.owners || [], idx: i
+    };
+    (a.owners || []).forEach(o => { OWNER2USER[String(o).toLowerCase()] = a.user; });
+  });
+}
+function multiAccount() { return ((STATE && STATE.accounts) || []).length > 1; }
+function prUser(pr) {
+  if (pr && pr.account) return pr.account;
+  const repo = (pr && (pr.repo || (pr.key || '').split('#')[0])) || '';
+  const owner = repo.split('/')[0].toLowerCase();
+  return OWNER2USER[owner] || '';
+}
+function acctOf(pr) { return ACCT[String(prUser(pr)).toLowerCase()] || null; }
+function isMutedPr(pr) { const a = acctOf(pr); return !!(a && a.muted); }
+// item visível no escopo atual (respeitando o tratamento de silenciadas)
+function scopeVisible(pr) {
+  if (SCOPE === 'all') { if (isMutedPr(pr)) return TWEAK.muted === 'Esmaecer'; return true; }
+  return String(prUser(pr)).toLowerCase() === String(SCOPE).toLowerCase();
+}
+function dimmedPr(pr) { return SCOPE === 'all' && isMutedPr(pr) && TWEAK.muted === 'Esmaecer'; }
+// marcador de conta pra um card: estilo (var --ac + barra + esmaecido), chip e ponto
+function acctMark(pr, opts) {
+  opts = opts || {};
+  const a = acctOf(pr);
+  const all = SCOPE === 'all';
+  const multi = multiAccount();
+  const showBar = TWEAK.ident !== 'Só ponto' && multi && !opts.noBar;
+  const showChip = TWEAK.ident === 'Barra + etiqueta' && all && multi;
+  const showDot = TWEAK.ident === 'Só ponto' && all && multi;
+  const varStyle = a ? `--ac:${a.color};--ac-soft:${a.soft};--ac-ink:${a.ink};` : '';
+  const dim = dimmedPr(pr) ? 'opacity:.55;' : '';
+  const barStyle = (showBar && a) ? `border-left:3px solid ${a.color};` : '';
+  const chip = (showChip && a) ? `<span class="acct-chip">${esc(a.label)}</span>` : '';
+  const dot = (showDot && a) ? `<span class="acct-dot"></span>` : '';
+  return { style: varStyle + dim + barStyle, varStyle, dim, chip, dot, acct: a };
+}
+// filtra itens que carregam account; itens sem account (dados legados) sempre passam
+function scopeItemVisible(it) {
+  if (!it || !it.account) return true;
+  return scopeVisible(it);
+}
+
+// PRs que pedem sua atenção numa conta (fila + decisões pendentes)
+function attentionCount(user) {
+  const u = String(user).toLowerCase();
+  const q = (STATE.queue || []).filter(p => String(prUser(p)).toLowerCase() === u).length;
+  const d = (STATE.decisions?.pending || []).filter(p => String(prUser(p)).toLowerCase() === u).length;
+  return q + d;
+}
+
+/* ---------- render: barra de contas ---------- */
+function renderAccountBar() {
+  const bar = $('#accountBar');
+  const accounts = (STATE.accounts || []);
+  if (accounts.length < 2) { bar.hidden = true; bar.innerHTML = ''; return; }
+  bar.hidden = false;
+  const all = SCOPE === 'all';
+  const totalAtt = accounts.filter(a => !a.muted).reduce((n, a) => n + attentionCount(a.user), 0);
+  const segAll = `<button class="acct-seg ${all ? 'active' : ''}" data-scope="all" title="Ver todas as contas"
+      style="${all ? '--seg-bg:var(--surface-2);--seg-fg:var(--text);--seg-badge-bg:var(--accent-soft);--seg-badge-fg:var(--accent);' : ''}">Todas${totalAtt ? `<span class="seg-count">${totalAtt}</span>` : ''}</button>`;
+  const segs = accounts.map(a => {
+    const meta = ACCT[a.user.toLowerCase()] || {};
+    const active = String(SCOPE).toLowerCase() === a.user.toLowerCase();
+    const att = a.muted ? 0 : attentionCount(a.user);
+    const style = `--ac:${meta.color};` + (active ? `--seg-bg:${meta.soft};--seg-fg:${meta.color};--seg-badge-bg:${meta.color};--seg-badge-fg:${meta.ink};` : '');
+    return `<button class="acct-seg ${active ? 'active' : ''} ${a.muted ? 'muted' : ''}" data-scope="${esc(a.user)}"
+        title="@${esc(a.user)}${meta.org ? ' · ' + esc(meta.org) : ''}${a.muted ? ' (silenciada)' : ''}" style="${style}">
+        <span class="seg-dot"></span>${esc(meta.label || a.user)}${a.muted ? '<span class="seg-pause">⏸</span>' : (att ? `<span class="seg-count">${att}</span>` : '')}</button>`;
+  }).join('');
+  bar.innerHTML = segAll + segs;
+}
+
+/* ---------- render: faixa de identidade ---------- */
+function renderIdentity() {
+  const strip = $('#identityStrip');
+  const accounts = (STATE.accounts || []);
+  if (accounts.length < 2) { strip.hidden = true; strip.removeAttribute('style'); return; }
+  strip.hidden = false;
+  if (SCOPE === 'all') {
+    const mon = accounts.filter(a => !a.muted);
+    const jobs = mon.filter(a => /trab/i.test(a.kind || '')).length;
+    const pers = mon.filter(a => /pessoal/i.test(a.kind || '')).length;
+    const nMuted = accounts.filter(a => a.muted).length;
+    const parts = [`${mon.length} ${mon.length === 1 ? 'conta monitorada' : 'contas monitoradas'}`];
+    if (jobs) parts.push(`${jobs} de trabalho`);
+    if (pers) parts.push(`${pers} pessoal`);
+    if (nMuted) parts.push(`${nMuted} silenciada${nMuted > 1 ? 's' : ''}`);
+    strip.className = 'identity-strip all';
+    strip.removeAttribute('style');
+    strip.innerHTML = `<div class="id-body"><span class="id-summary">${esc(parts.join(' · '))}</span></div>`;
+  } else {
+    const a = accounts.find(x => x.user.toLowerCase() === String(SCOPE).toLowerCase());
+    if (!a) { strip.hidden = true; return; }
+    const meta = ACCT[a.user.toLowerCase()] || {};
+    strip.className = 'identity-strip one';
+    strip.style.cssText = `--ac:${meta.color};--ac-soft:${meta.soft};--ac-ink:${meta.ink};`;
+    strip.innerHTML = `<span class="id-avatar">${esc((meta.label || a.user).charAt(0).toUpperCase())}</span>
+      <div class="id-body"><div class="id-line">Revisando e postando como <span class="id-handle">@${esc(a.user)}</span> ${meta.org ? `<span class="id-org">· ${esc(meta.org)}</span>` : ''}</div></div>
+      ${meta.kind ? `<span class="id-tag">${esc(meta.kind)}</span>` : ''}${a.muted ? '<span class="id-tag">silenciada</span>' : ''}`;
+  }
+}
+
+/* ---------- render: contas silenciadas (resumo recolhido) ---------- */
+function renderSilenced() {
+  const box = $('#silenced');
+  const accounts = (STATE.accounts || []);
+  const mutedAccts = accounts.filter(a => a.muted);
+  const items = (STATE.panorama || []).filter(pr => isMutedPr(pr));
+  const show = SCOPE === 'all' && TWEAK.muted === 'Recolher' && mutedAccts.length > 0 && items.length > 0;
+  if (!show) { box.hidden = true; box.innerHTML = ''; return; }
+  box.hidden = false;
+  const names = mutedAccts.map(a => (ACCT[a.user.toLowerCase()] || {}).label || a.user).join(', ');
+  const head = `<div class="sil-head"><span class="sil-icon">🔕</span>
+      <span>${items.length} ${items.length === 1 ? 'item silenciado' : 'itens silenciados'} · ${esc(names)}</span>
+      <button class="sil-toggle">${silencedOpen ? 'ocultar' : 'ver'}</button></div>`;
+  const body = silencedOpen ? `<div class="sil-items">${items.map(pr => {
+    const meta = acctOf(pr) || {};
+    return `<div class="card pr-card" style="--ac:${meta.color || 'var(--accent)'};--ac-soft:${meta.soft || 'var(--accent-soft)'};border-left:3px solid ${meta.color || 'var(--accent)'};opacity:.85;">
+      <div class="info">
+        <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a> <span class="acct-chip">${esc(meta.label || '')}</span></div>
+        <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
+        <div class="pr-sub"><span class="author">@${esc(pr.author)}</span> · ${fmtRel(pr.updatedAt)}</div>
+      </div></div>`;
+  }).join('')}</div>` : '';
+  box.innerHTML = head + body;
+}
+
+/* ---------- render: gerenciador de contas (Sistema) ---------- */
+function renderAccountsManager() {
+  const box = $('#accountsManager');
+  if (!box) return;
+  const accounts = (STATE.accounts || []);
+  if (!accounts.length) { box.innerHTML = '<div class="empty">Nenhuma conta configurada.</div>'; return; }
+  const multi = accounts.length > 1;
+  box.innerHTML = accounts.map(a => {
+    const meta = ACCT[a.user.toLowerCase()] || {};
+    const style = `--ac:${meta.color};--ac-soft:${meta.soft};--ac-ink:${meta.ink};`;
+    const auth = a.muted ? 'silenciada: token preservado, fora dos avisos e da auto-revisão' : (a.tokenOk ? 'autenticada no gh' : 'sem token: rode gh auth login');
+    return `<div class="card acct-card ${a.muted ? 'muted' : ''}" style="${style}">
+      <span class="a-avatar">${esc((meta.label || a.user).charAt(0).toUpperCase())}</span>
+      <div class="a-body">
+        <div class="a-name">${esc(meta.label || a.user)}
+          ${meta.kind ? `<span class="a-kind">${esc(meta.kind)}</span>` : ''}
+          ${a.primary ? '<span class="a-tag">primária</span>' : ''}
+          ${a.muted ? '<span class="a-tag">silenciada</span>' : ''}</div>
+        <div class="a-sub"><span class="a-auth">@${esc(a.user)}</span> · ${esc((a.owners || []).join(', ') || 'sem org')} · ${esc(auth)}</div>
+      </div>
+      ${multi ? `<div class="pr-actions"><button class="btn sm ${a.muted ? 'ok' : 'ghost'} act-mute" data-user="${esc(a.user)}">${a.muted ? 'Reativar' : 'Silenciar'}</button></div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// re-render das seções sensíveis ao escopo (sem esperar novo state do engine)
+function rerenderScope() {
+  if (!STATE) return;
+  renderAccountBar(); renderIdentity();
+  renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSilenced();
+  if ($('#tab-destaques').classList.contains('active')) loadHighlights();
+  if ($('#tab-time').classList.contains('active')) loadTeam();
+}
+
+/* trocar de conta na barra */
+$('#accountBar').addEventListener('click', (e) => {
+  const seg = e.target.closest('.acct-seg');
+  if (!seg) return;
+  SCOPE = seg.dataset.scope;
+  localStorage.setItem('farol-scope', SCOPE);
+  silencedOpen = false;
+  rerenderScope();
+});
+/* abrir/fechar o resumo de silenciadas */
+$('#silenced').addEventListener('click', (e) => {
+  if (e.target.closest('.sil-toggle')) { silencedOpen = !silencedOpen; renderSilenced(); }
+});
+/* silenciar / reativar conta */
+$('#accountsManager').addEventListener('click', (e) => {
+  const btn = e.target.closest('.act-mute');
+  if (!btn) return;
+  const user = btn.dataset.user;
+  const accounts = (STATE.accounts || []).map(a => ({
+    user: a.user, owners: a.owners, label: a.label, color: a.color, kind: a.kind,
+    muted: a.user === user ? !a.muted : !!a.muted
+  }));
+  btn.disabled = true; btn.textContent = '…';
+  api('/api/settings', { accounts }).then(() => {
+    // se a conta silenciada era o escopo atual, volta pra Todas
+    if (String(SCOPE).toLowerCase() === String(user).toLowerCase() && accounts.find(a => a.user === user)?.muted) {
+      SCOPE = 'all'; localStorage.setItem('farol-scope', 'all');
+    }
+    // o pushState do engine re-renderiza; toast de confirmação
+    toast('ok', 'Conta atualizada.', 2500);
+  });
+});
+
 /* ---------- tema ---------- */
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
@@ -70,7 +287,7 @@ function switchTab(name) {
   const title = $('#pageTitle'); if (title) title.textContent = TAB_TITLES[name] || 'Farol';
   if (name === 'destaques') loadHighlights();
   if (name === 'time') loadTeam();
-  if (name === 'sistema') { loadLog(); renderDoctor(); loadReviewerCands(); }
+  if (name === 'sistema') { loadLog(); renderDoctor(); renderAccountsManager(); loadReviewerCands(); }
 }
 $('#nav').addEventListener('click', (e) => {
   const btn = e.target.closest('.nav-item');
@@ -92,7 +309,6 @@ function renderStatus() {
   sp.hidden = term === 0;
   if (!sp.hidden) sp.textContent = term === 1 ? '1 sessão do Claude no terminal' : `${term} sessões do Claude no terminal`;
 
-  $('#metaAccount').textContent = `${s.account.user ? '@' + s.account.user : 'conta não configurada'} · ${(s.config.owners || []).join(', ')}`;
   $('#appVer').textContent = s.app?.version ? `v${s.app.version}` : '';
 
   const banner = $('#banner');
@@ -106,39 +322,6 @@ function renderStatus() {
     banner.hidden = false;
     banner.innerHTML = `Falha na última checagem: ${esc(s.error)}. Vou tentar de novo no próximo ciclo.`;
   } else banner.hidden = true;
-}
-
-/* ---------- render: resumo do dia (derivado do próprio STATE) ---------- */
-function renderStats() {
-  const box = $('#stats');
-  if (!box) return;
-  const s = STATE;
-  box.hidden = s.status === 'starting';
-  const pending = (s.decisions?.pending || []).length;
-  const queue = (s.queue || []).length;
-  const active = (s.activeSessions || []).filter(x => x.mode === 'auto' || x.mode === 'self').length;
-  // revisados hoje: decisões resolvidas com data de hoje (aprovado sozinho, postado ou já revisado)
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const done = (s.decisions?.resolved || []).filter(r => r.resolvedAt
-    && new Date(r.resolvedAt) >= today
-    && (r.status === 'auto_approved' || r.status === 'posted' || r.status === 'already_reviewed')).length;
-
-  const ic = {
-    alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a1.9 1.9 0 0 0 1.7 2.9h15.8a1.9 1.9 0 0 0 1.7-2.9L13.7 3.9a1.9 1.9 0 0 0-3.4 0z"/></svg>',
-    queue: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
-    active: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/></svg>',
-    done: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>'
-  };
-  const tile = (cls, icon, k, v, d) =>
-    `<div class="stat ${cls}"><div class="k">${icon}<span>${k}</span></div><div class="v">${v}</div><div class="d">${d}</div></div>`;
-  box.innerHTML =
-    tile(pending ? 'alert' : '', ic.alert, 'Precisam de você', pending, pending === 1 ? 'decisão pendente' : 'decisões pendentes') +
-    tile('', ic.queue, 'Na sua fila', queue, queue === 1 ? 'PR aguardando' : 'PRs aguardando') +
-    tile('', ic.active, 'Analisando agora', active, active === 1 ? 'revisão em curso' : 'revisões em curso') +
-    tile('', ic.done, 'Revisados hoje', done, 'aprovados ou postados');
-
-  const badge = $('#navRadarBadge');
-  if (badge) { badge.hidden = pending === 0; badge.textContent = pending || ''; }
 }
 
 function tickCountdown() {
@@ -316,20 +499,25 @@ document.addEventListener('click', (e) => {
 
 /* ---------- render: decisoes pendentes ---------- */
 function renderDecisions() {
-  const pending = STATE.decisions?.pending || [];
+  const pending = (STATE.decisions?.pending || []).filter(scopeVisible);
   const wrap = $('#decisionsWrap');
   wrap.hidden = pending.length === 0;
   $('#decisionsCount').textContent = pending.length;
   if (!pending.length) { $('#decisions').innerHTML = ''; renderResolved(); return; }
-  $('#decisions').innerHTML = pending.map(d => `
-    <div class="card decision" data-id="${esc(d.id)}">
+  $('#decisions').innerHTML = pending.map(d => {
+    const m = acctMark(d);
+    const author = (d.pr && d.pr.author) || d.author || '';
+    return `
+    <div class="card decision" data-id="${esc(d.id)}" style="${m.style}">
       <div class="decision-head">
         <span class="verdict ${d.verdict === 'approve' ? 'approve' : 'rc'}">${d.verdict === 'approve' ? 'APROVÁVEL' : 'COM BLOCKER'}</span>
         <a class="dec-ref" href="${esc(d.pr?.url || '#')}" target="_blank" rel="noreferrer">${esc(d.key)}</a>
+        ${m.chip}
         ${d.card ? `<span class="pill">${esc(d.card)}</span>` : '<span class="pill">sem card</span>'}
         <span class="dec-when">${fmtClock(d.createdAt)}</span>
       </div>
       ${d.pr?.title ? `<div class="dec-title">${esc(d.pr.title)}</div>` : ''}
+      ${author ? `<div class="dec-author">PR de <b>@${esc(author)}</b></div>` : ''}
       ${(d.reasons || []).length ? `<ul class="dec-reasons">${d.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
       <details class="dec-report"><summary>Ver relatório completo</summary><div class="report">${md(d.reportMarkdown)}</div></details>
       <div class="dec-actions">
@@ -339,15 +527,16 @@ function renderDecisions() {
         <button class="btn sm act-chat" data-key="${esc(d.key)}" data-url="${esc(d.pr?.url || '')}">💬 Conversar${chatBadge(d.key)}</button>
         <button class="btn sm ghost dec-act" data-action="skip">Pular</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   renderResolved();
 }
 
 function renderResolved() {
-  const resolved = STATE.decisions?.resolved || [];
+  const resolved = (STATE.decisions?.resolved || []).filter(scopeVisible);
   const wrap = $('#resolvedWrap');
   wrap.hidden = resolved.length === 0;
-  if (!resolved.length) return;
+  if (!resolved.length) { $('#resolved').innerHTML = ''; return; }
   const labels = {
     auto_approved: ['✅', 'aprovado sozinho'],
     posted: ['📬', 'postado por você'],
@@ -370,7 +559,7 @@ function renderResolved() {
 
 /* ---------- render: radar ---------- */
 function renderQueue() {
-  const q = STATE.queue || [];
+  const q = (STATE.queue || []).filter(scopeVisible);
   $('#queueCount').hidden = q.length === 0;
   $('#queueCount').textContent = q.length;
   const btnAll = $('#btnReviewAll');
@@ -379,16 +568,19 @@ function renderQueue() {
 
   const box = $('#queue');
   if (!q.length) {
-    box.innerHTML = `<div class="empty"><span class="big">✨</span>Tudo em dia. Nenhum PR esperando por você.<br><small>Quando pedirem sua revisão, o card aparece aqui e você recebe um aviso.</small></div>`;
+    const msg = SCOPE === 'all' ? 'Tudo em dia. Nenhum PR esperando por você.' : 'Tudo em dia nesta conta. Nenhum PR esperando por você.';
+    box.innerHTML = `<div class="empty"><span class="big">✨</span>${msg}<br><small>Quando pedirem sua revisão, o card aparece aqui e você recebe um aviso.</small></div>`;
     return;
   }
-  box.innerHTML = q.map(pr => `
-    <div class="card pr-card" data-key="${esc(pr.key)}">
-      ${avatar(pr.author)}
+  box.innerHTML = q.map(pr => {
+    const m = acctMark(pr);
+    return `
+    <div class="card pr-card" data-key="${esc(pr.key)}" style="${m.style}">
+      ${m.dot}${avatar(pr.author)}
       <div class="info">
-        <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a></div>
+        <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}</div>
         <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
-        <div class="pr-sub">@${esc(pr.author)} · atualizado ${fmtRel(pr.updatedAt)}</div>
+        <div class="pr-sub"><span class="author">@${esc(pr.author)}</span> · atualizado ${fmtRel(pr.updatedAt)}</div>
       </div>
       <div class="pr-actions">
         <button class="btn primary sm act-review" data-url="${esc(pr.url)}">Revisar</button>
@@ -400,7 +592,8 @@ function renderQueue() {
         </button>
         <button class="btn sm danger-ghost act-ignore" data-key="${esc(pr.key)}" title="Marcar como visto sem revisar">Ignorar</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 /* selo de estado da SUA revisão numa linha do panorama: primeiro o que o Farol
@@ -419,30 +612,43 @@ function reviewChip(pr) {
 }
 
 function renderPanorama() {
-  const list = STATE.panorama || [];
+  const list = (STATE.panorama || []).filter(scopeVisible);
   $('#panoCount').hidden = list.length === 0;
   $('#panoCount').textContent = list.length;
   $('#panoOwners').textContent = list.length ? 'PRs abertos, os seus destacados' : '';
   const box = $('#panorama');
   if (!list.length) {
     box.style.display = 'block';
-    box.innerHTML = `<div class="empty" style="border:0">Nenhum PR aberto nas organizações monitoradas.</div>`;
+    box.innerHTML = `<div class="empty" style="border:0">Nenhum PR aberto ${SCOPE === 'all' ? 'nas organizações monitoradas' : 'nesta conta'}.</div>`;
     return;
   }
   box.style.display = '';
   const busy = new Set([].concat(...(STATE.activeSessions || []).map(s => s.keys || [])).concat(STATE.headlessWaiting || []));
   box.innerHTML = list.map(pr => {
     const chip = reviewChip(pr);
+    const m = acctMark(pr, { noBar: true });
+    // estado da SUA revisão: aprovado/mudanças pedidas = resolvido (sem botão de
+    // re-revisar); pendente = já na fila de decisão; senão, dá pra revisar.
+    const ra = (STATE.reviewActions || {})[pr.key];
+    const kind = ra ? ra.kind : (pr.reviewedByMe ? 'approve' : null);
+    const reviewed = kind === 'approve' || kind === 'request_changes';
+    const isPending = kind === 'pending';
+    const showBtn = !reviewed && !isPending && !busy.has(pr.key);
+    const settledLabel = kind === 'request_changes' ? 'aguardando o autor' : isPending ? 'aguardando você' : reviewed ? 'nada a fazer' : '';
+    const tail = busy.has(pr.key)
+      ? '<button class="btn sm ghost pano-review" disabled>Revisando…</button>'
+      : showBtn
+        ? `<button class="btn sm ghost act-review pano-review" data-url="${esc(pr.url)}" title="${pr.mine ? 'Revisar (seu review pedido)' : 'Revisar sob demanda: o resultado sempre passa por você, nada é postado sozinho'}">Revisar</button>`
+        : `<span class="settled">${esc(settledLabel)}</span>`;
     return `
-    <div class="row ${pr.mine ? 'mine' : ''} ${chip ? 'reviewed' : ''}">
+    <div class="row ${pr.mine ? 'mine' : ''} ${chip ? 'reviewed' : ''}" style="${m.varStyle}${m.dim}">
       <span class="status-dot"></span>
       <span class="ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a></span>
-      ${pr.mine ? '<span class="badge">sua revisão</span>' : ''}
+      ${SCOPE === 'all' && m.chip ? m.chip : (pr.mine ? '<span class="badge">sua revisão</span>' : '')}
       ${chip}
       <span class="title" title="${esc(pr.title)}">${esc(pr.title)}</span>
       <span class="who">@${esc(pr.author)}</span>
-      <button class="btn sm ghost act-review pano-review" data-url="${esc(pr.url)}" ${busy.has(pr.key) ? 'disabled' : ''}
-        title="${pr.mine ? 'Revisar (seu review pedido)' : 'Revisar sob demanda: o resultado sempre passa por você, nada é postado sozinho'}">${busy.has(pr.key) ? 'Revisando…' : chip ? 'Re-revisar' : 'Revisar'}</button>
+      ${tail}
       <span class="when">${fmtRel(pr.updatedAt)}</span>
     </div>`;
   }).join('');
@@ -459,7 +665,7 @@ const autoUnavailableKeys = new Set();
 // admin até o próximo refresh confirmar (o --admin não fura ruleset).
 const adminUnavailableKeys = new Set();
 function renderMyPRs() {
-  const list = STATE.myPRs || [];
+  const list = (STATE.myPRs || []).filter(scopeVisible);
   const analyses = STATE.selfAnalyses || {};
   const wrap = $('#myPRsWrap');
   wrap.hidden = list.length === 0;
@@ -475,6 +681,7 @@ function renderMyPRs() {
 
   $('#myPRs').innerHTML = list.map(pr => {
     const a = analyses[pr.key];
+    const m = acctMark(pr, { noBar: !!a });
     const running = activeSelf.has(pr.key);
     // fila serial (um por vez): posicao = ordem real na headlessQueue
     const qpos = running ? 0 : waiting.indexOf(pr.key) + 1;
@@ -532,15 +739,15 @@ function renderMyPRs() {
         <div class="mypr-when">analisado ${fmtRel(new Date(a.at).toISOString())}${a.card ? ` · ${esc(a.card)}` : ''}</div>
       </div>` : '';
     return `
-    <div class="card mypr-card ${a ? (a.approvable ? 'ok' : 'warn') : ''}" data-key="${esc(pr.key)}">
+    <div class="card mypr-card ${a ? (a.approvable ? 'ok' : 'warn') : ''}" data-key="${esc(pr.key)}" style="${m.style}">
       <div class="mypr-top">
-        ${avatar(pr.author)}
+        ${m.dot}${avatar(pr.author)}
         <div class="info">
           <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>
-            ${pr.isDraft ? '<span class="badge">rascunho</span>' : ''}${badge}</div>
+            ${pr.isDraft ? '<span class="badge">rascunho</span>' : ''}${badge}${m.chip}</div>
           <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
           ${pr.head && pr.base ? `<div class="pr-branches"><code>${esc(pr.head)}</code> <span class="arrow">→</span> <code>${esc(pr.base)}</code></div>` : ''}
-          <div class="pr-sub">atualizado ${fmtRel(pr.updatedAt)}</div>
+          <div class="pr-sub">${m.acct ? `por você · <span class="author">@${esc(m.acct.user)}</span> · ` : ''}atualizado ${fmtRel(pr.updatedAt)}</div>
         </div>
         <div class="pr-actions">
           <button class="btn primary sm act-self" data-url="${esc(pr.url)}" ${running || queued ? 'disabled' : ''}>${btnLabel}</button>
@@ -809,7 +1016,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
-  ['2.0.0', ['Interface nova: navegação lateral no lugar das abas do topo, com o Radar como painel principal', 'Resumo do dia no Radar: num relance, quantas decisões esperam por você, o tamanho da fila, o que está sendo analisado agora e quantos PRs você já revisou hoje', 'Cards e listas mais legíveis, mantendo a identidade do farol e os mesmos fluxos (revisar, conversar, autoanálise, merge)']],
+  ['2.1.0', ['Separação de contas: barra no topo pra alternar entre Todas e cada conta do GitHub (trabalho, pessoal, mais de um emprego), cada uma com cor e identidade próprias', 'De quem e por quem: cada card mostra o autor do PR (@quem escreveu) separado da sua conta (cor e etiqueta), e ao focar uma conta a faixa diz "revisando e postando como @você"', 'Contas silenciadas: aquele PR-teste antigo que nunca fecha sai do painel e dos avisos sem ser perdido (aparece ao selecionar a conta); ajuste em Sistema > Contas', 'Painel de contas em Sistema pra silenciar/reativar, e reviewers por projeto mais enxuto', 'Panorama: PR que você já aprovou não mostra mais "Re-revisar" (só quando entra commit novo)']],
   ['1.18.0', ['A autoanálise de um PR é descartada quando entra commit novo: o card volta a "não analisado", pra não mostrar veredito velho que já não vale', '"Merge (admin)" só aparece quando realmente resolve (some quando o repo usa ruleset que o admin não fura)', 'Times enterprise saíram do seletor de reviewers (o GitHub não os aceita como reviewer de PR)']],
   ['1.17.0', ['Reviewers por projeto agora é um seletor de pessoas e times da organização (chips), sem digitar handle na mão', 'Copiar o grupo de reviewers pra outros repos de uma vez ("copiar pra…")', 'Clicar em "Reviewers" num repo sem config leva pra tela de configuração, em vez de dar erro']],
   ['1.16.0', ['Instalador de arquivo único no Windows: um .exe, duplo clique instala e abre (sem extrair zip nem escolher arquivo)', 'Cada PR em "Meus PRs" mostra de qual branch pra qual branch vai (origem → destino)', 'Botão "Reviewers": configure os reviewers por projeto (Sistema) e, num clique, o Farol te atribui e pede review dessa lista']],
@@ -1089,7 +1296,19 @@ function notifyNewPRs(data) {
 
 /* ---------- ações ---------- */
 $('#btnCheck').onclick = () => api('/api/check');
-$('#btnReviewAll').onclick = () => api('/api/review');
+$('#btnReviewAll').onclick = () => {
+  // revisa só o que está visível no escopo atual
+  const urls = (STATE.queue || []).filter(scopeVisible).map(p => p.url);
+  api('/api/review', urls.length ? { urls } : {});
+};
+
+/* tweaks de exibição (guardados no navegador, não vão pro engine) */
+function initTweaks() {
+  const mh = $('#setMutedHandling'), is = $('#setIdentityStyle');
+  if (mh) { mh.value = TWEAK.muted; mh.onchange = () => { TWEAK.muted = mh.value; localStorage.setItem('farol-muted-handling', mh.value); rerenderScope(); }; }
+  if (is) { is.value = TWEAK.ident; is.onchange = () => { TWEAK.ident = is.value; localStorage.setItem('farol-identity-style', is.value); rerenderScope(); }; }
+}
+initTweaks();
 $('#btnKudos').onclick = () => api('/api/tool', { name: 'kudos' });
 $('#btnHealth').onclick = () => api('/api/tool', { name: 'health' });
 $('#btnDoctor').onclick = async () => { await get('/api/doctor'); };
@@ -1159,8 +1378,11 @@ function connect() {
   const es = new EventSource('/api/events');
   es.addEventListener('state', (e) => {
     STATE = JSON.parse(e.data);
-    renderStatus(); renderStats(); renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSettings(); renderTools(); renderUpdate(); tickCountdown();
-    if ($('#tab-sistema').classList.contains('active')) renderDoctor();
+    rebuildAccounts();
+    renderStatus(); renderAccountBar(); renderIdentity();
+    renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSilenced();
+    renderSettings(); renderTools(); renderUpdate(); tickCountdown();
+    if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); }
   });
   es.addEventListener('activity', (e) => {
     const { id, item } = JSON.parse(e.data);

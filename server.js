@@ -131,13 +131,24 @@ function parseProjectReviewers(val) {
 // ou o texto do textarea de Sistema, uma linha por conta: "login: org1, org2".
 // A ordem importa: a 1a e a primaria.
 function parseAccounts(val) {
-  const norm = (user, owners) => ({
-    user: String(user || '').trim(),
-    owners: (Array.isArray(owners) ? owners : String(owners || '').split(/[,;\s]+/))
-      .map(s => String(s).trim()).filter(Boolean)
-  });
+  const norm = (user, owners, meta) => {
+    const o = {
+      user: String(user || '').trim(),
+      owners: (Array.isArray(owners) ? owners : String(owners || '').split(/[,;\s]+/))
+        .map(s => String(s).trim()).filter(Boolean)
+    };
+    // metadados de identidade (só quando presentes): rótulo amigável, cor, tipo e
+    // o estado "silenciada". Preservados pra o painel separar as contas na UI.
+    if (meta) {
+      if (meta.label != null && String(meta.label).trim()) o.label = String(meta.label).trim();
+      if (meta.color != null && String(meta.color).trim()) o.color = String(meta.color).trim();
+      if (meta.kind != null && String(meta.kind).trim()) o.kind = String(meta.kind).trim();
+      if (meta.muted) o.muted = true;
+    }
+    return o;
+  };
   if (Array.isArray(val)) {
-    return val.map(a => norm(a && a.user, a && a.owners)).filter(a => a.user);
+    return val.map(a => norm(a && a.user, a && a.owners, a)).filter(a => a.user);
   }
   const out = [];
   for (const line of String(val || '').split(/\r?\n/)) {
@@ -148,6 +159,11 @@ function parseAccounts(val) {
   }
   return out;
 }
+
+// Paleta default de cores por conta (âmbar do Farol primeiro), atribuída por
+// índice quando a conta não define uma cor própria. Dá a cada identidade uma cor
+// estável pro painel separar visualmente trabalho, pessoal, etc.
+const ACCOUNT_PALETTE = ['#ffb454', '#a78bfa', '#34d399', '#f2707a', '#6ca8f2', '#f59e0b', '#22d3ee', '#64748b'];
 
 // --- Utilitarios ------------------------------------------------------------
 function ensureDir(p) { fs.mkdirSync(p, { recursive: true }); }
@@ -370,14 +386,30 @@ class Engine extends EventEmitter {
   // cai na conta unica legada (ghUser + owners). A [0] e a primaria.
   accountList() {
     const raw = Array.isArray(this.config.accounts) ? this.config.accounts : [];
-    const norm = raw
+    let base = raw
       .map(a => ({
         user: String((a && a.user) || '').trim(),
-        owners: Array.isArray(a && a.owners) ? a.owners.map(String).map(s => s.trim()).filter(Boolean) : []
+        owners: Array.isArray(a && a.owners) ? a.owners.map(String).map(s => s.trim()).filter(Boolean) : [],
+        label: (a && a.label != null) ? String(a.label).trim() : '',
+        color: (a && a.color != null) ? String(a.color).trim() : '',
+        kind: (a && a.kind != null) ? String(a.kind).trim() : '',
+        muted: !!(a && a.muted)
       }))
       .filter(a => a.user);
-    if (norm.length) return norm;
-    return [{ user: (this.config.ghUser || '').trim(), owners: this.config.owners || [] }];
+    if (!base.length) base = [{ user: (this.config.ghUser || '').trim(), owners: this.config.owners || [], label: '', color: '', kind: '', muted: false }];
+    // preenche defaults de identidade: rótulo = login (ou org), cor estável por índice
+    return base.map((a, i) => ({
+      ...a,
+      label: a.label || a.user || a.owners[0] || 'conta',
+      color: a.color || ACCOUNT_PALETTE[i % ACCOUNT_PALETTE.length],
+      muted: !!a.muted
+    }));
+  }
+
+  // login está numa conta silenciada? (fora do painel Todas, dos avisos e da auto-revisão)
+  isMuted(user) {
+    const u = String(user || '').toLowerCase();
+    return this.accountList().some(a => a.user.toLowerCase() === u && a.muted);
   }
 
   // login da conta primaria (identidade default; chamadas gh nao ligadas a um PR)
@@ -601,14 +633,18 @@ class Engine extends EventEmitter {
       this.lastCheckAt = Date.now();
       this.lastError = null;
 
-      if (fresh.length > 0) {
-        this.emit('new-prs', { items: fresh, total: queue.length, auto: !!this.config.autoReview });
-        if (this.config.autoReview) this.launchReview(fresh.map(p => p.url), 'auto');
+      // contas silenciadas seguem monitoradas (aparecem ao selecionar a conta), mas
+      // ficam fora dos avisos de PR novo e da auto-revisão: nada de barulho nem de
+      // revisar sozinho o PR-teste abandonado.
+      const freshActive = fresh.filter(p => !this.isMuted(this.accountForPr(p)));
+      if (freshActive.length > 0) {
+        this.emit('new-prs', { items: freshActive, total: queue.filter(p => !this.isMuted(this.accountForPr(p))).length, auto: !!this.config.autoReview });
+        if (this.config.autoReview) this.launchReview(freshActive.map(p => p.url), 'auto');
       }
 
       // a checagem funcionou = a rede voltou: relança revisões que caíram por queda de conexão
       if (this.config.autoReview && this.retryAfterNet.size) {
-        const retry = this.queue.filter(p => this.retryAfterNet.has(p.key) && !fresh.some(f => f.key === p.key));
+        const retry = this.queue.filter(p => this.retryAfterNet.has(p.key) && !fresh.some(f => f.key === p.key) && !this.isMuted(this.accountForPr(p)));
         if (retry.length) {
           this.emit('toast', { kind: 'info', text: `Conexão de volta: relançando a revisão de ${retry.map(p => p.key).join(', ')}.` });
           this.launchReview(retry.map(p => p.url), 'auto');
@@ -2143,8 +2179,9 @@ class Engine extends EventEmitter {
       status: this.status,
       error: this.lastError,
       account: { user: this.primaryUser(), tokenOk: this.tokenOk },
-      accounts: this.accountList().map(a => ({
-        user: a.user, owners: a.owners, tokenOk: !!(this.tokens && this.tokens[a.user])
+      accounts: this.accountList().map((a, i) => ({
+        user: a.user, owners: a.owners, tokenOk: !!(this.tokens && this.tokens[a.user]),
+        label: a.label, color: a.color, kind: a.kind, muted: !!a.muted, primary: i === 0
       })),
       config: { ...this.config },
       lastCheckAt: this.lastCheckAt,
