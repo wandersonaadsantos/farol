@@ -9,13 +9,19 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.8.1
+## v2.8.2
 
-Primeiro instalador de macOS (beta), pra começar a validar o suporte.
+Primeiro instalador de macOS (beta) de verdade, anexado à release.
 
 ### macOS
-- **Instalador beta pra macOS (Apple Silicon).** A release agora inclui o `Farol-Instalar-mac.command`, montado sem precisar de um Mac. Como o suporte a macOS nunca rodou num Mac de verdade, este instalador é beta: instale, e se algo quebrar, use "Exportar diagnóstico" (Sistema > Saúde) e mande o relatório. Com esse retorno a gente corrige e libera a versão final.
-- **Instalação de macOS mais robusta.** O `install.sh` passou a garantir o bit de execução do Electron ao instalar, pra não depender de o pacote preservar as permissões.
+- **Instalador beta pra macOS (Apple Silicon), montado sem um Mac.** A release passa a incluir o `Farol-Instalar-mac.command`. O truque: em vez de montar o app do Electron no Windows (o que quebraria os symlinks do `.app`), o instalador embute o Electron para macOS e deixa o próprio Mac descompactar na hora da instalação, offline. Como o suporte a macOS nunca rodou num Mac de verdade, é beta: baixe, na 1ª vez abra com botão direito > Abrir (quarentena), e se algo quebrar use "Exportar diagnóstico" (Sistema > Saúde) e mande o relatório. Com esse retorno a gente corrige e libera a versão final. Macs Intel (x64) ainda não têm instalador; peça que a gente gera.
+
+## v2.8.1
+
+Preparação do suporte a macOS.
+
+### macOS
+- **Instalação de macOS mais robusta.** O `install.sh` passou a garantir o bit de execução do Electron ao instalar, pra não depender de o pacote preservar as permissões (importante pro instalador montado fora do Mac).
 
 ## v2.8.0
 

@@ -51,16 +51,28 @@ done
 
 # --- dependencias (Electron) -----------------------------------------------------
 ELECTRON_BIN="$APP/node_modules/.bin/electron"
-if [ -x "$SRC/node_modules/.bin/electron" ] && [ -d "$SRC/node_modules/electron/dist" ]; then
-  step 'Copiando dependencias ja baixadas (node_modules)'
-  rm -rf "$APP/node_modules"
-  cp -R "$SRC/node_modules" "$APP/node_modules"
-elif [ ! -x "$ELECTRON_BIN" ]; then
+step 'Copiando dependencias (node_modules)'
+rm -rf "$APP/node_modules"
+cp -R "$SRC/node_modules" "$APP/node_modules"
+# Electron para macOS, em ordem de preferencia:
+#  1) o dist (.app) ja veio no pacote (instalador montado num Mac): usa direto;
+#  2) veio o zip darwin embutido (instalador montado FORA do Mac): extrai AQUI,
+#     porque o unzip do proprio Mac preserva os symlinks do .app (o Windows nao);
+#  3) nada disso: baixa via npm (precisa de rede).
+if [ -d "$APP/node_modules/electron/dist/Electron.app" ]; then
+  ok 'Electron ja presente no pacote'
+elif [ -f "$SRC/installer/electron-darwin.zip" ]; then
+  step 'Montando o Electron para macOS (do pacote embutido)'
+  command -v unzip >/dev/null || die 'unzip nao encontrado (necessario pro Electron embutido).'
+  rm -rf "$APP/node_modules/electron/dist"; mkdir -p "$APP/node_modules/electron/dist"
+  (cd "$APP/node_modules/electron/dist" && unzip -oq "$SRC/installer/electron-darwin.zip")
+  printf 'Electron.app/Contents/MacOS/Electron' > "$APP/node_modules/electron/path.txt"
+else
   step 'Baixando o Electron (npm install, pode levar alguns minutos)'
   (cd "$APP" && npm install --omit=dev --no-audit --no-fund)
 fi
-# bit de execucao: instaladores gerados no Windows (ou tar sem perms) perdem o
-# +x; o lancador chama o electron direto, entao garante que os binarios rodam.
+# bit de execucao: instalador montado fora do Mac (ou tar sem perms) perde o +x;
+# o lancador chama o electron direto, entao garante que os binarios rodam.
 chmod +x "$ELECTRON_BIN" 2>/dev/null || true
 [ -d "$APP/node_modules/electron/dist/Electron.app" ] && chmod -R +x "$APP/node_modules/electron/dist/Electron.app" 2>/dev/null || true
 [ -x "$ELECTRON_BIN" ] || die "Electron nao instalado. Rode: cd $APP && npm install"
