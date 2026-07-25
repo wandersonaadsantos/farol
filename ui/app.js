@@ -62,16 +62,18 @@ $('#btnTheme').onclick = () => {
   api('/api/settings', { theme: next });
 };
 
-/* ---------- abas ---------- */
+/* ---------- navegação ---------- */
+const TAB_TITLES = { radar: 'Radar', destaques: 'Destaques', time: 'Time', sistema: 'Sistema' };
 function switchTab(name) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.nav-item').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+  const title = $('#pageTitle'); if (title) title.textContent = TAB_TITLES[name] || 'Farol';
   if (name === 'destaques') loadHighlights();
   if (name === 'time') loadTeam();
   if (name === 'sistema') { loadLog(); renderDoctor(); loadReviewerCands(); }
 }
-$('#tabs').addEventListener('click', (e) => {
-  const btn = e.target.closest('.tab');
+$('#nav').addEventListener('click', (e) => {
+  const btn = e.target.closest('.nav-item');
   if (btn) switchTab(btn.dataset.tab);
 });
 
@@ -104,6 +106,39 @@ function renderStatus() {
     banner.hidden = false;
     banner.innerHTML = `Falha na última checagem: ${esc(s.error)}. Vou tentar de novo no próximo ciclo.`;
   } else banner.hidden = true;
+}
+
+/* ---------- render: resumo do dia (derivado do próprio STATE) ---------- */
+function renderStats() {
+  const box = $('#stats');
+  if (!box) return;
+  const s = STATE;
+  box.hidden = s.status === 'starting';
+  const pending = (s.decisions?.pending || []).length;
+  const queue = (s.queue || []).length;
+  const active = (s.activeSessions || []).filter(x => x.mode === 'auto' || x.mode === 'self').length;
+  // revisados hoje: decisões resolvidas com data de hoje (aprovado sozinho, postado ou já revisado)
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const done = (s.decisions?.resolved || []).filter(r => r.resolvedAt
+    && new Date(r.resolvedAt) >= today
+    && (r.status === 'auto_approved' || r.status === 'posted' || r.status === 'already_reviewed')).length;
+
+  const ic = {
+    alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9 2.4 18a1.9 1.9 0 0 0 1.7 2.9h15.8a1.9 1.9 0 0 0 1.7-2.9L13.7 3.9a1.9 1.9 0 0 0-3.4 0z"/></svg>',
+    queue: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+    active: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/></svg>',
+    done: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>'
+  };
+  const tile = (cls, icon, k, v, d) =>
+    `<div class="stat ${cls}"><div class="k">${icon}<span>${k}</span></div><div class="v">${v}</div><div class="d">${d}</div></div>`;
+  box.innerHTML =
+    tile(pending ? 'alert' : '', ic.alert, 'Precisam de você', pending, pending === 1 ? 'decisão pendente' : 'decisões pendentes') +
+    tile('', ic.queue, 'Na sua fila', queue, queue === 1 ? 'PR aguardando' : 'PRs aguardando') +
+    tile('', ic.active, 'Analisando agora', active, active === 1 ? 'revisão em curso' : 'revisões em curso') +
+    tile('', ic.done, 'Revisados hoje', done, 'aprovados ou postados');
+
+  const badge = $('#navRadarBadge');
+  if (badge) { badge.hidden = pending === 0; badge.textContent = pending || ''; }
 }
 
 function tickCountdown() {
@@ -774,6 +809,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.0.0', ['Interface nova: navegação lateral no lugar das abas do topo, com o Radar como painel principal', 'Resumo do dia no Radar: num relance, quantas decisões esperam por você, o tamanho da fila, o que está sendo analisado agora e quantos PRs você já revisou hoje', 'Cards e listas mais legíveis, mantendo a identidade do farol e os mesmos fluxos (revisar, conversar, autoanálise, merge)']],
   ['1.18.0', ['A autoanálise de um PR é descartada quando entra commit novo: o card volta a "não analisado", pra não mostrar veredito velho que já não vale', '"Merge (admin)" só aparece quando realmente resolve (some quando o repo usa ruleset que o admin não fura)', 'Times enterprise saíram do seletor de reviewers (o GitHub não os aceita como reviewer de PR)']],
   ['1.17.0', ['Reviewers por projeto agora é um seletor de pessoas e times da organização (chips), sem digitar handle na mão', 'Copiar o grupo de reviewers pra outros repos de uma vez ("copiar pra…")', 'Clicar em "Reviewers" num repo sem config leva pra tela de configuração, em vez de dar erro']],
   ['1.16.0', ['Instalador de arquivo único no Windows: um .exe, duplo clique instala e abre (sem extrair zip nem escolher arquivo)', 'Cada PR em "Meus PRs" mostra de qual branch pra qual branch vai (origem → destino)', 'Botão "Reviewers": configure os reviewers por projeto (Sistema) e, num clique, o Farol te atribui e pede review dessa lista']],
@@ -1123,7 +1159,7 @@ function connect() {
   const es = new EventSource('/api/events');
   es.addEventListener('state', (e) => {
     STATE = JSON.parse(e.data);
-    renderStatus(); renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSettings(); renderTools(); renderUpdate(); tickCountdown();
+    renderStatus(); renderStats(); renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSettings(); renderTools(); renderUpdate(); tickCountdown();
     if ($('#tab-sistema').classList.contains('active')) renderDoctor();
   });
   es.addEventListener('activity', (e) => {
