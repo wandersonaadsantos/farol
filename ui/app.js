@@ -633,12 +633,14 @@ function renderPanorama() {
     const kind = ra ? ra.kind : (pr.reviewedByMe ? 'approve' : null);
     const reviewed = kind === 'approve' || kind === 'request_changes';
     const isPending = kind === 'pending';
-    const showBtn = !reviewed && !isPending && !busy.has(pr.key);
+    // stale = você revisou e entrou commit novo depois: o "Re-revisar" volta a valer
+    const stale = reviewed && !!(STATE.staleStates || {})[pr.key];
+    const showBtn = (!reviewed || stale) && !isPending && !busy.has(pr.key);
     const settledLabel = kind === 'request_changes' ? 'aguardando o autor' : isPending ? 'aguardando você' : reviewed ? 'nada a fazer' : '';
     const tail = busy.has(pr.key)
       ? '<button class="btn sm ghost pano-review" disabled>Revisando…</button>'
       : showBtn
-        ? `<button class="btn sm ghost act-review pano-review" data-url="${esc(pr.url)}" title="${pr.mine ? 'Revisar (seu review pedido)' : 'Revisar sob demanda: o resultado sempre passa por você, nada é postado sozinho'}">Revisar</button>`
+        ? `<button class="btn sm ghost act-review pano-review" data-url="${esc(pr.url)}" title="${stale ? 'Entrou commit novo depois da sua review: revisar de novo' : pr.mine ? 'Revisar (seu review pedido)' : 'Revisar sob demanda: o resultado sempre passa por você, nada é postado sozinho'}">${stale ? 'Re-revisar' : 'Revisar'}</button>`
         : `<span class="settled">${esc(settledLabel)}</span>`;
     return `
     <div class="row ${pr.mine ? 'mine' : ''} ${chip ? 'reviewed' : ''}" style="${m.varStyle}${m.dim}">
@@ -1016,6 +1018,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.3.0', ['Panorama: um PR que você já aprovou volta a mostrar "Re-revisar" quando (e só quando) entra commit novo depois da sua review; sem commit novo, segue como "nada a fazer". O Farol compara o commit da sua última review com o topo atual do PR.']],
   ['2.2.0', ['Reviewers por projeto agora agrupados por conta: cada projeto aparece sob a conta dona (Pessoal, BIUD, etc.), acabando com a lista misturada quando você monitora mais de uma conta']],
   ['2.1.0', ['Separação de contas: barra no topo pra alternar entre Todas e cada conta do GitHub (trabalho, pessoal, mais de um emprego), cada uma com cor e identidade próprias', 'De quem e por quem: cada card mostra o autor do PR (@quem escreveu) separado da sua conta (cor e etiqueta), e ao focar uma conta a faixa diz "revisando e postando como @você"', 'Contas silenciadas: aquele PR-teste antigo que nunca fecha sai do painel e dos avisos sem ser perdido (aparece ao selecionar a conta); ajuste em Sistema > Contas', 'Painel de contas em Sistema pra silenciar/reativar, e reviewers por projeto mais enxuto', 'Panorama: PR que você já aprovou não mostra mais "Re-revisar" (só quando entra commit novo)']],
   ['1.18.0', ['A autoanálise de um PR é descartada quando entra commit novo: o card volta a "não analisado", pra não mostrar veredito velho que já não vale', '"Merge (admin)" só aparece quando realmente resolve (some quando o repo usa ruleset que o admin não fura)', 'Times enterprise saíram do seletor de reviewers (o GitHub não os aceita como reviewer de PR)']],

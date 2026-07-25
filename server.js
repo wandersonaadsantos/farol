@@ -232,6 +232,7 @@ class Engine extends EventEmitter {
     this.myPRs = [];                 // PRs abertos de autoria minha (fonte da autoanalise)
     this.selfAnalyses = readJson(SELF_FILE, {}); // key do PR -> resultado da autoanalise
     this.mergeStates = {};            // key do PR -> mergeabilidade real (só p/ aprovaveis)
+    this.staleStates = {};            // key do PR -> true quando entrou commit apos a minha review
     this.adminBlockedRepos = {};      // repo -> true quando admin nao fura o ruleset (o UI esconde "Merge admin")
     this.ruleBlockCache = {};         // "repo@base" -> { blocked, at } cache do ruleset bloqueante
     this.reviewerCands = null;        // { at, data:{members,teams} } candidatos p/ o seletor de reviewers
@@ -654,6 +655,8 @@ class Engine extends EventEmitter {
       try { await this.enrichMyPRBranches(); } catch (e) { this.log('WARN', `enrichMyPRBranches: ${e.message}`); }
       // mergeabilidade real dos PRs aprovaveis (gate honesto do botao Merge)
       try { await this.refreshMergeStates(); } catch (e) { this.log('WARN', `refreshMergeStates: ${e.message}`); }
+      // stale: PRs que EU revisei e receberam commit novo depois (reativa o "Re-revisar")
+      try { await this.refreshStaleStates(); } catch (e) { this.log('WARN', `refreshStaleStates: ${e.message}`); }
       // atualizacao (releases do GitHub pras copias distribuidas) a cada ciclo
       this.checkUpdate().catch(() => {});
       this.setStatus('idle');
@@ -1362,6 +1365,45 @@ class Engine extends EventEmitter {
       next[pr.key] = ms;
     }
     this.mergeStates = next;
+  }
+
+  // Recalcula quais PRs que EU revisei ganharam commit novo depois da minha review.
+  // Só pros PRs abertos do panorama que eu revisei (aprovei/pedi mudanças via Farol,
+  // ou o GitHub marcou como revisado por mim): poucos, então o custo é limitado.
+  async refreshStaleStates() {
+    const acts = this.reviewActions();
+    const targets = (this.panorama || []).filter(pr => {
+      const a = acts[pr.key];
+      return pr.reviewedByMe || (a && (a.kind === 'approve' || a.kind === 'request_changes'));
+    });
+    const next = {};
+    for (const pr of targets) {
+      try { next[pr.key] = await this.staleForReview(pr); }
+      catch { next[pr.key] = false; }
+    }
+    this.staleStates = next;
+  }
+
+  // true = entrou commit novo depois da SUA última review (approve/changes) neste PR.
+  // Best-effort: qualquer incerteza (rede, sem commit registrado na review) devolve
+  // false, pra NUNCA reintroduzir o "Re-revisar" indevido num PR estável.
+  async staleForReview(pr) {
+    const repo = pr.repo || (pr.key || '').split('#')[0];
+    const number = pr.number || parseInt((pr.key || '').split('#')[1], 10);
+    const acc = this.accountForPr(pr);
+    const me = (acc || '').toLowerCase();
+    if (!repo || !number || !me) return false;
+    const env = this.ghEnv(acc);
+    const headR = await run('gh', ['pr', 'view', pr.url, '--json', 'headRefOid', '--jq', '.headRefOid'], { env });
+    if (!headR.ok) return false;
+    const head = (headR.stdout || '').trim();
+    // commit da minha última review que valeu como aprovação ou pedido de mudança
+    const revR = await run('gh', ['api', `repos/${repo}/pulls/${number}/reviews`,
+      '--jq', `[.[] | select((.user.login | ascii_downcase) == "${me}") | select(.state == "APPROVED" or .state == "CHANGES_REQUESTED")] | sort_by(.submitted_at) | last | .commit_id // ""`], { env });
+    if (!revR.ok) return false;
+    const revSha = (revR.stdout || '').trim().replace(/^"|"$/g, '');
+    if (!head || !revSha) return false;
+    return head !== revSha;
   }
 
   // --- merge do MEU PR quando a MINHA autoanalise diz "aprovavel" -------------
@@ -2191,6 +2233,7 @@ class Engine extends EventEmitter {
       myPRs: this.myPRs,
       selfAnalyses: this.selfAnalyses,
       mergeStates: this.mergeStates,
+      staleStates: this.staleStates,
       activeSessions: [...this.activeReviews.values()],
       activity: Object.fromEntries(this.activity),
       headlessWaiting: this.headlessQueue.map(p => p.key),
