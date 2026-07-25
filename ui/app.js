@@ -48,6 +48,32 @@ function toast(kind, html, ms = 5000) {
   return el;
 }
 
+/* ---------- modal de confirmação (ações destrutivas) ---------- */
+// Devolve uma Promise<boolean>. body aceita HTML (controlado por nós). Toda ação
+// que apaga/remove algo deve passar por aqui, deixando o IMPACTO claro.
+function confirmModal(opts) {
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.className = 'modal-overlay';
+    ov.innerHTML = `<div class="modal-card ${opts.danger ? 'danger' : ''}">
+      <div class="modal-title">${esc(opts.title || 'Confirmar')}</div>
+      <div class="modal-body">${opts.body || ''}</div>
+      <div class="modal-actions">
+        <button class="btn sm ghost modal-cancel">${esc(opts.cancelLabel || 'Cancelar')}</button>
+        <button class="btn sm ${opts.danger ? 'danger-solid' : 'primary'} modal-ok">${esc(opts.confirmLabel || 'Confirmar')}</button>
+      </div>
+    </div>`;
+    document.body.appendChild(ov);
+    const close = (v) => { ov.remove(); document.removeEventListener('keydown', onKey); resolve(v); };
+    const onKey = (e) => { if (e.key === 'Escape') close(false); };
+    ov.querySelector('.modal-cancel').onclick = () => close(false);
+    ov.querySelector('.modal-ok').onclick = () => close(true);
+    ov.onclick = (e) => { if (e.target === ov) close(false); };
+    document.addEventListener('keydown', onKey);
+    setTimeout(() => ov.querySelector('.modal-cancel').focus(), 30);
+  });
+}
+
 /* ---------- camada de contas (separação por identidade) ---------- */
 let SCOPE = localStorage.getItem('farol-scope') || 'all';   // 'all' ou o login de uma conta
 let silencedOpen = false;
@@ -329,11 +355,27 @@ $('#accountsManager').addEventListener('click', (e) => {
   const rem = e.target.closest('.acct-remove');
   if (rem) {
     const user = rem.dataset.user;
-    if ((STATE.accounts || []).length <= 1) { toast('error', 'Precisa de ao menos uma conta.'); return; }
-    if (!confirm(`Remover @${user} do Farol? Só para de monitorar essa conta aqui, não mexe no seu gh.`)) return;
-    if (String(SCOPE).toLowerCase() === user.toLowerCase()) { SCOPE = 'all'; localStorage.setItem('farol-scope', 'all'); }
-    removeAccount(user);
-    toast('info', `Conta @${user} removida do Farol.`, 3000);
+    if ((STATE.accounts || []).length <= 1) { toast('error', 'Precisa de ao menos uma conta configurada.'); return; }
+    const a = (STATE.accounts || []).find(x => x.user === user) || {};
+    const orgs = (a.owners || []).length ? ` (orgs: ${esc(a.owners.join(', '))})` : '';
+    confirmModal({
+      title: `Remover a conta @${user} do Farol?`,
+      danger: true, confirmLabel: 'Remover conta', cancelLabel: 'Manter',
+      body: `<p>Isso mexe <b>só aqui no Farol</b>, não toca no seu GitHub nem apaga nada lá.</p>
+        <p><b>O que muda:</b></p>
+        <ul>
+          <li>O Farol <b>para de monitorar</b> os PRs, a fila e os avisos dessa conta${orgs}.</li>
+          <li>Some a <b>identidade</b> dela do painel: rótulo, cor e tipo que você configurou.</li>
+          ${a.primary ? '<li>Ela é a conta <b>primária</b> hoje; a próxima da lista assume como primária.</li>' : ''}
+          <li>A <b>memória de reviews</b> (Destaques e Time) e o histórico <b>não são apagados</b>.</li>
+        </ul>
+        <p>Dá pra <b>adicionar de volta</b> a qualquer momento (o rótulo, a cor e o tipo você reconfigura).</p>`
+    }).then(ok => {
+      if (!ok) return;
+      if (String(SCOPE).toLowerCase() === user.toLowerCase()) { SCOPE = 'all'; localStorage.setItem('farol-scope', 'all'); }
+      removeAccount(user);
+      toast('info', `Conta @${user} removida do Farol.`, 3000);
+    });
     return;
   }
   if (e.target.closest('#btnAcctAdd')) {
@@ -1159,6 +1201,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.8.0', ['Exportar diagnóstico (Sistema > Saúde): um clique gera um relatório sem segredos (ambiente, contas, config, estado e o log de falhas) pra você copiar e mandar pra quem mantém o Farol. É o jeito de coletar o que precisa pra corrigir um problema, especialmente útil pra destravar o suporte a macOS.', 'Remover conta agora abre uma caixa de confirmação que explica o impacto (o que para de ser monitorado, o que não é apagado, que dá pra readicionar), no lugar do aviso genérico do navegador.']],
   ['2.7.0', ['Editor de contas na aba Sistema: dá pra adicionar e remover conta, e editar o rótulo, a cor, o tipo (Trabalho/Pessoal) e as orgs de cada uma, sem precisar mexer no config.json na mão. O tipo é o que faz a faixa dizer "1 de trabalho e 1 pessoal".', '"Aprovar sozinho tudo que for aprovável" agora vem DESLIGADO por padrão (você liga em Sistema se quiser): mais seguro agora que o app é público e cada pessoa decide o próprio nível de automação.', 'A barra de contas não mostra mais o contador de PRs pendentes fora do Radar (lá ele não tinha a ver com o conteúdo da aba).']],
   ['2.6.1', ['O seletor de reviewers agora lista só quem faz parte daquela organização: antes, ao configurar os reviewers de um projeto, o dropdown misturava as pessoas de todas as orgs monitoradas (na conta pessoal aparecia gente do trabalho, o que não fazia sentido). Cada org passa a oferecer só os próprios membros e times. Org sem membros enumeráveis vira um campo pra digitar o handle na mão.']],
   ['2.6.0', ['Destaques e Time separados por conta: quando você monitora mais de uma conta do GitHub, cada aba agrupa por conta (com a barra de contas de volta pra filtrar), em vez de misturar trabalho e pessoal no mesmo balaio. A partir desta versão a memória do time guarda a org de cada review pra atribuir a conta; registros antigos (sem essa marca) aparecem num grupo "Geral" até o autor ser re-revisado.']],
@@ -1539,6 +1582,66 @@ async function loadLog() {
   const box = $('#logBox');
   box.scrollTop = box.scrollHeight;
 }
+
+/* ---------- exportar diagnóstico (pra reparar, ex.: no macOS) ---------- */
+// Junta ambiente + contas + config + estado + log num texto SEM segredo (nada de
+// token/senha), pra a pessoa copiar e mandar pra quem mantém o Farol.
+async function buildDiagnostics() {
+  const s = STATE || {};
+  const log = (await get('/api/log')) || [];
+  const d = s.doctor || {}, c = s.config || {};
+  const accts = (s.accounts || []).map(a => `  @${a.user}${a.primary ? ' [primária]' : ''} · rótulo=${a.label || '-'} · tipo=${a.kind || '-'} · orgs=${(a.owners || []).join(',') || '-'} · token=${a.tokenOk ? 'ok' : 'NAO'}${a.muted ? ' · silenciada' : ''}`).join('\n');
+  const u = s.update;
+  return [
+    '=== Farol · diagnóstico ===',
+    `gerado: ${new Date().toLocaleString('pt-BR')}`,
+    `versão: v${s.app?.version || '?'} · plataforma: ${s.app?.platform || '?'} · node: ${d.node || '?'}`,
+    `status: ${s.status || '?'}${s.error ? ' · último erro: ' + s.error : ''}`,
+    '',
+    'Ambiente (doctor):',
+    `  gh: ${d.gh || 'NAO ENCONTRADO'}`,
+    `  claude: ${d.claude || 'NAO ENCONTRADO'}`,
+    `  git bash: ${d.gitBash || '(n/a)'}`,
+    `  conta primária autenticada no gh: ${d.ghAuth ? 'sim' : 'NAO'}`,
+    `  workspace: ${d.workspace || s.paths?.workspace || '?'}`,
+    `  home: ${s.paths?.home || '?'}`,
+    '',
+    `Contas (${(s.accounts || []).length}):`,
+    accts || '  (nenhuma)',
+    '',
+    'Config:',
+    `  intervalo: ${c.intervalSeconds}s · autoReview: ${!!c.autoReview} · autoApproveAll: ${c.autoApproveAll !== false} · skipPermissions: ${!!c.skipPermissions}`,
+    `  autostart: ${!!c.autostart} · som: ${!!c.soundEnabled} · tema: ${c.theme || '-'}`,
+    `  updateRepo: ${c.updateRepo || '-'} · updateSource: ${c.updateSource || '(release)'}`,
+    `  mergeBlockedRepos: ${(c.mergeBlockedRepos || []).join(', ') || '-'}`,
+    '',
+    'Estado agora:',
+    `  fila: ${(s.queue || []).length} · panorama: ${(s.panorama || []).length} · meus PRs: ${(s.myPRs || []).length} · decisões pendentes: ${(s.decisions?.pending || []).length} · sessões ativas: ${(s.activeSessions || []).length}`,
+    `  atualização: ${u ? `v${u.current} · ${u.available ? 'v' + u.sourceVersion + ' DISPONÍVEL' : 'na mais recente'} (${u.channel}${u.repo ? ' ' + u.repo : ''})${u.note ? ' · ' + u.note : ''}` : '?'}`,
+    '',
+    `Log de falhas (${log.length} linha(s)):`,
+    log.length ? log.join('\n') : '  (sem falhas registradas)',
+    '',
+    '(este relatório não contém tokens nem senhas)'
+  ].join('\n');
+}
+let lastDiag = '';
+$('#btnDiag').onclick = async () => {
+  const btn = $('#btnDiag'), prev = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Gerando…';
+  lastDiag = await buildDiagnostics();
+  $('#diagBox').textContent = lastDiag;
+  $('#diagPanel').hidden = false;
+  btn.disabled = false; btn.textContent = prev;
+  const ok = await copyToClipboard(lastDiag);
+  toast(ok ? 'ok' : 'info', ok ? 'Diagnóstico gerado e copiado. É só colar e mandar.' : 'Diagnóstico gerado. Use "Copiar" pra levar o texto.', 4500);
+  $('#diagPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+};
+$('#btnDiagCopy').onclick = async () => {
+  const ok = await copyToClipboard(lastDiag || $('#diagBox').textContent);
+  toast(ok ? 'ok' : 'error', ok ? 'Copiado.' : 'Não consegui copiar (permissão do navegador).', 2500);
+};
+$('#btnDiagClear').onclick = () => { $('#diagPanel').hidden = true; };
 
 /* ---------- som + notificação ---------- */
 let audioCtx = null;

@@ -149,9 +149,19 @@
       <div class="row-actions">
         <button id="btnDoctor" class="btn sm">Reverificar</button>
         <button id="btnHealth" class="btn sm">Diagnóstico com o Claude</button>
+        <button id="btnDiag" class="btn sm" title="Gera um relatório de diagnóstico (sem segredos) pra copiar e mandar pra quem mantém o Farol, útil pra corrigir problemas (ex.: no macOS)">Exportar diagnóstico</button>
       </div>
     </div>
     <div id="doctor" class="doctor-grid"></div>
+    <div id="diagPanel" class="card tool-panel" hidden>
+      <div class="tool-head">
+        <b>Diagnóstico exportável</b>
+        <span class="section-sub">sem tokens nem senhas: só ambiente, contas, config e o log de falhas</span>
+        <button id="btnDiagCopy" class="btn sm">Copiar</button>
+        <button id="btnDiagClear" class="btn sm ghost">Fechar</button>
+      </div>
+      <pre id="diagBox" class="logbox"></pre>
+    </div>
     <div id="healthPanel" class="card tool-panel" hidden>
       <div class="tool-head">
         <b>Diagnóstico</b>

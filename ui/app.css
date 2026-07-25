@@ -540,6 +540,20 @@ body.electron .chat-head { padding-right: 150px; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; } }
 .toast.out { opacity: 0; transform: translateY(8px); transition: all .25s ease; }
 
+/* ---------- modal de confirmação ---------- */
+.modal-overlay { position: fixed; inset: 0; z-index: 80; background: rgba(0, 0, 0, .5); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; padding: 20px; animation: fadein .15s ease; }
+.modal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); max-width: 470px; width: 100%; padding: 20px 22px; }
+.modal-card.danger { border-top: 3px solid var(--danger); }
+.modal-title { font-size: 15.5px; font-weight: 700; margin-bottom: 12px; }
+.modal-body { font-size: 13.5px; }
+.modal-body p { margin: 8px 0; color: var(--muted); }
+.modal-body ul { margin: 8px 0; padding-left: 20px; color: var(--muted); }
+.modal-body li { margin: 4px 0; }
+.modal-body b { color: var(--text); font-weight: 650; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; }
+.btn.danger-solid { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 650; }
+.btn.danger-solid:hover { filter: brightness(1.08); background: var(--danger); border-color: var(--danger); }
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; border: 2px solid var(--bg); }
 ::-webkit-scrollbar-track { background: transparent; }
