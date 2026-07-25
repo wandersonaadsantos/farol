@@ -1816,7 +1816,10 @@ class Engine extends EventEmitter {
       const login = (mem && mem.author) || (result.pr && result.pr.author);
       if (!login) return;
       const today = new Date().toISOString().slice(0, 10);
-      const ref = result.pr ? `${result.pr.repo.split('/').pop()}#${result.pr.number}` : '';
+      // repo COMPLETO (owner/repo) no ref: assim a memória do time fica atribuível
+      // à conta/org dona, pra separar Destaques e Time por conta na UI. Entradas
+      // antigas (só nome curto) ficam sem conta até o autor ser re-revisado.
+      const ref = result.pr ? `${result.pr.repo}#${result.pr.number}` : '';
       const file = path.join(STATE_DIR, 'authors', `${login}.md`);
       let text = '';
       try { text = fs.readFileSync(file, 'utf8'); } catch { text = `# ${login}\n`; }

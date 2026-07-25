@@ -114,6 +114,24 @@ function scopeItemVisible(it) {
   return scopeVisible(it);
 }
 
+/* ---- atribuição de conta pra memória (Destaques/Time) ---- */
+function ownerFromUrl(url) { const m = String(url || '').match(/github\.com\/([^\/]+)\//i); return m ? m[1] : ''; }
+function acctUserFromUrl(url) { return OWNER2USER[ownerFromUrl(url).toLowerCase()] || ''; }
+// entrada de memória sem conta (dados antigos) só aparece na visão Todas (grupo "Geral")
+function scopeMemVisible(user) {
+  if (!user) return SCOPE === 'all';
+  if (SCOPE === 'all') { const a = ACCT[user.toLowerCase()]; if (a && a.muted) return TWEAK.muted === 'Esmaecer'; return true; }
+  return String(user).toLowerCase() === String(SCOPE).toLowerCase();
+}
+function acctStyleFor(user) { const a = ACCT[String(user || '').toLowerCase()]; return a ? `--ac:${a.color};--ac-soft:${a.soft};` : '--ac:var(--muted);'; }
+function memGroupHead(user) {
+  const a = ACCT[String(user || '').toLowerCase()];
+  const label = a ? (a.label || a.user) : 'Geral';
+  const color = a ? a.color : 'var(--muted)';
+  const sub = a ? (a.org || '') : 'sem conta atribuída';
+  return `<div class="group-head" style="--ac:${color}"><span class="g-dot"></span>${esc(label)}${sub ? `<span class="g-sub">· ${esc(sub)}</span>` : ''}</div>`;
+}
+
 // PRs que pedem sua atenção numa conta (fila + decisões pendentes)
 function attentionCount(user) {
   const u = String(user).toLowerCase();
@@ -126,9 +144,9 @@ function attentionCount(user) {
 function renderAccountBar() {
   const bar = $('#accountBar');
   const accounts = (STATE.accounts || []);
-  // só aparece no Radar (é onde filtra de verdade); em Sistema/Time/Destaques não
-  // teria efeito, então fica escondida pra não confundir.
-  if (accounts.length < 2 || CURRENT_TAB !== 'radar') { bar.hidden = true; bar.innerHTML = ''; return; }
+  // aparece em Radar, Destaques e Time (todas filtram/agrupam por conta); só o
+  // Sistema é global, então lá fica escondida.
+  if (accounts.length < 2 || CURRENT_TAB === 'sistema') { bar.hidden = true; bar.innerHTML = ''; return; }
   bar.hidden = false;
   const all = SCOPE === 'all';
   const totalAtt = accounts.filter(a => !a.muted).reduce((n, a) => n + attentionCount(a.user), 0);
@@ -956,58 +974,100 @@ function renderUpdate() {
   }
 }
 
-/* ---------- render: destaques ---------- */
+/* ---------- render: destaques (separado por conta) ---------- */
 async function loadHighlights() {
-  const items = await get('/api/highlights') || [];
+  const items = (await get('/api/highlights')) || [];
   const box = $('#highlights');
-  if (!items.length) {
-    box.innerHTML = `<div class="empty"><span class="big">🌱</span>Nenhum destaque registrado ainda.<br><small>Quando um review encontrar algo exemplar, ele entra aqui.</small></div>`;
+  const tagged = items.map(h => ({ ...h, _user: acctUserFromUrl(h.url) }));
+  const visible = tagged.filter(h => scopeMemVisible(h._user));
+  if (!visible.length) {
+    box.innerHTML = `<div class="empty"><span class="big">🌱</span>${SCOPE === 'all' ? 'Nenhum destaque registrado ainda.' : 'Nenhum destaque nesta conta ainda.'}<br><small>Quando um review encontrar algo exemplar, ele entra aqui.</small></div>`;
     return;
   }
-  box.innerHTML = items.map(h => `
-    <div class="card hl-card">
+  const multi = multiAccount();
+  const card = h => `
+    <div class="card hl-card" style="${multi ? acctStyleFor(h._user) : ''}">
       ${h.author ? avatar(h.author, 'sm') : ''}
       <div class="body">
         <div class="hl-head">
           ${h.author ? `<span class="author">@${esc(h.author)}</span>` : ''}
           ${h.ref ? `<a href="${esc(h.url)}" target="_blank" rel="noreferrer">${esc(h.ref)}</a>` : ''}
           <span>${esc(h.date || '')}</span>
+          ${SCOPE === 'all' && multi && h._user ? `<span class="acct-chip">${esc((ACCT[h._user.toLowerCase()] || {}).label || h._user)}</span>` : ''}
         </div>
         <div class="hl-text">${esc(h.text)}</div>
       </div>
-    </div>`).join('');
+    </div>`;
+  if (SCOPE === 'all' && multi) {
+    const parts = [];
+    for (const a of (STATE.accounts || [])) {
+      const list = visible.filter(h => h._user && h._user.toLowerCase() === a.user.toLowerCase());
+      if (list.length) { parts.push(memGroupHead(a.user)); parts.push(list.map(card).join('')); }
+    }
+    const geral = visible.filter(h => !h._user);
+    if (geral.length) { parts.push(memGroupHead('')); parts.push(geral.map(card).join('')); }
+    box.innerHTML = parts.join('');
+  } else {
+    box.innerHTML = visible.map(card).join('');
+  }
 }
 
-/* ---------- render: time ---------- */
+/* ---------- render: time (separado por conta) ---------- */
 async function loadTeam() {
-  const team = await get('/api/team') || [];
+  const team = (await get('/api/team')) || [];
   const box = $('#team');
-  if (!team.length) {
-    box.innerHTML = `<div class="empty"><span class="big">👋</span>Ainda não há memória de reviews.<br><small>A cada PR revisado, o Farol registra recorrências e ganhos por pessoa.</small></div>`;
-    return;
-  }
-  box.innerHTML = team.map(m => {
-    const last = m.entries[0];
-    const verdictChip = last && last.verdict
-      ? `<span class="verdict ${/approve/i.test(last.verdict) ? 'approve' : 'rc'}">${esc(last.verdict)}</span>` : '';
-    const entries = m.entries.slice(0, 3).map(e => `
+  const multi = multiAccount();
+  // conta de uma entrada: pelo owner do ref (owner/repo#num); antigo (só nome) = sem conta
+  const entryUser = e => { const ref = e.ref || ''; const owner = ref.includes('/') ? ref.split('/')[0] : ''; return owner ? (OWNER2USER[owner.toLowerCase()] || '') : ''; };
+  const refShort = ref => (ref.includes('/') ? ref.split('/').slice(1).join('/') : ref);
+  const memberCard = (m, entries, user) => {
+    const last = entries[0];
+    const verdictChip = last && last.verdict ? `<span class="verdict ${/approve/i.test(last.verdict) ? 'approve' : 'rc'}">${esc(last.verdict)}</span>` : '';
+    const es = entries.slice(0, 3).map(e => `
       <div class="entry">
-        <div class="entry-head">${esc(e.date)} · ${esc(e.ref)} · ${esc(e.verdict)}</div>
+        <div class="entry-head">${esc(e.date)} · ${esc(refShort(e.ref))} · ${esc(e.verdict)}</div>
         ${e.bullets.length ? `<ul>${e.bullets.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
       </div>`).join('');
     return `
-    <div class="card">
+    <div class="card ${multi ? 'member-card' : ''}" style="${multi ? acctStyleFor(user) : ''}">
       <div class="member-head">
         ${avatar(m.login)}
         <div class="names">
           <div class="name">${esc(m.name)}</div>
-          <div class="login">@${esc(m.login)} · ${m.entries.length} review(s) registrados</div>
+          <div class="login">@${esc(m.login)} · ${entries.length} review(s) registrados</div>
         </div>
         ${verdictChip}
       </div>
-      <div class="member-entries">${entries}</div>
+      <div class="member-entries">${es}</div>
     </div>`;
-  }).join('');
+  };
+  // membros com entradas visíveis pro grupo pedido ('__all__' = todas; '' = sem conta)
+  const groupCards = (user) => {
+    const out = [];
+    for (const m of team) {
+      const es = (m.entries || []).filter(e => { const u = entryUser(e); return user === '__all__' ? true : (user ? u.toLowerCase() === user.toLowerCase() : !u); });
+      if (es.length) out.push(memberCard(m, es, user === '__all__' ? entryUser(es[0]) : user));
+    }
+    return out;
+  };
+  const emptyMsg = `<div class="empty"><span class="big">👋</span>${SCOPE === 'all' ? 'Ainda não há memória de reviews.' : 'Nenhuma memória nesta conta ainda.'}<br><small>A cada PR revisado, o Farol registra recorrências e ganhos por pessoa.</small></div>`;
+  if (SCOPE === 'all' && multi) {
+    const parts = [];
+    for (const a of (STATE.accounts || [])) {
+      if (a.muted && TWEAK.muted !== 'Esmaecer') continue;
+      const c = groupCards(a.user);
+      if (c.length) { parts.push(memGroupHead(a.user)); parts.push(c.join('')); }
+    }
+    const geral = groupCards('');
+    if (geral.length) { parts.push(memGroupHead('')); parts.push(geral.join('')); }
+    box.innerHTML = parts.join('') || emptyMsg;
+  } else if (SCOPE !== 'all') {
+    const c = groupCards(SCOPE);
+    box.innerHTML = c.length ? c.join('') : emptyMsg;
+  } else {
+    const c = groupCards('__all__');
+    box.innerHTML = c.length ? c.join('') : emptyMsg;
+  }
 }
 
 /* ---------- render: sistema ---------- */
@@ -1037,6 +1097,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.6.0', ['Destaques e Time separados por conta: quando você monitora mais de uma conta do GitHub, cada aba agrupa por conta (com a barra de contas de volta pra filtrar), em vez de misturar trabalho e pessoal no mesmo balaio. A partir desta versão a memória do time guarda a org de cada review pra atribuir a conta; registros antigos (sem essa marca) aparecem num grupo "Geral" até o autor ser re-revisado.']],
   ['2.5.0', ['Reviewers por projeto reinventado, o fim da repetição: agora você define um grupo padrão por organização (aplicado a TODOS os repos dela no botão Reviewers), e só os projetos que fogem do padrão aparecem, como um diff enxuto ("padrão − fulano" / "padrão + ciclano"). Os demais colapsam numa linha só. Quem já tinha listas repetidas ganha um botão "Criar padrão" que detecta o grupo comum e recolhe tudo num clique. E o botão "👥 Reviewers" passa a funcionar em qualquer repo da org, mesmo sem config própria, usando o padrão.']],
   ['2.4.2', ['A barra de contas agora aparece só no Radar, onde ela realmente filtra. Nas abas Sistema, Time e Destaques ela sumiu (lá trocar de conta não mudava nada e só confundia): Sistema é global, e Time/Destaques são memória do time.']],
   ['2.4.1', ['Diagnóstico de atualização honesto: quando o Farol não consegue ler as releases (repo sem acesso pra sua conta, sem release ainda, ou rede), a aba Sistema diz isso claramente, em vez de mostrar "você está na versão mais recente" e te deixar sem saber que havia update.']],
