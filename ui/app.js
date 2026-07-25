@@ -920,8 +920,11 @@ function renderUpdate() {
     ? `GitHub Releases (<code>${esc(u.repo || '')}</code>)`
     : (u.source ? `fonte em <code>${esc(u.source)}</code>` : '');
   const hasChannel = remote || !!u.source;
+  // não deu pra ler a release (repo privado/sem acesso, sem release ainda, ou rede):
+  // sourceVersion nulo + note. Não é "está na mais recente", é falta de acesso.
+  const noAccess = hasChannel && !u.available && !u.sourceVersion && !!u.note;
   box.classList.toggle('avail', !!u.available);
-  box.classList.toggle('ok-state', !u.available && hasChannel);
+  box.classList.toggle('ok-state', !u.available && hasChannel && !noAccess);
   if (u.available) {
     box.innerHTML = `
       <span class="up-ver">v${esc(u.current)} → v${esc(u.sourceVersion)}</span>
@@ -932,6 +935,10 @@ function renderUpdate() {
       const r = await api('/api/update', {});
       if (!r?.ok) toast('error', esc(r?.error || 'não consegui iniciar a atualização'));
     };
+  } else if (noAccess) {
+    box.innerHTML = `
+      <span class="up-ver">v${esc(u.current)}</span>
+      <span class="up-note">Não consegui ler as releases em ${origin} (${esc(u.note || 'sem acesso')}). Se o repo for privado, a conta primária do gh precisa ter acesso a ele (ou torne o repo público). Última verificação ${fmtClock(u.checkedAt)}.</span>`;
   } else if (hasChannel) {
     box.innerHTML = `
       <span class="up-ver">v${esc(u.current)}</span>
@@ -1024,6 +1031,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.4.1', ['Diagnóstico de atualização honesto: quando o Farol não consegue ler as releases (repo sem acesso pra sua conta, sem release ainda, ou rede), a aba Sistema diz isso claramente, em vez de mostrar "você está na versão mais recente" e te deixar sem saber que havia update.']],
   ['2.4.0', ['Aprova sozinho tudo que for aprovável, sem depender do seu clique: quando a revisão conclui que o PR está aprovável, o Farol posta o APPROVE na hora e deixa os pontos de atenção claros (anexados ao próprio PR e visíveis em Revisões recentes). Vale só pros reviews pedidos a você (clique no panorama nunca posta). Dá pra desligar em Sistema > Configurações e voltar a ser chamado nos casos com ressalva.']],
   ['2.3.0', ['Panorama: um PR que você já aprovou volta a mostrar "Re-revisar" quando (e só quando) entra commit novo depois da sua review; sem commit novo, segue como "nada a fazer". O Farol compara o commit da sua última review com o topo atual do PR.']],
   ['2.2.0', ['Reviewers por projeto agora agrupados por conta: cada projeto aparece sob a conta dona (Pessoal, BIUD, etc.), acabando com a lista misturada quando você monitora mais de uma conta']],
