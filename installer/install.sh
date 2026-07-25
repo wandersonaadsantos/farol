@@ -59,6 +59,10 @@ elif [ ! -x "$ELECTRON_BIN" ]; then
   step 'Baixando o Electron (npm install, pode levar alguns minutos)'
   (cd "$APP" && npm install --omit=dev --no-audit --no-fund)
 fi
+# bit de execucao: instaladores gerados no Windows (ou tar sem perms) perdem o
+# +x; o lancador chama o electron direto, entao garante que os binarios rodam.
+chmod +x "$ELECTRON_BIN" 2>/dev/null || true
+[ -d "$APP/node_modules/electron/dist/Electron.app" ] && chmod -R +x "$APP/node_modules/electron/dist/Electron.app" 2>/dev/null || true
 [ -x "$ELECTRON_BIN" ] || die "Electron nao instalado. Rode: cd $APP && npm install"
 
 # --- workspace do Claude -----------------------------------------------------------

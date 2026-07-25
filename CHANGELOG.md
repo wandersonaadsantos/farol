@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.8.1
+
+Primeiro instalador de macOS (beta), pra começar a validar o suporte.
+
+### macOS
+- **Instalador beta pra macOS (Apple Silicon).** A release agora inclui o `Farol-Instalar-mac.command`, montado sem precisar de um Mac. Como o suporte a macOS nunca rodou num Mac de verdade, este instalador é beta: instale, e se algo quebrar, use "Exportar diagnóstico" (Sistema > Saúde) e mande o relatório. Com esse retorno a gente corrige e libera a versão final.
+- **Instalação de macOS mais robusta.** O `install.sh` passou a garantir o bit de execução do Electron ao instalar, pra não depender de o pacote preservar as permissões.
+
 ## v2.8.0
 
 Um jeito de pedir socorro (e um freio antes de remover conta).
