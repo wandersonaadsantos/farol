@@ -831,15 +831,16 @@ $('#myPRs').addEventListener('click', (e) => {
   if (rev) {
     const card = rev.closest('.mypr-card');
     const repo = String(card?.dataset.key || '').split('#')[0];
-    const cfg = ((STATE.config || {}).projectReviewers || {})[repo];
-    // sem reviewers configurados: leva pra tela de config (em vez de erro)
-    if (!cfg || !cfg.length) {
-      if (repo) pendingRepoRows.add(repo);
+    const org = repo.split('/')[0];
+    // efetivo = exceção do repo, senão o padrão da org
+    const eff = overrideFor(repo) || defaultFor(org);
+    // sem reviewers (nem exceção nem padrão): leva pra tela de config
+    if (!eff || !eff.length) {
       switchTab('sistema');
       loadReviewerCands();
       renderReviewersEditor();
       setTimeout(() => { const el = $('#reviewersEditor'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 60);
-      toast('info', `Configure os reviewers de ${repo} aqui, depois é só clicar em Reviewers no PR.`, 6000);
+      toast('info', `Defina os reviewers padrão de ${org} (ou uma exceção pra ${repoShort(repo)}) aqui, depois é só clicar em Reviewers no PR.`, 7000);
       return;
     }
     // tem config: aplica na hora, sem confirmação
@@ -1036,6 +1037,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.5.0', ['Reviewers por projeto reinventado, o fim da repetição: agora você define um grupo padrão por organização (aplicado a TODOS os repos dela no botão Reviewers), e só os projetos que fogem do padrão aparecem, como um diff enxuto ("padrão − fulano" / "padrão + ciclano"). Os demais colapsam numa linha só. Quem já tinha listas repetidas ganha um botão "Criar padrão" que detecta o grupo comum e recolhe tudo num clique. E o botão "👥 Reviewers" passa a funcionar em qualquer repo da org, mesmo sem config própria, usando o padrão.']],
   ['2.4.2', ['A barra de contas agora aparece só no Radar, onde ela realmente filtra. Nas abas Sistema, Time e Destaques ela sumiu (lá trocar de conta não mudava nada e só confundia): Sistema é global, e Time/Destaques são memória do time.']],
   ['2.4.1', ['Diagnóstico de atualização honesto: quando o Farol não consegue ler as releases (repo sem acesso pra sua conta, sem release ainda, ou rede), a aba Sistema diz isso claramente, em vez de mostrar "você está na versão mais recente" e te deixar sem saber que havia update.']],
   ['2.4.0', ['Aprova sozinho tudo que for aprovável, sem depender do seu clique: quando a revisão conclui que o PR está aprovável, o Farol posta o APPROVE na hora e deixa os pontos de atenção claros (anexados ao próprio PR e visíveis em Revisões recentes). Vale só pros reviews pedidos a você (clique no panorama nunca posta). Dá pra desligar em Sistema > Configurações e voltar a ser chamado nos casos com ressalva.']],
@@ -1064,11 +1066,12 @@ function renderReleaseNotes() {
     </div>`).join('');
 }
 
-/* ---------- editor de reviewers por projeto ---------- */
+/* ---------- editor de reviewers: padrão por org + exceções por repo ---------- */
 let reviewerCands = { members: [], teams: [] };
 let reviewerCandsLoaded = false;
-const pendingRepoRows = new Set(); // repos com row aberto mas ainda sem reviewer
-const copyOpenRepos = new Set();   // repos com o form "copiar pra..." aberto
+const openExceptions = new Set(); // repos (owner/repo) com o editor de exceção aberto
+const foldedOpen = new Set();     // orgs com a lista "seguem o padrão" expandida
+const pendingExc = new Set();     // repos novos sendo criados como exceção
 
 async function loadReviewerCands(force) {
   if (reviewerCandsLoaded && !force) return;
@@ -1076,153 +1079,242 @@ async function loadReviewerCands(force) {
   if (r) { reviewerCands = { members: r.members || [], teams: r.teams || [] }; reviewerCandsLoaded = true; }
   renderReviewersEditor();
 }
-function knownRepos() {
-  const set = new Set();
-  (STATE.myPRs || []).forEach(p => set.add(p.key.split('#')[0]));
-  (STATE.panorama || []).forEach(p => set.add(String(p.key || '').split('#')[0]));
-  Object.keys((STATE.config || {}).projectReviewers || {}).forEach(r => set.add(r));
+
+/* ---- helpers do modelo padrão/exceção ---- */
+function cfgDefaults() { return (STATE.config || {}).defaultReviewers || {}; }
+function cfgProjects() { return (STATE.config || {}).projectReviewers || {}; }
+function defaultFor(org) { const d = cfgDefaults(); return d[org] || d[(org || '').toLowerCase()] || []; }
+function overrideFor(repo) { const p = cfgProjects(); return p[repo] || p[(repo || '').toLowerCase()] || null; }
+function sameSet(a, b) {
+  const A = new Set((a || []).map(s => String(s).toLowerCase())), B = new Set((b || []).map(s => String(s).toLowerCase()));
+  if (A.size !== B.size) return false;
+  for (const x of A) if (!B.has(x)) return false;
+  return true;
+}
+function diffVs(base, list) {
+  const B = new Set((base || []).map(x => x.toLowerCase())), L = new Set((list || []).map(x => x.toLowerCase()));
+  return { added: (list || []).filter(x => !B.has(x.toLowerCase())), removed: (base || []).filter(x => !L.has(x.toLowerCase())) };
+}
+function reviewerLabel(rv) {
+  const isTeam = rv.includes('/');
+  const ent = isTeam && rv.split('/').slice(1).join('/').includes(':');
+  if (ent) return { label: `${rv.split('/').pop()} (enterprise, não pedível)`, cls: 'bad', ent: true };
+  if (isTeam) { const t = reviewerCands.teams.find(t => t.id === rv); return { label: (t ? t.name : rv.split('/').pop()) + ' (time)', cls: 'team' }; }
+  return { label: rv, cls: '' };
+}
+function repoShort(repo) { return repo.split('/').slice(1).join('/') || repo; }
+function reposOfOrg(org) {
+  const o = String(org).toLowerCase(), set = new Set();
+  const add = k => { const r = String(k || ''); if (r.split('/')[0].toLowerCase() === o) set.add(r); };
+  (STATE.myPRs || []).forEach(p => add(p.key.split('#')[0]));
+  (STATE.panorama || []).forEach(p => add(String(p.key || '').split('#')[0]));
+  Object.keys(cfgProjects()).forEach(add);
+  [...pendingExc].forEach(add);
   return [...set].filter(Boolean).sort();
 }
-function reviewerMap() {
-  const cfg = (STATE.config || {}).projectReviewers || {};
-  const map = {};
-  for (const k of Object.keys(cfg)) map[k] = [...(cfg[k] || [])];
-  for (const r of pendingRepoRows) if (!(r in map)) map[r] = [];
-  return map;
+// reviewers presentes na maioria das exceções da org: sugestão pra virar padrão
+function suggestDefault(org) {
+  const lists = reposOfOrg(org).map(overrideFor).filter(l => l && l.length);
+  if (lists.length < 2) return [];
+  const count = {}, rep = {};
+  for (const list of lists) for (const rv of new Set(list)) { const k = rv.toLowerCase(); count[k] = (count[k] || 0) + 1; rep[k] = rv; }
+  const th = Math.ceil(lists.length / 2);
+  return Object.keys(count).filter(k => count[k] >= th).map(k => rep[k]).sort();
 }
-function applyReviewers(map) {
+function chipHtml(rv, xClass, dataAttrs) {
+  const r = reviewerLabel(rv);
+  return `<span class="rev-chip${r.cls ? ' ' + r.cls : ''}" ${r.ent ? 'title="Time enterprise não pode ser reviewer de PR (o GitHub recusa). Remova daqui."' : ''}>${esc(r.label)}<button class="${xClass}" ${dataAttrs} title="remover">×</button></span>`;
+}
+function addSelect(cls, dataAttrs, list) {
+  const me = ((STATE.config || {}).ghUser || '').toLowerCase();
+  const has = v => (list || []).some(l => l.toLowerCase() === String(v).toLowerCase());
+  const opts = [
+    ...reviewerCands.members.filter(x => x.toLowerCase() !== me && !has(x)).map(x => `<option value="${esc(x)}">${esc(x)}</option>`),
+    ...reviewerCands.teams.filter(t => !has(t.id)).map(t => `<option value="${esc(t.id)}">${esc(t.name)} (time)</option>`)
+  ].join('');
+  return `<select class="rev-add ${cls}" ${dataAttrs}><option value="">${reviewerCandsLoaded ? '+ adicionar…' : 'carregando…'}</option>${opts}</select>`;
+}
+
+/* ---- persistência otimista ---- */
+function applyDefaults(map) {
   const clean = {};
   for (const k of Object.keys(map)) if ((map[k] || []).length) clean[k] = map[k];
   if (!STATE.config) STATE.config = {};
-  STATE.config.projectReviewers = clean; // otimista, o SSE confirma depois
+  STATE.config.defaultReviewers = clean;
+  // pruna exceções que passaram a igualar o padrão (viram "segue o padrão")
+  const pr = { ...cfgProjects() }; let prChanged = false;
+  for (const repo of Object.keys(pr)) {
+    if (openExceptions.has(repo) || pendingExc.has(repo)) continue;
+    const d = clean[repo.split('/')[0]] || clean[repo.split('/')[0].toLowerCase()] || [];
+    if (sameSet(pr[repo], d)) { delete pr[repo]; prChanged = true; }
+  }
+  if (prChanged) STATE.config.projectReviewers = pr;
+  renderReviewersEditor();
+  api('/api/settings', { defaultReviewers: clean });
+  if (prChanged) api('/api/settings', { projectReviewers: pr });
+}
+function applyProjects(map, keepRepo) {
+  const clean = {};
+  for (const k of Object.keys(map)) {
+    const list = map[k] || []; if (!list.length) continue;
+    // dropa exceção idêntica ao padrão (salvo a que está aberta em edição)
+    if (k !== keepRepo && !openExceptions.has(k) && !pendingExc.has(k) && sameSet(list, defaultFor(k.split('/')[0]))) continue;
+    clean[k] = list;
+  }
+  if (!STATE.config) STATE.config = {};
+  STATE.config.projectReviewers = clean;
   renderReviewersEditor();
   api('/api/settings', { projectReviewers: clean });
 }
+function seedException(repo) {
+  pendingExc.add(repo); openExceptions.add(repo);
+  const map = { ...cfgProjects() };
+  if (!overrideFor(repo)) map[repo] = [...defaultFor(repo.split('/')[0])];
+  applyProjects(map, repo);
+}
+
+/* ---- render de um bloco de org (padrão + exceções + colapsado) ---- */
+function renderOrgBlock(org, accent) {
+  const def = defaultFor(org);
+  const repos = reposOfOrg(org);
+  const isExc = r => { const o = overrideFor(r); return (o && !sameSet(o, def)) || openExceptions.has(r) || pendingExc.has(r); };
+  const excRepos = repos.filter(isExc);
+  const following = repos.filter(r => !excRepos.includes(r));
+
+  // card do padrão
+  let defCard;
+  if (def.length) {
+    const chips = def.map(rv => chipHtml(rv, 'rev-def-x', `data-org="${esc(org)}" data-rv="${esc(rv)}"`)).join('');
+    defCard = `<div class="rev-default">
+      <div class="rev-default-top"><span class="t">Reviewers padrão</span><span class="scope">${esc(org)}</span></div>
+      <div class="rev-chips">${chips}${addSelect('rev-def-add', `data-org="${esc(org)}"`, def)}</div>
+      <div class="rev-hint">Aplicado a todos os projetos de <code>${esc(org)}</code> quando você clica em "👥 Reviewers", salvo as exceções abaixo.</div>
+    </div>`;
+  } else {
+    const sug = suggestDefault(org);
+    const sugChips = sug.map(rv => `<span class="rev-chip ghost">${esc(reviewerLabel(rv).label)}</span>`).join('');
+    defCard = `<div class="rev-default empty">
+      <div class="rev-default-top"><span class="t">Reviewers padrão</span><span class="scope">${esc(org)}</span></div>
+      ${sug.length
+        ? `<div class="rev-hint">Detectei ${sug.length} reviewers comuns nos seus projetos de ${esc(org)}. Vira o padrão num clique, e os projetos iguais colapsam:</div>
+           <div class="rev-chips">${sugChips}</div>
+           <button class="btn sm ok rev-make-default" data-org="${esc(org)}">Criar padrão com estes ${sug.length}</button>`
+        : `<div class="rev-chips">${addSelect('rev-def-add', `data-org="${esc(org)}"`, [])}</div>
+           <div class="rev-hint">Escolha os reviewers padrão de <code>${esc(org)}</code>.</div>`}
+    </div>`;
+  }
+
+  // exceções
+  const excHtml = excRepos.map(repo => {
+    const list = overrideFor(repo) || (pendingExc.has(repo) ? [...def] : []);
+    if (openExceptions.has(repo)) {
+      const chips = list.map(rv => chipHtml(rv, 'rev-exc-x', `data-repo="${esc(repo)}" data-rv="${esc(rv)}"`)).join('');
+      return `<div class="rev-exc open" data-repo="${esc(repo)}">
+        <div class="rev-exc-head"><code>${esc(repoShort(repo))}</code>
+          <button class="rev-exc-reset" data-repo="${esc(repo)}" title="remover a exceção e voltar ao padrão da org">voltar ao padrão</button>
+          <button class="rev-exc-toggle" data-repo="${esc(repo)}">fechar</button></div>
+        <div class="rev-chips">${chips || '<span class="rev-empty">sem reviewers</span>'}${addSelect('rev-exc-add', `data-repo="${esc(repo)}"`, list)}</div>
+      </div>`;
+    }
+    const d = diffVs(def, list);
+    const pills = '<span class="rev-pill base">padrão</span>'
+      + d.added.map(x => `<span class="rev-pill add">+ ${esc(reviewerLabel(x).label)}</span>`).join('')
+      + d.removed.map(x => `<span class="rev-pill rem">− ${esc(reviewerLabel(x).label)}</span>`).join('');
+    return `<div class="rev-exc" data-repo="${esc(repo)}"><code>${esc(repoShort(repo))}</code><div class="rev-diff">${def.length ? pills : list.map(x => `<span class="rev-pill add">${esc(reviewerLabel(x).label)}</span>`).join('')}</div><button class="rev-exc-toggle" data-repo="${esc(repo)}">editar</button></div>`;
+  }).join('');
+
+  // colapsado: projetos que seguem o padrão
+  const open = foldedOpen.has(org);
+  const followHtml = following.length ? `<div class="rev-folded">
+      <span><span class="count">${following.length}</span> ${following.length === 1 ? 'projeto segue' : 'projetos seguem'} o padrão</span>
+      <button class="rev-fold-toggle" data-org="${esc(org)}">${open ? 'ocultar' : 'ver'}</button>
+    </div>${open ? `<div class="rev-folded-list">${following.map(r => `<span class="rev-repo-mini">${esc(repoShort(r))}<button class="rev-mk-exc" data-repo="${esc(r)}" title="criar exceção pra este projeto">+</button></span>`).join('')}</div>` : ''}` : '';
+
+  // criar exceção pra um projeto (só quando há padrão)
+  const dl = following.map(r => `<option value="${esc(r)}"></option>`).join('');
+  const newExc = def.length ? `<div class="rev-newexc">
+      <input class="rev-newexc-input" list="revExcList-${esc(org)}" placeholder="owner/repo, exceção" spellcheck="false">
+      <datalist id="revExcList-${esc(org)}">${dl}</datalist>
+      <button class="btn sm rev-newexc-go" data-org="${esc(org)}">+ criar exceção</button>
+    </div>` : '';
+
+  return `<div class="rev-org" data-org="${esc(org)}" style="--ac:${accent}">${defCard}${excRepos.length ? `<div class="rev-sec-title">Exceções (${excRepos.length})</div>${excHtml}` : ''}${followHtml}${newExc}</div>`;
+}
+
 function renderReviewersEditor() {
   const box = $('#reviewersEditor'); if (!box) return;
-  const map = reviewerMap();
-  const me = ((STATE.config || {}).ghUser || '').toLowerCase();
-  const teamName = (id) => (reviewerCands.teams.find(t => t.id === id) || {}).name || id;
-  const repos = Object.keys(map).sort();
-  // HTML de uma linha de repo (reaproveitado no modo agrupado e no plano)
-  const repoRow = (repo) => {
-    const list = map[repo] || [];
-    const chips = list.map(rv => {
-      const isTeam = rv.includes('/');
-      const ent = isTeam && rv.split('/').slice(1).join('/').includes(':'); // time enterprise: nao pedivel
-      const label = ent ? `${rv.split('/').pop()} (enterprise, não pedível)` : (isTeam ? teamName(rv) + ' (time)' : rv);
-      return `<span class="rev-chip${ent ? ' bad' : isTeam ? ' team' : ''}" ${ent ? 'title="Time enterprise não pode ser reviewer de PR (o GitHub recusa). Remova daqui."' : ''}>${esc(label)}<button class="rev-x" data-repo="${esc(repo)}" data-rv="${esc(rv)}" title="remover">×</button></span>`;
-    }).join('');
-    const has = (v) => list.some(l => l.toLowerCase() === String(v).toLowerCase());
-    const opts = [
-      ...reviewerCands.members.filter(x => x.toLowerCase() !== me && !has(x)).map(x => `<option value="${esc(x)}">${esc(x)}</option>`),
-      ...reviewerCands.teams.filter(t => !has(t.id)).map(t => `<option value="${esc(t.id)}">${esc(t.name)} (time)</option>`)
-    ].join('');
-    const copyForm = copyOpenRepos.has(repo) ? `<div class="rev-copyform">
-        <input class="rev-copytargets" data-repo="${esc(repo)}" list="revRepoList" placeholder="owner/repo, outro/repo" spellcheck="false">
-        <button class="btn sm ok rev-copygo" data-repo="${esc(repo)}">Copiar grupo</button>
-      </div>` : '';
-    return `<div class="rev-row" data-repo="${esc(repo)}">
-      <div class="rev-repohead"><code>${esc(repo)}</code>
-        ${list.length ? `<button class="rev-copy" data-repo="${esc(repo)}" title="replicar estes reviewers em outros repos">copiar pra…</button>` : ''}
-        <button class="rev-delrepo" data-repo="${esc(repo)}" title="remover este projeto">remover</button></div>
-      <div class="rev-chips">${chips || '<span class="rev-empty">sem reviewers ainda</span>'}
-        <select class="rev-add" data-repo="${esc(repo)}"><option value="">${reviewerCandsLoaded ? '+ adicionar…' : 'carregando…'}</option>${opts}</select>
-      </div>
-      ${copyForm}
-    </div>`;
-  };
-  // multi-conta: agrupa os repos por conta dona (owner do repo), com cabeçalho;
-  // conta única: lista plana (sem cabeçalho desnecessário)
-  let rows;
-  if (multiAccount()) {
-    const grouped = {}; const others = [];
-    for (const repo of repos) {
-      const user = OWNER2USER[repo.split('/')[0].toLowerCase()];
-      if (user) (grouped[user] = grouped[user] || []).push(repo);
-      else others.push(repo);
-    }
-    const parts = [];
-    for (const a of (STATE.accounts || [])) {
-      const g = grouped[a.user];
-      if (!g || !g.length) continue;
-      const meta = ACCT[a.user.toLowerCase()] || {};
-      parts.push(`<div class="rev-group-head" style="--ac:${meta.color}"><span class="g-dot"></span>${esc(meta.label || a.user)}</div>`);
-      parts.push(g.map(repoRow).join(''));
-    }
-    if (others.length) {
-      parts.push(`<div class="rev-group-head" style="--ac:var(--muted)"><span class="g-dot"></span>Outros</div>`);
-      parts.push(others.map(repoRow).join(''));
-    }
-    rows = parts.join('');
-  } else {
-    rows = repos.map(repoRow).join('');
+  const parts = [];
+  const seen = new Set();
+  const orgToUser = {};
+  Object.keys(OWNER2USER).forEach(o => { orgToUser[o] = OWNER2USER[o]; });
+  for (const a of (STATE.accounts || [])) {
+    const meta = ACCT[a.user.toLowerCase()] || {};
+    const orgs = [...new Set((a.owners || []).map(String))];
+    [...Object.keys(cfgDefaults()), ...Object.keys(cfgProjects()).map(r => r.split('/')[0])].forEach(o => {
+      if (OWNER2USER[o.toLowerCase()] === a.user && !orgs.some(x => x.toLowerCase() === o.toLowerCase())) orgs.push(o);
+    });
+    const blocks = orgs.filter(Boolean).sort().map(o => { seen.add(o.toLowerCase()); return renderOrgBlock(o, meta.color || 'var(--accent)'); }).join('');
+    if (!blocks) continue;
+    if (multiAccount()) parts.push(`<div class="rev-group-head" style="--ac:${meta.color}"><span class="g-dot"></span>${esc(meta.label || a.user)}</div>`);
+    parts.push(blocks);
   }
-  const dl = knownRepos().map(r => `<option value="${esc(r)}"></option>`).join('');
-  box.innerHTML = `${rows || '<div class="rev-empty">Nenhum projeto configurado ainda. Adicione um abaixo.</div>'}
-    <div class="rev-addrepo">
-      <input id="revNewRepo" list="revRepoList" placeholder="owner/repo" spellcheck="false">
-      <datalist id="revRepoList">${dl}</datalist>
-      <button class="btn sm" id="revAddRepo">Adicionar projeto</button>
-    </div>`;
+  // orgs de config sem conta dona conhecida
+  const orphans = [...new Set([...Object.keys(cfgDefaults()), ...Object.keys(cfgProjects()).map(r => r.split('/')[0])])].filter(o => o && !seen.has(o.toLowerCase())).sort();
+  if (orphans.length) {
+    if (multiAccount()) parts.push('<div class="rev-group-head" style="--ac:var(--muted)"><span class="g-dot"></span>Outros</div>');
+    parts.push(orphans.map(o => renderOrgBlock(o, 'var(--muted)')).join(''));
+  }
+  box.innerHTML = parts.join('') || '<div class="rev-empty">Nenhuma organização monitorada ainda. Configure as organizações no campo acima.</div>';
 }
+
 $('#reviewersEditor').addEventListener('change', (e) => {
-  const add = e.target.closest('.rev-add');
-  if (add && add.value) {
-    const repo = add.dataset.repo, map = reviewerMap();
-    map[repo] = [...(map[repo] || []), add.value];
-    applyReviewers(map);
+  const defAdd = e.target.closest('.rev-def-add');
+  if (defAdd && defAdd.value) {
+    const org = defAdd.dataset.org, map = { ...cfgDefaults() };
+    map[org] = [...defaultFor(org), defAdd.value];
+    applyDefaults(map); return;
+  }
+  const excAdd = e.target.closest('.rev-exc-add');
+  if (excAdd && excAdd.value) {
+    const repo = excAdd.dataset.repo, map = { ...cfgProjects() };
+    const cur = overrideFor(repo) || (pendingExc.has(repo) ? [...defaultFor(repo.split('/')[0])] : []);
+    map[repo] = [...cur, excAdd.value];
+    applyProjects(map, repo); return;
   }
 });
 $('#reviewersEditor').addEventListener('click', (e) => {
-  const x = e.target.closest('.rev-x');
-  if (x) {
-    const repo = x.dataset.repo, map = reviewerMap();
-    map[repo] = (map[repo] || []).filter(r => r !== x.dataset.rv);
-    if (!map[repo].length) pendingRepoRows.add(repo); // mantem a linha visivel
-    applyReviewers(map);
+  const defX = e.target.closest('.rev-def-x');
+  if (defX) { const org = defX.dataset.org, map = { ...cfgDefaults() }; map[org] = defaultFor(org).filter(r => r !== defX.dataset.rv); applyDefaults(map); return; }
+  const mkDef = e.target.closest('.rev-make-default');
+  if (mkDef) { const org = mkDef.dataset.org, map = { ...cfgDefaults() }; map[org] = suggestDefault(org); applyDefaults(map); toast('ok', 'Padrão criado. Projetos iguais colapsaram; os diferentes viraram exceção.', 5000); return; }
+  const excX = e.target.closest('.rev-exc-x');
+  if (excX) { const repo = excX.dataset.repo, map = { ...cfgProjects() }; const cur = overrideFor(repo) || [...defaultFor(repo.split('/')[0])]; map[repo] = cur.filter(r => r !== excX.dataset.rv); applyProjects(map, repo); return; }
+  const excToggle = e.target.closest('.rev-exc-toggle');
+  if (excToggle) {
+    const repo = excToggle.dataset.repo;
+    if (openExceptions.has(repo)) {
+      openExceptions.delete(repo); pendingExc.delete(repo);
+      const o = overrideFor(repo);
+      if (o && sameSet(o, defaultFor(repo.split('/')[0]))) { const map = { ...cfgProjects() }; delete map[repo]; delete map[repo.toLowerCase()]; applyProjects(map); }
+      else renderReviewersEditor();
+    } else { openExceptions.add(repo); renderReviewersEditor(); }
     return;
   }
-  const del = e.target.closest('.rev-delrepo');
-  if (del) {
-    const repo = del.dataset.repo, map = reviewerMap();
-    delete map[repo]; pendingRepoRows.delete(repo); copyOpenRepos.delete(repo);
-    applyReviewers(map);
-    return;
-  }
-  const copy = e.target.closest('.rev-copy');
-  if (copy) {
-    const repo = copy.dataset.repo;
-    if (copyOpenRepos.has(repo)) copyOpenRepos.delete(repo); else copyOpenRepos.add(repo);
-    renderReviewersEditor();
-    return;
-  }
-  const copyGo = e.target.closest('.rev-copygo');
-  if (copyGo) {
-    const repo = copyGo.dataset.repo, map = reviewerMap();
-    const inp = document.querySelector(`.rev-copytargets[data-repo="${CSS.escape(repo)}"]`);
-    const targets = String(inp && inp.value || '').split(/[,;]+/).map(s => s.trim()).filter(Boolean);
-    const bad = targets.filter(t => !/^[^\s/]+\/[^\s/]+$/.test(t));
-    if (!targets.length || bad.length) { toast('error', 'Informe os repos de destino no formato owner/repo, separados por vírgula.'); return; }
-    const src = map[repo] || [];
-    for (const t of targets) {
-      if (t === repo) continue;
-      const cur = map[t] || [];
-      for (const rv of src) if (!cur.some(x => x.toLowerCase() === rv.toLowerCase())) cur.push(rv);
-      map[t] = cur;
-    }
-    copyOpenRepos.delete(repo);
-    applyReviewers(map);
-    toast('ok', `Grupo de ${repo} copiado pra: ${targets.filter(t => t !== repo).join(', ')}.`, 4000);
-    return;
-  }
-  const addRepo = e.target.closest('#revAddRepo');
-  if (addRepo) {
-    const inp = $('#revNewRepo'), repo = (inp.value || '').trim();
-    if (!/^[^\s/]+\/[^\s/]+$/.test(repo)) { toast('error', 'Informe o repo no formato owner/repo.'); return; }
-    pendingRepoRows.add(repo); inp.value = '';
-    renderReviewersEditor();
-    return;
+  const excReset = e.target.closest('.rev-exc-reset');
+  if (excReset) { const repo = excReset.dataset.repo; openExceptions.delete(repo); pendingExc.delete(repo); const map = { ...cfgProjects() }; delete map[repo]; delete map[repo.toLowerCase()]; applyProjects(map); toast('info', `${repoShort(repo)} voltou ao padrão da org.`, 3000); return; }
+  const foldToggle = e.target.closest('.rev-fold-toggle');
+  if (foldToggle) { const org = foldToggle.dataset.org; if (foldedOpen.has(org)) foldedOpen.delete(org); else foldedOpen.add(org); renderReviewersEditor(); return; }
+  const mkExc = e.target.closest('.rev-mk-exc');
+  if (mkExc) { seedException(mkExc.dataset.repo); return; }
+  const newExcGo = e.target.closest('.rev-newexc-go');
+  if (newExcGo) {
+    const org = newExcGo.dataset.org;
+    const inp = newExcGo.closest('.rev-newexc').querySelector('.rev-newexc-input');
+    let repo = (inp.value || '').trim();
+    if (!repo) return;
+    if (!repo.includes('/')) repo = `${org}/${repo}`;
+    if (!/^[^\s/]+\/[^\s/]+$/.test(repo)) { toast('error', 'Informe no formato owner/repo.'); return; }
+    seedException(repo); return;
   }
 });
 

@@ -100,9 +100,14 @@ const DEFAULTS = {
   // repos onde o botao Merge (Meus PRs) fica desativado, respeitando regras de
   // review do time (ex.: nunca self-merge no biud-frontend). Editavel em Sistema.
   mergeBlockedRepos: ['biudtech/biud-frontend'],
-  // reviewers padrao por projeto: { "owner/repo": ["login", "org/time", ...] }.
-  // O botao "Setar reviewers" (Meus PRs) atribui voce e pede review dessa lista
-  // num clique. Editavel em Sistema. Aceita pessoas e times (org/time-slug).
+  // reviewers PADRAO por organizacao: { "org": ["login", "org/time", ...] }. E o
+  // grupo aplicado a TODOS os repos daquela org quando voce clica em "Reviewers",
+  // salvo os repos que tem excecao em projectReviewers. Evita repetir a mesma lista
+  // repo a repo (era a maior fonte de poluicao visual da tela de Sistema).
+  defaultReviewers: {},
+  // EXCECOES por projeto: { "owner/repo": ["login", "org/time", ...] }. Quando um
+  // repo esta aqui, essa lista SUBSTITUI o padrao da org (nao soma). Repo sem
+  // excecao usa o defaultReviewers da org. Aceita pessoas e times (org/time-slug).
   projectReviewers: {}
 };
 
@@ -121,6 +126,28 @@ function parseProjectReviewers(val) {
   const map = {};
   for (const line of String(val || '').split(/\r?\n/)) {
     const m = line.match(/^\s*([^\s:]+\/[^\s:]+)\s*:\s*(.+)$/);
+    if (!m) continue;
+    const people = m[2].split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+    if (people.length) map[m[1].trim()] = people;
+  }
+  return map;
+}
+
+// Reviewers padrao por org: { "org": [pessoas/times] }. Aceita objeto (map) ou
+// texto "org: login1, org/time" (uma linha por org). Chave = org (sem barra).
+function parseDefaultReviewers(val) {
+  if (val && typeof val === 'object' && !Array.isArray(val)) {
+    const out = {};
+    for (const k of Object.keys(val)) {
+      const list = Array.isArray(val[k]) ? val[k] : String(val[k]).split(/[,;]+/);
+      const people = list.map(s => String(s).trim()).filter(Boolean);
+      if (people.length) out[k.trim()] = people;
+    }
+    return out;
+  }
+  const map = {};
+  for (const line of String(val || '').split(/\r?\n/)) {
+    const m = line.match(/^\s*([^\s:/]+)\s*:\s*(.+)$/);
     if (!m) continue;
     const people = m[2].split(/[,;]+/).map(s => s.trim()).filter(Boolean);
     if (people.length) map[m[1].trim()] = people;
@@ -436,6 +463,20 @@ class Engine extends EventEmitter {
     if (pr && pr.account) return pr.account;
     const repo = (pr && (pr.repo || (pr.key || '').split('#')[0])) || '';
     return this.accountForOwner(repo.split('/')[0]);
+  }
+
+  // Lista efetiva de reviewers de um repo: a EXCECAO do repo (projectReviewers) se
+  // houver, senao o PADRAO da org (defaultReviewers). Vazio se nao houver nenhum.
+  // E o que o botao "Reviewers" aplica, entao funciona em qualquer repo da org que
+  // tenha padrao, mesmo sem config propria.
+  reviewersForRepo(repo) {
+    const r = String(repo || '');
+    const pr = this.config.projectReviewers || {};
+    const hit = pr[r] || pr[r.toLowerCase()];
+    if (hit && hit.length) return hit;
+    const org = r.split('/')[0];
+    const dr = this.config.defaultReviewers || {};
+    return dr[org] || dr[org.toLowerCase()] || [];
   }
 
   // sem conta configurada, detecta a conta ativa do gh desta maquina: cada
@@ -1222,8 +1263,7 @@ class Engine extends EventEmitter {
       return { ok: false, error: 'gh sem token' };
     }
     const me = (acc || '').toLowerCase();
-    const cfg = this.config.projectReviewers || {};
-    const raw = cfg[repo] || cfg[repo.toLowerCase()] || [];
+    const raw = this.reviewersForRepo(repo);
     // nao da pra pedir review de si mesmo; o autor entra como assignee, nao reviewer
     const reviewers = raw.map(String).map(s => s.trim()).filter(r => r && r.toLowerCase() !== me);
     if (!reviewers.length) {
@@ -2231,7 +2271,7 @@ class Engine extends EventEmitter {
   updateSettings(patch) {
     const allowed = ['ghUser', 'owners', 'accounts', 'intervalSeconds', 'autoReview', 'autoApproveAll', 'skipPermissions',
       'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos',
-      'projectReviewers'];
+      'projectReviewers', 'defaultReviewers'];
     let intervalChanged = false, userChanged = false;
     for (const k of allowed) {
       if (!(k in patch)) continue;
@@ -2240,6 +2280,7 @@ class Engine extends EventEmitter {
       if (k === 'owners') v = Array.isArray(v) ? v.map(s => String(s).trim()).filter(Boolean) : String(v).split(/[,;\s]+/).filter(Boolean);
       if (k === 'mergeBlockedRepos') v = Array.isArray(v) ? v.map(s => String(s).trim()).filter(Boolean) : String(v).split(/[,;\s]+/).filter(Boolean);
       if (k === 'projectReviewers') v = parseProjectReviewers(v);
+      if (k === 'defaultReviewers') v = parseDefaultReviewers(v);
       if (k === 'accounts') { v = parseAccounts(v); userChanged = true; }
       if (k === 'ghUser') { v = String(v).trim(); userChanged = userChanged || v !== this.config.ghUser; }
       this.config[k] = v;
@@ -2479,7 +2520,7 @@ function start(onReady) {
   return { engine, server, port: engine.config.port };
 }
 
-module.exports = { start, HOME, WORKSPACE, Engine, modelLabel, isPermanentBranch, parseProjectReviewers, parseAccounts };
+module.exports = { start, HOME, WORKSPACE, Engine, modelLabel, isPermanentBranch, parseProjectReviewers, parseDefaultReviewers, parseAccounts };
 
 // execucao direta: modo servidor (fallback sem Electron, ou desenvolvimento)
 if (require.main === module) {
