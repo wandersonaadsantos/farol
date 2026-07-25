@@ -51,6 +51,7 @@ function toast(kind, html, ms = 5000) {
 /* ---------- camada de contas (separação por identidade) ---------- */
 let SCOPE = localStorage.getItem('farol-scope') || 'all';   // 'all' ou o login de uma conta
 let silencedOpen = false;
+let CURRENT_TAB = 'radar';   // a barra de contas só filtra o Radar; nas outras abas fica escondida
 const TWEAK = {
   muted: localStorage.getItem('farol-muted-handling') || 'Recolher',   // Recolher | Esmaecer | Ocultar
   ident: localStorage.getItem('farol-identity-style') || 'Barra + etiqueta', // Barra + etiqueta | Só barra | Só ponto
@@ -125,7 +126,9 @@ function attentionCount(user) {
 function renderAccountBar() {
   const bar = $('#accountBar');
   const accounts = (STATE.accounts || []);
-  if (accounts.length < 2) { bar.hidden = true; bar.innerHTML = ''; return; }
+  // só aparece no Radar (é onde filtra de verdade); em Sistema/Time/Destaques não
+  // teria efeito, então fica escondida pra não confundir.
+  if (accounts.length < 2 || CURRENT_TAB !== 'radar') { bar.hidden = true; bar.innerHTML = ''; return; }
   bar.hidden = false;
   const all = SCOPE === 'all';
   const totalAtt = accounts.filter(a => !a.muted).reduce((n, a) => n + attentionCount(a.user), 0);
@@ -282,9 +285,11 @@ $('#btnTheme').onclick = () => {
 /* ---------- navegação ---------- */
 const TAB_TITLES = { radar: 'Radar', destaques: 'Destaques', time: 'Time', sistema: 'Sistema' };
 function switchTab(name) {
+  CURRENT_TAB = name;
   document.querySelectorAll('.nav-item').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
   const title = $('#pageTitle'); if (title) title.textContent = TAB_TITLES[name] || 'Farol';
+  if (STATE) renderAccountBar();   // mostra/esconde a barra de contas conforme a aba
   if (name === 'destaques') loadHighlights();
   if (name === 'time') loadTeam();
   if (name === 'sistema') { loadLog(); renderDoctor(); renderAccountsManager(); loadReviewerCands(); }
@@ -1031,6 +1036,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.4.2', ['A barra de contas agora aparece só no Radar, onde ela realmente filtra. Nas abas Sistema, Time e Destaques ela sumiu (lá trocar de conta não mudava nada e só confundia): Sistema é global, e Time/Destaques são memória do time.']],
   ['2.4.1', ['Diagnóstico de atualização honesto: quando o Farol não consegue ler as releases (repo sem acesso pra sua conta, sem release ainda, ou rede), a aba Sistema diz isso claramente, em vez de mostrar "você está na versão mais recente" e te deixar sem saber que havia update.']],
   ['2.4.0', ['Aprova sozinho tudo que for aprovável, sem depender do seu clique: quando a revisão conclui que o PR está aprovável, o Farol posta o APPROVE na hora e deixa os pontos de atenção claros (anexados ao próprio PR e visíveis em Revisões recentes). Vale só pros reviews pedidos a você (clique no panorama nunca posta). Dá pra desligar em Sistema > Configurações e voltar a ser chamado nos casos com ressalva.']],
   ['2.3.0', ['Panorama: um PR que você já aprovou volta a mostrar "Re-revisar" quando (e só quando) entra commit novo depois da sua review; sem commit novo, segue como "nada a fazer". O Farol compara o commit da sua última review com o topo atual do PR.']],
