@@ -351,16 +351,31 @@ main { max-width: 1000px; margin: 0 auto; padding: 16px 24px 60px; }
 .entry li::marker { color: var(--accent); }
 
 /* ---------- sistema: contas ---------- */
-.acct-card { display: flex; align-items: center; gap: 13px; border-left: 3px solid var(--ac); }
-.acct-card .a-avatar { width: 34px; height: 34px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; background: var(--ac); color: var(--ac-ink); }
-.acct-card .a-body { flex: 1; min-width: 0; }
-.acct-card .a-name { font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.acct-card .a-kind { font-size: 10.5px; font-weight: 700; color: var(--ac); background: var(--ac-soft); border-radius: 99px; padding: 1px 8px; }
+.acct-card { display: flex; align-items: flex-start; gap: 13px; border-left: 3px solid var(--ac); }
+.acct-card .acct-color { width: 30px; height: 30px; flex: none; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: none; cursor: pointer; margin-top: 2px; }
+.acct-card .acct-color::-webkit-color-swatch-wrapper { padding: 2px; }
+.acct-card .acct-color::-webkit-color-swatch { border: 0; border-radius: 6px; }
+.acct-card .a-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.acct-card .a-editrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.acct-card .a-editrow.orgs { gap: 6px; }
+.acct-card .a-fieldlabel { font-size: 11px; color: var(--faint); font-weight: 600; }
+.acct-card .acct-label { font-weight: 650; font-size: 13.5px; width: 150px; max-width: 45%; background: var(--surface-2); color: var(--text); border: 1px solid transparent; border-radius: 7px; padding: 4px 8px; }
+.acct-card .acct-kind { font-size: 12px; width: 130px; background: var(--surface-2); color: var(--muted); border: 1px solid transparent; border-radius: 7px; padding: 4px 8px; }
+.acct-card .acct-owners { flex: 1; min-width: 140px; font-size: 12.5px; background: var(--surface-2); color: var(--text); border: 1px solid transparent; border-radius: 7px; padding: 4px 8px; }
+.acct-card .acct-label:hover, .acct-card .acct-kind:hover, .acct-card .acct-owners:hover { border-color: var(--border); }
+.acct-card .acct-label:focus, .acct-card .acct-kind:focus, .acct-card .acct-owners:focus { outline: none; border-color: var(--ac); background: var(--surface); }
 .acct-card .a-tag { font-size: 10.5px; font-weight: 700; color: var(--muted); background: var(--surface-2); border: 1px solid var(--border); border-radius: 99px; padding: 1px 8px; }
-.acct-card .a-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
-.acct-card .a-auth { color: var(--ok); }
+.acct-card .a-sub { color: var(--muted); font-size: 12px; }
+.acct-card .a-auth { color: var(--muted); }
+.acct-card .a-auth.ok { color: var(--ok); }
+.acct-card .a-actions { display: flex; flex-direction: column; gap: 6px; flex: none; align-items: stretch; }
 .acct-card.muted { opacity: .72; }
-.acct-card.muted .a-auth { color: var(--muted); }
+.acct-add { display: block; }
+.acct-add .a-add-title { font-weight: 650; font-size: 13px; margin-bottom: 10px; }
+.acct-add .a-editrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.acct-add input { flex: 1; min-width: 130px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 13px; }
+.acct-add input:focus { outline: none; border-color: var(--accent); }
+.acct-add .a-hint { color: var(--muted); font-size: 11.5px; margin-top: 9px; }
 
 /* reviewers agrupados */
 .rev-group-head { display: flex; align-items: center; gap: 8px; margin: 14px 0 6px; font-size: 12px; font-weight: 700; color: var(--ac); }

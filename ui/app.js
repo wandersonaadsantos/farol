@@ -149,9 +149,11 @@ function renderAccountBar() {
   if (accounts.length < 2 || CURRENT_TAB === 'sistema') { bar.hidden = true; bar.innerHTML = ''; return; }
   bar.hidden = false;
   const all = SCOPE === 'all';
+  // o contador (PRs precisando de você) é conceito do Radar; nas outras abas some
+  const showCounts = CURRENT_TAB === 'radar';
   const totalAtt = accounts.filter(a => !a.muted).reduce((n, a) => n + attentionCount(a.user), 0);
   const segAll = `<button class="acct-seg ${all ? 'active' : ''}" data-scope="all" title="Ver todas as contas"
-      style="${all ? '--seg-bg:var(--surface-2);--seg-fg:var(--text);--seg-badge-bg:var(--accent-soft);--seg-badge-fg:var(--accent);' : ''}">Todas${totalAtt ? `<span class="seg-count">${totalAtt}</span>` : ''}</button>`;
+      style="${all ? '--seg-bg:var(--surface-2);--seg-fg:var(--text);--seg-badge-bg:var(--accent-soft);--seg-badge-fg:var(--accent);' : ''}">Todas${showCounts && totalAtt ? `<span class="seg-count">${totalAtt}</span>` : ''}</button>`;
   const segs = accounts.map(a => {
     const meta = ACCT[a.user.toLowerCase()] || {};
     const active = String(SCOPE).toLowerCase() === a.user.toLowerCase();
@@ -159,7 +161,7 @@ function renderAccountBar() {
     const style = `--ac:${meta.color};` + (active ? `--seg-bg:${meta.soft};--seg-fg:${meta.color};--seg-badge-bg:${meta.color};--seg-badge-fg:${meta.ink};` : '');
     return `<button class="acct-seg ${active ? 'active' : ''} ${a.muted ? 'muted' : ''}" data-scope="${esc(a.user)}"
         title="@${esc(a.user)}${meta.org ? ' · ' + esc(meta.org) : ''}${a.muted ? ' (silenciada)' : ''}" style="${style}">
-        <span class="seg-dot"></span>${esc(meta.label || a.user)}${a.muted ? '<span class="seg-pause">⏸</span>' : (att ? `<span class="seg-count">${att}</span>` : '')}</button>`;
+        <span class="seg-dot"></span>${esc(meta.label || a.user)}${a.muted ? '<span class="seg-pause">⏸</span>' : (showCounts && att ? `<span class="seg-count">${att}</span>` : '')}</button>`;
   }).join('');
   bar.innerHTML = segAll + segs;
 }
@@ -219,29 +221,67 @@ function renderSilenced() {
   box.innerHTML = head + body;
 }
 
-/* ---------- render: gerenciador de contas (Sistema) ---------- */
+/* ---------- gerenciador/editor de contas (Sistema) ---------- */
+function accountSaveArray(list) {
+  return (list || []).map(a => ({ user: a.user, owners: a.owners || [], label: a.label, color: a.color, kind: a.kind || '', muted: !!a.muted }));
+}
+function editAccount(user, patch) {
+  const list = (STATE.accounts || []).map(a => a.user === user ? { ...a, ...patch } : a);
+  STATE.accounts = list; rebuildAccounts();
+  renderAccountsManager(); renderAccountBar(); renderIdentity();
+  api('/api/settings', { accounts: accountSaveArray(list) });
+}
+function removeAccount(user) {
+  const list = (STATE.accounts || []).filter(a => a.user !== user);
+  STATE.accounts = list; rebuildAccounts();
+  renderAccountsManager(); renderAccountBar(); renderIdentity();
+  api('/api/settings', { accounts: accountSaveArray(list) });
+}
+function addAccount(user, owners, label) {
+  const list = [...(STATE.accounts || []), { user, owners, label: label || user, color: '', kind: '', muted: false, tokenOk: false, primary: false }];
+  STATE.accounts = list; rebuildAccounts();
+  renderAccountsManager(); renderAccountBar();
+  api('/api/settings', { accounts: accountSaveArray(list) });
+}
 function renderAccountsManager() {
-  const box = $('#accountsManager');
-  if (!box) return;
+  const box = $('#accountsManager'); if (!box) return;
+  // não re-renderiza enquanto você edita um campo (senão apaga o que está digitando)
+  if (document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
   const accounts = (STATE.accounts || []);
-  if (!accounts.length) { box.innerHTML = '<div class="empty">Nenhuma conta configurada.</div>'; return; }
   const multi = accounts.length > 1;
-  box.innerHTML = accounts.map(a => {
+  const rows = accounts.map(a => {
     const meta = ACCT[a.user.toLowerCase()] || {};
-    const style = `--ac:${meta.color};--ac-soft:${meta.soft};--ac-ink:${meta.ink};`;
-    const auth = a.muted ? 'silenciada: token preservado, fora dos avisos e da auto-revisão' : (a.tokenOk ? 'autenticada no gh' : 'sem token: rode gh auth login');
-    return `<div class="card acct-card ${a.muted ? 'muted' : ''}" style="${style}">
-      <span class="a-avatar">${esc((meta.label || a.user).charAt(0).toUpperCase())}</span>
+    const auth = a.muted ? 'silenciada (fora dos avisos e da auto-revisão)' : (a.tokenOk ? 'autenticada no gh' : 'sem token: rode gh auth login');
+    return `<div class="card acct-card ${a.muted ? 'muted' : ''}" style="--ac:${meta.color};--ac-soft:${meta.soft};--ac-ink:${meta.ink};">
+      <input type="color" class="acct-color" data-user="${esc(a.user)}" value="${esc(a.color || meta.color || '#ffb454')}" title="cor da conta">
       <div class="a-body">
-        <div class="a-name">${esc(meta.label || a.user)}
-          ${meta.kind ? `<span class="a-kind">${esc(meta.kind)}</span>` : ''}
+        <div class="a-editrow">
+          <input class="acct-label" data-user="${esc(a.user)}" value="${esc(a.label || a.user)}" placeholder="rótulo" spellcheck="false" title="rótulo da conta">
+          <input class="acct-kind" data-user="${esc(a.user)}" list="acctKinds" value="${esc(a.kind || '')}" placeholder="tipo (Pessoal/Trabalho)" spellcheck="false">
           ${a.primary ? '<span class="a-tag">primária</span>' : ''}
-          ${a.muted ? '<span class="a-tag">silenciada</span>' : ''}</div>
-        <div class="a-sub"><span class="a-auth">@${esc(a.user)}</span> · ${esc((a.owners || []).join(', ') || 'sem org')} · ${esc(auth)}</div>
+        </div>
+        <div class="a-sub"><span class="a-auth ${a.tokenOk && !a.muted ? 'ok' : ''}">@${esc(a.user)}</span> · ${esc(auth)}</div>
+        <div class="a-editrow orgs"><span class="a-fieldlabel">orgs</span>
+          <input class="acct-owners" data-user="${esc(a.user)}" value="${esc((a.owners || []).join(', '))}" placeholder="org1, org2" spellcheck="false" title="organizações monitoradas por esta conta"></div>
       </div>
-      ${multi ? `<div class="pr-actions"><button class="btn sm ${a.muted ? 'ok' : 'ghost'} act-mute" data-user="${esc(a.user)}">${a.muted ? 'Reativar' : 'Silenciar'}</button></div>` : ''}
+      ${multi ? `<div class="a-actions">
+        <button class="btn sm ${a.muted ? 'ok' : 'ghost'} act-mute" data-user="${esc(a.user)}">${a.muted ? 'Reativar' : 'Silenciar'}</button>
+        <button class="btn sm danger-ghost acct-remove" data-user="${esc(a.user)}" title="parar de monitorar esta conta no Farol">Remover</button>
+      </div>` : ''}
     </div>`;
   }).join('');
+  const addForm = `<div class="card acct-add">
+    <div class="a-add-title">Adicionar conta</div>
+    <div class="a-editrow">
+      <input id="acctAddUser" placeholder="login do github" spellcheck="false">
+      <input id="acctAddOwners" placeholder="orgs (org1, org2)" spellcheck="false">
+      <input id="acctAddLabel" placeholder="rótulo (opcional)" spellcheck="false">
+      <button class="btn sm" id="btnAcctAdd">Adicionar</button>
+    </div>
+    <div class="a-hint">A conta precisa estar logada no <code>gh</code> (<code>gh auth login</code>) pra buscar e postar. Sem token, ela aparece aqui mas sem acesso.</div>
+  </div>
+  <datalist id="acctKinds"><option value="Pessoal"></option><option value="Trabalho"></option><option value="Teste antigo"></option></datalist>`;
+  box.innerHTML = (rows || '<div class="empty">Nenhuma conta configurada.</div>') + addForm;
 }
 
 // re-render das seções sensíveis ao escopo (sem esperar novo state do engine)
@@ -266,24 +306,46 @@ $('#accountBar').addEventListener('click', (e) => {
 $('#silenced').addEventListener('click', (e) => {
   if (e.target.closest('.sil-toggle')) { silencedOpen = !silencedOpen; renderSilenced(); }
 });
-/* silenciar / reativar conta */
+/* editor de contas: mudar cor / rótulo / tipo / orgs */
+$('#accountsManager').addEventListener('change', (e) => {
+  const t = e.target, user = t.dataset && t.dataset.user;
+  if (!user) return;
+  if (t.classList.contains('acct-color')) return editAccount(user, { color: t.value });
+  if (t.classList.contains('acct-label')) return editAccount(user, { label: (t.value || '').trim() || user });
+  if (t.classList.contains('acct-kind')) return editAccount(user, { kind: (t.value || '').trim() });
+  if (t.classList.contains('acct-owners')) return editAccount(user, { owners: (t.value || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean) });
+});
+/* editor de contas: silenciar/reativar, remover, adicionar */
 $('#accountsManager').addEventListener('click', (e) => {
-  const btn = e.target.closest('.act-mute');
-  if (!btn) return;
-  const user = btn.dataset.user;
-  const accounts = (STATE.accounts || []).map(a => ({
-    user: a.user, owners: a.owners, label: a.label, color: a.color, kind: a.kind,
-    muted: a.user === user ? !a.muted : !!a.muted
-  }));
-  btn.disabled = true; btn.textContent = '…';
-  api('/api/settings', { accounts }).then(() => {
-    // se a conta silenciada era o escopo atual, volta pra Todas
-    if (String(SCOPE).toLowerCase() === String(user).toLowerCase() && accounts.find(a => a.user === user)?.muted) {
-      SCOPE = 'all'; localStorage.setItem('farol-scope', 'all');
-    }
-    // o pushState do engine re-renderiza; toast de confirmação
-    toast('ok', 'Conta atualizada.', 2500);
-  });
+  const mute = e.target.closest('.act-mute');
+  if (mute) {
+    const user = mute.dataset.user;
+    const a = (STATE.accounts || []).find(x => x.user === user);
+    const willMute = !(a && a.muted);
+    if (willMute && String(SCOPE).toLowerCase() === user.toLowerCase()) { SCOPE = 'all'; localStorage.setItem('farol-scope', 'all'); }
+    editAccount(user, { muted: willMute });
+    return;
+  }
+  const rem = e.target.closest('.acct-remove');
+  if (rem) {
+    const user = rem.dataset.user;
+    if ((STATE.accounts || []).length <= 1) { toast('error', 'Precisa de ao menos uma conta.'); return; }
+    if (!confirm(`Remover @${user} do Farol? Só para de monitorar essa conta aqui, não mexe no seu gh.`)) return;
+    if (String(SCOPE).toLowerCase() === user.toLowerCase()) { SCOPE = 'all'; localStorage.setItem('farol-scope', 'all'); }
+    removeAccount(user);
+    toast('info', `Conta @${user} removida do Farol.`, 3000);
+    return;
+  }
+  if (e.target.closest('#btnAcctAdd')) {
+    const u = ($('#acctAddUser').value || '').trim().replace(/^@/, '');
+    const owners = ($('#acctAddOwners').value || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+    const label = ($('#acctAddLabel').value || '').trim();
+    if (!u) { toast('error', 'Informe o login da conta.'); return; }
+    if ((STATE.accounts || []).some(a => a.user.toLowerCase() === u.toLowerCase())) { toast('error', 'Essa conta já está na lista.'); return; }
+    addAccount(u, owners, label);
+    toast('ok', `Conta @${u} adicionada. Se ainda não estiver logada, rode gh auth login.`, 5000);
+    return;
+  }
 });
 
 /* ---------- tema ---------- */
@@ -1097,6 +1159,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.7.0', ['Editor de contas na aba Sistema: dá pra adicionar e remover conta, e editar o rótulo, a cor, o tipo (Trabalho/Pessoal) e as orgs de cada uma, sem precisar mexer no config.json na mão. O tipo é o que faz a faixa dizer "1 de trabalho e 1 pessoal".', '"Aprovar sozinho tudo que for aprovável" agora vem DESLIGADO por padrão (você liga em Sistema se quiser): mais seguro agora que o app é público e cada pessoa decide o próprio nível de automação.', 'A barra de contas não mostra mais o contador de PRs pendentes fora do Radar (lá ele não tinha a ver com o conteúdo da aba).']],
   ['2.6.1', ['O seletor de reviewers agora lista só quem faz parte daquela organização: antes, ao configurar os reviewers de um projeto, o dropdown misturava as pessoas de todas as orgs monitoradas (na conta pessoal aparecia gente do trabalho, o que não fazia sentido). Cada org passa a oferecer só os próprios membros e times. Org sem membros enumeráveis vira um campo pra digitar o handle na mão.']],
   ['2.6.0', ['Destaques e Time separados por conta: quando você monitora mais de uma conta do GitHub, cada aba agrupa por conta (com a barra de contas de volta pra filtrar), em vez de misturar trabalho e pessoal no mesmo balaio. A partir desta versão a memória do time guarda a org de cada review pra atribuir a conta; registros antigos (sem essa marca) aparecem num grupo "Geral" até o autor ser re-revisado.']],
   ['2.5.0', ['Reviewers por projeto reinventado, o fim da repetição: agora você define um grupo padrão por organização (aplicado a TODOS os repos dela no botão Reviewers), e só os projetos que fogem do padrão aparecem, como um diff enxuto ("padrão − fulano" / "padrão + ciclano"). Os demais colapsam numa linha só. Quem já tinha listas repetidas ganha um botão "Criar padrão" que detecta o grupo comum e recolhe tudo num clique. E o botão "👥 Reviewers" passa a funcionar em qualquer repo da org, mesmo sem config própria, usando o padrão.']],

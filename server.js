@@ -86,7 +86,7 @@ const DEFAULTS = {
   accounts: [],
   intervalSeconds: 300,
   autoReview: true,        // revisao autonoma interna (headless); so chama o humano nas excecoes
-  autoApproveAll: true,    // aprova sozinho TODO PR aprovavel (veredito approve), anexando os pontos de atencao ao APPROVE; OFF = so o gate estrito (decisao auto_approve + card comprovado)
+  autoApproveAll: false,   // OFF = gate estrito (so auto_approve + card comprovado). ON (opt-in em Sistema) = aprova sozinho TODO PR aprovavel, anexando os pontos de atencao ao APPROVE. Default OFF por seguranca (o app e publico/multiusuario; cada um liga se quiser)
   skipPermissions: false,  // vale so pra sessoes no TERMINAL; o modo interno roda sem prompts por design
   soundEnabled: true,
   theme: 'dark',
@@ -2288,7 +2288,13 @@ class Engine extends EventEmitter {
       if (k === 'mergeBlockedRepos') v = Array.isArray(v) ? v.map(s => String(s).trim()).filter(Boolean) : String(v).split(/[,;\s]+/).filter(Boolean);
       if (k === 'projectReviewers') v = parseProjectReviewers(v);
       if (k === 'defaultReviewers') v = parseDefaultReviewers(v);
-      if (k === 'accounts') { v = parseAccounts(v); userChanged = true; }
+      if (k === 'accounts') {
+        v = parseAccounts(v);
+        // só re-autentica se as CONTAS (user/owners) mudaram; editar rótulo, cor,
+        // tipo ou silenciar não mexe em token, então não força um re-login/re-check.
+        const sig = arr => JSON.stringify((arr || []).map(a => [String(a.user).toLowerCase(), (a.owners || []).map(o => String(o).toLowerCase()).sort()]));
+        if (sig(v) !== sig(this.config.accounts)) userChanged = true;
+      }
       if (k === 'ghUser') { v = String(v).trim(); userChanged = userChanged || v !== this.config.ghUser; }
       this.config[k] = v;
     }

@@ -172,7 +172,7 @@
       <div class="field">
         <label for="setUser">Conta do GitHub (trabalho)</label>
         <input id="setUser" type="text" spellcheck="false">
-        <small>Conta primária usada pra buscar e postar reviews (via <code>gh auth token</code>). Múltiplas contas: use o bloco <code>accounts</code> no config.json.</small>
+        <small id="setUserHint">Conta primária (modo simples, uma conta), usada pra buscar e postar reviews via <code>gh auth token</code>. Pra monitorar mais de uma conta, use o painel <b>Contas</b> no topo desta aba.</small>
       </div>
       <div class="field">
         <label for="setOwners">Organizações monitoradas</label>
@@ -225,7 +225,7 @@
       <label class="switch-row">
         <input id="setAutoApproveAll" type="checkbox">
         <span class="switch"></span>
-        <span>Aprovar sozinho tudo que for aprovável<br><small>Quando a revisão conclui que o PR é aprovável, o Farol posta o APPROVE na hora, sem depender do seu clique, e deixa os pontos de atenção claros (anexados ao próprio PR e no histórico). Desligue pra aprovar sozinho só os casos sem ressalva e ser chamado no resto.</small></span>
+        <span>Aprovar sozinho tudo que for aprovável<br><small>Ligue pra que o Farol poste o APPROVE na hora em qualquer PR aprovável, sem depender do seu clique, com os pontos de atenção anexados ao próprio PR e ao histórico. Desligado (padrão), ele só aprova sozinho os casos sem ressalva e chama você no resto.</small></span>
       </label>
       <label class="switch-row">
         <input id="setSkipPerms" type="checkbox">
