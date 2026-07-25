@@ -269,6 +269,14 @@ main { max-width: 1000px; margin: 0 auto; padding: 16px 24px 60px; }
 .row .badge.rev-rc { color: var(--danger); background: var(--danger-soft); }
 .row .badge.rev-cm, .row .badge.rev-pend { color: var(--accent); background: var(--accent-soft); }
 .row .settled { color: var(--faint); font-size: 12px; flex: none; }
+.row.has-attn { align-items: flex-start; }
+.row.has-attn .title { white-space: normal; }
+.resolved-attn { margin-top: 5px; }
+.resolved-attn summary { cursor: pointer; color: var(--accent); font-size: 12px; font-weight: 600; user-select: none; }
+.resolved-attn summary:hover { text-decoration: underline; }
+.resolved-attn ul { margin: 6px 0 2px; padding-left: 18px; font-size: 12.5px; color: var(--text); }
+.resolved-attn li { margin: 2px 0; }
+.resolved-attn li::marker { color: var(--accent); }
 
 /* ---------- vazio ---------- */
 .empty {

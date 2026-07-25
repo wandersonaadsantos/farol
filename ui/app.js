@@ -547,10 +547,16 @@ function renderResolved() {
   $('#resolved').innerHTML = resolved.map(r => {
     const [icon, label] = labels[r.status] || ['•', r.status];
     const act = (r.status === 'posted' || r.status === 'already_reviewed') ? ` (${actions[r.action] || r.action})` : '';
-    return `<div class="row">
+    // pontos de atenção de um PR aprovado sozinho: ficam claros aqui (expansível)
+    const attn = (r.attention && r.attention.length) ? r.attention : (r.status === 'auto_approved' ? (r.reasons || []) : []);
+    const hasAttn = attn.length > 0;
+    const attnHtml = hasAttn
+      ? `<details class="resolved-attn"><summary>⚠ ${attn.length} ponto${attn.length > 1 ? 's' : ''} de atenção</summary><ul class="dec-reasons">${attn.map(p => `<li>${esc(p)}</li>`).join('')}</ul></details>`
+      : '';
+    return `<div class="row ${hasAttn ? 'has-attn' : ''}">
       <span>${icon}</span>
       <span class="ref"><a href="${esc(r.pr?.url || '#')}" target="_blank" rel="noreferrer">${esc(r.key)}</a></span>
-      <span class="title">${label}${act}${r.card ? ` · ${esc(r.card)}` : ''}</span>
+      <span class="title">${label}${act}${r.card ? ` · ${esc(r.card)}` : ''}${attnHtml}</span>
       <button class="btn sm ghost act-chat" data-key="${esc(r.key)}" data-url="${esc(r.pr?.url || '')}">💬${chatBadge(r.key)}</button>
       <span class="when">${fmtClock(r.resolvedAt)}</span>
     </div>`;
@@ -1018,6 +1024,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.4.0', ['Aprova sozinho tudo que for aprovável, sem depender do seu clique: quando a revisão conclui que o PR está aprovável, o Farol posta o APPROVE na hora e deixa os pontos de atenção claros (anexados ao próprio PR e visíveis em Revisões recentes). Vale só pros reviews pedidos a você (clique no panorama nunca posta). Dá pra desligar em Sistema > Configurações e voltar a ser chamado nos casos com ressalva.']],
   ['2.3.0', ['Panorama: um PR que você já aprovou volta a mostrar "Re-revisar" quando (e só quando) entra commit novo depois da sua review; sem commit novo, segue como "nada a fazer". O Farol compara o commit da sua última review com o topo atual do PR.']],
   ['2.2.0', ['Reviewers por projeto agora agrupados por conta: cada projeto aparece sob a conta dona (Pessoal, BIUD, etc.), acabando com a lista misturada quando você monitora mais de uma conta']],
   ['2.1.0', ['Separação de contas: barra no topo pra alternar entre Todas e cada conta do GitHub (trabalho, pessoal, mais de um emprego), cada uma com cor e identidade próprias', 'De quem e por quem: cada card mostra o autor do PR (@quem escreveu) separado da sua conta (cor e etiqueta), e ao focar uma conta a faixa diz "revisando e postando como @você"', 'Contas silenciadas: aquele PR-teste antigo que nunca fecha sai do painel e dos avisos sem ser perdido (aparece ao selecionar a conta); ajuste em Sistema > Contas', 'Painel de contas em Sistema pra silenciar/reativar, e reviewers por projeto mais enxuto', 'Panorama: PR que você já aprovou não mostra mais "Re-revisar" (só quando entra commit novo)']],
@@ -1215,6 +1222,7 @@ function renderSettings() {
   renderReviewersEditor();
   $('#setInterval').value = String(c.intervalSeconds);
   $('#setAutoReview').checked = !!c.autoReview;
+  $('#setAutoApproveAll').checked = c.autoApproveAll !== false;
   $('#setSkipPerms').checked = !!c.skipPermissions;
   $('#setSound').checked = !!c.soundEnabled;
   $('#setAutostart').checked = !!c.autostart;
@@ -1393,6 +1401,7 @@ const settingsMap = [
   ['#setMergeBlocked', 'mergeBlockedRepos', el => el.value],
   ['#setInterval', 'intervalSeconds', el => parseInt(el.value, 10)],
   ['#setAutoReview', 'autoReview', el => el.checked],
+  ['#setAutoApproveAll', 'autoApproveAll', el => el.checked],
   ['#setSkipPerms', 'skipPermissions', el => el.checked],
   ['#setSound', 'soundEnabled', el => el.checked],
   ['#setAutostart', 'autostart', el => el.checked]

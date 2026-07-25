@@ -223,6 +223,11 @@
         <span>Revisar automaticamente quando chegar PR<br><small>O Farol roda o review internamente, aprova sozinho quando o protocolo permite e só te chama nas exceções, em cada conta com a identidade dela. Contas silenciadas ficam de fora.</small></span>
       </label>
       <label class="switch-row">
+        <input id="setAutoApproveAll" type="checkbox">
+        <span class="switch"></span>
+        <span>Aprovar sozinho tudo que for aprovável<br><small>Quando a revisão conclui que o PR é aprovável, o Farol posta o APPROVE na hora, sem depender do seu clique, e deixa os pontos de atenção claros (anexados ao próprio PR e no histórico). Desligue pra aprovar sozinho só os casos sem ressalva e ser chamado no resto.</small></span>
+      </label>
+      <label class="switch-row">
         <input id="setSkipPerms" type="checkbox">
         <span class="switch"></span>
         <span>Sessão no terminal sem pedir permissões<br><small><code>--dangerously-skip-permissions</code>; vale só pras sessões no terminal, o modo interno já roda sem prompts.</small></span>

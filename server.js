@@ -86,6 +86,7 @@ const DEFAULTS = {
   accounts: [],
   intervalSeconds: 300,
   autoReview: true,        // revisao autonoma interna (headless); so chama o humano nas excecoes
+  autoApproveAll: true,    // aprova sozinho TODO PR aprovavel (veredito approve), anexando os pontos de atencao ao APPROVE; OFF = so o gate estrito (decisao auto_approve + card comprovado)
   skipPermissions: false,  // vale so pra sessoes no TERMINAL; o modo interno roda sem prompts por design
   soundEnabled: true,
   theme: 'dark',
@@ -1128,12 +1129,11 @@ class Engine extends EventEmitter {
       const result = this.parseHeadlessResult(res.text);
       result.sessionId = res.sessionId || null;
 
-      // gate do app: auto-approve so com veredito approve + card comprovadamente
-      // atendido + revisao solicitada a mim (iniciada por clique nunca auto-posta)
-      const canAuto = pr.requested !== false && result.decision === 'auto_approve' &&
-        result.verdict === 'approve' && result.cardMet === true &&
-        result.payloads.approve && result.payloads.approve.event === 'APPROVE';
-      if (pr.requested === false && result.decision === 'auto_approve') {
+      // gate do app: aprova sozinho quando aprovável (revisão pedida a mim; clique
+      // no panorama nunca auto-posta). Com autoApproveAll (default) qualquer aprovável
+      // passa, com os pontos de atenção anexados ao APPROVE; sem, só o gate estrito.
+      const canAuto = this.shouldAutoApprove(pr, result);
+      if (pr.requested === false && result.verdict === 'approve') {
         result.reasons = ['revisão iniciada por você (não era seu review pedido): nada é postado sem sua decisão',
           ...(result.reasons || [])];
       }
@@ -1147,12 +1147,18 @@ class Engine extends EventEmitter {
           this.emit('toast', { kind: 'info', text: `${pr.key}: você já tinha aprovado no GitHub; não postei de novo.` });
           return;
         }
-        const post = await this.postReview(pr, result.payloads.approve);
+        // pontos de atenção: anexados ao corpo do APPROVE (ficam visíveis no PR) e
+        // guardados no histórico (a UI mostra em Revisões recentes)
+        const points = this.attentionPoints(result);
+        const approve = points.length
+          ? { ...result.payloads.approve, body: this.approveBodyWithPoints(result.payloads.approve.body, points) }
+          : result.payloads.approve;
+        const post = await this.postReview(pr, approve);
         if (post.ok) {
-          this.recordDecision(pr, result, { status: 'auto_approved', action: 'approve' });
+          this.recordDecision(pr, result, { status: 'auto_approved', action: 'approve', attention: points });
           this.writeMemory(result, 'APPROVE');
           this.emit('auto-approved', { pr, result });
-          this.emit('toast', { kind: 'ok', text: `✅ ${pr.key} aprovado automaticamente (${result.card || 'sem card'}).` });
+          this.emit('toast', { kind: 'ok', text: `✅ ${pr.key} aprovado automaticamente${points.length ? ` (${points.length} ponto(s) de atenção)` : ''}.` });
           return;
         }
         result.reasons = [...(result.reasons || []), `falha ao postar o APPROVE: ${post.error}`];
@@ -1701,6 +1707,36 @@ class Engine extends EventEmitter {
     try { return JSON.parse(r.stdout || '[]'); } catch { return null; }
   }
 
+  // Deve auto-aprovar este PR? Aprovável = veredito approve + payload APPROVE.
+  // Revisão iniciada por clique (requested === false) NUNCA auto-posta. Com
+  // autoApproveAll (default) todo aprovável passa; senão, só o gate estrito
+  // (a sessão decidiu auto_approve E o card foi comprovado).
+  shouldAutoApprove(pr, result) {
+    const approvable = result.verdict === 'approve' &&
+      result.payloads && result.payloads.approve && result.payloads.approve.event === 'APPROVE';
+    if (!approvable || pr.requested === false) return false;
+    if (this.config.autoApproveAll !== false) return true;
+    return result.decision === 'auto_approve' && result.cardMet === true;
+  }
+
+  // Pontos de atenção de uma revisão aprovável: as ressalvas que a sessão levantou
+  // (result.reasons) mais um aviso quando o card não foi comprovado. É o que a gente
+  // deixa claro ao aprovar sozinho, no PR e na tela.
+  attentionPoints(result) {
+    const pts = [];
+    if (result.cardMet === false) pts.push('O card não foi totalmente comprovado na revisão automática, confira se necessário.');
+    for (const r of (result.reasons || [])) if (r) pts.push(String(r));
+    return pts;
+  }
+
+  // Anexa os pontos de atenção ao corpo do APPROVE, pra ficarem visíveis no próprio PR.
+  approveBodyWithPoints(body, pts) {
+    const base = String(body || '').trim();
+    if (!pts || !pts.length) return base;
+    const block = '**Pontos de atenção (aprovado automaticamente pelo Farol):**\n' + pts.map(p => `- ${p}`).join('\n');
+    return base ? `${base}\n\n${block}` : block;
+  }
+
   async postReview(pr, payload) {
     try {
       if (!this.token) await this.refreshTokens();
@@ -2193,7 +2229,7 @@ class Engine extends EventEmitter {
   }
 
   updateSettings(patch) {
-    const allowed = ['ghUser', 'owners', 'accounts', 'intervalSeconds', 'autoReview', 'skipPermissions',
+    const allowed = ['ghUser', 'owners', 'accounts', 'intervalSeconds', 'autoReview', 'autoApproveAll', 'skipPermissions',
       'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos',
       'projectReviewers'];
     let intervalChanged = false, userChanged = false;
