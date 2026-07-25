@@ -1016,6 +1016,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.2.0', ['Reviewers por projeto agora agrupados por conta: cada projeto aparece sob a conta dona (Pessoal, BIUD, etc.), acabando com a lista misturada quando você monitora mais de uma conta']],
   ['2.1.0', ['Separação de contas: barra no topo pra alternar entre Todas e cada conta do GitHub (trabalho, pessoal, mais de um emprego), cada uma com cor e identidade próprias', 'De quem e por quem: cada card mostra o autor do PR (@quem escreveu) separado da sua conta (cor e etiqueta), e ao focar uma conta a faixa diz "revisando e postando como @você"', 'Contas silenciadas: aquele PR-teste antigo que nunca fecha sai do painel e dos avisos sem ser perdido (aparece ao selecionar a conta); ajuste em Sistema > Contas', 'Painel de contas em Sistema pra silenciar/reativar, e reviewers por projeto mais enxuto', 'Panorama: PR que você já aprovou não mostra mais "Re-revisar" (só quando entra commit novo)']],
   ['1.18.0', ['A autoanálise de um PR é descartada quando entra commit novo: o card volta a "não analisado", pra não mostrar veredito velho que já não vale', '"Merge (admin)" só aparece quando realmente resolve (some quando o repo usa ruleset que o admin não fura)', 'Times enterprise saíram do seletor de reviewers (o GitHub não os aceita como reviewer de PR)']],
   ['1.17.0', ['Reviewers por projeto agora é um seletor de pessoas e times da organização (chips), sem digitar handle na mão', 'Copiar o grupo de reviewers pra outros repos de uma vez ("copiar pra…")', 'Clicar em "Reviewers" num repo sem config leva pra tela de configuração, em vez de dar erro']],
@@ -1079,7 +1080,8 @@ function renderReviewersEditor() {
   const me = ((STATE.config || {}).ghUser || '').toLowerCase();
   const teamName = (id) => (reviewerCands.teams.find(t => t.id === id) || {}).name || id;
   const repos = Object.keys(map).sort();
-  const rows = repos.map(repo => {
+  // HTML de uma linha de repo (reaproveitado no modo agrupado e no plano)
+  const repoRow = (repo) => {
     const list = map[repo] || [];
     const chips = list.map(rv => {
       const isTeam = rv.includes('/');
@@ -1105,7 +1107,33 @@ function renderReviewersEditor() {
       </div>
       ${copyForm}
     </div>`;
-  }).join('');
+  };
+  // multi-conta: agrupa os repos por conta dona (owner do repo), com cabeçalho;
+  // conta única: lista plana (sem cabeçalho desnecessário)
+  let rows;
+  if (multiAccount()) {
+    const grouped = {}; const others = [];
+    for (const repo of repos) {
+      const user = OWNER2USER[repo.split('/')[0].toLowerCase()];
+      if (user) (grouped[user] = grouped[user] || []).push(repo);
+      else others.push(repo);
+    }
+    const parts = [];
+    for (const a of (STATE.accounts || [])) {
+      const g = grouped[a.user];
+      if (!g || !g.length) continue;
+      const meta = ACCT[a.user.toLowerCase()] || {};
+      parts.push(`<div class="rev-group-head" style="--ac:${meta.color}"><span class="g-dot"></span>${esc(meta.label || a.user)}</div>`);
+      parts.push(g.map(repoRow).join(''));
+    }
+    if (others.length) {
+      parts.push(`<div class="rev-group-head" style="--ac:var(--muted)"><span class="g-dot"></span>Outros</div>`);
+      parts.push(others.map(repoRow).join(''));
+    }
+    rows = parts.join('');
+  } else {
+    rows = repos.map(repoRow).join('');
+  }
   const dl = knownRepos().map(r => `<option value="${esc(r)}"></option>`).join('');
   box.innerHTML = `${rows || '<div class="rev-empty">Nenhum projeto configurado ainda. Adicione um abaixo.</div>'}
     <div class="rev-addrepo">

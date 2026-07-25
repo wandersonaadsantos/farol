@@ -9,6 +9,13 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.2.0
+
+Menos poluição no editor de reviewers: cada projeto sob a sua conta dona.
+
+### Melhorias
+- **Reviewers por projeto agrupados por conta.** Quando você monitora mais de uma conta, a lista de reviewers por projeto (aba Sistema) deixa de ser um bloco único e passa a mostrar cada projeto sob a conta dona (Pessoal, BIUD, etc.), com a cor da conta no cabeçalho. Projetos de orgs fora das suas contas caem em "Outros". Conta única continua com a lista simples de sempre.
+
 ## v2.1.0
 
 Suas contas do GitHub, separadas e claras: de quem é o PR, por qual conta você responde, e o que silenciar.
