@@ -376,6 +376,12 @@ main { max-width: 1000px; margin: 0 auto; padding: 16px 24px 60px; }
 .acct-add input { flex: 1; min-width: 130px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 13px; }
 .acct-add input:focus { outline: none; border-color: var(--accent); }
 .acct-add .a-hint { color: var(--muted); font-size: 11.5px; margin-top: 9px; }
+.acct-card .a-policy { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 4px; padding-top: 9px; border-top: 1px solid var(--border-soft); }
+.acct-card .a-pol-item { display: flex; flex-direction: column; gap: 3px; }
+.acct-card .a-pol-item .a-fieldlabel { font-size: 10.5px; color: var(--faint); font-weight: 600; }
+.acct-card .a-pol-item select { font-size: 12px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 7px; padding: 4px 8px; cursor: pointer; }
+.acct-card .a-pol-item select:hover { border-color: var(--ac); }
+.acct-card .a-pol-item select:focus { outline: none; border-color: var(--ac); }
 
 /* reviewers agrupados */
 .rev-group-head { display: flex; align-items: center; gap: 8px; margin: 14px 0 6px; font-size: 12px; font-weight: 700; color: var(--ac); }

@@ -172,6 +172,11 @@ function parseAccounts(val) {
       if (meta.color != null && String(meta.color).trim()) o.color = String(meta.color).trim();
       if (meta.kind != null && String(meta.kind).trim()) o.kind = String(meta.kind).trim();
       if (meta.muted) o.muted = true;
+      // política de automação por conta (só quando definida; ausente = herda o global):
+      //  autoReview bool; onClean/onCaveats = 'approve' | 'wait'
+      if (meta.autoReview === true || meta.autoReview === false) o.autoReview = meta.autoReview;
+      if (meta.onClean === 'approve' || meta.onClean === 'wait') o.onClean = meta.onClean;
+      if (meta.onCaveats === 'approve' || meta.onCaveats === 'wait') o.onCaveats = meta.onCaveats;
     }
     return o;
   };
@@ -422,7 +427,11 @@ class Engine extends EventEmitter {
         label: (a && a.label != null) ? String(a.label).trim() : '',
         color: (a && a.color != null) ? String(a.color).trim() : '',
         kind: (a && a.kind != null) ? String(a.kind).trim() : '',
-        muted: !!(a && a.muted)
+        muted: !!(a && a.muted),
+        // política de automação por conta (undefined = herda o global)
+        autoReview: (a && (a.autoReview === true || a.autoReview === false)) ? a.autoReview : undefined,
+        onClean: (a && (a.onClean === 'approve' || a.onClean === 'wait')) ? a.onClean : undefined,
+        onCaveats: (a && (a.onCaveats === 'approve' || a.onCaveats === 'wait')) ? a.onCaveats : undefined
       }))
       .filter(a => a.user);
     if (!base.length) base = [{ user: (this.config.ghUser || '').trim(), owners: this.config.owners || [], label: '', color: '', kind: '', muted: false }];
@@ -439,6 +448,25 @@ class Engine extends EventEmitter {
   isMuted(user) {
     const u = String(user || '').toLowerCase();
     return this.accountList().some(a => a.user.toLowerCase() === u && a.muted);
+  }
+
+  // política de automação POR CONTA (undefined na conta = herda o global).
+  acctPolicy(user) {
+    const u = String(user || '').toLowerCase();
+    return this.accountList().find(a => a.user.toLowerCase() === u) || {};
+  }
+  // ao chegar PR nesta conta: revisar sozinho (headless) ou só colocar na fila?
+  autoReviewFor(user) {
+    const a = this.acctPolicy(user);
+    if (a.autoReview === true || a.autoReview === false) return a.autoReview;
+    return this.config.autoReview !== false;
+  }
+  // quando aprovável, a ação: 'approve' (postar sozinho) ou 'wait' (aguardar você).
+  // clean = sem ressalvas; senão usa a política de "com ressalvas".
+  approvePolicyFor(user, clean) {
+    const a = this.acctPolicy(user);
+    if (clean) return a.onClean || 'approve';
+    return a.onCaveats || (this.config.autoApproveAll !== false ? 'approve' : 'wait');
   }
 
   // login da conta primaria (identidade default; chamadas gh nao ligadas a um PR)
@@ -681,13 +709,16 @@ class Engine extends EventEmitter {
       // revisar sozinho o PR-teste abandonado.
       const freshActive = fresh.filter(p => !this.isMuted(this.accountForPr(p)));
       if (freshActive.length > 0) {
-        this.emit('new-prs', { items: freshActive, total: queue.filter(p => !this.isMuted(this.accountForPr(p))).length, auto: !!this.config.autoReview });
-        if (this.config.autoReview) this.launchReview(freshActive.map(p => p.url), 'auto');
+        // auto-revisão respeita a política POR CONTA: só lança headless nas contas
+        // com "revisar automaticamente" ligado (ou herdando o global ligado).
+        const toReview = freshActive.filter(p => this.autoReviewFor(this.accountForPr(p)));
+        this.emit('new-prs', { items: freshActive, total: queue.filter(p => !this.isMuted(this.accountForPr(p))).length, auto: toReview.length > 0 });
+        if (toReview.length) this.launchReview(toReview.map(p => p.url), 'auto');
       }
 
       // a checagem funcionou = a rede voltou: relança revisões que caíram por queda de conexão
-      if (this.config.autoReview && this.retryAfterNet.size) {
-        const retry = this.queue.filter(p => this.retryAfterNet.has(p.key) && !fresh.some(f => f.key === p.key) && !this.isMuted(this.accountForPr(p)));
+      if (this.retryAfterNet.size) {
+        const retry = this.queue.filter(p => this.retryAfterNet.has(p.key) && !fresh.some(f => f.key === p.key) && !this.isMuted(this.accountForPr(p)) && this.autoReviewFor(this.accountForPr(p)));
         if (retry.length) {
           this.emit('toast', { kind: 'info', text: `Conexão de volta: relançando a revisão de ${retry.map(p => p.key).join(', ')}.` });
           this.launchReview(retry.map(p => p.url), 'auto');
@@ -1759,8 +1790,10 @@ class Engine extends EventEmitter {
     const approvable = result.verdict === 'approve' &&
       result.payloads && result.payloads.approve && result.payloads.approve.event === 'APPROVE';
     if (!approvable || pr.requested === false) return false;
-    if (this.config.autoApproveAll !== false) return true;
-    return result.decision === 'auto_approve' && result.cardMet === true;
+    // limpo = sem ressalvas (nenhum ponto de atenção) E a sessão decidiu auto_approve;
+    // senão é "aprovável com ressalvas". A política da conta dona decide a ação.
+    const clean = this.attentionPoints(result).length === 0 && result.decision === 'auto_approve';
+    return this.approvePolicyFor(this.accountForPr(pr), clean) === 'approve';
   }
 
   // Pontos de atenção de uma revisão aprovável: as ressalvas que a sessão levantou
@@ -2313,7 +2346,8 @@ class Engine extends EventEmitter {
       account: { user: this.primaryUser(), tokenOk: this.tokenOk },
       accounts: this.accountList().map((a, i) => ({
         user: a.user, owners: a.owners, tokenOk: !!(this.tokens && this.tokens[a.user]),
-        label: a.label, color: a.color, kind: a.kind, muted: !!a.muted, primary: i === 0
+        label: a.label, color: a.color, kind: a.kind, muted: !!a.muted, primary: i === 0,
+        autoReview: a.autoReview, onClean: a.onClean, onCaveats: a.onCaveats
       })),
       config: { ...this.config },
       lastCheckAt: this.lastCheckAt,

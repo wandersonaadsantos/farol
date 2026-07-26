@@ -249,7 +249,13 @@ function renderSilenced() {
 
 /* ---------- gerenciador/editor de contas (Sistema) ---------- */
 function accountSaveArray(list) {
-  return (list || []).map(a => ({ user: a.user, owners: a.owners || [], label: a.label, color: a.color, kind: a.kind || '', muted: !!a.muted }));
+  return (list || []).map(a => {
+    const o = { user: a.user, owners: a.owners || [], label: a.label, color: a.color, kind: a.kind || '', muted: !!a.muted };
+    if (a.autoReview === true || a.autoReview === false) o.autoReview = a.autoReview;
+    if (a.onClean === 'approve' || a.onClean === 'wait') o.onClean = a.onClean;
+    if (a.onCaveats === 'approve' || a.onCaveats === 'wait') o.onCaveats = a.onCaveats;
+    return o;
+  });
 }
 function editAccount(user, patch) {
   const list = (STATE.accounts || []).map(a => a.user === user ? { ...a, ...patch } : a);
@@ -275,6 +281,9 @@ function renderAccountsManager() {
   if (document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
   const accounts = (STATE.accounts || []);
   const multi = accounts.length > 1;
+  const c = STATE.config || {};
+  const globalAR = c.autoReview !== false;      // padrão herdado: revisar automaticamente
+  const globalCav = c.autoApproveAll !== false; // padrão herdado: aprovar com ressalvas
   const rows = accounts.map(a => {
     const meta = ACCT[a.user.toLowerCase()] || {};
     const auth = a.muted ? 'silenciada (fora dos avisos e da auto-revisão)' : (a.tokenOk ? 'autenticada no gh' : 'sem token: rode gh auth login');
@@ -289,6 +298,26 @@ function renderAccountsManager() {
         <div class="a-sub"><span class="a-auth ${a.tokenOk && !a.muted ? 'ok' : ''}">@${esc(a.user)}</span> · ${esc(auth)}</div>
         <div class="a-editrow orgs"><span class="a-fieldlabel">orgs</span>
           <input class="acct-owners" data-user="${esc(a.user)}" value="${esc((a.owners || []).join(', '))}" placeholder="org1, org2" spellcheck="false" title="organizações monitoradas por esta conta"></div>
+        <div class="a-policy">
+          <div class="a-pol-item"><span class="a-fieldlabel">ao chegar PR</span>
+            <select class="acct-autoreview" data-user="${esc(a.user)}">
+              <option value="">herda (${globalAR ? 'revisa sozinho' : 'só na fila'})</option>
+              <option value="on"${a.autoReview === true ? ' selected' : ''}>revisa sozinho</option>
+              <option value="off"${a.autoReview === false ? ' selected' : ''}>só põe na fila</option>
+            </select></div>
+          <div class="a-pol-item"><span class="a-fieldlabel">aprovável, sem ressalva</span>
+            <select class="acct-onclean" data-user="${esc(a.user)}">
+              <option value="">herda (aprova sozinho)</option>
+              <option value="approve"${a.onClean === 'approve' ? ' selected' : ''}>aprova sozinho</option>
+              <option value="wait"${a.onClean === 'wait' ? ' selected' : ''}>aguarda você</option>
+            </select></div>
+          <div class="a-pol-item"><span class="a-fieldlabel">aprovável, com ressalva</span>
+            <select class="acct-oncaveats" data-user="${esc(a.user)}">
+              <option value="">herda (${globalCav ? 'aprova destacando' : 'aguarda você'})</option>
+              <option value="approve"${a.onCaveats === 'approve' ? ' selected' : ''}>aprova destacando</option>
+              <option value="wait"${a.onCaveats === 'wait' ? ' selected' : ''}>aguarda você</option>
+            </select></div>
+        </div>
       </div>
       ${multi ? `<div class="a-actions">
         <button class="btn sm ${a.muted ? 'ok' : 'ghost'} act-mute" data-user="${esc(a.user)}">${a.muted ? 'Reativar' : 'Silenciar'}</button>
@@ -340,6 +369,10 @@ $('#accountsManager').addEventListener('change', (e) => {
   if (t.classList.contains('acct-label')) return editAccount(user, { label: (t.value || '').trim() || user });
   if (t.classList.contains('acct-kind')) return editAccount(user, { kind: (t.value || '').trim() });
   if (t.classList.contains('acct-owners')) return editAccount(user, { owners: (t.value || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean) });
+  // política de automação por conta ('' = herda o global)
+  if (t.classList.contains('acct-autoreview')) return editAccount(user, { autoReview: t.value === '' ? undefined : t.value === 'on' });
+  if (t.classList.contains('acct-onclean')) return editAccount(user, { onClean: t.value || undefined });
+  if (t.classList.contains('acct-oncaveats')) return editAccount(user, { onCaveats: t.value || undefined });
 });
 /* editor de contas: silenciar/reativar, remover, adicionar */
 $('#accountsManager').addEventListener('click', (e) => {
@@ -1211,6 +1244,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.9.0', ['Política automática por conta, no painel Contas (aba Sistema): cada conta do GitHub decide sozinha como o Farol age. São três controles próprios por conta, quando chega revisão (revisa sozinho, só põe na fila ou herda o padrão global), PR aprovável sem ressalva (aprova sozinho ou aguarda você) e PR aprovável com ressalva (aprova ressaltando os pontos de atenção ou aguarda sua ação). A conta do trabalho pode revisar e aprovar sozinha o que é seguro, a pessoal só põe na fila e espera você, sem misturar as regras. O que você não configurar por conta herda o padrão global (os dois toggles gerais em Sistema).']],
   ['2.8.3', ['Confirmação com impacto nas ações que escrevem no GitHub: Merge, Merge como admin e Pedir mudanças agora abrem a caixa de confirmação (como o Remover conta), explicando o que a ação faz e o que ela mexe, no lugar do aviso genérico do navegador. O Merge admin, que fura o gate de review do time, ganha o aviso mais forte.']],
   ['2.8.2', ['Instalador BETA de macOS (Apple Silicon) anexado à release: o Farol-Instalar-mac.command foi montado aqui mesmo, sem um Mac, embutindo o Electron pra o próprio Mac descompactar (assim os symlinks do app ficam intactos). Como o suporte a macOS nunca rodou num Mac de verdade, é beta: instale (1ª vez: botão direito > Abrir), e se algo quebrar, use "Exportar diagnóstico" (Saúde) e mande. Com esse retorno a gente corrige e libera a versão final.']],
   ['2.8.1', ['Preparação do suporte a macOS: o install.sh passou a garantir o bit de execução do Electron na instalação (robustez pra instalador montado fora do Mac).']],

@@ -230,12 +230,12 @@
       <label class="switch-row">
         <input id="setAutoReview" type="checkbox">
         <span class="switch"></span>
-        <span>Revisar automaticamente quando chegar PR<br><small>O Farol roda o review internamente, aprova sozinho quando o protocolo permite e só te chama nas exceções, em cada conta com a identidade dela. Contas silenciadas ficam de fora.</small></span>
+        <span>Revisar automaticamente quando chegar PR<br><small>Padrão pra todas as contas: ao chegar um PR, o Farol roda o review internamente. Dá pra sobrescrever por conta no painel <b>Contas</b> (revisar sozinho / só na fila). Contas silenciadas ficam de fora.</small></span>
       </label>
       <label class="switch-row">
         <input id="setAutoApproveAll" type="checkbox">
         <span class="switch"></span>
-        <span>Aprovar sozinho tudo que for aprovável<br><small>Ligue pra que o Farol poste o APPROVE na hora em qualquer PR aprovável, sem depender do seu clique, com os pontos de atenção anexados ao próprio PR e ao histórico. Desligado (padrão), ele só aprova sozinho os casos sem ressalva e chama você no resto.</small></span>
+        <span>Aprovar sozinho também os aprováveis com ressalvas<br><small>Padrão pra todas as contas: quando o PR é aprovável mas tem ressalvas, ligado o Farol posta o APPROVE destacando as ressalvas; desligado (padrão), aguarda você. Os aprováveis <b>sem</b> ressalva já são aprovados sozinhos. Sobrescreva por conta no painel <b>Contas</b>.</small></span>
       </label>
       <label class="switch-row">
         <input id="setSkipPerms" type="checkbox">
