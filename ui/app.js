@@ -368,11 +368,14 @@ $('#accountBar').addEventListener('click', (e) => {
 $('#silenced').addEventListener('click', (e) => {
   if (e.target.closest('.sil-toggle')) { silencedOpen = !silencedOpen; renderSilenced(); }
 });
-/* marcar senioridade de uma pessoa (aba Time): molda o tom da revisão automática */
-$('#team').addEventListener('change', (e) => {
+/* marcar senioridade de uma pessoa: molda o tom da revisão automática. Global
+   (delegado no documento) pra funcionar na aba Time E nos cards do PR (fila,
+   Precisa de você), inclusive pra marcar o 1º PR de quem ainda não está no time */
+document.addEventListener('change', (e) => {
   const t = e.target;
-  if (!t.classList.contains('sr-level')) return;
+  if (!t.classList || !t.classList.contains('sr-level')) return;
   const login = String(t.dataset.login || '').toLowerCase();
+  if (!login) return;
   const map = { ...((STATE.config && STATE.config.seniority) || {}) };
   if (t.value) map[login] = t.value; else delete map[login];
   if (STATE.config) STATE.config.seniority = map;   // otimista, pra o select não piscar
@@ -701,7 +704,7 @@ function renderDecisions() {
         <span class="dec-when">${fmtClock(d.createdAt)}</span>
       </div>
       ${d.pr?.title ? `<div class="dec-title">${esc(d.pr.title)}</div>` : ''}
-      ${author ? `<div class="dec-author">PR de <b>@${esc(author)}</b></div>` : ''}
+      ${author ? `<div class="dec-author">PR de <b>@${esc(author)}</b> ${seniorityPicker(author)}</div>` : ''}
       ${(d.reasons || []).length ? `<ul class="dec-reasons">${d.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
       <details class="dec-report"><summary>Ver relatório completo</summary><div class="report">${md(d.reportMarkdown)}</div></details>
       <div class="dec-actions">
@@ -772,7 +775,7 @@ function renderQueue() {
       <div class="info">
         <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}</div>
         <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
-        <div class="pr-sub"><span class="author">@${esc(pr.author)}</span> · atualizado ${fmtRel(pr.updatedAt)}</div>
+        <div class="pr-sub"><span class="author">@${esc(pr.author)}</span> · atualizado ${fmtRel(pr.updatedAt)}${pr.author ? ` ${seniorityPicker(pr.author)}` : ''}</div>
       </div>
       <div class="pr-actions">
         <button class="btn primary sm act-review" data-url="${esc(pr.url)}">Revisar</button>
@@ -1280,6 +1283,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.14.0', ['Agora dá pra marcar a senioridade de alguém direto do card do PR (na fila e em "Precisa de você"), não só na aba Time. Antes, como a aba Time só lista quem já foi revisado ao menos uma vez, o primeiro PR de alguém novo saía sempre no tom neutro; agora você marca no momento em que vê o PR e a revisão já sai no tom certo. É a mesma marcação por pessoa, só com mais um lugar pra fazer.']],
   ['2.13.0', ['Contas diferentes agora são revisadas em paralelo: cada conta roda a sua revisão ao mesmo tempo (a BIUD e a pessoal juntas, por exemplo), em vez de uma por vez no total. Dentro da mesma conta segue uma de cada vez, pra não sobrecarregar a máquina. Assim, uma análise demorada de uma conta não segura mais a fila das outras.']],
   ['2.12.1', ['Correção: "Analisando agora" e a fila do Radar agora respeitam a conta selecionada. Antes, a revisão em andamento aparecia igual em qualquer conta (misturava trabalho e pessoal enquanto o Farol analisava um PR); agora filtra pela conta escolhida, e em "Todas" mostra tudo. As outras seções já respeitavam.']],
   ['2.12.0', ['Senioridade por pessoa, na aba Time: marque cada pessoa como Estágio, Júnior, Pleno ou Sênior, e a revisão automática ajusta o TOM e a forma de comunicar o veredito de acordo. Com um estágio, reconhece a iniciativa e enquadra os ajustes como aprendizado (sem desanimar, mesmo pedindo mudança); com uma pessoa sênior, vai direto ao ponto. Muda só a linguagem: a decisão técnica (aprovar, pedir mudanças, o card, o gate) continua igual pra todo mundo, pelos fatos do código. Quem você não marcar recebe o tom neutro de antes. Vale na revisão que o Farol posta sozinho; a sessão de terminal segue como está.']],
