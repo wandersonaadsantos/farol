@@ -194,14 +194,37 @@ function parseAccounts(val) {
   return out;
 }
 
-// mapa de senioridade { login(minúsculo): nível }, validado (só os 4 níveis).
-// A UI manda o mapa inteiro; entradas inválidas ou vazias são descartadas.
-function parseSeniority(val) {
+// mapa de PERFIL { login(minúsculo): { papel?, dominios?{dominio: nivel} } }, validado.
+// A UI manda o mapa inteiro; papel/domínio/nível inválidos são descartados, e a
+// pessoa sem nada útil sai do mapa (não guarda entrada vazia).
+function parsePeople(val) {
   const out = {};
   if (val && typeof val === 'object' && !Array.isArray(val)) {
-    for (const [login, lvl] of Object.entries(val)) {
+    for (const [login, p] of Object.entries(val)) {
       const k = String(login || '').trim().toLowerCase();
-      if (k && SENIORITY_LEVELS.includes(lvl)) out[k] = lvl;
+      if (!k || !p || typeof p !== 'object') continue;
+      const person = {};
+      if (PAPEL_LEVELS.includes(p.papel)) person.papel = p.papel;
+      if (p.dominios && typeof p.dominios === 'object') {
+        const dom = {};
+        for (const d of DOMAINS) if (DOMAIN_LEVELS.includes(p.dominios[d])) dom[d] = p.dominios[d];
+        if (Object.keys(dom).length) person.dominios = dom;
+      }
+      if (person.papel || person.dominios) out[k] = person;
+    }
+  }
+  return out;
+}
+
+// migra o formato antigo (config.seniority = {login: nivel}) pro perfil novo:
+// o nível de senioridade vira o `papel` da pessoa. Idempotente.
+function migrateSeniorityToPeople(seniority, people) {
+  const out = { ...(people || {}) };
+  if (seniority && typeof seniority === 'object' && !Array.isArray(seniority)) {
+    for (const [login, lvl] of Object.entries(seniority)) {
+      const k = String(login || '').trim().toLowerCase();
+      if (!k || !PAPEL_LEVELS.includes(lvl)) continue;
+      out[k] = { ...(out[k] || {}), papel: (out[k] && out[k].papel) || lvl };
     }
   }
   return out;
@@ -212,15 +235,29 @@ function parseSeniority(val) {
 // estável pro painel separar visualmente trabalho, pessoal, etc.
 const ACCOUNT_PALETTE = ['#ffb454', '#a78bfa', '#34d399', '#f2707a', '#6ca8f2', '#f59e0b', '#22d3ee', '#64748b'];
 
-// senioridade por pessoa: molda o TOM e a forma de comunicar o veredito na revisão
-// automática (NUNCA a decisão técnica). Marcada à mão por login na aba Time.
-const SENIORITY_LEVELS = ['estagio', 'junior', 'pleno', 'senior'];
-const SENIORITY_LABEL = { estagio: 'Estágio', junior: 'Júnior', pleno: 'Pleno', senior: 'Sênior' };
-const SENIORITY_GUIDANCE = {
-  estagio: 'Pessoa em estágio (início de carreira). Tom acolhedor e didático: comece reconhecendo a iniciativa e o que ficou bom, explique o PORQUÊ de cada ajuste, enquadre correções como aprendizado e nunca desanime. Mesmo pedindo mudanças, deixe claro o valor da contribuição.',
-  junior: 'Pessoa júnior. Tom encorajador e explicativo: reforce os acertos, detalhe os ajustes com o contexto e o motivo, sem assumir muito conhecimento prévio.',
-  pleno: 'Pessoa plena. Tom direto e colaborativo: vá aos pontos com objetividade, sem muito preâmbulo, assumindo autonomia técnica.',
-  senior: 'Pessoa sênior. Tom direto e objetivo, de par pra par: assuma contexto compartilhado e vá aos pontos técnicos sem suavizar nem alongar.'
+// PERFIL DE REVIEW por pessoa: molda o TOM e a POSTURA da revisão automática
+// (NUNCA a decisão técnica). Dois eixos, marcados à mão: PAPEL (carreira/posição)
+// e MATRIZ de competência por DOMÍNIO. Marcado por login (aba Time e card do PR).
+const PAPEL_LEVELS = ['estagio', 'junior', 'pleno', 'senior', 'techlead', 'arquiteto', 'especialista'];
+const PAPEL_LABEL = { estagio: 'Estágio', junior: 'Júnior', pleno: 'Pleno', senior: 'Sênior', techlead: 'Tech Lead', arquiteto: 'Arquiteto', especialista: 'Especialista' };
+const PAPEL_TONE = {
+  estagio: 'início de carreira. Tom acolhedor e didático: reconheça a iniciativa e o que ficou bom, explique o PORQUÊ de cada ajuste, enquadre correções como aprendizado e nunca desanime, mesmo pedindo mudanças.',
+  junior: 'júnior. Tom encorajador e explicativo: reforce os acertos, detalhe os ajustes com contexto e motivo, sem assumir muito conhecimento prévio.',
+  pleno: 'pleno. Tom direto e colaborativo: vá aos pontos com objetividade, assumindo autonomia técnica.',
+  senior: 'sênior. Tom direto e objetivo, de par pra par: assuma contexto compartilhado e vá aos pontos sem suavizar nem alongar.',
+  techlead: 'tech lead do time. Foque em direção, consistência e impacto no time; assuma que pondera trade-offs e coordena; seja conciso e estratégico, não didático.',
+  arquiteto: 'arquiteto(a). Discuta decisões estruturais e trade-offs de design no nível de sistema; assuma domínio profundo; vá aos pontos de arquitetura sem didatismo.',
+  especialista: 'especialista (referência na área dele). No que for da especialidade, defira e foque em nuances; fora dela, trate como par técnico.'
+};
+const DOMAINS = ['backend', 'frontend', 'dados', 'infra'];
+const DOMAIN_LABEL = { backend: 'Backend', frontend: 'Frontend', dados: 'Dados', infra: 'Infra/DevOps' };
+const DOMAIN_LEVELS = ['basico', 'intermediario', 'avancado', 'autoridade'];
+const DOMAIN_LEVEL_LABEL = { basico: 'Básico', intermediario: 'Intermediário', avancado: 'Avançado', autoridade: 'Autoridade' };
+const DOMAIN_POSTURE = {
+  autoridade: 'é autoridade aqui: defira, levante pontos como sugestão/pergunta, foque no alto nível e assuma que já considerou o básico.',
+  avancado: 'é sólida aqui: postura de par, aponte direto sem explicar fundamentos.',
+  intermediario: 'está em evolução aqui: explique o porquê dos ajustes com contexto.',
+  basico: 'está começando aqui: explique com cuidado, pegue fundamentos gentilmente e enquadre como aprendizado.'
 };
 
 // --- Utilitarios ------------------------------------------------------------
@@ -280,7 +317,9 @@ class Engine extends EventEmitter {
     this.config = { ...DEFAULTS, ...readJson(CONFIG_FILE, {}) };
     delete this.config.autoOpenReview; // chave antiga (terminal); o modo autonomo tem semantica nova
     this.config.accounts = parseAccounts(this.config.accounts); // normaliza (array de {user,owners})
-    this.config.seniority = parseSeniority(this.config.seniority); // normaliza (login minúsculo -> nível válido)
+    // perfil de review por pessoa (papel + matriz por domínio); migra a senioridade plana antiga pro campo `papel`
+    this.config.people = migrateSeniorityToPeople(this.config.seniority, parsePeople(this.config.people));
+    delete this.config.seniority;
     this.tokens = {};                // token por conta (login -> token), preenchido no refreshTokens
     this.status = 'starting';        // starting | checking | idle | error
     this.lastError = null;
@@ -1062,19 +1101,28 @@ class Engine extends EventEmitter {
     }
   }
 
-  // nível marcado pra uma pessoa (por login); '' quando não marcada
-  seniorityFor(login) {
-    const map = (this.config && this.config.seniority) || {};
-    const lvl = map[String(login || '').toLowerCase()];
-    return SENIORITY_LEVELS.includes(lvl) ? lvl : '';
+  // perfil marcado pra uma pessoa (por login); {} quando não marcada
+  personProfile(login) {
+    const map = (this.config && this.config.people) || {};
+    return map[String(login || '').toLowerCase()] || {};
   }
-  // bloco injetado no prompt de revisão: ajusta só o TOM, nunca a decisão
-  seniorityBlockFor(login) {
-    const lvl = this.seniorityFor(login);
-    if (!lvl) return '';
-    return `\n\n## Perfil do autor (senioridade)\n@${login} está marcado como **${SENIORITY_LABEL[lvl]}**. ${SENIORITY_GUIDANCE[lvl]}\n\n` +
-      `Ajuste APENAS o TOM e a forma de comunicar o veredito nos corpos dos payloads (approve/request_changes/comment) e nos comentários inline. ` +
-      `NÃO mude a decisão técnica: verdict, decision, cardMet, findings e o gate seguem valendo só pelos fatos do código. Senioridade muda COMO você escreve, nunca SE aprova ou reprova.\n`;
+  // bloco injetado no prompt de revisão: ajusta TOM + POSTURA, nunca a decisão.
+  // Papel dá o tom-base; a matriz por domínio calibra a postura por área do PR.
+  personProfileBlock(login) {
+    const p = this.personProfile(login);
+    const papel = PAPEL_LEVELS.includes(p.papel) ? p.papel : '';
+    const doms = (p.dominios && typeof p.dominios === 'object') ? p.dominios : {};
+    const domEntries = DOMAINS.filter(d => DOMAIN_LEVELS.includes(doms[d]));
+    if (!papel && !domEntries.length) return ''; // sem perfil = tom neutro
+    let block = `\n\n## Perfil do autor\n`;
+    if (papel) block += `@${login} — Papel: **${PAPEL_LABEL[papel]}** (${PAPEL_TONE[papel]})\n`;
+    if (domEntries.length) {
+      block += `Competência por domínio (cruze com a área que o PR mexe):\n`;
+      for (const d of domEntries) block += `- ${DOMAIN_LABEL[d]}: **${DOMAIN_LEVEL_LABEL[doms[d]]}** — ${DOMAIN_POSTURE[doms[d]]}\n`;
+    }
+    block += `\nAjuste APENAS o TOM e a POSTURA (o quanto explica, o quanto defere, como levanta os pontos) nos corpos dos payloads e nos comentários inline. ` +
+      `NÃO mude a decisão técnica: verdict, decision, cardMet, findings e o gate seguem valendo só pelos fatos do código. O perfil muda COMO você escreve, nunca SE aprova ou reprova.\n`;
+    return block;
   }
 
   headlessPromptFor(url, author) {
@@ -1083,7 +1131,7 @@ class Engine extends EventEmitter {
       path.join(TEMPLATE_DIR, 'prompts', 'pr-review-auto.md')
     ];
     for (const f of candidates) {
-      try { return fs.readFileSync(f, 'utf8').replaceAll('{{URL}}', url) + this.seniorityBlockFor(author); } catch { }
+      try { return fs.readFileSync(f, 'utf8').replaceAll('{{URL}}', url) + this.personProfileBlock(author); } catch { }
     }
     throw new Error('template prompts/pr-review-auto.md não encontrado');
   }
@@ -2501,7 +2549,7 @@ class Engine extends EventEmitter {
   updateSettings(patch) {
     const allowed = ['ghUser', 'owners', 'accounts', 'intervalSeconds', 'autoReview', 'autoApproveAll', 'skipPermissions',
       'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos',
-      'projectReviewers', 'defaultReviewers', 'seniority'];
+      'projectReviewers', 'defaultReviewers', 'people'];
     let intervalChanged = false, userChanged = false;
     for (const k of allowed) {
       if (!(k in patch)) continue;
@@ -2511,7 +2559,7 @@ class Engine extends EventEmitter {
       if (k === 'mergeBlockedRepos') v = Array.isArray(v) ? v.map(s => String(s).trim()).filter(Boolean) : String(v).split(/[,;\s]+/).filter(Boolean);
       if (k === 'projectReviewers') v = parseProjectReviewers(v);
       if (k === 'defaultReviewers') v = parseDefaultReviewers(v);
-      if (k === 'seniority') v = parseSeniority(v);
+      if (k === 'people') v = parsePeople(v);
       if (k === 'accounts') {
         v = parseAccounts(v);
         // só re-autentica se as CONTAS (user/owners) mudaram; editar rótulo, cor,

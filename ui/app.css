@@ -343,12 +343,19 @@ main { max-width: 1000px; margin: 0 auto; padding: 16px 24px 60px; }
 .member-head .names { flex: 1; }
 .member-head .name { font-weight: 650; }
 .member-head .login { color: var(--muted); font-size: 12px; }
-.sr-level { font-size: 12px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 7px; padding: 4px 8px; cursor: pointer; }
-.sr-level:hover { border-color: var(--ac); }
-.sr-level:focus { outline: none; border-color: var(--ac); }
-/* nos cards do PR o seletor é mais discreto e inline com o texto do autor */
-.dec-author .sr-level, .pr-sub .sr-level { font-size: 11px; padding: 1px 5px; border-radius: 6px; vertical-align: middle; }
-.pr-sub .sr-level { margin-left: 2px; }
+.papel-level, .dom-level { font-size: 12px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 7px; padding: 4px 8px; cursor: pointer; }
+.papel-level:hover, .dom-level:hover { border-color: var(--ac); }
+.papel-level:focus, .dom-level:focus { outline: none; border-color: var(--ac); }
+/* nos cards do PR o seletor de papel é mais discreto e inline com o texto do autor */
+.dec-author .papel-level, .pr-sub .papel-level { font-size: 11px; padding: 1px 5px; border-radius: 6px; vertical-align: middle; }
+.pr-sub .papel-level { margin-left: 2px; }
+/* perfil na aba Time: matriz de competência por domínio */
+.member-profile { margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--border-soft); }
+.member-profile .mp-label { font-size: 10.5px; color: var(--faint); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+.dom-matrix { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 6px; }
+.dom-cell { display: flex; flex-direction: column; gap: 3px; }
+.dom-cell .dom-name { font-size: 10.5px; color: var(--faint); font-weight: 600; }
+.dom-cell .dom-level { padding: 3px 7px; }
 .member-entries { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .entry { border-left: 2px solid var(--border); padding: 2px 0 2px 12px; }
 .entry .entry-head { font-size: 12px; color: var(--muted); font-weight: 600; }

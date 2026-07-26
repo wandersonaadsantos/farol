@@ -368,18 +368,30 @@ $('#accountBar').addEventListener('click', (e) => {
 $('#silenced').addEventListener('click', (e) => {
   if (e.target.closest('.sil-toggle')) { silencedOpen = !silencedOpen; renderSilenced(); }
 });
-/* marcar senioridade de uma pessoa: molda o tom da revisão automática. Global
-   (delegado no documento) pra funcionar na aba Time E nos cards do PR (fila,
-   Precisa de você), inclusive pra marcar o 1º PR de quem ainda não está no time */
+/* marcar o perfil de review de uma pessoa (papel e domínios): molda o tom e a
+   postura da revisão automática. Global (delegado no documento) pra funcionar na
+   aba Time E nos cards do PR (fila, Precisa de você), inclusive pra marcar o 1º
+   PR de quem ainda não está no time. */
 document.addEventListener('change', (e) => {
   const t = e.target;
-  if (!t.classList || !t.classList.contains('sr-level')) return;
+  if (!t.classList) return;
+  const isPapel = t.classList.contains('papel-level');
+  const isDom = t.classList.contains('dom-level');
+  if (!isPapel && !isDom) return;
   const login = String(t.dataset.login || '').toLowerCase();
   if (!login) return;
-  const map = { ...((STATE.config && STATE.config.seniority) || {}) };
-  if (t.value) map[login] = t.value; else delete map[login];
-  if (STATE.config) STATE.config.seniority = map;   // otimista, pra o select não piscar
-  api('/api/settings', { seniority: map });
+  const people = { ...((STATE.config && STATE.config.people) || {}) };
+  const person = { ...(people[login] || {}) };
+  if (isPapel) {
+    if (t.value) person.papel = t.value; else delete person.papel;
+  } else {
+    const dom = { ...(person.dominios || {}) };
+    if (t.value) dom[t.dataset.domain] = t.value; else delete dom[t.dataset.domain];
+    if (Object.keys(dom).length) person.dominios = dom; else delete person.dominios;
+  }
+  if (person.papel || person.dominios) people[login] = person; else delete people[login];
+  if (STATE.config) STATE.config.people = people;   // otimista, pra o select não piscar
+  api('/api/settings', { people });
 });
 /* editor de contas: mudar cor / rótulo / tipo / orgs */
 $('#accountsManager').addEventListener('change', (e) => {
@@ -704,7 +716,7 @@ function renderDecisions() {
         <span class="dec-when">${fmtClock(d.createdAt)}</span>
       </div>
       ${d.pr?.title ? `<div class="dec-title">${esc(d.pr.title)}</div>` : ''}
-      ${author ? `<div class="dec-author">PR de <b>@${esc(author)}</b> ${seniorityPicker(author)}</div>` : ''}
+      ${author ? `<div class="dec-author">PR de <b>@${esc(author)}</b> ${papelPicker(author)}</div>` : ''}
       ${(d.reasons || []).length ? `<ul class="dec-reasons">${d.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
       <details class="dec-report"><summary>Ver relatório completo</summary><div class="report">${md(d.reportMarkdown)}</div></details>
       <div class="dec-actions">
@@ -775,7 +787,7 @@ function renderQueue() {
       <div class="info">
         <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}</div>
         <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
-        <div class="pr-sub"><span class="author">@${esc(pr.author)}</span> · atualizado ${fmtRel(pr.updatedAt)}${pr.author ? ` ${seniorityPicker(pr.author)}` : ''}</div>
+        <div class="pr-sub"><span class="author">@${esc(pr.author)}</span> · atualizado ${fmtRel(pr.updatedAt)}${pr.author ? ` ${papelPicker(pr.author)}` : ''}</div>
       </div>
       <div class="pr-actions">
         <button class="btn primary sm act-review" data-url="${esc(pr.url)}">Revisar</button>
@@ -1188,13 +1200,27 @@ async function loadHighlights() {
   }
 }
 
-/* ---------- senioridade por pessoa (molda o tom da revisão, não a decisão) ---------- */
-const SENIORITY_OPTS = [['', 'senioridade'], ['estagio', 'Estágio'], ['junior', 'Júnior'], ['pleno', 'Pleno'], ['senior', 'Sênior']];
-function seniorityOf(login) { return ((STATE.config && STATE.config.seniority) || {})[String(login || '').toLowerCase()] || ''; }
-function seniorityPicker(login) {
-  return `<select class="sr-level" data-login="${esc(login)}" title="Senioridade de @${esc(login)}: molda o TOM da revisão automática, nunca a decisão">
-    ${SENIORITY_OPTS.map(([v, t]) => `<option value="${v}"${seniorityOf(login) === v ? ' selected' : ''}>${t}</option>`).join('')}
+/* ---------- perfil de review por pessoa: papel + matriz por domínio ----------
+   Molda o TOM e a POSTURA da revisão automática, nunca a decisão. */
+const PAPEL_OPTS = [['', 'papel'], ['estagio', 'Estágio'], ['junior', 'Júnior'], ['pleno', 'Pleno'], ['senior', 'Sênior'], ['techlead', 'Tech Lead'], ['arquiteto', 'Arquiteto'], ['especialista', 'Especialista']];
+const DOMAIN_DEFS = [['backend', 'Backend'], ['frontend', 'Frontend'], ['dados', 'Dados'], ['infra', 'Infra']];
+const DOMLEVEL_OPTS = [['', '—'], ['basico', 'Básico'], ['intermediario', 'Interm.'], ['avancado', 'Avançado'], ['autoridade', 'Autoridade']];
+function personOf(login) { return ((STATE.config && STATE.config.people) || {})[String(login || '').toLowerCase()] || {}; }
+function papelOf(login) { return personOf(login).papel || ''; }
+function domLevelOf(login, d) { return (personOf(login).dominios || {})[d] || ''; }
+// papel (compacto): usado nos cards do PR e no cabeçalho do card do time
+function papelPicker(login) {
+  return `<select class="papel-level" data-login="${esc(login)}" title="Papel de @${esc(login)}: molda o tom da revisão automática, nunca a decisão">
+    ${PAPEL_OPTS.map(([v, t]) => `<option value="${v}"${papelOf(login) === v ? ' selected' : ''}>${t}</option>`).join('')}
   </select>`;
+}
+// matriz por domínio (só na aba Time): competência por área calibra a postura
+function domainMatrix(login) {
+  return `<div class="dom-matrix">${DOMAIN_DEFS.map(([d, label]) => `
+    <label class="dom-cell"><span class="dom-name">${label}</span>
+      <select class="dom-level" data-login="${esc(login)}" data-domain="${d}" title="Competência de @${esc(login)} em ${label}">
+        ${DOMLEVEL_OPTS.map(([v, t]) => `<option value="${v}"${domLevelOf(login, d) === v ? ' selected' : ''}>${t}</option>`).join('')}
+      </select></label>`).join('')}</div>`;
 }
 
 /* ---------- render: time (separado por conta) ---------- */
@@ -1222,7 +1248,11 @@ async function loadTeam() {
           <div class="login">@${esc(m.login)} · ${entries.length} review(s) registrados</div>
         </div>
         ${verdictChip}
-        ${seniorityPicker(m.login)}
+        ${papelPicker(m.login)}
+      </div>
+      <div class="member-profile">
+        <span class="mp-label">Competência por domínio</span>
+        ${domainMatrix(m.login)}
       </div>
       <div class="member-entries">${es}</div>
     </div>`;
@@ -1283,6 +1313,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.15.0', ['A senioridade virou um perfil de verdade, com dois eixos. O papel cobre carreira e posição (Estágio, Júnior, Pleno, Sênior, mais Tech Lead, Arquiteto e Especialista) e dá o tom-base. A matriz por domínio (Backend, Frontend, Dados, Infra, de Básico a Autoridade) reconhece que a pessoa pode ser autoridade numa área e estar começando em outra: onde é autoridade o review defere e foca no alto nível; onde está começando, explica mais e cuida dos fundamentos. Segue mexendo só no tom e na postura, nunca na decisão técnica. O papel se marca no card do PR e na aba Time; a matriz fica na aba Time. Quem já estava marcado como Estágio/Júnior/Pleno/Sênior migra sozinho pro papel.']],
   ['2.14.0', ['Agora dá pra marcar a senioridade de alguém direto do card do PR (na fila e em "Precisa de você"), não só na aba Time. Antes, como a aba Time só lista quem já foi revisado ao menos uma vez, o primeiro PR de alguém novo saía sempre no tom neutro; agora você marca no momento em que vê o PR e a revisão já sai no tom certo. É a mesma marcação por pessoa, só com mais um lugar pra fazer.']],
   ['2.13.0', ['Contas diferentes agora são revisadas em paralelo: cada conta roda a sua revisão ao mesmo tempo (a BIUD e a pessoal juntas, por exemplo), em vez de uma por vez no total. Dentro da mesma conta segue uma de cada vez, pra não sobrecarregar a máquina. Assim, uma análise demorada de uma conta não segura mais a fila das outras.']],
   ['2.12.1', ['Correção: "Analisando agora" e a fila do Radar agora respeitam a conta selecionada. Antes, a revisão em andamento aparecia igual em qualquer conta (misturava trabalho e pessoal enquanto o Farol analisava um PR); agora filtra pela conta escolhida, e em "Todas" mostra tudo. As outras seções já respeitavam.']],
