@@ -298,7 +298,7 @@ class Engine extends EventEmitter {
     this.activeReviews = new Map();  // id -> { keys, label, mode, startedAt }
     this.sessionSeq = 0;
     this.headlessQueue = [];
-    this.headlessBusy = false;
+    this.headlessBusyAccounts = new Set(); // contas com revisão headless em andamento (1 por conta em paralelo)
     this.decisions = readJson(path.join(STATE_DIR, 'decisions.json'), { pending: [], resolved: [] });
     this.toolRuns = readJson(path.join(STATE_DIR, 'tool-results.json'), {});
     // kudos passou a ser POR CONTA (mapa escopo->execução); migra o formato antigo
@@ -977,7 +977,8 @@ class Engine extends EventEmitter {
     return { ok: true, mode };
   }
 
-  // --- revisao autonoma (headless), um PR por vez -----------------------------
+  // --- revisao autonoma (headless): 1 revisão por conta em paralelo ----------
+  // (contas diferentes rodam juntas; dentro da mesma conta segue serial)
   enqueueHeadless(pr) {
     this.headlessQueue.push(pr);
     this.writeInflight();
@@ -985,12 +986,23 @@ class Engine extends EventEmitter {
     this.pushState();
   }
 
-  async processHeadless() {
-    if (this.headlessBusy) return;
-    const pr = this.headlessQueue.shift();
-    if (!pr) return;
-    this.headlessBusy = true;
+  // conta que "ocupa" o slot da revisão (uma por conta de cada vez)
+  headlessAcct(pr) { return String(this.accountForPr(pr) || '').toLowerCase() || '(sem conta)'; }
 
+  // escalonador: dispara quantas revisões der, uma por conta que estiver livre.
+  // Síncrono (não await): cada revisão roda em paralelo e reprograma no fim.
+  processHeadless() {
+    for (; ;) {
+      const idx = this.headlessQueue.findIndex(pr => !this.headlessBusyAccounts.has(this.headlessAcct(pr)));
+      if (idx < 0) break; // fila vazia ou todas as contas pendentes já ocupadas
+      const pr = this.headlessQueue.splice(idx, 1)[0];
+      const acct = this.headlessAcct(pr);
+      this.headlessBusyAccounts.add(acct);
+      this.runOneHeadless(pr, acct);
+    }
+  }
+
+  async runOneHeadless(pr, acct) {
     // autoanalise: caminho separado, NUNCA posta nem gerencia a fila de revisor.
     // Erro so vira toast (o autor reroda quando quiser); nada volta pra fila.
     if (pr.kind === 'self') {
@@ -1004,10 +1016,10 @@ class Engine extends EventEmitter {
           this.emit('toast', { kind: 'error', text: `Autoanálise de ${pr.key} falhou: ${err.message}` });
         }
       } finally {
-        this.headlessBusy = false;
+        this.headlessBusyAccounts.delete(acct);
         this.writeInflight();
         this.pushState();
-        if (this.headlessQueue.length) this.processHeadless();
+        this.processHeadless();
       }
       return;
     }
@@ -1043,10 +1055,10 @@ class Engine extends EventEmitter {
         this.emit('toast', { kind: 'error', text: `Revisão de ${pr.key} falhou: ${err.message}` });
       }
     } finally {
-      this.headlessBusy = false;
+      this.headlessBusyAccounts.delete(acct);
       this.writeInflight();
       this.pushState();
-      if (this.headlessQueue.length) this.processHeadless();
+      this.processHeadless();
     }
   }
 
@@ -2404,7 +2416,7 @@ class Engine extends EventEmitter {
   async applyUpdate() {
     await this.checkUpdate();
     if (!this.update.available) return { ok: false, error: 'nenhuma atualização disponível' };
-    if (this.headlessBusy || this.running.size || this.headlessQueue.length) {
+    if (this.headlessBusyAccounts.size || this.running.size || this.headlessQueue.length) {
       return { ok: false, error: 'há análise ou chat em andamento; termine ou cancele antes de atualizar' };
     }
     // remoto: baixa e extrai a release; aponta a "fonte" pra pasta extraida
