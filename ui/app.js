@@ -298,24 +298,25 @@ function renderAccountsManager() {
         <div class="a-sub"><span class="a-auth ${a.tokenOk && !a.muted ? 'ok' : ''}">@${esc(a.user)}</span> · ${esc(auth)}</div>
         <div class="a-editrow orgs"><span class="a-fieldlabel">orgs</span>
           <input class="acct-owners" data-user="${esc(a.user)}" value="${esc((a.owners || []).join(', '))}" placeholder="org1, org2" spellcheck="false" title="organizações monitoradas por esta conta"></div>
+        <div class="a-pol-note">O que o Farol faz sozinho nos PRs desta conta (o que não escolher, segue o padrão geral):</div>
         <div class="a-policy">
-          <div class="a-pol-item"><span class="a-fieldlabel">ao chegar PR</span>
-            <select class="acct-autoreview" data-user="${esc(a.user)}">
-              <option value="">herda (${globalAR ? 'revisa sozinho' : 'só na fila'})</option>
-              <option value="on"${a.autoReview === true ? ' selected' : ''}>revisa sozinho</option>
-              <option value="off"${a.autoReview === false ? ' selected' : ''}>só põe na fila</option>
+          <div class="a-pol-item"><span class="a-fieldlabel">quando chega um PR pra você</span>
+            <select class="acct-autoreview" data-user="${esc(a.user)}" title="Revisar na hora ou só listar e esperar você mandar revisar">
+              <option value="">herda o geral: ${globalAR ? 'revisa na hora' : 'só põe na fila'}</option>
+              <option value="on"${a.autoReview === true ? ' selected' : ''}>revisa na hora</option>
+              <option value="off"${a.autoReview === false ? ' selected' : ''}>só põe na fila (você manda revisar)</option>
             </select></div>
-          <div class="a-pol-item"><span class="a-fieldlabel">aprovável, sem ressalva</span>
-            <select class="acct-onclean" data-user="${esc(a.user)}">
-              <option value="">herda (aprova sozinho)</option>
+          <div class="a-pol-item"><span class="a-fieldlabel">quando fica aprovável sem ressalvas</span>
+            <select class="acct-onclean" data-user="${esc(a.user)}" title="PR aprovável e sem nenhum ponto de atenção">
+              <option value="">herda o geral: aprova sozinho</option>
               <option value="approve"${a.onClean === 'approve' ? ' selected' : ''}>aprova sozinho</option>
-              <option value="wait"${a.onClean === 'wait' ? ' selected' : ''}>aguarda você</option>
+              <option value="wait"${a.onClean === 'wait' ? ' selected' : ''}>espera você aprovar</option>
             </select></div>
-          <div class="a-pol-item"><span class="a-fieldlabel">aprovável, com ressalva</span>
-            <select class="acct-oncaveats" data-user="${esc(a.user)}">
-              <option value="">herda (${globalCav ? 'aprova destacando' : 'aguarda você'})</option>
-              <option value="approve"${a.onCaveats === 'approve' ? ' selected' : ''}>aprova destacando</option>
-              <option value="wait"${a.onCaveats === 'wait' ? ' selected' : ''}>aguarda você</option>
+          <div class="a-pol-item"><span class="a-fieldlabel">quando fica aprovável com ressalvas</span>
+            <select class="acct-oncaveats" data-user="${esc(a.user)}" title="PR aprovável, mas com pontos de atenção anotados">
+              <option value="">herda o geral: ${globalCav ? 'aprova e destaca as ressalvas' : 'espera você'}</option>
+              <option value="approve"${a.onCaveats === 'approve' ? ' selected' : ''}>aprova e destaca as ressalvas</option>
+              <option value="wait"${a.onCaveats === 'wait' ? ' selected' : ''}>espera você aprovar</option>
             </select></div>
         </div>
       </div>
@@ -344,7 +345,7 @@ function rerenderScope() {
   if (!STATE) return;
   renderAccountBar(); renderIdentity();
   renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSilenced();
-  if ($('#tab-destaques').classList.contains('active')) loadHighlights();
+  if ($('#tab-destaques').classList.contains('active')) { loadHighlights(); renderTools(); }
   if ($('#tab-time').classList.contains('active')) loadTeam();
 }
 
@@ -1244,6 +1245,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.10.0', ['Os Kudos compilados agora respeitam a conta selecionada: cada conta tem a sua compilação, gerada só com os destaques daquela conta, e o painel some quando a conta ainda não tem kudos (em "Todas" compila tudo). Antes o mesmo resumo aparecia em qualquer conta, misturando trabalho e pessoal. Junto, os rótulos da automação por conta foram reescritos pra ficarem óbvios ("quando chega um PR pra você", "quando fica aprovável sem/com ressalvas", "revisa na hora", "aprova e destaca as ressalvas", "espera você aprovar"), com uma linha lembrando que o que você não escolher segue o padrão geral.']],
   ['2.9.0', ['Política automática por conta, no painel Contas (aba Sistema): cada conta do GitHub decide sozinha como o Farol age. São três controles próprios por conta, quando chega revisão (revisa sozinho, só põe na fila ou herda o padrão global), PR aprovável sem ressalva (aprova sozinho ou aguarda você) e PR aprovável com ressalva (aprova ressaltando os pontos de atenção ou aguarda sua ação). A conta do trabalho pode revisar e aprovar sozinha o que é seguro, a pessoal só põe na fila e espera você, sem misturar as regras. O que você não configurar por conta herda o padrão global (os dois toggles gerais em Sistema).']],
   ['2.8.3', ['Confirmação com impacto nas ações que escrevem no GitHub: Merge, Merge como admin e Pedir mudanças agora abrem a caixa de confirmação (como o Remover conta), explicando o que a ação faz e o que ela mexe, no lugar do aviso genérico do navegador. O Merge admin, que fura o gate de review do time, ganha o aviso mais forte.']],
   ['2.8.2', ['Instalador BETA de macOS (Apple Silicon) anexado à release: o Farol-Instalar-mac.command foi montado aqui mesmo, sem um Mac, embutindo o Electron pra o próprio Mac descompactar (assim os symlinks do app ficam intactos). Como o suporte a macOS nunca rodou num Mac de verdade, é beta: instale (1ª vez: botão direito > Abrir), e se algo quebrar, use "Exportar diagnóstico" (Saúde) e mande. Com esse retorno a gente corrige e libera a versão final.']],
@@ -1570,21 +1572,25 @@ let lastKudosOutput = '';
 function stripFence(s) {
   return String(s || '').trim().replace(/^```[a-z]*\s*\r?\n/i, '').replace(/\r?\n```\s*$/, '').trim();
 }
+function kudosScopeKey() { return SCOPE === 'all' ? '*' : String(SCOPE).toLowerCase(); }
 function renderTools() {
   const runs = STATE.toolRuns || {};
   const btnK = $('#btnKudos'), btnH = $('#btnHealth');
 
-  const k = runs.kudos || {};
+  // kudos é por conta: cada escopo tem sua própria compilação (nunca mistura contas)
+  const kmap = (runs.kudos && typeof runs.kudos === 'object') ? runs.kudos : {};
+  const k = kmap[kudosScopeKey()] || {};
+  const scopeName = SCOPE === 'all' ? '' : ((ACCT[String(SCOPE).toLowerCase()] || {}).label || SCOPE);
   btnK.disabled = k.status === 'running';
   btnK.innerHTML = k.status === 'running'
     ? '<span class="spin"></span> Gerando…'
-    : '<svg viewBox="0 0 24 24"><path d="M12 3l1.9 4.6 4.9.4-3.7 3.2 1.1 4.8L12 13.5 7.8 16l1.1-4.8L5.2 8l4.9-.4L12 3z" fill="currentColor"/></svg> Gerar kudos com o Claude';
+    : `<svg viewBox="0 0 24 24"><path d="M12 3l1.9 4.6 4.9.4-3.7 3.2 1.1 4.8L12 13.5 7.8 16l1.1-4.8L5.2 8l4.9-.4L12 3z" fill="currentColor"/></svg> Gerar kudos${scopeName ? ' de ' + esc(scopeName) : ''}`;
   const kp = $('#kudosPanel');
   kp.hidden = k.status !== 'done';
   if (k.status === 'done') {
     lastKudosOutput = stripFence(k.output);
     $('#kudosOut').innerHTML = md(lastKudosOutput);
-    $('#kudosMeta').textContent = `gerado às ${fmtClock(k.finishedAt)} · pronto pra colar no canal`;
+    $('#kudosMeta').textContent = `gerado às ${fmtClock(k.finishedAt)}${scopeName ? ' · ' + esc(scopeName) : ''} · pronto pra colar no canal`;
   }
 
   const h = runs.health || {};
@@ -1607,7 +1613,7 @@ $('#btnKudosCopy').onclick = async () => {
 
 /* limpar resultados de ferramenta: o painel some, nada além disso */
 $('#btnKudosClear').onclick = async () => {
-  const r = await api('/api/tool/clear', { name: 'kudos' });
+  const r = await api('/api/tool/clear', { name: 'kudos', scope: kudosScopeKey() });
   if (!r?.ok) toast('error', esc(r?.error || 'não consegui limpar'));
 };
 $('#btnHealthClear').onclick = async () => {
@@ -1743,7 +1749,10 @@ function initTweaks() {
   if (is) { is.value = TWEAK.ident; is.onchange = () => { TWEAK.ident = is.value; localStorage.setItem('farol-identity-style', is.value); rerenderScope(); }; }
 }
 initTweaks();
-$('#btnKudos').onclick = () => api('/api/tool', { name: 'kudos' });
+$('#btnKudos').onclick = async () => {
+  const r = await api('/api/tool', { name: 'kudos', scope: kudosScopeKey() });
+  if (!r?.ok) toast('info', esc(r?.error || 'não consegui gerar'));
+};
 $('#btnHealth').onclick = () => api('/api/tool', { name: 'health' });
 $('#btnDoctor').onclick = async () => { await get('/api/doctor'); };
 $('#btnUpdateCheck').onclick = async () => { await get('/api/doctor'); toast('ok', 'Verificação de atualização feita.', 2500); };

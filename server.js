@@ -275,8 +275,14 @@ class Engine extends EventEmitter {
     this.headlessBusy = false;
     this.decisions = readJson(path.join(STATE_DIR, 'decisions.json'), { pending: [], resolved: [] });
     this.toolRuns = readJson(path.join(STATE_DIR, 'tool-results.json'), {});
-    for (const k of Object.keys(this.toolRuns)) {
-      if (this.toolRuns[k].status === 'running') this.toolRuns[k] = { status: 'error', error: 'o app foi reiniciado no meio da execução' };
+    // kudos passou a ser POR CONTA (mapa escopo->execução); migra o formato antigo
+    // (execução única, global) pro escopo "todas" ('*') pra não perder o que já existia
+    if (this.toolRuns.kudos && typeof this.toolRuns.kudos.status === 'string') this.toolRuns.kudos = { '*': this.toolRuns.kudos };
+    if (!this.toolRuns.kudos || typeof this.toolRuns.kudos !== 'object') this.toolRuns.kudos = {};
+    const interrupted = { status: 'error', error: 'o app foi reiniciado no meio da execução' };
+    if (this.toolRuns.health && this.toolRuns.health.status === 'running') this.toolRuns.health = interrupted;
+    for (const key of Object.keys(this.toolRuns.kudos)) {
+      if (this.toolRuns.kudos[key] && this.toolRuns.kudos[key].status === 'running') this.toolRuns.kudos[key] = interrupted;
     }
     this.activity = new Map();       // id de sessão -> feed de eventos ao vivo
     this.running = new Map();        // id de sessão -> { child, cancelled } (só headless)
@@ -2027,18 +2033,50 @@ class Engine extends EventEmitter {
     return this.cancelSession(chat.runId);
   }
 
+  // escopo do kudos: '*' = todas as contas; senão o login (minúsculo) de uma conta
+  kudosScopeKey(scope) { const s = String(scope || '').trim().toLowerCase(); return (!s || s === '*') ? '*' : s; }
+  scopeLabel(scope) {
+    const k = this.kudosScopeKey(scope);
+    if (k === '*') return '';
+    const a = this.accountList().find(x => x.user.toLowerCase() === k);
+    return (a && (a.label || a.user)) || String(scope);
+  }
+  ownerFromUrl(url) { const m = String(url || '').match(/github\.com\/([^/]+)\//i); return m ? m[1] : ''; }
+  // destaques visíveis num escopo: '*' pega tudo; conta específica filtra pelo owner do PR
+  highlightsForScope(scope) {
+    const items = parseHighlights();
+    const k = this.kudosScopeKey(scope);
+    if (k === '*') return items;
+    return items.filter(h => { const owner = this.ownerFromUrl(h.url); return owner && this.accountForOwner(owner).toLowerCase() === k; });
+  }
+
   // ferramentas (kudos, diagnostico) rodam INTERNAS, headless; o resultado
   // aparece na UI, nada de terminal
-  toolPrompt(name) {
+  toolPrompt(name, opts) {
+    opts = opts || {};
     const file = path.join(WORKSPACE, '.claude', 'commands', name === 'kudos' ? 'pr-kudos.md' : 'pr-health.md');
     let body = fs.readFileSync(file, 'utf8').replace(/^---[\s\S]*?---\s*/, '').replace(/\$ARGUMENTS/g, '(padrão)');
     const preamble = 'Você está rodando em modo AUTÔNOMO (headless) dentro do app Farol, sem ninguém na tela. ' +
       'NÃO faça perguntas, NÃO ofereça próximos passos, NÃO espere confirmação.\n\n';
+    // kudos de uma conta específica: injeta os destaques já filtrados e proíbe
+    // olhar o arquivo global, pra o resumo nunca misturar conteúdo de outra conta
+    let scopeBlock = '';
+    if (name === 'kudos' && opts.scoped) {
+      const line = h => {
+        const ref = h.ref ? (h.url ? `[${h.ref}](${h.url})` : h.ref) : '';
+        const tail = ref ? `${ref} — ${h.text}` : h.text;
+        return '- ' + [h.date, h.author ? '@' + h.author : '', tail].filter(Boolean).join(' · ');
+      };
+      const list = (opts.list || []).map(line).join('\n');
+      scopeBlock = `\n\n### Destaques da conta ${opts.label}\n` +
+        `Considere SOMENTE os destaques listados abaixo, já filtrados pra a conta ${opts.label}. ` +
+        `NÃO leia o arquivo highlights.md e NÃO inclua nada de outras contas.\n\n${list}\n`;
+    }
     const suffix = name === 'kudos'
       ? '\n\nSua saída final deve ser APENAS o texto pronto pra colar (markdown), sem comentários em volta e sem ofertas no final.'
       : '\n\nComo não há interlocutor: aplique só as correções de baixo risco; as de risco maior viram uma seção "Recomendações (não apliquei)". ' +
         'Sua saída final deve ser APENAS o relatório em markdown (falhas → causa → o que mudou / o que recomendo).';
-    return preamble + body + suffix;
+    return preamble + body + scopeBlock + suffix;
   }
 
   saveToolRuns() {
@@ -2047,21 +2085,38 @@ class Engine extends EventEmitter {
     this.pushState();
   }
 
-  async launchTool(name) {
+  // pega/guarda a execução de uma ferramenta: kudos é por conta (mapa escopo->execução),
+  // health é global; centraliza aqui pra não espalhar o if do formato
+  toolRunGet(name, scope) { return name === 'kudos' ? this.toolRuns.kudos[this.kudosScopeKey(scope)] : this.toolRuns[name]; }
+  toolRunSet(name, scope, run) { if (name === 'kudos') this.toolRuns.kudos[this.kudosScopeKey(scope)] = run; else this.toolRuns[name] = run; }
+
+  async launchTool(name, scope) {
     if (!['kudos', 'health'].includes(name)) return { ok: false, error: 'ferramenta desconhecida' };
-    if (this.toolRuns[name] && this.toolRuns[name].status === 'running') {
-      return { ok: false, error: 'já está rodando' };
+    const cur = this.toolRunGet(name, scope);
+    if (cur && cur.status === 'running') return { ok: false, error: 'já está rodando' };
+    // kudos de uma conta sem destaques não roda (o painel já mostra o vazio)
+    let scoped = false, scopedList = null, scopeName = '';
+    if (name === 'kudos') {
+      const key = this.kudosScopeKey(scope);
+      scoped = key !== '*';
+      scopeName = this.scopeLabel(scope);
+      if (scoped) {
+        scopedList = this.highlightsForScope(scope);
+        if (!scopedList.length) return { ok: false, error: `sem destaques na conta ${scopeName} ainda` };
+      } else if (!parseHighlights().length) {
+        return { ok: false, error: 'sem destaques registrados ainda' };
+      }
     }
     if (!this.token) await this.refreshToken();
-    const label = name === 'kudos' ? 'Kudos do time' : 'Diagnóstico do Farol';
+    const label = name === 'kudos' ? `Kudos${scopeName ? ' · ' + scopeName : ''}` : 'Diagnóstico do Farol';
     const id = `f${++this.sessionSeq}`;
     this.activeReviews.set(id, { id, keys: [], label, mode: 'auto', startedAt: Date.now(), cancellable: true });
     this.activity.set(id, []);
-    this.toolRuns[name] = { status: 'running', startedAt: Date.now() };
+    this.toolRunSet(name, scope, { status: 'running', startedAt: Date.now() });
     this.saveToolRuns();
     (async () => {
       try {
-        const res = await this.runClaudeStream(this.toolPrompt(name), {
+        const res = await this.runClaudeStream(this.toolPrompt(name, { scoped, list: scopedList, label: scopeName }), {
           id,
           onEvent: (e) => this.pushActivity(id, e.kind, e.text)
         });
@@ -2069,12 +2124,12 @@ class Engine extends EventEmitter {
         // alguns modelos envelopam em cerca de codigo mesmo instruidos a nao fazer
         text = text.replace(/^```[a-z]*\s*\r?\n/i, '').replace(/\r?\n```\s*$/, '').trim();
         if (!text) throw new Error('a sessão não devolveu texto');
-        this.toolRuns[name] = { status: 'done', output: text, finishedAt: Date.now() };
+        this.toolRunSet(name, scope, { status: 'done', output: text, finishedAt: Date.now() });
         this.emit('tool-done', { name, label });
         this.emit('toast', { kind: 'ok', text: `${label}: pronto.` });
       } catch (err) {
         if (!err.cancelled) this.log('ERROR', `ferramenta ${name}: ${err.message}`);
-        this.toolRuns[name] = { status: 'error', error: err.message, finishedAt: Date.now() };
+        this.toolRunSet(name, scope, { status: 'error', error: err.message, finishedAt: Date.now() });
         this.emit('toast', { kind: err.cancelled ? 'info' : 'error', text: err.cancelled ? `${label}: cancelado.` : `${label} falhou: ${err.message}` });
       } finally {
         this.activeReviews.delete(id);
@@ -2087,12 +2142,12 @@ class Engine extends EventEmitter {
 
   // limpa o resultado de uma ferramenta (kudos/diagnostico) depois que os
   // pontos levantados ja foram tratados; nao mexe em nada alem do painel
-  clearTool(name) {
+  clearTool(name, scope) {
     if (!['kudos', 'health'].includes(name)) return { ok: false, error: 'ferramenta desconhecida' };
-    if (this.toolRuns[name] && this.toolRuns[name].status === 'running') {
-      return { ok: false, error: 'ainda está rodando; cancele ou aguarde terminar' };
-    }
-    delete this.toolRuns[name];
+    const cur = this.toolRunGet(name, scope);
+    if (cur && cur.status === 'running') return { ok: false, error: 'ainda está rodando; cancele ou aguarde terminar' };
+    if (name === 'kudos') delete this.toolRuns.kudos[this.kudosScopeKey(scope)];
+    else delete this.toolRuns[name];
     this.saveToolRuns();
     return { ok: true };
   }
@@ -2523,8 +2578,8 @@ function startServer(engine, onReady) {
         if (p === '/api/ignore') { engine.ignore(String(body.key || '')); return send(200, { ok: true }); }
         if (p === '/api/restore') { engine.restore(String(body.key || '')); return send(200, { ok: true }); }
         if (p === '/api/settings') { engine.updateSettings(body || {}); return send(200, { ok: true, config: engine.config }); }
-        if (p === '/api/tool') return send(200, await engine.launchTool(String(body.name || '')));
-        if (p === '/api/tool/clear') return send(200, engine.clearTool(String(body.name || '')));
+        if (p === '/api/tool') return send(200, await engine.launchTool(String(body.name || ''), body.scope));
+        if (p === '/api/tool/clear') return send(200, engine.clearTool(String(body.name || ''), body.scope));
         if (p === '/api/log/clear') return send(200, engine.clearLog());
         if (p === '/api/cancel') return send(200, engine.cancelSession(String(body.id || '')));
         if (p === '/api/session-exit') return send(200, engine.sessionExit(String(body.id || '')));

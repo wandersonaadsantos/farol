@@ -376,6 +376,8 @@ main { max-width: 1000px; margin: 0 auto; padding: 16px 24px 60px; }
 .acct-add input { flex: 1; min-width: 130px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 13px; }
 .acct-add input:focus { outline: none; border-color: var(--accent); }
 .acct-add .a-hint { color: var(--muted); font-size: 11.5px; margin-top: 9px; }
+.acct-card .a-pol-note { font-size: 11.5px; color: var(--faint); margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--border-soft); }
+.acct-card .a-pol-note + .a-policy { margin-top: 6px; padding-top: 0; border-top: 0; }
 .acct-card .a-policy { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 4px; padding-top: 9px; border-top: 1px solid var(--border-soft); }
 .acct-card .a-pol-item { display: flex; flex-direction: column; gap: 3px; }
 .acct-card .a-pol-item .a-fieldlabel { font-size: 10.5px; color: var(--faint); font-weight: 600; }
