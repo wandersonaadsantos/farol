@@ -173,10 +173,11 @@ function parseAccounts(val) {
       if (meta.kind != null && String(meta.kind).trim()) o.kind = String(meta.kind).trim();
       if (meta.muted) o.muted = true;
       // política de automação por conta (só quando definida; ausente = herda o global):
-      //  autoReview bool; onClean/onCaveats = 'approve' | 'wait'
+      //  autoReview bool; onClean/onCaveats = 'approve' | 'wait'; onReject = 'request_changes' | 'wait'
       if (meta.autoReview === true || meta.autoReview === false) o.autoReview = meta.autoReview;
       if (meta.onClean === 'approve' || meta.onClean === 'wait') o.onClean = meta.onClean;
       if (meta.onCaveats === 'approve' || meta.onCaveats === 'wait') o.onCaveats = meta.onCaveats;
+      if (meta.onReject === 'request_changes' || meta.onReject === 'wait') o.onReject = meta.onReject;
     }
     return o;
   };
@@ -287,6 +288,7 @@ class Engine extends EventEmitter {
     this.activity = new Map();       // id de sessão -> feed de eventos ao vivo
     this.running = new Map();        // id de sessão -> { child, cancelled } (só headless)
     this.retryAfterNet = new Map();  // key do PR -> tentativas de re-revisão pós-queda de rede
+    this.autoReviewParked = new Set(); // keys que falharam sem ser rede (ou foram canceladas): aguardam ação manual, não relançam sozinhas
     this.chats = readJson(CHATS_FILE, {});
     for (const k of Object.keys(this.chats)) {
       if (this.chats[k].status === 'running') this.chats[k].status = 'idle';
@@ -437,7 +439,8 @@ class Engine extends EventEmitter {
         // política de automação por conta (undefined = herda o global)
         autoReview: (a && (a.autoReview === true || a.autoReview === false)) ? a.autoReview : undefined,
         onClean: (a && (a.onClean === 'approve' || a.onClean === 'wait')) ? a.onClean : undefined,
-        onCaveats: (a && (a.onCaveats === 'approve' || a.onCaveats === 'wait')) ? a.onCaveats : undefined
+        onCaveats: (a && (a.onCaveats === 'approve' || a.onCaveats === 'wait')) ? a.onCaveats : undefined,
+        onReject: (a && (a.onReject === 'request_changes' || a.onReject === 'wait')) ? a.onReject : undefined
       }))
       .filter(a => a.user);
     if (!base.length) base = [{ user: (this.config.ghUser || '').trim(), owners: this.config.owners || [], label: '', color: '', kind: '', muted: false }];
@@ -473,6 +476,13 @@ class Engine extends EventEmitter {
     const a = this.acctPolicy(user);
     if (clean) return a.onClean || 'approve';
     return a.onCaveats || (this.config.autoApproveAll !== false ? 'approve' : 'wait');
+  }
+  // quando a revisão pede mudanças (tem bloqueios), a ação da conta:
+  // 'request_changes' (reprovar sozinho) ou 'wait' (aguardar você). DEFAULT wait
+  // sempre (opt-in por conta; não existe reprovação automática global).
+  rejectPolicyFor(user) {
+    const a = this.acctPolicy(user);
+    return a.onReject === 'request_changes' ? 'request_changes' : 'wait';
   }
 
   // login da conta primaria (identidade default; chamadas gh nao ligadas a um PR)
@@ -714,13 +724,25 @@ class Engine extends EventEmitter {
       // ficam fora dos avisos de PR novo e da auto-revisão: nada de barulho nem de
       // revisar sozinho o PR-teste abandonado.
       const freshActive = fresh.filter(p => !this.isMuted(this.accountForPr(p)));
+      // auto-revisão respeita a política POR CONTA e vale pra TODA a fila elegível,
+      // não só os que acabaram de chegar: ligar "revisa na hora" numa conta passa a
+      // valer pros PRs que JÁ estavam esperando (era o gap de "configurei e não agiu").
+      // Exclui os já em andamento, os "estacionados" (falha não-transitória/cancelados,
+      // que aguardam ação manual) e os em retry de rede (repescados no bloco abaixo).
+      const inflight = new Set([
+        ...this.headlessQueue.map(p => p.key),
+        ...[...this.activeReviews.values()].flatMap(s => s.keys || [])
+      ]);
+      const toReview = this.queue.filter(p =>
+        !this.isMuted(this.accountForPr(p)) &&
+        this.autoReviewFor(this.accountForPr(p)) &&
+        !inflight.has(p.key) &&
+        !this.autoReviewParked.has(p.key) &&
+        !this.retryAfterNet.has(p.key));
       if (freshActive.length > 0) {
-        // auto-revisão respeita a política POR CONTA: só lança headless nas contas
-        // com "revisar automaticamente" ligado (ou herdando o global ligado).
-        const toReview = freshActive.filter(p => this.autoReviewFor(this.accountForPr(p)));
         this.emit('new-prs', { items: freshActive, total: queue.filter(p => !this.isMuted(this.accountForPr(p))).length, auto: toReview.length > 0 });
-        if (toReview.length) this.launchReview(toReview.map(p => p.url), 'auto');
       }
+      if (toReview.length) this.launchReview(toReview.map(p => p.url), 'auto');
 
       // a checagem funcionou = a rede voltou: relança revisões que caíram por queda de conexão
       if (this.retryAfterNet.size) {
@@ -905,7 +927,8 @@ class Engine extends EventEmitter {
       const pr = this.prFromUrl(u);
       return pr ? { ...pr, account: this.accountForPr(pr), requested: false } : null;
     }).filter(Boolean);
-    for (const it of items) this.markSeen(it.key);
+    // lançar (manual ou auto) tira o PR do "estacionamento": ele volta a ser elegível
+    for (const it of items) { this.markSeen(it.key); this.autoReviewParked.delete(it.key); }
     this.queue = this.queue.filter(p => !urls.includes(p.url));
     this.pushState();
 
@@ -973,6 +996,8 @@ class Engine extends EventEmitter {
       if (!this.queue.some(p => p.key === pr.key)) this.queue.push(pr);
       const netErr = /ECONNRESET|ENOTFOUND|ETIMEDOUT|Connection closed|Unable to connect|fetch failed|network/i.test(err.message);
       if (err.cancelled) {
+        // cancelado por você: estaciona pra não relançar sozinho (você reabre quando quiser)
+        this.autoReviewParked.add(pr.key);
         this.emit('toast', { kind: 'info', text: `Revisão de ${pr.key} cancelada. O PR voltou pra sua fila.` });
       } else if (netErr) {
         this.log('ERROR', `revisao autonoma ${pr.key}: ${err.message}`);
@@ -981,10 +1006,14 @@ class Engine extends EventEmitter {
           this.retryAfterNet.set(pr.key, tries + 1);
           this.emit('toast', { kind: 'error', text: `Revisão de ${pr.key} caiu (parece queda de rede). Relanço sozinho quando a conexão voltar; o PR está na sua fila.` });
         } else {
+          // esgotou o retry de rede: estaciona (aguarda ação manual, não fica em loop)
           this.retryAfterNet.delete(pr.key);
+          this.autoReviewParked.add(pr.key);
           this.emit('toast', { kind: 'error', text: `Revisão de ${pr.key} caiu de novo por rede; desisti de tentar sozinho. O PR está na sua fila.` });
         }
       } else {
+        // falha não-transitória: estaciona pra não relançar em loop toda checagem
+        this.autoReviewParked.add(pr.key);
         this.log('ERROR', `revisao autonoma ${pr.key}: ${err.message}`);
         this.emit('toast', { kind: 'error', text: `Revisão de ${pr.key} falhou: ${err.message}` });
       }
@@ -1211,7 +1240,8 @@ class Engine extends EventEmitter {
       // no panorama nunca auto-posta). Com autoApproveAll (default) qualquer aprovável
       // passa, com os pontos de atenção anexados ao APPROVE; sem, só o gate estrito.
       const canAuto = this.shouldAutoApprove(pr, result);
-      if (pr.requested === false && result.verdict === 'approve') {
+      const canReject = this.shouldAutoReject(pr, result);
+      if (pr.requested === false && (result.verdict === 'approve' || result.verdict === 'request_changes')) {
         result.reasons = ['revisão iniciada por você (não era seu review pedido): nada é postado sem sua decisão',
           ...(result.reasons || [])];
       }
@@ -1240,6 +1270,41 @@ class Engine extends EventEmitter {
           return;
         }
         result.reasons = [...(result.reasons || []), `falha ao postar o APPROVE: ${post.error}`];
+      }
+
+      // reprova sozinho (opt-in por conta): posta REQUEST_CHANGES com os bloqueios
+      // que a revisão levantou. Mesmo gate do approve (review pedido a mim; clique
+      // nunca posta) e dedup (não re-pede mudanças se eu já pedi).
+      if (canReject) {
+        const states = await this.myReviewStates(pr);
+        if (states && states.includes('CHANGES_REQUESTED')) {
+          this.recordDecision(pr, result, { status: 'already_reviewed', action: 'request_changes' });
+          this.emit('toast', { kind: 'info', text: `${pr.key}: você já tinha pedido mudanças no GitHub; não postei de novo.` });
+          return;
+        }
+        const rc = { ...result.payloads.request_changes, body: this.rejectBodyWithMark(result.payloads.request_changes.body) };
+        const post = await this.postReview(pr, rc);
+        if (post.ok) {
+          this.recordDecision(pr, result, { status: 'auto_rejected', action: 'request_changes' });
+          this.writeMemory(result, 'REQUEST_CHANGES');
+          this.emit('auto-rejected', { pr, result });
+          this.emit('toast', { kind: 'ok', text: `🔴 ${pr.key}: pedido de mudanças postado automaticamente (${(result.reasons || []).length || 'ver'} motivo(s)).` });
+          return;
+        }
+        result.reasons = [...(result.reasons || []), `falha ao postar o REQUEST_CHANGES: ${post.error}`];
+      }
+      // transparência: se o PR era aprovável e pedido a mim, mas não auto-aprovei
+      // por POLÍTICA da conta (não por veredito nem falha de post), deixa claro o porquê,
+      // pra você não achar que o Farol ignorou a regra que você configurou.
+      const approvable = result.verdict === 'approve' && result.payloads && result.payloads.approve && result.payloads.approve.event === 'APPROVE';
+      if (approvable && pr.requested !== false && !canAuto) {
+        const acc = this.accountForPr(pr);
+        const label = this.scopeLabel(acc) || acc || 'esta conta';
+        const clean = this.attentionPoints(result).length === 0 && result.decision === 'auto_approve';
+        const why = clean
+          ? `aprovável sem ressalvas, mas a política da conta ${label} manda aguardar sua aprovação (ajuste em Sistema > Contas)`
+          : `aprovável com ressalvas, e a política da conta ${label} é aguardar você (mude pra "aprova e destaca as ressalvas" em Sistema > Contas se quiser que aprove sozinho)`;
+        result.reasons = [why, ...(result.reasons || [])];
       }
       const item = this.recordDecision(pr, result, { status: 'pending' });
       this.emit('needs-decision', { pr, item });
@@ -1762,6 +1827,7 @@ class Engine extends EventEmitter {
     const map = {};
     for (const d of [...this.decisions.resolved].reverse()) {
       if (d.status === 'auto_approved') map[d.key] = { kind: 'approve', auto: true, at: d.resolvedAt };
+      else if (d.status === 'auto_rejected') map[d.key] = { kind: 'request_changes', auto: true, at: d.resolvedAt };
       else if (d.status === 'posted' || d.status === 'already_reviewed') map[d.key] = { kind: d.action, at: d.resolvedAt };
     }
     for (const d of this.decisions.pending) map[d.key] = { kind: 'pending', at: d.createdAt };
@@ -1800,6 +1866,23 @@ class Engine extends EventEmitter {
     // senão é "aprovável com ressalvas". A política da conta dona decide a ação.
     const clean = this.attentionPoints(result).length === 0 && result.decision === 'auto_approve';
     return this.approvePolicyFor(this.accountForPr(pr), clean) === 'approve';
+  }
+
+  // Deve reprovar sozinho (postar REQUEST_CHANGES)? Só quando a revisão pediu
+  // mudanças (verdict request_changes + payload), foi um review PEDIDO a mim
+  // (clique nunca posta) e a conta optou por "reprova sozinho". Opt-in, default não.
+  shouldAutoReject(pr, result) {
+    const rejectable = result.verdict === 'request_changes' &&
+      result.payloads && result.payloads.request_changes && result.payloads.request_changes.event === 'REQUEST_CHANGES';
+    if (!rejectable || pr.requested === false) return false;
+    return this.rejectPolicyFor(this.accountForPr(pr)) === 'request_changes';
+  }
+
+  // Marca o corpo do REQUEST_CHANGES automático, pro autor saber que foi o Farol.
+  rejectBodyWithMark(body) {
+    const base = String(body || '').trim();
+    const mark = '_Pedido de mudanças automático pelo Farol (revisão autônoma). Os pontos abaixo precisam de ajuste._';
+    return base ? `${mark}\n\n${base}` : mark;
   }
 
   // Pontos de atenção de uma revisão aprovável: as ressalvas que a sessão levantou
@@ -2402,7 +2485,7 @@ class Engine extends EventEmitter {
       accounts: this.accountList().map((a, i) => ({
         user: a.user, owners: a.owners, tokenOk: !!(this.tokens && this.tokens[a.user]),
         label: a.label, color: a.color, kind: a.kind, muted: !!a.muted, primary: i === 0,
-        autoReview: a.autoReview, onClean: a.onClean, onCaveats: a.onCaveats
+        autoReview: a.autoReview, onClean: a.onClean, onCaveats: a.onCaveats, onReject: a.onReject
       })),
       config: { ...this.config },
       lastCheckAt: this.lastCheckAt,
@@ -2526,6 +2609,7 @@ function startServer(engine, onReady) {
   engine.on('toast', t => broadcast('toast', t));
   engine.on('new-prs', p => broadcast('new-prs', p));
   engine.on('auto-approved', p => broadcast('auto-approved', p));
+  engine.on('auto-rejected', p => broadcast('auto-rejected', p));
   engine.on('needs-decision', p => broadcast('needs-decision', p));
   engine.on('tool-done', p => broadcast('tool-done', p));
   engine.on('activity', p => broadcast('activity', p));

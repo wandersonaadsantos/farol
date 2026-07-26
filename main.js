@@ -154,6 +154,10 @@ function wireEngine() {
   engine.on('auto-approved', ({ pr, result }) => {
     notify('Farol · aprovado sem você ✅', `${pr.key} (${result.card || 'sem card'}): APPROVE postado.`);
   });
+  engine.on('auto-rejected', ({ pr, result }) => {
+    const motivo = (result.reasons && result.reasons[0]) || 'ver relatório';
+    notify('Farol · mudanças pedidas sem você 🔴', `${pr.key}: ${motivo}`);
+  });
   engine.on('tool-done', ({ name, label }) => {
     notify(`Farol · ${label}`, name === 'kudos' ? 'Kudos prontos pra copiar na aba Destaques.' : 'Relatório disponível na aba Sistema.');
   });

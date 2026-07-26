@@ -254,6 +254,7 @@ function accountSaveArray(list) {
     if (a.autoReview === true || a.autoReview === false) o.autoReview = a.autoReview;
     if (a.onClean === 'approve' || a.onClean === 'wait') o.onClean = a.onClean;
     if (a.onCaveats === 'approve' || a.onCaveats === 'wait') o.onCaveats = a.onCaveats;
+    if (a.onReject === 'request_changes' || a.onReject === 'wait') o.onReject = a.onReject;
     return o;
   });
 }
@@ -318,6 +319,11 @@ function renderAccountsManager() {
               <option value="approve"${a.onCaveats === 'approve' ? ' selected' : ''}>aprova e destaca as ressalvas</option>
               <option value="wait"${a.onCaveats === 'wait' ? ' selected' : ''}>espera você aprovar</option>
             </select></div>
+          <div class="a-pol-item"><span class="a-fieldlabel">quando tem bloqueios</span>
+            <select class="acct-onreject" data-user="${esc(a.user)}" title="PR com bloqueios reais (a revisão pediu mudanças)">
+              <option value=""${!a.onReject || a.onReject === 'wait' ? ' selected' : ''}>espera você (padrão)</option>
+              <option value="request_changes"${a.onReject === 'request_changes' ? ' selected' : ''}>reprova sozinho (posta pedir mudanças)</option>
+            </select></div>
         </div>
       </div>
       ${multi ? `<div class="a-actions">
@@ -374,6 +380,7 @@ $('#accountsManager').addEventListener('change', (e) => {
   if (t.classList.contains('acct-autoreview')) return editAccount(user, { autoReview: t.value === '' ? undefined : t.value === 'on' });
   if (t.classList.contains('acct-onclean')) return editAccount(user, { onClean: t.value || undefined });
   if (t.classList.contains('acct-oncaveats')) return editAccount(user, { onCaveats: t.value || undefined });
+  if (t.classList.contains('acct-onreject')) return editAccount(user, { onReject: t.value === 'request_changes' ? 'request_changes' : undefined });
 });
 /* editor de contas: silenciar/reativar, remover, adicionar */
 $('#accountsManager').addEventListener('click', (e) => {
@@ -700,6 +707,7 @@ function renderResolved() {
   if (!resolved.length) { $('#resolved').innerHTML = ''; return; }
   const labels = {
     auto_approved: ['✅', 'aprovado sozinho'],
+    auto_rejected: ['🔴', 'mudanças pedidas sozinho'],
     posted: ['📬', 'postado por você'],
     already_reviewed: ['✔', 'já revisado por você (não repostei)'],
     skipped: ['⏭', 'pulado']
@@ -709,10 +717,11 @@ function renderResolved() {
     const [icon, label] = labels[r.status] || ['•', r.status];
     const act = (r.status === 'posted' || r.status === 'already_reviewed') ? ` (${actions[r.action] || r.action})` : '';
     // pontos de atenção de um PR aprovado sozinho: ficam claros aqui (expansível)
-    const attn = (r.attention && r.attention.length) ? r.attention : (r.status === 'auto_approved' ? (r.reasons || []) : []);
+    const attn = (r.attention && r.attention.length) ? r.attention : ((r.status === 'auto_approved' || r.status === 'auto_rejected') ? (r.reasons || []) : []);
     const hasAttn = attn.length > 0;
+    const attnLabel = r.status === 'auto_rejected' ? `motivo${attn.length > 1 ? 's' : ''} do pedido de mudanças` : `ponto${attn.length > 1 ? 's' : ''} de atenção`;
     const attnHtml = hasAttn
-      ? `<details class="resolved-attn"><summary>⚠ ${attn.length} ponto${attn.length > 1 ? 's' : ''} de atenção</summary><ul class="dec-reasons">${attn.map(p => `<li>${esc(p)}</li>`).join('')}</ul></details>`
+      ? `<details class="resolved-attn"><summary>⚠ ${attn.length} ${attnLabel}</summary><ul class="dec-reasons">${attn.map(p => `<li>${esc(p)}</li>`).join('')}</ul></details>`
       : '';
     return `<div class="row ${hasAttn ? 'has-attn' : ''}">
       <span>${icon}</span>
@@ -1245,6 +1254,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.11.0', ['A automação por conta ficou mais fiel ao que você pediu. (1) "Revisa na hora" agora vale pros PRs que JÁ estavam na fila da conta, não só os que acabaram de chegar (era o "configurei e não agiu"); PRs cancelados ou que falharam sem ser rede ficam de fora até você reabrir. (2) Quando um aprovável fica esperando por causa da sua política (ex.: aprovável com ressalvas e a conta manda aguardar), o motivo agora diz isso claramente, em vez de mostrar só os pontos técnicos. (3) Nova alavanca opt-in por conta "quando tem bloqueios": por padrão espera você, mas dá pra ligar "reprova sozinho", aí num review pedido a você e com bloqueios reais o Farol posta o "pedir mudanças" com os pontos anexados (marcado como automático). Desligada por padrão; clique no panorama nunca posta; não re-pede mudanças se você já pediu.']],
   ['2.10.0', ['Os Kudos compilados agora respeitam a conta selecionada: cada conta tem a sua compilação, gerada só com os destaques daquela conta, e o painel some quando a conta ainda não tem kudos (em "Todas" compila tudo). Antes o mesmo resumo aparecia em qualquer conta, misturando trabalho e pessoal. Junto, os rótulos da automação por conta foram reescritos pra ficarem óbvios ("quando chega um PR pra você", "quando fica aprovável sem/com ressalvas", "revisa na hora", "aprova e destaca as ressalvas", "espera você aprovar"), com uma linha lembrando que o que você não escolher segue o padrão geral.']],
   ['2.9.0', ['Política automática por conta, no painel Contas (aba Sistema): cada conta do GitHub decide sozinha como o Farol age. São três controles próprios por conta, quando chega revisão (revisa sozinho, só põe na fila ou herda o padrão global), PR aprovável sem ressalva (aprova sozinho ou aguarda você) e PR aprovável com ressalva (aprova ressaltando os pontos de atenção ou aguarda sua ação). A conta do trabalho pode revisar e aprovar sozinha o que é seguro, a pessoal só põe na fila e espera você, sem misturar as regras. O que você não configurar por conta herda o padrão global (os dois toggles gerais em Sistema).']],
   ['2.8.3', ['Confirmação com impacto nas ações que escrevem no GitHub: Merge, Merge como admin e Pedir mudanças agora abrem a caixa de confirmação (como o Remover conta), explicando o que a ação faz e o que ela mexe, no lugar do aviso genérico do navegador. O Merge admin, que fura o gate de review do time, ganha o aviso mais forte.']],
@@ -1864,6 +1874,7 @@ function connect() {
   });
   es.addEventListener('new-prs', (e) => notifyNewPRs(JSON.parse(e.data)));
   es.addEventListener('auto-approved', () => ping());
+  es.addEventListener('auto-rejected', () => ping());
   es.addEventListener('needs-decision', (e) => {
     ping();
     const { pr, item } = JSON.parse(e.data);
