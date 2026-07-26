@@ -984,20 +984,28 @@ $('#myPRs').addEventListener('click', (e) => {
   const mrg = e.target.closest('.act-self-merge');
   if (mrg) {
     const key = mrg.dataset.key;
-    const ok = confirm(`Mergear ${key}?\n\nO Farol vai:\n• te atribuir ao PR se você ainda não estiver\n• fazer o merge (merge commit) na branch de destino\n• deletar a branch de origem se for descartável (feature/fix/task...), preservando develop/release/main\n\nIsso escreve no GitHub e não dá pra desfazer com um clique.`);
-    if (!ok) return;
-    mrg.disabled = true; mrg.textContent = 'Mergeando…';
-    api('/api/self-review/merge', { url: mrg.dataset.url }).then(r => {
-      if (r?.ok) return; // sucesso: o state push atualiza a tela
-      if (r?.blocked === 'policy') {
-        // a branch tem proteção; oferece as duas saídas no próprio card
-        mergeBlockedByPolicy.add(key);
-        renderMyPRs();
-        toast('info', 'A branch de destino tem proteção. Escolha: Auto-merge (espera os requisitos) ou Merge (admin).', 6000);
-        return;
-      }
-      toast('error', esc(r?.error || 'não consegui mergear'));
-      mrg.disabled = false; mrg.textContent = 'Merge';
+    confirmModal({
+      title: `Mergear ${key}?`, danger: true, confirmLabel: 'Mergear', cancelLabel: 'Cancelar',
+      body: `<p>O Farol vai:</p>
+        <ul>
+          <li>te <b>atribuir ao PR</b> se você ainda não estiver;</li>
+          <li>fazer o <b>merge commit</b> na branch de destino;</li>
+          <li><b>deletar a branch de origem</b> se for descartável (feature/fix/task…), preservando develop/release/main.</li>
+        </ul>
+        <p>Isso <b>escreve no GitHub</b> e não dá pra desfazer com um clique.</p>`
+    }).then(ok => {
+      if (!ok) return;
+      mrg.disabled = true; mrg.textContent = 'Mergeando…';
+      api('/api/self-review/merge', { url: mrg.dataset.url }).then(r => {
+        if (r?.ok) return; // sucesso: o state push atualiza a tela
+        if (r?.blocked === 'policy') {
+          mergeBlockedByPolicy.add(key); renderMyPRs();
+          toast('info', 'A branch de destino tem proteção. Escolha: Auto-merge (espera os requisitos) ou Merge (admin).', 6000);
+          return;
+        }
+        toast('error', esc(r?.error || 'não consegui mergear'));
+        mrg.disabled = false; mrg.textContent = 'Merge';
+      });
     });
     return;
   }
@@ -1020,17 +1028,19 @@ $('#myPRs').addEventListener('click', (e) => {
   const mAdmin = e.target.closest('.act-merge-admin');
   if (mAdmin) {
     const key = mAdmin.dataset.key;
-    const ok = confirm(`MERGE COMO ADMIN de ${key}\n\nIsso BYPASSA a proteção da branch e mergeia AGORA, ignorando revisões e checks obrigatórios. Só funciona se você for admin do repo.\n\nUse com consciência: você está passando por cima do gate de review do time.\n\nConfirmar merge como admin?`);
-    if (!ok) return;
-    mAdmin.disabled = true; mAdmin.textContent = 'Mergeando…';
-    api('/api/self-review/merge', { url: mAdmin.dataset.url, mode: 'admin' }).then(r => {
-      if (r?.ok) { mergeBlockedByPolicy.delete(key); return; } // state push atualiza
-      if (r?.blocked === 'rule') {
-        // ruleset não é furado por admin: esconde o botão (o servidor já avisou)
-        adminUnavailableKeys.add(key); renderMyPRs(); return;
-      }
-      toast('error', esc(r?.error || 'não consegui mergear como admin'));
-      mAdmin.disabled = false; mAdmin.textContent = 'Merge (admin)';
+    confirmModal({
+      title: `Merge como ADMIN de ${key}`, danger: true, confirmLabel: 'Merge como admin', cancelLabel: 'Cancelar',
+      body: `<p>Isso <b>bypassa a proteção da branch</b> e mergeia <b>agora</b>, ignorando revisões e checks obrigatórios. Só funciona se você for admin do repo.</p>
+        <p><b>Você está passando por cima do gate de review do time.</b> Use com consciência. Quando der, prefira o <b>Auto-merge</b>: ele espera os requisitos passarem, sem furar nada.</p>`
+    }).then(ok => {
+      if (!ok) return;
+      mAdmin.disabled = true; mAdmin.textContent = 'Mergeando…';
+      api('/api/self-review/merge', { url: mAdmin.dataset.url, mode: 'admin' }).then(r => {
+        if (r?.ok) { mergeBlockedByPolicy.delete(key); return; } // state push atualiza
+        if (r?.blocked === 'rule') { adminUnavailableKeys.add(key); renderMyPRs(); return; }
+        toast('error', esc(r?.error || 'não consegui mergear como admin'));
+        mAdmin.disabled = false; mAdmin.textContent = 'Merge (admin)';
+      });
     });
     return;
   }
@@ -1201,6 +1211,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.8.3', ['Confirmação com impacto nas ações que escrevem no GitHub: Merge, Merge como admin e Pedir mudanças agora abrem a caixa de confirmação (como o Remover conta), explicando o que a ação faz e o que ela mexe, no lugar do aviso genérico do navegador. O Merge admin, que fura o gate de review do time, ganha o aviso mais forte.']],
   ['2.8.2', ['Instalador BETA de macOS (Apple Silicon) anexado à release: o Farol-Instalar-mac.command foi montado aqui mesmo, sem um Mac, embutindo o Electron pra o próprio Mac descompactar (assim os symlinks do app ficam intactos). Como o suporte a macOS nunca rodou num Mac de verdade, é beta: instale (1ª vez: botão direito > Abrir), e se algo quebrar, use "Exportar diagnóstico" (Saúde) e mande. Com esse retorno a gente corrige e libera a versão final.']],
   ['2.8.1', ['Preparação do suporte a macOS: o install.sh passou a garantir o bit de execução do Electron na instalação (robustez pra instalador montado fora do Mac).']],
   ['2.8.0', ['Exportar diagnóstico (Sistema > Saúde): um clique gera um relatório sem segredos (ambiente, contas, config, estado e o log de falhas) pra você copiar e mandar pra quem mantém o Farol. É o jeito de coletar o que precisa pra corrigir um problema, especialmente útil pra destravar o suporte a macOS.', 'Remover conta agora abre uma caixa de confirmação que explica o impacto (o que para de ser monitorado, o que não é apagado, que dá pra readicionar), no lugar do aviso genérico do navegador.']],
@@ -1738,7 +1749,15 @@ $('#decisions').addEventListener('click', async (e) => {
   if (!btn) return;
   const id = btn.closest('.decision').dataset.id;
   const action = btn.dataset.action;
-  if (action === 'request_changes' && !confirm('Postar REQUEST CHANGES neste PR?')) return;
+  if (action === 'request_changes') {
+    const ref = (btn.closest('.decision').querySelector('.dec-ref')?.textContent || 'este PR').trim();
+    const ok = await confirmModal({
+      title: `Pedir mudanças em ${ref}?`, danger: true, confirmLabel: 'Pedir mudanças', cancelLabel: 'Cancelar',
+      body: `<p>Isso <b>posta um REQUEST CHANGES no GitHub</b>, visível pra todo mundo do PR, com os pontos que a revisão levantou.</p>
+        <p>O PR fica <b>bloqueado</b> até o autor tratar e você reavaliar. Pra reverter, é só dispensar o seu review depois.</p>`
+    });
+    if (!ok) return;
+  }
   btn.disabled = true;
   const r = await api('/api/decide', { id, action });
   if (!r?.ok) btn.disabled = false;

@@ -20,7 +20,7 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
 | `tools/make-package.ps1` | Gera o zip LEVE de distribuição (sem node_modules) com auditoria anti-vazamento |
 | `tools/make-installer.ps1` + `installer/farol.nsi` | Gera o INSTALADOR ÚNICO do Windows (`dist/Farol-Setup-vX.Y.Z.exe`, NSIS): um `.exe`, duplo clique instala e abre (roda o `install.ps1` por dentro). Requer `makensis` (vem com o Tauri em `AppData\Local\tauri\NSIS`). É o instalador de primeira instalação |
 | `tools/make-offline.ps1` | (legado) Gera o pacote OFFLINE do Windows em zip (`dist/Farol-Offline-Windows-vX.Y.Z.zip`); substituído pelo instalador único acima |
-| `tools/make-offline-mac.sh` | Gera o instalador OFFLINE do macOS (`dist/Farol-Instalar-mac.command`): autoextraível único, Electron embutido; RODAR NUM MAC (baixa o Electron darwin e monta o `.app` localmente) |
+| `tools/make-offline-mac.sh` | Gera o instalador OFFLINE do macOS (`dist/Farol-Instalar-mac.command`): autoextraível único, Electron embutido. RODA EM QUALQUER SO (baixa o zip darwin do GitHub e EMBUTE; o `.app` é montado no Mac na instalação, pois só o unzip do Mac preserva os symlinks do `.app`). Default Apple Silicon; `ARCH=x64` pra Intel. É BETA até validar num Mac real |
 | `tools/publish-release.ps1` | Publica a release no GitHub (`wandersonaadsantos/farol`): sobe o pacote leve (update) + o instalador único Windows. É como as cópias distribuídas recebem atualização |
 | `tools/make-icns.sh` | Gera `assets/farol.icns` (rodar num Mac) |
 
@@ -91,10 +91,10 @@ Quando validar (ou corrigir) qualquer item acima, **atualize esta seção**: ris
 **Publicar update pras cópias distribuídas (auto-update):**
 - `powershell -ExecutionPolicy Bypass -File tools\publish-release.ps1` builda o pacote leve + o instalador único Windows (`Farol-Setup-vX.Y.Z.exe`) e cria/atualiza a release `vX.Y.Z` em `wandersonaadsantos/farol`. As cópias instaladas (>= 1.15.0) leem a última release via `gh` (`updateRepo` no config, default `wandersonaadsantos/farol`) e se atualizam sozinhas no próximo ciclo, baixando só o pacote leve (o Electron já está instalado).
 - Fonte de verdade: a RELEASE do GitHub (git). Por padrão o app instalado atualiza só a partir das releases, nunca de código local não-mergeado (uma fonte só). A pasta-fonte local é opt-in: só vale se `config.updateSource` apontar um caminho explícito (teste de build local de dev).
-- macOS: gere o `.command` num Mac (`tools/make-offline-mac.sh`) e anexe com `gh release upload vX.Y.Z dist/Farol-Instalar-mac.command --repo wandersonaadsantos/farol`.
+- macOS: `bash tools/make-offline-mac.sh` (roda em qualquer SO, Apple Silicon; `ARCH=x64` pra Intel) e anexe com `gh release upload vX.Y.Z dist/Farol-Instalar-mac.command --repo wandersonaadsantos/farol`. BETA: o runtime no macOS nunca foi validado num Mac real; valide via "Exportar diagnóstico".
 - Bootstrap: cópias antigas (< 1.15.0) não têm o auto-update; instale a 1.15.0 uma vez (offline). Daí pra frente, automático.
 
 **Distribuição offline (sem pré-requisitos):**
 - Windows: `powershell -ExecutionPolicy Bypass -File tools\make-installer.ps1` gera `dist/Farol-Setup-vX.Y.Z.exe` (NSIS, Electron embutido). A pessoa dá **um** duplo clique: instala e abre, sem extrair zip nem escolher arquivo. Sem Node/npm/download/terminal.
-- macOS: **num Mac**, `bash tools/make-offline-mac.sh` gera `dist/Farol-Instalar-mac.command` (autoextraível único, Electron embutido). Duplo clique instala; na 1ª vez, botão direito > Abrir (quarentena, sem assinatura). O `.app` é montado localmente, então o Gatekeeper não bloqueia por assinatura.
+- macOS: `bash tools/make-offline-mac.sh` (em QUALQUER SO) gera `dist/Farol-Instalar-mac.command` (autoextraível único, Electron darwin embutido como zip). Duplo clique instala; na 1ª vez, botão direito > Abrir (quarentena, sem assinatura). O `.app` é montado no Mac na instalação (o unzip do Mac preserva os symlinks), então o Gatekeeper não bloqueia por assinatura. Default arm64; `ARCH=x64` pra Intel.
 - Nenhum dos dois é assinado/notarizado (exige conta paga): SmartScreen/Gatekeeper ainda avisam uma vez.
