@@ -393,6 +393,10 @@ document.addEventListener('change', (e) => {
   if (STATE.config) STATE.config.people = people;   // otimista, pra o select não piscar
   api('/api/settings', { people });
 });
+/* registrar pushback nas linhas de Revisões recentes (desfecho + nota) */
+$('#resolved').addEventListener('change', (e) => {
+  if (e.target.classList && (e.target.classList.contains('pb-outcome') || e.target.classList.contains('pb-note'))) submitPushback(e.target);
+});
 /* editor de contas: mudar cor / rótulo / tipo / orgs */
 $('#accountsManager').addEventListener('change', (e) => {
   const t = e.target, user = t.dataset && t.dataset.user;
@@ -731,7 +735,41 @@ function renderDecisions() {
   renderResolved();
 }
 
+/* ---------- pushback: registrar quando o autor contesta um review ---------- */
+const PB_OPTS = [['', 'sem pushback'], ['author_right', 'o autor tinha razão'], ['we_right', 'nós tínhamos razão'], ['mixed', 'meio-termo']];
+const PB_SHORT = { author_right: 'autor tinha razão', we_right: 'nós tínhamos razão', mixed: 'meio-termo' };
+function pushbackOf(key) { return (STATE.pushbacks || {})[key] || null; }
+function pushbackControl(r) {
+  const author = (r.pr && r.pr.author) || r.author || '';
+  if (!author) return '';
+  const pb = pushbackOf(r.key);
+  const sum = pb ? `↩ ${esc(PB_SHORT[pb.outcome] || 'pushback')}` : '↩ pushback?';
+  return `<details class="pushback"${pb ? ' data-set="1"' : ''}>
+    <summary title="Registrar que o autor contestou este review, pra calibrar reviews futuros dele">${sum}</summary>
+    <div class="pb-body">
+      <select class="pb-outcome" data-key="${esc(r.key)}" data-author="${esc(author)}">
+        ${PB_OPTS.map(([v, t]) => `<option value="${v}"${pb && pb.outcome === v ? ' selected' : ''}>${t}</option>`).join('')}
+      </select>
+      <input class="pb-note" data-key="${esc(r.key)}" data-author="${esc(author)}" value="${esc(pb && pb.note || '')}" placeholder="nota curta (opcional)" spellcheck="false" maxlength="300">
+    </div>
+  </details>`;
+}
+function submitPushback(el) {
+  const box = el.closest('.pushback'); if (!box) return;
+  const sel = box.querySelector('.pb-outcome'), note = box.querySelector('.pb-note');
+  const key = sel.dataset.key, author = sel.dataset.author, outcome = sel.value;
+  const noteVal = outcome ? (note.value || '').trim() : '';
+  const map = { ...(STATE.pushbacks || {}) };   // otimista, pra o controle não piscar
+  if (outcome) map[key] = { author: String(author).toLowerCase(), outcome, note: noteVal, at: Date.now() };
+  else delete map[key];
+  STATE.pushbacks = map;
+  api('/api/pushback', { key, author, outcome, note: noteVal });
+}
+
 function renderResolved() {
+  const box0 = $('#resolved');
+  // guarda de foco: não re-renderiza enquanto você digita a nota / escolhe o desfecho
+  if (document.activeElement && box0.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
   const resolved = (STATE.decisions?.resolved || []).filter(scopeVisible);
   const wrap = $('#resolvedWrap');
   wrap.hidden = resolved.length === 0;
@@ -758,6 +796,7 @@ function renderResolved() {
       <span>${icon}</span>
       <span class="ref"><a href="${esc(r.pr?.url || '#')}" target="_blank" rel="noreferrer">${esc(r.key)}</a></span>
       <span class="title">${label}${act}${r.card ? ` · ${esc(r.card)}` : ''}${attnHtml}</span>
+      ${pushbackControl(r)}
       <button class="btn sm ghost act-chat" data-key="${esc(r.key)}" data-url="${esc(r.pr?.url || '')}">💬${chatBadge(r.key)}</button>
       <span class="when">${fmtClock(r.resolvedAt)}</span>
     </div>`;
@@ -1313,6 +1352,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.16.0', ['O Farol passa a lembrar dos pushbacks. Quando um review seu é contestado, você registra na linha de "Revisões recentes" o desfecho (o autor tinha razão, nós tínhamos razão, ou meio-termo) e uma nota curta opcional. Nas próximas revisões automáticas daquela pessoa, o Farol leva esse histórico em conta pra calibrar a postura: onde ela já mostrou que estava certa, afirma com mais humildade antes de apontar algo parecido; onde você estava certo, mantém a posição. Mexe só no tom e na postura, nunca na decisão técnica.']],
   ['2.15.0', ['A senioridade virou um perfil de verdade, com dois eixos. O papel cobre carreira e posição (Estágio, Júnior, Pleno, Sênior, mais Tech Lead, Arquiteto e Especialista) e dá o tom-base. A matriz por domínio (Backend, Frontend, Dados, Infra, de Básico a Autoridade) reconhece que a pessoa pode ser autoridade numa área e estar começando em outra: onde é autoridade o review defere e foca no alto nível; onde está começando, explica mais e cuida dos fundamentos. Segue mexendo só no tom e na postura, nunca na decisão técnica. O papel se marca no card do PR e na aba Time; a matriz fica na aba Time. Quem já estava marcado como Estágio/Júnior/Pleno/Sênior migra sozinho pro papel.']],
   ['2.14.0', ['Agora dá pra marcar a senioridade de alguém direto do card do PR (na fila e em "Precisa de você"), não só na aba Time. Antes, como a aba Time só lista quem já foi revisado ao menos uma vez, o primeiro PR de alguém novo saía sempre no tom neutro; agora você marca no momento em que vê o PR e a revisão já sai no tom certo. É a mesma marcação por pessoa, só com mais um lugar pra fazer.']],
   ['2.13.0', ['Contas diferentes agora são revisadas em paralelo: cada conta roda a sua revisão ao mesmo tempo (a BIUD e a pessoal juntas, por exemplo), em vez de uma por vez no total. Dentro da mesma conta segue uma de cada vez, pra não sobrecarregar a máquina. Assim, uma análise demorada de uma conta não segura mais a fila das outras.']],

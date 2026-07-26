@@ -259,6 +259,10 @@ const DOMAIN_POSTURE = {
   intermediario: 'está em evolução aqui: explique o porquê dos ajustes com contexto.',
   basico: 'está começando aqui: explique com cuidado, pegue fundamentos gentilmente e enquadre como aprendizado.'
 };
+// pushback: quando o autor contesta um review meu. Marcado à mão em Revisões
+// recentes, com o desfecho; alimenta o tom/postura das revisões futuras da pessoa.
+const PUSHBACK_OUTCOMES = ['author_right', 'we_right', 'mixed'];
+const PUSHBACK_LABEL = { author_right: 'o autor tinha razão (você errou)', we_right: 'você tinha razão', mixed: 'meio-termo' };
 
 // --- Utilitarios ------------------------------------------------------------
 function ensureDir(p) { fs.mkdirSync(p, { recursive: true }); }
@@ -339,6 +343,7 @@ class Engine extends EventEmitter {
     this.headlessQueue = [];
     this.headlessBusyAccounts = new Set(); // contas com revisão headless em andamento (1 por conta em paralelo)
     this.decisions = readJson(path.join(STATE_DIR, 'decisions.json'), { pending: [], resolved: [] });
+    this.pushbacks = readJson(path.join(STATE_DIR, 'pushbacks.json'), {}); // { key do PR: { author, outcome, note, at } }
     this.toolRuns = readJson(path.join(STATE_DIR, 'tool-results.json'), {});
     // kudos passou a ser POR CONTA (mapa escopo->execução); migra o formato antigo
     // (execução única, global) pro escopo "todas" ('*') pra não perder o que já existia
@@ -1106,19 +1111,56 @@ class Engine extends EventEmitter {
     const map = (this.config && this.config.people) || {};
     return map[String(login || '').toLowerCase()] || {};
   }
+  // pushbacks registrados pra uma pessoa (mais recentes primeiro)
+  pushbacksFor(login) {
+    const u = String(login || '').toLowerCase();
+    return Object.entries(this.pushbacks || {})
+      .filter(([, v]) => v && String(v.author || '').toLowerCase() === u)
+      .map(([key, v]) => ({ ...v, key }))
+      .sort((a, b) => (b.at || 0) - (a.at || 0));
+  }
+  // registra/edita/limpa o pushback de um review (por PR). outcome vazio = limpar.
+  recordPushback(body) {
+    const key = String((body && body.key) || '').trim();
+    if (!key) return { ok: false, error: 'sem PR' };
+    const outcome = (body && body.outcome) || '';
+    if (!outcome) { delete this.pushbacks[key]; this.savePushbacks(); return { ok: true }; }
+    if (!PUSHBACK_OUTCOMES.includes(outcome)) return { ok: false, error: 'desfecho inválido' };
+    this.pushbacks[key] = {
+      author: String((body && body.author) || '').trim().toLowerCase(),
+      outcome,
+      note: String((body && body.note) || '').trim().slice(0, 300),
+      at: Date.now()
+    };
+    this.savePushbacks();
+    return { ok: true };
+  }
+  savePushbacks() {
+    try { fs.writeFileSync(path.join(STATE_DIR, 'pushbacks.json'), JSON.stringify(this.pushbacks, null, 2)); }
+    catch (err) { this.log('ERROR', `salvar pushbacks.json: ${err.message}`); }
+    this.pushState();
+  }
+
   // bloco injetado no prompt de revisão: ajusta TOM + POSTURA, nunca a decisão.
-  // Papel dá o tom-base; a matriz por domínio calibra a postura por área do PR.
+  // Papel dá o tom-base; a matriz por domínio calibra a postura por área do PR;
+  // o histórico de pushback calibra humildade/assertividade com aquela pessoa.
   personProfileBlock(login) {
     const p = this.personProfile(login);
     const papel = PAPEL_LEVELS.includes(p.papel) ? p.papel : '';
     const doms = (p.dominios && typeof p.dominios === 'object') ? p.dominios : {};
     const domEntries = DOMAINS.filter(d => DOMAIN_LEVELS.includes(doms[d]));
-    if (!papel && !domEntries.length) return ''; // sem perfil = tom neutro
+    const pushbacks = this.pushbacksFor(login).slice(0, 5);
+    if (!papel && !domEntries.length && !pushbacks.length) return ''; // sem perfil nem histórico = tom neutro
     let block = `\n\n## Perfil do autor\n`;
     if (papel) block += `@${login} — Papel: **${PAPEL_LABEL[papel]}** (${PAPEL_TONE[papel]})\n`;
     if (domEntries.length) {
       block += `Competência por domínio (cruze com a área que o PR mexe):\n`;
       for (const d of domEntries) block += `- ${DOMAIN_LABEL[d]}: **${DOMAIN_LEVEL_LABEL[doms[d]]}** — ${DOMAIN_POSTURE[doms[d]]}\n`;
+    }
+    if (pushbacks.length) {
+      block += `\nHistórico de pushback com @${login} (revisões suas que ele contestou):\n`;
+      for (const pb of pushbacks) block += `- ${pb.key}: ${PUSHBACK_LABEL[pb.outcome] || pb.outcome}${pb.note ? ` — ${pb.note}` : ''}\n`;
+      block += `Calibre a humildade e a assertividade por isso: onde ele já mostrou que estava certo, seja mais cuidadoso antes de afirmar algo parecido; onde você estava certo, mantenha a posição com clareza.\n`;
     }
     block += `\nAjuste APENAS o TOM e a POSTURA (o quanto explica, o quanto defere, como levanta os pontos) nos corpos dos payloads e nos comentários inline. ` +
       `NÃO mude a decisão técnica: verdict, decision, cardMet, findings e o gate seguem valendo só pelos fatos do código. O perfil muda COMO você escreve, nunca SE aprova ou reprova.\n`;
@@ -2588,6 +2630,7 @@ class Engine extends EventEmitter {
         label: a.label, color: a.color, kind: a.kind, muted: !!a.muted, primary: i === 0,
         autoReview: a.autoReview, onClean: a.onClean, onCaveats: a.onCaveats, onReject: a.onReject
       })),
+      pushbacks: this.pushbacks,
       config: { ...this.config },
       lastCheckAt: this.lastCheckAt,
       nextCheckAt: this.nextCheckAt,
@@ -2763,6 +2806,7 @@ function startServer(engine, onReady) {
         if (p === '/api/ignore') { engine.ignore(String(body.key || '')); return send(200, { ok: true }); }
         if (p === '/api/restore') { engine.restore(String(body.key || '')); return send(200, { ok: true }); }
         if (p === '/api/settings') { engine.updateSettings(body || {}); return send(200, { ok: true, config: engine.config }); }
+        if (p === '/api/pushback') return send(200, engine.recordPushback(body || {}));
         if (p === '/api/tool') return send(200, await engine.launchTool(String(body.name || ''), body.scope));
         if (p === '/api/tool/clear') return send(200, engine.clearTool(String(body.name || ''), body.scope));
         if (p === '/api/log/clear') return send(200, engine.clearLog());

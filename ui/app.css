@@ -277,6 +277,16 @@ main { max-width: 1000px; margin: 0 auto; padding: 16px 24px 60px; }
 .resolved-attn ul { margin: 6px 0 2px; padding-left: 18px; font-size: 12.5px; color: var(--text); }
 .resolved-attn li { margin: 2px 0; }
 .resolved-attn li::marker { color: var(--accent); }
+/* pushback: contestação do autor a um review meu, registrada na linha */
+.pushback { font-size: 11.5px; }
+.pushback > summary { cursor: pointer; color: var(--muted); user-select: none; white-space: nowrap; list-style: none; }
+.pushback > summary::-webkit-details-marker { display: none; }
+.pushback > summary:hover { color: var(--accent); }
+.pushback[data-set] > summary { color: var(--accent); font-weight: 600; }
+.pushback .pb-body { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
+.pushback .pb-outcome, .pushback .pb-note { font-size: 11.5px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 3px 7px; }
+.pushback .pb-outcome:focus, .pushback .pb-note:focus { outline: none; border-color: var(--ac, var(--accent)); }
+.pushback .pb-note { min-width: 160px; flex: 1; }
 
 /* ---------- vazio ---------- */
 .empty {
