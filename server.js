@@ -543,8 +543,13 @@ class Engine extends EventEmitter {
   // clean = sem ressalvas; senão usa a política de "com ressalvas".
   approvePolicyFor(user, clean) {
     const a = this.acctPolicy(user);
-    if (clean) return a.onClean || 'approve';
-    return a.onCaveats || (this.config.autoApproveAll !== false ? 'approve' : 'wait');
+    const cleanPolicy = a.onClean || 'approve';
+    if (clean) return cleanPolicy;
+    if (a.onCaveats) return a.onCaveats; // valor explícito da conta vale
+    // com ressalvas, sem valor próprio: herda o global, MAS nunca mais permissivo que o
+    // limpo (um PR com ressalva não pode auto-aprovar se o impecável foi posto pra aguardar)
+    const globalCaveats = this.config.autoApproveAll !== false ? 'approve' : 'wait';
+    return cleanPolicy === 'wait' ? 'wait' : globalCaveats;
   }
   // quando a revisão pede mudanças (tem bloqueios), a ação da conta:
   // 'request_changes' (reprovar sozinho) ou 'wait' (aguardar você). DEFAULT wait
@@ -1016,7 +1021,7 @@ class Engine extends EventEmitter {
       kind: 'info',
       text: items.length === 1
         ? `Revisando ${items[0].key} internamente. Te aviso do resultado.`
-        : `Revisando ${items.length} PRs internamente, um por vez.`
+        : `Revisando ${items.length} PRs internamente (em paralelo por conta, serial dentro da conta).`
     });
     return { ok: true, mode };
   }
@@ -1024,6 +1029,12 @@ class Engine extends EventEmitter {
   // --- revisao autonoma (headless): 1 revisão por conta em paralelo ----------
   // (contas diferentes rodam juntas; dentro da mesma conta segue serial)
   enqueueHeadless(pr) {
+    // não duplica: se já há uma revisão headless deste PR na fila ou rodando, ignora
+    // (ex.: clicar Revisar no panorama num PR que o check() já pôs em auto-revisão,
+    // ou dois cliques rápidos). O caminho de autoanálise tem o seu próprio dedup.
+    const busy = this.headlessQueue.some(p => p.kind !== 'self' && p.key === pr.key) ||
+      [...this.activeReviews.values()].some(s => s.mode === 'auto' && (s.keys || []).includes(pr.key));
+    if (busy) return;
     this.headlessQueue.push(pr);
     this.writeInflight();
     this.processHeadless();
@@ -1152,14 +1163,14 @@ class Engine extends EventEmitter {
     const pushbacks = this.pushbacksFor(login).slice(0, 5);
     if (!papel && !domEntries.length && !pushbacks.length) return ''; // sem perfil nem histórico = tom neutro
     let block = `\n\n## Perfil do autor\n`;
-    if (papel) block += `@${login} — Papel: **${PAPEL_LABEL[papel]}** (${PAPEL_TONE[papel]})\n`;
+    if (papel) block += `Papel de @${login}: **${PAPEL_LABEL[papel]}** (${PAPEL_TONE[papel]})\n`;
     if (domEntries.length) {
       block += `Competência por domínio (cruze com a área que o PR mexe):\n`;
-      for (const d of domEntries) block += `- ${DOMAIN_LABEL[d]}: **${DOMAIN_LEVEL_LABEL[doms[d]]}** — ${DOMAIN_POSTURE[doms[d]]}\n`;
+      for (const d of domEntries) block += `- ${DOMAIN_LABEL[d]} (nível **${DOMAIN_LEVEL_LABEL[doms[d]]}**): ${DOMAIN_POSTURE[doms[d]]}\n`;
     }
     if (pushbacks.length) {
       block += `\nHistórico de pushback com @${login} (revisões suas que ele contestou):\n`;
-      for (const pb of pushbacks) block += `- ${pb.key}: ${PUSHBACK_LABEL[pb.outcome] || pb.outcome}${pb.note ? ` — ${pb.note}` : ''}\n`;
+      for (const pb of pushbacks) block += `- ${pb.key}: ${PUSHBACK_LABEL[pb.outcome] || pb.outcome}${pb.note ? ` (${pb.note})` : ''}\n`;
       block += `Calibre a humildade e a assertividade por isso: onde ele já mostrou que estava certo, seja mais cuidadoso antes de afirmar algo parecido; onde você estava certo, mantenha a posição com clareza.\n`;
     }
     block += `\nAjuste APENAS o TOM e a POSTURA (o quanto explica, o quanto defere, como levanta os pontos) nos corpos dos payloads e nos comentários inline. ` +
