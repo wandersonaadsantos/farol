@@ -368,6 +368,16 @@ $('#accountBar').addEventListener('click', (e) => {
 $('#silenced').addEventListener('click', (e) => {
   if (e.target.closest('.sil-toggle')) { silencedOpen = !silencedOpen; renderSilenced(); }
 });
+/* marcar senioridade de uma pessoa (aba Time): molda o tom da revisão automática */
+$('#team').addEventListener('change', (e) => {
+  const t = e.target;
+  if (!t.classList.contains('sr-level')) return;
+  const login = String(t.dataset.login || '').toLowerCase();
+  const map = { ...((STATE.config && STATE.config.seniority) || {}) };
+  if (t.value) map[login] = t.value; else delete map[login];
+  if (STATE.config) STATE.config.seniority = map;   // otimista, pra o select não piscar
+  api('/api/settings', { seniority: map });
+});
 /* editor de contas: mudar cor / rótulo / tipo / orgs */
 $('#accountsManager').addEventListener('change', (e) => {
   const t = e.target, user = t.dataset && t.dataset.user;
@@ -1169,6 +1179,15 @@ async function loadHighlights() {
   }
 }
 
+/* ---------- senioridade por pessoa (molda o tom da revisão, não a decisão) ---------- */
+const SENIORITY_OPTS = [['', 'senioridade'], ['estagio', 'Estágio'], ['junior', 'Júnior'], ['pleno', 'Pleno'], ['senior', 'Sênior']];
+function seniorityOf(login) { return ((STATE.config && STATE.config.seniority) || {})[String(login || '').toLowerCase()] || ''; }
+function seniorityPicker(login) {
+  return `<select class="sr-level" data-login="${esc(login)}" title="Senioridade de @${esc(login)}: molda o TOM da revisão automática, nunca a decisão">
+    ${SENIORITY_OPTS.map(([v, t]) => `<option value="${v}"${seniorityOf(login) === v ? ' selected' : ''}>${t}</option>`).join('')}
+  </select>`;
+}
+
 /* ---------- render: time (separado por conta) ---------- */
 async function loadTeam() {
   const team = (await get('/api/team')) || [];
@@ -1194,6 +1213,7 @@ async function loadTeam() {
           <div class="login">@${esc(m.login)} · ${entries.length} review(s) registrados</div>
         </div>
         ${verdictChip}
+        ${seniorityPicker(m.login)}
       </div>
       <div class="member-entries">${es}</div>
     </div>`;
@@ -1254,6 +1274,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.12.0', ['Senioridade por pessoa, na aba Time: marque cada pessoa como Estágio, Júnior, Pleno ou Sênior, e a revisão automática ajusta o TOM e a forma de comunicar o veredito de acordo. Com um estágio, reconhece a iniciativa e enquadra os ajustes como aprendizado (sem desanimar, mesmo pedindo mudança); com uma pessoa sênior, vai direto ao ponto. Muda só a linguagem: a decisão técnica (aprovar, pedir mudanças, o card, o gate) continua igual pra todo mundo, pelos fatos do código. Quem você não marcar recebe o tom neutro de antes. Vale na revisão que o Farol posta sozinho; a sessão de terminal segue como está.']],
   ['2.11.0', ['A automação por conta ficou mais fiel ao que você pediu. (1) "Revisa na hora" agora vale pros PRs que JÁ estavam na fila da conta, não só os que acabaram de chegar (era o "configurei e não agiu"); PRs cancelados ou que falharam sem ser rede ficam de fora até você reabrir. (2) Quando um aprovável fica esperando por causa da sua política (ex.: aprovável com ressalvas e a conta manda aguardar), o motivo agora diz isso claramente, em vez de mostrar só os pontos técnicos. (3) Nova alavanca opt-in por conta "quando tem bloqueios": por padrão espera você, mas dá pra ligar "reprova sozinho", aí num review pedido a você e com bloqueios reais o Farol posta o "pedir mudanças" com os pontos anexados (marcado como automático). Desligada por padrão; clique no panorama nunca posta; não re-pede mudanças se você já pediu.']],
   ['2.10.0', ['Os Kudos compilados agora respeitam a conta selecionada: cada conta tem a sua compilação, gerada só com os destaques daquela conta, e o painel some quando a conta ainda não tem kudos (em "Todas" compila tudo). Antes o mesmo resumo aparecia em qualquer conta, misturando trabalho e pessoal. Junto, os rótulos da automação por conta foram reescritos pra ficarem óbvios ("quando chega um PR pra você", "quando fica aprovável sem/com ressalvas", "revisa na hora", "aprova e destaca as ressalvas", "espera você aprovar"), com uma linha lembrando que o que você não escolher segue o padrão geral.']],
   ['2.9.0', ['Política automática por conta, no painel Contas (aba Sistema): cada conta do GitHub decide sozinha como o Farol age. São três controles próprios por conta, quando chega revisão (revisa sozinho, só põe na fila ou herda o padrão global), PR aprovável sem ressalva (aprova sozinho ou aguarda você) e PR aprovável com ressalva (aprova ressaltando os pontos de atenção ou aguarda sua ação). A conta do trabalho pode revisar e aprovar sozinha o que é seguro, a pessoal só põe na fila e espera você, sem misturar as regras. O que você não configurar por conta herda o padrão global (os dois toggles gerais em Sistema).']],

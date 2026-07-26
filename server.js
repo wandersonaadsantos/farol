@@ -194,10 +194,34 @@ function parseAccounts(val) {
   return out;
 }
 
+// mapa de senioridade { login(minúsculo): nível }, validado (só os 4 níveis).
+// A UI manda o mapa inteiro; entradas inválidas ou vazias são descartadas.
+function parseSeniority(val) {
+  const out = {};
+  if (val && typeof val === 'object' && !Array.isArray(val)) {
+    for (const [login, lvl] of Object.entries(val)) {
+      const k = String(login || '').trim().toLowerCase();
+      if (k && SENIORITY_LEVELS.includes(lvl)) out[k] = lvl;
+    }
+  }
+  return out;
+}
+
 // Paleta default de cores por conta (âmbar do Farol primeiro), atribuída por
 // índice quando a conta não define uma cor própria. Dá a cada identidade uma cor
 // estável pro painel separar visualmente trabalho, pessoal, etc.
 const ACCOUNT_PALETTE = ['#ffb454', '#a78bfa', '#34d399', '#f2707a', '#6ca8f2', '#f59e0b', '#22d3ee', '#64748b'];
+
+// senioridade por pessoa: molda o TOM e a forma de comunicar o veredito na revisão
+// automática (NUNCA a decisão técnica). Marcada à mão por login na aba Time.
+const SENIORITY_LEVELS = ['estagio', 'junior', 'pleno', 'senior'];
+const SENIORITY_LABEL = { estagio: 'Estágio', junior: 'Júnior', pleno: 'Pleno', senior: 'Sênior' };
+const SENIORITY_GUIDANCE = {
+  estagio: 'Pessoa em estágio (início de carreira). Tom acolhedor e didático: comece reconhecendo a iniciativa e o que ficou bom, explique o PORQUÊ de cada ajuste, enquadre correções como aprendizado e nunca desanime. Mesmo pedindo mudanças, deixe claro o valor da contribuição.',
+  junior: 'Pessoa júnior. Tom encorajador e explicativo: reforce os acertos, detalhe os ajustes com o contexto e o motivo, sem assumir muito conhecimento prévio.',
+  pleno: 'Pessoa plena. Tom direto e colaborativo: vá aos pontos com objetividade, sem muito preâmbulo, assumindo autonomia técnica.',
+  senior: 'Pessoa sênior. Tom direto e objetivo, de par pra par: assuma contexto compartilhado e vá aos pontos técnicos sem suavizar nem alongar.'
+};
 
 // --- Utilitarios ------------------------------------------------------------
 function ensureDir(p) { fs.mkdirSync(p, { recursive: true }); }
@@ -256,6 +280,7 @@ class Engine extends EventEmitter {
     this.config = { ...DEFAULTS, ...readJson(CONFIG_FILE, {}) };
     delete this.config.autoOpenReview; // chave antiga (terminal); o modo autonomo tem semantica nova
     this.config.accounts = parseAccounts(this.config.accounts); // normaliza (array de {user,owners})
+    this.config.seniority = parseSeniority(this.config.seniority); // normaliza (login minúsculo -> nível válido)
     this.tokens = {};                // token por conta (login -> token), preenchido no refreshTokens
     this.status = 'starting';        // starting | checking | idle | error
     this.lastError = null;
@@ -1025,13 +1050,28 @@ class Engine extends EventEmitter {
     }
   }
 
-  headlessPromptFor(url) {
+  // nível marcado pra uma pessoa (por login); '' quando não marcada
+  seniorityFor(login) {
+    const map = (this.config && this.config.seniority) || {};
+    const lvl = map[String(login || '').toLowerCase()];
+    return SENIORITY_LEVELS.includes(lvl) ? lvl : '';
+  }
+  // bloco injetado no prompt de revisão: ajusta só o TOM, nunca a decisão
+  seniorityBlockFor(login) {
+    const lvl = this.seniorityFor(login);
+    if (!lvl) return '';
+    return `\n\n## Perfil do autor (senioridade)\n@${login} está marcado como **${SENIORITY_LABEL[lvl]}**. ${SENIORITY_GUIDANCE[lvl]}\n\n` +
+      `Ajuste APENAS o TOM e a forma de comunicar o veredito nos corpos dos payloads (approve/request_changes/comment) e nos comentários inline. ` +
+      `NÃO mude a decisão técnica: verdict, decision, cardMet, findings e o gate seguem valendo só pelos fatos do código. Senioridade muda COMO você escreve, nunca SE aprova ou reprova.\n`;
+  }
+
+  headlessPromptFor(url, author) {
     const candidates = [
       path.join(WORKSPACE, 'prompts', 'pr-review-auto.md'),
       path.join(TEMPLATE_DIR, 'prompts', 'pr-review-auto.md')
     ];
     for (const f of candidates) {
-      try { return fs.readFileSync(f, 'utf8').replaceAll('{{URL}}', url); } catch { }
+      try { return fs.readFileSync(f, 'utf8').replaceAll('{{URL}}', url) + this.seniorityBlockFor(author); } catch { }
     }
     throw new Error('template prompts/pr-review-auto.md não encontrado');
   }
@@ -1227,7 +1267,7 @@ class Engine extends EventEmitter {
     this.writeInflight();
     this.pushState();
     try {
-      const res = await this.runClaudeStream(this.headlessPromptFor(pr.url), {
+      const res = await this.runClaudeStream(this.headlessPromptFor(pr.url, pr.author), {
         id,
         account: this.accountForPr(pr),
         onModel: (m) => this.setSessionModel(id, m),
@@ -2449,7 +2489,7 @@ class Engine extends EventEmitter {
   updateSettings(patch) {
     const allowed = ['ghUser', 'owners', 'accounts', 'intervalSeconds', 'autoReview', 'autoApproveAll', 'skipPermissions',
       'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos',
-      'projectReviewers', 'defaultReviewers'];
+      'projectReviewers', 'defaultReviewers', 'seniority'];
     let intervalChanged = false, userChanged = false;
     for (const k of allowed) {
       if (!(k in patch)) continue;
@@ -2459,6 +2499,7 @@ class Engine extends EventEmitter {
       if (k === 'mergeBlockedRepos') v = Array.isArray(v) ? v.map(s => String(s).trim()).filter(Boolean) : String(v).split(/[,;\s]+/).filter(Boolean);
       if (k === 'projectReviewers') v = parseProjectReviewers(v);
       if (k === 'defaultReviewers') v = parseDefaultReviewers(v);
+      if (k === 'seniority') v = parseSeniority(v);
       if (k === 'accounts') {
         v = parseAccounts(v);
         // só re-autentica se as CONTAS (user/owners) mudaram; editar rótulo, cor,

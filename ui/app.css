@@ -343,6 +343,9 @@ main { max-width: 1000px; margin: 0 auto; padding: 16px 24px 60px; }
 .member-head .names { flex: 1; }
 .member-head .name { font-weight: 650; }
 .member-head .login { color: var(--muted); font-size: 12px; }
+.member-head .sr-level { font-size: 12px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 7px; padding: 4px 8px; cursor: pointer; }
+.member-head .sr-level:hover { border-color: var(--ac); }
+.member-head .sr-level:focus { outline: none; border-color: var(--ac); }
 .member-entries { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .entry { border-left: 2px solid var(--border); padding: 2px 0 2px 12px; }
 .entry .entry-head { font-size: 12px; color: var(--muted); font-weight: 600; }
