@@ -14,6 +14,10 @@ const { EventEmitter } = require('events');
 
 const APP_VERSION = require('./package.json').version;
 const APP_NAME = 'Farol';
+// teto de PRs mergeados lidos por org na aba Entregas: 1000 e o maximo que o
+// gh search devolve. Alem disso nao ha como paginar por essa API, entao a UI
+// avisa (flag capped) e mostra os 1000 mais recentes.
+const DELIVERIES_LIMIT = 1000;
 
 // --- Plataforma ---------------------------------------------------------------
 // O Farol nasceu no Windows; o suporte a macOS vive nestes branches. Toda
@@ -338,6 +342,7 @@ class Engine extends EventEmitter {
     this.adminBlockedRepos = {};      // repo -> true quando admin nao fura o ruleset (o UI esconde "Merge admin")
     this.ruleBlockCache = {};         // "repo@base" -> { blocked, at } cache do ruleset bloqueante
     this.reviewerCands = null;        // { at, data:{members,teams} } candidatos p/ o seletor de reviewers
+    this.deliveriesCache = {};        // janela (dias) -> { at, data } cache das entregas (PRs mergeados); TTL curto
     this.activeReviews = new Map();  // id -> { keys, label, mode, startedAt }
     this.sessionSeq = 0;
     this.headlessQueue = [];
@@ -693,6 +698,67 @@ class Engine extends EventEmitter {
       isDraft: !!p.isDraft,
       account: acc
     }));
+  }
+
+  // --- entregas: PRs MERGEADOS por repo e por autor (visao read-only) ----------
+  // Data de corte (YYYY-MM-DD) da janela: dias=0 = hoje (00:00), senao hoje - dias.
+  deliveriesSince(days) {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - Math.max(0, parseInt(days, 10) || 0));
+    return d.toISOString().slice(0, 10);
+  }
+
+  // Busca os PRs mergeados nas orgs monitoradas dentro da janela, por conta (token
+  // dela), deduplicando por chave. So leitura: nao passa por gate, nao posta, nao
+  // escreve em state/. Cache com TTL por janela (entregas mudam devagar, nao entram
+  // no polling de 30s). partial = alguma busca falhou; capped = alguma org bateu o
+  // limite de 100 (a UI avisa; nada de corte silencioso).
+  async fetchDeliveries(days, owner) {
+    days = [0, 7, 15, 30].includes(parseInt(days, 10)) ? parseInt(days, 10) : 7;
+    // escopo por org: vazio ou 'all' = todas as orgs monitoradas; senao so a org
+    // pedida, buscada com o token da conta dona (accountForOwner).
+    const scope = String(owner || '').trim();
+    const scoped = scope && scope.toLowerCase() !== 'all' ? scope : '';
+    const cacheKey = `${days}:${scoped || 'all'}`;
+    const TTL = 5 * 60 * 1000;
+    const cached = this.deliveriesCache[cacheKey];
+    if (cached && (Date.now() - cached.at) < TTL) return cached.data;
+    if (!this.token) await this.refreshTokens();
+    const since = this.deliveriesSince(days);
+    // alvos: { user (conta dona), owner (org) }. Escopado = so a org pedida.
+    const targets = scoped
+      ? [{ user: this.accountForOwner(scoped), owner: scoped }]
+      : this.accountList().flatMap(acc => acc.owners.map(o => ({ user: acc.user, owner: o })));
+    const seen = new Set();
+    const items = [];
+    let partial = false, capped = false;
+    for (const t of targets) {
+      const r = await run('gh', ['search', 'prs', `merged:>=${since}`, '--owner', t.owner,
+        '--limit', String(DELIVERIES_LIMIT), '--json', 'url,title,author,number,repository,closedAt'], { env: this.ghEnv(t.user) });
+      if (!r.ok) { partial = true; this.log('WARN', `gh search entregas (${t.user}/${t.owner}): ${r.stderr.trim().slice(0, 200)}`); continue; }
+      let list;
+      try { list = JSON.parse(r.stdout || '[]'); } catch { partial = true; continue; }
+      if (list.length >= DELIVERIES_LIMIT) capped = true;
+      for (const p of list) {
+        const key = `${p.repository.nameWithOwner}#${p.number}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        items.push({
+          key,
+          url: p.url,
+          title: p.title,
+          author: (p.author && p.author.login) || '',
+          repo: p.repository.nameWithOwner,
+          number: p.number,
+          mergedAt: p.closedAt || null // PR mergeado fecha no merge: closedAt = instante do merge
+        });
+      }
+    }
+    items.sort((a, b) => String(b.mergedAt).localeCompare(String(a.mergedAt)));
+    const data = { since, days, owner: scoped || 'all', items, capped, partial };
+    this.deliveriesCache[cacheKey] = { at: Date.now(), data };
+    return data;
   }
 
   async check(reason = 'timer') {
@@ -2788,6 +2854,7 @@ function startServer(engine, onReady) {
         if (p === '/api/chat' && req.method === 'GET') return send(200, engine.chatPublic(String(url.searchParams.get('key') || '')));
         if (p === '/api/highlights') return send(200, parseHighlights());
         if (p === '/api/team') return send(200, parseTeam());
+        if (p === '/api/deliveries') return send(200, await engine.fetchDeliveries(url.searchParams.get('days'), url.searchParams.get('owner')));
         if (p === '/api/log') return send(200, tailLog(parseInt(url.searchParams.get('lines'), 10) || 300));
         if (p === '/api/doctor') return send(200, await engine.doctor());
         if (p === '/api/reviewer-candidates') return send(200, await engine.reviewerCandidates());

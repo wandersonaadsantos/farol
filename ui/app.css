@@ -588,3 +588,31 @@ body.electron .chat-head { padding-right: 150px; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; border: 2px solid var(--bg); }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------- entregas ---------- */
+.deliv-controls { display: flex; align-items: center; gap: 10px; }
+.seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 99px; padding: 2px; }
+.seg-btn { border: 0; background: transparent; color: var(--muted); font-size: 12.5px; font-weight: 600; padding: 5px 12px; border-radius: 99px; cursor: pointer; }
+.seg-btn.active { background: var(--accent-soft); color: var(--accent); }
+.deliv-controls select { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 12.5px; }
+.deliv-controls #delivOrg { font-weight: 650; }
+.deliv-note { color: var(--danger); }
+.deliv-card { padding: 0; overflow: hidden; }
+.deliv-card details > summary { list-style: none; cursor: pointer; }
+.deliv-card details > summary::-webkit-details-marker { display: none; }
+.deliv-sum { display: flex; align-items: center; gap: 10px; padding: 12px 16px; }
+.deliv-sum::after { content: '▸'; color: var(--muted); margin-left: auto; transition: transform .15s ease; }
+.deliv-card details[open] > summary .deliv-sum::after { transform: rotate(90deg); }
+.deliv-sum .avatar { flex: none; }
+.deliv-name { font-weight: 650; }
+.deliv-sum .count { margin-left: 2px; }
+.deliv-meta { color: var(--muted); font-size: 12px; }
+.deliv-card .rows { border-top: 1px solid var(--border); padding: 6px 16px 12px; }
+.deliv-subgroup { border-top: 1px solid var(--border); }
+.deliv-subhead { display: flex; align-items: center; gap: 8px; padding: 8px 16px; }
+.deliv-subhead::after { content: '▸'; color: var(--muted); margin-left: auto; font-size: 11px; transition: transform .15s ease; }
+.deliv-subgroup[open] > .deliv-subhead::after { transform: rotate(90deg); }
+.deliv-subhead:hover { background: var(--surface-2); }
+.deliv-subname { font-size: 12.5px; font-weight: 650; color: var(--muted); }
+.count.sm { font-size: 10.5px; padding: 1px 7px; }
+.deliv-subgroup .rows { border-top: 0; padding: 2px 16px 8px; }

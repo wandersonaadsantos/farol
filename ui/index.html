@@ -32,6 +32,7 @@
 
     <nav class="tabs" id="nav">
       <button class="nav-item active" data-tab="radar">Radar</button>
+      <button class="nav-item" data-tab="entregas">Entregas</button>
       <button class="nav-item" data-tab="destaques">Destaques</button>
       <button class="nav-item" data-tab="time">Time</button>
       <button class="nav-item" data-tab="sistema">Sistema</button>
@@ -105,6 +106,29 @@
     <div id="panorama" class="rows"></div>
 
     <div id="silenced" class="silenced" hidden></div>
+  </section>
+
+  <!-- ============ ENTREGAS ============ -->
+  <section id="tab-entregas" class="tabpane">
+    <div class="section-head">
+      <h2>Entregas</h2>
+      <div class="deliv-controls">
+        <select id="delivOrg" title="Organização (a principal fica como padrão)"></select>
+        <div class="seg" id="delivBy">
+          <button class="seg-btn active" data-by="repo">Por repositório</button>
+          <button class="seg-btn" data-by="author">Por responsável</button>
+        </div>
+        <select id="delivDays">
+          <option value="0">Hoje</option>
+          <option value="7">7 dias</option>
+          <option value="15">15 dias</option>
+          <option value="30">30 dias</option>
+        </select>
+      </div>
+    </div>
+    <p class="section-desc">PRs mergeados nas organizações monitoradas, por qualquer pessoa. É a visão de atualização dos projetos e de quem está entregando. Só leitura, nada é postado.</p>
+    <div id="delivNote" class="section-desc deliv-note" hidden></div>
+    <div id="deliveries" class="cards"></div>
   </section>
 
   <!-- ============ DESTAQUES ============ -->
