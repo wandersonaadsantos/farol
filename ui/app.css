@@ -277,6 +277,11 @@ main { max-width: 1000px; margin: 0 auto; padding: 16px 24px 60px; }
 .resolved-attn ul { margin: 6px 0 2px; padding-left: 18px; font-size: 12.5px; color: var(--text); }
 .resolved-attn li { margin: 2px 0; }
 .resolved-attn li::marker { color: var(--accent); }
+/* consulta de um PR por URL (abre a conversa salva); discreta, não compete com o resto */
+.lookup-bar { display: flex; gap: 8px; margin-top: 16px; opacity: .7; transition: opacity .15s; }
+.lookup-bar:focus-within, .lookup-bar:hover { opacity: 1; }
+.lookup-bar input { flex: 1; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 7px 11px; font-size: 12.5px; }
+.lookup-bar input:focus { outline: none; border-color: var(--accent); }
 /* pushback: contestação do autor a um review meu, registrada na linha */
 .pushback { font-size: 11.5px; }
 .pushback > summary { cursor: pointer; color: var(--muted); user-select: none; white-space: nowrap; list-style: none; }
