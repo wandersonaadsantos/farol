@@ -195,6 +195,11 @@
         <small>Nesses repos o botão Merge (em Meus PRs) fica desativado, respeitando as regras de review do time. Separe por vírgula.</small>
       </div>
       <div class="field">
+        <label for="setClaudeConfigDir">Assinatura do Claude (diretório de config)</label>
+        <input id="setClaudeConfigDir" type="text" spellcheck="false" placeholder="ex.: C:\Users\voce\.claude-pessoal">
+        <small>Vazio usa o login padrão do <code>claude</code> da máquina. Apontando um diretório próprio (logado em outra conta), as sessões do Farol passam a usar aquela assinatura, sem mexer no seu <code>claude</code> principal. Faça <code>claude login</code> nesse diretório uma vez antes; a conta em uso aparece em Saúde. Alternar de assinatura é trocar este caminho.</small>
+      </div>
+      <div class="field">
         <label>Reviewers por projeto</label>
         <div id="reviewersEditor" class="rev-editor"></div>
         <small>Por repo, escolha as pessoas e times da lista (sem digitar handle na mão). É o que o botão "👥 Reviewers" (em Meus PRs) aplica num clique.</small>

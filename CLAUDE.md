@@ -74,6 +74,24 @@ Pendências conhecidas do port (decisões conscientes, não bugs):
 
 Quando validar (ou corrigir) qualquer item acima, **atualize esta seção**: risque o que passou, documente o que mudou e por quê. Este arquivo é a memória do port.
 
+## Assinatura do Claude (qual conta/plano o Farol usa, e como alternar)
+
+O Farol roda `claude -p ...` (headless, **sem `--bare`**) e o `claude` interativo no terminal. **Qual assinatura/plano é usado é decisão da autenticação do próprio `claude`, não do config do Farol.** Precedência oficial (docs code.claude.com): cloud provider → `ANTHROPIC_AUTH_TOKEN` → `ANTHROPIC_API_KEY` → `apiKeyHelper` → `CLAUDE_CODE_OAUTH_TOKEN` → **assinatura OAuth logada via `claude login`** (default). Sem nenhuma env var de auth, usa o OAuth logado, guardado em `.credentials.json` dentro do config dir (`~/.claude.json`/`~/.claude/` por padrão, ou o que `CLAUDE_CONFIG_DIR` apontar).
+
+Como o Farol espalha `process.env` pros filhos, por padrão ele herda o login da máquina. Duas formas de trocar:
+
+1. **Máquina toda:** `claude login` (troca a conta pra tudo, inclusive seu Claude Code interativo de codar). Simples, mas não isola o Farol.
+2. **Isolado no Farol (recomendado pra separar assinaturas):** aponte `config.claudeConfigDir` (campo **"Assinatura do Claude"** em Sistema, ou a chave no `config.json`) pra um diretório próprio. O engine injeta `CLAUDE_CONFIG_DIR` nesse dir em TODAS as sessões do Farol (headless via `ghEnv`, e as sessões de terminal via `buildSessionScript`/`buildSessionScriptMac`), então elas usam a assinatura logada ali, **sem mexer no `claude` principal da máquina**.
+
+**Passo a passo (isolado):**
+```
+# 1) logar a conta desejada SÓ nesse dir (uma vez; o headless NÃO faz login sozinho)
+#    Windows PowerShell:
+$env:CLAUDE_CONFIG_DIR="C:\Users\voce\.claude-pessoal"; claude login
+# 2) no Farol: Sistema > "Assinatura do Claude" = C:\Users\voce\.claude-pessoal (ou config.claudeConfigDir)
+```
+**Alternar assinaturas** vira trocar esse caminho: mantenha um dir por assinatura (`.claude-pessoal`, `.claude-trabalho`), e mude `claudeConfigDir` pra apontar a que quiser (vazio = padrão da máquina). O **doctor** (`claudeAuthInfo`) mostra a conta em uso (email do `oauthAccount`) e avisa **"SEM LOGIN"** se o dir apontado não tiver `.credentials.json` (você esqueceu o `claude login` nele). **Pegadinha:** o login é interativo e tem que ser feito ANTES; sessão headless com dir sem credencial falha. Alternativa oficial pra headless sem depender de OAuth persistente: `ANTHROPIC_API_KEY` (ou `CLAUDE_CODE_OAUTH_TOKEN` via `claude setup-token`) no ambiente, mas aí o billing é por API, não pela assinatura. **Nunca** logar/gravar credencial pelo Claude Code em nome do usuário: o `claude login` é ação dele.
+
 ## Como rodar e testar sem estragar nada
 
 - **Instância isolada**: `FAROL_HOME=/tmp/farol-teste node server.js` sobe engine + UI em `http://127.0.0.1:47170` sem tocar nos dados reais. Pra trocar a porta, escreva `{"port": 47180, "autoReview": false}` no `config.json` do FAROL_HOME antes de subir.

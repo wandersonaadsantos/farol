@@ -640,6 +640,10 @@ class Engine extends EventEmitter {
     const tok = (user && this.tokens && this.tokens[user]) || this.token;
     if (tok) env.GH_TOKEN = tok;
     if (this.gitBash) env.CLAUDE_CODE_GIT_BASH_PATH = this.gitBash;
+    // assinatura do Claude que o Farol usa: se você apontar um config dir próprio
+    // (logado numa conta separada), as sessões headless usam ESSA assinatura, sem
+    // mexer no login principal do claude da máquina. Ver "Assinatura do Claude" no CLAUDE.md.
+    if (this.config.claudeConfigDir) env.CLAUDE_CONFIG_DIR = this.config.claudeConfigDir;
     return env;
   }
 
@@ -873,11 +877,13 @@ class Engine extends EventEmitter {
     const stub = process.env.FAROL_REVIEW_CMD; // usado so em testes: substitui o claude
     const skip = this.config.skipPermissions ? ' --dangerously-skip-permissions' : '';
     const claudeLine = stub ? `${stub} "${slash}"` : `claude${skip} "${slash}"`;
+    const cfgDir = this.config.claudeConfigDir ? `set "CLAUDE_CONFIG_DIR=${this.config.claudeConfigDir}"` : 'rem sem config dir proprio';
     return [
       '@echo off',
       'chcp 65001>nul',
       'title Farol - sessao do Claude',
       `cd /d "${WORKSPACE}"`,
+      cfgDir,
       claudeLine,
       'echo.',
       'echo  [Farol] Sessao encerrada. Pressione qualquer tecla para fechar esta janela.',
@@ -906,6 +912,7 @@ class Engine extends EventEmitter {
       '}',
       'trap notify EXIT',
       'export GH_PAGER=cat PAGER=cat',
+      this.config.claudeConfigDir ? `export CLAUDE_CONFIG_DIR='${this.config.claudeConfigDir}'` : '# sem config dir proprio',
       `GH_TOKEN="$(gh auth token${userArg} 2>/dev/null)" && export GH_TOKEN`,
       claudeLine,
       'echo',
@@ -2688,6 +2695,21 @@ class Engine extends EventEmitter {
   }
 
   // --- diagnostico de pre-requisitos ---
+  // assinatura do Claude que as sessões do Farol usam (best-effort, sem segredo):
+  // qual config dir e qual conta OAuth está logada ali, pra o doctor mostrar/avisar.
+  claudeAuthInfo() {
+    const dir = (this.config.claudeConfigDir || '').trim();
+    const jsonPath = dir ? path.join(dir, '.claude.json') : path.join(os.homedir(), '.claude.json');
+    const info = { configDir: dir || null, account: null, ready: true };
+    try {
+      const j = readJson(jsonPath, {});
+      info.account = (j && j.oauthAccount && j.oauthAccount.emailAddress) || null;
+      // dir próprio precisa do login feito (credencial OAuth). A padrão a gente assume ok.
+      if (dir) info.ready = fs.existsSync(path.join(dir, '.credentials.json')) || !!info.account;
+    } catch { /* best-effort */ }
+    return info;
+  }
+
   async doctor() {
     const tokenArgs = ['auth', 'token'];
     const primary = this.primaryUser();
@@ -2705,6 +2727,7 @@ class Engine extends EventEmitter {
       gitBash: this.gitBash,
       home: HOME,
       workspace: WORKSPACE,
+      claudeAuth: this.claudeAuthInfo(), // assinatura do Claude (config dir + conta + pronto?)
       checkedAt: Date.now()
     };
     this.checkUpdate().catch(() => {});
@@ -2715,7 +2738,7 @@ class Engine extends EventEmitter {
   updateSettings(patch) {
     const allowed = ['ghUser', 'owners', 'accounts', 'intervalSeconds', 'autoReview', 'autoApproveAll', 'skipPermissions',
       'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos',
-      'projectReviewers', 'defaultReviewers', 'people'];
+      'projectReviewers', 'defaultReviewers', 'people', 'claudeConfigDir'];
     let intervalChanged = false, userChanged = false;
     for (const k of allowed) {
       if (!(k in patch)) continue;
@@ -2726,6 +2749,7 @@ class Engine extends EventEmitter {
       if (k === 'projectReviewers') v = parseProjectReviewers(v);
       if (k === 'defaultReviewers') v = parseDefaultReviewers(v);
       if (k === 'people') v = parsePeople(v);
+      if (k === 'claudeConfigDir') v = String(v || '').trim();
       if (k === 'accounts') {
         v = parseAccounts(v);
         // só re-autentica se as CONTAS (user/owners) mudaram; editar rótulo, cor,
