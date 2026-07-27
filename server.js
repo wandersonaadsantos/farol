@@ -343,7 +343,10 @@ class Engine extends EventEmitter {
     this.headlessQueue = [];
     this.headlessBusyAccounts = new Set(); // contas com revisão headless em andamento (1 por conta em paralelo)
     this.decisions = readJson(path.join(STATE_DIR, 'decisions.json'), { pending: [], resolved: [] });
-    this.pushbacks = readJson(path.join(STATE_DIR, 'pushbacks.json'), {}); // { key do PR: { author, outcome, note, at } }
+    this.pushbacks = readJson(path.join(STATE_DIR, 'pushbacks.json'), {}); // { key do PR: { author, outcome, note, at, source, status, confidence } }
+    // registros antigos (sem source) eram todos marcados à mão e confirmados
+    for (const v of Object.values(this.pushbacks)) { if (v && !v.source) { v.source = 'manual'; v.status = 'confirmed'; } }
+    this.pushbackScanned = readJson(path.join(STATE_DIR, 'pushback-scanned.json'), {}); // { key: marcador da última atividade do autor já avaliada }
     this.toolRuns = readJson(path.join(STATE_DIR, 'tool-results.json'), {});
     // kudos passou a ser POR CONTA (mapa escopo->execução); migra o formato antigo
     // (execução única, global) pro escopo "todas" ('*') pra não perder o que já existia
@@ -832,6 +835,9 @@ class Engine extends EventEmitter {
       try { await this.refreshMergeStates(); } catch (e) { this.log('WARN', `refreshMergeStates: ${e.message}`); }
       // stale: PRs que EU revisei e receberam commit novo depois (reativa o "Re-revisar")
       try { await this.refreshStaleStates(); } catch (e) { this.log('WARN', `refreshStaleStates: ${e.message}`); }
+      // pushback automático: contestação do autor a um review meu (fire-and-forget:
+      // roda em background pra não segurar a checagem, com guarda anti-concorrência)
+      this.scanPushbacks().catch(e => this.log('WARN', `scanPushbacks: ${e.message}`));
       // atualizacao (releases do GitHub pras copias distribuidas) a cada ciclo
       this.checkUpdate().catch(() => {});
       this.setStatus('idle');
@@ -1123,14 +1129,18 @@ class Engine extends EventEmitter {
     return map[String(login || '').toLowerCase()] || {};
   }
   // pushbacks registrados pra uma pessoa (mais recentes primeiro)
+  // pushbacks de uma pessoa que já valem pra calibrar o review: confirmados
+  // (manual ou auto de alta confiança). Os "pending" (auto em dúvida) NÃO entram
+  // até você confirmar, pra não calibrar em cima de um palpite incerto.
   pushbacksFor(login) {
     const u = String(login || '').toLowerCase();
     return Object.entries(this.pushbacks || {})
-      .filter(([, v]) => v && String(v.author || '').toLowerCase() === u)
+      .filter(([, v]) => v && v.status !== 'pending' && String(v.author || '').toLowerCase() === u)
       .map(([key, v]) => ({ ...v, key }))
       .sort((a, b) => (b.at || 0) - (a.at || 0));
   }
-  // registra/edita/limpa o pushback de um review (por PR). outcome vazio = limpar.
+  // registra/edita/limpa o pushback de um review PELA SUA MÃO (por PR). Sempre
+  // confirmado e marcado como manual (é você resolvendo). outcome vazio = limpar.
   recordPushback(body) {
     const key = String((body && body.key) || '').trim();
     if (!key) return { ok: false, error: 'sem PR' };
@@ -1138,10 +1148,12 @@ class Engine extends EventEmitter {
     if (!outcome) { delete this.pushbacks[key]; this.savePushbacks(); return { ok: true }; }
     if (!PUSHBACK_OUTCOMES.includes(outcome)) return { ok: false, error: 'desfecho inválido' };
     this.pushbacks[key] = {
-      author: String((body && body.author) || '').trim().toLowerCase(),
+      author: String((body && body.author) || (this.pushbacks[key] && this.pushbacks[key].author) || '').trim().toLowerCase(),
       outcome,
       note: String((body && body.note) || '').trim().slice(0, 300),
-      at: Date.now()
+      at: Date.now(),
+      source: 'manual',
+      status: 'confirmed'
     };
     this.savePushbacks();
     return { ok: true };
@@ -1150,6 +1162,10 @@ class Engine extends EventEmitter {
     try { fs.writeFileSync(path.join(STATE_DIR, 'pushbacks.json'), JSON.stringify(this.pushbacks, null, 2)); }
     catch (err) { this.log('ERROR', `salvar pushbacks.json: ${err.message}`); }
     this.pushState();
+  }
+  savePushbackScanned() {
+    try { fs.writeFileSync(path.join(STATE_DIR, 'pushback-scanned.json'), JSON.stringify(this.pushbackScanned, null, 2)); }
+    catch { /* best-effort: perder o marcador só faz reavaliar depois, não quebra */ }
   }
 
   // bloco injetado no prompt de revisão: ajusta TOM + POSTURA, nunca a decisão.
@@ -1709,6 +1725,103 @@ class Engine extends EventEmitter {
     const revSha = (revR.stdout || '').trim().replace(/^"|"$/g, '');
     if (!head || !revSha) return false;
     return head !== revSha;
+  }
+
+  // --- pushback automático: detecta e classifica a contestação do autor ------
+  // Best-effort (como o staleStates): qualquer incerteza não registra nada. O
+  // gatilho barato via gh evita acender IA à toa; a classificação é 1 sessão
+  // Claude por candidato novo, LEITURA pura (nunca posta), limitada por ciclo.
+  async scanPushbacks() {
+    if (this.pushbackScanning) return;
+    this.pushbackScanning = true;
+    try {
+      const acts = this.reviewActions();
+      const targets = (this.panorama || []).filter(pr => {
+        if (this.isMuted(this.accountForPr(pr))) return false;
+        const a = acts[pr.key];
+        const reviewed = pr.reviewedByMe || (a && (a.kind === 'approve' || a.kind === 'request_changes'));
+        if (!reviewed) return false;
+        const seen = this.pushbackScanned[pr.key];
+        return !seen || (pr.updatedAt && String(pr.updatedAt) > String(seen)); // updatedAt = gate barato
+      });
+      const MAX_PER_CYCLE = 2; // limita sessões Claude por ciclo (custo / carga da máquina)
+      let classified = 0;
+      for (const pr of targets) {
+        if (classified >= MAX_PER_CYCLE) { this.log('WARN', `scanPushbacks: ${targets.length - classified} candidato(s) ficaram pro próximo ciclo`); break; }
+        try {
+          const det = await this.detectAuthorPushback(pr);
+          if (!det) continue; // não deu pra ler: tenta de novo depois (sem marcar)
+          this.pushbackScanned[pr.key] = det.marker; this.savePushbackScanned();
+          if (!det.hadActivity) continue; // autor não falou depois do meu review
+          classified++;
+          const cls = await this.classifyPushback(pr);
+          if (!cls || !cls.isPushback || cls.outcome === 'none' || !PUSHBACK_OUTCOMES.includes(cls.outcome)) continue;
+          const high = cls.confidence === 'high';
+          this.pushbacks[pr.key] = {
+            author: String(pr.author || '').toLowerCase(),
+            outcome: cls.outcome,
+            note: String(cls.note || '').trim().slice(0, 300),
+            at: Date.now(), source: 'auto',
+            confidence: high ? 'high' : 'low',
+            status: high ? 'confirmed' : 'pending'
+          };
+          this.savePushbacks();
+          this.emit('toast', high
+            ? { kind: 'info', text: `↩ Pushback em ${pr.key}: ${PUSHBACK_LABEL[cls.outcome] || cls.outcome}.` }
+            : { kind: 'info', text: `↩ Possível pushback em ${pr.key}: confirme o desfecho em Revisões recentes.` });
+        } catch (e) { this.log('WARN', `scanPushbacks ${pr.key}: ${e.message}`); }
+      }
+    } finally { this.pushbackScanning = false; }
+  }
+
+  // atividade do AUTOR depois do meu último review (gatilho barato). Devolve
+  // { marker, hadActivity } ou null quando não dá pra determinar (rede / sem review meu).
+  async detectAuthorPushback(pr) {
+    const repo = pr.repo || (pr.key || '').split('#')[0];
+    const number = pr.number || parseInt((pr.key || '').split('#')[1], 10);
+    const acc = this.accountForPr(pr);
+    const me = (acc || '').toLowerCase();
+    const author = String(pr.author || '').toLowerCase();
+    if (!repo || !number || !me || !author || author === me) return null;
+    const env = this.ghEnv(acc);
+    const revR = await run('gh', ['api', `repos/${repo}/pulls/${number}/reviews`,
+      '--jq', `[.[] | select((.user.login | ascii_downcase) == "${me}") | .submitted_at] | sort | last // ""`], { env });
+    if (!revR.ok) return null;
+    const myAt = (revR.stdout || '').trim().replace(/^"|"$/g, '');
+    if (!myAt) return null; // não tenho review registrado neste PR
+    const jq = `[.[] | select((.user.login | ascii_downcase) == "${author}") | .created_at | select(. > "${myAt}")]`;
+    const cR = await run('gh', ['api', `repos/${repo}/issues/${number}/comments`, '--jq', jq], { env });
+    const rcR = await run('gh', ['api', `repos/${repo}/pulls/${number}/comments`, '--jq', jq], { env });
+    const times = [];
+    for (const r of [cR, rcR]) if (r.ok) { try { for (const t of JSON.parse(r.stdout || '[]')) times.push(t); } catch { } }
+    const marker = times.sort().slice(-1)[0] || myAt; // sem atividade: marca o review (não reavalia até mudar)
+    return { marker, hadActivity: times.length > 0 };
+  }
+
+  // classifica a thread via Claude (leitura pura). Devolve { isPushback, outcome,
+  // confidence, note } ou null se falhar. Não registra em activeReviews (silencioso).
+  async classifyPushback(pr) {
+    const acc = this.accountForPr(pr);
+    const me = acc || '';
+    const prompt = `Você está rodando em modo AUTÔNOMO dentro do app Farol, sem ninguém na tela. NÃO faça perguntas, NÃO poste nada (só leitura via gh).\n\n` +
+      `Avalie se houve PUSHBACK do autor a um review MEU no PR: ${pr.url}\n` +
+      `"Eu" (revisor) sou @${me}; o autor do PR é @${pr.author}. Pushback = o autor CONTESTA/discorda de um ponto do MEU review (não conta só concordar, agradecer ou aplicar a mudança pedida).\n` +
+      `Leia a thread (meu review e as respostas do autor DEPOIS dele) e julgue o DESFECHO:\n` +
+      `- "author_right": o autor tinha razão (meu ponto não procedia, era intencional, ou eu recuei).\n` +
+      `- "we_right": eu tinha razão (o ponto procedia e foi acatado, ou o autor cedeu).\n` +
+      `- "mixed": parte de cada.\n` +
+      `- "none": não houve pushback de fato.\n` +
+      `confidence "high" só quando a thread deixa claro; na dúvida, "low".\n\n` +
+      `Sua saída final deve ser APENAS um bloco JSON, sem texto em volta: {"isPushback": true|false, "outcome": "author_right"|"we_right"|"mixed"|"none", "confidence": "high"|"low", "note": "1 linha curta do que foi contestado"}`;
+    const id = `pb${++this.sessionSeq}`;
+    const res = await this.runClaudeStream(prompt, { id, account: acc });
+    const text = this.parseEnvelope(res.text || '');
+    const a = text.indexOf('{'), b = text.lastIndexOf('}');
+    if (a < 0 || b <= a) return null;
+    try {
+      const d = JSON.parse(text.slice(a, b + 1));
+      return { isPushback: !!d.isPushback, outcome: d.outcome, confidence: d.confidence, note: d.note };
+    } catch { return null; }
   }
 
   // --- merge do MEU PR quando a MINHA autoanalise diz "aprovavel" -------------

@@ -744,10 +744,16 @@ function pushbackControl(r) {
   const author = (r.pr && r.pr.author) || r.author || '';
   if (!author) return '';
   const pb = pushbackOf(r.key);
-  const sum = pb ? `↩ ${esc(PB_SHORT[pb.outcome] || 'pushback')}` : '↩ pushback?';
-  return `<details class="pushback"${pb ? ' data-set="1"' : ''}>
-    <summary title="Registrar que o autor contestou este review, pra calibrar reviews futuros dele">${sum}</summary>
+  const pending = pb && pb.status === 'pending';    // auto em dúvida: pede confirmação
+  const sum = pending ? `↩ confirmar: ${esc(PB_SHORT[pb.outcome] || 'pushback')}?`
+    : pb ? `↩ ${esc(PB_SHORT[pb.outcome] || 'pushback')}${pb.source === 'auto' ? ' (auto)' : ''}`
+      : '↩ pushback?';
+  const title = pending ? 'O Farol suspeita de pushback aqui; confirme ou corrija o desfecho'
+    : 'Marque se o autor contestou este review, pra calibrar os reviews futuros dele';
+  return `<details class="pushback"${pb ? ' data-set="1"' : ''}${pending ? ' data-pending="1" open' : ''}>
+    <summary title="${title}">${sum}</summary>
     <div class="pb-body">
+      ${pending ? `<span class="pb-hint">O Farol detectou possível pushback${pb.note ? ` (${esc(pb.note)})` : ''}. Confirme o desfecho:</span>` : ''}
       <select class="pb-outcome" data-key="${esc(r.key)}" data-author="${esc(author)}">
         ${PB_OPTS.map(([v, t]) => `<option value="${v}"${pb && pb.outcome === v ? ' selected' : ''}>${t}</option>`).join('')}
       </select>
@@ -761,7 +767,7 @@ function submitPushback(el) {
   const key = sel.dataset.key, author = sel.dataset.author, outcome = sel.value;
   const noteVal = outcome ? (note.value || '').trim() : '';
   const map = { ...(STATE.pushbacks || {}) };   // otimista, pra o controle não piscar
-  if (outcome) map[key] = { author: String(author).toLowerCase(), outcome, note: noteVal, at: Date.now() };
+  if (outcome) map[key] = { author: String(author).toLowerCase(), outcome, note: noteVal, at: Date.now(), source: 'manual', status: 'confirmed' };
   else delete map[key];
   STATE.pushbacks = map;
   api('/api/pushback', { key, author, outcome, note: noteVal });
@@ -1356,6 +1362,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.17.0', ['O pushback passou a ser detectado sozinho, direto do PR. Quando o autor contesta um review seu (responde, rebate, re-pede review), o Farol percebe e classifica o desfecho (autor tinha razão, você tinha, ou meio-termo) sem você marcar à mão. Funciona assim: um gatilho barato vê se o autor teve atividade depois do seu review; só aí o Farol lê a thread (leitura pura, nunca posta) pra julgar. Desfecho claro entra sozinho; em dúvida, aparece um "confirmar?" em Revisões recentes com o desfecho sugerido, pra você resolver num toque só os ambíguos. Isso calibra o tom dos reviews futuros da pessoa, sem mexer na decisão técnica. A marcação manual segue como correção quando você discordar do que o Farol inferiu.']],
   ['2.16.1', ['Pente-fino de uma revisão do projeto. Correções: não duplica mais a revisão de um PR que já estava em análise (clique ou dois cliques rápidos); aprovação por conta mais segura (se os PRs impecáveis aguardam sua ação, os com ressalva também aguardam, corrigindo um caso de configuração invertida); o seletor de papel no card do PR não fecha mais sozinho no meio da escolha; e o kudos sempre mostra a conta certa ao abrir Destaques. Esta lista de novidades também recuperou as versões 2.0.0 e 1.19.0 que tinham sido puladas.']],
   ['2.16.0', ['O Farol passa a lembrar dos pushbacks. Quando um review seu é contestado, você registra na linha de "Revisões recentes" o desfecho (o autor tinha razão, nós tínhamos razão, ou meio-termo) e uma nota curta opcional. Nas próximas revisões automáticas daquela pessoa, o Farol leva esse histórico em conta pra calibrar a postura: onde ela já mostrou que estava certa, afirma com mais humildade antes de apontar algo parecido; onde você estava certo, mantém a posição. Mexe só no tom e na postura, nunca na decisão técnica.']],
   ['2.15.0', ['A senioridade virou um perfil de verdade, com dois eixos. O papel cobre carreira e posição (Estágio, Júnior, Pleno, Sênior, mais Tech Lead, Arquiteto e Especialista) e dá o tom-base. A matriz por domínio (Backend, Frontend, Dados, Infra, de Básico a Autoridade) reconhece que a pessoa pode ser autoridade numa área e estar começando em outra: onde é autoridade o review defere e foca no alto nível; onde está começando, explica mais e cuida dos fundamentos. Segue mexendo só no tom e na postura, nunca na decisão técnica. O papel se marca no card do PR e na aba Time; a matriz fica na aba Time. Quem já estava marcado como Estágio/Júnior/Pleno/Sênior migra sozinho pro papel.']],
