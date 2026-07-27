@@ -480,6 +480,7 @@ function switchTab(name) {
   document.querySelectorAll('.nav-item').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
   if (STATE) renderAccountBar();   // mostra/esconde a barra de contas conforme a aba
+  if (name === 'entregas') loadDeliveries();
   if (name === 'destaques') { loadHighlights(); renderTools(); }   // renderTools: kudos do escopo atual, não o defasado
   if (name === 'time') loadTeam();
   if (name === 'sistema') { loadLog(); renderDoctor(); renderAccountsManager(); loadReviewerCands(); }
@@ -487,6 +488,141 @@ function switchTab(name) {
 $('#nav').addEventListener('click', (e) => {
   const btn = e.target.closest('.nav-item');
   if (btn) switchTab(btn.dataset.tab);
+});
+
+/* ---------- entregas (PRs mergeados por repo / por responsável) ---------- */
+let deliveriesData = null;
+let deliveriesDays = parseInt(localStorage.getItem('farol-deliv-days'), 10);
+if (![0, 7, 15, 30].includes(deliveriesDays)) deliveriesDays = 7;
+let deliveriesBy = localStorage.getItem('farol-deliv-by') === 'author' ? 'author' : 'repo';
+let deliveriesOrg = localStorage.getItem('farol-deliv-org') || ''; // '' = ainda não resolvido → cai na principal
+
+// org principal (default da visão): 1º owner da 1ª conta, senão o legado config.owners
+function primaryOrg() {
+  for (const a of (STATE && STATE.accounts) || []) if ((a.owners || []).length) return a.owners[0];
+  return (((STATE && STATE.config) || {}).owners || [])[0] || '';
+}
+// todas as orgs monitoradas (união dos owners de todas as contas), c/ a conta dona
+function orgsWithAccount() {
+  const map = new Map(); // org -> user (conta dona)
+  for (const a of (STATE && STATE.accounts) || []) for (const o of (a.owners || [])) if (!map.has(o)) map.set(o, a.user);
+  for (const o of (((STATE && STATE.config) || {}).owners || [])) if (!map.has(o)) map.set(o, (STATE.account || {}).user || '');
+  return [...map.entries()].map(([org, user]) => ({ org, user }));
+}
+function renderDelivOrgSelect() {
+  const sel = $('#delivOrg'); if (!sel) return;
+  const orgs = orgsWithAccount();
+  // resolve a seleção: mantém a salva se ainda existir, senão cai na principal
+  if (!deliveriesOrg || !orgs.some(o => o.org === deliveriesOrg)) deliveriesOrg = primaryOrg();
+  const multi = multiAccount && multiAccount();
+  sel.innerHTML = orgs.map(o =>
+    `<option value="${esc(o.org)}"${o.org === deliveriesOrg ? ' selected' : ''}>${esc(o.org)}${multi && o.user ? ` · @${esc(o.user)}` : ''}</option>`
+  ).join('') || '<option value="">(nenhuma org monitorada)</option>';
+}
+
+async function loadDeliveries() {
+  renderDelivOrgSelect();
+  const sel = $('#delivDays'); if (sel) sel.value = String(deliveriesDays);
+  document.querySelectorAll('#delivBy .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.by === deliveriesBy));
+  $('#deliveries').innerHTML = '<div class="empty">Carregando entregas…</div>';
+  const data = await get('/api/deliveries?days=' + deliveriesDays + '&owner=' + encodeURIComponent(deliveriesOrg || ''));
+  deliveriesData = data || { items: [] };
+  renderDeliveries();
+}
+
+// maior mergedAt de uma lista (ISO ordena lexicograficamente)
+function lastMerge(list) { return (list.map(x => x.mergedAt || '').sort().slice(-1)[0]) || ''; }
+function groupBy(items, keyFn) {
+  const m = new Map();
+  for (const it of items) { const k = keyFn(it); (m.get(k) || m.set(k, []).get(k)).push(it); }
+  return m;
+}
+function delivPrRow(it) {
+  return `<div class="row">
+    <span class="ref"><a href="${esc(it.url)}" target="_blank" rel="noreferrer">${esc(it.key)}</a></span>
+    <span class="title" title="${esc(it.title)}">${esc(it.title)}</span>
+    <span class="who">@${esc(it.author)}</span>
+    <span class="when">${fmtRel(it.mergedAt)}</span>
+  </div>`;
+}
+function delivGroupCard(head, count, bodyHtml) {
+  return `<div class="card deliv-card">
+    <details>
+      <summary class="deliv-sum">${head}<span class="count">${count}</span></summary>
+      ${bodyHtml}
+    </details>
+  </div>`;
+}
+// linha de PR dentro de um sub-grupo por repo (o repo já é o cabeçalho, então
+// mostra só o número e omite o @autor, que é o dono do card na visão por pessoa)
+function delivPrRowInRepo(it) {
+  const num = String(it.key).split('#')[1] || it.number;
+  return `<div class="row">
+    <span class="ref"><a href="${esc(it.url)}" target="_blank" rel="noreferrer">#${esc(num)}</a></span>
+    <span class="title" title="${esc(it.title)}">${esc(it.title)}</span>
+    <span class="when">${fmtRel(it.mergedAt)}</span>
+  </div>`;
+}
+// corpo agrupado por projeto (repo): usado na visão por responsável
+function delivRepoSubgroups(list) {
+  const groups = [...groupBy(list, it => it.repo).entries()].map(([repo, prs]) => ({ repo, prs, last: lastMerge(prs) }));
+  groups.sort((a, b) => b.prs.length - a.prs.length || String(b.last).localeCompare(String(a.last)));
+  return groups.map(g => `
+    <details class="deliv-subgroup" open>
+      <summary class="deliv-subhead"><span class="deliv-subname">${esc(g.repo)}</span><span class="count sm">${g.prs.length}</span></summary>
+      <div class="rows">${g.prs.map(delivPrRowInRepo).join('')}</div>
+    </details>`).join('');
+}
+function deliveriesByRepo(items) {
+  const groups = [...groupBy(items, it => it.repo).entries()].map(([repo, list]) => {
+    const autores = new Set(list.map(x => x.author).filter(Boolean)).size;
+    return { list, last: lastMerge(list), head: `<span class="deliv-name">${esc(repo)}</span><span class="deliv-meta">${autores} ${autores === 1 ? 'autor' : 'autores'} · último ${fmtRel(lastMerge(list))}</span>` };
+  });
+  groups.sort((a, b) => b.list.length - a.list.length || String(b.last).localeCompare(String(a.last)));
+  return groups.map(g => delivGroupCard(g.head, g.list.length, `<div class="rows">${g.list.map(delivPrRow).join('')}</div>`)).join('');
+}
+function deliveriesByAuthor(items) {
+  const groups = [...groupBy(items, it => it.author || '(desconhecido)').entries()].map(([login, list]) => {
+    const repos = new Set(list.map(x => x.repo)).size;
+    return { list, last: lastMerge(list), head: `${avatar(login)}<span class="deliv-name">@${esc(login)}</span><span class="deliv-meta">${repos} ${repos === 1 ? 'repo' : 'repos'} · último ${fmtRel(lastMerge(list))}</span>` };
+  });
+  groups.sort((a, b) => b.list.length - a.list.length || String(b.last).localeCompare(String(a.last)));
+  return groups.map(g => delivGroupCard(g.head, g.list.length, delivRepoSubgroups(g.list))).join('');
+}
+function renderDeliveries() {
+  const data = deliveriesData || { items: [] };
+  const note = $('#delivNote');
+  const msgs = [];
+  if (data.partial) msgs.push('Algumas buscas ao GitHub falharam; a lista pode estar incompleta (veja o log em Sistema).');
+  if (data.capped) msgs.push('Alguma organização tem mais de 100 entregas no período; mostrando as 100 mais recentes.');
+  note.hidden = !msgs.length;
+  note.textContent = msgs.join(' ');
+  const box = $('#deliveries');
+  const items = data.items || [];
+  if (!items.length) {
+    box.innerHTML = `<div class="empty"><span class="big">📦</span>Nenhum PR mergeado neste período.<br><small>Ajuste o período acima ou confira as organizações monitoradas em Sistema.</small></div>`;
+    return;
+  }
+  box.innerHTML = deliveriesBy === 'author' ? deliveriesByAuthor(items) : deliveriesByRepo(items);
+}
+$('#delivOrg').addEventListener('change', (e) => {
+  deliveriesOrg = e.target.value || '';
+  localStorage.setItem('farol-deliv-org', deliveriesOrg);
+  loadDeliveries();
+});
+$('#delivDays').addEventListener('change', (e) => {
+  const v = parseInt(e.target.value, 10); // "Hoje" = 0 (é falsy: não usar || aqui)
+  deliveriesDays = [0, 7, 15, 30].includes(v) ? v : 7;
+  localStorage.setItem('farol-deliv-days', String(deliveriesDays));
+  loadDeliveries();
+});
+$('#delivBy').addEventListener('click', (e) => {
+  const b = e.target.closest('.seg-btn');
+  if (!b) return;
+  deliveriesBy = b.dataset.by === 'author' ? 'author' : 'repo';
+  localStorage.setItem('farol-deliv-by', deliveriesBy);
+  document.querySelectorAll('#delivBy .seg-btn').forEach(x => x.classList.toggle('active', x.dataset.by === deliveriesBy));
+  renderDeliveries(); // troca de fatia é só re-render, sem novo fetch
 });
 
 /* ---------- render: topo/status ---------- */
@@ -1372,6 +1508,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.22.0', ['Nova aba Entregas: veja os PRs mergeados (por qualquer pessoa, não só o que o Farol revisou), agrupados por repositório ou por responsável, com o período escolhível (hoje, 7, 15 ou 30 dias). A visão é por organização: a sua principal já vem selecionada e você troca pra outra org num clique (com mais de uma conta, cada org aparece com a conta dona). É a visão de atualização dos projetos e de quem está entregando. Só leitura.']],
   ['2.21.0', ['As revisões que o Farol posta passam a parecer escritas por você, não por um bot. Saíram os carimbos de automação ("aprovado automaticamente pelo Farol", "por isso não auto-aprovei") e o formato rígido de template (caixas de alerta, Placar, checklist de critérios, prefixos "suggestion (non-blocking)"). O review sai no seu tom, direto e sem travessão, e o formato se adapta à senioridade do autor: estágio/júnior vira prosa de mentor; pleno/sênior/arquiteto fica enxuto e direto. Usa todo o perfil da pessoa pra personalizar, sem mudar a decisão nem o rigor. As ressalvas de um PR auto-aprovado seguem visíveis em Revisões recentes, só não vão mais coladas no PR.']],
   ['2.20.0', ['Dá pra consultar a conversa de qualquer PR pela URL. Um campo discreto embaixo de "Revisões recentes": cole a URL do PR e o Farol abre o chat salvo daquele review, mesmo que o PR já tenha saído da lista (pelo limite de 30 recentes ou por estar numa conta que não é a selecionada). Reusa o painel de chat de sempre, o resto do fluxo não muda, e as conversas ficam guardadas mesmo depois que a revisão sai do histórico.']],
   ['2.19.1', ['Qualidade de volta como padrão. Na v2.19.0 eu tinha posto Sonnet e o pushback desligado como padrão (mirando economia); revertido. O padrão volta a ser o Opus (melhor) e o pushback automático ligado. As opções de economia (Sonnet/Haiku, desligar pushback) seguem em Sistema pra quem quiser, mas não são o padrão. E o conserto que importa fica: se o limite do plano estourar, o Farol retoma sozinho no reset, sem largar o PR sem análise.']],
