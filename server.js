@@ -108,7 +108,16 @@ const DEFAULTS = {
   // EXCECOES por projeto: { "owner/repo": ["login", "org/time", ...] }. Quando um
   // repo esta aqui, essa lista SUBSTITUI o padrao da org (nao soma). Repo sem
   // excecao usa o defaultReviewers da org. Aceita pessoas e times (org/time-slug).
-  projectReviewers: {}
+  projectReviewers: {},
+  // MODELO das sessoes autonomas do Farol (review/pushback/autoanalise/ferramentas):
+  // sonnet gasta MUITO menos do limite do plano Claude que o opus (default do claude).
+  // '' = usa o padrao do claude. Editavel em Sistema. Sonnet e o default por economia.
+  reviewModel: 'sonnet',
+  // classificacao automatica de pushback consome 1 sessao Claude por PR contestado.
+  // Default OFF pra nao comer o limite do plano; ligue em Sistema se quiser. A marcacao
+  // manual de pushback (em Revisoes recentes) segue funcionando de qualquer jeito.
+  autoPushback: false,
+  claudeConfigDir: ''
 };
 
 // Parseia a config de reviewers por projeto. Aceita ja um objeto (map) ou o
@@ -1099,28 +1108,39 @@ class Engine extends EventEmitter {
       this.unsee(pr.key);
       // volta VISÍVEL pra fila na hora (não só no próximo ciclo)
       if (!this.queue.some(p => p.key === pr.key)) this.queue.push(pr);
-      const netErr = /ECONNRESET|ENOTFOUND|ETIMEDOUT|Connection closed|Unable to connect|fetch failed|network/i.test(err.message);
+      const msg = err.message || '';
+      // TRANSITÓRIO (se resolve sozinho, não estaciona): queda de rede, limite do
+      // plano Claude (reseta), ou o binário do claude quebrado/indisponível.
+      const limitErr = /hit your (session|usage|weekly) limit|session limit|usage limit/i.test(msg);
+      const netErr = /ECONNRESET|ENOTFOUND|ETIMEDOUT|Connection closed|Unable to connect|fetch failed|network/i.test(msg);
+      const toolErr = /não é reconhecido|not recognized|No such file|ENOENT|command not found|saiu com c[óo]digo \d/i.test(msg);
+      const transient = limitErr || netErr || toolErr;
       if (err.cancelled) {
         // cancelado por você: estaciona pra não relançar sozinho (você reabre quando quiser)
         this.autoReviewParked.add(pr.key);
         this.emit('toast', { kind: 'info', text: `Revisão de ${pr.key} cancelada. O PR voltou pra sua fila.` });
-      } else if (netErr) {
-        this.log('ERROR', `revisao autonoma ${pr.key}: ${err.message}`);
+      } else if (transient) {
+        // limite do plano se resolve no reset; rede/binário costumam voltar rápido.
+        // Retoma sozinho no próximo ciclo bem-sucedido, até um teto (aí estaciona).
+        const cap = limitErr ? 12 : 3;
         const tries = this.retryAfterNet.get(pr.key) || 0;
-        if (tries < 2) {
+        this.log('WARN', `revisao ${pr.key} (transitório, tenta de novo): ${msg}`);
+        if (tries < cap) {
           this.retryAfterNet.set(pr.key, tries + 1);
-          this.emit('toast', { kind: 'error', text: `Revisão de ${pr.key} caiu (parece queda de rede). Relanço sozinho quando a conexão voltar; o PR está na sua fila.` });
+          this.emit('toast', { kind: 'error', text: limitErr
+            ? `Limite do teu plano Claude atingido. Retomo ${pr.key} sozinho quando resetar; ele está na sua fila.`
+            : `Revisão de ${pr.key} caiu por algo transitório; tento de novo no próximo ciclo. Está na sua fila.` });
         } else {
-          // esgotou o retry de rede: estaciona (aguarda ação manual, não fica em loop)
           this.retryAfterNet.delete(pr.key);
           this.autoReviewParked.add(pr.key);
-          this.emit('toast', { kind: 'error', text: `Revisão de ${pr.key} caiu de novo por rede; desisti de tentar sozinho. O PR está na sua fila.` });
+          this.log('ERROR', `revisao autonoma ${pr.key}: ${msg}`);
+          this.emit('toast', { kind: 'error', text: `Revisão de ${pr.key} falhou várias vezes; parei de tentar sozinho. O PR está na sua fila.` });
         }
       } else {
-        // falha não-transitória: estaciona pra não relançar em loop toda checagem
+        // falha não-transitória de verdade: estaciona pra não relançar em loop
         this.autoReviewParked.add(pr.key);
-        this.log('ERROR', `revisao autonoma ${pr.key}: ${err.message}`);
-        this.emit('toast', { kind: 'error', text: `Revisão de ${pr.key} falhou: ${err.message}` });
+        this.log('ERROR', `revisao autonoma ${pr.key}: ${msg}`);
+        this.emit('toast', { kind: 'error', text: `Revisão de ${pr.key} falhou: ${msg}` });
       }
     } finally {
       this.headlessBusyAccounts.delete(acct);
@@ -1266,7 +1286,10 @@ class Engine extends EventEmitter {
   // envelope JSON simples (fallback no close).
   runClaudeStream(prompt, opts = {}) {
     const stub = process.env.FAROL_HEADLESS_CMD;
-    const base = stub || 'claude -p --output-format stream-json --verbose --dangerously-skip-permissions';
+    // modelo leve (Sonnet) nas sessoes autonomas gasta bem menos do limite do plano
+    const model = String((this.config && this.config.reviewModel) || '').trim();
+    const modelArg = (!stub && model) ? ` --model ${model}` : '';
+    const base = (stub || 'claude -p --output-format stream-json --verbose --dangerously-skip-permissions') + modelArg;
     const extra = (opts.extraArgs || []).join(' ');
     const cmdline = extra ? `${base} ${extra}` : base;
     const onEvent = opts.onEvent || (() => { });
@@ -1739,6 +1762,7 @@ class Engine extends EventEmitter {
   // gatilho barato via gh evita acender IA à toa; a classificação é 1 sessão
   // Claude por candidato novo, LEITURA pura (nunca posta), limitada por ciclo.
   async scanPushbacks() {
+    if (!this.config.autoPushback) return; // opt-in: por padrão não gasta sessão Claude com isso
     if (this.pushbackScanning) return;
     this.pushbackScanning = true;
     try {
@@ -2738,7 +2762,7 @@ class Engine extends EventEmitter {
   updateSettings(patch) {
     const allowed = ['ghUser', 'owners', 'accounts', 'intervalSeconds', 'autoReview', 'autoApproveAll', 'skipPermissions',
       'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos',
-      'projectReviewers', 'defaultReviewers', 'people', 'claudeConfigDir'];
+      'projectReviewers', 'defaultReviewers', 'people', 'claudeConfigDir', 'reviewModel', 'autoPushback'];
     let intervalChanged = false, userChanged = false;
     for (const k of allowed) {
       if (!(k in patch)) continue;
@@ -2750,6 +2774,8 @@ class Engine extends EventEmitter {
       if (k === 'defaultReviewers') v = parseDefaultReviewers(v);
       if (k === 'people') v = parsePeople(v);
       if (k === 'claudeConfigDir') v = String(v || '').trim();
+      if (k === 'reviewModel') { v = String(v || '').trim().toLowerCase(); if (!['', 'sonnet', 'haiku', 'opus'].includes(v)) v = this.config.reviewModel; }
+      if (k === 'autoPushback') v = !!v;
       if (k === 'accounts') {
         v = parseAccounts(v);
         // só re-autentica se as CONTAS (user/owners) mudaram; editar rótulo, cor,
