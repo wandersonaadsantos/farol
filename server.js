@@ -434,6 +434,16 @@ class Engine extends EventEmitter {
         }
       }
     } catch { /* semear prompt novo nunca derruba o boot */ }
+    // PROTOCOLO de review (formato/tom) é do Farol, não do usuário: mantém sincronizado
+    // com a fonte a cada boot, pra mudanças (ex.: review humano/personalizado) chegarem
+    // nas cópias já semeadas. NUNCA toca em state/ (dados do usuário) nem em settings.json.
+    try {
+      const synced = ['CLAUDE.md', path.join('prompts', 'pr-review-auto.md'), path.join('prompts', 'self-review.md'), path.join('.claude', 'agents', 'pr-reviewer.md')];
+      for (const rel of synced) {
+        const src = path.join(TEMPLATE_DIR, rel), dst = path.join(WORKSPACE, rel);
+        if (fs.existsSync(src)) { ensureDir(path.dirname(dst)); fs.copyFileSync(src, dst); }
+      }
+    } catch { /* sincronizar o protocolo nunca derruba o boot */ }
     if (!fs.existsSync(CONFIG_FILE)) this.saveConfig();
     this.ensureWorkspaceTrusted();
   }
@@ -1221,13 +1231,30 @@ class Engine extends EventEmitter {
     return block;
   }
 
+  // Como escrever o corpo POSTADO no PR: humano, personalizado, objetivo e
+  // profissional, adaptado à senioridade do autor (usa o Perfil do autor acima).
+  // PREVALECE sobre o formato do CLAUDE.md. Injetado SEMPRE, pra o review nunca
+  // sair com cara de bot (era a queixa: carimbos e template robótico).
+  reviewFormatBlock() {
+    return `\n\n## Como escrever o corpo do review postado no PR (PREVALECE sobre o formato do CLAUDE.md)\n` +
+      `Escreva como o Wanderson escreveria: uma pessoa sênior revisando o PR de um colega, não uma ferramenta. Personalizado, objetivo e profissional.\n` +
+      `- **Sem cara de bot:** NADA de caixas de alerta (\`> [!NOTE]\`/\`> [!WARNING]\`), nem "Placar", nem checklist de critérios com \`- [x]\`, nem os prefixos de Conventional Comments no texto ("🟡 suggestion (non-blocking):", "🔴 issue (blocking):" e afins). NUNCA cite automação, "Farol", "auto-aprovei/não auto-aprovei" nem "revisão automática": o autor não pode perceber que veio de um bot.\n` +
+      `- **Use TODO o perfil do autor acima** (papel, competência por domínio, histórico de pushback) pra personalizar tom, profundidade e deferência, e adapte o FORMATO à senioridade:\n` +
+      `  - Estágio/Júnior: prosa acolhedora de mentor. Abra reconhecendo o que ficou bom de verdade (específico, com o porquê), explique cada ajuste ensinando ("o que segura o merge é..."), enquadre como "quase lá", feche natural.\n` +
+      `  - Pleno/Sênior/Tech Lead/Arquiteto: enxuto e direto, de par pra par. Vá aos pontos técnicos sem preâmbulo nem elogio de consolo, assumindo contexto compartilhado.\n` +
+      `  - Especialista: no domínio dele, defira e foque na nuance; fora, trate como par.\n` +
+      `  - Sem perfil marcado: tom neutro, direto e cordial.\n` +
+      `- **Tom do Wanderson:** direto e claro, sem gíria nem subtexto, **sem travessão** (use vírgula, parênteses ou dois pontos). Elogio só quando sincero e específico (nunca de consolo). Português brasileiro.\n` +
+      `- **Substância intacta:** blockers e ressalvas entram no texto de forma natural (o que é, por que importa, o que muda), com \`arquivo:linha\` quando ajudar. Muda só COMO você escreve, nunca a decisão nem o rigor. Comentários inline também sem os prefixos de label: escreva como observação humana.\n`;
+  }
+
   headlessPromptFor(url, author) {
     const candidates = [
       path.join(WORKSPACE, 'prompts', 'pr-review-auto.md'),
       path.join(TEMPLATE_DIR, 'prompts', 'pr-review-auto.md')
     ];
     for (const f of candidates) {
-      try { return fs.readFileSync(f, 'utf8').replaceAll('{{URL}}', url) + this.personProfileBlock(author); } catch { }
+      try { return fs.readFileSync(f, 'utf8').replaceAll('{{URL}}', url) + this.personProfileBlock(author) + this.reviewFormatBlock(); } catch { }
     }
     throw new Error('template prompts/pr-review-auto.md não encontrado');
   }
@@ -1454,13 +1481,11 @@ class Engine extends EventEmitter {
           this.emit('toast', { kind: 'info', text: `${pr.key}: você já tinha aprovado no GitHub; não postei de novo.` });
           return;
         }
-        // pontos de atenção: anexados ao corpo do APPROVE (ficam visíveis no PR) e
-        // guardados no histórico (a UI mostra em Revisões recentes)
+        // o corpo do APPROVE vai LIMPO, do jeito que o review escreveu (tem que
+        // parecer humano, teu). As ressalvas ficam guardadas no app (campo attention,
+        // visível em Revisões recentes), não coladas no PR com carimbo de automação.
         const points = this.attentionPoints(result);
-        const approve = points.length
-          ? { ...result.payloads.approve, body: this.approveBodyWithPoints(result.payloads.approve.body, points) }
-          : result.payloads.approve;
-        const post = await this.postReview(pr, approve);
+        const post = await this.postReview(pr, result.payloads.approve);
         if (post.ok) {
           this.recordDecision(pr, result, { status: 'auto_approved', action: 'approve', attention: points });
           this.writeMemory(result, 'APPROVE');
@@ -2177,9 +2202,9 @@ class Engine extends EventEmitter {
 
   // Marca o corpo do REQUEST_CHANGES automático, pro autor saber que foi o Farol.
   rejectBodyWithMark(body) {
-    const base = String(body || '').trim();
-    const mark = '_Pedido de mudanças automático pelo Farol (revisão autônoma). Os pontos abaixo precisam de ajuste._';
-    return base ? `${mark}\n\n${base}` : mark;
+    // o corpo vai como está: nada de carimbo de "automático", o review tem que
+    // parecer o teu, humano. A rastreabilidade de que foi o Farol fica só no app.
+    return String(body || '').trim();
   }
 
   // Pontos de atenção de uma revisão aprovável: as ressalvas que a sessão levantou
@@ -2192,13 +2217,6 @@ class Engine extends EventEmitter {
     return pts;
   }
 
-  // Anexa os pontos de atenção ao corpo do APPROVE, pra ficarem visíveis no próprio PR.
-  approveBodyWithPoints(body, pts) {
-    const base = String(body || '').trim();
-    if (!pts || !pts.length) return base;
-    const block = '**Pontos de atenção (aprovado automaticamente pelo Farol):**\n' + pts.map(p => `- ${p}`).join('\n');
-    return base ? `${base}\n\n${block}` : block;
-  }
 
   async postReview(pr, payload) {
     try {
