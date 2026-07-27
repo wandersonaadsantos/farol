@@ -235,12 +235,12 @@
       <div class="field">
         <label for="setReviewModel">Modelo das revisões automáticas</label>
         <select id="setReviewModel">
-          <option value="sonnet">Sonnet (leve, gasta bem menos do teu limite)</option>
+          <option value="">Padrão do claude (Opus, melhor qualidade)</option>
+          <option value="opus">Opus (explícito)</option>
+          <option value="sonnet">Sonnet (mais leve, se quiser poupar o limite)</option>
           <option value="haiku">Haiku (o mais leve)</option>
-          <option value="opus">Opus (melhor, gasta muito mais)</option>
-          <option value="">Padrão do claude</option>
         </select>
-        <small>Modelo que o Farol usa nas sessões autônomas (review, pushback, autoanálise). Sonnet consome muito menos do teto do teu plano Claude que o Opus; a sessão no terminal não é afetada.</small>
+        <small>Modelo que o Farol usa nas sessões autônomas (review, pushback, autoanálise). O padrão é o melhor (Opus); só troque pra Sonnet/Haiku se um dia quiser economizar o teto do teu plano. A sessão no terminal não é afetada.</small>
       </div>
       <label class="switch-row">
         <input id="setAutoReview" type="checkbox">
@@ -260,7 +260,7 @@
       <label class="switch-row">
         <input id="setAutoPushback" type="checkbox">
         <span class="switch"></span>
-        <span>Detectar pushback automaticamente<br><small>Roda 1 sessão do Claude por PR que o autor contestar, pra classificar o desfecho. Consome do teu limite; por isso vem <b>desligado</b>. A marcação manual (em Revisões recentes) funciona sempre.</small></span>
+        <span>Detectar pushback automaticamente<br><small>Roda 1 sessão do Claude por PR que o autor contestar, pra classificar o desfecho. Vem <b>ligado</b>; desligue se um dia quiser poupar o teu limite. A marcação manual (em Revisões recentes) funciona sempre.</small></span>
       </label>
       <label class="switch-row">
         <input id="setSound" type="checkbox">

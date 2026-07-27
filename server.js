@@ -109,14 +109,14 @@ const DEFAULTS = {
   // repo esta aqui, essa lista SUBSTITUI o padrao da org (nao soma). Repo sem
   // excecao usa o defaultReviewers da org. Aceita pessoas e times (org/time-slug).
   projectReviewers: {},
-  // MODELO das sessoes autonomas do Farol (review/pushback/autoanalise/ferramentas):
-  // sonnet gasta MUITO menos do limite do plano Claude que o opus (default do claude).
-  // '' = usa o padrao do claude. Editavel em Sistema. Sonnet e o default por economia.
-  reviewModel: 'sonnet',
-  // classificacao automatica de pushback consome 1 sessao Claude por PR contestado.
-  // Default OFF pra nao comer o limite do plano; ligue em Sistema se quiser. A marcacao
-  // manual de pushback (em Revisoes recentes) segue funcionando de qualquer jeito.
-  autoPushback: false,
+  // MODELO das sessoes autonomas do Farol (review/pushback/autoanalise/ferramentas).
+  // Default '' = padrao do claude (Opus, MELHOR qualidade). E CONFIGURAVEL em Sistema:
+  // quem quiser economizar o limite do plano troca pra sonnet/haiku (gastam bem menos).
+  // Qualidade e a prioridade, entao o default e o modelo bom, nao o economico.
+  reviewModel: '',
+  // classificacao automatica de pushback (1 sessao Claude por PR contestado). Default ON
+  // (a funcionalidade que o Wanderson pediu); quem quiser poupar limite desliga em Sistema.
+  autoPushback: true,
   claudeConfigDir: ''
 };
 
