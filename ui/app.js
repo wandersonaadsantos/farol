@@ -832,6 +832,16 @@ document.addEventListener('click', (e) => {
   const btn = e.target.closest('.act-chat');
   if (btn) openChat(btn.dataset.key, btn.dataset.url || null);
 });
+/* consultar um PR por URL: abre a conversa salva mesmo que ele não esteja na lista
+   (some do "Revisões recentes" por escopo ou pelo limite de 30). Reusa o chat. */
+$('#lookupForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const url = ($('#lookupUrl').value || '').trim();
+  const m = url.match(/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)/i);
+  if (!m) { toast('error', 'Cole a URL de um PR do GitHub (…/pull/NN).'); return; }
+  openChat(`${m[1]}#${m[2]}`, url);
+  $('#lookupUrl').value = '';
+});
 
 /* ---------- render: decisoes pendentes ---------- */
 function renderDecisions() {
@@ -880,10 +890,16 @@ function pushbackControl(r) {
   const author = (r.pr && r.pr.author) || r.author || '';
   if (!author) return '';
   const pb = pushbackOf(r.key);
-  const sum = pb ? `↩ ${esc(PB_SHORT[pb.outcome] || 'pushback')}` : '↩ pushback?';
-  return `<details class="pushback"${pb ? ' data-set="1"' : ''}>
-    <summary title="Registrar que o autor contestou este review, pra calibrar reviews futuros dele">${sum}</summary>
+  const pending = pb && pb.status === 'pending';    // auto em dúvida: pede confirmação
+  const sum = pending ? `↩ confirmar: ${esc(PB_SHORT[pb.outcome] || 'pushback')}?`
+    : pb ? `↩ ${esc(PB_SHORT[pb.outcome] || 'pushback')}${pb.source === 'auto' ? ' (auto)' : ''}`
+      : '↩ pushback?';
+  const title = pending ? 'O Farol suspeita de pushback aqui; confirme ou corrija o desfecho'
+    : 'Marque se o autor contestou este review, pra calibrar os reviews futuros dele';
+  return `<details class="pushback"${pb ? ' data-set="1"' : ''}${pending ? ' data-pending="1" open' : ''}>
+    <summary title="${title}">${sum}</summary>
     <div class="pb-body">
+      ${pending ? `<span class="pb-hint">O Farol detectou possível pushback${pb.note ? ` (${esc(pb.note)})` : ''}. Confirme o desfecho:</span>` : ''}
       <select class="pb-outcome" data-key="${esc(r.key)}" data-author="${esc(author)}">
         ${PB_OPTS.map(([v, t]) => `<option value="${v}"${pb && pb.outcome === v ? ' selected' : ''}>${t}</option>`).join('')}
       </select>
@@ -897,7 +913,7 @@ function submitPushback(el) {
   const key = sel.dataset.key, author = sel.dataset.author, outcome = sel.value;
   const noteVal = outcome ? (note.value || '').trim() : '';
   const map = { ...(STATE.pushbacks || {}) };   // otimista, pra o controle não piscar
-  if (outcome) map[key] = { author: String(author).toLowerCase(), outcome, note: noteVal, at: Date.now() };
+  if (outcome) map[key] = { author: String(author).toLowerCase(), outcome, note: noteVal, at: Date.now(), source: 'manual', status: 'confirmed' };
   else delete map[key];
   STATE.pushbacks = map;
   api('/api/pushback', { key, author, outcome, note: noteVal });
@@ -1492,7 +1508,13 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
-  ['2.17.0', ['Nova aba Entregas: veja os PRs mergeados (por qualquer pessoa, não só o que o Farol revisou), agrupados por repositório ou por responsável, com o período escolhível (hoje, 7, 15 ou 30 dias). A visão é por organização: a sua principal já vem selecionada e você troca pra outra org num clique (com mais de uma conta, cada org aparece com a conta dona). É a visão de atualização dos projetos e de quem está entregando. Só leitura.']],
+  ['2.22.0', ['Nova aba Entregas: veja os PRs mergeados (por qualquer pessoa, não só o que o Farol revisou), agrupados por repositório ou por responsável, com o período escolhível (hoje, 7, 15 ou 30 dias). A visão é por organização: a sua principal já vem selecionada e você troca pra outra org num clique (com mais de uma conta, cada org aparece com a conta dona). É a visão de atualização dos projetos e de quem está entregando. Só leitura.']],
+  ['2.21.0', ['As revisões que o Farol posta passam a parecer escritas por você, não por um bot. Saíram os carimbos de automação ("aprovado automaticamente pelo Farol", "por isso não auto-aprovei") e o formato rígido de template (caixas de alerta, Placar, checklist de critérios, prefixos "suggestion (non-blocking)"). O review sai no seu tom, direto e sem travessão, e o formato se adapta à senioridade do autor: estágio/júnior vira prosa de mentor; pleno/sênior/arquiteto fica enxuto e direto. Usa todo o perfil da pessoa pra personalizar, sem mudar a decisão nem o rigor. As ressalvas de um PR auto-aprovado seguem visíveis em Revisões recentes, só não vão mais coladas no PR.']],
+  ['2.20.0', ['Dá pra consultar a conversa de qualquer PR pela URL. Um campo discreto embaixo de "Revisões recentes": cole a URL do PR e o Farol abre o chat salvo daquele review, mesmo que o PR já tenha saído da lista (pelo limite de 30 recentes ou por estar numa conta que não é a selecionada). Reusa o painel de chat de sempre, o resto do fluxo não muda, e as conversas ficam guardadas mesmo depois que a revisão sai do histórico.']],
+  ['2.19.1', ['Qualidade de volta como padrão. Na v2.19.0 eu tinha posto Sonnet e o pushback desligado como padrão (mirando economia); revertido. O padrão volta a ser o Opus (melhor) e o pushback automático ligado. As opções de economia (Sonnet/Haiku, desligar pushback) seguem em Sistema pra quem quiser, mas não são o padrão. E o conserto que importa fica: se o limite do plano estourar, o Farol retoma sozinho no reset, sem largar o PR sem análise.']],
+  ['2.19.0', ['O Farol passa a gastar bem menos do teu limite do Claude. As revisões automáticas agora rodam em Sonnet por padrão (consome muito menos do teto do plano que o Opus); dá pra trocar o modelo em Sistema, e a sessão de terminal não muda. A detecção automática de pushback virou opt-in (roda uma sessão do Claude por PR contestado, então vem desligada; a marcação manual segue sempre). E quando uma revisão falha por algo transitório (limite do plano atingido, rede, claude indisponível), o Farol retoma sozinho no próximo ciclo em vez de largar o PR na fila sem análise.']],
+  ['2.18.0', ['Dá pra escolher qual assinatura do Claude o Farol usa. No campo "Assinatura do Claude" (Sistema), aponte um diretório de config próprio logado noutra conta, e as sessões do Farol (automáticas e de terminal) passam a usar aquela assinatura, sem mexer no seu login principal do claude (o de codar). Útil pra não deixar as revisões e a classificação de pushback comendo a sua conta de trabalho. Faça claude login nesse diretório uma vez; a aba Saúde mostra a conta em uso e avisa se faltar login. Alternar de assinatura é só trocar o caminho (vazio volta pra padrão da máquina).']],
+  ['2.17.0', ['O pushback passou a ser detectado sozinho, direto do PR. Quando o autor contesta um review seu (responde, rebate, re-pede review), o Farol percebe e classifica o desfecho (autor tinha razão, você tinha, ou meio-termo) sem você marcar à mão. Funciona assim: um gatilho barato vê se o autor teve atividade depois do seu review; só aí o Farol lê a thread (leitura pura, nunca posta) pra julgar. Desfecho claro entra sozinho; em dúvida, aparece um "confirmar?" em Revisões recentes com o desfecho sugerido, pra você resolver num toque só os ambíguos. Isso calibra o tom dos reviews futuros da pessoa, sem mexer na decisão técnica. A marcação manual segue como correção quando você discordar do que o Farol inferiu.']],
   ['2.16.1', ['Pente-fino de uma revisão do projeto. Correções: não duplica mais a revisão de um PR que já estava em análise (clique ou dois cliques rápidos); aprovação por conta mais segura (se os PRs impecáveis aguardam sua ação, os com ressalva também aguardam, corrigindo um caso de configuração invertida); o seletor de papel no card do PR não fecha mais sozinho no meio da escolha; e o kudos sempre mostra a conta certa ao abrir Destaques. Esta lista de novidades também recuperou as versões 2.0.0 e 1.19.0 que tinham sido puladas.']],
   ['2.16.0', ['O Farol passa a lembrar dos pushbacks. Quando um review seu é contestado, você registra na linha de "Revisões recentes" o desfecho (o autor tinha razão, nós tínhamos razão, ou meio-termo) e uma nota curta opcional. Nas próximas revisões automáticas daquela pessoa, o Farol leva esse histórico em conta pra calibrar a postura: onde ela já mostrou que estava certa, afirma com mais humildade antes de apontar algo parecido; onde você estava certo, mantém a posição. Mexe só no tom e na postura, nunca na decisão técnica.']],
   ['2.15.0', ['A senioridade virou um perfil de verdade, com dois eixos. O papel cobre carreira e posição (Estágio, Júnior, Pleno, Sênior, mais Tech Lead, Arquiteto e Especialista) e dá o tom-base. A matriz por domínio (Backend, Frontend, Dados, Infra, de Básico a Autoridade) reconhece que a pessoa pode ser autoridade numa área e estar começando em outra: onde é autoridade o review defere e foca no alto nível; onde está começando, explica mais e cuida dos fundamentos. Segue mexendo só no tom e na postura, nunca na decisão técnica. O papel se marca no card do PR e na aba Time; a matriz fica na aba Time. Quem já estava marcado como Estágio/Júnior/Pleno/Sênior migra sozinho pro papel.']],
@@ -1814,10 +1836,13 @@ function renderSettings() {
   setIf($('#setUser'), c.ghUser);
   setIf($('#setOwners'), (c.owners || []).join(', '));
   setIf($('#setMergeBlocked'), (c.mergeBlockedRepos || []).join(', '));
+  setIf($('#setClaudeConfigDir'), c.claudeConfigDir || '');
   renderReviewersEditor();
   $('#setInterval').value = String(c.intervalSeconds);
+  $('#setReviewModel').value = (c.reviewModel != null ? c.reviewModel : '');
   $('#setAutoReview').checked = !!c.autoReview;
   $('#setAutoApproveAll').checked = c.autoApproveAll !== false;
+  $('#setAutoPushback').checked = !!c.autoPushback;
   $('#setSkipPerms').checked = !!c.skipPermissions;
   $('#setSound').checked = !!c.soundEnabled;
   $('#setAutostart').checked = !!c.autostart;
@@ -1912,6 +1937,7 @@ async function buildDiagnostics() {
     'Ambiente (doctor):',
     `  gh: ${d.gh || 'NAO ENCONTRADO'}`,
     `  claude: ${d.claude || 'NAO ENCONTRADO'}`,
+    `  assinatura Claude: ${d.claudeAuth ? ((d.claudeAuth.configDir ? 'dir próprio (' + d.claudeAuth.configDir + ')' : 'padrão da máquina') + (d.claudeAuth.account ? ' · conta ' + d.claudeAuth.account : '') + (d.claudeAuth.ready === false ? ' · SEM LOGIN (rode: claude login nesse dir)' : '')) : '?'}`,
     `  git bash: ${d.gitBash || '(n/a)'}`,
     `  conta primária autenticada no gh: ${d.ghAuth ? 'sim' : 'NAO'}`,
     `  workspace: ${d.workspace || s.paths?.workspace || '?'}`,
@@ -2069,7 +2095,10 @@ const settingsMap = [
   ['#setUser', 'ghUser', el => el.value],
   ['#setOwners', 'owners', el => el.value],
   ['#setMergeBlocked', 'mergeBlockedRepos', el => el.value],
+  ['#setClaudeConfigDir', 'claudeConfigDir', el => el.value],
   ['#setInterval', 'intervalSeconds', el => parseInt(el.value, 10)],
+  ['#setReviewModel', 'reviewModel', el => el.value],
+  ['#setAutoPushback', 'autoPushback', el => el.checked],
   ['#setAutoReview', 'autoReview', el => el.checked],
   ['#setAutoApproveAll', 'autoApproveAll', el => el.checked],
   ['#setSkipPerms', 'skipPermissions', el => el.checked],

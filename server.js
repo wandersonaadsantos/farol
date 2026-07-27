@@ -112,7 +112,16 @@ const DEFAULTS = {
   // EXCECOES por projeto: { "owner/repo": ["login", "org/time", ...] }. Quando um
   // repo esta aqui, essa lista SUBSTITUI o padrao da org (nao soma). Repo sem
   // excecao usa o defaultReviewers da org. Aceita pessoas e times (org/time-slug).
-  projectReviewers: {}
+  projectReviewers: {},
+  // MODELO das sessoes autonomas do Farol (review/pushback/autoanalise/ferramentas).
+  // Default '' = padrao do claude (Opus, MELHOR qualidade). E CONFIGURAVEL em Sistema:
+  // quem quiser economizar o limite do plano troca pra sonnet/haiku (gastam bem menos).
+  // Qualidade e a prioridade, entao o default e o modelo bom, nao o economico.
+  reviewModel: '',
+  // classificacao automatica de pushback (1 sessao Claude por PR contestado). Default ON
+  // (a funcionalidade que o Wanderson pediu); quem quiser poupar limite desliga em Sistema.
+  autoPushback: true,
+  claudeConfigDir: ''
 };
 
 // Parseia a config de reviewers por projeto. Aceita ja um objeto (map) ou o
@@ -348,7 +357,10 @@ class Engine extends EventEmitter {
     this.headlessQueue = [];
     this.headlessBusyAccounts = new Set(); // contas com revisão headless em andamento (1 por conta em paralelo)
     this.decisions = readJson(path.join(STATE_DIR, 'decisions.json'), { pending: [], resolved: [] });
-    this.pushbacks = readJson(path.join(STATE_DIR, 'pushbacks.json'), {}); // { key do PR: { author, outcome, note, at } }
+    this.pushbacks = readJson(path.join(STATE_DIR, 'pushbacks.json'), {}); // { key do PR: { author, outcome, note, at, source, status, confidence } }
+    // registros antigos (sem source) eram todos marcados à mão e confirmados
+    for (const v of Object.values(this.pushbacks)) { if (v && !v.source) { v.source = 'manual'; v.status = 'confirmed'; } }
+    this.pushbackScanned = readJson(path.join(STATE_DIR, 'pushback-scanned.json'), {}); // { key: marcador da última atividade do autor já avaliada }
     this.toolRuns = readJson(path.join(STATE_DIR, 'tool-results.json'), {});
     // kudos passou a ser POR CONTA (mapa escopo->execução); migra o formato antigo
     // (execução única, global) pro escopo "todas" ('*') pra não perder o que já existia
@@ -427,6 +439,16 @@ class Engine extends EventEmitter {
         }
       }
     } catch { /* semear prompt novo nunca derruba o boot */ }
+    // PROTOCOLO de review (formato/tom) é do Farol, não do usuário: mantém sincronizado
+    // com a fonte a cada boot, pra mudanças (ex.: review humano/personalizado) chegarem
+    // nas cópias já semeadas. NUNCA toca em state/ (dados do usuário) nem em settings.json.
+    try {
+      const synced = ['CLAUDE.md', path.join('prompts', 'pr-review-auto.md'), path.join('prompts', 'self-review.md'), path.join('.claude', 'agents', 'pr-reviewer.md')];
+      for (const rel of synced) {
+        const src = path.join(TEMPLATE_DIR, rel), dst = path.join(WORKSPACE, rel);
+        if (fs.existsSync(src)) { ensureDir(path.dirname(dst)); fs.copyFileSync(src, dst); }
+      }
+    } catch { /* sincronizar o protocolo nunca derruba o boot */ }
     if (!fs.existsSync(CONFIG_FILE)) this.saveConfig();
     this.ensureWorkspaceTrusted();
   }
@@ -642,6 +664,10 @@ class Engine extends EventEmitter {
     const tok = (user && this.tokens && this.tokens[user]) || this.token;
     if (tok) env.GH_TOKEN = tok;
     if (this.gitBash) env.CLAUDE_CODE_GIT_BASH_PATH = this.gitBash;
+    // assinatura do Claude que o Farol usa: se você apontar um config dir próprio
+    // (logado numa conta separada), as sessões headless usam ESSA assinatura, sem
+    // mexer no login principal do claude da máquina. Ver "Assinatura do Claude" no CLAUDE.md.
+    if (this.config.claudeConfigDir) env.CLAUDE_CONFIG_DIR = this.config.claudeConfigDir;
     return env;
   }
 
@@ -898,6 +924,9 @@ class Engine extends EventEmitter {
       try { await this.refreshMergeStates(); } catch (e) { this.log('WARN', `refreshMergeStates: ${e.message}`); }
       // stale: PRs que EU revisei e receberam commit novo depois (reativa o "Re-revisar")
       try { await this.refreshStaleStates(); } catch (e) { this.log('WARN', `refreshStaleStates: ${e.message}`); }
+      // pushback automático: contestação do autor a um review meu (fire-and-forget:
+      // roda em background pra não segurar a checagem, com guarda anti-concorrência)
+      this.scanPushbacks().catch(e => this.log('WARN', `scanPushbacks: ${e.message}`));
       // atualizacao (releases do GitHub pras copias distribuidas) a cada ciclo
       this.checkUpdate().catch(() => {});
       this.setStatus('idle');
@@ -933,11 +962,13 @@ class Engine extends EventEmitter {
     const stub = process.env.FAROL_REVIEW_CMD; // usado so em testes: substitui o claude
     const skip = this.config.skipPermissions ? ' --dangerously-skip-permissions' : '';
     const claudeLine = stub ? `${stub} "${slash}"` : `claude${skip} "${slash}"`;
+    const cfgDir = this.config.claudeConfigDir ? `set "CLAUDE_CONFIG_DIR=${this.config.claudeConfigDir}"` : 'rem sem config dir proprio';
     return [
       '@echo off',
       'chcp 65001>nul',
       'title Farol - sessao do Claude',
       `cd /d "${WORKSPACE}"`,
+      cfgDir,
       claudeLine,
       'echo.',
       'echo  [Farol] Sessao encerrada. Pressione qualquer tecla para fechar esta janela.',
@@ -966,6 +997,7 @@ class Engine extends EventEmitter {
       '}',
       'trap notify EXIT',
       'export GH_PAGER=cat PAGER=cat',
+      this.config.claudeConfigDir ? `export CLAUDE_CONFIG_DIR='${this.config.claudeConfigDir}'` : '# sem config dir proprio',
       `GH_TOKEN="$(gh auth token${userArg} 2>/dev/null)" && export GH_TOKEN`,
       claudeLine,
       'echo',
@@ -1152,28 +1184,39 @@ class Engine extends EventEmitter {
       this.unsee(pr.key);
       // volta VISÍVEL pra fila na hora (não só no próximo ciclo)
       if (!this.queue.some(p => p.key === pr.key)) this.queue.push(pr);
-      const netErr = /ECONNRESET|ENOTFOUND|ETIMEDOUT|Connection closed|Unable to connect|fetch failed|network/i.test(err.message);
+      const msg = err.message || '';
+      // TRANSITÓRIO (se resolve sozinho, não estaciona): queda de rede, limite do
+      // plano Claude (reseta), ou o binário do claude quebrado/indisponível.
+      const limitErr = /hit your (session|usage|weekly) limit|session limit|usage limit/i.test(msg);
+      const netErr = /ECONNRESET|ENOTFOUND|ETIMEDOUT|Connection closed|Unable to connect|fetch failed|network/i.test(msg);
+      const toolErr = /não é reconhecido|not recognized|No such file|ENOENT|command not found|saiu com c[óo]digo \d/i.test(msg);
+      const transient = limitErr || netErr || toolErr;
       if (err.cancelled) {
         // cancelado por você: estaciona pra não relançar sozinho (você reabre quando quiser)
         this.autoReviewParked.add(pr.key);
         this.emit('toast', { kind: 'info', text: `Revisão de ${pr.key} cancelada. O PR voltou pra sua fila.` });
-      } else if (netErr) {
-        this.log('ERROR', `revisao autonoma ${pr.key}: ${err.message}`);
+      } else if (transient) {
+        // limite do plano se resolve no reset; rede/binário costumam voltar rápido.
+        // Retoma sozinho no próximo ciclo bem-sucedido, até um teto (aí estaciona).
+        const cap = limitErr ? 12 : 3;
         const tries = this.retryAfterNet.get(pr.key) || 0;
-        if (tries < 2) {
+        this.log('WARN', `revisao ${pr.key} (transitório, tenta de novo): ${msg}`);
+        if (tries < cap) {
           this.retryAfterNet.set(pr.key, tries + 1);
-          this.emit('toast', { kind: 'error', text: `Revisão de ${pr.key} caiu (parece queda de rede). Relanço sozinho quando a conexão voltar; o PR está na sua fila.` });
+          this.emit('toast', { kind: 'error', text: limitErr
+            ? `Limite do teu plano Claude atingido. Retomo ${pr.key} sozinho quando resetar; ele está na sua fila.`
+            : `Revisão de ${pr.key} caiu por algo transitório; tento de novo no próximo ciclo. Está na sua fila.` });
         } else {
-          // esgotou o retry de rede: estaciona (aguarda ação manual, não fica em loop)
           this.retryAfterNet.delete(pr.key);
           this.autoReviewParked.add(pr.key);
-          this.emit('toast', { kind: 'error', text: `Revisão de ${pr.key} caiu de novo por rede; desisti de tentar sozinho. O PR está na sua fila.` });
+          this.log('ERROR', `revisao autonoma ${pr.key}: ${msg}`);
+          this.emit('toast', { kind: 'error', text: `Revisão de ${pr.key} falhou várias vezes; parei de tentar sozinho. O PR está na sua fila.` });
         }
       } else {
-        // falha não-transitória: estaciona pra não relançar em loop toda checagem
+        // falha não-transitória de verdade: estaciona pra não relançar em loop
         this.autoReviewParked.add(pr.key);
-        this.log('ERROR', `revisao autonoma ${pr.key}: ${err.message}`);
-        this.emit('toast', { kind: 'error', text: `Revisão de ${pr.key} falhou: ${err.message}` });
+        this.log('ERROR', `revisao autonoma ${pr.key}: ${msg}`);
+        this.emit('toast', { kind: 'error', text: `Revisão de ${pr.key} falhou: ${msg}` });
       }
     } finally {
       this.headlessBusyAccounts.delete(acct);
@@ -1189,14 +1232,18 @@ class Engine extends EventEmitter {
     return map[String(login || '').toLowerCase()] || {};
   }
   // pushbacks registrados pra uma pessoa (mais recentes primeiro)
+  // pushbacks de uma pessoa que já valem pra calibrar o review: confirmados
+  // (manual ou auto de alta confiança). Os "pending" (auto em dúvida) NÃO entram
+  // até você confirmar, pra não calibrar em cima de um palpite incerto.
   pushbacksFor(login) {
     const u = String(login || '').toLowerCase();
     return Object.entries(this.pushbacks || {})
-      .filter(([, v]) => v && String(v.author || '').toLowerCase() === u)
+      .filter(([, v]) => v && v.status !== 'pending' && String(v.author || '').toLowerCase() === u)
       .map(([key, v]) => ({ ...v, key }))
       .sort((a, b) => (b.at || 0) - (a.at || 0));
   }
-  // registra/edita/limpa o pushback de um review (por PR). outcome vazio = limpar.
+  // registra/edita/limpa o pushback de um review PELA SUA MÃO (por PR). Sempre
+  // confirmado e marcado como manual (é você resolvendo). outcome vazio = limpar.
   recordPushback(body) {
     const key = String((body && body.key) || '').trim();
     if (!key) return { ok: false, error: 'sem PR' };
@@ -1204,10 +1251,12 @@ class Engine extends EventEmitter {
     if (!outcome) { delete this.pushbacks[key]; this.savePushbacks(); return { ok: true }; }
     if (!PUSHBACK_OUTCOMES.includes(outcome)) return { ok: false, error: 'desfecho inválido' };
     this.pushbacks[key] = {
-      author: String((body && body.author) || '').trim().toLowerCase(),
+      author: String((body && body.author) || (this.pushbacks[key] && this.pushbacks[key].author) || '').trim().toLowerCase(),
       outcome,
       note: String((body && body.note) || '').trim().slice(0, 300),
-      at: Date.now()
+      at: Date.now(),
+      source: 'manual',
+      status: 'confirmed'
     };
     this.savePushbacks();
     return { ok: true };
@@ -1216,6 +1265,10 @@ class Engine extends EventEmitter {
     try { fs.writeFileSync(path.join(STATE_DIR, 'pushbacks.json'), JSON.stringify(this.pushbacks, null, 2)); }
     catch (err) { this.log('ERROR', `salvar pushbacks.json: ${err.message}`); }
     this.pushState();
+  }
+  savePushbackScanned() {
+    try { fs.writeFileSync(path.join(STATE_DIR, 'pushback-scanned.json'), JSON.stringify(this.pushbackScanned, null, 2)); }
+    catch { /* best-effort: perder o marcador só faz reavaliar depois, não quebra */ }
   }
 
   // bloco injetado no prompt de revisão: ajusta TOM + POSTURA, nunca a decisão.
@@ -1244,13 +1297,30 @@ class Engine extends EventEmitter {
     return block;
   }
 
+  // Como escrever o corpo POSTADO no PR: humano, personalizado, objetivo e
+  // profissional, adaptado à senioridade do autor (usa o Perfil do autor acima).
+  // PREVALECE sobre o formato do CLAUDE.md. Injetado SEMPRE, pra o review nunca
+  // sair com cara de bot (era a queixa: carimbos e template robótico).
+  reviewFormatBlock() {
+    return `\n\n## Como escrever o corpo do review postado no PR (PREVALECE sobre o formato do CLAUDE.md)\n` +
+      `Escreva como o Wanderson escreveria: uma pessoa sênior revisando o PR de um colega, não uma ferramenta. Personalizado, objetivo e profissional.\n` +
+      `- **Sem cara de bot:** NADA de caixas de alerta (\`> [!NOTE]\`/\`> [!WARNING]\`), nem "Placar", nem checklist de critérios com \`- [x]\`, nem os prefixos de Conventional Comments no texto ("🟡 suggestion (non-blocking):", "🔴 issue (blocking):" e afins). NUNCA cite automação, "Farol", "auto-aprovei/não auto-aprovei" nem "revisão automática": o autor não pode perceber que veio de um bot.\n` +
+      `- **Use TODO o perfil do autor acima** (papel, competência por domínio, histórico de pushback) pra personalizar tom, profundidade e deferência, e adapte o FORMATO à senioridade:\n` +
+      `  - Estágio/Júnior: prosa acolhedora de mentor. Abra reconhecendo o que ficou bom de verdade (específico, com o porquê), explique cada ajuste ensinando ("o que segura o merge é..."), enquadre como "quase lá", feche natural.\n` +
+      `  - Pleno/Sênior/Tech Lead/Arquiteto: enxuto e direto, de par pra par. Vá aos pontos técnicos sem preâmbulo nem elogio de consolo, assumindo contexto compartilhado.\n` +
+      `  - Especialista: no domínio dele, defira e foque na nuance; fora, trate como par.\n` +
+      `  - Sem perfil marcado: tom neutro, direto e cordial.\n` +
+      `- **Tom do Wanderson:** direto e claro, sem gíria nem subtexto, **sem travessão** (use vírgula, parênteses ou dois pontos). Elogio só quando sincero e específico (nunca de consolo). Português brasileiro.\n` +
+      `- **Substância intacta:** blockers e ressalvas entram no texto de forma natural (o que é, por que importa, o que muda), com \`arquivo:linha\` quando ajudar. Muda só COMO você escreve, nunca a decisão nem o rigor. Comentários inline também sem os prefixos de label: escreva como observação humana.\n`;
+  }
+
   headlessPromptFor(url, author) {
     const candidates = [
       path.join(WORKSPACE, 'prompts', 'pr-review-auto.md'),
       path.join(TEMPLATE_DIR, 'prompts', 'pr-review-auto.md')
     ];
     for (const f of candidates) {
-      try { return fs.readFileSync(f, 'utf8').replaceAll('{{URL}}', url) + this.personProfileBlock(author); } catch { }
+      try { return fs.readFileSync(f, 'utf8').replaceAll('{{URL}}', url) + this.personProfileBlock(author) + this.reviewFormatBlock(); } catch { }
     }
     throw new Error('template prompts/pr-review-auto.md não encontrado');
   }
@@ -1309,7 +1379,10 @@ class Engine extends EventEmitter {
   // envelope JSON simples (fallback no close).
   runClaudeStream(prompt, opts = {}) {
     const stub = process.env.FAROL_HEADLESS_CMD;
-    const base = stub || 'claude -p --output-format stream-json --verbose --dangerously-skip-permissions';
+    // modelo leve (Sonnet) nas sessoes autonomas gasta bem menos do limite do plano
+    const model = String((this.config && this.config.reviewModel) || '').trim();
+    const modelArg = (!stub && model) ? ` --model ${model}` : '';
+    const base = (stub || 'claude -p --output-format stream-json --verbose --dangerously-skip-permissions') + modelArg;
     const extra = (opts.extraArgs || []).join(' ');
     const cmdline = extra ? `${base} ${extra}` : base;
     const onEvent = opts.onEvent || (() => { });
@@ -1474,13 +1547,11 @@ class Engine extends EventEmitter {
           this.emit('toast', { kind: 'info', text: `${pr.key}: você já tinha aprovado no GitHub; não postei de novo.` });
           return;
         }
-        // pontos de atenção: anexados ao corpo do APPROVE (ficam visíveis no PR) e
-        // guardados no histórico (a UI mostra em Revisões recentes)
+        // o corpo do APPROVE vai LIMPO, do jeito que o review escreveu (tem que
+        // parecer humano, teu). As ressalvas ficam guardadas no app (campo attention,
+        // visível em Revisões recentes), não coladas no PR com carimbo de automação.
         const points = this.attentionPoints(result);
-        const approve = points.length
-          ? { ...result.payloads.approve, body: this.approveBodyWithPoints(result.payloads.approve.body, points) }
-          : result.payloads.approve;
-        const post = await this.postReview(pr, approve);
+        const post = await this.postReview(pr, result.payloads.approve);
         if (post.ok) {
           this.recordDecision(pr, result, { status: 'auto_approved', action: 'approve', attention: points });
           this.writeMemory(result, 'APPROVE');
@@ -1775,6 +1846,104 @@ class Engine extends EventEmitter {
     const revSha = (revR.stdout || '').trim().replace(/^"|"$/g, '');
     if (!head || !revSha) return false;
     return head !== revSha;
+  }
+
+  // --- pushback automático: detecta e classifica a contestação do autor ------
+  // Best-effort (como o staleStates): qualquer incerteza não registra nada. O
+  // gatilho barato via gh evita acender IA à toa; a classificação é 1 sessão
+  // Claude por candidato novo, LEITURA pura (nunca posta), limitada por ciclo.
+  async scanPushbacks() {
+    if (!this.config.autoPushback) return; // opt-in: por padrão não gasta sessão Claude com isso
+    if (this.pushbackScanning) return;
+    this.pushbackScanning = true;
+    try {
+      const acts = this.reviewActions();
+      const targets = (this.panorama || []).filter(pr => {
+        if (this.isMuted(this.accountForPr(pr))) return false;
+        const a = acts[pr.key];
+        const reviewed = pr.reviewedByMe || (a && (a.kind === 'approve' || a.kind === 'request_changes'));
+        if (!reviewed) return false;
+        const seen = this.pushbackScanned[pr.key];
+        return !seen || (pr.updatedAt && String(pr.updatedAt) > String(seen)); // updatedAt = gate barato
+      });
+      const MAX_PER_CYCLE = 2; // limita sessões Claude por ciclo (custo / carga da máquina)
+      let classified = 0;
+      for (const pr of targets) {
+        if (classified >= MAX_PER_CYCLE) { this.log('WARN', `scanPushbacks: ${targets.length - classified} candidato(s) ficaram pro próximo ciclo`); break; }
+        try {
+          const det = await this.detectAuthorPushback(pr);
+          if (!det) continue; // não deu pra ler: tenta de novo depois (sem marcar)
+          this.pushbackScanned[pr.key] = det.marker; this.savePushbackScanned();
+          if (!det.hadActivity) continue; // autor não falou depois do meu review
+          classified++;
+          const cls = await this.classifyPushback(pr);
+          if (!cls || !cls.isPushback || cls.outcome === 'none' || !PUSHBACK_OUTCOMES.includes(cls.outcome)) continue;
+          const high = cls.confidence === 'high';
+          this.pushbacks[pr.key] = {
+            author: String(pr.author || '').toLowerCase(),
+            outcome: cls.outcome,
+            note: String(cls.note || '').trim().slice(0, 300),
+            at: Date.now(), source: 'auto',
+            confidence: high ? 'high' : 'low',
+            status: high ? 'confirmed' : 'pending'
+          };
+          this.savePushbacks();
+          this.emit('toast', high
+            ? { kind: 'info', text: `↩ Pushback em ${pr.key}: ${PUSHBACK_LABEL[cls.outcome] || cls.outcome}.` }
+            : { kind: 'info', text: `↩ Possível pushback em ${pr.key}: confirme o desfecho em Revisões recentes.` });
+        } catch (e) { this.log('WARN', `scanPushbacks ${pr.key}: ${e.message}`); }
+      }
+    } finally { this.pushbackScanning = false; }
+  }
+
+  // atividade do AUTOR depois do meu último review (gatilho barato). Devolve
+  // { marker, hadActivity } ou null quando não dá pra determinar (rede / sem review meu).
+  async detectAuthorPushback(pr) {
+    const repo = pr.repo || (pr.key || '').split('#')[0];
+    const number = pr.number || parseInt((pr.key || '').split('#')[1], 10);
+    const acc = this.accountForPr(pr);
+    const me = (acc || '').toLowerCase();
+    const author = String(pr.author || '').toLowerCase();
+    if (!repo || !number || !me || !author || author === me) return null;
+    const env = this.ghEnv(acc);
+    const revR = await run('gh', ['api', `repos/${repo}/pulls/${number}/reviews`,
+      '--jq', `[.[] | select((.user.login | ascii_downcase) == "${me}") | .submitted_at] | sort | last // ""`], { env });
+    if (!revR.ok) return null;
+    const myAt = (revR.stdout || '').trim().replace(/^"|"$/g, '');
+    if (!myAt) return null; // não tenho review registrado neste PR
+    const jq = `[.[] | select((.user.login | ascii_downcase) == "${author}") | .created_at | select(. > "${myAt}")]`;
+    const cR = await run('gh', ['api', `repos/${repo}/issues/${number}/comments`, '--jq', jq], { env });
+    const rcR = await run('gh', ['api', `repos/${repo}/pulls/${number}/comments`, '--jq', jq], { env });
+    const times = [];
+    for (const r of [cR, rcR]) if (r.ok) { try { for (const t of JSON.parse(r.stdout || '[]')) times.push(t); } catch { } }
+    const marker = times.sort().slice(-1)[0] || myAt; // sem atividade: marca o review (não reavalia até mudar)
+    return { marker, hadActivity: times.length > 0 };
+  }
+
+  // classifica a thread via Claude (leitura pura). Devolve { isPushback, outcome,
+  // confidence, note } ou null se falhar. Não registra em activeReviews (silencioso).
+  async classifyPushback(pr) {
+    const acc = this.accountForPr(pr);
+    const me = acc || '';
+    const prompt = `Você está rodando em modo AUTÔNOMO dentro do app Farol, sem ninguém na tela. NÃO faça perguntas, NÃO poste nada (só leitura via gh).\n\n` +
+      `Avalie se houve PUSHBACK do autor a um review MEU no PR: ${pr.url}\n` +
+      `"Eu" (revisor) sou @${me}; o autor do PR é @${pr.author}. Pushback = o autor CONTESTA/discorda de um ponto do MEU review (não conta só concordar, agradecer ou aplicar a mudança pedida).\n` +
+      `Leia a thread (meu review e as respostas do autor DEPOIS dele) e julgue o DESFECHO:\n` +
+      `- "author_right": o autor tinha razão (meu ponto não procedia, era intencional, ou eu recuei).\n` +
+      `- "we_right": eu tinha razão (o ponto procedia e foi acatado, ou o autor cedeu).\n` +
+      `- "mixed": parte de cada.\n` +
+      `- "none": não houve pushback de fato.\n` +
+      `confidence "high" só quando a thread deixa claro; na dúvida, "low".\n\n` +
+      `Sua saída final deve ser APENAS um bloco JSON, sem texto em volta: {"isPushback": true|false, "outcome": "author_right"|"we_right"|"mixed"|"none", "confidence": "high"|"low", "note": "1 linha curta do que foi contestado"}`;
+    const id = `pb${++this.sessionSeq}`;
+    const res = await this.runClaudeStream(prompt, { id, account: acc });
+    const text = this.parseEnvelope(res.text || '');
+    const a = text.indexOf('{'), b = text.lastIndexOf('}');
+    if (a < 0 || b <= a) return null;
+    try {
+      const d = JSON.parse(text.slice(a, b + 1));
+      return { isPushback: !!d.isPushback, outcome: d.outcome, confidence: d.confidence, note: d.note };
+    } catch { return null; }
   }
 
   // --- merge do MEU PR quando a MINHA autoanalise diz "aprovavel" -------------
@@ -2099,9 +2268,9 @@ class Engine extends EventEmitter {
 
   // Marca o corpo do REQUEST_CHANGES automático, pro autor saber que foi o Farol.
   rejectBodyWithMark(body) {
-    const base = String(body || '').trim();
-    const mark = '_Pedido de mudanças automático pelo Farol (revisão autônoma). Os pontos abaixo precisam de ajuste._';
-    return base ? `${mark}\n\n${base}` : mark;
+    // o corpo vai como está: nada de carimbo de "automático", o review tem que
+    // parecer o teu, humano. A rastreabilidade de que foi o Farol fica só no app.
+    return String(body || '').trim();
   }
 
   // Pontos de atenção de uma revisão aprovável: as ressalvas que a sessão levantou
@@ -2114,13 +2283,6 @@ class Engine extends EventEmitter {
     return pts;
   }
 
-  // Anexa os pontos de atenção ao corpo do APPROVE, pra ficarem visíveis no próprio PR.
-  approveBodyWithPoints(body, pts) {
-    const base = String(body || '').trim();
-    if (!pts || !pts.length) return base;
-    const block = '**Pontos de atenção (aprovado automaticamente pelo Farol):**\n' + pts.map(p => `- ${p}`).join('\n');
-    return base ? `${base}\n\n${block}` : block;
-  }
 
   async postReview(pr, payload) {
     try {
@@ -2641,6 +2803,21 @@ class Engine extends EventEmitter {
   }
 
   // --- diagnostico de pre-requisitos ---
+  // assinatura do Claude que as sessões do Farol usam (best-effort, sem segredo):
+  // qual config dir e qual conta OAuth está logada ali, pra o doctor mostrar/avisar.
+  claudeAuthInfo() {
+    const dir = (this.config.claudeConfigDir || '').trim();
+    const jsonPath = dir ? path.join(dir, '.claude.json') : path.join(os.homedir(), '.claude.json');
+    const info = { configDir: dir || null, account: null, ready: true };
+    try {
+      const j = readJson(jsonPath, {});
+      info.account = (j && j.oauthAccount && j.oauthAccount.emailAddress) || null;
+      // dir próprio precisa do login feito (credencial OAuth). A padrão a gente assume ok.
+      if (dir) info.ready = fs.existsSync(path.join(dir, '.credentials.json')) || !!info.account;
+    } catch { /* best-effort */ }
+    return info;
+  }
+
   async doctor() {
     const tokenArgs = ['auth', 'token'];
     const primary = this.primaryUser();
@@ -2658,6 +2835,7 @@ class Engine extends EventEmitter {
       gitBash: this.gitBash,
       home: HOME,
       workspace: WORKSPACE,
+      claudeAuth: this.claudeAuthInfo(), // assinatura do Claude (config dir + conta + pronto?)
       checkedAt: Date.now()
     };
     this.checkUpdate().catch(() => {});
@@ -2668,7 +2846,7 @@ class Engine extends EventEmitter {
   updateSettings(patch) {
     const allowed = ['ghUser', 'owners', 'accounts', 'intervalSeconds', 'autoReview', 'autoApproveAll', 'skipPermissions',
       'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos',
-      'projectReviewers', 'defaultReviewers', 'people'];
+      'projectReviewers', 'defaultReviewers', 'people', 'claudeConfigDir', 'reviewModel', 'autoPushback'];
     let intervalChanged = false, userChanged = false;
     for (const k of allowed) {
       if (!(k in patch)) continue;
@@ -2679,6 +2857,9 @@ class Engine extends EventEmitter {
       if (k === 'projectReviewers') v = parseProjectReviewers(v);
       if (k === 'defaultReviewers') v = parseDefaultReviewers(v);
       if (k === 'people') v = parsePeople(v);
+      if (k === 'claudeConfigDir') v = String(v || '').trim();
+      if (k === 'reviewModel') { v = String(v || '').trim().toLowerCase(); if (!['', 'sonnet', 'haiku', 'opus'].includes(v)) v = this.config.reviewModel; }
+      if (k === 'autoPushback') v = !!v;
       if (k === 'accounts') {
         v = parseAccounts(v);
         // só re-autentica se as CONTAS (user/owners) mudaram; editar rótulo, cor,

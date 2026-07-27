@@ -67,38 +67,22 @@ Regras aprendidas com reviews reais desta org (retro de 14/07/2026; estudo em `d
 
 ## Postagem do review
 
-O **corpo do review** segue convenções amplamente praticadas (GitHub alerts + task list + `<details>` + Conventional Comments) — denso e limpo:
+O **corpo do review** tem que parecer escrito por uma PESSOA (o Wanderson revisando o PR de um colega), não por um bot: personalizado, objetivo e profissional. **Adapte o formato à senioridade do autor** (use o histórico do passo 3 e o perfil que o Farol injeta):
 
-````markdown
-> [!NOTE]
-> **✅ APPROVE** — atende o BT-XXX, sem blocker.
-<!-- REQUEST CHANGES: use "> [!WARNING]" e "**🔴 REQUEST CHANGES — N blocker(s)**" -->
+- **Estágio/Júnior:** prosa acolhedora de mentor. Abra reconhecendo o que ficou bom de verdade (específico, com o porquê), explique cada ajuste ensinando ("o que segura o merge é..."), enquadre como "quase lá", feche natural.
+- **Pleno/Sênior/Tech Lead/Arquiteto:** enxuto e direto, de par pra par. Vá aos pontos técnicos sem preâmbulo nem elogio de consolo, assumindo contexto compartilhado.
+- **Especialista:** no domínio dele, defira e foque na nuance; fora, trate como par.
+- **Sem perfil:** neutro, direto e cordial.
 
-**Resumo:** <1-2 frases>
+**NUNCA:** caixas de alerta (`> [!NOTE]`/`> [!WARNING]`), "Placar", checklist de critérios com `- [x]`, os prefixos de Conventional Comments no texto ("🟡 suggestion (non-blocking):", "🔴 issue (blocking):" etc.), nem qualquer menção a automação/Farol/"auto-aprovei". Tom do Wanderson: direto, sem gíria nem subtexto, **sem travessão** (vírgula, parênteses ou dois pontos). A substância (blockers, ressalvas) entra no texto de forma natural (o que é, por que importa, o que muda), com `arquivo:linha` quando ajudar. Muda só COMO se escreve, nunca a decisão nem o rigor.
 
-**Critérios de aceite (BT-XXX)**
-- [x] <atendido>
-- [ ] <não atendido → ver blocker N>
-
-<details><summary>📂 Arquivos alterados (N · +X/−Y)</summary>
-
-| Arquivo | O que mudou |
-|---|---|
-| `arquivo.ext` | <o que mudou> |
-
-</details>
-
-**Melhorias (não bloqueiam)**
-- 🟡 suggestion (non-blocking): <ponto> — pode virar card futuro.
-````
-
-- **Comentários inline** seguem **Conventional Comments** (começam pelo label): `🟡 **suggestion (non-blocking):** …`, `🔴 **issue (blocking):** …`, `🔵 **nitpick:** …`, `❓ **question:** …`.
+- **Comentários inline:** escreva como observação humana (o ponto, o porquê, o que muda), sem prefixo de label, com `arquivo:linha` válidos no diff.
 - Postar com inline: escreva o payload em `state/pr-review-payload.json` (Write) e poste:
   - `gh api repos/{owner}/{repo}/pulls/{number}/reviews --input state/pr-review-payload.json`
-  - Payload: `{ "event": "APPROVE | REQUEST_CHANGES | COMMENT", "body": "<corpo acima>", "comments": [ { "path": "arquivo.ext", "line": 42, "side": "RIGHT", "body": "🟡 **suggestion (non-blocking):** ..." } ] }`
+  - Payload: `{ "event": "APPROVE | REQUEST_CHANGES | COMMENT", "body": "<corpo humano acima>", "comments": [ { "path": "arquivo.ext", "line": 42, "side": "RIGHT", "body": "<observação>" } ] }`
   - Comentário inline com linha fora do diff → fallback: jogue o ponto no `body`.
 - Sem inline, direto: `gh pr review <url> --approve|--request-changes|--comment --body "<corpo acima>"`.
-- **Mesmo aprovando, registre as melhorias** (no corpo ou inline). Aprovar não é deixar passar em silêncio.
+- **Mesmo aprovando, registre as melhorias** no corpo, naturalmente. Aprovar não é deixar passar em silêncio.
 
 ## Memória do time (personalização + incentivo)
 

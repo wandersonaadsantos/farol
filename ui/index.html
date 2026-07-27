@@ -91,6 +91,11 @@
       <div id="resolved" class="rows"></div>
     </div>
 
+    <form id="lookupForm" class="lookup-bar" title="Abre a conversa salva de um PR, mesmo que ele não esteja mais na lista">
+      <input id="lookupUrl" type="text" spellcheck="false" placeholder="Consultar um PR por URL (abre a conversa salva)…">
+      <button class="btn sm" type="submit">Abrir</button>
+    </form>
+
     <div id="myPRsWrap" hidden>
       <div class="section-head">
         <h2>Meus PRs <span id="myPRsCount" class="count" hidden></span></h2>
@@ -219,6 +224,11 @@
         <small>Nesses repos o botão Merge (em Meus PRs) fica desativado, respeitando as regras de review do time. Separe por vírgula.</small>
       </div>
       <div class="field">
+        <label for="setClaudeConfigDir">Assinatura do Claude (diretório de config)</label>
+        <input id="setClaudeConfigDir" type="text" spellcheck="false" placeholder="ex.: C:\Users\voce\.claude-pessoal">
+        <small>Vazio usa o login padrão do <code>claude</code> da máquina. Apontando um diretório próprio (logado em outra conta), as sessões do Farol passam a usar aquela assinatura, sem mexer no seu <code>claude</code> principal. Faça <code>claude login</code> nesse diretório uma vez antes; a conta em uso aparece em Saúde. Alternar de assinatura é trocar este caminho.</small>
+      </div>
+      <div class="field">
         <label>Reviewers por projeto</label>
         <div id="reviewersEditor" class="rev-editor"></div>
         <small>Por repo, escolha as pessoas e times da lista (sem digitar handle na mão). É o que o botão "👥 Reviewers" (em Meus PRs) aplica num clique.</small>
@@ -251,6 +261,16 @@
         </select>
         <small>Quanto marcador de conta aparece em cada card na visão Todas.</small>
       </div>
+      <div class="field">
+        <label for="setReviewModel">Modelo das revisões automáticas</label>
+        <select id="setReviewModel">
+          <option value="">Padrão do claude (Opus, melhor qualidade)</option>
+          <option value="opus">Opus (explícito)</option>
+          <option value="sonnet">Sonnet (mais leve, se quiser poupar o limite)</option>
+          <option value="haiku">Haiku (o mais leve)</option>
+        </select>
+        <small>Modelo que o Farol usa nas sessões autônomas (review, pushback, autoanálise). O padrão é o melhor (Opus); só troque pra Sonnet/Haiku se um dia quiser economizar o teto do teu plano. A sessão no terminal não é afetada.</small>
+      </div>
       <label class="switch-row">
         <input id="setAutoReview" type="checkbox">
         <span class="switch"></span>
@@ -265,6 +285,11 @@
         <input id="setSkipPerms" type="checkbox">
         <span class="switch"></span>
         <span>Sessão no terminal sem pedir permissões<br><small><code>--dangerously-skip-permissions</code>; vale só pras sessões no terminal, o modo interno já roda sem prompts.</small></span>
+      </label>
+      <label class="switch-row">
+        <input id="setAutoPushback" type="checkbox">
+        <span class="switch"></span>
+        <span>Detectar pushback automaticamente<br><small>Roda 1 sessão do Claude por PR que o autor contestar, pra classificar o desfecho. Vem <b>ligado</b>; desligue se um dia quiser poupar o teu limite. A marcação manual (em Revisões recentes) funciona sempre.</small></span>
       </label>
       <label class="switch-row">
         <input id="setSound" type="checkbox">
