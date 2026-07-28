@@ -38,7 +38,7 @@ Write-Host '  -> Reunindo o app + Electron' -ForegroundColor Cyan
 foreach ($f in @('main.js', 'server.js', 'package.json', 'README.md', 'CLAUDE.md')) {
   Copy-Item (Join-Path $Src $f) (Join-Path $payload $f)
 }
-foreach ($d in @('ui', 'assets', 'workspace-template', 'installer', 'node_modules')) {
+foreach ($d in @('lib', 'ui', 'assets', 'workspace-template', 'installer', 'node_modules')) {
   robocopy (Join-Path $Src $d) (Join-Path $payload $d) /E /NFL /NDL /NJH /NJS /NP | Out-Null
   if ($LASTEXITCODE -ge 8) { throw "robocopy falhou em $d" }
 }

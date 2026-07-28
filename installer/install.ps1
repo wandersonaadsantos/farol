@@ -49,7 +49,7 @@ New-Item -ItemType Directory -Force -Path $App | Out-Null
 foreach ($f in @('main.js', 'server.js', 'package.json', 'README.md', 'CLAUDE.md')) {
   if (Test-Path (Join-Path $Src $f)) { Copy-Item (Join-Path $Src $f) (Join-Path $App $f) -Force }
 }
-foreach ($d in @('ui', 'assets', 'workspace-template')) {
+foreach ($d in @('lib', 'ui', 'assets', 'workspace-template')) {
   robocopy (Join-Path $Src $d) (Join-Path $App $d) /E /NFL /NDL /NJH /NJS /NP | Out-Null
   if ($LASTEXITCODE -ge 8) { Die "Falha ao copiar a pasta '$d' (robocopy $LASTEXITCODE)." }
 }

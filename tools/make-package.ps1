@@ -19,7 +19,7 @@ foreach ($f in @('main.js', 'server.js', 'package.json', 'README.md', 'CLAUDE.md
     'Instalar.cmd', 'Desinstalar.cmd', 'Instalar.command', 'Desinstalar.command')) {
   Copy-Item (Join-Path $Src $f) (Join-Path $staging $f)
 }
-foreach ($d in @('ui', 'assets', 'workspace-template', 'installer')) {
+foreach ($d in @('lib', 'ui', 'assets', 'workspace-template', 'installer')) {
   robocopy (Join-Path $Src $d) (Join-Path $staging $d) /E /NFL /NDL /NJH /NJS /NP | Out-Null
   if ($LASTEXITCODE -ge 8) { throw "robocopy falhou em $d" }
 }

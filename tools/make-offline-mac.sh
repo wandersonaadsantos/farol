@@ -44,7 +44,7 @@ curl -fL --retry 3 -o "$BUILD/electron-darwin.zip" "$ZIP_URL"
 
 echo '  -> Reunindo o app + Electron (embutido, montado no Mac)'
 for f in main.js server.js package.json README.md CLAUDE.md; do cp "$SRC/$f" "$STAGING/$f"; done
-for d in ui assets workspace-template installer node_modules; do cp -R "$SRC/$d" "$STAGING/$d"; done
+for d in lib ui assets workspace-template installer node_modules; do cp -R "$SRC/$d" "$STAGING/$d"; done
 # tira o dist do Electron (arco do build, ex.: win32) e embute o zip darwin. O
 # install.sh descompacta NO Mac, preservando os symlinks do .app.
 rm -rf "$STAGING/node_modules/electron/dist"
