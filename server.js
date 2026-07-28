@@ -89,7 +89,11 @@ const DEFAULTS = {
   // classificacao automatica de pushback (1 sessao Claude por PR contestado). Default ON
   // (a funcionalidade que o Wanderson pediu); quem quiser poupar limite desliga em Sistema.
   autoPushback: true,
-  claudeConfigDir: ''
+  claudeConfigDir: '',
+  // diagnóstico: registra em state/spawns.log cada processo que o Farol dispara (com
+  // horário), pra caçar "terminal piscando". Desligado por padrão; ligue em Sistema só
+  // pra capturar evidência. Espelhado em process.env.FAROL_DEBUG_SPAWNS pros módulos io/session.
+  debugSpawns: false
 };
 
 // --- Engine -----------------------------------------------------------------
@@ -102,6 +106,7 @@ class Engine extends EventEmitter {
     // perfil de review por pessoa (papel + matriz por domínio); migra a senioridade plana antiga pro campo `papel`
     this.config.people = migrateSeniorityToPeople(this.config.seniority, parsePeople(this.config.people));
     delete this.config.seniority;
+    process.env.FAROL_DEBUG_SPAWNS = this.config.debugSpawns ? '1' : ''; // espelha pro logger de spawns
     this.tokens = {};                // token por conta (login -> token), preenchido no refreshTokens
     this.status = 'starting';        // starting | checking | idle | error
     this.lastError = null;
@@ -832,7 +837,7 @@ class Engine extends EventEmitter {
   updateSettings(patch) {
     const allowed = ['ghUser', 'owners', 'accounts', 'intervalSeconds', 'autoReview', 'autoApproveAll', 'skipPermissions',
       'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos',
-      'projectReviewers', 'defaultReviewers', 'people', 'claudeConfigDir', 'reviewModel', 'autoPushback'];
+      'projectReviewers', 'defaultReviewers', 'people', 'claudeConfigDir', 'reviewModel', 'autoPushback', 'debugSpawns'];
     let intervalChanged = false, userChanged = false;
     for (const k of allowed) {
       if (!(k in patch)) continue;
@@ -846,6 +851,7 @@ class Engine extends EventEmitter {
       if (k === 'claudeConfigDir') v = String(v || '').trim();
       if (k === 'reviewModel') { v = String(v || '').trim().toLowerCase(); if (!['', 'sonnet', 'haiku', 'opus'].includes(v)) v = this.config.reviewModel; }
       if (k === 'autoPushback') v = !!v;
+      if (k === 'debugSpawns') v = !!v;
       if (k === 'accounts') {
         v = parseAccounts(v);
         // só re-autentica se as CONTAS (user/owners) mudaram; editar rótulo, cor,
@@ -856,6 +862,7 @@ class Engine extends EventEmitter {
       if (k === 'ghUser') { v = String(v).trim(); userChanged = userChanged || v !== this.config.ghUser; }
       this.config[k] = v;
     }
+    process.env.FAROL_DEBUG_SPAWNS = this.config.debugSpawns ? '1' : ''; // liga/desliga o logger na hora
     this.saveConfig();
     if (userChanged) { this.token = null; this.tokenOk = false; this.tokens = {}; }
     if (intervalChanged || userChanged) this.checkNow();

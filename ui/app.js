@@ -1608,7 +1608,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
-  ['2.23.4', ['Quando o autor pede sua revisão de novo (re-request) num PR que você já revisou, o Farol volta a mostrar o PR na sua fila como "pedida de novo" (com botão "Re-revisar"), em vez de deixá-lo preso no Panorama como "aguardando o autor". Antes, por já ter sido visto na 1ª revisão, a re-solicitação não reaparecia na sua tela.']],
+  ['2.23.4', ['Quando o autor pede sua revisão de novo (re-request) num PR que você já revisou, o Farol volta a mostrar o PR na sua fila como "pedida de novo" (com botão "Re-revisar"), em vez de deixá-lo preso no Panorama como "aguardando o autor". Antes, por já ter sido visto na 1ª revisão, a re-solicitação não reaparecia na sua tela. Também: novo interruptor "Registrar processos (diagnóstico)" em Sistema, pra caçar "terminal piscando" (loga em spawns.log cada comando que o Farol dispara, com horário, sem token).']],
   ['2.23.3', ['A interface responde melhor a janelas estreitas (o app já tem bastante aba e painel): em telas menores a barra de abas encolhe e rola em vez de estourar o topo, o botão "Verificar agora" vira só o ícone, e as linhas de lista e barras de ação quebram em vez de cortar botão ou texto. Em telas largas nada muda.']],
   ['2.23.2', ['A aba Consumo não mostra mais a barra de filtro por conta no topo: ali a medição é do Farol como um app (uso total de tokens), não de uma conta, então o filtro não se aplicava e só dava sensação de bug (trocar a conta e o número não mudar). A quebra "Por conta", que é explícita, continua, e o texto da tela deixa claro que mede o Farol como um todo.']],
   ['2.23.1', ['Ajuste do Consumo de tokens (da v2.23.0): virou uma tela própria (aba Consumo, saiu da Sistema), dedicada a acompanhar o uso das sessões autônomas do Claude. Agora com gráficos: uma linha do tempo (barras por dia) com métrica selecionável (total, input, output, cache) e janela selecionável (7, 30, 90 dias), e uma quebra por tipo, conta ou modelo. Continua sendo só rastreio pessoal, não influencia nenhuma decisão. E o registro ficou permanente: saiu o botão de zerar.']],
@@ -1948,6 +1948,7 @@ function renderSettings() {
   $('#setAutoReview').checked = !!c.autoReview;
   $('#setAutoApproveAll').checked = c.autoApproveAll !== false;
   $('#setAutoPushback').checked = !!c.autoPushback;
+  $('#setDebugSpawns').checked = !!c.debugSpawns;
   $('#setSkipPerms').checked = !!c.skipPermissions;
   $('#setSound').checked = !!c.soundEnabled;
   $('#setAutostart').checked = !!c.autostart;
@@ -2204,6 +2205,7 @@ const settingsMap = [
   ['#setInterval', 'intervalSeconds', el => parseInt(el.value, 10)],
   ['#setReviewModel', 'reviewModel', el => el.value],
   ['#setAutoPushback', 'autoPushback', el => el.checked],
+  ['#setDebugSpawns', 'debugSpawns', el => el.checked],
   ['#setAutoReview', 'autoReview', el => el.checked],
   ['#setAutoApproveAll', 'autoApproveAll', el => el.checked],
   ['#setSkipPerms', 'skipPermissions', el => el.checked],

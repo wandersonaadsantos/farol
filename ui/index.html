@@ -336,6 +336,11 @@
         <span>Detectar pushback automaticamente<br><small>Roda 1 sessão do Claude por PR que o autor contestar, pra classificar o desfecho. Vem <b>ligado</b>; desligue se um dia quiser poupar o teu limite. A marcação manual (em Revisões recentes) funciona sempre.</small></span>
       </label>
       <label class="switch-row">
+        <input id="setDebugSpawns" type="checkbox">
+        <span class="switch"></span>
+        <span>Registrar processos (diagnóstico)<br><small>Ferramenta pra caçar "terminal piscando": registra cada comando que o Farol dispara, com horário, em <code>workspace/state/spawns.log</code> (só o comando, nunca token). Vem <b>desligado</b>; ligue só pra capturar a evidência de um flash e depois desligue.</small></span>
+      </label>
+      <label class="switch-row">
         <input id="setSound" type="checkbox">
         <span class="switch"></span>
         <span>Som ao chegar PR novo</span>
