@@ -46,6 +46,14 @@ if (!IS_WIN) {
   if (missing.length) process.env.PATH = missing.concat(process.env.PATH || '').join(':');
 }
 
+// A telemetria do GitHub CLI relanca um "gh send-telemetry" DESTACADO (sem console)
+// que roda tzutil /g; como processo destacado nao herda o console oculto do Farol,
+// o Windows aloca um console novo VISIVEL e o terminal padrao (Windows Terminal)
+// pisca uma janela a cada batch. Todos os filhos herdam process.env (ghEnv espalha,
+// e chamadas gh sem env herdam direto), entao UMA linha aqui cobre gh direto, gh
+// dentro das sessoes do claude e as sessoes de terminal.
+process.env.GH_TELEMETRY = 'false';
+
 const DEFAULTS = {
   ghUser: '',              // vazio = detectar a conta ativa do gh na primeira execucao
   owners: ['biudtech'],
