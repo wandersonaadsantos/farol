@@ -77,6 +77,16 @@ function createWindow() {
   win.setMenuBarVisibility(false);
   win.loadURL(appUrl);
 
+  // no macOS o lancador (Farol.app) e um wrapper que da exec no Electron: quem o Finder
+  // ativa morre na hora, e o Electron sobe sem ativacao, com a janela atras de tudo.
+  // O steal traz o app pra frente na abertura (sem ele, parece que o app nao abriu)
+  if (IS_MAC) {
+    app.focus({ steal: true });
+    // e o Dock mostra o icone do processo (Electron cru), nao o do lancador;
+    // o setIcon troca em runtime pro icone do Farol
+    try { app.dock.setIcon(path.join(__dirname, 'assets', 'png', 'farol-256.png')); } catch { }
+  }
+
   // links externos (GitHub etc.) abrem no navegador padrao
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -99,6 +109,9 @@ function showWindow() {
   if (win.isMinimized()) win.restore();
   win.show();
   win.focus();
+  // mesmo motivo do createWindow: reabrir via segundo clique no Farol.app chega
+  // como second-instance de um app que o macOS nao considera ativo
+  if (IS_MAC) app.focus({ steal: true });
 }
 
 function trayIcon() {

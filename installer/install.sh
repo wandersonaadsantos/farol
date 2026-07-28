@@ -113,7 +113,10 @@ cat > "$BUNDLE/Contents/Info.plist" <<PLIST
 PLIST
 cat > "$BUNDLE/Contents/MacOS/Farol" <<'LAUNCH'
 #!/bin/bash
-exec "$HOME/.farol/app/node_modules/.bin/electron" "$HOME/.farol/app"
+# exec no binario NATIVO do Electron, nunca no .bin/electron: aquele e um script
+# node (#!/usr/bin/env node) e Finder/Spotlight lancam com PATH minimo, sem node,
+# entao o wrapper morreria em silencio ("cliquei e nao abriu")
+exec "$HOME/.farol/app/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" "$HOME/.farol/app"
 LAUNCH
 chmod +x "$BUNDLE/Contents/MacOS/Farol"
 if [ -f "$SRC/assets/farol.icns" ]; then
