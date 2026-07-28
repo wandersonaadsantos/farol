@@ -35,6 +35,7 @@
       <button class="nav-item" data-tab="entregas">Entregas</button>
       <button class="nav-item" data-tab="destaques">Destaques</button>
       <button class="nav-item" data-tab="time">Time</button>
+      <button class="nav-item" data-tab="consumo">Consumo</button>
       <button class="nav-item" data-tab="sistema">Sistema</button>
     </nav>
 
@@ -165,6 +166,49 @@
     <div id="team" class="cards"></div>
   </section>
 
+  <!-- ============ CONSUMO ============ -->
+  <section id="tab-consumo" class="tabpane">
+    <div class="section-head">
+      <h2>Consumo de tokens</h2>
+      <span class="section-sub">quanto as sessões autônomas do Claude (revisão, autoanálise, pushback, ferramentas, chat) consomem. Registro pessoal e permanente, só pra você acompanhar; não influencia nenhuma decisão da automação.</span>
+    </div>
+    <div id="usageStats" class="usage-stats"></div>
+
+    <div class="card usage-chart-card">
+      <div class="usage-chart-head">
+        <h3>Linha do tempo</h3>
+        <div class="usage-controls">
+          <div class="seg" id="usageMetric" role="group" aria-label="Métrica">
+            <button class="seg-btn active" data-metric="total">Total</button>
+            <button class="seg-btn" data-metric="input">Input</button>
+            <button class="seg-btn" data-metric="output">Output</button>
+            <button class="seg-btn" data-metric="cache">Cache</button>
+          </div>
+          <div class="seg" id="usageWindow" role="group" aria-label="Janela">
+            <button class="seg-btn" data-window="7">7 dias</button>
+            <button class="seg-btn active" data-window="30">30 dias</button>
+            <button class="seg-btn" data-window="90">90 dias</button>
+          </div>
+        </div>
+      </div>
+      <div id="usageTimeline" class="usage-chart"></div>
+    </div>
+
+    <div class="card usage-chart-card">
+      <div class="usage-chart-head">
+        <h3>Quebra</h3>
+        <div class="usage-controls">
+          <div class="seg" id="usageDim" role="group" aria-label="Dimensão">
+            <button class="seg-btn active" data-dim="kind">Por tipo</button>
+            <button class="seg-btn" data-dim="account">Por conta</button>
+            <button class="seg-btn" data-dim="model">Por modelo</button>
+          </div>
+        </div>
+      </div>
+      <div id="usageBreakdown" class="usage-chart"></div>
+    </div>
+  </section>
+
   <!-- ============ SISTEMA ============ -->
   <section id="tab-sistema" class="tabpane">
     <div class="section-head">
@@ -199,15 +243,6 @@
       </div>
       <div id="healthOut" class="report"></div>
     </div>
-
-    <div class="section-head">
-      <h2>Consumo de tokens</h2>
-      <div class="row-actions">
-        <span class="section-sub">o que as sessões autônomas do Claude gastaram (revisão, autoanálise, pushback, ferramentas, chat); registro local, sem custo extra</span>
-        <button id="btnUsageClear" class="btn sm ghost" title="Zera o registro de consumo (não afeta o teu plano, só o histórico local)">Zerar</button>
-      </div>
-    </div>
-    <div id="usageBox" class="card usage-box"></div>
 
     <div class="section-head">
       <h2>Versão e atualização</h2>

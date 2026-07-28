@@ -67,8 +67,14 @@ test('usageSummary devolve totais, hoje, 7 dias e quebras ordenadas', () => {
   assert.equal(sum.totals.sessions, 3);
   assert.equal(sum.today.inputTokens, 1010, 'hoje soma as duas sessões de hoje');
   assert.equal(sum.last7.inputTokens, 1010, '7 dias não inclui o dia de 2000');
+  assert.equal(sum.last30.inputTokens, 1010, '30 dias também exclui o dia de 2000');
   // byKind ordenado por outputTokens desc: review (200) antes de chat (5)
   assert.equal(sum.byKind[0].kind, 'review');
   assert.equal(sum.byKind[0].label, 'Revisão');
   assert.ok(sum.byKind[0].outputTokens >= sum.byKind[1].outputTokens);
+  // série diária ascendente, com todos os dias que têm registro (inclui o de 2000)
+  assert.ok(Array.isArray(sum.series));
+  assert.equal(sum.series[0].day, '2000-01-01', 'série começa no dia mais antigo');
+  assert.equal(sum.series[sum.series.length - 1].day, today, 'série termina hoje');
+  assert.equal('recentDays' in sum, false, 'recentDays foi substituído por series');
 });

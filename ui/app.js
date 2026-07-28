@@ -483,7 +483,8 @@ function switchTab(name) {
   if (name === 'entregas') loadDeliveries();
   if (name === 'destaques') { loadHighlights(); renderTools(); }   // renderTools: kudos do escopo atual, não o defasado
   if (name === 'time') loadTeam();
-  if (name === 'sistema') { loadLog(); renderDoctor(); renderAccountsManager(); loadReviewerCands(); renderUsage(); }
+  if (name === 'sistema') { loadLog(); renderDoctor(); renderAccountsManager(); loadReviewerCands(); }
+  if (name === 'consumo') renderUsage();
 }
 $('#nav').addEventListener('click', (e) => {
   const btn = e.target.closest('.nav-item');
@@ -1318,31 +1319,99 @@ $('#myPRs').addEventListener('click', (e) => {
 });
 
 /* ---------- render: versão e atualização ---------- */
+/* ---------- Consumo de tokens (tela própria, charts em SVG puro) ---------- */
+const usageState = { metric: 'total', window: 30, dim: 'kind' };
 function fmtTok(n) { return Number(n || 0).toLocaleString('pt-BR'); }
+function fmtCompact(n) {
+  n = Number(n) || 0;
+  if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace('.', ',') + 'M';
+  if (n >= 1e3) return Math.round(n / 1e3) + 'k';
+  return String(Math.round(n));
+}
+function usageMetricVal(b, m) {
+  b = b || {};
+  if (m === 'input') return b.inputTokens || 0;
+  if (m === 'output') return b.outputTokens || 0;
+  if (m === 'cache') return (b.cacheReadTokens || 0) + (b.cacheCreationTokens || 0);
+  return (b.inputTokens || 0) + (b.outputTokens || 0); // total
+}
+// chaves de dia (UTC, batendo com o server) dos últimos n dias, incluindo hoje
+function usageDayKeysBack(n) {
+  const out = [], d = new Date(); d.setUTCHours(0, 0, 0, 0);
+  for (let i = n - 1; i >= 0; i--) { const x = new Date(d.getTime()); x.setUTCDate(d.getUTCDate() - i); out.push(x.toISOString().slice(0, 10)); }
+  return out;
+}
+
+// linha do tempo: barras por dia na janela escolhida, métrica escolhida (SVG)
+function drawUsageTimeline(el, series, metric, win) {
+  const map = {}; for (const d of (series || [])) map[d.day] = d;
+  const data = usageDayKeysBack(win).map(day => ({ day, v: usageMetricVal(map[day], metric) }));
+  if (!data.some(d => d.v > 0)) { el.innerHTML = '<div class="usage-empty">Sem consumo nesta janela.</div>'; return; }
+  const max = Math.max(1, ...data.map(d => d.v));
+  const W = 820, H = 200, padL = 46, padR = 8, padT = 10, padB = 22;
+  const cw = W - padL - padR, ch = H - padT - padB, n = data.length, bw = cw / n, barW = Math.max(1.2, bw * 0.68);
+  const yOf = v => padT + ch * (1 - v / max);
+  const grid = [max, max / 2, 0].map(v => {
+    const yy = yOf(v);
+    return `<line x1="${padL}" y1="${yy.toFixed(1)}" x2="${W - padR}" y2="${yy.toFixed(1)}" class="ugrid"/>`
+      + `<text x="${padL - 6}" y="${(yy + 3.5).toFixed(1)}" class="uaxis uaxis-y">${fmtCompact(v)}</text>`;
+  }).join('');
+  const bars = data.map((d, i) => {
+    const x = padL + i * bw + (bw - barW) / 2, h = ch * (d.v / max);
+    return `<rect class="ubar-rect" x="${x.toFixed(1)}" y="${(padT + ch - h).toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(0, h).toFixed(1)}" rx="1.5"><title>${d.day.slice(8, 10)}/${d.day.slice(5, 7)}: ${fmtTok(d.v)}</title></rect>`;
+  }).join('');
+  const step = Math.ceil(n / 10);
+  const xlab = data.map((d, i) => (i % step === 0 || i === n - 1)
+    ? `<text class="uaxis uaxis-x" x="${(padL + i * bw + bw / 2).toFixed(1)}" y="${H - 6}">${d.day.slice(8, 10)}/${d.day.slice(5, 7)}</text>` : '').join('');
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="usvg">${grid}${bars}${xlab}</svg>`;
+}
+
+// quebra: barras horizontais por tipo/conta/modelo (HTML), métrica escolhida
+function drawUsageBreakdown(el, items, metric) {
+  const vals = (items || []).map(x => ({ label: x.label || '', v: usageMetricVal(x, metric), s: x.sessions }))
+    .filter(x => x.v > 0).sort((a, b) => b.v - a.v).slice(0, 10);
+  if (!vals.length) { el.innerHTML = '<div class="usage-empty">Sem dados ainda.</div>'; return; }
+  const max = Math.max(1, ...vals.map(x => x.v));
+  el.innerHTML = vals.map(x => `<div class="ubar-row"><span class="ubar-label" title="${esc(x.label)}">${esc(x.label)}</span>`
+    + `<span class="ubar-track"><span class="ubar-fill" style="width:${(x.v / max * 100).toFixed(1)}%"></span></span>`
+    + `<span class="ubar-val">${fmtTok(x.v)}<small> · ${x.s}s</small></span></div>`).join('');
+}
+
 function renderUsage() {
-  const box = $('#usageBox');
-  if (!box) return;
-  const u = STATE.usage;
+  const u = STATE && STATE.usage;
+  const statsEl = $('#usageStats'), tl = $('#usageTimeline'), bd = $('#usageBreakdown');
+  if (!statsEl || !tl || !bd) return;
   if (!u || !u.totals || !u.totals.sessions) {
-    box.innerHTML = '<span class="section-sub">Nenhuma sessão registrada ainda. Quando o Farol rodar uma revisão, autoanálise, pushback, ferramenta ou chat, o consumo aparece aqui.</span>';
+    statsEl.innerHTML = '';
+    tl.innerHTML = '<div class="usage-empty">Nenhuma sessão registrada ainda. Quando o Farol rodar uma revisão, autoanálise, pushback, ferramenta ou chat, o consumo aparece aqui.</div>';
+    bd.innerHTML = '';
     return;
   }
-  const t = u.totals;
-  const stat = (label, b) => `<div class="usage-stat"><span class="us-label">${label}</span>`
-    + `<b>${fmtTok(b.inputTokens)}<small> in</small> · ${fmtTok(b.outputTokens)}<small> out</small></b>`
-    + `<span class="us-sub">${b.sessions} sessão(ões)${b.cacheReadTokens ? ` · ${fmtTok(b.cacheReadTokens)} cache lido` : ''}</span></div>`;
-  const rows = (arr) => arr.map(x => `<tr><td>${esc(x.label || '')}</td><td>${x.sessions}</td><td>${fmtTok(x.inputTokens)}</td><td>${fmtTok(x.outputTokens)}</td></tr>`).join('');
-  const table = (title, arr) => arr && arr.length
-    ? `<div class="usage-tbl"><h4>${title}</h4><table class="usage-table"><thead><tr><th></th><th>sessões</th><th>input</th><th>output</th></tr></thead><tbody>${rows(arr)}</tbody></table></div>`
-    : '';
-  const cost = t.costUsd > 0
-    ? `<div class="us-sub usage-cost">Custo equivalente estimado: US$ ${t.costUsd.toFixed(2)} (a assinatura não cobra por token, é só uma referência do que seria via API).</div>`
-    : '';
-  box.innerHTML =
-    `<div class="usage-stats">${stat('Total', t)}${stat('Hoje', u.today)}${stat('Últimos 7 dias', u.last7)}</div>`
-    + `<div class="usage-tbls">${table('Por tipo', u.byKind)}${table('Por conta', u.byAccount)}${table('Por modelo', u.byModel)}</div>`
-    + cost;
+  const stat = (label, b, extra) => `<div class="usage-stat"><span class="us-label">${label}</span>`
+    + `<b>${fmtTok((b.inputTokens || 0) + (b.outputTokens || 0))}<small> tokens</small></b>`
+    + `<span class="us-sub">${fmtTok(b.inputTokens)} in · ${fmtTok(b.outputTokens)} out · ${b.sessions}s${extra || ''}</span></div>`;
+  const costNote = u.totals.costUsd > 0 ? ` · ~US$ ${u.totals.costUsd.toFixed(2)}` : '';
+  statsEl.innerHTML = stat('Total', u.totals, costNote) + stat('Hoje', u.today) + stat('7 dias', u.last7) + stat('30 dias', u.last30);
+  drawUsageTimeline(tl, u.series, usageState.metric, usageState.window);
+  const data = usageState.dim === 'account' ? u.byAccount : usageState.dim === 'model' ? u.byModel : u.byKind;
+  drawUsageBreakdown(bd, data, usageState.metric);
 }
+
+function wireUsageControls() {
+  const bind = (sel, attr, key, cast) => {
+    const box = document.querySelector(sel); if (!box) return;
+    box.querySelectorAll('.seg-btn').forEach(b => b.addEventListener('click', () => {
+      box.querySelectorAll('.seg-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      usageState[key] = cast ? cast(b.dataset[attr]) : b.dataset[attr];
+      renderUsage();
+    }));
+  };
+  bind('#usageMetric', 'metric', 'metric');
+  bind('#usageWindow', 'window', 'window', Number);
+  bind('#usageDim', 'dim', 'dim');
+}
+wireUsageControls();
 
 function renderUpdate() {
   const u = STATE.update;
@@ -1534,6 +1603,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.24.0', ['O Consumo de tokens virou uma tela própria (aba Consumo, saiu da Sistema), dedicada a acompanhar o uso das sessões autônomas do Claude. Agora com gráficos: uma linha do tempo (barras por dia) com métrica selecionável (total, input, output, cache) e janela selecionável (7, 30, 90 dias), e uma quebra por tipo, conta ou modelo. Continua sendo só rastreio pessoal, não influencia nenhuma decisão. E o registro ficou permanente: saiu o botão de zerar.']],
   ['2.23.0', ['Novo painel Consumo de tokens (aba Sistema): mostra quanto as sessões autônomas do Claude gastaram (revisão, autoanálise, pushback, ferramentas e chat), com total, hoje e últimos 7 dias, e quebras por tipo, por conta e por modelo. É só rastreio pra você ter noção do gasto no dia a dia, não muda nada na automação: a qualidade segue sendo o único critério das decisões. Registro local, sem custo extra. Também: "Revisões recentes" passa a mostrar 30 na tela (era 8) e guardar 200 no histórico (era 30).']],
   ['2.22.0', ['Nova aba Entregas: veja os PRs mergeados (por qualquer pessoa, não só o que o Farol revisou), agrupados por repositório ou por responsável, com o período escolhível (hoje, 7, 15 ou 30 dias). A visão é por organização: a sua principal já vem selecionada e você troca pra outra org num clique (com mais de uma conta, cada org aparece com a conta dona). É a visão de atualização dos projetos e de quem está entregando. Só leitura.']],
   ['2.21.0', ['As revisões que o Farol posta passam a parecer escritas por você, não por um bot. Saíram os carimbos de automação ("aprovado automaticamente pelo Farol", "por isso não auto-aprovei") e o formato rígido de template (caixas de alerta, Placar, checklist de critérios, prefixos "suggestion (non-blocking)"). O review sai no seu tom, direto e sem travessão, e o formato se adapta à senioridade do autor: estágio/júnior vira prosa de mentor; pleno/sênior/arquiteto fica enxuto e direto. Usa todo o perfil da pessoa pra personalizar, sem mudar a decisão nem o rigor. As ressalvas de um PR auto-aprovado seguem visíveis em Revisões recentes, só não vão mais coladas no PR.']],
@@ -1938,12 +2008,6 @@ $('#btnLogClear').onclick = async () => {
   toast('ok', 'Log de falhas zerado.', 3000);
   loadLog();
 };
-$('#btnUsageClear').onclick = async () => {
-  if (!confirm('Zerar o registro de consumo de tokens? Isso apaga só o histórico local; não afeta o teu plano nem o que já foi gasto.')) return;
-  const r = await api('/api/usage/clear');
-  if (!r?.ok) { toast('error', esc(r?.error || 'não consegui zerar o registro')); return; }
-  toast('ok', 'Registro de consumo zerado.', 3000);
-};
 
 async function loadLog() {
   const lines = await get('/api/log') || [];
@@ -2154,7 +2218,8 @@ function connect() {
     renderStatus(); renderAccountBar(); renderIdentity();
     renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSilenced();
     renderSettings(); renderTools(); renderUpdate(); tickCountdown();
-    if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); renderUsage(); }
+    if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); }
+    if ($('#tab-consumo').classList.contains('active')) renderUsage();
   });
   es.addEventListener('activity', (e) => {
     const { id, item } = JSON.parse(e.data);
