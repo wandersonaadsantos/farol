@@ -623,3 +623,21 @@ body.electron .chat-head { padding-right: 150px; }
 .deliv-subname { font-size: 12.5px; font-weight: 650; color: var(--muted); }
 .count.sm { font-size: 10.5px; padding: 1px 7px; }
 .deliv-subgroup .rows { border-top: 0; padding: 2px 16px 8px; }
+
+/* --- Consumo de tokens (Sistema) --- */
+.usage-box { display: flex; flex-direction: column; gap: 14px; }
+.usage-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.usage-stat { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; }
+.us-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); }
+.usage-stat b { font-size: 16px; font-weight: 700; color: var(--text); }
+.usage-stat b small { font-size: 11px; font-weight: 500; color: var(--muted); }
+.us-sub { font-size: 11.5px; color: var(--muted); }
+.usage-tbls { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.usage-tbl h4 { margin: 0 0 6px; font-size: 12px; font-weight: 650; color: var(--muted); }
+.usage-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.usage-table th { text-align: right; font-weight: 500; color: var(--faint); padding: 3px 6px; border-bottom: 1px solid var(--border); }
+.usage-table th:first-child { text-align: left; }
+.usage-table td { text-align: right; padding: 3px 6px; border-bottom: 1px solid var(--border); color: var(--text); font-variant-numeric: tabular-nums; }
+.usage-table td:first-child { text-align: left; color: var(--muted); }
+.usage-table tbody tr:last-child td { border-bottom: 0; }
+.usage-cost { color: var(--faint); }

@@ -1,7 +1,7 @@
 {
 	"name": "farol",
 	"productName": "Farol",
-	"version": "2.22.0",
+	"version": "2.23.0",
 	"description": "Radar de Pull Requests: monitora o GitHub e abre o Claude Code quando chega revisão pra você.",
 	"main": "main.js",
 	"author": "Wanderson Santos",
@@ -9,7 +9,9 @@
 	"private": true,
 	"scripts": {
 		"start": "electron .",
-		"server": "node server.js"
+		"server": "node server.js",
+		"check": "node --check server.js && node --check main.js && node --check ui/app.js",
+		"test": "node --test"
 	},
 	"dependencies": {
 		"electron": "^43.1.0"

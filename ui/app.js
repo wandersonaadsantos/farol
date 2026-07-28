@@ -483,7 +483,7 @@ function switchTab(name) {
   if (name === 'entregas') loadDeliveries();
   if (name === 'destaques') { loadHighlights(); renderTools(); }   // renderTools: kudos do escopo atual, não o defasado
   if (name === 'time') loadTeam();
-  if (name === 'sistema') { loadLog(); renderDoctor(); renderAccountsManager(); loadReviewerCands(); }
+  if (name === 'sistema') { loadLog(); renderDoctor(); renderAccountsManager(); loadReviewerCands(); renderUsage(); }
 }
 $('#nav').addEventListener('click', (e) => {
   const btn = e.target.closest('.nav-item');
@@ -1318,6 +1318,32 @@ $('#myPRs').addEventListener('click', (e) => {
 });
 
 /* ---------- render: versão e atualização ---------- */
+function fmtTok(n) { return Number(n || 0).toLocaleString('pt-BR'); }
+function renderUsage() {
+  const box = $('#usageBox');
+  if (!box) return;
+  const u = STATE.usage;
+  if (!u || !u.totals || !u.totals.sessions) {
+    box.innerHTML = '<span class="section-sub">Nenhuma sessão registrada ainda. Quando o Farol rodar uma revisão, autoanálise, pushback, ferramenta ou chat, o consumo aparece aqui.</span>';
+    return;
+  }
+  const t = u.totals;
+  const stat = (label, b) => `<div class="usage-stat"><span class="us-label">${label}</span>`
+    + `<b>${fmtTok(b.inputTokens)}<small> in</small> · ${fmtTok(b.outputTokens)}<small> out</small></b>`
+    + `<span class="us-sub">${b.sessions} sessão(ões)${b.cacheReadTokens ? ` · ${fmtTok(b.cacheReadTokens)} cache lido` : ''}</span></div>`;
+  const rows = (arr) => arr.map(x => `<tr><td>${esc(x.label || '')}</td><td>${x.sessions}</td><td>${fmtTok(x.inputTokens)}</td><td>${fmtTok(x.outputTokens)}</td></tr>`).join('');
+  const table = (title, arr) => arr && arr.length
+    ? `<div class="usage-tbl"><h4>${title}</h4><table class="usage-table"><thead><tr><th></th><th>sessões</th><th>input</th><th>output</th></tr></thead><tbody>${rows(arr)}</tbody></table></div>`
+    : '';
+  const cost = t.costUsd > 0
+    ? `<div class="us-sub usage-cost">Custo equivalente estimado: US$ ${t.costUsd.toFixed(2)} (a assinatura não cobra por token, é só uma referência do que seria via API).</div>`
+    : '';
+  box.innerHTML =
+    `<div class="usage-stats">${stat('Total', t)}${stat('Hoje', u.today)}${stat('Últimos 7 dias', u.last7)}</div>`
+    + `<div class="usage-tbls">${table('Por tipo', u.byKind)}${table('Por conta', u.byAccount)}${table('Por modelo', u.byModel)}</div>`
+    + cost;
+}
+
 function renderUpdate() {
   const u = STATE.update;
   const box = $('#updateBox');
@@ -1508,6 +1534,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.23.0', ['Novo painel Consumo de tokens (aba Sistema): mostra quanto as sessões autônomas do Claude gastaram (revisão, autoanálise, pushback, ferramentas e chat), com total, hoje e últimos 7 dias, e quebras por tipo, por conta e por modelo. É só rastreio pra você ter noção do gasto no dia a dia, não muda nada na automação: a qualidade segue sendo o único critério das decisões. Registro local, sem custo extra. Também: "Revisões recentes" passa a mostrar 30 na tela (era 8) e guardar 200 no histórico (era 30).']],
   ['2.22.0', ['Nova aba Entregas: veja os PRs mergeados (por qualquer pessoa, não só o que o Farol revisou), agrupados por repositório ou por responsável, com o período escolhível (hoje, 7, 15 ou 30 dias). A visão é por organização: a sua principal já vem selecionada e você troca pra outra org num clique (com mais de uma conta, cada org aparece com a conta dona). É a visão de atualização dos projetos e de quem está entregando. Só leitura.']],
   ['2.21.0', ['As revisões que o Farol posta passam a parecer escritas por você, não por um bot. Saíram os carimbos de automação ("aprovado automaticamente pelo Farol", "por isso não auto-aprovei") e o formato rígido de template (caixas de alerta, Placar, checklist de critérios, prefixos "suggestion (non-blocking)"). O review sai no seu tom, direto e sem travessão, e o formato se adapta à senioridade do autor: estágio/júnior vira prosa de mentor; pleno/sênior/arquiteto fica enxuto e direto. Usa todo o perfil da pessoa pra personalizar, sem mudar a decisão nem o rigor. As ressalvas de um PR auto-aprovado seguem visíveis em Revisões recentes, só não vão mais coladas no PR.']],
   ['2.20.0', ['Dá pra consultar a conversa de qualquer PR pela URL. Um campo discreto embaixo de "Revisões recentes": cole a URL do PR e o Farol abre o chat salvo daquele review, mesmo que o PR já tenha saído da lista (pelo limite de 30 recentes ou por estar numa conta que não é a selecionada). Reusa o painel de chat de sempre, o resto do fluxo não muda, e as conversas ficam guardadas mesmo depois que a revisão sai do histórico.']],
@@ -1911,6 +1938,12 @@ $('#btnLogClear').onclick = async () => {
   toast('ok', 'Log de falhas zerado.', 3000);
   loadLog();
 };
+$('#btnUsageClear').onclick = async () => {
+  if (!confirm('Zerar o registro de consumo de tokens? Isso apaga só o histórico local; não afeta o teu plano nem o que já foi gasto.')) return;
+  const r = await api('/api/usage/clear');
+  if (!r?.ok) { toast('error', esc(r?.error || 'não consegui zerar o registro')); return; }
+  toast('ok', 'Registro de consumo zerado.', 3000);
+};
 
 async function loadLog() {
   const lines = await get('/api/log') || [];
@@ -2121,7 +2154,7 @@ function connect() {
     renderStatus(); renderAccountBar(); renderIdentity();
     renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSilenced();
     renderSettings(); renderTools(); renderUpdate(); tickCountdown();
-    if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); }
+    if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); renderUsage(); }
   });
   es.addEventListener('activity', (e) => {
     const { id, item } = JSON.parse(e.data);

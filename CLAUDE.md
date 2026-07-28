@@ -97,7 +97,7 @@ $env:CLAUDE_CONFIG_DIR="C:\Users\voce\.claude-pessoal"; claude login
 - **Instância isolada**: `FAROL_HOME=/tmp/farol-teste node server.js` sobe engine + UI em `http://127.0.0.1:47170` sem tocar nos dados reais. Pra trocar a porta, escreva `{"port": 47180, "autoReview": false}` no `config.json` do FAROL_HOME antes de subir.
 - **Nunca teste com `autoReview` ligado** numa conta real: PR novo na sua fila dispararia revisão headless de verdade (e potencial APPROVE real).
 - **Stubs**: `FAROL_REVIEW_CMD` substitui o `claude` da sessão terminal; `FAROL_HEADLESS_CMD` substitui o headless (imprima um envelope `{"result": "..."}` no stdout).
-- **Sintaxe**: `node --check server.js main.js ui/app.js` antes de qualquer entrega.
+- **Gate de qualidade** (rodar antes de QUALQUER entrega): `npm run check && npm test`. O `check` valida a sintaxe (`node --check` em `server.js`/`main.js`/`ui/app.js`); o `test` roda a rede (`node --test`, runner nativo, ZERO dependências): funções puras + smoke de boot com `FAROL_HOME` temporário. Verde nos dois é pré-requisito. A rede vive em `test/` e é o que protege a decomposição do engine em ondas (ver `docs/QUALITY.md`, o contrato de qualidade extraído do lace-be-fastify).
 - As buscas `gh search prs` são read-only; rodar `check` contra o GitHub real é seguro.
 
 ## Release
