@@ -172,7 +172,9 @@ function renderAccountBar() {
   const accounts = (STATE.accounts || []);
   // aparece em Radar, Destaques e Time (todas filtram/agrupam por conta); só o
   // Sistema é global, então lá fica escondida.
-  if (accounts.length < 2 || CURRENT_TAB === 'sistema') { bar.hidden = true; bar.innerHTML = ''; return; }
+  // 'sistema' e 'consumo' são visões do Farol como app, não de uma conta: a barra de
+  // filtro por conta não se aplica (e mostrá-la ali daria falsa sensação de filtro).
+  if (accounts.length < 2 || CURRENT_TAB === 'sistema' || CURRENT_TAB === 'consumo') { bar.hidden = true; bar.innerHTML = ''; return; }
   bar.hidden = false;
   const all = SCOPE === 'all';
   // o contador (PRs precisando de você) é conceito do Radar; nas outras abas some
@@ -1603,6 +1605,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.23.2', ['A aba Consumo não mostra mais a barra de filtro por conta no topo: ali a medição é do Farol como um app (uso total de tokens), não de uma conta, então o filtro não se aplicava e só dava sensação de bug (trocar a conta e o número não mudar). A quebra "Por conta", que é explícita, continua, e o texto da tela deixa claro que mede o Farol como um todo.']],
   ['2.23.1', ['Ajuste do Consumo de tokens (da v2.23.0): virou uma tela própria (aba Consumo, saiu da Sistema), dedicada a acompanhar o uso das sessões autônomas do Claude. Agora com gráficos: uma linha do tempo (barras por dia) com métrica selecionável (total, input, output, cache) e janela selecionável (7, 30, 90 dias), e uma quebra por tipo, conta ou modelo. Continua sendo só rastreio pessoal, não influencia nenhuma decisão. E o registro ficou permanente: saiu o botão de zerar.']],
   ['2.23.0', ['Novo painel Consumo de tokens (aba Sistema): mostra quanto as sessões autônomas do Claude gastaram (revisão, autoanálise, pushback, ferramentas e chat), com total, hoje e últimos 7 dias, e quebras por tipo, por conta e por modelo. É só rastreio pra você ter noção do gasto no dia a dia, não muda nada na automação: a qualidade segue sendo o único critério das decisões. Registro local, sem custo extra. Também: "Revisões recentes" passa a mostrar 30 na tela (era 8) e guardar 200 no histórico (era 30).']],
   ['2.22.0', ['Nova aba Entregas: veja os PRs mergeados (por qualquer pessoa, não só o que o Farol revisou), agrupados por repositório ou por responsável, com o período escolhível (hoje, 7, 15 ou 30 dias). A visão é por organização: a sua principal já vem selecionada e você troca pra outra org num clique (com mais de uma conta, cada org aparece com a conta dona). É a visão de atualização dos projetos e de quem está entregando. Só leitura.']],
