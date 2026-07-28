@@ -9,15 +9,13 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.24.0
+## v2.23.1
 
-O Consumo de tokens virou uma tela própria, com gráficos.
-
-**Novidades**
-- Nova aba **Consumo** (saiu da aba Sistema): uma tela dedicada só pra acompanhar o uso de tokens das sessões autônomas do Claude. Traz uma **linha do tempo** (barras por dia) com a métrica selecionável (total, input, output ou cache) e a janela selecionável (7, 30 ou 90 dias), e uma **quebra** por tipo, conta ou modelo. Gráficos leves, sem dependências. Continua sendo só rastreio pessoal: não influencia nenhuma decisão da automação.
+Ajuste do Consumo de tokens (introduzido na v2.23.0).
 
 **Melhorias**
-- O registro de consumo passou a ser permanente: saiu o botão de zerar, pra o histórico não se perder.
+- O Consumo de tokens saiu da aba Sistema e virou uma **aba própria** (Consumo), uma tela dedicada só pra acompanhar o uso. Agora com gráficos: uma **linha do tempo** (barras por dia) com a métrica selecionável (total, input, output ou cache) e a janela selecionável (7, 30 ou 90 dias), e uma **quebra** por tipo, conta ou modelo. Gráficos leves, sem dependências. Segue sendo só rastreio pessoal: não influencia nenhuma decisão da automação.
+- O registro passou a ser permanente: saiu o botão de zerar, pra o histórico não se perder.
 
 ## v2.23.0
 
