@@ -149,6 +149,7 @@ class Engine extends EventEmitter {
     this.usage = { ...usageMod.defaultUsage(), ...readJson(usageMod.USAGE_FILE, {}) };
     this.seen = new Set();
     this.reviewedKeys = new Set(); // PRs abertos que eu ja revisei (gh --reviewed-by)
+    this.reReviewedKeys = new Set(); // re-requests que ja voltaram pra fila (evita re-surgir todo ciclo)
     this.token = null;
     this.tokenOk = false;
     this.doctorInfo = null;
@@ -526,7 +527,13 @@ class Engine extends EventEmitter {
       for (const pr of mineList) {
         if (!seenKeys.has(pr.key)) { pr.mine = true; panorama.push(pr); }
       }
-      for (const pr of panorama) pr.reviewedByMe = this.reviewedKeys.has(pr.key);
+      // re-request de review: fui pedido de novo (mine) num PR que EU já revisei
+      // (reviewedByMe). No fluxo normal, revisar te tira dos pedidos; voltar aos pedidos
+      // = o autor re-solicitou (a review antiga vira DISMISSED no GitHub). markReRequests
+      // des-marca esses como "visto" pra voltarem à fila (acionáveis de novo).
+      const reReq = this.markReRequests(mineKeys);
+      for (const pr of panorama) { pr.reviewedByMe = this.reviewedKeys.has(pr.key); pr.reRequested = reReq.has(pr.key); }
+      for (const pr of mineList) pr.reRequested = reReq.has(pr.key);
       panorama.sort((a, b) => (b.mine ? 1 : 0) - (a.mine ? 1 : 0) || String(b.updatedAt).localeCompare(String(a.updatedAt)));
 
       // primeira execucao da vida: baseline silencioso (nao notifica o estoque)
@@ -611,6 +618,23 @@ class Engine extends EventEmitter {
   }
 
   checkNow() { clearTimeout(this.timer); this.check('manual'); }
+
+  // Re-requests de review: PRs pedidos a mim DE NOVO (mine) que EU já revisei
+  // (reviewedByMe). Sinal do GitHub: revisar te remove dos pedidos; estar pedido de
+  // novo = o autor clicou "re-request review" (a review antiga vira DISMISSED). Isso
+  // deve voltar pra fila mesmo já "visto" na 1ª rodada, então des-marca como visto UMA
+  // vez. O marcador reReviewedKeys evita re-surgir todo ciclo (pra você poder ignorar
+  // depois) e é limpo quando o PR sai dos pedidos (re-revisado ou fechado). Devolve o
+  // conjunto de keys re-solicitadas, pra a UI rotular ("pedida de novo").
+  markReRequests(mineKeys) {
+    const reReq = new Set();
+    for (const key of mineKeys) if (this.reviewedKeys.has(key)) reReq.add(key);
+    for (const key of reReq) {
+      if (this.seen.has(key) && !this.reReviewedKeys.has(key)) { this.unsee(key); this.reReviewedKeys.add(key); }
+    }
+    for (const k of [...this.reReviewedKeys]) if (!reReq.has(k)) this.reReviewedKeys.delete(k);
+    return reReq;
+  }
 
   // --- sessao de revisao no Claude (terminal proprio, interativo) ---
   // O comando vai num .cmd e a janela abre via Start-Process (ShellExecute):

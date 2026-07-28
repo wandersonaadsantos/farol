@@ -229,6 +229,7 @@ main { max-width: 1000px; margin: 0 auto; padding: 16px 24px 60px; }
 .mypr-top { display: flex; align-items: center; gap: 14px; }
 .mypr-top .info { flex: 1; min-width: 0; }
 .mypr-card .badge { font-size: 10.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 99px; padding: 1px 8px; }
+.pr-card .badge { font-size: 10.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 99px; padding: 1px 8px; margin-left: 6px; }
 .mypr-analysis { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
 .mypr-summary { font-size: 13.5px; margin-bottom: 8px; }
 .mypr-block, .mypr-tips { margin-top: 8px; font-size: 13px; }

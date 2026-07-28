@@ -983,7 +983,7 @@ function renderQueue() {
     <div class="card pr-card" data-key="${esc(pr.key)}" style="${m.style}">
       ${m.dot}${avatar(pr.author)}
       <div class="info">
-        <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}</div>
+        <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}${pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : ''}</div>
         <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
         <div class="pr-sub"><span class="author">@${esc(pr.author)}</span> · atualizado ${fmtRel(pr.updatedAt)}${pr.author ? ` ${papelPicker(pr.author)}` : ''}</div>
       </div>
@@ -1036,7 +1036,9 @@ function renderPanorama() {
     // re-revisar); pendente = já na fila de decisão; senão, dá pra revisar.
     const ra = (STATE.reviewActions || {})[pr.key];
     const kind = ra ? ra.kind : (pr.reviewedByMe ? 'approve' : null);
-    const reviewed = kind === 'approve' || kind === 'request_changes';
+    // re-request (o autor pediu sua revisão DE NOVO): não é mais "resolvido/aguardando o
+    // autor", voltou a ser acionável (a review antiga foi dismissed no GitHub).
+    const reviewed = (kind === 'approve' || kind === 'request_changes') && !pr.reRequested;
     const isPending = kind === 'pending';
     // stale = você revisou e entrou commit novo depois: o "Re-revisar" volta a valer
     const stale = reviewed && !!(STATE.staleStates || {})[pr.key];
@@ -1045,13 +1047,14 @@ function renderPanorama() {
     const tail = busy.has(pr.key)
       ? '<button class="btn sm ghost pano-review" disabled>Revisando…</button>'
       : showBtn
-        ? `<button class="btn sm ghost act-review pano-review" data-url="${esc(pr.url)}" title="${stale ? 'Entrou commit novo depois da sua review: revisar de novo' : pr.mine ? 'Revisar (seu review pedido)' : 'Revisar sob demanda: o resultado sempre passa por você, nada é postado sozinho'}">${stale ? 'Re-revisar' : 'Revisar'}</button>`
+        ? `<button class="btn sm ghost act-review pano-review" data-url="${esc(pr.url)}" title="${pr.reRequested ? 'O autor pediu sua revisão de novo (re-request): a review anterior foi dispensada' : stale ? 'Entrou commit novo depois da sua review: revisar de novo' : pr.mine ? 'Revisar (seu review pedido)' : 'Revisar sob demanda: o resultado sempre passa por você, nada é postado sozinho'}">${stale || pr.reRequested ? 'Re-revisar' : 'Revisar'}</button>`
         : `<span class="settled">${esc(settledLabel)}</span>`;
     return `
     <div class="row ${pr.mine ? 'mine' : ''} ${chip ? 'reviewed' : ''}" style="${m.varStyle}${m.dim}">
       <span class="status-dot"></span>
       <span class="ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a></span>
       ${SCOPE === 'all' && m.chip ? m.chip : (pr.mine ? '<span class="badge">sua revisão</span>' : '')}
+      ${pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : ''}
       ${chip}
       <span class="title" title="${esc(pr.title)}">${esc(pr.title)}</span>
       <span class="who">@${esc(pr.author)}</span>
@@ -1605,6 +1608,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.23.4', ['Quando o autor pede sua revisão de novo (re-request) num PR que você já revisou, o Farol volta a mostrar o PR na sua fila como "pedida de novo" (com botão "Re-revisar"), em vez de deixá-lo preso no Panorama como "aguardando o autor". Antes, por já ter sido visto na 1ª revisão, a re-solicitação não reaparecia na sua tela.']],
   ['2.23.3', ['A interface responde melhor a janelas estreitas (o app já tem bastante aba e painel): em telas menores a barra de abas encolhe e rola em vez de estourar o topo, o botão "Verificar agora" vira só o ícone, e as linhas de lista e barras de ação quebram em vez de cortar botão ou texto. Em telas largas nada muda.']],
   ['2.23.2', ['A aba Consumo não mostra mais a barra de filtro por conta no topo: ali a medição é do Farol como um app (uso total de tokens), não de uma conta, então o filtro não se aplicava e só dava sensação de bug (trocar a conta e o número não mudar). A quebra "Por conta", que é explícita, continua, e o texto da tela deixa claro que mede o Farol como um todo.']],
   ['2.23.1', ['Ajuste do Consumo de tokens (da v2.23.0): virou uma tela própria (aba Consumo, saiu da Sistema), dedicada a acompanhar o uso das sessões autônomas do Claude. Agora com gráficos: uma linha do tempo (barras por dia) com métrica selecionável (total, input, output, cache) e janela selecionável (7, 30, 90 dias), e uma quebra por tipo, conta ou modelo. Continua sendo só rastreio pessoal, não influencia nenhuma decisão. E o registro ficou permanente: saiu o botão de zerar.']],
