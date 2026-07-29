@@ -632,16 +632,28 @@ class Engine extends EventEmitter {
 
   checkNow() { clearTimeout(this.timer); this.check('manual'); }
 
-  // Re-requests de review: PRs pedidos a mim DE NOVO (mine) que EU já revisei
-  // (reviewedByMe). Sinal do GitHub: revisar te remove dos pedidos; estar pedido de
-  // novo = o autor clicou "re-request review" (a review antiga vira DISMISSED). Isso
-  // deve voltar pra fila mesmo já "visto" na 1ª rodada, então des-marca como visto UMA
-  // vez. O marcador reReviewedKeys evita re-surgir todo ciclo (pra você poder ignorar
-  // depois) e é limpo quando o PR sai dos pedidos (re-revisado ou fechado). Devolve o
-  // conjunto de keys re-solicitadas, pra a UI rotular ("pedida de novo").
+  // Re-requests de review: PRs pedidos a mim DE NOVO (mine) que EU já revisei.
+  // Sinal do GitHub: revisar te remove dos pedidos; estar pedido de novo = o autor
+  // clicou "re-request review" (a review antiga vira DISMISSED). Isso deve voltar
+  // pra fila (e reentrar na auto-revisão) mesmo já "visto" na 1ª rodada, então
+  // des-marca como visto UMA vez. "Já revisei" vem do HISTÓRICO LOCAL do Farol
+  // (reviewActions, sem I/O), não de uma 2ª busca no gh (`--reviewed-by=@me`):
+  // essa busca é indexação assíncrona do GitHub e pode ficar atrasada em relação
+  // a `--review-requested=@me` no mesmo ciclo, fazendo o re-request nunca bater
+  // (bug real reportado: PR pedido de novo não era identificado nem reanalisado
+  // sozinho). O histórico local é instantâneo e reflete exatamente o que o Farol
+  // postou; "pulado" (Pular) não conta como revisado (nada foi postado no GitHub,
+  // então não há como ser re-request de verdade). O marcador reReviewedKeys evita
+  // re-surgir todo ciclo (pra você poder ignorar depois) e é limpo quando o PR sai
+  // dos pedidos (re-revisado ou fechado). Devolve o conjunto de keys re-solicitadas,
+  // pra a UI rotular ("pedida de novo") e a auto-revisão relançar sozinha.
   markReRequests(mineKeys) {
+    const actions = this.reviewActions();
     const reReq = new Set();
-    for (const key of mineKeys) if (this.reviewedKeys.has(key)) reReq.add(key);
+    for (const key of mineKeys) {
+      const a = actions[key];
+      if (a && a.kind !== 'pending') reReq.add(key);
+    }
     for (const key of reReq) {
       if (this.seen.has(key) && !this.reReviewedKeys.has(key)) { this.unsee(key); this.reReviewedKeys.add(key); }
     }
