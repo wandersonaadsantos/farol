@@ -164,19 +164,28 @@ function wireEngine() {
     const body = n === 1 ? `${items[0].key}: ${items[0].title}` : items.map(i => i.key).join('  ·  ');
     notify(`Farol · ${title}`, body);
   });
-  engine.on('auto-approved', ({ pr, result }) => {
-    notify('Farol · aprovado sem você ✅', `${pr.key} (${result.card || 'sem card'}): APPROVE postado.`);
+  // alertas dizem o DESFECHO e o MOTIVO (aprovado sem/com ressalvas, reprovado,
+  // precisa da sua atenção): transparência em vez de "sem você"
+  engine.on('auto-approved', ({ pr, result, points }) => {
+    const ressalvas = points || [];
+    if (ressalvas.length) {
+      const extra = ressalvas.length > 1 ? ` (+${ressalvas.length - 1})` : '';
+      notify('Farol · aprovado com ressalvas ⚠️', `${pr.key}: APPROVE postado. Ressalva: ${ressalvas[0]}${extra}. Detalhes em Revisões recentes.`);
+    } else {
+      notify('Farol · aprovado sem ressalvas ✅', `${pr.key} (${result.card || 'sem card'}): revisão completa, nenhum ponto de atenção. APPROVE postado.`);
+    }
   });
   engine.on('auto-rejected', ({ pr, result }) => {
     const motivo = (result.reasons && result.reasons[0]) || 'ver relatório';
-    notify('Farol · mudanças pedidas sem você 🔴', `${pr.key}: ${motivo}`);
+    notify('Farol · reprovado 🔴', `${pr.key}: mudanças pedidas. Motivo: ${motivo}`);
   });
   engine.on('tool-done', ({ name, label }) => {
     notify(`Farol · ${label}`, name === 'kudos' ? 'Kudos prontos pra copiar na aba Destaques.' : 'Relatório disponível na aba Sistema.');
   });
   engine.on('needs-decision', ({ pr, item }) => {
     const motivo = (item.reasons && item.reasons[0]) || 'ver relatório';
-    notify('Farol · precisa de você 🟡', `${pr.key}: ${motivo}`);
+    const extra = (item.reasons || []).length > 1 ? ` (+${item.reasons.length - 1} motivo(s))` : '';
+    notify('Farol · precisa da sua atenção 🟡', `${pr.key}: ${motivo}${extra}`);
     if (win) win.flashFrame(true);
   });
   engine.on('settings-changed', (cfg) => {
