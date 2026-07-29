@@ -694,6 +694,7 @@ class Engine extends EventEmitter {
   // o histórico de pushback calibra humildade/assertividade com aquela pessoa.
   personProfileBlock(login) { return reviewMod.personProfileBlock(this, login); }
   reviewFormatBlock() { return reviewMod.reviewFormatBlock(this); }
+  thirdPartyReviewBlock() { return reviewMod.thirdPartyReviewBlock(); }
   headlessPromptFor(url, author) { return reviewMod.headlessPromptFor(this, url, author); }
 
   // Grava o nivel do modelo (Opus/Sonnet/...) na sessao ativa pra UI mostrar
@@ -758,6 +759,7 @@ class Engine extends EventEmitter {
   shouldAutoReject(pr, result) { return decisionMod.shouldAutoReject(this, pr, result); }
   rejectBodyWithMark(body) { return decisionMod.rejectBodyWithMark(this, body); }
   attentionPoints(result) { return decisionMod.attentionPoints(this, result); }
+  contestations(result) { return decisionMod.contestations(result); }
   async postReview(pr, payload) { return decisionMod.postReview(this, pr, payload); }
   writeMemory(result, actionLabel) { return decisionMod.writeMemory(this, result, actionLabel); }
   async decide(id, action) { return decisionMod.decide(this, id, action); }

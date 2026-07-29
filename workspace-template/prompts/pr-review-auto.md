@@ -19,6 +19,14 @@ Siga o protocolo do `CLAUDE.md` deste diretório (identidade → card do Jira �
   "verdict": "approve" | "request_changes",
   "decision": "auto_approve" | "needs_decision",
   "reasons": ["motivo curto e claro", "..."],
+  "contested": [
+    {
+      "source": "quem apontou (ex.: Acrity, SonarQube, @login)",
+      "claim": "o apontamento dele, em 1 linha",
+      "label": "falso_positivo" | "fora_de_escopo" | "pre_existente" | "criterio_nao_vigente",
+      "evidence": "a prova em 1 linha: arquivo:linha que refuta, ou o texto do PR/spec que documenta o adiamento, ou a contagem medida"
+    }
+  ],
   "reportMarkdown": "relatório completo no formato do CLAUDE.md, como seria mostrado na tela",
   "payloads": {
     "approve":         { "event": "APPROVE",         "body": "...", "comments": [ { "path": "...", "line": 0, "side": "RIGHT", "body": "..." } ] },
@@ -41,6 +49,7 @@ Siga o protocolo do `CLAUDE.md` deste diretório (identidade → card do Jira �
 - `reasons` lidera com o risco SUBSTANTIVO (regra de negócio, regressão, build). Processo (sem card, descrição vazia) vem por último e no máximo 1 linha; em repo sem cultura de card ou PR de bot (Snyk), "sem card" não vira reason.
 - **Propagação de gitflow** (mesma head `hotfix/*`, base release/develop, PR primário aprovado): a reason é uma só, "propagação do hotfix aprovado em #NNN; diff extra é drift das bases", e o drift não gera findings de escopo.
 - `reasons` fica `[]` quando `auto_approve`.
+- **`contested` (review de terceiro no PR):** vazio (`[]`) é o caso normal e esperado. Só preencha quando tiver PROVA no padrão da seção "Reviews de terceiros" injetada neste prompt, e lembre que a barra do `falso_positivo` é a mais alta de todas (fato refutado com `arquivo:linha`, sem leitura razoável em que o apontamento seja verdadeiro). Na dúvida, deixe `[]` e faça só a sua análise. **Item em `contested` obriga `decision = "needs_decision"`** (o app não deixa auto-postar contestação de qualquer jeito, mas a decisão tem que vir coerente).
 
 ## Regras dos payloads
 
