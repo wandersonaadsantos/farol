@@ -924,6 +924,10 @@ class Engine extends EventEmitter {
 
   pushState() { this.emit('state', this.snapshot()); }
 
+  // Deep-link de alerta: o shell (clique na notificação) pede pra UI levar
+  // o usuário direto ao card do PR (a UI rola e destaca via SSE 'focus-pr').
+  focusPr(url) { if (url) this.emit('focus-pr', { url }); }
+
   async start() {
     this.checkUpdate().catch(() => {});
     this.doctor().catch(() => {});

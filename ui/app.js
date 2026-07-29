@@ -493,6 +493,91 @@ $('#nav').addEventListener('click', (e) => {
   if (btn) switchTab(btn.dataset.tab);
 });
 
+// Deep-link de alerta: rola até o card do PR e dá um pulso de destaque.
+// Ordem de busca = onde a ação mora (decisão > fila > meus PRs > panorama > recentes).
+function focusPr(url, tentativa = 0) {
+  if (!url) return;
+  switchTab('radar');
+  const sel = ['#decisions .decision', '#queue .pr-card', '#myPRs .mypr-card', '#panorama [data-url]', '#resolved [data-url]']
+    .map(s => `${s}[data-url="${CSS.escape(url)}"]`).join(', ');
+  const card = document.querySelector(sel);
+  if (!card) {
+    // o state pode ainda estar chegando pelo SSE; tenta de novo uma vez
+    if (tentativa < 2) setTimeout(() => focusPr(url, tentativa + 1), 700);
+    return;
+  }
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  card.classList.add('pulse-focus');
+  setTimeout(() => card.classList.remove('pulse-focus'), 2600);
+}
+
+/* ---------- atalhos de teclado ---------- */
+// J/K navegam nas decisões pendentes; A aprova, M pede mudanças, C comenta, P pula;
+// / foca a consulta de PR; 1-6 trocam de aba; ? mostra esta lista.
+const KBD_ACTIONS = { a: 'approve', m: 'request_changes', c: 'comment', p: 'skip' };
+function kbdCards() { return [...document.querySelectorAll('#decisions .decision')]; }
+function kbdSelected() { return document.querySelector('#decisions .decision.kbd-sel'); }
+function kbdMove(delta) {
+  const cards = kbdCards();
+  if (!cards.length) return;
+  switchTab('radar');
+  const cur = kbdSelected();
+  let i = cur ? cards.indexOf(cur) + delta : (delta > 0 ? 0 : cards.length - 1);
+  i = Math.max(0, Math.min(cards.length - 1, i));
+  cards.forEach(c => c.classList.remove('kbd-sel'));
+  cards[i].classList.add('kbd-sel');
+  cards[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function kbdHelp() {
+  const ov = document.createElement('div');
+  ov.className = 'modal-overlay';
+  ov.innerHTML = `<div class="modal-card">
+    <div class="modal-title">Atalhos de teclado</div>
+    <div class="modal-body"><table class="kbd-table">
+      <tr><td><kbd>J</kbd> / <kbd>K</kbd></td><td>navegar nas decisões pendentes</td></tr>
+      <tr><td><kbd>A</kbd></td><td>aprovar a decisão selecionada</td></tr>
+      <tr><td><kbd>M</kbd></td><td>pedir mudanças na selecionada</td></tr>
+      <tr><td><kbd>C</kbd></td><td>só comentar na selecionada</td></tr>
+      <tr><td><kbd>P</kbd></td><td>pular a selecionada</td></tr>
+      <tr><td><kbd>/</kbd></td><td>consultar um PR por URL</td></tr>
+      <tr><td><kbd>1</kbd>…<kbd>6</kbd></td><td>trocar de aba</td></tr>
+      <tr><td><kbd>?</kbd></td><td>esta lista</td></tr>
+    </table></div>
+    <div class="modal-actions"><button class="btn sm primary modal-ok">Fechar</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  ov.querySelector('.modal-ok').onclick = close;
+  ov.onclick = (e) => { if (e.target === ov) close(); };
+  document.addEventListener('keydown', onKey);
+}
+document.addEventListener('keydown', (e) => {
+  // nunca por cima de digitação, diálogo, chat ou combinação com modificador
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target;
+  if (t && (/INPUT|TEXTAREA|SELECT/.test(t.tagName) || t.isContentEditable)) return;
+  if (document.querySelector('.modal-overlay')) return;
+  if (!$('#chatPanel').hidden) return;
+  const k = e.key;
+  if (k >= '1' && k <= '6') {
+    const tabs = [...document.querySelectorAll('.nav-item')];
+    const btn = tabs[Number(k) - 1];
+    if (btn) { switchTab(btn.dataset.tab); e.preventDefault(); }
+    return;
+  }
+  if (k === '/') { switchTab('radar'); $('#lookupUrl').focus(); e.preventDefault(); return; }
+  if (k === '?') { kbdHelp(); e.preventDefault(); return; }
+  const low = k.toLowerCase();
+  if (low === 'j') { kbdMove(1); e.preventDefault(); return; }
+  if (low === 'k') { kbdMove(-1); e.preventDefault(); return; }
+  if (KBD_ACTIONS[low]) {
+    const card = kbdSelected();
+    const btn = card && card.querySelector(`.dec-act[data-action="${KBD_ACTIONS[low]}"]`);
+    if (btn) { btn.click(); e.preventDefault(); }
+  }
+});
+
 /* ---------- entregas (PRs mergeados por repo / por responsável) ---------- */
 let deliveriesData = null;
 let deliveriesDays = parseInt(localStorage.getItem('farol-deliv-days'), 10);
@@ -861,7 +946,7 @@ function renderDecisions() {
     const m = acctMark(d);
     const author = (d.pr && d.pr.author) || d.author || '';
     return `
-    <div class="card decision" data-id="${esc(d.id)}" style="${m.style}">
+    <div class="card decision" data-id="${esc(d.id)}" data-url="${esc(d.pr?.url || '')}" style="${m.style}">
       <div class="decision-head">
         <span class="verdict ${d.verdict === 'approve' ? 'approve' : 'rc'}">${d.verdict === 'approve' ? 'APROVÁVEL' : 'COM BLOCKER'}</span>
         <a class="dec-ref" href="${esc(d.pr?.url || '#')}" target="_blank" rel="noreferrer">${esc(d.key)}</a>
@@ -980,7 +1065,7 @@ function renderQueue() {
   box.innerHTML = q.map(pr => {
     const m = acctMark(pr);
     return `
-    <div class="card pr-card" data-key="${esc(pr.key)}" style="${m.style}">
+    <div class="card pr-card" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" style="${m.style}">
       ${m.dot}${avatar(pr.author)}
       <div class="info">
         <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}${pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : ''}</div>
@@ -1608,6 +1693,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.24.0', ['Fluidez: clicar num alerta de revisão agora leva direto ao card do PR (a tela rola e destaca com um pulso); o ícone na barra de tarefas ganha uma bolinha (Windows) ou número no Dock (macOS) enquanto houver decisão esperando, com a contagem no tooltip da bandeja; e chegaram atalhos de teclado (J/K navegam nas decisões, A aprova, M pede mudanças, C comenta, P pula, / consulta PR por URL, 1 a 6 trocam de aba, ? mostra a lista). Com a janela em foco, o aviso fica só no app, sem duplicar na notificação do sistema.']],
   ['2.23.8', ['Os alertas de revisão agora dizem o desfecho e o motivo, sem o tom de "sem você": "Aprovado sem ressalvas" (revisão completa, nenhum ponto de atenção), "Aprovado com ressalvas" (mostra a primeira ressalva e aponta pra Revisões recentes), "Reprovado" (com o motivo) e "Precisa da sua atenção" (lidera com o motivo, não com uma contagem). Vale pra notificação do sistema, pros avisos dentro do app e pra notificação do navegador.']],
   ['2.23.7', ['O pushback (detecção automática de contestação do autor) agora só aparece quando o seu review de fato apontou algo: PR que você bloqueou (pediu mudanças) ou aprovou com ressalva. Aprovação limpa, sem nenhum ponto de atenção, deixa de gerar pushback (antes qualquer review seu entrava no scan). A resposta do autor depois do review continua sendo condição. Esta aba Novidades também voltou a listar todas as versões (tinha parado na 2.23.4).']],
   ['2.23.6', ['Correções do macOS. O Farol agora abre de verdade pelo Finder, Spotlight e Launchpad (o lançador executa o binário nativo do Electron direto, sem depender de node no PATH; antes, aberto pelo Finder com PATH mínimo, morria em silêncio, sem janela e sem log). A janela sobe na frente e com foco, na abertura e no clique seguinte no ícone (antes subia atrás de tudo e sem foco, parecendo que não tinha aberto). E o ícone do Farol aparece certo no Finder/Spotlight (o .icns vem no pacote) e no Dock em execução (antes era o ícone cru do Electron). Primeira correção validada num Mac de verdade (Apple Silicon), vinda do PR #3 de @thiagocarvalho-dev.']],
@@ -2269,8 +2355,12 @@ function connect() {
     const { pr, item } = JSON.parse(e.data);
     if (!isElectron && 'Notification' in window && Notification.permission === 'granted') {
       const n = new Notification('Farol · precisa da sua atenção', { body: `${pr.key}: ${(item.reasons || [])[0] || 'ver relatório'}` });
-      n.onclick = () => window.focus();
+      n.onclick = () => { window.focus(); focusPr(pr.url); };
     }
+  });
+  es.addEventListener('focus-pr', (e) => {
+    const { url } = JSON.parse(e.data);
+    focusPr(url);
   });
   es.onerror = () => {
     $('#statusPill').className = 'pill err';

@@ -691,3 +691,18 @@ body.electron .chat-head { padding-right: 150px; }
   #sessionsPill { display: none; }
   .usage-stats { grid-template-columns: 1fr 1fr; }
 }
+
+/* deep-link de alerta: pulso de destaque no card alvo */
+.pulse-focus { animation: pulse-focus 1.3s ease 2; }
+@keyframes pulse-focus {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 1.5px var(--accent); }
+}
+
+/* selecao por teclado (J/K) nas decisoes pendentes */
+.decision.kbd-sel { outline: 2px solid var(--info); outline-offset: 2px; }
+
+/* tabela do dialogo de atalhos (?) */
+.kbd-table { border-collapse: collapse; }
+.kbd-table td { padding: 4px 12px 4px 0; font-size: 13px; }
+.kbd-table kbd { background: var(--accent-soft); border: 1px solid var(--border); border-radius: 5px; padding: 1px 7px; font-family: inherit; font-size: 12px; }

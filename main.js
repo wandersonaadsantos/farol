@@ -137,17 +137,51 @@ function createTray() {
   tray.on('balloon-click', showWindow);
 }
 
-function notify(title, body) {
+function notify(title, body, prUrl) {
+  // janela em foco = você já está vendo o toast dentro do app; a notificação
+  // do sistema em cima viraria ruído duplicado
+  if (win && !win.isDestroyed() && win.isFocused()) return;
+  const goto = () => { showWindow(); if (prUrl && engine) engine.focusPr(prUrl); };
   try {
     if (Notification.isSupported()) {
       const n = new Notification({ title, body, icon: path.join(__dirname, 'assets', 'farol.ico') });
-      n.on('click', showWindow);
+      n.on('click', goto);
       n.on('failed', () => balloon(title, body));
       n.show();
       return;
     }
   } catch { /* cai pro balao */ }
   balloon(title, body);
+}
+
+// Badge de pendencias: da pra saber se ha decisoes esperando sem abrir a janela.
+// Windows: bolinha de overlay no icone da barra de tarefas; macOS: numero no Dock;
+// e o tooltip da bandeja carrega a contagem nos dois.
+let lastBadgeCount = -1;
+function overlayDot() {
+  // bolinha vermelha 16x16 desenhada na mao (BGRA), zero dependencias
+  const S = 16, buf = Buffer.alloc(S * S * 4);
+  const cx = 7.5, cy = 7.5, r = 6.5;
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const d = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
+      const a = d <= r - 0.5 ? 255 : d >= r + 0.5 ? 0 : Math.round(255 * (r + 0.5 - d));
+      const i = (y * S + x) * 4;
+      buf[i] = 54; buf[i + 1] = 66; buf[i + 2] = 239; buf[i + 3] = a; // BGRA: #ef4236
+    }
+  }
+  return nativeImage.createFromBitmap(buf, { width: S, height: S });
+}
+function updateBadge(snapshot) {
+  const count = ((snapshot.decisions || {}).pending || []).length;
+  if (count === lastBadgeCount) return;
+  lastBadgeCount = count;
+  const label = count === 1 ? '1 decisão esperando você' : `${count} decisões esperando você`;
+  try {
+    if (IS_MAC) { app.dock && app.dock.setBadge(count ? String(count) : ''); }
+    else if (win && !win.isDestroyed()) { win.setOverlayIcon(count ? overlayDot() : null, count ? label : ''); }
+    tray && tray.setToolTip(count ? `Farol · ${label}` : 'Farol');
+  } catch { /* badge e cosmetico, nunca derruba o shell */ }
 }
 
 function balloon(title, content) {
@@ -162,7 +196,7 @@ function wireEngine() {
       ? (n === 1 ? 'PR novo, revisando sozinho' : `${n} PRs novos, revisando sozinho`)
       : (n === 1 ? 'PR aguardando sua revisão' : `${n} PRs aguardando sua revisão`);
     const body = n === 1 ? `${items[0].key}: ${items[0].title}` : items.map(i => i.key).join('  ·  ');
-    notify(`Farol · ${title}`, body);
+    notify(`Farol · ${title}`, body, n === 1 ? items[0].url : null);
   });
   // alertas dizem o DESFECHO e o MOTIVO (aprovado sem/com ressalvas, reprovado,
   // precisa da sua atenção): transparência em vez de "sem você"
@@ -170,14 +204,14 @@ function wireEngine() {
     const ressalvas = points || [];
     if (ressalvas.length) {
       const extra = ressalvas.length > 1 ? ` (+${ressalvas.length - 1})` : '';
-      notify('Farol · aprovado com ressalvas ⚠️', `${pr.key}: APPROVE postado. Ressalva: ${ressalvas[0]}${extra}. Detalhes em Revisões recentes.`);
+      notify('Farol · aprovado com ressalvas ⚠️', `${pr.key}: APPROVE postado. Ressalva: ${ressalvas[0]}${extra}. Detalhes em Revisões recentes.`, pr.url);
     } else {
-      notify('Farol · aprovado sem ressalvas ✅', `${pr.key} (${result.card || 'sem card'}): revisão completa, nenhum ponto de atenção. APPROVE postado.`);
+      notify('Farol · aprovado sem ressalvas ✅', `${pr.key} (${result.card || 'sem card'}): revisão completa, nenhum ponto de atenção. APPROVE postado.`, pr.url);
     }
   });
   engine.on('auto-rejected', ({ pr, result }) => {
     const motivo = (result.reasons && result.reasons[0]) || 'ver relatório';
-    notify('Farol · reprovado 🔴', `${pr.key}: mudanças pedidas. Motivo: ${motivo}`);
+    notify('Farol · reprovado 🔴', `${pr.key}: mudanças pedidas. Motivo: ${motivo}`, pr.url);
   });
   engine.on('tool-done', ({ name, label }) => {
     notify(`Farol · ${label}`, name === 'kudos' ? 'Kudos prontos pra copiar na aba Destaques.' : 'Relatório disponível na aba Sistema.');
@@ -185,9 +219,10 @@ function wireEngine() {
   engine.on('needs-decision', ({ pr, item }) => {
     const motivo = (item.reasons && item.reasons[0]) || 'ver relatório';
     const extra = (item.reasons || []).length > 1 ? ` (+${item.reasons.length - 1} motivo(s))` : '';
-    notify('Farol · precisa da sua atenção 🟡', `${pr.key}: ${motivo}${extra}`);
+    notify('Farol · precisa da sua atenção 🟡', `${pr.key}: ${motivo}${extra}`, pr.url);
     if (win) win.flashFrame(true);
   });
+  engine.on('state', updateBadge);
   engine.on('settings-changed', (cfg) => {
     applyAutostart();
     if (win && !win.isDestroyed()) {
