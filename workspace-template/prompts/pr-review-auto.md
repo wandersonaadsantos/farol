@@ -27,6 +27,11 @@ Siga o protocolo do `CLAUDE.md` deste diretório (identidade → card do Jira �
       "evidence": "a prova em 1 linha: arquivo:linha que refuta, ou o texto do PR/spec que documenta o adiamento, ou a contagem medida"
     }
   ],
+  "coverage": {
+    "total": 0,
+    "reviewed": ["arquivos do diff efetivamente revisados"],
+    "missing": ["arquivos do diff que ficaram SEM revisão (falha de subagente, corte por tamanho)"]
+  },
   "reportMarkdown": "relatório completo no formato do CLAUDE.md, como seria mostrado na tela",
   "payloads": {
     "approve":         { "event": "APPROVE",         "body": "...", "comments": [ { "path": "...", "line": 0, "side": "RIGHT", "body": "..." } ] },
@@ -49,6 +54,7 @@ Siga o protocolo do `CLAUDE.md` deste diretório (identidade → card do Jira �
 - `reasons` lidera com o risco SUBSTANTIVO (regra de negócio, regressão, build). Processo (sem card, descrição vazia) vem por último e no máximo 1 linha; em repo sem cultura de card ou PR de bot (Snyk), "sem card" não vira reason.
 - **Propagação de gitflow** (mesma head `hotfix/*`, base release/develop, PR primário aprovado): a reason é uma só, "propagação do hotfix aprovado em #NNN; diff extra é drift das bases", e o drift não gera findings de escopo.
 - `reasons` fica `[]` quando `auto_approve`.
+- **`coverage` (cobertura da leitura):** em PR pequeno (passe único) mande `total` com os arquivos do diff, `reviewed` com os que você leu e `missing: []`. Em PR grande revisado em lotes, some o que cada subagente revisou. **Nunca declare `missing: []` sem ter revisado tudo:** o app usa esse campo pra decidir se pode postar sozinho, então uma lacuna escondida aqui tira a única prova de que a revisão olhou o PR inteiro. Lote que falhou = os arquivos dele entram em `missing`, não desaparecem. Cobertura incompleta NÃO é motivo pra reprovar o PR: é motivo pra decisão humana, e o app cuida disso sozinho.
 - **`contested` (review de terceiro no PR):** vazio (`[]`) é o caso normal e esperado. Só preencha quando tiver PROVA no padrão da seção "Reviews de terceiros" injetada neste prompt, e lembre que a barra do `falso_positivo` é a mais alta de todas (fato refutado com `arquivo:linha`, sem leitura razoável em que o apontamento seja verdadeiro). Na dúvida, deixe `[]` e faça só a sua análise. **Item em `contested` obriga `decision = "needs_decision"`** (o app não deixa auto-postar contestação de qualquer jeito, mas a decisão tem que vir coerente).
 
 ## Regras dos payloads

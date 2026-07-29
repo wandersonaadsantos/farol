@@ -43,7 +43,7 @@ Regras aprendidas com reviews reais desta org (retro de 14/07/2026; estudo em `d
 
 3. **Histórico do autor.** Leia `state/authors/<login>.md` (se existir) e resuma em 2-3 linhas as recorrências e ganhos recentes. Sem arquivo → 1º PR dessa pessoa que você vê.
 
-4. **Rode o agente `pr-reviewer`** (subagent_type `pr-reviewer`), passando: o **PR**; os **critérios/escopo/fora-de-escopo do card** (se obtidos); e o **histórico do autor** (passo 3). Ele devolve o relatório (triagem Conventional Comments: 🔴 issue(blocking) / 🟡 suggestion / ❓ question / 🔵 nitpick / 🟢 praise), **Veredito**, **cardMet** e — se houver histórico — uma linha de **evolução**. **Não posta nada.**
+4. **Rode o agente `pr-reviewer`** (subagent_type `pr-reviewer`), passando: o **PR**; os **critérios/escopo/fora-de-escopo do card** (se obtidos); e o **histórico do autor** (passo 3). **PR grande** (o Farol injeta os lotes prontos quando o diff passa de 1000 linhas ou 20 arquivos): dispare **um `pr-reviewer` por lote, em paralelo** (várias chamadas na mesma mensagem), cada um lendo por completo só os arquivos do lote dele e ciente dos caminhos dos outros lotes (pra sinalizar dependência cross-lote sem afirmar defeito em arquivo que não leu). Depois **você** consolida: deduplica por `arquivo:linha`, resolve as suspeitas cross-lote, aplica o gate dos 8 blockers **uma vez só** sobre o conjunto e escreve UM relatório. Uma sessão não lê 8 mil linhas com atenção: por isso o fatiamento existe. Ele devolve o relatório (triagem Conventional Comments: 🔴 issue(blocking) / 🟡 suggestion / ❓ question / 🔵 nitpick / 🟢 praise), **Veredito**, **cardMet** e — se houver histórico — uma linha de **evolução**. **Não posta nada.**
 
 5. **Decida a ação:**
 
@@ -84,7 +84,7 @@ O **corpo do review** tem que parecer escrito por uma PESSOA (o Wanderson revisa
   - Payload: `{ "event": "APPROVE | REQUEST_CHANGES | COMMENT", "body": "<corpo humano acima>", "comments": [ { "path": "arquivo.ext", "line": 42, "side": "RIGHT", "body": "<observação>" } ] }`
   - Comentário inline com linha fora do diff → fallback: jogue o ponto no `body`.
 - Sem inline, direto: `gh pr review <url> --approve|--request-changes|--comment --body "<corpo acima>"`.
-- **Mesmo aprovando, registre as melhorias** no corpo, naturalmente. Aprovar não é deixar passar em silêncio.
+- **Mesmo aprovando, registre as melhorias** no corpo, naturalmente. Aprovar não é deixar passar em silêncio. Isso vale também pra **ressalva** (aprovável com ponto de atenção): ela aprova e **aparece no corpo do PR**, escrita como um revisor sênior mencionaria de passagem (o ponto, por que importa, e que não segura o merge), sem checklist e sem seção rotulada. **Filtro:** ressalva TÉCNICA sobre o código entra; ressalva OPERACIONAL do nosso fluxo (card não confirmado por falha de acesso ao Jira, review que não era pedido a você, discordância com outro review, política de conta, cobertura incompleta) fica só no app, porque é assunto interno e citar vazaria a automação.
 
 ## Memória do time (personalização + incentivo)
 

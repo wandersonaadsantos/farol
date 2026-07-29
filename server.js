@@ -760,6 +760,8 @@ class Engine extends EventEmitter {
   rejectBodyWithMark(body) { return decisionMod.rejectBodyWithMark(this, body); }
   attentionPoints(result) { return decisionMod.attentionPoints(this, result); }
   contestations(result) { return decisionMod.contestations(result); }
+  coverageGap(result) { return decisionMod.coverageGap(result); }
+  coverageGap(result) { return decisionMod.coverageGap(result); }
   async postReview(pr, payload) { return decisionMod.postReview(this, pr, payload); }
   writeMemory(result, actionLabel) { return decisionMod.writeMemory(this, result, actionLabel); }
   async decide(id, action) { return decisionMod.decide(this, id, action); }
