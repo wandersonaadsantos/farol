@@ -353,9 +353,45 @@ function rerenderScope() {
   if (!STATE) return;
   renderAccountBar(); renderIdentity();
   renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSilenced();
+  renderRadarNav();
   if ($('#tab-destaques').classList.contains('active')) { loadHighlights(); renderTools(); }
   if ($('#tab-time').classList.contains('active')) loadTeam();
 }
+
+// mini-navegação do Radar: só lista seções visíveis (hidden=false), com contagem
+// quando o número ajuda a decidir pra onde ir. Espelha o estado real do DOM em
+// vez do STATE cru, então some/aparece junto com a própria seção.
+function renderRadarNav() {
+  const nav = $('#radarNav');
+  const items = [
+    ['activeWrap', 'rnActive', $('#activeCount').textContent],
+    ['decisionsWrap', 'rnDecisions', $('#decisionsCount').textContent],
+    ['queueSection', 'rnQueue', $('#queueCount').hidden ? '' : $('#queueCount').textContent],
+    ['resolvedWrap', 'rnResolved', ''],
+    ['myPRsWrap', 'rnMyPRs', $('#myPRsCount').hidden ? '' : $('#myPRsCount').textContent],
+    ['panoramaSection', 'rnPano', $('#panoCount').hidden ? '' : $('#panoCount').textContent],
+  ];
+  let anyVisible = false;
+  for (const [targetId, countId, count] of items) {
+    const target = document.getElementById(targetId);
+    const link = nav.querySelector(`[data-target="${targetId}"]`);
+    if (!target || !link) continue;
+    // queueSection e panoramaSection são cabeçalhos sem "hidden" próprio: sempre visíveis
+    const visible = target.hidden !== true;
+    link.hidden = !visible;
+    if (visible) anyVisible = true;
+    const countEl = document.getElementById(countId);
+    if (countEl) countEl.textContent = count || '';
+  }
+  nav.hidden = !anyVisible;
+}
+$('#radarNav').addEventListener('click', (e) => {
+  const a = e.target.closest('a[data-target]');
+  if (!a) return;
+  e.preventDefault();
+  const target = document.getElementById(a.dataset.target);
+  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
 
 /* trocar de conta na barra */
 $('#accountBar').addEventListener('click', (e) => {
@@ -540,6 +576,7 @@ function kbdHelp() {
       <tr><td><kbd>C</kbd></td><td>só comentar na selecionada</td></tr>
       <tr><td><kbd>P</kbd></td><td>pular a selecionada</td></tr>
       <tr><td><kbd>/</kbd></td><td>consultar um PR por URL</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>paleta de comando: ir a qualquer lugar</td></tr>
       <tr><td><kbd>1</kbd>…<kbd>6</kbd></td><td>trocar de aba</td></tr>
       <tr><td><kbd>?</kbd></td><td>esta lista</td></tr>
     </table></div>
@@ -552,6 +589,78 @@ function kbdHelp() {
   ov.onclick = (e) => { if (e.target === ov) close(); };
   document.addEventListener('keydown', onKey);
 }
+/* ---------- paleta de comando (Ctrl+K / Cmd+K) ---------- */
+// Ir a qualquer lugar rápido: abas, seções do Radar, ou colar/digitar URL/key
+// de PR (org/repo#NN) pra abrir a conversa salva, sem precisar do mouse.
+const CMD_STATIC = [
+  ...[...document.querySelectorAll('.nav-item')].map(b => ({ kind: 'tab', label: `Ir para ${b.textContent}`, hint: 'aba', run: () => switchTab(b.dataset.tab) })),
+  { kind: 'section', label: 'Ir para Precisa de você', hint: 'seção', run: () => { switchTab('radar'); document.getElementById('decisionsWrap')?.scrollIntoView({ behavior: 'smooth' }); } },
+  { kind: 'section', label: 'Ir para Sua fila', hint: 'seção', run: () => { switchTab('radar'); document.getElementById('queueSection')?.scrollIntoView({ behavior: 'smooth' }); } },
+  { kind: 'section', label: 'Ir para Meus PRs', hint: 'seção', run: () => { switchTab('radar'); document.getElementById('myPRsWrap')?.scrollIntoView({ behavior: 'smooth' }); } },
+  { kind: 'section', label: 'Ir para Panorama', hint: 'seção', run: () => { switchTab('radar'); document.getElementById('panoramaSection')?.scrollIntoView({ behavior: 'smooth' }); } },
+  { kind: 'action', label: 'Verificar agora', hint: 'ação', run: () => $('#btnCheck').click() },
+  { kind: 'action', label: 'Alternar tema', hint: 'ação', run: () => $('#btnTheme').click() },
+  { kind: 'action', label: 'Atalhos de teclado', hint: '?', run: () => kbdHelp() },
+];
+let cmdOverlay = null;
+function cmdClose() {
+  if (!cmdOverlay) return;
+  cmdOverlay.remove(); cmdOverlay = null;
+  document.removeEventListener('keydown', cmdOnKey, true);
+}
+function cmdOnKey(e) {
+  if (!cmdOverlay) return;
+  const list = [...cmdOverlay.querySelectorAll('.cmd-item')];
+  const cur = cmdOverlay.querySelector('.cmd-item.sel');
+  let i = cur ? list.indexOf(cur) : -1;
+  if (e.key === 'Escape') { cmdClose(); e.preventDefault(); }
+  else if (e.key === 'ArrowDown') { i = Math.min(list.length - 1, i + 1); cmdMark(list, i); e.preventDefault(); }
+  else if (e.key === 'ArrowUp') { i = Math.max(0, i - 1); cmdMark(list, i); e.preventDefault(); }
+  else if (e.key === 'Enter') { e.preventDefault(); (cur || list[0])?.click(); }
+}
+function cmdMark(list, i) {
+  list.forEach(el => el.classList.remove('sel'));
+  if (list[i]) { list[i].classList.add('sel'); list[i].scrollIntoView({ block: 'nearest' }); }
+}
+function cmdOpen() {
+  if (cmdOverlay) { cmdClose(); return; }
+  const ov = document.createElement('div');
+  ov.className = 'modal-overlay cmd-overlay';
+  ov.innerHTML = `<div class="cmd-box">
+    <input id="cmdInput" class="cmd-input" type="text" spellcheck="false" placeholder="Ir para… ou cole a URL/key de um PR (org/repo#NN)">
+    <div id="cmdList" class="cmd-list"></div>
+  </div>`;
+  document.body.appendChild(ov);
+  cmdOverlay = ov;
+  const input = ov.querySelector('#cmdInput');
+  const list = ov.querySelector('#cmdList');
+  const renderList = () => {
+    const q = input.value.trim();
+    const prMatch = q.match(/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)/i) || q.match(/^([\w.-]+\/[\w.-]+)#(\d+)$/);
+    const items = [];
+    if (prMatch) {
+      const key = `${prMatch[1]}#${prMatch[2]}`;
+      const url = q.startsWith('http') ? q : `https://github.com/${prMatch[1]}/pull/${prMatch[2]}`;
+      items.push({ label: `Abrir a conversa de ${key}`, hint: 'PR', run: () => openChat(key, url) });
+    }
+    const ql = q.toLowerCase();
+    items.push(...CMD_STATIC.filter(c => !ql || c.label.toLowerCase().includes(ql)));
+    list.innerHTML = items.map((c, idx) => `<div class="cmd-item${idx === 0 ? ' sel' : ''}" data-idx="${idx}"><span>${esc(c.label)}</span><span class="cmd-hint">${esc(c.hint)}</span></div>`).join('')
+      || '<div class="cmd-empty">Nada encontrado. Cole a URL de um PR pra abrir a conversa.</div>';
+    [...list.querySelectorAll('.cmd-item')].forEach((el, idx) => {
+      el.onclick = () => { items[idx].run(); cmdClose(); };
+    });
+  };
+  input.addEventListener('input', renderList);
+  ov.addEventListener('click', (e) => { if (e.target === ov) cmdClose(); });
+  document.addEventListener('keydown', cmdOnKey, true);
+  renderList();
+  setTimeout(() => input.focus(), 20);
+}
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); cmdOpen(); }
+});
+
 document.addEventListener('keydown', (e) => {
   // nunca por cima de digitação, diálogo, chat ou combinação com modificador
   if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -1693,6 +1802,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.24.1', ['Mini-navegação no topo do Radar: barra de âncoras só com as seções que têm algo agora (com contagem), clique rola suave até lá. E a paleta de comando (Ctrl+K / Cmd+K): busca central pra ir a qualquer aba/seção, disparar Verificar agora ou Alternar tema, e reconhece URL ou key (org/repo#NN) de PR pra abrir a conversa na hora. Navega com as setas, Enter confirma, Esc fecha.']],
   ['2.24.0', ['Fluidez: clicar num alerta de revisão agora leva direto ao card do PR (a tela rola e destaca com um pulso); o ícone na barra de tarefas ganha uma bolinha (Windows) ou número no Dock (macOS) enquanto houver decisão esperando, com a contagem no tooltip da bandeja; e chegaram atalhos de teclado (J/K navegam nas decisões, A aprova, M pede mudanças, C comenta, P pula, / consulta PR por URL, 1 a 6 trocam de aba, ? mostra a lista). Com a janela em foco, o aviso fica só no app, sem duplicar na notificação do sistema.']],
   ['2.23.8', ['Os alertas de revisão agora dizem o desfecho e o motivo, sem o tom de "sem você": "Aprovado sem ressalvas" (revisão completa, nenhum ponto de atenção), "Aprovado com ressalvas" (mostra a primeira ressalva e aponta pra Revisões recentes), "Reprovado" (com o motivo) e "Precisa da sua atenção" (lidera com o motivo, não com uma contagem). Vale pra notificação do sistema, pros avisos dentro do app e pra notificação do navegador.']],
   ['2.23.7', ['O pushback (detecção automática de contestação do autor) agora só aparece quando o seu review de fato apontou algo: PR que você bloqueou (pediu mudanças) ou aprovou com ressalva. Aprovação limpa, sem nenhum ponto de atenção, deixa de gerar pushback (antes qualquer review seu entrava no scan). A resposta do autor depois do review continua sendo condição. Esta aba Novidades também voltou a listar todas as versões (tinha parado na 2.23.4).']],
@@ -2317,6 +2427,7 @@ function connect() {
     rebuildAccounts();
     renderStatus(); renderAccountBar(); renderIdentity();
     renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSilenced();
+    renderRadarNav();
     renderSettings(); renderTools(); renderUpdate(); tickCountdown();
     if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); }
     if ($('#tab-consumo').classList.contains('active')) renderUsage();

@@ -65,6 +65,15 @@
       <span id="metaCheck">…</span>
     </div>
 
+    <nav id="radarNav" class="radar-nav" hidden>
+      <a href="#activeWrap" data-target="activeWrap">Analisando <span class="rn-count" id="rnActive"></span></a>
+      <a href="#decisionsWrap" data-target="decisionsWrap">Precisa de você <span class="rn-count" id="rnDecisions"></span></a>
+      <a href="#queueSection" data-target="queueSection">Sua fila <span class="rn-count" id="rnQueue"></span></a>
+      <a href="#resolvedWrap" data-target="resolvedWrap">Recentes</a>
+      <a href="#myPRsWrap" data-target="myPRsWrap">Meus PRs <span class="rn-count" id="rnMyPRs"></span></a>
+      <a href="#panoramaSection" data-target="panoramaSection">Panorama <span class="rn-count" id="rnPano"></span></a>
+    </nav>
+
     <div id="activeWrap" hidden>
       <div class="section-head">
         <h2>Analisando agora <span id="activeCount" class="count"></span></h2>
@@ -81,7 +90,7 @@
       <div id="decisions" class="cards"></div>
     </div>
 
-    <div class="section-head">
+    <div id="queueSection" class="section-head">
       <h2>Sua fila <span id="queueCount" class="count" hidden></span></h2>
       <button id="btnReviewAll" class="btn primary sm" hidden>Revisar tudo</button>
     </div>
@@ -105,7 +114,7 @@
       <div id="myPRs" class="cards"></div>
     </div>
 
-    <div class="section-head">
+    <div id="panoramaSection" class="section-head">
       <h2>Panorama <span id="panoCount" class="count" hidden></span></h2>
       <span id="panoOwners" class="section-sub"></span>
     </div>
