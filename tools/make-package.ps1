@@ -29,14 +29,39 @@ foreach ($t in @('make-icons.ps1', 'pack-ico.js', 'make-package.ps1', 'make-icns
 }
 
 # --- zip ------------------------------------------------------------------------
+# O separador das entradas TEM que ser '/' (regra do formato zip). O Compress-Archive
+# do Windows PowerShell grava '\', o unzip do macOS recusa o pacote inteiro e o
+# auto-update no Mac morre em "appears to use backslashes as path separators".
+# Por isso montamos as entradas na mao, com o nome normalizado.
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
 if (Test-Path $zip) { Remove-Item $zip -Force }
-Compress-Archive -Path (Join-Path $staging '*') -DestinationPath $zip
+# a raiz e o enumerador saem do MESMO caminho resolvido: $env:TEMP volta em formato
+# curto (WANDER~1) e misturar as duas formas desalinha a subtracao do prefixo.
+$raiz = (Get-Item $staging).FullName.TrimEnd('\')
+$archive = [IO.Compression.ZipFile]::Open($zip, [IO.Compression.ZipArchiveMode]::Create)
+try {
+  foreach ($file in (Get-ChildItem -LiteralPath $raiz -Recurse -File)) {
+    $nome = $file.FullName.Substring($raiz.Length).Replace('\', '/').TrimStart('/')
+    [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $file.FullName, $nome) | Out-Null
+  }
+} finally { $archive.Dispose() }
 Remove-Item $staging -Recurse -Force
 
 # --- auditoria anti-vazamento -----------------------------------------------------
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$entries = [IO.Compression.ZipFile]::OpenRead($zip).Entries | ForEach-Object { $_.FullName }
+$zr = [IO.Compression.ZipFile]::OpenRead($zip)
+try { $entries = @($zr.Entries | ForEach-Object { $_.FullName }) } finally { $zr.Dispose() }
+
+# caminho torto (backslash ou raiz absoluta) invalida o pacote no macOS: falha antes de publicar
+$torto = $entries | Where-Object { $_ -match '\\' -or $_.StartsWith('/') }
+if ($torto) {
+  Write-Host '  x  ENTRADAS COM CAMINHO INVALIDO (quebra o unzip do macOS):' -ForegroundColor Red
+  $torto | Select-Object -First 5 | ForEach-Object { Write-Host "     $_" -ForegroundColor Red }
+  Remove-Item $zip -Force
+  exit 1
+}
+
 $proibidos = $entries | Where-Object {
   $_ -match 'node_modules|config\.json|(^|/)state/|(^|/)sessions/|\.log|(^|/)seen$|baselined|highlights\.md|(^|/)authors/'
 }

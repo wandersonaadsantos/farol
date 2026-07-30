@@ -9,6 +9,12 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.26.1
+
+**Correções**
+- **Atualizar no macOS voltou a funcionar.** O pacote de atualização era gerado no Windows com `\` separando as pastas, e o zip exige `/`. No Mac isso derrubava a atualização com "falha ao extrair (unzip): appears to use backslashes as path separators", e nenhuma versão publicada até aqui era instalável por lá pelo botão Atualizar (só pelo instalador offline). O empacotador passa a gravar os caminhos certos e a auditoria do pacote reprova antes de publicar se o defeito voltar.
+- **Aviso do unzip não derruba mais a atualização.** O Farol tratava qualquer saída diferente de zero do `unzip` como erro, inclusive o código 1, que no Info-ZIP significa aviso e não falha. Agora quem decide se o pacote presta é a checagem do instalador dentro dele, então um aviso cosmético não interrompe mais quem está atualizando (inclusive vindo de um pacote antigo).
+
 ## v2.26.0
 
 **Novidades**
