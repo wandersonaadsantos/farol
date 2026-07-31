@@ -144,3 +144,27 @@ test('allClaudeAuthInfo: com profiles, devolve 1 entrada por perfil, na ordem', 
   assert.deepEqual(all.map(x => x.label), ['A', 'B']);
   assert.equal(all[0].configDir, path.join(HOME, 'a'));
 });
+
+test('updateSettings: persiste claudeProfiles e claudeProfileId globais', () => {
+  const engine = new Engine();
+  engine.updateSettings({
+    claudeProfiles: [
+      { id: 'trabalho', label: 'BIUD Trabalho', dir: 'C:\\biud-trabalho' },
+      { id: 'sem-dir', label: 'Incompleto', dir: '' } // descartado (sem dir)
+    ],
+    claudeProfileId: 'trabalho'
+  });
+  assert.deepEqual(engine.config.claudeProfiles, [{ id: 'trabalho', label: 'BIUD Trabalho', dir: 'C:\\biud-trabalho' }]);
+  assert.equal(engine.config.claudeProfileId, 'trabalho');
+});
+
+test('updateSettings: persiste claudeProfileId por conta via accounts[]', () => {
+  const engine = new Engine();
+  engine.updateSettings({
+    accounts: [{ user: 'bob', owners: ['biudtech'], claudeProfileId: 'trabalho' }]
+  });
+  assert.equal(engine.config.accounts[0].claudeProfileId, 'trabalho');
+  assert.equal(engine.accountList()[0].claudeProfileId, 'trabalho');
+  const snap = engine.snapshot();
+  assert.equal(snap.accounts[0].claudeProfileId, 'trabalho');
+});

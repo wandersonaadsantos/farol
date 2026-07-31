@@ -324,7 +324,9 @@ class Engine extends EventEmitter {
         autoReview: (a && (a.autoReview === true || a.autoReview === false)) ? a.autoReview : undefined,
         onClean: (a && (a.onClean === 'approve' || a.onClean === 'wait')) ? a.onClean : undefined,
         onCaveats: (a && (a.onCaveats === 'approve' || a.onCaveats === 'wait')) ? a.onCaveats : undefined,
-        onReject: (a && (a.onReject === 'request_changes' || a.onReject === 'wait')) ? a.onReject : undefined
+        onReject: (a && (a.onReject === 'request_changes' || a.onReject === 'wait')) ? a.onReject : undefined,
+        // perfil de assinatura Claude desta conta (undefined = herda o global/legado)
+        claudeProfileId: (a && a.claudeProfileId != null && String(a.claudeProfileId).trim()) ? String(a.claudeProfileId).trim() : undefined
       }))
       .filter(a => a.user);
     if (!base.length) base = [{ user: (this.config.ghUser || '').trim(), owners: this.config.owners || [], label: '', color: '', kind: '', muted: false }];
@@ -892,7 +894,8 @@ class Engine extends EventEmitter {
   updateSettings(patch) {
     const allowed = ['ghUser', 'owners', 'accounts', 'intervalSeconds', 'autoReview', 'autoApproveAll', 'skipPermissions',
       'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos',
-      'projectReviewers', 'defaultReviewers', 'people', 'claudeConfigDir', 'reviewModel', 'autoPushback', 'debugSpawns'];
+      'projectReviewers', 'defaultReviewers', 'people', 'claudeConfigDir', 'claudeProfiles', 'claudeProfileId',
+      'reviewModel', 'autoPushback', 'debugSpawns'];
     let intervalChanged = false, userChanged = false;
     for (const k of allowed) {
       if (!(k in patch)) continue;
@@ -904,6 +907,16 @@ class Engine extends EventEmitter {
       if (k === 'defaultReviewers') v = parseDefaultReviewers(v);
       if (k === 'people') v = parsePeople(v);
       if (k === 'claudeConfigDir') v = String(v || '').trim();
+      // perfis nomeados de assinatura Claude: [{id,label,dir}]. Descarta entradas sem
+      // id ou sem dir (perfil incompleto não serve pra nada, ver resolveClaudeConfigDir).
+      if (k === 'claudeProfiles') {
+        v = Array.isArray(v) ? v.map(p => ({
+          id: String((p && p.id) || '').trim(),
+          label: String((p && p.label) || '').trim(),
+          dir: String((p && p.dir) || '').trim()
+        })).filter(p => p.id && p.dir) : [];
+      }
+      if (k === 'claudeProfileId') v = String(v || '').trim();
       if (k === 'reviewModel') { v = String(v || '').trim().toLowerCase(); if (!['', 'sonnet', 'haiku', 'opus'].includes(v)) v = this.config.reviewModel; }
       if (k === 'autoPushback') v = !!v;
       if (k === 'debugSpawns') v = !!v;
@@ -934,7 +947,8 @@ class Engine extends EventEmitter {
       accounts: this.accountList().map((a, i) => ({
         user: a.user, owners: a.owners, tokenOk: !!(this.tokens && this.tokens[a.user]),
         label: a.label, color: a.color, kind: a.kind, muted: !!a.muted, primary: i === 0,
-        autoReview: a.autoReview, onClean: a.onClean, onCaveats: a.onCaveats, onReject: a.onReject
+        autoReview: a.autoReview, onClean: a.onClean, onCaveats: a.onCaveats, onReject: a.onReject,
+        claudeProfileId: a.claudeProfileId
       })),
       pushbacks: this.pushbacks,
       config: { ...this.config },

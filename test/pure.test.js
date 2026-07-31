@@ -72,6 +72,17 @@ test('parseAccounts: valores de política inválidos são ignorados', () => {
   assert.equal('onReject' in acct, false);
 });
 
+test('parseAccounts: claudeProfileId é preservado quando presente e string não-vazia', () => {
+  const out = parseAccounts([
+    { user: 'a', owners: [], claudeProfileId: 'trabalho' },
+    { user: 'b', owners: [], claudeProfileId: '' },
+    { user: 'c', owners: [] }
+  ]);
+  assert.equal(out[0].claudeProfileId, 'trabalho');
+  assert.equal('claudeProfileId' in out[1], false);
+  assert.equal('claudeProfileId' in out[2], false);
+});
+
 test('parseProjectReviewers: texto "owner/repo: pessoas" e objeto passthrough', () => {
   assert.deepEqual(parseProjectReviewers('biudtech/biud-frontend: alice, biudtech/time'), {
     'biudtech/biud-frontend': ['alice', 'biudtech/time'],
