@@ -858,12 +858,17 @@ class Engine extends EventEmitter {
     return info;
   }
 
-  // status de TODOS os perfis salvos (mais um sintético "Padrão" quando não há nenhum),
-  // pro doctor e pros badges de conta/perfil na UI.
+  // status de TODOS os perfis salvos, mais uma entrada sintética "Padrão" pro fallback
+  // legado (claudeConfigDir global). Essa entrada '' é incluída SEMPRE, mesmo quando já
+  // existem perfis salvos: é o que sobra visível quando o perfil padrão do Farol está
+  // vazio ("Padrão da máquina" no dropdown) ou uma conta não tem override próprio - sem
+  // ela, o badge de quem usa esse fallback não tinha nenhum dado pra mostrar (achado da
+  // revisão final: legado ficava invisível na UI depois que a Task 6 tirou o campo texto).
   allClaudeAuthInfo() {
     const profiles = this.config.claudeProfiles || [];
-    if (!profiles.length) return [{ id: '', label: 'Padrão', ...this.claudeAuthInfo() }];
-    return profiles.map(p => ({ id: p.id, label: p.label, ...this.claudeAuthInfo(p.dir) }));
+    const legacy = { id: '', label: 'Padrão', ...this.claudeAuthInfo() };
+    if (!profiles.length) return [legacy];
+    return [legacy, ...profiles.map(p => ({ id: p.id, label: p.label, ...this.claudeAuthInfo(p.dir) }))];
   }
 
   async doctor() {
@@ -934,10 +939,13 @@ class Engine extends EventEmitter {
     this.saveConfig();
     if (userChanged) { this.token = null; this.tokenOk = false; this.tokens = {}; }
     if (intervalChanged || userChanged) this.checkNow();
-    // perfis/contas mudaram: o badge de assinatura Claude (doctor.claudeAuth) fica
-    // desatualizado até o próximo boot ou clique em "Reverificar" - recalcula na hora
-    // pra badge refletir o estado real logo após salvar.
-    if ('claudeProfiles' in patch || 'claudeProfileId' in patch || 'accounts' in patch) {
+    // perfil (lista ou padrão global) mudou: o badge de assinatura Claude (doctor.claudeAuth)
+    // fica desatualizado até o próximo boot ou clique em "Reverificar" - recalcula na hora
+    // pra badge refletir o estado real logo após salvar. NÃO inclui 'accounts': editar
+    // cor/rótulo/tipo/org/claudeProfileId de uma conta não muda o resultado de
+    // allClaudeAuthInfo() (ela só lê claudeProfiles), então redisparar doctor() aqui só
+    // gastava 3 subprocessos + 1 chamada de rede (checkUpdate) à toa (achado da revisão final).
+    if ('claudeProfiles' in patch || 'claudeProfileId' in patch) {
       this.doctor().catch(() => {});
     }
     this.emit('settings-changed', this.config);

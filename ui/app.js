@@ -360,7 +360,11 @@ function renderAccountsManager() {
 // Perfil padrão global + perfis salvos, cada um com o e-mail logado (badge, via doctor).
 function claudeAuthBadge(id) {
   const all = (STATE.doctor && STATE.doctor.claudeAuth) || [];
-  const info = all.find(x => x.id === id) || all.find(x => x.id === '') || null;
+  // servidor sempre inclui a entrada '' (padrão da máquina/legado), mesmo com perfis
+  // salvos - então id === '' (padrão global sem override, ou conta sem claudeProfileId
+  // próprio) acha essa entrada direto. all[0] fica só como último recurso pra doctorInfo
+  // ainda não ter chegado num formato esperado (nunca devolve string vazia à toa).
+  const info = all.find(x => x.id === id) || all.find(x => x.id === '') || all[0] || null;
   if (!info) return '';
   if (info.ready === false) return `<span class="a-claude bad" title="rode claude login nesse diretório">SEM LOGIN</span>`;
   if (info.account) return `<span class="a-claude ok" title="${esc(info.configDir || 'padrão da máquina')}">@${esc(info.account)}</span>`;
@@ -371,9 +375,14 @@ function genProfileId() {
   return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
-function saveClaudeProfiles(profiles) {
+function saveClaudeProfiles(profiles, defaultId) {
   STATE.config.claudeProfiles = profiles;
-  api('/api/settings', { claudeProfiles: profiles });
+  const patch = { claudeProfiles: profiles };
+  // defaultId opcional: usado pela migração (btnClaudeMigrate), que precisa setar o
+  // perfil recém-criado como o padrão global no MESMO patch (senão o perfil migrado
+  // fica sem dono, ver achado da revisão final sobre legado invisível).
+  if (defaultId !== undefined) { STATE.config.claudeProfileId = defaultId; patch.claudeProfileId = defaultId; }
+  api('/api/settings', patch);
 }
 
 function renderClaudeProfiles() {
@@ -390,7 +399,11 @@ function renderClaudeProfiles() {
       <button class="btn sm" id="btnClaudeMigrate">Salvar como perfil</button>
     </div>
   </div>` : '';
-  const defaultOptions = [`<option value="">Padrão da máquina</option>`]
+  // se o legado (claudeConfigDir) ainda estiver preenchido, "Padrão da máquina" na
+  // verdade cai nele por baixo dos panos (ver resolveClaudeConfigDir) - deixa isso
+  // visível aqui, já que a Task 6 tirou o campo texto que mostrava esse valor.
+  const defaultEmptyLabel = c.claudeConfigDir ? `Padrão da máquina (legado: ${esc(c.claudeConfigDir)})` : 'Padrão da máquina';
+  const defaultOptions = [`<option value="">${defaultEmptyLabel}</option>`]
     .concat(profiles.map(p => `<option value="${esc(p.id)}"${c.claudeProfileId === p.id ? ' selected' : ''}>${esc(p.label)}</option>`))
     .join('');
   const defaultRow = `<div class="card">
@@ -590,13 +603,27 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
   if (t.classList.contains('cp-remove')) {
     const id = t.dataset.id;
     const profiles = (STATE.config.claudeProfiles || []).filter(p => p.id !== id);
+    // limpa toda referência ao perfil removido ANTES de salvar a lista sem ele: senão
+    // o padrão global e/ou contas ficam apontando pra um id que não existe mais (achado
+    // da revisão final).
+    if (STATE.config.claudeProfileId === id) {
+      STATE.config.claudeProfileId = '';
+      api('/api/settings', { claudeProfileId: '' });
+    }
+    for (const a of (STATE.accounts || [])) {
+      if (a.claudeProfileId === id) editAccount(a.user, { claudeProfileId: undefined });
+    }
     saveClaudeProfiles(profiles);
     return;
   }
   if (t.id === 'btnClaudeMigrate') {
     const label = ($('#claudeMigrateLabel').value || '').trim() || 'Perfil atual';
-    const profiles = [{ id: genProfileId(), label, dir: STATE.config.claudeConfigDir }];
-    saveClaudeProfiles(profiles);
+    const newId = genProfileId();
+    const profiles = [{ id: newId, label, dir: STATE.config.claudeConfigDir }];
+    // o perfil migrado precisa virar o padrão global na hora: senão ele fica "novo" mas
+    // sem dono, e o legado (claudeConfigDir) continua vencendo por baixo dos panos, sem
+    // jeito de editar ou desativar (achado da revisão final).
+    saveClaudeProfiles(profiles, newId);
     return;
   }
 });

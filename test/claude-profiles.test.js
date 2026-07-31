@@ -133,16 +133,30 @@ test('allClaudeAuthInfo: sem profiles, devolve 1 entrada sintética "Padrão"', 
   assert.equal(all[0].label, 'Padrão');
 });
 
-test('allClaudeAuthInfo: com profiles, devolve 1 entrada por perfil, na ordem', () => {
+test('allClaudeAuthInfo: com profiles, devolve a entrada legado "" primeiro, depois 1 por perfil, na ordem', () => {
   const engine = new Engine();
   engine.config.claudeProfiles = [
     { id: 'a', label: 'A', dir: path.join(HOME, 'a') },
     { id: 'b', label: 'B', dir: path.join(HOME, 'b') }
   ];
   const all = engine.allClaudeAuthInfo();
-  assert.deepEqual(all.map(x => x.id), ['a', 'b']);
-  assert.deepEqual(all.map(x => x.label), ['A', 'B']);
-  assert.equal(all[0].configDir, path.join(HOME, 'a'));
+  // entrada '' sempre presente (fix da revisão final): sem ela, o badge de quem usa o
+  // padrão global vazio ("Padrão da máquina") não tinha nenhum dado do doctor pra mostrar.
+  assert.deepEqual(all.map(x => x.id), ['', 'a', 'b']);
+  assert.deepEqual(all.map(x => x.label), ['Padrão', 'A', 'B']);
+  assert.equal(all.find(x => x.id === 'a').configDir, path.join(HOME, 'a'));
+});
+
+test('allClaudeAuthInfo: com profiles e claudeProfileId vazio, a entrada "" reflete o fallback legado (fix 1b/bonus)', () => {
+  const engine = new Engine();
+  engine.config.claudeConfigDir = 'C:\\legado-visivel';
+  engine.config.claudeProfiles = [{ id: 'a', label: 'A', dir: path.join(HOME, 'a') }];
+  engine.config.claudeProfileId = '';
+  const all = engine.allClaudeAuthInfo();
+  const legacyEntry = all.find(x => x.id === '');
+  assert.ok(legacyEntry, 'entrada "" existe mesmo com perfis salvos');
+  // mesma lógica de claudeAuthInfo() sem argumento: lê o claudeConfigDir legado.
+  assert.equal(legacyEntry.configDir, 'C:\\legado-visivel');
 });
 
 test('updateSettings: persiste claudeProfiles e claudeProfileId globais', () => {
@@ -167,6 +181,26 @@ test('updateSettings: persiste claudeProfileId por conta via accounts[]', () => 
   assert.equal(engine.accountList()[0].claudeProfileId, 'trabalho');
   const snap = engine.snapshot();
   assert.equal(snap.accounts[0].claudeProfileId, 'trabalho');
+});
+
+test('updateSettings: accounts sozinho NÃO redispara doctor (allClaudeAuthInfo não lê accounts)', async () => {
+  const engine = new Engine();
+  let doctorCalls = 0;
+  const originalDoctor = engine.doctor.bind(engine);
+  engine.doctor = (...args) => { doctorCalls++; return originalDoctor(...args); };
+  engine.updateSettings({ accounts: [{ user: 'dave', owners: [] }] });
+  await new Promise(r => setTimeout(r, 30));
+  assert.equal(doctorCalls, 0, 'editar accounts não deveria recalcular doctor - achado da revisão final');
+});
+
+test('updateSettings: claudeProfiles/claudeProfileId continuam disparando doctor normalmente', async () => {
+  const engine = new Engine();
+  let doctorCalls = 0;
+  const originalDoctor = engine.doctor.bind(engine);
+  engine.doctor = (...args) => { doctorCalls++; return originalDoctor(...args); };
+  engine.updateSettings({ claudeProfileId: 'x' });
+  await new Promise(r => setTimeout(r, 30));
+  assert.equal(doctorCalls, 1);
 });
 
 test('updateSettings: recalcula allClaudeAuthInfo quando claudeProfiles muda', async () => {
