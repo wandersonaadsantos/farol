@@ -840,18 +840,28 @@ class Engine extends EventEmitter {
 
   // --- diagnostico de pre-requisitos ---
   // assinatura do Claude que as sessões do Farol usam (best-effort, sem segredo):
-  // qual config dir e qual conta OAuth está logada ali, pra o doctor mostrar/avisar.
-  claudeAuthInfo() {
-    const dir = (this.config.claudeConfigDir || '').trim();
-    const jsonPath = dir ? path.join(dir, '.claude.json') : path.join(os.homedir(), '.claude.json');
-    const info = { configDir: dir || null, account: null, ready: true };
+  // qual config dir e qual conta OAuth está logada ali, pra o doctor/badges mostrarem.
+  // Sem argumento, mantém o comportamento legado (lê o claudeConfigDir global); passe um
+  // dir explícito (inclusive '') pra checar um perfil específico (ver allClaudeAuthInfo).
+  claudeAuthInfo(dir) {
+    const d = (dir != null ? dir : (this.config.claudeConfigDir || '')).trim();
+    const jsonPath = d ? path.join(d, '.claude.json') : path.join(os.homedir(), '.claude.json');
+    const info = { configDir: d || null, account: null, ready: true };
     try {
       const j = readJson(jsonPath, {});
       info.account = (j && j.oauthAccount && j.oauthAccount.emailAddress) || null;
       // dir próprio precisa do login feito (credencial OAuth). A padrão a gente assume ok.
-      if (dir) info.ready = fs.existsSync(path.join(dir, '.credentials.json')) || !!info.account;
+      if (d) info.ready = fs.existsSync(path.join(d, '.credentials.json')) || !!info.account;
     } catch { /* best-effort */ }
     return info;
+  }
+
+  // status de TODOS os perfis salvos (mais um sintético "Padrão" quando não há nenhum),
+  // pro doctor e pros badges de conta/perfil na UI.
+  allClaudeAuthInfo() {
+    const profiles = this.config.claudeProfiles || [];
+    if (!profiles.length) return [{ id: '', label: 'Padrão', ...this.claudeAuthInfo() }];
+    return profiles.map(p => ({ id: p.id, label: p.label, ...this.claudeAuthInfo(p.dir) }));
   }
 
   async doctor() {
@@ -871,7 +881,7 @@ class Engine extends EventEmitter {
       gitBash: this.gitBash,
       home: HOME,
       workspace: WORKSPACE,
-      claudeAuth: this.claudeAuthInfo(), // assinatura do Claude (config dir + conta + pronto?)
+      claudeAuth: this.allClaudeAuthInfo(), // status de cada perfil de assinatura Claude salvo
       checkedAt: Date.now()
     };
     this.checkUpdate().catch(() => {});

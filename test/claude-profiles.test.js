@@ -92,3 +92,55 @@ test('ghEnv: sem profiles, comportamento legado (claudeConfigDir global ou nenhu
   engine.config.claudeConfigDir = 'C:\\legado';
   assert.equal(engine.ghEnv('qualquer').CLAUDE_CONFIG_DIR, 'C:\\legado');
 });
+
+const fsMod = require('node:fs');
+
+test('claudeAuthInfo: sem argumento, comportamento legado (lê config.claudeConfigDir)', () => {
+  const engine = new Engine();
+  engine.config.claudeConfigDir = '';
+  const info = engine.claudeAuthInfo();
+  assert.equal(info.configDir, null);
+  assert.equal(info.ready, true); // sem dir próprio, assume ok (padrão da máquina)
+});
+
+test('claudeAuthInfo: dir explícito sem .credentials.json reporta SEM LOGIN', () => {
+  const engine = new Engine();
+  const dir = path.join(HOME, 'perfil-sem-login');
+  fsMod.mkdirSync(dir, { recursive: true });
+  const info = engine.claudeAuthInfo(dir);
+  assert.equal(info.configDir, dir);
+  assert.equal(info.ready, false);
+  assert.equal(info.account, null);
+});
+
+test('claudeAuthInfo: dir explícito com .credentials.json reporta ready', () => {
+  const engine = new Engine();
+  const dir = path.join(HOME, 'perfil-logado');
+  fsMod.mkdirSync(dir, { recursive: true });
+  fsMod.writeFileSync(path.join(dir, '.credentials.json'), '{}');
+  fsMod.writeFileSync(path.join(dir, '.claude.json'), JSON.stringify({ oauthAccount: { emailAddress: 'x@biud.com.br' } }));
+  const info = engine.claudeAuthInfo(dir);
+  assert.equal(info.ready, true);
+  assert.equal(info.account, 'x@biud.com.br');
+});
+
+test('allClaudeAuthInfo: sem profiles, devolve 1 entrada sintética "Padrão"', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [];
+  const all = engine.allClaudeAuthInfo();
+  assert.equal(all.length, 1);
+  assert.equal(all[0].id, '');
+  assert.equal(all[0].label, 'Padrão');
+});
+
+test('allClaudeAuthInfo: com profiles, devolve 1 entrada por perfil, na ordem', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [
+    { id: 'a', label: 'A', dir: path.join(HOME, 'a') },
+    { id: 'b', label: 'B', dir: path.join(HOME, 'b') }
+  ];
+  const all = engine.allClaudeAuthInfo();
+  assert.deepEqual(all.map(x => x.id), ['a', 'b']);
+  assert.deepEqual(all.map(x => x.label), ['A', 'B']);
+  assert.equal(all[0].configDir, path.join(HOME, 'a'));
+});
