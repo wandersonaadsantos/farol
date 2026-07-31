@@ -2364,7 +2364,9 @@ async function buildDiagnostics() {
     'Ambiente (doctor):',
     `  gh: ${d.gh || 'NAO ENCONTRADO'}`,
     `  claude: ${d.claude || 'NAO ENCONTRADO'}`,
-    `  assinatura Claude: ${d.claudeAuth ? ((d.claudeAuth.configDir ? 'dir próprio (' + d.claudeAuth.configDir + ')' : 'padrão da máquina') + (d.claudeAuth.account ? ' · conta ' + d.claudeAuth.account : '') + (d.claudeAuth.ready === false ? ' · SEM LOGIN (rode: claude login nesse dir)' : '')) : '?'}`,
+    ...((d.claudeAuth || []).map(p =>
+      `  assinatura Claude${p.label ? ' [' + p.label + ']' : ''}: ${(p.configDir ? 'dir próprio (' + p.configDir + ')' : 'padrão da máquina') + (p.account ? ' · conta ' + p.account : '') + (p.ready === false ? ' · SEM LOGIN (rode: claude login nesse dir)' : '')}`
+    )),
     `  git bash: ${d.gitBash || '(n/a)'}`,
     `  conta primária autenticada no gh: ${d.ghAuth ? 'sim' : 'NAO'}`,
     `  workspace: ${d.workspace || s.paths?.workspace || '?'}`,
