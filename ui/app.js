@@ -257,6 +257,7 @@ function accountSaveArray(list) {
     if (a.onClean === 'approve' || a.onClean === 'wait') o.onClean = a.onClean;
     if (a.onCaveats === 'approve' || a.onCaveats === 'wait') o.onCaveats = a.onCaveats;
     if (a.onReject === 'request_changes' || a.onReject === 'wait') o.onReject = a.onReject;
+    if (a.claudeProfileId) o.claudeProfileId = a.claudeProfileId;
     return o;
   });
 }
@@ -326,6 +327,13 @@ function renderAccountsManager() {
               <option value=""${!a.onReject || a.onReject === 'wait' ? ' selected' : ''}>espera você (padrão)</option>
               <option value="request_changes"${a.onReject === 'request_changes' ? ' selected' : ''}>reprova sozinho (posta pedir mudanças)</option>
             </select></div>
+          <div class="a-pol-item"><span class="a-fieldlabel">perfil Claude</span>
+            <select class="acct-claudeprofile" data-user="${esc(a.user)}" title="Assinatura Claude usada nas sessões desta conta">
+              <option value="">usa o perfil padrão do Farol</option>
+              ${(STATE.config.claudeProfiles || []).map(p => `<option value="${esc(p.id)}"${a.claudeProfileId === p.id ? ' selected' : ''}>${esc(p.label)}</option>`).join('')}
+            </select>
+            ${claudeAuthBadge(a.claudeProfileId || STATE.config.claudeProfileId || '')}
+          </div>
         </div>
       </div>
       ${multi ? `<div class="a-actions">
@@ -516,6 +524,7 @@ $('#accountsManager').addEventListener('change', (e) => {
   if (t.classList.contains('acct-onclean')) return editAccount(user, { onClean: t.value || undefined });
   if (t.classList.contains('acct-oncaveats')) return editAccount(user, { onCaveats: t.value || undefined });
   if (t.classList.contains('acct-onreject')) return editAccount(user, { onReject: t.value === 'request_changes' ? 'request_changes' : undefined });
+  if (t.classList.contains('acct-claudeprofile')) return editAccount(user, { claudeProfileId: t.value || undefined });
 });
 /* editor de contas: silenciar/reativar, remover, adicionar */
 $('#accountsManager').addEventListener('click', (e) => {
