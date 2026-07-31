@@ -57,13 +57,18 @@ resolveClaudeConfigDir(user) {
   const acc = (this.config.accounts || []).find(a => a.user === user);
   const profiles = this.config.claudeProfiles || [];
   if (profiles.length) {
-    const id = (acc && acc.claudeProfileId) || this.config.claudeProfileId || '';
+    const id = acc?.claudeProfileId || this.config.claudeProfileId || '';
     const p = profiles.find(p => p.id === id);
-    if (p) return p.dir;
+    if (p?.dir) return p.dir;
   }
   return this.config.claudeConfigDir || '';
 }
 ```
+
+Optional chaining em `acc?.claudeProfileId` e `p?.dir` (não só `if (p)`) é deliberado: uma
+entrada de perfil malformada (`dir` vazio ou ausente, ex. `config.json` editado à mão) não
+deve virar silenciosamente "sem `CLAUDE_CONFIG_DIR`" — cai pro fallback legado em vez de
+devolver uma string vazia como se fosse intencional.
 
 Sem `user` (chamadas sem conta associada, ex. sessão avulsa) cai direto no `claudeProfileId`
 global ou no legado.
@@ -119,7 +124,8 @@ funcionando via fallback do resolver — nada quebra, é só um convite a migrar
 
 - `resolveClaudeConfigDir`: sem profiles (fallback legado); com profiles + sem override de
   conta (usa o global); com profiles + override de conta (usa o da conta); id apontando
-  pra perfil inexistente (cai no legado); sem `user` informado.
+  pra perfil inexistente (cai no legado); perfil encontrado mas com `dir` vazio/ausente
+  (cai no legado, não devolve vazio); sem `user` informado.
 - `claudeAuthInfo(dir)` parametrizado: dir com credencial válida, dir sem
   `.credentials.json`, dir vazio (default da máquina).
 - UI: adicionar/remover perfil persiste em `config.json` via `updateSettings`; dropdown de
