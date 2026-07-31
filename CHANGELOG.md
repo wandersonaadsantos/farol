@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.27.1
+
+**Correções**
+- **`config.json` editado à mão (ou corrompido) não derruba mais o Farol.** Se o campo dos perfis de assinatura Claude viesse num formato inesperado, toda busca de PR e toda sessão de review quebravam. Agora o Farol se protege desse dado na largada, não só ao salvar pela tela.
+- **Caminho de perfil com aspas ou quebra de linha não roda mais comando nenhum.** Um diretório de perfil malformado conseguia escapar do script gerado (Windows ou macOS) e executar o que estivesse escrito ali. Corrigido rejeitando esses caracteres ao salvar; o valor colado do "Copiar como caminho" do Windows (que vem entre aspas) continua funcionando normalmente.
+- **Remover um perfil usado por mais de uma conta não deixa mais ninguém "preso" a ele.** Antes, dependendo da ordem de chegada dos pedidos, uma das contas podia continuar referenciando o perfil já apagado.
+- **O perfil padrão legado não fica mais invisível depois de virar um perfil novo.** Migrar o campo antigo pra um perfil agora já marca esse perfil como o padrão na hora, e o dropdown avisa quando o legado ainda está valendo por baixo dos panos.
+- Salvar cor, rótulo ou org de uma conta não dispara mais, à toa, a checagem de status da assinatura Claude (só perfis mudando dispara).
+
 ## v2.27.0
 
 **Novidades**
