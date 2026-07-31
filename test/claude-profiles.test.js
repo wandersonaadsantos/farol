@@ -262,3 +262,35 @@ test('updateSettings: recalcula allClaudeAuthInfo quando claudeProfiles muda', a
   assert.ok(entry, 'perfil novo aparece no doctorInfo.claudeAuth após updateSettings');
   assert.equal(entry.ready, false); // dir sem .credentials.json
 });
+
+// Fix 3: remover um perfil com 2+ contas referenciando ele podia deixar referência
+// órfã, porque o listener cp-remove (ui/app.js) disparava N PATCHes fire-and-forget
+// separados (accounts por conta afetada + claudeProfileId + claudeProfiles), sem
+// garantia de ordem de chegada — o PATCH mais antigo/parcial podia processar por
+// último e sobrescrever o array accounts inteiro, restaurando o id removido. O fix
+// (só no front) passou a mandar UM ÚNICO patch combinado. Este teste prova que o
+// backend (updateSettings, síncrono, sem await no meio) sempre suportou esse patch
+// combinado atomicamente — documentando que o padrão "um patch só" é seguro.
+test('updateSettings: patch combinado (claudeProfiles+claudeProfileId+accounts) é atômico', () => {
+  const engine = new Engine();
+  engine.updateSettings({
+    claudeProfiles: [{ id: 'p1', label: 'P1', dir: 'C:\\p1' }],
+    claudeProfileId: 'p1',
+    accounts: [
+      { user: 'alice', owners: [], claudeProfileId: 'p1' },
+      { user: 'bob', owners: [], claudeProfileId: 'p1' }
+    ]
+  });
+  // agora remove p1 num ÚNICO patch (simulando o novo comportamento do front)
+  engine.updateSettings({
+    claudeProfiles: [],
+    claudeProfileId: '',
+    accounts: [
+      { user: 'alice', owners: [] }, // já sem claudeProfileId, como o front calcularia
+      { user: 'bob', owners: [] }
+    ]
+  });
+  assert.equal(engine.config.claudeProfileId, '');
+  assert.equal(engine.config.accounts.find(a => a.user === 'alice').claudeProfileId, undefined);
+  assert.equal(engine.config.accounts.find(a => a.user === 'bob').claudeProfileId, undefined);
+});

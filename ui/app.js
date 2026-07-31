@@ -603,17 +603,26 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
   if (t.classList.contains('cp-remove')) {
     const id = t.dataset.id;
     const profiles = (STATE.config.claudeProfiles || []).filter(p => p.id !== id);
-    // limpa toda referência ao perfil removido ANTES de salvar a lista sem ele: senão
-    // o padrão global e/ou contas ficam apontando pra um id que não existe mais (achado
-    // da revisão final).
+    // combina TUDO num único PATCH (claudeProfiles + claudeProfileId + accounts), em vez de
+    // N requests separados: com 2+ contas referenciando o perfil removido, PATCHes
+    // concorrentes e fire-and-forget não garantiam ordem de chegada no servidor, e o último
+    // a processar sobrescrevia o array accounts inteiro, podendo restaurar a referência
+    // órfã que os PATCHes anteriores já tinham limpado (achado de auditoria adversarial).
+    const patch = { claudeProfiles: profiles };
+    STATE.config.claudeProfiles = profiles;
     if (STATE.config.claudeProfileId === id) {
       STATE.config.claudeProfileId = '';
-      api('/api/settings', { claudeProfileId: '' });
+      patch.claudeProfileId = '';
     }
-    for (const a of (STATE.accounts || [])) {
-      if (a.claudeProfileId === id) editAccount(a.user, { claudeProfileId: undefined });
+    const accounts = (STATE.accounts || []);
+    const affected = accounts.some(a => a.claudeProfileId === id);
+    if (affected) {
+      const updated = accounts.map(a => a.claudeProfileId === id ? { ...a, claudeProfileId: undefined } : a);
+      STATE.accounts = updated; rebuildAccounts();
+      patch.accounts = accountSaveArray(updated);
     }
-    saveClaudeProfiles(profiles);
+    renderClaudeProfiles(); renderAccountsManager();
+    api('/api/settings', patch);
     return;
   }
   if (t.id === 'btnClaudeMigrate') {
