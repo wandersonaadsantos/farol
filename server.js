@@ -22,7 +22,8 @@ const {
 // A Engine abaixo compõe estes módulos; a decomposição por responsabilidade segue nas ondas 2+.
 const { modelLabel, isPermanentBranch } = require('./lib/format');
 const { ACCOUNT_PALETTE } = require('./lib/taxonomy'); // resto da taxonomia é usado nos colaboradores (review/pushback)
-const { parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople } = require('./lib/parse');
+const { parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople,
+  sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId } = require('./lib/parse');
 const { ensureDir, readJson, copyRecursive, detectGitBash, run, runShell } = require('./lib/io');
 const updateMod = require('./lib/engine/update');
 const chatMod = require('./lib/engine/chat');
@@ -117,6 +118,13 @@ class Engine extends EventEmitter {
     this.config = { ...DEFAULTS, ...readJson(CONFIG_FILE, {}) };
     delete this.config.autoOpenReview; // chave antiga (terminal); o modo autonomo tem semantica nova
     this.config.accounts = parseAccounts(this.config.accounts); // normaliza (array de {user,owners})
+    // idem accounts/people acima: config.json pode estar malformado (editado à mão,
+    // corrompido, versão antiga/incompatível) — normaliza no boot pra nunca derrubar o
+    // app (achado de auditoria: claudeProfiles como string/objeto lançava TypeError em
+    // resolveClaudeConfigDir/allClaudeAuthInfo/ghEnv, quebrando toda busca de PR).
+    this.config.claudeProfiles = normalizeClaudeProfiles(this.config.claudeProfiles);
+    this.config.claudeProfileId = normalizeClaudeProfileId(this.config.claudeProfileId);
+    this.config.claudeConfigDir = sanitizeClaudeDir(this.config.claudeConfigDir);
     // perfil de review por pessoa (papel + matriz por domínio); migra a senioridade plana antiga pro campo `papel`
     this.config.people = migrateSeniorityToPeople(this.config.seniority, parsePeople(this.config.people));
     delete this.config.seniority;
@@ -846,7 +854,7 @@ class Engine extends EventEmitter {
   // Sem argumento, mantém o comportamento legado (lê o claudeConfigDir global); passe um
   // dir explícito (inclusive '') pra checar um perfil específico (ver allClaudeAuthInfo).
   claudeAuthInfo(dir) {
-    const d = (dir != null ? dir : (this.config.claudeConfigDir || '')).trim();
+    const d = String(dir != null ? dir : (this.config.claudeConfigDir || '')).trim();
     const jsonPath = d ? path.join(d, '.claude.json') : path.join(os.homedir(), '.claude.json');
     const info = { configDir: d || null, account: null, ready: true };
     try {
@@ -911,17 +919,13 @@ class Engine extends EventEmitter {
       if (k === 'projectReviewers') v = parseProjectReviewers(v);
       if (k === 'defaultReviewers') v = parseDefaultReviewers(v);
       if (k === 'people') v = parsePeople(v);
-      if (k === 'claudeConfigDir') v = String(v || '').trim();
+      if (k === 'claudeConfigDir') v = sanitizeClaudeDir(v);
       // perfis nomeados de assinatura Claude: [{id,label,dir}]. Descarta entradas sem
-      // id ou sem dir (perfil incompleto não serve pra nada, ver resolveClaudeConfigDir).
-      if (k === 'claudeProfiles') {
-        v = Array.isArray(v) ? v.map(p => ({
-          id: String((p && p.id) || '').trim(),
-          label: String((p && p.label) || '').trim(),
-          dir: String((p && p.dir) || '').trim()
-        })).filter(p => p.id && p.dir) : [];
-      }
-      if (k === 'claudeProfileId') v = String(v || '').trim();
+      // id ou sem dir válido (perfil incompleto não serve pra nada, ver
+      // resolveClaudeConfigDir), e sanitiza o dir (aspa dupla/newline quebrariam os
+      // scripts de sessão gerados, ver sanitizeClaudeDir/lib/parse.js).
+      if (k === 'claudeProfiles') v = normalizeClaudeProfiles(v);
+      if (k === 'claudeProfileId') v = normalizeClaudeProfileId(v);
       if (k === 'reviewModel') { v = String(v || '').trim().toLowerCase(); if (!['', 'sonnet', 'haiku', 'opus'].includes(v)) v = this.config.reviewModel; }
       if (k === 'autoPushback') v = !!v;
       if (k === 'debugSpawns') v = !!v;
@@ -1020,7 +1024,8 @@ function start(onReady) {
   return { engine, server, port: engine.config.port };
 }
 
-module.exports = { start, HOME, WORKSPACE, Engine, modelLabel, isPermanentBranch, parseProjectReviewers, parseDefaultReviewers, parseAccounts };
+module.exports = { start, HOME, WORKSPACE, Engine, modelLabel, isPermanentBranch, parseProjectReviewers, parseDefaultReviewers, parseAccounts,
+  sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId };
 
 // execucao direta: modo servidor (fallback sem Electron, ou desenvolvimento)
 if (require.main === module) {

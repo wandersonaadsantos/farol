@@ -203,6 +203,53 @@ test('updateSettings: claudeProfiles/claudeProfileId continuam disparando doctor
   assert.equal(doctorCalls, 1);
 });
 
+test('boot com config.json malformado (claudeProfiles string, claudeProfileId número): normaliza no construtor, não crasha (execução real em processo novo)', () => {
+  // processo próprio (não o deste arquivo de teste): CONFIG_FILE/HOME são consts de
+  // módulo lidas no require, então só um processo novo prova o boot real com o
+  // config.json malformado já em disco ANTES do require('../server.js').
+  const { execFileSync } = require('node:child_process');
+  const badHome = path.join(os.tmpdir(), 'farol-test-malformed-boot-' + process.pid + '-' + Date.now());
+  fsMod.mkdirSync(badHome, { recursive: true });
+  fsMod.writeFileSync(path.join(badHome, 'config.json'), JSON.stringify({
+    claudeProfiles: 'abc', // string, não array: .find/.map lançariam TypeError sem o fix
+    claudeProfileId: 123,  // número: sem o fix, ficaria cru (não é o crash em si, mas deve normalizar)
+  }));
+  const script = `
+    process.env.FAROL_HOME = ${JSON.stringify(badHome)};
+    const { Engine } = require(${JSON.stringify(path.join(__dirname, '..', 'server.js'))});
+    const e = new Engine();
+    const dir = e.resolveClaudeConfigDir('qualquer');
+    const auth = e.allClaudeAuthInfo();
+    const env = e.ghEnv('qualquer');
+    console.log(JSON.stringify({
+      claudeProfiles: e.config.claudeProfiles,
+      claudeProfileId: e.config.claudeProfileId,
+      dir, authLen: auth.length, hasEnv: 'CLAUDE_CONFIG_DIR' in env,
+    }));
+  `;
+  let out;
+  try {
+    out = execFileSync(process.execPath, ['-e', script], { encoding: 'utf8' });
+  } finally {
+    fsMod.rmSync(badHome, { recursive: true, force: true });
+  }
+  const parsed = JSON.parse(out.trim().split('\n').pop());
+  assert.deepEqual(parsed.claudeProfiles, [], 'claudeProfiles malformado (string) normaliza pra []');
+  assert.equal(parsed.claudeProfileId, '123', 'claudeProfileId normaliza pra string');
+  assert.equal(parsed.dir, '', 'resolveClaudeConfigDir não lança, cai no legado vazio');
+  assert.equal(parsed.authLen, 1, 'allClaudeAuthInfo não lança, devolve só a entrada legado');
+});
+
+test('claudeAuthInfo: defesa em profundidade contra dir não-string (segunda camada, além da normalização de entrada)', () => {
+  // claudeAuthInfo(dir) pode ser chamado com qualquer coisa por código futuro (não só
+  // pelos caminhos normalizados via construtor/updateSettings) — o String(dir) extra
+  // é a defesa em profundidade barata citada no Fix 1: mesmo um `dir` chegando como
+  // objeto/array não deve lançar "trim is not a function".
+  const engine = new Engine();
+  assert.doesNotThrow(() => engine.claudeAuthInfo({ nested: true }));
+  assert.doesNotThrow(() => engine.claudeAuthInfo(['array', 'dir']));
+});
+
 test('updateSettings: recalcula allClaudeAuthInfo quando claudeProfiles muda', async () => {
   const engine = new Engine();
   const dir = path.join(HOME, 'perfil-novo-sem-login');

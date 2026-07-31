@@ -10,7 +10,8 @@ process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-pure-' + process.pid
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const farol = require('../server.js');
-const { modelLabel, isPermanentBranch, parseAccounts, parseProjectReviewers, parseDefaultReviewers } = farol;
+const { modelLabel, isPermanentBranch, parseAccounts, parseProjectReviewers, parseDefaultReviewers,
+  normalizeClaudeProfiles, sanitizeClaudeDir } = farol;
 
 test('modelLabel: família + versão pontuada', () => {
   assert.equal(modelLabel('claude-opus-4-8'), 'Opus 4.8');
@@ -81,6 +82,31 @@ test('parseAccounts: claudeProfileId é preservado quando presente e string não
   assert.equal(out[0].claudeProfileId, 'trabalho');
   assert.equal('claudeProfileId' in out[1], false);
   assert.equal('claudeProfileId' in out[2], false);
+});
+
+test('normalizeClaudeProfiles: não-array vira [] (string, número, objeto, null)', () => {
+  assert.deepEqual(normalizeClaudeProfiles('abc'), []);
+  assert.deepEqual(normalizeClaudeProfiles(123), []);
+  assert.deepEqual(normalizeClaudeProfiles({ not: 'array' }), []);
+  assert.deepEqual(normalizeClaudeProfiles(null), []);
+});
+
+test('normalizeClaudeProfiles: dir com aspa dupla ou newline é descartado (id+dir inválido)', () => {
+  const out = normalizeClaudeProfiles([
+    { id: 'a', label: 'A', dir: 'C:\\ok\\path' },
+    { id: 'b', label: 'B', dir: 'C:\\bad" && calc.exe' },
+    { id: 'c', label: 'C', dir: 'C:\\bad\nlinha2' },
+    { id: 'd', label: 'D', dir: { nested: true } }, // dir não-string também é descartado
+  ]);
+  assert.deepEqual(out.map(p => p.id), ['a']); // só o válido sobrevive
+});
+
+test('sanitizeClaudeDir: rejeita aspas duplas e quebras de linha, aceita o resto', () => {
+  assert.equal(sanitizeClaudeDir('C:\\ok'), 'C:\\ok');
+  assert.equal(sanitizeClaudeDir('C:\\bad"quote'), '');
+  assert.equal(sanitizeClaudeDir('C:\\bad\r\nline'), '');
+  assert.equal(sanitizeClaudeDir(null), '');
+  assert.doesNotThrow(() => sanitizeClaudeDir({ obj: true }));
 });
 
 test('parseProjectReviewers: texto "owner/repo: pessoas" e objeto passthrough', () => {
