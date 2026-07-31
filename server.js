@@ -98,6 +98,12 @@ const DEFAULTS = {
   // (a funcionalidade que o Wanderson pediu); quem quiser poupar limite desliga em Sistema.
   autoPushback: true,
   claudeConfigDir: '',
+  // NOVO: perfis nomeados de assinatura Claude [{id,label,dir}]. Vazio = usa só o
+  // claudeConfigDir legado acima (compatibilidade total, nada muda pra quem não adotar
+  // o sistema novo). claudeProfileId escolhe o perfil padrão do Farol quando a conta
+  // não tiver um claudeProfileId próprio (accounts[].claudeProfileId, opcional).
+  claudeProfiles: [],
+  claudeProfileId: '',
   // diagnóstico: registra em state/spawns.log cada processo que o Farol dispara (com
   // horário), pra caçar "terminal piscando". Desligado por padrão; ligue em Sistema só
   // pra capturar evidência. Espelhado em process.env.FAROL_DEBUG_SPAWNS pros módulos io/session.
@@ -816,6 +822,21 @@ class Engine extends EventEmitter {
   async downloadRemoteUpdate() { return updateMod.downloadRemoteUpdate(this); }
   async applyUpdate() { return updateMod.applyUpdate(this); }
   applyUpdateMac() { return updateMod.applyUpdateMac(this); }
+
+  // qual config dir (assinatura Claude) usar pras sessões desta conta GitHub. Prioridade:
+  // 1) accounts[].claudeProfileId da própria conta; 2) claudeProfileId global (padrão do
+  // Farol); 3) sem profiles configurados (ou id não encontrado/perfil sem dir), cai no
+  // claudeConfigDir legado — same behavior de antes do sistema de perfis existir.
+  resolveClaudeConfigDir(user) {
+    const acc = (this.config.accounts || []).find(a => a && a.user === user);
+    const profiles = this.config.claudeProfiles || [];
+    if (profiles.length) {
+      const id = acc?.claudeProfileId || this.config.claudeProfileId || '';
+      const p = profiles.find(p => p.id === id);
+      if (p?.dir) return p.dir;
+    }
+    return this.config.claudeConfigDir || '';
+  }
 
   // --- diagnostico de pre-requisitos ---
   // assinatura do Claude que as sessões do Farol usam (best-effort, sem segredo):
