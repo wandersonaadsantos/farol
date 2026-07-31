@@ -168,3 +168,16 @@ test('updateSettings: persiste claudeProfileId por conta via accounts[]', () => 
   const snap = engine.snapshot();
   assert.equal(snap.accounts[0].claudeProfileId, 'trabalho');
 });
+
+test('updateSettings: recalcula allClaudeAuthInfo quando claudeProfiles muda', async () => {
+  const engine = new Engine();
+  const dir = path.join(HOME, 'perfil-novo-sem-login');
+  fsMod.mkdirSync(dir, { recursive: true });
+  engine.updateSettings({ claudeProfiles: [{ id: 'novo', label: 'Novo', dir }], claudeProfileId: 'novo' });
+  // doctor() é assíncrono (dispara subprocessos gh/claude); espera terminar antes de checar
+  await new Promise(r => setTimeout(r, 50));
+  while (!engine.doctorInfo) await new Promise(r => setTimeout(r, 20));
+  const entry = engine.doctorInfo.claudeAuth.find(x => x.id === 'novo');
+  assert.ok(entry, 'perfil novo aparece no doctorInfo.claudeAuth após updateSettings');
+  assert.equal(entry.ready, false); // dir sem .credentials.json
+});

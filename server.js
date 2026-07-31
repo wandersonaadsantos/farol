@@ -934,6 +934,12 @@ class Engine extends EventEmitter {
     this.saveConfig();
     if (userChanged) { this.token = null; this.tokenOk = false; this.tokens = {}; }
     if (intervalChanged || userChanged) this.checkNow();
+    // perfis/contas mudaram: o badge de assinatura Claude (doctor.claudeAuth) fica
+    // desatualizado até o próximo boot ou clique em "Reverificar" - recalcula na hora
+    // pra badge refletir o estado real logo após salvar.
+    if ('claudeProfiles' in patch || 'claudeProfileId' in patch || 'accounts' in patch) {
+      this.doctor().catch(() => {});
+    }
     this.emit('settings-changed', this.config);
     this.pushState();
   }
