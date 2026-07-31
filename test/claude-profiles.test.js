@@ -68,3 +68,27 @@ test('resolveClaudeConfigDir: sem user informado usa o padrão global/legado nor
   engine.config.claudeProfileId = 'p1';
   assert.equal(engine.resolveClaudeConfigDir(), 'C:\\p1');
 });
+
+test('ghEnv: injeta CLAUDE_CONFIG_DIR do perfil da conta', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [
+    { id: 'trabalho', label: 'BIUD Trabalho', dir: 'C:\\biud-trabalho' },
+    { id: 'pessoal', label: 'Pessoal Max', dir: 'C:\\pessoal' }
+  ];
+  engine.config.claudeProfileId = 'pessoal';
+  engine.config.accounts = [
+    { user: 'bob', owners: ['biudtech'], claudeProfileId: 'trabalho' },
+    { user: 'alice', owners: ['lovelace-eng'] }
+  ];
+  assert.equal(engine.ghEnv('bob').CLAUDE_CONFIG_DIR, 'C:\\biud-trabalho');
+  assert.equal(engine.ghEnv('alice').CLAUDE_CONFIG_DIR, 'C:\\pessoal');
+});
+
+test('ghEnv: sem profiles, comportamento legado (claudeConfigDir global ou nenhum)', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [];
+  engine.config.claudeConfigDir = '';
+  assert.equal('CLAUDE_CONFIG_DIR' in engine.ghEnv('qualquer'), false);
+  engine.config.claudeConfigDir = 'C:\\legado';
+  assert.equal(engine.ghEnv('qualquer').CLAUDE_CONFIG_DIR, 'C:\\legado');
+});

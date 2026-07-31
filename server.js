@@ -452,10 +452,10 @@ class Engine extends EventEmitter {
     const tok = (user && this.tokens && this.tokens[user]) || this.token;
     if (tok) env.GH_TOKEN = tok;
     if (this.gitBash) env.CLAUDE_CODE_GIT_BASH_PATH = this.gitBash;
-    // assinatura do Claude que o Farol usa: se você apontar um config dir próprio
-    // (logado numa conta separada), as sessões headless usam ESSA assinatura, sem
-    // mexer no login principal do claude da máquina. Ver "Assinatura do Claude" no CLAUDE.md.
-    if (this.config.claudeConfigDir) env.CLAUDE_CONFIG_DIR = this.config.claudeConfigDir;
+    // assinatura do Claude que o Farol usa pra esta conta: ver resolveClaudeConfigDir
+    // (perfil por conta > perfil padrão do Farol > claudeConfigDir legado).
+    const claudeDir = this.resolveClaudeConfigDir(user);
+    if (claudeDir) env.CLAUDE_CONFIG_DIR = claudeDir;
     return env;
   }
 
