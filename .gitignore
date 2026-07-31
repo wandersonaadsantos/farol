@@ -8,3 +8,7 @@ dist/
 config.json
 state/
 *.log
+
+# workspace de execucao de planos (superpowers) e worktrees locais: scratch, nunca fonte
+.superpowers/
+.worktrees/
