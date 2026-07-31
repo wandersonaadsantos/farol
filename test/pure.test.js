@@ -109,6 +109,13 @@ test('sanitizeClaudeDir: rejeita aspas duplas e quebras de linha, aceita o resto
   assert.doesNotThrow(() => sanitizeClaudeDir({ obj: true }));
 });
 
+test('sanitizeClaudeDir: tira aspas duplas que envolvem o valor inteiro (Copiar como caminho do Windows)', () => {
+  assert.equal(sanitizeClaudeDir('"C:\\Users\\voce\\.claude"'), 'C:\\Users\\voce\\.claude');
+  // aspas no MEIO continuam rejeitadas (não é o mesmo caso)
+  assert.equal(sanitizeClaudeDir('C:\\bad"quote\\path'), '');
+  assert.equal(sanitizeClaudeDir('"C:\\bad"quote"'), ''); // aspas extras além do par externo: ainda rejeita
+});
+
 test('parseProjectReviewers: texto "owner/repo: pessoas" e objeto passthrough', () => {
   assert.deepEqual(parseProjectReviewers('biudtech/biud-frontend: alice, biudtech/time'), {
     'biudtech/biud-frontend': ['alice', 'biudtech/time'],

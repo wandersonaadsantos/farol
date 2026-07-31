@@ -595,6 +595,9 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
     const label = ($('#cpAddLabel').value || '').trim();
     const dir = ($('#cpAddDir').value || '').trim();
     if (!label || !dir) return toast('error', 'Preencha nome e diretório do perfil.', 3000);
+    if (/["\r\n]/.test(dir.replace(/^"(.*)"$/s, '$1').trim())) {
+      return toast('error', 'Esse caminho tem aspas ou quebra de linha no meio (não em volta) — não pode ser usado. Confira se colou o caminho certo.', 4500);
+    }
     const profiles = [...(STATE.config.claudeProfiles || []), { id: genProfileId(), label, dir }];
     $('#cpAddLabel').value = ''; $('#cpAddDir').value = '';
     saveClaudeProfiles(profiles);
@@ -644,6 +647,10 @@ $('#claudeProfilesManager').addEventListener('change', (e) => {
   }
   if (t.classList.contains('cp-label') || t.classList.contains('cp-dir')) {
     const id = t.dataset.id;
+    if (t.classList.contains('cp-dir') && /["\r\n]/.test(t.value.replace(/^"(.*)"$/s, '$1').trim())) {
+      toast('error', 'Esse caminho tem aspas ou quebra de linha no meio (não em volta) — não pode ser usado. Confira se colou o caminho certo.', 4500);
+      return;
+    }
     const profiles = (STATE.config.claudeProfiles || []).map(p => p.id === id
       ? { ...p, label: t.classList.contains('cp-label') ? t.value.trim() || p.label : p.label,
               dir: t.classList.contains('cp-dir') ? t.value.trim() : p.dir }
