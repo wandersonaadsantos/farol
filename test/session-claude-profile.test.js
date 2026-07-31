@@ -2,12 +2,42 @@
 // buildSessionScript/buildSessionScriptMac usam resolveClaudeConfigDir(account) em vez
 // de ler config.claudeConfigDir direto — pra a sessão de terminal (Windows/mac) respeitar
 // o perfil por conta, igual ao headless (ghEnv, ver ghEnv.test em claude-profiles.test.js).
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
 const os = require('node:os');
 const path = require('node:path');
 const fsMod = require('node:fs');
-const { buildSessionScript, buildSessionScriptMac, buildLoginScript, buildLoginScriptMac } = require('../lib/engine/session');
+
+// spawnLoginConsole (Fix 2, mais abaixo) grava um .cmd de verdade em HOME/sessions -
+// fixar FAROL_HOME num diretório temporário ANTES de qualquer require que carregue
+// lib/paths.js (const de nível de módulo, lida uma única vez no load), senão o teste
+// escreve dentro do ~/.farol real da máquina (mesmo padrão de test/boot.test.js e
+// test/session-unsee-on-exit.test.js).
+const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-sessprofile-' + process.pid);
+process.env.FAROL_HOME = FAROL_HOME;
+
+const { test, after } = require('node:test');
+const assert = require('node:assert/strict');
+
+// Mock de child_process.spawn pros testes de spawnLoginConsole (Fix 2): lib/engine/session.js
+// faz `const { spawn } = require('child_process')` no load do módulo (const de nível de
+// módulo), então o mock precisa estar em vigor ANTES do primeiro require de
+// lib/engine/session logo abaixo - trocar a propriedade depois não afeta a referência já
+// capturada lá dentro. Quando nenhum teste setar spawnImpl, delega pro spawn real (os
+// outros testes deste arquivo só testam build*Script, funções puras que não chamam spawn).
+const childProcess = require('child_process');
+const realSpawn = childProcess.spawn;
+let spawnImpl = null;
+childProcess.spawn = function mockableSpawn(...args) {
+  if (spawnImpl) return spawnImpl(...args);
+  return realSpawn(...args);
+};
+
+const { buildSessionScript, buildSessionScriptMac, buildLoginScript, buildLoginScriptMac, spawnLoginConsole } = require('../lib/engine/session');
+const { EventEmitter } = require('node:events');
+
+after(() => {
+  childProcess.spawn = realSpawn;
+  try { fsMod.rmSync(FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ }
+});
 
 // engine "de mentira": só precisa do que buildSessionScript/buildSessionScriptMac usam.
 function fakeEngine(profiles) {
@@ -64,6 +94,61 @@ test('buildLoginScript (Windows): sem dir, não seta CLAUDE_CONFIG_DIR (login na
   const script = buildLoginScript(engine, '');
   assert.match(script, /rem sem config dir proprio/);
   assert.doesNotMatch(script, /CLAUDE_CONFIG_DIR/);
+});
+
+// engine "de mentira" pros testes de spawnLoginConsole: precisa do que a função
+// realmente usa (activeReviews, sessionSeq, buildLoginScript, log/emit/pushState) mais
+// unsee/checkNow pra provar que o handler de saída da sessão de login não mexe neles.
+function fakeLoginEngine() {
+  const toasts = [];
+  const unseen = [];
+  return {
+    config: { skipPermissions: false, port: 47170 },
+    activeReviews: new Map(),
+    sessionSeq: 0,
+    buildLoginScript(dir) { return buildLoginScript(this, dir); },
+    log() {},
+    emit(kind, payload) { toasts.push({ kind, payload }); },
+    pushState() {},
+    checkNow() { this.checkedNow = true; },
+    unsee(key) { unseen.push(key); },
+    _toasts: toasts,
+    _unseen: unseen,
+  };
+}
+
+// Fix 2: invariantes de segurança da sessão de login - nada garantia isso de forma
+// automatizada antes. Mocka child_process.spawn (via a troca de propriedade no topo
+// deste arquivo, em vigor desde antes do require de lib/engine/session) pra não abrir
+// processo real nenhum, e captura o env passado pro filho.
+test('spawnLoginConsole (Windows): registra keys=[] e NÃO inclui GH_TOKEN no env do processo filho', (t) => {
+  if (process.platform !== 'win32') { t.skip('caminho Windows do spawnLoginConsole'); return; }
+  let capturedEnv = null;
+  const fakeChild = new EventEmitter();
+  spawnImpl = (cmd, args, opts) => { capturedEnv = opts.env; return fakeChild; };
+  try {
+    const engine = fakeLoginEngine();
+    spawnLoginConsole(engine, 'C:\\biud-trabalho');
+
+    const id = Array.from(engine.activeReviews.keys())[0];
+    const sess = engine.activeReviews.get(id);
+    assert.ok(sess, 'sessão de login registrada em activeReviews');
+    assert.deepEqual(sess.keys, [], 'sessão de login não carrega keys nenhuma');
+
+    assert.ok(capturedEnv, 'env foi passado pro spawn');
+    assert.ok(!('GH_TOKEN' in capturedEnv), 'sessão de login NÃO deve ter GH_TOKEN no env do processo filho (não chama engine.ghEnv())');
+    assert.equal(capturedEnv.GH_PAGER, 'cat');
+    assert.equal(capturedEnv.PAGER, 'cat');
+
+    // fecha a sessão (equivalente a fechar a janela) e confirma que, com keys=[],
+    // não dispara checkNow nem unsee - reforço específico da sessão de login, além
+    // do teste genérico de handleSessionExit em session-unsee-on-exit.test.js.
+    fakeChild.emit('exit', 0);
+    assert.equal(engine.checkedNow, undefined, 'não deve rechecar (sessão sem keys)');
+    assert.deepEqual(engine._unseen, [], 'não deve desfazer visto de PR nenhum');
+  } finally {
+    spawnImpl = null;
+  }
 });
 
 test('buildLoginScriptMac: roda claude puro, dir aplicado com escaping de aspa simples', () => {
