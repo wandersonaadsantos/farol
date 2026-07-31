@@ -411,6 +411,9 @@ function renderClaudeProfiles() {
       <span class="a-fieldlabel">perfil padrão do Farol</span>
       <select id="claudeProfileDefault">${defaultOptions}</select>
     </div>
+    <div class="a-actions">
+      <button class="btn sm cp-login" data-id="">Abrir sessão de login</button>
+    </div>
   </div>`;
   const rows = profiles.map(p => `<div class="card acct-card">
     <div class="a-body">
@@ -423,6 +426,7 @@ function renderClaudeProfiles() {
       </div>
     </div>
     <div class="a-actions">
+      <button class="btn sm cp-login" data-id="${esc(p.id)}">Abrir sessão de login</button>
       <button class="btn sm danger-ghost cp-remove" data-id="${esc(p.id)}">Remover</button>
     </div>
   </div>`).join('');
@@ -626,6 +630,12 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
     }
     renderClaudeProfiles(); renderAccountsManager();
     api('/api/settings', patch);
+    return;
+  }
+  if (t.classList.contains('cp-login')) {
+    const id = t.dataset.id || '';
+    api('/api/claude-login', { profileId: id });
+    toast('ok', 'Abrindo sessão de terminal pra login. Rode /login lá, se pedir, e pode fechar quando terminar.', 4500);
     return;
   }
   if (t.id === 'btnClaudeMigrate') {

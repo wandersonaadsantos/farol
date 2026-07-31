@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const os = require('node:os');
 const path = require('node:path');
 const fsMod = require('node:fs');
-const { buildSessionScript, buildSessionScriptMac } = require('../lib/engine/session');
+const { buildSessionScript, buildSessionScriptMac, buildLoginScript, buildLoginScriptMac } = require('../lib/engine/session');
 
 // engine "de mentira": só precisa do que buildSessionScript/buildSessionScriptMac usam.
 function fakeEngine(profiles) {
@@ -43,6 +43,39 @@ test('buildSessionScriptMac: injeta o dir resolvido pra conta', () => {
 test('buildSessionScriptMac: sem dir resolvido, não exporta CLAUDE_CONFIG_DIR', () => {
   const engine = fakeEngine({});
   const script = buildSessionScriptMac(engine, '/pr-review x', 'id1', 'alice');
+  assert.match(script, /# sem config dir proprio/);
+  assert.doesNotMatch(script, /CLAUDE_CONFIG_DIR/);
+});
+
+// Fix 2: sessão de terminal SÓ pra `claude login`, sem slash command, sem keys, sem
+// token do gh - buildLoginScript/buildLoginScriptMac recebem o dir já resolvido
+// (resolveConfigDirForLogin em server.js), diferente de buildSessionScript que resolve
+// por conta GitHub.
+test('buildLoginScript (Windows): roda claude puro, sem slash command, dir aplicado', () => {
+  const engine = fakeEngine({});
+  const script = buildLoginScript(engine, 'C:\\biud-trabalho');
+  assert.match(script, /set "CLAUDE_CONFIG_DIR=C:\\biud-trabalho"/);
+  assert.match(script, /^claude(\r\n|\n)/m); // roda claude sem argumento entre aspas
+  assert.doesNotMatch(script, /"[^"]*claude[^"]*"/); // não tem slash command nenhum entre aspas
+});
+
+test('buildLoginScript (Windows): sem dir, não seta CLAUDE_CONFIG_DIR (login na maquina padrao)', () => {
+  const engine = fakeEngine({});
+  const script = buildLoginScript(engine, '');
+  assert.match(script, /rem sem config dir proprio/);
+  assert.doesNotMatch(script, /CLAUDE_CONFIG_DIR/);
+});
+
+test('buildLoginScriptMac: roda claude puro, dir aplicado com escaping de aspa simples', () => {
+  const engine = fakeEngine({});
+  const script = buildLoginScriptMac(engine, "/tmp/x' ; touch /tmp/PROOF #", 'id1');
+  assert.match(script, /export CLAUDE_CONFIG_DIR='\/tmp\/x'\\''/); // mesmo escaping do buildSessionScriptMac
+  assert.doesNotMatch(script, /--user/); // login nao usa --user do gh (essa sessao nao mexe em token)
+});
+
+test('buildLoginScriptMac: sem dir, não exporta CLAUDE_CONFIG_DIR', () => {
+  const engine = fakeEngine({});
+  const script = buildLoginScriptMac(engine, '', 'id1');
   assert.match(script, /# sem config dir proprio/);
   assert.doesNotMatch(script, /CLAUDE_CONFIG_DIR/);
 });

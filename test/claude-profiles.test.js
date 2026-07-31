@@ -69,6 +69,30 @@ test('resolveClaudeConfigDir: sem user informado usa o padrão global/legado nor
   assert.equal(engine.resolveClaudeConfigDir(), 'C:\\p1');
 });
 
+// resolveConfigDirForLogin: dir de um perfil ESPECÍFICO pelo id, pra "abrir sessão de
+// login" sem depender de conta GitHub nenhuma (é uma escolha direta de assinatura, não
+// uma revisão de PR) - ver Fix 2 (sessão de login dedicada).
+test('resolveConfigDirForLogin: profileId encontrado devolve o dir daquele perfil', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [{ id: 'p1', label: 'P1', dir: 'C:\\p1' }];
+  assert.equal(engine.resolveConfigDirForLogin('p1'), 'C:\\p1');
+});
+
+test('resolveConfigDirForLogin: profileId vazio ou nao encontrado cai no legado', () => {
+  const engine = new Engine();
+  engine.config.claudeConfigDir = 'C:\\legado';
+  engine.config.claudeProfiles = [{ id: 'p1', label: 'P1', dir: 'C:\\p1' }];
+  assert.equal(engine.resolveConfigDirForLogin(''), 'C:\\legado');
+  assert.equal(engine.resolveConfigDirForLogin('id-que-nao-existe'), 'C:\\legado');
+});
+
+test('resolveConfigDirForLogin: perfil encontrado mas sem dir cai no legado', () => {
+  const engine = new Engine();
+  engine.config.claudeConfigDir = 'C:\\legado';
+  engine.config.claudeProfiles = [{ id: 'quebrado', label: 'Sem dir', dir: '' }];
+  assert.equal(engine.resolveConfigDirForLogin('quebrado'), 'C:\\legado');
+});
+
 test('ghEnv: injeta CLAUDE_CONFIG_DIR do perfil da conta', () => {
   const engine = new Engine();
   engine.config.claudeProfiles = [

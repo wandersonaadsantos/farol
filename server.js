@@ -689,6 +689,10 @@ class Engine extends EventEmitter {
   sessionExit(id) { return sessionMod.sessionExit(this, id); }
   spawnConsole(slash, label, keys = [], account) { return sessionMod.spawnConsole(this, slash, label, keys, account); }
   handleSessionExit(opts) { return sessionMod.handleSessionExit(this, opts); }
+  buildLoginScript(dir) { return sessionMod.buildLoginScript(this, dir); }
+  buildLoginScriptMac(dir, id) { return sessionMod.buildLoginScriptMac(this, dir, id); }
+  spawnLoginConsoleMac(dir) { return sessionMod.spawnLoginConsoleMac(this, dir); }
+  spawnLoginConsole(dir) { return sessionMod.spawnLoginConsole(this, dir); }
 
   // Pipeline de revisão headless: colaborador lib/engine/review.js (gate intacto, Onda 2).
   prFromUrl(url) { return reviewMod.prFromUrl(this, url); }
@@ -847,6 +851,23 @@ class Engine extends EventEmitter {
       if (p?.dir) return p.dir;
     }
     return this.config.claudeConfigDir || '';
+  }
+
+  // dir de um perfil ESPECÍFICO pelo id, pra "abrir sessão de login" sem depender de
+  // conta GitHub nenhuma (é uma escolha direta de assinatura, não uma revisão de PR).
+  // profileId vazio ou não encontrado cai no mesmo fallback de resolveClaudeConfigDir
+  // (claudeConfigDir legado), pra logar no "Padrão da máquina" também funcionar.
+  resolveConfigDirForLogin(profileId) {
+    const profiles = this.config.claudeProfiles || [];
+    const p = profileId ? profiles.find(x => x.id === profileId) : null;
+    if (p?.dir) return p.dir;
+    return this.config.claudeConfigDir || '';
+  }
+
+  // abre a sessão de terminal SÓ pra login (ver Fix 2, lib/engine/session.js). Não
+  // marca nada como visto, não mexe na fila, não dispara checkNow ao fechar.
+  openClaudeLoginSession(profileId) {
+    return this.spawnLoginConsole(this.resolveConfigDirForLogin(profileId));
   }
 
   // --- diagnostico de pre-requisitos ---
