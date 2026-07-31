@@ -277,9 +277,9 @@
         <small>Nesses repos o botão Merge (em Meus PRs) fica desativado, respeitando as regras de review do time. Separe por vírgula.</small>
       </div>
       <div class="field">
-        <label for="setClaudeConfigDir">Assinatura do Claude (diretório de config)</label>
-        <input id="setClaudeConfigDir" type="text" spellcheck="false" placeholder="ex.: C:\Users\voce\.claude-pessoal">
-        <small>Vazio usa o login padrão do <code>claude</code> da máquina. Apontando um diretório próprio (logado em outra conta), as sessões do Farol passam a usar aquela assinatura, sem mexer no seu <code>claude</code> principal. Faça <code>claude login</code> nesse diretório uma vez antes; a conta em uso aparece em Saúde. Alternar de assinatura é trocar este caminho.</small>
+        <label>Perfis de assinatura do Claude</label>
+        <div id="claudeProfilesManager" class="cards"></div>
+        <small>Cada perfil aponta pra um diretório de config próprio. Faça <code>claude login</code> nesse diretório uma vez, FORA do Farol (ex.: <code>$env:CLAUDE_CONFIG_DIR="C:\caminho"; claude login</code>), antes de usá-lo aqui — o Farol nunca loga por você. O perfil padrão vale pra toda conta do GitHub que não tiver um perfil próprio (dropdown na conta, seção Contas acima). Sem nenhum perfil salvo, o Farol usa o login padrão da máquina.</small>
       </div>
       <div class="field">
         <label>Reviewers por projeto</label>

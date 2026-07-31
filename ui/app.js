@@ -348,6 +348,74 @@ function renderAccountsManager() {
   box.innerHTML = (rows || '<div class="empty">Nenhuma conta configurada.</div>') + addForm;
 }
 
+// Gerenciador de perfis de assinatura Claude (Sistema): cada perfil é {id,label,dir}.
+// Perfil padrão global + perfis salvos, cada um com o e-mail logado (badge, via doctor).
+function claudeAuthBadge(id) {
+  const all = (STATE.doctor && STATE.doctor.claudeAuth) || [];
+  const info = all.find(x => x.id === id) || all.find(x => x.id === '') || null;
+  if (!info) return '';
+  if (info.ready === false) return `<span class="a-claude bad" title="rode claude login nesse diretório">SEM LOGIN</span>`;
+  if (info.account) return `<span class="a-claude ok" title="${esc(info.configDir || 'padrão da máquina')}">@${esc(info.account)}</span>`;
+  return `<span class="a-claude" title="${esc(info.configDir || 'padrão da máquina')}">${info.configDir ? 'logada' : 'padrão da máquina'}</span>`;
+}
+
+function genProfileId() {
+  return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function saveClaudeProfiles(profiles) {
+  STATE.config.claudeProfiles = profiles;
+  api('/api/settings', { claudeProfiles: profiles });
+}
+
+function renderClaudeProfiles() {
+  const box = $('#claudeProfilesManager'); if (!box) return;
+  if (document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
+  const c = STATE.config || {};
+  const profiles = c.claudeProfiles || [];
+  // migração: legado preenchido e nenhum perfil salvo ainda -> oferece virar o primeiro perfil
+  const migrateCard = (!profiles.length && c.claudeConfigDir) ? `<div class="card acct-add">
+    <div class="a-add-title">Perfil atual detectado</div>
+    <div class="a-hint">Você já tem um diretório configurado: <code>${esc(c.claudeConfigDir)}</code>. Salvar como o primeiro perfil?</div>
+    <div class="a-editrow">
+      <input id="claudeMigrateLabel" placeholder="nome do perfil" value="Perfil atual" spellcheck="false">
+      <button class="btn sm" id="btnClaudeMigrate">Salvar como perfil</button>
+    </div>
+  </div>` : '';
+  const defaultOptions = [`<option value="">Padrão da máquina</option>`]
+    .concat(profiles.map(p => `<option value="${esc(p.id)}"${c.claudeProfileId === p.id ? ' selected' : ''}>${esc(p.label)}</option>`))
+    .join('');
+  const defaultRow = `<div class="card">
+    <div class="a-editrow">
+      <span class="a-fieldlabel">perfil padrão do Farol</span>
+      <select id="claudeProfileDefault">${defaultOptions}</select>
+    </div>
+  </div>`;
+  const rows = profiles.map(p => `<div class="card acct-card">
+    <div class="a-body">
+      <div class="a-editrow">
+        <input class="cp-label" data-id="${esc(p.id)}" value="${esc(p.label)}" placeholder="nome do perfil" spellcheck="false">
+        ${claudeAuthBadge(p.id)}
+      </div>
+      <div class="a-editrow">
+        <input class="cp-dir" data-id="${esc(p.id)}" value="${esc(p.dir)}" placeholder="C:\\Users\\voce\\.claude-perfil" spellcheck="false">
+      </div>
+    </div>
+    <div class="a-actions">
+      <button class="btn sm danger-ghost cp-remove" data-id="${esc(p.id)}">Remover</button>
+    </div>
+  </div>`).join('');
+  const addForm = `<div class="card acct-add">
+    <div class="a-add-title">Adicionar perfil</div>
+    <div class="a-editrow">
+      <input id="cpAddLabel" placeholder="nome (ex.: BIUD Trabalho)" spellcheck="false">
+      <input id="cpAddDir" placeholder="diretório de config (ex.: C:\\Users\\voce\\.claude-biud-trabalho)" spellcheck="false">
+      <button class="btn sm" id="btnCpAdd">Adicionar</button>
+    </div>
+  </div>`;
+  box.innerHTML = migrateCard + defaultRow + rows + addForm;
+}
+
 // re-render das seções sensíveis ao escopo (sem esperar novo state do engine)
 function rerenderScope() {
   if (!STATE) return;
@@ -498,6 +566,47 @@ $('#accountsManager').addEventListener('click', (e) => {
   }
 });
 
+/* editor de perfis de assinatura Claude: adicionar / remover / editar / migrar / padrão global */
+$('#claudeProfilesManager').addEventListener('click', (e) => {
+  const t = e.target;
+  if (t.id === 'btnCpAdd') {
+    const label = ($('#cpAddLabel').value || '').trim();
+    const dir = ($('#cpAddDir').value || '').trim();
+    if (!label || !dir) return toast('error', 'Preencha nome e diretório do perfil.', 3000);
+    const profiles = [...(STATE.config.claudeProfiles || []), { id: genProfileId(), label, dir }];
+    $('#cpAddLabel').value = ''; $('#cpAddDir').value = '';
+    saveClaudeProfiles(profiles);
+    return;
+  }
+  if (t.classList.contains('cp-remove')) {
+    const id = t.dataset.id;
+    const profiles = (STATE.config.claudeProfiles || []).filter(p => p.id !== id);
+    saveClaudeProfiles(profiles);
+    return;
+  }
+  if (t.id === 'btnClaudeMigrate') {
+    const label = ($('#claudeMigrateLabel').value || '').trim() || 'Perfil atual';
+    const profiles = [{ id: genProfileId(), label, dir: STATE.config.claudeConfigDir }];
+    saveClaudeProfiles(profiles);
+    return;
+  }
+});
+$('#claudeProfilesManager').addEventListener('change', (e) => {
+  const t = e.target;
+  if (t.id === 'claudeProfileDefault') {
+    STATE.config.claudeProfileId = t.value;
+    return api('/api/settings', { claudeProfileId: t.value });
+  }
+  if (t.classList.contains('cp-label') || t.classList.contains('cp-dir')) {
+    const id = t.dataset.id;
+    const profiles = (STATE.config.claudeProfiles || []).map(p => p.id === id
+      ? { ...p, label: t.classList.contains('cp-label') ? t.value.trim() || p.label : p.label,
+              dir: t.classList.contains('cp-dir') ? t.value.trim() : p.dir }
+      : p);
+    saveClaudeProfiles(profiles);
+  }
+});
+
 /* ---------- tema ---------- */
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
@@ -521,7 +630,7 @@ function switchTab(name) {
   if (name === 'entregas') loadDeliveries();
   if (name === 'destaques') { loadHighlights(); renderTools(); }   // renderTools: kudos do escopo atual, não o defasado
   if (name === 'time') loadTeam();
-  if (name === 'sistema') { loadLog(); renderDoctor(); renderAccountsManager(); loadReviewerCands(); }
+  if (name === 'sistema') { loadLog(); renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); loadReviewerCands(); }
   if (name === 'consumo') renderUsage();
 }
 $('#nav').addEventListener('click', (e) => {
@@ -2144,8 +2253,8 @@ function renderSettings() {
   setIf($('#setUser'), c.ghUser);
   setIf($('#setOwners'), (c.owners || []).join(', '));
   setIf($('#setMergeBlocked'), (c.mergeBlockedRepos || []).join(', '));
-  setIf($('#setClaudeConfigDir'), c.claudeConfigDir || '');
   renderReviewersEditor();
+  renderClaudeProfiles();
   $('#setInterval').value = String(c.intervalSeconds);
   $('#setReviewModel').value = (c.reviewModel != null ? c.reviewModel : '');
   $('#setAutoReview').checked = !!c.autoReview;
@@ -2404,7 +2513,6 @@ const settingsMap = [
   ['#setUser', 'ghUser', el => el.value],
   ['#setOwners', 'owners', el => el.value],
   ['#setMergeBlocked', 'mergeBlockedRepos', el => el.value],
-  ['#setClaudeConfigDir', 'claudeConfigDir', el => el.value],
   ['#setInterval', 'intervalSeconds', el => parseInt(el.value, 10)],
   ['#setReviewModel', 'reviewModel', el => el.value],
   ['#setAutoPushback', 'autoPushback', el => el.checked],
@@ -2432,7 +2540,7 @@ function connect() {
     renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSilenced();
     renderRadarNav();
     renderSettings(); renderTools(); renderUpdate(); tickCountdown();
-    if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); }
+    if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); }
     if ($('#tab-consumo').classList.contains('active')) renderUsage();
   });
   es.addEventListener('activity', (e) => {
