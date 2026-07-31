@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.28.0
+
+**Novidades**
+- **Botão de login dedicado pras assinaturas Claude, sem precisar sequestrar um PR.** Antes, a única forma de rodar `claude login` numa assinatura era abrir um PR real "pra revisar via Claude CLI". Agora, tanto o perfil padrão quanto cada perfil salvo (Sistema > Perfis de assinatura do Claude) ganham um botão "Abrir sessão de login", que abre um terminal só com o `claude`, sem tocar em PR, fila ou token do GitHub nenhum.
+
+**Correções**
+- **Fechar a sessão de terminal sem terminar a revisão não faz mais o PR sumir da fila.** Abrir um PR "pra revisar via Claude CLI" marca ele como visto na hora (antes mesmo da revisão acontecer); se você fechasse o terminal sem o `/pr-review` ter rodado até o fim (ex.: só queria logar), o PR ficava escondido da fila pra sempre, só voltando se o autor pedisse revisão de novo. Agora, fechar a sessão sempre devolve o PR à fila (é seguro: se a revisão foi mesmo postada, o GitHub já não lista mais o PR como pendente, então ele não reaparece à toa).
+
 ## v2.27.1
 
 **Correções**
