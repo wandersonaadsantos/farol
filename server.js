@@ -673,7 +673,7 @@ class Engine extends EventEmitter {
   // claude interativo exige. Spawnar cmd/start direto do Node herda handles
   // nulos (stdio ignore) e o console nasce sem stdin: pause/claude morrem na hora.
   // Sessão/stream (terminal + headless): colaborador lib/engine/session.js (Onda 2).
-  buildSessionScript(slash) { return sessionMod.buildSessionScript(this, slash); }
+  buildSessionScript(slash, account) { return sessionMod.buildSessionScript(this, slash, account); }
   buildSessionScriptMac(slash, id, user) { return sessionMod.buildSessionScriptMac(this, slash, id, user); }
   spawnConsoleMac(slash, label, keys = [], account) { return sessionMod.spawnConsoleMac(this, slash, label, keys, account); }
   sessionExit(id) { return sessionMod.sessionExit(this, id); }
