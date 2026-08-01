@@ -173,7 +173,7 @@ Verde nos dois é pré-requisito. Não publique com teste vermelho.
 
 - [ ] Commit com mensagem descritiva (ex.: `chore: release v2.27.0`).
 - [ ] Push pra `main`.
-- [ ] **Conta do gh**: o repo é `wandersonaadsantos/farol`, então o push e a release têm que sair pela conta DONA do repo, não pela conta de trabalho (que costuma ser a ativa e devolve 403). Confira com `gh auth status` e, se precisar, `gh auth switch --user wandersonaadsantos`. **Não escreva o login da conta de trabalho neste arquivo**: o `CLAUDE.md` vai dentro do zip de distribuição e a auditoria do `make-package.ps1` reprova o pacote se achar (invariante 7).
+- [ ] **Conta do gh**: o repo é `wandersonaadsantos/farol`, então o push e a release têm que sair pela conta DONA do repo, não pela conta de trabalho (que costuma ser a ativa e devolve 403). Confira com `gh auth status` e, se precisar, `gh auth switch --user wandersonaadsantos`. **Confira de novo IMEDIATAMENTE antes de rodar o `publish-release.ps1`, num comando só com ele:** a conta ativa do `gh` mora no keyring e já foi observada revertendo entre um comando e o outro na mesma sessão. Em 01/08/2026 isso derrubou a publicação da v2.29.0 no meio: o push passou, os dois artefatos foram construídos, e só o `gh release create` falhou (o erro que aparece é um `gh auth refresh ... -s workflow`, que engana, porque o problema é a conta e não o escopo). Rodar de novo com a conta certa resolve, e o script é idempotente. **Não escreva o login da conta de trabalho neste arquivo**: o `CLAUDE.md` vai dentro do zip de distribuição e a auditoria do `make-package.ps1` reprova o pacote se achar (invariante 7).
 
 ### 4. Publicar a release
 
