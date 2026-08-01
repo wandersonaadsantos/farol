@@ -9,6 +9,27 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.28.0
+
+**Novidades**
+- **Escolha quanto o Claude pensa antes de responder.** Em Sistema > Automação, um controle novo de **esforço de raciocínio**, com cinco níveis (padrão do Claude, baixo, médio, alto e muito alto), cada um explicando o que muda e o quanto custa do teu limite. Vale pras sessões autônomas (revisão, autoanálise, pushback, chat e ferramentas); a sessão no terminal não é afetada. O padrão continua sendo deixar o Claude decidir pelo modelo, que é o que o Farol sempre fez, então quem não mexer não vê diferença. Escolhendo Haiku, os cartões desabilitam e explicam o motivo (esse modelo não aceita nível de esforço).
+- **Mais modelos pra escolher.** O seletor de modelo das revisões passou de 4 pra 6 opções, com os rótulos dizendo o trade-off de cada uma: além de Opus, Sonnet e Haiku, agora tem **Melhor disponível** (o Claude escolhe o topo da tua conta) e **Fable** (raciocínio longo). Pra caso raro, o `config.json` também aceita o nome completo de um modelo, sem precisar de versão nova do Farol.
+- **Busca do Sistema com resultados de verdade.** Digitar na busca da aba Sistema agora devolve uma lista de resultados nomeados, cada um com a seção de onde vem; clicar leva direto pra configuração e pisca a linha. Antes ela acendia várias seções ao mesmo tempo e empilhava tudo na tela. Funciona sem acento (buscar "revisao" acha "Revisão") e avisa quando não encontra nada.
+- **As 9 seções do Sistema entraram na paleta de comandos (Ctrl+K).**
+
+**Melhorias**
+- **A aba Sistema respira.** As configurações viraram uma linha cada, com o texto à esquerda, o controle à direita e uma divisória entre elas, no lugar do bloco corrido em que tudo ficava colado. A sidebar se separa do conteúdo por espaço em branco em vez de uma borda encostada, a aba ganhou mais largura útil, e cada seção agora tem um título maior com uma frase explicando pra que ela serve. Versão instalada e caminho dos dados foram pro rodapé da sidebar, visíveis de qualquer seção.
+
+**Correções**
+- **A revisão em lotes de PR grande nunca tinha funcionado.** Desde a v2.26.0 o Farol media o PR, decidia fatiar em 2 a 4 lotes e montava o plano, mas o plano era descartado antes de chegar no Claude por causa de um argumento perdido no caminho. Na prática, PR grande seguia sendo lido de uma vez só: um PR de 8700 linhas era lido parcialmente e aprovado. Agora o fan-out roda de verdade, com um subagente por lote em paralelo. **A revisão de PR grande fica bem mais completa, e consome mais do teu limite.**
+- **Dez divisórias da tela de Sistema não estavam sendo desenhadas.** A cor delas era usada sem nunca ter sido definida, então as separações internas dos cards de conta, do editor de reviewers e do perfil na aba Time simplesmente não apareciam. É boa parte da sensação de "tudo colado".
+- **O texto de ajuda dos campos ficava espremido ao lado do campo**, em vez de abaixo dele, em 8 lugares da tela de Sistema.
+- **O botão "👥 Reviewers" num PR sem reviewers configurados levava pra uma tela invisível.** Ele abria a aba Sistema mas não a seção de Reviewers, então o usuário via a Visão geral e um aviso falando de algo que não estava na frente dele.
+- **O selo de assinatura do Claude aparecia como texto solto**, sem o formato de etiqueta, em Contas e em Plano e chaves.
+- **Modelo inválido no `config.json` agora é barrado na largada.** Esse campo entra na linha de comando que o Farol executa e, até aqui, só era validado quando salvo pela tela; editado à mão, passava direto.
+- **A tela de Consumo passa a mostrar a versão dos modelos da geração nova** (Opus 5, Sonnet 5, Fable 5), que antes apareciam sem número. Modelos já usados podem aparecer em duas linhas por um tempo, até o histórico novo tomar conta.
+- **A UI passa a perguntar ao motor em qual sistema ele está rodando**, em vez de adivinhar pelo navegador. As duas respostas divergiam ao abrir a interface de uma máquina diferente da que roda o Farol.
+
 ## v2.27.0
 
 **Novidades**
