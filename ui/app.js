@@ -71,8 +71,39 @@ function confirmModal(opts) {
 }
 
 /* ---------- operation feedback system (async operations transparency) ---------- */
-/* Unified feedback for polling, data loading, reviews, merges, chat, updates, settings, sessions.
-   showOp/updateOp/closeOp manage current operations. ACTIVE_OPS tracks all open widgets. */
+/* UNIFIED FEEDBACK VISUAL SYSTEM
+
+   Goal: Users never unsure if app is frozen. Every async operation shows:
+   - Current step (e.g., "Lendo arquivos…")
+   - Progress % (0-100)
+   - Expected time remaining (ETA)
+   - Queue position (if applicable)
+   - Auto-dismiss on completion or error
+
+   API Functions:
+   - showOp(opId, opts) — start operation widget (inline: true for compact pill)
+   - updateOp(opId, {step, progress, eta, queuePos, status}) — update progress
+   - closeOp(opId, status, message) — mark done/error, auto-dismiss after 3s
+
+   Visual Patterns:
+   1. Operation Widget (.op-widget) — full card with icon, step, progress bar
+   2. Inline Pill (.op-inline-pill) — compact text badge for background ops
+   3. Auto-dismiss — fades out 3s after completion
+
+   Coverage (9 problem areas resolved):
+   - Polling: status checks with queue feedback
+   - Data Loading: spinners for Deliveries/Highlights/Team
+   - Review/Analysis: progress through Lendo → Analisando → Montando
+   - Merge: success toast on completion
+   - Chat: phase progression + streaming indicator
+   - Update: verification feedback badge
+   - Settings: success toast on save
+   - Tools: Kudos & Health execution feedback
+   - Session Startup: stage indicators (iniciando → processando)
+
+   Implementation: Pure JS, no frameworks. ACTIVE_OPS Map tracks all active operations.
+   Reusable across all async flows via showOp/updateOp/closeOp pattern.
+*/
 let ACTIVE_OPS = new Map();  // opId → {id, type, status, step, progress, eta, queuePos, startTime, cancellable, container, element}
 
 function showOp(opId, opts) {
@@ -1336,18 +1367,22 @@ function renderActive() {
   const have = [...box.querySelectorAll('.session-card')].map(el => el.dataset.id).join(',');
   const want = sessions.map(s => s.id).join(',');
   if (have !== want) {
-    box.innerHTML = sessions.map(s => `
+    box.innerHTML = sessions.map(s => {
+      const uptime = Math.round((Date.now() - (s.startedAt || Date.now())) / 1000);
+      const stages = uptime < 5 ? '(iniciando…)' : uptime < 15 ? '(processando…)' : '';
+      return `
       <div class="card session-card" data-id="${esc(s.id)}">
         <div class="session-head">
           <span class="spin accent"></span>
-          <b>${esc(s.label)}</b>
+          <b>${esc(s.label)}</b> ${stages}
           <span class="session-model" data-id="${esc(s.id)}" hidden></span>
           ${s.pr?.url ? `<a href="${esc(s.pr.url)}" target="_blank" rel="noreferrer">abrir PR</a>` : ''}
           <span class="session-elapsed" data-started="${s.startedAt}"></span>
           ${s.cancellable ? `<button class="btn sm danger-ghost act-cancel" data-id="${esc(s.id)}">Cancelar</button>` : ''}
         </div>
         <div class="activity-feed" data-id="${esc(s.id)}"></div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
   for (const s of sessions) {
     const feed = box.querySelector(`.activity-feed[data-id="${CSS.escape(s.id)}"]`);
@@ -1387,11 +1422,16 @@ function renderChat(c) {
   if (!(c.messages || []).length) {
     box.innerHTML = `<div class="chat-hint">Converse com o Claude sobre <b>${esc(c.key)}</b>. Quando o PR já passou pela revisão automática, ele chega sabendo o diff, o card e o relatório; e pode examinar o PR com <code>gh</code>. Pra responder no PR, é só pedir: "posta esse comentário".</div>`;
   } else {
-    box.innerHTML = c.messages.map(m => {
+    const msgs = c.messages.map(m => {
       if (m.role === 'user') return `<div class="msg user">${esc(m.text)}</div>`;
       if (m.role === 'system') return `<div class="msg sys">${esc(m.text)}</div>`;
       return `<div class="msg bot report">${md(m.text)}</div>`;
     }).join('');
+    // Add streaming indicator when response is generating
+    const streaming = c.status === 'running' && c.messages.length > 0 && c.messages[c.messages.length - 1].role !== 'user'
+      ? `<div class="msg bot streaming"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>`
+      : '';
+    box.innerHTML = msgs + streaming;
   }
   const running = c.status === 'running';
   $('#btnChatSend').disabled = running;
