@@ -1,0 +1,194 @@
+'use strict';
+// lib/io.js e lib/taxonomy.js: os dois últimos módulos de lib/ sem nenhum teste.
+//
+// io.js é a base de tudo (todo `gh` do Farol passa pelo run, todo estado passa pelo
+// readJson, o boot semeia o workspace pelo copyRecursive). taxonomy.js é a fonte dos
+// níveis de papel e domínio que entram no PROMPT da revisão: nível novo listado sem
+// texto de tom correspondente vira `undefined` injetado no prompt, calado.
+const os = require('node:os');
+const path = require('node:path');
+const fs = require('node:fs');
+
+const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-io-tax-' + process.pid);
+process.env.FAROL_HOME = FAROL_HOME;
+
+const { test, after } = require('node:test');
+const assert = require('node:assert/strict');
+const { ensureDir, readJson, copyRecursive, detectGitBash, run, runShell } = require('../lib/io');
+const { IS_WIN } = require('../lib/paths');
+const tax = require('../lib/taxonomy');
+
+const TMP = path.join(os.tmpdir(), 'farol-test-io-' + process.pid);
+after(() => {
+  for (const d of [TMP, FAROL_HOME]) { try { fs.rmSync(d, { recursive: true, force: true }); } catch { /* best-effort */ } }
+});
+
+/* ---------- io: ensureDir / readJson ---------- */
+
+test('ensureDir cria a árvore inteira e é idempotente', () => {
+  const alvo = path.join(TMP, 'a', 'b', 'c');
+  ensureDir(alvo);
+  assert.ok(fs.existsSync(alvo));
+  assert.doesNotThrow(() => ensureDir(alvo), 'chamar de novo não pode lançar (roda em todo boot)');
+});
+
+test('readJson devolve o fallback quando o arquivo não existe', () => {
+  // é o que faz o primeiro boot funcionar sem nenhum arquivo de estado
+  assert.deepEqual(readJson(path.join(TMP, 'nao-existe.json'), { padrao: true }), { padrao: true });
+  assert.deepEqual(readJson(path.join(TMP, 'nao-existe.json'), []), []);
+});
+
+test('readJson devolve o fallback quando o JSON está corrompido', () => {
+  // config.json truncado por queda de energia não pode derrubar o app
+  ensureDir(TMP);
+  const arq = path.join(TMP, 'torto.json');
+  fs.writeFileSync(arq, '{ "a": 1,');
+  assert.deepEqual(readJson(arq, { ok: false }), { ok: false });
+});
+
+test('readJson lê o conteúdo quando está válido', () => {
+  ensureDir(TMP);
+  const arq = path.join(TMP, 'bom.json');
+  fs.writeFileSync(arq, JSON.stringify({ a: 1, b: [2, 3] }));
+  assert.deepEqual(readJson(arq, null), { a: 1, b: [2, 3] });
+});
+
+/* ---------- io: copyRecursive ---------- */
+
+test('copyRecursive copia a árvore toda, criando o destino', () => {
+  // é como o boot semeia o workspace-template em ~/.farol/workspace
+  const src = path.join(TMP, 'src');
+  const dst = path.join(TMP, 'dst');
+  ensureDir(path.join(src, 'sub'));
+  fs.writeFileSync(path.join(src, 'raiz.md'), 'raiz');
+  fs.writeFileSync(path.join(src, 'sub', 'fundo.md'), 'fundo');
+  copyRecursive(src, dst);
+  assert.equal(fs.readFileSync(path.join(dst, 'raiz.md'), 'utf8'), 'raiz');
+  assert.equal(fs.readFileSync(path.join(dst, 'sub', 'fundo.md'), 'utf8'), 'fundo');
+});
+
+test('copyRecursive com origem inexistente não lança', () => {
+  assert.doesNotThrow(() => copyRecursive(path.join(TMP, 'fantasma'), path.join(TMP, 'saida')));
+});
+
+test('copyRecursive sobrescreve o destino existente', () => {
+  // o boot re-sincroniza o protocolo de review a cada partida: tem que sobrescrever
+  const src = path.join(TMP, 'src2'), dst = path.join(TMP, 'dst2');
+  ensureDir(src); ensureDir(dst);
+  fs.writeFileSync(path.join(src, 'p.md'), 'novo');
+  fs.writeFileSync(path.join(dst, 'p.md'), 'velho');
+  copyRecursive(src, dst);
+  assert.equal(fs.readFileSync(path.join(dst, 'p.md'), 'utf8'), 'novo');
+});
+
+/* ---------- io: detectGitBash ---------- */
+
+test('detectGitBash devolve null fora do Windows', { skip: IS_WIN ? 'só roda em POSIX' : false }, () => {
+  assert.equal(detectGitBash(), null, 'CLAUDE_CODE_GIT_BASH_PATH só existe no Windows');
+});
+
+test('detectGitBash devolve caminho existente ou null, nunca lixo', { skip: IS_WIN ? false : 'só roda no Windows' }, () => {
+  const p = detectGitBash();
+  if (p !== null) assert.ok(fs.existsSync(p), `devolveu ${p}, que não existe`);
+});
+
+/* ---------- io: run / runShell ---------- */
+
+test('run devolve o envelope completo no sucesso', async () => {
+  const r = await run(process.execPath, ['-e', 'process.stdout.write("oi")']);
+  assert.equal(r.ok, true);
+  assert.equal(r.code, 0);
+  assert.equal(r.stdout, 'oi');
+  assert.equal(typeof r.stderr, 'string', 'stderr é sempre string, nunca undefined');
+});
+
+test('run NÃO lança quando o comando falha: devolve ok:false', async () => {
+  // o engine inteiro depende disso: todo chamador testa r.ok em vez de try/catch
+  const r = await run(process.execPath, ['-e', 'process.exit(3)']);
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 3);
+});
+
+test('run NÃO lança quando o binário não existe', async () => {
+  const r = await run('binario-que-nao-existe-farol-teste', ['--versao']);
+  assert.equal(r.ok, false);
+  assert.equal(typeof r.stdout, 'string');
+});
+
+test('run captura o stderr separado do stdout', async () => {
+  const r = await run(process.execPath, ['-e', 'process.stderr.write("erro"); process.stdout.write("saida")']);
+  assert.equal(r.stdout, 'saida');
+  assert.equal(r.stderr, 'erro');
+});
+
+test('runShell executa uma linha de comando e devolve o mesmo envelope', async () => {
+  // sem aspas aninhadas de propósito: a linha vai pro cmd.exe /d /s /c (Windows) ou
+  // /bin/sh -lc (mac), e cada um trata aspa embutida de um jeito
+  const r = await runShell('node --version');
+  assert.equal(r.ok, true);
+  assert.equal(r.code, 0);
+  assert.match(r.stdout, /^v\d+\./, 'a saída do comando chega inteira');
+});
+
+test('runShell NÃO lança quando o comando falha', async () => {
+  const r = await runShell('binario-que-nao-existe-farol-teste --versao');
+  assert.equal(r.ok, false);
+  assert.equal(typeof r.stderr, 'string');
+});
+
+/* ---------- taxonomy ---------- */
+
+test('taxonomy: todo papel listado tem rótulo E texto de tom', () => {
+  // PAPEL_TONE é injetado no prompt da revisão (personProfileBlock). Papel na lista sem
+  // texto correspondente injetaria "undefined" no prompt, sem erro nenhum.
+  for (const nivel of tax.PAPEL_LEVELS) {
+    assert.equal(typeof tax.PAPEL_LABEL[nivel], 'string', `PAPEL_LABEL falta ${nivel}`);
+    assert.ok(tax.PAPEL_LABEL[nivel].length > 0, `PAPEL_LABEL vazio em ${nivel}`);
+    assert.equal(typeof tax.PAPEL_TONE[nivel], 'string', `PAPEL_TONE falta ${nivel}`);
+    assert.ok(tax.PAPEL_TONE[nivel].length > 20, `PAPEL_TONE curto demais em ${nivel}`);
+  }
+});
+
+test('taxonomy: todo domínio tem rótulo, e todo nível de domínio tem rótulo E postura', () => {
+  for (const d of tax.DOMAINS) {
+    assert.equal(typeof tax.DOMAIN_LABEL[d], 'string', `DOMAIN_LABEL falta ${d}`);
+  }
+  for (const n of tax.DOMAIN_LEVELS) {
+    assert.equal(typeof tax.DOMAIN_LEVEL_LABEL[n], 'string', `DOMAIN_LEVEL_LABEL falta ${n}`);
+    assert.equal(typeof tax.DOMAIN_POSTURE[n], 'string', `DOMAIN_POSTURE falta ${n}`);
+    assert.ok(tax.DOMAIN_POSTURE[n].length > 20, `DOMAIN_POSTURE curto demais em ${n}`);
+  }
+});
+
+test('taxonomy: todo desfecho de pushback tem rótulo em português', () => {
+  for (const o of tax.PUSHBACK_OUTCOMES) {
+    assert.equal(typeof tax.PUSHBACK_LABEL[o], 'string', `PUSHBACK_LABEL falta ${o}`);
+  }
+});
+
+test('taxonomy: nenhum mapa tem chave sobrando fora da lista', () => {
+  // o inverso do teste acima: rótulo órfão é sinal de nível removido pela metade
+  const sobra = (mapa, lista, nome) => {
+    const extras = Object.keys(mapa).filter(k => !lista.includes(k));
+    assert.deepEqual(extras, [], `${nome} tem chave(s) fora da lista: ${extras.join(', ')}`);
+  };
+  sobra(tax.PAPEL_LABEL, tax.PAPEL_LEVELS, 'PAPEL_LABEL');
+  sobra(tax.PAPEL_TONE, tax.PAPEL_LEVELS, 'PAPEL_TONE');
+  sobra(tax.DOMAIN_LABEL, tax.DOMAINS, 'DOMAIN_LABEL');
+  sobra(tax.DOMAIN_LEVEL_LABEL, tax.DOMAIN_LEVELS, 'DOMAIN_LEVEL_LABEL');
+  sobra(tax.DOMAIN_POSTURE, tax.DOMAIN_LEVELS, 'DOMAIN_POSTURE');
+  sobra(tax.PUSHBACK_LABEL, tax.PUSHBACK_OUTCOMES, 'PUSHBACK_LABEL');
+});
+
+test('taxonomy: a paleta de contas tem cores distintas em hex', () => {
+  assert.ok(tax.ACCOUNT_PALETTE.length >= 4, 'paleta pequena demais pra multi-conta');
+  for (const c of tax.ACCOUNT_PALETTE) assert.match(c, /^#[0-9a-f]{6}$/i, `cor inválida: ${c}`);
+  assert.equal(new Set(tax.ACCOUNT_PALETTE).size, tax.ACCOUNT_PALETTE.length, 'cor repetida na paleta');
+});
+
+test('taxonomy: papel e nível de domínio não se confundem', () => {
+  // parsePeople valida os dois eixos contra estas listas; nome em comum faria um valor
+  // de um eixo passar como válido no outro
+  const comum = tax.PAPEL_LEVELS.filter(p => tax.DOMAIN_LEVELS.includes(p));
+  assert.deepEqual(comum, [], `valor ambíguo entre os dois eixos: ${comum.join(', ')}`);
+});
