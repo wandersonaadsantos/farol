@@ -4,8 +4,23 @@
 const $ = (s) => document.querySelector(s);
 const isElectron = navigator.userAgent.includes('Electron');
 if (isElectron) document.body.classList.add('electron');
-const isMac = /Macintosh|Mac OS X/.test(navigator.userAgent);
-if (isMac) document.body.classList.add('mac');
+
+/* Plataforma: a FONTE DE VERDADE é o engine (snapshot.app.platform = process.platform).
+   O userAgent aqui é só o palpite do PRIMEIRO PAINT, antes do primeiro estado chegar pelo
+   SSE: sem ele o padding do semáforo do macOS piscaria. aplicaPlataforma reconcilia assim
+   que o estado chega, e é ela que manda daí em diante.
+   Antes eram duas fontes de verdade no mesmo arquivo (userAgent no cromo, app.platform no
+   doctor), que divergem de verdade ao abrir a UI de um Mac contra um engine Windows.
+   ehMac/ehWin são FUNÇÕES de propósito: uma referência esquecida a `isMac` vira
+   ReferenceError alto, em vez de um `if (isMac)` sempre verdadeiro falhando calado. */
+let PLATAFORMA = /Macintosh|Mac OS X/.test(navigator.userAgent) ? 'darwin' : 'win32';
+const ehMac = () => PLATAFORMA === 'darwin';
+const ehWin = () => PLATAFORMA === 'win32';
+function aplicaPlataforma(p) {
+  if (p) PLATAFORMA = p;
+  document.body.classList.toggle('mac', ehMac());
+}
+aplicaPlataforma();
 
 let STATE = null;
 let logTimer = null;
@@ -78,6 +93,9 @@ function confirmModal(opts) {
 let SCOPE = localStorage.getItem('farol-scope') || 'all';   // 'all' ou o login de uma conta
 let silencedOpen = false;
 let CURRENT_TAB = 'radar';   // a barra de contas só filtra o Radar; nas outras abas fica escondida
+// espelha a aba no <body> pro CSS ajustar a largura útil (a aba Sistema tem sidebar e
+// precisa de mais). switchTab não roda no boot, então a aba inicial é marcada aqui.
+document.body.dataset.tab = CURRENT_TAB;
 const TWEAK = {
   muted: localStorage.getItem('farol-muted-handling') || 'Recolher',   // Recolher | Esmaecer | Ocultar
   ident: localStorage.getItem('farol-identity-style') || 'Barra + etiqueta', // Barra + etiqueta | Só barra | Só ponto
@@ -686,6 +704,7 @@ $('#btnTheme').onclick = () => {
 /* ---------- navegação ---------- */
 function switchTab(name) {
   CURRENT_TAB = name;
+  document.body.dataset.tab = name;   // largura útil por aba (ver body[data-tab] no app.css)
   document.querySelectorAll('.nav-item').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
   if (STATE) renderAccountBar();   // mostra/esconde a barra de contas conforme a aba
@@ -717,27 +736,99 @@ $('#sysNav').addEventListener('click', (e) => {
   switchSistemaSection(btn.dataset.section);
 });
 
+/* Índice da busca do Sistema. Casar por textContent da seção inteira, como era antes,
+   acendia meia dúzia de seções ao mesmo tempo (o termo "conta" aparece em quase todas)
+   e empilhava tudo na vertical. Com índice, o resultado é uma lista curta que aponta
+   pra UMA linha. 'at' é o seletor do alvo, e todo alvo tem que existir no HTML. */
+const SYS_INDEX = [
+  { sec: 'overview', at: '#updateBox', title: 'Versão e atualização', hint: 'update, atualizar, versão, release' },
+  { sec: 'overview', at: '#doctor', title: 'Saúde do ambiente', hint: 'doctor, gh, claude, git bash, diagnóstico' },
+  { sec: 'accounts', at: '#accountsManager', title: 'Contas do GitHub', hint: 'conta, identidade, cor, silenciar, política, token' },
+  { sec: 'automation', at: '#sys-row-autoreview', title: 'Revisar automaticamente quando chegar PR', hint: 'auto review, revisão na hora, fila' },
+  { sec: 'automation', at: '#sys-row-autoapprove', title: 'Aprovar sozinho os aprováveis com ressalvas', hint: 'auto approve, ressalva, aprovação' },
+  { sec: 'automation', at: '#sys-row-pushback', title: 'Detectar pushback automaticamente', hint: 'contestação, autor, desfecho' },
+  { sec: 'automation', at: '#sys-row-modelo', title: 'Modelo das revisões automáticas', hint: 'opus, sonnet, haiku, fable, best, modelo, limite do plano' },
+  { sec: 'automation', at: '#sys-row-esforco', title: 'Esforço de raciocínio', hint: 'effort, pensar, raciocínio, alto, baixo, xhigh' },
+  { sec: 'automation', at: '#sys-row-intervalo', title: 'Intervalo de checagem', hint: 'polling, minutos, frequência' },
+  { sec: 'automation', at: '#sys-row-skipperms', title: 'Sessão no terminal sem pedir permissões', hint: 'dangerously skip permissions, prompts' },
+  { sec: 'connections', at: '#sys-row-ghuser', title: 'Conta do GitHub (trabalho)', hint: 'usuário, login, gh, conta primária' },
+  { sec: 'connections', at: '#sys-row-orgs', title: 'Organizações monitoradas', hint: 'org, owners, panorama, repositórios' },
+  { sec: 'connections', at: '#sys-row-mergeblocked', title: 'Repos bloqueados pra merge', hint: 'merge, bloqueio, repo, self merge' },
+  { sec: 'plans', at: '#claudeProfilesManager', title: 'Perfis de assinatura do Claude', hint: 'plano, assinatura, config dir, login, chave' },
+  { sec: 'reviewers', at: '#reviewersEditor', title: 'Reviewers por projeto', hint: 'revisor, time, padrão da org, exceção, repo' },
+  { sec: 'prefs', at: '#sys-row-identity', title: 'Identidade nos cards', hint: 'barra, etiqueta, ponto, marcador' },
+  { sec: 'prefs', at: '#sys-row-mutedview', title: 'Contas silenciadas', hint: 'recolher, esmaecer, ocultar, exibição' },
+  { sec: 'prefs', at: '#sys-row-sound', title: 'Som ao chegar PR novo', hint: 'som, aviso, notificação' },
+  { sec: 'prefs', at: '#rowAutostart', title: 'Iniciar com o Windows', hint: 'autostart, inicialização, segundo plano' },
+  { sec: 'news', at: '#relNotes', title: 'Novidades por versão', hint: 'changelog, release notes, o que mudou' },
+  { sec: 'diag', at: '#sys-row-spawns', title: 'Registrar processos (diagnóstico)', hint: 'spawns, terminal piscando, debug' },
+  { sec: 'diag', at: '#sys-row-log', title: 'Log de falhas', hint: 'log, erro, falha, pr-health' },
+];
+
+// tira acento pra "revisao" achar "Revisão"
+function sysNorm(s) { return String(s || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase(); }
+
+function sysSecName(sec) {
+  const b = document.querySelector(`.sys-nav-item[data-section="${sec}"]`);
+  return b ? b.textContent.trim() : sec;
+}
+
+// pisca o alvo depois de navegar, pra achar a linha no meio da seção
+function sysFlash(el) {
+  if (!el || !el.animate) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  el.animate([
+    { boxShadow: '0 0 0 0 rgba(255,180,84,0)' },
+    { boxShadow: '0 0 0 3px rgba(255,180,84,.32)', offset: .5 },
+    { boxShadow: '0 0 0 0 rgba(255,180,84,0)' }
+  ], { duration: 850, iterations: 2 });
+}
+
+/* Navega pra uma entrada do índice. A ordem importa: a seção precisa estar VISÍVEL
+   antes do scroll, porque scrollIntoView em elemento display:none não faz nada e não
+   avisa. Daí o setTimeout depois do switchSistemaSection. */
+function sysGoTo(sec, at) {
+  const q = $('#sysSearch');
+  if (q.value) { q.value = ''; sysSearchFilter(''); }
+  switchSistemaSection(sec);
+  setTimeout(() => {
+    const el = at && document.querySelector(at);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    sysFlash(el);
+  }, 0);
+}
+
 function sysSearchFilter(query) {
-  const q = query.trim().toLowerCase();
-  const sections = document.querySelectorAll('.sys-section');
+  const q = sysNorm(query).trim();
+  const box = $('#sysResults');
   const navItems = document.querySelectorAll('.sys-nav-item');
   if (!q) {
-    sections.forEach(s => s.classList.toggle('active', s.id === 'sys-' + SISTEMA_SECTION));
+    box.hidden = true;
+    box.innerHTML = '';
+    document.querySelectorAll('.sys-section').forEach(s => s.classList.toggle('active', s.id === 'sys-' + SISTEMA_SECTION));
     navItems.forEach(b => { b.classList.remove('match'); b.classList.toggle('active', b.dataset.section === SISTEMA_SECTION); });
     return;
   }
-  sections.forEach(s => {
-    s.classList.toggle('active', s.textContent.toLowerCase().includes(q));
-  });
-  navItems.forEach(b => {
-    const sec = document.getElementById('sys-' + b.dataset.section);
-    const hit = sec && sec.classList.contains('active');
-    b.classList.toggle('match', !!hit);
-    b.classList.remove('active');
-  });
+  const hits = SYS_INDEX.filter(e => sysNorm(`${e.title} ${e.hint} ${sysSecName(e.sec)}`).includes(q));
+  // enquanto busca, nenhuma seção fica aberta: quem ocupa a área é a lista de resultados
+  document.querySelectorAll('.sys-section').forEach(s => s.classList.remove('active'));
+  const comHit = new Set(hits.map(h => h.sec));
+  navItems.forEach(b => { b.classList.remove('active'); b.classList.toggle('match', comHit.has(b.dataset.section)); });
+  box.hidden = false;
+  box.innerHTML = hits.length
+    ? hits.map(h => `<button class="sys-hit" data-sec="${esc(h.sec)}" data-at="${esc(h.at)}">
+        <span class="sys-hit-txt">${esc(h.title)}<span class="sys-hit-sub">${esc(h.hint)}</span></span>
+        <span class="sys-hit-sec">${esc(sysSecName(h.sec))}</span>
+      </button>`).join('')
+    : `<div class="empty">Nada com esse nome. Tenta "modelo", "esforço", "som", "orgs" ou "log".</div>`;
 }
 
 $('#sysSearch').addEventListener('input', (e) => sysSearchFilter(e.target.value));
+$('#sysResults').addEventListener('click', (e) => {
+  const btn = e.target.closest('.sys-hit');
+  if (btn) sysGoTo(btn.dataset.sec, btn.dataset.at);
+});
 
 // Deep-link de alerta: rola até o card do PR e dá um pulso de destaque.
 // Ordem de busca = onde a ação mora (decisão > fila > meus PRs > panorama > recentes).
@@ -804,6 +895,12 @@ function kbdHelp() {
 // de PR (org/repo#NN) pra abrir a conversa salva, sem precisar do mouse.
 const CMD_STATIC = [
   ...[...document.querySelectorAll('.nav-item')].map(b => ({ kind: 'tab', label: `Ir para ${b.textContent}`, hint: 'aba', run: () => switchTab(b.dataset.tab) })),
+  // as 9 seções do Sistema, lidas do DOM: seção nova entra aqui sozinha.
+  // .trim() porque o botão tem um <svg> antes do texto e sobra espaço em branco.
+  ...[...document.querySelectorAll('.sys-nav-item')].map(b => ({
+    kind: 'section', label: `Sistema: ${b.textContent.trim()}`, hint: 'sistema',
+    run: () => { switchTab('sistema'); switchSistemaSection(b.dataset.section); }
+  })),
   { kind: 'section', label: 'Ir para Precisa de você', hint: 'seção', run: () => { switchTab('radar'); document.getElementById('decisionsWrap')?.scrollIntoView({ behavior: 'smooth' }); } },
   { kind: 'section', label: 'Ir para Sua fila', hint: 'seção', run: () => { switchTab('radar'); document.getElementById('queueSection')?.scrollIntoView({ behavior: 'smooth' }); } },
   { kind: 'section', label: 'Ir para Meus PRs', hint: 'seção', run: () => { switchTab('radar'); document.getElementById('myPRsWrap')?.scrollIntoView({ behavior: 'smooth' }); } },
@@ -1638,9 +1735,14 @@ $('#myPRs').addEventListener('click', (e) => {
     // sem reviewers (nem exceção nem padrão): leva pra tela de config
     if (!eff || !eff.length) {
       switchTab('sistema');
+      // sem isso a seção fica display:none e o scroll abaixo não mostra nada: o usuário
+      // caía na Visão geral com um toast falando de uma tela que ele não estava vendo
+      switchSistemaSection('reviewers');
+      const busca = $('#sysSearch');
+      if (busca.value) { busca.value = ''; sysSearchFilter(''); }
       loadReviewerCands();
       renderReviewersEditor();
-      setTimeout(() => { const el = $('#reviewersEditor'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 60);
+      setTimeout(() => { const el = $('#reviewersEditor'); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); sysFlash(el); } }, 60);
       toast('info', `Defina os reviewers padrão de ${org} (ou uma exceção pra ${repoShort(repo)}) aqui, depois é só clicar em Reviewers no PR.`, 7000);
       return;
     }
@@ -1990,13 +2092,12 @@ function renderDoctor() {
   const d = STATE && STATE.doctor;
   const box = $('#doctor');
   if (!d) { box.innerHTML = '<div class="empty">Verificando o ambiente…</div>'; return; }
-  const isWin = (STATE.app?.platform || 'win32') === 'win32';
   const checks = [
     { ok: !!d.gh, label: 'GitHub CLI', detail: d.gh || 'gh não encontrado no PATH' },
     { ok: d.ghAuth, label: STATE.config.ghUser ? `Conta @${STATE.config.ghUser}` : 'Conta do GitHub', detail: d.ghAuth ? 'autenticada no gh' : 'sem token: rode gh auth login (conta de trabalho)' },
     { ok: !!d.claude, label: 'Claude Code', detail: d.claude || 'claude não encontrado no PATH' },
     // Git Bash é pré-requisito só no Windows (CLAUDE_CODE_GIT_BASH_PATH)
-    ...(isWin ? [{ ok: !!d.gitBash, label: 'Git Bash', detail: d.gitBash || 'não encontrado: sessões do Claude podem travar' }] : []),
+    ...(ehWin() ? [{ ok: !!d.gitBash, label: 'Git Bash', detail: d.gitBash || 'não encontrado: sessões do Claude podem travar' }] : []),
     { ok: true, label: 'Pasta de trabalho', detail: d.workspace }
   ];
   box.innerHTML = checks.map(c => `
@@ -2004,14 +2105,15 @@ function renderDoctor() {
       <span class="led"></span>
       <div><div class="label">${esc(c.label)}</div><div class="detail">${esc(c.detail)}</div></div>
     </div>`).join('');
-  $('#about').innerHTML = `<b>Farol</b> v${esc(STATE.app.version)} · radar de Pull Requests<br>
-    Dados e estado em <code>${esc(STATE.paths.home)}</code><br>
-    O polling usa só o GitHub CLI (zero tokens de IA). O Claude entra apenas quando você abre uma revisão.`;
+  $('#about').innerHTML = `O polling usa só o GitHub CLI (zero tokens de IA). O Claude entra apenas quando você abre uma revisão.`;
+  // versão e caminho dos dados moram no rodapé da sidebar, visíveis em qualquer seção
+  $('#sysFoot').innerHTML = `Farol v${esc(STATE.app.version)}<br>dados em <code>${esc(STATE.paths.home)}</code>`;
 }
 
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.28.0', ['Novo controle de esforço de raciocínio em Sistema > Automação: cinco níveis (padrão do Claude, baixo, médio, alto e muito alto), cada um explicando o que muda e quanto custa do teu limite. Vale pras sessões autônomas (revisão, autoanálise, pushback, chat e ferramentas); a sessão no terminal não é afetada. O padrão continua deixando o Claude decidir pelo modelo, então quem não mexer não vê diferença. Com Haiku escolhido os cartões desabilitam, porque esse modelo não aceita nível de esforço.', 'O seletor de modelo das revisões foi de 4 pra 6 opções, com o trade-off no rótulo: além de Opus, Sonnet e Haiku, agora tem "Melhor disponível" (o Claude escolhe o topo da tua conta) e Fable (raciocínio longo). O config.json também passa a aceitar o nome completo de um modelo, sem precisar de versão nova do Farol.', 'A revisão em lotes de PR grande nunca tinha funcionado: desde a v2.26.0 o Farol media o PR, decidia fatiar em 2 a 4 lotes e montava o plano, mas o plano era descartado antes de chegar no Claude. Na prática um PR de 8700 linhas era lido parcialmente e aprovado. Agora o fan-out roda de verdade, com um subagente por lote em paralelo: a revisão de PR grande fica bem mais completa, e consome mais do teu limite.', 'A aba Sistema respira: cada configuração virou uma linha com o texto à esquerda, o controle à direita e uma divisória entre elas, no lugar do bloco corrido onde tudo ficava colado. A sidebar se separa do conteúdo por espaço em branco em vez de uma borda encostada, a aba ganhou mais largura, e cada seção tem um título maior com uma frase dizendo pra que serve. Versão e caminho dos dados foram pro rodapé da sidebar.', 'A busca do Sistema devolve uma lista de resultados nomeados, cada um com a seção de onde vem; clicar leva direto pra configuração e pisca a linha. Antes acendia várias seções ao mesmo tempo e empilhava tudo. Funciona sem acento e avisa quando não acha nada. As 9 seções também entraram na paleta de comandos (Ctrl+K).', 'Correções de acabamento: dez divisórias da tela de Sistema não estavam sendo desenhadas (cor usada sem nunca ter sido definida), o texto de ajuda dos campos ficava espremido ao lado em vez de abaixo, o botão "Reviewers" num PR sem configuração levava pra uma seção invisível, e o selo de assinatura do Claude aparecia como texto solto.', 'Modelo inválido no config.json agora é barrado no boot: esse campo entra na linha de comando que o Farol executa e só era validado quando salvo pela tela. A aba Consumo passa a mostrar a versão dos modelos da geração nova (Opus 5, Sonnet 5, Fable 5), que antes apareciam sem número. E a interface pergunta ao motor em qual sistema ele roda, em vez de adivinhar pelo navegador.']],
   ['2.27.0', ['A aba Sistema ganhou uma sidebar de navegação com 9 seções (Visão geral, Contas, Automação, Conexões, Plano e chaves, Reviewers, Preferências, Novidades e Diagnóstico), cada uma com seu grupo de configurações, no lugar da lista corrida anterior. Um campo de busca no topo da sidebar filtra por texto e mostra só as seções que contêm o termo. Em telas estreitas a sidebar vira uma faixa horizontal com os mesmos itens.', 'A assinatura do Claude que o Farol usa agora pode ser diferente por conta GitHub monitorada: crie perfis nomeados (ex.: "BIUD Trabalho", "Pessoal Max"), cada um apontando pro seu diretório de config próprio, e escolha um perfil padrão do Farol e, opcionalmente, um perfil específico por conta (Sistema > Contas). Cada conta e cada perfil mostram um selo com o e-mail logado ali (ou "SEM LOGIN" se faltar o claude login naquele diretório), e esse selo se atualiza sozinho ao salvar. Sem nenhum perfil criado, nada muda.', 'Cada perfil de assinatura Claude (e o padrão do Farol) ganha um botão "Abrir sessão de login": um terminal só com o claude, sem PR, fila ou token do GitHub envolvido.', 'Fechar a sessão de terminal sem terminar a revisão não faz mais o PR sumir da fila: fechar a sessão sempre devolve o PR à fila.', 'Pente-fino nos perfis de assinatura Claude: config.json malformado não derruba mais buscas de PR nem sessões de review; caminho de perfil com aspas ou quebra de linha não consegue mais executar comando nenhum; remover um perfil usado por 2+ contas ao mesmo tempo não deixa mais nenhuma "presa" a ele; migrar o campo antigo pra um perfil novo já marca esse perfil como padrão na hora.']],
   ['2.26.1', ['Atualizar no macOS voltou a funcionar: o pacote era gerado com barras invertidas (Windows) e o unzip do Mac recusava; corrigido, e a auditoria do pacote agora reprova se o defeito voltar. E aviso cosmético do unzip não derruba mais a atualização.']],
   ['2.26.0', ['PR grande agora é revisado em lotes, por vários revisores em paralelo: acima de 1000 linhas ou 20 arquivos, o Farol divide os arquivos em 2 a 4 lotes coesos (por afinidade de pasta) e dispara um revisor por lote ao mesmo tempo, cada um lendo por completo só o lote dele e ciente do que está nos outros, com consolidação num relatório único. Motivo medido em 44 reviews reais: o tamanho dos PRs varia 4359x e o do relatório varia 3x, e nos PRs acima de 2000 linhas 3 de 5 saíram sem nenhuma citação ancorada. A revisão também passa a declarar quantos arquivos do diff realmente cobriu: se ficou algum de fora, o PR vai pra "Precisa da sua atenção" em vez de aprovar sozinho. E aprovando com ressalva, a ressalva agora aparece no PR escrita com naturalidade (o que é assunto interno nosso continua só no app). PR abaixo do limiar segue igual.']],
@@ -2349,6 +2451,24 @@ $('#reviewersEditor').addEventListener('click', (e) => {
   }
 });
 
+/* Cartões de esforço: marca o que está salvo e explica o estado. Valor desconhecido
+   (config antigo, ou nível que saiu da lista) cai no cartão do padrão, em vez de deixar
+   nenhum marcado. */
+function renderEffort(c) {
+  const box = $('#setReviewEffort');
+  if (!box) return;
+  const eff = String(c.reviewEffort || '');
+  const alvo = box.querySelector(`input[value="${CSS.escape(eff)}"]`) || box.querySelector('input[value=""]');
+  if (alvo) alvo.checked = true;
+  // o Haiku não aceita nível de esforço (ver effortForModel em lib/parse.js): desliga os
+  // cartões e explica, em vez de deixar escolher algo que o engine vai descartar
+  const semEsforco = String(c.reviewModel || '') === 'haiku';
+  box.classList.toggle('disabled', semEsforco);
+  $('#effortHint').textContent = semEsforco
+    ? 'O Haiku não aceita nível de esforço, então o Farol não passa a flag enquanto ele estiver escolhido.'
+    : 'Quanto o Claude pensa antes de responder nas sessões autônomas. Mais esforço acha mais coisa e gasta mais do teu limite. A sessão no terminal não é afetada.';
+}
+
 function renderSettings() {
   renderReleaseNotes();
   const c = STATE.config;
@@ -2360,6 +2480,7 @@ function renderSettings() {
   renderClaudeProfiles();
   $('#setInterval').value = String(c.intervalSeconds);
   $('#setReviewModel').value = (c.reviewModel != null ? c.reviewModel : '');
+  renderEffort(c);
   $('#setAutoReview').checked = !!c.autoReview;
   $('#setAutoApproveAll').checked = c.autoApproveAll !== false;
   $('#setAutoPushback').checked = !!c.autoPushback;
@@ -2367,8 +2488,9 @@ function renderSettings() {
   $('#setSkipPerms').checked = !!c.skipPermissions;
   $('#setSound').checked = !!c.soundEnabled;
   $('#setAutostart').checked = !!c.autostart;
-  // autostart: só no Windows (no macOS o login item abriria o Electron sem o app)
-  $('#rowAutostart').style.display = isElectron && !isMac ? '' : 'none';
+  // autostart: só no Windows (no macOS o login item abriria o Electron sem os args do app,
+  // ver applyAutostart em main.js). A plataforma vem do engine, não do userAgent.
+  $('#rowAutostart').style.display = isElectron && !ehMac() ? '' : 'none';
 }
 
 /* ---------- ferramentas internas (kudos/diagnostico) ---------- */
@@ -2620,6 +2742,8 @@ const settingsMap = [
   ['#setMergeBlocked', 'mergeBlockedRepos', el => el.value],
   ['#setInterval', 'intervalSeconds', el => parseInt(el.value, 10)],
   ['#setReviewModel', 'reviewModel', el => el.value],
+  // radio: o change borbulha até o container, então e.target já é o rádio marcado
+  ['#setReviewEffort', 'reviewEffort', el => el.value],
   ['#setAutoPushback', 'autoPushback', el => el.checked],
   ['#setDebugSpawns', 'debugSpawns', el => el.checked],
   ['#setAutoReview', 'autoReview', el => el.checked],
@@ -2640,6 +2764,7 @@ function connect() {
   const es = new EventSource('/api/events');
   es.addEventListener('state', (e) => {
     STATE = JSON.parse(e.data);
+    aplicaPlataforma(STATE.app && STATE.app.platform);   // engine manda; o userAgent era só o palpite inicial
     rebuildAccounts();
     renderStatus(); renderAccountBar(); renderIdentity();
     renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSilenced();
