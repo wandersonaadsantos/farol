@@ -67,15 +67,15 @@
       <span id="metaCheck">…</span>
     </div>
 
-    <nav id="radarNav" class="radar-nav" hidden>
-      <a href="#activeWrap" data-target="activeWrap">Analisando <span class="rn-count" id="rnActive"></span></a>
-      <a href="#decisionsWrap" data-target="decisionsWrap">Precisa de você <span class="rn-count" id="rnDecisions"></span></a>
-      <a href="#queueSection" data-target="queueSection">Sua fila <span class="rn-count" id="rnQueue"></span></a>
-      <a href="#resolvedWrap" data-target="resolvedWrap">Recentes</a>
-      <a href="#myPRsWrap" data-target="myPRsWrap">Meus PRs <span class="rn-count" id="rnMyPRs"></span></a>
-      <a href="#panoramaSection" data-target="panoramaSection">Panorama <span class="rn-count" id="rnPano"></span></a>
-    </nav>
+    <!-- 3 sub-abas: uma tela, um propósito. Substituem a antiga .radar-nav, que era uma
+         faixa de âncoras rolável e escondia metade dos destinos sem avisar. -->
+    <div class="radar-subs" id="radarSubs" role="tablist" aria-label="Seções do Radar">
+      <button class="rsub active" id="rsub-mim" data-sub="mim" role="tab" aria-selected="true" aria-controls="rpane-mim">Pra mim <span class="count" id="rcMim" hidden></span></button>
+      <button class="rsub" id="rsub-meus" data-sub="meus" role="tab" aria-selected="false" aria-controls="rpane-meus">Meus PRs <span class="count ambient" id="rcMeus" hidden></span></button>
+      <button class="rsub" id="rsub-pano" data-sub="pano" role="tab" aria-selected="false" aria-controls="rpane-pano">Panorama <span class="count ambient" id="rcPano" hidden></span></button>
+    </div>
 
+    <div class="rpane active" id="rpane-mim" role="tabpanel" aria-labelledby="rsub-mim" tabindex="0">
     <div id="activeWrap" hidden>
       <div class="section-head">
         <h2>Analisando agora <span id="activeCount" class="count ambient"></span></h2>
@@ -105,12 +105,9 @@
       <p class="section-desc">O que o Farol já resolveu, com o veredito e os pontos de atenção que ficaram só aqui. É onde você confirma um pushback quando o autor contesta.</p>
       <div id="resolved" class="rows"></div>
     </div>
+    </div>
 
-    <form id="lookupForm" class="lookup-bar" title="Abre a conversa salva de um PR, mesmo que ele não esteja mais na lista">
-      <input id="lookupUrl" type="text" spellcheck="false" aria-label="Consultar um PR por URL" placeholder="Consultar um PR por URL (abre a conversa salva)…">
-      <button class="btn sm" type="submit">Abrir</button>
-    </form>
-
+    <div class="rpane" id="rpane-meus" role="tabpanel" aria-labelledby="rsub-meus" tabindex="0">
     <div id="myPRsWrap" hidden>
       <div class="section-head">
         <h2>Meus PRs <span id="myPRsCount" class="count ambient" hidden></span></h2>
@@ -118,6 +115,13 @@
       <p class="section-desc">Autoanálise dos seus próprios PRs: veredito e dicas antes de pedir review. Só pra você, nada é postado. Os botões Reviewers e Merge são as únicas ações que escrevem no GitHub daqui.</p>
       <div id="myPRs" class="cards"></div>
     </div>
+    </div>
+
+    <div class="rpane" id="rpane-pano" role="tabpanel" aria-labelledby="rsub-pano" tabindex="0">
+    <form id="lookupForm" class="lookup-bar" title="Abre a conversa salva de um PR, mesmo que ele não esteja mais na lista">
+      <input id="lookupUrl" type="text" spellcheck="false" aria-label="Consultar um PR por URL" placeholder="Consultar um PR por URL (abre a conversa salva)…">
+      <button class="btn sm" type="submit">Abrir</button>
+    </form>
 
     <div id="panoramaSection" class="section-head">
       <h2>Panorama <span id="panoCount" class="count ambient" hidden></span></h2>
@@ -126,6 +130,7 @@
     <div id="panorama" class="rows"></div>
 
     <div id="silenced" class="silenced" hidden></div>
+    </div>
   </section>
 
   <!-- ============ ENTREGAS ============ -->

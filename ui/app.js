@@ -439,36 +439,51 @@ function rerenderScope() {
 // mini-navegação do Radar: só lista seções visíveis (hidden=false), com contagem
 // quando o número ajuda a decidir pra onde ir. Espelha o estado real do DOM em
 // vez do STATE cru, então some/aparece junto com a própria seção.
-function renderRadarNav() {
-  const nav = $('#radarNav');
-  const items = [
-    ['activeWrap', 'rnActive', $('#activeCount').textContent],
-    ['decisionsWrap', 'rnDecisions', $('#decisionsCount').textContent],
-    ['queueSection', 'rnQueue', $('#queueCount').hidden ? '' : $('#queueCount').textContent],
-    ['resolvedWrap', 'rnResolved', ''],
-    ['myPRsWrap', 'rnMyPRs', $('#myPRsCount').hidden ? '' : $('#myPRsCount').textContent],
-    ['panoramaSection', 'rnPano', $('#panoCount').hidden ? '' : $('#panoCount').textContent],
-  ];
-  let anyVisible = false;
-  for (const [targetId, countId, count] of items) {
-    const target = document.getElementById(targetId);
-    const link = nav.querySelector(`[data-target="${targetId}"]`);
-    if (!target || !link) continue;
-    // queueSection e panoramaSection são cabeçalhos sem "hidden" próprio: sempre visíveis
-    const visible = target.hidden !== true;
-    link.hidden = !visible;
-    if (visible) anyVisible = true;
-    const countEl = document.getElementById(countId);
-    if (countEl) countEl.textContent = count || '';
-  }
-  nav.hidden = !anyVisible;
+/* Sub-abas do Radar: uma tela, um propósito. Substituem a antiga faixa de âncoras
+   (.radar-nav), que em janela estreita rolava horizontalmente e escondia metade dos
+   destinos sem avisar que existiam. */
+let RADAR_SUB = 'mim';
+
+function switchRadarSub(nome) {
+  if (nome) RADAR_SUB = nome;
+  document.querySelectorAll('.rsub').forEach(b => {
+    const ativo = b.dataset.sub === RADAR_SUB;
+    b.classList.toggle('active', ativo);
+    b.setAttribute('aria-selected', ativo ? 'true' : 'false');
+  });
+  document.querySelectorAll('.rpane').forEach(p => p.classList.toggle('active', p.id === 'rpane-' + RADAR_SUB));
 }
-$('#radarNav').addEventListener('click', (e) => {
-  const a = e.target.closest('a[data-target]');
-  if (!a) return;
-  e.preventDefault();
-  const target = document.getElementById(a.dataset.target);
-  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+// Contagem das sub-abas. 'Pra mim' soma o que espera decisão sua (camada 1, âmbar);
+// as outras duas são contexto e usam a contagem neutra.
+function renderRadarNav() {
+  const num = sel => { const e = $(sel); return (!e || e.hidden) ? 0 : (parseInt(e.textContent, 10) || 0); };
+  const poe = (sel, n) => { const e = $(sel); if (!e) return; e.textContent = n || ''; e.hidden = !n; };
+  poe('#rcMim', num('#decisionsCount') + num('#queueCount'));
+  poe('#rcMeus', num('#myPRsCount'));
+  poe('#rcPano', num('#panoCount'));
+}
+// menu ··· do card: abre um por vez, e fecha ao clicar fora
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.act-more');
+  const dentro = e.target.closest('.pr-menu');
+  document.querySelectorAll('.pr-menu').forEach(m => {
+    const meu = btn && m.dataset.menu === btn.dataset.key;
+    if (!meu && !dentro) m.hidden = true;
+  });
+  document.querySelectorAll('.act-more').forEach(b => {
+    if (!btn || b !== btn) b.setAttribute('aria-expanded', 'false');
+  });
+  if (!btn) return;
+  const menu = document.querySelector(`.pr-menu[data-menu="${CSS.escape(btn.dataset.key)}"]`);
+  if (!menu) return;
+  menu.hidden = !menu.hidden;
+  btn.setAttribute('aria-expanded', menu.hidden ? 'false' : 'true');
+});
+
+$('#radarSubs').addEventListener('click', (e) => {
+  const b = e.target.closest('.rsub');
+  if (b) switchRadarSub(b.dataset.sub);
 });
 
 /* trocar de conta na barra */
@@ -1394,10 +1409,16 @@ function renderQueue() {
         <button class="btn icon sm ghost act-chat" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" title="Conversar com o Claude sobre este PR" aria-label="Conversar com o Claude sobre este PR">
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2.5-2.7A8 8 0 1 1 21 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
         </button>
-        <button class="btn icon sm ghost act-terminal" data-url="${esc(pr.url)}" title="Revisar no terminal (interativo)" aria-label="Revisar no terminal (interativo)">
-          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5h16v14H4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="m7 9 3 3-3 3M12 15h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-        <button class="btn sm danger-ghost act-ignore" data-key="${esc(pr.key)}" title="Marcar como visto sem revisar">Ignorar</button>
+        <button class="btn icon sm ghost act-more" data-key="${esc(pr.key)}" title="Mais ações" aria-label="Mais ações" aria-expanded="false">···</button>
+      </div>
+      <!-- O menu abre DENTRO do card, empurrando o conteúdo, em vez de flutuar por cima:
+           num card já estreito, dropdown flutuante sai da tela ou cobre o card vizinho.
+           Terminal e Ignorar vieram pra cá porque Ignorar é destrutivo e estava a um
+           toque de distância do Revisar. -->
+      <div class="pr-menu" data-menu="${esc(pr.key)}" hidden>
+        <button class="act-terminal" data-url="${esc(pr.url)}">Revisar no terminal (interativo)</button>
+        <a href="${esc(pr.url)}" target="_blank" rel="noreferrer">Abrir no GitHub ↗</a>
+        <button class="danger act-ignore" data-key="${esc(pr.key)}">Marcar como visto sem revisar</button>
       </div>
     </div>`;
   }).join('');
