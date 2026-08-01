@@ -692,13 +692,52 @@ function switchTab(name) {
   if (name === 'entregas') loadDeliveries();
   if (name === 'destaques') { loadHighlights(); renderTools(); }   // renderTools: kudos do escopo atual, não o defasado
   if (name === 'time') loadTeam();
-  if (name === 'sistema') { loadLog(); renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); loadReviewerCands(); }
+  if (name === 'sistema') { switchSistemaSection(); loadLog(); renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); loadReviewerCands(); }
   if (name === 'consumo') renderUsage();
 }
 $('#nav').addEventListener('click', (e) => {
   const btn = e.target.closest('.nav-item');
   if (btn) switchTab(btn.dataset.tab);
 });
+
+/* ---------- sistema: sub-navegação sidebar ---------- */
+let SISTEMA_SECTION = 'overview';
+
+function switchSistemaSection(name) {
+  if (name) SISTEMA_SECTION = name;
+  document.querySelectorAll('.sys-nav-item').forEach(b => b.classList.toggle('active', b.dataset.section === SISTEMA_SECTION));
+  document.querySelectorAll('.sys-section').forEach(s => s.classList.toggle('active', s.id === 'sys-' + SISTEMA_SECTION));
+}
+
+$('#sysNav').addEventListener('click', (e) => {
+  const btn = e.target.closest('.sys-nav-item');
+  if (!btn) return;
+  const q = $('#sysSearch');
+  if (q.value) { q.value = ''; sysSearchFilter(''); }
+  switchSistemaSection(btn.dataset.section);
+});
+
+function sysSearchFilter(query) {
+  const q = query.trim().toLowerCase();
+  const sections = document.querySelectorAll('.sys-section');
+  const navItems = document.querySelectorAll('.sys-nav-item');
+  if (!q) {
+    sections.forEach(s => s.classList.toggle('active', s.id === 'sys-' + SISTEMA_SECTION));
+    navItems.forEach(b => { b.classList.remove('match'); b.classList.toggle('active', b.dataset.section === SISTEMA_SECTION); });
+    return;
+  }
+  sections.forEach(s => {
+    s.classList.toggle('active', s.textContent.toLowerCase().includes(q));
+  });
+  navItems.forEach(b => {
+    const sec = document.getElementById('sys-' + b.dataset.section);
+    const hit = sec && sec.classList.contains('active');
+    b.classList.toggle('match', !!hit);
+    b.classList.remove('active');
+  });
+}
+
+$('#sysSearch').addEventListener('input', (e) => sysSearchFilter(e.target.value));
 
 // Deep-link de alerta: rola até o card do PR e dá um pulso de destaque.
 // Ordem de busca = onde a ação mora (decisão > fila > meus PRs > panorama > recentes).
@@ -1973,9 +2012,8 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
-  ['2.28.0', ['Cada perfil de assinatura Claude (e o padrão do Farol) ganha um botão "Abrir sessão de login": um terminal só com o claude, sem PR, fila ou token do GitHub envolvido — antes, a única forma de rodar claude login era abrir um PR de verdade "pra revisar via CLI". E fechar uma sessão de terminal sem terminar a revisão não faz mais o PR sumir da fila: abrir "revisar via Claude CLI" marca o PR como visto na hora, antes da revisão acontecer, e fechar sem completar deixava ele escondido pra sempre; agora fechar a sessão sempre devolve o PR à fila (seguro: se a revisão foi postada de verdade, o GitHub já não lista mais o PR como pendente).']],
-  ['2.27.1', ['Pente-fino nos perfis de assinatura Claude (v2.27.0), achado numa auditoria de propósito: config.json malformado não derruba mais buscas de PR nem sessões de review; caminho de perfil com aspas ou quebra de linha não consegue mais executar comando nenhum através do script de sessão (Windows ou mac); remover um perfil usado por 2+ contas ao mesmo tempo não deixa mais nenhuma "presa" a ele; migrar o campo antigo pra um perfil novo já marca esse perfil como padrão na hora, sem ficar invisível; e salvar cor/rótulo/org de uma conta não dispara mais a checagem de status à toa.']],
-  ['2.27.0', ['A assinatura do Claude que o Farol usa agora pode ser diferente por conta GitHub monitorada: crie perfis nomeados (ex.: "BIUD Trabalho", "Pessoal Max"), cada um apontando pro seu diretório de config próprio, e escolha um perfil padrão do Farol e, opcionalmente, um perfil específico por conta (Sistema > Contas). Sem nenhum perfil criado, nada muda: continua valendo o campo único de antes (evolução da v2.18.0, que só cobria uma assinatura pro Farol inteiro). Cada conta e cada perfil mostram um selo com o e-mail logado ali (ou "SEM LOGIN" se faltar o claude login naquele diretório), e esse selo se atualiza sozinho ao salvar, sem precisar de um "Reverificar" manual pra saber se pegou.']],
+  ['2.27.0', ['A aba Sistema ganhou uma sidebar de navegação com 9 seções (Visão geral, Contas, Automação, Conexões, Plano e chaves, Reviewers, Preferências, Novidades e Diagnóstico), cada uma com seu grupo de configurações, no lugar da lista corrida anterior. Um campo de busca no topo da sidebar filtra por texto e mostra só as seções que contêm o termo. Em telas estreitas a sidebar vira uma faixa horizontal com os mesmos itens.', 'A assinatura do Claude que o Farol usa agora pode ser diferente por conta GitHub monitorada: crie perfis nomeados (ex.: "BIUD Trabalho", "Pessoal Max"), cada um apontando pro seu diretório de config próprio, e escolha um perfil padrão do Farol e, opcionalmente, um perfil específico por conta (Sistema > Contas). Cada conta e cada perfil mostram um selo com o e-mail logado ali (ou "SEM LOGIN" se faltar o claude login naquele diretório), e esse selo se atualiza sozinho ao salvar. Sem nenhum perfil criado, nada muda.', 'Cada perfil de assinatura Claude (e o padrão do Farol) ganha um botão "Abrir sessão de login": um terminal só com o claude, sem PR, fila ou token do GitHub envolvido.', 'Fechar a sessão de terminal sem terminar a revisão não faz mais o PR sumir da fila: fechar a sessão sempre devolve o PR à fila.', 'Pente-fino nos perfis de assinatura Claude: config.json malformado não derruba mais buscas de PR nem sessões de review; caminho de perfil com aspas ou quebra de linha não consegue mais executar comando nenhum; remover um perfil usado por 2+ contas ao mesmo tempo não deixa mais nenhuma "presa" a ele; migrar o campo antigo pra um perfil novo já marca esse perfil como padrão na hora.']],
+  ['2.26.1', ['Atualizar no macOS voltou a funcionar: o pacote era gerado com barras invertidas (Windows) e o unzip do Mac recusava; corrigido, e a auditoria do pacote agora reprova se o defeito voltar. E aviso cosmético do unzip não derruba mais a atualização.']],
   ['2.26.0', ['PR grande agora é revisado em lotes, por vários revisores em paralelo: acima de 1000 linhas ou 20 arquivos, o Farol divide os arquivos em 2 a 4 lotes coesos (por afinidade de pasta) e dispara um revisor por lote ao mesmo tempo, cada um lendo por completo só o lote dele e ciente do que está nos outros, com consolidação num relatório único. Motivo medido em 44 reviews reais: o tamanho dos PRs varia 4359x e o do relatório varia 3x, e nos PRs acima de 2000 linhas 3 de 5 saíram sem nenhuma citação ancorada. A revisão também passa a declarar quantos arquivos do diff realmente cobriu: se ficou algum de fora, o PR vai pra "Precisa da sua atenção" em vez de aprovar sozinho. E aprovando com ressalva, a ressalva agora aparece no PR escrita com naturalidade (o que é assunto interno nosso continua só no app). PR abaixo do limiar segue igual.']],
   ['2.25.0', ['Quando outra ferramenta já revisou o PR (Acrity, Sonar, Snyk, ou um colega), o Farol forma o veredito dele pelo código e pelo card ANTES de ler o review alheio, e adota o apontamento real que passou pela nossa revisão. Discordar virou exceção com barra alta: quatro rótulos (falso positivo, fora do escopo pactuado, pré-existente, critério não vigente), cada um exigindo prova própria (arquivo:linha que refuta, o texto que documenta o adiamento, o diff, ou a contagem medida). Sem prova, ele fica calado e entrega só a análise dele. E contestação nunca sai sozinha: qualquer discordância força "Precisa da sua atenção", com o apontamento e a prova na tela, mesmo com aprovação automática ligada.']],
   ['2.24.2', ['Re-request de review (autor pede sua revisão de novo num PR que você já revisou) agora é identificado de forma confiável e volta a ser revisado sozinho, sem precisar de clique. A detecção comparava dois resultados de busca diferentes do GitHub, e a segunda tem indexação assíncrona, então às vezes ficava atrasada e o re-request nunca era reconhecido. Agora o sinal vem do histórico local do próprio Farol, instantâneo.']],

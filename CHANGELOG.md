@@ -9,28 +9,21 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.28.0
-
-**Novidades**
-- **Botão de login dedicado pras assinaturas Claude, sem precisar sequestrar um PR.** Antes, a única forma de rodar `claude login` numa assinatura era abrir um PR real "pra revisar via Claude CLI". Agora, tanto o perfil padrão quanto cada perfil salvo (Sistema > Perfis de assinatura do Claude) ganham um botão "Abrir sessão de login", que abre um terminal só com o `claude`, sem tocar em PR, fila ou token do GitHub nenhum.
-
-**Correções**
-- **Fechar a sessão de terminal sem terminar a revisão não faz mais o PR sumir da fila.** Abrir um PR "pra revisar via Claude CLI" marca ele como visto na hora (antes mesmo da revisão acontecer); se você fechasse o terminal sem o `/pr-review` ter rodado até o fim (ex.: só queria logar), o PR ficava escondido da fila pra sempre, só voltando se o autor pedisse revisão de novo. Agora, fechar a sessão sempre devolve o PR à fila (é seguro: se a revisão foi mesmo postada, o GitHub já não lista mais o PR como pendente, então ele não reaparece à toa).
-
-## v2.27.1
-
-**Correções**
-- **`config.json` editado à mão (ou corrompido) não derruba mais o Farol.** Se o campo dos perfis de assinatura Claude viesse num formato inesperado, toda busca de PR e toda sessão de review quebravam. Agora o Farol se protege desse dado na largada, não só ao salvar pela tela.
-- **Caminho de perfil com aspas ou quebra de linha não roda mais comando nenhum.** Um diretório de perfil malformado conseguia escapar do script gerado (Windows ou macOS) e executar o que estivesse escrito ali. Corrigido rejeitando esses caracteres ao salvar; o valor colado do "Copiar como caminho" do Windows (que vem entre aspas) continua funcionando normalmente.
-- **Remover um perfil usado por mais de uma conta não deixa mais ninguém "preso" a ele.** Antes, dependendo da ordem de chegada dos pedidos, uma das contas podia continuar referenciando o perfil já apagado.
-- **O perfil padrão legado não fica mais invisível depois de virar um perfil novo.** Migrar o campo antigo pra um perfil agora já marca esse perfil como o padrão na hora, e o dropdown avisa quando o legado ainda está valendo por baixo dos panos.
-- Salvar cor, rótulo ou org de uma conta não dispara mais, à toa, a checagem de status da assinatura Claude (só perfis mudando dispara).
-
 ## v2.27.0
 
 **Novidades**
+- **Aba Sistema reorganizada com sidebar de navegação.** No lugar da lista corrida de seções, agora a aba tem uma sidebar fixa à esquerda com 9 seções: Visão geral, Contas, Automação, Conexões, Plano e chaves, Reviewers, Preferências, Novidades e Diagnóstico. Cada seção agrupa as configurações por tema (ex.: os toggles de auto-review, auto-approve, pushback e o modelo ficam em Automação; identidade nos cards, contas silenciadas, som e autostart ficam em Preferências). Um campo de busca no topo da sidebar filtra por texto e mostra só as seções que contêm o termo. Em telas estreitas (abaixo de 720px) a sidebar vira uma faixa horizontal com os mesmos itens. Os controles, IDs e o fluxo de persistência continuam iguais.
 - **Perfis nomeados de assinatura do Claude, e um por conta GitHub se você quiser.** O campo único "Assinatura do Claude" (Sistema) vira um gerenciador de perfis: crie quantos precisar (ex.: "BIUD Trabalho", "Pessoal Max"), cada um com o próprio diretório de config, escolha um como padrão do Farol e, opcionalmente, atribua um perfil diferente pra cada conta GitHub monitorada (Sistema > Contas). Sem nenhum perfil criado, nada muda: o campo `claudeConfigDir` legado continua valendo do mesmo jeito, 100% compatível com quem nunca mexeu nisso.
-- **Selo de status por conta e por perfil.** Tanto a tabela de contas quanto o gerenciador de perfis mostram, ao lado de cada um, o e-mail logado no diretório de config correspondente, ou "SEM LOGIN" se faltar o `claude login` ali. O selo se atualiza sozinho ao salvar (criar perfil, trocar o diretório, atribuir um perfil a uma conta): não fica desatualizado esperando um "Reverificar" manual.
+- **Selo de status por conta e por perfil.** Tanto a tabela de contas quanto o gerenciador de perfis mostram, ao lado de cada um, o e-mail logado no diretório de config correspondente, ou "SEM LOGIN" se faltar o `claude login` ali. O selo se atualiza sozinho ao salvar.
+- **Botão de login dedicado pras assinaturas Claude, sem precisar sequestrar um PR.** Tanto o perfil padrão quanto cada perfil salvo ganham um botão "Abrir sessão de login", que abre um terminal só com o `claude`, sem tocar em PR, fila ou token do GitHub nenhum.
+
+**Correções**
+- **Fechar a sessão de terminal sem terminar a revisão não faz mais o PR sumir da fila.** Fechar a sessão sempre devolve o PR à fila (é seguro: se a revisão foi mesmo postada, o GitHub já não lista mais o PR como pendente).
+- **`config.json` editado à mão (ou corrompido) não derruba mais o Farol.** Se o campo dos perfis de assinatura Claude viesse num formato inesperado, toda busca de PR e toda sessão de review quebravam. Agora o Farol se protege desse dado na largada.
+- **Caminho de perfil com aspas ou quebra de linha não roda mais comando nenhum.** Um diretório de perfil malformado conseguia escapar do script gerado (Windows ou macOS) e executar o que estivesse escrito ali. Corrigido rejeitando esses caracteres ao salvar.
+- **Remover um perfil usado por mais de uma conta não deixa mais ninguém "preso" a ele.**
+- **O perfil padrão legado não fica mais invisível depois de virar um perfil novo.** Migrar o campo antigo pra um perfil agora já marca esse perfil como o padrão na hora.
+- Salvar cor, rótulo ou org de uma conta não dispara mais, à toa, a checagem de status da assinatura Claude.
 
 ## v2.26.1
 
