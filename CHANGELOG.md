@@ -9,6 +9,27 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.30.0
+
+Segue o documento de design `Farol Interface` (blocos 1b, 2a, 2c, 2d e 2e).
+
+**Novidades**
+- **O Radar virou 3 sub-abas: Pra mim, Meus PRs e Panorama.** A faixa de atalhos que existia antes rolava de lado em janela estreita e escondia metade dos destinos sem avisar que existiam. A busca de PR por URL foi pro Panorama.
+- **A borda esquerda dos cards agora indica urgência, não a conta.** Âmbar pro que espera você, vermelho pro que tem bloqueio, azul pro que está rodando, verde pro aprovável. A conta continua visível no ponto e na etiqueta. Como a opção "Só barra" ficaria sem nenhum marcador de conta, as opções de "Identidade nos cards" viraram "Ponto + etiqueta" e "Só ponto", e quem usava a antiga é migrado sozinho.
+- **Menu de três pontos no card da fila.** Os 4 botões viraram 1 principal, o chat e um menu. Ignorar é destrutivo e estava a um toque do Revisar: foi pro menu, junto do terminal. O menu abre dentro do card em vez de flutuar por cima.
+- **A paleta de comandos traz as decisões pendentes**, incluindo "aprovar as N pendentes", e ganhou botão visível em janela estreita. Antes ela era montada uma vez só ao abrir o app, então as decisões nunca entravam.
+
+**Melhorias**
+- **O título do PR não é mais cortado com reticências.** É a informação que faz você decidir se vai revisar, e cortá-la custa mais que a linha extra.
+- **Fila vazia passou a confirmar o que o Farol fez** (quantos aprovou hoje, o que monitora, de quanto em quanto tempo), em vez de só dizer que não tem nada.
+- **Queda de conexão aparece no meio da tela**, com o número da tentativa. Antes só mudava uma etiqueta no topo, que em janela estreita fica fora de vista.
+- **Janela estreita de verdade:** em 380px nada fica abaixo de 11,5px, a ação principal ocupa a linha inteira, a barra de abas quebra em duas linhas, o chat vira uma folha que sobe de baixo e as três sub-abas mantêm os nomes inteiros.
+- O emoji de sino saiu das contas silenciadas: o ponto apagado na cor da conta já diz que aquilo está dormindo.
+
+**Correções**
+- A contagem ao lado de "Analisando" tinha texto escuro sobre fundo âmbar translúcido em tema escuro, e não dava pra ler.
+- As contagens de contexto (Panorama, Meus PRs) deixaram de ser âmbar: se toda contagem é âmbar, nenhuma é urgente.
+
 ## v2.29.1
 
 Versão de manutenção: **nada muda na tela nem no comportamento**. Ela existe porque o
