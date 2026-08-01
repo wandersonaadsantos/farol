@@ -23,7 +23,8 @@ const {
 const { modelLabel, isPermanentBranch } = require('./lib/format');
 const { ACCOUNT_PALETTE } = require('./lib/taxonomy'); // resto da taxonomia é usado nos colaboradores (review/pushback)
 const { parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople,
-  sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId } = require('./lib/parse');
+  sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
+  sanitizeModel, sanitizeEffort } = require('./lib/parse');
 const { ensureDir, readJson, copyRecursive, detectGitBash, run, runShell } = require('./lib/io');
 const updateMod = require('./lib/engine/update');
 const chatMod = require('./lib/engine/chat');
@@ -95,6 +96,11 @@ const DEFAULTS = {
   // quem quiser economizar o limite do plano troca pra sonnet/haiku (gastam bem menos).
   // Qualidade e a prioridade, entao o default e o modelo bom, nao o economico.
   reviewModel: '',
+  // ESFORCO de raciocinio das sessoes autonomas (--effort do claude). Vazio = nao passa a
+  // flag e o CLI decide pelo modelo, que e o que o Farol sempre fez. Vale pros CINCO
+  // caminhos de sessao autonoma (review, autoanalise, pushback, chat, ferramentas); a
+  // sessao no TERMINAL nunca e afetada. Niveis validos em lib/parse.js (EFFORT_LEVELS).
+  reviewEffort: '',
   // classificacao automatica de pushback (1 sessao Claude por PR contestado). Default ON
   // (a funcionalidade que o Wanderson pediu); quem quiser poupar limite desliga em Sistema.
   autoPushback: true,
@@ -125,6 +131,11 @@ class Engine extends EventEmitter {
     this.config.claudeProfiles = normalizeClaudeProfiles(this.config.claudeProfiles);
     this.config.claudeProfileId = normalizeClaudeProfileId(this.config.claudeProfileId);
     this.config.claudeConfigDir = sanitizeClaudeDir(this.config.claudeConfigDir);
+    // modelo/esforco entram na linha de comando passada a um shell. Ate aqui so o caminho
+    // HTTP validava, entao um config.json editado a mao passava cru. `?? ''` porque
+    // sanitize* devolve null pro invalido, e invalido vira o padrao (nao passa flag).
+    this.config.reviewModel = sanitizeModel(this.config.reviewModel) ?? '';
+    this.config.reviewEffort = sanitizeEffort(this.config.reviewEffort) ?? '';
     // perfil de review por pessoa (papel + matriz por domínio); migra a senioridade plana antiga pro campo `papel`
     this.config.people = migrateSeniorityToPeople(this.config.seniority, parsePeople(this.config.people));
     delete this.config.seniority;
@@ -716,7 +727,11 @@ class Engine extends EventEmitter {
   personProfileBlock(login) { return reviewMod.personProfileBlock(this, login); }
   reviewFormatBlock() { return reviewMod.reviewFormatBlock(this); }
   thirdPartyReviewBlock() { return reviewMod.thirdPartyReviewBlock(); }
-  headlessPromptFor(url, author) { return reviewMod.headlessPromptFor(this, url, author); }
+  // A implementação é headlessPromptFor(engine, url, author, lotes, metrics). Esta fachada
+  // declarava só (url, author) e ENGOLIA lotes/metrics: o plano de fan-out era calculado
+  // em runHeadlessReview e jogado fora, então o bloco de PR grande NUNCA chegou no prompt
+  // (defeito desde a v2.26.0). Ver test/review-prompt.test.js, que trava os dois lados.
+  headlessPromptFor(url, author, lotes, metrics) { return reviewMod.headlessPromptFor(this, url, author, lotes, metrics); }
 
   // Grava o nivel do modelo (Opus/Sonnet/...) na sessao ativa pra UI mostrar
   // qual agente esta rodando. O id cru vem do evento system/init da sessao.
@@ -930,7 +945,7 @@ class Engine extends EventEmitter {
     const allowed = ['ghUser', 'owners', 'accounts', 'intervalSeconds', 'autoReview', 'autoApproveAll', 'skipPermissions',
       'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos',
       'projectReviewers', 'defaultReviewers', 'people', 'claudeConfigDir', 'claudeProfiles', 'claudeProfileId',
-      'reviewModel', 'autoPushback', 'debugSpawns'];
+      'reviewModel', 'reviewEffort', 'autoPushback', 'debugSpawns'];
     let intervalChanged = false, userChanged = false;
     for (const k of allowed) {
       if (!(k in patch)) continue;
@@ -948,7 +963,10 @@ class Engine extends EventEmitter {
       // scripts de sessão gerados, ver sanitizeClaudeDir/lib/parse.js).
       if (k === 'claudeProfiles') v = normalizeClaudeProfiles(v);
       if (k === 'claudeProfileId') v = normalizeClaudeProfileId(v);
-      if (k === 'reviewModel') { v = String(v || '').trim().toLowerCase(); if (!['', 'sonnet', 'haiku', 'opus'].includes(v)) v = this.config.reviewModel; }
+      // valor invalido MANTEM o anterior (semantica de sempre): a UI mostra o que o
+      // engine aceitou no proximo estado, entao nao fica setting fantasma.
+      if (k === 'reviewModel') { const s = sanitizeModel(v); v = (s === null) ? this.config.reviewModel : s; }
+      if (k === 'reviewEffort') { const s = sanitizeEffort(v); v = (s === null) ? this.config.reviewEffort : s; }
       if (k === 'autoPushback') v = !!v;
       if (k === 'debugSpawns') v = !!v;
       if (k === 'accounts') {
