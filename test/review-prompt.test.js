@@ -60,29 +60,6 @@ test('headlessPromptFor: o prompt com lotes é um superconjunto do sem lotes', (
   assert.ok(com.length > sem.length);
 });
 
-/* ---------- aridade das fachadas ----------
-   A fachada recebe o engine como 1o argumento, então tem que ter exatamente UM parâmetro
-   a menos que a implementação. TABELA CURADA de propósito: uma varredura automática de
-   todas as fachadas daria falso positivo em pelo menos 5 casos (funções puras que não
-   recebem engine, e parâmetro desestruturado com default, que reduz Function.length).
-   Fachada nova que carregue argumento de comportamento entra aqui. */
-const FACHADAS = [
-  ['headlessPromptFor', require('../lib/engine/review')],
-  ['personProfileBlock', require('../lib/engine/review')],
-  ['runHeadlessReview', require('../lib/engine/review')],
-  ['runClaudeStream', require('../lib/engine/session')],
-  ['toolSummary', require('../lib/engine/session')],
-  ['setSessionModel', require('../lib/engine/session')],
-];
-
-for (const [nome, mod] of FACHADAS) {
-  test(`fachada ${nome} não engole argumento`, () => {
-    const fachada = Engine.prototype[nome];
-    assert.equal(typeof fachada, 'function', `Engine.prototype.${nome} existe`);
-    assert.equal(typeof mod[nome], 'function', `a implementação ${nome} existe`);
-    assert.equal(fachada.length, mod[nome].length - 1,
-      `${nome}: a fachada tem ${fachada.length} parâmetro(s) e a implementação ${mod[nome].length} ` +
-      `(esperado: implementação menos o engine). Argumento a mais na implementação sem estar ` +
-      `na fachada chega undefined e falha em silêncio.`);
-  });
-}
+/* A aridade das fachadas (a outra metade deste defeito) é checada em test/facades.test.js,
+   que varre as ~97 fachadas derivando a expectativa do próprio fonte. Aqui ficou só o
+   comportamento: o bloco de fan-out realmente chega no prompt. */

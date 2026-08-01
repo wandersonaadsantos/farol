@@ -10,7 +10,7 @@
 	"scripts": {
 		"start": "electron .",
 		"server": "node server.js",
-		"check": "node --check server.js && node --check main.js && node --check ui/app.js",
+		"check": "node tools/check-syntax.js",
 		"test": "node --test"
 	},
 	"dependencies": {
