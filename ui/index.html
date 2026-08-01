@@ -264,9 +264,13 @@
             Diagnóstico
           </button>
         </nav>
+        <div class="sys-foot" id="sysFoot"></div>
       </aside>
 
       <div class="sys-content">
+        <!-- resultados da busca: só aparece com algo digitado (ver sysSearchFilter) -->
+        <div id="sysResults" class="sys-results" hidden></div>
+
         <!-- Visão geral -->
         <div class="sys-section active" id="sys-overview">
           <div class="section-head">
@@ -276,63 +280,124 @@
               <button id="btnDoctor" class="btn sm">Reverificar saúde</button>
             </div>
           </div>
-          <div id="updateBox" class="card update-box">…</div>
-          <div id="doctor" class="doctor-grid"></div>
+          <p class="sys-desc">Saúde do ambiente, versão instalada e onde ficam os teus dados.</p>
+          <div class="sys-stack lg">
+            <div id="updateBox" class="card update-box">…</div>
+            <div id="doctor" class="doctor-grid"></div>
+          </div>
           <div class="about" id="about"></div>
         </div>
 
         <!-- Contas -->
         <div class="sys-section" id="sys-accounts">
-          <div class="section-head">
-            <h2>Contas</h2>
-            <span class="section-sub">cada conta com identidade e cor próprias; silencie as que não quer no painel</span>
-          </div>
+          <div class="section-head"><h2>Contas</h2></div>
+          <p class="sys-desc">Cada conta com identidade e cor próprias. A política de automação é por conta: o que você não escolher aqui herda o padrão geral, definido em Automação. Contas silenciadas somem do painel.</p>
           <div id="accountsManager" class="cards"></div>
         </div>
 
         <!-- Automação -->
         <div class="sys-section" id="sys-automation">
           <div class="section-head"><h2>Automação</h2></div>
-          <div class="settings card">
-            <label class="switch-row">
-              <input id="setAutoReview" type="checkbox">
-              <span class="switch"></span>
-              <span>Revisar automaticamente quando chegar PR<br><small>Padrão pra todas as contas: ao chegar um PR, o Farol roda o review internamente. Dá pra sobrescrever por conta no painel <b>Contas</b> (revisar sozinho / só na fila). Contas silenciadas ficam de fora.</small></span>
+          <p class="sys-desc">O que o Farol faz sozinho nos PRs, com qual modelo, e de quanto em quanto tempo ele consulta o GitHub.</p>
+          <div class="card set-list">
+            <label class="set-row" id="sys-row-autoreview">
+              <span class="set-txt">
+                <span class="set-title">Revisar automaticamente quando chegar PR</span>
+                <span class="set-desc">Padrão pra todas as contas: ao chegar um PR, o Farol roda o review internamente. Dá pra sobrescrever por conta no painel <b>Contas</b> (revisar sozinho, ou só pôr na fila). Contas silenciadas ficam de fora.</span>
+              </span>
+              <span class="set-ctl"><input id="setAutoReview" type="checkbox"><span class="switch"></span></span>
             </label>
-            <label class="switch-row">
-              <input id="setAutoApproveAll" type="checkbox">
-              <span class="switch"></span>
-              <span>Aprovar sozinho também os aprováveis com ressalvas<br><small>Padrão pra todas as contas: quando o PR é aprovável mas tem ressalvas, ligado o Farol posta o APPROVE destacando as ressalvas; desligado (padrão), aguarda você. Os aprováveis <b>sem</b> ressalva já são aprovados sozinhos. Sobrescreva por conta no painel <b>Contas</b>.</small></span>
+            <label class="set-row" id="sys-row-autoapprove">
+              <span class="set-txt">
+                <span class="set-title">Aprovar sozinho também os aprováveis com ressalvas</span>
+                <span class="set-desc">Padrão pra todas as contas: quando o PR é aprovável mas tem ressalvas, ligado o Farol posta o APPROVE destacando as ressalvas; desligado (padrão), aguarda você. Os aprováveis <b>sem</b> ressalva já são aprovados sozinhos. Sobrescreva por conta no painel <b>Contas</b>.</span>
+              </span>
+              <span class="set-ctl"><input id="setAutoApproveAll" type="checkbox"><span class="switch"></span></span>
             </label>
-            <label class="switch-row">
-              <input id="setAutoPushback" type="checkbox">
-              <span class="switch"></span>
-              <span>Detectar pushback automaticamente<br><small>Roda 1 sessão do Claude por PR que o autor contestar, pra classificar o desfecho. Vem <b>ligado</b>; desligue se um dia quiser poupar o teu limite. A marcação manual (em Revisões recentes) funciona sempre.</small></span>
+            <label class="set-row" id="sys-row-pushback">
+              <span class="set-txt">
+                <span class="set-title">Detectar pushback automaticamente</span>
+                <span class="set-desc">Roda 1 sessão do Claude por PR que o autor contestar, pra classificar o desfecho. Vem <b>ligado</b>; desligue se um dia quiser poupar o teu limite. A marcação manual (em Revisões recentes) funciona sempre.</span>
+              </span>
+              <span class="set-ctl"><input id="setAutoPushback" type="checkbox"><span class="switch"></span></span>
             </label>
-            <div class="field">
-              <label for="setReviewModel">Modelo das revisões automáticas</label>
-              <select id="setReviewModel">
-                <option value="">Padrão do claude (Opus, melhor qualidade)</option>
-                <option value="opus">Opus (explícito)</option>
-                <option value="sonnet">Sonnet (mais leve, se quiser poupar o limite)</option>
-                <option value="haiku">Haiku (o mais leve)</option>
-              </select>
-              <small>Modelo que o Farol usa nas sessões autônomas (review, pushback, autoanálise). O padrão é o melhor (Opus); só troque pra Sonnet/Haiku se um dia quiser economizar o teto do teu plano. A sessão no terminal não é afetada.</small>
+            <div class="set-row" id="sys-row-modelo">
+              <div class="set-txt">
+                <label class="set-title" for="setReviewModel">Modelo das revisões automáticas</label>
+                <p class="set-desc">Modelo das sessões autônomas (revisão, pushback, autoanálise, ferramentas). O padrão herda a tua assinatura; troque pra Sonnet ou Haiku se quiser poupar o teto do plano. A sessão no terminal não é afetada.</p>
+              </div>
+              <div class="set-ctl">
+                <select id="setReviewModel">
+                  <option value="">Padrão do Claude (herda a tua assinatura)</option>
+                  <option value="best">Melhor disponível (o Claude escolhe o topo da conta)</option>
+                  <option value="opus">Opus (qualidade máxima, gasta mais do limite)</option>
+                  <option value="sonnet">Sonnet (equilíbrio: bom e bem mais leve)</option>
+                  <option value="haiku">Haiku (o mais leve, pra economizar)</option>
+                  <option value="fable">Fable (raciocínio longo, sessão mais demorada)</option>
+                </select>
+              </div>
             </div>
-            <div class="field">
-              <label for="setInterval">Intervalo de checagem</label>
-              <select id="setInterval">
-                <option value="60">1 minuto</option>
-                <option value="120">2 minutos</option>
-                <option value="300">5 minutos</option>
-                <option value="600">10 minutos</option>
-                <option value="900">15 minutos</option>
-              </select>
+            <div class="set-row set-row-block" id="sys-row-esforco">
+              <div class="set-txt wide">
+                <span class="set-title">Esforço de raciocínio</span>
+                <p class="set-desc" id="effortHint"></p>
+                <div class="effort-cards" id="setReviewEffort" role="radiogroup" aria-label="Esforço de raciocínio">
+                  <label class="effort-card">
+                    <input type="radio" name="reviewEffort" value="">
+                    <span class="ec-name">Padrão do Claude</span>
+                    <span class="ec-value">o CLI decide pelo modelo</span>
+                    <span class="ec-cap">é o que o Farol sempre fez</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="reviewEffort" value="low">
+                    <span class="ec-name">Baixo</span>
+                    <span class="ec-value">responde rápido</span>
+                    <span class="ec-cap">o que menos consome do limite</span>
+                    <span class="ec-note">serve pra PR pequeno e direto</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="reviewEffort" value="medium">
+                    <span class="ec-name">Médio</span>
+                    <span class="ec-value">meio termo</span>
+                    <span class="ec-cap">consumo moderado</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="reviewEffort" value="high">
+                    <span class="ec-name">Alto</span>
+                    <span class="ec-value">pensa antes de responder</span>
+                    <span class="ec-cap">é o padrão da maioria dos modelos</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="reviewEffort" value="xhigh">
+                    <span class="ec-name">Muito alto</span>
+                    <span class="ec-value">raciocínio mais longo</span>
+                    <span class="ec-cap">acha mais coisa e gasta bem mais</span>
+                    <span class="ec-note">só os Opus, Sonnet e Fable recentes aceitam</span>
+                  </label>
+                </div>
+              </div>
             </div>
-            <label class="switch-row">
-              <input id="setSkipPerms" type="checkbox">
-              <span class="switch"></span>
-              <span>Sessão no terminal sem pedir permissões<br><small><code>--dangerously-skip-permissions</code>; vale só pras sessões no terminal, o modo interno já roda sem prompts.</small></span>
+            <div class="set-row" id="sys-row-intervalo">
+              <div class="set-txt">
+                <label class="set-title" for="setInterval">Intervalo de checagem</label>
+                <p class="set-desc">De quanto em quanto tempo o Farol consulta o GitHub. Intervalo menor gasta mais chamadas do <code>gh</code>, não gasta IA.</p>
+              </div>
+              <div class="set-ctl">
+                <select id="setInterval">
+                  <option value="60">1 minuto</option>
+                  <option value="120">2 minutos</option>
+                  <option value="300">5 minutos</option>
+                  <option value="600">10 minutos</option>
+                  <option value="900">15 minutos</option>
+                </select>
+              </div>
+            </div>
+            <label class="set-row" id="sys-row-skipperms">
+              <span class="set-txt">
+                <span class="set-title">Sessão no terminal sem pedir permissões</span>
+                <span class="set-desc"><code>--dangerously-skip-permissions</code>: vale só pras sessões no terminal, o modo interno já roda sem prompts.</span>
+              </span>
+              <span class="set-ctl"><input id="setSkipPerms" type="checkbox"><span class="switch"></span></span>
             </label>
           </div>
         </div>
@@ -340,18 +405,19 @@
         <!-- Conexões -->
         <div class="sys-section" id="sys-connections">
           <div class="section-head"><h2>Conexões</h2></div>
+          <p class="sys-desc">Conta do GitHub, organizações monitoradas e onde o botão Merge fica bloqueado.</p>
           <div class="settings card">
-            <div class="field">
+            <div class="field" id="sys-row-ghuser">
               <label for="setUser">Conta do GitHub (trabalho)</label>
               <input id="setUser" type="text" spellcheck="false">
               <small id="setUserHint">Conta primária (modo simples, uma conta), usada pra buscar e postar reviews via <code>gh auth token</code>. Pra monitorar mais de uma conta, use o painel <b>Contas</b>.</small>
             </div>
-            <div class="field">
+            <div class="field" id="sys-row-orgs">
               <label for="setOwners">Organizações monitoradas</label>
               <input id="setOwners" type="text" spellcheck="false" placeholder="biudtech, outra-org">
               <small>O panorama mostra todos os PRs abertos delas; o alerta é só onde você é revisor.</small>
             </div>
-            <div class="field">
+            <div class="field" id="sys-row-mergeblocked">
               <label for="setMergeBlocked">Repos bloqueados pra merge</label>
               <input id="setMergeBlocked" type="text" spellcheck="false" placeholder="biudtech/biud-frontend">
               <small>Nesses repos o botão Merge (em Meus PRs) fica desativado, respeitando as regras de review do time. Separe por vírgula.</small>
@@ -362,6 +428,7 @@
         <!-- Plano e chaves -->
         <div class="sys-section" id="sys-plans">
           <div class="section-head"><h2>Plano e chaves</h2></div>
+          <p class="sys-desc">A assinatura do Claude que paga as revisões. Um perfil por assinatura, e cada conta do GitHub pode usar um perfil diferente.</p>
           <div class="settings card">
             <div class="field">
               <label>Perfis de assinatura do Claude</label>
@@ -374,6 +441,7 @@
         <!-- Reviewers -->
         <div class="sys-section" id="sys-reviewers">
           <div class="section-head"><h2>Reviewers por projeto</h2></div>
+          <p class="sys-desc">Um grupo padrão por organização, aplicado num clique pelo botão Reviewers em Meus PRs. Só os repos que fogem do padrão aparecem como exceção.</p>
           <div class="settings card">
             <div class="field">
               <div id="reviewersEditor" class="rev-editor"></div>
@@ -385,34 +453,47 @@
         <!-- Preferências -->
         <div class="sys-section" id="sys-prefs">
           <div class="section-head"><h2>Preferências</h2></div>
-          <div class="settings card">
-            <div class="field">
-              <label for="setIdentityStyle">Identidade nos cards</label>
-              <select id="setIdentityStyle">
-                <option value="Barra + etiqueta">Barra + etiqueta</option>
-                <option value="Só barra">Só barra</option>
-                <option value="Só ponto">Só ponto</option>
-              </select>
-              <small>Quanto marcador de conta aparece em cada card na visão Todas.</small>
+          <p class="sys-desc">Exibição, avisos e inicialização.</p>
+          <div class="card set-list">
+            <div class="set-row" id="sys-row-identity">
+              <div class="set-txt">
+                <label class="set-title" for="setIdentityStyle">Identidade nos cards</label>
+                <p class="set-desc">Quanto marcador de conta aparece em cada card na visão Todas. Vale só neste computador.</p>
+              </div>
+              <div class="set-ctl">
+                <select id="setIdentityStyle">
+                  <option value="Barra + etiqueta">Barra + etiqueta</option>
+                  <option value="Só barra">Só barra</option>
+                  <option value="Só ponto">Só ponto</option>
+                </select>
+              </div>
             </div>
-            <div class="field">
-              <label for="setMutedHandling">Contas silenciadas</label>
-              <select id="setMutedHandling">
-                <option value="Recolher">Recolher (junta numa linha discreta)</option>
-                <option value="Esmaecer">Esmaecer (mostra apagado)</option>
-                <option value="Ocultar">Ocultar (some de vez do Todas)</option>
-              </select>
-              <small>Como as contas silenciadas aparecem na visão Todas. Elas seguem acessíveis ao selecionar a conta na barra.</small>
+            <div class="set-row" id="sys-row-mutedview">
+              <div class="set-txt">
+                <label class="set-title" for="setMutedHandling">Contas silenciadas</label>
+                <p class="set-desc">Como as contas silenciadas aparecem na visão Todas. Elas seguem acessíveis ao selecionar a conta na barra. Vale só neste computador.</p>
+              </div>
+              <div class="set-ctl">
+                <select id="setMutedHandling">
+                  <option value="Recolher">Recolher (junta numa linha discreta)</option>
+                  <option value="Esmaecer">Esmaecer (mostra apagado)</option>
+                  <option value="Ocultar">Ocultar (some de vez do Todas)</option>
+                </select>
+              </div>
             </div>
-            <label class="switch-row">
-              <input id="setSound" type="checkbox">
-              <span class="switch"></span>
-              <span>Som ao chegar PR novo</span>
+            <label class="set-row" id="sys-row-sound">
+              <span class="set-txt">
+                <span class="set-title">Som ao chegar PR novo</span>
+                <span class="set-desc">Um toque curto quando entra PR novo na tua fila.</span>
+              </span>
+              <span class="set-ctl"><input id="setSound" type="checkbox"><span class="switch"></span></span>
             </label>
-            <label class="switch-row" id="rowAutostart">
-              <input id="setAutostart" type="checkbox">
-              <span class="switch"></span>
-              <span>Iniciar com o Windows</span>
+            <label class="set-row" id="rowAutostart">
+              <span class="set-txt">
+                <span class="set-title">Iniciar com o Windows</span>
+                <span class="set-desc">O Farol abre junto com o sistema e fica monitorando em segundo plano.</span>
+              </span>
+              <span class="set-ctl"><input id="setAutostart" type="checkbox"><span class="switch"></span></span>
             </label>
           </div>
         </div>
@@ -420,6 +501,7 @@
         <!-- Novidades -->
         <div class="sys-section" id="sys-news">
           <div class="section-head"><h2>Novidades</h2></div>
+          <p class="sys-desc">O que mudou em cada versão. A que você tem instalada aparece marcada.</p>
           <div id="relNotes" class="card"></div>
         </div>
 
@@ -432,11 +514,14 @@
               <button id="btnDiag" class="btn sm" title="Gera um relatório de diagnóstico (sem segredos) pra copiar e mandar pra quem mantém o Farol, útil pra corrigir problemas (ex.: no macOS)">Exportar diagnóstico</button>
             </div>
           </div>
-          <div class="settings card">
-            <label class="switch-row">
-              <input id="setDebugSpawns" type="checkbox">
-              <span class="switch"></span>
-              <span>Registrar processos (diagnóstico)<br><small>Ferramenta pra caçar "terminal piscando": registra cada comando que o Farol dispara, com horário, em <code>workspace/state/spawns.log</code> (só o comando, nunca token). Vem <b>desligado</b>; ligue só pra capturar a evidência de um flash e depois desligue.</small></span>
+          <p class="sys-desc">Log de falhas e ferramentas pra investigar um problema, inclusive o relatório pronto pra mandar pra quem mantém o Farol.</p>
+          <div class="card set-list">
+            <label class="set-row" id="sys-row-spawns">
+              <span class="set-txt">
+                <span class="set-title">Registrar processos (diagnóstico)</span>
+                <span class="set-desc">Ferramenta pra caçar "terminal piscando": registra cada comando que o Farol dispara, com horário, em <code>workspace/state/spawns.log</code> (só o comando, nunca token). Vem <b>desligado</b>; ligue só pra capturar a evidência de um flash e depois desligue.</span>
+              </span>
+              <span class="set-ctl"><input id="setDebugSpawns" type="checkbox"><span class="switch"></span></span>
             </label>
           </div>
           <div id="diagPanel" class="card tool-panel" hidden>
@@ -456,14 +541,14 @@
             </div>
             <div id="healthOut" class="report"></div>
           </div>
-          <div class="section-head" style="margin-top:18px">
+          <div class="section-head" id="sys-row-log">
             <h2>Log de falhas</h2>
             <div class="row-actions">
               <button id="btnLogRefresh" class="btn sm ghost">Atualizar</button>
               <button id="btnLogClear" class="btn sm ghost" title="Zerar o log: use quando o episódio já foi diagnosticado e encerrado">Limpar log</button>
             </div>
           </div>
-          <p class="section-desc">Só falhas, sem ruído: é o que o <code>/pr-health</code> usa pra ajustar o próprio Farol.</p>
+          <p class="sys-note">Só falhas, sem ruído: é o que o <code>/pr-health</code> usa pra ajustar o próprio Farol.</p>
           <pre id="logBox" class="logbox">…</pre>
         </div>
       </div>

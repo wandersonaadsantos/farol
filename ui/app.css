@@ -4,6 +4,10 @@
   --surface: #121722;
   --surface-2: #1a2130;
   --border: #232c3d;
+  /* divisória INTERNA (dentro de um card já emoldurado): mais leve que --border, pra
+     separar sem parecer que virou outro card. Era usada em 10 regras sem estar
+     definida, então essas bordas simplesmente não eram pintadas. */
+  --border-soft: rgba(35, 44, 61, .6);
   --text: #e7ecf5;
   --muted: #8b97ab;
   --faint: #5c687d;
@@ -19,6 +23,15 @@
   --logo-tower: #e7ecf5;
   --shadow: 0 8px 24px rgba(0, 0, 0, .35);
   --radius: 12px;
+  /* escala de espaçamento. Usada só pelas regras da aba Sistema (.sys-* e .set-*);
+     o resto do arquivo segue com os literais que já tinha, pra não virar refatoração
+     de 750 linhas. Os seis valores são os que a referência de design repete. */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 14px;
+  --sp-4: 18px;
+  --sp-5: 22px;
+  --sp-6: 28px;
   /* cor da conta ativa/card (default = âmbar; o JS sobrescreve por conta) */
   --ac: #ffb454;
   --ac-soft: rgba(255, 180, 84, .14);
@@ -30,6 +43,7 @@
   --surface: #ffffff;
   --surface-2: #eef1f6;
   --border: #dfe5ee;
+  --border-soft: rgba(223, 229, 238, .7);
   --text: #1c2536;
   --muted: #5e6c82;
   --faint: #93a0b5;
@@ -145,6 +159,9 @@ body.electron.mac .topbar-main { padding-right: 22px; padding-left: 84px; }
 
 /* ---------- layout ---------- */
 main { max-width: 1000px; margin: 0 auto; padding: 16px 24px 60px; }
+/* a aba Sistema é a única com sidebar: os 212px dela sairiam do espaço do conteúdo,
+   então ela ganha largura própria. As outras 5 abas seguem em 1000px. */
+body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 .tabpane { display: none; }
 .tabpane.active { display: block; animation: fadein .18s ease; }
 @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
@@ -382,29 +399,95 @@ main { max-width: 1000px; margin: 0 auto; padding: 16px 24px 60px; }
 .entry li::marker { color: var(--accent); }
 
 /* ---------- sistema: layout sidebar ---------- */
-.sys-layout { display: flex; gap: 0; min-height: 60vh; }
-.sys-sidebar { flex: none; width: 210px; position: sticky; top: 54px; align-self: flex-start; max-height: calc(100vh - 64px); overflow-y: auto; padding: 0 14px 18px 0; border-right: 1px solid var(--border); }
-.sys-search-wrap { position: relative; margin-bottom: 10px; }
-.sys-search-wrap .sys-search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--faint); pointer-events: none; }
-.sys-search-wrap input { width: 100%; padding: 7px 10px 7px 30px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; font: inherit; font-size: 12.5px; }
+/* grid em vez de flex: a separação entre a sidebar e o conteúdo é o gap (espaço em
+   branco), não uma borda vertical. Era a borda encostada no conteúdo que fazia a
+   coluna parecer colada. */
+.sys-layout { display: grid; grid-template-columns: 212px minmax(0, 1fr); gap: var(--sp-6); align-items: start; min-height: 60vh; }
+.sys-sidebar { position: sticky; top: 66px; display: flex; flex-direction: column; gap: var(--sp-3); max-height: calc(100vh - 84px); overflow-y: auto; }
+.sys-search-wrap { position: relative; }
+.sys-search-wrap .sys-search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--faint); pointer-events: none; }
+.sys-search-wrap input { width: 100%; padding: 6px 10px 6px 32px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 9px; font: inherit; font-size: 12.5px; transition: border-color .15s ease; }
 .sys-search-wrap input::placeholder { color: var(--faint); }
 .sys-search-wrap input:focus { outline: none; border-color: var(--accent); }
 .sys-nav { display: flex; flex-direction: column; gap: 2px; }
-.sys-nav-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13px; font-weight: 500; border-radius: 8px; cursor: pointer; text-align: left; white-space: nowrap; }
+.sys-nav-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 11px; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13.5px; font-weight: 550; border-radius: 9px; cursor: pointer; text-align: left; white-space: nowrap; transition: background .15s ease, color .15s ease; }
 .sys-nav-item svg { width: 17px; height: 17px; flex: none; }
 .sys-nav-item:hover { background: var(--surface-2); color: var(--text); }
-.sys-nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 650; }
-.sys-nav-item.match { background: color-mix(in srgb, var(--info) 12%, transparent); }
-.sys-content { flex: 1; min-width: 0; padding-left: 22px; }
+/* ativo igual ao das abas do topo (barra do acento), no lugar do fundo âmbar cheio */
+.sys-nav-item.active { background: var(--surface-2); color: var(--text); font-weight: 650; box-shadow: inset 2px 0 0 var(--accent); }
+.sys-nav-item.match { background: color-mix(in srgb, var(--info) 12%, transparent); color: var(--text); }
+.sys-foot { padding: 2px 11px 0; font-size: 11px; line-height: 1.7; color: var(--faint); }
+.sys-content { min-width: 0; }
 .sys-section { display: none; }
 .sys-section.active { display: block; }
+/* aqui o cabeçalho da seção É o topo da tela: não repete a margem de 26px que ele
+   tem no resto do app, senão a primeira seção começa abaixo da sidebar. */
+.sys-section > .section-head:first-child { margin-top: 0; margin-bottom: 4px; }
+.sys-section > .section-head:first-child h2 { font-size: 18px; }
+.sys-desc { margin: 0 0 var(--sp-4); max-width: 640px; font-size: 13px; color: var(--muted); text-wrap: pretty; }
+.sys-note { margin: -4px 0 10px; font-size: 11.5px; color: var(--faint); }
+.sys-stack { display: flex; flex-direction: column; gap: var(--sp-3); }
+.sys-stack.lg { gap: var(--sp-5); }
 
-@media (max-width: 720px) {
-  .sys-layout { flex-direction: column; }
-  .sys-sidebar { width: 100%; position: static; max-height: none; border-right: 0; border-bottom: 1px solid var(--border); padding: 0 0 10px; margin-bottom: 14px; }
-  .sys-nav { flex-direction: row; flex-wrap: wrap; gap: 4px; }
-  .sys-nav-item { padding: 6px 10px; font-size: 12px; }
-  .sys-content { padding-left: 0; }
+/* ---------- sistema: linhas de configuração ---------- */
+/* uma configuração por linha: texto à esquerda, controle à direita, divisória de 1px
+   entre linhas. Antes era um flex com gap:16px e nada separando, que é o que deixava
+   tudo colado. */
+.set-list { padding: var(--sp-1) var(--sp-4); }
+.set-row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-4); padding: 15px 0; }
+/* border-top no irmão, e não border-bottom + :last-child: linha escondida por JS
+   (#rowAutostart no macOS) não deixa divisória órfã pendurada. */
+.set-row + .set-row { border-top: 1px solid var(--border-soft); }
+label.set-row { cursor: pointer; }
+.set-txt { min-width: 0; max-width: 580px; }
+.set-title { display: block; font-size: 13.5px; font-weight: 600; }
+.set-desc { display: block; margin-top: 2px; font-size: 12.5px; color: var(--muted); font-weight: 400; text-wrap: pretty; }
+.set-ctl { flex: none; display: flex; align-items: flex-start; gap: var(--sp-2); }
+.set-ctl select { max-width: 290px; padding: 6px 10px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; font: inherit; font-size: 12.5px; cursor: pointer; transition: border-color .15s ease; }
+.set-ctl select:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.set-ctl select:focus { outline: none; border-color: var(--accent); }
+/* o checkbox real fica invisível; quem se vê é o .switch IRMÃO IMEDIATO dele */
+.set-row input[type="checkbox"] { position: absolute; opacity: 0; }
+.set-ctl .switch { margin-top: 2px; }
+
+/* ---------- sistema: esforço de raciocínio ---------- */
+/* cartões e não select: cada nível precisa de descrição própria (o que muda, e o que
+   custa), e isso não cabe numa <option>. */
+.set-row-block { display: block; }
+.set-txt.wide { max-width: none; }
+.effort-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-top: 10px; }
+.effort-card { position: relative; display: flex; flex-direction: column; gap: 3px; padding: 13px 15px; border-radius: var(--radius); cursor: pointer; background: var(--surface-2); border: 1px solid var(--border); transition: border-color .15s ease, background .15s ease; }
+.effort-card input { position: absolute; opacity: 0; pointer-events: none; }
+.effort-card:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.effort-card:has(input:checked) { background: var(--accent-soft); border-color: var(--accent); }
+.effort-card:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ec-name { font-size: 13.5px; font-weight: 700; }
+.ec-value { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.ec-cap { font-size: 12px; color: var(--muted); }
+.ec-note { font-size: 11.5px; color: var(--faint); text-wrap: pretty; }
+.effort-cards.disabled { opacity: .5; pointer-events: none; }
+
+/* ---------- sistema: resultados da busca ---------- */
+.sys-results { display: flex; flex-direction: column; gap: 6px; }
+.sys-hit { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; text-align: left; padding: 11px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font: inherit; font-size: 13.5px; cursor: pointer; transition: border-color .15s ease; }
+.sys-hit:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.sys-hit .sys-hit-txt { min-width: 0; }
+.sys-hit .sys-hit-sub { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); }
+.sys-hit .sys-hit-sec { flex: none; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+
+@media (max-width: 860px) {
+  .sys-layout { grid-template-columns: 1fr; gap: var(--sp-3); }
+  .sys-sidebar { position: static; max-height: none; }
+  .sys-foot { display: none; }
+  .sys-nav { flex-direction: row; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 4px; }
+  .sys-nav::-webkit-scrollbar { display: none; }
+  .sys-nav-item { width: auto; padding: 6px 10px; font-size: 12.5px; }
+  /* com a nav deitada, a barra do ativo vai pra baixo, igual às abas do topo */
+  .sys-nav-item.active { box-shadow: inset 0 -2px 0 var(--accent); }
+}
+@media (max-width: 620px) {
+  .set-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .set-ctl select { max-width: none; width: 100%; }
 }
 
 /* ---------- sistema: contas ---------- */
@@ -442,6 +525,13 @@ main { max-width: 1000px; margin: 0 auto; padding: 16px 24px 60px; }
 .acct-card .a-pol-item select:hover { border-color: var(--ac); }
 .acct-card .a-pol-item select:focus { outline: none; border-color: var(--ac); }
 
+/* selo da assinatura do Claude em uso (emitido por claudeAuthBadge): aparece em
+   Plano e chaves, num perfil, e em Contas, no override por conta. Estava sendo
+   emitido pelo JS sem nenhuma regra aqui, então saía como texto solto. */
+.a-claude { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; border-radius: 99px; padding: 2px 8px; color: var(--muted); background: var(--surface-2); border: 1px solid var(--border); }
+.a-claude.ok { color: var(--ok); background: var(--ok-soft); border-color: transparent; }
+.a-claude.bad { color: var(--danger); background: var(--danger-soft); border-color: transparent; }
+
 /* reviewers agrupados */
 .rev-group-head { display: flex; align-items: center; gap: 8px; margin: 14px 0 6px; font-size: 12px; font-weight: 700; color: var(--ac); }
 .rev-group-head .g-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ac); }
@@ -457,9 +547,11 @@ main { max-width: 1000px; margin: 0 auto; padding: 16px 24px 60px; }
 .check .detail { color: var(--muted); font-size: 12px; margin-top: 1px; word-break: break-all; }
 
 /* ---------- settings ---------- */
-.settings { display: flex; flex-direction: column; gap: 16px; padding: 18px; }
+.settings { display: flex; flex-direction: column; gap: var(--sp-4); padding: 16px var(--sp-4); }
 .field label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 5px; }
-.field small, .switch-row small { color: var(--muted); font-weight: 400; }
+/* o <small> herdava display:inline e escorria pro lado do input de 420px, espremido
+   nos ~240px que sobravam. Como bloco, ele cai abaixo do campo, que é o lugar dele. */
+.field small { display: block; margin-top: 5px; max-width: 560px; font-size: 12px; color: var(--muted); font-weight: 400; text-wrap: pretty; }
 .field input, .field select, .field textarea {
   width: 100%; max-width: 420px;
   background: var(--surface-2); color: var(--text);
@@ -468,7 +560,7 @@ main { max-width: 1000px; margin: 0 auto; padding: 16px 24px 60px; }
 }
 .field textarea { resize: vertical; min-height: 56px; line-height: 1.5; }
 .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--accent); }
-.rev-editor { max-width: 560px; display: flex; flex-direction: column; gap: 8px; }
+.rev-editor { max-width: 640px; display: flex; flex-direction: column; gap: var(--sp-2); }
 .rev-row { border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; background: var(--surface-2); }
 .rev-repohead { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
 .rev-repohead code { font-size: 12px; font-weight: 700; margin-right: auto; }
@@ -489,7 +581,6 @@ main { max-width: 1000px; margin: 0 auto; padding: 16px 24px 60px; }
 .rev-addrepo input { flex: 1; min-width: 0; max-width: 280px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 13px; }
 
 /* editor de reviewers v2: padrão por org + exceções */
-.rev-editor { max-width: 640px; }
 .rev-org { border: 1px solid var(--border-soft); border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
 .rev-default { padding: 13px 15px; border-left: 3px solid var(--ac); background: linear-gradient(90deg, color-mix(in srgb, var(--ac) 9%, transparent), transparent 55%); }
 .rev-default.empty { background: var(--surface-2); border-left-color: var(--border); }
@@ -529,13 +620,13 @@ main { max-width: 1000px; margin: 0 auto; padding: 16px 24px 60px; }
 .rev-newexc { display: flex; gap: 8px; align-items: center; padding: 11px 15px; border-top: 1px solid var(--border-soft); }
 .rev-newexc-input { flex: 1; min-width: 0; max-width: 260px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 13px; }
 
-.switch-row { display: flex; align-items: flex-start; gap: 11px; cursor: pointer; font-size: 13.5px; }
-.switch-row input { position: absolute; opacity: 0; }
-.switch { flex: none; width: 36px; height: 20px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--border); position: relative; transition: background .15s ease; margin-top: 1px; }
+/* o .switch tem que ser IRMÃO IMEDIATO do input: não meta nada entre os dois, senão
+   ele para de refletir o estado sem erro nenhum (salva certo e parece desligado). */
+.switch { flex: none; width: 36px; height: 20px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--border); position: relative; transition: background .15s ease; }
 .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); transition: all .15s ease; }
-.switch-row input:checked + .switch { background: var(--accent); border-color: var(--accent); }
-.switch-row input:checked + .switch::after { left: 18px; background: var(--accent-ink); }
-.switch-row input:focus-visible + .switch { outline: 2px solid var(--accent); outline-offset: 2px; }
+.set-row input:checked + .switch { background: var(--accent); border-color: var(--accent); }
+.set-row input:checked + .switch::after { left: 18px; background: var(--accent-ink); }
+.set-row input:focus-visible + .switch { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .update-box { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 13.5px; }
 .update-box .up-ver { font-weight: 650; }
