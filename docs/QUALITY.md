@@ -32,11 +32,24 @@ Estes são específicos do stack do lace e violariam os invariantes do Farol (ve
 
 ## Como o Farol aplica isso (plano em ondas)
 
-O maior débito do Farol frente a esta diretriz é o `server.js`: uma classe `Engine` de ~2600 linhas com ~120 métodos fazendo tudo (o oposto do princípio 1 e 2). A correção é decompor em ondas, cada uma protegida pela rede de teste, sem mudar comportamento e sem quebrar os invariantes do `CLAUDE.md`.
+O débito original era o `server.js`: uma classe `Engine` de 3122 linhas fazendo tudo (o oposto dos princípios 1 e 2). A correção é decompor em ondas, cada uma protegida pela rede de teste, sem mudar comportamento e sem quebrar os invariantes do `CLAUDE.md`.
 
 - **Onda 0 (feita):** este contrato + a rede (`npm test`, `npm run check`), baseline verde.
 - **Onda 1 (feita):** funções puras sem estado pra `lib/` (`format`, `io`, `parse`, `taxonomy`), com teste.
 - **Onda 2 (feita):** camadas base `lib/paths.js` (versão/plataforma/caminhos), `lib/workspace.js` (leitura dos artefatos do workspace) e `lib/http-server.js` (adapter HTTP+SSE), e a `Engine` separada por responsabilidade em `lib/engine/` (colaboradores que recebem o `engine` como ctx; a `Engine` mantém fachadas finas que delegam): `update`, `chat`, `tools`, `pushback`, `decision`, `gh-queries`, `session`, `selfpr` (Meus PRs), `review` (pipeline headless + gate). O `server.js` caiu de 3122 pra ~905 linhas; o que ficou na `Engine` é o núcleo legítimo (composição, ciclo de vida, contas/política, polling, settings/snapshot).
+- **Onda 3 (feita):** cobertura e gate. Sete módulos de produção estavam sem nenhum teste, incluindo o `selfpr.js` (que mergeia PR no GitHub) e o `pushback.js` (cujo teste era uma cópia manual do gate, ou seja, testava o teste). O `npm run check` validava três arquivos escolhidos a dedo e ignorava os 19 de `lib/`. Corrigido: `tools/check-syntax.js` descobre todo `.js` do projeto, e `test/facades.test.js` deriva do fonte a aridade esperada de cada fachada, no lugar de uma tabela curada de 6.
+- **Onda 4 (NÃO feita, o débito atual):** o `ui/app.js`, com ~2800 linhas, é hoje o maior arquivo do projeto, quase 3x o `server.js`, e não tem **nenhum** teste. Ele acumula render, estado da UI, atalhos, paleta de comandos, busca, SSE e as chamadas de API. Não há como rodar `node --test` nele hoje porque o arquivo é um script de navegador que toca `document` no top-level (o que também viola o princípio 6). O caminho é o mesmo das ondas anteriores: extrair primeiro o que é puro (formatação de data e rótulo, filtros de escopo, o índice de busca do Sistema), que não depende de DOM, e só depois pensar em separar render de estado.
+
+### Números de hoje (mantenha esta linha viva)
+
+| Arquivo | Linhas | Testes |
+|---|---|---|
+| `ui/app.js` | ~2800 | nenhum |
+| `server.js` | ~1080 | via `boot`, `facades`, e os testes de comportamento |
+| maior módulo de `lib/` (`selfpr.js`) | ~490 | `merge-gates.test.js` |
+| suíte | | 332 testes |
+
+Quem mexer aqui e deixar esses números defasados repete o problema que esta seção teve: o documento afirmava "~2600 linhas com ~120 métodos" muito depois de o `server.js` ter caído para mil.
 
 Padrão do colaborador: funções `(engine, ...args)`, todo `this.` vira `engine.`, e a `Engine` ganha um método-fachada `x(a) { return mod.x(this, a); }`. Assim nenhum chamador muda e o comportamento é idêntico.
 
@@ -48,4 +61,10 @@ Regra de cada onda: extrai um pedaço → `grep this.` no módulo novo deve dar 
 npm run check && npm test
 ```
 
-`check` = `node --check` em `server.js`, `main.js`, `ui/app.js` (sintaxe). `test` = `node --test test/` (a rede: funções puras + smoke de boot). Verde nos dois é pré-requisito de qualquer entrega.
+`check` = `tools/check-syntax.js`, que **descobre** todo `.js` do projeto (hoje 47) e valida a sintaxe com o mesmo wrapper CommonJS do `node --check`. Era uma lista fixa de três arquivos, e por isso os 19 módulos de `lib/` ficavam de fora. `test` = `node --test test/` (a rede). Verde nos dois é pré-requisito de qualquer entrega.
+
+Os dois testes estruturais da rede trazem **piso anti-vacuidade** (`facades.test.js` exige um mínimo de fachadas casadas, `check-syntax.js` um mínimo de arquivos encontrados): verificação dirigida por varredura que deixa de casar vira laço vazio e fica verde sem verificar nada, que é a pior falha possível num gate.
+
+### Princípio 4 ainda não está implementado
+
+Não existe `AppError` nem classificação central de erro. Há dezenas de `catch` vazios espalhados, alguns com justificativa no comentário ("best-effort", "log nunca derruba o app") e a maioria sem. É a lacuna conhecida deste contrato, e o lugar certo de atacá-la é junto com a Onda 4, não antes.

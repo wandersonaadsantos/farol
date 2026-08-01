@@ -152,12 +152,6 @@ function acctMark(pr, opts) {
   const dot = (showDot && a) ? `<span class="acct-dot"></span>` : '';
   return { style: varStyle + dim + barStyle, varStyle, dim, chip, dot, acct: a };
 }
-// filtra itens que carregam account; itens sem account (dados legados) sempre passam
-function scopeItemVisible(it) {
-  if (!it || !it.account) return true;
-  return scopeVisible(it);
-}
-
 /* ---- atribuição de conta pra memória (Destaques/Time) ---- */
 function ownerFromUrl(url) { const m = String(url || '').match(/github\.com\/([^\/]+)\//i); return m ? m[1] : ''; }
 function acctUserFromUrl(url) { return OWNER2USER[ownerFromUrl(url).toLowerCase()] || ''; }

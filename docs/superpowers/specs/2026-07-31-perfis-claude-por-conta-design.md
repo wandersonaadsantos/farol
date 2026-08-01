@@ -1,7 +1,11 @@
 # Perfis de assinatura Claude por conta GitHub
 
 Data: 2026-07-31
-Status: aprovado, aguardando plano de implementação
+Status: **ENTREGUE na v2.27.0** (01/08/2026). Todo item desta spec está no código e coberto
+por `test/claude-profiles.test.js` e `test/session-claude-profile.test.js`. Entrou depois,
+sem estar previsto aqui: o botão "Abrir sessão de login" por perfil (`openClaudeLoginSession`).
+A v2.27.1 trouxe o pente-fino que a rede de teste não tinha pegado (config malformado,
+injeção de shell no caminho do perfil, perfil removido com contas presas a ele).
 
 ## Problema
 

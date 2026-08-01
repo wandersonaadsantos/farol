@@ -168,3 +168,30 @@ test('a lacuna aparece nos pontos de atenção, com amostra dos arquivos', () =>
   assert.match(pts[0], /não cobriu 6 arquivo/, 'diz quantos');
   assert.match(pts[0], /a\.ts/, 'mostra amostra');
 });
+
+/* ---------- limiares: são decisão MEDIDA, não número redondo ----------
+   O CLAUDE.md registra que 1000 linhas OU 20 arquivos foi calibrado sobre o histórico
+   real (pega 28% dos PRs, 7 de 25) e que MAX_LOTES é o knob pra cauda de PRs gigantes.
+   Sem teste, esses valores eram três constantes exportadas que ninguém lia: mudar 1000
+   pra 100 triplicaria o custo de review sem nada reclamar. Isto não impede a mudança,
+   obriga a mudança a ser deliberada. */
+
+test('os limiares do fan-out são os medidos, e mudá-los é decisão consciente', () => {
+  assert.equal(fanout.FANOUT_MIN_LINES, 1000, 'limiar de linhas calibrado no histórico real');
+  assert.equal(fanout.FANOUT_MIN_FILES, 20, 'limiar de arquivos calibrado no histórico real');
+  assert.equal(fanout.MAX_LOTES, 4, 'teto de subagentes por PR (custo por revisão)');
+});
+
+test('os limiares publicados são os que o shouldFanOut de fato usa', () => {
+  // pina o acoplamento: constante exportada que não é a usada seria pior que nenhuma
+  const L = fanout.FANOUT_MIN_LINES, F = fanout.FANOUT_MIN_FILES;
+  assert.equal(fanout.shouldFanOut({ lines: L, changedFiles: 1 }), true, 'no limiar de linhas, fatia');
+  assert.equal(fanout.shouldFanOut({ lines: L - 1, changedFiles: 1 }), false, 'abaixo, não fatia');
+  assert.equal(fanout.shouldFanOut({ lines: 1, changedFiles: F }), true, 'no limiar de arquivos, fatia');
+  assert.equal(fanout.shouldFanOut({ lines: 1, changedFiles: F - 1 }), false, 'abaixo, não fatia');
+});
+
+test('planLotes nunca passa do teto publicado, nem no PR gigante', () => {
+  const arquivos = Array.from({ length: 300 }, (_, i) => ({ path: `src/m${i % 25}/f${i}.ts`, lines: 60 }));
+  assert.ok(fanout.planLotes(arquivos).length <= fanout.MAX_LOTES);
+});

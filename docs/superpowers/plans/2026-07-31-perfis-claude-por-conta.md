@@ -1,5 +1,14 @@
 # Perfis de assinatura Claude por conta GitHub — Implementation Plan
 
+> **PLANO CONCLUÍDO E ENTREGUE na v2.27.0 (01/08/2026).** As caixas abaixo ficaram todas
+> desmarcadas porque a execução foi feita direto, sem voltar pra marcar: quem abrir o
+> arquivo sem ler este aviso conclui que nada foi feito, e não é o caso. O que vale como
+> prova de execução é o código (`lib/parse.js`, `server.js`, `lib/engine/session.js`,
+> `ui/app.js`) e a rede de teste (`test/claude-profiles.test.js`,
+> `test/session-claude-profile.test.js`). Mantido como registro do desenho, não como
+> checklist vivo. A v2.27.1 corrigiu o que este plano não previu: config malformado,
+> injeção de shell no caminho do perfil e perfil removido deixando contas presas.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Permitir que cada conta GitHub monitorada pelo Farol use, opcionalmente, um perfil próprio de assinatura Claude (config dir logado numa conta separada), com fallback total pro campo legado `claudeConfigDir` — sem quebrar quem já usa o Farol hoje.

@@ -12,3 +12,7 @@ state/
 # workspace de execucao de planos (superpowers) e worktrees locais: scratch, nunca fonte
 .superpowers/
 .worktrees/
+scratchpad_test/
+
+# config local de ferramenta (aponta pra caminho da maquina, nao serve pra mais ninguem)
+.claude/

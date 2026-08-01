@@ -13,7 +13,7 @@ Um arquivo único com o Electron já embutido: não precisa de Node, npm nem dow
 - **Windows**: dê dois cliques em `Farol-Setup-vX.Y.Z.exe`. Instala e abre sozinho, sem extrair zip nem escolher arquivo.
 - **macOS**: dê dois cliques em `Farol-Instalar-mac.command` (na 1ª vez, botão direito > Abrir, por causa da quarentena de arquivos baixados).
 
-Ainda são necessários o **GitHub CLI** (`gh auth login`) e o **Claude Code** (`claude`) no PATH pra o Farol funcionar (é o que ele orquestra), mas não pra instalar. O instalador do Windows é gerado por `tools/make-installer.ps1` e o do macOS por `tools/make-offline-mac.sh` (rodar num Mac). Sem assinatura de código, o SmartScreen/Gatekeeper avisa uma vez.
+Ainda são necessários o **GitHub CLI** (`gh auth login`) e o **Claude Code** (`claude`) no PATH pra o Farol funcionar (é o que ele orquestra), mas não pra instalar. O instalador do Windows é gerado por `tools/make-installer.ps1` e o do macOS por `tools/make-offline-mac.sh` (roda em qualquer sistema: ele baixa o Electron do macOS e embute; o `.app` só é montado na hora da instalação, no Mac). Sem assinatura de código, o SmartScreen/Gatekeeper avisa uma vez.
 
 ### Jeito leve (precisa de Node)
 
