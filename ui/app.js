@@ -70,6 +70,121 @@ function confirmModal(opts) {
   });
 }
 
+/* ---------- operation feedback system (async operations transparency) ---------- */
+/* Unified feedback for polling, data loading, reviews, merges, chat, updates, settings, sessions.
+   showOp/updateOp/closeOp manage current operations. ACTIVE_OPS tracks all open widgets. */
+let ACTIVE_OPS = new Map();  // opId → {id, type, status, step, progress, eta, queuePos, startTime, cancellable, container, element}
+
+function showOp(opId, opts) {
+  opts = opts || {};
+  const op = {
+    id: opId,
+    type: opts.type || 'generic',
+    title: opts.title || 'Operação…',
+    status: 'running',
+    step: '',
+    progress: 0,
+    startTime: Date.now(),
+    cancellable: opts.cancellable || false,
+    container: opts.container || document.body,
+    inline: opts.inline || false
+  };
+  ACTIVE_OPS.set(opId, op);
+  if (op.inline) {
+    op.element = document.createElement('span');
+    op.element.className = 'op-inline-pill';
+  } else {
+    op.element = document.createElement('div');
+    op.element.className = 'op-widget';
+    op.element.setAttribute('data-op-id', opId);
+  }
+  op.container.appendChild(op.element);
+  updateOpDisplay(opId);
+  return op.element;
+}
+
+function updateOp(opId, update) {
+  const op = ACTIVE_OPS.get(opId);
+  if (!op) return;
+  Object.assign(op, {
+    step: update.step !== undefined ? update.step : op.step,
+    progress: update.progress !== undefined ? update.progress : op.progress,
+    eta: update.eta,
+    queuePos: update.queuePos !== undefined ? update.queuePos : op.queuePos,
+    status: update.status || op.status
+  });
+  updateOpDisplay(opId);
+}
+
+function closeOp(opId, result = 'done', message = '') {
+  const op = ACTIVE_OPS.get(opId);
+  if (!op) return;
+  op.status = result;  // 'done', 'error', 'cancelled'
+  op.message = message;
+  updateOpDisplay(opId);
+  if (result === 'done') {
+    setTimeout(() => {
+      if (op.element) op.element.remove();
+      ACTIVE_OPS.delete(opId);
+    }, 3000);
+  }
+}
+
+function updateOpDisplay(opId) {
+  const op = ACTIVE_OPS.get(opId);
+  if (!op || !op.element) return;
+  const isInline = op.element.classList.contains('op-inline-pill');
+  if (isInline) {
+    op.element.className = `op-inline-pill ${op.status}`;
+    const iconHtml = op.status === 'running'
+      ? '<span class="op-icon spin"></span>'
+      : op.status === 'done'
+      ? '<span class="op-icon done"></span>'
+      : '<span class="op-icon error"></span>';
+    const text = esc(op.step || op.title);
+    op.element.innerHTML = `${iconHtml} ${text}`;
+  } else {
+    op.element.className = `op-widget ${op.status}`;
+    const iconHtml = op.status === 'running'
+      ? '<span class="op-icon spin"></span>'
+      : op.status === 'done'
+      ? '<span class="op-icon done"></span>'
+      : '<span class="op-icon error"></span>';
+    const metaHtml = op.queuePos !== undefined
+      ? `<span>${op.queuePos > 0 ? `fila: ${op.queuePos}` : ''}</span>`
+      : op.eta
+      ? `<span>~${formatDuration(op.eta)}</span>`
+      : '';
+    const progressHtml = op.progress > 0 && op.progress < 100
+      ? `<div class="op-progress"><span>${op.progress}%</span><div class="op-bar"><div class="op-bar-fill" style="width: ${op.progress}%"></div></div></div>`
+      : '';
+    const cancelHtml = op.cancellable && op.status === 'running'
+      ? `<button class="op-cancel" data-op-id="${esc(opId)}">Cancelar</button>`
+      : '';
+    op.element.innerHTML = `
+      <div class="op-header"><span class="op-icon ${op.status === 'running' ? 'spin' : (op.status === 'done' ? 'done' : 'error')}"></span><span>${esc(op.title)}</span></div>
+      ${op.step ? `<div class="op-step">${esc(op.step)}</div>` : ''}
+      ${progressHtml}
+      ${metaHtml ? `<div class="op-meta">${metaHtml}</div>` : ''}
+      ${op.message && op.status !== 'running' ? `<div style="color: var(--muted); font-size: 12px; margin-top: 4px;">${esc(op.message)}</div>` : ''}
+      ${op.cancellable || cancelHtml ? `<div class="op-actions">${cancelHtml}</div>` : ''}
+    `;
+  }
+}
+
+function formatDuration(ms) {
+  if (ms < 60000) return `${Math.ceil(ms / 1000)}s`;
+  return `${Math.ceil(ms / 60000)}m`;
+}
+
+document.addEventListener('click', (e) => {
+  if (e.target.classList && e.target.classList.contains('op-cancel')) {
+    const opId = e.target.dataset.opId;
+    closeOp(opId, 'cancelled', 'Cancelado pelo usuário');
+    api('/api/cancel-op', { id: opId });
+  }
+});
+
 /* ---------- camada de contas (separação por identidade) ---------- */
 let SCOPE = localStorage.getItem('farol-scope') || 'all';   // 'all' ou o login de uma conta
 let silencedOpen = false;
@@ -367,7 +482,10 @@ function saveClaudeProfiles(profiles, defaultId) {
   // perfil recém-criado como o padrão global no MESMO patch (senão o perfil migrado
   // fica sem dono, ver achado da revisão final sobre legado invisível).
   if (defaultId !== undefined) { STATE.config.claudeProfileId = defaultId; patch.claudeProfileId = defaultId; }
-  api('/api/settings', patch);
+  api('/api/settings', patch).then(r => {
+    if (r?.ok) toast('ok', '✓ Configurações salvas', 2000);
+    else toast('error', 'Erro ao salvar configurações');
+  });
 }
 
 function renderClaudeProfiles() {
@@ -1119,10 +1237,30 @@ $('#delivBy').addEventListener('click', (e) => {
 function renderStatus() {
   const s = STATE;
   const pill = $('#statusPill');
-  if (s.status === 'checking') { pill.className = 'pill busy'; pill.textContent = 'verificando…'; }
-  else if (s.status === 'error') { pill.className = 'pill err'; pill.textContent = 'erro na checagem'; }
-  else if (s.status === 'starting') { pill.className = 'pill'; pill.textContent = 'iniciando…'; }
-  else { pill.className = 'pill ok'; pill.textContent = 'monitorando'; }
+  if (s.status === 'checking') {
+    pill.className = 'pill busy';
+    pill.textContent = 'verificando…';
+    // Start polling feedback widget
+    if (!ACTIVE_OPS.has('sys-polling')) {
+      showOp('sys-polling', {
+        type: 'polling',
+        title: 'Verificando PRs',
+        inline: true,
+        container: $('#metaLine') || $('#topbar')
+      });
+    }
+  } else if (s.status === 'error') {
+    pill.className = 'pill err';
+    pill.textContent = 'erro na checagem';
+    closeOp('sys-polling', 'error', (s.error || 'falha na checagem'));
+  } else if (s.status === 'starting') {
+    pill.className = 'pill';
+    pill.textContent = 'iniciando…';
+  } else {
+    pill.className = 'pill ok';
+    pill.textContent = 'monitorando';
+    closeOp('sys-polling', 'done', 'Verificação concluída');
+  }
 
   const sp = $('#sessionsPill');
   const term = (s.activeSessions || []).filter(x => x.mode === 'terminal').length;
@@ -1256,8 +1394,20 @@ function renderChat(c) {
   $('#btnChatStop').hidden = !running;
   const act = $('#chatActivity');
   act.hidden = !running;
-  if (running && !act.textContent) act.textContent = 'pensando…';
-  if (!running) act.textContent = '';
+  const chatOpId = `chat-${chatKey}`;
+  if (running) {
+    if (!ACTIVE_OPS.has(chatOpId)) {
+      showOp(chatOpId, {
+        type: 'chat',
+        title: 'Claude respondendo',
+        inline: true,
+        container: act
+      });
+    }
+    updateOp(chatOpId, { step: 'Pensando…' });
+  } else {
+    closeOp(chatOpId, 'done');
+  }
   if (stick || running) box.scrollTop = box.scrollHeight;
 }
 $('#btnChatClose').onclick = closeChat;
@@ -1743,7 +1893,7 @@ $('#myPRs').addEventListener('click', (e) => {
       if (!ok) return;
       mrg.disabled = true; mrg.textContent = 'Mergeando…';
       api('/api/self-review/merge', { url: mrg.dataset.url }).then(r => {
-        if (r?.ok) return; // sucesso: o state push atualiza a tela
+        if (r?.ok) { toast('ok', '✓ Merge realizado com sucesso', 3000); return; } // sucesso: o state push atualiza a tela
         if (r?.blocked === 'policy') {
           mergeBlockedByPolicy.add(key); renderMyPRs();
           toast('info', 'A branch de destino tem proteção. Escolha: Auto-merge (espera os requisitos) ou Merge (admin).', 6000);
@@ -2626,7 +2776,17 @@ $('#btnKudos').onclick = async () => {
 };
 $('#btnHealth').onclick = () => api('/api/tool', { name: 'health' });
 $('#btnDoctor').onclick = async () => { await get('/api/doctor'); };
-$('#btnUpdateCheck').onclick = async () => { await get('/api/doctor'); toast('ok', 'Verificação de atualização feita.', 2500); };
+$('#btnUpdateCheck').onclick = async () => {
+  const btn = $('#btnUpdateCheck');
+  const opId = 'sys-update-check';
+  btn.disabled = true;
+  btn.textContent = '↑ Verificando…';
+  showOp(opId, { type: 'update', title: 'Verificando atualizações', inline: true, container: $('#updateBox') || document.body });
+  await get('/api/doctor');
+  closeOp(opId, 'done', 'Verificação concluída');
+  setTimeout(() => { btn.disabled = false; btn.textContent = '↑ Verificar agora'; }, 1000);
+  toast('ok', 'Verificação de atualização feita.', 2500);
+};
 $('#btnLogRefresh').onclick = loadLog;
 
 $('#panorama').addEventListener('click', (e) => {

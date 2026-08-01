@@ -1015,3 +1015,107 @@ body.electron .chat-head { padding-right: 150px; }
 .cmd-item:hover, .cmd-item.sel { background: var(--surface-2); }
 .cmd-hint { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
 .cmd-empty { padding: 16px; color: var(--muted); font-size: 13px; }
+
+/* ---------- operation feedback widgets ---------- */
+/* Unified feedback visual system for async operations: showing current step, progress, and status */
+
+/* Full operation widget: focused operations with progress and steps */
+.op-widget {
+  display: flex; flex-direction: column; gap: 10px;
+  border-left: 3px solid var(--info);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 9px; padding: 12px 14px;
+  font-size: 13px; max-width: 340px; transition: all .2s ease;
+}
+.op-widget.done {
+  border-left-color: var(--ok);
+  opacity: .7; animation: opFadeOut 3s ease forwards;
+}
+.op-widget.error {
+  border-left-color: var(--danger);
+}
+
+/* Header with icon and title */
+.op-header {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 600; color: var(--text);
+}
+.op-icon {
+  width: 16px; height: 16px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.op-icon.spin {
+  width: 13px; height: 13px; border: 2px solid var(--info);
+  border-top-color: transparent; animation: opSpin .8s linear infinite;
+}
+.op-icon.done::after {
+  content: "✓"; color: var(--ok); font-weight: 700; font-size: 14px;
+}
+.op-icon.error::after {
+  content: "✕"; color: var(--danger); font-weight: 700; font-size: 14px;
+}
+
+/* Step text and metadata */
+.op-step { color: var(--muted); font-size: 12.5px; margin: 2px 0 0; }
+.op-meta {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--muted); font-size: 11.5px;
+}
+.op-progress {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--faint);
+}
+.op-bar {
+  flex: 1; height: 4px; background: var(--border);
+  border-radius: 2px; overflow: hidden;
+}
+.op-bar-fill {
+  height: 100%; background: var(--info);
+  transition: width .3s ease;
+}
+
+/* Action buttons */
+.op-actions {
+  display: flex; gap: 6px; margin-top: 4px;
+}
+.op-cancel {
+  flex: 1; padding: 6px 10px; font-size: 12px;
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 6px; color: var(--muted); cursor: pointer;
+  transition: all .15s ease; font-weight: 550;
+}
+.op-cancel:hover { border-color: var(--danger); color: var(--danger); }
+
+/* Inline pill: compact feedback for background operations */
+.op-inline-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 99px;
+  font-size: 11px; font-weight: 600;
+  background: var(--info-soft); color: var(--info);
+  border: 1px solid transparent; white-space: nowrap;
+}
+.op-inline-pill.done {
+  background: var(--ok-soft); color: var(--ok);
+}
+.op-inline-pill.error {
+  background: var(--danger-soft); color: var(--danger);
+}
+.op-inline-pill .op-icon {
+  width: 11px; height: 11px;
+}
+.op-inline-pill .op-icon.spin {
+  width: 10px; height: 10px; border-width: 1.5px;
+}
+
+/* Spinner animation (reuses existing pattern) */
+@keyframes opSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Fade out animation for completed operations */
+@keyframes opFadeOut {
+  0% { opacity: .7; }
+  90% { opacity: .7; }
+  100% { opacity: 0; }
+}
