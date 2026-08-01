@@ -35,9 +35,42 @@ test('config aplica os defaults conhecidos', () => {
   const { config } = new Engine();
   assert.equal(config.port, 47170);
   assert.equal(config.reviewModel, '', 'default = modelo bom (Opus), não econômico');
+  assert.equal(config.reviewEffort, '', 'default = sem flag, o CLI decide pelo modelo');
   assert.equal(config.autoPushback, true);
   assert.ok(Array.isArray(config.accounts), 'accounts normalizado em array');
   assert.equal(typeof config.people, 'object', 'people migrado/normalizado');
+});
+
+test('config.json com reviewModel/reviewEffort inválido é saneado no BOOT', () => {
+  // Estes dois campos entram na linha de comando passada a um shell. Até a v2.27.0 só o
+  // caminho HTTP validava, então um config.json editado à mão passava cru até o spawn.
+  fs.mkdirSync(HOME, { recursive: true });
+  const arq = path.join(HOME, 'config.json');
+  const antes = fs.existsSync(arq) ? fs.readFileSync(arq, 'utf8') : null;
+  fs.writeFileSync(arq, JSON.stringify({ reviewModel: 'opus && calc.exe', reviewEffort: 'ultracode' }));
+  try {
+    const { config } = new Engine();
+    assert.equal(config.reviewModel, '', 'modelo com metacaractere de shell vira o padrão');
+    assert.equal(config.reviewEffort, '', 'nível session-only vira o padrão');
+  } finally {
+    if (antes === null) { try { fs.unlinkSync(arq); } catch { /* best-effort */ } }
+    else fs.writeFileSync(arq, antes);
+  }
+});
+
+test('config.json com reviewModel/reviewEffort válido é preservado no boot', () => {
+  fs.mkdirSync(HOME, { recursive: true });
+  const arq = path.join(HOME, 'config.json');
+  const antes = fs.existsSync(arq) ? fs.readFileSync(arq, 'utf8') : null;
+  fs.writeFileSync(arq, JSON.stringify({ reviewModel: 'fable', reviewEffort: 'xhigh' }));
+  try {
+    const { config } = new Engine();
+    assert.equal(config.reviewModel, 'fable');
+    assert.equal(config.reviewEffort, 'xhigh');
+  } finally {
+    if (antes === null) { try { fs.unlinkSync(arq); } catch { /* best-effort */ } }
+    else fs.writeFileSync(arq, antes);
+  }
 });
 
 test('snapshot() devolve um estado serializável com a versão', () => {

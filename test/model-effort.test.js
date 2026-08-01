@@ -1,0 +1,195 @@
+'use strict';
+// Modelo e esforço das sessões autônomas: saneamento (lib/parse) e montagem da linha de
+// comando (lib/engine/session.buildModelFlags). Runner nativo do Node, ZERO dependências.
+//
+// Por que este arquivo existe: estes são os ÚNICOS valores de configuração que entram na
+// linha de comando montada por concatenação e passada a um shell. Até a v2.27.0 a
+// montagem morava dentro do runClaudeStream, que faz spawn, e o stub suprimia a flag, ou
+// seja: era impossível provar o que ia pra linha. Extrair a função pura resolveu isso.
+const os = require('node:os');
+const path = require('node:path');
+process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-model-' + process.pid);
+
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const { sanitizeModel, sanitizeEffort, effortForModel, MODEL_ALIASES, EFFORT_LEVELS } = require('../lib/parse');
+const { buildModelFlags } = require('../lib/engine/session');
+const { modelLabel } = require('../lib/format');
+
+/* ---------- sanitizeModel ---------- */
+
+test('sanitizeModel: vazio e os aliases expostos passam', () => {
+  assert.equal(sanitizeModel(''), '');
+  assert.equal(sanitizeModel(null), '');
+  assert.equal(sanitizeModel(undefined), '');
+  for (const a of MODEL_ALIASES) assert.equal(sanitizeModel(a), a, `alias ${a}`);
+});
+
+test('sanitizeModel: normaliza espaço e caixa', () => {
+  assert.equal(sanitizeModel('  SONNET '), 'sonnet');
+  assert.equal(sanitizeModel('Opus'), 'opus');
+});
+
+test('sanitizeModel: alias fora da lista é rejeitado', () => {
+  // opusplan: `claude -p` não tem plan mode, a sessão inteira cairia pra Sonnet
+  assert.equal(sanitizeModel('opusplan'), null);
+  // default: indistinguível de '' porque o Farol nunca seta ANTHROPIC_MODEL
+  assert.equal(sanitizeModel('default'), null);
+  assert.equal(sanitizeModel('auto'), null);
+  assert.equal(sanitizeModel('gpt-4o'), null);
+});
+
+test('sanitizeModel: rejeita metacaractere de shell (injeção)', () => {
+  // este é o teste que importa: o valor vai pra uma string passada a cmd.exe / /bin/sh
+  for (const mau of [
+    'opus && calc.exe',
+    'opus; rm -rf /',
+    'opus`id`',
+    'opus$(id)',
+    'opus | tee /tmp/x',
+    'opus > /tmp/x',
+    'opus\nrm -rf /',
+    'opus "quebra"',
+    "opus 'quebra'",
+    'opus[1m]',        // colchete é glob pro /bin/sh, casaria com um arquivo `opus1`
+    'sonnet[1m]',
+  ]) {
+    assert.equal(sanitizeModel(mau), null, `deveria rejeitar: ${JSON.stringify(mau)}`);
+  }
+});
+
+test('sanitizeModel: aceita nome completo validado (escotilha pra modelo novo)', () => {
+  assert.equal(sanitizeModel('claude-opus-5'), 'claude-opus-5');
+  assert.equal(sanitizeModel('claude-haiku-4-5-20251001'), 'claude-haiku-4-5-20251001');
+  // e só o que casa a regex estrita
+  assert.equal(sanitizeModel('claude-opus-5; whoami'), null);
+  assert.equal(sanitizeModel('claude opus'), null);
+  assert.equal(sanitizeModel('opus-5'), null, 'sem o prefixo claude- não passa');
+  assert.equal(sanitizeModel('claude-' + 'a'.repeat(80)), null, 'teto de tamanho');
+});
+
+/* ---------- sanitizeEffort ---------- */
+
+test('sanitizeEffort: vazio e os 4 níveis passam', () => {
+  assert.equal(sanitizeEffort(''), '');
+  assert.equal(sanitizeEffort(null), '');
+  for (const n of EFFORT_LEVELS) assert.equal(sanitizeEffort(n), n, `nível ${n}`);
+  assert.deepEqual(EFFORT_LEVELS, ['low', 'medium', 'high', 'xhigh']);
+});
+
+test('sanitizeEffort: normaliza espaço e caixa', () => {
+  assert.equal(sanitizeEffort('  HIGH '), 'high');
+});
+
+test('sanitizeEffort: rejeita os session-only e o desconhecido', () => {
+  // max e ultracode são session-only (nem o settings.json do CLI os aceita) e a revisão
+  // headless roda desacompanhada com timeout de 30 min
+  assert.equal(sanitizeEffort('max'), null);
+  assert.equal(sanitizeEffort('ultracode'), null);
+  assert.equal(sanitizeEffort('auto'), null);
+  assert.equal(sanitizeEffort('high;id'), null);
+  assert.equal(sanitizeEffort('altíssimo'), null);
+});
+
+/* ---------- effortForModel ---------- */
+
+test('effortForModel: Haiku nunca leva esforço', () => {
+  // nenhum Haiku aparece na matriz de esforço do CLI
+  assert.equal(effortForModel('haiku', 'xhigh'), '');
+  assert.equal(effortForModel('haiku', 'low'), '');
+});
+
+test('effortForModel: nos demais o nível passa (o CLI decide o resto)', () => {
+  assert.equal(effortForModel('opus', 'xhigh'), 'xhigh');
+  assert.equal(effortForModel('sonnet', 'low'), 'low');
+  assert.equal(effortForModel('fable', 'high'), 'high');
+  assert.equal(effortForModel('', 'high'), 'high', 'sem modelo, o esforço ainda vale');
+  assert.equal(effortForModel('opus', ''), '', 'sem esforço, nada');
+});
+
+/* ---------- buildModelFlags ---------- */
+
+test('buildModelFlags: sem config nenhuma, nenhuma flag', () => {
+  assert.equal(buildModelFlags({}), '');
+  assert.equal(buildModelFlags(null), '');
+  assert.equal(buildModelFlags({ reviewModel: '', reviewEffort: '' }), '');
+});
+
+test('buildModelFlags: só modelo devolve exatamente a flag de antes (regressão)', () => {
+  // byte a byte igual ao que o Farol montava até a v2.27.0: se isto mudar, toda
+  // instalação que já usava sonnet/haiku muda de comportamento sem aviso
+  assert.equal(buildModelFlags({ reviewModel: 'sonnet' }), ' --model sonnet');
+  assert.equal(buildModelFlags({ reviewModel: 'haiku' }), ' --model haiku');
+  assert.equal(buildModelFlags({ reviewModel: 'opus' }), ' --model opus');
+});
+
+test('buildModelFlags: modelo e esforço juntos, nessa ordem', () => {
+  assert.equal(buildModelFlags({ reviewModel: 'opus', reviewEffort: 'xhigh' }), ' --model opus --effort xhigh');
+  assert.equal(buildModelFlags({ reviewModel: 'fable', reviewEffort: 'low' }), ' --model fable --effort low');
+});
+
+test('buildModelFlags: esforço sem modelo é válido', () => {
+  assert.equal(buildModelFlags({ reviewEffort: 'high' }), ' --effort high');
+});
+
+test('buildModelFlags: Haiku derruba o esforço', () => {
+  assert.equal(buildModelFlags({ reviewModel: 'haiku', reviewEffort: 'xhigh' }), ' --model haiku');
+});
+
+test('buildModelFlags: com stub não anexa nada', () => {
+  // pina o contrato do qual TODA a bateria stubada depende: o stub é um binário falso
+  // que não conhece --model nem --effort
+  assert.equal(buildModelFlags({ reviewModel: 'opus', reviewEffort: 'xhigh' }, { stub: true }), '');
+});
+
+test('buildModelFlags: config envenenada nunca chega na linha', () => {
+  // defesa em profundidade: mesmo que o config.json escape do saneamento de boot
+  assert.equal(buildModelFlags({ reviewModel: 'opus && calc.exe', reviewEffort: 'high;id' }), '');
+  assert.equal(buildModelFlags({ reviewModel: 'opus[1m]' }), '');
+  assert.equal(buildModelFlags({ reviewModel: { toString: () => 'opus; id' } }), '');
+});
+
+test('buildModelFlags: a linha montada não tem metacaractere de shell', () => {
+  // invariante que vale nos DOIS shells (cmd.exe e /bin/sh)
+  const PERIGO = /[`$;&|<>()*?[\]{}'"\\]/;
+  const base = 'claude -p --output-format stream-json --verbose --dangerously-skip-permissions';
+  const combos = [];
+  for (const m of ['', ...MODEL_ALIASES, 'claude-opus-5']) {
+    for (const e of ['', ...EFFORT_LEVELS]) combos.push({ reviewModel: m, reviewEffort: e });
+  }
+  for (const cfg of combos) {
+    const flags = buildModelFlags(cfg);
+    assert.equal(PERIGO.test(flags), false, `flags perigosas pra ${JSON.stringify(cfg)}: ${flags}`);
+    assert.equal(PERIGO.test(base + flags), false);
+  }
+});
+
+/* ---------- modelLabel ---------- */
+
+test('modelLabel: versão em duas partes segue igual (regressão)', () => {
+  assert.equal(modelLabel('claude-opus-4-8'), 'Opus 4.8');
+  assert.equal(modelLabel('claude-sonnet-4-5'), 'Sonnet 4.5');
+  assert.equal(modelLabel('claude-3-5-haiku'), 'Haiku 3.5');
+});
+
+test('modelLabel: geração de major único agora traz a versão', () => {
+  // antes o extrator exigia dois números separados por hífen, então claude-opus-5
+  // devolvia só "Opus" e o eixo byModel do Consumo perdia a versão
+  assert.equal(modelLabel('claude-opus-5'), 'Opus 5');
+  assert.equal(modelLabel('claude-sonnet-5'), 'Sonnet 5');
+});
+
+test('modelLabel: conhece a família Fable', () => {
+  assert.equal(modelLabel('claude-fable-5'), 'Fable 5');
+  assert.equal(modelLabel('fable'), 'Fable');
+});
+
+test('modelLabel: não confunde data com versão', () => {
+  assert.equal(modelLabel('claude-haiku-4-5-20251001'), 'Haiku 4.5');
+});
+
+test('modelLabel: vazio e família desconhecida', () => {
+  assert.equal(modelLabel(''), '');
+  assert.equal(modelLabel(null), '');
+  assert.equal(modelLabel('gpt-4o'), 'gpt-4o');
+});
