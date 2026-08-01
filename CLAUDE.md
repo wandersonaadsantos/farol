@@ -112,19 +112,56 @@ $env:CLAUDE_CONFIG_DIR="C:\Users\voce\.claude-pessoal"; claude login
 - **Gate de qualidade** (rodar antes de QUALQUER entrega): `npm run check && npm test`. O `check` valida a sintaxe (`node --check` em `server.js`/`main.js`/`ui/app.js`); o `test` roda a rede (`node --test`, runner nativo, ZERO dependências): funções puras + smoke de boot com `FAROL_HOME` temporário. Verde nos dois é pré-requisito. A rede vive em `test/` e é o que protege a decomposição do engine em ondas (ver `docs/QUALITY.md`, o contrato de qualidade extraído do lace-be-fastify).
 - As buscas `gh search prs` são read-only; rodar `check` contra o GitHub real é seguro.
 
-## Release
+## Release (checklist obrigatório)
 
-1. Bump de `version` no `package.json` (semver).
-2. `powershell -ExecutionPolicy Bypass -File tools\make-package.ps1` gera `dist/farol-vX.Y.Z.zip` auditado (leve, sem node_modules; serve pros dois SOs pra quem já tem Node).
-3. Quem tem instalação local atualiza pelo botão em Sistema (a fonte em `~/Documents/farol` com versão maior acende o botão) ou rodando o instalador da versão nova.
+Toda release segue estes passos na ordem. Não pule nenhum.
 
-**Publicar update pras cópias distribuídas (auto-update):**
-- `powershell -ExecutionPolicy Bypass -File tools\publish-release.ps1` builda o pacote leve + o instalador único Windows (`Farol-Setup-vX.Y.Z.exe`) e cria/atualiza a release `vX.Y.Z` em `wandersonaadsantos/farol`. As cópias instaladas (>= 1.15.0) leem a última release via `gh` (`updateRepo` no config, default `wandersonaadsantos/farol`) e se atualizam sozinhas no próximo ciclo, baixando só o pacote leve (o Electron já está instalado).
-- Fonte de verdade: a RELEASE do GitHub (git). Por padrão o app instalado atualiza só a partir das releases, nunca de código local não-mergeado (uma fonte só). A pasta-fonte local é opt-in: só vale se `config.updateSource` apontar um caminho explícito (teste de build local de dev).
-- macOS: `bash tools/make-offline-mac.sh` (roda em qualquer SO, Apple Silicon; `ARCH=x64` pra Intel) e anexe com `gh release upload vX.Y.Z dist/Farol-Instalar-mac.command --repo wandersonaadsantos/farol`. BETA: o runtime no macOS nunca foi validado num Mac real; valide via "Exportar diagnóstico".
-- Bootstrap: cópias antigas (< 1.15.0) não têm o auto-update; instale a 1.15.0 uma vez (offline). Daí pra frente, automático.
+### 1. Preparar a versão
 
-**Distribuição offline (sem pré-requisitos):**
-- Windows: `powershell -ExecutionPolicy Bypass -File tools\make-installer.ps1` gera `dist/Farol-Setup-vX.Y.Z.exe` (NSIS, Electron embutido). A pessoa dá **um** duplo clique: instala e abre, sem extrair zip nem escolher arquivo. Sem Node/npm/download/terminal.
-- macOS: `bash tools/make-offline-mac.sh` (em QUALQUER SO) gera `dist/Farol-Instalar-mac.command` (autoextraível único, Electron darwin embutido como zip). Duplo clique instala; na 1ª vez, botão direito > Abrir (quarentena, sem assinatura). O `.app` é montado no Mac na instalação (o unzip do Mac preserva os symlinks), então o Gatekeeper não bloqueia por assinatura. Default arm64; `ARCH=x64` pra Intel.
-- Nenhum dos dois é assinado/notarizado (exige conta paga): SmartScreen/Gatekeeper ainda avisam uma vez.
+- [ ] Definir a versão nova em semver (`major.minor.patch`). A referência é a **última release publicada no GitHub**, não a versão no fonte (que pode ter sido bumped sem publicar).
+- [ ] Bump de `version` no `package.json`.
+- [ ] Atualizar `CHANGELOG.md`: criar seção `## vX.Y.Z` com novidades e correções. Se houver versões intermediárias não publicadas, consolidar tudo numa seção só.
+- [ ] Atualizar `RELEASE_NOTES` no `ui/app.js`: adicionar entrada `['X.Y.Z', ['item 1', 'item 2']]` no topo do array. Se consolidou versões, uma entrada só. Verificar que a versão anterior publicada também tem entrada (corrigir se faltar).
+
+### 2. Gate de qualidade
+
+```
+npm run check && npm test
+```
+
+Verde nos dois é pré-requisito. Não publique com teste vermelho.
+
+### 3. Commit e push
+
+- [ ] Commit com mensagem descritiva (ex.: `chore: release v2.27.0`).
+- [ ] Push pra `main`.
+- [ ] **Conta do gh**: o repo é `wandersonaadsantos/farol` (conta pessoal). Antes de publicar, verificar: `gh auth status`. Se a conta ativa for `wandersonbiuder`, trocar: `gh auth switch --user wandersonaadsantos`.
+
+### 4. Publicar a release
+
+```
+powershell -ExecutionPolicy Bypass -File tools\publish-release.ps1
+```
+
+O script faz tudo: builda o pacote leve (`dist/farol-vX.Y.Z.zip`, auditado) + instalador Windows (`dist/Farol-Setup-vX.Y.Z.exe`, NSIS), extrai notas do `CHANGELOG.md`, anexa rodapé de `tools/release-footer.md` e cria a release `vX.Y.Z` no GitHub. Se a release já existe, atualiza notas e sobrescreve os artefatos.
+
+### 5. Pós-publicação
+
+- [ ] Verificar a release no GitHub (notas, artefatos).
+- [ ] **Restaurar a conta do gh pra trabalho**: `gh auth switch --user wandersonbiuder`.
+- [ ] macOS (quando aplicável): `bash tools/make-offline-mac.sh` e anexar com `gh release upload vX.Y.Z dist/Farol-Instalar-mac.command --repo wandersonaadsantos/farol`.
+
+### Referência rápida
+
+| Artefato | Comando | Destino |
+|---|---|---|
+| Pacote leve (update) | `tools\make-package.ps1` | `dist/farol-vX.Y.Z.zip` |
+| Instalador Windows | `tools\make-installer.ps1` | `dist/Farol-Setup-vX.Y.Z.exe` |
+| Release GitHub | `tools\publish-release.ps1` | ambos acima + release |
+| Instalador macOS | `tools/make-offline-mac.sh` | `dist/Farol-Instalar-mac.command` |
+
+**Auto-update**: cópias instaladas (>= 1.15.0) leem a última release via `gh` e se atualizam sozinhas no próximo ciclo. Bootstrap: cópias antigas precisam instalar 1.15.0 uma vez (offline).
+
+**Fonte de verdade**: a release do GitHub. O app instalado atualiza só a partir das releases, nunca de código local não mergeado (a menos que `config.updateSource` aponte um caminho explícito).
+
+**Distribuição offline**: o instalador Windows (`.exe`, NSIS) e o macOS (`.command`, autoextraível) não precisam de Node/npm/terminal. Nenhum dos dois é assinado/notarizado (SmartScreen/Gatekeeper avisam uma vez).
