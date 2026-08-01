@@ -78,7 +78,7 @@
 
     <div id="activeWrap" hidden>
       <div class="section-head">
-        <h2>Analisando agora <span id="activeCount" class="count"></span></h2>
+        <h2>Analisando agora <span id="activeCount" class="count ambient"></span></h2>
         <span id="activeWaiting" class="section-sub"></span>
       </div>
       <p class="section-desc">Sessões do Claude rodando neste momento, com o que cada uma está fazendo ao vivo. Dá pra cancelar no meio.</p>
@@ -113,14 +113,14 @@
 
     <div id="myPRsWrap" hidden>
       <div class="section-head">
-        <h2>Meus PRs <span id="myPRsCount" class="count" hidden></span></h2>
+        <h2>Meus PRs <span id="myPRsCount" class="count ambient" hidden></span></h2>
       </div>
       <p class="section-desc">Autoanálise dos seus próprios PRs: veredito e dicas antes de pedir review. Só pra você, nada é postado. Os botões Reviewers e Merge são as únicas ações que escrevem no GitHub daqui.</p>
       <div id="myPRs" class="cards"></div>
     </div>
 
     <div id="panoramaSection" class="section-head">
-      <h2>Panorama <span id="panoCount" class="count" hidden></span></h2>
+      <h2>Panorama <span id="panoCount" class="count ambient" hidden></span></h2>
       <span id="panoOwners" class="section-sub"></span>
     </div>
     <div id="panorama" class="rows"></div>
@@ -463,12 +463,11 @@
             <div class="set-row" id="sys-row-identity">
               <div class="set-txt">
                 <label class="set-title" for="setIdentityStyle">Identidade nos cards</label>
-                <p class="set-desc">Quanto marcador de conta aparece em cada card na visão Todas. Vale só neste computador.</p>
+                <p class="set-desc">Quanto marcador de conta aparece em cada card na visão Todas. A borda esquerda do card não entra aqui: ela indica urgência. Vale só neste computador.</p>
               </div>
               <div class="set-ctl">
                 <select id="setIdentityStyle">
-                  <option value="Barra + etiqueta">Barra + etiqueta</option>
-                  <option value="Só barra">Só barra</option>
+                  <option value="Ponto + etiqueta">Ponto + etiqueta</option>
                   <option value="Só ponto">Só ponto</option>
                 </select>
               </div>

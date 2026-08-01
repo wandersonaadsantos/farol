@@ -77,9 +77,16 @@ let CURRENT_TAB = 'radar';   // a barra de contas só filtra o Radar; nas outras
 // espelha a aba no <body> pro CSS ajustar a largura útil (a aba Sistema tem sidebar e
 // precisa de mais). switchTab não roda no boot, então a aba inicial é marcada aqui.
 document.body.dataset.tab = CURRENT_TAB;
+function identGuardada() {
+  const v = localStorage.getItem('farol-identity-style');
+  if (v === 'Só ponto') return v;
+  return 'Ponto + etiqueta';   // cobre o default, 'Barra + etiqueta' e o antigo 'Só barra'
+}
 const TWEAK = {
   muted: localStorage.getItem('farol-muted-handling') || 'Recolher',   // Recolher | Esmaecer | Ocultar
-  ident: localStorage.getItem('farol-identity-style') || 'Barra + etiqueta', // Barra + etiqueta | Só barra | Só ponto
+  // 'Só barra' saiu quando a borda esquerda virou urgência: quem tinha essa opção ficaria
+  // sem NENHUM marcador de conta. Migra pro equivalente mais informativo.
+  ident: identGuardada(), // Ponto + etiqueta | Só ponto
 };
 let ACCT = {};        // user(lower) -> metadados da conta
 let OWNER2USER = {};  // owner/org(lower) -> user dono
@@ -117,12 +124,16 @@ function acctMark(pr, opts) {
   const a = acctOf(pr);
   const all = SCOPE === 'all';
   const multi = multiAccount();
-  const showBar = TWEAK.ident !== 'Só ponto' && multi && !opts.noBar;
-  const showChip = TWEAK.ident === 'Barra + etiqueta' && all && multi;
-  const showDot = TWEAK.ident === 'Só ponto' && all && multi;
+  // A BARRA ESQUERDA NÃO É MAIS A COR DA CONTA. Ela passou a significar URGÊNCIA, e quem
+  // a pinta é quem sabe o estado: a fila (âmbar), as decisões (âmbar, ou vermelho quando
+  // tem blocker), as sessões ativas (azul) e Meus PRs (verde/vermelho pelo veredito).
+  // Motivo: âmbar em tudo faz âmbar não querer dizer nada. A conta continua visível no
+  // ponto e na etiqueta, que já existiam. Ver o delta 2e do documento de design.
+  const showChip = TWEAK.ident === 'Ponto + etiqueta' && all && multi;
+  const showDot = all && multi;
   const varStyle = a ? `--ac:${a.color};--ac-soft:${a.soft};--ac-ink:${a.ink};` : '';
   const dim = dimmedPr(pr) ? 'opacity:.55;' : '';
-  const barStyle = (showBar && a) ? `border-left:3px solid ${a.color};` : '';
+  const barStyle = '';
   const chip = (showChip && a) ? `<span class="acct-chip">${esc(a.label)}</span>` : '';
   const dot = (showDot && a) ? `<span class="acct-dot"></span>` : '';
   return { style: varStyle + dim + barStyle, varStyle, dim, chip, dot, acct: a };
@@ -1252,7 +1263,7 @@ function renderDecisions() {
     const m = acctMark(d);
     const author = (d.pr && d.pr.author) || d.author || '';
     return `
-    <div class="card decision" data-id="${esc(d.id)}" data-url="${esc(d.pr?.url || '')}" style="${m.style}">
+    <div class="card decision ${d.verdict === 'approve' ? 'urgent' : 'blocked'}" data-id="${esc(d.id)}" data-url="${esc(d.pr?.url || '')}" style="${m.style}">
       <div class="decision-head">
         <span class="verdict ${d.verdict === 'approve' ? 'approve' : 'rc'}">${d.verdict === 'approve' ? 'APROVÁVEL' : 'COM BLOCKER'}</span>
         <a class="dec-ref" href="${esc(d.pr?.url || '#')}" target="_blank" rel="noreferrer">${esc(d.key)}</a>
@@ -1371,7 +1382,7 @@ function renderQueue() {
   box.innerHTML = q.map(pr => {
     const m = acctMark(pr);
     return `
-    <div class="card pr-card" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" style="${m.style}">
+    <div class="card pr-card urgent" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" style="${m.style}">
       ${m.dot}${avatar(pr.author)}
       <div class="info">
         <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}${pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : ''}</div>

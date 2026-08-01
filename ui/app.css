@@ -23,6 +23,14 @@
   --logo-tower: #e7ecf5;
   --shadow: 0 8px 24px rgba(0, 0, 0, .35);
   --radius: 12px;
+  /* Cores por SIGNIFICADO, não por componente (delta 2e do documento de design).
+     São apelidos das que já existem: nenhuma cor nova entra no app. Servem pra a barra
+     esquerda do card dizer o ESTADO em vez da conta. */
+  --urgent: var(--accent);    /* precisa de você */
+  --working: var(--info);     /* o Farol está rodando */
+  --settled: var(--ok);       /* resolvido, arquivo */
+  --blocked: var(--danger);   /* trava a aprovação */
+  --ambient: var(--border);   /* contexto, sem ação */
   /* escala de espaçamento. Usada só pelas regras da aba Sistema (.sys-* e .set-*);
      o resto do arquivo segue com os literais que já tinha, pra não virar refatoração
      de 750 linhas. Os seis valores são os que a referência de design repete. */
@@ -178,7 +186,10 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 /* descrição da seção: uma classe só pro app inteiro. Largura de leitura (640px) e
    text-wrap:pretty (sem linha órfã no fim) valiam só na aba Sistema. */
 .section-desc { margin: -2px 0 var(--sp-3); max-width: 640px; color: var(--muted); font-size: 13px; text-wrap: pretty; }
+/* âmbar = precisa de você. Se toda contagem é âmbar, nenhuma é urgente: as seções de
+   contexto (Panorama, Recentes, Entregas...) usam a variante neutra. */
 .count { font-size: 11.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 99px; padding: 2px 9px; }
+.count.ambient { color: var(--muted); background: var(--surface-2); border: 1px solid var(--border); }
 .row-actions { display: flex; gap: 8px; }
 
 /* ---------- botões ---------- */
@@ -221,12 +232,17 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
   border-radius: var(--radius); padding: 14px 16px;
   transition: border-color .15s ease;
 }
-.pr-card { display: flex; align-items: center; gap: 14px; }
+/* grid, não flex: com flex-wrap as ações quebram no MEIO (um botão sobe, outro desce).
+   No grid elas caem inteiras pra própria linha. Volta a linha única a partir de 820px. */
+.pr-card { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 11px; align-items: start; }
+.pr-card .pr-actions { grid-column: 1 / -1; margin-top: 10px; }
 .pr-card:hover { border-color: color-mix(in srgb, var(--ac) 45%, var(--border)); }
 .pr-card .info { flex: 1; min-width: 0; }
 .pr-ref { font-weight: 650; font-size: 13px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pr-ref a { color: var(--ac); }
-.pr-title { margin-top: 2px; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* sem ellipsis: o título é a informação que faz você decidir se vai revisar, e cortá-lo
+   custa mais que a linha extra (delta 2e) */
+.pr-title { margin-top: 2px; font-size: 14px; text-wrap: pretty; }
 .pr-sub { color: var(--muted); font-size: 12px; margin-top: 3px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 .pr-sub .author { color: var(--text); font-weight: 600; }
 .pr-actions { display: flex; gap: 8px; flex: none; align-items: center; }
@@ -246,7 +262,7 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 .avatar.sm { width: 26px; height: 26px; font-size: 11px; }
 
 /* ---------- meus PRs ---------- */
-.mypr-card { display: block; border-left: 3px solid var(--border); }
+.mypr-card { display: block; border-left: 3px solid var(--ambient); }
 .mypr-card.ok { border-left-color: var(--ok); }
 .mypr-card.warn { border-left-color: var(--danger); }
 .mypr-top { display: flex; align-items: center; gap: 14px; }
@@ -273,10 +289,18 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 .rows { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .rows:empty { display: none; }
 .row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 14px; background: var(--surface);
-  border-bottom: 1px solid var(--border); font-size: 13.5px;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 3px 10px; align-items: baseline;
+  padding: 11px 13px; background: var(--surface);
+  border-bottom: 1px solid var(--border); font-size: 13px;
 }
+/* o ponto ocupa as duas linhas, à esquerda de tudo */
+.row .status-dot { grid-row: 1 / 3; align-self: center; }
+/* linha 1: referência (col 2) e horário (col 3, encostado à direita) */
+.row .ref { grid-column: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .when { grid-column: 3; grid-row: 1; }
+/* linha 2: título e o resto (badges, autor, botão), ocupando a largura toda */
+.row .title { grid-column: 2 / -1; }
+.row .who, .row .badge, .row .settled, .row .rev-chip, .row .btn { grid-column: 2 / -1; justify-self: start; }
 .row:last-child { border-bottom: 0; }
 .row:hover { background: var(--surface-2); }
 .row .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); flex: none; }
@@ -328,7 +352,14 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 .empty .big { font-size: 22px; display: block; margin-bottom: 6px; }
 
 /* ---------- decisões ---------- */
-.decision { border-left: 3px solid var(--ac); }
+/* A barra esquerda diz o ESTADO, não a conta (ver acctMark em app.js).
+   Camada 1 (agir) é âmbar; blocker é vermelho; o que está rodando é azul; o resolvido
+   e o aprovável são verdes. Contexto não leva barra nenhuma. */
+.card.urgent { border-left: 3px solid var(--urgent); }
+.card.blocked { border-left: 3px solid var(--blocked); }
+.card.working { border-left: 3px solid var(--working); }
+.card.settled { border-left: 3px solid var(--settled); }
+.decision { border-left: 3px solid var(--urgent); }
 .decision-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .dec-ref { font-weight: 650; color: var(--ac) !important; }
 .dec-when { color: var(--faint); font-size: 12px; margin-left: auto; }
@@ -679,6 +710,17 @@ body.electron .chat-panel { top: 0; }
 body.electron .chat-head { padding-right: 150px; }
 @keyframes chat-in { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
 .chat-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+/* Abaixo de 720px o painel lateral não cabe: vira sheet que sobe de baixo.
+   O padding-right de 150px do cabeçalho é reserva pros controles da janela do Electron,
+   e não faz sentido dentro de um painel que não os cobre, então só vale acima disso. */
+@media (max-width: 720px) {
+  .chat-panel { inset: auto 0 0 0; width: auto; height: 86%; border-left: 0; border-top: 1px solid var(--border); border-radius: 16px 16px 0 0; animation: sheet-in .2s ease; }
+  body.electron .chat-head { padding-right: 14px; }
+  /* alça, pra dizer que dá pra fechar arrastando/tocando fora */
+  .chat-panel::before { content: ; position: absolute; top: 7px; left: 50%; margin-left: -18px; width: 36px; height: 4px; border-radius: 99px; background: var(--border); }
+  .chat-head { padding-top: 18px; }
+}
+@keyframes sheet-in { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
 .chat-title { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 10px; }
 .chat-title b { font-size: 13.5px; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-msgs { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
@@ -796,6 +838,13 @@ body.electron .chat-head { padding-right: 150px; }
 .row { flex-wrap: wrap; row-gap: 4px; }
 .section-head, .row-actions, .deliv-controls, .mypr-top, .decision-head, .dec-actions, .pr-card, .pr-actions { flex-wrap: wrap; }
 
+@media (max-width: 720px) {
+  /* marca + ações em cima, abas em linha própria de largura total */
+  .topbar-main { flex-wrap: wrap; row-gap: 8px; }
+  .topbar-main .brand { flex: 1 1 auto; min-width: 0; }
+  .topbar-main .top-actions { flex: none; order: 2; }
+  .topbar-main .tabs { flex: 1 0 100%; order: 3; margin: 0; }
+}
 @media (max-width: 860px) {
   .topbar-main { gap: 12px; padding: 10px 16px; }
   body.electron .topbar-main { padding-right: 146px; }
@@ -870,7 +919,7 @@ body.electron .chat-head { padding-right: 150px; }
 .radar-nav { position: sticky; top: var(--topbar-h); z-index: 15; display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 0 10px; margin-bottom: 4px; background: var(--bg); }
 .radar-nav a { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 12.5px; text-decoration: none; white-space: nowrap; }
 .radar-nav a:hover { border-color: var(--accent); color: var(--text); }
-.radar-nav .rn-count:not(:empty) { background: var(--accent-soft); color: var(--accent-ink); border-radius: 999px; padding: 0 6px; font-weight: 600; min-width: 16px; text-align: center; }
+.radar-nav .rn-count:not(:empty) { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 0 6px; font-weight: 600; min-width: 16px; text-align: center; }
 @media (max-width: 640px) { .radar-nav { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; } }
 
 /* paleta de comando (Ctrl+K) */
