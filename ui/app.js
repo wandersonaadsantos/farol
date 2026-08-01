@@ -230,7 +230,7 @@ function renderSilenced() {
   if (!show) { box.hidden = true; box.innerHTML = ''; return; }
   box.hidden = false;
   const names = mutedAccts.map(a => (ACCT[a.user.toLowerCase()] || {}).label || a.user).join(', ');
-  const head = `<div class="sil-head"><span class="sil-icon">🔕</span>
+  const head = `<div class="sil-head"><span class="sil-dot" aria-hidden="true"></span>
       <span>${items.length} ${items.length === 1 ? 'item silenciado' : 'itens silenciados'} · ${esc(names)}</span>
       <button class="sil-toggle">${silencedOpen ? 'ocultar' : 'ver'}</button></div>`;
   const body = silencedOpen ? `<div class="sil-items">${items.map(pr => {
@@ -480,6 +480,15 @@ document.addEventListener('click', (e) => {
   menu.hidden = !menu.hidden;
   btn.setAttribute('aria-expanded', menu.hidden ? 'false' : 'true');
 });
+
+// atalhos do estado vazio: levar pro que foi feito, ou forçar uma checagem
+document.addEventListener('click', (e) => {
+  if (e.target.closest('.eo-check-now')) $('#btnCheck').click();
+  const r = e.target.closest('.eo-resolved');
+  if (r) { const alvo = $('#resolvedWrap'); if (alvo) alvo.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+});
+
+$('#btnCmdK').addEventListener('click', () => cmdOpen());
 
 $('#radarSubs').addEventListener('click', (e) => {
   const b = e.target.closest('.rsub');
@@ -912,7 +921,24 @@ function kbdHelp() {
 /* ---------- paleta de comando (Ctrl+K / Cmd+K) ---------- */
 // Ir a qualquer lugar rápido: abas, seções do Radar, ou colar/digitar URL/key
 // de PR (org/repo#NN) pra abrir a conversa salva, sem precisar do mouse.
-const CMD_STATIC = [
+/* Era `const`: o array era montado UMA vez, no load. As decisões pendentes mudam a cada
+   evento SSE, então nunca entravam na paleta. Como função, ela é remontada a cada
+   abertura. Em janela estreita a paleta deixa de ser atalho de gente avançada e vira a
+   rota principal pra tudo que não cabe na tira de abas. */
+function cmdStatic() { return [
+  // as decisões pendentes primeiro: são a única ação urgente e destrutiva do app
+  ...(STATE?.decisions?.pending || []).flatMap(d => {
+    const ref = d.key || '';
+    const acao = (rotulo, action) => ({
+      kind: 'decisão', label: `${rotulo} ${ref}`, hint: 'decisão',
+      run: () => decide(d.id, action)
+    });
+    return [acao('Aprovar', 'approve'), acao('Pedir mudanças em', 'request_changes')];
+  }),
+  ...((STATE?.decisions?.pending || []).length > 1
+    ? [{ kind: 'lote', label: `Aprovar as ${STATE.decisions.pending.length} pendentes`, hint: 'lote',
+        run: async () => { for (const d of [...STATE.decisions.pending]) await decide(d.id, 'approve'); } }]
+    : []),
   ...[...document.querySelectorAll('.nav-item')].map(b => ({ kind: 'tab', label: `Ir para ${b.textContent}`, hint: 'aba', run: () => switchTab(b.dataset.tab) })),
   // as 9 seções do Sistema, lidas do DOM: seção nova entra aqui sozinha.
   // .trim() porque o botão tem um <svg aria-hidden="true"> antes do texto e sobra espaço em branco.
@@ -927,7 +953,7 @@ const CMD_STATIC = [
   { kind: 'action', label: 'Verificar agora', hint: 'ação', run: () => $('#btnCheck').click() },
   { kind: 'action', label: 'Alternar tema', hint: 'ação', run: () => $('#btnTheme').click() },
   { kind: 'action', label: 'Atalhos de teclado', hint: '?', run: () => kbdHelp() },
-];
+]; }
 let cmdOverlay = null;
 function cmdClose() {
   if (!cmdOverlay) return;
@@ -970,7 +996,7 @@ function cmdOpen() {
       items.push({ label: `Abrir a conversa de ${key}`, hint: 'PR', run: () => openChat(key, url) });
     }
     const ql = q.toLowerCase();
-    items.push(...CMD_STATIC.filter(c => !ql || c.label.toLowerCase().includes(ql)));
+    items.push(...cmdStatic().filter(c => !ql || c.label.toLowerCase().includes(ql)));
     list.innerHTML = items.map((c, idx) => `<div class="cmd-item${idx === 0 ? ' sel' : ''}" data-idx="${idx}"><span>${esc(c.label)}</span><span class="cmd-hint">${esc(c.hint)}</span></div>`).join('')
       || '<div class="cmd-empty">Nada encontrado. Cole a URL de um PR pra abrir a conversa.</div>';
     [...list.querySelectorAll('.cmd-item')].forEach((el, idx) => {
@@ -1390,8 +1416,25 @@ function renderQueue() {
 
   const box = $('#queue');
   if (!q.length) {
-    const msg = SCOPE === 'all' ? 'Tudo em dia. Nenhum PR esperando por você.' : 'Tudo em dia nesta conta. Nenhum PR esperando por você.';
-    box.innerHTML = `<div class="empty"><span class="big">✨</span>${msg}<br><small>Quando pedirem sua revisão, o card aparece aqui e você recebe um aviso.</small></div>`;
+    // Vazio bom merece CONFIRMAR o que o app fez, não só dizer que não tem nada.
+    const aprovados = (STATE.decisions?.resolved || []).filter(r => {
+      const hoje = new Date().toISOString().slice(0, 10);
+      return r.action === 'approve' && String(r.resolvedAt || '').slice(0, 10) === hoje;
+    }).length;
+    const orgs = (STATE.config?.owners || []).map(o => `<b>${esc(o)}</b>`).join(', ');
+    const min = Math.round((STATE.config?.intervalSeconds || 300) / 60);
+    const feito = aprovados
+      ? `O Farol aprovou ${aprovados} ${aprovados === 1 ? 'PR' : 'PRs'} sozinho hoje e monitora `
+      : 'O Farol monitora ';
+    box.innerHTML = `<div class="empty-ok">
+      <div class="eo-check" aria-hidden="true">✓</div>
+      <div class="eo-title">Nada esperando por você</div>
+      <p class="eo-sub">${feito}${orgs || 'as organizações configuradas'} a cada ${min} ${min === 1 ? 'minuto' : 'minutos'}. Quando pedirem sua revisão, o card aparece aqui.</p>
+      <div class="eo-acts">
+        <button class="btn sm eo-resolved">Ver o que foi aprovado</button>
+        <button class="btn sm ghost eo-check-now">Verificar agora</button>
+      </div>
+    </div>`;
     return;
   }
   box.innerHTML = q.map(pr => {
@@ -2658,6 +2701,8 @@ for (const [sel, key, read] of settingsMap) {
 }
 
 /* ---------- SSE ---------- */
+let TENTATIVAS_RECONEXAO = 0;
+
 function connect() {
   const es = new EventSource('/api/events');
   es.addEventListener('state', (e) => {
@@ -2712,9 +2757,20 @@ function connect() {
     const { url } = JSON.parse(e.data);
     focusPr(url);
   });
+  // A pill do topo sozinha não bastava: em janela estreita ela fica fora de vista atrás
+  // das abas, e o app parece só ter parado de atualizar. A faixa entra NO FLUXO, onde
+  // você está olhando, e conta as tentativas.
   es.onerror = () => {
     $('#statusPill').className = 'pill err';
     $('#statusPill').textContent = 'reconectando…';
+    TENTATIVAS_RECONEXAO++;
+    const f = $('#connLost');
+    if (f) {
+      f.hidden = false;
+      const t = f.querySelector('.cl-try');
+      if (t) t.textContent = TENTATIVAS_RECONEXAO > 1 ? `tent. ${TENTATIVAS_RECONEXAO}` : '';
+    }
   };
+  es.addEventListener('open', () => { TENTATIVAS_RECONEXAO = 0; const f = $('#connLost'); if (f) f.hidden = true; });
 }
 connect();

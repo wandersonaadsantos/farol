@@ -96,6 +96,10 @@ button { font: inherit; }
   -webkit-app-region: drag; user-select: none;
 }
 .topbar-main { display: flex; align-items: center; gap: 20px; padding: 10px 22px; }
+/* display:contents no desktop: o wrapper some do layout e a nav e o ⌘K voltam a ser
+   filhos diretos da topbar, como eram. Em janela estreita (media query lá embaixo) ele
+   vira a linha própria das abas. Tem que ficar ANTES da media query, senão vence por ordem. */
+.tabs-row { display: contents; }
 body.electron .topbar-main { padding-right: 150px; }
 body.electron.mac .topbar-main { padding-right: 22px; padding-left: 84px; }
 .topbar button, .topbar nav, .topbar .account-bar { -webkit-app-region: no-drag; }
@@ -853,7 +857,8 @@ body.electron .chat-head { padding-right: 150px; }
   .topbar-main { flex-wrap: wrap; row-gap: 8px; }
   .topbar-main .brand { flex: 1 1 auto; min-width: 0; }
   .topbar-main .top-actions { flex: none; order: 2; }
-  .topbar-main .tabs { flex: 1 0 100%; order: 3; margin: 0; }
+  .tabs-row { display: flex; align-items: center; gap: 6px; flex: 1 0 100%; order: 3; min-width: 0; }
+  .topbar-main .tabs { flex: 1; min-width: 0; margin: 0; }
 }
 @media (max-width: 860px) {
   .topbar-main { gap: 12px; padding: 10px 16px; }
@@ -901,6 +906,17 @@ body.electron .chat-head { padding-right: 150px; }
   .pr-actions .btn { flex: 1; justify-content: center; }
   .pr-actions .btn.icon { flex: 0 0 auto; }
 }
+/* ---------- escada de breakpoints (documento de design, 2a) ----------
+   O alvo é JANELA ESTREITA DE DESKTOP (Electron a partir de ~380px), não celular:
+   as 6 abas e os nomes delas continuam, roláveis no topo, e não existe barra inferior. */
+
+/* 820px: acima disso as ações cabem na mesma linha do título sem apertar, então o card
+   volta ao layout de linha única (avatar · info · ações à direita). */
+@media (min-width: 820px) {
+  .pr-card { grid-template-columns: auto minmax(0, 1fr) auto; gap: 0 14px; align-items: center; }
+  .pr-card .pr-actions { grid-column: auto; margin-top: 0; }
+}
+
 @media (max-width: 420px) {
   #sessionsPill { display: none; }
   .usage-stats { grid-template-columns: 1fr 1fr; }
@@ -908,6 +924,15 @@ body.electron .chat-head { padding-right: 150px; }
      título em duas linhas do que ver "feat: adicion…" */
   .pr-title { white-space: normal; overflow: visible; }
   .dom-matrix { grid-template-columns: 1fr; }
+  /* 380px é o piso utilizável. Encolhe o avatar e o título, mas nada abaixo de 11.5px,
+     e a ação primária ocupa a linha inteira (as secundárias descem). */
+  .avatar { width: 28px; height: 28px; font-size: 11.5px; }
+  .pr-title { font-size: 13.5px; }
+  .pr-card, .mypr-card, .decision { padding: 11px 12px; }
+  .pr-actions { width: 100%; flex-wrap: wrap; }
+  .pr-actions .btn.primary { flex: 1 0 100%; justify-content: center; }
+  .section-head h2 { font-size: 15px; }
+  .row { padding: 10px 11px; }
 }
 
 /* deep-link de alerta: pulso de destaque no card alvo */
@@ -926,6 +951,28 @@ body.electron .chat-head { padding-right: 150px; }
 .kbd-table kbd { background: var(--accent-soft); border: 1px solid var(--border); border-radius: 5px; padding: 1px 7px; font-family: inherit; font-size: 12px; }
 
 /* mini-navegacao do Radar: ancoras + contagem, sticky logo abaixo da topbar */
+/* Estado vazio POSITIVO: o `.empty` tracejado com "Tudo em dia" só dizia que não tem
+   nada. Aqui ele confirma o que o Farol fez enquanto você não olhava. */
+.empty-ok { border: 1px solid color-mix(in srgb, var(--ok) 28%, transparent); border-radius: var(--radius); background: color-mix(in srgb, var(--ok) 6%, transparent); padding: 22px 18px; text-align: center; }
+.eo-check { width: 34px; height: 34px; margin: 0 auto 11px; border-radius: 50%; background: var(--ok-soft); color: var(--ok); display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; }
+.eo-title { font-size: 14.5px; font-weight: 650; }
+.eo-sub { margin: 6px auto 0; max-width: 460px; color: var(--muted); font-size: 12.5px; text-wrap: pretty; }
+.eo-acts { display: flex; gap: 7px; justify-content: center; margin-top: 13px; flex-wrap: wrap; }
+/* o ponto apagado na cor da conta já diz que aquilo está dormindo, e casa com o resto
+   do sistema de cor (o emoji 🔕 não casava com nada) */
+.sil-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--info); opacity: .5; flex: none; }
+
+.conn-lost { display: flex; align-items: center; gap: 9px; margin-bottom: 11px; padding: 9px 12px; border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--danger) 10%, transparent); font-size: 12.5px; }
+.conn-lost .cl-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); flex: none; animation: pulse-soft 1.4s infinite; }
+.conn-lost .cl-txt { flex: 1; min-width: 0; text-wrap: pretty; }
+.conn-lost .cl-sub { color: var(--muted); }
+.conn-lost .cl-try { color: var(--faint); font-size: 11px; flex: none; }
+@keyframes pulse-soft { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+
+/* o ⌘K só existe em janela estreita: acima disso as 6 abas cabem e o atalho basta */
+.cmd-open { display: none; font-weight: 700; letter-spacing: .5px; flex: none; }
+@media (max-width: 720px) { .cmd-open { display: inline-flex; } }
+
 /* ---------- Radar: 3 sub-abas ---------- */
 /* Substituem a antiga .radar-nav (faixa de âncoras rolável, que escondia metade dos
    destinos sem avisar). Três alvos iguais, grudados no topo abaixo da topbar. */

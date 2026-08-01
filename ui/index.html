@@ -32,6 +32,7 @@
 
     <!-- tablist de verdade: o leitor de tela anuncia "aba 3 de 6, selecionada".
          O aria-selected é mantido pelo switchTab, junto com a classe .active. -->
+    <div class="tabs-row">
     <nav class="tabs" id="nav" role="tablist" aria-label="Seções do Farol">
       <button class="nav-item active" id="tabbtn-radar" data-tab="radar" role="tab" aria-selected="true" aria-controls="tab-radar">Radar</button>
       <button class="nav-item" id="tabbtn-entregas" data-tab="entregas" role="tab" aria-selected="false" aria-controls="tab-entregas">Entregas</button>
@@ -40,6 +41,11 @@
       <button class="nav-item" id="tabbtn-consumo" data-tab="consumo" role="tab" aria-selected="false" aria-controls="tab-consumo">Consumo</button>
       <button class="nav-item" id="tabbtn-sistema" data-tab="sistema" role="tab" aria-selected="false" aria-controls="tab-sistema">Sistema</button>
     </nav>
+      <!-- FORA do tablist de propósito: não é uma aba, e um botão sem role=tab ali dentro
+           faria o leitor de tela anunciar 7 abas. Só aparece em janela estreita, onde a
+           paleta vira a rota principal pro que não cabe na tira. -->
+      <button class="nav-item cmd-open" id="btnCmdK" title="Paleta de comandos (Ctrl+K)" aria-label="Abrir a paleta de comandos">⌘K</button>
+    </div>
 
     <div class="top-actions">
       <button id="btnCheck" class="btn ghost sm" title="Verificar agora">
@@ -76,6 +82,12 @@
     </div>
 
     <div class="rpane active" id="rpane-mim" role="tabpanel" aria-labelledby="rsub-mim" tabindex="0">
+      <!-- fica no fluxo, não só na pill do topo: em janela estreita a pill some de vista -->
+      <div id="connLost" class="conn-lost" role="status" aria-live="polite" hidden>
+        <span class="cl-dot" aria-hidden="true"></span>
+        <span class="cl-txt">Sem conexão com o engine. <span class="cl-sub">Reconectando…</span></span>
+        <span class="cl-try"></span>
+      </div>
     <div id="activeWrap" hidden>
       <div class="section-head">
         <h2>Analisando agora <span id="activeCount" class="count ambient"></span></h2>
