@@ -12,6 +12,10 @@ const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { Engine } = require('../server.js');
+// o gate DE VERDADE, importado do módulo. Antes este arquivo tinha uma cópia manual da
+// regra ("espelha o gate de scanPushbacks"), então testava o teste: a regra podia mudar
+// no pushback.js e a suíte seguia verde validando a cópia velha.
+const { isPushbackTarget, pushbackTargets } = require('../lib/engine/pushback');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
 
@@ -21,10 +25,7 @@ function engineWith(resolved, pending = []) {
   return e;
 }
 
-// espelha o gate de scanPushbacks (elegível = bloqueio OU aprovação com ressalva)
-function eligible(a) {
-  return !!a && (a.kind === 'request_changes' || (a.kind === 'approve' && a.caveats));
-}
+const eligible = isPushbackTarget;
 
 test('aprovação limpa: sem caveats e fora do scan de pushback', () => {
   const e = engineWith([
@@ -63,4 +64,111 @@ test('pendente (ainda na sua mesa, nada postado) não é alvo', () => {
   const a = e.reviewActions()['o/r#6'];
   assert.equal(a.kind, 'pending');
   assert.equal(eligible(a), false, 'sem review postado não há pushback');
+});
+
+/* ---------- pushbackTargets: quem entra no scan deste ciclo ----------
+   É o gate que decide gastar (ou não) uma sessão do Claude por PR. Estava sem teste
+   nenhum: só o predicado de elegibilidade era coberto, e por cópia. */
+
+// engine com um panorama e os marcadores de scan, sem tocar em rede
+function engineComPanorama(resolved, panorama, scanned = {}, muted = []) {
+  const e = engineWith(resolved);
+  e.panorama = panorama;
+  e.pushbackScanned = scanned;
+  e.isMuted = (user) => muted.includes(user);
+  e.accountForPr = (pr) => pr.account || 'eu';
+  return e;
+}
+
+const RESOLVIDOS = [
+  { key: 'o/r#1', status: 'auto_approved', action: 'approve', reasons: [], cardMet: true, resolvedAt: 1 },      // limpo
+  { key: 'o/r#2', status: 'auto_approved', action: 'approve', reasons: ['confira X'], cardMet: true, resolvedAt: 1 }, // com ressalva
+  { key: 'o/r#3', status: 'auto_rejected', action: 'request_changes', reasons: ['quebra'], resolvedAt: 1 },     // bloqueio
+];
+
+test('pushbackTargets: só entram ressalva e bloqueio, aprovação limpa fica de fora', () => {
+  const e = engineComPanorama(RESOLVIDOS, [
+    { key: 'o/r#1', updatedAt: '2026-08-01T10:00:00Z' },
+    { key: 'o/r#2', updatedAt: '2026-08-01T10:00:00Z' },
+    { key: 'o/r#3', updatedAt: '2026-08-01T10:00:00Z' },
+    { key: 'o/r#9', updatedAt: '2026-08-01T10:00:00Z' },   // sem ação registrada
+  ]);
+  const alvos = pushbackTargets(e, e.reviewActions()).map(p => p.key);
+  assert.deepEqual(alvos, ['o/r#2', 'o/r#3']);
+});
+
+test('pushbackTargets: conta silenciada nunca entra', () => {
+  const e = engineComPanorama(RESOLVIDOS,
+    [{ key: 'o/r#2', account: 'silenciada', updatedAt: '2026-08-01T10:00:00Z' },
+    { key: 'o/r#3', account: 'eu', updatedAt: '2026-08-01T10:00:00Z' }],
+    {}, ['silenciada']);
+  assert.deepEqual(pushbackTargets(e, e.reviewActions()).map(p => p.key), ['o/r#3']);
+});
+
+test('pushbackTargets: PR já escaneado e sem novidade não reentra', () => {
+  // o marcador evita reprocessar o mesmo PR ciclo após ciclo (cada um custa uma sessão)
+  const e = engineComPanorama(RESOLVIDOS,
+    [{ key: 'o/r#2', updatedAt: '2026-08-01T10:00:00Z' }],
+    { 'o/r#2': '2026-08-01T10:00:00Z' });
+  assert.deepEqual(pushbackTargets(e, e.reviewActions()), []);
+});
+
+test('pushbackTargets: PR escaneado que teve novidade depois reentra', () => {
+  const e = engineComPanorama(RESOLVIDOS,
+    [{ key: 'o/r#2', updatedAt: '2026-08-01T12:00:00Z' }],
+    { 'o/r#2': '2026-08-01T10:00:00Z' });
+  assert.deepEqual(pushbackTargets(e, e.reviewActions()).map(p => p.key), ['o/r#2']);
+});
+
+test('pushbackTargets: sem updatedAt, PR já escaneado não reentra', () => {
+  // updatedAt ausente não pode ser lido como "mudou": reentraria em todo ciclo
+  const e = engineComPanorama(RESOLVIDOS,
+    [{ key: 'o/r#2' }],
+    { 'o/r#2': '2026-08-01T10:00:00Z' });
+  assert.deepEqual(pushbackTargets(e, e.reviewActions()), []);
+});
+
+test('pushbackTargets: panorama vazio ou ausente não quebra', () => {
+  const e = engineComPanorama(RESOLVIDOS, []);
+  assert.deepEqual(pushbackTargets(e, e.reviewActions()), []);
+  e.panorama = undefined;
+  assert.deepEqual(pushbackTargets(e, e.reviewActions()), []);
+});
+
+test('scanPushbacks respeita o opt-in autoPushback', async () => {
+  const e = engineComPanorama(RESOLVIDOS, [{ key: 'o/r#2', updatedAt: '2026-08-01T10:00:00Z' }]);
+  e.config.autoPushback = false;
+  let chamou = false;
+  e.detectAuthorPushback = async () => { chamou = true; return null; };
+  await e.scanPushbacks();
+  assert.equal(chamou, false, 'desligado não gasta nem a checagem barata do gh');
+});
+
+test('scanPushbacks para em 2 classificações por ciclo', async () => {
+  // teto de custo: cada classificação é uma sessão do Claude
+  const resolvidos = [];
+  const panorama = [];
+  for (let i = 1; i <= 5; i++) {
+    resolvidos.push({ key: `o/r#${i}`, status: 'auto_rejected', action: 'request_changes', reasons: ['x'], resolvedAt: 1 });
+    panorama.push({ key: `o/r#${i}`, updatedAt: '2026-08-01T10:00:00Z' });
+  }
+  const e = engineComPanorama(resolvidos, panorama);
+  e.config.autoPushback = true;
+  e.savePushbackScanned = () => { };
+  e.log = () => { };
+  let classificados = 0;
+  e.detectAuthorPushback = async () => ({ marker: 'm', hadActivity: true });
+  e.classifyPushback = async () => { classificados++; return null; };
+  await e.scanPushbacks();
+  assert.equal(classificados, 2, 'no máximo 2 sessões do Claude por ciclo');
+});
+
+test('scanPushbacks não roda duas vezes ao mesmo tempo', async () => {
+  const e = engineComPanorama(RESOLVIDOS, [{ key: 'o/r#2', updatedAt: '2026-08-01T10:00:00Z' }]);
+  e.config.autoPushback = true;
+  e.pushbackScanning = true;   // simula um scan em voo
+  let chamou = false;
+  e.detectAuthorPushback = async () => { chamou = true; return null; };
+  await e.scanPushbacks();
+  assert.equal(chamou, false);
 });
