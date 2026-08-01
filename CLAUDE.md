@@ -154,7 +154,7 @@ Verde nos dois é pré-requisito. Não publique com teste vermelho.
 
 - [ ] Commit com mensagem descritiva (ex.: `chore: release v2.27.0`).
 - [ ] Push pra `main`.
-- [ ] **Conta do gh**: o repo é `wandersonaadsantos/farol` (conta pessoal). Antes de publicar, verificar: `gh auth status`. Se a conta ativa for `wandersonbiuder`, trocar: `gh auth switch --user wandersonaadsantos`.
+- [ ] **Conta do gh**: o repo é `wandersonaadsantos/farol`, então o push e a release têm que sair pela conta DONA do repo, não pela conta de trabalho (que costuma ser a ativa e devolve 403). Confira com `gh auth status` e, se precisar, `gh auth switch --user wandersonaadsantos`. **Não escreva o login da conta de trabalho neste arquivo**: o `CLAUDE.md` vai dentro do zip de distribuição e a auditoria do `make-package.ps1` reprova o pacote se achar (invariante 7).
 
 ### 4. Publicar a release
 
@@ -167,7 +167,7 @@ O script faz tudo: builda o pacote leve (`dist/farol-vX.Y.Z.zip`, auditado) + in
 ### 5. Pós-publicação
 
 - [ ] Verificar a release no GitHub (notas, artefatos).
-- [ ] **Restaurar a conta do gh pra trabalho**: `gh auth switch --user wandersonbiuder`.
+- [ ] **Restaurar a conta ativa do gh pra de trabalho** (`gh auth switch`), pra não deixar a máquina apontada pra conta pessoal no dia a dia.
 - [ ] macOS (quando aplicável): `bash tools/make-offline-mac.sh` e anexar com `gh release upload vX.Y.Z dist/Farol-Instalar-mac.command --repo wandersonaadsantos/farol`.
 
 ### Referência rápida
