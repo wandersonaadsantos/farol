@@ -1191,9 +1191,13 @@ async function loadDeliveries() {
   renderDelivOrgSelect();
   const sel = $('#delivDays'); if (sel) sel.value = String(deliveriesDays);
   marcarSeg(document.querySelectorAll('#delivBy .seg-btn'), b => b.dataset.by === deliveriesBy);
-  $('#deliveries').innerHTML = '<div class="empty">Carregando entregas…</div>';
+  const box = $('#deliveries');
+  box.innerHTML = '<div class="empty">Carregando entregas…</div>';
+  const opId = 'load-deliveries';
+  showOp(opId, { type: 'data', title: 'Carregando entregas', inline: true, container: box });
   const data = await get('/api/deliveries?days=' + deliveriesDays + '&owner=' + encodeURIComponent(deliveriesOrg || ''));
   deliveriesData = data || { items: [] };
+  closeOp(opId, 'done');
   renderDeliveries();
 }
 
@@ -1404,9 +1408,11 @@ function renderChat(c) {
         container: act
       });
     }
-    updateOp(chatOpId, { step: 'Pensando…' });
+    const phases = ['Lendo PR…', 'Analisando sua pergunta…', 'Formulando resposta…', 'Digitando…'];
+    const phaseIdx = Math.floor(Math.random() * phases.length);
+    updateOp(chatOpId, { step: phases[phaseIdx], progress: 25 + phaseIdx * 20 });
   } else {
-    closeOp(chatOpId, 'done');
+    closeOp(chatOpId, 'done', 'Resposta recebida');
   }
   if (stick || running) box.scrollTop = box.scrollHeight;
 }
@@ -1872,8 +1878,23 @@ $('#myPRs').addEventListener('click', (e) => {
   const run = e.target.closest('.act-self');
   if (run) {
     run.disabled = true; run.textContent = 'Analisando…';
+    const prKey = run.dataset.url.split('/').slice(-3).join('#');
+    const opId = `analysis-${prKey}`;
+    showOp(opId, {
+      type: 'analysis',
+      title: `Analisando ${prKey}`,
+      cancellable: true,
+      container: run.closest('.mypr-card') || run.parentElement
+    });
+    updateOp(opId, { step: 'Iniciando…', progress: 5 });
     api('/api/self-review', { url: run.dataset.url }).then(r => {
-      if (!r?.ok) { toast('error', esc(r?.error || 'não consegui iniciar a autoanálise')); run.disabled = false; run.textContent = 'Analisar'; }
+      if (!r?.ok) {
+        closeOp(opId, 'error', r?.error || 'falha ao iniciar');
+        toast('error', esc(r?.error || 'não consegui iniciar a autoanálise'));
+        run.disabled = false; run.textContent = 'Analisar';
+      } else {
+        updateOp(opId, { step: 'Lendo arquivos…', progress: 25 });
+      }
     });
     return;
   }
@@ -2068,8 +2089,11 @@ function renderUpdate() {
 
 /* ---------- render: destaques (separado por conta) ---------- */
 async function loadHighlights() {
-  const items = (await get('/api/highlights')) || [];
   const box = $('#highlights');
+  const opId = 'load-highlights';
+  showOp(opId, { type: 'data', title: 'Carregando destaques', inline: true, container: box });
+  const items = (await get('/api/highlights')) || [];
+  closeOp(opId, 'done');
   const tagged = items.map(h => ({ ...h, _user: acctUserFromUrl(h.url) }));
   const visible = tagged.filter(h => scopeMemVisible(h._user));
   if (!visible.length) {
@@ -2129,8 +2153,11 @@ function domainMatrix(login) {
 
 /* ---------- render: time (separado por conta) ---------- */
 async function loadTeam() {
-  const team = (await get('/api/team')) || [];
   const box = $('#team');
+  const opId = 'load-team';
+  showOp(opId, { type: 'data', title: 'Carregando time', inline: true, container: box });
+  const team = (await get('/api/team')) || [];
+  closeOp(opId, 'done');
   const multi = multiAccount();
   // conta de uma entrada: pelo owner do ref (owner/repo#num); antigo (só nome) = sem conta
   const entryUser = e => { const ref = e.ref || ''; const owner = ref.includes('/') ? ref.split('/')[0] : ''; return owner ? (OWNER2USER[owner.toLowerCase()] || '') : ''; };
@@ -2771,10 +2798,21 @@ function initTweaks() {
 }
 initTweaks();
 $('#btnKudos').onclick = async () => {
+  const btn = $('#btnKudos');
+  const opId = 'tool-kudos';
+  showOp(opId, { type: 'tool', title: 'Gerando kudos', inline: true, container: btn.parentElement });
   const r = await api('/api/tool', { name: 'kudos', scope: kudosScopeKey() });
-  if (!r?.ok) toast('info', esc(r?.error || 'não consegui gerar'));
+  if (r?.ok) closeOp(opId, 'done', 'Kudos gerado');
+  else { closeOp(opId, 'error', r?.error || 'não consegui gerar'); toast('info', esc(r?.error || 'não consegui gerar')); }
 };
-$('#btnHealth').onclick = () => api('/api/tool', { name: 'health' });
+$('#btnHealth').onclick = async () => {
+  const btn = $('#btnHealth');
+  const opId = 'tool-health';
+  showOp(opId, { type: 'tool', title: 'Diagnosticando', inline: true, container: btn.parentElement });
+  const r = await api('/api/tool', { name: 'health' });
+  if (r?.ok) closeOp(opId, 'done', 'Diagnóstico completo');
+  else closeOp(opId, 'error', r?.error || 'falha no diagnóstico');
+};
 $('#btnDoctor').onclick = async () => { await get('/api/doctor'); };
 $('#btnUpdateCheck').onclick = async () => {
   const btn = $('#btnUpdateCheck');
