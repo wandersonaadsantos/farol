@@ -70,8 +70,8 @@ function confirmModal(opts) {
   return new Promise(resolve => {
     const ov = document.createElement('div');
     ov.className = 'modal-overlay';
-    ov.innerHTML = `<div class="modal-card ${opts.danger ? 'danger' : ''}">
-      <div class="modal-title">${esc(opts.title || 'Confirmar')}</div>
+    ov.innerHTML = `<div class="modal-card ${opts.danger ? 'danger' : ''}" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-title" id="modalTitle">${esc(opts.title || 'Confirmar')}</div>
       <div class="modal-body">${opts.body || ''}</div>
       <div class="modal-actions">
         <button class="btn sm ghost modal-cancel">${esc(opts.cancelLabel || 'Cancelar')}</button>
@@ -696,10 +696,45 @@ $('#btnTheme').onclick = () => {
 };
 
 /* ---------- navegação ---------- */
+/* Altura REAL da topbar num custom property. Os dois elementos sticky do app (a
+   navegação do Radar e a sidebar do Sistema) tinham o deslocamento cravado em 54px e
+   66px, mas a topbar muda de altura: encolhe abaixo de 620px e cresce quando a barra de
+   contas aparece e quebra em duas linhas. O resultado era uma faixa vazada por baixo, ou
+   a navegação passando por trás da topbar. Aqui a medida é observada. */
+function medirTopbar() {
+  const tb = document.querySelector('.topbar');
+  if (!tb) return;
+  document.documentElement.style.setProperty('--topbar-h', Math.round(tb.getBoundingClientRect().height) + 'px');
+}
+medirTopbar();
+if (window.ResizeObserver) new ResizeObserver(medirTopbar).observe(document.querySelector('.topbar'));
+
+/* Redesenho no resize: o gráfico do Consumo mede o container pra montar o viewBox, então
+   precisa ser refeito quando a largura muda. Debounce pra não redesenhar a cada pixel. */
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  medirTopbar();
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if ($('#tab-consumo').classList.contains('active')) renderUsage();
+  }, 150);
+});
+
+// segmentado: a classe pinta, o aria-pressed e o que o leitor de tela anuncia.
+// Um helper so pra os dois nunca divergirem.
+function marcarSeg(botoes, ehAtivo) {
+  botoes.forEach(b => { const a = ehAtivo(b); b.classList.toggle('active', a); b.setAttribute('aria-pressed', a ? 'true' : 'false'); });
+}
+
 function switchTab(name) {
   CURRENT_TAB = name;
   document.body.dataset.tab = name;   // largura útil por aba (ver body[data-tab] no app.css)
-  document.querySelectorAll('.nav-item').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  // aria-selected junto com a classe: a classe pinta, o aria é o que o leitor de tela lê
+  document.querySelectorAll('.nav-item').forEach(t => {
+    const ativo = t.dataset.tab === name;
+    t.classList.toggle('active', ativo);
+    t.setAttribute('aria-selected', ativo ? 'true' : 'false');
+  });
   document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
   if (STATE) renderAccountBar();   // mostra/esconde a barra de contas conforme a aba
   if (name === 'entregas') loadDeliveries();
@@ -718,7 +753,11 @@ let SISTEMA_SECTION = 'overview';
 
 function switchSistemaSection(name) {
   if (name) SISTEMA_SECTION = name;
-  document.querySelectorAll('.sys-nav-item').forEach(b => b.classList.toggle('active', b.dataset.section === SISTEMA_SECTION));
+  document.querySelectorAll('.sys-nav-item').forEach(b => {
+    const ativo = b.dataset.section === SISTEMA_SECTION;
+    b.classList.toggle('active', ativo);
+    b.setAttribute('aria-selected', ativo ? 'true' : 'false');
+  });
   document.querySelectorAll('.sys-section').forEach(s => s.classList.toggle('active', s.id === 'sys-' + SISTEMA_SECTION));
 }
 
@@ -890,7 +929,7 @@ function kbdHelp() {
 const CMD_STATIC = [
   ...[...document.querySelectorAll('.nav-item')].map(b => ({ kind: 'tab', label: `Ir para ${b.textContent}`, hint: 'aba', run: () => switchTab(b.dataset.tab) })),
   // as 9 seções do Sistema, lidas do DOM: seção nova entra aqui sozinha.
-  // .trim() porque o botão tem um <svg> antes do texto e sobra espaço em branco.
+  // .trim() porque o botão tem um <svg aria-hidden="true"> antes do texto e sobra espaço em branco.
   ...[...document.querySelectorAll('.sys-nav-item')].map(b => ({
     kind: 'section', label: `Sistema: ${b.textContent.trim()}`, hint: 'sistema',
     run: () => { switchTab('sistema'); switchSistemaSection(b.dataset.section); }
@@ -1021,7 +1060,7 @@ function renderDelivOrgSelect() {
 async function loadDeliveries() {
   renderDelivOrgSelect();
   const sel = $('#delivDays'); if (sel) sel.value = String(deliveriesDays);
-  document.querySelectorAll('#delivBy .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.by === deliveriesBy));
+  marcarSeg(document.querySelectorAll('#delivBy .seg-btn'), b => b.dataset.by === deliveriesBy);
   $('#deliveries').innerHTML = '<div class="empty">Carregando entregas…</div>';
   const data = await get('/api/deliveries?days=' + deliveriesDays + '&owner=' + encodeURIComponent(deliveriesOrg || ''));
   deliveriesData = data || { items: [] };
@@ -1119,7 +1158,7 @@ $('#delivBy').addEventListener('click', (e) => {
   if (!b) return;
   deliveriesBy = b.dataset.by === 'author' ? 'author' : 'repo';
   localStorage.setItem('farol-deliv-by', deliveriesBy);
-  document.querySelectorAll('#delivBy .seg-btn').forEach(x => x.classList.toggle('active', x.dataset.by === deliveriesBy));
+  marcarSeg(document.querySelectorAll('#delivBy .seg-btn'), x => x.dataset.by === deliveriesBy);
   renderDeliveries(); // troca de fatia é só re-render, sem novo fetch
 });
 
@@ -1484,11 +1523,11 @@ function renderQueue() {
       </div>
       <div class="pr-actions">
         <button class="btn primary sm act-review" data-url="${esc(pr.url)}">Revisar</button>
-        <button class="btn icon sm ghost act-chat" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" title="Conversar com o Claude sobre este PR">
-          <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2.5-2.7A8 8 0 1 1 21 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        <button class="btn icon sm ghost act-chat" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" title="Conversar com o Claude sobre este PR" aria-label="Conversar com o Claude sobre este PR">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2.5-2.7A8 8 0 1 1 21 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
         </button>
-        <button class="btn icon sm ghost act-terminal" data-url="${esc(pr.url)}" title="Revisar no terminal (interativo)">
-          <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="m7 9 3 3-3 3M12 15h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <button class="btn icon sm ghost act-terminal" data-url="${esc(pr.url)}" title="Revisar no terminal (interativo)" aria-label="Revisar no terminal (interativo)">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5h16v14H4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="m7 9 3 3-3 3M12 15h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <button class="btn sm danger-ghost act-ignore" data-key="${esc(pr.key)}" title="Marcar como visto sem revisar">Ignorar</button>
       </div>
@@ -1853,7 +1892,12 @@ function drawUsageTimeline(el, series, metric, win) {
   const data = usageDayKeysBack(win).map(day => ({ day, v: usageMetricVal(map[day], metric) }));
   if (!data.some(d => d.v > 0)) { el.innerHTML = '<div class="usage-empty">Sem consumo nesta janela.</div>'; return; }
   const max = Math.max(1, ...data.map(d => d.v));
-  const W = 820, H = 200, padL = 46, padR = 8, padT = 10, padB = 22;
+  // O viewBox acompanha a largura REAL do container. Com 820 fixo, num celular de 375 o
+  // SVG era reduzido a 0,43x e os rótulos de 10px viravam 4px, ilegíveis. Medindo, a
+  // escala fica ~1:1 e o texto sai no tamanho que foi pedido.
+  const W = Math.max(300, Math.round(el.clientWidth || 820));
+  const H = 200, padR = 8, padT = 10, padB = 22;
+  const padL = W < 420 ? 34 : 46;   // o eixo Y precisa de menos espaço quando o número é curto
   const cw = W - padL - padR, ch = H - padT - padB, n = data.length, bw = cw / n, barW = Math.max(1.2, bw * 0.68);
   const yOf = v => padT + ch * (1 - v / max);
   const grid = [max, max / 2, 0].map(v => {
@@ -1865,10 +1909,14 @@ function drawUsageTimeline(el, series, metric, win) {
     const x = padL + i * bw + (bw - barW) / 2, h = ch * (d.v / max);
     return `<rect class="ubar-rect" x="${x.toFixed(1)}" y="${(padT + ch - h).toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(0, h).toFixed(1)}" rx="1.5"><title>${d.day.slice(8, 10)}/${d.day.slice(5, 7)}: ${fmtTok(d.v)}</title></rect>`;
   }).join('');
-  const step = Math.ceil(n / 10);
+  // quantos rótulos de data cabem: cada "dd/mm" pede ~78px pra não colidir
+  const step = Math.ceil(n / Math.max(3, Math.floor(W / 78)));
   const xlab = data.map((d, i) => (i % step === 0 || i === n - 1)
     ? `<text class="uaxis uaxis-x" x="${(padL + i * bw + bw / 2).toFixed(1)}" y="${H - 6}">${d.day.slice(8, 10)}/${d.day.slice(5, 7)}</text>` : '').join('');
-  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="usvg">${grid}${bars}${xlab}</svg>`;
+  // role=img + rótulo: o gráfico carrega informação, então não pode ser aria-hidden.
+  // O detalhe numérico está nos cartões acima e na quebra abaixo.
+  const total = data.reduce((s, d) => s + d.v, 0);
+  el.innerHTML = `<svg role="img" aria-label="Consumo por dia nos últimos ${n} dias: ${fmtTok(total)} tokens no total, pico de ${fmtTok(max)}." viewBox="0 0 ${W} ${H}" class="usvg">${grid}${bars}${xlab}</svg>`;
 }
 
 // quebra: barras horizontais por tipo/conta/modelo (HTML), métrica escolhida
@@ -1906,8 +1954,7 @@ function wireUsageControls() {
   const bind = (sel, attr, key, cast) => {
     const box = document.querySelector(sel); if (!box) return;
     box.querySelectorAll('.seg-btn').forEach(b => b.addEventListener('click', () => {
-      box.querySelectorAll('.seg-btn').forEach(x => x.classList.remove('active'));
-      b.classList.add('active');
+      marcarSeg(box.querySelectorAll('.seg-btn'), x => x === b);
       usageState[key] = cast ? cast(b.dataset[attr]) : b.dataset[attr];
       renderUsage();
     }));
@@ -2107,6 +2154,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.29.0', ['Todas as telas passaram a explicar pra que servem: o refino de espaçamento que a v2.28.0 fez só na aba Sistema chegou nas outras cinco. Cada seção agora tem uma frase abaixo do título dizendo o que ela mostra, com a mesma largura de leitura em todo lugar. Eram três tratamentos diferentes pro mesmo tipo de texto, e o Radar não tinha nenhum apesar de ter seis seções.', 'O app ficou usável no celular. Entregas, Destaques e Time não tinham uma linha sequer de regra pra tela estreita: agora os controles de Entregas ocupam a faixa inteira, os cartões viram coluna, os botões dos cards de PR ganham largura em vez de sobrar meio botão fora da tela, e o título do PR quebra em duas linhas em vez de virar reticências.', 'O gráfico do Consumo virou legível no celular. Ele era desenhado sempre com 820px e depois encolhido pra caber, então os rótulos das datas ficavam com 4 pixels. Agora mede o espaço disponível e desenha no tamanho certo, mostrando menos datas quando o espaço é menor.', 'A barra de seções do Radar parou de descolar do topo: o deslocamento estava cravado em 54 pixels, mas a barra do topo muda de altura (encolhe no celular, cresce com mais de uma conta). Agora a altura é medida.', 'Acessibilidade: a página não tinha nenhum título de nível 1 e as abas eram só botões com uma classe, então quem usa leitor de tela não sabia quantas abas existem nem qual está aberta. As duas navegações agora se anunciam certo, os ícones pararam de ser lidos em voz alta, os botões só-ícone e os campos de busca ganharam nome, e os avisos (o toast de configuração salva, a faixa de aviso) passaram a ser anunciados.', 'Correções: o toast podia ficar mais largo que a tela no celular; os controles segmentados tinham estilo declarado duas vezes, com a primeira sendo código morto; uma regra de quebra de linha apontava pra uma classe inexistente enquanto os cards de PR, que precisavam dela, ficavam de fora.']],
   ['2.28.0', ['Novo controle de esforço de raciocínio em Sistema > Automação: cinco níveis (padrão do Claude, baixo, médio, alto e muito alto), cada um explicando o que muda e quanto custa do teu limite. Vale pras sessões autônomas (revisão, autoanálise, pushback, chat e ferramentas); a sessão no terminal não é afetada. O padrão continua deixando o Claude decidir pelo modelo, então quem não mexer não vê diferença. Com Haiku escolhido os cartões desabilitam, porque esse modelo não aceita nível de esforço.', 'O seletor de modelo das revisões foi de 4 pra 6 opções, com o trade-off no rótulo: além de Opus, Sonnet e Haiku, agora tem "Melhor disponível" (o Claude escolhe o topo da tua conta) e Fable (raciocínio longo). O config.json também passa a aceitar o nome completo de um modelo, sem precisar de versão nova do Farol.', 'A revisão em lotes de PR grande nunca tinha funcionado: desde a v2.26.0 o Farol media o PR, decidia fatiar em 2 a 4 lotes e montava o plano, mas o plano era descartado antes de chegar no Claude. Na prática um PR de 8700 linhas era lido parcialmente e aprovado. Agora o fan-out roda de verdade, com um subagente por lote em paralelo: a revisão de PR grande fica bem mais completa, e consome mais do teu limite.', 'A aba Sistema respira: cada configuração virou uma linha com o texto à esquerda, o controle à direita e uma divisória entre elas, no lugar do bloco corrido onde tudo ficava colado. A sidebar se separa do conteúdo por espaço em branco em vez de uma borda encostada, a aba ganhou mais largura, e cada seção tem um título maior com uma frase dizendo pra que serve. Versão e caminho dos dados foram pro rodapé da sidebar.', 'A busca do Sistema devolve uma lista de resultados nomeados, cada um com a seção de onde vem; clicar leva direto pra configuração e pisca a linha. Antes acendia várias seções ao mesmo tempo e empilhava tudo. Funciona sem acento e avisa quando não acha nada. As 9 seções também entraram na paleta de comandos (Ctrl+K).', 'Correções de acabamento: dez divisórias da tela de Sistema não estavam sendo desenhadas (cor usada sem nunca ter sido definida), o texto de ajuda dos campos ficava espremido ao lado em vez de abaixo, o botão "Reviewers" num PR sem configuração levava pra uma seção invisível, e o selo de assinatura do Claude aparecia como texto solto.', 'Modelo inválido no config.json agora é barrado no boot: esse campo entra na linha de comando que o Farol executa e só era validado quando salvo pela tela. A aba Consumo passa a mostrar a versão dos modelos da geração nova (Opus 5, Sonnet 5, Fable 5), que antes apareciam sem número. E a interface pergunta ao motor em qual sistema ele roda, em vez de adivinhar pelo navegador.']],
   ['2.27.0', ['A aba Sistema ganhou uma sidebar de navegação com 9 seções (Visão geral, Contas, Automação, Conexões, Plano e chaves, Reviewers, Preferências, Novidades e Diagnóstico), cada uma com seu grupo de configurações, no lugar da lista corrida anterior. Um campo de busca no topo da sidebar filtra por texto e mostra só as seções que contêm o termo. Em telas estreitas a sidebar vira uma faixa horizontal com os mesmos itens.', 'A assinatura do Claude que o Farol usa agora pode ser diferente por conta GitHub monitorada: crie perfis nomeados (ex.: "BIUD Trabalho", "Pessoal Max"), cada um apontando pro seu diretório de config próprio, e escolha um perfil padrão do Farol e, opcionalmente, um perfil específico por conta (Sistema > Contas). Cada conta e cada perfil mostram um selo com o e-mail logado ali (ou "SEM LOGIN" se faltar o claude login naquele diretório), e esse selo se atualiza sozinho ao salvar. Sem nenhum perfil criado, nada muda.', 'Cada perfil de assinatura Claude (e o padrão do Farol) ganha um botão "Abrir sessão de login": um terminal só com o claude, sem PR, fila ou token do GitHub envolvido.', 'Fechar a sessão de terminal sem terminar a revisão não faz mais o PR sumir da fila: fechar a sessão sempre devolve o PR à fila.', 'Pente-fino nos perfis de assinatura Claude: config.json malformado não derruba mais buscas de PR nem sessões de review; caminho de perfil com aspas ou quebra de linha não consegue mais executar comando nenhum; remover um perfil usado por 2+ contas ao mesmo tempo não deixa mais nenhuma "presa" a ele; migrar o campo antigo pra um perfil novo já marca esse perfil como padrão na hora.']],
   ['2.26.1', ['Atualizar no macOS voltou a funcionar: o pacote era gerado com barras invertidas (Windows) e o unzip do Mac recusava; corrigido, e a auditoria do pacote agora reprova se o defeito voltar. E aviso cosmético do unzip não derruba mais a atualização.']],
@@ -2504,7 +2552,7 @@ function renderTools() {
   btnK.disabled = k.status === 'running';
   btnK.innerHTML = k.status === 'running'
     ? '<span class="spin"></span> Gerando…'
-    : `<svg viewBox="0 0 24 24"><path d="M12 3l1.9 4.6 4.9.4-3.7 3.2 1.1 4.8L12 13.5 7.8 16l1.1-4.8L5.2 8l4.9-.4L12 3z" fill="currentColor"/></svg> Gerar kudos${scopeName ? ' de ' + esc(scopeName) : ''}`;
+    : `<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3l1.9 4.6 4.9.4-3.7 3.2 1.1 4.8L12 13.5 7.8 16l1.1-4.8L5.2 8l4.9-.4L12 3z" fill="currentColor"/></svg> Gerar kudos${scopeName ? ' de ' + esc(scopeName) : ''}`;
   const kp = $('#kudosPanel');
   kp.hidden = k.status !== 'done';
   if (k.status === 'done') {

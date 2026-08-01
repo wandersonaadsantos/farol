@@ -9,6 +9,24 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.29.0
+
+**Melhorias**
+- **Todas as telas passaram a explicar pra que servem.** O refino de espaçamento que a v2.28.0 fez só na aba Sistema chegou nas outras cinco. Cada seção do app agora tem uma frase abaixo do título dizendo o que ela mostra, com a mesma largura de leitura em todo lugar: eram três tratamentos diferentes pro mesmo tipo de texto, e o Radar não tinha nenhum, apesar de ter seis seções. A descrição do Consumo, que era a maior do app, ficava espremida ao lado do título dentro do cabeçalho; agora é um parágrafo de verdade.
+- **O app ficou usável no celular.** Entregas, Destaques e Time não tinham uma linha sequer de regra pra tela estreita. Agora os controles de Entregas ocupam a faixa inteira em vez de se espremer no canto, os cartões de Destaques e Time viram coluna, os botões dos cards de PR ganham largura em vez de sobrar meio botão fora da tela, e o título do PR passa a quebrar em duas linhas em vez de virar reticências.
+- **O gráfico do Consumo virou legível no celular.** Ele era desenhado sempre com 820px de largura e depois encolhido pra caber, então num celular os rótulos das datas ficavam com 4 pixels. Agora ele mede o espaço disponível e desenha no tamanho certo, mostrando menos datas quando o espaço é menor. A quebra por tipo/conta/modelo também deixou de espremer a barra num traço.
+- **A barra de seções do Radar parou de descolar do topo.** O deslocamento estava cravado em 54 pixels, mas a barra do topo muda de altura (encolhe no celular, cresce quando você monitora mais de uma conta). Dava uma faixa vazada, ou a navegação passava por trás. Agora a altura é medida.
+
+**Acessibilidade**
+- **A página passou a ter estrutura.** Não havia nenhum título de nível 1 no documento inteiro, e as abas eram só botões com uma classe: quem usa leitor de tela não tinha como saber quantas abas existem nem qual está aberta. Agora as duas navegações (as 6 abas do topo e as 9 seções do Sistema) se anunciam corretamente, e o estado é mantido junto com a aparência, então os dois não podem mais divergir.
+- **Os ícones pararam de ser lidos em voz alta** e os botões que são só ícone (tema, conversar, terminal, fechar) ganharam nome. Os campos de busca, de consulta de PR, de organização, de período e o do chat também: antes o texto só existia como dica que some quando você começa a digitar.
+- **Os avisos passaram a ser anunciados.** O toast que confirma "configuração salva" e a faixa de aviso mudavam sem nenhum sinal pra quem não está olhando pra tela.
+
+**Correções**
+- O toast podia ficar mais largo que a tela num celular.
+- Os controles segmentados (Entregas e Consumo) tinham estilo declarado duas vezes, e a primeira declaração era código morto que nunca pegava. Uma regra de quebra de linha apontava pra uma classe que não existe no app, enquanto os cards de PR, que precisavam dela, ficavam de fora.
+- O mesmo seletor de nível aparecia em três tamanhos diferentes dependendo da tela.
+
 ## v2.28.0
 
 **Novidades**

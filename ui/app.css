@@ -26,6 +26,9 @@
   /* escala de espaçamento. Usada só pelas regras da aba Sistema (.sys-* e .set-*);
      o resto do arquivo segue com os literais que já tinha, pra não virar refatoração
      de 750 linhas. Os seis valores são os que a referência de design repete. */
+  /* altura real da topbar, medida por ResizeObserver (ver medirTopbar em app.js).
+     O fallback vale o tempo entre o parse do CSS e o primeiro medir. */
+  --topbar-h: 54px;
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 14px;
@@ -93,7 +96,8 @@ body.electron.mac .topbar-main { padding-right: 22px; padding-left: 84px; }
 .logo .beam { fill: var(--accent); }
 .logo .tower { fill: var(--logo-tower); }
 .logo .stripe { fill: var(--bg); }
-.brand-name { font-size: 16px; font-weight: 650; letter-spacing: .2px; }
+/* é o <h1> do documento (o nome do app): zera a margem e o tamanho padrão do h1 */
+.brand-name { margin: 0; font-size: 16px; font-weight: 650; letter-spacing: .2px; }
 .ver { color: var(--muted); font-size: 11px; font-weight: 600; margin: 4px 6px 0 -3px; }
 
 .pill {
@@ -171,7 +175,9 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 26px 0 10px; }
 .section-head h2 { font-size: 15px; font-weight: 650; margin: 0; display: flex; align-items: center; gap: 8px; }
 .section-sub { color: var(--muted); font-size: 12.5px; }
-.section-desc { color: var(--muted); font-size: 13px; margin: -2px 0 14px; }
+/* descrição da seção: uma classe só pro app inteiro. Largura de leitura (640px) e
+   text-wrap:pretty (sem linha órfã no fim) valiam só na aba Sistema. */
+.section-desc { margin: -2px 0 var(--sp-3); max-width: 640px; color: var(--muted); font-size: 13px; text-wrap: pretty; }
 .count { font-size: 11.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 99px; padding: 2px 9px; }
 .row-actions { display: flex; gap: 8px; }
 
@@ -358,6 +364,8 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 /* ---------- ferramentas ---------- */
 .tool-panel { margin-bottom: 14px; border-left: 3px solid var(--info); }
 .tool-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+/* título do painel: era um <b> solto, virou <h3>; zera os defaults do heading */
+.tool-title { margin: 0; font-size: 13.5px; font-weight: 700; }
 .tool-head .section-sub { flex: 1; }
 .spin { display: inline-block; width: 13px; height: 13px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -390,7 +398,9 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 .dom-matrix { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 6px; }
 .dom-cell { display: flex; flex-direction: column; gap: 3px; }
 .dom-cell .dom-name { font-size: 10.5px; color: var(--faint); font-weight: 600; }
-.dom-cell .dom-level { padding: 3px 7px; }
+/* a matriz de domínios usa o mesmo tamanho do seletor de papel da aba Time: eram três
+   tamanhos pro mesmo controle (4/8 aqui, 3/7 na matriz, 1/5 nos cards de PR). Sobraram
+   dois, e os dois têm motivo: o normal e o compacto de dentro do card. */
 .member-entries { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .entry { border-left: 2px solid var(--border); padding: 2px 0 2px 12px; }
 .entry .entry-head { font-size: 12px; color: var(--muted); font-weight: 600; }
@@ -403,7 +413,7 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
    branco), não uma borda vertical. Era a borda encostada no conteúdo que fazia a
    coluna parecer colada. */
 .sys-layout { display: grid; grid-template-columns: 212px minmax(0, 1fr); gap: var(--sp-6); align-items: start; min-height: 60vh; }
-.sys-sidebar { position: sticky; top: 66px; display: flex; flex-direction: column; gap: var(--sp-3); max-height: calc(100vh - 84px); overflow-y: auto; }
+.sys-sidebar { position: sticky; top: calc(var(--topbar-h) + 12px); display: flex; flex-direction: column; gap: var(--sp-3); max-height: calc(100vh - 84px); overflow-y: auto; }
 .sys-search-wrap { position: relative; }
 .sys-search-wrap .sys-search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--faint); pointer-events: none; }
 .sys-search-wrap input { width: 100%; padding: 6px 10px 6px 32px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 9px; font: inherit; font-size: 12.5px; transition: border-color .15s ease; }
@@ -424,7 +434,6 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
    tem no resto do app, senão a primeira seção começa abaixo da sidebar. */
 .sys-section > .section-head:first-child { margin-top: 0; margin-bottom: 4px; }
 .sys-section > .section-head:first-child h2 { font-size: 18px; }
-.sys-desc { margin: 0 0 var(--sp-4); max-width: 640px; font-size: 13px; color: var(--muted); text-wrap: pretty; }
 .sys-note { margin: -4px 0 10px; font-size: 11.5px; color: var(--faint); }
 .sys-stack { display: flex; flex-direction: column; gap: var(--sp-3); }
 .sys-stack.lg { gap: var(--sp-5); }
@@ -687,7 +696,10 @@ body.electron .chat-head { padding-right: 150px; }
 .chat-form-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
 /* ---------- toasts ---------- */
-.toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
+/* o left garante que o toast nunca fique mais largo que a tela (o max-width de 380px
+   sozinho já estourava numa viewport de 360) */
+.toasts { position: fixed; right: 18px; left: 18px; bottom: 18px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; z-index: 50; pointer-events: none; }
+.toasts > * { pointer-events: auto; }
 .toast { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 11px 15px; font-size: 13px; max-width: 380px; display: flex; gap: 9px; align-items: center; animation: toast-in .2s ease; }
 .toast.ok { border-left: 3px solid var(--ok); }
 .toast.error { border-left: 3px solid var(--danger); }
@@ -716,9 +728,6 @@ body.electron .chat-head { padding-right: 150px; }
 
 /* ---------- entregas ---------- */
 .deliv-controls { display: flex; align-items: center; gap: 10px; }
-.seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 99px; padding: 2px; }
-.seg-btn { border: 0; background: transparent; color: var(--muted); font-size: 12.5px; font-weight: 600; padding: 5px 12px; border-radius: 99px; cursor: pointer; }
-.seg-btn.active { background: var(--accent-soft); color: var(--accent); }
 .deliv-controls select { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 12.5px; }
 .deliv-controls #delivOrg { font-weight: 650; }
 .deliv-note { color: var(--danger); }
@@ -785,7 +794,7 @@ body.electron .chat-head { padding-right: 150px; }
 .brand { flex-shrink: 1; }
 /* linhas de lista e barras de acao quebram em vez de cortar botao/meta (so quebram quando nao cabem) */
 .row { flex-wrap: wrap; row-gap: 4px; }
-.section-head, .row-actions, .deliv-controls, .mypr-top, .dec-head, .dec-actions { flex-wrap: wrap; }
+.section-head, .row-actions, .deliv-controls, .mypr-top, .decision-head, .dec-actions, .pr-card, .pr-actions { flex-wrap: wrap; }
 
 @media (max-width: 860px) {
   .topbar-main { gap: 12px; padding: 10px 16px; }
@@ -804,9 +813,42 @@ body.electron .chat-head { padding-right: 150px; }
   .section-head { margin: 20px 0 10px; }
   .usage-controls { width: 100%; }
 }
+  /* ENTREGAS: os controles (org + segmentado + período) ficavam empurrados pro canto
+     direito do cabeçalho e espremidos. Em tela estreita eles viram uma faixa própria. */
+  .deliv-controls { width: 100%; }
+  .deliv-controls select { flex: 1; min-width: 0; }
+  .deliv-sum { padding: 11px 13px; }
+  .deliv-card .rows, .deliv-subgroup .rows { padding-left: 10px; padding-right: 10px; }
+  .deliv-subhead { padding: 8px 13px; }
+
+  /* DESTAQUES e TIME: cartões com avatar + texto viram coluna, senão o texto fica
+     com uma faixa de ~200px e quebra em toda palavra. */
+  .hl-card { gap: 10px; }
+  .member-head { flex-wrap: wrap; row-gap: 8px; }
+  .member-head .names { min-width: 0; flex: 1 1 100%; order: -1; }
+  .dom-matrix { grid-template-columns: 1fr 1fr; }
+
+  /* CONSUMO: a quebra era um grid de 3 colunas fixas; a barra sobrava ~80px e virava
+     um traço. Vira duas linhas: rótulo em cima, barra e valor embaixo. */
+  .ubar-row { grid-template-columns: 1fr auto; grid-template-areas: "rotulo rotulo" "barra valor"; row-gap: 3px; }
+  .ubar-label { grid-area: rotulo; max-width: none; }
+  .ubar-track { grid-area: barra; }
+  .ubar-val { grid-area: valor; }
+
+  /* RADAR: card de PR com 4 botões numa linha só. O texto fica em cima, as ações
+     embaixo, ocupando a largura. */
+  .pr-card > .info, .mypr-top > .info { flex: 1 1 100%; min-width: 0; }
+  .pr-actions { width: 100%; }
+  .pr-actions .btn { flex: 1; justify-content: center; }
+  .pr-actions .btn.icon { flex: 0 0 auto; }
+}
 @media (max-width: 420px) {
   #sessionsPill { display: none; }
   .usage-stats { grid-template-columns: 1fr 1fr; }
+  /* título de PR podia perder tudo pro ellipsis; em tela pequena vale mais ler o
+     título em duas linhas do que ver "feat: adicion…" */
+  .pr-title { white-space: normal; overflow: visible; }
+  .dom-matrix { grid-template-columns: 1fr; }
 }
 
 /* deep-link de alerta: pulso de destaque no card alvo */
@@ -825,7 +867,7 @@ body.electron .chat-head { padding-right: 150px; }
 .kbd-table kbd { background: var(--accent-soft); border: 1px solid var(--border); border-radius: 5px; padding: 1px 7px; font-family: inherit; font-size: 12px; }
 
 /* mini-navegacao do Radar: ancoras + contagem, sticky logo abaixo da topbar */
-.radar-nav { position: sticky; top: 54px; z-index: 15; display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 0 10px; margin-bottom: 4px; background: var(--bg); }
+.radar-nav { position: sticky; top: var(--topbar-h); z-index: 15; display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 0 10px; margin-bottom: 4px; background: var(--bg); }
 .radar-nav a { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 12.5px; text-decoration: none; white-space: nowrap; }
 .radar-nav a:hover { border-color: var(--accent); color: var(--text); }
 .radar-nav .rn-count:not(:empty) { background: var(--accent-soft); color: var(--accent-ink); border-radius: 999px; padding: 0 6px; font-weight: 600; min-width: 16px; text-align: center; }

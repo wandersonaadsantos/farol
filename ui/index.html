@@ -24,29 +24,31 @@
         <rect class="stripe" x="9.7" y="14.6" width="4.7" height="1.1"/>
         <rect class="tower" x="8" y="20" width="8" height="1.7" rx=".85"/>
       </svg>
-      <span class="brand-name">Farol</span>
+      <h1 class="brand-name">Farol</h1>
       <span id="appVer" class="ver" title="Versão instalada"></span>
-      <span id="statusPill" class="pill">iniciando…</span>
+      <span id="statusPill" class="pill" role="status">iniciando…</span>
       <span id="sessionsPill" class="pill session" hidden></span>
     </div>
 
-    <nav class="tabs" id="nav">
-      <button class="nav-item active" data-tab="radar">Radar</button>
-      <button class="nav-item" data-tab="entregas">Entregas</button>
-      <button class="nav-item" data-tab="destaques">Destaques</button>
-      <button class="nav-item" data-tab="time">Time</button>
-      <button class="nav-item" data-tab="consumo">Consumo</button>
-      <button class="nav-item" data-tab="sistema">Sistema</button>
+    <!-- tablist de verdade: o leitor de tela anuncia "aba 3 de 6, selecionada".
+         O aria-selected é mantido pelo switchTab, junto com a classe .active. -->
+    <nav class="tabs" id="nav" role="tablist" aria-label="Seções do Farol">
+      <button class="nav-item active" id="tabbtn-radar" data-tab="radar" role="tab" aria-selected="true" aria-controls="tab-radar">Radar</button>
+      <button class="nav-item" id="tabbtn-entregas" data-tab="entregas" role="tab" aria-selected="false" aria-controls="tab-entregas">Entregas</button>
+      <button class="nav-item" id="tabbtn-destaques" data-tab="destaques" role="tab" aria-selected="false" aria-controls="tab-destaques">Destaques</button>
+      <button class="nav-item" id="tabbtn-time" data-tab="time" role="tab" aria-selected="false" aria-controls="tab-time">Time</button>
+      <button class="nav-item" id="tabbtn-consumo" data-tab="consumo" role="tab" aria-selected="false" aria-controls="tab-consumo">Consumo</button>
+      <button class="nav-item" id="tabbtn-sistema" data-tab="sistema" role="tab" aria-selected="false" aria-controls="tab-sistema">Sistema</button>
     </nav>
 
     <div class="top-actions">
       <button id="btnCheck" class="btn ghost sm" title="Verificar agora">
-        <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>Verificar agora</span>
       </button>
-      <button id="btnTheme" class="btn icon ghost" title="Alternar tema">
-        <svg id="iconMoon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <svg id="iconSun" viewBox="0 0 24 24" style="display:none"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <button id="btnTheme" class="btn icon ghost" title="Alternar tema" aria-label="Alternar tema">
+        <svg id="iconMoon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg id="iconSun" viewBox="0 0 24 24" style="display:none" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
     </div>
   </div>
@@ -54,11 +56,11 @@
   <div id="accountBar" class="account-bar" hidden></div>
 </header>
 
-<div id="banner" class="banner" hidden></div>
+<div id="banner" class="banner" role="status" aria-live="polite" hidden></div>
 
 <main>
   <!-- ============ RADAR ============ -->
-  <section id="tab-radar" class="tabpane active">
+  <section id="tab-radar" class="tabpane active" role="tabpanel" aria-labelledby="tabbtn-radar" tabindex="0">
     <div id="identityStrip" class="identity-strip" hidden></div>
 
     <div class="meta-line">
@@ -79,14 +81,15 @@
         <h2>Analisando agora <span id="activeCount" class="count"></span></h2>
         <span id="activeWaiting" class="section-sub"></span>
       </div>
+      <p class="section-desc">Sessões do Claude rodando neste momento, com o que cada uma está fazendo ao vivo. Dá pra cancelar no meio.</p>
       <div id="activeSessions" class="cards"></div>
     </div>
 
     <div id="decisionsWrap" hidden>
       <div class="section-head">
         <h2>Precisa de você <span id="decisionsCount" class="count"></span></h2>
-        <span class="section-sub">o Farol revisou, mas o protocolo pediu seu olhar antes de postar</span>
       </div>
+      <p class="section-desc">O Farol revisou, mas o protocolo pediu o seu olhar antes de postar qualquer coisa no GitHub.</p>
       <div id="decisions" class="cards"></div>
     </div>
 
@@ -94,23 +97,25 @@
       <h2>Sua fila <span id="queueCount" class="count" hidden></span></h2>
       <button id="btnReviewAll" class="btn primary sm" hidden>Revisar tudo</button>
     </div>
+    <p class="section-desc">PRs em que pediram a sua revisão e que ainda esperam uma decisão.</p>
     <div id="queue" class="cards"></div>
 
     <div id="resolvedWrap" hidden>
       <div class="section-head"><h2>Revisões recentes</h2></div>
+      <p class="section-desc">O que o Farol já resolveu, com o veredito e os pontos de atenção que ficaram só aqui. É onde você confirma um pushback quando o autor contesta.</p>
       <div id="resolved" class="rows"></div>
     </div>
 
     <form id="lookupForm" class="lookup-bar" title="Abre a conversa salva de um PR, mesmo que ele não esteja mais na lista">
-      <input id="lookupUrl" type="text" spellcheck="false" placeholder="Consultar um PR por URL (abre a conversa salva)…">
+      <input id="lookupUrl" type="text" spellcheck="false" aria-label="Consultar um PR por URL" placeholder="Consultar um PR por URL (abre a conversa salva)…">
       <button class="btn sm" type="submit">Abrir</button>
     </form>
 
     <div id="myPRsWrap" hidden>
       <div class="section-head">
         <h2>Meus PRs <span id="myPRsCount" class="count" hidden></span></h2>
-        <span class="section-sub">autoanálise: veredito e dicas, só pra você, nada é postado</span>
       </div>
+      <p class="section-desc">Autoanálise dos seus próprios PRs: veredito e dicas antes de pedir review. Só pra você, nada é postado. Os botões Reviewers e Merge são as únicas ações que escrevem no GitHub daqui.</p>
       <div id="myPRs" class="cards"></div>
     </div>
 
@@ -124,16 +129,16 @@
   </section>
 
   <!-- ============ ENTREGAS ============ -->
-  <section id="tab-entregas" class="tabpane">
+  <section id="tab-entregas" class="tabpane" role="tabpanel" aria-labelledby="tabbtn-entregas" tabindex="0">
     <div class="section-head">
       <h2>Entregas</h2>
       <div class="deliv-controls">
-        <select id="delivOrg" title="Organização (a principal fica como padrão)"></select>
-        <div class="seg" id="delivBy">
-          <button class="seg-btn active" data-by="repo">Por repositório</button>
-          <button class="seg-btn" data-by="author">Por responsável</button>
+        <select id="delivOrg" title="Organização (a principal fica como padrão)" aria-label="Organização"></select>
+        <div class="seg" id="delivBy" role="group" aria-label="Agrupar entregas">
+          <button class="seg-btn active" data-by="repo" aria-pressed="true">Por repositório</button>
+          <button class="seg-btn" data-by="author" aria-pressed="false">Por responsável</button>
         </div>
-        <select id="delivDays">
+        <select id="delivDays" aria-label="Período">
           <option value="0">Hoje</option>
           <option value="7">7 dias</option>
           <option value="15">15 dias</option>
@@ -147,18 +152,18 @@
   </section>
 
   <!-- ============ DESTAQUES ============ -->
-  <section id="tab-destaques" class="tabpane">
+  <section id="tab-destaques" class="tabpane" role="tabpanel" aria-labelledby="tabbtn-destaques" tabindex="0">
     <div class="section-head">
       <h2>Destaques do time</h2>
       <button id="btnKudos" class="btn sm">
-        <svg viewBox="0 0 24 24"><path d="M12 3l1.9 4.6 4.9.4-3.7 3.2 1.1 4.8L12 13.5 7.8 16l1.1-4.8L5.2 8l4.9-.4L12 3z" fill="currentColor"/></svg>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3l1.9 4.6 4.9.4-3.7 3.2 1.1 4.8L12 13.5 7.8 16l1.1-4.8L5.2 8l4.9-.4L12 3z" fill="currentColor"/></svg>
         Gerar kudos com o Claude
       </button>
     </div>
     <p class="section-desc">Momentos exemplares registrados durante as revisões. O botão acima compila internamente um resumo pronto pra compartilhar.</p>
     <div id="kudosPanel" class="card tool-panel" hidden>
       <div class="tool-head">
-        <b>Kudos compilados</b>
+        <h3 class="tool-title">Kudos compilados</h3>
         <span id="kudosMeta" class="section-sub"></span>
         <button id="btnKudosCopy" class="btn sm">Copiar texto</button>
         <button id="btnKudosClear" class="btn sm ghost" title="Fechar e descartar este resultado">Limpar</button>
@@ -169,18 +174,18 @@
   </section>
 
   <!-- ============ TIME ============ -->
-  <section id="tab-time" class="tabpane">
+  <section id="tab-time" class="tabpane" role="tabpanel" aria-labelledby="tabbtn-time" tabindex="0">
     <div class="section-head"><h2>Memória do time</h2></div>
     <p class="section-desc">O que cada pessoa vem consolidando ou repetindo, registrado a cada review. Notas factuais sobre o trabalho, nunca sobre a pessoa.</p>
     <div id="team" class="cards"></div>
   </section>
 
   <!-- ============ CONSUMO ============ -->
-  <section id="tab-consumo" class="tabpane">
+  <section id="tab-consumo" class="tabpane" role="tabpanel" aria-labelledby="tabbtn-consumo" tabindex="0">
     <div class="section-head">
       <h2>Consumo de tokens</h2>
-      <span class="section-sub">quanto as sessões autônomas do Claude (revisão, autoanálise, pushback, ferramentas, chat) consomem, medindo o Farol como um todo (não filtra pela conta; a quebra "Por conta" abaixo só detalha de onde veio). Registro pessoal e permanente, só pra você acompanhar; não influencia nenhuma decisão da automação.</span>
     </div>
+    <p class="section-desc">Quanto as sessões autônomas do Claude (revisão, autoanálise, pushback, ferramentas e chat) consomem. Mede o Farol como um todo: a quebra "Por conta" abaixo só detalha de onde veio. É registro pessoal e permanente, só pra você acompanhar, e não influencia nenhuma decisão da automação.</p>
     <div id="usageStats" class="usage-stats"></div>
 
     <div class="card usage-chart-card">
@@ -188,15 +193,15 @@
         <h3>Linha do tempo</h3>
         <div class="usage-controls">
           <div class="seg" id="usageMetric" role="group" aria-label="Métrica">
-            <button class="seg-btn active" data-metric="total">Total</button>
-            <button class="seg-btn" data-metric="input">Input</button>
-            <button class="seg-btn" data-metric="output">Output</button>
-            <button class="seg-btn" data-metric="cache">Cache</button>
+            <button class="seg-btn active" data-metric="total" aria-pressed="true">Total</button>
+            <button class="seg-btn" data-metric="input" aria-pressed="false">Input</button>
+            <button class="seg-btn" data-metric="output" aria-pressed="false">Output</button>
+            <button class="seg-btn" data-metric="cache" aria-pressed="false">Cache</button>
           </div>
           <div class="seg" id="usageWindow" role="group" aria-label="Janela">
-            <button class="seg-btn" data-window="7">7 dias</button>
-            <button class="seg-btn active" data-window="30">30 dias</button>
-            <button class="seg-btn" data-window="90">90 dias</button>
+            <button class="seg-btn" data-window="7" aria-pressed="false">7 dias</button>
+            <button class="seg-btn active" data-window="30" aria-pressed="true">30 dias</button>
+            <button class="seg-btn" data-window="90" aria-pressed="false">90 dias</button>
           </div>
         </div>
       </div>
@@ -208,9 +213,9 @@
         <h3>Quebra</h3>
         <div class="usage-controls">
           <div class="seg" id="usageDim" role="group" aria-label="Dimensão">
-            <button class="seg-btn active" data-dim="kind">Por tipo</button>
-            <button class="seg-btn" data-dim="account">Por conta</button>
-            <button class="seg-btn" data-dim="model">Por modelo</button>
+            <button class="seg-btn active" data-dim="kind" aria-pressed="true">Por tipo</button>
+            <button class="seg-btn" data-dim="account" aria-pressed="false">Por conta</button>
+            <button class="seg-btn" data-dim="model" aria-pressed="false">Por modelo</button>
           </div>
         </div>
       </div>
@@ -219,48 +224,48 @@
   </section>
 
   <!-- ============ SISTEMA ============ -->
-  <section id="tab-sistema" class="tabpane">
+  <section id="tab-sistema" class="tabpane" role="tabpanel" aria-labelledby="tabbtn-sistema" tabindex="0">
     <div class="sys-layout">
       <aside class="sys-sidebar">
         <div class="sys-search-wrap">
-          <svg class="sys-search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16.5 16.5 21 21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          <input id="sysSearch" type="text" placeholder="Buscar configuração…" spellcheck="false">
+          <svg aria-hidden="true" class="sys-search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16.5 16.5 21 21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <input id="sysSearch" type="text" aria-label="Buscar configuração" placeholder="Buscar configuração…" spellcheck="false">
         </div>
-        <nav class="sys-nav" id="sysNav">
-          <button class="sys-nav-item active" data-section="overview">
-            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        <nav class="sys-nav" id="sysNav" role="tablist" aria-orientation="vertical" aria-label="Seções do Sistema">
+          <button class="sys-nav-item active" id="sysbtn-overview" data-section="overview" role="tab" aria-selected="true" aria-controls="sys-overview">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
             Visão geral
           </button>
-          <button class="sys-nav-item" data-section="accounts">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21v-1a6 6 0 0 1 16 0v1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <button class="sys-nav-item" id="sysbtn-accounts" data-section="accounts" role="tab" aria-selected="false" aria-controls="sys-accounts">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21v-1a6 6 0 0 1 16 0v1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             Contas
           </button>
-          <button class="sys-nav-item" data-section="automation">
-            <svg viewBox="0 0 24 24"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          <button class="sys-nav-item" id="sysbtn-automation" data-section="automation" role="tab" aria-selected="false" aria-controls="sys-automation">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
             Automação
           </button>
-          <button class="sys-nav-item" data-section="connections">
-            <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <button class="sys-nav-item" id="sysbtn-connections" data-section="connections" role="tab" aria-selected="false" aria-controls="sys-connections">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             Conexões
           </button>
-          <button class="sys-nav-item" data-section="plans">
-            <svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78m.27-2.34L19.07 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M17 8l-1.5 1.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <button class="sys-nav-item" id="sysbtn-plans" data-section="plans" role="tab" aria-selected="false" aria-controls="sys-plans">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78m.27-2.34L19.07 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M17 8l-1.5 1.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             Plano e chaves
           </button>
-          <button class="sys-nav-item" data-section="reviewers">
-            <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <button class="sys-nav-item" id="sysbtn-reviewers" data-section="reviewers" role="tab" aria-selected="false" aria-controls="sys-reviewers">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             Reviewers
           </button>
-          <button class="sys-nav-item" data-section="prefs">
-            <svg viewBox="0 0 24 24"><path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3M1 14h6m2-6h6m2 8h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <button class="sys-nav-item" id="sysbtn-prefs" data-section="prefs" role="tab" aria-selected="false" aria-controls="sys-prefs">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3M1 14h6m2-6h6m2 8h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             Preferências
           </button>
-          <button class="sys-nav-item" data-section="news">
-            <svg viewBox="0 0 24 24"><path d="M12 2 L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+          <button class="sys-nav-item" id="sysbtn-news" data-section="news" role="tab" aria-selected="false" aria-controls="sys-news">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 2 L15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
             Novidades
           </button>
-          <button class="sys-nav-item" data-section="diag">
-            <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 7h8m-8 4h8m-8 4h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <button class="sys-nav-item" id="sysbtn-diag" data-section="diag" role="tab" aria-selected="false" aria-controls="sys-diag">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 7h8m-8 4h8m-8 4h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             Diagnóstico
           </button>
         </nav>
@@ -272,7 +277,7 @@
         <div id="sysResults" class="sys-results" hidden></div>
 
         <!-- Visão geral -->
-        <div class="sys-section active" id="sys-overview">
+        <div class="sys-section active" id="sys-overview" role="tabpanel" aria-labelledby="sysbtn-overview" tabindex="0">
           <div class="section-head">
             <h2>Visão geral</h2>
             <div class="row-actions">
@@ -280,7 +285,7 @@
               <button id="btnDoctor" class="btn sm">Reverificar saúde</button>
             </div>
           </div>
-          <p class="sys-desc">Saúde do ambiente, versão instalada e onde ficam os teus dados.</p>
+          <p class="section-desc">Saúde do ambiente, versão instalada e onde ficam os teus dados.</p>
           <div class="sys-stack lg">
             <div id="updateBox" class="card update-box">…</div>
             <div id="doctor" class="doctor-grid"></div>
@@ -289,16 +294,16 @@
         </div>
 
         <!-- Contas -->
-        <div class="sys-section" id="sys-accounts">
+        <div class="sys-section" id="sys-accounts" role="tabpanel" aria-labelledby="sysbtn-accounts" tabindex="0">
           <div class="section-head"><h2>Contas</h2></div>
-          <p class="sys-desc">Cada conta com identidade e cor próprias. A política de automação é por conta: o que você não escolher aqui herda o padrão geral, definido em Automação. Contas silenciadas somem do painel.</p>
+          <p class="section-desc">Cada conta com identidade e cor próprias. A política de automação é por conta: o que você não escolher aqui herda o padrão geral, definido em Automação. Contas silenciadas somem do painel.</p>
           <div id="accountsManager" class="cards"></div>
         </div>
 
         <!-- Automação -->
-        <div class="sys-section" id="sys-automation">
+        <div class="sys-section" id="sys-automation" role="tabpanel" aria-labelledby="sysbtn-automation" tabindex="0">
           <div class="section-head"><h2>Automação</h2></div>
-          <p class="sys-desc">O que o Farol faz sozinho nos PRs, com qual modelo, e de quanto em quanto tempo ele consulta o GitHub.</p>
+          <p class="section-desc">O que o Farol faz sozinho nos PRs, com qual modelo, e de quanto em quanto tempo ele consulta o GitHub.</p>
           <div class="card set-list">
             <label class="set-row" id="sys-row-autoreview">
               <span class="set-txt">
@@ -403,9 +408,9 @@
         </div>
 
         <!-- Conexões -->
-        <div class="sys-section" id="sys-connections">
+        <div class="sys-section" id="sys-connections" role="tabpanel" aria-labelledby="sysbtn-connections" tabindex="0">
           <div class="section-head"><h2>Conexões</h2></div>
-          <p class="sys-desc">Conta do GitHub, organizações monitoradas e onde o botão Merge fica bloqueado.</p>
+          <p class="section-desc">Conta do GitHub, organizações monitoradas e onde o botão Merge fica bloqueado.</p>
           <div class="settings card">
             <div class="field" id="sys-row-ghuser">
               <label for="setUser">Conta do GitHub (trabalho)</label>
@@ -426,9 +431,9 @@
         </div>
 
         <!-- Plano e chaves -->
-        <div class="sys-section" id="sys-plans">
+        <div class="sys-section" id="sys-plans" role="tabpanel" aria-labelledby="sysbtn-plans" tabindex="0">
           <div class="section-head"><h2>Plano e chaves</h2></div>
-          <p class="sys-desc">A assinatura do Claude que paga as revisões. Um perfil por assinatura, e cada conta do GitHub pode usar um perfil diferente.</p>
+          <p class="section-desc">A assinatura do Claude que paga as revisões. Um perfil por assinatura, e cada conta do GitHub pode usar um perfil diferente.</p>
           <div class="settings card">
             <div class="field">
               <label>Perfis de assinatura do Claude</label>
@@ -439,9 +444,9 @@
         </div>
 
         <!-- Reviewers -->
-        <div class="sys-section" id="sys-reviewers">
+        <div class="sys-section" id="sys-reviewers" role="tabpanel" aria-labelledby="sysbtn-reviewers" tabindex="0">
           <div class="section-head"><h2>Reviewers por projeto</h2></div>
-          <p class="sys-desc">Um grupo padrão por organização, aplicado num clique pelo botão Reviewers em Meus PRs. Só os repos que fogem do padrão aparecem como exceção.</p>
+          <p class="section-desc">Um grupo padrão por organização, aplicado num clique pelo botão Reviewers em Meus PRs. Só os repos que fogem do padrão aparecem como exceção.</p>
           <div class="settings card">
             <div class="field">
               <div id="reviewersEditor" class="rev-editor"></div>
@@ -451,9 +456,9 @@
         </div>
 
         <!-- Preferências -->
-        <div class="sys-section" id="sys-prefs">
+        <div class="sys-section" id="sys-prefs" role="tabpanel" aria-labelledby="sysbtn-prefs" tabindex="0">
           <div class="section-head"><h2>Preferências</h2></div>
-          <p class="sys-desc">Exibição, avisos e inicialização.</p>
+          <p class="section-desc">Exibição, avisos e inicialização.</p>
           <div class="card set-list">
             <div class="set-row" id="sys-row-identity">
               <div class="set-txt">
@@ -499,14 +504,14 @@
         </div>
 
         <!-- Novidades -->
-        <div class="sys-section" id="sys-news">
+        <div class="sys-section" id="sys-news" role="tabpanel" aria-labelledby="sysbtn-news" tabindex="0">
           <div class="section-head"><h2>Novidades</h2></div>
-          <p class="sys-desc">O que mudou em cada versão. A que você tem instalada aparece marcada.</p>
+          <p class="section-desc">O que mudou em cada versão. A que você tem instalada aparece marcada.</p>
           <div id="relNotes" class="card"></div>
         </div>
 
         <!-- Diagnóstico -->
-        <div class="sys-section" id="sys-diag">
+        <div class="sys-section" id="sys-diag" role="tabpanel" aria-labelledby="sysbtn-diag" tabindex="0">
           <div class="section-head">
             <h2>Diagnóstico</h2>
             <div class="row-actions">
@@ -514,7 +519,7 @@
               <button id="btnDiag" class="btn sm" title="Gera um relatório de diagnóstico (sem segredos) pra copiar e mandar pra quem mantém o Farol, útil pra corrigir problemas (ex.: no macOS)">Exportar diagnóstico</button>
             </div>
           </div>
-          <p class="sys-desc">Log de falhas e ferramentas pra investigar um problema, inclusive o relatório pronto pra mandar pra quem mantém o Farol.</p>
+          <p class="section-desc">Log de falhas e ferramentas pra investigar um problema, inclusive o relatório pronto pra mandar pra quem mantém o Farol.</p>
           <div class="card set-list">
             <label class="set-row" id="sys-row-spawns">
               <span class="set-txt">
@@ -526,7 +531,7 @@
           </div>
           <div id="diagPanel" class="card tool-panel" hidden>
             <div class="tool-head">
-              <b>Diagnóstico exportável</b>
+              <h3 class="tool-title">Diagnóstico exportável</h3>
               <span class="section-sub">sem tokens nem senhas: só ambiente, contas, config e o log de falhas</span>
               <button id="btnDiagCopy" class="btn sm">Copiar</button>
               <button id="btnDiagClear" class="btn sm ghost">Fechar</button>
@@ -535,7 +540,7 @@
           </div>
           <div id="healthPanel" class="card tool-panel" hidden>
             <div class="tool-head">
-              <b>Diagnóstico</b>
+              <h3 class="tool-title">Diagnóstico</h3>
               <span id="healthMeta" class="section-sub"></span>
               <button id="btnHealthClear" class="btn sm ghost" title="Fechar este relatório: use quando os pontos levantados já foram tratados">Limpar</button>
             </div>
@@ -562,14 +567,14 @@
       <b id="chatKey"></b>
       <a id="chatLink" href="#" target="_blank" rel="noreferrer" hidden>abrir PR ↗</a>
     </div>
-    <button id="btnChatClose" class="btn icon ghost" title="Fechar conversa">
-      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <button id="btnChatClose" class="btn icon ghost" title="Fechar conversa" aria-label="Fechar conversa">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     </button>
   </div>
   <div id="chatMsgs" class="chat-msgs"></div>
   <div id="chatActivity" class="chat-activity" hidden></div>
   <form id="chatForm" class="chat-form">
-    <textarea id="chatInput" rows="2" placeholder="Pergunte ou peça algo sobre este PR… (Enter envia · Shift+Enter quebra linha)"></textarea>
+    <textarea id="chatInput" rows="2" aria-label="Mensagem pro Claude sobre este PR" placeholder="Pergunte ou peça algo sobre este PR… (Enter envia · Shift+Enter quebra linha)"></textarea>
     <div class="chat-form-actions">
       <button id="btnChatStop" class="btn sm danger-ghost" type="button" hidden>Parar geração</button>
       <button id="btnChatSend" class="btn primary sm" type="submit">Enviar</button>
@@ -577,7 +582,7 @@
   </form>
 </aside>
 
-<div id="toasts" class="toasts"></div>
+<div id="toasts" class="toasts" role="status" aria-live="polite"></div>
 <script src="app.js"></script>
 </body>
 </html>
