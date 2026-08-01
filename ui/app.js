@@ -26,9 +26,6 @@ let STATE = null;
 let logTimer = null;
 
 /* ---------- helpers ---------- */
-function esc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
 function api(path, body) {
   return fetch(path, {
     method: 'POST',
@@ -38,22 +35,6 @@ function api(path, body) {
 }
 function get(path) { return fetch(path).then(r => r.json()).catch(() => null); }
 
-function fmtClock(ts) {
-  if (!ts) return '';
-  return new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-}
-function fmtRel(iso) {
-  if (!iso) return '';
-  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 90) return 'agora';
-  if (s < 3600) return `${Math.round(s / 60)}min`;
-  if (s < 86400) return `${Math.round(s / 3600)}h`;
-  return `${Math.round(s / 86400)}d`;
-}
-function avatar(login, cls = '') {
-  const initial = (login || '?').charAt(0).toUpperCase();
-  return `<span class="avatar ${cls}">${esc(initial)}<img src="https://github.com/${encodeURIComponent(login)}.png?size=96" alt="" loading="lazy" onerror="this.remove()"></span>`;
-}
 function toast(kind, html, ms = 5000) {
   const el = document.createElement('div');
   el.className = `toast ${kind}`;
@@ -102,12 +83,6 @@ const TWEAK = {
 };
 let ACCT = {};        // user(lower) -> metadados da conta
 let OWNER2USER = {};  // owner/org(lower) -> user dono
-function hexToRgba(hex, a) {
-  const m = String(hex || '').replace('#', '');
-  if (m.length !== 6) return `rgba(255,180,84,${a})`;
-  const r = parseInt(m.slice(0, 2), 16), g = parseInt(m.slice(2, 4), 16), b = parseInt(m.slice(4, 6), 16);
-  return `rgba(${r},${g},${b},${a})`;
-}
 function rebuildAccounts() {
   ACCT = {}; OWNER2USER = {};
   const list = (STATE && STATE.accounts) || [];
@@ -152,8 +127,6 @@ function acctMark(pr, opts) {
   const dot = (showDot && a) ? `<span class="acct-dot"></span>` : '';
   return { style: varStyle + dim + barStyle, varStyle, dim, chip, dot, acct: a };
 }
-/* ---- atribuição de conta pra memória (Destaques/Time) ---- */
-function ownerFromUrl(url) { const m = String(url || '').match(/github\.com\/([^\/]+)\//i); return m ? m[1] : ''; }
 function acctUserFromUrl(url) { return OWNER2USER[ownerFromUrl(url).toLowerCase()] || ''; }
 // entrada de memória sem conta (dados antigos) só aparece na visão Todas (grupo "Geral")
 function scopeMemVisible(user) {
@@ -262,17 +235,6 @@ function renderSilenced() {
 }
 
 /* ---------- gerenciador/editor de contas (Sistema) ---------- */
-function accountSaveArray(list) {
-  return (list || []).map(a => {
-    const o = { user: a.user, owners: a.owners || [], label: a.label, color: a.color, kind: a.kind || '', muted: !!a.muted };
-    if (a.autoReview === true || a.autoReview === false) o.autoReview = a.autoReview;
-    if (a.onClean === 'approve' || a.onClean === 'wait') o.onClean = a.onClean;
-    if (a.onCaveats === 'approve' || a.onCaveats === 'wait') o.onCaveats = a.onCaveats;
-    if (a.onReject === 'request_changes' || a.onReject === 'wait') o.onReject = a.onReject;
-    if (a.claudeProfileId) o.claudeProfileId = a.claudeProfileId;
-    return o;
-  });
-}
 function editAccount(user, patch) {
   const list = (STATE.accounts || []).map(a => a.user === user ? { ...a, ...patch } : a);
   STATE.accounts = list; rebuildAccounts();
@@ -798,8 +760,6 @@ const SYS_INDEX = [
   { sec: 'diag', at: '#sys-row-log', title: 'Log de falhas', hint: 'log, erro, falha, pr-health' },
 ];
 
-// tira acento pra "revisao" achar "Revisão"
-function sysNorm(s) { return String(s || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase(); }
 
 function sysSecName(sec) {
   const b = document.querySelector(`.sys-nav-item[data-section="${sec}"]`);
@@ -1067,65 +1027,6 @@ async function loadDeliveries() {
   renderDeliveries();
 }
 
-// maior mergedAt de uma lista (ISO ordena lexicograficamente)
-function lastMerge(list) { return (list.map(x => x.mergedAt || '').sort().slice(-1)[0]) || ''; }
-function groupBy(items, keyFn) {
-  const m = new Map();
-  for (const it of items) { const k = keyFn(it); (m.get(k) || m.set(k, []).get(k)).push(it); }
-  return m;
-}
-function delivPrRow(it) {
-  return `<div class="row">
-    <span class="ref"><a href="${esc(it.url)}" target="_blank" rel="noreferrer">${esc(it.key)}</a></span>
-    <span class="title" title="${esc(it.title)}">${esc(it.title)}</span>
-    <span class="who">@${esc(it.author)}</span>
-    <span class="when">${fmtRel(it.mergedAt)}</span>
-  </div>`;
-}
-function delivGroupCard(head, count, bodyHtml) {
-  return `<div class="card deliv-card">
-    <details>
-      <summary class="deliv-sum">${head}<span class="count">${count}</span></summary>
-      ${bodyHtml}
-    </details>
-  </div>`;
-}
-// linha de PR dentro de um sub-grupo por repo (o repo já é o cabeçalho, então
-// mostra só o número e omite o @autor, que é o dono do card na visão por pessoa)
-function delivPrRowInRepo(it) {
-  const num = String(it.key).split('#')[1] || it.number;
-  return `<div class="row">
-    <span class="ref"><a href="${esc(it.url)}" target="_blank" rel="noreferrer">#${esc(num)}</a></span>
-    <span class="title" title="${esc(it.title)}">${esc(it.title)}</span>
-    <span class="when">${fmtRel(it.mergedAt)}</span>
-  </div>`;
-}
-// corpo agrupado por projeto (repo): usado na visão por responsável
-function delivRepoSubgroups(list) {
-  const groups = [...groupBy(list, it => it.repo).entries()].map(([repo, prs]) => ({ repo, prs, last: lastMerge(prs) }));
-  groups.sort((a, b) => b.prs.length - a.prs.length || String(b.last).localeCompare(String(a.last)));
-  return groups.map(g => `
-    <details class="deliv-subgroup" open>
-      <summary class="deliv-subhead"><span class="deliv-subname">${esc(g.repo)}</span><span class="count sm">${g.prs.length}</span></summary>
-      <div class="rows">${g.prs.map(delivPrRowInRepo).join('')}</div>
-    </details>`).join('');
-}
-function deliveriesByRepo(items) {
-  const groups = [...groupBy(items, it => it.repo).entries()].map(([repo, list]) => {
-    const autores = new Set(list.map(x => x.author).filter(Boolean)).size;
-    return { list, last: lastMerge(list), head: `<span class="deliv-name">${esc(repo)}</span><span class="deliv-meta">${autores} ${autores === 1 ? 'autor' : 'autores'} · último ${fmtRel(lastMerge(list))}</span>` };
-  });
-  groups.sort((a, b) => b.list.length - a.list.length || String(b.last).localeCompare(String(a.last)));
-  return groups.map(g => delivGroupCard(g.head, g.list.length, `<div class="rows">${g.list.map(delivPrRow).join('')}</div>`)).join('');
-}
-function deliveriesByAuthor(items) {
-  const groups = [...groupBy(items, it => it.author || '(desconhecido)').entries()].map(([login, list]) => {
-    const repos = new Set(list.map(x => x.repo)).size;
-    return { list, last: lastMerge(list), head: `${avatar(login)}<span class="deliv-name">@${esc(login)}</span><span class="deliv-meta">${repos} ${repos === 1 ? 'repo' : 'repos'} · último ${fmtRel(lastMerge(list))}</span>` };
-  });
-  groups.sort((a, b) => b.list.length - a.list.length || String(b.last).localeCompare(String(a.last)));
-  return groups.map(g => delivGroupCard(g.head, g.list.length, delivRepoSubgroups(g.list))).join('');
-}
 function renderDeliveries() {
   const data = deliveriesData || { items: [] };
   const note = $('#delivNote');
@@ -1216,10 +1117,6 @@ function tickElapsed() {
 }
 
 /* ---------- render: análises em andamento (feed ao vivo) ---------- */
-function feedLine(it) {
-  const icon = { tool: '⚙', text: '💬', warn: '⚠', info: '·' }[it.k] || '·';
-  return `<div class="feed-line k-${esc(it.k)}"><span class="feed-t">${fmtClock(it.t)}</span><span class="feed-i">${icon}</span><span class="feed-x">${esc(it.text)}</span></div>`;
-}
 function fillFeed(feed, items) {
   const stick = feed.scrollTop + feed.clientHeight >= feed.scrollHeight - 30;
   feed.innerHTML = (items || []).map(feedLine).join('') ||
@@ -1272,46 +1169,6 @@ function renderActive() {
   tickElapsed();
 }
 
-/* ---------- markdown minimo (relatorios de review) ---------- */
-function md(src) {
-  const lines = esc(String(src || '')).split(/\r?\n/);
-  const out = [];
-  let list = null, table = null;
-  const closeAll = () => {
-    if (list) { out.push(`</${list}>`); list = null; }
-    if (table) { out.push('</tbody></table>'); table = null; }
-  };
-  const inline = (s) => s
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
-    .replace(/(^|[^*])\*([^*]+)\*/g, '$1<i>$2</i>')
-    .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
-    .replace(/^\[!(NOTE|WARNING|IMPORTANT)\]\s*/i, '');
-  for (const raw of lines) {
-    const l = raw.trimEnd();
-    const h = l.match(/^(#{1,4})\s+(.*)$/);
-    if (h) { closeAll(); out.push(`<h${h[1].length + 2}>${inline(h[2])}</h${h[1].length + 2}>`); continue; }
-    if (/^(---+|\*\*\*+)$/.test(l.trim())) { closeAll(); out.push('<hr>'); continue; }
-    if (/^&gt;\s?/.test(l.trim())) { closeAll(); out.push(`<blockquote>${inline(l.trim().replace(/^&gt;\s?/, ''))}</blockquote>`); continue; }
-    if (/^\|.*\|$/.test(l.trim())) {
-      const cells = l.trim().slice(1, -1).split('|').map(c => c.trim());
-      if (cells.every(c => /^:?-{2,}:?$/.test(c))) continue; // linha separadora
-      if (!table) { table = true; out.push('<table><tbody>'); }
-      out.push('<tr>' + cells.map(c => `<td>${inline(c)}</td>`).join('') + '</tr>');
-      continue;
-    } else if (table) { out.push('</tbody></table>'); table = null; }
-    const li = l.match(/^\s*[-*]\s+(.*)$/);
-    if (li) {
-      if (list !== 'ul') { closeAll(); out.push('<ul>'); list = 'ul'; }
-      out.push(`<li>${inline(li[1].replace(/^\[([ x])\]\s*/i, (m, c) => c.toLowerCase() === 'x' ? '☑ ' : '☐ '))}</li>`);
-      continue;
-    }
-    closeAll();
-    if (l.trim()) out.push(`<p>${inline(l)}</p>`);
-  }
-  closeAll();
-  return out.join('\n');
-}
 
 /* ---------- chat com o Claude ---------- */
 let chatKey = null, chatUrl = null;
@@ -1865,26 +1722,6 @@ $('#myPRs').addEventListener('click', (e) => {
 /* ---------- render: versão e atualização ---------- */
 /* ---------- Consumo de tokens (tela própria, charts em SVG puro) ---------- */
 const usageState = { metric: 'total', window: 30, dim: 'kind' };
-function fmtTok(n) { return Number(n || 0).toLocaleString('pt-BR'); }
-function fmtCompact(n) {
-  n = Number(n) || 0;
-  if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace('.', ',') + 'M';
-  if (n >= 1e3) return Math.round(n / 1e3) + 'k';
-  return String(Math.round(n));
-}
-function usageMetricVal(b, m) {
-  b = b || {};
-  if (m === 'input') return b.inputTokens || 0;
-  if (m === 'output') return b.outputTokens || 0;
-  if (m === 'cache') return (b.cacheReadTokens || 0) + (b.cacheCreationTokens || 0);
-  return (b.inputTokens || 0) + (b.outputTokens || 0); // total
-}
-// chaves de dia (UTC, batendo com o server) dos últimos n dias, incluindo hoje
-function usageDayKeysBack(n) {
-  const out = [], d = new Date(); d.setUTCHours(0, 0, 0, 0);
-  for (let i = n - 1; i >= 0; i--) { const x = new Date(d.getTime()); x.setUTCDate(d.getUTCDate() - i); out.push(x.toISOString().slice(0, 10)); }
-  return out;
-}
 
 // linha do tempo: barras por dia na janela escolhida, métrica escolhida (SVG)
 function drawUsageTimeline(el, series, metric, win) {
@@ -2154,6 +1991,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.29.1', ['Versão de manutenção: nada muda na tela nem no comportamento. As funções de formatação e de escape da interface saíram do arquivo de 2.860 linhas onde moravam e ganharam arquivo próprio, com 45 testes. Era o maior arquivo do projeto e o único sem nenhum teste. Entre elas está a que neutraliza HTML antes de exibir, usada em cerca de 240 lugares do app e que nunca tinha sido verificada.']],
   ['2.29.0', ['Todas as telas passaram a explicar pra que servem: o refino de espaçamento que a v2.28.0 fez só na aba Sistema chegou nas outras cinco. Cada seção agora tem uma frase abaixo do título dizendo o que ela mostra, com a mesma largura de leitura em todo lugar. Eram três tratamentos diferentes pro mesmo tipo de texto, e o Radar não tinha nenhum apesar de ter seis seções.', 'O app ficou usável no celular. Entregas, Destaques e Time não tinham uma linha sequer de regra pra tela estreita: agora os controles de Entregas ocupam a faixa inteira, os cartões viram coluna, os botões dos cards de PR ganham largura em vez de sobrar meio botão fora da tela, e o título do PR quebra em duas linhas em vez de virar reticências.', 'O gráfico do Consumo virou legível no celular. Ele era desenhado sempre com 820px e depois encolhido pra caber, então os rótulos das datas ficavam com 4 pixels. Agora mede o espaço disponível e desenha no tamanho certo, mostrando menos datas quando o espaço é menor.', 'A barra de seções do Radar parou de descolar do topo: o deslocamento estava cravado em 54 pixels, mas a barra do topo muda de altura (encolhe no celular, cresce com mais de uma conta). Agora a altura é medida.', 'Acessibilidade: a página não tinha nenhum título de nível 1 e as abas eram só botões com uma classe, então quem usa leitor de tela não sabia quantas abas existem nem qual está aberta. As duas navegações agora se anunciam certo, os ícones pararam de ser lidos em voz alta, os botões só-ícone e os campos de busca ganharam nome, e os avisos (o toast de configuração salva, a faixa de aviso) passaram a ser anunciados.', 'Correções: o toast podia ficar mais largo que a tela no celular; os controles segmentados tinham estilo declarado duas vezes, com a primeira sendo código morto; uma regra de quebra de linha apontava pra uma classe inexistente enquanto os cards de PR, que precisavam dela, ficavam de fora.']],
   ['2.28.0', ['Novo controle de esforço de raciocínio em Sistema > Automação: cinco níveis (padrão do Claude, baixo, médio, alto e muito alto), cada um explicando o que muda e quanto custa do teu limite. Vale pras sessões autônomas (revisão, autoanálise, pushback, chat e ferramentas); a sessão no terminal não é afetada. O padrão continua deixando o Claude decidir pelo modelo, então quem não mexer não vê diferença. Com Haiku escolhido os cartões desabilitam, porque esse modelo não aceita nível de esforço.', 'O seletor de modelo das revisões foi de 4 pra 6 opções, com o trade-off no rótulo: além de Opus, Sonnet e Haiku, agora tem "Melhor disponível" (o Claude escolhe o topo da tua conta) e Fable (raciocínio longo). O config.json também passa a aceitar o nome completo de um modelo, sem precisar de versão nova do Farol.', 'A revisão em lotes de PR grande nunca tinha funcionado: desde a v2.26.0 o Farol media o PR, decidia fatiar em 2 a 4 lotes e montava o plano, mas o plano era descartado antes de chegar no Claude. Na prática um PR de 8700 linhas era lido parcialmente e aprovado. Agora o fan-out roda de verdade, com um subagente por lote em paralelo: a revisão de PR grande fica bem mais completa, e consome mais do teu limite.', 'A aba Sistema respira: cada configuração virou uma linha com o texto à esquerda, o controle à direita e uma divisória entre elas, no lugar do bloco corrido onde tudo ficava colado. A sidebar se separa do conteúdo por espaço em branco em vez de uma borda encostada, a aba ganhou mais largura, e cada seção tem um título maior com uma frase dizendo pra que serve. Versão e caminho dos dados foram pro rodapé da sidebar.', 'A busca do Sistema devolve uma lista de resultados nomeados, cada um com a seção de onde vem; clicar leva direto pra configuração e pisca a linha. Antes acendia várias seções ao mesmo tempo e empilhava tudo. Funciona sem acento e avisa quando não acha nada. As 9 seções também entraram na paleta de comandos (Ctrl+K).', 'Correções de acabamento: dez divisórias da tela de Sistema não estavam sendo desenhadas (cor usada sem nunca ter sido definida), o texto de ajuda dos campos ficava espremido ao lado em vez de abaixo, o botão "Reviewers" num PR sem configuração levava pra uma seção invisível, e o selo de assinatura do Claude aparecia como texto solto.', 'Modelo inválido no config.json agora é barrado no boot: esse campo entra na linha de comando que o Farol executa e só era validado quando salvo pela tela. A aba Consumo passa a mostrar a versão dos modelos da geração nova (Opus 5, Sonnet 5, Fable 5), que antes apareciam sem número. E a interface pergunta ao motor em qual sistema ele roda, em vez de adivinhar pelo navegador.']],
   ['2.27.0', ['A aba Sistema ganhou uma sidebar de navegação com 9 seções (Visão geral, Contas, Automação, Conexões, Plano e chaves, Reviewers, Preferências, Novidades e Diagnóstico), cada uma com seu grupo de configurações, no lugar da lista corrida anterior. Um campo de busca no topo da sidebar filtra por texto e mostra só as seções que contêm o termo. Em telas estreitas a sidebar vira uma faixa horizontal com os mesmos itens.', 'A assinatura do Claude que o Farol usa agora pode ser diferente por conta GitHub monitorada: crie perfis nomeados (ex.: "BIUD Trabalho", "Pessoal Max"), cada um apontando pro seu diretório de config próprio, e escolha um perfil padrão do Farol e, opcionalmente, um perfil específico por conta (Sistema > Contas). Cada conta e cada perfil mostram um selo com o e-mail logado ali (ou "SEM LOGIN" se faltar o claude login naquele diretório), e esse selo se atualiza sozinho ao salvar. Sem nenhum perfil criado, nada muda.', 'Cada perfil de assinatura Claude (e o padrão do Farol) ganha um botão "Abrir sessão de login": um terminal só com o claude, sem PR, fila ou token do GitHub envolvido.', 'Fechar a sessão de terminal sem terminar a revisão não faz mais o PR sumir da fila: fechar a sessão sempre devolve o PR à fila.', 'Pente-fino nos perfis de assinatura Claude: config.json malformado não derruba mais buscas de PR nem sessões de review; caminho de perfil com aspas ou quebra de linha não consegue mais executar comando nenhum; remover um perfil usado por 2+ contas ao mesmo tempo não deixa mais nenhuma "presa" a ele; migrar o campo antigo pra um perfil novo já marca esse perfil como padrão na hora.']],
@@ -2246,16 +2084,6 @@ function cfgDefaults() { return (STATE.config || {}).defaultReviewers || {}; }
 function cfgProjects() { return (STATE.config || {}).projectReviewers || {}; }
 function defaultFor(org) { const d = cfgDefaults(); return d[org] || d[(org || '').toLowerCase()] || []; }
 function overrideFor(repo) { const p = cfgProjects(); return p[repo] || p[(repo || '').toLowerCase()] || null; }
-function sameSet(a, b) {
-  const A = new Set((a || []).map(s => String(s).toLowerCase())), B = new Set((b || []).map(s => String(s).toLowerCase()));
-  if (A.size !== B.size) return false;
-  for (const x of A) if (!B.has(x)) return false;
-  return true;
-}
-function diffVs(base, list) {
-  const B = new Set((base || []).map(x => x.toLowerCase())), L = new Set((list || []).map(x => x.toLowerCase()));
-  return { added: (list || []).filter(x => !B.has(x.toLowerCase())), removed: (base || []).filter(x => !L.has(x.toLowerCase())) };
-}
 function reviewerLabel(rv) {
   const isTeam = rv.includes('/');
   const ent = isTeam && rv.split('/').slice(1).join('/').includes(':');
@@ -2263,7 +2091,6 @@ function reviewerLabel(rv) {
   if (isTeam) { const org = rv.split('/')[0]; const t = ((reviewerCands[org] || {}).teams || []).find(t => t.id === rv); return { label: (t ? t.name : rv.split('/').pop()) + ' (time)', cls: 'team' }; }
   return { label: rv, cls: '' };
 }
-function repoShort(repo) { return repo.split('/').slice(1).join('/') || repo; }
 function reposOfOrg(org) {
   const o = String(org).toLowerCase(), set = new Set();
   const add = k => { const r = String(k || ''); if (r.split('/')[0].toLowerCase() === o) set.add(r); };
@@ -2537,9 +2364,6 @@ function renderSettings() {
 
 /* ---------- ferramentas internas (kudos/diagnostico) ---------- */
 let lastKudosOutput = '';
-function stripFence(s) {
-  return String(s || '').trim().replace(/^```[a-z]*\s*\r?\n/i, '').replace(/\r?\n```\s*$/, '').trim();
-}
 function kudosScopeKey() { return SCOPE === 'all' ? '*' : String(SCOPE).toLowerCase(); }
 function renderTools() {
   const runs = STATE.toolRuns || {};

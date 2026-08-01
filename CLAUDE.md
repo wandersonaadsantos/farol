@@ -33,7 +33,8 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
 | `lib/engine/tools.js` | Ferramentas internas (kudos, diagnóstico), com escopo por conta |
 | `lib/engine/update.js` | Auto-update: comparação de versão, download da release e aplicação por SO |
 | `lib/engine/usage.js` | Agregação do consumo (por dia, tipo, conta e modelo) |
-| `ui/` | UI sem framework: `index.html` + `app.js` + `app.css` |
+| `ui/` | UI sem framework: `index.html` + `pure.js` + `app.js` + `app.css` |
+| `ui/pure.js` | As funções PURAS da UI (esc, md, formatadores, agrupamento das Entregas). Carregado das duas pontas sem build step: `<script src>` antes do `app.js` no navegador, `require` no `node --test`. É o único código de front que tem teste. Só entra aqui o que não toca DOM nem lê estado global |
 | `workspace-template/` | Workspace semeado em `~/.farol/workspace` (protocolo de review do Claude); `prompts/pr-review-auto.md` é a revisão headless, `prompts/self-review.md` é a autoanálise dos meus PRs (só leitura, nunca posta) |
 | `installer/install.ps1` / `uninstall.ps1` | Instalador Windows |
 | `installer/install.sh` / `uninstall.sh` | Instalador macOS |

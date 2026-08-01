@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.29.1
+
+Versão de manutenção: **nada muda na tela nem no comportamento**. Ela existe porque o
+código da interface foi reorganizado por dentro e o número da versão precisa acompanhar,
+pra uma mesma versão nunca significar dois conteúdos diferentes.
+
+**Por dentro**
+- As funções de formatação e de escape da interface (que preparam texto pra ir pra tela) saíram do arquivo de 2.860 linhas onde moravam e ganharam arquivo próprio, com 45 testes. Era o maior arquivo do projeto e o único sem nenhum teste. Entre elas está a que neutraliza HTML antes de exibir, usada em cerca de 240 lugares do app e que nunca tinha sido verificada.
+
 ## v2.29.0
 
 **Melhorias**

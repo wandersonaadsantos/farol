@@ -38,16 +38,23 @@ O débito original era o `server.js`: uma classe `Engine` de 3122 linhas fazendo
 - **Onda 1 (feita):** funções puras sem estado pra `lib/` (`format`, `io`, `parse`, `taxonomy`), com teste.
 - **Onda 2 (feita):** camadas base `lib/paths.js` (versão/plataforma/caminhos), `lib/workspace.js` (leitura dos artefatos do workspace) e `lib/http-server.js` (adapter HTTP+SSE), e a `Engine` separada por responsabilidade em `lib/engine/` (colaboradores que recebem o `engine` como ctx; a `Engine` mantém fachadas finas que delegam): `update`, `chat`, `tools`, `pushback`, `decision`, `gh-queries`, `session`, `selfpr` (Meus PRs), `review` (pipeline headless + gate). O `server.js` caiu de 3122 pra ~905 linhas; o que ficou na `Engine` é o núcleo legítimo (composição, ciclo de vida, contas/política, polling, settings/snapshot).
 - **Onda 3 (feita):** cobertura e gate. Sete módulos de produção estavam sem nenhum teste, incluindo o `selfpr.js` (que mergeia PR no GitHub) e o `pushback.js` (cujo teste era uma cópia manual do gate, ou seja, testava o teste). O `npm run check` validava três arquivos escolhidos a dedo e ignorava os 19 de `lib/`. Corrigido: `tools/check-syntax.js` descobre todo `.js` do projeto, e `test/facades.test.js` deriva do fonte a aridade esperada de cada fachada, no lugar de uma tabela curada de 6.
-- **Onda 4 (NÃO feita, o débito atual):** o `ui/app.js`, com ~2800 linhas, é hoje o maior arquivo do projeto, quase 3x o `server.js`, e não tem **nenhum** teste. Ele acumula render, estado da UI, atalhos, paleta de comandos, busca, SSE e as chamadas de API. Não há como rodar `node --test` nele hoje porque o arquivo é um script de navegador que toca `document` no top-level (o que também viola o princípio 6). O caminho é o mesmo das ondas anteriores: extrair primeiro o que é puro (formatação de data e rótulo, filtros de escopo, o índice de busca do Sistema), que não depende de DOM, e só depois pensar em separar render de estado.
+- **Onda 4 (primeiro passo feito):** o `ui/app.js` não tinha **nenhum** teste, porque é um script de navegador que toca `document` no top-level (o que também viola o princípio 6). As **26 funções puras** saíram para `ui/pure.js`, que é carregado das duas pontas sem build step: o navegador lê por `<script src>` **antes** do `app.js` (as funções continuam no escopo global, exatamente como estavam) e o `node --test` lê por um rodapé CommonJS, que no navegador nem executa (`typeof module` é `'undefined'` ali).
+
+  Entrou junto o único ajuste de forma: `fmtRel` e `usageDayKeysBack` ganharam um parâmetro `agora = Date.now()`. Todos os chamadores passam um argumento só e nenhum é passado por referência a `.map` (conferido um a um), então nada mudou para eles, e o teste virou determinístico em vez de depender do relógio.
+
+  **Regra do arquivo novo:** só entra o que for puro. Função que precise de `STATE`, `SCOPE` ou `document` fica no `app.js`; para trazer, primeiro passe o que ela lê como parâmetro.
+
+- **Onda 5 (não feita, o débito atual):** o que sobrou no `ui/app.js` são ~2690 linhas de render, estado, atalhos, paleta de comandos, busca e SSE, ainda sem teste. O próximo passo barato já está mapeado: sete funções (`chatBadge`, `papelPicker`, `domainMatrix`, `reviewerLabel`, `chipHtml`, `buildFixPrompt`, `pushbackControl`) são puras em forma e só leem global, e viram puras com **um parâmetro a mais**; juntas têm menos de 20 chamadores. Depois disso é que faz sentido encarar a separação entre render e estado.
 
 ### Números de hoje (mantenha esta linha viva)
 
 | Arquivo | Linhas | Testes |
 |---|---|---|
-| `ui/app.js` | ~2800 | nenhum |
+| `ui/app.js` | ~2690 | nenhum (o que sobrou não é puro) |
+| `ui/pure.js` | ~235 | `ui-pure.test.js`, 45 testes |
 | `server.js` | ~1080 | via `boot`, `facades`, e os testes de comportamento |
 | maior módulo de `lib/` (`selfpr.js`) | ~490 | `merge-gates.test.js` |
-| suíte | | 332 testes |
+| suíte | | 392 testes |
 
 Quem mexer aqui e deixar esses números defasados repete o problema que esta seção teve: o documento afirmava "~2600 linhas com ~120 métodos" muito depois de o `server.js` ter caído para mil.
 
