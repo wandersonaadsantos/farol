@@ -1102,6 +1102,25 @@ function kbdHelp() {
   ov.onclick = (e) => { if (e.target === ov) close(); };
   document.addEventListener('keydown', onKey);
 }
+/* decisão pendente: caminho ÚNICO de POST, usado pelo card (#decisions) e pela paleta.
+   O achado A5: a paleta chamava um decide() que nunca existiu (ReferenceError engolido). */
+function decide(id, action) {
+  return api('/api/decide', { id, action }).then(r => {
+    if (!r || !r.ok) toast('error', esc((r && r.error) || 'não consegui registrar a decisão'));
+    return r;
+  });
+}
+// a paleta não tem o modal do card, então o REQUEST_CHANGES ganha a MESMA confirmação
+async function decideComConfirmacao(id, action, ref) {
+  if (action === 'request_changes') {
+    const ok = await confirmModal({
+      title: `Pedir mudanças em ${ref || 'este PR'}?`, danger: true, confirmLabel: 'Pedir mudanças', cancelLabel: 'Cancelar',
+      body: `<p>Isso <b>posta um REQUEST CHANGES no GitHub</b>, visível pra todo mundo do PR, com os pontos que a revisão levantou.</p>`
+    });
+    if (!ok) return { ok: false };
+  }
+  return decide(id, action);
+}
 /* ---------- paleta de comando (Ctrl+K / Cmd+K) ---------- */
 // Ir a qualquer lugar rápido: abas, seções do Radar, ou colar/digitar URL/key
 // de PR (org/repo#NN) pra abrir a conversa salva, sem precisar do mouse.
@@ -1115,14 +1134,19 @@ function cmdStatic() { return [
     const ref = d.key || '';
     const acao = (rotulo, action) => ({
       kind: 'decisão', label: `${rotulo} ${ref}`, hint: 'decisão',
-      run: () => decide(d.id, action)
+      run: () => decideComConfirmacao(d.id, action, ref)
     });
     return [acao('Aprovar', 'approve'), acao('Pedir mudanças em', 'request_changes')];
   }),
-  ...((STATE?.decisions?.pending || []).length > 1
-    ? [{ kind: 'lote', label: `Aprovar as ${STATE.decisions.pending.length} pendentes`, hint: 'lote',
-        run: async () => { for (const d of [...STATE.decisions.pending]) await decide(d.id, 'approve'); } }]
-    : []),
+  // o lote respeita o ESCOPO: aprova só o que o filtro de conta mostra, nunca a
+  // fila inteira (agravante do achado A5, regra R13 do plano mestre)
+  ...(() => {
+    const visiveis = (STATE?.decisions?.pending || []).filter(scopeVisible);
+    return visiveis.length > 1
+      ? [{ kind: 'lote', label: `Aprovar as ${visiveis.length} pendentes`, hint: 'lote',
+          run: async () => { for (const d of visiveis) await decide(d.id, 'approve'); } }]
+      : [];
+  })(),
   ...[...document.querySelectorAll('.nav-item')].map(b => ({ kind: 'tab', label: `Ir para ${b.textContent}`, hint: 'aba', run: () => switchTab(b.dataset.tab) })),
   // as 9 seções do Sistema, lidas do DOM: seção nova entra aqui sozinha.
   // .trim() porque o botão tem um <svg aria-hidden="true"> antes do texto e sobra espaço em branco.
@@ -1184,7 +1208,9 @@ function cmdOpen() {
     list.innerHTML = items.map((c, idx) => `<div class="cmd-item${idx === 0 ? ' sel' : ''}" data-idx="${idx}"><span>${esc(c.label)}</span><span class="cmd-hint">${esc(c.hint)}</span></div>`).join('')
       || '<div class="cmd-empty">Nada encontrado. Cole a URL de um PR pra abrir a conversa.</div>';
     [...list.querySelectorAll('.cmd-item')].forEach((el, idx) => {
-      el.onclick = () => { items[idx].run(); cmdClose(); };
+      // fecha ANTES de rodar: um run() que lança não pode travar a paleta aberta,
+      // e a rejeição vira toast em vez de sumir no console
+      el.onclick = () => { cmdClose(); Promise.resolve().then(() => items[idx].run()).catch(err => toast('error', esc((err && err.message) || 'a ação falhou'))); };
     });
   };
   input.addEventListener('input', renderList);
@@ -2951,7 +2977,7 @@ $('#decisions').addEventListener('click', async (e) => {
     if (!ok) return;
   }
   btn.disabled = true;
-  const r = await api('/api/decide', { id, action });
+  const r = await decide(id, action);
   if (!r?.ok) btn.disabled = false;
 });
 

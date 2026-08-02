@@ -45,3 +45,29 @@ test('o extrator de rotas não está cego (sanidade das duas pontas)', () => {
   assert.ok(servidas.has('/api/self-review/cancel'), 'o servidor roteia o cancelamento da autoanálise');
   assert.ok(chamadas.size >= 15, `a UI chama muitas rotas (achou ${chamadas.size})`);
 });
+
+test('a paleta de comandos usa funções de decisão que EXISTEM no app.js', () => {
+  // regressão do achado A5: cmdStatic montava run: () => decide(...) e nenhum decide
+  // existia em script carregado; o clique morria em ReferenceError silencioso e o
+  // usuário achava que tinha aprovado
+  assert.match(APPJS, /function decide\(/, 'decide() definida');
+  assert.match(APPJS, /async function decideComConfirmacao\(/, 'decideComConfirmacao() definida');
+  assert.match(APPJS, /run: \(\) => decideComConfirmacao\(/, 'a paleta chama a versão com confirmação');
+});
+
+test('o clique num item da paleta fecha a paleta ANTES de rodar e captura a rejeição', () => {
+  // sem isto, um run() que lança trava a paleta aberta e a promise rejeita em silêncio
+  assert.match(APPJS, /cmdClose\(\); Promise\.resolve\(\)\.then\(\(\) => items\[idx\]\.run\(\)\)\.catch\(/);
+});
+
+test('o lote "Aprovar as N pendentes" só alcança as decisões visíveis no escopo', () => {
+  // agravante do A5 (regra R13 do plano mestre): aprovar em lote não pode alcançar
+  // decisões que o filtro de conta esconde; o lote itera a lista passada por
+  // scopeVisible, nunca STATE.decisions.pending inteiro
+  assert.match(APPJS, /const visiveis = \(STATE\?\.decisions\?\.pending \|\| \[\]\)\.filter\(scopeVisible\);/,
+    'o lote nasce da lista filtrada por scopeVisible');
+  assert.match(APPJS, /for \(const d of visiveis\) await decide\(d\.id, 'approve'\);/,
+    'a iteração do lote é sobre as visíveis');
+  assert.doesNotMatch(APPJS, /for \(const d of \[\.\.\.STATE\.decisions\.pending\]\)/,
+    'a iteração antiga sobre a fila inteira saiu');
+});
