@@ -46,6 +46,37 @@ test('readJson devolve o fallback quando o JSON está corrompido', () => {
   assert.deepEqual(readJson(arq, { ok: false }), { ok: false });
 });
 
+test('readJson: corrupção LOGA e preserva a evidência em .bad', () => {
+  // queda de energia trunca o config.json; hoje isso vira reset silencioso a
+  // DEFAULTS (multi-conta desfeita, política de auto-approve de volta ao default)
+  ensureDir(TMP);
+  const arq = path.join(TMP, 'corrompido.json');
+  fs.writeFileSync(arq, '{ "a": 1,');
+  const logs = [];
+  assert.deepEqual(readJson(arq, { ok: false }, m => logs.push(m)), { ok: false });
+  assert.equal(logs.length, 1, 'corrupção tem que ser logada');
+  assert.match(logs[0], /corrompido/);
+  assert.equal(fs.readFileSync(arq + '.bad', 'utf8'), '{ "a": 1,', 'o conteúdo corrompido vira .bad pra perícia');
+  assert.equal(fs.readFileSync(arq, 'utf8'), '{ "a": 1,', 'a leitura não toca o original');
+});
+
+test('readJson: .bad existente NÃO é sobrescrito (a primeira evidência vence)', () => {
+  ensureDir(TMP);
+  const arq = path.join(TMP, 'corrompido2.json');
+  fs.writeFileSync(arq, '{ "a": 1,');
+  readJson(arq, null, () => {});
+  fs.writeFileSync(arq, '{ "b": 2,');
+  readJson(arq, null, () => {});
+  assert.equal(fs.readFileSync(arq + '.bad', 'utf8'), '{ "a": 1,');
+});
+
+test('readJson: arquivo ausente segue SILENCIOSO (primeiro boot não é falha)', () => {
+  const logs = [];
+  assert.equal(readJson(path.join(TMP, 'nao-existe-2.json'), 'fb', m => logs.push(m)), 'fb');
+  assert.equal(logs.length, 0, 'ENOENT não pode virar ruído no farol.log');
+  assert.equal(fs.existsSync(path.join(TMP, 'nao-existe-2.json.bad')), false);
+});
+
 test('readJson lê o conteúdo quando está válido', () => {
   ensureDir(TMP);
   const arq = path.join(TMP, 'bom.json');

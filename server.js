@@ -129,7 +129,8 @@ const REREQ_GRACE_MS = 10 * 60 * 1000;
 class Engine extends EventEmitter {
   constructor() {
     super();
-    this.config = { ...DEFAULTS, ...readJson(CONFIG_FILE, {}) };
+    const warn = (m) => this.log('WARN', m); // corrupção de estado precisa aparecer no farol.log
+    this.config = { ...DEFAULTS, ...readJson(CONFIG_FILE, {}, warn) };
     delete this.config.autoOpenReview; // chave antiga (terminal); o modo autonomo tem semantica nova
     this.config.accounts = parseAccounts(this.config.accounts); // normaliza (array de {user,owners})
     // idem accounts/people acima: config.json pode estar malformado (editado à mão,
@@ -161,7 +162,7 @@ class Engine extends EventEmitter {
     this.panorama = [];
     this.queue = [];
     this.myPRs = [];                 // PRs abertos de autoria minha (fonte da autoanalise)
-    this.selfAnalyses = readJson(SELF_FILE, {}); // key do PR -> resultado da autoanalise
+    this.selfAnalyses = readJson(SELF_FILE, {}, warn); // key do PR -> resultado da autoanalise
     this.mergeStates = {};            // key do PR -> mergeabilidade real (só p/ aprovaveis)
     this.staleStates = {};            // key do PR -> true quando entrou commit apos a minha review
     this.adminBlockedRepos = {};      // repo -> true quando admin nao fura o ruleset (o UI esconde "Merge admin")
@@ -172,12 +173,12 @@ class Engine extends EventEmitter {
     this.sessionSeq = 0;
     this.headlessQueue = [];
     this.headlessBusyAccounts = new Set(); // contas com revisão headless em andamento (1 por conta em paralelo)
-    this.decisions = readJson(path.join(STATE_DIR, 'decisions.json'), { pending: [], resolved: [] });
-    this.pushbacks = readJson(path.join(STATE_DIR, 'pushbacks.json'), {}); // { key do PR: { author, outcome, note, at, source, status, confidence } }
+    this.decisions = readJson(path.join(STATE_DIR, 'decisions.json'), { pending: [], resolved: [] }, warn);
+    this.pushbacks = readJson(path.join(STATE_DIR, 'pushbacks.json'), {}, warn); // { key do PR: { author, outcome, note, at, source, status, confidence } }
     // registros antigos (sem source) eram todos marcados à mão e confirmados
     for (const v of Object.values(this.pushbacks)) { if (v && !v.source) { v.source = 'manual'; v.status = 'confirmed'; } }
-    this.pushbackScanned = readJson(path.join(STATE_DIR, 'pushback-scanned.json'), {}); // { key: marcador da última atividade do autor já avaliada }
-    this.toolRuns = readJson(path.join(STATE_DIR, 'tool-results.json'), {});
+    this.pushbackScanned = readJson(path.join(STATE_DIR, 'pushback-scanned.json'), {}, warn); // { key: marcador da última atividade do autor já avaliada }
+    this.toolRuns = readJson(path.join(STATE_DIR, 'tool-results.json'), {}, warn);
     // kudos passou a ser POR CONTA (mapa escopo->execução); migra o formato antigo
     // (execução única, global) pro escopo "todas" ('*') pra não perder o que já existia
     if (this.toolRuns.kudos && typeof this.toolRuns.kudos.status === 'string') this.toolRuns.kudos = { '*': this.toolRuns.kudos };
@@ -191,13 +192,13 @@ class Engine extends EventEmitter {
     this.running = new Map();        // id de sessão -> { child, cancelled } (só headless)
     this.retryAfterNet = new Map();  // key do PR -> { tries, pr } da re-revisão pós-falha transitória
     this.autoReviewParked = new Set(); // keys que falharam sem ser rede (ou foram canceladas): aguardam ação manual, não relançam sozinhas
-    this.chats = readJson(CHATS_FILE, {});
+    this.chats = readJson(CHATS_FILE, {}, warn);
     for (const k of Object.keys(this.chats)) {
       if (this.chats[k].status === 'running') this.chats[k].status = 'idle';
     }
     // registro de consumo de tokens (agregado por dia/tipo/conta/modelo); merge com o
     // default garante que arquivos antigos ganhem os eixos novos sem quebrar.
-    this.usage = { ...usageMod.defaultUsage(), ...readJson(usageMod.USAGE_FILE, {}) };
+    this.usage = { ...usageMod.defaultUsage(), ...readJson(usageMod.USAGE_FILE, {}, warn) };
     this.seen = new Set();
     this.reviewedKeys = new Set(); // PRs abertos que eu ja revisei (gh --reviewed-by)
     this.reReviewedKeys = new Set(); // re-requests que ja voltaram pra fila (evita re-surgir todo ciclo)
@@ -222,7 +223,7 @@ class Engine extends EventEmitter {
   // revisões que estavam rodando quando o app morreu: devolve à fila (o PR já
   // tinha sido marcado como visto, então sem isso ele sumiria em silêncio)
   recoverInflight() {
-    const inflight = readJson(INFLIGHT_FILE, []);
+    const inflight = readJson(INFLIGHT_FILE, [], (m) => this.log('WARN', m));
     if (!Array.isArray(inflight) || !inflight.length) return;
     for (const pr of inflight) { if (pr && pr.key) this.unsee(pr.key); }
     try { fs.writeFileSync(INFLIGHT_FILE, '[]'); } catch { }
