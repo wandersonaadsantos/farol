@@ -211,6 +211,7 @@ class Engine extends EventEmitter {
     this.doctorInfo = null;
     this.timer = null;
     this.checking = false;
+    this.updateApplying = false; // "Atualizar agora" em andamento (guarda de clique duplo; só memória)
     this.gitBash = detectGitBash();
 
     this.prepareHome();

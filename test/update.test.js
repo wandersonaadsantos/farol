@@ -134,3 +134,34 @@ test('applyUpdate: revisão iniciada DURANTE o download barra o installer (M15)'
   assert.match(String(r.error), /análise ou chat em andamento/,
     'a checagem de ocupado precisa RE-rodar depois do download, não só antes');
 });
+
+test('applyUpdate: segundo clique durante o download é recusado e falha destrava (M16)', async () => {
+  const engine = new Engine();
+  engine.config.updateRepo = '';
+  const dir = path.join(scratch, 'm16-extracted');
+  fs.mkdirSync(dir, { recursive: true }); // sem installer/: a primeira chamada termina em ok:false sem spawn
+  let libera;
+  const downloadTravado = new Promise(res => { libera = res; });
+  const primeira = update.applyUpdate(engine, {
+    checkUpdate: async (e) => updateRemotoDisponivel(e),
+    downloadRemoteUpdate: async () => { await downloadTravado; return dir; }
+  });
+  // segunda chamada com deps PRÓPRIOS e instantâneos: sem a guarda ela resolve
+  // rápido com a mensagem errada (vermelho limpo, sem deadlock no teste)
+  let chamouSegundoDownload = false;
+  const segunda = await update.applyUpdate(engine, {
+    checkUpdate: async (e) => updateRemotoDisponivel(e),
+    downloadRemoteUpdate: async () => { chamouSegundoDownload = true; return dir; }
+  });
+  assert.equal(segunda.ok, false);
+  assert.match(String(segunda.error), /atualização já em andamento/);
+  assert.equal(chamouSegundoDownload, false, 'a guarda barrou ANTES de qualquer download novo');
+  libera();
+  const r1 = await primeira;
+  assert.equal(r1.ok, false, 'primeira chamada morre no installer ausente (fixture sem installer/)');
+  const terceira = await update.applyUpdate(engine, {
+    checkUpdate: async (e) => updateRemotoDisponivel(e),
+    downloadRemoteUpdate: async () => dir
+  });
+  assert.match(String(terceira.error), /installer não encontrado/, 'ok:false destrava a guarda pro próximo clique');
+});
