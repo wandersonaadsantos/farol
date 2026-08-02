@@ -223,7 +223,8 @@ test('runOneHeadless: falha por "sem token" é transitória (retry no próximo c
   const pr = { key: 'biudtech/app#2', url: 'https://github.com/biudtech/app/pull/2', repo: 'biudtech/app', number: 2, account: 'bob' };
   await e.runOneHeadless(pr, 'bob');
   assert.equal(e.autoReviewParked.has('biudtech/app#2'), false, 'flake de keyring se resolve sozinho, não pode estacionar');
-  assert.equal(e.retryAfterNet.get('biudtech/app#2'), 1);
+  // desde a Onda 7 (tarefa 7.4) o Map guarda { tries, pr }, não o número cru
+  assert.equal(e.retryAfterNet.get('biudtech/app#2').tries, 1);
 });
 
 /* ---------- a raiz (A1): ghEnv nunca herda identidade ---------- */

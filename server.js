@@ -189,7 +189,7 @@ class Engine extends EventEmitter {
     }
     this.activity = new Map();       // id de sessão -> feed de eventos ao vivo
     this.running = new Map();        // id de sessão -> { child, cancelled } (só headless)
-    this.retryAfterNet = new Map();  // key do PR -> tentativas de re-revisão pós-queda de rede
+    this.retryAfterNet = new Map();  // key do PR -> { tries, pr } da re-revisão pós-falha transitória
     this.autoReviewParked = new Set(); // keys que falharam sem ser rede (ou foram canceladas): aguardam ação manual, não relançam sozinhas
     this.chats = readJson(CHATS_FILE, {});
     for (const k of Object.keys(this.chats)) {
@@ -657,9 +657,11 @@ class Engine extends EventEmitter {
       }
       if (toReview.length) this.launchReview(toReview.map(p => p.url), 'auto');
 
-      // a checagem funcionou = a rede voltou: relança revisões que caíram por queda de conexão
+      // a checagem funcionou = a rede voltou: relança revisões que caíram por algo
+      // transitório. Vale pra QUALQUER revisão que caiu (clique no panorama e conta
+      // sem autoReview inclusive): a promessa do toast não depende da política da conta.
       if (this.retryAfterNet.size) {
-        const retry = this.queue.filter(p => this.retryAfterNet.has(p.key) && !fresh.some(f => f.key === p.key) && !this.isMuted(this.accountForPr(p)) && this.autoReviewFor(this.accountForPr(p)) && this.tokenFor(this.accountForPr(p)));
+        const retry = this.retryTargets(new Set(fresh.map(f => f.key)), inflight);
         if (retry.length) {
           this.emit('toast', { kind: 'info', text: `Conexão de volta: relançando a revisão de ${retry.map(p => p.key).join(', ')}.` });
           this.launchReview(retry.map(p => p.url), 'auto');
@@ -764,6 +766,7 @@ class Engine extends EventEmitter {
   headlessAcct(pr) { return reviewMod.headlessAcct(this, pr); }
   processHeadless() { return reviewMod.processHeadless(this); }
   async runOneHeadless(pr, acct) { return reviewMod.runOneHeadless(this, pr, acct); }
+  retryTargets(freshKeys, inflightKeys) { return reviewMod.retryTargets(this, freshKeys, inflightKeys); }
 
   // perfil marcado pra uma pessoa (por login); {} quando não marcada
   // Pushback (memória de contestação do autor): colaborador lib/engine/pushback.js (Onda 2).
