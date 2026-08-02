@@ -9,9 +9,11 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## Não publicado
+## v2.31.0
 
-Onda 2 do plano de correção dos gaps lógicos (02/08/2026): resiliência do polling (`check()`). Sem número de versão por decisão do plano; o corte da release consolida as ondas.
+Correção dos 52 gaps lógicos encontrados na análise completa de 01/08/2026: identidade de conta estrita, radar resiliente a falha parcial, gates de aprovação sem furos, instância única, update seguro, sessões robustas, contratos reais entre UI e servidor, widgets com ciclo de vida completo e persistência atômica. Executado em 9 ondas com TDD (suite foi de 392 pra 538 testes); os detalhes por onda seguem abaixo.
+
+Onda 2 do plano de correção dos gaps lógicos (02/08/2026): resiliência do polling (`check()`).
 
 **Correções**
 - **Um ciclo ruim das buscas de "pedido a mim" não zera mais o radar (A2).** Quando só as buscas `--review-requested` falham (ex.: rate limit da API de search do GitHub), o `check()` preserva a fila, o "é meu" do panorama e os marcadores de re-request do último ciclo bom, no mesmo padrão que já valia pra `reviewedKeys` e `myPRs`. `markReRequests` agora distingue "busca falhou" (null, preserva) de "ninguém mais pedido" (Set vazio, limpa como sempre). Antes, a falha parcial zerava a fila, apagava os marcadores (ressuscitando PRs que você ignorou) e re-notificava tudo na recuperação.
@@ -19,7 +21,7 @@ Onda 2 do plano de correção dos gaps lógicos (02/08/2026): resiliência do po
 - **`intervalSeconds` inválido no `config.json` é clampado no boot (M2).** Valor não numérico editado à mão virava `setTimeout(fn, NaN)`, ou seja, polling de ~1ms contra o GitHub até esgotar o rate limit. O boot agora aplica o mesmo clamp de 60 a 3600 segundos que o caminho HTTP (updateSettings) já aplicava.
 - **`searchPRs` avisa quando o resultado bate o teto de 100 do gh (B10).** O gh corta no `--limit 100` sem avisar e, com best-match como ordenação, um PR pedido a você pode ficar fora do radar em silêncio. Agora fica um WARN no log dizendo qual busca truncou, análogo ao sinal `capped` que as entregas já tinham.
 
-Onda 6 do plano de correção dos gaps lógicos (02/08/2026): robustez de sessão e spawn. Sem número de versão por decisão do plano; o corte da release consolida as ondas.
+Onda 6 do plano de correção dos gaps lógicos (02/08/2026): robustez de sessão e spawn.
 
 **Correções**
 - **Acento não vira mais � na resposta da sessão (M4).** O stream da sessão headless decodificava cada chunk isolado, e um caractere multibyte cortado no limite de 64KB virava U+FFFD dentro do texto, inclusive em review postado. O stdout agora usa `setEncoding('utf8')`, que remonta o caractere entre chunks.
@@ -30,7 +32,7 @@ Onda 6 do plano de correção dos gaps lógicos (02/08/2026): robustez de sessã
 - **Duas mensagens rápidas no mesmo chat não geram mais duas respostas concorrentes (B1).** A guarda do chat lia o status, dava await no refresh de token e só então marcava running: duas mensagens na mesma janela passavam as duas. A vez agora é reservada de forma síncrona, sem await no meio; a segunda mensagem é recusada com aviso.
 - **Clique duplo numa ferramenta não roda mais a sessão em dobro (B2).** Mesma corrida do chat no launchTool (kudos, diagnóstico): o segundo clique na janela do refresh de token disparava uma segunda sessão headless (custo em dobro, resultado sobrescrito). A marcação de running agora é síncrona e o segundo clique é recusado.
 
-Onda 1 do plano de correção dos gaps lógicos (02/08/2026): identidade de conta (raiz P1). Sem número de versão por decisão do plano; o corte da release consolida as ondas.
+Onda 1 do plano de correção dos gaps lógicos (02/08/2026): identidade de conta (raiz P1).
 
 **Correções**
 - **O Farol nunca mais age no GitHub com a identidade errada (A1, a raiz).** Quando o token de uma conta falha no keyring do gh, o `ghEnv` herdava o token da primária: busca `@me`, review postado e sessão Claude saíam assinados pela conta errada, com resultado que parecia válido. Agora existe `tokenFor` (o token da conta pedida, sem nunca herdar) e o `ghEnv` falha alto pra conta pedida sem token; `ghEnv()` sem conta segue caindo na primária, o único fallback legítimo (contrato do update e do doctor).
@@ -40,7 +42,7 @@ Onda 1 do plano de correção dos gaps lógicos (02/08/2026): identidade de cont
 - **O chat do PR conversa com a conta dona do PR (A3).** `chatSend` deriva a conta e repassa ao `runClaudeStream`: o resume encontra a sessão da revisão headless (perfil Claude certo) e o gh dentro da conversa usa o token certo. Sem token da conta, a conversa nem abre, com mensagem acionável.
 - **Revisão só abre sessão de conta com token, e "sem token" é transitório (A1).** `launchReview` filtra por conta: o PR da conta sem token fica na fila (não é marcado como visto nem some), os das contas autenticadas seguem. O ciclo automático filtra em silêncio (sem toast repetido a cada 60s; a barra de contas já mostra "sem token") e a falha por "sem token no gh" entrou na classe transitória: o PR tenta de novo no próximo ciclo em vez de estacionar aguardando ação manual.
 
-Onda 4 do plano de correção dos gaps lógicos (02/08/2026): gates de aprovação e merge (segurança). Sem número de versão por decisão do plano; o corte da release consolida as ondas.
+Onda 4 do plano de correção dos gaps lógicos (02/08/2026): gates de aprovação e merge (segurança).
 
 **Correções**
 - **Cobertura com zero arquivos revisados deixou de ser passe livre (A4).** A rede de segurança do gate de postagem só acusava lacuna quando ao menos um arquivo tinha sido revisado: um envelope declarando o total do diff com leitura zero (o pior caso, nada foi lido) liberava auto-approve e auto-reject, e `reviewed` fora do contrato contava como leitura válida. Agora total declarado sem leitura é lacuna, a postagem automática é segurada e a decisão vai pro humano com a lista.
@@ -49,7 +51,7 @@ Onda 4 do plano de correção dos gaps lógicos (02/08/2026): gates de aprovaç�
 - **O gate de ruleset checa a base real do PR (B7).** `fetchMergeState` não devolvia `baseRefName`, então o fallback que o gate de ruleset usava era código morto: PR recém-analisado, ainda sem a base enriquecida pelo ciclo, consultava o ruleset sem saber a base. O campo agora vem na mesma chamada `gh pr view`, sem custo extra, e o "merge como admin" deixa de ser oferecido quando o ruleset da base bloqueia de verdade.
 - **O refresh do estado de merge não engole mais escrita concorrente (B8).** `refreshMergeStates` trocava o mapa inteiro por atacado: uma autoanálise terminando durante os awaits do ciclo tinha o estado recém-gravado engolido, e o botão Merge daquele PR sumia até o próximo polling. A troca virou reconciliação por carimbo de tempo (entrada gravada durante o ciclo sobrevive), preservando as limpezas de sempre: PR que deixou de ser alvo sai e leitura que falhou derruba a entrada.
 
-Onda 5 do plano de correção dos gaps lógicos (02/08/2026): instância única e fluxo de update. Sem número de versão por decisão do plano; o corte da release consolida as ondas.
+Onda 5 do plano de correção dos gaps lógicos (02/08/2026): instância única e fluxo de update.
 
 **Correções**
 - **Porta ocupada não deixa mais um segundo Farol monitorando o mesmo `~/.farol` (A7).** O listen na porta virou o lock de instância única, valendo também no modo `node server.js` (que o lock do Electron não cobre): o engine só agenda polling e inicia o ciclo depois do listen dar certo. Antes, um segundo processo com a porta ocupada seguia monitorando por conta própria: polling em dobro, risco de revisão dupla com dois posts no GitHub e escrita concorrente no estado local. Com a porta ocupada, a janela do Electron vira só um visor da instância que já roda, e o "Verificar agora" da bandeja não acorda o engine inerte.
@@ -58,7 +60,7 @@ Onda 5 do plano de correção dos gaps lógicos (02/08/2026): instância única 
 - **Revisão iniciada durante o download barra o installer (M15).** A checagem de "análise ou chat em andamento" só rodava antes do download; agora re-roda depois dele, nos dois SOs, então o installer não mata mais uma sessão headless que o polling iniciou enquanto o download rodava (possivelmente entre o APPROVE postado e a gravação do estado local).
 - **Clique duplo em "Atualizar agora" não dispara mais dois updates ao mesmo tempo (M16).** Sem feedback visual durante o download, o segundo clique disparava um segundo download e dois installers copiando por cima de `~/.farol/app` simultaneamente. A guarda de reentrância liga antes de qualquer espera: o segundo clique é recusado na hora; falha destrava pro próximo clique, sucesso fica travado de propósito (o installer vai fechar e reabrir o app).
 
-Onda 7 do plano de correção dos gaps lógicos (02/08/2026): pipeline de revisão, pushback e fan-out. Sem número de versão por decisão do plano; o corte da release consolida as ondas.
+Onda 7 do plano de correção dos gaps lógicos (02/08/2026): pipeline de revisão, pushback e fan-out.
 
 **Correções**
 - **A recusa de auto-aprovação diz o motivo verdadeiro (M7).** O gate `shouldAutoApprove` devolvia só um booleano e o bloco de transparência tinha que adivinhar por que a aprovação automática não saiu, e adivinhava sempre "política da conta", mesmo quando o bloqueio veio de contestação a outro revisor ou de lacuna de cobertura. O gate agora devolve o motivo estruturado (`{ok, motivo}`) e a linha "a política da conta manda aguardar" só aparece quando a recusa veio de fato da política.
@@ -69,7 +71,7 @@ Onda 7 do plano de correção dos gaps lógicos (02/08/2026): pipeline de revis�
 - **Fan-out fatia por arquivo quando o caminho não separa o diff (M12).** PR grande com o diff inteiro num diretório só (ou na raiz) produzia um lote único que o chamador descartava, degradando em silêncio pro passe único, exatamente no PR que mais precisa de fatiamento. Entrou um fallback determinístico por arquivo, balanceando linhas entre as partes. Efeito consciente: esses PRs passam a rodar fan-out de verdade e custam mais tokens, a mesma consequência documentada quando o fan-out foi ligado na v2.28.0.
 - **O seletor de reviewers não fica 1 hora vazio depois de uma falha do gh (B9).** Um resultado inteiramente vazio da busca de candidatos é sintoma de falha total (rede caída, token vencido), não de org sem gente, e era cacheado pelo TTL de 1 hora. Falha total agora não entra no cache: o clique seguinte refaz a busca.
 
-Onda 3 do plano de correção dos gaps lógicos (02/08/2026): contratos UI e servidor (raiz P3). Sem número de versão por decisão do plano; o corte da release consolida as ondas.
+Onda 3 do plano de correção dos gaps lógicos (02/08/2026): contratos UI e servidor (raiz P3).
 
 **Correções**
 - **A paleta de comandos (Ctrl+K) decide de verdade (A5).** Os itens de decisão montavam um `decide()` que nunca existiu em script carregado: o clique morria num ReferenceError engolido e você achava que tinha aprovado. Agora existe um caminho único de decisão (o mesmo do card), o "Pedir mudanças" pela paleta ganha a mesma confirmação do card antes de postar REQUEST_CHANGES no GitHub, a paleta fecha antes de rodar a ação (falha vira toast, nunca paleta travada) e o lote "Aprovar as N pendentes" aprova só as decisões visíveis no escopo atual, não a lista inteira.
@@ -78,7 +80,7 @@ Onda 3 do plano de correção dos gaps lógicos (02/08/2026): contratos UI e ser
 - **Pushback pendente confirma num clique (M21).** Quando o Farol suspeitava de contestação e sugeria o desfecho, re-selecionar a opção já selecionada não dispara o evento de mudança: o "confirme num toque" prometido não existia. O estado pendente agora traz um botão Confirmar que grava o desfecho sugerido como confirmado; o controle virou função pura testada, incluindo o escape da nota vinda do classificador.
 - **"Revisar tudo" não revisa mais a fila inteira por acidente (B22).** Se a fila visível esvaziava entre o render e o clique, a UI mandava `{}` e o servidor interpretava ausência de lista como "revise TUDO", inclusive PRs de outras contas fora do escopo visível. O contrato mudou: `urls` é obrigatório no `POST /api/review` (sem lista, 400 com mensagem explicando), e o botão manda sempre a lista explícita do escopo visível, avisando com toast quando não sobrou nada pra revisar.
 
-Onda 8 do plano de correção dos gaps lógicos (02/08/2026): UI, widgets de operação e estado. Sem número de versão por decisão do plano; o corte da release consolida as ondas.
+Onda 8 do plano de correção dos gaps lógicos (02/08/2026): UI, widgets de operação e estado.
 
 **Correções**
 - **Pill de erro não é mais imortal: todo estado terminal expira (M22).** O ciclo de vida das operações virou máquina de estados pura (running anda pra done, error ou cancelled; estado terminal não vira outro nem volta): done some em 3s, erro e cancelamento ficam 6s na tela pra dar tempo de ler, mas sempre somem. Antes, a pill de erro nunca expirava e acumulava uma por tentativa. Reusar o mesmo id de operação também não deixa mais a pill anterior órfã no DOM, e um timer velho de id reutilizado não apaga a operação nova.
@@ -90,7 +92,7 @@ Onda 8 do plano de correção dos gaps lógicos (02/08/2026): UI, widgets de ope
 - **A atividade do chat atualiza a pill em vez de destruí-la, e fechar o painel encerra a operação (B16).** O texto de atividade sobrescrevia o container e matava a pill "Claude respondendo" (a operação ficava órfã no mapa de operações), e a fase genérica sorteada a cada snapshot atropelava o texto real da sessão. Agora o texto vivo entra como etapa da mesma pill, a fase genérica roda só no primeiro paint e fechar o chat no meio da resposta encerra a operação de verdade.
 - **Os botões Auto-merge e Merge (admin) reabilitam sozinhos quando o repo muda (B17).** As recusas do repo (sem "Allow auto-merge", ruleset da base) eram marcadas num conjunto que nunca expirava: você ligava a opção no GitHub e o botão continuava desabilitado até fechar o Farol. Os marcadores agora guardam a geração do refresh no momento da recusa e expiram quando chega um refresh de estado de merge mais novo que a marcação.
 
-Onda 9 do plano de correção dos gaps lógicos (02/08/2026): persistência, consumo e cosméticos. Sem número de versão por decisão do plano; o corte da release consolida as ondas.
+Onda 9 do plano de correção dos gaps lógicos (02/08/2026): persistência, consumo e cosméticos.
 
 **Correções**
 - **Estado corrompido não vira mais reset silencioso (M23, leitura).** Um JSON de estado truncado (queda de energia, por exemplo) era engolido pelo mesmo catch do "arquivo não existe" e voltava a DEFAULTS sem nenhum sinal: multi-conta desfeita, política de auto-approve de volta ao padrão. `readJson` agora distingue os dois casos: primeiro boot segue silencioso, corrupção loga WARN no `farol.log` e preserva o conteúdo em `.bad` pra perícia, sem sobrescrever a primeira evidência.
