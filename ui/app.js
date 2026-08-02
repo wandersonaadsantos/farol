@@ -721,6 +721,12 @@ document.addEventListener('change', (e) => {
 $('#resolved').addEventListener('change', (e) => {
   if (e.target.classList && (e.target.classList.contains('pb-outcome') || e.target.classList.contains('pb-note'))) submitPushback(e.target);
 });
+/* confirmar o palpite re-selecionando a MESMA opção não dispara change; o botão cobre
+   o caminho pending -> confirmed com o desfecho sugerido (achado M21) */
+$('#resolved').addEventListener('click', (e) => {
+  const btn = e.target.closest('.pb-confirm');
+  if (btn) submitPushback(btn);
+});
 /* editor de contas: mudar cor / rótulo / tipo / orgs */
 $('#accountsManager').addEventListener('change', (e) => {
   const t = e.target, user = t.dataset && t.dataset.user;
@@ -1585,31 +1591,8 @@ function renderDecisions() {
   renderResolved();
 }
 
-/* ---------- pushback: registrar quando o autor contesta um review ---------- */
-const PB_OPTS = [['', 'sem pushback'], ['author_right', 'o autor tinha razão'], ['we_right', 'nós tínhamos razão'], ['mixed', 'meio-termo']];
-const PB_SHORT = { author_right: 'autor tinha razão', we_right: 'nós tínhamos razão', mixed: 'meio-termo' };
-function pushbackOf(key) { return (STATE.pushbacks || {})[key] || null; }
-function pushbackControl(r) {
-  const author = (r.pr && r.pr.author) || r.author || '';
-  if (!author) return '';
-  const pb = pushbackOf(r.key);
-  const pending = pb && pb.status === 'pending';    // auto em dúvida: pede confirmação
-  const sum = pending ? `↩ confirmar: ${esc(PB_SHORT[pb.outcome] || 'pushback')}?`
-    : pb ? `↩ ${esc(PB_SHORT[pb.outcome] || 'pushback')}${pb.source === 'auto' ? ' (auto)' : ''}`
-      : '↩ pushback?';
-  const title = pending ? 'O Farol suspeita de pushback aqui; confirme ou corrija o desfecho'
-    : 'Marque se o autor contestou este review, pra calibrar os reviews futuros dele';
-  return `<details class="pushback"${pb ? ' data-set="1"' : ''}${pending ? ' data-pending="1" open' : ''}>
-    <summary title="${title}">${sum}</summary>
-    <div class="pb-body">
-      ${pending ? `<span class="pb-hint">O Farol detectou possível pushback${pb.note ? ` (${esc(pb.note)})` : ''}. Confirme o desfecho:</span>` : ''}
-      <select class="pb-outcome" data-key="${esc(r.key)}" data-author="${esc(author)}">
-        ${PB_OPTS.map(([v, t]) => `<option value="${v}"${pb && pb.outcome === v ? ' selected' : ''}>${t}</option>`).join('')}
-      </select>
-      <input class="pb-note" data-key="${esc(r.key)}" data-author="${esc(author)}" value="${esc(pb && pb.note || '')}" placeholder="nota curta (opcional)" spellcheck="false" maxlength="300">
-    </div>
-  </details>`;
-}
+/* ---------- pushback: PB_OPTS/PB_SHORT/pushbackControl moraram aqui e foram pro
+   ui/pure.js (testáveis); o submit e os listeners seguem aqui por tocarem DOM/STATE ---------- */
 function submitPushback(el) {
   const box = el.closest('.pushback'); if (!box) return;
   const sel = box.querySelector('.pb-outcome'), note = box.querySelector('.pb-note');
@@ -1620,6 +1603,7 @@ function submitPushback(el) {
   else delete map[key];
   STATE.pushbacks = map;
   api('/api/pushback', { key, author, outcome, note: noteVal });
+  renderResolved();   // reflete na hora (a guarda de foco segura o caso do change no select/nota)
 }
 
 function renderResolved() {
@@ -1652,7 +1636,7 @@ function renderResolved() {
       <span>${icon}</span>
       <span class="ref"><a href="${esc(r.pr?.url || '#')}" target="_blank" rel="noreferrer">${esc(r.key)}</a></span>
       <span class="title">${label}${act}${r.card ? ` · ${esc(r.card)}` : ''}${attnHtml}</span>
-      ${pushbackControl(r)}
+      ${pushbackControl(r, STATE.pushbacks || {})}
       <button class="btn sm ghost act-chat" data-key="${esc(r.key)}" data-url="${esc(r.pr?.url || '')}">💬${chatBadge(r.key)}</button>
       <span class="when">${fmtClock(r.resolvedAt)}</span>
     </div>`;

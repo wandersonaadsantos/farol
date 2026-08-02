@@ -415,3 +415,38 @@ test('analysisOpsPlan aguenta snapshot e lista vazios sem lançar', () => {
   assert.deepEqual(P.analysisOpsPlan([], {}), { markSeen: [], close: [] });
   assert.deepEqual(P.analysisOpsPlan(null, null), { markSeen: [], close: [] });
 });
+
+/* ---------- pushbackControl: o controle de pushback nas Revisões recentes ---------- */
+
+test('pushback pendente traz o botão Confirmar e o desfecho sugerido já selecionado', () => {
+  // achado M21: re-selecionar a opção já selecionada não dispara change, então sem um
+  // botão o caminho "confirme num toque" prometido pela hint não existia
+  const html = P.pushbackControl(
+    { key: 'a/b#1', pr: { author: 'dev' } },
+    { 'a/b#1': { outcome: 'author_right', status: 'pending', source: 'auto', note: 'palpite' } }
+  );
+  assert.match(html, /pb-confirm/, 'tem o botão Confirmar');
+  assert.match(html, /value="author_right" selected/, 'o desfecho sugerido vem selecionado');
+  assert.match(html, /data-pending="1"/, 'o details nasce aberto no estado pendente');
+});
+
+test('pushback confirmado NÃO mostra o botão Confirmar', () => {
+  const html = P.pushbackControl(
+    { key: 'a/b#1', pr: { author: 'dev' } },
+    { 'a/b#1': { outcome: 'author_right', status: 'confirmed', source: 'manual' } }
+  );
+  assert.doesNotMatch(html, /pb-confirm/);
+});
+
+test('pushbackControl sem autor devolve vazio e sem registro rende o convite padrão', () => {
+  assert.equal(P.pushbackControl({ key: 'a/b#1' }, {}), '');
+  assert.match(P.pushbackControl({ key: 'a/b#1', pr: { author: 'dev' } }, {}), /pushback\?/);
+});
+
+test('pushbackControl escapa a nota vinda do classificador', () => {
+  const html = P.pushbackControl(
+    { key: 'a/b#1', pr: { author: 'dev' } },
+    { 'a/b#1': { outcome: 'mixed', status: 'pending', source: 'auto', note: '<img src=x onerror=alert(1)>' } }
+  );
+  assert.doesNotMatch(html, /<img/);
+});

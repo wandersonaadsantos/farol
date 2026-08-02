@@ -200,6 +200,34 @@ function analysisOpsPlan(ops, snap) {
   return { markSeen, close };
 }
 
+/* ---------- pushback: o controle das Revisões recentes ----------
+   Saiu do app.js pra ganhar teste; o mapa de pushbacks entra por parâmetro
+   (era lido de STATE, global proibida aqui). */
+const PB_OPTS = [['', 'sem pushback'], ['author_right', 'o autor tinha razão'], ['we_right', 'nós tínhamos razão'], ['mixed', 'meio-termo']];
+const PB_SHORT = { author_right: 'autor tinha razão', we_right: 'nós tínhamos razão', mixed: 'meio-termo' };
+function pushbackControl(r, pushbacks) {
+  const author = (r.pr && r.pr.author) || r.author || '';
+  if (!author) return '';
+  const pb = (pushbacks || {})[r.key] || null;
+  const pending = pb && pb.status === 'pending';    // auto em dúvida: pede confirmação
+  const sum = pending ? `↩ confirmar: ${esc(PB_SHORT[pb.outcome] || 'pushback')}?`
+    : pb ? `↩ ${esc(PB_SHORT[pb.outcome] || 'pushback')}${pb.source === 'auto' ? ' (auto)' : ''}`
+      : '↩ pushback?';
+  const title = pending ? 'O Farol suspeita de pushback aqui; confirme ou corrija o desfecho'
+    : 'Marque se o autor contestou este review, pra calibrar os reviews futuros dele';
+  return `<details class="pushback"${pb ? ' data-set="1"' : ''}${pending ? ' data-pending="1" open' : ''}>
+    <summary title="${title}">${sum}</summary>
+    <div class="pb-body">
+      ${pending ? `<span class="pb-hint">O Farol detectou possível pushback${pb.note ? ` (${esc(pb.note)})` : ''}. Confirme o desfecho:</span>` : ''}
+      <select class="pb-outcome" data-key="${esc(r.key)}" data-author="${esc(author)}">
+        ${PB_OPTS.map(([v, t]) => `<option value="${v}"${pb && pb.outcome === v ? ' selected' : ''}>${t}</option>`).join('')}
+      </select>
+      <input class="pb-note" data-key="${esc(r.key)}" data-author="${esc(author)}" value="${esc(pb && pb.note || '')}" placeholder="nota curta (opcional)" spellcheck="false" maxlength="300">
+      ${pending ? `<button class="btn sm primary pb-confirm" data-key="${esc(r.key)}" data-author="${esc(author)}" title="Grava o desfecho selecionado como confirmado (re-selecionar a mesma opção não dispara change; com '' confirma que NÃO houve pushback)">Confirmar</button>` : ''}
+    </div>
+  </details>`;
+}
+
 function delivPrRow(it) {
   return `<div class="row">
     <span class="ref"><a href="${esc(it.url)}" target="_blank" rel="noreferrer">${esc(it.key)}</a></span>
@@ -258,6 +286,6 @@ if (typeof module !== 'undefined' && module.exports) {
     esc, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
     sameSet, diffVs, lastMerge, groupBy, usageMetricVal, accountSaveArray, delivGroupCard, fmtRel,
     usageDayKeysBack, avatar, md, feedLine, analysisOpsPlan, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
-    deliveriesByRepo, deliveriesByAuthor
+    deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT
   };
 }
