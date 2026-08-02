@@ -3,6 +3,9 @@
 // extractUsage, applyUsage) + o resumo. Sem fs, sem sessão real. Runner nativo, ZERO deps.
 const os = require('node:os');
 const path = require('node:path');
+// o corte de dia é LOCAL (regra do projeto: horário de Brasília, nunca UTC cru);
+// sem fixar o fuso o teste passaria numa máquina e falharia noutra
+process.env.TZ = 'America/Sao_Paulo';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-usage-' + process.pid);
 
 const { test } = require('node:test');
@@ -33,6 +36,12 @@ test('extractUsage lê os tokens do evento result (0 quando ausente)', () => {
   assert.equal(zero.outputTokens, 0);
 });
 
+test('localDay corta no dia LOCAL, não no UTC (às 21h de Brasília o dia NÃO vira)', () => {
+  // 01:00Z de 02/08 é 22:00 de 01/08 em São Paulo: o bucket é o dia 01
+  assert.equal(usage.localDay(new Date(Date.parse('2026-08-02T01:00:00Z'))), '2026-08-01');
+  assert.equal(usage.localDay(new Date(Date.parse('2026-08-01T15:00:00Z'))), '2026-08-01');
+});
+
 test('applyUsage agrega em todos os eixos (totais, dia, tipo, conta, modelo)', () => {
   const store = usage.defaultUsage();
   const u1 = usage.extractUsage({ usage: { input_tokens: 100, output_tokens: 20 }, total_cost_usd: 0.02 }, 'claude-opus-4-8');
@@ -55,7 +64,7 @@ test('applyUsage agrega em todos os eixos (totais, dia, tipo, conta, modelo)', (
 });
 
 test('usageSummary devolve totais, hoje, 7 dias e quebras ordenadas', () => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = usage.localDay(); // o "hoje" do resumo é o dia LOCAL, igual ao gravado
   const store = usage.defaultUsage();
   const big = usage.extractUsage({ usage: { input_tokens: 1000, output_tokens: 200 } }, 'claude-opus-4-8');
   const small = usage.extractUsage({ usage: { input_tokens: 10, output_tokens: 5 } }, 'claude-opus-4-8');

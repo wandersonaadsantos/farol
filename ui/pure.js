@@ -156,10 +156,21 @@ function fmtRel(iso, agora = Date.now()) {
   return `${Math.round(s / 86400)}d`;
 }
 
-// chaves de dia (UTC, batendo com o server) dos últimos n dias, incluindo hoje
+// chave de dia LOCAL (YYYY-MM-DD) de um timestamp/ISO; '' quando não há data
+// válida. Espelha o corte de dia do server (localDay em lib/engine/usage.js, no
+// fuso do processo): nunca UTC cru, que zerava o "Hoje" às 21h de Brasília.
+function localDayKey(ts) {
+  if (ts == null || ts === '') return '';
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+// chaves de dia LOCAIS (batendo com o corte do server) dos últimos n dias, incluindo hoje
 function usageDayKeysBack(n, agora = Date.now()) {
-  const out = [], d = new Date(agora); d.setUTCHours(0, 0, 0, 0);
-  for (let i = n - 1; i >= 0; i--) { const x = new Date(d.getTime()); x.setUTCDate(d.getUTCDate() - i); out.push(x.toISOString().slice(0, 10)); }
+  const out = [], d = new Date(agora);
+  for (let i = n - 1; i >= 0; i--) out.push(localDayKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() - i)));
   return out;
 }
 
@@ -341,7 +352,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     esc, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
     sameSet, diffVs, lastMerge, groupBy, usageMetricVal, accountSaveArray, delivGroupCard, fmtRel,
-    usageDayKeysBack, avatar, md, feedLine, analysisOpsPlan, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
+    usageDayKeysBack, localDayKey, avatar, md, feedLine, analysisOpsPlan, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
     deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
     opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible, expiredSessionMarks
   };

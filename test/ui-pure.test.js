@@ -189,16 +189,27 @@ test('usageMetricVal: métrica desconhecida e bucket vazio caem no total', () =>
   assert.equal(P.usageMetricVal(undefined, 'input'), 0);
 });
 
-test('usageDayKeysBack devolve n dias em UTC, do mais antigo pro mais novo', () => {
+test('usageDayKeysBack devolve n dias LOCAIS, do mais antigo pro mais novo', () => {
+  // 23:30Z de 01/08 é 20:30 em São Paulo: hoje local ainda é 01/08
   const agora = Date.parse('2026-08-01T23:30:00Z');
   const k = P.usageDayKeysBack(3, agora);
   assert.deepEqual(k, ['2026-07-30', '2026-07-31', '2026-08-01']);
   assert.equal(P.usageDayKeysBack(30, agora).length, 30);
 });
 
-test('usageDayKeysBack atravessa virada de mês e de ano', () => {
-  assert.deepEqual(P.usageDayKeysBack(2, Date.parse('2026-03-01T00:00:00Z')), ['2026-02-28', '2026-03-01']);
-  assert.deepEqual(P.usageDayKeysBack(2, Date.parse('2026-01-01T00:00:00Z')), ['2025-12-31', '2026-01-01']);
+test('usageDayKeysBack atravessa virada de mês e de ano no fuso LOCAL', () => {
+  assert.deepEqual(P.usageDayKeysBack(2, Date.parse('2026-03-01T00:00:00-03:00')), ['2026-02-28', '2026-03-01']);
+  assert.deepEqual(P.usageDayKeysBack(2, Date.parse('2026-01-01T00:00:00-03:00')), ['2025-12-31', '2026-01-01']);
+  // meia-noite UTC ainda é véspera no local: o corte tem que ser o local
+  assert.deepEqual(P.usageDayKeysBack(2, Date.parse('2026-03-01T00:00:00Z')), ['2026-02-27', '2026-02-28']);
+});
+
+test('localDayKey aceita epoch ms e ISO; entrada inválida devolve vazio', () => {
+  assert.equal(P.localDayKey(Date.parse('2026-08-02T01:00:00Z')), '2026-08-01');
+  assert.equal(P.localDayKey('2026-08-01T12:00:00Z'), '2026-08-01');
+  assert.equal(P.localDayKey(''), '');
+  assert.equal(P.localDayKey(null), '');
+  assert.equal(P.localDayKey('lixo'), '');
 });
 
 /* ---------- reviewers: comparações que APAGAM configuração ---------- */
