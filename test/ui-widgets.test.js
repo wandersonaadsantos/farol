@@ -54,3 +54,20 @@ test('showOp remove a pill anterior antes de recriar com o mesmo id (M22)', () =
   assert.match(fn[0], /const prev = ACTIVE_OPS\.get\(opId\)/, 'consulta a operacao anterior');
   assert.match(fn[0], /prev\.element\.remove\(\)/, 'a pill velha sai do DOM antes da nova entrar');
 });
+
+/* ---------- widget sys-polling (B11) ---------- */
+
+test('sys-polling ancora em elemento que existe, nao em id fantasma (B11)', () => {
+  assert.match(HTML, /id="metaCheck"/, 'a ancora real existe no index.html');
+  assert.doesNotMatch(APPJS, /\$\('#metaLine'\)/, 'nao existe id metaLine no index.html');
+  assert.doesNotMatch(APPJS, /\$\('#topbar'\)/, 'topbar e classe, nao id: $() devolvia null');
+  const fn = APPJS.match(/function renderStatus\([\s\S]*?\n\}/);
+  assert.ok(fn, 'renderStatus existe');
+  assert.match(fn[0], /#metaCheck/, 'a pill de polling vive ao lado do #metaCheck');
+});
+
+test('erro de checagem nao trava o widget sys-polling pra sempre (B11)', () => {
+  const fn = APPJS.match(/function renderStatus\([\s\S]*?\n\}/);
+  assert.match(fn[0], /status !== 'running'/,
+    'op terminal e purgada no comeco do ciclo seguinte, senao o has() barra o novo widget');
+});

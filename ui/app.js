@@ -1349,13 +1349,22 @@ function renderStatus() {
   if (s.status === 'checking') {
     pill.className = 'pill busy';
     pill.textContent = 'verificando…';
+    // um erro anterior deixava a op terminal no Map e o has() abaixo barrava o
+    // widget novo pra sempre (B11): ciclo novo purga o que ja terminou
+    const cur = ACTIVE_OPS.get('sys-polling');
+    if (cur && cur.status !== 'running') {
+      if (cur.element) cur.element.remove();
+      ACTIVE_OPS.delete('sys-polling');
+    }
     // Start polling feedback widget
     if (!ACTIVE_OPS.has('sys-polling')) {
       showOp('sys-polling', {
         type: 'polling',
         title: 'Verificando PRs',
         inline: true,
-        container: $('#metaLine') || $('#topbar')
+        // ao LADO do #metaCheck (a .meta-line), nunca DENTRO dele: o tickCountdown
+        // sobrescreve o textContent do span a cada segundo e mataria a pill
+        container: ($('#metaCheck') && $('#metaCheck').parentElement) || document.body
       });
     }
   } else if (s.status === 'error') {
