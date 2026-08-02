@@ -1819,11 +1819,19 @@ function renderPanorama() {
 const mergeBlockedByPolicy = new Set();
 // PRs cujo auto-merge o repo recusou nesta sessão (repo sem "Allow auto-merge"):
 // desabilita o botão Auto-merge até o próximo refresh confirmar o estado do repo.
-const autoUnavailableKeys = new Set();
+// Map de key pro lastCheckAt do momento da recusa: a poda no renderMyPRs expira a
+// marca quando um refresh mais novo chega (antes era Set e nunca expirava, B17).
+const autoUnavailableKeys = new Map();
 // PRs cujo Merge (admin) foi recusado por ruleset nesta sessão: esconde o botão
-// admin até o próximo refresh confirmar (o --admin não fura ruleset).
-const adminUnavailableKeys = new Set();
+// admin até o próximo refresh confirmar (o --admin não fura ruleset). Mesmo Map
+// com geração da recusa, mesma poda.
+const adminUnavailableKeys = new Map();
 function renderMyPRs() {
+  // os marcadores de sessão valem até o PRÓXIMO refresh de mergeStates (que roda
+  // no fim de cada check, junto do lastCheckAt novo): refresh mais novo que a
+  // marcação poda a marca e o dado fresco do repo volta a decidir os botões
+  for (const k of expiredSessionMarks([...autoUnavailableKeys], STATE.lastCheckAt)) autoUnavailableKeys.delete(k);
+  for (const k of expiredSessionMarks([...adminUnavailableKeys], STATE.lastCheckAt)) adminUnavailableKeys.delete(k);
   const list = (STATE.myPRs || []).filter(scopeVisible);
   const analyses = STATE.selfAnalyses || {};
   const wrap = $('#myPRsWrap');
@@ -2066,7 +2074,7 @@ $('#myPRs').addEventListener('click', (e) => {
       if (r?.blocked === 'autoUnavailable') {
         // repo sem "Allow auto-merge": some com o botão auto, sobra o admin (o
         // servidor já mostrou o toast acionável). Mantém as opções visíveis.
-        autoUnavailableKeys.add(key); mergeBlockedByPolicy.add(key); renderMyPRs(); return;
+        autoUnavailableKeys.set(key, STATE.lastCheckAt || 0); mergeBlockedByPolicy.add(key); renderMyPRs(); return;
       }
       toast('error', esc(r?.error || 'não consegui ativar o auto-merge'));
       renderMyPRs();
@@ -2085,7 +2093,7 @@ $('#myPRs').addEventListener('click', (e) => {
       mAdmin.disabled = true; mAdmin.textContent = 'Mergeando…';
       api('/api/self-review/merge', { url: mAdmin.dataset.url, mode: 'admin' }).then(r => {
         if (r?.ok) { mergeBlockedByPolicy.delete(key); return; } // state push atualiza
-        if (r?.blocked === 'rule') { adminUnavailableKeys.add(key); renderMyPRs(); return; }
+        if (r?.blocked === 'rule') { adminUnavailableKeys.set(key, STATE.lastCheckAt || 0); renderMyPRs(); return; }
         toast('error', esc(r?.error || 'não consegui mergear como admin'));
         mAdmin.disabled = false; mAdmin.textContent = 'Merge (admin)';
       });

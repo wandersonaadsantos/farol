@@ -168,3 +168,26 @@ test('a fase generica do chat roda so no primeiro paint, nao a cada snapshot (B1
   assert.doesNotMatch(fn[0], /Math\.random\(\)/,
     'fase sorteada a cada snapshot atropelava o texto real vindo do chat-activity');
 });
+
+/* ---------- marcadores de sessao do merge (B17) ---------- */
+
+test('expiredSessionMarks: marca so expira quando chega refresh mais NOVO', () => {
+  const marks = [['acme/app#1', 100], ['acme/app#2', 200]];
+  assert.deepEqual(P.expiredSessionMarks(marks, 150), ['acme/app#1'], 'expira so quem foi marcado antes do refresh');
+  assert.deepEqual(P.expiredSessionMarks(marks, 200), ['acme/app#1'], 'refresh da mesma geracao nao confirma nada');
+  assert.deepEqual(P.expiredSessionMarks(marks, 300), ['acme/app#1', 'acme/app#2']);
+  assert.deepEqual(P.expiredSessionMarks([], 300), []);
+  assert.deepEqual(P.expiredSessionMarks(marks, null), [], 'sem lastCheckAt (boot) nada expira');
+  assert.deepEqual(P.expiredSessionMarks(marks, 0), [], 'zero tambem e ausencia de refresh');
+});
+
+test('os marcadores de merge sao Map com geracao e sao podados no render (B17)', () => {
+  assert.match(APPJS, /autoUnavailableKeys = new Map\(\)/);
+  assert.match(APPJS, /adminUnavailableKeys = new Map\(\)/);
+  assert.doesNotMatch(APPJS, /autoUnavailableKeys\.add\(/, 'Map nao tem add: seria TypeError em runtime');
+  assert.doesNotMatch(APPJS, /adminUnavailableKeys\.add\(/, 'Map nao tem add: seria TypeError em runtime');
+  const inicio = APPJS.match(/function renderMyPRs\(\) \{[\s\S]{0,700}/);
+  assert.ok(inicio, 'renderMyPRs existe');
+  assert.match(inicio[0], /expiredSessionMarks\(/,
+    'a poda roda no comeco de cada render, cumprindo o que o comentario da declaracao dos marcadores sempre prometeu');
+});

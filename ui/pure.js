@@ -57,6 +57,17 @@ function accountBarVisible(nContas, tab) {
   return nContas >= 2 && (tab === 'radar' || tab === 'destaques' || tab === 'time');
 }
 
+// marcadores de sessao do merge (auto-merge/admin recusados) expiram quando chega
+// um refresh de mergeStates mais NOVO que a marcacao (B17): o dado fresco do repo
+// volta a mandar. Presenca de campo nao serve de gatilho (o mergeStates JA existia
+// na hora da recusa); a geracao do refresh (lastCheckAt do engine) serve.
+// marks: array de pares [key, marcadoEmMs]; retorna as chaves que expiraram.
+function expiredSessionMarks(marks, lastCheckAt) {
+  const ref = Number(lastCheckAt) || 0;
+  if (!ref) return [];
+  return (marks || []).filter(([, at]) => ref > (Number(at) || 0)).map(([k]) => k);
+}
+
 // tira acento pra "revisao" achar "Revisão"
 function sysNorm(s) { return String(s || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase(); }
 
@@ -332,6 +343,6 @@ if (typeof module !== 'undefined' && module.exports) {
     sameSet, diffVs, lastMerge, groupBy, usageMetricVal, accountSaveArray, delivGroupCard, fmtRel,
     usageDayKeysBack, avatar, md, feedLine, analysisOpsPlan, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
     deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
-    opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible
+    opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible, expiredSessionMarks
   };
 }
