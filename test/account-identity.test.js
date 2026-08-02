@@ -191,3 +191,37 @@ test('chatSend recusa quando a conta do PR está sem token (nunca conversa com i
   assert.match(r.error, /sem token/);
   assert.equal(abriu, false, 'nenhuma sessão abre com o token da primária');
 });
+
+/* ---------- lançamento de revisão: só conta com token abre sessão ---------- */
+
+test('launchReview: PR de conta sem token fica de fora (e na fila); os das contas com token seguem', async () => {
+  const e = engineDuasContas();
+  const enfileirados = [];
+  e.enqueueHeadless = (pr) => { enfileirados.push(pr); };
+  const r = await e.launchReview([
+    'https://github.com/acme/app/pull/1',
+    'https://github.com/biudtech/app/pull/2'
+  ], 'auto');
+  assert.equal(r.ok, true);
+  assert.deepEqual(enfileirados.map(p => p.account), ['alice'], 'só o PR da conta autenticada entrou');
+});
+
+test('launchReview: todas as contas sem token devolve erro sem enfileirar nada', async () => {
+  const e = engineDuasContas();
+  e.token = null; e.tokens = {}; e.tokenOk = false;
+  const enfileirados = [];
+  e.enqueueHeadless = (pr) => { enfileirados.push(pr); };
+  const r = await e.launchReview(['https://github.com/acme/app/pull/1'], 'auto');
+  assert.equal(r.ok, false);
+  assert.equal(enfileirados.length, 0);
+});
+
+test('runOneHeadless: falha por "sem token" é transitória (retry no próximo ciclo, não estaciona)', async () => {
+  const e = engineDuasContas();
+  e.runHeadlessReview = async () => { throw new Error('conta bob sem token no gh (gh auth login --user bob)'); };
+  e.writeInflight = () => { };
+  const pr = { key: 'biudtech/app#2', url: 'https://github.com/biudtech/app/pull/2', repo: 'biudtech/app', number: 2, account: 'bob' };
+  await e.runOneHeadless(pr, 'bob');
+  assert.equal(e.autoReviewParked.has('biudtech/app#2'), false, 'flake de keyring se resolve sozinho, não pode estacionar');
+  assert.equal(e.retryAfterNet.get('biudtech/app#2'), 1);
+});

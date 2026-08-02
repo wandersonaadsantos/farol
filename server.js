@@ -640,6 +640,7 @@ class Engine extends EventEmitter {
       const toReview = this.queue.filter(p =>
         !this.isMuted(this.accountForPr(p)) &&
         this.autoReviewFor(this.accountForPr(p)) &&
+        this.tokenFor(this.accountForPr(p)) &&
         !inflight.has(p.key) &&
         !this.autoReviewParked.has(p.key) &&
         !this.retryAfterNet.has(p.key));
@@ -650,7 +651,7 @@ class Engine extends EventEmitter {
 
       // a checagem funcionou = a rede voltou: relança revisões que caíram por queda de conexão
       if (this.retryAfterNet.size) {
-        const retry = this.queue.filter(p => this.retryAfterNet.has(p.key) && !fresh.some(f => f.key === p.key) && !this.isMuted(this.accountForPr(p)) && this.autoReviewFor(this.accountForPr(p)));
+        const retry = this.queue.filter(p => this.retryAfterNet.has(p.key) && !fresh.some(f => f.key === p.key) && !this.isMuted(this.accountForPr(p)) && this.autoReviewFor(this.accountForPr(p)) && this.tokenFor(this.accountForPr(p)));
         if (retry.length) {
           this.emit('toast', { kind: 'info', text: `Conexão de volta: relançando a revisão de ${retry.map(p => p.key).join(', ')}.` });
           this.launchReview(retry.map(p => p.url), 'auto');
