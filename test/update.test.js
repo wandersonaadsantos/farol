@@ -71,3 +71,25 @@ test('buildUpdateLaunchCommand: apóstrofo no caminho é dobrado (string single-
   const cmd = update.buildUpdateLaunchCommand("C:\\Users\\O'Brien\\.farol\\sessions\\update-2.ps1");
   assert.ok(cmd.includes("O''Brien"), 'apóstrofo dobrado, a string do -Command não quebra');
 });
+
+test('applyUpdate: sem update disponível devolve ok:false (baseline, sem rede)', async () => {
+  const engine = new Engine();
+  engine.config.updateRepo = '';
+  engine.config.updateSource = '';
+  const r = await update.applyUpdate(engine, {});
+  assert.deepEqual(r, { ok: false, error: 'nenhuma atualização disponível' });
+});
+
+test('applyUpdate: usa o checkUpdate injetado (costura de teste)', async () => {
+  const engine = new Engine();
+  engine.config.updateRepo = '';
+  let usado = false;
+  const r = await update.applyUpdate(engine, {
+    checkUpdate: async (e) => {
+      usado = true;
+      e.update = { current: '0.0.1', channel: 'remote', repo: 'x/y', source: null, sourceVersion: null, available: false, checkedAt: Date.now() };
+    }
+  });
+  assert.equal(usado, true, 'o applyUpdate honrou deps.checkUpdate');
+  assert.equal(r.ok, false);
+});
