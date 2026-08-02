@@ -357,3 +357,20 @@ test('sysNorm tira acento pra busca sem acento achar', () => {
   assert.equal(P.sysNorm('Esforço'), 'esforco');
   assert.equal(P.sysNorm(null), '');
 });
+
+/* ---------- prKeyFromUrl: o key canônico a partir da URL do PR ---------- */
+
+test('prKeyFromUrl monta o key canônico owner/repo#numero', () => {
+  assert.equal(P.prKeyFromUrl('https://github.com/biudtech/app/pull/123'), 'biudtech/app#123');
+});
+
+test('prKeyFromUrl não repete o defeito do slice(-3): nada de "pull" no key', () => {
+  // o bug real: url.split('/').slice(-3).join('#') produzia 'repo#pull#123'
+  assert.doesNotMatch(P.prKeyFromUrl('https://github.com/biudtech/app/pull/123'), /pull/);
+});
+
+test('prKeyFromUrl devolve vazio pra entrada que não é URL de PR', () => {
+  assert.equal(P.prKeyFromUrl('https://github.com/biudtech/app'), '');
+  assert.equal(P.prKeyFromUrl(''), '');
+  assert.equal(P.prKeyFromUrl(null), '');
+});

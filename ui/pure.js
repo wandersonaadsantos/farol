@@ -37,6 +37,12 @@ function sysNorm(s) { return String(s || '').normalize('NFD').replace(/\p{M}/gu,
 /* ---- atribuição de conta pra memória (Destaques/Time) ---- */
 function ownerFromUrl(url) { const m = String(url || '').match(/github\.com\/([^\/]+)\//i); return m ? m[1] : ''; }
 
+// 'https://github.com/owner/repo/pull/123' -> 'owner/repo#123' (o key canônico do app)
+function prKeyFromUrl(url) {
+  const m = String(url || '').match(/github\.com\/([^\/]+\/[^\/]+)\/pull\/(\d+)/i);
+  return m ? `${m[1]}#${m[2]}` : '';
+}
+
 function repoShort(repo) { return repo.split('/').slice(1).join('/') || repo; }
 
 function stripFence(s) {
@@ -227,7 +233,7 @@ function deliveriesByAuthor(items) {
    escopo global por terem sido declaradas no topo deste arquivo. */
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    esc, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, repoShort, stripFence, hexToRgba,
+    esc, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
     sameSet, diffVs, lastMerge, groupBy, usageMetricVal, accountSaveArray, delivGroupCard, fmtRel,
     usageDayKeysBack, avatar, md, feedLine, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
     deliveriesByRepo, deliveriesByAuthor

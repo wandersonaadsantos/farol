@@ -1918,7 +1918,9 @@ $('#myPRs').addEventListener('click', (e) => {
   const run = e.target.closest('.act-self');
   if (run) {
     run.disabled = true; run.textContent = 'Analisando…';
-    const prKey = run.dataset.url.split('/').slice(-3).join('#');
+    // o card já carrega o key canônico; a URL é só fallback (pura, testada)
+    const card = run.closest('.mypr-card');
+    const prKey = (card && card.dataset.key) || prKeyFromUrl(run.dataset.url);
     const opId = `analysis-${prKey}`;
     showOp(opId, {
       type: 'analysis',
