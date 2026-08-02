@@ -48,3 +48,29 @@ Executada em 02/08/2026 (madrugada, horário de Brasília). Achados cobertos: M3
 
 **Dificuldades novas encontradas**
 - Nenhuma além das antecipadas (D1 a D10 do rascunho, todas com a solução preparada funcionando).
+
+## Onda 1: identidade de conta (raiz P1)
+
+Executada em 02/08/2026 (madrugada, horário de Brasília). Achados cobertos: A1 (raiz), A3, M10 e M11. Suite na largada da onda: 411 testes; no fechamento: 432 (429 pass, 3 skipped só-macOS, esperados no Windows), com `npm run check` ok (55 arquivos). Verificação independente confirmou os 7 diffs contra o rascunho e as regras R1, R11, R12, R13 e R15 do mestre, auditou os 20 call sites de `ghEnv` da tabela do plano (todos guardados ou sob catch de contexto) e provou por mutação (worktree descartável, revert de cada hunk de produção) que cada teste novo falha sem a sua implementação; nenhum teste passa por acaso.
+
+**Tarefas concluídas**
+- 1.1 `Engine.tokenFor(user)`, token por conta sem herdar identidade, A1: commit `8c6b9d4`
+- 1.2 buscas gh (`searchPRs`, `myAuthoredPRs`, `fetchDeliveries`) pulam conta sem token, A1 e M11, incluindo o ajuste do `test/gh-queries-capped.test.js` previsto pela R12 do mestre: commit `8975d58`
+- 1.3 `postReview` e `myReviewStates` exigem o token da conta do PR, A1: commit `1609d0a`
+- 1.4 gates de Meus PRs (`launchSelfAnalysis`, `setReviewers`, `mergeSelfPR`) pela conta do PR + leitores best-effort caem na incerteza do contrato, M10 e A1: commit `1873178`
+- 1.5 chat roda com a conta dona do PR (repasse de `account` ao `runClaudeStream` + CLAUDE.md atualizado no mesmo commit), A3: commit `f7f6250`
+- 1.6 `launchReview` filtra por conta com token, filtro silencioso no `toReview` e no retry do `check()`, classe transitória `authErr`, A1: commit `bbf26cf`
+- 1.7 flip do `ghEnv` estrito (conta pedida sem token lança) + ajustes dos testes legados de `claude-profiles`, A1 e fechamento do M11: commit `e34881d`
+- Fechamento da onda (esta seção + entrada "Não publicado" no CHANGELOG.md): commit próprio, `docs:`
+
+**Pendências**
+- Itens 2 e 3 da "Verificação de encerramento da onda" do rascunho (instância isolada com conta real sem token: observar os WARN "sem token no gh", a ausência de toast repetido por ciclo e a auditoria via spawnlog de que nenhum gh da conta de trabalho sai com token pessoal) NÃO foram executados: exigem manipular o keyring real do gh (`gh auth logout` de uma conta), o que a execução autônoma não faz. Pendência consciente, executar com o usuário presente antes do corte da v2.31.0.
+
+**Desvios relevantes do plano**
+- R1 do mestre respeitada na 1.5: a checagem de conta do chat foi aplicada sobre o desenho da 6.6 (guarda SÍNCRONA via `tokenFor`, zero await antes de marcar `running`), não sobre o código do rascunho (que tinha `await engine.refreshToken()` no corpo síncrono). Desvio semântico adicional documentado no código: a guarda só recusa quando há conta derivada (`acc` truthy); máquina legada sem `accounts[]` cai no caminho de sempre, com o refreshToken dentro do bloco async resolvendo a primária.
+- R11 respeitada na 1.1 (o diff real é só o bloco novo do `tokenFor`; `refreshToken` compat e cabeçalho do `ghEnv` eram contexto). R12 cumprida no próprio commit da 1.2 (o `gh-queries-capped` semeia `engine.tokens`). R15: contagem 411 pra 432 não é regressão, o gate é verde completo.
+- O item 4 da verificação de encerramento pede o registro da tabela de call sites "no texto do PR"; como a execução é de commits locais na `main` (sem PR, por decisão do mestre), o registro vale aqui: a tabela dos 20 call sites do rascunho foi auditada na verificação independente, com os pontos sem guarda própria cobertos por catch de contexto (`prMetrics` pela degradação do fan-out, `classifyPushback` pelo catch por PR do scan, `spawnConsole` gateado pelo `launchReview`, `update.js` sem user por contrato, `tools.js` pelo adiamento consciente documentado no CLAUDE.md). A dependência com o A2 (D3 do rascunho) ficou a favor: a Onda 2 já tinha sido executada antes, então o skip por conta sem token usa o caminho `null` que o `check()` resiliente preserva.
+- Versão segue 2.30.1, sem tag, sem release e sem push (commits locais na `main`, conforme o mestre). Localização por âncora respeitada (regra transversal).
+
+**Dificuldades novas encontradas**
+- Nuance de prova registrada pela verificação: o teste do `postReview` sobrevive à mutação isolada da guarda da 1.3 porque, com o `ghEnv` estrito da 1.7, o throw cai no try/catch da própria função e devolve `ok:false` igual (defesa em profundidade fazendo o papel dela; o teste do `myReviewStates` cobre a guarda diretamente). Não é falso verde do invariante: sem token nunca posta, por dois mecanismos independentes.
