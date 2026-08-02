@@ -216,12 +216,20 @@ function md(src) {
     if (list) { out.push(`</${list}>`); list = null; }
     if (table) { out.push('</tbody></table>'); table = null; }
   };
-  const inline = (s) => s
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
-    .replace(/(^|[^*])\*([^*]+)\*/g, '$1<i>$2</i>')
-    .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
-    .replace(/^\[!(NOTE|WARNING|IMPORTANT)\]\s*/i, '');
+  const inline = (s) => {
+    // código sai primeiro e PROTEGIDO: o conteúdo de `...` vai pra uma lista e só
+    // volta no fim, senão bold/itálico/link reformatam DENTRO do <code> já emitido
+    // (f(*args, **kwargs) virava markup corrompido). Sentinela em Private Use Area:
+    // não colide com texto de review nem com dígitos soltos.
+    const codes = [];
+    s = s.replace(/`([^`]+)`/g, (m, c) => { codes.push(`<code>${c}</code>`); return `\uE000${codes.length - 1}\uE001`; });
+    s = s
+      .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+      .replace(/(^|[^*])\*([^*]+)\*/g, '$1<i>$2</i>')
+      .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
+      .replace(/^\[!(NOTE|WARNING|IMPORTANT)\]\s*/i, '');
+    return s.replace(/\uE000(\d+)\uE001/g, (m, i) => codes[i]);
+  };
   for (const raw of lines) {
     const l = raw.trimEnd();
     const h = l.match(/^(#{1,4})\s+(.*)$/);

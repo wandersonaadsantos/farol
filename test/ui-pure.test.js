@@ -88,6 +88,23 @@ test('md formata inline sem deixar tag escapar', () => {
   assert.match(P.md('*enfase*'), /<i>enfase<\/i>/);
 });
 
+test('md NÃO aplica bold/itálico/link dentro de código', () => {
+  // relatório de review adora assinatura Python: f(*args, **kwargs) virava markup corrompido
+  const out = P.md('`f(*args, **kwargs)`');
+  assert.match(out, /<code>f\(\*args, \*\*kwargs\)<\/code>/);
+  assert.doesNotMatch(out, /<i>|<b>/);
+  const link = P.md('`[a](https://x.com)`');
+  assert.match(link, /<code>\[a\]\(https:\/\/x\.com\)<\/code>/);
+  assert.doesNotMatch(link, /<a /);
+});
+
+test('md segue formatando NORMALMENTE fora do código', () => {
+  const out = P.md('use `a_b` com *ênfase* e **força**');
+  assert.match(out, /<code>a_b<\/code>/);
+  assert.match(out, /<i>ênfase<\/i>/);
+  assert.match(out, /<b>força<\/b>/);
+});
+
 test('md só aceita link http e https', () => {
   assert.match(P.md('[x](https://exemplo.com)'), /<a href="https:\/\/exemplo\.com"/);
   // javascript: não pode virar href
