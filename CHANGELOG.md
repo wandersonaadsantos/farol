@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## Não publicado
+
+Onda 2 do plano de correção dos gaps lógicos (02/08/2026): resiliência do polling (`check()`). Sem número de versão por decisão do plano; o corte da release consolida as ondas.
+
+**Correções**
+- **Um ciclo ruim das buscas de "pedido a mim" não zera mais o radar (A2).** Quando só as buscas `--review-requested` falham (ex.: rate limit da API de search do GitHub), o `check()` preserva a fila, o "é meu" do panorama e os marcadores de re-request do último ciclo bom, no mesmo padrão que já valia pra `reviewedKeys` e `myPRs`. `markReRequests` agora distingue "busca falhou" (null, preserva) de "ninguém mais pedido" (Set vazio, limpa como sempre). Antes, a falha parcial zerava a fila, apagava os marcadores (ressuscitando PRs que você ignorou) e re-notificava tudo na recuperação.
+- **Carência anti-lag de 10 minutos no re-request (M1).** Logo depois de um review ser postado, o PR ainda ecoa na busca `--review-requested` por atraso do índice do GitHub; esse eco deixou de contar como re-request (antes, cada auto-approve podia relançar uma revisão headless completa à toa). Registro antigo sem carimbo de horário segue valendo como sempre valeu; re-request real dentro da janela entra com atraso máximo de carência + 1 intervalo de polling.
+- **`intervalSeconds` inválido no `config.json` é clampado no boot (M2).** Valor não numérico editado à mão virava `setTimeout(fn, NaN)`, ou seja, polling de ~1ms contra o GitHub até esgotar o rate limit. O boot agora aplica o mesmo clamp de 60 a 3600 segundos que o caminho HTTP (updateSettings) já aplicava.
+- **`searchPRs` avisa quando o resultado bate o teto de 100 do gh (B10).** O gh corta no `--limit 100` sem avisar e, com best-match como ordenação, um PR pedido a você pode ficar fora do radar em silêncio. Agora fica um WARN no log dizendo qual busca truncou, análogo ao sinal `capped` que as entregas já tinham.
+
 ## v2.30.1
 
 Melhoria de UX: feedback visual unificado em todas as operações assíncronas.
