@@ -165,3 +165,29 @@ test('staleForReview: conta sem token devolve false (nunca reativa Re-revisar po
   assert.equal(stale, false);
   assert.equal(chamadas.length, 0);
 });
+
+/* ---------- chat: sessão com a conta dona do PR (A3) ---------- */
+
+test('chatSend passa a conta do PR ao runClaudeStream (token gh e perfil Claude certos)', async () => {
+  const e = engineDuasContas();
+  e.tokens.bob = 'tok-bob'; // bob autenticado: o que se prova aqui é o REPASSE da conta
+  let captured = null;
+  e.runClaudeStream = async (prompt, opts) => { captured = opts; return { text: 'oi', sessionId: 's1' }; };
+  e.saveChats = () => { };
+  const r = await e.chatSend('biudtech/app#7', 'https://github.com/biudtech/app/pull/7', 'olá');
+  assert.equal(r.ok, true);
+  while (e.chats['biudtech/app#7'].status === 'running') await new Promise(res => setTimeout(res, 10));
+  assert.ok(captured, 'runClaudeStream foi chamado');
+  assert.equal(captured.account, 'bob', 'sem isso o resume cai no perfil Claude padrão e o gh no token primário (A3)');
+});
+
+test('chatSend recusa quando a conta do PR está sem token (nunca conversa com identidade errada)', async () => {
+  const e = engineDuasContas(); // bob sem token
+  let abriu = false;
+  e.runClaudeStream = async () => { abriu = true; return { text: 'x' }; };
+  e.saveChats = () => { };
+  const r = await e.chatSend('biudtech/app#7', 'https://github.com/biudtech/app/pull/7', 'olá');
+  assert.equal(r.ok, false);
+  assert.match(r.error, /sem token/);
+  assert.equal(abriu, false, 'nenhuma sessão abre com o token da primária');
+});
