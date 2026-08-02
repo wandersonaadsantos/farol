@@ -26,7 +26,9 @@ function fmtTok(n) { return Number(n || 0).toLocaleString('pt-BR'); }
 
 function fmtCompact(n) {
   n = Number(n) || 0;
-  if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace('.', ',') + 'M';
+  // a fronteira do M acompanha o ARREDONDAMENTO do k: de 999500 pra cima o k
+  // viraria "1000k", então já promove pra "1,0M"
+  if (n >= 999500) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace('.', ',') + 'M';
   if (n >= 1e3) return Math.round(n / 1e3) + 'k';
   return String(Math.round(n));
 }

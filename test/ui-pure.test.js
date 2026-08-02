@@ -177,6 +177,14 @@ test('fmtCompact encurta sem enganar a ordem de grandeza', () => {
   assert.equal(P.fmtCompact('abc'), '0');
 });
 
+test('fmtCompact: fronteira do milhão não vira 1000k', () => {
+  // Math.round(999500/1000) = 1000, e "1000k" mente a unidade: promove pra M
+  assert.equal(P.fmtCompact(999499), '999k');
+  assert.equal(P.fmtCompact(999500), '1,0M');
+  assert.equal(P.fmtCompact(999999), '1,0M');
+  assert.equal(P.fmtCompact(1000000), '1,0M');
+});
+
 test('fmtTok agrupa milhar no formato daqui', () => {
   assert.equal(P.fmtTok(1234567), '1.234.567');
   assert.equal(P.fmtTok(0), '0');
