@@ -188,6 +188,11 @@ class Engine extends EventEmitter {
     this.seen = new Set();
     this.reviewedKeys = new Set(); // PRs abertos que eu ja revisei (gh --reviewed-by)
     this.reReviewedKeys = new Set(); // re-requests que ja voltaram pra fila (evita re-surgir todo ciclo)
+    // keys pedidos a mim no último ciclo BOM: preserva fila e "é meu" quando as buscas
+    // --review-requested falham (falha parcial não zera o radar). De propósito NÃO é
+    // persistido: após reinício, um 1º ciclo já com falha preserva um Set vazio, igual
+    // ao comportamento antigo nesse canto (seen e baseline cobrem o essencial entre boots).
+    this.mineKeys = new Set();
     this.token = null;
     this.tokenOk = false;
     this.doctorInfo = null;
@@ -561,8 +566,14 @@ class Engine extends EventEmitter {
         if (pruned) this.saveSelfAnalyses();
       }
 
-      const mineList = mine || [];
-      const mineKeys = new Set(mineList.map(p => p.key));
+      // falha só das --review-requested (ex.: rate limit da API de search): preserva
+      // fila, "é meu" e marcadores do último ciclo bom, no MESMO padrão de reviewedKeys
+      // e myPRs logo acima. Zerar aqui apagava reReviewedKeys (markReRequests com Set
+      // vazio) e ressuscitava PRs que o usuário ignorou, re-notificando tudo na volta.
+      const mineFailed = mine === null;
+      const mineList = mineFailed ? [...this.queue] : mine;
+      const mineKeys = mineFailed ? this.mineKeys : new Set(mineList.map(p => p.key));
+      if (!mineFailed) this.mineKeys = mineKeys;
       for (const pr of panorama) pr.mine = mineKeys.has(pr.key);
       for (const pr of mineList) {
         if (!seenKeys.has(pr.key)) { pr.mine = true; panorama.push(pr); }
@@ -571,7 +582,7 @@ class Engine extends EventEmitter {
       // (reviewedByMe). No fluxo normal, revisar te tira dos pedidos; voltar aos pedidos
       // = o autor re-solicitou (a review antiga vira DISMISSED no GitHub). markReRequests
       // des-marca esses como "visto" pra voltarem à fila (acionáveis de novo).
-      const reReq = this.markReRequests(mineKeys);
+      const reReq = this.markReRequests(mineFailed ? null : mineKeys);
       for (const pr of panorama) { pr.reviewedByMe = this.reviewedKeys.has(pr.key); pr.reRequested = reReq.has(pr.key); }
       for (const pr of mineList) pr.reRequested = reReq.has(pr.key);
       panorama.sort((a, b) => (b.mine ? 1 : 0) - (a.mine ? 1 : 0) || String(b.updatedAt).localeCompare(String(a.updatedAt)));
