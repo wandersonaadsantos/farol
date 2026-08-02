@@ -44,8 +44,10 @@ after(() => {
 function filhoFalso() {
   const child = new EventEmitter();
   child.stdout = new EventEmitter();
+  child.stdout.setEncoding = () => { }; // runClaudeStream liga utf8 no stream real (M4)
   child.stderr = new EventEmitter();
-  child.stdin = { write() { }, end() { } };
+  // stdin precisa de .on: runClaudeStream registra handler de 'error' (B4)
+  child.stdin = Object.assign(new EventEmitter(), { write() { }, end() { } });
   child.pid = 4242;
   setImmediate(() => { child.emit('close', 0); });
   return child;
