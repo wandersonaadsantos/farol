@@ -493,10 +493,17 @@ class Engine extends EventEmitter {
     return (this.tokens && this.tokens[user]) || null;
   }
 
-  // env de child-process com o GH_TOKEN da conta pedida (default = primaria)
+  // env de child-process com o GH_TOKEN da conta pedida (sem user = primaria, o único
+  // fallback legítimo, ex.: update.js). Conta pedida SEM token = erro alto (raiz A1):
+  // herdar o token de outra conta fazia busca @me, review postado e sessão Claude
+  // saírem com a identidade errada. Os call sites de produção pré-checam com tokenFor
+  // e caem nos seus caminhos de falha; este throw é a rede de segurança fail-loud
+  // (mesma filosofia do ehMac/ehWin da UI). A frase "sem token no gh" é contrato
+  // com a classificação de erro transitório do runOneHeadless.
   ghEnv(user) {
     const env = { ...process.env, GH_PAGER: 'cat', PAGER: 'cat', GH_PROMPT_DISABLED: '1' };
-    const tok = (user && this.tokens && this.tokens[user]) || this.token;
+    const tok = this.tokenFor(user);
+    if (user && !tok) throw new Error(`conta ${user} sem token no gh (rode: gh auth login --user ${user})`);
     if (tok) env.GH_TOKEN = tok;
     if (this.gitBash) env.CLAUDE_CODE_GIT_BASH_PATH = this.gitBash;
     // assinatura do Claude que o Farol usa pra esta conta: ver resolveClaudeConfigDir

@@ -104,12 +104,14 @@ test('ghEnv: injeta CLAUDE_CONFIG_DIR do perfil da conta', () => {
     { user: 'bob', owners: ['biudtech'], claudeProfileId: 'trabalho' },
     { user: 'alice', owners: ['lovelace-eng'] }
   ];
+  engine.tokens = { bob: 't-b', alice: 't-a' }; // ghEnv estrito: conta pedida precisa de token
   assert.equal(engine.ghEnv('bob').CLAUDE_CONFIG_DIR, 'C:\\biud-trabalho');
   assert.equal(engine.ghEnv('alice').CLAUDE_CONFIG_DIR, 'C:\\pessoal');
 });
 
 test('ghEnv: sem profiles, comportamento legado (claudeConfigDir global ou nenhum)', () => {
   const engine = new Engine();
+  engine.tokens = { qualquer: 't-q' }; // ghEnv estrito: conta pedida precisa de token
   engine.config.claudeProfiles = [];
   engine.config.claudeConfigDir = '';
   assert.equal('CLAUDE_CONFIG_DIR' in engine.ghEnv('qualquer'), false);
@@ -244,6 +246,7 @@ test('boot com config.json malformado (claudeProfiles string, claudeProfileId n√
     const e = new Engine();
     const dir = e.resolveClaudeConfigDir('qualquer');
     const auth = e.allClaudeAuthInfo();
+    e.tokens = { qualquer: 'tok' };
     const env = e.ghEnv('qualquer');
     console.log(JSON.stringify({
       claudeProfiles: e.config.claudeProfiles,

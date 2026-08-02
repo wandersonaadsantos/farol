@@ -225,3 +225,19 @@ test('runOneHeadless: falha por "sem token" é transitória (retry no próximo c
   assert.equal(e.autoReviewParked.has('biudtech/app#2'), false, 'flake de keyring se resolve sozinho, não pode estacionar');
   assert.equal(e.retryAfterNet.get('biudtech/app#2'), 1);
 });
+
+/* ---------- a raiz (A1): ghEnv nunca herda identidade ---------- */
+
+test('ghEnv: conta pedida sem token LANÇA em vez de herdar o token da primária', () => {
+  const e = engineDuasContas();
+  assert.throws(() => e.ghEnv('bob'), /bob sem token no gh/);
+  assert.equal(e.ghEnv('alice').GH_TOKEN, 'tok-alice');
+  assert.equal(e.ghEnv().GH_TOKEN, 'tok-alice', 'sem user = primária, contrato do update.js preservado');
+});
+
+test('ghEnv: sem user e sem token nenhum não lança (comportamento legado do doctor/boot)', () => {
+  const e = engineDuasContas();
+  e.token = null;
+  const env = e.ghEnv();
+  assert.equal('GH_TOKEN' in env, false);
+});
