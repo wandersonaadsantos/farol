@@ -74,3 +74,28 @@ Executada em 02/08/2026 (madrugada, horário de Brasília). Achados cobertos: A1
 
 **Dificuldades novas encontradas**
 - Nuance de prova registrada pela verificação: o teste do `postReview` sobrevive à mutação isolada da guarda da 1.3 porque, com o `ghEnv` estrito da 1.7, o throw cai no try/catch da própria função e devolve `ok:false` igual (defesa em profundidade fazendo o papel dela; o teste do `myReviewStates` cobre a guarda diretamente). Não é falso verde do invariante: sem token nunca posta, por dois mecanismos independentes.
+
+## Onda 4: gates de aprovação e merge (segurança)
+
+Executada em 02/08/2026 (madrugada, horário de Brasília). Achados cobertos: A4, A6, M6, B7 e B8. Suite na largada da onda: 432 testes; no fechamento: 447 (444 pass, 3 skipped de plataforma, esperados no Windows), com `npm run check` ok (57 arquivos). Verificação independente confirmou os 5 diffs contra o rascunho e as regras R4, R5, R13, R15 e R16 do mestre, e provou por mutação (worktree descartável no commit `9a5e5c0`, início da onda, com os arquivos de teste do HEAD copiados) que os testes de comportamento novo falham sem a implementação: 2 vermelhos no `fanout.test.js`, 5 no `decision-envelope.test.js` e 5 no `selfpr-consistency.test.js`; os 3 verdes-de-nascença são os documentados de propósito (2 pinos de semântica original na 4.5 e o teste de consumidor da 4.4). `test/selfpr-consistency.test.js` rodou 3 vezes seguidas sem flakiness (passo 4 da 4.5) e `test/review-prompt.test.js` (tabela de aridade das fachadas) segue verde: nenhuma fachada mudou de assinatura (D12 do rascunho).
+
+**Tarefas concluídas**
+- 4.1 `coverageGap` deixa de exigir `revisados > 0`: total declarado com leitura zero (ou `reviewed` fora do contrato) é lacuna e segura approve e reject, A4: commit `c6b10e6`
+- 4.2 `recordDecision` deriva `item.pr` sempre do PR da fila (o `pr` do envelope fica ignorado de propósito) e `writeMemory` atribui pela mesma identidade confiável, M6 com a extensão da R13: commit `6de8387`
+- 4.3 SHA da autoanálise capturado ANTES da sessão, re-checagem TOCTOU no fim com descarte sem re-enfileirar, e `enrichMyPRBranches` descarta análise sem SHA quando o head atual é conhecido, A6: commit `16de9ba`
+- 4.4 `fetchMergeState` devolve `baseRefName` e o gate de ruleset do `refreshMergeStates` checa a base real mesmo sem `pr.base` enriquecido, B7: commit `7f48346`
+- 4.5 `refreshMergeStates` ganha carimbo `iniciado` e reconciliação síncrona por `at >= iniciado` antes da troca do mapa: a escrita concorrente do `runSelfAnalysis` sobrevive, B8: commit `f9f58f2`
+- Fechamento da onda (esta seção + entrada "Não publicado" no CHANGELOG.md, incluindo a frase preparada na D4 sobre o descarte de autoanálises antigas sem SHA): commit próprio, `docs:`
+
+**Pendências**
+- Nenhuma.
+
+**Desvios relevantes do plano**
+- R13 do mestre na 4.2 (o mestre vence a D5 do rascunho, que deixava o `writeMemory` pra onda futura): a atribuição da memória por autor saiu do autor do envelope e passou pra `result.pr.author` (o item gravado pelo `recordDecision`, identidade da fila), com o fallback pro `memory.author` removido de propósito; os 2 call sites do caminho automático em `review.js` passam o item gravado (que carrega `memory`), então a correção vale também fora do `decide()`.
+- R5 do mestre na 4.3 e na 4.4: os blocos DEPOIS do rascunho foram escritos sobre o fonte pré-Onda-1, então a aplicação foi merge semântico preservando as guardas `tokenFor` da 1.4 (as duas leituras de SHA saem guardadas; a leitura pós-sessão que a 1.4 tinha guardado saiu mesmo, substituída pelo par antes/depois, como o mestre previa). O return antecipado do descarte TOCTOU é seguro: o `finally` existente limpa `activeReviews` e a atividade da sessão.
+- R4 respeitada na 4.1 (asserts booleanos normais; a adaptação pro `{ok, motivo}` é da 7.1). R16 cumprida: os achados foram reconciliados com o relatório em `Documents/biud/analise-farol-gaps-logicos/relatorio.md` antes da execução. R15: contagem 432 pra 447 não é regressão, o gate é verde completo.
+- Versão segue 2.30.1, sem tag, sem release e sem push (commits locais na `main`, conforme o mestre). Localização por âncora respeitada (regra transversal); travessão ausente do diff e das mensagens (verificado por varredura Unicode).
+
+**Dificuldades novas encontradas**
+- Nota de transparência do TDD da 4.4, registrada pela verificação: o segundo teste da tarefa (o `refreshMergeStates` com stub de `fetchMergeState`) nasceu verde, porque pina a semântica do consumidor, não o código morto; o vermelho exigido pelo TDD veio do teste unitário do `fetchMergeState` (confirmado por mutação no worktree pré-onda). Nenhuma ação necessária, fica o registro.
+- Fora isso, nenhuma além das antecipadas (D1 a D13 do rascunho, todas com a solução preparada funcionando).
