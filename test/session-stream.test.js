@@ -114,3 +114,23 @@ test('runClaudeStream: envelope do stub com exit 0 continua valendo (regressão 
   const res = await p;
   assert.equal(res.text, 'envelope do stub', 'contrato do FAROL_HEADLESS_CMD: envelope + exit 0');
 });
+
+test('runClaudeStream: stdin tem handler de error (EPIPE de processo morto não derruba o engine) (B4)', async () => {
+  const child = filhoStream();
+  spawnImpl = () => child;
+  const p = runClaudeStream(engineFalso(), 'x'.repeat(128 * 1024), {}); // prompt maior que o pipe de 64KB
+  spawnImpl = null;
+
+  const handlers = child.stdin.listenerCount('error');
+  // só emite se tem quem ouça: sem handler, o emit derrubaria o PROCESSO do teste
+  // (uncaughtException), que é exatamente o modo de falha do achado
+  if (handlers > 0) {
+    child.stdin.emit('error', Object.assign(new Error('write EPIPE'), { code: 'EPIPE', syscall: 'write' }));
+  }
+  child.stderr.emit('data', 'morreu antes de ler o prompt');
+  child.stdout.once('end', () => child.emit('close', 1));
+  child.stdout.end();
+  await assert.rejects(p, /saiu com código 1/, 'a causa real da morte vem pelo close, não pelo EPIPE');
+
+  assert.ok(handlers >= 1, 'child.stdin sem handler de error: EPIPE assíncrono vira uncaughtException e mata o engine');
+});
