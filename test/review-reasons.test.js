@@ -81,3 +81,15 @@ test('recusa por cobertura incompleta NÃO é atribuída à política da conta (
   assert.match(item.reasons[0], /não cobriu/, 'o motivo que lidera é a cobertura');
   for (const r of item.reasons) assert.doesNotMatch(r, /política da conta/, 'nenhuma reason culpa a política');
 });
+
+test('lacuna de cobertura entra UMA vez nas reasons, com a amostra dos arquivos (B5)', async () => {
+  const e = engineComEnvelope(envelope({
+    coverage: { total: 3, reviewed: ['a.ts'], missing: ['b.ts', 'c.ts'] }
+  }), { policy: 'approve' });
+  await e.runHeadlessReview(PR);
+  const item = e.decisions.pending[0];
+  const deCobertura = item.reasons.filter(r => /não cobriu/.test(r));
+  assert.equal(deCobertura.length, 1, `cobertura virou ${deCobertura.length} motivo(s): ${deCobertura.join(' | ')}`);
+  assert.match(deCobertura[0], /b\.ts/, 'a redação que fica é a que mostra a amostra');
+  assert.match(deCobertura[0], /não posto sozinho/, 'e a que explica a consequência');
+});
