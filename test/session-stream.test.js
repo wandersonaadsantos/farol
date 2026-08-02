@@ -115,6 +115,27 @@ test('runClaudeStream: envelope do stub com exit 0 continua valendo (regressão 
   assert.equal(res.text, 'envelope do stub', 'contrato do FAROL_HEADLESS_CMD: envelope + exit 0');
 });
 
+test('runClaudeStream: timeout de 30min não engole cancelamento em andamento (B3)', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const engine = engineFalso();
+  const child = filhoStream();
+  spawnImpl = () => child;
+  const p = runClaudeStream(engine, 'prompt', { id: 'sess-1' });
+  spawnImpl = null;
+
+  // o usuário cancela: killTree disparado, mas o close do processo ainda não chegou
+  assert.equal(cancelSession(engine, 'sess-1').ok, true);
+  // o timer de 30min vence NESSA janela, antes do close
+  t.mock.timers.tick(30 * 60 * 1000);
+  child.emit('close', null); // processo morto pelo killTree do cancelamento
+
+  await assert.rejects(p, (err) => {
+    assert.equal(err.cancelled, true, 'cancelamento do usuário virou outra coisa');
+    assert.match(err.message, /cancelada por você/);
+    return true;
+  });
+});
+
 test('runClaudeStream: stdin tem handler de error (EPIPE de processo morto não derruba o engine) (B4)', async () => {
   const child = filhoStream();
   spawnImpl = () => child;
