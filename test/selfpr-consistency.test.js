@@ -142,3 +142,43 @@ test('refreshMergeStates em BLOCKED sem pr.base checa o ruleset com a base do fe
   assert.deepEqual(consultas, [{ repo: 'acme/app', base: 'develop' }], 'o gate de ruleset recebe a base real');
   assert.equal(engine.mergeStates[CHAVE].adminBlocked, true, 'admin não é oferecido quando o ruleset bloqueia');
 });
+
+/* ---------- B8: reconciliação do mergeStates ---------- */
+
+function msFresco(extra) {
+  return { mergeable: 'MERGEABLE', status: 'CLEAN', isDraft: false, state: 'OPEN', baseRefName: 'develop', at: Date.now(), ...extra };
+}
+
+test('escrita concorrente do runSelfAnalysis durante o refresh não é engolida', async () => {
+  const engine = novoEngine();
+  engine.myPRs = [{ ...MEU_PR }];
+  engine.selfAnalyses = { [CHAVE]: { approvable: true } };
+  engine.fetchAutoMergeAllowed = async () => true;
+  engine.fetchMergeState = async () => {
+    // simula a autoanálise de OUTRO PR terminando no meio do await deste ciclo
+    engine.mergeStates['acme/app#77'] = msFresco();
+    return msFresco();
+  };
+  await engine.refreshMergeStates();
+  assert.ok(engine.mergeStates[CHAVE], 'o alvo do ciclo entrou');
+  assert.ok(engine.mergeStates['acme/app#77'], 'a entrada gravada durante o ciclo não pode sumir até o próximo polling');
+});
+
+test('entrada velha de PR que deixou de ser alvo continua saindo no refresh', async () => {
+  const engine = novoEngine();
+  engine.myPRs = [];
+  engine.selfAnalyses = {};
+  engine.mergeStates = { 'acme/app#99': msFresco({ at: Date.now() - 60000 }) };
+  await engine.refreshMergeStates();
+  assert.equal(engine.mergeStates['acme/app#99'], undefined, 'estado velho de não-alvo é limpo como sempre');
+});
+
+test('fetch que falhou continua derrubando a entrada do alvo (semântica original)', async () => {
+  const engine = novoEngine();
+  engine.myPRs = [{ ...MEU_PR }];
+  engine.selfAnalyses = { [CHAVE]: { approvable: true } };
+  engine.mergeStates = { [CHAVE]: msFresco({ at: Date.now() - 60000 }) };
+  engine.fetchMergeState = async () => null;
+  await engine.refreshMergeStates();
+  assert.equal(engine.mergeStates[CHAVE], undefined, 'sem leitura fresca, o botão não fica em pé por dado velho');
+});
