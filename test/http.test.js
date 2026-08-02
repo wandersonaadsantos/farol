@@ -40,6 +40,21 @@ function get(pathname) {
   });
 }
 
+function post(pathname, body) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(body || {});
+    const req = http.request(base + pathname, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-farol': '1', 'Content-Length': Buffer.byteLength(data) }
+    }, res => {
+      let d = ''; res.on('data', c => (d += c));
+      res.on('end', () => resolve({ status: res.statusCode, body: d }));
+    });
+    req.on('error', reject);
+    req.end(data);
+  });
+}
+
 test('GET /api/state devolve o snapshot serializável', async () => {
   const r = await get('/api/state');
   assert.equal(r.status, 200);
@@ -60,4 +75,10 @@ test('GET numa rota /api desconhecida devolve 405 (só POST é aceito além das 
   const r = await get('/api/nao-existe');
   assert.equal(r.status, 405);
   assert.deepEqual(JSON.parse(r.body), { error: 'method' });
+});
+
+test('POST /api/self-review/cancel existe e responde JSON (key desconhecida = ok:false)', async () => {
+  const r = await post('/api/self-review/cancel', { key: 'acme/app#404' });
+  assert.equal(r.status, 200, 'a rota existe (antes caía no 404 not found)');
+  assert.equal(JSON.parse(r.body).ok, false);
 });

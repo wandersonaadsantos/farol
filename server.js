@@ -838,6 +838,7 @@ class Engine extends EventEmitter {
   selfPromptFor(url) { return selfMod.selfPromptFor(this, url); }
   parseSelfResult(raw) { return selfMod.parseSelfResult(this, raw); }
   async launchSelfAnalysis(url) { return selfMod.launchSelfAnalysis(this, url); }
+  cancelSelfAnalysis(key) { return selfMod.cancelSelfAnalysis(this, key); }
   async runSelfAnalysis(pr) { return selfMod.runSelfAnalysis(this, pr); }
 
   // Decisão + postagem no GitHub: colaborador lib/engine/decision.js (gate intacto, Onda 2).
