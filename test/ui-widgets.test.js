@@ -142,3 +142,29 @@ test('renderAccountBar consome a allowlist pura (B14)', () => {
   assert.match(fn[0], /accountBarVisible\(/);
   assert.doesNotMatch(fn[0], /CURRENT_TAB === 'sistema'/, 'a denylist antiga saiu');
 });
+
+/* ---------- atividade do chat e encerramento (B16) ---------- */
+
+test('chat-activity atualiza a pill via updateOp, nao atropela o container (B16)', () => {
+  const handler = APPJS.match(/addEventListener\('chat-activity'[\s\S]*?\n  \}\);/);
+  assert.ok(handler, 'o handler chat-activity existe');
+  assert.match(handler[0], /updateOp\(/, 'o texto vivo entra como step da operacao');
+  assert.doesNotMatch(handler[0], /\.textContent = text/,
+    'textContent no container destroi a pill que o renderChat criou dentro dele');
+});
+
+test('closeChat encerra a operacao do chat antes de soltar a chave (B16)', () => {
+  // recorte ancorado no inicio da PROXIMA funcao: o closeChat de uma linha so
+  // faria a regex de bloco (ate \n}) engolir o renderChat e casar falso-verde
+  const fn = APPJS.match(/function closeChat\(\)[\s\S]*?(?=\nfunction renderChat\()/);
+  assert.ok(fn, 'closeChat existe imediatamente antes do renderChat');
+  assert.match(fn[0], /closeOp\(`chat-\$\{chatKey\}`/,
+    'fechar o painel no meio da resposta nao pode vazar a op no ACTIVE_OPS');
+});
+
+test('a fase generica do chat roda so no primeiro paint, nao a cada snapshot (B16)', () => {
+  const fn = APPJS.match(/function renderChat\([\s\S]*?\n\}/);
+  assert.ok(fn, 'renderChat existe');
+  assert.doesNotMatch(fn[0], /Math\.random\(\)/,
+    'fase sorteada a cada snapshot atropelava o texto real vindo do chat-activity');
+});

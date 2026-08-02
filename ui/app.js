@@ -1518,7 +1518,13 @@ function openChat(key, url) {
   get('/api/chat?key=' + encodeURIComponent(key)).then(c => { if (c && chatKey === key) renderChat(c); });
   $('#chatInput').focus();
 }
-function closeChat() { chatKey = null; $('#chatPanel').hidden = true; }
+function closeChat() {
+  // fechar no meio da resposta: encerra a op ANTES de soltar a chave, senao a
+  // entrada chat-<key> fica pra sempre no ACTIVE_OPS (B16)
+  if (chatKey) closeOp(`chat-${chatKey}`, 'cancelled', '');
+  chatKey = null;
+  $('#chatPanel').hidden = true;
+}
 function renderChat(c) {
   const box = $('#chatMsgs');
   const stick = box.scrollTop + box.clientHeight >= box.scrollHeight - 40;
@@ -1550,10 +1556,10 @@ function renderChat(c) {
         inline: true,
         container: act
       });
+      // fase generica so no primeiro paint; depois quem escreve o step e o
+      // handler de chat-activity, com o texto REAL da sessao
+      updateOp(chatOpId, { step: 'Lendo PR…', progress: 25 });
     }
-    const phases = ['Lendo PR…', 'Analisando sua pergunta…', 'Formulando resposta…', 'Digitando…'];
-    const phaseIdx = Math.floor(Math.random() * phases.length);
-    updateOp(chatOpId, { step: phases[phaseIdx], progress: 25 + phaseIdx * 20 });
   } else {
     closeOp(chatOpId, 'done', 'Resposta recebida');
   }
@@ -3063,7 +3069,12 @@ function connect() {
     if (chatKey && key === chatKey) {
       const el = $('#chatActivity');
       el.hidden = false;
-      el.textContent = text;
+      const opId = `chat-${key}`;
+      // o texto vivo vira o step da MESMA pill que o renderChat cria; escrever
+      // textContent no container destruia a pill e orfanava a op (B16). Se a
+      // atividade chegar antes do primeiro snapshot de chat, cria a op aqui.
+      if (!ACTIVE_OPS.has(opId)) showOp(opId, { type: 'chat', title: 'Claude respondendo', inline: true, container: el });
+      updateOp(opId, { step: text });
     }
   });
   es.addEventListener('toast', (e) => {
