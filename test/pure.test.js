@@ -19,6 +19,13 @@ test('modelLabel: família + versão pontuada', () => {
   assert.equal(modelLabel('claude-3-5-haiku'), 'Haiku 3.5');
 });
 
+test('modelLabel: major único + data de snapshot não vira versão gigante', () => {
+  // a regex antiga casava "4-20250514" e rotulava "Sonnet 4.20250514"
+  assert.equal(modelLabel('claude-sonnet-4-20250514'), 'Sonnet 4');
+  assert.equal(modelLabel('claude-opus-4-20250514'), 'Opus 4');
+  assert.equal(modelLabel('claude-haiku-4-5-20251001'), 'Haiku 4.5');
+});
+
 test('modelLabel: família sem versão devolve só a família', () => {
   assert.equal(modelLabel('haiku'), 'Haiku');
 });
