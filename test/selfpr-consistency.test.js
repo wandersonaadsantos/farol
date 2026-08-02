@@ -114,3 +114,31 @@ test('análise sem SHA registrado é descartada quando o head atual é conhecido
   assert.equal(engine.selfAnalyses[CHAVE], undefined, 'sem SHA não dá pra provar que a análise vale pro commit atual');
   assert.equal(engine.mergeStates[CHAVE], undefined, 'o botão Merge não pode viver de análise incomprovável');
 });
+
+/* ---------- B7: a base que alimenta o gate de ruleset ---------- */
+
+test('fetchMergeState devolve baseRefName (o fallback do ruleset deixa de ser código morto)', async () => {
+  runImpl = (cmd, args) => {
+    const sub = args.join(' ');
+    if (sub.startsWith('pr view')) {
+      return Promise.resolve({ ok: true, stdout: JSON.stringify({ mergeable: 'MERGEABLE', mergeStateStatus: 'BLOCKED', isDraft: false, state: 'OPEN', baseRefName: 'develop' }), stderr: '' });
+    }
+    return Promise.resolve({ ok: true, stdout: '', stderr: '' });
+  };
+  const ms = await novoEngine().fetchMergeState(URL_PR);
+  assert.equal(ms.status, 'BLOCKED');
+  assert.equal(ms.baseRefName, 'develop', 'a base vem junto, pro ruleset ser checável sem depender de pr.base');
+});
+
+test('refreshMergeStates em BLOCKED sem pr.base checa o ruleset com a base do fetchMergeState', async () => {
+  const engine = novoEngine();
+  engine.myPRs = [{ ...MEU_PR, base: '' }];      // ainda não passou pelo enrichMyPRBranches
+  engine.selfAnalyses = { [CHAVE]: { approvable: true } };
+  engine.fetchMergeState = async () => ({ mergeable: 'MERGEABLE', status: 'BLOCKED', isDraft: false, state: 'OPEN', baseRefName: 'develop', at: Date.now() });
+  engine.fetchAutoMergeAllowed = async () => true;
+  const consultas = [];
+  engine.fetchRuleBlocked = async (repo, base) => { consultas.push({ repo, base }); return true; };
+  await engine.refreshMergeStates();
+  assert.deepEqual(consultas, [{ repo: 'acme/app', base: 'develop' }], 'o gate de ruleset recebe a base real');
+  assert.equal(engine.mergeStates[CHAVE].adminBlocked, true, 'admin não é oferecido quando o ruleset bloqueia');
+});
