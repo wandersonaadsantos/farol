@@ -361,11 +361,10 @@ function attentionCount(user) {
 function renderAccountBar() {
   const bar = $('#accountBar');
   const accounts = (STATE.accounts || []);
-  // aparece em Radar, Destaques e Time (todas filtram/agrupam por conta); só o
-  // Sistema é global, então lá fica escondida.
-  // 'sistema' e 'consumo' são visões do Farol como app, não de uma conta: a barra de
-  // filtro por conta não se aplica (e mostrá-la ali daria falsa sensação de filtro).
-  if (accounts.length < 2 || CURRENT_TAB === 'sistema' || CURRENT_TAB === 'consumo') { bar.hidden = true; bar.innerHTML = ''; return; }
+  // a allowlist de abas mora no pure.js (accountBarVisible): so Radar, Destaques
+  // e Time respeitam SCOPE; Entregas filtra por org propria e Sistema/Consumo
+  // sao visoes do Farol como app, nao de uma conta.
+  if (!accountBarVisible(accounts.length, CURRENT_TAB)) { bar.hidden = true; bar.innerHTML = ''; return; }
   bar.hidden = false;
   const all = SCOPE === 'all';
   // o contador (PRs precisando de você) é conceito do Radar; nas outras abas some

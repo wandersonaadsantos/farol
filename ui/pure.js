@@ -49,6 +49,14 @@ function validScope(scope, users) {
   return (users || []).some(u => String(u).toLowerCase() === s) ? scope : 'all';
 }
 
+// abas onde a barra de contas APARECE: so onde o filtro por conta age de verdade
+// (Radar, Destaques e Time filtram/agrupam por SCOPE). Allowlist, nao denylist:
+// a Entregas nasceu depois e ficou mostrando um filtro que nao filtrava nada (B14);
+// aba nova nasce SEM a barra ate alguem decidir que ela respeita o escopo.
+function accountBarVisible(nContas, tab) {
+  return nContas >= 2 && (tab === 'radar' || tab === 'destaques' || tab === 'time');
+}
+
 // tira acento pra "revisao" achar "Revisão"
 function sysNorm(s) { return String(s || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase(); }
 
@@ -324,6 +332,6 @@ if (typeof module !== 'undefined' && module.exports) {
     sameSet, diffVs, lastMerge, groupBy, usageMetricVal, accountSaveArray, delivGroupCard, fmtRel,
     usageDayKeysBack, avatar, md, feedLine, analysisOpsPlan, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
     deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
-    opTransition, opDismissDelay, stageLabel, validScope
+    opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible
   };
 }

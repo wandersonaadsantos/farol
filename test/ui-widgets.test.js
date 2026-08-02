@@ -122,3 +122,23 @@ test('rebuildAccounts saneia o SCOPE persistido a cada snapshot (B15)', () => {
   assert.match(fn[0], /validScope\(/, 'a validacao roda onde as contas sao reconstruidas');
   assert.match(fn[0], /list\.length/, 'snapshot de boot sem contas nao pode resetar escopo valido');
 });
+
+/* ---------- visibilidade da barra de contas (B14) ---------- */
+
+test('accountBarVisible: so nas abas onde o filtro por conta age', () => {
+  assert.equal(P.accountBarVisible(2, 'radar'), true);
+  assert.equal(P.accountBarVisible(2, 'destaques'), true);
+  assert.equal(P.accountBarVisible(2, 'time'), true);
+  assert.equal(P.accountBarVisible(2, 'entregas'), false, 'Entregas filtra por org propria, nada ali respeita SCOPE');
+  assert.equal(P.accountBarVisible(2, 'sistema'), false);
+  assert.equal(P.accountBarVisible(2, 'consumo'), false);
+  assert.equal(P.accountBarVisible(1, 'radar'), false, 'conta unica nao tem o que filtrar');
+  assert.equal(P.accountBarVisible(2, 'abaquenaoexiste'), false, 'allowlist: aba nova nasce sem a barra');
+});
+
+test('renderAccountBar consome a allowlist pura (B14)', () => {
+  const fn = APPJS.match(/function renderAccountBar\([\s\S]*?\n\}/);
+  assert.ok(fn, 'renderAccountBar existe');
+  assert.match(fn[0], /accountBarVisible\(/);
+  assert.doesNotMatch(fn[0], /CURRENT_TAB === 'sistema'/, 'a denylist antiga saiu');
+});
