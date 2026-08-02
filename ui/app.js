@@ -108,6 +108,10 @@ let ACTIVE_OPS = new Map();  // opId → {id, type, status, step, progress, eta,
 
 function showOp(opId, opts) {
   opts = opts || {};
+  // reuso do mesmo opId nao pode orfanar a pill anterior no DOM (M22): a entrada
+  // do Map era substituida e o elemento velho ficava pra sempre sem referencia
+  const prev = ACTIVE_OPS.get(opId);
+  if (prev && prev.element) prev.element.remove();
   const op = {
     id: opId,
     type: opts.type || 'generic',
@@ -153,14 +157,17 @@ function updateOp(opId, update) {
 function closeOp(opId, result = 'done', message = '') {
   const op = ACTIVE_OPS.get(opId);
   if (!op) return;
-  op.status = result;  // 'done', 'error', 'cancelled'
+  op.status = opTransition(op.status, result);  // running -> done | error | cancelled
   op.message = message;
   updateOpDisplay(opId);
-  if (result === 'done') {
+  const delay = opDismissDelay(op.status);
+  if (delay !== null) {
     setTimeout(() => {
       if (op.element) op.element.remove();
-      ACTIVE_OPS.delete(opId);
-    }, 3000);
+      // so deleta se a entrada ainda for ESTA op: um showOp com o mesmo id pode
+      // ter recriado a operacao, e o timer velho nao pode apagar a nova
+      if (ACTIVE_OPS.get(opId) === op) ACTIVE_OPS.delete(opId);
+    }, delay);
   }
 }
 

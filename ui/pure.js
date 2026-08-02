@@ -126,6 +126,25 @@ function usageDayKeysBack(n, agora = Date.now()) {
   return out;
 }
 
+/* ---------- ciclo de vida das operacoes (widgets showOp/updateOp/closeOp da UI) ---------- */
+
+// Maquina de estados minima: 'running' e o unico estado que anda; done/error/cancelled
+// sao terminais (nao viram um ao outro nem voltam a running: quem quer "de novo"
+// cria outra operacao). O DOM do app.js so consome estas duas decisoes.
+function opTransition(atual, proximo) {
+  if (atual === 'running' && (proximo === 'done' || proximo === 'error' || proximo === 'cancelled')) return proximo;
+  return atual;
+}
+
+// prazo de auto-dismiss por estado: running nao some sozinho; done some rapido;
+// erro e cancelamento ficam mais tempo na tela pra dar tempo de ler, mas SEMPRE
+// somem (pill de erro imortal acumulava uma por tentativa, o M22).
+function opDismissDelay(status) {
+  if (status === 'running') return null;
+  if (status === 'done') return 3000;
+  return 6000;
+}
+
 /* ---------- dependem das folhas ---------- */
 
 function avatar(login, cls = '') {
@@ -286,6 +305,7 @@ if (typeof module !== 'undefined' && module.exports) {
     esc, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
     sameSet, diffVs, lastMerge, groupBy, usageMetricVal, accountSaveArray, delivGroupCard, fmtRel,
     usageDayKeysBack, avatar, md, feedLine, analysisOpsPlan, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
-    deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT
+    deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
+    opTransition, opDismissDelay
   };
 }
