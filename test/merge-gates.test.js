@@ -273,6 +273,15 @@ test('auto-merge desligado no repo devolve blocked:autoUnavailable com saída ac
   assert.match(r.error, /Allow auto-merge/);
 });
 
+test('conta do PR sem token não mergeia, mesmo com token primário presente', async () => {
+  const engine = novoEngine();
+  engine.tokens = {}; // 'eu' perdeu o token no ciclo; engine.token (primário) segue setado
+  runImpl = roteador();
+  const r = await engine.mergeSelfPR(URL_PR);
+  assert.equal(r.ok, false);
+  assert.equal(mergeChamado().length, 0, 'o gate barra ANTES de qualquer pr merge');
+});
+
 test('ruleset devolve blocked:rule e marca o repo (admin não fura ruleset)', async () => {
   runImpl = roteador({ mergeOk: false, mergeErr: 'Repository rule violations found: Changes must be made through a pull request' });
   const engine = novoEngine();
