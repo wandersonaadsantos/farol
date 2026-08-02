@@ -116,3 +116,21 @@ test('applyUpdate: checkUpdate concorrente durante o download não órfã o sour
   assert.match(String(r.error), /installer não encontrado/, 'parou no installer ausente, não em path.join(null)');
   assert.equal(engine.update.source, dir, 'source gravado no objeto ATUAL de engine.update, não no órfão');
 });
+
+test('applyUpdate: revisão iniciada DURANTE o download barra o installer (M15)', async () => {
+  const engine = new Engine();
+  engine.config.updateRepo = '';
+  const dir = path.join(scratch, 'm15-extracted');
+  fs.mkdirSync(dir, { recursive: true }); // sem installer/: nem um fluxo quebrado chega ao spawn
+  const r = await update.applyUpdate(engine, {
+    checkUpdate: async (e) => updateRemotoDisponivel(e),
+    downloadRemoteUpdate: async (e) => {
+      // o polling iniciou uma revisão headless enquanto o download (minutos) rodava
+      e.headlessQueue.push({ key: 'org/repo#1', url: 'https://github.com/org/repo/pull/1' });
+      return dir;
+    }
+  });
+  assert.equal(r.ok, false);
+  assert.match(String(r.error), /análise ou chat em andamento/,
+    'a checagem de ocupado precisa RE-rodar depois do download, não só antes');
+});
