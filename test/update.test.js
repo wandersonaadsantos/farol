@@ -93,3 +93,26 @@ test('applyUpdate: usa o checkUpdate injetado (costura de teste)', async () => {
   assert.equal(usado, true, 'o applyUpdate honrou deps.checkUpdate');
   assert.equal(r.ok, false);
 });
+
+// engine.update remoto com release disponível, como o checkUpdate real deixaria
+function updateRemotoDisponivel(e) {
+  e.update = { current: '0.0.1', channel: 'remote', repo: 'x/y', source: null, sourceVersion: '9.9.9', available: true, checkedAt: Date.now() };
+}
+
+test('applyUpdate: checkUpdate concorrente durante o download não órfã o source (M13)', async () => {
+  const engine = new Engine();
+  engine.config.updateRepo = '';
+  const dir = path.join(scratch, 'm13-extracted');
+  fs.mkdirSync(dir, { recursive: true }); // de propósito SEM installer/: o fluxo para ANTES de qualquer spawn
+  const r = await update.applyUpdate(engine, {
+    checkUpdate: async (e) => updateRemotoDisponivel(e),
+    downloadRemoteUpdate: async (e) => {
+      // o ciclo de polling rodou checkUpdate no MEIO do download e reatribuiu engine.update
+      updateRemotoDisponivel(e);
+      return dir;
+    }
+  });
+  assert.equal(r.ok, false);
+  assert.match(String(r.error), /installer não encontrado/, 'parou no installer ausente, não em path.join(null)');
+  assert.equal(engine.update.source, dir, 'source gravado no objeto ATUAL de engine.update, não no órfão');
+});
