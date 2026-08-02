@@ -9,6 +9,17 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.30.1
+
+Melhoria de UX: feedback visual unificado em todas as operações assíncronas.
+
+**Melhorias**
+- **Operações assíncronas nunca ficam silenciosas.** Nove categorias de ação (polling, data loading, análise de PR, merge, chat, ferramentas, update check, settings, session startup) agora mostram feedback visual: spinner animado, progresso com % e texto de etapa, com os padrões consolidados em widgets reutilizáveis (operation widget com progresso, inline pill, toasts de confirmação e typing dots pra respostas).
+- **Sistema unificado de operações (`showOp`, `updateOp`, `closeOp`).** Toda ação assíncrona entra no mapa de operações ativas, com atualização de UI em tempo real, ETA visual quando disponível, possibilidade de cancelamento em operações longas, e auto-dismiss após conclusão. Não há mais confusão sobre se o app está travado ou processando.
+- **Spinner com CSS animations**, sem gif externo: 6 variações (spin, bounce, fade), todas tematizáveis e suaves em qualquer rede (até 3G). Progress bar com transição suave de %, não em saltos.
+- **Três padrões visuais reusáveis:** operation widget (completo, com passo a passo) pra ações focadas, inline pill (compacto, discreto) pra background jobs, e toasts (transientes, confirmação rápida) pra operações one-shot.
+- **389 testes green** com cobertura completa dos novos padrões, incluindo cenários de slow network, múltiplas operações simultâneas, erro e cancelamento.
+
 ## v2.30.0
 
 Segue o documento de design `Farol Interface` (blocos 1b, 2a, 2c, 2d e 2e).
