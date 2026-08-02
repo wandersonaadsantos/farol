@@ -86,3 +86,18 @@ test('decisão ainda PENDING (na sua mesa) não conta como re-request', () => {
   const reReq = e.markReRequests(new Set(['o/r#41']));
   assert.equal(reReq.has('o/r#41'), false, 'ainda não decidi nada, não é re-request');
 });
+
+test('busca falhou (null) não é "saiu dos pedidos": preserva marcadores e visto', () => {
+  const e = freshEngine();
+  resolve(e, 'o/r#20', 'auto_approved', 'approve');
+  e.seen.add('o/r#20');
+  e.markReRequests(new Set(['o/r#20'])); // re-request real: marcador criado
+  e.seen.add('o/r#20');                  // usuário ignora (re-marca visto)
+  const reReq = e.markReRequests(null);  // ciclo seguinte: buscas --review-requested falharam
+  assert.ok(e.reReviewedKeys.has('o/r#20'), 'marcador preservado (null não limpa)');
+  assert.equal(e.seen.has('o/r#20'), true, 'não mexe no visto');
+  assert.ok(reReq.has('o/r#20'), 'rótulo devolvido do último ciclo bom');
+  // a busca volta e o PR segue pedido: o ignorar continua valendo
+  e.markReRequests(new Set(['o/r#20']));
+  assert.equal(e.seen.has('o/r#20'), true, 'não ressuscita depois da falha');
+});

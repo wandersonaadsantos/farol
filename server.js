@@ -675,6 +675,12 @@ class Engine extends EventEmitter {
   // dos pedidos (re-revisado ou fechado). Devolve o conjunto de keys re-solicitadas,
   // pra a UI rotular ("pedida de novo") e a auto-revisão relançar sozinha.
   markReRequests(mineKeys) {
+    // null = as buscas --review-requested falharam NESTE ciclo: sem saber quem segue
+    // pedido, preserva visto e marcadores e devolve o rótulo do último ciclo bom
+    // (cópia, nunca o Set interno). Set VAZIO é outra coisa: "ninguém está mais
+    // pedido", e aí limpa como sempre. Sem essa distinção, um rate limit da API de
+    // search apagava reReviewedKeys e ressuscitava PRs que o usuário ignorou.
+    if (mineKeys === null) return new Set(this.reReviewedKeys);
     const actions = this.reviewActions();
     const reReq = new Set();
     for (const key of mineKeys) {
