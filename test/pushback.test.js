@@ -135,6 +135,40 @@ test('pushbackTargets: panorama vazio ou ausente não quebra', () => {
   assert.deepEqual(pushbackTargets(e, e.reviewActions()), []);
 });
 
+test('pushbackTargets: registro manual confirmado fica fora do scan (manual prevalece)', () => {
+  const e = engineComPanorama(RESOLVIDOS,
+    [{ key: 'o/r#2', updatedAt: '2026-08-01T12:00:00Z' },
+    { key: 'o/r#3', updatedAt: '2026-08-01T12:00:00Z' }]);
+  e.pushbacks = { 'o/r#2': { author: 'alice', outcome: 'author_right', source: 'manual', status: 'confirmed', at: 1 } };
+  assert.deepEqual(pushbackTargets(e, e.reviewActions()).map(p => p.key), ['o/r#3']);
+});
+
+test('pushbackTargets: registro automático NÃO tira do scan (auto pode ser revisto)', () => {
+  const e = engineComPanorama(RESOLVIDOS,
+    [{ key: 'o/r#2', updatedAt: '2026-08-01T12:00:00Z' }],
+    { 'o/r#2': '2026-08-01T10:00:00Z' });
+  e.pushbacks = { 'o/r#2': { author: 'alice', outcome: 'we_right', source: 'auto', status: 'confirmed', at: 1 } };
+  assert.deepEqual(pushbackTargets(e, e.reviewActions()).map(p => p.key), ['o/r#2']);
+});
+
+test('scanPushbacks não sobrescreve registro manual nem quando ele chega DURANTE o scan', async () => {
+  // corrida real: você marca à mão enquanto a classificação está em voo
+  const e = engineComPanorama(RESOLVIDOS, [{ key: 'o/r#2', updatedAt: '2026-08-01T10:00:00Z' }]);
+  e.config.autoPushback = true;
+  e.savePushbackScanned = () => { };
+  e.savePushbacks = () => { };
+  e.log = () => { };
+  e.emit = () => { };
+  e.detectAuthorPushback = async () => ({ marker: 'm', hadActivity: true });
+  e.classifyPushback = async () => {
+    e.pushbacks['o/r#2'] = { author: 'alice', outcome: 'author_right', source: 'manual', status: 'confirmed', at: 1 };
+    return { isPushback: true, outcome: 'we_right', confidence: 'high', note: 'x' };
+  };
+  await e.scanPushbacks();
+  assert.equal(e.pushbacks['o/r#2'].source, 'manual', 'o registro manual sobreviveu');
+  assert.equal(e.pushbacks['o/r#2'].outcome, 'author_right', 'o desfecho marcado à mão prevalece');
+});
+
 test('scanPushbacks respeita o opt-in autoPushback', async () => {
   const e = engineComPanorama(RESOLVIDOS, [{ key: 'o/r#2', updatedAt: '2026-08-01T10:00:00Z' }]);
   e.config.autoPushback = false;
