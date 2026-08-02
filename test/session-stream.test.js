@@ -79,3 +79,38 @@ test('runClaudeStream: multibyte cortado no limite do chunk não vira U+FFFD (M4
   assert.equal(res.text, texto);
   assert.equal(res.sessionId, 's1');
 });
+
+test('runClaudeStream: exit != 0 com stream parcial (sem evento result) é ERRO, não sucesso (M3)', async () => {
+  const child = filhoStream();
+  spawnImpl = () => child;
+  const p = runClaudeStream(engineFalso(), 'prompt', {});
+  spawnImpl = null;
+
+  // o claude morre DEPOIS de emitir NDJSON e ANTES do evento result
+  child.stdout.write('{"type":"system","subtype":"init","model":"claude-opus-5","session_id":"s1"}\n');
+  child.stdout.write('{"type":"assistant","message":{"content":[{"type":"text","text":"analisando o diff"}]}}\n');
+  child.stderr.emit('data', 'FATAL ERROR: JavaScript heap out of memory');
+  child.stdout.once('end', () => child.emit('close', 134));
+  child.stdout.end();
+
+  await assert.rejects(p, (err) => {
+    assert.match(err.message, /saiu com código 134/, 'o exit code real tem que aparecer');
+    assert.match(err.message, /heap out of memory/, 'o stderr real tem que aparecer');
+    assert.doesNotMatch(err.message, /"type":"system"/, 'NDJSON cru não é mensagem de erro');
+    return true;
+  });
+});
+
+test('runClaudeStream: envelope do stub com exit 0 continua valendo (regressão do fallback)', async () => {
+  const child = filhoStream();
+  spawnImpl = () => child;
+  const p = runClaudeStream(engineFalso(), 'prompt', {});
+  spawnImpl = null;
+
+  child.stdout.once('end', () => child.emit('close', 0));
+  child.stdout.write('{"result":"envelope do stub","is_error":false}\n');
+  child.stdout.end();
+
+  const res = await p;
+  assert.equal(res.text, 'envelope do stub', 'contrato do FAROL_HEADLESS_CMD: envelope + exit 0');
+});
