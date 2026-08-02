@@ -117,6 +117,7 @@ function showOp(opId, opts) {
     progress: 0,
     startTime: Date.now(),
     cancellable: opts.cancellable || false,
+    cancel: opts.cancel || null,   // { path, body }: o POST real que o botão Cancelar dispara
     container: opts.container || document.body,
     inline: opts.inline || false
   };
@@ -208,11 +209,21 @@ function formatDuration(ms) {
   return `${Math.ceil(ms / 60000)}m`;
 }
 
-document.addEventListener('click', (e) => {
+document.addEventListener('click', async (e) => {
   if (e.target.classList && e.target.classList.contains('op-cancel')) {
     const opId = e.target.dataset.opId;
-    closeOp(opId, 'cancelled', 'Cancelado pelo usuário');
-    api('/api/cancel-op', { id: opId });
+    const op = ACTIVE_OPS.get(opId);
+    // op sem pedido de cancelamento declarado: não há o que pedir ao servidor,
+    // fecha só o widget (feedback puramente visual)
+    if (!op || !op.cancel) { closeOp(opId, 'cancelled', 'Cancelado'); return; }
+    e.target.disabled = true;   // evita POST duplo durante o await
+    const r = await api(op.cancel.path, op.cancel.body);
+    if (r && r.ok) closeOp(opId, 'cancelled', 'Cancelado pelo usuário');
+    else {
+      // NUNCA afirmar "cancelado" sem o servidor confirmar (a mentira do achado M18)
+      closeOp(opId, 'error', (r && r.error) || 'não consegui cancelar');
+      toast('error', esc((r && r.error) || 'não consegui cancelar a autoanálise'));
+    }
   }
 });
 
@@ -1926,6 +1937,7 @@ $('#myPRs').addEventListener('click', (e) => {
       type: 'analysis',
       title: `Analisando ${prKey}`,
       cancellable: true,
+      cancel: { path: '/api/self-review/cancel', body: { key: prKey } },
       container: run.closest('.mypr-card') || run.parentElement
     });
     updateOp(opId, { step: 'Iniciando…', progress: 5 });
