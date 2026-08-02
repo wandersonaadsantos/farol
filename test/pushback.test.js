@@ -169,6 +169,42 @@ test('scanPushbacks não sobrescreve registro manual nem quando ele chega DURANT
   assert.equal(e.pushbacks['o/r#2'].outcome, 'author_right', 'o desfecho marcado à mão prevalece');
 });
 
+test('scanPushbacks: falha transitória da classificação NÃO grava o marcador (reentra no próximo ciclo)', async () => {
+  const e = engineComPanorama(RESOLVIDOS, [{ key: 'o/r#2', updatedAt: '2026-08-01T10:00:00Z' }]);
+  e.config.autoPushback = true;
+  e.savePushbackScanned = () => { };
+  e.log = () => { };
+  e.detectAuthorPushback = async () => ({ marker: '2026-08-01T09:00:00Z', hadActivity: true });
+  e.classifyPushback = async () => null; // sessão caiu (rede, limite do plano)
+  await e.scanPushbacks();
+  assert.equal(e.pushbackScanned['o/r#2'], undefined, 'sem marcador, o alvo volta no próximo ciclo');
+  assert.deepEqual(pushbackTargets(e, e.reviewActions()).map(p => p.key), ['o/r#2'], 'e de fato reentra');
+});
+
+test('scanPushbacks: sem atividade do autor, o marcador grava e não gasta sessão', async () => {
+  const e = engineComPanorama(RESOLVIDOS, [{ key: 'o/r#2', updatedAt: '2026-08-01T10:00:00Z' }]);
+  e.config.autoPushback = true;
+  e.savePushbackScanned = () => { };
+  e.log = () => { };
+  let classificou = false;
+  e.detectAuthorPushback = async () => ({ marker: '2026-08-01T09:00:00Z', hadActivity: false });
+  e.classifyPushback = async () => { classificou = true; return null; };
+  await e.scanPushbacks();
+  assert.equal(e.pushbackScanned['o/r#2'], '2026-08-01T09:00:00Z', 'marcador salvo');
+  assert.equal(classificou, false, 'sem atividade não gasta sessão');
+});
+
+test('scanPushbacks: classificação respondida (mesmo "none") grava o marcador', async () => {
+  const e = engineComPanorama(RESOLVIDOS, [{ key: 'o/r#2', updatedAt: '2026-08-01T10:00:00Z' }]);
+  e.config.autoPushback = true;
+  e.savePushbackScanned = () => { };
+  e.log = () => { };
+  e.detectAuthorPushback = async () => ({ marker: '2026-08-01T09:00:00Z', hadActivity: true });
+  e.classifyPushback = async () => ({ isPushback: false, outcome: 'none', confidence: 'high', note: '' });
+  await e.scanPushbacks();
+  assert.equal(e.pushbackScanned['o/r#2'], '2026-08-01T09:00:00Z', 'a sessão respondeu: não reprocessa');
+});
+
 test('scanPushbacks respeita o opt-in autoPushback', async () => {
   const e = engineComPanorama(RESOLVIDOS, [{ key: 'o/r#2', updatedAt: '2026-08-01T10:00:00Z' }]);
   e.config.autoPushback = false;
