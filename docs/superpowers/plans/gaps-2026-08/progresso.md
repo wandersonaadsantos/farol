@@ -123,3 +123,31 @@ Executada em 02/08/2026 (madrugada, horário de Brasília). Achados cobertos: A7
 
 **Dificuldades novas encontradas**
 - Nenhuma além das antecipadas (D1 a D11 do rascunho, todas com a solução preparada funcionando; destaque pra D1/D2, o teste de instância com blocker em porta efêmera e stubs síncronos antes do tick do listen rodou limpo e sem rede na fase verde, e pra D7, o teste de reentrância com deps próprios instantâneos não travou em nenhuma fase).
+
+## Onda 7: pipeline de revisão, pushback e fan-out
+
+Executada em 02/08/2026 (manhã, horário de Brasília). Achados cobertos: M7, M8, M9, M12, B5, B6 e B9. Suite na largada da onda: 456 testes; no fechamento: 481 (478 pass, 3 skipped de plataforma, esperados no Windows), com `npm run check` ok (61 arquivos). Três arquivos de teste novos (`review-reasons`, `retry-net`, `reviewer-candidates`), 10 asserts legados adaptados pro `.ok`, zero teste removido. A verificação de fechamento apontou uma única pendência bloqueante, a ausência do próprio commit de fechamento (esta seção + CHANGELOG); antes de fechar, o corretor re-conferiu no fonte as regras do mestre que citam a onda: todos os consumidores de `shouldAutoApprove` usam `.ok` ou comparam o objeto inteiro e a fachada segue intocada (grep da R4), a única escrita de `engine.reviewerCands` no selfpr.js está atrás do gate `temCandidatos` (grep da D9 do rascunho) e os `module.exports` de `review.js` e `selfpr.js` foram edição aditiva (R6).
+
+**Tarefas concluídas**
+- 7.1 `shouldAutoApprove` devolve `{ok, motivo}` estruturado (chamador do review.js pro `.ok` no mesmo commit, 10 asserts legados adaptados, CLAUDE.md invariante 4), M7 parte 1: commit `0b6b369`
+- 7.2 transparência do `runHeadlessReview` só atribui a recusa à política da conta quando `motivo === 'politica'`, M7 parte 2: commit `851bec6`
+- 7.3 lacuna de cobertura entra uma vez só nas reasons, com a amostra dos arquivos e a consequência, B5: commit `52a5d3b`
+- 7.4 retry pós-transitório guarda `{tries, pr}` e `retryTargets` relança clique do panorama e conta sem autoReview, M8: commit `c783f85`
+- 7.5 registro manual de pushback fica fora do scan e sobrevive à corrida da classificação em voo, M9: commit `81944dd`
+- 7.6 marcador de scan só grava depois da classificação responder (falha transitória reentra no próximo ciclo), B6: commit `7b01121`
+- 7.7 `planLotes` ganha fallback determinístico por arquivo quando o caminho não separa o diff, M12: commit `d8332f5`
+- 7.8 `temCandidatos` pura e exportada gateia o cache dos candidatos a reviewer (falha total não cacheia), B9: commit `35d6623`
+- Fechamento da onda (esta seção + entrada "Não publicado" no CHANGELOG.md): commit próprio, `docs:`
+
+**Pendências**
+- Nenhuma.
+
+**Desvios relevantes do plano**
+- R2 do mestre na 7.4 (o mestre vence o rascunho): `retryTargets` nasceu com o filtro `engine.tokenFor(engine.accountForPr(pr))` incorporado e o teste ganhou o caso "conta sem token não relança (o filtro da Onda 1 permanece, R2)". A remoção do gate `autoReviewFor` no retry é intencional (é o próprio M8).
+- R3 cumprida no commit da 7.4: os leitores de `retryAfterNet` foram re-derivados por grep no fonte atual (a lista fechada do rascunho estava desatualizada por construção) e o teste da Onda 1, `test/account-identity.test.js`, foi adaptado pro formato `{tries, pr}` (lê `.tries`) no mesmo commit.
+- R4 cumprida na 7.1: os consumidores de `shouldAutoApprove` foram re-derivados por grep no momento da execução, incluindo os asserts que a Onda 4 criou no `fanout.test.js`; `shouldAutoReject` segue booleano de propósito (o M7 é só do approve).
+- R8 respeitada na 7.1: a edição do invariante 4 do CLAUDE.md partiu do texto já alterado pela Onda 1. R15: contagem 456 pra 481 não é regressão, o gate é verde completo.
+- Versão segue 2.30.1, sem tag, sem release e sem push (commits locais na `main`, conforme o mestre). Localização por âncora respeitada (regra transversal).
+
+**Dificuldades novas encontradas**
+- O commit de fechamento da onda não saiu junto da última tarefa (as 8 tarefas commitaram, o passo 3/4 do protocolo do mestre ficou pra trás) e a verificação o apontou como única pendência bloqueante. Corrigido com este commit `docs`, sem mudança de código; a suite seguia verde o tempo todo.
