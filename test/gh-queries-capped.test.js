@@ -30,6 +30,7 @@ function itens(n) {
 
 test('searchPRs no teto de 100 loga WARN de resultado truncado', async () => {
   const e = new Engine();
+  e.tokens = { me: 'tok' }; // identidade de conta (Onda 1): busca de conta sem token é pulada
   const logs = [];
   e.log = (level, msg) => logs.push({ level, msg });
   ghStdout = itens(100);
@@ -42,6 +43,7 @@ test('searchPRs no teto de 100 loga WARN de resultado truncado', async () => {
 
 test('abaixo do teto não loga nada (log é só de falhas)', async () => {
   const e = new Engine();
+  e.tokens = { me: 'tok' }; // identidade de conta (Onda 1): busca de conta sem token é pulada
   const logs = [];
   e.log = (level, msg) => logs.push({ level, msg });
   ghStdout = itens(99);

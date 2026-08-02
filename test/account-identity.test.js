@@ -70,3 +70,35 @@ test('tokenFor: sem user cai na primária (único fallback legítimo, contrato d
   e.token = null;
   assert.equal(e.tokenFor(undefined), null, 'primária sem token = null, não inventa');
 });
+
+/* ---------- buscas gh: nunca com a identidade errada (A1, M11) ---------- */
+
+test('searchPRs: conta sem token não roda gh nenhum e devolve null (falha de busca, não identidade errada)', async () => {
+  const e = engineDuasContas();
+  const r = await e.searchPRs(['--review-requested=@me'], 'bob');
+  assert.equal(r, null);
+  assert.equal(chamadas.length, 0, 'zero chamadas gh: o @me nunca resolve na conta errada');
+});
+
+test('searchPRs: conta com token busca com o token DELA', async () => {
+  const e = engineDuasContas();
+  runImpl = () => Promise.resolve({ ok: true, code: 0, stdout: '[]', stderr: '' });
+  const r = await e.searchPRs(['--owner', 'acme'], 'alice');
+  assert.deepEqual(r, []);
+  assert.equal(chamadas[0].env.GH_TOKEN, 'tok-alice');
+});
+
+test('myAuthoredPRs: conta sem token devolve null sem rodar gh', async () => {
+  const e = engineDuasContas();
+  assert.equal(await e.myAuthoredPRs('bob'), null);
+  assert.equal(chamadas.length, 0);
+});
+
+test('fetchDeliveries: alvo de conta sem token vira partial, os outros alvos seguem', async () => {
+  const e = engineDuasContas();
+  runImpl = () => Promise.resolve({ ok: true, code: 0, stdout: '[]', stderr: '' });
+  const d = await e.fetchDeliveries(7, '');
+  assert.equal(d.partial, true, 'a UI avisa que uma conta ficou de fora, nada de corte silencioso');
+  assert.ok(chamadas.length > 0, 'a conta com token buscou normalmente');
+  for (const c of chamadas) assert.equal(c.env.GH_TOKEN, 'tok-alice', 'nenhuma busca saiu com token trocado');
+});
