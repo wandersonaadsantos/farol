@@ -151,3 +151,30 @@ Executada em 02/08/2026 (manhã, horário de Brasília). Achados cobertos: M7, M
 
 **Dificuldades novas encontradas**
 - O commit de fechamento da onda não saiu junto da última tarefa (as 8 tarefas commitaram, o passo 3/4 do protocolo do mestre ficou pra trás) e a verificação o apontou como única pendência bloqueante. Corrigido com este commit `docs`, sem mudança de código; a suite seguia verde o tempo todo.
+
+## Onda 3: contratos UI e servidor (raiz P3)
+
+Executada em 02/08/2026 (manhã, horário de Brasília). Achados cobertos: A5, M18, M20, M21 e B22. Suite na largada da onda: 481 testes; no fechamento: 506 (503 pass, 3 skipped de plataforma, esperados no Windows), com `npm run check` ok (63 arquivos). Verificação independente (adversarial) conferiu os 7 commits diff a diff contra o rascunho e as regras do mestre, e provou por mutação (worktree temporário no commit pré-onda `e0e0917`, com os 4 arquivos de teste novos copiados por cima) que a rodada produz exatamente 24 falhas, que são exatamente os 24 testes escritos na onda; nenhum teste passa por acaso. O 25º teste novo da contagem é o derivado automático do `facades.test.js` pra fachada `cancelSelfAnalysis`. Os testes alvo também rodaram isolados, todos verdes.
+
+**Tarefas concluídas**
+- 3.1 `cancelSelfAnalysis(engine, key)` cancela a autoanálise por key nos dois estados (na fila: remove da `headlessQueue` com toast próprio; rodando: acha a sessão `mode === 'self'` e delega pro `cancelSession`), fachada de 1 linha, rota `POST /api/self-review/cancel` por igualdade estrita, M18 lado servidor: commit `f753479`
+- 3.2 key canônico do widget de autoanálise: `prKeyFromUrl` pura no `ui/pure.js` com `card.dataset.key` como fonte primária e a URL como fallback (fim do `repo#pull#123`), M20 parte a: commit `83b0ceb`
+- 3.3 botão Cancelar posta o cancelamento real: descriptor `cancel: { path, body }` no `showOp`, handler `.op-cancel` só afirma cancelado com `r.ok` do servidor, e o contrato de rotas UI e server virou o teste `test/ui-contract.test.js` (com sanidade anti-extrator-cego da D6), M18 lado UI: commit `983a848`
+- 3.4 ciclo de vida do widget: `analysisOpsPlan` pura com protocolo seen/close (a corrida do SSE contra o clique é teste explícito) e `syncAnalysisOps` reanexa o elemento vivo após cada re-render e fecha pelo snapshot, filtrando só `type === 'analysis'` (D10, achado 47 intocado), M20 partes b e c: commit `8cd92ff`
+- 3.5 paleta de comandos decide de verdade: `decide`/`decideComConfirmacao` (caminho único com o card, confirmação no REQUEST_CHANGES), paleta fecha antes de rodar com `.catch` em toast, A5: commit `86c5e29`
+- 3.6 pushback pendente confirma num clique: `PB_OPTS`/`PB_SHORT`/`pushbackControl` movidas pro `ui/pure.js` (assinatura nova, pushbacks por parâmetro; `pushbackOf` removida), botão Confirmar no estado pending, `renderResolved()` no fim do `submitPushback` e listener de click no `.pb-confirm`, M21: commit `751e814`
+- 3.7 `POST /api/review` exige `urls` explícito (Array.isArray + strings não vazias, senão 400 com mensagem de contrato) e `#btnReviewAll` nunca posta `{}` (manda o escopo visível ou avisa com toast), B22: commit `e2ccc0f`
+- Fechamento da onda (esta seção + entrada "Não publicado" no CHANGELOG.md): commit próprio, `docs:`
+
+**Pendências**
+- A verificação manual num `FAROL_HOME` isolado prevista no fechamento do rascunho (paleta Ctrl+K aprovando pendente, widget de autoanálise com Cancelar real e fechamento no fim, botão Confirmar do pushback, toast do "Revisar tudo" com a fila esvaziada) NÃO foi executada: a execução autônoma não roda o app real. A lógica por trás de cada cenário tem cobertura automatizada provada por mutação; o ritual de UI fica pendente, executar com o usuário presente antes do corte da v2.32.0.
+
+**Desvios relevantes do plano**
+- R13 do mestre na 3.5 (o mestre vence o rascunho): o lote "Aprovar as N pendentes" itera APENAS as decisões visíveis no `scopeVisible`, não `STATE.decisions.pending` inteiro (o snippet do rascunho iterava a lista inteira), com teste próprio; `scopeVisible` funciona em item de decisão pelo mesmo padrão do `renderDecisions`.
+- R6 respeitada: os `module.exports` de `lib/engine/selfpr.js` e `ui/pure.js` foram edição aditiva, preservando os nomes das ondas anteriores. R9 fica preparada pra Onda 8: `showOp`/`closeOp`/handler `.op-cancel` devem ser localizados pelos nomes e editados incrementalmente sobre o resultado desta onda.
+- Os campos `activeSessions`/`headlessWaiting` que o `analysisOpsPlan` consome foram confirmados reais no snapshot do `server.js` antes da implementação (contrato da 3.4 conferido no fonte, não só no rascunho).
+- Versão segue 2.30.1, sem tag, sem release e sem push (commits locais na `main`, conforme o mestre). Localização por âncora respeitada (regra transversal); travessão ausente das linhas adicionadas e das mensagens de commit (varredura Unicode).
+
+**Dificuldades novas encontradas**
+- O commit de fechamento não saiu junto da última tarefa, o mesmo escorregão da Onda 7 (passos 3 e 4 do protocolo do mestre ficaram pra trás) e a verificação o apontou como pendência importante. Corrigido com este commit `docs`, sem mudança de código; a suite seguia verde o tempo todo. Fica o padrão anotado pra quem executar as Ondas 8 e 9: o fechamento é parte da onda, não um extra.
+- Fora isso, nenhuma além das antecipadas (D1 a D11 do rascunho, todas com a solução preparada funcionando; destaque pra D7, o grep anti-redeclaração confirmou as três declarações só no `pure.js`, e pra D3, a corrida do SSE virou teste de unidade explícito).
