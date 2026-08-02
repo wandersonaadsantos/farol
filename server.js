@@ -117,6 +117,14 @@ const DEFAULTS = {
   debugSpawns: false
 };
 
+// carência anti-lag do índice de busca do GitHub: logo após EU postar um review, o PR
+// ainda ecoa em --review-requested por alguns minutos (a busca é indexação assíncrona).
+// Nesse eco, "está pedido" não é o autor re-solicitando, é atraso do índice; sem a
+// carência, todo auto-approve virava um segundo review headless completo. Custo do
+// trade-off: um re-request REAL feito dentro da janela entra com atraso máximo de
+// carência + 1 intervalo de polling.
+const REREQ_GRACE_MS = 10 * 60 * 1000;
+
 // --- Engine -----------------------------------------------------------------
 class Engine extends EventEmitter {
   constructor() {
@@ -694,9 +702,14 @@ class Engine extends EventEmitter {
     if (mineKeys === null) return new Set(this.reReviewedKeys);
     const actions = this.reviewActions();
     const reReq = new Set();
+    const now = Date.now();
     for (const key of mineKeys) {
       const a = actions[key];
-      if (a && a.kind !== 'pending') reReq.add(key);
+      if (!a || a.kind === 'pending') continue;
+      // eco do índice: review MEU recém-postado ainda aparece nos pedidos; não é
+      // re-request (ver REREQ_GRACE_MS). Sem carimbo (registro legado), vale o sinal.
+      if (a.at && (now - a.at) < REREQ_GRACE_MS) continue;
+      reReq.add(key);
     }
     for (const key of reReq) {
       if (this.seen.has(key) && !this.reReviewedKeys.has(key)) { this.unsee(key); this.reReviewedKeys.add(key); }

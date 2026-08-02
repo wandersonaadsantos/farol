@@ -23,9 +23,12 @@ function freshEngine() {
   return e;
 }
 
-// simula uma decisão já resolvida (aprovado/reprovado/comentado, ou pulada)
-function resolve(e, key, status, action) {
-  e.decisions.resolved.unshift({ key, status, action, resolvedAt: Date.now() });
+// simula uma decisão já resolvida (aprovado/reprovado/comentado, ou pulada).
+// `at` default = 1h atrás: FORA da carência anti-lag, que é o caso normal de
+// re-request (o autor re-pede bem depois do meu review). Os casos da carência
+// passam timestamps explícitos.
+function resolve(e, key, status, action, at = Date.now() - 60 * 60 * 1000) {
+  e.decisions.resolved.unshift({ key, status, action, resolvedAt: at });
 }
 
 test('re-request (pedido de novo + já revisado + visto) volta pra fila: des-marca visto uma vez', () => {
@@ -100,4 +103,31 @@ test('busca falhou (null) não é "saiu dos pedidos": preserva marcadores e vist
   // a busca volta e o PR segue pedido: o ignorar continua valendo
   e.markReRequests(new Set(['o/r#20']));
   assert.equal(e.seen.has('o/r#20'), true, 'não ressuscita depois da falha');
+});
+
+test('carência anti-lag: review postado AGORA ainda ecoa nos pedidos, não é re-request', () => {
+  const e = freshEngine();
+  resolve(e, 'o/r#50', 'auto_approved', 'approve', Date.now()); // acabei de postar (auto-approve)
+  e.seen.add('o/r#50');
+  const reReq = e.markReRequests(new Set(['o/r#50'])); // índice de busca atrasado ainda lista o PR
+  assert.equal(reReq.has('o/r#50'), false, 'eco do índice não vira re-request');
+  assert.equal(e.seen.has('o/r#50'), true, 'não des-marca o visto (não relança revisão)');
+  assert.equal(e.reReviewedKeys.has('o/r#50'), false, 'não cria marcador');
+});
+
+test('carência vencida: pedido que persiste vira re-request de verdade', () => {
+  const e = freshEngine();
+  resolve(e, 'o/r#51', 'auto_approved', 'approve', Date.now() - 11 * 60 * 1000);
+  e.seen.add('o/r#51');
+  const reReq = e.markReRequests(new Set(['o/r#51']));
+  assert.ok(reReq.has('o/r#51'), 'depois da carência é re-request');
+  assert.equal(e.seen.has('o/r#51'), false, 'volta pra fila');
+});
+
+test('registro legado sem horário não fica preso na carência (comporta como antes)', () => {
+  const e = freshEngine();
+  e.decisions.resolved.unshift({ key: 'o/r#52', status: 'posted', action: 'approve' }); // sem resolvedAt
+  e.seen.add('o/r#52');
+  const reReq = e.markReRequests(new Set(['o/r#52']));
+  assert.ok(reReq.has('o/r#52'), 'sem carimbo, o sinal de pedido vale como sempre valeu');
 });
