@@ -485,6 +485,14 @@ class Engine extends EventEmitter {
   // compat: alguns caminhos chamam refreshToken (singular)
   async refreshToken() { return this.refreshTokens(); }
 
+  // token da conta pedida, SEM herdar identidade (raiz A1): user vazio = primária
+  // (único fallback legítimo, pedido explícito da conta padrão, ex.: update.js).
+  // Conta pedida sem token = null; quem precisa agir checa isso ANTES de rodar gh.
+  tokenFor(user) {
+    if (!user) return this.token || null;
+    return (this.tokens && this.tokens[user]) || null;
+  }
+
   // env de child-process com o GH_TOKEN da conta pedida (default = primaria)
   ghEnv(user) {
     const env = { ...process.env, GH_PAGER: 'cat', PAGER: 'cat', GH_PROMPT_DISABLED: '1' };

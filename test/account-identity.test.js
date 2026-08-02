@@ -1,0 +1,72 @@
+'use strict';
+// Identidade de conta (raiz P1 do relatório de gaps): o Farol NUNCA age no GitHub nem
+// abre sessão Claude com o token de uma conta no lugar de outra. tokenFor é a fonte
+// única de "token desta conta, sem herdar"; as guardas das tarefas seguintes usam ele.
+// Padrões seguidos: espião no io.run ANTES do require do server.js (merge-gates.test.js)
+// e Engine real contra FAROL_HOME temporário (claude-profiles.test.js).
+const os = require('node:os');
+const path = require('node:path');
+const fs = require('node:fs');
+
+const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-identidade-' + process.pid);
+process.env.FAROL_HOME = FAROL_HOME;
+
+const { test, after, beforeEach } = require('node:test');
+const assert = require('node:assert/strict');
+
+// espião no run: os módulos de engine capturam a referência na desestruturação do
+// require, então a troca tem que acontecer antes do require('../server.js'). O default
+// devolve ok vazio: NENHUM gh real roda neste arquivo.
+const io = require('../lib/io');
+const runReal = io.run;
+let runImpl = null;
+const chamadas = [];
+io.run = function runEspiao(cmd, args, opts) {
+  chamadas.push({ cmd, args: args || [], env: (opts || {}).env });
+  if (runImpl) return runImpl(cmd, args || [], opts);
+  return Promise.resolve({ ok: true, code: 0, stdout: '', stderr: '' });
+};
+
+const { Engine } = require('../server.js');
+const { STATE_DIR } = require('../lib/paths');
+fs.mkdirSync(STATE_DIR, { recursive: true });
+
+after(() => {
+  io.run = runReal;
+  try { fs.rmSync(FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ }
+});
+
+beforeEach(() => { chamadas.length = 0; runImpl = null; });
+
+// engine com duas contas: alice (primária, com token) e bob (trabalho, SEM token),
+// exatamente o cenário do flake de keyring que dispara o A1
+function engineDuasContas() {
+  const e = new Engine();
+  e.config.accounts = [
+    { user: 'alice', owners: ['acme'] },
+    { user: 'bob', owners: ['biudtech'] }
+  ];
+  e.token = 'tok-alice';
+  e.tokens = { alice: 'tok-alice' }; // bob ficou sem token neste ciclo
+  e.tokenOk = true;
+  e.refreshTokens = async () => { };
+  e.refreshToken = async () => { };
+  e.log = () => { };            // não sujar o farol.log do temp
+  e.on('toast', () => { });
+  e.pushState = () => { };
+  return e;
+}
+
+test('tokenFor: conta pedida sem token devolve null, nunca o token da primária', () => {
+  const e = engineDuasContas();
+  assert.equal(e.tokenFor('bob'), null, 'bob sem token = null (herdar tok-alice seria o A1)');
+  assert.equal(e.tokenFor('alice'), 'tok-alice');
+});
+
+test('tokenFor: sem user cai na primária (único fallback legítimo, contrato do update.js)', () => {
+  const e = engineDuasContas();
+  assert.equal(e.tokenFor(''), 'tok-alice');
+  assert.equal(e.tokenFor(undefined), 'tok-alice');
+  e.token = null;
+  assert.equal(e.tokenFor(undefined), null, 'primária sem token = null, não inventa');
+});
