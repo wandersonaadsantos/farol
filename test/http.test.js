@@ -82,3 +82,17 @@ test('POST /api/self-review/cancel existe e responde JSON (key desconhecida = ok
   assert.equal(r.status, 200, 'a rota existe (antes caía no 404 not found)');
   assert.equal(JSON.parse(r.body).ok, false);
 });
+
+test('POST /api/review sem urls é recusado com 400 (o fallback "fila inteira" morreu)', async () => {
+  // achado B22: a UI mandava {} quando a fila visível esvaziava entre o render e o
+  // clique, e o servidor interpretava ausência de urls como "revise TUDO", inclusive
+  // PRs de outras contas que o escopo escondia
+  const r = await post('/api/review', {});
+  assert.equal(r.status, 400);
+  assert.match(JSON.parse(r.body).error, /urls/);
+});
+
+test('POST /api/review com urls vazio ou de tipo errado também é recusado', async () => {
+  assert.equal((await post('/api/review', { urls: [] })).status, 400);
+  assert.equal((await post('/api/review', { urls: 'https://github.com/a/b/pull/1' })).status, 400);
+});

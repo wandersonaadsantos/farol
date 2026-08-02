@@ -2875,9 +2875,11 @@ function notifyNewPRs(data) {
 /* ---------- ações ---------- */
 $('#btnCheck').onclick = () => api('/api/check');
 $('#btnReviewAll').onclick = () => {
-  // revisa só o que está visível no escopo atual
+  // revisa só o que está visível no escopo atual; a lista vai SEMPRE explícita
+  // (mandar {} fazia o servidor revisar a fila INTEIRA, achado B22)
   const urls = (STATE.queue || []).filter(scopeVisible).map(p => p.url);
-  api('/api/review', urls.length ? { urls } : {});
+  if (!urls.length) { toast('info', 'Nada visível pra revisar agora (a fila mudou embaixo do botão).'); return; }
+  api('/api/review', { urls });
 };
 
 /* tweaks de exibição (guardados no navegador, não vão pro engine) */
