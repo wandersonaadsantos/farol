@@ -290,6 +290,13 @@ function rebuildAccounts() {
     };
     (a.owners || []).forEach(o => { OWNER2USER[String(o).toLowerCase()] = a.user; });
   });
+  // o escopo persistido pode ter ficado orfao (conta removida/renomeada): saneia
+  // aqui, que roda a cada snapshot. So valida com a lista PRESENTE: o snapshot de
+  // boot pode vir sem contas e nao pode resetar um escopo valido (B15).
+  if (list.length) {
+    const v = validScope(SCOPE, list.map(a => a.user));
+    if (v !== SCOPE) { SCOPE = v; localStorage.setItem('farol-scope', SCOPE); }
+  }
 }
 function multiAccount() { return ((STATE && STATE.accounts) || []).length > 1; }
 function prUser(pr) {

@@ -40,6 +40,15 @@ function stageLabel(s) {
   return '';
 }
 
+// escopo salvo no navegador validado contra as contas atuais: conta removida ou
+// renomeada deixava um escopo orfao que esvaziava o Radar pra sempre (B15).
+// Compara sem caixa e preserva o valor original quando ele e valido.
+function validScope(scope, users) {
+  if (!scope || scope === 'all') return 'all';
+  const s = String(scope).toLowerCase();
+  return (users || []).some(u => String(u).toLowerCase() === s) ? scope : 'all';
+}
+
 // tira acento pra "revisao" achar "Revisão"
 function sysNorm(s) { return String(s || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase(); }
 
@@ -315,6 +324,6 @@ if (typeof module !== 'undefined' && module.exports) {
     sameSet, diffVs, lastMerge, groupBy, usageMetricVal, accountSaveArray, delivGroupCard, fmtRel,
     usageDayKeysBack, avatar, md, feedLine, analysisOpsPlan, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
     deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
-    opTransition, opDismissDelay, stageLabel
+    opTransition, opDismissDelay, stageLabel, validScope
   };
 }

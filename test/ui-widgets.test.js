@@ -104,3 +104,21 @@ test('o rotulo de estagio tem ticker proprio e nao congela no primeiro paint (B1
   assert.match(fn[0], /session-stage/, 'o ticker de 1s envelhece o estagio, como ja faz com o elapsed');
   assert.match(fn[0], /stageLabel\(/, 'o texto vem da funcao pura');
 });
+
+/* ---------- escopo persistido orfao (B15) ---------- */
+
+test('validScope: orfao volta pra all, valido permanece', () => {
+  assert.equal(P.validScope('all', ['alice']), 'all');
+  assert.equal(P.validScope('', ['alice']), 'all');
+  assert.equal(P.validScope(null, []), 'all');
+  assert.equal(P.validScope('alice', ['alice', 'bob']), 'alice');
+  assert.equal(P.validScope('ALICE', ['alice']), 'ALICE', 'compara sem caixa e preserva o valor salvo');
+  assert.equal(P.validScope('carol', ['alice', 'bob']), 'all', 'conta removida nao pode esvaziar o Radar');
+});
+
+test('rebuildAccounts saneia o SCOPE persistido a cada snapshot (B15)', () => {
+  const fn = APPJS.match(/function rebuildAccounts\([\s\S]*?\n\}/);
+  assert.ok(fn, 'rebuildAccounts existe');
+  assert.match(fn[0], /validScope\(/, 'a validacao roda onde as contas sao reconstruidas');
+  assert.match(fn[0], /list\.length/, 'snapshot de boot sem contas nao pode resetar escopo valido');
+});
