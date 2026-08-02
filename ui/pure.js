@@ -174,6 +174,14 @@ function usageDayKeysBack(n, agora = Date.now()) {
   return out;
 }
 
+// conta os resolvidos de HOJE (dia local) que terminaram em APPROVE: alimenta o
+// "vazio bom" do Radar. resolvedAt é epoch em ms (Date.now() do engine); a versão
+// antiga fatiava String(epoch) contra data ISO e nunca batia (ramo morto da v2.30.0).
+function aprovadosHoje(resolved, agora = Date.now()) {
+  const hoje = localDayKey(agora);
+  return (resolved || []).filter(r => r && r.action === 'approve' && localDayKey(r.resolvedAt) === hoje).length;
+}
+
 /* ---------- ciclo de vida das operacoes (widgets showOp/updateOp/closeOp da UI) ---------- */
 
 // Maquina de estados minima: 'running' e o unico estado que anda; done/error/cancelled
@@ -352,7 +360,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     esc, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
     sameSet, diffVs, lastMerge, groupBy, usageMetricVal, accountSaveArray, delivGroupCard, fmtRel,
-    usageDayKeysBack, localDayKey, avatar, md, feedLine, analysisOpsPlan, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
+    usageDayKeysBack, localDayKey, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
     deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
     opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible, expiredSessionMarks
   };

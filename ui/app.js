@@ -1700,10 +1700,8 @@ function renderQueue() {
   const box = $('#queue');
   if (!q.length) {
     // Vazio bom merece CONFIRMAR o que o app fez, não só dizer que não tem nada.
-    const aprovados = (STATE.decisions?.resolved || []).filter(r => {
-      const hoje = new Date().toISOString().slice(0, 10);
-      return r.action === 'approve' && String(r.resolvedAt || '').slice(0, 10) === hoje;
-    }).length;
+    // resolvedAt é epoch em ms; a comparação de dia é LOCAL e vive no pure.js (testada lá).
+    const aprovados = aprovadosHoje(STATE.decisions?.resolved);
     const orgs = (STATE.config?.owners || []).map(o => `<b>${esc(o)}</b>`).join(', ');
     const min = Math.round((STATE.config?.intervalSeconds || 300) / 60);
     const feito = aprovados

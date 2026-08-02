@@ -212,6 +212,20 @@ test('localDayKey aceita epoch ms e ISO; entrada inválida devolve vazio', () =>
   assert.equal(P.localDayKey('lixo'), '');
 });
 
+test('aprovadosHoje conta só APPROVE do dia LOCAL (resolvedAt em epoch ms)', () => {
+  const agora = Date.parse('2026-08-01T22:00:00-03:00');
+  const resolved = [
+    { action: 'approve', resolvedAt: agora - 60 * 60 * 1000 },             // 21:00 local de hoje
+    { action: 'approve', resolvedAt: Date.parse('2026-08-02T01:00:00Z') }, // 22:00 local de hoje (dia UTC já virou)
+    { action: 'approve', resolvedAt: agora - 26 * 60 * 60 * 1000 },        // ontem
+    { action: 'request_changes', resolvedAt: agora },                      // não é approve
+    { action: 'approve' },                                                 // sem resolvedAt: fora
+  ];
+  assert.equal(P.aprovadosHoje(resolved, agora), 2);
+  assert.equal(P.aprovadosHoje([], agora), 0);
+  assert.equal(P.aprovadosHoje(undefined, agora), 0);
+});
+
 /* ---------- reviewers: comparações que APAGAM configuração ---------- */
 
 test('sameSet ignora ordem e caixa', () => {
