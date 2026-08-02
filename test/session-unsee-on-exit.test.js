@@ -22,11 +22,27 @@ process.env.FAROL_HOME = FAROL_HOME;
 // spawnConsole direto (sem subir a Engine inteira), semeamos manualmente.
 fs.mkdirSync(path.join(FAROL_HOME, 'workspace'), { recursive: true });
 
+// mock de child_process.spawn pros testes de spawnConsoleMac (M5): lib/engine/session.js
+// captura `spawn` no load, então a troca precisa vir ANTES do require abaixo (mesmo
+// padrão de test/session-claude-profile.test.js). Sem spawnImpl setado, delega pro
+// spawn real (o teste de spawnConsole real do Windows, mais abaixo, depende disso).
+const childProcess = require('child_process');
+const realSpawn = childProcess.spawn;
+let spawnImpl = null;
+childProcess.spawn = function mockableSpawn(...args) {
+  if (spawnImpl) return spawnImpl(...args);
+  return realSpawn(...args);
+};
+const { EventEmitter } = require('node:events');
+
 const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { spawnConsole, sessionExit, handleSessionExit } = require('../lib/engine/session');
+const { spawnConsole, spawnConsoleMac, spawnLoginConsoleMac, sessionExit, handleSessionExit } = require('../lib/engine/session');
 
-after(() => { try { fs.rmSync(FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
+after(() => {
+  childProcess.spawn = realSpawn;
+  try { fs.rmSync(FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ }
+});
 
 function fakeEngine(overrides) {
   const unseen = [];
@@ -43,6 +59,8 @@ function fakeEngine(overrides) {
     emit(kind, payload) { toasts.push({ kind, payload }); },
     log() {},
     buildSessionScript(slash, account) { return '@echo off\r\nexit 0\r\n'; }, // script minimo valido
+    buildSessionScriptMac(slash, id, user) { return '#!/bin/bash\nexit 0\n'; }, // script minimo valido
+    buildLoginScriptMac(dir, id) { return '#!/bin/bash\nexit 0\n'; }, // script minimo valido
     handleSessionExit(opts) { return handleSessionExit(this, opts); }, // facade, igual server.js
     _unseen: unseen,
     _toasts: toasts,
@@ -137,4 +155,78 @@ test('spawnConsole (Windows): ao sair de verdade, desfaz o visto de TODAS as key
   });
 
   assert.deepEqual(engine._unseen.sort(), ['org/repo#1', 'org/repo#2']);
+});
+
+// M5: `open -a Terminal` retorna na hora; exit 0 = Terminal lançado (o fim REAL da
+// sessão chega depois, pelo trap EXIT do .command). Exit != 0 = o Terminal nunca abriu
+// (permissão de automação negada, MDM): sem tratar, o pill fica preso e as keys ficam
+// vistas pra sempre, PR sumido da fila (o inflight só cobre sessões auto).
+test('spawnConsoleMac: open saindo != 0 desfaz o visto, remove a sessão e avisa (M5)', () => {
+  const engine = fakeEngine();
+  const fakeChild = new EventEmitter();
+  let scriptGravado = null;
+  spawnImpl = (cmd, args) => { scriptGravado = args[2]; return fakeChild; }; // spawn('open', ['-a','Terminal',script])
+  try {
+    spawnConsoleMac(engine, '/pr-review x', 'Revisão de 1 PR', ['org/repo#7'], 'alice');
+  } finally {
+    spawnImpl = null;
+  }
+  const id = Array.from(engine.activeReviews.keys())[0];
+  assert.ok(id, 'sessão registrada antes do exit');
+  assert.equal(fs.existsSync(scriptGravado), true, 'o .command foi gravado');
+
+  fakeChild.emit('exit', 1);
+
+  assert.equal(engine.activeReviews.size, 0, 'pill não pode ficar preso');
+  assert.deepEqual(engine._unseen, ['org/repo#7'], 'sem unsee o PR some da fila pra sempre');
+  assert.equal(engine.checkedNow, true, 'a fila precisa ser rechecada');
+  assert.ok(engine._toasts.some(t => t.kind === 'toast' && t.payload.kind === 'error'), 'o usuário precisa saber que não abriu');
+  assert.equal(fs.existsSync(scriptGravado), false, 'o trap EXIT nunca vai rodar; o script órfão tem que ser apagado');
+});
+
+test('spawnConsoleMac: open saindo 0 não mexe em nada; o fim real chega pelo trap EXIT (M5)', () => {
+  const engine = fakeEngine();
+  const fakeChild = new EventEmitter();
+  spawnImpl = () => fakeChild;
+  try {
+    spawnConsoleMac(engine, '/pr-review x', 'Revisão de 1 PR', ['org/repo#7'], 'alice');
+  } finally {
+    spawnImpl = null;
+  }
+  const id = Array.from(engine.activeReviews.keys())[0];
+
+  fakeChild.emit('exit', 0); // open lançou o Terminal e retornou; a sessão segue viva
+
+  assert.equal(engine.activeReviews.has(id), true, 'sessão continua ativa');
+  assert.deepEqual(engine._unseen, [], 'não desfaz visto de sessão viva');
+
+  const r = sessionExit(engine, id); // o trap EXIT do .command chama /api/session-exit
+  assert.equal(r.ok, true);
+  assert.deepEqual(engine._unseen, ['org/repo#7'], 'o ciclo fecha pelo caminho de sempre');
+});
+
+// R13 do plano mestre: spawnLoginConsoleMac tem o MESMO buraco do M5 (ignora exit != 0
+// do open). Sem keys o dano é menor (não há visto pra desfazer), mas o pill de login
+// ficava preso pra sempre e o script órfão nunca era apagado.
+test('spawnLoginConsoleMac: open saindo != 0 remove a sessão, apaga o script e avisa (M5, R13)', () => {
+  const engine = fakeEngine();
+  const fakeChild = new EventEmitter();
+  let scriptGravado = null;
+  spawnImpl = (cmd, args) => { scriptGravado = args[2]; return fakeChild; };
+  try {
+    spawnLoginConsoleMac(engine, '/tmp/claude-dir-teste');
+  } finally {
+    spawnImpl = null;
+  }
+  const id = Array.from(engine.activeReviews.keys())[0];
+  assert.ok(id, 'sessão registrada antes do exit');
+  assert.equal(fs.existsSync(scriptGravado), true, 'o .command foi gravado');
+
+  fakeChild.emit('exit', 1);
+
+  assert.equal(engine.activeReviews.size, 0, 'pill de login não pode ficar preso');
+  assert.deepEqual(engine._unseen, [], 'login não tem keys, nada a desfazer');
+  assert.equal(engine.checkedNow, undefined, 'sem keys não recheca a fila');
+  assert.ok(engine._toasts.some(t => t.kind === 'toast' && t.payload.kind === 'error'), 'o usuário precisa saber que não abriu');
+  assert.equal(fs.existsSync(scriptGravado), false, 'o trap EXIT nunca vai rodar; o script órfão tem que ser apagado');
 });
