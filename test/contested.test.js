@@ -39,12 +39,12 @@ function engineWithPolicy(policy) {
 test('contestação com prova bloqueia o auto-approve mesmo com política liberada', () => {
   const e = engineWithPolicy('approve');
   const semContest = approvableResult();
-  assert.equal(e.shouldAutoApprove(PR, semContest), true, 'sem contestação segue aprovando sozinho');
+  assert.equal(e.shouldAutoApprove(PR, semContest).ok, true, 'sem contestação segue aprovando sozinho');
 
   const comContest = approvableResult({
     contested: [{ source: 'Acrity', claim: 'ref não é setado', label: 'falso_positivo', evidence: 'Arquivo.tsx:172 seta o ref' }]
   });
-  assert.equal(e.shouldAutoApprove(PR, comContest), false, 'com contestação, passa pelo humano');
+  assert.equal(e.shouldAutoApprove(PR, comContest).ok, false, 'com contestação, passa pelo humano');
 });
 
 test('contestação também bloqueia o auto-reject (opt-in de reprovar sozinho)', () => {
@@ -70,7 +70,7 @@ test('contestação SEM prova é descartada (não vale como contestação, não 
     ]
   });
   assert.deepEqual(e.contestations(semProva), [], 'nada disso conta como contestação');
-  assert.equal(e.shouldAutoApprove(PR, semProva), true, 'sem contestação válida, o fluxo normal segue');
+  assert.equal(e.shouldAutoApprove(PR, semProva).ok, true, 'sem contestação válida, o fluxo normal segue');
 });
 
 test('os 4 rótulos válidos são aceitos quando têm prova', () => {
@@ -79,7 +79,7 @@ test('os 4 rótulos válidos são aceitos quando têm prova', () => {
   for (const label of labels) {
     const r = approvableResult({ contested: [{ source: 'X', claim: 'c', label, evidence: 'prova' }] });
     assert.equal(e.contestations(r).length, 1, `rótulo ${label} é válido`);
-    assert.equal(e.shouldAutoApprove(PR, r), false, `rótulo ${label} exige decisão humana`);
+    assert.equal(e.shouldAutoApprove(PR, r).ok, false, `rótulo ${label} exige decisão humana`);
   }
 });
 
@@ -100,7 +100,7 @@ test('sem o campo contested, nada muda no comportamento antigo', () => {
   const r = approvableResult();
   assert.deepEqual(e.contestations(r), []);
   assert.deepEqual(e.attentionPoints(r), [], 'aprovação limpa segue limpa');
-  assert.equal(e.shouldAutoApprove(PR, r), true);
+  assert.equal(e.shouldAutoApprove(PR, r).ok, true);
 });
 
 test('o protocolo de terceiros é injetado no prompt headless, com a barra e o silêncio', () => {
@@ -113,4 +113,42 @@ test('o protocolo de terceiros é injetado no prompt headless, com a barra e o s
     assert.ok(block.includes(label), `documenta o rótulo ${label}`);
   }
   assert.match(block, /NUNCA conteste/, 'lista o que nunca se contesta');
+});
+
+/* ---------- retorno estruturado: o MOTIVO da recusa (Onda 7, M7) ----------
+   O gate devolvia só um boolean e o bloco de transparência do runHeadlessReview
+   tinha que ADIVINHAR por que a aprovação automática não saiu, e adivinhava sempre
+   "política da conta", mesmo quando o bloqueio veio de contestação ou cobertura.
+   Contrato novo: { ok, motivo }, com o motivo nomeado. */
+
+test('shouldAutoApprove expõe o motivo da recusa: contestação', () => {
+  const e = engineWithPolicy('approve');
+  const r = approvableResult({
+    contested: [{ source: 'Acrity', claim: 'x', label: 'falso_positivo', evidence: 'Arquivo.tsx:10' }]
+  });
+  assert.deepEqual(e.shouldAutoApprove(PR, r), { ok: false, motivo: 'contestacao' });
+});
+
+test('shouldAutoApprove expõe o motivo da recusa: cobertura', () => {
+  const e = engineWithPolicy('approve');
+  const r = approvableResult({ coverage: { total: 3, reviewed: ['a.ts'], missing: ['b.ts', 'c.ts'] } });
+  assert.deepEqual(e.shouldAutoApprove(PR, r), { ok: false, motivo: 'cobertura' });
+});
+
+test('shouldAutoApprove expõe o motivo da recusa: política da conta', () => {
+  const e = engineWithPolicy('wait');
+  assert.deepEqual(e.shouldAutoApprove(PR, approvableResult()), { ok: false, motivo: 'politica' });
+});
+
+test('shouldAutoApprove expõe o motivo da recusa: clique no panorama e não-aprovável', () => {
+  const e = engineWithPolicy('approve');
+  assert.deepEqual(e.shouldAutoApprove({ ...PR, requested: false }, approvableResult()),
+    { ok: false, motivo: 'clique' });
+  assert.deepEqual(e.shouldAutoApprove(PR, approvableResult({ verdict: 'request_changes' })),
+    { ok: false, motivo: 'nao_aprovavel' });
+});
+
+test('shouldAutoApprove aprovando devolve ok true e motivo nulo', () => {
+  const e = engineWithPolicy('approve');
+  assert.deepEqual(e.shouldAutoApprove(PR, approvableResult()), { ok: true, motivo: null });
 });

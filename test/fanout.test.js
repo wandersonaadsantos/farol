@@ -119,10 +119,10 @@ function aprovavel(extra) {
 test('cobertura completa aprova sozinho; lacuna declarada segura a postagem', () => {
   const e = engineLiberado();
   const completa = aprovavel({ coverage: { total: 2, reviewed: ['a.ts', 'b.ts'], missing: [] } });
-  assert.equal(e.shouldAutoApprove(PR, completa), true, 'leu tudo e está limpo: aprova');
+  assert.equal(e.shouldAutoApprove(PR, completa).ok, true, 'leu tudo e está limpo: aprova');
 
   const comLacuna = aprovavel({ coverage: { total: 3, reviewed: ['a.ts'], missing: ['b.ts', 'c.ts'] } });
-  assert.equal(e.shouldAutoApprove(PR, comLacuna), false, 'ficou arquivo sem revisar: passa pelo humano');
+  assert.equal(e.shouldAutoApprove(PR, comLacuna).ok, false, 'ficou arquivo sem revisar: passa pelo humano');
   assert.deepEqual(e.coverageGap(comLacuna), ['b.ts', 'c.ts']);
 });
 
@@ -131,14 +131,14 @@ test('rede de segurança: revisou menos que o total conta como lacuna mesmo com 
   const r = aprovavel({ coverage: { total: 10, reviewed: ['a.ts', 'b.ts'], missing: [] } });
   assert.equal(e.coverageGap(r).length, 1, 'a conta não fecha, então é lacuna');
   assert.match(e.coverageGap(r)[0], /8 arquivo\(s\)/, 'diz quantos faltaram');
-  assert.equal(e.shouldAutoApprove(PR, r), false);
+  assert.equal(e.shouldAutoApprove(PR, r).ok, false);
 });
 
 test('envelope sem coverage (PR pequeno, passe único) não muda nada', () => {
   const e = engineLiberado();
   const r = aprovavel();
   assert.deepEqual(e.coverageGap(r), []);
-  assert.equal(e.shouldAutoApprove(PR, r), true, 'regime de hoje intacto');
+  assert.equal(e.shouldAutoApprove(PR, r).ok, true, 'regime de hoje intacto');
 });
 
 test('ressalva NÃO entra na conta de cobertura: ressalva aprova, lacuna de leitura não', () => {
@@ -147,7 +147,7 @@ test('ressalva NÃO entra na conta de cobertura: ressalva aprova, lacuna de leit
     reasons: ['vale olhar a validação de tipo no upload quando passar por ali'],
     coverage: { total: 2, reviewed: ['a.ts', 'b.ts'], missing: [] }
   });
-  assert.equal(e.shouldAutoApprove(PR, comRessalva), true, 'ressalva não bloqueia (decisão do Wanderson)');
+  assert.equal(e.shouldAutoApprove(PR, comRessalva).ok, true, 'ressalva não bloqueia (decisão do Wanderson)');
   assert.equal(e.attentionPoints(comRessalva).length, 1, 'mas continua visível como ponto de atenção');
 });
 
@@ -166,14 +166,14 @@ test('coverage adversarial: total declarado sem nenhum arquivo revisado é lacun
   const vazio = aprovavel({ coverage: { total: 30, reviewed: [], missing: [] } });
   assert.equal(e.coverageGap(vazio).length, 1, 'total 30 com leitura zero declarada é lacuna');
   assert.match(e.coverageGap(vazio)[0], /30 arquivo\(s\)/, 'diz quantos ficaram sem revisão');
-  assert.equal(e.shouldAutoApprove(PR, vazio), false, 'reabre o caso do PR gigante: sem leitura, sem auto-approve');
+  assert.equal(e.shouldAutoApprove(PR, vazio).ok, false, 'reabre o caso do PR gigante: sem leitura, sem auto-approve');
 });
 
 test('coverage adversarial: reviewed que não é lista não prova leitura nenhuma', () => {
   const e = engineLiberado();
   const malformado = aprovavel({ coverage: { total: 12, reviewed: 'todos', missing: [] } });
   assert.equal(e.coverageGap(malformado).length, 1, 'reviewed fora do contrato conta como zero lido');
-  assert.equal(e.shouldAutoApprove(PR, malformado), false);
+  assert.equal(e.shouldAutoApprove(PR, malformado).ok, false);
   const rej = {
     verdict: 'request_changes', decision: 'needs_decision', reasons: ['blocker'],
     payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'x' } },
