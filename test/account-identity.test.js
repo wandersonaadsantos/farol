@@ -102,3 +102,21 @@ test('fetchDeliveries: alvo de conta sem token vira partial, os outros alvos seg
   assert.ok(chamadas.length > 0, 'a conta com token buscou normalmente');
   for (const c of chamadas) assert.equal(c.env.GH_TOKEN, 'tok-alice', 'nenhuma busca saiu com token trocado');
 });
+
+/* ---------- postagem: nunca com a identidade errada (A1, consequência 2) ---------- */
+
+test('postReview: conta do PR sem token NÃO posta (o APPROVE não sai pela primária)', async () => {
+  const e = engineDuasContas();
+  const pr = { key: 'biudtech/app#9', repo: 'biudtech/app', number: 9 };
+  const r = await e.postReview(pr, { event: 'APPROVE', body: 'ok' });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /sem token/);
+  assert.equal(chamadas.length, 0, 'nenhum gh api reviews foi chamado');
+});
+
+test('myReviewStates: conta sem token devolve null (não confirma dedup pela identidade errada)', async () => {
+  const e = engineDuasContas();
+  const s = await e.myReviewStates({ key: 'biudtech/app#9', repo: 'biudtech/app', number: 9 });
+  assert.equal(s, null);
+  assert.equal(chamadas.length, 0);
+});
