@@ -31,6 +31,15 @@ function fmtCompact(n) {
   return String(Math.round(n));
 }
 
+// rotulo de estagio de uma sessao headless pelo tempo de vida em segundos. O card
+// nao re-renderiza a cada segundo, entao quem chama e o ticker do app (tickElapsed),
+// no mesmo padrao data-started do .session-elapsed (B13: congelava no 1o paint).
+function stageLabel(s) {
+  if (s < 5) return '(iniciando…)';
+  if (s < 15) return '(processando…)';
+  return '';
+}
+
 // tira acento pra "revisao" achar "Revisão"
 function sysNorm(s) { return String(s || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase(); }
 
@@ -306,6 +315,6 @@ if (typeof module !== 'undefined' && module.exports) {
     sameSet, diffVs, lastMerge, groupBy, usageMetricVal, accountSaveArray, delivGroupCard, fmtRel,
     usageDayKeysBack, avatar, md, feedLine, analysisOpsPlan, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
     deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
-    opTransition, opDismissDelay
+    opTransition, opDismissDelay, stageLabel
   };
 }

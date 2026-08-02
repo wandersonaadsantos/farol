@@ -1429,6 +1429,13 @@ function tickElapsed() {
     const s = Math.max(0, Math.round((Date.now() - started) / 1000));
     el.textContent = s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}s`;
   });
+  // o estagio (iniciando/processando) envelhece junto: o card so re-renderiza em
+  // snapshot SSE, entao sem este ticker o rotulo congelava no primeiro paint (B13)
+  document.querySelectorAll('.session-stage').forEach(el => {
+    const started = parseInt(el.dataset.started, 10);
+    if (!started) return;
+    el.textContent = stageLabel(Math.max(0, Math.round((Date.now() - started) / 1000)));
+  });
 }
 
 /* ---------- render: análises em andamento (feed ao vivo) ---------- */
@@ -1459,12 +1466,12 @@ function renderActive() {
   if (have !== want) {
     box.innerHTML = sessions.map(s => {
       const uptime = Math.round((Date.now() - (s.startedAt || Date.now())) / 1000);
-      const stages = uptime < 5 ? '(iniciando…)' : uptime < 15 ? '(processando…)' : '';
+      const stages = stageLabel(uptime);
       return `
       <div class="card session-card" data-id="${esc(s.id)}">
         <div class="session-head">
           <span class="spin accent"></span>
-          <b>${esc(s.label)}</b> ${stages}
+          <b>${esc(s.label)}</b> <span class="session-stage" data-started="${s.startedAt || ''}">${stages}</span>
           <span class="session-model" data-id="${esc(s.id)}" hidden></span>
           ${s.pr?.url ? `<a href="${esc(s.pr.url)}" target="_blank" rel="noreferrer">abrir PR</a>` : ''}
           <span class="session-elapsed" data-started="${s.startedAt}"></span>

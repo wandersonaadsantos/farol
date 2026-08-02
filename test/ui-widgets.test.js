@@ -85,3 +85,22 @@ test('loadDeliveries descarta resposta velha por token de requisicao (M19)', () 
   assert.ok(posGuarda !== -1 && posGuarda < posClose,
     'a guarda vem ANTES do closeOp: resposta velha nao encerra a op da carga nova');
 });
+
+/* ---------- estagio da sessao ativa (B13) ---------- */
+
+test('stageLabel muda com o tempo de vida da sessao', () => {
+  assert.equal(P.stageLabel(0), '(iniciando…)');
+  assert.equal(P.stageLabel(4), '(iniciando…)');
+  assert.equal(P.stageLabel(5), '(processando…)');
+  assert.equal(P.stageLabel(14), '(processando…)');
+  assert.equal(P.stageLabel(15), '');
+  assert.equal(P.stageLabel(600), '');
+});
+
+test('o rotulo de estagio tem ticker proprio e nao congela no primeiro paint (B13)', () => {
+  assert.match(APPJS, /class="session-stage" data-started=/, 'o estagio mora num span com data-started');
+  const fn = APPJS.match(/function tickElapsed\([\s\S]*?\n\}/);
+  assert.ok(fn, 'tickElapsed existe');
+  assert.match(fn[0], /session-stage/, 'o ticker de 1s envelhece o estagio, como ja faz com o elapsed');
+  assert.match(fn[0], /stageLabel\(/, 'o texto vem da funcao pura');
+});
