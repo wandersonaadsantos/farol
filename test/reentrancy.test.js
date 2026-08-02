@@ -57,3 +57,18 @@ test('chatSend: segunda mensagem na janela do refreshToken é recusada (B1)', as
   const doUsuario = e.chats['acme/app#1'].messages.filter(m => m.role === 'user');
   assert.equal(doUsuario.length, 1, 'a mensagem recusada não entra no histórico');
 });
+
+test('launchTool: segundo clique na janela do refreshToken é recusado (B2)', async () => {
+  const e = engineStubado();
+  e.toolPrompt = () => 'prompt de teste';
+  const p1 = e.launchTool('health');
+  const p2 = e.launchTool('health');
+  const r1 = await p1;
+  const r2 = await p2;
+  assert.equal(r1.ok, true);
+  assert.equal(r2.ok, false, 'as duas passaram pela guarda: sessão headless dobrada');
+  assert.match(r2.error, /já está rodando/);
+  await esperar(() => { const run = e.toolRunGet('health'); return run && run.status !== 'running'; });
+  assert.equal(e.toolRunGet('health').status, 'done');
+  assert.equal(e._geracoes, 1, 'uma única sessão da ferramenta, não custo em dobro');
+});
