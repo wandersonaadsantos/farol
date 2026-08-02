@@ -99,3 +99,27 @@ Executada em 02/08/2026 (madrugada, horário de Brasília). Achados cobertos: A4
 **Dificuldades novas encontradas**
 - Nota de transparência do TDD da 4.4, registrada pela verificação: o segundo teste da tarefa (o `refreshMergeStates` com stub de `fetchMergeState`) nasceu verde, porque pina a semântica do consumidor, não o código morto; o vermelho exigido pelo TDD veio do teste unitário do `fetchMergeState` (confirmado por mutação no worktree pré-onda). Nenhuma ação necessária, fica o registro.
 - Fora isso, nenhuma além das antecipadas (D1 a D13 do rascunho, todas com a solução preparada funcionando).
+
+## Onda 5: instância única e fluxo de update
+
+Executada em 02/08/2026 (madrugada, horário de Brasília). Achados cobertos: A7, M13, M14, M15 e M16. Suite na largada da onda: 447 testes; no fechamento: 456 (453 pass, 3 skipped de plataforma, esperados no Windows), com `npm run check` ok (58 arquivos). Verificação independente (adversarial) auditou cada commit por diff contra o rascunho e as regras do mestre, e provou por mutação (com `lib/engine/update.js`, `server.js` e `main.js` revertidos pro commit pré-onda `da07119`, arquivos de teste do HEAD mantidos) que os 8 testes de comportamento novo falham sem a implementação e o baseline da 5.3 segue verde, exatamente como o plano previu; nenhum teste passa por acaso. Isolados: `test/instance.test.js` 2/2, os testes novos de `test/update.test.js` 13/13 no arquivo, e `test/facades.test.js` verde incluindo "fachada applyUpdate não engole argumento".
+
+**Tarefas concluídas**
+- 5.1 `start()` só agenda polling e inicia o ciclo no callback de SUCESSO do listen (latch `began`); com a porta ocupada o engine fica inerte, a janela do Electron vira visor da instância existente e a bandeja ganha a guarda `attachedToExisting`, A7: commit `9251b0f`
+- 5.2 `buildUpdateLaunchCommand` pura e exportada cita o -File do Start-Process do PowerShell 5.1 (aspas duplas embutidas, apóstrofo dobrado), M14: commit `ddde520`
+- 5.3 costura de teste: `applyUpdate(engine, deps = {})` com `checkUpdate` e `downloadRemoteUpdate` injetáveis, default preservando `Function.length` 1 (a fachada `Engine.applyUpdate` de 0 parâmetros segue verde no facades), pré-requisito de M13/M15/M16: commit `9e7946a`
+- 5.4 atribuição em dois tempos do `engine.update.source` (a referência de `engine.update` é reavaliada DEPOIS do await do download, com comentário anti-simplificação), M13: commit `65cb221`
+- 5.5 `sessionsBusy` e `BUSY_ERROR` module-private, re-checagem de sessões ativas depois do bloco remoto e ANTES do `if (!IS_WIN)` (mac protegido), M15: commit `643b8fd`
+- 5.6 guarda de reentrância `engine.updateApplying` ligada antes de qualquer await (wrapper + `applyUpdateInner` module-private, não exportado); destrava em `ok:false` e em exceção, fica ligada em `ok:true` de propósito; flag inicializado no construtor junto de `this.checking`, M16: commit `540b457`
+- Fechamento da onda (esta seção + entrada "Não publicado" no CHANGELOG.md): commit próprio, `docs:`
+
+**Pendências**
+- Smoke manual complementar do Passo 4 da 5.1 (num terminal `node server.js`, noutro `npm start`; conferir que a janela abre como visor da instância existente, que só o `node server.js` escreve em `~/.farol/workspace/state/` e que o "Verificar agora" da bandeja vira no-op pela guarda `attachedToExisting`) NÃO foi executado: a execução noturna não roda o app real contra o `~/.farol` de verdade. O próprio rascunho o trata como complementar (a verificação automatizada da D8 é o `npm run check`, que passou e cobre a sintaxe do main.js). Executar com o usuário presente antes do corte da v2.31.1.
+
+**Desvios relevantes do plano**
+- Nenhum desvio semântico: ordem fixa da D9 respeitada (5.2, 5.3, 5.4, 5.5, 5.6 sobre o mesmo corpo do `applyUpdate`) e o estado final do arquivo confere com o bloco-alvo completo da tarefa 5.6. Único desvio de texto, validado pela verificação: o comentário da costura da 5.3 (deps injetável e `Function.length`) foi MANTIDO sobre o wrapper, embora o bloco-alvo da 5.6 não o mostre (foi escrito sem enxergar a 5.3); correto pela regra de merge semântico do mestre, que preserva o que as tarefas anteriores fizeram.
+- R7 do mestre respeitada na 5.6 (o `this.updateApplying = false` entrou por âncora, junto de `this.checking`, na região compartilhada do construtor). D3/D10 do rascunho honradas: `deps = {}` com default (facades verde) e flag só em memória, nunca persistido. R15: contagem 447 pra 456 não é regressão, o gate é verde completo.
+- Versão segue 2.30.1, sem tag, sem release e sem push (commits locais na `main`, conforme o mestre). Localização por âncora respeitada (regra transversal); travessão ausente das linhas adicionadas do diff e das mensagens de commit (verificado por varredura Unicode).
+
+**Dificuldades novas encontradas**
+- Nenhuma além das antecipadas (D1 a D11 do rascunho, todas com a solução preparada funcionando; destaque pra D1/D2, o teste de instância com blocker em porta efêmera e stubs síncronos antes do tick do listen rodou limpo e sem rede na fase verde, e pra D7, o teste de reentrância com deps próprios instantâneos não travou em nenhuma fase).
