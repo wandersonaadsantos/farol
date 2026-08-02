@@ -144,6 +144,11 @@ class Engine extends EventEmitter {
     // sanitize* devolve null pro invalido, e invalido vira o padrao (nao passa flag).
     this.config.reviewModel = sanitizeModel(this.config.reviewModel) ?? '';
     this.config.reviewEffort = sanitizeEffort(this.config.reviewEffort) ?? '';
+    // intervalo do polling: o caminho HTTP (updateSettings) já clampa em 60..3600, mas
+    // o boot engolia config.json editado à mão. Não numérico virava Math.max(60, NaN)
+    // = NaN no schedule(), e setTimeout(fn, NaN) dispara em ~1ms: polling contínuo
+    // contra o GitHub até o rate limit. Mesma expressão do updateSettings, de propósito.
+    this.config.intervalSeconds = Math.min(3600, Math.max(60, parseInt(this.config.intervalSeconds, 10) || DEFAULTS.intervalSeconds));
     // perfil de review por pessoa (papel + matriz por domínio); migra a senioridade plana antiga pro campo `papel`
     this.config.people = migrateSeniorityToPeople(this.config.seniority, parsePeople(this.config.people));
     delete this.config.seniority;

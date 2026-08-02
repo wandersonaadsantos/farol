@@ -73,6 +73,28 @@ test('config.json com reviewModel/reviewEffort válido é preservado no boot', (
   }
 });
 
+test('config.json com intervalSeconds inválido é clampado no BOOT (updateSettings já clampava)', () => {
+  // NaN aqui virava setTimeout(fn, NaN) no schedule(): polling de ~1ms contra o
+  // GitHub até esgotar o rate limit. O clamp do boot usa a MESMA expressão do
+  // caminho HTTP (updateSettings), pras duas portas de entrada serem idênticas.
+  fs.mkdirSync(HOME, { recursive: true });
+  const arq = path.join(HOME, 'config.json');
+  const antes = fs.existsSync(arq) ? fs.readFileSync(arq, 'utf8') : null;
+  try {
+    fs.writeFileSync(arq, JSON.stringify({ intervalSeconds: 'trezentos' }));
+    assert.equal(new Engine().config.intervalSeconds, 300, 'não numérico cai no default');
+    fs.writeFileSync(arq, JSON.stringify({ intervalSeconds: 5 }));
+    assert.equal(new Engine().config.intervalSeconds, 60, 'piso de 60s');
+    fs.writeFileSync(arq, JSON.stringify({ intervalSeconds: 999999 }));
+    assert.equal(new Engine().config.intervalSeconds, 3600, 'teto de 1h');
+    fs.writeFileSync(arq, JSON.stringify({ intervalSeconds: 600 }));
+    assert.equal(new Engine().config.intervalSeconds, 600, 'valor válido é preservado');
+  } finally {
+    if (antes === null) { try { fs.unlinkSync(arq); } catch { /* best-effort */ } }
+    else fs.writeFileSync(arq, antes);
+  }
+});
+
 test('snapshot() devolve um estado serializável com a versão', () => {
   const snap = new Engine().snapshot();
   assert.equal(typeof snap, 'object');
