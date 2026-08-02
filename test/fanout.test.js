@@ -161,6 +161,27 @@ test('lacuna de cobertura também segura o reprovar sozinho', () => {
   assert.equal(e.shouldAutoReject(PR, rej), false, 'reprovar com leitura parcial é pior ainda');
 });
 
+test('coverage adversarial: total declarado sem nenhum arquivo revisado é lacuna, não passe livre', () => {
+  const e = engineLiberado();
+  const vazio = aprovavel({ coverage: { total: 30, reviewed: [], missing: [] } });
+  assert.equal(e.coverageGap(vazio).length, 1, 'total 30 com leitura zero declarada é lacuna');
+  assert.match(e.coverageGap(vazio)[0], /30 arquivo\(s\)/, 'diz quantos ficaram sem revisão');
+  assert.equal(e.shouldAutoApprove(PR, vazio), false, 'reabre o caso do PR gigante: sem leitura, sem auto-approve');
+});
+
+test('coverage adversarial: reviewed que não é lista não prova leitura nenhuma', () => {
+  const e = engineLiberado();
+  const malformado = aprovavel({ coverage: { total: 12, reviewed: 'todos', missing: [] } });
+  assert.equal(e.coverageGap(malformado).length, 1, 'reviewed fora do contrato conta como zero lido');
+  assert.equal(e.shouldAutoApprove(PR, malformado), false);
+  const rej = {
+    verdict: 'request_changes', decision: 'needs_decision', reasons: ['blocker'],
+    payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'x' } },
+    coverage: { total: 12, reviewed: null, missing: [] }
+  };
+  assert.equal(e.shouldAutoReject(PR, rej), false, 'reprovar sem leitura declarada também não');
+});
+
 test('a lacuna aparece nos pontos de atenção, com amostra dos arquivos', () => {
   const e = engineLiberado();
   const r = aprovavel({ coverage: { total: 9, reviewed: [], missing: ['a.ts', 'b.ts', 'c.ts', 'd.ts', 'e.ts', 'f.ts'] } });
