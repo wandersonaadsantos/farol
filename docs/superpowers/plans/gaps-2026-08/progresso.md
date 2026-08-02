@@ -23,3 +23,28 @@ Executada em 02/08/2026 (madrugada, horário de Brasília). Achados cobertos: A2
 
 **Dificuldades novas encontradas**
 - Nenhuma além das antecipadas (D1 a D9 do rascunho, todas com a solução preparada funcionando). Nota de relato: a tarefa 2.1 registrou baseline 393 quando a real era 392 (393 já era o total COM o teste novo); inconsistência só de relato, a aritmética das tarefas seguintes fecha (393 + 2 + 3 + 1 + 2 = 401).
+
+## Onda 6: robustez de sessão e spawn
+
+Executada em 02/08/2026 (madrugada, horário de Brasília). Achados cobertos: M3, M4, M5, B1, B2, B3 e B4. Suite na largada da onda: 401 testes; no fechamento: 411 (408 pass, 3 skipped de plataforma, esperados no Windows), com `npm run check` ok (54 arquivos). Verificação independente confirmou os 7 diffs contra o rascunho e as regras do mestre, e provou por mutação (clone isolado, revert do hunk de produção de cada commit) que cada teste novo falha sem a sua implementação; nenhum teste passa por acaso. Os testes novos da onda não têm skip por plataforma (D10 do rascunho): o caminho macOS é exercitado por injeção de fake nos dois SOs.
+
+**Tarefas concluídas**
+- 6.1 `setEncoding('utf8')` no stdout do stream headless (multibyte cortado no chunk não vira U+FFFD), M4: commit `56cf55d`
+- 6.2 exit code != 0 sem evento result vira erro, nunca sucesso com NDJSON cru, M3: commit `072bba2`
+- 6.3 stdin da sessão headless ganha handler de error (EPIPE não derruba o engine), B4: commit `e10401c`
+- 6.4 timeout de 30min não sobrescreve cancelamento em andamento, B3: commit `c1a604f`
+- 6.5 `spawnConsoleMac` trata exit code do open (pill não fica preso, PR não some da fila), M5, incluindo a mesma correção em `spawnLoginConsoleMac` por força da R13 do mestre, com teste próprio: commit `a44b1f2`
+- 6.6 `chatSend` marca `running` de forma síncrona antes do await do token, B1: commit `cda65fa`
+- 6.7 `launchTool` marca `running` de forma síncrona antes do await do token, B2: commit `d0323e5`
+- Fechamento da onda (esta seção + entrada "Não publicado" no CHANGELOG.md): commit próprio, `docs:`
+
+**Pendências**
+- Nenhuma.
+
+**Desvios relevantes do plano**
+- D11 do rascunho (registrar `spawnLoginConsoleMac` como candidato de onda futura) foi superado pela R13 do mestre, que mandou aplicar a mesma correção de exit code na própria tarefa 6.5; o mestre venceu, a correção entrou com teste e não fica pendência futura.
+- R1 do mestre respeitada na 6.6: a guarda do chat segue o desenho unificado (reserva síncrona da vez, zero await antes de marcar `running`; o refreshToken foi movido pra dentro do bloco async). A linha `if (!engine.token) await engine.refreshToken()` não existe mais no corpo síncrono do `chatSend`; a tarefa 1.5 da Onda 1 deve aplicar a checagem de conta sobre esse desenho, não sobre o código do rascunho dela.
+- Versão segue 2.30.1, sem tag, sem release e sem push (commits locais na `main`, conforme o mestre). Localização por âncora respeitada (regra transversal).
+
+**Dificuldades novas encontradas**
+- Nenhuma além das antecipadas (D1 a D10 do rascunho, todas com a solução preparada funcionando).

@@ -19,6 +19,17 @@ Onda 2 do plano de correção dos gaps lógicos (02/08/2026): resiliência do po
 - **`intervalSeconds` inválido no `config.json` é clampado no boot (M2).** Valor não numérico editado à mão virava `setTimeout(fn, NaN)`, ou seja, polling de ~1ms contra o GitHub até esgotar o rate limit. O boot agora aplica o mesmo clamp de 60 a 3600 segundos que o caminho HTTP (updateSettings) já aplicava.
 - **`searchPRs` avisa quando o resultado bate o teto de 100 do gh (B10).** O gh corta no `--limit 100` sem avisar e, com best-match como ordenação, um PR pedido a você pode ficar fora do radar em silêncio. Agora fica um WARN no log dizendo qual busca truncou, análogo ao sinal `capped` que as entregas já tinham.
 
+Onda 6 do plano de correção dos gaps lógicos (02/08/2026): robustez de sessão e spawn. Sem número de versão por decisão do plano; o corte da release consolida as ondas.
+
+**Correções**
+- **Acento não vira mais � na resposta da sessão (M4).** O stream da sessão headless decodificava cada chunk isolado, e um caractere multibyte cortado no limite de 64KB virava U+FFFD dentro do texto, inclusive em review postado. O stdout agora usa `setEncoding('utf8')`, que remonta o caractere entre chunks.
+- **Claude que morre no meio da sessão vira erro de verdade, nunca "sucesso" com NDJSON cru (M3).** Quando o processo saía com código != 0 antes do evento result (ex.: heap out of memory), o NDJSON parcial era parseado como envelope e virava "texto" no chat ou SyntaxError genérico no review. Agora exit != 0 sem result é erro com o código real e o stderr embutido, então a classificação de erro transitório do review e o retry de resume do chat enxergam a causa verdadeira.
+- **Processo morto antes de ler o prompt não derruba mais o engine (B4).** O stdin da sessão headless não tinha handler de error: um EPIPE assíncrono (prompt maior que o pipe, filho já morto) virava uncaughtException e matava o Farol inteiro. O erro agora é absorvido e a causa real da morte é reportada pelo close.
+- **Cancelar uma sessão perto do timeout não vira mais "tempo esgotado" (B3).** Se o timer de 30 minutos vencia na janela entre o seu cancelamento e o close do processo, ele sobrescrevia a flag e o cancelamento aparecia como falha por tempo. O timeout agora respeita cancelamento em andamento.
+- **No macOS, Terminal que não abre não deixa mais a sessão presa (M5).** O `open -a Terminal` saindo com código != 0 (permissão de automação negada, MDM) era ignorado: o pill ficava preso, as keys ficavam vistas pra sempre e o PR sumia da fila. Agora o exit != 0 desfaz o visto, remove a sessão, apaga o script órfão e avisa com toast. A mesma correção foi aplicada ao console de login de perfil do Claude, que tinha o mesmo buraco.
+- **Duas mensagens rápidas no mesmo chat não geram mais duas respostas concorrentes (B1).** A guarda do chat lia o status, dava await no refresh de token e só então marcava running: duas mensagens na mesma janela passavam as duas. A vez agora é reservada de forma síncrona, sem await no meio; a segunda mensagem é recusada com aviso.
+- **Clique duplo numa ferramenta não roda mais a sessão em dobro (B2).** Mesma corrida do chat no launchTool (kudos, diagnóstico): o segundo clique na janela do refresh de token disparava uma segunda sessão headless (custo em dobro, resultado sobrescrito). A marcação de running agora é síncrona e o segundo clique é recusado.
+
 ## v2.30.1
 
 Melhoria de UX: feedback visual unificado em todas as operações assíncronas.
