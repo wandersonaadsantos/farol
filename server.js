@@ -25,7 +25,7 @@ const { ACCOUNT_PALETTE } = require('./lib/taxonomy'); // resto da taxonomia é 
 const { parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople,
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
   sanitizeModel, sanitizeEffort } = require('./lib/parse');
-const { ensureDir, readJson, copyRecursive, detectGitBash, run, runShell } = require('./lib/io');
+const { ensureDir, readJson, writeJsonAtomic, copyRecursive, detectGitBash, run, runShell } = require('./lib/io');
 const updateMod = require('./lib/engine/update');
 const chatMod = require('./lib/engine/chat');
 const toolsMod = require('./lib/engine/tools');
@@ -226,7 +226,7 @@ class Engine extends EventEmitter {
     const inflight = readJson(INFLIGHT_FILE, [], (m) => this.log('WARN', m));
     if (!Array.isArray(inflight) || !inflight.length) return;
     for (const pr of inflight) { if (pr && pr.key) this.unsee(pr.key); }
-    try { fs.writeFileSync(INFLIGHT_FILE, '[]'); } catch { }
+    try { writeJsonAtomic(INFLIGHT_FILE, []); } catch { }
     this.log('WARN', `app reiniciado com revisão em andamento: ${inflight.map(p => p.key).join(', ')} devolvido(s) à fila`);
   }
 
@@ -236,7 +236,7 @@ class Engine extends EventEmitter {
         .filter(s => s.mode === 'auto' && s.pr)
         .map(s => s.pr)
         .concat(this.headlessQueue.filter(p => p.kind !== 'self').map(p => ({ key: p.key, url: p.url, title: p.title })));
-      fs.writeFileSync(INFLIGHT_FILE, JSON.stringify(list));
+      writeJsonAtomic(INFLIGHT_FILE, list);
     } catch { /* melhor perder a recuperação que derrubar a revisão */ }
   }
 
@@ -316,7 +316,7 @@ class Engine extends EventEmitter {
 
   saveConfig() {
     ensureDir(HOME);
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(this.config, null, 2));
+    writeJsonAtomic(CONFIG_FILE, this.config);
   }
 
   // --- log: so falhas, sem ruido (mesmo contrato do tool antigo) ---

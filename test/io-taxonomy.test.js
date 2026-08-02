@@ -14,7 +14,7 @@ process.env.FAROL_HOME = FAROL_HOME;
 
 const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { ensureDir, readJson, copyRecursive, detectGitBash, run, runShell } = require('../lib/io');
+const { ensureDir, readJson, writeJsonAtomic, copyRecursive, detectGitBash, run, runShell } = require('../lib/io');
 const { IS_WIN } = require('../lib/paths');
 const tax = require('../lib/taxonomy');
 
@@ -82,6 +82,20 @@ test('readJson lê o conteúdo quando está válido', () => {
   const arq = path.join(TMP, 'bom.json');
   fs.writeFileSync(arq, JSON.stringify({ a: 1, b: [2, 3] }));
   assert.deepEqual(readJson(arq, null), { a: 1, b: [2, 3] });
+});
+
+/* ---------- io: writeJsonAtomic ---------- */
+
+test('writeJsonAtomic grava, sobrescreve destino existente e não deixa .tmp', () => {
+  // tmp + rename no MESMO diretório: queda de energia deixa o arquivo antigo OU o
+  // novo, nunca um truncado. Sobrescrever destino existente é o caso Windows crítico.
+  ensureDir(TMP);
+  const arq = path.join(TMP, 'atomico.json');
+  writeJsonAtomic(arq, { a: 1 });
+  assert.deepEqual(readJson(arq, null), { a: 1 });
+  writeJsonAtomic(arq, { a: 2 });
+  assert.deepEqual(readJson(arq, null), { a: 2 }, 'rename por cima de existente tem que valer nos dois SOs');
+  assert.equal(fs.existsSync(arq + '.tmp'), false, 'o .tmp não pode sobrar');
 });
 
 /* ---------- io: copyRecursive ---------- */
