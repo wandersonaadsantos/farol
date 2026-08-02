@@ -54,3 +54,20 @@ test('Engine delega para o colaborador (fachada fina, mesmo comportamento)', () 
   assert.ok(engine.cmpVersion('1.1.0', '1.0.0') > 0, 'delegação de cmpVersion');
   assert.equal(engine.resolveUpdateSource(), null, 'config default não tem updateSource');
 });
+
+test('buildUpdateLaunchCommand: caminho com espaço sai citado no -File (M14)', () => {
+  // PS 5.1: Start-Process junta o -ArgumentList com espaço SEM citar cada item.
+  // Perfil "C:\Users\Nome Sobrenome" partia o -File em dois argumentos e o
+  // installer morria numa janela oculta DEPOIS do ok:true e do toast de sucesso.
+  const script = 'C:\\Users\\Nome Sobrenome\\.farol\\sessions\\update-1.ps1';
+  const cmd = update.buildUpdateLaunchCommand(script);
+  assert.ok(cmd.startsWith('Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '),
+    'forma geral do comando preservada');
+  assert.ok(cmd.endsWith(`'-File','"` + script + `"'`),
+    'aspas duplas embutidas sobrevivem à junção do -ArgumentList e chegam inteiras no filho');
+});
+
+test('buildUpdateLaunchCommand: apóstrofo no caminho é dobrado (string single-quoted do PS)', () => {
+  const cmd = update.buildUpdateLaunchCommand("C:\\Users\\O'Brien\\.farol\\sessions\\update-2.ps1");
+  assert.ok(cmd.includes("O''Brien"), 'apóstrofo dobrado, a string do -Command não quebra');
+});
