@@ -16,6 +16,7 @@ let engine = null;
 let appUrl = null;
 let quitting = false;
 let hideHintShown = false;
+let attachedToExisting = false; // porta ocupada: esta janela é só um VISOR da instância que já roda
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -28,7 +29,9 @@ if (!gotLock) {
   app.whenReady().then(() => {
     const { engine: eng } = farol.start((url, err) => {
       if (err) {
-        // porta ocupada: provavelmente ja existe um Farol rodando em modo servidor
+        // porta ocupada: provavelmente ja existe um Farol rodando em modo servidor.
+        // O engine local NÃO monitora (ver start no server.js); esta janela vira visor.
+        attachedToExisting = true;
         appUrl = `http://127.0.0.1:${eng.config.port}`;
       } else {
         appUrl = url;
@@ -128,7 +131,7 @@ function createTray() {
   tray.setToolTip('Farol · radar de Pull Requests');
   const menu = Menu.buildFromTemplate([
     { label: 'Abrir o Farol', click: showWindow },
-    { label: 'Verificar agora', click: () => engine && engine.checkNow() },
+    { label: 'Verificar agora', click: () => engine && !attachedToExisting && engine.checkNow() },
     { type: 'separator' },
     { label: 'Sair', click: () => { quitting = true; app.quit(); } }
   ]);

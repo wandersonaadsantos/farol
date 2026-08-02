@@ -1108,9 +1108,16 @@ class Engine extends EventEmitter {
 
 function start(onReady) {
   const engine = new Engine();
-  const server = startServer(engine, onReady);
-  engine.schedule();
-  engine.start();
+  let began = false;
+  const server = startServer(engine, (url, err) => {
+    // O listen na porta é o lock de instância única (vale também no modo
+    // `node server.js`, sem Electron). Com a porta ocupada já existe um Farol
+    // usando este ~/.farol: um segundo engine com polling próprio revisaria PR
+    // em dobro e escreveria seen/inflight/usage sem lock (A7). Por isso o
+    // monitoramento só começa DEPOIS do listen dar certo.
+    if (!err && !began) { began = true; engine.schedule(); engine.start(); }
+    if (onReady) onReady(url, err);
+  });
   return { engine, server, port: engine.config.port };
 }
 
