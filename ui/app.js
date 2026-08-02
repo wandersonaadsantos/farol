@@ -1324,7 +1324,7 @@ function renderDeliveries() {
   const note = $('#delivNote');
   const msgs = [];
   if (data.partial) msgs.push('Algumas buscas ao GitHub falharam; a lista pode estar incompleta (veja o log em Sistema).');
-  if (data.capped) msgs.push('Alguma organização tem mais de 100 entregas no período; mostrando as 100 mais recentes.');
+  if (data.capped) msgs.push(delivCappedMsg(data.limit));
   note.hidden = !msgs.length;
   note.textContent = msgs.join(' ');
   const box = $('#deliveries');

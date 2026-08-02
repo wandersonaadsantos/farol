@@ -136,6 +136,15 @@ function accountSaveArray(list) {
   });
 }
 
+// aviso de teto da aba Entregas: o gh search corta em DELIVERIES_LIMIT por org e o
+// server manda o limite no payload (fonte única do número; a mensagem antiga
+// afirmava 100 com o teto real em 1000). Fallback 1000 cobre payload em cache
+// gravado antes do campo existir.
+function delivCappedMsg(limit) {
+  const n = Number(limit) || 1000;
+  return `Alguma organização tem mais de ${n} entregas no período; mostrando as ${n} mais recentes.`;
+}
+
 function delivGroupCard(head, count, bodyHtml) {
   return `<div class="card deliv-card">
     <details>
@@ -369,7 +378,7 @@ function deliveriesByAuthor(items) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     esc, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
-    sameSet, diffVs, lastMerge, groupBy, usageMetricVal, accountSaveArray, delivGroupCard, fmtRel,
+    sameSet, diffVs, lastMerge, groupBy, usageMetricVal, accountSaveArray, delivGroupCard, delivCappedMsg, fmtRel,
     usageDayKeysBack, localDayKey, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
     deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
     opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible, expiredSessionMarks

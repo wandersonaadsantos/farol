@@ -359,6 +359,14 @@ test('deliveriesByAuthor nomeia quem não tem autor', () => {
     /\(desconhecido\)/);
 });
 
+test('delivCappedMsg fala o limite REAL vindo do server, nunca o 100 antigo', () => {
+  // DELIVERIES_LIMIT = 1000 (lib/paths.js); a mensagem afirmava 100, fator de 10
+  assert.match(P.delivCappedMsg(1000), /mais de 1000 entregas/);
+  assert.match(P.delivCappedMsg(1000), /1000 mais recentes/);
+  assert.doesNotMatch(P.delivCappedMsg(1000), /\b100\b/);
+  assert.match(P.delivCappedMsg(undefined), /1000/, 'payload em cache sem limit cai no valor real atual');
+});
+
 /* ---------- helpers menores ---------- */
 
 test('ownerFromUrl extrai a org da URL de PR', () => {
