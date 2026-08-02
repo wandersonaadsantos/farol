@@ -71,3 +71,17 @@ test('erro de checagem nao trava o widget sys-polling pra sempre (B11)', () => {
   assert.match(fn[0], /status !== 'running'/,
     'op terminal e purgada no comeco do ciclo seguinte, senao o has() barra o novo widget');
 });
+
+/* ---------- corrida de respostas na aba Entregas (M19) ---------- */
+
+test('loadDeliveries descarta resposta velha por token de requisicao (M19)', () => {
+  const fn = APPJS.match(/async function loadDeliveries\([\s\S]*?\n\}/);
+  assert.ok(fn, 'loadDeliveries existe');
+  assert.match(fn[0], /const rid = \+\+deliveriesReqSeq/, 'cada carga pega um token novo');
+  assert.match(fn[0], /if \(rid !== deliveriesReqSeq\) return/,
+    'resposta de carga superada nao pinta a tela (padrao da guarda do openChat)');
+  const posGuarda = fn[0].indexOf('rid !== deliveriesReqSeq');
+  const posClose = fn[0].indexOf('closeOp(');
+  assert.ok(posGuarda !== -1 && posGuarda < posClose,
+    'a guarda vem ANTES do closeOp: resposta velha nao encerra a op da carga nova');
+});

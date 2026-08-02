@@ -1268,6 +1268,9 @@ let deliveriesDays = parseInt(localStorage.getItem('farol-deliv-days'), 10);
 if (![0, 7, 15, 30].includes(deliveriesDays)) deliveriesDays = 7;
 let deliveriesBy = localStorage.getItem('farol-deliv-by') === 'author' ? 'author' : 'repo';
 let deliveriesOrg = localStorage.getItem('farol-deliv-org') || ''; // '' = ainda não resolvido → cai na principal
+// token de requisição: trocar org/período dispara cargas concorrentes e a resposta
+// VELHA não pode vencer a nova (mesma guarda que o openChat faz por chave)
+let deliveriesReqSeq = 0;
 
 // org principal (default da visão): 1º owner da 1ª conta, senão o legado config.owners
 function primaryOrg() {
@@ -1300,7 +1303,11 @@ async function loadDeliveries() {
   box.innerHTML = '<div class="empty">Carregando entregas…</div>';
   const opId = 'load-deliveries';
   showOp(opId, { type: 'data', title: 'Carregando entregas', inline: true, container: box });
+  const rid = ++deliveriesReqSeq;
   const data = await get('/api/deliveries?days=' + deliveriesDays + '&owner=' + encodeURIComponent(deliveriesOrg || ''));
+  // outra carga começou depois desta: a resposta é velha e não pinta nada (a op
+  // 'load-deliveries' já é da carga nova, que fará o próprio closeOp)
+  if (rid !== deliveriesReqSeq) return;
   deliveriesData = data || { items: [] };
   closeOp(opId, 'done');
   renderDeliveries();
