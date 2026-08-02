@@ -178,6 +178,28 @@ function feedLine(it) {
   return `<div class="feed-line k-${esc(it.k)}"><span class="feed-t">${fmtClock(it.t)}</span><span class="feed-i">${icon}</span><span class="feed-x">${esc(it.text)}</span></div>`;
 }
 
+/* ---------- ops de autoanálise: decisão de fechamento ----------
+   A UI cria um widget por análise lançada (opId 'analysis-<key>'), mas quem sabe o FIM
+   é o snapshot do SSE: a análise some de activeSessions (mode self) e de
+   headlessWaiting quando termina. Protocolo seen/close por causa da corrida: um state
+   emitido antes do servidor enfileirar pode chegar depois do clique, e sem o `seen` o
+   widget recém-nascido fecharia como "concluído". headlessWaiting também carrega keys
+   de revisão normal, sem colisão na prática (o GitHub não pede review pro autor). */
+function analysisOpsPlan(ops, snap) {
+  snap = snap || {};
+  const presentes = new Set();
+  for (const s of (snap.activeSessions || [])) {
+    if (s && s.mode === 'self') for (const k of (s.keys || [])) presentes.add(k);
+  }
+  for (const k of (snap.headlessWaiting || [])) presentes.add(k);
+  const markSeen = [], close = [];
+  for (const op of (ops || [])) {
+    if (presentes.has(op.key)) { if (!op.seen) markSeen.push(op.id); }
+    else if (op.seen) close.push(op.id);
+  }
+  return { markSeen, close };
+}
+
 function delivPrRow(it) {
   return `<div class="row">
     <span class="ref"><a href="${esc(it.url)}" target="_blank" rel="noreferrer">${esc(it.key)}</a></span>
@@ -235,7 +257,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     esc, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
     sameSet, diffVs, lastMerge, groupBy, usageMetricVal, accountSaveArray, delivGroupCard, fmtRel,
-    usageDayKeysBack, avatar, md, feedLine, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
+    usageDayKeysBack, avatar, md, feedLine, analysisOpsPlan, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
     deliveriesByRepo, deliveriesByAuthor
   };
 }

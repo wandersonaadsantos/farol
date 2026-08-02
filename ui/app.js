@@ -118,6 +118,8 @@ function showOp(opId, opts) {
     startTime: Date.now(),
     cancellable: opts.cancellable || false,
     cancel: opts.cancel || null,   // { path, body }: o POST real que o botão Cancelar dispara
+    key: opts.key || '',           // key do PR (ops de autoanálise): liga o op ao snapshot
+    seen: false,                   // o key já apareceu num snapshot? (guarda da corrida SSE)
     container: opts.container || document.body,
     inline: opts.inline || false
   };
@@ -226,6 +228,28 @@ document.addEventListener('click', async (e) => {
     }
   }
 });
+
+/* ciclo de vida dos widgets de autoanálise: o FIM vem do snapshot (SSE), não de um
+   response. Reanexa o elemento (o innerHTML de #myPRs destrói os filhos a cada
+   re-render) e fecha quando a análise some do estado (analysisOpsPlan, pura, testada). */
+function syncAnalysisOps() {
+  const ops = [...ACTIVE_OPS.values()].filter(o => o.type === 'analysis');
+  if (!ops.length) return;
+  for (const op of ops) {
+    if (op.element && !op.element.isConnected) {
+      const card = document.querySelector(`.mypr-card[data-key="${CSS.escape(op.key)}"]`);
+      if (card) card.appendChild(op.element);
+    }
+  }
+  const plan = analysisOpsPlan(ops.map(o => ({ id: o.id, key: o.key, seen: !!o.seen })), STATE || {});
+  for (const id of plan.markSeen) { const op = ACTIVE_OPS.get(id); if (op) op.seen = true; }
+  for (const id of plan.close) {
+    const op = ACTIVE_OPS.get(id);
+    if (!op) continue;
+    if (op.status === 'running') closeOp(id, 'done', 'Análise concluída');
+    else { if (op.element) op.element.remove(); ACTIVE_OPS.delete(id); }  // cancelado/erro: só limpa
+  }
+}
 
 /* ---------- camada de contas (separação por identidade) ---------- */
 let SCOPE = localStorage.getItem('farol-scope') || 'all';   // 'all' ou o login de uma conta
@@ -1936,6 +1960,7 @@ $('#myPRs').addEventListener('click', (e) => {
     showOp(opId, {
       type: 'analysis',
       title: `Analisando ${prKey}`,
+      key: prKey,
       cancellable: true,
       cancel: { path: '/api/self-review/cancel', body: { key: prKey } },
       container: run.closest('.mypr-card') || run.parentElement
@@ -2966,6 +2991,7 @@ function connect() {
     renderStatus(); renderAccountBar(); renderIdentity();
     renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSilenced();
     renderRadarNav();
+    syncAnalysisOps();
     renderSettings(); renderTools(); renderUpdate(); tickCountdown();
     if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); }
     if ($('#tab-consumo').classList.contains('active')) renderUsage();

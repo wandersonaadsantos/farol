@@ -374,3 +374,44 @@ test('prKeyFromUrl devolve vazio pra entrada que não é URL de PR', () => {
   assert.equal(P.prKeyFromUrl(''), '');
   assert.equal(P.prKeyFromUrl(null), '');
 });
+
+/* ---------- analysisOpsPlan: ciclo de vida do widget de autoanálise ---------- */
+
+test('analysisOpsPlan marca seen quando o key aparece rodando ou na fila', () => {
+  const snap = { activeSessions: [{ mode: 'self', keys: ['a/b#1'] }], headlessWaiting: ['c/d#2'] };
+  const plan = P.analysisOpsPlan([
+    { id: 'analysis-a/b#1', key: 'a/b#1', seen: false },
+    { id: 'analysis-c/d#2', key: 'c/d#2', seen: false }
+  ], snap);
+  assert.deepEqual(plan.markSeen.sort(), ['analysis-a/b#1', 'analysis-c/d#2']);
+  assert.deepEqual(plan.close, []);
+});
+
+test('analysisOpsPlan fecha só o op que JÁ foi visto e sumiu do snapshot', () => {
+  const plan = P.analysisOpsPlan([
+    { id: 'analysis-a/b#1', key: 'a/b#1', seen: true }
+  ], { activeSessions: [], headlessWaiting: [] });
+  assert.deepEqual(plan.close, ['analysis-a/b#1']);
+});
+
+test('analysisOpsPlan NÃO fecha o op recém-criado que um snapshot atrasado ainda não conhece', () => {
+  // a corrida real: clique -> showOp -> chega um state emitido ANTES do servidor
+  // enfileirar; sem o protocolo seen, o widget fecharia "concluído" ao nascer
+  const plan = P.analysisOpsPlan([
+    { id: 'analysis-a/b#1', key: 'a/b#1', seen: false }
+  ], { activeSessions: [], headlessWaiting: [] });
+  assert.deepEqual(plan.close, []);
+  assert.deepEqual(plan.markSeen, []);
+});
+
+test('analysisOpsPlan ignora sessão de outro modo com o mesmo key', () => {
+  const plan = P.analysisOpsPlan([
+    { id: 'analysis-a/b#1', key: 'a/b#1', seen: true }
+  ], { activeSessions: [{ mode: 'auto', keys: ['a/b#1'] }], headlessWaiting: [] });
+  assert.deepEqual(plan.close, ['analysis-a/b#1'], 'mode auto não segura o widget de autoanálise');
+});
+
+test('analysisOpsPlan aguenta snapshot e lista vazios sem lançar', () => {
+  assert.deepEqual(P.analysisOpsPlan([], {}), { markSeen: [], close: [] });
+  assert.deepEqual(P.analysisOpsPlan(null, null), { markSeen: [], close: [] });
+});
