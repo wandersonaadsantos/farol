@@ -80,6 +80,32 @@ test('casos de borda não explodem', () => {
   assert.equal(raiz.flatMap(l => l.files).length, 3, 'e não perde arquivo');
 });
 
+test('todos os arquivos no MESMO diretório: fatia por arquivo em vez de degradar calado (M12)', () => {
+  // 30 arquivos, 3000 linhas, tudo em src/components: o agrupamento por prefixo
+  // devolvia UM lote e o chamador (planejados.length >= 2) descartava o fan-out
+  const files = Array.from({ length: 30 }, (_, i) => f(`src/components/c${String(i).padStart(2, '0')}.ts`, 100));
+  const lotes = fanout.planLotes(files);
+  assert.ok(lotes.length >= 2, `mesmo prefixo único tem que fatiar: veio ${lotes.length} lote(s)`);
+  assert.ok(lotes.length <= fanout.MAX_LOTES, 'sem passar do teto');
+  const todos = lotes.flatMap(l => l.files);
+  assert.equal(todos.length, new Set(todos).size, 'nenhum arquivo em dois lotes');
+  assert.deepEqual([...todos].sort(), files.map(x => x.path).sort(), 'a união é o diff inteiro');
+  const maior = Math.max(...lotes.map(l => l.lines)), menor = Math.min(...lotes.map(l => l.lines));
+  assert.ok(maior - menor <= 200, `lotes equilibrados por linhas (maior ${maior}, menor ${menor})`);
+});
+
+test('fallback por arquivo é determinístico e rotula as partes', () => {
+  const files = Array.from({ length: 8 }, (_, i) => f(`src/only/f${i}.ts`, 150 + i));
+  assert.deepEqual(fanout.planLotes(files), fanout.planLotes(files));
+  for (const l of fanout.planLotes(files)) {
+    assert.match(l.escopo, /src\/only \(parte \d\)/, 'cada lote diz que é uma parte do mesmo diretório');
+  }
+});
+
+test('um arquivo só continua devolvendo um lote (fallback não fatia o infatiável)', () => {
+  assert.equal(fanout.planLotes([f('src/only/unico.ts', 5000)]).length, 1);
+});
+
 /* ---------- bloco de prompt ---------- */
 
 test('o bloco do prompt manda paralelizar, declarar cobertura e consolidar uma vez', () => {
