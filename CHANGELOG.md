@@ -9,6 +9,11 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.32.2
+
+**Correções**
+- **Conexões e Plano e chaves ainda tinham espaço vazio, mesmo depois da v2.32.1.** O fix anterior só encolheu o card; faltava fazer o conteúdo usar a largura de verdade, do jeito que Preferências já fazia (linha cheia, texto à esquerda, controle ancorado à direita). Conexões virou `.set-list`/`.set-row` (mesmo padrão de Automação e Preferências); o campo "Perfil padrão do Farol" em Plano e chaves ganhou o mesmo tratamento. Reviewers não muda (segue precisando da largura total pros chips).
+
 ## v2.32.1
 
 **Correções**

@@ -428,21 +428,27 @@
         <div class="sys-section" id="sys-connections" role="tabpanel" aria-labelledby="sysbtn-connections" tabindex="0">
           <div class="section-head"><h2>Conexões</h2></div>
           <p class="section-desc">Conta do GitHub, organizações monitoradas e onde o botão Merge fica bloqueado.</p>
-          <div class="settings card">
-            <div class="field" id="sys-row-ghuser">
-              <label for="setUser">Conta do GitHub (trabalho)</label>
-              <input id="setUser" type="text" spellcheck="false">
-              <small id="setUserHint">Conta primária (modo simples, uma conta), usada pra buscar e postar reviews via <code>gh auth token</code>. Pra monitorar mais de uma conta, use o painel <b>Contas</b>.</small>
+          <div class="card set-list">
+            <div class="set-row" id="sys-row-ghuser">
+              <div class="set-txt">
+                <label class="set-title" for="setUser">Conta do GitHub (trabalho)</label>
+                <span class="set-desc" id="setUserHint">Conta primária (modo simples, uma conta), usada pra buscar e postar reviews via <code>gh auth token</code>. Pra monitorar mais de uma conta, use o painel <b>Contas</b>.</span>
+              </div>
+              <div class="set-ctl"><input id="setUser" type="text" spellcheck="false"></div>
             </div>
-            <div class="field" id="sys-row-orgs">
-              <label for="setOwners">Organizações monitoradas</label>
-              <input id="setOwners" type="text" spellcheck="false" placeholder="biudtech, outra-org">
-              <small>O panorama mostra todos os PRs abertos delas; o alerta é só onde você é revisor.</small>
+            <div class="set-row" id="sys-row-orgs">
+              <div class="set-txt">
+                <label class="set-title" for="setOwners">Organizações monitoradas</label>
+                <span class="set-desc">O panorama mostra todos os PRs abertos delas; o alerta é só onde você é revisor.</span>
+              </div>
+              <div class="set-ctl"><input id="setOwners" type="text" spellcheck="false" placeholder="biudtech, outra-org"></div>
             </div>
-            <div class="field" id="sys-row-mergeblocked">
-              <label for="setMergeBlocked">Repos bloqueados pra merge</label>
-              <input id="setMergeBlocked" type="text" spellcheck="false" placeholder="biudtech/biud-frontend">
-              <small>Nesses repos o botão Merge (em Meus PRs) fica desativado, respeitando as regras de review do time. Separe por vírgula.</small>
+            <div class="set-row" id="sys-row-mergeblocked">
+              <div class="set-txt">
+                <label class="set-title" for="setMergeBlocked">Repos bloqueados pra merge</label>
+                <span class="set-desc">Nesses repos o botão Merge (em Meus PRs) fica desativado, respeitando as regras de review do time. Separe por vírgula.</span>
+              </div>
+              <div class="set-ctl"><input id="setMergeBlocked" type="text" spellcheck="false" placeholder="biudtech/biud-frontend"></div>
             </div>
           </div>
         </div>

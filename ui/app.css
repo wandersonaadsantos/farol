@@ -493,6 +493,7 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 /* border-top no irmão, e não border-bottom + :last-child: linha escondida por JS
    (#rowAutostart no macOS) não deixa divisória órfã pendurada. */
 .set-row + .set-row { border-top: 1px solid var(--border-soft); }
+.card.set-row { padding: 14px 16px; }
 label.set-row { cursor: pointer; }
 .set-txt { min-width: 0; max-width: 580px; }
 .set-title { display: block; font-size: 13.5px; font-weight: 600; }
@@ -501,6 +502,9 @@ label.set-row { cursor: pointer; }
 .set-ctl select { max-width: 290px; padding: 6px 10px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; font: inherit; font-size: 12.5px; cursor: pointer; transition: border-color .15s ease; }
 .set-ctl select:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
 .set-ctl select:focus { outline: none; border-color: var(--accent); }
+.set-ctl input[type="text"] { width: 280px; padding: 6px 10px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; font: inherit; font-size: 12.5px; }
+.set-ctl input[type="text"]:focus { outline: none; border-color: var(--accent); }
+@media (max-width: 620px) { .set-ctl input[type="text"] { width: 100%; } }
 /* o checkbox real fica invisível; quem se vê é o .switch IRMÃO IMEDIATO dele */
 .set-row input[type="checkbox"] { position: absolute; opacity: 0; }
 .set-ctl .switch { margin-top: 2px; }
@@ -603,10 +607,11 @@ label.set-row { cursor: pointer; }
 
 /* ---------- settings ---------- */
 .settings { display: flex; flex-direction: column; gap: var(--sp-4); padding: 16px var(--sp-4); }
-/* Conexões e Plano e chaves só têm campo estreito (label + input de 420px): sem isso
-   o card fica largo igual ao Reviewers (que precisa da largura pros chips) e sobra
-   uma faixa vazia à direita. Reviewers não é afetado (id próprio, sem esta regra). */
-#sys-connections .settings, #sys-plans .settings { max-width: 640px; }
+/* Conexões virou .set-list (linha cheia, controle à direita); Plano e chaves ainda
+   usa .settings só pro texto de apoio (as linhas de verdade são .set-row, abaixo).
+   Sem isso o card fica largo igual ao Reviewers (que precisa da largura pros chips)
+   e sobra uma faixa vazia à direita. Reviewers não é afetado (id próprio). */
+#sys-plans .settings { max-width: 640px; }
 .field label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 5px; }
 /* o <small> herdava display:inline e escorria pro lado do input de 420px, espremido
    nos ~240px que sobravam. Como bloco, ele cai abaixo do campo, que é o lugar dele. */
