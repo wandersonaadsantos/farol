@@ -489,6 +489,10 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
    entre linhas. Antes era um flex com gap:16px e nada separando, que é o que deixava
    tudo colado. */
 .set-list { padding: var(--sp-1) var(--sp-4); }
+/* SEM flex-wrap de propósito: a quebra do flex usa a largura HIPOTÉTICA do item (aqui
+   o max-width de 580px do texto), não a encolhida, então `wrap` joga o controle pra
+   segunda linha mesmo sobrando espaço. Sem wrap, o texto encolhe e o controle fica
+   ancorado à direita, que é o desenho destas telas. */
 .set-row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-4); padding: 15px 0; }
 /* border-top no irmão, e não border-bottom + :last-child: linha escondida por JS
    (#rowAutostart no macOS) não deixa divisória órfã pendurada. */
@@ -584,6 +588,22 @@ label.set-row { cursor: pointer; }
 .acct-card .a-pol-item select:hover { border-color: var(--ac); }
 .acct-card .a-pol-item select:focus { outline: none; border-color: var(--ac); }
 
+/* nome e diretório de um perfil de assinatura. Herdavam o estilo de `.field input`
+   por acidente, de um `.field` que envolvia o manager inteiro; esse mesmo `.field`
+   aplicava width:100% no select da linha "Perfil padrão" e esmagava o texto dela.
+   Tirado o `.field`, o estilo dos dois inputs passa a ser declarado aqui. */
+.cp-label, .cp-dir {
+  width: 100%; max-width: 420px;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 11px; font: inherit;
+}
+.cp-label:focus, .cp-dir:focus { outline: none; border-color: var(--accent); }
+/* texto de apoio no PÉ de uma seção (o .section-desc padrão fica no topo, e por isso
+   tem margem negativa em cima e espaço embaixo). NÃO confundir com `.sys-foot`, que é
+   o rodapé da barra lateral do Sistema. */
+.section-note { margin: var(--sp-3) 0 0; }
+
 /* selo da assinatura do Claude em uso (emitido por claudeAuthBadge): aparece em
    Plano e chaves, num perfil, e em Contas, no override por conta. Estava sendo
    emitido pelo JS sem nenhuma regra aqui, então saía como texto solto. */
@@ -607,11 +627,9 @@ label.set-row { cursor: pointer; }
 
 /* ---------- settings ---------- */
 .settings { display: flex; flex-direction: column; gap: var(--sp-4); padding: 16px var(--sp-4); }
-/* Conexões virou .set-list (linha cheia, controle à direita); Plano e chaves ainda
-   usa .settings só pro texto de apoio (as linhas de verdade são .set-row, abaixo).
-   Sem isso o card fica largo igual ao Reviewers (que precisa da largura pros chips)
-   e sobra uma faixa vazia à direita. Reviewers não é afetado (id próprio). */
-#sys-plans .settings { max-width: 640px; }
+/* Conexões e Plano e chaves usam o mesmo padrão de Contas/Automação/Preferências
+   (linha cheia, texto à esquerda, controle à direita), sem .settings nem .field em
+   volta. Reviewers segue com .settings, porque os chips precisam da largura toda. */
 .field label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 5px; }
 /* o <small> herdava display:inline e escorria pro lado do input de 420px, espremido
    nos ~240px que sobravam. Como bloco, ele cai abaixo do campo, que é o lugar dele. */

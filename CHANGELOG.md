@@ -9,6 +9,12 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.32.3
+
+**Correções**
+- **Linha "Perfil padrão do Farol" saía esmagada, com uma palavra por linha (bug que a v2.32.2 introduziu).** O manager de perfis morava dentro de um `.field`, e a regra `.field select` (mesma especificidade da `.set-ctl select`, declarada depois no arquivo, portanto vencedora) forçava `width: 100%` no seletor da linha. O controle comia a coluna de texto até sobrar uma palavra por linha. Plano e chaves passou a usar o mesmo formato de Contas (sem `.field` e sem `.settings` em volta), então o seletor volta a ter a largura do próprio conteúdo. O estilo dos campos de nome e diretório do perfil, que vinha de carona do `.field`, agora é declarado explicitamente.
+- **Plano e chaves ocupava largura diferente das outras telas do Sistema.** Tinha um teto de 640px que Contas, Automação e Preferências não têm; removido, e a nota de apoio foi pro pé da seção. As quatro telas foram medidas em 900, 1150 e 1280px: mesma largura de card, controle ancorado à direita e texto em uma linha nas quatro.
+
 ## v2.32.2
 
 **Correções**

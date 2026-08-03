@@ -457,13 +457,8 @@
         <div class="sys-section" id="sys-plans" role="tabpanel" aria-labelledby="sysbtn-plans" tabindex="0">
           <div class="section-head"><h2>Plano e chaves</h2></div>
           <p class="section-desc">A assinatura do Claude que paga as revisões. Um perfil por assinatura, e cada conta do GitHub pode usar um perfil diferente.</p>
-          <div class="settings card">
-            <div class="field">
-              <label>Perfis de assinatura do Claude</label>
-              <div id="claudeProfilesManager" class="cards"></div>
-              <small>Cada perfil aponta pra um diretório de config próprio. Faça <code>claude login</code> nesse diretório uma vez, FORA do Farol (ex.: <code>$env:CLAUDE_CONFIG_DIR="C:\caminho"; claude login</code>), antes de usá-lo aqui. O perfil padrão vale pra toda conta do GitHub que não tiver um perfil próprio (dropdown na conta, seção Contas). Sem nenhum perfil salvo, o Farol usa o login padrão da máquina.</small>
-            </div>
-          </div>
+          <div id="claudeProfilesManager" class="cards"></div>
+          <p class="section-desc section-note">Cada perfil aponta pra um diretório de config próprio. Faça <code>claude login</code> nesse diretório uma vez, FORA do Farol (ex.: <code>$env:CLAUDE_CONFIG_DIR="C:\caminho"; claude login</code>), antes de usá-lo aqui. O perfil padrão vale pra toda conta do GitHub que não tiver um perfil próprio (dropdown na conta, seção Contas). Sem nenhum perfil salvo, o Farol usa o login padrão da máquina.</p>
         </div>
 
         <!-- Reviewers -->
