@@ -2381,6 +2381,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.32.4', ['PR que você resolveu pelo chat continuava aparecendo em "Precisa de você". O review ia pro GitHub, mas o card só saía se você clicasse num dos botões dele; agora o Farol confronta a pendência com os reviews que já são seus no PR e fecha sozinho, na hora ao fim da conversa e no ciclo de checagem pros reviews postados fora do app. Só fecha com review seu postado depois da análise, então re-request continua caindo na sua mesa, e nada desaparece quando não dá pra confirmar.']],
   ['2.32.3', ['A linha "Perfil padrão do Farol" saía esmagada, com uma palavra por linha (bug que a v2.32.2 introduziu): o seletor forçava largura total e comia a coluna de texto.', 'Plano e chaves passou a ocupar a mesma largura das outras telas do Sistema, no formato de Contas. Medido em 900, 1150 e 1280px nas quatro telas.']],
   ['2.32.2', ['Conexões e Plano e chaves ainda tinham espaço vazio à direita mesmo depois da v2.32.1. Agora usam o mesmo padrão de Preferências/Automação: linha cheia, texto à esquerda, controle ancorado à direita.']],
   ['2.32.1', ['Espaço vazio à direita nos cards de Conexões e Plano e chaves: mesma causa da v2.32.0 (card mais largo que o conteúdo), corrigida só nesses dois; Reviewers segue de largura total.', 'Novidades: a rolagem automática virou um botão "Ver mais", clicado por você em vez de carregar sozinho.']],

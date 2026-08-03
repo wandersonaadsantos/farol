@@ -674,6 +674,10 @@ class Engine extends EventEmitter {
       try { await this.refreshMergeStates(); } catch (e) { this.log('WARN', `refreshMergeStates: ${e.message}`); }
       // stale: PRs que EU revisei e receberam commit novo depois (reativa o "Re-revisar")
       try { await this.refreshStaleStates(); } catch (e) { this.log('WARN', `refreshStaleStates: ${e.message}`); }
+      // pendência já atendida por fora (review postado pelo chat, pela web do GitHub ou
+      // por gh na mão): tira o card de "Precisa de você", que antes ficava preso pra
+      // sempre porque só o clique no botão esvaziava decisions.pending
+      try { await this.reconcilePending(); } catch (e) { this.log('WARN', `reconcilePending: ${e.message}`); }
       // pushback automático: contestação do autor a um review meu (fire-and-forget:
       // roda em background pra não segurar a checagem, com guarda anti-concorrência)
       this.scanPushbacks().catch(e => this.log('WARN', `scanPushbacks: ${e.message}`));
@@ -847,7 +851,9 @@ class Engine extends EventEmitter {
   resolveIntoHistory(item) { return decisionMod.resolveIntoHistory(this, item); }
   reviewActions() { return decisionMod.reviewActions(this); }
   saveDecisions() { return decisionMod.saveDecisions(this); }
+  async myReviewsWithTime(pr) { return decisionMod.myReviewsWithTime(this, pr); }
   async myReviewStates(pr) { return decisionMod.myReviewStates(this, pr); }
+  async reconcilePending(keys) { return decisionMod.reconcilePending(this, keys); }
   shouldAutoApprove(pr, result) { return decisionMod.shouldAutoApprove(this, pr, result); }
   shouldAutoReject(pr, result) { return decisionMod.shouldAutoReject(this, pr, result); }
   rejectBodyWithMark(body) { return decisionMod.rejectBodyWithMark(this, body); }

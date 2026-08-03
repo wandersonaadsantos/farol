@@ -9,6 +9,11 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.32.4
+
+**Correções**
+- **PR resolvido pelo chat continuava aparecendo em "Precisa de você".** Quando você pedia no chat do PR pra aprovar (ou pedir mudanças, ou comentar) e o review ia pro GitHub por ali, o card não saía da seção: o Farol só esvaziava a pendência quando você clicava num dos botões do card. Valia pro mesmo caso vindo de qualquer lugar de fora (review postado na web do GitHub ou por `gh` na mão). Agora o Farol confronta cada pendência com os reviews que já são seus no PR e fecha a pendência sozinho, registrando em Revisões recentes como "já revisado por você (não repostei)". Acontece na hora ao fim de uma conversa no chat e, pros casos de fora do app, no ciclo de checagem. A trava é o horário: só fecha com review seu postado DEPOIS da análise, então re-request (autor derruba a sua aprovação e pede de novo) continua caindo na sua mesa, e pendência nenhuma desaparece quando o Farol não consegue confirmar (conta sem token ou rede caída).
+
 ## v2.32.3
 
 **Correções**
