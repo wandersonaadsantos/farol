@@ -9,6 +9,12 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.32.1
+
+**Correções**
+- **Espaço vazio à direita nos cards de Conexões e Plano e chaves.** Mesma causa da v2.32.0 (card mais largo que o conteúdo), num lugar que a v2.32.0 não cobriu: `.settings` desses dois painéis (campo estreito de label + input) esticava até a largura do container de 1150px da aba Sistema. Escopado só nesses dois (`#sys-connections`, `#sys-plans`); Reviewers continua de largura total, que é o que os chips precisam.
+- **Novidades: rolagem automática virou botão explícito.** A v2.32.0 carregava mais versões sozinha ao rolar até o fim da lista (`IntersectionObserver`); trocado por um botão "Ver mais N versões (M restantes)" clicado por você, sem carregamento silencioso.
+
 ## v2.32.0
 
 Dois ajustes de UI na aba Sistema, apontados pelo Wanderson usando o app no dia a dia.

@@ -298,7 +298,7 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 .relnote-ver { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
 .relnote-ver .badge { font-size: 10.5px; font-weight: 700; color: var(--ok); background: var(--ok-soft); border-radius: 99px; padding: 1px 8px; margin-left: 6px; }
 .relnote .dec-reasons { margin: 0; }
-.relnote-sentinel { padding: 14px 0; text-align: center; font-size: 12px; color: var(--muted); }
+#relNotesMore { display: block; margin: 14px auto 0; }
 
 /* ---------- panorama / linhas ---------- */
 .rows { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
@@ -603,6 +603,10 @@ label.set-row { cursor: pointer; }
 
 /* ---------- settings ---------- */
 .settings { display: flex; flex-direction: column; gap: var(--sp-4); padding: 16px var(--sp-4); }
+/* Conexões e Plano e chaves só têm campo estreito (label + input de 420px): sem isso
+   o card fica largo igual ao Reviewers (que precisa da largura pros chips) e sobra
+   uma faixa vazia à direita. Reviewers não é afetado (id próprio, sem esta regra). */
+#sys-connections .settings, #sys-plans .settings { max-width: 640px; }
 .field label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 5px; }
 /* o <small> herdava display:inline e escorria pro lado do input de 420px, espremido
    nos ~240px que sobravam. Como bloco, ele cai abaixo do campo, que é o lugar dele. */

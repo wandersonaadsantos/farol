@@ -2380,6 +2380,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.32.1', ['Espaço vazio à direita nos cards de Conexões e Plano e chaves: mesma causa da v2.32.0 (card mais largo que o conteúdo), corrigida só nesses dois; Reviewers segue de largura total.', 'Novidades: a rolagem automática virou um botão "Ver mais", clicado por você em vez de carregar sozinho.']],
   ['2.32.0', ['Novidades carrega por rolagem: em vez de listar as 67 versões de uma vez, mostra 5 e carrega mais conforme você desce, até esgotar o histórico.', 'Espaço vazio à direita nos cards de Reviewers por projeto: o card ficava travado em 640px dentro do container de 1150px da aba Sistema. Corrigido pra ocupar a largura real disponível.']],
   ['2.31.0', ['Correção dos 52 gaps lógicos encontrados numa auditoria completa do código, executada em 9 ondas com teste antes de cada mudança: a suite foi de 392 pra 538 testes.', 'Identidade de conta ficou estrita: quando o token de uma conta falha no keyring do gh, o Farol não herda mais a identidade da outra conta. Busca, review postado, chat e autoanálise agora ou usam a conta certa ou avisam que ela está sem token; nunca mais um APPROVE sai assinado pela conta errada.', 'O radar aguenta ciclo ruim: falha só nas buscas de "pedido a mim" preserva a fila e os marcadores do último ciclo bom (antes zerava tudo, ressuscitava PRs ignorados e re-notificava), e o eco do índice do GitHub logo após postar review deixou de disparar re-revisão à toa.', 'Gates de aprovação sem furos: cobertura declarada com zero arquivos lidos não libera mais postagem automática, a identidade do PR nunca vem do texto gerado pela sessão, e a autoanálise carimba o commit lido antes da sessão e re-checa no fim (push no meio da análise invalida o resultado em vez de liberar merge de código não analisado). Autoanálises antigas sem esse carimbo são descartadas e pedem re-análise uma vez.', 'Abrir o app com outro Farol já rodando não deixa mais dois motores revisando em paralelo, e o update ficou seguro: caminho com espaço no perfil do Windows, clique duplo em Atualizar e sessão iniciada durante o download não quebram mais a atualização.', 'Sessões mais robustas: acento não vira mais caractere quebrado no meio do texto, processo que morre no meio vira erro de verdade em vez de resposta sem sentido, cancelar perto do timeout conta como cancelamento, e clique duplo em chat ou ferramenta não roda mais em dobro.', 'A interface parou de prometer o que não fazia: aprovar pela paleta de comandos funciona, o botão Cancelar da autoanálise cancela de verdade, confirmar um pushback sugerido funciona num clique, widgets de erro somem sozinhos em vez de acumular, e trocar filtro rápido nas Entregas não mistura mais os resultados.', 'Persistência ficou atômica: queda de energia no meio de um save não reseta mais a configuração pros padrões (arquivo corrompido é preservado como evidência e o log avisa), e o consumo passou a contar o dia no seu fuso, então o card Hoje não zera mais às 21h.']],
   ['2.30.1', ['Operações assíncronas nunca ficam silenciosas: nove categorias de ação (polling, data loading, análise, merge, chat, ferramentas, update, settings, startup) mostram feedback visual em tempo real com spinner animado, progresso com %, etapa do processamento, e widgets reutilizáveis (operation widget, inline pill, toasts, typing dots).', 'Sistema unificado de operações (showOp, updateOp, closeOp) com um mapa central rastreando tudo que está rodando, atualização de UI em tempo real, ETA quando disponível, cancelamento em operações longas e auto-dismiss após conclusão. Fim da confusão sobre se o app está travado.', 'Três padrões visuais reusáveis: operation widget (completo, com passo a passo) pra ações focadas; inline pill (compacto, discreto) pra background jobs; toasts (transientes, confirmação rápida) pra one-shot. Spinner com CSS animations (spin, bounce, fade), suave até em 3G, progress bar com transição suave de %.', '389 testes green cobrindo slow network, múltiplas operações simultâneas, erro e cancelamento.']],
@@ -2451,30 +2452,22 @@ const RELEASE_NOTES = [
 ];
 const REL_NOTES_BATCH = 5;
 let relNotesShown = REL_NOTES_BATCH;
-let relNotesObserver = null;
 function renderReleaseNotes() {
   const box = $('#relNotes');
   if (!box) return;
   const cur = (STATE.app && STATE.app.version) || '';
   const total = RELEASE_NOTES.length;
   const shown = Math.min(relNotesShown, total);
+  const resto = total - shown;
   box.innerHTML = RELEASE_NOTES.slice(0, shown).map(([v, items]) => `
     <div class="relnote">
       <div class="relnote-ver">v${esc(v)}${v === cur ? ' <span class="badge">atual</span>' : ''}</div>
       <ul class="dec-reasons">${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>
-    </div>`).join('') + (shown < total ? '<div id="relNotesSentinel" class="relnote-sentinel">carregando mais…</div>' : '');
-  if (relNotesObserver) { relNotesObserver.disconnect(); relNotesObserver = null; }
-  const sentinel = $('#relNotesSentinel');
-  if (sentinel) {
-    relNotesObserver = new IntersectionObserver(entries => {
-      if (entries.some(e => e.isIntersecting)) {
-        relNotesShown += REL_NOTES_BATCH;
-        renderReleaseNotes();
-      }
-    }, { rootMargin: '200px' });
-    relNotesObserver.observe(sentinel);
-  }
+    </div>`).join('') + (resto > 0 ? `<button id="relNotesMore" class="btn sm">Ver mais ${Math.min(REL_NOTES_BATCH, resto)} versões (${resto} restantes)</button>` : '');
 }
+$('#relNotes').addEventListener('click', (e) => {
+  if (e.target.closest('#relNotesMore')) { relNotesShown += REL_NOTES_BATCH; renderReleaseNotes(); }
+});
 
 /* ---------- editor de reviewers: padrão por org + exceções por repo ---------- */
 let reviewerCands = {}; // { org: { members, teams } } (candidatos POR organização)
