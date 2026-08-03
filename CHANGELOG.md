@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.32.0
+
+Dois ajustes de UI na aba Sistema, apontados pelo Wanderson usando o app no dia a dia.
+
+**Melhorias**
+- **Novidades carrega por rolagem, não tudo de uma vez.** A lista de versões (67 e crescendo) exibia todo o histórico de uma vez, pesado pra ler e pra rolar. Agora mostra 5 versões e carrega mais 5 conforme você desce (`IntersectionObserver` num sentinel no fim da lista), até esgotar o histórico.
+
+**Correções**
+- **Espaço vazio à direita nos cards de Reviewers por projeto.** `.rev-editor` tinha um `max-width: 640px` sobrando dentro do container de 1150px da aba Sistema, deixando uma faixa morta à direita de cada card de organização. Removido o limite; o card agora ocupa a largura real disponível.
+
 ## v2.31.0
 
 Correção dos 52 gaps lógicos encontrados na análise completa de 01/08/2026: identidade de conta estrita, radar resiliente a falha parcial, gates de aprovação sem furos, instância única, update seguro, sessões robustas, contratos reais entre UI e servidor, widgets com ciclo de vida completo e persistência atômica. Executado em 9 ondas com TDD (suite foi de 392 pra 538 testes); os detalhes por onda seguem abaixo.
