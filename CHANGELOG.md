@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.33.0
+
+**Melhorias**
+- **"Revisões recentes" mostra o dia, não só a hora.** O carimbo era `17:51` e nada mais, numa lista que guarda as 30 revisões mais recentes: a maioria não é de hoje, então o número sozinho não localizava nada no tempo. Agora sai `hoje 17:51`, `ontem 16:29`, `01/08 15:35` e, quando é de outro ano, `24/07/2025 09:12`, sempre com a data e hora completas no tooltip. Vale também pro card de "Precisa de você", que tinha o mesmo problema ao lado. O corte de dia é o local, então nada muda de dia às 21h.
+- **A linha aproveita a largura toda e ganhou quatro ações.** A metade direita da linha ficava em branco, porque só o relógio morava naquela coluna. Agora ela ancora o carimbo e um grupo de ações sempre visíveis: conversar (com o contador de mensagens), revisar de novo, copiar a URL do PR e abrir no GitHub.
+- **Aparece o que já existia e estava escondido.** Título do PR, autor e a etiqueta da conta (importante em "Todas", onde não dava pra saber de quem era o PR) passaram a ser mostrados, e o **relatório completo da revisão** virou expansível ali mesmo, do mesmo jeito que já era no card de "Precisa de você". Os dados sempre estiveram na tela, só não eram exibidos.
+- **A linha ficou mais curta, não mais alta.** Título e autor dividem uma linha, e os três expansíveis (pontos de atenção, relatório, pushback) dividem uma faixa só, com tipografia uniforme; o que você abre passa a ocupar a linha inteira. Resultado: cada item ocupa menos altura do que antes, apesar de mostrar mais coisa.
+- **O selo do desfecho ganhou cor** (verde aprovado, vermelho mudanças pedidas, azul comentado, cinza pulado), pra varrer a lista de olho. O texto continua o mesmo de sempre. Não entra barra colorida à esquerda: ali barra significa urgência, e esta seção é histórico. O carimbo também escureceu um tom, porque no tema claro o contraste do cinza antigo era baixo demais pra um texto que existe pra ser lido.
+
 ## v2.32.4
 
 **Correções**

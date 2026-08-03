@@ -508,3 +508,134 @@ test('pushbackControl escapa a nota vinda do classificador', () => {
   );
   assert.doesNotMatch(html, /<img/);
 });
+
+/* ---------- fmtWhenDay / fmtStamp: o carimbo das Revisões recentes ----------
+   O defeito reportado: a linha mostrava "17:51" e mais nada, numa seção que guarda as
+   30 revisões mais recentes (o disco guarda 200), então a maioria não é de hoje e o
+   número sozinho não localizava nada no tempo. `agora` entra por parâmetro pra nenhum
+   caso depender do relógio da máquina (o TZ do arquivo já está fixo em São Paulo). */
+
+const AG = Date.parse('2026-08-03T20:51:00Z');   // 03/08/2026 17:51 em São Paulo
+
+test('fmtWhenDay: hoje e ontem saem por extenso, com a hora', () => {
+  assert.equal(P.fmtWhenDay(Date.parse('2026-08-03T20:51:00Z'), AG), 'hoje 17:51');
+  assert.equal(P.fmtWhenDay(Date.parse('2026-08-03T03:05:00Z'), AG), 'hoje 00:05');
+  assert.equal(P.fmtWhenDay(Date.parse('2026-08-02T19:29:00Z'), AG), 'ontem 16:29');
+});
+
+test('fmtWhenDay: dia mais antigo do mesmo ano sai como data curta, sem o ano', () => {
+  assert.equal(P.fmtWhenDay(Date.parse('2026-08-01T18:35:00Z'), AG), '01/08 15:35');
+  // virada de mês: "ontem" não pode vazar pro 31/07 nem a data curta perder o zero
+  assert.equal(P.fmtWhenDay(Date.parse('2026-07-31T18:35:00Z'), AG), '31/07 15:35');
+});
+
+test('fmtWhenDay: ano diferente carrega o ano (senão 24/07 é ambíguo)', () => {
+  assert.equal(P.fmtWhenDay(Date.parse('2025-07-24T12:12:00Z'), AG), '24/07/2025 09:12');
+});
+
+test('fmtWhenDay: a conta de "ontem" é por data local, não por menos 86400s', () => {
+  // subtrair um dia em segundos escorrega o rótulo quando o fuso vira no meio
+  const agora = Date.parse('2026-11-01T15:00:00Z');
+  assert.match(P.fmtWhenDay(Date.parse('2026-10-31T15:00:00Z'), agora), /^ontem /);
+  assert.match(P.fmtWhenDay(Date.parse('2026-11-01T10:00:00Z'), agora), /^hoje /);
+});
+
+test('fmtWhenDay: sem carimbo devolve vazio, não "Invalid Date"', () => {
+  assert.equal(P.fmtWhenDay(null, AG), '');
+  assert.equal(P.fmtWhenDay(0, AG), '');
+  assert.equal(P.fmtWhenDay(undefined, AG), '');
+});
+
+test('fmtStamp: o tooltip carrega data E hora completas, sempre', () => {
+  assert.equal(P.fmtStamp(Date.parse('2026-08-03T20:51:00Z')), '03/08/2026 17:51');
+  assert.equal(P.fmtStamp(null), '');
+});
+
+/* ---------- resolvedRow: a linha inteira das Revisões recentes ----------
+   O que depende de estado global (chip da conta, contador de chat, mapa de pushbacks)
+   entra por ctx já resolvido em valor, mesmo contrato do pushbackControl. */
+
+function linhaResolvida(extra) {
+  return {
+    key: 'biudtech/biud-esg#172', status: 'auto_approved', action: 'approve',
+    resolvedAt: Date.parse('2026-08-03T19:41:00Z'),
+    pr: { url: 'https://github.com/biudtech/biud-esg/pull/172', title: 'Ajusta o cálculo', author: 'alex' },
+    card: 'BT-1119', attention: [], reasons: [], reportMarkdown: '# relatório',
+    ...extra
+  };
+}
+const CTX = { pushbacks: {}, chip: '', chatBadge: '', agora: AG };
+
+test('resolvedRow: cabeçalho traz referência, card, selo e o quando com dia', () => {
+  const html = P.resolvedRow(linhaResolvida(), CTX);
+  assert.match(html, /biudtech\/biud-esg#172/);
+  assert.match(html, /BT-1119/);
+  assert.match(html, /aprovado sozinho/, 'o vocabulário de hoje é preservado');
+  assert.match(html, /hoje 16:41/, 'o carimbo diz o dia');
+  assert.match(html, /title="03\/08\/2026 16:41"/, 'e a data completa fica no tooltip');
+});
+
+test('resolvedRow: mostra o que o estado já tinha e a linha não exibia', () => {
+  const html = P.resolvedRow(linhaResolvida(), CTX);
+  assert.match(html, /Ajusta o cálculo/, 'título do PR');
+  assert.match(html, /@alex/, 'autor');
+  assert.match(html, /Ver relatório completo/, 'relatório da revisão');
+});
+
+test('resolvedRow: as quatro ações estão presentes e apontam pro PR', () => {
+  const html = P.resolvedRow(linhaResolvida(), CTX);
+  assert.match(html, /class="[^"]*act-chat/, 'conversar');
+  assert.match(html, /class="[^"]*act-review/, 'revisar de novo');
+  assert.match(html, /class="[^"]*rr-copy/, 'copiar');
+  assert.match(html, /href="https:\/\/github\.com\/biudtech\/biud-esg\/pull\/172"[^>]*target="_blank"/, 'abrir no GitHub');
+});
+
+test('resolvedRow: o selo do veredito tem a cor da ação', () => {
+  const cor = (extra) => (P.resolvedRow(linhaResolvida(extra), CTX).match(/class="rr-verdict ?([\w-]*)"/) || [])[1];
+  assert.equal(cor({ action: 'approve' }), 'rev-ok');
+  assert.equal(cor({ status: 'auto_rejected', action: 'request_changes' }), 'rev-rc');
+  assert.equal(cor({ status: 'posted', action: 'comment' }), 'rev-cm');
+  assert.equal(cor({ status: 'skipped', action: 'skip' }), '', 'pulado é neutro, não colorido');
+});
+
+test('resolvedRow: os cinco status mantêm o rótulo que a tela já usava', () => {
+  const rot = (status, action) => P.resolvedRow(linhaResolvida({ status, action }), CTX);
+  assert.match(rot('auto_approved', 'approve'), /aprovado sozinho/);
+  assert.match(rot('auto_rejected', 'request_changes'), /mudanças pedidas sozinho/);
+  assert.match(rot('posted', 'approve'), /postado por você \(APPROVE\)/);
+  assert.match(rot('already_reviewed', 'approve'), /já revisado por você \(não repostei\) \(APPROVE\)/);
+  assert.match(rot('skipped', 'skip'), /pulado/);
+});
+
+test('resolvedRow: sem relatório não inventa a divulgação vazia', () => {
+  assert.doesNotMatch(P.resolvedRow(linhaResolvida({ reportMarkdown: '' }), CTX), /Ver relatório completo/);
+});
+
+test('resolvedRow: pontos de atenção seguem contados e expansíveis', () => {
+  const html = P.resolvedRow(linhaResolvida({ attention: ['um', 'dois'] }), CTX);
+  assert.match(html, /2 pontos de atenção/);
+  assert.match(html, /<li>um<\/li>/);
+  // auto_rejected troca o rótulo pelo motivo do pedido de mudanças
+  const rc = P.resolvedRow(linhaResolvida({ status: 'auto_rejected', action: 'request_changes', reasons: ['x'] }), CTX);
+  assert.match(rc, /1 motivo do pedido de mudanças/);
+});
+
+test('resolvedRow: título e card vindos de fora saem escapados', () => {
+  const html = P.resolvedRow(linhaResolvida({
+    card: '<img src=x onerror=alert(1)>',
+    pr: { url: 'https://x/y/pull/1', title: '<script>alert(1)</script>', author: 'dev' }
+  }), CTX);
+  assert.doesNotMatch(html, /<img/);
+  assert.doesNotMatch(html, /<script>/);
+});
+
+test('resolvedRow: sem autor não há controle de pushback (contrato do pushbackControl)', () => {
+  const html = P.resolvedRow(linhaResolvida({ pr: { url: 'https://x/y/pull/1', title: 't' } }), CTX);
+  assert.doesNotMatch(html, /pushback/);
+});
+
+test('resolvedRow: o chip da conta e o contador de chat entram como vieram do ctx', () => {
+  const html = P.resolvedRow(linhaResolvida(), { ...CTX, chip: '<span class="acct-chip">BIUD</span>', chatBadge: '<b>2</b>' });
+  assert.match(html, /acct-chip">BIUD/);
+  assert.match(html, /<b>2<\/b>/);
+});

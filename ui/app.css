@@ -340,6 +340,59 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 .resolved-attn ul { margin: 6px 0 2px; padding-left: 18px; font-size: 12.5px; color: var(--text); }
 .resolved-attn li { margin: 2px 0; }
 .resolved-attn li::marker { color: var(--accent); }
+
+/* ---------- Revisões recentes: linha PRÓPRIA ----------
+   Não reusa .row de propósito: .row é do Panorama, Entregas e Destaques, e ali a
+   coluna 3 é só o relógio, então tudo empilhava na coluna do meio e a metade direita
+   da linha ficava em branco. Aqui a coluna 3 ancora o quando E as ações.
+   Sem barra esquerda colorida: barra significa urgência (ver acctMark no app.js) e
+   esta seção é histórico resolvido. A cor do desfecho vive no selo .rr-verdict. */
+.rrow {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 10px;
+  padding: 11px 13px; background: var(--surface);
+  border-bottom: 1px solid var(--border); font-size: 13px;
+}
+.rrow:last-child { border-bottom: 0; }
+.rrow:hover { background: var(--surface-2); }
+.rr-icon { grid-column: 1; grid-row: 1; width: 17px; text-align: center; }
+.rr-main { grid-column: 2; min-width: 0; }
+/* alinhado ao topo: numa linha que expandiu o relatório, o carimbo tem que ficar
+   junto do cabeçalho, não flutuando no meio do texto */
+.rr-side { grid-column: 3; grid-row: 1 / -1; align-self: start; display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
+.rr-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.rr-ref { font-weight: 600; color: var(--text); }
+.rr-verdict { font-size: 11px; font-weight: 700; letter-spacing: .2px; padding: 1px 8px; border-radius: 99px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.rr-verdict.rev-ok { background: var(--ok-soft); color: var(--ok); }
+.rr-verdict.rev-rc { background: var(--danger-soft); color: var(--danger); }
+.rr-verdict.rev-cm { background: var(--accent-soft); color: var(--accent); }
+.rr-title { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+.rr-author { color: var(--muted); font-size: 12px; margin-left: 6px; }
+/* as três divulgações (atenção, relatório, pushback) dividem UMA linha em repouso, em
+   vez de uma linha cada: numa lista de 30 revisões, três linhas por item empurrava o
+   resto da tela pra fora. A que você abre passa a ocupar a linha inteira. */
+.rr-disc { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 16px; }
+.rr-disc > details[open] { flex: 1 0 100%; }
+/* .resolved-attn e .dec-report trazem margem de quando eram blocos empilhados; numa
+   linha compartilhada ela desalinha os summaries entre si */
+.rr-disc > details { margin-top: 0; }
+/* as três nasceram em lugares diferentes e traziam 11,5 / 12 / 12,5px; dividindo uma
+   faixa só, tamanhos diferentes leem como três controles avulsos, não como um grupo */
+.rr-disc > details > summary { font-size: 12px; }
+/* --muted, não --faint: o carimbo agora carrega o DIA e existe pra ser lido. Com
+   --faint o contraste no tema claro dava 2,65:1, abaixo do mínimo pra texto pequeno,
+   o que anularia a razão da mudança. Escopado nesta classe, sem mexer no token. */
+.rr-when { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.rr-acts { display: flex; gap: 4px; }
+/* botões compactos: são 4 numa coluna estreita, o padding do .btn.icon é largo demais */
+.rr-acts .btn { padding: 4px 7px; font-size: 12px; gap: 3px; border-radius: 7px; }
+.rr-acts .btn:hover { color: var(--accent); }
+@media (max-width: 720px) {
+  /* na janela estreita o cluster desce pra debaixo do conteúdo em vez de esmagar a
+     coluna do meio (a mesma razão pela qual .row quebra em vez de cortar) */
+  .rrow { grid-template-columns: auto minmax(0, 1fr); }
+  .rr-side { grid-column: 1 / -1; grid-row: auto; flex-direction: row; align-items: center; justify-content: space-between; margin-top: 6px; }
+}
+
 /* consulta de um PR por URL (abre a conversa salva); discreta, não compete com o resto */
 .lookup-bar { display: flex; gap: 8px; margin-top: 16px; opacity: .7; transition: opacity .15s; }
 .lookup-bar:focus-within, .lookup-bar:hover { opacity: 1; }

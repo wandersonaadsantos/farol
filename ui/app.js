@@ -737,9 +737,19 @@ $('#resolved').addEventListener('change', (e) => {
 });
 /* confirmar o palpite re-selecionando a MESMA opção não dispara change; o botão cobre
    o caminho pending -> confirmed com o desfecho sugerido (achado M21) */
-$('#resolved').addEventListener('click', (e) => {
+$('#resolved').addEventListener('click', async (e) => {
   const btn = e.target.closest('.pb-confirm');
-  if (btn) submitPushback(btn);
+  if (btn) { submitPushback(btn); return; }
+  // revisar de novo: mesma rota do Revisar da fila. O .act-review NÃO tem listener
+  // global (o da fila é escutado dentro do #queue, o do panorama dentro do #panorama),
+  // então a seção escuta o seu. O botão desabilita até o próximo estado re-renderizar.
+  const rev = e.target.closest('.act-review');
+  if (rev) { rev.disabled = true; api('/api/review', { urls: [rev.dataset.url] }); return; }
+  const cp = e.target.closest('.rr-copy');
+  if (cp) {
+    const ok = await copyToClipboard(cp.dataset.url || cp.dataset.key || '');
+    toast(ok ? 'ok' : 'error', ok ? 'URL do PR copiada.' : 'Não consegui copiar (permissão do navegador).', 2500);
+  }
 });
 /* editor de contas: mudar cor / rótulo / tipo / orgs */
 $('#accountsManager').addEventListener('change', (e) => {
@@ -1616,7 +1626,7 @@ function renderDecisions() {
         <a class="dec-ref" href="${esc(d.pr?.url || '#')}" target="_blank" rel="noreferrer">${esc(d.key)}</a>
         ${m.chip}
         ${d.card ? `<span class="pill">${esc(d.card)}</span>` : '<span class="pill">sem card</span>'}
-        <span class="dec-when">${fmtClock(d.createdAt)}</span>
+        <span class="dec-when" title="${esc(fmtStamp(d.createdAt))}">${esc(fmtWhenDay(d.createdAt))}</span>
       </div>
       ${d.pr?.title ? `<div class="dec-title">${esc(d.pr.title)}</div>` : ''}
       ${author ? `<div class="dec-author">PR de <b>@${esc(author)}</b> ${papelPicker(author)}</div>` : ''}
@@ -1657,33 +1667,14 @@ function renderResolved() {
   const wrap = $('#resolvedWrap');
   wrap.hidden = resolved.length === 0;
   if (!resolved.length) { $('#resolved').innerHTML = ''; return; }
-  const labels = {
-    auto_approved: ['✅', 'aprovado sozinho'],
-    auto_rejected: ['🔴', 'mudanças pedidas sozinho'],
-    posted: ['📬', 'postado por você'],
-    already_reviewed: ['✔', 'já revisado por você (não repostei)'],
-    skipped: ['⏭', 'pulado']
-  };
-  const actions = { approve: 'APPROVE', request_changes: 'REQUEST CHANGES', comment: 'COMMENT' };
-  $('#resolved').innerHTML = resolved.map(r => {
-    const [icon, label] = labels[r.status] || ['•', r.status];
-    const act = (r.status === 'posted' || r.status === 'already_reviewed') ? ` (${actions[r.action] || r.action})` : '';
-    // pontos de atenção de um PR aprovado sozinho: ficam claros aqui (expansível)
-    const attn = (r.attention && r.attention.length) ? r.attention : ((r.status === 'auto_approved' || r.status === 'auto_rejected') ? (r.reasons || []) : []);
-    const hasAttn = attn.length > 0;
-    const attnLabel = r.status === 'auto_rejected' ? `motivo${attn.length > 1 ? 's' : ''} do pedido de mudanças` : `ponto${attn.length > 1 ? 's' : ''} de atenção`;
-    const attnHtml = hasAttn
-      ? `<details class="resolved-attn"><summary>⚠ ${attn.length} ${attnLabel}</summary><ul class="dec-reasons">${attn.map(p => `<li>${esc(p)}</li>`).join('')}</ul></details>`
-      : '';
-    return `<div class="row ${hasAttn ? 'has-attn' : ''}">
-      <span>${icon}</span>
-      <span class="ref"><a href="${esc(r.pr?.url || '#')}" target="_blank" rel="noreferrer">${esc(r.key)}</a></span>
-      <span class="title">${label}${act}${r.card ? ` · ${esc(r.card)}` : ''}${attnHtml}</span>
-      ${pushbackControl(r, STATE.pushbacks || {})}
-      <button class="btn sm ghost act-chat" data-key="${esc(r.key)}" data-url="${esc(r.pr?.url || '')}">💬${chatBadge(r.key)}</button>
-      <span class="when">${fmtClock(r.resolvedAt)}</span>
-    </div>`;
-  }).join('');
+  // a linha inteira mora no pure.js (testada); aqui só se resolve o que depende de
+  // estado global: a etiqueta da conta (SCOPE/TWEAK) e o contador de conversas.
+  const pushbacks = STATE.pushbacks || {};
+  $('#resolved').innerHTML = resolved.map(r => resolvedRow(r, {
+    pushbacks,
+    chip: acctMark(r).chip,
+    chatBadge: chatBadge(r.key)
+  })).join('');
 }
 
 /* ---------- render: radar ---------- */
@@ -2381,6 +2372,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.33.0', ['"Revisões recentes" mostra o dia, não só a hora: sai "hoje 17:51", "ontem 16:29", "01/08 15:35" e, quando é de outro ano, "24/07/2025 09:12", com data e hora completas no tooltip. Vale também pro card de "Precisa de você", que tinha o mesmo problema ao lado.', 'A linha aproveita a largura toda: a metade direita ficava em branco e agora ancora o carimbo e quatro ações sempre visíveis, conversar, revisar de novo, copiar a URL do PR e abrir no GitHub.', 'Aparece o que já existia e estava escondido: título do PR, autor, a etiqueta da conta (importante em "Todas") e o relatório completo da revisão, expansível ali mesmo.', 'E ficou mais curta, não mais alta: título e autor dividem uma linha, os três expansíveis dividem uma faixa só, e o selo do desfecho ganhou cor (verde aprovado, vermelho mudanças pedidas, azul comentado) pra varrer a lista de olho.']],
   ['2.32.4', ['PR que você resolveu pelo chat continuava aparecendo em "Precisa de você". O review ia pro GitHub, mas o card só saía se você clicasse num dos botões dele; agora o Farol confronta a pendência com os reviews que já são seus no PR e fecha sozinho, na hora ao fim da conversa e no ciclo de checagem pros reviews postados fora do app. Só fecha com review seu postado depois da análise, então re-request continua caindo na sua mesa, e nada desaparece quando não dá pra confirmar.']],
   ['2.32.3', ['A linha "Perfil padrão do Farol" saía esmagada, com uma palavra por linha (bug que a v2.32.2 introduziu): o seletor forçava largura total e comia a coluna de texto.', 'Plano e chaves passou a ocupar a mesma largura das outras telas do Sistema, no formato de Contas. Medido em 900, 1150 e 1280px nas quatro telas.']],
   ['2.32.2', ['Conexões e Plano e chaves ainda tinham espaço vazio à direita mesmo depois da v2.32.1. Agora usam o mesmo padrão de Preferências/Automação: linha cheia, texto à esquerda, controle ancorado à direita.']],

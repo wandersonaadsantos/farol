@@ -167,6 +167,37 @@ function fmtRel(iso, agora = Date.now()) {
   return `${Math.round(s / 86400)}d`;
 }
 
+// data e hora completas, pra tooltip: o formato curto do fmtWhenDay nunca esconde
+// informação, ela fica aqui.
+function fmtStamp(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  const p = n => String(n).padStart(2, '0');
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+// "hoje 17:51", "ontem 16:29", "01/08 15:35", "24/07/2025 09:12". O fmtClock sozinho
+// (o que a linha das Revisões recentes usava) dava a hora sem o dia, e numa lista de 30
+// revisões a maioria não é de hoje: o número não localizava nada no tempo. O ano só
+// aparece quando não é o corrente, senão "24/07" seria ambíguo. A comparação de dia é
+// LOCAL (localDayKey, mesmo corte do resto do app) e "ontem" é a data local menos um
+// dia CONSTRUÍDA, não uma subtração de 86400s, que escorrega o rótulo na virada de
+// fuso. `agora` entra por parâmetro com default só pra dar pra testar, igual ao fmtRel.
+function fmtWhenDay(ts, agora = Date.now()) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  const p = n => String(n).padStart(2, '0');
+  const hora = `${p(d.getHours())}:${p(d.getMinutes())}`;
+  const ref = new Date(agora);
+  const chave = localDayKey(d);
+  if (chave === localDayKey(ref)) return `hoje ${hora}`;
+  if (chave === localDayKey(new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() - 1))) return `ontem ${hora}`;
+  const dia = `${p(d.getDate())}/${p(d.getMonth() + 1)}`;
+  return d.getFullYear() === ref.getFullYear() ? `${dia} ${hora}` : `${dia}/${d.getFullYear()} ${hora}`;
+}
+
 // chave de dia LOCAL (YYYY-MM-DD) de um timestamp/ISO; '' quando não há data
 // válida. Espelha o corte de dia do server (localDay em lib/engine/usage.js, no
 // fuso do processo): nunca UTC cru, que zerava o "Hoje" às 21h de Brasília.
@@ -322,6 +353,70 @@ function pushbackControl(r, pushbacks) {
   </details>`;
 }
 
+/* ---------- Revisões recentes: a linha inteira ----------
+   Três colunas: ícone | conteúdo | quando + ações. A coluna da direita era só o
+   relógio e todo o resto empilhava na do meio, então a metade direita da linha ficava
+   em branco em qualquer largura usável. Título do PR, autor e o relatório da revisão
+   já chegavam no estado e não apareciam.
+   A barra esquerda colorida NÃO entra aqui: ela significa urgência (ver acctMark no
+   app.js) e esta seção é histórico resolvido. A cor do desfecho vive no selo.
+   O que depende de estado global (chip da conta, contador de chat, mapa de pushbacks)
+   entra por ctx já resolvido em valor, porque aqui não se lê global. */
+const RESOLVED_LABELS = {
+  auto_approved: ['✅', 'aprovado sozinho'],
+  auto_rejected: ['🔴', 'mudanças pedidas sozinho'],
+  posted: ['📬', 'postado por você'],
+  already_reviewed: ['✔', 'já revisado por você (não repostei)'],
+  skipped: ['⏭', 'pulado']
+};
+const RESOLVED_ACTIONS = { approve: 'APPROVE', request_changes: 'REQUEST CHANGES', comment: 'COMMENT' };
+// cor do selo pela AÇÃO postada, não pelo status: o desfecho é o que se procura ao
+// varrer a lista. Pulado fica neutro de propósito, porque nada foi postado.
+const VERDICT_CLASS = { approve: 'rev-ok', request_changes: 'rev-rc', comment: 'rev-cm' };
+
+function resolvedRow(r, ctx) {
+  ctx = ctx || {};
+  const [icon, label] = RESOLVED_LABELS[r.status] || ['•', r.status];
+  const act = (r.status === 'posted' || r.status === 'already_reviewed')
+    ? ` (${RESOLVED_ACTIONS[r.action] || r.action})` : '';
+  const url = (r.pr && r.pr.url) || '';
+  const title = (r.pr && r.pr.title) || '';
+  const author = (r.pr && r.pr.author) || r.author || '';
+  // pontos de atenção de um PR resolvido sozinho: ficam claros aqui (expansível)
+  const attn = (r.attention && r.attention.length) ? r.attention
+    : ((r.status === 'auto_approved' || r.status === 'auto_rejected') ? (r.reasons || []) : []);
+  const attnLabel = r.status === 'auto_rejected'
+    ? `motivo${attn.length > 1 ? 's' : ''} do pedido de mudanças`
+    : `ponto${attn.length > 1 ? 's' : ''} de atenção`;
+  const vcls = VERDICT_CLASS[r.action] || '';
+  return `<div class="rrow${attn.length ? ' has-attn' : ''}">
+    <span class="rr-icon" aria-hidden="true">${icon}</span>
+    <div class="rr-main">
+      <div class="rr-head">
+        <a class="rr-ref" href="${esc(url || '#')}" target="_blank" rel="noreferrer">${esc(r.key)}</a>
+        ${ctx.chip || ''}
+        ${r.card ? `<span class="pill">${esc(r.card)}</span>` : ''}
+        <span class="rr-verdict${vcls ? ` ${vcls}` : ''}">${label}${act}</span>
+      </div>
+      ${title || author ? `<div class="rr-title" title="${esc(title)}">${esc(title)}${author ? `<span class="rr-author">${title ? '· ' : ''}@${esc(author)}</span>` : ''}</div>` : ''}
+      <div class="rr-disc">
+        ${attn.length ? `<details class="resolved-attn"><summary>⚠ ${attn.length} ${attnLabel}</summary><ul class="dec-reasons">${attn.map(p => `<li>${esc(p)}</li>`).join('')}</ul></details>` : ''}
+        ${r.reportMarkdown ? `<details class="dec-report"><summary>Ver relatório completo</summary><div class="report">${md(r.reportMarkdown)}</div></details>` : ''}
+        ${pushbackControl(r, ctx.pushbacks)}
+      </div>
+    </div>
+    <div class="rr-side">
+      <span class="rr-when" title="${esc(fmtStamp(r.resolvedAt))}">${esc(fmtWhenDay(r.resolvedAt, ctx.agora))}</span>
+      <div class="rr-acts">
+        <button class="btn icon sm ghost act-chat" data-key="${esc(r.key)}" data-url="${esc(url)}" title="Conversar com o Claude sobre este PR" aria-label="Conversar sobre este PR">💬${ctx.chatBadge || ''}</button>
+        ${url ? `<button class="btn icon sm ghost act-review" data-url="${esc(url)}" title="Revisar de novo" aria-label="Revisar de novo">↻</button>` : ''}
+        <button class="btn icon sm ghost rr-copy" data-url="${esc(url)}" data-key="${esc(r.key)}" title="Copiar a URL do PR" aria-label="Copiar a URL do PR">⧉</button>
+        <a class="btn icon sm ghost" href="${esc(url || '#')}" target="_blank" rel="noreferrer" title="Abrir no GitHub" aria-label="Abrir no GitHub">↗</a>
+      </div>
+    </div>
+  </div>`;
+}
+
 function delivPrRow(it) {
   return `<div class="row">
     <span class="ref"><a href="${esc(it.url)}" target="_blank" rel="noreferrer">${esc(it.key)}</a></span>
@@ -381,6 +476,7 @@ if (typeof module !== 'undefined' && module.exports) {
     sameSet, diffVs, lastMerge, groupBy, usageMetricVal, accountSaveArray, delivGroupCard, delivCappedMsg, fmtRel,
     usageDayKeysBack, localDayKey, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
     deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
+    fmtStamp, fmtWhenDay, resolvedRow,
     opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible, expiredSessionMarks
   };
 }
