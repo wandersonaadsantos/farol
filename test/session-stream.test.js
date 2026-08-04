@@ -49,6 +49,8 @@ function engineFalso() {
     running: new Map(),
     killTree() { },
     recordUsage() { },
+    // padrão: sem perfil de chave de API (legado), authProfileId fica vazio
+    resolveClaudeAuth: () => ({ kind: 'dir', id: '' }),
     toolSummary: () => '',
     parseEnvelope(raw) { return parseEnvelope(this, raw); },
   };
@@ -134,6 +136,35 @@ test('runClaudeStream: timeout de 30min não engole cancelamento em andamento (B
     assert.match(err.message, /cancelada por você/);
     return true;
   });
+});
+
+test('runClaudeStream: chama recordUsage mesmo quando a sessão termina em erro (achado do incidente de 04/08)', async () => {
+  const chamadas = [];
+  const engine = engineFalso();
+  engine.recordUsage = (id, account, resultEvent, model, profileId) => {
+    chamadas.push({ id, account, resultEvent, model, profileId });
+  };
+  // conta 'bob' resolve pra um perfil de chave de API: o authProfileId tem que chegar
+  // em recordUsage mesmo no caminho de erro
+  engine.resolveClaudeAuth = (account) => account === 'bob'
+    ? { kind: 'apikey', id: 'chave-bob' }
+    : { kind: 'dir', id: '' };
+  // FAROL_HEADLESS_CMD (stub) precisa devolver um envelope com is_error:true E usage
+  // preenchido, simulando uma sessão que gastou token nos turnos anteriores e falhou
+  // só no evento final (o cenário real do incidente).
+  process.env.FAROL_HEADLESS_CMD = `node -e "console.log(JSON.stringify({type:'result', is_error:true, result:'erro simulado', usage:{input_tokens:100,output_tokens:20}, total_cost_usd:0.05}))"`;
+  // este teste é o único do arquivo que faz spawn de verdade (os outros usam
+  // spawnImpl falso): precisa que o WORKSPACE (cwd do spawn) exista de fato
+  fs.mkdirSync(path.join(FAROL_HOME, 'workspace'), { recursive: true });
+  try {
+    await assert.rejects(() => runClaudeStream(engine, '/pr-review x', { account: 'bob', id: 'a1' }));
+  } finally {
+    delete process.env.FAROL_HEADLESS_CMD;
+  }
+  assert.equal(chamadas.length, 1, 'recordUsage foi chamado mesmo com is_error:true');
+  assert.equal(chamadas[0].resultEvent.is_error, true);
+  assert.equal(chamadas[0].resultEvent.usage.input_tokens, 100);
+  assert.equal(chamadas[0].profileId, 'chave-bob', 'authProfileId do perfil apikey resolvido chega em recordUsage');
 });
 
 test('runClaudeStream: stdin tem handler de error (EPIPE de processo morto não derruba o engine) (B4)', async () => {

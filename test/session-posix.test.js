@@ -54,7 +54,14 @@ function filhoFalso() {
 }
 
 function engineFalso(config = {}) {
-  return { config, ghEnv: () => ({ PATH: '/usr/bin' }), pushActivity() { }, setSessionModel() { } };
+  return {
+    config,
+    ghEnv: () => ({ PATH: '/usr/bin' }),
+    pushActivity() { },
+    setSessionModel() { },
+    // legado (sem perfil de chave de API): authProfileId fica vazio
+    resolveClaudeAuth: () => ({ kind: 'dir', id: '' }),
+  };
 }
 
 test('spawn headless posix: /bin/sh -lc, detached e cwd no WORKSPACE', { skip: IS_WIN ? 'só roda em POSIX' : false }, async () => {
