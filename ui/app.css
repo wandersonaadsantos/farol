@@ -393,6 +393,45 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
   .rr-side { grid-column: 1 / -1; grid-row: auto; flex-direction: row; align-items: center; justify-content: space-between; margin-top: 6px; }
 }
 
+/* ---------- Panorama: linha própria (mesmo motivo do .rrow acima: .row só tem o
+   horário na coluna 3, então título/autor/botão empilhavam na coluna do meio e a
+   direita ficava em branco). Sem os expansíveis de relatório/pushback, que aqui
+   não existem; ganha em troca ações que o Panorama nunca teve na própria linha
+   (conversar, copiar URL), hoje só alcançáveis pelo formulário de busca por URL. */
+.prow {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 10px; align-items: start;
+  padding: 11px 13px; background: var(--surface);
+  border-bottom: 1px solid var(--border); font-size: 13px;
+}
+.prow:last-child { border-bottom: 0; }
+.prow:hover { background: var(--surface-2); }
+.prow .status-dot { grid-column: 1; grid-row: 1; align-self: center; width: 7px; height: 7px; border-radius: 50%; background: var(--border); flex: none; }
+.prow.mine .status-dot { background: var(--ac); box-shadow: 0 0 6px var(--ac); }
+.prow.reviewed .status-dot { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.pw-main { grid-column: 2; min-width: 0; }
+.pw-side { grid-column: 3; grid-row: 1 / -1; align-self: start; display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
+.pw-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pw-ref { font-weight: 600; color: var(--text); }
+.prow.mine .pw-ref { color: var(--ac); }
+.pw-head .badge { font-size: 10.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 99px; padding: 1px 8px; flex: none; }
+.pw-head .badge.rev-ok { color: var(--ok); background: var(--ok-soft); }
+.pw-head .badge.rev-rc { color: var(--danger); background: var(--danger-soft); }
+.pw-head .badge.rev-cm, .pw-head .badge.rev-pend { color: var(--accent); background: var(--accent-soft); }
+.pw-title { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+.pw-author { color: var(--muted); font-size: 12px; margin-left: 6px; }
+.pw-when { color: var(--faint); font-size: 12px; white-space: nowrap; }
+.pw-acts { display: flex; align-items: center; gap: 4px; }
+.pw-acts .btn { padding: 4px 7px; font-size: 12px; gap: 3px; border-radius: 7px; }
+.pw-acts .btn:hover { color: var(--accent); }
+.pw-acts .settled { color: var(--faint); font-size: 12px; white-space: nowrap; }
+@media (max-width: 720px) {
+  .prow { grid-template-columns: auto minmax(0, 1fr); }
+  .pw-side { grid-column: 1 / -1; grid-row: auto; flex-direction: row; align-items: center; justify-content: space-between; margin-top: 6px; }
+}
+@media (max-width: 420px) {
+  .pw-title { white-space: normal; overflow: visible; }
+}
+
 /* consulta de um PR por URL (abre a conversa salva); discreta, não compete com o resto */
 .lookup-bar { display: flex; gap: 8px; margin-top: 16px; opacity: .7; transition: opacity .15s; }
 .lookup-bar:focus-within, .lookup-bar:hover { opacity: 1; }

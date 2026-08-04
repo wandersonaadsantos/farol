@@ -9,6 +9,12 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.33.2
+
+**Melhorias**
+- **Panorama ganhou linha própria, no mesmo padrão de "Revisões recentes".** Cada PR empilhava título, autor e botão numa coluna só, porque a coluna da direita só tinha o horário; a metade direita da linha ficava em branco. Agora a linha ancora horário e ações à direita (conversar, revisar, copiar a URL, abrir no GitHub), título e autor dividem uma linha, e cada PR ocupa bem menos altura.
+- **"Conversar" e "copiar URL" chegaram no Panorama.** Não existia como abrir o chat de um PR direto da linha do Panorama; o campo "Consultar um PR por URL" no topo da aba era o contorno pra isso. Agora o botão de conversa mora na própria linha, junto com copiar URL e abrir no GitHub (antes só dava pra abrir clicando no texto da referência, sem indicação visual de que era link).
+
 ## v2.33.1
 
 **Correções**

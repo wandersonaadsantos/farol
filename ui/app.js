@@ -1789,16 +1789,26 @@ function renderPanorama() {
         ? `<button class="btn sm ghost act-review pano-review" data-url="${esc(pr.url)}" title="${pr.reRequested ? 'O autor pediu sua revisão de novo (re-request): a review anterior foi dispensada' : stale ? 'Entrou commit novo depois da sua review: revisar de novo' : pr.mine ? 'Revisar (seu review pedido)' : 'Revisar sob demanda: o resultado sempre passa por você, nada é postado sozinho'}">${stale || pr.reRequested ? 'Re-revisar' : 'Revisar'}</button>`
         : `<span class="settled">${esc(settledLabel)}</span>`;
     return `
-    <div class="row ${pr.mine ? 'mine' : ''} ${chip ? 'reviewed' : ''}" style="${m.varStyle}${m.dim}">
-      <span class="status-dot"></span>
-      <span class="ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a></span>
-      ${SCOPE === 'all' && m.chip ? m.chip : (pr.mine ? '<span class="badge">sua revisão</span>' : '')}
-      ${pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : ''}
-      ${chip}
-      <span class="title" title="${esc(pr.title)}">${esc(pr.title)}</span>
-      <span class="who">@${esc(pr.author)}</span>
-      ${tail}
-      <span class="when">${fmtRel(pr.updatedAt)}</span>
+    <div class="prow ${pr.mine ? 'mine' : ''} ${chip ? 'reviewed' : ''}" style="${m.varStyle}${m.dim}">
+      <span class="status-dot" aria-hidden="true"></span>
+      <div class="pw-main">
+        <div class="pw-head">
+          <a class="pw-ref" href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>
+          ${SCOPE === 'all' && m.chip ? m.chip : (pr.mine ? '<span class="badge">sua revisão</span>' : '')}
+          ${pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : ''}
+          ${chip}
+        </div>
+        <div class="pw-title" title="${esc(pr.title)}">${esc(pr.title)}<span class="pw-author">${pr.title ? '· ' : ''}@${esc(pr.author)}</span></div>
+      </div>
+      <div class="pw-side">
+        <span class="pw-when">${fmtRel(pr.updatedAt)}</span>
+        <div class="pw-acts">
+          <button class="btn icon sm ghost act-chat" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" title="Conversar com o Claude sobre este PR" aria-label="Conversar sobre este PR">💬${chatBadge(pr.key)}</button>
+          ${tail}
+          <button class="btn icon sm ghost rr-copy" data-url="${esc(pr.url)}" data-key="${esc(pr.key)}" title="Copiar a URL do PR" aria-label="Copiar a URL do PR">⧉</button>
+          <a class="btn icon sm ghost" href="${esc(pr.url)}" target="_blank" rel="noreferrer" title="Abrir no GitHub" aria-label="Abrir no GitHub">↗</a>
+        </div>
+      </div>
     </div>`;
   }).join('');
 }
@@ -2375,6 +2385,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.33.2', ['Panorama ganhou linha própria, no mesmo padrão de "Revisões recentes": cada PR empilhava título, autor e botão numa coluna só, porque a direita só tinha o horário. Agora horário e ações (conversar, revisar, copiar URL, abrir no GitHub) ficam ancorados à direita, título e autor dividem uma linha, e cada PR ocupa bem menos altura.', '"Conversar" e "copiar URL" chegaram no Panorama: não existia como abrir o chat de um PR direto da linha (o campo "Consultar um PR por URL" era o contorno pra isso). Agora estão na própria linha, junto com abrir no GitHub.']],
   ['2.33.1', ['"Meus PRs" ficava em branco, sem nenhum aviso, quando você não tinha PR aberto: a sub-aba escondia o cabeçalho inteiro e zerava a lista sem mensagem, diferente de "Pra mim" e "Panorama". Agora o cabeçalho continua visível e aparece "Você não tem PRs abertos nas organizações monitoradas" (ou "nesta conta", conforme o escopo).']],
   ['2.33.0', ['"Revisões recentes" mostra o dia, não só a hora: sai "hoje 17:51", "ontem 16:29", "01/08 15:35" e, quando é de outro ano, "24/07/2025 09:12", com data e hora completas no tooltip. Vale também pro card de "Precisa de você", que tinha o mesmo problema ao lado.', 'A linha aproveita a largura toda: a metade direita ficava em branco e agora ancora o carimbo e quatro ações sempre visíveis, conversar, revisar de novo, copiar a URL do PR e abrir no GitHub.', 'Aparece o que já existia e estava escondido: título do PR, autor, a etiqueta da conta (importante em "Todas") e o relatório completo da revisão, expansível ali mesmo.', 'E ficou mais curta, não mais alta: título e autor dividem uma linha, os três expansíveis dividem uma faixa só, e o selo do desfecho ganhou cor (verde aprovado, vermelho mudanças pedidas, azul comentado) pra varrer a lista de olho.']],
   ['2.32.4', ['PR que você resolveu pelo chat continuava aparecendo em "Precisa de você". O review ia pro GitHub, mas o card só saía se você clicasse num dos botões dele; agora o Farol confronta a pendência com os reviews que já são seus no PR e fecha sozinho, na hora ao fim da conversa e no ciclo de checagem pros reviews postados fora do app. Só fecha com review seu postado depois da análise, então re-request continua caindo na sua mesa, e nada desaparece quando não dá pra confirmar.']],
@@ -2980,12 +2991,21 @@ $('#btnUpdateCheck').onclick = async () => {
 };
 $('#btnLogRefresh').onclick = loadLog;
 
-$('#panorama').addEventListener('click', (e) => {
+$('#panorama').addEventListener('click', async (e) => {
   const btn = e.target.closest('.pano-review');
-  if (!btn) return;
-  btn.disabled = true;
-  btn.textContent = 'Revisando…';
-  api('/api/review', { urls: [btn.dataset.url] });
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Revisando…';
+    api('/api/review', { urls: [btn.dataset.url] });
+    return;
+  }
+  // .act-chat é ouvido globalmente (document); só o copiar precisa de listener aqui,
+  // mesmo padrão de "cada seção escuta o seu" usado em Revisões recentes (#resolved).
+  const cp = e.target.closest('.rr-copy');
+  if (cp) {
+    const ok = await copyToClipboard(cp.dataset.url || cp.dataset.key || '');
+    toast(ok ? 'ok' : 'error', ok ? 'URL do PR copiada.' : 'Não consegui copiar (permissão do navegador).', 2500);
+  }
 });
 
 $('#activeSessions').addEventListener('click', (e) => {
