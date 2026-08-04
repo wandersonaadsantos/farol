@@ -1,7 +1,7 @@
 # Perfil de assinatura Claude por chave de API
 
 Data: 2026-08-04
-Status: **DESENHADO**, aguardando plano de implementação.
+Status: **ENTREGUE na vX.Y.Z** (data). Todo item desta spec está no código e coberto por `test/pure.test.js`, `test/claude-profiles.test.js` e `test/session-claude-profile.test.js`.
 
 ## Problema
 
