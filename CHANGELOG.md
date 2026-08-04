@@ -9,6 +9,11 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.34.1
+
+**Correções**
+- **Form de "Adicionar perfil" (Plano e chaves) ficava colado.** O seletor de tipo (login por assinatura / chave de API) e a linha de campos abaixo dele coincidiam sem espaço nenhum entre si, virando uma faixa só. Agora tem 10px de respiro entre as duas linhas.
+
 ## v2.34.0
 
 **Novidades**
