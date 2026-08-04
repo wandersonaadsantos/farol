@@ -668,6 +668,10 @@ label.set-row { cursor: pointer; }
 .acct-add { display: block; }
 .acct-add .a-add-title { font-weight: 650; font-size: 13px; margin-bottom: 10px; }
 .acct-add .a-editrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+/* o seletor de tipo (perfil de chave de API) e a linha de campos abaixo dele são dois
+   .a-editrow empilhados sem gap entre si (herdado de quando só existia uma linha) - sem
+   isso a linha de tipo cola direto nos campos, virando uma faixa só e ilegível. */
+.acct-add .a-editrow + .a-editrow { margin-top: 10px; }
 .acct-add input { flex: 1; min-width: 130px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 13px; }
 .acct-add input:focus { outline: none; border-color: var(--accent); }
 .acct-add .a-hint { color: var(--muted); font-size: 11.5px; margin-top: 9px; }
