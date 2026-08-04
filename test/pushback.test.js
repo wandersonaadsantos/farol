@@ -151,6 +151,29 @@ test('pushbackTargets: registro automático NÃO tira do scan (auto pode ser rev
   assert.deepEqual(pushbackTargets(e, e.reviewActions()).map(p => p.key), ['o/r#2']);
 });
 
+// gate de orçamento por perfil de chave de API (finding 2 do fix wave de 04/08/2026):
+// mesmo budgetBlockedFor do toReview/retryTargets, pra o scan de pushback (1 sessão
+// Claude por PR classificado) não gastar tokens de conta pausada por estouro.
+test('pushbackTargets: conta com perfil de orçamento estourado fica de fora do scan', () => {
+  const e = engineComPanorama(RESOLVIDOS,
+    [{ key: 'o/r#2', account: 'bob', updatedAt: '2026-08-01T10:00:00Z' }]);
+  e.config.accounts = [{ user: 'bob', owners: ['x'] }];
+  const { localDay } = require('../lib/engine/usage');
+  e.config.claudeProfiles = [{ id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', baseUrl: '', budgetDaily: 1 }];
+  e.config.claudeProfileId = 'p1';
+  e.usage.byProfileDay = { [`p1|${localDay()}`]: { sessions: 1, inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 1 } };
+  assert.deepEqual(pushbackTargets(e, e.reviewActions()), []);
+});
+
+test('pushbackTargets: conta com perfil dentro do orçamento segue elegível pro scan', () => {
+  const e = engineComPanorama(RESOLVIDOS,
+    [{ key: 'o/r#2', account: 'bob', updatedAt: '2026-08-01T10:00:00Z' }]);
+  e.config.accounts = [{ user: 'bob', owners: ['x'] }];
+  e.config.claudeProfiles = [{ id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', baseUrl: '', budgetDaily: 100 }];
+  e.config.claudeProfileId = 'p1';
+  assert.deepEqual(pushbackTargets(e, e.reviewActions()).map(p => p.key), ['o/r#2']);
+});
+
 test('scanPushbacks não sobrescreve registro manual nem quando ele chega DURANTE o scan', async () => {
   // corrida real: você marca à mão enquanto a classificação está em voo
   const e = engineComPanorama(RESOLVIDOS, [{ key: 'o/r#2', updatedAt: '2026-08-01T10:00:00Z' }]);

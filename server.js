@@ -529,6 +529,20 @@ class Engine extends EventEmitter {
     this.checking = true;
     this.setStatus('checking');
     try {
+      // reconcilia budgetWarned com a realidade ATUAL dos perfis, independente da fila
+      // ter PR nenhum pra oferecer a chance de "destravar": sem isso, um perfil que
+      // estourou com a fila vazia (ou só com PRs excluídos por outro motivo) nunca sai
+      // do Set quando o gasto volta a caber, e o próximo estouro de verdade fica mudo
+      // (sem toast).
+      // reconcilia budgetWarned com a realidade ATUAL dos perfis, independente da fila
+      // ter PR nenhum pra oferecer a chance de "destravar": sem isso, um perfil que
+      // estourou com a fila vazia (ou só com PRs excluídos por outro motivo) nunca sai
+      // do Set quando o gasto volta a caber, e o próximo estouro de verdade fica mudo
+      // (sem toast).
+      for (const id of [...this.budgetWarned]) {
+        const profile = (this.config.claudeProfiles || []).find(p => p.id === id);
+        if (!profile || !this.profileBudgetStatus(profile).blocked) this.budgetWarned.delete(id);
+      }
       await this.resolveAccount();
       await this.refreshTokens();
       const accounts = this.accountList();
@@ -656,17 +670,13 @@ class Engine extends EventEmitter {
         if (inflight.has(p.key)) return false;
         if (this.autoReviewParked.has(p.key)) return false;
         if (this.retryAfterNet.has(p.key)) return false;
-        const auth = this.resolveClaudeAuth(acct);
-        if (auth.kind === 'apikey') {
-          const profile = (this.config.claudeProfiles || []).find(x => x.id === auth.id);
-          if (profile && this.profileBudgetStatus(profile).blocked) {
-            if (!this.budgetWarned.has(auth.id)) {
-              this.budgetWarned.add(auth.id);
-              this.emit('toast', { kind: 'error', text: `Orçamento do perfil "${profile.label}" estourado; automação pausada até liberar (clique manual continua liberado).` });
-            }
-            return false;
+        const blockedProfile = this.budgetBlockedFor(acct);
+        if (blockedProfile) {
+          if (!this.budgetWarned.has(blockedProfile.id)) {
+            this.budgetWarned.add(blockedProfile.id);
+            this.emit('toast', { kind: 'error', text: `Orçamento do perfil "${blockedProfile.label}" estourado; automação pausada até liberar (clique manual continua liberado).` });
           }
-          this.budgetWarned.delete(auth.id);
+          return false;
         }
         return true;
       });
@@ -1155,6 +1165,17 @@ class Engine extends EventEmitter {
   recordUsage(id, account, resultEvent, model, profileId) { return usageMod.recordUsage(this, id, account, resultEvent, model, profileId); }
   usageSummary() { return usageMod.usageSummary(this); }
   profileBudgetStatus(profile) { return usageMod.profileBudgetStatus(profile, this.usage); }
+
+  // devolve o perfil bloqueado por orçamento pra essa conta, ou null se não estiver
+  // bloqueada (conta sem perfil apikey, perfil sem teto, ou dentro do teto). Usado em
+  // TODO caminho automático de gasto (toReview, retry pós-transitório, scan de
+  // pushback), pra nenhum deles vazar gasto quando um perfil já estourou.
+  budgetBlockedFor(acct) {
+    const auth = this.resolveClaudeAuth(acct);
+    if (auth.kind !== 'apikey') return null;
+    const profile = (this.config.claudeProfiles || []).find(x => x.id === auth.id);
+    return (profile && this.profileBudgetStatus(profile).blocked) ? profile : null;
+  }
 
   pushState() { this.emit('state', this.snapshot()); }
 

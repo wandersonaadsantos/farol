@@ -135,3 +135,79 @@ test('check(): perfil apikey dentro do orçamento dispara auto-revisão normalme
   assert.equal(launchCalls.length, 1, 'sem estouro, o disparo automático roda normalmente');
   assert.deepEqual(launchCalls[0].urls, [PR.url], 'o PR elegível é o que entra no launchReview');
 });
+
+// retry pós-falha transitória (server.js chama this.retryTargets(...) e relança via
+// this.launchReview): o MESMO caminho do incidente de 04/08/2026 (sessão falha,
+// classificada como transitória, fica em retryAfterNet e é relançada sozinha todo
+// ciclo). Tinha ZERO noção de orçamento antes desta correção.
+test('check(): retry pós-transitório NÃO relança PR de conta com orçamento estourado', async () => {
+  const e = checkEngine();
+  const { localDay } = require('../lib/engine/usage');
+  e.tokens = { me: 'tok-me' };
+  e.config.claudeProfiles = [{ id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', baseUrl: '', budgetDaily: 1 }];
+  e.config.claudeProfileId = 'p1';
+  e.usage.byProfileDay = { [`p1|${localDay()}`]: { sessions: 1, inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 1 } };
+  e.retryAfterNet.set(PR.key, { tries: 1, pr: { ...PR } });
+  const launchCalls = [];
+  e.launchReview = (urls, mode) => { launchCalls.push({ urls, mode }); };
+  e.scenario = { panorama: [], mine: [], reviewed: [] };
+  await e.check('test');
+  assert.equal(launchCalls.length, 0, 'orçamento estourado barra o relançamento automático do retry');
+});
+
+test('check(): retry pós-transitório relança normalmente quando o perfil está dentro do orçamento', async () => {
+  const e = checkEngine();
+  e.tokens = { me: 'tok-me' };
+  e.config.claudeProfiles = [{ id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', baseUrl: '', budgetDaily: 100 }];
+  e.config.claudeProfileId = 'p1';
+  e.retryAfterNet.set(PR.key, { tries: 1, pr: { ...PR } });
+  const launchCalls = [];
+  e.launchReview = (urls, mode) => { launchCalls.push({ urls, mode }); };
+  e.scenario = { panorama: [], mine: [], reviewed: [] };
+  await e.check('test');
+  assert.equal(launchCalls.length, 1, 'sem estouro, o retry relança como sempre relançou');
+  assert.deepEqual(launchCalls[0].urls, [PR.url]);
+});
+
+// budgetWarned (o toast "orçamento estourado"): deve disparar UMA vez ao estourar,
+// ficar mudo em ciclos seguintes enquanto seguir estourado, e voltar a disparar depois
+// de um ciclo em que o perfil não estava mais bloqueado (destravou e travou de novo).
+// Cobre a correção do finding 4: sem a reconciliação no topo do check(), um perfil que
+// destrava com a fila vazia (ou sem PR elegível) nunca sai do Set e o próximo estouro
+// real fica silencioso.
+test('budgetWarned: toast do orçamento não repete enquanto seguir estourado, mas volta após destravar e travar de novo', async () => {
+  const e = checkEngine();
+  const { localDay } = require('../lib/engine/usage');
+  e.config.autoReview = true;
+  e.tokens = { me: 'tok-me' };
+  const profile = { id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', baseUrl: '', budgetDaily: 1 };
+  e.config.claudeProfiles = [profile];
+  e.config.claudeProfileId = 'p1';
+  e.launchReview = () => {};
+  const toasts = [];
+  e.on('toast', ev => toasts.push(ev));
+
+  // ciclo 1: estourado, dispara UM toast
+  e.usage.byProfileDay = { [`p1|${localDay()}`]: { sessions: 1, inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 1 } };
+  e.scenario = { panorama: [PR], mine: [PR], reviewed: [] };
+  await e.check('test');
+  assert.equal(toasts.filter(t => t.kind === 'error').length, 1, 'primeiro estouro avisa uma vez');
+
+  // ciclo 2: segue estourado, NÃO repete o toast
+  await e.check('test');
+  assert.equal(toasts.filter(t => t.kind === 'error').length, 1, 'estouro contínuo não repete o toast');
+
+  // ciclo 3: perfil destrava (gasto zerado), fila vazia (nenhum PR pra "ver" a
+  // reconciliação pelo caminho do toReview): a reconciliação do topo do check() tem
+  // que tirar o id do Set mesmo assim
+  e.usage.byProfileDay = {};
+  e.scenario = { panorama: [], mine: [], reviewed: [] };
+  await e.check('test');
+  assert.equal(toasts.filter(t => t.kind === 'error').length, 1, 'destravar não gera toast novo');
+
+  // ciclo 4: trava de novo com o mesmo PR: o toast tem que voltar
+  e.usage.byProfileDay = { [`p1|${localDay()}`]: { sessions: 1, inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 1 } };
+  e.scenario = { panorama: [PR], mine: [PR], reviewed: [] };
+  await e.check('test');
+  assert.equal(toasts.filter(t => t.kind === 'error').length, 2, 'novo estouro depois de destravar avisa de novo');
+});
