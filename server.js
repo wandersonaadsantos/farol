@@ -991,16 +991,20 @@ class Engine extends EventEmitter {
   }
 
   // status de TODOS os perfis salvos, mais uma entrada sintética "Padrão" pro fallback
-  // legado (claudeConfigDir global). Essa entrada '' é incluída SEMPRE, mesmo quando já
-  // existem perfis salvos: é o que sobra visível quando o perfil padrão do Farol está
-  // vazio ("Padrão da máquina" no dropdown) ou uma conta não tem override próprio - sem
-  // ela, o badge de quem usa esse fallback não tinha nenhum dado pra mostrar (achado da
-  // revisão final: legado ficava invisível na UI depois que a Task 6 tirou o campo texto).
+  // legado. Perfil apikey não tem OAuth pra ler (claudeAuthInfo lê .credentials.json,
+  // que só existe pro caminho dir): status sintético baseado só em "a chave está
+  // preenchida?", sem tocar disco.
   allClaudeAuthInfo() {
     const profiles = this.config.claudeProfiles || [];
     const legacy = { id: '', label: 'Padrão', ...this.claudeAuthInfo() };
     if (!profiles.length) return [legacy];
-    return [legacy, ...profiles.map(p => ({ id: p.id, label: p.label, ...this.claudeAuthInfo(p.dir) }))];
+    return [legacy, ...profiles.map(p => ({
+      id: p.id,
+      label: p.label,
+      ...(p.kind === 'apikey'
+        ? { configDir: null, account: null, ready: !!p.apiKey, apiKeyMode: true }
+        : this.claudeAuthInfo(p.dir))
+    }))];
   }
 
   async doctor() {

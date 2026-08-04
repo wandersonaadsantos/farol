@@ -295,6 +295,37 @@ test('allClaudeAuthInfo: com profiles e claudeProfileId vazio, a entrada "" refl
   assert.equal(legacyEntry.configDir, 'C:\\legado-visivel');
 });
 
+test('allClaudeAuthInfo: perfil apikey com chave preenchida reporta ready + apiKeyMode, sem ler arquivo', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [{ id: 'chave', label: 'Chave OK', kind: 'apikey', apiKey: 'sk-ant-123', baseUrl: '' }];
+  const all = engine.allClaudeAuthInfo();
+  const entry = all.find(x => x.id === 'chave');
+  assert.deepEqual(entry, { id: 'chave', label: 'Chave OK', configDir: null, account: null, ready: true, apiKeyMode: true });
+});
+
+test('allClaudeAuthInfo: perfil apikey sem chave (não deveria existir, mas defensivo) reporta ready:false', () => {
+  const engine = new Engine();
+  // normalizeClaudeProfiles já descartaria isto no updateSettings normal; testa o método
+  // isolado pra defesa em profundidade contra config.json editado à mão.
+  engine.config.claudeProfiles = [{ id: 'quebrada', label: 'Sem chave', kind: 'apikey', apiKey: '' }];
+  const all = engine.allClaudeAuthInfo();
+  const entry = all.find(x => x.id === 'quebrada');
+  assert.equal(entry.ready, false);
+  assert.equal(entry.apiKeyMode, true);
+});
+
+test('allClaudeAuthInfo: mistura perfil dir e apikey na mesma lista, cada um com o formato certo', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [
+    { id: 'a', label: 'A', dir: path.join(HOME, 'a') },
+    { id: 'b', label: 'B', kind: 'apikey', apiKey: 'sk-ant-b', baseUrl: '' },
+  ];
+  const all = engine.allClaudeAuthInfo();
+  assert.deepEqual(all.map(x => x.id), ['', 'a', 'b']);
+  assert.equal('apiKeyMode' in all.find(x => x.id === 'a'), false, 'perfil dir não carrega apiKeyMode');
+  assert.equal(all.find(x => x.id === 'b').apiKeyMode, true);
+});
+
 test('updateSettings: persiste claudeProfiles e claudeProfileId globais', () => {
   const engine = new Engine();
   engine.updateSettings({
