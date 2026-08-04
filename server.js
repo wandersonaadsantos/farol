@@ -194,6 +194,7 @@ class Engine extends EventEmitter {
     this.running = new Map();        // id de sessão -> { child, cancelled } (só headless)
     this.retryAfterNet = new Map();  // key do PR -> { tries, pr } da re-revisão pós-falha transitória
     this.autoReviewParked = new Set(); // keys que falharam sem ser rede (ou foram canceladas): aguardam ação manual, não relançam sozinhas
+    this.budgetWarned = new Set(); // ids de perfil apikey já avisados de orçamento estourado neste ciclo (evita repetir o toast a cada checagem)
     this.chats = readJson(CHATS_FILE, {}, warn);
     for (const k of Object.keys(this.chats)) {
       if (this.chats[k].status === 'running') this.chats[k].status = 'idle';
@@ -647,13 +648,28 @@ class Engine extends EventEmitter {
         ...this.headlessQueue.map(p => p.key),
         ...[...this.activeReviews.values()].flatMap(s => s.keys || [])
       ]);
-      const toReview = this.queue.filter(p =>
-        !this.isMuted(this.accountForPr(p)) &&
-        this.autoReviewFor(this.accountForPr(p)) &&
-        this.tokenFor(this.accountForPr(p)) &&
-        !inflight.has(p.key) &&
-        !this.autoReviewParked.has(p.key) &&
-        !this.retryAfterNet.has(p.key));
+      const toReview = this.queue.filter(p => {
+        const acct = this.accountForPr(p);
+        if (this.isMuted(acct)) return false;
+        if (!this.autoReviewFor(acct)) return false;
+        if (!this.tokenFor(acct)) return false;
+        if (inflight.has(p.key)) return false;
+        if (this.autoReviewParked.has(p.key)) return false;
+        if (this.retryAfterNet.has(p.key)) return false;
+        const auth = this.resolveClaudeAuth(acct);
+        if (auth.kind === 'apikey') {
+          const profile = (this.config.claudeProfiles || []).find(x => x.id === auth.id);
+          if (profile && this.profileBudgetStatus(profile).blocked) {
+            if (!this.budgetWarned.has(auth.id)) {
+              this.budgetWarned.add(auth.id);
+              this.emit('toast', { kind: 'error', text: `Orçamento do perfil "${profile.label}" estourado; automação pausada até liberar (clique manual continua liberado).` });
+            }
+            return false;
+          }
+          this.budgetWarned.delete(auth.id);
+        }
+        return true;
+      });
       if (freshActive.length > 0) {
         this.emit('new-prs', { items: freshActive, total: queue.filter(p => !this.isMuted(this.accountForPr(p))).length, auto: toReview.length > 0 });
       }
