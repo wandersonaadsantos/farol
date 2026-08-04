@@ -69,6 +69,56 @@ test('resolveClaudeConfigDir: sem user informado usa o padrão global/legado nor
   assert.equal(engine.resolveClaudeConfigDir(), 'C:\\p1');
 });
 
+test('resolveClaudeAuth: sem profiles, cai no legado como kind dir', () => {
+  const engine = new Engine();
+  engine.config.claudeConfigDir = 'C:\\legado';
+  engine.config.claudeProfiles = [];
+  assert.deepEqual(engine.resolveClaudeAuth('alice'), { kind: 'dir', dir: 'C:\\legado' });
+});
+
+test('resolveClaudeAuth: perfil apikey da conta vence o padrão global dir', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [
+    { id: 'trabalho', label: 'BIUD Trabalho', dir: 'C:\\biud-trabalho' },
+    { id: 'chave-pessoal', label: 'Chave pessoal', kind: 'apikey', apiKey: 'sk-ant-123', baseUrl: '' },
+  ];
+  engine.config.claudeProfileId = 'trabalho';
+  engine.config.accounts = [{ user: 'bob', owners: ['x'], claudeProfileId: 'chave-pessoal' }];
+  assert.deepEqual(engine.resolveClaudeAuth('bob'), { kind: 'apikey', apiKey: 'sk-ant-123', baseUrl: '' });
+});
+
+test('resolveClaudeAuth: padrão global apikey, conta sem override', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [{ id: 'chave', label: 'Chave', kind: 'apikey', apiKey: 'sk-ant-456', baseUrl: 'https://proxy.x' }];
+  engine.config.claudeProfileId = 'chave';
+  engine.config.accounts = [{ user: 'carol', owners: [] }];
+  assert.deepEqual(engine.resolveClaudeAuth('carol'), { kind: 'apikey', apiKey: 'sk-ant-456', baseUrl: 'https://proxy.x' });
+});
+
+test('resolveClaudeAuth: perfil apikey apontado mas sem apiKey (corrompido) cai no legado', () => {
+  const engine = new Engine();
+  engine.config.claudeConfigDir = 'C:\\legado';
+  // profile malformado não sobrevive à normalização em condições normais, mas
+  // resolveClaudeAuth precisa ser robusto mesmo contra config.json editado à mão
+  engine.config.claudeProfiles = [{ id: 'quebrado', label: 'Sem chave', kind: 'apikey', apiKey: '' }];
+  engine.config.claudeProfileId = 'quebrado';
+  assert.deepEqual(engine.resolveClaudeAuth('qualquer'), { kind: 'dir', dir: 'C:\\legado' });
+});
+
+test('resolveClaudeConfigDir: continua devolvendo só o dir (string) quando o resolvido é kind dir', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [{ id: 'p1', label: 'P1', dir: 'C:\\p1' }];
+  engine.config.claudeProfileId = 'p1';
+  assert.equal(engine.resolveClaudeConfigDir('qualquer'), 'C:\\p1');
+});
+
+test('resolveClaudeConfigDir: devolve "" quando o resolvido é kind apikey (não confunde os dois)', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [{ id: 'chave', label: 'Chave', kind: 'apikey', apiKey: 'sk-ant-789' }];
+  engine.config.claudeProfileId = 'chave';
+  assert.equal(engine.resolveClaudeConfigDir('qualquer'), '');
+});
+
 // resolveConfigDirForLogin: dir de um perfil ESPECÍFICO pelo id, pra "abrir sessão de
 // login" sem depender de conta GitHub nenhuma (é uma escolha direta de assinatura, não
 // uma revisão de PR) - ver Fix 2 (sessão de login dedicada).
@@ -117,6 +167,26 @@ test('ghEnv: sem profiles, comportamento legado (claudeConfigDir global ou nenhu
   assert.equal('CLAUDE_CONFIG_DIR' in engine.ghEnv('qualquer'), false);
   engine.config.claudeConfigDir = 'C:\\legado';
   assert.equal(engine.ghEnv('qualquer').CLAUDE_CONFIG_DIR, 'C:\\legado');
+});
+
+test('ghEnv: perfil apikey seta ANTHROPIC_API_KEY/BASE_URL, nunca CLAUDE_CONFIG_DIR', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [{ id: 'chave', label: 'Chave', kind: 'apikey', apiKey: 'sk-ant-abc', baseUrl: 'https://proxy.x' }];
+  engine.config.claudeProfileId = 'chave';
+  engine.tokens = { bob: 't-b' };
+  const env = engine.ghEnv('bob');
+  assert.equal(env.ANTHROPIC_API_KEY, 'sk-ant-abc');
+  assert.equal(env.ANTHROPIC_BASE_URL, 'https://proxy.x');
+  assert.equal('CLAUDE_CONFIG_DIR' in env, false);
+});
+
+test('ghEnv: perfil apikey sem baseUrl não seta ANTHROPIC_BASE_URL', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [{ id: 'chave', label: 'Chave', kind: 'apikey', apiKey: 'sk-ant-abc', baseUrl: '' }];
+  engine.config.claudeProfileId = 'chave';
+  engine.tokens = { bob: 't-b' };
+  const env = engine.ghEnv('bob');
+  assert.equal('ANTHROPIC_BASE_URL' in env, false);
 });
 
 const fsMod = require('node:fs');

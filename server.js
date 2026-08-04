@@ -509,10 +509,9 @@ class Engine extends EventEmitter {
     if (user && !tok) throw new Error(`conta ${user} sem token no gh (rode: gh auth login --user ${user})`);
     if (tok) env.GH_TOKEN = tok;
     if (this.gitBash) env.CLAUDE_CODE_GIT_BASH_PATH = this.gitBash;
-    // assinatura do Claude que o Farol usa pra esta conta: ver resolveClaudeConfigDir
+    // assinatura do Claude que o Farol usa pra esta conta: ver resolveClaudeAuth
     // (perfil por conta > perfil padrão do Farol > claudeConfigDir legado).
-    const claudeDir = this.resolveClaudeConfigDir(user);
-    if (claudeDir) env.CLAUDE_CONFIG_DIR = claudeDir;
+    applyClaudeAuthEnv(env, this.resolveClaudeAuth(user));
     return env;
   }
 
@@ -916,19 +915,28 @@ class Engine extends EventEmitter {
   async applyUpdate() { return updateMod.applyUpdate(this); }
   applyUpdateMac() { return updateMod.applyUpdateMac(this); }
 
-  // qual config dir (assinatura Claude) usar pras sessões desta conta GitHub. Prioridade:
+  // qual AUTENTICAÇÃO (não só dir) usar pras sessões desta conta GitHub. Cascata:
   // 1) accounts[].claudeProfileId da própria conta; 2) claudeProfileId global (padrão do
-  // Farol); 3) sem profiles configurados (ou id não encontrado/perfil sem dir), cai no
-  // claudeConfigDir legado — same behavior de antes do sistema de perfis existir.
-  resolveClaudeConfigDir(user) {
+  // Farol); 3) sem profiles configurados (ou id não encontrado/perfil sem o campo
+  // obrigatório do seu kind), cai no claudeConfigDir legado (sempre kind dir).
+  resolveClaudeAuth(user) {
     const acc = (this.config.accounts || []).find(a => a && a.user === user);
     const profiles = this.config.claudeProfiles || [];
     if (profiles.length) {
       const id = acc?.claudeProfileId || this.config.claudeProfileId || '';
       const p = profiles.find(p => p.id === id);
-      if (p?.dir) return p.dir;
+      if (p?.kind === 'apikey' && p.apiKey) return { kind: 'apikey', apiKey: p.apiKey, baseUrl: p.baseUrl || '' };
+      if (p && p.kind !== 'apikey' && p.dir) return { kind: 'dir', dir: p.dir };
     }
-    return this.config.claudeConfigDir || '';
+    return { kind: 'dir', dir: this.config.claudeConfigDir || '' };
+  }
+
+  // compat: quem só quer "o dir, se houver" (nenhum call site de produção deveria
+  // sobrar depois da migração das Tasks 2/3/5, mas mantido por garantia). Devolve ''
+  // quando o resolvido for kind apikey - nunca confunde os dois formatos de auth.
+  resolveClaudeConfigDir(user) {
+    const auth = this.resolveClaudeAuth(user);
+    return auth.kind === 'dir' ? (auth.dir || '') : '';
   }
 
   // dir de um perfil ESPECÍFICO pelo id, pra "abrir sessão de login" sem depender de
