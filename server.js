@@ -24,6 +24,7 @@ const { modelLabel, isPermanentBranch } = require('./lib/format');
 const { ACCOUNT_PALETTE } = require('./lib/taxonomy'); // resto da taxonomia é usado nos colaboradores (review/pushback)
 const { parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople,
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
+  applyClaudeAuthEnv, claudeAuthShellLines,
   sanitizeModel, sanitizeEffort } = require('./lib/parse');
 const { ensureDir, readJson, writeJsonAtomic, copyRecursive, detectGitBash, run, runShell } = require('./lib/io');
 const updateMod = require('./lib/engine/update');
@@ -1134,7 +1135,7 @@ function start(onReady) {
 }
 
 module.exports = { start, HOME, WORKSPACE, Engine, modelLabel, isPermanentBranch, parseProjectReviewers, parseDefaultReviewers, parseAccounts,
-  sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId };
+  sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId, applyClaudeAuthEnv, claudeAuthShellLines };
 
 // execucao direta: modo servidor (fallback sem Electron, ou desenvolvimento)
 if (require.main === module) {

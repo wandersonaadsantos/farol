@@ -11,7 +11,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const farol = require('../server.js');
 const { modelLabel, isPermanentBranch, parseAccounts, parseProjectReviewers, parseDefaultReviewers,
-  normalizeClaudeProfiles, sanitizeClaudeDir } = farol;
+  normalizeClaudeProfiles, sanitizeClaudeDir, applyClaudeAuthEnv, claudeAuthShellLines } = farol;
 
 test('modelLabel: família + versão pontuada', () => {
   assert.equal(modelLabel('claude-opus-4-8'), 'Opus 4.8');
@@ -108,6 +108,47 @@ test('normalizeClaudeProfiles: dir com aspa dupla ou newline é descartado (id+d
   assert.deepEqual(out.map(p => p.id), ['a']); // só o válido sobrevive
 });
 
+test('normalizeClaudeProfiles: kind ausente ou "dir" mantém o shape de hoje, sem o campo kind', () => {
+  const out = normalizeClaudeProfiles([
+    { id: 'a', label: 'A', dir: 'C:\\a' },
+    { id: 'b', label: 'B', kind: 'dir', dir: 'C:\\b' },
+  ]);
+  assert.deepEqual(out, [
+    { id: 'a', label: 'A', dir: 'C:\\a' },
+    { id: 'b', label: 'B', dir: 'C:\\b' },
+  ]);
+  assert.ok(!('kind' in out[0]), 'perfil dir não carrega o campo kind (preserva o shape legado)');
+});
+
+test('normalizeClaudeProfiles: kind "apikey" exige apiKey válida, baseUrl é opcional', () => {
+  const out = normalizeClaudeProfiles([
+    { id: 'k1', label: 'Com base', kind: 'apikey', apiKey: 'sk-ant-123', baseUrl: 'https://proxy.example.com' },
+    { id: 'k2', label: 'Sem base', kind: 'apikey', apiKey: 'sk-ant-456' },
+    { id: 'k3', label: 'Sem chave', kind: 'apikey', apiKey: '' }, // descartado
+  ]);
+  assert.deepEqual(out, [
+    { id: 'k1', label: 'Com base', kind: 'apikey', apiKey: 'sk-ant-123', baseUrl: 'https://proxy.example.com' },
+    { id: 'k2', label: 'Sem base', kind: 'apikey', apiKey: 'sk-ant-456', baseUrl: '' },
+  ]);
+});
+
+test('normalizeClaudeProfiles: apiKey/baseUrl com aspas ou quebra de linha são rejeitados (mesmo risco de injeção do dir)', () => {
+  const out = normalizeClaudeProfiles([
+    { id: 'bad1', label: 'Aspa na chave', kind: 'apikey', apiKey: 'sk-ant"; rm -rf ~ #' },
+    { id: 'bad2', label: 'Newline na base', kind: 'apikey', apiKey: 'sk-ant-ok', baseUrl: 'https://x\ny' },
+    { id: 'ok', label: 'Ok', kind: 'apikey', apiKey: 'sk-ant-ok' },
+  ]);
+  assert.deepEqual(out.map(p => p.id), ['ok']);
+});
+
+test('normalizeClaudeProfiles: kind desconhecido (nem dir nem apikey) é tratado como dir', () => {
+  const out = normalizeClaudeProfiles([
+    { id: 'x', label: 'X', kind: 'bedrock', dir: 'C:\\x' }, // kind estranho, mas tem dir válido -> vira perfil dir
+    { id: 'y', label: 'Y', kind: 'bedrock', apiKey: 'sk-ant-y' }, // kind estranho, sem dir -> descartado
+  ]);
+  assert.deepEqual(out, [{ id: 'x', label: 'X', dir: 'C:\\x' }]);
+});
+
 test('sanitizeClaudeDir: rejeita aspas duplas e quebras de linha, aceita o resto', () => {
   assert.equal(sanitizeClaudeDir('C:\\ok'), 'C:\\ok');
   assert.equal(sanitizeClaudeDir('C:\\bad"quote'), '');
@@ -134,4 +175,66 @@ test('parseProjectReviewers: texto "owner/repo: pessoas" e objeto passthrough', 
 test('parseDefaultReviewers: chave é a org (sem barra)', () => {
   assert.deepEqual(parseDefaultReviewers('biudtech: alice, bob'), { biudtech: ['alice', 'bob'] });
   assert.deepEqual(parseDefaultReviewers({ org: ['x'] }), { org: ['x'] });
+});
+
+test('applyClaudeAuthEnv: kind dir seta CLAUDE_CONFIG_DIR, nunca as vars de apikey', () => {
+  const env = {};
+  applyClaudeAuthEnv(env, { kind: 'dir', dir: 'C:\\perfil' });
+  assert.deepEqual(env, { CLAUDE_CONFIG_DIR: 'C:\\perfil' });
+});
+
+test('applyClaudeAuthEnv: kind dir sem dir não seta nada', () => {
+  const env = {};
+  applyClaudeAuthEnv(env, { kind: 'dir', dir: '' });
+  assert.deepEqual(env, {});
+});
+
+test('applyClaudeAuthEnv: kind apikey seta ANTHROPIC_API_KEY (+ BASE_URL se houver)', () => {
+  const env1 = {};
+  applyClaudeAuthEnv(env1, { kind: 'apikey', apiKey: 'sk-ant-123', baseUrl: '' });
+  assert.deepEqual(env1, { ANTHROPIC_API_KEY: 'sk-ant-123' });
+
+  const env2 = {};
+  applyClaudeAuthEnv(env2, { kind: 'apikey', apiKey: 'sk-ant-123', baseUrl: 'https://proxy.x' });
+  assert.deepEqual(env2, { ANTHROPIC_API_KEY: 'sk-ant-123', ANTHROPIC_BASE_URL: 'https://proxy.x' });
+});
+
+test('applyClaudeAuthEnv: limpa CLAUDE_CONFIG_DIR/ANTHROPIC_* residuais do objeto recebido (achado crítico de vazamento de ambiente)', () => {
+  // simula ghEnv partindo de { ...process.env }: se a MÁQUINA já tiver ANTHROPIC_API_KEY
+  // setada (uso pessoal do claude CLI fora do Farol), um perfil de assinatura (dir) não
+  // pode deixar essa chave residual passar, ela venceria a OAuth por login, sem erro.
+  const env = { ANTHROPIC_API_KEY: 'chave-de-fora', ANTHROPIC_BASE_URL: 'https://de-fora.x', OUTRA_VAR: 'preservada' };
+  applyClaudeAuthEnv(env, { kind: 'dir', dir: 'C:\\perfil' });
+  assert.deepEqual(env, { CLAUDE_CONFIG_DIR: 'C:\\perfil', OUTRA_VAR: 'preservada' });
+
+  const env2 = { CLAUDE_CONFIG_DIR: 'C:\\de-fora', OUTRA_VAR: 'preservada' };
+  applyClaudeAuthEnv(env2, { kind: 'apikey', apiKey: 'sk-ant-novo', baseUrl: '' });
+  assert.deepEqual(env2, { ANTHROPIC_API_KEY: 'sk-ant-novo', OUTRA_VAR: 'preservada' });
+});
+
+test('claudeAuthShellLines: kind dir, Windows', () => {
+  assert.deepEqual(claudeAuthShellLines({ kind: 'dir', dir: 'C:\\perfil' }, true), ['set "CLAUDE_CONFIG_DIR=C:\\perfil"']);
+  assert.deepEqual(claudeAuthShellLines({ kind: 'dir', dir: '' }, true), ['rem sem config dir proprio']);
+});
+
+test('claudeAuthShellLines: kind dir, macOS/posix, com escaping de aspa simples', () => {
+  const lines = claudeAuthShellLines({ kind: 'dir', dir: "/tmp/x' ; touch /tmp/PROOF #" }, false);
+  assert.deepEqual(lines, [`export CLAUDE_CONFIG_DIR='/tmp/x'\\'' ; touch /tmp/PROOF #'`]);
+  assert.deepEqual(claudeAuthShellLines({ kind: 'dir', dir: '' }, false), ['# sem config dir proprio']);
+});
+
+test('claudeAuthShellLines: kind apikey, Windows, com e sem baseUrl', () => {
+  assert.deepEqual(
+    claudeAuthShellLines({ kind: 'apikey', apiKey: 'sk-ant-123', baseUrl: '' }, true),
+    ['set "ANTHROPIC_API_KEY=sk-ant-123"', 'rem sem base url propria']
+  );
+  assert.deepEqual(
+    claudeAuthShellLines({ kind: 'apikey', apiKey: 'sk-ant-123', baseUrl: 'https://proxy.x' }, true),
+    ['set "ANTHROPIC_API_KEY=sk-ant-123"', 'set "ANTHROPIC_BASE_URL=https://proxy.x"']
+  );
+});
+
+test('claudeAuthShellLines: kind apikey, macOS/posix, com escaping de aspa simples na chave', () => {
+  const lines = claudeAuthShellLines({ kind: 'apikey', apiKey: "sk-ant-123' ; touch /tmp/PROOF #", baseUrl: '' }, false);
+  assert.deepEqual(lines, [`export ANTHROPIC_API_KEY='sk-ant-123'\\'' ; touch /tmp/PROOF #'`, '# sem base url propria']);
 });
