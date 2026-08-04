@@ -194,7 +194,7 @@ class Engine extends EventEmitter {
     this.running = new Map();        // id de sessão -> { child, cancelled } (só headless)
     this.retryAfterNet = new Map();  // key do PR -> { tries, pr } da re-revisão pós-falha transitória
     this.autoReviewParked = new Set(); // keys que falharam sem ser rede (ou foram canceladas): aguardam ação manual, não relançam sozinhas
-    this.budgetWarned = new Set(); // ids de perfil apikey já avisados de orçamento estourado neste ciclo (evita repetir o toast a cada checagem)
+    this.budgetWarned = new Set(); // ids de perfil apikey já avisados de orçamento estourado, enquanto o estouro persistir (evita repetir o toast a cada checagem)
     this.chats = readJson(CHATS_FILE, {}, warn);
     for (const k of Object.keys(this.chats)) {
       if (this.chats[k].status === 'running') this.chats[k].status = 'idle';

@@ -101,3 +101,37 @@ test('PR ignorado não ressuscita depois de um ciclo com busca falha', async () 
   assert.equal(e.seen.has(PR.key), true, 'o ignorar do usuário fica valendo');
   assert.equal(e.queue.length, 0, 'não volta pra fila sozinho');
 });
+
+// gate de orçamento por perfil de chave de API dentro do toReview real do check()
+// (não a expressão reimplementada em test/budget-gate.test.js): usa o checkEngine()
+// desta suíte, que já monta um Engine real com todo colaborador de rede stubado.
+test('check(): perfil apikey com orçamento estourado NÃO dispara auto-revisão', async () => {
+  const e = checkEngine();
+  const { localDay } = require('../lib/engine/usage');
+  e.config.autoReview = true; // aqui, ao contrário do default da suíte, queremos que dispare
+  e.tokens = { me: 'tok-me' };
+  e.config.claudeProfiles = [{ id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', baseUrl: '', budgetDaily: 1 }];
+  e.config.claudeProfileId = 'p1';
+  e.usage.byProfileDay = { [`p1|${localDay()}`]: { sessions: 1, inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 1 } };
+  const launchCalls = [];
+  e.launchReview = (urls, mode) => { launchCalls.push({ urls, mode }); };
+  e.scenario = { panorama: [PR], mine: [PR], reviewed: [] };
+  await e.check('test');
+  assert.equal(e.queue.length, 1, 'o PR segue na fila (só o disparo automático é que pausa)');
+  assert.equal(launchCalls.length, 0, 'orçamento estourado barra o launchReview automático');
+});
+
+test('check(): perfil apikey dentro do orçamento dispara auto-revisão normalmente', async () => {
+  const e = checkEngine();
+  e.config.autoReview = true;
+  e.tokens = { me: 'tok-me' };
+  e.config.claudeProfiles = [{ id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', baseUrl: '', budgetDaily: 100 }];
+  e.config.claudeProfileId = 'p1';
+  const launchCalls = [];
+  e.launchReview = (urls, mode) => { launchCalls.push({ urls, mode }); };
+  e.scenario = { panorama: [PR], mine: [PR], reviewed: [] };
+  await e.check('test');
+  assert.equal(e.queue.length, 1);
+  assert.equal(launchCalls.length, 1, 'sem estouro, o disparo automático roda normalmente');
+  assert.deepEqual(launchCalls[0].urls, [PR.url], 'o PR elegível é o que entra no launchReview');
+});
