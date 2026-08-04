@@ -2266,11 +2266,15 @@ function drawUsageBreakdown(el, items, metric) {
 function renderUsage() {
   const u = STATE && STATE.usage;
   const statsEl = $('#usageStats'), tl = $('#usageTimeline'), bd = $('#usageBreakdown');
+  const dimBtn = $('#usageDimProfile'), noteEl = $('#usageBudgetNote');
   if (!statsEl || !tl || !bd) return;
+  // botão "Por perfil" só aparece se existir algum dado de perfil de chave de API
+  if (dimBtn) dimBtn.hidden = !(u && u.byProfile && u.byProfile.length);
   if (!u || !u.totals || !u.totals.sessions) {
     statsEl.innerHTML = '';
     tl.innerHTML = '<div class="usage-empty">Nenhuma sessão registrada ainda. Quando o Farol rodar uma revisão, autoanálise, pushback, ferramenta ou chat, o consumo aparece aqui.</div>';
     bd.innerHTML = '';
+    if (noteEl) noteEl.hidden = true;
     return;
   }
   const stat = (label, b, extra) => `<div class="usage-stat"><span class="us-label">${label}</span>`
@@ -2279,8 +2283,31 @@ function renderUsage() {
   const costNote = u.totals.costUsd > 0 ? ` · ~US$ ${u.totals.costUsd.toFixed(2)}` : '';
   statsEl.innerHTML = stat('Total', u.totals, costNote) + stat('Hoje', u.today) + stat('7 dias', u.last7) + stat('30 dias', u.last30);
   drawUsageTimeline(tl, u.series, usageState.metric, usageState.window);
-  const data = usageState.dim === 'account' ? u.byAccount : usageState.dim === 'model' ? u.byModel : u.byKind;
+  const data = usageState.dim === 'account' ? u.byAccount
+    : usageState.dim === 'model' ? u.byModel
+    : usageState.dim === 'profile' ? (u.byProfile || [])
+    : u.byKind;
   drawUsageBreakdown(bd, data, usageState.metric);
+  // nota de orçamento: só na dimensão "profile", compara gasto (usage.js) com teto
+  // configurado (doctor/claudeAuth, que já calcula isso por perfil via profileBudgetStatus)
+  if (noteEl) {
+    if (usageState.dim === 'profile') {
+      const claudeAuth = (STATE.doctor && STATE.doctor.claudeAuth) || [];
+      const linhas = (u.byProfile || []).map(item => {
+        const info = claudeAuth.find(x => x.id === item.profileId);
+        if (!info || !info.apiKeyMode) return '';
+        const partes = [];
+        if (info.today != null) partes.push(`hoje US$ ${info.today.toFixed(2)}`);
+        if (info.sinceCutoff != null) partes.push(`total US$ ${info.sinceCutoff.toFixed(2)}`);
+        const selo = info.blocked ? ' 🔴 orçamento estourado' : '';
+        return partes.length ? `${esc(item.label)}: ${partes.join(' · ')}${selo}` : '';
+      }).filter(Boolean);
+      noteEl.innerHTML = linhas.join('<br>');
+      noteEl.hidden = !linhas.length;
+    } else {
+      noteEl.hidden = true;
+    }
+  }
 }
 
 function wireUsageControls() {
