@@ -183,6 +183,33 @@ test('normalizeClaudeProfiles: perfil dir nunca ganha campos de orçamento, mesm
   assert.equal('budgetDaily' in out[0], false);
 });
 
+test('normalizeClaudeProfiles: budgetDaily/budgetTotal rejeita tipos garbage (array, boolean, objeto) como undefined', () => {
+  const out = normalizeClaudeProfiles([
+    { id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', budgetDaily: [5], budgetTotal: true },
+    { id: 'p2', label: 'P2', kind: 'apikey', apiKey: 'sk-2', budgetDaily: { value: 10 }, budgetTotal: null },
+  ]);
+  assert.equal(out[0].budgetDaily, undefined);
+  assert.equal(out[0].budgetTotal, undefined);
+  assert.equal(out[1].budgetDaily, undefined);
+  assert.equal(out[1].budgetTotal, undefined);
+});
+
+test('normalizeClaudeProfiles: budgetDaily/budgetTotal vazio (string vazia) vira undefined, não zero', () => {
+  const out = normalizeClaudeProfiles([
+    { id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', budgetDaily: '', budgetTotal: '  ' },
+  ]);
+  assert.equal(out[0].budgetDaily, undefined);
+  assert.equal(out[0].budgetTotal, undefined);
+});
+
+test('normalizeClaudeProfiles: budgetDaily/budgetTotal aceitam zero explícito (número 0) e strings numéricas válidas', () => {
+  const out = normalizeClaudeProfiles([
+    { id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', budgetDaily: 0, budgetTotal: '3.5' },
+  ]);
+  assert.equal(out[0].budgetDaily, 0);
+  assert.equal(out[0].budgetTotal, 3.5);
+});
+
 test('sanitizeClaudeDir: rejeita aspas duplas e quebras de linha, aceita o resto', () => {
   assert.equal(sanitizeClaudeDir('C:\\ok'), 'C:\\ok');
   assert.equal(sanitizeClaudeDir('C:\\bad"quote'), '');
