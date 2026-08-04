@@ -547,9 +547,12 @@ function claudeAuthBadge(id) {
   const info = all.find(x => x.id === id) || all.find(x => x.id === '') || all[0] || null;
   if (!info) return '';
   if (info.apiKeyMode) {
-    return info.ready
-      ? `<span class="a-claude ok" title="Autenticação por chave de API">🔑 chave configurada</span>`
-      : `<span class="a-claude bad" title="Perfil de chave de API sem chave preenchida">SEM CHAVE</span>`;
+    if (!info.ready) return `<span class="a-claude bad" title="Perfil de chave de API sem chave preenchida">SEM CHAVE</span>`;
+    if (info.blocked) {
+      const motivo = info.reason === 'diario' ? 'orçamento diário' : 'orçamento total';
+      return `<span class="a-claude bad" title="${motivo} estourado, automação pausada (clique manual continua liberado)">🔴 ${motivo} estourado</span>`;
+    }
+    return `<span class="a-claude ok" title="Autenticação por chave de API">🔑 chave configurada</span>`;
   }
   if (info.ready === false) return `<span class="a-claude bad" title="rode claude login nesse diretório">SEM LOGIN</span>`;
   if (info.account) return `<span class="a-claude ok" title="${esc(info.configDir || 'padrão da máquina')}">@${esc(info.account)}</span>`;
@@ -612,6 +615,11 @@ function renderClaudeProfiles() {
   </div>`;
   const rows = profiles.map(p => {
     const isApiKey = p.kind === 'apikey';
+    const budgetInfo = isApiKey ? ((STATE.doctor && STATE.doctor.claudeAuth) || []).find(x => x.id === p.id) : null;
+    const budgetStatusText = budgetInfo
+      ? `Hoje: US$ ${(budgetInfo.today || 0).toFixed(2)}${p.budgetDaily != null ? ` de US$ ${p.budgetDaily.toFixed(2)}` : ''}`
+        + (p.budgetTotal != null ? ` · Desde ${p.budgetSince || '?'}: US$ ${(budgetInfo.sinceCutoff || 0).toFixed(2)} de US$ ${p.budgetTotal.toFixed(2)}` : '')
+      : '';
     const fields = isApiKey ? `
       <div class="a-editrow">
         <input class="cp-apikey" type="password" data-id="${esc(p.id)}" value="${esc(p.apiKey || '')}" placeholder="chave de API" spellcheck="false" autocomplete="off">
@@ -619,7 +627,13 @@ function renderClaudeProfiles() {
       </div>
       <div class="a-editrow">
         <input class="cp-baseurl" data-id="${esc(p.id)}" value="${esc(p.baseUrl || '')}" placeholder="URL base (opcional, deixe em branco pra usar a Anthropic direto)" spellcheck="false">
-      </div>` : `
+      </div>
+      <div class="a-editrow">
+        <input class="cp-budget-daily" type="number" min="0" step="0.01" data-id="${esc(p.id)}" value="${p.budgetDaily != null ? p.budgetDaily : ''}" placeholder="Orçamento diário (US$, opcional)">
+        <input class="cp-budget-total" type="number" min="0" step="0.01" data-id="${esc(p.id)}" value="${p.budgetTotal != null ? p.budgetTotal : ''}" placeholder="Orçamento total (US$, opcional)">
+        <input class="cp-budget-since" type="date" data-id="${esc(p.id)}" value="${p.budgetSince || ''}" title="Contar o total a partir de">
+      </div>
+      ${budgetStatusText ? `<div class="a-hint">${esc(budgetStatusText)}</div>` : ''}` : `
       <div class="a-editrow">
         <input class="cp-dir" data-id="${esc(p.id)}" value="${esc(p.dir || '')}" placeholder="C:\\Users\\voce\\.claude-perfil" spellcheck="false">
       </div>`;
@@ -953,7 +967,7 @@ $('#claudeProfilesManager').addEventListener('change', (e) => {
     t.blur();
     return patch;
   }
-  const camposEditaveis = ['cp-label', 'cp-dir', 'cp-apikey', 'cp-baseurl'];
+  const camposEditaveis = ['cp-label', 'cp-dir', 'cp-apikey', 'cp-baseurl', 'cp-budget-daily', 'cp-budget-total', 'cp-budget-since'];
   if (camposEditaveis.some(cls => t.classList.contains(cls))) {
     const id = t.dataset.id;
     if ((t.classList.contains('cp-dir') || t.classList.contains('cp-apikey') || t.classList.contains('cp-baseurl'))
@@ -968,6 +982,18 @@ $('#claudeProfilesManager').addEventListener('change', (e) => {
       if (t.classList.contains('cp-dir')) next.dir = t.value.trim();
       if (t.classList.contains('cp-apikey')) next.apiKey = t.value.trim();
       if (t.classList.contains('cp-baseurl')) next.baseUrl = t.value.trim();
+      if (t.classList.contains('cp-budget-daily')) {
+        const v = t.value.trim();
+        if (v === '') delete next.budgetDaily; else next.budgetDaily = Number(v);
+      }
+      if (t.classList.contains('cp-budget-total')) {
+        const v = t.value.trim();
+        if (v === '') delete next.budgetTotal; else next.budgetTotal = Number(v);
+      }
+      if (t.classList.contains('cp-budget-since')) {
+        const v = t.value.trim();
+        if (v === '') delete next.budgetSince; else next.budgetSince = v;
+      }
       return next;
     });
     saveClaudeProfiles(profiles);
