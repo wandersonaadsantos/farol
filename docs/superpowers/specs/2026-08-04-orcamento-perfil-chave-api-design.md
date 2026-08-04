@@ -1,7 +1,7 @@
 # Orçamento por perfil de chave de API
 
 Data: 2026-08-04
-Status: **ENTREGUE na vX.Y.Z** (data). Todo item desta spec está no código e coberto por `test/usage.test.js`, `test/pure.test.js`, `test/claude-profiles.test.js`, `test/session-stream.test.js` e `test/budget-gate.test.js`.
+Status: **ENTREGUE na v2.35.0** (04/08/2026). Todo item desta spec está no código e coberto por `test/usage.test.js`, `test/pure.test.js`, `test/claude-profiles.test.js`, `test/session-stream.test.js`, `test/check-resilience.test.js` e `test/pushback.test.js` (o gate cobre os três caminhos automáticos de gasto: revisão nova, retry pós-falha transitória e scan de pushback).
 
 ## Problema
 

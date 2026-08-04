@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.35.0
+
+**Novidades**
+- **Orçamento por perfil de chave de API.** Cada perfil de chave (Sistema > Plano e chaves) agora pode ter um teto diário e/ou um teto total (com data de início), fechando o buraco que deixou um perfil billado por token gastar sem freio até você notar. Estourar qualquer um dos dois pausa toda a automação de gasto daquele perfil (disparo automático de PR novo, retentativa automática pós-falha transitória, e o scan automático de pushback), sem bloquear clique manual nem a autoanálise de "Meus PRs" (que só roda por clique). O card do perfil e a aba Consumo (com quebra por perfil) mostram o gasto acumulado e um selo quando o orçamento estoura.
+- Uma sessão que gastava tokens em várias idas e vindas de ferramenta e só falhava na última mensagem registrava zero custo em qualquer lugar. Agora o gasto é sempre contabilizado, mesmo quando a sessão termina em erro.
+
+**Correções**
+- Um perfil que já estourou o orçamento e depois é liberado (você aumenta o teto) podia ficar com o aviso de estouro mudo pro próximo estouro real, se a fila estivesse vazia no meio do caminho. Agora o estado é reconciliado a cada ciclo, independente da fila ter algo pra oferecer.
+
 ## v2.34.1
 
 **Correções**
