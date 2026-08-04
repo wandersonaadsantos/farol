@@ -43,9 +43,9 @@ after(() => {
 function fakeEngine(profiles) {
   return {
     config: { skipPermissions: false, port: 47170 },
-    resolveClaudeConfigDir(user) {
-      const p = (profiles || {})[user];
-      return p || '';
+    resolveClaudeAuth(user) {
+      const dir = (profiles || {})[user] || '';
+      return { kind: 'dir', dir };
     },
     primaryUser() { return 'default-user'; }
   };
@@ -74,6 +74,34 @@ test('buildSessionScriptMac: sem dir resolvido, não exporta CLAUDE_CONFIG_DIR',
   const engine = fakeEngine({});
   const script = buildSessionScriptMac(engine, '/pr-review x', 'id1', 'alice');
   assert.match(script, /# sem config dir proprio/);
+  assert.doesNotMatch(script, /CLAUDE_CONFIG_DIR/);
+});
+
+// engine "de mentira" v2: expõe resolveClaudeAuth (o que buildSessionScript passa a
+// chamar), pros casos que envolvem perfil apikey. A fakeEngine original (linha 43-52)
+// continua servindo os testes de perfil dir de sempre.
+function fakeEngineAuth(authByUser) {
+  return {
+    config: { skipPermissions: false, port: 47170 },
+    resolveClaudeAuth(user) {
+      return (authByUser || {})[user] || { kind: 'dir', dir: '' };
+    },
+    primaryUser() { return 'default-user'; }
+  };
+}
+
+test('buildSessionScript (Windows): perfil apikey da conta seta ANTHROPIC_API_KEY, não CLAUDE_CONFIG_DIR', () => {
+  const engine = fakeEngineAuth({ bob: { kind: 'apikey', apiKey: 'sk-ant-abc', baseUrl: '' } });
+  const script = buildSessionScript(engine, '/pr-review x', 'bob');
+  assert.match(script, /set "ANTHROPIC_API_KEY=sk-ant-abc"/);
+  assert.doesNotMatch(script, /CLAUDE_CONFIG_DIR/);
+});
+
+test('buildSessionScriptMac: perfil apikey da conta, com baseUrl, escaping de aspa simples', () => {
+  const engine = fakeEngineAuth({ bob: { kind: 'apikey', apiKey: "sk-ant-abc' ; touch /tmp/PROOF #", baseUrl: 'https://proxy.x' } });
+  const script = buildSessionScriptMac(engine, '/pr-review x', 'id1', 'bob');
+  assert.match(script, /export ANTHROPIC_API_KEY='sk-ant-abc'\\''/);
+  assert.match(script, /export ANTHROPIC_BASE_URL='https:\/\/proxy\.x'/);
   assert.doesNotMatch(script, /CLAUDE_CONFIG_DIR/);
 });
 
