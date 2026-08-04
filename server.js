@@ -106,7 +106,8 @@ const DEFAULTS = {
   // (a funcionalidade que o Wanderson pediu); quem quiser poupar limite desliga em Sistema.
   autoPushback: true,
   claudeConfigDir: '',
-  // NOVO: perfis nomeados de assinatura Claude [{id,label,dir}]. Vazio = usa só o
+  // NOVO: perfis nomeados de assinatura Claude [{id,label,dir}] (login por assinatura) ou
+  // [{id,label,kind:'apikey',apiKey,baseUrl}] (chave de API). Vazio = usa só o
   // claudeConfigDir legado acima (compatibilidade total, nada muda pra quem não adotar
   // o sistema novo). claudeProfileId escolhe o perfil padrão do Farol quando a conta
   // não tiver um claudeProfileId próprio (accounts[].claudeProfileId, opcional).
@@ -1053,9 +1054,10 @@ class Engine extends EventEmitter {
       if (k === 'defaultReviewers') v = parseDefaultReviewers(v);
       if (k === 'people') v = parsePeople(v);
       if (k === 'claudeConfigDir') v = sanitizeClaudeDir(v);
-      // perfis nomeados de assinatura Claude: [{id,label,dir}]. Descarta entradas sem
-      // id ou sem dir válido (perfil incompleto não serve pra nada, ver
-      // resolveClaudeConfigDir), e sanitiza o dir (aspa dupla/newline quebrariam os
+      // perfis nomeados de assinatura Claude: [{id,label,dir}] (login por assinatura) ou
+      // [{id,label,kind:'apikey',apiKey,baseUrl}] (chave de API). Descarta entradas sem
+      // id ou sem dir/apiKey válido conforme o kind (perfil incompleto não serve pra nada, ver
+      // resolveClaudeConfigDir), e sanitiza dir/apiKey/baseUrl (aspa dupla/newline quebrariam os
       // scripts de sessão gerados, ver sanitizeClaudeDir/lib/parse.js).
       if (k === 'claudeProfiles') v = normalizeClaudeProfiles(v);
       if (k === 'claudeProfileId') v = normalizeClaudeProfileId(v);

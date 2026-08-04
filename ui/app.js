@@ -535,7 +535,8 @@ function renderAccountsManager() {
   box.innerHTML = (rows || '<div class="empty">Nenhuma conta configurada.</div>') + addForm;
 }
 
-// Gerenciador de perfis de assinatura Claude (Sistema): cada perfil é {id,label,dir}.
+// Gerenciador de perfis de assinatura Claude (Sistema): cada perfil é {id,label,dir}
+// (login por assinatura) ou {id,label,kind:'apikey',apiKey,baseUrl} (chave de API).
 // Perfil padrão global + perfis salvos, cada um com o e-mail logado (badge, via doctor).
 function claudeAuthBadge(id) {
   const all = (STATE.doctor && STATE.doctor.claudeAuth) || [];
@@ -878,8 +879,8 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
       const apiKey = ($('#cpAddApiKey').value || '').trim();
       const baseUrl = ($('#cpAddBaseUrl').value || '').trim();
       if (!label || !apiKey) return toast('error', 'Preencha nome e chave.', 3000);
-      if (/["\r\n]/.test(apiKey) || /["\r\n]/.test(baseUrl)) {
-        return toast('error', 'Chave ou URL base com aspas ou quebra de linha no meio não pode ser usada.', 4500);
+      if (/["\r\n]/.test(apiKey.replace(/^"(.*)"$/s, '$1').trim()) || /["\r\n]/.test(baseUrl.replace(/^"(.*)"$/s, '$1').trim())) {
+        return toast('error', 'Chave ou URL base com aspas ou quebra de linha no meio (não em volta) não pode ser usada.', 4500);
       }
       const profiles = [...(STATE.config.claudeProfiles || []), { id: genProfileId(), label, kind: 'apikey', apiKey, baseUrl }];
       $('#cpAddLabel').value = ''; $('#cpAddApiKey').value = ''; $('#cpAddBaseUrl').value = '';
@@ -942,7 +943,15 @@ $('#claudeProfilesManager').addEventListener('change', (e) => {
   const t = e.target;
   if (t.id === 'claudeProfileDefault') {
     STATE.config.claudeProfileId = t.value;
-    return api('/api/settings', { claudeProfileId: t.value });
+    const patch = api('/api/settings', { claudeProfileId: t.value });
+    // tira o foco do select: renderClaudeProfiles() tem uma guarda que pula o re-render
+    // enquanto INPUT/SELECT do gerenciador estiver focado (pra não atrapalhar quem está
+    // digitando), e trocar de opção não tira o foco sozinho. Sem o blur, o botão "Abrir
+    // sessão de login" ficava com o data-id do perfil ANTERIOR até o próximo re-render
+    // manual (achado de bug real). O blur libera o próximo re-render legítimo (o push de
+    // 'settings' via SSE que já acontece depois de qualquer PATCH em /api/settings).
+    t.blur();
+    return patch;
   }
   const camposEditaveis = ['cp-label', 'cp-dir', 'cp-apikey', 'cp-baseurl'];
   if (camposEditaveis.some(cls => t.classList.contains(cls))) {

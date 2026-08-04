@@ -212,6 +212,16 @@ test('applyClaudeAuthEnv: limpa CLAUDE_CONFIG_DIR/ANTHROPIC_* residuais do objet
   assert.deepEqual(env2, { ANTHROPIC_API_KEY: 'sk-ant-novo', OUTRA_VAR: 'preservada' });
 });
 
+test('applyClaudeAuthEnv: limpa ANTHROPIC_AUTH_TOKEN residual (precedencia oficial fica acima de ANTHROPIC_API_KEY)', () => {
+  // ANTHROPIC_AUTH_TOKEN vence ANTHROPIC_API_KEY na precedencia oficial do CLI (ver CLAUDE.md).
+  // Se a maquina/ambiente do processo do Farol tiver essa var setada por fora (ex.: perfil de
+  // shell do usuario, sem relacao com o Farol), ela venceria em silencio tanto um perfil dir
+  // quanto um perfil apikey recem aplicado, derrotando a garantia desta funcao.
+  const env = { ANTHROPIC_AUTH_TOKEN: 'token-de-fora', OUTRA_VAR: 'preservada' };
+  applyClaudeAuthEnv(env, { kind: 'dir', dir: 'C:\\perfil' });
+  assert.deepEqual(env, { CLAUDE_CONFIG_DIR: 'C:\\perfil', OUTRA_VAR: 'preservada' });
+});
+
 test('claudeAuthShellLines: kind dir, Windows', () => {
   assert.deepEqual(claudeAuthShellLines({ kind: 'dir', dir: 'C:\\perfil' }, true), ['set "CLAUDE_CONFIG_DIR=C:\\perfil"']);
   assert.deepEqual(claudeAuthShellLines({ kind: 'dir', dir: '' }, true), ['rem sem config dir proprio']);
