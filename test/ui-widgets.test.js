@@ -191,3 +191,34 @@ test('os marcadores de merge sao Map com geracao e sao podados no render (B17)',
   assert.match(inicio[0], /expiredSessionMarks\(/,
     'a poda roda no comeco de cada render, cumprindo o que o comentario da declaracao dos marcadores sempre prometeu');
 });
+
+/* ---------- estado de carregamento das listas (Meus PRs vinha assumindo vazio) ---------- */
+
+test('listViewState: nunca assume vazio antes do primeiro ciclo terminar', () => {
+  assert.equal(P.listViewState({ lastCheckAt: null, status: 'starting', length: 0 }), 'loading');
+  assert.equal(P.listViewState({ lastCheckAt: null, status: 'checking', length: 0 }), 'loading');
+});
+
+test('listViewState: primeiro ciclo falhou sem nunca ter confirmado nada vira erro, nao vazio', () => {
+  assert.equal(P.listViewState({ lastCheckAt: null, status: 'error', length: 0 }), 'error');
+});
+
+test('listViewState: so' + ' chama de vazio depois de um ciclo confirmado', () => {
+  assert.equal(P.listViewState({ lastCheckAt: 12345, status: 'idle', length: 0 }), 'empty');
+});
+
+test('listViewState: lista com item sempre mostra a lista, mesmo se o ciclo mais recente falhou', () => {
+  // preserva o ultimo dado bom (o motor ja faz isso); a UI so decide entre
+  // loading/error/empty quando a lista em si esta vazia
+  assert.equal(P.listViewState({ lastCheckAt: 12345, status: 'error', length: 3 }), 'list');
+  assert.equal(P.listViewState({ lastCheckAt: null, status: 'checking', length: 1 }), 'list');
+});
+
+test('renderMyPRs, renderQueue e renderPanorama decidem o empty state pelo listViewState, nao so pelo tamanho', () => {
+  for (const nome of ['renderMyPRs', 'renderQueue', 'renderPanorama']) {
+    const fn = APPJS.match(new RegExp(`function ${nome}\\([\\s\\S]*?\\n\\}`));
+    assert.ok(fn, `${nome} existe`);
+    assert.match(fn[0], /listViewState\(/,
+      `${nome} precisa consultar listViewState antes de decidir o empty state, senao assume vazio sem resposta definitiva`);
+  }
+});

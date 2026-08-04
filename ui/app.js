@@ -1798,6 +1798,13 @@ function renderQueue() {
   btnAll.textContent = `Revisar tudo (${q.length})`;
 
   const box = $('#queue');
+  const vs = listViewState({ lastCheckAt: STATE.lastCheckAt, status: STATE.status, length: q.length });
+  if (vs === 'loading' || vs === 'error') {
+    box.innerHTML = `<div class="empty" style="border:0">${vs === 'loading'
+      ? 'Verificando se há algo esperando por você…'
+      : 'Não foi possível confirmar ainda (a checagem falhou; veja o aviso no topo). Vou tentar de novo no próximo ciclo.'}</div>`;
+    return;
+  }
   if (!q.length) {
     // Vazio bom merece CONFIRMAR o que o app fez, não só dizer que não tem nada.
     // resolvedAt é epoch em ms; a comparação de dia é LOCAL e vive no pure.js (testada lá).
@@ -1869,9 +1876,14 @@ function renderPanorama() {
   $('#panoCount').textContent = list.length;
   $('#panoOwners').textContent = list.length ? 'PRs abertos, os seus destacados' : '';
   const box = $('#panorama');
-  if (!list.length) {
+  const vs = listViewState({ lastCheckAt: STATE.lastCheckAt, status: STATE.status, length: list.length });
+  if (vs !== 'list') {
     box.style.display = 'block';
-    box.innerHTML = `<div class="empty" style="border:0">Nenhum PR aberto ${SCOPE === 'all' ? 'nas organizações monitoradas' : 'nesta conta'}.</div>`;
+    box.innerHTML = vs === 'loading'
+      ? `<div class="empty" style="border:0">Verificando os PRs abertos…</div>`
+      : vs === 'error'
+        ? `<div class="empty" style="border:0">Não foi possível confirmar ainda (a checagem falhou; veja o aviso no topo). Vou tentar de novo no próximo ciclo.</div>`
+        : `<div class="empty" style="border:0">Nenhum PR aberto ${SCOPE === 'all' ? 'nas organizações monitoradas' : 'nesta conta'}.</div>`;
     return;
   }
   box.style.display = '';
@@ -1946,8 +1958,13 @@ function renderMyPRs() {
   wrap.hidden = false;
   $('#myPRsCount').hidden = list.length === 0;
   $('#myPRsCount').textContent = list.length;
-  if (!list.length) {
-    $('#myPRs').innerHTML = `<div class="empty" style="border:0">Você não tem PRs abertos ${SCOPE === 'all' ? 'nas organizações monitoradas' : 'nesta conta'}.</div>`;
+  const vs = listViewState({ lastCheckAt: STATE.lastCheckAt, status: STATE.status, length: list.length });
+  if (vs !== 'list') {
+    $('#myPRs').innerHTML = vs === 'loading'
+      ? `<div class="empty" style="border:0">Verificando se você tem PRs abertos…</div>`
+      : vs === 'error'
+        ? `<div class="empty" style="border:0">Não foi possível confirmar ainda (a checagem falhou; veja o aviso no topo). Vou tentar de novo no próximo ciclo.</div>`
+        : `<div class="empty" style="border:0">Você não tem PRs abertos ${SCOPE === 'all' ? 'nas organizações monitoradas' : 'nesta conta'}.</div>`;
     return;
   }
 

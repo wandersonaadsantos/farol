@@ -70,6 +70,18 @@ function expiredSessionMarks(marks, lastCheckAt) {
   return (marks || []).filter(([, at]) => ref > (Number(at) || 0)).map(([k]) => k);
 }
 
+// decide o que uma lista vinda do motor (myPRs/queue/panorama) deve mostrar quando
+// esta vazia: 'loading' (nenhum ciclo terminou ainda desde o boot), 'error' (o
+// PRIMEIRO ciclo da vida falhou sem nunca ter confirmado nada) ou 'empty' (pelo
+// menos um ciclo terminou com sucesso e a lista, de fato, veio vazia). Uma lista
+// com item sempre vira 'list', mesmo se o ciclo mais recente falhou: o motor ja
+// preserva o ultimo dado bom (nao some so porque a rede caiu depois).
+function listViewState({ lastCheckAt, status, length }) {
+  if (length > 0) return 'list';
+  if (lastCheckAt) return 'empty';
+  return status === 'error' ? 'error' : 'loading';
+}
+
 // tira acento pra "revisao" achar "Revisão"
 function sysNorm(s) { return String(s || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase(); }
 
@@ -477,6 +489,6 @@ if (typeof module !== 'undefined' && module.exports) {
     usageDayKeysBack, localDayKey, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
     deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
     fmtStamp, fmtWhenDay, resolvedRow,
-    opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible, expiredSessionMarks
+    opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible, expiredSessionMarks, listViewState
   };
 }
