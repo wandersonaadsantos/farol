@@ -1136,7 +1136,7 @@ class Engine extends EventEmitter {
   }
 
   // Consumo de tokens: colaborador lib/engine/usage.js (registro permanente, sem custo).
-  recordUsage(id, account, resultEvent, model) { return usageMod.recordUsage(this, id, account, resultEvent, model); }
+  recordUsage(id, account, resultEvent, model, profileId) { return usageMod.recordUsage(this, id, account, resultEvent, model, profileId); }
   usageSummary() { return usageMod.usageSummary(this); }
 
   pushState() { this.emit('state', this.snapshot()); }

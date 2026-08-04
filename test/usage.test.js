@@ -63,6 +63,110 @@ test('applyUsage agrega em todos os eixos (totais, dia, tipo, conta, modelo)', (
   assert.equal(store.days['2026-07-20'].outputTokens, 20);
 });
 
+test('applyUsage: profileId opcional cria o bucket byProfileDay com chave composta', () => {
+  const store = usage.defaultUsage();
+  const u = usage.extractUsage({ usage: { input_tokens: 10, output_tokens: 5 }, total_cost_usd: 0.01 }, 'claude-opus-4-8');
+  usage.applyUsage(store, '2026-08-01', 'review', 'trabalho', 'claude-opus-4-8', u, 'perfil-a');
+  assert.ok(store.byProfileDay, 'bucket byProfileDay existe');
+  assert.equal(store.byProfileDay['perfil-a|2026-08-01'].inputTokens, 10);
+  assert.equal(store.byProfileDay['perfil-a|2026-08-01'].costUsd, 0.01);
+});
+
+test('applyUsage: sem profileId (perfil dir/legado) não cria entrada em byProfileDay', () => {
+  const store = usage.defaultUsage();
+  const u = usage.extractUsage({ usage: { input_tokens: 10, output_tokens: 5 }, total_cost_usd: 0.01 }, 'claude-opus-4-8');
+  usage.applyUsage(store, '2026-08-01', 'review', 'trabalho', 'claude-opus-4-8', u);
+  assert.deepEqual(store.byProfileDay || {}, {});
+});
+
+test('profileSpend: soma hoje e desde a data de corte, sem vazar entre perfis', () => {
+  const store = usage.defaultUsage();
+  const u1 = usage.extractUsage({ usage: { input_tokens: 10 }, total_cost_usd: 1 }, 'x');
+  const u2 = usage.extractUsage({ usage: { input_tokens: 10 }, total_cost_usd: 2 }, 'x');
+  const u3 = usage.extractUsage({ usage: { input_tokens: 10 }, total_cost_usd: 5 }, 'x');
+  usage.applyUsage(store, '2026-08-01', 'review', 'a', 'x', u1, 'perfil-a'); // dia antigo, perfil A
+  usage.applyUsage(store, '2026-08-04', 'review', 'a', 'x', u2, 'perfil-a'); // hoje, perfil A
+  usage.applyUsage(store, '2026-08-04', 'review', 'b', 'x', u3, 'perfil-b'); // hoje, perfil B (não pode vazar pro A)
+  const spendHoje = usage.profileSpend(store, 'perfil-a', '2026-08-04');
+  assert.equal(Math.round(spendHoje.today * 100) / 100, 2, 'hoje soma só o dia 2026-08-04');
+  const spendTotal = usage.profileSpend(store, 'perfil-a', '2026-08-01');
+  assert.equal(Math.round(spendTotal.sinceCutoff * 100) / 100, 3, 'desde 08-01 soma os 2 dias do perfil A (1+2), nunca o do B');
+});
+
+test('profileSpend: sem data de corte (since undefined) soma TODOS os dias do perfil', () => {
+  const store = usage.defaultUsage();
+  const u = usage.extractUsage({ usage: { input_tokens: 1 }, total_cost_usd: 1 }, 'x');
+  usage.applyUsage(store, '2020-01-01', 'review', 'a', 'x', u, 'perfil-a');
+  usage.applyUsage(store, '2026-08-04', 'review', 'a', 'x', u, 'perfil-a');
+  const spend = usage.profileSpend(store, 'perfil-a', undefined);
+  assert.equal(Math.round(spend.sinceCutoff * 100) / 100, 2);
+});
+
+test('profileBudgetStatus: perfil sem teto nenhum nunca bloqueia', () => {
+  const store = usage.defaultUsage();
+  const profile = { id: 'p1', kind: 'apikey' };
+  assert.equal(usage.profileBudgetStatus(profile, store).blocked, false);
+});
+
+test('profileBudgetStatus: perfil kind dir nunca bloqueia (não participa de orçamento)', () => {
+  const store = usage.defaultUsage();
+  const profile = { id: 'p1', dir: 'C:\\x', budgetDaily: 0.01 };
+  assert.deepEqual(usage.profileBudgetStatus(profile, store), { blocked: false });
+});
+
+test('profileBudgetStatus: estoura teto diário', () => {
+  const store = usage.defaultUsage();
+  const u = usage.extractUsage({ usage: { input_tokens: 1 }, total_cost_usd: 5 }, 'x');
+  usage.applyUsage(store, usage.localDay(), 'review', 'a', 'x', u, 'p1');
+  const profile = { id: 'p1', kind: 'apikey', budgetDaily: 3 };
+  const status = usage.profileBudgetStatus(profile, store);
+  assert.equal(status.blocked, true);
+  assert.equal(status.reason, 'diario');
+});
+
+test('profileBudgetStatus: estoura teto total (dentro do diário)', () => {
+  const store = usage.defaultUsage();
+  const u = usage.extractUsage({ usage: { input_tokens: 1 }, total_cost_usd: 5 }, 'x');
+  usage.applyUsage(store, usage.localDay(), 'review', 'a', 'x', u, 'p1');
+  const profile = { id: 'p1', kind: 'apikey', budgetDaily: 100, budgetTotal: 3, budgetSince: usage.localDay() };
+  const status = usage.profileBudgetStatus(profile, store);
+  assert.equal(status.blocked, true);
+  assert.equal(status.reason, 'total');
+});
+
+test('profileBudgetStatus: dentro dos dois tetos não bloqueia', () => {
+  const store = usage.defaultUsage();
+  const u = usage.extractUsage({ usage: { input_tokens: 1 }, total_cost_usd: 1 }, 'x');
+  usage.applyUsage(store, usage.localDay(), 'review', 'a', 'x', u, 'p1');
+  const profile = { id: 'p1', kind: 'apikey', budgetDaily: 10, budgetTotal: 10, budgetSince: usage.localDay() };
+  const status = usage.profileBudgetStatus(profile, store);
+  assert.equal(status.blocked, false);
+  assert.equal(Math.round(status.today * 100) / 100, 1);
+});
+
+test('profileBreakdown: soma todos os dias por perfil, com label do config e shape de bucket reusável', () => {
+  const store = usage.defaultUsage();
+  const u1 = usage.extractUsage({ usage: { input_tokens: 10, output_tokens: 2 }, total_cost_usd: 1 }, 'x');
+  const u2 = usage.extractUsage({ usage: { input_tokens: 5, output_tokens: 1 }, total_cost_usd: 0.5 }, 'x');
+  usage.applyUsage(store, '2026-08-01', 'review', 'a', 'x', u1, 'p1');
+  usage.applyUsage(store, '2026-08-02', 'review', 'a', 'x', u2, 'p1');
+  const profiles = [{ id: 'p1', label: 'OpenRouter Pessoal', kind: 'apikey' }];
+  const out = usage.profileBreakdown(store, profiles);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].profileId, 'p1');
+  assert.equal(out[0].label, 'OpenRouter Pessoal');
+  assert.equal(out[0].inputTokens, 15);
+  assert.equal(out[0].sessions, 2);
+});
+
+test('profileBreakdown: perfil removido do config ainda aparece, com o id cru como label', () => {
+  const store = usage.defaultUsage();
+  const u = usage.extractUsage({ usage: { input_tokens: 1 }, total_cost_usd: 1 }, 'x');
+  usage.applyUsage(store, '2026-08-01', 'review', 'a', 'x', u, 'p-removido');
+  const out = usage.profileBreakdown(store, []);
+  assert.equal(out[0].label, 'p-removido');
+});
+
 test('usageSummary devolve totais, hoje, 7 dias e quebras ordenadas', () => {
   const today = usage.localDay(); // o "hoje" do resumo é o dia LOCAL, igual ao gravado
   const store = usage.defaultUsage();
