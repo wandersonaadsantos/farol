@@ -9,6 +9,11 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.35.1
+
+**Correções**
+- **"Meus PRs", "Pra mim" e "Panorama" podiam mostrar "você não tem nada" sem nunca ter confirmado isso.** As três telas decidiam só pelo tamanho da lista vinda do motor, sem checar se o primeiro ciclo de verificação já tinha terminado. No boot (antes do primeiro ciclo) ou quando esse primeiro ciclo falhava (rede, GitHub CLI), a tela assumia vazio de qualquer jeito, no lugar de avisar que ainda está verificando ou que a checagem falhou. Agora as três esperam uma resposta definitiva do motor antes de dizer que está vazio.
+
 ## v2.35.0
 
 **Novidades**
