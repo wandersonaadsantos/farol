@@ -545,6 +545,11 @@ function claudeAuthBadge(id) {
   // ainda não ter chegado num formato esperado (nunca devolve string vazia à toa).
   const info = all.find(x => x.id === id) || all.find(x => x.id === '') || all[0] || null;
   if (!info) return '';
+  if (info.apiKeyMode) {
+    return info.ready
+      ? `<span class="a-claude ok" title="Autenticação por chave de API">🔑 chave configurada</span>`
+      : `<span class="a-claude bad" title="Perfil de chave de API sem chave preenchida">SEM CHAVE</span>`;
+  }
   if (info.ready === false) return `<span class="a-claude bad" title="rode claude login nesse diretório">SEM LOGIN</span>`;
   if (info.account) return `<span class="a-claude ok" title="${esc(info.configDir || 'padrão da máquina')}">@${esc(info.account)}</span>`;
   return `<span class="a-claude" title="${esc(info.configDir || 'padrão da máquina')}">${info.configDir ? 'logada' : 'padrão da máquina'}</span>`;
@@ -588,6 +593,12 @@ function renderClaudeProfiles() {
   const defaultOptions = [`<option value="">${defaultEmptyLabel}</option>`]
     .concat(profiles.map(p => `<option value="${esc(p.id)}"${c.claudeProfileId === p.id ? ' selected' : ''}>${esc(p.label)}</option>`))
     .join('');
+  // botão de login da linha padrão: data-id dinâmico (era fixo "" antes desta feature,
+  // então sempre abria o legado ao clicar, mesmo com outro perfil selecionado no dropdown
+  // - bug preexistente, corrigido junto por ser exigido pra esconder o botão certo).
+  const defaultProfile = profiles.find(p => p.id === (c.claudeProfileId || ''));
+  const defaultIsApiKey = defaultProfile && defaultProfile.kind === 'apikey';
+  const defaultLoginBtn = defaultIsApiKey ? '' : `<button class="btn sm cp-login" data-id="${esc(c.claudeProfileId || '')}">Abrir sessão de login</button>`;
   const defaultRow = `<div class="card set-row">
     <div class="set-txt">
       <span class="set-title">Perfil padrão do Farol</span>
@@ -595,33 +606,55 @@ function renderClaudeProfiles() {
     </div>
     <div class="set-ctl">
       <select id="claudeProfileDefault">${defaultOptions}</select>
-      <button class="btn sm cp-login" data-id="">Abrir sessão de login</button>
+      ${defaultLoginBtn}
     </div>
   </div>`;
-  const rows = profiles.map(p => `<div class="card acct-card">
+  const rows = profiles.map(p => {
+    const isApiKey = p.kind === 'apikey';
+    const fields = isApiKey ? `
+      <div class="a-editrow">
+        <input class="cp-apikey" type="password" data-id="${esc(p.id)}" value="${esc(p.apiKey || '')}" placeholder="chave de API" spellcheck="false" autocomplete="off">
+        <button class="btn icon sm ghost cp-toggle-key" data-id="${esc(p.id)}" title="Mostrar/ocultar a chave" aria-label="Mostrar/ocultar a chave">👁</button>
+      </div>
+      <div class="a-editrow">
+        <input class="cp-baseurl" data-id="${esc(p.id)}" value="${esc(p.baseUrl || '')}" placeholder="URL base (opcional, deixe em branco pra usar a Anthropic direto)" spellcheck="false">
+      </div>` : `
+      <div class="a-editrow">
+        <input class="cp-dir" data-id="${esc(p.id)}" value="${esc(p.dir || '')}" placeholder="C:\\Users\\voce\\.claude-perfil" spellcheck="false">
+      </div>`;
+    return `<div class="card acct-card">
     <div class="a-body">
       <div class="a-editrow">
         <input class="cp-label" data-id="${esc(p.id)}" value="${esc(p.label)}" placeholder="nome do perfil" spellcheck="false">
         ${claudeAuthBadge(p.id)}
       </div>
-      <div class="a-editrow">
-        <input class="cp-dir" data-id="${esc(p.id)}" value="${esc(p.dir)}" placeholder="C:\\Users\\voce\\.claude-perfil" spellcheck="false">
-      </div>
+      ${fields}
     </div>
     <div class="a-actions">
-      <button class="btn sm cp-login" data-id="${esc(p.id)}">Abrir sessão de login</button>
+      ${isApiKey ? '' : `<button class="btn sm cp-login" data-id="${esc(p.id)}">Abrir sessão de login</button>`}
       <button class="btn sm danger-ghost cp-remove" data-id="${esc(p.id)}">Remover</button>
     </div>
-  </div>`).join('');
+  </div>`;
+  }).join('');
   const addForm = `<div class="card acct-add">
     <div class="a-add-title">Adicionar perfil</div>
     <div class="a-editrow">
+      <div class="seg" id="cpAddKind" role="group" aria-label="Tipo de perfil">
+        <button type="button" class="seg-btn active" data-kind="dir">Login por assinatura</button>
+        <button type="button" class="seg-btn" data-kind="apikey">Chave de API</button>
+      </div>
+    </div>
+    <div class="a-editrow">
       <input id="cpAddLabel" placeholder="nome (ex.: BIUD Trabalho)" spellcheck="false">
       <input id="cpAddDir" placeholder="diretório de config (ex.: C:\\Users\\voce\\.claude-biud-trabalho)" spellcheck="false">
+      <input id="cpAddApiKey" type="password" placeholder="chave de API" spellcheck="false" autocomplete="off" hidden>
+      <input id="cpAddBaseUrl" placeholder="URL base (opcional)" spellcheck="false" hidden>
       <button class="btn sm" id="btnCpAdd">Adicionar</button>
     </div>
+    <div class="a-hint" id="cpAddHint">Deixe em branco pra usar a Anthropic direto. Um endpoint customizado precisa falar a API de Mensagens da Anthropic, não é garantia de que qualquer provedor (ex.: OpenRouter) funcione sem um proxy tradutor.</div>
   </div>`;
   box.innerHTML = migrateCard + defaultRow + rows + addForm;
+  const hint = $('#cpAddHint'); if (hint) hint.hidden = true; // só aparece no modo Chave de API (ver listener do seletor)
 }
 
 // re-render das seções sensíveis ao escopo (sem esperar novo state do engine)
@@ -818,12 +851,45 @@ $('#accountsManager').addEventListener('click', (e) => {
 /* editor de perfis de assinatura Claude: adicionar / remover / editar / migrar / padrão global */
 $('#claudeProfilesManager').addEventListener('click', (e) => {
   const t = e.target;
+  // seletor "Login por assinatura" / "Chave de API" no form de adicionar: troca os
+  // campos visíveis, sem tocar em nenhum perfil já salvo.
+  const seg = t.closest('#cpAddKind .seg-btn');
+  if (seg) {
+    $('#cpAddKind').querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b === seg));
+    const isApiKey = seg.dataset.kind === 'apikey';
+    $('#cpAddDir').hidden = isApiKey;
+    $('#cpAddApiKey').hidden = !isApiKey;
+    $('#cpAddBaseUrl').hidden = !isApiKey;
+    $('#cpAddHint').hidden = !isApiKey;
+    return;
+  }
+  // mostrar/ocultar a chave de um perfil já salvo (não é validação nem salvamento, só
+  // alterna o type do input entre password e text).
+  if (t.classList.contains('cp-toggle-key')) {
+    const input = e.currentTarget.querySelector(`.cp-apikey[data-id="${CSS.escape(t.dataset.id)}"]`);
+    if (input) input.type = input.type === 'password' ? 'text' : 'password';
+    return;
+  }
   if (t.id === 'btnCpAdd') {
     const label = ($('#cpAddLabel').value || '').trim();
+    const kindBtn = $('#cpAddKind .seg-btn.active');
+    const isApiKey = kindBtn && kindBtn.dataset.kind === 'apikey';
+    if (isApiKey) {
+      const apiKey = ($('#cpAddApiKey').value || '').trim();
+      const baseUrl = ($('#cpAddBaseUrl').value || '').trim();
+      if (!label || !apiKey) return toast('error', 'Preencha nome e chave.', 3000);
+      if (/["\r\n]/.test(apiKey) || /["\r\n]/.test(baseUrl)) {
+        return toast('error', 'Chave ou URL base com aspas ou quebra de linha no meio não pode ser usada.', 4500);
+      }
+      const profiles = [...(STATE.config.claudeProfiles || []), { id: genProfileId(), label, kind: 'apikey', apiKey, baseUrl }];
+      $('#cpAddLabel').value = ''; $('#cpAddApiKey').value = ''; $('#cpAddBaseUrl').value = '';
+      saveClaudeProfiles(profiles);
+      return;
+    }
     const dir = ($('#cpAddDir').value || '').trim();
     if (!label || !dir) return toast('error', 'Preencha nome e diretório do perfil.', 3000);
     if (/["\r\n]/.test(dir.replace(/^"(.*)"$/s, '$1').trim())) {
-      return toast('error', 'Esse caminho tem aspas ou quebra de linha no meio (não em volta) — não pode ser usado. Confira se colou o caminho certo.', 4500);
+      return toast('error', 'Esse caminho tem aspas ou quebra de linha no meio (não em volta), não pode ser usado. Confira se colou o caminho certo.', 4500);
     }
     const profiles = [...(STATE.config.claudeProfiles || []), { id: genProfileId(), label, dir }];
     $('#cpAddLabel').value = ''; $('#cpAddDir').value = '';
@@ -878,16 +944,23 @@ $('#claudeProfilesManager').addEventListener('change', (e) => {
     STATE.config.claudeProfileId = t.value;
     return api('/api/settings', { claudeProfileId: t.value });
   }
-  if (t.classList.contains('cp-label') || t.classList.contains('cp-dir')) {
+  const camposEditaveis = ['cp-label', 'cp-dir', 'cp-apikey', 'cp-baseurl'];
+  if (camposEditaveis.some(cls => t.classList.contains(cls))) {
     const id = t.dataset.id;
-    if (t.classList.contains('cp-dir') && /["\r\n]/.test(t.value.replace(/^"(.*)"$/s, '$1').trim())) {
-      toast('error', 'Esse caminho tem aspas ou quebra de linha no meio (não em volta) — não pode ser usado. Confira se colou o caminho certo.', 4500);
+    if ((t.classList.contains('cp-dir') || t.classList.contains('cp-apikey') || t.classList.contains('cp-baseurl'))
+        && /["\r\n]/.test(t.value.replace(/^"(.*)"$/s, '$1').trim())) {
+      toast('error', 'Esse valor tem aspas ou quebra de linha no meio, não pode ser usado.', 4500);
       return;
     }
-    const profiles = (STATE.config.claudeProfiles || []).map(p => p.id === id
-      ? { ...p, label: t.classList.contains('cp-label') ? t.value.trim() || p.label : p.label,
-              dir: t.classList.contains('cp-dir') ? t.value.trim() : p.dir }
-      : p);
+    const profiles = (STATE.config.claudeProfiles || []).map(p => {
+      if (p.id !== id) return p;
+      const next = { ...p };
+      if (t.classList.contains('cp-label')) next.label = t.value.trim() || p.label;
+      if (t.classList.contains('cp-dir')) next.dir = t.value.trim();
+      if (t.classList.contains('cp-apikey')) next.apiKey = t.value.trim();
+      if (t.classList.contains('cp-baseurl')) next.baseUrl = t.value.trim();
+      return next;
+    });
     saveClaudeProfiles(profiles);
   }
 });
