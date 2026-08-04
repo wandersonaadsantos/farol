@@ -73,7 +73,7 @@ test('resolveClaudeAuth: sem profiles, cai no legado como kind dir', () => {
   const engine = new Engine();
   engine.config.claudeConfigDir = 'C:\\legado';
   engine.config.claudeProfiles = [];
-  assert.deepEqual(engine.resolveClaudeAuth('alice'), { kind: 'dir', dir: 'C:\\legado' });
+  assert.deepEqual(engine.resolveClaudeAuth('alice'), { kind: 'dir', id: '', dir: 'C:\\legado' });
 });
 
 test('resolveClaudeAuth: perfil apikey da conta vence o padrão global dir', () => {
@@ -84,7 +84,7 @@ test('resolveClaudeAuth: perfil apikey da conta vence o padrão global dir', () 
   ];
   engine.config.claudeProfileId = 'trabalho';
   engine.config.accounts = [{ user: 'bob', owners: ['x'], claudeProfileId: 'chave-pessoal' }];
-  assert.deepEqual(engine.resolveClaudeAuth('bob'), { kind: 'apikey', apiKey: 'sk-ant-123', baseUrl: '' });
+  assert.deepEqual(engine.resolveClaudeAuth('bob'), { kind: 'apikey', id: 'chave-pessoal', apiKey: 'sk-ant-123', baseUrl: '' });
 });
 
 test('resolveClaudeAuth: padrão global apikey, conta sem override', () => {
@@ -92,7 +92,7 @@ test('resolveClaudeAuth: padrão global apikey, conta sem override', () => {
   engine.config.claudeProfiles = [{ id: 'chave', label: 'Chave', kind: 'apikey', apiKey: 'sk-ant-456', baseUrl: 'https://proxy.x' }];
   engine.config.claudeProfileId = 'chave';
   engine.config.accounts = [{ user: 'carol', owners: [] }];
-  assert.deepEqual(engine.resolveClaudeAuth('carol'), { kind: 'apikey', apiKey: 'sk-ant-456', baseUrl: 'https://proxy.x' });
+  assert.deepEqual(engine.resolveClaudeAuth('carol'), { kind: 'apikey', id: 'chave', apiKey: 'sk-ant-456', baseUrl: 'https://proxy.x' });
 });
 
 test('resolveClaudeAuth: perfil apikey apontado mas sem apiKey (corrompido) cai no legado', () => {
@@ -102,7 +102,36 @@ test('resolveClaudeAuth: perfil apikey apontado mas sem apiKey (corrompido) cai 
   // resolveClaudeAuth precisa ser robusto mesmo contra config.json editado à mão
   engine.config.claudeProfiles = [{ id: 'quebrado', label: 'Sem chave', kind: 'apikey', apiKey: '' }];
   engine.config.claudeProfileId = 'quebrado';
-  assert.deepEqual(engine.resolveClaudeAuth('qualquer'), { kind: 'dir', dir: 'C:\\legado' });
+  assert.deepEqual(engine.resolveClaudeAuth('qualquer'), { kind: 'dir', id: '', dir: 'C:\\legado' });
+});
+
+test('resolveClaudeAuth: devolve o id do perfil resolvido (apikey)', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [{ id: 'chave-x', label: 'Chave X', kind: 'apikey', apiKey: 'sk-1', baseUrl: '' }];
+  engine.config.claudeProfileId = 'chave-x';
+  assert.equal(engine.resolveClaudeAuth('qualquer').id, 'chave-x');
+});
+
+test('resolveClaudeAuth: devolve o id do perfil resolvido (dir)', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [{ id: 'dir-x', label: 'Dir X', dir: 'C:\\x' }];
+  engine.config.claudeProfileId = 'dir-x';
+  assert.equal(engine.resolveClaudeAuth('qualquer').id, 'dir-x');
+});
+
+test('resolveClaudeAuth: legado (sem profiles) devolve id vazio', () => {
+  const engine = new Engine();
+  engine.config.claudeConfigDir = 'C:\\legado';
+  engine.config.claudeProfiles = [];
+  assert.equal(engine.resolveClaudeAuth('qualquer').id, '');
+});
+
+test('profileBudgetStatus (fachada): delega pro usage.js com this.usage', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [{ id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', budgetDaily: 1 }];
+  const profile = engine.config.claudeProfiles[0];
+  // sem nenhum uso registrado ainda: não bloqueia
+  assert.equal(engine.profileBudgetStatus(profile).blocked, false);
 });
 
 test('resolveClaudeConfigDir: continua devolvendo só o dir (string) quando o resolvido é kind dir', () => {
@@ -300,7 +329,7 @@ test('allClaudeAuthInfo: perfil apikey com chave preenchida reporta ready + apiK
   engine.config.claudeProfiles = [{ id: 'chave', label: 'Chave OK', kind: 'apikey', apiKey: 'sk-ant-123', baseUrl: '' }];
   const all = engine.allClaudeAuthInfo();
   const entry = all.find(x => x.id === 'chave');
-  assert.deepEqual(entry, { id: 'chave', label: 'Chave OK', configDir: null, account: null, ready: true, apiKeyMode: true });
+  assert.deepEqual(entry, { id: 'chave', label: 'Chave OK', configDir: null, account: null, ready: true, apiKeyMode: true, blocked: false, today: 0, sinceCutoff: 0 });
 });
 
 test('allClaudeAuthInfo: perfil apikey sem chave (não deveria existir, mas defensivo) reporta ready:false', () => {

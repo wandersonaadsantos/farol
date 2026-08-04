@@ -926,10 +926,10 @@ class Engine extends EventEmitter {
     if (profiles.length) {
       const id = acc?.claudeProfileId || this.config.claudeProfileId || '';
       const p = profiles.find(p => p.id === id);
-      if (p?.kind === 'apikey' && p.apiKey) return { kind: 'apikey', apiKey: p.apiKey, baseUrl: p.baseUrl || '' };
-      if (p && p.kind !== 'apikey' && p.dir) return { kind: 'dir', dir: p.dir };
+      if (p?.kind === 'apikey' && p.apiKey) return { kind: 'apikey', id: p.id, apiKey: p.apiKey, baseUrl: p.baseUrl || '' };
+      if (p && p.kind !== 'apikey' && p.dir) return { kind: 'dir', id: p.id, dir: p.dir };
     }
-    return { kind: 'dir', dir: this.config.claudeConfigDir || '' };
+    return { kind: 'dir', id: '', dir: this.config.claudeConfigDir || '' };
   }
 
   // compat: quem só quer "o dir, se houver" (nenhum call site de produção deveria
@@ -1008,7 +1008,7 @@ class Engine extends EventEmitter {
       id: p.id,
       label: p.label,
       ...(p.kind === 'apikey'
-        ? { configDir: null, account: null, ready: !!p.apiKey, apiKeyMode: true }
+        ? { configDir: null, account: null, ready: !!p.apiKey, apiKeyMode: true, ...this.profileBudgetStatus(p) }
         : this.claudeAuthInfo(p.dir))
     }))];
   }
@@ -1138,6 +1138,7 @@ class Engine extends EventEmitter {
   // Consumo de tokens: colaborador lib/engine/usage.js (registro permanente, sem custo).
   recordUsage(id, account, resultEvent, model, profileId) { return usageMod.recordUsage(this, id, account, resultEvent, model, profileId); }
   usageSummary() { return usageMod.usageSummary(this); }
+  profileBudgetStatus(profile) { return usageMod.profileBudgetStatus(profile, this.usage); }
 
   pushState() { this.emit('state', this.snapshot()); }
 
