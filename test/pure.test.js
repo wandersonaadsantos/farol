@@ -149,6 +149,40 @@ test('normalizeClaudeProfiles: kind desconhecido (nem dir nem apikey) é tratado
   assert.deepEqual(out, [{ id: 'x', label: 'X', dir: 'C:\\x' }]);
 });
 
+test('normalizeClaudeProfiles: budgetDaily/budgetTotal válidos são aceitos como número', () => {
+  const out = normalizeClaudeProfiles([
+    { id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', budgetDaily: 3, budgetTotal: 20.5 },
+  ]);
+  assert.equal(out[0].budgetDaily, 3);
+  assert.equal(out[0].budgetTotal, 20.5);
+});
+
+test('normalizeClaudeProfiles: budgetDaily/budgetTotal malformados (string não numérica, negativo) viram undefined', () => {
+  const out = normalizeClaudeProfiles([
+    { id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', budgetDaily: 'abc', budgetTotal: -5 },
+  ]);
+  assert.equal(out[0].budgetDaily, undefined);
+  assert.equal(out[0].budgetTotal, undefined);
+});
+
+test('normalizeClaudeProfiles: budgetSince válido (YYYY-MM-DD) é aceito, formato errado vira undefined', () => {
+  const out = normalizeClaudeProfiles([
+    { id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', budgetSince: '2026-08-01' },
+    { id: 'p2', label: 'P2', kind: 'apikey', apiKey: 'sk-2', budgetSince: '01/08/2026' },
+    { id: 'p3', label: 'P3', kind: 'apikey', apiKey: 'sk-3' },
+  ]);
+  assert.equal(out[0].budgetSince, '2026-08-01');
+  assert.equal(out[1].budgetSince, undefined);
+  assert.equal(out[2].budgetSince, undefined);
+});
+
+test('normalizeClaudeProfiles: perfil dir nunca ganha campos de orçamento, mesmo se enviados', () => {
+  const out = normalizeClaudeProfiles([
+    { id: 'p1', label: 'P1', dir: 'C:\\x', budgetDaily: 5 },
+  ]);
+  assert.equal('budgetDaily' in out[0], false);
+});
+
 test('sanitizeClaudeDir: rejeita aspas duplas e quebras de linha, aceita o resto', () => {
   assert.equal(sanitizeClaudeDir('C:\\ok'), 'C:\\ok');
   assert.equal(sanitizeClaudeDir('C:\\bad"quote'), '');
