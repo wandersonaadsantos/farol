@@ -936,7 +936,7 @@ class Engine extends EventEmitter {
   // quando o resolvido for kind apikey - nunca confunde os dois formatos de auth.
   resolveClaudeConfigDir(user) {
     const auth = this.resolveClaudeAuth(user);
-    return auth.kind === 'dir' ? (auth.dir || '') : '';
+    return auth.kind === 'apikey' ? '' : (auth.dir || '');
   }
 
   // dir de um perfil ESPECÍFICO pelo id, pra "abrir sessão de login" sem depender de
