@@ -9,6 +9,11 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.33.1
+
+**Correções**
+- **"Meus PRs" ficava em branco, sem nenhum aviso, quando você não tinha PR aberto.** A sub-aba escondia o cabeçalho inteiro e zerava a lista sem deixar mensagem nenhuma, diferente de "Pra mim" e "Panorama", que já avisam quando não há nada. Agora o cabeçalho continua visível e aparece "Você não tem PRs abertos nas organizações monitoradas" (ou "nesta conta", conforme o escopo escolhido).
+
 ## v2.33.0
 
 **Melhorias**
