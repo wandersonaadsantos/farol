@@ -1825,10 +1825,13 @@ function renderMyPRs() {
   const list = (STATE.myPRs || []).filter(scopeVisible);
   const analyses = STATE.selfAnalyses || {};
   const wrap = $('#myPRsWrap');
-  wrap.hidden = list.length === 0;
+  wrap.hidden = false;
   $('#myPRsCount').hidden = list.length === 0;
   $('#myPRsCount').textContent = list.length;
-  if (!list.length) { $('#myPRs').innerHTML = ''; return; }
+  if (!list.length) {
+    $('#myPRs').innerHTML = `<div class="empty" style="border:0">Você não tem PRs abertos ${SCOPE === 'all' ? 'nas organizações monitoradas' : 'nesta conta'}.</div>`;
+    return;
+  }
 
   const activeSelf = new Set(
     [].concat(...(STATE.activeSessions || []).filter(s => s.mode === 'self').map(s => s.keys || []))
