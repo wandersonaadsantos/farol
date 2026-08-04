@@ -9,6 +9,12 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.34.0
+
+**Novidades**
+- **Perfil de assinatura Claude por chave de API.** Até agora só existia login por assinatura (`CLAUDE_CONFIG_DIR`). Agora cada perfil pode ser "login por assinatura" (o de sempre) ou "chave de API" (`ANTHROPIC_API_KEY` + URL base opcional, billing por token em vez de assinatura). Os dois tipos convivem no mesmo gerenciador de perfis (Sistema > Plano e chaves) e são escolhidos por conta do GitHub do mesmo jeito de sempre. Cobre tanto as sessões automáticas (revisão, autoanálise, pushback, chat, ferramentas) quanto a sessão de terminal interativa da fila. Perfil de chave não tem fluxo de `claude login`, a chave já é a credencial, então o botão "Abrir sessão de login" só aparece pro tipo assinatura. A URL base é um escape hatch genérico pra qualquer endpoint compatível com a API de Mensagens da Anthropic (proxy próprio, gateway corporativo), não é garantia de funcionar com qualquer provedor.
+- Uma chave de API já configurada em qualquer variável de ambiente da máquina (`ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN`) deixa de vazar sozinha pras sessões do Farol: agora ela é sempre limpa antes de aplicar o perfil escolhido, pra um valor solto no ambiente nunca anular silenciosamente um perfil de assinatura configurado.
+
 ## v2.33.2
 
 **Melhorias**
