@@ -534,11 +534,6 @@ class Engine extends EventEmitter {
       // estourou com a fila vazia (ou só com PRs excluídos por outro motivo) nunca sai
       // do Set quando o gasto volta a caber, e o próximo estouro de verdade fica mudo
       // (sem toast).
-      // reconcilia budgetWarned com a realidade ATUAL dos perfis, independente da fila
-      // ter PR nenhum pra oferecer a chance de "destravar": sem isso, um perfil que
-      // estourou com a fila vazia (ou só com PRs excluídos por outro motivo) nunca sai
-      // do Set quando o gasto volta a caber, e o próximo estouro de verdade fica mudo
-      // (sem toast).
       for (const id of [...this.budgetWarned]) {
         const profile = (this.config.claudeProfiles || []).find(p => p.id === id);
         if (!profile || !this.profileBudgetStatus(profile).blocked) this.budgetWarned.delete(id);
