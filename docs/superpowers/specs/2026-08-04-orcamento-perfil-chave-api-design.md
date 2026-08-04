@@ -1,7 +1,7 @@
 # Orçamento por perfil de chave de API
 
 Data: 2026-08-04
-Status: **DESENHADO**, aguardando plano de implementação.
+Status: **ENTREGUE na vX.Y.Z** (data). Todo item desta spec está no código e coberto por `test/usage.test.js`, `test/pure.test.js`, `test/claude-profiles.test.js`, `test/session-stream.test.js` e `test/budget-gate.test.js`.
 
 ## Problema
 
