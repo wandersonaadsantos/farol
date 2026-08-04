@@ -631,7 +631,7 @@ function renderClaudeProfiles() {
       <div class="a-editrow">
         <input class="cp-budget-daily" type="number" min="0" step="0.01" data-id="${esc(p.id)}" value="${p.budgetDaily != null ? p.budgetDaily : ''}" placeholder="Orçamento diário (US$, opcional)">
         <input class="cp-budget-total" type="number" min="0" step="0.01" data-id="${esc(p.id)}" value="${p.budgetTotal != null ? p.budgetTotal : ''}" placeholder="Orçamento total (US$, opcional)">
-        <input class="cp-budget-since" type="date" data-id="${esc(p.id)}" value="${p.budgetSince || ''}" title="Contar o total a partir de">
+        <input class="cp-budget-since" type="date" data-id="${esc(p.id)}" value="${esc(p.budgetSince || '')}" title="Contar o total a partir de">
       </div>
       ${budgetStatusText ? `<div class="a-hint">${esc(budgetStatusText)}</div>` : ''}` : `
       <div class="a-editrow">
