@@ -143,6 +143,46 @@ test('resolveConfigDirForLogin: perfil encontrado mas sem dir cai no legado', ()
   assert.equal(engine.resolveConfigDirForLogin('quebrado'), 'C:\\legado');
 });
 
+test('resolveAuthForLogin: perfil apikey encontrado devolve o auth completo', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [{ id: 'chave', label: 'Chave', kind: 'apikey', apiKey: 'sk-ant-xyz', baseUrl: '' }];
+  assert.deepEqual(engine.resolveAuthForLogin('chave'), { kind: 'apikey', apiKey: 'sk-ant-xyz', baseUrl: '' });
+});
+
+test('resolveAuthForLogin: perfil dir encontrado devolve {kind:dir,dir}', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [{ id: 'p1', label: 'P1', dir: 'C:\\p1' }];
+  assert.deepEqual(engine.resolveAuthForLogin('p1'), { kind: 'dir', dir: 'C:\\p1' });
+});
+
+test('resolveAuthForLogin: profileId vazio ou não encontrado cai no legado (kind dir)', () => {
+  const engine = new Engine();
+  engine.config.claudeConfigDir = 'C:\\legado';
+  engine.config.claudeProfiles = [{ id: 'p1', label: 'P1', dir: 'C:\\p1' }];
+  assert.deepEqual(engine.resolveAuthForLogin(''), { kind: 'dir', dir: 'C:\\legado' });
+  assert.deepEqual(engine.resolveAuthForLogin('id-que-nao-existe'), { kind: 'dir', dir: 'C:\\legado' });
+});
+
+test('openClaudeLoginSession: perfil apikey NÃO abre sessão, devolve erro amigável', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [{ id: 'chave', label: 'Chave', kind: 'apikey', apiKey: 'sk-ant-xyz', baseUrl: '' }];
+  let spawnChamado = false;
+  engine.spawnLoginConsole = () => { spawnChamado = true; };
+  const r = engine.openClaudeLoginSession('chave');
+  assert.equal(r.ok, false);
+  assert.match(r.error, /chave de API/);
+  assert.equal(spawnChamado, false, 'spawnLoginConsole não deve ser chamado pra perfil apikey');
+});
+
+test('openClaudeLoginSession: perfil dir chama spawnLoginConsole com o MESMO contrato de hoje (dir cru)', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [{ id: 'p1', label: 'P1', dir: 'C:\\p1' }];
+  let dirRecebido = null;
+  engine.spawnLoginConsole = (dir) => { dirRecebido = dir; return { ok: true }; };
+  engine.openClaudeLoginSession('p1');
+  assert.equal(dirRecebido, 'C:\\p1', 'spawnLoginConsole recebe uma STRING crua, não um objeto');
+});
+
 test('ghEnv: injeta CLAUDE_CONFIG_DIR do perfil da conta', () => {
   const engine = new Engine();
   engine.config.claudeProfiles = [

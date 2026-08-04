@@ -950,10 +950,26 @@ class Engine extends EventEmitter {
     return this.config.claudeConfigDir || '';
   }
 
-  // abre a sessão de terminal SÓ pra login (ver Fix 2, lib/engine/session.js). Não
-  // marca nada como visto, não mexe na fila, não dispara checkNow ao fechar.
+  // mesma cascata de resolveConfigDirForLogin, mas devolvendo o perfil INTEIRO (com kind),
+  // pra openClaudeLoginSession decidir se o perfil resolvido pode logar.
+  resolveAuthForLogin(profileId) {
+    const profiles = this.config.claudeProfiles || [];
+    const p = profileId ? profiles.find(x => x.id === profileId) : null;
+    if (p?.kind === 'apikey' && p.apiKey) return { kind: 'apikey', apiKey: p.apiKey, baseUrl: p.baseUrl || '' };
+    if (p && p.kind !== 'apikey' && p.dir) return { kind: 'dir', dir: p.dir };
+    return { kind: 'dir', dir: this.config.claudeConfigDir || '' };
+  }
+
+  // abre a sessão de terminal SÓ pra login (ver Fix 2, lib/engine/session.js). Perfil de
+  // chave de API não tem fluxo de claude login (a chave já é a credencial): nem chega a
+  // chamar spawnLoginConsole. A UI já esconde o botão nesse caso, isto é o segundo lado
+  // da defesa.
   openClaudeLoginSession(profileId) {
-    return this.spawnLoginConsole(this.resolveConfigDirForLogin(profileId));
+    const auth = this.resolveAuthForLogin(profileId);
+    if (auth.kind === 'apikey') {
+      return { ok: false, error: 'perfis de chave de API não usam login: a chave já é a credencial' };
+    }
+    return this.spawnLoginConsole(auth.dir);
   }
 
   // --- diagnostico de pre-requisitos ---
