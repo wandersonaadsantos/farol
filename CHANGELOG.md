@@ -9,6 +9,11 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.35.2
+
+**Correções**
+- **Panorama mostrava "Revisando…" pra PR que só estava na fila, sem revisão nenhuma rodando ainda.** O card do PR só olhava se ele estava em `activeSessions` OU esperando (`headlessWaiting`), tratando os dois como o mesmo estado e disparando o mesmo rótulo. Enquanto isso, "Analisando agora" (aba Pra mim) já mostrava certo: 1 sessão rodando e o resto na fila. Agora o Panorama usa a mesma distinção de "Meus PRs": "Revisando…" só quando a sessão está de fato rodando, "Na fila (N)" quando só está esperando a vez.
+
 ## v2.35.1
 
 **Correções**

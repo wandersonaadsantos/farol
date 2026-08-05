@@ -1887,7 +1887,8 @@ function renderPanorama() {
     return;
   }
   box.style.display = '';
-  const busy = new Set([].concat(...(STATE.activeSessions || []).map(s => s.keys || [])).concat(STATE.headlessWaiting || []));
+  const runningKeys = new Set([].concat(...(STATE.activeSessions || []).map(s => s.keys || [])));
+  const waitingKeys = STATE.headlessWaiting || [];
   box.innerHTML = list.map(pr => {
     const chip = reviewChip(pr);
     const m = acctMark(pr, { noBar: true });
@@ -1901,10 +1902,17 @@ function renderPanorama() {
     const isPending = kind === 'pending';
     // stale = você revisou e entrou commit novo depois: o "Re-revisar" volta a valer
     const stale = reviewed && !!(STATE.staleStates || {})[pr.key];
-    const showBtn = (!reviewed || stale) && !isPending && !busy.has(pr.key);
+    // roda de verdade x só espera a vez: mesma distinção do "Meus PRs", pra não
+    // rotular de "Revisando…" um PR que ainda nem começou (B: fila e panorama divergiam)
+    const running = runningKeys.has(pr.key);
+    const qpos = running ? 0 : waitingKeys.indexOf(pr.key) + 1;
+    const queued = qpos > 0;
+    const showBtn = (!reviewed || stale) && !isPending && !running && !queued;
     const settledLabel = kind === 'request_changes' ? 'aguardando o autor' : isPending ? 'aguardando você' : reviewed ? 'nada a fazer' : '';
-    const tail = busy.has(pr.key)
+    const tail = running
       ? '<button class="btn sm ghost pano-review" disabled>Revisando…</button>'
+      : queued
+      ? `<button class="btn sm ghost pano-review" disabled>Na fila (${qpos})</button>`
       : showBtn
         ? `<button class="btn sm ghost act-review pano-review" data-url="${esc(pr.url)}" title="${pr.reRequested ? 'O autor pediu sua revisão de novo (re-request): a review anterior foi dispensada' : stale ? 'Entrou commit novo depois da sua review: revisar de novo' : pr.mine ? 'Revisar (seu review pedido)' : 'Revisar sob demanda: o resultado sempre passa por você, nada é postado sozinho'}">${stale || pr.reRequested ? 'Re-revisar' : 'Revisar'}</button>`
         : `<span class="settled">${esc(settledLabel)}</span>`;
@@ -2537,6 +2545,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.35.2', ['Correção: o Panorama mostrava "Revisando…" pra PR que só estava na fila, sem nenhuma revisão rodando de fato. Agora distingue "Revisando…" (sessão rodando) de "Na fila (N)" (esperando a vez), igual "Meus PRs" já fazia.']],
   ['2.35.1', ['"Meus PRs", "Pra mim" e "Panorama" podiam mostrar "você não tem nada" sem nunca ter confirmado: no boot ou quando o primeiro ciclo de verificação falhava, a tela assumia vazio em vez de avisar que ainda está verificando ou que a checagem falhou. Agora as três esperam uma resposta definitiva do motor antes disso.']],
   ['2.35.0', ['Orçamento por perfil de chave de API: cada perfil (Sistema > Plano e chaves) pode ter um teto diário e/ou total, com data de início. Estourar qualquer um pausa a automação de gasto daquele perfil (revisão automática, retentativa pós-falha e scan de pushback), sem bloquear clique manual nem a autoanálise. Card do perfil e aba Consumo mostram o gasto acumulado e o selo de estouro.', 'Uma sessão que gastava tokens e falhava só na última mensagem registrava zero custo. Agora o gasto é sempre contabilizado, mesmo em erro.', 'Um perfil liberado (teto aumentado) podia ficar com o aviso de estouro mudo pro próximo estouro real, se a fila estivesse vazia no meio do caminho. Corrigido: o estado é reconciliado a cada ciclo.']],
   ['2.34.1', ['Form de "Adicionar perfil" (Plano e chaves) ficava colado: o seletor de tipo e a linha de campos abaixo coincidiam sem espaço nenhum. Agora tem respiro entre as duas linhas.']],

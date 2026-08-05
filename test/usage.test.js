@@ -80,17 +80,22 @@ test('applyUsage: sem profileId (perfil dir/legado) não cria entrada em byProfi
 });
 
 test('profileSpend: soma hoje e desde a data de corte, sem vazar entre perfis', () => {
+  // profileSpend calcula "hoje" pelo dia REAL da máquina (localDay()), não por um
+  // parâmetro: fixar '2026-08-04' aqui prendia o teste a uma única data de calendário,
+  // que passou a falhar sozinho assim que o dia virou (achado em 05/08/2026).
+  const today = usage.localDay();
+  const oldDay = '2020-01-01';
   const store = usage.defaultUsage();
   const u1 = usage.extractUsage({ usage: { input_tokens: 10 }, total_cost_usd: 1 }, 'x');
   const u2 = usage.extractUsage({ usage: { input_tokens: 10 }, total_cost_usd: 2 }, 'x');
   const u3 = usage.extractUsage({ usage: { input_tokens: 10 }, total_cost_usd: 5 }, 'x');
-  usage.applyUsage(store, '2026-08-01', 'review', 'a', 'x', u1, 'perfil-a'); // dia antigo, perfil A
-  usage.applyUsage(store, '2026-08-04', 'review', 'a', 'x', u2, 'perfil-a'); // hoje, perfil A
-  usage.applyUsage(store, '2026-08-04', 'review', 'b', 'x', u3, 'perfil-b'); // hoje, perfil B (não pode vazar pro A)
-  const spendHoje = usage.profileSpend(store, 'perfil-a', '2026-08-04');
-  assert.equal(Math.round(spendHoje.today * 100) / 100, 2, 'hoje soma só o dia 2026-08-04');
-  const spendTotal = usage.profileSpend(store, 'perfil-a', '2026-08-01');
-  assert.equal(Math.round(spendTotal.sinceCutoff * 100) / 100, 3, 'desde 08-01 soma os 2 dias do perfil A (1+2), nunca o do B');
+  usage.applyUsage(store, oldDay, 'review', 'a', 'x', u1, 'perfil-a'); // dia antigo, perfil A
+  usage.applyUsage(store, today, 'review', 'a', 'x', u2, 'perfil-a'); // hoje, perfil A
+  usage.applyUsage(store, today, 'review', 'b', 'x', u3, 'perfil-b'); // hoje, perfil B (não pode vazar pro A)
+  const spendHoje = usage.profileSpend(store, 'perfil-a', today);
+  assert.equal(Math.round(spendHoje.today * 100) / 100, 2, 'hoje soma só o dia de hoje');
+  const spendTotal = usage.profileSpend(store, 'perfil-a', oldDay);
+  assert.equal(Math.round(spendTotal.sinceCutoff * 100) / 100, 3, 'desde o dia antigo soma os 2 dias do perfil A (1+2), nunca o do B');
 });
 
 test('profileSpend: sem data de corte (since undefined) soma TODOS os dias do perfil', () => {
