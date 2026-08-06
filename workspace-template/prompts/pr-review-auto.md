@@ -74,3 +74,26 @@ Siga o protocolo do `CLAUDE.md` deste diretório (identidade → card do Jira �
 
 - Se algo falhar durante a análise (gh, Jira, diff), registre em `reasons` e prefira `needs_decision` a chutar.
 - Erro fatal que impeça a análise: devolva o JSON mesmo assim com `decision: "needs_decision"`, `verdict: "request_changes"`, `reportMarkdown` explicando a falha e payloads vazios (`body` com a explicação).
+
+## Checkpoint de verificação (memória entre passadas)
+
+Existe um checkpoint desta revisão em `{{CHECKPOINT_PATH}}`. Antes de checar qualquer
+afirmação que cite arquivo/linha específico (ex.: "gateway.ts:53 faz X"):
+
+1. **Leia** esse arquivo (ferramenta `Read`; se não existir ainda, é a primeira verificação
+   desta revisão, siga normalmente). Se já existir uma entrada com veredito `confirmado` ou
+   `refutado` pra essa MESMA afirmação, reaproveite a evidência já registrada em vez de
+   reler o código.
+2. Ao estabelecer um veredito NOVO (a afirmação não estava no checkpoint, ou você decidiu
+   reconfirmar), rode o comando Bash de verificação (ou, se já tiver lido via `Read` e não
+   precisar de mais nenhum comando, rode `true`) com o campo `description` EXATAMENTE neste
+   formato, sem nada antes nem depois:
+
+```
+FAROL_CHECKPOINT: {"claim":"<a afirmação em 1 linha>","file":"<arquivo>","line":<número>,"verdict":"confirmado|refutado|parcial","evidence":"<a evidência em 1 linha>"}
+```
+
+**NUNCA escreva, crie nem edite o arquivo de checkpoint diretamente** (nem com `Write` nem
+com `Edit`): é o app que grava, a partir do `description` acima. Isso vale mesmo que o
+checkpoint ainda não exista, você não precisa criá-lo, o app cria sozinho na primeira
+captura.
