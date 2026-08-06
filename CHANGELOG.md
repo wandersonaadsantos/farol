@@ -9,6 +9,13 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.36.0
+
+**Novidades**
+- **Checkpoint de verificação: a revisão headless deixa de reprocessar do zero depois de uma falha transitória.** Motivo real: uma sessão travada num loop de erro `529` (sobrecarga da API) perdia toda a verificação já feita até ali, e relançar a revisão custava tempo e tokens repetindo exatamente o que já tinha sido conferido. Agora, cada afirmação (`arquivo:linha`) que a sessão confirma contra o código real fica registrada num checkpoint incremental, específico do PR. Se a sessão precisa recomeçar (falha de rede, timeout, relançamento manual), ela é instruída a aproveitar o que já está confirmado em vez de reconferir tudo. O registro é sempre feito pelo motor do Farol, nunca pela sessão diretamente: ela só sinaliza o que verificou, o app é quem grava.
+- **Divergência entre passadas nunca é resolvida em silêncio.** Se duas verificações da mesma afirmação discordam (uma confirma, outra refuta), isso vira um ponto de atenção explícito e passa a travar a postagem automática, tanto aprovação quanto reprovação, do mesmo jeito que já acontecia quando a cobertura de leitura ficava incompleta. "Revisões recentes" ganhou uma linha mostrando quantas afirmações foram confirmadas e se há alguma divergência pendente.
+- **O checkpoint expira sozinho quando o PR ganha commit novo.** Uma divergência registrada contra um código que já não existe mais (o PR recebeu push depois) deixava a postagem automática travada pra sempre, mesmo sem nenhum problema real no código atual. Agora cada registro carrega o commit do PR no momento em que foi verificado, e só entradas do commit mais recente contam pro gate; o histórico completo continua no arquivo, só deixa de bloquear à toa.
+
 ## v2.35.2
 
 **Correções**
