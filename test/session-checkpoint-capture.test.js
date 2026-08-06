@@ -184,3 +184,13 @@ test('entrada gravada sem headSha na revisão (busca ao gh falhou) grava headSha
   const cp = readCheckpoint(checkpointPath(prKey));
   assert.equal(cp.entries[0].headSha, '');
 });
+
+test('marcador com payload em formato de array é ignorado, não grava entrada vazia', async () => {
+  const prKey = 'org/repo#101';
+  const engine = engineFalso('a6', prKey);
+
+  await rodarSessaoComMarcador(engine, 'a6', [1, 2, 3]);
+
+  const cp = readCheckpoint(checkpointPath(prKey));
+  assert.equal(cp.entries.length, 0, 'array não é um objeto de claim válido, não deveria virar entrada nenhuma');
+});
