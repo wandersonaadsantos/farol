@@ -882,6 +882,7 @@ class Engine extends EventEmitter {
   attentionPoints(result) { return decisionMod.attentionPoints(this, result); }
   contestations(result) { return decisionMod.contestations(result); }
   coverageGap(result) { return decisionMod.coverageGap(result); }
+  checkpointGap(result) { return decisionMod.checkpointGap(result); }
   async postReview(pr, payload) { return decisionMod.postReview(this, pr, payload); }
   writeMemory(result, actionLabel) { return decisionMod.writeMemory(this, result, actionLabel); }
   async decide(id, action) { return decisionMod.decide(this, id, action); }
