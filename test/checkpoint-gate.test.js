@@ -60,3 +60,30 @@ test('checkpointGap: verificationCheckpoint malformado bloqueia', () => {
   const r = approvableResult({ verificationCheckpoint: { malformed: true } });
   assert.deepEqual(e.shouldAutoApprove(PR, r), { ok: false, motivo: 'checkpoint' });
 });
+
+function rejectableResult(extra) {
+  return {
+    verdict: 'request_changes', decision: 'needs_decision', reasons: ['blocker'],
+    payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'x' } },
+    ...extra
+  };
+}
+
+test('shouldAutoReject: checkpoint com conflito também bloqueia o auto-reject', () => {
+  const e = engineWithPolicy('approve');
+  e.rejectPolicyFor = () => 'request_changes';
+  const r = rejectableResult({
+    verificationCheckpoint: {
+      total: 2, confirmedCount: 1,
+      conflicts: [{ entries: [{ claim: 'a', verdict: 'confirmado' }, { claim: 'a', verdict: 'refutado' }] }],
+    }
+  });
+  assert.equal(e.shouldAutoReject(PR, r), false, 'divergência entre passadas bloqueia o reject automático também');
+});
+
+test('shouldAutoReject: checkpoint limpo ou ausente não bloqueia (comportamento de hoje preservado)', () => {
+  const e = engineWithPolicy('approve');
+  e.rejectPolicyFor = () => 'request_changes';
+  assert.equal(e.shouldAutoReject(PR, rejectableResult()), true, 'sem checkpoint, segue reprovando sozinho como hoje');
+  assert.equal(e.shouldAutoReject(PR, rejectableResult({ verificationCheckpoint: { total: 1, confirmedCount: 1, conflicts: [] } })), true, 'checkpoint limpo não bloqueia');
+});
