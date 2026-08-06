@@ -401,6 +401,11 @@ function resolvedRow(r, ctx) {
     ? `motivo${attn.length > 1 ? 's' : ''} do pedido de mudanças`
     : `ponto${attn.length > 1 ? 's' : ''} de atenção`;
   const vcls = VERDICT_CLASS[r.action] || '';
+  const vc = r.verificationCheckpoint;
+  const vcLine = (vc && vc.total)
+    ? `Verificação de afirmações: ${vc.confirmedCount} confirmadas de ${vc.total}`
+      + (Array.isArray(vc.conflicts) && vc.conflicts.length ? ` · ⚠ ${vc.conflicts.length} divergência(s) entre passadas` : '')
+    : '';
   return `<div class="rrow${attn.length ? ' has-attn' : ''}">
     <span class="rr-icon" aria-hidden="true">${icon}</span>
     <div class="rr-main">
@@ -412,6 +417,7 @@ function resolvedRow(r, ctx) {
       </div>
       ${title || author ? `<div class="rr-title" title="${esc(title)}">${esc(title)}${author ? `<span class="rr-author">${title ? '· ' : ''}@${esc(author)}</span>` : ''}</div>` : ''}
       <div class="rr-disc">
+        ${vcLine ? `<div class="rr-verification">${esc(vcLine)}</div>` : ''}
         ${attn.length ? `<details class="resolved-attn"><summary>⚠ ${attn.length} ${attnLabel}</summary><ul class="dec-reasons">${attn.map(p => `<li>${esc(p)}</li>`).join('')}</ul></details>` : ''}
         ${r.reportMarkdown ? `<details class="dec-report"><summary>Ver relatório completo</summary><div class="report">${md(r.reportMarkdown)}</div></details>` : ''}
         ${pushbackControl(r, ctx.pushbacks)}

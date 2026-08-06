@@ -639,3 +639,28 @@ test('resolvedRow: o chip da conta e o contador de chat entram como vieram do ct
   assert.match(html, /acct-chip">BIUD/);
   assert.match(html, /<b>2<\/b>/);
 });
+
+test('resolvedRow: sem verificationCheckpoint, não mostra nenhuma linha de resumo', () => {
+  const html = P.resolvedRow({ key: 'o/r#1', status: 'auto_approved', action: 'approve', reasons: [] }, {});
+  assert.doesNotMatch(html, /Verificação de afirmações/);
+});
+
+test('resolvedRow: com verificationCheckpoint limpo, mostra a contagem sem selo de divergência', () => {
+  const html = P.resolvedRow({
+    key: 'o/r#1', status: 'auto_approved', action: 'approve', reasons: [],
+    verificationCheckpoint: { total: 5, confirmedCount: 5, conflicts: [] },
+  }, {});
+  assert.match(html, /Verificação de afirmações: 5 confirmadas de 5/);
+  assert.doesNotMatch(html, /divergência/);
+});
+
+test('resolvedRow: com conflito no verificationCheckpoint, mostra o selo de divergência (além do texto já ir por reasons)', () => {
+  const html = P.resolvedRow({
+    key: 'o/r#1', status: 'auto_approved', action: 'approve',
+    reasons: ['verificação de afirmações com problema (divergência de veredito na afirmação 1 entre passadas de verificação), então não posto sozinho'],
+    verificationCheckpoint: { total: 2, confirmedCount: 1, conflicts: [{ entries: [] }] },
+  }, {});
+  assert.match(html, /Verificação de afirmações: 1 confirmadas de 2/);
+  assert.match(html, /⚠ 1 divergência/);
+  assert.match(html, /pontos? de atenção/, 'o texto do reasons já aparece no bloco de atenção existente, sem UI nova');
+});
