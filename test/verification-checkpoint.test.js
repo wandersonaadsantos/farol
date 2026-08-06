@@ -121,6 +121,15 @@ test('summarizeCheckpoint: mesma linha, claim DIFERENTE, não é conflito (afirm
   assert.deepEqual(s.conflicts, [], 'claim diferente não agrupa junto');
 });
 
+test('summarizeCheckpoint detecta conflito mesmo com fraseado ligeiramente diferente da claim', () => {
+  const entries = [
+    { file: 'a.ts', line: 10, claim: 'a função trata null corretamente', verdict: 'confirmado' },
+    { file: 'a.ts', line: 10, claim: '  A Função trata NULL corretamente.', verdict: 'refutado' },
+  ];
+  const r = summarizeCheckpoint(entries);
+  assert.equal(r.conflicts.length, 1, 'variação de caixa/espaço/pontuação na claim não deveria esconder o conflito');
+});
+
 const { resumeBlock } = require('../lib/engine/verification-checkpoint');
 
 test('summarizeCheckpoint sem currentHeadSha considera todas as entradas (compatibilidade)', () => {
