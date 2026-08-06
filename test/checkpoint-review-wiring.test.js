@@ -49,3 +49,17 @@ test('NÃO injeta resumeBlock quando o checkpoint está ausente ou vazio', () =>
 
   assert.equal(prompt, 'prompt base', 'sem checkpoint, o prompt não ganha nada a mais');
 });
+
+test('resumeBlock não conta entradas de um head antigo na decisão de injetar', () => {
+  const prKey = 'wiring/teste#4';
+  const p = checkpointPath(prKey);
+  appendCheckpointEntry(p, prKey, 'url', { claim: 'a', file: 'x.ts', line: 1, verdict: 'confirmado', headSha: 'sha-velho' });
+
+  const cp = readCheckpoint(p);
+  const headShaAtual = 'sha-novo';
+  const relevantes = cp.entries.filter(e => !e.headSha || e.headSha === headShaAtual);
+  let prompt = 'prompt base';
+  if (cp.ok && relevantes.length) prompt += resumeBlock(relevantes.length, p);
+
+  assert.equal(prompt, 'prompt base', 'entrada é só do SHA antigo: não deveria disparar o aviso de retomada pro head atual');
+});

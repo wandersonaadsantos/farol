@@ -123,6 +123,35 @@ test('summarizeCheckpoint: mesma linha, claim DIFERENTE, não é conflito (afirm
 
 const { resumeBlock } = require('../lib/engine/verification-checkpoint');
 
+test('summarizeCheckpoint sem currentHeadSha considera todas as entradas (compatibilidade)', () => {
+  const entries = [
+    { file: 'a.ts', line: 1, claim: 'x', verdict: 'confirmado', headSha: 'sha-velho' },
+    { file: 'b.ts', line: 2, claim: 'y', verdict: 'confirmado', headSha: 'sha-novo' },
+  ];
+  const r = summarizeCheckpoint(entries);
+  assert.equal(r.total, 2);
+});
+
+test('summarizeCheckpoint com currentHeadSha ignora entradas de SHA diferente', () => {
+  const entries = [
+    { file: 'a.ts', line: 1, claim: 'x', verdict: 'refutado', headSha: 'sha-velho' },
+    { file: 'a.ts', line: 1, claim: 'x', verdict: 'confirmado', headSha: 'sha-novo' },
+  ];
+  // sem filtro, isto seria um conflito (mesma claim, veredito diferente); com o SHA
+  // atual = sha-novo, a entrada velha some e não sobra conflito nenhum
+  const r = summarizeCheckpoint(entries, 'sha-novo');
+  assert.equal(r.total, 1);
+  assert.equal(r.conflicts.length, 0);
+});
+
+test('summarizeCheckpoint com currentHeadSha ainda considera entradas sem headSha (dado antigo, nunca descarta por falta de info)', () => {
+  const entries = [
+    { file: 'a.ts', line: 1, claim: 'x', verdict: 'confirmado' }, // sem headSha (gravado antes da Task 12, ou gh falhou)
+  ];
+  const r = summarizeCheckpoint(entries, 'sha-novo');
+  assert.equal(r.total, 1);
+});
+
 test('resumeBlock: menciona a contagem e o caminho, em tom de atenção', () => {
   const texto = resumeBlock(5, '/caminho/x.json');
   assert.match(texto, /5/);
