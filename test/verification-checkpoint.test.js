@@ -120,3 +120,12 @@ test('summarizeCheckpoint: mesma linha, claim DIFERENTE, não é conflito (afirm
   const s = summarizeCheckpoint(entries);
   assert.deepEqual(s.conflicts, [], 'claim diferente não agrupa junto');
 });
+
+const { resumeBlock } = require('../lib/engine/verification-checkpoint');
+
+test('resumeBlock: menciona a contagem e o caminho, em tom de atenção', () => {
+  const texto = resumeBlock(5, '/caminho/x.json');
+  assert.match(texto, /5/);
+  assert.match(texto, /\/caminho\/x\.json/);
+  assert.match(texto, /ATENÇÃO/);
+});
