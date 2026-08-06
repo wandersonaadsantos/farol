@@ -52,3 +52,71 @@ test('appendCheckpointEntry: é append-only, nunca sobrescreve entrada anterior'
   assert.equal(saved.entries[0].verdict, 'confirmado');
   assert.equal(saved.entries[1].verdict, 'refutado');
 });
+
+const { readCheckpoint, summarizeCheckpoint } = require('../lib/engine/verification-checkpoint');
+
+test('readCheckpoint: arquivo ausente devolve ok:true com entries vazio', () => {
+  const p = checkpointPath('nunca/existiu#1');
+  const r = readCheckpoint(p);
+  assert.deepEqual(r, { ok: true, entries: [] });
+});
+
+test('readCheckpoint: JSON malformado devolve ok:false com motivo', () => {
+  const p = checkpointPath('malformado/teste#1');
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, '{ isso nao e json valido');
+  const r = readCheckpoint(p);
+  assert.equal(r.ok, false);
+  assert.ok(r.reason, 'tem motivo');
+});
+
+test('readCheckpoint: JSON válido sem campo entries devolve ok:false', () => {
+  const p = checkpointPath('semcampo/teste#1');
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, JSON.stringify({ prKey: 'x' }));
+  const r = readCheckpoint(p);
+  assert.equal(r.ok, false);
+});
+
+test('readCheckpoint: JSON válido e completo devolve as entradas intactas', () => {
+  const p = checkpointPath('completo/teste#1');
+  appendCheckpointEntry(p, 'completo/teste#1', 'url', { claim: 'c', file: 'f.ts', line: 1, verdict: 'confirmado', evidence: 'e', sessionId: 's', at: 'x' });
+  const r = readCheckpoint(p);
+  assert.equal(r.ok, true);
+  assert.equal(r.entries.length, 1);
+  assert.equal(r.entries[0].claim, 'c');
+});
+
+test('summarizeCheckpoint: sem entradas', () => {
+  assert.deepEqual(summarizeCheckpoint([]), { total: 0, confirmedCount: 0, conflicts: [] });
+});
+
+test('summarizeCheckpoint: entradas concordantes não geram conflito', () => {
+  const entries = [
+    { claim: 'a', file: 'x.ts', line: 1, verdict: 'confirmado' },
+    { claim: 'b', file: 'y.ts', line: 2, verdict: 'refutado' },
+  ];
+  const s = summarizeCheckpoint(entries);
+  assert.equal(s.total, 2);
+  assert.equal(s.confirmedCount, 1);
+  assert.deepEqual(s.conflicts, []);
+});
+
+test('summarizeCheckpoint: duas entradas da MESMA afirmação com veredito diferente geram um conflito', () => {
+  const entries = [
+    { claim: 'a', file: 'x.ts', line: 1, verdict: 'confirmado', at: '2026-08-05T10:00:00-03:00' },
+    { claim: 'a', file: 'x.ts', line: 1, verdict: 'refutado', at: '2026-08-05T10:10:00-03:00' },
+  ];
+  const s = summarizeCheckpoint(entries);
+  assert.equal(s.conflicts.length, 1);
+  assert.equal(s.conflicts[0].entries.length, 2);
+});
+
+test('summarizeCheckpoint: mesma linha, claim DIFERENTE, não é conflito (afirmações distintas)', () => {
+  const entries = [
+    { claim: 'a', file: 'x.ts', line: 1, verdict: 'confirmado' },
+    { claim: 'b (outra afirmação na mesma linha)', file: 'x.ts', line: 1, verdict: 'refutado' },
+  ];
+  const s = summarizeCheckpoint(entries);
+  assert.deepEqual(s.conflicts, [], 'claim diferente não agrupa junto');
+});
