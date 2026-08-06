@@ -786,6 +786,73 @@ git commit -m "feat: checkpointGap trava auto-approve com checkpoint malformado 
 
 ---
 
+### Task 6b: `checkpointGap` também trava o auto-reject (achado da revisão da Task 6)
+
+**Por que esta task existe:** a revisão da Task 6 (modelo mais capaz, por mexer no gate crítico) achou que o plano original só previu `checkpointGap` travando `shouldAutoApprove`, mas `shouldAutoReject` (que também posta sozinho no GitHub, um `REQUEST_CHANGES`) ficou de fora. Postar reprovação pública em cima de uma afirmação que uma passada REFUTOU e outra CONFIRMOU é o mesmo risco do approve, só que na direção contrária. Confirmado com o usuário: implementar a simetria.
+
+**Files:**
+- Modify: `lib/engine/decision.js` (âncora: dentro de `function shouldAutoReject(engine, pr, result) {`, logo após a linha `if (coverageGap(result).length) return false;`)
+- Test: `test/checkpoint-gate.test.js` (acrescentar)
+
+**Interfaces:**
+- Consome: `checkpointGap` (Task 6, já existe no mesmo arquivo).
+
+**Dificuldades antecipadas:**
+- `shouldAutoReject` devolve um **boolean puro** (`true`/`false`), diferente de `shouldAutoApprove` (que devolve `{ok, motivo}`). Não mude esse contrato, só acrescente mais uma condição de bloqueio no mesmo formato booleano.
+
+- [ ] **Passo 1: escrever o teste que falha.** Acrescentar a `test/checkpoint-gate.test.js`:
+
+```js
+function rejectableResult(extra) {
+  return {
+    verdict: 'request_changes', decision: 'needs_decision', reasons: ['blocker'],
+    payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'x' } },
+    ...extra
+  };
+}
+
+test('shouldAutoReject: checkpoint com conflito também bloqueia o auto-reject', () => {
+  const e = engineWithPolicy('approve');
+  e.rejectPolicyFor = () => 'request_changes';
+  const r = rejectableResult({
+    verificationCheckpoint: {
+      total: 2, confirmedCount: 1,
+      conflicts: [{ entries: [{ claim: 'a', verdict: 'confirmado' }, { claim: 'a', verdict: 'refutado' }] }],
+    }
+  });
+  assert.equal(e.shouldAutoReject(PR, r), false, 'divergência entre passadas bloqueia o reject automático também');
+});
+
+test('shouldAutoReject: checkpoint limpo ou ausente não bloqueia (comportamento de hoje preservado)', () => {
+  const e = engineWithPolicy('approve');
+  e.rejectPolicyFor = () => 'request_changes';
+  assert.equal(e.shouldAutoReject(PR, rejectableResult()), true, 'sem checkpoint, segue reprovando sozinho como hoje');
+  assert.equal(e.shouldAutoReject(PR, rejectableResult({ verificationCheckpoint: { total: 1, confirmedCount: 1, conflicts: [] } })), true, 'checkpoint limpo não bloqueia');
+});
+```
+
+- [ ] **Passo 2: rodar e ver falhar.** `node --test test/checkpoint-gate.test.js`. Esperado: o primeiro teste novo falha (`shouldAutoReject` ainda devolve `true`, checkpoint não é consultado).
+
+- [ ] **Passo 3: implementação mínima.** Em `lib/engine/decision.js`, dentro de `shouldAutoReject`, logo após a linha `if (coverageGap(result).length) return false;     // reprovar com leitura parcial é pior ainda`:
+
+```js
+  if (coverageGap(result).length) return false;     // reprovar com leitura parcial é pior ainda
+  if (checkpointGap(result).length) return false;   // mesma régua do approve: divergência entre passadas não posta sozinho, nem approve nem reject
+```
+
+- [ ] **Passo 4: rodar e ver passar.** `node --test test/checkpoint-gate.test.js`.
+
+- [ ] **Passo 5: gate completo.** `npm run check && npm test`.
+
+- [ ] **Passo 6: commit.**
+
+```bash
+git add lib/engine/decision.js test/checkpoint-gate.test.js
+git commit -m "fix: checkpointGap tambem trava o auto-reject, simetrico ao auto-approve"
+```
+
+---
+
 ### Task 7: `runHeadlessReview` monta `result.verificationCheckpoint` e o texto de `reasons`
 
 **Files:**
