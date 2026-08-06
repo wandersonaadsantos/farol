@@ -2,6 +2,7 @@
 
 Você está rodando em modo AUTÔNOMO dentro do app Farol, sem ninguém na tela.
 Revise o PR: {{URL}}
+Checkpoint de verificação deste PR: {{CHECKPOINT_PATH}}
 
 Siga o protocolo do `CLAUDE.md` deste diretório (identidade → card do Jira → histórico do autor → agente `pr-reviewer`), com as SUBSTITUIÇÕES abaixo, que **prevalecem sobre o CLAUDE.md** onde conflitarem:
 

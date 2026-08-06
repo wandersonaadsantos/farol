@@ -63,3 +63,12 @@ test('headlessPromptFor: o prompt com lotes é um superconjunto do sem lotes', (
 /* A aridade das fachadas (a outra metade deste defeito) é checada em test/facades.test.js,
    que varre as ~97 fachadas derivando a expectativa do próprio fonte. Aqui ficou só o
    comportamento: o bloco de fan-out realmente chega no prompt. */
+
+const { checkpointPath } = require('../lib/engine/verification-checkpoint');
+
+test('headlessPromptFor: {{CHECKPOINT_PATH}} é substituído pelo caminho real do checkpoint', () => {
+  const prompt = new Engine().headlessPromptFor(URL_PR, 'alice');
+  assert.doesNotMatch(prompt, /\{\{CHECKPOINT_PATH\}\}/, 'nunca sobra o placeholder cru');
+  const esperado = checkpointPath('acme/repo#688'); // mesma key que URL_PR já usa neste arquivo
+  assert.ok(prompt.includes(esperado), 'o caminho exato do checkpoint deste PR aparece no prompt');
+});
