@@ -43,7 +43,7 @@ function filhoStream() {
 
 function engineFalso(id, prKey, extraReviewFields) {
   const activeReviews = new Map();
-  activeReviews.set(id, { id, pr: { key: prKey }, ...(extraReviewFields || {}) });
+  activeReviews.set(id, { id, mode: 'auto', pr: { key: prKey }, ...(extraReviewFields || {}) });
   return {
     config: {},
     ghEnv: () => ({ PATH: process.env.PATH }),
@@ -193,4 +193,17 @@ test('marcador com payload em formato de array é ignorado, não grava entrada v
 
   const cp = readCheckpoint(checkpointPath(prKey));
   assert.equal(cp.entries.length, 0, 'array não é um objeto de claim válido, não deveria virar entrada nenhuma');
+});
+
+test('sessão de autoanálise (mode self) nunca escreve no checkpoint, mesmo com marcador válido', async () => {
+  const id = 'a7';
+  const prKey = 'org/repo#102';
+  const engine = engineFalso(id, prKey, { mode: 'self' });
+
+  await rodarSessaoComMarcador(engine, id, {
+    claim: 'x', file: 'f.ts', line: 1, verdict: 'confirmado', evidence: 'e',
+  });
+
+  const cp = readCheckpoint(checkpointPath(prKey));
+  assert.equal(cp.entries.length, 0, 'autoanalise nunca escreve em state/ (invariante 4 do CLAUDE.md), mesmo com marcador bem formado');
 });
