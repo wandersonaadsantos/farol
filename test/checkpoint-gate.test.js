@@ -87,3 +87,23 @@ test('shouldAutoReject: checkpoint limpo ou ausente não bloqueia (comportamento
   assert.equal(e.shouldAutoReject(PR, rejectableResult()), true, 'sem checkpoint, segue reprovando sozinho como hoje');
   assert.equal(e.shouldAutoReject(PR, rejectableResult({ verificationCheckpoint: { total: 1, confirmedCount: 1, conflicts: [] } })), true, 'checkpoint limpo não bloqueia');
 });
+
+// teste direto de checkpointGap isolado (Minor deferido da Task 6)
+test('checkpointGap cita arquivo, linha e claim do conflito, não só um índice genérico', () => {
+  const { checkpointGap } = require('../lib/engine/decision');
+  const result = {
+    verificationCheckpoint: {
+      conflicts: [
+        { entries: [
+          { file: 'src/foo.ts', line: 42, claim: 'valida o token antes de usar', verdict: 'confirmado' },
+          { file: 'src/foo.ts', line: 42, claim: 'valida o token antes de usar', verdict: 'refutado' },
+        ] },
+      ],
+    },
+  };
+  const gaps = checkpointGap(result);
+  assert.equal(gaps.length, 1);
+  assert.match(gaps[0], /src\/foo\.ts/);
+  assert.match(gaps[0], /42/);
+  assert.match(gaps[0], /valida o token antes de usar/);
+});
