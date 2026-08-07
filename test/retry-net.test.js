@@ -38,6 +38,35 @@ test('runOneHeadless guarda o PR junto das tentativas na falha transitória', as
   assert.equal(guardado.pr.url, pr.url, 'guarda o PR pra relançar sem depender da fila');
 });
 
+test('runOneHeadless cancela a revisão se o PR já foi mergeado enquanto esperava a vez', async () => {
+  const e = engineBase();
+  e.prState = async () => 'MERGED';
+  let rodouRevisao = false;
+  e.runHeadlessReview = async () => { rodouRevisao = true; };
+  e.headlessBusyAccounts.add('eu');
+  await e.runOneHeadless(prDe('o/r#1'), 'eu');
+  assert.equal(rodouRevisao, false, 'não roda a sessão de revisão num PR já mergeado');
+  assert.equal(e.headlessBusyAccounts.has('eu'), false, 'libera a conta pro escalonador');
+});
+
+test('runOneHeadless roda normalmente quando o estado do PR não confirma merge', async () => {
+  const e = engineBase();
+  e.prState = async () => 'OPEN';
+  let rodouRevisao = false;
+  e.runHeadlessReview = async () => { rodouRevisao = true; };
+  await e.runOneHeadless(prDe('o/r#1'), 'eu');
+  assert.equal(rodouRevisao, true, 'PR aberto segue pro fluxo normal de revisão');
+});
+
+test('runOneHeadless roda normalmente quando não dá pra confirmar o estado do PR (rede caiu)', async () => {
+  const e = engineBase();
+  e.prState = async () => { throw new Error('rede caiu'); };
+  let rodouRevisao = false;
+  e.runHeadlessReview = async () => { rodouRevisao = true; };
+  await e.runOneHeadless(prDe('o/r#1'), 'eu');
+  assert.equal(rodouRevisao, true, 'sem prova de merge, nunca pula a revisão por engano');
+});
+
 test('retryTargets relança PR de clique no panorama (fora da fila) e ignora autoReview da conta', () => {
   const e = engineBase();
   e.autoReviewFor = () => false; // conta SEM auto-revisão: a promessa do toast vale mesmo assim

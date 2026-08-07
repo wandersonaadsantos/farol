@@ -520,6 +520,7 @@ class Engine extends EventEmitter {
   // Consultas ao GitHub (leitura, zero IA): colaborador lib/engine/gh-queries.js (Onda 2).
   async searchPRs(extraArgs, user) { return ghMod.searchPRs(this, extraArgs, user); }
   async myAuthoredPRs(user) { return ghMod.myAuthoredPRs(this, user); }
+  async prState(pr) { return ghMod.prState(this, pr); }
   deliveriesSince(days) { return ghMod.deliveriesSince(this, days); }
   async fetchDeliveries(days, owner) { return ghMod.fetchDeliveries(this, days, owner); }
 

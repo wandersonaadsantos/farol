@@ -35,6 +35,9 @@ function pendencia(key, at = CRIADA) {
 }
 
 // engine sem rede: o único ponto de I/O (myReviewsWithTime) é stubado por PR.
+// prState fica com a implementação real: accountForPr aponta pra 'trabalho' sem
+// token nenhum em e.tokens, então tokenFor devolve falso e prState resolve pra
+// null sem nenhuma chamada de rede (mesmo padrão dos outros testes deste arquivo).
 function engineCom(pendentes, reviewsPorKey) {
   const e = new Engine();
   e.decisions = { pending: [...pendentes], resolved: [] };
@@ -122,6 +125,39 @@ test('sem pendência nenhuma, não consulta o GitHub', async () => {
   e.myReviewsWithTime = async () => { chamou = true; return null; };
   assert.equal(await e.reconcilePending(), 0);
   assert.equal(chamou, false, 'ciclo de checagem não paga consulta à toa');
+});
+
+test('PR já mergeado cancela a pendência sem consultar review nem postar nada', async () => {
+  const e = engineCom([pendencia('o/r#50')], {});
+  e.prState = async () => 'MERGED';
+  let consultouReviews = false;
+  e.myReviewsWithTime = async () => { consultouReviews = true; return null; };
+  const n = await e.reconcilePending();
+  assert.equal(n, 1, 'uma pendência cancelada');
+  assert.equal(e.decisions.pending.length, 0, 'saiu de Precisa de você');
+  assert.equal(consultouReviews, false, 'mergeado não precisa checar estado de review');
+  const h = e.decisions.resolved[0];
+  assert.equal(h.key, 'o/r#50');
+  assert.equal(h.status, 'already_merged');
+});
+
+test('PR ainda aberto (MERGED não confirmado) segue pro fluxo normal de reconciliação', async () => {
+  const e = engineCom([pendencia('o/r#51')], {
+    'o/r#51': [{ state: 'APPROVED', at: CRIADA + 60 * 1000 }]
+  });
+  e.prState = async () => 'OPEN';
+  const n = await e.reconcilePending();
+  assert.equal(n, 1);
+  assert.equal(e.decisions.resolved[0].status, 'already_reviewed', 'PR aberto não cancela por merge, resolve pelo review de sempre');
+});
+
+test('falha ao confirmar o estado do PR (null) mantém a pendência na fila de reconciliação normal', async () => {
+  const e = engineCom([pendencia('o/r#52')], {});
+  e.prState = async () => { throw new Error('rede caiu'); };
+  e.log = () => { };
+  const n = await e.reconcilePending();
+  assert.equal(n, 0);
+  assert.equal(e.decisions.pending.length, 1, 'sem prova de merge, o card não desaparece');
 });
 
 test('myReviewStates continua derivando do mesmo lugar (contrato do dedup do clique)', async () => {

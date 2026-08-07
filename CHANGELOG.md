@@ -9,6 +9,11 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.36.1
+
+**Correções**
+- **Revisão headless podia postar review num PR que já tinha sido mergeado.** Faltava confrontar o estado real do PR no GitHub em dois pontos: uma pendência em "Precisa de você" ficava presa pra sempre quando o PR mergeava enquanto esperava sua decisão (por outro revisor, self-merge, ou na mão), e um PR na fila de revisão automática podia mergear enquanto esperava a vez (conta ocupada com outra revisão) e a sessão rodava e postava mesmo assim. Agora o ciclo de checagem cancela a pendência sozinho quando confirma o merge, e a revisão automática confere o estado do PR bem antes de começar, pulando sem gastar tokens se já foi mergeado. Sem prova de merge (rede caiu, sem token), nada é cancelado por engano.
+
 ## v2.36.0
 
 **Novidades**
