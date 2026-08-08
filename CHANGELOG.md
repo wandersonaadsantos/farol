@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.37.0
+
+**Novidades**
+- **Diagnóstico agrupado: o log de falhas deixa de ser um despejo de linha crua.** O relatório abria com 159 linhas soltas, e não dava pra distinguir "um problema que repetiu 70 vezes" de "70 problemas". Agora ele começa por um resumo, uma linha por episódio, com quantas vezes aconteceu, de quando até quando, os PRs envolvidos e a natureza da falha (se resolve sozinha, se espera hora certa pra voltar, ou se depende de você). Fecha com a leitura direta: quantos eventos se resolvem sozinhos, quantos exigem ação humana e quantos são só operacionais. O detalhe cru continua embaixo, limitado às 40 linhas mais recentes, porque esse relatório é feito pra copiar e colar. A aba Sistema também mostra os três maiores grupos direto na linha do log.
+- **A classificação de falha passou a morar num lugar só.** Antes o motor decidia "isso é transitório?" com regras escritas dentro do fluxo de revisão, enquanto o painel de Diagnóstico lia o mesmo texto sem entender nada dele. Agora os dois consultam a mesma tabela, então uma falha nova passa a ser reconhecida no retry e no diagnóstico de uma vez só.
+
+**Correções**
+- **Um PR podia entrar em loop infinito de revisão, queimando token a cada ciclo.** Quando uma revisão falhava por algo passageiro (rede, binário indisponível), o PR entrava numa lista de "tentar de novo". Se a falha seguinte fosse permanente (credencial recusada, acesso desligado pela organização), o app estacionava o PR, mas esquecia de tirá-lo daquela lista, e o próprio relançamento desfazia o estacionamento no ciclo seguinte. Resultado real, em 04/08/2026: 25 tentativas idênticas do mesmo PR em pouco mais de três horas, sem teto. Agora falha permanente e cancelamento limpam a lista de retentativa antes de estacionar.
+- **Limite do plano Claude agora espera a hora do reset, em vez de tentar 12 vezes.** A própria mensagem de limite diz a que horas a cota volta, e o app ignorava isso, tratando como falha passageira qualquer e tentando de novo a cada ciclo: em 07/08/2026 foram 70 falhas registradas em 8 PRs pra uma única condição de hora conhecida. Agora ele lê a hora, segura a retentativa até lá e o aviso passa a dizer o horário ("retomo depois das 21:00"). Sem hora na mensagem, segue como antes.
+
 ## v2.36.1
 
 **Correções**

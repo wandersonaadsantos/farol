@@ -222,3 +222,33 @@ test('renderMyPRs, renderQueue e renderPanorama decidem o empty state pelo listV
       `${nome} precisa consultar listViewState antes de decidir o empty state, senao assume vazio sem resposta definitiva`);
   }
 });
+
+/* ---------- Diagnostico: resumo agrupado antes do despejo cru ----------
+   O que da pra testar sem DOM ja mora no ui/pure.js (ui-pure.test.js). Aqui ficam as
+   invariantes do CONSUMO: o app tem que ler a rota agrupada, montar resumo antes do
+   detalhe e nao voltar a despejar o log inteiro. */
+
+test('buildDiagnostics consome a rota agrupada e poe o Resumo ANTES do Detalhe', () => {
+  const fn = APPJS.match(/async function buildDiagnostics\(\)[\s\S]*?\n\}/);
+  assert.ok(fn, 'buildDiagnostics existe');
+  assert.match(fn[0], /get\('\/api\/log\/triage'\)/, 'o agrupamento vem do servidor (a UI nao pode require lib/)');
+  assert.match(fn[0], /logSummaryLines\(grupos\)/, 'o resumo entra no relatorio');
+  assert.match(fn[0], /logTailLines\(log, DIAG_LOG_TAIL\)/, 'o detalhe cru entra limitado');
+  assert.ok(fn[0].indexOf("'  Resumo:'") < fn[0].indexOf('Detalhe'), 'resumo antes do detalhe');
+  assert.doesNotMatch(fn[0], /log\.join\('\n'\)/, 'o despejo das 159 linhas cruas saiu do relatorio');
+});
+
+test('o teto do detalhe do diagnostico e 40 linhas, declarado uma vez so', () => {
+  assert.match(APPJS, /const DIAG_LOG_TAIL = 40;/);
+});
+
+test('a aba Sistema mostra o resumo agrupado do log, sem mexer no botao de zerar', () => {
+  const fn = APPJS.match(/async function loadLog\(\)[\s\S]*?\n\}/);
+  assert.ok(fn, 'loadLog existe');
+  assert.match(fn[0], /get\('\/api\/log\/triage'\)/);
+  assert.match(fn[0], /logSummaryShort\(grupos \|\| \[\], 3\)/, 'os 3 maiores grupos');
+  assert.match(HTML, /<p class="sys-note" id="logResumo" hidden><\/p>/,
+    'o resumo mora em paragrafo proprio: a .section-head e flex e quebra cedo (CLAUDE.md)');
+  assert.match(HTML, /id="btnLogClear"/, 'o botao de zerar segue onde estava');
+  assert.match(HTML, /id="logBox"/, 'o despejo cru continua disponivel embaixo');
+});

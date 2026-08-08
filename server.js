@@ -794,7 +794,10 @@ class Engine extends EventEmitter {
   headlessAcct(pr) { return reviewMod.headlessAcct(this, pr); }
   processHeadless() { return reviewMod.processHeadless(this); }
   async runOneHeadless(pr, acct) { return reviewMod.runOneHeadless(this, pr, acct); }
-  retryTargets(freshKeys, inflightKeys) { return reviewMod.retryTargets(this, freshKeys, inflightKeys); }
+  // `agora` com default nos DOIS lados de propósito: a fachada repassa o parâmetro
+  // (nada é engolido) e o Function.length segue casando com o da implementação, que
+  // é o que test/facades.test.js confere lendo este fonte.
+  retryTargets(freshKeys, inflightKeys, agora = Date.now()) { return reviewMod.retryTargets(this, freshKeys, inflightKeys, agora); }
 
   // perfil marcado pra uma pessoa (por login); {} quando não marcada
   // Pushback (memória de contestação do autor): colaborador lib/engine/pushback.js (Onda 2).

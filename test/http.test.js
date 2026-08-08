@@ -14,6 +14,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { Engine } = require('../server.js');
 const { startServer } = require('../lib/http-server');
+const { LOG_FILE } = require('../lib/paths');
 
 let server, base;
 
@@ -95,4 +96,67 @@ test('POST /api/review sem urls é recusado com 400 (o fallback "fila inteira" m
 test('POST /api/review com urls vazio ou de tipo errado também é recusado', async () => {
   assert.equal((await post('/api/review', { urls: [] })).status, 400);
   assert.equal((await post('/api/review', { urls: 'https://github.com/a/b/pull/1' })).status, 400);
+});
+
+/* ---------- /api/log/triage: o log agrupado que o Diagnóstico mostra ----------
+   A rota crua (/api/log) devolve linha por linha e tem consumidor e teste; esta
+   devolve o MESMO tail já triado por lib/log-taxonomy.js, porque o ui/app.js é
+   carregado por <script src> e não pode dar require num módulo de lib/. */
+
+// linhas REAIS do farol.log de produção, no formato "[ts] [NIVEL] mensagem"
+function semeiaLog(linhas) {
+  fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true });
+  fs.writeFileSync(LOG_FILE, linhas.join('\n') + '\n');
+}
+
+const LOG_FIXTURE = [
+  "[2026-08-07 17:32:15] [ERROR] revisao biudtech/biud-esg#193: sessão retornou erro: You've hit your weekly limit · resets 9pm",
+  "[2026-08-07 18:10:00] [ERROR] revisao biudtech/biud-core#262: sessão retornou erro: You've hit your session limit",
+  "[2026-08-07 21:28:03] [ERROR] revisao biudtech/biud-esg#193: sessão retornou erro: You've hit your weekly limit",
+  '[2026-08-07 13:46:00] [ERROR] sessão retornou erro: Your organization has disabled Claude subscription access for Claude Code',
+  '[2026-08-06 09:00:00] [WARN] error connecting to api.github.com',
+];
+
+test('GET /api/log/triage devolve os grupos ordenados por volume, com janela e PRs citados', async () => {
+  semeiaLog(LOG_FIXTURE);
+  const r = await get('/api/log/triage');
+  assert.equal(r.status, 200);
+  const grupos = JSON.parse(r.body);
+  assert.ok(Array.isArray(grupos), 'a rota devolve a lista de grupos');
+  assert.equal(grupos[0].id, 'limite-plano', 'o grupo mais volumoso vem primeiro');
+  assert.equal(grupos[0].count, 3);
+  assert.equal(grupos[0].grupo, 'ambiente');
+  assert.equal(grupos[0].kind, 'espera-reset');
+  assert.equal(grupos[0].first, '2026-08-07 17:32:15');
+  assert.equal(grupos[0].last, '2026-08-07 21:28:03');
+  assert.deepEqual(grupos[0].refs, ['biudtech/biud-core#262', 'biudtech/biud-esg#193']);
+  assert.deepEqual(grupos.map(g => g.id).sort(), ['assinatura-bloqueada', 'limite-plano', 'rede']);
+  // 5 linhas viraram 5 eventos em 3 grupos: é a leitura que o painel precisava
+  assert.equal(grupos.reduce((a, g) => a + g.count, 0), 5);
+});
+
+test('GET /api/log/triage respeita o mesmo parâmetro lines da rota crua', async () => {
+  semeiaLog(LOG_FIXTURE);
+  const r = await get('/api/log/triage?lines=1');
+  assert.equal(r.status, 200);
+  const grupos = JSON.parse(r.body);
+  assert.equal(grupos.length, 1, 'só a última linha entra no tail');
+  assert.equal(grupos[0].id, 'rede');
+});
+
+test('GET /api/log segue devolvendo linha CRUA (contrato antigo intacto)', async () => {
+  semeiaLog(LOG_FIXTURE);
+  const r = await get('/api/log');
+  assert.equal(r.status, 200);
+  const linhas = JSON.parse(r.body);
+  assert.ok(Array.isArray(linhas));
+  assert.equal(typeof linhas[0], 'string', 'nada de objeto aqui: a rota crua não mudou');
+  assert.equal(linhas.length, LOG_FIXTURE.length);
+});
+
+test('GET /api/log/triage sem log nenhum devolve lista vazia, sem estourar', async () => {
+  try { fs.rmSync(LOG_FILE, { force: true }); } catch { /* ok */ }
+  const r = await get('/api/log/triage');
+  assert.equal(r.status, 200);
+  assert.deepEqual(JSON.parse(r.body), []);
 });

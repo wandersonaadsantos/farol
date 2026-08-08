@@ -664,3 +664,109 @@ test('resolvedRow: com conflito no verificationCheckpoint, mostra o selo de dive
   assert.match(html, /⚠ 1 divergência/);
   assert.match(html, /pontos? de atenção/, 'o texto do reasons já aparece no bloco de atenção existente, sem UI nova');
 });
+
+/* ---------- Diagnóstico: o log de falhas agrupado (visão do painel) ----------
+   O log real tinha 159 linhas que eram 146 eventos de 4 episódios (70 de limite de
+   plano, 35 de assinatura desligada, 16 de credencial/crédito, 13 de rede). O
+   Diagnóstico despejava as 159 cruas, então "1 problema repetido 70 vezes" ficava
+   indistinguível de "70 problemas". O agrupamento em si é do lib/log-taxonomy.js
+   (triage, servido em /api/log/triage); o que mora aqui é só a FORMATAÇÃO. */
+
+const GRUPOS = [
+  { id: 'limite-plano', label: 'Limite do plano Claude', grupo: 'ambiente', kind: 'espera-reset', count: 70, first: '2026-08-07 17:32:15', last: '2026-08-07 21:28:03', refs: ['biudtech/biud-esg#193', 'biudtech/biud-core#262'], sample: 'x' },
+  { id: 'assinatura-bloqueada', label: 'Org desligou o acesso por assinatura', grupo: 'credencial', kind: 'permanente', count: 35, first: '2026-08-04 13:46:00', last: '2026-08-07 21:24:10', refs: [], sample: 'y' },
+  { id: 'rede', label: 'Rede indisponível', grupo: 'rede', kind: 'transitorio', count: 13, first: '2026-08-03 09:00:00', last: '2026-08-06 11:00:00', refs: [], sample: 'z' },
+  { id: 'restart-fila', label: 'App reiniciado com revisão em andamento', grupo: 'operacional', kind: 'operacional', count: 4, first: '2026-08-03 08:00:00', last: '2026-08-03 08:00:59', refs: [], sample: 'w' },
+];
+
+test('fmtLogStamp recorta o carimbo do log sem reinterpretar fuso', () => {
+  // o farol.log já grava em horário LOCAL: converter aqui (new Date(...)) moveria a
+  // hora que a pessoa vê no arquivo. É recorte de texto, de propósito.
+  assert.equal(P.fmtLogStamp('2026-08-07 17:32:15'), '07/08 17:32');
+  assert.equal(P.fmtLogStamp('2026-01-01 00:00:00'), '01/01 00:00');
+});
+
+test('fmtLogStamp devolve o que veio quando não é carimbo (nunca "Invalid Date")', () => {
+  assert.equal(P.fmtLogStamp(''), '');
+  assert.equal(P.fmtLogStamp(null), '');
+  assert.equal(P.fmtLogStamp('nao é data'), 'nao é data');
+});
+
+test('logGroupLine: contagem, rótulo, eixos, janela de tempo e os PRs citados', () => {
+  const l = P.logGroupLine(GRUPOS[0]);
+  assert.match(l, /^70x {2}Limite do plano Claude {2}\[ambiente\/espera-reset\] {2}07\/08 17:32 -> 07\/08 21:28/);
+  assert.match(l, /\(2 PRs: biudtech\/biud-esg#193, biudtech\/biud-core#262\)/);
+});
+
+test('logGroupLine: sem refs não sobra parêntese vazio', () => {
+  assert.doesNotMatch(P.logGroupLine(GRUPOS[1]), /\(/);
+});
+
+test('logGroupLine: episódio de um instante só não vira "x -> x"', () => {
+  const l = P.logGroupLine({ ...GRUPOS[1], count: 1, first: '2026-08-04 13:46:00', last: '2026-08-04 13:46:20' });
+  assert.match(l, /13:46/);
+  assert.doesNotMatch(l, /->/);
+});
+
+test('logGroupLine: lista de PRs longa é cortada, com o resto contado', () => {
+  const refs = ['o/r#1', 'o/r#2', 'o/r#3', 'o/r#4', 'o/r#5', 'o/r#6'];
+  const l = P.logGroupLine({ ...GRUPOS[0], refs });
+  assert.match(l, /\(6 PRs: o\/r#1, o\/r#2, o\/r#3, o\/r#4 e mais 2\)/);
+  assert.doesNotMatch(l, /o\/r#5/);
+});
+
+test('logGroupLine: um PR só fala no singular', () => {
+  assert.match(P.logGroupLine({ ...GRUPOS[0], refs: ['o/r#1'] }), /\(1 PR: o\/r#1\)/);
+});
+
+test('logReadingLine separa o que passa sozinho, o que exige gente e o que é operação', () => {
+  // espera-reset e transitorio passam sozinhos; permanente (e o desconhecido, que
+  // cai em permanente) exige ação humana; operacional nem é falha de verdade
+  assert.equal(P.logReadingLine(GRUPOS),
+    'Leitura: 83 evento(s) se resolvem sozinhos, 35 exigem ação humana, 4 são operacionais.');
+});
+
+test('logReadingLine: kind fora da tabela conta como ação humana (nunca some da conta)', () => {
+  assert.match(P.logReadingLine([{ kind: 'coisa-nova', count: 7 }]), /7 exigem ação humana/);
+});
+
+test('logSummaryLines: uma linha por grupo, na ordem que veio, e a leitura no fim', () => {
+  const linhas = P.logSummaryLines(GRUPOS);
+  assert.equal(linhas.length, GRUPOS.length + 1);
+  assert.match(linhas[0], /^70x/);
+  assert.match(linhas[3], /^4x/);
+  assert.match(linhas[4], /^Leitura:/);
+});
+
+test('logSummaryLines: sem grupo nenhum não inventa cabeçalho nem leitura', () => {
+  assert.deepEqual(P.logSummaryLines([]), []);
+  assert.deepEqual(P.logSummaryLines(null), []);
+});
+
+test('logTailLines corta o detalhe e diz quantas linhas ficaram de fora', () => {
+  const linhas = Array.from({ length: 159 }, (_, i) => 'linha ' + (i + 1));
+  const t = P.logTailLines(linhas, 40);
+  assert.equal(t.length, 41);
+  assert.equal(t[0], '... e mais 119 linhas anteriores');
+  assert.equal(t[1], 'linha 120', 'o corte fica com as ÚLTIMAS, que são as recentes');
+  assert.equal(t[40], 'linha 159');
+});
+
+test('logTailLines: log menor que o teto sai inteiro, sem linha de aviso', () => {
+  assert.deepEqual(P.logTailLines(['a', 'b'], 40), ['a', 'b']);
+  assert.deepEqual(P.logTailLines([], 40), []);
+  assert.deepEqual(P.logTailLines(null, 40), []);
+});
+
+test('logSummaryShort: os 3 maiores grupos, com o resto contado (linha da aba Sistema)', () => {
+  const s = P.logSummaryShort(GRUPOS, 3);
+  assert.match(s, /^122 falhas em 4 grupos: /);
+  assert.match(s, /70x Limite do plano Claude · 35x Org desligou o acesso por assinatura · 13x Rede indisponível/);
+  assert.match(s, /e mais 1 grupo/);
+  assert.doesNotMatch(s, /App reiniciado/);
+});
+
+test('logSummaryShort: sem grupo devolve vazio (a linha some, não mostra "0")', () => {
+  assert.equal(P.logSummaryShort([], 3), '');
+  assert.equal(P.logSummaryShort(null, 3), '');
+});

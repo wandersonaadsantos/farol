@@ -2545,6 +2545,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.37.0', ['Diagnóstico agrupado: o log de falhas abre com um resumo por episódio (quantas vezes, de quando até quando, quais PRs, e se a falha se resolve sozinha ou depende de você), em vez de despejar linha crua. O detalhe continua embaixo, limitado às 40 linhas mais recentes. A aba Sistema mostra os três maiores grupos na própria linha do log.', 'Correção: um PR podia entrar em loop infinito de revisão. Falha passageira colocava o PR na lista de "tentar de novo"; se a falha seguinte fosse permanente (credencial recusada, acesso desligado pela organização), o app estacionava o PR mas não o tirava da lista, e o relançamento desfazia o estacionamento no ciclo seguinte. Deu 25 tentativas idênticas do mesmo PR em três horas.', 'Limite do plano Claude agora espera a hora do reset que vem escrita na própria mensagem, em vez de tentar 12 vezes por PR. O aviso passou a dizer o horário ("retomo depois das 21:00").']],
   ['2.36.1', ['Correção: a revisão automática podia postar review num PR que já tinha sido mergeado. Agora uma pendência em "Precisa de você" cancela sozinha quando o PR mergeia enquanto espera sua decisão, e a revisão automática confere o estado do PR antes de começar, pulando sem gastar tokens se já foi mergeado enquanto esperava a vez na fila.']],
   ['2.36.0', ['Checkpoint de verificação: a revisão headless guarda uma memória incremental do que já verificou (afirmação por arquivo:linha), pra não reprocessar tudo do zero se a sessão travar num erro transitório (ex.: 529 de sobrecarga) e precisar recomeçar. Sempre gravado pelo motor do Farol, nunca pela sessão diretamente.', 'Divergência entre duas verificações da mesma afirmação nunca é resolvida em silêncio: vira ponto de atenção e trava a postagem automática (aprovação e reprovação), igual já acontecia com cobertura incompleta. "Revisões recentes" mostra quantas afirmações foram confirmadas e se há divergência pendente.', 'O checkpoint expira sozinho quando o PR ganha commit novo: uma divergência contra código que já mudou deixa de travar a postagem automática pra sempre (o histórico completo continua guardado, só para de contar pro gate).']],
   ['2.35.2', ['Correção: o Panorama mostrava "Revisando…" pra PR que só estava na fila, sem nenhuma revisão rodando de fato. Agora distingue "Revisando…" (sessão rodando) de "Na fila (N)" (esperando a vez), igual "Meus PRs" já fazia.']],
@@ -3004,8 +3005,16 @@ $('#btnLogClear').onclick = async () => {
 };
 
 async function loadLog() {
-  const lines = await get('/api/log') || [];
-  $('#logBox').textContent = lines.length ? lines.join('\n') : 'Nenhuma falha registrada. Bom sinal.';
+  const [lines, grupos] = await Promise.all([get('/api/log'), get('/api/log/triage')]);
+  const linhas = lines || [];
+  $('#logBox').textContent = linhas.length ? linhas.join('\n') : 'Nenhuma falha registrada. Bom sinal.';
+  // resumo agrupado ANTES do despejo: contagem crua não distingue "1 problema repetido
+  // 70 vezes" de "70 problemas". Fica num parágrafo próprio de propósito, e não dentro
+  // da .section-head: aquela linha é flex e quebra cedo (ver CLAUDE.md/CSS da aba).
+  const resumo = $('#logResumo');
+  const texto = logSummaryShort(grupos || [], 3);
+  resumo.textContent = texto;
+  resumo.hidden = !texto;
   const box = $('#logBox');
   box.scrollTop = box.scrollHeight;
 }
@@ -3013,9 +3022,15 @@ async function loadLog() {
 /* ---------- exportar diagnóstico (pra reparar, ex.: no macOS) ---------- */
 // Junta ambiente + contas + config + estado + log num texto SEM segredo (nada de
 // token/senha), pra a pessoa copiar e mandar pra quem mantém o Farol.
+// quantas linhas cruas do log entram no relatório: o texto é copiado e colado, e depois
+// do resumo agrupado o despejo inteiro (159 linhas no caso real) só custava tamanho.
+const DIAG_LOG_TAIL = 40;
+
 async function buildDiagnostics() {
   const s = STATE || {};
-  const log = (await get('/api/log')) || [];
+  const [logRaw, gruposRaw] = await Promise.all([get('/api/log'), get('/api/log/triage')]);
+  const log = logRaw || [];
+  const grupos = gruposRaw || [];
   const d = s.doctor || {}, c = s.config || {};
   const accts = (s.accounts || []).map(a => `  @${a.user}${a.primary ? ' [primária]' : ''} · rótulo=${a.label || '-'} · tipo=${a.kind || '-'} · orgs=${(a.owners || []).join(',') || '-'} · token=${a.tokenOk ? 'ok' : 'NAO'}${a.muted ? ' · silenciada' : ''}`).join('\n');
   const u = s.update;
@@ -3049,8 +3064,16 @@ async function buildDiagnostics() {
     `  fila: ${(s.queue || []).length} · panorama: ${(s.panorama || []).length} · meus PRs: ${(s.myPRs || []).length} · decisões pendentes: ${(s.decisions?.pending || []).length} · sessões ativas: ${(s.activeSessions || []).length}`,
     `  atualização: ${u ? `v${u.current} · ${u.available ? 'v' + u.sourceVersion + ' DISPONÍVEL' : 'na mais recente'} (${u.channel}${u.repo ? ' ' + u.repo : ''})${u.note ? ' · ' + u.note : ''}` : '?'}`,
     '',
-    `Log de falhas (${log.length} linha(s)):`,
-    log.length ? log.join('\n') : '  (sem falhas registradas)',
+    // evento = linha com timestamp; o total de LINHAS é maior porque mensagem de erro
+    // multilinha (gh, cmd.exe) ocupa mais de uma. Dizer só "159 linhas" e depois "146
+    // eventos" na linha de leitura confundia, então o cabeçalho traz os dois.
+    `Log de falhas (${grupos.reduce((n, g) => n + g.count, 0)} evento(s) em ${grupos.length} grupo(s), ${log.length} linha(s)):`,
+    // resumo primeiro, detalhe depois: quem lê o relatório precisa saber QUANTOS
+    // episódios distintos existem antes de encarar linha crua.
+    ...(grupos.length ? ['  Resumo:', ...logSummaryLines(grupos).map(l => '    ' + l), ''] : []),
+    ...(log.length
+      ? [`  Detalhe (as ${Math.min(log.length, DIAG_LOG_TAIL)} linhas mais recentes):`, ...logTailLines(log, DIAG_LOG_TAIL)]
+      : ['  (sem falhas registradas)']),
     '',
     '(este relatório não contém tokens nem senhas)'
   ].join('\n');

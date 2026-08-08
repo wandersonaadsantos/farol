@@ -166,6 +166,94 @@ function delivGroupCard(head, count, bodyHtml) {
   </div>`;
 }
 
+/* ---------- log de falhas agrupado (Diagnostico e aba Sistema) ----------
+   O agrupamento em si e do lib/log-taxonomy.js (triage), servido em /api/log/triage:
+   a UI nao pode dar require num modulo de lib/ (carrega por <script src>, sem build
+   step), entao ela consome o JSON. O que mora aqui e SO a formatacao.
+
+   Motivo de existir: o farol.log real tinha 159 linhas que eram 146 eventos de 4
+   episodios (70 de limite de plano, 35 de assinatura desligada, 16 de credencial e
+   credito, 13 de rede). O Diagnostico despejava as 159 cruas, e "1 problema repetido
+   70 vezes" ficava indistinguivel de "70 problemas". */
+
+// '2026-08-07 17:32:15' -> '07/08 17:32'. RECORTE DE TEXTO de proposito: o farol.log
+// ja grava em horario LOCAL, entao passar por new Date() so criaria chance de mover a
+// hora que a pessoa le no arquivo. Carimbo que nao casa volta como veio, nunca vira
+// "Invalid Date" na tela.
+function fmtLogStamp(ts) {
+  const m = String(ts ?? '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+  return m ? `${m[3]}/${m[2]} ${m[4]}:${m[5]}` : String(ts ?? '');
+}
+
+// quantos PRs cabem na linha antes de virar "e mais N": o relatorio de diagnostico e
+// copiado e colado, entao tamanho de linha importa.
+const LOG_REFS_VISIVEIS = 4;
+
+// uma linha por grupo:
+// 70x  Limite do plano Claude  [ambiente/espera-reset]  07/08 17:32 -> 07/08 21:28  (8 PRs: o/r#1, ...)
+function logGroupLine(g) {
+  g = g || {};
+  const ini = fmtLogStamp(g.first), fim = fmtLogStamp(g.last);
+  // episodio de um instante so nao vira "x -> x" (a comparacao e do texto ja formatado:
+  // segundos diferentes dentro do mesmo minuto sao o mesmo instante pra quem le)
+  const quando = (!fim || ini === fim) ? ini : `${ini} -> ${fim}`;
+  const refs = Array.isArray(g.refs) ? g.refs : [];
+  const mostra = refs.slice(0, LOG_REFS_VISIVEIS);
+  const resto = refs.length - mostra.length;
+  const prs = refs.length
+    ? `  (${refs.length} ${refs.length === 1 ? 'PR' : 'PRs'}: ${mostra.join(', ')}${resto ? ` e mais ${resto}` : ''})`
+    : '';
+  return `${g.count}x  ${g.label}  [${g.grupo}/${g.kind}]  ${quando}${prs}`;
+}
+
+// kinds que passam sozinhos (ver lib/log-taxonomy.js): espera-reset espera a hora dela,
+// transitorio passa rapido. O resto que nao for operacional exige gente, inclusive kind
+// novo que apareca depois: falha nao classificada nunca some da conta.
+const LOG_KINDS_SOZINHO = ['transitorio', 'espera-reset'];
+
+function logReadingLine(grupos) {
+  let sozinho = 0, humano = 0, operacional = 0;
+  for (const g of (grupos || [])) {
+    const n = Number(g && g.count) || 0;
+    if (g && g.kind === 'operacional') operacional += n;
+    else if (g && LOG_KINDS_SOZINHO.includes(g.kind)) sozinho += n;
+    else humano += n;
+  }
+  return `Leitura: ${sozinho} evento(s) se resolvem sozinhos, ${humano} exigem ação humana, ${operacional} são operacionais.`;
+}
+
+// o bloco de resumo do Diagnostico: uma linha por grupo (a ordem ja vem por volume do
+// triage) e a leitura no fim. Sem grupo, sem bloco.
+function logSummaryLines(grupos) {
+  const gs = (grupos || []).filter(Boolean);
+  if (!gs.length) return [];
+  return [...gs.map(logGroupLine), logReadingLine(gs)];
+}
+
+// o detalhe cru, limitado: o relatorio e copiado e colado, entao as 159 linhas inteiras
+// custavam caro e nao acrescentavam nada depois do resumo. A linha de aviso fica no
+// lugar do que foi omitido (no topo), porque o corte guarda as MAIS RECENTES.
+function logTailLines(linhas, max = 40) {
+  const l = (Array.isArray(linhas) ? linhas : []).slice();
+  const n = Math.max(1, Number(max) || 40);
+  if (l.length <= n) return l;
+  return [`... e mais ${l.length - n} linhas anteriores`, ...l.slice(-n)];
+}
+
+function plural(n, um, muitos) { return `${n} ${n === 1 ? um : muitos}`; }
+
+// linha unica da aba Sistema: os n maiores grupos com a contagem. Vazio quando nao ha
+// falha, pra a linha sumir em vez de mostrar zero.
+function logSummaryShort(grupos, n = 3) {
+  const gs = (grupos || []).filter(Boolean);
+  if (!gs.length) return '';
+  const total = gs.reduce((a, g) => a + (Number(g.count) || 0), 0);
+  const top = gs.slice(0, n).map(g => `${g.count}x ${g.label}`).join(' · ');
+  const resto = gs.length - Math.min(n, gs.length);
+  return `${plural(total, 'falha', 'falhas')} em ${plural(gs.length, 'grupo', 'grupos')}: ${top}`
+    + (resto ? ` · e mais ${plural(resto, 'grupo', 'grupos')}` : '');
+}
+
 /* ---------- folhas com relogio: a hora entra por parametro, com default, pra dar pra testar ---------- */
 
 // `agora` entra por parametro (com default) so pra dar pra testar: todos os chamadores
@@ -495,6 +583,7 @@ if (typeof module !== 'undefined' && module.exports) {
     usageDayKeysBack, localDayKey, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
     deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
     fmtStamp, fmtWhenDay, resolvedRow,
+    fmtLogStamp, logGroupLine, logReadingLine, logSummaryLines, logTailLines, logSummaryShort,
     opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible, expiredSessionMarks, listViewState
   };
 }

@@ -92,3 +92,130 @@ test('retryTargets: conta sem token não relança (o filtro da Onda 1 permanece,
   assert.deepEqual(e.retryTargets(new Set(), new Set()).map(p => p.key), ['o/r#2'],
     'sem token não abre sessão: o PR espera o token voltar em vez de falhar de novo');
 });
+
+/* ---------- o vazamento do retryAfterNet (incidente de 04/08/2026) ---------- */
+
+// Mensagens REAIS do farol.log de produção, as mesmas fixtures de test/log-taxonomy.test.js.
+const MSG_BINARIO = "claude saiu com código 1: '\"C:\\nvm4w\\nodejs\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe\"' não é reconhecido como um comando interno";
+const MSG_ASSINATURA = 'sessão retornou erro: Your organization has disabled Claude subscription access for Claude Code · Use an Anthropic API key instead, or ask your admin to enable access';
+const MSG_LIMITE = "sessão retornou erro: You've hit your weekly limit · resets 9pm (America/Sao_Paulo)";
+const MSG_LIMITE_SEM_HORA = "sessão retornou erro: You've hit your weekly limit";
+
+test('runOneHeadless: falha não-transitória depois de uma transitória TIRA o PR do retry (incidente de 04/08/2026, biudtech/biud-frontend#702)', async () => {
+  // O incidente, com prova no log de produção: o #702 gerou 25 linhas ERROR idênticas
+  // entre 15:52 e 19:28, uma a cada ciclo de polling. Às 16:07 a revisão caiu por algo
+  // TRANSITÓRIO (o claude.exe "não é reconhecido") e o PR entrou em retryAfterNet com
+  // tries: 1. Nos ciclos seguintes a falha virou NÃO-transitória (a org desligou o
+  // acesso por assinatura), o ramo não-transitório estacionou o PR... e deixou a entrada
+  // de retry viva. O check() via retryAfterNet.size, chamava retryTargets + launchReview,
+  // e o launchReview desfazia o estacionamento (autoReviewParked.delete). Resultado:
+  // loop infinito SEM TETO, um ERROR por ciclo, até alguém mexer no app.
+  const e = engineBase();
+  e.prState = async () => 'OPEN';
+  const pr = prDe('biudtech/biud-frontend#702');
+
+  e.runHeadlessReview = async () => { throw new Error(MSG_BINARIO); };
+  await e.runOneHeadless(pr, 'eu');
+  assert.equal(e.retryAfterNet.has(pr.key), true, 'a falha transitória das 16:07 entra no retry, como sempre entrou');
+
+  e.runHeadlessReview = async () => { throw new Error(MSG_ASSINATURA); };
+  await e.runOneHeadless(pr, 'eu');
+  assert.equal(e.retryAfterNet.has(pr.key), false,
+    'estacionar sem limpar o retry é mentira: o relançamento do check() desfaz o estacionamento e o PR entra em loop');
+  assert.equal(e.autoReviewParked.has(pr.key), true, 'falha não-transitória estaciona e espera ação manual');
+});
+
+test('runOneHeadless: falha não-transitória sem retry anterior segue estacionando igual', async () => {
+  const e = engineBase();
+  e.prState = async () => 'OPEN';
+  e.runHeadlessReview = async () => { throw new Error(MSG_ASSINATURA); };
+  await e.runOneHeadless(prDe('o/r#9'), 'eu');
+  assert.equal(e.retryAfterNet.has('o/r#9'), false);
+  assert.equal(e.autoReviewParked.has('o/r#9'), true);
+});
+
+test('runOneHeadless: cancelar um PR que estava em retry também limpa o retry', async () => {
+  // mesmo defeito do incidente, no ramo vizinho: estacionar por cancelamento e deixar
+  // a entrada de retry viva faz o check() do ciclo seguinte relançar o que você cancelou
+  const e = engineBase();
+  e.prState = async () => 'OPEN';
+  const pr = prDe('o/r#7');
+  e.retryAfterNet.set(pr.key, { tries: 1, pr, notBefore: null });
+  e.runHeadlessReview = async () => { const err = new Error('cancelado'); err.cancelled = true; throw err; };
+  await e.runOneHeadless(pr, 'eu');
+  assert.equal(e.retryAfterNet.has(pr.key), false, 'cancelar tem que parar de valer no próximo ciclo');
+  assert.equal(e.autoReviewParked.has(pr.key), true);
+});
+
+test('runOneHeadless: falha DESCONHECIDA continua não-transitória (estaciona, não relança em loop)', async () => {
+  const e = engineBase();
+  e.prState = async () => 'OPEN';
+  e.runHeadlessReview = async () => { throw new Error('review o/r#8: Read pr8.patch falhou, Invalid pages parameter'); };
+  await e.runOneHeadless(prDe('o/r#8'), 'eu');
+  assert.equal(e.retryAfterNet.has('o/r#8'), false);
+  assert.equal(e.autoReviewParked.has('o/r#8'), true, 'sem saber o que houve, relançar sozinho vira loop queimando token');
+});
+
+/* ---------- limite de plano espera o reset (incidente de 07/08/2026) ---------- */
+
+test('runOneHeadless: limite de plano com hora de reset guarda notBefore no futuro', async () => {
+  // Em 07/08/2026 o limite de plano produziu 70 linhas de log em 8 PRs pra UMA condição
+  // que traz a hora do reset na própria mensagem. Tentar 12 vezes antes da hora é gastar
+  // ciclo à toa: agora a entrada carrega o instante do reset.
+  const e = engineBase();
+  e.prState = async () => 'OPEN';
+  e.runHeadlessReview = async () => { throw new Error(MSG_LIMITE); };
+  await e.runOneHeadless(prDe('o/r#1'), 'eu');
+  const guardado = e.retryAfterNet.get('o/r#1');
+  assert.equal(guardado.tries, 1);
+  assert.equal(typeof guardado.notBefore, 'number', 'notBefore é comparável com Date.now()');
+  assert.ok(guardado.notBefore > Date.now(), 'o reset citado é sempre o próximo, então está no futuro');
+});
+
+test('retryTargets: PR com notBefore no futuro NÃO volta neste ciclo', () => {
+  const e = engineBase();
+  const reset = Date.now() + 3600 * 1000;
+  e.retryAfterNet.set('o/r#1', { tries: 1, pr: prDe('o/r#1'), notBefore: reset });
+  e.retryAfterNet.set('o/r#2', { tries: 1, pr: prDe('o/r#2'), notBefore: null });
+  assert.deepEqual(e.retryTargets(new Set(), new Set(), reset - 1).map(p => p.key), ['o/r#2'],
+    'esperar o reset é o comportamento; quem não tem hora marcada segue retentando');
+});
+
+test('retryTargets: passado o notBefore, o PR volta', () => {
+  const e = engineBase();
+  const reset = Date.now() + 3600 * 1000;
+  e.retryAfterNet.set('o/r#1', { tries: 1, pr: prDe('o/r#1'), notBefore: reset });
+  assert.deepEqual(e.retryTargets(new Set(), new Set(), reset).map(p => p.key), ['o/r#1'],
+    'na hora exata do reset já pode (mesma régua do resetAtFrom, que devolve o PRÓXIMO reset)');
+  assert.deepEqual(e.retryTargets(new Set(), new Set(), reset + 1).map(p => p.key), ['o/r#1']);
+});
+
+test('runOneHeadless: limite de plano SEM hora nenhuma segue o caminho antigo (notBefore null, retenta no próximo ciclo)', async () => {
+  const e = engineBase();
+  e.prState = async () => 'OPEN';
+  e.runHeadlessReview = async () => { throw new Error(MSG_LIMITE_SEM_HORA); };
+  await e.runOneHeadless(prDe('o/r#3'), 'eu');
+  const guardado = e.retryAfterNet.get('o/r#3');
+  assert.equal(guardado.tries, 1);
+  assert.equal(guardado.notBefore, null, 'sem hora extraível, nada muda: retenta no próximo ciclo até o teto');
+  assert.deepEqual(e.retryTargets(new Set(), new Set()).map(p => p.key), ['o/r#3']);
+});
+
+test('runOneHeadless: o teto de 12 do limite de plano continua valendo pras tentativas que acontecem', async () => {
+  const e = engineBase();
+  e.prState = async () => 'OPEN';
+  e.runHeadlessReview = async () => { throw new Error(MSG_LIMITE); };
+  const pr = prDe('o/r#4');
+  e.retryAfterNet.set(pr.key, { tries: 12, pr, notBefore: null });
+  await e.runOneHeadless(pr, 'eu');
+  assert.equal(e.retryAfterNet.has(pr.key), false, 'estourou o teto: sai do retry');
+  assert.equal(e.autoReviewParked.has(pr.key), true, 'e estaciona esperando você');
+});
+
+test('runOneHeadless: falha transitória comum (rede) não ganha notBefore', async () => {
+  const e = engineBase();
+  e.prState = async () => 'OPEN';
+  e.runHeadlessReview = async () => { throw new Error('sessão retornou erro: fetch failed'); };
+  await e.runOneHeadless(prDe('o/r#5'), 'eu');
+  assert.equal(e.retryAfterNet.get('o/r#5').notBefore, null, 'rede volta quando volta, não tem hora marcada');
+});
