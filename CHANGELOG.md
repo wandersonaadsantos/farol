@@ -9,14 +9,12 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.38.0
+## v2.37.1
 
-**Novidades**
-- **Dá pra ocultar um PR em "Meus PRs".** Um PR seu que ficou aberto e não vai a lugar nenhum (experimento antigo, prova de conceito, coisa de dois anos atrás) ocupava a aba pra sempre, sem nenhuma forma de tirar da frente. Agora cada card tem "Ocultar", e um rodapé discreto mostra quantos estão ocultos com a opção de exibir de novo (o card oculto aparece esmaecido, com "Reexibir"). O contador da sub-aba passa a contar o que está visível, e com tudo oculto a tela explica isso em vez de ficar em branco.
-- **Ocultar não é ignorar a realidade.** O PR oculto volta sozinho se receber commit novo: o Farol guarda o carimbo de atualização do PR no momento em que você ocultou e desoculta quando esse carimbo muda. É só na sua tela, nada é escrito no GitHub, e uma queda de rede não desoculta nada.
-
-**Melhorias**
-- **O botão "Ocultar" que já existia no card virou "Ocultar análise".** Ele sempre sumiu só com a autoanálise, nunca com o PR, e o rótulo genérico ao lado de um PR que não tinha como esconder era exatamente a confusão que originou esta versão.
+**Correções**
+- **O "Ocultar" de "Meus PRs" escondia só a autoanálise, nunca o PR.** A opção de ocultar foi pedida por causa de PR próprio que fica aberto e não vai a lugar nenhum (experimento antigo, prova de conceito, coisa de dois anos atrás), e era justamente esse caso que continuava sem solução: o card ocupava a aba pra sempre, com um botão escrito "Ocultar" ao lado que não fazia nada disso. Agora "Ocultar" oculta o PR, e o botão que existia virou "Ocultar análise", que é o que ele sempre fez.
+- **Um rodapé mostra o que você escondeu.** Aparece `3 PRs ocultos · mostrar`; com os ocultos à mostra, o card fica esmaecido e o botão vira "Reexibir". O contador da sub-aba passou a contar o que está visível (senão diria 3 e mostraria 0) e, com tudo oculto, a tela explica isso em vez de ficar em branco.
+- **Ocultar não vira ignorar a realidade.** O PR oculto volta sozinho se receber commit novo: o Farol guarda o carimbo de atualização do PR no momento em que você ocultou e desoculta quando esse carimbo muda. É só na sua tela, nada é escrito no GitHub, e queda de rede não desoculta nada.
 
 ## v2.37.0
 
