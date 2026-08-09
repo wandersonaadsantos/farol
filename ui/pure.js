@@ -254,6 +254,54 @@ function logSummaryShort(grupos, n = 3) {
     + (resto ? ` · e mais ${plural(resto, 'grupo', 'grupos')}` : '');
 }
 
+/* ---------- "Meus PRs": PR oculto ----------
+   Motivo: experimento velho que nunca vai mergear ficava pra sempre na aba (havia PR
+   pessoal parado ha 750 dias) e nao existia jeito de tirar da frente. O motor guarda as
+   chaves ocultas (snapshot.hiddenPRs) e continua mandando myPRs COMPLETO: quem esconde
+   e a UI, e por isso a separacao mora aqui, pura e testada.
+   Ocultar nao e pra sempre: atividade nova no PR faz o motor reexibir sozinho. */
+
+// separa a lista do motor em visiveis e ocultos. Comparacao SEM CAIXA, como no
+// validScope/sameSet: o GitHub trata owner/repo sem distinguir maiuscula e uma chave
+// gravada com caixa diferente nao pode reaparecer como se nunca tivesse sido ocultada.
+function splitHiddenPRs(list, hidden) {
+  const H = new Set([...(hidden || [])].map(k => String(k).toLowerCase()));
+  const visiveis = [], ocultos = [];
+  for (const pr of (list || [])) {
+    (H.has(String((pr && pr.key) ?? '').toLowerCase()) ? ocultos : visiveis).push(pr);
+  }
+  return { visiveis, ocultos };
+}
+
+// o conjunto de ocultos que a tela usa AGORA: o que o motor confirmou, mais o que a
+// pessoa acabou de ocultar (otimista, some na hora do clique), menos o que ela acabou
+// de reexibir. Sem isso o card so sumiria no proximo push de estado, e o clique
+// pareceria ter falhado.
+function effectiveHidden(doMotor, marcados, reexibidos) {
+  const out = new Set([...(doMotor || []), ...(marcados || [])].map(k => String(k).toLowerCase()));
+  for (const k of (reexibidos || [])) out.delete(String(k).toLowerCase());
+  return [...out];
+}
+
+// rodape da secao: "3 PRs ocultos · mostrar". Sem oculto nenhum devolve vazio, pra a
+// linha sumir em vez de mostrar zero (mesma regra do logSummaryShort).
+function hiddenFootLabel(n, aberto) {
+  n = Number(n) || 0;
+  if (n <= 0) return '';
+  return `${plural(n, 'PR oculto', 'PRs ocultos')} · ${aberto ? 'ocultar' : 'mostrar'}`;
+}
+
+// mensagem do vazio de "Meus PRs". Separa dois vazios que a tela confundia: nao ter PR
+// aberto e ter TODOS ocultos (que deixava a lista em branco, sem dizer por que nem como
+// desfazer). `vs` vem do listViewState, calculado sobre a lista COMPLETA do motor.
+function myPRsEmptyMsg(vs, { escopoTodas = true, ocultos = 0 } = {}) {
+  if (vs === 'loading') return 'Verificando se você tem PRs abertos…';
+  if (vs === 'error') return 'Não foi possível confirmar ainda (a checagem falhou; veja o aviso no topo). Vou tentar de novo no próximo ciclo.';
+  const n = Number(ocultos) || 0;
+  if (n > 0) return `${plural(n, 'PR seu está oculto', 'PRs seus estão ocultos')} e não há mais nenhum aberto. Use "mostrar", no rodapé da seção, pra ver de novo.`;
+  return `Você não tem PRs abertos ${escopoTodas ? 'nas organizações monitoradas' : 'nesta conta'}.`;
+}
+
 /* ---------- folhas com relogio: a hora entra por parametro, com default, pra dar pra testar ---------- */
 
 // `agora` entra por parametro (com default) so pra dar pra testar: todos os chamadores
@@ -584,6 +632,7 @@ if (typeof module !== 'undefined' && module.exports) {
     deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
     fmtStamp, fmtWhenDay, resolvedRow,
     fmtLogStamp, logGroupLine, logReadingLine, logSummaryLines, logTailLines, logSummaryShort,
-    opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible, expiredSessionMarks, listViewState
+    opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible, expiredSessionMarks, listViewState,
+    plural, splitHiddenPRs, effectiveHidden, hiddenFootLabel, myPRsEmptyMsg
   };
 }

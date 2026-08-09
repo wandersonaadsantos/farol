@@ -293,6 +293,14 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 .pr-branches .arrow { color: var(--ac); font-weight: 700; }
 .mypr-fixrow { margin-top: 12px; }
 .mypr-when { color: var(--muted); font-size: 12px; margin-top: 10px; }
+/* PR oculto à mostra: esmaecido, pra ler como "está fora da lista" sem sumir de vez.
+   Classe NOVA no card em vez de mexer na .mypr-card, que já carrega a barra de estado. */
+.mypr-card.oculto { opacity: .55; }
+.mypr-card.oculto:hover, .mypr-card.oculto:focus-within { opacity: .9; }
+/* rodapé discreto da seção: a linha inteira é o botão que alterna os ocultos */
+.mypr-hidden-foot { margin-top: 10px; }
+.mypr-hidden-toggle { background: none; border: 0; padding: 4px 2px; color: var(--muted); font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.mypr-hidden-toggle:hover { color: var(--info); text-decoration: underline; }
 .relnote { padding: 10px 0; border-bottom: 1px solid var(--border); }
 .relnote:last-child { border-bottom: 0; }
 .relnote-ver { font-weight: 700; font-size: 13px; margin-bottom: 4px; }

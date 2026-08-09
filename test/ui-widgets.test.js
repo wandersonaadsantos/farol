@@ -252,3 +252,78 @@ test('a aba Sistema mostra o resumo agrupado do log, sem mexer no botao de zerar
   assert.match(HTML, /id="btnLogClear"/, 'o botao de zerar segue onde estava');
   assert.match(HTML, /id="logBox"/, 'o despejo cru continua disponivel embaixo');
 });
+
+/* ---------- "Meus PRs": PR oculto ----------
+   A separacao visivel/oculto e o texto do rodape sao puros e moram no ui/pure.js
+   (ui-pure.test.js). Aqui ficam as invariantes do CONSUMO, que sem DOM so da pra travar
+   no texto do app.js: quem o contador conta, de onde vem a decisao e o desempate dos
+   dois botoes escritos "Ocultar" no mesmo card. */
+
+test('o contador de Meus PRs conta o VISIVEL, nao o total', () => {
+  // com 3 PRs e os 3 ocultos, a bolinha dizia 3 e a lista mostrava 0
+  const fn = APPJS.match(/function renderMyPRs\(\) \{[\s\S]*?\n\}/);
+  assert.ok(fn, 'renderMyPRs existe');
+  assert.match(fn[0], /\$\('#myPRsCount'\)\.textContent = visiveis\.length;/);
+  assert.match(fn[0], /\$\('#myPRsCount'\)\.hidden = visiveis\.length === 0;/);
+  assert.doesNotMatch(fn[0], /\$\('#myPRsCount'\)\.textContent = list\.length;/,
+    'o contador pelo total saiu');
+});
+
+test('renderMyPRs decide o oculto pelas funcoes puras, nao por logica solta', () => {
+  const fn = APPJS.match(/function renderMyPRs\(\) \{[\s\S]*?\n\}/);
+  assert.match(fn[0], /splitHiddenPRs\(todos, effectiveHidden\(STATE\.hiddenPRs, hideOptimistic, unhideOptimistic\)\)/,
+    'o motor manda myPRs COMPLETO; quem separa e a UI, com a marca otimista por cima');
+  assert.match(fn[0], /myPRsEmptyMsg\(vs, \{ escopoTodas: SCOPE === 'all', ocultos: ocultos\.length \}\)/,
+    'o vazio com tudo oculto tem que explicar, nao ficar em branco');
+});
+
+test('o estado de carregamento olha a lista COMPLETA, senao ocultar tudo viraria "verificando"', () => {
+  const fn = APPJS.match(/function renderMyPRs\(\) \{[\s\S]*?\n\}/);
+  assert.match(fn[0], /listViewState\(\{ lastCheckAt: STATE\.lastCheckAt, status: STATE\.status, length: todos\.length \}\)/);
+});
+
+test('a marca otimista morre quando o motor confirma (nao sobrevive a estado novo)', () => {
+  const fn = APPJS.match(/function renderMyPRs\(\) \{[\s\S]*?\n\}/);
+  assert.match(fn[0], /if \(doMotor\.has\(String\(k\)\.toLowerCase\(\)\)\) hideOptimistic\.delete\(k\)/);
+  assert.match(fn[0], /if \(!doMotor\.has\(String\(k\)\.toLowerCase\(\)\)\) unhideOptimistic\.delete\(k\)/);
+});
+
+test('o card nao tem mais DOIS botoes escritos "Ocultar" (a confusao que originou a feature)', () => {
+  // o act-self-clear some so com a AUTOANALISE, e o usuario lia como "ocultar o PR"
+  assert.match(APPJS, /class="btn sm ghost act-self-clear"[\s\S]{0,220}>Ocultar análise<\/button>/,
+    'o botao da autoanalise diz o que ele oculta');
+  assert.doesNotMatch(APPJS, /act-self-clear"[\s\S]{0,220}>Ocultar<\/button>/,
+    'o rotulo ambiguo saiu');
+});
+
+test('o botao Ocultar do PR promete o comportamento REAL (volta sozinho com commit novo)', () => {
+  const btn = APPJS.match(/class="btn sm ghost act-pr-hide"[^>]*>/);
+  assert.ok(btn, 'o botao Ocultar do PR existe');
+  assert.match(btn[0], /title="Some com este PR de Meus PRs\. Ele volta sozinho se receber commit novo"/,
+    'ocultar nao e pra sempre: o motor reexibe quando ha atividade nova');
+  assert.match(APPJS, /class="btn sm ghost act-pr-unhide"[\s\S]{0,200}>Reexibir<\/button>/,
+    'com os ocultos a mostra, o Ocultar vira Reexibir');
+});
+
+test('ocultar e reexibir sao otimistas e desfazem a marca quando a rota falha', () => {
+  const handler = APPJS.match(/const hide = e\.target\.closest\('\.act-pr-hide'\);[\s\S]*?\n  \}\n\}\);/);
+  assert.ok(handler, 'o handler de ocultar/reexibir existe');
+  assert.match(handler[0], /api\('\/api\/pr\/hide', \{ key \}\)/, 'usa o helper api(), como o resto da UI');
+  assert.match(handler[0], /api\('\/api\/pr\/unhide', \{ key \}\)/);
+  assert.match(handler[0], /hideOptimistic\.delete\(key\); renderMyPRs\(\); renderRadarNav\(\);/,
+    'falhou, o card volta: a tela nao pode mentir que ocultou');
+  assert.match(handler[0], /unhideOptimistic\.delete\(key\); renderMyPRs\(\); renderRadarNav\(\);/);
+});
+
+test('o rodape dos ocultos usa o texto puro e alterna estado so da tela', () => {
+  const fn = APPJS.match(/function renderMyPRsHiddenFoot\([\s\S]*?\n\}/);
+  assert.ok(fn, 'renderMyPRsHiddenFoot existe');
+  assert.match(fn[0], /hiddenFootLabel\(n, hiddenOpen\)/, 'o texto vem da funcao pura');
+  assert.match(fn[0], /foot\.hidden = !label/, 'sem oculto o rodape some inteiro');
+  assert.match(fn[0], /aria-expanded="\$\{hiddenOpen \? 'true' : 'false'\}"/,
+    'o toggle declara o estado, nao so a classe');
+  assert.match(APPJS, /hiddenOpen = !hiddenOpen;\n  renderMyPRs\(\); renderRadarNav\(\);/,
+    'alternar re-renderiza a secao E a contagem da sub-aba');
+  assert.match(HTML, /<div id="myPRsHiddenFoot" class="mypr-hidden-foot" hidden><\/div>/,
+    'a ancora do rodape existe no index.html (nao e id fantasma, B11)');
+});

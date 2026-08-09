@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.38.0
+
+**Novidades**
+- **Dá pra ocultar um PR em "Meus PRs".** Um PR seu que ficou aberto e não vai a lugar nenhum (experimento antigo, prova de conceito, coisa de dois anos atrás) ocupava a aba pra sempre, sem nenhuma forma de tirar da frente. Agora cada card tem "Ocultar", e um rodapé discreto mostra quantos estão ocultos com a opção de exibir de novo (o card oculto aparece esmaecido, com "Reexibir"). O contador da sub-aba passa a contar o que está visível, e com tudo oculto a tela explica isso em vez de ficar em branco.
+- **Ocultar não é ignorar a realidade.** O PR oculto volta sozinho se receber commit novo: o Farol guarda o carimbo de atualização do PR no momento em que você ocultou e desoculta quando esse carimbo muda. É só na sua tela, nada é escrito no GitHub, e uma queda de rede não desoculta nada.
+
+**Melhorias**
+- **O botão "Ocultar" que já existia no card virou "Ocultar análise".** Ele sempre sumiu só com a autoanálise, nunca com o PR, e o rótulo genérico ao lado de um PR que não tinha como esconder era exatamente a confusão que originou esta versão.
+
 ## v2.37.0
 
 **Novidades**

@@ -15,7 +15,7 @@ const { EventEmitter } = require('events');
 const {
   APP_VERSION, APP_NAME, DELIVERIES_LIMIT, IS_WIN, IS_MAC, APP_ROOT,
   HOME, WORKSPACE, STATE_DIR, CONFIG_FILE, LOG_FILE, SEEN_FILE, BASELINE_FILE,
-  INFLIGHT_FILE, CHATS_FILE, SELF_FILE, TEMPLATE_DIR, UI_DIR,
+  INFLIGHT_FILE, CHATS_FILE, SELF_FILE, HIDDEN_FILE, TEMPLATE_DIR, UI_DIR,
 } = require('./lib/paths');
 
 // Helpers puros e utilitários movidos pra lib/ (Onda 1 do refactor, ver docs/QUALITY.md).
@@ -165,6 +165,10 @@ class Engine extends EventEmitter {
     this.queue = [];
     this.myPRs = [];                 // PRs abertos de autoria minha (fonte da autoanalise)
     this.selfAnalyses = readJson(SELF_FILE, {}, warn); // key do PR -> resultado da autoanalise
+    // key do PR -> { at, updatedAt } dos PRs meus que o usuario mandou sumir da aba.
+    // Nao filtra myPRs (quem esconde e a UI); o updatedAt guardado e o que permite o
+    // retorno automatico quando o PR recebe atividade nova (reconcileHiddenPRs).
+    this.hiddenPRs = readJson(HIDDEN_FILE, {}, warn);
     this.mergeStates = {};            // key do PR -> mergeabilidade real (só p/ aprovaveis)
     this.staleStates = {};            // key do PR -> true quando entrou commit apos a minha review
     this.adminBlockedRepos = {};      // repo -> true quando admin nao fura o ruleset (o UI esconde "Merge admin")
@@ -607,6 +611,12 @@ class Engine extends EventEmitter {
         }
         if (pruned) this.saveSelfAnalyses();
       }
+      // ocultos de "Meus PRs" reconciliados com a lista recém-montada: PR com atividade
+      // nova volta a aparecer sozinho, e chave órfã (PR que fechou) é limpa. O argumento
+      // é o MESMO sinal que decidiu se this.myPRs foi substituído ou preservado logo
+      // acima: com a busca falha, "sumiu da lista" não prova nada e nada é limpo, senão
+      // uma queda de rede desocultaria tudo de uma vez (ver reconcileHiddenPRs).
+      this.reconcileHiddenPRs(mineAuthored !== null);
 
       // falha só das --review-requested (ex.: rate limit da API de search): preserva
       // fila, "é meu" e marcadores do último ciclo bom, no MESMO padrão de reviewedKeys
@@ -840,6 +850,13 @@ class Engine extends EventEmitter {
   async setReviewers(url) { return selfMod.setReviewers(this, url); }
   saveSelfAnalyses() { return selfMod.saveSelfAnalyses(this); }
   clearSelfAnalysis(key) { return selfMod.clearSelfAnalysis(this, key); }
+  // Ocultar um PR de "Meus PRs" (some da aba, sem tocar no GitHub). Não confundir com
+  // o clearSelfAnalysis acima, que só apaga a AUTOANÁLISE. Ocultar se desfaz sozinho
+  // quando o PR recebe atividade nova (reconcileHiddenPRs, chamada no check()).
+  saveHiddenPRs() { return selfMod.saveHiddenPRs(this); }
+  hidePR(key) { return selfMod.hidePR(this, key); }
+  unhidePR(key) { return selfMod.unhidePR(this, key); }
+  reconcileHiddenPRs(listaOk) { return selfMod.reconcileHiddenPRs(this, listaOk); }
   async fetchMergeState(url) { return selfMod.fetchMergeState(this, url); }
   async enrichMyPRBranches() { return selfMod.enrichMyPRBranches(this); }
   async fetchAutoMergeAllowed(repo) { return selfMod.fetchAutoMergeAllowed(this, repo); }
@@ -1139,6 +1156,9 @@ class Engine extends EventEmitter {
       queue: this.queue,
       panorama: this.panorama,
       myPRs: this.myPRs,
+      // só as CHAVES: myPRs vai completo de propósito, porque quem esconde é a UI
+      // (que também precisa oferecer "mostrar os ocultos")
+      hiddenPRs: Object.keys(this.hiddenPRs),
       selfAnalyses: this.selfAnalyses,
       mergeStates: this.mergeStates,
       staleStates: this.staleStates,

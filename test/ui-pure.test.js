@@ -770,3 +770,100 @@ test('logSummaryShort: sem grupo devolve vazio (a linha some, não mostra "0")',
   assert.equal(P.logSummaryShort([], 3), '');
   assert.equal(P.logSummaryShort(null, 3), '');
 });
+
+/* ---------- "Meus PRs": PR oculto ----------
+   O caso real: 3 PRs pessoais atualizados ha 738, 740 e 751 dias, que nunca vao mergear
+   e ocupavam a aba pra sempre. O motor guarda as chaves ocultas e continua mandando
+   myPRs COMPLETO, entao quem separa e a UI. */
+
+const PRS = [
+  { key: 'acme/app#1', title: 'um' },
+  { key: 'acme/app#2', title: 'dois' },
+  { key: 'acme/app#3', title: 'tres' }
+];
+
+test('splitHiddenPRs separa o que o motor marcou como oculto, preservando a ordem', () => {
+  const { visiveis, ocultos } = P.splitHiddenPRs(PRS, ['acme/app#2']);
+  assert.deepEqual(visiveis.map(p => p.key), ['acme/app#1', 'acme/app#3']);
+  assert.deepEqual(ocultos.map(p => p.key), ['acme/app#2']);
+});
+
+test('splitHiddenPRs: sem oculto nenhum a lista sai inteira do lado visivel', () => {
+  assert.deepEqual(P.splitHiddenPRs(PRS, []).visiveis.length, 3);
+  assert.deepEqual(P.splitHiddenPRs(PRS, []).ocultos, []);
+  assert.deepEqual(P.splitHiddenPRs(PRS, null).visiveis.length, 3);
+});
+
+test('splitHiddenPRs: com todos ocultos nao sobra visivel (o vazio que a tela precisa explicar)', () => {
+  const r = P.splitHiddenPRs(PRS, ['acme/app#1', 'acme/app#2', 'acme/app#3']);
+  assert.deepEqual(r.visiveis, []);
+  assert.equal(r.ocultos.length, 3);
+});
+
+test('splitHiddenPRs compara sem caixa: chave gravada com outra caixa nao reaparece', () => {
+  // o GitHub nao distingue maiuscula em owner/repo; comparar cru faria o PR ocultado
+  // voltar sozinho na proxima renderizacao
+  const r = P.splitHiddenPRs(PRS, ['ACME/App#2']);
+  assert.deepEqual(r.ocultos.map(p => p.key), ['acme/app#2']);
+});
+
+test('splitHiddenPRs: lista vazia e chave inexistente nao lancam', () => {
+  assert.deepEqual(P.splitHiddenPRs([], ['acme/app#9']), { visiveis: [], ocultos: [] });
+  assert.deepEqual(P.splitHiddenPRs(null, null), { visiveis: [], ocultos: [] });
+  assert.deepEqual(P.splitHiddenPRs([{}], []).visiveis.length, 1, 'PR sem key nunca conta como oculto');
+});
+
+test('effectiveHidden soma o que o motor confirmou com o que acabou de ser ocultado', () => {
+  assert.deepEqual(P.effectiveHidden(['acme/app#1'], ['acme/app#2'], []).sort(),
+    ['acme/app#1', 'acme/app#2']);
+});
+
+test('effectiveHidden tira o que acabou de ser reexibido, mesmo que o motor ainda liste', () => {
+  // o card tem que voltar no clique, nao no proximo push de estado
+  assert.deepEqual(P.effectiveHidden(['acme/app#1', 'acme/app#2'], [], ['acme/app#1']), ['acme/app#2']);
+});
+
+test('effectiveHidden: reexibir vence ocultar da mesma chave, e nao duplica', () => {
+  assert.deepEqual(P.effectiveHidden(['acme/app#1'], ['acme/app#1'], []), ['acme/app#1'], 'sem duplicata');
+  assert.deepEqual(P.effectiveHidden(['acme/app#1'], ['acme/app#1'], ['acme/app#1']), []);
+});
+
+test('effectiveHidden normaliza a caixa e aceita ausencia dos tres argumentos', () => {
+  assert.deepEqual(P.effectiveHidden(['ACME/App#1'], [], ['acme/app#1']), []);
+  assert.deepEqual(P.effectiveHidden(null, null, null), []);
+});
+
+test('hiddenFootLabel monta a linha do rodape, com plural e com a acao oposta', () => {
+  assert.equal(P.hiddenFootLabel(3, false), '3 PRs ocultos · mostrar');
+  assert.equal(P.hiddenFootLabel(3, true), '3 PRs ocultos · ocultar');
+  assert.equal(P.hiddenFootLabel(1, false), '1 PR oculto · mostrar');
+});
+
+test('hiddenFootLabel: sem oculto a linha SOME, nao mostra zero', () => {
+  assert.equal(P.hiddenFootLabel(0, false), '');
+  assert.equal(P.hiddenFootLabel(0, true), '');
+  assert.equal(P.hiddenFootLabel(null, false), '');
+  assert.equal(P.hiddenFootLabel(-1, false), '');
+});
+
+test('myPRsEmptyMsg: loading e error continuam falando do MOTOR, nao dos ocultos', () => {
+  assert.match(P.myPRsEmptyMsg('loading', {}), /Verificando/);
+  assert.match(P.myPRsEmptyMsg('error', { ocultos: 3 }), /não foi possível|Não foi possível/);
+});
+
+test('myPRsEmptyMsg: sem PR nenhum, a mensagem depende do escopo escolhido', () => {
+  assert.match(P.myPRsEmptyMsg('empty', { escopoTodas: true }), /organizações monitoradas/);
+  assert.match(P.myPRsEmptyMsg('empty', { escopoTodas: false }), /nesta conta/);
+});
+
+test('myPRsEmptyMsg: com TODOS ocultos a tela diz por que esta vazia e como desfazer', () => {
+  // o vazio em branco sem explicacao era o pior desfecho de ocultar tudo
+  const m = P.myPRsEmptyMsg('list', { ocultos: 3 });
+  assert.match(m, /3 PRs seus estão ocultos/);
+  assert.match(m, /mostrar/, 'diz onde clicar pra ver de novo');
+  assert.match(P.myPRsEmptyMsg('list', { ocultos: 1 }), /^1 PR seu está oculto/);
+});
+
+test('myPRsEmptyMsg: chamada sem opcoes nao lanca e cai no vazio de sempre', () => {
+  assert.match(P.myPRsEmptyMsg('empty'), /organizações monitoradas/);
+});

@@ -16,10 +16,10 @@ const { Engine } = require('../server.js');
 const { startServer } = require('../lib/http-server');
 const { LOG_FILE } = require('../lib/paths');
 
-let server, base;
+let server, base, engine;
 
 before(async () => {
-  const engine = new Engine();
+  engine = new Engine();
   engine.config.port = 0; // porta efêmera: evita conflito com o Farol real ou outro teste
   await new Promise((resolve, reject) => {
     server = startServer(engine, (url, err) => (err ? reject(err) : resolve()));
@@ -47,6 +47,23 @@ function post(pathname, body) {
     const req = http.request(base + pathname, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-farol': '1', 'Content-Length': Buffer.byteLength(data) }
+    }, res => {
+      let d = ''; res.on('data', c => (d += c));
+      res.on('end', () => resolve({ status: res.statusCode, body: d }));
+    });
+    req.on('error', reject);
+    req.end(data);
+  });
+}
+
+// mesmo POST, SEM o header x-farol: o gate global de 403 (defesa contra site
+// qualquer postando no engine local) tem que continuar valendo pras rotas novas
+function postSemHeader(pathname, body) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(body || {});
+    const req = http.request(base + pathname, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }
     }, res => {
       let d = ''; res.on('data', c => (d += c));
       res.on('end', () => resolve({ status: res.statusCode, body: d }));
@@ -96,6 +113,32 @@ test('POST /api/review sem urls é recusado com 400 (o fallback "fila inteira" m
 test('POST /api/review com urls vazio ou de tipo errado também é recusado', async () => {
   assert.equal((await post('/api/review', { urls: [] })).status, 400);
   assert.equal((await post('/api/review', { urls: 'https://github.com/a/b/pull/1' })).status, 400);
+});
+
+/* ---------- ocultar um PR de "Meus PRs" (mesmo molde do /api/self-review/clear) ---------- */
+
+test('POST /api/pr/hide e /api/pr/unhide mexem no estado e aparecem no snapshot', async () => {
+  const CHAVE = 'acme/app#12';
+  engine.myPRs = [{ key: CHAVE, repo: 'acme/app', number: 12, url: 'https://github.com/acme/app/pull/12', title: 'velho', updatedAt: '2024-08-01T10:00:00Z' }];
+
+  const h = await post('/api/pr/hide', { key: CHAVE });
+  assert.equal(h.status, 200);
+  assert.deepEqual(JSON.parse(h.body), { ok: true });
+  assert.equal(engine.hiddenPRs[CHAVE].updatedAt, '2024-08-01T10:00:00Z', 'a rota gravou a entrada de verdade');
+  assert.deepEqual(JSON.parse((await get('/api/state')).body).hiddenPRs, [CHAVE], 'o snapshot publica a chave oculta');
+
+  const u = await post('/api/pr/unhide', { key: CHAVE });
+  assert.equal(u.status, 200);
+  assert.deepEqual(JSON.parse(u.body), { ok: true });
+  assert.equal(engine.hiddenPRs[CHAVE], undefined, 'mostrar de novo tira do estado');
+  assert.deepEqual(JSON.parse((await get('/api/state')).body).hiddenPRs, []);
+});
+
+test('POST /api/pr/hide sem o header x-farol continua 403 (o gate global vale pras rotas novas)', async () => {
+  const r = await postSemHeader('/api/pr/hide', { key: 'acme/app#12' });
+  assert.equal(r.status, 403);
+  assert.deepEqual(JSON.parse(r.body), { error: 'forbidden' });
+  assert.equal(engine.hiddenPRs['acme/app#12'], undefined, 'e nada foi gravado');
 });
 
 /* ---------- /api/log/triage: o log agrupado que o Diagnóstico mostra ----------

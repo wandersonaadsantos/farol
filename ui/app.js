@@ -1954,25 +1954,46 @@ const autoUnavailableKeys = new Map();
 // admin até o próximo refresh confirmar (o --admin não fura ruleset). Mesmo Map
 // com geração da recusa, mesma poda.
 const adminUnavailableKeys = new Map();
+// PR oculto de "Meus PRs" (experimento velho que nunca vai mergear e ocupava a aba pra
+// sempre). Quem guarda a lista é o motor (STATE.hiddenPRs); estas duas marcas são só a
+// resposta OTIMISTA ao clique, pra o card sumir/voltar na hora em vez de esperar o
+// próximo push de estado. Cada uma é limpa assim que o motor confirma.
+const hideOptimistic = new Set();
+const unhideOptimistic = new Set();
+// mostrar os ocultos é estado local da tela (não persiste), igual ao silencedOpen
+let hiddenOpen = false;
 function renderMyPRs() {
   // os marcadores de sessão valem até o PRÓXIMO refresh de mergeStates (que roda
   // no fim de cada check, junto do lastCheckAt novo): refresh mais novo que a
   // marcação poda a marca e o dado fresco do repo volta a decidir os botões
   for (const k of expiredSessionMarks([...autoUnavailableKeys], STATE.lastCheckAt)) autoUnavailableKeys.delete(k);
   for (const k of expiredSessionMarks([...adminUnavailableKeys], STATE.lastCheckAt)) adminUnavailableKeys.delete(k);
-  const list = (STATE.myPRs || []).filter(scopeVisible);
+  // o motor é a fonte de verdade dos ocultos; a marca otimista morre assim que ele
+  // confirma (ocultou de fato, ou de fato reexibiu), pra não sobreviver a um estado novo
+  const doMotor = new Set((STATE.hiddenPRs || []).map(k => String(k).toLowerCase()));
+  for (const k of [...hideOptimistic]) if (doMotor.has(String(k).toLowerCase())) hideOptimistic.delete(k);
+  for (const k of [...unhideOptimistic]) if (!doMotor.has(String(k).toLowerCase())) unhideOptimistic.delete(k);
+
+  const todos = (STATE.myPRs || []).filter(scopeVisible);
+  const { visiveis, ocultos } = splitHiddenPRs(todos, effectiveHidden(STATE.hiddenPRs, hideOptimistic, unhideOptimistic));
+  // sem nenhum oculto o rodapé não tem o que alternar: volta pro fechado, senão a tela
+  // ficaria "aberta" pra sempre depois que o motor reexibisse tudo sozinho
+  if (!ocultos.length) hiddenOpen = false;
+  // a lista pintada: os visíveis sempre, os ocultos só quando a pessoa pede
+  const list = hiddenOpen ? [...visiveis, ...ocultos] : visiveis;
   const analyses = STATE.selfAnalyses || {};
   const wrap = $('#myPRsWrap');
   wrap.hidden = false;
-  $('#myPRsCount').hidden = list.length === 0;
-  $('#myPRsCount').textContent = list.length;
-  const vs = listViewState({ lastCheckAt: STATE.lastCheckAt, status: STATE.status, length: list.length });
-  if (vs !== 'list') {
-    $('#myPRs').innerHTML = vs === 'loading'
-      ? `<div class="empty" style="border:0">Verificando se você tem PRs abertos…</div>`
-      : vs === 'error'
-        ? `<div class="empty" style="border:0">Não foi possível confirmar ainda (a checagem falhou; veja o aviso no topo). Vou tentar de novo no próximo ciclo.</div>`
-        : `<div class="empty" style="border:0">Você não tem PRs abertos ${SCOPE === 'all' ? 'nas organizações monitoradas' : 'nesta conta'}.</div>`;
+  // o contador da sub-aba conta o que está VISÍVEL: com o total, a bolinha dizia 3 e a
+  // lista mostrava 0
+  $('#myPRsCount').hidden = visiveis.length === 0;
+  $('#myPRsCount').textContent = visiveis.length;
+  renderMyPRsHiddenFoot(ocultos.length);
+  // o estado de carregamento é do MOTOR, então olha a lista completa: com tudo oculto o
+  // ciclo terminou bem e o vazio é escolha da pessoa, não falta de resposta
+  const vs = listViewState({ lastCheckAt: STATE.lastCheckAt, status: STATE.status, length: todos.length });
+  if (vs !== 'list' || !list.length) {
+    $('#myPRs').innerHTML = `<div class="empty" style="border:0">${esc(myPRsEmptyMsg(vs, { escopoTodas: SCOPE === 'all', ocultos: ocultos.length }))}</div>`;
     return;
   }
 
@@ -1981,8 +2002,12 @@ function renderMyPRs() {
   );
   const waiting = STATE.headlessWaiting || [];
   const blockedRepos = new Set(((STATE.config && STATE.config.mergeBlockedRepos) || []).map(r => String(r).toLowerCase()));
+  // só tem conteúdo quando os ocultos estão à mostra: é o que esmaece o card e troca
+  // o botão Ocultar pelo Reexibir
+  const ocultosSet = new Set(ocultos.map(p => p.key));
 
   $('#myPRs').innerHTML = list.map(pr => {
+    const escondido = ocultosSet.has(pr.key);
     const a = analyses[pr.key];
     const m = acctMark(pr, { noBar: !!a });
     const running = activeSelf.has(pr.key);
@@ -2042,7 +2067,7 @@ function renderMyPRs() {
         <div class="mypr-when">analisado ${fmtRel(new Date(a.at).toISOString())}${a.card ? ` · ${esc(a.card)}` : ''}</div>
       </div>` : '';
     return `
-    <div class="card mypr-card ${a ? (a.approvable ? 'ok' : 'warn') : ''}" data-key="${esc(pr.key)}" style="${m.style}">
+    <div class="card mypr-card ${a ? (a.approvable ? 'ok' : 'warn') : ''}${escondido ? ' oculto' : ''}" data-key="${esc(pr.key)}" style="${m.style}">
       <div class="mypr-top">
         ${m.dot}${avatar(pr.author)}
         <div class="info">
@@ -2056,13 +2081,28 @@ function renderMyPRs() {
           <button class="btn primary sm act-self" data-url="${esc(pr.url)}" ${running || queued ? 'disabled' : ''}>${btnLabel}</button>
           <button class="btn sm ghost act-set-reviewers" data-url="${esc(pr.url)}" title="Atribui você e pede review dos reviewers configurados deste repo (aba Sistema). Aplica na hora, sem confirmação.">👥 Reviewers</button>
           ${mergeBtns}
-          ${a ? `<button class="btn sm ghost act-self-clear" data-key="${esc(pr.key)}" title="Ocultar esta autoanálise (é só sua, some da tela; dá pra reanalisar quando quiser)">Ocultar</button>` : ''}
+          ${a ? `<button class="btn sm ghost act-self-clear" data-key="${esc(pr.key)}" title="Ocultar esta autoanálise (é só sua, some da tela; dá pra reanalisar quando quiser)">Ocultar análise</button>` : ''}
+          ${escondido
+        ? `<button class="btn sm ghost act-pr-unhide" data-key="${esc(pr.key)}" title="Traz este PR de volta pra lista de Meus PRs">Reexibir</button>`
+        : `<button class="btn sm ghost act-pr-hide" data-key="${esc(pr.key)}" title="Some com este PR de Meus PRs. Ele volta sozinho se receber commit novo">Ocultar</button>`}
         </div>
       </div>
       ${analysisPanel}
     </div>`;
   }).join('');
 }
+// rodapé discreto da seção: "3 PRs ocultos · mostrar". A linha inteira é o controle
+// (um botão só), pra ser alcançável por teclado e leitor de tela sem inventar widget.
+function renderMyPRsHiddenFoot(n) {
+  const foot = $('#myPRsHiddenFoot');
+  if (!foot) return;
+  const label = hiddenFootLabel(n, hiddenOpen);
+  foot.hidden = !label;
+  foot.innerHTML = label
+    ? `<button class="mypr-hidden-toggle" aria-expanded="${hiddenOpen ? 'true' : 'false'}" title="PR oculto some de Meus PRs mas volta sozinho se receber commit novo">${esc(label)}</button>`
+    : '';
+}
+
 // Copia texto com fallback: a Clipboard API exige contexto seguro e foco; quando
 // falha (ex.: janela sem foco), recai pro textarea + execCommand, que não depende
 // de permissão. Devolve true se algum caminho copiou.
@@ -2237,7 +2277,39 @@ $('#myPRs').addEventListener('click', (e) => {
     return;
   }
   const clr = e.target.closest('.act-self-clear');
-  if (clr) api('/api/self-review/clear', { key: clr.dataset.key });
+  if (clr) { api('/api/self-review/clear', { key: clr.dataset.key }); return; }
+  // ocultar/reexibir o PR inteiro: some (ou volta) na hora, otimista, e o estado que o
+  // motor devolve confirma. Falhou, desfaz a marca e avisa, senão a tela mentiria.
+  const hide = e.target.closest('.act-pr-hide');
+  if (hide) {
+    const key = hide.dataset.key;
+    hideOptimistic.add(key); unhideOptimistic.delete(key);
+    renderMyPRs(); renderRadarNav();
+    api('/api/pr/hide', { key }).then(r => {
+      if (r?.ok) return;
+      hideOptimistic.delete(key); renderMyPRs(); renderRadarNav();
+      toast('error', esc(r?.error || 'não consegui ocultar este PR'));
+    });
+    return;
+  }
+  const unhide = e.target.closest('.act-pr-unhide');
+  if (unhide) {
+    const key = unhide.dataset.key;
+    unhideOptimistic.add(key); hideOptimistic.delete(key);
+    renderMyPRs(); renderRadarNav();
+    api('/api/pr/unhide', { key }).then(r => {
+      if (r?.ok) return;
+      unhideOptimistic.delete(key); renderMyPRs(); renderRadarNav();
+      toast('error', esc(r?.error || 'não consegui reexibir este PR'));
+    });
+  }
+});
+
+/* alterna a exibição dos ocultos (estado só da tela, não persiste) */
+$('#myPRsHiddenFoot').addEventListener('click', (e) => {
+  if (!e.target.closest('.mypr-hidden-toggle')) return;
+  hiddenOpen = !hiddenOpen;
+  renderMyPRs(); renderRadarNav();
 });
 
 /* ---------- render: versão e atualização ---------- */
@@ -2545,6 +2617,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.38.0', ['Dá pra ocultar um PR em "Meus PRs": PR seu que ficou aberto e não vai a lugar nenhum (experimento antigo, prova de conceito) ocupava a aba pra sempre. Cada card ganhou "Ocultar" e um rodapé mostra quantos estão ocultos, com opção de exibir de novo. O contador da sub-aba conta o que está visível.', 'Ocultar não é ignorar a realidade: o PR volta sozinho se receber commit novo. É só na sua tela, nada é escrito no GitHub, e queda de rede não desoculta nada.', 'O botão "Ocultar" que já existia no card virou "Ocultar análise": ele sempre sumiu só com a autoanálise, nunca com o PR.']],
   ['2.37.0', ['Diagnóstico agrupado: o log de falhas abre com um resumo por episódio (quantas vezes, de quando até quando, quais PRs, e se a falha se resolve sozinha ou depende de você), em vez de despejar linha crua. O detalhe continua embaixo, limitado às 40 linhas mais recentes. A aba Sistema mostra os três maiores grupos na própria linha do log.', 'Correção: um PR podia entrar em loop infinito de revisão. Falha passageira colocava o PR na lista de "tentar de novo"; se a falha seguinte fosse permanente (credencial recusada, acesso desligado pela organização), o app estacionava o PR mas não o tirava da lista, e o relançamento desfazia o estacionamento no ciclo seguinte. Deu 25 tentativas idênticas do mesmo PR em três horas.', 'Limite do plano Claude agora espera a hora do reset que vem escrita na própria mensagem, em vez de tentar 12 vezes por PR. O aviso passou a dizer o horário ("retomo depois das 21:00").']],
   ['2.36.1', ['Correção: a revisão automática podia postar review num PR que já tinha sido mergeado. Agora uma pendência em "Precisa de você" cancela sozinha quando o PR mergeia enquanto espera sua decisão, e a revisão automática confere o estado do PR antes de começar, pulando sem gastar tokens se já foi mergeado enquanto esperava a vez na fila.']],
   ['2.36.0', ['Checkpoint de verificação: a revisão headless guarda uma memória incremental do que já verificou (afirmação por arquivo:linha), pra não reprocessar tudo do zero se a sessão travar num erro transitório (ex.: 529 de sobrecarga) e precisar recomeçar. Sempre gravado pelo motor do Farol, nunca pela sessão diretamente.', 'Divergência entre duas verificações da mesma afirmação nunca é resolvida em silêncio: vira ponto de atenção e trava a postagem automática (aprovação e reprovação), igual já acontecia com cobertura incompleta. "Revisões recentes" mostra quantas afirmações foram confirmadas e se há divergência pendente.', 'O checkpoint expira sozinho quando o PR ganha commit novo: uma divergência contra código que já mudou deixa de travar a postagem automática pra sempre (o histórico completo continua guardado, só para de contar pro gate).']],
