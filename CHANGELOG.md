@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.38.0
+
+Releitura completa da aba Consumo (desenho do Wanderson no Claude Design):
+cartões de KPI com sparkline e variação vs período anterior, linha do tempo em
+área empilhada por tipo/modelo/conta com hover, matriz Tipo × Modelo pro período
+selecionado, cartões de orçamento por perfil com medidor, e uma tabela de
+sessões recentes com a referência do PR/chat/ferramenta de cada sessão (novo log
+permanente em `usage-sessions.json`, sem poda). Métrica "Custo" nova ao lado de
+Tokens/Input/Output/Cache.
+
 ## v2.37.1
 
 **Correções**
