@@ -2518,75 +2518,51 @@ function drawUsageBudget(el, u) {
   }).join('');
 }
 
-// quebra: barras horizontais por tipo/conta/modelo (HTML), métrica escolhida
-function drawUsageBreakdown(el, items, metric) {
-  const vals = (items || []).map(x => ({ label: x.label || '', v: usageMetricVal(x, metric), s: x.sessions }))
-    .filter(x => x.v > 0).sort((a, b) => b.v - a.v).slice(0, 10);
-  if (!vals.length) { el.innerHTML = '<div class="usage-empty">Sem dados ainda.</div>'; return; }
-  const max = Math.max(1, ...vals.map(x => x.v));
-  el.innerHTML = vals.map(x => `<div class="ubar-row"><span class="ubar-label" title="${esc(x.label)}">${esc(x.label)}</span>`
-    + `<span class="ubar-track"><span class="ubar-fill" style="width:${(x.v / max * 100).toFixed(1)}%"></span></span>`
-    + `<span class="ubar-val">${fmtTok(x.v)}<small> · ${x.s}s</small></span></div>`).join('');
+// tabela das sessoes mais recentes (ate 100, cortado no backend). Log permanente
+// em disco (usage-sessions.json); a UI so mostra as mais novas, com rolagem.
+function drawUsageSessions(el, u) {
+  const lista = u.recentSessions || [];
+  if (!lista.length) { el.innerHTML = '<div class="usage-empty">Nenhuma sessão registrada ainda. Quando o Farol rodar uma revisão, autoanálise, pushback, ferramenta ou chat, o consumo aparece aqui.</div>'; return; }
+  const head = `<div class="usage-sessions-row head">
+      <span class="usage-sessions-hcell">Quando</span><span class="usage-sessions-hcell">Tipo</span>
+      <span class="usage-sessions-hcell">PR / sessão</span><span class="usage-sessions-hcell">Modelo</span>
+      <span class="usage-sessions-hcell right">Tokens</span><span class="usage-sessions-hcell right">~US$</span>
+      <span class="usage-sessions-hcell right">Estado</span></div>`;
+  const rows = lista.map(s => {
+    const r = usageSessionRow(s);
+    return `<div class="usage-sessions-row">
+      <span class="usage-sessions-when">${esc(r.whenLabel)}</span>
+      <span class="usage-sessions-kind"><span class="dot" style="background:${USAGE_KIND_COLOR[s.kind] || 'var(--faint)'};width:8px;height:8px;border-radius:2.5px;display:inline-block"></span>${esc(r.kindLabel)}</span>
+      <span class="usage-sessions-ref" title="${esc(r.ref)}">${esc(r.ref)}</span>
+      <span class="usage-sessions-model">${esc(r.model)}</span>
+      <span class="usage-sessions-num">${esc(r.tokLabel)}</span>
+      <span class="usage-sessions-num">${esc(r.costLabel)}</span>
+      <span style="text-align:right"><span class="usage-sessions-st ${r.stClass}">${esc(r.stLabel)}</span></span>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="usage-sessions">${head}${rows}</div>
+    <div class="usage-sessions-foot"><span>Registro permanente, sem botão de zerar.</span><span>Mostrando as ${lista.length} mais recentes</span></div>`;
 }
 
 function renderUsage() {
   const u = STATE && STATE.usage;
-  const kpisEl = $('#usageKpis');
-  if (kpisEl) {
-    if (!u || !u.totals || !u.totals.sessions) kpisEl.innerHTML = '';
-    else drawUsageKpis(kpisEl, u, usageState.window, usageState.metric);
-  }
-  // orçamento por perfil depende só do perfil configurado (Sistema → Plano e chaves) e do
-  // gasto acumulado, nada a ver com existir sessão registrada no histórico. Por isso fica
-  // ANTES do corte "sem sessão ainda" logo abaixo: perfil recém-criado com teto e gasto
-  // zerado já deve aparecer aqui.
-  const budgetEl = $('#usageBudget');
-  if (budgetEl) drawUsageBudget(budgetEl, u);
-  // === resto da funcao atual continua aqui, intacto por enquanto (Tasks 11-14 substituem) ===
-  const statsEl = $('#usageStats'), tl = $('#usageTimeline'), bd = $('#usageBreakdown');
-  const dimBtn = $('#usageDimProfile'), noteEl = $('#usageBudgetNote');
-  if (!statsEl || !tl || !bd) return;
-  // botão "Por perfil" só aparece se existir algum dado de perfil de chave de API
-  if (dimBtn) dimBtn.hidden = !(u && u.byProfile && u.byProfile.length);
+  const kpisEl = $('#usageKpis'), tl = $('#usageTimeline'), legend = $('#usageLegend');
+  const matrix = $('#usageMatrix'), matrixCap = $('#usageMatrixCaption');
+  const budget = $('#usageBudget'), sessions = $('#usageSessions');
+  if (!kpisEl || !tl || !matrix || !budget || !sessions) return;
   if (!u || !u.totals || !u.totals.sessions) {
-    statsEl.innerHTML = '';
+    kpisEl.innerHTML = '';
     tl.innerHTML = '<div class="usage-empty">Nenhuma sessão registrada ainda. Quando o Farol rodar uma revisão, autoanálise, pushback, ferramenta ou chat, o consumo aparece aqui.</div>';
-    bd.innerHTML = '';
-    if (noteEl) noteEl.hidden = true;
+    legend.innerHTML = ''; matrix.innerHTML = ''; matrixCap.textContent = '';
+    drawUsageBudget(budget, u || {});
+    sessions.innerHTML = '';
     return;
   }
-  const stat = (label, b, extra) => `<div class="usage-stat"><span class="us-label">${label}</span>`
-    + `<b>${fmtTok((b.inputTokens || 0) + (b.outputTokens || 0))}<small> tokens</small></b>`
-    + `<span class="us-sub">${fmtTok(b.inputTokens)} in · ${fmtTok(b.outputTokens)} out · ${b.sessions}s${extra || ''}</span></div>`;
-  const costNote = u.totals.costUsd > 0 ? ` · ~US$ ${u.totals.costUsd.toFixed(2)}` : '';
-  statsEl.innerHTML = stat('Total', u.totals, costNote) + stat('Hoje', u.today) + stat('7 dias', u.last7) + stat('30 dias', u.last30);
-  drawUsageTimeline($('#usageTimeline'), $('#usageLegend'), u, usageState.metric, usageState.window, usageState.dim);
-  drawUsageMatrix($('#usageMatrix'), $('#usageMatrixCaption'), u, usageState.metric, usageState.window);
-  const data = usageState.dim === 'account' ? u.byAccount
-    : usageState.dim === 'model' ? u.byModel
-    : usageState.dim === 'profile' ? (u.byProfile || [])
-    : u.byKind;
-  drawUsageBreakdown(bd, data, usageState.metric);
-  // nota de orçamento: só na dimensão "profile", compara gasto (usage.js) com teto
-  // configurado (doctor/claudeAuth, que já calcula isso por perfil via profileBudgetStatus)
-  if (noteEl) {
-    if (usageState.dim === 'profile') {
-      const claudeAuth = (STATE.doctor && STATE.doctor.claudeAuth) || [];
-      const linhas = (u.byProfile || []).map(item => {
-        const info = claudeAuth.find(x => x.id === item.profileId);
-        if (!info || !info.apiKeyMode) return '';
-        const partes = [];
-        if (info.today != null) partes.push(`hoje US$ ${info.today.toFixed(2)}`);
-        if (info.sinceCutoff != null) partes.push(`total US$ ${info.sinceCutoff.toFixed(2)}`);
-        const selo = info.blocked ? ' 🔴 orçamento estourado' : '';
-        return partes.length ? `${esc(item.label)}: ${partes.join(' · ')}${selo}` : '';
-      }).filter(Boolean);
-      noteEl.innerHTML = linhas.join('<br>');
-      noteEl.hidden = !linhas.length;
-    } else {
-      noteEl.hidden = true;
-    }
-  }
+  drawUsageKpis(kpisEl, u, usageState.window, usageState.metric);
+  drawUsageTimeline(tl, legend, u, usageState.metric, usageState.window, usageState.dim);
+  drawUsageMatrix(matrix, matrixCap, u, usageState.metric, usageState.window);
+  drawUsageBudget(budget, u);
+  drawUsageSessions(sessions, u);
 }
 
 function wireUsageControls() {
