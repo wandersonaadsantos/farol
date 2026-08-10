@@ -167,6 +167,24 @@ test('runClaudeStream: chama recordUsage mesmo quando a sessão termina em erro 
   assert.equal(chamadas[0].profileId, 'chave-bob', 'authProfileId do perfil apikey resolvido chega em recordUsage');
 });
 
+test('runClaudeStream: repassa opts.ref pra recordUsage (Task 4, plumbing PR/chat/ferramenta)', async () => {
+  const chamadas = [];
+  const engine = engineFalso();
+  engine.recordUsage = (id, account, resultEvent, model, profileId, ref) => {
+    chamadas.push({ id, account, resultEvent, model, profileId, ref });
+  };
+  process.env.FAROL_HEADLESS_CMD = `node -e "console.log(JSON.stringify({type:'result', is_error:false, result:'ok', usage:{input_tokens:1,output_tokens:1}, total_cost_usd:0.01}))"`;
+  fs.mkdirSync(path.join(FAROL_HOME, 'workspace'), { recursive: true });
+  try {
+    const res = await runClaudeStream(engine, 'prompt', { id: 'a1', account: 'trabalho', ref: 'biudtech/farol#88' });
+    assert.equal(res.text, 'ok');
+  } finally {
+    delete process.env.FAROL_HEADLESS_CMD;
+  }
+  assert.equal(chamadas.length, 1);
+  assert.equal(chamadas[0].ref, 'biudtech/farol#88', 'opts.ref precisa chegar em recordUsage');
+});
+
 test('runClaudeStream: stdin tem handler de error (EPIPE de processo morto não derruba o engine) (B4)', async () => {
   const child = filhoStream();
   spawnImpl = () => child;
