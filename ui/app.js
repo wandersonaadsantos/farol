@@ -2359,37 +2359,78 @@ function drawUsageKpis(el, u, win, metric) {
   ].join('');
 }
 
-// linha do tempo: barras por dia na janela escolhida, métrica escolhida (SVG)
-function drawUsageTimeline(el, series, metric, win) {
-  const map = {}; for (const d of (series || [])) map[d.day] = d;
-  const data = usageDayKeysBack(win).map(day => ({ day, v: usageMetricVal(map[day], metric) }));
-  if (!data.some(d => d.v > 0)) { el.innerHTML = '<div class="usage-empty">Sem consumo nesta janela.</div>'; return; }
-  const max = Math.max(1, ...data.map(d => d.v));
-  // O viewBox acompanha a largura REAL do container. Com 820 fixo, num celular de 375 o
-  // SVG era reduzido a 0,43x e os rótulos de 10px viravam 4px, ilegíveis. Medindo, a
-  // escala fica ~1:1 e o texto sai no tamanho que foi pedido.
-  const W = Math.max(300, Math.round(el.clientWidth || 820));
-  const H = 200, padR = 8, padT = 10, padB = 22;
-  const padL = W < 420 ? 34 : 46;   // o eixo Y precisa de menos espaço quando o número é curto
-  const cw = W - padL - padR, ch = H - padT - padB, n = data.length, bw = cw / n, barW = Math.max(1.2, bw * 0.68);
-  const yOf = v => padT + ch * (1 - v / max);
-  const grid = [max, max / 2, 0].map(v => {
-    const yy = yOf(v);
-    return `<line x1="${padL}" y1="${yy.toFixed(1)}" x2="${W - padR}" y2="${yy.toFixed(1)}" class="ugrid"/>`
-      + `<text x="${padL - 6}" y="${(yy + 3.5).toFixed(1)}" class="uaxis uaxis-y">${fmtCompact(v)}</text>`;
-  }).join('');
-  const bars = data.map((d, i) => {
-    const x = padL + i * bw + (bw - barW) / 2, h = ch * (d.v / max);
-    return `<rect class="ubar-rect" x="${x.toFixed(1)}" y="${(padT + ch - h).toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(0, h).toFixed(1)}" rx="1.5"><title>${d.day.slice(8, 10)}/${d.day.slice(5, 7)}: ${fmtTok(d.v)}</title></rect>`;
-  }).join('');
-  // quantos rótulos de data cabem: cada "dd/mm" pede ~78px pra não colidir
-  const step = Math.ceil(n / Math.max(3, Math.floor(W / 78)));
-  const xlab = data.map((d, i) => (i % step === 0 || i === n - 1)
-    ? `<text class="uaxis uaxis-x" x="${(padL + i * bw + bw / 2).toFixed(1)}" y="${H - 6}">${d.day.slice(8, 10)}/${d.day.slice(5, 7)}</text>` : '').join('');
-  // role=img + rótulo: o gráfico carrega informação, então não pode ser aria-hidden.
-  // O detalhe numérico está nos cartões acima e na quebra abaixo.
-  const total = data.reduce((s, d) => s + d.v, 0);
-  el.innerHTML = `<svg role="img" aria-label="Consumo por dia nos últimos ${n} dias: ${fmtTok(total)} tokens no total, pico de ${fmtTok(max)}." viewBox="0 0 ${W} ${H}" class="usvg">${grid}${bars}${xlab}</svg>`;
+// cor por camada: fixa pro tipo (bate com o mock), ciclica pras outras dimensoes
+// (modelo/conta), que tem quantidade variavel de nomes.
+const USAGE_KIND_COLOR = { review: 'var(--accent)', self: 'var(--info)', chat: 'var(--ok)', tool: '#b394f0', pushback: 'var(--danger)', outro: 'var(--faint)' };
+const USAGE_PALETTE = ['var(--accent)', 'var(--info)', 'var(--ok)', '#b394f0', 'var(--danger)', 'var(--faint)'];
+
+function usageColorsFor(dim, names) {
+  if (dim === 'kind') return names.map(n => USAGE_KIND_COLOR[n] || 'var(--faint)');
+  return names.map((_, i) => USAGE_PALETTE[i % USAGE_PALETTE.length]);
+}
+
+let usageHoverIdx = null;
+
+// linha do tempo empilhada (area) por dimensao (tipo/modelo/conta), com legenda,
+// grade, marca de pico e tooltip de hover. `u.stackedSeries[dim]` ja vem do
+// backend com granularidade diaria (Task 3 de lib/engine/usage.js); aqui so
+// fatia a janela escolhida e desenha.
+function drawUsageTimeline(el, legendEl, u, metric, win, dim) {
+  const key = dim === 'model' ? 'byModel' : dim === 'account' ? 'byAccount' : 'byKind';
+  const names = dim === 'model' ? (u.modelNames || []) : dim === 'account' ? (u.accountNames || []) : (u.kindNames || []);
+  const labels = {}; // name -> label amigavel, tirado do proprio stackedSeries
+  const byDay = {}; for (const d of ((u.stackedSeries || {})[key]) || []) { byDay[d.day] = d.items; for (const it of d.items) labels[it.name] = it.label; }
+  const days = usageDayKeysBack(win);
+  const series = days.map(day => (byDay[day] || names.map(n => ({ name: n }))).map(it => usageMetricVal(it, metric)));
+  const totalPeriodo = series.reduce((a, vals) => a + vals.reduce((x, y) => x + y, 0), 0);
+  if (!totalPeriodo) {
+    el.innerHTML = '<div class="usage-empty">Sem consumo nesta janela.</div>';
+    legendEl.innerHTML = '';
+    usageHoverIdx = null;
+    return;
+  }
+  const colors = usageColorsFor(dim, names);
+  const W = Math.max(300, Math.round(el.clientWidth || 820)), H = 220;
+  const geo = usageStackLayers(series, names, colors, W, H);
+
+  const totalPorNome = names.map((_, i) => series.reduce((a, vals) => a + vals[i], 0));
+  legendEl.innerHTML = names.map((n, i) => totalPorNome[i] > 0
+    ? `<span><span class="dot" style="background:${colors[i]}"></span>${esc(labels[n] || n)}<b>${esc(fmtUsageMetric(totalPorNome[i], metric))}</b></span>` : '').join('');
+
+  const fmtY = v => fmtUsageMetric(v, metric);
+  const step = Math.ceil(days.length / Math.max(3, Math.floor(W / 78)));
+  const xlab = days.map((d, i) => (i % step === 0 || i === days.length - 1)
+    ? `<text class="uaxis uaxis-x" x="${geo.xs[i]}" y="${H - 6}">${d.slice(8, 10)}/${d.slice(5, 7)}</text>` : '').join('');
+  const grid = geo.grid.map(g => `<line x1="${geo.padL}" y1="${g.y}" x2="${W - 14}" y2="${g.y}" class="ugrid"/><text x="${geo.padL - 6}" y="${g.y + 3.5}" class="uaxis uaxis-y">${esc(fmtY(g.value))}</text>`).join('');
+  const layerPaths = geo.layers.map(l => `<path d="${l.d}" fill="${l.color}" opacity="0.92"></path>`).join('');
+  const peakX = geo.xs[geo.peakIndex];
+  const total = `Total ${fmtUsageMetric(totalPeriodo, metric)} em ${days.length} dias, pico de ${fmtUsageMetric(geo.dayTotals[geo.peakIndex], metric)} em ${days[geo.peakIndex]}`;
+
+  el.innerHTML = `<svg role="img" aria-label="${esc(total)}" viewBox="0 0 ${W} ${H}" class="usvg" id="usvgTimeline">
+      ${grid}${layerPaths}${xlab}
+      ${usageHoverIdx != null ? `<line x1="${geo.xs[usageHoverIdx]}" y1="${geo.padT}" x2="${geo.xs[usageHoverIdx]}" y2="${geo.padT + geo.ch}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" opacity="0.7"></line>` : ''}
+      <rect x="${geo.padL}" y="0" width="${geo.cw}" height="${H}" fill="transparent" style="cursor:crosshair" data-usage-overlay="1"></rect>
+    </svg>
+    ${usageHoverIdx != null ? drawUsageTooltip(days[usageHoverIdx], series[usageHoverIdx], names, labels, colors, metric, usageHoverIdx, geo, W) : ''}`;
+
+  const svgEl = el.querySelector('#usvgTimeline');
+  const overlay = el.querySelector('[data-usage-overlay]');
+  if (overlay) {
+    overlay.addEventListener('mousemove', (e) => {
+      const rect = svgEl.getBoundingClientRect();
+      const mx = (e.clientX - rect.left) * (W / rect.width);
+      const idx = usageHoverIndex(mx, geo);
+      if (idx !== usageHoverIdx) { usageHoverIdx = idx; drawUsageTimeline(el, legendEl, u, metric, win, dim); }
+    });
+    overlay.addEventListener('mouseleave', () => { if (usageHoverIdx != null) { usageHoverIdx = null; drawUsageTimeline(el, legendEl, u, metric, win, dim); } });
+  }
+}
+
+function drawUsageTooltip(day, vals, names, labels, colors, metric, idx, geo, W) {
+  const total = vals.reduce((a, b) => a + b, 0);
+  const leftPct = Math.min(82, Math.max(4, (geo.xs[idx] / W) * 100));
+  const rows = names.map((n, i) => vals[i] > 0 ? `<div class="ut-row"><span class="dot" style="background:${colors[i]}"></span><span>${esc(labels[n] || n)}</span><b>${esc(fmtUsageMetric(vals[i], metric))}</b></div>` : '').join('');
+  return `<div class="usage-tooltip" style="left:${leftPct}%"><div class="ut-head">${esc(day.slice(8, 10))}/${esc(day.slice(5, 7))} · ${esc(fmtUsageMetric(total, metric))}</div>${rows}</div>`;
 }
 
 // quebra: barras horizontais por tipo/conta/modelo (HTML), métrica escolhida
@@ -2428,7 +2469,7 @@ function renderUsage() {
     + `<span class="us-sub">${fmtTok(b.inputTokens)} in · ${fmtTok(b.outputTokens)} out · ${b.sessions}s${extra || ''}</span></div>`;
   const costNote = u.totals.costUsd > 0 ? ` · ~US$ ${u.totals.costUsd.toFixed(2)}` : '';
   statsEl.innerHTML = stat('Total', u.totals, costNote) + stat('Hoje', u.today) + stat('7 dias', u.last7) + stat('30 dias', u.last30);
-  drawUsageTimeline(tl, u.series, usageState.metric, usageState.window);
+  drawUsageTimeline($('#usageTimeline'), $('#usageLegend'), u, usageState.metric, usageState.window, usageState.dim);
   const data = usageState.dim === 'account' ? u.byAccount
     : usageState.dim === 'model' ? u.byModel
     : usageState.dim === 'profile' ? (u.byProfile || [])
@@ -2467,7 +2508,7 @@ function wireUsageControls() {
   };
   bind('#usageMetric', 'metric', 'metric');
   bind('#usageWindow', 'window', 'window', Number);
-  bind('#usageDim', 'dim', 'dim');
+  bind('#usageStack', 'dim', 'dim');
 }
 wireUsageControls();
 
