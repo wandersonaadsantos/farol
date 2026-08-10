@@ -2381,6 +2381,11 @@ function drawUsageTimeline(el, legendEl, u, metric, win, dim) {
   const labels = {}; // name -> label amigavel, tirado do proprio stackedSeries
   const byDay = {}; for (const d of ((u.stackedSeries || {})[key]) || []) { byDay[d.day] = d.items; for (const it of d.items) labels[it.name] = it.label; }
   const days = usageDayKeysBack(win);
+  // troca de janela/metrica/dimensao sem o mouse sair do grafico reusa o hover antigo;
+  // sem esse clamp, um indice de uma janela maior (ex.: 25 em 30 dias) sobrevive pra uma
+  // janela menor (7 dias) e days[25]/series[25] ficam undefined mais abaixo (TypeError
+  // no tooltip, renderUsage quebra no meio do innerHTML).
+  if (usageHoverIdx != null && usageHoverIdx >= days.length) usageHoverIdx = null;
   const series = days.map(day => (byDay[day] || names.map(n => ({ name: n }))).map(it => usageMetricVal(it, metric)));
   const totalPeriodo = series.reduce((a, vals) => a + vals.reduce((x, y) => x + y, 0), 0);
   if (!totalPeriodo) {
@@ -2503,6 +2508,7 @@ function wireUsageControls() {
     box.querySelectorAll('.seg-btn').forEach(b => b.addEventListener('click', () => {
       marcarSeg(box.querySelectorAll('.seg-btn'), x => x === b);
       usageState[key] = cast ? cast(b.dataset[attr]) : b.dataset[attr];
+      usageHoverIdx = null; // troca de metrica/janela/dimensao aposenta o hover antigo
       renderUsage();
     }));
   };
