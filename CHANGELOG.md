@@ -9,6 +9,73 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.40.0
+
+Consumo e Entregas passaram por auditoria lógica completa. A aba Consumo agora
+tem UMA fonte de verdade, e os painéis não se contradizem mais (o cartão de
+tokens dizia 942k nos 7 dias enquanto a linha do tempo mostrava 43k, e até o dia
+de hoje divergia entre painéis); a aba Entregas parou de contar merges que o
+gráfico não desenhava e ganhou a ordenação pelo mais atual.
+
+**Entregas**
+- **Grupos ordenados pelo mais ATUAL primeiro.** Quem mergeou por último abre a
+  lista (por repositório e por pessoa), descendo até o grupo parado há mais
+  tempo; a contagem só desempata. O número de ranking da visão por pessoa saiu
+  (viraria um placar falso); quem mais entrega segue nos cartões "na frente".
+- **Dia sem merge aparecia como a 2ª barra mais alta do gráfico.** As barras
+  escuras de altura cheia eram dias com ZERO merges: a classe da barra vazia
+  colidia com o estilo do estado vazio geral do app (padding + borda tracejada)
+  e inflava a barra pra 54px. Agora dia zerado é um toco de 2px, como devia.
+- **Cartões e gráfico contavam janelas diferentes.** O corte no GitHub era por
+  data seca (que o GitHub lê em UTC): a janela de 30 dias tinha 31 dias locais
+  mais uma franja de 3h da véspera, e o total/média contavam ~50 merges que o
+  gráfico nunca desenhava (média exibida 25,6 contra 24,0 real). O corte agora
+  é por timestamp na meia-noite local do primeiro dia desenhado; "Hoje" começa
+  às 00:00 de verdade, e total, média, pico, grupos e barras contam o MESMO
+  período.
+- **Teto de 1000 honesto.** Quando uma org passa do teto, o corte agora busca
+  por atividade mais recente (antes era por "relevância" do GitHub, um recorte
+  arbitrário), e o aviso diz que números e gráfico podem subestimar.
+- O cache de entregas não atravessa mais a virada da meia-noite servindo a
+  janela de ontem, e a barra de participação de grupo pequeno diz "<1%" em vez
+  de "0%".
+
+**Novidades**
+- **Camada "Sem detalhamento" na linha do tempo e na matriz.** O registro
+  anterior à v2.38.0 (e qualquer sessão gravada por versão antiga) não tem a
+  quebra por tipo/modelo/conta; em vez de aparecer como consumo zero, essa
+  fatia agora aparece em cinza, reconciliada dia a dia contra o total real. Os
+  totais da linha do tempo, da matriz e dos cartões de KPI passam a bater
+  SEMPRE, por construção, em qualquer janela e métrica.
+- **Rodapé de cobertura em Sessões recentes.** A tabela declara desde quando o
+  registro individual existe; sessões anteriores aparecem só nos agregados.
+
+**Melhorias**
+- **Orçamento por perfil ao vivo.** O cartão de orçamento (e o gasto mostrado
+  na aba Sistema) agora recalcula a cada atualização de estado, com a MESMA
+  conta que pausa a automação, em vez de congelar no último "Verificar agora".
+  Estourou o teto, o cartão mostra na hora; virou o dia, o gasto de "hoje"
+  zera junto com o gate.
+- **Sessão cancelada com gasto agora registra.** Se o cancelamento chega depois
+  do relatório final da sessão, o consumo já reportado entra no registro (antes
+  era descartado). Sessão com custo reportado e zero tokens também registra.
+- **Cartão de tokens declara o cache.** "Tokens" sempre foi entrada+saída; o
+  custo inclui o cache. Agora o subtítulo mostra o cache do período, e as
+  células da matriz mostram o valor exato no tooltip.
+- **A variação (%) dos KPIs só aparece com base justa.** Além de caber na
+  retenção, o período anterior precisa estar coberto pelo histórico registrado;
+  senão o chip inflava a comparação contra dias estruturalmente vazios.
+- **Lacuna declarada:** sessões interativas no terminal usam a credencial do
+  perfil, mas o CLI não reporta o consumo delas, então não entram na medição
+  nem no teto; o cartão de orçamento agora avisa.
+
+**Correções**
+- **O selo de orçamento estourado da aba Sistema tinha morrido junto com a
+  centralização** (lia o dado no lugar antigo): agora lê a mesma fonte viva do
+  resto, e Sistema, Consumo e o comportamento da automação sempre concordam.
+- **Sessão cancelada aparecia como "ok" na tabela de sessões**: agora aparece
+  como "cancelada" (gastou, mas não concluiu).
+
 ## v2.39.0
 
 Releitura completa da aba Consumo (desenho do Wanderson no Claude Design):
