@@ -368,6 +368,27 @@ test('deliveriesByRepo escapa o conteúdo e ordena por volume', () => {
   assert.match(html, /2 autores/, 'conta autores distintos');
 });
 
+test('deliveriesByRepo mostra progresso e badge de contagem por grupo', () => {
+  const html = P.deliveriesByRepo([
+    { repo: 'acme/x', key: 'acme/x#1', url: 'u', title: 't1', author: 'a', mergedAt: '2026-08-03' },
+    { repo: 'acme/x', key: 'acme/x#2', url: 'u', title: 't2', author: 'a', mergedAt: '2026-08-02' },
+    { repo: 'acme/y', key: 'acme/y#3', url: 'u', title: 't3', author: 'b', mergedAt: '2026-08-01' },
+  ]);
+  assert.match(html, /deliv-progress/);
+  assert.match(html, /<span class="count">2<\/span>/);
+});
+
+test('deliveriesByRepo pagina com "mostrar mais" acima do teto e some quando expandido', () => {
+  const items = Array.from({ length: 6 }, (_, i) => (
+    { repo: 'acme/x', key: `acme/x#${i}`, url: 'u', title: `t${i}`, author: 'a', mergedAt: `2026-08-0${i + 1}` }
+  ));
+  const fechado = P.deliveriesByRepo(items, { teto: 4 });
+  assert.match(fechado, /mostrar mais 2/);
+  const aberto = P.deliveriesByRepo(items, { teto: 4, expandedKeys: new Set(['repo:acme/x']) });
+  assert.match(aberto, /mostrar menos/);
+  assert.doesNotMatch(aberto, /mostrar mais/);
+});
+
 test('deliveriesByAuthor concorda no singular e no plural', () => {
   const um = P.deliveriesByAuthor([{ repo: 'a/b', key: 'a/b#1', url: 'u', title: 't', author: 'alice', mergedAt: '2026-08-01' }]);
   assert.match(um, /1 repo ·/);
@@ -383,12 +404,106 @@ test('deliveriesByAuthor nomeia quem não tem autor', () => {
     /\(desconhecido\)/);
 });
 
+test('deliveriesByAuthor numera o ranking e mostra o repo como legenda da linha', () => {
+  const html = P.deliveriesByAuthor([
+    { repo: 'a/b', key: 'a/b#1', url: 'u', title: 't1', author: 'alice', mergedAt: '2026-08-03' },
+    { repo: 'a/b', key: 'a/b#2', url: 'u', title: 't2', author: 'alice', mergedAt: '2026-08-02' },
+    { repo: 'a/c', key: 'a/c#3', url: 'u', title: 't3', author: 'bob', mergedAt: '2026-08-01' },
+  ]);
+  assert.match(html, /deliv-rank">1\./, 'quem entrega mais é o rank 1');
+  assert.match(html, /deliv-caption">a\/b</);
+});
+
 test('delivCappedMsg fala o limite REAL vindo do server, nunca o 100 antigo', () => {
   // DELIVERIES_LIMIT = 1000 (lib/paths.js); a mensagem afirmava 100, fator de 10
   assert.match(P.delivCappedMsg(1000), /mais de 1000 entregas/);
   assert.match(P.delivCappedMsg(1000), /1000 mais recentes/);
   assert.doesNotMatch(P.delivCappedMsg(1000), /\b100\b/);
   assert.match(P.delivCappedMsg(undefined), /1000/, 'payload em cache sem limit cai no valor real atual');
+});
+
+/* ---------- Entregas v2: busca, estatísticas, atividade, paginação ---------- */
+
+test('delivFilterItems filtra por título, autor ou repo, sem diferenciar caixa', () => {
+  const items = [
+    { repo: 'acme/api', title: 'corrige timeout', author: 'alice', mergedAt: '2026-08-01' },
+    { repo: 'acme/web', title: 'feature nova', author: 'bob', mergedAt: '2026-08-02' },
+  ];
+  assert.equal(P.delivFilterItems(items, '').length, 2, 'busca vazia devolve tudo');
+  assert.deepEqual(P.delivFilterItems(items, 'TIMEOUT').map(x => x.author), ['alice']);
+  assert.deepEqual(P.delivFilterItems(items, 'bob').map(x => x.repo), ['acme/web']);
+  assert.deepEqual(P.delivFilterItems(items, 'acme/web').map(x => x.author), ['bob']);
+  assert.equal(P.delivFilterItems(items, 'nada-bate').length, 0);
+});
+
+test('delivDayBuckets soma por dia LOCAL, mais antigo primeiro, hoje por último', () => {
+  const agora = new Date(2026, 7, 10, 15, 0, 0).getTime(); // seg-feira 10/08/2026 15h
+  const items = [
+    { mergedAt: new Date(2026, 7, 10, 8, 0).toISOString() },
+    { mergedAt: new Date(2026, 7, 10, 9, 0).toISOString() },
+    { mergedAt: new Date(2026, 7, 8, 23, 59).toISOString() },
+  ];
+  const buckets = P.delivDayBuckets(items, 7, agora);
+  assert.equal(buckets.length, 7);
+  assert.equal(buckets[buckets.length - 1].dayKey, '2026-08-10');
+  assert.equal(buckets[buckets.length - 1].n, 2, 'os dois PRs de hoje caem no último bucket');
+  assert.equal(buckets[buckets.length - 3].dayKey, '2026-08-08');
+  assert.equal(buckets[buckets.length - 3].n, 1);
+});
+
+test('delivStats: com período > 0 traz "hoje" e "média por dia" com pico', () => {
+  const agora = new Date(2026, 7, 10, 15, 0, 0).getTime();
+  const items = [
+    { repo: 'acme/api', author: 'alice', mergedAt: new Date(2026, 7, 10, 8, 0).toISOString() },
+    { repo: 'acme/api', author: 'alice', mergedAt: new Date(2026, 7, 10, 9, 0).toISOString() },
+    { repo: 'acme/web', author: 'bob', mergedAt: new Date(2026, 7, 9, 9, 0).toISOString() },
+  ];
+  const stats = P.delivStats(items, 7, agora);
+  assert.equal(stats.length, 4);
+  assert.deepEqual(stats[0], { rotulo: 'PRs mergeados', valor: '3', sub: '+2 hoje' });
+  assert.equal(stats[1].valor, '2', 'duas pessoas entregando');
+  assert.equal(stats[2].valor, '2', 'dois repos ativos');
+  assert.equal(stats[3].rotulo, 'Média por dia');
+  assert.match(stats[3].sub, /pico de 2/);
+});
+
+test('delivStats: com período "Hoje" (0) traz "desde 00:00" e "último merge"', () => {
+  const agora = new Date(2026, 7, 10, 15, 0, 0).getTime();
+  const items = [{ repo: 'acme/api', author: 'alice', mergedAt: new Date(2026, 7, 10, 8, 0).toISOString() }];
+  const stats = P.delivStats(items, 0, agora);
+  assert.equal(stats[0].sub, 'desde 00:00');
+  assert.equal(stats[3].rotulo, 'Último merge');
+  assert.match(stats[3].sub, /@alice/);
+});
+
+test('delivStats devolve lista vazia quando não há entregas no período', () => {
+  assert.deepEqual(P.delivStats([], 7, Date.now()), []);
+});
+
+test('delivSliceRows corta no teto, tira legenda órfã e ignora o teto quando expandido', () => {
+  const rows = [
+    { ehPr: false, ehCap: true, cap: 'repo-a' },
+    { ehPr: true, id: 1 }, { ehPr: true, id: 2 },
+    { ehPr: false, ehCap: true, cap: 'repo-b' },
+    { ehPr: true, id: 3 },
+  ];
+  const fechado = P.delivSliceRows(rows, 2, false);
+  assert.equal(fechado.resto, 1);
+  assert.deepEqual(fechado.visiveis.map(r => r.id || r.cap), ['repo-a', 1, 2], 'a legenda órfã de repo-b sai da fatia');
+  const aberto = P.delivSliceRows(rows, 2, true);
+  assert.equal(aberto.resto, 0);
+  assert.equal(aberto.visiveis.length, 5);
+});
+
+test('delivEmptyState varia o texto com e sem busca, e as ações com o contexto', () => {
+  const semBusca = P.delivEmptyState({ query: '', canExpand: true, canClear: false });
+  assert.match(semBusca, /Nenhum PR mergeado neste período/);
+  assert.match(semBusca, /Ver 30 dias/);
+  assert.doesNotMatch(semBusca, /Limpar busca/);
+  const comBusca = P.delivEmptyState({ query: 'xyz', canExpand: false, canClear: true });
+  assert.match(comBusca, /Nada com “xyz”/);
+  assert.doesNotMatch(comBusca, /Ver 30 dias/);
+  assert.match(comBusca, /Limpar busca/);
 });
 
 /* ---------- helpers menores ---------- */

@@ -9,7 +9,7 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.38.0
+## v2.39.0
 
 Releitura completa da aba Consumo (desenho do Wanderson no Claude Design):
 cartões de KPI com sparkline e variação vs período anterior, linha do tempo em
@@ -21,6 +21,11 @@ Tokens/Input/Output/Cache.
 
 **Correções**
 - **O autor sumia de "Revisões recentes" quando o título do PR era comprido.** O `@login` vivia dentro do próprio título, e o título trunca com reticências; um título longo empurrava o autor pra fora e ele desaparecia sem aviso. Agora o autor tem linha própria, com a mesma foto de perfil (`avatar`) que a fila, "Precisa de você", Destaques e Time já usam, e o login em destaque, não mais apagado em cinza.
+
+## v2.38.0
+
+**Novidades**
+- **Entregas ganhou uma tela nova.** Um campo de busca filtra por título, autor ou repositório; o período virou uma seleção rápida (Hoje/7/15/30 dias) no lugar do menu solto; e a visão por "Repositórios" ou "Pessoas" passa a mostrar 4 cartões de estatística (PRs mergeados, pessoas entregando, repositórios ativos, e a última entrega ou a média diária, conforme o período escolhido) e um gráfico de merges por dia. Cada grupo mostra, numa barrinha, quanto representa do período, e limita a 4 PRs visíveis por vez, com "mostrar mais" pra ver o resto; na visão por pessoa, o ranking vem numerado, com o avatar de cada uma.
 
 ## v2.37.1
 

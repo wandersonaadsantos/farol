@@ -260,15 +260,6 @@ function delivCappedMsg(limit) {
   return `Alguma organização tem mais de ${n} entregas no período; mostrando as ${n} mais recentes.`;
 }
 
-function delivGroupCard(head, count, bodyHtml) {
-  return `<div class="card deliv-card">
-    <details>
-      <summary class="deliv-sum">${head}<span class="count">${count}</span></summary>
-      ${bodyHtml}
-    </details>
-  </div>`;
-}
-
 /* ---------- log de falhas agrupado (Diagnostico e aba Sistema) ----------
    O agrupamento em si e do lib/log-taxonomy.js (triage), servido em /api/log/triage:
    a UI nao pode dar require num modulo de lib/ (carrega por <script src>, sem build
@@ -681,55 +672,204 @@ function resolvedRow(r, ctx) {
   </div>`;
 }
 
-function delivPrRow(it) {
-  return `<div class="row">
-    <span class="ref"><a href="${esc(it.url)}" target="_blank" rel="noreferrer">${esc(it.key)}</a></span>
-    <span class="title" title="${esc(it.title)}">${esc(it.title)}</span>
-    <span class="who">@${esc(it.author)}</span>
-    <span class="when">${fmtRel(it.mergedAt)}</span>
+/* ---------- montagem da aba Entregas v2 (busca, estatísticas, atividade,
+   grupos com progresso/rank/paginação). Releitura desenhada no Claude Design,
+   projeto "Revisão página entregas" (`Entregas v2.dc.html`). ---------- */
+
+// busca livre por título, autor ou repo, sem diferenciar caixa (mesmo campo
+// único do mock; sem acento-folding, igual ao resto do app)
+function delivFilterItems(items, query) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return items || [];
+  return (items || []).filter(it => `${it.title || ''} ${it.author || ''} ${it.repo || ''}`.toLowerCase().includes(q));
+}
+
+// buckets diários LOCAIS (mesmo corte de localDayKey/usageDayKeysBack), mais
+// antigo primeiro, hoje por último. dias=0 (janela "Hoje") vira 1 bucket só.
+function delivDayBuckets(items, days, agora = Date.now()) {
+  const nDias = days === 0 ? 1 : days;
+  const counts = new Map();
+  for (const it of (items || [])) {
+    const k = localDayKey(it.mergedAt);
+    if (k) counts.set(k, (counts.get(k) || 0) + 1);
+  }
+  return usageDayKeysBack(nDias, agora).map(k => {
+    const [y, m, d] = k.split('-').map(Number);
+    return { dayKey: k, date: new Date(y, m - 1, d), n: counts.get(k) || 0 };
+  });
+}
+
+const DIAS_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+const ddmm = d => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+// os 4 cartões de estatística do topo. [] quando não há entregas no período
+// (a UI então nem desenha a grade). O 4º cartão muda com o período: "Hoje"
+// mostra o último merge, os demais mostram a média diária com o pico.
+function delivStats(items, days, agora = Date.now()) {
+  const total = (items || []).length;
+  if (!total) return [];
+  const hoje = localDayKey(agora);
+  const deHoje = items.filter(x => localDayKey(x.mergedAt) === hoje).length;
+  const porAutor = [...groupBy(items, x => x.author || '(desconhecido)').entries()].sort((a, b) => b[1].length - a[1].length);
+  const porRepo = [...groupBy(items, x => x.repo).entries()].sort((a, b) => b[1].length - a[1].length);
+  const nDias = days === 0 ? 1 : days;
+  const buckets = delivDayBuckets(items, days, agora);
+  const pico = buckets.reduce((a, b) => (b.n > a.n ? b : a), buckets[0] || { n: 0 });
+  const media = (total / nDias).toFixed(1).replace('.', ',');
+  const ultimoItem = items.reduce((a, b) => (new Date(b.mergedAt) > new Date(a.mergedAt) ? b : a), items[0]);
+
+  const quarto = days === 0
+    ? { rotulo: 'Último merge', valor: fmtRel(ultimoItem.mergedAt, agora), sub: 'por @' + (ultimoItem.author || '(desconhecido)') }
+    : { rotulo: 'Média por dia', valor: media, sub: pico.n ? `pico de ${pico.n} (${DIAS_SEMANA[pico.date.getDay()]} ${ddmm(pico.date)})` : '' };
+
+  return [
+    { rotulo: 'PRs mergeados', valor: String(total), sub: days === 0 ? 'desde 00:00' : (deHoje > 0 ? `+${deHoje} hoje` : 'nenhum hoje') },
+    { rotulo: 'Pessoas entregando', valor: String(porAutor.length), sub: '@' + porAutor[0][0] + ' na frente' },
+    { rotulo: 'Repositórios ativos', valor: String(porRepo.length), sub: repoShort(porRepo[0][0]) + ' na frente' },
+    quarto
+  ];
+}
+
+function delivStatsCards(stats) {
+  if (!(stats || []).length) return '';
+  return `<div class="deliv-stats">${stats.map(s =>
+    `<div class="deliv-stat"><span class="ds-label">${esc(s.rotulo)}</span><b>${esc(s.valor)}</b><span class="ds-sub">${esc(s.sub)}</span></div>`
+  ).join('')}</div>`;
+}
+
+// barras da "Atividade no período": rótulo raro pra não colidir em janelas
+// longas (todo dia em 7, a cada 3 em 15, a cada 5 em 30), sempre com "hoje"
+// na última barra.
+function delivActivityChart(items, days, agora = Date.now()) {
+  const buckets = delivDayBuckets(items, days, agora);
+  const max = Math.max(1, ...buckets.map(b => b.n));
+  return buckets.map((b, i) => {
+    const hojeBar = i === buckets.length - 1;
+    let rotulo = '';
+    if (days === 7) rotulo = hojeBar ? 'hoje' : DIAS_SEMANA[b.date.getDay()];
+    else if (days === 15) rotulo = hojeBar ? 'hoje' : (i % 3 === 0 ? ddmm(b.date) : '');
+    else rotulo = hojeBar ? 'hoje' : (i % 5 === 0 ? ddmm(b.date) : '');
+    const pct = b.n === 0 ? 0 : Math.max(6, Math.round(b.n / max * 100));
+    const dica = `${DIAS_SEMANA[b.date.getDay()]} ${ddmm(b.date)} · ${plural(b.n, 'PR', 'PRs')}`;
+    return `<div class="deliv-bar" title="${esc(dica)}">
+      <div class="deliv-bar-track"><div class="deliv-bar-fill${b.n === 0 ? ' empty' : ''}" style="height:${pct}%"></div></div>
+      <div class="deliv-bar-label">${esc(rotulo)}</div>
+    </div>`;
+  }).join('');
+}
+
+// cartão inteiro do gráfico, ou '' quando não faz sentido mostrar (janela
+// "Hoje", sem granularidade diária, ou sem nenhuma entrega no período)
+function delivActivityCard(items, days, agora = Date.now()) {
+  if (!(days > 0) || !(items || []).length) return '';
+  return `<div class="card deliv-chart-card">
+    <div class="deliv-chart-head"><h3>Atividade no período</h3><span class="deliv-chart-note">merges por dia</span></div>
+    <div class="deliv-bars">${delivActivityChart(items, days, agora)}</div>
   </div>`;
 }
 
-// linha de PR dentro de um sub-grupo por repo (o repo já é o cabeçalho, então
-// mostra só o número e omite o @autor, que é o dono do card na visão por pessoa)
-function delivPrRowInRepo(it) {
-  const num = String(it.key).split('#')[1] || it.number;
+// fatia as linhas de um grupo respeitando o teto de PRs visíveis. Legenda de
+// repo (linha ehCap, só na visão por pessoa) não conta no teto, mas só entra
+// se o PR dela entrou: uma legenda que sobra sozinha no fim é descartada.
+function delivSliceRows(rows, teto, expanded) {
+  if (expanded) return { visiveis: rows, resto: 0 };
+  const out = []; let prs = 0, resto = 0;
+  for (const r of rows) {
+    if (r.ehPr) { if (prs < teto) { out.push(r); prs++; } else resto++; }
+    else if (prs < teto) out.push(r);
+  }
+  if (out.length && !out[out.length - 1].ehPr) out.pop();
+  return { visiveis: out, resto };
+}
+
+function delivPrRowV2(it, comAutor) {
+  const num = String(it.key || '').split('#')[1] || it.number;
   return `<div class="row">
     <span class="ref"><a href="${esc(it.url)}" target="_blank" rel="noreferrer">#${esc(num)}</a></span>
     <span class="title" title="${esc(it.title)}">${esc(it.title)}</span>
+    ${comAutor ? `<span class="who">@${esc(it.author || '(desconhecido)')}</span>` : ''}
     <span class="when">${fmtRel(it.mergedAt)}</span>
   </div>`;
 }
 
-/* ---------- montagem da aba Entregas (agrupa, ordena e formata) ---------- */
-
-// corpo agrupado por projeto (repo): usado na visão por responsável
-function delivRepoSubgroups(list) {
-  const groups = [...groupBy(list, it => it.repo).entries()].map(([repo, prs]) => ({ repo, prs, last: lastMerge(prs) }));
-  groups.sort((a, b) => b.prs.length - a.prs.length || String(b.last).localeCompare(String(a.last)));
-  return groups.map(g => `
-    <details class="deliv-subgroup" open>
-      <summary class="deliv-subhead"><span class="deliv-subname">${esc(g.repo)}</span><span class="count sm">${g.prs.length}</span></summary>
-      <div class="rows">${g.prs.map(delivPrRowInRepo).join('')}</div>
-    </details>`).join('');
+// corpo de um grupo: linhas fatiadas + botão "mostrar mais/menos" quando cabe
+function delivGroupBody(rows, teto, expandedKeys, groupKey) {
+  const expanded = !!(expandedKeys && expandedKeys.has(groupKey));
+  const { visiveis, resto } = delivSliceRows(rows, teto, expanded);
+  const rowsHtml = visiveis.map(r => r.ehCap
+    ? `<div class="deliv-caption">${esc(r.cap)}</div>`
+    : delivPrRowV2(r.item, r.comAutor)
+  ).join('');
+  const totalPr = rows.filter(r => r.ehPr).length;
+  const mostraBotao = resto > 0 || (expanded && totalPr > teto);
+  const botao = mostraBotao
+    ? `<button type="button" class="deliv-mais" data-deliv-group="${esc(groupKey)}">${resto > 0 ? `mostrar mais ${resto}` : 'mostrar menos'}</button>`
+    : '';
+  return `<div class="rows">${rowsHtml}</div>${botao}`;
 }
 
-function deliveriesByRepo(items) {
+function delivGroupCardV2(head, count, pct, bodyHtml) {
+  return `<div class="card deliv-card">
+    <details open>
+      <summary class="deliv-sum">${head}<span class="deliv-progress" title="${pct}% das entregas do período"><span class="deliv-progress-fill" style="width:${Math.max(pct, 3)}%"></span></span><span class="count">${count}</span></summary>
+      ${bodyHtml}
+    </details>
+  </div>`;
+}
+
+function deliveriesByRepo(items, opts = {}) {
+  const teto = opts.teto || 4;
+  const expandedKeys = opts.expandedKeys || new Set();
+  const totalPeriodo = items.length;
   const groups = [...groupBy(items, it => it.repo).entries()].map(([repo, list]) => {
     const autores = new Set(list.map(x => x.author).filter(Boolean)).size;
-    return { list, last: lastMerge(list), head: `<span class="deliv-name">${esc(repo)}</span><span class="deliv-meta">${autores} ${autores === 1 ? 'autor' : 'autores'} · último ${fmtRel(lastMerge(list))}</span>` };
+    const ordenado = [...list].sort((a, b) => String(b.mergedAt).localeCompare(String(a.mergedAt)));
+    const rows = ordenado.map(item => ({ ehPr: true, ehCap: false, item, comAutor: true }));
+    const head = `<span class="deliv-name">${esc(repo)}</span><span class="deliv-meta">${plural(autores, 'autor', 'autores')} · último ${fmtRel(lastMerge(list))}</span>`;
+    return { repo, list, last: lastMerge(list), head, rows, groupKey: 'repo:' + repo };
   });
   groups.sort((a, b) => b.list.length - a.list.length || String(b.last).localeCompare(String(a.last)));
-  return groups.map(g => delivGroupCard(g.head, g.list.length, `<div class="rows">${g.list.map(delivPrRow).join('')}</div>`)).join('');
+  return groups.map(g => delivGroupCardV2(
+    g.head, g.list.length, Math.round(g.list.length / totalPeriodo * 100),
+    delivGroupBody(g.rows, teto, expandedKeys, g.groupKey)
+  )).join('');
 }
 
-function deliveriesByAuthor(items) {
+function deliveriesByAuthor(items, opts = {}) {
+  const teto = opts.teto || 4;
+  const expandedKeys = opts.expandedKeys || new Set();
+  const totalPeriodo = items.length;
   const groups = [...groupBy(items, it => it.author || '(desconhecido)').entries()].map(([login, list]) => {
     const repos = new Set(list.map(x => x.repo)).size;
-    return { list, last: lastMerge(list), head: `${avatar(login)}<span class="deliv-name">@${esc(login)}</span><span class="deliv-meta">${repos} ${repos === 1 ? 'repo' : 'repos'} · último ${fmtRel(lastMerge(list))}</span>` };
+    const subRepos = [...groupBy(list, x => x.repo).entries()]
+      .map(([repo, prs]) => ({ repo, prs, last: lastMerge(prs) }))
+      .sort((a, b) => b.prs.length - a.prs.length || String(b.last).localeCompare(String(a.last)));
+    const rows = [];
+    for (const sg of subRepos) {
+      rows.push({ ehPr: false, ehCap: true, cap: sg.repo });
+      const ordenado = [...sg.prs].sort((a, b) => String(b.mergedAt).localeCompare(String(a.mergedAt)));
+      for (const item of ordenado) rows.push({ ehPr: true, ehCap: false, item, comAutor: false });
+    }
+    const head = `${avatar(login)}<span class="deliv-name">@${esc(login)}</span><span class="deliv-meta">${plural(repos, 'repo', 'repos')} · último ${fmtRel(lastMerge(list))}</span>`;
+    return { login, list, last: lastMerge(list), head, rows, groupKey: 'author:' + login };
   });
   groups.sort((a, b) => b.list.length - a.list.length || String(b.last).localeCompare(String(a.last)));
-  return groups.map(g => delivGroupCard(g.head, g.list.length, delivRepoSubgroups(g.list))).join('');
+  return groups.map((g, i) => delivGroupCardV2(
+    `<span class="deliv-rank">${i + 1}.</span>${g.head}`, g.list.length, Math.round(g.list.length / totalPeriodo * 100),
+    delivGroupBody(g.rows, teto, expandedKeys, g.groupKey)
+  )).join('');
+}
+
+// estado vazio: some pra ampliar o período (só quando dá pra ampliar) e some
+// pra limpar a busca (só quando há busca ativa)
+function delivEmptyState(opts = {}) {
+  const query = opts.query || '';
+  const titulo = query ? `Nada com “${query}” neste período.` : 'Nenhum PR mergeado neste período.';
+  const sub = query ? 'Tente outro termo ou amplie o período.' : 'Amplie o período ou confira as organizações monitoradas em Sistema.';
+  const botoes = [];
+  if (opts.canExpand) botoes.push(`<button type="button" class="btn sm" data-deliv-action="ver30">Ver 30 dias</button>`);
+  if (opts.canClear) botoes.push(`<button type="button" class="btn sm ghost" data-deliv-action="limpar-busca">Limpar busca</button>`);
+  return `<div class="empty deliv-empty"><span class="big">📦</span>${esc(titulo)}<br><small>${esc(sub)}</small>${botoes.length ? `<div class="deliv-empty-actions">${botoes.join('')}</div>` : ''}</div>`;
 }
 
 /* Rodape CommonJS: so o node entra aqui. No navegador estas funcoes ja estao no
@@ -737,9 +877,11 @@ function deliveriesByAuthor(items) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     esc, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
-    sameSet, diffVs, lastMerge, groupBy, usageMetricVal, sparklinePath, usageDelta, usageStackLayers, usageHoverIndex, usageMatrixRows, USAGE_KIND_LABEL, usageSessionRow, accountSaveArray, delivGroupCard, delivCappedMsg, fmtRel,
-    usageDayKeysBack, localDayKey, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
-    deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
+    sameSet, diffVs, lastMerge, groupBy, usageMetricVal, sparklinePath, usageDelta, usageStackLayers,
+    usageHoverIndex, usageMatrixRows, USAGE_KIND_LABEL, usageSessionRow, accountSaveArray, delivCappedMsg, fmtRel,
+    usageDayKeysBack, localDayKey, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan,
+    delivFilterItems, delivDayBuckets, delivStats, delivStatsCards, delivActivityChart, delivActivityCard,
+    delivSliceRows, delivEmptyState, deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
     fmtStamp, fmtWhenDay, resolvedRow,
     fmtLogStamp, logGroupLine, logReadingLine, logSummaryLines, logTailLines, logSummaryShort,
     opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible, expiredSessionMarks, listViewState,
