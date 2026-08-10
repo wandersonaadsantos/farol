@@ -156,6 +156,42 @@ function usageDelta(cur, prev) {
   return (pc >= 0 ? '↑ ' : '↓ ') + Math.abs(pc) + '%';
 }
 
+// camadas de area empilhada + grade, pra linha do tempo do Consumo. `series` e um
+// array por dia, cada item um array de valores (1 por camada, MESMA ordem de
+// `names`), ja na metrica escolhida (usageMetricVal ja aplicado por quem chama).
+function usageStackLayers(series, names, colors, W, H) {
+  const padL = 46, padR = 14, padT = 12, padB = 22;
+  const cw = W - padL - padR, ch = H - padT - padB, n = series.length;
+  const dayTotals = series.map(vals => vals.reduce((a, b) => a + b, 0));
+  const maxV = Math.max(1e-9, ...dayTotals) * 1.06;
+  const yOf = v => padT + ch * (1 - v / maxV);
+  const xs = (n > 1 ? series.map((_, i) => padL + i * (cw / (n - 1))) : [padL + cw / 2]);
+  const r1 = v => Math.round(v * 10) / 10;
+  const cum = series.map(() => 0);
+  const layers = names.map((name, li) => {
+    const base = cum.slice();
+    for (let i = 0; i < n; i++) cum[i] += (series[i][li] || 0);
+    let d = 'M' + r1(xs[0]) + ',' + r1(yOf(cum[0]));
+    for (let i = 1; i < n; i++) d += 'L' + r1(xs[i]) + ',' + r1(yOf(cum[i]));
+    for (let i = n - 1; i >= 0; i--) d += 'L' + r1(xs[i]) + ',' + r1(yOf(base[i]));
+    return { name, color: colors[li % colors.length], d: d + 'Z' };
+  });
+  const grid = [maxV, maxV / 2, 0].map(v => ({ y: r1(yOf(v)), value: v }));
+  let peakIndex = 0;
+  for (let i = 1; i < n; i++) if (dayTotals[i] > dayTotals[peakIndex]) peakIndex = i;
+  return { layers, xs: xs.map(r1), grid, padL, padT, padB, cw, ch, W, H, peakIndex, dayTotals, maxV };
+}
+
+// indice do dia mais proximo de um X de mouse (coordenadas do MESMO viewBox usado
+// em usageStackLayers), limitado as bordas da serie.
+function usageHoverIndex(mouseX, geo) {
+  const n = geo.xs.length;
+  if (n <= 1) return 0;
+  const step = geo.cw / (n - 1);
+  const idx = Math.round((mouseX - geo.padL) / step);
+  return Math.max(0, Math.min(n - 1, idx));
+}
+
 function accountSaveArray(list) {
   return (list || []).map(a => {
     const o = { user: a.user, owners: a.owners || [], label: a.label, color: a.color, kind: a.kind || '', muted: !!a.muted };
@@ -647,7 +683,7 @@ function deliveriesByAuthor(items) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     esc, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
-    sameSet, diffVs, lastMerge, groupBy, usageMetricVal, sparklinePath, usageDelta, accountSaveArray, delivGroupCard, delivCappedMsg, fmtRel,
+    sameSet, diffVs, lastMerge, groupBy, usageMetricVal, sparklinePath, usageDelta, usageStackLayers, usageHoverIndex, accountSaveArray, delivGroupCard, delivCappedMsg, fmtRel,
     usageDayKeysBack, localDayKey, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
     deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
     fmtStamp, fmtWhenDay, resolvedRow,

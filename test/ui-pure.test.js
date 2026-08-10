@@ -891,3 +891,29 @@ test('myPRsEmptyMsg: com TODOS ocultos a tela diz por que esta vazia e como desf
 test('myPRsEmptyMsg: chamada sem opcoes nao lanca e cai no vazio de sempre', () => {
   assert.match(P.myPRsEmptyMsg('empty'), /organizações monitoradas/);
 });
+
+/* ---------- consumo: linha do tempo empilhada (area chart) ---------- */
+
+test('usageStackLayers: empilha 2 camadas, area soma os dois valores no topo', () => {
+  const series = [[10, 5], [20, 5], [0, 0]]; // 3 dias, 2 camadas cada
+  const geo = P.usageStackLayers(series, ['a', 'b'], ['#111', '#222'], 200, 100);
+  assert.equal(geo.layers.length, 2);
+  assert.equal(geo.layers[0].color, '#111');
+  assert.equal(geo.dayTotals[0], 15);
+  assert.equal(geo.dayTotals[1], 25);
+  assert.equal(geo.peakIndex, 1, 'dia com maior total (25) e o indice 1');
+  assert.equal(geo.xs.length, 3);
+  assert.ok(!geo.layers[0].d.includes('NaN'));
+});
+
+test('usageStackLayers: dia todo zerado nao quebra (maxV nunca fica 0)', () => {
+  const geo = P.usageStackLayers([[0, 0], [0, 0]], ['a', 'b'], ['#111', '#222'], 200, 100);
+  assert.ok(!geo.layers[0].d.includes('NaN'));
+  assert.ok(!geo.layers[0].d.includes('Infinity'));
+});
+
+test('usageHoverIndex: mapeia posicao do mouse pro dia mais proximo, limitado as bordas', () => {
+  const geo = P.usageStackLayers([[1], [2], [3], [4]], ['a'], ['#111'], 200, 100);
+  assert.equal(P.usageHoverIndex(geo.padL - 50, geo), 0, 'antes do inicio -> primeiro dia');
+  assert.equal(P.usageHoverIndex(geo.padL + geo.cw + 50, geo), 3, 'depois do fim -> ultimo dia');
+});
