@@ -2438,6 +2438,28 @@ function drawUsageTooltip(day, vals, names, labels, colors, metric, idx, geo, W)
   return `<div class="usage-tooltip" style="left:${leftPct}%"><div class="ut-head">${esc(day.slice(8, 10))}/${esc(day.slice(5, 7))} · ${esc(fmtUsageMetric(total, metric))}</div>${rows}</div>`;
 }
 
+// matriz Tipo x Modelo do periodo escolhido (mesma janela da linha do tempo),
+// com heatmap leve (intensidade da celula sobre a maior celula da matriz).
+function drawUsageMatrix(el, captionEl, u, metric, win) {
+  const days = usageDayKeysBack(win);
+  const kindNames = (u.kindNames || []).filter(k => (u.byKind || []).some(x => x.kind === k) || true);
+  const modelNames = u.modelNames || [];
+  if (!modelNames.length) { el.innerHTML = '<div class="usage-empty">Sem dados ainda.</div>'; captionEl.textContent = ''; return; }
+  const m = usageMatrixRows(u.matrixSeries || [], kindNames, modelNames, days, metric);
+  if (!m.grand) { el.innerHTML = '<div class="usage-empty">Sem consumo nesta janela.</div>'; captionEl.textContent = ''; return; }
+  captionEl.textContent = metric === 'custo' ? 'custo estimado no período' : 'tokens no período';
+  const kindLabel = k => USAGE_KIND_LABEL[k] || k;
+  const cols = `96px repeat(${modelNames.length}, minmax(0,1fr)) 64px`;
+  const head = `<div class="usage-matrix-row head" style="grid-template-columns:${cols}"><span></span>${modelNames.map(mm => `<span class="usage-matrix-hcell">${esc(mm)}</span>`).join('')}<span class="usage-matrix-hcell">Total</span></div>`;
+  const rows = m.rows.filter(r => r.total > 0 || m.grand === 0).map(r => `<div class="usage-matrix-row" style="grid-template-columns:${cols}">
+      <span class="usage-matrix-label"><span class="dot" style="background:${USAGE_KIND_COLOR[r.kind] || 'var(--faint)'};width:8px;height:8px;border-radius:2.5px;display:inline-block"></span>${esc(kindLabel(r.kind))}</span>
+      ${r.cells.map(c => `<span class="usage-matrix-cell" style="background:rgba(255,180,84,${(0.04 + 0.24 * c.intensity).toFixed(2)})" title="${esc(kindLabel(r.kind))} × ${esc(c.model)}: ${esc(fmtUsageMetric(c.value, metric))}">${esc(fmtUsageMetric(c.value, metric))}</span>`).join('')}
+      <span class="usage-matrix-total">${esc(fmtUsageMetric(r.total, metric))}</span>
+    </div>`).join('');
+  const foot = `<div class="usage-matrix-row foot" style="grid-template-columns:${cols}"><span>Total</span>${m.colTotals.map(c => `<span class="usage-matrix-total">${esc(fmtUsageMetric(c, metric))}</span>`).join('')}<span class="usage-matrix-grand">${esc(fmtUsageMetric(m.grand, metric))}</span></div>`;
+  el.innerHTML = `<div class="usage-matrix">${head}${rows}${foot}</div>`;
+}
+
 // quebra: barras horizontais por tipo/conta/modelo (HTML), métrica escolhida
 function drawUsageBreakdown(el, items, metric) {
   const vals = (items || []).map(x => ({ label: x.label || '', v: usageMetricVal(x, metric), s: x.sessions }))
@@ -2475,6 +2497,7 @@ function renderUsage() {
   const costNote = u.totals.costUsd > 0 ? ` · ~US$ ${u.totals.costUsd.toFixed(2)}` : '';
   statsEl.innerHTML = stat('Total', u.totals, costNote) + stat('Hoje', u.today) + stat('7 dias', u.last7) + stat('30 dias', u.last30);
   drawUsageTimeline($('#usageTimeline'), $('#usageLegend'), u, usageState.metric, usageState.window, usageState.dim);
+  drawUsageMatrix($('#usageMatrix'), $('#usageMatrixCaption'), u, usageState.metric, usageState.window);
   const data = usageState.dim === 'account' ? u.byAccount
     : usageState.dim === 'model' ? u.byModel
     : usageState.dim === 'profile' ? (u.byProfile || [])
