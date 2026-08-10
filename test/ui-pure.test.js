@@ -214,6 +214,30 @@ test('usageMetricVal: métrica desconhecida e bucket vazio caem no total', () =>
   assert.equal(P.usageMetricVal(undefined, 'input'), 0);
 });
 
+test('usageMetricVal: caso custo le costUsd', () => {
+  assert.equal(P.usageMetricVal({ costUsd: 1.5 }, 'custo'), 1.5);
+  assert.equal(P.usageMetricVal(null, 'custo'), 0);
+});
+
+test('sparklinePath: gera line e area proporcionais ao maior valor', () => {
+  const { line, area } = P.sparklinePath([0, 5, 10], 100, 26);
+  assert.match(line, /^M0(\.0)?,26/, 'primeiro ponto no eixo (valor 0 -> y=26, base)');
+  assert.match(line, /L100(\.0)?,/, 'ultimo ponto no fim da largura');
+  assert.match(area, /Z$/, 'area fecha o poligono');
+});
+
+test('sparklinePath: serie de 1 ponto nao gera NaN (divisao por zero evitada)', () => {
+  const { line } = P.sparklinePath([7], 100, 26);
+  assert.ok(!line.includes('NaN'));
+});
+
+test('usageDelta: cresceu, caiu, sem base', () => {
+  assert.equal(P.usageDelta(120, 100), '↑ 20%');
+  assert.equal(P.usageDelta(80, 100), '↓ 20%');
+  assert.equal(P.usageDelta(10, 0), '', 'sem base de comparacao (0 ou ausente) nao mostra chip');
+  assert.equal(P.usageDelta(10, null), '');
+});
+
 test('usageDayKeysBack devolve n dias LOCAIS, do mais antigo pro mais novo', () => {
   // 23:30Z de 01/08 é 20:30 em São Paulo: hoje local ainda é 01/08
   const agora = Date.parse('2026-08-01T23:30:00Z');

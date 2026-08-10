@@ -130,10 +130,30 @@ function groupBy(items, keyFn) {
 
 function usageMetricVal(b, m) {
   b = b || {};
+  if (m === 'custo') return b.costUsd || 0;
   if (m === 'input') return b.inputTokens || 0;
   if (m === 'output') return b.outputTokens || 0;
   if (m === 'cache') return (b.cacheReadTokens || 0) + (b.cacheCreationTokens || 0);
   return (b.inputTokens || 0) + (b.outputTokens || 0); // total
+}
+
+// path SVG de uma sparkline (linha + area fechada), normalizado pro maior valor
+// da serie. w/h em unidades do viewBox (a UI usa 100x26, igual ao mock).
+function sparklinePath(vals, w = 100, h = 26) {
+  const n = (vals || []).length;
+  if (!n) return { line: '', area: '' };
+  const mx = Math.max(1e-9, ...vals);
+  const dx = n > 1 ? w / (n - 1) : 0;
+  const pts = vals.map((v, i) => `${(i * dx).toFixed(1)},${(h - (h - 2) * (v / mx)).toFixed(1)}`);
+  return { line: 'M' + pts.join('L'), area: `M0,${h}L${pts.join('L')}L${w},${h}Z` };
+}
+
+// chip de variacao percentual (cur vs prev). Sem base valida (prev ausente ou
+// zero) nao da pra comparar, entao nao mostra nada, em vez de "Infinity%".
+function usageDelta(cur, prev) {
+  if (!prev || prev <= 0) return '';
+  const pc = Math.round(((cur - prev) / prev) * 100);
+  return (pc >= 0 ? '↑ ' : '↓ ') + Math.abs(pc) + '%';
 }
 
 function accountSaveArray(list) {
@@ -627,7 +647,7 @@ function deliveriesByAuthor(items) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     esc, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
-    sameSet, diffVs, lastMerge, groupBy, usageMetricVal, accountSaveArray, delivGroupCard, delivCappedMsg, fmtRel,
+    sameSet, diffVs, lastMerge, groupBy, usageMetricVal, sparklinePath, usageDelta, accountSaveArray, delivGroupCard, delivCappedMsg, fmtRel,
     usageDayKeysBack, localDayKey, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
     deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
     fmtStamp, fmtWhenDay, resolvedRow,
