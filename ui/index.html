@@ -150,22 +150,25 @@
   <section id="tab-entregas" class="tabpane" role="tabpanel" aria-labelledby="tabbtn-entregas" tabindex="0">
     <div class="section-head">
       <h2>Entregas</h2>
-      <div class="deliv-controls">
-        <select id="delivOrg" title="Organização (a principal fica como padrão)" aria-label="Organização"></select>
-        <div class="seg" id="delivBy" role="group" aria-label="Agrupar entregas">
-          <button class="seg-btn active" data-by="repo" aria-pressed="true">Por repositório</button>
-          <button class="seg-btn" data-by="author" aria-pressed="false">Por responsável</button>
-        </div>
-        <select id="delivDays" aria-label="Período">
-          <option value="0">Hoje</option>
-          <option value="7">7 dias</option>
-          <option value="15">15 dias</option>
-          <option value="30">30 dias</option>
-        </select>
-      </div>
+      <select id="delivOrg" title="Organização (a principal fica como padrão)" aria-label="Organização"></select>
     </div>
     <p class="section-desc">PRs mergeados nas organizações monitoradas, por qualquer pessoa. É a visão de atualização dos projetos e de quem está entregando. Só leitura, nada é postado.</p>
+    <div class="deliv-controls">
+      <div class="seg" id="delivDays" role="group" aria-label="Período">
+        <button class="seg-btn" data-days="0" aria-pressed="false">Hoje</button>
+        <button class="seg-btn active" data-days="7" aria-pressed="true">7 dias</button>
+        <button class="seg-btn" data-days="15" aria-pressed="false">15 dias</button>
+        <button class="seg-btn" data-days="30" aria-pressed="false">30 dias</button>
+      </div>
+      <div class="seg" id="delivBy" role="group" aria-label="Agrupar entregas">
+        <button class="seg-btn active" data-by="repo" aria-pressed="true">Repositórios</button>
+        <button class="seg-btn" data-by="author" aria-pressed="false">Pessoas</button>
+      </div>
+      <input type="text" id="delivQuery" class="deliv-search" aria-label="Filtrar entregas" placeholder="Filtrar por título, autor ou repo…" spellcheck="false" autocomplete="off">
+    </div>
     <div id="delivNote" class="section-desc deliv-note" hidden></div>
+    <div id="delivStats"></div>
+    <div id="delivChart"></div>
     <div id="deliveries" class="cards"></div>
   </section>
 

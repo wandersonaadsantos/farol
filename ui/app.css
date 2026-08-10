@@ -914,30 +914,54 @@ body.electron .chat-head { padding-right: 150px; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; border: 2px solid var(--bg); }
 ::-webkit-scrollbar-track { background: transparent; }
 
-/* ---------- entregas ---------- */
-.deliv-controls { display: flex; align-items: center; gap: 10px; }
-.deliv-controls select { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 12.5px; }
-.deliv-controls #delivOrg { font-weight: 650; }
+/* ---------- entregas v2 ---------- */
+.section-head #delivOrg { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 12.5px; font-weight: 650; }
+.deliv-controls { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; flex-wrap: wrap; }
+.deliv-search { flex: 1; min-width: 180px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 11px; font: inherit; font-size: 12.5px; }
+.deliv-search:focus { outline: none; border-color: var(--accent); }
 .deliv-note { color: var(--danger); }
+
+/* cartões de estatística do topo */
+.deliv-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 0 0 10px; }
+.deliv-stat { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ds-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); }
+.deliv-stat b { font-size: 18px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1.2; }
+.ds-sub { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* gráfico "atividade no período" */
+.deliv-chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin: 0 0 10px; }
+.deliv-chart-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.deliv-chart-head h3 { margin: 0; font-size: 13.5px; font-weight: 650; }
+.deliv-chart-note { color: var(--faint); font-size: 11.5px; }
+.deliv-bars { display: flex; align-items: flex-end; gap: 3px; margin-top: 12px; }
+.deliv-bar { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.deliv-bar-track { height: 64px; display: flex; align-items: flex-end; }
+.deliv-bar-fill { width: 100%; background: var(--accent); border-radius: 3px 3px 0 0; min-height: 2px; }
+.deliv-bar-fill.empty { background: var(--border); }
+.deliv-bar-label { text-align: center; font-size: 10px; color: var(--faint); white-space: nowrap; overflow: hidden; }
+
+/* cartão de grupo (por repo ou por pessoa) */
 .deliv-card { padding: 0; overflow: hidden; }
 .deliv-card details > summary { list-style: none; cursor: pointer; }
 .deliv-card details > summary::-webkit-details-marker { display: none; }
-.deliv-sum { display: flex; align-items: center; gap: 10px; padding: 12px 16px; }
+.deliv-sum { display: flex; align-items: center; gap: 10px; padding: 13px 16px; }
+.deliv-sum:hover { background: var(--surface-2); }
 .deliv-sum::after { content: '▸'; color: var(--muted); margin-left: auto; transition: transform .15s ease; }
 .deliv-card details[open] > summary .deliv-sum::after { transform: rotate(90deg); }
 .deliv-sum .avatar { flex: none; }
+.deliv-rank { color: var(--faint); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .deliv-name { font-weight: 650; }
 .deliv-sum .count { margin-left: 2px; }
 .deliv-meta { color: var(--muted); font-size: 12px; }
-.deliv-card .rows { border-top: 1px solid var(--border); padding: 6px 16px 12px; }
-.deliv-subgroup { border-top: 1px solid var(--border); }
-.deliv-subhead { display: flex; align-items: center; gap: 8px; padding: 8px 16px; }
-.deliv-subhead::after { content: '▸'; color: var(--muted); margin-left: auto; font-size: 11px; transition: transform .15s ease; }
-.deliv-subgroup[open] > .deliv-subhead::after { transform: rotate(90deg); }
-.deliv-subhead:hover { background: var(--surface-2); }
-.deliv-subname { font-size: 12.5px; font-weight: 650; color: var(--muted); }
-.count.sm { font-size: 10.5px; padding: 1px 7px; }
-.deliv-subgroup .rows { border-top: 0; padding: 2px 16px 8px; }
+.deliv-progress { width: 90px; height: 6px; background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 99px; overflow: hidden; flex: none; }
+.deliv-progress-fill { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+.deliv-card .rows { border-top: 1px solid var(--border-soft); padding: 6px 16px 12px; }
+.deliv-caption { padding: 8px 0 2px; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
+.deliv-caption:not(:first-child) { border-top: 1px solid var(--border-soft); margin-top: 4px; }
+.deliv-mais { display: block; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--border-soft); color: var(--info); font: inherit; font-size: 12.5px; font-weight: 600; padding: 8px 16px; cursor: pointer; }
+.deliv-mais:hover { text-decoration: underline; }
+
+.deliv-empty-actions { display: flex; gap: 7px; justify-content: center; margin-top: 13px; flex-wrap: wrap; }
 
 /* --- Consumo de tokens (tela própria) --- */
 .usage-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 16px; }
@@ -1009,13 +1033,12 @@ body.electron .chat-head { padding-right: 150px; }
   .section-head { margin: 20px 0 10px; }
   .usage-controls { width: 100%; }
 }
-  /* ENTREGAS: os controles (org + segmentado + período) ficavam empurrados pro canto
-     direito do cabeçalho e espremidos. Em tela estreita eles viram uma faixa própria. */
+  /* ENTREGAS: os controles (segmentados + busca) ficavam espremidos numa linha só.
+     Em tela estreita eles quebram, e a grade de estatística vira 2 colunas. */
   .deliv-controls { width: 100%; }
-  .deliv-controls select { flex: 1; min-width: 0; }
+  .deliv-stats { grid-template-columns: 1fr 1fr; }
   .deliv-sum { padding: 11px 13px; }
-  .deliv-card .rows, .deliv-subgroup .rows { padding-left: 10px; padding-right: 10px; }
-  .deliv-subhead { padding: 8px 13px; }
+  .deliv-card .rows { padding-left: 10px; padding-right: 10px; }
 
   /* DESTAQUES e TIME: cartões com avatar + texto viram coluna, senão o texto fica
      com uma faixa de ~200px e quebra em toda palavra. */

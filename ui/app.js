@@ -1387,12 +1387,16 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-/* ---------- entregas (PRs mergeados por repo / por responsável) ---------- */
+/* ---------- entregas v2 (PRs mergeados: busca, estatísticas, atividade,
+   grupos por repo/pessoa com paginação). Releitura do Claude Design, projeto
+   "Revisão página entregas" (Entregas v2.dc.html). ---------- */
 let deliveriesData = null;
 let deliveriesDays = parseInt(localStorage.getItem('farol-deliv-days'), 10);
 if (![0, 7, 15, 30].includes(deliveriesDays)) deliveriesDays = 7;
 let deliveriesBy = localStorage.getItem('farol-deliv-by') === 'author' ? 'author' : 'repo';
 let deliveriesOrg = localStorage.getItem('farol-deliv-org') || ''; // '' = ainda não resolvido → cai na principal
+let deliveriesQuery = ''; // busca livre, só em memória (não persiste entre sessões)
+let deliveriesExpanded = new Set(); // chaves 'repo:x'/'author:x' com paginação expandida
 // token de requisição: trocar org/período dispara cargas concorrentes e a resposta
 // VELHA não pode vencer a nova (mesma guarda que o openChat faz por chave)
 let deliveriesReqSeq = 0;
@@ -1419,10 +1423,13 @@ function renderDelivOrgSelect() {
     `<option value="${esc(o.org)}"${o.org === deliveriesOrg ? ' selected' : ''}>${esc(o.org)}${multi && o.user ? ` · @${esc(o.user)}` : ''}</option>`
   ).join('') || '<option value="">(nenhuma org monitorada)</option>';
 }
+function marcarDelivDays() {
+  marcarSeg(document.querySelectorAll('#delivDays .seg-btn'), b => parseInt(b.dataset.days, 10) === deliveriesDays);
+}
 
 async function loadDeliveries() {
   renderDelivOrgSelect();
-  const sel = $('#delivDays'); if (sel) sel.value = String(deliveriesDays);
+  marcarDelivDays();
   marcarSeg(document.querySelectorAll('#delivBy .seg-btn'), b => b.dataset.by === deliveriesBy);
   const box = $('#deliveries');
   box.innerHTML = '<div class="empty">Carregando entregas…</div>';
@@ -1434,6 +1441,7 @@ async function loadDeliveries() {
   // 'load-deliveries' já é da carga nova, que fará o próprio closeOp)
   if (rid !== deliveriesReqSeq) return;
   deliveriesData = data || { items: [] };
+  deliveriesExpanded = new Set(); // dado novo: paginação de grupo velha não faz sentido
   closeOp(opId, 'done');
   renderDeliveries();
 }
@@ -1446,23 +1454,30 @@ function renderDeliveries() {
   if (data.capped) msgs.push(delivCappedMsg(data.limit));
   note.hidden = !msgs.length;
   note.textContent = msgs.join(' ');
+
+  const items = delivFilterItems(data.items || [], deliveriesQuery);
+  $('#delivStats').innerHTML = delivStatsCards(delivStats(items, deliveriesDays));
+  $('#delivChart').innerHTML = delivActivityCard(items, deliveriesDays);
+
   const box = $('#deliveries');
-  const items = data.items || [];
   if (!items.length) {
-    box.innerHTML = `<div class="empty"><span class="big">📦</span>Nenhum PR mergeado neste período.<br><small>Ajuste o período acima ou confira as organizações monitoradas em Sistema.</small></div>`;
+    box.innerHTML = delivEmptyState({ query: deliveriesQuery, canExpand: deliveriesDays < 30, canClear: !!deliveriesQuery });
     return;
   }
-  box.innerHTML = deliveriesBy === 'author' ? deliveriesByAuthor(items) : deliveriesByRepo(items);
+  const opts = { teto: 4, expandedKeys: deliveriesExpanded };
+  box.innerHTML = deliveriesBy === 'author' ? deliveriesByAuthor(items, opts) : deliveriesByRepo(items, opts);
 }
 $('#delivOrg').addEventListener('change', (e) => {
   deliveriesOrg = e.target.value || '';
   localStorage.setItem('farol-deliv-org', deliveriesOrg);
   loadDeliveries();
 });
-$('#delivDays').addEventListener('change', (e) => {
-  const v = parseInt(e.target.value, 10); // "Hoje" = 0 (é falsy: não usar || aqui)
+$('#delivDays').addEventListener('click', (e) => {
+  const b = e.target.closest('.seg-btn'); if (!b) return;
+  const v = parseInt(b.dataset.days, 10); // "Hoje" = 0 (é falsy: não usar || aqui)
   deliveriesDays = [0, 7, 15, 30].includes(v) ? v : 7;
   localStorage.setItem('farol-deliv-days', String(deliveriesDays));
+  marcarDelivDays();
   loadDeliveries();
 });
 $('#delivBy').addEventListener('click', (e) => {
@@ -1472,6 +1487,33 @@ $('#delivBy').addEventListener('click', (e) => {
   localStorage.setItem('farol-deliv-by', deliveriesBy);
   marcarSeg(document.querySelectorAll('#delivBy .seg-btn'), x => x.dataset.by === deliveriesBy);
   renderDeliveries(); // troca de fatia é só re-render, sem novo fetch
+});
+$('#delivQuery').addEventListener('input', (e) => {
+  deliveriesQuery = e.target.value || '';
+  renderDeliveries();
+});
+// delegação: "mostrar mais/menos" de cada grupo e as ações do estado vazio
+// ("Ver 30 dias" / "Limpar busca"), ambos desenhados no pure.js com data-*
+$('#deliveries').addEventListener('click', (e) => {
+  const mais = e.target.closest('.deliv-mais');
+  if (mais) {
+    const key = mais.dataset.delivGroup;
+    if (deliveriesExpanded.has(key)) deliveriesExpanded.delete(key); else deliveriesExpanded.add(key);
+    renderDeliveries();
+    return;
+  }
+  const acao = e.target.closest('[data-deliv-action]');
+  if (!acao) return;
+  if (acao.dataset.delivAction === 'ver30') {
+    deliveriesDays = 30;
+    localStorage.setItem('farol-deliv-days', '30');
+    marcarDelivDays();
+    loadDeliveries();
+  } else if (acao.dataset.delivAction === 'limpar-busca') {
+    deliveriesQuery = '';
+    $('#delivQuery').value = '';
+    renderDeliveries();
+  }
 });
 
 /* ---------- render: topo/status ---------- */
@@ -2617,6 +2659,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.38.0', ['Entregas ganhou busca por título, autor ou repositório, período em seleção rápida (Hoje/7/15/30 dias), cartões de estatística, gráfico de merges por dia e paginação "mostrar mais" por grupo, com uma barra mostrando quanto cada repositório ou pessoa representa no período.']],
   ['2.37.1', ['Correção: o "Ocultar" de "Meus PRs" escondia só a autoanálise, nunca o PR, que era justamente o caso que motivou o pedido (PR próprio parado há anos ocupando a aba pra sempre). Agora "Ocultar" oculta o PR, e o botão que existia virou "Ocultar análise".', 'Um rodapé mostra quantos você escondeu, com opção de exibir de novo (card esmaecido e botão "Reexibir"). O contador da sub-aba conta o que está visível, e com tudo oculto a tela explica em vez de ficar em branco.', 'Ocultar não vira ignorar a realidade: o PR volta sozinho se receber commit novo. É só na sua tela, nada é escrito no GitHub, e queda de rede não desoculta nada.']],
   ['2.37.0', ['Diagnóstico agrupado: o log de falhas abre com um resumo por episódio (quantas vezes, de quando até quando, quais PRs, e se a falha se resolve sozinha ou depende de você), em vez de despejar linha crua. O detalhe continua embaixo, limitado às 40 linhas mais recentes. A aba Sistema mostra os três maiores grupos na própria linha do log.', 'Correção: um PR podia entrar em loop infinito de revisão. Falha passageira colocava o PR na lista de "tentar de novo"; se a falha seguinte fosse permanente (credencial recusada, acesso desligado pela organização), o app estacionava o PR mas não o tirava da lista, e o relançamento desfazia o estacionamento no ciclo seguinte. Deu 25 tentativas idênticas do mesmo PR em três horas.', 'Limite do plano Claude agora espera a hora do reset que vem escrita na própria mensagem, em vez de tentar 12 vezes por PR. O aviso passou a dizer o horário ("retomo depois das 21:00").']],
   ['2.36.1', ['Correção: a revisão automática podia postar review num PR que já tinha sido mergeado. Agora uma pendência em "Precisa de você" cancela sozinha quando o PR mergeia enquanto espera sua decisão, e a revisão automática confere o estado do PR antes de começar, pulando sem gastar tokens se já foi mergeado enquanto esperava a vez na fila.']],
