@@ -943,3 +943,25 @@ test('usageMatrixRows: soma so os dias pedidos, calcula totais e intensidade', (
   assert.equal(r.grand, 42);
   assert.equal(linhaReview.cells.find(c => c.model === 'Opus 4.8').intensity, 1, 'maior celula tem intensidade 1');
 });
+
+test('usageSessionRow: formata quando, tipo, tokens, custo e estado', () => {
+  const agora = Date.parse('2026-08-10T15:00:00-03:00');
+  const s = { at: Date.parse('2026-08-10T14:12:00-03:00'), kind: 'review', ref: 'biudtech/farol#88', model: 'Sonnet 5', inputTokens: 80000, outputTokens: 16400, costUsd: 0.41, status: 'ok' };
+  const r = P.usageSessionRow(s, agora);
+  assert.match(r.whenLabel, /^hoje /);
+  assert.equal(r.kindLabel, 'Revisão');
+  assert.equal(r.ref, 'biudtech/farol#88');
+  assert.equal(r.model, 'Sonnet 5');
+  assert.equal(r.tokLabel, P.fmtTok(96400));
+  assert.equal(r.costLabel, '0.41');
+  assert.equal(r.stLabel, 'ok');
+  assert.equal(r.stClass, 'ok');
+});
+
+test('usageSessionRow: sessao com erro e sem ref', () => {
+  const s = { at: Date.now(), kind: 'tool', ref: null, model: 'Haiku 4.5', inputTokens: 1, outputTokens: 1, costUsd: 0, status: 'erro' };
+  const r = P.usageSessionRow(s, Date.now());
+  assert.equal(r.ref, '(sem referência)');
+  assert.equal(r.stLabel, 'erro');
+  assert.equal(r.stClass, 'erro');
+});

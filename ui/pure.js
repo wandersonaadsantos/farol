@@ -222,6 +222,23 @@ function usageMatrixRows(matrixSeries, kindNames, modelNames, days, metric) {
   return { rows, colTotals, grand };
 }
 
+const USAGE_KIND_LABEL = { review: 'Revisão', self: 'Autoanálise', pushback: 'Pushback', tool: 'Ferramentas', chat: 'Chat', outro: 'Outro' };
+
+// linha pronta pra tabela de Sessoes recentes: rotulo de tipo, referencia (com
+// fallback sem travessao), tokens somados, custo com 2 casas e o estado (ok/erro).
+function usageSessionRow(s, agora = Date.now()) {
+  return {
+    whenLabel: fmtWhenDay(s.at, agora),
+    kindLabel: USAGE_KIND_LABEL[s.kind] || s.kind,
+    ref: s.ref || '(sem referência)',
+    model: s.model || '',
+    tokLabel: fmtTok((s.inputTokens || 0) + (s.outputTokens || 0)),
+    costLabel: (s.costUsd || 0).toFixed(2),
+    stLabel: s.status === 'erro' ? 'erro' : 'ok',
+    stClass: s.status === 'erro' ? 'erro' : 'ok',
+  };
+}
+
 function accountSaveArray(list) {
   return (list || []).map(a => {
     const o = { user: a.user, owners: a.owners || [], label: a.label, color: a.color, kind: a.kind || '', muted: !!a.muted };
@@ -713,7 +730,7 @@ function deliveriesByAuthor(items) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     esc, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
-    sameSet, diffVs, lastMerge, groupBy, usageMetricVal, sparklinePath, usageDelta, usageStackLayers, usageHoverIndex, usageMatrixRows, accountSaveArray, delivGroupCard, delivCappedMsg, fmtRel,
+    sameSet, diffVs, lastMerge, groupBy, usageMetricVal, sparklinePath, usageDelta, usageStackLayers, usageHoverIndex, usageMatrixRows, USAGE_KIND_LABEL, usageSessionRow, accountSaveArray, delivGroupCard, delivCappedMsg, fmtRel,
     usageDayKeysBack, localDayKey, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
     deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
     fmtStamp, fmtWhenDay, resolvedRow,
