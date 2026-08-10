@@ -917,3 +917,12 @@ test('usageHoverIndex: mapeia posicao do mouse pro dia mais proximo, limitado as
   assert.equal(P.usageHoverIndex(geo.padL - 50, geo), 0, 'antes do inicio -> primeiro dia');
   assert.equal(P.usageHoverIndex(geo.padL + geo.cw + 50, geo), 3, 'depois do fim -> ultimo dia');
 });
+
+test('usageStackLayers: serie vazia nao produz NaN na path (n=0 corner case)', () => {
+  const geo = P.usageStackLayers([], ['a', 'b'], ['#111', '#222'], 200, 100);
+  assert.equal(geo.layers.length, 0, 'serie vazia -> zero camadas');
+  assert.equal(geo.xs.length, 0, 'serie vazia -> zero x-coords');
+  assert.equal(geo.dayTotals.length, 0, 'serie vazia -> zero day totals');
+  assert.ok(!JSON.stringify(geo).includes('NaN'), 'nenhuma parte do resultado contem NaN');
+  assert.ok(!JSON.stringify(geo).includes('Infinity'), 'nenhuma parte do resultado contem Infinity');
+});

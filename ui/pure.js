@@ -162,6 +162,10 @@ function usageDelta(cur, prev) {
 function usageStackLayers(series, names, colors, W, H) {
   const padL = 46, padR = 14, padT = 12, padB = 22;
   const cw = W - padL - padR, ch = H - padT - padB, n = series.length;
+  // serie vazia: retorna resultado vazio sem tentar calcular paths com undefined
+  if (n === 0) {
+    return { layers: [], xs: [], grid: [], padL, padT, padB, cw, ch, W, H, peakIndex: 0, dayTotals: [], maxV: 1e-9 };
+  }
   const dayTotals = series.map(vals => vals.reduce((a, b) => a + b, 0));
   const maxV = Math.max(1e-9, ...dayTotals) * 1.06;
   const yOf = v => padT + ch * (1 - v / maxV);
