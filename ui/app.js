@@ -2316,6 +2316,49 @@ $('#myPRsHiddenFoot').addEventListener('click', (e) => {
 /* ---------- Consumo de tokens (tela própria, charts em SVG puro) ---------- */
 const usageState = { metric: 'total', window: 30, dim: 'kind' };
 
+function fmtMoney(v) { return 'US$ ' + (Number(v) || 0).toFixed(2); }
+function fmtUsageMetric(v, metric) { return metric === 'custo' ? fmtMoney(v) : fmtCompact(v); }
+
+// 4 cartoes: Custo/Tokens/Sessoes do periodo escolhido + Hoje, cada um com
+// sparkline dos ultimos `win` dias (Hoje usa fixo 14 dias, igual ao mock) e chip
+// de delta vs o periodo anterior de mesmo tamanho.
+function drawUsageKpis(el, u, win, metric) {
+  const map = {}; for (const d of (u.series || [])) map[d.day] = d;
+  const janela = usageDayKeysBack(win).map(day => map[day]);
+  const anterior = usageDayKeysBack(win * 2).slice(0, win).map(day => map[day]);
+  const soma = (list, fn) => list.reduce((a, d) => a + fn(d || {}), 0);
+  const curCost = soma(janela, d => d.costUsd || 0);
+  const curTok = soma(janela, d => (d.inputTokens || 0) + (d.outputTokens || 0));
+  const curSess = soma(janela, d => d.sessions || 0);
+  const antCost = soma(anterior, d => d.costUsd || 0);
+  const antTok = soma(anterior, d => (d.inputTokens || 0) + (d.outputTokens || 0));
+  const antSess = soma(anterior, d => d.sessions || 0);
+  const hoje = map[usageDayKeysBack(1)[0]] || {};
+  const ontemKey = usageDayKeysBack(2)[0];
+  const ontem = map[ontemKey] || {};
+  const spark14 = usageDayKeysBack(14).map(day => (map[day] || {}).costUsd || 0);
+
+  const card = (label, big, sub, delta, vals) => {
+    const { line, area } = sparklinePath(vals, 100, 26);
+    return `<div class="usage-kpi">
+      <div class="usage-kpi-head"><span class="usage-kpi-label">${esc(label)}</span>${delta ? `<span class="usage-kpi-delta">${esc(delta)}</span>` : ''}</div>
+      <b>${esc(big)}</b>
+      <span class="usage-kpi-sub">${esc(sub)}</span>
+      <svg viewBox="0 0 100 26" preserveAspectRatio="none" aria-hidden="true" class="usage-kpi-spark">
+        <path d="${area}" fill="var(--accent-soft)"></path>
+        <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="1.5" vector-effect="non-scaling-stroke"></path>
+      </svg>
+    </div>`;
+  };
+
+  el.innerHTML = [
+    card(`Custo estimado · ${win} dias`, fmtMoney(curCost), `~${fmtMoney(curCost / win)} por dia`, usageDelta(curCost, antCost), janela.map(d => (d || {}).costUsd || 0)),
+    card(`Tokens · ${win} dias`, fmtCompact(curTok), `${fmtCompact(soma(janela, d => d.inputTokens || 0))} in · ${fmtCompact(soma(janela, d => d.outputTokens || 0))} out`, usageDelta(curTok, antTok), janela.map(d => ((d || {}).inputTokens || 0) + ((d || {}).outputTokens || 0))),
+    card(`Sessões · ${win} dias`, String(curSess), `média de ${(curSess / win).toFixed(1)} por dia`, usageDelta(curSess, antSess), janela.map(d => (d || {}).sessions || 0)),
+    card('Hoje', fmtMoney(hoje.costUsd || 0), `${fmtCompact((hoje.inputTokens || 0) + (hoje.outputTokens || 0))} tokens · ${hoje.sessions || 0} sessões`, usageDelta(hoje.costUsd || 0, ontem.costUsd || 0), spark14),
+  ].join('');
+}
+
 // linha do tempo: barras por dia na janela escolhida, métrica escolhida (SVG)
 function drawUsageTimeline(el, series, metric, win) {
   const map = {}; for (const d of (series || [])) map[d.day] = d;
@@ -2362,6 +2405,12 @@ function drawUsageBreakdown(el, items, metric) {
 
 function renderUsage() {
   const u = STATE && STATE.usage;
+  const kpisEl = $('#usageKpis');
+  if (kpisEl) {
+    if (!u || !u.totals || !u.totals.sessions) kpisEl.innerHTML = '';
+    else drawUsageKpis(kpisEl, u, usageState.window, usageState.metric);
+  }
+  // === resto da funcao atual continua aqui, intacto por enquanto (Tasks 11-14 substituem) ===
   const statsEl = $('#usageStats'), tl = $('#usageTimeline'), bd = $('#usageBreakdown');
   const dimBtn = $('#usageDimProfile'), noteEl = $('#usageBudgetNote');
   if (!statsEl || !tl || !bd) return;
