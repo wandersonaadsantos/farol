@@ -143,22 +143,28 @@ test('toolRunGet/Set: kudos guarda por escopo, as outras ferramentas não', () =
 
 /* ---------- gh-queries: janela de entregas ---------- */
 
-test('deliveriesSince: devolve data ISO curta (YYYY-MM-DD)', () => {
+test('deliveriesSince: devolve timestamp UTC completo (o GitHub corta data seca em 00:00 UTC, 3h antes da meia-noite local)', () => {
   const e = new Engine();
-  assert.match(e.deliveriesSince(7), /^\d{4}-\d{2}-\d{2}$/);
+  assert.match(e.deliveriesSince(7), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+  // o corte é a meia-noite LOCAL serializada em UTC, nunca 00:00Z cru
+  const meiaNoiteLocal = new Date();
+  meiaNoiteLocal.setHours(0, 0, 0, 0);
+  assert.equal(e.deliveriesSince(0), meiaNoiteLocal.toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    '"Hoje" começa exatamente na meia-noite local, sem a franja de 3h de ontem');
 });
 
-test('deliveriesSince: 0 dias é hoje, e mais dias volta mais no tempo', () => {
+test('deliveriesSince: a janela cobre EXATAMENTE os dias que o gráfico desenha (hoje - (dias-1))', () => {
   const e = new Engine();
   const hoje = e.deliveriesSince(0);
   const sete = e.deliveriesSince(7);
   const trinta = e.deliveriesSince(30);
   assert.ok(sete < hoje, '7 dias atrás é anterior a hoje');
   assert.ok(trinta < sete, '30 dias atrás é anterior a 7');
-  // a diferença tem que ser exatamente a pedida, senão a janela mente
+  // dias-1: o gráfico desenha N dias INCLUINDO hoje, então o corte recua N-1
+  // (era N, e os cartões contavam um dia inteiro que o gráfico nunca desenhava)
   const dias = (a, b) => Math.round((Date.parse(a) - Date.parse(b)) / 86400000);
-  assert.equal(dias(hoje, sete), 7);
-  assert.equal(dias(hoje, trinta), 30);
+  assert.equal(dias(hoje, sete), 6, 'janela de 7 = hoje + 6 dias pra trás');
+  assert.equal(dias(hoje, trinta), 29, 'janela de 30 = hoje + 29 dias pra trás');
 });
 
 test('deliveriesSince: entrada inválida ou negativa cai em hoje, nunca no futuro', () => {

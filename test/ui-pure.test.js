@@ -356,7 +356,7 @@ test('lastMerge devolve a data mais recente sem mexer na lista', () => {
   assert.equal(P.lastMerge([{}]), '');
 });
 
-test('deliveriesByRepo escapa o conteúdo e ordena por volume', () => {
+test('deliveriesByRepo escapa o conteúdo e ordena pelo merge mais RECENTE (decisão de 10/08/2026)', () => {
   const html = P.deliveriesByRepo([
     { repo: 'acme/<b>x</b>', key: 'acme/x#1', url: 'https://u/1', title: 'um', author: 'a', mergedAt: '2026-08-01' },
     { repo: 'acme/y', key: 'acme/y#2', url: 'https://u/2', title: 'dois', author: 'b', mergedAt: '2026-07-01' },
@@ -364,8 +364,18 @@ test('deliveriesByRepo escapa o conteúdo e ordena por volume', () => {
   ]);
   assert.doesNotMatch(html, /acme\/<b>/, 'nome de repo não vira tag');
   assert.match(html, /acme\/&lt;b&gt;x&lt;\/b&gt;/);
-  assert.ok(html.indexOf('acme/y') < html.indexOf('acme/&lt;b&gt;'), 'quem entregou mais vem antes');
+  assert.ok(html.indexOf('acme/&lt;b&gt;') < html.indexOf('acme/y'),
+    'o repo com merge mais recente vem antes, mesmo entregando menos (o volume é papel dos cartões)');
   assert.match(html, /2 autores/, 'conta autores distintos');
+});
+
+test('deliveriesByRepo desempata recência igual por volume', () => {
+  const html = P.deliveriesByRepo([
+    { repo: 'acme/x', key: 'acme/x#1', url: 'u', title: 't1', author: 'a', mergedAt: '2026-08-01T10:00:00Z' },
+    { repo: 'acme/y', key: 'acme/y#2', url: 'u', title: 't2', author: 'b', mergedAt: '2026-08-01T10:00:00Z' },
+    { repo: 'acme/y', key: 'acme/y#3', url: 'u', title: 't3', author: 'b', mergedAt: '2026-07-20T10:00:00Z' },
+  ]);
+  assert.ok(html.indexOf('acme/y') < html.indexOf('acme/x'), 'no empate de último merge, quem entregou mais vem antes');
 });
 
 test('deliveriesByRepo mostra progresso e badge de contagem por grupo', () => {
@@ -404,20 +414,37 @@ test('deliveriesByAuthor nomeia quem não tem autor', () => {
     /\(desconhecido\)/);
 });
 
-test('deliveriesByAuthor numera o ranking e mostra o repo como legenda da linha', () => {
+test('deliveriesByAuthor ordena pelo merge mais recente, SEM ranking numérico, e mostra o repo como legenda', () => {
   const html = P.deliveriesByAuthor([
-    { repo: 'a/b', key: 'a/b#1', url: 'u', title: 't1', author: 'alice', mergedAt: '2026-08-03' },
+    { repo: 'a/b', key: 'a/b#1', url: 'u', title: 't1', author: 'alice', mergedAt: '2026-08-01' },
     { repo: 'a/b', key: 'a/b#2', url: 'u', title: 't2', author: 'alice', mergedAt: '2026-08-02' },
-    { repo: 'a/c', key: 'a/c#3', url: 'u', title: 't3', author: 'bob', mergedAt: '2026-08-01' },
+    { repo: 'a/c', key: 'a/c#3', url: 'u', title: 't3', author: 'bob', mergedAt: '2026-08-03' },
   ]);
-  assert.match(html, /deliv-rank">1\./, 'quem entrega mais é o rank 1');
+  assert.ok(html.indexOf('@bob') < html.indexOf('@alice'),
+    'bob mergeou por último e abre a lista, mesmo com menos entregas');
+  assert.doesNotMatch(html, /deliv-rank/,
+    'com a ordem por recência o número viraria placar falso; quem entrega mais fica nos cartões');
   assert.match(html, /deliv-caption">a\/b</);
+});
+
+test('delivActivityChart: dia sem merge usa a classe "zero", NUNCA a "empty" global (que inflava a barra pra 54px)', () => {
+  const agora = Date.parse('2026-08-10T12:00:00-03:00');
+  const html = P.delivActivityChart([
+    { mergedAt: '2026-08-10T13:00:00Z' }, // hoje tem 1 merge
+  ], 7, agora);
+  assert.match(html, /deliv-bar-fill zero" style="height:0%"/, 'dia zerado leva a classe zero com altura 0');
+  assert.doesNotMatch(html, /deliv-bar-fill empty/,
+    '.empty é o estado vazio GLOBAL do app (padding 26px + borda tracejada): na barra, virava a 2ª mais alta do gráfico');
+  assert.match(html, /0 PRs/, 'tooltip do dia zerado diz 0');
 });
 
 test('delivCappedMsg fala o limite REAL vindo do server, nunca o 100 antigo', () => {
   // DELIVERIES_LIMIT = 1000 (lib/paths.js); a mensagem afirmava 100, fator de 10
   assert.match(P.delivCappedMsg(1000), /mais de 1000 entregas/);
-  assert.match(P.delivCappedMsg(1000), /1000 mais recentes/);
+  // "atividade mais recente", não "mais recentes": o corte do gh e por --sort
+  // updated (aproximacao), e a mensagem nao pode prometer corte por data de merge
+  assert.match(P.delivCappedMsg(1000), /1000 de atividade mais recente/);
+  assert.match(P.delivCappedMsg(1000), /podem subestimar/);
   assert.doesNotMatch(P.delivCappedMsg(1000), /\b100\b/);
   assert.match(P.delivCappedMsg(undefined), /1000/, 'payload em cache sem limit cai no valor real atual');
 });

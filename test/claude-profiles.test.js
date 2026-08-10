@@ -329,7 +329,9 @@ test('allClaudeAuthInfo: perfil apikey com chave preenchida reporta ready + apiK
   engine.config.claudeProfiles = [{ id: 'chave', label: 'Chave OK', kind: 'apikey', apiKey: 'sk-ant-123', baseUrl: '' }];
   const all = engine.allClaudeAuthInfo();
   const entry = all.find(x => x.id === 'chave');
-  assert.deepEqual(entry, { id: 'chave', label: 'Chave OK', configDir: null, account: null, ready: true, apiKeyMode: true, blocked: false, today: 0, sinceCutoff: 0 });
+  // orçamento (blocked/today/sinceCutoff) saiu daqui na v2.40.0: o doctor é cache
+  // e congelava o cartão da aba Consumo; a fonte única virou usageSummary().budgets
+  assert.deepEqual(entry, { id: 'chave', label: 'Chave OK', configDir: null, account: null, ready: true, apiKeyMode: true });
 });
 
 test('allClaudeAuthInfo: perfil apikey sem chave (não deveria existir, mas defensivo) reporta ready:false', () => {

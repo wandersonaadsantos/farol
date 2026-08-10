@@ -1054,8 +1054,12 @@ class Engine extends EventEmitter {
     return [legacy, ...profiles.map(p => ({
       id: p.id,
       label: p.label,
+      // orcamento (blocked/today/sinceCutoff) NAO viaja mais aqui: o doctor e um
+      // cache (boot/Verificar agora/salvar perfis) e congelava o cartao da aba
+      // Consumo enquanto o gate real recalculava ao vivo. A fonte unica do
+      // orcamento e usageSummary().budgets, refeita a cada pushState (v2.40.0).
       ...(p.kind === 'apikey'
-        ? { configDir: null, account: null, ready: !!p.apiKey, apiKeyMode: true, ...this.profileBudgetStatus(p) }
+        ? { configDir: null, account: null, ready: !!p.apiKey, apiKeyMode: true }
         : this.claudeAuthInfo(p.dir))
     }))];
   }

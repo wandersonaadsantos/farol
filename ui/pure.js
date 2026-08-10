@@ -222,7 +222,10 @@ function usageMatrixRows(matrixSeries, kindNames, modelNames, days, metric) {
   return { rows, colTotals, grand };
 }
 
-const USAGE_KIND_LABEL = { review: 'Revisão', self: 'Autoanálise', pushback: 'Pushback', tool: 'Ferramentas', chat: 'Chat', outro: 'Outro' };
+// _resto e a fatia reconciliada de um dia sem detalhamento (registro anterior aos
+// buckets cruzados da v2.38.0, ou sessao gravada por versao antiga no meio do dia):
+// o engine garante que soma(camadas) == serie do dia, e essa camada e a diferenca.
+const USAGE_KIND_LABEL = { review: 'Revisão', self: 'Autoanálise', pushback: 'Pushback', tool: 'Ferramentas', chat: 'Chat', outro: 'Outro', _resto: 'Sem detalhamento' };
 
 // linha pronta pra tabela de Sessoes recentes: rotulo de tipo, referencia (com
 // fallback sem travessao), tokens somados, custo com 2 casas e o estado (ok/erro).
@@ -234,8 +237,10 @@ function usageSessionRow(s, agora = Date.now()) {
     model: s.model || '',
     tokLabel: fmtTok((s.inputTokens || 0) + (s.outputTokens || 0)),
     costLabel: (s.costUsd || 0).toFixed(2),
-    stLabel: s.status === 'erro' ? 'erro' : 'ok',
-    stClass: s.status === 'erro' ? 'erro' : 'ok',
+    // 'cancelada' existe desde a v2.40.0 (sessão morta pelo usuário DEPOIS do result:
+    // gastou, mas não concluiu); antes caía como 'ok', indistinguível de concluída
+    stLabel: s.status === 'erro' ? 'erro' : s.status === 'cancelada' ? 'cancelada' : 'ok',
+    stClass: s.status === 'erro' ? 'erro' : s.status === 'cancelada' ? 'cancelada' : 'ok',
   };
 }
 
@@ -254,10 +259,11 @@ function accountSaveArray(list) {
 // aviso de teto da aba Entregas: o gh search corta em DELIVERIES_LIMIT por org e o
 // server manda o limite no payload (fonte única do número; a mensagem antiga
 // afirmava 100 com o teto real em 1000). Fallback 1000 cobre payload em cache
-// gravado antes do campo existir.
+// gravado antes do campo existir. "atividade mais recente" (não "mais recentes"):
+// o corte do gh é por --sort updated, aproximação de recência, não data de merge.
 function delivCappedMsg(limit) {
   const n = Number(limit) || 1000;
-  return `Alguma organização tem mais de ${n} entregas no período; mostrando as ${n} mais recentes.`;
+  return `Alguma organização tem mais de ${n} entregas no período; mostrando as ${n} de atividade mais recente (números e gráfico podem subestimar).`;
 }
 
 /* ---------- log de falhas agrupado (Diagnostico e aba Sistema) ----------
@@ -751,8 +757,11 @@ function delivActivityChart(items, days, agora = Date.now()) {
     else rotulo = hojeBar ? 'hoje' : (i % 5 === 0 ? ddmm(b.date) : '');
     const pct = b.n === 0 ? 0 : Math.max(6, Math.round(b.n / max * 100));
     const dica = `${DIAS_SEMANA[b.date.getDay()]} ${ddmm(b.date)} · ${plural(b.n, 'PR', 'PRs')}`;
+    // classe 'zero', NUNCA 'empty': .empty e o estado vazio GLOBAL do app (padding
+    // 26px + borda tracejada) e colidia aqui, inflando dia SEM merge pra 54px de
+    // altura, a 2a barra mais alta do grafico (as barras escuras do print de 10/08)
     return `<div class="deliv-bar" title="${esc(dica)}">
-      <div class="deliv-bar-track"><div class="deliv-bar-fill${b.n === 0 ? ' empty' : ''}" style="height:${pct}%"></div></div>
+      <div class="deliv-bar-track"><div class="deliv-bar-fill${b.n === 0 ? ' zero' : ''}" style="height:${pct}%"></div></div>
       <div class="deliv-bar-label">${esc(rotulo)}</div>
     </div>`;
   }).join('');
@@ -809,9 +818,12 @@ function delivGroupBody(rows, teto, expandedKeys, groupKey) {
 }
 
 function delivGroupCardV2(head, count, pct, bodyHtml) {
+  // grupo pequeno arredonda pra 0% mas a barra tem piso visual de 3%: o tooltip
+  // diz "<1%" em vez de afirmar "0%" com preenchimento a mostra
+  const pctLabel = pct < 1 ? '<1' : String(pct);
   return `<div class="card deliv-card">
     <details open>
-      <summary class="deliv-sum">${head}<span class="deliv-progress" title="${pct}% das entregas do período"><span class="deliv-progress-fill" style="width:${Math.max(pct, 3)}%"></span></span><span class="count">${count}</span></summary>
+      <summary class="deliv-sum">${head}<span class="deliv-progress" title="${pctLabel}% das entregas do período"><span class="deliv-progress-fill" style="width:${Math.max(pct, 3)}%"></span></span><span class="count">${count}</span></summary>
       ${bodyHtml}
     </details>
   </div>`;
@@ -828,7 +840,10 @@ function deliveriesByRepo(items, opts = {}) {
     const head = `<span class="deliv-name">${esc(repo)}</span><span class="deliv-meta">${plural(autores, 'autor', 'autores')} · último ${fmtRel(lastMerge(list))}</span>`;
     return { repo, list, last: lastMerge(list), head, rows, groupKey: 'repo:' + repo };
   });
-  groups.sort((a, b) => b.list.length - a.list.length || String(b.last).localeCompare(String(a.last)));
+  // mais ATUAL primeiro (decisão do Wanderson, 10/08/2026): quem mergeou por
+  // último abre a lista, e desce até o grupo parado há mais tempo; contagem só
+  // desempata. Os cartões "na frente" seguem por volume, papel deles.
+  groups.sort((a, b) => String(b.last).localeCompare(String(a.last)) || b.list.length - a.list.length);
   return groups.map(g => delivGroupCardV2(
     g.head, g.list.length, Math.round(g.list.length / totalPeriodo * 100),
     delivGroupBody(g.rows, teto, expandedKeys, g.groupKey)
@@ -843,7 +858,8 @@ function deliveriesByAuthor(items, opts = {}) {
     const repos = new Set(list.map(x => x.repo)).size;
     const subRepos = [...groupBy(list, x => x.repo).entries()]
       .map(([repo, prs]) => ({ repo, prs, last: lastMerge(prs) }))
-      .sort((a, b) => b.prs.length - a.prs.length || String(b.last).localeCompare(String(a.last)));
+      // mesma regra dos grupos: o repo com merge mais recente da pessoa vem antes
+      .sort((a, b) => String(b.last).localeCompare(String(a.last)) || b.prs.length - a.prs.length);
     const rows = [];
     for (const sg of subRepos) {
       rows.push({ ehPr: false, ehCap: true, cap: sg.repo });
@@ -853,9 +869,13 @@ function deliveriesByAuthor(items, opts = {}) {
     const head = `${avatar(login)}<span class="deliv-name">@${esc(login)}</span><span class="deliv-meta">${plural(repos, 'repo', 'repos')} · último ${fmtRel(lastMerge(list))}</span>`;
     return { login, list, last: lastMerge(list), head, rows, groupKey: 'author:' + login };
   });
-  groups.sort((a, b) => b.list.length - a.list.length || String(b.last).localeCompare(String(a.last)));
-  return groups.map((g, i) => delivGroupCardV2(
-    `<span class="deliv-rank">${i + 1}.</span>${g.head}`, g.list.length, Math.round(g.list.length / totalPeriodo * 100),
+  // mais ATUAL primeiro (mesma regra da visão por repo). O número de ranking
+  // saiu junto: com a ordem por recência ele viraria um placar falso (o "1."
+  // deixaria de ser quem mais entrega); quem mais entrega segue nos cartões
+  // ("@X na frente"), que são por volume.
+  groups.sort((a, b) => String(b.last).localeCompare(String(a.last)) || b.list.length - a.list.length);
+  return groups.map(g => delivGroupCardV2(
+    g.head, g.list.length, Math.round(g.list.length / totalPeriodo * 100),
     delivGroupBody(g.rows, teto, expandedKeys, g.groupKey)
   )).join('');
 }

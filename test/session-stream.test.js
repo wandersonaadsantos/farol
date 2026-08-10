@@ -167,6 +167,33 @@ test('runClaudeStream: chama recordUsage mesmo quando a sessão termina em erro 
   assert.equal(chamadas[0].profileId, 'chave-bob', 'authProfileId do perfil apikey resolvido chega em recordUsage');
 });
 
+test('runClaudeStream: cancelamento DEPOIS do result ainda registra o consumo (auditoria 10/08)', async () => {
+  // o kill pode chegar na janela entre a última linha do stdout (o result) e o close
+  // do processo: o gasto está em mãos e tem que entrar no registro, mesmo com a
+  // sessão terminando como cancelada. Antes o branch de cancelled vinha primeiro e
+  // descartava o resultEvent inteiro.
+  const chamadas = [];
+  const engine = engineFalso();
+  engine.recordUsage = (id, account, resultEvent) => { chamadas.push({ id, resultEvent }); };
+  const child = filhoStream();
+  spawnImpl = () => child;
+  const p = runClaudeStream(engine, 'prompt', { id: 'sess-c1', account: 'trabalho' });
+  spawnImpl = null;
+
+  child.stdout.write(JSON.stringify({ type: 'result', is_error: false, result: 'ok', usage: { input_tokens: 50, output_tokens: 9 }, total_cost_usd: 0.02 }) + '\n');
+  assert.equal(cancelSession(engine, 'sess-c1').ok, true);
+  child.stdout.end();
+  child.emit('close', null);
+
+  await assert.rejects(p, (err) => {
+    assert.equal(err.cancelled, true, 'a sessão continua terminando como cancelada');
+    return true;
+  });
+  assert.equal(chamadas.length, 1, 'o consumo já parseado não pode ser descartado pelo cancelamento');
+  assert.equal(chamadas[0].resultEvent.usage.input_tokens, 50);
+  assert.equal(chamadas[0].resultEvent.farol_cancelled, true, 'a linha do log tem que sair como cancelada, não ok');
+});
+
 test('runClaudeStream: repassa opts.ref pra recordUsage (Task 4, plumbing PR/chat/ferramenta)', async () => {
   const chamadas = [];
   const engine = engineFalso();

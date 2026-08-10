@@ -548,8 +548,12 @@ function claudeAuthBadge(id) {
   if (!info) return '';
   if (info.apiKeyMode) {
     if (!info.ready) return `<span class="a-claude bad" title="Perfil de chave de API sem chave preenchida">SEM CHAVE</span>`;
-    if (info.blocked) {
-      const motivo = info.reason === 'diario' ? 'orçamento diário' : 'orçamento total';
+    // bloqueio de orçamento vem de STATE.usage.budgets (fonte única, viva a cada
+    // pushState, v2.40.0); o doctor parou de carregar blocked/reason, e este selo
+    // lia de lá (achado da revisão adversarial: o ramo tinha virado código morto)
+    const budget = ((STATE.usage && STATE.usage.budgets) || []).find(b => b.id === (info.id || id)) || {};
+    if (budget.blocked) {
+      const motivo = budget.reason === 'diario' ? 'orçamento diário' : 'orçamento total';
       return `<span class="a-claude bad" title="${motivo} estourado, automação pausada (clique manual continua liberado)">🔴 ${motivo} estourado</span>`;
     }
     return `<span class="a-claude ok" title="Autenticação por chave de API">🔑 chave configurada</span>`;
@@ -615,7 +619,10 @@ function renderClaudeProfiles() {
   </div>`;
   const rows = profiles.map(p => {
     const isApiKey = p.kind === 'apikey';
-    const budgetInfo = isApiKey ? ((STATE.doctor && STATE.doctor.claudeAuth) || []).find(x => x.id === p.id) : null;
+    // gasto vem de STATE.usage.budgets (fonte unica do orcamento, viva a cada
+    // pushState), nunca mais do cache do doctor, que congelava o "Hoje" daqui
+    // enquanto a aba Consumo andava (v2.40.0)
+    const budgetInfo = isApiKey ? ((STATE.usage && STATE.usage.budgets) || []).find(x => x.id === p.id) : null;
     const budgetStatusText = budgetInfo
       ? `Hoje: US$ ${(budgetInfo.today || 0).toFixed(2)}${p.budgetDaily != null ? ` de US$ ${p.budgetDaily.toFixed(2)}` : ''}`
         + (p.budgetTotal != null ? ` · Desde ${p.budgetSince || '?'}: US$ ${(budgetInfo.sinceCutoff || 0).toFixed(2)} de US$ ${p.budgetTotal.toFixed(2)}` : '')
@@ -2357,38 +2364,38 @@ $('#myPRsHiddenFoot').addEventListener('click', (e) => {
 /* ---------- render: versão e atualização ---------- */
 /* ---------- Consumo de tokens (tela própria, charts em SVG puro) ---------- */
 const usageState = { metric: 'total', window: 30, dim: 'kind' };
-// mesma janela de retenção de lib/engine/usage.js (MAX_DAYS): não é exposta ao
-// front, mas o valor é replicado aqui só pra saber se um período anterior cabe
-// inteiro na retenção antes de comparar (achado da revisão final: pra 90 dias,
-// o período anterior pede dias 180-91 atrás, mas só os últimos 120 existem, ou
-// seja no máximo 30 desses 90 dias têm dado, o delta comparava contra uma
-// janela estruturalmente incompleta e inflava o crescimento em ~3x).
-const USAGE_RETENTION_DAYS = 120;
 
 function fmtMoney(v) { return 'US$ ' + (Number(v) || 0).toFixed(2); }
 function fmtUsageMetric(v, metric) { return metric === 'custo' ? fmtMoney(v) : fmtCompact(v); }
 
 // 4 cartoes: Custo/Tokens/Sessoes do periodo escolhido + Hoje, cada um com
 // sparkline dos ultimos `win` dias (Hoje usa fixo 14 dias, igual ao mock) e chip
-// de delta vs o periodo anterior de mesmo tamanho (só quando os dois períodos
-// cabem inteiros nos MAX_DAYS de retenção, senão o chip fica sem base justa
-// pra comparar e é melhor não mostrar nada do que um percentual inflado).
+// de delta vs o periodo anterior de mesmo tamanho. O chip so aparece quando o
+// periodo anterior tem base JUSTA: cabe inteiro na retencao do engine
+// (u.retentionDays, fonte unica, era uma replica manual de MAX_DAYS aqui) E o
+// historico registrado ja cobria o primeiro dia dele (senao um app novo, ou uma
+// janela maior que o historico, comparava contra dias estruturalmente vazios e
+// inflava o percentual). Todas as somas passam por usageMetricVal: a DEFINICAO
+// de cada metrica mora num lugar so (ui/pure.js), a mesma da timeline/matriz.
 function drawUsageKpis(el, u, win) {
   const map = {}; for (const d of (u.series || [])) map[d.day] = d;
   const janela = usageDayKeysBack(win).map(day => map[day]);
-  const anterior = usageDayKeysBack(win * 2).slice(0, win).map(day => map[day]);
-  const comparavel = win * 2 <= USAGE_RETENTION_DAYS;
-  const soma = (list, fn) => list.reduce((a, d) => a + fn(d || {}), 0);
-  const curCost = soma(janela, d => d.costUsd || 0);
-  const curTok = soma(janela, d => (d.inputTokens || 0) + (d.outputTokens || 0));
-  const curSess = soma(janela, d => d.sessions || 0);
-  const antCost = comparavel ? soma(anterior, d => d.costUsd || 0) : 0;
-  const antTok = comparavel ? soma(anterior, d => (d.inputTokens || 0) + (d.outputTokens || 0)) : 0;
-  const antSess = comparavel ? soma(anterior, d => d.sessions || 0) : 0;
+  const anteriorKeys = usageDayKeysBack(win * 2).slice(0, win);
+  const anterior = anteriorKeys.map(day => map[day]);
+  const primeiroDia = (u.series && u.series[0] && u.series[0].day) || null;
+  const comparavel = win * 2 <= ((u.retentionDays) || 120) && !!primeiroDia && primeiroDia <= anteriorKeys[0];
+  const soma = (list, m) => list.reduce((a, d) => a + usageMetricVal(d, m), 0);
+  const curCost = soma(janela, 'custo');
+  const curTok = soma(janela, 'total');
+  const curSess = janela.reduce((a, d) => a + ((d || {}).sessions || 0), 0);
+  const curCache = soma(janela, 'cache');
+  const antCost = comparavel ? soma(anterior, 'custo') : 0;
+  const antTok = comparavel ? soma(anterior, 'total') : 0;
+  const antSess = comparavel ? anterior.reduce((a, d) => a + ((d || {}).sessions || 0), 0) : 0;
   const hoje = map[usageDayKeysBack(1)[0]] || {};
   const ontemKey = usageDayKeysBack(2)[0];
   const ontem = map[ontemKey] || {};
-  const spark14 = usageDayKeysBack(14).map(day => (map[day] || {}).costUsd || 0);
+  const spark14 = usageDayKeysBack(14).map(day => usageMetricVal(map[day], 'custo'));
 
   const card = (label, big, sub, delta, vals) => {
     const { line, area } = sparklinePath(vals, 100, 26);
@@ -2403,22 +2410,29 @@ function drawUsageKpis(el, u, win) {
     </div>`;
   };
 
+  // o sub do KPI de tokens declara o cache quando houver: "Tokens" (in+out) nao
+  // inclui cache em nenhum painel, mas o CUSTO inclui o custo do cache, e sem a
+  // linha os dois cartoes vizinhos nao se explicavam (achado da auditoria).
+  const tokSub = `${fmtCompact(soma(janela, 'input'))} in · ${fmtCompact(soma(janela, 'output'))} out`
+    + (curCache > 0 ? ` · ${fmtCompact(curCache)} cache` : '');
   el.innerHTML = [
-    card(`Custo estimado · ${win} dias`, fmtMoney(curCost), `~${fmtMoney(curCost / win)} por dia`, usageDelta(curCost, antCost), janela.map(d => (d || {}).costUsd || 0)),
-    card(`Tokens · ${win} dias`, fmtCompact(curTok), `${fmtCompact(soma(janela, d => d.inputTokens || 0))} in · ${fmtCompact(soma(janela, d => d.outputTokens || 0))} out`, usageDelta(curTok, antTok), janela.map(d => ((d || {}).inputTokens || 0) + ((d || {}).outputTokens || 0))),
+    card(`Custo estimado · ${win} dias`, fmtMoney(curCost), `~${fmtMoney(curCost / win)} por dia`, usageDelta(curCost, antCost), janela.map(d => usageMetricVal(d, 'custo'))),
+    card(`Tokens · ${win} dias`, fmtCompact(curTok), tokSub, usageDelta(curTok, antTok), janela.map(d => usageMetricVal(d, 'total'))),
     card(`Sessões · ${win} dias`, String(curSess), `média de ${(curSess / win).toFixed(1)} por dia`, usageDelta(curSess, antSess), janela.map(d => (d || {}).sessions || 0)),
-    card('Hoje', fmtMoney(hoje.costUsd || 0), `${fmtCompact((hoje.inputTokens || 0) + (hoje.outputTokens || 0))} tokens · ${hoje.sessions || 0} sessões`, usageDelta(hoje.costUsd || 0, ontem.costUsd || 0), spark14),
+    card('Hoje', fmtMoney(usageMetricVal(hoje, 'custo')), `${fmtCompact(usageMetricVal(hoje, 'total'))} tokens · ${hoje.sessions || 0} sessões`, usageDelta(usageMetricVal(hoje, 'custo'), usageMetricVal(ontem, 'custo')), spark14),
   ].join('');
 }
 
 // cor por camada: fixa pro tipo (bate com o mock), ciclica pras outras dimensoes
-// (modelo/conta), que tem quantidade variavel de nomes.
-const USAGE_KIND_COLOR = { review: 'var(--accent)', self: 'var(--info)', chat: 'var(--ok)', tool: '#b394f0', pushback: 'var(--danger)', outro: 'var(--faint)' };
+// (modelo/conta), que tem quantidade variavel de nomes. _resto (a fatia
+// reconciliada sem detalhamento) e SEMPRE apagado, em qualquer dimensao: e
+// registro antigo, nao pode parecer uma serie de verdade.
+const USAGE_KIND_COLOR = { review: 'var(--accent)', self: 'var(--info)', chat: 'var(--ok)', tool: '#b394f0', pushback: 'var(--danger)', outro: 'var(--faint)', _resto: 'var(--faint)' };
 const USAGE_PALETTE = ['var(--accent)', 'var(--info)', 'var(--ok)', '#b394f0', 'var(--danger)', 'var(--faint)'];
 
 function usageColorsFor(dim, names) {
   if (dim === 'kind') return names.map(n => USAGE_KIND_COLOR[n] || 'var(--faint)');
-  return names.map((_, i) => USAGE_PALETTE[i % USAGE_PALETTE.length]);
+  return names.map((n, i) => n === '_resto' ? 'var(--faint)' : USAGE_PALETTE[i % USAGE_PALETTE.length]);
 }
 
 let usageHoverIdx = null;
@@ -2499,13 +2513,19 @@ function drawUsageTooltip(day, vals, names, labels, colors, metric, idx, geo, W)
 // com heatmap leve (intensidade da celula sobre a maior celula da matriz).
 function drawUsageMatrix(el, captionEl, u, metric, win) {
   const days = usageDayKeysBack(win);
-  const kindNames = u.kindNames || [];
-  const modelNames = u.modelNames || [];
+  // nomes PROPRIOS da matriz (matrixKindNames/matrixModelNames): incluem _resto
+  // quando algum dia tem fatia sem detalhamento, independente da linha do tempo
+  const kindNames = u.matrixKindNames || u.kindNames || [];
+  const modelNames = u.matrixModelNames || u.modelNames || [];
   if (!modelNames.length) { el.innerHTML = '<div class="usage-empty">Sem dados ainda.</div>'; captionEl.textContent = ''; return; }
   const m = usageMatrixRows(u.matrixSeries || [], kindNames, modelNames, days, metric);
   if (!m.grand) { el.innerHTML = '<div class="usage-empty">Sem consumo nesta janela.</div>'; captionEl.textContent = ''; return; }
   captionEl.textContent = metric === 'custo' ? 'custo estimado no período' : 'tokens no período';
   const kindLabel = k => USAGE_KIND_LABEL[k] || k;
+  const modelLabelOf = mm => mm === '_resto' ? 'Sem detalhamento' : mm;
+  // valor EXATO no title da celula (fmtTok/fmtMoney): as celulas compactadas
+  // (43k) nao somam o proprio total a vista, e o title e onde confere sem ruido
+  const exact = v => metric === 'custo' ? fmtMoney(v) : fmtTok(v);
   // modelo aposentado nunca some de u.modelNames (byModel, no backend, não tem poda:
   // é histórico permanente), então sem esse filtro a coluna dele ficava pra sempre na
   // matriz, zerada. A linha do tempo já faz o equivalente na legenda (totalPorNome[i]
@@ -2513,33 +2533,29 @@ function drawUsageMatrix(el, captionEl, u, metric, win) {
   const idxAtivos = modelNames.map((_, j) => j).filter(j => m.colTotals[j] > 0);
   const modelosAtivos = idxAtivos.map(j => modelNames[j]);
   const cols = `96px repeat(${modelosAtivos.length}, minmax(0,1fr)) 64px`;
-  const head = `<div class="usage-matrix-row head" style="grid-template-columns:${cols}"><span></span>${modelosAtivos.map(mm => `<span class="usage-matrix-hcell">${esc(mm)}</span>`).join('')}<span class="usage-matrix-hcell">Total</span></div>`;
+  const head = `<div class="usage-matrix-row head" style="grid-template-columns:${cols}"><span></span>${modelosAtivos.map(mm => `<span class="usage-matrix-hcell">${esc(modelLabelOf(mm))}</span>`).join('')}<span class="usage-matrix-hcell">Total</span></div>`;
   const rows = m.rows.filter(r => r.total > 0).map(r => `<div class="usage-matrix-row" style="grid-template-columns:${cols}">
       <span class="usage-matrix-label"><span class="dot" style="background:${USAGE_KIND_COLOR[r.kind] || 'var(--faint)'};width:8px;height:8px;border-radius:2.5px;display:inline-block"></span>${esc(kindLabel(r.kind))}</span>
-      ${idxAtivos.map(j => { const c = r.cells[j]; return `<span class="usage-matrix-cell" style="background:color-mix(in srgb, var(--accent) ${((0.04 + 0.24 * c.intensity) * 100).toFixed(0)}%, transparent)" title="${esc(kindLabel(r.kind))} × ${esc(c.model)}: ${esc(fmtUsageMetric(c.value, metric))}">${esc(fmtUsageMetric(c.value, metric))}</span>`; }).join('')}
-      <span class="usage-matrix-total">${esc(fmtUsageMetric(r.total, metric))}</span>
+      ${idxAtivos.map(j => { const c = r.cells[j]; return `<span class="usage-matrix-cell" style="background:color-mix(in srgb, var(--accent) ${((0.04 + 0.24 * c.intensity) * 100).toFixed(0)}%, transparent)" title="${esc(kindLabel(r.kind))} × ${esc(modelLabelOf(c.model))}: ${esc(exact(c.value))}">${esc(fmtUsageMetric(c.value, metric))}</span>`; }).join('')}
+      <span class="usage-matrix-total" title="${esc(exact(r.total))}">${esc(fmtUsageMetric(r.total, metric))}</span>
     </div>`).join('');
-  const foot = `<div class="usage-matrix-row foot" style="grid-template-columns:${cols}"><span>Total</span>${idxAtivos.map(j => `<span class="usage-matrix-total">${esc(fmtUsageMetric(m.colTotals[j], metric))}</span>`).join('')}<span class="usage-matrix-grand">${esc(fmtUsageMetric(m.grand, metric))}</span></div>`;
+  const foot = `<div class="usage-matrix-row foot" style="grid-template-columns:${cols}"><span>Total</span>${idxAtivos.map(j => `<span class="usage-matrix-total" title="${esc(exact(m.colTotals[j]))}">${esc(fmtUsageMetric(m.colTotals[j], metric))}</span>`).join('')}<span class="usage-matrix-grand" title="${esc(exact(m.grand))}">${esc(fmtUsageMetric(m.grand, metric))}</span></div>`;
   el.innerHTML = `<div class="usage-matrix">${head}${rows}${foot}</div>`;
 }
 
 // um cartao por perfil de Claude configurado (Sistema -> Plano e chaves). Perfil de
-// assinatura (kind !== 'apikey') nao tem teto, so uma nota informativa; perfil de chave
-// mostra os 2 medidores (diario/total), gasto x teto.
+// assinatura (kind 'assinatura') nao tem teto, so uma nota informativa; perfil de
+// chave mostra os 2 medidores (diario/total), gasto x teto.
 //
-// Investigacao do shape real (server.js allClaudeAuthInfo/profileBudgetStatus, lib/engine/
-// usage.js): STATE.doctor.claudeAuth traz id/label/apiKeyMode/ready/blocked/today/
-// sinceCutoff por perfil, mas NAO traz budgetDaily/budgetTotal (profileBudgetStatus so
-// devolve blocked/today/sinceCutoff, nunca ecoa o teto de volta). Quem tem o teto
-// configurado e budgetDaily/budgetTotal/budgetSince e o proprio STATE.config.claudeProfiles
-// (ver a tela Sistema, mesma fonte que a lista de perfis la usa). Por isso a lista base
-// aqui e STATE.config.claudeProfiles (perfil "configurado" de verdade, permite o vazio
-// disparar corretamente), cruzando por id com STATE.doctor.claudeAuth so pra pegar
-// gasto/bloqueio calculados pelo doctor.
+// FONTE UNICA (v2.40.0): tudo vem de u.budgets (usageSummary), que traz teto E
+// gasto E bloqueio calculados pela MESMA funcao do gate real (profileBudgetStatus)
+// no momento de cada pushState. Antes, o gasto vinha de STATE.doctor.claudeAuth
+// (cache que so recalculava no boot/Verificar agora/salvar perfis) e o teto de
+// STATE.config: o cartao congelava enquanto o KPI "Hoje" da mesma tela crescia, e
+// a automacao pausava por estouro com o cartao ainda dizendo "no orcamento".
 function drawUsageBudget(el, u) {
-  const perfis = (STATE.config && STATE.config.claudeProfiles) || [];
+  const perfis = (u && u.budgets) || [];
   if (!perfis.length) { el.innerHTML = '<div class="usage-empty">Nenhum perfil de Claude configurado ainda.</div>'; return; }
-  const claudeAuth = (STATE.doctor && STATE.doctor.claudeAuth) || [];
   const meter = (label, spent, cap) => {
     // cap == null: teto NAO configurado (meter() nem chega a ser chamado nesse caso, ver
     // abaixo). cap === 0 e um teto valido (lib/parse.js aceita 0), e qualquer gasto acima
@@ -2554,21 +2570,19 @@ function drawUsageBudget(el, u) {
       <span class="usage-meter-track"><span class="usage-meter-fill${over ? ' over' : ''}" style="width:${Math.max(2, pct).toFixed(0)}%"></span></span>
     </div>`;
   };
+  const temChave = perfis.some(p => p.kind === 'apikey');
   el.innerHTML = perfis.map(p => {
     const isApiKey = p.kind === 'apikey';
-    const info = claudeAuth.find(x => x.id === p.id) || {};
-    const today = info.today || 0, sinceCutoff = info.sinceCutoff || 0;
-    const blocked = isApiKey && !!info.blocked;
-    const statusCls = blocked ? 'bad' : 'ok';
-    const statusTxt = !isApiKey ? 'coberto pela assinatura' : (blocked ? 'orçamento estourado' : 'no orçamento');
+    const statusCls = p.blocked ? 'bad' : 'ok';
+    const statusTxt = !isApiKey ? 'coberto pela assinatura' : (p.blocked ? 'orçamento estourado' : 'no orçamento');
     const meters = isApiKey
-      ? [p.budgetDaily != null ? meter('Teto diário', today, p.budgetDaily) : '', p.budgetTotal != null ? meter('Teto total', sinceCutoff, p.budgetTotal) : ''].join('')
+      ? [p.budgetDaily != null ? meter('Teto diário', p.today, p.budgetDaily) : '', p.budgetTotal != null ? meter('Teto total', p.sinceCutoff, p.budgetTotal) : ''].join('')
       : '';
     const nota = !isApiKey
       ? '<span class="usage-budget-note">Sem teto configurado: o gasto em tokens não vira fatura, só entra no registro.</span>'
       : (p.budgetDaily == null && p.budgetTotal == null
         ? '<span class="usage-budget-note">Nenhum teto definido pra este perfil (Sistema → Plano e chaves).</span>'
-        : (blocked ? '<span class="usage-budget-note">Automação de gasto pausada pra este perfil (revisão automática, retentativa e scan de pushback).</span>' : ''));
+        : (p.blocked ? '<span class="usage-budget-note">Automação de gasto pausada pra este perfil (revisão automática, retentativa e scan de pushback).</span>' : ''));
     return `<div class="usage-budget-card">
       <div class="usage-budget-head">
         <span class="usage-budget-name">${esc(p.label || p.id)}</span>
@@ -2578,7 +2592,12 @@ function drawUsageBudget(el, u) {
       ${meters}
       ${nota}
     </div>`;
-  }).join('');
+  }).join('')
+    // lacuna declarada (auditoria de 10/08): a sessao interativa de terminal usa a
+    // MESMA credencial do perfil, mas o claude interativo nao emite stream-json,
+    // entao esse gasto nao tem como entrar na medicao nem no teto. Sem declarar,
+    // o cartao prometia um teto que um dos caminhos de gasto nunca encontra.
+    + (temChave ? '<span class="usage-budget-note">Sessões interativas no terminal usam a mesma credencial, mas não entram na medição nem no teto: o CLI não reporta o consumo delas ao Farol.</span>' : '');
 }
 
 // tabela das sessoes mais recentes (ate 100, cortado no backend). Log permanente
@@ -2606,8 +2625,14 @@ function drawUsageSessions(el, u) {
       <span style="text-align:right"><span class="usage-sessions-st ${r.stClass}">${esc(r.stLabel)}</span></span>
     </div>`;
   }).join('');
+  // cobertura declarada: o log individual nasceu na v2.38.0 (10/08/2026); sessoes
+  // anteriores existem SO nos agregados (KPI/linha do tempo/matriz, camada "Sem
+  // detalhamento"). Sem a data, a tabela parecia ser o historico inteiro.
+  const desde = u.sessionsSince ? new Date(u.sessionsSince) : null;
+  const p2 = n => String(n).padStart(2, '0');
+  const desdeTxt = desde ? `Registro individual desde ${p2(desde.getDate())}/${p2(desde.getMonth() + 1)}/${desde.getFullYear()}; sessões anteriores aparecem só nos agregados. ` : '';
   el.innerHTML = `<div class="usage-sessions">${head}${rows}</div>
-    <div class="usage-sessions-foot"><span>Registro permanente, sem botão de zerar.</span><span>Mostrando as ${lista.length} mais recentes</span></div>`;
+    <div class="usage-sessions-foot"><span>${esc(desdeTxt)}Registro permanente, sem botão de zerar.</span><span>Mostrando as ${lista.length} mais recentes</span></div>`;
 }
 
 function renderUsage() {
@@ -2843,6 +2868,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.40.0', ['Consumo com fonte única de verdade: os painéis não se contradizem mais (o cartão de tokens dizia 942k nos 7 dias com a linha do tempo mostrando 43k). O registro antigo, sem quebra por tipo/modelo/conta, aparece como camada cinza "Sem detalhamento", reconciliada dia a dia: os totais de KPI, linha do tempo e matriz agora batem sempre, por construção.', 'Orçamento por perfil ao vivo: o cartão, o selo e o gasto na aba Sistema recalculam a cada atualização, com a mesma conta que pausa a automação, em vez de congelar no último "Verificar agora".', 'Entregas ordenadas pelo mais atual primeiro: quem mergeou por último abre a lista (por repositório e por pessoa), descendo até o grupo parado há mais tempo. O número de ranking saiu; quem mais entrega segue nos cartões "na frente".', 'Entregas sem números fantasma: dia sem merge aparecia como a 2ª barra mais alta do gráfico (colisão de estilo) e os cartões contavam ~50 merges de uma janela maior que a do gráfico (corte UTC). Agora dia zerado é um toco de 2px, "Hoje" começa às 00:00 de verdade, e total, média, pico e barras contam o MESMO período.', 'Registro mais completo: sessão cancelada depois do relatório final registra o gasto (e aparece como "cancelada", não "ok"); sessão com custo e zero tokens também registra; a tabela de sessões declara desde quando o registro individual existe; e o cartão de orçamento avisa que sessão interativa de terminal não entra na medição (o CLI não reporta).', 'KPIs honestos: o subtítulo de Tokens mostra o cache do período (o custo inclui cache), a variação (%) só aparece quando o período anterior tem histórico completo pra comparar, e as células da matriz mostram o valor exato no tooltip.']],
   ['2.39.0', ['Consumo redesenhado: cartões de KPI com tendência, linha do tempo empilhada por tipo/modelo/conta com hover, matriz Tipo × Modelo, orçamento por perfil com medidor, e uma tabela de sessões recentes mostrando o PR (ou chat/ferramenta) de cada uma.', 'Correção: o autor sumia de "Revisões recentes" quando o título do PR era comprido, porque o @login ficava dentro do título, que trunca com reticências. Agora o autor tem linha própria, com a mesma foto de perfil que a fila, "Precisa de você", Destaques e Time já usam.']],
   ['2.38.0', ['Entregas ganhou busca por título, autor ou repositório, período em seleção rápida (Hoje/7/15/30 dias), cartões de estatística, gráfico de merges por dia e paginação "mostrar mais" por grupo, com uma barra mostrando quanto cada repositório ou pessoa representa no período.']],
   ['2.37.1', ['Correção: o "Ocultar" de "Meus PRs" escondia só a autoanálise, nunca o PR, que era justamente o caso que motivou o pedido (PR próprio parado há anos ocupando a aba pra sempre). Agora "Ocultar" oculta o PR, e o botão que existia virou "Ocultar análise".', 'Um rodapé mostra quantos você escondeu, com opção de exibir de novo (card esmaecido e botão "Reexibir"). O contador da sub-aba conta o que está visível, e com tudo oculto a tela explica em vez de ficar em branco.', 'Ocultar não vira ignorar a realidade: o PR volta sozinho se receber commit novo. É só na sua tela, nada é escrito no GitHub, e queda de rede não desoculta nada.']],

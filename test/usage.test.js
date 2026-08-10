@@ -187,52 +187,202 @@ test('profileBudgetStatus: dentro dos dois tetos não bloqueia', () => {
   assert.equal(Math.round(status.today * 100) / 100, 1);
 });
 
-test('profileBreakdown: soma todos os dias por perfil, com label do config e shape de bucket reusável', () => {
-  const store = usage.defaultUsage();
-  const u1 = usage.extractUsage({ usage: { input_tokens: 10, output_tokens: 2 }, total_cost_usd: 1 }, 'x');
-  const u2 = usage.extractUsage({ usage: { input_tokens: 5, output_tokens: 1 }, total_cost_usd: 0.5 }, 'x');
-  usage.applyUsage(store, '2026-08-01', 'review', 'a', 'x', u1, 'p1');
-  usage.applyUsage(store, '2026-08-02', 'review', 'a', 'x', u2, 'p1');
-  const profiles = [{ id: 'p1', label: 'OpenRouter Pessoal', kind: 'apikey' }];
-  const out = usage.profileBreakdown(store, profiles);
-  assert.equal(out.length, 1);
-  assert.equal(out[0].profileId, 'p1');
-  assert.equal(out[0].label, 'OpenRouter Pessoal');
-  assert.equal(out[0].inputTokens, 15);
-  assert.equal(out[0].sessions, 2);
-});
-
-test('profileBreakdown: perfil removido do config ainda aparece, com o id cru como label', () => {
-  const store = usage.defaultUsage();
-  const u = usage.extractUsage({ usage: { input_tokens: 1 }, total_cost_usd: 1 }, 'x');
-  usage.applyUsage(store, '2026-08-01', 'review', 'a', 'x', u, 'p-removido');
-  const out = usage.profileBreakdown(store, []);
-  assert.equal(out[0].label, 'p-removido');
-});
-
-test('usageSummary devolve totais, hoje, 7 dias e quebras ordenadas', () => {
-  const today = usage.localDay(); // o "hoje" do resumo é o dia LOCAL, igual ao gravado
+test('usageSummary: totais, série diária ordenada e payload morto aposentado (v2.40.0)', () => {
+  const today = usage.localDay();
   const store = usage.defaultUsage();
   const big = usage.extractUsage({ usage: { input_tokens: 1000, output_tokens: 200 } }, 'claude-opus-4-8');
   const small = usage.extractUsage({ usage: { input_tokens: 10, output_tokens: 5 } }, 'claude-opus-4-8');
   usage.applyUsage(store, today, 'review', 'trabalho', 'claude-opus-4-8', big);
   usage.applyUsage(store, today, 'chat', 'trabalho', 'claude-opus-4-8', small);
-  usage.applyUsage(store, '2000-01-01', 'tool', 'trabalho', 'claude-opus-4-8', small); // dia velho: fora do 7d
+  usage.applyUsage(store, '2000-01-01', 'tool', 'trabalho', 'claude-opus-4-8', small);
 
   const sum = usage.usageSummary({ usage: store });
   assert.equal(sum.totals.sessions, 3);
-  assert.equal(sum.today.inputTokens, 1010, 'hoje soma as duas sessões de hoje');
-  assert.equal(sum.last7.inputTokens, 1010, '7 dias não inclui o dia de 2000');
-  assert.equal(sum.last30.inputTokens, 1010, '30 dias também exclui o dia de 2000');
-  // byKind ordenado por outputTokens desc: review (200) antes de chat (5)
-  assert.equal(sum.byKind[0].kind, 'review');
-  assert.equal(sum.byKind[0].label, 'Revisão');
-  assert.ok(sum.byKind[0].outputTokens >= sum.byKind[1].outputTokens);
   // série diária ascendente, com todos os dias que têm registro (inclui o de 2000)
   assert.ok(Array.isArray(sum.series));
   assert.equal(sum.series[0].day, '2000-01-01', 'série começa no dia mais antigo');
   assert.equal(sum.series[sum.series.length - 1].day, today, 'série termina hoje');
-  assert.equal('recentDays' in sum, false, 'recentDays foi substituído por series');
+  // janela é responsabilidade de quem consome, sobre a MESMA série: os campos
+  // pré-somados com definição própria de janela saíram do payload, junto com as
+  // quebras planas que nenhum painel lia (auditoria de 10/08/2026)
+  for (const morto of ['today', 'last7', 'last30', 'byKind', 'byAccount', 'byModel', 'byProfile', 'recentDays']) {
+    assert.equal(morto in sum, false, `${morto} não trafega mais`);
+  }
+  assert.equal(sum.retentionDays, 120, 'a retenção viaja no payload (a UI não replica mais MAX_DAYS)');
+});
+
+test('usageSummary: reconciliação cria a camada _resto pra dia sem detalhamento (registro antigo)', () => {
+  const store = usage.defaultUsage();
+  const u1 = usage.extractUsage({ usage: { input_tokens: 100, output_tokens: 20, cache_read_input_tokens: 7 }, total_cost_usd: 0.5 }, 'claude-opus-4-8');
+  const u2 = usage.extractUsage({ usage: { input_tokens: 40, output_tokens: 10 }, total_cost_usd: 0.25 }, 'claude-sonnet-4-5');
+  usage.applyUsage(store, '2026-08-01', 'review', 'trabalho', 'claude-opus-4-8', u1);
+  usage.applyUsage(store, '2026-08-02', 'self', 'pessoal', 'claude-sonnet-4-5', u2);
+  // simula o registro anterior à v2.38.0: o dia 01 existe em days mas os buckets
+  // cruzados dele não existem (era exatamente o estado do disco em 10/08/2026)
+  for (const map of ['daysByKind', 'daysByModel', 'daysByAccount']) {
+    for (const k of Object.keys(store[map])) if (k.endsWith('|2026-08-01')) delete store[map][k];
+  }
+  for (const k of Object.keys(store.daysByKindModel)) if (k.endsWith('|2026-08-01')) delete store.daysByKindModel[k];
+
+  const sum = usage.usageSummary({ usage: store });
+  assert.ok(sum.kindNames.includes(usage.RESTO), '_resto entra na lista de nomes quando há resto');
+  assert.ok(sum.modelNames.includes(usage.RESTO));
+  assert.ok(sum.accountNames.includes(usage.RESTO));
+  const dia1 = sum.stackedSeries.byKind.find(d => d.day === '2026-08-01');
+  const resto1 = dia1.items.find(i => i.name === usage.RESTO);
+  assert.equal(resto1.label, 'Sem detalhamento');
+  assert.equal(resto1.inputTokens, 100, 'o resto do dia 01 é o dia inteiro');
+  assert.equal(resto1.sessions, 1);
+  assert.equal(resto1.cacheReadTokens, 7);
+  const dia2 = sum.stackedSeries.byKind.find(d => d.day === '2026-08-02');
+  const resto2 = dia2.items.find(i => i.name === usage.RESTO);
+  assert.equal(resto2.inputTokens, 0, 'dia 100% detalhado tem resto zero');
+  // matriz: o resto do dia 01 mora em cells._resto._resto
+  assert.ok(sum.matrixKindNames.includes(usage.RESTO));
+  assert.ok(sum.matrixModelNames.includes(usage.RESTO));
+  const m1 = sum.matrixSeries.find(d => d.day === '2026-08-01');
+  assert.equal(m1.cells[usage.RESTO][usage.RESTO].inputTokens, 100);
+});
+
+test('INVARIANTE: soma das camadas empilhadas == série do dia, campo a campo, nas 3 dimensões', () => {
+  const store = usage.defaultUsage();
+  const mk = (inp, out, cr, cc, cost) => usage.extractUsage(
+    { usage: { input_tokens: inp, output_tokens: out, cache_read_input_tokens: cr, cache_creation_input_tokens: cc }, total_cost_usd: cost }, 'claude-opus-4-8');
+  usage.applyUsage(store, '2026-08-01', 'review', 'trabalho', 'claude-opus-4-8', mk(100, 20, 5, 3, 0.11));
+  usage.applyUsage(store, '2026-08-02', 'chat', 'pessoal', 'claude-sonnet-4-5', mk(50, 10, 0, 0, 0.07));
+  usage.applyUsage(store, '2026-08-02', 'tool', 'trabalho', 'claude-haiku-4-5', mk(9, 1, 2, 0, 0.01));
+  // dia 01 vira "sem detalhamento" parcial: apaga só metade dos buckets cruzados
+  delete store.daysByKind['review|2026-08-01'];
+  delete store.daysByKindModel['review|Opus 4.8|2026-08-01'];
+
+  const sum = usage.usageSummary({ usage: store });
+  const campos = ['sessions', 'inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheCreationTokens'];
+  for (const dim of ['byKind', 'byModel', 'byAccount']) {
+    for (const dia of sum.stackedSeries[dim]) {
+      const serie = sum.series.find(s => s.day === dia.day);
+      for (const campo of campos) {
+        const soma = dia.items.reduce((a, it) => a + (it[campo] || 0), 0);
+        assert.equal(soma, serie[campo], `${dim}/${dia.day}/${campo}: camadas somam a série`);
+      }
+      const somaCusto = dia.items.reduce((a, it) => a + (it.costUsd || 0), 0);
+      assert.ok(Math.abs(somaCusto - serie.costUsd) < 0.001, `${dim}/${dia.day}/costUsd`);
+    }
+  }
+  // matriz: total geral de todos os dias == total da série
+  for (const dia of sum.matrixSeries) {
+    const serie = sum.series.find(s => s.day === dia.day);
+    for (const campo of campos) {
+      let soma = 0;
+      for (const row of Object.values(dia.cells)) for (const b of Object.values(row)) soma += b[campo] || 0;
+      assert.equal(soma, serie[campo], `matriz/${dia.day}/${campo}`);
+    }
+  }
+});
+
+test('INVARIANTE: _resto é SEMPRE o último item, e os demais seguem a ordem exata dos nomes (a UI zipa por índice)', () => {
+  const store = usage.defaultUsage();
+  const u = usage.extractUsage({ usage: { input_tokens: 10, output_tokens: 5 }, total_cost_usd: 0.01 }, 'claude-opus-4-8');
+  usage.applyUsage(store, '2026-08-01', 'review', 'trabalho', 'claude-opus-4-8', u);
+  usage.applyUsage(store, '2026-08-02', 'chat', 'pessoal', 'claude-sonnet-4-5', u);
+  delete store.daysByKind['review|2026-08-01']; // força hasResto
+
+  const sum = usage.usageSummary({ usage: store });
+  assert.equal(sum.kindNames[sum.kindNames.length - 1], usage.RESTO, '_resto fecha a lista de nomes');
+  assert.deepEqual(sum.kindNames.slice(0, -1), ['review', 'self', 'chat', 'tool', 'pushback', 'outro'], 'os nomes base mantêm a ordem fixa');
+  for (const dia of sum.stackedSeries.byKind) {
+    assert.equal(dia.items[dia.items.length - 1].name, usage.RESTO, `_resto é o último item do dia ${dia.day}`);
+    assert.deepEqual(dia.items.map(i => i.name).slice(0, -1), ['review', 'self', 'chat', 'tool', 'pushback', 'outro'],
+      `os items do dia ${dia.day} seguem a MESMA ordem dos nomes (cor/legenda/tooltip casam por índice)`);
+  }
+});
+
+test('reconciliação: bucket detalhado À FRENTE de days (deriva inversa) clampa o resto em zero, nunca negativo', () => {
+  const store = usage.defaultUsage();
+  const u = usage.extractUsage({ usage: { input_tokens: 10, output_tokens: 5 }, total_cost_usd: 0.01 }, 'claude-opus-4-8');
+  usage.applyUsage(store, '2026-08-01', 'review', 'trabalho', 'claude-opus-4-8', u);
+  // deriva inversa simulada (ex.: crash entre as duas escritas): o detalhado tem MAIS que days
+  store.daysByKind['review|2026-08-01'].inputTokens += 999;
+  store.daysByKind['review|2026-08-01'].costUsd += 5;
+
+  const sum = usage.usageSummary({ usage: store });
+  const dia = sum.stackedSeries.byKind.find(d => d.day === '2026-08-01');
+  const resto = dia.items.find(i => i.name === usage.RESTO);
+  for (const campo of ['sessions', 'inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheCreationTokens', 'costUsd']) {
+    assert.ok(resto[campo] >= 0, `${campo} nunca fica negativo`);
+    assert.equal(resto[campo], 0, `${campo} clampa em zero (o detalhado prevalece)`);
+  }
+});
+
+test('reconciliação: epsilon do custo zera só poeira de float (<0.001), nunca custo real', () => {
+  const mk = cost => {
+    const store = usage.defaultUsage();
+    const u = usage.extractUsage({ usage: { input_tokens: 10 }, total_cost_usd: 1 }, 'x');
+    usage.applyUsage(store, '2026-08-01', 'review', 'a', 'x', u);
+    // days fica com custo 1 + cost a mais que o detalhado
+    store.days['2026-08-01'].costUsd += cost;
+    return usage.usageSummary({ usage: store }).stackedSeries.byKind
+      .find(d => d.day === '2026-08-01').items.find(i => i.name === usage.RESTO).costUsd;
+  };
+  assert.equal(mk(0.0005), 0, 'meio décimo de centavo é poeira de float, zera');
+  assert.ok(Math.abs(mk(0.005) - 0.005) < 1e-9, 'meio centavo é custo real, sobrevive (mutação do epsilon pra 0.01 quebraria aqui)');
+});
+
+test('recordUsage: marca farol_cancelled vira status cancelada no log (não ok, não erro)', () => {
+  const engine = { usage: usage.defaultUsage(), usageSessions: usage.defaultSessions(), pushState() {}, log() {} };
+  usage.recordUsage(engine, 'a1', 'trabalho', { usage: { input_tokens: 5, output_tokens: 1 }, total_cost_usd: 0.01, farol_cancelled: true }, 'claude-opus-4-8', '', 'x/y#1');
+  assert.equal(engine.usageSessions.sessions[0].status, 'cancelada');
+  usage.recordUsage(engine, 'a2', 'trabalho', { usage: { input_tokens: 5 }, total_cost_usd: 0, is_error: true, farol_cancelled: true }, 'claude-opus-4-8', '', 'x/y#2');
+  assert.equal(engine.usageSessions.sessions[1].status, 'cancelada', 'cancelamento tem precedência sobre is_error');
+});
+
+test('usageSummary.budgets: espelha profileBudgetStatus ao vivo e NUNCA vaza a chave', () => {
+  const store = usage.defaultUsage();
+  const u = usage.extractUsage({ usage: { input_tokens: 1 }, total_cost_usd: 5 }, 'x');
+  usage.applyUsage(store, usage.localDay(), 'review', 'a', 'x', u, 'p1');
+  const profiles = [
+    { id: 'p1', label: 'Chave', kind: 'apikey', apiKey: 'sk-SEGREDO', baseUrl: 'http://x', budgetDaily: 3, budgetTotal: 100, budgetSince: '2026-08-01' },
+    { id: 'p2', label: 'Assinatura', dir: 'C:\\x' },
+  ];
+  const sum = usage.usageSummary({ usage: store, config: { claudeProfiles: profiles } });
+  assert.equal(sum.budgets.length, 2);
+  const b1 = sum.budgets[0];
+  assert.equal(b1.kind, 'apikey');
+  assert.equal(b1.blocked, true, 'mesmo veredito do gate real (5 >= teto diário 3)');
+  assert.equal(b1.reason, 'diario');
+  assert.equal(Math.round(b1.today * 100) / 100, 5);
+  assert.equal(b1.budgetDaily, 3);
+  assert.equal('apiKey' in b1, false, 'a chave nunca trafega');
+  assert.equal('baseUrl' in b1, false);
+  const b2 = sum.budgets[1];
+  assert.equal(b2.kind, 'assinatura');
+  assert.equal(b2.blocked, false);
+  assert.equal(b2.budgetDaily, null, 'perfil de assinatura não tem teto');
+  assert.equal(JSON.stringify(sum).includes('sk-SEGREDO'), false, 'nenhum campo do payload carrega a chave');
+});
+
+test('usageSummary.sessionsSince: at da sessão mais antiga do log (null sem log)', () => {
+  const engine = { usage: usage.defaultUsage(), usageSessions: usage.defaultSessions(), config: {}, pushState() {}, log() {} };
+  assert.equal(usage.usageSummary(engine).sessionsSince, null);
+  usage.recordUsage(engine, 'a1', 'trabalho', { usage: { input_tokens: 1, output_tokens: 1 }, total_cost_usd: 0 }, 'claude-sonnet-4-5', '', 'ref1');
+  usage.recordUsage(engine, 'a2', 'trabalho', { usage: { input_tokens: 1, output_tokens: 1 }, total_cost_usd: 0 }, 'claude-sonnet-4-5', '', 'ref2');
+  const s = usage.usageSummary(engine);
+  assert.equal(s.sessionsSince, engine.usageSessions.sessions[0].at, 'a mais antiga, não a mais nova');
+});
+
+test('recordUsage: sessão com custo e ZERO tokens registra (custo real não some do teto)', () => {
+  const engine = { usage: usage.defaultUsage(), usageSessions: usage.defaultSessions(), pushState() {}, log() {} };
+  usage.recordUsage(engine, 'a1', 'trabalho', { total_cost_usd: 2.5 }, 'claude-opus-4-8', 'p1', 'x/y#1');
+  assert.equal(engine.usage.totals.sessions, 1);
+  assert.equal(Math.round(engine.usage.totals.costUsd * 100) / 100, 2.5);
+  assert.equal(engine.usageSessions.sessions.length, 1);
+  assert.equal(engine.usage.byProfileDay[`p1|${usage.localDay()}`].costUsd, 2.5, 'o teto vê esse dinheiro');
+});
+
+test('recordUsage: sessão com tudo zerado (stub) segue ignorada', () => {
+  const engine = { usage: usage.defaultUsage(), usageSessions: usage.defaultSessions(), pushState() {}, log() {} };
+  usage.recordUsage(engine, 'a1', 'trabalho', { usage: {}, total_cost_usd: 0 }, 'claude-opus-4-8', '', 'x');
+  assert.equal(engine.usage.totals.sessions, 0);
+  assert.equal(engine.usageSessions.sessions.length, 0);
 });
 
 test('recordUsage grava uma linha no log de sessoes, com ref e status', () => {
