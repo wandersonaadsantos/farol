@@ -2460,6 +2460,58 @@ function drawUsageMatrix(el, captionEl, u, metric, win) {
   el.innerHTML = `<div class="usage-matrix">${head}${rows}${foot}</div>`;
 }
 
+// um cartao por perfil de Claude configurado (Sistema -> Plano e chaves). Perfil de
+// assinatura (kind !== 'apikey') nao tem teto, so uma nota informativa; perfil de chave
+// mostra os 2 medidores (diario/total), gasto x teto.
+//
+// Investigacao do shape real (server.js allClaudeAuthInfo/profileBudgetStatus, lib/engine/
+// usage.js): STATE.doctor.claudeAuth traz id/label/apiKeyMode/ready/blocked/today/
+// sinceCutoff por perfil, mas NAO traz budgetDaily/budgetTotal (profileBudgetStatus so
+// devolve blocked/today/sinceCutoff, nunca ecoa o teto de volta). Quem tem o teto
+// configurado e budgetDaily/budgetTotal/budgetSince e o proprio STATE.config.claudeProfiles
+// (ver a tela Sistema, mesma fonte que a lista de perfis la usa). Por isso a lista base
+// aqui e STATE.config.claudeProfiles (perfil "configurado" de verdade, permite o vazio
+// disparar corretamente), cruzando por id com STATE.doctor.claudeAuth so pra pegar
+// gasto/bloqueio calculados pelo doctor.
+function drawUsageBudget(el, u) {
+  const perfis = (STATE.config && STATE.config.claudeProfiles) || [];
+  if (!perfis.length) { el.innerHTML = '<div class="usage-empty">Nenhum perfil de Claude configurado ainda.</div>'; return; }
+  const claudeAuth = (STATE.doctor && STATE.doctor.claudeAuth) || [];
+  const meter = (label, spent, cap) => {
+    const pct = cap > 0 ? Math.min(100, (spent / cap) * 100) : 0;
+    const over = cap > 0 && spent > cap;
+    return `<div class="usage-meter">
+      <div class="usage-meter-row"><span>${esc(label)}</span><span>${esc(fmtMoney(spent))} / ${esc(fmtMoney(cap))}</span></div>
+      <span class="usage-meter-track"><span class="usage-meter-fill${over ? ' over' : ''}" style="width:${Math.max(2, pct).toFixed(0)}%"></span></span>
+    </div>`;
+  };
+  el.innerHTML = perfis.map(p => {
+    const isApiKey = p.kind === 'apikey';
+    const info = claudeAuth.find(x => x.id === p.id) || {};
+    const today = info.today || 0, sinceCutoff = info.sinceCutoff || 0;
+    const blocked = isApiKey && !!info.blocked;
+    const statusCls = blocked ? 'bad' : 'ok';
+    const statusTxt = !isApiKey ? 'coberto pela assinatura' : (blocked ? 'orçamento estourado' : 'no orçamento');
+    const meters = isApiKey
+      ? [p.budgetDaily != null ? meter('Teto diário', today, p.budgetDaily) : '', p.budgetTotal != null ? meter('Teto total', sinceCutoff, p.budgetTotal) : ''].join('')
+      : '';
+    const nota = !isApiKey
+      ? '<span class="usage-budget-note">Sem teto configurado: o gasto em tokens não vira fatura, só entra no registro.</span>'
+      : (p.budgetDaily == null && p.budgetTotal == null
+        ? '<span class="usage-budget-note">Nenhum teto definido pra este perfil (Sistema → Plano e chaves).</span>'
+        : (blocked ? '<span class="usage-budget-note">Automação de gasto pausada pra este perfil (revisão automática, retentativa e scan de pushback).</span>' : ''));
+    return `<div class="usage-budget-card">
+      <div class="usage-budget-head">
+        <span class="usage-budget-name">${esc(p.label || p.id)}</span>
+        <span class="usage-budget-kind">${isApiKey ? 'Chave de API' : 'Login por assinatura'}</span>
+        <span class="usage-budget-status ${statusCls}">${esc(statusTxt)}</span>
+      </div>
+      ${meters}
+      ${nota}
+    </div>`;
+  }).join('');
+}
+
 // quebra: barras horizontais por tipo/conta/modelo (HTML), métrica escolhida
 function drawUsageBreakdown(el, items, metric) {
   const vals = (items || []).map(x => ({ label: x.label || '', v: usageMetricVal(x, metric), s: x.sessions }))
@@ -2478,6 +2530,12 @@ function renderUsage() {
     if (!u || !u.totals || !u.totals.sessions) kpisEl.innerHTML = '';
     else drawUsageKpis(kpisEl, u, usageState.window, usageState.metric);
   }
+  // orçamento por perfil depende só do perfil configurado (Sistema → Plano e chaves) e do
+  // gasto acumulado, nada a ver com existir sessão registrada no histórico. Por isso fica
+  // ANTES do corte "sem sessão ainda" logo abaixo: perfil recém-criado com teto e gasto
+  // zerado já deve aparecer aqui.
+  const budgetEl = $('#usageBudget');
+  if (budgetEl) drawUsageBudget(budgetEl, u);
   // === resto da funcao atual continua aqui, intacto por enquanto (Tasks 11-14 substituem) ===
   const statsEl = $('#usageStats'), tl = $('#usageTimeline'), bd = $('#usageBreakdown');
   const dimBtn = $('#usageDimProfile'), noteEl = $('#usageBudgetNote');
