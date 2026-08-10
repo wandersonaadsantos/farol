@@ -72,6 +72,44 @@ test('applyUsage: profileId opcional cria o bucket byProfileDay com chave compos
   assert.equal(store.byProfileDay['perfil-a|2026-08-01'].costUsd, 0.01);
 });
 
+test('applyUsage: buckets diarios cruzados (kind/model/account/kindxmodel)', () => {
+  const store = usage.defaultUsage();
+  const u1 = usage.extractUsage({ usage: { input_tokens: 100, output_tokens: 20 }, total_cost_usd: 0.02 }, 'claude-opus-4-8');
+  const u2 = usage.extractUsage({ usage: { input_tokens: 50, output_tokens: 10 }, total_cost_usd: 0.01 }, 'claude-sonnet-4-5');
+  usage.applyUsage(store, '2026-08-01', 'review', 'trabalho', 'claude-opus-4-8', u1);
+  usage.applyUsage(store, '2026-08-01', 'self', 'pessoal', 'claude-sonnet-4-5', u2);
+
+  assert.equal(store.daysByKind['review|2026-08-01'].inputTokens, 100);
+  assert.equal(store.daysByKind['self|2026-08-01'].inputTokens, 50);
+  assert.equal(store.daysByModel['Opus 4.8|2026-08-01'].inputTokens, 100);
+  assert.equal(store.daysByModel['Sonnet 4.5|2026-08-01'].inputTokens, 50);
+  assert.equal(store.daysByAccount['trabalho|2026-08-01'].inputTokens, 100);
+  assert.equal(store.daysByAccount['pessoal|2026-08-01'].inputTokens, 50);
+  assert.equal(store.daysByKindModel['review|Opus 4.8|2026-08-01'].inputTokens, 100);
+  assert.equal(store.daysByKindModel['self|Sonnet 4.5|2026-08-01'].inputTokens, 50);
+});
+
+test('applyUsage: poda dos buckets cruzados acompanha a poda de days (MAX_DAYS)', () => {
+  const store = usage.defaultUsage();
+  const u = usage.extractUsage({ usage: { input_tokens: 1, output_tokens: 1 }, total_cost_usd: 0 }, 'claude-opus-4-8');
+  // 125 dias > MAX_DAYS (120): os 5 primeiros devem sumir dos 4 buckets novos tambem
+  for (let i = 0; i < 125; i++) {
+    const d = new Date(2026, 0, 1 + i);
+    const day = d.toISOString().slice(0, 10);
+    usage.applyUsage(store, day, 'review', 'trabalho', 'claude-opus-4-8', u);
+  }
+  const days = Object.keys(store.days).sort();
+  assert.equal(days.length, 120);
+  const primeiroPodado = '2026-01-01';
+  assert.ok(!store.days[primeiroPodado]);
+  assert.ok(!store.daysByKind[`review|${primeiroPodado}`], 'daysByKind podado junto');
+  assert.ok(!store.daysByModel[`Opus 4.8|${primeiroPodado}`], 'daysByModel podado junto');
+  assert.ok(!store.daysByAccount[`trabalho|${primeiroPodado}`], 'daysByAccount podado junto');
+  assert.ok(!store.daysByKindModel[`review|Opus 4.8|${primeiroPodado}`], 'daysByKindModel podado junto');
+  const ultimoDia = days[days.length - 1];
+  assert.ok(store.daysByKind[`review|${ultimoDia}`], 'dia recente permanece');
+});
+
 test('applyUsage: sem profileId (perfil dir/legado) não cria entrada em byProfileDay', () => {
   const store = usage.defaultUsage();
   const u = usage.extractUsage({ usage: { input_tokens: 10, output_tokens: 5 }, total_cost_usd: 0.01 }, 'claude-opus-4-8');
