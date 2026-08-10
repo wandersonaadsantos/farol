@@ -2553,9 +2553,14 @@ function renderUsage() {
   if (!u || !u.totals || !u.totals.sessions) {
     kpisEl.innerHTML = '';
     tl.innerHTML = '<div class="usage-empty">Nenhuma sessão registrada ainda. Quando o Farol rodar uma revisão, autoanálise, pushback, ferramenta ou chat, o consumo aparece aqui.</div>';
-    legend.innerHTML = ''; matrix.innerHTML = ''; matrixCap.textContent = '';
+    legend.innerHTML = '';
+    // matriz e sessões já têm seu próprio estado vazio (mensagem amigável), tratam
+    // u/recentSessions/modelNames ausentes sem lançar: deixa cada uma explicar o
+    // próprio vazio, em vez de zerar o innerHTML na marra (achado de review: só a
+    // timeline explicava, matriz e sessões ficavam em branco sem dizer por quê).
+    drawUsageMatrix(matrix, matrixCap, u || {}, usageState.metric, usageState.window);
     drawUsageBudget(budget, u || {});
-    sessions.innerHTML = '';
+    drawUsageSessions(sessions, u || {});
     return;
   }
   drawUsageKpis(kpisEl, u, usageState.window, usageState.metric);
