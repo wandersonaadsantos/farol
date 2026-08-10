@@ -234,3 +234,35 @@ test('usageSummary devolve totais, hoje, 7 dias e quebras ordenadas', () => {
   assert.equal(sum.series[sum.series.length - 1].day, today, 'série termina hoje');
   assert.equal('recentDays' in sum, false, 'recentDays foi substituído por series');
 });
+
+test('recordUsage grava uma linha no log de sessoes, com ref e status', () => {
+  const engine = { usage: usage.defaultUsage(), usageSessions: usage.defaultSessions(), pushState() {}, log() {} };
+  const resultEvent = { usage: { input_tokens: 10, output_tokens: 5 }, total_cost_usd: 0.001 };
+  usage.recordUsage(engine, 'a1', 'trabalho', resultEvent, 'claude-opus-4-8', '', 'biudtech/farol#88');
+  assert.equal(engine.usageSessions.sessions.length, 1);
+  const s = engine.usageSessions.sessions[0];
+  assert.equal(s.kind, 'review');
+  assert.equal(s.ref, 'biudtech/farol#88');
+  assert.equal(s.account, 'trabalho');
+  assert.equal(s.model, 'Opus 4.8');
+  assert.equal(s.inputTokens, 10);
+  assert.equal(s.status, 'ok');
+  assert.ok(s.at > 0);
+});
+
+test('recordUsage marca status erro quando resultEvent.is_error e nao poda o log', () => {
+  const engine = { usage: usage.defaultUsage(), usageSessions: usage.defaultSessions(), pushState() {}, log() {} };
+  const okEvent = { usage: { input_tokens: 1, output_tokens: 1 }, total_cost_usd: 0 };
+  for (let i = 0; i < 5; i++) usage.recordUsage(engine, 's' + i, 'trabalho', okEvent, 'claude-sonnet-4-5', '', 'ref' + i);
+  const errEvent = { usage: { input_tokens: 2, output_tokens: 0 }, total_cost_usd: 0, is_error: true };
+  usage.recordUsage(engine, 'a9', 'trabalho', errEvent, 'claude-sonnet-4-5', '', 'biudtech/farol#90');
+  assert.equal(engine.usageSessions.sessions.length, 6, 'log nao tem poda, todas as 6 sessoes ficam');
+  assert.equal(engine.usageSessions.sessions[5].status, 'erro');
+});
+
+test('recordUsage sem ref grava null (nunca quebra)', () => {
+  const engine = { usage: usage.defaultUsage(), usageSessions: usage.defaultSessions(), pushState() {}, log() {} };
+  const ev = { usage: { input_tokens: 1, output_tokens: 1 }, total_cost_usd: 0 };
+  usage.recordUsage(engine, 'f1', 'trabalho', ev, 'claude-haiku-4-5', '');
+  assert.equal(engine.usageSessions.sessions[0].ref, null);
+});

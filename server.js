@@ -206,6 +206,10 @@ class Engine extends EventEmitter {
     // registro de consumo de tokens (agregado por dia/tipo/conta/modelo); merge com o
     // default garante que arquivos antigos ganhem os eixos novos sem quebrar.
     this.usage = { ...usageMod.defaultUsage(), ...readJson(usageMod.USAGE_FILE, {}, warn) };
+    // log individual de sessoes, permanente (sem poda, decisao consciente: ver
+    // docs/superpowers/specs/2026-08-10-consumo-tela-redesign-design.md). Separado
+    // do usage.json pra gravacao do agregado nao reserializar um array que so cresce.
+    this.usageSessions = { ...usageMod.defaultSessions(), ...readJson(usageMod.SESSIONS_FILE, {}, warn) };
     this.seen = new Set();
     this.reviewedKeys = new Set(); // PRs abertos que eu ja revisei (gh --reviewed-by)
     this.reReviewedKeys = new Set(); // re-requests que ja voltaram pra fila (evita re-surgir todo ciclo)
@@ -1182,7 +1186,7 @@ class Engine extends EventEmitter {
   }
 
   // Consumo de tokens: colaborador lib/engine/usage.js (registro permanente, sem custo).
-  recordUsage(id, account, resultEvent, model, profileId) { return usageMod.recordUsage(this, id, account, resultEvent, model, profileId); }
+  recordUsage(id, account, resultEvent, model, profileId, ref) { return usageMod.recordUsage(this, id, account, resultEvent, model, profileId, ref); }
   usageSummary() { return usageMod.usageSummary(this); }
   profileBudgetStatus(profile) { return usageMod.profileBudgetStatus(profile, this.usage); }
 
