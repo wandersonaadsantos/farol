@@ -266,3 +266,41 @@ test('recordUsage sem ref grava null (nunca quebra)', () => {
   usage.recordUsage(engine, 'f1', 'trabalho', ev, 'claude-haiku-4-5', '');
   assert.equal(engine.usageSessions.sessions[0].ref, null);
 });
+
+test('usageSummary expoe stackedSeries, matrixSeries e recentSessions', () => {
+  const engine = { usage: usage.defaultUsage(), usageSessions: usage.defaultSessions(), config: {}, pushState() {}, log() {} };
+  const today = usage.localDay();
+  const u1 = usage.extractUsage({ usage: { input_tokens: 100, output_tokens: 20 }, total_cost_usd: 0.02 }, 'claude-opus-4-8');
+  usage.applyUsage(engine.usage, today, 'review', 'trabalho', 'claude-opus-4-8', u1);
+  usage.recordUsage(engine, 'a1', 'trabalho', { usage: { input_tokens: 100, output_tokens: 20 }, total_cost_usd: 0.02 }, 'claude-opus-4-8', '', 'biudtech/farol#88');
+
+  const s = usage.usageSummary(engine);
+  assert.deepEqual(s.kindNames, ['review', 'self', 'chat', 'tool', 'pushback', 'outro']);
+  assert.ok(s.modelNames.includes('Opus 4.8'));
+  assert.ok(s.accountNames.includes('trabalho'));
+
+  const dia = s.stackedSeries.byKind.find(d => d.day === today);
+  assert.ok(dia, 'stackedSeries.byKind tem o dia gravado');
+  const itemReview = dia.items.find(i => i.name === 'review');
+  assert.equal(itemReview.label, 'Revisão');
+  assert.equal(itemReview.inputTokens, 200, 'soma applyUsage + recordUsage (2 chamadas de 100 cada)');
+  const itemSelf = dia.items.find(i => i.name === 'self');
+  assert.equal(itemSelf.inputTokens, 0, 'dimensao sem sessao no dia vem com bucket zerado, nao ausente');
+
+  const diaMatrix = s.matrixSeries.find(d => d.day === today);
+  assert.equal(diaMatrix.cells.review['Opus 4.8'].inputTokens, 200);
+
+  assert.equal(s.recentSessions.length, 1);
+  assert.equal(s.recentSessions[0].ref, 'biudtech/farol#88');
+});
+
+test('usageSummary.recentSessions corta em 100 e mostra a mais nova primeiro', () => {
+  const engine = { usage: usage.defaultUsage(), usageSessions: usage.defaultSessions(), config: {}, pushState() {}, log() {} };
+  for (let i = 0; i < 105; i++) {
+    usage.recordUsage(engine, 'a' + i, 'trabalho', { usage: { input_tokens: 1, output_tokens: 1 }, total_cost_usd: 0 }, 'claude-sonnet-4-5', '', 'ref' + i);
+  }
+  const s = usage.usageSummary(engine);
+  assert.equal(s.recentSessions.length, 100);
+  assert.equal(s.recentSessions[0].ref, 'ref104', 'mais nova primeiro');
+  assert.equal(engine.usageSessions.sessions.length, 105, 'o arquivo em disco nao foi cortado, so o que trafega pra UI');
+});
