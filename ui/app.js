@@ -2478,8 +2478,14 @@ function drawUsageBudget(el, u) {
   if (!perfis.length) { el.innerHTML = '<div class="usage-empty">Nenhum perfil de Claude configurado ainda.</div>'; return; }
   const claudeAuth = (STATE.doctor && STATE.doctor.claudeAuth) || [];
   const meter = (label, spent, cap) => {
-    const pct = cap > 0 ? Math.min(100, (spent / cap) * 100) : 0;
-    const over = cap > 0 && spent > cap;
+    // cap == null: teto NAO configurado (meter() nem chega a ser chamado nesse caso, ver
+    // abaixo). cap === 0 e um teto valido (lib/parse.js aceita 0), e qualquer gasto acima
+    // de zero ja estoura ele, por isso cap > 0 (que tratava 0 como "sem teto") virava um
+    // sliver vazio e nao vermelho, contradizendo o selo "estourado" do cartao (achado de
+    // review). >= no lugar de > pra bater com o mesmo criterio de profileBudgetStatus
+    // (lib/engine/usage.js), que bloqueia em spent >= cap, nao só spent > cap.
+    const pct = cap != null ? Math.min(100, cap > 0 ? (spent / cap) * 100 : (spent > 0 ? 100 : 0)) : 0;
+    const over = cap != null && spent >= cap;
     return `<div class="usage-meter">
       <div class="usage-meter-row"><span>${esc(label)}</span><span>${esc(fmtMoney(spent))} / ${esc(fmtMoney(cap))}</span></div>
       <span class="usage-meter-track"><span class="usage-meter-fill${over ? ' over' : ''}" style="width:${Math.max(2, pct).toFixed(0)}%"></span></span>
