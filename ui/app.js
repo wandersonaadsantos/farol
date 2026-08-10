@@ -2315,24 +2315,34 @@ $('#myPRsHiddenFoot').addEventListener('click', (e) => {
 /* ---------- render: versão e atualização ---------- */
 /* ---------- Consumo de tokens (tela própria, charts em SVG puro) ---------- */
 const usageState = { metric: 'total', window: 30, dim: 'kind' };
+// mesma janela de retenção de lib/engine/usage.js (MAX_DAYS): não é exposta ao
+// front, mas o valor é replicado aqui só pra saber se um período anterior cabe
+// inteiro na retenção antes de comparar (achado da revisão final: pra 90 dias,
+// o período anterior pede dias 180-91 atrás, mas só os últimos 120 existem, ou
+// seja no máximo 30 desses 90 dias têm dado, o delta comparava contra uma
+// janela estruturalmente incompleta e inflava o crescimento em ~3x).
+const USAGE_RETENTION_DAYS = 120;
 
 function fmtMoney(v) { return 'US$ ' + (Number(v) || 0).toFixed(2); }
 function fmtUsageMetric(v, metric) { return metric === 'custo' ? fmtMoney(v) : fmtCompact(v); }
 
 // 4 cartoes: Custo/Tokens/Sessoes do periodo escolhido + Hoje, cada um com
 // sparkline dos ultimos `win` dias (Hoje usa fixo 14 dias, igual ao mock) e chip
-// de delta vs o periodo anterior de mesmo tamanho.
-function drawUsageKpis(el, u, win, metric) {
+// de delta vs o periodo anterior de mesmo tamanho (só quando os dois períodos
+// cabem inteiros nos MAX_DAYS de retenção, senão o chip fica sem base justa
+// pra comparar e é melhor não mostrar nada do que um percentual inflado).
+function drawUsageKpis(el, u, win) {
   const map = {}; for (const d of (u.series || [])) map[d.day] = d;
   const janela = usageDayKeysBack(win).map(day => map[day]);
   const anterior = usageDayKeysBack(win * 2).slice(0, win).map(day => map[day]);
+  const comparavel = win * 2 <= USAGE_RETENTION_DAYS;
   const soma = (list, fn) => list.reduce((a, d) => a + fn(d || {}), 0);
   const curCost = soma(janela, d => d.costUsd || 0);
   const curTok = soma(janela, d => (d.inputTokens || 0) + (d.outputTokens || 0));
   const curSess = soma(janela, d => d.sessions || 0);
-  const antCost = soma(anterior, d => d.costUsd || 0);
-  const antTok = soma(anterior, d => (d.inputTokens || 0) + (d.outputTokens || 0));
-  const antSess = soma(anterior, d => d.sessions || 0);
+  const antCost = comparavel ? soma(anterior, d => d.costUsd || 0) : 0;
+  const antTok = comparavel ? soma(anterior, d => (d.inputTokens || 0) + (d.outputTokens || 0)) : 0;
+  const antSess = comparavel ? soma(anterior, d => d.sessions || 0) : 0;
   const hoje = map[usageDayKeysBack(1)[0]] || {};
   const ontemKey = usageDayKeysBack(2)[0];
   const ontem = map[ontemKey] || {};
@@ -2410,9 +2420,14 @@ function drawUsageTimeline(el, legendEl, u, metric, win, dim) {
   const layerPaths = geo.layers.map(l => `<path d="${l.d}" fill="${l.color}" opacity="0.92"></path>`).join('');
   const peakX = geo.xs[geo.peakIndex];
   const total = `Total ${fmtUsageMetric(totalPeriodo, metric)} em ${days.length} dias, pico de ${fmtUsageMetric(geo.dayTotals[geo.peakIndex], metric)} em ${days[geo.peakIndex]}`;
+  // marca visivel do pico (o texto ja ia so pro aria-label, sem nada na tela pra
+  // apontar QUAL barra e o pico): mesma formula de y de usageStackLayers/yOf
+  // (ui/pure.js), com maxV/dayTotals ja calculados ali, so reaplicada aqui.
+  const peakY = geo.padT + geo.ch * (1 - (geo.dayTotals[geo.peakIndex] || 0) / geo.maxV);
+  const peakMark = `<circle cx="${peakX}" cy="${peakY.toFixed(1)}" r="3" class="upeak-dot"></circle>`;
 
   el.innerHTML = `<svg role="img" aria-label="${esc(total)}" viewBox="0 0 ${W} ${H}" class="usvg" id="usvgTimeline">
-      ${grid}${layerPaths}${xlab}
+      ${grid}${layerPaths}${peakMark}${xlab}
       ${usageHoverIdx != null ? `<line x1="${geo.xs[usageHoverIdx]}" y1="${geo.padT}" x2="${geo.xs[usageHoverIdx]}" y2="${geo.padT + geo.ch}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" opacity="0.7"></line>` : ''}
       <rect x="${geo.padL}" y="0" width="${geo.cw}" height="${H}" fill="transparent" style="cursor:crosshair" data-usage-overlay="1"></rect>
     </svg>
@@ -2449,14 +2464,20 @@ function drawUsageMatrix(el, captionEl, u, metric, win) {
   if (!m.grand) { el.innerHTML = '<div class="usage-empty">Sem consumo nesta janela.</div>'; captionEl.textContent = ''; return; }
   captionEl.textContent = metric === 'custo' ? 'custo estimado no período' : 'tokens no período';
   const kindLabel = k => USAGE_KIND_LABEL[k] || k;
-  const cols = `96px repeat(${modelNames.length}, minmax(0,1fr)) 64px`;
-  const head = `<div class="usage-matrix-row head" style="grid-template-columns:${cols}"><span></span>${modelNames.map(mm => `<span class="usage-matrix-hcell">${esc(mm)}</span>`).join('')}<span class="usage-matrix-hcell">Total</span></div>`;
+  // modelo aposentado nunca some de u.modelNames (byModel, no backend, não tem poda:
+  // é histórico permanente), então sem esse filtro a coluna dele ficava pra sempre na
+  // matriz, zerada. A linha do tempo já faz o equivalente na legenda (totalPorNome[i]
+  // > 0); aqui é a mesma ideia aplicada às colunas (achado da revisão final).
+  const idxAtivos = modelNames.map((_, j) => j).filter(j => m.colTotals[j] > 0);
+  const modelosAtivos = idxAtivos.map(j => modelNames[j]);
+  const cols = `96px repeat(${modelosAtivos.length}, minmax(0,1fr)) 64px`;
+  const head = `<div class="usage-matrix-row head" style="grid-template-columns:${cols}"><span></span>${modelosAtivos.map(mm => `<span class="usage-matrix-hcell">${esc(mm)}</span>`).join('')}<span class="usage-matrix-hcell">Total</span></div>`;
   const rows = m.rows.filter(r => r.total > 0).map(r => `<div class="usage-matrix-row" style="grid-template-columns:${cols}">
       <span class="usage-matrix-label"><span class="dot" style="background:${USAGE_KIND_COLOR[r.kind] || 'var(--faint)'};width:8px;height:8px;border-radius:2.5px;display:inline-block"></span>${esc(kindLabel(r.kind))}</span>
-      ${r.cells.map(c => `<span class="usage-matrix-cell" style="background:color-mix(in srgb, var(--accent) ${((0.04 + 0.24 * c.intensity) * 100).toFixed(0)}%, transparent)" title="${esc(kindLabel(r.kind))} × ${esc(c.model)}: ${esc(fmtUsageMetric(c.value, metric))}">${esc(fmtUsageMetric(c.value, metric))}</span>`).join('')}
+      ${idxAtivos.map(j => { const c = r.cells[j]; return `<span class="usage-matrix-cell" style="background:color-mix(in srgb, var(--accent) ${((0.04 + 0.24 * c.intensity) * 100).toFixed(0)}%, transparent)" title="${esc(kindLabel(r.kind))} × ${esc(c.model)}: ${esc(fmtUsageMetric(c.value, metric))}">${esc(fmtUsageMetric(c.value, metric))}</span>`; }).join('')}
       <span class="usage-matrix-total">${esc(fmtUsageMetric(r.total, metric))}</span>
     </div>`).join('');
-  const foot = `<div class="usage-matrix-row foot" style="grid-template-columns:${cols}"><span>Total</span>${m.colTotals.map(c => `<span class="usage-matrix-total">${esc(fmtUsageMetric(c, metric))}</span>`).join('')}<span class="usage-matrix-grand">${esc(fmtUsageMetric(m.grand, metric))}</span></div>`;
+  const foot = `<div class="usage-matrix-row foot" style="grid-template-columns:${cols}"><span>Total</span>${idxAtivos.map(j => `<span class="usage-matrix-total">${esc(fmtUsageMetric(m.colTotals[j], metric))}</span>`).join('')}<span class="usage-matrix-grand">${esc(fmtUsageMetric(m.grand, metric))}</span></div>`;
   el.innerHTML = `<div class="usage-matrix">${head}${rows}${foot}</div>`;
 }
 
@@ -2522,7 +2543,10 @@ function drawUsageBudget(el, u) {
 // em disco (usage-sessions.json); a UI so mostra as mais novas, com rolagem.
 function drawUsageSessions(el, u) {
   const lista = u.recentSessions || [];
-  if (!lista.length) { el.innerHTML = '<div class="usage-empty">Nenhuma sessão registrada ainda. Quando o Farol rodar uma revisão, autoanálise, pushback, ferramenta ou chat, o consumo aparece aqui.</div>'; return; }
+  // mensagem curta de proposito: a explicacao completa (o que gera consumo) ja
+  // aparece na linha do tempo, logo acima nesta mesma aba; repetir a frase
+  // inteira aqui so duplicava as mesmas 25 palavras duas vezes na tela.
+  if (!lista.length) { el.innerHTML = '<div class="usage-empty">Nenhuma sessão ainda.</div>'; return; }
   const head = `<div class="usage-sessions-row head">
       <span class="usage-sessions-hcell">Quando</span><span class="usage-sessions-hcell">Tipo</span>
       <span class="usage-sessions-hcell">PR / sessão</span><span class="usage-sessions-hcell">Modelo</span>
@@ -2549,25 +2573,21 @@ function renderUsage() {
   const kpisEl = $('#usageKpis'), tl = $('#usageTimeline'), legend = $('#usageLegend');
   const matrix = $('#usageMatrix'), matrixCap = $('#usageMatrixCaption');
   const budget = $('#usageBudget'), sessions = $('#usageSessions');
-  if (!kpisEl || !tl || !matrix || !budget || !sessions) return;
-  if (!u || !u.totals || !u.totals.sessions) {
-    kpisEl.innerHTML = '';
-    tl.innerHTML = '<div class="usage-empty">Nenhuma sessão registrada ainda. Quando o Farol rodar uma revisão, autoanálise, pushback, ferramenta ou chat, o consumo aparece aqui.</div>';
-    legend.innerHTML = '';
-    // matriz e sessões já têm seu próprio estado vazio (mensagem amigável), tratam
-    // u/recentSessions/modelNames ausentes sem lançar: deixa cada uma explicar o
-    // próprio vazio, em vez de zerar o innerHTML na marra (achado de review: só a
-    // timeline explicava, matriz e sessões ficavam em branco sem dizer por quê).
-    drawUsageMatrix(matrix, matrixCap, u || {}, usageState.metric, usageState.window);
-    drawUsageBudget(budget, u || {});
-    drawUsageSessions(sessions, u || {});
-    return;
-  }
-  drawUsageKpis(kpisEl, u, usageState.window, usageState.metric);
-  drawUsageTimeline(tl, legend, u, usageState.metric, usageState.window, usageState.dim);
-  drawUsageMatrix(matrix, matrixCap, u, usageState.metric, usageState.window);
-  drawUsageBudget(budget, u);
-  drawUsageSessions(sessions, u);
+  if (!kpisEl || !tl || !legend || !matrix || !matrixCap || !budget || !sessions) return;
+  // cada painel decide a PROPRIA vaziez, lendo a PROPRIA fonte: u.totals vem de
+  // usage.json, mas a matriz/sessões leem usage-sessions.json e daysByKindModel
+  // (arquivos diferentes). Gatear a aba inteira num campo agregado só deixava a
+  // tela se contradizer quando os dois arquivos discordam entre si (achado da
+  // revisão final: timeline dizia "nenhuma sessão" com a matriz e a tabela de
+  // sessões cheias logo abaixo). drawUsageTimeline/Matrix/Budget/Sessions já
+  // sabem ficar vazias sozinhas (Task 14); só drawUsageKpis não tem essa
+  // defesa, então o guard fica só pra ela.
+  if (!u || !u.totals || !u.totals.sessions) kpisEl.innerHTML = '';
+  else drawUsageKpis(kpisEl, u, usageState.window);
+  drawUsageTimeline(tl, legend, u || {}, usageState.metric, usageState.window, usageState.dim);
+  drawUsageMatrix(matrix, matrixCap, u || {}, usageState.metric, usageState.window);
+  drawUsageBudget(budget, u || {});
+  drawUsageSessions(sessions, u || {});
 }
 
 function wireUsageControls() {

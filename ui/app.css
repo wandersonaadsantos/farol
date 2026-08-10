@@ -966,6 +966,7 @@ body.electron .chat-head { padding-right: 150px; }
 
 .usvg { width: 100%; height: auto; display: block; }
 .ugrid { stroke: var(--border); stroke-width: 1; opacity: .6; }
+.upeak-dot { fill: var(--text); stroke: var(--surface); stroke-width: 1.5; }
 .uaxis { fill: var(--faint); font-size: 10px; }
 .uaxis-x { text-anchor: middle; }
 .uaxis-y { text-anchor: end; }
@@ -1071,13 +1072,6 @@ body.electron .chat-head { padding-right: 150px; }
   .member-head .names { min-width: 0; flex: 1 1 100%; order: -1; }
   .dom-matrix { grid-template-columns: 1fr 1fr; }
 
-  /* CONSUMO: a quebra era um grid de 3 colunas fixas; a barra sobrava ~80px e virava
-     um traço. Vira duas linhas: rótulo em cima, barra e valor embaixo. */
-  .ubar-row { grid-template-columns: 1fr auto; grid-template-areas: "rotulo rotulo" "barra valor"; row-gap: 3px; }
-  .ubar-label { grid-area: rotulo; max-width: none; }
-  .ubar-track { grid-area: barra; }
-  .ubar-val { grid-area: valor; }
-
   /* RADAR: card de PR com 4 botões numa linha só. O texto fica em cima, as ações
      embaixo, ocupando a largura. */
   .pr-card > .info, .mypr-top > .info { flex: 1 1 100%; min-width: 0; }
@@ -1098,7 +1092,6 @@ body.electron .chat-head { padding-right: 150px; }
 
 @media (max-width: 420px) {
   #sessionsPill { display: none; }
-  .usage-stats { grid-template-columns: 1fr 1fr; }
   /* título de PR podia perder tudo pro ellipsis; em tela pequena vale mais ler o
      título em duas linhas do que ver "feat: adicion…" */
   .pr-title { white-space: normal; overflow: visible; }

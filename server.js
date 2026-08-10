@@ -1185,7 +1185,8 @@ class Engine extends EventEmitter {
     };
   }
 
-  // Consumo de tokens: colaborador lib/engine/usage.js (registro permanente, sem custo).
+  // Consumo de tokens: colaborador lib/engine/usage.js (registro permanente, sem custo);
+  // ref é a referência amigável (PR/chat/ferramenta) que alimenta a tabela de sessões.
   recordUsage(id, account, resultEvent, model, profileId, ref) { return usageMod.recordUsage(this, id, account, resultEvent, model, profileId, ref); }
   usageSummary() { return usageMod.usageSummary(this); }
   profileBudgetStatus(profile) { return usageMod.profileBudgetStatus(profile, this.usage); }

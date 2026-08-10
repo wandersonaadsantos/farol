@@ -33,7 +33,7 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
 | `lib/engine/chat.js` | Chat por PR (`--resume` da sessão), com o preâmbulo que proíbe postar sem pedido explícito |
 | `lib/engine/tools.js` | Ferramentas internas (kudos, diagnóstico), com escopo por conta |
 | `lib/engine/update.js` | Auto-update: comparação de versão, download da release e aplicação por SO |
-| `lib/engine/usage.js` | Agregação do consumo (por dia, tipo, conta e modelo) |
+| `lib/engine/usage.js` | Agregação do consumo (por dia, tipo, conta e modelo) + log permanente por sessão (`usage-sessions.json`, sem poda, com o campo `ref`) |
 | `ui/` | UI sem framework: `index.html` + `pure.js` + `app.js` + `app.css` |
 | `ui/pure.js` | As funções PURAS da UI (esc, md, formatadores, agrupamento das Entregas). Carregado das duas pontas sem build step: `<script src>` antes do `app.js` no navegador, `require` no `node --test`. É o único código de front que tem teste. Só entra aqui o que não toca DOM nem lê estado global |
 | `workspace-template/` | Workspace semeado em `~/.farol/workspace` (protocolo de review do Claude); `prompts/pr-review-auto.md` é a revisão headless, `prompts/self-review.md` é a autoanálise dos meus PRs (só leitura, nunca posta) |

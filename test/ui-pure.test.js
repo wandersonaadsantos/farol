@@ -944,6 +944,24 @@ test('usageMatrixRows: soma so os dias pedidos, calcula totais e intensidade', (
   assert.equal(linhaReview.cells.find(c => c.model === 'Opus 4.8').intensity, 1, 'maior celula tem intensidade 1');
 });
 
+test('usageMatrixRows: modelo sem dado nenhum na janela pedida vem com coluna zerada (nunca ausente)', () => {
+  // u.modelNames (backend) nunca poda modelo aposentado: quem tem que decidir se
+  // mostra a coluna e o renderer (drawUsageMatrix, ui/app.js), olhando colTotals.
+  // Essa funcao so precisa devolver o dado CORRETO pro renderer filtrar (achado da
+  // revisao final: a matriz mostrava colunas fantasma "US$ 0.00" pra sempre).
+  const matrixSeries = [
+    { day: '2026-08-01', cells: { review: { 'Opus 4.8': { inputTokens: 10, outputTokens: 0 } } } },
+  ];
+  const r = P.usageMatrixRows(matrixSeries, ['review', 'self'], ['Opus 4.8', 'Modelo Aposentado'], ['2026-08-01'], 'input');
+  const jAtivo = 0, jAposentado = 1;
+  assert.equal(r.colTotals[jAtivo], 10, 'coluna com dado soma normalmente');
+  assert.equal(r.colTotals[jAposentado], 0, 'coluna sem NENHUM dado na janela vem zerada, nao ausente');
+  const linhaReview = r.rows.find(x => x.kind === 'review');
+  assert.equal(linhaReview.cells[jAposentado].value, 0);
+  assert.equal(linhaReview.cells[jAposentado].model, 'Modelo Aposentado');
+  assert.equal(r.grand, 10, 'grand total nao conta a coluna aposentada (ela e zero mesmo)');
+});
+
 test('usageSessionRow: formata quando, tipo, tokens, custo e estado', () => {
   const agora = Date.parse('2026-08-10T15:00:00-03:00');
   const s = { at: Date.parse('2026-08-10T14:12:00-03:00'), kind: 'review', ref: 'biudtech/farol#88', model: 'Sonnet 5', inputTokens: 80000, outputTokens: 16400, costUsd: 0.41, status: 'ok' };
