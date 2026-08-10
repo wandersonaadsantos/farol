@@ -926,3 +926,20 @@ test('usageStackLayers: serie vazia nao produz NaN na path (n=0 corner case)', (
   assert.ok(!JSON.stringify(geo).includes('NaN'), 'nenhuma parte do resultado contem NaN');
   assert.ok(!JSON.stringify(geo).includes('Infinity'), 'nenhuma parte do resultado contem Infinity');
 });
+
+test('usageMatrixRows: soma so os dias pedidos, calcula totais e intensidade', () => {
+  const matrixSeries = [
+    { day: '2026-08-01', cells: { review: { 'Opus 4.8': { inputTokens: 10, outputTokens: 0 }, 'Sonnet 4.5': { inputTokens: 2, outputTokens: 0 } } } },
+    { day: '2026-08-02', cells: { review: { 'Opus 4.8': { inputTokens: 30, outputTokens: 0 } } } },
+    { day: '2026-07-30', cells: { review: { 'Opus 4.8': { inputTokens: 999, outputTokens: 0 } } } }, // fora da janela
+  ];
+  const r = P.usageMatrixRows(matrixSeries, ['review', 'self'], ['Opus 4.8', 'Sonnet 4.5'], ['2026-08-01', '2026-08-02'], 'input');
+  const linhaReview = r.rows.find(x => x.kind === 'review');
+  assert.equal(linhaReview.cells.find(c => c.model === 'Opus 4.8').value, 40, '10+30, ignora o dia fora da janela');
+  assert.equal(linhaReview.cells.find(c => c.model === 'Sonnet 4.5').value, 2);
+  assert.equal(linhaReview.total, 42);
+  const linhaSelf = r.rows.find(x => x.kind === 'self');
+  assert.equal(linhaSelf.total, 0, 'tipo sem dado nenhum vem zerado, nao ausente');
+  assert.equal(r.grand, 42);
+  assert.equal(linhaReview.cells.find(c => c.model === 'Opus 4.8').intensity, 1, 'maior celula tem intensidade 1');
+});

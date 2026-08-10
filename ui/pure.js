@@ -196,6 +196,32 @@ function usageHoverIndex(mouseX, geo) {
   return Math.max(0, Math.min(n - 1, idx));
 }
 
+// matriz Tipo x Modelo pro periodo pedido (dias, as chaves de usageDayKeysBack).
+// matrixSeries vem inteiro do backend (usage.js), com granularidade diaria, quem
+// soma o periodo escolhido e esta funcao, do mesmo jeito que o resto da tela soma
+// series no cliente. Celula sem dado no periodo vem zerada, nao ausente.
+function usageMatrixRows(matrixSeries, kindNames, modelNames, days, metric) {
+  const daySet = new Set(days);
+  const vals = kindNames.map(() => modelNames.map(() => 0));
+  for (const entry of matrixSeries) {
+    if (!daySet.has(entry.day)) continue;
+    kindNames.forEach((k, i) => {
+      const row = entry.cells[k] || {};
+      modelNames.forEach((m, j) => { vals[i][j] += usageMetricVal(row[m], metric); });
+    });
+  }
+  const rowTotals = vals.map(row => row.reduce((a, b) => a + b, 0));
+  const colTotals = modelNames.map((_, j) => vals.reduce((a, row) => a + row[j], 0));
+  const grand = rowTotals.reduce((a, b) => a + b, 0);
+  const cellMax = Math.max(1e-9, ...vals.flat());
+  const rows = kindNames.map((k, i) => ({
+    kind: k,
+    cells: modelNames.map((m, j) => ({ model: m, value: vals[i][j], intensity: vals[i][j] / cellMax })),
+    total: rowTotals[i],
+  }));
+  return { rows, colTotals, grand };
+}
+
 function accountSaveArray(list) {
   return (list || []).map(a => {
     const o = { user: a.user, owners: a.owners || [], label: a.label, color: a.color, kind: a.kind || '', muted: !!a.muted };
@@ -687,7 +713,7 @@ function deliveriesByAuthor(items) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     esc, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
-    sameSet, diffVs, lastMerge, groupBy, usageMetricVal, sparklinePath, usageDelta, usageStackLayers, usageHoverIndex, accountSaveArray, delivGroupCard, delivCappedMsg, fmtRel,
+    sameSet, diffVs, lastMerge, groupBy, usageMetricVal, sparklinePath, usageDelta, usageStackLayers, usageHoverIndex, usageMatrixRows, accountSaveArray, delivGroupCard, delivCappedMsg, fmtRel,
     usageDayKeysBack, localDayKey, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan, delivPrRow, delivPrRowInRepo, delivRepoSubgroups,
     deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
     fmtStamp, fmtWhenDay, resolvedRow,
