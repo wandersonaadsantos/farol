@@ -606,6 +606,29 @@ test('resolvedRow: mostra o que o estado já tinha e a linha não exibia', () =>
   assert.match(html, /Ver relatório completo/, 'relatório da revisão');
 });
 
+test('resolvedRow: autor vem com foto (avatar), numa linha própria fora do título', () => {
+  const html = P.resolvedRow(linhaResolvida(), CTX);
+  assert.match(html, /<div class="rr-person">/, 'bloco próprio pro autor');
+  assert.match(html, /class="avatar sm"/, 'mesmo helper avatar() das outras telas, tamanho sm');
+  assert.match(html, /github\.com\/alex\.png\?size=96/, 'foto de perfil do GitHub do autor');
+  const tituloBloco = html.match(/<div class="rr-title"[^>]*>[\s\S]*?<\/div>/)[0];
+  assert.doesNotMatch(tituloBloco, /@alex|rr-person|avatar/, 'autor não mora mais dentro do título truncado');
+});
+
+test('resolvedRow: título bem comprido não engole o autor (o bug relatado)', () => {
+  const tituloLongo = 'x'.repeat(300);
+  const html = P.resolvedRow(linhaResolvida({ pr: { url: 'https://x/y/pull/1', title: tituloLongo, author: 'alex' } }), CTX);
+  assert.match(html, /@alex/, 'autor continua presente mesmo com título gigante');
+  assert.match(html, /class="avatar sm"/, 'e continua com foto');
+});
+
+test('resolvedRow: sem autor, não sobra avatar nem @ soltos', () => {
+  const html = P.resolvedRow(linhaResolvida({ pr: { url: 'https://x/y/pull/1', title: 'só título, sem autor' } }), CTX);
+  assert.doesNotMatch(html, /rr-person/, 'nenhum bloco de autor vazio');
+  assert.doesNotMatch(html, /class="avatar/, 'nenhum avatar sem login');
+  assert.doesNotMatch(html, />@</, 'nenhum @ solto');
+});
+
 test('resolvedRow: as quatro ações estão presentes e apontam pro PR', () => {
   const html = P.resolvedRow(linhaResolvida(), CTX);
   assert.match(html, /class="[^"]*act-chat/, 'conversar');
@@ -645,9 +668,12 @@ test('resolvedRow: pontos de atenção seguem contados e expansíveis', () => {
 });
 
 test('resolvedRow: título e card vindos de fora saem escapados', () => {
+  // sem autor aqui de propósito: o teste é sobre título/card, e o avatar do
+  // autor tem um <img> LEGÍTIMO (ver teste de rr-person acima), que poluiria
+  // a asserção genérica de "nenhum <img> na saída".
   const html = P.resolvedRow(linhaResolvida({
     card: '<img src=x onerror=alert(1)>',
-    pr: { url: 'https://x/y/pull/1', title: '<script>alert(1)</script>', author: 'dev' }
+    pr: { url: 'https://x/y/pull/1', title: '<script>alert(1)</script>' }
   }), CTX);
   assert.doesNotMatch(html, /<img/);
   assert.doesNotMatch(html, /<script>/);

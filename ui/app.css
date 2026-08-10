@@ -374,7 +374,11 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 .rr-verdict.rev-rc { background: var(--danger-soft); color: var(--danger); }
 .rr-verdict.rev-cm { background: var(--accent-soft); color: var(--accent); }
 .rr-title { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
-.rr-author { color: var(--muted); font-size: 12px; margin-left: 6px; }
+/* autor em linha própria (fora do .rr-title, que trunca): foto pequena (mesmo
+   avatar sm de destaques) + login com o mesmo peso/cor de .hl-head .author e
+   .pr-sub .author, pra não ficar apagado quanto o resto da linha */
+.rr-person { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.rr-author { color: var(--text); font-weight: 650; }
 /* as três divulgações (atenção, relatório, pushback) dividem UMA linha em repouso, em
    vez de uma linha cada: numa lista de 30 revisões, três linhas por item empurrava o
    resto da tela pra fora. A que você abre passa a ocupar a linha inteira. */

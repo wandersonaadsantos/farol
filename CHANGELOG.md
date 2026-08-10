@@ -19,6 +19,9 @@ sessões recentes com a referência do PR/chat/ferramenta de cada sessão (novo 
 permanente em `usage-sessions.json`, sem poda). Métrica "Custo" nova ao lado de
 Tokens/Input/Output/Cache.
 
+**Correções**
+- **O autor sumia de "Revisões recentes" quando o título do PR era comprido.** O `@login` vivia dentro do próprio título, e o título trunca com reticências; um título longo empurrava o autor pra fora e ele desaparecia sem aviso. Agora o autor tem linha própria, com a mesma foto de perfil (`avatar`) que a fila, "Precisa de você", Destaques e Time já usam, e o login em destaque, não mais apagado em cinza.
+
 ## v2.37.1
 
 **Correções**

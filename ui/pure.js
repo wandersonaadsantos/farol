@@ -612,7 +612,13 @@ function pushbackControl(r, pushbacks) {
    A barra esquerda colorida NÃO entra aqui: ela significa urgência (ver acctMark no
    app.js) e esta seção é histórico resolvido. A cor do desfecho vive no selo.
    O que depende de estado global (chip da conta, contador de chat, mapa de pushbacks)
-   entra por ctx já resolvido em valor, porque aqui não se lê global. */
+   entra por ctx já resolvido em valor, porque aqui não se lê global.
+   Autor em linha própria (.rr-person), fora do .rr-title: o título tem
+   white-space:nowrap + ellipsis, e o autor vivia dentro dele, então um título
+   comprido empurrava o autor pra fora e ele sumia sem aviso nenhum (era o bug
+   relatado). Foto vem do mesmo avatar() que a fila, "precisa de você",
+   destaques e time já usam, fechando a inconsistência visual desta tela com
+   o resto do app. */
 const RESOLVED_LABELS = {
   auto_approved: ['✅', 'aprovado sozinho'],
   auto_rejected: ['🔴', 'mudanças pedidas sozinho'],
@@ -654,7 +660,8 @@ function resolvedRow(r, ctx) {
         ${r.card ? `<span class="pill">${esc(r.card)}</span>` : ''}
         <span class="rr-verdict${vcls ? ` ${vcls}` : ''}">${label}${act}</span>
       </div>
-      ${title || author ? `<div class="rr-title" title="${esc(title)}">${esc(title)}${author ? `<span class="rr-author">${title ? '· ' : ''}@${esc(author)}</span>` : ''}</div>` : ''}
+      ${title ? `<div class="rr-title" title="${esc(title)}">${esc(title)}</div>` : ''}
+      ${author ? `<div class="rr-person">${avatar(author, 'sm')}<span class="rr-author">@${esc(author)}</span></div>` : ''}
       <div class="rr-disc">
         ${vcLine ? `<div class="rr-verification">${esc(vcLine)}</div>` : ''}
         ${attn.length ? `<details class="resolved-attn"><summary>⚠ ${attn.length} ${attnLabel}</summary><ul class="dec-reasons">${attn.map(p => `<li>${esc(p)}</li>`).join('')}</ul></details>` : ''}
