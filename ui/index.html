@@ -201,17 +201,19 @@
   <!-- ============ CONSUMO ============ -->
   <section id="tab-consumo" class="tabpane" role="tabpanel" aria-labelledby="tabbtn-consumo" tabindex="0">
     <div class="section-head">
-      <h2>Consumo de tokens</h2>
+      <h2>Consumo</h2>
     </div>
-    <p class="section-desc">Quanto as sessões autônomas do Claude (revisão, autoanálise, pushback, ferramentas e chat) consomem. Mede o Farol como um todo: a quebra "Por conta" abaixo só detalha de onde veio. É registro pessoal e permanente, só pra você acompanhar, e não influencia nenhuma decisão da automação.</p>
-    <div id="usageStats" class="usage-stats"></div>
+    <p class="section-desc">Quanto as sessões autônomas do Claude (revisão, autoanálise, pushback, ferramentas e chat) consomem, em tokens e custo estimado. Mede o Farol como um todo. Registro pessoal e permanente; não influencia nenhuma decisão da automação.</p>
+
+    <div id="usageKpis" class="usage-kpis"></div>
 
     <div class="card usage-chart-card">
       <div class="usage-chart-head">
         <h3>Linha do tempo</h3>
         <div class="usage-controls">
           <div class="seg" id="usageMetric" role="group" aria-label="Métrica">
-            <button class="seg-btn active" data-metric="total" aria-pressed="true">Total</button>
+            <button class="seg-btn" data-metric="custo" aria-pressed="false">Custo</button>
+            <button class="seg-btn active" data-metric="total" aria-pressed="true">Tokens</button>
             <button class="seg-btn" data-metric="input" aria-pressed="false">Input</button>
             <button class="seg-btn" data-metric="output" aria-pressed="false">Output</button>
             <button class="seg-btn" data-metric="cache" aria-pressed="false">Cache</button>
@@ -221,25 +223,41 @@
             <button class="seg-btn active" data-window="30" aria-pressed="true">30 dias</button>
             <button class="seg-btn" data-window="90" aria-pressed="false">90 dias</button>
           </div>
+          <div class="seg" id="usageStack" role="group" aria-label="Empilhar por">
+            <button class="seg-btn active" data-dim="kind" aria-pressed="true">Por tipo</button>
+            <button class="seg-btn" data-dim="model" aria-pressed="false">Por modelo</button>
+            <button class="seg-btn" data-dim="account" aria-pressed="false">Por conta</button>
+          </div>
         </div>
       </div>
+      <div id="usageLegend" class="usage-legend"></div>
       <div id="usageTimeline" class="usage-chart"></div>
+    </div>
+
+    <div class="usage-grid-2">
+      <div class="card usage-chart-card">
+        <div class="usage-chart-head">
+          <h3>Tipo × Modelo</h3>
+          <span id="usageMatrixCaption" class="usage-caption"></span>
+        </div>
+        <div id="usageMatrix" class="usage-matrix-wrap"></div>
+      </div>
+
+      <div class="card usage-chart-card">
+        <div class="usage-chart-head">
+          <h3>Orçamento por perfil</h3>
+          <span class="usage-caption">Sistema → Plano e chaves</span>
+        </div>
+        <div id="usageBudget" class="usage-budget"></div>
+      </div>
     </div>
 
     <div class="card usage-chart-card">
       <div class="usage-chart-head">
-        <h3>Quebra</h3>
-        <div class="usage-controls">
-          <div class="seg" id="usageDim" role="group" aria-label="Dimensão">
-            <button class="seg-btn active" data-dim="kind" aria-pressed="true">Por tipo</button>
-            <button class="seg-btn" data-dim="account" aria-pressed="false">Por conta</button>
-            <button class="seg-btn" data-dim="model" aria-pressed="false">Por modelo</button>
-            <button class="seg-btn" id="usageDimProfile" data-dim="profile" aria-pressed="false" hidden>Por perfil</button>
-          </div>
-        </div>
+        <h3>Sessões recentes</h3>
+        <span class="usage-caption">Sessões com erro também contam no gasto</span>
       </div>
-      <div id="usageBreakdown" class="usage-chart"></div>
-      <div id="usageBudgetNote" class="a-hint" hidden></div>
+      <div id="usageSessions" class="usage-sessions-wrap"></div>
     </div>
   </section>
 
