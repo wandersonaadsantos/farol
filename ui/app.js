@@ -1156,6 +1156,55 @@ function sysGoTo(sec, at) {
   }, 0);
 }
 
+/* ---------- caixa de revisão por chave (atalho da tabela de Consumo) ----------
+   O snapshot manda só as 30 revisões mais recentes (com relatório, cada decisão
+   pesa ~5 KB; 3000 seriam 15 MB a CADA push de SSE). Então procura primeiro no
+   que já está em mãos e, só se não achar, pergunta ao engine, que varre o
+   histórico completo (3000 em disco). Handler delegado no document, igual ao
+   data-goto: nenhuma tela registra listener próprio. */
+function decisaoLocal(key) {
+  const d = STATE?.decisions || {};
+  return (d.pending || []).find(x => x.key === key) || (d.resolved || []).find(x => x.key === key) || null;
+}
+
+async function abrirCaixaRevisao(key) {
+  // o get() devolve null em QUALQUER falha, por isso a rota responde envelope:
+  // sem ele, "não há revisão desse PR" e "a busca falhou" seriam a mesma coisa
+  // na tela, e o clique ficaria indistinguível de bug.
+  let d = decisaoLocal(key);
+  if (!d) {
+    const env = await get('/api/decision?key=' + encodeURIComponent(key));
+    if (!env) { toast('error', 'Não consegui buscar a revisão agora. Tente de novo.'); return; }
+    d = env.decision;
+  }
+  overlayModal(`Revisão de ${esc(key)}`, reviewBoxHtml(d));
+}
+
+// overlay de leitura (sem confirmar/cancelar), no mesmo esqueleto do confirmModal
+function overlayModal(titulo, corpo) {
+  const ov = document.createElement('div');
+  ov.className = 'modal-overlay';
+  ov.innerHTML = `<div class="modal-card wide" role="dialog" aria-modal="true" aria-labelledby="revBoxTitle">
+    <div class="modal-title" id="revBoxTitle">${titulo}</div>
+    <div class="modal-body scroll">${corpo}</div>
+    <div class="modal-actions"><button class="btn sm primary modal-ok">Fechar</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  ov.querySelector('.modal-ok').onclick = close;
+  ov.onclick = (e) => { if (e.target === ov) close(); };
+  document.addEventListener('keydown', onKey);
+  setTimeout(() => ov.querySelector('.modal-ok').focus(), 30);
+}
+
+document.addEventListener('click', (e) => {
+  const b = e.target.closest && e.target.closest('[data-review-key]');
+  if (!b) return;
+  e.preventDefault();
+  abrirCaixaRevisao(b.dataset.reviewKey);
+});
+
 /* ---------- navegação interna centralizada: data-goto ----------
    Contrapartida interna dos helpers de menção do ui/pure.js (personMention,
    repoMention, prRefMention levam pro GitHub; aqui é pra levar a um lugar do
@@ -2722,7 +2771,7 @@ function drawUsageSessions(el, u) {
     return `<div class="usage-sessions-row">
       <span class="usage-sessions-when">${esc(r.whenLabel)}</span>
       <span class="usage-sessions-kind"><span class="dot" style="background:${USAGE_KIND_COLOR[s.kind] || 'var(--faint)'};width:8px;height:8px;border-radius:2.5px;display:inline-block"></span>${esc(r.kindLabel)}</span>
-      ${sessionRefMention(r.ref, 'usage-sessions-ref')}
+      ${sessionRefCell(r.ref, 'usage-sessions-ref')}
       <span class="usage-sessions-model">${esc(r.model)}</span>
       <span class="usage-sessions-num">${esc(r.tokLabel)}</span>
       <span class="usage-sessions-num">${esc(r.costLabel)}</span>
@@ -2980,6 +3029,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.40.3', ['A revisão de um PR abre direto da tabela de Consumo: cada linha de PR ganhou um atalho ao lado da referência, que mostra veredito, pontos de atenção e o relatório completo ali mesmo. O texto continua abrindo o PR no GitHub, então você escolhe pra onde vai.', 'O histórico de revisões passou de 200 pra 3000. Antes, revisão que saísse das 200 mais recentes sumia, e a tela só alcançava as 30 mais novas; agora qualquer revisão guardada abre pelo atalho, inclusive as antigas e as de outra conta, sem pesar o que o app carrega a cada ciclo.', 'PR sem revisão registrada e falha na busca viraram mensagens diferentes. Antes ficariam idênticas na tela, e "não existe" parecendo "quebrou" faz desconfiar do app inteiro.']],
   ['2.40.2', ['A sessão de ferramenta na tabela de Consumo agora navega por clique: "Kudos" abre a aba Destaques no painel dos kudos compilados, e "Diagnóstico do Farol" abre Sistema → Diagnóstico no relatório. Antes só a referência de PR era clicável e a linha de ferramenta ficava como texto morto.', 'Trava nova no gate de qualidade: destino de navegação interna apontando pra aba, seção ou âncora inexistente passa a reprovar a suíte. Esse defeito não gera erro nenhum, o clique só não faz nada, e é o tipo mais caro de achar.']],
   ['2.40.1', ['Foto de quem abriu o PR no Panorama (e na fila, nas decisões, em Destaques, no Time e na barra de identidade): toda menção de pessoa agora sai do mesmo lugar, com foto e link pro perfil no GitHub.', 'O que a tela menciona leva até a coisa com um clique: nome de pessoa e de repositório abrem o GitHub; a referência do PR na tabela de sessões abre o PR; "Sistema → Plano e chaves", o nome do perfil no cartão de orçamento, "o log em Sistema", "organizações monitoradas", "Automação" e a versão no rodapé abrem a seção exata, já rolada e destacada.', 'Atalhos nos cartões de Entregas: "@fulano na frente" e "repo na frente" levam ao grupo na lista (trocando a visão quando precisa) e "+N hoje" troca o período. Tudo navegável pelo teclado.', 'Correção: título comprido escondia o autor no Panorama (mesmo defeito corrigido em "Revisões recentes" na versão anterior). Agora quem trunca é o texto do título, e a foto com o @login ficam sempre visíveis.']],
   ['2.40.0', ['Consumo com fonte única de verdade: os painéis não se contradizem mais (o cartão de tokens dizia 942k nos 7 dias com a linha do tempo mostrando 43k). O registro antigo, sem quebra por tipo/modelo/conta, aparece como camada cinza "Sem detalhamento", reconciliada dia a dia: os totais de KPI, linha do tempo e matriz agora batem sempre, por construção.', 'Orçamento por perfil ao vivo: o cartão, o selo e o gasto na aba Sistema recalculam a cada atualização, com a mesma conta que pausa a automação, em vez de congelar no último "Verificar agora".', 'Entregas ordenadas pelo mais atual primeiro: quem mergeou por último abre a lista (por repositório e por pessoa), descendo até o grupo parado há mais tempo. O número de ranking saiu; quem mais entrega segue nos cartões "na frente".', 'Entregas sem números fantasma: dia sem merge aparecia como a 2ª barra mais alta do gráfico (colisão de estilo) e os cartões contavam ~50 merges de uma janela maior que a do gráfico (corte UTC). Agora dia zerado é um toco de 2px, "Hoje" começa às 00:00 de verdade, e total, média, pico e barras contam o MESMO período.', 'Registro mais completo: sessão cancelada depois do relatório final registra o gasto (e aparece como "cancelada", não "ok"); sessão com custo e zero tokens também registra; a tabela de sessões declara desde quando o registro individual existe; e o cartão de orçamento avisa que sessão interativa de terminal não entra na medição (o CLI não reporta).', 'KPIs honestos: o subtítulo de Tokens mostra o cache do período (o custo inclui cache), a variação (%) só aparece quando o período anterior tem histórico completo pra comparar, e as células da matriz mostram o valor exato no tooltip.']],

@@ -442,6 +442,45 @@ test('sessionRefMention: PR vai pro GitHub, ferramenta vai pro painel, resto fic
   assert.match(nada, /\(sem referência\)/, 'o texto continua na tela, no mesmo lugar');
 });
 
+test('sessionRefCell: linha de PR ganha o atalho pra caixa de revisão, sem perder o link do GitHub', () => {
+  const cel = P.sessionRefCell('biudtech/farol#88');
+  assert.match(cel, /href="https:\/\/github\.com\/biudtech\/farol\/pull\/88"/, 'o texto continua indo pro GitHub');
+  assert.match(cel, /data-review-key="biudtech\/farol#88"/, 'o atalho carrega a chave, não a URL');
+  assert.match(cel, /<button/, 'destino interno é botão, não link');
+  // ferramenta e sessão sem ref não têm revisão nenhuma pra abrir
+  const tool = P.sessionRefCell('Kudos · BIUD trabalho');
+  assert.match(tool, /data-goto="aba:destaques:#kudosPanel"/);
+  assert.doesNotMatch(tool, /data-review-key/, 'ferramenta não tem caixa de revisão');
+  assert.doesNotMatch(P.sessionRefCell('(sem referência)'), /data-review-key/);
+  assert.doesNotMatch(P.sessionRefCell(''), /data-review-key/);
+});
+
+test('reviewBoxHtml: monta a caixa com veredito, chave e relatório', () => {
+  const html = P.reviewBoxHtml({
+    key: 'acme/app#12', verdict: 'approve', status: 'auto_approved',
+    pr: { title: 'Ajusta o carrinho', author: 'bob' },
+    reasons: ['cobertura incompleta'],
+    reportMarkdown: '## Achados\n- nada bloqueante',
+  });
+  assert.match(html, /acme\/app#12/);
+  assert.match(html, /Ajusta o carrinho/);
+  assert.match(html, /cobertura incompleta/);
+  assert.match(html, /<h4>Achados<\/h4>/, 'o relatório passa pelo md() (que rebaixa ## pra h4)');
+  assert.match(html, /@bob/, 'o autor é menção de pessoa, com foto e link');
+});
+
+test('reviewBoxHtml: revisão sem relatório diz isso, em vez de mostrar caixa vazia', () => {
+  const html = P.reviewBoxHtml({ key: 'acme/app#12', verdict: 'approve' });
+  assert.match(html, /sem relatório/i, 'ausência de relatório é informação, não silêncio');
+  assert.doesNotMatch(html, /undefined|null/, 'campo ausente nunca vaza pra tela');
+});
+
+test('reviewBoxHtml: decisão inexistente vira aviso honesto, não caixa em branco', () => {
+  const html = P.reviewBoxHtml(null);
+  assert.match(html, /nenhuma revis(ã|a)o/i);
+  assert.doesNotMatch(html, /undefined/);
+});
+
 test('sessionRefMention: rótulo de ferramenta com aspas não escapa do atributo', () => {
   // o escopo do kudos vem do nome da conta, que é config do usuário
   const html = P.sessionRefMention('Kudos · a"><b>x</b>', 'usage-sessions-ref');

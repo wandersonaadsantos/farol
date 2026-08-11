@@ -169,6 +169,8 @@ escrita à mão, pra o destino ser o mesmo em toda tela:
 | PR (`owner/repo#N`) | `prRefMention(ref, cls)` | o PR no GitHub (só o que casa o formato) |
 | ferramenta (`Kudos`, `Diagnóstico do Farol`) | `toolRefGoto(ref)` | o painel dela no próprio app |
 | ref de sessão (coluna do Consumo) | `sessionRefMention(ref, cls)` | roteia entre os dois de cima |
+| célula da coluna do Consumo | `sessionRefCell(ref, cls)` | menção + atalho pra caixa de revisão |
+| caixa de revisão | `reviewBoxHtml(d)` + `data-review-key` | modal com veredito, ressalvas e relatório |
 | lugar do próprio app | atributo `data-goto` | aba/seção/grupo, com rolagem e destaque |
 
 O ref da coluna "PR / sessão" é POLIMÓRFICO (revisão, pushback e chat gravam a
@@ -187,6 +189,23 @@ de procurar o alvo (elemento em aba escondida não rola, e falha calado), e alvo
 `hidden` (painel de ferramenta sem resultado gerado ainda) não é destacado, a
 navegação para na aba certa. Span com `data-goto` leva `role="button"` +
 `tabindex="0"`.
+
+**Dois destinos no mesmo lugar = dois elementos** (v2.40.3). A célula da coluna
+"PR / sessão" tem o texto (leva ao PR no GitHub) e um botão ao lado (abre a
+caixa de revisão AQUI). Nunca empilhe dois destinos no mesmo elemento; e o botão
+só existe onde há o que abrir (linha de ferramenta e sessão sem referência não
+ganham botão, porque botão que não faz nada é pior que botão nenhum).
+
+**Alcance do histórico, e por que não é só aumentar o payload** (v2.40.3).
+`resolveIntoHistory` guarda **3000** decisões em disco (era 200), mas o snapshot
+do SSE segue mandando só as **30** mais recentes. Medido em 11/08/2026 no estado
+real: cada decisão pesa **5,2 KB com relatório** e **1,1 KB sem**, então mandar
+3000 seriam **15 MB por push**, a cada ciclo de polling. O alcance vem da rota
+`GET /api/decision?key=` (fachada `Engine.decisionByKey`), que varre o histórico
+completo sob demanda. **A rota responde ENVELOPE `{found, decision}`, nunca a
+decisão crua e nunca 404**: o `get()` da UI é um `fetch().catch(() => null)`, então
+sem envelope "não há revisão desse PR" e "a busca falhou" chegariam idênticos na
+tela. É o M18 outra vez, com outra roupa.
 
 **Trava contra destino morto** (`ui-contract.test.js`, v2.40.2): todo `data-goto`
 literal é conferido contra o `index.html` (a aba existe? a seção existe? a âncora

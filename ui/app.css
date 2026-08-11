@@ -929,6 +929,11 @@ body.electron .chat-head { padding-right: 150px; }
 .modal-overlay { position: fixed; inset: 0; z-index: 80; background: rgba(0, 0, 0, .5); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; padding: 20px; animation: fadein .15s ease; }
 .modal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); max-width: 470px; width: 100%; padding: 20px 22px; }
 .modal-card.danger { border-top: 3px solid var(--danger); }
+/* leitura, não confirmação: o relatório de uma revisão é longo, então a caixa é
+   larga e o corpo rola sozinho, sem empurrar o botão de fechar pra fora da tela */
+.modal-card.wide { max-width: 760px; }
+.modal-body.scroll { max-height: 62vh; overflow-y: auto; }
+.review-box-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .modal-title { font-size: 15.5px; font-weight: 700; margin-bottom: 12px; }
 .modal-body { font-size: 13.5px; }
 .modal-body p { margin: 8px 0; color: var(--muted); }
@@ -1068,7 +1073,13 @@ body.electron .chat-head { padding-right: 150px; }
 .usage-sessions-hcell.right { text-align: right; }
 .usage-sessions-when { color: var(--faint); font-size: 12px; white-space: nowrap; }
 .usage-sessions-kind { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; }
+/* dois destinos, dois elementos: o texto (que trunca) e o botão da caixa de
+   revisão (que nunca encolhe, senão o alvo de clique some em nome comprido) */
+.usage-ref-cell { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .usage-sessions-ref { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usage-review-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--faint); cursor: pointer; }
+.usage-review-btn svg { width: 13px; height: 13px; }
+.usage-review-btn:hover, .usage-review-btn:focus-visible { color: var(--accent); background: var(--surface-2); }
 .usage-sessions-model { color: var(--muted); white-space: nowrap; }
 .usage-sessions-num { text-align: right; font-variant-numeric: tabular-nums; }
 .usage-sessions-st { font-size: 10.5px; font-weight: 700; border-radius: 99px; padding: 1px 8px; }

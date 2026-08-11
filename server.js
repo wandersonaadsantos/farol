@@ -896,6 +896,7 @@ class Engine extends EventEmitter {
   // Decisão + postagem no GitHub: colaborador lib/engine/decision.js (gate intacto, Onda 2).
   recordDecision(pr, result, extra) { return decisionMod.recordDecision(this, pr, result, extra); }
   resolveIntoHistory(item) { return decisionMod.resolveIntoHistory(this, item); }
+  decisionByKey(key) { return decisionMod.decisionByKey(this, key); }
   reviewActions() { return decisionMod.reviewActions(this); }
   saveDecisions() { return decisionMod.saveDecisions(this); }
   async myReviewsWithTime(pr) { return decisionMod.myReviewsWithTime(this, pr); }

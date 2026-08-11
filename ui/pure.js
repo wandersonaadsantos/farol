@@ -590,6 +590,48 @@ function sessionRefMention(ref, cls = '') {
   return `<span class="${esc(cls)} is-goto" data-goto="${esc(destino)}" role="button" tabindex="0" title="Abrir ${txt} no Farol">${txt}</span>`;
 }
 
+/* A célula da coluna "PR / sessão" do Consumo. DOIS destinos no mesmo lugar, e
+   por isso dois elementos (a doutrina do app é um destino por elemento): o texto
+   leva ao PR no GitHub, o botão ao lado abre a caixa de revisão AQUI DENTRO.
+   Só linha de PR ganha o botão: ferramenta e sessão sem referência não têm
+   revisão nenhuma pra abrir, e botão que não faz nada é pior que botão nenhum. */
+function sessionRefCell(ref, cls = 'usage-sessions-ref') {
+  const mencao = sessionRefMention(ref, cls);
+  if (!ghPrUrl(ref)) return `<span class="usage-ref-cell">${mencao}</span>`;
+  const k = esc(String(ref));
+  return `<span class="usage-ref-cell">${mencao}`
+    + `<button class="usage-review-btn" data-review-key="${k}" title="Ver a revisão de ${k} aqui no Farol" aria-label="Ver a revisão de ${k} aqui no Farol">`
+    + `<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5h16M4 12h10M4 19h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`
+    + `</button></span>`;
+}
+
+// O conteúdo da caixa de revisão (o mesmo que o card mostra em "Precisa de você"
+// e "Revisões recentes"): veredito, PR, autor, pontos de atenção e o relatório.
+// Cada ausência vira texto explícito: caixa em branco não distingue "não achei"
+// de "achei e está vazio", e é exatamente essa confusão que motivou a feature.
+const VERDICT_LABEL = { approve: 'Aprovável', request_changes: 'Com blocker', comment: 'Comentado' };
+
+function reviewBoxHtml(d) {
+  if (!d) return `<div class="empty">Nenhuma revisão registrada pra este PR no histórico do Farol.</div>`;
+  const v = VERDICT_LABEL[d.verdict] || d.verdict || 'sem veredito';
+  const cls = d.verdict === 'approve' ? 'approve' : 'rc';
+  const autor = (d.pr && d.pr.author) || d.author || '';
+  const razoes = Array.isArray(d.reasons) ? d.reasons : [];
+  return `<div class="review-box">
+    <div class="review-box-head">
+      <span class="verdict ${cls}">${esc(v)}</span>
+      ${prRefMention(d.key || '', 'dec-ref')}
+      ${d.card ? `<span class="pill">${esc(d.card)}</span>` : ''}
+    </div>
+    ${d.pr && d.pr.title ? `<div class="dec-title">${esc(d.pr.title)}</div>` : ''}
+    ${autor ? `<div class="dec-author">PR de ${personMention(autor, 'xs')}</div>` : ''}
+    ${razoes.length ? `<ul class="dec-reasons">${razoes.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
+    ${d.reportMarkdown
+      ? `<div class="report">${md(d.reportMarkdown)}</div>`
+      : `<div class="empty">Esta revisão ficou sem relatório gravado.</div>`}
+  </div>`;
+}
+
 function md(src) {
   const lines = esc(String(src || '')).split(/\r?\n/);
   const out = [];
@@ -1013,7 +1055,7 @@ if (typeof module !== 'undefined' && module.exports) {
     sameSet, diffVs, lastMerge, groupBy, usageMetricVal, sparklinePath, usageDelta, usageStackLayers,
     usageHoverIndex, usageMatrixRows, USAGE_KIND_LABEL, usageSessionRow, accountSaveArray, delivCappedMsg, fmtRel,
     usageDayKeysBack, localDayKey, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan,
-    personMention, repoMention, prRefMention, ghPrUrl, parseGoto, toolRefGoto, sessionRefMention,
+    personMention, repoMention, prRefMention, ghPrUrl, parseGoto, toolRefGoto, sessionRefMention, sessionRefCell, reviewBoxHtml,
     delivFilterItems, delivDayBuckets, delivStats, delivStatsCards, delivActivityChart, delivActivityCard,
     delivSliceRows, delivEmptyState, deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
     fmtStamp, fmtWhenDay, resolvedRow,

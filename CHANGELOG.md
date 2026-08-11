@@ -9,6 +9,26 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.40.3
+
+A revisão de um PR agora abre direto da tabela de Consumo, e o histórico deixou
+de ter teto prático.
+
+**Novidades**
+- **Caixa de revisão por clique na tabela de Consumo.** Cada linha de PR ganhou
+  um atalho ao lado da referência que abre a revisão daquele PR ali mesmo, com
+  veredito, pontos de atenção e o relatório completo. O texto continua abrindo o
+  PR no GitHub: são dois destinos, então são dois elementos.
+- **Histórico de revisões de 200 para 3000.** Antes, revisão que saísse das 200
+  mais recentes desaparecia, e a tela só alcançava as 30 mais novas. Agora
+  qualquer revisão guardada abre pelo atalho, mesmo as antigas e as de outra
+  conta, sem inflar o que o app carrega a cada ciclo.
+
+**Melhorias**
+- PR sem revisão registrada e falha de busca passaram a ser mensagens
+  diferentes. Ficariam idênticas na tela, e "não existe" parecendo "quebrou" é
+  o tipo de coisa que faz você desconfiar do app inteiro.
+
 ## v2.40.2
 
 Completa a navegação por clique da versão anterior: a coluna "PR / sessão" da

@@ -203,3 +203,37 @@ test('GET /api/log/triage sem log nenhum devolve lista vazia, sem estourar', asy
   assert.equal(r.status, 200);
   assert.deepEqual(JSON.parse(r.body), []);
 });
+
+/* A caixa de revisão da tabela de Consumo (v2.40.3) precisa alcançar QUALQUER
+   revisão do histórico, não só as 30 que o snapshot manda. Daí a rota por chave:
+   o payload do SSE segue enxuto (5,2 KB por decisão com relatório; 3000 delas
+   seriam 15 MB a cada ciclo de polling) e o alcance vem da busca sob demanda. */
+test('GET /api/decision?key= devolve a revisão do histórico completo', async () => {
+  engine.decisions.pending = [];
+  engine.decisions.resolved = [];
+  // 60 decisões: a de índice 0 fica na posição 59, muito além das 30 do snapshot
+  for (let i = 0; i < 60; i++) {
+    engine.resolveIntoHistory({ id: 'd' + i, key: `acme/app#${i}`, verdict: 'approve', reportMarkdown: 'relatório ' + i });
+  }
+  const r = await get('/api/decision?key=' + encodeURIComponent('acme/app#0'));
+  assert.equal(r.status, 200);
+  const env = JSON.parse(r.body);
+  assert.equal(env.found, true);
+  assert.equal(env.decision.key, 'acme/app#0');
+  assert.equal(env.decision.reportMarkdown, 'relatório 0', 'o relatório é o conteúdo da caixa; sem ele a rota não serve');
+});
+
+test('GET /api/decision distingue "nao existe" de "falhou" (envelope, nunca 404)', async () => {
+  // o get() da UI e um fetch com .catch(() => null): qualquer falha vira null.
+  // Sem o envelope, "nao ha revisao pra esse PR" ficaria identico a "a rede caiu"
+  // e o clique seria indistinguivel de bug, que e o M18 com outra roupa.
+  const r = await get('/api/decision?key=' + encodeURIComponent('acme/app#99999'));
+  assert.equal(r.status, 200);
+  assert.deepEqual(JSON.parse(r.body), { found: false, decision: null });
+});
+
+test('GET /api/decision sem chave nao explode', async () => {
+  const r = await get('/api/decision');
+  assert.equal(r.status, 200);
+  assert.equal(JSON.parse(r.body).found, false);
+});
