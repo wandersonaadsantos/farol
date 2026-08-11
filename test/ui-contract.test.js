@@ -71,3 +71,46 @@ test('o lote "Aprovar as N pendentes" só alcança as decisões visíveis no esc
   assert.doesNotMatch(APPJS, /for \(const d of \[\.\.\.STATE\.decisions\.pending\]\)/,
     'a iteração antiga sobre a fila inteira saiu');
 });
+
+/* ---------- contrato da navegação interna (data-goto) ----------
+   Mesma classe de bug do M18 que deu origem a este arquivo: destino escrito à mão
+   que não existe. Aqui o sintoma é pior de achar, porque não gera 404 nenhum: o
+   querySelector devolve null, o goTo() volta em silêncio e o clique simplesmente
+   não faz nada. A trava confere, contra o index.html, que toda aba, seção e
+   âncora citada num data-goto EXISTE. */
+const INDEXHTML = fs.readFileSync(path.join(__dirname, '..', 'ui', 'index.html'), 'utf8');
+const PUREJS = fs.readFileSync(path.join(__dirname, '..', 'ui', 'pure.js'), 'utf8');
+
+// specs literais: atributo no html e string em js. Quem monta o destino com
+// template (`sys:accounts:...${user}`) fica de fora: o valor só existe em runtime.
+function gotoSpecs() {
+  const specs = new Set();
+  for (const m of INDEXHTML.matchAll(/data-goto="([^"$]+)"/g)) specs.add(m[1]);
+  for (const src of [PUREJS, APPJS]) {
+    for (const m of src.matchAll(/'((?:aba|sys|deliv):[^'$]+)'/g)) specs.add(m[1]);
+  }
+  return [...specs];
+}
+
+test('todo destino de data-goto aponta pra uma aba, seção e âncora que EXISTEM', () => {
+  const specs = gotoSpecs();
+  assert.ok(specs.length >= 5, `esperava achar destinos literais, achei ${specs.length}`);
+  const quebrados = [];
+  for (const spec of specs) {
+    const [tipo, alvo, ...resto] = spec.split(':');
+    const seletor = resto.join(':');
+    if (tipo === 'aba' && !INDEXHTML.includes(`id="tab-${alvo}"`)) quebrados.push(`${spec}: aba "${alvo}" não existe`);
+    if (tipo === 'sys' && !INDEXHTML.includes(`data-section="${alvo}"`)) quebrados.push(`${spec}: seção "${alvo}" não existe`);
+    // âncora por id é a única parte conferível do seletor (classe pode ser gerada)
+    if (seletor.startsWith('#') && !INDEXHTML.includes(`id="${seletor.slice(1)}"`)) {
+      quebrados.push(`${spec}: âncora "${seletor}" não existe no index.html`);
+    }
+  }
+  assert.deepEqual(quebrados, [], 'data-goto apontando pro vazio: o clique não faria nada, sem erro nenhum');
+});
+
+test('goTo trata o formato aba:<nome>:<seletor> (senão o destino de ferramenta só troca de aba)', () => {
+  assert.match(APPJS, /if \(tipo === 'aba'\) return gotoAba\(alvo, seletor \|\| null\);/,
+    'o ramo da aba precisa repassar o seletor');
+  assert.match(APPJS, /function gotoAba\(nome, at\)/, 'gotoAba() definida');
+});

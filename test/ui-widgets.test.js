@@ -351,10 +351,18 @@ test('Panorama: o autor fica FORA da caixa que trunca o título', () => {
 test('navegação interna tem UM handler só, delegado, e entende os 3 tipos', () => {
   const fn = APPJS.match(/function goTo\(spec\) \{[\s\S]*?\n\}/);
   assert.ok(fn, 'goTo existe');
-  assert.match(fn[0], /if \(tipo === 'aba'\) return switchTab\(a\);/);
-  assert.match(fn[0], /switchTab\('sistema'\);\s*\n\s*return sysGoTo\(a, b \|\| null\);/,
+  assert.match(fn[0], /const \{ tipo, alvo, seletor \} = parseGoto\(spec\);/,
+    'o parse do spec mora no ui/pure.js, onde tem teste');
+  assert.match(fn[0], /if \(tipo === 'aba'\) return gotoAba\(alvo, seletor \|\| null\);/,
+    'aba: repassa o seletor (destino de ferramenta precisa dele)');
+  assert.match(fn[0], /switchTab\('sistema'\);\s*\n\s*return sysGoTo\(alvo, seletor \|\| null\);/,
     'sys: troca a aba ANTES do sysGoTo (elemento em aba escondida não rola)');
-  assert.match(fn[0], /if \(tipo === 'deliv'\) return gotoDeliv\(a, b\);/);
+  assert.match(fn[0], /if \(tipo === 'deliv'\) return gotoDeliv\(alvo, seletor\);/);
+  // mesma ordem do sysGoTo, pelo mesmo motivo, e sem piscar painel escondido
+  assert.match(APPJS, /function gotoAba\(nome, at\) \{\s*\n\s*switchTab\(nome\);/,
+    'gotoAba troca a aba ANTES de procurar o alvo');
+  assert.match(APPJS, /if \(!el \|\| el\.hidden\) return;/,
+    'painel de ferramenta sem resultado ainda é hidden: não pisca o que ninguém vê');
   assert.match(APPJS, /document\.addEventListener\('click', \(e\) => \{\s*\n\s*const el = e\.target\.closest\('\[data-goto\]'\);/,
     'um listener delegado no document, não um por tela');
   assert.match(APPJS, /document\.addEventListener\('keydown'/, 'mesma navegação pelo teclado');

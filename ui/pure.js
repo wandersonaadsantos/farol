@@ -509,6 +509,8 @@ function avatar(login, cls = '') {
    | pessoa (@login) | personMention | perfil dela no GitHub |
    | repositório (owner/repo) | repoMention | repo no GitHub |
    | PR (owner/repo#N) | prRefMention | o PR no GitHub |
+   | ferramenta (Kudos/Diagnóstico) | toolRefGoto | o painel dela no próprio app |
+   | ref de sessão (coluna do Consumo) | sessionRefMention | roteia entre os de cima |
    | lugar do próprio app | data-goto (ui/app.js) | aba/seção/grupo, com destaque |
 
    Pessoa SEMPRE vem com foto: era a assimetria que o Wanderson apontou no
@@ -550,6 +552,42 @@ function prRefMention(ref, cls = '') {
   const txt = esc(String(ref || ''));
   if (!url) return `<span class="${esc(cls)}">${txt}</span>`;
   return `<a class="${esc(cls)} pr-ref-mention" href="${url}" target="_blank" rel="noreferrer" title="Abrir ${txt} no GitHub">${txt}</a>`;
+}
+
+// Lê um valor de data-goto ('tipo:alvo[:seletor]'). O seletor é o RESTO inteiro,
+// nunca só o terceiro pedaço: seletor CSS tem ':' (`.acct-label:nth-child(2)`) e
+// destino de Entregas tem '/' e ':' no meio.
+function parseGoto(spec) {
+  const [tipo, alvo, ...resto] = String(spec ?? '').split(':');
+  return { tipo: tipo || '', alvo: alvo || '', seletor: resto.join(':') };
+}
+
+// Ferramenta interna: o "lugar" dela não é uma URL, é um painel do próprio app,
+// então o destino sai no formato data-goto do ui/app.js. Os rótulos são os que o
+// lib/engine/tools.js monta pro ref da sessão ('Kudos', 'Kudos · <escopo>' e
+// 'Diagnóstico do Farol'); o escopo é nome de conta, entra no rótulo mas NÃO no
+// destino, que é constante.
+const TOOL_REF_GOTO = [
+  [/^Kudos( · .+)?$/, 'aba:destaques:#kudosPanel'],
+  [/^Diagnóstico do Farol$/, 'sys:diag:#healthPanel'],
+];
+
+function toolRefGoto(ref) {
+  const s = String(ref ?? '').trim();
+  for (const [re, destino] of TOOL_REF_GOTO) if (re.test(s)) return destino;
+  return '';
+}
+
+// menção do ref de uma sessão (coluna "PR / sessão" do Consumo), que é polimórfico:
+// revisão/pushback/chat gravam a chave do PR, ferramenta grava o rótulo dela. Cada
+// um vai pro SEU destino; o que não se reconhece continua texto puro, no mesmo
+// lugar, sem link quebrado nem clique que não leva a nada.
+function sessionRefMention(ref, cls = '') {
+  if (ghPrUrl(ref)) return prRefMention(ref, cls);
+  const txt = esc(String(ref || ''));
+  const destino = toolRefGoto(ref);
+  if (!destino) return `<span class="${esc(cls)}">${txt}</span>`;
+  return `<span class="${esc(cls)} is-goto" data-goto="${esc(destino)}" role="button" tabindex="0" title="Abrir ${txt} no Farol">${txt}</span>`;
 }
 
 function md(src) {
@@ -975,7 +1013,7 @@ if (typeof module !== 'undefined' && module.exports) {
     sameSet, diffVs, lastMerge, groupBy, usageMetricVal, sparklinePath, usageDelta, usageStackLayers,
     usageHoverIndex, usageMatrixRows, USAGE_KIND_LABEL, usageSessionRow, accountSaveArray, delivCappedMsg, fmtRel,
     usageDayKeysBack, localDayKey, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan,
-    personMention, repoMention, prRefMention, ghPrUrl,
+    personMention, repoMention, prRefMention, ghPrUrl, parseGoto, toolRefGoto, sessionRefMention,
     delivFilterItems, delivDayBuckets, delivStats, delivStatsCards, delivActivityChart, delivActivityCard,
     delivSliceRows, delivEmptyState, deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
     fmtStamp, fmtWhenDay, resolvedRow,

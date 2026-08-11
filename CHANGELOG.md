@@ -9,6 +9,25 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.40.2
+
+Completa a navegação por clique da versão anterior: a coluna "PR / sessão" da
+aba Consumo tinha sessão que não levava a lugar nenhum.
+
+**Melhorias**
+- **Sessão de ferramenta agora navega.** Na tabela de Sessões recentes, "Kudos"
+  abre a aba Destaques no painel dos kudos compilados e "Diagnóstico do Farol"
+  abre Sistema → Diagnóstico no relatório. Antes só a referência de PR era
+  clicável, e a linha de ferramenta ficava como texto morto. Referência que o
+  app não sabe abrir (sessão sem referência) continua texto puro, sem clique
+  que não leva a nada.
+
+**Correções**
+- Trava nova no gate de qualidade: destino de navegação interna apontando pra
+  uma aba, seção ou âncora que não existe passa a reprovar a suíte. O sintoma
+  desse defeito é clique que simplesmente não faz nada, sem erro nenhum na
+  tela nem no log, que é o tipo mais caro de achar.
+
 ## v2.40.1
 
 Refinamento de usabilidade: o que a tela menciona agora leva até a coisa com um

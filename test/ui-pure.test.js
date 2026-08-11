@@ -401,6 +401,53 @@ test('prRefMention: só owner/repo#N vira link; o resto continua texto', () => {
   assert.equal(P.ghPrUrl('Diagnóstico do Farol'), '');
 });
 
+test('parseGoto: separa tipo, alvo e seletor (o seletor pode conter ":")', () => {
+  assert.deepEqual(P.parseGoto('aba:radar'), { tipo: 'aba', alvo: 'radar', seletor: '' });
+  assert.deepEqual(P.parseGoto('aba:destaques:#kudosPanel'), { tipo: 'aba', alvo: 'destaques', seletor: '#kudosPanel' });
+  assert.deepEqual(P.parseGoto('sys:diag:#sys-row-log'), { tipo: 'sys', alvo: 'diag', seletor: '#sys-row-log' });
+  assert.deepEqual(P.parseGoto('deliv:repo:acme/app'), { tipo: 'deliv', alvo: 'repo', seletor: 'acme/app' });
+  // seletor CSS com ':' não pode ser picotado (o caso que motivou o resto.join(':'))
+  assert.deepEqual(P.parseGoto('sys:accounts:.acct-label:nth-child(2)'),
+    { tipo: 'sys', alvo: 'accounts', seletor: '.acct-label:nth-child(2)' });
+  assert.deepEqual(P.parseGoto(''), { tipo: '', alvo: '', seletor: '' });
+  assert.deepEqual(P.parseGoto(null), { tipo: '', alvo: '', seletor: '' });
+});
+
+test('toolRefGoto: ref de ferramenta aponta pro painel dela dentro do próprio app', () => {
+  // o ref das sessões de ferramenta é o rótulo montado no lib/engine/tools.js:
+  // `Kudos` / `Kudos · <escopo>` e 'Diagnóstico do Farol'
+  assert.equal(P.toolRefGoto('Kudos'), 'aba:destaques:#kudosPanel');
+  assert.equal(P.toolRefGoto('Kudos · BIUD trabalho'), 'aba:destaques:#kudosPanel');
+  assert.equal(P.toolRefGoto('Diagnóstico do Farol'), 'sys:diag:#healthPanel');
+  // o que não é ferramenta não pode ganhar destino inventado
+  for (const cru of ['biudtech/farol#88', '(sem referência)', '', null, undefined, 'Kudoso', 'Diagnóstico']) {
+    assert.equal(P.toolRefGoto(cru), '', `"${cru}" não é ref de ferramenta`);
+  }
+});
+
+test('sessionRefMention: PR vai pro GitHub, ferramenta vai pro painel, resto fica texto', () => {
+  const pr = P.sessionRefMention('biudtech/farol#88', 'usage-sessions-ref');
+  assert.match(pr, /href="https:\/\/github\.com\/biudtech\/farol\/pull\/88"/);
+
+  const tool = P.sessionRefMention('Kudos · BIUD trabalho', 'usage-sessions-ref');
+  assert.match(tool, /data-goto="aba:destaques:#kudosPanel"/);
+  assert.match(tool, /class="usage-sessions-ref is-goto"/, 'mantém a classe de layout de quem chamou');
+  assert.match(tool, /role="button"/, 'navegável pelo teclado, igual aos outros data-goto');
+  assert.match(tool, /tabindex="0"/);
+  assert.doesNotMatch(tool, /<a /, 'destino é interno, não vira link externo');
+
+  const nada = P.sessionRefMention('(sem referência)', 'usage-sessions-ref');
+  assert.doesNotMatch(nada, /data-goto/, 'sem destino não ganha affordance de clique');
+  assert.doesNotMatch(nada, /<a /);
+  assert.match(nada, /\(sem referência\)/, 'o texto continua na tela, no mesmo lugar');
+});
+
+test('sessionRefMention: rótulo de ferramenta com aspas não escapa do atributo', () => {
+  // o escopo do kudos vem do nome da conta, que é config do usuário
+  const html = P.sessionRefMention('Kudos · a"><b>x</b>', 'usage-sessions-ref');
+  assert.doesNotMatch(html, /<b>/, 'markup do rótulo não pode virar markup na tela');
+});
+
 test('INVARIANTE: toda menção de autor da UI passa pelo personMention (foto + link)', () => {
   // o pedido do Wanderson (11/08/2026) foi de LÓGICA CENTRALIZADA: se um painel
   // voltar a escrever "@" + login na mão, a foto e o link somem só ali, que é

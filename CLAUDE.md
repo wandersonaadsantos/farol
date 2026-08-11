@@ -166,14 +166,33 @@ escrita à mão, pra o destino ser o mesmo em toda tela:
 |---|---|---|
 | pessoa (`@login`) | `personMention(login, cls, semFoto)` | perfil dela no GitHub, **sempre com foto** |
 | repositório (`owner/repo`) | `repoMention(repo, label)` | repo no GitHub |
-| PR (`owner/repo#N`) | `prRefMention(ref, cls)` | o PR no GitHub (só o que casa o formato; ref de ferramenta segue texto) |
+| PR (`owner/repo#N`) | `prRefMention(ref, cls)` | o PR no GitHub (só o que casa o formato) |
+| ferramenta (`Kudos`, `Diagnóstico do Farol`) | `toolRefGoto(ref)` | o painel dela no próprio app |
+| ref de sessão (coluna do Consumo) | `sessionRefMention(ref, cls)` | roteia entre os dois de cima |
 | lugar do próprio app | atributo `data-goto` | aba/seção/grupo, com rolagem e destaque |
 
+O ref da coluna "PR / sessão" é POLIMÓRFICO (revisão, pushback e chat gravam a
+chave do PR; ferramenta grava o rótulo montado no `tools.js`), por isso ele passa
+pelo roteador `sessionRefMention` e não direto pelo `prRefMention`. Ref que
+nenhum dos dois reconhece continua texto puro: clique que não leva a nada é pior
+que texto, porque promete navegação e não entrega.
+
 `data-goto` (handler ÚNICO delegado no `document`, em `ui/app.js`, junto do
-`goTo`/`gotoDeliv`): `aba:<nome>`, `sys:<secao>`, `sys:<secao>:<seletor>`,
-`deliv:repo:<owner/repo>`, `deliv:author:<login>`, `deliv:days:<0|7|15|30>`.
-Em `sys:` a aba troca ANTES do `sysGoTo` (elemento em aba escondida não rola, e
-falha calado). Span com `data-goto` leva `role="button"` + `tabindex="0"`.
+`goTo`/`gotoAba`/`gotoDeliv`): `aba:<nome>`, `aba:<nome>:<seletor>`,
+`sys:<secao>`, `sys:<secao>:<seletor>`, `deliv:repo:<owner/repo>`,
+`deliv:author:<login>`, `deliv:days:<0|7|15|30>`. O parse do spec é o
+`parseGoto` do `ui/pure.js` (o seletor é o RESTO inteiro, nunca o terceiro
+pedaço: seletor CSS tem `:`). Tanto em `aba:` quanto em `sys:` a aba troca ANTES
+de procurar o alvo (elemento em aba escondida não rola, e falha calado), e alvo
+`hidden` (painel de ferramenta sem resultado gerado ainda) não é destacado, a
+navegação para na aba certa. Span com `data-goto` leva `role="button"` +
+`tabindex="0"`.
+
+**Trava contra destino morto** (`ui-contract.test.js`, v2.40.2): todo `data-goto`
+literal é conferido contra o `index.html` (a aba existe? a seção existe? a âncora
+`#id` existe?). É a mesma classe do M18 que criou aquele arquivo, e pior de
+achar: `querySelector` devolve `null`, o `goTo` volta em silêncio e o clique
+simplesmente não faz nada, sem 404, sem erro no console e sem linha no log.
 
 Duas travas no `npm test`: `ui-pure.test.js` varre o fonte atrás de `@${...author}`
 escrito à mão (menção de pessoa sem foto/link reprova) e `ui-widgets.test.js`

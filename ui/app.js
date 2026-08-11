@@ -1166,6 +1166,7 @@ function sysGoTo(sec, at) {
 
    Formatos aceitos (data-goto):
      aba:<nome>                        → só troca de aba (radar, entregas, …)
+     aba:<nome>:<seletor CSS>          → idem + rola e pisca o alvo
      sys:<secao>                       → aba Sistema + seção
      sys:<secao>:<seletor CSS>         → idem + rola e pisca o alvo
      deliv:repo:<owner/repo>           → Entregas, visão por repo, no grupo
@@ -1209,15 +1210,29 @@ function gotoDeliv(kind, valor) {
   }, 0);
 }
 
+// troca de aba e, se veio seletor, rola e pisca o alvo. Mesma ordem do sysGoTo
+// (aba visível ANTES do scroll: scrollIntoView em elemento escondido não faz nada
+// e não avisa). Painel de ferramenta nasce hidden: sem resultado gerado ainda, a
+// navegação para na aba certa em vez de piscar o que ninguém vê.
+function gotoAba(nome, at) {
+  switchTab(nome);
+  if (!at) return;
+  setTimeout(() => {
+    const el = document.querySelector(at);
+    if (!el || el.hidden) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    sysFlash(el);
+  }, 0);
+}
+
 function goTo(spec) {
-  const [tipo, a, ...resto] = String(spec || '').split(':');
-  const b = resto.join(':'); // seletor CSS pode ter ':' (ex.: nth-child)
-  if (tipo === 'aba') return switchTab(a);
+  const { tipo, alvo, seletor } = parseGoto(spec);
+  if (tipo === 'aba') return gotoAba(alvo, seletor || null);
   if (tipo === 'sys') {
     switchTab('sistema');
-    return sysGoTo(a, b || null);
+    return sysGoTo(alvo, seletor || null);
   }
-  if (tipo === 'deliv') return gotoDeliv(a, b);
+  if (tipo === 'deliv') return gotoDeliv(alvo, seletor);
 }
 
 document.addEventListener('click', (e) => {
@@ -2707,7 +2722,7 @@ function drawUsageSessions(el, u) {
     return `<div class="usage-sessions-row">
       <span class="usage-sessions-when">${esc(r.whenLabel)}</span>
       <span class="usage-sessions-kind"><span class="dot" style="background:${USAGE_KIND_COLOR[s.kind] || 'var(--faint)'};width:8px;height:8px;border-radius:2.5px;display:inline-block"></span>${esc(r.kindLabel)}</span>
-      ${prRefMention(r.ref, 'usage-sessions-ref')}
+      ${sessionRefMention(r.ref, 'usage-sessions-ref')}
       <span class="usage-sessions-model">${esc(r.model)}</span>
       <span class="usage-sessions-num">${esc(r.tokLabel)}</span>
       <span class="usage-sessions-num">${esc(r.costLabel)}</span>
@@ -2965,6 +2980,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.40.2', ['A sessão de ferramenta na tabela de Consumo agora navega por clique: "Kudos" abre a aba Destaques no painel dos kudos compilados, e "Diagnóstico do Farol" abre Sistema → Diagnóstico no relatório. Antes só a referência de PR era clicável e a linha de ferramenta ficava como texto morto.', 'Trava nova no gate de qualidade: destino de navegação interna apontando pra aba, seção ou âncora inexistente passa a reprovar a suíte. Esse defeito não gera erro nenhum, o clique só não faz nada, e é o tipo mais caro de achar.']],
   ['2.40.1', ['Foto de quem abriu o PR no Panorama (e na fila, nas decisões, em Destaques, no Time e na barra de identidade): toda menção de pessoa agora sai do mesmo lugar, com foto e link pro perfil no GitHub.', 'O que a tela menciona leva até a coisa com um clique: nome de pessoa e de repositório abrem o GitHub; a referência do PR na tabela de sessões abre o PR; "Sistema → Plano e chaves", o nome do perfil no cartão de orçamento, "o log em Sistema", "organizações monitoradas", "Automação" e a versão no rodapé abrem a seção exata, já rolada e destacada.', 'Atalhos nos cartões de Entregas: "@fulano na frente" e "repo na frente" levam ao grupo na lista (trocando a visão quando precisa) e "+N hoje" troca o período. Tudo navegável pelo teclado.', 'Correção: título comprido escondia o autor no Panorama (mesmo defeito corrigido em "Revisões recentes" na versão anterior). Agora quem trunca é o texto do título, e a foto com o @login ficam sempre visíveis.']],
   ['2.40.0', ['Consumo com fonte única de verdade: os painéis não se contradizem mais (o cartão de tokens dizia 942k nos 7 dias com a linha do tempo mostrando 43k). O registro antigo, sem quebra por tipo/modelo/conta, aparece como camada cinza "Sem detalhamento", reconciliada dia a dia: os totais de KPI, linha do tempo e matriz agora batem sempre, por construção.', 'Orçamento por perfil ao vivo: o cartão, o selo e o gasto na aba Sistema recalculam a cada atualização, com a mesma conta que pausa a automação, em vez de congelar no último "Verificar agora".', 'Entregas ordenadas pelo mais atual primeiro: quem mergeou por último abre a lista (por repositório e por pessoa), descendo até o grupo parado há mais tempo. O número de ranking saiu; quem mais entrega segue nos cartões "na frente".', 'Entregas sem números fantasma: dia sem merge aparecia como a 2ª barra mais alta do gráfico (colisão de estilo) e os cartões contavam ~50 merges de uma janela maior que a do gráfico (corte UTC). Agora dia zerado é um toco de 2px, "Hoje" começa às 00:00 de verdade, e total, média, pico e barras contam o MESMO período.', 'Registro mais completo: sessão cancelada depois do relatório final registra o gasto (e aparece como "cancelada", não "ok"); sessão com custo e zero tokens também registra; a tabela de sessões declara desde quando o registro individual existe; e o cartão de orçamento avisa que sessão interativa de terminal não entra na medição (o CLI não reporta).', 'KPIs honestos: o subtítulo de Tokens mostra o cache do período (o custo inclui cache), a variação (%) só aparece quando o período anterior tem histórico completo pra comparar, e as células da matriz mostram o valor exato no tooltip.']],
   ['2.39.0', ['Consumo redesenhado: cartões de KPI com tendência, linha do tempo empilhada por tipo/modelo/conta com hover, matriz Tipo × Modelo, orçamento por perfil com medidor, e uma tabela de sessões recentes mostrando o PR (ou chat/ferramenta) de cada uma.', 'Correção: o autor sumia de "Revisões recentes" quando o título do PR era comprido, porque o @login ficava dentro do título, que trunca com reticências. Agora o autor tem linha própria, com a mesma foto de perfil que a fila, "Precisa de você", Destaques e Time já usam.']],
