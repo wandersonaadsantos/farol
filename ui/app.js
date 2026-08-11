@@ -409,7 +409,7 @@ function renderIdentity() {
     strip.className = 'identity-strip one';
     strip.style.cssText = `--ac:${meta.color};--ac-soft:${meta.soft};--ac-ink:${meta.ink};`;
     strip.innerHTML = `<span class="id-avatar">${esc((meta.label || a.user).charAt(0).toUpperCase())}</span>
-      <div class="id-body"><div class="id-line">Revisando e postando como <span class="id-handle">@${esc(a.user)}</span> ${meta.org ? `<span class="id-org">· ${esc(meta.org)}</span>` : ''}</div></div>
+      <div class="id-body"><div class="id-line">Revisando e postando como <span class="id-handle">${personMention(a.user, 'xs', true)}</span> ${meta.org ? `<span class="id-org">· ${esc(meta.org)}</span>` : ''}</div></div>
       ${meta.kind ? `<span class="id-tag">${esc(meta.kind)}</span>` : ''}${a.muted ? '<span class="id-tag">silenciada</span>' : ''}`;
   }
 }
@@ -433,7 +433,7 @@ function renderSilenced() {
       <div class="info">
         <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a> <span class="acct-chip">${esc(meta.label || '')}</span></div>
         <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
-        <div class="pr-sub"><span class="author">@${esc(pr.author)}</span> · ${fmtRel(pr.updatedAt)}</div>
+        <div class="pr-sub">${personMention(pr.author, 'xs')} · ${fmtRel(pr.updatedAt)}</div>
       </div></div>`;
   }).join('')}</div>` : '';
   box.innerHTML = head + body;
@@ -478,7 +478,7 @@ function renderAccountsManager() {
           <input class="acct-kind" data-user="${esc(a.user)}" list="acctKinds" value="${esc(a.kind || '')}" placeholder="tipo (Pessoal/Trabalho)" spellcheck="false">
           ${a.primary ? '<span class="a-tag">primária</span>' : ''}
         </div>
-        <div class="a-sub"><span class="a-auth ${a.tokenOk && !a.muted ? 'ok' : ''}">@${esc(a.user)}</span> · ${esc(auth)}</div>
+        <div class="a-sub"><a class="a-auth ${a.tokenOk && !a.muted ? 'ok' : ''}" href="https://github.com/${encodeURIComponent(a.user)}" target="_blank" rel="noreferrer" title="Abrir @${esc(a.user)} no GitHub">@${esc(a.user)}</a> · ${esc(auth)}</div>
         <div class="a-editrow orgs"><span class="a-fieldlabel">orgs</span>
           <input class="acct-owners" data-user="${esc(a.user)}" value="${esc((a.owners || []).join(', '))}" placeholder="org1, org2" spellcheck="false" title="organizações monitoradas por esta conta"></div>
         <div class="a-pol-note">O que o Farol faz sozinho nos PRs desta conta (o que não escolher, segue o padrão geral):</div>
@@ -1156,6 +1156,85 @@ function sysGoTo(sec, at) {
   }, 0);
 }
 
+/* ---------- navegação interna centralizada: data-goto ----------
+   Contrapartida interna dos helpers de menção do ui/pure.js (personMention,
+   repoMention, prRefMention levam pro GitHub; aqui é pra levar a um lugar do
+   PRÓPRIO app). Um handler só, delegado no document, pra nenhuma tela precisar
+   registrar listener próprio nem repetir a sequência "switchTab depois
+   sysGoTo com setTimeout" (a ordem importa: sysGoTo rola/pisca e elemento em
+   aba escondida não rola).
+
+   Formatos aceitos (data-goto):
+     aba:<nome>                        → só troca de aba (radar, entregas, …)
+     sys:<secao>                       → aba Sistema + seção
+     sys:<secao>:<seletor CSS>         → idem + rola e pisca o alvo
+     deliv:repo:<owner/repo>           → Entregas, visão por repo, no grupo
+     deliv:author:<login>              → Entregas, visão por pessoa, no grupo
+     deliv:days:<0|7|15|30>            → Entregas, troca o período
+
+   Quem emite passa o valor CRU; a leitura é sempre por dataset (nada de parse
+   de HTML). Elemento com data-goto ganha o affordance de clique no CSS
+   (.is-goto) e vira botão pra teclado/leitor de tela via role/tabindex. */
+function gotoDeliv(kind, valor) {
+  switchTab('entregas');
+  if (kind === 'days') {
+    const d = parseInt(valor, 10);
+    deliveriesDays = [0, 7, 15, 30].includes(d) ? d : deliveriesDays;
+    localStorage.setItem('farol-deliv-days', String(deliveriesDays));
+    marcarDelivDays();
+    loadDeliveries();
+    return;
+  }
+  // trocar a visão (repo x pessoa) é parte de "levar até a coisa": o grupo só
+  // existe na visão correspondente
+  const by = kind === 'author' ? 'author' : 'repo';
+  if (deliveriesBy !== by) {
+    deliveriesBy = by;
+    localStorage.setItem('farol-deliv-by', by);
+    marcarSeg(document.querySelectorAll('#delivBy .seg-btn'), x => x.dataset.by === by);
+  }
+  if (deliveriesQuery) { deliveriesQuery = ''; const q = $('#delivQuery'); if (q) q.value = ''; }
+  renderDeliveries();
+  // o grupo é montado no render acima; achar pelo groupKey do próprio pure.js
+  setTimeout(() => {
+    const key = `${by === 'author' ? 'author' : 'repo'}:${valor}`;
+    const alvo = [...document.querySelectorAll('#deliveries .deliv-card')]
+      .find(c => c.querySelector(`[data-deliv-group="${CSS.escape(key)}"]`))
+      || [...document.querySelectorAll('#deliveries .deliv-card .deliv-name')]
+        .find(n => n.textContent.trim() === (by === 'author' ? '@' + valor : valor));
+    const card = alvo && (alvo.closest ? alvo.closest('.deliv-card') : alvo);
+    if (!card) return;
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    sysFlash(card);
+  }, 0);
+}
+
+function goTo(spec) {
+  const [tipo, a, ...resto] = String(spec || '').split(':');
+  const b = resto.join(':'); // seletor CSS pode ter ':' (ex.: nth-child)
+  if (tipo === 'aba') return switchTab(a);
+  if (tipo === 'sys') {
+    switchTab('sistema');
+    return sysGoTo(a, b || null);
+  }
+  if (tipo === 'deliv') return gotoDeliv(a, b);
+}
+
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-goto]');
+  if (!el) return;
+  e.preventDefault();
+  goTo(el.dataset.goto);
+});
+// mesma navegação pelo teclado: quem tem data-goto é anunciado como botão
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const el = e.target.closest && e.target.closest('[data-goto]');
+  if (!el || el.tagName === 'A' || el.tagName === 'BUTTON') return;
+  e.preventDefault();
+  goTo(el.dataset.goto);
+});
+
 function sysSearchFilter(query) {
   const q = sysNorm(query).trim();
   const box = $('#sysResults');
@@ -1457,10 +1536,13 @@ function renderDeliveries() {
   const data = deliveriesData || { items: [] };
   const note = $('#delivNote');
   const msgs = [];
-  if (data.partial) msgs.push('Algumas buscas ao GitHub falharam; a lista pode estar incompleta (veja o log em Sistema).');
-  if (data.capped) msgs.push(delivCappedMsg(data.limit));
+  // "o log em Sistema" é menção a lugar do app: vira clique que leva à linha do
+  // log no Diagnóstico. Por isso a nota passou de textContent pra innerHTML, com
+  // esc() em TODO texto que não seja o link (delivCappedMsg é texto do pure.js).
+  if (data.partial) msgs.push('Algumas buscas ao GitHub falharam; a lista pode estar incompleta (veja <span class="is-goto" data-goto="sys:diag:#sys-row-log" role="button" tabindex="0">o log em Sistema</span>).');
+  if (data.capped) msgs.push(esc(delivCappedMsg(data.limit)));
   note.hidden = !msgs.length;
-  note.textContent = msgs.join(' ');
+  note.innerHTML = msgs.join(' ');
 
   const items = delivFilterItems(data.items || [], deliveriesQuery);
   $('#delivStats').innerHTML = delivStatsCards(delivStats(items, deliveriesDays));
@@ -1786,7 +1868,7 @@ function renderDecisions() {
         <span class="dec-when" title="${esc(fmtStamp(d.createdAt))}">${esc(fmtWhenDay(d.createdAt))}</span>
       </div>
       ${d.pr?.title ? `<div class="dec-title">${esc(d.pr.title)}</div>` : ''}
-      ${author ? `<div class="dec-author">PR de <b>@${esc(author)}</b> ${papelPicker(author)}</div>` : ''}
+      ${author ? `<div class="dec-author">PR de ${personMention(author, 'xs')} ${papelPicker(author)}</div>` : ''}
       ${(d.reasons || []).length ? `<ul class="dec-reasons">${d.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
       <details class="dec-report"><summary>Ver relatório completo</summary><div class="report">${md(d.reportMarkdown)}</div></details>
       <div class="dec-actions">
@@ -1882,7 +1964,7 @@ function renderQueue() {
       <div class="info">
         <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}${pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : ''}</div>
         <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
-        <div class="pr-sub"><span class="author">@${esc(pr.author)}</span> · atualizado ${fmtRel(pr.updatedAt)}${pr.author ? ` ${papelPicker(pr.author)}` : ''}</div>
+        <div class="pr-sub">${personMention(pr.author, 'xs')} · atualizado ${fmtRel(pr.updatedAt)}${pr.author ? ` ${papelPicker(pr.author)}` : ''}</div>
       </div>
       <div class="pr-actions">
         <button class="btn primary sm act-review" data-url="${esc(pr.url)}">Revisar</button>
@@ -1975,7 +2057,10 @@ function renderPanorama() {
           ${pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : ''}
           ${chip}
         </div>
-        <div class="pw-title" title="${esc(pr.title)}">${esc(pr.title)}<span class="pw-author">${pr.title ? '· ' : ''}@${esc(pr.author)}</span></div>
+        <div class="pw-title">
+          <span class="pw-title-txt" title="${esc(pr.title)}">${esc(pr.title)}</span>
+          ${pr.title ? '<span class="pw-sep">·</span>' : ''}${personMention(pr.author, 'xs')}
+        </div>
       </div>
       <div class="pw-side">
         <span class="pw-when">${fmtRel(pr.updatedAt)}</span>
@@ -2124,7 +2209,7 @@ function renderMyPRs() {
             ${pr.isDraft ? '<span class="badge">rascunho</span>' : ''}${badge}${m.chip}</div>
           <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
           ${pr.head && pr.base ? `<div class="pr-branches"><code>${esc(pr.head)}</code> <span class="arrow">→</span> <code>${esc(pr.base)}</code></div>` : ''}
-          <div class="pr-sub">${m.acct ? `por você · <span class="author">@${esc(m.acct.user)}</span> · ` : ''}atualizado ${fmtRel(pr.updatedAt)}</div>
+          <div class="pr-sub">${m.acct ? `por você · ${personMention(m.acct.user, 'xs', true)} · ` : ''}atualizado ${fmtRel(pr.updatedAt)}</div>
         </div>
         <div class="pr-actions">
           <button class="btn primary sm act-self" data-url="${esc(pr.url)}" ${running || queued ? 'disabled' : ''}>${btnLabel}</button>
@@ -2578,14 +2663,18 @@ function drawUsageBudget(el, u) {
     const meters = isApiKey
       ? [p.budgetDaily != null ? meter('Teto diário', p.today, p.budgetDaily) : '', p.budgetTotal != null ? meter('Teto total', p.sinceCutoff, p.budgetTotal) : ''].join('')
       : '';
+    const irAoTeto = `sys:plans:.cp-budget-daily[data-id="${String(p.id).replace(/"/g, '\\"')}"]`;
     const nota = !isApiKey
       ? '<span class="usage-budget-note">Sem teto configurado: o gasto em tokens não vira fatura, só entra no registro.</span>'
       : (p.budgetDaily == null && p.budgetTotal == null
-        ? '<span class="usage-budget-note">Nenhum teto definido pra este perfil (Sistema → Plano e chaves).</span>'
+        ? `<span class="usage-budget-note">Nenhum teto definido pra este perfil (<span class="is-goto" data-goto="${esc(irAoTeto)}" role="button" tabindex="0">definir em Sistema → Plano e chaves</span>).</span>`
         : (p.blocked ? '<span class="usage-budget-note">Automação de gasto pausada pra este perfil (revisão automática, retentativa e scan de pushback).</span>' : ''));
+    // o nome do perfil leva ao card DELE em Sistema (o input do nome carrega o
+    // mesmo id; seletor montado aqui porque CSS.escape não existe no pure.js)
+    const alvoPerfil = `sys:plans:.cp-label[data-id="${String(p.id).replace(/"/g, '\\"')}"]`;
     return `<div class="usage-budget-card">
       <div class="usage-budget-head">
-        <span class="usage-budget-name">${esc(p.label || p.id)}</span>
+        <span class="usage-budget-name is-goto" data-goto="${esc(alvoPerfil)}" role="button" tabindex="0" title="Abrir este perfil em Sistema → Plano e chaves">${esc(p.label || p.id)}</span>
         <span class="usage-budget-kind">${isApiKey ? 'Chave de API' : 'Login por assinatura'}</span>
         <span class="usage-budget-status ${statusCls}">${esc(statusTxt)}</span>
       </div>
@@ -2618,7 +2707,7 @@ function drawUsageSessions(el, u) {
     return `<div class="usage-sessions-row">
       <span class="usage-sessions-when">${esc(r.whenLabel)}</span>
       <span class="usage-sessions-kind"><span class="dot" style="background:${USAGE_KIND_COLOR[s.kind] || 'var(--faint)'};width:8px;height:8px;border-radius:2.5px;display:inline-block"></span>${esc(r.kindLabel)}</span>
-      <span class="usage-sessions-ref" title="${esc(r.ref)}">${esc(r.ref)}</span>
+      ${prRefMention(r.ref, 'usage-sessions-ref')}
       <span class="usage-sessions-model">${esc(r.model)}</span>
       <span class="usage-sessions-num">${esc(r.tokLabel)}</span>
       <span class="usage-sessions-num">${esc(r.costLabel)}</span>
@@ -2678,8 +2767,9 @@ function renderUpdate() {
   const box = $('#updateBox');
   if (!u) { box.textContent = 'Verificando…'; return; }
   const remote = u.channel === 'remote';
+  // o repo das releases é menção a coisa navegável: abre a página de releases
   const origin = remote
-    ? `GitHub Releases (<code>${esc(u.repo || '')}</code>)`
+    ? `GitHub Releases (<a href="https://github.com/${esc(u.repo || '')}/releases" target="_blank" rel="noreferrer" title="Abrir as releases no GitHub"><code>${esc(u.repo || '')}</code></a>)`
     : (u.source ? `fonte em <code>${esc(u.source)}</code>` : '');
   const hasChannel = remote || !!u.source;
   // não deu pra ler a release (repo privado/sem acesso, sem release ainda, ou rede):
@@ -2731,7 +2821,7 @@ async function loadHighlights() {
       ${h.author ? avatar(h.author, 'sm') : ''}
       <div class="body">
         <div class="hl-head">
-          ${h.author ? `<span class="author">@${esc(h.author)}</span>` : ''}
+          ${h.author ? `<span class="author">${personMention(h.author, 'xs', true)}</span>` : ''}
           ${h.ref ? `<a href="${esc(h.url)}" target="_blank" rel="noreferrer">${esc(h.ref)}</a>` : ''}
           <span>${esc(h.date || '')}</span>
           ${SCOPE === 'all' && multi && h._user ? `<span class="acct-chip">${esc((ACCT[h._user.toLowerCase()] || {}).label || h._user)}</span>` : ''}
@@ -2801,7 +2891,7 @@ async function loadTeam() {
         ${avatar(m.login)}
         <div class="names">
           <div class="name">${esc(m.name)}</div>
-          <div class="login">@${esc(m.login)} · ${entries.length} review(s) registrados</div>
+          <div class="login">${personMention(m.login, 'xs', true)} · ${entries.length} review(s) registrados</div>
         </div>
         ${verdictChip}
         ${papelPicker(m.login)}
@@ -2847,27 +2937,35 @@ function renderDoctor() {
   const d = STATE && STATE.doctor;
   const box = $('#doctor');
   if (!d) { box.innerHTML = '<div class="empty">Verificando o ambiente…</div>'; return; }
+  // `goto` (opcional): o check cita uma coisa configurável do app, então clicar
+  // leva até ela (a conta abre o card dela em Contas)
   const checks = [
     { ok: !!d.gh, label: 'GitHub CLI', detail: d.gh || 'gh não encontrado no PATH' },
-    { ok: d.ghAuth, label: STATE.config.ghUser ? `Conta @${STATE.config.ghUser}` : 'Conta do GitHub', detail: d.ghAuth ? 'autenticada no gh' : 'sem token: rode gh auth login (conta de trabalho)' },
-    { ok: !!d.claude, label: 'Claude Code', detail: d.claude || 'claude não encontrado no PATH' },
+    {
+      ok: d.ghAuth, label: STATE.config.ghUser ? `Conta @${STATE.config.ghUser}` : 'Conta do GitHub',
+      detail: d.ghAuth ? 'autenticada no gh' : 'sem token: rode gh auth login (conta de trabalho)',
+      goto: STATE.config.ghUser ? `sys:accounts:.acct-label[data-user="${String(STATE.config.ghUser).replace(/"/g, '\\"')}"]` : 'sys:accounts:#accountsManager'
+    },
+    { ok: !!d.claude, label: 'Claude Code', detail: d.claude || 'claude não encontrado no PATH', goto: 'sys:plans:#claudeProfilesManager' },
     // Git Bash é pré-requisito só no Windows (CLAUDE_CODE_GIT_BASH_PATH)
     ...(ehWin() ? [{ ok: !!d.gitBash, label: 'Git Bash', detail: d.gitBash || 'não encontrado: sessões do Claude podem travar' }] : []),
     { ok: true, label: 'Pasta de trabalho', detail: d.workspace }
   ];
   box.innerHTML = checks.map(c => `
-    <div class="check ${c.ok ? 'ok' : 'bad'}">
+    <div class="check ${c.ok ? 'ok' : 'bad'}${c.goto ? ' is-goto' : ''}"${c.goto ? ` data-goto="${esc(c.goto)}" role="button" tabindex="0" title="Abrir a configuração deste item"` : ''}>
       <span class="led"></span>
       <div><div class="label">${esc(c.label)}</div><div class="detail">${esc(c.detail)}</div></div>
     </div>`).join('');
   $('#about').innerHTML = `O polling usa só o GitHub CLI (zero tokens de IA). O Claude entra apenas quando você abre uma revisão.`;
-  // versão e caminho dos dados moram no rodapé da sidebar, visíveis em qualquer seção
-  $('#sysFoot').innerHTML = `Farol v${esc(STATE.app.version)}<br>dados em <code>${esc(STATE.paths.home)}</code>`;
+  // versão e caminho dos dados moram no rodapé da sidebar, visíveis em qualquer seção.
+  // A versão leva às Novidades dela (a menção mais citada da tela toda).
+  $('#sysFoot').innerHTML = `<span class="is-goto" data-goto="sys:news:#relNotes" role="button" tabindex="0" title="Ver as novidades desta versão">Farol v${esc(STATE.app.version)}</span><br>dados em <code>${esc(STATE.paths.home)}</code>`;
 }
 
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.40.1', ['Foto de quem abriu o PR no Panorama (e na fila, nas decisões, em Destaques, no Time e na barra de identidade): toda menção de pessoa agora sai do mesmo lugar, com foto e link pro perfil no GitHub.', 'O que a tela menciona leva até a coisa com um clique: nome de pessoa e de repositório abrem o GitHub; a referência do PR na tabela de sessões abre o PR; "Sistema → Plano e chaves", o nome do perfil no cartão de orçamento, "o log em Sistema", "organizações monitoradas", "Automação" e a versão no rodapé abrem a seção exata, já rolada e destacada.', 'Atalhos nos cartões de Entregas: "@fulano na frente" e "repo na frente" levam ao grupo na lista (trocando a visão quando precisa) e "+N hoje" troca o período. Tudo navegável pelo teclado.', 'Correção: título comprido escondia o autor no Panorama (mesmo defeito corrigido em "Revisões recentes" na versão anterior). Agora quem trunca é o texto do título, e a foto com o @login ficam sempre visíveis.']],
   ['2.40.0', ['Consumo com fonte única de verdade: os painéis não se contradizem mais (o cartão de tokens dizia 942k nos 7 dias com a linha do tempo mostrando 43k). O registro antigo, sem quebra por tipo/modelo/conta, aparece como camada cinza "Sem detalhamento", reconciliada dia a dia: os totais de KPI, linha do tempo e matriz agora batem sempre, por construção.', 'Orçamento por perfil ao vivo: o cartão, o selo e o gasto na aba Sistema recalculam a cada atualização, com a mesma conta que pausa a automação, em vez de congelar no último "Verificar agora".', 'Entregas ordenadas pelo mais atual primeiro: quem mergeou por último abre a lista (por repositório e por pessoa), descendo até o grupo parado há mais tempo. O número de ranking saiu; quem mais entrega segue nos cartões "na frente".', 'Entregas sem números fantasma: dia sem merge aparecia como a 2ª barra mais alta do gráfico (colisão de estilo) e os cartões contavam ~50 merges de uma janela maior que a do gráfico (corte UTC). Agora dia zerado é um toco de 2px, "Hoje" começa às 00:00 de verdade, e total, média, pico e barras contam o MESMO período.', 'Registro mais completo: sessão cancelada depois do relatório final registra o gasto (e aparece como "cancelada", não "ok"); sessão com custo e zero tokens também registra; a tabela de sessões declara desde quando o registro individual existe; e o cartão de orçamento avisa que sessão interativa de terminal não entra na medição (o CLI não reporta).', 'KPIs honestos: o subtítulo de Tokens mostra o cache do período (o custo inclui cache), a variação (%) só aparece quando o período anterior tem histórico completo pra comparar, e as células da matriz mostram o valor exato no tooltip.']],
   ['2.39.0', ['Consumo redesenhado: cartões de KPI com tendência, linha do tempo empilhada por tipo/modelo/conta com hover, matriz Tipo × Modelo, orçamento por perfil com medidor, e uma tabela de sessões recentes mostrando o PR (ou chat/ferramenta) de cada uma.', 'Correção: o autor sumia de "Revisões recentes" quando o título do PR era comprido, porque o @login ficava dentro do título, que trunca com reticências. Agora o autor tem linha própria, com a mesma foto de perfil que a fila, "Precisa de você", Destaques e Time já usam.']],
   ['2.38.0', ['Entregas ganhou busca por título, autor ou repositório, período em seleção rápida (Hoje/7/15/30 dias), cartões de estatística, gráfico de merges por dia e paginação "mostrar mais" por grupo, com uma barra mostrando quanto cada repositório ou pessoa representa no período.']],

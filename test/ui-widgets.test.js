@@ -12,6 +12,7 @@ const assert = require('node:assert/strict');
 const P = require(path.join(__dirname, '..', 'ui', 'pure.js'));
 const APPJS = fs.readFileSync(path.join(__dirname, '..', 'ui', 'app.js'), 'utf8');
 const HTML = fs.readFileSync(path.join(__dirname, '..', 'ui', 'index.html'), 'utf8');
+const CSS = fs.readFileSync(path.join(__dirname, '..', 'ui', 'app.css'), 'utf8');
 
 /* ---------- maquina de estados das operacoes (M22) ---------- */
 
@@ -326,4 +327,47 @@ test('o rodape dos ocultos usa o texto puro e alterna estado so da tela', () => 
     'alternar re-renderiza a secao E a contagem da sub-aba');
   assert.match(HTML, /<div id="myPRsHiddenFoot" class="mypr-hidden-foot" hidden><\/div>/,
     'a ancora do rodape existe no index.html (nao e id fantasma, B11)');
+});
+
+/* ---------- menções navegáveis: estrutura que a foto/link exigem ----------
+   As funções puras estão travadas em ui-pure.test.js; aqui ficam as invariantes
+   que só existem no app.js/index.html: o título que trunca sem comer o autor e
+   o handler ÚNICO de navegação interna. */
+
+test('Panorama: o autor fica FORA da caixa que trunca o título', () => {
+  // regressão do defeito de "Revisões recentes" (v2.39.0) reencontrado aqui em
+  // 11/08: com o @autor dentro do .pw-title (overflow hidden + ellipsis), título
+  // comprido empurrava foto e login pra fora da tela, sem aviso
+  assert.match(APPJS, /<span class="pw-title-txt" title="\$\{esc\(pr\.title\)\}">/,
+    'o texto do título tem elemento próprio, que é quem trunca');
+  assert.match(APPJS, /pw-title">\s*\n\s*<span class="pw-title-txt"/,
+    'a linha do título continua sendo o container do autor');
+  assert.match(CSS, /\.pw-title-txt \{[^}]*text-overflow: ellipsis/,
+    'quem corta é o texto, não a linha inteira');
+  assert.match(CSS, /\.pw-title \.person-mention \{[^}]*flex: none/,
+    'a menção do autor não encolhe junto com o título');
+});
+
+test('navegação interna tem UM handler só, delegado, e entende os 3 tipos', () => {
+  const fn = APPJS.match(/function goTo\(spec\) \{[\s\S]*?\n\}/);
+  assert.ok(fn, 'goTo existe');
+  assert.match(fn[0], /if \(tipo === 'aba'\) return switchTab\(a\);/);
+  assert.match(fn[0], /switchTab\('sistema'\);\s*\n\s*return sysGoTo\(a, b \|\| null\);/,
+    'sys: troca a aba ANTES do sysGoTo (elemento em aba escondida não rola)');
+  assert.match(fn[0], /if \(tipo === 'deliv'\) return gotoDeliv\(a, b\);/);
+  assert.match(APPJS, /document\.addEventListener\('click', \(e\) => \{\s*\n\s*const el = e\.target\.closest\('\[data-goto\]'\);/,
+    'um listener delegado no document, não um por tela');
+  assert.match(APPJS, /document\.addEventListener\('keydown'/, 'mesma navegação pelo teclado');
+});
+
+test('toda menção com data-goto é anunciada como botão (role + tabindex)', () => {
+  const alvos = [...APPJS.matchAll(/data-goto="[^"]*"/g)].length + [...HTML.matchAll(/data-goto="[^"]*"/g)].length;
+  assert.ok(alvos >= 6, `esperava várias menções navegáveis, achei ${alvos}`);
+  // cada emissão de data-goto em elemento não interativo tem role/tabindex junto
+  for (const src of [APPJS, HTML]) {
+    const semRole = [...src.matchAll(/<span[^>]*data-goto="[^"]*"[^>]*>/g)]
+      .filter(m => !/role="button"/.test(m[0]) || !/tabindex="0"/.test(m[0]));
+    assert.deepEqual(semRole.map(m => m[0].slice(0, 90)), [],
+      'span com data-goto precisa de role="button" e tabindex="0"');
+  }
 });

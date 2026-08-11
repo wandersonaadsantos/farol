@@ -498,6 +498,60 @@ function avatar(login, cls = '') {
   return `<span class="avatar ${cls}">${esc(initial)}<img src="https://github.com/${encodeURIComponent(login)}.png?size=96" alt="" loading="lazy" onerror="this.remove()"></span>`;
 }
 
+/* ---------- menções navegáveis: UM primitivo por tipo de coisa ----------
+   Regra do app (pedido do Wanderson, 11/08/2026): "se tem menção a uma coisa X
+   ou Y eu deveria navegar até aquela coisa por clique". Toda menção passa por
+   um destes helpers, pra o destino de cada tipo ser o MESMO em toda tela e
+   ninguém precisar reinventar (nem esquecer) o link/foto no próximo painel:
+
+   | menção | helper | destino |
+   |---|---|---|
+   | pessoa (@login) | personMention | perfil dela no GitHub |
+   | repositório (owner/repo) | repoMention | repo no GitHub |
+   | PR (owner/repo#N) | prRefMention | o PR no GitHub |
+   | lugar do próprio app | data-goto (ui/app.js) | aba/seção/grupo, com destaque |
+
+   Pessoa SEMPRE vem com foto: era a assimetria que o Wanderson apontou no
+   Panorama (foto em Revisões recentes e Entregas, texto pelado no resto). */
+const GH_URL = 'https://github.com/';
+
+// owner/repo#N (o formato de `pr.key` e do `ref` das sessões). Só o que casa
+// vira link: ref de ferramenta ("Kudos · BIUD trabalho") e "(sem referência)"
+// seguem texto puro, sem inventar URL.
+const PR_REF_RE = /^([\w.-]+)\/([\w.-]+)#(\d+)$/;
+
+function ghPrUrl(ref) {
+  const m = PR_REF_RE.exec(String(ref || '').trim());
+  return m ? `${GH_URL}${m[1]}/${m[2]}/pull/${m[3]}` : '';
+}
+
+// menção de pessoa: foto + @login, clicável pro perfil no GitHub. `cls` entra
+// no avatar ('sm' nas linhas compactas). semFoto=true só onde a foto não cabe
+// (linha de PR das Entregas, que já roda dentro de um grupo com a foto no topo).
+function personMention(login, cls = '', semFoto = false) {
+  const nome = String(login || '').trim();
+  if (!nome) return `<span class="person-mention vazio">@(desconhecido)</span>`;
+  return `<a class="person-mention" href="${GH_URL}${encodeURIComponent(nome)}" target="_blank" rel="noreferrer" title="Abrir @${esc(nome)} no GitHub">`
+    + `${semFoto ? '' : avatar(nome, cls)}<span class="pm-login">@${esc(nome)}</span></a>`;
+}
+
+// menção de repositório (owner/repo): leva ao repo no GitHub. `label` permite
+// mostrar o nome curto e ainda assim linkar o caminho completo.
+function repoMention(repo, label) {
+  const nome = String(repo || '').trim();
+  if (!nome) return '';
+  return `<a class="repo-mention" href="${GH_URL}${nome.split('/').map(encodeURIComponent).join('/')}" target="_blank" rel="noreferrer" title="Abrir ${esc(nome)} no GitHub">${esc(label || nome)}</a>`;
+}
+
+// menção de PR pela referência textual (owner/repo#N): vira link; qualquer
+// outra coisa volta como texto escapado, no mesmo lugar, sem link quebrado.
+function prRefMention(ref, cls = '') {
+  const url = ghPrUrl(ref);
+  const txt = esc(String(ref || ''));
+  if (!url) return `<span class="${esc(cls)}">${txt}</span>`;
+  return `<a class="${esc(cls)} pr-ref-mention" href="${url}" target="_blank" rel="noreferrer" title="Abrir ${txt} no GitHub">${txt}</a>`;
+}
+
 function md(src) {
   const lines = esc(String(src || '')).split(/\r?\n/);
   const out = [];
@@ -658,7 +712,7 @@ function resolvedRow(r, ctx) {
         <span class="rr-verdict${vcls ? ` ${vcls}` : ''}">${label}${act}</span>
       </div>
       ${title ? `<div class="rr-title" title="${esc(title)}">${esc(title)}</div>` : ''}
-      ${author ? `<div class="rr-person">${avatar(author, 'sm')}<span class="rr-author">@${esc(author)}</span></div>` : ''}
+      ${author ? `<div class="rr-person">${personMention(author, 'sm')}</div>` : ''}
       <div class="rr-disc">
         ${vcLine ? `<div class="rr-verification">${esc(vcLine)}</div>` : ''}
         ${attn.length ? `<details class="resolved-attn"><summary>⚠ ${attn.length} ${attnLabel}</summary><ul class="dec-reasons">${attn.map(p => `<li>${esc(p)}</li>`).join('')}</ul></details>` : ''}
@@ -724,23 +778,39 @@ function delivStats(items, days, agora = Date.now()) {
   const media = (total / nDias).toFixed(1).replace('.', ',');
   const ultimoItem = items.reduce((a, b) => (new Date(b.mergedAt) > new Date(a.mergedAt) ? b : a), items[0]);
 
+  // `goto` (opcional) faz o subtítulo virar ATALHO pra própria lista abaixo:
+  // "@fulano na frente" leva ao grupo dele (trocando pra visão por pessoa),
+  // "repo na frente" ao grupo do repo, "+N hoje" ao período Hoje. Menção de
+  // pessoa/repo aqui é atalho INTERNO de propósito (o GitHub fica nos nomes
+  // dentro da lista), pra o mesmo texto nunca ter dois destinos.
   const quarto = days === 0
-    ? { rotulo: 'Último merge', valor: fmtRel(ultimoItem.mergedAt, agora), sub: 'por @' + (ultimoItem.author || '(desconhecido)') }
+    ? {
+      rotulo: 'Último merge', valor: fmtRel(ultimoItem.mergedAt, agora),
+      sub: 'por @' + (ultimoItem.author || '(desconhecido)'),
+      goto: ultimoItem.author ? `deliv:author:${ultimoItem.author}` : ''
+    }
     : { rotulo: 'Média por dia', valor: media, sub: pico.n ? `pico de ${pico.n} (${DIAS_SEMANA[pico.date.getDay()]} ${ddmm(pico.date)})` : '' };
 
   return [
-    { rotulo: 'PRs mergeados', valor: String(total), sub: days === 0 ? 'desde 00:00' : (deHoje > 0 ? `+${deHoje} hoje` : 'nenhum hoje') },
-    { rotulo: 'Pessoas entregando', valor: String(porAutor.length), sub: '@' + porAutor[0][0] + ' na frente' },
-    { rotulo: 'Repositórios ativos', valor: String(porRepo.length), sub: repoShort(porRepo[0][0]) + ' na frente' },
+    {
+      rotulo: 'PRs mergeados', valor: String(total),
+      sub: days === 0 ? 'desde 00:00' : (deHoje > 0 ? `+${deHoje} hoje` : 'nenhum hoje'),
+      goto: days !== 0 && deHoje > 0 ? 'deliv:days:0' : ''
+    },
+    { rotulo: 'Pessoas entregando', valor: String(porAutor.length), sub: '@' + porAutor[0][0] + ' na frente', goto: `deliv:author:${porAutor[0][0]}` },
+    { rotulo: 'Repositórios ativos', valor: String(porRepo.length), sub: repoShort(porRepo[0][0]) + ' na frente', goto: `deliv:repo:${porRepo[0][0]}` },
     quarto
   ];
 }
 
 function delivStatsCards(stats) {
   if (!(stats || []).length) return '';
-  return `<div class="deliv-stats">${stats.map(s =>
-    `<div class="deliv-stat"><span class="ds-label">${esc(s.rotulo)}</span><b>${esc(s.valor)}</b><span class="ds-sub">${esc(s.sub)}</span></div>`
-  ).join('')}</div>`;
+  return `<div class="deliv-stats">${stats.map(s => {
+    const sub = s.goto
+      ? `<span class="ds-sub is-goto" data-goto="${esc(s.goto)}" role="button" tabindex="0" title="Ir até ${esc(s.sub)}">${esc(s.sub)}</span>`
+      : `<span class="ds-sub">${esc(s.sub)}</span>`;
+    return `<div class="deliv-stat"><span class="ds-label">${esc(s.rotulo)}</span><b>${esc(s.valor)}</b>${sub}</div>`;
+  }).join('')}</div>`;
 }
 
 // barras da "Atividade no período": rótulo raro pra não colidir em janelas
@@ -796,7 +866,7 @@ function delivPrRowV2(it, comAutor) {
   return `<div class="row">
     <span class="ref"><a href="${esc(it.url)}" target="_blank" rel="noreferrer">#${esc(num)}</a></span>
     <span class="title" title="${esc(it.title)}">${esc(it.title)}</span>
-    ${comAutor ? `<span class="who">@${esc(it.author || '(desconhecido)')}</span>` : ''}
+    ${comAutor ? `<span class="who">${personMention(it.author, 'xs', true)}</span>` : ''}
     <span class="when">${fmtRel(it.mergedAt)}</span>
   </div>`;
 }
@@ -806,7 +876,7 @@ function delivGroupBody(rows, teto, expandedKeys, groupKey) {
   const expanded = !!(expandedKeys && expandedKeys.has(groupKey));
   const { visiveis, resto } = delivSliceRows(rows, teto, expanded);
   const rowsHtml = visiveis.map(r => r.ehCap
-    ? `<div class="deliv-caption">${esc(r.cap)}</div>`
+    ? `<div class="deliv-caption">${repoMention(r.cap)}</div>`
     : delivPrRowV2(r.item, r.comAutor)
   ).join('');
   const totalPr = rows.filter(r => r.ehPr).length;
@@ -837,7 +907,7 @@ function deliveriesByRepo(items, opts = {}) {
     const autores = new Set(list.map(x => x.author).filter(Boolean)).size;
     const ordenado = [...list].sort((a, b) => String(b.mergedAt).localeCompare(String(a.mergedAt)));
     const rows = ordenado.map(item => ({ ehPr: true, ehCap: false, item, comAutor: true }));
-    const head = `<span class="deliv-name">${esc(repo)}</span><span class="deliv-meta">${plural(autores, 'autor', 'autores')} · último ${fmtRel(lastMerge(list))}</span>`;
+    const head = `<span class="deliv-name">${repoMention(repo)}</span><span class="deliv-meta">${plural(autores, 'autor', 'autores')} · último ${fmtRel(lastMerge(list))}</span>`;
     return { repo, list, last: lastMerge(list), head, rows, groupKey: 'repo:' + repo };
   });
   // mais ATUAL primeiro (decisão do Wanderson, 10/08/2026): quem mergeou por
@@ -866,7 +936,7 @@ function deliveriesByAuthor(items, opts = {}) {
       const ordenado = [...sg.prs].sort((a, b) => String(b.mergedAt).localeCompare(String(a.mergedAt)));
       for (const item of ordenado) rows.push({ ehPr: true, ehCap: false, item, comAutor: false });
     }
-    const head = `${avatar(login)}<span class="deliv-name">@${esc(login)}</span><span class="deliv-meta">${plural(repos, 'repo', 'repos')} · último ${fmtRel(lastMerge(list))}</span>`;
+    const head = `<span class="deliv-name">${personMention(login)}</span><span class="deliv-meta">${plural(repos, 'repo', 'repos')} · último ${fmtRel(lastMerge(list))}</span>`;
     return { login, list, last: lastMerge(list), head, rows, groupKey: 'author:' + login };
   });
   // mais ATUAL primeiro (mesma regra da visão por repo). O número de ranking
@@ -885,11 +955,16 @@ function deliveriesByAuthor(items, opts = {}) {
 function delivEmptyState(opts = {}) {
   const query = opts.query || '';
   const titulo = query ? `Nada com “${query}” neste período.` : 'Nenhum PR mergeado neste período.';
-  const sub = query ? 'Tente outro termo ou amplie o período.' : 'Amplie o período ou confira as organizações monitoradas em Sistema.';
+  // "organizações monitoradas em Sistema" leva ATÉ a linha das orgs (regra das
+  // menções: citou um lugar do app, clicou, chegou lá)
+  const sub = query
+    ? 'Tente outro termo ou amplie o período.'
+    : `Amplie o período ou confira as <span class="is-goto" data-goto="sys:connections:#sys-row-orgs" role="button" tabindex="0">organizações monitoradas em Sistema</span>.`;
+  const subHtml = query ? esc(sub) : sub;
   const botoes = [];
   if (opts.canExpand) botoes.push(`<button type="button" class="btn sm" data-deliv-action="ver30">Ver 30 dias</button>`);
   if (opts.canClear) botoes.push(`<button type="button" class="btn sm ghost" data-deliv-action="limpar-busca">Limpar busca</button>`);
-  return `<div class="empty deliv-empty"><span class="big">📦</span>${esc(titulo)}<br><small>${esc(sub)}</small>${botoes.length ? `<div class="deliv-empty-actions">${botoes.join('')}</div>` : ''}</div>`;
+  return `<div class="empty deliv-empty"><span class="big">📦</span>${esc(titulo)}<br><small>${subHtml}</small>${botoes.length ? `<div class="deliv-empty-actions">${botoes.join('')}</div>` : ''}</div>`;
 }
 
 /* Rodape CommonJS: so o node entra aqui. No navegador estas funcoes ja estao no
@@ -900,6 +975,7 @@ if (typeof module !== 'undefined' && module.exports) {
     sameSet, diffVs, lastMerge, groupBy, usageMetricVal, sparklinePath, usageDelta, usageStackLayers,
     usageHoverIndex, usageMatrixRows, USAGE_KIND_LABEL, usageSessionRow, accountSaveArray, delivCappedMsg, fmtRel,
     usageDayKeysBack, localDayKey, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan,
+    personMention, repoMention, prRefMention, ghPrUrl,
     delivFilterItems, delivDayBuckets, delivStats, delivStatsCards, delivActivityChart, delivActivityCard,
     delivSliceRows, delivEmptyState, deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
     fmtStamp, fmtWhenDay, resolvedRow,

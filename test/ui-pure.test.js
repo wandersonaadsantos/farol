@@ -356,6 +356,78 @@ test('lastMerge devolve a data mais recente sem mexer na lista', () => {
   assert.equal(P.lastMerge([{}]), '');
 });
 
+/* ---------- menções navegáveis (regra: citou X, clicou, chegou em X) ---------- */
+
+test('personMention: foto + @login, link pro perfil no GitHub', () => {
+  const html = P.personMention('alice');
+  assert.match(html, /href="https:\/\/github\.com\/alice"/);
+  assert.match(html, /target="_blank" rel="noreferrer"/, 'link externo abre fora, como o resto do app');
+  assert.match(html, /class="avatar /, 'menção de pessoa SEMPRE vem com foto (o pedido do Panorama)');
+  assert.match(html, /<span class="pm-login">@alice<\/span>/);
+});
+
+test('personMention: login vazio não vira link quebrado, e o texto é escapado', () => {
+  const vazio = P.personMention('');
+  assert.doesNotMatch(vazio, /<a /, 'sem login não há perfil pra abrir');
+  assert.match(vazio, /desconhecido/);
+  const xss = P.personMention('a"><script>x</script>');
+  assert.doesNotMatch(xss, /<script>/, 'login hostil não injeta tag');
+});
+
+test('personMention: semFoto some com o avatar mas mantém o link', () => {
+  const html = P.personMention('bob', 'xs', true);
+  assert.doesNotMatch(html, /class="avatar /);
+  assert.match(html, /href="https:\/\/github\.com\/bob"/);
+});
+
+test('repoMention: leva ao repo no GitHub, com cada segmento escapado na URL', () => {
+  const html = P.repoMention('acme/app');
+  assert.match(html, /href="https:\/\/github\.com\/acme\/app"/);
+  assert.match(html, />acme\/app</);
+  assert.equal(P.repoMention(''), '', 'repo vazio não vira link');
+  assert.match(P.repoMention('acme/app', 'app'), />app</, 'label curta, link completo');
+});
+
+test('prRefMention: só owner/repo#N vira link; o resto continua texto', () => {
+  const link = P.prRefMention('biudtech/farol#88', 'usage-sessions-ref');
+  assert.match(link, /href="https:\/\/github\.com\/biudtech\/farol\/pull\/88"/);
+  assert.match(link, /class="usage-sessions-ref pr-ref-mention"/, 'mantém a classe de layout de quem chamou');
+  // ref de ferramenta e ausência de ref não podem virar URL inventada
+  for (const cru of ['Kudos · BIUD trabalho', '(sem referência)', '', 'só/texto', 'owner/repo#abc']) {
+    const span = P.prRefMention(cru, 'x');
+    assert.doesNotMatch(span, /<a /, `"${cru}" não é referência de PR`);
+  }
+  assert.equal(P.ghPrUrl('biudtech/farol#88'), 'https://github.com/biudtech/farol/pull/88');
+  assert.equal(P.ghPrUrl('Diagnóstico do Farol'), '');
+});
+
+test('INVARIANTE: toda menção de autor da UI passa pelo personMention (foto + link)', () => {
+  // o pedido do Wanderson (11/08/2026) foi de LÓGICA CENTRALIZADA: se um painel
+  // voltar a escrever "@" + login na mão, a foto e o link somem só ali, que é
+  // exatamente a assimetria que ele viu no Panorama. Este teste varre o fonte.
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const raiz = path.join(__dirname, '..', 'ui');
+  const suspeitas = [];
+  for (const arquivo of ['app.js', 'pure.js']) {
+    const src = fs.readFileSync(path.join(raiz, arquivo), 'utf8');
+    src.split(/\r?\n/).forEach((linha, i) => {
+      // "@${...author...}" ou "@${...user...}" escrito à mão dentro de template
+      if (!/@\$\{(esc\()?[\w.]*\b(author|autor|login|user)\b/i.test(linha)) return;
+      // só conta o que RENDERIZA marcação: título de diálogo, texto copiado do
+      // diagnóstico e afins são texto puro, onde link não existe
+      if (!/</.test(linha)) return;
+      // <option> não aceita markup dentro, então lá o @login fica texto mesmo
+      if (/<option/.test(linha)) return;
+      // atributo (title=/aria-label) é texto de acessibilidade, não conteúdo
+      if (/(title|aria-label)="[^"]*@\$\{/.test(linha)) return;
+      suspeitas.push(`${arquivo}:${i + 1}: ${linha.trim().slice(0, 120)}`);
+    });
+  }
+  assert.deepEqual(suspeitas, [],
+    'menção de pessoa escrita à mão: use personMention(login) pra a foto e o link virem de graça');
+});
+
 test('deliveriesByRepo escapa o conteúdo e ordena pelo merge mais RECENTE (decisão de 10/08/2026)', () => {
   const html = P.deliveriesByRepo([
     { repo: 'acme/<b>x</b>', key: 'acme/x#1', url: 'https://u/1', title: 'um', author: 'a', mergedAt: '2026-08-01' },
@@ -424,7 +496,8 @@ test('deliveriesByAuthor ordena pelo merge mais recente, SEM ranking numérico, 
     'bob mergeou por último e abre a lista, mesmo com menos entregas');
   assert.doesNotMatch(html, /deliv-rank/,
     'com a ordem por recência o número viraria placar falso; quem entrega mais fica nos cartões');
-  assert.match(html, /deliv-caption">a\/b</);
+  // a legenda do sub-grupo é uma MENÇÃO de repo: leva ao repo no GitHub
+  assert.match(html, /deliv-caption"><a class="repo-mention" href="https:\/\/github\.com\/a\/b"/);
 });
 
 test('delivActivityChart: dia sem merge usa a classe "zero", NUNCA a "empty" global (que inflava a barra pra 54px)', () => {
@@ -487,9 +560,12 @@ test('delivStats: com período > 0 traz "hoje" e "média por dia" com pico', () 
   ];
   const stats = P.delivStats(items, 7, agora);
   assert.equal(stats.length, 4);
-  assert.deepEqual(stats[0], { rotulo: 'PRs mergeados', valor: '3', sub: '+2 hoje' });
+  // `goto` é o atalho pra própria lista: "+N hoje" leva ao período Hoje
+  assert.deepEqual(stats[0], { rotulo: 'PRs mergeados', valor: '3', sub: '+2 hoje', goto: 'deliv:days:0' });
   assert.equal(stats[1].valor, '2', 'duas pessoas entregando');
+  assert.equal(stats[1].goto, 'deliv:author:alice', 'o sub "@alice na frente" leva ao grupo dela');
   assert.equal(stats[2].valor, '2', 'dois repos ativos');
+  assert.equal(stats[2].goto, 'deliv:repo:acme/api', 'o sub "repo na frente" leva ao grupo do repo');
   assert.equal(stats[3].rotulo, 'Média por dia');
   assert.match(stats[3].sub, /pico de 2/);
 });

@@ -156,6 +156,36 @@ $env:CLAUDE_CONFIG_DIR="C:\Users\voce\.claude-pessoal"; claude login
 - **Gate de qualidade** (rodar antes de QUALQUER entrega): `npm run check && npm test`. O `check` valida a sintaxe (`node --check` em `server.js`/`main.js`/`ui/app.js`); o `test` roda a rede (`node --test`, runner nativo, ZERO dependências): funções puras + smoke de boot com `FAROL_HOME` temporário. Verde nos dois é pré-requisito. A rede vive em `test/` e é o que protege a decomposição do engine em ondas (ver `docs/QUALITY.md`, o contrato de qualidade extraído do lace-be-fastify).
 - As buscas `gh search prs` são read-only; rodar `check` contra o GitHub real é seguro.
 
+## Menções navegáveis (regra de usabilidade, v2.40.1)
+
+Pedido do Wanderson (11/08/2026): **"se tem menção a uma coisa X ou Y eu deveria
+navegar até aquela coisa por clique"**. Toda menção sai de UM helper, nunca
+escrita à mão, pra o destino ser o mesmo em toda tela:
+
+| menção | helper (`ui/pure.js`) | destino |
+|---|---|---|
+| pessoa (`@login`) | `personMention(login, cls, semFoto)` | perfil dela no GitHub, **sempre com foto** |
+| repositório (`owner/repo`) | `repoMention(repo, label)` | repo no GitHub |
+| PR (`owner/repo#N`) | `prRefMention(ref, cls)` | o PR no GitHub (só o que casa o formato; ref de ferramenta segue texto) |
+| lugar do próprio app | atributo `data-goto` | aba/seção/grupo, com rolagem e destaque |
+
+`data-goto` (handler ÚNICO delegado no `document`, em `ui/app.js`, junto do
+`goTo`/`gotoDeliv`): `aba:<nome>`, `sys:<secao>`, `sys:<secao>:<seletor>`,
+`deliv:repo:<owner/repo>`, `deliv:author:<login>`, `deliv:days:<0|7|15|30>`.
+Em `sys:` a aba troca ANTES do `sysGoTo` (elemento em aba escondida não rola, e
+falha calado). Span com `data-goto` leva `role="button"` + `tabindex="0"`.
+
+Duas travas no `npm test`: `ui-pure.test.js` varre o fonte atrás de `@${...author}`
+escrito à mão (menção de pessoa sem foto/link reprova) e `ui-widgets.test.js`
+trava o handler único, o `role/tabindex` e a estrutura do título do Panorama
+(o autor fica FORA do elemento que trunca; título comprido já comeu o autor
+duas vezes, em Revisões recentes na v2.39.0 e no Panorama na v2.40.0).
+
+Distinção que evita dois destinos pro mesmo texto: dentro de uma LISTA, nome de
+pessoa/repo leva ao GitHub; nos CARTÕES DE ESTATÍSTICA ("@X na frente", "repo na
+frente", "+N hoje"), que são atalhos da própria tela, o clique leva ao grupo
+correspondente na lista abaixo, trocando a visão se preciso.
+
 ## Versionamento (regras firmes; houve erro demais aqui)
 
 Pedido explícito do Wanderson (10/08/2026) depois de erros REAIS acumulados:
