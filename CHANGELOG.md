@@ -9,6 +9,32 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.40.1
+
+Refinamento de usabilidade: o que a tela menciona agora leva até a coisa com um
+clique, e toda menção de pessoa aparece com a foto dela.
+
+**Melhorias**
+- **Foto de quem abriu o PR no Panorama** (e na fila, nas decisões, em Destaques,
+  no Time e na barra de identidade). A foto já existia em algumas telas e
+  faltava em outras; agora toda menção de pessoa sai do mesmo lugar, com foto e
+  link pro perfil no GitHub.
+- **Clicar na menção leva até a coisa.** Nome de pessoa e de repositório abrem o
+  perfil/repo no GitHub; a referência do PR na tabela de sessões do Consumo abre
+  o PR; "Sistema → Plano e chaves", o nome do perfil no cartão de orçamento, "o
+  log em Sistema", "organizações monitoradas", "Automação" e a versão no rodapé
+  abrem a seção exata, já rolada e destacada.
+- **Atalhos nos cartões de Entregas:** "@fulano na frente" e "repo na frente"
+  levam ao grupo correspondente na lista (trocando a visão quando precisa), e
+  "+N hoje" troca o período pra Hoje.
+- Tudo isso funciona pelo teclado (Enter/espaço), com os itens anunciados como
+  botão pra leitores de tela.
+
+**Correções**
+- **Título comprido escondia o autor no Panorama**, o mesmo defeito corrigido em
+  "Revisões recentes" na versão anterior: agora quem trunca é o texto do título,
+  e a foto com o @login ficam sempre visíveis.
+
 ## v2.40.0
 
 Consumo e Entregas passaram por auditoria lógica completa. A aba Consumo agora
