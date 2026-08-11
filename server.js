@@ -529,6 +529,7 @@ class Engine extends EventEmitter {
   async searchPRs(extraArgs, user) { return ghMod.searchPRs(this, extraArgs, user); }
   async myAuthoredPRs(user) { return ghMod.myAuthoredPRs(this, user); }
   async prState(pr) { return ghMod.prState(this, pr); }
+  async headSha(pr) { return ghMod.headSha(this, pr); }
   deliveriesSince(days) { return ghMod.deliveriesSince(this, days); }
   async fetchDeliveries(days, owner) { return ghMod.fetchDeliveries(this, days, owner); }
 
@@ -900,7 +901,7 @@ class Engine extends EventEmitter {
   reviewActions() { return decisionMod.reviewActions(this); }
   saveDecisions() { return decisionMod.saveDecisions(this); }
   async myReviewsWithTime(pr) { return decisionMod.myReviewsWithTime(this, pr); }
-  async myReviewStates(pr) { return decisionMod.myReviewStates(this, pr); }
+  async myReviewStates(pr, headSha) { return decisionMod.myReviewStates(this, pr, headSha); }
   async reconcilePending(keys) { return decisionMod.reconcilePending(this, keys); }
   shouldAutoApprove(pr, result) { return decisionMod.shouldAutoApprove(this, pr, result); }
   shouldAutoReject(pr, result) { return decisionMod.shouldAutoReject(this, pr, result); }

@@ -808,12 +808,20 @@ function resolvedRow(r, ctx) {
   const url = (r.pr && r.pr.url) || '';
   const title = (r.pr && r.pr.title) || '';
   const author = (r.pr && r.pr.author) || r.author || '';
-  // pontos de atenção de um PR resolvido sozinho: ficam claros aqui (expansível)
+  // pontos de atenção de um PR resolvido sozinho: ficam claros aqui (expansível).
+  // already_reviewed entra na mesma regra desde o #742: "não repostei" significa que o
+  // que a revisão achou ficou SÓ no app, então esconder as reasons justo nesse status
+  // deixava o achado sem nenhuma superfície (nem no PR, nem na linha). O rótulo dele diz
+  // isso na cara, pra não parecer que alguém já leu.
+  const COM_REASONS = ['auto_approved', 'auto_rejected', 'already_reviewed'];
   const attn = (r.attention && r.attention.length) ? r.attention
-    : ((r.status === 'auto_approved' || r.status === 'auto_rejected') ? (r.reasons || []) : []);
-  const attnLabel = r.status === 'auto_rejected'
-    ? `motivo${attn.length > 1 ? 's' : ''} do pedido de mudanças`
-    : `ponto${attn.length > 1 ? 's' : ''} de atenção`;
+    : (COM_REASONS.includes(r.status) ? (r.reasons || []) : []);
+  const plural = attn.length > 1;
+  const attnLabel = r.status === 'already_reviewed'
+    ? `achado${plural ? 's' : ''} que ${plural ? 'ficaram' : 'ficou'} só aqui`
+    : r.status === 'auto_rejected'
+      ? `motivo${plural ? 's' : ''} do pedido de mudanças`
+      : `ponto${plural ? 's' : ''} de atenção`;
   const vcls = VERDICT_CLASS[r.action] || '';
   const vc = r.verificationCheckpoint;
   const vcLine = (vc && vc.total)

@@ -9,6 +9,30 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.40.5
+
+Achado de segunda rodada parou de morrer dentro do app. Quando o autor corrige e
+empurra código novo, a revisão nova volta a chegar no PR.
+
+**Correções**
+- **O 2º round de revisão não é mais engolido.** Antes de postar, o Farol
+  perguntava "eu já pedi mudanças neste PR alguma vez?". Como a resposta era sim
+  desde a primeira rodada, tudo que a revisão achava depois que o autor empurrava
+  a correção ficava só na sua máquina. Caso real que motivou o conserto
+  (biud-frontend#742): o Farol pediu mudanças por um open redirect, o autor
+  corrigiu, e o Farol revisou de novo duas vezes, concluiu as duas que a correção
+  não tinha fechado o buraco, e as duas vezes não postou nada. A pergunta agora é
+  "eu já me manifestei sobre ESTE commit?", comparando o commit do review que já
+  está no PR com o head atual. Rodada anterior não silencia a rodada atual, e a
+  mesma rodada continua sem virar review duplicado.
+- **Vale também pro clique.** O mesmo bloqueio existia no botão de postar em
+  "Precisa de você": um review de rodada antiga convertia o clique explícito em
+  "já revisado" e nada era postado.
+- **O que não foi postado aparece na linha.** "Já revisado por você (não
+  repostei)" era justamente o status em que os achados só existem dentro do app,
+  e era o único que escondia os achados da linha. Agora abre em "N achados que
+  ficaram só aqui".
+
 ## v2.40.4
 
 O painel vazio passou a ter explicação. Ambiente verde não quer dizer que o

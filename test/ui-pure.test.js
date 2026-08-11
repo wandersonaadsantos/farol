@@ -1009,6 +1009,26 @@ test('resolvedRow: os cinco status mantêm o rótulo que a tela já usava', () =
   assert.match(rot('skipped', 'skip'), /pulado/);
 });
 
+// #742: o dedup engoliu DOIS rounds (15:38 e 16:07, 4 reasons cada, attention vazio) e a
+// linha não mostrava nenhum deles, porque o fallback pras reasons só valia pra
+// auto_approved/auto_rejected. "Não repostei" quer dizer que o achado ficou SÓ aqui,
+// então é justamente aqui que ele não pode estar escondido.
+test('resolvedRow: já revisado (não repostei) mostra os achados que ficaram só no app', () => {
+  const html = P.resolvedRow(linhaResolvida({
+    status: 'already_reviewed', action: 'request_changes', attention: [],
+    reasons: ['Open redirect ativo no head 2187af8', '2º round do mesmo blocker']
+  }), CTX);
+  assert.match(html, /2 achados que ficaram só aqui/, 'o expansor existe e diz que nada foi pro PR');
+  assert.match(html, /Open redirect ativo no head 2187af8/, 'o achado aparece na linha');
+});
+
+test('resolvedRow: já revisado no singular não pluraliza', () => {
+  const html = P.resolvedRow(linhaResolvida({
+    status: 'already_reviewed', action: 'request_changes', attention: [], reasons: ['um só']
+  }), CTX);
+  assert.match(html, /1 achado que ficou só aqui/);
+});
+
 test('resolvedRow: sem relatório não inventa a divulgação vazia', () => {
   assert.doesNotMatch(P.resolvedRow(linhaResolvida({ reportMarkdown: '' }), CTX), /Ver relatório completo/);
 });
