@@ -20,6 +20,29 @@ $tag = "v$version"
 Write-Host ''
 Write-Host "  Farol · publicar release $tag em $repo" -ForegroundColor Yellow
 
+# --- versionamento: a referencia e a ULTIMA RELEASE PUBLICADA -----------------
+# Historico real de erro (ver CLAUDE.md, "Versionamento"): fonte ja esteve 2
+# versoes a frente do publicado, e sessoes paralelas ja colidiram no mesmo
+# numero (a segunda sobrescrevia a release da primeira em silencio). Regra:
+# so publica se a versao do package.json for MAIOR que a ultima publicada.
+# Republicar a MESMA versao de proposito (consertar nota/anexo) exige
+# FAROL_REPUBLISH=1 no ambiente, nunca acontece por acidente.
+$ErrorActionPreference = 'Continue'
+$latestTag = (& gh release view --repo $repo --json tagName --jq '.tagName') 2>$null
+$ErrorActionPreference = 'Stop'
+if ($LASTEXITCODE -eq 0 -and $latestTag) {
+  $latestV = [version]($latestTag.TrimStart('v'))
+  $thisV = [version]$version
+  if ($thisV -lt $latestV) {
+    throw "package.json esta em v$version mas a ultima release publicada e ${latestTag}: o numero ja passou. Rebase a versao na ULTIMA PUBLICADA (gh release view) e renumere package.json + CHANGELOG + RELEASE_NOTES antes de publicar."
+  }
+  if ($thisV -eq $latestV -and -not $env:FAROL_REPUBLISH) {
+    throw "a release $tag JA EXISTE publicada. Se outra sessao publicou esse numero primeiro, renumere (package.json + CHANGELOG + RELEASE_NOTES) e publique como versao nova. Pra republicar $tag de proposito (consertar nota/anexo), rode com FAROL_REPUBLISH=1."
+  }
+} else {
+  Write-Host '  !  nao consegui ler a ultima release publicada (conta do gh? rede?); seguindo sem a checagem de numero' -ForegroundColor Yellow
+}
+
 # --- build dos artefatos ------------------------------------------------------
 Write-Host '  -> Gerando o pacote leve (update)' -ForegroundColor Cyan
 & (Join-Path $PSScriptRoot 'make-package.ps1') | Out-Null
@@ -87,7 +110,13 @@ $ErrorActionPreference = 'Continue'
 $exists = ($LASTEXITCODE -eq 0)
 $ErrorActionPreference = 'Stop'
 if ($exists) {
-  Write-Host "  -> Release $tag ja existe; atualizando notas e anexos" -ForegroundColor Cyan
+  # so chega aqui com FAROL_REPUBLISH=1 (a checagem de versionamento la em cima
+  # barra o caso acidental) ou se a release nasceu ENTRE a checagem e agora
+  # (outra sessao publicando em paralelo): nesse ultimo caso, aborta.
+  if (-not $env:FAROL_REPUBLISH) {
+    throw "a release $tag apareceu no meio da publicacao (outra sessao?). Renumere e publique como versao nova, ou rode com FAROL_REPUBLISH=1 se sobrescrever for intencional."
+  }
+  Write-Host "  -> Release $tag ja existe; FAROL_REPUBLISH=1: atualizando notas e anexos" -ForegroundColor Cyan
   & gh release edit $tag --repo $repo --title "Farol $tag" --notes-file $notesFile
   if ($LASTEXITCODE -ne 0) { throw "gh release edit falhou (codigo $LASTEXITCODE)" }
   & gh release upload $tag $light $offline --repo $repo --clobber

@@ -156,16 +156,59 @@ $env:CLAUDE_CONFIG_DIR="C:\Users\voce\.claude-pessoal"; claude login
 - **Gate de qualidade** (rodar antes de QUALQUER entrega): `npm run check && npm test`. O `check` valida a sintaxe (`node --check` em `server.js`/`main.js`/`ui/app.js`); o `test` roda a rede (`node --test`, runner nativo, ZERO dependências): funções puras + smoke de boot com `FAROL_HOME` temporário. Verde nos dois é pré-requisito. A rede vive em `test/` e é o que protege a decomposição do engine em ondas (ver `docs/QUALITY.md`, o contrato de qualidade extraído do lace-be-fastify).
 - As buscas `gh search prs` são read-only; rodar `check` contra o GitHub real é seguro.
 
+## Versionamento (regras firmes; houve erro demais aqui)
+
+Pedido explícito do Wanderson (10/08/2026) depois de erros REAIS acumulados:
+fonte bumpado sem publicar (v2.28.0 no `package.json` com v2.26.1 instalada, e o
+usuário achando que rodava o novo); spec citando uma versão e a release saindo
+com outra (a releitura do Consumo foi escrita como "sai como v2.38.0" e
+publicada como v2.39.0); e duas sessões paralelas escolhendo o MESMO número, com
+a segunda sobrescrevendo a release da primeira em silêncio (o episódio da
+v2.31.0/export do pure.js). Estas regras existem pra nenhum desses se repetir:
+
+1. **A referência de sequência é UMA só: a última release PUBLICADA no GitHub.**
+   ```
+   gh release view --repo wandersonaadsantos/farol --json tagName --jq .tagName
+   ```
+   Nunca o `package.json` (pode estar bumpado sem publicar), nunca o
+   `CHANGELOG.md`, nunca a versão escrita numa spec (spec registra INTENÇÃO; o
+   número real se decide na hora de publicar, contra o publicado).
+2. **Tabela de decisão do bump** (sobre a última publicada):
+   | mudança | bump |
+   |---|---|
+   | só correção de defeito, sem comportamento novo visível e sem mexer no shape do payload/estado | **patch** |
+   | qualquer comportamento novo visível (tela, texto relevante, ordenação, camada nova), campo criado/removido no payload do SSE, default alterado, dado novo rastreado | **minor** |
+   | quebra de compatibilidade de `config.json`/`state/` que exija migração manual | **major** (raro; o auto-update torna isso quase teórico) |
+   Correção que introduz comportamento novo visível (ex.: status "cancelada" na
+   tabela) é **minor**, não patch: o usuário VÊ coisa nova.
+3. **Uma release por entrega.** Versões intermediárias não publicadas não
+   existem pro mundo: consolidar numa seção só de CHANGELOG e uma entrada só de
+   RELEASE_NOTES, com o número final.
+4. **O número só é seu DEPOIS de publicado.** Sessões paralelas colidem: conferir
+   a última publicada imediatamente antes do bump E de novo colado no publish
+   (mesmo comando). Se o número foi tomado no meio do caminho, renumerar TUDO
+   (package.json + CHANGELOG + RELEASE_NOTES + spec) e publicar com o número
+   novo; jamais sobrescrever a release do outro.
+5. **Travas automáticas (não confiar em disciplina):**
+   - `test/release-consistency.test.js` (roda no `npm test`): package.json,
+     `## vX.Y.Z` do CHANGELOG e `RELEASE_NOTES[0]` do ui/app.js têm que
+     concordar, RELEASE_NOTES estritamente decrescente, CHANGELOG sem seção
+     acima da versão atual. Bump incompleto = suíte vermelha.
+   - `tools/publish-release.ps1`: recusa publicar versão MENOR ou IGUAL à última
+     publicada e recusa sobrescrever release existente. Republicar a mesma
+     versão de propósito (consertar nota/anexo) exige `FAROL_REPUBLISH=1`.
+
 ## Release (checklist obrigatório)
 
 Toda release segue estes passos na ordem. Não pule nenhum.
 
 ### 1. Preparar a versão
 
-- [ ] Definir a versão nova em semver (`major.minor.patch`). A referência é a **última release publicada no GitHub**, não a versão no fonte (que pode ter sido bumped sem publicar).
+- [ ] Ler a **última release publicada** (`gh release view --repo wandersonaadsantos/farol --json tagName --jq .tagName`) e decidir o bump pela tabela da seção "Versionamento" acima.
 - [ ] Bump de `version` no `package.json`.
 - [ ] Atualizar `CHANGELOG.md`: criar seção `## vX.Y.Z` com novidades e correções. Se houver versões intermediárias não publicadas, consolidar tudo numa seção só.
 - [ ] Atualizar `RELEASE_NOTES` no `ui/app.js`: adicionar entrada `['X.Y.Z', ['item 1', 'item 2']]` no topo do array. Se consolidou versões, uma entrada só. Verificar que a versão anterior publicada também tem entrada (corrigir se faltar).
+- [ ] Os três acima andam JUNTOS: `test/release-consistency.test.js` falha se qualquer um ficar pra trás.
 
 ### 2. Gate de qualidade
 
