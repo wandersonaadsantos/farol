@@ -173,14 +173,25 @@ v2.31.0/export do pure.js). Estas regras existem pra nenhum desses se repetir:
    Nunca o `package.json` (pode estar bumpado sem publicar), nunca o
    `CHANGELOG.md`, nunca a versão escrita numa spec (spec registra INTENÇÃO; o
    número real se decide na hora de publicar, contra o publicado).
-2. **Tabela de decisão do bump** (sobre a última publicada):
+2. **Tabela de decisão do bump** (sobre a última publicada), na doutrina que o
+   Wanderson já cobrou em episódios reais, não na do semver de livro:
    | mudança | bump |
    |---|---|
-   | só correção de defeito, sem comportamento novo visível e sem mexer no shape do payload/estado | **patch** |
-   | qualquer comportamento novo visível (tela, texto relevante, ordenação, camada nova), campo criado/removido no payload do SSE, default alterado, dado novo rastreado | **minor** |
+   | correção, refino ou CONSERTO de comportamento que já era esperado, mesmo com UI nova envolvida; refinar/completar uma feature recém-lançada (mesma leva de trabalho); filtro/separação que faltava desde o início | **patch** |
+   | CAPACIDADE nova de verdade e independente (algo que o app não fazia em nenhuma forma) | **minor** |
    | quebra de compatibilidade de `config.json`/`state/` que exija migração manual | **major** (raro; o auto-update torna isso quase teórico) |
-   Correção que introduz comportamento novo visível (ex.: status "cancelada" na
-   tabela) é **minor**, não patch: o usuário VÊ coisa nova.
+   Episódios que calibram a régua: "kudos respeita a conta" foi cobrado como
+   PATCH (conserto do que devia funcionar desde o início, não feature); o
+   redesenho da tela de Consumo logo após o lançamento dela foi cobrado como
+   PATCH (2.24.0 foi deletada e republicada como 2.23.1: "não foi feature, era
+   fix de uma feature"); e a v2.40.0 (10/08) foi errada NESTA direção de novo,
+   era conserto da releitura recém-lançada do Consumo e devia ter sido v2.39.1.
+   No sentido oposto: nível do modelo visível + fila transparente era capacidade
+   nova e saiu como patch por engano (devia 1.7.0). **Misturou fix e feature na
+   mesma leva: separar em duas releases (patch pro fix, minor pra feature); se
+   não der, classificar pelo NÚCLEO da entrega, e o núcleo quase sempre é o
+   conserto.** Na dúvida entre patch e minor, é patch: superestimar mente sobre
+   o que é novo, e é o erro mais frequente do histórico.
 3. **Uma release por entrega.** Versões intermediárias não publicadas não
    existem pro mundo: consolidar numa seção só de CHANGELOG e uma entrada só de
    RELEASE_NOTES, com o número final.
