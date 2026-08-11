@@ -590,6 +590,44 @@ function sessionRefMention(ref, cls = '') {
   return `<span class="${esc(cls)} is-goto" data-goto="${esc(destino)}" role="button" tabindex="0" title="Abrir ${txt} no Farol">${txt}</span>`;
 }
 
+/* ---------- checks de OPERAÇÃO (aba Sistema, ao lado dos de ambiente) ----------
+   Os 5 checks que já existiam (gh, conta primária, Claude Code, Git Bash, pasta)
+   respondem "o Farol consegue rodar?". Nenhum responde "o Farol vai achar
+   alguma coisa?", e essa é a pergunta que fica sem resposta quando a tela vem
+   vazia. O caso que motivou (Wanderson, 11/08/2026): conta cadastrada SEM
+   organização nenhuma deixa os 5 verdes e o painel vazio pra sempre, porque o
+   fan-out da busca é `accountList().flatMap(acc => acc.owners...)`: sem owner,
+   a lista de alvos é vazia e o gh nunca é chamado. Silêncio total.
+
+   Um check por conta (dizer QUAL conta é o que torna acionável com várias) mais
+   um agregado pro caso de tudo silenciado. Sem conta nenhuma devolve vazio: aí
+   quem fala é o banner de boas-vindas, e dois avisos pro mesmo problema é ruído. */
+function operationChecks(accounts) {
+  const lista = (Array.isArray(accounts) ? accounts : []).filter(a => a && String(a.user || '').trim());
+  if (!lista.length) return [];
+  const alvo = u => `sys:accounts:.acct-label[data-user="${String(u).replace(/"/g, '\\"')}"]`;
+  const checks = lista.map(a => {
+    const orgs = (a.owners || []).filter(Boolean);
+    if (!orgs.length) {
+      return { ok: false, label: `Monitoramento de @${a.user}`, goto: alvo(a.user),
+        detail: 'sem organização monitorada: nenhuma busca é feita por esta conta, e o painel fica vazio sem erro' };
+    }
+    if (!a.tokenOk) {
+      return { ok: false, label: `Monitoramento de @${a.user}`, goto: alvo(a.user),
+        detail: `sem token no gh: as buscas de ${orgs.join(', ')} são puladas (rode gh auth login para esta conta)` };
+    }
+    return { ok: true, label: `Monitoramento de @${a.user}`, goto: alvo(a.user),
+      detail: `vigiando ${orgs.join(', ')}${a.muted ? ' (silenciada: não aparece no painel)' : ''}` };
+  });
+  // silenciar UMA conta é escolha; silenciar todas esvazia o painel inteiro, e aí
+  // o vazio volta a não ter explicação, que é justamente o defeito de origem
+  if (lista.length && lista.every(a => a.muted)) {
+    checks.push({ ok: false, label: 'Painel', goto: 'sys:accounts:#accountsManager',
+      detail: 'todas as contas estão silenciadas: nada aparece no painel, mesmo com PR esperando' });
+  }
+  return checks;
+}
+
 /* A célula da coluna "PR / sessão" do Consumo. DOIS destinos no mesmo lugar, e
    por isso dois elementos (a doutrina do app é um destino por elemento): o texto
    leva ao PR no GitHub, o botão ao lado abre a caixa de revisão AQUI DENTRO.
@@ -1055,7 +1093,7 @@ if (typeof module !== 'undefined' && module.exports) {
     sameSet, diffVs, lastMerge, groupBy, usageMetricVal, sparklinePath, usageDelta, usageStackLayers,
     usageHoverIndex, usageMatrixRows, USAGE_KIND_LABEL, usageSessionRow, accountSaveArray, delivCappedMsg, fmtRel,
     usageDayKeysBack, localDayKey, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan,
-    personMention, repoMention, prRefMention, ghPrUrl, parseGoto, toolRefGoto, sessionRefMention, sessionRefCell, reviewBoxHtml,
+    personMention, repoMention, prRefMention, ghPrUrl, parseGoto, toolRefGoto, sessionRefMention, sessionRefCell, reviewBoxHtml, operationChecks,
     delivFilterItems, delivDayBuckets, delivStats, delivStatsCards, delivActivityChart, delivActivityCard,
     delivSliceRows, delivEmptyState, deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
     fmtStamp, fmtWhenDay, resolvedRow,

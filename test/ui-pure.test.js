@@ -401,6 +401,57 @@ test('prRefMention: só owner/repo#N vira link; o resto continua texto', () => {
   assert.equal(P.ghPrUrl('Diagnóstico do Farol'), '');
 });
 
+/* Configuração de OPERAÇÃO (v2.40.4). Os 5 checks do doctor cobrem só o
+   AMBIENTE (gh, claude, Git Bash, pasta), então uma conta cadastrada sem
+   organização nenhuma deixava os 5 verdes enquanto o Farol não achava PR
+   nenhum, sem nada na tela explicando por quê. Achado do Wanderson, 11/08/2026. */
+test('operationChecks: conta sem organização é o motivo nº 1 de não achar PR, e agora aparece', () => {
+  const [c] = P.operationChecks([{ user: 'bob', owners: [], tokenOk: true, muted: false }]);
+  assert.equal(c.ok, false);
+  assert.match(c.detail, /organiza/i, 'o detalhe diz o que falta, não só que está errado');
+  assert.match(c.goto, /^sys:accounts:/, 'clicar leva pra conta em Sistema → Contas');
+  assert.match(c.label, /bob/, 'diz QUAL conta, senão com várias contas não dá pra agir');
+  // o check de AMBIENTE já rotula a conta primária como "Conta @X" (autenticação).
+  // Rótulo igual aqui leria como linha duplicada, sendo outra dimensão: o que ela vigia.
+  assert.doesNotMatch(c.label, /^Conta @/, 'o rótulo precisa nomear a dimensão, não repetir a do doctor');
+  assert.match(c.label, /Monitoramento/);
+});
+
+test('operationChecks: conta sem token no gh não busca nada (o doctor só cobre a primária)', () => {
+  const [c] = P.operationChecks([{ user: 'bob', owners: ['acme'], tokenOk: false, muted: false }]);
+  assert.equal(c.ok, false);
+  assert.match(c.detail, /gh auth login/, 'o detalhe traz o comando que resolve');
+});
+
+test('operationChecks: conta completa fica verde e declara o que está vigiando', () => {
+  const [c] = P.operationChecks([{ user: 'bob', owners: ['acme', 'globex'], tokenOk: true, muted: false }]);
+  assert.equal(c.ok, true);
+  assert.match(c.detail, /acme/);
+  assert.match(c.detail, /globex/, 'listar as orgs deixa o erro de digitação visível');
+});
+
+test('operationChecks: conta silenciada não é erro, mas TODAS silenciadas é', () => {
+  const uma = P.operationChecks([
+    { user: 'bob', owners: ['acme'], tokenOk: true, muted: true },
+    { user: 'ana', owners: ['globex'], tokenOk: true, muted: false },
+  ]);
+  assert.ok(uma.every(c => c.ok), 'silenciar uma conta é escolha, não defeito');
+
+  const todas = P.operationChecks([
+    { user: 'bob', owners: ['acme'], tokenOk: true, muted: true },
+    { user: 'ana', owners: ['globex'], tokenOk: true, muted: true },
+  ]);
+  const alerta = todas.find(c => !c.ok);
+  assert.ok(alerta, 'com tudo silenciado o painel fica vazio sem explicação');
+  assert.match(alerta.detail, /silenciad/i);
+});
+
+test('operationChecks: sem conta nenhuma devolve vazio (o banner de boas-vindas já cobre)', () => {
+  assert.deepEqual(P.operationChecks([]), []);
+  assert.deepEqual(P.operationChecks([{ user: '', owners: [], tokenOk: false }]), []);
+  assert.deepEqual(P.operationChecks(null), []);
+});
+
 test('parseGoto: separa tipo, alvo e seletor (o seletor pode conter ":")', () => {
   assert.deepEqual(P.parseGoto('aba:radar'), { tipo: 'aba', alvo: 'radar', seletor: '' });
   assert.deepEqual(P.parseGoto('aba:destaques:#kudosPanel'), { tipo: 'aba', alvo: 'destaques', seletor: '#kudosPanel' });

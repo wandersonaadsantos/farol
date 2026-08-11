@@ -3013,7 +3013,10 @@ function renderDoctor() {
     { ok: !!d.claude, label: 'Claude Code', detail: d.claude || 'claude não encontrado no PATH', goto: 'sys:plans:#claudeProfilesManager' },
     // Git Bash é pré-requisito só no Windows (CLAUDE_CODE_GIT_BASH_PATH)
     ...(ehWin() ? [{ ok: !!d.gitBash, label: 'Git Bash', detail: d.gitBash || 'não encontrado: sessões do Claude podem travar' }] : []),
-    { ok: true, label: 'Pasta de trabalho', detail: d.workspace }
+    { ok: true, label: 'Pasta de trabalho', detail: d.workspace },
+    // ambiente ok não quer dizer que vai achar PR: os checks de operação (conta
+    // sem organização, conta sem token, tudo silenciado) moram no pure.js
+    ...operationChecks(STATE.accounts)
   ];
   box.innerHTML = checks.map(c => `
     <div class="check ${c.ok ? 'ok' : 'bad'}${c.goto ? ' is-goto' : ''}"${c.goto ? ` data-goto="${esc(c.goto)}" role="button" tabindex="0" title="Abrir a configuração deste item"` : ''}>
@@ -3029,6 +3032,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.40.4', ['Painel vazio agora tem explicação. Sistema → Visão geral ganhou uma linha de monitoramento por conta: conta sem organização cadastrada aparece como problema (era o pior silêncio do app, os 5 itens ficavam verdes, nenhuma busca era feita e o painel ficava vazio pra sempre sem erro nenhum), conta adicional sem gh auth login também, e "todas as contas silenciadas" avisa que nada vai aparecer mesmo com PR esperando. Clicar em qualquer uma leva direto à conta em Contas.']],
   ['2.40.3', ['A revisão de um PR abre direto da tabela de Consumo: cada linha de PR ganhou um atalho ao lado da referência, que mostra veredito, pontos de atenção e o relatório completo ali mesmo. O texto continua abrindo o PR no GitHub, então você escolhe pra onde vai.', 'O histórico de revisões passou de 200 pra 3000. Antes, revisão que saísse das 200 mais recentes sumia, e a tela só alcançava as 30 mais novas; agora qualquer revisão guardada abre pelo atalho, inclusive as antigas e as de outra conta, sem pesar o que o app carrega a cada ciclo.', 'PR sem revisão registrada e falha na busca viraram mensagens diferentes. Antes ficariam idênticas na tela, e "não existe" parecendo "quebrou" faz desconfiar do app inteiro.']],
   ['2.40.2', ['A sessão de ferramenta na tabela de Consumo agora navega por clique: "Kudos" abre a aba Destaques no painel dos kudos compilados, e "Diagnóstico do Farol" abre Sistema → Diagnóstico no relatório. Antes só a referência de PR era clicável e a linha de ferramenta ficava como texto morto.', 'Trava nova no gate de qualidade: destino de navegação interna apontando pra aba, seção ou âncora inexistente passa a reprovar a suíte. Esse defeito não gera erro nenhum, o clique só não faz nada, e é o tipo mais caro de achar.']],
   ['2.40.1', ['Foto de quem abriu o PR no Panorama (e na fila, nas decisões, em Destaques, no Time e na barra de identidade): toda menção de pessoa agora sai do mesmo lugar, com foto e link pro perfil no GitHub.', 'O que a tela menciona leva até a coisa com um clique: nome de pessoa e de repositório abrem o GitHub; a referência do PR na tabela de sessões abre o PR; "Sistema → Plano e chaves", o nome do perfil no cartão de orçamento, "o log em Sistema", "organizações monitoradas", "Automação" e a versão no rodapé abrem a seção exata, já rolada e destacada.', 'Atalhos nos cartões de Entregas: "@fulano na frente" e "repo na frente" levam ao grupo na lista (trocando a visão quando precisa) e "+N hoje" troca o período. Tudo navegável pelo teclado.', 'Correção: título comprido escondia o autor no Panorama (mesmo defeito corrigido em "Revisões recentes" na versão anterior). Agora quem trunca é o texto do título, e a foto com o @login ficam sempre visíveis.']],

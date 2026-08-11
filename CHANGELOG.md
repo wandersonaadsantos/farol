@@ -9,6 +9,23 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.40.4
+
+O painel vazio passou a ter explicação. Ambiente verde não quer dizer que o
+Farol vai achar alguma coisa.
+
+**Correções**
+- **Conta sem organização monitorada agora aparece como problema.** Era o pior
+  silêncio do app: os 5 itens de Sistema → Visão geral ficavam verdes, o Farol
+  não fazia busca nenhuma por aquela conta e o painel ficava vazio pra sempre,
+  sem erro, sem log e sem nada na tela dizendo por quê. Agora Visão geral mostra
+  uma linha de monitoramento por conta, e clicar leva direto à conta em Contas.
+- **Conta sem token no gh também é sinalizada.** O item que já existia cobria só
+  a conta principal; conta adicional sem `gh auth login` tinha as buscas puladas
+  em silêncio.
+- **Todas as contas silenciadas** passa a ser avisado: nada aparece no painel
+  mesmo com PR esperando, e antes isso era indistinguível de "não tem nada".
+
 ## v2.40.3
 
 A revisão de um PR agora abre direto da tabela de Consumo, e o histórico deixou

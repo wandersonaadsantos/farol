@@ -224,6 +224,30 @@ pessoa/repo leva ao GitHub; nos CARTÕES DE ESTATÍSTICA ("@X na frente", "repo 
 frente", "+N hoje"), que são atalhos da própria tela, o clique leva ao grupo
 correspondente na lista abaixo, trocando a visão se preciso.
 
+## Diagnóstico: ambiente x operação (v2.40.4)
+
+Os checks de Sistema → Visão geral respondem DUAS perguntas diferentes, e
+misturá-las foi o defeito de origem:
+
+| pergunta | de onde vem | exemplos |
+|---|---|---|
+| o Farol consegue RODAR? | `STATE.doctor` (engine) | gh, conta primária, Claude Code, Git Bash, pasta |
+| o Farol vai ACHAR algo? | `operationChecks(STATE.accounts)` (`ui/pure.js`) | conta sem organização, conta sem token, tudo silenciado |
+
+O caso que motivou (Wanderson, 11/08/2026): **conta cadastrada sem nenhum owner
+deixava os 5 checks de ambiente verdes e o painel vazio pra sempre, sem erro,
+sem log e sem nada na tela**. A causa é o fan-out da busca ser
+`accountList().flatMap(acc => acc.owners...)`: sem owner a lista de alvos é
+vazia, o `gh` nunca é chamado, e não existe falha pra registrar. Silêncio por
+construção, que é o tipo de defeito que faz desconfiar do app inteiro.
+
+Ao acrescentar check novo aqui: **o rótulo tem que nomear a DIMENSÃO**, não a
+coisa. "Conta @X" já é o check de autenticação; o de monitoramento é
+"Monitoramento de @X". Dois checks com o mesmo rótulo leem como linha
+duplicada, mesmo dizendo coisas diferentes (travado em `ui-pure.test.js`).
+Config que só o usuário sabe preencher e cujo vazio produz SILÊNCIO (não erro)
+é candidata a check; config com default seguro não é.
+
 ## Versionamento (regras firmes; houve erro demais aqui)
 
 Pedido explícito do Wanderson (10/08/2026) depois de erros REAIS acumulados:
