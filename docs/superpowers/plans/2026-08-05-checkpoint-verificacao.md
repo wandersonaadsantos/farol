@@ -1237,11 +1237,559 @@ git commit -m "test: trava que retry e primeira vez usam o mesmo caminho de prom
 
 ---
 
+---
+
+## Onda 4: ciclo de vida do checkpoint (invalidação por SHA do head)
+
+> **ENTREGUE em 06/08/2026.** Task 12 no commit `53b96bd`, Task 13 no `c49040d`.
+> Confirmado no código em 11/08/2026: `lib/engine/review.js` (captura do
+> `headSha` e filtro por ele na leitura) e `lib/engine/session.js` (carimbo em
+> cada entrada gravada). Os passos abaixo ficam como registro do raciocínio, não
+> como trabalho a fazer. Os checkboxes seguem desmarcados porque este plano
+> nunca marcou nenhum, inclusive nas Ondas 1 a 3, também entregues.
+
+**Motivo (achado da revisão final de todo o branch, tratado como tasks locais, sem card de Jira, por decisão do Wanderson em 06/08/2026):** o checkpoint nunca expira nem é invalidado. Um conflito genuíno entre passadas (ou um arquivo corrompido) bloqueia `shouldAutoApprove` E `shouldAutoReject` **pra sempre**, mesmo depois de o PR receber commits novos que tornam a divergência obsoleta. Não existe hoje nenhum jeito de o checkpoint "esquecer" o passado.
+
+**Precedente já existente no projeto:** `lib/engine/selfpr.js` resolve exatamente este problema pra autoanálise, capturando `headRefOid` via `gh pr view --json headRefOid` e descartando o registro quando o SHA muda (ver `enrichMyPRBranches`, linha ~157: `pr.headSha = j.headRefOid || ''`, e a comparação `a.headSha !== pr.headSha` que descarta a análise velha). As Tasks 12 e 13 replicam o mesmo padrão pro checkpoint de verificação: carimbar o SHA na escrita, filtrar por ele na leitura.
+
+**Efeito esperado:** quando o PR recebe um commit novo, as entradas do checkpoint anterior (SHA antigo) deixam de contar pro gate (não geram mais conflito, não bloqueiam approve/reject), mas continuam no arquivo pra auditoria (append-only preservado). O checkpoint "reseta" na prática sem precisar apagar nada.
+
+---
+
+### Task 12: capturar o SHA do head e carimbar em cada entrada gravada
+
+**Files:**
+- Modify: `lib/engine/review.js` (`runHeadlessReview`, âncora: `engine.activeReviews.set(id, {`)
+- Modify: `lib/engine/session.js` (âncora: `if (prKey && parsed && typeof parsed === 'object') {`, dentro da interceptação do marcador)
+- Test: `test/session-checkpoint-capture.test.js` (acrescentar)
+
+**Interfaces:**
+- Produz: nenhuma função nova exportada; `activeReviews.get(id).headSha` passa a existir (mesma forma como `.pr` já existe).
+- Consome: `run` de `../io` (já usado em `selfpr.js` pro mesmo tipo de chamada; `review.js` ainda não importa `run`, precisa importar).
+
+**Dificuldades antecipadas:**
+- `review.js` não importa `run` de `lib/io.js` hoje (confirmado por leitura do topo do arquivo). → Adicionar `const { run } = require('../io');` ao bloco de imports existente.
+- A busca do SHA é uma chamada `gh` de rede: pode falhar (rate limit, sem token). Falha na medição do fan-out já degrada pro passe único (padrão do próprio projeto, ver `CLAUDE.md`: "Falha na medição degrada pro passe único de sempre, que é sempre seguro"). → Mesmo padrão aqui: se a chamada falhar, `headSha` fica `''` e as entradas gravadas nesta sessão levam `headSha: ''`. A Task 13 trata `headSha` vazio como "sempre considerado" (não filtra), preservando o comportamento de hoje quando a informação não está disponível, nunca bloqueando por causa de uma falha de rede.
+- **Não** reusar `enrichMyPRBranches` (é do fluxo de "Meus PRs", roda em ciclo, não em resposta a uma revisão específica). Fazer uma chamada direta e pontual, no mesmo estilo da busca leve que já existe em `selfpr.js` (linha ~272): `gh pr view <url> --json headRefOid --jq .headRefOid`.
+
+- [ ] **Passo 1: escrever o teste que falha.** Acrescentar a `test/session-checkpoint-capture.test.js` (o arquivo já mocka `child_process.spawn` e monta um `activeReviews` fake pra simular a interceptação; seguir o mesmo padrão dos testes existentes nesse arquivo):
+
+```js
+test('entrada gravada carrega o headSha da revisão quando presente em activeReviews', async () => {
+  const prKey = 'org/repo#99';
+  const engine = criarEngineFake(); // helper já existente no arquivo (mock de spawn)
+  engine.activeReviews.set('a1', {
+    id: 'a1', pr: { key: prKey, url: 'https://github.com/org/repo/pull/99' }, headSha: 'abc123',
+  });
+
+  await rodarSessaoComMarcador(engine, 'a1', {
+    claim: 'x', file: 'f.ts', line: 1, verdict: 'confirmado', evidence: 'e',
+  }); // helper existente que dispara o stream stubado com o marcador FAROL_CHECKPOINT
+
+  const cp = readCheckpoint(checkpointPath(prKey));
+  assert.equal(cp.entries[0].headSha, 'abc123');
+});
+
+test('entrada gravada sem headSha na revisão (busca ao gh falhou) grava headSha vazio, não quebra', async () => {
+  const prKey = 'org/repo#100';
+  const engine = criarEngineFake();
+  engine.activeReviews.set('a2', {
+    id: 'a2', pr: { key: prKey, url: 'https://github.com/org/repo/pull/100' }, // sem headSha
+  });
+
+  await rodarSessaoComMarcador(engine, 'a2', {
+    claim: 'y', file: 'g.ts', line: 2, verdict: 'confirmado', evidence: 'e',
+  });
+
+  const cp = readCheckpoint(checkpointPath(prKey));
+  assert.equal(cp.entries[0].headSha, '');
+});
+```
+
+Se o arquivo não tiver helpers `criarEngineFake`/`rodarSessaoComMarcador` com esses nomes exatos, usar os helpers reais já existentes no arquivo (ler o arquivo inteiro antes de escrever o teste); o que importa é o padrão: simular uma sessão com `activeReviews` carregando (ou não) `headSha`, e checar o campo na entrada gravada no arquivo real.
+
+- [ ] **Passo 2: rodar e ver falhar.** `node --test test/session-checkpoint-capture.test.js`. Deve falhar porque `session.js` ainda não lê `review.headSha` nem grava o campo.
+
+- [ ] **Passo 3: implementação em `session.js`.** Dentro do bloco de interceptação (`handleEvent`, branch `tool_use`, dentro do `if (m) { try { ... } }`), a variável `review` já existe (`engine.activeReviews.get(opts.id)`). Acrescentar o campo `headSha` no objeto passado a `appendCheckpointEntry`:
+
+```js
+                  const review = engine.activeReviews && engine.activeReviews.get(opts.id);
+                  const prKey = review && review.pr && review.pr.key;
+                  const prUrl = review && review.pr && review.pr.url;
+                  if (prKey && parsed && typeof parsed === 'object') {
+                    appendCheckpointEntry(checkpointPath(prKey), prKey, prUrl || '', {
+                      claim: String(parsed.claim || ''),
+                      file: String(parsed.file || ''),
+                      line: Number(parsed.line) || 0,
+                      verdict: String(parsed.verdict || ''),
+                      evidence: String(parsed.evidence || ''),
+                      sessionId: opts.id,
+                      headSha: (review && review.headSha) || '',
+                      at: new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T'),
+                    });
+                  }
+```
+
+(única linha nova: `headSha: (review && review.headSha) || '',`; todo o resto do bloco fica idêntico ao que já existe)
+
+- [ ] **Passo 4: implementação em `review.js`.** No topo do arquivo, no bloco de imports (âncora: `const { WORKSPACE, TEMPLATE_DIR } = require('../paths');`), acrescentar:
+
+```js
+const { run } = require('../io');
+```
+
+Dentro de `runHeadlessReview`, logo depois do bloco `engine.activeReviews.set(id, {...})` e antes de `engine.activity.set(id, []);`, buscar o SHA e gravar no MESMO objeto já guardado em `activeReviews` (mutação direta do objeto, igual ao padrão de `sess.model = ...` em `setSessionModel`):
+
+```js
+  engine.activeReviews.set(id, {
+    id, keys: [pr.key], label: `Revisão automática de ${pr.key}`, mode: 'auto',
+    startedAt: Date.now(), cancellable: true,
+    pr: { key: pr.key, url: pr.url, title: pr.title || '' }
+  });
+  engine.activity.set(id, []);
+  // SHA do head no INÍCIO da sessão: carimbado em cada entrada de checkpoint gravada
+  // por esta revisão (session.js), pra a Task 13 poder invalidar entradas de um head
+  // antigo quando o PR ganha commit novo. Falha aqui degrada pra headSha vazio (nunca
+  // filtra, nunca bloqueia por causa de uma falha de rede), mesmo padrão do fan-out.
+  try {
+    const shaR = await run('gh', ['pr', 'view', pr.url, '--json', 'headRefOid', '--jq', '.headRefOid'],
+      { env: engine.ghEnv(engine.accountForPr(pr)) });
+    if (shaR.ok) engine.activeReviews.get(id).headSha = String(shaR.stdout || '').trim();
+  } catch { /* sem SHA: entradas desta sessão gravam headSha vazio, tratado como "sempre considerado" na leitura */ }
+  engine.writeInflight();
+  engine.pushState();
+```
+
+- [ ] **Passo 5: gate completo.** `npm run check && npm test`.
+
+- [ ] **Passo 6: commit.**
+
+```bash
+git add lib/engine/review.js lib/engine/session.js test/session-checkpoint-capture.test.js
+git commit -m "feat: carimba o SHA do head do PR em cada entrada gravada no checkpoint"
+```
+
+---
+
+### Task 13: leitura considera só entradas do head atual (gate deixa de travar pra sempre)
+
+**Files:**
+- Modify: `lib/engine/verification-checkpoint.js` (`summarizeCheckpoint`)
+- Modify: `lib/engine/review.js` (as duas chamadas a `summarizeCheckpoint`/`readCheckpoint` em `runHeadlessReview`: antes do `resumeBlock` e depois da sessão)
+- Test: `test/verification-checkpoint.test.js` e `test/checkpoint-review-wiring.test.js` (acrescentar)
+
+**Interfaces:**
+- Muda: `summarizeCheckpoint(entries, currentHeadSha)`: novo segundo parâmetro OPCIONAL. Sem ele (ou `undefined`/`''`), comportamento idêntico ao de hoje (todas as entradas contam, nenhuma filtragem: cobre os testes já existentes das Tasks 5, 7, 9, 10, que não precisam mudar). Com ele, considera só entradas com `e.headSha === currentHeadSha` OU `e.headSha` vazio/ausente (entrada gravada antes desta feature, ou por uma sessão cujo `gh` falhou: nunca descartada por falta de dado, só por SHA DIFERENTE confirmado).
+- Consome: nada novo (mesma assinatura de antes, só com um parâmetro a mais).
+
+**Dificuldades antecipadas:**
+- Mudar a assinatura de `summarizeCheckpoint` sem quebrar as chamadas já existentes (Tasks 5, 7, 9, 10 chamam com 1 argumento só). → Parâmetro adicional no FINAL, com default `''`, e a lógica de filtro só entra em ação quando `currentHeadSha` é uma string não vazia. Rodar `npm test` depois de mudar a assinatura ANTES de tocar em `review.js`, pra confirmar que nada quebrou por conta só disso.
+- `runHeadlessReview` precisa do SHA atual em DOIS pontos (antes da sessão, pro `resumeBlock`; depois, pro `result.verificationCheckpoint`), e a Task 12 só grava o SHA em `activeReviews` DEPOIS que a sessão é registrada, mas a leitura de ANTES da sessão (linha do `cpAntesDeComecar`) acontece depois daquele bloco também (a ordem no código já é: registra activeReviews → busca SHA → só depois monta prompt e lê checkpoint), então o SHA já está disponível nos dois pontos sem busca duplicada. → Ler `engine.activeReviews.get(id).headSha` (guardar numa variável local `headShaAtual` logo após a Task 12 gravar) e passar essa MESMA variável nas duas chamadas de `summarizeCheckpoint`/no filtro do `resumeBlock`.
+- O `resumeBlock` hoje conta TODAS as entradas (`cpAntesDeComecar.entries.length`). Se o checkpoint tem entradas de um SHA antigo, elas não deveriam contar pra decidir se injeta o aviso de retomada (retomar uma verificação que já não corresponde ao diff atual não ajuda, e pode confundir o modelo). → Filtrar as entradas ANTES de contar, usando o mesmo critério (`headSha === atual || sem headSha`).
+
+- [ ] **Passo 1: escrever os testes que falham.** Em `test/verification-checkpoint.test.js`, acrescentar:
+
+```js
+test('summarizeCheckpoint sem currentHeadSha considera todas as entradas (compatibilidade)', () => {
+  const entries = [
+    { file: 'a.ts', line: 1, claim: 'x', verdict: 'confirmado', headSha: 'sha-velho' },
+    { file: 'b.ts', line: 2, claim: 'y', verdict: 'confirmado', headSha: 'sha-novo' },
+  ];
+  const r = summarizeCheckpoint(entries);
+  assert.equal(r.total, 2);
+});
+
+test('summarizeCheckpoint com currentHeadSha ignora entradas de SHA diferente', () => {
+  const entries = [
+    { file: 'a.ts', line: 1, claim: 'x', verdict: 'refutado', headSha: 'sha-velho' },
+    { file: 'a.ts', line: 1, claim: 'x', verdict: 'confirmado', headSha: 'sha-novo' },
+  ];
+  // sem filtro, isto seria um conflito (mesma claim, veredito diferente); com o SHA
+  // atual = sha-novo, a entrada velha some e não sobra conflito nenhum
+  const r = summarizeCheckpoint(entries, 'sha-novo');
+  assert.equal(r.total, 1);
+  assert.equal(r.conflicts.length, 0);
+});
+
+test('summarizeCheckpoint com currentHeadSha ainda considera entradas sem headSha (dado antigo, nunca descarta por falta de info)', () => {
+  const entries = [
+    { file: 'a.ts', line: 1, claim: 'x', verdict: 'confirmado' }, // sem headSha (gravado antes da Task 12, ou gh falhou)
+  ];
+  const r = summarizeCheckpoint(entries, 'sha-novo');
+  assert.equal(r.total, 1);
+});
+```
+
+Em `test/checkpoint-review-wiring.test.js`, acrescentar (mesmo padrão de arquivo real em disco via `appendCheckpointEntry` que o resto do arquivo já usa):
+
+```js
+test('resumeBlock não conta entradas de um head antigo na decisão de injetar', () => {
+  const prKey = 'wiring/teste#4';
+  const p = checkpointPath(prKey);
+  appendCheckpointEntry(p, prKey, 'url', { claim: 'a', file: 'x.ts', line: 1, verdict: 'confirmado', headSha: 'sha-velho' });
+
+  const cp = readCheckpoint(p);
+  const headShaAtual = 'sha-novo';
+  const relevantes = cp.entries.filter(e => !e.headSha || e.headSha === headShaAtual);
+  let prompt = 'prompt base';
+  if (cp.ok && relevantes.length) prompt += resumeBlock(relevantes.length, p);
+
+  assert.equal(prompt, 'prompt base', 'entrada é só do SHA antigo: não deveria disparar o aviso de retomada pro head atual');
+});
+```
+
+- [ ] **Passo 2: rodar e ver falhar.** `node --test test/verification-checkpoint.test.js test/checkpoint-review-wiring.test.js`.
+
+- [ ] **Passo 3: implementação em `verification-checkpoint.js`.** Trocar a assinatura e o corpo de `summarizeCheckpoint`:
+
+```js
+function summarizeCheckpoint(entries, currentHeadSha) {
+  entries = entries || [];
+  const relevantes = currentHeadSha
+    ? entries.filter(e => !e.headSha || e.headSha === currentHeadSha)
+    : entries;
+  const groups = new Map();
+  for (const e of relevantes) {
+    const key = `${e.file}|${e.line}|${e.claim}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(e);
+  }
+  const conflicts = [];
+  for (const grupo of groups.values()) {
+    const veredictos = new Set(grupo.map(e => e.verdict));
+    if (veredictos.size > 1) conflicts.push({ entries: grupo });
+  }
+  return {
+    total: relevantes.length,
+    confirmedCount: relevantes.filter(e => e.verdict === 'confirmado').length,
+    conflicts,
+  };
+}
+```
+
+- [ ] **Passo 4: implementação em `review.js`.** Logo após o bloco da Task 12 que grava `headSha` em `activeReviews`, guardar numa variável local:
+
+```js
+  try {
+    const shaR = await run('gh', ['pr', 'view', pr.url, '--json', 'headRefOid', '--jq', '.headRefOid'],
+      { env: engine.ghEnv(engine.accountForPr(pr)) });
+    if (shaR.ok) engine.activeReviews.get(id).headSha = String(shaR.stdout || '').trim();
+  } catch { /* sem SHA: entradas desta sessão gravam headSha vazio, tratado como "sempre considerado" na leitura */ }
+  const headShaAtual = (engine.activeReviews.get(id) || {}).headSha || '';
+```
+
+Trocar o bloco do `resumeBlock` (montado pela Task 10) de:
+
+```js
+    const cpAntesDeComecar = readCheckpoint(checkpointPath(pr.key));
+    if (cpAntesDeComecar.ok && cpAntesDeComecar.entries.length) {
+      promptFinal += resumeBlock(cpAntesDeComecar.entries.length, checkpointPath(pr.key));
+    }
+```
+
+por:
+
+```js
+    const cpAntesDeComecar = readCheckpoint(checkpointPath(pr.key));
+    if (cpAntesDeComecar.ok) {
+      const relevantesAntes = headShaAtual
+        ? cpAntesDeComecar.entries.filter(e => !e.headSha || e.headSha === headShaAtual)
+        : cpAntesDeComecar.entries;
+      if (relevantesAntes.length) promptFinal += resumeBlock(relevantesAntes.length, checkpointPath(pr.key));
+    }
+```
+
+E trocar a chamada de `summarizeCheckpoint` (montada pela Task 7) de:
+
+```js
+    const cpLido = readCheckpoint(checkpointPath(pr.key));
+    result.verificationCheckpoint = cpLido.ok
+      ? summarizeCheckpoint(cpLido.entries)
+      : { malformed: true, reason: cpLido.reason };
+```
+
+por:
+
+```js
+    const cpLido = readCheckpoint(checkpointPath(pr.key));
+    result.verificationCheckpoint = cpLido.ok
+      ? summarizeCheckpoint(cpLido.entries, headShaAtual)
+      : { malformed: true, reason: cpLido.reason };
+```
+
+- [ ] **Passo 5: gate completo.** `npm run check && npm test`.
+
+- [ ] **Passo 6: commit.**
+
+```bash
+git add lib/engine/verification-checkpoint.js lib/engine/review.js test/verification-checkpoint.test.js test/checkpoint-review-wiring.test.js
+git commit -m "feat: gate do checkpoint considera so entradas do head atual, PR com commit novo deixa de travar pra sempre"
+```
+
+---
+
+---
+
+## Onda 5: achados residuais da revisão final (robustez e higiene)
+
+> **ENTREGUE em 06/08/2026.** Task 14 no commit `6a84d93`, Tasks 16 e 17 nos
+> `8f79df2` e `2a5de61`; a Task 15 já estava no código. Confirmado em
+> 11/08/2026: `lib/engine/verification-checkpoint.js:42` (claim normalizada no
+> agrupamento), `lib/engine/decision.js:271` (mensagem cita `file:line` e a
+> claim, não o índice) e `lib/engine/session.js:426`, onde os dois guards da
+> Onda 5 acabaram na mesma condição: `review.mode === 'auto'` (autoanálise nunca
+> escreve) e `!Array.isArray(parsed)` (marcador em array não vira entrada vazia).
+> Mesma observação da Onda 4: os passos são registro, não pendência.
+
+**Motivo:** a revisão final de todo o branch levantou 4 achados Important além do ciclo de vida (já fechado na Onda 4) e 2 achados Minor promovidos. O Wanderson aprovou fechá-los como tasks locais (mesma decisão de não abrir/expandir card de Jira). Cada um é pequeno e isolado; tratados em 4 tasks curtas em vez de uma só, pra manter o rigor de teste-antes-de-implementar por mudança.
+
+---
+
+### Task 14: normalizar a string da claim no agrupamento de conflitos
+
+**Files:**
+- Modify: `lib/engine/verification-checkpoint.js` (`summarizeCheckpoint`)
+- Test: `test/verification-checkpoint.test.js` (acrescentar)
+
+**Interfaces:** nenhuma mudança de assinatura, só do critério interno de agrupamento.
+
+**Dificuldades antecipadas:**
+- A chave de agrupamento hoje é `${e.file}|${e.line}|${e.claim}` (string literal, sensível a maiúsculas/espaços). Duas passadas que verificam a MESMA afirmação com fraseado ligeiramente diferente ("a função X trata null" vs "A função X trata null.") não são detectadas como a mesma claim, então uma divergência real de veredito pode passar batida (falso negativo: nenhum conflito relatado quando deveria haver um). → Normalizar só a claim na formação da chave: `trim()`, colapsar espaços internos (`replace(/\s+/g, ' ')`) e `toLowerCase()`. `file` e `line` continuam exatos (mudar esses também seria mais arriscado, já que arquivo/linha tem que bater exato pra ser a mesma afirmação de verdade).
+- Isso é só o critério de AGRUPAMENTO; o `evidence`/`claim` originais gravados no arquivo NÃO mudam, só a chave interna do `Map`.
+
+- [ ] **Passo 1: escrever o teste que falha.** Acrescentar a `test/verification-checkpoint.test.js`:
+
+```js
+test('summarizeCheckpoint detecta conflito mesmo com fraseado ligeiramente diferente da claim', () => {
+  const entries = [
+    { file: 'a.ts', line: 10, claim: 'a função trata null corretamente', verdict: 'confirmado' },
+    { file: 'a.ts', line: 10, claim: '  A Função trata NULL corretamente.', verdict: 'refutado' },
+  ];
+  const r = summarizeCheckpoint(entries);
+  assert.equal(r.conflicts.length, 1, 'variação de caixa/espaço/pontuação na claim não deveria esconder o conflito');
+});
+```
+
+- [ ] **Passo 2: rodar e ver falhar.** `node --test test/verification-checkpoint.test.js`.
+
+- [ ] **Passo 3: implementação.** Trocar a linha da chave de agrupamento:
+
+```js
+    const key = `${e.file}|${e.line}|${e.claim}`;
+```
+
+por:
+
+```js
+    const claimNormalizada = String(e.claim || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    const key = `${e.file}|${e.line}|${claimNormalizada}`;
+```
+
+- [ ] **Passo 4: gate completo.** `npm run check && npm test` (conferir que os testes já existentes de conflito/sem-conflito continuam passando, já que claims idênticas continuam agrupando igual).
+
+- [ ] **Passo 5: commit.**
+
+```bash
+git add lib/engine/verification-checkpoint.js test/verification-checkpoint.test.js
+git commit -m "fix: normaliza a claim no agrupamento de conflitos do checkpoint, fraseado diferente nao esconde mais divergencia"
+```
+
+---
+
+### Task 15: citar arquivo/linha/claim na mensagem de `checkpointGap`, não só o índice posicional
+
+**Files:**
+- Modify: `lib/engine/decision.js` (`checkpointGap`)
+- Test: `test/checkpoint-gate.test.js` (acrescentar)
+
+**Interfaces:** `checkpointGap(result)` continua devolvendo `string[]`, só o CONTEÚDO de cada string muda (mais informação).
+
+**Dificuldades antecipadas:**
+- Hoje `conflicts.map((c, i) => ...)` ignora o parâmetro `c` (o próprio grupo de entradas conflitantes) e só usa o índice `i`. O grupo `c` tem a forma `{ entries: [...] }` (ver `summarizeCheckpoint`), e todas as entradas de um mesmo grupo compartilham `file`, `line` e `claim` (é a chave de agrupamento), então `c.entries[0]` tem os três campos prontos pra citar. → Usar `c.entries[0].file`/`.line`/`.claim` na mensagem em vez do índice.
+- Se `c.entries` vier vazio por algum motivo (não deveria acontecer, `summarizeCheckpoint` só cria o grupo ao empurrar pelo menos uma entrada), a leitura de `c.entries[0]` quebraria com `undefined.file`. → Guardar com `(c.entries && c.entries[0]) || {}` antes de desestruturar, defensivo mas barato.
+
+- [ ] **Passo 1: escrever o teste que falha.** Acrescentar a `test/checkpoint-gate.test.js` (ou, se esse arquivo for só de gate approve/reject, criar o teste direto de `checkpointGap` isolado, que já era um Minor deferido da Task 6: "falta teste direto de checkpointGap isolado"; aproveitar esta task pra fechar os dois de uma vez):
+
+```js
+const { checkpointGap } = require('../lib/engine/decision');
+
+test('checkpointGap cita arquivo, linha e claim do conflito, não só um índice genérico', () => {
+  const result = {
+    verificationCheckpoint: {
+      conflicts: [
+        { entries: [
+          { file: 'src/foo.ts', line: 42, claim: 'valida o token antes de usar', verdict: 'confirmado' },
+          { file: 'src/foo.ts', line: 42, claim: 'valida o token antes de usar', verdict: 'refutado' },
+        ] },
+      ],
+    },
+  };
+  const gaps = checkpointGap(result);
+  assert.equal(gaps.length, 1);
+  assert.match(gaps[0], /src\/foo\.ts/);
+  assert.match(gaps[0], /42/);
+  assert.match(gaps[0], /valida o token antes de usar/);
+});
+```
+
+- [ ] **Passo 2: rodar e ver falhar.** `node --test test/checkpoint-gate.test.js`.
+
+- [ ] **Passo 3: implementação.** Trocar:
+
+```js
+  return conflicts.map((c, i) => `divergência de veredito na afirmação ${i + 1} entre passadas de verificação`);
+```
+
+por:
+
+```js
+  return conflicts.map((c) => {
+    const primeira = (c.entries && c.entries[0]) || {};
+    return `divergência de veredito em ${primeira.file || '?'}:${primeira.line || '?'} ("${primeira.claim || '?'}") entre passadas de verificação`;
+  });
+```
+
+- [ ] **Passo 4: gate completo.** `npm run check && npm test`.
+
+- [ ] **Passo 5: commit.**
+
+```bash
+git add lib/engine/decision.js test/checkpoint-gate.test.js
+git commit -m "fix: checkpointGap cita arquivo/linha/claim do conflito em vez de indice generico"
+```
+
+---
+
+### Task 16: rede de segurança contra payload em formato de array + remover import morto
+
+**Files:**
+- Modify: `lib/engine/session.js` (âncora: `if (prKey && parsed && typeof parsed === 'object') {`)
+- Modify: `lib/engine/review.js` (linha de import de `verification-checkpoint`)
+- Test: `test/session-checkpoint-capture.test.js` (acrescentar)
+
+**Interfaces:** nenhuma.
+
+**Dificuldades antecipadas:**
+- `typeof parsed === 'object'` é verdadeiro tanto pra `{}` quanto pra `[]` (e pra `null`, mas isso já é coberto pelo `parsed &&` antes). Um marcador `FAROL_CHECKPOINT: [1,2,3]` (mal formado, mas sintaticamente JSON válido) passaria no guard e geraria uma entrada VAZIA (`claim:''`, `file:''`, `line:0`, `verdict:''`) no arquivo de checkpoint append-only, que hoje não tem nenhum jeito de limpar. → Acrescentar `!Array.isArray(parsed)` ao guard.
+- O import morto (`appendCheckpointEntry` importado em `review.js` mas nunca chamado lá, só em `session.js`) é só higiene: remover da lista de import, sem efeito funcional. Fazer as duas mudanças no mesmo commit é aceitável aqui (ambas são pequenas correções mecânicas sem relação de dependência entre si, mas do mesmo "lote de limpeza" da revisão final).
+
+- [ ] **Passo 1: escrever o teste que falha.** Acrescentar a `test/session-checkpoint-capture.test.js`:
+
+```js
+test('marcador com payload em formato de array é ignorado, não grava entrada vazia', async () => {
+  const prKey = 'org/repo#101';
+  const engine = criarEngineFake(); // mesmo helper das Tasks 2/12
+  engine.activeReviews.set('a3', { id: 'a3', pr: { key: prKey, url: 'https://github.com/org/repo/pull/101' } });
+
+  await rodarSessaoComMarcador(engine, 'a3', [1, 2, 3]); // payload array, não objeto de claim
+
+  const cp = readCheckpoint(checkpointPath(prKey));
+  assert.equal(cp.entries.length, 0, 'array não é um objeto de claim válido, não deveria virar entrada nenhuma');
+});
+```
+
+(usar o nome real do helper de disparo de sessão com marcador já usado nos testes existentes desse arquivo; se o helper serializa o payload com `JSON.stringify` antes de montar a linha do marcador, um array serializa normalmente como `[1,2,3]`, sem ajuste extra necessário)
+
+- [ ] **Passo 2: rodar e ver falhar.** `node --test test/session-checkpoint-capture.test.js`.
+
+- [ ] **Passo 3: implementação em `session.js`.** Trocar:
+
+```js
+                  if (prKey && parsed && typeof parsed === 'object') {
+```
+
+por:
+
+```js
+                  if (prKey && parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+```
+
+- [ ] **Passo 4: implementação em `review.js`.** Remover `appendCheckpointEntry` da lista de import (não é usado neste arquivo, só em `session.js`):
+
+```js
+const { checkpointPath, readCheckpoint, summarizeCheckpoint, appendCheckpointEntry, resumeBlock } = require('./verification-checkpoint');
+```
+
+vira:
+
+```js
+const { checkpointPath, readCheckpoint, summarizeCheckpoint, resumeBlock } = require('./verification-checkpoint');
+```
+
+- [ ] **Passo 5: gate completo.** `npm run check && npm test`.
+
+- [ ] **Passo 6: commit.**
+
+```bash
+git add lib/engine/session.js lib/engine/review.js test/session-checkpoint-capture.test.js
+git commit -m "fix: marcador em formato de array nao vira entrada vazia no checkpoint; remove import morto em review.js"
+```
+
+---
+
+### Task 17: autoanálise (Meus PRs) nunca escreve no checkpoint
+
+**Files:**
+- Modify: `lib/engine/session.js` (âncora: `const review = engine.activeReviews && engine.activeReviews.get(opts.id);`)
+- Test: `test/session-checkpoint-capture.test.js` (acrescentar)
+
+**Interfaces:** nenhuma.
+
+**Dificuldades antecipadas:**
+- O invariante 4 do `CLAUDE.md` do projeto é explícito: "A autoanálise em si (Meus PRs) NUNCA posta nem escreve em `state/`". A interceptação do marcador hoje só checa `prKey` (de `review.pr.key`), e `runSelfAnalysis` (`lib/engine/selfpr.js`, linha ~476) TAMBÉM popula `activeReviews` com um `pr: {key, url, title}`, só que com `mode: 'self'` (confirmado por leitura: `runHeadlessReview` usa `mode: 'auto'`, `runSelfAnalysis` usa `mode: 'self'`). Sem checar o `mode`, uma sessão de autoanálise que (indevidamente, por erro de prompt) emitisse um marcador `FAROL_CHECKPOINT` escreveria em `state/verification/`, violando o invariante. → Acrescentar `review.mode === 'auto'` ao guard, já que só `runHeadlessReview` usa esse modo.
+- Isso é defesa em profundidade: o prompt de autoanálise (`self-review.md`) já não instrui a emitir esse marcador; o guard aqui é a rede de segurança do lado do engine, consistente com o resto do invariante 4 (nunca confiar só na instrução do prompt pra uma garantia de segurança).
+
+- [ ] **Passo 1: escrever o teste que falha.** Acrescentar a `test/session-checkpoint-capture.test.js`:
+
+```js
+test('sessão de autoanálise (mode self) nunca escreve no checkpoint, mesmo com marcador válido', async () => {
+  const prKey = 'org/repo#102';
+  const engine = criarEngineFake();
+  engine.activeReviews.set('a4', {
+    id: 'a4', mode: 'self', pr: { key: prKey, url: 'https://github.com/org/repo/pull/102' },
+  });
+
+  await rodarSessaoComMarcador(engine, 'a4', {
+    claim: 'x', file: 'f.ts', line: 1, verdict: 'confirmado', evidence: 'e',
+  });
+
+  const cp = readCheckpoint(checkpointPath(prKey));
+  assert.equal(cp.entries.length, 0, 'autoanalise nunca escreve em state/ (invariante 4 do CLAUDE.md), mesmo com marcador bem formado');
+});
+```
+
+- [ ] **Passo 2: rodar e ver falhar.** `node --test test/session-checkpoint-capture.test.js` (deve falhar hoje, porque o guard atual não olha `review.mode`).
+
+- [ ] **Passo 3: implementação.** Trocar:
+
+```js
+                  if (prKey && parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+```
+
+(já com a correção da Task 16 aplicada antes desta) por:
+
+```js
+                  if (prKey && review.mode === 'auto' && parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+```
+
+- [ ] **Passo 4: gate completo.** `npm run check && npm test`.
+
+- [ ] **Passo 5: commit.**
+
+```bash
+git add lib/engine/session.js test/session-checkpoint-capture.test.js
+git commit -m "fix: autoanalise (mode self) nunca escreve no checkpoint, so revisao headless (mode auto) escreve"
+```
+
+---
+
 ## Ordem de execução e onda
 
 1. **Onda 1 (Tasks 1 a 4):** escrita incremental via interceptação. Rodar `npm run check && npm test` verde ao final da Onda 1, e fazer a validação manual da Task 4 (revisão real de um PR de docs/spec) antes de seguir.
 2. **Onda 2 (Tasks 5 a 8):** leitura, gate, UI. Só começar depois da Onda 1 validada em uso real (regra do projeto: nada de trabalho novo sobre base não confirmada).
 3. **Onda 3 (Tasks 9 a 11):** retomada proativa. Só começar depois da Onda 2 100% verde.
+4. **Onda 4 (Tasks 12 e 13):** ciclo de vida do checkpoint por SHA do head, tasks locais (sem card de Jira), aprovadas pelo Wanderson em 06/08/2026 a partir do achado da revisão final. Só começar depois da Onda 3 100% verde (já está, as 12 tasks anteriores foram concluídas antes desta).
+5. **Onda 5 (Tasks 14 a 17):** achados residuais da revisão final (normalização de claim, mensagem de conflito com detalhe, rede de segurança contra array, guard de mode para autoanálise). Tasks 16 e 17 tocam o MESMO trecho de `session.js` em sequência (16 primeiro, adiciona `!Array.isArray`; 17 depois, adiciona `review.mode === 'auto'` na mesma linha já modificada), então rodar nesta ordem exata.
 
 ## Release
 
