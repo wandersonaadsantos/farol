@@ -42,6 +42,13 @@ com a ordem por recência ele viraria um placar falso (o "1." deixaria de ser
 quem mais entrega). Quem mais entrega continua nos cartões "@X na frente" e
 "repo na frente", que são por volume, papel deles.
 
+**Decisão posterior (12/08/2026, v2.40.6):** a visão **Pessoas** voltou a
+responder primeiro à pergunta de volume: quantidade decrescente, recência como
+desempate e login como último critério determinístico. A visão **Repositórios**
+e os sub-repositórios/PRs dentro de cada pessoa preservam a ordem por recência.
+Os grupos de Pessoas também passam a nascer recolhidos; a abertura explícita é
+preservada nos re-renders de busca e paginação.
+
 ### 4. Corte do teto era por relevância, não por recência
 
 Com mais de 1000 entregas, o `gh search` sem `--sort` corta por "best match"

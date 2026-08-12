@@ -87,6 +87,60 @@ test('loadDeliveries descarta resposta velha por token de requisicao (M19)', () 
     'a guarda vem ANTES do closeOp: resposta velha nao encerra a op da carga nova');
 });
 
+test('Entregas guarda disclosure de Pessoas separado e confirma o reset pela resposta do novo contexto', () => {
+  assert.match(APPJS, /let deliveriesOpen = new Set\(\)/,
+    'details aberto/fechado não pode reutilizar deliveriesExpanded (mostrar mais/menos)');
+  const fn = APPJS.match(/async function loadDeliveries\([\s\S]*?\n\}/);
+  assert.ok(fn, 'loadDeliveries existe');
+  assert.match(APPJS, /let deliveriesDataContext = null/,
+    'o estado registra a org/período da última resposta aceita');
+  assert.match(fn[0], /const requestContext = JSON\.stringify\(\[requestOrg, requestDays\]\)/,
+    'a carga captura o contexto resolvido antes da chamada assíncrona');
+  const posGuarda = fn[0].indexOf('rid !== deliveriesReqSeq');
+  const posContexto = fn[0].indexOf('deliveriesDataContext !== requestContext');
+  assert.ok(posGuarda !== -1 && posGuarda < posContexto,
+    'resposta velha não pode confirmar nem resetar o contexto de disclosure');
+  assert.match(fn[0], /if \(deliveriesDataContext !== requestContext\) resetDeliveriesDisclosure\(\);\s*\n\s*deliveriesDataContext = requestContext/,
+    'contexto novo fecha reabertura da UI velha durante a carga; refresh igual preserva o atalho');
+  const render = APPJS.match(/function renderDeliveries\([\s\S]*?\n\}/);
+  assert.match(render[0], /openKeys: deliveriesOpen/,
+    'o renderer puro recebe as chaves abertas explicitamente');
+  assert.match(APPJS, /function resetDeliveriesDisclosure\(\) \{ deliveriesOpen = new Set\(\); \}/,
+    'o reset de disclosure tem uma operação nomeada');
+  assert.match(APPJS, /\$\('#delivOrg'\)[\s\S]{0,300}resetDeliveriesDisclosure\(\);\s*\n\s*loadDeliveries\(\)/,
+    'trocar organização fecha os grupos da organização anterior');
+  assert.match(APPJS, /\$\('#delivDays'\)[\s\S]{0,500}resetDeliveriesDisclosure\(\);\s*\n\s*loadDeliveries\(\)/,
+    'trocar período fecha os grupos do período anterior');
+  assert.match(APPJS, /if \(nextDays === deliveriesDays\) return/,
+    'clicar no período já ativo não fecha disclosures nem refaz a consulta');
+});
+
+test('toggle nativo de details atualiza Pessoas e mostrar mais preserva o card aberto', () => {
+  assert.match(APPJS,
+    /addEventListener\('toggle',[\s\S]*?details\[data-deliv-group\^="author:"\][\s\S]*?deliveriesOpen\.add\(key\)[\s\S]*?deliveriesOpen\.delete\(key\)[\s\S]*?true\)/,
+    'toggle não borbulha: a delegação usa capture e sincroniza o Set de Pessoas');
+  const handler = APPJS.match(/\$\('#deliveries'\)\.addEventListener\('click',[\s\S]*?\n\}\);/);
+  assert.ok(handler, 'handler delegado de Entregas existe');
+  assert.match(handler[0], /mais\.closest\('details\[open\]'\)[\s\S]*?deliveriesOpen\.add\(key\)/,
+    'antes do re-render de mostrar mais, o details aberto é preservado até se o toggle ainda estiver enfileirado');
+});
+
+test('atalho @pessoa abre explicitamente o grupo, sem mudar o default recolhido', () => {
+  const fn = APPJS.match(/function gotoDeliv\(kind, valor\) \{[\s\S]*?\n\}/);
+  assert.ok(fn, 'gotoDeliv existe');
+  assert.match(fn[0], /if \(by === 'author'\) deliveriesOpen\.add\('author:' \+ valor\);\s*\n\s*renderDeliveries\(\)/,
+    'clicar em @fulano na frente é intenção explícita de abrir aquele grupo');
+  assert.match(fn[0], /if \(CURRENT_TAB !== 'entregas'\) switchTab\('entregas'\)/,
+    'atalho dentro da própria tela não inicia uma carga que substituiria o alvo recém-aberto');
+});
+
+test('seta do accordion acompanha o atributo open no próprio summary', () => {
+  assert.match(CSS, /\.deliv-card details\[open\] > summary\.deliv-sum::after \{[^}]*transform: rotate\(90deg\)/,
+    'summary já é .deliv-sum; não existe um .deliv-sum filho dentro dele');
+  assert.doesNotMatch(CSS, /details\[open\] > summary \.deliv-sum::after/,
+    'o seletor antigo nunca casava e deixava a seta apontando para a direita com o corpo aberto');
+});
+
 /* ---------- estagio da sessao ativa (B13) ---------- */
 
 test('stageLabel muda com o tempo de vida da sessao', () => {

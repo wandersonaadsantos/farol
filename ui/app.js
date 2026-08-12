@@ -1226,12 +1226,15 @@ document.addEventListener('click', (e) => {
    de HTML). Elemento com data-goto ganha o affordance de clique no CSS
    (.is-goto) e vira botão pra teclado/leitor de tela via role/tabindex. */
 function gotoDeliv(kind, valor) {
-  switchTab('entregas');
+  // KPIs desta tela também usam data-goto. Não recarregue a própria aba antes
+  // de abrir/rolar o grupo: a resposta assíncrona substituiria o DOM recém-alvo.
+  if (CURRENT_TAB !== 'entregas') switchTab('entregas');
   if (kind === 'days') {
     const d = parseInt(valor, 10);
     deliveriesDays = [0, 7, 15, 30].includes(d) ? d : deliveriesDays;
     localStorage.setItem('farol-deliv-days', String(deliveriesDays));
     marcarDelivDays();
+    resetDeliveriesDisclosure();
     loadDeliveries();
     return;
   }
@@ -1244,6 +1247,7 @@ function gotoDeliv(kind, valor) {
     marcarSeg(document.querySelectorAll('#delivBy .seg-btn'), x => x.dataset.by === by);
   }
   if (deliveriesQuery) { deliveriesQuery = ''; const q = $('#delivQuery'); if (q) q.value = ''; }
+  if (by === 'author') deliveriesOpen.add('author:' + valor);
   renderDeliveries();
   // o grupo é montado no render acima; achar pelo groupKey do próprio pure.js
   setTimeout(() => {
@@ -1547,6 +1551,9 @@ let deliveriesBy = localStorage.getItem('farol-deliv-by') === 'author' ? 'author
 let deliveriesOrg = localStorage.getItem('farol-deliv-org') || ''; // '' = ainda não resolvido → cai na principal
 let deliveriesQuery = ''; // busca livre, só em memória (não persiste entre sessões)
 let deliveriesExpanded = new Set(); // chaves 'repo:x'/'author:x' com paginação expandida
+let deliveriesOpen = new Set(); // disclosures abertos da visão Pessoas (default: todos fechados)
+let deliveriesDataContext = null; // org/período da última resposta aceita
+function resetDeliveriesDisclosure() { deliveriesOpen = new Set(); }
 // token de requisição: trocar org/período dispara cargas concorrentes e a resposta
 // VELHA não pode vencer a nova (mesma guarda que o openChat faz por chave)
 let deliveriesReqSeq = 0;
@@ -1581,15 +1588,25 @@ async function loadDeliveries() {
   renderDelivOrgSelect();
   marcarDelivDays();
   marcarSeg(document.querySelectorAll('#delivBy .seg-btn'), b => b.dataset.by === deliveriesBy);
+  // Capture o contexto efetivamente consultado. renderDelivOrgSelect pode trocar
+  // silenciosamente uma org salva que deixou de existir pela org principal.
+  const requestOrg = deliveriesOrg;
+  const requestDays = deliveriesDays;
+  const requestContext = JSON.stringify([requestOrg, requestDays]);
   const box = $('#deliveries');
   box.innerHTML = '<div class="empty">Carregando entregas…</div>';
   const opId = 'load-deliveries';
   showOp(opId, { type: 'data', title: 'Carregando entregas', inline: true, container: box });
   const rid = ++deliveriesReqSeq;
-  const data = await get('/api/deliveries?days=' + deliveriesDays + '&owner=' + encodeURIComponent(deliveriesOrg || ''));
+  const data = await get('/api/deliveries?days=' + requestDays + '&owner=' + encodeURIComponent(requestOrg || ''));
   // outra carga começou depois desta: a resposta é velha e não pinta nada (a op
   // 'load-deliveries' já é da carga nova, que fará o próprio closeOp)
   if (rid !== deliveriesReqSeq) return;
+  // O reset do clique dá feedback imediato, mas a UI antiga ainda pode reabrir
+  // um autor durante o await. A resposta aceita é a autoridade final. Refresh
+  // do MESMO contexto preserva a abertura explícita do atalho @fulano.
+  if (deliveriesDataContext !== requestContext) resetDeliveriesDisclosure();
+  deliveriesDataContext = requestContext;
   deliveriesData = data || { items: [] };
   deliveriesExpanded = new Set(); // dado novo: paginação de grupo velha não faz sentido
   closeOp(opId, 'done');
@@ -1617,20 +1634,24 @@ function renderDeliveries() {
     box.innerHTML = delivEmptyState({ query: deliveriesQuery, canExpand: deliveriesDays < 30, canClear: !!deliveriesQuery });
     return;
   }
-  const opts = { teto: 4, expandedKeys: deliveriesExpanded };
+  const opts = { teto: 4, expandedKeys: deliveriesExpanded, openKeys: deliveriesOpen };
   box.innerHTML = deliveriesBy === 'author' ? deliveriesByAuthor(items, opts) : deliveriesByRepo(items, opts);
 }
 $('#delivOrg').addEventListener('change', (e) => {
   deliveriesOrg = e.target.value || '';
   localStorage.setItem('farol-deliv-org', deliveriesOrg);
+  resetDeliveriesDisclosure();
   loadDeliveries();
 });
 $('#delivDays').addEventListener('click', (e) => {
   const b = e.target.closest('.seg-btn'); if (!b) return;
   const v = parseInt(b.dataset.days, 10); // "Hoje" = 0 (é falsy: não usar || aqui)
-  deliveriesDays = [0, 7, 15, 30].includes(v) ? v : 7;
+  const nextDays = [0, 7, 15, 30].includes(v) ? v : 7;
+  if (nextDays === deliveriesDays) return;
+  deliveriesDays = nextDays;
   localStorage.setItem('farol-deliv-days', String(deliveriesDays));
   marcarDelivDays();
+  resetDeliveriesDisclosure();
   loadDeliveries();
 });
 $('#delivBy').addEventListener('click', (e) => {
@@ -1645,12 +1666,24 @@ $('#delivQuery').addEventListener('input', (e) => {
   deliveriesQuery = e.target.value || '';
   renderDeliveries();
 });
+// O evento nativo `toggle` de <details> não borbulha. Capture mantém um único
+// listener delegado e preserva a abertura de Pessoas nos re-renders da busca e
+// da paginação, sem interferir na semântica/teclado nativos de <summary>.
+$('#deliveries').addEventListener('toggle', (e) => {
+  const details = e.target.closest && e.target.closest('details[data-deliv-group^="author:"]');
+  if (!details || details !== e.target) return;
+  const key = details.dataset.delivGroup;
+  if (details.open) deliveriesOpen.add(key); else deliveriesOpen.delete(key);
+}, true);
 // delegação: "mostrar mais/menos" de cada grupo e as ações do estado vazio
 // ("Ver 30 dias" / "Limpar busca"), ambos desenhados no pure.js com data-*
 $('#deliveries').addEventListener('click', (e) => {
   const mais = e.target.closest('.deliv-mais');
   if (mais) {
     const key = mais.dataset.delivGroup;
+    // `toggle` é enfileirado; o clique em mostrar mais pode re-renderizar antes
+    // de ele sincronizar o Set. Leia o estado vivo antes de remover o <details>.
+    if (key.startsWith('author:') && mais.closest('details[open]')) deliveriesOpen.add(key);
     if (deliveriesExpanded.has(key)) deliveriesExpanded.delete(key); else deliveriesExpanded.add(key);
     renderDeliveries();
     return;
@@ -1661,6 +1694,7 @@ $('#deliveries').addEventListener('click', (e) => {
     deliveriesDays = 30;
     localStorage.setItem('farol-deliv-days', '30');
     marcarDelivDays();
+    resetDeliveriesDisclosure();
     loadDeliveries();
   } else if (acao.dataset.delivAction === 'limpar-busca') {
     deliveriesQuery = '';
@@ -3032,6 +3066,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.40.6', ['Na visão por Pessoas, quem tem mais PRs mergeados no período aparece primeiro; merge mais recente e login só desempatam. A ordem acompanha organização, período e busca atuais, enquanto Repositórios continua por recência.', 'Os grupos de Pessoas agora nascem recolhidos. O que você abrir permanece aberto ao buscar ou usar "mostrar mais/menos", e trocar organização ou período começa novamente com a lista compacta.', 'O atalho "@fulano na frente" abre e leva até a pessoa líder, e a seta do cartão finalmente gira junto com o estado aberto.']],
   ['2.40.5', ['Revisão de segunda rodada volta a chegar no PR. Antes de postar, o Farol perguntava "eu já pedi mudanças neste PR alguma vez?"; como a resposta era sim desde a primeira rodada, tudo que a revisão achava depois que o autor empurrava a correção ficava só na sua máquina. Aconteceu duas vezes seguidas no mesmo PR: o Farol concluiu que a correção não tinha fechado o buraco e não postou nenhuma das duas. Agora a pergunta é "eu já me manifestei sobre ESTE commit?", e a mesma rodada continua sem virar review duplicado.', 'O mesmo bloqueio valia pro clique em "Precisa de você": um review de rodada antiga convertia o clique explícito em "já revisado" e nada era postado.', '"Já revisado por você (não repostei)" agora mostra os achados na linha, em "N achados que ficaram só aqui". Era o único status que escondia os achados, justamente aquele em que eles só existem dentro do app.']],
   ['2.40.4', ['Painel vazio agora tem explicação. Sistema → Visão geral ganhou uma linha de monitoramento por conta: conta sem organização cadastrada aparece como problema (era o pior silêncio do app, os 5 itens ficavam verdes, nenhuma busca era feita e o painel ficava vazio pra sempre sem erro nenhum), conta adicional sem gh auth login também, e "todas as contas silenciadas" avisa que nada vai aparecer mesmo com PR esperando. Clicar em qualquer uma leva direto à conta em Contas.']],
   ['2.40.3', ['A revisão de um PR abre direto da tabela de Consumo: cada linha de PR ganhou um atalho ao lado da referência, que mostra veredito, pontos de atenção e o relatório completo ali mesmo. O texto continua abrindo o PR no GitHub, então você escolhe pra onde vai.', 'O histórico de revisões passou de 200 pra 3000. Antes, revisão que saísse das 200 mais recentes sumia, e a tela só alcançava as 30 mais novas; agora qualquer revisão guardada abre pelo atalho, inclusive as antigas e as de outra conta, sem pesar o que o app carrega a cada ciclo.', 'PR sem revisão registrada e falha na busca viraram mensagens diferentes. Antes ficariam idênticas na tela, e "não existe" parecendo "quebrou" faz desconfiar do app inteiro.']],

@@ -9,6 +9,29 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.40.6
+
+A visão por Pessoas agora responde primeiro a quem mais entregou no período e
+abre compacta, sem uma lista inteira de PRs ocupando a tela de saída.
+
+**Melhorias**
+- **Pessoas ordenadas por volume de entregas.** A quantidade de PRs mergeados no
+  período, organização e busca atuais passa a ser o critério principal. O merge
+  mais recente desempata; se até ele coincidir, o login mantém a ordem estável.
+  Repositórios continuam ordenados por recência, sem mudança.
+- **Grupos de Pessoas nascem recolhidos.** Abrir uma pessoa continua sendo uma
+  ação persistente durante busca e "mostrar mais/menos", em vez de o cartão se
+  fechar sozinho a cada atualização da tela. Trocar organização ou período
+  começa novamente com todos recolhidos.
+- **Atalho "@fulano na frente" abre o destino.** Além de rolar até a pessoa
+  líder, o clique expande o grupo explicitamente, mesmo com o novo padrão
+  recolhido.
+
+**Correções**
+- A seta do cartão agora gira quando o grupo está aberto. O seletor antigo nunca
+  alcançava o próprio cabeçalho e deixava a seta apontando para a direita mesmo
+  com os PRs visíveis.
+
 ## v2.40.5
 
 Achado de segunda rodada parou de morrer dentro do app. Quando o autor corrige e

@@ -896,7 +896,8 @@ function delivStats(items, days, agora = Date.now()) {
   if (!total) return [];
   const hoje = localDayKey(agora);
   const deHoje = items.filter(x => localDayKey(x.mergedAt) === hoje).length;
-  const porAutor = [...groupBy(items, x => x.author || '(desconhecido)').entries()].sort((a, b) => b[1].length - a[1].length);
+  const porAutor = [...groupBy(items, x => x.author || '(desconhecido)').entries()]
+    .sort((a, b) => delivVolumeOrder(a[1], b[1], a[0], b[0]));
   const porRepo = [...groupBy(items, x => x.repo).entries()].sort((a, b) => b[1].length - a[1].length);
   const nDias = days === 0 ? 1 : days;
   const buckets = delivDayBuckets(items, days, agora);
@@ -1013,16 +1014,26 @@ function delivGroupBody(rows, teto, expandedKeys, groupKey) {
   return `<div class="rows">${rowsHtml}</div>${botao}`;
 }
 
-function delivGroupCardV2(head, count, pct, bodyHtml) {
+function delivGroupCardV2(head, count, pct, bodyHtml, opts = {}) {
   // grupo pequeno arredonda pra 0% mas a barra tem piso visual de 3%: o tooltip
   // diz "<1%" em vez de afirmar "0%" com preenchimento a mostra
   const pctLabel = pct < 1 ? '<1' : String(pct);
+  const open = opts.open !== false;
   return `<div class="card deliv-card">
-    <details open>
+    <details data-deliv-group="${esc(opts.groupKey || '')}"${open ? ' open' : ''}>
       <summary class="deliv-sum">${head}<span class="deliv-progress" title="${pctLabel}% das entregas do período"><span class="deliv-progress-fill" style="width:${Math.max(pct, 3)}%"></span></span><span class="count">${count}</span></summary>
       ${bodyHtml}
     </details>
   </div>`;
+}
+
+// Regra única do ranking por volume. Recência desempata e o nome torna o
+// resultado determinístico quando até o último merge coincide (payload do gh
+// não é contrato de ordenação para um empate completo).
+function delivVolumeOrder(aList, bList, aKey, bKey) {
+  return bList.length - aList.length
+    || String(lastMerge(bList)).localeCompare(String(lastMerge(aList)))
+    || String(aKey).localeCompare(String(bKey));
 }
 
 function deliveriesByRepo(items, opts = {}) {
@@ -1042,13 +1053,15 @@ function deliveriesByRepo(items, opts = {}) {
   groups.sort((a, b) => String(b.last).localeCompare(String(a.last)) || b.list.length - a.list.length);
   return groups.map(g => delivGroupCardV2(
     g.head, g.list.length, Math.round(g.list.length / totalPeriodo * 100),
-    delivGroupBody(g.rows, teto, expandedKeys, g.groupKey)
+    delivGroupBody(g.rows, teto, expandedKeys, g.groupKey),
+    { groupKey: g.groupKey, open: true }
   )).join('');
 }
 
 function deliveriesByAuthor(items, opts = {}) {
   const teto = opts.teto || 4;
   const expandedKeys = opts.expandedKeys || new Set();
+  const openKeys = opts.openKeys || new Set();
   const totalPeriodo = items.length;
   const groups = [...groupBy(items, it => it.author || '(desconhecido)').entries()].map(([login, list]) => {
     const repos = new Set(list.map(x => x.repo)).size;
@@ -1065,14 +1078,13 @@ function deliveriesByAuthor(items, opts = {}) {
     const head = `<span class="deliv-name">${personMention(login)}</span><span class="deliv-meta">${plural(repos, 'repo', 'repos')} · último ${fmtRel(lastMerge(list))}</span>`;
     return { login, list, last: lastMerge(list), head, rows, groupKey: 'author:' + login };
   });
-  // mais ATUAL primeiro (mesma regra da visão por repo). O número de ranking
-  // saiu junto: com a ordem por recência ele viraria um placar falso (o "1."
-  // deixaria de ser quem mais entrega); quem mais entrega segue nos cartões
-  // ("@X na frente"), que são por volume.
-  groups.sort((a, b) => String(b.last).localeCompare(String(a.last)) || b.list.length - a.list.length);
+  // Na visão por pessoa, volume é a pergunta principal: quem entregou mais no
+  // recorte visível vem antes. Recência e login servem só de desempate.
+  groups.sort((a, b) => delivVolumeOrder(a.list, b.list, a.login, b.login));
   return groups.map(g => delivGroupCardV2(
     g.head, g.list.length, Math.round(g.list.length / totalPeriodo * 100),
-    delivGroupBody(g.rows, teto, expandedKeys, g.groupKey)
+    delivGroupBody(g.rows, teto, expandedKeys, g.groupKey),
+    { groupKey: g.groupKey, open: openKeys.has(g.groupKey) }
   )).join('');
 }
 

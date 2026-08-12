@@ -623,18 +623,74 @@ test('deliveriesByAuthor nomeia quem não tem autor', () => {
     /\(desconhecido\)/);
 });
 
-test('deliveriesByAuthor ordena pelo merge mais recente, SEM ranking numérico, e mostra o repo como legenda', () => {
+test('deliveriesByAuthor ordena por VOLUME, mesmo quando o menor grupo mergeou mais recentemente', () => {
   const html = P.deliveriesByAuthor([
     { repo: 'a/b', key: 'a/b#1', url: 'u', title: 't1', author: 'alice', mergedAt: '2026-08-01' },
     { repo: 'a/b', key: 'a/b#2', url: 'u', title: 't2', author: 'alice', mergedAt: '2026-08-02' },
     { repo: 'a/c', key: 'a/c#3', url: 'u', title: 't3', author: 'bob', mergedAt: '2026-08-03' },
   ]);
-  assert.ok(html.indexOf('@bob') < html.indexOf('@alice'),
-    'bob mergeou por último e abre a lista, mesmo com menos entregas');
+  assert.ok(html.indexOf('@alice') < html.indexOf('@bob'),
+    'alice tem 2 entregas e vem antes de bob, mesmo que bob tenha o merge mais recente');
   assert.doesNotMatch(html, /deliv-rank/,
-    'com a ordem por recência o número viraria placar falso; quem entrega mais fica nos cartões');
+    'a contagem do card informa o volume sem reintroduzir um ranking numérico decorativo');
   // a legenda do sub-grupo é uma MENÇÃO de repo: leva ao repo no GitHub
   assert.match(html, /deliv-caption"><a class="repo-mention" href="https:\/\/github\.com\/a\/b"/);
+});
+
+test('deliveriesByAuthor desempata volume por recência e empate total por login', () => {
+  const html = P.deliveriesByAuthor([
+    { repo: 'a/b', key: 'a/b#1', url: 'u', title: 't1', author: 'alice', mergedAt: '2026-08-02T10:00:00Z' },
+    { repo: 'a/c', key: 'a/c#2', url: 'u', title: 't2', author: 'alice', mergedAt: '2026-08-01T10:00:00Z' },
+    { repo: 'a/b', key: 'a/b#3', url: 'u', title: 't3', author: 'bob', mergedAt: '2026-08-03T10:00:00Z' },
+    { repo: 'a/c', key: 'a/c#4', url: 'u', title: 't4', author: 'bob', mergedAt: '2026-08-01T10:00:00Z' },
+    // carol/dave têm o mesmo volume e o mesmo último merge; a entrada vem invertida
+    // para provar que a última trava é o login, não a ordem acidental do payload.
+    { repo: 'a/d', key: 'a/d#5', url: 'u', title: 't5', author: 'dave', mergedAt: '2026-07-01T10:00:00Z' },
+    { repo: 'a/e', key: 'a/e#6', url: 'u', title: 't6', author: 'carol', mergedAt: '2026-07-01T10:00:00Z' },
+  ]);
+  assert.ok(html.indexOf('@bob') < html.indexOf('@alice'),
+    'com 2 entregas cada, bob vence pelo merge mais recente');
+  assert.ok(html.indexOf('@alice') < html.indexOf('@carol'),
+    'volume 2 continua à frente de volume 1');
+  assert.ok(html.indexOf('@carol') < html.indexOf('@dave'),
+    'empate completo usa login crescente e fica determinístico');
+});
+
+test('grupos de Pessoas nascem recolhidos, preservam abertos explícitos e Repositórios seguem abertos', () => {
+  const items = [
+    { repo: 'a/b', key: 'a/b#1', url: 'u', title: 't1', author: 'alice', mergedAt: '2026-08-02' },
+    { repo: 'a/c', key: 'a/c#2', url: 'u', title: 't2', author: 'bob', mergedAt: '2026-08-01' },
+  ];
+  const fechado = P.deliveriesByAuthor(items);
+  assert.match(fechado, /<details data-deliv-group="author:alice">/,
+    'a chave fica no details mesmo em grupo pequeno, sem depender de mostrar mais');
+  assert.doesNotMatch(fechado, /<details data-deliv-group="author:[^"]+" open>/,
+    'nenhuma pessoa nasce aberta');
+
+  const aberto = P.deliveriesByAuthor(items, { openKeys: new Set(['author:alice']) });
+  assert.match(aberto, /<details data-deliv-group="author:alice" open>/,
+    'uma abertura explícita sobrevive ao próximo render');
+  assert.match(aberto, /<details data-deliv-group="author:bob">/,
+    'abrir alice não abre os demais grupos');
+
+  const repos = P.deliveriesByRepo(items);
+  assert.match(repos, /<details data-deliv-group="repo:a\/b" open>/,
+    'o pedido é só para Pessoas; Repositórios preserva o default atual');
+});
+
+test('Pessoas combina openKeys com expandedKeys no segundo render', () => {
+  const items = Array.from({ length: 6 }, (_, i) => ({
+    repo: 'a/b', key: `a/b#${i + 1}`, url: 'u', title: `t${i + 1}`,
+    author: 'alice', mergedAt: `2026-08-0${i + 1}`,
+  }));
+  const html = P.deliveriesByAuthor(items, {
+    teto: 4,
+    expandedKeys: new Set(['author:alice']),
+    openKeys: new Set(['author:alice']),
+  });
+  assert.match(html, /<details data-deliv-group="author:alice" open>/,
+    'o estado do disclosure é independente da paginação');
+  assert.match(html, /mostrar menos/);
 });
 
 test('delivActivityChart: dia sem merge usa a classe "zero", NUNCA a "empty" global (que inflava a barra pra 54px)', () => {
@@ -705,6 +761,22 @@ test('delivStats: com período > 0 traz "hoje" e "média por dia" com pico', () 
   assert.equal(stats[2].goto, 'deliv:repo:acme/api', 'o sub "repo na frente" leva ao grupo do repo');
   assert.equal(stats[3].rotulo, 'Média por dia');
   assert.match(stats[3].sub, /pico de 2/);
+});
+
+test('delivStats usa o mesmo desempate volume, recência e login da lista de Pessoas', () => {
+  const agora = new Date(2026, 7, 10, 15, 0, 0).getTime();
+  const base = [
+    { repo: 'a/x', author: 'alice', mergedAt: '2026-08-08T10:00:00Z' },
+    { repo: 'a/y', author: 'bob', mergedAt: '2026-08-09T10:00:00Z' },
+  ];
+  assert.equal(P.delivStats(base, 7, agora)[1].goto, 'deliv:author:bob',
+    'mesmo volume: o merge mais recente fica na frente');
+  const empateTotal = [
+    { repo: 'a/y', author: 'dave', mergedAt: '2026-08-09T10:00:00Z' },
+    { repo: 'a/x', author: 'carol', mergedAt: '2026-08-09T10:00:00Z' },
+  ];
+  assert.equal(P.delivStats(empateTotal, 7, agora)[1].goto, 'deliv:author:carol',
+    'empate total: login crescente mantém KPI e lista determinísticos');
 });
 
 test('delivStats: com período "Hoje" (0) traz "desde 00:00" e "último merge"', () => {

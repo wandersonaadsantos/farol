@@ -983,7 +983,7 @@ body.electron .chat-head { padding-right: 150px; }
 .deliv-sum { display: flex; align-items: center; gap: 10px; padding: 13px 16px; }
 .deliv-sum:hover { background: var(--surface-2); }
 .deliv-sum::after { content: '▸'; color: var(--muted); margin-left: auto; transition: transform .15s ease; }
-.deliv-card details[open] > summary .deliv-sum::after { transform: rotate(90deg); }
+.deliv-card details[open] > summary.deliv-sum::after { transform: rotate(90deg); }
 .deliv-sum .avatar { flex: none; }
 .deliv-rank { color: var(--faint); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .deliv-name { font-weight: 650; }
