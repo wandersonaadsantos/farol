@@ -58,7 +58,7 @@ function novoEngine() {
 
 function resultado(extra) {
   return {
-    verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+    analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     payloads: { approve: { event: 'APPROVE', body: 'ok' } },
     reportMarkdown: '# ok', ...extra
   };
@@ -149,7 +149,7 @@ test('caminho automático: auto-reject também atribui a memória pela fila', as
   const meuPR = prDaFila(44, { requested: true });
   engine.runClaudeStream = async () => ({
     text: JSON.stringify({
-      verdict: 'request_changes', decision: 'needs_decision', cardMet: false, reasons: ['blocker X'],
+      analysisStatus: 'complete', verdict: 'request_changes', decision: 'needs_decision', cardMet: false, reasons: ['blocker X'],
       payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'muda X' } },
       reportMarkdown: '# x',
       pr: { repo: 'evil/repo', number: 1, author: 'hera' },

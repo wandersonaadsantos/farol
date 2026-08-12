@@ -19,7 +19,7 @@ const PR = { key: 'o/r#1', repo: 'o/r', number: 1, url: 'https://github.com/o/r/
 
 function approvableResult(extra) {
   return {
-    verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+    analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     payloads: { approve: { event: 'APPROVE', body: 'ok' } },
     ...extra
   };
@@ -50,7 +50,7 @@ test('contestação com prova bloqueia o auto-approve mesmo com política libera
 test('contestação também bloqueia o auto-reject (opt-in de reprovar sozinho)', () => {
   const e = engineWithPolicy('approve');
   const rej = {
-    verdict: 'request_changes', decision: 'needs_decision', reasons: ['blocker'],
+    analysisStatus: 'complete', verdict: 'request_changes', decision: 'needs_decision', reasons: ['blocker'],
     payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'x' } }
   };
   assert.equal(e.shouldAutoReject(PR, rej), true, 'sem contestação, a conta opt-in reprova sozinha');

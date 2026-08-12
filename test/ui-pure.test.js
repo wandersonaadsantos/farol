@@ -506,7 +506,7 @@ test('sessionRefCell: linha de PR ganha o atalho pra caixa de revisão, sem perd
   assert.doesNotMatch(P.sessionRefCell(''), /data-review-key/);
 });
 
-test('reviewBoxHtml: monta a caixa com veredito, chave e relatório', () => {
+test('reviewBoxHtml: revisão resolvida mostra o review humano, sem diagnóstico operacional', () => {
   const html = P.reviewBoxHtml({
     key: 'acme/app#12', verdict: 'approve', status: 'auto_approved',
     pr: { title: 'Ajusta o carrinho', author: 'bob' },
@@ -515,9 +515,20 @@ test('reviewBoxHtml: monta a caixa com veredito, chave e relatório', () => {
   });
   assert.match(html, /acme\/app#12/);
   assert.match(html, /Ajusta o carrinho/);
-  assert.match(html, /cobertura incompleta/);
+  assert.doesNotMatch(html, /cobertura incompleta/, 'reason interna não se mistura ao review resolvido');
   assert.match(html, /<h4>Achados<\/h4>/, 'o relatório passa pelo md() (que rebaixa ## pra h4)');
   assert.match(html, /@bob/, 'o autor é menção de pessoa, com foto e link');
+});
+
+test('reviewBoxHtml: pendência mantém o motivo humanizado separado do review', () => {
+  const html = P.reviewBoxHtml({
+    key: 'acme/app#13', verdict: 'approve', status: 'pending',
+    reasons: ['O CI ainda está em andamento.'],
+    reportMarkdown: 'A validação em `src/config.ts:41` precisa de fallback.',
+  });
+  assert.match(html, /Por que precisa de você/);
+  assert.match(html, /CI ainda está em andamento/);
+  assert.match(html, /src\/config\.ts:41/);
 });
 
 test('reviewBoxHtml: revisão sem relatório diz isso, em vez de mostrar caixa vazia', () => {

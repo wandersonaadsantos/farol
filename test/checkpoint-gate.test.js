@@ -17,7 +17,7 @@ const PR = { key: 'o/r#1', repo: 'o/r', number: 1, url: 'https://github.com/o/r/
 
 function approvableResult(extra) {
   return {
-    verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+    analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     payloads: { approve: { event: 'APPROVE', body: 'ok' } },
     ...extra
   };
@@ -63,7 +63,7 @@ test('checkpointGap: verificationCheckpoint malformado bloqueia', () => {
 
 function rejectableResult(extra) {
   return {
-    verdict: 'request_changes', decision: 'needs_decision', reasons: ['blocker'],
+    analysisStatus: 'complete', verdict: 'request_changes', decision: 'needs_decision', reasons: ['blocker'],
     payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'x' } },
     ...extra
   };

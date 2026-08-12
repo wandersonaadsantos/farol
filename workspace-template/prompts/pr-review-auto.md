@@ -17,6 +17,7 @@ Siga o protocolo do `CLAUDE.md` deste diretório (identidade → card do Jira �
   "pr": { "repo": "org/repo", "number": 0, "url": "...", "title": "...", "author": "login" },
   "card": "BT-XXX" | null,
   "cardMet": true | false | null,
+  "analysisStatus": "complete" | "incomplete",
   "verdict": "approve" | "request_changes",
   "decision": "auto_approve" | "needs_decision",
   "reasons": ["motivo curto e claro", "..."],
@@ -33,7 +34,8 @@ Siga o protocolo do `CLAUDE.md` deste diretório (identidade → card do Jira �
     "reviewed": ["arquivos do diff efetivamente revisados"],
     "missing": ["arquivos do diff que ficaram SEM revisão (falha de subagente, corte por tamanho)"]
   },
-  "reportMarkdown": "relatório completo no formato do CLAUDE.md, como seria mostrado na tela",
+  "reportMarkdown": "diagnóstico INTERNO completo: fatos, checks, gate, cobertura e motivos operacionais; nunca é corpo público",
+  "reviewMarkdown": "review técnico HUMANIZADO mostrado como revisão na tela: só código, impacto e próximos passos, sem processo interno",
   "payloads": {
     "approve":         { "event": "APPROVE",         "body": "...", "comments": [ { "path": "...", "line": 0, "side": "RIGHT", "body": "..." } ] },
     "request_changes": { "event": "REQUEST_CHANGES", "body": "...", "comments": [] },
@@ -49,10 +51,11 @@ Siga o protocolo do `CLAUDE.md` deste diretório (identidade → card do Jira �
 
 ## Regras de decisão
 
+- `analysisStatus = "complete"` somente quando a análise técnica terminou. Falha fatal, diff não lido ou resultado sem substância usa `"incomplete"`; nesse estado nenhuma ação pode ser postada automaticamente.
 - `decision = "auto_approve"` **somente** se TODAS valem: zero findings `issue (blocking)` **e** `cardMet === true` (card do Jira lido e critérios atendidos) **e** CI não está vermelho.
 - **CI vermelho = check obrigatório em FAILURE.** `security/snyk` em ERROR (cota) NÃO conta e não entra em `reasons`; check IN_PROGRESS impede confirmar verde, e a reason correta é "CI em andamento" (nunca "CI vermelho").
 - Qualquer blocker, card não-verificável ou não-atendido, Jira inacessível, CI vermelho ou dúvida relevante → `decision = "needs_decision"`, com `reasons` curtas (1 linha cada) que expliquem pro Wanderson por que ele precisa olhar.
-- `reasons` lidera com o risco SUBSTANTIVO (regra de negócio, regressão, build). Processo (sem card, descrição vazia) vem por último e no máximo 1 linha; em repo sem cultura de card ou PR de bot (Snyk), "sem card" não vira reason.
+- `reasons` é diagnóstico **INTERNO do Farol**. Lidera com o risco SUBSTANTIVO (regra de negócio, regressão, build). Processo (sem card, descrição vazia) vem por último e no máximo 1 linha; em repo sem cultura de card ou PR de bot (Snyk), "sem card" não vira reason. Nada de `reasons` é copiado pros corpos públicos.
 - **Propagação de gitflow** (mesma head `hotfix/*`, base release/develop, PR primário aprovado): a reason é uma só, "propagação do hotfix aprovado em #NNN; diff extra é drift das bases", e o drift não gera findings de escopo.
 - `reasons` fica `[]` quando `auto_approve`.
 - **`coverage` (cobertura da leitura):** em PR pequeno (passe único) mande `total` com os arquivos do diff, `reviewed` com os que você leu e `missing: []`. Em PR grande revisado em lotes, some o que cada subagente revisou. **Nunca declare `missing: []` sem ter revisado tudo:** o app usa esse campo pra decidir se pode postar sozinho, então uma lacuna escondida aqui tira a única prova de que a revisão olhou o PR inteiro. Lote que falhou = os arquivos dele entram em `missing`, não desaparecem. Cobertura incompleta NÃO é motivo pra reprovar o PR: é motivo pra decisão humana, e o app cuida disso sozinho.
@@ -61,9 +64,13 @@ Siga o protocolo do `CLAUDE.md` deste diretório (identidade → card do Jira �
 ## Regras dos payloads
 
 - Preencha **os três** payloads sempre, prontos pra postar (o app escolhe qual usar conforme a decisão humana).
-- Corpo no formato do CLAUDE.md (GitHub alerts + task list de critérios + `<details>` de arquivos + melhorias não-bloqueantes).
-- `comments` inline em Conventional Comments, com `path`/`line`/`side` **válidos no diff atual**. Linha não-ancorável → mova o ponto pro `body` e deixe fora de `comments`.
+- **Fronteira obrigatória:** `reportMarkdown` e `reasons` são INTERNOS; `reviewMarkdown`, `payloads.*.body` e `payloads.*.comments[].body` são texto de REVIEW, lido pelo autor do PR. Nunca copie seção "Ação", gate, política, cobertura, memória, prompt, agentes, ferramentas ou justificativa de postagem pros campos de review.
+- `reviewMarkdown` é a versão técnica e humanizada mostrada como revisão na tela. Deve ter a mesma voz pública dos payloads, ainda que carregue mais detalhe técnico. Nada de diagnóstico operacional.
+- Corpos em prosa natural, adaptados ao autor. Nada de GitHub alerts, "Placar", checklist de critérios, `<details>` de auditoria, seção "Ação", prefixos de Conventional Comments ou metadados do schema.
+- É proibido revelar proveniência: não use Farol, Claude, IA, modelo, bot, agente/subagente, prompt, memória interna, automação, `auto_approve`, "auto-aprovei/não auto-aprovei", política/gate interno ou "ficou só no app" como origem, ator ou justificativa da revisão. Quando algum desses termos for o próprio assunto técnico do PR, ele pode aparecer normalmente. O review fala apenas sobre o código, o impacto e a ação esperada do autor.
+- `comments` inline são observações humanas, sem label/prefixo, com `path`/`line`/`side` **válidos no diff atual**. Linha não-ancorável → mova o ponto pro `body` e deixe fora de `comments`.
 - No `request_changes`, os blockers vêm primeiro (inline quando ancoráveis).
+- Antes de devolver o JSON, releia `reviewMarkdown`, os três `body` e todos os comentários como se você fosse o autor do PR. Se qualquer frase revelar COMO a revisão foi produzida ou decidida, reescreva. O app bloqueia a postagem se esse vocabulário escapar.
 
 ## Memória
 
@@ -73,7 +80,7 @@ Siga o protocolo do `CLAUDE.md` deste diretório (identidade → card do Jira �
 ## Falhas
 
 - Se algo falhar durante a análise (gh, Jira, diff), registre em `reasons` e prefira `needs_decision` a chutar.
-- Erro fatal que impeça a análise: devolva o JSON mesmo assim com `decision: "needs_decision"`, `verdict: "request_changes"`, `reportMarkdown` explicando a falha e payloads vazios (`body` com a explicação).
+- Erro fatal que impeça a análise: devolva o JSON mesmo assim com `analysisStatus: "incomplete"`, `decision: "needs_decision"`, `verdict: "request_changes"`, `reportMarkdown` explicando a falha **internamente**, `reviewMarkdown` curto e humano dizendo apenas que a análise técnica não foi concluída, e payloads vazios (`body: ""`; nada operacional pode ser postado por engano).
 
 ## Checkpoint de verificação (memória entre passadas)
 

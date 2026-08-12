@@ -9,6 +9,40 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.40.7
+
+O texto apresentado como revisão agora contém somente o que ajuda quem abriu o
+PR: o ponto técnico, o impacto e o próximo passo. Diagnóstico do funcionamento
+do Farol não se mistura mais com a conversa entre revisor e autor.
+
+**Melhorias**
+- **Revisão técnica separada do diagnóstico interno.** O relatório operacional,
+  as razões do gate, a cobertura da leitura e a memória continuam preservados no
+  estado interno. A tela recebe uma projeção humanizada e explícita, sem payloads
+  nem campos futuros atravessando por acidente. Registros antigos são limpos só
+  na apresentação; o histórico bruto não é reescrito.
+- **Mesmo contrato no headless, no clique, no terminal e no chat.** Os fluxos
+  guiados de terminal e chat passam a usar o writer local com uma autorização
+  temporária limitada ao PR e à conta da sessão. Chats já existentes também
+  recebem as regras atuais ao serem retomados.
+
+**Correções**
+- **Linguagem interna bloqueada antes da postagem.** Corpo e comentários inline
+  passam por validação determinística antes de credencial, arquivo temporário ou
+  chamada ao GitHub. O caso real que motivou a correção virou regressão, junto de
+  variações com Markdown, HTML, entidades e caracteres Unicode invisíveis.
+- **Análise incompleta falha fechada.** Resultado sem o status completo, payload
+  incompatível com a ação escolhida ou review sem substância não aprova nem pede
+  mudanças sozinho; o PR permanece em "Precisa de você".
+- **Postagens simultâneas não se atropelam.** Cada chamada usa um arquivo
+  temporário próprio e a autorização por PR é reservada de forma atômica, sem
+  duplicar um review nem cruzar o corpo de contas diferentes.
+
+O writer e a autorização temporária protegem os caminhos suportados pelo app.
+Sessões interativas ainda recebem uma credencial GitHub para investigar PRs
+privados, portanto esse controle reduz bypass acidental, mas não é uma sandbox
+contra um processo deliberadamente malicioso que ignore o protocolo.
+
 ## v2.40.6
 
 A visão por Pessoas agora responde primeiro a quem mais entregou no período e

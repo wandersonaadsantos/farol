@@ -663,7 +663,9 @@ function reviewBoxHtml(d) {
     </div>
     ${d.pr && d.pr.title ? `<div class="dec-title">${esc(d.pr.title)}</div>` : ''}
     ${autor ? `<div class="dec-author">PR de ${personMention(autor, 'xs')}</div>` : ''}
-    ${razoes.length ? `<ul class="dec-reasons">${razoes.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
+    ${d.status === 'pending' && razoes.length
+      ? `<div class="review-box-context"><strong>Por que precisa de você</strong><ul class="dec-reasons">${razoes.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>`
+      : ''}
     ${d.reportMarkdown
       ? `<div class="report">${md(d.reportMarkdown)}</div>`
       : `<div class="empty">Esta revisão ficou sem relatório gravado.</div>`}
@@ -824,9 +826,12 @@ function resolvedRow(r, ctx) {
       : `ponto${plural ? 's' : ''} de atenção`;
   const vcls = VERDICT_CLASS[r.action] || '';
   const vc = r.verificationCheckpoint;
+  const vcConflicts = vc
+    ? (Number.isFinite(Number(vc.conflictCount)) ? Number(vc.conflictCount) : (Array.isArray(vc.conflicts) ? vc.conflicts.length : 0))
+    : 0;
   const vcLine = (vc && vc.total)
     ? `Verificação de afirmações: ${vc.confirmedCount} confirmadas de ${vc.total}`
-      + (Array.isArray(vc.conflicts) && vc.conflicts.length ? ` · ⚠ ${vc.conflicts.length} divergência(s) entre passadas` : '')
+      + (vcConflicts ? ` · ⚠ ${vcConflicts} divergência(s) entre passadas` : '')
     : '';
   return `<div class="rrow${attn.length ? ' has-attn' : ''}">
     <span class="rr-icon" aria-hidden="true">${icon}</span>

@@ -32,7 +32,7 @@ const PR = {
 
 function envelope(extra) {
   return {
-    verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+    analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     reportMarkdown: 'relatório', payloads: { approve: { event: 'APPROVE', body: 'ok' } },
     ...extra
   };

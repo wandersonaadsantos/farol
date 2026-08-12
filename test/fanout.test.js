@@ -137,7 +137,7 @@ function engineLiberado() {
 }
 function aprovavel(extra) {
   return {
-    verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+    analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     payloads: { approve: { event: 'APPROVE', body: 'ok' } }, ...extra
   };
 }

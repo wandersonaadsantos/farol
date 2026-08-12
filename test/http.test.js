@@ -15,6 +15,7 @@ const assert = require('node:assert/strict');
 const { Engine } = require('../server.js');
 const { startServer } = require('../lib/http-server');
 const { LOG_FILE } = require('../lib/paths');
+const { normalizeReviewPayload } = require('../lib/engine/public-review');
 
 let server, base, engine;
 
@@ -47,6 +48,24 @@ function post(pathname, body) {
     const req = http.request(base + pathname, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-farol': '1', 'Content-Length': Buffer.byteLength(data) }
+    }, res => {
+      let d = ''; res.on('data', c => (d += c));
+      res.on('end', () => resolve({ status: res.statusCode, body: d }));
+    });
+    req.on('error', reject);
+    req.end(data);
+  });
+}
+
+function postComReviewCap(pathname, body, capability) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(body || {});
+    const req = http.request(base + pathname, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json', 'x-farol': '1',
+        'x-farol-review-cap': capability || '', 'Content-Length': Buffer.byteLength(data),
+      }
     }, res => {
       let d = ''; res.on('data', c => (d += c));
       res.on('end', () => resolve({ status: res.statusCode, body: d }));
@@ -113,6 +132,87 @@ test('POST /api/review sem urls é recusado com 400 (o fallback "fila inteira" m
 test('POST /api/review com urls vazio ou de tipo errado também é recusado', async () => {
   assert.equal((await post('/api/review', { urls: [] })).status, 400);
   assert.equal((await post('/api/review', { urls: 'https://github.com/a/b/pull/1' })).status, 400);
+});
+
+test('POST /api/review/post exige capability, respeita escopo e bloqueia reuso', async () => {
+  const originalPostReview = engine.postReview;
+  const originalReconcile = engine.reconcilePending;
+  const writes = [];
+  engine.postReview = async (pr, payload) => { writes.push({ pr, payload }); return { ok: true }; };
+  engine.reconcilePending = async () => 0;
+  const cap = engine.createReviewPostCapability(['acme/app#70'], 'reviewer-da-sessao', 'terminal', 'terminal-1');
+  const submission = key => ({ key, payload: { event: 'APPROVE', body: 'Texto limpo.', comments: [] } });
+  try {
+    const missing = JSON.parse((await post('/api/review/post', submission('acme/app#70'))).body);
+    assert.equal(missing.ok, false);
+    assert.equal(missing.blocked, 'capability');
+
+    const outside = JSON.parse((await postComReviewCap('/api/review/post', submission('acme/app#71'), cap)).body);
+    assert.equal(outside.ok, false);
+    assert.equal(outside.blocked, 'capability');
+    assert.equal(writes.length, 0);
+
+    const conflictingIdentity = JSON.parse((await postComReviewCap('/api/review/post', {
+      ...submission('acme/app#70'), url: 'https://github.com/acme/app/pull/71',
+    }, cap)).body);
+    assert.equal(conflictingIdentity.ok, false, 'URL fora do escopo não pode ser mascarada por uma key permitida');
+    assert.equal(conflictingIdentity.blocked, 'capability');
+    assert.equal(writes.length, 0);
+
+    const accepted = JSON.parse((await postComReviewCap('/api/review/post', submission('acme/app#70'), cap)).body);
+    assert.equal(accepted.ok, true);
+    assert.equal(writes.length, 1);
+    assert.equal(writes[0].pr.account, 'reviewer-da-sessao');
+
+    const reused = JSON.parse((await postComReviewCap('/api/review/post', submission('acme/app#70'), cap)).body);
+    assert.equal(reused.ok, false);
+    assert.equal(reused.blocked, 'capability');
+    assert.equal(writes.length, 1);
+  } finally {
+    engine.revokeReviewPostCapability(cap);
+    engine.postReview = originalPostReview;
+    engine.reconcilePending = originalReconcile;
+  }
+});
+
+test('limite HTTP aceita todo payload que normalizeReviewPayload declara válido', async () => {
+  const originalPostReview = engine.postReview;
+  const originalReconcile = engine.reconcilePending;
+  let written = null;
+  engine.postReview = async (pr, payload) => { written = { pr, payload }; return { ok: true }; };
+  engine.reconcilePending = async () => 0;
+  const cap = engine.createReviewPostCapability(['acme/app#72'], 'eu', 'terminal', 'terminal-large');
+  const submission = {
+    key: 'acme/app#72',
+    payload: {
+      event: 'COMMENT', body: 'a'.repeat(60000),
+      comments: [
+        ...Array.from({ length: 6 }, (_, i) => ({
+          path: `src/large-${i}.js`, line: i + 1, side: 'RIGHT', body: 'b'.repeat(20000),
+        })),
+        { path: 'src/large-last.js', line: 7, side: 'RIGHT', body: 'c'.repeat(19800) },
+      ],
+    },
+  };
+  assert.equal(normalizeReviewPayload(submission.payload).ok, true, 'a fixture está dentro do contrato do writer');
+  try {
+    let response;
+    try {
+      response = await postComReviewCap('/api/review/post', submission, cap);
+    } catch (err) {
+      assert.fail(`o transporte HTTP recusou um payload válido pelo schema: ${err.code || err.message}`);
+    }
+    assert.equal(response.status, 200);
+    assert.equal(JSON.parse(response.body).ok, true);
+    assert.equal(written.payload.body.length, 60000);
+    assert.equal(written.payload.comments.length, 7);
+    assert.equal(written.payload.comments[0].body.length, 20000);
+    assert.equal(written.payload.comments[6].body.length, 19800);
+  } finally {
+    engine.revokeReviewPostCapability(cap);
+    engine.postReview = originalPostReview;
+    engine.reconcilePending = originalReconcile;
+  }
 });
 
 /* ---------- ocultar um PR de "Meus PRs" (mesmo molde do /api/self-review/clear) ---------- */

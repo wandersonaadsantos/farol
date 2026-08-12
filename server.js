@@ -176,6 +176,7 @@ class Engine extends EventEmitter {
     this.reviewerCands = null;        // { at, data:{members,teams} } candidatos p/ o seletor de reviewers
     this.deliveriesCache = {};        // janela (dias) -> { at, data } cache das entregas (PRs mergeados); TTL curto
     this.activeReviews = new Map();  // id -> { keys, label, mode, startedAt }
+    this.reviewPostCaps = new Map(); // capabilities efêmeras de escrita de terminal/chat (nunca persistidas nem expostas)
     this.sessionSeq = 0;
     this.headlessQueue = [];
     this.headlessBusyAccounts = new Set(); // contas com revisão headless em andamento (1 por conta em paralelo)
@@ -281,7 +282,13 @@ class Engine extends EventEmitter {
     // com a fonte a cada boot, pra mudanças (ex.: review humano/personalizado) chegarem
     // nas cópias já semeadas. NUNCA toca em state/ (dados do usuário) nem em settings.json.
     try {
-      const synced = ['CLAUDE.md', path.join('prompts', 'pr-review-auto.md'), path.join('prompts', 'self-review.md'), path.join('.claude', 'agents', 'pr-reviewer.md')];
+      const synced = [
+        'CLAUDE.md',
+        path.join('prompts', 'pr-review-auto.md'),
+        path.join('prompts', 'self-review.md'),
+        path.join('.claude', 'agents', 'pr-reviewer.md'),
+        path.join('.claude', 'commands', 'pr-review.md'),
+      ];
       for (const rel of synced) {
         const src = path.join(TEMPLATE_DIR, rel), dst = path.join(WORKSPACE, rel);
         if (fs.existsSync(src)) { ensureDir(path.dirname(dst)); fs.copyFileSync(src, dst); }
@@ -518,6 +525,7 @@ class Engine extends EventEmitter {
     const tok = this.tokenFor(user);
     if (user && !tok) throw new Error(`conta ${user} sem token no gh (rode: gh auth login --user ${user})`);
     if (tok) env.GH_TOKEN = tok;
+    env.FAROL_PORT = String(this.config.port || 47170);
     if (this.gitBash) env.CLAUDE_CODE_GIT_BASH_PATH = this.gitBash;
     // assinatura do Claude que o Farol usa pra esta conta: ver resolveClaudeAuth
     // (perfil por conta > perfil padrão do Farol > claudeConfigDir legado).
@@ -791,8 +799,8 @@ class Engine extends EventEmitter {
   // claude interativo exige. Spawnar cmd/start direto do Node herda handles
   // nulos (stdio ignore) e o console nasce sem stdin: pause/claude morrem na hora.
   // Sessão/stream (terminal + headless): colaborador lib/engine/session.js (Onda 2).
-  buildSessionScript(slash, account) { return sessionMod.buildSessionScript(this, slash, account); }
-  buildSessionScriptMac(slash, id, user) { return sessionMod.buildSessionScriptMac(this, slash, id, user); }
+  buildSessionScript(slash, account, reviewCap = '') { return sessionMod.buildSessionScript(this, slash, account, reviewCap); }
+  buildSessionScriptMac(slash, id, user, reviewCap = '') { return sessionMod.buildSessionScriptMac(this, slash, id, user, reviewCap); }
   spawnConsoleMac(slash, label, keys = [], account) { return sessionMod.spawnConsoleMac(this, slash, label, keys, account); }
   sessionExit(id) { return sessionMod.sessionExit(this, id); }
   spawnConsole(slash, label, keys = [], account) { return sessionMod.spawnConsole(this, slash, label, keys, account); }
@@ -911,6 +919,11 @@ class Engine extends EventEmitter {
   coverageGap(result) { return decisionMod.coverageGap(result); }
   checkpointGap(result) { return decisionMod.checkpointGap(result); }
   async postReview(pr, payload) { return decisionMod.postReview(this, pr, payload); }
+  async postReviewFromSession(submission, capability) { return decisionMod.postReviewFromSession(this, submission, capability); }
+  decisionForUi(item) { return decisionMod.decisionForUi(item); }
+  createReviewPostCapability(keys, account, source, ownerId) { return decisionMod.createReviewPostCapability(this, keys, account, source, ownerId); }
+  revokeReviewPostCapability(token) { return decisionMod.revokeReviewPostCapability(this, token); }
+  revokeReviewPostCapabilitiesByOwner(ownerId) { return decisionMod.revokeReviewPostCapabilitiesByOwner(this, ownerId); }
   writeMemory(result, actionLabel) { return decisionMod.writeMemory(this, result, actionLabel); }
   async decide(id, action) { return decisionMod.decide(this, id, action); }
 
@@ -1178,10 +1191,10 @@ class Engine extends EventEmitter {
       chats: this.chatSummaries(),
       toolRuns: this.toolRuns,
       decisions: {
-        pending: this.decisions.pending,
+        pending: this.decisions.pending.map(d => decisionMod.decisionForUi(d)),
         // "Revisões recentes": envia as 30 mais recentes (era 8). O histórico no
         // disco guarda até 200 (ver resolveIntoHistory); aqui limita o payload do SSE.
-        resolved: this.decisions.resolved.slice(0, 30)
+        resolved: this.decisions.resolved.slice(0, 30).map(d => decisionMod.decisionForUi(d))
       },
       reviewActions: this.reviewActions(),
       usage: this.usageSummary(),
