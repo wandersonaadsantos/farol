@@ -9,6 +9,19 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.40.8
+
+PR mergeado ou fechado enquanto esperava no retry de rede não gera mais cascata
+de notificações a cada ciclo de polling.
+
+**Correções**
+- **Toasts repetitivos de PR mergeado no retry.** Quando uma revisão caía por
+  algo transitório e o PR era mergeado antes da reconexão, cada ciclo de polling
+  gerava uma cascata de "Conexão de volta: relançando..." seguida de "já foi
+  mergeado; cancelei a revisão", sem parar. Agora o estado do PR é conferido
+  ANTES de notificar e lançar: mergeado ou fechado sai do retry em silêncio, e
+  só PRs ainda abertos (ou sem prova de merge) são relançados.
+
 ## v2.40.7
 
 O texto apresentado como revisão agora contém somente o que ajuda quem abriu o

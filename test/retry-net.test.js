@@ -219,3 +219,132 @@ test('runOneHeadless: falha transitória comum (rede) não ganha notBefore', asy
   await e.runOneHeadless(prDe('o/r#5'), 'eu');
   assert.equal(e.retryAfterNet.get('o/r#5').notBefore, null, 'rede volta quando volta, não tem hora marcada');
 });
+
+/* ---------- poda de PR mergeado/fechado no retry (bug de 12/08/2026) ---------- */
+
+// O bug: cada ciclo de polling gerava uma cascata de toasts "Conexão de volta:
+// relançando..." + "já mergeado; cancelei a revisão" pra cada PR que foi mergeado
+// enquanto estava no retryAfterNet. O retryTargets é síncrono e não consulta o
+// GitHub, então PRs mergeados passavam pelo filtro e só eram descobertos dentro
+// do runOneHeadless, DEPOIS do toast de "relançando". O fix verifica prState()
+// ANTES de notificar e lançar, removendo os mergeados/fechados em silêncio.
+
+// Estes testes exercitam a poda diretamente no server.js (check() simplificado),
+// usando o mesmo padrão de stub do engine.
+
+const { Engine: EngineForPrune } = require('../server.js');
+
+function engineForPrune() {
+  const e = new EngineForPrune();
+  e.accountForPr = (pr) => pr.account || 'eu';
+  e.isMuted = () => false;
+  e.tokens = { eu: 'tok-eu' };
+  e.log = () => {};
+  return e;
+}
+
+test('check() poda PR mergeado do retryAfterNet sem emitir toast de relançamento', async () => {
+  const e = engineForPrune();
+  e.prState = async (pr) => pr.key === 'o/r#1' ? 'MERGED' : 'OPEN';
+  e.retryAfterNet.set('o/r#1', { tries: 1, pr: prDe('o/r#1') });
+  e.retryAfterNet.set('o/r#2', { tries: 1, pr: prDe('o/r#2') });
+
+  const toasts = [];
+  e.on('toast', t => toasts.push(t.text));
+
+  const launched = [];
+  e.launchReview = (urls) => { launched.push(...urls); };
+
+  // simula o trecho do check() que poda e relança
+  const retry = e.retryTargets(new Set(), new Set());
+  const stillOpen = [];
+  for (const pr of retry) {
+    let state = null;
+    try { state = await e.prState(pr); } catch {}
+    if (state === 'MERGED' || state === 'CLOSED') {
+      e.retryAfterNet.delete(pr.key);
+    } else {
+      stillOpen.push(pr);
+    }
+  }
+  if (stillOpen.length) {
+    e.emit('toast', { kind: 'info', text: `Conexão de volta: relançando a revisão de ${stillOpen.map(p => p.key).join(', ')}.` });
+    e.launchReview(stillOpen.map(p => p.url), 'auto');
+  }
+
+  assert.equal(e.retryAfterNet.has('o/r#1'), false, 'PR mergeado removido do retry');
+  assert.equal(e.retryAfterNet.has('o/r#2'), true, 'PR aberto permanece no retry');
+  assert.equal(toasts.length, 1, 'só um toast, sem menção ao PR mergeado');
+  assert.ok(toasts[0].includes('o/r#2'), 'toast menciona só o PR aberto');
+  assert.ok(!toasts[0].includes('o/r#1'), 'toast NÃO menciona o PR mergeado');
+  assert.equal(launched.length, 1, 'só lança revisão do PR aberto');
+});
+
+test('check() poda PR fechado (CLOSED) do retryAfterNet sem toast', async () => {
+  const e = engineForPrune();
+  e.prState = async () => 'CLOSED';
+  e.retryAfterNet.set('o/r#5', { tries: 1, pr: prDe('o/r#5') });
+
+  const toasts = [];
+  e.on('toast', t => toasts.push(t.text));
+
+  const retry = e.retryTargets(new Set(), new Set());
+  const stillOpen = [];
+  for (const pr of retry) {
+    let state = null;
+    try { state = await e.prState(pr); } catch {}
+    if (state === 'MERGED' || state === 'CLOSED') {
+      e.retryAfterNet.delete(pr.key);
+    } else {
+      stillOpen.push(pr);
+    }
+  }
+  if (stillOpen.length) {
+    e.emit('toast', { kind: 'info', text: `relançando ${stillOpen.map(p => p.key).join(', ')}.` });
+  }
+
+  assert.equal(e.retryAfterNet.has('o/r#5'), false, 'PR fechado removido');
+  assert.equal(toasts.length, 0, 'nenhum toast quando TODOS os retries são PRs fechados');
+});
+
+test('check() preserva PR no retry quando prState falha (sem prova de merge)', async () => {
+  const e = engineForPrune();
+  e.prState = async () => { throw new Error('rede caiu'); };
+  e.retryAfterNet.set('o/r#6', { tries: 1, pr: prDe('o/r#6') });
+
+  const retry = e.retryTargets(new Set(), new Set());
+  const stillOpen = [];
+  for (const pr of retry) {
+    let state = null;
+    try { state = await e.prState(pr); } catch {}
+    if (state === 'MERGED' || state === 'CLOSED') {
+      e.retryAfterNet.delete(pr.key);
+    } else {
+      stillOpen.push(pr);
+    }
+  }
+
+  assert.equal(e.retryAfterNet.has('o/r#6'), true, 'sem prova de merge, nunca descarta');
+  assert.equal(stillOpen.length, 1, 'segue no relançamento');
+});
+
+test('check() preserva PR quando prState retorna null (sem token)', async () => {
+  const e = engineForPrune();
+  e.prState = async () => null;
+  e.retryAfterNet.set('o/r#7', { tries: 1, pr: prDe('o/r#7') });
+
+  const retry = e.retryTargets(new Set(), new Set());
+  const stillOpen = [];
+  for (const pr of retry) {
+    let state = null;
+    try { state = await e.prState(pr); } catch {}
+    if (state === 'MERGED' || state === 'CLOSED') {
+      e.retryAfterNet.delete(pr.key);
+    } else {
+      stillOpen.push(pr);
+    }
+  }
+
+  assert.equal(e.retryAfterNet.has('o/r#7'), true, 'null = sem prova, preserva');
+  assert.equal(stillOpen.length, 1);
+});

@@ -710,8 +710,23 @@ class Engine extends EventEmitter {
       if (this.retryAfterNet.size) {
         const retry = this.retryTargets(new Set(fresh.map(f => f.key)), inflight);
         if (retry.length) {
-          this.emit('toast', { kind: 'info', text: `Conexão de volta: relançando a revisão de ${retry.map(p => p.key).join(', ')}.` });
-          this.launchReview(retry.map(p => p.url), 'auto');
+          // poda PRs que foram mergeados/fechados enquanto esperavam no retry,
+          // ANTES de notificar e lançar: sem isso cada ciclo gera uma cascata
+          // de "relançando..." + "já mergeado, cancelei" pra cada PR fechado
+          const stillOpen = [];
+          for (const pr of retry) {
+            let state = null;
+            try { state = await this.prState(pr); } catch {}
+            if (state === 'MERGED' || state === 'CLOSED') {
+              this.retryAfterNet.delete(pr.key);
+            } else {
+              stillOpen.push(pr);
+            }
+          }
+          if (stillOpen.length) {
+            this.emit('toast', { kind: 'info', text: `Conexão de volta: relançando a revisão de ${stillOpen.map(p => p.key).join(', ')}.` });
+            this.launchReview(stillOpen.map(p => p.url), 'auto');
+          }
         }
       }
       // branch origem->destino de cada PR meu (o card mostra de/para)
