@@ -41,3 +41,27 @@ test('decide(): pendência criada DURANTE o post não é engolida pelo splice', 
   assert.equal(engine.decisions.resolved.some(d => d.id === 'alvo' && d.status === 'posted'), true);
   assert.equal(engine.decisions.resolved.some(d => d.id === 'nova'), false, 'a nova não foi resolvida por engano');
 });
+
+test('decide(): ramo dedup com a pendência já resolvida por fora não duplica o histórico', async () => {
+  const engine = new Engine();
+  engine.headSha = async () => 'abc123';
+  engine.saveDecisions = () => { };
+  engine.writeMemory = () => { };
+  engine.pushState = () => { };
+  const alvo = pendencia('alvo', 'acme/repo#2');
+  engine.decisions.pending = [alvo];
+  engine.postReview = async () => { throw new Error('não deveria postar: o dedup pega antes'); };
+  engine.myReviewStates = async () => {
+    // simula o reconcilePending achando o mesmo review no GitHub e resolvendo a
+    // pendência durante este await, e uma pendência nova entrando no índice 0
+    const i = engine.decisions.pending.findIndex(d => d.id === 'alvo');
+    engine.decisions.pending.splice(i, 1);
+    engine.resolveIntoHistory({ ...alvo, status: 'already_reviewed', action: 'approve' });
+    engine.decisions.pending.unshift(pendencia('nova', 'acme/outro#9'));
+    return ['APPROVED'];
+  };
+  const r = await engine.decide('alvo', 'approve');
+  assert.equal(r.ok, true);
+  assert.deepEqual(engine.decisions.pending.map(d => d.id), ['nova'], 'a pendência nova sobrevive ao dedup');
+  assert.equal(engine.decisions.resolved.filter(d => d.id === 'alvo').length, 1, 'uma única entrada de alvo no histórico');
+});
