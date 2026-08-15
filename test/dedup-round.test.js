@@ -173,3 +173,34 @@ test('decide(): clique com review meu JÁ no head atual continua deduplicando', 
   assert.equal(e.postados.length, 0);
   assert.equal(e.decisions.resolved[0].status, 'already_reviewed');
 });
+
+/* ---------- G1: o review postado carrega o head que ESTA sessão leu ---------- */
+// Mesma regra do dedup: os três pontos de postagem andam juntos. O `decide()` do clique
+// está travado em review-commit-id.test.js; estes cobrem os ramos AUTOMÁTICOS, que são os
+// que postam sem ninguém olhando. Sem eles, tirar o commit_id do spread deixava a suíte
+// verde e o review voltava a ser ancorado no head do momento do POST.
+
+test('G1 canReject: o REQUEST_CHANGES automático vai ancorado no head da sessão', async () => {
+  const e = engineCom(envelopeReject(), {
+    meusReviews: revisao('CHANGES_REQUESTED', HEAD_ANTIGO), head: HEAD_NOVO, policyReject: 'request_changes'
+  });
+  await e.runHeadlessReview(PR);
+  assert.equal(e.postados.length, 1);
+  assert.equal(e.postados[0].commit_id, HEAD_NOVO, 'o sha postado é o que a sessão leu, não o que o GitHub escolher no POST');
+});
+
+test('G1 canAuto: o APPROVE automático vai ancorado no head da sessão', async () => {
+  const e = engineCom(envelopeApprove(), {
+    meusReviews: revisao('APPROVED', HEAD_ANTIGO), head: HEAD_NOVO, policyApprove: 'approve'
+  });
+  await e.runHeadlessReview(PR);
+  assert.equal(e.postados.length, 1);
+  assert.equal(e.postados[0].commit_id, HEAD_NOVO, 'o sha postado é o que a sessão leu, não o que o GitHub escolher no POST');
+});
+
+test('G1: sem head conhecido o commit_id sai vazio e o normalize descarta (degrada, não inventa sha)', async () => {
+  const e = engineCom(envelopeReject(), { meusReviews: null, head: '', policyReject: 'request_changes' });
+  await e.runHeadlessReview(PR);
+  assert.equal(e.postados.length, 1, 'falta de sha nunca pode impedir a postagem');
+  assert.equal(e.postados[0].commit_id, '', 'sem prova do head, volta ao comportamento antigo');
+});
