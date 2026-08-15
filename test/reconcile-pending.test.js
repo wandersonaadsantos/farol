@@ -141,6 +141,21 @@ test('PR já mergeado cancela a pendência sem consultar review nem postar nada'
   assert.equal(h.status, 'already_merged');
 });
 
+test('PR fechado sem merge (CLOSED) cancela a pendência sem consultar review nem postar nada', async () => {
+  const e = engineCom([pendencia('o/r#55')], {});
+  e.prState = async () => 'CLOSED';
+  let consultouReviews = false;
+  e.myReviewsWithTime = async () => { consultouReviews = true; return null; };
+  const n = await e.reconcilePending();
+  assert.equal(n, 1, 'uma pendência cancelada');
+  assert.equal(e.decisions.pending.length, 0, 'saiu de Precisa de você');
+  assert.equal(consultouReviews, false, 'fechado sem merge não precisa checar estado de review');
+  const h = e.decisions.resolved[0];
+  assert.equal(h.key, 'o/r#55');
+  assert.equal(h.status, 'already_closed');
+  assert.equal(h.action, 'skip');
+});
+
 test('PR ainda aberto (MERGED não confirmado) segue pro fluxo normal de reconciliação', async () => {
   const e = engineCom([pendencia('o/r#51')], {
     'o/r#51': [{ state: 'APPROVED', at: CRIADA + 60 * 1000 }]

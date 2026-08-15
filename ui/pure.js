@@ -795,6 +795,8 @@ const RESOLVED_LABELS = {
   auto_rejected: ['🔴', 'mudanças pedidas sozinho'],
   posted: ['📬', 'postado por você'],
   already_reviewed: ['✔', 'já revisado por você (não repostei)'],
+  already_merged: ['🔀', 'já foi mergeado (cancelei a revisão pendente)'],
+  already_closed: ['🚫', 'PR fechado sem merge (cancelei a revisão pendente)'],
   skipped: ['⏭', 'pulado']
 };
 const RESOLVED_ACTIONS = { approve: 'APPROVE', request_changes: 'REQUEST CHANGES', comment: 'COMMENT' };
