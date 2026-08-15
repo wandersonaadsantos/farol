@@ -67,6 +67,18 @@ test('reReviewTargets: aprovação stale não relança (só pedido de mudanças 
   assert.deepEqual(targets(e), []);
 });
 
+test('reReviewTargets: PR em rascunho não relança sozinho (G10, chip manual segue cobrindo)', () => {
+  const e = engineBase();
+  e.panorama[0].isDraft = true;
+  assert.deepEqual(targets(e), []);
+});
+
+test('reReviewTargets: espelho, PR fora de rascunho continua armando (G10)', () => {
+  const e = engineBase();
+  e.panorama[0].isDraft = false;
+  assert.deepEqual(targets(e).map(p => p.key), [KEY]);
+});
+
 test('reReviewTargets: sem commit novo depois do meu review, nada acontece', () => {
   const e = engineBase();
   e.staleInfo[KEY].stale = false;
