@@ -204,6 +204,20 @@ test('review antigo em OUTRO head continua NÃO resolvendo (caso re-request pres
   assert.equal(e.decisions.pending.length, 1, 'a nova rodada continua na sua mesa');
 });
 
+// O filtro antigo tinha `r.at &&` na frente e isso guardava os DOIS ramos por tabela.
+// Com o ramo do commit, o `at` precisa ser exigido de novo ali dentro: review sem horário
+// válido entraria no sort e `a.at - b.at` viraria NaN, ou seja, ordenação indefinida
+// decidindo qual é "o último review". Barrar antes do sort é mais barato que ordenar bem.
+test('review casado por commit mas SEM horário válido não resolve (guarda do sort)', async () => {
+  const HEAD = 'd'.repeat(40);
+  const e = engineCom([pendencia('o/r#63', CRIADA, HEAD)], {
+    'o/r#63': [{ state: 'APPROVED', at: null, commit: HEAD }]
+  });
+  const n = await e.reconcilePending();
+  assert.equal(n, 0, 'sem horário não dá pra ordenar, então não resolve');
+  assert.equal(e.decisions.pending.length, 1, 'a pendência continua na sua mesa');
+});
+
 // (b) do fix: sem o headSha gravado no item, o filtro acima nunca teria com que comparar.
 test('recordDecision carimba no item o head que a sessão leu', () => {
   const e = new Engine();
