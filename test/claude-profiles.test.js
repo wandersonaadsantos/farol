@@ -212,6 +212,47 @@ test('openClaudeLoginSession: perfil dir chama spawnLoginConsole com o MESMO con
   assert.equal(dirRecebido, 'C:\\p1', 'spawnLoginConsole recebe uma STRING crua, não um objeto');
 });
 
+// G21: o console de LOGIN era a única sessão do Farol cujo env não passava por
+// applyClaudeAuthEnv (herdava process.env cru). Com ANTHROPIC_API_KEY na máquina, a
+// precedência oficial do claude CLI põe a chave acima do login OAuth, então a sessão
+// aberta pra logar num perfil de assinatura rodava na chave da máquina, sem erro nenhum
+// aparecer. loginConsoleEnv é o env desse console, isolado pra ser testável em qualquer SO.
+const { loginConsoleEnv } = require('../lib/engine/session');
+
+function comEnvDaMaquina(vars, fn) {
+  const antes = {};
+  for (const [k, v] of Object.entries(vars)) { antes[k] = process.env[k]; process.env[k] = v; }
+  try { return fn(); } finally {
+    for (const [k, v] of Object.entries(antes)) {
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
+  }
+}
+
+test('loginConsoleEnv: chave/token de auth da máquina NÃO entram no console de login', () => {
+  comEnvDaMaquina({ ANTHROPIC_API_KEY: 'sk-da-maquina', ANTHROPIC_AUTH_TOKEN: 'tok-da-maquina' }, () => {
+    const env = loginConsoleEnv('C:\\perfil-assinatura');
+    assert.equal('ANTHROPIC_API_KEY' in env, false, 'chave da máquina anularia o login OAuth do perfil');
+    assert.equal('ANTHROPIC_AUTH_TOKEN' in env, false);
+    assert.equal(env.CLAUDE_CONFIG_DIR, 'C:\\perfil-assinatura');
+  });
+});
+
+test('loginConsoleEnv: sem dir (padrão da máquina) limpa mesmo assim e não seta CLAUDE_CONFIG_DIR', () => {
+  comEnvDaMaquina({ ANTHROPIC_API_KEY: 'sk-da-maquina', CLAUDE_CONFIG_DIR: 'C:\\herdado' }, () => {
+    const env = loginConsoleEnv('');
+    assert.equal('ANTHROPIC_API_KEY' in env, false);
+    assert.equal('CLAUDE_CONFIG_DIR' in env, false, 'dir herdado do ambiente mentiria sobre onde o login foi gravado');
+  });
+});
+
+test('loginConsoleEnv: mantém o que a sessão de login precisa e segue sem GH_TOKEN', () => {
+  const env = loginConsoleEnv('C:\\perfil-assinatura');
+  assert.equal(env.GH_PAGER, 'cat');
+  assert.equal(env.PAGER, 'cat');
+  assert.equal('GH_TOKEN' in env, false, 'essa sessão não mexe no gh');
+});
+
 test('ghEnv: injeta CLAUDE_CONFIG_DIR do perfil da conta', () => {
   const engine = new Engine();
   engine.config.claudeProfiles = [

@@ -179,6 +179,30 @@ test('spawnLoginConsole (Windows): registra keys=[] e NÃO inclui GH_TOKEN no en
   }
 });
 
+// G21: o teste acima prova que o env do console de login não tem GH_TOKEN; este prova que
+// ele também não tem a auth do Claude herdada da máquina. É o teste de FIAÇÃO (a função
+// pura loginConsoleEnv tem os seus em claude-profiles.test.js): sem ele, o helper podia
+// existir certinho e ninguém chamar, que é exatamente o defeito do fanOutBlock na v2.27.0.
+test('spawnLoginConsole (Windows): env da máquina com ANTHROPIC_API_KEY não chega no console de login', (t) => {
+  if (process.platform !== 'win32') { t.skip('caminho Windows do spawnLoginConsole'); return; }
+  const antes = { key: process.env.ANTHROPIC_API_KEY, tok: process.env.ANTHROPIC_AUTH_TOKEN };
+  process.env.ANTHROPIC_API_KEY = 'sk-da-maquina';
+  process.env.ANTHROPIC_AUTH_TOKEN = 'tok-da-maquina';
+  let capturedEnv = null;
+  spawnImpl = (cmd, args, opts) => { capturedEnv = opts.env; return new EventEmitter(); };
+  try {
+    spawnLoginConsole(fakeLoginEngine(), 'C:\\biud-trabalho');
+    assert.ok(capturedEnv, 'env foi passado pro spawn');
+    assert.equal('ANTHROPIC_API_KEY' in capturedEnv, false, 'a chave da máquina anularia o login OAuth do perfil');
+    assert.equal('ANTHROPIC_AUTH_TOKEN' in capturedEnv, false);
+    assert.equal(capturedEnv.CLAUDE_CONFIG_DIR, 'C:\\biud-trabalho', 'o perfil resolvido do login é quem manda');
+  } finally {
+    spawnImpl = null;
+    if (antes.key === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = antes.key;
+    if (antes.tok === undefined) delete process.env.ANTHROPIC_AUTH_TOKEN; else process.env.ANTHROPIC_AUTH_TOKEN = antes.tok;
+  }
+});
+
 test('buildLoginScriptMac: roda claude puro, dir aplicado com escaping de aspa simples', () => {
   const engine = fakeEngine({});
   const script = buildLoginScriptMac(engine, "/tmp/x' ; touch /tmp/PROOF #", 'id1');

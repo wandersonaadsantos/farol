@@ -32,7 +32,8 @@ childProcess.spawn = function mockableSpawn(...args) {
   return realSpawn(...args);
 };
 
-const { runClaudeStream } = require('../lib/engine/session');
+const { runClaudeStream, buildSessionScriptMac, buildLoginScriptMac } = require('../lib/engine/session');
+const { claudeAuthShellLines, claudeAuthPosixPrefix } = require('../lib/parse');
 const { WORKSPACE, IS_WIN } = require('../lib/paths');
 
 after(() => {
@@ -76,7 +77,8 @@ test('spawn headless posix: /bin/sh -lc, detached e cwd no WORKSPACE', { skip: I
   const [cmd, argv, opts] = capturado;
   assert.equal(cmd, '/bin/sh');
   assert.equal(argv[0], '-lc', 'login shell, senão o PATH do Homebrew não entra');
-  assert.match(argv[1], /^claude -p --output-format stream-json --verbose --dangerously-skip-permissions/);
+  // o unset vem colado no começo da linha, DEPOIS do sourcing do profile que o -l faz (G21)
+  assert.match(argv[1], /^unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN; claude -p --output-format stream-json --verbose --dangerously-skip-permissions/);
   assert.match(argv[1], / --model opus --effort high$/, 'as flags entram no fim da linha');
   assert.equal(opts.detached, true, 'pré-condição do killTree posix (process.kill(-pid))');
   assert.equal(opts.cwd, WORKSPACE);
@@ -98,4 +100,83 @@ test('spawn headless windows: cmd.exe com verbatim args e janela escondida', { s
   assert.equal(opts.windowsHide, true, 'sem isso o console pisca na cara do usuário');
   assert.equal(opts.windowsVerbatimArguments, true);
   assert.equal(opts.cwd, WORKSPACE);
+});
+
+// --- G21: env de auth da máquina não sobrevive ao login shell posix ----------
+// Os testes de spawn acima pulam no Windows (IS_WIN é const de módulo), mas o CONTEÚDO do
+// que vai pro shell é texto: montar a linha/o script e inspecionar o texto roda em
+// qualquer SO, e é isso que os testes abaixo fazem.
+//
+// O defeito: applyClaudeAuthEnv limpa ANTHROPIC_API_KEY/ANTHROPIC_AUTH_TOKEN do env, mas
+// no posix o profile do usuário é sourceado DEPOIS disso (o -l do `/bin/sh -lc` no
+// headless; o login shell do Terminal.app antes de executar o .command). Um `export
+// ANTHROPIC_API_KEY` perdido no ~/.profile re-injeta a chave POR CIMA do perfil resolvido,
+// e a precedência oficial do claude CLI põe a chave acima do login OAuth: o perfil de
+// assinatura do Farol seria anulado em silêncio. Por isso o unset é emitido DENTRO do
+// shell, depois de qualquer sourcing e antes do exec do claude.
+function ordem(texto, ...pedacos) {
+  return pedacos.map(p => texto.indexOf(p));
+}
+
+function engineMac(auth) {
+  return {
+    config: { skipPermissions: false, port: 47170 },
+    resolveClaudeAuth: () => auth,
+    primaryUser: () => 'default-user',
+  };
+}
+
+test('claudeAuthShellLines posix (assinatura): unset das vars de auth ANTES do export do dir', () => {
+  const linhas = claudeAuthShellLines({ kind: 'dir', dir: '/tmp/perfil' }, false);
+  assert.equal(linhas[0], 'unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN');
+  assert.match(linhas[1], /^export CLAUDE_CONFIG_DIR='\/tmp\/perfil'$/);
+});
+
+test('claudeAuthShellLines posix (assinatura sem dir, legado): ainda assim emite o unset', () => {
+  const linhas = claudeAuthShellLines({ kind: 'dir', dir: '' }, false);
+  assert.equal(linhas[0], 'unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN');
+});
+
+test('claudeAuthShellLines posix (chave de API): a própria chave é setada DEPOIS do unset', () => {
+  const linhas = claudeAuthShellLines({ kind: 'apikey', apiKey: 'sk-ant-1', baseUrl: '' }, false);
+  assert.equal(linhas[0], 'unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN');
+  assert.match(linhas[1], /^export ANTHROPIC_API_KEY='sk-ant-1'$/);
+});
+
+test('claudeAuthShellLines windows: NÃO emite unset (cmd.exe não sourceia profile nenhum)', () => {
+  const dir = claudeAuthShellLines({ kind: 'dir', dir: 'C:\\perfil' }, true);
+  const chave = claudeAuthShellLines({ kind: 'apikey', apiKey: 'sk-ant-1', baseUrl: '' }, true);
+  assert.equal(dir.some(l => /unset/.test(l)), false);
+  assert.equal(chave.some(l => /unset/.test(l)), false);
+});
+
+test('claudeAuthPosixPrefix: perfil de assinatura prefixa o unset na linha headless', () => {
+  assert.equal(claudeAuthPosixPrefix({ kind: 'dir', dir: '/tmp/x' }), 'unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN; ');
+  assert.equal(claudeAuthPosixPrefix({ kind: 'dir', dir: '' }), 'unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN; ');
+});
+
+test('claudeAuthPosixPrefix: perfil de chave NÃO prefixa (a chave viaja pelo env, e não pode ir pra linha de comando)', () => {
+  assert.equal(claudeAuthPosixPrefix({ kind: 'apikey', apiKey: 'sk-ant-1', baseUrl: '' }), '');
+});
+
+test('buildSessionScriptMac (assinatura): unset vem antes da linha do claude', () => {
+  const script = buildSessionScriptMac(engineMac({ kind: 'dir', dir: '/tmp/perfil' }), '/pr-review x', 'id1', 'bob');
+  const [iUnset, iDir, iClaude] = ordem(script, 'unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN', 'export CLAUDE_CONFIG_DIR', '\nclaude ');
+  assert.ok(iUnset > 0, 'o unset existe no script');
+  assert.ok(iUnset < iDir, 'unset antes do perfil resolvido');
+  assert.ok(iDir < iClaude, 'tudo antes do exec do claude');
+});
+
+test('buildSessionScriptMac (chave de API): a chave do perfil é exportada DEPOIS do unset', () => {
+  const script = buildSessionScriptMac(engineMac({ kind: 'apikey', apiKey: 'sk-ant-1', baseUrl: '' }), '/pr-review x', 'id1', 'bob');
+  const [iUnset, iChave, iClaude] = ordem(script, 'unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN', "export ANTHROPIC_API_KEY='sk-ant-1'", '\nclaude ');
+  assert.ok(iUnset > 0 && iUnset < iChave, 'o unset não pode apagar a chave do próprio perfil');
+  assert.ok(iChave < iClaude);
+});
+
+test('buildLoginScriptMac: unset antes da linha do claude (a sessão de login é onde a chave errada mais engana)', () => {
+  const script = buildLoginScriptMac(engineMac({ kind: 'dir', dir: '' }), '/tmp/perfil', 'id1');
+  const [iUnset, iDir, iClaude] = ordem(script, 'unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN', 'export CLAUDE_CONFIG_DIR', '\nclaude');
+  assert.ok(iUnset > 0, 'o unset existe no script de login');
+  assert.ok(iUnset < iDir && iDir < iClaude);
 });
