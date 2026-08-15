@@ -755,7 +755,17 @@ class Engine extends EventEmitter {
             // G9: relança o OBJETO guardado (era o motivo de guardá-lo): relançar
             // por URL re-resolvia no panorama e requested virava false, rebaixando
             // um round automático a manual com a reason errada
-            for (const pr of stillOpen) this.enqueueHeadless(pr);
+            for (const pr of stillOpen) {
+              // a falha transitória original (runOneHeadless) fez unsee + queue.push
+              // pra deixar o card visível "aguardando você" enquanto esperava o retry.
+              // O launchReview desfazia os dois (markSeen + saída da fila) no
+              // relançamento; enqueueHeadless sozinho não faz isso, e o card mentia
+              // "aguardando você" com o botão Revisar ativo enquanto a revisão
+              // relançada já estava rodando.
+              this.markSeen(pr.key);
+              this.queue = this.queue.filter(p => p.key !== pr.key);
+              this.enqueueHeadless(pr);
+            }
           }
         }
       }

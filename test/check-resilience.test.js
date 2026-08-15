@@ -255,6 +255,32 @@ test('check(): retry pós-transitório relança normalmente quando o perfil est�
   assert.equal(enqueued[0].knownHead, 'c'.repeat(40), 'G9: knownHead sobrevive ao relançamento');
 });
 
+// Achado CRITICAL da revisão da Task 2.3: trocar launchReview por enqueueHeadless
+// no retry resolveu requested/knownHead, mas enqueueHeadless sozinho NÃO faz o que
+// launchReview fazia (markSeen + sair da queue). A falha transitória original
+// (runOneHeadless) tinha feito unsee(pr.key) + queue.push(pr) pra deixar o card
+// visível "aguardando você" enquanto esperava o retry; sem desfazer isso no
+// relançamento, o PR reaparece na "sua fila" com botão Revisar ativo ENQUANTO a
+// revisão relançada já está rodando por trás, mentindo "aguardando você".
+test('check(): PR relançado pelo retry sai da fila visível e volta a visto (card não mente "aguardando você") (G9)', async () => {
+  const e = checkEngine();
+  e.tokens = { me: 'tok-me' };
+  e.config.claudeProfiles = [{ id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', baseUrl: '', budgetDaily: 100 }];
+  e.config.claudeProfileId = 'p1';
+  e.retryAfterNet.set(PR.key, { tries: 1, pr: { ...PR, requested: true, knownHead: 'c'.repeat(40) } });
+  // estado deixado pela falha transitória original (runOneHeadless): unsee + queue.push,
+  // e o gh volta a devolver o PR na busca --review-requested=@me (mesmo PR de sempre)
+  e.seen = new Set();
+  e.queue = [{ ...PR }];
+  const enqueued = [];
+  e.enqueueHeadless = (pr) => { enqueued.push(pr); };
+  e.scenario = { panorama: [], mine: [{ ...PR }], reviewed: [] };
+  await e.check('test');
+  assert.equal(enqueued.length, 1, 'relançou o PR');
+  assert.equal(e.queue.some(p => p.key === PR.key), false, 'sai da fila visível: o card não pode mostrar Revisar ativo com a revisão já rodando');
+  assert.equal(e.seen.has(PR.key), true, 'volta a visto: mesmo efeito que o launchReview produzia no lançamento manual');
+});
+
 // budgetWarned (o toast "orçamento estourado"): deve disparar UMA vez ao estourar,
 // ficar mudo em ciclos seguintes enquanto seguir estourado, e voltar a disparar depois
 // de um ciclo em que o perfil não estava mais bloqueado (destravou e travou de novo).

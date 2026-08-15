@@ -398,6 +398,49 @@ test('check() relança o OBJETO guardado via enqueueHeadless, preservando reques
   assert.equal(enqueued[0].knownHead, 'c'.repeat(40), 'knownHead sobrevive ao relançamento (G9)');
 });
 
+// Achado CRITICAL da revisão da Task 2.3: enqueueHeadless sozinho não faz o que
+// launchReview fazia (markSeen + sair da queue). A falha transitória original
+// (runOneHeadless) tinha feito unsee + queue.push pra deixar o card visível
+// "aguardando você" enquanto esperava o retry; sem desfazer isso no
+// relançamento, o card mente "aguardando você" com o botão Revisar ativo
+// enquanto a revisão relançada já está rodando por trás.
+test('check() tira o PR relançado da fila visível e marca como visto (não mente "aguardando você") (G9)', async () => {
+  const e = engineForPrune();
+  e.prState = async () => 'OPEN';
+  const pr = prDe('o/r#1', { requested: true, knownHead: 'c'.repeat(40) });
+  e.retryAfterNet.set('o/r#1', { tries: 1, pr });
+  // estado deixado pela falha transitória original (runOneHeadless): unsee + queue.push
+  e.seen = new Set();
+  e.queue = [{ ...pr }];
+
+  const enqueued = [];
+  e.enqueueHeadless = (p) => { enqueued.push(p); };
+
+  // trecho do check() DEPOIS do fix: markSeen + sai da queue, igual o launchReview fazia
+  const retry = e.retryTargets(new Set(), new Set());
+  const stillOpen = [];
+  for (const p of retry) {
+    let state = null;
+    try { state = await e.prState(p); } catch {}
+    if (state === 'MERGED' || state === 'CLOSED') {
+      e.retryAfterNet.delete(p.key);
+    } else {
+      stillOpen.push(p);
+    }
+  }
+  if (stillOpen.length) {
+    for (const p of stillOpen) {
+      e.markSeen(p.key);
+      e.queue = e.queue.filter(q => q.key !== p.key);
+      e.enqueueHeadless(p);
+    }
+  }
+
+  assert.equal(enqueued.length, 1, 'relançou o PR');
+  assert.equal(e.queue.some(q => q.key === 'o/r#1'), false, 'sai da fila visível: o card não pode mostrar Revisar ativo com a revisão já rodando');
+  assert.equal(e.seen.has('o/r#1'), true, 'volta a visto: mesmo efeito que o launchReview produzia no lançamento manual');
+});
+
 test('check() preserva PR quando prState retorna null (sem token)', async () => {
   const e = engineForPrune();
   e.prState = async () => null;
