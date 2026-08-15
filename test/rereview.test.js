@@ -12,7 +12,10 @@
 const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs');
-process.env.FAROL_HOME = process.env.FAROL_HOME || path.join(os.tmpdir(), 'farol-test-rereview-' + process.pid);
+// atribuição INCONDICIONAL (padrão dos outros arquivos da rede): o `after` daqui apaga
+// recursivamente o FAROL_HOME, então respeitar um valor herdado do shell faria um
+// `npm test` de quem exporta FAROL_HOME deletar o diretório real dele.
+process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-rereview-' + process.pid);
 
 const { test, after } = require('node:test');
 const assert = require('node:assert/strict');

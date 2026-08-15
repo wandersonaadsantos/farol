@@ -32,23 +32,49 @@ const path = require('node:path');
 process.env.FAROL_HOME = process.env.FAROL_HOME || path.join(os.tmpdir(), 'farol-test-commitid-' + process.pid);
 const { Engine } = require('../server.js');
 
-test('decide(): o commit_id enviado ao postReview é o head buscado no clique', async () => {
+// C2 da revisão final da onda 2: o clique posta o payload que a SESSÃO escreveu, e esse
+// texto descreve o código de item.headSha. Ancorar no head buscado na hora do clique faz
+// o review sair carimbado num head que ninguém leu quando o autor empurrou commit entre a
+// análise e o clique; pior, o staleForReview passa a ver o meu review no head novo e
+// deixa de armar o round 2, justamente a proteção que o G1 existe pra dar. O head LIDO
+// vence; o fresco só cobre pendência antiga, gravada antes de o campo existir.
+function engineComPendencia(item) {
   const engine = new Engine();
-  let payloadRecebido = null;
-  engine.headSha = async () => 'f'.repeat(40);
+  const capturado = { payload: null };
   engine.myReviewStates = async () => [];
-  engine.postReview = async (pr, payload) => { payloadRecebido = payload; return { ok: true }; };
+  engine.postReview = async (pr, payload) => { capturado.payload = payload; return { ok: true }; };
   engine.saveDecisions = () => { };
   engine.writeMemory = () => { };
   engine.pushState = () => { };
-  engine.decisions.pending.unshift({
+  engine.decisions.pending.unshift(item);
+  return { engine, capturado };
+}
+
+function pendenciaDeClique(extra) {
+  return {
     id: 'd1', key: 'acme/repo#1', pr: { repo: 'acme/repo', number: 1, url: 'https://github.com/acme/repo/pull/1' },
     createdAt: Date.now(),
-    payloads: { approve: { event: 'APPROVE', body: 'ok', comments: [] } }
-  });
+    payloads: { approve: { event: 'APPROVE', body: 'ok', comments: [] } },
+    ...extra
+  };
+}
+
+test('decide(): o commit_id é o head que a SESSÃO leu, não o head fresco do clique', async () => {
+  const LIDO = 'a'.repeat(40);
+  const { engine, capturado } = engineComPendencia(pendenciaDeClique({ headSha: LIDO }));
+  engine.headSha = async () => 'b'.repeat(40);   // autor empurrou entre a sessão e o clique
   const r = await engine.decide('d1', 'approve');
   assert.equal(r.ok, true);
-  assert.equal(payloadRecebido.commit_id, 'f'.repeat(40));
+  assert.equal(capturado.payload.commit_id, LIDO,
+    'o texto do review fala do código lido; carimbar o head novo mente e desarma o round 2');
+});
+
+test('decide(): pendência SEM headSha (gravada antes do campo) cai no head buscado no clique', async () => {
+  const { engine, capturado } = engineComPendencia(pendenciaDeClique({}));
+  engine.headSha = async () => 'f'.repeat(40);
+  const r = await engine.decide('d1', 'approve');
+  assert.equal(r.ok, true);
+  assert.equal(capturado.payload.commit_id, 'f'.repeat(40), 'sem head lido, âncora nenhuma é pior que a fresca');
 });
 
 const { inlineFallbackPayload } = require('../lib/engine/decision.js');
@@ -123,4 +149,42 @@ test('runHeadlessReview usa knownHead quando o fetch do headSha falha', async ()
     'sem o fallback o dedup consultaria com sha vazio e o round anterior silenciaria este');
   assert.equal(postados.length, 1);
   assert.equal(postados[0].commit_id, KNOWN, 'o fallback também ancora o review postado');
+});
+
+// I2 da revisão final: o teste acima cobre o headSha LANÇANDO, e o caminho de produção é
+// outro. `ghMod.headSha` passa por `run`, que NUNCA lança (invariante do lib/io.js): gh
+// ausente, rede caída ou repo privado devolvem `{ok:false}` e a função entrega ''. Ou seja,
+// o fallback real do G8 é o do valor VAZIO, e ele estava sem teste.
+test('runHeadlessReview usa knownHead quando o headSha devolve vazio (o caminho real)', async () => {
+  const e = new Engine();
+  const KNOWN = 'c'.repeat(40);
+  const shasConsultados = [];
+  const postados = [];
+  e.accountForPr = () => 'trabalho';
+  e.approvePolicyFor = () => 'wait';
+  e.rejectPolicyFor = () => 'request_changes';
+  e.scopeLabel = () => 'Conta Trabalho';
+  e.writeMemory = () => { };
+  e.headSha = async () => '';   // run() não lança: falha vira string vazia
+  e.myReviewStates = async (pr, head) => { shasConsultados.push(head); return []; };
+  e.postReview = async (pr, payload) => { postados.push(payload); return { ok: true }; };
+  e.runClaudeStream = async () => ({
+    text: JSON.stringify({
+      result: JSON.stringify({
+        analysisStatus: 'complete', verdict: 'request_changes', decision: 'needs_decision',
+        cardMet: true, reasons: ['o redirect não fechou'], reportMarkdown: 'relatório',
+        payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'o redirect não fechou' } }
+      })
+    }), sessionId: 's1'
+  });
+
+  await e.runHeadlessReview({
+    key: 'o/r#757', repo: 'o/r', number: 757, url: 'https://github.com/o/r/pull/757',
+    requested: true, title: 'fix(auth): fecha o redirect', author: 'dev', knownHead: KNOWN
+  });
+
+  assert.deepEqual(shasConsultados, [KNOWN],
+    'head vazio é falha de leitura, não prova de que não há head: o knownHead vence');
+  assert.equal(postados.length, 1);
+  assert.equal(postados[0].commit_id, KNOWN);
 });

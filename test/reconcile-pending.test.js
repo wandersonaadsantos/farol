@@ -204,6 +204,50 @@ test('review antigo em OUTRO head continua NÃO resolvendo (caso re-request pres
   assert.equal(e.decisions.pending.length, 1, 'a nova rodada continua na sua mesa');
 });
 
+// C1 da revisão final da onda 2: o ramo do commit casava QUALQUER estado com ação
+// equivalente, inclusive COMMENTED. Um comentário meu no PR ANTERIOR à pendência (uma
+// pergunta ao autor, um "vou olhar", um comentário de outro assunto no mesmo head)
+// resolvia sozinho o card que carregava o blocker, como se fosse desfecho. Comentário
+// anterior não é decisão: no ramo do commit só APPROVED e CHANGES_REQUESTED contam.
+// No ramo do HORÁRIO o COMMENTED continua valendo, porque ali ele significa "você agiu
+// DEPOIS que o card nasceu", que é atendimento de verdade.
+test('COMMENTED meu no mesmo head, ANTERIOR à pendência, NÃO resolve o card', async () => {
+  const HEAD = 'd'.repeat(40);
+  const e = engineCom([pendencia('o/r#70', CRIADA, HEAD)], {
+    'o/r#70': [{ state: 'COMMENTED', at: CRIADA - 30 * 60 * 1000, commit: HEAD }]
+  });
+  const n = await e.reconcilePending();
+  assert.equal(n, 0, 'comentário anterior à pendência não é desfecho do blocker');
+  assert.equal(e.decisions.pending.length, 1, 'o card com o blocker continua na sua mesa');
+});
+
+test('APPROVED meu no mesmo head, ANTERIOR à pendência, continua resolvendo', async () => {
+  const HEAD = 'd'.repeat(40);
+  const e = engineCom([pendencia('o/r#71', CRIADA, HEAD)], {
+    'o/r#71': [{ state: 'APPROVED', at: CRIADA - 30 * 60 * 1000, commit: HEAD }]
+  });
+  assert.equal(await e.reconcilePending(), 1, 'aprovação é decisão humana sobre aquele código');
+  assert.equal(e.decisions.resolved[0].action, 'approve');
+});
+
+test('CHANGES_REQUESTED meu no mesmo head, ANTERIOR à pendência, continua resolvendo', async () => {
+  const HEAD = 'd'.repeat(40);
+  const e = engineCom([pendencia('o/r#72', CRIADA, HEAD)], {
+    'o/r#72': [{ state: 'CHANGES_REQUESTED', at: CRIADA - 30 * 60 * 1000, commit: HEAD }]
+  });
+  assert.equal(await e.reconcilePending(), 1);
+  assert.equal(e.decisions.resolved[0].action, 'request_changes');
+});
+
+test('COMMENTED meu POSTERIOR à pendência segue resolvendo (o ramo do horário não mudou)', async () => {
+  const HEAD = 'd'.repeat(40);
+  const e = engineCom([pendencia('o/r#73', CRIADA, HEAD)], {
+    'o/r#73': [{ state: 'COMMENTED', at: CRIADA + 60 * 1000, commit: HEAD }]
+  });
+  assert.equal(await e.reconcilePending(), 1, 'comentar depois do card nascer é atendimento');
+  assert.equal(e.decisions.resolved[0].action, 'comment');
+});
+
 // O filtro antigo tinha `r.at &&` na frente e isso guardava os DOIS ramos por tabela.
 // Com o ramo do commit, o `at` precisa ser exigido de novo ali dentro: review sem horário
 // válido entraria no sort e `a.at - b.at` viraria NaN, ou seja, ordenação indefinida
