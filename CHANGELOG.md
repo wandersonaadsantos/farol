@@ -9,6 +9,40 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.41.2
+
+Primeira onda da correção dos 20 gaps da auditoria de 15/08: seis consertos de
+integridade e custo. O review passa a dizer de qual commit ele fala, decisões
+concorrentes não se atropelam mais, e dois vazamentos de dinheiro (sessão paga
+em loop e re-revisão em rajada) foram fechados.
+
+**Correções**
+- **Review ancorado no commit que a revisão leu.** O review postado agora
+  carrega o `commit_id` do head que a sessão analisou, em vez de deixar o
+  GitHub carimbar o head do momento da postagem. Consequência importante: se o
+  autor empurrar commit DURANTE a revisão, o app agora percebe que o review
+  ficou defasado e a re-revisão automática arma de verdade (antes esse caminho
+  ficava adormecido por acidente). Push durante a sessão passa a gerar um
+  round novo, que é o comportamento correto.
+- **Decisões concorrentes não se engolem.** Clicar numa pendência enquanto
+  outra revisão terminava podia remover o card errado da lista (o achado da
+  outra revisão sumia pra sempre, sem histórico). O caminho do clique agora
+  re-localiza a pendência pelo id antes de qualquer remoção, e histórico não
+  duplica quando a reconciliação resolve a mesma pendência junto.
+- **Merge só de commit analisado.** O botão Merge recusa quando o PR recebeu
+  commit depois da sua autoanálise, com aviso pra re-analisar. Análises
+  antigas sem carimbo de commit seguem funcionando como antes.
+- **Fim do loop pago no radar de contestação.** Com a detecção automática de
+  pushback ligada, um comentário de terceiro no PR fazia o app reclassificar a
+  mesma conversa (uma sessão Claude paga) a cada ciclo, pra sempre. Agora só
+  comentário NOVO do autor dispara reclassificação.
+- **Duas contas: a queda de uma não apaga o estado da outra.** Falha de busca
+  de uma conta preservava antes só parte do estado; agora os PRs, as
+  autoanálises e os ocultos da conta que falhou ficam intactos até ela voltar.
+- **`seen.txt` gravado de forma atômica.** Queda de energia no meio da
+  gravação não trunca mais a lista de PRs vistos (truncar virava rajada de
+  re-revisões pagas no boot seguinte).
+
 ## v2.41.1
 
 A revisão automática fica mais precisa: seis lições medidas em reviews reais
