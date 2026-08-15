@@ -3,7 +3,7 @@
 // review no head do momento do POST, não no head que a sessão leu. Estes
 // testes travam: normalize aceita/valida o campo, e os três pontos de
 // postagem (canAuto, canReject, decide) o propagam.
-const { test } = require('node:test');
+const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { normalizeReviewPayload } = require('../lib/engine/public-review');
 
@@ -79,4 +79,48 @@ test('fallback de inline: o payload normalizado do fallback sai sem âncora de h
   const r = normalizeReviewPayload(fb);
   assert.equal(r.ok, true);
   assert.equal('commit_id' in r.value, false, 'é o value do normalize que vira o arquivo do --input');
+});
+
+/* ---------- G8: o head conhecido do relançamento cobre o flake do fetch ---------- */
+// A re-revisão automática só arma com head conhecido, e o carrega no PR enfileirado
+// (knownHead). Se o gh falhar no início da sessão, cair pro headSha vazio degradaria o
+// dedup pro comportamento antigo e o round 2 morreria como already_reviewed, com a
+// âncora do relançamento já gasta. O fallback também ancora o review postado.
+const fanout = require('../lib/engine/fanout.js');
+const prMetricsOriginal = fanout.prMetrics;
+fanout.prMetrics = async () => null;
+after(() => { fanout.prMetrics = prMetricsOriginal; });
+
+test('runHeadlessReview usa knownHead quando o fetch do headSha falha', async () => {
+  const e = new Engine();
+  const KNOWN = 'c'.repeat(40);
+  const shasConsultados = [];
+  const postados = [];
+  e.accountForPr = () => 'trabalho';
+  e.approvePolicyFor = () => 'wait';
+  e.rejectPolicyFor = () => 'request_changes';
+  e.scopeLabel = () => 'Conta Trabalho';
+  e.writeMemory = () => { };
+  e.headSha = async () => { throw new Error('rede'); };
+  e.myReviewStates = async (pr, head) => { shasConsultados.push(head); return []; };
+  e.postReview = async (pr, payload) => { postados.push(payload); return { ok: true }; };
+  e.runClaudeStream = async () => ({
+    text: JSON.stringify({
+      result: JSON.stringify({
+        analysisStatus: 'complete', verdict: 'request_changes', decision: 'needs_decision',
+        cardMet: true, reasons: ['o redirect não fechou'], reportMarkdown: 'relatório',
+        payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'o redirect não fechou' } }
+      })
+    }), sessionId: 's1'
+  });
+
+  await e.runHeadlessReview({
+    key: 'o/r#756', repo: 'o/r', number: 756, url: 'https://github.com/o/r/pull/756',
+    requested: true, title: 'fix(auth): fecha o redirect', author: 'dev', knownHead: KNOWN
+  });
+
+  assert.deepEqual(shasConsultados, [KNOWN],
+    'sem o fallback o dedup consultaria com sha vazio e o round anterior silenciaria este');
+  assert.equal(postados.length, 1);
+  assert.equal(postados[0].commit_id, KNOWN, 'o fallback também ancora o review postado');
 });

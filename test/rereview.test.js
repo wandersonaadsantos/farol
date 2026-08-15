@@ -128,6 +128,19 @@ test('launchReReviews: ancora o head, persiste e enfileira como revisão pedida 
   assert.equal(e.enq[0].account, 'eu');
 });
 
+// G8: o gate SÓ arma com head conhecido (reReviewTargets exige info.head), então esse
+// head já é prova. Carregá-lo no objeto enfileirado evita que um flake de gh no início
+// da sessão de revisão degrade o dedup pro comportamento antigo e mate o round 2 como
+// already_reviewed, justamente com a âncora do relançamento já queimada.
+test('re-revisão enfileira o PR com o head que o staleInfo conheceu', () => {
+  const e = engineBase();
+  reviewMod.launchReReviews(e);
+  assert.equal(e.enq.length, 1);
+  assert.equal(e.enq[0].knownHead, e.staleInfo[KEY].head,
+    'o head que armou o gate viaja junto pra ser o fallback do headSha da sessão');
+  assert.equal(e.enq[0].requested, true);
+});
+
 test('launchReReviews: segunda passada com a mesma âncora não enfileira de novo', () => {
   const e = engineBase();
   reviewMod.launchReReviews(e);
