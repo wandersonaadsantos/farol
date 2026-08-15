@@ -11,11 +11,15 @@
 // de sempre, e só um head NOVO reabre o gate.
 const os = require('node:os');
 const path = require('node:path');
+const fs = require('node:fs');
 process.env.FAROL_HOME = process.env.FAROL_HOME || path.join(os.tmpdir(), 'farol-test-rereview-' + process.pid);
 
-const { test } = require('node:test');
+const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
 const reviewMod = require('../lib/engine/review');
+const { Engine } = require('../server.js');
+
+after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 
 const KEY = 'org/app#7';
 
@@ -144,4 +148,26 @@ test('launchReReviews: sem alvo e sem órfão, não persiste nem toca a fila', (
   reviewMod.launchReReviews(e);
   assert.equal(e.saved, 0);
   assert.deepEqual(e.enq, []);
+});
+
+/* ---------- recoverInflight: poda a âncora do round 2 (G7) ---------- */
+
+test('recoverInflight poda a âncora de re-revisão dos PRs que estavam em andamento', () => {
+  // monta o FAROL_HOME temporário do processo com:
+  //  - state/inflight.json = [{ key: 'acme/repo#5', url: '...', title: 't' }]
+  //  - state/rereview-launched.json = { 'acme/repo#5': 'a'.repeat(40), 'acme/outro#6': 'b'.repeat(40) }
+  // ANTES do new Engine(), padrão dos testes de boot em test/boot.test.js.
+  const stateDir = path.join(process.env.FAROL_HOME, 'workspace', 'state');
+  fs.mkdirSync(stateDir, { recursive: true });
+  fs.writeFileSync(path.join(stateDir, 'inflight.json'), JSON.stringify([
+    { key: 'acme/repo#5', url: 'https://github.com/acme/repo/pull/5', title: 't' },
+  ]));
+  fs.writeFileSync(path.join(stateDir, 'rereview-launched.json'), JSON.stringify({
+    'acme/repo#5': 'a'.repeat(40),
+    'acme/outro#6': 'b'.repeat(40),
+  }));
+
+  const e = new Engine();
+  assert.equal(e.reReviewLaunched['acme/repo#5'], undefined, 'âncora do PR interrompido foi podada');
+  assert.equal(e.reReviewLaunched['acme/outro#6'], 'b'.repeat(40), 'âncora alheia intacta');
 });

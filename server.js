@@ -245,6 +245,16 @@ class Engine extends EventEmitter {
     if (!Array.isArray(inflight) || !inflight.length) return;
     for (const pr of inflight) { if (pr && pr.key) this.unsee(pr.key); }
     try { writeJsonAtomic(INFLIGHT_FILE, []); } catch { }
+    // G7: a âncora do round 2 é gravada ANTES de enfileirar; se o app morreu com
+    // a re-revisão na fila/rodando, a âncora sem a revisão mataria o round pra
+    // sempre naquele head. Poda: o próximo check() re-arma pelo staleInfo.
+    let podado = false;
+    for (const pr of inflight) {
+      if (pr && pr.key && this.reReviewLaunched && this.reReviewLaunched[pr.key] !== undefined) {
+        delete this.reReviewLaunched[pr.key]; podado = true;
+      }
+    }
+    if (podado) this.saveReReviewLaunched();
     this.log('WARN', `app reiniciado com revisão em andamento: ${inflight.map(p => p.key).join(', ')} devolvido(s) à fila`);
   }
 
