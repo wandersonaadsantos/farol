@@ -1107,6 +1107,7 @@ const SYS_INDEX = [
   { sec: 'automation', at: '#sys-row-autoapprove', title: 'Aprovar sozinho os aprováveis com ressalvas', hint: 'auto approve, ressalva, aprovação' },
   { sec: 'automation', at: '#sys-row-pushback', title: 'Detectar pushback automaticamente', hint: 'contestação, autor, desfecho' },
   { sec: 'automation', at: '#sys-row-modelo', title: 'Modelo das revisões automáticas', hint: 'opus, sonnet, haiku, fable, best, modelo, limite do plano' },
+  { sec: 'automation', at: '#sys-row-paralelas', title: 'Revisões paralelas por conta', hint: 'paralelo, simultâneo, série, fila, velocidade' },
   { sec: 'automation', at: '#sys-row-esforco', title: 'Esforço de raciocínio', hint: 'effort, pensar, raciocínio, alto, baixo, xhigh' },
   { sec: 'automation', at: '#sys-row-intervalo', title: 'Intervalo de checagem', hint: 'polling, minutos, frequência' },
   { sec: 'automation', at: '#sys-row-skipperms', title: 'Sessão no terminal sem pedir permissões', hint: 'dangerously skip permissions, prompts' },
@@ -2060,7 +2061,7 @@ function renderQueue() {
     <div class="card pr-card urgent" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" style="${m.style}">
       ${m.dot}${avatar(pr.author)}
       <div class="info">
-        <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}${pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : ''}</div>
+        <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}${pr.isDraft ? '<span class="badge">rascunho</span>' : ''}${pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : ''}</div>
         <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
         <div class="pr-sub">${personMention(pr.author, 'xs')} · atualizado ${fmtRel(pr.updatedAt)}${pr.author ? ` ${papelPicker(pr.author)}` : ''}</div>
       </div>
@@ -2152,6 +2153,7 @@ function renderPanorama() {
         <div class="pw-head">
           <a class="pw-ref" href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>
           ${SCOPE === 'all' && m.chip ? m.chip : (pr.mine ? '<span class="badge">sua revisão</span>' : '')}
+          ${pr.isDraft ? '<span class="badge">rascunho</span>' : ''}
           ${pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : ''}
           ${chip}
         </div>
@@ -3066,6 +3068,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.41.0', ['Re-revisão automática: quando você pediu mudanças e o autor empurrou a correção, o PR volta pra fila de revisão sozinho no ciclo seguinte, sem clique. Cada commit é relançado no máximo uma vez e a postagem continua atrás dos gates de sempre.', 'Revisões paralelas por conta (opt-in em Sistema): a mesma conta pode rodar até 4 revisões automáticas ao mesmo tempo. O padrão continua 1, em série, como sempre foi.', 'PRs em rascunho entram no radar e na fila, com selo "rascunho" no card. O merge de rascunho continua bloqueado.']],
   ['2.40.8', ['PR mergeado ou fechado enquanto esperava no retry de rede não gera mais cascata de notificações a cada ciclo de polling. Antes cada ciclo disparava "relançando..." seguido de "já mergeado, cancelei", sem parar. Agora o estado é conferido antes de notificar, e o PR sai do retry em silêncio.']],
   ['2.40.7', ['A caixa de revisão agora mostra somente o contexto técnico útil para o autor: problema, impacto e próximo passo. Motivos operacionais ficam separados em "Por que precisa de você", e registros antigos são limpos apenas na apresentação, sem alterar o histórico salvo.', 'Antes de postar pelos fluxos do Farol, o corpo e todos os comentários inline passam por uma validação determinística que bloqueia linguagem de bastidor e formatos com aparência de template. O caso real que motivou a correção e variações com Markdown, HTML e caracteres invisíveis viraram testes.', 'Análise incompleta ou payload incompatível não aprova nem pede mudanças sozinho. Terminal e chat usam uma autorização temporária limitada ao PR, inclusive quando uma conversa antiga é retomada, e postagens simultâneas não duplicam nem cruzam corpos.']],
   ['2.40.6', ['Na visão por Pessoas, quem tem mais PRs mergeados no período aparece primeiro; merge mais recente e login só desempatam. A ordem acompanha organização, período e busca atuais, enquanto Repositórios continua por recência.', 'Os grupos de Pessoas agora nascem recolhidos. O que você abrir permanece aberto ao buscar ou usar "mostrar mais/menos", e trocar organização ou período começa novamente com a lista compacta.', 'O atalho "@fulano na frente" abre e leva até a pessoa líder, e a seta do cartão finalmente gira junto com o estado aberto.']],
@@ -3465,6 +3468,7 @@ function renderSettings() {
   renderClaudeProfiles();
   $('#setInterval').value = String(c.intervalSeconds);
   $('#setReviewModel').value = (c.reviewModel != null ? c.reviewModel : '');
+  $('#setParallelReviews').value = String(c.parallelReviews || 1);
   renderEffort(c);
   $('#setAutoReview').checked = !!c.autoReview;
   $('#setAutoApproveAll').checked = c.autoApproveAll !== false;
@@ -3778,6 +3782,7 @@ const settingsMap = [
   ['#setMergeBlocked', 'mergeBlockedRepos', el => el.value],
   ['#setInterval', 'intervalSeconds', el => parseInt(el.value, 10)],
   ['#setReviewModel', 'reviewModel', el => el.value],
+  ['#setParallelReviews', 'parallelReviews', el => parseInt(el.value, 10)],
   // radio: o change borbulha até o container, então e.target já é o rádio marcado
   ['#setReviewEffort', 'reviewEffort', el => el.value],
   ['#setAutoPushback', 'autoPushback', el => el.checked],

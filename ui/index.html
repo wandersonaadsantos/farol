@@ -383,6 +383,20 @@
                 </select>
               </div>
             </div>
+            <div class="set-row" id="sys-row-paralelas">
+              <div class="set-txt">
+                <label class="set-title" for="setParallelReviews">Revisões paralelas por conta</label>
+                <p class="set-desc">Quantas revisões automáticas a mesma conta roda ao mesmo tempo. O padrão (1) revisa em série; subir acelera fila cheia, mas gasta o limite do plano mais rápido e pesa mais na máquina. Contas diferentes já revisam em paralelo entre si.</p>
+              </div>
+              <div class="set-ctl">
+                <select id="setParallelReviews">
+                  <option value="1">1 (em série, padrão)</option>
+                  <option value="2">2 ao mesmo tempo</option>
+                  <option value="3">3 ao mesmo tempo</option>
+                  <option value="4">4 ao mesmo tempo</option>
+                </select>
+              </div>
+            </div>
             <div class="set-row set-row-block" id="sys-row-esforco">
               <div class="set-txt wide">
                 <span class="set-title">Esforço de raciocínio</span>

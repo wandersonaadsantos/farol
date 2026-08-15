@@ -43,7 +43,7 @@ test('runOneHeadless cancela a revisão se o PR já foi mergeado enquanto espera
   e.prState = async () => 'MERGED';
   let rodouRevisao = false;
   e.runHeadlessReview = async () => { rodouRevisao = true; };
-  e.headlessBusyAccounts.add('eu');
+  e.headlessBusyAccounts.set('eu', 1); // Map de contagem desde o parallelReviews (v2.41.0)
   await e.runOneHeadless(prDe('o/r#1'), 'eu');
   assert.equal(rodouRevisao, false, 'não roda a sessão de revisão num PR já mergeado');
   assert.equal(e.headlessBusyAccounts.has('eu'), false, 'libera a conta pro escalonador');

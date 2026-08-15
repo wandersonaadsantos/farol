@@ -9,6 +9,32 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.41.0
+
+O Farol fecha o ciclo do review sozinho: quando você pediu mudanças e o autor
+empurrou a correção, a re-revisão dispara sem clique. E a fila anda mais rápido
+quando você quiser: revisões em paralelo na mesma conta (opt-in) e PRs em
+rascunho passam a entrar no radar.
+
+**Novidades**
+- **Re-revisão automática quando o autor responde.** PR onde o seu último review
+  pediu mudanças e recebeu commit novo volta pra fila de revisão sozinho, no
+  ciclo seguinte do polling. Era o elo manual do fluxo: o app abria o round
+  rápido (review em minutos) e fechava passivo (a correção ficava parada até
+  alguém notar o push). Cada estado do PR é relançado no máximo uma vez, falha
+  cai no retry de sempre, e a postagem continua atrás dos mesmos gates
+  (política da conta, card, dedup por commit). Aprovação antiga com commit novo
+  segue no botão "Re-revisar", por clique.
+- **Revisões paralelas por conta (opt-in).** Novo ajuste em Sistema >
+  Automação: a mesma conta pode rodar até 4 revisões automáticas ao mesmo
+  tempo. O padrão continua 1 (em série, como sempre foi); contas diferentes já
+  revisavam em paralelo entre si e seguem assim. Subir o número acelera fila
+  cheia ao custo de gastar o limite do plano mais rápido.
+- **PRs em rascunho entram no radar.** Draft com revisão pedida a você aparece
+  na fila e é revisado como qualquer PR, com selo "rascunho" no card (fluxo de
+  time que abre PR cedo e quer o review antes do ready). O merge de rascunho
+  continua bloqueado.
+
 ## v2.40.8
 
 PR mergeado ou fechado enquanto esperava no retry de rede não gera mais cascata

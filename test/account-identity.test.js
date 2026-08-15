@@ -159,10 +159,11 @@ test('fetchMergeState: conta da org sem token devolve null sem rodar gh', async 
   assert.equal(chamadas.length, 0);
 });
 
-test('staleForReview: conta sem token devolve false (nunca reativa Re-revisar por incerteza)', async () => {
+test('staleForReview: conta sem token devolve indeterminado (nunca reativa Re-revisar nem relança por incerteza)', async () => {
   const e = engineDuasContas();
-  const stale = await e.staleForReview({ key: 'biudtech/app#8', repo: 'biudtech/app', number: 8, url: 'https://github.com/biudtech/app/pull/8' });
-  assert.equal(stale, false);
+  const info = await e.staleForReview({ key: 'biudtech/app#8', repo: 'biudtech/app', number: 8, url: 'https://github.com/biudtech/app/pull/8' });
+  assert.equal(info.stale, false);
+  assert.equal(info.head, '', 'sem head, o gate de re-revisão automática também não arma');
   assert.equal(chamadas.length, 0);
 });
 

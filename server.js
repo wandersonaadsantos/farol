@@ -25,7 +25,7 @@ const { ACCOUNT_PALETTE } = require('./lib/taxonomy'); // resto da taxonomia é 
 const { parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople,
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
   applyClaudeAuthEnv, claudeAuthShellLines,
-  sanitizeModel, sanitizeEffort } = require('./lib/parse');
+  sanitizeModel, sanitizeEffort, sanitizeParallelReviews } = require('./lib/parse');
 const { ensureDir, readJson, writeJsonAtomic, copyRecursive, detectGitBash, run, runShell } = require('./lib/io');
 const updateMod = require('./lib/engine/update');
 const chatMod = require('./lib/engine/chat');
@@ -69,6 +69,7 @@ const DEFAULTS = {
   accounts: [],
   intervalSeconds: 300,
   autoReview: true,        // revisao autonoma interna (headless); so chama o humano nas excecoes
+  parallelReviews: 1,      // revisoes headless SIMULTANEAS por conta (1..4). 1 = serial dentro da conta (o de sempre); subir e opt-in em Sistema (acelera fila cheia, gasta o limite do plano mais rapido)
   autoApproveAll: false,   // OFF = gate estrito (so auto_approve + card comprovado). ON (opt-in em Sistema) = aprova sozinho TODO PR aprovavel, anexando os pontos de atencao ao APPROVE. Default OFF por seguranca (o app e publico/multiusuario; cada um liga se quiser)
   skipPermissions: false,  // vale so pra sessoes no TERMINAL; o modo interno roda sem prompts por design
   soundEnabled: true,
@@ -152,6 +153,9 @@ class Engine extends EventEmitter {
     // = NaN no schedule(), e setTimeout(fn, NaN) dispara em ~1ms: polling contínuo
     // contra o GitHub até o rate limit. Mesma expressão do updateSettings, de propósito.
     this.config.intervalSeconds = Math.min(3600, Math.max(60, parseInt(this.config.intervalSeconds, 10) || DEFAULTS.intervalSeconds));
+    // paralelismo por conta: mesmo tratamento (boot engole config.json editado à mão);
+    // o escalonador clampa de novo por defesa em profundidade (parallelLimit em review.js)
+    this.config.parallelReviews = sanitizeParallelReviews(this.config.parallelReviews) ?? DEFAULTS.parallelReviews;
     // perfil de review por pessoa (papel + matriz por domínio); migra a senioridade plana antiga pro campo `papel`
     this.config.people = migrateSeniorityToPeople(this.config.seniority, parsePeople(this.config.people));
     delete this.config.seniority;
@@ -171,6 +175,7 @@ class Engine extends EventEmitter {
     this.hiddenPRs = readJson(HIDDEN_FILE, {}, warn);
     this.mergeStates = {};            // key do PR -> mergeabilidade real (só p/ aprovaveis)
     this.staleStates = {};            // key do PR -> true quando entrou commit apos a minha review
+    this.staleInfo = {};              // key do PR -> { stale, head, lastState } (gate da re-revisao automatica; interno, fora do snapshot)
     this.adminBlockedRepos = {};      // repo -> true quando admin nao fura o ruleset (o UI esconde "Merge admin")
     this.ruleBlockCache = {};         // "repo@base" -> { blocked, at } cache do ruleset bloqueante
     this.reviewerCands = null;        // { at, data:{members,teams} } candidatos p/ o seletor de reviewers
@@ -179,12 +184,13 @@ class Engine extends EventEmitter {
     this.reviewPostCaps = new Map(); // capabilities efêmeras de escrita de terminal/chat (nunca persistidas nem expostas)
     this.sessionSeq = 0;
     this.headlessQueue = [];
-    this.headlessBusyAccounts = new Set(); // contas com revisão headless em andamento (1 por conta em paralelo)
+    this.headlessBusyAccounts = new Map(); // conta -> nº de revisões headless rodando (teto = config.parallelReviews, default 1)
     this.decisions = readJson(path.join(STATE_DIR, 'decisions.json'), { pending: [], resolved: [] }, warn);
     this.pushbacks = readJson(path.join(STATE_DIR, 'pushbacks.json'), {}, warn); // { key do PR: { author, outcome, note, at, source, status, confidence } }
     // registros antigos (sem source) eram todos marcados à mão e confirmados
     for (const v of Object.values(this.pushbacks)) { if (v && !v.source) { v.source = 'manual'; v.status = 'confirmed'; } }
     this.pushbackScanned = readJson(path.join(STATE_DIR, 'pushback-scanned.json'), {}, warn); // { key: marcador da última atividade do autor já avaliada }
+    this.reReviewLaunched = readJson(path.join(STATE_DIR, 'rereview-launched.json'), {}, warn); // { key: head já relançado pela re-revisão automática (âncora por round) }
     this.toolRuns = readJson(path.join(STATE_DIR, 'tool-results.json'), {}, warn);
     // kudos passou a ser POR CONTA (mapa escopo->execução); migra o formato antigo
     // (execução única, global) pro escopo "todas" ('*') pra não perder o que já existia
@@ -735,6 +741,11 @@ class Engine extends EventEmitter {
       try { await this.refreshMergeStates(); } catch (e) { this.log('WARN', `refreshMergeStates: ${e.message}`); }
       // stale: PRs que EU revisei e receberam commit novo depois (reativa o "Re-revisar")
       try { await this.refreshStaleStates(); } catch (e) { this.log('WARN', `refreshStaleStates: ${e.message}`); }
+      // round 2 sozinho: PR onde EU pedi mudanças e o autor empurrou commit novo volta
+      // pra fila de revisão sem esperar clique (âncora por head impede repetição; era o
+      // elo manual do ciclo, medido no biud-frontend#756). Depende do staleInfo que o
+      // refreshStaleStates acabou de preencher, por isso a ordem aqui importa.
+      try { this.launchReReviews(); } catch (e) { this.log('WARN', `re-revisão pós-push: ${e.message}`); }
       // pendência já atendida por fora (review postado pelo chat, pela web do GitHub ou
       // por gh na mão): tira o card de "Precisa de você", que antes ficava preso pra
       // sempre porque só o clique no botão esvaziava decisions.pending
@@ -831,7 +842,12 @@ class Engine extends EventEmitter {
   enqueueHeadless(pr) { return reviewMod.enqueueHeadless(this, pr); }
   headlessAcct(pr) { return reviewMod.headlessAcct(this, pr); }
   processHeadless() { return reviewMod.processHeadless(this); }
+  freeHeadlessSlot(acct) { return reviewMod.freeHeadlessSlot(this, acct); }
   async runOneHeadless(pr, acct) { return reviewMod.runOneHeadless(this, pr, acct); }
+  // re-revisão automática pós-push (round 2 sem clique): gate + lançamento + âncora
+  reReviewTargets(inflightKeys) { return reviewMod.reReviewTargets(this, inflightKeys); }
+  launchReReviews() { return reviewMod.launchReReviews(this); }
+  saveReReviewLaunched() { return reviewMod.saveReReviewLaunched(this); }
   // `agora` com default nos DOIS lados de propósito: a fachada repassa o parâmetro
   // (nada é engolido) e o Function.length segue casando com o da implementação, que
   // é o que test/facades.test.js confere lendo este fonte.
@@ -1120,7 +1136,7 @@ class Engine extends EventEmitter {
   }
 
   updateSettings(patch) {
-    const allowed = ['ghUser', 'owners', 'accounts', 'intervalSeconds', 'autoReview', 'autoApproveAll', 'skipPermissions',
+    const allowed = ['ghUser', 'owners', 'accounts', 'intervalSeconds', 'autoReview', 'autoApproveAll', 'parallelReviews', 'skipPermissions',
       'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos',
       'projectReviewers', 'defaultReviewers', 'people', 'claudeConfigDir', 'claudeProfiles', 'claudeProfileId',
       'reviewModel', 'reviewEffort', 'autoPushback', 'debugSpawns'];
@@ -1146,6 +1162,7 @@ class Engine extends EventEmitter {
       // engine aceitou no proximo estado, entao nao fica setting fantasma.
       if (k === 'reviewModel') { const s = sanitizeModel(v); v = (s === null) ? this.config.reviewModel : s; }
       if (k === 'reviewEffort') { const s = sanitizeEffort(v); v = (s === null) ? this.config.reviewEffort : s; }
+      if (k === 'parallelReviews') { const s = sanitizeParallelReviews(v); v = (s === null) ? this.config.parallelReviews : s; }
       if (k === 'autoPushback') v = !!v;
       if (k === 'debugSpawns') v = !!v;
       if (k === 'accounts') {
