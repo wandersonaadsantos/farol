@@ -323,3 +323,29 @@ test('budgetWarned: toast do orçamento não repete enquanto seguir estourado, m
   await e.check('test');
   assert.equal(toasts.filter(t => t.kind === 'error').length, 2, 'novo estouro depois de destravar avisa de novo');
 });
+
+// G16: o gate de orçamento (budgetBlockedFor) roda no ENFILEIRAMENTO (toReview,
+// retryTargets). Num lote grande, o teto pode estourar ENTRE a fila e a vez deste
+// PR chegar na boca da sessão. runOneHeadless precisa re-checar imediatamente
+// antes de abrir a sessão: se estourou nesse meio tempo, estaciona (não descarta)
+// em vez de gastar uma sessão que o gate já teria barrado no enfileiramento.
+test('runOneHeadless re-checa o orçamento antes de abrir a sessão (G16)', async () => {
+  const e = checkEngine();
+  e.tokens = { me: 'tok-me' };
+  e.prState = async () => 'OPEN'; // não é o caso do jaMergeado; segue pro gate de orçamento
+  // No enfileiramento (toReview/retryTargets, fora deste teste) o gate ainda estava
+  // livre, e foi assim que o PR chegou até aqui; agora, na boca da sessão, o teto já
+  // estourou (o gasto aconteceu enquanto o PR esperava a vez na fila).
+  e.budgetBlockedFor = () => ({ id: 'p1', label: 'P1' });
+  e.runHeadlessReview = async () => { throw new Error('runHeadlessReview não deveria rodar: o orçamento já tinha estourado'); };
+  e.headlessBusyAccounts.set('me', 1); // slot ocupado pelo escalonador antes de chamar runOneHeadless
+
+  const toasts = [];
+  e.on('toast', ev => toasts.push(ev));
+
+  await e.runOneHeadless({ ...PR }, 'me');
+
+  assert.equal(e.autoReviewParked.has(PR.key), true, 'PR entra em autoReviewParked (estaciona, não descarta)');
+  assert.equal(e.headlessBusyAccounts.has('me'), false, 'devolve o slot ao escalonador');
+  assert.equal(toasts.filter(t => t.kind === 'info').length, 1, 'um único toast informativo');
+});
