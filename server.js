@@ -26,7 +26,7 @@ const { parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
   applyClaudeAuthEnv, claudeAuthShellLines,
   sanitizeModel, sanitizeEffort, sanitizeParallelReviews } = require('./lib/parse');
-const { ensureDir, readJson, writeJsonAtomic, copyRecursive, detectGitBash, run, runShell } = require('./lib/io');
+const { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, run, runShell } = require('./lib/io');
 const updateMod = require('./lib/engine/update');
 const chatMod = require('./lib/engine/chat');
 const toolsMod = require('./lib/engine/tools');
@@ -364,7 +364,7 @@ class Engine extends EventEmitter {
 
   saveSeen() {
     ensureDir(STATE_DIR);
-    fs.writeFileSync(SEEN_FILE, [...this.seen].join('\n') + (this.seen.size ? '\n' : ''));
+    writeTextAtomic(SEEN_FILE, [...this.seen].join('\n') + (this.seen.size ? '\n' : ''));
   }
 
   markSeen(key) { if (!this.seen.has(key)) { this.seen.add(key); this.saveSeen(); } }

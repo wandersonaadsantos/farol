@@ -14,7 +14,7 @@ process.env.FAROL_HOME = FAROL_HOME;
 
 const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { ensureDir, readJson, writeJsonAtomic, copyRecursive, detectGitBash, run, runShell } = require('../lib/io');
+const { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, run, runShell } = require('../lib/io');
 const { IS_WIN } = require('../lib/paths');
 const tax = require('../lib/taxonomy');
 
@@ -96,6 +96,16 @@ test('writeJsonAtomic grava, sobrescreve destino existente e não deixa .tmp', (
   writeJsonAtomic(arq, { a: 2 });
   assert.deepEqual(readJson(arq, null), { a: 2 }, 'rename por cima de existente tem que valer nos dois SOs');
   assert.equal(fs.existsSync(arq + '.tmp'), false, 'o .tmp não pode sobrar');
+});
+
+/* ---------- io: writeTextAtomic ---------- */
+
+test('writeTextAtomic: grava via tmp e rename, conteúdo íntegro', () => {
+  ensureDir(TMP);
+  const f = path.join(TMP, 'seen.txt');
+  writeTextAtomic(f, 'a#1\na#2\n');
+  assert.equal(fs.readFileSync(f, 'utf8'), 'a#1\na#2\n');
+  assert.equal(fs.existsSync(f + '.tmp'), false);
 });
 
 /* ---------- io: copyRecursive ---------- */
