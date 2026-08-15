@@ -441,6 +441,17 @@ test('check() tira o PR relançado da fila visível e marca como visto (não men
   assert.equal(e.seen.has('o/r#1'), true, 'volta a visto: mesmo efeito que o launchReview produzia no lançamento manual');
 });
 
+/* ---------- G15: estacionamento persiste entre reinícios ---------- */
+
+test('autoReviewParked sobrevive a reinício da Engine (G15)', () => {
+  const engine1 = new Engine();
+  engine1.autoReviewParked.add('acme/repo#4');
+  engine1.saveAutoReviewParked();
+
+  const engine2 = new Engine();
+  assert.equal(engine2.autoReviewParked.has('acme/repo#4'), true, 'estacionamento persiste entre reinícios');
+});
+
 test('check() preserva PR quando prState retorna null (sem token)', async () => {
   const e = engineForPrune();
   e.prState = async () => null;

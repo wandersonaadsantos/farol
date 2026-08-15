@@ -204,7 +204,9 @@ class Engine extends EventEmitter {
     this.activity = new Map();       // id de sessão -> feed de eventos ao vivo
     this.running = new Map();        // id de sessão -> { child, cancelled } (só headless)
     this.retryAfterNet = new Map();  // key do PR -> { tries, pr } da re-revisão pós-falha transitória
-    this.autoReviewParked = new Set(); // keys que falharam sem ser rede (ou foram canceladas): aguardam ação manual, não relançam sozinhas
+    // G15: estacionamento persistido; era memória pura e cada reinício (inclusive
+    // o do próprio auto-update) relançava sessões fadadas à mesma falha conhecida
+    this.autoReviewParked = new Set(readJson(path.join(STATE_DIR, 'auto-review-parked.json'), [], warn)); // keys que falharam sem ser rede (ou foram canceladas): aguardam ação manual, não relançam sozinhas
     this.budgetWarned = new Set(); // ids de perfil apikey já avisados de orçamento estourado, enquanto o estouro persistir (evita repetir o toast a cada checagem)
     this.chats = readJson(CHATS_FILE, {}, warn);
     for (const k of Object.keys(this.chats)) {
@@ -695,6 +697,18 @@ class Engine extends EventEmitter {
       this.lastCheckAt = Date.now();
       this.lastError = null;
 
+      // G15: poda do estacionamento (mesmo padrão da poda do reReviewLaunched em
+      // launchReReviews): key fora do panorama (PR fechado/mergeado) não guarda
+      // estacionamento pra sempre, senão o arquivo só cresce.
+      {
+        const abertosParked = new Set(panorama.map(p => p.key));
+        let parkedMudou = false;
+        for (const k of [...this.autoReviewParked]) {
+          if (!abertosParked.has(k)) { this.autoReviewParked.delete(k); parkedMudou = true; }
+        }
+        if (parkedMudou) this.saveAutoReviewParked();
+      }
+
       // contas silenciadas seguem monitoradas (aparecem ao selecionar a conta), mas
       // ficam fora dos avisos de PR novo e da auto-revisão: nada de barulho nem de
       // revisar sozinho o PR-teste abandonado.
@@ -882,6 +896,8 @@ class Engine extends EventEmitter {
   reReviewTargets(inflightKeys) { return reviewMod.reReviewTargets(this, inflightKeys); }
   launchReReviews() { return reviewMod.launchReReviews(this); }
   saveReReviewLaunched() { return reviewMod.saveReReviewLaunched(this); }
+  // G15: estacionamento pós-falha persistido (padrão do savePushbackScanned)
+  saveAutoReviewParked() { return reviewMod.saveAutoReviewParked(this); }
   // `agora` com default nos DOIS lados de propósito: a fachada repassa o parâmetro
   // (nada é engolido) e o Function.length segue casando com o da implementação, que
   // é o que test/facades.test.js confere lendo este fonte.
