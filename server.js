@@ -914,7 +914,7 @@ class Engine extends EventEmitter {
   // gatilho barato via gh evita acender IA à toa; a classificação é 1 sessão
   // Claude por candidato novo, LEITURA pura (nunca posta), limitada por ciclo.
   async scanPushbacks() { return pushbackMod.scanPushbacks(this); }
-  async detectAuthorPushback(pr) { return pushbackMod.detectAuthorPushback(this, pr); }
+  async detectAuthorPushback(pr, seen) { return pushbackMod.detectAuthorPushback(this, pr, seen); }
   async classifyPushback(pr) { return pushbackMod.classifyPushback(this, pr); }
 
   // --- merge do MEU PR quando a MINHA autoanalise diz "aprovavel" -------------

@@ -11,11 +11,22 @@ process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-pushback-' + process
 const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+
+// espião no run do gh: pushback.js destrutura io.run no LOAD (mesma pegadinha
+// documentada em gh-queries-capped.test.js), então o patch precisa existir ANTES do
+// require do server. Por padrão devolve ok vazio (nenhum gh real roda neste arquivo);
+// os testes de detectAuthorPushback (G4) trocam ghImpl por um stub concreto.
+const io = require('../lib/io');
+let ghImpl = null;
+io.run = (cmd, args, opts) => ghImpl
+  ? ghImpl(cmd, args, opts)
+  : Promise.resolve({ ok: true, code: 0, stdout: '', stderr: '' });
+
 const { Engine } = require('../server.js');
 // o gate DE VERDADE, importado do módulo. Antes este arquivo tinha uma cópia manual da
 // regra ("espelha o gate de scanPushbacks"), então testava o teste: a regra podia mudar
 // no pushback.js e a suíte seguia verde validando a cópia velha.
-const { isPushbackTarget, pushbackTargets } = require('../lib/engine/pushback');
+const { isPushbackTarget, pushbackTargets, detectAuthorPushback } = require('../lib/engine/pushback');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
 
@@ -264,4 +275,81 @@ test('scanPushbacks não roda duas vezes ao mesmo tempo', async () => {
   e.detectAuthorPushback = async () => { chamou = true; return null; };
   await e.scanPushbacks();
   assert.equal(chamou, false);
+});
+
+/* ---------- G4: scan só reclassifica com comentário NOVO do autor ----------
+   Sem isso, um comentário de TERCEIRO avançava o updatedAt do PR (o gate barato de
+   pushbackTargets) pra sempre, e a MESMA thread era reclassificada (sessão Claude
+   paga) a cada ciclo, porque hadActivity só olhava "autor falou depois do MEU review",
+   nunca depois do marcador do ciclo anterior. Aqui o gh de verdade é stubado por
+   endpoint (padrão do gh-queries-capped.test.js/account-identity.test.js), pra exercitar
+   detectAuthorPushback de ponta a ponta, não uma cópia da regra. */
+
+// gh stubado por endpoint: reviews (meu último review), issues/comments e
+// pulls/comments (comentários do autor, já filtrados > myAt, como o jq real devolveria).
+function stubGhPushback(pr, myAt, comentariosDoAutor) {
+  return async (cmd, args) => {
+    const apiPath = (args && args[1]) || '';
+    if (apiPath.endsWith(`/pulls/${pr.number}/reviews`)) {
+      return { ok: true, code: 0, stdout: myAt, stderr: '' };
+    }
+    if (apiPath.endsWith(`/issues/${pr.number}/comments`)) {
+      return { ok: true, code: 0, stdout: JSON.stringify(comentariosDoAutor), stderr: '' };
+    }
+    if (apiPath.endsWith(`/pulls/${pr.number}/comments`)) {
+      return { ok: true, code: 0, stdout: '[]', stderr: '' };
+    }
+    return { ok: true, code: 0, stdout: '', stderr: '' };
+  };
+}
+
+function engineParaG4(pr, marcadorAnterior) {
+  const resolved = [{ key: pr.key, status: 'auto_rejected', action: 'request_changes', reasons: ['x'], resolvedAt: 1 }];
+  const e = engineComPanorama(resolved, [pr], { [pr.key]: marcadorAnterior });
+  e.tokens = { [pr.account]: 'tok' };
+  e.token = 'tok';
+  e.config.autoPushback = true;
+  e.savePushbackScanned = () => { };
+  e.log = () => { };
+  e.emit = () => { };
+  return e;
+}
+
+test('scan não reclassifica quando a única novidade é de terceiro (updatedAt avançou, autor calado)', async () => {
+  // marcador do ciclo anterior = último comentário do autor (10h); updatedAt do PR
+  // avançou pra 11h (comentário de um colega); os comentários do autor devolvidos
+  // pelo gh são todos <= 10h (nenhum é novidade de verdade).
+  const pr = { key: 'acme/app#7', repo: 'acme/app', number: 7, account: 'wanderson', author: 'alice', updatedAt: '2026-08-15T11:00:00Z' };
+  const marcador = '2026-08-15T10:00:00Z';
+  ghImpl = stubGhPushback(pr, '2026-08-15T08:00:00Z', ['2026-08-15T09:00:00Z', '2026-08-15T10:00:00Z']);
+  const e = engineParaG4(pr, marcador);
+
+  const det = await detectAuthorPushback(e, pr, marcador);
+  assert.equal(det.hadActivity, false, 'nenhum comentário do autor é posterior ao marcador');
+
+  let chamadasClassify = 0;
+  e.classifyPushback = async () => { chamadasClassify++; return null; };
+  await e.scanPushbacks();
+  assert.equal(chamadasClassify, 0, 'updatedAt avançar por comentário de terceiro não gasta sessão Claude');
+});
+
+test('comentário novo do autor depois do marcador reclassifica normalmente', async () => {
+  // mesmo setup, mas o gh devolve um comentário do autor às 12h (depois do marcador)
+  const pr = { key: 'acme/app#8', repo: 'acme/app', number: 8, account: 'wanderson', author: 'alice', updatedAt: '2026-08-15T12:00:00Z' };
+  const marcador = '2026-08-15T10:00:00Z';
+  ghImpl = stubGhPushback(pr, '2026-08-15T08:00:00Z', ['2026-08-15T09:00:00Z', '2026-08-15T10:00:00Z', '2026-08-15T12:00:00Z']);
+  const e = engineParaG4(pr, marcador);
+
+  const det = await detectAuthorPushback(e, pr, marcador);
+  assert.equal(det.hadActivity, true, 'comentário às 12h é novidade real do autor');
+  assert.equal(det.marker, '2026-08-15T12:00:00Z');
+
+  let chamadasClassify = 0;
+  e.classifyPushback = async () => {
+    chamadasClassify++;
+    return { isPushback: true, outcome: 'we_right', confidence: 'high', note: 'x' };
+  };
+  await e.scanPushbacks();
+  assert.equal(chamadasClassify, 1, 'reclassifica exatamente uma vez');
+  assert.equal(e.pushbackScanned[pr.key], '2026-08-15T12:00:00Z', 'marcador avança pro novo comentário');
 });
