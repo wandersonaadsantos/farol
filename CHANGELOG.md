@@ -9,6 +9,29 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.41.1
+
+A revisão automática fica mais precisa: seis lições medidas em reviews reais
+(achados verificados um a um e contestações de autor confirmadas) entram no
+protocolo que toda revisão lê. Nenhum gate afrouxou; muda a pontaria, não o rigor.
+
+**Melhorias**
+- **Precisão do achado.** O revisor passa a checar quatro erros que aconteceram
+  em review real antes de escrever cada achado: descrever commit intermediário
+  quando o diff acumulado da branch já mudou o fato; afirmar que um remédio
+  "fecha" o problema sem listar o que ele não cobre; superdimensionar o raio de
+  um achado verdadeiro; e chamar de "barra o merge" exigência que o time cumpre
+  por disciplina, sem required check configurado no repo.
+- **Menos falso blocker.** Duas calibrações vindas de contestações de autor que
+  tinham razão (confirmadas na memória de pushback): código novo que segue
+  padrão já existente e aceito no repo não é blocker (o alvo é o padrão, em
+  card separado), e exigir mudança de processo ou configuração do repo (check
+  obrigatório, branch protection) é assunto fora do diff, vira sugestão. O
+  idioma deliberado de erro com mesma causa raiz (throw dentro do try) entra
+  na lista de falsos positivos a descartar antes de marcar defeito.
+- **Trava de regressão do protocolo.** Teste novo garante que essas lições
+  existem nos arquivos semeados: edição futura que as remova fica vermelha.
+
 ## v2.41.0
 
 O Farol fecha o ciclo do review sozinho: quando você pediu mudanças e o autor

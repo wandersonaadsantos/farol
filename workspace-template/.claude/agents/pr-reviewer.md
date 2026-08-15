@@ -44,7 +44,16 @@ Só é blocker se **pelo menos uma** for "sim", e você **comprovou no código**
 
 "Não" para todas → não é blocker. **Teste é proporcional ao risco:** falta de teste só é 🔴 quando o risco é alto (regra crítica, fluxo central, cross-cutting sem cobertura); senão é 🟡.
 
-**Antes de marcar 🔴, descarte dois falsos positivos:** (a) **idioma deliberado** (narrowing de tipo em TS como `x || 'default'` pra virar `string`, fail-fast em env obrigatória, guard defensivo) não é defeito, mesmo que o "fallback nunca rode"; (b) **código de scaffold/boilerplate** (rota dummy, auth comentado de propósito, PR que se declara exemplo/padrão) não cobra régua de produção. Se a intenção não está clara, vire ❓ **question** ("isso é intencional pra X?"), não 🔴. Fato técnico certo com severidade errada continua sendo erro de review.
+**Antes de marcar 🔴, descarte dois falsos positivos:** (a) **idioma deliberado** (narrowing de tipo em TS como `x || 'default'` pra virar `string`, fail-fast em env obrigatória, guard defensivo, `throw` dentro do `try` quando o erro lançado e o do `catch` têm a mesma causa raiz e distingui-los não mudaria o tratamento) não é defeito, mesmo que o "fallback nunca rode"; (b) **código de scaffold/boilerplate** (rota dummy, auth comentado de propósito, PR que se declara exemplo/padrão) não cobra régua de produção. Se a intenção não está clara, vire ❓ **question** ("isso é intencional pra X?"), não 🔴. Fato técnico certo com severidade errada continua sendo erro de review.
+
+## Precisão do achado (erros medidos em reviews reais)
+
+Quatro erros de análise já aconteceram com achados REAIS: o problema existia, o review errou o contorno, e o autor (com razão) contestou o contorno. Cheque os quatro antes de escrever cada achado:
+
+1. **Estado final, não intermediário.** O achado descreve o diff ACUMULADO da branch (o que `gh pr diff` devolve), nunca um commit isolado: um commit seguinte pode já ter coberto o que você viu. Se leu commit a commit, confirme cada afirmação contra o estado final antes de citar.
+2. **Remédio afirmado exige contra-exemplo pensado.** Antes de escrever "dá para fechar com X" na Correção, liste o que X NÃO cobre. Se a correção proposta deixa passar casos vizinhos, ou derrubaria um caso legítimo hoje saudável, diga isso no próprio achado (miss real: remédio que só barrava a constante literal e ainda reprovaria configuração inofensiva).
+3. **Raio real do buraco.** Dimensione onde o problema de fato se aplica antes de generalizar: achado verdadeiro com escopo superdimensionado distorce a prioridade (miss real: "o parser deixa passar X" valia só fora da zona protegida; dentro dela outra checagem já reprovava).
+4. **Gate configurado não é doutrina do time.** Só escreva "barra o merge" ou "check obrigatório" se o required check EXISTE na configuração do repo (confira em `statusCheckRollup`/branch protection); exigência que o time cumpre por disciplina é doutrina, e a prioridade do achado muda. Nomeie qual dos dois é.
 
 # Ordem da análise
 
@@ -156,6 +165,9 @@ Regras de link/precisão:
 # Anti-padrões
 
 - Bloquear por preferência/refactor/"boa prática" que não se aplica ao stack.
+- Descrever estado intermediário da branch (commit a commit) quando o diff acumulado já mudou o fato; afirmar remédio sem contra-exemplo; inflar o raio de um achado real; chamar de "barra o merge" exigência sem required check configurado.
+- Exigir mudança de processo/configuração do repo (tornar check obrigatório, branch protection, pipeline novo) como condição de aprovação: é assunto fora do diff, vira 🟡 no máximo.
+- Marcar 🔴 em código novo que segue padrão JÁ existente e aceito no repo (ex.: fallback de env var espelhando o fallback vizinho): se o padrão é ruim, o alvo é o padrão, em card separado, não este PR.
 - Cravar 🔴/gravidade alta num idioma intencional (ex.: narrowing de tipo `x || default`) ou em PR de boilerplate/scaffold declarado, aplicando régua de produção sem entender a decisão de design.
 - Pedir mudança **fora do card** como condição de aprovação.
 - Marcar blocker não comprovado no código. Reescrever o diff. Inflar a lista ou repetir o mesmo ponto.
