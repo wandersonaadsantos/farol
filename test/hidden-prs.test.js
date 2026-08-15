@@ -170,6 +170,49 @@ test('chave órfã NÃO é limpa quando a busca de PRs falhou (queda de rede nã
   assert.equal(e.hiddenPRs[PR.key], undefined, 'com a lista confirmada, aí sim a entrada órfã sai');
 });
 
+/* ---------- 6. a limpeza é POR CONTA (G5) ---------- */
+
+// O parâmetro do reconcileHiddenPRs é o conjunto de contas cuja busca de PRs meus
+// FUNCIONOU no ciclo (null = nenhuma). Com duas contas, a queda de uma não pode
+// limpar as chaves da outra: "sumiu da lista" só prova PR fechado pra quem respondeu.
+const PR_B_KEY = 'globex/api#7';
+
+function duasContasHidden(estadoInicial) {
+  const e = novoEngine(estadoInicial);
+  e.config.accounts = [{ user: 'eu', owners: ['acme'] }, { user: 'outra', owners: ['globex'] }];
+  return e;
+}
+
+const OCULTOS_DAS_DUAS = {
+  [PR.key]: { at: '2026-08-15T12:00:00.000Z', updatedAt: PR.updatedAt },
+  [PR_B_KEY]: { at: '2026-08-15T12:00:00.000Z', updatedAt: '2026-08-02T10:00:00Z' }
+};
+
+test('reconcileHiddenPRs limpa a órfã só da conta que respondeu; a da conta que falhou fica', () => {
+  const e = duasContasHidden(OCULTOS_DAS_DUAS);
+  e.myPRs = [];               // nenhum dos dois aparece na lista deste ciclo
+  assert.equal(e.reconcileHiddenPRs(new Set(['eu'])), true, 'houve mudança (a chave da conta que respondeu saiu)');
+  assert.equal(e.hiddenPRs[PR.key], undefined, 'conta eu respondeu: a chave sumida virou lixo e sai');
+  assert.ok(e.hiddenPRs[PR_B_KEY], 'conta outra falhou: sumir da lista não prova nada, a chave fica');
+});
+
+test('reconcileHiddenPRs com null (nenhuma conta respondeu) não limpa chave nenhuma', () => {
+  const e = duasContasHidden(OCULTOS_DAS_DUAS);
+  e.myPRs = [];
+  assert.equal(e.reconcileHiddenPRs(null), false, 'sem busca boa, nada muda');
+  assert.ok(e.hiddenPRs[PR.key] && e.hiddenPRs[PR_B_KEY], 'as duas chaves continuam ocultas');
+});
+
+test('reconcileHiddenPRs desoculta por atividade nova mesmo na conta que falhou (regra 1 independe do Set)', () => {
+  const e = duasContasHidden(OCULTOS_DAS_DUAS);
+  // o PR da conta que caiu segue na lista (preservado do ciclo anterior) e com
+  // carimbo novo: atividade nova traz de volta, sem depender de busca boa nenhuma
+  e.myPRs = [{ key: PR_B_KEY, repo: 'globex/api', number: 7, updatedAt: '2026-08-15T09:00:00Z', account: 'outra' }];
+  assert.equal(e.reconcileHiddenPRs(null), true);
+  assert.equal(e.hiddenPRs[PR_B_KEY], undefined, 'updatedAt diferente desoculta sozinho, como sempre');
+  assert.ok(e.hiddenPRs[PR.key], 'e a chave da outra conta, sem prova nenhuma, não é tocada');
+});
+
 /* ---------- 7. snapshot ---------- */
 
 test('snapshot().hiddenPRs traz as chaves, e myPRs continua completo (quem esconde é a UI)', () => {

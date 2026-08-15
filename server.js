@@ -609,33 +609,44 @@ class Engine extends EventEmitter {
       }
       if (revAnyOk) this.reviewedKeys = revSet;
 
-      // meus PRs abertos (autoanalise), de todas as contas. Preserva se todas falharem.
-      let mineAuthored = null, authAnyOk = false;
+      // meus PRs abertos (autoanalise), POR CONTA: falha de uma conta preserva
+      // o estado dela (G5: any-ok global apagava autoanálises e desocultava
+      // hidden da conta que falhou no ciclo)
+      let mineAuthored = null;
+      const authOk = new Set();
       const authMap = new Map();
       for (const acc of accounts) {
         const part = await this.myAuthoredPRs(acc.user);
         if (part === null) continue;
-        authAnyOk = true;
+        authOk.add(String(acc.user).toLowerCase());
         for (const pr of part) if (!authMap.has(pr.key)) authMap.set(pr.key, pr);
       }
-      if (authAnyOk) mineAuthored = [...authMap.values()];
-      if (mineAuthored !== null) {
+      if (authOk.size) {
+        // preserva do ciclo anterior os PRs das contas que falharam agora
+        for (const pr of (this.myPRs || [])) {
+          const dona = String(this.accountForPr(pr) || '').toLowerCase();
+          if (!authOk.has(dona) && !authMap.has(pr.key)) authMap.set(pr.key, pr);
+        }
+        mineAuthored = [...authMap.values()];
         mineAuthored.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
         this.myPRs = mineAuthored;
-        // limpa autoanalises de PRs que ja fecharam (nao fica lixo pra sempre)
+        // poda de autoanálise: só de chave cuja conta dona RESPONDEU neste ciclo
         const openKeys = new Set(mineAuthored.map(p => p.key));
         let pruned = false;
         for (const k of Object.keys(this.selfAnalyses)) {
-          if (!openKeys.has(k)) { delete this.selfAnalyses[k]; pruned = true; }
+          if (openKeys.has(k)) continue;
+          const dona = String(this.accountForOwner(k.split('/')[0]) || '').toLowerCase();
+          if (!authOk.has(dona)) continue; // conta falhou: "sumiu" não prova nada
+          delete this.selfAnalyses[k]; pruned = true;
         }
         if (pruned) this.saveSelfAnalyses();
       }
       // ocultos de "Meus PRs" reconciliados com a lista recém-montada: PR com atividade
       // nova volta a aparecer sozinho, e chave órfã (PR que fechou) é limpa. O argumento
-      // é o MESMO sinal que decidiu se this.myPRs foi substituído ou preservado logo
-      // acima: com a busca falha, "sumiu da lista" não prova nada e nada é limpo, senão
-      // uma queda de rede desocultaria tudo de uma vez (ver reconcileHiddenPRs).
-      this.reconcileHiddenPRs(mineAuthored !== null);
+      // é o MESMO sinal que decidiu, PR a PR, o que foi substituído e o que foi
+      // preservado logo acima: só a chave de conta que respondeu pode ser limpa, senão
+      // a queda de rede de UMA conta desocultaria os PRs dela (ver reconcileHiddenPRs).
+      this.reconcileHiddenPRs(authOk.size ? authOk : null);
 
       // falha só das --review-requested (ex.: rate limit da API de search): preserva
       // fila, "é meu" e marcadores do último ciclo bom, no MESMO padrão de reviewedKeys
@@ -900,7 +911,7 @@ class Engine extends EventEmitter {
   saveHiddenPRs() { return selfMod.saveHiddenPRs(this); }
   hidePR(key) { return selfMod.hidePR(this, key); }
   unhidePR(key) { return selfMod.unhidePR(this, key); }
-  reconcileHiddenPRs(listaOk) { return selfMod.reconcileHiddenPRs(this, listaOk); }
+  reconcileHiddenPRs(okAccounts) { return selfMod.reconcileHiddenPRs(this, okAccounts); }
   async fetchMergeState(url) { return selfMod.fetchMergeState(this, url); }
   async enrichMyPRBranches() { return selfMod.enrichMyPRBranches(this); }
   async fetchAutoMergeAllowed(repo) { return selfMod.fetchAutoMergeAllowed(this, repo); }

@@ -22,6 +22,13 @@ const PR = {
   author: 'alice', repo: 'acme/app', number: 1, updatedAt: '2026-08-01T10:00:00Z', account: 'me'
 };
 
+// PR autoral da SEGUNDA conta (outra org): existe pra separar o estado de uma conta
+// do estado da outra quando só uma das buscas cai (G5).
+const PR_B = {
+  key: 'globex/api#7', url: 'https://github.com/globex/api/pull/7', title: 'PR da outra conta',
+  author: 'voce', repo: 'globex/api', number: 7, updatedAt: '2026-08-02T10:00:00Z', account: 'voce'
+};
+
 // Engine com TODO colaborador de rede/side-effect do check() stubado. O roteiro
 // (e.scenario) diz o que cada busca devolve no ciclo corrente; null = busca falhou.
 function checkEngine() {
@@ -57,6 +64,80 @@ function checkEngine() {
   e.on('new-prs', ev => e.notices.push(ev));
   return e;
 }
+
+// Engine com DUAS contas monitoradas e o roteiro do myAuthoredPRs POR CONTA
+// (e.autorais[user]; null = a busca daquela conta falhou neste ciclo).
+function duasContas() {
+  const e = checkEngine();
+  e.config.accounts = [{ user: 'me', owners: ['acme'] }, { user: 'voce', owners: ['globex'] }];
+  e.selfAnalyses = {};
+  e.hiddenPRs = {};
+  e.autorais = { me: [PR], voce: [PR_B] };
+  e.myAuthoredPRs = async (user) => {
+    const lista = e.autorais[user];
+    return lista === null ? null : lista.map(p => ({ ...p })); // check() muta os PRs
+  };
+  return e;
+}
+
+// G5: o sinal que decidia tudo isso era GLOBAL (bastava UMA conta responder pra o
+// ciclo tratar a lista inteira como completa). Com duas contas, a queda de uma
+// apagava a autoanálise e desocultava os PRs dela, porque "sumiu da lista" parecia
+// prova de PR fechado. Agora cada conta responde só pelo que é dela.
+test('falha da busca de UMA conta preserva myPRs, autoanálise e ocultos DELA (G5)', async () => {
+  const e = duasContas();
+  await e.check('test');
+  assert.deepEqual(e.myPRs.map(p => p.key).sort(), [PR.key, PR_B.key].sort(),
+    'ciclo bom traz os PRs autorais das duas contas');
+
+  // estado local pendurado nos dois PRs (é ele que a falha parcial não pode varrer)
+  e.selfAnalyses[PR.key] = { key: PR.key, approvable: true };
+  e.selfAnalyses[PR_B.key] = { key: PR_B.key, approvable: true };
+  e.hidePR(PR.key);
+  e.hidePR(PR_B.key);
+  assert.ok(e.hiddenPRs[PR.key] && e.hiddenPRs[PR_B.key], 'ocultei os dois');
+
+  // ciclo 2: a conta 'voce' cai; a conta 'me' responde e confirma que o PR dela fechou
+  e.autorais = { me: [], voce: null };
+  await e.check('test');
+
+  assert.deepEqual(e.myPRs.map(p => p.key), [PR_B.key],
+    'o PR da conta caída fica (preservado do ciclo anterior); o da conta que respondeu, e fechou, sai');
+  assert.ok(e.selfAnalyses[PR_B.key],
+    'autoanálise da conta caída NÃO é podada: com a busca falha, "sumiu" não prova nada');
+  assert.equal(e.selfAnalyses[PR.key], undefined,
+    'a autoanálise da conta que respondeu é podada como sempre foi (o PR fechou de verdade)');
+  assert.ok(e.hiddenPRs[PR_B.key],
+    'oculto da conta caída continua oculto: uma queda de rede não pode desocultar os PRs dela');
+  assert.equal(e.hiddenPRs[PR.key], undefined,
+    'oculto da conta que respondeu, com o PR fora da lista, é limpo (entrada órfã de verdade)');
+});
+
+// A preservação resolve a conta dona com accountForPr, que usa o campo `account` do
+// PR (o myAuthoredPRs carimba a conta que buscou) e, se ele faltar, cai na org do
+// repo. Este caso trava o fallback: PR guardado sem `account` continua sendo
+// preservado pela conta certa, e não vira lixo silencioso na primeira falha dela.
+test('PR preservado sem o campo account resolve a conta dona pela org do repo', async () => {
+  const e = duasContas();
+  e.autorais = { me: [], voce: [] };
+  await e.check('test');
+  e.myPRs = [{ key: PR_B.key, repo: PR_B.repo, number: 7, url: PR_B.url, title: PR_B.title, updatedAt: PR_B.updatedAt }];
+  e.autorais = { me: [], voce: null };
+  await e.check('test');
+  assert.deepEqual(e.myPRs.map(p => p.key), [PR_B.key],
+    'sem account no objeto, a org globex já diz que a conta dona é a que caiu');
+});
+
+test('falha da busca de TODAS as contas preserva myPRs inteiro (comportamento de sempre)', async () => {
+  const e = duasContas();
+  await e.check('test');
+  e.selfAnalyses[PR.key] = { key: PR.key, approvable: true };
+  e.autorais = { me: null, voce: null };
+  await e.check('test');
+  assert.deepEqual(e.myPRs.map(p => p.key).sort(), [PR.key, PR_B.key].sort(),
+    'nenhuma conta respondeu: a lista do último ciclo bom fica de pé');
+  assert.ok(e.selfAnalyses[PR.key], 'e nada de autoanálise é podado');
+});
 
 test('falha só das --review-requested preserva fila e "é meu", sem re-notificar', async () => {
   const e = checkEngine();
