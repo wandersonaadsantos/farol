@@ -201,6 +201,27 @@ test('gh pr view falhando aborta em vez de mergear no escuro', async () => {
   assert.equal(mergeChamado().length, 0, 'sem estado fresco, não mergeia');
 });
 
+/* ---------- gate 3 (G3): head não pode ter mudado desde a autoanálise ---------- */
+
+test('mergeSelfPR: recusa quando o head atual difere do headSha da autoanálise', async () => {
+  runImpl = roteador({ view: prView({ headRefOid: 'b'.repeat(40) }) });
+  const engine = novoEngine();
+  engine.selfAnalyses[CHAVE] = { approvable: true, headSha: 'a'.repeat(40) };
+  const r = await engine.mergeSelfPR(URL_PR);
+  assert.equal(r.ok, false);
+  assert.match(r.error, /commit depois da sua análise/);
+  assert.equal(mergeChamado().length, 0, 'divergência barra ANTES de qualquer pr merge');
+});
+
+test('mergeSelfPR: análise sem headSha registrado não bloqueia (comportamento atual preservado)', async () => {
+  runImpl = roteador({ view: prView({ headRefOid: 'b'.repeat(40) }) });
+  const engine = novoEngine();
+  engine.selfAnalyses[CHAVE] = { approvable: true };
+  const r = await engine.mergeSelfPR(URL_PR);
+  assert.equal(r.ok, true);
+  assert.equal(mergeChamado().length, 1);
+});
+
 /* ---------- caminho feliz e a proteção de branch ---------- */
 
 test('caminho feliz: merge commit, e a branch descartável é deletada', async () => {
