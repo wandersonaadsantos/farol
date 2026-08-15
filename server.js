@@ -588,6 +588,12 @@ class Engine extends EventEmitter {
       // neste Set; owner que falhou não prova PR nenhum fechado (mesmo padrão do
       // G5 em autOk/authOk, ver reconcileHiddenPRs).
       const ownersOk = new Set();
+      // G15 (re-revisão): owners que ainda estão na config, em QUALQUER conta.
+      // Fato determinístico, não depende de rede: um owner removido do monitoramento
+      // nunca mais vai responder (nunca entra em ownersOk), e sem este Set a key dele
+      // ficaria presa no estacionamento pra sempre, o arquivo só crescendo, o oposto
+      // do que o comentário da poda promete.
+      const monitoredOwners = new Set(accounts.flatMap(acc => (acc.owners || []).map(o => String(o).toLowerCase())));
       for (const acc of accounts) {
         for (const owner of acc.owners) {
           const list = await this.searchPRs(['--owner', owner], acc.user);
@@ -712,11 +718,17 @@ class Engine extends EventEmitter {
       // poda é gateada POR OWNER (mesmo padrão do G5): só mexe na key cujo owner
       // respondeu neste ciclo (ownersOk); owner que falhou fica intocado, porque
       // "sumiu do panorama" não prova PR fechado quando a busca dele caiu.
+      // EXCEÇÃO determinística: owner que saiu de TODA a config (nem está em
+      // monitoredOwners) nunca mais vai responder, então nunca entraria em ownersOk;
+      // sem tratar este caso à parte a key ficaria presa pra sempre e o arquivo só
+      // cresceria, contradizendo o propósito da própria poda. Presença na config não
+      // depende de rede, então esta parte independe de ownersOk.
       {
         const abertosParked = new Set(panorama.map(p => p.key));
         let parkedMudou = false;
         for (const k of [...this.autoReviewParked]) {
           const owner = String(k.split('/')[0] || '').toLowerCase();
+          if (!monitoredOwners.has(owner)) { this.autoReviewParked.delete(k); parkedMudou = true; continue; }
           if (!ownersOk.has(owner)) continue;
           if (!abertosParked.has(k)) { this.autoReviewParked.delete(k); parkedMudou = true; }
         }

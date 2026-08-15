@@ -527,6 +527,22 @@ test('check() não poda nada quando TODAS as buscas de owner falham (G15)', asyn
   assert.equal(e.autoReviewParked.has('globex/repo#2'), true, 'flake de rede não esvazia o estacionamento');
 });
 
+// Re-revisão do fix acima: o gate por owner que respondeu (ownersOk) criou uma
+// quebra própria. Owner removido do monitoramento (não está em NENHUM
+// acc.owners de config) nunca mais vai responder, então nunca entraria em
+// ownersOk, e a key dele ficaria presa no estacionamento pra sempre (o arquivo
+// só cresceria, o oposto do que o comentário da poda promete). Presença na
+// config é fato determinístico (não depende de rede), então esta poda é
+// incondicional, MESMO com todas as buscas de owner monitorado falhando.
+test('check() poda key de owner que SAIU da config, mesmo com todas as buscas falhando (G15)', async () => {
+  const e = checkEngineG15();
+  e.autoReviewParked.add('desmonitorado/repo#9'); // owner não está em config.accounts[].owners (só acme/globex)
+  e.panoramaByOwner = { acme: null, globex: null }; // flake total nos owners monitorados
+  await e.check('test');
+  assert.equal(e.autoReviewParked.has('desmonitorado/repo#9'), false,
+    'owner fora da config é podado de primeira: presença na config não depende de rede');
+});
+
 test('check() preserva PR quando prState retorna null (sem token)', async () => {
   const e = engineForPrune();
   e.prState = async () => null;
