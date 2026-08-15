@@ -165,3 +165,10 @@ test('applyUpdate: segundo clique durante o download é recusado e falha destrav
   });
   assert.match(String(terceira.error), /installer não encontrado/, 'ok:false destrava a guarda pro próximo clique');
 });
+
+test('sessionsBusy: sessão de TERMINAL aberta também segura o update', () => {
+  // engine mínimo no padrão dos casos M15 do arquivo
+  const engine = new Engine();
+  engine.activeReviews.set('t1', { id: 't1', mode: 'terminal', keys: ['acme/repo#1'] });
+  assert.equal(update.sessionsBusy(engine), true);
+});
