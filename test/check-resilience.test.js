@@ -356,6 +356,50 @@ test('G18: no mesmo PR achado por duas contas, a capaz vence a incapaz no dedup 
     'accountForPr resolve pra conta CAPAZ (não silenciada); o PR não fica mudo preso na conta incapaz');
 });
 
+// G18 (empate): as duas contas são CAPAZES (nem silenciada, nem sem token). O
+// critério só decide quando uma das duas está incapaz; em empate, o dedup
+// mantém a PRIMEIRA vista, o comportamento de sempre (não fica reordenando à
+// toa quando as duas contas podem agir de verdade).
+test('G18: duas contas CAPAZES acham o mesmo PR, a primeira não é destronada (empate mantém a primeira)', async () => {
+  const e = checkEngine();
+  e.config.accounts = [
+    { user: 'primeira', owners: [] },
+    { user: 'segunda', owners: [] },
+  ];
+  e.tokens = { primeira: 'tok-primeira', segunda: 'tok-segunda' };
+  e.searchPRs = async (extraArgs, user) => {
+    if (extraArgs[0] === '--review-requested=@me') return [{ ...PR, account: user }];
+    return [];
+  };
+  await e.check('test');
+
+  assert.equal(e.queue.length, 1, 'o PR entra na fila uma única vez (dedup por key)');
+  assert.equal(e.accountForPr(e.queue[0]), 'primeira',
+    'as duas contas podem agir: o dedup mantém a primeira, sem trocar à toa');
+});
+
+// G18 (sem token): o outro jeito de ficar incapaz, sem depender de muted. Uma
+// conta monitorada sem token pra ela (ver tokenFor) nunca consegue buscar nem
+// postar por essa identidade; o mesmo critério de capacidade tem que pegar
+// esse caso, não só o silenciado.
+test('G18: primeira conta sem token perde pra segunda capaz no dedup do mineMap', async () => {
+  const e = checkEngine();
+  e.config.accounts = [
+    { user: 'sem-token', owners: [] },
+    { user: 'voce', owners: [] },
+  ];
+  e.tokens = { voce: 'tok-voce' }; // 'sem-token' fica de fora: tokenFor devolve null
+  e.searchPRs = async (extraArgs, user) => {
+    if (extraArgs[0] === '--review-requested=@me') return [{ ...PR, account: user }];
+    return [];
+  };
+  await e.check('test');
+
+  assert.equal(e.queue.length, 1, 'o PR entra na fila uma única vez (dedup por key)');
+  assert.equal(e.accountForPr(e.queue[0]), 'voce',
+    'accountForPr resolve pra conta CAPAZ (com token); sem token é incapaz mesmo não estando silenciada');
+});
+
 test('runOneHeadless re-checa o orçamento antes de abrir a sessão (G16)', async () => {
   const e = checkEngine();
   e.tokens = { me: 'tok-me' };
