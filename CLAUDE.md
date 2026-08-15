@@ -258,7 +258,10 @@ caminho do clique). Travado em `test/dedup-round.test.js`, que também trava os
 guarda-corpos: mesmo head segue sem repostar.
 
 Regra geral que sai daqui, e que já valia em dois outros eixos (`reconcilePending`
-compara horário, `hidden-prs` guarda `updatedAt` e se desfaz sozinho): decisão
+compara horário OU mesmo head com estado decisivo, desde a v2.41.3: review seu
+APPROVED/CHANGES_REQUESTED no head que a sessão leu resolve o card mesmo
+anterior à pendência, e COMMENTED anterior não resolve nada; `hidden-prs`
+guarda `updatedAt` e se desfaz sozinho): decisão
 sobre um PR que consulta o passado precisa dizer **de qual estado do PR** está
 falando. E o corolário de UI: status que significa "não postei" é o único lugar
 onde o achado existe, então ele nunca pode esconder as reasons na linha
@@ -283,14 +286,21 @@ Peças e contratos:
   SÍNCRONO e sem IO, como retryTargets/pushbackTargets, porque decide gastar
   sessão Claude. Só arma com prova completa: `stale` true, `head` conhecido e
   `lastState === 'CHANGES_REQUESTED'`. **Aprovação stale NÃO relança** (fica no
-  botão, por clique). Pendência na mesa segura (um card por PR). E repete as
+  botão, por clique). **Draft NÃO arma round automático** (v2.41.3, G10: WIP
+  geraria sessão e, com onReject, um review por push; o chip manual segue
+  cobrindo). Pendência na mesa segura (um card por PR). E repete as
   MESMAS travas do toReview: quem mexer lá, mexe aqui.
 - **Âncora por head** (`state/rereview-launched.json`, `reReviewLaunched`):
   cada estado do PR relança NO MÁXIMO uma vez, gravada ANTES de enfileirar.
-  Falha da revisão cai no retry/estacionamento de sempre; só head mais novo
-  reabre. A poda (PR fora do panorama) aceita o mesmo compromisso do
-  reconcileHiddenPRs: busca parcialmente falha pode custar UMA sessão repetida,
-  nunca postagem duplicada (o dedup por head cobre).
+  Falha da revisão cai no retry/estacionamento de sempre; head mais novo reabre,
+  e desde a v2.41.3 o REINÍCIO também (G7: `recoverInflight` poda a âncora das
+  keys que estavam inflight, senão app morto entre a âncora e a sessão matava o
+  round pra sempre naquele head). O relançamento carrega `knownHead` (G8): se o
+  fetch do headSha falhar no início da sessão, o head da âncora vale como
+  fallback, então a EXCEÇÃO à regra "sem sha degrada pro comportamento antigo" é
+  a re-revisão, que sempre tem head provado. A poda (PR fora do panorama) aceita
+  o mesmo compromisso do reconcileHiddenPRs: busca parcialmente falha pode
+  custar UMA sessão repetida, nunca postagem duplicada (o dedup por head cobre).
 - **`requested: true` no relançamento**: round 2 é continuação de um review meu,
   não clique avulso. A POSTAGEM continua atrás de shouldAutoApprove/
   shouldAutoReject (política da conta, card, contestação, cobertura) e do dedup

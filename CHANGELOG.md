@@ -9,6 +9,38 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.41.3
+
+Segunda onda da correção dos gaps da auditoria: o round 2 automático (lançado
+na v2.41.0) fica resiliente a reinício, falha de rede e flake do GitHub, e as
+pendências param de virar cards eternos.
+
+**Correções**
+- **Reinício não mata mais o round 2.** Fechar o app (ou o auto-update
+  reiniciar) com uma re-revisão na fila queimava a âncora daquele commit pra
+  sempre; agora o boot poda a âncora e o ciclo seguinte re-arma sozinho.
+- **Flake do GitHub não engole o round 2.** A re-revisão relançada carrega o
+  commit que a motivou; se a leitura do head falhar no início da sessão, esse
+  commit vale como fallback e o achado novo não morre mais como "já revisado".
+- **Queda de rede não rebaixa o round 2 a manual.** O relançamento pós-rede
+  usa o pedido original guardado (não re-resolve pela fila), então a revisão
+  continua automática e o card não mente "aguardando você" enquanto ela roda.
+- **Rascunho não dispara re-revisão automática.** Push de trabalho em
+  andamento não queima mais sessão nem posta review em cadência de robô; o
+  botão Re-revisar continua disponível pra rascunho.
+- **PR fechado sem merge resolve a pendência.** O card em "Precisa de você" de
+  um PR que o autor fechou é cancelado com aviso, em vez de ficar eterno.
+- **Aprovar à mão durante a análise resolve o card.** Review seu (aprovação ou
+  pedido de mudanças) no MESMO commit que a sessão leu agora reconcilia a
+  pendência, mesmo tendo sido submetido antes dela nascer. Comentário avulso
+  anterior não resolve nada (só ação decisiva conta).
+- **Review por clique ancora no commit analisado.** Se o autor empurrar commit
+  entre a análise e o seu clique, o review sai carimbado no código que a
+  análise leu, e o app percebe sozinho que o commit novo precisa de round novo.
+- **Bloqueio do filtro de linguagem ganhou saída.** Quando a redação gerada é
+  bloqueada, o card agora explica o motivo e aponta o chat do PR como caminho
+  pra redigir e postar; o toast idem.
+
 ## v2.41.2
 
 Primeira onda da correção dos 20 gaps da auditoria de 15/08: seis consertos de
