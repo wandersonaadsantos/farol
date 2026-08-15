@@ -9,6 +9,46 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.41.4
+
+Terceira e última onda da correção dos gaps da auditoria: ciclo de vida e
+higiene. Fecha a campanha dos 21 gaps mapeados em 15/08.
+
+**Correções**
+- **Atualizar com sessão de terminal aberta não mata mais a sessão.** O
+  auto-update passa a esperar sessões de terminal também (não só análises e
+  chat). Sessão de terminal esquecida há mais de 12 horas é tratada como
+  abandonada e deixa de segurar a atualização.
+- **Revisão que falhou de vez continua parada depois de reiniciar.** O
+  estacionamento (revisões aguardando sua ação após falha não-transitória ou
+  cancelamento) agora persiste em disco: reiniciar o app (inclusive pelo
+  auto-update) não relança mais sessões fadadas à mesma falha. A limpeza do
+  estacionamento respeita falha de rede (não solta nada quando a busca do
+  ciclo falhou) e PRs de organizações fora da sua configuração.
+- **Teto de gasto vale até pra fila que já estava andando.** O orçamento do
+  perfil é re-checado na boca de cada sessão: lote enfileirado antes do
+  estouro não atravessa mais o teto; os PRs barrados estacionam com um aviso
+  único por perfil e voltam por clique.
+- **Voltar horas depois e concluir a revisão no terminal funciona.** A
+  autorização de postagem da sessão de terminal vale enquanto a sessão viver
+  (com teto de 12 horas), em vez de expirar em 2 horas no meio do seu almoço.
+- **Duas contas pedindo o mesmo review: a conta capaz responde.** Se o mesmo
+  PR chega por duas contas e a primeira está silenciada ou sem login, a outra
+  assume, em vez de o PR ficar mudo.
+- **Clique duplo no Merge não gera mais alerta vermelho falso.** A segunda
+  chamada é recusada com aviso discreto, sem tocar o GitHub e sem sujar o log.
+- **Downloads antigos de atualização são limpos.** Diretórios de update com
+  mais de 24 horas são removidos a cada nova tentativa (o acúmulo chegava a
+  centenas de MB).
+- **Perfil de assinatura vale mesmo com chave de API no ambiente.** No
+  macOS/Linux o login shell podia re-injetar credenciais do seu perfil de
+  shell por cima do perfil configurado no app; agora as variáveis de
+  autenticação são limpas dentro do próprio shell, depois do profile. O
+  console de login também deixa de herdar credenciais soltas da máquina
+  (inclusive GH_TOKEN). Limitação documentada: sessão automática no
+  macOS/Linux com perfil de CHAVE ainda pode ser vencida por chave exportada
+  no profile do shell (a chave não vai pra linha de comando de propósito).
+
 ## v2.41.3
 
 Segunda onda da correção dos gaps da auditoria: o round 2 automático (lançado
