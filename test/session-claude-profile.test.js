@@ -74,7 +74,9 @@ test('buildSessionScriptMac: sem dir resolvido, não exporta CLAUDE_CONFIG_DIR',
   const engine = fakeEngine({});
   const script = buildSessionScriptMac(engine, '/pr-review x', 'id1', 'alice');
   assert.match(script, /# sem config dir proprio/);
-  assert.doesNotMatch(script, /CLAUDE_CONFIG_DIR/);
+  // desde o G21 o posix cita CLAUDE_CONFIG_DIR na linha de unset, então o que não pode
+  // existir é o EXPORT (unset sem export = padrão da máquina, que é o comportamento certo)
+  assert.doesNotMatch(script, /export CLAUDE_CONFIG_DIR/);
 });
 
 // engine "de mentira" v2: expõe resolveClaudeAuth (o que buildSessionScript passa a
@@ -102,7 +104,7 @@ test('buildSessionScriptMac: perfil apikey da conta, com baseUrl, escaping de as
   const script = buildSessionScriptMac(engine, '/pr-review x', 'id1', 'bob');
   assert.match(script, /export ANTHROPIC_API_KEY='sk-ant-abc'\\''/);
   assert.match(script, /export ANTHROPIC_BASE_URL='https:\/\/proxy\.x'/);
-  assert.doesNotMatch(script, /CLAUDE_CONFIG_DIR/);
+  assert.doesNotMatch(script, /export CLAUDE_CONFIG_DIR/); // ver nota do G21 acima
 });
 
 // Fix 2: sessão de terminal SÓ pra `claude login`, sem slash command, sem keys, sem
@@ -167,6 +169,7 @@ test('spawnLoginConsole (Windows): registra keys=[] e NÃO inclui GH_TOKEN no en
     assert.ok(!('GH_TOKEN' in capturedEnv), 'sessão de login NÃO deve ter GH_TOKEN no env do processo filho (não chama engine.ghEnv())');
     assert.equal(capturedEnv.GH_PAGER, 'cat');
     assert.equal(capturedEnv.PAGER, 'cat');
+    assert.equal(capturedEnv.CLAUDE_CONFIG_DIR, 'C:\\biud-trabalho');
 
     // fecha a sessão (equivalente a fechar a janela) e confirma que, com keys=[],
     // não dispara checkNow nem unsee - reforço específico da sessão de login, além
@@ -214,7 +217,7 @@ test('buildLoginScriptMac: sem dir, não exporta CLAUDE_CONFIG_DIR', () => {
   const engine = fakeEngine({});
   const script = buildLoginScriptMac(engine, '', 'id1');
   assert.match(script, /# sem config dir proprio/);
-  assert.doesNotMatch(script, /CLAUDE_CONFIG_DIR/);
+  assert.doesNotMatch(script, /export CLAUDE_CONFIG_DIR/); // ver nota do G21 acima
 });
 
 // bash pode não estar no PATH (ex.: Windows sem Git Bash/WSL configurado no PATH) - checa

@@ -247,10 +247,15 @@ test('loginConsoleEnv: sem dir (padrão da máquina) limpa mesmo assim e não se
 });
 
 test('loginConsoleEnv: mantém o que a sessão de login precisa e segue sem GH_TOKEN', () => {
-  const env = loginConsoleEnv('C:\\perfil-assinatura');
-  assert.equal(env.GH_PAGER, 'cat');
-  assert.equal(env.PAGER, 'cat');
-  assert.equal('GH_TOKEN' in env, false, 'essa sessão não mexe no gh');
+  // com GH_TOKEN sujo no ambiente: sem o helper, este teste passava só porque a máquina que
+  // roda a suíte não tem a var setada, e a invariante "essa sessão não mexe no gh" ficava
+  // sendo afirmada pelo ambiente, não pelo código.
+  comEnvDaMaquina({ GH_TOKEN: 'tok-da-maquina' }, () => {
+    const env = loginConsoleEnv('C:\\perfil-assinatura');
+    assert.equal(env.GH_PAGER, 'cat');
+    assert.equal(env.PAGER, 'cat');
+    assert.equal('GH_TOKEN' in env, false, 'essa sessão não mexe no gh, nem com o token da máquina no ambiente');
+  });
 });
 
 test('ghEnv: injeta CLAUDE_CONFIG_DIR do perfil da conta', () => {

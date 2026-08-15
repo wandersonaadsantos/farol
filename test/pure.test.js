@@ -290,11 +290,14 @@ test('claudeAuthShellLines: kind dir, Windows', () => {
 
 // no posix a lista abre com o unset das vars de auth da máquina (G21, ver POSIX_AUTH_UNSET
 // em lib/parse.js): o profile do usuário é sourceado DEPOIS do env montado, então limpar só
-// o env não basta. A ordem é contrato: o perfil resolvido vem sempre DEPOIS do unset.
+// o env não basta. A ordem é contrato: o perfil resolvido vem sempre DEPOIS do unset. As
+// vars são as MESMAS quatro que applyClaudeAuthEnv apaga, senão o shell cobriria menos que o env.
+const UNSET_POSIX = 'unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL CLAUDE_CONFIG_DIR';
+
 test('claudeAuthShellLines: kind dir, macOS/posix, com escaping de aspa simples e unset na frente', () => {
   const lines = claudeAuthShellLines({ kind: 'dir', dir: "/tmp/x' ; touch /tmp/PROOF #" }, false);
-  assert.deepEqual(lines, ['unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN', `export CLAUDE_CONFIG_DIR='/tmp/x'\\'' ; touch /tmp/PROOF #'`]);
-  assert.deepEqual(claudeAuthShellLines({ kind: 'dir', dir: '' }, false), ['unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN', '# sem config dir proprio']);
+  assert.deepEqual(lines, [UNSET_POSIX, `export CLAUDE_CONFIG_DIR='/tmp/x'\\'' ; touch /tmp/PROOF #'`]);
+  assert.deepEqual(claudeAuthShellLines({ kind: 'dir', dir: '' }, false), [UNSET_POSIX, '# sem config dir proprio']);
 });
 
 test('claudeAuthShellLines: kind apikey, Windows, com e sem baseUrl', () => {
@@ -311,5 +314,5 @@ test('claudeAuthShellLines: kind apikey, Windows, com e sem baseUrl', () => {
 test('claudeAuthShellLines: kind apikey, macOS/posix, com escaping de aspa simples na chave', () => {
   const lines = claudeAuthShellLines({ kind: 'apikey', apiKey: "sk-ant-123' ; touch /tmp/PROOF #", baseUrl: '' }, false);
   // a chave do próprio perfil é setada DEPOIS do unset, senão o unset a apagaria junto
-  assert.deepEqual(lines, ['unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN', `export ANTHROPIC_API_KEY='sk-ant-123'\\'' ; touch /tmp/PROOF #'`, '# sem base url propria']);
+  assert.deepEqual(lines, [UNSET_POSIX, `export ANTHROPIC_API_KEY='sk-ant-123'\\'' ; touch /tmp/PROOF #'`, '# sem base url propria']);
 });
