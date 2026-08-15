@@ -311,3 +311,34 @@ test('ruleset devolve blocked:rule e marca o repo (admin não fura ruleset)', as
   assert.equal(r.blocked, 'rule');
   assert.equal(engine.adminBlockedRepos['acme/app'], true, 'a UI para de oferecer admin nesse repo');
 });
+
+/* ---------- G19: guarda de merge em andamento (double-click) ---------- */
+
+test('mergeSelfPR: segunda chamada concorrente da mesma key é recusada sem tocar o gh (G19)', async () => {
+  let resolveMerge;
+  let mergeCalls = 0;
+  runImpl = (cmd, args) => {
+    const sub = args.join(' ');
+    if (sub.startsWith('pr view')) return Promise.resolve({ ok: true, stdout: prView(), stderr: '' });
+    if (sub.startsWith('pr merge')) {
+      mergeCalls++;
+      return new Promise(resolve => { resolveMerge = resolve; }); // fica pendente de propósito
+    }
+    return Promise.resolve({ ok: true, stdout: '', stderr: '' });
+  };
+  const engine = novoEngine();
+
+  const p1 = engine.mergeSelfPR(URL_PR); // dispara e fica pendurada no pr merge
+  await new Promise(r => setImmediate(r)); // deixa a 1a chamada avançar até o merge pendente
+  const chamadasAntes = chamadas.length;
+
+  const r2 = await engine.mergeSelfPR(URL_PR);
+  assert.equal(r2.ok, false);
+  assert.equal(r2.error, 'merge já em andamento');
+  assert.equal(chamadas.length, chamadasAntes, 'a segunda chamada não tocou o gh de novo');
+  assert.equal(mergeCalls, 1, 'só a primeira chamada tentou o pr merge');
+
+  resolveMerge({ ok: true, stdout: '', stderr: '' });
+  const r1 = await p1;
+  assert.equal(r1.ok, true, 'a primeira chamada segue e conclui normalmente');
+});
