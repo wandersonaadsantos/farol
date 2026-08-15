@@ -16,6 +16,7 @@ const { Engine } = require('../server.js');
 const { startServer } = require('../lib/http-server');
 const { LOG_FILE } = require('../lib/paths');
 const { normalizeReviewPayload } = require('../lib/engine/public-review');
+const { reviewCaps } = require('../lib/engine/decision');
 
 let server, base, engine;
 
@@ -212,6 +213,55 @@ test('limite HTTP aceita todo payload que normalizeReviewPayload declara válido
     engine.revokeReviewPostCapability(cap);
     engine.postReview = originalPostReview;
     engine.reconcilePending = originalReconcile;
+  }
+});
+
+/* ---------- G17: a cap da sessão de terminal vive enquanto a sessão dona viver ----------
+   O TTL existe pra cap ÓRFÃ (sessão morta que deixou token pra trás). Sessão de terminal
+   é humana: o usuário abre a janela, sai pra almoçar e volta horas depois, e o review dele
+   não pode ser recusado por prazo. A isenção é só de terminal: sessão headless (mode 'auto')
+   também mora em activeReviews durante a revisão, e chat nem entra lá. */
+
+test('cap de terminal NÃO expira enquanto a sessão dona estiver viva', () => {
+  const token = engine.createReviewPostCapability(['acme/app#80'], 'eu', 'terminal', 't9');
+  engine.activeReviews.set('t9', { id: 't9', keys: ['acme/app#80'], mode: 'terminal', startedAt: Date.now() });
+  try {
+    engine.reviewPostCaps.get(token).expiresAt = Date.now() - 1000;
+    reviewCaps(engine);
+    assert.equal(engine.reviewPostCaps.has(token), true);
+  } finally {
+    engine.activeReviews.delete('t9');
+    engine.revokeReviewPostCapability(token);
+  }
+});
+
+test('cap expirada de sessão morta é podada normalmente', () => {
+  const token = engine.createReviewPostCapability(['acme/app#81'], 'eu', 'terminal', 't10');
+  try {
+    engine.reviewPostCaps.get(token).expiresAt = Date.now() - 1000;
+    reviewCaps(engine);
+    assert.equal(engine.reviewPostCaps.has(token), false);
+  } finally {
+    engine.revokeReviewPostCapability(token);
+  }
+});
+
+test('a isenção é só de terminal: sessão viva em outro modo não gera cap eterna', () => {
+  const auto = engine.createReviewPostCapability(['acme/app#82'], 'eu', 'auto', 'a11');
+  const chat = engine.createReviewPostCapability(['acme/app#83'], 'eu', 'chat', 'c12');
+  engine.activeReviews.set('a11', { id: 'a11', keys: ['acme/app#82'], mode: 'auto', startedAt: Date.now() });
+  engine.activeReviews.set('c12', { id: 'c12', keys: ['acme/app#83'], mode: 'chat', startedAt: Date.now() });
+  try {
+    engine.reviewPostCaps.get(auto).expiresAt = Date.now() - 1000;
+    engine.reviewPostCaps.get(chat).expiresAt = Date.now() - 1000;
+    reviewCaps(engine);
+    assert.equal(engine.reviewPostCaps.has(auto), false, 'revisão headless viva não isenta a cap do TTL');
+    assert.equal(engine.reviewPostCaps.has(chat), false, 'sessão de chat viva não isenta a cap do TTL');
+  } finally {
+    engine.activeReviews.delete('a11');
+    engine.activeReviews.delete('c12');
+    engine.revokeReviewPostCapability(auto);
+    engine.revokeReviewPostCapability(chat);
   }
 });
 
