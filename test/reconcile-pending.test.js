@@ -25,11 +25,12 @@ after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: 
 
 const CRIADA = Date.parse('2026-08-03T20:33:08Z');
 
-function pendencia(key, at = CRIADA) {
+function pendencia(key, at = CRIADA, headSha = '') {
   const [repo, number] = key.split('#');
   return {
     id: `d-${key}`, createdAt: at, status: 'pending', verdict: 'request_changes',
     key, pr: { repo, number: Number(number), url: `https://github.com/${repo}/pull/${number}`, title: 't', author: 'alex' },
+    headSha,
     reasons: ['algo a conferir'], payloads: { approve: { event: 'APPROVE', body: 'ok' } }
   };
 }
@@ -173,6 +174,46 @@ test('falha ao confirmar o estado do PR (null) mantém a pendência na fila de r
   const n = await e.reconcilePending();
   assert.equal(n, 0);
   assert.equal(e.decisions.pending.length, 1, 'sem prova de merge, o card não desaparece');
+});
+
+// G12: a trava de horário sozinha erra num caso real e frequente: você aprova o PR à
+// mão ENQUANTO a sessão ainda está analisando, então o review sai ANTES de a pendência
+// nascer e o card fica preso pra sempre. O head que a sessão leu (item.headSha) é a
+// prova de que aquele review fala do MESMO código: com commit igual, resolve. Review
+// antigo em head ANTIGO segue de fora, que é o caso do re-request.
+test('review meu no MESMO head, submetido ANTES da pendência nascer, resolve o card', async () => {
+  const HEAD = 'd'.repeat(40);
+  const e = engineCom([pendencia('o/r#60', CRIADA, HEAD)], {
+    'o/r#60': [{ state: 'APPROVED', at: CRIADA - 60 * 1000, commit: HEAD }]
+  });
+  const n = await e.reconcilePending();
+  assert.equal(n, 1, 'uma pendência reconciliada');
+  assert.equal(e.decisions.pending.length, 0, 'saiu de Precisa de você');
+  const h = e.decisions.resolved[0];
+  assert.equal(h.key, 'o/r#60');
+  assert.equal(h.status, 'already_reviewed');
+  assert.equal(h.action, 'approve');
+});
+
+test('review antigo em OUTRO head continua NÃO resolvendo (caso re-request preservado)', async () => {
+  const e = engineCom([pendencia('o/r#61', CRIADA, 'd'.repeat(40))], {
+    'o/r#61': [{ state: 'APPROVED', at: CRIADA - 60 * 1000, commit: 'e'.repeat(40) }]
+  });
+  const n = await e.reconcilePending();
+  assert.equal(n, 0, 'nada reconciliado');
+  assert.equal(e.decisions.pending.length, 1, 'a nova rodada continua na sua mesa');
+});
+
+// (b) do fix: sem o headSha gravado no item, o filtro acima nunca teria com que comparar.
+test('recordDecision carimba no item o head que a sessão leu', () => {
+  const e = new Engine();
+  e.decisions = { pending: [], resolved: [] };
+  e.saveDecisions = () => { };
+  const pr = { repo: 'o/r', number: 62, url: 'u', title: 't', author: 'alex', key: 'o/r#62' };
+  const item = e.recordDecision(pr, { verdict: 'approve', headSha: 'f'.repeat(40) }, { status: 'pending' });
+  assert.equal(item.headSha, 'f'.repeat(40));
+  const semHead = e.recordDecision(pr, { verdict: 'approve' }, { status: 'pending' });
+  assert.equal(semHead.headSha, '', 'head desconhecido vira string vazia, nunca undefined');
 });
 
 test('myReviewStates continua derivando do mesmo lugar (contrato do dedup do clique)', async () => {
