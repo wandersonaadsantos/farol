@@ -339,6 +339,12 @@ test('runOneHeadless re-checa o orçamento antes de abrir a sessão (G16)', asyn
   e.budgetBlockedFor = () => ({ id: 'p1', label: 'P1' });
   e.runHeadlessReview = async () => { throw new Error('runHeadlessReview não deveria rodar: o orçamento já tinha estourado'); };
   e.headlessBusyAccounts.set('me', 1); // slot ocupado pelo escalonador antes de chamar runOneHeadless
+  // estado deixado por uma falha transitória anterior: entrada viva em retryAfterNet
+  // e o PR já marcado como visto (o mesmo estado que os 3 sites irmãos herdam do
+  // catch quando chegam no ramo de estacionamento)
+  e.retryAfterNet.set(PR.key, { tries: 1, pr: { ...PR } });
+  e.seen.add(PR.key);
+  e.queue = [];
 
   const toasts = [];
   e.on('toast', ev => toasts.push(ev));
@@ -346,6 +352,9 @@ test('runOneHeadless re-checa o orçamento antes de abrir a sessão (G16)', asyn
   await e.runOneHeadless({ ...PR }, 'me');
 
   assert.equal(e.autoReviewParked.has(PR.key), true, 'PR entra em autoReviewParked (estaciona, não descarta)');
+  assert.equal(e.retryAfterNet.has(PR.key), false, 'C1: retryAfterNet é limpo, senão a entrada órfã desfaz o estacionamento quando o orçamento liberar');
+  assert.equal(e.queue.some(p => p.key === PR.key), true, 'I1: o PR volta pra fila visível, como os outros 3 sites de estacionamento');
+  assert.equal(e.seen.has(PR.key), false, 'I1: volta a não visto, o card não pode sumir da fila pra sempre');
   assert.equal(e.headlessBusyAccounts.has('me'), false, 'devolve o slot ao escalonador');
   assert.equal(toasts.filter(t => t.kind === 'info').length, 1, 'um único toast informativo');
 });
