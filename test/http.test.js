@@ -265,6 +265,56 @@ test('a isenção é só de terminal: sessão viva em outro modo não gera cap e
   }
 });
 
+/* Teto absoluto da isenção: o terminal FANTASMA (janela que morreu sem o trap EXIT rodar,
+   pendência conhecida do macOS) fica pra sempre em activeReviews, e sem teto a cap dele
+   valeria enquanto o engine vivesse. 12h cobre almoço, reunião e volta no dia seguinte de
+   manhã cedo; não cobre credencial esquecida viva por semanas. */
+
+test('cap de terminal com dona viva É podada depois do teto absoluto de 12h', () => {
+  const token = engine.createReviewPostCapability(['acme/app#84'], 'eu', 'terminal', 't13');
+  engine.activeReviews.set('t13', { id: 't13', keys: ['acme/app#84'], mode: 'terminal', startedAt: Date.now() });
+  try {
+    const cap = engine.reviewPostCaps.get(token);
+    cap.createdAt = Date.now() - 13 * 60 * 60 * 1000;
+    cap.expiresAt = cap.createdAt + 2 * 60 * 60 * 1000;
+    reviewCaps(engine);
+    assert.equal(engine.reviewPostCaps.has(token), false, 'sessão fantasma não segura credencial pra sempre');
+  } finally {
+    engine.activeReviews.delete('t13');
+    engine.revokeReviewPostCapability(token);
+  }
+});
+
+test('cap de terminal com dona viva e 3h de vida segue valendo (dentro do teto)', () => {
+  const token = engine.createReviewPostCapability(['acme/app#85'], 'eu', 'terminal', 't14');
+  engine.activeReviews.set('t14', { id: 't14', keys: ['acme/app#85'], mode: 'terminal', startedAt: Date.now() });
+  try {
+    const cap = engine.reviewPostCaps.get(token);
+    cap.createdAt = Date.now() - 3 * 60 * 60 * 1000;
+    cap.expiresAt = cap.createdAt + 2 * 60 * 60 * 1000; // TTL de 2h já venceu, a isenção é que segura
+    reviewCaps(engine);
+    assert.equal(engine.reviewPostCaps.has(token), true);
+  } finally {
+    engine.activeReviews.delete('t14');
+    engine.revokeReviewPostCapability(token);
+  }
+});
+
+test('cap sem createdAt (formato antigo em memória) não ganha isenção: falha fechado', () => {
+  const token = engine.createReviewPostCapability(['acme/app#86'], 'eu', 'terminal', 't15');
+  engine.activeReviews.set('t15', { id: 't15', keys: ['acme/app#86'], mode: 'terminal', startedAt: Date.now() });
+  try {
+    const cap = engine.reviewPostCaps.get(token);
+    delete cap.createdAt;
+    cap.expiresAt = Date.now() - 1000;
+    reviewCaps(engine);
+    assert.equal(engine.reviewPostCaps.has(token), false, 'sem idade provada não há isenção');
+  } finally {
+    engine.activeReviews.delete('t15');
+    engine.revokeReviewPostCapability(token);
+  }
+});
+
 /* ---------- ocultar um PR de "Meus PRs" (mesmo molde do /api/self-review/clear) ---------- */
 
 test('POST /api/pr/hide e /api/pr/unhide mexem no estado e aparecem no snapshot', async () => {
