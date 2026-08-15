@@ -65,3 +65,25 @@ test('decide(): ramo dedup com a pendência já resolvida por fora não duplica 
   assert.deepEqual(engine.decisions.pending.map(d => d.id), ['nova'], 'a pendência nova sobrevive ao dedup');
   assert.equal(engine.decisions.resolved.filter(d => d.id === 'alvo').length, 1, 'uma única entrada de alvo no histórico');
 });
+
+test('decide(): bloqueio internal_language grava blockedReason persistente na pendência', async () => {
+  const engine = new Engine();
+  engine.headSha = async () => 'abc123';
+  engine.myReviewStates = async () => [];
+  let saved = 0, pushed = 0;
+  engine.saveDecisions = () => { saved++; };
+  engine.writeMemory = () => { };
+  engine.pushState = () => { pushed++; };
+  const alvo = pendencia('alvo', 'acme/repo#2');
+  engine.decisions.pending = [alvo];
+  engine.postReview = async () => ({ ok: false, blocked: 'internal_language', error: 'a redação do review precisa ser ajustada antes de publicar' });
+  const r = await engine.decide('alvo', 'approve');
+  assert.equal(r.ok, false);
+  assert.equal(r.blocked, 'internal_language');
+  assert.deepEqual(engine.decisions.pending.map(d => d.id), ['alvo'], 'a pendência continua na lista, nada foi engolido');
+  const item = engine.decisions.pending.find(d => d.id === 'alvo');
+  assert.equal(typeof item.blockedReason, 'string');
+  assert.ok(item.blockedReason.length > 0, 'blockedReason contém a orientação');
+  assert.ok(saved > 0, 'saveDecisions foi chamado pra persistir o motivo');
+  assert.ok(pushed > 0, 'pushState foi chamado pra a UI refletir o motivo');
+});
