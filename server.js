@@ -206,7 +206,13 @@ class Engine extends EventEmitter {
     this.retryAfterNet = new Map();  // key do PR -> { tries, pr } da re-revisão pós-falha transitória
     // G15: estacionamento persistido; era memória pura e cada reinício (inclusive
     // o do próprio auto-update) relançava sessões fadadas à mesma falha conhecida
-    this.autoReviewParked = new Set(readJson(path.join(STATE_DIR, 'auto-review-parked.json'), [], warn)); // keys que falharam sem ser rede (ou foram canceladas): aguardam ação manual, não relançam sozinhas
+    // o Array.isArray é o guarda-corpo do formato: readJson só protege de JSON
+    // inválido, e `{}` é JSON VÁLIDO que faz `new Set` lançar (objeto não é
+    // iterável), derrubando o boot inteiro por causa de um arquivo de estado
+    // corrompido (gravação interrompida, edição à mão). Formato errado degrada
+    // pra estacionamento vazio, que é recuperável.
+    const parkedSalvo = readJson(path.join(STATE_DIR, 'auto-review-parked.json'), [], warn);
+    this.autoReviewParked = new Set(Array.isArray(parkedSalvo) ? parkedSalvo : []); // keys que falharam sem ser rede (ou foram canceladas): aguardam ação manual, não relançam sozinhas
     this.budgetWarned = new Set(); // ids de perfil apikey já avisados de orçamento estourado, enquanto o estouro persistir (evita repetir o toast a cada checagem)
     this.chats = readJson(CHATS_FILE, {}, warn);
     for (const k of Object.keys(this.chats)) {
@@ -732,14 +738,19 @@ class Engine extends EventEmitter {
       // monitoredOwners) nunca mais vai responder, então nunca entraria em ownersOk;
       // sem tratar este caso à parte a key ficaria presa pra sempre e o arquivo só
       // cresceria, contradizendo o propósito da própria poda. Presença na config não
-      // depende de rede, então esta parte independe de ownersOk.
+      // depende de rede, então esta parte dispensa ownersOk. MAS ela dispensa só o
+      // gate de rede, nunca a prova de que o PR sumiu: a fila mine
+      // (--review-requested=@me) resolve por TOKEN, não por owner, então PR de org
+      // não monitorada entra na fila normalmente e o estacionamento dele é legítimo.
+      // Podar incondicionalmente devolvia esse PR pro toReview a cada ciclo, que
+      // relançava a sessão fadada à mesma falha, que estacionava de novo: loop pago
+      // de 30 em 30 segundos, o próprio G15 reaberto (revisão final da onda 3).
       {
         const abertosParked = new Set(panorama.map(p => p.key));
         let parkedMudou = false;
         for (const k of [...this.autoReviewParked]) {
           const owner = String(k.split('/')[0] || '').toLowerCase();
-          if (!monitoredOwners.has(owner)) { this.autoReviewParked.delete(k); parkedMudou = true; continue; }
-          if (!ownersOk.has(owner)) continue;
+          if (monitoredOwners.has(owner) && !ownersOk.has(owner)) continue;
           if (!abertosParked.has(k)) { this.autoReviewParked.delete(k); parkedMudou = true; }
         }
         if (parkedMudou) this.saveAutoReviewParked();

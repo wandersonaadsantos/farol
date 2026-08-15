@@ -402,6 +402,17 @@ function myPRsEmptyMsg(vs, { escopoTodas = true, ocultos = 0 } = {}) {
   return `Você não tem PRs abertos ${escopoTodas ? 'nas organizações monitoradas' : 'nesta conta'}.`;
 }
 
+// G19 (I3): a guarda de merge em andamento recusa a SEGUNDA metade de um clique
+// duplo. Nada falhou ali: o primeiro merge seguiu em frente e o toast vermelho
+// mentia, aparecendo colado no "merge realizado com sucesso" do mesmo clique.
+// Recusa benigna informa, nao alarma. Fica aqui, e nao inline no handler, porque
+// os tres botoes de merge (normal, auto, admin) passam pela MESMA guarda do
+// mergeSelfPR: um so lugar decide a cor.
+const MERGE_EM_ANDAMENTO = 'merge já em andamento';
+function mergeToastKind(erro) {
+  return String(erro || '') === MERGE_EM_ANDAMENTO ? 'info' : 'error';
+}
+
 /* ---------- folhas com relogio: a hora entra por parametro, com default, pra dar pra testar ---------- */
 
 // `agora` entra por parametro (com default) so pra dar pra testar: todos os chamadores
@@ -1126,6 +1137,7 @@ if (typeof module !== 'undefined' && module.exports) {
     fmtStamp, fmtWhenDay, resolvedRow,
     fmtLogStamp, logGroupLine, logReadingLine, logSummaryLines, logTailLines, logSummaryShort,
     opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible, expiredSessionMarks, listViewState,
-    plural, splitHiddenPRs, effectiveHidden, hiddenFootLabel, myPRsEmptyMsg
+    plural, splitHiddenPRs, effectiveHidden, hiddenFootLabel, myPRsEmptyMsg,
+    mergeToastKind, MERGE_EM_ANDAMENTO
   };
 }

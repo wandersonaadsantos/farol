@@ -1376,6 +1376,32 @@ test('myPRsEmptyMsg: chamada sem opcoes nao lanca e cai no vazio de sempre', () 
   assert.match(P.myPRsEmptyMsg('empty'), /organizações monitoradas/);
 });
 
+/* ---------- G19 (I3): a recusa da guarda de merge nao e falha ---------- */
+
+test('mergeToastKind: a recusa da guarda de double-click sai como aviso, nao como erro', () => {
+  // o primeiro merge seguiu em frente; vermelho ali mente sobre o que aconteceu
+  assert.equal(P.mergeToastKind(P.MERGE_EM_ANDAMENTO), 'info');
+  assert.equal(P.mergeToastKind('merge já em andamento'), 'info');
+});
+
+test('mergeToastKind: qualquer outra falha continua vermelha', () => {
+  assert.equal(P.mergeToastKind('o PR recebeu commit depois da sua análise'), 'error');
+  assert.equal(P.mergeToastKind(''), 'error');
+  assert.equal(P.mergeToastKind(undefined), 'error', 'sem mensagem, o fallback do handler e falha de verdade');
+});
+
+test('os tres botoes de merge da UI usam mergeToastKind, nenhum ficou com toast fixo', () => {
+  // os tres (normal, auto, admin) passam pela MESMA guarda do mergeSelfPR: se um
+  // deles voltar a chamar toast('error', ...) direto, o clique duplo dele volta a
+  // piscar vermelho e so este teste avisa
+  const fs = require('node:fs');
+  const APP = fs.readFileSync(path.join(__dirname, '..', 'ui', 'app.js'), 'utf8');
+  const fixos = [...APP.matchAll(/toast\('error',\s*esc\(r\?\.error \|\| 'não consegui [^']*merge[^']*'\)\)/g)];
+  assert.deepEqual(fixos.map(m => m[0]), [], 'toast de merge com cor fixa ignora a recusa benigna da guarda');
+  assert.equal([...APP.matchAll(/mergeToastKind\(r\?\.error\)/g)].length, 3,
+    'os tres handlers de merge roteiam a cor pelo helper');
+});
+
 /* ---------- consumo: linha do tempo empilhada (area chart) ---------- */
 
 test('usageStackLayers: empilha 2 camadas, area soma os dois valores no topo', () => {

@@ -429,3 +429,33 @@ test('runOneHeadless re-checa o orçamento antes de abrir a sessão (G16)', asyn
   assert.equal(e.headlessBusyAccounts.has('me'), false, 'devolve o slot ao escalonador');
   assert.equal(toasts.filter(t => t.kind === 'info').length, 1, 'um único toast informativo');
 });
+
+// M3 (revisão final da onda 3): o estouro no meio de um LOTE estaciona PR por PR, e
+// cada um emitia o próprio toast. Lote de 8 PRs = 8 toasts empilhados dizendo a mesma
+// coisa sobre o mesmo perfil, no mesmo segundo. O aviso único é o padrão que o gate de
+// enfileiramento já usa (budgetWarned, reconciliado no topo do check() quando o perfil
+// destrava), e o estacionamento passa a compartilhar o MESMO Set: uma janela de
+// bloqueio, um aviso, venha ele da fila ou da boca da sessão.
+test('runOneHeadless: orçamento estourado avisa UMA vez por perfil, não por PR do lote (M3)', async () => {
+  const e = checkEngine();
+  e.tokens = { me: 'tok-me' };
+  e.prState = async () => 'OPEN';
+  e.budgetBlockedFor = () => ({ id: 'p1', label: 'P1' });
+  e.runHeadlessReview = async () => { throw new Error('não deveria abrir sessão nenhuma'); };
+
+  const toasts = [];
+  e.on('toast', ev => toasts.push(ev));
+
+  const lote = [1, 2, 3].map(n => ({ ...PR, key: `acme/repo#${n}`, url: `https://github.com/acme/repo/pull/${n}` }));
+  for (const pr of lote) {
+    e.headlessBusyAccounts.set('me', 1);
+    await e.runOneHeadless(pr, 'me');
+  }
+
+  for (const pr of lote) {
+    assert.equal(e.autoReviewParked.has(pr.key), true, 'todos os PRs do lote estacionam, o aviso é que não se repete');
+  }
+  assert.equal(toasts.filter(t => t.kind === 'info').length, 1,
+    'três PRs barrados pelo mesmo estouro, um aviso só');
+  assert.equal(e.budgetWarned.has('p1'), true, 'o aviso fica registrado na mesma janela de bloqueio do gate de enfileiramento');
+});

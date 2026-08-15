@@ -486,12 +486,16 @@ function checkEngineG15() {
   e.saveSeen = () => { };
   // roteiro por owner: null = a busca DAQUELE owner falhou neste ciclo
   e.panoramaByOwner = { acme: [], globex: [] };
+  // roteiro da fila mine (--review-requested=@me): NÃO é filtrada por owner, então
+  // pode devolver PR de org que não está em nenhum acc.owners (é assim na vida real)
+  e.mineList = [];
   e.searchPRs = async (extraArgs) => {
     if (extraArgs[0] === '--owner') {
       const lista = e.panoramaByOwner[extraArgs[1]];
       return lista === null ? null : lista.map(p => ({ ...p }));
     }
-    return []; // --review-requested=@me e --reviewed-by=@me: sem PR, sem falha
+    if (extraArgs[0] === '--review-requested=@me') return e.mineList.map(p => ({ ...p }));
+    return []; // --reviewed-by=@me: sem PR, sem falha
   };
   // baseline já existente: a 1a checagem da vida não pode mexer no roteiro do teste
   fs.mkdirSync(STATE_DIR_G15, { recursive: true });
@@ -540,7 +544,98 @@ test('check() poda key de owner que SAIU da config, mesmo com todas as buscas fa
   e.panoramaByOwner = { acme: null, globex: null }; // flake total nos owners monitorados
   await e.check('test');
   assert.equal(e.autoReviewParked.has('desmonitorado/repo#9'), false,
-    'owner fora da config é podado de primeira: presença na config não depende de rede');
+    'owner fora da config é podado de primeira: PR fora do panorama, ninguém pra reclamar');
+});
+
+// Revisão final da onda 3 (C1): a exceção acima era INCONDICIONAL, e é aí que ela
+// des-estacionava PR vivo. A fila mine (--review-requested=@me) resolve por token,
+// NÃO por owner: PR de uma org que não está em nenhum acc.owners entra na fila
+// normalmente e pode ser revisado, cancelado e estacionado como qualquer outro.
+// Podar a key dele todo ciclo devolvia o PR pro toReview, que relançava a sessão
+// fadada à mesma falha, que estacionava de novo: loop pago a cada 30s, exatamente
+// o G15 reaberto. A exceção só vale quando a key TAMBÉM sumiu do panorama do
+// ciclo (aí o PR fechou de verdade, e o estacionamento não guarda nada).
+test('check() NÃO poda key de owner fora da config quando o PR segue ABERTO na fila mine (C1)', async () => {
+  const e = checkEngineG15();
+  const prForaDaConfig = {
+    key: 'desmonitorado/repo#9',
+    url: 'https://github.com/desmonitorado/repo/pull/9',
+    updatedAt: new Date().toISOString(),
+  };
+  e.autoReviewParked.add(prForaDaConfig.key);
+  e.mineList = [prForaDaConfig]; // review pedido a mim: entra na fila mesmo sem owner monitorado
+  await e.check('test');
+  assert.equal(e.autoReviewParked.has(prForaDaConfig.key), true,
+    'PR aberto de owner não monitorado continua estacionado: poda aqui vira relançamento em loop');
+  await e.check('test');
+  assert.equal(e.autoReviewParked.has(prForaDaConfig.key), true,
+    'e continua estacionado ciclo após ciclo, não só no primeiro');
+});
+
+test('check() poda key de owner fora da config quando o PR FECHOU (sumiu da fila mine) (C1)', async () => {
+  const e = checkEngineG15();
+  e.autoReviewParked.add('desmonitorado/repo#9');
+  e.mineList = []; // o PR fechou: não vem mais em lugar nenhum do panorama
+  await e.check('test');
+  assert.equal(e.autoReviewParked.has('desmonitorado/repo#9'), false,
+    'PR fechado de owner fora da config sai do estacionamento: o arquivo não pode só crescer');
+});
+
+/* ---------- M2: o lote grava o estacionamento uma vez, não uma vez por PR ---------- */
+
+function engineLaunch() {
+  const e = engineBase();
+  e.token = 'tok-eu';
+  e.refreshTokens = async () => true;
+  e.enqueueHeadless = () => { };
+  e.pushState = () => { };
+  e.markSeen = () => { };
+  e.saveSeen = () => { };
+  return e;
+}
+
+test('launchReview grava o estacionamento UMA vez por lote (M2)', async () => {
+  const e = engineLaunch();
+  const prs = ['o/r#1', 'o/r#2', 'o/r#3'].map(k => prDe(k));
+  e.queue = prs.map(p => ({ ...p }));
+  for (const p of prs) e.autoReviewParked.add(p.key);
+  let gravacoes = 0;
+  e.saveAutoReviewParked = () => { gravacoes++; };
+
+  const r = await e.launchReview(prs.map(p => p.url), 'auto');
+
+  assert.equal(r.ok, true);
+  assert.equal(gravacoes, 1, 'três PRs no lote, uma gravação: as duas primeiras eram estado intermediário que ninguém lê');
+  for (const p of prs) assert.equal(e.autoReviewParked.has(p.key), false, 'os três saíram do estacionamento');
+});
+
+test('launchReview não grava nada quando nenhum PR do lote estava estacionado (M2)', async () => {
+  const e = engineLaunch();
+  const prs = ['o/r#4', 'o/r#5'].map(k => prDe(k));
+  e.queue = prs.map(p => ({ ...p }));
+  let gravacoes = 0;
+  e.saveAutoReviewParked = () => { gravacoes++; };
+
+  await e.launchReview(prs.map(p => p.url), 'auto');
+
+  assert.equal(gravacoes, 0, 'nada mudou no estacionamento: gravar seria escrita à toa a cada lançamento');
+});
+
+/* ---------- M1: arquivo de estacionamento malformado não derruba o boot ---------- */
+// readJson só protege de JSON inválido; `{}` é JSON válido e `new Set({})` lança
+// (objeto não é iterável), matando o construtor da Engine inteiro. Estado corrompido
+// (disco cheio no meio de uma gravação, edição à mão) tem que degradar pra vazio.
+test('boot com auto-review-parked.json malformado não lança (M1)', () => {
+  const arquivo = path.join(STATE_DIR_G15, 'auto-review-parked.json');
+  fs.mkdirSync(STATE_DIR_G15, { recursive: true });
+  fs.writeFileSync(arquivo, '{}');
+  try {
+    let e;
+    assert.doesNotThrow(() => { e = new Engine(); }, 'arquivo malformado não pode impedir o app de subir');
+    assert.equal(e.autoReviewParked.size, 0, 'degrada pra estacionamento vazio');
+  } finally {
+    try { fs.unlinkSync(arquivo); } catch { }
+  }
 });
 
 test('check() preserva PR quando prState retorna null (sem token)', async () => {

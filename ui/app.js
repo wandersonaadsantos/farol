@@ -2470,7 +2470,7 @@ $('#myPRs').addEventListener('click', (e) => {
           toast('info', 'A branch de destino tem proteção. Escolha: Auto-merge (espera os requisitos) ou Merge (admin).', 6000);
           return;
         }
-        toast('error', esc(r?.error || 'não consegui mergear'));
+        toast(mergeToastKind(r?.error), esc(r?.error || 'não consegui mergear'));
         mrg.disabled = false; mrg.textContent = 'Merge';
       });
     });
@@ -2487,7 +2487,7 @@ $('#myPRs').addEventListener('click', (e) => {
         // servidor já mostrou o toast acionável). Mantém as opções visíveis.
         autoUnavailableKeys.set(key, STATE.lastCheckAt || 0); mergeBlockedByPolicy.add(key); renderMyPRs(); return;
       }
-      toast('error', esc(r?.error || 'não consegui ativar o auto-merge'));
+      toast(mergeToastKind(r?.error), esc(r?.error || 'não consegui ativar o auto-merge'));
       renderMyPRs();
     });
     return;
@@ -2505,7 +2505,7 @@ $('#myPRs').addEventListener('click', (e) => {
       api('/api/self-review/merge', { url: mAdmin.dataset.url, mode: 'admin' }).then(r => {
         if (r?.ok) { mergeBlockedByPolicy.delete(key); return; } // state push atualiza
         if (r?.blocked === 'rule') { adminUnavailableKeys.set(key, STATE.lastCheckAt || 0); renderMyPRs(); return; }
-        toast('error', esc(r?.error || 'não consegui mergear como admin'));
+        toast(mergeToastKind(r?.error), esc(r?.error || 'não consegui mergear como admin'));
         mAdmin.disabled = false; mAdmin.textContent = 'Merge (admin)';
       });
     });

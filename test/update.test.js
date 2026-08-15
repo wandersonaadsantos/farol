@@ -131,7 +131,10 @@ test('applyUpdate: revisão iniciada DURANTE o download barra o installer (M15)'
     }
   });
   assert.equal(r.ok, false);
-  assert.match(String(r.error), /análise ou chat em andamento/,
+  // compara com a constante exportada, não com o texto: a mensagem já mudou de
+  // redação uma vez (I1, pra citar a sessão de terminal) e o que este teste afirma
+  // é a RE-checagem, não a frase
+  assert.equal(String(r.error), update.BUSY_ERROR,
     'a checagem de ocupado precisa RE-rodar depois do download, não só antes');
 });
 
@@ -171,6 +174,57 @@ test('sessionsBusy: sessão de TERMINAL aberta também segura o update', () => {
   const engine = new Engine();
   engine.activeReviews.set('t1', { id: 't1', mode: 'terminal', keys: ['acme/repo#1'] });
   assert.equal(update.sessionsBusy(engine), true);
+});
+
+// I1 (G14 x G17): a entrada de terminal em activeReviews é APAGADA pelo aviso de
+// saída do script (trap EXIT). O trap é pendência conhecida do macOS: janela morta
+// cujo aviso nunca chegou deixa entrada fantasma pra vida inteira do processo. O
+// G17 já tinha julgado esse mesmo fantasma na capability de postagem, com teto de
+// 12h; sem o mesmo teto aqui, um fantasma travava o update PRA SEMPRE e a única
+// saída era reiniciar o app. Mesma entrada, mesmo critério, mesma constante.
+const HORA_MS = 60 * 60 * 1000;
+
+test('sessionsBusy: terminal FANTASMA (mais de 12h) não segura o update (I1)', () => {
+  const engine = new Engine();
+  engine.activeReviews.set('t1', {
+    id: 't1', mode: 'terminal', keys: ['acme/repo#1'],
+    startedAt: Date.now() - 13 * HORA_MS,
+  });
+  assert.equal(update.sessionsBusy(engine), false,
+    'sessão de 13h é fantasma pelo mesmo critério do G17: não pode travar o update pra sempre');
+});
+
+test('sessionsBusy: terminal de 1h continua segurando o update (I1)', () => {
+  const engine = new Engine();
+  engine.activeReviews.set('t1', {
+    id: 't1', mode: 'terminal', keys: ['acme/repo#1'],
+    startedAt: Date.now() - HORA_MS,
+  });
+  assert.equal(update.sessionsBusy(engine), true,
+    'uso humano normal (almoço, reunião) segue protegido: o installer mataria a sessão viva');
+});
+
+test('sessionsBusy: terminal sem startedAt confiável segue segurando (I1, falha fechado)', () => {
+  const engine = new Engine();
+  engine.activeReviews.set('t1', { id: 't1', mode: 'terminal', keys: ['acme/repo#1'] });
+  assert.equal(update.sessionsBusy(engine), true,
+    'sem idade provada não dá pra afirmar que é fantasma; matar sessão viva é pior');
+});
+
+test('sessionsBusy: o teto de 12h é a MESMA constante do G17 (fonte única)', () => {
+  const decision = require('../lib/engine/decision.js');
+  assert.equal(decision.TERMINAL_SESSION_MAX_MS, 12 * HORA_MS);
+  const engine = new Engine();
+  // exatamente no teto ainda é sessão viva; um milissegundo além é fantasma
+  engine.activeReviews.set('t1', {
+    id: 't1', mode: 'terminal', startedAt: Date.now() - decision.TERMINAL_SESSION_MAX_MS + 5000,
+  });
+  assert.equal(update.sessionsBusy(engine), true);
+});
+
+test('BUSY_ERROR cita a sessão de terminal (I1)', () => {
+  assert.match(update.BUSY_ERROR, /terminal/,
+    'o usuário precisa saber ONDE olhar; "análise ou chat" não nomeia a janela aberta');
 });
 
 test('pruneOldDownloads: poda update-dl-* com mais de 24h, mantém o recente (G20)', () => {
