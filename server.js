@@ -583,11 +583,17 @@ class Engine extends EventEmitter {
       const seenKeys = new Set();
       const panorama = [];
       let anyOk = false;
+      // G15: owners cuja busca RESPONDEU neste ciclo (list !== null). A poda do
+      // estacionamento mais abaixo só pode agir sobre a key de um owner que está
+      // neste Set; owner que falhou não prova PR nenhum fechado (mesmo padrão do
+      // G5 em autOk/authOk, ver reconcileHiddenPRs).
+      const ownersOk = new Set();
       for (const acc of accounts) {
         for (const owner of acc.owners) {
           const list = await this.searchPRs(['--owner', owner], acc.user);
           if (list === null) continue;
           anyOk = true;
+          ownersOk.add(String(owner).toLowerCase());
           for (const pr of list) {
             if (seenKeys.has(pr.key)) continue;
             seenKeys.add(pr.key);
@@ -699,11 +705,19 @@ class Engine extends EventEmitter {
 
       // G15: poda do estacionamento (mesmo padrão da poda do reReviewLaunched em
       // launchReReviews): key fora do panorama (PR fechado/mergeado) não guarda
-      // estacionamento pra sempre, senão o arquivo só cresce.
+      // estacionamento pra sempre, senão o arquivo só cresce. MAS, diferente do
+      // reReviewLaunched (onde uma poda errada custa no máximo UMA sessão repetida,
+      // com o dedup por head protegendo), aqui uma poda errada relança sozinha uma
+      // sessão fadada à mesma falha conhecida, reabrindo o próprio G15. Por isso a
+      // poda é gateada POR OWNER (mesmo padrão do G5): só mexe na key cujo owner
+      // respondeu neste ciclo (ownersOk); owner que falhou fica intocado, porque
+      // "sumiu do panorama" não prova PR fechado quando a busca dele caiu.
       {
         const abertosParked = new Set(panorama.map(p => p.key));
         let parkedMudou = false;
         for (const k of [...this.autoReviewParked]) {
+          const owner = String(k.split('/')[0] || '').toLowerCase();
+          if (!ownersOk.has(owner)) continue;
           if (!abertosParked.has(k)) { this.autoReviewParked.delete(k); parkedMudou = true; }
         }
         if (parkedMudou) this.saveAutoReviewParked();

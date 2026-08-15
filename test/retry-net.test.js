@@ -452,6 +452,81 @@ test('autoReviewParked sobrevive a reinício da Engine (G15)', () => {
   assert.equal(engine2.autoReviewParked.has('acme/repo#4'), true, 'estacionamento persiste entre reinícios');
 });
 
+/* ---------- G15 (revisão): a poda do check() é gateada por owner que respondeu ---------- */
+// A poda ingênua (key fora do panorama = remove) confundia "owner cuja busca
+// FALHOU neste ciclo" com "PR fechado/mergeado de verdade": o panorama é montado
+// por owner (ver check(), busca `--owner`), e um owner cuja busca falhou (list
+// === null) simplesmente não contribui PR nenhum, igual um owner sem PR aberto.
+// No pior caso (todos os owners falham mas a busca `mine` responde), um flake de
+// rede esvaziaria o autoReviewParked inteiro e relançaria sozinho sessões
+// fadadas à mesma falha conhecida, reabrindo o próprio G15. A poda agora só
+// mexe na key cujo owner RESPONDEU neste ciclo (mesmo padrão do G5: falha de
+// busca não prova PR fechado). Harness no padrão do check-resilience.test.js:
+// check() inteiro, com todo colaborador de rede/side-effect stubado.
+const { BASELINE_FILE: BASELINE_FILE_G15, STATE_DIR: STATE_DIR_G15 } = require('../lib/paths');
+
+function checkEngineG15() {
+  const e = new Engine();
+  e.config.accounts = [{ user: 'me', owners: ['acme', 'globex'] }];
+  e.config.autoReview = false; // nunca dispara revisão headless em teste
+  e.seen = new Set();
+  e.reReviewedKeys = new Set();
+  e.decisions = { pending: [], resolved: [] };
+  e.queue = [];
+  e.resolveAccount = async () => { };
+  e.refreshTokens = async () => { e.tokenOk = true; return true; };
+  e.myAuthoredPRs = async () => [];
+  e.enrichMyPRBranches = async () => { };
+  e.refreshMergeStates = async () => { };
+  e.refreshStaleStates = async () => { };
+  e.scanPushbacks = async () => { };
+  e.checkUpdate = async () => { };
+  e.launchReview = () => { throw new Error('launchReview não deveria rodar neste teste'); };
+  e.schedule = () => { };
+  e.saveSeen = () => { };
+  // roteiro por owner: null = a busca DAQUELE owner falhou neste ciclo
+  e.panoramaByOwner = { acme: [], globex: [] };
+  e.searchPRs = async (extraArgs) => {
+    if (extraArgs[0] === '--owner') {
+      const lista = e.panoramaByOwner[extraArgs[1]];
+      return lista === null ? null : lista.map(p => ({ ...p }));
+    }
+    return []; // --review-requested=@me e --reviewed-by=@me: sem PR, sem falha
+  };
+  // baseline já existente: a 1a checagem da vida não pode mexer no roteiro do teste
+  fs.mkdirSync(STATE_DIR_G15, { recursive: true });
+  fs.writeFileSync(BASELINE_FILE_G15, new Date().toISOString() + '\n');
+  return e;
+}
+
+test('check() NÃO despatasa key de owner cuja busca falhou neste ciclo (G15)', async () => {
+  const e = checkEngineG15();
+  e.autoReviewParked.add('acme/repo#1');
+  e.panoramaByOwner = { acme: null, globex: [] }; // acme falhou neste ciclo
+  await e.check('test');
+  assert.equal(e.autoReviewParked.has('acme/repo#1'), true,
+    'owner que falhou fica intocado: "sumiu do panorama" não prova PR fechado');
+});
+
+test('check() poda key de owner que respondeu e cujo PR saiu do panorama (fechou/mergeou) (G15)', async () => {
+  const e = checkEngineG15();
+  e.autoReviewParked.add('globex/repo#2');
+  e.panoramaByOwner = { acme: [], globex: [] }; // globex respondeu; o PR não está mais na lista dele
+  await e.check('test');
+  assert.equal(e.autoReviewParked.has('globex/repo#2'), false,
+    'owner respondeu neste ciclo: PR fechado é podado de verdade');
+});
+
+test('check() não poda nada quando TODAS as buscas de owner falham (G15)', async () => {
+  const e = checkEngineG15();
+  e.autoReviewParked.add('acme/repo#1');
+  e.autoReviewParked.add('globex/repo#2');
+  e.panoramaByOwner = { acme: null, globex: null }; // flake total: nenhum owner respondeu
+  await e.check('test');
+  assert.equal(e.autoReviewParked.has('acme/repo#1'), true, 'flake de rede não esvazia o estacionamento');
+  assert.equal(e.autoReviewParked.has('globex/repo#2'), true, 'flake de rede não esvazia o estacionamento');
+});
+
 test('check() preserva PR quando prState retorna null (sem token)', async () => {
   const e = engineForPrune();
   e.prState = async () => null;
