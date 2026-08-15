@@ -329,6 +329,33 @@ test('budgetWarned: toast do orçamento não repete enquanto seguir estourado, m
 // PR chegar na boca da sessão. runOneHeadless precisa re-checar imediatamente
 // antes de abrir a sessão: se estourou nesse meio tempo, estaciona (não descarta)
 // em vez de gastar uma sessão que o gate já teria barrado no enfileiramento.
+// G18: o mesmo PR pode chegar por duas contas (time com as duas, review pedido
+// nos dois logins). Até aqui o dedup do mineMap mantinha sempre a PRIMEIRA
+// versão vista, mesmo quando essa conta é incapaz de agir (silenciada ou sem
+// token): o PR ficava mudo, preso numa identidade que nunca dispara aviso nem
+// auto-revisão, enquanto a outra conta, capaz, era descartada. Agora a conta
+// CAPAZ (não silenciada, com token) vence a incapaz no dedup; empate mantém a
+// primeira, o comportamento de sempre.
+test('G18: no mesmo PR achado por duas contas, a capaz vence a incapaz no dedup do mineMap', async () => {
+  const e = checkEngine();
+  e.config.accounts = [
+    { user: 'muted-acc', owners: [], muted: true },
+    { user: 'voce', owners: [] },
+  ];
+  e.tokens = { 'muted-acc': 'tok-muted', voce: 'tok-voce' };
+  // as duas contas acham o MESMO PR (mesma key); cada uma carimba a própria
+  // identidade em `account`, como a busca real faz (gh-queries.js).
+  e.searchPRs = async (extraArgs, user) => {
+    if (extraArgs[0] === '--review-requested=@me') return [{ ...PR, account: user }];
+    return [];
+  };
+  await e.check('test');
+
+  assert.equal(e.queue.length, 1, 'o PR entra na fila uma única vez (dedup por key)');
+  assert.equal(e.accountForPr(e.queue[0]), 'voce',
+    'accountForPr resolve pra conta CAPAZ (não silenciada); o PR não fica mudo preso na conta incapaz');
+});
+
 test('runOneHeadless re-checa o orçamento antes de abrir a sessão (G16)', async () => {
   const e = checkEngine();
   e.tokens = { me: 'tok-me' };

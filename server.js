@@ -616,7 +616,17 @@ class Engine extends EventEmitter {
         const part = await this.searchPRs(['--review-requested=@me'], acc.user);
         if (part === null) continue;
         mineAnyOk = true;
-        for (const pr of part) if (!mineMap.has(pr.key)) mineMap.set(pr.key, pr);
+        for (const pr of part) {
+          const prev = mineMap.get(pr.key);
+          if (!prev) { mineMap.set(pr.key, pr); continue; }
+          // G18: o mesmo PR pode chegar por duas contas (time com as duas). A
+          // conta CAPAZ de agir (não silenciada, com token) vence a incapaz;
+          // empate mantém a primeira, o comportamento de sempre.
+          const prevAcc = this.accountForPr(prev);
+          const prevIncapaz = this.isMuted(prevAcc) || !this.tokenFor(prevAcc);
+          const curCapaz = !this.isMuted(acc.user) && !!this.tokenFor(acc.user);
+          if (prevIncapaz && curCapaz) mineMap.set(pr.key, pr);
+        }
       }
       if (mineAnyOk) mine = [...mineMap.values()];
       if (mine === null && !anyOk) throw new Error('todas as buscas gh falharam (veja o log)');
