@@ -172,3 +172,21 @@ test('sessionsBusy: sessão de TERMINAL aberta também segura o update', () => {
   engine.activeReviews.set('t1', { id: 't1', mode: 'terminal', keys: ['acme/repo#1'] });
   assert.equal(update.sessionsBusy(engine), true);
 });
+
+test('pruneOldDownloads: poda update-dl-* com mais de 24h, mantém o recente (G20)', () => {
+  const sessionsDir = path.join(scratch, 'g20-sessions');
+  const velho = path.join(sessionsDir, 'update-dl-1');
+  const recente = path.join(sessionsDir, 'update-dl-2');
+  fs.mkdirSync(velho, { recursive: true });
+  fs.mkdirSync(recente, { recursive: true });
+  const DIA = 24 * 60 * 60 * 1000;
+  const antigo = (Date.now() - DIA - 60 * 60 * 1000) / 1000; // 25h atrás, em segundos (utimesSync)
+  fs.utimesSync(velho, antigo, antigo);
+  update.pruneOldDownloads(sessionsDir);
+  assert.equal(fs.existsSync(velho), false, 'diretório com mais de 24h foi removido');
+  assert.equal(fs.existsSync(recente), true, 'diretório recente permanece');
+});
+
+test('pruneOldDownloads: pasta sessions inexistente não lança (best-effort)', () => {
+  assert.doesNotThrow(() => update.pruneOldDownloads(path.join(scratch, 'nao-existe-jamais')));
+});
