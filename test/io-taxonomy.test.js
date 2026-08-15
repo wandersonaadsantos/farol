@@ -108,6 +108,18 @@ test('writeTextAtomic: grava via tmp e rename, conteúdo íntegro', () => {
   assert.equal(fs.existsSync(f + '.tmp'), false);
 });
 
+test('writeTextAtomic sobrescreve destino existente e não deixa .tmp', () => {
+  // o caso real do saveSeen: todo markSeen/unsee grava por cima do seen.txt já
+  // existente. Mesmo cenário Windows crítico que writeJsonAtomic já cobre.
+  ensureDir(TMP);
+  const f = path.join(TMP, 'seen2.txt');
+  writeTextAtomic(f, 'a#1\n');
+  assert.equal(fs.readFileSync(f, 'utf8'), 'a#1\n');
+  writeTextAtomic(f, 'a#1\na#2\n');
+  assert.equal(fs.readFileSync(f, 'utf8'), 'a#1\na#2\n', 'rename por cima de existente tem que valer nos dois SOs');
+  assert.equal(fs.existsSync(f + '.tmp'), false, 'o .tmp não pode sobrar');
+});
+
 /* ---------- io: copyRecursive ---------- */
 
 test('copyRecursive copia a árvore toda, criando o destino', () => {
