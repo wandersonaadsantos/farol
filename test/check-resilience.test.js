@@ -236,18 +236,23 @@ test('check(): retry pós-transitório NÃO relança PR de conta com orçamento 
   assert.equal(launchCalls.length, 0, 'orçamento estourado barra o relançamento automático do retry');
 });
 
+// Desde a Task 2.3 (G9), o retry pós-rede relança o OBJETO guardado via
+// enqueueHeadless (não mais launchReview por URL): preserva requested/knownHead
+// do objeto guardado em vez de re-resolver pela URL (que os derrubava).
 test('check(): retry pós-transitório relança normalmente quando o perfil está dentro do orçamento', async () => {
   const e = checkEngine();
   e.tokens = { me: 'tok-me' };
   e.config.claudeProfiles = [{ id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', baseUrl: '', budgetDaily: 100 }];
   e.config.claudeProfileId = 'p1';
-  e.retryAfterNet.set(PR.key, { tries: 1, pr: { ...PR } });
-  const launchCalls = [];
-  e.launchReview = (urls, mode) => { launchCalls.push({ urls, mode }); };
+  e.retryAfterNet.set(PR.key, { tries: 1, pr: { ...PR, requested: true, knownHead: 'c'.repeat(40) } });
+  const enqueued = [];
+  e.enqueueHeadless = (pr) => { enqueued.push(pr); };
   e.scenario = { panorama: [], mine: [], reviewed: [] };
   await e.check('test');
-  assert.equal(launchCalls.length, 1, 'sem estouro, o retry relança como sempre relançou');
-  assert.deepEqual(launchCalls[0].urls, [PR.url]);
+  assert.equal(enqueued.length, 1, 'sem estouro, o retry relança como sempre relançou');
+  assert.equal(enqueued[0].url, PR.url);
+  assert.equal(enqueued[0].requested, true, 'G9: relança o objeto guardado, requested sobrevive');
+  assert.equal(enqueued[0].knownHead, 'c'.repeat(40), 'G9: knownHead sobrevive ao relançamento');
 });
 
 // budgetWarned (o toast "orçamento estourado"): deve disparar UMA vez ao estourar,

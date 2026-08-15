@@ -328,6 +328,76 @@ test('check() preserva PR no retry quando prState falha (sem prova de merge)', a
   assert.equal(stillOpen.length, 1, 'segue no relançamento');
 });
 
+/* ---------- G9: relançamento pós-rede relança o OBJETO guardado, não a URL (13/08/2026) ---------- */
+
+// O bug: `launchReview(stillOpen.map(p => p.url), 'auto')` joga fora o objeto
+// guardado em retryAfterNet e re-resolve o PR pela URL (queue/panorama/prFromUrl).
+// Sem estar mais na queue (revisão de clique não é mine) nem no panorama (mock
+// simplificado), a resolução cai em prFromUrl, que devolve requested:false e sem
+// knownHead: um round automático (requested:true) é rebaixado a manual, e o
+// fallback do headSha (Task 2.2/G8) perde o head conhecido.
+test('check() com o bloco ATUAL (launchReview por URL) perde requested e knownHead do objeto guardado (G9, prova do bug)', async () => {
+  const e = engineForPrune();
+  e.token = 'tok-eu'; // evita refreshTokens real dentro do launchReview
+  e.prState = async () => 'OPEN';
+  const pr = prDe('o/r#1', { requested: true, knownHead: 'c'.repeat(40) });
+  e.retryAfterNet.set('o/r#1', { tries: 1, pr });
+
+  const enqueued = [];
+  e.enqueueHeadless = (p) => { enqueued.push(p); };
+
+  // trecho ATUAL do check() (server.js, bloco do retry pós-rede)
+  const retry = e.retryTargets(new Set(), new Set());
+  const stillOpen = [];
+  for (const p of retry) {
+    let state = null;
+    try { state = await e.prState(p); } catch {}
+    if (state === 'MERGED' || state === 'CLOSED') {
+      e.retryAfterNet.delete(p.key);
+    } else {
+      stillOpen.push(p);
+    }
+  }
+  if (stillOpen.length) {
+    await e.launchReview(stillOpen.map(p => p.url), 'auto');
+  }
+
+  assert.equal(enqueued.length, 1, 'relançou o PR');
+  assert.notEqual(enqueued[0].requested, true, 'BUG: launchReview re-resolve por URL e derruba requested pra false');
+  assert.equal(enqueued[0].knownHead, undefined, 'BUG: prFromUrl não carrega knownHead nenhum');
+});
+
+test('check() relança o OBJETO guardado via enqueueHeadless, preservando requested e knownHead (G9)', async () => {
+  const e = engineForPrune();
+  e.prState = async () => 'OPEN';
+  const pr = prDe('o/r#1', { requested: true, knownHead: 'c'.repeat(40) });
+  e.retryAfterNet.set('o/r#1', { tries: 1, pr });
+
+  const enqueued = [];
+  e.enqueueHeadless = (p) => { enqueued.push(p); };
+
+  // trecho do check() DEPOIS do fix (Step 3 do brief): relança o objeto guardado
+  // em vez de re-resolver por URL
+  const retry = e.retryTargets(new Set(), new Set());
+  const stillOpen = [];
+  for (const p of retry) {
+    let state = null;
+    try { state = await e.prState(p); } catch {}
+    if (state === 'MERGED' || state === 'CLOSED') {
+      e.retryAfterNet.delete(p.key);
+    } else {
+      stillOpen.push(p);
+    }
+  }
+  if (stillOpen.length) {
+    for (const p of stillOpen) e.enqueueHeadless(p);
+  }
+
+  assert.equal(enqueued.length, 1, 'relançou o PR');
+  assert.equal(enqueued[0].requested, true, 'requested sobrevive ao relançamento (G9)');
+  assert.equal(enqueued[0].knownHead, 'c'.repeat(40), 'knownHead sobrevive ao relançamento (G9)');
+});
+
 test('check() preserva PR quando prState retorna null (sem token)', async () => {
   const e = engineForPrune();
   e.prState = async () => null;

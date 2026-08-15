@@ -752,7 +752,10 @@ class Engine extends EventEmitter {
           }
           if (stillOpen.length) {
             this.emit('toast', { kind: 'info', text: `Conexão de volta: relançando a revisão de ${stillOpen.map(p => p.key).join(', ')}.` });
-            this.launchReview(stillOpen.map(p => p.url), 'auto');
+            // G9: relança o OBJETO guardado (era o motivo de guardá-lo): relançar
+            // por URL re-resolvia no panorama e requested virava false, rebaixando
+            // um round automático a manual com a reason errada
+            for (const pr of stillOpen) this.enqueueHeadless(pr);
           }
         }
       }
