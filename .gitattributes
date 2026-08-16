@@ -1,19 +1,9 @@
-# Proteção cross-platform: script shell com CRLF quebra o shebang no macOS em
-# silêncio. O repo depende disto, não do core.autocrlf da máquina de quem
-# commita (um contribuidor Windows com autocrlf=true commitaria CRLF sem ver).
-* text=auto
-*.sh text eol=lf
-*.command text eol=lf
-*.js text eol=lf
-*.json text eol=lf
-*.md text eol=lf
-*.css text eol=lf
-*.html text eol=lf
-# Windows: batch e PowerShell ficam com CRLF, que é o nativo deles
-*.cmd text eol=crlf
-*.ps1 text eol=crlf
+# Regra do Wanderson (16/08/2026): TUDO em LF, sempre, sem exceção por SO.
+# Script shell com CRLF quebra o shebang no macOS em silêncio; e ter duas
+# terminações no repo é convite pra contaminação. cmd.exe e PowerShell
+# modernos aceitam LF.
+* text=auto eol=lf
 # binários nunca sofrem conversão
 *.png binary
 *.ico binary
 *.icns binary
-*.svg text eol=lf
