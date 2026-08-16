@@ -39,3 +39,11 @@ test('escape dentro de string nao encerra a string', () => {
   const out = strip(`const a = 'it\\'s a var trap';`);
   assert.equal(out.includes('var'), false);
 });
+
+test('chave aninhada dentro de ${} nao fecha a interpolacao cedo', () => {
+  const out = strip('const s = `x ${fn({a:1})} y`;');
+  assert.equal(out.includes('fn('), true);
+  assert.equal(out.includes(')'), true);  // o fecha-parenteses do fn sobrevive
+  assert.equal(out.includes(' y'), false); // ' y' e conteudo de template, morre
+  assert.equal(out.split('\n').length, 1);
+});

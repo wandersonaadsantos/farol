@@ -53,6 +53,7 @@ function strip(source) {
       continue;
     }
     if (c === '`') { blank(c); stack.push('tpl'); i++; continue; }
+    if (c === '{' && stack.length > 1) { blank(c); stack.push('code'); i++; continue; }
     if (c === '}' && stack.length > 1) { blank(c); stack.pop(); i++; continue; }
     if (c === '/' && regexPossivel(lastSig)) { // regex literal
       blank(c); i++;
