@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.42.2
+
+**Melhorias**
+- **Sessão antiga sem carimbo de versão deixou de aparecer vazia.** Na coluna
+  "Farol" das Sessões recentes, sessões registradas antes da v2.42.0 (quando o
+  carimbo de versão passou a existir) agora mostram "< 2.42.0", com explicação
+  ao passar o mouse. É regra de exibição: o registro permanente em disco segue
+  intocado, sem retro-carimbo inventado.
+
 ## v2.42.1
 
 **Melhorias**
