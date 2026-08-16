@@ -2889,7 +2889,21 @@ function renderUpdate() {
       <span class="up-note">Atualização disponível ${remote ? 'nas ' + origin : 'na ' + origin}. O Farol ${remote ? 'baixa e instala, ' : ''}fecha e reabre sozinho, preservando estado e configurações.</span>
       <button id="btnUpdateNow" class="btn primary sm">Atualizar agora</button>`;
     $('#btnUpdateNow').onclick = async () => {
-      if (!confirm(`Atualizar o Farol de v${u.current} para v${u.sourceVersion}? O app fecha e reabre sozinho.`)) return;
+      // confirm() nativo era o último popup fora da identidade do app neste fluxo
+      // (pedido do Wanderson, 15/08/2026): o modal do próprio Farol explica o que
+      // vai acontecer, e nada roda sem o clique em Atualizar.
+      const ok = await confirmModal({
+        title: `Atualizar pra v${u.sourceVersion}?`,
+        body: `<p>O Farol sai da <b>v${esc(u.current)}</b> pra <b>v${esc(u.sourceVersion)}</b>.</p>
+          <ul>
+            <li>${remote ? 'baixa a release e instala' : 'copia os arquivos da pasta-fonte'} sozinho;</li>
+            <li>o app <b>fecha e reabre</b> no fim (leva alguns segundos);</li>
+            <li>estado, memória do time e configurações ficam intactos;</li>
+            <li>se houver revisão ou sessão em andamento, nada é morto no meio: o Farol avisa e você tenta de novo quando terminar.</li>
+          </ul>`,
+        confirmLabel: 'Atualizar'
+      });
+      if (!ok) return;
       const r = await api('/api/update', {});
       if (!r?.ok) toast('error', esc(r?.error || 'não consegui iniciar a atualização'));
     };
@@ -3001,6 +3015,7 @@ async function loadTeam() {
         </div>
         ${verdictChip}
         ${papelPicker(m.login)}
+        <button class="btn sm ghost member-remove" data-login="${esc(m.login)}" title="Remover @${esc(m.login)} do Time (apaga a memória local sobre a pessoa; pede confirmação)">Remover</button>
       </div>
       <div class="member-profile">
         <span class="mp-label">Competência por domínio</span>
@@ -3038,6 +3053,33 @@ async function loadTeam() {
   }
 }
 
+// Remover do Time: ação destrutiva, então o botão SÓ abre o modal de confirmação
+// (padrão do app pra tudo que apaga, ver confirmModal) explicando o efeito; nada
+// acontece sem o clique em Remover. A remoção vale pra pessoa INTEIRA (o dossiê é
+// um só), então os cards dela em todos os grupos (conta e "Geral") saem juntos.
+$('#team').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.member-remove');
+  if (!btn) return;
+  const login = btn.dataset.login || '';
+  const ok = await confirmModal({
+    danger: true,
+    title: `Remover @${login} do Time?`,
+    body: `<p>Apaga <b>desta máquina</b> tudo o que o Farol guarda sobre ${personMention(login, 'xs')}:</p>
+      <ul>
+        <li>o dossiê com o histórico de reviews (todos os grupos, inclusive "Geral");</li>
+        <li>os destaques registrados nos reviews dessa pessoa;</li>
+        <li>o papel e a matriz de competência configurados;</li>
+        <li>os registros de contestação (pushback).</li>
+      </ul>
+      <p>Nada é alterado no GitHub, e a remoção não desfaz. Se um PR dessa pessoa for revisado de novo, um dossiê novo começa do zero.</p>`,
+    confirmLabel: 'Remover'
+  });
+  if (!ok) return;
+  const r = await api('/api/team/remove', { login });
+  if (r && r.ok) { toast('ok', `@${esc(login)} removido do Time.`); loadTeam(); }
+  else toast('error', `Não deu pra remover: ${esc((r && r.error) || 'falha na chamada')}.`);
+});
+
 /* ---------- render: sistema ---------- */
 function renderDoctor() {
   const d = STATE && STATE.doctor;
@@ -3074,6 +3116,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.44.0', ['Botão Remover no card do Time: quando alguém sai da equipe, apaga desta máquina o dossiê, os destaques, o perfil e os pushbacks da pessoa, com modal de confirmação explicando o efeito. Nada é alterado no GitHub.', 'Confirmações de "Atualizar agora" e "Zerar log" trocaram o popup nativo do sistema por modais do próprio Farol, com a explicação do que vai acontecer. Não resta popup nativo no app.', 'Créditos com origem: a seção Sobre registra que o Farol nasceu da iniciativa do Thiago (@thiagopcdev), o revisor de PRs em janela de terminal cuja essência o app reconstruiu.']],
   ['2.43.0', ['Seção "Sobre" na aba Sistema: o compromisso de privacidade (o Farol não coleta nem envia nenhum dado a quem o mantém, tudo fica local em ~/.farol), a licença MIT e os créditos do projeto.', 'Créditos sincronizados com o GitHub: idealizador e contribuidores aparecem com foto e link pro perfil, e colaborador novo que entrar no repositório entra na lista sozinho, sem manutenção.']],
   ['2.42.2', ['Sessão registrada antes da v2.42.0 deixou de aparecer com a célula vazia na coluna Farol do Consumo: agora mostra "< 2.42.0", com explicação no tooltip. Regra só de exibição, o registro em disco segue intocado.']],
   ['2.42.1', ['Licença MIT formalizada (arquivo LICENSE) e seção "Privacidade e responsabilidade" no README: o Farol não coleta nem envia dado nenhum ao mantenedor, não há telemetria, tudo fica local em ~/.farol e o tráfego de rede é todo em nome do usuário (GitHub via gh, Anthropic via Claude Code).']],
@@ -3205,6 +3248,10 @@ $('#relNotes').addEventListener('click', (e) => {
 function renderAbout() {
   const box = $('#creditsBox');
   if (!box) return;
+  // crédito de ORIGEM é fixo de propósito: a inspiração não está no git (o código
+  // atual foi reconstruído do zero), então a lista sincronizada nunca a capturaria,
+  // e história não muda, logo não há manutenção. Decisão do Wanderson, 15/08/2026.
+  $('#aboutOrigem').innerHTML = `<span class="origem-label">Origem</span> O Farol nasceu de uma iniciativa do Thiago (${personMention('thiagopcdev', 'xs')}): um revisor de PRs que rodava numa janela de terminal e dependia de ação manual. O app atual foi reconstruído do zero em cima dessa essência.`;
   box.innerHTML = creditsHtml(STATE.credits);
   const repo = ((STATE.config && STATE.config.updateRepo) || '').trim();
   const link = $('#aboutLicenseLink');
@@ -3562,7 +3609,14 @@ $('#btnHealthClear').onclick = async () => {
   else toast('ok', 'Diagnóstico limpo. O próximo parte do estado atual.', 3000);
 };
 $('#btnLogClear').onclick = async () => {
-  if (!confirm('Zerar o log de falhas? Use quando os pontos levantados já foram tratados; o próximo diagnóstico parte do zero.')) return;
+  // era o último confirm() nativo do app (o do update saiu na mesma leva)
+  const ok = await confirmModal({
+    danger: true,
+    title: 'Zerar o log de falhas?',
+    body: '<p>Use quando os pontos levantados já foram tratados: o próximo diagnóstico parte do zero, sem o histórico atual.</p>',
+    confirmLabel: 'Zerar log'
+  });
+  if (!ok) return;
   const r = await api('/api/log/clear');
   if (!r?.ok) { toast('error', esc(r?.error || 'não consegui limpar o log')); return; }
   toast('ok', 'Log de falhas zerado.', 3000);

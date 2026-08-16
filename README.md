@@ -2,7 +2,7 @@
 
 Radar de Pull Requests para Windows e macOS. O Farol monitora o GitHub em segundo plano (só comandos `gh`, zero tokens de IA), mostra um painel com os PRs abertos da organização, avisa quando pedem sua revisão e, com um clique, abre uma sessão do Claude Code com `/pr-review` seguindo o protocolo de triagem e auto-approve seguro.
 
-É a evolução do antigo "PR Reviewer (Windows)" em PowerShell: mesma lógica, agora como app de desktop com interface, bandeja do sistema e instalador.
+O Farol nasceu de uma iniciativa do Thiago ([@thiagopcdev](https://github.com/thiagopcdev)), o "PR Reviewer (Windows)" em PowerShell: um revisor de PRs que rodava numa janela de terminal e dependia de ação manual. O app atual capturou essa essência e reconstruiu o sistema do zero como app de desktop com interface, bandeja do sistema e instalador.
 
 ## Instalar
 

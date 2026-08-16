@@ -1059,6 +1059,7 @@ class Engine extends EventEmitter {
   revokeReviewPostCapability(token) { return decisionMod.revokeReviewPostCapability(this, token); }
   revokeReviewPostCapabilitiesByOwner(ownerId) { return decisionMod.revokeReviewPostCapabilitiesByOwner(this, ownerId); }
   writeMemory(result, actionLabel) { return decisionMod.writeMemory(this, result, actionLabel); }
+  removeTeamMember(login) { return decisionMod.removeTeamMember(this, login); }
   async decide(id, action) { return decisionMod.decide(this, id, action); }
 
   // --- chat com o Claude por PR ------------------------------------------------

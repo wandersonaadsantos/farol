@@ -9,6 +9,29 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.44.0
+
+**Novidades**
+- **Remover membro do Time.** Cada card do Time ganhou o botão **Remover**, pra
+  quando alguém sai da equipe: apaga da máquina tudo o que o Farol guarda sobre
+  a pessoa (dossiê de reviews em todos os grupos, destaques, papel e matriz de
+  competência, registros de contestação). Nada é alterado no GitHub. Como é
+  ação destrutiva, o botão só abre um modal de confirmação explicando o efeito;
+  nada acontece sem o clique em Remover.
+
+**Melhorias**
+- **Adeus, popups fora da identidade do app.** A confirmação de "Atualizar
+  agora" trocou o alerta nativo do sistema por um modal do próprio Farol, que
+  explica o que vai acontecer (baixa e instala sozinho, fecha e reabre no fim,
+  estado e configurações intactos, e sessão em andamento nunca é morta no
+  meio). A confirmação de "Zerar log" recebeu o mesmo tratamento, e com isso
+  não resta nenhum popup nativo no app.
+- **Crédito de origem nos Créditos.** A seção Sistema > Sobre agora registra a
+  origem do projeto: o Farol nasceu de uma iniciativa do Thiago
+  (@thiagopcdev), um revisor de PRs que rodava numa janela de terminal, e o
+  app atual foi reconstruído em cima dessa essência. O README conta a mesma
+  história.
+
 ## v2.43.0
 
 **Novidades**
