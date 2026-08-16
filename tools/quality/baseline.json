@@ -1,0 +1,120 @@
+{
+  "lib/engine/chat.js": {
+    "ternarioAninhado": 1,
+    "profundidadeExcedida": 2
+  },
+  "lib/engine/decision.js": {
+    "maxLines": 1,
+    "jsonParseCru": 1,
+    "jsonStringifyCru": 2,
+    "tempoMagico": 2,
+    "profundidadeExcedida": 2
+  },
+  "lib/engine/fanout.js": {
+    "jsonParseCru": 1
+  },
+  "lib/engine/gh-queries.js": {
+    "jsonParseCru": 5,
+    "tempoMagico": 3
+  },
+  "lib/engine/public-review.js": {
+    "ternarioAninhado": 2
+  },
+  "lib/engine/pushback.js": {
+    "emptyCatch": 1,
+    "jsonParseCru": 2,
+    "ternarioAninhado": 1,
+    "profundidadeExcedida": 4
+  },
+  "lib/engine/review.js": {
+    "maxLines": 1,
+    "emptyCatch": 1,
+    "ternarioAninhado": 1,
+    "profundidadeExcedida": 16
+  },
+  "lib/engine/selfpr.js": {
+    "maxLines": 1,
+    "emptyCatch": 1,
+    "jsonParseCru": 6,
+    "ternarioAninhado": 3,
+    "tempoMagico": 2,
+    "profundidadeExcedida": 5
+  },
+  "lib/engine/session.js": {
+    "maxLines": 1,
+    "emptyCatch": 8,
+    "jsonParseCru": 4,
+    "processEnvDireto": 7,
+    "ternarioAninhado": 1,
+    "tempoMagico": 1,
+    "portaLiteral": 4,
+    "profundidadeExcedida": 10
+  },
+  "lib/engine/tools.js": {
+    "emptyCatch": 2,
+    "ternarioAninhado": 3
+  },
+  "lib/engine/update.js": {
+    "jsonParseCru": 2,
+    "processEnvDireto": 1,
+    "tempoMagico": 1
+  },
+  "lib/engine/usage.js": {
+    "ternarioAninhado": 4,
+    "profundidadeExcedida": 1
+  },
+  "lib/format.js": {
+    "ternarioAninhado": 2
+  },
+  "lib/http-server.js": {
+    "emptyCatch": 1,
+    "jsonParseCru": 1,
+    "jsonStringifyCru": 3,
+    "profundidadeExcedida": 17
+  },
+  "lib/io.js": {
+    "processEnvDireto": 3,
+    "tempoMagico": 2
+  },
+  "lib/parse.js": {
+    "ternarioAninhado": 2,
+    "profundidadeExcedida": 2
+  },
+  "lib/spawnlog.js": {
+    "processEnvDireto": 1
+  },
+  "main.js": {
+    "emptyCatch": 4,
+    "ternarioAninhado": 3,
+    "profundidadeExcedida": 2
+  },
+  "server.js": {
+    "maxLines": 1,
+    "emptyCatch": 2,
+    "jsonParseCru": 1,
+    "jsonStringifyCru": 2,
+    "processEnvDireto": 7,
+    "ternarioAninhado": 3,
+    "tempoMagico": 1,
+    "portaLiteral": 2,
+    "profundidadeExcedida": 15
+  },
+  "tools/quality/gate.js": {
+    "jsonParseCru": 1,
+    "jsonStringifyCru": 1
+  },
+  "tools/quality/strip.js": {
+    "profundidadeExcedida": 2
+  },
+  "ui/app.js": {
+    "maxLines": 1,
+    "jsonParseCru": 8,
+    "jsonStringifyCru": 2,
+    "ternarioAninhado": 57,
+    "profundidadeExcedida": 9
+  },
+  "ui/pure.js": {
+    "maxLines": 1,
+    "ternarioAninhado": 16
+  }
+}
