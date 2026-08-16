@@ -591,6 +591,68 @@ class Engine extends EventEmitter {
         const profile = (this.config.claudeProfiles || []).find(p => p.id === id);
         if (!profile || !this.profileBudgetStatus(profile).blocked) this.budgetWarned.delete(id);
       }
+      const { panorama, queue, fresh, mineList, ownersOk, monitoredOwners } = await this._coletarPanorama();
+
+      // G15: poda do estacionamento (mesmo padrão da poda do reReviewLaunched em
+      // launchReReviews): key fora do panorama (PR fechado/mergeado) não guarda
+      // estacionamento pra sempre, senão o arquivo só cresce. MAS, diferente do
+      // reReviewLaunched (onde uma poda errada custa no máximo UMA sessão repetida,
+      // com o dedup por head protegendo), aqui uma poda errada relança sozinha uma
+      // sessão fadada à mesma falha conhecida, reabrindo o próprio G15. Por isso a
+      // poda é gateada POR OWNER (mesmo padrão do G5): só mexe na key cujo owner
+      // respondeu neste ciclo (ownersOk); owner que falhou fica intocado, porque
+      // "sumiu do panorama" não prova PR fechado quando a busca dele caiu.
+      // EXCEÇÃO determinística: owner que saiu de TODA a config (nem está em
+      // monitoredOwners) nunca mais vai responder, então nunca entraria em ownersOk;
+      // sem tratar este caso à parte a key ficaria presa pra sempre e o arquivo só
+      // cresceria, contradizendo o propósito da própria poda. Presença na config não
+      // depende de rede, então esta parte dispensa ownersOk. MAS ela dispensa só o
+      // gate de rede, nunca a prova de que o PR sumiu: a fila mine
+      // (--review-requested=@me) resolve por TOKEN, não por owner, então PR de org
+      // não monitorada entra na fila normalmente e o estacionamento dele é legítimo.
+      // Podar incondicionalmente devolvia esse PR pro toReview a cada ciclo, que
+      // relançava a sessão fadada à mesma falha, que estacionava de novo: loop pago
+      // de 30 em 30 segundos, o próprio G15 reaberto (revisão final da onda 3).
+      this._podarEstacionamento(panorama, ownersOk, monitoredOwners);
+
+      await this._dispararAutomacoes(fresh);
+
+      // branch origem->destino de cada PR meu (o card mostra de/para)
+      try { await this.enrichMyPRBranches(); } catch (e) { this.log('WARN', `enrichMyPRBranches: ${e.message}`); }
+      // mergeabilidade real dos PRs aprovaveis (gate honesto do botao Merge)
+      try { await this.refreshMergeStates(); } catch (e) { this.log('WARN', `refreshMergeStates: ${e.message}`); }
+      // stale: PRs que EU revisei e receberam commit novo depois (reativa o "Re-revisar")
+      try { await this.refreshStaleStates(); } catch (e) { this.log('WARN', `refreshStaleStates: ${e.message}`); }
+      // round 2 sozinho: PR onde EU pedi mudanças e o autor empurrou commit novo volta
+      // pra fila de revisão sem esperar clique (âncora por head impede repetição; era o
+      // elo manual do ciclo, medido no biud-frontend#756). Depende do staleInfo que o
+      // refreshStaleStates acabou de preencher, por isso a ordem aqui importa.
+      try { this.launchReReviews(); } catch (e) { this.log('WARN', `re-revisão pós-push: ${e.message}`); }
+      // pendência já atendida por fora (review postado pelo chat, pela web do GitHub ou
+      // por gh na mão): tira o card de "Precisa de você", que antes ficava preso pra
+      // sempre porque só o clique no botão esvaziava decisions.pending
+      try { await this.reconcilePending(); } catch (e) { this.log('WARN', `reconcilePending: ${e.message}`); }
+      // pushback automático: contestação do autor a um review meu (fire-and-forget:
+      // roda em background pra não segurar a checagem, com guarda anti-concorrência)
+      this.scanPushbacks().catch(e => this.log('WARN', `scanPushbacks: ${e.message}`));
+      // atualizacao (releases do GitHub pras copias distribuidas) a cada ciclo
+      this.checkUpdate().catch(() => {});
+      // créditos do Sistema > Sobre (contribuidores do repo): TTL de 24h interno,
+      // então na prática só roda 1x por dia; fire-and-forget como o pushback
+      this.refreshContributors().catch(e => this.log('WARN', `créditos: ${e.message}`));
+      this.setStatus('idle');
+    } catch (err) {
+      this.lastError = err.message;
+      this.log('ERROR', `ciclo de monitoramento: ${err.message}`);
+      this.setStatus('error');
+    } finally {
+      this.checking = false;
+      this.schedule();
+      this.pushState();
+    }
+  }
+
+  async _coletarPanorama() {
       await this.resolveAccount();
       await this.refreshTokens();
       const accounts = this.accountList();
@@ -736,37 +798,41 @@ class Engine extends EventEmitter {
       this.lastCheckAt = Date.now();
       this.lastError = null;
 
-      // G15: poda do estacionamento (mesmo padrão da poda do reReviewLaunched em
-      // launchReReviews): key fora do panorama (PR fechado/mergeado) não guarda
-      // estacionamento pra sempre, senão o arquivo só cresce. MAS, diferente do
-      // reReviewLaunched (onde uma poda errada custa no máximo UMA sessão repetida,
-      // com o dedup por head protegendo), aqui uma poda errada relança sozinha uma
-      // sessão fadada à mesma falha conhecida, reabrindo o próprio G15. Por isso a
-      // poda é gateada POR OWNER (mesmo padrão do G5): só mexe na key cujo owner
-      // respondeu neste ciclo (ownersOk); owner que falhou fica intocado, porque
-      // "sumiu do panorama" não prova PR fechado quando a busca dele caiu.
-      // EXCEÇÃO determinística: owner que saiu de TODA a config (nem está em
-      // monitoredOwners) nunca mais vai responder, então nunca entraria em ownersOk;
-      // sem tratar este caso à parte a key ficaria presa pra sempre e o arquivo só
-      // cresceria, contradizendo o propósito da própria poda. Presença na config não
-      // depende de rede, então esta parte dispensa ownersOk. MAS ela dispensa só o
-      // gate de rede, nunca a prova de que o PR sumiu: a fila mine
-      // (--review-requested=@me) resolve por TOKEN, não por owner, então PR de org
-      // não monitorada entra na fila normalmente e o estacionamento dele é legítimo.
-      // Podar incondicionalmente devolvia esse PR pro toReview a cada ciclo, que
-      // relançava a sessão fadada à mesma falha, que estacionava de novo: loop pago
-      // de 30 em 30 segundos, o próprio G15 reaberto (revisão final da onda 3).
-      {
-        const abertosParked = new Set(panorama.map(p => p.key));
-        let parkedMudou = false;
-        for (const k of [...this.autoReviewParked]) {
-          const owner = String(k.split('/')[0] || '').toLowerCase();
-          if (monitoredOwners.has(owner) && !ownersOk.has(owner)) continue;
-          if (!abertosParked.has(k)) { this.autoReviewParked.delete(k); parkedMudou = true; }
-        }
-        if (parkedMudou) this.saveAutoReviewParked();
-      }
+      return { panorama, queue, fresh, mineList, ownersOk, monitoredOwners };
+  }
 
+  // G15: poda do estacionamento (mesmo padrão da poda do reReviewLaunched em
+  // launchReReviews): key fora do panorama (PR fechado/mergeado) não guarda
+  // estacionamento pra sempre, senão o arquivo só cresce. MAS, diferente do
+  // reReviewLaunched (onde uma poda errada custa no máximo UMA sessão repetida,
+  // com o dedup por head protegendo), aqui uma poda errada relança sozinha uma
+  // sessão fadada à mesma falha conhecida, reabrindo o próprio G15. Por isso a
+  // poda é gateada POR OWNER (mesmo padrão do G5): só mexe na key cujo owner
+  // respondeu neste ciclo (ownersOk); owner que falhou fica intocado, porque
+  // "sumiu do panorama" não prova PR fechado quando a busca dele caiu.
+  // EXCEÇÃO determinística: owner que saiu de TODA a config (nem está em
+  // monitoredOwners) nunca mais vai responder, então nunca entraria em ownersOk;
+  // sem tratar este caso à parte a key ficaria presa pra sempre e o arquivo só
+  // cresceria, contradizendo o propósito da própria poda. Presença na config não
+  // depende de rede, então esta parte dispensa ownersOk. MAS ela dispensa só o
+  // gate de rede, nunca a prova de que o PR sumiu: a fila mine
+  // (--review-requested=@me) resolve por TOKEN, não por owner, então PR de org
+  // não monitorada entra na fila normalmente e o estacionamento dele é legítimo.
+  // Podar incondicionalmente devolvia esse PR pro toReview a cada ciclo, que
+  // relançava a sessão fadada à mesma falha, que estacionava de novo: loop pago
+  // de 30 em 30 segundos, o próprio G15 reaberto (revisão final da onda 3).
+  _podarEstacionamento(panorama, ownersOk, monitoredOwners) {
+    const abertosParked = new Set(panorama.map(p => p.key));
+    let parkedMudou = false;
+    for (const k of [...this.autoReviewParked]) {
+      const owner = String(k.split('/')[0] || '').toLowerCase();
+      if (monitoredOwners.has(owner) && !ownersOk.has(owner)) continue;
+      if (!abertosParked.has(k)) { this.autoReviewParked.delete(k); parkedMudou = true; }
+    }
+    if (parkedMudou) this.saveAutoReviewParked();
+  }
+
+  async _dispararAutomacoes(fresh) {
       // contas silenciadas seguem monitoradas (aparecem ao selecionar a conta), mas
       // ficam fora dos avisos de PR novo e da auto-revisão: nada de barulho nem de
       // revisar sozinho o PR-teste abandonado.
@@ -799,7 +865,7 @@ class Engine extends EventEmitter {
         return true;
       });
       if (freshActive.length > 0) {
-        this.emit('new-prs', { items: freshActive, total: queue.filter(p => !this.isMuted(this.accountForPr(p))).length, auto: toReview.length > 0 });
+        this.emit('new-prs', { items: freshActive, total: this.queue.filter(p => !this.isMuted(this.accountForPr(p))).length, auto: toReview.length > 0 });
       }
       if (toReview.length) this.launchReview(toReview.map(p => p.url), 'auto');
 
@@ -841,39 +907,6 @@ class Engine extends EventEmitter {
           }
         }
       }
-      // branch origem->destino de cada PR meu (o card mostra de/para)
-      try { await this.enrichMyPRBranches(); } catch (e) { this.log('WARN', `enrichMyPRBranches: ${e.message}`); }
-      // mergeabilidade real dos PRs aprovaveis (gate honesto do botao Merge)
-      try { await this.refreshMergeStates(); } catch (e) { this.log('WARN', `refreshMergeStates: ${e.message}`); }
-      // stale: PRs que EU revisei e receberam commit novo depois (reativa o "Re-revisar")
-      try { await this.refreshStaleStates(); } catch (e) { this.log('WARN', `refreshStaleStates: ${e.message}`); }
-      // round 2 sozinho: PR onde EU pedi mudanças e o autor empurrou commit novo volta
-      // pra fila de revisão sem esperar clique (âncora por head impede repetição; era o
-      // elo manual do ciclo, medido no biud-frontend#756). Depende do staleInfo que o
-      // refreshStaleStates acabou de preencher, por isso a ordem aqui importa.
-      try { this.launchReReviews(); } catch (e) { this.log('WARN', `re-revisão pós-push: ${e.message}`); }
-      // pendência já atendida por fora (review postado pelo chat, pela web do GitHub ou
-      // por gh na mão): tira o card de "Precisa de você", que antes ficava preso pra
-      // sempre porque só o clique no botão esvaziava decisions.pending
-      try { await this.reconcilePending(); } catch (e) { this.log('WARN', `reconcilePending: ${e.message}`); }
-      // pushback automático: contestação do autor a um review meu (fire-and-forget:
-      // roda em background pra não segurar a checagem, com guarda anti-concorrência)
-      this.scanPushbacks().catch(e => this.log('WARN', `scanPushbacks: ${e.message}`));
-      // atualizacao (releases do GitHub pras copias distribuidas) a cada ciclo
-      this.checkUpdate().catch(() => {});
-      // créditos do Sistema > Sobre (contribuidores do repo): TTL de 24h interno,
-      // então na prática só roda 1x por dia; fire-and-forget como o pushback
-      this.refreshContributors().catch(e => this.log('WARN', `créditos: ${e.message}`));
-      this.setStatus('idle');
-    } catch (err) {
-      this.lastError = err.message;
-      this.log('ERROR', `ciclo de monitoramento: ${err.message}`);
-      this.setStatus('error');
-    } finally {
-      this.checking = false;
-      this.schedule();
-      this.pushState();
-    }
   }
 
   setStatus(s) { this.status = s; this.pushState(); }

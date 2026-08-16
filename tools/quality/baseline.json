@@ -93,7 +93,7 @@
     "processEnvDireto": 5,
     "ternarioAninhado": 3,
     "tempoMagico": 1,
-    "profundidadeExcedida": 15
+    "profundidadeExcedida": 10
   },
   "tools/quality/gate.js": {
     "jsonParseCru": 1,
