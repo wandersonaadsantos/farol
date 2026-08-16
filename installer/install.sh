@@ -28,8 +28,10 @@ done
 export PATH
 
 # --- pre-requisitos -----------------------------------------------------------
-command -v node >/dev/null || die 'Node.js nao encontrado no PATH. Instale em https://nodejs.org (ou: brew install node).'
-command -v npm  >/dev/null || die 'npm nao encontrado no PATH.'
+# Node/npm NAO sao exigidos aqui (mesma promessa do install.ps1): o modo offline
+# (Electron no pacote ou zip darwin embutido) instala sem Node; so o fallback de
+# rede (npm install) cobra, la embaixo. Exigir aqui derrubava o instalador
+# offline E o auto-update em Mac sem Node.
 command -v gh >/dev/null 2>&1 || echo "  !  'gh' nao encontrado: o Farol instala, mas precisa dele (brew install gh; gh auth login)."
 command -v claude >/dev/null 2>&1 || echo "  !  'claude' nao encontrado: o Farol instala, mas precisa do Claude Code no PATH."
 
@@ -69,13 +71,18 @@ elif [ -f "$SRC/installer/electron-darwin.zip" ]; then
   printf 'Electron.app/Contents/MacOS/Electron' > "$APP/node_modules/electron/path.txt"
 else
   step 'Baixando o Electron (npm install, pode levar alguns minutos)'
+  command -v npm >/dev/null || die 'npm nao encontrado, e este pacote nao trouxe o Electron embutido. Instale o Node (brew install node) ou use o instalador offline.'
   (cd "$APP" && npm install --omit=dev --no-audit --no-fund)
 fi
 # bit de execucao: instalador montado fora do Mac (ou tar sem perms) perde o +x;
 # o lancador chama o electron direto, entao garante que os binarios rodam.
 chmod +x "$ELECTRON_BIN" 2>/dev/null || true
 [ -d "$APP/node_modules/electron/dist/Electron.app" ] && chmod -R +x "$APP/node_modules/electron/dist/Electron.app" 2>/dev/null || true
-[ -x "$ELECTRON_BIN" ] || die "Electron nao instalado. Rode: cd $APP && npm install"
+# valida o binario que o LANCADOR executa (o nativo do dist), nao o .bin/electron:
+# o .bin vem no cp -R do node_modules e existe mesmo com o dist quebrado, entao
+# validar so ele declarava sucesso numa instalacao que nao abre (falha silenciosa)
+NATIVE="$APP/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+[ -x "$NATIVE" ] || die "Electron nao instalado (faltou $NATIVE). Rode: cd $APP && npm install"
 
 # --- workspace do Claude -----------------------------------------------------------
 # protocolo sempre atualizado a partir do template; state/ nunca e tocado
@@ -91,7 +98,9 @@ cp -R "$APP/workspace-template/prompts/." "$WS/prompts/"
 # bundle minimo: um script que executa o Electron apontando pro app instalado.
 # Sem assinatura/notarizacao: e criado localmente, o Gatekeeper nao reclama.
 step 'Criando o lancador ~/Applications/Farol.app'
-VER="$(node -p "require('$SRC/package.json').version")"
+# sem node de proposito (modo offline): a versao sai do JSON por sed
+VER="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$SRC/package.json" | head -1)"
+[ -n "$VER" ] || VER='0.0.0'
 BUNDLE="$HOME/Applications/Farol.app"
 mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources"
 cat > "$BUNDLE/Contents/Info.plist" <<PLIST

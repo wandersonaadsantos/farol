@@ -126,8 +126,7 @@ test('handleSessionExit: código de saída != 0 loga WARN', () => {
 // spawnConsole real (Windows): roda um script trivial (`exit 0` direto, sem claude/pause)
 // e espera o evento `exit` de verdade disparar, confirmando que o handler real (não só a
 // função extraída) chama unsee. Curto e não deixa nada pendurado.
-test('spawnConsole (Windows): ao sair de verdade, desfaz o visto de TODAS as keys da sessão', async (t) => {
-  if (process.platform !== 'win32') { t.skip('teste especifico do caminho Windows (spawnConsole)'); return; }
+test('spawnConsole (Windows): ao sair de verdade, desfaz o visto de TODAS as keys da sessão', { skip: process.platform !== 'win32' ? 'teste especifico do caminho Windows (spawnConsole)' : false }, async () => {
   const engine = fakeEngine({
     buildSessionScript() { return '@echo off\r\nexit 0\r\n'; },
   });

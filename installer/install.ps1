@@ -49,10 +49,16 @@ New-Item -ItemType Directory -Force -Path $App | Out-Null
 foreach ($f in @('main.js', 'server.js', 'package.json', 'README.md', 'CLAUDE.md')) {
   if (Test-Path (Join-Path $Src $f)) { Copy-Item (Join-Path $Src $f) (Join-Path $App $f) -Force }
 }
-foreach ($d in @('lib', 'ui', 'assets', 'workspace-template')) {
-  robocopy (Join-Path $Src $d) (Join-Path $App $d) /E /NFL /NDL /NJH /NJS /NP | Out-Null
+# /MIR e nao /E: como o rm -rf + cp do install.sh, espelha a fonte e APAGA no
+# destino arquivo que a versao nova removeu; /E era aditivo e um lib/engine/foo.js
+# deletado sobrevivia pra sempre em ~/.farol/app, update apos update.
+# 'installer' entra na copia (paridade com o mac): sem ele, quem instalou pelo
+# Setup.exe e apagou o download nao tinha como desinstalar.
+foreach ($d in @('lib', 'ui', 'assets', 'workspace-template', 'installer')) {
+  robocopy (Join-Path $Src $d) (Join-Path $App $d) /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
   if ($LASTEXITCODE -ge 8) { Die "Falha ao copiar a pasta '$d' (robocopy $LASTEXITCODE)." }
 }
+if (Test-Path (Join-Path $Src 'Desinstalar.cmd')) { Copy-Item (Join-Path $Src 'Desinstalar.cmd') (Join-Path $App 'Desinstalar.cmd') -Force }
 
 # --- dependencias (Electron) ---------------------------------------------------
 $electronExe = Join-Path $App 'node_modules\electron\dist\electron.exe'
@@ -83,7 +89,9 @@ Step "Preparando o workspace do Claude em $Ws"
 New-Item -ItemType Directory -Force -Path (Join-Path $Ws 'state\authors') | Out-Null
 # protocolo sempre atualizado a partir do template; state\ nunca e tocado
 Copy-Item (Join-Path $App 'workspace-template\CLAUDE.md') (Join-Path $Ws 'CLAUDE.md') -Force
-robocopy (Join-Path $App 'workspace-template\.claude') (Join-Path $Ws '.claude') /E /NFL /NDL /NJH /NJS /NP | Out-Null
+# /MIR como o rm -rf do install.sh: comando de slash removido do template tem que
+# sumir do workspace tambem (o /E aditivo deixava agente/comando morto vivo)
+robocopy (Join-Path $App 'workspace-template\.claude') (Join-Path $Ws '.claude') /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
 robocopy (Join-Path $App 'workspace-template\prompts') (Join-Path $Ws 'prompts') /E /NFL /NDL /NJH /NJS /NP | Out-Null
 
 # --- migracao do estado antigo -------------------------------------------------

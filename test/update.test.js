@@ -244,3 +244,22 @@ test('pruneOldDownloads: poda update-dl-* com mais de 24h, mantém o recente (G2
 test('pruneOldDownloads: pasta sessions inexistente não lança (best-effort)', () => {
   assert.doesNotThrow(() => update.pruneOldDownloads(path.join(scratch, 'nao-existe-jamais')));
 });
+
+/* ---------- buildUpdateScriptMac: o gêmeo mac do buildUpdateLaunchCommand ---------- */
+// Extraído puro pelo MESMO motivo do lado Windows (M14): caminho com espaço ou
+// apóstrofo só é testável com a montagem fora do spawn. O apóstrofo cobre nome
+// de usuário tipo O'Brien, que a interpolação crua quebrava.
+
+test('buildUpdateScriptMac: caminho com espaço fica inteiro dentro das aspas', () => {
+  const s = update.buildUpdateScriptMac('/Users/ana/farol dir/installer/install.sh', '/Users/ana/.farol/workspace/state/update.log');
+  assert.match(s, /^#!\/bin\/bash\n/);
+  assert.ok(s.includes("bash '/Users/ana/farol dir/installer/install.sh' > '/Users/ana/.farol/workspace/state/update.log' 2>&1"));
+  assert.ok(s.includes('open "$HOME/Applications/Farol.app"'));
+  assert.ok(s.includes('rm -f -- "$0"'), 'o script se apaga ao terminar');
+});
+
+test('buildUpdateScriptMac: apóstrofo no caminho não escapa da atribuição', () => {
+  const s = update.buildUpdateScriptMac("/Users/O'Brien/farol/installer/install.sh", "/Users/O'Brien/log");
+  assert.ok(s.includes("'/Users/O'\\''Brien/farol/installer/install.sh'"), 'aspa simples escapada no padrão POSIX');
+  assert.ok(!s.includes("bash '/Users/O'Brien"), 'a interpolação crua antiga não pode voltar');
+});

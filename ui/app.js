@@ -19,6 +19,13 @@ const ehWin = () => PLATAFORMA === 'win32';
 function aplicaPlataforma(p) {
   if (p) PLATAFORMA = p;
   document.body.classList.toggle('mac', ehMac());
+  // o botão da paleta é estático no HTML e misturava as duas convenções (⌘K com
+  // tooltip Ctrl+K); aqui ele fica coerente com o SO real do engine
+  const cmdBtn = document.getElementById('btnCmdK');
+  if (cmdBtn) {
+    cmdBtn.textContent = ehMac() ? '⌘K' : 'Ctrl+K';
+    cmdBtn.title = `Paleta de comandos (${ehMac() ? 'Cmd' : 'Ctrl'}+K)`;
+  }
 }
 aplicaPlataforma();
 
@@ -642,7 +649,7 @@ function renderClaudeProfiles() {
       </div>
       ${budgetStatusText ? `<div class="a-hint">${esc(budgetStatusText)}</div>` : ''}` : `
       <div class="a-editrow">
-        <input class="cp-dir" data-id="${esc(p.id)}" value="${esc(p.dir || '')}" placeholder="C:\\Users\\voce\\.claude-perfil" spellcheck="false">
+        <input class="cp-dir" data-id="${esc(p.id)}" value="${esc(p.dir || '')}" placeholder="${ehMac() ? '~/.claude-perfil' : 'C:\\Users\\voce\\.claude-perfil'}" spellcheck="false">
       </div>`;
     return `<div class="card acct-card">
     <div class="a-body">
@@ -668,7 +675,7 @@ function renderClaudeProfiles() {
     </div>
     <div class="a-editrow">
       <input id="cpAddLabel" placeholder="nome (ex.: BIUD Trabalho)" spellcheck="false">
-      <input id="cpAddDir" placeholder="diretório de config (ex.: C:\\Users\\voce\\.claude-biud-trabalho)" spellcheck="false">
+      <input id="cpAddDir" placeholder="diretório de config (ex.: ${ehMac() ? '~/.claude-biud-trabalho' : 'C:\\Users\\voce\\.claude-biud-trabalho'})" spellcheck="false">
       <input id="cpAddApiKey" type="password" placeholder="chave de API" spellcheck="false" autocomplete="off" hidden>
       <input id="cpAddBaseUrl" placeholder="URL base (opcional)" spellcheck="false" hidden>
       <button class="btn sm" id="btnCpAdd">Adicionar</button>
@@ -1385,7 +1392,7 @@ function kbdHelp() {
       <tr><td><kbd>C</kbd></td><td>só comentar na selecionada</td></tr>
       <tr><td><kbd>P</kbd></td><td>pular a selecionada</td></tr>
       <tr><td><kbd>/</kbd></td><td>consultar um PR por URL</td></tr>
-      <tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>paleta de comando: ir a qualquer lugar</td></tr>
+      <tr><td><kbd>${ehMac() ? 'Cmd' : 'Ctrl'}</kbd>+<kbd>K</kbd></td><td>paleta de comando: ir a qualquer lugar</td></tr>
       <tr><td><kbd>1</kbd>…<kbd>6</kbd></td><td>trocar de aba</td></tr>
       <tr><td><kbd>?</kbd></td><td>esta lista</td></tr>
     </table></div>
@@ -3130,6 +3137,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.44.3', ['Revisão completa de suporte a Windows e macOS (auditoria em 4 frentes). No mac: sessão de terminal não fica mais presa quando a porta não está no config, conta sem token aborta com aviso em vez de agir na conta errada, console de login não herda token do profile, instalador offline e auto-update não exigem mais Node, e a validação da instalação confere o binário que o app realmente executa. No Windows: o update passou a remover arquivos que a versão nova deletou, e o desinstalador agora acompanha a instalação. Atalhos e exemplos da interface mostram Cmd/⌘ no mac e Ctrl no Windows. Auditoria do pacote de release passou a varrer também os scripts de mac, e a suite ganhou 8 testes de plataforma (incluindo o cancelamento de sessão posix com processo real).']],
   ['2.44.2', ['Progresso honesto em TODO o app, com régua única: a revisão automática (cards do "Analisando agora") ganhou barra de progresso movida pela atividade real da sessão, e o chat por PR deixou de ficar parado em 25% (mesma família do bug da autoanálise). Os três fluxos usam a mesma régua central, e um teste impede percentual chutado de voltar.']],
   ['2.44.1', ['A barra de progresso da autoanálise (Meus PRs) parou de mentir: ela ficava fixa em 25% e concluía do nada, porque os percentuais eram números chutados. Agora ela acompanha a atividade real da sessão (cada ação do Claude move a barra e vira o texto do passo), avançando até 90% e fechando quando a análise termina de verdade.']],
   ['2.44.0', ['Botão Remover no card do Time: quando alguém sai da equipe, apaga desta máquina o dossiê, os destaques, o perfil e os pushbacks da pessoa, com modal de confirmação explicando o efeito. Nada é alterado no GitHub.', 'Confirmações de "Atualizar agora" e "Zerar log" trocaram o popup nativo do sistema por modais do próprio Farol, com a explicação do que vai acontecer. Não resta popup nativo no app.', 'Créditos com origem: a seção Sobre registra que o Farol nasceu da iniciativa do Thiago (@thiagopcdev), o revisor de PRs em janela de terminal cuja essência o app reconstruiu.']],

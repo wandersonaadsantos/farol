@@ -14,7 +14,7 @@ process.env.FAROL_HOME = FAROL_HOME;
 
 const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, run, runShell } = require('../lib/io');
+const { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, run, runShell, prependPathDirs } = require('../lib/io');
 const { IS_WIN } = require('../lib/paths');
 const tax = require('../lib/taxonomy');
 
@@ -258,4 +258,26 @@ test('taxonomy: papel e nível de domínio não se confundem', () => {
   // de um eixo passar como válido no outro
   const comum = tax.PAPEL_LEVELS.filter(p => tax.DOMAIN_LEVELS.includes(p));
   assert.deepEqual(comum, [], `valor ambíguo entre os dois eixos: ${comum.join(', ')}`);
+});
+
+/* ---------- prependPathDirs: o PATH do boot posix, agora com teste ---------- */
+// Era bloco inline no server.js sem nenhum assert (auditoria 16/08): o código que
+// decide se gh e claude existem quando o app abre pelo Dock falhava em silêncio.
+
+test('prependPathDirs: prepend só do que existe e falta, na ordem dada', () => {
+  const exists = d => d !== '/nao-existe';
+  const out = prependPathDirs('/usr/bin:/bin', ['/opt/homebrew/bin', '/nao-existe', '/usr/local/bin'], exists);
+  assert.equal(out, '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin');
+});
+
+test('prependPathDirs: dir já presente não duplica; nada faltando devolve null', () => {
+  const exists = () => true;
+  assert.equal(prependPathDirs('/opt/homebrew/bin:/usr/bin', ['/opt/homebrew/bin'], exists), null,
+    'null = o chamador não mexe no env à toa');
+});
+
+test('prependPathDirs: PATH vazio não vira ":dir" nem quebra', () => {
+  const out = prependPathDirs('', ['/opt/homebrew/bin'], () => true);
+  assert.equal(out, '/opt/homebrew/bin:');
+  assert.equal(prependPathDirs(undefined, [], () => true), null);
 });

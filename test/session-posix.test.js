@@ -257,3 +257,23 @@ test('prefixo posix: aspa simples no dir não injeta comando (execução real co
     try { fs.unlinkSync(proofFile); } catch { /* limpeza, caso o teste falhe e o comando tenha rodado */ }
   }
 });
+
+/* ---------- killTree posix: a matança de verdade, não só a pré-condição ---------- */
+// O detached:true testado acima é a pré-condição; este prova a consequência: o
+// process.kill(-pid) derruba o GRUPO (o sh líder E o filho dele), que é o que
+// impede cancelamento de revisão deixar claude/subagentes órfãos. Era o único
+// caminho de kill sem nenhum assert em SO nenhum (auditoria 16/08).
+test('killTree posix: mata o grupo de processo inteiro, não só o líder', { skip: IS_WIN ? 'só roda em POSIX' : false }, async () => {
+  const { killTree } = require('../lib/engine/session');
+  const child = realSpawn('/bin/sh', ['-c', 'sleep 30 & sleep 30 & wait'], { detached: true, stdio: 'ignore' });
+  child.on('error', () => { });
+  await new Promise(r => setTimeout(r, 300));   // grupo montado
+  killTree({}, child.pid);
+  const deadline = Date.now() + 5000;
+  let grupoMorto = false;
+  while (Date.now() < deadline) {               // espera por condição, não por timeout cego
+    try { process.kill(-child.pid, 0); } catch (e) { if (e.code === 'ESRCH') { grupoMorto = true; break; } }
+    await new Promise(r => setTimeout(r, 100));
+  }
+  assert.ok(grupoMorto, 'o grupo de processos continua vivo depois do killTree');
+});

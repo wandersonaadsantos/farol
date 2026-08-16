@@ -96,7 +96,9 @@ foreach ($e in $entries) { if ($e -match '\.(js|md|json|cmd|ps1|html|css)$') {
 } }
 # extrai e procura credenciais/contas pessoais nos textos
 Expand-Archive -Path $zip -DestinationPath $tmpDir -Force
-$hits = Get-ChildItem $tmpDir -Recurse -File -Include *.js, *.md, *.json, *.cmd, *.ps1, *.html, *.css |
+# *.sh e *.command entram na varredura: sao os artefatos de mac que o pacote
+# transporta, e ficavam fora do pente de credencial (achado da auditoria 16/08)
+$hits = Get-ChildItem $tmpDir -Recurse -File -Include *.js, *.md, *.json, *.cmd, *.ps1, *.html, *.css, *.sh, *.command |
   Where-Object { $_.Name -ne 'make-package.ps1' } |
   Select-String -Pattern 'wandersonbiuder|ghp_|github_pat_|gho_|ATATT|Bearer ' -SimpleMatch:$false
 Remove-Item $tmpDir -Recurse -Force

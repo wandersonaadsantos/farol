@@ -151,8 +151,7 @@ function fakeLoginEngine() {
 // automatizada antes. Mocka child_process.spawn (via a troca de propriedade no topo
 // deste arquivo, em vigor desde antes do require de lib/engine/session) pra não abrir
 // processo real nenhum, e captura o env passado pro filho.
-test('spawnLoginConsole (Windows): registra keys=[] e NÃO inclui GH_TOKEN no env do processo filho', (t) => {
-  if (process.platform !== 'win32') { t.skip('caminho Windows do spawnLoginConsole'); return; }
+test('spawnLoginConsole (Windows): registra keys=[] e NÃO inclui GH_TOKEN no env do processo filho', { skip: process.platform !== 'win32' ? 'caminho Windows do spawnLoginConsole' : false }, () => {
   let capturedEnv = null;
   const fakeChild = new EventEmitter();
   spawnImpl = (cmd, args, opts) => { capturedEnv = opts.env; return fakeChild; };
@@ -186,8 +185,7 @@ test('spawnLoginConsole (Windows): registra keys=[] e NÃO inclui GH_TOKEN no en
 // ele também não tem a auth do Claude herdada da máquina. É o teste de FIAÇÃO (a função
 // pura loginConsoleEnv tem os seus em claude-profiles.test.js): sem ele, o helper podia
 // existir certinho e ninguém chamar, que é exatamente o defeito do fanOutBlock na v2.27.0.
-test('spawnLoginConsole (Windows): env da máquina com ANTHROPIC_API_KEY não chega no console de login', (t) => {
-  if (process.platform !== 'win32') { t.skip('caminho Windows do spawnLoginConsole'); return; }
+test('spawnLoginConsole (Windows): env da máquina com ANTHROPIC_API_KEY não chega no console de login', { skip: process.platform !== 'win32' ? 'caminho Windows do spawnLoginConsole' : false }, () => {
   const antes = { key: process.env.ANTHROPIC_API_KEY, tok: process.env.ANTHROPIC_AUTH_TOKEN };
   process.env.ANTHROPIC_API_KEY = 'sk-da-maquina';
   process.env.ANTHROPIC_AUTH_TOKEN = 'tok-da-maquina';
@@ -264,3 +262,39 @@ test(
     }
   }
 );
+
+/* ---------- contratos cross-platform dos scripts de sessão (auditoria 16/08) ---------- */
+
+test('FAROL_REVIEW_CMD: quoting do stub é aspas duplas no .cmd e simples no .command', () => {
+  const antes = process.env.FAROL_REVIEW_CMD;
+  process.env.FAROL_REVIEW_CMD = 'meu-stub';
+  try {
+    const win = buildSessionScript(fakeEngine({}), '/pr-review x', 'default-user');
+    const mac = buildSessionScriptMac(fakeEngine({}), '/pr-review x', 'id1', 'default-user');
+    assert.ok(win.includes('meu-stub "/pr-review x"'), 'cmd.exe: aspas duplas');
+    assert.ok(mac.includes("meu-stub '/pr-review x'"), 'bash: aspas simples');
+  } finally {
+    if (antes === undefined) delete process.env.FAROL_REVIEW_CMD; else process.env.FAROL_REVIEW_CMD = antes;
+  }
+});
+
+test('buildSessionScriptMac: porta sem config cai no 47170, nunca "undefined" na URL do trap', () => {
+  const engine = fakeEngine({});
+  engine.config = { skipPermissions: false };   // sem port, como um config.json mínimo
+  const s = buildSessionScriptMac(engine, '/pr-review x', 'id1', 'default-user');
+  assert.ok(s.includes('http://127.0.0.1:47170/api/session-exit'), 'fallback de porta no notify');
+  assert.ok(!s.includes('undefined'), 'porta ausente não pode virar texto na URL');
+});
+
+test('buildSessionScriptMac: conta pedida sem token ABORTA a sessão (paridade com o ghEnv)', () => {
+  const s = buildSessionScriptMac(fakeEngine({}), '/pr-review x', 'id1', 'bob');
+  assert.ok(s.includes("conta 'bob' nao autenticada"), 'o erro nomeia a conta');
+  assert.match(s, /if \[ -z "\$GH_TOKEN" \]; then[\s\S]*exit 1/, 'token vazio sai com erro, não segue no keyring');
+});
+
+test('buildLoginScriptMac: sem GH_TOKEN herdado e com pagers, como o loginConsoleEnv do Windows', () => {
+  const s = buildLoginScriptMac(fakeEngine({}), '/tmp/dir-perfil', 'id9');
+  assert.ok(s.includes('unset GH_TOKEN'), 'profile sourceado pelo Terminal.app não pode injetar token');
+  assert.ok(s.includes('export GH_PAGER=cat PAGER=cat'));
+  assert.ok(s.includes('http://127.0.0.1:47170/api/session-exit') || !s.includes('undefined'), 'porta com fallback');
+});

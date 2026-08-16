@@ -3,8 +3,8 @@
 #   - farol-vX.Y.Z.zip     (leve, sem node_modules): e o que o UPDATE baixa.
 #   - Farol-Setup-vX.Y.Z.exe (Electron embutido): PRIMEIRA instalacao, arquivo unico
 #     (duplo clique instala e abre, sem extrair zip).
-# O instalador offline do macOS (.command) deve ser gerado num Mac
-# (tools/make-offline-mac.sh) e anexado com:
+# O instalador offline do macOS (.command) RODA EM QUALQUER SO
+# (tools/make-offline-mac.sh baixa o zip darwin do GitHub e embute); anexe com:
 #   gh release upload vX.Y.Z dist/Farol-Instalar-mac.command --repo wandersonaadsantos/farol
 #
 # Pre-req: o codigo desta versao ja commitado e no repo (git push), pra a tag
@@ -129,5 +129,5 @@ if ($LASTEXITCODE -ne 0) { throw "gh release falhou (codigo $LASTEXITCODE)" }
 Write-Host ''
 Write-Host "  ok  release $tag publicada em $repo" -ForegroundColor Green
 Write-Host '      As copias instaladas (>= 1.15.0) vao ver o update no proximo ciclo.' -ForegroundColor DarkGray
-Write-Host '      macOS: gere o .command num Mac e anexe com gh release upload.' -ForegroundColor DarkGray
+Write-Host '      macOS: bash tools/make-offline-mac.sh (roda em qualquer SO) e anexe com gh release upload.' -ForegroundColor DarkGray
 Write-Host ''

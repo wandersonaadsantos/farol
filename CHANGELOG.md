@@ -9,6 +9,52 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.44.3
+
+Revisão completa de suporte aos dois sistemas (Windows e macOS): auditoria em 4
+frentes (engine, interface, instalação, testes) com os consertos aplicados.
+
+**Correções (macOS)**
+- **Sessão de terminal não fica mais presa** quando o config não tem porta: a
+  URL de aviso de fim de sessão virava `:undefined` e o app nunca sabia que a
+  sessão acabou (pill preso e botão Atualizar bloqueado por até 12h).
+- **Conta sem token aborta com aviso.** Abrir sessão de terminal por uma conta
+  não autenticada no gh agora falha alto (como no Windows), em vez de seguir em
+  silêncio agindo pela conta errada do keyring.
+- **Console de login não herda GH_TOKEN** exportado no profile do usuário, e o
+  script de login ficou com permissão 0700 (era legível por qualquer usuário da
+  máquina, podendo conter chave de API).
+- **Instalador e auto-update não exigem mais Node.** O modo offline (Electron
+  embutido) instalava e atualizava só com o que vem no pacote, mas um requisito
+  indevido de Node derrubava os dois em Mac sem Node.
+- **Validação da instalação confere o binário certo**: o Electron nativo que o
+  lançador executa, não o wrapper que existe mesmo com a instalação quebrada.
+- **Instalar.command oferece abrir o Farol ao final** (o app vai pra
+  ~/Applications, que não aparece na barra lateral do Finder).
+- Notificações e bandeja usam PNG (o mac não decodifica .ico), diagnóstico de
+  processos (spawns.log) passou a registrar também as sessões do mac, e volume
+  APFS case-sensitive não é mais tratado como se fosse Windows.
+
+**Correções (Windows)**
+- **Update remove arquivo deletado**: a cópia era aditiva e arquivo removido em
+  versão nova sobrevivia pra sempre em ~/.farol/app.
+- **O desinstalador acompanha a instalação**: quem instalou pelo Setup.exe e
+  apagou o download não tinha como desinstalar.
+
+**Correções (interface, os dois SOs)**
+- Atalhos exibidos com a tecla do SO real: Cmd/⌘ no mac, Ctrl no Windows (modal
+  de atalhos e botão da paleta, que misturava as duas convenções).
+- Exemplos de caminho nos perfis do Claude seguem o SO (~/ no mac, C:\ no
+  Windows), e a fonte mono tem par mac explícito (SF Mono/Menlo).
+
+**Melhorias**
+- Auditoria anti-vazamento do pacote passou a varrer também `*.sh` e
+  `*.command` (os artefatos de mac viajavam sem pente de credencial).
+- 8 testes novos de plataforma: script de update do mac (com caminho com espaço
+  e apóstrofo), cancelamento de sessão posix com processo real, PATH do boot do
+  mac como função pura, quoting dos scripts de sessão e paridade do console de
+  login.
+
 ## v2.44.2
 
 Completa o conserto da v2.44.1: o progresso honesto virou régua única e central

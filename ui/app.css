@@ -81,7 +81,7 @@ body {
   -webkit-font-smoothing: antialiased;
   transition: background .25s ease, color .25s ease;
 }
-code { font-family: "Cascadia Code", Consolas, monospace; font-size: .92em; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; }
+code { font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; font-size: .92em; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; }
 a { color: var(--info); text-decoration: none; }
 a:hover { text-decoration: underline; }
 button { font: inherit; }
@@ -873,7 +873,7 @@ label.set-row { cursor: pointer; }
 .update-box.avail { border-left: 3px solid var(--accent); }
 .update-box.ok-state { border-left: 3px solid var(--ok); }
 
-.logbox { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; font: 12px/1.6 "Cascadia Code", Consolas, monospace; color: var(--muted); max-height: 300px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+.logbox { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; font: 12px/1.6 "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; color: var(--muted); max-height: 300px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
 .about { margin-top: 28px; color: var(--muted); font-size: 12px; line-height: 1.8; }
 
 /* ---------- silenciadas (resumo recolhido) ---------- */
@@ -894,7 +894,7 @@ label.set-row { cursor: pointer; }
 .session-author b { color: var(--text); }
 .session-elapsed { color: var(--muted); font-size: 12px; margin-left: auto; font-variant-numeric: tabular-nums; }
 .spin.accent { display: inline-block; width: 13px; height: 13px; flex: none; border: 2px solid var(--info); border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
-.activity-feed { margin-top: 10px; max-height: 210px; overflow-y: auto; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; font: 12px/1.7 "Cascadia Code", Consolas, monospace; }
+.activity-feed { margin-top: 10px; max-height: 210px; overflow-y: auto; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; font: 12px/1.7 "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; }
 .feed-line { display: flex; gap: 8px; align-items: baseline; }
 .feed-t { color: var(--faint); font-size: 10.5px; flex: none; }
 .feed-i { flex: none; width: 14px; text-align: center; }
@@ -930,7 +930,7 @@ body.electron .chat-head { padding-right: 150px; }
 .msg.bot > :first-child { margin-top: 0; }
 .msg.bot > :last-child { margin-bottom: 0; }
 .msg.sys { align-self: center; color: var(--muted); font-size: 12px; }
-.chat-activity { padding: 6px 14px; color: var(--info); font-size: 12px; font-family: "Cascadia Code", Consolas, monospace; border-top: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-activity { padding: 6px 14px; color: var(--info); font-size: 12px; font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; border-top: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chat-form { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--border); }
 .chat-form textarea { width: 100%; resize: vertical; min-height: 44px; max-height: 180px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; font: inherit; }
 .chat-form textarea:focus { outline: none; border-color: var(--accent); }

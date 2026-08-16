@@ -26,7 +26,7 @@ const { parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
   applyClaudeAuthEnv, claudeAuthShellLines,
   sanitizeModel, sanitizeEffort, sanitizeParallelReviews } = require('./lib/parse');
-const { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, run, runShell } = require('./lib/io');
+const { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, run, runShell, prependPathDirs } = require('./lib/io');
 const updateMod = require('./lib/engine/update');
 const chatMod = require('./lib/engine/chat');
 const toolsMod = require('./lib/engine/tools');
@@ -44,9 +44,15 @@ const { startServer } = require('./lib/http-server');
 if (!IS_WIN) {
   const extras = ['/opt/homebrew/bin', '/usr/local/bin',
     path.join(os.homedir(), '.local', 'bin'), path.join(os.homedir(), 'bin')];
-  const current = (process.env.PATH || '').split(':');
-  const missing = extras.filter(d => !current.includes(d) && fs.existsSync(d));
-  if (missing.length) process.env.PATH = missing.concat(process.env.PATH || '').join(':');
+  const next = prependPathDirs(process.env.PATH, extras, fs.existsSync);
+  if (next) process.env.PATH = next;
+}
+
+// O Farol suporta Windows e macOS. Outro POSIX (Linux) cai nos ramos do mac
+// (open -a Terminal, unzip, Farol.app) e falharia aos poucos e em silêncio;
+// melhor um aviso alto no boot do que depurar sessão que nunca abre.
+if (!IS_WIN && !IS_MAC) {
+  console.warn(`[farol] plataforma ${process.platform} não suportada: os caminhos de sessão/update assumem macOS.`);
 }
 
 // A telemetria do GitHub CLI relanca um "gh send-telemetry" DESTACADO (sem console)

@@ -8,7 +8,8 @@ const path = require('path');
 
 const farol = require('./server');
 
-const IS_MAC = process.platform === 'darwin';
+// fonte única do branch de plataforma (lib/paths.js), como no resto do app
+const { IS_MAC } = require('./lib/paths');
 
 let win = null;
 let tray = null;
@@ -102,7 +103,10 @@ function createWindow() {
     win.hide();
     if (!hideHintShown) {
       hideHintShown = true;
-      notify('Farol continua por aqui', 'Monitorando na bandeja do sistema. Clique no icone para reabrir.');
+      // "bandeja do sistema" e vocabulario Windows; no macOS o icone mora na barra de menus
+      notify('Farol continua por aqui', IS_MAC
+        ? 'Monitorando na barra de menus. Clique no icone do farol para reabrir.'
+        : 'Monitorando na bandeja do sistema. Clique no icone para reabrir.');
     }
   });
 }
@@ -120,7 +124,9 @@ function showWindow() {
 function trayIcon() {
   const p = path.join(__dirname, 'assets', 'tray.png');
   let img = nativeImage.createFromPath(p);
-  if (img.isEmpty()) img = nativeImage.createFromPath(path.join(__dirname, 'assets', 'farol.ico'));
+  // fallback em PNG, nunca .ico: o nativeImage do macOS nao decodifica ICO e o
+  // Tray subiria invisivel; o PNG decodifica nos dois SOs
+  if (img.isEmpty()) img = nativeImage.createFromPath(path.join(__dirname, 'assets', 'png', 'farol-32.png'));
   // a barra de menu do macOS espera ~18px; sem resize o icone sai gigante
   if (IS_MAC && !img.isEmpty()) img = img.resize({ width: 18, height: 18 });
   return img;
@@ -147,7 +153,8 @@ function notify(title, body, prUrl) {
   const goto = () => { showWindow(); if (prUrl && engine) engine.focusPr(prUrl); };
   try {
     if (Notification.isSupported()) {
-      const n = new Notification({ title, body, icon: path.join(__dirname, 'assets', 'farol.ico') });
+      // PNG e nao .ico: o macOS nao decodifica ICO e a notificacao sairia sem icone
+      const n = new Notification({ title, body, icon: path.join(__dirname, 'assets', 'png', 'farol-256.png') });
       n.on('click', goto);
       n.on('failed', () => balloon(title, body));
       n.show();
