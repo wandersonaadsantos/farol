@@ -1337,6 +1337,9 @@ body.electron .chat-head { padding-right: 150px; }
   height: 100%; background: var(--info);
   transition: width .3s ease;
 }
+/* barra do card de sessão no "Analisando agora" (régua única sessionProgress) */
+.sess-progress { margin: 2px 0 6px; }
+.sess-progress .sess-pct { min-width: 30px; text-align: right; }
 
 /* Action buttons */
 .op-actions {

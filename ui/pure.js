@@ -768,19 +768,22 @@ function analysisOpsPlan(ops, snap) {
   return { markSeen, close };
 }
 
-/* ---------- ops de autoanálise: progresso honesto ----------
-   A barra do widget ficava em 25% fixo e pulava pro fim (bug relatado em
-   16/08/2026): os dois updateOp do fluxo eram números chutados e nada consumia
-   a atividade real da sessão. Estes helpers ligam o feed (evento SSE
-   'activity') ao widget: selfSessionKey acha o PR da sessão self dona do
-   evento, e analysisProgress converte a contagem de eventos num percentual que
-   avança a cada ação do Claude, assintótico a 90 (os 10 finais pertencem ao
-   fechamento pelo snapshot, decidido em analysisOpsPlan). */
+/* ---------- progresso de sessão: a régua ÚNICA do app ----------
+   Regra do Wanderson (16/08/2026): previsibilidade com qualidade, centralizada
+   e acessível pra todo o sistema. Antes cada fluxo chutava seu percentual (a
+   autoanálise ficava em 25% fixo e concluía do nada, o chat idem) e a revisão
+   automática nem barra tinha. sessionProgress é a régua única: converte a
+   contagem de eventos REAIS da sessão (feed do SSE 'activity', ou contagem
+   local no chat) num percentual sempre crescente, assintótico a 90 (os 10
+   finais pertencem ao fechamento real, decidido pelo snapshot). Barra nova no
+   app usa ESTA função, nunca um número escrito à mão; quem mudar a curva muda
+   pra todos os fluxos de uma vez. selfSessionKey acha o PR da sessão de
+   autoanálise dona de um evento de atividade (roteio feed -> widget). */
 function selfSessionKey(sessions, id) {
   const s = (sessions || []).find(x => x && x.id === id && x.mode === 'self');
   return (s && s.keys && s.keys[0]) || null;
 }
-function analysisProgress(count) {
+function sessionProgress(count) {
   const n = Math.max(0, Number(count) || 0);
   return Math.min(90, 5 + Math.round(85 * (1 - Math.exp(-n / 18))));
 }
@@ -1183,7 +1186,7 @@ if (typeof module !== 'undefined' && module.exports) {
     esc, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
     sameSet, diffVs, lastMerge, groupBy, usageMetricVal, sparklinePath, usageDelta, usageStackLayers,
     usageHoverIndex, usageMatrixRows, USAGE_KIND_LABEL, usageSessionRow, FAROL_STAMP_SINCE, FAROL_PRE_STAMP_LABEL, accountSaveArray, delivCappedMsg, fmtRel,
-    usageDayKeysBack, localDayKey, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan, selfSessionKey, analysisProgress,
+    usageDayKeysBack, localDayKey, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan, selfSessionKey, sessionProgress,
     personMention, repoMention, prRefMention, ghPrUrl, parseGoto, toolRefGoto, sessionRefMention, sessionRefCell, reviewBoxHtml, operationChecks,
     delivFilterItems, delivDayBuckets, delivStats, delivStatsCards, delivActivityChart, delivActivityCard,
     delivSliceRows, delivEmptyState, deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,

@@ -1809,6 +1809,16 @@ function sessionVisible(s) {
   const u = s && s.pr ? prUser(s.pr) : '';
   return !u || scopeVisible({ account: u });
 }
+/* barra de progresso do card de sessão (revisão automática E autoanálise no
+   "Analisando agora"): percentual pela régua única sessionProgress sobre a
+   contagem de eventos reais do feed. Chamada no render e a cada evento SSE. */
+function updateSessionBar(id) {
+  const wrap = document.querySelector(`.sess-progress[data-id="${CSS.escape(id)}"]`);
+  if (!wrap) return;
+  const pct = sessionProgress((STATE?.activity?.[id] || []).length);
+  wrap.querySelector('.op-bar-fill').style.width = pct + '%';
+  wrap.querySelector('.sess-pct').textContent = pct + '%';
+}
 function renderActive() {
   const sessions = (STATE.activeSessions || []).filter(s => (s.mode === 'auto' || s.mode === 'self') && sessionVisible(s));
   const waiting = (STATE.headlessWaiting || []).filter(k => scopeVisible({ key: k }));
@@ -1835,6 +1845,7 @@ function renderActive() {
           <span class="session-elapsed" data-started="${s.startedAt}"></span>
           ${s.cancellable ? `<button class="btn sm danger-ghost act-cancel" data-id="${esc(s.id)}">Cancelar</button>` : ''}
         </div>
+        <div class="op-progress sess-progress" data-id="${esc(s.id)}"><span class="sess-pct"></span><div class="op-bar"><div class="op-bar-fill"></div></div></div>
         <div class="activity-feed" data-id="${esc(s.id)}"></div>
       </div>`;
     }).join('');
@@ -1842,6 +1853,7 @@ function renderActive() {
   for (const s of sessions) {
     const feed = box.querySelector(`.activity-feed[data-id="${CSS.escape(s.id)}"]`);
     if (feed) fillFeed(feed, STATE.activity && STATE.activity[s.id]);
+    updateSessionBar(s.id);
     // o nivel (Opus/Sonnet/...) so chega no init da sessao, depois do card montar
     const lvl = box.querySelector(`.session-model[data-id="${CSS.escape(s.id)}"]`);
     if (lvl) {
@@ -1908,9 +1920,9 @@ function renderChat(c) {
         inline: true,
         container: act
       });
-      // fase generica so no primeiro paint; depois quem escreve o step e o
-      // handler de chat-activity, com o texto REAL da sessao
-      updateOp(chatOpId, { step: 'Lendo PR…', progress: 25 });
+      // fase generica so no primeiro paint; depois quem escreve step E
+      // progresso e o handler de chat-activity (regua unica sessionProgress)
+      updateOp(chatOpId, { step: 'Lendo PR…', progress: 5 });
     }
   } else {
     closeOp(chatOpId, 'done', 'Resposta recebida');
@@ -3118,6 +3130,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.44.2', ['Progresso honesto em TODO o app, com régua única: a revisão automática (cards do "Analisando agora") ganhou barra de progresso movida pela atividade real da sessão, e o chat por PR deixou de ficar parado em 25% (mesma família do bug da autoanálise). Os três fluxos usam a mesma régua central, e um teste impede percentual chutado de voltar.']],
   ['2.44.1', ['A barra de progresso da autoanálise (Meus PRs) parou de mentir: ela ficava fixa em 25% e concluía do nada, porque os percentuais eram números chutados. Agora ela acompanha a atividade real da sessão (cada ação do Claude move a barra e vira o texto do passo), avançando até 90% e fechando quando a análise termina de verdade.']],
   ['2.44.0', ['Botão Remover no card do Time: quando alguém sai da equipe, apaga desta máquina o dossiê, os destaques, o perfil e os pushbacks da pessoa, com modal de confirmação explicando o efeito. Nada é alterado no GitHub.', 'Confirmações de "Atualizar agora" e "Zerar log" trocaram o popup nativo do sistema por modais do próprio Farol, com a explicação do que vai acontecer. Não resta popup nativo no app.', 'Créditos com origem: a seção Sobre registra que o Farol nasceu da iniciativa do Thiago (@thiagopcdev), o revisor de PRs em janela de terminal cuja essência o app reconstruiu.']],
   ['2.43.0', ['Seção "Sobre" na aba Sistema: o compromisso de privacidade (o Farol não coleta nem envia nenhum dado a quem o mantém, tudo fica local em ~/.farol), a licença MIT e os créditos do projeto.', 'Créditos sincronizados com o GitHub: idealizador e contribuidores aparecem com foto e link pro perfil, e colaborador novo que entrar no repositório entra na lista sozinho, sem manutenção.']],
@@ -3911,9 +3924,10 @@ function connect() {
       feed.insertAdjacentHTML('beforeend', feedLine(item));
       if (stick) feed.scrollTop = feed.scrollHeight;
     }
-    // barra do widget de autoanálise (Meus PRs): a atividade real da sessão
-    // vira step e progresso; antes eram dois números chutados (5 e 25) e a
-    // barra parava em 25% até a análise concluir do nada
+    // progresso honesto (régua única sessionProgress, ui/pure.js): a atividade
+    // real move a barra do card da sessão no "Analisando agora"...
+    updateSessionBar(id);
+    // ...e, se for autoanálise, também o widget do card em Meus PRs
     const selfKey = selfSessionKey(STATE?.activeSessions, id);
     if (selfKey) {
       const op = ACTIVE_OPS.get(`analysis-${selfKey}`);
@@ -3921,7 +3935,7 @@ function connect() {
         const n = (STATE?.activity?.[id] || []).length;
         updateOp(op.id, {
           step: (item && item.text) || op.step,
-          progress: Math.max(op.progress || 0, analysisProgress(n))
+          progress: Math.max(op.progress || 0, sessionProgress(n))
         });
       }
     }
@@ -3940,7 +3954,11 @@ function connect() {
       // textContent no container destruia a pill e orfanava a op (B16). Se a
       // atividade chegar antes do primeiro snapshot de chat, cria a op aqui.
       if (!ACTIVE_OPS.has(opId)) showOp(opId, { type: 'chat', title: 'Claude respondendo', inline: true, container: el });
-      updateOp(opId, { step: text });
+      // o chat nao acumula feed em STATE.activity; a contagem de eventos vive
+      // na propria op, e o percentual sai da MESMA regua dos outros fluxos
+      const op = ACTIVE_OPS.get(opId);
+      const n = (op.chatEvents = (op.chatEvents || 0) + 1);
+      updateOp(opId, { step: text, progress: Math.max(op.progress || 0, sessionProgress(n)) });
     }
   });
   es.addEventListener('toast', (e) => {

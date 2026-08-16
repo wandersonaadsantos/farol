@@ -433,3 +433,16 @@ test('toda menção com data-goto é anunciada como botão (role + tabindex)', (
       'span com data-goto precisa de role="button" e tabindex="0"');
   }
 });
+
+/* ---------- progresso: regua unica, sem percentual chutado ---------- */
+
+test('progresso literal no app.js so existe no paint inicial (<= 10); o resto sai da regua sessionProgress', () => {
+  // o bug de origem (16/08/2026): barra da autoanalise fixa em "progress: 25"
+  // ate concluir do nada. A regra agora e central: percentual de meio de fluxo
+  // vem SEMPRE de sessionProgress (ui/pure.js); literal so pro primeiro paint,
+  // e primeiro paint honesto e baixo (ninguem mediu nada ainda).
+  const chutes = [...APPJS.matchAll(/progress:\s*(\d+)/g)].filter(m => Number(m[1]) > 10);
+  assert.deepEqual(chutes.map(m => m[0]), [],
+    'percentual literal acima de 10 no app.js: use sessionProgress (ui/pure.js), a regua unica de progresso');
+  assert.ok(APPJS.includes('sessionProgress('), 'a regua central sumiu do app.js');
+});

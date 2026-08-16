@@ -9,6 +9,24 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.44.2
+
+Completa o conserto da v2.44.1: o progresso honesto virou régua única e central
+pra todo o app, não só pra autoanálise.
+
+**Correções**
+- **Revisão automática com barra de progresso.** Os cards do "Analisando agora"
+  (Radar) mostravam só o feed e o cronômetro; agora têm barra e percentual,
+  movidos pela mesma atividade real da sessão que alimenta o feed.
+- **Chat por PR sem o 25% eterno.** A pill "Claude respondendo" tinha o mesmo
+  defeito da autoanálise (percentual fixo até concluir do nada); agora cada
+  passo real da sessão move a barra.
+- **Régua central e travada.** O percentual dos três fluxos (autoanálise,
+  revisão automática e chat) sai de uma única função (`sessionProgress`, em
+  ui/pure.js): sempre crescente, teto em 90%, fechamento só quando a sessão
+  termina de verdade. Um teste novo reprova qualquer percentual chutado que
+  tente voltar pro código.
+
 ## v2.44.1
 
 Conserto da barra de progresso da autoanálise em Meus PRs, que nunca funcionou
