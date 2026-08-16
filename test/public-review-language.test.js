@@ -231,19 +231,34 @@ test('detector normaliza NFKC, acentos decompostos e caracteres invisíveis', ()
 });
 
 // trava do "nunca vazar a versão do Farol": a versão viaja na tabela de
-// Consumo (lib/engine/usage.js), NUNCA no texto de review. Um corpo citando
-// "Farol vX.Y.Z" junto denuncia proveniência tão bem quanto "gerado pelo
-// Farol"; a regra genérica de ator (STRONG_REVIEW_ACTOR) sozinha não pega
-// isso porque não há verbo de ação nem objeto de review na frase.
-test('detector bloqueia menção a "Farol vX.Y.Z" (nunca vazar a versão que gerou a sessão)', () => {
-  const leaks = [
-    'Farol v2.42.0',
-    'Revisado com o Farol v2.42.0 nesta rodada.',
-    'v2.42.0 do Farol confirmou o diff.',
+// Consumo (lib/engine/usage.js), NUNCA no texto de review. O alvo é
+// PROVENIÊNCIA (quem/o que produziu ESTE review), não qualquer menção: "Farol
+// vX.Y.Z" sozinho é assunto técnico legítimo em PR de release do próprio repo
+// (achado do revisor, provado ao vivo com as 4 frases abaixo), e a doutrina do
+// CLAUDE.md já protege isso (Farol não é proibido sozinho). Só bloqueia quando
+// um verbo de proveniência (gerado, revisado, produzido...) e uma preposição
+// (pelo/com/via) colam o par Farol+versão à revisão em si.
+test('detector bloqueia proveniência com versão ("gerado pelo Farol vX.Y.Z"), mas passa menção técnica legítima', () => {
+  const bloqueadas = [
+    'review gerado pelo Farol v2.42.0',
+    'revisado com Farol v2.41.4',
+    'análise produzida via Farol v2.42.0',
   ];
-  for (const body of leaks) {
+  for (const body of bloqueadas) {
     assert.ok(publicReview.publicReviewLanguageIssues(payload(body)).length, `deveria bloquear: ${body}`);
   }
+
+  const passam = [
+    'Confere que o Farol aponta pra v2.42.0 certa antes de mergear.',
+    'Atualizei o CHANGELOG do Farol pra v2.42.0 e revisei o diff.',
+    'Este PR bumpa o Farol pra v2.42.0, changelog confere.',
+    'O Farol v2.42.0 corrige o bug do detector.',
+  ];
+  assert.deepEqual(
+    passam.filter(body => publicReview.publicReviewLanguageIssues(payload(body)).length),
+    [],
+    'menção técnica legítima à versão do Farol (PR de release do próprio repo) não pode ser bloqueada'
+  );
 });
 
 test('detector bloqueia estilo robótico que o contrato público proíbe', () => {
