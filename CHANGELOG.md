@@ -9,6 +9,19 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.42.0
+
+**Novidades**
+- **Cada sessão registra a versão do Farol que a produziu.** A tabela "Sessões
+  recentes" da aba Consumo ganhou a coluna "Farol": toda revisão, autoanálise,
+  pushback, chat ou ferramenta fica carimbada com a versão do app que rodou a
+  sessão, dando contexto de auditoria junto do modelo e do custo. Sessões
+  registradas antes desta versão aparecem com a célula vazia (registro
+  permanente, sem retro-carimbo inventado). A versão NUNCA aparece no texto de
+  review postado: a trava de linguagem pública passou a bloquear qualquer
+  menção de proveniência com versão ("gerado pelo Farol vX.Y.Z"), continuando
+  a permitir menção técnica legítima quando o assunto do PR é o próprio Farol.
+
 ## v2.41.4
 
 Terceira e última onda da correção dos gaps da auditoria: ciclo de vida e
