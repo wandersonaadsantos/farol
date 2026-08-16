@@ -127,7 +127,7 @@ O que existe:
 - **Instalação**: `installer/install-linux.sh` + `uninstall-linux.sh`. App em `~/.farol/app`, lançador `~/.farol/bin/farol` (exec no binário NATIVO `node_modules/electron/dist/electron`, mesma lição do mac), `.desktop` em `~/.local/share/applications` com ícone PNG. `FAROL_INSTALL_ROOT` permite instalar num root de teste sem tocar a instalação real (a lacuna A5 que o mac ainda tem). Fonte sem `node_modules` (clone limpo) cai no `npm install`.
 - **UI**: exemplos de caminho decidem por `ehWin()` (Linux vê `~/`); autostart só aparece no Windows (`setLoginItemSettings` é no-op no Linux).
 
-Validação real (WSL Ubuntu-24.04, 16/08/2026): ver o estado nos itens abaixo; o WSL do Wanderson é a bancada oficial do ramo (WSLg roda Electron com janela).
+Validação real (WSL Ubuntu-24.04, 16/08/2026, bancada oficial do ramo): `npm test` VERDE no Linux (1110 pass, incluindo os posix reais: killTree de grupo, quoting em bash, prefixo de auth); `install-linux.sh` rodou de ponta a ponta a partir de clone limpo com `FAROL_INSTALL_ROOT` (npm pulou o postinstall do electron e o fallback pro `install.js` cobriu, ver comentário no script); o app instalado ABRIU no WSLg pelo lançador e o engine respondeu HTTP 200 na 47170. NÃO validados (limite do WSLg, não do código): tray, notificações, sessão de terminal com emulador real (o WSL não tem terminal gráfico instalado; o caminho do "nenhum terminal" avisa alto por construção).
 
 ## Modelo e esforço das sessões autônomas
 

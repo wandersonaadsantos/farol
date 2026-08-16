@@ -9,6 +9,31 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.45.0
+
+Suporte experimental a Linux: o Farol passa a rodar nos três sistemas.
+
+**Novidades**
+- **Linux (experimental).** Instalador próprio (`bash installer/install-linux.sh`):
+  app em `~/.farol/app`, lançador `~/.farol/bin/farol` e atalho no menu de
+  aplicativos (.desktop). Desinstalador junto (`uninstall-linux.sh`).
+- **Sessões de terminal no Linux**: abrem no emulador disponível, na ordem
+  x-terminal-emulator → gnome-terminal → konsole → xterm; sem nenhum instalado,
+  o app avisa com instrução em vez de falhar em silêncio.
+- **Auto-update no Linux**: mesmo contrato dos outros SOs, reabrindo o app pelo
+  lançador ao final.
+- Validação real num Ubuntu (WSL): suíte completa verde no Linux (1110 testes,
+  incluindo os POSIX que só rodavam stubados: cancelamento de sessão matando o
+  grupo de processos de verdade) e o app instalado abrindo com o engine no ar.
+
+**Melhorias**
+- Instalador do macOS e do Linux agora contornam npm que pula o postinstall do
+  Electron (baixam o binário direto pelo install.js quando o dist não veio).
+- Plataforma fora das três suportadas ganha aviso claro no boot.
+
+Fora do escopo desta versão (decisão, não esquecimento): bandeja, autostart,
+notificações polidas e instalador offline no Linux.
+
 ## v2.44.3
 
 Revisão completa de suporte aos dois sistemas (Windows e macOS): auditoria em 4
