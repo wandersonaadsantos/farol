@@ -223,8 +223,8 @@ class Engine extends EventEmitter {
     // registro de consumo de tokens (agregado por dia/tipo/conta/modelo); merge com o
     // default garante que arquivos antigos ganhem os eixos novos sem quebrar.
     this.usage = { ...usageMod.defaultUsage(), ...readJson(usageMod.USAGE_FILE, {}, warn) };
-    // log individual de sessoes, permanente (sem poda, decisao consciente: ver
-    // docs/superpowers/specs/2026-08-10-consumo-tela-redesign-design.md). Separado
+    // log individual de sessoes, permanente (sem poda, decisao consciente: e a fonte
+    // unica da aba Consumo, ver o papel de lib/engine/usage.js no CLAUDE.md). Separado
     // do usage.json pra gravacao do agregado nao reserializar um array que so cresce.
     this.usageSessions = { ...usageMod.defaultSessions(), ...readJson(usageMod.SESSIONS_FILE, {}, warn) };
     this.seen = new Set();

@@ -2,7 +2,7 @@
 // Trava arquitetural: NÃO existe (e não deveria passar a existir) um caminho de prompt
 // separado pro relançamento via retryAfterNet. Onda 3 do checkpoint (resumeBlock) depende
 // de toda sessão, primeira vez ou retry, passar pelo MESMO ponto de montagem de prompt em
-// runHeadlessReview. Ver docs/superpowers/specs/2026-08-05-checkpoint-verificacao-design.md.
+// runHeadlessReview. Ver a seção "Checkpoint de verificação" do CLAUDE.md.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');

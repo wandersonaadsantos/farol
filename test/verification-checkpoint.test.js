@@ -1,7 +1,7 @@
 'use strict';
 // Checkpoint de verificação: memória persistida e incremental do que a revisão headless
 // já confirmou, pra não reprocessar do zero depois de um subagente travar em 529 ou a
-// sessão ser relançada. Ver docs/superpowers/specs/2026-08-05-checkpoint-verificacao-design.md.
+// sessão ser relançada. Ver a seção "Checkpoint de verificação" do CLAUDE.md.
 // Runner nativo (node --test), ZERO dependências.
 const os = require('node:os');
 const path = require('node:path');

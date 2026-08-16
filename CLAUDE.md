@@ -24,10 +24,11 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
 | `lib/spawnlog.js` | Registro opt-in dos processos disparados (caça o "terminal piscando") |
 | **`lib/engine/`** | **Colaboradores da Engine: recebem o engine como contexto** |
 | `lib/engine/review.js` | Revisão headless: fila por conta, escalonador paralelo (`processHeadless`), prompt (`headlessPromptFor`) e o ciclo de uma revisão |
-| `lib/engine/decision.js` | O gate de postagem: `shouldAutoApprove`, `shouldAutoReject`, `coverageGap`, `attentionPoints`, `postReview`, `decide`, capabilities das sessões interativas e projeção segura das decisões para a UI |
+| `lib/engine/decision.js` | O gate de postagem: `shouldAutoApprove`, `shouldAutoReject`, `coverageGap`, `checkpointGap`, `attentionPoints`, `postReview`, `decide`, capabilities das sessões interativas e projeção segura das decisões para a UI |
 | `lib/engine/public-review.js` | Fronteira determinística entre diagnóstico interno e review: valida schema/linguagem de corpos e inlines, extrai review humano de registros legados e monta a allowlist enviada à UI |
 | `lib/engine/fanout.js` | Fan-out de revisão em PR grande: mede o PR (`prMetrics`), decide se fatia (`shouldFanOut`), monta os lotes por afinidade de caminho (`planLotes`, função PURA) e injeta o instrutivo (`fanOutBlock`). Determinístico, ZERO IA e zero rede na parte que decide |
-| `lib/engine/session.js` | Sessões do Claude: headless (`runClaudeStream`, `buildModelFlags`), terminal por SO (`buildSessionScript`/`Mac`), cancelamento (`killTree`) |
+| `lib/engine/session.js` | Sessões do Claude: headless (`runClaudeStream`, `buildModelFlags`), terminal por SO (`buildSessionScript`/`Mac`), cancelamento (`killTree`). É aqui que o marcador `FAROL_CHECKPOINT` é interceptado (ver a seção "Checkpoint de verificação") |
+| `lib/engine/verification-checkpoint.js` | Checkpoint de verificação da revisão headless: memória append-only por PR do que já foi confirmado contra o código (`checkpointPath`, `appendCheckpointEntry`, `readCheckpoint`, `summarizeCheckpoint`, `resumeBlock`). Só o ENGINE escreve, nunca a sessão; detalhe na seção "Checkpoint de verificação" |
 | `lib/engine/selfpr.js` | "Meus PRs": autoanálise (nunca posta), `setReviewers` e `mergeSelfPR` (as duas ÚNICAS escritas no GitHub partindo daqui, com os gates travados em `test/merge-gates.test.js`) e o **ocultar PR** (`hidePR`/`unhidePR`/`reconcileHiddenPRs`, estado em `state/hidden-prs.json`, travado em `test/hidden-prs.test.js`). Ocultar é 100% local e **temporário por natureza**: guarda o `updatedAt` do PR e o `check()` desoculta sozinho quando esse carimbo muda (atividade nova). O engine NÃO filtra `myPRs` (quem esconde é a UI, que também mostra os ocultos), e a limpeza de chave órfã é POR CONTA desde a v2.41.2 (`reconcileHiddenPRs(okAccounts)`): só limpa chave cuja conta dona respondeu à busca de PRs meus neste ciclo, senão a queda de UMA conta desocultaria (e apagaria autoanálise) das outras. Não confunda com `clearSelfAnalysis`, que apaga só a AUTOANÁLISE |
 | `lib/engine/pushback.js` | Memória de contestação: quem entra no scan (`pushbackTargets`), detecção e classificação |
 | `lib/engine/gh-queries.js` | As buscas no GitHub (`searchPRs`, `myAuthoredPRs`, entregas) e os créditos do Sistema > Sobre (`refreshContributors`: contribuidores do repo do update, cache 24h, backoff de falha 1h) |
@@ -135,7 +136,7 @@ Como o Farol espalha `process.env` pros filhos, por padrão ele herda o login da
 
 1. **Máquina toda:** `claude login` (troca a conta pra tudo, inclusive seu Claude Code interativo de codar). Simples, mas não isola o Farol.
 2. **Um diretório de config isolado (o que já existia):** aponte `config.claudeConfigDir` pra um diretório próprio. O engine injeta `CLAUDE_CONFIG_DIR` nesse dir em TODAS as sessões do Farol, então elas usam a assinatura logada ali, sem mexer no `claude` principal da máquina.
-3. **Perfis nomeados de assinatura, um por conta GitHub monitorada (recomendado, desde a v2.27.0):** em Sistema > **"Assinatura do Claude"**, o campo único virou um gerenciador de perfis. Cada perfil tem um nome (ex.: "BIUD Trabalho", "Pessoal Max") e um diretório de config próprio. Escolha um perfil como **padrão do Farol** e, se quiser, atribua um perfil diferente a uma conta GitHub específica (Sistema > Contas, override por conta). Sem override, a conta usa o padrão global; sem nenhum perfil criado, vale o `claudeConfigDir` legado como sempre valeu (compatibilidade total, spec completo em `docs/superpowers/specs/2026-07-31-perfis-claude-por-conta-design.md`).
+3. **Perfis nomeados de assinatura, um por conta GitHub monitorada (recomendado, desde a v2.27.0):** em Sistema > **"Assinatura do Claude"**, o campo único virou um gerenciador de perfis. Cada perfil tem um nome (ex.: "BIUD Trabalho", "Pessoal Max") e um diretório de config próprio. Escolha um perfil como **padrão do Farol** e, se quiser, atribua um perfil diferente a uma conta GitHub específica (Sistema > Contas, override por conta). Sem override, a conta usa o padrão global; sem nenhum perfil criado, vale o `claudeConfigDir` legado como sempre valeu (compatibilidade total).
 
 **Perfil por chave de API (desde a v2.34.0):** cada perfil pode ser "login por assinatura" (o de sempre, `CLAUDE_CONFIG_DIR`) ou "chave de API" (`ANTHROPIC_API_KEY` + `ANTHROPIC_BASE_URL` opcional, billing por token em vez de assinatura). Os dois convivem no mesmo gerenciador de perfis e são escolhidos por conta GitHub do mesmo jeito. Perfil de chave não tem fluxo de `claude login` (a chave já é a credencial) e cobre tanto as sessões headless quanto a sessão de terminal interativa da fila, a sessão de LOGIN em si (botão "Abrir sessão de login") segue existindo só pro tipo assinatura. URL base é um escape hatch genérico pra qualquer endpoint compatível com a API de Mensagens da Anthropic (proxy próprio, gateway corporativo); não é garantia de funcionar com qualquer provedor (ex.: OpenRouter fala nativamente uma API diferente, OpenAI-style).
 
@@ -311,7 +312,7 @@ Junto na v2.41.0, e relacionados: **rascunhos entram no radar** (caiu o
 "rascunho" em fila/panorama; o `mergeSelfPR` segue recusando draft, revalidado
 na hora do clique) e o **paralelismo por conta** documentado no invariante 4.
 
-### Ciclo de vida e higiene (onda 3 dos gaps, spec `docs/superpowers/specs/2026-08-15-gaps-v2411-auditoria.md`)
+### Ciclo de vida e higiene (onda 3 dos gaps da auditoria de 15/08/2026)
 
 Quatro estados que existiam só em memória (ou não existiam) e agora têm dono e regra
 de poda. Todos seguem o mesmo princípio das outras duas ondas: **falta de dado nunca
@@ -345,6 +346,61 @@ vira ação**, e poda errada não pode custar sessão paga.
   `sessions/update-dl-<ts>` e nada apagava. Toda tentativa começa apagando os que têm
   mais de 24h, best-effort com try/catch por entrada (lixo que não sai hoje sai
   amanhã; falhar o update por causa de um diretório travado seria pior).
+
+## Checkpoint de verificação (memória entre passadas da revisão, v2.36.0)
+
+Motivado por um incidente real (05/08/2026, PR biudtech/internal-auth#43): a sessão de
+revisão caiu em `529 Overloaded` no meio da verificação de afirmações factuais de um
+documento e, ao retomar, refez do zero exatamente as mesmas checagens que já tinha
+concluído minutos antes. Custo pago duas vezes e risco silencioso: nada garantia que a
+segunda passada chegasse ao mesmo veredito da primeira (a última simplesmente vencia).
+
+As peças (`lib/engine/verification-checkpoint.js` + costuras em `session.js`,
+`review.js`, `decision.js` e `ui/pure.js`):
+
+- **Arquivo por PR**, `state/verification/<encodeURIComponent(key)>.json`,
+  **append-only**: entrada nova nunca sobrescreve a anterior; veredito revisado vira
+  entrada NOVA e a divergência é detectada, nunca escondida. `encodeURIComponent` porque
+  trocar `/`/`#` por `__` colidiria (`a__b/c` vs `a/b__c` dariam o mesmo arquivo).
+- **Quem escreve é o ENGINE, nunca a sessão** (regra 2 do prompt: sessão não escreve em
+  `state/`). A sessão sinaliza o veredito no campo `description` de um Bash que ela já
+  rodaria de qualquer forma (`FAROL_CHECKPOINT: {"claim","file","line","verdict","evidence"}`;
+  sem comando real pra rodar, usa `true`), e `session.js` (branch `tool_use` de
+  `handleEvent`) intercepta e grava via `appendCheckpointEntry`. Guardas da captura: só
+  `Bash.description`; só sessão `mode === 'auto'` (autoanálise NUNCA escreve, é o
+  invariante 4); payload tem que ser objeto (array não vira entrada vazia); JSON inválido
+  é ignorado sem derrubar a sessão. O engine carimba `sessionId`, `headSha` e `at`
+  (horário de Brasília, nunca UTC cru).
+- **Leitura**: `runHeadlessReview` lê o arquivo em DOIS pontos com propósitos distintos
+  (antes da sessão, pra decidir se injeta o `resumeBlock` de retomada no prompt; depois
+  dela, pra montar `result.verificationCheckpoint` via `summarizeCheckpoint`). O disco é
+  lido ali, onde a sessão já faz IO; NUNCA em `decision.js`, que continua 100% puro.
+- **Gate**: `checkpointGap(result)` (`decision.js`, mesmo padrão do `coverageGap`: função
+  pura que só olha o envelope) trava `shouldAutoApprove` (`{ok:false, motivo:'checkpoint'}`)
+  E `shouldAutoReject` quando o checkpoint está malformado ou tem divergência entre
+  passadas. Mesma régua da cobertura: sem prova consistente não posta sozinho; o clique
+  manual nunca é bloqueado. A mensagem cita `arquivo:linha` e a claim; o agrupamento de
+  conflito usa a claim NORMALIZADA (trim, espaços colapsados, minúsculas), senão fraseado
+  ligeiramente diferente esconderia divergência real.
+- **Ciclo de vida por SHA do head**: cada entrada carrega o `headSha` do PR no momento da
+  verificação, e `summarizeCheckpoint(entries, shaAtual)` só considera entradas do head
+  atual (entrada SEM sha sempre conta: falta de dado nunca descarta). PR que ganha commit
+  novo "reseta" o gate na prática, sem apagar nada do histórico. Sem isso, um conflito
+  antigo travava approve E reject pra sempre.
+- **Retomada**: com checkpoint não-vazio relevante ao head atual, `resumeBlock` é
+  concatenado ao prompt mandando ler o arquivo antes de reverificar. Vale igual pro
+  retry, porque relançamento passa pelo MESMO `runHeadlessReview` (premissa travada em
+  `test/checkpoint-retry-same-path.test.js`).
+- **UI**: `resolvedRow` (`ui/pure.js`) mostra "Verificação de afirmações: N confirmadas
+  de M" e o selo de divergência em Revisões recentes; o texto do problema também entra em
+  `result.reasons`.
+- Divergência NUNCA é reconciliada sozinha (decisão humana sempre). Chat, autoanálise e
+  pushback não gravam checkpoint (o formato é genérico pra adoção futura, decisão
+  consciente). A captura só enxerga `tool_use` da sessão principal, não o que roda DENTRO
+  de subagente do fan-out (limitação documentada; o incidente real era do orquestrador).
+- Testes: `test/verification-checkpoint.test.js`, `test/session-checkpoint-capture.test.js`,
+  `test/checkpoint-gate.test.js`, `test/checkpoint-review-wiring.test.js` e
+  `test/checkpoint-retry-same-path.test.js`.
 
 ## Diagnóstico: ambiente x operação (v2.40.4)
 
