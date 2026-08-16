@@ -1187,6 +1187,28 @@ function creditsHtml(credits) {
     <div class="credits-foot">Lista sincronizada com ${repoMention(credits.repo)} no GitHub: quem contribui no repositório entra aqui automaticamente.</div>`;
 }
 
+// Monta um prompt pronto pra colar no chat que está resolvendo o PR, a partir
+// dos pontos da autoanálise (blockers = travam a aprovação; tips = melhorias).
+// PURA: recebe os dados já coletados do STATE/DOM (o app.js faz essa coleta),
+// devolve só a string do prompt. Migrada do app.js na Task 12.
+function buildFixPrompt(args = {}) {
+  const { key, url, title, card, summary, blockers: rawBlockers, tips: rawTips } = args;
+  const blockers = (rawBlockers || []).filter(Boolean);
+  const tips = (rawTips || []).filter(Boolean);
+  const abre = blockers.length
+    ? `Preciso que você corrija os pontos levantados na revisão do PR ${key}, começando pelo que trava a aprovação.`
+    : `Preciso que você aplique as melhorias sugeridas na revisão do PR ${key}.`;
+  const linhas = [abre, ''];
+  if (url) linhas.push(`PR: ${url}`);
+  if (title) linhas.push(`Título: ${title}`);
+  if (card) linhas.push(`Card: ${card}`);
+  if (summary) { linhas.push('', `Resumo da revisão: ${summary}`); }
+  if (blockers.length) { linhas.push('', 'Pendências que travam a aprovação (prioridade):', ...blockers.map(b => `- ${b}`)); }
+  if (tips.length) { linhas.push('', 'Melhorias sugeridas:', ...tips.map(t => `- ${t}`)); }
+  linhas.push('', 'Implemente as correções no código, rode os testes e o lint que fizerem sentido, e no final me diga o que mudou e por quê.');
+  return linhas.join('\n');
+}
+
 /* Rodape CommonJS: so o node entra aqui. No navegador estas funcoes ja estao no
    escopo global por terem sido declaradas no topo deste arquivo. */
 if (typeof module !== 'undefined' && module.exports) {
@@ -1202,6 +1224,6 @@ if (typeof module !== 'undefined' && module.exports) {
     fmtLogStamp, logGroupLine, logReadingLine, logSummaryLines, logTailLines, logSummaryShort,
     opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible, expiredSessionMarks, listViewState,
     plural, splitHiddenPRs, effectiveHidden, hiddenFootLabel, myPRsEmptyMsg,
-    mergeToastKind, MERGE_EM_ANDAMENTO, creditsHtml
+    mergeToastKind, MERGE_EM_ANDAMENTO, creditsHtml, buildFixPrompt
   };
 }

@@ -1598,3 +1598,30 @@ test('safeJsonParse: objeto valido volta, lixo vira null, nunca lanca', () => {
   assert.equal(P.safeJsonParse(''), null);
   assert.equal(P.safeJsonParse(undefined), null);
 });
+
+test('buildFixPrompt: PR com achados inclui url, título, card, resumo, bloqueios e dicas', () => {
+  const p = P.buildFixPrompt({
+    key: 'o/r#1',
+    url: 'https://github.com/o/r/pull/1',
+    title: 'Corrige X',
+    card: 'card de exemplo',
+    summary: 'PR ok, mas com pendências.',
+    blockers: ['falta teste do caminho de erro'],
+    tips: ['extrair função duplicada'],
+  });
+  assert.match(p, /corrija os pontos levantados na revisão do PR o\/r#1, começando pelo que trava a aprovação/);
+  assert.match(p, /PR: https:\/\/github\.com\/o\/r\/pull\/1/);
+  assert.match(p, /Título: Corrige X/);
+  assert.match(p, /Card: card de exemplo/);
+  assert.match(p, /Resumo da revisão: PR ok, mas com pendências\./);
+  assert.match(p, /Pendências que travam a aprovação \(prioridade\):\n- falta teste do caminho de erro/);
+  assert.match(p, /Melhorias sugeridas:\n- extrair função duplicada/);
+});
+
+test('buildFixPrompt: sem bloqueios muda a abertura pra "aplique as melhorias" e ignora campos ausentes', () => {
+  const p = P.buildFixPrompt({ key: 'o/r#2', blockers: [], tips: ['ajustar nome de variável'] });
+  assert.match(p, /aplique as melhorias sugeridas na revisão do PR o\/r#2/);
+  assert.doesNotMatch(p, /^PR: /m);
+  assert.doesNotMatch(p, /Pendências que travam/);
+  assert.match(p, /Melhorias sugeridas:\n- ajustar nome de variável/);
+});

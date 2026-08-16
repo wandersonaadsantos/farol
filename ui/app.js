@@ -2382,32 +2382,23 @@ async function copyToClipboard(text) {
   } catch { return false; }
 }
 
-// Monta um prompt pronto pra colar no chat que está resolvendo o PR, a partir
-// dos pontos da autoanálise (blockers = travam a aprovação; tips = melhorias).
-function buildFixPrompt(key) {
+// Wrapper fino: coleta do STATE os dados do prompt (achados da autoanálise +
+// metadados do PR) e delega o miolo puro pra buildFixPrompt de ui/pure.js
+// (carregado antes deste arquivo via <script src>, migrado na Task 12).
+function montaFixPrompt(key) {
   const a = (STATE.selfAnalyses || {})[key];
   const pr = (STATE.myPRs || []).find(p => p.key === key) || {};
   if (!a) return '';
-  const blockers = (a.blockers || []).filter(Boolean);
-  const tips = (a.tips || []).filter(Boolean);
-  const abre = blockers.length
-    ? `Preciso que você corrija os pontos levantados na revisão do PR ${key}, começando pelo que trava a aprovação.`
-    : `Preciso que você aplique as melhorias sugeridas na revisão do PR ${key}.`;
-  const linhas = [abre, ''];
-  if (pr.url) linhas.push(`PR: ${pr.url}`);
-  if (pr.title) linhas.push(`Título: ${pr.title}`);
-  if (a.card) linhas.push(`Card: ${a.card}`);
-  if (a.summary) { linhas.push('', `Resumo da revisão: ${a.summary}`); }
-  if (blockers.length) { linhas.push('', 'Pendências que travam a aprovação (prioridade):', ...blockers.map(b => `- ${b}`)); }
-  if (tips.length) { linhas.push('', 'Melhorias sugeridas:', ...tips.map(t => `- ${t}`)); }
-  linhas.push('', 'Implemente as correções no código, rode os testes e o lint que fizerem sentido, e no final me diga o que mudou e por quê.');
-  return linhas.join('\n');
+  return buildFixPrompt({
+    key, url: pr.url, title: pr.title, card: a.card, summary: a.summary,
+    blockers: a.blockers, tips: a.tips
+  });
 }
 
 $('#myPRs').addEventListener('click', (e) => {
   const fix = e.target.closest('.act-fix-copy');
   if (fix) {
-    const prompt = buildFixPrompt(fix.dataset.key);
+    const prompt = montaFixPrompt(fix.dataset.key);
     if (!prompt) { toast('error', 'não achei a análise pra montar o prompt'); return; }
     copyToClipboard(prompt).then(ok => ok
       ? toast('ok', 'Prompt copiado. É só colar no chat que está resolvendo o PR.', 3500)
