@@ -47,7 +47,7 @@
     "maxLines": 1,
     "emptyCatch": 8,
     "jsonParseCru": 4,
-    "processEnvDireto": 7,
+    "processEnvDireto": 2,
     "ternarioAninhado": 1,
     "profundidadeExcedida": 10
   },
@@ -80,9 +80,6 @@
     "ternarioAninhado": 2,
     "profundidadeExcedida": 2
   },
-  "lib/spawnlog.js": {
-    "processEnvDireto": 1
-  },
   "main.js": {
     "emptyCatch": 4,
     "ternarioAninhado": 3,
@@ -93,7 +90,7 @@
     "emptyCatch": 2,
     "jsonParseCru": 1,
     "jsonStringifyCru": 2,
-    "processEnvDireto": 7,
+    "processEnvDireto": 5,
     "ternarioAninhado": 3,
     "tempoMagico": 1,
     "profundidadeExcedida": 15

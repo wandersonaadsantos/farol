@@ -21,6 +21,7 @@ const {
 // Helpers puros e utilitários movidos pra lib/ (Onda 1 do refactor, ver docs/QUALITY.md).
 // A Engine abaixo compõe estes módulos; a decomposição por responsabilidade segue nas ondas 2+.
 const { DEFAULT_PORT, TEMPOS } = require('./lib/constants');
+const env = require('./lib/env');
 const { modelLabel, isPermanentBranch } = require('./lib/format');
 const { ACCOUNT_PALETTE } = require('./lib/taxonomy'); // resto da taxonomia é usado nos colaboradores (review/pushback)
 const { parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople,
@@ -166,7 +167,7 @@ class Engine extends EventEmitter {
     // perfil de review por pessoa (papel + matriz por domínio); migra a senioridade plana antiga pro campo `papel`
     this.config.people = migrateSeniorityToPeople(this.config.seniority, parsePeople(this.config.people));
     delete this.config.seniority;
-    process.env.FAROL_DEBUG_SPAWNS = this.config.debugSpawns ? '1' : ''; // espelha pro logger de spawns
+    env.setDebugSpawns(this.config.debugSpawns); // espelha pro logger de spawns
     this.tokens = {};                // token por conta (login -> token), preenchido no refreshTokens
     this.status = 'starting';        // starting | checking | idle | error
     this.lastError = null;
@@ -1288,7 +1289,7 @@ class Engine extends EventEmitter {
       if (k === 'ghUser') { v = String(v).trim(); userChanged = userChanged || v !== this.config.ghUser; }
       this.config[k] = v;
     }
-    process.env.FAROL_DEBUG_SPAWNS = this.config.debugSpawns ? '1' : ''; // liga/desliga o logger na hora
+    env.setDebugSpawns(this.config.debugSpawns); // liga/desliga o logger na hora
     this.saveConfig();
     if (userChanged) { this.token = null; this.tokenOk = false; this.tokens = {}; }
     if (intervalChanged || userChanged) this.checkNow();
