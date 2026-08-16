@@ -9,7 +9,10 @@ const fs = require('fs');
 const path = require('path');
 
 const RAIZ = path.join(__dirname, '..', '..');
-const IGNORAR = new Set(['node_modules', 'dist', '.git', '.worktrees', 'scratchpad_test', 'test', 'docs', 'workspace-template', 'assets', '.superpowers']);
+const IGNORAR = new Set(['node_modules', 'dist', '.git', '.worktrees', 'scratchpad_test', 'docs', 'workspace-template', 'assets', '.superpowers']);
+// Arquivo especifico ignorado: test/quality-higiene.test.js contém fixtures
+// com BT-*/BUGS-* literais como dados de teste para validar a detecção.
+const ARQUIVOS_IGNORADOS = new Set(['test/quality-higiene.test.js']);
 const PREFIXOS = /\b(BT|BUGS)-\d+\b/g;
 
 function refsForaDeTodo(texto) {
@@ -28,15 +31,21 @@ function listar(dir, achados = []) {
 }
 
 function main() {
-  let total = 0;
-  for (const abs of listar(RAIZ)) {
-    const rel = path.relative(RAIZ, abs).replace(/\\/g, '/');
-    const n = refsForaDeTodo(fs.readFileSync(abs, 'utf8'));
-    if (n) { console.error(`  ${rel}: ${n} referencia(s) de card fora de TODO(...)`); total += n; }
+  try {
+    let total = 0;
+    for (const abs of listar(RAIZ)) {
+      const rel = path.relative(RAIZ, abs).replace(/\\/g, '/');
+      if (ARQUIVOS_IGNORADOS.has(rel)) continue;
+      const n = refsForaDeTodo(fs.readFileSync(abs, 'utf8'));
+      if (n) { console.error(`  ${rel}: ${n} referencia(s) de card fora de TODO(...)`); total += n; }
+    }
+    if (total) { console.error(`FALHA: ${total} referencia(s). Mova a procedencia pro git/PR ou converta em TODO(CARD-N).`); return 1; }
+    console.log('higiene: sem referencia de card solta');
+    return 0;
+  } catch (err) {
+    console.error(`higiene: falha de execucao: ${err.message}`);
+    return 2;
   }
-  if (total) { console.error(`FALHA: ${total} referencia(s). Mova a procedencia pro git/PR ou converta em TODO(CARD-N).`); return 1; }
-  console.log('higiene: sem referencia de card solta');
-  return 0;
 }
 
 if (require.main === module) process.exit(main());
