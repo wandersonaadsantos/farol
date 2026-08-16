@@ -20,6 +20,7 @@ const {
 
 // Helpers puros e utilitários movidos pra lib/ (Onda 1 do refactor, ver docs/QUALITY.md).
 // A Engine abaixo compõe estes módulos; a decomposição por responsabilidade segue nas ondas 2+.
+const { DEFAULT_PORT, TEMPOS } = require('./lib/constants');
 const { modelLabel, isPermanentBranch } = require('./lib/format');
 const { ACCOUNT_PALETTE } = require('./lib/taxonomy'); // resto da taxonomia é usado nos colaboradores (review/pushback)
 const { parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople,
@@ -86,7 +87,7 @@ const DEFAULTS = {
   // pelo gh que todo usuario ja tem. So vale quando NAO ha fonte local (a pasta
   // ~/Documents/farol tem precedencia, pro fluxo de dev do mantenedor).
   updateRepo: 'wandersonaadsantos/farol',
-  port: 47170,
+  port: DEFAULT_PORT,
   // repos onde o botao Merge (Meus PRs) fica desativado, respeitando regras de
   // review do time (ex.: nunca self-merge no biud-frontend). Editavel em Sistema.
   mergeBlockedRepos: ['biudtech/biud-frontend'],
@@ -372,7 +373,7 @@ class Engine extends EventEmitter {
   // --- log: so falhas, sem ruido (mesmo contrato do tool antigo) ---
   log(level, msg) {
     try {
-      if (fs.existsSync(LOG_FILE) && fs.statSync(LOG_FILE).size > 2 * 1024 * 1024) {
+      if (fs.existsSync(LOG_FILE) && fs.statSync(LOG_FILE).size > TEMPOS.LOG_ROTACAO_BYTES) {
         fs.renameSync(LOG_FILE, LOG_FILE + '.1');
       }
       const ts = new Date().toISOString().replace('T', ' ').slice(0, 19);
@@ -557,7 +558,7 @@ class Engine extends EventEmitter {
     const tok = this.tokenFor(user);
     if (user && !tok) throw new Error(`conta ${user} sem token no gh (rode: gh auth login --user ${user})`);
     if (tok) env.GH_TOKEN = tok;
-    env.FAROL_PORT = String(this.config.port || 47170);
+    env.FAROL_PORT = String(this.config.port || DEFAULT_PORT);
     if (this.gitBash) env.CLAUDE_CODE_GIT_BASH_PATH = this.gitBash;
     // assinatura do Claude que o Farol usa pra esta conta: ver resolveClaudeAuth
     // (perfil por conta > perfil padrão do Farol > claudeConfigDir legado).

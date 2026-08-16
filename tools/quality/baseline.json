@@ -1,4 +1,7 @@
 {
+  "lib/constants.js": {
+    "tempoMagico": 1
+  },
   "lib/engine/chat.js": {
     "ternarioAninhado": 1,
     "profundidadeExcedida": 2
@@ -46,8 +49,6 @@
     "jsonParseCru": 4,
     "processEnvDireto": 7,
     "ternarioAninhado": 1,
-    "tempoMagico": 1,
-    "portaLiteral": 4,
     "profundidadeExcedida": 10
   },
   "lib/engine/tools.js": {
@@ -73,8 +74,7 @@
     "profundidadeExcedida": 17
   },
   "lib/io.js": {
-    "processEnvDireto": 3,
-    "tempoMagico": 2
+    "processEnvDireto": 3
   },
   "lib/parse.js": {
     "ternarioAninhado": 2,
@@ -96,7 +96,6 @@
     "processEnvDireto": 7,
     "ternarioAninhado": 3,
     "tempoMagico": 1,
-    "portaLiteral": 2,
     "profundidadeExcedida": 15
   },
   "tools/quality/gate.js": {
