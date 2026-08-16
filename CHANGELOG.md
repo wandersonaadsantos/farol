@@ -9,6 +9,17 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.42.1
+
+**Melhorias**
+- **Licença e transparência.** O projeto ganhou o arquivo `LICENSE` (MIT, que
+  o `package.json` já declarava sem o texto correspondente) e o README ganhou
+  a seção "Privacidade e responsabilidade": o Farol não coleta nem envia dado
+  nenhum ao mantenedor (não há telemetria; tudo fica em `~/.farol`), o tráfego
+  de rede é todo em nome do usuário (GitHub via `gh`, Anthropic via Claude
+  Code) e as automações de postagem são opt-in, sob responsabilidade de quem
+  as liga.
+
 ## v2.42.0
 
 **Novidades**
@@ -21,13 +32,6 @@ e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
   review postado: a trava de linguagem pública passou a bloquear qualquer
   menção de proveniência com versão ("gerado pelo Farol vX.Y.Z"), continuando
   a permitir menção técnica legítima quando o assunto do PR é o próprio Farol.
-- **Licença e transparência.** O projeto ganhou o arquivo `LICENSE` (MIT, que
-  o `package.json` já declarava sem o texto correspondente) e o README ganhou
-  a seção "Privacidade e responsabilidade": o Farol não coleta nem envia dado
-  nenhum ao mantenedor (não há telemetria; tudo fica em `~/.farol`), o tráfego
-  de rede é todo em nome do usuário (GitHub via `gh`, Anthropic via Claude
-  Code) e as automações de postagem são opt-in, sob responsabilidade de quem
-  as liga.
 
 ## v2.41.4
 
