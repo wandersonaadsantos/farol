@@ -61,7 +61,7 @@ test('regressão #161: bloqueia o template e a frase que vazaram no review públ
   // da decisão automática que escapou no último parágrafo.
   const body = [
     '> [!NOTE]',
-    '> **✅ APPROVE** — propagação do BT-807 (aprovado e mergeado em #160), sem blocker.',
+    '> **✅ APPROVE** — propagação real de 2026-07 (aprovado e mergeado em #160), sem blocker.',
     '',
     '**Placar:** 🔴 0 · 🟡 1 · ❓ 0 · 🟢 4',
     '- [x] CPF lido do path param; a query string deixa de ser lida',
@@ -363,7 +363,7 @@ test('sanitização da UI remove seções operacionais e preserva os achados té
 test('sanitização da UI limpa o formato real do #161 sem apagar a substância técnica', () => {
   const raw = [
     '> [!NOTE]',
-    '> **✅ APPROVE** — propagação do BT-807, sem blocker.',
+    '> **✅ APPROVE** — propagação real de 2026-07, sem blocker.',
     '',
     '**Resumo:** o controller agora lê o CPF do path param.',
     '',

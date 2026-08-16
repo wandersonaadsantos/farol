@@ -1051,12 +1051,13 @@ test('fmtStamp: o tooltip carrega data E hora completas, sempre', () => {
    O que depende de estado global (chip da conta, contador de chat, mapa de pushbacks)
    entra por ctx já resolvido em valor, mesmo contrato do pushbackControl. */
 
+// caso de teste real de 2026-07: validação de renderização do estado aprovado
 function linhaResolvida(extra) {
   return {
     key: 'biudtech/biud-esg#172', status: 'auto_approved', action: 'approve',
     resolvedAt: Date.parse('2026-08-03T19:41:00Z'),
     pr: { url: 'https://github.com/biudtech/biud-esg/pull/172', title: 'Ajusta o cálculo', author: 'alex' },
-    card: 'BT-1119', attention: [], reasons: [], reportMarkdown: '# relatório',
+    card: 'CARD-2026-07', attention: [], reasons: [], reportMarkdown: '# relatório',
     ...extra
   };
 }
@@ -1065,7 +1066,7 @@ const CTX = { pushbacks: {}, chip: '', chatBadge: '', agora: AG };
 test('resolvedRow: cabeçalho traz referência, card, selo e o quando com dia', () => {
   const html = P.resolvedRow(linhaResolvida(), CTX);
   assert.match(html, /biudtech\/biud-esg#172/);
-  assert.match(html, /BT-1119/);
+  assert.match(html, /CARD-2026-07/); // validação de renderização do card
   assert.match(html, /aprovado sozinho/, 'o vocabulário de hoje é preservado');
   assert.match(html, /hoje 16:41/, 'o carimbo diz o dia');
   assert.match(html, /title="03\/08\/2026 16:41"/, 'e a data completa fica no tooltip');
