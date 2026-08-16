@@ -75,3 +75,20 @@ Os dois testes estruturais da rede trazem **piso anti-vacuidade** (`facades.test
 ### Princípio 4 ainda não está implementado
 
 Não existe `AppError` nem classificação central de erro. Há dezenas de `catch` vazios espalhados, alguns com justificativa no comentário ("best-effort", "log nunca derruba o app") e a maioria sem. É a lacuna conhecida deste contrato, e o lugar certo de atacá-la é junto com a Onda 4, não antes.
+
+## Gate de ratchet (v2.46)
+
+O `lint` é o gate de ratchet do contrato engineering-standards em Node puro (`tools/quality/`): compara as violações com `baseline.json` e reprova qualquer contagem que SUBA. Corrigiu dívida? `npm run lint:update` trava o número mais baixo. A baseline nunca sobe à mão.
+
+Regras medidas (chaves do `rules.js`):
+
+1. `maxLines` — arquivo não pode exceder 400 linhas de código útil.
+2. `emptyCatch` — blocos `catch` vazios sem comentário de intenção reprovam.
+3. `varUse` — uso de `var` é reprovado; use `const`/`let`.
+4. `jsonParseCru` — chamadas diretas a `JSON.parse` fora de `lib/io.js` reprovam.
+5. `jsonStringifyCru` — chamadas diretas a `JSON.stringify` fora de `lib/io.js` reprovam.
+6. `processEnvDireto` — acesso direto a `process.env` fora de `lib/paths.js` e `lib/env.js` reprovam.
+7. `ternarioAninhado` — dois ou mais ternários no mesmo statement reprovam.
+8. `tempoMagico` — números mágicos de tempo (milissegundos, segundos) em propriedades ou cálculos reprovam.
+9. `portaLiteral` — porta 47170 escrita em código fora de `lib/constants.js` reprova.
+10. `profundidadeExcedida` — profundidade de chaves dentro de função acima de 3 níveis reprova (contada a partir do corpo da função).

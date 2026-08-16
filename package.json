@@ -11,6 +11,8 @@
     "start": "electron .",
     "server": "node server.js",
     "check": "node tools/check-syntax.js",
+    "lint": "node tools/quality/gate.js && node tools/quality/higiene.js",
+    "lint:update": "node tools/quality/gate.js --update",
     "test": "node --test"
   },
   "dependencies": {
