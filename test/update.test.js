@@ -263,3 +263,18 @@ test('buildUpdateScriptMac: apóstrofo no caminho não escapa da atribuição', 
   assert.ok(s.includes("'/Users/O'\\''Brien/farol/installer/install.sh'"), 'aspa simples escapada no padrão POSIX');
   assert.ok(!s.includes("bash '/Users/O'Brien"), 'a interpolação crua antiga não pode voltar');
 });
+
+/* ---------- Linux experimental (v2.45.0): script de update e instalador ---------- */
+
+test('buildUpdateScriptLinux: mesmo escaping do mac, reabre pelo lançador com setsid', () => {
+  const s = update.buildUpdateScriptLinux("/home/O'Hara/farol dir/installer/install-linux.sh", '/home/x/log');
+  assert.match(s, /^#!\/bin\/bash\n/);
+  assert.ok(s.includes("'/home/O'\\''Hara/farol dir/installer/install-linux.sh'"), 'apóstrofo escapado');
+  assert.ok(s.includes('setsid "$HOME/.farol/bin/farol"'), 'reabertura via lançador, desprendida do grupo');
+  assert.ok(s.includes('rm -f -- "$0"'));
+});
+
+test('posixInstallerName: mac usa install.sh, linux usa install-linux.sh', () => {
+  assert.equal(update.posixInstallerName(true), 'install.sh');
+  assert.equal(update.posixInstallerName(false), 'install-linux.sh');
+});

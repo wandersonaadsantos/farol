@@ -277,3 +277,22 @@ test('killTree posix: mata o grupo de processo inteiro, não só o líder', { sk
   }
   assert.ok(grupoMorto, 'o grupo de processos continua vivo depois do killTree');
 });
+
+/* ---------- Linux experimental (v2.45.0): escolha do terminal ---------- */
+
+const { pickLinuxTerminal, LINUX_TERMINALS } = require('../lib/engine/session');
+
+test('pickLinuxTerminal: primeiro candidato existente vence, com os args dele', () => {
+  const exists = c => c === 'konsole' || c === 'xterm';
+  assert.deepEqual(pickLinuxTerminal(LINUX_TERMINALS, exists), { cmd: 'konsole', args: ['-e'] });
+});
+
+test('pickLinuxTerminal: x-terminal-emulator (alternatives do Debian) tem prioridade', () => {
+  const tudo = () => true;
+  assert.equal(pickLinuxTerminal(LINUX_TERMINALS, tudo).cmd, 'x-terminal-emulator');
+});
+
+test('pickLinuxTerminal: nenhum terminal devolve null (o chamador avisa alto)', () => {
+  assert.equal(pickLinuxTerminal(LINUX_TERMINALS, () => false), null);
+  assert.equal(pickLinuxTerminal(null, () => true), null);
+});

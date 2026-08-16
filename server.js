@@ -13,7 +13,7 @@ const { EventEmitter } = require('events');
 
 // Camada base: versão, plataforma e caminhos (compartilhada com os módulos de lib/).
 const {
-  APP_VERSION, APP_NAME, DELIVERIES_LIMIT, IS_WIN, IS_MAC, APP_ROOT,
+  APP_VERSION, APP_NAME, DELIVERIES_LIMIT, IS_WIN, IS_MAC, IS_LINUX, APP_ROOT,
   HOME, WORKSPACE, STATE_DIR, CONFIG_FILE, LOG_FILE, SEEN_FILE, BASELINE_FILE,
   INFLIGHT_FILE, CHATS_FILE, SELF_FILE, HIDDEN_FILE, TEMPLATE_DIR, UI_DIR,
 } = require('./lib/paths');
@@ -48,11 +48,11 @@ if (!IS_WIN) {
   if (next) process.env.PATH = next;
 }
 
-// O Farol suporta Windows e macOS. Outro POSIX (Linux) cai nos ramos do mac
-// (open -a Terminal, unzip, Farol.app) e falharia aos poucos e em silêncio;
-// melhor um aviso alto no boot do que depurar sessão que nunca abre.
-if (!IS_WIN && !IS_MAC) {
-  console.warn(`[farol] plataforma ${process.platform} não suportada: os caminhos de sessão/update assumem macOS.`);
+// Windows e macOS são suportados; Linux é EXPERIMENTAL desde a v2.45.0 (ramo
+// próprio de sessão/instalação/update). Qualquer outra plataforma cai nos
+// ramos posix genéricos e merece aviso alto no boot.
+if (!IS_WIN && !IS_MAC && !IS_LINUX) {
+  console.warn(`[farol] plataforma ${process.platform} não suportada: os caminhos de sessão/update assumem POSIX (mac/linux).`);
 }
 
 // A telemetria do GitHub CLI relanca um "gh send-telemetry" DESTACADO (sem console)
@@ -935,12 +935,14 @@ class Engine extends EventEmitter {
   buildSessionScript(slash, account, reviewCap = '') { return sessionMod.buildSessionScript(this, slash, account, reviewCap); }
   buildSessionScriptMac(slash, id, user, reviewCap = '') { return sessionMod.buildSessionScriptMac(this, slash, id, user, reviewCap); }
   spawnConsoleMac(slash, label, keys = [], account) { return sessionMod.spawnConsoleMac(this, slash, label, keys, account); }
+  spawnConsoleLinux(slash, label, keys = [], account) { return sessionMod.spawnConsoleLinux(this, slash, label, keys, account); }
   sessionExit(id) { return sessionMod.sessionExit(this, id); }
   spawnConsole(slash, label, keys = [], account) { return sessionMod.spawnConsole(this, slash, label, keys, account); }
   handleSessionExit(opts) { return sessionMod.handleSessionExit(this, opts); }
   buildLoginScript(dir) { return sessionMod.buildLoginScript(this, dir); }
   buildLoginScriptMac(dir, id) { return sessionMod.buildLoginScriptMac(this, dir, id); }
   spawnLoginConsoleMac(dir) { return sessionMod.spawnLoginConsoleMac(this, dir); }
+  spawnLoginConsoleLinux(dir) { return sessionMod.spawnLoginConsoleLinux(this, dir); }
   spawnLoginConsole(dir) { return sessionMod.spawnLoginConsole(this, dir); }
 
   // Pipeline de revisão headless: colaborador lib/engine/review.js (gate intacto, Onda 2).

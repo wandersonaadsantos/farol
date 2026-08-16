@@ -649,7 +649,7 @@ function renderClaudeProfiles() {
       </div>
       ${budgetStatusText ? `<div class="a-hint">${esc(budgetStatusText)}</div>` : ''}` : `
       <div class="a-editrow">
-        <input class="cp-dir" data-id="${esc(p.id)}" value="${esc(p.dir || '')}" placeholder="${ehMac() ? '~/.claude-perfil' : 'C:\\Users\\voce\\.claude-perfil'}" spellcheck="false">
+        <input class="cp-dir" data-id="${esc(p.id)}" value="${esc(p.dir || '')}" placeholder="${ehWin() ? 'C:\\Users\\voce\\.claude-perfil' : '~/.claude-perfil'}" spellcheck="false">
       </div>`;
     return `<div class="card acct-card">
     <div class="a-body">
@@ -675,7 +675,7 @@ function renderClaudeProfiles() {
     </div>
     <div class="a-editrow">
       <input id="cpAddLabel" placeholder="nome (ex.: BIUD Trabalho)" spellcheck="false">
-      <input id="cpAddDir" placeholder="diretório de config (ex.: ${ehMac() ? '~/.claude-biud-trabalho' : 'C:\\Users\\voce\\.claude-biud-trabalho'})" spellcheck="false">
+      <input id="cpAddDir" placeholder="diretório de config (ex.: ${ehWin() ? 'C:\\Users\\voce\\.claude-biud-trabalho' : '~/.claude-biud-trabalho'})" spellcheck="false">
       <input id="cpAddApiKey" type="password" placeholder="chave de API" spellcheck="false" autocomplete="off" hidden>
       <input id="cpAddBaseUrl" placeholder="URL base (opcional)" spellcheck="false" hidden>
       <button class="btn sm" id="btnCpAdd">Adicionar</button>
@@ -3578,7 +3578,9 @@ function renderSettings() {
   $('#setAutostart').checked = !!c.autostart;
   // autostart: só no Windows (no macOS o login item abriria o Electron sem os args do app,
   // ver applyAutostart em main.js). A plataforma vem do engine, não do userAgent.
-  $('#rowAutostart').style.display = isElectron && !ehMac() ? '' : 'none';
+  // autostart só existe de verdade no Windows (setLoginItemSettings é no-op no
+  // Linux e desabilitado por decisão no mac); mostrar a opção seria mentira
+  $('#rowAutostart').style.display = isElectron && ehWin() ? '' : 'none';
 }
 
 /* ---------- ferramentas internas (kudos/diagnostico) ---------- */
