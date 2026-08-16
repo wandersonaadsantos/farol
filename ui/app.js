@@ -2446,7 +2446,9 @@ $('#myPRs').addEventListener('click', (e) => {
         toast('error', esc(r?.error || 'não consegui iniciar a autoanálise'));
         run.disabled = false; run.textContent = 'Analisar';
       } else {
-        updateOp(opId, { step: 'Lendo arquivos…', progress: 25 });
+        // daqui em diante quem move a barra é o feed real da sessão (evento
+        // 'activity'); prometer "Lendo arquivos… 25%" aqui era chute
+        updateOp(opId, { step: 'Preparando a sessão…', progress: 8 });
       }
     });
     return;
@@ -3116,6 +3118,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.44.1', ['A barra de progresso da autoanálise (Meus PRs) parou de mentir: ela ficava fixa em 25% e concluía do nada, porque os percentuais eram números chutados. Agora ela acompanha a atividade real da sessão (cada ação do Claude move a barra e vira o texto do passo), avançando até 90% e fechando quando a análise termina de verdade.']],
   ['2.44.0', ['Botão Remover no card do Time: quando alguém sai da equipe, apaga desta máquina o dossiê, os destaques, o perfil e os pushbacks da pessoa, com modal de confirmação explicando o efeito. Nada é alterado no GitHub.', 'Confirmações de "Atualizar agora" e "Zerar log" trocaram o popup nativo do sistema por modais do próprio Farol, com a explicação do que vai acontecer. Não resta popup nativo no app.', 'Créditos com origem: a seção Sobre registra que o Farol nasceu da iniciativa do Thiago (@thiagopcdev), o revisor de PRs em janela de terminal cuja essência o app reconstruiu.']],
   ['2.43.0', ['Seção "Sobre" na aba Sistema: o compromisso de privacidade (o Farol não coleta nem envia nenhum dado a quem o mantém, tudo fica local em ~/.farol), a licença MIT e os créditos do projeto.', 'Créditos sincronizados com o GitHub: idealizador e contribuidores aparecem com foto e link pro perfil, e colaborador novo que entrar no repositório entra na lista sozinho, sem manutenção.']],
   ['2.42.2', ['Sessão registrada antes da v2.42.0 deixou de aparecer com a célula vazia na coluna Farol do Consumo: agora mostra "< 2.42.0", com explicação no tooltip. Regra só de exibição, o registro em disco segue intocado.']],
@@ -3907,6 +3910,20 @@ function connect() {
       const stick = feed.scrollTop + feed.clientHeight >= feed.scrollHeight - 30;
       feed.insertAdjacentHTML('beforeend', feedLine(item));
       if (stick) feed.scrollTop = feed.scrollHeight;
+    }
+    // barra do widget de autoanálise (Meus PRs): a atividade real da sessão
+    // vira step e progresso; antes eram dois números chutados (5 e 25) e a
+    // barra parava em 25% até a análise concluir do nada
+    const selfKey = selfSessionKey(STATE?.activeSessions, id);
+    if (selfKey) {
+      const op = ACTIVE_OPS.get(`analysis-${selfKey}`);
+      if (op && op.status === 'running') {
+        const n = (STATE?.activity?.[id] || []).length;
+        updateOp(op.id, {
+          step: (item && item.text) || op.step,
+          progress: Math.max(op.progress || 0, analysisProgress(n))
+        });
+      }
     }
   });
   es.addEventListener('chat', (e) => {

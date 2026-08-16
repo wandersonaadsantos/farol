@@ -9,6 +9,20 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.44.1
+
+Conserto da barra de progresso da autoanálise em Meus PRs, que nunca funcionou
+sem bug: ficava parada em 25% e concluía do nada.
+
+**Correções**
+- **A barra de progresso da autoanálise agora acompanha a sessão de verdade.**
+  Os percentuais eram dois números fixos (5% ao clicar, 25% quando a sessão
+  entrava na fila) e nada os atualizava depois. Agora o feed ao vivo da sessão
+  alimenta o widget: cada ação do Claude (ler arquivo, rodar comando) move a
+  barra e vira o texto do passo, o avanço é sempre crescente até o teto de 90%,
+  e os 10% finais fecham quando a análise conclui de fato. A barra nunca mais
+  promete um percentual que não mediu.
+
 ## v2.44.0
 
 **Novidades**

@@ -936,6 +936,40 @@ test('analysisOpsPlan aguenta snapshot e lista vazios sem lançar', () => {
   assert.deepEqual(P.analysisOpsPlan(null, null), { markSeen: [], close: [] });
 });
 
+/* ---------- selfSessionKey + analysisProgress: a barra honesta da autoanálise ---------- */
+
+test('selfSessionKey acha o PR da sessão self dona do evento de atividade', () => {
+  const sessions = [
+    { id: 's1', mode: 'auto', keys: ['a/b#1'] },
+    { id: 's2', mode: 'self', keys: ['c/d#2'] }
+  ];
+  assert.equal(P.selfSessionKey(sessions, 's2'), 'c/d#2');
+});
+
+test('selfSessionKey devolve null pra sessão de revisão (auto) e pra id desconhecido', () => {
+  const sessions = [{ id: 's1', mode: 'auto', keys: ['a/b#1'] }];
+  assert.equal(P.selfSessionKey(sessions, 's1'), null, 'revisão headless não move o widget de autoanálise');
+  assert.equal(P.selfSessionKey(sessions, 's9'), null);
+  assert.equal(P.selfSessionKey(null, 's1'), null);
+  assert.equal(P.selfSessionKey([{ id: 's3', mode: 'self' }], 's3'), null, 'sessão self sem keys não inventa destino');
+});
+
+test('analysisProgress cresce com a atividade, nunca recua e trava em 90', () => {
+  // o bug relatado: barra fixa em 25% até concluir do nada; a régua nova tem
+  // que MOVER a cada evento do feed e nunca prometer 100 antes do fim real
+  let prev = -1;
+  for (let n = 0; n <= 200; n++) {
+    const p = P.analysisProgress(n);
+    assert.ok(p >= prev, `recuou em n=${n}`);
+    assert.ok(p >= 5 && p <= 90, `fora da faixa em n=${n}: ${p}`);
+    prev = p;
+  }
+  assert.ok(P.analysisProgress(10) > P.analysisProgress(1), 'os primeiros eventos têm que mover a barra de forma visível');
+  assert.equal(P.analysisProgress(0), 5);
+  assert.equal(P.analysisProgress(1e6), 90);
+  assert.equal(P.analysisProgress(undefined), 5, 'falta de dado não quebra nem inventa progresso');
+});
+
 /* ---------- pushbackControl: o controle de pushback nas Revisões recentes ---------- */
 
 test('pushback pendente traz o botão Confirmar e o desfecho sugerido já selecionado', () => {
