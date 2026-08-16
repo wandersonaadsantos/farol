@@ -96,6 +96,23 @@ Cada pessoa do time precisa, na própria máquina:
 
 A revisão autônoma vem **ligada** de fábrica (é o propósito do app): ao chegar PR, o Claude Code da pessoa roda o review internamente e posta APPROVE quando o protocolo permite, na conta dela. Quem preferir só ser notificado desliga em **Sistema → Revisar automaticamente**. O modo terminal sem prompts (`--dangerously-skip-permissions`) segue desligado por padrão.
 
+## Privacidade e responsabilidade
+
+O Farol **não coleta nem envia nenhum dado ao mantenedor**. Não existe telemetria, analytics nem servidor do projeto: tudo o que o app registra fica na sua máquina, em `~/.farol` (log de falhas, consumo de Claude, decisões de review, configurações). O app inclusive desliga a telemetria do próprio GitHub CLI nas sessões que dispara (`GH_TELEMETRY=false`).
+
+O tráfego de rede que existe é todo em seu nome, com as suas credenciais:
+
+- **GitHub**, via o `gh` da sua máquina (polling de PRs, postagem de reviews, checagem de release pro auto-update);
+- **Anthropic**, via o seu Claude Code (assinatura ou chave de API suas).
+
+Sobre responsabilidade: os reviews que o Farol posta saem **na sua conta do GitHub**, e as sessões de análise consomem **o seu plano ou os seus créditos de Claude**. As automações de postagem (auto-approve pra todo PR, reprovação automática) são opt-in, e quem as liga responde pelo que é postado. O software é distribuído "no estado em que se encontra", sem garantia, nos termos da licença MIT (arquivo `LICENSE`).
+
+Nunca compartilhe a sua pasta `~/.farol`: ela contém o seu estado, as suas configurações e a sua memória de reviews. Pra distribuir o app, use sempre o pacote auditado de `tools\make-package.ps1`.
+
+## Licença
+
+[MIT](LICENSE).
+
 ## Desenvolvimento
 
 - `npm start` abre o app Electron apontando para os dados reais (`%USERPROFILE%\.farol`).
