@@ -11,6 +11,7 @@ process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-usage-' + process.pi
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const usage = require('../lib/engine/usage');
+const { APP_VERSION } = require('../lib/paths');
 
 test('kindFromId deriva o tipo pelo prefixo do id da sessão', () => {
   assert.equal(usage.kindFromId('a7'), 'review');
@@ -415,6 +416,39 @@ test('recordUsage sem ref grava null (nunca quebra)', () => {
   const ev = { usage: { input_tokens: 1, output_tokens: 1 }, total_cost_usd: 0 };
   usage.recordUsage(engine, 'f1', 'trabalho', ev, 'claude-haiku-4-5', '');
   assert.equal(engine.usageSessions.sessions[0].ref, null);
+});
+
+// pedido do Wanderson: cada sessao registrada carrega a versao do Farol que a
+// produziu, pra aparecer na tabela "Sessoes recentes" da aba Consumo. O campo
+// nasce em recordUsage (pos-sessao, nunca entra em prompt) com o APP_VERSION
+// do momento do registro, nao da sessao em si (nao ha como saber com qual
+// versao o Claude rodou por dentro; o que importa e qual Farol gravou a linha).
+test('recordUsage grava farol com o APP_VERSION atual', () => {
+  const engine = { usage: usage.defaultUsage(), usageSessions: usage.defaultSessions(), pushState() {}, log() {} };
+  const ev = { usage: { input_tokens: 10, output_tokens: 5 }, total_cost_usd: 0.01 };
+  usage.recordUsage(engine, 'a1', 'trabalho', ev, 'claude-opus-4-8', '', 'x/y#1');
+  assert.equal(engine.usageSessions.sessions[0].farol, APP_VERSION);
+});
+
+// sessao antiga (gravada antes desta feature) nao tem o campo: e registro
+// permanente, sem migracao. usageSummary/sessionsSince tem que continuar
+// funcionando igual, sem quebrar nem inventar valor pro campo ausente.
+test('sessão antiga sem o campo farol não quebra usageSummary/sessionsSince', () => {
+  const engine = { usage: usage.defaultUsage(), usageSessions: usage.defaultSessions(), config: {}, pushState() {}, log() {} };
+  engine.usageSessions.sessions.push({
+    at: Date.now() - 1000, day: usage.localDay(), kind: 'review', ref: 'x/y#0', account: 'trabalho',
+    model: 'Opus 4.8', profileId: '', inputTokens: 1, outputTokens: 1, cacheReadTokens: 0,
+    cacheCreationTokens: 0, costUsd: 0, status: 'ok',
+    // sem campo farol de propósito: simula o registro gravado antes desta versão
+  });
+  usage.recordUsage(engine, 'a1', 'trabalho', { usage: { input_tokens: 1, output_tokens: 1 }, total_cost_usd: 0.01 }, 'claude-opus-4-8', '', 'x/y#1');
+  const s = usage.usageSummary(engine);
+  assert.equal(s.recentSessions.length, 2);
+  assert.equal(s.sessionsSince, engine.usageSessions.sessions[0].at, 'sessionsSince segue a mais antiga do log');
+  const antiga = s.recentSessions.find(x => x.ref === 'x/y#0');
+  assert.equal(antiga.farol, undefined, 'sessão antiga não ganha o campo por migração');
+  const nova = s.recentSessions.find(x => x.ref === 'x/y#1');
+  assert.equal(nova.farol, APP_VERSION);
 });
 
 test('usageSummary expoe stackedSeries, matrixSeries e recentSessions', () => {

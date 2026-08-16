@@ -2801,6 +2801,7 @@ function drawUsageSessions(el, u) {
   const head = `<div class="usage-sessions-row head">
       <span class="usage-sessions-hcell">Quando</span><span class="usage-sessions-hcell">Tipo</span>
       <span class="usage-sessions-hcell">PR / sessão</span><span class="usage-sessions-hcell">Modelo</span>
+      <span class="usage-sessions-hcell">Farol</span>
       <span class="usage-sessions-hcell right">Tokens</span><span class="usage-sessions-hcell right">~US$</span>
       <span class="usage-sessions-hcell right">Estado</span></div>`;
   const rows = lista.map(s => {
@@ -2810,6 +2811,7 @@ function drawUsageSessions(el, u) {
       <span class="usage-sessions-kind"><span class="dot" style="background:${USAGE_KIND_COLOR[s.kind] || 'var(--faint)'};width:8px;height:8px;border-radius:2.5px;display:inline-block"></span>${esc(r.kindLabel)}</span>
       ${sessionRefCell(r.ref, 'usage-sessions-ref')}
       <span class="usage-sessions-model">${esc(r.model)}</span>
+      <span class="usage-sessions-farol">${esc(r.farol)}</span>
       <span class="usage-sessions-num">${esc(r.tokLabel)}</span>
       <span class="usage-sessions-num">${esc(r.costLabel)}</span>
       <span style="text-align:right"><span class="usage-sessions-st ${r.stClass}">${esc(r.stLabel)}</span></span>

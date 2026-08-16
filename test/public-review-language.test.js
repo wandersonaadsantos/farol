@@ -230,6 +230,22 @@ test('detector normaliza NFKC, acentos decompostos e caracteres invisíveis', ()
   );
 });
 
+// trava do "nunca vazar a versão do Farol": a versão viaja na tabela de
+// Consumo (lib/engine/usage.js), NUNCA no texto de review. Um corpo citando
+// "Farol vX.Y.Z" junto denuncia proveniência tão bem quanto "gerado pelo
+// Farol"; a regra genérica de ator (STRONG_REVIEW_ACTOR) sozinha não pega
+// isso porque não há verbo de ação nem objeto de review na frase.
+test('detector bloqueia menção a "Farol vX.Y.Z" (nunca vazar a versão que gerou a sessão)', () => {
+  const leaks = [
+    'Farol v2.42.0',
+    'Revisado com o Farol v2.42.0 nesta rodada.',
+    'v2.42.0 do Farol confirmou o diff.',
+  ];
+  for (const body of leaks) {
+    assert.ok(publicReview.publicReviewLanguageIssues(payload(body)).length, `deveria bloquear: ${body}`);
+  }
+});
+
 test('detector bloqueia estilo robótico que o contrato público proíbe', () => {
   const robotic = [
     '> [!NOTE]\n> análise concluída',

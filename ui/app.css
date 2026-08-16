@@ -1067,8 +1067,8 @@ body.electron .chat-head { padding-right: 150px; }
 .usage-budget-note { font-size: 11px; color: var(--faint); }
 
 .usage-sessions-wrap { overflow-x: auto; }
-.usage-sessions { min-width: 640px; max-height: 380px; overflow-y: auto; }
-.usage-sessions-row { display: grid; grid-template-columns: 86px 110px minmax(0,1fr) 84px 64px 70px 56px; gap: 10px; align-items: center; padding: 7px 2px; border-bottom: 1px solid var(--border-soft); font-size: 12.5px; }
+.usage-sessions { min-width: 700px; max-height: 380px; overflow-y: auto; }
+.usage-sessions-row { display: grid; grid-template-columns: 86px 110px minmax(0,1fr) 84px 64px 64px 70px 56px; gap: 10px; align-items: center; padding: 7px 2px; border-bottom: 1px solid var(--border-soft); font-size: 12.5px; }
 .usage-sessions-row.head { border-bottom: 1px solid var(--border); padding-bottom: 8px; }
 .usage-sessions-row:hover:not(.head) { background: var(--surface-2); }
 .usage-sessions-hcell { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); font-weight: 600; }
@@ -1083,6 +1083,7 @@ body.electron .chat-head { padding-right: 150px; }
 .usage-review-btn svg { width: 13px; height: 13px; }
 .usage-review-btn:hover, .usage-review-btn:focus-visible { color: var(--accent); background: var(--surface-2); }
 .usage-sessions-model { color: var(--muted); white-space: nowrap; }
+.usage-sessions-farol { color: var(--faint); white-space: nowrap; }
 .usage-sessions-num { text-align: right; font-variant-numeric: tabular-nums; }
 .usage-sessions-st { font-size: 10.5px; font-weight: 700; border-radius: 99px; padding: 1px 8px; }
 .usage-sessions-st.ok { color: var(--ok); background: var(--ok-soft); }

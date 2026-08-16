@@ -235,6 +235,9 @@ function usageSessionRow(s, agora = Date.now()) {
     kindLabel: USAGE_KIND_LABEL[s.kind] || s.kind,
     ref: s.ref || '(sem referência)',
     model: s.model || '',
+    // versao do Farol que gravou a sessao. Sessao antiga (antes desta feature)
+    // nao tem o campo: string vazia, NUNCA "?" nem travessao (regra do pedido).
+    farol: s.farol || '',
     tokLabel: fmtTok((s.inputTokens || 0) + (s.outputTokens || 0)),
     costLabel: (s.costUsd || 0).toFixed(2),
     // 'cancelada' existe desde a v2.40.0 (sessão morta pelo usuário DEPOIS do result:
