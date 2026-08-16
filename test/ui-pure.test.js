@@ -1495,16 +1495,24 @@ test('usageSessionRow: sessao com erro e sem ref', () => {
 });
 
 // coluna FAROL da tabela "Sessoes recentes": mostra a versao que gravou a
-// sessao. Sessao antiga (registro anterior a esta feature) nao tem o campo, e
-// a celula tem que ficar vazia, nunca "?" nem travessao (regra do pedido).
+// sessao. O carimbo nasceu na v2.42.0 (P.FAROL_STAMP_SINCE); sessao com o
+// campo mostra o valor cru, sessao anterior a essa versao (sem o campo) mostra
+// o rotulo de pre-carimbo, nunca celula vazia nem "?" nem travessao.
 test('usageSessionRow: farol mostra a versão quando a sessão carrega o campo', () => {
   const s = { at: Date.now(), kind: 'review', ref: 'biudtech/farol#1', model: 'Sonnet 5', farol: '2.42.0', inputTokens: 1, outputTokens: 1, costUsd: 0, status: 'ok' };
   const r = P.usageSessionRow(s, Date.now());
   assert.equal(r.farol, '2.42.0');
 });
 
-test('usageSessionRow: sessão antiga sem farol mostra string vazia (nunca "?" nem travessão)', () => {
+test('usageSessionRow: farol com valor diferente do padrão continua mostrando o valor cru', () => {
+  const s = { at: Date.now(), kind: 'review', ref: 'biudtech/farol#2', model: 'Sonnet 5', farol: '2.43.0', inputTokens: 1, outputTokens: 1, costUsd: 0, status: 'ok' };
+  const r = P.usageSessionRow(s, Date.now());
+  assert.equal(r.farol, '2.43.0');
+});
+
+test('usageSessionRow: sessão antiga sem farol mostra "< 2.42.0" (rótulo de pré-carimbo, nunca vazio)', () => {
   const s = { at: Date.now(), kind: 'review', ref: 'biudtech/farol#0', model: 'Sonnet 5', inputTokens: 1, outputTokens: 1, costUsd: 0, status: 'ok' };
   const r = P.usageSessionRow(s, Date.now());
-  assert.equal(r.farol, '');
+  assert.equal(r.farol, P.FAROL_PRE_STAMP_LABEL);
+  assert.equal(r.farol, '< 2.42.0');
 });

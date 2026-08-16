@@ -227,6 +227,12 @@ function usageMatrixRows(matrixSeries, kindNames, modelNames, days, metric) {
 // o engine garante que soma(camadas) == serie do dia, e essa camada e a diferenca.
 const USAGE_KIND_LABEL = { review: 'Revisão', self: 'Autoanálise', pushback: 'Pushback', tool: 'Ferramentas', chat: 'Chat', outro: 'Outro', _resto: 'Sem detalhamento' };
 
+// o carimbo de versao por sessao (campo `farol`) nasceu na v2.42.0: sessao sem
+// o campo e, por definicao, anterior a essa versao. Constante FIXA, nunca
+// acompanha a versao atual do app.
+const FAROL_STAMP_SINCE = '2.42.0';
+const FAROL_PRE_STAMP_LABEL = `< ${FAROL_STAMP_SINCE}`;
+
 // linha pronta pra tabela de Sessoes recentes: rotulo de tipo, referencia (com
 // fallback sem travessao), tokens somados, custo com 2 casas e o estado (ok/erro).
 function usageSessionRow(s, agora = Date.now()) {
@@ -236,8 +242,9 @@ function usageSessionRow(s, agora = Date.now()) {
     ref: s.ref || '(sem referência)',
     model: s.model || '',
     // versao do Farol que gravou a sessao. Sessao antiga (antes desta feature)
-    // nao tem o campo: string vazia, NUNCA "?" nem travessao (regra do pedido).
-    farol: s.farol || '',
+    // nao tem o campo: mostra o rotulo de pre-carimbo (regra de EXIBICAO, o
+    // registro em usage-sessions.json continua intocado, sem retro-carimbo).
+    farol: s.farol || FAROL_PRE_STAMP_LABEL,
     tokLabel: fmtTok((s.inputTokens || 0) + (s.outputTokens || 0)),
     costLabel: (s.costUsd || 0).toFixed(2),
     // 'cancelada' existe desde a v2.40.0 (sessão morta pelo usuário DEPOIS do result:
@@ -1132,7 +1139,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     esc, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
     sameSet, diffVs, lastMerge, groupBy, usageMetricVal, sparklinePath, usageDelta, usageStackLayers,
-    usageHoverIndex, usageMatrixRows, USAGE_KIND_LABEL, usageSessionRow, accountSaveArray, delivCappedMsg, fmtRel,
+    usageHoverIndex, usageMatrixRows, USAGE_KIND_LABEL, usageSessionRow, FAROL_STAMP_SINCE, FAROL_PRE_STAMP_LABEL, accountSaveArray, delivCappedMsg, fmtRel,
     usageDayKeysBack, localDayKey, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan,
     personMention, repoMention, prRefMention, ghPrUrl, parseGoto, toolRefGoto, sessionRefMention, sessionRefCell, reviewBoxHtml, operationChecks,
     delivFilterItems, delivDayBuckets, delivStats, delivStatsCards, delivActivityChart, delivActivityCard,

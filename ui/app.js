@@ -2811,7 +2811,7 @@ function drawUsageSessions(el, u) {
       <span class="usage-sessions-kind"><span class="dot" style="background:${USAGE_KIND_COLOR[s.kind] || 'var(--faint)'};width:8px;height:8px;border-radius:2.5px;display:inline-block"></span>${esc(r.kindLabel)}</span>
       ${sessionRefCell(r.ref, 'usage-sessions-ref')}
       <span class="usage-sessions-model">${esc(r.model)}</span>
-      <span class="usage-sessions-farol">${esc(r.farol)}</span>
+      <span class="usage-sessions-farol"${r.farol === FAROL_PRE_STAMP_LABEL ? ' title="sessão registrada antes da 2.42.0, quando o carimbo de versão passou a existir"' : ''}>${esc(r.farol)}</span>
       <span class="usage-sessions-num">${esc(r.tokLabel)}</span>
       <span class="usage-sessions-num">${esc(r.costLabel)}</span>
       <span style="text-align:right"><span class="usage-sessions-st ${r.stClass}">${esc(r.stLabel)}</span></span>
