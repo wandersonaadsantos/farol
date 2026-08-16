@@ -52,6 +52,12 @@ else
   command -v npm >/dev/null || die 'npm nao encontrado e o Electron linux nao veio no pacote. Instale o Node (https://nodejs.org) e rode de novo.'
   (cd "$APP" && npm install --omit=dev --no-audit --no-fund)
 fi
+# npm pode pular o postinstall do electron (visto no WSL em 16/08: "added 13
+# packages" sem baixar o dist); o install.js dele e idempotente, roda direto
+if [ ! -x "$NATIVE" ] && [ -f "$APP/node_modules/electron/install.js" ]; then
+  step 'Baixando o binario do Electron (install.js)'
+  (cd "$APP/node_modules/electron" && node install.js)
+fi
 chmod +x "$NATIVE" 2>/dev/null || true
 # valida o binario que o lancador executa (mesma licao do install.sh do mac)
 [ -x "$NATIVE" ] || die "Electron nao instalado (faltou $NATIVE). Rode: cd $APP && npm install"

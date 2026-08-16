@@ -76,6 +76,12 @@ else
 fi
 # bit de execucao: instalador montado fora do Mac (ou tar sem perms) perde o +x;
 # o lancador chama o electron direto, entao garante que os binarios rodam.
+# npm pode pular o postinstall do electron (visto no fallback do Linux em 16/08);
+# o install.js dele e idempotente e baixa o dist que faltou
+if [ ! -d "$APP/node_modules/electron/dist/Electron.app" ] && [ -f "$APP/node_modules/electron/install.js" ] && command -v node >/dev/null; then
+  step 'Baixando o binario do Electron (install.js)'
+  (cd "$APP/node_modules/electron" && node install.js)
+fi
 chmod +x "$ELECTRON_BIN" 2>/dev/null || true
 [ -d "$APP/node_modules/electron/dist/Electron.app" ] && chmod -R +x "$APP/node_modules/electron/dist/Electron.app" 2>/dev/null || true
 # valida o binario que o LANCADOR executa (o nativo do dist), nao o .bin/electron:
