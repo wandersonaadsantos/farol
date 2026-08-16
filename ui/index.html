@@ -309,6 +309,10 @@
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 7h8m-8 4h8m-8 4h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             Diagnóstico
           </button>
+          <button class="sys-nav-item" id="sysbtn-about" data-section="about" role="tab" aria-selected="false" aria-controls="sys-about">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 11v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7.5" r="1.2" fill="currentColor"/></svg>
+            Sobre
+          </button>
         </nav>
         <div class="sys-foot" id="sysFoot"></div>
       </aside>
@@ -611,6 +615,25 @@
           <p class="sys-note">Só falhas, sem ruído: é o que o <code>/pr-health</code> usa pra ajustar o próprio Farol.</p>
           <p class="sys-note" id="logResumo" hidden></p>
           <pre id="logBox" class="logbox">…</pre>
+        </div>
+
+        <!-- Sobre -->
+        <div class="sys-section" id="sys-about" role="tabpanel" aria-labelledby="sysbtn-about" tabindex="0">
+          <div class="section-head"><h2>Sobre o Farol</h2></div>
+          <p class="section-desc">O compromisso de privacidade, a licença e quem constrói o projeto.</p>
+          <div class="card about-card" id="aboutPrivacy">
+            <h3 class="about-title">Privacidade</h3>
+            <p>O Farol não coleta nem envia nenhum dado a quem o mantém. Não existe telemetria nem servidor do projeto: tudo o que o app registra fica na sua máquina, em <code>~/.farol</code> (log de falhas, consumo, decisões de review, configurações).</p>
+            <p>O tráfego de rede é todo em seu nome, com as suas credenciais: GitHub pelo seu <code>gh</code> e Anthropic pelo seu Claude Code. As automações que postam review são opt-in, e quem as liga responde pelo que é postado.</p>
+          </div>
+          <div class="card about-card" id="aboutLicense">
+            <h3 class="about-title">Licença</h3>
+            <p>Software livre sob a licença MIT, distribuído no estado em que se encontra, sem garantia. O texto completo está no arquivo <a id="aboutLicenseLink" href="#" target="_blank" rel="noreferrer">LICENSE do repositório</a>.</p>
+          </div>
+          <div class="card about-card" id="aboutCredits">
+            <h3 class="about-title">Créditos</h3>
+            <div id="creditsBox"></div>
+          </div>
         </div>
       </div>
     </div>

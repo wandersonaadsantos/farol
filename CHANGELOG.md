@@ -9,6 +9,19 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.43.0
+
+**Novidades**
+- **Seção "Sobre" na aba Sistema.** Três cartões: **Privacidade** (o Farol não
+  coleta nem envia nenhum dado a quem o mantém; não há telemetria, tudo fica em
+  `~/.farol` e o tráfego de rede é todo em nome do usuário), **Licença** (MIT,
+  com link pro texto completo no repositório) e **Créditos**, com o idealizador
+  e os contribuidores do projeto, cada um com foto e link pro perfil no GitHub.
+  A lista de créditos é sincronizada com o repositório de origem (a mesma fonte
+  do auto-update), então colaborador novo que entrar no git aparece sozinho na
+  seção, sem release nem edição manual; a busca roda no máximo uma vez por dia
+  e falha de rede mantém a última lista boa em vez de esvaziar a tela.
+
 ## v2.42.2
 
 **Melhorias**

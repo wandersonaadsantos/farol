@@ -326,6 +326,22 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 .relnote .dec-reasons { margin: 0; }
 #relNotesMore { display: block; margin: 14px auto 0; }
 
+/* ---------- Sistema > Sobre (privacidade, licença, créditos) ---------- */
+.about-card { margin-bottom: 14px; }
+.about-card p { margin: 0 0 8px; font-size: 13px; color: var(--muted); line-height: 1.55; }
+.about-card p:last-child { margin-bottom: 0; }
+.about-title { margin: 0 0 8px; font-size: 14px; font-weight: 700; }
+.credits-founder { display: flex; align-items: center; gap: 10px; padding: 4px 0 10px; }
+.credits-founder .person-mention .pm-login { font-weight: 700; font-size: 14px; }
+.credits-role { color: var(--muted); font-size: 12px; }
+.credits-name { font-weight: 600; color: var(--text); }
+.credits-sub { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); margin: 8px 0 6px; }
+.credits-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 14px; }
+.credits-item { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 3px 0; }
+.credits-meta { color: var(--faint); font-size: 11.5px; white-space: nowrap; }
+.credits-foot { margin-top: 12px; font-size: 11.5px; color: var(--faint); }
+.credits-wait { color: var(--faint); font-size: 12.5px; }
+
 /* ---------- panorama / linhas ---------- */
 .rows { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .rows:empty { display: none; }

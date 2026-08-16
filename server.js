@@ -180,6 +180,8 @@ class Engine extends EventEmitter {
     this.ruleBlockCache = {};         // "repo@base" -> { blocked, at } cache do ruleset bloqueante
     this.reviewerCands = null;        // { at, data:{members,teams} } candidatos p/ o seletor de reviewers
     this.deliveriesCache = {};        // janela (dias) -> { at, data } cache das entregas (PRs mergeados); TTL curto
+    this.credits = null;              // { at, repo, owner, contributors } créditos do Sistema > Sobre (cache 24h)
+    this.creditsTriedAt = 0;          // backoff de falha da busca de contribuidores (1h)
     this.activeReviews = new Map();  // id -> { keys, label, mode, startedAt }
     this.reviewPostCaps = new Map(); // capabilities efêmeras de escrita de terminal/chat (nunca persistidas nem expostas)
     this.sessionSeq = 0;
@@ -564,6 +566,7 @@ class Engine extends EventEmitter {
   async headSha(pr) { return ghMod.headSha(this, pr); }
   deliveriesSince(days) { return ghMod.deliveriesSince(this, days); }
   async fetchDeliveries(days, owner) { return ghMod.fetchDeliveries(this, days, owner); }
+  async refreshContributors() { return ghMod.refreshContributors(this); }
 
 
   async check(reason = 'timer') {
@@ -850,6 +853,9 @@ class Engine extends EventEmitter {
       this.scanPushbacks().catch(e => this.log('WARN', `scanPushbacks: ${e.message}`));
       // atualizacao (releases do GitHub pras copias distribuidas) a cada ciclo
       this.checkUpdate().catch(() => {});
+      // créditos do Sistema > Sobre (contribuidores do repo): TTL de 24h interno,
+      // então na prática só roda 1x por dia; fire-and-forget como o pushback
+      this.refreshContributors().catch(e => this.log('WARN', `créditos: ${e.message}`));
       this.setStatus('idle');
     } catch (err) {
       this.lastError = err.message;
@@ -1327,6 +1333,7 @@ class Engine extends EventEmitter {
       },
       reviewActions: this.reviewActions(),
       usage: this.usageSummary(),
+      credits: this.credits,
       doctor: this.doctorInfo,
       update: this.update || null,
       paths: { home: HOME, workspace: WORKSPACE }

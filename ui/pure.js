@@ -1133,6 +1133,32 @@ function delivEmptyState(opts = {}) {
   return `<div class="empty deliv-empty"><span class="big">📦</span>${esc(titulo)}<br><small>${subHtml}</small>${botoes.length ? `<div class="deliv-empty-actions">${botoes.join('')}</div>` : ''}</div>`;
 }
 
+/* ---------- Sistema > Sobre: créditos sincronizados com o GitHub ----------
+   Idealizador = dono do repo do update; contribuidores = API de contributors
+   do mesmo repo (colaborador novo no git aparece sozinho, sem manutenção).
+   Toda pessoa sai por personMention (menção navegável com foto, regra do app).
+   Sem dado ainda (boot, gh sem login, rede) = aviso explicativo, nunca vazio
+   mudo: silêncio sem explicação é o defeito do check de monitoramento (M-op). */
+function creditsHtml(credits) {
+  if (!credits || !credits.owner || !credits.owner.login) {
+    return `<div class="credits-wait">Buscando os contribuidores no GitHub… precisa do <code>gh</code> autenticado; a lista aparece sozinha quando a busca responder.</div>`;
+  }
+  const own = credits.owner;
+  const ownName = own.name && own.name.toLowerCase() !== own.login.toLowerCase() ? `<span class="credits-name">${esc(own.name)}</span>` : '';
+  // o idealizador tem card próprio; na lista geral ele não repete
+  const rest = (credits.contributors || []).filter(c => (c.login || '').toLowerCase() !== own.login.toLowerCase());
+  const linhas = rest.map(c =>
+    `<div class="credits-item">${personMention(c.login, 'sm')}<span class="credits-meta">${plural(c.contributions | 0, 'contribuição', 'contribuições')}</span></div>`
+  ).join('');
+  return `
+    <div class="credits-founder">
+      ${personMention(own.login)}
+      <span class="credits-role">Idealizador e mantenedor${ownName ? ' · ' : ''}${ownName}</span>
+    </div>
+    ${rest.length ? `<div class="credits-sub">Contribuidores</div><div class="credits-grid">${linhas}</div>` : ''}
+    <div class="credits-foot">Lista sincronizada com ${repoMention(credits.repo)} no GitHub: quem contribui no repositório entra aqui automaticamente.</div>`;
+}
+
 /* Rodape CommonJS: so o node entra aqui. No navegador estas funcoes ja estao no
    escopo global por terem sido declaradas no topo deste arquivo. */
 if (typeof module !== 'undefined' && module.exports) {
@@ -1148,6 +1174,6 @@ if (typeof module !== 'undefined' && module.exports) {
     fmtLogStamp, logGroupLine, logReadingLine, logSummaryLines, logTailLines, logSummaryShort,
     opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible, expiredSessionMarks, listViewState,
     plural, splitHiddenPRs, effectiveHidden, hiddenFootLabel, myPRsEmptyMsg,
-    mergeToastKind, MERGE_EM_ANDAMENTO
+    mergeToastKind, MERGE_EM_ANDAMENTO, creditsHtml
   };
 }

@@ -1516,3 +1516,43 @@ test('usageSessionRow: sessão antiga sem farol mostra "< 2.42.0" (rótulo de pr
   assert.equal(r.farol, P.FAROL_PRE_STAMP_LABEL);
   assert.equal(r.farol, '< 2.42.0');
 });
+
+/* ---------- creditsHtml: Sistema > Sobre ---------- */
+
+test('creditsHtml sem dado explica a espera em vez de ficar mudo', () => {
+  const html = P.creditsHtml(null);
+  assert.match(html, /credits-wait/, 'estado de espera tem cara própria');
+  assert.match(html, /gh/, 'diz de onde o dado vem e o que precisa');
+});
+
+test('creditsHtml: idealizador destacado, contribuidor via personMention, sem duplicar o dono', () => {
+  const credits = {
+    repo: 'wandersonaadsantos/farol',
+    owner: { login: 'wandersonaadsantos', name: 'Wanderson Santos' },
+    contributors: [
+      { login: 'wandersonaadsantos', contributions: 500 },
+      { login: 'thiagocarvalho-dev', contributions: 3 },
+    ],
+  };
+  const html = P.creditsHtml(credits);
+  assert.match(html, /Idealizador e mantenedor/, 'papel do dono nomeado');
+  assert.match(html, /Wanderson Santos/, 'nome de exibição aparece');
+  assert.match(html, /person-mention/, 'pessoa sai por personMention (menção navegável com foto)');
+  assert.match(html, /thiagocarvalho-dev/);
+  assert.match(html, /3 contribuições/, 'contagem de contribuições visível');
+  // personMention gera "@login" no title E no texto visível; conta só o visível
+  const donos = html.match(/pm-login">@wandersonaadsantos</g) || [];
+  assert.equal(donos.length, 1, 'o dono não repete na lista de contribuidores');
+  assert.match(html, /repo-mention/, 'o rodapé linka o repositório de origem da lista');
+});
+
+test('creditsHtml: só o dono no repo = sem bloco de contribuidores, nunca lista vazia', () => {
+  const credits = {
+    repo: 'wandersonaadsantos/farol',
+    owner: { login: 'wandersonaadsantos', name: '' },
+    contributors: [{ login: 'wandersonaadsantos', contributions: 500 }],
+  };
+  const html = P.creditsHtml(credits);
+  assert.match(html, /Idealizador/, 'card do idealizador segue');
+  assert.doesNotMatch(html, /credits-grid/, 'grade de contribuidores não aparece vazia');
+});

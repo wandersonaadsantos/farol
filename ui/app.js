@@ -1123,6 +1123,9 @@ const SYS_INDEX = [
   { sec: 'news', at: '#relNotes', title: 'Novidades por versão', hint: 'changelog, release notes, o que mudou' },
   { sec: 'diag', at: '#sys-row-spawns', title: 'Registrar processos (diagnóstico)', hint: 'spawns, terminal piscando, debug' },
   { sec: 'diag', at: '#sys-row-log', title: 'Log de falhas', hint: 'log, erro, falha, pr-health' },
+  { sec: 'about', at: '#aboutPrivacy', title: 'Privacidade', hint: 'dados, telemetria, coleta, local, privacidade' },
+  { sec: 'about', at: '#aboutLicense', title: 'Licença', hint: 'mit, licença, open source, garantia' },
+  { sec: 'about', at: '#aboutCredits', title: 'Créditos', hint: 'contribuidores, autores, idealizador, mantenedor, quem fez' },
 ];
 
 
@@ -3071,6 +3074,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.43.0', ['Seção "Sobre" na aba Sistema: o compromisso de privacidade (o Farol não coleta nem envia nenhum dado a quem o mantém, tudo fica local em ~/.farol), a licença MIT e os créditos do projeto.', 'Créditos sincronizados com o GitHub: idealizador e contribuidores aparecem com foto e link pro perfil, e colaborador novo que entrar no repositório entra na lista sozinho, sem manutenção.']],
   ['2.42.2', ['Sessão registrada antes da v2.42.0 deixou de aparecer com a célula vazia na coluna Farol do Consumo: agora mostra "< 2.42.0", com explicação no tooltip. Regra só de exibição, o registro em disco segue intocado.']],
   ['2.42.1', ['Licença MIT formalizada (arquivo LICENSE) e seção "Privacidade e responsabilidade" no README: o Farol não coleta nem envia dado nenhum ao mantenedor, não há telemetria, tudo fica local em ~/.farol e o tráfego de rede é todo em nome do usuário (GitHub via gh, Anthropic via Claude Code).']],
   ['2.42.0', ['Coluna "Farol" nas Sessões recentes do Consumo: toda sessão fica carimbada com a versão do app que a produziu, junto do modelo e do custo (auditoria de contexto). Sessões antigas aparecem com a célula vazia, sem retro-carimbo.', 'A versão nunca vaza pro review postado: a trava de linguagem bloqueia proveniência com versão ("gerado pelo Farol vX.Y.Z") e continua permitindo menção técnica legítima quando o assunto do PR é o próprio Farol.']],
@@ -3193,6 +3197,19 @@ function renderReleaseNotes() {
 $('#relNotes').addEventListener('click', (e) => {
   if (e.target.closest('#relNotesMore')) { relNotesShown += REL_NOTES_BATCH; renderReleaseNotes(); }
 });
+
+/* ---------- Sistema > Sobre: privacidade, licença e créditos ---------- */
+// Créditos vêm do snapshot (engine busca os contribuidores do repo do update no
+// GitHub, cache de 24h): a lista se mantém sozinha quando entra colaborador novo.
+// O link da licença aponta pro LICENSE do MESMO repo, então fork continua certo.
+function renderAbout() {
+  const box = $('#creditsBox');
+  if (!box) return;
+  box.innerHTML = creditsHtml(STATE.credits);
+  const repo = ((STATE.config && STATE.config.updateRepo) || '').trim();
+  const link = $('#aboutLicenseLink');
+  if (link && /^[^\s/]+\/[^\s/]+$/.test(repo)) link.href = `https://github.com/${repo}/blob/main/LICENSE`;
+}
 
 /* ---------- editor de reviewers: padrão por org + exceções por repo ---------- */
 let reviewerCands = {}; // { org: { members, teams } } (candidatos POR organização)
@@ -3469,6 +3486,7 @@ function renderEffort(c) {
 
 function renderSettings() {
   renderReleaseNotes();
+  renderAbout();
   const c = STATE.config;
   const setIf = (el, val) => { if (document.activeElement !== el) el.value = val; };
   setIf($('#setUser'), c.ghUser);
