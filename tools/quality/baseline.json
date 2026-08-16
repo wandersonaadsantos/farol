@@ -45,7 +45,7 @@
   },
   "lib/engine/session.js": {
     "maxLines": 1,
-    "emptyCatch": 8,
+    "emptyCatch": 6,
     "jsonParseCru": 4,
     "processEnvDireto": 2,
     "ternarioAninhado": 1,
@@ -81,8 +81,8 @@
     "profundidadeExcedida": 2
   },
   "main.js": {
-    "emptyCatch": 4,
-    "ternarioAninhado": 3,
+    "emptyCatch": 3,
+    "ternarioAninhado": 2,
     "profundidadeExcedida": 2
   },
   "server.js": {

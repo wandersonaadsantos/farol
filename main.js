@@ -88,7 +88,7 @@ function createWindow() {
     app.focus({ steal: true });
     // e o Dock mostra o icone do processo (Electron cru), nao o do lancador;
     // o setIcon troca em runtime pro icone do Farol
-    try { app.dock.setIcon(path.join(__dirname, 'assets', 'png', 'farol-256.png')); } catch { }
+    try { app.dock.setIcon(path.join(__dirname, 'assets', 'png', 'farol-256.png')); } catch { /* best-effort: setIcon pode falhar se arquivo nao existir */ }
   }
 
   // links externos (GitHub etc.) abrem no navegador padrao
@@ -168,6 +168,15 @@ function notify(title, body, prUrl) {
 // Windows: bolinha de overlay no icone da barra de tarefas; macOS: numero no Dock;
 // e o tooltip da bandeja carrega a contagem nos dois.
 let lastBadgeCount = -1;
+
+// alpha do pixel da bolinha do badge: cheio dentro do raio, zero fora,
+// borda com meio-tom de 1px (anti-alias manual)
+function alphaBolinha(d, r) {
+  if (d <= r - 0.5) return 255;
+  if (d >= r + 0.5) return 0;
+  return Math.round(255 * (r + 0.5 - d));
+}
+
 function overlayDot() {
   // bolinha vermelha 16x16 desenhada na mao (BGRA), zero dependencias
   const S = 16, buf = Buffer.alloc(S * S * 4);
@@ -175,7 +184,7 @@ function overlayDot() {
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
       const d = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
-      const a = d <= r - 0.5 ? 255 : d >= r + 0.5 ? 0 : Math.round(255 * (r + 0.5 - d));
+      const a = alphaBolinha(d, r);
       const i = (y * S + x) * 4;
       buf[i] = 54; buf[i + 1] = 66; buf[i + 2] = 239; buf[i + 3] = a; // BGRA: #ef4236
     }
