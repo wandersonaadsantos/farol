@@ -108,13 +108,13 @@
   },
   "ui/app.js": {
     "maxLines": 1,
-    "jsonParseCru": 8,
     "jsonStringifyCru": 2,
     "ternarioAninhado": 57,
     "profundidadeExcedida": 9
   },
   "ui/pure.js": {
     "maxLines": 1,
+    "jsonParseCru": 1,
     "ternarioAninhado": 16
   }
 }

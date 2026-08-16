@@ -3915,7 +3915,7 @@ let TENTATIVAS_RECONEXAO = 0;
 function connect() {
   const es = new EventSource('/api/events');
   es.addEventListener('state', (e) => {
-    STATE = JSON.parse(e.data);
+    const d = safeJsonParse(e.data); if (!d) return; STATE = d;
     aplicaPlataforma(STATE.app && STATE.app.platform);   // engine manda; o userAgent era só o palpite inicial
     rebuildAccounts();
     renderStatus(); renderAccountBar(); renderIdentity();
@@ -3927,7 +3927,7 @@ function connect() {
     if ($('#tab-consumo').classList.contains('active')) renderUsage();
   });
   es.addEventListener('activity', (e) => {
-    const { id, item } = JSON.parse(e.data);
+    const d = safeJsonParse(e.data); if (!d) return; const { id, item } = d;
     if (STATE?.activity) (STATE.activity[id] = STATE.activity[id] || []).push(item);
     const feed = document.querySelector(`.activity-feed[data-id="${CSS.escape(id)}"]`);
     if (feed) {
@@ -3952,11 +3952,11 @@ function connect() {
     }
   });
   es.addEventListener('chat', (e) => {
-    const c = JSON.parse(e.data);
+    const c = safeJsonParse(e.data); if (!c) return;
     if (chatKey && c.key === chatKey) renderChat(c);
   });
   es.addEventListener('chat-activity', (e) => {
-    const { key, text } = JSON.parse(e.data);
+    const d = safeJsonParse(e.data); if (!d) return; const { key, text } = d;
     if (chatKey && key === chatKey) {
       const el = $('#chatActivity');
       el.hidden = false;
@@ -3973,22 +3973,22 @@ function connect() {
     }
   });
   es.addEventListener('toast', (e) => {
-    const t = JSON.parse(e.data);
+    const t = safeJsonParse(e.data); if (!t) return;
     toast(t.kind || 'info', esc(t.text));
   });
-  es.addEventListener('new-prs', (e) => notifyNewPRs(JSON.parse(e.data)));
+  es.addEventListener('new-prs', (e) => { const d = safeJsonParse(e.data); if (d) notifyNewPRs(d); });
   es.addEventListener('auto-approved', () => ping());
   es.addEventListener('auto-rejected', () => ping());
   es.addEventListener('needs-decision', (e) => {
     ping();
-    const { pr, item } = JSON.parse(e.data);
+    const d = safeJsonParse(e.data); if (!d) return; const { pr, item } = d;
     if (!isElectron && 'Notification' in window && Notification.permission === 'granted') {
       const n = new Notification('Farol · precisa da sua atenção', { body: `${pr.key}: ${(item.reasons || [])[0] || 'ver relatório'}` });
       n.onclick = () => { window.focus(); focusPr(pr.url); };
     }
   });
   es.addEventListener('focus-pr', (e) => {
-    const { url } = JSON.parse(e.data);
+    const d = safeJsonParse(e.data); if (!d) return; const { url } = d;
     focusPr(url);
   });
   // A pill do topo sozinha não bastava: em janela estreita ela fica fora de vista atrás

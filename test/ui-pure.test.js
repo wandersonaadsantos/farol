@@ -1591,3 +1591,10 @@ test('creditsHtml: só o dono no repo = sem bloco de contribuidores, nunca lista
   assert.match(html, /Idealizador/, 'card do idealizador segue');
   assert.doesNotMatch(html, /credits-grid/, 'grade de contribuidores não aparece vazia');
 });
+
+test('safeJsonParse: objeto valido volta, lixo vira null, nunca lanca', () => {
+  assert.deepEqual(P.safeJsonParse('{"a":1}'), { a: 1 });
+  assert.equal(P.safeJsonParse('{torto'), null);
+  assert.equal(P.safeJsonParse(''), null);
+  assert.equal(P.safeJsonParse(undefined), null);
+});

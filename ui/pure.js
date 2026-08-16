@@ -17,6 +17,14 @@ function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// Parser seguro pros eventos SSE: evento torto NUNCA derruba o handler; o
+// contrato do engenharia-standards é "entrada não confiável se valida, não se
+// afirma". Devolve null em vez de lançar; quem chama decide se ignora.
+function safeJsonParse(texto) {
+  if (typeof texto !== 'string' || texto === '') return null;
+  try { return JSON.parse(texto); } catch { return null; }
+}
+
 function fmtClock(ts) {
   if (!ts) return '';
   return new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -1183,7 +1191,7 @@ function creditsHtml(credits) {
    escopo global por terem sido declaradas no topo deste arquivo. */
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    esc, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
+    esc, safeJsonParse, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
     sameSet, diffVs, lastMerge, groupBy, usageMetricVal, sparklinePath, usageDelta, usageStackLayers,
     usageHoverIndex, usageMatrixRows, USAGE_KIND_LABEL, usageSessionRow, FAROL_STAMP_SINCE, FAROL_PRE_STAMP_LABEL, accountSaveArray, delivCappedMsg, fmtRel,
     usageDayKeysBack, localDayKey, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan, selfSessionKey, sessionProgress,
