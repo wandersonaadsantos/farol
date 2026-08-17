@@ -294,6 +294,8 @@ test('maybeAutoUpdate: ocioso + available + remote + config default aplica sozin
   });
   assert.equal(chamou, true, 'applyUpdate injetado foi chamado sem config.autoUpdate definido');
   assert.equal(r.ok, true);
+  assert.equal(engine.updateApplying, true,
+    'sucesso MANTÉM a guarda ligada (simetria com o applyUpdate público: o installer vai matar o processo)');
 });
 
 test('maybeAutoUpdate: skipped "ocupado" quando há sessão viva (sessionsBusy)', async () => {
@@ -359,6 +361,15 @@ test('maybeAutoUpdate: falha por BUSY_ERROR NÃO entra em backoff (corrida esper
   });
   assert.equal(r.ok, false);
   assert.equal(engine.autoUpdateFailedAt, 0, 'BUSY_ERROR é corrida esperada, não backoff');
+});
+
+test('maybeAutoUpdate: falha zera a guarda pro próximo ciclo poder tentar', async () => {
+  const engine = engineOcioso();
+  const r = await update.maybeAutoUpdate(engine, {
+    applyUpdate: async () => ({ ok: false, error: update.BUSY_ERROR })
+  });
+  assert.equal(r.ok, false);
+  assert.equal(engine.updateApplying, false, 'falha destrava a guarda');
 });
 
 test('maybeAutoUpdate: updateApplying volta a false no finally mesmo com applyUpdate lançando', async () => {

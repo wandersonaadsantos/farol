@@ -645,6 +645,7 @@ class Engine extends EventEmitter {
       // detectar, tenta aplicar sozinho quando ocioso (v2.46.0, maybeAutoUpdate). Fire-and-
       // forget dos dois: nao segura o ciclo, e falha vira WARN, nunca derruba o polling.
       this.checkUpdate()
+        .catch(e => this.log('WARN', `update check: ${e.message}`))
         .then(() => updateMod.maybeAutoUpdate(this))
         .catch(e => this.log('WARN', `auto-update: ${e.message}`));
       // créditos do Sistema > Sobre (contribuidores do repo): TTL de 24h interno,
