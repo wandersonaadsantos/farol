@@ -50,6 +50,14 @@ test('registrarAgenteDeTask: mesmo Task duas vezes não duplica; segundo Task nu
   assert.equal(e.review.agents['tu-2'].label, 'pr-reviewer 2');
 });
 
+test('registrarAgenteDeTask: aceita o nome novo da ferramenta (Agent, CLI 2.1.x)', () => {
+  // caso real de 17/08/2026: o CLI renomeou Task pra Agent e o badge ficou mudo,
+  // com as linhas do feed caindo no fallback "agente" sem contagem no card
+  const e = engineFake();
+  registrarAgenteDeTask(e, { id: 'a1' }, { type: 'tool_use', id: 'tu-9', name: 'Agent', input: { subagent_type: 'pr-reviewer', description: 'Review PR 774' } });
+  assert.equal(e.review.agents['tu-9'].label, 'pr-reviewer 1');
+});
+
 test('registrarAgenteDeTask: ignora tool_use que não é Task e sessão sem registro', () => {
   const e = engineFake();
   registrarAgenteDeTask(e, { id: 'a1' }, { type: 'tool_use', id: 'x', name: 'Bash', input: {} });
