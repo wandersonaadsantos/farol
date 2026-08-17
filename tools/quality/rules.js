@@ -13,7 +13,7 @@ import { strip } from './strip.js';
 const LIMITES = { maxLines: 400, maxDepth: 3 };
 // arquivos onde a leitura direta é o lar legítimo da coisa
 const ENV_FONTE_UNICA = ['lib/env.js', 'lib/paths.js'];
-const JSON_SANTUARIOS = ['lib/io.js'];
+const JSON_SANTUARIOS = ['lib/io.js', 'lib/paths.js'];
 const PORTA_SANTUARIOS = ['lib/constants.js'];
 
 function norm(p) { return p.replace(/\\/g, '/'); }
