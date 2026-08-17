@@ -18,14 +18,6 @@ const RAIZ = path.join(import.meta.dirname, '..');
 // node_modules e dist não são nossos; .worktrees e scratchpad são scratch local
 const IGNORAR = new Set(['node_modules', 'dist', '.git', '.worktrees', 'scratchpad_test']);
 
-// PENDENTES_ESM: ui/app.js e ui/pure.js ainda são script de browser até o 13d
-// (carregados por <script src>, sem "type": "module" no HTML). Remover este Set
-// e o filtro que o usa quando a Task 13d converter os dois pra módulo nativo.
-const PENDENTES_ESM = new Set([
-  path.join(RAIZ, 'ui', 'app.js'),
-  path.join(RAIZ, 'ui', 'pure.js'),
-]);
-
 function varrer(dir, achados = []) {
   for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
     if (IGNORAR.has(item.name)) continue;
@@ -36,7 +28,7 @@ function varrer(dir, achados = []) {
   return achados;
 }
 
-const arquivos = varrer(RAIZ).sort().filter((arq) => !PENDENTES_ESM.has(arq));
+const arquivos = varrer(RAIZ).sort();
 
 // piso anti-vacuidade: se a varredura quebrar e devolver pouca coisa, o gate ficaria
 // verde sem ter checado nada. Bem abaixo do que existe hoje, mas alto pra denunciar.

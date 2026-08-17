@@ -1,5 +1,18 @@
 /* Farol · UI: consome o engine local via SSE + fetch. Sem frameworks. */
-'use strict';
+
+import {
+  esc, safeJsonParse, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
+  sameSet, diffVs, usageMetricVal, sparklinePath, usageDelta, usageStackLayers, usageHoverIndex, usageMatrixRows,
+  USAGE_KIND_LABEL, usageSessionRow, FAROL_STAMP_SINCE, FAROL_PRE_STAMP_LABEL, accountSaveArray, delivCappedMsg, fmtRel,
+  usageDayKeysBack, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan, selfSessionKey, sessionProgress,
+  personMention, repoMention, prRefMention, parseGoto, sessionRefCell, reviewBoxHtml, operationChecks,
+  delivFilterItems, delivStats, delivStatsCards, delivActivityCard, delivEmptyState, deliveriesByRepo, deliveriesByAuthor,
+  pushbackControl, PB_OPTS, PB_SHORT, fmtStamp, fmtWhenDay, resolvedRow,
+  logSummaryLines, logTailLines, logSummaryShort,
+  opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible, expiredSessionMarks, listViewState,
+  splitHiddenPRs, effectiveHidden, hiddenFootLabel, myPRsEmptyMsg,
+  mergeToastKind, creditsHtml, buildFixPrompt
+} from './pure.js';
 
 const $ = (s) => document.querySelector(s);
 const isElectron = navigator.userAgent.includes('Electron');

@@ -663,9 +663,7 @@
 </aside>
 
 <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
-<!-- pure.js ANTES do app.js: sao as funcoes puras que o app.js usa (esc, md, fmtRel...).
-     Mesmo arquivo serve ao node --test, pelo rodape CommonJS. -->
-<script src="pure.js"></script>
-<script src="app.js"></script>
+<!-- app.js e modulo ES nativo: importa as funcoes puras direto de pure.js (esc, md, fmtRel...). -->
+<script type="module" src="app.js"></script>
 </body>
 </html>

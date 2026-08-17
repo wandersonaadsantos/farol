@@ -13,26 +13,26 @@
 
 /* ---------- folhas: sem dependencia nenhuma ---------- */
 
-function esc(s) {
+export function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 // Parser seguro pros eventos SSE: evento torto NUNCA derruba o handler; o
 // contrato do engenharia-standards é "entrada não confiável se valida, não se
 // afirma". Devolve null em vez de lançar; quem chama decide se ignora.
-function safeJsonParse(texto) {
+export function safeJsonParse(texto) {
   if (typeof texto !== 'string' || texto === '') return null;
   try { return JSON.parse(texto); } catch { return null; }
 }
 
-function fmtClock(ts) {
+export function fmtClock(ts) {
   if (!ts) return '';
   return new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
-function fmtTok(n) { return Number(n || 0).toLocaleString('pt-BR'); }
+export function fmtTok(n) { return Number(n || 0).toLocaleString('pt-BR'); }
 
-function fmtCompact(n) {
+export function fmtCompact(n) {
   n = Number(n) || 0;
   // a fronteira do M acompanha o ARREDONDAMENTO do k: de 999500 pra cima o k
   // viraria "1000k", então já promove pra "1,0M"
@@ -44,7 +44,7 @@ function fmtCompact(n) {
 // rotulo de estagio de uma sessao headless pelo tempo de vida em segundos. O card
 // nao re-renderiza a cada segundo, entao quem chama e o ticker do app (tickElapsed),
 // no mesmo padrao data-started do .session-elapsed (B13: congelava no 1o paint).
-function stageLabel(s) {
+export function stageLabel(s) {
   if (s < 5) return '(iniciando…)';
   if (s < 15) return '(processando…)';
   return '';
@@ -53,7 +53,7 @@ function stageLabel(s) {
 // escopo salvo no navegador validado contra as contas atuais: conta removida ou
 // renomeada deixava um escopo orfao que esvaziava o Radar pra sempre (B15).
 // Compara sem caixa e preserva o valor original quando ele e valido.
-function validScope(scope, users) {
+export function validScope(scope, users) {
   if (!scope || scope === 'all') return 'all';
   const s = String(scope).toLowerCase();
   return (users || []).some(u => String(u).toLowerCase() === s) ? scope : 'all';
@@ -63,7 +63,7 @@ function validScope(scope, users) {
 // (Radar, Destaques e Time filtram/agrupam por SCOPE). Allowlist, nao denylist:
 // a Entregas nasceu depois e ficou mostrando um filtro que nao filtrava nada (B14);
 // aba nova nasce SEM a barra ate alguem decidir que ela respeita o escopo.
-function accountBarVisible(nContas, tab) {
+export function accountBarVisible(nContas, tab) {
   return nContas >= 2 && (tab === 'radar' || tab === 'destaques' || tab === 'time');
 }
 
@@ -72,7 +72,7 @@ function accountBarVisible(nContas, tab) {
 // volta a mandar. Presenca de campo nao serve de gatilho (o mergeStates JA existia
 // na hora da recusa); a geracao do refresh (lastCheckAt do engine) serve.
 // marks: array de pares [key, marcadoEmMs]; retorna as chaves que expiraram.
-function expiredSessionMarks(marks, lastCheckAt) {
+export function expiredSessionMarks(marks, lastCheckAt) {
   const ref = Number(lastCheckAt) || 0;
   if (!ref) return [];
   return (marks || []).filter(([, at]) => ref > (Number(at) || 0)).map(([k]) => k);
@@ -84,59 +84,59 @@ function expiredSessionMarks(marks, lastCheckAt) {
 // menos um ciclo terminou com sucesso e a lista, de fato, veio vazia). Uma lista
 // com item sempre vira 'list', mesmo se o ciclo mais recente falhou: o motor ja
 // preserva o ultimo dado bom (nao some so porque a rede caiu depois).
-function listViewState({ lastCheckAt, status, length }) {
+export function listViewState({ lastCheckAt, status, length }) {
   if (length > 0) return 'list';
   if (lastCheckAt) return 'empty';
   return status === 'error' ? 'error' : 'loading';
 }
 
 // tira acento pra "revisao" achar "Revisão"
-function sysNorm(s) { return String(s || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase(); }
+export function sysNorm(s) { return String(s || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase(); }
 
 /* ---- atribuição de conta pra memória (Destaques/Time) ---- */
-function ownerFromUrl(url) { const m = String(url || '').match(/github\.com\/([^\/]+)\//i); return m ? m[1] : ''; }
+export function ownerFromUrl(url) { const m = String(url || '').match(/github\.com\/([^\/]+)\//i); return m ? m[1] : ''; }
 
 // 'https://github.com/owner/repo/pull/123' -> 'owner/repo#123' (o key canônico do app)
-function prKeyFromUrl(url) {
+export function prKeyFromUrl(url) {
   const m = String(url || '').match(/github\.com\/([^\/]+\/[^\/]+)\/pull\/(\d+)/i);
   return m ? `${m[1]}#${m[2]}` : '';
 }
 
-function repoShort(repo) { return repo.split('/').slice(1).join('/') || repo; }
+export function repoShort(repo) { return repo.split('/').slice(1).join('/') || repo; }
 
-function stripFence(s) {
+export function stripFence(s) {
   return String(s || '').trim().replace(/^```[a-z]*\s*\r?\n/i, '').replace(/\r?\n```\s*$/, '').trim();
 }
 
-function hexToRgba(hex, a) {
+export function hexToRgba(hex, a) {
   const m = String(hex || '').replace('#', '');
   if (m.length !== 6) return `rgba(255,180,84,${a})`;
   const r = parseInt(m.slice(0, 2), 16), g = parseInt(m.slice(2, 4), 16), b = parseInt(m.slice(4, 6), 16);
   return `rgba(${r},${g},${b},${a})`;
 }
 
-function sameSet(a, b) {
+export function sameSet(a, b) {
   const A = new Set((a || []).map(s => String(s).toLowerCase())), B = new Set((b || []).map(s => String(s).toLowerCase()));
   if (A.size !== B.size) return false;
   for (const x of A) if (!B.has(x)) return false;
   return true;
 }
 
-function diffVs(base, list) {
+export function diffVs(base, list) {
   const B = new Set((base || []).map(x => x.toLowerCase())), L = new Set((list || []).map(x => x.toLowerCase()));
   return { added: (list || []).filter(x => !B.has(x.toLowerCase())), removed: (base || []).filter(x => !L.has(x.toLowerCase())) };
 }
 
 // maior mergedAt de uma lista (ISO ordena lexicograficamente)
-function lastMerge(list) { return (list.map(x => x.mergedAt || '').sort().slice(-1)[0]) || ''; }
+export function lastMerge(list) { return (list.map(x => x.mergedAt || '').sort().slice(-1)[0]) || ''; }
 
-function groupBy(items, keyFn) {
+export function groupBy(items, keyFn) {
   const m = new Map();
   for (const it of items) { const k = keyFn(it); (m.get(k) || m.set(k, []).get(k)).push(it); }
   return m;
 }
 
-function usageMetricVal(b, m) {
+export function usageMetricVal(b, m) {
   b = b || {};
   if (m === 'custo') return b.costUsd || 0;
   if (m === 'input') return b.inputTokens || 0;
@@ -147,7 +147,7 @@ function usageMetricVal(b, m) {
 
 // path SVG de uma sparkline (linha + area fechada), normalizado pro maior valor
 // da serie. w/h em unidades do viewBox (a UI usa 100x26, igual ao mock).
-function sparklinePath(vals, w = 100, h = 26) {
+export function sparklinePath(vals, w = 100, h = 26) {
   const n = (vals || []).length;
   if (!n) return { line: '', area: '' };
   const mx = Math.max(1e-9, ...vals);
@@ -158,7 +158,7 @@ function sparklinePath(vals, w = 100, h = 26) {
 
 // chip de variacao percentual (cur vs prev). Sem base valida (prev ausente ou
 // zero) nao da pra comparar, entao nao mostra nada, em vez de "Infinity%".
-function usageDelta(cur, prev) {
+export function usageDelta(cur, prev) {
   if (!prev || prev <= 0) return '';
   const pc = Math.round(((cur - prev) / prev) * 100);
   return (pc >= 0 ? '↑ ' : '↓ ') + Math.abs(pc) + '%';
@@ -167,7 +167,7 @@ function usageDelta(cur, prev) {
 // camadas de area empilhada + grade, pra linha do tempo do Consumo. `series` e um
 // array por dia, cada item um array de valores (1 por camada, MESMA ordem de
 // `names`), ja na metrica escolhida (usageMetricVal ja aplicado por quem chama).
-function usageStackLayers(series, names, colors, W, H) {
+export function usageStackLayers(series, names, colors, W, H) {
   const padL = 46, padR = 14, padT = 12, padB = 22;
   const cw = W - padL - padR, ch = H - padT - padB, n = series.length;
   // serie vazia: retorna resultado vazio sem tentar calcular paths com undefined
@@ -196,7 +196,7 @@ function usageStackLayers(series, names, colors, W, H) {
 
 // indice do dia mais proximo de um X de mouse (coordenadas do MESMO viewBox usado
 // em usageStackLayers), limitado as bordas da serie.
-function usageHoverIndex(mouseX, geo) {
+export function usageHoverIndex(mouseX, geo) {
   const n = geo.xs.length;
   if (n <= 1) return 0;
   const step = geo.cw / (n - 1);
@@ -208,7 +208,7 @@ function usageHoverIndex(mouseX, geo) {
 // matrixSeries vem inteiro do backend (usage.js), com granularidade diaria, quem
 // soma o periodo escolhido e esta funcao, do mesmo jeito que o resto da tela soma
 // series no cliente. Celula sem dado no periodo vem zerada, nao ausente.
-function usageMatrixRows(matrixSeries, kindNames, modelNames, days, metric) {
+export function usageMatrixRows(matrixSeries, kindNames, modelNames, days, metric) {
   const daySet = new Set(days);
   const vals = kindNames.map(() => modelNames.map(() => 0));
   for (const entry of matrixSeries) {
@@ -233,17 +233,17 @@ function usageMatrixRows(matrixSeries, kindNames, modelNames, days, metric) {
 // _resto e a fatia reconciliada de um dia sem detalhamento (registro anterior aos
 // buckets cruzados da v2.38.0, ou sessao gravada por versao antiga no meio do dia):
 // o engine garante que soma(camadas) == serie do dia, e essa camada e a diferenca.
-const USAGE_KIND_LABEL = { review: 'Revisão', self: 'Autoanálise', pushback: 'Pushback', tool: 'Ferramentas', chat: 'Chat', outro: 'Outro', _resto: 'Sem detalhamento' };
+export const USAGE_KIND_LABEL = { review: 'Revisão', self: 'Autoanálise', pushback: 'Pushback', tool: 'Ferramentas', chat: 'Chat', outro: 'Outro', _resto: 'Sem detalhamento' };
 
 // o carimbo de versao por sessao (campo `farol`) nasceu na v2.42.0: sessao sem
 // o campo e, por definicao, anterior a essa versao. Constante FIXA, nunca
 // acompanha a versao atual do app.
-const FAROL_STAMP_SINCE = '2.42.0';
-const FAROL_PRE_STAMP_LABEL = `< ${FAROL_STAMP_SINCE}`;
+export const FAROL_STAMP_SINCE = '2.42.0';
+export const FAROL_PRE_STAMP_LABEL = `< ${FAROL_STAMP_SINCE}`;
 
 // linha pronta pra tabela de Sessoes recentes: rotulo de tipo, referencia (com
 // fallback sem travessao), tokens somados, custo com 2 casas e o estado (ok/erro).
-function usageSessionRow(s, agora = Date.now()) {
+export function usageSessionRow(s, agora = Date.now()) {
   return {
     whenLabel: fmtWhenDay(s.at, agora),
     kindLabel: USAGE_KIND_LABEL[s.kind] || s.kind,
@@ -262,7 +262,7 @@ function usageSessionRow(s, agora = Date.now()) {
   };
 }
 
-function accountSaveArray(list) {
+export function accountSaveArray(list) {
   return (list || []).map(a => {
     const o = { user: a.user, owners: a.owners || [], label: a.label, color: a.color, kind: a.kind || '', muted: !!a.muted };
     if (a.autoReview === true || a.autoReview === false) o.autoReview = a.autoReview;
@@ -279,7 +279,7 @@ function accountSaveArray(list) {
 // afirmava 100 com o teto real em 1000). Fallback 1000 cobre payload em cache
 // gravado antes do campo existir. "atividade mais recente" (não "mais recentes"):
 // o corte do gh é por --sort updated, aproximação de recência, não data de merge.
-function delivCappedMsg(limit) {
+export function delivCappedMsg(limit) {
   const n = Number(limit) || 1000;
   return `Alguma organização tem mais de ${n} entregas no período; mostrando as ${n} de atividade mais recente (números e gráfico podem subestimar).`;
 }
@@ -298,7 +298,7 @@ function delivCappedMsg(limit) {
 // ja grava em horario LOCAL, entao passar por new Date() so criaria chance de mover a
 // hora que a pessoa le no arquivo. Carimbo que nao casa volta como veio, nunca vira
 // "Invalid Date" na tela.
-function fmtLogStamp(ts) {
+export function fmtLogStamp(ts) {
   const m = String(ts ?? '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
   return m ? `${m[3]}/${m[2]} ${m[4]}:${m[5]}` : String(ts ?? '');
 }
@@ -309,7 +309,7 @@ const LOG_REFS_VISIVEIS = 4;
 
 // uma linha por grupo:
 // 70x  Limite do plano Claude  [ambiente/espera-reset]  07/08 17:32 -> 07/08 21:28  (8 PRs: o/r#1, ...)
-function logGroupLine(g) {
+export function logGroupLine(g) {
   g = g || {};
   const ini = fmtLogStamp(g.first), fim = fmtLogStamp(g.last);
   // episodio de um instante so nao vira "x -> x" (a comparacao e do texto ja formatado:
@@ -329,7 +329,7 @@ function logGroupLine(g) {
 // novo que apareca depois: falha nao classificada nunca some da conta.
 const LOG_KINDS_SOZINHO = ['transitorio', 'espera-reset'];
 
-function logReadingLine(grupos) {
+export function logReadingLine(grupos) {
   let sozinho = 0, humano = 0, operacional = 0;
   for (const g of (grupos || [])) {
     const n = Number(g && g.count) || 0;
@@ -342,7 +342,7 @@ function logReadingLine(grupos) {
 
 // o bloco de resumo do Diagnostico: uma linha por grupo (a ordem ja vem por volume do
 // triage) e a leitura no fim. Sem grupo, sem bloco.
-function logSummaryLines(grupos) {
+export function logSummaryLines(grupos) {
   const gs = (grupos || []).filter(Boolean);
   if (!gs.length) return [];
   return [...gs.map(logGroupLine), logReadingLine(gs)];
@@ -351,18 +351,18 @@ function logSummaryLines(grupos) {
 // o detalhe cru, limitado: o relatorio e copiado e colado, entao as 159 linhas inteiras
 // custavam caro e nao acrescentavam nada depois do resumo. A linha de aviso fica no
 // lugar do que foi omitido (no topo), porque o corte guarda as MAIS RECENTES.
-function logTailLines(linhas, max = 40) {
+export function logTailLines(linhas, max = 40) {
   const l = (Array.isArray(linhas) ? linhas : []).slice();
   const n = Math.max(1, Number(max) || 40);
   if (l.length <= n) return l;
   return [`... e mais ${l.length - n} linhas anteriores`, ...l.slice(-n)];
 }
 
-function plural(n, um, muitos) { return `${n} ${n === 1 ? um : muitos}`; }
+export function plural(n, um, muitos) { return `${n} ${n === 1 ? um : muitos}`; }
 
 // linha unica da aba Sistema: os n maiores grupos com a contagem. Vazio quando nao ha
 // falha, pra a linha sumir em vez de mostrar zero.
-function logSummaryShort(grupos, n = 3) {
+export function logSummaryShort(grupos, n = 3) {
   const gs = (grupos || []).filter(Boolean);
   if (!gs.length) return '';
   const total = gs.reduce((a, g) => a + (Number(g.count) || 0), 0);
@@ -382,7 +382,7 @@ function logSummaryShort(grupos, n = 3) {
 // separa a lista do motor em visiveis e ocultos. Comparacao SEM CAIXA, como no
 // validScope/sameSet: o GitHub trata owner/repo sem distinguir maiuscula e uma chave
 // gravada com caixa diferente nao pode reaparecer como se nunca tivesse sido ocultada.
-function splitHiddenPRs(list, hidden) {
+export function splitHiddenPRs(list, hidden) {
   const H = new Set([...(hidden || [])].map(k => String(k).toLowerCase()));
   const visiveis = [], ocultos = [];
   for (const pr of (list || [])) {
@@ -395,7 +395,7 @@ function splitHiddenPRs(list, hidden) {
 // pessoa acabou de ocultar (otimista, some na hora do clique), menos o que ela acabou
 // de reexibir. Sem isso o card so sumiria no proximo push de estado, e o clique
 // pareceria ter falhado.
-function effectiveHidden(doMotor, marcados, reexibidos) {
+export function effectiveHidden(doMotor, marcados, reexibidos) {
   const out = new Set([...(doMotor || []), ...(marcados || [])].map(k => String(k).toLowerCase()));
   for (const k of (reexibidos || [])) out.delete(String(k).toLowerCase());
   return [...out];
@@ -403,7 +403,7 @@ function effectiveHidden(doMotor, marcados, reexibidos) {
 
 // rodape da secao: "3 PRs ocultos · mostrar". Sem oculto nenhum devolve vazio, pra a
 // linha sumir em vez de mostrar zero (mesma regra do logSummaryShort).
-function hiddenFootLabel(n, aberto) {
+export function hiddenFootLabel(n, aberto) {
   n = Number(n) || 0;
   if (n <= 0) return '';
   return `${plural(n, 'PR oculto', 'PRs ocultos')} · ${aberto ? 'ocultar' : 'mostrar'}`;
@@ -412,7 +412,7 @@ function hiddenFootLabel(n, aberto) {
 // mensagem do vazio de "Meus PRs". Separa dois vazios que a tela confundia: nao ter PR
 // aberto e ter TODOS ocultos (que deixava a lista em branco, sem dizer por que nem como
 // desfazer). `vs` vem do listViewState, calculado sobre a lista COMPLETA do motor.
-function myPRsEmptyMsg(vs, { escopoTodas = true, ocultos = 0 } = {}) {
+export function myPRsEmptyMsg(vs, { escopoTodas = true, ocultos = 0 } = {}) {
   if (vs === 'loading') return 'Verificando se você tem PRs abertos…';
   if (vs === 'error') return 'Não foi possível confirmar ainda (a checagem falhou; veja o aviso no topo). Vou tentar de novo no próximo ciclo.';
   const n = Number(ocultos) || 0;
@@ -426,8 +426,8 @@ function myPRsEmptyMsg(vs, { escopoTodas = true, ocultos = 0 } = {}) {
 // Recusa benigna informa, nao alarma. Fica aqui, e nao inline no handler, porque
 // os tres botoes de merge (normal, auto, admin) passam pela MESMA guarda do
 // mergeSelfPR: um so lugar decide a cor.
-const MERGE_EM_ANDAMENTO = 'merge já em andamento';
-function mergeToastKind(erro) {
+export const MERGE_EM_ANDAMENTO = 'merge já em andamento';
+export function mergeToastKind(erro) {
   return String(erro || '') === MERGE_EM_ANDAMENTO ? 'info' : 'error';
 }
 
@@ -435,7 +435,7 @@ function mergeToastKind(erro) {
 
 // `agora` entra por parametro (com default) so pra dar pra testar: todos os chamadores
 // passam 1 argumento so, entao nada muda pra eles.
-function fmtRel(iso, agora = Date.now()) {
+export function fmtRel(iso, agora = Date.now()) {
   if (!iso) return '';
   const s = Math.max(0, (agora - new Date(iso).getTime()) / 1000);
   if (s < 90) return 'agora';
@@ -446,7 +446,7 @@ function fmtRel(iso, agora = Date.now()) {
 
 // data e hora completas, pra tooltip: o formato curto do fmtWhenDay nunca esconde
 // informação, ela fica aqui.
-function fmtStamp(ts) {
+export function fmtStamp(ts) {
   if (!ts) return '';
   const d = new Date(ts);
   if (isNaN(d.getTime())) return '';
@@ -461,7 +461,7 @@ function fmtStamp(ts) {
 // LOCAL (localDayKey, mesmo corte do resto do app) e "ontem" é a data local menos um
 // dia CONSTRUÍDA, não uma subtração de 86400s, que escorrega o rótulo na virada de
 // fuso. `agora` entra por parâmetro com default só pra dar pra testar, igual ao fmtRel.
-function fmtWhenDay(ts, agora = Date.now()) {
+export function fmtWhenDay(ts, agora = Date.now()) {
   if (!ts) return '';
   const d = new Date(ts);
   if (isNaN(d.getTime())) return '';
@@ -478,7 +478,7 @@ function fmtWhenDay(ts, agora = Date.now()) {
 // chave de dia LOCAL (YYYY-MM-DD) de um timestamp/ISO; '' quando não há data
 // válida. Espelha o corte de dia do server (localDay em lib/engine/usage.js, no
 // fuso do processo): nunca UTC cru, que zerava o "Hoje" às 21h de Brasília.
-function localDayKey(ts) {
+export function localDayKey(ts) {
   if (ts == null || ts === '') return '';
   const d = new Date(ts);
   if (isNaN(d.getTime())) return '';
@@ -487,7 +487,7 @@ function localDayKey(ts) {
 }
 
 // chaves de dia LOCAIS (batendo com o corte do server) dos últimos n dias, incluindo hoje
-function usageDayKeysBack(n, agora = Date.now()) {
+export function usageDayKeysBack(n, agora = Date.now()) {
   const out = [], d = new Date(agora);
   for (let i = n - 1; i >= 0; i--) out.push(localDayKey(new Date(d.getFullYear(), d.getMonth(), d.getDate() - i)));
   return out;
@@ -496,7 +496,7 @@ function usageDayKeysBack(n, agora = Date.now()) {
 // conta os resolvidos de HOJE (dia local) que terminaram em APPROVE: alimenta o
 // "vazio bom" do Radar. resolvedAt é epoch em ms (Date.now() do engine); a versão
 // antiga fatiava String(epoch) contra data ISO e nunca batia (ramo morto da v2.30.0).
-function aprovadosHoje(resolved, agora = Date.now()) {
+export function aprovadosHoje(resolved, agora = Date.now()) {
   const hoje = localDayKey(agora);
   return (resolved || []).filter(r => r && r.action === 'approve' && localDayKey(r.resolvedAt) === hoje).length;
 }
@@ -506,7 +506,7 @@ function aprovadosHoje(resolved, agora = Date.now()) {
 // Maquina de estados minima: 'running' e o unico estado que anda; done/error/cancelled
 // sao terminais (nao viram um ao outro nem voltam a running: quem quer "de novo"
 // cria outra operacao). O DOM do app.js so consome estas duas decisoes.
-function opTransition(atual, proximo) {
+export function opTransition(atual, proximo) {
   if (atual === 'running' && (proximo === 'done' || proximo === 'error' || proximo === 'cancelled')) return proximo;
   return atual;
 }
@@ -514,7 +514,7 @@ function opTransition(atual, proximo) {
 // prazo de auto-dismiss por estado: running nao some sozinho; done some rapido;
 // erro e cancelamento ficam mais tempo na tela pra dar tempo de ler, mas SEMPRE
 // somem (pill de erro imortal acumulava uma por tentativa, o M22).
-function opDismissDelay(status) {
+export function opDismissDelay(status) {
   if (status === 'running') return null;
   if (status === 'done') return 3000;
   return 6000;
@@ -522,7 +522,7 @@ function opDismissDelay(status) {
 
 /* ---------- dependem das folhas ---------- */
 
-function avatar(login, cls = '') {
+export function avatar(login, cls = '') {
   const initial = (login || '?').charAt(0).toUpperCase();
   return `<span class="avatar ${cls}">${esc(initial)}<img src="https://github.com/${encodeURIComponent(login)}.png?size=96" alt="" loading="lazy" onerror="this.remove()"></span>`;
 }
@@ -551,7 +551,7 @@ const GH_URL = 'https://github.com/';
 // seguem texto puro, sem inventar URL.
 const PR_REF_RE = /^([\w.-]+)\/([\w.-]+)#(\d+)$/;
 
-function ghPrUrl(ref) {
+export function ghPrUrl(ref) {
   const m = PR_REF_RE.exec(String(ref || '').trim());
   return m ? `${GH_URL}${m[1]}/${m[2]}/pull/${m[3]}` : '';
 }
@@ -559,7 +559,7 @@ function ghPrUrl(ref) {
 // menção de pessoa: foto + @login, clicável pro perfil no GitHub. `cls` entra
 // no avatar ('sm' nas linhas compactas). semFoto=true só onde a foto não cabe
 // (linha de PR das Entregas, que já roda dentro de um grupo com a foto no topo).
-function personMention(login, cls = '', semFoto = false) {
+export function personMention(login, cls = '', semFoto = false) {
   const nome = String(login || '').trim();
   if (!nome) return `<span class="person-mention vazio">@(desconhecido)</span>`;
   return `<a class="person-mention" href="${GH_URL}${encodeURIComponent(nome)}" target="_blank" rel="noreferrer" title="Abrir @${esc(nome)} no GitHub">`
@@ -568,7 +568,7 @@ function personMention(login, cls = '', semFoto = false) {
 
 // menção de repositório (owner/repo): leva ao repo no GitHub. `label` permite
 // mostrar o nome curto e ainda assim linkar o caminho completo.
-function repoMention(repo, label) {
+export function repoMention(repo, label) {
   const nome = String(repo || '').trim();
   if (!nome) return '';
   return `<a class="repo-mention" href="${GH_URL}${nome.split('/').map(encodeURIComponent).join('/')}" target="_blank" rel="noreferrer" title="Abrir ${esc(nome)} no GitHub">${esc(label || nome)}</a>`;
@@ -576,7 +576,7 @@ function repoMention(repo, label) {
 
 // menção de PR pela referência textual (owner/repo#N): vira link; qualquer
 // outra coisa volta como texto escapado, no mesmo lugar, sem link quebrado.
-function prRefMention(ref, cls = '') {
+export function prRefMention(ref, cls = '') {
   const url = ghPrUrl(ref);
   const txt = esc(String(ref || ''));
   if (!url) return `<span class="${esc(cls)}">${txt}</span>`;
@@ -586,7 +586,7 @@ function prRefMention(ref, cls = '') {
 // Lê um valor de data-goto ('tipo:alvo[:seletor]'). O seletor é o RESTO inteiro,
 // nunca só o terceiro pedaço: seletor CSS tem ':' (`.acct-label:nth-child(2)`) e
 // destino de Entregas tem '/' e ':' no meio.
-function parseGoto(spec) {
+export function parseGoto(spec) {
   const [tipo, alvo, ...resto] = String(spec ?? '').split(':');
   return { tipo: tipo || '', alvo: alvo || '', seletor: resto.join(':') };
 }
@@ -601,7 +601,7 @@ const TOOL_REF_GOTO = [
   [/^Diagnóstico do Farol$/, 'sys:diag:#healthPanel'],
 ];
 
-function toolRefGoto(ref) {
+export function toolRefGoto(ref) {
   const s = String(ref ?? '').trim();
   for (const [re, destino] of TOOL_REF_GOTO) if (re.test(s)) return destino;
   return '';
@@ -611,7 +611,7 @@ function toolRefGoto(ref) {
 // revisão/pushback/chat gravam a chave do PR, ferramenta grava o rótulo dela. Cada
 // um vai pro SEU destino; o que não se reconhece continua texto puro, no mesmo
 // lugar, sem link quebrado nem clique que não leva a nada.
-function sessionRefMention(ref, cls = '') {
+export function sessionRefMention(ref, cls = '') {
   if (ghPrUrl(ref)) return prRefMention(ref, cls);
   const txt = esc(String(ref || ''));
   const destino = toolRefGoto(ref);
@@ -631,7 +631,7 @@ function sessionRefMention(ref, cls = '') {
    Um check por conta (dizer QUAL conta é o que torna acionável com várias) mais
    um agregado pro caso de tudo silenciado. Sem conta nenhuma devolve vazio: aí
    quem fala é o banner de boas-vindas, e dois avisos pro mesmo problema é ruído. */
-function operationChecks(accounts) {
+export function operationChecks(accounts) {
   const lista = (Array.isArray(accounts) ? accounts : []).filter(a => a && String(a.user || '').trim());
   if (!lista.length) return [];
   const alvo = u => `sys:accounts:.acct-label[data-user="${String(u).replace(/"/g, '\\"')}"]`;
@@ -662,7 +662,7 @@ function operationChecks(accounts) {
    leva ao PR no GitHub, o botão ao lado abre a caixa de revisão AQUI DENTRO.
    Só linha de PR ganha o botão: ferramenta e sessão sem referência não têm
    revisão nenhuma pra abrir, e botão que não faz nada é pior que botão nenhum. */
-function sessionRefCell(ref, cls = 'usage-sessions-ref') {
+export function sessionRefCell(ref, cls = 'usage-sessions-ref') {
   const mencao = sessionRefMention(ref, cls);
   if (!ghPrUrl(ref)) return `<span class="usage-ref-cell">${mencao}</span>`;
   const k = esc(String(ref));
@@ -678,7 +678,7 @@ function sessionRefCell(ref, cls = 'usage-sessions-ref') {
 // de "achei e está vazio", e é exatamente essa confusão que motivou a feature.
 const VERDICT_LABEL = { approve: 'Aprovável', request_changes: 'Com blocker', comment: 'Comentado' };
 
-function reviewBoxHtml(d) {
+export function reviewBoxHtml(d) {
   if (!d) return `<div class="empty">Nenhuma revisão registrada pra este PR no histórico do Farol.</div>`;
   const v = VERDICT_LABEL[d.verdict] || d.verdict || 'sem veredito';
   const cls = d.verdict === 'approve' ? 'approve' : 'rc';
@@ -701,7 +701,7 @@ function reviewBoxHtml(d) {
   </div>`;
 }
 
-function md(src) {
+export function md(src) {
   const lines = esc(String(src || '')).split(/\r?\n/);
   const out = [];
   let list = null, table = null;
@@ -749,7 +749,7 @@ function md(src) {
   return out.join('\n');
 }
 
-function feedLine(it) {
+export function feedLine(it) {
   const icon = { tool: '⚙', text: '💬', warn: '⚠', info: '·' }[it.k] || '·';
   return `<div class="feed-line k-${esc(it.k)}"><span class="feed-t">${fmtClock(it.t)}</span><span class="feed-i">${icon}</span><span class="feed-x">${esc(it.text)}</span></div>`;
 }
@@ -761,7 +761,7 @@ function feedLine(it) {
    emitido antes do servidor enfileirar pode chegar depois do clique, e sem o `seen` o
    widget recém-nascido fecharia como "concluído". headlessWaiting também carrega keys
    de revisão normal, sem colisão na prática (o GitHub não pede review pro autor). */
-function analysisOpsPlan(ops, snap) {
+export function analysisOpsPlan(ops, snap) {
   snap = snap || {};
   const presentes = new Set();
   for (const s of (snap.activeSessions || [])) {
@@ -787,11 +787,11 @@ function analysisOpsPlan(ops, snap) {
    app usa ESTA função, nunca um número escrito à mão; quem mudar a curva muda
    pra todos os fluxos de uma vez. selfSessionKey acha o PR da sessão de
    autoanálise dona de um evento de atividade (roteio feed -> widget). */
-function selfSessionKey(sessions, id) {
+export function selfSessionKey(sessions, id) {
   const s = (sessions || []).find(x => x && x.id === id && x.mode === 'self');
   return (s && s.keys && s.keys[0]) || null;
 }
-function sessionProgress(count) {
+export function sessionProgress(count) {
   const n = Math.max(0, Number(count) || 0);
   return Math.min(90, 5 + Math.round(85 * (1 - Math.exp(-n / 18))));
 }
@@ -799,9 +799,9 @@ function sessionProgress(count) {
 /* ---------- pushback: o controle das Revisões recentes ----------
    Saiu do app.js pra ganhar teste; o mapa de pushbacks entra por parâmetro
    (era lido de STATE, global proibida aqui). */
-const PB_OPTS = [['', 'sem pushback'], ['author_right', 'o autor tinha razão'], ['we_right', 'nós tínhamos razão'], ['mixed', 'meio-termo']];
-const PB_SHORT = { author_right: 'autor tinha razão', we_right: 'nós tínhamos razão', mixed: 'meio-termo' };
-function pushbackControl(r, pushbacks) {
+export const PB_OPTS = [['', 'sem pushback'], ['author_right', 'o autor tinha razão'], ['we_right', 'nós tínhamos razão'], ['mixed', 'meio-termo']];
+export const PB_SHORT = { author_right: 'autor tinha razão', we_right: 'nós tínhamos razão', mixed: 'meio-termo' };
+export function pushbackControl(r, pushbacks) {
   const author = (r.pr && r.pr.author) || r.author || '';
   if (!author) return '';
   const pb = (pushbacks || {})[r.key] || null;
@@ -853,7 +853,7 @@ const RESOLVED_ACTIONS = { approve: 'APPROVE', request_changes: 'REQUEST CHANGES
 // varrer a lista. Pulado fica neutro de propósito, porque nada foi postado.
 const VERDICT_CLASS = { approve: 'rev-ok', request_changes: 'rev-rc', comment: 'rev-cm' };
 
-function resolvedRow(r, ctx) {
+export function resolvedRow(r, ctx) {
   ctx = ctx || {};
   const [icon, label] = RESOLVED_LABELS[r.status] || ['•', r.status];
   const act = (r.status === 'posted' || r.status === 'already_reviewed')
@@ -920,7 +920,7 @@ function resolvedRow(r, ctx) {
 
 // busca livre por título, autor ou repo, sem diferenciar caixa (mesmo campo
 // único do mock; sem acento-folding, igual ao resto do app)
-function delivFilterItems(items, query) {
+export function delivFilterItems(items, query) {
   const q = String(query || '').trim().toLowerCase();
   if (!q) return items || [];
   return (items || []).filter(it => `${it.title || ''} ${it.author || ''} ${it.repo || ''}`.toLowerCase().includes(q));
@@ -928,7 +928,7 @@ function delivFilterItems(items, query) {
 
 // buckets diários LOCAIS (mesmo corte de localDayKey/usageDayKeysBack), mais
 // antigo primeiro, hoje por último. dias=0 (janela "Hoje") vira 1 bucket só.
-function delivDayBuckets(items, days, agora = Date.now()) {
+export function delivDayBuckets(items, days, agora = Date.now()) {
   const nDias = days === 0 ? 1 : days;
   const counts = new Map();
   for (const it of (items || [])) {
@@ -947,7 +947,7 @@ const ddmm = d => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()
 // os 4 cartões de estatística do topo. [] quando não há entregas no período
 // (a UI então nem desenha a grade). O 4º cartão muda com o período: "Hoje"
 // mostra o último merge, os demais mostram a média diária com o pico.
-function delivStats(items, days, agora = Date.now()) {
+export function delivStats(items, days, agora = Date.now()) {
   const total = (items || []).length;
   if (!total) return [];
   const hoje = localDayKey(agora);
@@ -986,7 +986,7 @@ function delivStats(items, days, agora = Date.now()) {
   ];
 }
 
-function delivStatsCards(stats) {
+export function delivStatsCards(stats) {
   if (!(stats || []).length) return '';
   return `<div class="deliv-stats">${stats.map(s => {
     const sub = s.goto
@@ -999,7 +999,7 @@ function delivStatsCards(stats) {
 // barras da "Atividade no período": rótulo raro pra não colidir em janelas
 // longas (todo dia em 7, a cada 3 em 15, a cada 5 em 30), sempre com "hoje"
 // na última barra.
-function delivActivityChart(items, days, agora = Date.now()) {
+export function delivActivityChart(items, days, agora = Date.now()) {
   const buckets = delivDayBuckets(items, days, agora);
   const max = Math.max(1, ...buckets.map(b => b.n));
   return buckets.map((b, i) => {
@@ -1022,7 +1022,7 @@ function delivActivityChart(items, days, agora = Date.now()) {
 
 // cartão inteiro do gráfico, ou '' quando não faz sentido mostrar (janela
 // "Hoje", sem granularidade diária, ou sem nenhuma entrega no período)
-function delivActivityCard(items, days, agora = Date.now()) {
+export function delivActivityCard(items, days, agora = Date.now()) {
   if (!(days > 0) || !(items || []).length) return '';
   return `<div class="card deliv-chart-card">
     <div class="deliv-chart-head"><h3>Atividade no período</h3><span class="deliv-chart-note">merges por dia</span></div>
@@ -1033,7 +1033,7 @@ function delivActivityCard(items, days, agora = Date.now()) {
 // fatia as linhas de um grupo respeitando o teto de PRs visíveis. Legenda de
 // repo (linha ehCap, só na visão por pessoa) não conta no teto, mas só entra
 // se o PR dela entrou: uma legenda que sobra sozinha no fim é descartada.
-function delivSliceRows(rows, teto, expanded) {
+export function delivSliceRows(rows, teto, expanded) {
   if (expanded) return { visiveis: rows, resto: 0 };
   const out = []; let prs = 0, resto = 0;
   for (const r of rows) {
@@ -1092,7 +1092,7 @@ function delivVolumeOrder(aList, bList, aKey, bKey) {
     || String(aKey).localeCompare(String(bKey));
 }
 
-function deliveriesByRepo(items, opts = {}) {
+export function deliveriesByRepo(items, opts = {}) {
   const teto = opts.teto || 4;
   const expandedKeys = opts.expandedKeys || new Set();
   const totalPeriodo = items.length;
@@ -1114,7 +1114,7 @@ function deliveriesByRepo(items, opts = {}) {
   )).join('');
 }
 
-function deliveriesByAuthor(items, opts = {}) {
+export function deliveriesByAuthor(items, opts = {}) {
   const teto = opts.teto || 4;
   const expandedKeys = opts.expandedKeys || new Set();
   const openKeys = opts.openKeys || new Set();
@@ -1146,7 +1146,7 @@ function deliveriesByAuthor(items, opts = {}) {
 
 // estado vazio: some pra ampliar o período (só quando dá pra ampliar) e some
 // pra limpar a busca (só quando há busca ativa)
-function delivEmptyState(opts = {}) {
+export function delivEmptyState(opts = {}) {
   const query = opts.query || '';
   const titulo = query ? `Nada com “${query}” neste período.` : 'Nenhum PR mergeado neste período.';
   // "organizações monitoradas em Sistema" leva ATÉ a linha das orgs (regra das
@@ -1167,7 +1167,7 @@ function delivEmptyState(opts = {}) {
    Toda pessoa sai por personMention (menção navegável com foto, regra do app).
    Sem dado ainda (boot, gh sem login, rede) = aviso explicativo, nunca vazio
    mudo: silêncio sem explicação é o defeito do check de monitoramento (M-op). */
-function creditsHtml(credits) {
+export function creditsHtml(credits) {
   if (!credits || !credits.owner || !credits.owner.login) {
     return `<div class="credits-wait">Buscando os contribuidores no GitHub… precisa do <code>gh</code> autenticado; a lista aparece sozinha quando a busca responder.</div>`;
   }
@@ -1191,7 +1191,7 @@ function creditsHtml(credits) {
 // dos pontos da autoanálise (blockers = travam a aprovação; tips = melhorias).
 // PURA: recebe os dados já coletados do STATE/DOM (o app.js faz essa coleta),
 // devolve só a string do prompt. Migrada do app.js na Task 12.
-function buildFixPrompt(args = {}) {
+export function buildFixPrompt(args = {}) {
   const { key, url, title, card, summary, blockers: rawBlockers, tips: rawTips } = args;
   const blockers = (rawBlockers || []).filter(Boolean);
   const tips = (rawTips || []).filter(Boolean);
@@ -1207,23 +1207,4 @@ function buildFixPrompt(args = {}) {
   if (tips.length) { linhas.push('', 'Melhorias sugeridas:', ...tips.map(t => `- ${t}`)); }
   linhas.push('', 'Implemente as correções no código, rode os testes e o lint que fizerem sentido, e no final me diga o que mudou e por quê.');
   return linhas.join('\n');
-}
-
-/* Rodape CommonJS: so o node entra aqui. No navegador estas funcoes ja estao no
-   escopo global por terem sido declaradas no topo deste arquivo. */
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    esc, safeJsonParse, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
-    sameSet, diffVs, lastMerge, groupBy, usageMetricVal, sparklinePath, usageDelta, usageStackLayers,
-    usageHoverIndex, usageMatrixRows, USAGE_KIND_LABEL, usageSessionRow, FAROL_STAMP_SINCE, FAROL_PRE_STAMP_LABEL, accountSaveArray, delivCappedMsg, fmtRel,
-    usageDayKeysBack, localDayKey, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan, selfSessionKey, sessionProgress,
-    personMention, repoMention, prRefMention, ghPrUrl, parseGoto, toolRefGoto, sessionRefMention, sessionRefCell, reviewBoxHtml, operationChecks,
-    delivFilterItems, delivDayBuckets, delivStats, delivStatsCards, delivActivityChart, delivActivityCard,
-    delivSliceRows, delivEmptyState, deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS, PB_SHORT,
-    fmtStamp, fmtWhenDay, resolvedRow,
-    fmtLogStamp, logGroupLine, logReadingLine, logSummaryLines, logTailLines, logSummaryShort,
-    opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible, expiredSessionMarks, listViewState,
-    plural, splitHiddenPRs, effectiveHidden, hiddenFootLabel, myPRsEmptyMsg,
-    mergeToastKind, MERGE_EM_ANDAMENTO, creditsHtml, buildFixPrompt
-  };
 }
