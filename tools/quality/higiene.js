@@ -6,7 +6,7 @@
 // vai no zip de auditoria por decisão registrada (16/08/2026).
 import fs from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { executadoDireto } from '../../lib/paths.js';
 
 const RAIZ = path.join(import.meta.dirname, '..', '..');
 const IGNORAR = new Set(['node_modules', 'dist', '.git', '.worktrees', 'scratchpad_test', 'docs', 'workspace-template', 'assets', '.superpowers']);
@@ -48,6 +48,6 @@ function main() {
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) process.exit(main());
+if (executadoDireto(import.meta.url)) process.exit(main());
 export default { refsForaDeTodo };
 export { refsForaDeTodo };
