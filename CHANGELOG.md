@@ -9,6 +9,34 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.48.0
+
+Review que não saiu por instabilidade do GitHub agora vai sozinho depois, e a lista de
+motivos de um PR passa a separar o que a revisão achou do que é regra do app e do que
+foi só falha técnica.
+
+**Novidades**
+- **Postagem que falhou por instabilidade tenta de novo sozinha.** Quando a revisão
+  já tinha decidido aprovar (ou pedir mudanças) e só o envio pro GitHub falhou por
+  algo passageiro (rede caindo, API do GitHub fora do ar), o PR ficava parado na sua
+  mesa esperando um clique, mesmo com a decisão pronta. Agora o Farol reenvia sozinho
+  nos ciclos seguintes, reusando a decisão que já tinha tomado, sem abrir sessão nova
+  nem gastar do seu limite. Antes de reenviar ele confere se o review já está no PR,
+  então não existe risco de sair review duplicado. Depois de 3 tentativas sem sucesso
+  ele para e deixa com você, dizendo na tela que desistiu. Falha que não passa sozinha
+  (credencial recusada, por exemplo) nunca entra nesse retry, porque insistir não
+  resolveria e só esconderia de você o problema real.
+
+**Melhorias**
+- **Os motivos de um PR ter vindo pra você agora vêm separados por tipo.** A lista era
+  plana e misturava três coisas bem diferentes: o que a revisão achou no código, o que
+  é regra deliberada do app (cobertura incompleta, discordância com outro review,
+  política da conta) e falha técnica no envio. Um "GitHub fora do ar" lia igual a uma
+  ressalva técnica, e dava pra achar que a aprovação automática tinha quebrado quando
+  o que houve foi a rede cair. Agora aparecem em blocos com rótulo e cor: falha técnica
+  primeiro (com aviso de que o app ainda vai tentar sozinho), regra do app, e por último
+  o que a revisão levantou. Revisões antigas continuam aparecendo normalmente.
+
 ## v2.47.0
 
 Discordar de outro revisor deixa de travar a aprovação automática por decreto e vira
