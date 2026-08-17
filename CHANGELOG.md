@@ -37,6 +37,29 @@ foi só falha técnica.
   primeiro (com aviso de que o app ainda vai tentar sozinho), regra do app, e por último
   o que a revisão levantou. Revisões antigas continuam aparecendo normalmente.
 
+**Correções**
+- **macOS: a atualização automática apagava o Electron e deixava o app sem abrir.** O
+  pacote de atualização não traz as dependências de propósito (a cópia instalada já
+  tem), mas o instalador do Mac apagava a pasta antes de saber se tinha com que
+  substituir. O resultado era a instalação inteira parar de abrir, sozinha, na primeira
+  atualização. Reproduzido num Mac de verdade com o pacote publicado da v2.47.0.
+- **macOS: a atualização era aplicada e o app nunca reiniciava.** Os arquivos novos
+  chegavam ao disco, mas o Farol seguia rodando o código velho e a janela não se
+  mexia, então o aviso de "vai fechar e reabrir sozinho" não acontecia. Causa: no
+  macOS o comando que encerrava o app ignora, por regra do sistema, o processo que
+  disparou a própria atualização.
+- **Executar por um caminho com atalho de pasta não subia nada, em silêncio.** Valia
+  para o servidor e para os dois gates de qualidade, onde era pior: um gate que sai
+  sem verificar nada passa por aprovado.
+- **`npm test` escrevia na sua instalação real do Farol.** Um teste semeava o
+  workspace de verdade em vez do temporário dele, e passava verde.
+
+> **Ao atualizar de uma v2.47.0 já instalada no macOS:** esta é a release que *leva* a
+> correção do reinício, mas quem a aplica ainda é a cópia antiga. Neste salto o app
+> atualiza os arquivos e não reabre sozinho: feche e abra uma vez na mão. Das próximas
+> atualizações em diante é automático. Se a sua instalação já parou de abrir por causa
+> do problema acima, reinstale pelo instalador offline.
+
 ## v2.47.0
 
 Discordar de outro revisor deixa de travar a aprovação automática por decreto e vira
