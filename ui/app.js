@@ -2913,9 +2913,10 @@ function renderUpdate() {
     const noteAuto = autoOn
       ? `Atualização disponível ${'nas ' + origin}. Com "Atualizar sozinho" ligado (Sistema > Automação), o Farol aplica sozinho assim que ficar ocioso (sem análise, chat ou terminal em andamento), fecha e reabre preservando estado e configurações. O botão abaixo aplica agora, sem esperar.`
       : `Atualização disponível ${remote ? 'nas ' + origin : 'na ' + origin}. O Farol ${remote ? 'baixa e instala, ' : ''}fecha e reabre sozinho, preservando estado e configurações.`;
+    const queuedLine = u.queued ? ' <b>Agendado:</b> aplica sozinho assim que as sessões em andamento terminarem.' : '';
     box.innerHTML = `
       <span class="up-ver">v${esc(u.current)} → v${esc(u.sourceVersion)}</span>
-      <span class="up-note">${noteAuto}</span>
+      <span class="up-note">${noteAuto}${queuedLine}</span>
       <button id="btnUpdateNow" class="btn primary sm">Atualizar agora</button>`;
     $('#btnUpdateNow').onclick = async () => {
       // confirm() nativo era o último popup fora da identidade do app neste fluxo
@@ -2928,13 +2929,15 @@ function renderUpdate() {
             <li>${remote ? 'baixa a release e instala' : 'copia os arquivos da pasta-fonte'} sozinho;</li>
             <li>o app <b>fecha e reabre</b> no fim (leva alguns segundos);</li>
             <li>estado, memória do time e configurações ficam intactos;</li>
-            <li>se houver revisão ou sessão em andamento, nada é morto no meio: o Farol avisa e você tenta de novo quando terminar.</li>
+            <li>se houver revisão ou sessão em andamento, nada é morto no meio: o update fica agendado e aplica sozinho assim que terminar.</li>
           </ul>`,
         confirmLabel: 'Atualizar'
       });
       if (!ok) return;
       const r = await api('/api/update', {});
-      if (!r?.ok) toast('error', esc(r?.error || 'não consegui iniciar a atualização'));
+      // ocupado não é erro (v2.46.1): o clique agenda e o Farol aplica ao ficar ocioso
+      if (r?.queued) toast('info', 'Tem análise, chat ou sessão de terminal em andamento. O update ficou agendado: assim que terminar, o Farol aplica sozinho, fecha e reabre.');
+      else if (!r?.ok) toast('error', esc(r?.error || 'não consegui iniciar a atualização'));
     };
   } else if (noAccess) {
     box.innerHTML = `
@@ -3145,6 +3148,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.46.1', ['Clicar em Atualizar durante uma análise não dá mais erro: o update fica agendado e aplica sozinho quando a análise termina. O aviso virou informativo (explica o agendamento), o banner da Visão geral mostra quando há update agendado, e o clique vale mesmo com o "Atualizar sozinho" desligado (pedido explícito, válido por uma vez).']],
   ['2.46.0', ['O Farol agora se atualiza sozinho: com uma atualização disponível nas releases do GitHub, ele aplica sozinho assim que nenhuma análise, chat ou sessão de terminal estiver rodando (espera terminar o que está em andamento, depois baixa, instala, fecha e reabre preservando estado e configurações). O botão "Atualizar agora" continua funcionando igual pra aplicar na hora. Desligue em Sistema > Automação (toggle "Atualizar sozinho") pra voltar ao clique manual.']],
   ['2.45.1', ['Migração pra ESM puro: todo arquivo .js é agora módulo nativo (zero CommonJS), a validação de sintaxe passa a usar node --check, e engines declarado >=22.12 (abaixo disso o require/interop de ESM nos fluxos de teste não é confiável). O código perdeu o truque de carga dupla da UI e ficou mais limpo.', 'Gate de qualidade automático com ratchet: npm run lint compara o código atual contra a baseline gravada, monitora 10 regras (tamanho de arquivo, catch vazio, var, JSON.parse cru, JSON.stringify cru, process.env direto, ternário aninhado, tempo mágico, porta literal e profundidade excedida, com a referência de card como checagem irmã separada), e reprova regressão em qualquer uma. Extração e refino deste ciclo: check() de 297 pra 74 linhas, handler de sessão achatado, e reduções em portaLiteral (6→0), processEnvDireto (19→11), jsonParseCru (32→26), emptyCatch (20→17), tempoMagico (12→10) e profundidadeExcedida (87→82).']],
   ['2.45.0', ['Suporte experimental a Linux: o Farol agora instala (installer/install-linux.sh), abre pelo menu de aplicativos (.desktop), monitora, revisa e se atualiza num Linux ou WSL. Sessões de terminal abrem no emulador disponível (x-terminal-emulator, gnome-terminal, konsole ou xterm), com aviso claro se nenhum existir. Validado num Ubuntu real (WSL): suíte completa verde e app instalado abrindo com o engine no ar. Fora do escopo por enquanto: bandeja, autostart e instalador offline no Linux.']],

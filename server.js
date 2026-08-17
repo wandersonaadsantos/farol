@@ -255,6 +255,7 @@ class Engine extends EventEmitter {
     this.checking = false;
     this.updateApplying = false; // "Atualizar agora" em andamento (guarda de clique duplo; só memória)
     this.autoUpdateFailedAt = 0; // hora da última falha REAL de auto-update (backoff); memória, não persiste
+    this.updateQueued = false; // clique em Atualizar com sessão ativa fica agendado (one-shot); memória, não persiste
     this.gitBash = detectGitBash();
 
     this.prepareHome();

@@ -380,6 +380,55 @@ test('maybeAutoUpdate: updateApplying volta a false no finally mesmo com applyUp
   assert.equal(engine.updateApplying, false, 'finally sempre zera a guarda, mesmo em exceção');
 });
 
+/* ---------- update agendado: clique com sessão ativa agenda em vez de erro (v2.46.1) ---------- */
+
+test('applyUpdate ocupado devolve queued:true e seta engine.updateQueued', async () => {
+  const engine = new Engine();
+  engine.config.updateRepo = '';
+  engine.headlessQueue.push({ key: 'org/repo#1', url: 'https://github.com/org/repo/pull/1' });
+  const r = await update.applyUpdate(engine, {
+    checkUpdate: async (e) => updateRemotoDisponivel(e)
+  });
+  assert.equal(r.ok, false);
+  assert.equal(r.queued, true, 'ocupado não é erro seco: o clique vira agendamento');
+  assert.equal(r.error, update.BUSY_ERROR);
+  assert.equal(engine.updateQueued, true, 'o pedido do usuário fica armado pro auto-update');
+});
+
+test('maybeAutoUpdate: autoUpdate false + updateQueued true APLICA (one-shot) e zera o queued', async () => {
+  const engine = engineOcioso();
+  engine.config.autoUpdate = false;
+  engine.updateQueued = true;
+  let chamou = false;
+  const r = await update.maybeAutoUpdate(engine, {
+    applyUpdate: async () => { chamou = true; return { ok: true, from: '0.0.1', to: '9.9.9' }; }
+  });
+  assert.equal(chamou, true, 'clique explícito vence o toggle desligado');
+  assert.equal(r.ok, true);
+  assert.equal(engine.updateQueued, false, 'o pedido é one-shot, consumido ao aplicar');
+});
+
+test('maybeAutoUpdate: autoUpdate false SEM queued segue skipped "desligado"', async () => {
+  const engine = engineOcioso();
+  engine.config.autoUpdate = false;
+  engine.updateQueued = false;
+  const r = await update.maybeAutoUpdate(engine, { applyUpdate: async () => ({ ok: true }) });
+  assert.deepEqual(r, { ok: false, skipped: 'desligado' });
+});
+
+test('maybeAutoUpdate: queued consumido não re-arma sozinho após falha', async () => {
+  const engine = engineOcioso();
+  engine.config.autoUpdate = false;
+  engine.updateQueued = true;
+  const r = await update.maybeAutoUpdate(engine, {
+    applyUpdate: async () => ({ ok: false, error: 'algumacoisa' })
+  });
+  assert.equal(r.ok, false);
+  assert.equal(engine.updateQueued, false, 'queued foi consumido ANTES do apply; falha não re-arma');
+  const r2 = await update.maybeAutoUpdate(engine, { applyUpdate: async () => ({ ok: true }) });
+  assert.deepEqual(r2, { ok: false, skipped: 'desligado' }, 'sem queued e com toggle desligado, volta ao gate normal');
+});
+
 test('maybeAutoUpdate: skipped "em-andamento" quando updateApplying já é truthy', async () => {
   const engine = engineOcioso();
   engine.updateApplying = true;

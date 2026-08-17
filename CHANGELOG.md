@@ -9,6 +9,19 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.46.1
+
+Refino do auto-update recém-lançado: clicar em Atualizar com algo rodando não dá mais erro.
+
+**Correções**
+- **Clicar em Atualizar durante uma análise não dá mais erro.** Antes, com análise, chat
+  ou sessão de terminal em andamento, o clique devolvia um aviso vermelho de erro. Agora
+  o update fica agendado: um aviso informativo explica que nada será morto no meio, e o
+  Farol aplica sozinho, fecha e reabre assim que o que está rodando terminar. O
+  agendamento vale mesmo com o "Atualizar sozinho" desligado (o clique é um pedido
+  explícito, válido por uma vez), e o banner da Visão geral mostra quando há update
+  agendado.
+
 ## v2.46.0
 
 O Farol agora se atualiza sozinho: quando há uma atualização disponível nas releases do
