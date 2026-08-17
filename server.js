@@ -1069,7 +1069,7 @@ class Engine extends EventEmitter {
   setSessionModel(id, rawModel) { return sessionMod.setSessionModel(this, id, rawModel); }
   // fachada com argumento de comportamento (agent, o rótulo do subagente na linha
   // do feed): a aridade importa, ver a lição da v2.28.0 no CLAUDE.md
-  pushActivity(id, kind, text, agent) { return sessionMod.pushActivity(this, id, kind, text, agent); }
+  pushActivity(id, kind, text, agent, stage) { return sessionMod.pushActivity(this, id, kind, text, agent, stage); }
   toolSummary(name, input) { return sessionMod.toolSummary(this, name, input); }
   killTree(pid) { return sessionMod.killTree(this, pid); }
   cancelSession(id) { return sessionMod.cancelSession(this, id); }

@@ -906,6 +906,39 @@ test('resolvedRow: decisão com stages mostra a linha de tempo por etapa', () =>
   assert.match(html, /Tempo por etapa: leitura 10m \(total 10m\)/);
 });
 
+test('stageFlowFrom: acumula por estampa, herda etapa em linha sem estampa e marca a ativa', () => {
+  const t0 = 1000_000;
+  const flow = P.stageFlowFrom([
+    { t: t0 + 5_000, s: 'preparo' },
+    { t: t0 + 65_000, s: 'leitura' },
+    { t: t0 + 70_000 },                    // sem estampa: herda leitura
+    { t: t0 + 100_000, s: 'verificacao' },
+  ], t0, t0 + 130_000);
+  const porId = Object.fromEntries(flow.map(f => [f.id, f]));
+  assert.equal(porId.preparo.ms, 5_000);
+  assert.equal(porId.leitura.ms, 65_000, '60s da linha + 5s da linha sem estampa');
+  assert.equal(porId.verificacao.ms, 60_000, '30s até a linha + 30s correndo até agora');
+  assert.equal(porId.verificacao.state, 'active', 'a etapa do último item é a ativa');
+  assert.equal(porId.leitura.state, 'done');
+  assert.equal(porId.redacao.state, 'pending');
+});
+
+test('stageFlowFrom/Html: sem traço não desenha nada', () => {
+  assert.deepEqual(P.stageFlowFrom([], null), []);
+  assert.equal(P.stageFlowHtml(P.stageFlowFrom([], 1000, 2000)), '',
+    'sem nenhum item, nenhuma etapa tem tempo e a esteira fica escondida');
+});
+
+test('stageFlowHtml: nós na ordem canônica com estado e duração, ligados por conector', () => {
+  const html = P.stageFlowHtml(P.stageFlowFrom([
+    { t: 2_000, s: 'leitura' },
+  ], 1_000, 62_000));
+  assert.match(html, /sf-node sf-active[^>]*title="leitura · 1m01s"/, 'ativa com tempo acumulando');
+  assert.match(html, /sf-node sf-pending[^>]*title="redação"/);
+  assert.match(html, /<span class="sf-link">/);
+  assert.ok(html.indexOf('leitura') < html.indexOf('verificação'), 'ordem canônica preservada');
+});
+
 test('agentsTitle: uma linha por subagente, com tarefa e estado', () => {
   const t = P.agentsTitle([
     { label: 'claim-verifier 1', desc: 'checar ruleset', done: false },

@@ -4,7 +4,7 @@ import {
   esc, safeJsonParse, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
   sameSet, diffVs, usageMetricVal, sparklinePath, usageDelta, usageStackLayers, usageHoverIndex, usageMatrixRows,
   USAGE_KIND_LABEL, usageSessionRow, FAROL_STAMP_SINCE, FAROL_PRE_STAMP_LABEL, accountSaveArray, delivCappedMsg, fmtRel,
-  usageDayKeysBack, aprovadosHoje, avatar, md, feedLine, agentsTitle, analysisOpsPlan, selfSessionKey, sessionProgress,
+  usageDayKeysBack, aprovadosHoje, avatar, md, feedLine, agentsTitle, stageFlowFrom, stageFlowHtml, analysisOpsPlan, selfSessionKey, sessionProgress,
   personMention, repoMention, prRefMention, parseGoto, sessionRefCell, reviewBoxHtml, operationChecks,
   delivFilterItems, delivStats, delivStatsCards, delivActivityCard, delivEmptyState, deliveriesByRepo, deliveriesByAuthor,
   pushbackControl, PB_OPTS, PB_SHORT, fmtStamp, fmtWhenDay, resolvedRow,
@@ -1807,6 +1807,9 @@ function tickElapsed() {
     const s = Math.max(0, Math.round((Date.now() - started) / 1000));
     el.textContent = s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}s`;
   });
+  // a etapa ATIVA da esteira acumula tempo entre eventos: sem o ticker o contador
+  // do nó ativo congelava até a próxima linha do feed chegar
+  document.querySelectorAll('.stage-flow[data-id]').forEach(el => updateStageFlow(el.dataset.id));
   // o estagio (iniciando/processando) envelhece junto: o card so re-renderiza em
   // snapshot SSE, entao sem este ticker o rotulo congelava no primeiro paint (B13)
   document.querySelectorAll('.session-stage').forEach(el => {
@@ -1817,6 +1820,17 @@ function tickElapsed() {
 }
 
 /* ---------- render: análises em andamento (feed ao vivo) ---------- */
+// esteira de etapas do card (estilo n8n): nós com estado feito/ativo/pendente e o
+// tempo acumulado, recalculada dos itens ESTAMPADOS do feed (item.s, engine)
+function updateStageFlow(id) {
+  const el = document.querySelector(`.stage-flow[data-id="${CSS.escape(id)}"]`);
+  if (!el) return;
+  const sess = (STATE.activeSessions || []).find(x => x.id === id);
+  const html = stageFlowHtml(stageFlowFrom(STATE.activity && STATE.activity[id], sess && sess.startedAt));
+  el.hidden = !html;
+  if (html) el.innerHTML = html;
+}
+
 // badge 👥 vivos/total do card de sessão; o title lista cada subagente e o estado
 function updateSessionAgents(el, s) {
   if (!el) return;
@@ -1877,6 +1891,7 @@ function renderActive() {
           ${s.cancellable ? `<button class="btn sm danger-ghost act-cancel" data-id="${esc(s.id)}">Cancelar</button>` : ''}
         </div>
         <div class="op-progress sess-progress" data-id="${esc(s.id)}"><span class="sess-pct"></span><div class="op-bar"><div class="op-bar-fill"></div></div></div>
+        <div class="stage-flow" data-id="${esc(s.id)}" hidden></div>
         <div class="activity-feed" data-id="${esc(s.id)}"></div>
       </div>`;
     }).join('');
@@ -1885,6 +1900,7 @@ function renderActive() {
     const feed = box.querySelector(`.activity-feed[data-id="${CSS.escape(s.id)}"]`);
     if (feed) fillFeed(feed, STATE.activity && STATE.activity[s.id]);
     updateSessionBar(s.id);
+    updateStageFlow(s.id);
     // o nivel (Opus/Sonnet/...) so chega no init da sessao, depois do card montar
     const lvl = box.querySelector(`.session-model[data-id="${CSS.escape(s.id)}"]`);
     if (lvl) {
@@ -3976,6 +3992,7 @@ function connect() {
     // progresso honesto (régua única sessionProgress, ui/pure.js): a atividade
     // real move a barra do card da sessão no "Analisando agora"...
     updateSessionBar(id);
+    updateStageFlow(id);
     // ...e, se for autoanálise, também o widget do card em Meus PRs
     const selfKey = selfSessionKey(STATE?.activeSessions, id);
     if (selfKey) {

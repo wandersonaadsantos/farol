@@ -16,6 +16,14 @@ after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: 
 
 /* ---------- classificação de linha ---------- */
 
+test('stageOfLine: linha já estampada (item.s) vence a reclassificação', () => {
+  // a esteira ao vivo e o resumo final leem a MESMA estampa: reclassificar uma
+  // linha gravada faria os dois divergirem sobre o mesmo traço
+  assert.equal(stageOfLine({ k: 'tool', text: 'Read · src/a.ts', s: 'verificacao' }), 'verificacao');
+  assert.equal(stageOfLine({ k: 'tool', text: 'Read · src/a.ts', s: 'etapa-inventada' }), 'leitura',
+    'estampa fora do vocabulário não vale, cai na classificação');
+});
+
 test('stageOfLine: cada tipo de linha cai na etapa certa', () => {
   assert.equal(stageOfLine({ k: 'tool', text: 'Bash · FAROL_CHECKPOINT: {"claim":"x"}' }), 'verificacao');
   assert.equal(stageOfLine({ k: 'tool', text: 'Bash · comparar heads', a: 'claim-verifier 2' }), 'verificacao');

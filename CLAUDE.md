@@ -429,6 +429,16 @@ finally da sessão. Duas peças:
   completa, gates de postagem e formato humano. A troca honesta é velocidade por autonomia
   (mais PRs caem pra decisão humana), nunca velocidade por afirmação sem prova. Testes:
   `test/review-stages.test.js` + `fmtDur`/`stagesLine`/`resolvedRow` em `test/ui-pure.test.js`.
+- **Esteira de etapas AO VIVO no card** (pedido do Thiago, estilo n8n): cada linha do feed sai
+  do engine ESTAMPADA com a etapa (`item.s`, decidido por `stageOfLine` no `onEvent` da revisão;
+  `stageOfLine` prefere a estampa quando presente, então a esteira ao vivo e o resumo final
+  nunca divergem sobre a mesma linha). A UI desenha nós ligados (`stageFlowFrom`/`stageFlowHtml`
+  em ui/pure.js, ordem canônica preparo→leitura→card→verificação→raciocínio→redação): feito
+  marcado, ATIVO pulsando com o tempo correndo (o `tickElapsed` atualiza entre eventos),
+  pendente apagado. Linha sem estampa (info do app) herda a etapa corrente. A esteira só
+  aparece com traço real e morre com o card; o que persiste é o resumo (`stages` na decisão).
+  A etapa pode REATIVAR (leitura↔verificação intercalam de verdade): a esteira mostra o estado
+  corrente, não uma máquina de estados linear fictícia.
 
 ### Ciclo de vida e higiene (onda 3 dos gaps da auditoria de 15/08/2026)
 

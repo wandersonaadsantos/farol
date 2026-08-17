@@ -769,6 +769,45 @@ export function stagesLine(st) {
   return `Tempo por etapa: ${partes.join(' · ')}${total ? ` (total ${total})` : ''}`;
 }
 
+/* ---------- esteira de etapas da revisão ao vivo (estilo n8n) ----------
+   Os itens do feed chegam ESTAMPADOS com a etapa (item.s, decidido no engine em
+   stageOfLine; a UI nunca reclassifica). O tempo entre dois itens pertence à
+   etapa do item que o encerra; item sem estampa (linha informativa do app) herda
+   a etapa corrente. A etapa do último item é a ATIVA e acumula até `agora`. */
+export const STAGE_FLOW_ORDER = [
+  ['preparo', 'preparo'], ['leitura', 'leitura'], ['card', 'card'],
+  ['verificacao', 'verificação'], ['raciocinio', 'raciocínio'], ['redacao', 'redação'],
+];
+
+export function stageFlowFrom(items, startedAt, agora = Date.now()) {
+  const linhas = (items || []).filter(i => i && i.t);
+  if (!startedAt) return [];
+  const ms = {};
+  let prev = startedAt, atual = null;
+  for (const it of linhas) {
+    const s = it.s || atual || 'preparo';
+    ms[s] = (ms[s] || 0) + Math.max(0, it.t - prev);
+    prev = it.t; atual = s;
+  }
+  if (atual) ms[atual] = (ms[atual] || 0) + Math.max(0, agora - prev);
+  return STAGE_FLOW_ORDER.map(([id, label]) => {
+    const passada = ms[id] ? 'done' : 'pending';
+    return { id, label, ms: ms[id] || 0, state: id === atual ? 'active' : passada };
+  });
+}
+
+// vazio até o primeiro evento (a esteira só aparece com traço de verdade)
+export function stageFlowHtml(flow) {
+  if (!flow || !flow.length || !flow.some(s => s.ms)) return '';
+  return flow.map(s => {
+    const dur = s.ms ? fmtDur(s.ms) : '';
+    const titulo = dur ? `${s.label} · ${dur}` : s.label;
+    const durHtml = dur ? `<span class="sf-ms">${esc(dur)}</span>` : '';
+    return `<span class="sf-node sf-${esc(s.state)}" title="${esc(titulo)}">` +
+      `<span class="sf-dot"></span><span class="sf-lbl">${esc(s.label)}</span>${durHtml}</span>`;
+  }).join('<span class="sf-link"></span>');
+}
+
 // tooltip do badge 👥 do card de sessão: uma linha por subagente, com a tarefa
 // e o estado. PURA (texto de atributo title, sem HTML, então sem esc aqui).
 export function agentsTitle(lista) {
