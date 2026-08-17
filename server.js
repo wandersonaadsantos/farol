@@ -79,6 +79,7 @@ const DEFAULTS = {
   autoReview: true,        // revisao autonoma interna (headless); so chama o humano nas excecoes
   parallelReviews: 1,      // revisoes headless SIMULTANEAS por conta (1..4). 1 = serial dentro da conta (o de sempre); subir e opt-in em Sistema (acelera fila cheia, gasta o limite do plano mais rapido)
   autoApproveAll: false,   // OFF = gate estrito (so auto_approve + card comprovado). ON (opt-in em Sistema) = aprova sozinho TODO PR aprovavel, anexando os pontos de atencao ao APPROVE. Default OFF por seguranca (o app e publico/multiusuario; cada um liga se quiser)
+  autoApproveContested: false, // OFF (default) = discordancia registrada contra review de terceiro sempre passa por voce antes de sair. ON (opt-in em Sistema) = a discordancia deixa de ser trava e vira so ponto de atencao; quem decide passa a ser a politica de ressalvas da conta
   skipPermissions: false,  // vale so pra sessoes no TERMINAL; o modo interno roda sem prompts por design
   soundEnabled: true,
   theme: 'dark',
@@ -469,6 +470,18 @@ class Engine extends EventEmitter {
     // limpo (um PR com ressalva não pode auto-aprovar se o impecável foi posto pra aguardar)
     const globalCaveats = this.config.autoApproveAll !== false ? 'approve' : 'wait';
     return cleanPolicy === 'wait' ? 'wait' : globalCaveats;
+  }
+  // discordância registrada contra review de terceiro: 'wait' (default) manda o PR
+  // pra sua mesa antes de qualquer APPROVE sair, porque aprovar por cima de outro
+  // revisor é tomar posição pública. 'approve' (opt-in em Sistema > Automação) tira
+  // a trava: a discordância vira só ponto de atenção e quem decide passa a ser a
+  // política de ressalvas da conta (aprovável com ressalva nunca é "limpo"), então
+  // ligar isto sozinho nunca aprova nada que `onCaveats: wait` já mandaria esperar.
+  // Global, sem sobrescrita por conta: é confiança no julgamento da revisão, não
+  // risco de repositório. Só vale pro approve; reprovar sozinho por cima de uma
+  // discordância continua sempre passando por você (ver shouldAutoReject).
+  contestedPolicy() {
+    return this.config.autoApproveContested === true ? 'approve' : 'wait';
   }
   // quando a revisão pede mudanças (tem bloqueios), a ação da conta:
   // 'request_changes' (reprovar sozinho) ou 'wait' (aguardar você). DEFAULT wait
@@ -1299,7 +1312,7 @@ class Engine extends EventEmitter {
   }
 
   updateSettings(patch) {
-    const allowed = ['ghUser', 'owners', 'accounts', 'intervalSeconds', 'autoReview', 'autoApproveAll', 'parallelReviews', 'skipPermissions',
+    const allowed = ['ghUser', 'owners', 'accounts', 'intervalSeconds', 'autoReview', 'autoApproveAll', 'autoApproveContested', 'parallelReviews', 'skipPermissions',
       'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos',
       'projectReviewers', 'defaultReviewers', 'people', 'claudeConfigDir', 'claudeProfiles', 'claudeProfileId',
       'reviewModel', 'reviewEffort', 'autoPushback', 'debugSpawns', 'autoUpdate'];

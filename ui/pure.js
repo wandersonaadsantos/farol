@@ -866,7 +866,11 @@ export function resolvedRow(r, ctx) {
   // que a revisão achou ficou SÓ no app, então esconder as reasons justo nesse status
   // deixava o achado sem nenhuma superfície (nem no PR, nem na linha). O rótulo dele diz
   // isso na cara, pra não parecer que alguém já leu.
-  const COM_REASONS = ['auto_approved', 'auto_rejected', 'already_reviewed'];
+  // `posted` (você resolveu na mão) entrou na lista depois do #767: a linha mostrava
+  // só "postado por você" e engolia o motivo de o PR ter caído na sua mesa, então uma
+  // recusa por contestação ou cobertura era lida como se a chave de aprovar sozinho
+  // estivesse quebrada. O motivo já estava gravado em `reasons`, faltava a superfície.
+  const COM_REASONS = ['auto_approved', 'auto_rejected', 'already_reviewed', 'posted'];
   const attn = (r.attention && r.attention.length) ? r.attention
     : (COM_REASONS.includes(r.status) ? (r.reasons || []) : []);
   const plural = attn.length > 1;
@@ -874,7 +878,9 @@ export function resolvedRow(r, ctx) {
     ? `achado${plural ? 's' : ''} que ${plural ? 'ficaram' : 'ficou'} só aqui`
     : r.status === 'auto_rejected'
       ? `motivo${plural ? 's' : ''} do pedido de mudanças`
-      : `ponto${plural ? 's' : ''} de atenção`;
+      : r.status === 'posted'
+        ? `motivo${plural ? 's' : ''} de ter vindo pra você`
+        : `ponto${plural ? 's' : ''} de atenção`;
   const vcls = VERDICT_CLASS[r.action] || '';
   const vc = r.verificationCheckpoint;
   const vcConflicts = vc

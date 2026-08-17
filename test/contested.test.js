@@ -151,3 +151,66 @@ test('shouldAutoApprove aprovando devolve ok true e motivo nulo', () => {
   const e = engineWithPolicy('approve');
   assert.deepEqual(e.shouldAutoApprove(PR, approvableResult()), { ok: true, motivo: null });
 });
+
+/* ---------- liberar a contestação (config autoApproveContested) ----------
+   Motivo (16/08/2026, biud-frontend#767): a discordância com o Acrity vinha travando
+   quase todo PR do repo, e o usuário não quer conferir esse cenário um a um. A trava
+   virou escolha: desligada por default (o de sempre), ligada em Sistema > Automação a
+   discordância deixa de segurar o approve e vira só ponto de atenção. Nunca vira
+   passe livre: quem decide daí em diante é a política de ressalvas da conta. */
+
+test('liberada em Sistema, a contestação deixa de travar o auto-approve', () => {
+  const e = engineWithPolicy('approve');
+  const r = approvableResult({
+    contested: [{ source: 'Acrity', claim: 'x', label: 'falso_positivo', evidence: 'Arquivo.tsx:10' }]
+  });
+  assert.deepEqual(e.shouldAutoApprove(PR, r), { ok: false, motivo: 'contestacao' }, 'default trava');
+  e.config.autoApproveContested = true;
+  assert.deepEqual(e.shouldAutoApprove(PR, r), { ok: true, motivo: null }, 'liberada, segue e aprova');
+});
+
+test('liberar a contestação NÃO passa por cima da política de ressalvas da conta', () => {
+  // a discordância entra em attentionPoints, então o PR nunca é "limpo": quem manda é
+  // onCaveats. Conta em 'wait' continua esperando você, com o motivo certo (política).
+  const e = engineWithPolicy('wait');
+  e.config.autoApproveContested = true;
+  const r = approvableResult({
+    contested: [{ source: 'Acrity', claim: 'x', label: 'fora_de_escopo', evidence: 'prova' }]
+  });
+  assert.deepEqual(e.shouldAutoApprove(PR, r), { ok: false, motivo: 'politica' });
+});
+
+test('liberar a contestação não afrouxa nenhum outro gate (cobertura, clique, checkpoint)', () => {
+  const e = engineWithPolicy('approve');
+  e.config.autoApproveContested = true;
+  const contested = [{ source: 'Acrity', claim: 'x', label: 'pre_existente', evidence: 'prova' }];
+  assert.equal(e.shouldAutoApprove(PR, approvableResult({
+    contested, coverage: { total: 3, reviewed: ['a.ts'], missing: ['b.ts'] }
+  })).motivo, 'cobertura');
+  assert.equal(e.shouldAutoApprove({ ...PR, requested: false }, approvableResult({ contested })).motivo, 'clique');
+  assert.equal(e.shouldAutoApprove(PR, approvableResult({
+    contested, verificationCheckpoint: { malformed: true }
+  })).motivo, 'checkpoint');
+});
+
+test('liberar a contestação vale só pro approve: reprovar sozinho continua passando por você', () => {
+  const e = engineWithPolicy('approve');
+  e.config.autoApproveContested = true;
+  const rej = {
+    analysisStatus: 'complete', verdict: 'request_changes', decision: 'needs_decision', reasons: ['blocker'],
+    contested: [{ source: 'Sonar', claim: 'y', label: 'pre_existente', evidence: 'diff vazio' }],
+    payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'x' } }
+  };
+  assert.equal(e.shouldAutoReject(PR, rej), false);
+});
+
+test('contestedPolicy só libera com o true explícito (valor torto não vale)', () => {
+  const e = new Engine();
+  assert.equal(e.contestedPolicy(), 'wait', 'default do app é conferir');
+  for (const v of ['true', 1, {}, null, undefined]) {
+    e.config.autoApproveContested = v;
+    assert.equal(e.contestedPolicy(), 'wait', `${JSON.stringify(v)} não liga a automação`);
+  }
+  e.config.autoApproveContested = true;
+  assert.equal(e.contestedPolicy(), 'approve');
+});

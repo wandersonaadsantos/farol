@@ -364,6 +364,13 @@
               </span>
               <span class="set-ctl"><input id="setAutoApproveAll" type="checkbox"><span class="switch"></span></span>
             </label>
+            <label class="set-row" id="sys-row-autocontested">
+              <span class="set-txt">
+                <span class="set-title">Aprovar sozinho mesmo discordando de outro review</span>
+                <span class="set-desc">Quando a revisão discorda de um apontamento de outro revisor (Acrity, Sonar, uma pessoa) e prova a discordância, desligado (padrão) o PR vai pra sua mesa, porque aprovar por cima de outro revisor é tomar posição pública. Ligado, a discordância deixa de travar e vira só ponto de atenção: quem decide passa a ser a regra de ressalvas acima. A discordância nunca é escrita no PR, fica só aqui. Reprovar sozinho continua sempre passando por você.</span>
+              </span>
+              <span class="set-ctl"><input id="setAutoApproveContested" type="checkbox"><span class="switch"></span></span>
+            </label>
             <label class="set-row" id="sys-row-autoupdate">
               <span class="set-txt">
                 <span class="set-title">Atualizar sozinho</span>

@@ -9,6 +9,31 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.47.0
+
+Discordar de outro revisor deixa de travar a aprovação automática por decreto e vira
+escolha sua, e as revisões que você resolveu na mão passam a mostrar por que vieram
+parar na sua mesa.
+
+**Novidades**
+- **Nova chave em Sistema > Automação: "Aprovar sozinho mesmo discordando de outro
+  review".** Quando a revisão discorda de um apontamento de outro revisor (Acrity,
+  Sonar, uma pessoa) e prova a discordância, o Farol sempre segurou o PR pra você
+  decidir, porque aprovar por cima de outro revisor é tomar posição pública. Agora
+  isso é opção: desligada (padrão) nada muda, ligada a discordância deixa de travar e
+  vira só ponto de atenção, e quem decide passa a ser a regra de ressalvas de sempre.
+  A discordância continua nunca sendo escrita no PR, fica só no app. Reprovar sozinho
+  em cima de uma discordância continua sempre passando por você, sem opção.
+
+**Melhorias**
+- **A linha de uma revisão que você aprovou na mão agora diz por que ela veio pra
+  você.** Em "Revisões recentes", os PRs resolvidos por você mostravam só "postado por
+  você (APPROVE)", sem uma palavra sobre o motivo de não terem saído sozinhos, e dava
+  pra achar que a aprovação automática tinha parado de funcionar. O motivo (discordância
+  com outro review, cobertura incompleta, revisão que você mesmo disparou, política da
+  conta) já estava gravado desde sempre e só faltava aparecer: agora abre na própria
+  linha, como já acontecia com os aprovados sozinhos.
+
 ## v2.46.2
 
 Intervalo de checagem com piso de 3 minutos e log de falhas em horário de Brasília com

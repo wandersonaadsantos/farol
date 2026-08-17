@@ -3148,6 +3148,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.47.0', ['Nova chave em Sistema > Automação: "Aprovar sozinho mesmo discordando de outro review". Quando a revisão discorda de um apontamento de outro revisor (Acrity, Sonar, uma pessoa) e prova a discordância, o Farol sempre segurou o PR pra você decidir. Agora é escolha sua: desligada (padrão) nada muda, ligada a discordância deixa de travar e vira só ponto de atenção, com a regra de ressalvas decidindo o resto. A discordância segue nunca sendo escrita no PR, e reprovar sozinho em cima dela continua sempre passando por você.', 'A linha de uma revisão que você aprovou na mão agora diz por que ela veio pra sua mesa. Antes mostrava só "postado por você (APPROVE)" e o motivo (discordância, cobertura incompleta, revisão disparada por você, política da conta) ficava invisível, mesmo já estando gravado.']],
   ['2.46.2', ['Intervalo de checagem com piso de 3 minutos: as opções de 1 e 2 minutos saíram do sistema (curtas demais, só gastavam chamadas do gh); quem estava nelas passa automaticamente pra 3 minutos.', 'O log de falhas (farol.log) agora carimba em horário de Brasília com o fuso explícito na linha, em vez de UTC sem marcador (que ficava 3 horas deslocado do resto do app e confundia o Diagnóstico). Linhas antigas continuam sendo lidas normalmente.']],
   ['2.46.1', ['Clicar em Atualizar durante uma análise não dá mais erro: o update fica agendado e aplica sozinho quando a análise termina. O aviso virou informativo (explica o agendamento), o banner da Visão geral mostra quando há update agendado, e o clique vale mesmo com o "Atualizar sozinho" desligado (pedido explícito, válido por uma vez).']],
   ['2.46.0', ['O Farol agora se atualiza sozinho: com uma atualização disponível nas releases do GitHub, ele aplica sozinho assim que nenhuma análise, chat ou sessão de terminal estiver rodando (espera terminar o que está em andamento, depois baixa, instala, fecha e reabre preservando estado e configurações). O botão "Atualizar agora" continua funcionando igual pra aplicar na hora. Desligue em Sistema > Automação (toggle "Atualizar sozinho") pra voltar ao clique manual.']],
@@ -3587,6 +3588,7 @@ function renderSettings() {
   renderEffort(c);
   $('#setAutoReview').checked = !!c.autoReview;
   $('#setAutoApproveAll').checked = c.autoApproveAll !== false;
+  $('#setAutoApproveContested').checked = c.autoApproveContested === true;
   $('#setAutoPushback').checked = !!c.autoPushback;
   $('#setAutoUpdate').checked = c.autoUpdate !== false;
   $('#setDebugSpawns').checked = !!c.debugSpawns;
@@ -3717,7 +3719,7 @@ async function buildDiagnostics() {
     accts || '  (nenhuma)',
     '',
     'Config:',
-    `  intervalo: ${c.intervalSeconds}s · autoReview: ${!!c.autoReview} · autoApproveAll: ${c.autoApproveAll !== false} · skipPermissions: ${!!c.skipPermissions}`,
+    `  intervalo: ${c.intervalSeconds}s · autoReview: ${!!c.autoReview} · autoApproveAll: ${c.autoApproveAll !== false} · autoApproveContested: ${c.autoApproveContested === true} · skipPermissions: ${!!c.skipPermissions}`,
     `  autostart: ${!!c.autostart} · som: ${!!c.soundEnabled} · tema: ${c.theme || '-'}`,
     `  updateRepo: ${c.updateRepo || '-'} · updateSource: ${c.updateSource || '(release)'}`,
     `  mergeBlockedRepos: ${(c.mergeBlockedRepos || []).join(', ') || '-'}`,
@@ -3915,6 +3917,7 @@ const settingsMap = [
   ['#setDebugSpawns', 'debugSpawns', el => el.checked],
   ['#setAutoReview', 'autoReview', el => el.checked],
   ['#setAutoApproveAll', 'autoApproveAll', el => el.checked],
+  ['#setAutoApproveContested', 'autoApproveContested', el => el.checked],
   ['#setSkipPerms', 'skipPermissions', el => el.checked],
   ['#setSound', 'soundEnabled', el => el.checked],
   ['#setAutostart', 'autostart', el => el.checked]

@@ -1622,3 +1622,41 @@ test('buildFixPrompt: sem bloqueios muda a abertura pra "aplique as melhorias" e
   assert.doesNotMatch(p, /Pendências que travam/);
   assert.match(p, /Melhorias sugeridas:\n- ajustar nome de variável/);
 });
+
+/* ---------- resolvedRow: por que o PR veio pra mim (16/08/2026) ----------
+   O #767 caiu na mesa por contestação, foi aprovado à mão, e a linha das Revisões
+   recentes mostrava só "postado por você (APPROVE)". O motivo estava gravado em
+   `reasons` desde sempre, sem nenhuma superfície: dava pra achar que a chave de
+   aprovar sozinho tinha quebrado. Agora `posted` também abre os motivos. */
+
+function linhaPostada(extra) {
+  return {
+    key: 'biudtech/biud-frontend#767', status: 'posted', action: 'approve',
+    resolvedAt: Date.parse('2026-08-03T19:41:00Z'),
+    pr: { url: 'https://github.com/biudtech/biud-frontend/pull/767', title: 'ci: pula a suite E2E', author: 'alex' },
+    attention: [], reasons: ['1 discordância de outro review no PR, confira a redação antes de postar'],
+    ...extra
+  };
+}
+
+test('resolvedRow: aprovado por você mostra por que não saiu sozinho', () => {
+  const html = P.resolvedRow(linhaPostada(), CTX);
+  assert.match(html, /motivo de ter vindo pra você/, 'rótulo diz que é o motivo, não ponto de atenção do approve');
+  assert.match(html, /1 discordância de outro review/, 'o motivo gravado aparece');
+});
+
+test('resolvedRow: vários motivos pluralizam o rótulo', () => {
+  const html = P.resolvedRow(linhaPostada({ reasons: ['contestação', 'cobertura incompleta'] }), CTX);
+  assert.match(html, /2 motivos de ter vindo pra você/);
+});
+
+test('resolvedRow: postado sem motivo nenhum não inventa bloco vazio', () => {
+  const html = P.resolvedRow(linhaPostada({ reasons: [] }), CTX);
+  assert.doesNotMatch(html, /resolved-attn/, 'sem reasons, nada de expansível vazio');
+});
+
+test('resolvedRow: o rótulo de aprovado sozinho continua falando de ponto de atenção', () => {
+  const html = P.resolvedRow(linhaResolvida({ attention: ['ressalva técnica'] }), CTX);
+  assert.match(html, /ponto de atenção/, 'auto_approved não herdou o texto novo');
+  assert.doesNotMatch(html, /veio pra você/);
+});
