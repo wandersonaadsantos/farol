@@ -5,6 +5,9 @@
   "description": "Radar de Pull Requests: monitora o GitHub e abre o Claude Code quando chega revisão pra você.",
   "main": "main.js",
   "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
   "author": "Wanderson Santos",
   "license": "MIT",
   "private": true,

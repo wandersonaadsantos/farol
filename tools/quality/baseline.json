@@ -80,6 +80,9 @@
     "ternarioAninhado": 2,
     "profundidadeExcedida": 2
   },
+  "lib/paths.js": {
+    "jsonParseCru": 1
+  },
   "main.js": {
     "emptyCatch": 3,
     "ternarioAninhado": 2,

@@ -458,8 +458,9 @@ test('boot com config.json malformado (claudeProfiles string, claudeProfileId n√
     claudeProfileId: 123,  // n√∫mero: sem o fix, ficaria cru (n√£o √© o crash em si, mas deve normalizar)
   }));
   const script = `
+    import { pathToFileURL } from 'node:url';
     process.env.FAROL_HOME = ${JSON.stringify(badHome)};
-    const { Engine } = require(${JSON.stringify(path.join(import.meta.dirname, '..', 'server.js'))});
+    const { Engine } = await import(pathToFileURL(${JSON.stringify(path.join(import.meta.dirname, '..', 'server.js'))}).href);
     const e = new Engine();
     const dir = e.resolveClaudeConfigDir('qualquer');
     const auth = e.allClaudeAuthInfo();
@@ -473,7 +474,7 @@ test('boot com config.json malformado (claudeProfiles string, claudeProfileId n√
   `;
   let out;
   try {
-    out = execFileSync(process.execPath, ['--input-type=commonjs', '-e', script], { encoding: 'utf8' });
+    out = execFileSync(process.execPath, ['--input-type=module', '-e', script], { encoding: 'utf8' });
   } finally {
     fsMod.rmSync(badHome, { recursive: true, force: true });
   }
