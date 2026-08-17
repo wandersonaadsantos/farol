@@ -1986,3 +1986,43 @@ test('usageTooltipHtml: só entra na legenda a camada com valor', () => {
   assert.match(html, /Review/);
   assert.doesNotMatch(html, /chat/, 'camada zerada não polui o tooltip');
 });
+
+/* ---------- escape de valor em seletor de atributo ----------
+   Achado pelo CodeQL ao mover o bloco de Consumo (js/incomplete-sanitization). O
+   código era anterior à onda 5 e existia em QUATRO lugares, cada um repetindo o
+   mesmo `.replace(/"/g, ...)` sem tratar a barra invertida. Não era teórico: id
+   terminado em barra gerava [data-id="a\"], onde a barra escapa a aspa de
+   fechamento, o seletor fica inválido e o clique não navega pra lugar nenhum,
+   sem erro visível. */
+
+test('escAttrSelector: aspa vira escapada e a barra invertida também', () => {
+  assert.equal(P.escAttrSelector('normal'), 'normal');
+  assert.equal(P.escAttrSelector('a"b'), 'a\\"b');
+  assert.equal(P.escAttrSelector('a\\b'), 'a\\\\b');
+});
+
+test('escAttrSelector: id terminado em barra não engole a aspa de fechamento', () => {
+  // o caso que o escape antigo quebrava
+  const sel = `[data-id="${P.escAttrSelector('perfil\\')}"]`;
+  assert.equal(sel, '[data-id="perfil\\\\"]');
+  // a barra escapada vem em par, então a aspa final continua sendo delimitador
+  const corpo = sel.slice('[data-id="'.length, -2);
+  assert.equal(corpo.length % 2, 0, 'barras invertidas sempre em par antes do fecha-aspas');
+});
+
+test('escAttrSelector: aceita não-string sem quebrar', () => {
+  assert.equal(P.escAttrSelector(42), '42');
+  assert.equal(P.escAttrSelector(null), 'null');
+  assert.equal(P.escAttrSelector(undefined), 'undefined');
+});
+
+test('nenhum seletor de atributo escapa só a aspa (a barra tem que vir junto)', () => {
+  // trava a volta do padrão antigo nos dois arquivos de UI
+  const fs2 = fs, path2 = path;
+  for (const arq of ['app.js', 'pure.js']) {
+    const src = fs2.readFileSync(path2.join(import.meta.dirname, '..', 'ui', arq), 'utf8');
+    const soAspa = [...src.matchAll(/\[data-[\w-]+="\$\{String\([^)]*\)\.replace\(\/"\/g/g)];
+    assert.deepEqual(soAspa.map(m => m[0]), [],
+      `${arq}: use escAttrSelector em vez de escapar só a aspa`);
+  }
+});

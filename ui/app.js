@@ -14,7 +14,7 @@ import {
   mergeToastKind, creditsHtml, buildFixPrompt,
   papelPicker, domainMatrix, chatBadge, reviewerLabel, chipHtml,
   fmtMoney, fmtUsageMetric, usageColorsFor, usageTooltipHtml,
-  usageKpisHtml, usageMatrixHtml, usageBudgetHtml, usageSessionsHtml
+  usageKpisHtml, usageMatrixHtml, usageBudgetHtml, usageSessionsHtml, escAttrSelector
 } from './pure.js';
 
 const $ = (s) => document.querySelector(s);
@@ -2935,7 +2935,7 @@ function renderDoctor() {
     {
       ok: d.ghAuth, label: STATE.config.ghUser ? `Conta @${STATE.config.ghUser}` : 'Conta do GitHub',
       detail: d.ghAuth ? 'autenticada no gh' : 'sem token: rode gh auth login (conta de trabalho)',
-      goto: STATE.config.ghUser ? `sys:accounts:.acct-label[data-user="${String(STATE.config.ghUser).replace(/"/g, '\\"')}"]` : 'sys:accounts:#accountsManager'
+      goto: STATE.config.ghUser ? `sys:accounts:.acct-label[data-user="${escAttrSelector(STATE.config.ghUser)}"]` : 'sys:accounts:#accountsManager'
     },
     { ok: !!d.claude, label: 'Claude Code', detail: d.claude || 'claude não encontrado no PATH', goto: 'sys:plans:#claudeProfilesManager' },
     // Git Bash é pré-requisito só no Windows (CLAUDE_CODE_GIT_BASH_PATH)

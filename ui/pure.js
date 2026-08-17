@@ -634,7 +634,7 @@ export function sessionRefMention(ref, cls = '') {
 export function operationChecks(accounts) {
   const lista = (Array.isArray(accounts) ? accounts : []).filter(a => a && String(a.user || '').trim());
   if (!lista.length) return [];
-  const alvo = u => `sys:accounts:.acct-label[data-user="${String(u).replace(/"/g, '\\"')}"]`;
+  const alvo = u => `sys:accounts:.acct-label[data-user="${escAttrSelector(u)}"]`;
   const checks = lista.map(a => {
     const orgs = (a.owners || []).filter(Boolean);
     if (!orgs.length) {
@@ -849,6 +849,16 @@ export function sessionProgress(count) {
 }
 
 
+/* Valor de string dentro de seletor de atributo CSS: [data-id="AQUI"].
+   Escapa a barra invertida ANTES da aspa, e a ordem e o ponto: fazendo so a aspa
+   (como era ate a onda 5), um id terminado em barra produz [data-id="a\\"], onde a
+   barra escapa a aspa de fechamento e o seletor inteiro fica invalido. O clique
+   entao nao navega pra lugar nenhum, sem erro visivel. O CSS.escape do navegador
+   resolveria, mas nao existe aqui: o pure.js roda tambem no node --test. */
+export function escAttrSelector(v) {
+  return String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
 /* ---------- aba Consumo: os construtores de HTML/SVG ----------
    Saiu do app.js na onda 5, segundo passo. O bloco inteiro ja era puro: nao lia
    nenhuma global, so montava string a partir do resumo de uso que o engine manda.
@@ -995,7 +1005,7 @@ export function usageBudgetHtml(u) {
     const medidorDiario = p.budgetDaily != null ? meter('Teto diário', p.today, p.budgetDaily) : '';
     const medidorTotal = p.budgetTotal != null ? meter('Teto total', p.sinceCutoff, p.budgetTotal) : '';
     const meters = isApiKey ? medidorDiario + medidorTotal : '';
-    const irAoTeto = `sys:plans:.cp-budget-daily[data-id="${String(p.id).replace(/"/g, '\\"')}"]`;
+    const irAoTeto = `sys:plans:.cp-budget-daily[data-id="${escAttrSelector(p.id)}"]`;
     // tres casos excludentes, um por linha: sem chave de API, com chave e sem teto,
     // e com teto batido. A cadeia de ternarios que estava aqui escondia qual deles
     // ganhava quando mais de um parecia valer.
@@ -1008,7 +1018,7 @@ export function usageBudgetHtml(u) {
     else if (p.blocked) nota = NOTA_PAUSADO;
     // o nome do perfil leva ao card DELE em Sistema (o input do nome carrega o
     // mesmo id; seletor montado aqui porque CSS.escape não existe no pure.js)
-    const alvoPerfil = `sys:plans:.cp-label[data-id="${String(p.id).replace(/"/g, '\\"')}"]`;
+    const alvoPerfil = `sys:plans:.cp-label[data-id="${escAttrSelector(p.id)}"]`;
     return `<div class="usage-budget-card">
       <div class="usage-budget-head">
         <span class="usage-budget-name is-goto" data-goto="${esc(alvoPerfil)}" role="button" tabindex="0" title="Abrir este perfil em Sistema → Plano e chaves">${esc(p.label || p.id)}</span>
