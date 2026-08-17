@@ -50,11 +50,15 @@ O débito original era o `server.js`: uma classe `Engine` de 3122 linhas fazendo
 
 | Arquivo | Linhas | Testes |
 |---|---|---|
-| `ui/app.js` | ~2690 | nenhum (o que sobrou não é puro) |
-| `ui/pure.js` | ~235 | `ui-pure.test.js`, 45 testes |
-| `server.js` | ~1080 | via `boot`, `facades`, e os testes de comportamento |
-| maior módulo de `lib/` (`selfpr.js`) | ~490 | `merge-gates.test.js` |
-| suíte | | 1138 testes |
+| `ui/app.js` | ~4030 | nenhum (o que sobrou não é puro) |
+| `ui/pure.js` | ~1216 | `ui-pure.test.js`, 184 testes |
+| `server.js` | ~1477 | via `boot`, `facades`, e os testes de comportamento |
+| maior módulo de `lib/` (`decision.js`) | ~772 | `decision-envelope.test.js`, `decision-history.test.js` |
+| suíte | | 1169 testes |
+
+Medidos em 17/08/2026, na v2.47.0. O `ui/pure.js` cresceu 5x desde a onda 4 (a extração
+continuou acontecendo), e o `ui/app.js` cresceu junto: a onda 5 segue aberta e ficou maior
+do que o texto acima descreve.
 
 Quem mexer aqui e deixar esses números defasados repete o problema que esta seção teve: o documento afirmava "~2600 linhas com ~120 métodos" muito depois de o `server.js` ter caído para mil.
 
