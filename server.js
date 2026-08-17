@@ -7,10 +7,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { EventEmitter } from 'node:events';
-import { pathToFileURL } from 'node:url';
 
 // Camada base: versão, plataforma e caminhos (compartilhada com os módulos de lib/).
 import {
+  executadoDireto,
   APP_VERSION, APP_NAME, DELIVERIES_LIMIT, IS_WIN, IS_MAC, IS_LINUX, APP_ROOT,
   HOME, WORKSPACE, STATE_DIR, CONFIG_FILE, LOG_FILE, SEEN_FILE, BASELINE_FILE,
   INFLIGHT_FILE, CHATS_FILE, SELF_FILE, HIDDEN_FILE, TEMPLATE_DIR, UI_DIR,
@@ -1468,7 +1468,7 @@ export { start, HOME, WORKSPACE, Engine, modelLabel, isPermanentBranch, parsePro
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId, applyClaudeAuthEnv, claudeAuthShellLines };
 
 // execucao direta: modo servidor (fallback sem Electron, ou desenvolvimento)
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (executadoDireto(import.meta.url)) {
   start((url, err) => {
     if (err) { console.error('[farol] erro ao subir o servidor:', err.message); process.exit(1); }
     console.log(`[farol] monitorando · UI em ${url}`);
