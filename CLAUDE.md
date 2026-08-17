@@ -384,6 +384,30 @@ autoanálise/chat/pushback não gravam nem leem prova. Testes: `test/file-proof.
 roundtrip + poda + relevância por blob no checkpoint) e `test/rereview.test.js` (pulo de push
 trivial, medição falhando relança, sem prova não consulta gh, sid viaja no enfileiramento).
 
+Na mesma leva, dois complementos (motivados pelo caso real biud-frontend#774, 17/08/2026: PR de
+3 arquivos de CI levou 30 min porque as 9 verificações empíricas rodaram em SÉRIE):
+
+- **Verificação empírica em paralelo**: agente novo `claim-verifier`
+  (`workspace-template/.claude/agents/claim-verifier.md`, leitura pura: Bash/Read/Grep/Glob, sem
+  Write) e a seção "Verificações empíricas em PARALELO" em `prompts/pr-review-auto.md`: com 2+
+  verificações INDEPENDENTES pendentes, a sessão dispara um `claim-verifier` por afirmação, em
+  paralelo, e depois **REEMITE** cada veredito como marcador `FAROL_CHECKPOINT` na própria sessão.
+  A reemissão não é opcional: desde esta leva `registrarCheckpointDeBash` captura SÓ blocos da
+  sessão principal (evento com `parent_tool_use_id` é ignorado de propósito, senão a captura
+  duplicaria quando o CLI streama o subagente). O agente novo está na lista `synced` do
+  `prepareHome` (server.js), senão workspace já semeado nunca o receberia, a mesma classe do bug
+  de fachada da v2.28.0. Travado em `test/review-prompt.test.js`.
+- **Subagentes visíveis na UI** (pedido do Thiago, 17/08/2026): o stream marca evento de dentro
+  de subagente com `parent_tool_use_id`, e o `session.js` passou a rastrear: `tool_use` de `Task`
+  na sessão principal registra o agente (`registrarAgenteDeTask`, rótulo `tipo N` em
+  `activeReviews.get(id).agents`), o `tool_result` correspondente o conclui
+  (`concluirAgentesDoEvento`), e cada linha do feed vinda de subagente carrega o rótulo
+  (`item.a`, via `pushActivity(id, kind, text, agent)`, fachada com aridade nova). O snapshot
+  entrega a projeção compacta via `projectSessions` (PURA, e é ela que também tira `fileBlobs` do
+  payload). Na UI: badge `👥 vivos/total` no card "Analisando agora" (title lista quem faz o quê,
+  `agentsTitle` em `ui/pure.js`) e etiqueta `👤 rótulo` nas linhas do feed (`feedLine`). Testes:
+  `test/session-agents.test.js` e os de `feedLine`/`agentsTitle` em `test/ui-pure.test.js`.
+
 ### Ciclo de vida e higiene (onda 3 dos gaps da auditoria de 15/08/2026)
 
 Quatro estados que existiam só em memória (ou não existiam) e agora têm dono e regra

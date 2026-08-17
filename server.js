@@ -341,6 +341,7 @@ class Engine extends EventEmitter {
         path.join('prompts', 'pr-review-auto.md'),
         path.join('prompts', 'self-review.md'),
         path.join('.claude', 'agents', 'pr-reviewer.md'),
+        path.join('.claude', 'agents', 'claim-verifier.md'),
         path.join('.claude', 'commands', 'pr-review.md'),
       ];
       for (const rel of synced) {
@@ -1062,7 +1063,9 @@ class Engine extends EventEmitter {
   // Grava o nivel do modelo (Opus/Sonnet/...) na sessao ativa pra UI mostrar
   // qual agente esta rodando. O id cru vem do evento system/init da sessao.
   setSessionModel(id, rawModel) { return sessionMod.setSessionModel(this, id, rawModel); }
-  pushActivity(id, kind, text) { return sessionMod.pushActivity(this, id, kind, text); }
+  // fachada com argumento de comportamento (agent, o rótulo do subagente na linha
+  // do feed): a aridade importa, ver a lição da v2.28.0 no CLAUDE.md
+  pushActivity(id, kind, text, agent) { return sessionMod.pushActivity(this, id, kind, text, agent); }
   toolSummary(name, input) { return sessionMod.toolSummary(this, name, input); }
   killTree(pid) { return sessionMod.killTree(this, pid); }
   cancelSession(id) { return sessionMod.cancelSession(this, id); }
@@ -1406,7 +1409,9 @@ class Engine extends EventEmitter {
       selfAnalyses: this.selfAnalyses,
       mergeStates: this.mergeStates,
       staleStates: this.staleStates,
-      activeSessions: [...this.activeReviews.values()],
+      // projeção pura: tira o interno (fileBlobs, mapa cru de agents) e entrega a
+      // contagem/lista compacta de subagentes que a UI mostra no card da sessão
+      activeSessions: sessionMod.projectSessions([...this.activeReviews.values()]),
       activity: Object.fromEntries(this.activity),
       headlessWaiting: this.headlessQueue.map(p => p.key),
       chats: this.chatSummaries(),

@@ -749,9 +749,22 @@ export function md(src) {
   return out.join('\n');
 }
 
+// tooltip do badge 👥 do card de sessão: uma linha por subagente, com a tarefa
+// e o estado. PURA (texto de atributo title, sem HTML, então sem esc aqui).
+export function agentsTitle(lista) {
+  return (lista || []).map(a => {
+    const desc = a.desc ? `: ${a.desc}` : '';
+    const situacao = a.done ? 'concluído' : 'trabalhando';
+    return `${a.label}${desc} (${situacao})`;
+  }).join('\n');
+}
+
 export function feedLine(it) {
   const icon = { tool: '⚙', text: '💬', warn: '⚠', info: '·' }[it.k] || '·';
-  return `<div class="feed-line k-${esc(it.k)}"><span class="feed-t">${fmtClock(it.t)}</span><span class="feed-i">${icon}</span><span class="feed-x">${esc(it.text)}</span></div>`;
+  // it.a = rótulo do subagente dono da linha (fan-out de leitura/verificação):
+  // a linha ganha a etiqueta 👤 pra distinguir do trabalho da sessão principal
+  const ag = it.a ? `<span class="feed-agent" title="linha de um subagente">👤 ${esc(it.a)}</span>` : '';
+  return `<div class="feed-line k-${esc(it.k)}${it.a ? ' from-agent' : ''}"><span class="feed-t">${fmtClock(it.t)}</span><span class="feed-i">${icon}</span>${ag}<span class="feed-x">${esc(it.text)}</span></div>`;
 }
 
 /* ---------- ops de autoanálise: decisão de fechamento ----------

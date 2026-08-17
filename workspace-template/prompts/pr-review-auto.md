@@ -104,3 +104,30 @@ FAROL_CHECKPOINT: {"claim":"<a afirmação em 1 linha>","file":"<arquivo>","line
 com `Edit`): é o app que grava, a partir do `description` acima. Isso vale mesmo que o
 checkpoint ainda não exista, você não precisa criá-lo, o app cria sozinho na primeira
 captura.
+
+## Verificações empíricas em PARALELO (subagentes `claim-verifier`)
+
+Verificação empírica é a que exige experimento além de ler o diff: simular um merge num
+diretório temporário, comparar heads de branches, consultar rulesets/checks via `gh`,
+reproduzir o comportamento de um script. Feitas em série elas dominam o tempo da revisão
+(caso real: um PR de 3 arquivos de CI levou 30 minutos com 9 verificações sequenciais).
+
+Quando você tiver **2 ou mais verificações pendentes que sejam INDEPENDENTES entre si**
+(o resultado de uma não muda o desenho da outra), rode-as em paralelo:
+
+1. **Leia o checkpoint primeiro** (regra acima): o que já tem veredito registrado não
+   vira subagente.
+2. Dispare **um subagente `claim-verifier` por verificação, em paralelo** (várias
+   chamadas na MESMA mensagem, o mesmo padrão dos lotes do `pr-reviewer`), passando a
+   cada um: a afirmação, `arquivo:linha`, o repositório e o **head SHA** do PR.
+3. **Fica em série** o que não é independente: verificação cujo desenho depende do
+   resultado de outra, e qualquer coisa que exigiria escrita fora de diretório
+   temporário. Na dúvida sobre independência, série.
+4. Quando os subagentes voltarem, **valide cada veredito** (evidência concreta e
+   reproduzível; veredito sem evidência vira `parcial`) e então **REEMITA o marcador
+   `FAROL_CHECKPOINT` na SUA sessão, um Bash por veredito** (comando `true`, com o
+   `description` no formato exato da seção anterior). O app só captura a sessão
+   principal: **verificação de subagente que você não reemitir não existe para o app**,
+   não entra no checkpoint e não sobrevive a uma retomada.
+5. A consolidação e a decisão continuam SUAS: subagente verifica fato, nunca decide
+   verdict/decision/cardMet.

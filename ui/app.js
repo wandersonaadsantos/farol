@@ -4,7 +4,7 @@ import {
   esc, safeJsonParse, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
   sameSet, diffVs, usageMetricVal, sparklinePath, usageDelta, usageStackLayers, usageHoverIndex, usageMatrixRows,
   USAGE_KIND_LABEL, usageSessionRow, FAROL_STAMP_SINCE, FAROL_PRE_STAMP_LABEL, accountSaveArray, delivCappedMsg, fmtRel,
-  usageDayKeysBack, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan, selfSessionKey, sessionProgress,
+  usageDayKeysBack, aprovadosHoje, avatar, md, feedLine, agentsTitle, analysisOpsPlan, selfSessionKey, sessionProgress,
   personMention, repoMention, prRefMention, parseGoto, sessionRefCell, reviewBoxHtml, operationChecks,
   delivFilterItems, delivStats, delivStatsCards, delivActivityCard, delivEmptyState, deliveriesByRepo, deliveriesByAuthor,
   pushbackControl, PB_OPTS, PB_SHORT, fmtStamp, fmtWhenDay, resolvedRow,
@@ -1817,6 +1817,16 @@ function tickElapsed() {
 }
 
 /* ---------- render: análises em andamento (feed ao vivo) ---------- */
+// badge 👥 vivos/total do card de sessão; o title lista cada subagente e o estado
+function updateSessionAgents(el, s) {
+  if (!el) return;
+  const lista = s.agents || [];
+  el.hidden = !lista.length;
+  if (!lista.length) return;
+  el.textContent = `👥 ${s.agentsLive || 0}/${lista.length}`;
+  el.title = agentsTitle(lista);
+}
+
 function fillFeed(feed, items) {
   const stick = feed.scrollTop + feed.clientHeight >= feed.scrollHeight - 30;
   feed.innerHTML = (items || []).map(feedLine).join('') ||
@@ -1861,6 +1871,7 @@ function renderActive() {
           <span class="spin accent"></span>
           <b>${esc(s.label)}</b> <span class="session-stage" data-started="${s.startedAt || ''}">${stages}</span>
           <span class="session-model" data-id="${esc(s.id)}" hidden></span>
+          <span class="session-agents" data-id="${esc(s.id)}" hidden></span>
           ${s.pr?.url ? `<a href="${esc(s.pr.url)}" target="_blank" rel="noreferrer">abrir PR</a>` : ''}
           <span class="session-elapsed" data-started="${s.startedAt}"></span>
           ${s.cancellable ? `<button class="btn sm danger-ghost act-cancel" data-id="${esc(s.id)}">Cancelar</button>` : ''}
@@ -1881,6 +1892,9 @@ function renderActive() {
       lvl.textContent = s.model || '';
       if (s.modelRaw) lvl.title = s.modelRaw;
     }
+    // subagentes da sessão (fan-out de leitura/verificação): 👥 vivos/total, com a
+    // lista de quem faz o quê no title. Some quando a sessão não fatiou nada.
+    updateSessionAgents(box.querySelector(`.session-agents[data-id="${CSS.escape(s.id)}"]`), s);
   }
   tickElapsed();
 }

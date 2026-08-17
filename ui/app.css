@@ -890,6 +890,8 @@ label.set-row { cursor: pointer; }
 .session-head b { font-size: 13.5px; }
 .session-head a { font-size: 12.5px; flex: none; }
 .session-model { font-size: 10.5px; font-weight: 700; flex: none; color: var(--info); background: var(--info-soft); border-radius: 99px; padding: 1px 8px; letter-spacing: .02em; }
+/* subagentes trabalhando na revisão (vivos/total); o title lista quem faz o quê */
+.session-agents { font-size: 10.5px; font-weight: 700; flex: none; color: var(--info); background: var(--info-soft); border-radius: 99px; padding: 1px 8px; font-variant-numeric: tabular-nums; cursor: default; }
 .session-author { color: var(--muted); font-size: 12px; flex: none; }
 .session-author b { color: var(--text); }
 .session-elapsed { color: var(--muted); font-size: 12px; margin-left: auto; font-variant-numeric: tabular-nums; }
@@ -900,6 +902,8 @@ label.set-row { cursor: pointer; }
 .feed-i { flex: none; width: 14px; text-align: center; }
 .feed-x { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .feed-line.k-tool .feed-x { color: var(--info); }
+/* linha vinda de um subagente: etiqueta 👤 com o rótulo dele antes do texto */
+.feed-agent { flex: none; color: var(--info); font-size: 10.5px; font-weight: 700; white-space: nowrap; }
 .feed-line.k-warn .feed-x { color: var(--accent); }
 .feed-line.k-info .feed-x { color: var(--muted); }
 

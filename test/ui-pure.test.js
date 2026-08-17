@@ -870,6 +870,28 @@ test('feedLine escapa o texto da atividade ao vivo', () => {
   assert.match(l, /class="feed-line k-text"/);
 });
 
+test('feedLine: linha de subagente ganha a etiqueta 👤 com o rótulo escapado', () => {
+  const l = P.feedLine({ k: 'tool', t: '2026-08-17T12:00:00Z', text: 'Bash · comparar heads', a: 'claim-verifier <1>' });
+  assert.match(l, /class="feed-line k-tool from-agent"/);
+  assert.match(l, /👤 claim-verifier &lt;1&gt;/, 'rótulo do agente aparece e escapa HTML');
+});
+
+test('agentsTitle: uma linha por subagente, com tarefa e estado', () => {
+  const t = P.agentsTitle([
+    { label: 'claim-verifier 1', desc: 'checar ruleset', done: false },
+    { label: 'claim-verifier 2', desc: '', done: true },
+  ]);
+  assert.equal(t, 'claim-verifier 1: checar ruleset (trabalhando)\nclaim-verifier 2 (concluído)');
+  assert.equal(P.agentsTitle([]), '');
+  assert.equal(P.agentsTitle(null), '');
+});
+
+test('feedLine: linha da sessão principal segue sem etiqueta de agente', () => {
+  const l = P.feedLine({ k: 'tool', t: '2026-08-17T12:00:00Z', text: 'Bash · consolidar' });
+  assert.doesNotMatch(l, /feed-agent/);
+  assert.doesNotMatch(l, /from-agent/);
+});
+
 test('sysNorm tira acento pra busca sem acento achar', () => {
   assert.equal(P.sysNorm('Revisão AUTOMÁTICA'), 'revisao automatica');
   assert.equal(P.sysNorm('Esforço'), 'esforco');
