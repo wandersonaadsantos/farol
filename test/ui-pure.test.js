@@ -1897,3 +1897,92 @@ test('chipHtml: sem candidatos o chip ainda sai, com o slug do time', () => {
     assert.match(html, /class="rev-x" data-a="1"/, 'o botão de remover continua funcional');
   }
 });
+
+/* ---------- onda 5, segundo passo: os construtores da aba Consumo ----------
+   O bloco já era puro: só montava string a partir do resumo que o engine manda.
+   O que o prendia no app.js era a forma (cada um terminava atribuindo em
+   `el.innerHTML`), não o conteúdo.
+
+   O teste mais importante daqui é o mais bobo: EXECUTAR cada um. Ao mover o bloco
+   eu deixei USAGE_KIND_COLOR e USAGE_PALETTE pra trás no app.js, e três funções
+   passaram a referenciar constante inexistente. Nem `node --check` nem a suíte
+   pegavam: é ReferenceError em runtime, e nada executava o código novo. Foi a
+   comparação com o original que denunciou. Estes testes fecham essa porta. */
+
+const usageDayKeysBackFake = (n) => P.usageDayKeysBack(n);
+
+// Os nomes dos campos são os do engine (costUsd, inputTokens, outputTokens), não
+// apelidos: usageMetricVal lê exatamente esses. Fixture com nome inventado passa
+// pelo código sem erro e devolve zero, o que faria o teste medir o caminho vazio
+// achando que mediu o cheio.
+const bloco = (c, i, o) => ({ costUsd: c, inputTokens: i, outputTokens: o });
+const USO = {
+  series: usageDayKeysBackFake(14).map((day, i) => ({
+    day, costUsd: 1.5 + i * 0.2, inputTokens: 6000 + i * 400, outputTokens: 6000 + i * 500, sessions: 3 + (i % 4),
+  })),
+  totals: { sessions: 42, costUsd: 22.5, inputTokens: 90000, outputTokens: 90000 },
+  matrixKindNames: ['review', 'chat'], matrixModelNames: ['opus', 'sonnet'],
+  // matrixSeries é por DIA e a matriz filtra pela janela (usageDayKeysBack), então
+  // o dia precisa ser recente de verdade; data fixa cairia fora da janela
+  matrixSeries: [{ day: P.usageDayKeysBack(1)[0], cells: { review: { opus: bloco(10, 4000, 5000) }, chat: { sonnet: bloco(1, 400, 400) } } }],
+  budgets: [{ profileId: 'p1', label: 'Assinatura', spent: 12.5, limit: 100, blocked: false }],
+  sessions: [{ id: 's1', at: Date.parse('2026-08-17T12:00:00Z'), kind: 'review', model: 'opus', costUsd: 0.42, inputTokens: 4000, outputTokens: 5000, ref: 'o/r#1', result: 'ok' }],
+};
+
+test('Consumo: os quatro construtores rodam e devolvem markup, com dados e sem', () => {
+  // é o teste que teria pego a constante deixada pra trás
+  for (const u of [USO, {}]) {
+    assert.match(P.usageKpisHtml(u, 7), /</);
+    const mtx = P.usageMatrixHtml(u, 'custo', 7);
+    assert.equal(typeof mtx.html, 'string');
+    assert.equal(typeof mtx.caption, 'string');
+    assert.match(P.usageBudgetHtml(u), /</);
+    assert.match(P.usageSessionsHtml(u), /</);
+  }
+});
+
+test('Consumo: resumo vazio vira mensagem de vazio, não markup quebrado', () => {
+  assert.match(P.usageMatrixHtml({}, 'custo', 7).html, /usage-empty/);
+  assert.equal(P.usageMatrixHtml({}, 'custo', 7).caption, '', 'sem dado a legenda some junto');
+  assert.match(P.usageBudgetHtml({}), /Nenhum perfil/);
+  assert.match(P.usageSessionsHtml({}), /Nenhuma sessão/);
+});
+
+test('usageMatrixHtml: a legenda acompanha a métrica escolhida', () => {
+  // guarda-corpo antes das asserções: se o fixture parar de produzir matriz (nome
+  // de campo errado, dia fora da janela), a função cai no early return, a legenda
+  // volta '' e este teste passaria a medir o caminho VAZIO achando que mede o cheio.
+  // Foi exatamente isso que aconteceu enquanto o fixture usava `cost` em vez de
+  // `costUsd`: verde no caminho errado.
+  const cheia = P.usageMatrixHtml(USO, 'custo', 7);
+  assert.doesNotMatch(cheia.html, /usage-empty/, 'o fixture precisa produzir matriz de verdade');
+  assert.match(cheia.caption, /custo estimado/);
+  assert.match(P.usageMatrixHtml(USO, 'total', 7).caption, /tokens/);
+});
+
+test('usageColorsFor: cor fixa por tipo, cíclica nas outras dimensões', () => {
+  assert.deepEqual(P.usageColorsFor('kind', ['review', 'chat']), ['var(--accent)', 'var(--ok)']);
+  const muitos = P.usageColorsFor('model', ['a', 'b', 'c', 'd', 'e', 'f', 'g']);
+  assert.equal(muitos.length, 7);
+  assert.equal(muitos[6], muitos[0], 'a paleta cicla quando os nomes passam do tamanho dela');
+});
+
+test('usageColorsFor: _resto é sempre apagado, em qualquer dimensão', () => {
+  // é registro antigo sem detalhamento: não pode parecer uma série de verdade
+  assert.equal(P.usageColorsFor('kind', ['_resto'])[0], 'var(--faint)');
+  assert.equal(P.usageColorsFor('model', ['_resto'])[0], 'var(--faint)');
+});
+
+test('fmtMoney e fmtUsageMetric: custo sai em dinheiro, o resto em contagem', () => {
+  assert.match(P.fmtMoney(12.5), /12/);
+  assert.equal(P.fmtUsageMetric(12.5, 'custo'), P.fmtMoney(12.5));
+  assert.equal(P.fmtUsageMetric(12500, 'total'), P.fmtCompact(12500));
+});
+
+test('usageTooltipHtml: só entra na legenda a camada com valor', () => {
+  const geo = { xs: [10, 50, 90, 130], y0: 5, y1: 100 };
+  const html = P.usageTooltipHtml('2026-08-10', [3, 0], ['review', 'chat'], { review: 'Review' },
+    ['#f00', '#0f0'], 'total', 2, geo, 300);
+  assert.match(html, /Review/);
+  assert.doesNotMatch(html, /chat/, 'camada zerada não polui o tooltip');
+});

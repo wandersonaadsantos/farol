@@ -52,17 +52,45 @@ O débito original era o `server.js`: uma classe `Engine` de 3122 linhas fazendo
 
   **Como se provou que foi movimentação e não reescrita:** as funções antigas foram reconstruídas do `git show main:ui/app.js`, com os globais injetados, e comparadas com as novas em 27 entradas (login vazio, caixa alta, pessoa inexistente, tentativa de XSS, time desconhecido, time enterprise, chat com contagem zero e sem chat). **Zero divergências** na saída.
 
+  **Segundo passo, no mesmo dia:** o bloco da aba **Consumo** (`fmtMoney`,
+  `fmtUsageMetric`, `usageColorsFor`, `usageTooltipHtml` e os quatro construtores
+  `usageKpisHtml`/`usageMatrixHtml`/`usageBudgetHtml`/`usageSessionsHtml`, mais as duas
+  tabelas de cor). São ~175 linhas, e o bloco **já era puro**: não lia global nenhuma, só
+  montava string a partir do resumo que o engine manda. O que o prendia no `app.js` era a
+  forma, não o conteúdo: cada função terminava atribuindo em `el.innerHTML`, então parecia
+  render de DOM. Separado o build da atribuição, o `app.js` fica com
+  `el.innerHTML = xHtml(...)`. O `usageMatrixHtml` devolve `{ html, caption }` porque a
+  versão antiga escrevia em dois lugares. Fica de fora o `drawUsageTimeline`, que mede
+  `clientWidth` e ata listener, ou seja, precisa do elemento de verdade.
+
+  Três coisas que este passo ensinou, e que valem pros próximos:
+
+  1. **Mover pode quebrar sem que nada acuse.** Deixei `USAGE_KIND_COLOR` e
+     `USAGE_PALETTE` pra trás no `app.js`, e três funções passaram a referenciar constante
+     inexistente. `node --check` passa (é erro de runtime) e `npm test` passava (nada
+     executava o código recém-chegado). Quem denunciou foi a comparação com o original.
+     A lição virou teste: o primeiro caso do bloco novo só **executa** cada construtor.
+  2. **O ratchet reclama de mudança de casa.** Os 4 ternários aninhados que vieram junto
+     fizeram o `pure.js` subir de 16 pra 20 enquanto o `app.js` caía de 56 pra 52, soma
+     idêntica. Reescrevi os quatro em vez de re-baselinar, e aí a dívida caiu de verdade:
+     72 → 68 nos dois arquivos somados.
+  3. **Asserção de texto sobre o `app.js` fica cega quando o código sai dele.** O teste de
+     acessibilidade contava `data-goto` só no `app.js` e no HTML, e reprovou por piso
+     (6 → 5) sem que nenhuma menção tivesse perdido `role`. Hoje o `pure.js` tem **mais**
+     emissores que o `app.js` (5 contra 3), então a varredura passou a incluí-lo: o teste
+     ficou mais forte, não só verde.
+
   **O que vem depois, e o obstáculo real:** a separação entre render e estado. O `app.js` tem **25 globais mutáveis** espalhados e nenhuma função de boot (tudo é efeito de topo, em ordem de arquivo), então o corte não é mecânico. E há um risco a respeitar: `test/ui-widgets.test.js` fixa **22 corpos de função inteiros** por regex sobre o texto do `app.js`, e mover qualquer um deles faz o `match` devolver `null`. Nenhum dos chamadores deste primeiro passo caía dentro dessas 22 (foi conferido antes de mexer); do próximo em diante, cada extração precisa vir junto com a migração da asserção de texto pra teste real em `pure.js`, que é a direção que o cabeçalho daquele arquivo já defende.
 
 ### Números de hoje (mantenha esta linha viva)
 
 | Arquivo | Linhas | Testes |
 |---|---|---|
-| `ui/app.js` | ~4000 | nenhum que o execute (os 5 que o tocam leem o arquivo como texto) |
-| `ui/pure.js` | ~1332 | `ui-pure.test.js`, 209 testes |
+| `ui/app.js` | ~3831 | nenhum que o execute (os 5 que o tocam leem o arquivo como texto) |
+| `ui/pure.js` | ~1545 | `ui-pure.test.js`, 226 testes |
 | `server.js` | ~1483 | via `boot`, `facades`, e os testes de comportamento |
 | maior módulo de `lib/` (`decision.js`) | ~869 | `decision-envelope.test.js`, `decision-history.test.js` |
-| suíte | | 1229 testes (1222 passando, 7 pulados fora do macOS) |
+| suíte | | 1239 testes (1232 passando, 7 pulados fora do macOS) |
 
 Os cinco que leem o `ui/app.js` do disco: `ui-widgets` (fixa 22 corpos de função por
 regex), `ui-contract` (extrai as rotas `/api/*` e cruza com o `http-server.js`),
