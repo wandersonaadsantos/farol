@@ -38,6 +38,7 @@ import ghMod from './lib/engine/gh-queries.js';
 import sessionMod from './lib/engine/session.js';
 import selfMod from './lib/engine/selfpr.js';
 import reviewMod from './lib/engine/review.js';
+import fileProofMod from './lib/engine/file-proof.js';
 import usageMod from './lib/engine/usage.js';
 import { startServer } from './lib/http-server.js';
 
@@ -94,6 +95,12 @@ const DEFAULTS = {
   // Default LIGADO desde a v2.46.0; desligue em Sistema > Automacao pra voltar ao
   // clique manual de sempre. Canal local (fluxo de dev) nunca auto-aplica.
   autoUpdate: true,
+  // round 2 automatico retoma a SESSAO da revisao anterior (claude --resume) em vez
+  // de abrir uma nova: o modelo ja leu o PR, entao a retomada poupa a releitura.
+  // Default DESLIGADO (opt-in): sessao retomada carrega o contexto do round anterior,
+  // e quem prefere cada round partir do zero nao deve pagar esse acoplamento sem pedir.
+  // Falha de retomada (sessao expirada/limpa) degrada pra sessao nova sozinha.
+  reReviewResume: false,
   port: DEFAULT_PORT,
   // repos onde o botao Merge (Meus PRs) fica desativado, respeitando regras de
   // review do time (ex.: nunca self-merge no biud-frontend). Editavel em Sistema.
@@ -264,6 +271,9 @@ class Engine extends EventEmitter {
     this.prepareHome();
     this.loadSeen();
     this.recoverInflight();
+    // prova por arquivo de PR morto há semanas não serve pra nada (G20, best-effort):
+    // podar só custa uma revisão cheia na próxima vez, nunca postagem errada
+    try { fileProofMod.pruneFileProofs(); } catch { /* best-effort */ }
   }
 
   // revisões que estavam rodando quando o app morreu: devolve à fila (o PR já
@@ -596,6 +606,7 @@ class Engine extends EventEmitter {
   async myAuthoredPRs(user) { return ghMod.myAuthoredPRs(this, user); }
   async prState(pr) { return ghMod.prState(this, pr); }
   async headSha(pr) { return ghMod.headSha(this, pr); }
+  async fetchPrFiles(pr) { return fileProofMod.fetchPrFiles(this, pr); }
   deliveriesSince(days) { return ghMod.deliveriesSince(this, days); }
   async fetchDeliveries(days, owner) { return ghMod.fetchDeliveries(this, days, owner); }
   async refreshContributors() { return ghMod.refreshContributors(this); }
@@ -651,7 +662,7 @@ class Engine extends EventEmitter {
       // pra fila de revisão sem esperar clique (âncora por head impede repetição; era o
       // elo manual do ciclo, medido no biud-frontend#756). Depende do staleInfo que o
       // refreshStaleStates acabou de preencher, por isso a ordem aqui importa.
-      try { this.launchReReviews(); } catch (e) { this.log('WARN', `re-revisão pós-push: ${e.message}`); }
+      try { await this.launchReReviews(); } catch (e) { this.log('WARN', `re-revisão pós-push: ${e.message}`); }
       // pendência já atendida por fora (review postado pelo chat, pela web do GitHub ou
       // por gh na mão): tira o card de "Precisa de você", que antes ficava preso pra
       // sempre porque só o clique no botão esvaziava decisions.pending
@@ -1315,7 +1326,7 @@ class Engine extends EventEmitter {
     const allowed = ['ghUser', 'owners', 'accounts', 'intervalSeconds', 'autoReview', 'autoApproveAll', 'autoApproveContested', 'parallelReviews', 'skipPermissions',
       'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos',
       'projectReviewers', 'defaultReviewers', 'people', 'claudeConfigDir', 'claudeProfiles', 'claudeProfileId',
-      'reviewModel', 'reviewEffort', 'autoPushback', 'debugSpawns', 'autoUpdate'];
+      'reviewModel', 'reviewEffort', 'autoPushback', 'debugSpawns', 'autoUpdate', 'reReviewResume'];
     let intervalChanged = false, userChanged = false;
     for (const k of allowed) {
       if (!(k in patch)) continue;
@@ -1342,6 +1353,7 @@ class Engine extends EventEmitter {
       if (k === 'autoPushback') v = !!v;
       if (k === 'debugSpawns') v = !!v;
       if (k === 'autoUpdate') v = v !== false; // default LIGADO: só desliga com valor estritamente false
+      if (k === 'reReviewResume') v = !!v; // opt-in: só liga com valor verdadeiro explícito
       if (k === 'accounts') {
         v = parseAccounts(v);
         // só re-autentica se as CONTAS (user/owners) mudaram; editar rótulo, cor,

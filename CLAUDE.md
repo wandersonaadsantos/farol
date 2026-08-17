@@ -329,6 +329,61 @@ Junto na v2.41.0, e relacionados: **rascunhos entram no radar** (caiu o
 "rascunho" em fila/panorama; o `mergeSelfPR` segue recusando draft, revalidado
 na hora do clique) e o **paralelismo por conta** documentado no invariante 4.
 
+### Prova por arquivo: round incremental, pulo de push trivial e retomada de sessão (17/08/2026, ainda não publicado)
+
+Motivação medida: o round 2 pós-push relia o PR INTEIRO mesmo quando o dev corrigiu 3 arquivos
+de 40, e um "update branch" (merge da base que não toca o diff) custava uma sessão completa pra
+chegar na mesma conclusão. Três peças, todas com a régua de sempre (falta de dado NUNCA vira
+herança; degradação é sempre pra revisão cheia, que é segura):
+
+- **`lib/engine/file-proof.js`** é o módulo novo. A cada revisão headless o engine tira um
+  retrato do diff efetivo via `pulls/{n}/files` (`fetchPrFiles`, fachada `Engine.fetchPrFiles`;
+  é esse endpoint porque ele devolve o **blob SHA por arquivo**, que o `gh pr view --json files`
+  não dá) e, no fim da sessão, grava a prova em `state/file-proof/<encodeURIComponent(key)>.json`:
+  `{head, files: [{path, sha, status, lines}], reviewed}` com `reviewed` vindo do
+  `coverage.reviewed` do envelope (envelope sem coverage grava `reviewed: []`: sem declaração não
+  há prova de leitura, mesma régua do coverageGap; a prova ainda serve pro pulo de push trivial).
+  Poda por idade de 30 dias (`pruneFileProofs` no boot, `TEMPOS.PROVA_ARQUIVO_MAX_AGE_MS`,
+  best-effort padrão G20).
+- **Pulo de push trivial** (`launchReReviews`, que virou **async**; o `check()` aguarda): antes
+  de relançar o round 2 automático, se existe prova salva, UMA chamada `pulls/files` compara o
+  diff atual com o que a última sessão leu (`sameEffectiveDiff`: mesmos caminhos, mesmo blob,
+  mesmo status em TODOS; sha vazio nunca prova igualdade). Idêntico = rebase limpo ou merge da
+  base: nenhuma sessão abre, toast avisa (nunca silencioso) e a âncora `reReviewLaunched` já
+  gravada segura até o próximo push DE VERDADE. Sem prova salva o gh nem é consultado (zero
+  custo no caso comum) e qualquer falha de medição relança como sempre. Edge conhecido e aceito:
+  conflito resolvido "descartando" a mudança da base mantém o blob do head idêntico e pula, mas
+  o código resultante é byte a byte o que a revisão anterior avaliou.
+- **Round incremental (herança de cobertura por blob)**: no round 2 com head DIFERENTE do da
+  prova (mesmo head é retomada de falha, e aí quem cobre é o checkpoint; herdar tudo no mesmo
+  head faria a sessão "se confirmar" sem ler nada), `splitByProof` separa o diff em INALTERADOS
+  (blob + status idênticos E leitura declarada na prova) e ALTERADOS. O prompt ganha o
+  `fileProofBlock` (leia os alterados + reverifique os achados; inalterado só se interagir; e
+  declare em `coverage.reviewed` SÓ o que leu NESTA sessão), o fan-out passa a medir e fatiar
+  **só o que precisa ser lido** (`metricsIncrementais`), e depois da sessão
+  `reconcileInheritedCoverage` move o inalterado de `missing` pra `reviewed` com a origem
+  separada em `coverage.inherited` (leitura desta sessão e prova herdada nunca se confundem).
+  O `coverageGap` continua PURO e intocado: a reconciliação acontece antes, em review.js. A
+  prova nova gravada no fim carrega o reviewed já reconciliado, então o round 3 herda o acumulado.
+  O checkpoint de verificação também sobrevive ao push por blob: cada entrada ganha `blobSha`
+  (carimbado em session.js via `activeReviews.get(id).fileBlobs`) e `relevantEntries` (fonte
+  única em verification-checkpoint.js, usada pelo resumeBlock E pelo summarizeCheckpoint) aceita
+  entrada de head antigo cujo arquivo não mudou.
+- **Retomada de sessão no round 2** (`config.reReviewResume`, default **false**, opt-in, por
+  enquanto só via config.json/API, sem toggle na UI): o relançamento automático carrega o
+  `sessionId` da última decisão do PR (`lastReviewSessionId`, lido das decisões CRUAS porque o
+  `decisionByKey` projeta allowlist sem sessionId) e `rodarSessao` roda `claude --resume <sid>`,
+  com a MESMA allowlist de formato do chat antes de entrar na linha de shell. Falha de retomada
+  (sessão expirada/limpa, mesma heurística de erro do chat.js) degrada pra sessão nova sozinha;
+  cancelamento e falha real sobem pro retry de sempre. Por que opt-in: sessão retomada carrega o
+  contexto do round anterior (premissas velhas podem contaminar), e quem prefere round do zero
+  não paga isso sem pedir.
+
+O que NÃO mudou: o gate de postagem (invariante 4) está intacto, o dedup por head também, e a
+autoanálise/chat/pushback não gravam nem leem prova. Testes: `test/file-proof.test.js` (puras +
+roundtrip + poda + relevância por blob no checkpoint) e `test/rereview.test.js` (pulo de push
+trivial, medição falhando relança, sem prova não consulta gh, sid viaja no enfileiramento).
+
 ### Ciclo de vida e higiene (onda 3 dos gaps da auditoria de 15/08/2026)
 
 Quatro estados que existiam só em memória (ou não existiam) e agora têm dono e regra
