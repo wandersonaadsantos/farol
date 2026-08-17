@@ -1736,3 +1736,164 @@ test('resolvedRow: infra e conteúdo aparecem separados na mesma linha', () => {
   assert.match(html, /falha técnica ao postar/);
   assert.match(html, /ponto que a revisão levantou/);
 });
+
+/* ---------- onda 5: perfil por pessoa, reviewers e chat ----------
+   As oito funções abaixo eram do app.js e liam global (STATE.config.people,
+   reviewerCands, STATE.chats). Viraram puras com um parâmetro a mais, que é o
+   passo que docs/QUALITY.md já deixava mapeado. O que os testes guardam aqui é
+   justamente o que o global escondia: o comportamento quando o mapa NÃO chegou
+   ainda, que na tela é o estado normal antes do primeiro SSE. */
+
+const PEOPLE = {
+  alice: { papel: 'senior', dominios: { backend: 'autoridade', frontend: 'basico' } },
+  bob: { papel: 'junior' },
+};
+
+test('personOf: acha por login em minúsculas, e login com caixa diferente também', () => {
+  assert.equal(P.personOf('alice', PEOPLE).papel, 'senior');
+  assert.equal(P.personOf('ALICE', PEOPLE).papel, 'senior', 'o login vem do GitHub com a caixa do dono');
+});
+
+test('personOf: sem mapa, sem pessoa e sem login devolve objeto vazio, nunca undefined', () => {
+  // é o caso real: STATE ainda null antes do primeiro SSE. Quem chama faz
+  // .papel logo depois, então devolver undefined aqui viraria TypeError na tela.
+  assert.deepEqual(P.personOf('alice', null), {});
+  assert.deepEqual(P.personOf('ninguem', PEOPLE), {});
+  assert.deepEqual(P.personOf('', PEOPLE), {});
+  assert.deepEqual(P.personOf(undefined, undefined), {});
+});
+
+test('papelOf e domLevelOf: valor quando existe, string vazia quando não', () => {
+  assert.equal(P.papelOf('alice', PEOPLE), 'senior');
+  assert.equal(P.papelOf('bob', PEOPLE), 'junior');
+  assert.equal(P.papelOf('ninguem', PEOPLE), '');
+  assert.equal(P.domLevelOf('alice', 'backend', PEOPLE), 'autoridade');
+  assert.equal(P.domLevelOf('bob', 'backend', PEOPLE), '', 'pessoa sem matriz não quebra');
+  assert.equal(P.domLevelOf('alice', 'infra', PEOPLE), '', 'domínio não marcado é vazio');
+});
+
+test('papelPicker: marca selected no papel da pessoa, e só nele', () => {
+  const html = P.papelPicker('alice', PEOPLE);
+  assert.match(html, /<option value="senior" selected>/);
+  assert.equal((html.match(/ selected/g) || []).length, 1, 'exatamente uma opção selecionada');
+  assert.match(html, /data-login="alice"/);
+});
+
+test('papelPicker: sem pessoa cai na opção vazia, que é o rótulo "papel"', () => {
+  const html = P.papelPicker('ninguem', PEOPLE);
+  assert.match(html, /<option value="" selected>papel<\/option>/);
+});
+
+test('papelPicker: escapa o login (vem do GitHub, não é confiável)', () => {
+  // Procurar a TAG com regex é asserção fraca (não pega <SCRIPT>, e o CodeQL
+  // reprova com razão: js/bad-tag-filter). O que prova o escape de verdade é
+  // que os caracteres perigosos do login viraram entidade: sem `<` cru não há
+  // tag, e sem `"` cru o login não consegue fechar o atributo em que está.
+  const login = 'a"><script>x</script>';
+  const html = P.papelPicker(login, PEOPLE);
+  // captura o VALOR do atributo em vez de recortar por posição: o slice amarrava
+  // a asserção à ordem dos atributos no template, e se ela mudasse o recorte
+  // sairia vazio e as duas asserções abaixo passariam à toa.
+  const m = html.match(/data-login="([^"]*)"/);
+  assert.ok(m, 'o atributo data-login precisa existir pra asserção significar algo');
+  const atributo = m[1];
+  assert.ok(!atributo.includes('<'), 'nenhum < cru no atributo: sem ele não se abre tag');
+  assert.ok(!atributo.includes(login), 'o login não aparece cru em lugar nenhum');
+  assert.match(html, /&lt;script&gt;/, 'ele aparece, mas escapado');
+  assert.match(html, /&quot;/, 'a aspa virou entidade e não fecha o atributo');
+});
+
+test('domainMatrix: um seletor por domínio, com o nível certo marcado em cada', () => {
+  const html = P.domainMatrix('alice', PEOPLE);
+  assert.equal((html.match(/class="dom-level"/g) || []).length, P.DOMAIN_DEFS.length);
+  assert.match(html, /data-domain="backend"[\s\S]*?<option value="autoridade" selected>/);
+  assert.match(html, /data-domain="frontend"[\s\S]*?<option value="basico" selected>/);
+});
+
+test('domainMatrix: pessoa sem matriz marca "sem info" em todos os domínios', () => {
+  const html = P.domainMatrix('bob', PEOPLE);
+  assert.equal((html.match(/<option value="" selected>/g) || []).length, P.DOMAIN_DEFS.length);
+});
+
+test('reviewerLabel: pessoa é o próprio handle, sem enfeite', () => {
+  assert.deepEqual(P.reviewerLabel('alice', {}), { label: 'alice', cls: '' });
+});
+
+test('reviewerLabel: time resolve o nome pelos candidatos da org', () => {
+  const cands = { acme: { teams: [{ id: 'acme/plataforma', name: 'Plataforma' }] } };
+  const r = P.reviewerLabel('acme/plataforma', cands);
+  assert.equal(r.label, 'Plataforma (time)');
+  assert.equal(r.cls, 'team');
+});
+
+test('reviewerLabel: sem candidatos carregados, o time degrada pro slug em vez de quebrar', () => {
+  // é o estado real enquanto o fetch dos candidatos não voltou
+  for (const cands of [null, undefined, {}, { outra: { teams: [] } }]) {
+    assert.equal(P.reviewerLabel('acme/plataforma', cands).label, 'plataforma (time)');
+  }
+});
+
+test('reviewerLabel: time enterprise é marcado como não pedível', () => {
+  // o GitHub recusa esses; a UI precisa dizer isso em vez de deixar tentar
+  const r = P.reviewerLabel('acme/ent:seguranca', {});
+  assert.equal(r.ent, true);
+  assert.equal(r.cls, 'bad');
+  assert.match(r.label, /não pedível/);
+});
+
+test('chipHtml: leva o rótulo resolvido e o botão de remover com os data-attrs', () => {
+  const cands = { acme: { teams: [{ id: 'acme/plataforma', name: 'Plataforma' }] } };
+  const html = P.chipHtml('acme/plataforma', 'rev-def-x', 'data-org="acme"', cands);
+  assert.match(html, /Plataforma \(time\)/);
+  assert.match(html, /class="rev-chip team"/);
+  assert.match(html, /class="rev-def-x" data-org="acme"/);
+});
+
+test('chipHtml: chip de enterprise ganha o title explicando por que não serve', () => {
+  const html = P.chipHtml('acme/ent:seguranca', 'x', '', {});
+  assert.match(html, /title="Time enterprise não pode ser reviewer/);
+});
+
+test('chatBadge: mostra a contagem, e some quando é zero ou não há chat', () => {
+  assert.match(P.chatBadge('o/r#1', { 'o/r#1': { count: 3 } }), /<span class="count">3<\/span>/);
+  assert.equal(P.chatBadge('o/r#1', { 'o/r#1': { count: 0 } }), '', 'zero não vira selo vazio');
+  assert.equal(P.chatBadge('o/r#2', { 'o/r#1': { count: 3 } }), '');
+});
+
+test('chatBadge: sem mapa de chats devolve vazio em vez de quebrar', () => {
+  // o app.js chama com STATE?.chats, que é undefined antes do primeiro SSE
+  assert.equal(P.chatBadge('o/r#1', undefined), '');
+  assert.equal(P.chatBadge('o/r#1', null), '');
+});
+
+/* As três abaixo são as portas de entrada: papelPicker, domainMatrix e chipHtml são
+   exatamente as que o app.js chama, então são elas que recebem o parâmetro novo do
+   chamador. Um chamador esquecido passa undefined, e é esse o único risco que a
+   extração criou. Testar só as internas (personOf, reviewerLabel) deixaria o
+   caminho de verdade descoberto. */
+
+test('papelPicker: sem mapa de pessoas cai em "não marcado" em vez de quebrar', () => {
+  for (const people of [undefined, null, {}]) {
+    const html = P.papelPicker('alice', people);
+    assert.match(html, /<option value="" selected>papel<\/option>/);
+    assert.equal((html.match(/ selected/g) || []).length, 1, 'exatamente uma opção marcada');
+  }
+});
+
+test('domainMatrix: sem mapa de pessoas marca "sem info" em todo domínio', () => {
+  for (const people of [undefined, null, {}]) {
+    const html = P.domainMatrix('alice', people);
+    assert.equal((html.match(/<option value="" selected>/g) || []).length, P.DOMAIN_DEFS.length);
+    assert.equal((html.match(/class="dom-level"/g) || []).length, P.DOMAIN_DEFS.length,
+      'a matriz continua completa: some o nível, não a linha');
+  }
+});
+
+test('chipHtml: sem candidatos o chip ainda sai, com o slug do time', () => {
+  // estado real enquanto o fetch dos candidatos não voltou; o chip não pode sumir
+  for (const cands of [undefined, null, {}]) {
+    const html = P.chipHtml('acme/plataforma', 'rev-x', 'data-a="1"', cands);
+    assert.match(html, /plataforma \(time\)/);
+    assert.match(html, /class="rev-x" data-a="1"/, 'o botão de remover continua funcional');
+  }
+});

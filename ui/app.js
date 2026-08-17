@@ -11,7 +11,8 @@ import {
   logSummaryLines, logTailLines, logSummaryShort,
   opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible, expiredSessionMarks, listViewState,
   splitHiddenPRs, effectiveHidden, hiddenFootLabel, myPRsEmptyMsg,
-  mergeToastKind, creditsHtml, buildFixPrompt
+  mergeToastKind, creditsHtml, buildFixPrompt,
+  papelPicker, domainMatrix, chatBadge, reviewerLabel, chipHtml
 } from './pure.js';
 
 const $ = (s) => document.querySelector(s);
@@ -1888,10 +1889,6 @@ function renderActive() {
 
 /* ---------- chat com o Claude ---------- */
 let chatKey = null, chatUrl = null;
-function chatBadge(key) {
-  const c = STATE?.chats?.[key];
-  return c && c.count ? ` <span class="count">${c.count}</span>` : '';
-}
 function openChat(key, url) {
   chatKey = key; chatUrl = url || null;
   $('#chatKey').textContent = key;
@@ -1985,6 +1982,10 @@ function renderDecisions() {
   const dbox = $('#decisions');
   if (document.activeElement && dbox.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) { renderResolved(); return; }
   const pending = (STATE.decisions?.pending || []).filter(scopeVisible);
+  // uma leitura só pra toda a renderização: os cards desta passada têm que
+  // enxergar o MESMO mapa de pessoas, senão um SSE no meio do map faria dois
+  // cards da mesma tela discordarem sobre o papel de alguém
+  const people = peopleOf();
   const wrap = $('#decisionsWrap');
   wrap.hidden = pending.length === 0;
   $('#decisionsCount').textContent = pending.length;
@@ -2002,7 +2003,7 @@ function renderDecisions() {
         <span class="dec-when" title="${esc(fmtStamp(d.createdAt))}">${esc(fmtWhenDay(d.createdAt))}</span>
       </div>
       ${d.pr?.title ? `<div class="dec-title">${esc(d.pr.title)}</div>` : ''}
-      ${author ? `<div class="dec-author">PR de ${personMention(author, 'xs')} ${papelPicker(author)}</div>` : ''}
+      ${author ? `<div class="dec-author">PR de ${personMention(author, 'xs')} ${papelPicker(author, people)}</div>` : ''}
       ${(d.reasons || []).length ? `<ul class="dec-reasons">${d.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
       ${d.blockedReason ? `<div class="dec-blocked">🚫 <span><b>Bloqueado:</b> ${esc(d.blockedReason)}</span></div>` : ''}
       <details class="dec-report"><summary>Ver relatório completo</summary><div class="report">${md(d.reportMarkdown)}</div></details>
@@ -2010,7 +2011,7 @@ function renderDecisions() {
         <button class="btn primary sm dec-act" data-action="approve">Aprovar</button>
         <button class="btn sm dec-act dec-rc" data-action="request_changes">Pedir mudanças</button>
         <button class="btn sm dec-act" data-action="comment">Só comentar</button>
-        <button class="btn sm act-chat" data-key="${esc(d.key)}" data-url="${esc(d.pr?.url || '')}">💬 Conversar${chatBadge(d.key)}</button>
+        <button class="btn sm act-chat" data-key="${esc(d.key)}" data-url="${esc(d.pr?.url || '')}">💬 Conversar${chatBadge(d.key, STATE?.chats)}</button>
         <button class="btn sm ghost dec-act" data-action="skip">Pular</button>
       </div>
     </div>`;
@@ -2047,7 +2048,7 @@ function renderResolved() {
   $('#resolved').innerHTML = resolved.map(r => resolvedRow(r, {
     pushbacks,
     chip: acctMark(r).chip,
-    chatBadge: chatBadge(r.key)
+    chatBadge: chatBadge(r.key, STATE?.chats)
   })).join('');
 }
 
@@ -2057,6 +2058,7 @@ function renderQueue() {
   const qbox = $('#queue');
   if (document.activeElement && qbox.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
   const q = (STATE.queue || []).filter(scopeVisible);
+  const people = peopleOf();   // idem renderDecisions: um mapa só pra toda a passada
   $('#queueCount').hidden = q.length === 0;
   $('#queueCount').textContent = q.length;
   const btnAll = $('#btnReviewAll');
@@ -2099,7 +2101,7 @@ function renderQueue() {
       <div class="info">
         <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}${pr.isDraft ? '<span class="badge">rascunho</span>' : ''}${pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : ''}</div>
         <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
-        <div class="pr-sub">${personMention(pr.author, 'xs')} · atualizado ${fmtRel(pr.updatedAt)}${pr.author ? ` ${papelPicker(pr.author)}` : ''}</div>
+        <div class="pr-sub">${personMention(pr.author, 'xs')} · atualizado ${fmtRel(pr.updatedAt)}${pr.author ? ` ${papelPicker(pr.author, people)}` : ''}</div>
       </div>
       <div class="pr-actions">
         <button class="btn primary sm act-review" data-url="${esc(pr.url)}">Revisar</button>
@@ -2201,7 +2203,7 @@ function renderPanorama() {
       <div class="pw-side">
         <span class="pw-when">${fmtRel(pr.updatedAt)}</span>
         <div class="pw-acts">
-          <button class="btn icon sm ghost act-chat" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" title="Conversar com o Claude sobre este PR" aria-label="Conversar sobre este PR">💬${chatBadge(pr.key)}</button>
+          <button class="btn icon sm ghost act-chat" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" title="Conversar com o Claude sobre este PR" aria-label="Conversar sobre este PR">💬${chatBadge(pr.key, STATE?.chats)}</button>
           ${tail}
           <button class="btn icon sm ghost rr-copy" data-url="${esc(pr.url)}" data-key="${esc(pr.key)}" title="Copiar a URL do PR" aria-label="Copiar a URL do PR">⧉</button>
           <a class="btn icon sm ghost" href="${esc(pr.url)}" target="_blank" rel="noreferrer" title="Abrir no GitHub" aria-label="Abrir no GitHub">↗</a>
@@ -2995,28 +2997,11 @@ async function loadHighlights() {
   }
 }
 
-/* ---------- perfil de review por pessoa: papel + matriz por domínio ----------
-   Molda o TOM e a POSTURA da revisão automática, nunca a decisão. */
-const PAPEL_OPTS = [['', 'papel'], ['estagio', 'Estágio'], ['junior', 'Júnior'], ['pleno', 'Pleno'], ['senior', 'Sênior'], ['techlead', 'Tech Lead'], ['arquiteto', 'Arquiteto'], ['especialista', 'Especialista']];
-const DOMAIN_DEFS = [['backend', 'Backend'], ['frontend', 'Frontend'], ['dados', 'Dados'], ['infra', 'Infra']];
-const DOMLEVEL_OPTS = [['', 'sem info'], ['basico', 'Básico'], ['intermediario', 'Interm.'], ['avancado', 'Avançado'], ['autoridade', 'Autoridade']];
-function personOf(login) { return ((STATE.config && STATE.config.people) || {})[String(login || '').toLowerCase()] || {}; }
-function papelOf(login) { return personOf(login).papel || ''; }
-function domLevelOf(login, d) { return (personOf(login).dominios || {})[d] || ''; }
-// papel (compacto): usado nos cards do PR e no cabeçalho do card do time
-function papelPicker(login) {
-  return `<select class="papel-level" data-login="${esc(login)}" title="Papel de @${esc(login)}: molda o tom da revisão automática, nunca a decisão">
-    ${PAPEL_OPTS.map(([v, t]) => `<option value="${v}"${papelOf(login) === v ? ' selected' : ''}>${t}</option>`).join('')}
-  </select>`;
-}
-// matriz por domínio (só na aba Time): competência por área calibra a postura
-function domainMatrix(login) {
-  return `<div class="dom-matrix">${DOMAIN_DEFS.map(([d, label]) => `
-    <label class="dom-cell"><span class="dom-name">${label}</span>
-      <select class="dom-level" data-login="${esc(login)}" data-domain="${d}" title="Competência de @${esc(login)} em ${label}">
-        ${DOMLEVEL_OPTS.map(([v, t]) => `<option value="${v}"${domLevelOf(login, d) === v ? ' selected' : ''}>${t}</option>`).join('')}
-      </select></label>`).join('')}</div>`;
-}
+/* ---------- perfil de review por pessoa ----------
+   As puras (personOf, papelOf, domLevelOf, papelPicker, domainMatrix e as três
+   tabelas de opções) foram pra pure.js na onda 5. Aqui fica só o atalho que
+   resolve o mapa de pessoas do STATE, que é justamente o que não pode viajar. */
+const peopleOf = () => (STATE.config && STATE.config.people) || {};
 
 /* ---------- render: time (separado por conta) ---------- */
 async function loadTeam() {
@@ -3026,6 +3011,7 @@ async function loadTeam() {
   const team = (await get('/api/team')) || [];
   closeOp(opId, 'done');
   const multi = multiAccount();
+  const people = peopleOf();   // idem renderDecisions: um mapa só pra toda a passada
   // conta de uma entrada: pelo owner do ref (owner/repo#num); antigo (só nome) = sem conta
   const entryUser = e => { const ref = e.ref || ''; const owner = ref.includes('/') ? ref.split('/')[0] : ''; return owner ? (OWNER2USER[owner.toLowerCase()] || '') : ''; };
   const refShort = ref => (ref.includes('/') ? ref.split('/').slice(1).join('/') : ref);
@@ -3046,12 +3032,12 @@ async function loadTeam() {
           <div class="login">${personMention(m.login, 'xs', true)} · ${entries.length} review(s) registrados</div>
         </div>
         ${verdictChip}
-        ${papelPicker(m.login)}
+        ${papelPicker(m.login, people)}
         <button class="btn sm ghost member-remove" data-login="${esc(m.login)}" title="Remover @${esc(m.login)} do Time (apaga a memória local sobre a pessoa; pede confirmação)">Remover</button>
       </div>
       <div class="member-profile">
         <span class="mp-label">Competência por domínio</span>
-        ${domainMatrix(m.login)}
+        ${domainMatrix(m.login, people)}
       </div>
       <div class="member-entries">${es}</div>
     </div>`;
@@ -3319,13 +3305,6 @@ function cfgDefaults() { return (STATE.config || {}).defaultReviewers || {}; }
 function cfgProjects() { return (STATE.config || {}).projectReviewers || {}; }
 function defaultFor(org) { const d = cfgDefaults(); return d[org] || d[(org || '').toLowerCase()] || []; }
 function overrideFor(repo) { const p = cfgProjects(); return p[repo] || p[(repo || '').toLowerCase()] || null; }
-function reviewerLabel(rv) {
-  const isTeam = rv.includes('/');
-  const ent = isTeam && rv.split('/').slice(1).join('/').includes(':');
-  if (ent) return { label: `${rv.split('/').pop()} (enterprise, não pedível)`, cls: 'bad', ent: true };
-  if (isTeam) { const org = rv.split('/')[0]; const t = ((reviewerCands[org] || {}).teams || []).find(t => t.id === rv); return { label: (t ? t.name : rv.split('/').pop()) + ' (time)', cls: 'team' }; }
-  return { label: rv, cls: '' };
-}
 function reposOfOrg(org) {
   const o = String(org).toLowerCase(), set = new Set();
   const add = k => { const r = String(k || ''); if (r.split('/')[0].toLowerCase() === o) set.add(r); };
@@ -3343,10 +3322,6 @@ function suggestDefault(org) {
   for (const list of lists) for (const rv of new Set(list)) { const k = rv.toLowerCase(); count[k] = (count[k] || 0) + 1; rep[k] = rv; }
   const th = Math.ceil(lists.length / 2);
   return Object.keys(count).filter(k => count[k] >= th).map(k => rep[k]).sort();
-}
-function chipHtml(rv, xClass, dataAttrs) {
-  const r = reviewerLabel(rv);
-  return `<span class="rev-chip${r.cls ? ' ' + r.cls : ''}" ${r.ent ? 'title="Time enterprise não pode ser reviewer de PR (o GitHub recusa). Remova daqui."' : ''}>${esc(r.label)}<button class="${xClass}" ${dataAttrs} title="remover">×</button></span>`;
 }
 // seletor de adicionar reviewer, SÓ com os candidatos da org. Quando a org não
 // tem membros enumeráveis (ex.: conta pessoal, namespace sem org no GitHub), cai
@@ -3413,7 +3388,7 @@ function renderOrgBlock(org, accent) {
   // card do padrão
   let defCard;
   if (def.length) {
-    const chips = def.map(rv => chipHtml(rv, 'rev-def-x', `data-org="${esc(org)}" data-rv="${esc(rv)}"`)).join('');
+    const chips = def.map(rv => chipHtml(rv, 'rev-def-x', `data-org="${esc(org)}" data-rv="${esc(rv)}"`, reviewerCands)).join('');
     defCard = `<div class="rev-default">
       <div class="rev-default-top"><span class="t">Reviewers padrão</span><span class="scope">${esc(org)}</span></div>
       <div class="rev-chips">${chips}${addControl('rev-def-add', `data-org="${esc(org)}"`, def, org)}</div>
@@ -3421,7 +3396,7 @@ function renderOrgBlock(org, accent) {
     </div>`;
   } else {
     const sug = suggestDefault(org);
-    const sugChips = sug.map(rv => `<span class="rev-chip ghost">${esc(reviewerLabel(rv).label)}</span>`).join('');
+    const sugChips = sug.map(rv => `<span class="rev-chip ghost">${esc(reviewerLabel(rv, reviewerCands).label)}</span>`).join('');
     defCard = `<div class="rev-default empty">
       <div class="rev-default-top"><span class="t">Reviewers padrão</span><span class="scope">${esc(org)}</span></div>
       ${sug.length
@@ -3437,7 +3412,7 @@ function renderOrgBlock(org, accent) {
   const excHtml = excRepos.map(repo => {
     const list = overrideFor(repo) || (pendingExc.has(repo) ? [...def] : []);
     if (openExceptions.has(repo)) {
-      const chips = list.map(rv => chipHtml(rv, 'rev-exc-x', `data-repo="${esc(repo)}" data-rv="${esc(rv)}"`)).join('');
+      const chips = list.map(rv => chipHtml(rv, 'rev-exc-x', `data-repo="${esc(repo)}" data-rv="${esc(rv)}"`, reviewerCands)).join('');
       return `<div class="rev-exc open" data-repo="${esc(repo)}">
         <div class="rev-exc-head"><code>${esc(repoShort(repo))}</code>
           <button class="rev-exc-reset" data-repo="${esc(repo)}" title="remover a exceção e voltar ao padrão da org">voltar ao padrão</button>
@@ -3447,9 +3422,9 @@ function renderOrgBlock(org, accent) {
     }
     const d = diffVs(def, list);
     const pills = '<span class="rev-pill base">padrão</span>'
-      + d.added.map(x => `<span class="rev-pill add">+ ${esc(reviewerLabel(x).label)}</span>`).join('')
-      + d.removed.map(x => `<span class="rev-pill rem">− ${esc(reviewerLabel(x).label)}</span>`).join('');
-    return `<div class="rev-exc" data-repo="${esc(repo)}"><code>${esc(repoShort(repo))}</code><div class="rev-diff">${def.length ? pills : list.map(x => `<span class="rev-pill add">${esc(reviewerLabel(x).label)}</span>`).join('')}</div><button class="rev-exc-toggle" data-repo="${esc(repo)}">editar</button></div>`;
+      + d.added.map(x => `<span class="rev-pill add">+ ${esc(reviewerLabel(x, reviewerCands).label)}</span>`).join('')
+      + d.removed.map(x => `<span class="rev-pill rem">− ${esc(reviewerLabel(x, reviewerCands).label)}</span>`).join('');
+    return `<div class="rev-exc" data-repo="${esc(repo)}"><code>${esc(repoShort(repo))}</code><div class="rev-diff">${def.length ? pills : list.map(x => `<span class="rev-pill add">${esc(reviewerLabel(x, reviewerCands).label)}</span>`).join('')}</div><button class="rev-exc-toggle" data-repo="${esc(repo)}">editar</button></div>`;
   }).join('');
 
   // colapsado: projetos que seguem o padrão
