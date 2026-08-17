@@ -443,6 +443,44 @@ duplicada, mesmo dizendo coisas diferentes (travado em `ui-pure.test.js`).
 Config que só o usuário sabe preencher e cujo vazio produz SILÊNCIO (não erro)
 é candidata a check; config com default seguro não é.
 
+## Governança do repositório público (17/08/2026)
+
+O repo é público desde sempre, mas até 17/08/2026 estava sem CI, sem proteção de branch e
+com a aba de segurança inteiramente desligada. O que existe agora:
+
+**CI (`.github/workflows/ci.yml`).** `npm run check`, `npm run lint` e `npm test` em todo
+push na `main` e em todo PR, numa matriz Linux + Windows + macOS. Não roda `npm install`:
+a suíte usa o runner nativo e o Electron só serve pra abrir a janela. O job agregador
+**`ci`** é o único status check exigido pela proteção, então dá pra mexer na matriz sem
+reconfigurar a regra. O macOS na matriz é a única validação contínua do caminho POSIX
+(ver a seção "macOS: estado real"): rodada inteira em menos de 1 minuto.
+
+**Proteção da `main`** (ruleset `main protegida`, não branch protection clássica): PR
+obrigatório com resolução de conversa, `ci` verde e branch atualizada, force push e
+deleção bloqueados. **Bypass pra Repository admin**, de propósito: o checklist de release
+manda commitar e dar push direto na `main`, e sem o bypass a publicação travaria. A
+consequência honesta é que a disciplina do mantenedor continua sendo o gate do próprio
+push (o `npm run check && npm test` do passo 2), com a rodada de CI na `main` como
+testemunha visível. Pra fechar de vez, é remover `bypass_actors` do ruleset e passar a
+publicar release por PR.
+
+**Tags `v*`** (ruleset `tags de release`): deleção e reescrita bloqueadas, **sem bypass**.
+A cadeia de auto-update lê release do GitHub, então tag publicada é imutável. Republicar
+com `FAROL_REPUBLISH=1` continua funcionando (atualiza notas e anexos, não mexe na tag).
+Se algum dia precisar mesmo apagar uma tag, desative o ruleset, apague, reative.
+
+**Segurança**: secret scanning com push protection (bloqueia commit que carregue token,
+que é a mesma preocupação da auditoria do `make-package.ps1`, só que uma camada antes),
+Dependabot com alertas e correções automáticas, CodeQL pelo setup padrão, e relato privado
+de vulnerabilidade ligado. A política e o modelo de ameaça estão em `.github/SECURITY.md`,
+inclusive o que é **fora de escopo** (a credencial na sessão do Claude, os binários sem
+assinatura, a automação opt-in). Reportar coisa fora de escopo não vira correção.
+
+**Perfil da comunidade**: `.github/CONTRIBUTING.md`, `.github/CODE_OF_CONDUCT.md`,
+`.github/SECURITY.md`, `.github/PULL_REQUEST_TEMPLATE.md` e dois templates de issue
+(`bug.yml`, `melhoria.yml`). O CONTRIBUTING repete os 7 invariantes desta seção acima de
+propósito: quem chega de fora não lê o `CLAUDE.md` primeiro.
+
 ## Versionamento (regras firmes; houve erro demais aqui)
 
 Pedido explícito do Wanderson (10/08/2026) depois de erros REAIS acumulados:
@@ -519,7 +557,7 @@ Verde nos dois é pré-requisito. Não publique com teste vermelho.
 ### 3. Commit e push
 
 - [ ] Commit com mensagem descritiva (ex.: `chore: release v2.27.0`).
-- [ ] Push pra `main`.
+- [ ] Push pra `main`. Desde 17/08/2026 o `origin` aponta pro alias SSH da conta pessoal (`git@github-pessoal:wandersonaadsantos/farol.git`, definido no `~/.ssh/config`), então o **push** não depende mais da conta ativa do `gh` e o 403 crônico descrito abaixo deixou de acontecer nesse passo. A `main` é protegida por ruleset, mas o Repository admin tem bypass, então o push direto continua passando. O que continua dependendo da conta ativa é a **release** (passo 4), que usa a API.
 - [ ] **Conta do gh**: o repo é `wandersonaadsantos/farol`, então o push e a release têm que sair pela conta DONA do repo, não pela conta de trabalho (que costuma ser a ativa e devolve 403). Confira com `gh auth status` e, se precisar, `gh auth switch --user wandersonaadsantos`. **Confira de novo IMEDIATAMENTE antes de rodar o `publish-release.ps1`, num comando só com ele:** a conta ativa do `gh` mora no keyring e já foi observada revertendo entre um comando e o outro na mesma sessão. Em 01/08/2026 isso derrubou a publicação da v2.29.0 no meio: o push passou, os dois artefatos foram construídos, e só o `gh release create` falhou (o erro que aparece é um `gh auth refresh ... -s workflow`, que engana, porque o problema é a conta e não o escopo). Rodar de novo com a conta certa resolve, e o script é idempotente. **Não escreva o login da conta de trabalho neste arquivo**: o `CLAUDE.md` vai dentro do zip de distribuição e a auditoria do `make-package.ps1` reprova o pacote se achar (invariante 7).
 
 ### 4. Publicar a release
