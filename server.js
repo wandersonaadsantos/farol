@@ -88,6 +88,11 @@ const DEFAULTS = {
   // pelo gh que todo usuario ja tem. So vale quando NAO ha fonte local (a pasta
   // ~/Documents/farol tem precedencia, pro fluxo de dev do mantenedor).
   updateRepo: 'wandersonaadsantos/farol',
+  // aplica sozinho o update REMOTO (canal 'remote') assim que o app fica ocioso
+  // (nenhuma analise, chat ou sessao de terminal rodando), sem precisar de clique.
+  // Default LIGADO desde a v2.46.0; desligue em Sistema > Automacao pra voltar ao
+  // clique manual de sempre. Canal local (fluxo de dev) nunca auto-aplica.
+  autoUpdate: true,
   port: DEFAULT_PORT,
   // repos onde o botao Merge (Meus PRs) fica desativado, respeitando regras de
   // review do time (ex.: nunca self-merge no biud-frontend). Editavel em Sistema.
@@ -249,6 +254,7 @@ class Engine extends EventEmitter {
     this.timer = null;
     this.checking = false;
     this.updateApplying = false; // "Atualizar agora" em andamento (guarda de clique duplo; só memória)
+    this.autoUpdateFailedAt = 0; // hora da última falha REAL de auto-update (backoff); memória, não persiste
     this.gitBash = detectGitBash();
 
     this.prepareHome();
@@ -635,8 +641,12 @@ class Engine extends EventEmitter {
       // pushback automático: contestação do autor a um review meu (fire-and-forget:
       // roda em background pra não segurar a checagem, com guarda anti-concorrência)
       this.scanPushbacks().catch(e => this.log('WARN', `scanPushbacks: ${e.message}`));
-      // atualizacao (releases do GitHub pras copias distribuidas) a cada ciclo
-      this.checkUpdate().catch(() => {});
+      // atualizacao (releases do GitHub pras copias distribuidas) a cada ciclo; depois de
+      // detectar, tenta aplicar sozinho quando ocioso (v2.46.0, maybeAutoUpdate). Fire-and-
+      // forget dos dois: nao segura o ciclo, e falha vira WARN, nunca derruba o polling.
+      this.checkUpdate()
+        .then(() => updateMod.maybeAutoUpdate(this))
+        .catch(e => this.log('WARN', `auto-update: ${e.message}`));
       // créditos do Sistema > Sobre (contribuidores do repo): TTL de 24h interno,
       // então na prática só roda 1x por dia; fire-and-forget como o pushback
       this.refreshContributors().catch(e => this.log('WARN', `créditos: ${e.message}`));
@@ -1286,7 +1296,7 @@ class Engine extends EventEmitter {
     const allowed = ['ghUser', 'owners', 'accounts', 'intervalSeconds', 'autoReview', 'autoApproveAll', 'parallelReviews', 'skipPermissions',
       'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos',
       'projectReviewers', 'defaultReviewers', 'people', 'claudeConfigDir', 'claudeProfiles', 'claudeProfileId',
-      'reviewModel', 'reviewEffort', 'autoPushback', 'debugSpawns'];
+      'reviewModel', 'reviewEffort', 'autoPushback', 'debugSpawns', 'autoUpdate'];
     let intervalChanged = false, userChanged = false;
     for (const k of allowed) {
       if (!(k in patch)) continue;
@@ -1312,6 +1322,7 @@ class Engine extends EventEmitter {
       if (k === 'parallelReviews') { const s = sanitizeParallelReviews(v); v = (s === null) ? this.config.parallelReviews : s; }
       if (k === 'autoPushback') v = !!v;
       if (k === 'debugSpawns') v = !!v;
+      if (k === 'autoUpdate') v = v !== false; // default LIGADO: só desliga com valor estritamente false
       if (k === 'accounts') {
         v = parseAccounts(v);
         // só re-autentica se as CONTAS (user/owners) mudaram; editar rótulo, cor,

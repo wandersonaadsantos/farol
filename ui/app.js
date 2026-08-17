@@ -2909,9 +2909,13 @@ function renderUpdate() {
   box.classList.toggle('avail', !!u.available);
   box.classList.toggle('ok-state', !u.available && hasChannel && !noAccess);
   if (u.available) {
+    const autoOn = remote && STATE.config?.autoUpdate !== false;
+    const noteAuto = autoOn
+      ? `Atualização disponível ${'nas ' + origin}. Com "Atualizar sozinho" ligado (Sistema > Automação), o Farol aplica sozinho assim que ficar ocioso (sem análise, chat ou terminal em andamento), fecha e reabre preservando estado e configurações. O botão abaixo aplica agora, sem esperar.`
+      : `Atualização disponível ${remote ? 'nas ' + origin : 'na ' + origin}. O Farol ${remote ? 'baixa e instala, ' : ''}fecha e reabre sozinho, preservando estado e configurações.`;
     box.innerHTML = `
       <span class="up-ver">v${esc(u.current)} → v${esc(u.sourceVersion)}</span>
-      <span class="up-note">Atualização disponível ${remote ? 'nas ' + origin : 'na ' + origin}. O Farol ${remote ? 'baixa e instala, ' : ''}fecha e reabre sozinho, preservando estado e configurações.</span>
+      <span class="up-note">${noteAuto}</span>
       <button id="btnUpdateNow" class="btn primary sm">Atualizar agora</button>`;
     $('#btnUpdateNow').onclick = async () => {
       // confirm() nativo era o último popup fora da identidade do app neste fluxo
@@ -3141,6 +3145,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.46.0', ['O Farol agora se atualiza sozinho: com uma atualização disponível nas releases do GitHub, ele aplica sozinho assim que nenhuma análise, chat ou sessão de terminal estiver rodando (espera terminar o que está em andamento, depois baixa, instala, fecha e reabre preservando estado e configurações). O botão "Atualizar agora" continua funcionando igual pra aplicar na hora. Desligue em Sistema > Automação (toggle "Atualizar sozinho") pra voltar ao clique manual.']],
   ['2.45.1', ['Migração pra ESM puro: todo arquivo .js é agora módulo nativo (zero CommonJS), a validação de sintaxe passa a usar node --check, e engines declarado >=22.12 (abaixo disso o require/interop de ESM nos fluxos de teste não é confiável). O código perdeu o truque de carga dupla da UI e ficou mais limpo.', 'Gate de qualidade automático com ratchet: npm run lint compara o código atual contra a baseline gravada, monitora 10 regras (tamanho de arquivo, catch vazio, var, JSON.parse cru, JSON.stringify cru, process.env direto, ternário aninhado, tempo mágico, porta literal e profundidade excedida, com a referência de card como checagem irmã separada), e reprova regressão em qualquer uma. Extração e refino deste ciclo: check() de 297 pra 74 linhas, handler de sessão achatado, e reduções em portaLiteral (6→0), processEnvDireto (19→11), jsonParseCru (32→26), emptyCatch (20→17), tempoMagico (12→10) e profundidadeExcedida (87→82).']],
   ['2.45.0', ['Suporte experimental a Linux: o Farol agora instala (installer/install-linux.sh), abre pelo menu de aplicativos (.desktop), monitora, revisa e se atualiza num Linux ou WSL. Sessões de terminal abrem no emulador disponível (x-terminal-emulator, gnome-terminal, konsole ou xterm), com aviso claro se nenhum existir. Validado num Ubuntu real (WSL): suíte completa verde e app instalado abrindo com o engine no ar. Fora do escopo por enquanto: bandeja, autostart e instalador offline no Linux.']],
   ['2.44.3', ['Revisão completa de suporte a Windows e macOS (auditoria em 4 frentes). No mac: sessão de terminal não fica mais presa quando a porta não está no config, conta sem token aborta com aviso em vez de agir na conta errada, console de login não herda token do profile, instalador offline e auto-update não exigem mais Node, e a validação da instalação confere o binário que o app realmente executa. No Windows: o update passou a remover arquivos que a versão nova deletou, e o desinstalador agora acompanha a instalação. Atalhos e exemplos da interface mostram Cmd/⌘ no mac e Ctrl no Windows. Auditoria do pacote de release passou a varrer também os scripts de mac, e a suite ganhou 8 testes de plataforma (incluindo o cancelamento de sessão posix com processo real).']],
@@ -3578,6 +3583,7 @@ function renderSettings() {
   $('#setAutoReview').checked = !!c.autoReview;
   $('#setAutoApproveAll').checked = c.autoApproveAll !== false;
   $('#setAutoPushback').checked = !!c.autoPushback;
+  $('#setAutoUpdate').checked = c.autoUpdate !== false;
   $('#setDebugSpawns').checked = !!c.debugSpawns;
   $('#setSkipPerms').checked = !!c.skipPermissions;
   $('#setSound').checked = !!c.soundEnabled;
@@ -3900,6 +3906,7 @@ const settingsMap = [
   // radio: o change borbulha até o container, então e.target já é o rádio marcado
   ['#setReviewEffort', 'reviewEffort', el => el.value],
   ['#setAutoPushback', 'autoPushback', el => el.checked],
+  ['#setAutoUpdate', 'autoUpdate', el => el.checked],
   ['#setDebugSpawns', 'debugSpawns', el => el.checked],
   ['#setAutoReview', 'autoReview', el => el.checked],
   ['#setAutoApproveAll', 'autoApproveAll', el => el.checked],

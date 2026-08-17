@@ -1,6 +1,6 @@
 {
   "lib/constants.js": {
-    "tempoMagico": 1
+    "tempoMagico": 2
   },
   "lib/engine/chat.js": {
     "ternarioAninhado": 1,

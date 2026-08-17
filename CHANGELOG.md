@@ -9,6 +9,19 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.46.0
+
+O Farol agora se atualiza sozinho: quando há uma atualização disponível nas releases do
+GitHub, ele aplica sozinho assim que ficar ocioso, sem precisar de clique.
+
+**Novidades**
+- **Auto-update ao ficar ocioso.** Com uma atualização disponível (canal de releases do
+  GitHub), o Farol aplica sozinha assim que não houver nenhuma análise, chat ou sessão de
+  terminal em andamento: ele espera terminar o que está rodando, então baixa, instala,
+  fecha e reabre sozinho, preservando estado e configurações. O botão "Atualizar agora"
+  continua funcionando igual, pra quem quiser aplicar na hora sem esperar. Dá pra desligar
+  em Sistema > Automação (toggle "Atualizar sozinho") e voltar ao clique manual de sempre.
+
 ## v2.45.1
 
 Migração da plataforma de código e gate automático de qualidade, baseado em ratchet,

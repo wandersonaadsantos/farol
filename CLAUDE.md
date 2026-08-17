@@ -545,7 +545,7 @@ O script faz tudo: builda o pacote leve (`dist/farol-vX.Y.Z.zip`, auditado) + in
 | Release GitHub | `tools\publish-release.ps1` | ambos acima + release |
 | Instalador macOS | `tools/make-offline-mac.sh` | `dist/Farol-Instalar-mac.command` |
 
-**Auto-update**: cópias instaladas (>= 1.15.0) leem a última release via `gh` e se atualizam sozinhas no próximo ciclo. Bootstrap: cópias antigas precisam instalar 1.15.0 uma vez (offline).
+**Auto-update**: cópias instaladas (>= 1.15.0) leem a última release via `gh` a cada ciclo de polling (detecção). Desde a v2.46.0, a APLICAÇÃO também é automática: `maybeAutoUpdate` (`lib/engine/update.js`) roda logo depois do `checkUpdate` no `check()` e aplica sozinha quando há update no canal `remote` e o app está ocioso (gate `sessionsBusy`, o mesmo do botão manual). Opt-out em Sistema > Automação (config `autoUpdate: false`) volta ao clique manual. Canal `local` (fluxo de dev do mantenedor) nunca auto-aplica, só pelo botão. Bootstrap: cópias antigas precisam instalar 1.15.0 uma vez (offline).
 
 **Fonte de verdade**: a release do GitHub. O app instalado atualiza só a partir das releases, nunca de código local não mergeado (a menos que `config.updateSource` aponte um caminho explícito).
 

@@ -277,3 +277,105 @@ test('posixInstallerName: mac usa install.sh, linux usa install-linux.sh', () =>
   assert.equal(update.posixInstallerName(true), 'install.sh');
   assert.equal(update.posixInstallerName(false), 'install-linux.sh');
 });
+
+/* ---------- maybeAutoUpdate: aplica sozinho quando ocioso (v2.46.0) ---------- */
+
+function engineOcioso() {
+  const engine = new Engine();
+  engine.update = { current: '0.0.1', channel: 'remote', repo: 'x/y', source: null, sourceVersion: '9.9.9', available: true, checkedAt: Date.now() };
+  return engine;
+}
+
+test('maybeAutoUpdate: ocioso + available + remote + config default aplica sozinho', async () => {
+  const engine = engineOcioso();
+  let chamou = false;
+  const r = await update.maybeAutoUpdate(engine, {
+    applyUpdate: async () => { chamou = true; return { ok: true, from: '0.0.1', to: '9.9.9' }; }
+  });
+  assert.equal(chamou, true, 'applyUpdate injetado foi chamado sem config.autoUpdate definido');
+  assert.equal(r.ok, true);
+});
+
+test('maybeAutoUpdate: skipped "ocupado" quando há sessão viva (sessionsBusy)', async () => {
+  const engine = engineOcioso();
+  engine.activeReviews.set('t1', { id: 't1', mode: 'terminal', keys: ['acme/repo#1'], startedAt: Date.now() });
+  let chamou = false;
+  const r = await update.maybeAutoUpdate(engine, {
+    applyUpdate: async () => { chamou = true; return { ok: true }; }
+  });
+  assert.equal(chamou, false, 'não deve tentar aplicar com sessão ocupada');
+  assert.deepEqual(r, { ok: false, skipped: 'ocupado' });
+});
+
+test('maybeAutoUpdate: skipped "nada" quando canal é local (fluxo de dev)', async () => {
+  const engine = new Engine();
+  engine.update = { current: '0.0.1', channel: 'local', source: '/x', sourceVersion: '9.9.9', available: true, checkedAt: Date.now() };
+  let chamou = false;
+  const r = await update.maybeAutoUpdate(engine, {
+    applyUpdate: async () => { chamou = true; return { ok: true }; }
+  });
+  assert.equal(chamou, false, 'canal local fica no botão, nunca auto-aplica');
+  assert.deepEqual(r, { ok: false, skipped: 'nada' });
+});
+
+test('maybeAutoUpdate: skipped "nada" quando não há update disponível', async () => {
+  const engine = new Engine();
+  engine.update = { current: '0.0.1', channel: 'remote', repo: 'x/y', source: null, sourceVersion: null, available: false, checkedAt: Date.now() };
+  const r = await update.maybeAutoUpdate(engine, { applyUpdate: async () => ({ ok: true }) });
+  assert.deepEqual(r, { ok: false, skipped: 'nada' });
+});
+
+test('maybeAutoUpdate: skipped "desligado" quando config.autoUpdate === false', async () => {
+  const engine = engineOcioso();
+  engine.config.autoUpdate = false;
+  let chamou = false;
+  const r = await update.maybeAutoUpdate(engine, {
+    applyUpdate: async () => { chamou = true; return { ok: true }; }
+  });
+  assert.equal(chamou, false);
+  assert.deepEqual(r, { ok: false, skipped: 'desligado' });
+});
+
+test('maybeAutoUpdate: falha real entra em backoff, segunda chamada é skipped "backoff"', async () => {
+  const engine = engineOcioso();
+  const r1 = await update.maybeAutoUpdate(engine, {
+    applyUpdate: async () => ({ ok: false, error: 'algumacoisa' })
+  });
+  assert.equal(r1.ok, false);
+  assert.ok(Number.isFinite(engine.autoUpdateFailedAt) && engine.autoUpdateFailedAt > 0,
+    'falha real grava o carimbo de backoff');
+  let chamou = false;
+  const r2 = await update.maybeAutoUpdate(engine, {
+    applyUpdate: async () => { chamou = true; return { ok: true }; }
+  });
+  assert.equal(chamou, false, 'segunda tentativa logo em seguida é barrada pelo backoff');
+  assert.deepEqual(r2, { ok: false, skipped: 'backoff' });
+});
+
+test('maybeAutoUpdate: falha por BUSY_ERROR NÃO entra em backoff (corrida esperada)', async () => {
+  const engine = engineOcioso();
+  const r = await update.maybeAutoUpdate(engine, {
+    applyUpdate: async () => ({ ok: false, error: update.BUSY_ERROR })
+  });
+  assert.equal(r.ok, false);
+  assert.equal(engine.autoUpdateFailedAt, 0, 'BUSY_ERROR é corrida esperada, não backoff');
+});
+
+test('maybeAutoUpdate: updateApplying volta a false no finally mesmo com applyUpdate lançando', async () => {
+  const engine = engineOcioso();
+  await assert.rejects(() => update.maybeAutoUpdate(engine, {
+    applyUpdate: async () => { throw new Error('boom'); }
+  }));
+  assert.equal(engine.updateApplying, false, 'finally sempre zera a guarda, mesmo em exceção');
+});
+
+test('maybeAutoUpdate: skipped "em-andamento" quando updateApplying já é truthy', async () => {
+  const engine = engineOcioso();
+  engine.updateApplying = true;
+  let chamou = false;
+  const r = await update.maybeAutoUpdate(engine, {
+    applyUpdate: async () => { chamou = true; return { ok: true }; }
+  });
+  assert.equal(chamou, false);
+  assert.deepEqual(r, { ok: false, skipped: 'em-andamento' });
+});
