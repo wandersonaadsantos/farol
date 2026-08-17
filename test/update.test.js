@@ -416,6 +416,18 @@ test('maybeAutoUpdate: autoUpdate false SEM queued segue skipped "desligado"', a
   assert.deepEqual(r, { ok: false, skipped: 'desligado' });
 });
 
+test('maybeAutoUpdate: BUSY na janela pós-consumo RE-ARMA o queued (corrida, não tentativa real)', async () => {
+  const engine = engineOcioso();
+  engine.config.autoUpdate = false;
+  engine.updateQueued = true;
+  const r = await update.maybeAutoUpdate(engine, {
+    applyUpdate: async () => ({ ok: false, error: update.BUSY_ERROR })
+  });
+  assert.equal(r.ok, false);
+  assert.equal(engine.updateQueued, true,
+    'sessão que nasceu durante o download não pode matar o pedido explícito do usuário');
+});
+
 test('maybeAutoUpdate: queued consumido não re-arma sozinho após falha', async () => {
   const engine = engineOcioso();
   engine.config.autoUpdate = false;
