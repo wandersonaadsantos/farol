@@ -1,4 +1,3 @@
-'use strict';
 // Gate de sintaxe do Farol: valida TODO .js do projeto, não uma lista fixa.
 //
 // Antes o `npm run check` era `node --check` em três arquivos escolhidos a dedo
@@ -7,16 +6,25 @@
 // só aparecia quando alguém rodasse a suíte, e num arquivo pouco exercitado podia passar
 // despercebido. Aqui a lista é DESCOBERTA, então módulo novo entra sozinho.
 //
-// Node puro, zero dependências (invariante 1). Usa vm.Script com o mesmo wrapper de
-// função que o CommonJS aplica, que é exatamente o que `node --check` faz: parseia sem
-// executar nada.
-const fs = require('fs');
-const path = require('path');
-const vm = require('vm');
+// Node puro, zero dependências (invariante 1). Usa `node --check` por processo filho
+// (em vez do antigo vm.Script, que era CommonJS e não parseia ESM): respeita o
+// "type": "module" do package.json mais próximo, igual o node faria ao carregar o
+// arquivo de verdade.
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
-const RAIZ = path.join(__dirname, '..');
+const RAIZ = path.join(import.meta.dirname, '..');
 // node_modules e dist não são nossos; .worktrees e scratchpad são scratch local
 const IGNORAR = new Set(['node_modules', 'dist', '.git', '.worktrees', 'scratchpad_test']);
+
+// PENDENTES_ESM: ui/app.js e ui/pure.js ainda são script de browser até o 13d
+// (carregados por <script src>, sem "type": "module" no HTML). Remover este Set
+// e o filtro que o usa quando a Task 13d converter os dois pra módulo nativo.
+const PENDENTES_ESM = new Set([
+  path.join(RAIZ, 'ui', 'app.js'),
+  path.join(RAIZ, 'ui', 'pure.js'),
+]);
 
 function varrer(dir, achados = []) {
   for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -28,7 +36,7 @@ function varrer(dir, achados = []) {
   return achados;
 }
 
-const arquivos = varrer(RAIZ).sort();
+const arquivos = varrer(RAIZ).sort().filter((arq) => !PENDENTES_ESM.has(arq));
 
 // piso anti-vacuidade: se a varredura quebrar e devolver pouca coisa, o gate ficaria
 // verde sem ter checado nada. Bem abaixo do que existe hoje, mas alto pra denunciar.
@@ -41,14 +49,10 @@ if (arquivos.length < PISO) {
 
 const falhas = [];
 for (const arq of arquivos) {
-  const codigo = fs.readFileSync(arq, 'utf8');
   try {
-    // mesmo wrapper do CommonJS: sem ele um `return` de topo (válido em módulo)
-    // seria reportado como erro que o node --check não daria
-    new vm.Script(`(function (exports, require, module, __filename, __dirname) {${codigo}\n});`,
-      { filename: arq, produceCachedData: false });
+    execFileSync(process.execPath, ['--check', arq], { stdio: 'pipe' });
   } catch (e) {
-    falhas.push({ arq: path.relative(RAIZ, arq), msg: e.message });
+    falhas.push({ arq: path.relative(RAIZ, arq), msg: String(e.stderr || e.message).split('\n')[0] });
   }
 }
 
