@@ -422,10 +422,18 @@ test('navegação interna tem UM handler só, delegado, e entende os 3 tipos', (
 });
 
 test('toda menção com data-goto é anunciada como botão (role + tabindex)', () => {
-  const alvos = [...APPJS.matchAll(/data-goto="[^"]*"/g)].length + [...HTML.matchAll(/data-goto="[^"]*"/g)].length;
+  // O pure.js entra na varredura desde a onda 5: os emissores de data-goto foram
+  // saindo do app.js junto com as funções puras (hoje são mais lá do que aqui), e
+  // um contrato de acessibilidade que só olha o arquivo de origem vira cego assim
+  // que o código muda de casa. Foi o que aconteceu ao mover o bloco de Consumo: o
+  // piso caiu de 6 pra 5 e o teste reprovou sem que nenhuma menção tivesse perdido
+  // role ou tabindex.
+  const PUREJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'pure.js'), 'utf8');
+  const fontes = [APPJS, HTML, PUREJS];
+  const alvos = fontes.reduce((n, src) => n + [...src.matchAll(/data-goto="[^"]*"/g)].length, 0);
   assert.ok(alvos >= 6, `esperava várias menções navegáveis, achei ${alvos}`);
   // cada emissão de data-goto em elemento não interativo tem role/tabindex junto
-  for (const src of [APPJS, HTML]) {
+  for (const src of fontes) {
     const semRole = [...src.matchAll(/<span[^>]*data-goto="[^"]*"[^>]*>/g)]
       .filter(m => !/role="button"/.test(m[0]) || !/tabindex="0"/.test(m[0]));
     assert.deepEqual(semRole.map(m => m[0].slice(0, 90)), [],

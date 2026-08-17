@@ -634,7 +634,7 @@ export function sessionRefMention(ref, cls = '') {
 export function operationChecks(accounts) {
   const lista = (Array.isArray(accounts) ? accounts : []).filter(a => a && String(a.user || '').trim());
   if (!lista.length) return [];
-  const alvo = u => `sys:accounts:.acct-label[data-user="${String(u).replace(/"/g, '\\"')}"]`;
+  const alvo = u => `sys:accounts:.acct-label[data-user="${escAttrSelector(u)}"]`;
   const checks = lista.map(a => {
     const orgs = (a.owners || []).filter(Boolean);
     if (!orgs.length) {
@@ -846,6 +846,229 @@ export function selfSessionKey(sessions, id) {
 export function sessionProgress(count) {
   const n = Math.max(0, Number(count) || 0);
   return Math.min(90, 5 + Math.round(85 * (1 - Math.exp(-n / 18))));
+}
+
+
+/* Valor de string dentro de seletor de atributo CSS: [data-id="AQUI"].
+   Escapa a barra invertida ANTES da aspa, e a ordem e o ponto: fazendo so a aspa
+   (como era ate a onda 5), um id terminado em barra produz [data-id="a\\"], onde a
+   barra escapa a aspa de fechamento e o seletor inteiro fica invalido. O clique
+   entao nao navega pra lugar nenhum, sem erro visivel. O CSS.escape do navegador
+   resolveria, mas nao existe aqui: o pure.js roda tambem no node --test. */
+export function escAttrSelector(v) {
+  return String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+/* ---------- aba Consumo: os construtores de HTML/SVG ----------
+   Saiu do app.js na onda 5, segundo passo. O bloco inteiro ja era puro: nao lia
+   nenhuma global, so montava string a partir do resumo de uso que o engine manda.
+   O que prendia ele no app.js era a forma, nao o conteudo: cada funcao terminava
+   atribuindo em `el.innerHTML`, entao parecia render de DOM. Separado o build da
+   atribuicao, o app.js fica so com `el.innerHTML = xHtml(...)`.
+
+   Fica de fora, de proposito, o drawUsageTimeline: ele mede `el.clientWidth` e ata
+   listener de mouse, ou seja, precisa do elemento de verdade. O que da pra fazer
+   por ele e o usageTooltipHtml, que ele chama e que veio junto.
+
+   usageMatrixHtml devolve { html, caption } porque a versao antiga escrevia em DOIS
+   lugares (a matriz e a legenda ao lado); um objeto pequeno e o jeito de manter os
+   dois sem devolver o elemento. */
+
+export function fmtMoney(v) { return 'US$ ' + (Number(v) || 0).toFixed(2); }
+
+export function fmtUsageMetric(v, metric) { return metric === 'custo' ? fmtMoney(v) : fmtCompact(v); }
+
+// cor por camada: fixa pro tipo (bate com o mock), ciclica pras outras dimensoes
+// (modelo/conta), que tem quantidade variavel de nomes. _resto (a fatia
+// reconciliada sem detalhamento) e SEMPRE apagado, em qualquer dimensao: e
+// registro antigo, nao pode parecer uma serie de verdade.
+export const USAGE_KIND_COLOR = { review: 'var(--accent)', self: 'var(--info)', chat: 'var(--ok)', tool: '#b394f0', pushback: 'var(--danger)', outro: 'var(--faint)', _resto: 'var(--faint)' };
+export const USAGE_PALETTE = ['var(--accent)', 'var(--info)', 'var(--ok)', '#b394f0', 'var(--danger)', 'var(--faint)'];
+export function usageColorsFor(dim, names) {
+  if (dim === 'kind') return names.map(n => USAGE_KIND_COLOR[n] || 'var(--faint)');
+  return names.map((n, i) => n === '_resto' ? 'var(--faint)' : USAGE_PALETTE[i % USAGE_PALETTE.length]);
+}
+
+export function usageTooltipHtml(day, vals, names, labels, colors, metric, idx, geo, W) {
+  const total = vals.reduce((a, b) => a + b, 0);
+  const leftPct = Math.min(82, Math.max(4, (geo.xs[idx] / W) * 100));
+  const rows = names.map((n, i) => vals[i] > 0 ? `<div class="ut-row"><span class="dot" style="background:${colors[i]}"></span><span>${esc(labels[n] || n)}</span><b>${esc(fmtUsageMetric(vals[i], metric))}</b></div>` : '').join('');
+  return `<div class="usage-tooltip" style="left:${leftPct}%"><div class="ut-head">${esc(day.slice(8, 10))}/${esc(day.slice(5, 7))} · ${esc(fmtUsageMetric(total, metric))}</div>${rows}</div>`;
+}
+
+export function usageKpisHtml(u, win) {
+  const map = {}; for (const d of (u.series || [])) map[d.day] = d;
+  const janela = usageDayKeysBack(win).map(day => map[day]);
+  const anteriorKeys = usageDayKeysBack(win * 2).slice(0, win);
+  const anterior = anteriorKeys.map(day => map[day]);
+  const primeiroDia = (u.series && u.series[0] && u.series[0].day) || null;
+  const comparavel = win * 2 <= ((u.retentionDays) || 120) && !!primeiroDia && primeiroDia <= anteriorKeys[0];
+  const soma = (list, m) => list.reduce((a, d) => a + usageMetricVal(d, m), 0);
+  const curCost = soma(janela, 'custo');
+  const curTok = soma(janela, 'total');
+  const curSess = janela.reduce((a, d) => a + ((d || {}).sessions || 0), 0);
+  const curCache = soma(janela, 'cache');
+  const antCost = comparavel ? soma(anterior, 'custo') : 0;
+  const antTok = comparavel ? soma(anterior, 'total') : 0;
+  const antSess = comparavel ? anterior.reduce((a, d) => a + ((d || {}).sessions || 0), 0) : 0;
+  const hoje = map[usageDayKeysBack(1)[0]] || {};
+  const ontemKey = usageDayKeysBack(2)[0];
+  const ontem = map[ontemKey] || {};
+  const spark14 = usageDayKeysBack(14).map(day => usageMetricVal(map[day], 'custo'));
+
+  const card = (label, big, sub, delta, vals) => {
+    const { line, area } = sparklinePath(vals, 100, 26);
+    return `<div class="usage-kpi">
+      <div class="usage-kpi-head"><span class="usage-kpi-label">${esc(label)}</span>${delta ? `<span class="usage-kpi-delta">${esc(delta)}</span>` : ''}</div>
+      <b>${esc(big)}</b>
+      <span class="usage-kpi-sub">${esc(sub)}</span>
+      <svg viewBox="0 0 100 26" preserveAspectRatio="none" aria-hidden="true" class="usage-kpi-spark">
+        <path d="${area}" fill="var(--accent-soft)"></path>
+        <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="1.5" vector-effect="non-scaling-stroke"></path>
+      </svg>
+    </div>`;
+  };
+
+  // o sub do KPI de tokens declara o cache quando houver: "Tokens" (in+out) nao
+  // inclui cache em nenhum painel, mas o CUSTO inclui o custo do cache, e sem a
+  // linha os dois cartoes vizinhos nao se explicavam (achado da auditoria).
+  const tokSub = `${fmtCompact(soma(janela, 'input'))} in · ${fmtCompact(soma(janela, 'output'))} out`
+    + (curCache > 0 ? ` · ${fmtCompact(curCache)} cache` : '');
+  return [
+    card(`Custo estimado · ${win} dias`, fmtMoney(curCost), `~${fmtMoney(curCost / win)} por dia`, usageDelta(curCost, antCost), janela.map(d => usageMetricVal(d, 'custo'))),
+    card(`Tokens · ${win} dias`, fmtCompact(curTok), tokSub, usageDelta(curTok, antTok), janela.map(d => usageMetricVal(d, 'total'))),
+    card(`Sessões · ${win} dias`, String(curSess), `média de ${(curSess / win).toFixed(1)} por dia`, usageDelta(curSess, antSess), janela.map(d => (d || {}).sessions || 0)),
+    card('Hoje', fmtMoney(usageMetricVal(hoje, 'custo')), `${fmtCompact(usageMetricVal(hoje, 'total'))} tokens · ${hoje.sessions || 0} sessões`, usageDelta(usageMetricVal(hoje, 'custo'), usageMetricVal(ontem, 'custo')), spark14),
+  ].join('');
+}
+
+export function usageMatrixHtml(u, metric, win) {
+  const days = usageDayKeysBack(win);
+  // nomes PROPRIOS da matriz (matrixKindNames/matrixModelNames): incluem _resto
+  // quando algum dia tem fatia sem detalhamento, independente da linha do tempo
+  const kindNames = u.matrixKindNames || u.kindNames || [];
+  const modelNames = u.matrixModelNames || u.modelNames || [];
+  if (!modelNames.length) return { html: '<div class="usage-empty">Sem dados ainda.</div>', caption: '' };
+  const m = usageMatrixRows(u.matrixSeries || [], kindNames, modelNames, days, metric);
+  if (!m.grand) return { html: '<div class="usage-empty">Sem consumo nesta janela.</div>', caption: '' };
+  const caption = metric === 'custo' ? 'custo estimado no período' : 'tokens no período';
+  const kindLabel = k => USAGE_KIND_LABEL[k] || k;
+  const modelLabelOf = mm => mm === '_resto' ? 'Sem detalhamento' : mm;
+  // valor EXATO no title da celula (fmtTok/fmtMoney): as celulas compactadas
+  // (43k) nao somam o proprio total a vista, e o title e onde confere sem ruido
+  const exact = v => metric === 'custo' ? fmtMoney(v) : fmtTok(v);
+  // modelo aposentado nunca some de u.modelNames (byModel, no backend, não tem poda:
+  // é histórico permanente), então sem esse filtro a coluna dele ficava pra sempre na
+  // matriz, zerada. A linha do tempo já faz o equivalente na legenda (totalPorNome[i]
+  // > 0); aqui é a mesma ideia aplicada às colunas (achado da revisão final).
+  const idxAtivos = modelNames.map((_, j) => j).filter(j => m.colTotals[j] > 0);
+  const modelosAtivos = idxAtivos.map(j => modelNames[j]);
+  const cols = `96px repeat(${modelosAtivos.length}, minmax(0,1fr)) 64px`;
+  const head = `<div class="usage-matrix-row head" style="grid-template-columns:${cols}"><span></span>${modelosAtivos.map(mm => `<span class="usage-matrix-hcell">${esc(modelLabelOf(mm))}</span>`).join('')}<span class="usage-matrix-hcell">Total</span></div>`;
+  const rows = m.rows.filter(r => r.total > 0).map(r => `<div class="usage-matrix-row" style="grid-template-columns:${cols}">
+      <span class="usage-matrix-label"><span class="dot" style="background:${USAGE_KIND_COLOR[r.kind] || 'var(--faint)'};width:8px;height:8px;border-radius:2.5px;display:inline-block"></span>${esc(kindLabel(r.kind))}</span>
+      ${idxAtivos.map(j => { const c = r.cells[j]; return `<span class="usage-matrix-cell" style="background:color-mix(in srgb, var(--accent) ${((0.04 + 0.24 * c.intensity) * 100).toFixed(0)}%, transparent)" title="${esc(kindLabel(r.kind))} × ${esc(modelLabelOf(c.model))}: ${esc(exact(c.value))}">${esc(fmtUsageMetric(c.value, metric))}</span>`; }).join('')}
+      <span class="usage-matrix-total" title="${esc(exact(r.total))}">${esc(fmtUsageMetric(r.total, metric))}</span>
+    </div>`).join('');
+  const foot = `<div class="usage-matrix-row foot" style="grid-template-columns:${cols}"><span>Total</span>${idxAtivos.map(j => `<span class="usage-matrix-total" title="${esc(exact(m.colTotals[j]))}">${esc(fmtUsageMetric(m.colTotals[j], metric))}</span>`).join('')}<span class="usage-matrix-grand" title="${esc(exact(m.grand))}">${esc(fmtUsageMetric(m.grand, metric))}</span></div>`;
+  return { html: `<div class="usage-matrix">${head}${rows}${foot}</div>`, caption };
+}
+
+export function usageBudgetHtml(u) {
+  const perfis = (u && u.budgets) || [];
+  if (!perfis.length) return '<div class="usage-empty">Nenhum perfil de Claude configurado ainda.</div>';
+  const meter = (label, spent, cap) => {
+    // cap == null: teto NAO configurado (meter() nem chega a ser chamado nesse caso, ver
+    // abaixo). cap === 0 e um teto valido (lib/parse.js aceita 0), e qualquer gasto acima
+    // de zero ja estoura ele, por isso cap > 0 (que tratava 0 como "sem teto") virava um
+    // sliver vazio e nao vermelho, contradizendo o selo "estourado" do cartao (achado de
+    // review). >= no lugar de > pra bater com o mesmo criterio de profileBudgetStatus
+    // (lib/engine/usage.js), que bloqueia em spent >= cap, nao só spent > cap.
+    // cheio quando ha teto e ele foi batido; sem teto a barra fica em zero. Escrito
+    // em passos porque os tres ternarios encadeados numa linha so contavam como
+    // ternario aninhado no gate de qualidade, e a conta em si nao e obvia.
+    let pct = 0;
+    if (cap != null && cap > 0) pct = Math.min(100, (spent / cap) * 100);
+    else if (cap != null && spent > 0) pct = 100;
+    const over = cap != null && spent >= cap;
+    return `<div class="usage-meter">
+      <div class="usage-meter-row"><span>${esc(label)}</span><span>${esc(fmtMoney(spent))} / ${esc(fmtMoney(cap))}</span></div>
+      <span class="usage-meter-track"><span class="usage-meter-fill${over ? ' over' : ''}" style="width:${Math.max(2, pct).toFixed(0)}%"></span></span>
+    </div>`;
+  };
+  const temChave = perfis.some(p => p.kind === 'apikey');
+  return perfis.map(p => {
+    const isApiKey = p.kind === 'apikey';
+    const statusCls = p.blocked ? 'bad' : 'ok';
+    const statusApi = p.blocked ? 'orçamento estourado' : 'no orçamento';
+    const statusTxt = isApiKey ? statusApi : 'coberto pela assinatura';
+    const medidorDiario = p.budgetDaily != null ? meter('Teto diário', p.today, p.budgetDaily) : '';
+    const medidorTotal = p.budgetTotal != null ? meter('Teto total', p.sinceCutoff, p.budgetTotal) : '';
+    const meters = isApiKey ? medidorDiario + medidorTotal : '';
+    const irAoTeto = `sys:plans:.cp-budget-daily[data-id="${escAttrSelector(p.id)}"]`;
+    // tres casos excludentes, um por linha: sem chave de API, com chave e sem teto,
+    // e com teto batido. A cadeia de ternarios que estava aqui escondia qual deles
+    // ganhava quando mais de um parecia valer.
+    const NOTA_SEM_CHAVE = '<span class="usage-budget-note">Sem teto configurado: o gasto em tokens não vira fatura, só entra no registro.</span>';
+    const NOTA_PAUSADO = '<span class="usage-budget-note">Automação de gasto pausada pra este perfil (revisão automática, retentativa e scan de pushback).</span>';
+    const notaSemTeto = `<span class="usage-budget-note">Nenhum teto definido pra este perfil (<span class="is-goto" data-goto="${esc(irAoTeto)}" role="button" tabindex="0">definir em Sistema → Plano e chaves</span>).</span>`;
+    let nota = '';
+    if (!isApiKey) nota = NOTA_SEM_CHAVE;
+    else if (p.budgetDaily == null && p.budgetTotal == null) nota = notaSemTeto;
+    else if (p.blocked) nota = NOTA_PAUSADO;
+    // o nome do perfil leva ao card DELE em Sistema (o input do nome carrega o
+    // mesmo id; seletor montado aqui porque CSS.escape não existe no pure.js)
+    const alvoPerfil = `sys:plans:.cp-label[data-id="${escAttrSelector(p.id)}"]`;
+    return `<div class="usage-budget-card">
+      <div class="usage-budget-head">
+        <span class="usage-budget-name is-goto" data-goto="${esc(alvoPerfil)}" role="button" tabindex="0" title="Abrir este perfil em Sistema → Plano e chaves">${esc(p.label || p.id)}</span>
+        <span class="usage-budget-kind">${isApiKey ? 'Chave de API' : 'Login por assinatura'}</span>
+        <span class="usage-budget-status ${statusCls}">${esc(statusTxt)}</span>
+      </div>
+      ${meters}
+      ${nota}
+    </div>`;
+  }).join('')
+    // lacuna declarada (auditoria de 10/08): a sessao interativa de terminal usa a
+    // MESMA credencial do perfil, mas o claude interativo nao emite stream-json,
+    // entao esse gasto nao tem como entrar na medicao nem no teto. Sem declarar,
+    // o cartao prometia um teto que um dos caminhos de gasto nunca encontra.
+    + (temChave ? '<span class="usage-budget-note">Sessões interativas no terminal usam a mesma credencial, mas não entram na medição nem no teto: o CLI não reporta o consumo delas ao Farol.</span>' : '');
+}
+
+export function usageSessionsHtml(u) {
+  const lista = u.recentSessions || [];
+  // mensagem curta de proposito: a explicacao completa (o que gera consumo) ja
+  // aparece na linha do tempo, logo acima nesta mesma aba; repetir a frase
+  // inteira aqui so duplicava as mesmas 25 palavras duas vezes na tela.
+  if (!lista.length) return '<div class="usage-empty">Nenhuma sessão ainda.</div>';
+  const head = `<div class="usage-sessions-row head">
+      <span class="usage-sessions-hcell">Quando</span><span class="usage-sessions-hcell">Tipo</span>
+      <span class="usage-sessions-hcell">PR / sessão</span><span class="usage-sessions-hcell">Modelo</span>
+      <span class="usage-sessions-hcell">Farol</span>
+      <span class="usage-sessions-hcell right">Tokens</span><span class="usage-sessions-hcell right">~US$</span>
+      <span class="usage-sessions-hcell right">Estado</span></div>`;
+  const rows = lista.map(s => {
+    const r = usageSessionRow(s);
+    return `<div class="usage-sessions-row">
+      <span class="usage-sessions-when">${esc(r.whenLabel)}</span>
+      <span class="usage-sessions-kind"><span class="dot" style="background:${USAGE_KIND_COLOR[s.kind] || 'var(--faint)'};width:8px;height:8px;border-radius:2.5px;display:inline-block"></span>${esc(r.kindLabel)}</span>
+      ${sessionRefCell(r.ref, 'usage-sessions-ref')}
+      <span class="usage-sessions-model">${esc(r.model)}</span>
+      <span class="usage-sessions-farol"${r.farol === FAROL_PRE_STAMP_LABEL ? ` title="sessão registrada antes da ${FAROL_STAMP_SINCE}, quando o carimbo de versão passou a existir"` : ''}>${esc(r.farol)}</span>
+      <span class="usage-sessions-num">${esc(r.tokLabel)}</span>
+      <span class="usage-sessions-num">${esc(r.costLabel)}</span>
+      <span style="text-align:right"><span class="usage-sessions-st ${r.stClass}">${esc(r.stLabel)}</span></span>
+    </div>`;
+  }).join('');
+  // cobertura declarada: o log individual nasceu na v2.38.0 (10/08/2026); sessoes
+  // anteriores existem SO nos agregados (KPI/linha do tempo/matriz, camada "Sem
+  // detalhamento"). Sem a data, a tabela parecia ser o historico inteiro.
+  const desde = u.sessionsSince ? new Date(u.sessionsSince) : null;
+  const p2 = n => String(n).padStart(2, '0');
+  const desdeTxt = desde ? `Registro individual desde ${p2(desde.getDate())}/${p2(desde.getMonth() + 1)}/${desde.getFullYear()}; sessões anteriores aparecem só nos agregados. ` : '';
+  return `<div class="usage-sessions">${head}${rows}</div>
+    <div class="usage-sessions-foot"><span>${esc(desdeTxt)}Registro permanente, sem botão de zerar.</span><span>Mostrando as ${lista.length} mais recentes</span></div>`;
 }
 
 /* ---------- perfil de review por pessoa: papel + matriz por domínio ----------
