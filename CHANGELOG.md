@@ -20,25 +20,27 @@ que segura a regressão de todas as correções da onda 1.
   do truque de carga dupla que a UI precisava pra rodar em ambos Node (testes)
   e navegador (Electron). O check de sintaxe passa a usar `node --check` em
   subprocesso, em vez de parser customizado, capturando erros reais. Engines
-  declarado: `>=22.12` (suporte a `node --test` e `--check` confiável).
+  declarado: `>=22.12` (abaixo disso o require/interop de ESM nos fluxos de
+  teste não é confiável).
 - **Gate de qualidade por ratchet.** O comando `npm run lint` (rodado antes de
   commitar) compara as violações reais do código contra a baseline gravada em
-  `tools/quality/baseline.json`. Hoje monitora 10 regras: referência de porta
-  criptografada, acesso direto de `process.env`, parse de JSON sem validação,
-  catch vazio, tempo mágico, profundidade de função, ternário aninhado, tamanho
-  de arquivo, stringify de JSON sem validação e referência de card solta na
-  documentação. Violação que regride sai vermelho; liberação de dívida
-  documentada sai verde apenas com `npm run lint:update`. A baseline nunca sobe
-  à mão.
+  `tools/quality/baseline.json`. Hoje monitora 10 regras: tamanho de arquivo,
+  catch vazio, `var`, `JSON.parse` cru, `JSON.stringify` cru, acesso direto de
+  `process.env`, ternário aninhado, tempo mágico, porta literal (escrita na
+  mão fora de `lib/constants.js`) e profundidade de função excedida (a
+  checagem de referência de card solta na documentação é irmã, separada
+  dessas 10, e vive em `higiene.js`). Violação que regride sai vermelho;
+  liberação de dívida documentada sai verde apenas com `npm run lint:update`.
+  A baseline nunca sobe à mão.
 
 **Correções**
 - Redução de violações (baseline da onda 1): portaLiteral 6→0, processEnvDireto
   19→11, jsonParseCru 32→26, emptyCatch 20→17, tempoMagico 12→10,
   profundidadeExcedida 87→82, ternarioAninhado 99→98. Estáveis: maxLines 7,
   jsonStringifyCru 10.
-- Extração e refino: `check()` reduziu de 297 linhas para 74 (pura, testada),
-  handler de sessão achatado com delegação clara aos colaboradores, e
-  `buildFixPrompt` é função pura.
+- Extração e refino: `check()` reduziu de 297 linhas para 74, handler de
+  sessão achatado com delegação clara aos colaboradores, e `buildFixPrompt` é
+  função pura.
 
 ## v2.45.0
 

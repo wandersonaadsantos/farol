@@ -54,7 +54,7 @@ O débito original era o `server.js`: uma classe `Engine` de 3122 linhas fazendo
 | `ui/pure.js` | ~235 | `ui-pure.test.js`, 45 testes |
 | `server.js` | ~1080 | via `boot`, `facades`, e os testes de comportamento |
 | maior módulo de `lib/` (`selfpr.js`) | ~490 | `merge-gates.test.js` |
-| suíte | | 392 testes |
+| suíte | | 1138 testes |
 
 Quem mexer aqui e deixar esses números defasados repete o problema que esta seção teve: o documento afirmava "~2600 linhas com ~120 métodos" muito depois de o `server.js` ter caído para mil.
 
@@ -65,7 +65,7 @@ Regra de cada onda: extrai um pedaço → `grep this.` no módulo novo deve dar 
 ## O gate, em um comando
 
 ```bash
-npm run check && npm test
+npm run check && npm run lint && npm test
 ```
 
 `check` = `tools/check-syntax.js`, que **descobre** todo `.js` do projeto (98 arquivos, ESM nativo desde a migração da fase 13) e valida a sintaxe rodando `node --check` por processo filho em cada um (`execFileSync`, sem `vm.Script`: `node --check` já entende ESM direto, então não precisa de wrapper nenhum). Era uma lista fixa de três arquivos, e por isso os 19 módulos de `lib/` ficavam de fora. `test` = `node --test test/` (a rede). Verde nos dois é pré-requisito de qualquer entrega.
@@ -76,7 +76,7 @@ Os dois testes estruturais da rede trazem **piso anti-vacuidade** (`facades.test
 
 Não existe `AppError` nem classificação central de erro. Há dezenas de `catch` vazios espalhados, alguns com justificativa no comentário ("best-effort", "log nunca derruba o app") e a maioria sem. É a lacuna conhecida deste contrato, e o lugar certo de atacá-la é junto com a Onda 4, não antes.
 
-## Gate de ratchet (v2.46)
+## Gate de ratchet (v2.45.1)
 
 O `lint` é o gate de ratchet do contrato engineering-standards em Node puro (`tools/quality/`): compara as violações com `baseline.json` e reprova qualquer contagem que SUBA. Corrigiu dívida? `npm run lint:update` trava o número mais baixo. A baseline nunca sobe à mão.
 
