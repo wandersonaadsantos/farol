@@ -80,17 +80,41 @@ O débito original era o `server.js`: uma classe `Engine` de 3122 linhas fazendo
      emissores que o `app.js` (5 contra 3), então a varredura passou a incluí-lo: o teste
      ficou mais forte, não só verde.
 
+  **Terceiro passo, ainda no mesmo dia:** o **editor de reviewers** (`defaultFor`,
+  `overrideFor`, `reposOfOrg`, `suggestDefault`, `addControl` e o `renderOrgBlock`, que
+  compõe todos). Diferente dos dois anteriores, aqui não bastava um parâmetro: as funções
+  liam **sete globais** entre config, candidatos e três Sets de estado de tela. Todas só
+  **leem** (quem muta os Sets são os handlers, que ficaram no `app.js`), então entra um
+  `ctx` único, montado uma vez por renderização (`revCtx`) — mesmo motivo do `peopleOf`.
+
+  A extração foi **de baixo pra cima**: primeiro as folhas, e só então o compositor.
+  Tentar o `renderOrgBlock` antes arrastaria as folhas impuras junto. Ficaram de fora o
+  `seedException` (muta os Sets e persiste via API) e o `renderReviewersEditor` (escreve
+  no DOM).
+
+  A comparação com o original cobriu 32 combinações de estado (exceção aberta, pendente,
+  org expandida, candidatos carregados ou não) contra 4 orgs e 4 repos: **768 comparações,
+  zero divergências**. Ela pegou dois erros meus antes do commit — `ctx` usado sem ser
+  declarado no `seedException`, e três chamadas de `addControl` que ficaram sem receber o
+  `ctx`. Os dois são `ReferenceError`/`TypeError` de runtime: `node --check` passa e a
+  suíte passava, porque nada executava o caminho novo.
+
+  Um achado de comportamento ficou registrado em teste em vez de corrigido: o
+  `suggestDefault` usa limiar `ceil(n/2)`, então com **exatamente duas** exceções o limiar
+  vira 1 e qualquer reviewer que apareça numa delas é sugerido. É surpreendente ao ler o
+  nome da função, mas mudar seria decisão de produto, não refactor.
+
   **O que vem depois, e o obstáculo real:** a separação entre render e estado. O `app.js` tem **25 globais mutáveis** espalhados e nenhuma função de boot (tudo é efeito de topo, em ordem de arquivo), então o corte não é mecânico. E há um risco a respeitar: `test/ui-widgets.test.js` fixa **22 corpos de função inteiros** por regex sobre o texto do `app.js`, e mover qualquer um deles faz o `match` devolver `null`. Nenhum dos chamadores deste primeiro passo caía dentro dessas 22 (foi conferido antes de mexer); do próximo em diante, cada extração precisa vir junto com a migração da asserção de texto pra teste real em `pure.js`, que é a direção que o cabeçalho daquele arquivo já defende.
 
 ### Números de hoje (mantenha esta linha viva)
 
 | Arquivo | Linhas | Testes |
 |---|---|---|
-| `ui/app.js` | ~3831 | nenhum que o execute (os 5 que o tocam leem o arquivo como texto) |
-| `ui/pure.js` | ~1545 | `ui-pure.test.js`, 226 testes |
+| `ui/app.js` | ~3750 | nenhum que o execute (os 5 que o tocam leem o arquivo como texto) |
+| `ui/pure.js` | ~1683 | `ui-pure.test.js`, 236 testes |
 | `server.js` | ~1483 | via `boot`, `facades`, e os testes de comportamento |
 | maior módulo de `lib/` (`decision.js`) | ~869 | `decision-envelope.test.js`, `decision-history.test.js` |
-| suíte | | 1239 testes (1232 passando, 7 pulados fora do macOS) |
+| suíte | | 1256 testes (1249 passando, 7 pulados fora do macOS) |
 
 Os cinco que leem o `ui/app.js` do disco: `ui-widgets` (fixa 22 corpos de função por
 regex), `ui-contract` (extrai as rotas `/api/*` e cruza com o `http-server.js`),

@@ -2026,3 +2026,108 @@ test('nenhum seletor de atributo escapa só a aspa (a barra tem que vir junto)',
       `${arq}: use escAttrSelector em vez de escapar só a aspa`);
   }
 });
+
+/* ---------- onda 5, terceiro passo: o editor de reviewers ----------
+   Diferente dos blocos anteriores, aqui não bastava um parâmetro: as funções liam
+   SETE globais entre config, candidatos e três Sets de estado de tela. Todas só
+   LEEM (quem muta os Sets são os handlers, que ficaram no app.js), então entra um
+   ctx único, montado uma vez por renderização.
+
+   A extração foi de baixo pra cima: primeiro as folhas, depois o renderOrgBlock
+   que compõe todas elas. */
+
+const CTX_REV = {
+  defaults: { acme: ['alice', 'acme/plataforma'] },
+  projects: { 'acme/api': ['bob'], 'acme/web': ['alice', 'acme/plataforma'] },
+  cands: { acme: { members: ['alice', 'bob', 'eu'], teams: [{ id: 'acme/plataforma', name: 'Plataforma' }] } },
+  candsLoaded: true,
+  abertas: new Set(), pendentes: new Set(), expandidas: new Set(),
+  prKeys: ['acme/api#1', 'acme/web#2', 'acme/site#3', 'outra/x#4'],
+  owner2user: { acme: 'eu' }, ghUser: 'eu',
+};
+
+test('defaultFor e overrideFor: acham por chave exata e por minúscula', () => {
+  assert.deepEqual(P.defaultFor('acme', CTX_REV), ['alice', 'acme/plataforma']);
+  assert.deepEqual(P.defaultFor('ACME', CTX_REV), ['alice', 'acme/plataforma'], 'org vem do GitHub com a caixa do dono');
+  assert.deepEqual(P.defaultFor('nao-existe', CTX_REV), [], 'sem padrão é lista vazia, nunca undefined');
+  assert.deepEqual(P.overrideFor('acme/api', CTX_REV), ['bob']);
+  assert.equal(P.overrideFor('nao/existe', CTX_REV), null, 'sem exceção é null, que é diferente de lista vazia');
+});
+
+test('defaultFor e overrideFor: ctx sem os mapas não quebra', () => {
+  assert.deepEqual(P.defaultFor('acme', {}), []);
+  assert.equal(P.overrideFor('acme/api', {}), null);
+});
+
+test('reposOfOrg: junta PRs, exceções e pendentes da org, sem repetir e ordenado', () => {
+  const r = P.reposOfOrg('acme', CTX_REV);
+  assert.deepEqual(r, ['acme/api', 'acme/site', 'acme/web']);
+  assert.ok(!r.some(x => x.startsWith('outra/')), 'repo de outra org fica de fora');
+});
+
+test('reposOfOrg: repo pendente entra mesmo sem PR nem exceção salva', () => {
+  // é o caso de criar exceção pra um projeto que ainda não apareceu em lugar nenhum
+  const ctx = { ...CTX_REV, pendentes: new Set(['acme/novo']) };
+  assert.ok(P.reposOfOrg('acme', ctx).includes('acme/novo'));
+});
+
+test('suggestDefault: sugere quem aparece em pelo menos metade das exceções', () => {
+  // o limiar é ceil(n/2), então com 3 listas exige 2, e alice (em 2) passa
+  const tres = { ...CTX_REV, defaults: {},
+    projects: { 'a/1': ['alice'], 'a/2': ['alice'], 'a/3': ['bob'] }, prKeys: ['a/1#1', 'a/2#2', 'a/3#3'] };
+  assert.deepEqual(P.suggestDefault('a', tres), ['alice'], 'bob, em 1 de 3, fica de fora');
+});
+
+test('suggestDefault: com exatamente 2 exceções o limiar vira 1 e tudo é sugerido', () => {
+  // Aresta REAL do ceil(n/2), não intenção: com 2 listas o limiar é 1, então
+  // qualquer reviewer que apareça numa delas entra na sugestão. Fica travado aqui
+  // porque é surpreendente ao ler o nome da função, e porque mudar isso seria
+  // decisão de produto, não refactor. O comportamento é idêntico ao de antes da
+  // extração (provado na comparação com o original).
+  assert.deepEqual(P.suggestDefault('acme', CTX_REV), ['acme/plataforma', 'alice', 'bob']);
+});
+
+test('suggestDefault: com menos de duas exceções não sugere nada', () => {
+  const ctx = { ...CTX_REV, projects: { 'a/1': ['alice'] }, prKeys: ['a/1#1'] };
+  assert.deepEqual(P.suggestDefault('a', ctx), []);
+});
+
+test('addControl: sem candidatos carregados mostra "carregando", não campo vazio', () => {
+  const html = P.addControl('c', 'data-org="acme"', [], 'acme', { ...CTX_REV, candsLoaded: false });
+  assert.match(html, /carregando/);
+});
+
+test('addControl: org sem membros enumeráveis cai no campo de digitar à mão', () => {
+  // conta pessoal ou namespace sem org: o GitHub não lista membros
+  const html = P.addControl('c', 'data-org="x"', [], 'x', CTX_REV);
+  assert.match(html, /rev-manual/);
+  assert.match(html, /digite um handle/);
+});
+
+test('addControl: não oferece quem já está na lista nem você mesmo', () => {
+  const html = P.addControl('c', 'data-org="acme"', ['alice'], 'acme', CTX_REV);
+  assert.doesNotMatch(html, /value="alice"/, 'já está na lista');
+  assert.doesNotMatch(html, /value="eu"/, 'pedir review pra si mesmo não faz sentido');
+  assert.match(html, /value="bob"/);
+  assert.match(html, /value="acme\/plataforma"/);
+});
+
+test('renderOrgBlock: org com padrão mostra o padrão e as exceções', () => {
+  const html = P.renderOrgBlock('acme', 'var(--accent)', CTX_REV);
+  assert.match(html, /rev-chips/);
+  assert.match(html, /acme\/api/, 'o repo com exceção aparece');
+});
+
+test('renderOrgBlock: lista colapsada só abre quando a org está expandida', () => {
+  const fechada = P.renderOrgBlock('acme', 'var(--accent)', CTX_REV);
+  const aberta = P.renderOrgBlock('acme', 'var(--accent)', { ...CTX_REV, expandidas: new Set(['acme']) });
+  assert.doesNotMatch(fechada, /rev-folded-list/);
+  assert.match(aberta, /rev-folded-list/);
+  assert.match(fechada, /rev-fold-toggle/, 'o botão de abrir existe nos dois estados');
+});
+
+test('renderOrgBlock: org sem nada não quebra', () => {
+  const html = P.renderOrgBlock('vazia', 'var(--muted)', { ...CTX_REV, defaults: {}, projects: {}, prKeys: [] });
+  assert.equal(typeof html, 'string');
+  assert.ok(html.length > 0);
+});
