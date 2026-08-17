@@ -192,3 +192,38 @@ test('modelLabel: vazio e família desconhecida', () => {
   assert.equal(modelLabel(null), '');
   assert.equal(modelLabel('gpt-4o'), 'gpt-4o');
 });
+
+/* ---------- modo rápido: o esforço cai na LINHA DE COMANDO, não só no prompt ----------
+   Medido em 17/08/2026 (#776): com fast ligado e effort default, a "leitura" ainda
+   levava 6m28s, quase tudo raciocínio pré-comando. O prompt não alcança essa parte;
+   a flag --effort alcança. Regra: fast usa medium, salvo low explícito do usuário. */
+
+test('buildModelFlags: fast derruba o esforço default pra medium', () => {
+  assert.equal(buildModelFlags({ reviewModel: 'opus', reviewEffort: '' }, { fast: true }),
+    ' --model opus --effort medium');
+});
+
+test('buildModelFlags: fast vence esforço explícito ALTO (é o ponto do modo)', () => {
+  assert.equal(buildModelFlags({ reviewModel: 'opus', reviewEffort: 'xhigh' }, { fast: true }),
+    ' --model opus --effort medium');
+});
+
+test('buildModelFlags: low explícito do usuário fica (é ainda mais rápido que o fast)', () => {
+  assert.equal(buildModelFlags({ reviewModel: 'opus', reviewEffort: 'low' }, { fast: true }),
+    ' --model opus --effort low');
+});
+
+test('buildModelFlags: sem fast, nada muda (chat/autoanálise/ferramentas não passam a flag)', () => {
+  assert.equal(buildModelFlags({ reviewModel: 'opus', reviewEffort: 'xhigh' }),
+    ' --model opus --effort xhigh');
+});
+
+test('buildModelFlags: fast + stub continua vazio (contrato da bateria stubada)', () => {
+  assert.equal(buildModelFlags({ reviewModel: 'opus' }, { stub: true, fast: true }), '');
+});
+
+test('buildModelFlags: fast respeita a incompatibilidade do haiku (effortForModel decide)', () => {
+  const flags = buildModelFlags({ reviewModel: 'haiku', reviewEffort: 'xhigh' }, { fast: true });
+  assert.match(flags, /--model haiku/);
+  assert.doesNotMatch(flags, /xhigh/);
+});

@@ -422,7 +422,11 @@ finally da sessão. Duas peças:
   redação. A UI mostra em Revisões recentes ("Tempo por etapa: ...", `stagesLine`/`fmtDur` em
   ui/pure.js). É aproximação de traço, não cronômetro; não muda decisão nenhuma.
 - **Modo rápido** (`config.reviewFast`, default false, opt-in; toggle em Sistema > Automação,
-  `#setReviewFast`): injeta `fastModeBlock()` no prompt headless. O que corta:
+  `#setReviewFast`): injeta `fastModeBlock()` no prompt headless E derruba o `--effort` da
+  linha de comando pra `medium` (salvo `low` explícito, que fica; regra em `buildModelFlags`
+  via `opts.fast`, que SÓ o caminho de revisão passa). A segunda metade nasceu de medição
+  (#776, 17/08/2026): com fast só no prompt, a "leitura" ainda levava 6m28s, quase tudo
+  raciocínio pré-comando, que instrução nenhuma alcança; a flag alcança. O que corta:
   leitura orientada a diff (arquivo inteiro só quando o hunk não se explica), verificação
   empírica SÓ do que muda verdict/decision, experimento longo vira `needs_decision` com reason
   de não-verificado, e pula o dossiê do autor. O que NUNCA muda: schema do envelope, cobertura
