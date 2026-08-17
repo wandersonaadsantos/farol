@@ -195,13 +195,19 @@ escapou.
   be refreshed`). `claude login` é ação do dono da máquina; o CLAUDE.md proíbe o Claude
   Code logar em nome do usuário. Falta ver relatório, veredito e o card em "Precisa de
   você" saídos de uma sessão de verdade.
-- **Update pelo canal REMOTO ponta a ponta**: validado pelo canal local com o pacote real
-  extraído, que exercita o mesmo `applyUpdateMac`/`install.sh`. O remoto puro só fecha
-  quando existir uma release publicada JÁ COM as correções 1 e 2, porque o
-  `farol-v2.47.0.zip` que está no ar carrega o `install.sh` antigo. Ou seja: **a primeira
-  release depois desta ainda vai instalar com o installer velho** (o installer que roda é
-  o do PACOTE BAIXADO, não o da cópia instalada). Numa máquina que atualize da v2.47.0
-  para a próxima, o item 1 ainda morde; da próxima em diante, não.
+- **Update pelo canal REMOTO ponta a ponta**: validado pelo canal local apontando pro
+  pacote real extraído, que exercita o MESMO `applyUpdateMac`/`install.sh`. O remoto puro
+  só fecha quando existir release publicada com as correções.
+  **Onde cada correção mora, porque isso muda quem se salva e quando** (`applyUpdateInner`
+  faz `engine.update.source = dir`, a pasta EXTRAÍDA, e o `applyUpdateMac` monta o caminho
+  do installer a partir dela):
+  - a correção **1 viaja no PACOTE BAIXADO**, então ela vale já na primeira release que a
+    carregar. O corolário é que **o risco é publicar release SEM ela**: aí toda instalação
+    de macOS existente se quebra no auto-update, que é ligado por padrão desde a v2.46.0.
+  - a correção **2 mora na CÓPIA INSTALADA** (é o `update.js` de quem está rodando que
+    monta o script), então o primeiro salto a partir de uma v2.47.0 instalada ainda NÃO vai
+    reiniciar sozinho: os arquivos atualizam, o app segue no código velho e o usuário
+    precisa reabrir na mão UMA vez. Do salto seguinte em diante é automático.
 - **Achados de auditoria fora do checklist, não corrigidos** (levantados na mesma rodada,
   confirmados sob refutação, deixados registrados em vez de resolvidos no meio do
   caminho): o stub autoextraível do `tools/make-offline-mac.sh` tem `set -e` que mata o
