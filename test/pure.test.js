@@ -315,3 +315,12 @@ test('claudeAuthShellLines: kind apikey, macOS/posix, com escaping de aspa simpl
   // a chave do próprio perfil é setada DEPOIS do unset, senão o unset a apagaria junto
   assert.deepEqual(lines, [UNSET_POSIX, `export ANTHROPIC_API_KEY='sk-ant-123'\\'' ; touch /tmp/PROOF #'`, '# sem base url propria']);
 });
+
+test('logStamp: carimbo do farol.log em Brasília com offset explícito, nunca UTC cru', async () => {
+  const { logStamp } = await import('../lib/format.js');
+  // o instante do incidente real que motivou (WARN do restart do #763): o log em
+  // UTC mostrava 01:04:36 de 17/08 pra um evento de 22:04:36 de 16/08 em Brasília
+  assert.equal(logStamp(new Date('2026-08-17T01:04:36Z')), '2026-08-16 22:04:36 -03:00');
+  // formato estável pro LINHA_RE do log-taxonomy: data hora offset, tudo ASCII
+  assert.match(logStamp(), /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+-]\d{2}:\d{2}$/);
+});

@@ -83,7 +83,13 @@ test('config.json com intervalSeconds inválido é clampado no BOOT (updateSetti
     fs.writeFileSync(arq, JSON.stringify({ intervalSeconds: 'trezentos' }));
     assert.equal(new Engine().config.intervalSeconds, 300, 'não numérico cai no default');
     fs.writeFileSync(arq, JSON.stringify({ intervalSeconds: 5 }));
-    assert.equal(new Engine().config.intervalSeconds, 60, 'piso de 60s');
+    assert.equal(new Engine().config.intervalSeconds, 180, 'piso de 180s');
+    // 1 e 2 minutos saíram do sistema em 16/08/2026 (curtos demais); config
+    // antiga que ainda tenha 60/120 gravado é clampada pro piso novo no boot.
+    fs.writeFileSync(arq, JSON.stringify({ intervalSeconds: 60 }));
+    assert.equal(new Engine().config.intervalSeconds, 180, 'config antiga de 1 min migra pro piso');
+    fs.writeFileSync(arq, JSON.stringify({ intervalSeconds: 120 }));
+    assert.equal(new Engine().config.intervalSeconds, 180, 'config antiga de 2 min migra pro piso');
     fs.writeFileSync(arq, JSON.stringify({ intervalSeconds: 999999 }));
     assert.equal(new Engine().config.intervalSeconds, 3600, 'teto de 1h');
     fs.writeFileSync(arq, JSON.stringify({ intervalSeconds: 600 }));

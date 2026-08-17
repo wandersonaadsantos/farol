@@ -20,7 +20,7 @@ import {
 // A Engine abaixo compõe estes módulos; a decomposição por responsabilidade segue nas ondas 2+.
 import { DEFAULT_PORT, TEMPOS } from './lib/constants.js';
 import env from './lib/env.js';
-import { modelLabel, isPermanentBranch } from './lib/format.js';
+import { modelLabel, isPermanentBranch, logStamp } from './lib/format.js';
 import { ACCOUNT_PALETTE } from './lib/taxonomy.js'; // resto da taxonomia é usado nos colaboradores (review/pushback)
 import {
   parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople,
@@ -161,11 +161,13 @@ class Engine extends EventEmitter {
     // sanitize* devolve null pro invalido, e invalido vira o padrao (nao passa flag).
     this.config.reviewModel = sanitizeModel(this.config.reviewModel) ?? '';
     this.config.reviewEffort = sanitizeEffort(this.config.reviewEffort) ?? '';
-    // intervalo do polling: o caminho HTTP (updateSettings) já clampa em 60..3600, mas
-    // o boot engolia config.json editado à mão. Não numérico virava Math.max(60, NaN)
+    // intervalo do polling: o caminho HTTP (updateSettings) já clampa em 180..3600, mas
+    // o boot engolia config.json editado à mão. Não numérico virava Math.max(180, NaN)
     // = NaN no schedule(), e setTimeout(fn, NaN) dispara em ~1ms: polling contínuo
     // contra o GitHub até o rate limit. Mesma expressão do updateSettings, de propósito.
-    this.config.intervalSeconds = Math.min(3600, Math.max(60, parseInt(this.config.intervalSeconds, 10) || DEFAULTS.intervalSeconds));
+    // Piso de 180s (decisão do Wanderson, 16/08/2026): 1 e 2 minutos eram curtos
+    // demais; config antiga com 60/120 é clampada pra 180 aqui mesmo.
+    this.config.intervalSeconds = Math.min(3600, Math.max(180, parseInt(this.config.intervalSeconds, 10) || DEFAULTS.intervalSeconds));
     // paralelismo por conta: mesmo tratamento (boot engole config.json editado à mão);
     // o escalonador clampa de novo por defesa em profundidade (parallelLimit em review.js)
     this.config.parallelReviews = sanitizeParallelReviews(this.config.parallelReviews) ?? DEFAULTS.parallelReviews;
@@ -384,8 +386,10 @@ class Engine extends EventEmitter {
       if (fs.existsSync(LOG_FILE) && fs.statSync(LOG_FILE).size > TEMPOS.LOG_ROTACAO_BYTES) {
         fs.renameSync(LOG_FILE, LOG_FILE + '.1');
       }
-      const ts = new Date().toISOString().replace('T', ' ').slice(0, 19);
-      fs.appendFileSync(LOG_FILE, `[${ts}] [${level}] ${msg}\n`);
+      // Brasília com offset explícito na linha (logStamp), nunca UTC cru: o log em
+      // UTC deslocava a linha do tempo em 3h contra o resto do app e enganava a
+      // reconstrução de incidentes. Linhas antigas em UTC seguem parseáveis.
+      fs.appendFileSync(LOG_FILE, `[${logStamp()}] [${level}] ${msg}\n`);
     } catch { /* log nunca derruba o app */ }
   }
 
@@ -925,7 +929,7 @@ class Engine extends EventEmitter {
 
   schedule() {
     clearTimeout(this.timer);
-    const ms = Math.max(60, this.config.intervalSeconds) * 1000;
+    const ms = Math.max(180, this.config.intervalSeconds) * 1000;
     this.nextCheckAt = Date.now() + ms;
     this.timer = setTimeout(() => this.check('timer'), ms);
     if (this.timer.unref) this.timer.unref();
@@ -1303,7 +1307,7 @@ class Engine extends EventEmitter {
     for (const k of allowed) {
       if (!(k in patch)) continue;
       let v = patch[k];
-      if (k === 'intervalSeconds') { v = Math.min(3600, Math.max(60, parseInt(v, 10) || DEFAULTS.intervalSeconds)); intervalChanged = true; }
+      if (k === 'intervalSeconds') { v = Math.min(3600, Math.max(180, parseInt(v, 10) || DEFAULTS.intervalSeconds)); intervalChanged = true; }
       if (k === 'owners') v = Array.isArray(v) ? v.map(s => String(s).trim()).filter(Boolean) : String(v).split(/[,;\s]+/).filter(Boolean);
       if (k === 'mergeBlockedRepos') v = Array.isArray(v) ? v.map(s => String(s).trim()).filter(Boolean) : String(v).split(/[,;\s]+/).filter(Boolean);
       if (k === 'projectReviewers') v = parseProjectReviewers(v);

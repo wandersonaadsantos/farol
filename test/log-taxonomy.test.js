@@ -277,6 +277,17 @@ test('parseLine: quebra a linha padrão do farol.log', () => {
   assert.equal(r.msg, 'revisao biudtech/biud-esg#193 caiu');
 });
 
+test('parseLine: aceita o carimbo novo com offset explícito (Brasília) e o antigo sem (UTC)', () => {
+  // linhas novas saem do logStamp com o fuso na linha; as antigas do formato UTC
+  // permanecem no arquivo e as duas gerações precisam parsear no mesmo triage
+  const nova = parseLine('[2026-08-16 22:04:36 -03:00] [WARN] app reiniciado com revisão em andamento: biudtech/biud-frontend#763 devolvido(s) à fila');
+  assert.equal(nova.ts, '2026-08-16 22:04:36');
+  assert.equal(nova.level, 'WARN');
+  assert.match(nova.msg, /^app reiniciado/);
+  const positiva = parseLine('[2026-08-16 22:04:36 +00:00] [INFO] offset positivo também parseia');
+  assert.equal(positiva.ts, '2026-08-16 22:04:36');
+});
+
 test('parseLine: aceita ERROR e mensagem com colchete dentro', () => {
   const r = parseLine('[2026-08-04 17:15:05] [ERROR] erro: {"error":{"message":"[402]"}}');
   assert.equal(r.level, 'ERROR');

@@ -9,6 +9,21 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.46.2
+
+Intervalo de checagem com piso de 3 minutos e log de falhas em horário de Brasília com
+fuso explícito.
+
+**Correções**
+- **Intervalo de checagem mínimo agora é 3 minutos.** As opções de 1 e 2 minutos saíram
+  do sistema: eram curtas demais e só gastavam chamadas do `gh` à toa. Quem estava com
+  1 ou 2 minutos configurado passa automaticamente pra 3 minutos.
+- **O log de falhas (`farol.log`) agora carimba em horário de Brasília com o fuso
+  explícito na linha** (ex.: `[2026-08-16 22:04:36 -03:00]`). Antes o carimbo saía em
+  UTC sem marcador, 3 horas deslocado do resto do app, o que confundia qualquer
+  reconstrução de linha do tempo no Diagnóstico. As linhas antigas em UTC continuam
+  sendo lidas normalmente.
+
 ## v2.46.1
 
 Refino do auto-update recém-lançado: clicar em Atualizar com algo rodando não dá mais erro.
