@@ -848,6 +848,70 @@ export function sessionProgress(count) {
   return Math.min(90, 5 + Math.round(85 * (1 - Math.exp(-n / 18))));
 }
 
+/* ---------- perfil de review por pessoa: papel + matriz por domínio ----------
+   Molda o TOM e a POSTURA da revisão automática, nunca a decisão.
+   Saiu do app.js na onda 5; o mapa de pessoas entra por parâmetro (era lido de
+   STATE.config.people, global proibida aqui). Todo o grupo desce de personOf, que
+   era a única leitura de global: com `people` no argumento, os cinco viram puros
+   de uma vez.
+
+   As três tabelas abaixo DUPLICAM as chaves de lib/taxonomy.js, e a duplicação é
+   estrutural, não descuido: o servidor estático só serve UI_DIR (ver o
+   startsWith em lib/http-server.js), então o navegador não consegue importar
+   lib/. O que impede a duplicação de virar divergência é test/taxonomy-ui.test.js,
+   que compara os CONJUNTOS DE CHAVES com o engine. Os rótulos ficam livres de
+   propósito: aqui eles são mais curtos pra caber no <select> ("Infra" em vez de
+   "Infra/DevOps", "Interm." em vez de "Intermediário"). */
+export const PAPEL_OPTS = [['', 'papel'], ['estagio', 'Estágio'], ['junior', 'Júnior'], ['pleno', 'Pleno'], ['senior', 'Sênior'], ['techlead', 'Tech Lead'], ['arquiteto', 'Arquiteto'], ['especialista', 'Especialista']];
+export const DOMAIN_DEFS = [['backend', 'Backend'], ['frontend', 'Frontend'], ['dados', 'Dados'], ['infra', 'Infra']];
+export const DOMLEVEL_OPTS = [['', 'sem info'], ['basico', 'Básico'], ['intermediario', 'Interm.'], ['avancado', 'Avançado'], ['autoridade', 'Autoridade']];
+export function personOf(login, people) { return (people || {})[String(login || '').toLowerCase()] || {}; }
+export function papelOf(login, people) { return personOf(login, people).papel || ''; }
+export function domLevelOf(login, d, people) { return (personOf(login, people).dominios || {})[d] || ''; }
+// papel (compacto): usado nos cards do PR e no cabeçalho do card do time
+export function papelPicker(login, people) {
+  return `<select class="papel-level" data-login="${esc(login)}" title="Papel de @${esc(login)}: molda o tom da revisão automática, nunca a decisão">
+    ${PAPEL_OPTS.map(([v, t]) => `<option value="${v}"${papelOf(login, people) === v ? ' selected' : ''}>${t}</option>`).join('')}
+  </select>`;
+}
+// matriz por domínio (só na aba Time): competência por área calibra a postura
+export function domainMatrix(login, people) {
+  return `<div class="dom-matrix">${DOMAIN_DEFS.map(([d, label]) => `
+    <label class="dom-cell"><span class="dom-name">${label}</span>
+      <select class="dom-level" data-login="${esc(login)}" data-domain="${d}" title="Competência de @${esc(login)} em ${label}">
+        ${DOMLEVEL_OPTS.map(([v, t]) => `<option value="${v}"${domLevelOf(login, d, people) === v ? ' selected' : ''}>${t}</option>`).join('')}
+      </select></label>`).join('')}</div>`;
+}
+
+/* ---------- reviewers: rótulo e chip ----------
+   Saiu do app.js na onda 5. `cands` é o mapa de candidatos por org (era o global
+   reviewerCands): só serve pra achar o NOME de um time a partir do id; sem ele o
+   rótulo degrada pro slug do time, que é exatamente o que acontecia enquanto os
+   candidatos ainda não tinham carregado. */
+export function reviewerLabel(rv, cands) {
+  const isTeam = rv.includes('/');
+  const ent = isTeam && rv.split('/').slice(1).join('/').includes(':');
+  if (ent) return { label: `${rv.split('/').pop()} (enterprise, não pedível)`, cls: 'bad', ent: true };
+  if (isTeam) { const org = rv.split('/')[0]; const t = (((cands || {})[org] || {}).teams || []).find(t => t.id === rv); return { label: (t ? t.name : rv.split('/').pop()) + ' (time)', cls: 'team' }; }
+  return { label: rv, cls: '' };
+}
+export function chipHtml(rv, xClass, dataAttrs, cands) {
+  const r = reviewerLabel(rv, cands);
+  // os dois ternários saem do template: juntos numa linha só eles contavam como
+  // ternário aninhado no gate de qualidade, e a versão com nome é mais legível
+  const cls = r.cls ? ' ' + r.cls : '';
+  const title = r.ent ? 'title="Time enterprise não pode ser reviewer de PR (o GitHub recusa). Remova daqui."' : '';
+  return `<span class="rev-chip${cls}" ${title}>${esc(r.label)}<button class="${xClass}" ${dataAttrs} title="remover">×</button></span>`;
+}
+
+/* ---------- chat: o contador de mensagens no card ----------
+   Saiu do app.js na onda 5; o mapa de chats entra por parâmetro (era STATE.chats,
+   e o `?.` de lá cobria justamente o STATE ainda null antes do primeiro SSE). */
+export function chatBadge(key, chats) {
+  const c = (chats || {})[key];
+  return c && c.count ? ` <span class="count">${c.count}</span>` : '';
+}
+
 /* ---------- pushback: o controle das Revisões recentes ----------
    Saiu do app.js pra ganhar teste; o mapa de pushbacks entra por parâmetro
    (era lido de STATE, global proibida aqui). */

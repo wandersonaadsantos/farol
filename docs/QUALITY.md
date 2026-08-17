@@ -44,21 +44,29 @@ O débito original era o `server.js`: uma classe `Engine` de 3122 linhas fazendo
 
   **Regra do arquivo novo:** só entra o que for puro. Função que precise de `STATE`, `SCOPE` ou `document` fica no `app.js`; para trazer, primeiro passe o que ela lê como parâmetro.
 
-- **Onda 5 (não feita, o débito atual):** o que sobrou no `ui/app.js` são ~2690 linhas de render, estado, atalhos, paleta de comandos, busca e SSE, ainda sem teste. O próximo passo barato já está mapeado: sete funções (`chatBadge`, `papelPicker`, `domainMatrix`, `reviewerLabel`, `chipHtml`, `buildFixPrompt`, `pushbackControl`) são puras em forma e só leem global, e viram puras com **um parâmetro a mais**; juntas têm menos de 20 chamadores. Depois disso é que faz sentido encarar a separação entre render e estado.
+- **Onda 5 (em andamento, o débito atual):** o que sobrou no `ui/app.js` são ~4000 linhas de render, estado, atalhos, paleta de comandos, busca e SSE, ainda sem teste que o execute.
+
+  **Primeiro passo, feito em 17/08/2026:** as sete funções que o texto anterior mapeava saíram. `buildFixPrompt` e `pushbackControl` já tinham ido antes; as cinco restantes foram na mesma leva, e não como cinco casos soltos: `personOf` era a única leitura de global de todo o grupo de perfil, então com `people` no argumento os cinco (`personOf`, `papelOf`, `domLevelOf`, `papelPicker`, `domainMatrix`) viraram puros de uma vez, junto das três tabelas de opções. `reviewerLabel`/`chipHtml` foram juntas (uma chama a outra, ambas liam `reviewerCands`) e `chatBadge` levou `chats`. São 8 funções, 19 chamadores, ~36 linhas.
+
+  Duas coisas que a extração trouxe de brinde. A primeira: as tabelas de opções **duplicam** as chaves de `lib/taxonomy.js`, e a duplicação é estrutural (o servidor estático só entrega `UI_DIR`, então o navegador não importa `lib/`). Ninguém defendia isso, então chave nova no engine sumiria da UI em silêncio; `test/taxonomy-ui.test.js` passou a comparar os **conjuntos de chaves**, deixando os rótulos livres de propósito (a UI abrevia pra caber no `<select>`). A segunda: o `chipHtml` carregava dois ternários no mesmo statement, o que fez o `ternarioAninhado` do `ui/pure.js` subir ao receber a função; foi corrigido na mudança em vez de re-baselinado, então a dívida líquida **caiu** (`ui/app.js` foi de 57 pra 56 e o `ui/pure.js` não subiu).
+
+  **Como se provou que foi movimentação e não reescrita:** as funções antigas foram reconstruídas do `git show main:ui/app.js`, com os globais injetados, e comparadas com as novas em 27 entradas (login vazio, caixa alta, pessoa inexistente, tentativa de XSS, time desconhecido, time enterprise, chat com contagem zero e sem chat). **Zero divergências** na saída.
+
+  **O que vem depois, e o obstáculo real:** a separação entre render e estado. O `app.js` tem **25 globais mutáveis** espalhados e nenhuma função de boot (tudo é efeito de topo, em ordem de arquivo), então o corte não é mecânico. E há um risco a respeitar: `test/ui-widgets.test.js` fixa **22 corpos de função inteiros** por regex sobre o texto do `app.js`, e mover qualquer um deles faz o `match` devolver `null`. Nenhum dos 19 chamadores deste primeiro passo caía dentro dessas 22 (foi conferido antes de mexer); do próximo em diante, cada extração precisa vir junto com a migração da asserção de texto pra teste real em `pure.js`, que é a direção que o cabeçalho daquele arquivo já defende.
 
 ### Números de hoje (mantenha esta linha viva)
 
 | Arquivo | Linhas | Testes |
 |---|---|---|
-| `ui/app.js` | ~4030 | nenhum (o que sobrou não é puro) |
-| `ui/pure.js` | ~1216 | `ui-pure.test.js`, 184 testes |
-| `server.js` | ~1477 | via `boot`, `facades`, e os testes de comportamento |
-| maior módulo de `lib/` (`decision.js`) | ~772 | `decision-envelope.test.js`, `decision-history.test.js` |
-| suíte | | 1169 testes |
+| `ui/app.js` | ~4000 | nenhum que o execute (os 4 que o tocam leem o arquivo como texto) |
+| `ui/pure.js` | ~1332 | `ui-pure.test.js`, 209 testes |
+| `server.js` | ~1483 | via `boot`, `facades`, e os testes de comportamento |
+| maior módulo de `lib/` (`decision.js`) | ~869 | `decision-envelope.test.js`, `decision-history.test.js` |
+| suíte | | 1229 testes (1222 passando, 7 pulados fora do macOS) |
 
-Medidos em 17/08/2026, na v2.47.0. O `ui/pure.js` cresceu 5x desde a onda 4 (a extração
-continuou acontecendo), e o `ui/app.js` cresceu junto: a onda 5 segue aberta e ficou maior
-do que o texto acima descreve.
+Medidos em 17/08/2026, na v2.48.0, depois do primeiro passo da onda 5. O `ui/app.js` só
+agora começou a encolher; a onda 5 segue aberta e o grosso dela (render x estado) não foi
+tocado.
 
 Quem mexer aqui e deixar esses números defasados repete o problema que esta seção teve: o documento afirmava "~2600 linhas com ~120 métodos" muito depois de o `server.js` ter caído para mil.
 
