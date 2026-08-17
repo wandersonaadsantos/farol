@@ -1,4 +1,3 @@
-'use strict';
 // lib/workspace.js: leitura dos artefatos que o Claude escreve no workspace (destaques,
 // dossiês por autor, log de falhas). Estava com ZERO teste, apesar de as três funções
 // serem servidas direto em /api/highlights, /api/team e /api/log, ou seja, tudo que a
@@ -7,17 +6,17 @@
 // São parsers de markdown escrito por um modelo, então a forma real varia. O que estes
 // testes travam é o contrato: nunca lançar (arquivo ausente, vazio, malformado devolvem
 // lista vazia em vez de derrubar a rota) e extrair os campos do formato esperado.
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-workspace-' + process.pid);
 process.env.FAROL_HOME = FAROL_HOME;
 
-const { test, after, beforeEach } = require('node:test');
-const assert = require('node:assert/strict');
-const { STATE_DIR, LOG_FILE } = require('../lib/paths');
-const { parseHighlights, parseTeam, tailLog } = require('../lib/workspace');
+import { test, after, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
+const { STATE_DIR, LOG_FILE } = await import('../lib/paths.js');
+const { parseHighlights, parseTeam, tailLog } = await import('../lib/workspace.js');
 
 after(() => { try { fs.rmSync(FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 

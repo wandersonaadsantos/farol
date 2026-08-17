@@ -1,17 +1,16 @@
-'use strict';
 // Cobre a discordância de review de terceiro (campo `contested`): normalização com
 // descarte do que não tem prova, e o gate de que contestação NUNCA auto-posta
 // (nem approve nem request_changes), mesmo com a política da conta liberada.
 // Regra do Wanderson: só falamos quando temos certeza, e quem publica é ele.
 // Runner nativo, ZERO deps.
-const os = require('node:os');
-const path = require('node:path');
+import os from 'node:os';
+import path from 'node:path';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-contested-' + process.pid);
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const { Engine } = require('../server.js');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const { Engine } = await import('../server.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
 

@@ -1,15 +1,14 @@
-'use strict';
 // Rede de proteção do Farol: funções puras exportadas pelo server.js.
 // Runner nativo do Node (node --test), ZERO dependências. Ver docs/QUALITY.md.
 // FAROL_HOME temporário por segurança (o require não toca disco, mas fixar o
 // home garante que nenhum teste esbarre no ~/.farol real).
-const os = require('node:os');
-const path = require('node:path');
+import os from 'node:os';
+import path from 'node:path';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-pure-' + process.pid);
 
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const farol = require('../server.js');
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+const farol = (await import('../server.js')).default;
 const { modelLabel, isPermanentBranch, parseAccounts, parseProjectReviewers, parseDefaultReviewers,
   normalizeClaudeProfiles, sanitizeClaudeDir, applyClaudeAuthEnv, claudeAuthShellLines } = farol;
 

@@ -1,16 +1,16 @@
-'use strict';
 // Cobre o colaborador de update (lib/engine/update.js): cmpVersion puro,
 // resolveUpdateSource e a delegação da Engine. Runner nativo, ZERO deps.
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-update-' + process.pid);
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const update = require('../lib/engine/update');
-const { APP_ROOT } = require('../lib/paths');
-const { Engine } = require('../server.js');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+const update = (await import('../lib/engine/update.js')).default;
+const { APP_ROOT } = await import('../lib/paths.js');
+const { Engine } = await import('../server.js');
+const decision = (await import('../lib/engine/decision.js')).default;
 
 const scratch = path.join(os.tmpdir(), 'farol-test-update-src-' + process.pid);
 after(() => {
@@ -212,7 +212,6 @@ test('sessionsBusy: terminal sem startedAt confiável segue segurando (I1, falha
 });
 
 test('sessionsBusy: o teto de 12h é a MESMA constante do G17 (fonte única)', () => {
-  const decision = require('../lib/engine/decision.js');
   assert.equal(decision.TERMINAL_SESSION_MAX_MS, 12 * HORA_MS);
   const engine = new Engine();
   // exatamente no teto ainda é sessão viva; um milissegundo além é fantasma

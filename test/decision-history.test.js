@@ -1,4 +1,3 @@
-'use strict';
 // Histórico de decisões: quanto o Farol guarda e como uma revisão antiga é
 // alcançada. Motivo (pedido do Wanderson, 11/08/2026): a tabela de Consumo
 // passou a oferecer a caixa de revisão por clique, e o clique não podia esbarrar
@@ -6,13 +5,13 @@
 // (medido: 5,2 KB por decisão COM relatório, ou seja 3000 seriam 15 MB por push
 // de SSE, a cada ciclo de polling), então o alcance vem de uma busca por chave
 // no histórico completo, não de inflar o que trafega a cada ciclo.
-const path = require('node:path');
-const os = require('node:os');
+import path from 'node:path';
+import os from 'node:os';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-dechist-' + process.pid);
 
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const dec = require('../lib/engine/decision');
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+const dec = (await import('../lib/engine/decision.js')).default;
 
 function engineFake() {
   return { decisions: { pending: [], resolved: [] }, saveDecisions() { } };

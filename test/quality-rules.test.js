@@ -1,10 +1,9 @@
-'use strict';
 // Cada regra do contrato engineering-standards tem ao menos 1 caso que viola e
 // 1 que não viola. As contagens alimentam o ratchet (gate.js), então o que se
 // testa aqui é: a regra ENXERGA a violação e NÃO alucina em código limpo.
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const { scanFile } = require('../tools/quality/rules.js');
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { scanFile } from '../tools/quality/rules.js';
 
 test('emptyCatch: pega catch {} e catch (e) {}, ignora catch com corpo', () => {
   const r = scanFile('try{a()}catch{}\ntry{b()}catch(e){}\ntry{c()}catch(e){log(e)}', 'x.js');

@@ -1,20 +1,19 @@
-'use strict';
 // Consistência da autoanálise e do estado de merge (selfpr.js), que alimentam os gates
 // do botão Merge: o SHA que carimba a autoanálise (gate 1 do mergeSelfPR), a base que
 // alimenta o gate de ruleset (tarefa B7) e a reconciliação do mergeStates (B8).
 // Cenários adversariais: push no meio da análise, análise sem SHA, escrita concorrente.
 // Mesma técnica de espião do merge-gates.test.js (instalado ANTES do require do server).
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-selfpr-' + process.pid);
 process.env.FAROL_HOME = FAROL_HOME;
 
-const { test, after, beforeEach } = require('node:test');
-const assert = require('node:assert/strict');
+import { test, after, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
 
-const io = require('../lib/io');
+const io = (await import('../lib/io.js')).default;
 const runReal = io.run;
 let runImpl = null;
 const chamadas = [];
@@ -24,7 +23,7 @@ io.run = function runEspiao(cmd, args, opts) {
   return runReal(cmd, args, opts);
 };
 
-const { Engine } = require('../server.js');
+const { Engine } = await import('../server.js');
 
 after(() => {
   io.run = runReal;

@@ -1,15 +1,14 @@
-'use strict';
 // Cobre o logger de spawns: só grava quando FAROL_DEBUG_SPAWNS=1, grava o comando,
 // e NUNCA env/token. Runner nativo, ZERO deps.
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-spawnlog-' + process.pid);
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const { Engine } = require('../server.js'); // cria os diretórios de state
-const { logSpawn, SPAWN_LOG_FILE } = require('../lib/spawnlog');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { Engine } from '../server.js'; // cria os diretórios de state
+const { logSpawn, SPAWN_LOG_FILE } = await import('../lib/spawnlog.js');
 
 new Engine(); // garante workspace/state existindo
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });

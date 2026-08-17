@@ -1,22 +1,21 @@
-'use strict';
 // searchPRs no teto do --limit 100: o gh corta em silêncio e, com best-match como
 // ordenação, QUAIS 100 entram é imprevisível (PR pedido a mim pode ficar de fora
 // sem nenhum sinal). fetchDeliveries no mesmo arquivo já trata o caso (capped);
 // aqui trava o análogo do searchPRs: WARN no log quando o teto é atingido.
 // ATENÇÃO à ordem: gh-queries destrutura io.run no LOAD, então o patch de io.run
 // precisa vir ANTES do require do server (o runner isola cada arquivo num processo).
-const os = require('node:os');
-const path = require('node:path');
+import os from 'node:os';
+import path from 'node:path';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-ghcap-' + process.pid);
 
-const io = require('../lib/io');
+const io = (await import('../lib/io.js')).default;
 let ghStdout = '[]';
 io.run = async () => ({ ok: true, code: 0, stdout: ghStdout, stderr: '' });
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const { Engine } = require('../server.js');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const { Engine } = await import('../server.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
 

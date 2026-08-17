@@ -1,4 +1,3 @@
-'use strict';
 // Smoke de boot: constrói a Engine contra um FAROL_HOME temporário e confere que
 // o app "acorda" sem quebrar (config com defaults, workspace semeado, snapshot ok).
 // É a rede que protege a decomposição da Engine em ondas: se um refactor quebrar o
@@ -6,16 +5,16 @@
 // IMPORTANTE: fixar FAROL_HOME ANTES de require('../server.js'), pois os caminhos
 // são const de nível de módulo lidos no load. O runner isola cada arquivo em um
 // processo próprio, então esta env não vaza pros outros testes.
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const HOME = path.join(os.tmpdir(), 'farol-test-boot-' + process.pid);
 process.env.FAROL_HOME = HOME;
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const { Engine } = require('../server.js');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+const { Engine } = await import('../server.js');
 
 after(() => { try { fs.rmSync(HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 

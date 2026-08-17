@@ -1,4 +1,3 @@
-'use strict';
 // Fechar uma sessão de terminal (Windows/mac) desfaz o "visto" dos PRs dela, mesmo sem
 // saber se a revisão foi de fato postada — é seguro (GitHub já exclui quem revisou da
 // lista de pendentes), e sem isso um PR fica escondido da fila pra sempre se a sessão
@@ -9,9 +8,9 @@
 // de qualquer require que carregue lib/paths.js (const de nível de módulo, lida uma
 // única vez no load), senão o teste escreve dentro do ~/.farol real da máquina (mesmo
 // padrão de test/boot.test.js).
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-unsee-' + process.pid);
 process.env.FAROL_HOME = FAROL_HOME;
@@ -26,18 +25,18 @@ fs.mkdirSync(path.join(FAROL_HOME, 'workspace'), { recursive: true });
 // captura `spawn` no load, então a troca precisa vir ANTES do require abaixo (mesmo
 // padrão de test/session-claude-profile.test.js). Sem spawnImpl setado, delega pro
 // spawn real (o teste de spawnConsole real do Windows, mais abaixo, depende disso).
-const childProcess = require('child_process');
+import childProcess from 'node:child_process';
 const realSpawn = childProcess.spawn;
 let spawnImpl = null;
 childProcess.spawn = function mockableSpawn(...args) {
   if (spawnImpl) return spawnImpl(...args);
   return realSpawn(...args);
 };
-const { EventEmitter } = require('node:events');
+import { EventEmitter } from 'node:events';
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const { spawnConsole, spawnConsoleMac, spawnLoginConsoleMac, sessionExit, handleSessionExit } = require('../lib/engine/session');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+const { spawnConsole, spawnConsoleMac, spawnLoginConsoleMac, sessionExit, handleSessionExit } = await import('../lib/engine/session.js');
 
 after(() => {
   childProcess.spawn = realSpawn;

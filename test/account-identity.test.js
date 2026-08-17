@@ -1,23 +1,22 @@
-'use strict';
 // Identidade de conta (raiz P1 do relatório de gaps): o Farol NUNCA age no GitHub nem
 // abre sessão Claude com o token de uma conta no lugar de outra. tokenFor é a fonte
 // única de "token desta conta, sem herdar"; as guardas das tarefas seguintes usam ele.
 // Padrões seguidos: espião no io.run ANTES do require do server.js (merge-gates.test.js)
 // e Engine real contra FAROL_HOME temporário (claude-profiles.test.js).
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-identidade-' + process.pid);
 process.env.FAROL_HOME = FAROL_HOME;
 
-const { test, after, beforeEach } = require('node:test');
-const assert = require('node:assert/strict');
+import { test, after, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
 
 // espião no run: os módulos de engine capturam a referência na desestruturação do
 // require, então a troca tem que acontecer antes do require('../server.js'). O default
 // devolve ok vazio: NENHUM gh real roda neste arquivo.
-const io = require('../lib/io');
+const io = (await import('../lib/io.js')).default;
 const runReal = io.run;
 let runImpl = null;
 const chamadas = [];
@@ -27,8 +26,8 @@ io.run = function runEspiao(cmd, args, opts) {
   return Promise.resolve({ ok: true, code: 0, stdout: '', stderr: '' });
 };
 
-const { Engine } = require('../server.js');
-const { STATE_DIR } = require('../lib/paths');
+const { Engine } = await import('../server.js');
+const { STATE_DIR } = await import('../lib/paths.js');
 fs.mkdirSync(STATE_DIR, { recursive: true });
 
 after(() => {

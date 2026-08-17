@@ -1,15 +1,14 @@
-'use strict';
 // Cobre focusPr: o deep-link de alerta emite 'focus-pr' com a URL do PR
 // (o shell chama no clique da notificação; a UI recebe via SSE e rola até o card).
 // Runner nativo, ZERO deps.
-const os = require('node:os');
-const path = require('node:path');
+import os from 'node:os';
+import path from 'node:path';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-focus-' + process.pid);
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const { Engine } = require('../server.js');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const { Engine } = await import('../server.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
 

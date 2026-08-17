@@ -1,4 +1,3 @@
-'use strict';
 // Ocultar um PR de "Meus PRs" (state/hidden-prs.json): guardar e remover a chave,
 // sobreviver ao reinício, e o RETORNO AUTOMÁTICO, que é o que torna a feature honesta
 // (ocultar não é ignorar a realidade pra sempre: atividade nova traz o PR de volta).
@@ -7,17 +6,17 @@
 // quando a busca de PRs meus FUNCIONOU no ciclo. Se limpasse também no ciclo com busca
 // falha, uma queda de rede (myPRs vazio ou congelado) desocultaria tudo de uma vez.
 // Runner nativo (node --test), ZERO dependências.
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-hidden-' + process.pid);
 process.env.FAROL_HOME = FAROL_HOME;
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const { Engine } = require('../server.js');
-const { STATE_DIR, BASELINE_FILE, HIDDEN_FILE } = require('../lib/paths');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+const { Engine } = await import('../server.js');
+const { STATE_DIR, BASELINE_FILE, HIDDEN_FILE } = await import('../lib/paths.js');
 
 after(() => { try { fs.rmSync(FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 

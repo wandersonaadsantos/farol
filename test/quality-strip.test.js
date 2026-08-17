@@ -1,9 +1,8 @@
-'use strict';
 // Teste do removedor léxico: o que sai NUNCA contém conteúdo de string,
 // comentário, template ou regex, e mantém o número de linhas do original.
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const { strip } = require('../tools/quality/strip.js');
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { strip } from '../tools/quality/strip.js';
 
 test('remove strings simples e duplas preservando linhas', () => {
   const out = strip(`const a = 'if (x) {';\nconst b = "} else {";`);

@@ -1,7 +1,6 @@
-'use strict';
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const { DEFAULT_PORT, TEMPOS } = require('../lib/constants.js');
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { DEFAULT_PORT, TEMPOS } from '../lib/constants.js';
 
 test('constantes de infra: valores historicos preservados', () => {
   assert.equal(DEFAULT_PORT, 47170);

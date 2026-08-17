@@ -1,4 +1,3 @@
-'use strict';
 // Sistema > Sobre: créditos sincronizados com o GitHub (refreshContributors em
 // lib/engine/gh-queries.js). O contrato que importa: a lista vem do repo do
 // auto-update (colaborador novo aparece sem manutenção), bot não entra, falha
@@ -6,19 +5,19 @@
 // virar polling (créditos mudam devagar; 1 busca por dia basta).
 // ATENÇÃO à ordem (mesma pegadinha do gh-queries-capped.test.js): gh-queries
 // destrutura io.run no LOAD, então o patch precisa vir ANTES do require do server.
-const os = require('node:os');
-const path = require('node:path');
+import os from 'node:os';
+import path from 'node:path';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-credits-' + process.pid);
 
-const io = require('../lib/io');
+const io = (await import('../lib/io.js')).default;
 let calls = [];
 let responder = async () => ({ ok: true, code: 0, stdout: '[]', stderr: '' });
 io.run = async (cmd, args, opts) => { calls.push(args); return responder(args); };
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const { Engine } = require('../server.js');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const { Engine } = await import('../server.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
 

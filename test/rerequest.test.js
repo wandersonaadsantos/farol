@@ -1,17 +1,16 @@
-'use strict';
 // Cobre markReRequests: re-request de review (PR pedido de novo que eu já revisei)
 // volta pra fila UMA vez (des-marca visto), sem re-surgir todo ciclo e permitindo
 // ignorar depois. O sinal de "já revisei" vem do HISTÓRICO LOCAL (decisions),
 // não de uma busca no gh: essa era a causa raiz do bug relatado (re-request às
 // vezes não era identificado por lag de indexação do GitHub). Runner nativo, ZERO deps.
-const os = require('node:os');
-const path = require('node:path');
+import os from 'node:os';
+import path from 'node:path';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-rereq-' + process.pid);
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const { Engine } = require('../server.js');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const { Engine } = await import('../server.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
 

@@ -1,4 +1,3 @@
-'use strict';
 // Invariante estrutural da Engine: fachada fina não pode engolir argumento.
 //
 // Por que este arquivo existe: o fan-out de PR grande (v2.26.0) ficou DUAS versões sem
@@ -12,27 +11,28 @@
 // próximas. Aqui a checagem é DERIVADA DO FONTE: lê o server.js, acha toda fachada que
 // delega, descobre no próprio texto se ela repassa `this` como primeiro argumento, e daí
 // calcula a aridade esperada. Fachada nova entra sozinha, sem ninguém lembrar de nada.
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
 const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-facades-' + process.pid);
 process.env.FAROL_HOME = FAROL_HOME;
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const { Engine } = require('../server.js');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+const { Engine } = await import('../server.js');
 
 after(() => { try { fs.rmSync(FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 
-const RAIZ = path.join(__dirname, '..');
+const RAIZ = path.join(import.meta.dirname, '..');
 const FONTE = fs.readFileSync(path.join(RAIZ, 'server.js'), 'utf8');
 
 // `nome(params) { return xMod.impl(args); }`, com ou sem async/await, indentado em 2
 // espaços (corpo de classe). Fachada escrita em mais de uma linha não casa e fica de
 // fora da checagem: por isso o teste de piso mais abaixo.
 const RE_FACHADA = /^ {2}(?:async )?([a-zA-Z_$][\w$]*)\(([^)]*)\)\s*\{\s*return (?:await )?([a-z][\w]*)Mod\.([a-zA-Z_$][\w$]*)\(([^)]*)\);?\s*\}/gm;
-const RE_IMPORT = /const (\w+)Mod = require\('([^']+)'\)/g;
+const RE_IMPORT = /^import (\w+)Mod from '([^']+)';/gm;
 
 /* Exceções, com o motivo. Só entra aqui o que é comprovadamente falso positivo do
    Function.length, NUNCA uma fachada que de fato engole argumento. */
@@ -52,7 +52,7 @@ function mapaDeModulos() {
   return mods;
 }
 
-function coletarFachadas() {
+async function coletarFachadas() {
   const mods = mapaDeModulos();
   const achadas = [];
   for (const m of FONTE.matchAll(RE_FACHADA)) {
@@ -60,7 +60,11 @@ function coletarFachadas() {
     const modPath = mods[modKey];
     if (!modPath) continue;
     let impl;
-    try { impl = require(path.resolve(RAIZ, modPath))[implNome]; } catch { continue; }
+    try {
+      const modUrl = pathToFileURL(path.resolve(RAIZ, modPath)).href;
+      const modNs = await import(modUrl);
+      impl = (modNs.default || modNs)[implNome];
+    } catch { continue; }
     if (typeof impl !== 'function') continue;
     achadas.push({
       nome, implNome, modKey, impl,
@@ -71,7 +75,7 @@ function coletarFachadas() {
   return achadas;
 }
 
-const FACHADAS = coletarFachadas();
+const FACHADAS = await coletarFachadas();
 
 /* Guarda contra passar à toa: um teste dirigido por regex que deixa de casar vira um
    laço vazio e fica verde sem verificar nada. O piso é bem abaixo do que existe hoje

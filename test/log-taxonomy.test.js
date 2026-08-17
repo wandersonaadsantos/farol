@@ -1,4 +1,3 @@
-'use strict';
 // lib/log-taxonomy.js: a FONTE ÚNICA de classificação de falha do Farol.
 //
 // Por que este módulo existe: hoje a classificação está duplicada. Em
@@ -10,9 +9,9 @@
 //
 // As mensagens usadas aqui NÃO são inventadas: saíram do farol.log real de
 // produção (~/.farol/workspace/state/farol.log, 159 linhas, 03 a 07/08/2026).
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const { CLASSES, classify, resetAtFrom, parseLine, triage } = require('../lib/log-taxonomy');
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { CLASSES, classify, resetAtFrom, parseLine, triage } from '../lib/log-taxonomy.js';
 
 /* ---------- mensagens REAIS de produção (fixtures compartilhadas) ---------- */
 

@@ -1,18 +1,17 @@
-'use strict';
 // Onda 8: widgets de operacao (showOp/updateOp/closeOp) e estado da UI.
 //
 // O ciclo de vida de uma operacao virou maquina de estados PURA (ui/pure.js):
 // running -> done|error|cancelled, e cada estado terminal tem prazo de auto-dismiss.
 // O DOM (ui/app.js) so consome. O que nao da pra testar sem DOM fica travado por
 // invariante estatica no texto do app.js, no idioma do ui-semantics.test.js.
-const path = require('node:path');
-const fs = require('node:fs');
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const P = require(path.join(__dirname, '..', 'ui', 'pure.js'));
-const APPJS = fs.readFileSync(path.join(__dirname, '..', 'ui', 'app.js'), 'utf8');
-const HTML = fs.readFileSync(path.join(__dirname, '..', 'ui', 'index.html'), 'utf8');
-const CSS = fs.readFileSync(path.join(__dirname, '..', 'ui', 'app.css'), 'utf8');
+import path from 'node:path';
+import fs from 'node:fs';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import * as P from '../ui/pure.js';
+const APPJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
+const HTML = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'index.html'), 'utf8');
+const CSS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.css'), 'utf8');
 
 /* ---------- maquina de estados das operacoes (M22) ---------- */
 

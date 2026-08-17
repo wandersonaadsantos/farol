@@ -1,19 +1,18 @@
-'use strict';
 // Remoção de membro do Time (removeTeamMember, lib/engine/decision.js). Os
 // contratos que importam: (1) o login vira nome de arquivo, então formato fora
 // do login do GitHub é RECUSADO antes de montar caminho (traversal morre na
 // allowlist); (2) a remoção é da PESSOA inteira (dossiê + destaques + perfil +
 // pushbacks), mas SÓ dela: linha de destaque de outra pessoa fica intocada;
 // (3) idempotente: remover quem não tem nada devolve ok sem inventar erro.
-const os = require('node:os');
-const path = require('node:path');
+import os from 'node:os';
+import path from 'node:path';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-teamrm-' + process.pid);
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const { Engine } = require('../server.js');
-const { STATE_DIR } = require('../lib/paths');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const { Engine } = await import('../server.js');
+const { STATE_DIR } = await import('../lib/paths.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
 

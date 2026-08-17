@@ -1,17 +1,16 @@
-'use strict';
 // Cobre a agregação de consumo de tokens (lib/engine/usage.js): parte pura (kindFromId,
 // extractUsage, applyUsage) + o resumo. Sem fs, sem sessão real. Runner nativo, ZERO deps.
-const os = require('node:os');
-const path = require('node:path');
+import os from 'node:os';
+import path from 'node:path';
 // o corte de dia é LOCAL (regra do projeto: horário de Brasília, nunca UTC cru);
 // sem fixar o fuso o teste passaria numa máquina e falharia noutra
 process.env.TZ = 'America/Sao_Paulo';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-usage-' + process.pid);
 
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const usage = require('../lib/engine/usage');
-const { APP_VERSION } = require('../lib/paths');
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+const usage = (await import('../lib/engine/usage.js')).default;
+const { APP_VERSION } = await import('../lib/paths.js');
 
 test('kindFromId deriva o tipo pelo prefixo do id da sessão', () => {
   assert.equal(usage.kindFromId('a7'), 'review');

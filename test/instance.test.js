@@ -1,4 +1,3 @@
-'use strict';
 // A7: porta ocupada não pode deixar um SEGUNDO engine vivo no mesmo ~/.farol
 // (polling dobrado, revisão dupla com dois posts no GitHub, writeFileSync
 // concorrente em seen/inflight/usage/chats). O listen na porta é o lock de
@@ -6,17 +5,17 @@
 // requestSingleInstanceLock do Electron não cobre o modo servidor).
 // Idioma: FAROL_HOME temporário ANTES do require (test/boot.test.js) e porta
 // efêmera pra nunca colidir com um Farol real (test/http.test.js).
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
-const http = require('node:http');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
+import http from 'node:http';
 
 const HOME = path.join(os.tmpdir(), 'farol-test-instance-' + process.pid);
 process.env.FAROL_HOME = HOME;
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const farol = require('../server.js');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+const farol = (await import('../server.js')).default;
 
 after(() => { try { fs.rmSync(HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 

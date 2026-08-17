@@ -1,4 +1,3 @@
-'use strict';
 // Branch POSIX do spawn headless (macOS/Linux). Pula no Windows, porque IS_WIN é const de
 // nível de módulo lida de lib/paths no load: não dá pra forçar o outro branch daqui.
 //
@@ -11,20 +10,20 @@
 //   - detached: true, que é a PRÉ-CONDIÇÃO do killTree posix (process.kill(-pid) só mata
 //     o grupo se o filho for líder de grupo). Sem isso, cancelar uma revisão deixa o
 //     claude e os subagentes rodando órfãos.
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-posix-' + process.pid);
 process.env.FAROL_HOME = FAROL_HOME;
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const { EventEmitter } = require('node:events');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 
 // mesmo padrão de test/session-claude-profile.test.js: o mock precisa estar em vigor
 // ANTES do require de lib/engine/session, que captura `spawn` no load
-const childProcess = require('child_process');
+import childProcess from 'node:child_process';
 const realSpawn = childProcess.spawn;
 let spawnImpl = null;
 childProcess.spawn = function mockableSpawn(...args) {
@@ -32,9 +31,10 @@ childProcess.spawn = function mockableSpawn(...args) {
   return realSpawn(...args);
 };
 
-const { runClaudeStream, buildSessionScriptMac, buildLoginScriptMac } = require('../lib/engine/session');
-const { claudeAuthShellLines, claudeAuthPosixPrefix } = require('../lib/parse');
-const { WORKSPACE, IS_WIN } = require('../lib/paths');
+const { runClaudeStream, buildSessionScriptMac, buildLoginScriptMac, killTree } = await import('../lib/engine/session.js');
+const { claudeAuthShellLines, claudeAuthPosixPrefix } = await import('../lib/parse.js');
+const { WORKSPACE, IS_WIN } = await import('../lib/paths.js');
+import { execSync } from 'node:child_process';
 
 after(() => {
   childProcess.spawn = realSpawn;
@@ -212,13 +212,12 @@ test('buildLoginScriptMac (padrão da máquina): unset sem export de dir nenhum'
 // prefixo roda depois dele, exatamente como o `/bin/sh -lc` faz com o `-l`.
 let bashDisponivel = true;
 try {
-  require('node:child_process').execSync('bash --version', { stdio: 'ignore' });
+  execSync('bash --version', { stdio: 'ignore' });
 } catch {
   bashDisponivel = false;
 }
 
 function rodaComProfileSujo(prefixo) {
-  const { execSync } = require('node:child_process');
   const base = path.join(os.tmpdir(), 'farol-test-prefixo-' + process.pid).replace(/\\/g, '/');
   const profile = `${base}-profile.sh`;
   const script = `${base}-run.sh`;
@@ -264,7 +263,6 @@ test('prefixo posix: aspa simples no dir não injeta comando (execução real co
 // impede cancelamento de revisão deixar claude/subagentes órfãos. Era o único
 // caminho de kill sem nenhum assert em SO nenhum (auditoria 16/08).
 test('killTree posix: mata o grupo de processo inteiro, não só o líder', { skip: IS_WIN ? 'só roda em POSIX' : false }, async () => {
-  const { killTree } = require('../lib/engine/session');
   const child = realSpawn('/bin/sh', ['-c', 'sleep 30 & sleep 30 & wait'], { detached: true, stdio: 'ignore' });
   child.on('error', () => { });
   await new Promise(r => setTimeout(r, 300));   // grupo montado
@@ -280,7 +278,7 @@ test('killTree posix: mata o grupo de processo inteiro, não só o líder', { sk
 
 /* ---------- Linux experimental (v2.45.0): escolha do terminal ---------- */
 
-const { pickLinuxTerminal, LINUX_TERMINALS } = require('../lib/engine/session');
+const { pickLinuxTerminal, LINUX_TERMINALS } = await import('../lib/engine/session.js');
 
 test('pickLinuxTerminal: primeiro candidato existente vence, com os args dele', () => {
   const exists = c => c === 'konsole' || c === 'xterm';

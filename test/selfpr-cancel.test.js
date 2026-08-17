@@ -1,19 +1,18 @@
-'use strict';
 // Cancelamento da autoanálise (Onda 3, contrato UI↔server). O bug de origem: o botão
 // Cancelar da UI postava /api/cancel-op, rota que nunca existiu, e a sessão seguia
 // rodando com a UI dizendo "Cancelado". O contrato novo cancela POR KEY, porque no
 // momento do clique a sessão pode nem existir ainda (o item está na headlessQueue e o
 // id s<seq> só nasce quando o escalonador puxa). Este arquivo trava o lado do engine.
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-selfcancel-' + process.pid);
 process.env.FAROL_HOME = FAROL_HOME;
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const { Engine } = require('../server.js');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+const { Engine } = await import('../server.js');
 
 after(() => {
   try { fs.rmSync(FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ }

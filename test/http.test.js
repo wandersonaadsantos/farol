@@ -1,22 +1,21 @@
-'use strict';
 // Smoke da camada HTTP (lib/http-server.js): sobe o servidor com uma Engine real contra
 // um FAROL_HOME temporário (sem polling, sem gh) e confere que /api/state e a UI estática
 // respondem. Protege a extração do http server. Runner nativo, ZERO deps.
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
-const http = require('node:http');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
+import http from 'node:http';
 
 const HOME = path.join(os.tmpdir(), 'farol-test-http-' + process.pid);
 process.env.FAROL_HOME = HOME;
 
-const { test, before, after } = require('node:test');
-const assert = require('node:assert/strict');
-const { Engine } = require('../server.js');
-const { startServer } = require('../lib/http-server');
-const { LOG_FILE } = require('../lib/paths');
-const { normalizeReviewPayload } = require('../lib/engine/public-review');
-const { reviewCaps } = require('../lib/engine/decision');
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+const { Engine } = await import('../server.js');
+const { startServer } = await import('../lib/http-server.js');
+const { LOG_FILE } = await import('../lib/paths.js');
+const { normalizeReviewPayload } = await import('../lib/engine/public-review.js');
+const { reviewCaps } = await import('../lib/engine/decision.js');
 
 let server, base, engine;
 

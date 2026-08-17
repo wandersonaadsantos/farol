@@ -1,19 +1,18 @@
-'use strict';
 // Checkpoint de verificação: memória persistida e incremental do que a revisão headless
 // já confirmou, pra não reprocessar do zero depois de um subagente travar em 529 ou a
 // sessão ser relançada. Ver a seção "Checkpoint de verificação" do CLAUDE.md.
 // Runner nativo (node --test), ZERO dependências.
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-checkpoint-' + process.pid);
 process.env.FAROL_HOME = FAROL_HOME;
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const { checkpointPath, appendCheckpointEntry } = require('../lib/engine/verification-checkpoint');
-const { STATE_DIR } = require('../lib/paths');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+const { checkpointPath, appendCheckpointEntry } = await import('../lib/engine/verification-checkpoint.js');
+const { STATE_DIR } = await import('../lib/paths.js');
 
 after(() => { try { fs.rmSync(FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 
@@ -53,7 +52,7 @@ test('appendCheckpointEntry: é append-only, nunca sobrescreve entrada anterior'
   assert.equal(saved.entries[1].verdict, 'refutado');
 });
 
-const { readCheckpoint, summarizeCheckpoint } = require('../lib/engine/verification-checkpoint');
+const { readCheckpoint, summarizeCheckpoint } = await import('../lib/engine/verification-checkpoint.js');
 
 test('readCheckpoint: arquivo ausente devolve ok:true com entries vazio', () => {
   const p = checkpointPath('nunca/existiu#1');
@@ -130,7 +129,7 @@ test('summarizeCheckpoint detecta conflito mesmo com fraseado ligeiramente difer
   assert.equal(r.conflicts.length, 1, 'variação de caixa/espaço/pontuação na claim não deveria esconder o conflito');
 });
 
-const { resumeBlock } = require('../lib/engine/verification-checkpoint');
+const { resumeBlock } = await import('../lib/engine/verification-checkpoint.js');
 
 test('summarizeCheckpoint sem currentHeadSha considera todas as entradas (compatibilidade)', () => {
   const entries = [

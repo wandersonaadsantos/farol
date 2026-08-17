@@ -1,4 +1,3 @@
-'use strict';
 // Prompt da revisão headless: o fan-out de PR grande precisa CHEGAR no prompt.
 //
 // Contexto: a fachada Engine.headlessPromptFor declarava (url, author) enquanto a
@@ -7,18 +6,18 @@
 // nunca era concatenado: o Farol media o PR, montava os lotes e jogava o plano fora.
 // Um PR de 8700 linhas era lido parcialmente e aprovado. Estes testes travam os dois
 // lados: o comportamento (o bloco aparece) e a assinatura (aridade da fachada).
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const HOME = path.join(os.tmpdir(), 'farol-test-review-prompt-' + process.pid);
 process.env.FAROL_HOME = HOME;
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const { Engine } = require('../server.js');
-const { planLotes } = require('../lib/engine/fanout');
-const { TEMPLATE_DIR } = require('../lib/paths');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+const { Engine } = await import('../server.js');
+const { planLotes } = await import('../lib/engine/fanout.js');
+const { TEMPLATE_DIR } = await import('../lib/paths.js');
 
 after(() => { try { fs.rmSync(HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 
@@ -65,7 +64,7 @@ test('headlessPromptFor: o prompt com lotes é um superconjunto do sem lotes', (
    que varre as ~97 fachadas derivando a expectativa do próprio fonte. Aqui ficou só o
    comportamento: o bloco de fan-out realmente chega no prompt. */
 
-const { checkpointPath } = require('../lib/engine/verification-checkpoint');
+const { checkpointPath } = await import('../lib/engine/verification-checkpoint.js');
 
 test('headlessPromptFor: {{CHECKPOINT_PATH}} é substituído pelo caminho real do checkpoint', () => {
   const prompt = new Engine().headlessPromptFor(URL_PR, 'alice');

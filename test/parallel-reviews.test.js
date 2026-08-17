@@ -1,17 +1,16 @@
-'use strict';
 // Escalonador headless com paralelismo POR CONTA opt-in (config.parallelReviews):
 // o padrão continua 1 (série dentro da conta, contas diferentes em paralelo, como
 // sempre foi), e quem pede mais ganha até 4 revisões simultâneas da MESMA conta.
 // headlessBusyAccounts virou Map de contagem (conta -> revisões rodando); o teto é
 // lido a cada volta do loop e clampado em 1..4 no próprio escalonador (defesa em
 // profundidade, mesmo padrão do buildModelFlags: config torta nunca vira loop nem 0).
-const os = require('node:os');
-const path = require('node:path');
+import os from 'node:os';
+import path from 'node:path';
 process.env.FAROL_HOME = process.env.FAROL_HOME || path.join(os.tmpdir(), 'farol-test-parallel-' + process.pid);
 
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const reviewMod = require('../lib/engine/review');
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+const reviewMod = (await import('../lib/engine/review.js')).default;
 
 function engineSched(parallelReviews, prs) {
   return {

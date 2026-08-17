@@ -1,17 +1,16 @@
-'use strict';
 // updateSettings: allowlist e validação de reviewModel/reviewEffort pelo caminho HTTP.
 // Complementa boot.test.js (que cobre o saneamento do config.json) e model-effort.test.js
 // (que cobre as funções puras). Aqui é o contrato da API: o que a UI manda, o que grava.
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const HOME = path.join(os.tmpdir(), 'farol-test-settings-me-' + process.pid);
 process.env.FAROL_HOME = HOME;
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const { Engine } = require('../server.js');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+const { Engine } = await import('../server.js');
 
 after(() => { try { fs.rmSync(HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 

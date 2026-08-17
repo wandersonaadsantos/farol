@@ -1,4 +1,3 @@
-'use strict';
 // Dedup de postagem TEM que ser por ROUND, não por "alguma vez".
 //
 // Bug real (biudtech/biud-frontend#742, 11/08/2026): o Farol postou CHANGES_REQUESTED às
@@ -17,15 +16,15 @@
 //
 // Harness igual ao do review-reasons.test.js: engine real com FAROL_HOME temporário,
 // sessão Claude stubada, fan-out neutralizado. Runner nativo, ZERO deps.
-const os = require('node:os');
-const path = require('node:path');
+import os from 'node:os';
+import path from 'node:path';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-dedup-round-' + process.pid);
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const { Engine } = require('../server.js');
-const fanout = require('../lib/engine/fanout.js');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const { Engine } = await import('../server.js');
+const fanout = (await import('../lib/engine/fanout.js')).default;
 
 const prMetricsOriginal = fanout.prMetrics;
 fanout.prMetrics = async () => null;

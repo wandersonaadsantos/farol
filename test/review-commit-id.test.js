@@ -1,11 +1,10 @@
-'use strict';
 // G1 da auditoria 15/08/2026: payload sem commit_id faz o GitHub ancorar o
 // review no head do momento do POST, não no head que a sessão leu. Estes
 // testes travam: normalize aceita/valida o campo, e os três pontos de
 // postagem (canAuto, canReject, decide) o propagam.
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const { normalizeReviewPayload } = require('../lib/engine/public-review');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { normalizeReviewPayload } from '../lib/engine/public-review.js';
 
 test('normalizeReviewPayload: commit_id sha válido é preservado', () => {
   const r = normalizeReviewPayload({ event: 'APPROVE', body: 'ok', comments: [], commit_id: 'a'.repeat(40) });
@@ -27,10 +26,10 @@ test('normalizeReviewPayload: commit_id que não é sha é DESCARTADO (nunca vir
   assert.equal('commit_id' in r.value, false);
 });
 
-const os = require('node:os');
-const path = require('node:path');
+import os from 'node:os';
+import path from 'node:path';
 process.env.FAROL_HOME = process.env.FAROL_HOME || path.join(os.tmpdir(), 'farol-test-commitid-' + process.pid);
-const { Engine } = require('../server.js');
+const { Engine } = await import('../server.js');
 
 // C2 da revisão final da onda 2: o clique posta o payload que a SESSÃO escreveu, e esse
 // texto descreve o código de item.headSha. Ancorar no head buscado na hora do clique faz
@@ -77,7 +76,7 @@ test('decide(): pendência SEM headSha (gravada antes do campo) cai no head busc
   assert.equal(capturado.payload.commit_id, 'f'.repeat(40), 'sem head lido, âncora nenhuma é pior que a fresca');
 });
 
-const { inlineFallbackPayload } = require('../lib/engine/decision.js');
+const { inlineFallbackPayload } = await import('../lib/engine/decision.js');
 
 // O 422 do GitHub não distingue âncora de LINHA inválida de âncora de HEAD inválida. Se o
 // retry reenviasse o mesmo commit_id, um 422 causado pelo próprio sha falharia idêntico e o
@@ -112,7 +111,7 @@ test('fallback de inline: o payload normalizado do fallback sai sem âncora de h
 // (knownHead). Se o gh falhar no início da sessão, cair pro headSha vazio degradaria o
 // dedup pro comportamento antigo e o round 2 morreria como already_reviewed, com a
 // âncora do relançamento já gasta. O fallback também ancora o review postado.
-const fanout = require('../lib/engine/fanout.js');
+const fanout = (await import('../lib/engine/fanout.js')).default;
 const prMetricsOriginal = fanout.prMetrics;
 fanout.prMetrics = async () => null;
 after(() => { fanout.prMetrics = prMetricsOriginal; });

@@ -1,4 +1,3 @@
-'use strict';
 // Retry pós-falha transitória: o toast promete "tento de novo no próximo ciclo",
 // então o próximo ciclo tem que conseguir relançar SEM depender (a) da política
 // autoReview da conta e (b) de o PR seguir na fila mine (revisão por clique no
@@ -6,14 +5,14 @@
 // essa promessa quebrada. O filtro de token da Onda 1 permanece: conta sem token
 // não abre sessão, então também não relança (R2 do plano mestre). Runner nativo,
 // ZERO deps.
-const os = require('node:os');
-const path = require('node:path');
+import os from 'node:os';
+import path from 'node:path';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-retry-net-' + process.pid);
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const { Engine } = require('../server.js');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const { Engine } = await import('../server.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
 
@@ -232,7 +231,7 @@ test('runOneHeadless: falha transitória comum (rede) não ganha notBefore', asy
 // Estes testes exercitam a poda diretamente no server.js (check() simplificado),
 // usando o mesmo padrão de stub do engine.
 
-const { Engine: EngineForPrune } = require('../server.js');
+const { Engine: EngineForPrune } = await import('../server.js');
 
 function engineForPrune() {
   const e = new EngineForPrune();
@@ -463,7 +462,7 @@ test('autoReviewParked sobrevive a reinício da Engine (G15)', () => {
 // mexe na key cujo owner RESPONDEU neste ciclo (mesmo padrão do G5: falha de
 // busca não prova PR fechado). Harness no padrão do check-resilience.test.js:
 // check() inteiro, com todo colaborador de rede/side-effect stubado.
-const { BASELINE_FILE: BASELINE_FILE_G15, STATE_DIR: STATE_DIR_G15 } = require('../lib/paths');
+const { BASELINE_FILE: BASELINE_FILE_G15, STATE_DIR: STATE_DIR_G15 } = await import('../lib/paths.js');
 
 function checkEngineG15() {
   const e = new Engine();

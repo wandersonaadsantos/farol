@@ -1,16 +1,15 @@
-'use strict';
 // G2 da auditoria 15/08/2026: decide() capturava o índice antes de 3 awaits e
 // fazia splice com o índice velho. Uma pendência nova criada durante o await
 // (unshift do recordDecision) deslocava a lista e o splice removia a pendência
 // ERRADA, que sumia das duas listas. reconcilePending já re-acha o índice
 // depois do await (decision.js, comentário "a lista pode ter mudado"); este
 // teste trava a mesma defesa no decide().
-const os = require('node:os');
-const path = require('node:path');
+import os from 'node:os';
+import path from 'node:path';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-decide-conc-' + process.pid);
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const { Engine } = require('../server.js');
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+const { Engine } = await import('../server.js');
 
 function pendencia(id, key) {
   return {

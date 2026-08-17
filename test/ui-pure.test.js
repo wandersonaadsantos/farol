@@ -1,4 +1,3 @@
-'use strict';
 // Primeiro teste de codigo da UI do Farol.
 //
 // O ui/app.js tinha ~2860 linhas e ZERO teste: era o maior arquivo do projeto e o debito
@@ -8,15 +7,16 @@
 //
 // A mais importante e o esc(): e a defesa contra injecao de HTML de ~240 interpolacoes
 // espalhadas pelo app, e nunca teve uma linha de teste.
-const path = require('node:path');
+import path from 'node:path';
 
 // fmtClock formata no fuso do processo; sem fixar, o teste passa na minha maquina e
 // falha em outra. Tem que vir ANTES do require.
 process.env.TZ = 'America/Sao_Paulo';
 
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const P = require(path.join(__dirname, '..', 'ui', 'pure.js'));
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const P = await import('../ui/pure.js');
 
 /* ---------- esc: a defesa contra injecao ---------- */
 
@@ -553,9 +553,7 @@ test('INVARIANTE: toda menção de autor da UI passa pelo personMention (foto + 
   // o pedido do Wanderson (11/08/2026) foi de LÓGICA CENTRALIZADA: se um painel
   // voltar a escrever "@" + login na mão, a foto e o link somem só ali, que é
   // exatamente a assimetria que ele viu no Panorama. Este teste varre o fonte.
-  const fs = require('node:fs');
-  const path = require('node:path');
-  const raiz = path.join(__dirname, '..', 'ui');
+  const raiz = path.join(import.meta.dirname, '..', 'ui');
   const suspeitas = [];
   for (const arquivo of ['app.js', 'pure.js']) {
     const src = fs.readFileSync(path.join(raiz, arquivo), 'utf8');
@@ -1429,8 +1427,7 @@ test('os tres botoes de merge da UI usam mergeToastKind, nenhum ficou com toast 
   // os tres (normal, auto, admin) passam pela MESMA guarda do mergeSelfPR: se um
   // deles voltar a chamar toast('error', ...) direto, o clique duplo dele volta a
   // piscar vermelho e so este teste avisa
-  const fs = require('node:fs');
-  const APP = fs.readFileSync(path.join(__dirname, '..', 'ui', 'app.js'), 'utf8');
+  const APP = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
   const fixos = [...APP.matchAll(/toast\('error',\s*esc\(r\?\.error \|\| 'não consegui [^']*merge[^']*'\)\)/g)];
   assert.deepEqual(fixos.map(m => m[0]), [], 'toast de merge com cor fixa ignora a recusa benigna da guarda');
   assert.equal([...APP.matchAll(/mergeToastKind\(r\?\.error\)/g)].length, 3,

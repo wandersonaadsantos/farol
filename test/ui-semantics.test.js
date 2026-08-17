@@ -1,4 +1,3 @@
-'use strict';
 // Estrutura semântica da UI, verificada direto no ui/index.html.
 //
 // Por que existe: `npm run check` só valida sintaxe de JS, e não há teste nenhum de UI.
@@ -10,14 +9,14 @@
 // Sem DOM e sem dependência: o HTML é lido como texto e conferido por regex. Isso limita
 // o que dá pra afirmar (não valida aninhamento), então cada teste checa um invariante
 // simples e verificável assim, e o resto fica pra verificação no navegador.
-const path = require('node:path');
-const fs = require('node:fs');
+import path from 'node:path';
+import fs from 'node:fs';
 
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
 
-const HTML = fs.readFileSync(path.join(__dirname, '..', 'ui', 'index.html'), 'utf8');
-const APPJS = fs.readFileSync(path.join(__dirname, '..', 'ui', 'app.js'), 'utf8');
+const HTML = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'index.html'), 'utf8');
+const APPJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
 
 const todos = (re, s = HTML) => [...s.matchAll(re)];
 const attr = (tagTrecho, nome) => (tagTrecho.match(new RegExp(nome + '="([^"]*)"')) || [])[1];

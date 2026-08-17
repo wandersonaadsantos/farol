@@ -1,22 +1,22 @@
-'use strict';
 // lib/io.js e lib/taxonomy.js: os dois últimos módulos de lib/ sem nenhum teste.
 //
 // io.js é a base de tudo (todo `gh` do Farol passa pelo run, todo estado passa pelo
 // readJson, o boot semeia o workspace pelo copyRecursive). taxonomy.js é a fonte dos
 // níveis de papel e domínio que entram no PROMPT da revisão: nível novo listado sem
 // texto de tom correspondente vira `undefined` injetado no prompt, calado.
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-io-tax-' + process.pid);
 process.env.FAROL_HOME = FAROL_HOME;
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, run, runShell, prependPathDirs } = require('../lib/io');
-const { IS_WIN } = require('../lib/paths');
-const tax = require('../lib/taxonomy');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+const { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, prependPathDirs } = await import('../lib/io.js');
+const { run, runShell } = (await import('../lib/io.js')).default;
+const { IS_WIN } = await import('../lib/paths.js');
+const tax = (await import('../lib/taxonomy.js')).default;
 
 const TMP = path.join(os.tmpdir(), 'farol-test-io-' + process.pid);
 after(() => {

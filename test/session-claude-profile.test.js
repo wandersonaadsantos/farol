@@ -1,10 +1,9 @@
-'use strict';
 // buildSessionScript/buildSessionScriptMac usam resolveClaudeConfigDir(account) em vez
 // de ler config.claudeConfigDir direto — pra a sessão de terminal (Windows/mac) respeitar
 // o perfil por conta, igual ao headless (ghEnv, ver ghEnv.test em claude-profiles.test.js).
-const os = require('node:os');
-const path = require('node:path');
-const fsMod = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fsMod from 'node:fs';
 
 // spawnLoginConsole (Fix 2, mais abaixo) grava um .cmd de verdade em HOME/sessions -
 // fixar FAROL_HOME num diretório temporário ANTES de qualquer require que carregue
@@ -14,8 +13,8 @@ const fsMod = require('node:fs');
 const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-sessprofile-' + process.pid);
 process.env.FAROL_HOME = FAROL_HOME;
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
 
 // Mock de child_process.spawn pros testes de spawnLoginConsole (Fix 2): lib/engine/session.js
 // faz `const { spawn } = require('child_process')` no load do módulo (const de nível de
@@ -23,7 +22,7 @@ const assert = require('node:assert/strict');
 // lib/engine/session logo abaixo - trocar a propriedade depois não afeta a referência já
 // capturada lá dentro. Quando nenhum teste setar spawnImpl, delega pro spawn real (os
 // outros testes deste arquivo só testam build*Script, funções puras que não chamam spawn).
-const childProcess = require('child_process');
+import childProcess from 'node:child_process';
 const realSpawn = childProcess.spawn;
 let spawnImpl = null;
 childProcess.spawn = function mockableSpawn(...args) {
@@ -31,8 +30,9 @@ childProcess.spawn = function mockableSpawn(...args) {
   return realSpawn(...args);
 };
 
-const { buildSessionScript, buildSessionScriptMac, buildLoginScript, buildLoginScriptMac, spawnLoginConsole } = require('../lib/engine/session');
-const { EventEmitter } = require('node:events');
+const { buildSessionScript, buildSessionScriptMac, buildLoginScript, buildLoginScriptMac, spawnLoginConsole } = await import('../lib/engine/session.js');
+import { EventEmitter } from 'node:events';
+import { execSync } from 'node:child_process';
 
 after(() => {
   childProcess.spawn = realSpawn;
@@ -223,7 +223,7 @@ test('buildLoginScriptMac: sem dir, não exporta CLAUDE_CONFIG_DIR', () => {
 // confuso e derrubar a suíte inteira.
 let bashDisponivel = true;
 try {
-  require('node:child_process').execSync('bash --version', { stdio: 'ignore' });
+  execSync('bash --version', { stdio: 'ignore' });
 } catch {
   bashDisponivel = false;
 }
@@ -242,7 +242,6 @@ test(
     const exportLine = script.split('\n').find(l => l.startsWith('export CLAUDE_CONFIG_DIR'));
     assert.ok(exportLine, 'linha do export existe no script gerado');
 
-    const { execSync } = require('node:child_process');
     const tmpScript = path.join(os.tmpdir(), 'farol-test-escape-' + process.pid + '.sh');
     try { fsMod.unlinkSync(proofFile); } catch { /* já não existe */ }
     fsMod.writeFileSync(tmpScript, `#!/bin/bash\n${exportLine}\necho "va-$CLAUDE_CONFIG_DIR-lor"\n`);

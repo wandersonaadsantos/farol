@@ -1,23 +1,22 @@
-'use strict';
 // M6: o envelope da sessão é saída de modelo, não fonte de identidade. recordDecision
 // preferia result.pr (repo/number ditados pela sessão) e decide()/postReview postavam
 // NESSE repo: um envelope mentiroso redirecionaria um APPROVE pra outro repositório.
 // O writeMemory tinha o mesmo furo na atribuição (memory.author e result.pr do envelope
 // escolhiam o arquivo do dossiê), inclusive no caminho automático do runHeadlessReview.
 // Estes testes travam: a identidade do PR vem SEMPRE da fila (pr), nunca do envelope.
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-envelope-' + process.pid);
 process.env.FAROL_HOME = FAROL_HOME;
 
-const { test, after, beforeEach } = require('node:test');
-const assert = require('node:assert/strict');
+import { test, after, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
 
 // espião no lugar do run, instalado antes do primeiro require de decision
 // (mesma técnica do merge-gates.test.js: a desestruturação captura a referência no load)
-const io = require('../lib/io');
+const io = (await import('../lib/io.js')).default;
 const runReal = io.run;
 let runImpl = null;
 const chamadas = [];
@@ -27,7 +26,7 @@ io.run = function runEspiao(cmd, args, opts) {
   return runReal(cmd, args, opts);
 };
 
-const { Engine } = require('../server.js');
+const { Engine } = await import('../server.js');
 
 after(() => {
   io.run = runReal;

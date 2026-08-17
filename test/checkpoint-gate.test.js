@@ -1,15 +1,15 @@
-'use strict';
 // checkpointGap segue EXATAMENTE o padrão de coverageGap (lib/engine/decision.js): função
 // pura que só olha o campo já computado em `result`, nunca dispara IO. A leitura de disco
 // acontece uma vez só, em runHeadlessReview (Task 7), antes do gate rodar.
-const os = require('node:os');
-const path = require('node:path');
+import os from 'node:os';
+import path from 'node:path';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-checkpoint-gate-' + process.pid);
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const { Engine } = require('../server.js');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const { Engine } = await import('../server.js');
+const { checkpointGap } = await import('../lib/engine/decision.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
 
@@ -90,7 +90,6 @@ test('shouldAutoReject: checkpoint limpo ou ausente não bloqueia (comportamento
 
 // teste direto de checkpointGap isolado (Minor deferido da Task 6)
 test('checkpointGap cita arquivo, linha e claim do conflito, não só um índice genérico', () => {
-  const { checkpointGap } = require('../lib/engine/decision');
   const result = {
     verificationCheckpoint: {
       conflicts: [

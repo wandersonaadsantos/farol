@@ -1,17 +1,16 @@
-'use strict';
 
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
-const { test, after, beforeEach } = require('node:test');
-const assert = require('node:assert/strict');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
+import { test, after, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
 
 const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-public-review-' + process.pid);
 process.env.FAROL_HOME = FAROL_HOME;
 
-const publicReview = require('../lib/engine/public-review');
+const publicReview = (await import('../lib/engine/public-review.js')).default;
 
-const io = require('../lib/io');
+const io = (await import('../lib/io.js')).default;
 const runReal = io.run;
 const calls = [];
 io.run = async function runSpy(cmd, args, opts) {
@@ -19,8 +18,8 @@ io.run = async function runSpy(cmd, args, opts) {
   return { ok: true, code: 0, stdout: '', stderr: '' };
 };
 
-const { Engine } = require('../server');
-const { STATE_DIR } = require('../lib/paths');
+const { Engine } = await import('../server.js');
+const { STATE_DIR } = await import('../lib/paths.js');
 
 after(() => {
   io.run = runReal;

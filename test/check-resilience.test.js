@@ -1,19 +1,19 @@
-'use strict';
 // check() resiliente a falha PARCIAL das buscas: quando só as --review-requested
 // falham (ex.: rate limit da API de search), a fila, o "é meu" do panorama e os
 // marcadores do último ciclo bom são preservados, como já acontece com reviewedKeys
 // e myPRs. Sem isso, um ciclo ruim zerava a fila, apagava reReviewedKeys
 // (ressuscitando PRs ignorados) e re-notificava tudo na recuperação.
 // Runner nativo (node --test), ZERO dependências.
-const os = require('node:os');
-const path = require('node:path');
+import os from 'node:os';
+import path from 'node:path';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-checkres-' + process.pid);
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const { Engine } = require('../server.js');
-const { BASELINE_FILE, STATE_DIR } = require('../lib/paths');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const { Engine } = await import('../server.js');
+const { BASELINE_FILE, STATE_DIR } = await import('../lib/paths.js');
+const { localDay } = await import('../lib/engine/usage.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
 
@@ -188,7 +188,6 @@ test('PR ignorado não ressuscita depois de um ciclo com busca falha', async () 
 // desta suíte, que já monta um Engine real com todo colaborador de rede stubado.
 test('check(): perfil apikey com orçamento estourado NÃO dispara auto-revisão', async () => {
   const e = checkEngine();
-  const { localDay } = require('../lib/engine/usage');
   e.config.autoReview = true; // aqui, ao contrário do default da suíte, queremos que dispare
   e.tokens = { me: 'tok-me' };
   e.config.claudeProfiles = [{ id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', baseUrl: '', budgetDaily: 1 }];
@@ -223,7 +222,6 @@ test('check(): perfil apikey dentro do orçamento dispara auto-revisão normalme
 // ciclo). Tinha ZERO noção de orçamento antes desta correção.
 test('check(): retry pós-transitório NÃO relança PR de conta com orçamento estourado', async () => {
   const e = checkEngine();
-  const { localDay } = require('../lib/engine/usage');
   e.tokens = { me: 'tok-me' };
   e.config.claudeProfiles = [{ id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', baseUrl: '', budgetDaily: 1 }];
   e.config.claudeProfileId = 'p1';
@@ -289,7 +287,6 @@ test('check(): PR relançado pelo retry sai da fila visível e volta a visto (ca
 // real fica silencioso.
 test('budgetWarned: toast do orçamento não repete enquanto seguir estourado, mas volta após destravar e travar de novo', async () => {
   const e = checkEngine();
-  const { localDay } = require('../lib/engine/usage');
   e.config.autoReview = true;
   e.tokens = { me: 'tok-me' };
   const profile = { id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', baseUrl: '', budgetDaily: 1 };

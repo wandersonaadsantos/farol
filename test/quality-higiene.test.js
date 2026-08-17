@@ -1,7 +1,6 @@
-'use strict';
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const { refsForaDeTodo } = require('../tools/quality/higiene.js');
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { refsForaDeTodo } from '../tools/quality/higiene.js';
 
 test('TODO(BT-123) e legitimo; BT-123 solto conta', () => {
   assert.equal(refsForaDeTodo('// TODO(BT-123): migrar'), 0);

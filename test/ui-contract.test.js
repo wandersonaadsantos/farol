@@ -1,4 +1,3 @@
-'use strict';
 // Contrato UI↔server (Onda 3): toda rota /api que o ui/app.js chama tem que EXISTIR no
 // lib/http-server.js. O bug de origem (achado M18): o botão Cancelar postava
 // /api/cancel-op, rota que nunca existiu; o 404 era engolido pelo .catch(() => null) do
@@ -6,14 +5,14 @@
 // Sem DOM e sem dependência: os dois arquivos são lidos como texto e conferidos por
 // regex, a mesma técnica do ui-semantics.test.js. Método HTTP fica fora do escopo; o
 // que se caça aqui é rota que cai no 404 silencioso.
-const path = require('node:path');
-const fs = require('node:fs');
+import path from 'node:path';
+import fs from 'node:fs';
 
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
 
-const APPJS = fs.readFileSync(path.join(__dirname, '..', 'ui', 'app.js'), 'utf8');
-const SERVERJS = fs.readFileSync(path.join(__dirname, '..', 'lib', 'http-server.js'), 'utf8');
+const APPJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
+const SERVERJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'http-server.js'), 'utf8');
 
 // chamadas da UI: api('/api/x'), get('/api/x?...'), EventSource e descriptors path: '/api/x'
 function rotasChamadas() {
@@ -78,8 +77,8 @@ test('o lote "Aprovar as N pendentes" só alcança as decisões visíveis no esc
    querySelector devolve null, o goTo() volta em silêncio e o clique simplesmente
    não faz nada. A trava confere, contra o index.html, que toda aba, seção e
    âncora citada num data-goto EXISTE. */
-const INDEXHTML = fs.readFileSync(path.join(__dirname, '..', 'ui', 'index.html'), 'utf8');
-const PUREJS = fs.readFileSync(path.join(__dirname, '..', 'ui', 'pure.js'), 'utf8');
+const INDEXHTML = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'index.html'), 'utf8');
+const PUREJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'pure.js'), 'utf8');
 
 // specs literais: atributo no html e string em js. Quem monta o destino com
 // template (`sys:accounts:...${user}`) fica de fora: o valor só existe em runtime.

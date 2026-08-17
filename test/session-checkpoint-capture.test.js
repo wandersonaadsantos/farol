@@ -1,22 +1,21 @@
-'use strict';
 // A sessão headless não pode escrever em state/ (regra 2 de pr-review-auto.md). Em vez
 // disso, ela sinaliza um veredito de verificação via um marcador estruturado no campo
 // `description` de uma chamada Bash que já rodaria de qualquer forma; o ENGINE intercepta
 // esse tool_use (mesmo ponto que já alimenta o feed de atividade) e é ELE quem grava o
 // checkpoint. Ver a seção "Checkpoint de verificação" do CLAUDE.md.
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-session-checkpoint-' + process.pid);
 process.env.FAROL_HOME = FAROL_HOME;
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const { EventEmitter } = require('node:events');
-const { PassThrough } = require('node:stream');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
 
-const childProcess = require('child_process');
+import childProcess from 'node:child_process';
 const realSpawn = childProcess.spawn;
 let spawnImpl = null;
 childProcess.spawn = function mockableSpawn(...args) {
@@ -24,8 +23,8 @@ childProcess.spawn = function mockableSpawn(...args) {
   return realSpawn(...args);
 };
 
-const { runClaudeStream, parseEnvelope } = require('../lib/engine/session');
-const { checkpointPath, readCheckpoint } = require('../lib/engine/verification-checkpoint');
+const { runClaudeStream, parseEnvelope } = await import('../lib/engine/session.js');
+const { checkpointPath, readCheckpoint } = await import('../lib/engine/verification-checkpoint.js');
 
 after(() => {
   childProcess.spawn = realSpawn;

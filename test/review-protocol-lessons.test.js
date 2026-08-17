@@ -1,15 +1,14 @@
-'use strict';
 // Lições de reviews reais precisam EXISTIR no protocolo semeado. Origem medida:
 // 12 achados de um PR real verificados um a um (8 corretos, 3 parciais, 1 com fato
 // desatualizado) deram os 4 erros de precisão do agente; 2 pushbacks confirmados
 // (autor tinha razão) deram as regras de calibração do CLAUDE.md. O prepareHome
 // re-sincroniza o workspace a cada boot a partir destes arquivos, então perder uma
 // frase aqui é perder a lição em TODA cópia instalada no próximo update.
-const path = require('node:path');
-const fs = require('node:fs');
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const { TEMPLATE_DIR } = require('../lib/paths');
+import path from 'node:path';
+import fs from 'node:fs';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { TEMPLATE_DIR } from '../lib/paths.js';
 
 const agente = fs.readFileSync(path.join(TEMPLATE_DIR, '.claude', 'agents', 'pr-reviewer.md'), 'utf8');
 const protocolo = fs.readFileSync(path.join(TEMPLATE_DIR, 'CLAUDE.md'), 'utf8');

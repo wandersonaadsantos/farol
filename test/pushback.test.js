@@ -1,32 +1,32 @@
-'use strict';
 // Cobre o gate de ressalva do reviewActions() que o scan de pushback usa pra decidir
 // alvo: pushback só vale pra bloqueio (request_changes) ou aprovação COM ressalva.
 // Aprovação limpa (sem motivo e com card comprovado) NÃO marca caveats, então fica de
 // fora do scan. Ressalva = mesmos pontos do attentionPoints (card não comprovado OU
 // algum motivo/attention listado). Runner nativo, ZERO deps.
-const os = require('node:os');
-const path = require('node:path');
+import os from 'node:os';
+import path from 'node:path';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-pushback-' + process.pid);
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
 
 // espião no run do gh: pushback.js destrutura io.run no LOAD (mesma pegadinha
 // documentada em gh-queries-capped.test.js), então o patch precisa existir ANTES do
 // require do server. Por padrão devolve ok vazio (nenhum gh real roda neste arquivo);
 // os testes de detectAuthorPushback (G4) trocam ghImpl por um stub concreto.
-const io = require('../lib/io');
+const io = (await import('../lib/io.js')).default;
 let ghImpl = null;
 io.run = (cmd, args, opts) => ghImpl
   ? ghImpl(cmd, args, opts)
   : Promise.resolve({ ok: true, code: 0, stdout: '', stderr: '' });
 
-const { Engine } = require('../server.js');
+const { Engine } = await import('../server.js');
 // o gate DE VERDADE, importado do módulo. Antes este arquivo tinha uma cópia manual da
 // regra ("espelha o gate de scanPushbacks"), então testava o teste: a regra podia mudar
 // no pushback.js e a suíte seguia verde validando a cópia velha.
-const { isPushbackTarget, pushbackTargets, detectAuthorPushback } = require('../lib/engine/pushback');
+const { isPushbackTarget, pushbackTargets, detectAuthorPushback } = await import('../lib/engine/pushback.js');
+const { localDay } = await import('../lib/engine/usage.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
 
@@ -169,7 +169,6 @@ test('pushbackTargets: conta com perfil de orçamento estourado fica de fora do 
   const e = engineComPanorama(RESOLVIDOS,
     [{ key: 'o/r#2', account: 'bob', updatedAt: '2026-08-01T10:00:00Z' }]);
   e.config.accounts = [{ user: 'bob', owners: ['x'] }];
-  const { localDay } = require('../lib/engine/usage');
   e.config.claudeProfiles = [{ id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', baseUrl: '', budgetDaily: 1 }];
   e.config.claudeProfileId = 'p1';
   e.usage.byProfileDay = { [`p1|${localDay()}`]: { sessions: 1, inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 1 } };

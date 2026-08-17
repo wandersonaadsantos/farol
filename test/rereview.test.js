@@ -1,4 +1,3 @@
-'use strict';
 // Re-revisão automática pós-push (round 2 sem clique): quando EU pedi mudanças num PR
 // e o autor empurrou commit novo, o PR volta pra fila de revisão headless sozinho, em
 // vez de esperar você notar o push e clicar Re-revisar (era o elo manual do ciclo:
@@ -9,18 +8,18 @@
 // sem rede. A âncora por head (reReviewLaunched) garante que cada estado do PR é
 // relançado NO MÁXIMO uma vez: falha da revisão cai nos fluxos de retry/estacionamento
 // de sempre, e só um head NOVO reabre o gate.
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 // atribuição INCONDICIONAL (padrão dos outros arquivos da rede): o `after` daqui apaga
 // recursivamente o FAROL_HOME, então respeitar um valor herdado do shell faria um
 // `npm test` de quem exporta FAROL_HOME deletar o diretório real dele.
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-rereview-' + process.pid);
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const reviewMod = require('../lib/engine/review');
-const { Engine } = require('../server.js');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+const reviewMod = (await import('../lib/engine/review.js')).default;
+const { Engine } = await import('../server.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 

@@ -1,4 +1,3 @@
-'use strict';
 // Pendência atendida FORA do botão: o review saiu pelo chat do PR (ou pela web do
 // GitHub, ou por gh na mão) e o card ficava preso em "Precisa de você" pra sempre.
 //
@@ -12,14 +11,14 @@
 // ANTERIOR é o caso do re-request (o autor derruba a minha aprovação e pede de novo);
 // ali a pendência é justamente a nova rodada e não pode desaparecer. Runner nativo,
 // ZERO deps.
-const os = require('node:os');
-const path = require('node:path');
+import os from 'node:os';
+import path from 'node:path';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-reconcile-' + process.pid);
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const { Engine } = require('../server.js');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const { Engine } = await import('../server.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 

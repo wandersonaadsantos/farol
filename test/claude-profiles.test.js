@@ -1,16 +1,16 @@
-'use strict';
 // Perfis de assinatura Claude por conta: resolver + claudeAuthInfo parametrizado.
 // Segue o padrão de boot.test.js (Engine real contra FAROL_HOME temporário).
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const HOME = path.join(os.tmpdir(), 'farol-test-claude-profiles-' + process.pid);
 process.env.FAROL_HOME = HOME;
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const { Engine } = require('../server.js');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+const { Engine } = await import('../server.js');
 
 after(() => { try { fs.rmSync(HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 
@@ -217,7 +217,7 @@ test('openClaudeLoginSession: perfil dir chama spawnLoginConsole com o MESMO con
 // precedência oficial do claude CLI põe a chave acima do login OAuth, então a sessão
 // aberta pra logar num perfil de assinatura rodava na chave da máquina, sem erro nenhum
 // aparecer. loginConsoleEnv é o env desse console, isolado pra ser testável em qualquer SO.
-const { loginConsoleEnv } = require('../lib/engine/session');
+const { loginConsoleEnv } = await import('../lib/engine/session.js');
 
 function comEnvDaMaquina(vars, fn) {
   const antes = {};
@@ -304,7 +304,7 @@ test('ghEnv: perfil apikey sem baseUrl não seta ANTHROPIC_BASE_URL', () => {
   assert.equal('ANTHROPIC_BASE_URL' in env, false);
 });
 
-const fsMod = require('node:fs');
+import fsMod from 'node:fs';
 
 test('claudeAuthInfo: sem argumento, comportamento legado (lê config.claudeConfigDir)', () => {
   const engine = new Engine();
@@ -451,7 +451,6 @@ test('boot com config.json malformado (claudeProfiles string, claudeProfileId n�
   // processo próprio (não o deste arquivo de teste): CONFIG_FILE/HOME são consts de
   // módulo lidas no require, então só um processo novo prova o boot real com o
   // config.json malformado já em disco ANTES do require('../server.js').
-  const { execFileSync } = require('node:child_process');
   const badHome = path.join(os.tmpdir(), 'farol-test-malformed-boot-' + process.pid + '-' + Date.now());
   fsMod.mkdirSync(badHome, { recursive: true });
   fsMod.writeFileSync(path.join(badHome, 'config.json'), JSON.stringify({
@@ -460,7 +459,7 @@ test('boot com config.json malformado (claudeProfiles string, claudeProfileId n�
   }));
   const script = `
     process.env.FAROL_HOME = ${JSON.stringify(badHome)};
-    const { Engine } = require(${JSON.stringify(path.join(__dirname, '..', 'server.js'))});
+    const { Engine } = require(${JSON.stringify(path.join(import.meta.dirname, '..', 'server.js'))});
     const e = new Engine();
     const dir = e.resolveClaudeConfigDir('qualquer');
     const auth = e.allClaudeAuthInfo();
@@ -474,7 +473,7 @@ test('boot com config.json malformado (claudeProfiles string, claudeProfileId n�
   `;
   let out;
   try {
-    out = execFileSync(process.execPath, ['-e', script], { encoding: 'utf8' });
+    out = execFileSync(process.execPath, ['--input-type=commonjs', '-e', script], { encoding: 'utf8' });
   } finally {
     fsMod.rmSync(badHome, { recursive: true, force: true });
   }

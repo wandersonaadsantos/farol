@@ -1,20 +1,19 @@
-'use strict';
 // Guardas de reentrância checadas ANTES de um await (padrão P4 do relatório de gaps):
 // chatSend (B1) e launchTool (B2) liam o status, davam await no refreshToken e SÓ ENTÃO
 // marcavam 'running'. Duas chamadas na mesma janela passavam as duas pela guarda: duas
 // gerações concorrentes no mesmo chat, duas sessões da mesma ferramenta (custo em dobro,
 // resultado sobrescrito). A correção marca 'running' de forma síncrona e move o
 // refreshToken pra dentro do bloco async (falha vira mensagem; o finally restaura).
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-reentrancy-' + process.pid);
 process.env.FAROL_HOME = FAROL_HOME;
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const { Engine } = require('../server.js');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+const { Engine } = await import('../server.js');
 
 after(() => { try { fs.rmSync(FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 

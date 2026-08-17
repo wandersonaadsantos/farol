@@ -1,16 +1,15 @@
-'use strict';
 // Cobre o fan-out de revisão em PR grande: o limiar, o agrupamento determinístico em
 // lotes por afinidade de caminho, e o gate de cobertura (revisão que não leu o diff
 // inteiro não posta sozinha). Tudo função pura, sem rede e sem IA. Runner nativo, ZERO deps.
-const os = require('node:os');
-const path = require('node:path');
+import os from 'node:os';
+import path from 'node:path';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-fanout-' + process.pid);
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const { Engine } = require('../server.js');
-const fanout = require('../lib/engine/fanout.js');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const { Engine } = await import('../server.js');
+const fanout = (await import('../lib/engine/fanout.js')).default;
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
 

@@ -1,4 +1,3 @@
-'use strict';
 // Gates de segurança do mergeSelfPR: o ÚNICO caminho do Farol que mergeia um PR no
 // GitHub. Até aqui tinha zero teste, num arquivo de 487 linhas.
 //
@@ -12,18 +11,18 @@
 // server.js, porque lib/engine/selfpr.js faz `const { run } = require('../io')` no load e
 // a desestruturação captura a referência ali. Assim nenhum `gh` de verdade roda, e dá pra
 // afirmar não só o retorno mas O QUE FOI CHAMADO (ou, no caso dos gates, que nada foi).
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-merge-' + process.pid);
 process.env.FAROL_HOME = FAROL_HOME;
 
-const { test, after, beforeEach } = require('node:test');
-const assert = require('node:assert/strict');
+import { test, after, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
 
 // espião no lugar do run, instalado antes do primeiro require de selfpr
-const io = require('../lib/io');
+const io = (await import('../lib/io.js')).default;
 const runReal = io.run;
 let runImpl = null;
 const chamadas = [];
@@ -33,7 +32,7 @@ io.run = function runEspiao(cmd, args, opts) {
   return runReal(cmd, args, opts);
 };
 
-const { Engine } = require('../server.js');
+const { Engine } = await import('../server.js');
 
 after(() => {
   io.run = runReal;

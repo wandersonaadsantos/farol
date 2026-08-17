@@ -1,21 +1,20 @@
-'use strict';
 // Robustez do stream headless (runClaudeStream): decodificação utf8 (M4), exit code != 0
 // com stream parcial (M3), handler de error no stdin (B4) e timeout vs cancelamento (B3).
 // Mesmo padrão dos vizinhos: FAROL_HOME temporário e mock de child_process.spawn ANTES
 // do require de lib/engine/session (que captura `spawn` no load do módulo).
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-stream-' + process.pid);
 process.env.FAROL_HOME = FAROL_HOME;
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const { EventEmitter } = require('node:events');
-const { PassThrough } = require('node:stream');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
 
-const childProcess = require('child_process');
+import childProcess from 'node:child_process';
 const realSpawn = childProcess.spawn;
 let spawnImpl = null;
 childProcess.spawn = function mockableSpawn(...args) {
@@ -23,7 +22,7 @@ childProcess.spawn = function mockableSpawn(...args) {
   return realSpawn(...args);
 };
 
-const { runClaudeStream, cancelSession, parseEnvelope } = require('../lib/engine/session');
+const { runClaudeStream, cancelSession, parseEnvelope } = await import('../lib/engine/session.js');
 
 after(() => {
   childProcess.spawn = realSpawn;

@@ -1,19 +1,18 @@
-'use strict';
 // Reasons do runHeadlessReview: o bloco de transparência só pode atribuir à POLÍTICA
 // da conta o que veio de fato da política. Antes ele disparava sempre que o gate
 // recusava um PR aprovável e pedido a mim, então contestação e cobertura apareciam
 // pra você como "a política da conta manda aguardar", que era mentira (M7).
 // Harness: engine real com FAROL_HOME temporário, sessão Claude stubada e a medição
 // de fan-out neutralizada (prMetrics null = passe único). Runner nativo, ZERO deps.
-const os = require('node:os');
-const path = require('node:path');
+import os from 'node:os';
+import path from 'node:path';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-review-reasons-' + process.pid);
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const { Engine } = require('../server.js');
-const fanout = require('../lib/engine/fanout.js');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const { Engine } = await import('../server.js');
+const fanout = (await import('../lib/engine/fanout.js')).default;
 
 // runHeadlessReview chama fanoutMod.prMetrics por acesso de propriedade em tempo de
 // chamada, então trocar a propriedade exportada vale pro require de dentro do review.js.

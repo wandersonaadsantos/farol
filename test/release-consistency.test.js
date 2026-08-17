@@ -1,4 +1,3 @@
-'use strict';
 // Versionamento: as TRES fontes de versao do repo tem que concordar SEMPRE
 // (package.json, CHANGELOG.md e RELEASE_NOTES do ui/app.js). Historico real de
 // erro que motivou esta trava (pedido do Wanderson, 10/08/2026): fonte bumpado
@@ -9,12 +8,12 @@
 // (checada pelo tools/publish-release.ps1, que recusa numero repetido ou
 // menor); aqui trava-se o que da pra travar OFFLINE: consistencia interna.
 // Ver CLAUDE.md, secao "Versionamento (regras firmes)".
-const path = require('node:path');
-const fs = require('node:fs');
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
+import path from 'node:path';
+import fs from 'node:fs';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
 
-const ROOT = path.join(__dirname, '..');
+const ROOT = path.join(import.meta.dirname, '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const changelog = fs.readFileSync(path.join(ROOT, 'CHANGELOG.md'), 'utf8');
 const appjs = fs.readFileSync(path.join(ROOT, 'ui', 'app.js'), 'utf8');

@@ -1,4 +1,3 @@
-'use strict';
 // lib/engine/chat.js, tools.js e gh-queries.js: os três últimos módulos de produção sem
 // nenhum teste. As partes que fazem rede ou abrem sessão do Claude ficam de fora (custam
 // caro e dependem do ambiente); o que dá pra travar aqui é o que decide COMO essas
@@ -7,17 +6,17 @@
 // Vale mais do que parece: o preâmbulo do chat carrega as travas de comportamento (não
 // postar no GitHub sem pedido explícito), o escopo do kudos decide quais destaques
 // aparecem pra qual conta, e a janela de entregas decide o intervalo consultado.
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 
 const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-ctq-' + process.pid);
 process.env.FAROL_HOME = FAROL_HOME;
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const { Engine } = require('../server.js');
-const { STATE_DIR } = require('../lib/paths');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+const { Engine } = await import('../server.js');
+const { STATE_DIR } = await import('../lib/paths.js');
 
 after(() => { try { fs.rmSync(FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 

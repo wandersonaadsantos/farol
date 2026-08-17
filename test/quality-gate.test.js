@@ -1,7 +1,6 @@
-'use strict';
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const { comparar } = require('../tools/quality/gate.js');
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { comparar } from '../tools/quality/gate.js';
 
 test('comparar: contagem igual ou menor passa', () => {
   const base = { 'a.js': { emptyCatch: 2 } };

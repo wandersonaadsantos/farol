@@ -1,15 +1,14 @@
-'use strict';
 // Confirma que a MONTAGEM de result.verificationCheckpoint segue exatamente
 // summarizeCheckpoint(readCheckpoint(checkpointPath(pr.key)).entries), do jeito que
 // runHeadlessReview monta antes de chamar shouldAutoApprove.
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-checkpoint-wiring-' + process.pid);
 
-const { test, after } = require('node:test');
-const assert = require('node:assert/strict');
-const { checkpointPath, appendCheckpointEntry, readCheckpoint, summarizeCheckpoint, resumeBlock } = require('../lib/engine/verification-checkpoint');
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+const { checkpointPath, appendCheckpointEntry, readCheckpoint, summarizeCheckpoint, resumeBlock } = await import('../lib/engine/verification-checkpoint.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
 

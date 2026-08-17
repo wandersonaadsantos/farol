@@ -1,4 +1,3 @@
-'use strict';
 // Modelo e esforço das sessões autônomas: saneamento (lib/parse) e montagem da linha de
 // comando (lib/engine/session.buildModelFlags). Runner nativo do Node, ZERO dependências.
 //
@@ -6,15 +5,15 @@
 // linha de comando montada por concatenação e passada a um shell. Até a v2.27.0 a
 // montagem morava dentro do runClaudeStream, que faz spawn, e o stub suprimia a flag, ou
 // seja: era impossível provar o que ia pra linha. Extrair a função pura resolveu isso.
-const os = require('node:os');
-const path = require('node:path');
+import os from 'node:os';
+import path from 'node:path';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-model-' + process.pid);
 
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const { sanitizeModel, sanitizeEffort, effortForModel, MODEL_ALIASES, EFFORT_LEVELS } = require('../lib/parse');
-const { buildModelFlags } = require('../lib/engine/session');
-const { modelLabel } = require('../lib/format');
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+const { sanitizeModel, sanitizeEffort, effortForModel, MODEL_ALIASES, EFFORT_LEVELS } = await import('../lib/parse.js');
+const { buildModelFlags } = await import('../lib/engine/session.js');
+const { modelLabel } = await import('../lib/format.js');
 
 /* ---------- sanitizeModel ---------- */
 
