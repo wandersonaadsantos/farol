@@ -46,23 +46,28 @@ O débito original era o `server.js`: uma classe `Engine` de 3122 linhas fazendo
 
 - **Onda 5 (em andamento, o débito atual):** o que sobrou no `ui/app.js` são ~4000 linhas de render, estado, atalhos, paleta de comandos, busca e SSE, ainda sem teste que o execute.
 
-  **Primeiro passo, feito em 17/08/2026:** as sete funções que o texto anterior mapeava saíram. `buildFixPrompt` e `pushbackControl` já tinham ido antes; as cinco restantes foram na mesma leva, e não como cinco casos soltos: `personOf` era a única leitura de global de todo o grupo de perfil, então com `people` no argumento os cinco (`personOf`, `papelOf`, `domLevelOf`, `papelPicker`, `domainMatrix`) viraram puros de uma vez, junto das três tabelas de opções. `reviewerLabel`/`chipHtml` foram juntas (uma chama a outra, ambas liam `reviewerCands`) e `chatBadge` levou `chats`. São 8 funções, 19 chamadores, ~36 linhas.
+  **Primeiro passo, feito em 17/08/2026:** as sete funções que o texto anterior mapeava saíram. `buildFixPrompt` e `pushbackControl` já tinham ido antes; as cinco restantes foram na mesma leva, e não como cinco casos soltos: `personOf` era a única leitura de global de todo o grupo de perfil, então com `people` no argumento os cinco (`personOf`, `papelOf`, `domLevelOf`, `papelPicker`, `domainMatrix`) viraram puros de uma vez, junto das três tabelas de opções. `reviewerLabel`/`chipHtml` foram juntas (uma chama a outra, ambas liam `reviewerCands`) e `chatBadge` levou `chats`. São 8 funções e ~36 linhas. Os pontos de chamada são **13 no `app.js`** mais 5 internos ao `pure.js` (`personOf` por `papelOf`/`domLevelOf`, `papelOf` por `papelPicker`, `domLevelOf` por `domainMatrix`, `reviewerLabel` por `chipHtml`): 18 no total. O número que circulou antes (19) contava a linha da própria definição como chamador.
 
   Duas coisas que a extração trouxe de brinde. A primeira: as tabelas de opções **duplicam** as chaves de `lib/taxonomy.js`, e a duplicação é estrutural (o servidor estático só entrega `UI_DIR`, então o navegador não importa `lib/`). Ninguém defendia isso, então chave nova no engine sumiria da UI em silêncio; `test/taxonomy-ui.test.js` passou a comparar os **conjuntos de chaves**, deixando os rótulos livres de propósito (a UI abrevia pra caber no `<select>`). A segunda: o `chipHtml` carregava dois ternários no mesmo statement, o que fez o `ternarioAninhado` do `ui/pure.js` subir ao receber a função; foi corrigido na mudança em vez de re-baselinado, então a dívida líquida **caiu** (`ui/app.js` foi de 57 pra 56 e o `ui/pure.js` não subiu).
 
   **Como se provou que foi movimentação e não reescrita:** as funções antigas foram reconstruídas do `git show main:ui/app.js`, com os globais injetados, e comparadas com as novas em 27 entradas (login vazio, caixa alta, pessoa inexistente, tentativa de XSS, time desconhecido, time enterprise, chat com contagem zero e sem chat). **Zero divergências** na saída.
 
-  **O que vem depois, e o obstáculo real:** a separação entre render e estado. O `app.js` tem **25 globais mutáveis** espalhados e nenhuma função de boot (tudo é efeito de topo, em ordem de arquivo), então o corte não é mecânico. E há um risco a respeitar: `test/ui-widgets.test.js` fixa **22 corpos de função inteiros** por regex sobre o texto do `app.js`, e mover qualquer um deles faz o `match` devolver `null`. Nenhum dos 19 chamadores deste primeiro passo caía dentro dessas 22 (foi conferido antes de mexer); do próximo em diante, cada extração precisa vir junto com a migração da asserção de texto pra teste real em `pure.js`, que é a direção que o cabeçalho daquele arquivo já defende.
+  **O que vem depois, e o obstáculo real:** a separação entre render e estado. O `app.js` tem **25 globais mutáveis** espalhados e nenhuma função de boot (tudo é efeito de topo, em ordem de arquivo), então o corte não é mecânico. E há um risco a respeitar: `test/ui-widgets.test.js` fixa **22 corpos de função inteiros** por regex sobre o texto do `app.js`, e mover qualquer um deles faz o `match` devolver `null`. Nenhum dos chamadores deste primeiro passo caía dentro dessas 22 (foi conferido antes de mexer); do próximo em diante, cada extração precisa vir junto com a migração da asserção de texto pra teste real em `pure.js`, que é a direção que o cabeçalho daquele arquivo já defende.
 
 ### Números de hoje (mantenha esta linha viva)
 
 | Arquivo | Linhas | Testes |
 |---|---|---|
-| `ui/app.js` | ~4000 | nenhum que o execute (os 4 que o tocam leem o arquivo como texto) |
+| `ui/app.js` | ~4000 | nenhum que o execute (os 5 que o tocam leem o arquivo como texto) |
 | `ui/pure.js` | ~1332 | `ui-pure.test.js`, 209 testes |
 | `server.js` | ~1483 | via `boot`, `facades`, e os testes de comportamento |
 | maior módulo de `lib/` (`decision.js`) | ~869 | `decision-envelope.test.js`, `decision-history.test.js` |
 | suíte | | 1229 testes (1222 passando, 7 pulados fora do macOS) |
+
+Os cinco que leem o `ui/app.js` do disco: `ui-widgets` (fixa 22 corpos de função por
+regex), `ui-contract` (extrai as rotas `/api/*` e cruza com o `http-server.js`),
+`ui-semantics` (varre texto proibido), `ui-pure` (compara `app.js` com `pure.js`) e
+`release-consistency`, que é o único que não olha código: lê só o banner `RELEASE_NOTES`.
 
 Medidos em 17/08/2026, na v2.48.0, depois do primeiro passo da onda 5. O `ui/app.js` só
 agora começou a encolher; a onda 5 segue aberta e o grosso dela (render x estado) não foi

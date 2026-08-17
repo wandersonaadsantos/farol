@@ -1982,6 +1982,10 @@ function renderDecisions() {
   const dbox = $('#decisions');
   if (document.activeElement && dbox.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) { renderResolved(); return; }
   const pending = (STATE.decisions?.pending || []).filter(scopeVisible);
+  // uma leitura só pra toda a renderização: os cards desta passada têm que
+  // enxergar o MESMO mapa de pessoas, senão um SSE no meio do map faria dois
+  // cards da mesma tela discordarem sobre o papel de alguém
+  const people = peopleOf();
   const wrap = $('#decisionsWrap');
   wrap.hidden = pending.length === 0;
   $('#decisionsCount').textContent = pending.length;
@@ -1999,7 +2003,7 @@ function renderDecisions() {
         <span class="dec-when" title="${esc(fmtStamp(d.createdAt))}">${esc(fmtWhenDay(d.createdAt))}</span>
       </div>
       ${d.pr?.title ? `<div class="dec-title">${esc(d.pr.title)}</div>` : ''}
-      ${author ? `<div class="dec-author">PR de ${personMention(author, 'xs')} ${papelPicker(author, peopleOf())}</div>` : ''}
+      ${author ? `<div class="dec-author">PR de ${personMention(author, 'xs')} ${papelPicker(author, people)}</div>` : ''}
       ${(d.reasons || []).length ? `<ul class="dec-reasons">${d.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
       ${d.blockedReason ? `<div class="dec-blocked">🚫 <span><b>Bloqueado:</b> ${esc(d.blockedReason)}</span></div>` : ''}
       <details class="dec-report"><summary>Ver relatório completo</summary><div class="report">${md(d.reportMarkdown)}</div></details>
@@ -2054,6 +2058,7 @@ function renderQueue() {
   const qbox = $('#queue');
   if (document.activeElement && qbox.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
   const q = (STATE.queue || []).filter(scopeVisible);
+  const people = peopleOf();   // idem renderDecisions: um mapa só pra toda a passada
   $('#queueCount').hidden = q.length === 0;
   $('#queueCount').textContent = q.length;
   const btnAll = $('#btnReviewAll');
@@ -2096,7 +2101,7 @@ function renderQueue() {
       <div class="info">
         <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}${pr.isDraft ? '<span class="badge">rascunho</span>' : ''}${pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : ''}</div>
         <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
-        <div class="pr-sub">${personMention(pr.author, 'xs')} · atualizado ${fmtRel(pr.updatedAt)}${pr.author ? ` ${papelPicker(pr.author, peopleOf())}` : ''}</div>
+        <div class="pr-sub">${personMention(pr.author, 'xs')} · atualizado ${fmtRel(pr.updatedAt)}${pr.author ? ` ${papelPicker(pr.author, people)}` : ''}</div>
       </div>
       <div class="pr-actions">
         <button class="btn primary sm act-review" data-url="${esc(pr.url)}">Revisar</button>
@@ -3006,6 +3011,7 @@ async function loadTeam() {
   const team = (await get('/api/team')) || [];
   closeOp(opId, 'done');
   const multi = multiAccount();
+  const people = peopleOf();   // idem renderDecisions: um mapa só pra toda a passada
   // conta de uma entrada: pelo owner do ref (owner/repo#num); antigo (só nome) = sem conta
   const entryUser = e => { const ref = e.ref || ''; const owner = ref.includes('/') ? ref.split('/')[0] : ''; return owner ? (OWNER2USER[owner.toLowerCase()] || '') : ''; };
   const refShort = ref => (ref.includes('/') ? ref.split('/').slice(1).join('/') : ref);
@@ -3026,12 +3032,12 @@ async function loadTeam() {
           <div class="login">${personMention(m.login, 'xs', true)} · ${entries.length} review(s) registrados</div>
         </div>
         ${verdictChip}
-        ${papelPicker(m.login, peopleOf())}
+        ${papelPicker(m.login, people)}
         <button class="btn sm ghost member-remove" data-login="${esc(m.login)}" title="Remover @${esc(m.login)} do Time (apaga a memória local sobre a pessoa; pede confirmação)">Remover</button>
       </div>
       <div class="member-profile">
         <span class="mp-label">Competência por domínio</span>
-        ${domainMatrix(m.login, peopleOf())}
+        ${domainMatrix(m.login, people)}
       </div>
       <div class="member-entries">${es}</div>
     </div>`;

@@ -1791,7 +1791,12 @@ test('papelPicker: escapa o login (vem do GitHub, não é confiável)', () => {
   // tag, e sem `"` cru o login não consegue fechar o atributo em que está.
   const login = 'a"><script>x</script>';
   const html = P.papelPicker(login, PEOPLE);
-  const atributo = html.slice(html.indexOf('data-login="'), html.indexOf('title='));
+  // captura o VALOR do atributo em vez de recortar por posição: o slice amarrava
+  // a asserção à ordem dos atributos no template, e se ela mudasse o recorte
+  // sairia vazio e as duas asserções abaixo passariam à toa.
+  const m = html.match(/data-login="([^"]*)"/);
+  assert.ok(m, 'o atributo data-login precisa existir pra asserção significar algo');
+  const atributo = m[1];
   assert.ok(!atributo.includes('<'), 'nenhum < cru no atributo: sem ele não se abre tag');
   assert.ok(!atributo.includes(login), 'o login não aparece cru em lugar nenhum');
   assert.match(html, /&lt;script&gt;/, 'ele aparece, mas escapado');
@@ -1859,4 +1864,36 @@ test('chatBadge: sem mapa de chats devolve vazio em vez de quebrar', () => {
   // o app.js chama com STATE?.chats, que é undefined antes do primeiro SSE
   assert.equal(P.chatBadge('o/r#1', undefined), '');
   assert.equal(P.chatBadge('o/r#1', null), '');
+});
+
+/* As três abaixo são as portas de entrada: papelPicker, domainMatrix e chipHtml são
+   exatamente as que o app.js chama, então são elas que recebem o parâmetro novo do
+   chamador. Um chamador esquecido passa undefined, e é esse o único risco que a
+   extração criou. Testar só as internas (personOf, reviewerLabel) deixaria o
+   caminho de verdade descoberto. */
+
+test('papelPicker: sem mapa de pessoas cai em "não marcado" em vez de quebrar', () => {
+  for (const people of [undefined, null, {}]) {
+    const html = P.papelPicker('alice', people);
+    assert.match(html, /<option value="" selected>papel<\/option>/);
+    assert.equal((html.match(/ selected/g) || []).length, 1, 'exatamente uma opção marcada');
+  }
+});
+
+test('domainMatrix: sem mapa de pessoas marca "sem info" em todo domínio', () => {
+  for (const people of [undefined, null, {}]) {
+    const html = P.domainMatrix('alice', people);
+    assert.equal((html.match(/<option value="" selected>/g) || []).length, P.DOMAIN_DEFS.length);
+    assert.equal((html.match(/class="dom-level"/g) || []).length, P.DOMAIN_DEFS.length,
+      'a matriz continua completa: some o nível, não a linha');
+  }
+});
+
+test('chipHtml: sem candidatos o chip ainda sai, com o slug do time', () => {
+  // estado real enquanto o fetch dos candidatos não voltou; o chip não pode sumir
+  for (const cands of [undefined, null, {}]) {
+    const html = P.chipHtml('acme/plataforma', 'rev-x', 'data-a="1"', cands);
+    assert.match(html, /plataforma \(time\)/);
+    assert.match(html, /class="rev-x" data-a="1"/, 'o botão de remover continua funcional');
+  }
 });
