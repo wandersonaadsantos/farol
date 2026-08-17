@@ -1,0 +1,59 @@
+name: Melhoria ou ideia
+description: Sugerir um comportamento novo ou refinar um que já existe
+labels: ["melhoria"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        O Farol tem invariantes que não se negociam (zero dependências além do Electron,
+        nada postado no GitHub sem gate, dados em `~/.farol`, texto em português sem travessão).
+        Estão no [CLAUDE.md](https://github.com/wandersonaadsantos/farol/blob/main/CLAUDE.md).
+        Ideia que precisa violar um deles não entra, por melhor que seja.
+
+  - type: textarea
+    id: problema
+    attributes:
+      label: Qual o problema
+      description: O incômodo real, não a solução. O que hoje custa tempo, engana ou não dá para fazer.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposta
+    attributes:
+      label: O que você propõe
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área afetada
+      options:
+        - Radar (fila e panorama)
+        - Revisão automática (headless)
+        - Meus PRs (autoanálise, reviewers, merge)
+        - Conversar com o Claude (chat por PR)
+        - Destaques
+        - Time (memória por autor)
+        - Sistema (diagnóstico, contas, configurações)
+        - Atualização e distribuição
+        - Protocolo de review (qualidade do que é postado)
+        - Outro
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: O que você já tentou ou considerou
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: invariantes
+    attributes:
+      label: Confirmação
+      options:
+        - label: A proposta não exige dependência npm nova nem afrouxa um gate de postagem.
+          required: true

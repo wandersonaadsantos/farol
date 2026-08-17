@@ -1,0 +1,100 @@
+name: Bug
+description: Algo do Farol não funciona como deveria
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Antes de abrir: confirme que está na **última release** (Sistema > Versão e atualização).
+        Falha de segurança **não** vem por aqui, siga o [SECURITY.md](https://github.com/wandersonaadsantos/farol/security/policy).
+
+  - type: input
+    id: versao
+    attributes:
+      label: Versão do Farol
+      description: Aparece ao lado do logo e em Sistema > Versão e atualização.
+      placeholder: "2.47.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: so
+    attributes:
+      label: Sistema operacional
+      options:
+        - Windows
+        - macOS
+        - Linux (experimental)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Onde acontece
+      options:
+        - Radar (fila e panorama)
+        - Revisão automática (headless)
+        - Meus PRs (autoanálise, reviewers, merge)
+        - Conversar com o Claude (chat por PR)
+        - Terminal interativo
+        - Destaques
+        - Time (memória por autor)
+        - Sistema (diagnóstico, contas, configurações)
+        - Atualização automática
+        - Instalação ou desinstalação
+        - Outro
+    validations:
+      required: true
+
+  - type: textarea
+    id: esperado
+    attributes:
+      label: O que deveria acontecer
+    validations:
+      required: true
+
+  - type: textarea
+    id: aconteceu
+    attributes:
+      label: O que aconteceu
+    validations:
+      required: true
+
+  - type: textarea
+    id: passos
+    attributes:
+      label: Passo a passo para reproduzir
+      placeholder: |
+        1. Abrir o Farol
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Trecho do log de falhas
+      description: Sistema > log de falhas, ou o arquivo `~/.farol/state/farol.log`. Cole só as linhas do episódio.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: diagnostico
+    attributes:
+      label: Diagnóstico do ambiente
+      description: O resultado do Diagnóstico em Sistema, se ele acusar algo.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: higiene
+    attributes:
+      label: Confirmação
+      options:
+        - label: Conferi que não colei token, credencial nem conteúdo de repositório privado.
+          required: true
+        - label: Estou na última release publicada.
+          required: true

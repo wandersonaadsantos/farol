@@ -1,5 +1,8 @@
 # Farol
 
+[![CI](https://github.com/wandersonaadsantos/farol/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/wandersonaadsantos/farol/actions/workflows/ci.yml)
+[![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-informational)](LICENSE)
+
 Radar de Pull Requests para Windows e macOS. O Farol monitora o GitHub em segundo plano (só comandos `gh`, zero tokens de IA), mostra um painel com os PRs abertos da organização, avisa quando pedem sua revisão e, com um clique, abre uma sessão do Claude Code com `/pr-review` seguindo o protocolo de triagem e auto-approve seguro.
 
 O Farol nasceu de uma iniciativa do Thiago ([@thiagopcdev](https://github.com/thiagopcdev)), o "PR Reviewer (Windows)" em PowerShell: um revisor de PRs que rodava numa janela de terminal e dependia de ação manual. O app atual capturou essa essência e reconstruiu o sistema do zero como app de desktop com interface, bandeja do sistema e instalador.
@@ -108,6 +111,14 @@ O tráfego de rede que existe é todo em seu nome, com as suas credenciais:
 Sobre responsabilidade: os reviews que o Farol posta saem **na sua conta do GitHub**, e as sessões de análise consomem **o seu plano ou os seus créditos de Claude**. As automações de postagem (auto-approve pra todo PR, reprovação automática) são opt-in, e quem as liga responde pelo que é postado. O software é distribuído "no estado em que se encontra", sem garantia, nos termos da licença MIT (arquivo `LICENSE`).
 
 Nunca compartilhe a sua pasta `~/.farol`: ela contém o seu estado, as suas configurações e a sua memória de reviews. Pra distribuir o app, use sempre o pacote auditado de `tools\make-package.ps1`.
+
+## Contribuindo
+
+Leia o [guia de contribuição](.github/CONTRIBUTING.md): invariantes do projeto, ambiente, gate de qualidade e padrão de PR. Todo push e todo PR passam pelo CI (`npm run check`, `npm run lint`, `npm test`) em Linux, Windows e macOS.
+
+Encontrou uma falha de segurança? Não abra issue. Siga a [política de segurança](.github/SECURITY.md), que descreve o canal privado, o modelo de ameaça do app e o que está fora de escopo.
+
+Quem participa do projeto segue o [Código de Conduta](.github/CODE_OF_CONDUCT.md).
 
 ## Licença
 

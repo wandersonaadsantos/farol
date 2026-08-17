@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# O gate só lê o código. Nenhum job aqui escreve no repositório.
+permissions:
+  contents: read
+
+# Push novo na mesma branch cancela a rodada anterior. Na main não cancela,
+# porque a rodada da main é o registro de que aquele commit passou.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  gate:
+    name: gate
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12'
+
+      # Sem npm install de propósito: invariante 1 (zero dependências além do
+      # Electron) e a suíte usa o runner nativo `node --test`, que não toca em
+      # node_modules. O Electron só é preciso pra abrir a janela, não pra testar.
+      - name: Sintaxe
+        run: npm run check
+
+      - name: Gate de qualidade e higiene
+        run: npm run lint
+
+      - name: Testes
+        run: npm test
+
+  # Job agregador: é ESTE nome que a proteção da branch exige. Assim dá pra
+  # mexer na matriz (tirar ou somar sistema) sem reconfigurar a regra.
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    needs: [gate]
+    if: always()
+    steps:
+      - name: Conferir resultado da matriz
+        run: |
+          if [ "${{ needs.gate.result }}" != "success" ]; then
+            echo "gate falhou em pelo menos um sistema: ${{ needs.gate.result }}"
+            exit 1
+          fi
+          echo "gate verde nos tres sistemas"

@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Falha de segurança
+    url: https://github.com/wandersonaadsantos/farol/security/policy
+    about: Não abra issue pública. O relato é privado, pelo canal da aba Security.
+  - name: Como contribuir
+    url: https://github.com/wandersonaadsantos/farol/blob/main/.github/CONTRIBUTING.md
+    about: Invariantes do projeto, gate de qualidade e padrão de PR.
+  - name: Guia do mantenedor
+    url: https://github.com/wandersonaadsantos/farol/blob/main/CLAUDE.md
+    about: Mapa de arquivos, decisões e histórico do porquê de cada regra.
