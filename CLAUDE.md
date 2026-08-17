@@ -369,8 +369,8 @@ herança; degradação é sempre pra revisão cheia, que é segura):
   (carimbado em session.js via `activeReviews.get(id).fileBlobs`) e `relevantEntries` (fonte
   única em verification-checkpoint.js, usada pelo resumeBlock E pelo summarizeCheckpoint) aceita
   entrada de head antigo cujo arquivo não mudou.
-- **Retomada de sessão no round 2** (`config.reReviewResume`, default **false**, opt-in, por
-  enquanto só via config.json/API, sem toggle na UI): o relançamento automático carrega o
+- **Retomada de sessão no round 2** (`config.reReviewResume`, default **false**, opt-in;
+  toggle em Sistema > Automação, `#setReReviewResume`): o relançamento automático carrega o
   `sessionId` da última decisão do PR (`lastReviewSessionId`, lido das decisões CRUAS porque o
   `decisionByKey` projeta allowlist sem sessionId) e `rodarSessao` roda `claude --resume <sid>`,
   com a MESMA allowlist de formato do chat antes de entrar na linha de shell. Falha de retomada
@@ -421,8 +421,8 @@ finally da sessão. Duas peças:
   leitura, card, verificação (FAROL_CHECKPOINT + linhas de `claim-verifier`), raciocínio,
   redação. A UI mostra em Revisões recentes ("Tempo por etapa: ...", `stagesLine`/`fmtDur` em
   ui/pure.js). É aproximação de traço, não cronômetro; não muda decisão nenhuma.
-- **Modo rápido** (`config.reviewFast`, default false, opt-in via config.json, sem toggle na UI
-  ainda, como o reReviewResume): injeta `fastModeBlock()` no prompt headless. O que corta:
+- **Modo rápido** (`config.reviewFast`, default false, opt-in; toggle em Sistema > Automação,
+  `#setReviewFast`): injeta `fastModeBlock()` no prompt headless. O que corta:
   leitura orientada a diff (arquivo inteiro só quando o hunk não se explica), verificação
   empírica SÓ do que muda verdict/decision, experimento longo vira `needs_decision` com reason
   de não-verificado, e pula o dossiê do autor. O que NUNCA muda: schema do envelope, cobertura

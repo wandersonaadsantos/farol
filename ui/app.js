@@ -3603,6 +3603,8 @@ function renderSettings() {
   $('#setAutoReview').checked = !!c.autoReview;
   $('#setAutoApproveAll').checked = c.autoApproveAll !== false;
   $('#setAutoApproveContested').checked = c.autoApproveContested === true;
+  $('#setReviewFast').checked = c.reviewFast === true;
+  $('#setReReviewResume').checked = c.reReviewResume === true;
   $('#setAutoPushback').checked = !!c.autoPushback;
   $('#setAutoUpdate').checked = c.autoUpdate !== false;
   $('#setDebugSpawns').checked = !!c.debugSpawns;
@@ -3932,6 +3934,8 @@ const settingsMap = [
   ['#setAutoReview', 'autoReview', el => el.checked],
   ['#setAutoApproveAll', 'autoApproveAll', el => el.checked],
   ['#setAutoApproveContested', 'autoApproveContested', el => el.checked],
+  ['#setReviewFast', 'reviewFast', el => el.checked],
+  ['#setReReviewResume', 'reReviewResume', el => el.checked],
   ['#setSkipPerms', 'skipPermissions', el => el.checked],
   ['#setSound', 'soundEnabled', el => el.checked],
   ['#setAutostart', 'autostart', el => el.checked]

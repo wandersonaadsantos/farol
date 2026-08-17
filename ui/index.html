@@ -371,6 +371,20 @@
               </span>
               <span class="set-ctl"><input id="setAutoApproveContested" type="checkbox"><span class="switch"></span></span>
             </label>
+            <label class="set-row" id="sys-row-reviewfast">
+              <span class="set-txt">
+                <span class="set-title">Modo rápido da revisão</span>
+                <span class="set-desc">Corta o tempo da revisão automática: leitura orientada ao diff (abre o arquivo inteiro só quando o trecho não se explica sozinho) e verificação empírica só do que muda a decisão. Verificação que exigiria experimento longo vira decisão sua, com o motivo registrado. Nenhum gate afrouxa: a troca é velocidade por autonomia, então mais PRs podem cair na sua mesa. A cobertura da leitura continua completa.</span>
+              </span>
+              <span class="set-ctl"><input id="setReviewFast" type="checkbox"><span class="switch"></span></span>
+            </label>
+            <label class="set-row" id="sys-row-rereviewresume">
+              <span class="set-txt">
+                <span class="set-title">Retomar a sessão no round 2</span>
+                <span class="set-desc">Quando o autor corrige depois de um pedido de mudanças seu, a re-revisão automática continua a mesma conversa da revisão anterior (a sessão já leu o PR, então retomar poupa a releitura). Desligado (padrão), cada round parte do zero, sem carregar o contexto do anterior. Se a sessão antiga não existir mais, o app recomeça do zero sozinho.</span>
+              </span>
+              <span class="set-ctl"><input id="setReReviewResume" type="checkbox"><span class="switch"></span></span>
+            </label>
             <label class="set-row" id="sys-row-autoupdate">
               <span class="set-txt">
                 <span class="set-title">Atualizar sozinho</span>
