@@ -876,6 +876,36 @@ test('feedLine: linha de subagente ganha a etiqueta 👤 com o rótulo escapado'
   assert.match(l, /👤 claim-verifier &lt;1&gt;/, 'rótulo do agente aparece e escapa HTML');
 });
 
+test('fmtDur: durações humanas curtas e vazio pro inválido', () => {
+  assert.equal(P.fmtDur(38_000), '38s');
+  assert.equal(P.fmtDur(250_000), '4m10s');
+  assert.equal(P.fmtDur(240_000), '4m');
+  assert.equal(P.fmtDur(3_720_000), '1h02m');
+  assert.equal(P.fmtDur(0), '');
+  assert.equal(P.fmtDur(null), '');
+});
+
+test('stagesLine: monta a linha de tempo por etapa e some sem traço', () => {
+  const l = P.stagesLine({ totalMs: 720_000, stages: [
+    { id: 'leitura', label: 'leitura', ms: 240_000 },
+    { id: 'verificacao', label: 'verificação', ms: 300_000 },
+    { id: 'redacao', label: 'redação', ms: 120_000 },
+  ] });
+  assert.equal(l, 'Tempo por etapa: leitura 4m · verificação 5m · redação 2m (total 12m)');
+  assert.equal(P.stagesLine(null), '');
+  assert.equal(P.stagesLine({ totalMs: 0, stages: [] }), '');
+});
+
+test('resolvedRow: decisão com stages mostra a linha de tempo por etapa', () => {
+  const html = P.resolvedRow({
+    key: 'org/app#9', status: 'posted', action: 'approve', verdict: 'approve', resolvedAt: Date.now(),
+    pr: { url: 'https://github.com/org/app/pull/9', title: 't' },
+    stages: { totalMs: 600_000, stages: [{ id: 'leitura', label: 'leitura', ms: 600_000 }] },
+  }, {});
+  assert.match(html, /rr-stages/);
+  assert.match(html, /Tempo por etapa: leitura 10m \(total 10m\)/);
+});
+
 test('agentsTitle: uma linha por subagente, com tarefa e estado', () => {
   const t = P.agentsTitle([
     { label: 'claim-verifier 1', desc: 'checar ruleset', done: false },

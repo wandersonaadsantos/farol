@@ -749,6 +749,26 @@ export function md(src) {
   return out.join('\n');
 }
 
+// duração humana curta: "38s", "4m10s", "1h02m". Zero/inválido vira ''.
+export function fmtDur(ms) {
+  const s = Math.round(Number(ms) / 1000);
+  if (!Number.isFinite(s) || s <= 0) return '';
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60), resto = s % 60;
+  if (m < 60) return resto ? `${m}m${String(resto).padStart(2, '0')}s` : `${m}m`;
+  const h = Math.floor(m / 60), mm = m % 60;
+  return mm ? `${h}h${String(mm).padStart(2, '0')}m` : `${h}h`;
+}
+
+// linha "Tempo por etapa" das Revisões recentes, a partir do resumo persistido
+// na decisão (stageSummaryFrom, lib/engine/review.js). Vazio quando não há traço.
+export function stagesLine(st) {
+  if (!st || !Array.isArray(st.stages) || !st.stages.length) return '';
+  const partes = st.stages.map(s => `${s.label} ${fmtDur(s.ms) || '0s'}`);
+  const total = fmtDur(st.totalMs);
+  return `Tempo por etapa: ${partes.join(' · ')}${total ? ` (total ${total})` : ''}`;
+}
+
 // tooltip do badge 👥 do card de sessão: uma linha por subagente, com a tarefa
 // e o estado. PURA (texto de atributo title, sem HTML, então sem esc aqui).
 export function agentsTitle(lista) {
@@ -903,6 +923,7 @@ export function resolvedRow(r, ctx) {
     ? `Verificação de afirmações: ${vc.confirmedCount} confirmadas de ${vc.total}`
       + (vcConflicts ? ` · ⚠ ${vcConflicts} divergência(s) entre passadas` : '')
     : '';
+  const stLine = stagesLine(r.stages);
   return `<div class="rrow${attn.length ? ' has-attn' : ''}">
     <span class="rr-icon" aria-hidden="true">${icon}</span>
     <div class="rr-main">
@@ -916,6 +937,7 @@ export function resolvedRow(r, ctx) {
       ${author ? `<div class="rr-person">${personMention(author, 'sm')}</div>` : ''}
       <div class="rr-disc">
         ${vcLine ? `<div class="rr-verification">${esc(vcLine)}</div>` : ''}
+        ${stLine ? `<div class="rr-stages">${esc(stLine)}</div>` : ''}
         ${attn.length ? `<details class="resolved-attn"><summary>⚠ ${attn.length} ${attnLabel}</summary><ul class="dec-reasons">${attn.map(p => `<li>${esc(p)}</li>`).join('')}</ul></details>` : ''}
         ${r.reportMarkdown ? `<details class="dec-report"><summary>Ver relatório completo</summary><div class="report">${md(r.reportMarkdown)}</div></details>` : ''}
         ${pushbackControl(r, ctx.pushbacks)}

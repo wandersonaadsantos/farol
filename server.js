@@ -101,6 +101,10 @@ const DEFAULTS = {
   // e quem prefere cada round partir do zero nao deve pagar esse acoplamento sem pedir.
   // Falha de retomada (sessao expirada/limpa) degrada pra sessao nova sozinha.
   reReviewResume: false,
+  // modo rapido da revisao headless (opt-in): leitura orientada a diff e verificacao
+  // empirica so do que sustenta a decisao (o resto vira needs_decision em vez de
+  // experimento longo). Nenhum gate afrouxa; a troca e velocidade por autonomia.
+  reviewFast: false,
   port: DEFAULT_PORT,
   // repos onde o botao Merge (Meus PRs) fica desativado, respeitando regras de
   // review do time (ex.: nunca self-merge no biud-frontend). Editavel em Sistema.
@@ -1329,7 +1333,7 @@ class Engine extends EventEmitter {
     const allowed = ['ghUser', 'owners', 'accounts', 'intervalSeconds', 'autoReview', 'autoApproveAll', 'autoApproveContested', 'parallelReviews', 'skipPermissions',
       'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos',
       'projectReviewers', 'defaultReviewers', 'people', 'claudeConfigDir', 'claudeProfiles', 'claudeProfileId',
-      'reviewModel', 'reviewEffort', 'autoPushback', 'debugSpawns', 'autoUpdate', 'reReviewResume'];
+      'reviewModel', 'reviewEffort', 'autoPushback', 'debugSpawns', 'autoUpdate', 'reReviewResume', 'reviewFast'];
     let intervalChanged = false, userChanged = false;
     for (const k of allowed) {
       if (!(k in patch)) continue;
@@ -1357,6 +1361,7 @@ class Engine extends EventEmitter {
       if (k === 'debugSpawns') v = !!v;
       if (k === 'autoUpdate') v = v !== false; // default LIGADO: só desliga com valor estritamente false
       if (k === 'reReviewResume') v = !!v; // opt-in: só liga com valor verdadeiro explícito
+      if (k === 'reviewFast') v = !!v; // opt-in: idem
       if (k === 'accounts') {
         v = parseAccounts(v);
         // só re-autentica se as CONTAS (user/owners) mudaram; editar rótulo, cor,

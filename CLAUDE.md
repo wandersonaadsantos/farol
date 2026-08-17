@@ -408,6 +408,28 @@ Na mesma leva, dois complementos (motivados pelo caso real biud-frontend#774, 17
   `agentsTitle` em `ui/pure.js`) e etiqueta `👤 rótulo` nas linhas do feed (`feedLine`). Testes:
   `test/session-agents.test.js` e os de `feedLine`/`agentsTitle` em `test/ui-pure.test.js`.
 
+### Tempo por etapa e modo rápido (17/08/2026, ainda não publicado)
+
+Motivação medida (#775): "por que a revisão demorou 10 minutos?" era impossível de responder
+depois do fim, porque o feed de atividade (único traço com timestamp por linha) morre no
+finally da sessão. Duas peças:
+
+- **Tempo por etapa** (`stageSummaryFrom` em review.js, PURA): calculado do feed IMEDIATAMENTE
+  após a sessão (antes do finally apagar) e persistido na decisão (`item.stages`, projetado
+  saneado pelo `decisionForUi`). Heurística determinística: o intervalo entre linhas pertence à
+  etapa da linha que o ENCERRA, e a fatia final é a redação do envelope. Etapas: preparo,
+  leitura, card, verificação (FAROL_CHECKPOINT + linhas de `claim-verifier`), raciocínio,
+  redação. A UI mostra em Revisões recentes ("Tempo por etapa: ...", `stagesLine`/`fmtDur` em
+  ui/pure.js). É aproximação de traço, não cronômetro; não muda decisão nenhuma.
+- **Modo rápido** (`config.reviewFast`, default false, opt-in via config.json, sem toggle na UI
+  ainda, como o reReviewResume): injeta `fastModeBlock()` no prompt headless. O que corta:
+  leitura orientada a diff (arquivo inteiro só quando o hunk não se explica), verificação
+  empírica SÓ do que muda verdict/decision, experimento longo vira `needs_decision` com reason
+  de não-verificado, e pula o dossiê do autor. O que NUNCA muda: schema do envelope, cobertura
+  completa, gates de postagem e formato humano. A troca honesta é velocidade por autonomia
+  (mais PRs caem pra decisão humana), nunca velocidade por afirmação sem prova. Testes:
+  `test/review-stages.test.js` + `fmtDur`/`stagesLine`/`resolvedRow` em `test/ui-pure.test.js`.
+
 ### Ciclo de vida e higiene (onda 3 dos gaps da auditoria de 15/08/2026)
 
 Quatro estados que existiam só em memória (ou não existiam) e agora têm dono e regra
