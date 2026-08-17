@@ -1,15 +1,14 @@
 // Farol · shell Electron: janela nativa, bandeja, notificações e autostart.
 // Toda a logica de monitoramento vive em server.js (que tambem roda sozinho
 // com "node server.js" caso o Electron nao esteja disponivel).
-'use strict';
 
-const { app, BrowserWindow, Tray, Menu, Notification, shell, nativeImage } = require('electron');
-const path = require('path');
+import { app, BrowserWindow, Tray, Menu, Notification, shell, nativeImage } from 'electron';
+import path from 'node:path';
 
-const farol = require('./server');
+import farol from './server.js';
 
 // fonte única do branch de plataforma (lib/paths.js), como no resto do app
-const { IS_MAC } = require('./lib/paths');
+import { IS_MAC } from './lib/paths.js';
 
 let win = null;
 let tray = null;
@@ -65,7 +64,7 @@ function createWindow() {
     minWidth: 880,
     minHeight: 560,
     backgroundColor: c.bg,
-    icon: path.join(__dirname, 'assets', 'farol.ico'),
+    icon: path.join(import.meta.dirname, 'assets', 'farol.ico'),
     autoHideMenuBar: true,
     webPreferences: { contextIsolation: true, nodeIntegration: false }
   };
@@ -88,7 +87,7 @@ function createWindow() {
     app.focus({ steal: true });
     // e o Dock mostra o icone do processo (Electron cru), nao o do lancador;
     // o setIcon troca em runtime pro icone do Farol
-    try { app.dock.setIcon(path.join(__dirname, 'assets', 'png', 'farol-256.png')); } catch { /* best-effort: setIcon pode falhar se arquivo nao existir */ }
+    try { app.dock.setIcon(path.join(import.meta.dirname, 'assets', 'png', 'farol-256.png')); } catch { /* best-effort: setIcon pode falhar se arquivo nao existir */ }
   }
 
   // links externos (GitHub etc.) abrem no navegador padrao
@@ -122,11 +121,11 @@ function showWindow() {
 }
 
 function trayIcon() {
-  const p = path.join(__dirname, 'assets', 'tray.png');
+  const p = path.join(import.meta.dirname, 'assets', 'tray.png');
   let img = nativeImage.createFromPath(p);
   // fallback em PNG, nunca .ico: o nativeImage do macOS nao decodifica ICO e o
   // Tray subiria invisivel; o PNG decodifica nos dois SOs
-  if (img.isEmpty()) img = nativeImage.createFromPath(path.join(__dirname, 'assets', 'png', 'farol-32.png'));
+  if (img.isEmpty()) img = nativeImage.createFromPath(path.join(import.meta.dirname, 'assets', 'png', 'farol-32.png'));
   // a barra de menu do macOS espera ~18px; sem resize o icone sai gigante
   if (IS_MAC && !img.isEmpty()) img = img.resize({ width: 18, height: 18 });
   return img;
@@ -154,7 +153,7 @@ function notify(title, body, prUrl) {
   try {
     if (Notification.isSupported()) {
       // PNG e nao .ico: o macOS nao decodifica ICO e a notificacao sairia sem icone
-      const n = new Notification({ title, body, icon: path.join(__dirname, 'assets', 'png', 'farol-256.png') });
+      const n = new Notification({ title, body, icon: path.join(import.meta.dirname, 'assets', 'png', 'farol-256.png') });
       n.on('click', goto);
       n.on('failed', () => balloon(title, body));
       n.show();
@@ -262,7 +261,7 @@ function applyAutostart() {
     app.setLoginItemSettings({
       openAtLogin: !!engine.config.autostart,
       path: process.execPath,
-      args: [path.resolve(__dirname)]
+      args: [path.resolve(import.meta.dirname)]
     });
   } catch { }
 }

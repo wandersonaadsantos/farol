@@ -3,43 +3,43 @@
 // (so comandos gh, sem gastar tokens de IA); a revisao em si abre uma sessao
 // interativa do Claude Code em um terminal proprio, com /pr-review <urls>.
 // Zero dependencias externas: roda com Node puro (e dentro do Electron).
-'use strict';
-
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const { execFile, spawn } = require('child_process');
-const { EventEmitter } = require('events');
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import { EventEmitter } from 'node:events';
+import { pathToFileURL } from 'node:url';
 
 // Camada base: versão, plataforma e caminhos (compartilhada com os módulos de lib/).
-const {
+import {
   APP_VERSION, APP_NAME, DELIVERIES_LIMIT, IS_WIN, IS_MAC, IS_LINUX, APP_ROOT,
   HOME, WORKSPACE, STATE_DIR, CONFIG_FILE, LOG_FILE, SEEN_FILE, BASELINE_FILE,
   INFLIGHT_FILE, CHATS_FILE, SELF_FILE, HIDDEN_FILE, TEMPLATE_DIR, UI_DIR,
-} = require('./lib/paths');
+} from './lib/paths.js';
 
 // Helpers puros e utilitários movidos pra lib/ (Onda 1 do refactor, ver docs/QUALITY.md).
 // A Engine abaixo compõe estes módulos; a decomposição por responsabilidade segue nas ondas 2+.
-const { DEFAULT_PORT, TEMPOS } = require('./lib/constants');
-const env = require('./lib/env');
-const { modelLabel, isPermanentBranch } = require('./lib/format');
-const { ACCOUNT_PALETTE } = require('./lib/taxonomy'); // resto da taxonomia é usado nos colaboradores (review/pushback)
-const { parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople,
+import { DEFAULT_PORT, TEMPOS } from './lib/constants.js';
+import env from './lib/env.js';
+import { modelLabel, isPermanentBranch } from './lib/format.js';
+import { ACCOUNT_PALETTE } from './lib/taxonomy.js'; // resto da taxonomia é usado nos colaboradores (review/pushback)
+import {
+  parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople,
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
   applyClaudeAuthEnv, claudeAuthShellLines,
-  sanitizeModel, sanitizeEffort, sanitizeParallelReviews } = require('./lib/parse');
-const { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, run, runShell, prependPathDirs } = require('./lib/io');
-const updateMod = require('./lib/engine/update');
-const chatMod = require('./lib/engine/chat');
-const toolsMod = require('./lib/engine/tools');
-const pushbackMod = require('./lib/engine/pushback');
-const decisionMod = require('./lib/engine/decision');
-const ghMod = require('./lib/engine/gh-queries');
-const sessionMod = require('./lib/engine/session');
-const selfMod = require('./lib/engine/selfpr');
-const reviewMod = require('./lib/engine/review');
-const usageMod = require('./lib/engine/usage');
-const { startServer } = require('./lib/http-server');
+  sanitizeModel, sanitizeEffort, sanitizeParallelReviews
+} from './lib/parse.js';
+import io, { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, prependPathDirs } from './lib/io.js';
+import updateMod from './lib/engine/update.js';
+import chatMod from './lib/engine/chat.js';
+import toolsMod from './lib/engine/tools.js';
+import pushbackMod from './lib/engine/pushback.js';
+import decisionMod from './lib/engine/decision.js';
+import ghMod from './lib/engine/gh-queries.js';
+import sessionMod from './lib/engine/session.js';
+import selfMod from './lib/engine/selfpr.js';
+import reviewMod from './lib/engine/review.js';
+import usageMod from './lib/engine/usage.js';
+import { startServer } from './lib/http-server.js';
 
 // App aberto pelo Finder/Dock herda um PATH minimo (sem /opt/homebrew/bin):
 // gh e claude sumiriam. Prependa os diretorios usuais que existirem.
@@ -509,7 +509,7 @@ class Engine extends EventEmitter {
   // pessoa do time usa a propria autenticacao, nada viaja com o app
   async resolveAccount() {
     if (this.config.ghUser) return;
-    const r = await run('gh', ['api', 'user', '--jq', '.login'], { env: { ...process.env, GH_PAGER: 'cat' } });
+    const r = await io.run('gh', ['api', 'user', '--jq', '.login'], { env: { ...process.env, GH_PAGER: 'cat' } });
     const login = r.ok ? r.stdout.trim() : '';
     if (login) {
       this.config.ghUser = login;
@@ -526,7 +526,7 @@ class Engine extends EventEmitter {
     let primaryOk = false;
     for (const acc of this.accountList()) {
       if (!acc.user) continue;
-      const r = await run('gh', ['auth', 'token', '--user', acc.user]);
+      const r = await io.run('gh', ['auth', 'token', '--user', acc.user]);
       const tok = r.ok ? r.stdout.trim() : null;
       if (tok) this.tokens[acc.user] = tok; else delete this.tokens[acc.user];
       if (!tok) this.log('ERROR', `gh auth token --user ${acc.user} falhou: ${r.stderr.trim() || 'sem saida'}`);
@@ -1262,9 +1262,9 @@ class Engine extends EventEmitter {
     const primary = this.primaryUser();
     if (primary) tokenArgs.push('--user', primary);
     const [gh, claude, auth] = await Promise.all([
-      run('gh', ['--version']),
-      runShell('claude --version'),
-      run('gh', tokenArgs)
+      io.run('gh', ['--version']),
+      io.runShell('claude --version'),
+      io.run('gh', tokenArgs)
     ]);
     this.doctorInfo = {
       node: process.version,
@@ -1431,11 +1431,14 @@ function start(onReady) {
   return { engine, server, port: engine.config.port };
 }
 
-module.exports = { start, HOME, WORKSPACE, Engine, modelLabel, isPermanentBranch, parseProjectReviewers, parseDefaultReviewers, parseAccounts,
+const farol = { start, HOME, WORKSPACE, Engine, modelLabel, isPermanentBranch, parseProjectReviewers, parseDefaultReviewers, parseAccounts,
+  sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId, applyClaudeAuthEnv, claudeAuthShellLines };
+export default farol;
+export { start, HOME, WORKSPACE, Engine, modelLabel, isPermanentBranch, parseProjectReviewers, parseDefaultReviewers, parseAccounts,
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId, applyClaudeAuthEnv, claudeAuthShellLines };
 
 // execucao direta: modo servidor (fallback sem Electron, ou desenvolvimento)
-if (require.main === module) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   start((url, err) => {
     if (err) { console.error('[farol] erro ao subir o servidor:', err.message); process.exit(1); }
     console.log(`[farol] monitorando · UI em ${url}`);
