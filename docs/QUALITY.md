@@ -92,3 +92,13 @@ Regras medidas (chaves do `rules.js`):
 8. `tempoMagico` — números mágicos de tempo (milissegundos, segundos) em propriedades ou cálculos reprovam.
 9. `portaLiteral` — porta 47170 escrita em código fora de `lib/constants.js` reprova.
 10. `profundidadeExcedida` — profundidade de chaves dentro de função acima de 3 níveis reprova (contada a partir do corpo da função).
+
+## Backlog da onda de qualidade (16/08/2026, deferido com veredito de review)
+
+Itens julgados no review final da v2.45.1 como "não bloqueia, fica pra depois". Quem pegar qualidade em seguida, começa por aqui:
+
+1. **Comentários de teste ensinando o invariante CommonJS morto**: `test/merge-gates.test.js` (~linha 9), `test/session-claude-profile.test.js` (~18), `test/boot.test.js` (~5) e `test/account-identity.test.js` (~15) ainda explicam o patch em termos de `require`/referência capturada no load. Pós-ESM o mecanismo real é outro (patch no objeto default + `await import()` depois). Reescrever os comentários pra ensinar o mecanismo atual.
+2. **Sombreamento de nome em `lib/engine/session.js`** (~linha 522): o módulo importa `env` (lib/env.js) e o `runClaudeStream` declara um local `const env = engine.ghEnv(...)`. Funciona, mas confunde; renomear o local pra `childEnv`.
+3. **Trava estrutural nos módulos de patch**: a garantia de que `run`/`runShell` (io.js) e `prMetrics` (fanout.js) só existem no default mutável é hoje uma omissão da lista de named exports. Uma checagem no `tools/quality/higiene.js` proibindo esses nomes em `export {}` desses dois arquivos transformaria a doutrina em gate.
+4. **`realpath` no guard de execução direta** (`server.js`, comparação `import.meta.url` vs `process.argv[1]`): com symlink/junction no caminho, o modo `node server.js` não sobe e não avisa. Teórico na instalação atual (o installer copia arquivos); `fs.realpathSync` nos dois lados fecha.
+5. **Ondas futuras do ratchet**: `maxLines` segue com 7 arquivos acima do teto (ui/app.js é a Onda 4 prevista) e `jsonStringifyCru` com 10 pontos. O gate impede crescer; a redução é trabalho de decomposição planejada, não de correção pontual.
