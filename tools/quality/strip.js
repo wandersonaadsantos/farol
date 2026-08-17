@@ -1,4 +1,3 @@
-'use strict';
 // Removedor léxico: apaga o conteúdo de strings, templates, comentários e regex,
 // preservando quebras de linha e a estrutura de código (chaves, parênteses,
 // operadores). As regras de tools/quality/rules.js SÓ olham o resultado disto,
@@ -92,4 +91,5 @@ function ultimaPalavraOuChar(out, c) {
   return w;
 }
 
-module.exports = { strip };
+export default { strip };
+export { strip };

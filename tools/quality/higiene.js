@@ -1,14 +1,14 @@
-'use strict';
 // Higiene de repositório (doutrina do engineering-standards, adaptada ao Farol):
 // número de card em código só aponta pra frente, na forma TODO(BT-123).
 // "Veio do card X" mora no git blame, não no fonte. CHANGELOG e docs/ ficam
 // fora (mapear release a card é o papel deles). Artefatos de ferramenta NÃO são
 // checados aqui: workspace-template/ é o produto do Farol e o CLAUDE.md da raiz
 // vai no zip de auditoria por decisão registrada (16/08/2026).
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-const RAIZ = path.join(__dirname, '..', '..');
+const RAIZ = path.join(import.meta.dirname, '..', '..');
 const IGNORAR = new Set(['node_modules', 'dist', '.git', '.worktrees', 'scratchpad_test', 'docs', 'workspace-template', 'assets', '.superpowers']);
 // Arquivo especifico ignorado: test/quality-higiene.test.js contém fixtures
 // com BT-*/BUGS-* literais como dados de teste para validar a detecção.
@@ -48,5 +48,6 @@ function main() {
   }
 }
 
-if (require.main === module) process.exit(main());
-module.exports = { refsForaDeTodo };
+if (import.meta.url === pathToFileURL(process.argv[1]).href) process.exit(main());
+export default { refsForaDeTodo };
+export { refsForaDeTodo };

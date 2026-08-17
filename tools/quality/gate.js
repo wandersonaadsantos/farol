@@ -1,16 +1,16 @@
-'use strict';
 // Gate de ratchet do contrato engineering-standards. A baseline registra a
 // dívida ATUAL por arquivo/regra; o gate reprova qualquer contagem que SUBA
 // (arquivo novo com violação = subir de zero). Corrigiu dívida? Rode --update
 // pra travar o número novo, mais baixo. A baseline NUNCA sobe à mão.
 // Exit codes (mesma semântica do biud-higiene): 0 limpo, 1 regressão no repo,
 // 2 o gate não conseguiu rodar.
-const fs = require('fs');
-const path = require('path');
-const { scanFile } = require('./rules.js');
+import fs from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { scanFile } from './rules.js';
 
-const RAIZ = path.join(__dirname, '..', '..');
-const BASELINE = path.join(__dirname, 'baseline.json');
+const RAIZ = path.join(import.meta.dirname, '..', '..');
+const BASELINE = path.join(import.meta.dirname, 'baseline.json');
 const IGNORAR = new Set(['node_modules', 'dist', '.git', '.worktrees', 'scratchpad_test', 'test', 'docs', 'workspace-template', 'installer', 'assets']);
 
 function listar(dir, achados = []) {
@@ -70,5 +70,6 @@ function main() {
   return 0;
 }
 
-if (require.main === module) process.exit(main());
-module.exports = { scanRepo, comparar };
+if (import.meta.url === pathToFileURL(process.argv[1]).href) process.exit(main());
+export default { scanRepo, comparar };
+export { scanRepo, comparar };

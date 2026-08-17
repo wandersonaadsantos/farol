@@ -1,4 +1,3 @@
-'use strict';
 // As regras do contrato engineering-standards que dá pra medir sem AST, sobre o
 // código já limpo pelo strip.js. APROXIMAÇÕES ASSUMIDAS (o gate mede regressão
 // por baseline, então imprecisão estável não machuca):
@@ -9,7 +8,7 @@
 //    a partir da chave do corpo. Objeto literal inflaciona; baseline absorve.
 //  - emptyCatch: só conta catch cujo corpo era vazio JÁ NO FONTE CRU (catch
 //    vazio com comentário de intenção é tolerado, vide doutrina do repo).
-const { strip } = require('./strip.js');
+import { strip } from './strip.js';
 
 const LIMITES = { maxLines: 400, maxDepth: 3 };
 // arquivos onde a leitura direta é o lar legítimo da coisa
@@ -78,4 +77,5 @@ function profundidadeExcedida(code) {
   return estouros;
 }
 
-module.exports = { scanFile, LIMITES, ENV_FONTE_UNICA };
+export default { scanFile, LIMITES, ENV_FONTE_UNICA };
+export { scanFile, LIMITES, ENV_FONTE_UNICA };
