@@ -211,8 +211,9 @@ test('a lacuna aparece nos pontos de atenção, com amostra dos arquivos', () =>
   const e = engineLiberado();
   const r = aprovavel({ coverage: { total: 9, reviewed: [], missing: ['a.ts', 'b.ts', 'c.ts', 'd.ts', 'e.ts', 'f.ts'] } });
   const pts = e.attentionPoints(r);
-  assert.match(pts[0], /não cobriu 6 arquivo/, 'diz quantos');
-  assert.match(pts[0], /a\.ts/, 'mostra amostra');
+  assert.match(pts[0].text, /não cobriu 6 arquivo/, 'diz quantos');
+  assert.match(pts[0].text, /a\.ts/, 'mostra amostra');
+  assert.equal(pts[0].kind, 'gate', 'lacuna de leitura é gate, não ressalva de conteúdo');
 });
 
 /* ---------- limiares: são decisão MEDIDA, não número redondo ----------

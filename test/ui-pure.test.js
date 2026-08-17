@@ -1660,3 +1660,79 @@ test('resolvedRow: o rótulo de aprovado sozinho continua falando de ponto de at
   assert.match(html, /ponto de atenção/, 'auto_approved não herdou o texto novo');
   assert.doesNotMatch(html, /veio pra você/);
 });
+
+/* ---------- motivos agrupados por eixo (biud-frontend#774) ----------
+   Antes tudo era uma <ul> plana, então "a rede caiu no meio do POST" lia igual a
+   "a revisão achou um problema no código". O print do #774 mostrava "7 motivos de
+   ter vindo pra você" misturando os dois, o que fazia o gate parecer quebrado. */
+
+test('reasonGroups: separa os três eixos e respeita a ordem de leitura', () => {
+  const g = P.reasonGroups([
+    { text: 'achado da revisão', kind: 'content' },
+    { text: 'a política manda esperar', kind: 'gate' },
+    { text: 'falha ao postar o APPROVE: HTTP 503', kind: 'infra' },
+  ]);
+  assert.deepEqual(g.map(x => x.kind), ['infra', 'gate', 'content'],
+    'infra primeiro (é o acionável), conteúdo por último');
+});
+
+test('reasonGroups: string solta (histórico antigo) entra como achado da revisão', () => {
+  // decisions.json gravado antes da v2.48.0 não tem etiqueta; a leitura
+  // conservadora nunca inventa um gate nem uma falha de infra que não houve
+  const g = P.reasonGroups(['motivo antigo sem etiqueta']);
+  assert.equal(g.length, 1);
+  assert.equal(g[0].kind, 'content');
+  assert.deepEqual(g[0].items, ['motivo antigo sem etiqueta']);
+});
+
+test('reasonGroups: agrupa vários motivos do mesmo eixo num bloco só', () => {
+  const g = P.reasonGroups([
+    { text: 'um', kind: 'gate' },
+    { text: 'dois', kind: 'gate' },
+  ]);
+  assert.equal(g.length, 1);
+  assert.deepEqual(g[0].items, ['um', 'dois']);
+});
+
+test('reasonGroups: lista vazia não inventa grupo', () => {
+  assert.deepEqual(P.reasonGroups([]), []);
+  assert.deepEqual(P.reasonGroups(null), []);
+});
+
+test('reasonGroupsHtml: falha de infra avisa que o app ainda vai tentar sozinho', () => {
+  const html = P.reasonGroupsHtml(
+    [{ text: 'falha ao postar o APPROVE: HTTP 503', kind: 'infra' }],
+    { attempts: 1, exhausted: false });
+  assert.match(html, /tentando de novo sozinho/, 'você não precisa fazer nada, e a tela diz isso');
+  assert.match(html, /falha técnica ao postar/);
+});
+
+test('reasonGroupsHtml: retry esgotado diz que desistiu, e quantas vezes tentou', () => {
+  const html = P.reasonGroupsHtml(
+    [{ text: 'falha ao postar o APPROVE: HTTP 503', kind: 'infra' }],
+    { attempts: 3, exhausted: true });
+  assert.match(html, /desisti de tentar sozinho depois de 3 tentativa/);
+  assert.doesNotMatch(html, /tentando de novo/, 'não pode dizer as duas coisas');
+});
+
+test('reasonGroupsHtml: sem postRetry o grupo de infra não promete retry nenhum', () => {
+  const html = P.reasonGroupsHtml([{ text: 'falha ao postar', kind: 'infra' }], null);
+  assert.doesNotMatch(html, /tentando de novo|desisti de tentar/);
+});
+
+test('reasonGroupsHtml: escapa o texto do motivo (não confia no que veio da sessão)', () => {
+  const html = P.reasonGroupsHtml([{ text: '<img src=x onerror=alert(1)>', kind: 'content' }], null);
+  assert.doesNotMatch(html, /<img/, 'nada de HTML cru vindo de texto de modelo');
+});
+
+test('resolvedRow: infra e conteúdo aparecem separados na mesma linha', () => {
+  const html = P.resolvedRow(linhaPostada({
+    reasons: [
+      { text: 'a doc afirma algo que o GitHub não faz', kind: 'content' },
+      { text: 'falha ao postar o APPROVE: HTTP 503', kind: 'infra' },
+    ],
+  }), CTX);
+  assert.match(html, /2 motivos de ter vindo pra você/, 'a contagem total continua honesta');
+  assert.match(html, /falha técnica ao postar/);
+  assert.match(html, /ponto que a revisão levantou/);
+});

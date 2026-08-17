@@ -23,6 +23,7 @@ const MSG = {
   rede: 'error connecting to api.github.com',
   redeSessao: 'sessão retornou erro: fetch failed',
   ghBuscas: 'ciclo de monitoramento: todas as buscas gh falharam (veja o log)',
+  githubIndisponivel: 'postar review biudtech/biud-frontend#774 (APPROVE): gh: No server is currently available to service your request. Sorry about that. Please try resubmitting your request and contact us if the problem persists. (HTTP 503)',
   token: 'revisao biudtech/biud-esg#193: sem token no gh pra wandersonbiuder',
   binario: "claude saiu com código 1: '\"C:\\nvm4w\\nodejs\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe\"' não é reconhecido como um comando interno",
   stream: 'claude saiu com código 4294967295: stream interrompido antes do evento result',
@@ -37,7 +38,7 @@ const MSG = {
 test('CLASSES: toda classe tem os cinco campos e um kind válido', () => {
   const KINDS = ['operacional', 'espera-reset', 'transitorio', 'permanente'];
   const GRUPOS = ['operacional', 'ambiente', 'credencial', 'rede', 'app'];
-  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 9, 'são 9 classes');
+  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 10, 'são 10 classes');
   for (const c of CLASSES) {
     assert.equal(typeof c.id, 'string');
     assert.ok(c.label, `${c.id} precisa de label humano`);
@@ -57,7 +58,8 @@ test('CLASSES: ids únicos', () => {
 test('CLASSES: a ordem é a documentada (primeira que casar vence)', () => {
   assert.deepEqual(CLASSES.map(c => c.id), [
     'restart-fila', 'console-fechado', 'limite-plano', 'assinatura-bloqueada',
-    'credencial-invalida', 'credito-insuficiente', 'rede', 'token-gh', 'ferramenta'
+    'credencial-invalida', 'credito-insuficiente', 'rede', 'github-indisponivel',
+    'token-gh', 'ferramenta'
   ]);
 });
 
@@ -71,6 +73,7 @@ const CASOS = [
   ['rede', MSG.rede],
   ['rede', MSG.redeSessao],
   ['rede', MSG.ghBuscas],
+  ['github-indisponivel', MSG.githubIndisponivel],
   ['token-gh', MSG.token],
   ['ferramenta', MSG.binario],
   ['ferramenta', MSG.stream],

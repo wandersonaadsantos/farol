@@ -678,6 +678,58 @@ export function sessionRefCell(ref, cls = 'usage-sessions-ref') {
 // de "achei e está vazio", e é exatamente essa confusão que motivou a feature.
 const VERDICT_LABEL = { approve: 'Aprovável', request_changes: 'Com blocker', comment: 'Comentado' };
 
+/* ---------- os três eixos de "por que isto está na sua mesa" ----------
+   A pergunta que o agrupamento responde é a que o biud-frontend#774 deixou sem
+   resposta: dos N motivos listados, quais foram JULGAMENTO da revisão, quais são
+   regra deliberada do app e qual foi só a rede caindo? Numa lista plana os três
+   se confundiam, e um 503 do GitHub lia igual a uma ressalva técnica sobre o
+   código, o que fazia a automação parecer quebrada quando não estava.
+   A ordem é a de quem lê: falha técnica primeiro (é a única acionável agora e
+   costuma ser a que segurou tudo), regra depois (explica o comportamento), e o
+   que a revisão achou por último (é o conteúdo, não o motivo do bloqueio). */
+const REASON_GROUPS = [
+  ['infra', '🔌', 'falha técnica ao postar'],
+  ['gate', '📏', 'regra do app'],
+  ['content', '🧭', 'ponto que a revisão levantou'],
+];
+
+export function reasonGroups(reasons) {
+  const porKind = new Map();
+  for (const r of (Array.isArray(reasons) ? reasons : [])) {
+    if (!r) continue;
+    // string solta = decisão gravada antes da v2.48.0: entra como 'content', a
+    // leitura conservadora (nunca inventa gate nem falha de infra que não houve)
+    const text = (typeof r === 'object') ? r.text : r;
+    const kind = (typeof r === 'object' && r.kind) ? r.kind : 'content';
+    if (!text) continue;
+    if (!porKind.has(kind)) porKind.set(kind, []);
+    porKind.get(kind).push(text);
+  }
+  return REASON_GROUPS
+    .filter(([kind]) => porKind.has(kind))
+    .map(([kind, icon, label]) => ({ kind, icon, label, items: porKind.get(kind) }));
+}
+
+// Uma linha por grupo, com os motivos daquele grupo embaixo. `postRetry` (já
+// projetado por decisionForUi) só decora o grupo de infra: é ali que "o app ainda
+// vai tentar sozinho" muda o que VOCÊ precisa fazer, que é nada.
+export function reasonGroupsHtml(reasons, postRetry) {
+  const grupos = reasonGroups(reasons);
+  if (!grupos.length) return '';
+  return `<div class="reason-groups">${grupos.map(g => {
+    let nota = '';
+    if (g.kind === 'infra' && postRetry) {
+      nota = postRetry.exhausted
+        ? `<span class="reason-note">desisti de tentar sozinho depois de ${postRetry.attempts} tentativa(s)</span>`
+        : `<span class="reason-note">tentando de novo sozinho</span>`;
+    }
+    return `<div class="reason-group rg-${esc(g.kind)}">`
+      + `<div class="reason-group-head"><span aria-hidden="true">${g.icon}</span> ${esc(g.label)}${nota}</div>`
+      + `<ul class="dec-reasons">${g.items.map(t => `<li>${esc(t)}</li>`).join('')}</ul>`
+      + `</div>`;
+  }).join('')}</div>`;
+}
+
 export function reviewBoxHtml(d) {
   if (!d) return `<div class="empty">Nenhuma revisão registrada pra este PR no histórico do Farol.</div>`;
   const v = VERDICT_LABEL[d.verdict] || d.verdict || 'sem veredito';
@@ -693,7 +745,7 @@ export function reviewBoxHtml(d) {
     ${d.pr && d.pr.title ? `<div class="dec-title">${esc(d.pr.title)}</div>` : ''}
     ${autor ? `<div class="dec-author">PR de ${personMention(autor, 'xs')}</div>` : ''}
     ${d.status === 'pending' && razoes.length
-      ? `<div class="review-box-context"><strong>Por que precisa de você</strong><ul class="dec-reasons">${razoes.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>`
+      ? `<div class="review-box-context"><strong>Por que precisa de você</strong>${reasonGroupsHtml(razoes, d.postRetry)}</div>`
       : ''}
     ${d.reportMarkdown
       ? `<div class="report">${md(d.reportMarkdown)}</div>`
@@ -903,7 +955,7 @@ export function resolvedRow(r, ctx) {
       ${author ? `<div class="rr-person">${personMention(author, 'sm')}</div>` : ''}
       <div class="rr-disc">
         ${vcLine ? `<div class="rr-verification">${esc(vcLine)}</div>` : ''}
-        ${attn.length ? `<details class="resolved-attn"><summary>⚠ ${attn.length} ${attnLabel}</summary><ul class="dec-reasons">${attn.map(p => `<li>${esc(p)}</li>`).join('')}</ul></details>` : ''}
+        ${attn.length ? `<details class="resolved-attn"><summary>⚠ ${attn.length} ${attnLabel}</summary>${reasonGroupsHtml(attn, r.postRetry)}</details>` : ''}
         ${r.reportMarkdown ? `<details class="dec-report"><summary>Ver relatório completo</summary><div class="report">${md(r.reportMarkdown)}</div></details>` : ''}
         ${pushbackControl(r, ctx.pushbacks)}
       </div>
