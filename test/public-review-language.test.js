@@ -404,9 +404,14 @@ test('projeção da UI não muta o diagnóstico salvo e preserva o motivo técni
   assert.match(projected.reportMarkdown, /CI ainda está em andamento/);
   assert.match(projected.reportMarkdown, /src\/config\.ts:41/);
   assert.doesNotMatch(projected.reportMarkdown, /auto-aprovei|política da conta/i);
-  assert.match(projected.reasons.join('\n'), /CI ainda em andamento/);
-  assert.doesNotMatch(projected.reasons.join('\n'), /posto sozinho/i);
-  assert.match(projected.attention.join('\n'), /src\/config\.ts:41/);
+  // reasons/attention viajam como { text, kind } desde a v2.48.0 (a etiqueta é o que
+  // deixa a tela separar gate de achado de falha de rede); a projeção do TEXTO,
+  // que é o que este teste guarda, continua igual.
+  const textos = rs => rs.map(r => r.text).join('\n');
+  assert.match(textos(projected.reasons), /CI ainda em andamento/);
+  assert.doesNotMatch(textos(projected.reasons), /posto sozinho/i);
+  assert.match(textos(projected.attention), /src\/config\.ts:41/);
+  assert.equal(projected.reasons[0].kind, 'content', 'string antiga do histórico entra como achado da revisão');
 });
 
 test('projeção da decisão prefere reviewMarkdown humanizado e não expõe relatório interno', () => {

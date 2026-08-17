@@ -656,6 +656,11 @@ class Engine extends EventEmitter {
       // por gh na mão): tira o card de "Precisa de você", que antes ficava preso pra
       // sempre porque só o clique no botão esvaziava decisions.pending
       try { await this.reconcilePending(); } catch (e) { this.log('WARN', `reconcilePending: ${e.message}`); }
+      // posts que falharam por instabilidade transitória (rede, gateway do GitHub fora
+      // do ar) tentam de novo sozinhos aqui, reusando o payload já decidido: roda DEPOIS
+      // do reconcilePending de propósito, pra nunca reenviar em cima de uma pendência que
+      // já foi atendida por fora nesse mesmo ciclo.
+      try { await this.retryFailedPosts(); } catch (e) { this.log('WARN', `retryFailedPosts: ${e.message}`); }
       // pushback automático: contestação do autor a um review meu (fire-and-forget:
       // roda em background pra não segurar a checagem, com guarda anti-concorrência)
       this.scanPushbacks().catch(e => this.log('WARN', `scanPushbacks: ${e.message}`));
@@ -1117,6 +1122,7 @@ class Engine extends EventEmitter {
   async myReviewsWithTime(pr) { return decisionMod.myReviewsWithTime(this, pr); }
   async myReviewStates(pr, headSha) { return decisionMod.myReviewStates(this, pr, headSha); }
   async reconcilePending(keys) { return decisionMod.reconcilePending(this, keys); }
+  async retryFailedPosts() { return decisionMod.retryFailedPosts(this); }
   shouldAutoApprove(pr, result) { return decisionMod.shouldAutoApprove(this, pr, result); }
   shouldAutoReject(pr, result) { return decisionMod.shouldAutoReject(this, pr, result); }
   rejectBodyWithMark(body) { return decisionMod.rejectBodyWithMark(this, body); }

@@ -89,9 +89,10 @@ test('contestação entra nos pontos de atenção com rótulo em português e a 
   });
   const pts = e.attentionPoints(r);
   assert.equal(pts.length, 1);
-  assert.match(pts[0], /fora do escopo pactuado/, 'traduz o rótulo pra tela');
-  assert.match(pts[0], /upload sem validar tipo/, 'mostra o apontamento');
-  assert.match(pts[0], /PR declara BAIXA fora de escopo/, 'mostra a prova');
+  assert.match(pts[0].text, /fora do escopo pactuado/, 'traduz o rótulo pra tela');
+  assert.match(pts[0].text, /upload sem validar tipo/, 'mostra o apontamento');
+  assert.match(pts[0].text, /PR declara BAIXA fora de escopo/, 'mostra a prova');
+  assert.equal(pts[0].kind, 'gate', 'discordância segura por regra, não é achado sobre o código');
 });
 
 test('sem o campo contested, nada muda no comportamento antigo', () => {
