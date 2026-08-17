@@ -1,10 +1,9 @@
 // Empacota os PNGs gerados pelo make-icons.ps1 em um .ico multi-tamanho.
 // PNGs embutidos em ICO sao suportados do Vista em diante.
-'use strict';
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
 
-const root = path.join(__dirname, '..');
+const root = path.join(import.meta.dirname, '..');
 const sizes = [256, 64, 48, 32, 24, 16];
 const pngs = sizes.map(s => ({ size: s, data: fs.readFileSync(path.join(root, 'assets', 'png', `farol-${s}.png`)) }));
 
