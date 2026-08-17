@@ -1785,8 +1785,17 @@ test('papelPicker: sem pessoa cai na opção vazia, que é o rótulo "papel"', (
 });
 
 test('papelPicker: escapa o login (vem do GitHub, não é confiável)', () => {
-  const html = P.papelPicker('a"><script>x</script>', PEOPLE);
-  assert.doesNotMatch(html, /<script>/);
+  // Procurar a TAG com regex é asserção fraca (não pega <SCRIPT>, e o CodeQL
+  // reprova com razão: js/bad-tag-filter). O que prova o escape de verdade é
+  // que os caracteres perigosos do login viraram entidade: sem `<` cru não há
+  // tag, e sem `"` cru o login não consegue fechar o atributo em que está.
+  const login = 'a"><script>x</script>';
+  const html = P.papelPicker(login, PEOPLE);
+  const atributo = html.slice(html.indexOf('data-login="'), html.indexOf('title='));
+  assert.ok(!atributo.includes('<'), 'nenhum < cru no atributo: sem ele não se abre tag');
+  assert.ok(!atributo.includes(login), 'o login não aparece cru em lugar nenhum');
+  assert.match(html, /&lt;script&gt;/, 'ele aparece, mas escapado');
+  assert.match(html, /&quot;/, 'a aspa virou entidade e não fecha o atributo');
 });
 
 test('domainMatrix: um seletor por domínio, com o nível certo marcado em cada', () => {
