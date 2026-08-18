@@ -3137,14 +3137,16 @@ function renderReviewersEditor() {
   const seen = new Set();
   const orgToUser = {};
   Object.keys(OWNER2USER).forEach(o => { orgToUser[o] = OWNER2USER[o]; });
+  // um ctx pra TODA a tela: o laço por conta e o bloco das órfãs lá embaixo têm que
+  // enxergar o mesmo estado, e o `const` dentro do laço não alcançava as órfãs
+  const ctxRev = revCtx();
   for (const a of (STATE.accounts || [])) {
     const meta = ACCT[a.user.toLowerCase()] || {};
     const orgs = [...new Set((a.owners || []).map(String))];
     [...Object.keys(cfgDefaults()), ...Object.keys(cfgProjects()).map(r => r.split('/')[0])].forEach(o => {
       if (OWNER2USER[o.toLowerCase()] === a.user && !orgs.some(x => x.toLowerCase() === o.toLowerCase())) orgs.push(o);
     });
-    const ctxRev = revCtx();
-    const blocks = orgs.filter(Boolean).sort().map(o => { seen.add(o.toLowerCase()); return renderOrgBlock(o, meta.color || 'var(--accent, ctxRev)'); }).join('');
+    const blocks = orgs.filter(Boolean).sort().map(o => { seen.add(o.toLowerCase()); return renderOrgBlock(o, meta.color || 'var(--accent)', ctxRev); }).join('');
     if (!blocks) continue;
     if (multiAccount()) parts.push(`<div class="rev-group-head" style="--ac:${meta.color}"><span class="g-dot"></span>${esc(meta.label || a.user)}</div>`);
     parts.push(blocks);
@@ -3153,7 +3155,7 @@ function renderReviewersEditor() {
   const orphans = [...new Set([...Object.keys(cfgDefaults()), ...Object.keys(cfgProjects()).map(r => r.split('/')[0])])].filter(o => o && !seen.has(o.toLowerCase())).sort();
   if (orphans.length) {
     if (multiAccount()) parts.push('<div class="rev-group-head" style="--ac:var(--muted)"><span class="g-dot"></span>Outros</div>');
-    parts.push(orphans.map(o => renderOrgBlock(o, 'var(--muted, ctxRev)')).join(''));
+    parts.push(orphans.map(o => renderOrgBlock(o, 'var(--muted)', ctxRev)).join(''));
   }
   box.innerHTML = parts.join('') || '<div class="rev-empty">Nenhuma organização monitorada ainda. Configure as organizações no campo acima.</div>';
 }
