@@ -15,7 +15,8 @@ import {
   papelPicker, domainMatrix, chatBadge, reviewerLabel, chipHtml,
   fmtMoney, fmtUsageMetric, usageColorsFor, usageTooltipHtml,
   usageKpisHtml, usageMatrixHtml, usageBudgetHtml, usageSessionsHtml, escAttrSelector,
-  defaultFor, overrideFor, reposOfOrg, suggestDefault, renderOrgBlock
+  defaultFor, overrideFor, reposOfOrg, suggestDefault, renderOrgBlock,
+  reviewChip, queueCardHtml, panoramaRowHtml
 } from './pure.js';
 
 const $ = (s) => document.querySelector(s);
@@ -2096,50 +2097,12 @@ function renderQueue() {
     </div>`;
     return;
   }
-  box.innerHTML = q.map(pr => {
-    const m = acctMark(pr);
-    return `
-    <div class="card pr-card urgent" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" style="${m.style}">
-      ${m.dot}${avatar(pr.author)}
-      <div class="info">
-        <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}${pr.isDraft ? '<span class="badge">rascunho</span>' : ''}${pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : ''}</div>
-        <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
-        <div class="pr-sub">${personMention(pr.author, 'xs')} · atualizado ${fmtRel(pr.updatedAt)}${pr.author ? ` ${papelPicker(pr.author, people)}` : ''}</div>
-      </div>
-      <div class="pr-actions">
-        <button class="btn primary sm act-review" data-url="${esc(pr.url)}">Revisar</button>
-        <button class="btn icon sm ghost act-chat" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" title="Conversar com o Claude sobre este PR" aria-label="Conversar com o Claude sobre este PR">
-          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2.5-2.7A8 8 0 1 1 21 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-        </button>
-        <button class="btn icon sm ghost act-more" data-key="${esc(pr.key)}" title="Mais ações" aria-label="Mais ações" aria-expanded="false">···</button>
-      </div>
-      <!-- O menu abre DENTRO do card, empurrando o conteúdo, em vez de flutuar por cima:
-           num card já estreito, dropdown flutuante sai da tela ou cobre o card vizinho.
-           Terminal e Ignorar vieram pra cá porque Ignorar é destrutivo e estava a um
-           toque de distância do Revisar. -->
-      <div class="pr-menu" data-menu="${esc(pr.key)}" hidden>
-        <button class="act-terminal" data-url="${esc(pr.url)}">Revisar no terminal (interativo)</button>
-        <a href="${esc(pr.url)}" target="_blank" rel="noreferrer">Abrir no GitHub ↗</a>
-        <button class="danger act-ignore" data-key="${esc(pr.key)}">Marcar como visto sem revisar</button>
-      </div>
-    </div>`;
-  }).join('');
+  box.innerHTML = q.map(pr => queueCardHtml(pr, { people, mark: acctMark(pr) })).join('');
 }
 
 /* selo de estado da SUA revisão numa linha do panorama: primeiro o que o Farol
    registrou (decisões), senão o que o GitHub diz (--reviewed-by, cobre reviews
    feitos fora do Farol). */
-function reviewChip(pr) {
-  const a = (STATE.reviewActions || {})[pr.key];
-  if (a) {
-    if (a.kind === 'pending') return '<span class="badge rev-pend" title="A análise terminou e está esperando a sua decisão em Precisa de você">🟡 aguardando você</span>';
-    if (a.kind === 'approve') return `<span class="badge rev-ok" title="APPROVE postado${a.auto ? ' automaticamente pelo protocolo' : ' por você'} via Farol">✅ você aprovou</span>`;
-    if (a.kind === 'request_changes') return '<span class="badge rev-rc" title="REQUEST CHANGES postado por você via Farol">✋ você pediu mudanças</span>';
-    if (a.kind === 'comment') return '<span class="badge rev-cm" title="COMMENT postado por você via Farol">💬 você comentou</span>';
-  }
-  if (pr.reviewedByMe) return '<span class="badge rev-ok" title="Você já revisou este PR no GitHub">✔ revisado por você</span>';
-  return '';
-}
 
 function renderPanorama() {
   const list = (STATE.panorama || []).filter(scopeVisible);
@@ -2160,60 +2123,9 @@ function renderPanorama() {
   box.style.display = '';
   const runningKeys = new Set([].concat(...(STATE.activeSessions || []).map(s => s.keys || [])));
   const waitingKeys = STATE.headlessWaiting || [];
-  box.innerHTML = list.map(pr => {
-    const chip = reviewChip(pr);
-    const m = acctMark(pr, { noBar: true });
-    // estado da SUA revisão: aprovado/mudanças pedidas = resolvido (sem botão de
-    // re-revisar); pendente = já na fila de decisão; senão, dá pra revisar.
-    const ra = (STATE.reviewActions || {})[pr.key];
-    const kind = ra ? ra.kind : (pr.reviewedByMe ? 'approve' : null);
-    // re-request (o autor pediu sua revisão DE NOVO): não é mais "resolvido/aguardando o
-    // autor", voltou a ser acionável (a review antiga foi dismissed no GitHub).
-    const reviewed = (kind === 'approve' || kind === 'request_changes') && !pr.reRequested;
-    const isPending = kind === 'pending';
-    // stale = você revisou e entrou commit novo depois: o "Re-revisar" volta a valer
-    const stale = reviewed && !!(STATE.staleStates || {})[pr.key];
-    // roda de verdade x só espera a vez: mesma distinção do "Meus PRs", pra não
-    // rotular de "Revisando…" um PR que ainda nem começou (B: fila e panorama divergiam)
-    const running = runningKeys.has(pr.key);
-    const qpos = running ? 0 : waitingKeys.indexOf(pr.key) + 1;
-    const queued = qpos > 0;
-    const showBtn = (!reviewed || stale) && !isPending && !running && !queued;
-    const settledLabel = kind === 'request_changes' ? 'aguardando o autor' : isPending ? 'aguardando você' : reviewed ? 'nada a fazer' : '';
-    const tail = running
-      ? '<button class="btn sm ghost pano-review" disabled>Revisando…</button>'
-      : queued
-      ? `<button class="btn sm ghost pano-review" disabled>Na fila (${qpos})</button>`
-      : showBtn
-        ? `<button class="btn sm ghost act-review pano-review" data-url="${esc(pr.url)}" title="${pr.reRequested ? 'O autor pediu sua revisão de novo (re-request): a review anterior foi dispensada' : stale ? 'Entrou commit novo depois da sua review: revisar de novo' : pr.mine ? 'Revisar (seu review pedido)' : 'Revisar sob demanda: o resultado sempre passa por você, nada é postado sozinho'}">${stale || pr.reRequested ? 'Re-revisar' : 'Revisar'}</button>`
-        : `<span class="settled">${esc(settledLabel)}</span>`;
-    return `
-    <div class="prow ${pr.mine ? 'mine' : ''} ${chip ? 'reviewed' : ''}" style="${m.varStyle}${m.dim}">
-      <span class="status-dot" aria-hidden="true"></span>
-      <div class="pw-main">
-        <div class="pw-head">
-          <a class="pw-ref" href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>
-          ${SCOPE === 'all' && m.chip ? m.chip : (pr.mine ? '<span class="badge">sua revisão</span>' : '')}
-          ${pr.isDraft ? '<span class="badge">rascunho</span>' : ''}
-          ${pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : ''}
-          ${chip}
-        </div>
-        <div class="pw-title">
-          <span class="pw-title-txt" title="${esc(pr.title)}">${esc(pr.title)}</span>
-          ${pr.title ? '<span class="pw-sep">·</span>' : ''}${personMention(pr.author, 'xs')}
-        </div>
-      </div>
-      <div class="pw-side">
-        <span class="pw-when">${fmtRel(pr.updatedAt)}</span>
-        <div class="pw-acts">
-          <button class="btn icon sm ghost act-chat" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" title="Conversar com o Claude sobre este PR" aria-label="Conversar sobre este PR">💬${chatBadge(pr.key, STATE?.chats)}</button>
-          ${tail}
-          <button class="btn icon sm ghost rr-copy" data-url="${esc(pr.url)}" data-key="${esc(pr.key)}" title="Copiar a URL do PR" aria-label="Copiar a URL do PR">⧉</button>
-          <a class="btn icon sm ghost" href="${esc(pr.url)}" target="_blank" rel="noreferrer" title="Abrir no GitHub" aria-label="Abrir no GitHub">↗</a>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
+  const ctxPano = { actions: STATE.reviewActions || {}, staleStates: STATE.staleStates || {}, running: runningKeys, waiting: waitingKeys,
+    todasContas: SCOPE === 'all', chats: STATE.chats };
+  box.innerHTML = list.map(pr => panoramaRowHtml(pr, { ...ctxPano, mark: acctMark(pr, { noBar: true }) })).join('');
 }
 
 /* ---------- render: meus PRs (autoanálise) ---------- */

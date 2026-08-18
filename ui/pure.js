@@ -850,6 +850,144 @@ export function sessionProgress(count) {
 
 
 
+
+/* ---------- Radar: os cards da fila e do panorama ----------
+   Saiu do app.js na onda 5, quarto passo. Sao os dois maiores construtores de card
+   que sobraram, e a forma e a mesma dos passos anteriores: o render le o estado,
+   filtra e seta os contadores; o CARD em si so recebe o PR e um ctx.
+
+   O acctMark ficou no app.js de proposito, e o ctx recebe o RESULTADO dele
+   (ctx.mark). Ele depende de SCOPE, TWEAK e da tabela de contas, uma cadeia que
+   nao tem a ver com desenhar o card: puxa-la junto arrastaria meio painel de
+   contas pra ca sem ganho nenhum de teste. */
+
+export function reviewChip(pr, actions) {
+  const a = (actions || {})[pr.key];
+  if (a) {
+    if (a.kind === 'pending') return '<span class="badge rev-pend" title="A análise terminou e está esperando a sua decisão em Precisa de você">🟡 aguardando você</span>';
+    if (a.kind === 'approve') return `<span class="badge rev-ok" title="APPROVE postado${a.auto ? ' automaticamente pelo protocolo' : ' por você'} via Farol">✅ você aprovou</span>`;
+    if (a.kind === 'request_changes') return '<span class="badge rev-rc" title="REQUEST CHANGES postado por você via Farol">✋ você pediu mudanças</span>';
+    if (a.kind === 'comment') return '<span class="badge rev-cm" title="COMMENT postado por você via Farol">💬 você comentou</span>';
+  }
+  if (pr.reviewedByMe) return '<span class="badge rev-ok" title="Você já revisou este PR no GitHub">✔ revisado por você</span>';
+  return '';
+}
+
+export function queueCardHtml(pr, ctx) {
+  const m = ctx.mark;
+  // os selos inline saem do template: dentro dele o gate conta todos os ternarios
+  // do literal como um statement so, e o template fica ilegivel de tao denso
+  const seloRascunho = pr.isDraft ? '<span class="badge">rascunho</span>' : '';
+  const seloRepedida = pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : '';
+  const papel = pr.author ? ` ${papelPicker(pr.author, ctx.people)}` : '';
+  return `
+    <div class="card pr-card urgent" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" style="${m.style}">
+      ${m.dot}${avatar(pr.author)}
+      <div class="info">
+        <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}${seloRascunho}${seloRepedida}</div>
+        <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
+        <div class="pr-sub">${personMention(pr.author, 'xs')} · atualizado ${fmtRel(pr.updatedAt)}${papel}</div>
+      </div>
+      <div class="pr-actions">
+        <button class="btn primary sm act-review" data-url="${esc(pr.url)}">Revisar</button>
+        <button class="btn icon sm ghost act-chat" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" title="Conversar com o Claude sobre este PR" aria-label="Conversar com o Claude sobre este PR">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2.5-2.7A8 8 0 1 1 21 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="btn icon sm ghost act-more" data-key="${esc(pr.key)}" title="Mais ações" aria-label="Mais ações" aria-expanded="false">···</button>
+      </div>
+      <!-- O menu abre DENTRO do card, empurrando o conteúdo, em vez de flutuar por cima:
+           num card já estreito, dropdown flutuante sai da tela ou cobre o card vizinho.
+           Terminal e Ignorar vieram pra cá porque Ignorar é destrutivo e estava a um
+           toque de distância do Revisar. -->
+      <div class="pr-menu" data-menu="${esc(pr.key)}" hidden>
+        <button class="act-terminal" data-url="${esc(pr.url)}">Revisar no terminal (interativo)</button>
+        <a href="${esc(pr.url)}" target="_blank" rel="noreferrer">Abrir no GitHub ↗</a>
+        <button class="danger act-ignore" data-key="${esc(pr.key)}">Marcar como visto sem revisar</button>
+      </div>
+    </div>`;
+}
+
+export function panoramaRowHtml(pr, ctx) {
+  const chip = reviewChip(pr, ctx.actions);
+  const m = ctx.mark;
+    // estado da SUA revisão: aprovado/mudanças pedidas = resolvido (sem botão de
+    // re-revisar); pendente = já na fila de decisão; senão, dá pra revisar.
+  const ra = (ctx.actions || {})[pr.key];
+  // sem registro nosso, "revisado por mim no GitHub" conta como approve
+  let kind = null;
+  if (ra) kind = ra.kind;
+  else if (pr.reviewedByMe) kind = 'approve';
+    // re-request (o autor pediu sua revisão DE NOVO): não é mais "resolvido/aguardando o
+    // autor", voltou a ser acionável (a review antiga foi dismissed no GitHub).
+    const reviewed = (kind === 'approve' || kind === 'request_changes') && !pr.reRequested;
+    const isPending = kind === 'pending';
+    // stale = você revisou e entrou commit novo depois: o "Re-revisar" volta a valer
+  const stale = reviewed && !!(ctx.staleStates || {})[pr.key];
+    // roda de verdade x só espera a vez: mesma distinção do "Meus PRs", pra não
+    // rotular de "Revisando…" um PR que ainda nem começou (B: fila e panorama divergiam)
+  const running = (ctx.running || new Set()).has(pr.key);
+  const qpos = running ? 0 : (ctx.waiting || []).indexOf(pr.key) + 1;
+    const queued = qpos > 0;
+    const showBtn = (!reviewed || stale) && !isPending && !running && !queued;
+  // tres estados excludentes, um por linha. A cadeia de ternarios escondia qual
+  // deles ganhava quando mais de um parecia valer.
+  let settledLabel = '';
+  if (kind === 'request_changes') settledLabel = 'aguardando o autor';
+  else if (isPending) settledLabel = 'aguardando você';
+  else if (reviewed) settledLabel = 'nada a fazer';
+  // mesma regra do settledLabel: a ordem de precedencia (rodando > na fila >
+  // botao > estado final) agora esta na sequencia dos if, nao aninhada num ternario.
+  const BTN_RODANDO = '<button class="btn sm ghost pano-review" disabled>Revisando…</button>';
+  const btnFila = `<button class="btn sm ghost pano-review" disabled>Na fila (${qpos})</button>`;
+  // quatro motivos possiveis pra este botao existir, e o tooltip diz qual e. Como
+  // cadeia de ternario dentro do template eles ficavam ilegiveis e ainda somavam
+  // no gate; nomeados, da pra ler a precedencia de cima pra baixo.
+  let tituloRevisar = 'Revisar sob demanda: o resultado sempre passa por você, nada é postado sozinho';
+  if (pr.reRequested) tituloRevisar = 'O autor pediu sua revisão de novo (re-request): a review anterior foi dispensada';
+  else if (stale) tituloRevisar = 'Entrou commit novo depois da sua review: revisar de novo';
+  else if (pr.mine) tituloRevisar = 'Revisar (seu review pedido)';
+  const rotuloRevisar = (stale || pr.reRequested) ? 'Re-revisar' : 'Revisar';
+  const btnRevisar = `<button class="btn sm ghost act-review pano-review" data-url="${esc(pr.url)}" title="${tituloRevisar}">${rotuloRevisar}</button>`
+  const clsMine = pr.mine ? 'mine' : '';
+  const clsRev = chip ? 'reviewed' : '';
+  let seloConta = '';
+  if (ctx.todasContas && m.chip) seloConta = m.chip;
+  else if (pr.mine) seloConta = '<span class="badge">sua revisão</span>';
+  const seloRascunhoP = pr.isDraft ? '<span class="badge">rascunho</span>' : '';
+  const seloRepedidaP = pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : '';
+  const sepTitulo = pr.title ? '<span class="pw-sep">·</span>' : '';
+  let tail = `<span class="settled">${esc(settledLabel)}</span>`;
+  if (running) tail = BTN_RODANDO;
+  else if (queued) tail = btnFila;
+  else if (showBtn) tail = btnRevisar;
+    return `
+    <div class="prow ${clsMine} ${clsRev}" style="${m.varStyle}${m.dim}">
+      <span class="status-dot" aria-hidden="true"></span>
+      <div class="pw-main">
+        <div class="pw-head">
+          <a class="pw-ref" href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>
+          ${seloConta}
+          ${seloRascunhoP}
+          ${seloRepedidaP}
+          ${chip}
+        </div>
+        <div class="pw-title">
+          <span class="pw-title-txt" title="${esc(pr.title)}">${esc(pr.title)}</span>
+          ${sepTitulo}${personMention(pr.author, 'xs')}
+        </div>
+      </div>
+      <div class="pw-side">
+        <span class="pw-when">${fmtRel(pr.updatedAt)}</span>
+        <div class="pw-acts">
+          <button class="btn icon sm ghost act-chat" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" title="Conversar com o Claude sobre este PR" aria-label="Conversar sobre este PR">💬${chatBadge(pr.key, ctx.chats)}</button>
+          ${tail}
+          <button class="btn icon sm ghost rr-copy" data-url="${esc(pr.url)}" data-key="${esc(pr.key)}" title="Copiar a URL do PR" aria-label="Copiar a URL do PR">⧉</button>
+          <a class="btn icon sm ghost" href="${esc(pr.url)}" target="_blank" rel="noreferrer" title="Abrir no GitHub" aria-label="Abrir no GitHub">↗</a>
+        </div>
+      </div>
+    </div>`;
+}
+
 /* ---------- editor de reviewers: padrao da org e excecoes por repo ----------
    Saiu do app.js na onda 5, terceiro passo. Diferente dos blocos anteriores, aqui
    nao bastava um parametro: as funcoes liam SETE globais entre config, candidatos
