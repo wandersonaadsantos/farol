@@ -104,17 +104,39 @@ O débito original era o `server.js`: uma classe `Engine` de 3122 linhas fazendo
   vira 1 e qualquer reviewer que apareça numa delas é sugerido. É surpreendente ao ler o
   nome da função, mas mudar seria decisão de produto, não refactor.
 
+  **Quarto passo:** os dois maiores construtores de card do Radar (`queueCardHtml`,
+  `panoramaRowHtml`) e o `reviewChip`, 93 linhas. O `acctMark` **ficou** no `app.js` e o
+  ctx recebe o resultado dele: ele depende de `SCOPE`, `TWEAK` e da tabela de contas, uma
+  cadeia que não tem a ver com desenhar o card, e puxá-la junto arrastaria meio painel de
+  contas sem ganho de teste.
+
+  Este foi o primeiro passo a **esbarrar de verdade** no obstáculo previsto: o teste
+  "Panorama: o autor fica FORA da caixa que trunca o título" era regex sobre o texto do
+  `app.js`, e reprovou quando o markup mudou de arquivo. A resposta não foi repontar o
+  regex pro `pure.js`, e sim **migrar a asserção pra teste real** — agora ele renderiza um
+  título de 300 caracteres e verifica a estrutura, que é o que o regex tentava aproximar.
+  Provado por mutação: reintroduzir o defeito de 11/08 (menção do autor dentro da caixa
+  que trunca) faz o teste novo reprovar. A metade de CSS ficou no `ui-widgets`, porque
+  `app.css` não é executável. **É o caminho pros próximos passos**: cada extração que
+  cruzar uma asserção de texto migra ela junto, e o teste sai mais forte do que entrou.
+
+  O `panoramaRowHtml` trouxe **duas** globais declaradas dentro do `renderPanorama`
+  (`runningKeys`, `waitingKeys`) que o regex de conversão não pegou — de novo achadas pela
+  comparação, não pelos gates. E carregava as cadeias de ternário mais densas do arquivo
+  (o rótulo do estado, o botão, o tooltip com quatro motivos): nomeadas uma a uma, o
+  `app.js` caiu de 51 pra 46 e a dívida somada de 67 pra 62.
+
   **O que vem depois, e o obstáculo real:** a separação entre render e estado. O `app.js` tem **25 globais mutáveis** espalhados e nenhuma função de boot (tudo é efeito de topo, em ordem de arquivo), então o corte não é mecânico. E há um risco a respeitar: `test/ui-widgets.test.js` fixa **22 corpos de função inteiros** por regex sobre o texto do `app.js`, e mover qualquer um deles faz o `match` devolver `null`. Nenhum dos chamadores deste primeiro passo caía dentro dessas 22 (foi conferido antes de mexer); do próximo em diante, cada extração precisa vir junto com a migração da asserção de texto pra teste real em `pure.js`, que é a direção que o cabeçalho daquele arquivo já defende.
 
 ### Números de hoje (mantenha esta linha viva)
 
 | Arquivo | Linhas | Testes |
 |---|---|---|
-| `ui/app.js` | ~3750 | nenhum que o execute (os 5 que o tocam leem o arquivo como texto) |
-| `ui/pure.js` | ~1683 | `ui-pure.test.js`, 236 testes |
+| `ui/app.js` | ~3662 | nenhum que o execute (os 5 que o tocam leem o arquivo como texto) |
+| `ui/pure.js` | ~1821 | `ui-pure.test.js`, 244 testes |
 | `server.js` | ~1483 | via `boot`, `facades`, e os testes de comportamento |
 | maior módulo de `lib/` (`decision.js`) | ~869 | `decision-envelope.test.js`, `decision-history.test.js` |
-| suíte | | 1256 testes (1249 passando, 7 pulados fora do macOS) |
+| suíte | | 1264 testes (1257 passando, 7 pulados fora do macOS) |
 
 Os cinco que leem o `ui/app.js` do disco: `ui-widgets` (fixa 22 corpos de função por
 regex), `ui-contract` (extrai as rotas `/api/*` e cruza com o `http-server.js`),

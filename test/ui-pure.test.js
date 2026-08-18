@@ -2131,3 +2131,84 @@ test('renderOrgBlock: org sem nada não quebra', () => {
   assert.equal(typeof html, 'string');
   assert.ok(html.length > 0);
 });
+
+/* ---------- onda 5, quarto passo: os cards do Radar ----------
+   queueCardHtml e panoramaRowHtml são os dois maiores construtores de card que
+   sobravam no app.js. O acctMark ficou lá: o ctx recebe o RESULTADO dele, porque
+   ele depende de SCOPE, TWEAK e da tabela de contas, cadeia que não tem a ver com
+   desenhar o card.
+
+   O primeiro teste abaixo veio do ui-widgets.test.js, onde era regex sobre o texto
+   do app.js. Agora que a função é pura, ele RENDERIZA e verifica a estrutura, que
+   é o que o regex tentava aproximar. */
+
+const MARK_T = { style: '--ac:#f00;', varStyle: '--ac:#f00;', dim: '', chip: '<span class="acct-chip">acme</span>', dot: '<span class="acct-dot"></span>', acct: { label: 'acme' } };
+const PR_T = (o = {}) => ({ key: 'acme/api#7', url: 'https://github.com/acme/api/pull/7',
+  title: 'Corrige o gate', author: 'alice', updatedAt: '2026-08-17T10:00:00Z', ...o });
+const CTX_PANO = { mark: MARK_T, actions: {}, staleStates: {}, todasContas: true, chats: {}, running: new Set(), waiting: [] };
+
+test('Panorama: o autor fica FORA da caixa que trunca o título', () => {
+  // regressão do defeito de "Revisões recentes" (v2.39.0) reencontrado em 11/08:
+  // com o @autor dentro do .pw-title (overflow hidden + ellipsis), título comprido
+  // empurrava foto e login pra fora da tela, sem aviso. Era regex no ui-widgets;
+  // agora renderiza.
+  const html = P.panoramaRowHtml(PR_T({ title: 'T'.repeat(300) }), CTX_PANO);
+  const linha = html.match(/<div class="pw-title">([\s\S]*?)<\/div>/);
+  assert.ok(linha, 'a linha do título existe');
+  assert.match(linha[1], /<span class="pw-title-txt"/, 'o texto do título tem elemento próprio, que é quem trunca');
+  assert.match(linha[1], /person-mention/, 'o autor está na LINHA, irmão do texto');
+  const txt = html.match(/<span class="pw-title-txt"[^>]*>([\s\S]*?)<\/span>/);
+  assert.doesNotMatch(txt[1], /person-mention/, 'e nunca DENTRO da caixa que trunca');
+});
+
+test('cards do Radar: título e autor saem escapados', () => {
+  const mau = PR_T({ title: '<img src=x onerror=1>', author: 'a"><script>x</script>' });
+  for (const html of [P.queueCardHtml(mau, { people: {}, mark: MARK_T }), P.panoramaRowHtml(mau, CTX_PANO)]) {
+    assert.doesNotMatch(html, /<img src=x/, 'título não vira tag');
+    assert.doesNotMatch(html, /<script>/, 'autor não vira script');
+  }
+});
+
+test('queueCardHtml: rascunho e re-pedido ganham selo; PR comum não', () => {
+  const limpo = P.queueCardHtml(PR_T(), { people: {}, mark: MARK_T });
+  assert.doesNotMatch(limpo, /rascunho|pedida de novo/);
+  assert.match(P.queueCardHtml(PR_T({ isDraft: true }), { people: {}, mark: MARK_T }), /rascunho/);
+  assert.match(P.queueCardHtml(PR_T({ reRequested: true }), { people: {}, mark: MARK_T }), /pedida de novo/);
+});
+
+test('queueCardHtml: sem autor não renderiza o seletor de papel', () => {
+  const html = P.queueCardHtml(PR_T({ author: '' }), { people: {}, mark: MARK_T });
+  assert.doesNotMatch(html, /papel-level/, 'PR sem autor não tem papel a marcar');
+});
+
+test('panoramaRowHtml: a precedência do botão é rodando > fila > revisar', () => {
+  const rodando = P.panoramaRowHtml(PR_T(), { ...CTX_PANO, running: new Set(['acme/api#7']), waiting: ['acme/api#7'] });
+  assert.match(rodando, /Revisando…/, 'rodando ganha da fila');
+  const naFila = P.panoramaRowHtml(PR_T(), { ...CTX_PANO, waiting: ['acme/api#7'] });
+  assert.match(naFila, /Na fila \(1\)/);
+  const livre = P.panoramaRowHtml(PR_T(), CTX_PANO);
+  assert.match(livre, /act-review/, 'sem nada em curso, dá pra revisar');
+});
+
+test('panoramaRowHtml: estado resolvido troca o botão por rótulo', () => {
+  const pedido = P.panoramaRowHtml(PR_T(), { ...CTX_PANO, actions: { 'acme/api#7': { kind: 'request_changes' } } });
+  assert.match(pedido, /aguardando o autor/);
+  assert.doesNotMatch(pedido, /act-review/, 'já pedi mudanças: não oferece revisar de novo');
+  const pendente = P.panoramaRowHtml(PR_T(), { ...CTX_PANO, actions: { 'acme/api#7': { kind: 'pending' } } });
+  assert.match(pendente, /aguardando você/);
+});
+
+test('panoramaRowHtml: commit novo depois da review reabre o botão', () => {
+  const base = { ...CTX_PANO, actions: { 'acme/api#7': { kind: 'approve' } } };
+  assert.doesNotMatch(P.panoramaRowHtml(PR_T(), base), /act-review/, 'aprovado e parado: nada a fazer');
+  const stale = P.panoramaRowHtml(PR_T(), { ...base, staleStates: { 'acme/api#7': true } });
+  assert.match(stale, /act-review/, 'entrou commit novo: revisar de novo');
+  assert.match(stale, /commit novo/, 'e o tooltip diz por quê');
+});
+
+test('panoramaRowHtml: o selo da conta só aparece no escopo "todas"', () => {
+  assert.match(P.panoramaRowHtml(PR_T(), CTX_PANO), /acct-chip/);
+  const umaConta = P.panoramaRowHtml(PR_T({ mine: true }), { ...CTX_PANO, todasContas: false });
+  assert.doesNotMatch(umaConta, /acct-chip/);
+  assert.match(umaConta, /sua revisão/, 'numa conta só, o que importa é ser seu');
+});

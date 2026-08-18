@@ -387,14 +387,16 @@ test('o rodape dos ocultos usa o texto puro e alterna estado so da tela', () => 
    que só existem no app.js/index.html: o título que trunca sem comer o autor e
    o handler ÚNICO de navegação interna. */
 
-test('Panorama: o autor fica FORA da caixa que trunca o título', () => {
+test('Panorama: o CSS que impede o título de empurrar o autor pra fora', () => {
   // regressão do defeito de "Revisões recentes" (v2.39.0) reencontrado aqui em
   // 11/08: com o @autor dentro do .pw-title (overflow hidden + ellipsis), título
-  // comprido empurrava foto e login pra fora da tela, sem aviso
-  assert.match(APPJS, /<span class="pw-title-txt" title="\$\{esc\(pr\.title\)\}">/,
-    'o texto do título tem elemento próprio, que é quem trunca');
-  assert.match(APPJS, /pw-title">\s*\n\s*<span class="pw-title-txt"/,
-    'a linha do título continua sendo o container do autor');
+  // comprido empurrava foto e login pra fora da tela, sem aviso.
+  //
+  // A metade de MARKUP deste teste saiu daqui na onda 5: o card do panorama virou
+  // panoramaRowHtml, em ui/pure.js, e lá dá pra renderizar de verdade em vez de
+  // casar regex no fonte. Ver "Panorama: o autor fica FORA da caixa que trunca o
+  // título" em ui-pure.test.js. O que sobra aqui é o par de CSS, que segue sendo
+  // texto porque app.css não é executável.
   assert.match(CSS, /\.pw-title-txt \{[^}]*text-overflow: ellipsis/,
     'quem corta é o texto, não a linha inteira');
   assert.match(CSS, /\.pw-title \.person-mention \{[^}]*flex: none/,
