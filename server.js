@@ -12,7 +12,7 @@ import { EventEmitter } from 'node:events';
 import {
   executadoDireto,
   APP_VERSION, APP_NAME, DELIVERIES_LIMIT, IS_WIN, IS_MAC, IS_LINUX, APP_ROOT,
-  HOME, WORKSPACE, STATE_DIR, CONFIG_FILE, LOG_FILE, SEEN_FILE, BASELINE_FILE,
+  HOME, WORKSPACE, STATE_DIR, CONFIG_FILE, LOG_FILE, SEEN_FILE, IGNORED_FILE, BASELINE_FILE,
   INFLIGHT_FILE, CHATS_FILE, SELF_FILE, HIDDEN_FILE, TEMPLATE_DIR, UI_DIR,
 } from './lib/paths.js';
 
@@ -210,6 +210,7 @@ class Engine extends EventEmitter {
 
     this.prepareHome();
     this.loadSeen();
+    this.loadIgnorados();
     this.recoverInflight();
     // prova por arquivo de PR morto há semanas não serve pra nada (G20, best-effort):
     // podar só custa uma revisão cheia na próxima vez, nunca postagem errada
@@ -351,6 +352,72 @@ class Engine extends EventEmitter {
       const lines = fs.readFileSync(SEEN_FILE, 'utf8').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
       this.seen = new Set(lines.map(l => l.split(/\s+/)[0]));
     } catch { this.seen = new Set(); }
+  }
+
+  // Marcado como visto DE PROPÓSITO: o clique em "marcar como visto sem revisar" e o
+  // baseline da primeira execução. Existe porque `seen` sozinho não distingue esses
+  // dois de uma revisão que foi LANÇADA e morreu antes de decidir: os três deixam a
+  // mesma marca, e sem separar não dá pra devolver à fila só o que vazou. Ver
+  // reconciliarVistos.
+  marcarIgnorado(key) {
+    if (!this.ignorados) this.ignorados = new Set();
+    if (!this.ignorados.has(key)) { this.ignorados.add(key); this.saveIgnorados(); }
+  }
+
+  // Migração de uma vez: instalação que já rodava antes deste arquivo tem `seen`
+  // misturando os três casos e NÃO dá pra saber, olhando pra trás, qual era qual.
+  // A escolha conservadora é tratar todo visto-sem-decisão existente como descarte
+  // deliberado: ressuscitar dezenas de PRs antigos de um golpe seria pior que o
+  // vazamento que isto conserta. Daqui pra frente a distinção é registrada.
+  migrarIgnorados() {
+    if (this.ignorados) return;                 // já existe: nada a migrar
+    const comDecisao = new Set([
+      ...(this.decisions?.pending || []).map(d => d.key),
+      ...(this.decisions?.resolved || []).map(d => d.key),
+    ]);
+    this.ignorados = new Set([...this.seen].filter(k => !comDecisao.has(k)));
+    this.saveIgnorados();
+    this.log('WARN', `migração: ${this.ignorados.size} PR(s) já vistos sem decisão tratados como descarte deliberado`);
+  }
+
+  // Devolve à fila o que foi marcado como visto por uma revisão que NUNCA decidiu:
+  // a sessão morreu no meio (app fechado, crash, falha não classificada) e o PR
+  // saiu da fila pra sempre, exigindo clique manual. Não toca no que foi descartado
+  // de propósito, no que tem decisão, nem no que está em andamento, estacionado ou
+  // aguardando retry, que são estados legítimos.
+  reconciliarVistos(mineList) {
+    if (!this.ignorados) return 0;
+    const comDecisao = new Set([
+      ...(this.decisions?.pending || []).map(d => d.key),
+      ...(this.decisions?.resolved || []).map(d => d.key),
+    ]);
+    const emCurso = new Set();
+    for (const s of this.activeReviews.values()) for (const k of (s.keys || [])) emCurso.add(k);
+    for (const pr of this.headlessQueue) emCurso.add(pr.key);
+    let devolvidos = 0;
+    for (const pr of mineList) {
+      const k = pr.key;
+      if (!this.seen.has(k)) continue;
+      if (this.ignorados.has(k) || comDecisao.has(k)) continue;
+      if (emCurso.has(k) || this.autoReviewParked.has(k) || this.retryAfterNet.has(k)) continue;
+      this.unsee(k);
+      devolvidos++;
+    }
+    if (devolvidos) this.log('WARN', `${devolvidos} PR(s) voltaram à fila: marcados como vistos por revisão que não chegou a decidir`);
+    return devolvidos;
+  }
+
+  loadIgnorados() {
+    try {
+      const lines = fs.readFileSync(IGNORED_FILE, 'utf8').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      this.ignorados = new Set(lines);
+    } catch { this.ignorados = null; }   // null = arquivo ainda não existe (migração abaixo)
+  }
+
+  saveIgnorados() {
+    ensureDir(STATE_DIR);
+    const arr = [...(this.ignorados || [])];
+    writeTextAtomic(IGNORED_FILE, arr.join('\n') + (arr.length ? '\n' : ''));
   }
 
   saveSeen() {
@@ -770,11 +837,14 @@ class Engine extends EventEmitter {
 
       // primeira execucao da vida: baseline silencioso (nao notifica o estoque)
       if (!fs.existsSync(BASELINE_FILE)) {
-        for (const pr of mineList) this.markSeen(pr.key);
+        for (const pr of mineList) { this.markSeen(pr.key); this.marcarIgnorado(pr.key); }
         fs.writeFileSync(BASELINE_FILE, new Date().toISOString() + '\n');
         this.emit('toast', { kind: 'info', text: 'Primeira checagem: PRs atuais marcados como vistos (baseline).' });
       }
 
+      // devolve à fila o que foi marcado visto por revisão que nunca decidiu, ANTES
+      // do filtro abaixo (o `seen` é justamente o que o filtro usa)
+      this.reconciliarVistos(mineList);
       const prevQueue = new Set(this.queue.map(p => p.key));
       const queue = mineList.filter(p => !this.seen.has(p.key));
       const fresh = queue.filter(p => !prevQueue.has(p.key));
@@ -1122,12 +1192,14 @@ class Engine extends EventEmitter {
 
   ignore(key) {
     this.markSeen(key);
+    this.marcarIgnorado(key);
     this.queue = this.queue.filter(p => p.key !== key);
     this.pushState();
   }
 
   restore(key) {
     this.unsee(key);
+    if (this.ignorados) { this.ignorados.delete(key); this.saveIgnorados(); }
     this.checkNow();
   }
 
@@ -1386,6 +1458,8 @@ class Engine extends EventEmitter {
   focusPr(url) { if (url) this.emit('focus-pr', { url }); }
 
   async start() {
+    // depois do loadDecisions do construtor: a migração precisa saber quem tem decisão
+    this.migrarIgnorados();
     this.checkUpdate().catch(() => {});
     this.doctor().catch(() => {});
     await this.check('startup');
