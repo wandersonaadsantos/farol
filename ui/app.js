@@ -3591,7 +3591,13 @@ const settingsMap = [
 ];
 for (const [sel, key, read] of settingsMap) {
   $(sel).addEventListener('change', async (e) => {
-    await api('/api/settings', { [key]: read(e.target) });
+    const r = await api('/api/settings', { [key]: read(e.target) });
+    // o servidor devolve o que NÃO aceitou. Dizer "salva" sem olhar isso foi o que
+    // fez preferência sumir em silêncio: a tela confirmava, o config não guardava.
+    if (r && Array.isArray(r.ignoradas) && r.ignoradas.includes(key)) {
+      toast('error', `"${key}" não foi salva: o servidor não reconhece essa preferência.`, 6000);
+      return;
+    }
     toast('ok', 'Configuração salva.', 2500);
   });
 }

@@ -40,6 +40,7 @@ import selfMod from './lib/engine/selfpr.js';
 import reviewMod from './lib/engine/review.js';
 import fileProofMod from './lib/engine/file-proof.js';
 import usageMod from './lib/engine/usage.js';
+import { EDITAVEIS, defaults as settingsDefaults, sanear } from './lib/settings.js';
 import { startServer } from './lib/http-server.js';
 
 // App aberto pelo Finder/Dock herda um PATH minimo (sem /opt/homebrew/bin):
@@ -66,83 +67,18 @@ if (!IS_WIN && !IS_MAC && !IS_LINUX) {
 // dentro das sessoes do claude e as sessoes de terminal.
 process.env.GH_TELEMETRY = 'false';
 
-const DEFAULTS = {
-  ghUser: '',              // vazio = detectar a conta ativa do gh na primeira execucao
-  owners: ['biudtech'],
-  // multi-conta: observar mais de uma identidade do gh ao mesmo tempo (ex.: conta
-  // de trabalho + conta pessoal). Cada item: { user, owners }. Vazio = usa a conta
-  // unica legada acima (ghUser + owners). A conta [0] e a primaria (identidade
-  // default e usada em chamadas gh nao ligadas a um PR, como update). Cada PR
-  // carrega a conta dona; toda operacao gh nesse PR usa o token dela. Os logins
-  // ficam so aqui no config local do usuario, nunca no fonte (auditoria do zip).
-  accounts: [],
-  intervalSeconds: 300,
-  autoReview: true,        // revisao autonoma interna (headless); so chama o humano nas excecoes
-  parallelReviews: 1,      // revisoes headless SIMULTANEAS por conta (1..4). 1 = serial dentro da conta (o de sempre); subir e opt-in em Sistema (acelera fila cheia, gasta o limite do plano mais rapido)
-  autoApproveAll: false,   // OFF = gate estrito (so auto_approve + card comprovado). ON (opt-in em Sistema) = aprova sozinho TODO PR aprovavel, anexando os pontos de atencao ao APPROVE. Default OFF por seguranca (o app e publico/multiusuario; cada um liga se quiser)
-  autoApproveContested: false, // OFF (default) = discordancia registrada contra review de terceiro sempre passa por voce antes de sair. ON (opt-in em Sistema) = a discordancia deixa de ser trava e vira so ponto de atencao; quem decide passa a ser a politica de ressalvas da conta
-  skipPermissions: false,  // vale so pra sessoes no TERMINAL; o modo interno roda sem prompts por design
-  soundEnabled: true,
-  theme: 'dark',
-  autostart: false,
-  updateSource: '',        // vazio = fonte de verdade e a release do GitHub (git). So defina um caminho aqui pra testar build local (opt-in de dev)
-  // canal de update remoto pras copias distribuidas: releases do GitHub, lidas
-  // pelo gh que todo usuario ja tem. So vale quando NAO ha fonte local (a pasta
-  // ~/Documents/farol tem precedencia, pro fluxo de dev do mantenedor).
-  updateRepo: 'wandersonaadsantos/farol',
-  // aplica sozinho o update REMOTO (canal 'remote') assim que o app fica ocioso
-  // (nenhuma analise, chat ou sessao de terminal rodando), sem precisar de clique.
-  // Default LIGADO desde a v2.46.0; desligue em Sistema > Automacao pra voltar ao
-  // clique manual de sempre. Canal local (fluxo de dev) nunca auto-aplica.
-  autoUpdate: true,
-  // round 2 automatico retoma a SESSAO da revisao anterior (claude --resume) em vez
-  // de abrir uma nova: o modelo ja leu o PR, entao a retomada poupa a releitura.
-  // Default DESLIGADO (opt-in): sessao retomada carrega o contexto do round anterior,
-  // e quem prefere cada round partir do zero nao deve pagar esse acoplamento sem pedir.
-  // Falha de retomada (sessao expirada/limpa) degrada pra sessao nova sozinha.
-  reReviewResume: false,
-  // modo rapido da revisao headless (opt-in): leitura orientada a diff e verificacao
-  // empirica so do que sustenta a decisao (o resto vira needs_decision em vez de
-  // experimento longo). Nenhum gate afrouxa; a troca e velocidade por autonomia.
-  reviewFast: false,
-  port: DEFAULT_PORT,
-  // repos onde o botao Merge (Meus PRs) fica desativado, respeitando regras de
-  // review do time (ex.: nunca self-merge no biud-frontend). Editavel em Sistema.
-  mergeBlockedRepos: ['biudtech/biud-frontend'],
-  // reviewers PADRAO por organizacao: { "org": ["login", "org/time", ...] }. E o
-  // grupo aplicado a TODOS os repos daquela org quando voce clica em "Reviewers",
-  // salvo os repos que tem excecao em projectReviewers. Evita repetir a mesma lista
-  // repo a repo (era a maior fonte de poluicao visual da tela de Sistema).
-  defaultReviewers: {},
-  // EXCECOES por projeto: { "owner/repo": ["login", "org/time", ...] }. Quando um
-  // repo esta aqui, essa lista SUBSTITUI o padrao da org (nao soma). Repo sem
-  // excecao usa o defaultReviewers da org. Aceita pessoas e times (org/time-slug).
-  projectReviewers: {},
-  // MODELO das sessoes autonomas do Farol (review/pushback/autoanalise/ferramentas).
-  // Default '' = padrao do claude (Opus, MELHOR qualidade). E CONFIGURAVEL em Sistema:
-  // quem quiser economizar o limite do plano troca pra sonnet/haiku (gastam bem menos).
-  // Qualidade e a prioridade, entao o default e o modelo bom, nao o economico.
-  reviewModel: '',
-  // ESFORCO de raciocinio das sessoes autonomas (--effort do claude). Vazio = nao passa a
-  // flag e o CLI decide pelo modelo, que e o que o Farol sempre fez. Vale pros CINCO
-  // caminhos de sessao autonoma (review, autoanalise, pushback, chat, ferramentas); a
-  // sessao no TERMINAL nunca e afetada. Niveis validos em lib/parse.js (EFFORT_LEVELS).
-  reviewEffort: '',
-  // classificacao automatica de pushback (1 sessao Claude por PR contestado). Default ON
-  // (a funcionalidade que o Wanderson pediu); quem quiser poupar limite desliga em Sistema.
-  autoPushback: true,
-  claudeConfigDir: '',
-  // NOVO: perfis nomeados de assinatura Claude [{id,label,dir}] (login por assinatura) ou
-  // [{id,label,kind:'apikey',apiKey,baseUrl}] (chave de API). Vazio = usa só o
-  // claudeConfigDir legado acima (compatibilidade total, nada muda pra quem não adotar
-  // o sistema novo). claudeProfileId escolhe o perfil padrão do Farol quando a conta
-  // não tiver um claudeProfileId próprio (accounts[].claudeProfileId, opcional).
-  claudeProfiles: [],
-  claudeProfileId: '',
-  // diagnóstico: registra em state/spawns.log cada processo que o Farol dispara (com
-  // horário), pra caçar "terminal piscando". Desligado por padrão; ligue em Sistema só
-  // pra capturar evidência. Espelhado em process.env.FAROL_DEBUG_SPAWNS pros módulos io/session.
-  debugSpawns: false
+// Os padrões vêm da tabela ÚNICA (lib/settings.js), que é também quem diz o que a
+// tela pode editar e como cada valor é saneado. Antes eram três listas paralelas
+// aqui dentro, e esquecer uma delas fazia a preferência sumir em silêncio.
+const DEFAULTS = settingsDefaults(DEFAULT_PORT);
+
+// Os saneadores da tabela recebem os parsers por injeção: assim lib/settings.js
+// continua puro (sem importar meio mundo) e existe UM lugar só onde a lista de
+// parsers usada por preferência é montada.
+const PARSERS = {
+  parseAccounts, parseProjectReviewers, parseDefaultReviewers, parsePeople,
+  sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
+  sanitizeModel, sanitizeEffort, sanitizeParallelReviews,
 };
 
 // carência anti-lag do índice de busca do GitHub: logo após EU postar um review, o PR
@@ -1336,46 +1272,25 @@ class Engine extends EventEmitter {
   }
 
   updateSettings(patch) {
-    const allowed = ['ghUser', 'owners', 'accounts', 'intervalSeconds', 'autoReview', 'autoApproveAll', 'autoApproveContested', 'parallelReviews', 'skipPermissions',
-      'soundEnabled', 'theme', 'autostart', 'updateSource', 'updateRepo', 'mergeBlockedRepos',
-      'projectReviewers', 'defaultReviewers', 'people', 'claudeConfigDir', 'claudeProfiles', 'claudeProfileId',
-      'reviewModel', 'reviewEffort', 'autoPushback', 'debugSpawns', 'autoUpdate', 'reReviewResume', 'reviewFast'];
     let intervalChanged = false, userChanged = false;
-    for (const k of allowed) {
-      if (!(k in patch)) continue;
-      let v = patch[k];
-      if (k === 'intervalSeconds') { v = Math.min(3600, Math.max(180, parseInt(v, 10) || DEFAULTS.intervalSeconds)); intervalChanged = true; }
-      if (k === 'owners') v = Array.isArray(v) ? v.map(s => String(s).trim()).filter(Boolean) : String(v).split(/[,;\s]+/).filter(Boolean);
-      if (k === 'mergeBlockedRepos') v = Array.isArray(v) ? v.map(s => String(s).trim()).filter(Boolean) : String(v).split(/[,;\s]+/).filter(Boolean);
-      if (k === 'projectReviewers') v = parseProjectReviewers(v);
-      if (k === 'defaultReviewers') v = parseDefaultReviewers(v);
-      if (k === 'people') v = parsePeople(v);
-      if (k === 'claudeConfigDir') v = sanitizeClaudeDir(v);
-      // perfis nomeados de assinatura Claude: [{id,label,dir}] (login por assinatura) ou
-      // [{id,label,kind:'apikey',apiKey,baseUrl}] (chave de API). Descarta entradas sem
-      // id ou sem dir/apiKey válido conforme o kind (perfil incompleto não serve pra nada, ver
-      // resolveClaudeConfigDir), e sanitiza dir/apiKey/baseUrl (aspa dupla/newline quebrariam os
-      // scripts de sessão gerados, ver sanitizeClaudeDir/lib/parse.js).
-      if (k === 'claudeProfiles') v = normalizeClaudeProfiles(v);
-      if (k === 'claudeProfileId') v = normalizeClaudeProfileId(v);
-      // valor invalido MANTEM o anterior (semantica de sempre): a UI mostra o que o
-      // engine aceitou no proximo estado, entao nao fica setting fantasma.
-      if (k === 'reviewModel') { const s = sanitizeModel(v); v = (s === null) ? this.config.reviewModel : s; }
-      if (k === 'reviewEffort') { const s = sanitizeEffort(v); v = (s === null) ? this.config.reviewEffort : s; }
-      if (k === 'parallelReviews') { const s = sanitizeParallelReviews(v); v = (s === null) ? this.config.parallelReviews : s; }
-      if (k === 'autoPushback') v = !!v;
-      if (k === 'debugSpawns') v = !!v;
-      if (k === 'autoUpdate') v = v !== false; // default LIGADO: só desliga com valor estritamente false
-      if (k === 'reReviewResume') v = !!v; // opt-in: só liga com valor verdadeiro explícito
-      if (k === 'reviewFast') v = !!v; // opt-in: idem
+    // itera o PATCH, não a allowlist: é o que permite VER a chave que ninguém
+    // reconhece e devolvê-la em `ignoradas`, em vez de deixar a tela dizer
+    // "Configuração salva." pra algo que nunca foi salvo.
+    const ignoradas = [];
+    for (const k of Object.keys(patch || {})) {
+      if (!EDITAVEIS.has(k)) { ignoradas.push(k); continue; }
+      // O saneamento inteiro vive na tabela (lib/settings.js). Aqui ficam só os efeitos
+      // colaterais, que são de ciclo de vida do engine e não do valor: reprogramar o
+      // polling e invalidar o token quando a identidade muda.
+      let v = sanear(k, patch[k], this.config, PARSERS);
+      if (k === 'intervalSeconds') intervalChanged = true;
       if (k === 'accounts') {
-        v = parseAccounts(v);
         // só re-autentica se as CONTAS (user/owners) mudaram; editar rótulo, cor,
         // tipo ou silenciar não mexe em token, então não força um re-login/re-check.
         const sig = arr => JSON.stringify((arr || []).map(a => [String(a.user).toLowerCase(), (a.owners || []).map(o => String(o).toLowerCase()).sort()]));
         if (sig(v) !== sig(this.config.accounts)) userChanged = true;
       }
-      if (k === 'ghUser') { v = String(v).trim(); userChanged = userChanged || v !== this.config.ghUser; }
+      if (k === 'ghUser') userChanged = userChanged || v !== this.config.ghUser;
       this.config[k] = v;
     }
     env.setDebugSpawns(this.config.debugSpawns); // liga/desliga o logger na hora
@@ -1393,6 +1308,11 @@ class Engine extends EventEmitter {
     }
     this.emit('settings-changed', this.config);
     this.pushState();
+    // devolve o que NÃO foi aceito. Antes esta função não devolvia nada, então a tela
+    // dizia "Configuração salva." mesmo quando o servidor tinha descartado a chave, e
+    // a preferência sumia sem ninguém saber. Vazio = tudo entrou.
+    if (ignoradas.length) this.log('WARN', `updateSettings ignorou chave desconhecida: ${ignoradas.join(', ')}`);
+    return { ok: true, ignoradas };
   }
 
   snapshot() {
