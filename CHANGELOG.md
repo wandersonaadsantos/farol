@@ -9,6 +9,29 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.48.2
+
+Três correções de coisas que apareceram no uso: a tela de reviewers quebrada, PR que
+exigia clique pra ser revisado, e preferência que a tela dizia ter salvo sem salvar.
+
+**Correções**
+- **A tela Sistema > Reviewers não abria.** Um erro introduzido na v2.48.0, ao mover o
+  código do editor de lugar: um pedaço da chamada acabou dentro do texto da cor, e a
+  tela morria antes de desenhar qualquer coisa. Valia pros dois blocos (as orgs das suas
+  contas e o grupo "Outros"), ou seja, a tela inteira.
+- **PR podia exigir clique manual pra ser revisado, mesmo com a automação ligada.** O
+  Farol marca o PR como visto no momento em que LANÇA a revisão, não quando ela termina.
+  Se a sessão morria no meio (app fechado, queda, falha de ambiente), o PR ficava marcado
+  pra sempre e saía da fila, e só um clique em Revisar o trazia de volta. Agora o Farol
+  confere a cada ciclo e devolve à fila o que foi marcado por uma revisão que não chegou
+  a decidir. O que você marcou como visto de propósito continua de fora, e o mesmo vale
+  pro que já tem decisão ou está em andamento.
+- **Preferência que não salvava, mas dizia que sim.** Quando a tela mandava uma
+  preferência que o servidor não reconhecia, ela era descartada em silêncio e a mensagem
+  "Configuração salva." aparecia do mesmo jeito. Agora o servidor devolve o que não
+  aceitou e a tela mostra o erro nomeando a preferência. Por baixo, todas passaram a
+  viver num lugar só, o que era o que permitia a divergência acontecer.
+
 ## v2.48.1
 
 Correção de duas brechas no reenvio automático que a v2.48.0 estreou. Quem está na
