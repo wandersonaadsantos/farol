@@ -9,6 +9,25 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.48.1
+
+Correção de duas brechas no reenvio automático que a v2.48.0 estreou. Quem está na
+v2.48.0 tem o comportamento antigo até atualizar.
+
+**Correções**
+- **O reenvio automático podia aprovar código que ninguém revisou.** Quando a postagem
+  falhava por instabilidade do GitHub, o Farol reenviava nos ciclos seguintes, o que é o
+  certo. O problema é que ele reenviava a decisão **sem conferir se o PR tinha mudado**:
+  se o autor empurrasse commit novo enquanto o reenvio esperava, a aprovação guardada ia
+  pro PR assim mesmo, falando de um código que não estava mais lá. Agora o Farol confere
+  o estado do PR antes de reenviar; se mudou, ele não posta, avisa na pendência que o
+  código mudou e deixa a revisão nova entrar pelo caminho normal.
+- **O reenvio podia duplicar o review.** Antes de reenviar, o Farol pergunta ao GitHub se
+  aquele review já está lá. Quando não dava pra perguntar (rede fora, token fora do ar),
+  ele reenviava mesmo assim, e como a tentativa anterior pode ter chegado antes do erro,
+  dava pra sair review repetido no PR. Agora, sem conseguir confirmar, ele espera o
+  próximo ciclo em vez de arriscar.
+
 ## v2.48.0
 
 Review que não saiu por instabilidade do GitHub agora vai sozinho depois, e a lista de
