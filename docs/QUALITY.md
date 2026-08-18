@@ -153,6 +153,37 @@ Padrão do colaborador: funções `(engine, ...args)`, todo `this.` vira `engine
 
 Regra de cada onda: extrai um pedaço → `grep this.` no módulo novo deve dar zero → `npm run check && npm test` verde → só então segue. Sem regressão; refactor é movimentação, não reescrita.
 
+## O ui/app.js virou executável em teste (18/08/2026)
+
+A onda 5 sempre carregou um custo declarado: **nenhum teste executa o `ui/app.js`**. Os
+arquivos que o "testam" leem o fonte como texto e casam regex, e num único dia isso
+deixou passar dois bugs, ambos com sintaxe válida e CI verde nos três sistemas:
+
+1. bloco de Consumo movido pro `pure.js` deixando `USAGE_KIND_COLOR` pra trás;
+2. um regex de conversão enfiando `ctxRev` **dentro** da string `'var(--accent)'`, o que
+   quebrou a tela de Reviewers inteira, em produção, por duas releases.
+
+`jsdom` resolveria e está fora (invariante 1). Então entrou `test/helpers/dom-stub.js`:
+um DOM mínimo escrito à mão, deliberadamente burro, que existe pra **uma** pergunta —
+"carregar a tela e desenhar com um estado plausível levanta exceção?".
+
+O caminho exercitado é o mesmo do app real: o handler de `state` do SSE, que é o
+orquestrador de render (chama ~15 funções numa tacada). `test/app-carrega.test.js`
+dispara estados plausíveis nele: cheio, vazio, sem reviewers, com org órfã, com decisão
+pendente, e com as abas Sistema e Consumo **ativas** (esses dois ramos só desenham
+quando a aba está ativa, e foi assim que a primeira versão do teste deixou passar a
+mutação do Consumo).
+
+Provado por mutação: reintroduzir qualquer um dos dois bugs reprova o teste, e
+`node --check` continua passando nas duas versões corrompidas, que é o ponto.
+
+**O limite, pra ninguém confundir cobertura com garantia:** o stub não faz layout,
+cascata nem evento de verdade. Verde aqui não diz que a tela está certa, diz que ela
+não explode. Validar visual e clique continua sendo abrir o app.
+
+Nota de operação: o script de test ganhou `--test-force-exit`, porque carregar o
+`app.js` liga os timers dele e o runner esperava o event loop drenar.
+
 ## Achar trava sem guarda (auditoria de mutação)
 
 O gate diz se a suíte passa. Ele **não** diz se a suíte testa alguma coisa. A
