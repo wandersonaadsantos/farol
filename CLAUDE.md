@@ -439,6 +439,121 @@ Junto na v2.41.0, e relacionados: **rascunhos entram no radar** (caiu o
 "rascunho" em fila/panorama; o `mergeSelfPR` segue recusando draft, revalidado
 na hora do clique) e o **paralelismo por conta** documentado no invariante 4.
 
+### Prova por arquivo: round incremental, pulo de push trivial e retomada de sessão (17/08/2026, ainda não publicado)
+
+Motivação medida: o round 2 pós-push relia o PR INTEIRO mesmo quando o dev corrigiu 3 arquivos
+de 40, e um "update branch" (merge da base que não toca o diff) custava uma sessão completa pra
+chegar na mesma conclusão. Três peças, todas com a régua de sempre (falta de dado NUNCA vira
+herança; degradação é sempre pra revisão cheia, que é segura):
+
+- **`lib/engine/file-proof.js`** é o módulo novo. A cada revisão headless o engine tira um
+  retrato do diff efetivo via `pulls/{n}/files` (`fetchPrFiles`, fachada `Engine.fetchPrFiles`;
+  é esse endpoint porque ele devolve o **blob SHA por arquivo**, que o `gh pr view --json files`
+  não dá) e, no fim da sessão, grava a prova em `state/file-proof/<encodeURIComponent(key)>.json`:
+  `{head, files: [{path, sha, status, lines}], reviewed}` com `reviewed` vindo do
+  `coverage.reviewed` do envelope (envelope sem coverage grava `reviewed: []`: sem declaração não
+  há prova de leitura, mesma régua do coverageGap; a prova ainda serve pro pulo de push trivial).
+  Poda por idade de 30 dias (`pruneFileProofs` no boot, `TEMPOS.PROVA_ARQUIVO_MAX_AGE_MS`,
+  best-effort padrão G20).
+- **Pulo de push trivial** (`launchReReviews`, que virou **async**; o `check()` aguarda): antes
+  de relançar o round 2 automático, se existe prova salva, UMA chamada `pulls/files` compara o
+  diff atual com o que a última sessão leu (`sameEffectiveDiff`: mesmos caminhos, mesmo blob,
+  mesmo status em TODOS; sha vazio nunca prova igualdade). Idêntico = rebase limpo ou merge da
+  base: nenhuma sessão abre, toast avisa (nunca silencioso) e a âncora `reReviewLaunched` já
+  gravada segura até o próximo push DE VERDADE. Sem prova salva o gh nem é consultado (zero
+  custo no caso comum) e qualquer falha de medição relança como sempre. Edge conhecido e aceito:
+  conflito resolvido "descartando" a mudança da base mantém o blob do head idêntico e pula, mas
+  o código resultante é byte a byte o que a revisão anterior avaliou.
+- **Round incremental (herança de cobertura por blob)**: no round 2 com head DIFERENTE do da
+  prova (mesmo head é retomada de falha, e aí quem cobre é o checkpoint; herdar tudo no mesmo
+  head faria a sessão "se confirmar" sem ler nada), `splitByProof` separa o diff em INALTERADOS
+  (blob + status idênticos E leitura declarada na prova) e ALTERADOS. O prompt ganha o
+  `fileProofBlock` (leia os alterados + reverifique os achados; inalterado só se interagir; e
+  declare em `coverage.reviewed` SÓ o que leu NESTA sessão), o fan-out passa a medir e fatiar
+  **só o que precisa ser lido** (`metricsIncrementais`), e depois da sessão
+  `reconcileInheritedCoverage` move o inalterado de `missing` pra `reviewed` com a origem
+  separada em `coverage.inherited` (leitura desta sessão e prova herdada nunca se confundem).
+  O `coverageGap` continua PURO e intocado: a reconciliação acontece antes, em review.js. A
+  prova nova gravada no fim carrega o reviewed já reconciliado, então o round 3 herda o acumulado.
+  O checkpoint de verificação também sobrevive ao push por blob: cada entrada ganha `blobSha`
+  (carimbado em session.js via `activeReviews.get(id).fileBlobs`) e `relevantEntries` (fonte
+  única em verification-checkpoint.js, usada pelo resumeBlock E pelo summarizeCheckpoint) aceita
+  entrada de head antigo cujo arquivo não mudou.
+- **Retomada de sessão no round 2** (`config.reReviewResume`, default **false**, opt-in;
+  toggle em Sistema > Automação, `#setReReviewResume`): o relançamento automático carrega o
+  `sessionId` da última decisão do PR (`lastReviewSessionId`, lido das decisões CRUAS porque o
+  `decisionByKey` projeta allowlist sem sessionId) e `rodarSessao` roda `claude --resume <sid>`,
+  com a MESMA allowlist de formato do chat antes de entrar na linha de shell. Falha de retomada
+  (sessão expirada/limpa, mesma heurística de erro do chat.js) degrada pra sessão nova sozinha;
+  cancelamento e falha real sobem pro retry de sempre. Por que opt-in: sessão retomada carrega o
+  contexto do round anterior (premissas velhas podem contaminar), e quem prefere round do zero
+  não paga isso sem pedir.
+
+O que NÃO mudou: o gate de postagem (invariante 4) está intacto, o dedup por head também, e a
+autoanálise/chat/pushback não gravam nem leem prova. Testes: `test/file-proof.test.js` (puras +
+roundtrip + poda + relevância por blob no checkpoint) e `test/rereview.test.js` (pulo de push
+trivial, medição falhando relança, sem prova não consulta gh, sid viaja no enfileiramento).
+
+Na mesma leva, dois complementos (motivados pelo caso real biud-frontend#774, 17/08/2026: PR de
+3 arquivos de CI levou 30 min porque as 9 verificações empíricas rodaram em SÉRIE):
+
+- **Verificação empírica em paralelo**: agente novo `claim-verifier`
+  (`workspace-template/.claude/agents/claim-verifier.md`, leitura pura: Bash/Read/Grep/Glob, sem
+  Write) e a seção "Verificações empíricas em PARALELO" em `prompts/pr-review-auto.md`: com 2+
+  verificações INDEPENDENTES pendentes, a sessão dispara um `claim-verifier` por afirmação, em
+  paralelo, e depois **REEMITE** cada veredito como marcador `FAROL_CHECKPOINT` na própria sessão.
+  A reemissão não é opcional: desde esta leva `registrarCheckpointDeBash` captura SÓ blocos da
+  sessão principal (evento com `parent_tool_use_id` é ignorado de propósito, senão a captura
+  duplicaria quando o CLI streama o subagente). O agente novo está na lista `synced` do
+  `prepareHome` (server.js), senão workspace já semeado nunca o receberia, a mesma classe do bug
+  de fachada da v2.28.0. Travado em `test/review-prompt.test.js`.
+- **Subagentes visíveis na UI** (pedido do Thiago, 17/08/2026): o stream marca evento de dentro
+  de subagente com `parent_tool_use_id`, e o `session.js` passou a rastrear: `tool_use` de `Task`
+  na sessão principal registra o agente (`registrarAgenteDeTask`, rótulo `tipo N` em
+  `activeReviews.get(id).agents`), o `tool_result` correspondente o conclui
+  (`concluirAgentesDoEvento`), e cada linha do feed vinda de subagente carrega o rótulo
+  (`item.a`, via `pushActivity(id, kind, text, agent)`, fachada com aridade nova). O snapshot
+  entrega a projeção compacta via `projectSessions` (PURA, e é ela que também tira `fileBlobs` do
+  payload). Na UI: badge `👥 vivos/total` no card "Analisando agora" (title lista quem faz o quê,
+  `agentsTitle` em `ui/pure.js`) e etiqueta `👤 rótulo` nas linhas do feed (`feedLine`). Testes:
+  `test/session-agents.test.js` e os de `feedLine`/`agentsTitle` em `test/ui-pure.test.js`.
+
+### Tempo por etapa e modo rápido (17/08/2026, ainda não publicado)
+
+Motivação medida (#775): "por que a revisão demorou 10 minutos?" era impossível de responder
+depois do fim, porque o feed de atividade (único traço com timestamp por linha) morre no
+finally da sessão. Duas peças:
+
+- **Tempo por etapa** (`stageSummaryFrom` em review.js, PURA): calculado do feed IMEDIATAMENTE
+  após a sessão (antes do finally apagar) e persistido na decisão (`item.stages`, projetado
+  saneado pelo `decisionForUi`). Heurística determinística: o intervalo entre linhas pertence à
+  etapa da linha que o ENCERRA, e a fatia final é a redação do envelope. Etapas: preparo,
+  leitura, card, verificação (FAROL_CHECKPOINT + linhas de `claim-verifier`), raciocínio,
+  redação. A UI mostra em Revisões recentes ("Tempo por etapa: ...", `stagesLine`/`fmtDur` em
+  ui/pure.js). É aproximação de traço, não cronômetro; não muda decisão nenhuma.
+- **Modo rápido** (`config.reviewFast`, default false, opt-in; toggle em Sistema > Automação,
+  `#setReviewFast`): injeta `fastModeBlock()` no prompt headless E derruba o `--effort` da
+  linha de comando pra `medium` (salvo `low` explícito, que fica; regra em `buildModelFlags`
+  via `opts.fast`, que SÓ o caminho de revisão passa). A segunda metade nasceu de medição
+  (#776, 17/08/2026): com fast só no prompt, a "leitura" ainda levava 6m28s, quase tudo
+  raciocínio pré-comando, que instrução nenhuma alcança; a flag alcança. O que corta:
+  leitura orientada a diff (arquivo inteiro só quando o hunk não se explica), verificação
+  empírica SÓ do que muda verdict/decision, experimento longo vira `needs_decision` com reason
+  de não-verificado, e pula o dossiê do autor. O que NUNCA muda: schema do envelope, cobertura
+  completa, gates de postagem e formato humano. A troca honesta é velocidade por autonomia
+  (mais PRs caem pra decisão humana), nunca velocidade por afirmação sem prova. Testes:
+  `test/review-stages.test.js` + `fmtDur`/`stagesLine`/`resolvedRow` em `test/ui-pure.test.js`.
+- **Esteira de etapas AO VIVO no card** (pedido do Thiago, estilo n8n): cada linha do feed sai
+  do engine ESTAMPADA com a etapa (`item.s`, decidido por `stageOfLine` no `onEvent` da revisão;
+  `stageOfLine` prefere a estampa quando presente, então a esteira ao vivo e o resumo final
+  nunca divergem sobre a mesma linha). A UI desenha nós ligados (`stageFlowFrom`/`stageFlowHtml`
+  em ui/pure.js, ordem canônica preparo→leitura→card→verificação→raciocínio→redação): feito
+  marcado, ATIVO pulsando com o tempo correndo (o `tickElapsed` atualiza entre eventos),
+  pendente apagado. Linha sem estampa (info do app) herda a etapa corrente. A esteira só
+  aparece com traço real e morre com o card; o que persiste é o resumo (`stages` na decisão).
+  A etapa pode REATIVAR (leitura↔verificação intercalam de verdade): a esteira mostra o estado
+  corrente, não uma máquina de estados linear fictícia.
+
 ### Ciclo de vida e higiene (onda 3 dos gaps da auditoria de 15/08/2026)
 
 Quatro estados que existiam só em memória (ou não existiam) e agora têm dono e regra

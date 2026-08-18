@@ -4,7 +4,7 @@ import {
   esc, safeJsonParse, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
   sameSet, diffVs, usageMetricVal, sparklinePath, usageDelta, usageStackLayers, usageHoverIndex, usageMatrixRows,
   USAGE_KIND_LABEL, usageSessionRow, FAROL_STAMP_SINCE, FAROL_PRE_STAMP_LABEL, accountSaveArray, delivCappedMsg, fmtRel,
-  usageDayKeysBack, aprovadosHoje, avatar, md, feedLine, analysisOpsPlan, selfSessionKey, sessionProgress,
+  usageDayKeysBack, aprovadosHoje, avatar, md, feedLine, agentsTitle, stageFlowFrom, stageFlowHtml, analysisOpsPlan, selfSessionKey, sessionProgress,
   personMention, repoMention, prRefMention, parseGoto, sessionRefCell, reviewBoxHtml, operationChecks,
   delivFilterItems, delivStats, delivStatsCards, delivActivityCard, delivEmptyState, deliveriesByRepo, deliveriesByAuthor,
   pushbackControl, PB_OPTS, PB_SHORT, fmtStamp, fmtWhenDay, resolvedRow,
@@ -1812,6 +1812,9 @@ function tickElapsed() {
     const s = Math.max(0, Math.round((Date.now() - started) / 1000));
     el.textContent = s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}s`;
   });
+  // a etapa ATIVA da esteira acumula tempo entre eventos: sem o ticker o contador
+  // do nó ativo congelava até a próxima linha do feed chegar
+  document.querySelectorAll('.stage-flow[data-id]').forEach(el => updateStageFlow(el.dataset.id));
   // o estagio (iniciando/processando) envelhece junto: o card so re-renderiza em
   // snapshot SSE, entao sem este ticker o rotulo congelava no primeiro paint (B13)
   document.querySelectorAll('.session-stage').forEach(el => {
@@ -1822,6 +1825,27 @@ function tickElapsed() {
 }
 
 /* ---------- render: análises em andamento (feed ao vivo) ---------- */
+// esteira de etapas do card (estilo n8n): nós com estado feito/ativo/pendente e o
+// tempo acumulado, recalculada dos itens ESTAMPADOS do feed (item.s, engine)
+function updateStageFlow(id) {
+  const el = document.querySelector(`.stage-flow[data-id="${CSS.escape(id)}"]`);
+  if (!el) return;
+  const sess = (STATE.activeSessions || []).find(x => x.id === id);
+  const html = stageFlowHtml(stageFlowFrom(STATE.activity && STATE.activity[id], sess && sess.startedAt));
+  el.hidden = !html;
+  if (html) el.innerHTML = html;
+}
+
+// badge 👥 vivos/total do card de sessão; o title lista cada subagente e o estado
+function updateSessionAgents(el, s) {
+  if (!el) return;
+  const lista = s.agents || [];
+  el.hidden = !lista.length;
+  if (!lista.length) return;
+  el.textContent = `👥 ${s.agentsLive || 0}/${lista.length}`;
+  el.title = agentsTitle(lista);
+}
+
 function fillFeed(feed, items) {
   const stick = feed.scrollTop + feed.clientHeight >= feed.scrollHeight - 30;
   feed.innerHTML = (items || []).map(feedLine).join('') ||
@@ -1866,11 +1890,13 @@ function renderActive() {
           <span class="spin accent"></span>
           <b>${esc(s.label)}</b> <span class="session-stage" data-started="${s.startedAt || ''}">${stages}</span>
           <span class="session-model" data-id="${esc(s.id)}" hidden></span>
+          <span class="session-agents" data-id="${esc(s.id)}" hidden></span>
           ${s.pr?.url ? `<a href="${esc(s.pr.url)}" target="_blank" rel="noreferrer">abrir PR</a>` : ''}
           <span class="session-elapsed" data-started="${s.startedAt}"></span>
           ${s.cancellable ? `<button class="btn sm danger-ghost act-cancel" data-id="${esc(s.id)}">Cancelar</button>` : ''}
         </div>
         <div class="op-progress sess-progress" data-id="${esc(s.id)}"><span class="sess-pct"></span><div class="op-bar"><div class="op-bar-fill"></div></div></div>
+        <div class="stage-flow" data-id="${esc(s.id)}" hidden></div>
         <div class="activity-feed" data-id="${esc(s.id)}"></div>
       </div>`;
     }).join('');
@@ -1879,6 +1905,7 @@ function renderActive() {
     const feed = box.querySelector(`.activity-feed[data-id="${CSS.escape(s.id)}"]`);
     if (feed) fillFeed(feed, STATE.activity && STATE.activity[s.id]);
     updateSessionBar(s.id);
+    updateStageFlow(s.id);
     // o nivel (Opus/Sonnet/...) so chega no init da sessao, depois do card montar
     const lvl = box.querySelector(`.session-model[data-id="${CSS.escape(s.id)}"]`);
     if (lvl) {
@@ -1886,6 +1913,9 @@ function renderActive() {
       lvl.textContent = s.model || '';
       if (s.modelRaw) lvl.title = s.modelRaw;
     }
+    // subagentes da sessão (fan-out de leitura/verificação): 👥 vivos/total, com a
+    // lista de quem faz o quê no title. Some quando a sessão não fatiou nada.
+    updateSessionAgents(box.querySelector(`.session-agents[data-id="${CSS.escape(s.id)}"]`), s);
   }
   tickElapsed();
 }
@@ -3222,6 +3252,8 @@ function renderSettings() {
   $('#setAutoReview').checked = !!c.autoReview;
   $('#setAutoApproveAll').checked = c.autoApproveAll !== false;
   $('#setAutoApproveContested').checked = c.autoApproveContested === true;
+  $('#setReviewFast').checked = c.reviewFast === true;
+  $('#setReReviewResume').checked = c.reReviewResume === true;
   $('#setAutoPushback').checked = !!c.autoPushback;
   $('#setAutoUpdate').checked = c.autoUpdate !== false;
   $('#setDebugSpawns').checked = !!c.debugSpawns;
@@ -3551,6 +3583,8 @@ const settingsMap = [
   ['#setAutoReview', 'autoReview', el => el.checked],
   ['#setAutoApproveAll', 'autoApproveAll', el => el.checked],
   ['#setAutoApproveContested', 'autoApproveContested', el => el.checked],
+  ['#setReviewFast', 'reviewFast', el => el.checked],
+  ['#setReReviewResume', 'reReviewResume', el => el.checked],
   ['#setSkipPerms', 'skipPermissions', el => el.checked],
   ['#setSound', 'soundEnabled', el => el.checked],
   ['#setAutostart', 'autostart', el => el.checked]
@@ -3591,6 +3625,7 @@ function connect() {
     // progresso honesto (régua única sessionProgress, ui/pure.js): a atividade
     // real move a barra do card da sessão no "Analisando agora"...
     updateSessionBar(id);
+    updateStageFlow(id);
     // ...e, se for autoanálise, também o widget do card em Meus PRs
     const selfKey = selfSessionKey(STATE?.activeSessions, id);
     if (selfKey) {

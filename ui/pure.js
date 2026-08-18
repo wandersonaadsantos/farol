@@ -801,9 +801,81 @@ export function md(src) {
   return out.join('\n');
 }
 
+// duração humana curta: "38s", "4m10s", "1h02m". Zero/inválido vira ''.
+export function fmtDur(ms) {
+  const s = Math.round(Number(ms) / 1000);
+  if (!Number.isFinite(s) || s <= 0) return '';
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60), resto = s % 60;
+  if (m < 60) return resto ? `${m}m${String(resto).padStart(2, '0')}s` : `${m}m`;
+  const h = Math.floor(m / 60), mm = m % 60;
+  return mm ? `${h}h${String(mm).padStart(2, '0')}m` : `${h}h`;
+}
+
+// linha "Tempo por etapa" das Revisões recentes, a partir do resumo persistido
+// na decisão (stageSummaryFrom, lib/engine/review.js). Vazio quando não há traço.
+export function stagesLine(st) {
+  if (!st || !Array.isArray(st.stages) || !st.stages.length) return '';
+  const partes = st.stages.map(s => `${s.label} ${fmtDur(s.ms) || '0s'}`);
+  const total = fmtDur(st.totalMs);
+  return `Tempo por etapa: ${partes.join(' · ')}${total ? ` (total ${total})` : ''}`;
+}
+
+/* ---------- esteira de etapas da revisão ao vivo (estilo n8n) ----------
+   Os itens do feed chegam ESTAMPADOS com a etapa (item.s, decidido no engine em
+   stageOfLine; a UI nunca reclassifica). O tempo entre dois itens pertence à
+   etapa do item que o encerra; item sem estampa (linha informativa do app) herda
+   a etapa corrente. A etapa do último item é a ATIVA e acumula até `agora`. */
+export const STAGE_FLOW_ORDER = [
+  ['preparo', 'preparo'], ['leitura', 'leitura'], ['card', 'card'],
+  ['verificacao', 'verificação'], ['raciocinio', 'raciocínio'], ['redacao', 'redação'],
+];
+
+export function stageFlowFrom(items, startedAt, agora = Date.now()) {
+  const linhas = (items || []).filter(i => i && i.t);
+  if (!startedAt) return [];
+  const ms = {};
+  let prev = startedAt, atual = null;
+  for (const it of linhas) {
+    const s = it.s || atual || 'preparo';
+    ms[s] = (ms[s] || 0) + Math.max(0, it.t - prev);
+    prev = it.t; atual = s;
+  }
+  if (atual) ms[atual] = (ms[atual] || 0) + Math.max(0, agora - prev);
+  return STAGE_FLOW_ORDER.map(([id, label]) => {
+    const passada = ms[id] ? 'done' : 'pending';
+    return { id, label, ms: ms[id] || 0, state: id === atual ? 'active' : passada };
+  });
+}
+
+// vazio até o primeiro evento (a esteira só aparece com traço de verdade)
+export function stageFlowHtml(flow) {
+  if (!flow || !flow.length || !flow.some(s => s.ms)) return '';
+  return flow.map(s => {
+    const dur = s.ms ? fmtDur(s.ms) : '';
+    const titulo = dur ? `${s.label} · ${dur}` : s.label;
+    const durHtml = dur ? `<span class="sf-ms">${esc(dur)}</span>` : '';
+    return `<span class="sf-node sf-${esc(s.state)}" title="${esc(titulo)}">` +
+      `<span class="sf-dot"></span><span class="sf-lbl">${esc(s.label)}</span>${durHtml}</span>`;
+  }).join('<span class="sf-link"></span>');
+}
+
+// tooltip do badge 👥 do card de sessão: uma linha por subagente, com a tarefa
+// e o estado. PURA (texto de atributo title, sem HTML, então sem esc aqui).
+export function agentsTitle(lista) {
+  return (lista || []).map(a => {
+    const desc = a.desc ? `: ${a.desc}` : '';
+    const situacao = a.done ? 'concluído' : 'trabalhando';
+    return `${a.label}${desc} (${situacao})`;
+  }).join('\n');
+}
+
 export function feedLine(it) {
   const icon = { tool: '⚙', text: '💬', warn: '⚠', info: '·' }[it.k] || '·';
-  return `<div class="feed-line k-${esc(it.k)}"><span class="feed-t">${fmtClock(it.t)}</span><span class="feed-i">${icon}</span><span class="feed-x">${esc(it.text)}</span></div>`;
+  // it.a = rótulo do subagente dono da linha (fan-out de leitura/verificação):
+  // a linha ganha a etiqueta 👤 pra distinguir do trabalho da sessão principal
+  const ag = it.a ? `<span class="feed-agent" title="linha de um subagente">👤 ${esc(it.a)}</span>` : '';
+  return `<div class="feed-line k-${esc(it.k)}${it.a ? ' from-agent' : ''}"><span class="feed-t">${fmtClock(it.t)}</span><span class="feed-i">${icon}</span>${ag}<span class="feed-x">${esc(it.text)}</span></div>`;
 }
 
 /* ---------- ops de autoanálise: decisão de fechamento ----------
@@ -1495,6 +1567,7 @@ export function resolvedRow(r, ctx) {
     ? `Verificação de afirmações: ${vc.confirmedCount} confirmadas de ${vc.total}`
       + (vcConflicts ? ` · ⚠ ${vcConflicts} divergência(s) entre passadas` : '')
     : '';
+  const stLine = stagesLine(r.stages);
   return `<div class="rrow${attn.length ? ' has-attn' : ''}">
     <span class="rr-icon" aria-hidden="true">${icon}</span>
     <div class="rr-main">
@@ -1508,6 +1581,7 @@ export function resolvedRow(r, ctx) {
       ${author ? `<div class="rr-person">${personMention(author, 'sm')}</div>` : ''}
       <div class="rr-disc">
         ${vcLine ? `<div class="rr-verification">${esc(vcLine)}</div>` : ''}
+        ${stLine ? `<div class="rr-stages">${esc(stLine)}</div>` : ''}
         ${attn.length ? `<details class="resolved-attn"><summary>⚠ ${attn.length} ${attnLabel}</summary>${reasonGroupsHtml(attn, r.postRetry)}</details>` : ''}
         ${r.reportMarkdown ? `<details class="dec-report"><summary>Ver relatório completo</summary><div class="report">${md(r.reportMarkdown)}</div></details>` : ''}
         ${pushbackControl(r, ctx.pushbacks)}

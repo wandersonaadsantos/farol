@@ -870,6 +870,91 @@ test('feedLine escapa o texto da atividade ao vivo', () => {
   assert.match(l, /class="feed-line k-text"/);
 });
 
+test('feedLine: linha de subagente ganha a etiqueta 👤 com o rótulo escapado', () => {
+  const l = P.feedLine({ k: 'tool', t: '2026-08-17T12:00:00Z', text: 'Bash · comparar heads', a: 'claim-verifier <1>' });
+  assert.match(l, /class="feed-line k-tool from-agent"/);
+  assert.match(l, /👤 claim-verifier &lt;1&gt;/, 'rótulo do agente aparece e escapa HTML');
+});
+
+test('fmtDur: durações humanas curtas e vazio pro inválido', () => {
+  assert.equal(P.fmtDur(38_000), '38s');
+  assert.equal(P.fmtDur(250_000), '4m10s');
+  assert.equal(P.fmtDur(240_000), '4m');
+  assert.equal(P.fmtDur(3_720_000), '1h02m');
+  assert.equal(P.fmtDur(0), '');
+  assert.equal(P.fmtDur(null), '');
+});
+
+test('stagesLine: monta a linha de tempo por etapa e some sem traço', () => {
+  const l = P.stagesLine({ totalMs: 720_000, stages: [
+    { id: 'leitura', label: 'leitura', ms: 240_000 },
+    { id: 'verificacao', label: 'verificação', ms: 300_000 },
+    { id: 'redacao', label: 'redação', ms: 120_000 },
+  ] });
+  assert.equal(l, 'Tempo por etapa: leitura 4m · verificação 5m · redação 2m (total 12m)');
+  assert.equal(P.stagesLine(null), '');
+  assert.equal(P.stagesLine({ totalMs: 0, stages: [] }), '');
+});
+
+test('resolvedRow: decisão com stages mostra a linha de tempo por etapa', () => {
+  const html = P.resolvedRow({
+    key: 'org/app#9', status: 'posted', action: 'approve', verdict: 'approve', resolvedAt: Date.now(),
+    pr: { url: 'https://github.com/org/app/pull/9', title: 't' },
+    stages: { totalMs: 600_000, stages: [{ id: 'leitura', label: 'leitura', ms: 600_000 }] },
+  }, {});
+  assert.match(html, /rr-stages/);
+  assert.match(html, /Tempo por etapa: leitura 10m \(total 10m\)/);
+});
+
+test('stageFlowFrom: acumula por estampa, herda etapa em linha sem estampa e marca a ativa', () => {
+  const t0 = 1000_000;
+  const flow = P.stageFlowFrom([
+    { t: t0 + 5_000, s: 'preparo' },
+    { t: t0 + 65_000, s: 'leitura' },
+    { t: t0 + 70_000 },                    // sem estampa: herda leitura
+    { t: t0 + 100_000, s: 'verificacao' },
+  ], t0, t0 + 130_000);
+  const porId = Object.fromEntries(flow.map(f => [f.id, f]));
+  assert.equal(porId.preparo.ms, 5_000);
+  assert.equal(porId.leitura.ms, 65_000, '60s da linha + 5s da linha sem estampa');
+  assert.equal(porId.verificacao.ms, 60_000, '30s até a linha + 30s correndo até agora');
+  assert.equal(porId.verificacao.state, 'active', 'a etapa do último item é a ativa');
+  assert.equal(porId.leitura.state, 'done');
+  assert.equal(porId.redacao.state, 'pending');
+});
+
+test('stageFlowFrom/Html: sem traço não desenha nada', () => {
+  assert.deepEqual(P.stageFlowFrom([], null), []);
+  assert.equal(P.stageFlowHtml(P.stageFlowFrom([], 1000, 2000)), '',
+    'sem nenhum item, nenhuma etapa tem tempo e a esteira fica escondida');
+});
+
+test('stageFlowHtml: nós na ordem canônica com estado e duração, ligados por conector', () => {
+  const html = P.stageFlowHtml(P.stageFlowFrom([
+    { t: 2_000, s: 'leitura' },
+  ], 1_000, 62_000));
+  assert.match(html, /sf-node sf-active[^>]*title="leitura · 1m01s"/, 'ativa com tempo acumulando');
+  assert.match(html, /sf-node sf-pending[^>]*title="redação"/);
+  assert.match(html, /<span class="sf-link">/);
+  assert.ok(html.indexOf('leitura') < html.indexOf('verificação'), 'ordem canônica preservada');
+});
+
+test('agentsTitle: uma linha por subagente, com tarefa e estado', () => {
+  const t = P.agentsTitle([
+    { label: 'claim-verifier 1', desc: 'checar ruleset', done: false },
+    { label: 'claim-verifier 2', desc: '', done: true },
+  ]);
+  assert.equal(t, 'claim-verifier 1: checar ruleset (trabalhando)\nclaim-verifier 2 (concluído)');
+  assert.equal(P.agentsTitle([]), '');
+  assert.equal(P.agentsTitle(null), '');
+});
+
+test('feedLine: linha da sessão principal segue sem etiqueta de agente', () => {
+  const l = P.feedLine({ k: 'tool', t: '2026-08-17T12:00:00Z', text: 'Bash · consolidar' });
+  assert.doesNotMatch(l, /feed-agent/);
+  assert.doesNotMatch(l, /from-agent/);
+});
+
 test('sysNorm tira acento pra busca sem acento achar', () => {
   assert.equal(P.sysNorm('Revisão AUTOMÁTICA'), 'revisao automatica');
   assert.equal(P.sysNorm('Esforço'), 'esforco');

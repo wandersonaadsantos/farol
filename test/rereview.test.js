@@ -129,9 +129,9 @@ test('reReviewTargets: PR já na fila headless ou rodando fica de fora', () => {
 
 /* ---------- launchReReviews: âncora, persistência e a fila ---------- */
 
-test('launchReReviews: ancora o head, persiste e enfileira como revisão pedida a mim', () => {
+test('launchReReviews: ancora o head, persiste e enfileira como revisão pedida a mim', async () => {
   const e = engineBase();
-  reviewMod.launchReReviews(e);
+  await reviewMod.launchReReviews(e);
   assert.equal(e.reReviewLaunched[KEY], 'sha-novo', 'âncora gravada ANTES de enfileirar');
   assert.equal(e.saved, 1, 'âncora persistida');
   assert.equal(e.enq.length, 1);
@@ -146,35 +146,103 @@ test('launchReReviews: ancora o head, persiste e enfileira como revisão pedida 
 // head já é prova. Carregá-lo no objeto enfileirado evita que um flake de gh no início
 // da sessão de revisão degrade o dedup pro comportamento antigo e mate o round 2 como
 // already_reviewed, justamente com a âncora do relançamento já queimada.
-test('re-revisão enfileira o PR com o head que o staleInfo conheceu', () => {
+test('re-revisão enfileira o PR com o head que o staleInfo conheceu', async () => {
   const e = engineBase();
-  reviewMod.launchReReviews(e);
+  await reviewMod.launchReReviews(e);
   assert.equal(e.enq.length, 1);
   assert.equal(e.enq[0].knownHead, e.staleInfo[KEY].head,
     'o head que armou o gate viaja junto pra ser o fallback do headSha da sessão');
   assert.equal(e.enq[0].requested, true);
 });
 
-test('launchReReviews: segunda passada com a mesma âncora não enfileira de novo', () => {
+test('launchReReviews: segunda passada com a mesma âncora não enfileira de novo', async () => {
   const e = engineBase();
-  reviewMod.launchReReviews(e);
-  reviewMod.launchReReviews(e);
+  await reviewMod.launchReReviews(e);
+  await reviewMod.launchReReviews(e);
   assert.equal(e.enq.length, 1);
 });
 
-test('launchReReviews: poda âncora de PR que saiu do panorama (fechou/mergeou)', () => {
+test('launchReReviews: poda âncora de PR que saiu do panorama (fechou/mergeou)', async () => {
   const e = engineBase();
   e.reReviewLaunched['org/app#99'] = 'sha-fechado';
-  reviewMod.launchReReviews(e);
+  await reviewMod.launchReReviews(e);
   assert.equal('org/app#99' in e.reReviewLaunched, false);
 });
 
-test('launchReReviews: sem alvo e sem órfão, não persiste nem toca a fila', () => {
+test('launchReReviews: sem alvo e sem órfão, não persiste nem toca a fila', async () => {
   const e = engineBase();
   e.staleInfo[KEY].stale = false;
-  reviewMod.launchReReviews(e);
+  await reviewMod.launchReReviews(e);
   assert.equal(e.saved, 0);
   assert.deepEqual(e.enq, []);
+});
+
+/* ---------- push trivial: prova por arquivo evita o round 2 inútil ---------- */
+
+const { saveFileProof, fileProofPath } = await import('../lib/engine/file-proof.js');
+// os testes deste bloco compartilham o FAROL_HOME do arquivo: cada um deixa a
+// prova de KEY no estado que o cenário pede (gravando ou apagando), sem depender
+// da ordem dos anteriores
+function limpaProva(key) { try { fs.rmSync(fileProofPath(key)); } catch { /* já não existia */ } }
+const ARQUIVOS = [
+  { path: 'src/a.ts', sha: 'blob-a', status: 'modified', lines: 10 },
+  { path: 'src/b.ts', sha: 'blob-b', status: 'added', lines: 5 },
+];
+
+test('launchReReviews: push que não muda o diff efetivo NÃO gasta sessão (âncora fica)', async () => {
+  const e = engineBase();
+  saveFileProof(KEY, { head: 'sha-velho', files: ARQUIVOS, reviewed: ['src/a.ts', 'src/b.ts'] });
+  // o diff atual é byte a byte o que a última sessão leu (rebase limpo, merge da base)
+  e.fetchPrFiles = async () => ARQUIVOS.map(f => ({ ...f }));
+  await reviewMod.launchReReviews(e);
+  assert.deepEqual(e.enq, [], 'diff efetivo idêntico: nenhuma sessão aberta');
+  assert.equal(e.reReviewLaunched[KEY], 'sha-novo',
+    'a âncora do head novo fica gravada: o pulo vale até o próximo push de verdade');
+  assert.ok(e.toasts.some(t => t.ev === 'toast' && /não mudou o diff efetivo/.test(t.payload.text)),
+    'o pulo é avisado, nunca silencioso');
+});
+
+test('launchReReviews: push com mudança real relança normalmente mesmo com prova salva', async () => {
+  const e = engineBase();
+  saveFileProof(KEY, { head: 'sha-velho', files: ARQUIVOS, reviewed: ['src/a.ts', 'src/b.ts'] });
+  e.fetchPrFiles = async () => [{ ...ARQUIVOS[0], sha: 'blob-a-v2' }, { ...ARQUIVOS[1] }];
+  await reviewMod.launchReReviews(e);
+  assert.equal(e.enq.length, 1, 'blob mudou: round 2 de verdade');
+});
+
+test('launchReReviews: medição falhando relança (na dúvida, a revisão roda)', async () => {
+  const e = engineBase();
+  saveFileProof(KEY, { head: 'sha-velho', files: ARQUIVOS, reviewed: [] });
+  e.fetchPrFiles = async () => { throw new Error('rede caiu'); };
+  await reviewMod.launchReReviews(e);
+  assert.equal(e.enq.length, 1);
+});
+
+test('launchReReviews: sem prova salva nem consulta o gh (zero custo extra no caso comum)', async () => {
+  const e = engineBase();
+  limpaProva(KEY);
+  let chamou = false;
+  e.fetchPrFiles = async () => { chamou = true; return null; };
+  await reviewMod.launchReReviews(e);
+  assert.equal(chamou, false, 'sem prova em disco, o pulls/files não é consultado');
+  assert.equal(e.enq.length, 1);
+});
+
+/* ---------- resume do round 2: o sid do round anterior viaja no enfileiramento ---------- */
+
+test('launchReReviews: carrega o sessionId da última decisão do PR (retomada opt-in)', async () => {
+  const e = engineBase();
+  limpaProva(KEY);
+  e.decisions.resolved.push({ key: KEY, sessionId: 'sess-round-1-uuid' });
+  await reviewMod.launchReReviews(e);
+  assert.equal(e.enq[0].resumeSid, 'sess-round-1-uuid');
+});
+
+test('lastReviewSessionId: pending vence resolved e ausência devolve vazio', () => {
+  const e = { decisions: { pending: [{ key: KEY, sessionId: 'sid-pending' }], resolved: [{ key: KEY, sessionId: 'sid-old' }] } };
+  assert.equal(reviewMod.lastReviewSessionId(e, KEY), 'sid-pending');
+  assert.equal(reviewMod.lastReviewSessionId({ decisions: { pending: [], resolved: [] } }, KEY), '');
+  assert.equal(reviewMod.lastReviewSessionId({}, KEY), '');
 });
 
 /* ---------- recoverInflight: poda a âncora do round 2 (G7) ---------- */
