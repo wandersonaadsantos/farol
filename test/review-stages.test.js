@@ -36,21 +36,21 @@ test('stageOfLine: cada tipo de linha cai na etapa certa', () => {
 
 /* ---------- soma por etapa ---------- */
 
-test('stageSummaryFrom: o gap pertence à etapa da linha que o encerra; o resto final é redação', () => {
+test('stageSummaryFrom: o gap pertence à etapa da linha que o encerra; o resto final é fechamento', () => {
   const t0 = 1000_000;
   const items = [
     { t: t0 + 5_000, k: 'info', text: 'sessão do Claude iniciada' },       // 5s de preparo
     { t: t0 + 65_000, k: 'tool', text: 'Read · src/a.ts' },                // 60s de leitura
     { t: t0 + 95_000, k: 'tool', text: 'Bash · FAROL_CHECKPOINT: {...}' }, // 30s de verificação
   ];
-  const st = stageSummaryFrom(items, t0, t0 + 155_000);                    // +60s até o fim = redação
+  const st = stageSummaryFrom(items, t0, t0 + 155_000);                    // +60s até o fim = fechamento
   assert.equal(st.totalMs, 155_000);
   const porId = Object.fromEntries(st.stages.map(s => [s.id, s.ms]));
   assert.equal(porId.preparo, 5_000);
   assert.equal(porId.leitura, 60_000);
   assert.equal(porId.verificacao, 30_000);
-  assert.equal(porId.redacao, 60_000);
-  assert.deepEqual(st.stages.map(s => s.id), ['preparo', 'leitura', 'verificacao', 'redacao'],
+  assert.equal(porId.fechamento, 60_000);
+  assert.deepEqual(st.stages.map(s => s.id), ['preparo', 'leitura', 'verificacao', 'fechamento'],
     'ordem canônica, sem etapa zerada');
 });
 
@@ -93,4 +93,40 @@ test('fastModeBlock: corta tempo sem afrouxar gate (as promessas que importam es
   assert.match(b, /prefira needs_decision/, 'experimento longo vira decisão humana, nunca afirmação sem prova');
   assert.match(b, /O que NÃO muda: o schema do envelope, a cobertura completa, os gates/);
   assert.doesNotMatch(b, /—/, 'sem travessão (invariante 6)');
+});
+
+/* Ajustes de 18/08/2026, depois de o Wanderson perguntar se as etapas refletem a
+   realidade. Duas mudanças, e uma NÃO-mudança que vale registrar.
+
+   NÃO mudou a atribuição: o intervalo continua indo pra etapa da linha que o ENCERRA.
+   Cheguei a propor creditar à linha anterior, e estava errado: quando uma linha de
+   ferramenta aparece em T, a ferramenta rodou em [prev, T], então o tempo é dela
+   mesmo. Separar pensamento de execução dentro do mesmo intervalo exigiria
+   instrumentação que o feed não dá. */
+
+test('card só conta a partir de FERRAMENTA, não de prosa que menciona Jira', () => {
+  // antes, qualquer linha cujo TEXTO casasse /atlassian|jira/ virava card, então
+  // "o card do Jira não cobre esse caso" (raciocínio puro) levava junto todo o tempo
+  // pensado até ali
+  const t0 = 1000_000;
+  const items = [
+    { t: t0 + 10_000, k: 'text', text: 'O card do Jira não cobre esse caso' },
+    // card fictício de propósito: o gate de higiene barra referência real solta
+    { t: t0 + 20_000, k: 'tool', text: 'mcp__atlassian__getJiraIssue XX-000' },
+  ];
+  const st = stageSummaryFrom(items, t0, t0 + 20_000);
+  const porId = Object.fromEntries(st.stages.map(s => [s.id, s.ms]));
+  assert.equal(porId.raciocinio, 10_000, 'prosa é raciocínio, mesmo citando o card');
+  assert.equal(porId.card, 10_000, 'só a consulta de verdade conta como card');
+});
+
+test('a etapa final se chama fechamento, porque é o que ela mede', () => {
+  // ela não vem de linha nenhuma: é o silêncio entre a última atividade e o fim da
+  // sessão. Costuma ser a composição do envelope, mas "redação" prometia medição
+  const t0 = 1000_000;
+  const st = stageSummaryFrom([{ t: t0 + 1_000, k: 'tool', text: 'x' }], t0, t0 + 5_000);
+  const ids = st.stages.map(s => s.id);
+  assert.ok(ids.includes('fechamento'));
+  assert.ok(!ids.includes('redacao'), 'o rótulo antigo não volta');
+  assert.equal(st.stages.find(s => s.id === 'fechamento').label, 'fechamento');
 });
