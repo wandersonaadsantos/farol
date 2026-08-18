@@ -53,9 +53,20 @@ done
 
 # --- dependencias (Electron) -----------------------------------------------------
 ELECTRON_BIN="$APP/node_modules/.bin/electron"
-step 'Copiando dependencias (node_modules)'
-rm -rf "$APP/node_modules"
-cp -R "$SRC/node_modules" "$APP/node_modules"
+# O pacote LEVE (auto-update) nao traz node_modules de proposito: "O Electron NAO
+# viaja no update: a copia instalada ja tem, o installer preserva" (lib/engine/update.js).
+# Entao so mexe em node_modules quando a fonte tem com que substituir, igual ao
+# install.ps1 do Windows (que so copia se a fonte tiver o electron.exe). Apagar antes
+# de saber disso quebrava o macOS: o `cp` falhava, o `set -e` derrubava o script e
+# ~/.farol/app ficava SEM Electron, ou seja, o app nunca mais abria. Como o autoUpdate
+# e ligado por padrao desde a v2.46.0, isso quebraria sozinho na release seguinte.
+if [ -d "$SRC/node_modules" ]; then
+  step 'Copiando dependencias (node_modules)'
+  rm -rf "$APP/node_modules"
+  cp -R "$SRC/node_modules" "$APP/node_modules"
+else
+  step 'Pacote sem node_modules (update): preservando o Electron ja instalado'
+fi
 # Electron para macOS, em ordem de preferencia:
 #  1) o dist (.app) ja veio no pacote (instalador montado num Mac): usa direto;
 #  2) veio o zip darwin embutido (instalador montado FORA do Mac): extrai AQUI,

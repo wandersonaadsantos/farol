@@ -634,7 +634,7 @@ export function sessionRefMention(ref, cls = '') {
 export function operationChecks(accounts) {
   const lista = (Array.isArray(accounts) ? accounts : []).filter(a => a && String(a.user || '').trim());
   if (!lista.length) return [];
-  const alvo = u => `sys:accounts:.acct-label[data-user="${String(u).replace(/"/g, '\\"')}"]`;
+  const alvo = u => `sys:accounts:.acct-label[data-user="${escAttrSelector(u)}"]`;
   const checks = lista.map(a => {
     const orgs = (a.owners || []).filter(Boolean);
     if (!orgs.length) {
@@ -678,6 +678,58 @@ export function sessionRefCell(ref, cls = 'usage-sessions-ref') {
 // de "achei e está vazio", e é exatamente essa confusão que motivou a feature.
 const VERDICT_LABEL = { approve: 'Aprovável', request_changes: 'Com blocker', comment: 'Comentado' };
 
+/* ---------- os três eixos de "por que isto está na sua mesa" ----------
+   A pergunta que o agrupamento responde é a que o biud-frontend#774 deixou sem
+   resposta: dos N motivos listados, quais foram JULGAMENTO da revisão, quais são
+   regra deliberada do app e qual foi só a rede caindo? Numa lista plana os três
+   se confundiam, e um 503 do GitHub lia igual a uma ressalva técnica sobre o
+   código, o que fazia a automação parecer quebrada quando não estava.
+   A ordem é a de quem lê: falha técnica primeiro (é a única acionável agora e
+   costuma ser a que segurou tudo), regra depois (explica o comportamento), e o
+   que a revisão achou por último (é o conteúdo, não o motivo do bloqueio). */
+const REASON_GROUPS = [
+  ['infra', '🔌', 'falha técnica ao postar'],
+  ['gate', '📏', 'regra do app'],
+  ['content', '🧭', 'ponto que a revisão levantou'],
+];
+
+export function reasonGroups(reasons) {
+  const porKind = new Map();
+  for (const r of (Array.isArray(reasons) ? reasons : [])) {
+    if (!r) continue;
+    // string solta = decisão gravada antes da v2.48.0: entra como 'content', a
+    // leitura conservadora (nunca inventa gate nem falha de infra que não houve)
+    const text = (typeof r === 'object') ? r.text : r;
+    const kind = (typeof r === 'object' && r.kind) ? r.kind : 'content';
+    if (!text) continue;
+    if (!porKind.has(kind)) porKind.set(kind, []);
+    porKind.get(kind).push(text);
+  }
+  return REASON_GROUPS
+    .filter(([kind]) => porKind.has(kind))
+    .map(([kind, icon, label]) => ({ kind, icon, label, items: porKind.get(kind) }));
+}
+
+// Uma linha por grupo, com os motivos daquele grupo embaixo. `postRetry` (já
+// projetado por decisionForUi) só decora o grupo de infra: é ali que "o app ainda
+// vai tentar sozinho" muda o que VOCÊ precisa fazer, que é nada.
+export function reasonGroupsHtml(reasons, postRetry) {
+  const grupos = reasonGroups(reasons);
+  if (!grupos.length) return '';
+  return `<div class="reason-groups">${grupos.map(g => {
+    let nota = '';
+    if (g.kind === 'infra' && postRetry) {
+      nota = postRetry.exhausted
+        ? `<span class="reason-note">desisti de tentar sozinho depois de ${postRetry.attempts} tentativa(s)</span>`
+        : `<span class="reason-note">tentando de novo sozinho</span>`;
+    }
+    return `<div class="reason-group rg-${esc(g.kind)}">`
+      + `<div class="reason-group-head"><span aria-hidden="true">${g.icon}</span> ${esc(g.label)}${nota}</div>`
+      + `<ul class="dec-reasons">${g.items.map(t => `<li>${esc(t)}</li>`).join('')}</ul>`
+      + `</div>`;
+  }).join('')}</div>`;
+}
+
 export function reviewBoxHtml(d) {
   if (!d) return `<div class="empty">Nenhuma revisão registrada pra este PR no histórico do Farol.</div>`;
   const v = VERDICT_LABEL[d.verdict] || d.verdict || 'sem veredito';
@@ -693,7 +745,7 @@ export function reviewBoxHtml(d) {
     ${d.pr && d.pr.title ? `<div class="dec-title">${esc(d.pr.title)}</div>` : ''}
     ${autor ? `<div class="dec-author">PR de ${personMention(autor, 'xs')}</div>` : ''}
     ${d.status === 'pending' && razoes.length
-      ? `<div class="review-box-context"><strong>Por que precisa de você</strong><ul class="dec-reasons">${razoes.map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>`
+      ? `<div class="review-box-context"><strong>Por que precisa de você</strong>${reasonGroupsHtml(razoes, d.postRetry)}</div>`
       : ''}
     ${d.reportMarkdown
       ? `<div class="report">${md(d.reportMarkdown)}</div>`
@@ -868,6 +920,559 @@ export function sessionProgress(count) {
   return Math.min(90, 5 + Math.round(85 * (1 - Math.exp(-n / 18))));
 }
 
+
+
+
+/* ---------- Radar: os cards da fila e do panorama ----------
+   Saiu do app.js na onda 5, quarto passo. Sao os dois maiores construtores de card
+   que sobraram, e a forma e a mesma dos passos anteriores: o render le o estado,
+   filtra e seta os contadores; o CARD em si so recebe o PR e um ctx.
+
+   O acctMark ficou no app.js de proposito, e o ctx recebe o RESULTADO dele
+   (ctx.mark). Ele depende de SCOPE, TWEAK e da tabela de contas, uma cadeia que
+   nao tem a ver com desenhar o card: puxa-la junto arrastaria meio painel de
+   contas pra ca sem ganho nenhum de teste. */
+
+export function reviewChip(pr, actions) {
+  const a = (actions || {})[pr.key];
+  if (a) {
+    if (a.kind === 'pending') return '<span class="badge rev-pend" title="A análise terminou e está esperando a sua decisão em Precisa de você">🟡 aguardando você</span>';
+    if (a.kind === 'approve') return `<span class="badge rev-ok" title="APPROVE postado${a.auto ? ' automaticamente pelo protocolo' : ' por você'} via Farol">✅ você aprovou</span>`;
+    if (a.kind === 'request_changes') return '<span class="badge rev-rc" title="REQUEST CHANGES postado por você via Farol">✋ você pediu mudanças</span>';
+    if (a.kind === 'comment') return '<span class="badge rev-cm" title="COMMENT postado por você via Farol">💬 você comentou</span>';
+  }
+  if (pr.reviewedByMe) return '<span class="badge rev-ok" title="Você já revisou este PR no GitHub">✔ revisado por você</span>';
+  return '';
+}
+
+export function queueCardHtml(pr, ctx) {
+  const m = ctx.mark;
+  // os selos inline saem do template: dentro dele o gate conta todos os ternarios
+  // do literal como um statement so, e o template fica ilegivel de tao denso
+  const seloRascunho = pr.isDraft ? '<span class="badge">rascunho</span>' : '';
+  const seloRepedida = pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : '';
+  const papel = pr.author ? ` ${papelPicker(pr.author, ctx.people)}` : '';
+  return `
+    <div class="card pr-card urgent" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" style="${m.style}">
+      ${m.dot}${avatar(pr.author)}
+      <div class="info">
+        <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}${seloRascunho}${seloRepedida}</div>
+        <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
+        <div class="pr-sub">${personMention(pr.author, 'xs')} · atualizado ${fmtRel(pr.updatedAt)}${papel}</div>
+      </div>
+      <div class="pr-actions">
+        <button class="btn primary sm act-review" data-url="${esc(pr.url)}">Revisar</button>
+        <button class="btn icon sm ghost act-chat" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" title="Conversar com o Claude sobre este PR" aria-label="Conversar com o Claude sobre este PR">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2.5-2.7A8 8 0 1 1 21 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="btn icon sm ghost act-more" data-key="${esc(pr.key)}" title="Mais ações" aria-label="Mais ações" aria-expanded="false">···</button>
+      </div>
+      <!-- O menu abre DENTRO do card, empurrando o conteúdo, em vez de flutuar por cima:
+           num card já estreito, dropdown flutuante sai da tela ou cobre o card vizinho.
+           Terminal e Ignorar vieram pra cá porque Ignorar é destrutivo e estava a um
+           toque de distância do Revisar. -->
+      <div class="pr-menu" data-menu="${esc(pr.key)}" hidden>
+        <button class="act-terminal" data-url="${esc(pr.url)}">Revisar no terminal (interativo)</button>
+        <a href="${esc(pr.url)}" target="_blank" rel="noreferrer">Abrir no GitHub ↗</a>
+        <button class="danger act-ignore" data-key="${esc(pr.key)}">Marcar como visto sem revisar</button>
+      </div>
+    </div>`;
+}
+
+export function panoramaRowHtml(pr, ctx) {
+  const chip = reviewChip(pr, ctx.actions);
+  const m = ctx.mark;
+    // estado da SUA revisão: aprovado/mudanças pedidas = resolvido (sem botão de
+    // re-revisar); pendente = já na fila de decisão; senão, dá pra revisar.
+  const ra = (ctx.actions || {})[pr.key];
+  // sem registro nosso, "revisado por mim no GitHub" conta como approve
+  let kind = null;
+  if (ra) kind = ra.kind;
+  else if (pr.reviewedByMe) kind = 'approve';
+    // re-request (o autor pediu sua revisão DE NOVO): não é mais "resolvido/aguardando o
+    // autor", voltou a ser acionável (a review antiga foi dismissed no GitHub).
+    const reviewed = (kind === 'approve' || kind === 'request_changes') && !pr.reRequested;
+    const isPending = kind === 'pending';
+    // stale = você revisou e entrou commit novo depois: o "Re-revisar" volta a valer
+  const stale = reviewed && !!(ctx.staleStates || {})[pr.key];
+    // roda de verdade x só espera a vez: mesma distinção do "Meus PRs", pra não
+    // rotular de "Revisando…" um PR que ainda nem começou (B: fila e panorama divergiam)
+  const running = (ctx.running || new Set()).has(pr.key);
+  const qpos = running ? 0 : (ctx.waiting || []).indexOf(pr.key) + 1;
+    const queued = qpos > 0;
+    const showBtn = (!reviewed || stale) && !isPending && !running && !queued;
+  // tres estados excludentes, um por linha. A cadeia de ternarios escondia qual
+  // deles ganhava quando mais de um parecia valer.
+  let settledLabel = '';
+  if (kind === 'request_changes') settledLabel = 'aguardando o autor';
+  else if (isPending) settledLabel = 'aguardando você';
+  else if (reviewed) settledLabel = 'nada a fazer';
+  // mesma regra do settledLabel: a ordem de precedencia (rodando > na fila >
+  // botao > estado final) agora esta na sequencia dos if, nao aninhada num ternario.
+  const BTN_RODANDO = '<button class="btn sm ghost pano-review" disabled>Revisando…</button>';
+  const btnFila = `<button class="btn sm ghost pano-review" disabled>Na fila (${qpos})</button>`;
+  // quatro motivos possiveis pra este botao existir, e o tooltip diz qual e. Como
+  // cadeia de ternario dentro do template eles ficavam ilegiveis e ainda somavam
+  // no gate; nomeados, da pra ler a precedencia de cima pra baixo.
+  let tituloRevisar = 'Revisar sob demanda: o resultado sempre passa por você, nada é postado sozinho';
+  if (pr.reRequested) tituloRevisar = 'O autor pediu sua revisão de novo (re-request): a review anterior foi dispensada';
+  else if (stale) tituloRevisar = 'Entrou commit novo depois da sua review: revisar de novo';
+  else if (pr.mine) tituloRevisar = 'Revisar (seu review pedido)';
+  const rotuloRevisar = (stale || pr.reRequested) ? 'Re-revisar' : 'Revisar';
+  const btnRevisar = `<button class="btn sm ghost act-review pano-review" data-url="${esc(pr.url)}" title="${tituloRevisar}">${rotuloRevisar}</button>`
+  const clsMine = pr.mine ? 'mine' : '';
+  const clsRev = chip ? 'reviewed' : '';
+  let seloConta = '';
+  if (ctx.todasContas && m.chip) seloConta = m.chip;
+  else if (pr.mine) seloConta = '<span class="badge">sua revisão</span>';
+  const seloRascunhoP = pr.isDraft ? '<span class="badge">rascunho</span>' : '';
+  const seloRepedidaP = pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : '';
+  const sepTitulo = pr.title ? '<span class="pw-sep">·</span>' : '';
+  let tail = `<span class="settled">${esc(settledLabel)}</span>`;
+  if (running) tail = BTN_RODANDO;
+  else if (queued) tail = btnFila;
+  else if (showBtn) tail = btnRevisar;
+    return `
+    <div class="prow ${clsMine} ${clsRev}" style="${m.varStyle}${m.dim}">
+      <span class="status-dot" aria-hidden="true"></span>
+      <div class="pw-main">
+        <div class="pw-head">
+          <a class="pw-ref" href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>
+          ${seloConta}
+          ${seloRascunhoP}
+          ${seloRepedidaP}
+          ${chip}
+        </div>
+        <div class="pw-title">
+          <span class="pw-title-txt" title="${esc(pr.title)}">${esc(pr.title)}</span>
+          ${sepTitulo}${personMention(pr.author, 'xs')}
+        </div>
+      </div>
+      <div class="pw-side">
+        <span class="pw-when">${fmtRel(pr.updatedAt)}</span>
+        <div class="pw-acts">
+          <button class="btn icon sm ghost act-chat" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" title="Conversar com o Claude sobre este PR" aria-label="Conversar sobre este PR">💬${chatBadge(pr.key, ctx.chats)}</button>
+          ${tail}
+          <button class="btn icon sm ghost rr-copy" data-url="${esc(pr.url)}" data-key="${esc(pr.key)}" title="Copiar a URL do PR" aria-label="Copiar a URL do PR">⧉</button>
+          <a class="btn icon sm ghost" href="${esc(pr.url)}" target="_blank" rel="noreferrer" title="Abrir no GitHub" aria-label="Abrir no GitHub">↗</a>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ---------- editor de reviewers: padrao da org e excecoes por repo ----------
+   Saiu do app.js na onda 5, terceiro passo. Diferente dos blocos anteriores, aqui
+   nao bastava um parametro: as funcoes liam SETE globais entre config, candidatos
+   e tres Sets de estado de tela. Todas so LEEM (quem muta os Sets sao os handlers,
+   que ficaram no app.js), entao o que entra e um ctx unico, montado uma vez por
+   renderizacao (revCtx no app.js). E o mesmo motivo do peopleOf do primeiro passo:
+   os blocos de uma mesma passada tem que enxergar o mesmo estado.
+
+   A extracao foi de BAIXO PRA CIMA: primeiro as folhas (defaultFor, overrideFor,
+   reposOfOrg, suggestDefault, addControl), e so entao o renderOrgBlock, que compoe
+   todas elas. Tentar o compositor primeiro exigiria arrastar as folhas impuras
+   junto.
+
+   Fica de fora o seedException: ele muta os Sets e persiste via API, ou seja, nao e
+   render. E o renderReviewersEditor, que escreve no DOM. */
+
+export function defaultFor(org, ctx) { const d = ctx.defaults || {}; return d[org] || d[(org || '').toLowerCase()] || []; }
+
+export function overrideFor(repo, ctx) { const p = ctx.projects || {}; return p[repo] || p[(repo || '').toLowerCase()] || null; }
+
+export function reposOfOrg(org, ctx) {
+  const o = String(org).toLowerCase(), set = new Set();
+  const add = k => { const r = String(k || ''); if (r.split('/')[0].toLowerCase() === o) set.add(r); };
+  // prKeys ja vem achatado do app.js (myPRs + panorama): aqui nao se sabe de onde
+  // a chave veio, so que ela e "owner/repo#N"
+  (ctx.prKeys || []).forEach(k => add(String(k).split('#')[0]));
+  Object.keys(ctx.projects || {}).forEach(add);
+  [...(ctx.pendentes || [])].forEach(add);
+  return [...set].filter(Boolean).sort();
+}
+
+export function suggestDefault(org, ctx) {
+  const lists = reposOfOrg(org, ctx).map(repo => overrideFor(repo, ctx)).filter(l => l && l.length);
+  if (lists.length < 2) return [];
+  const count = {}, rep = {};
+  for (const list of lists) for (const rv of new Set(list)) { const k = rv.toLowerCase(); count[k] = (count[k] || 0) + 1; rep[k] = rv; }
+  const th = Math.ceil(lists.length / 2);
+  return Object.keys(count).filter(k => count[k] >= th).map(k => rep[k]).sort();
+}
+
+export function addControl(cls, dataAttrs, list, org, ctx) {
+  const c = (ctx.cands || {})[org] || { members: [], teams: [] };
+  const me = ((ctx.owner2user || {})[String(org || '').toLowerCase()] || ctx.ghUser || '').toLowerCase();
+  const has = v => (list || []).some(l => l.toLowerCase() === String(v).toLowerCase());
+  if (!ctx.candsLoaded) return `<select class="rev-add ${cls}" ${dataAttrs}><option value="">carregando…</option></select>`;
+  if (!c.members.length && !c.teams.length) return `<input class="rev-add rev-manual ${cls}" ${dataAttrs} placeholder="+ digite um handle e Enter…" spellcheck="false">`;
+  const opts = [
+    ...c.members.filter(x => x.toLowerCase() !== me && !has(x)).map(x => `<option value="${esc(x)}">${esc(x)}</option>`),
+    ...c.teams.filter(t => !has(t.id)).map(t => `<option value="${esc(t.id)}">${esc(t.name)} (time)</option>`)
+  ].join('');
+  return `<select class="rev-add ${cls}" ${dataAttrs}><option value="">+ adicionar…</option>${opts}</select>`;
+}
+
+export function renderOrgBlock(org, accent, ctx) {
+  const def = defaultFor(org, ctx);
+  const repos = reposOfOrg(org, ctx);
+  const isExc = r => { const o = overrideFor(r, ctx); return (o && !sameSet(o, def)) || ctx.abertas.has(r) || ctx.pendentes.has(r); };
+  const excRepos = repos.filter(isExc);
+  const following = repos.filter(r => !excRepos.includes(r));
+
+  // card do padrão
+  let defCard;
+  if (def.length) {
+    const chips = def.map(rv => chipHtml(rv, 'rev-def-x', `data-org="${esc(org)}" data-rv="${esc(rv)}"`, ctx.cands)).join('');
+    defCard = `<div class="rev-default">
+      <div class="rev-default-top"><span class="t">Reviewers padrão</span><span class="scope">${esc(org)}</span></div>
+      <div class="rev-chips">${chips}${addControl('rev-def-add', `data-org="${esc(org)}"`, def, org, ctx)}</div>
+      <div class="rev-hint">Aplicado a todos os projetos de <code>${esc(org)}</code> quando você clica em "👥 Reviewers", salvo as exceções abaixo.</div>
+    </div>`;
+  } else {
+    const sug = suggestDefault(org, ctx);
+    const sugChips = sug.map(rv => `<span class="rev-chip ghost">${esc(reviewerLabel(rv, ctx.cands).label)}</span>`).join('');
+    defCard = `<div class="rev-default empty">
+      <div class="rev-default-top"><span class="t">Reviewers padrão</span><span class="scope">${esc(org)}</span></div>
+      ${sug.length
+        ? `<div class="rev-hint">Detectei ${sug.length} reviewers comuns nos seus projetos de ${esc(org)}. Vira o padrão num clique, e os projetos iguais colapsam:</div>
+           <div class="rev-chips">${sugChips}</div>
+           <button class="btn sm ok rev-make-default" data-org="${esc(org)}">Criar padrão com estes ${sug.length}</button>`
+        : `<div class="rev-chips">${addControl('rev-def-add', `data-org="${esc(org)}"`, [], org, ctx)}</div>
+           <div class="rev-hint">Escolha os reviewers padrão de <code>${esc(org)}</code>.</div>`}
+    </div>`;
+  }
+
+  // exceções
+  const excHtml = excRepos.map(repo => {
+    const list = overrideFor(repo, ctx) || (ctx.pendentes.has(repo) ? [...def] : []);
+    if (ctx.abertas.has(repo)) {
+      const chips = list.map(rv => chipHtml(rv, 'rev-exc-x', `data-repo="${esc(repo)}" data-rv="${esc(rv)}"`, ctx.cands)).join('');
+      return `<div class="rev-exc open" data-repo="${esc(repo)}">
+        <div class="rev-exc-head"><code>${esc(repoShort(repo))}</code>
+          <button class="rev-exc-reset" data-repo="${esc(repo)}" title="remover a exceção e voltar ao padrão da org">voltar ao padrão</button>
+          <button class="rev-exc-toggle" data-repo="${esc(repo)}">fechar</button></div>
+        <div class="rev-chips">${chips || '<span class="rev-empty">sem reviewers</span>'}${addControl('rev-exc-add', `data-repo="${esc(repo)}"`, list, repo.split('/')[0], ctx)}</div>
+      </div>`;
+    }
+    const d = diffVs(def, list);
+    const pills = '<span class="rev-pill base">padrão</span>'
+      + d.added.map(x => `<span class="rev-pill add">+ ${esc(reviewerLabel(x, ctx.cands).label)}</span>`).join('')
+      + d.removed.map(x => `<span class="rev-pill rem">− ${esc(reviewerLabel(x, ctx.cands).label)}</span>`).join('');
+    return `<div class="rev-exc" data-repo="${esc(repo)}"><code>${esc(repoShort(repo))}</code><div class="rev-diff">${def.length ? pills : list.map(x => `<span class="rev-pill add">${esc(reviewerLabel(x, ctx.cands).label)}</span>`).join('')}</div><button class="rev-exc-toggle" data-repo="${esc(repo)}">editar</button></div>`;
+  }).join('');
+
+  // colapsado: projetos que seguem o padrão
+  const open = ctx.expandidas.has(org);
+  // os quatro ternarios que estavam nesta expressao (tem projeto? singular ou
+  // plural? aberto ou fechado? mostra a lista?) viraram quatro nomes: era o ponto
+  // com mais ternario aninhado do arquivo, e nenhum deles dizia o que decidia.
+  const rotuloSegue = following.length === 1 ? 'projeto segue' : 'projetos seguem';
+  const rotuloBotao = open ? 'ocultar' : 'ver';
+  const miniRepos = following.map(r => `<span class="rev-repo-mini">${esc(repoShort(r))}<button class="rev-mk-exc" data-repo="${esc(r)}" title="criar exceção pra este projeto">+</button></span>`).join('');
+  const listaAberta = open ? `<div class="rev-folded-list">${miniRepos}</div>` : '';
+  const followHtml = !following.length ? '' : `<div class="rev-folded">
+      <span><span class="count">${following.length}</span> ${rotuloSegue} o padrão</span>
+      <button class="rev-fold-toggle" data-org="${esc(org)}">${rotuloBotao}</button>
+    </div>${listaAberta}`;
+
+  // criar exceção pra um projeto (só quando há padrão)
+  const dl = following.map(r => `<option value="${esc(r)}"></option>`).join('');
+  const newExc = def.length ? `<div class="rev-newexc">
+      <input class="rev-newexc-input" list="revExcList-${esc(org)}" placeholder="owner/repo, exceção" spellcheck="false">
+      <datalist id="revExcList-${esc(org)}">${dl}</datalist>
+      <button class="btn sm rev-newexc-go" data-org="${esc(org)}">+ criar exceção</button>
+    </div>` : '';
+
+  return `<div class="rev-org" data-org="${esc(org)}" style="--ac:${accent}">${defCard}${excRepos.length ? `<div class="rev-sec-title">Exceções (${excRepos.length})</div>${excHtml}` : ''}${followHtml}${newExc}</div>`;
+}
+
+/* Valor de string dentro de seletor de atributo CSS: [data-id="AQUI"].
+   Escapa a barra invertida ANTES da aspa, e a ordem e o ponto: fazendo so a aspa
+   (como era ate a onda 5), um id terminado em barra produz [data-id="a\\"], onde a
+   barra escapa a aspa de fechamento e o seletor inteiro fica invalido. O clique
+   entao nao navega pra lugar nenhum, sem erro visivel. O CSS.escape do navegador
+   resolveria, mas nao existe aqui: o pure.js roda tambem no node --test. */
+export function escAttrSelector(v) {
+  return String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+/* ---------- aba Consumo: os construtores de HTML/SVG ----------
+   Saiu do app.js na onda 5, segundo passo. O bloco inteiro ja era puro: nao lia
+   nenhuma global, so montava string a partir do resumo de uso que o engine manda.
+   O que prendia ele no app.js era a forma, nao o conteudo: cada funcao terminava
+   atribuindo em `el.innerHTML`, entao parecia render de DOM. Separado o build da
+   atribuicao, o app.js fica so com `el.innerHTML = xHtml(...)`.
+
+   Fica de fora, de proposito, o drawUsageTimeline: ele mede `el.clientWidth` e ata
+   listener de mouse, ou seja, precisa do elemento de verdade. O que da pra fazer
+   por ele e o usageTooltipHtml, que ele chama e que veio junto.
+
+   usageMatrixHtml devolve { html, caption } porque a versao antiga escrevia em DOIS
+   lugares (a matriz e a legenda ao lado); um objeto pequeno e o jeito de manter os
+   dois sem devolver o elemento. */
+
+export function fmtMoney(v) { return 'US$ ' + (Number(v) || 0).toFixed(2); }
+
+export function fmtUsageMetric(v, metric) { return metric === 'custo' ? fmtMoney(v) : fmtCompact(v); }
+
+// cor por camada: fixa pro tipo (bate com o mock), ciclica pras outras dimensoes
+// (modelo/conta), que tem quantidade variavel de nomes. _resto (a fatia
+// reconciliada sem detalhamento) e SEMPRE apagado, em qualquer dimensao: e
+// registro antigo, nao pode parecer uma serie de verdade.
+export const USAGE_KIND_COLOR = { review: 'var(--accent)', self: 'var(--info)', chat: 'var(--ok)', tool: '#b394f0', pushback: 'var(--danger)', outro: 'var(--faint)', _resto: 'var(--faint)' };
+export const USAGE_PALETTE = ['var(--accent)', 'var(--info)', 'var(--ok)', '#b394f0', 'var(--danger)', 'var(--faint)'];
+export function usageColorsFor(dim, names) {
+  if (dim === 'kind') return names.map(n => USAGE_KIND_COLOR[n] || 'var(--faint)');
+  return names.map((n, i) => n === '_resto' ? 'var(--faint)' : USAGE_PALETTE[i % USAGE_PALETTE.length]);
+}
+
+export function usageTooltipHtml(day, vals, names, labels, colors, metric, idx, geo, W) {
+  const total = vals.reduce((a, b) => a + b, 0);
+  const leftPct = Math.min(82, Math.max(4, (geo.xs[idx] / W) * 100));
+  const rows = names.map((n, i) => vals[i] > 0 ? `<div class="ut-row"><span class="dot" style="background:${colors[i]}"></span><span>${esc(labels[n] || n)}</span><b>${esc(fmtUsageMetric(vals[i], metric))}</b></div>` : '').join('');
+  return `<div class="usage-tooltip" style="left:${leftPct}%"><div class="ut-head">${esc(day.slice(8, 10))}/${esc(day.slice(5, 7))} · ${esc(fmtUsageMetric(total, metric))}</div>${rows}</div>`;
+}
+
+export function usageKpisHtml(u, win) {
+  const map = {}; for (const d of (u.series || [])) map[d.day] = d;
+  const janela = usageDayKeysBack(win).map(day => map[day]);
+  const anteriorKeys = usageDayKeysBack(win * 2).slice(0, win);
+  const anterior = anteriorKeys.map(day => map[day]);
+  const primeiroDia = (u.series && u.series[0] && u.series[0].day) || null;
+  const comparavel = win * 2 <= ((u.retentionDays) || 120) && !!primeiroDia && primeiroDia <= anteriorKeys[0];
+  const soma = (list, m) => list.reduce((a, d) => a + usageMetricVal(d, m), 0);
+  const curCost = soma(janela, 'custo');
+  const curTok = soma(janela, 'total');
+  const curSess = janela.reduce((a, d) => a + ((d || {}).sessions || 0), 0);
+  const curCache = soma(janela, 'cache');
+  const antCost = comparavel ? soma(anterior, 'custo') : 0;
+  const antTok = comparavel ? soma(anterior, 'total') : 0;
+  const antSess = comparavel ? anterior.reduce((a, d) => a + ((d || {}).sessions || 0), 0) : 0;
+  const hoje = map[usageDayKeysBack(1)[0]] || {};
+  const ontemKey = usageDayKeysBack(2)[0];
+  const ontem = map[ontemKey] || {};
+  const spark14 = usageDayKeysBack(14).map(day => usageMetricVal(map[day], 'custo'));
+
+  const card = (label, big, sub, delta, vals) => {
+    const { line, area } = sparklinePath(vals, 100, 26);
+    return `<div class="usage-kpi">
+      <div class="usage-kpi-head"><span class="usage-kpi-label">${esc(label)}</span>${delta ? `<span class="usage-kpi-delta">${esc(delta)}</span>` : ''}</div>
+      <b>${esc(big)}</b>
+      <span class="usage-kpi-sub">${esc(sub)}</span>
+      <svg viewBox="0 0 100 26" preserveAspectRatio="none" aria-hidden="true" class="usage-kpi-spark">
+        <path d="${area}" fill="var(--accent-soft)"></path>
+        <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="1.5" vector-effect="non-scaling-stroke"></path>
+      </svg>
+    </div>`;
+  };
+
+  // o sub do KPI de tokens declara o cache quando houver: "Tokens" (in+out) nao
+  // inclui cache em nenhum painel, mas o CUSTO inclui o custo do cache, e sem a
+  // linha os dois cartoes vizinhos nao se explicavam (achado da auditoria).
+  const tokSub = `${fmtCompact(soma(janela, 'input'))} in · ${fmtCompact(soma(janela, 'output'))} out`
+    + (curCache > 0 ? ` · ${fmtCompact(curCache)} cache` : '');
+  return [
+    card(`Custo estimado · ${win} dias`, fmtMoney(curCost), `~${fmtMoney(curCost / win)} por dia`, usageDelta(curCost, antCost), janela.map(d => usageMetricVal(d, 'custo'))),
+    card(`Tokens · ${win} dias`, fmtCompact(curTok), tokSub, usageDelta(curTok, antTok), janela.map(d => usageMetricVal(d, 'total'))),
+    card(`Sessões · ${win} dias`, String(curSess), `média de ${(curSess / win).toFixed(1)} por dia`, usageDelta(curSess, antSess), janela.map(d => (d || {}).sessions || 0)),
+    card('Hoje', fmtMoney(usageMetricVal(hoje, 'custo')), `${fmtCompact(usageMetricVal(hoje, 'total'))} tokens · ${hoje.sessions || 0} sessões`, usageDelta(usageMetricVal(hoje, 'custo'), usageMetricVal(ontem, 'custo')), spark14),
+  ].join('');
+}
+
+export function usageMatrixHtml(u, metric, win) {
+  const days = usageDayKeysBack(win);
+  // nomes PROPRIOS da matriz (matrixKindNames/matrixModelNames): incluem _resto
+  // quando algum dia tem fatia sem detalhamento, independente da linha do tempo
+  const kindNames = u.matrixKindNames || u.kindNames || [];
+  const modelNames = u.matrixModelNames || u.modelNames || [];
+  if (!modelNames.length) return { html: '<div class="usage-empty">Sem dados ainda.</div>', caption: '' };
+  const m = usageMatrixRows(u.matrixSeries || [], kindNames, modelNames, days, metric);
+  if (!m.grand) return { html: '<div class="usage-empty">Sem consumo nesta janela.</div>', caption: '' };
+  const caption = metric === 'custo' ? 'custo estimado no período' : 'tokens no período';
+  const kindLabel = k => USAGE_KIND_LABEL[k] || k;
+  const modelLabelOf = mm => mm === '_resto' ? 'Sem detalhamento' : mm;
+  // valor EXATO no title da celula (fmtTok/fmtMoney): as celulas compactadas
+  // (43k) nao somam o proprio total a vista, e o title e onde confere sem ruido
+  const exact = v => metric === 'custo' ? fmtMoney(v) : fmtTok(v);
+  // modelo aposentado nunca some de u.modelNames (byModel, no backend, não tem poda:
+  // é histórico permanente), então sem esse filtro a coluna dele ficava pra sempre na
+  // matriz, zerada. A linha do tempo já faz o equivalente na legenda (totalPorNome[i]
+  // > 0); aqui é a mesma ideia aplicada às colunas (achado da revisão final).
+  const idxAtivos = modelNames.map((_, j) => j).filter(j => m.colTotals[j] > 0);
+  const modelosAtivos = idxAtivos.map(j => modelNames[j]);
+  const cols = `96px repeat(${modelosAtivos.length}, minmax(0,1fr)) 64px`;
+  const head = `<div class="usage-matrix-row head" style="grid-template-columns:${cols}"><span></span>${modelosAtivos.map(mm => `<span class="usage-matrix-hcell">${esc(modelLabelOf(mm))}</span>`).join('')}<span class="usage-matrix-hcell">Total</span></div>`;
+  const rows = m.rows.filter(r => r.total > 0).map(r => `<div class="usage-matrix-row" style="grid-template-columns:${cols}">
+      <span class="usage-matrix-label"><span class="dot" style="background:${USAGE_KIND_COLOR[r.kind] || 'var(--faint)'};width:8px;height:8px;border-radius:2.5px;display:inline-block"></span>${esc(kindLabel(r.kind))}</span>
+      ${idxAtivos.map(j => { const c = r.cells[j]; return `<span class="usage-matrix-cell" style="background:color-mix(in srgb, var(--accent) ${((0.04 + 0.24 * c.intensity) * 100).toFixed(0)}%, transparent)" title="${esc(kindLabel(r.kind))} × ${esc(modelLabelOf(c.model))}: ${esc(exact(c.value))}">${esc(fmtUsageMetric(c.value, metric))}</span>`; }).join('')}
+      <span class="usage-matrix-total" title="${esc(exact(r.total))}">${esc(fmtUsageMetric(r.total, metric))}</span>
+    </div>`).join('');
+  const foot = `<div class="usage-matrix-row foot" style="grid-template-columns:${cols}"><span>Total</span>${idxAtivos.map(j => `<span class="usage-matrix-total" title="${esc(exact(m.colTotals[j]))}">${esc(fmtUsageMetric(m.colTotals[j], metric))}</span>`).join('')}<span class="usage-matrix-grand" title="${esc(exact(m.grand))}">${esc(fmtUsageMetric(m.grand, metric))}</span></div>`;
+  return { html: `<div class="usage-matrix">${head}${rows}${foot}</div>`, caption };
+}
+
+export function usageBudgetHtml(u) {
+  const perfis = (u && u.budgets) || [];
+  if (!perfis.length) return '<div class="usage-empty">Nenhum perfil de Claude configurado ainda.</div>';
+  const meter = (label, spent, cap) => {
+    // cap == null: teto NAO configurado (meter() nem chega a ser chamado nesse caso, ver
+    // abaixo). cap === 0 e um teto valido (lib/parse.js aceita 0), e qualquer gasto acima
+    // de zero ja estoura ele, por isso cap > 0 (que tratava 0 como "sem teto") virava um
+    // sliver vazio e nao vermelho, contradizendo o selo "estourado" do cartao (achado de
+    // review). >= no lugar de > pra bater com o mesmo criterio de profileBudgetStatus
+    // (lib/engine/usage.js), que bloqueia em spent >= cap, nao só spent > cap.
+    // cheio quando ha teto e ele foi batido; sem teto a barra fica em zero. Escrito
+    // em passos porque os tres ternarios encadeados numa linha so contavam como
+    // ternario aninhado no gate de qualidade, e a conta em si nao e obvia.
+    let pct = 0;
+    if (cap != null && cap > 0) pct = Math.min(100, (spent / cap) * 100);
+    else if (cap != null && spent > 0) pct = 100;
+    const over = cap != null && spent >= cap;
+    return `<div class="usage-meter">
+      <div class="usage-meter-row"><span>${esc(label)}</span><span>${esc(fmtMoney(spent))} / ${esc(fmtMoney(cap))}</span></div>
+      <span class="usage-meter-track"><span class="usage-meter-fill${over ? ' over' : ''}" style="width:${Math.max(2, pct).toFixed(0)}%"></span></span>
+    </div>`;
+  };
+  const temChave = perfis.some(p => p.kind === 'apikey');
+  return perfis.map(p => {
+    const isApiKey = p.kind === 'apikey';
+    const statusCls = p.blocked ? 'bad' : 'ok';
+    const statusApi = p.blocked ? 'orçamento estourado' : 'no orçamento';
+    const statusTxt = isApiKey ? statusApi : 'coberto pela assinatura';
+    const medidorDiario = p.budgetDaily != null ? meter('Teto diário', p.today, p.budgetDaily) : '';
+    const medidorTotal = p.budgetTotal != null ? meter('Teto total', p.sinceCutoff, p.budgetTotal) : '';
+    const meters = isApiKey ? medidorDiario + medidorTotal : '';
+    const irAoTeto = `sys:plans:.cp-budget-daily[data-id="${escAttrSelector(p.id)}"]`;
+    // tres casos excludentes, um por linha: sem chave de API, com chave e sem teto,
+    // e com teto batido. A cadeia de ternarios que estava aqui escondia qual deles
+    // ganhava quando mais de um parecia valer.
+    const NOTA_SEM_CHAVE = '<span class="usage-budget-note">Sem teto configurado: o gasto em tokens não vira fatura, só entra no registro.</span>';
+    const NOTA_PAUSADO = '<span class="usage-budget-note">Automação de gasto pausada pra este perfil (revisão automática, retentativa e scan de pushback).</span>';
+    const notaSemTeto = `<span class="usage-budget-note">Nenhum teto definido pra este perfil (<span class="is-goto" data-goto="${esc(irAoTeto)}" role="button" tabindex="0">definir em Sistema → Plano e chaves</span>).</span>`;
+    let nota = '';
+    if (!isApiKey) nota = NOTA_SEM_CHAVE;
+    else if (p.budgetDaily == null && p.budgetTotal == null) nota = notaSemTeto;
+    else if (p.blocked) nota = NOTA_PAUSADO;
+    // o nome do perfil leva ao card DELE em Sistema (o input do nome carrega o
+    // mesmo id; seletor montado aqui porque CSS.escape não existe no pure.js)
+    const alvoPerfil = `sys:plans:.cp-label[data-id="${escAttrSelector(p.id)}"]`;
+    return `<div class="usage-budget-card">
+      <div class="usage-budget-head">
+        <span class="usage-budget-name is-goto" data-goto="${esc(alvoPerfil)}" role="button" tabindex="0" title="Abrir este perfil em Sistema → Plano e chaves">${esc(p.label || p.id)}</span>
+        <span class="usage-budget-kind">${isApiKey ? 'Chave de API' : 'Login por assinatura'}</span>
+        <span class="usage-budget-status ${statusCls}">${esc(statusTxt)}</span>
+      </div>
+      ${meters}
+      ${nota}
+    </div>`;
+  }).join('')
+    // lacuna declarada (auditoria de 10/08): a sessao interativa de terminal usa a
+    // MESMA credencial do perfil, mas o claude interativo nao emite stream-json,
+    // entao esse gasto nao tem como entrar na medicao nem no teto. Sem declarar,
+    // o cartao prometia um teto que um dos caminhos de gasto nunca encontra.
+    + (temChave ? '<span class="usage-budget-note">Sessões interativas no terminal usam a mesma credencial, mas não entram na medição nem no teto: o CLI não reporta o consumo delas ao Farol.</span>' : '');
+}
+
+export function usageSessionsHtml(u) {
+  const lista = u.recentSessions || [];
+  // mensagem curta de proposito: a explicacao completa (o que gera consumo) ja
+  // aparece na linha do tempo, logo acima nesta mesma aba; repetir a frase
+  // inteira aqui so duplicava as mesmas 25 palavras duas vezes na tela.
+  if (!lista.length) return '<div class="usage-empty">Nenhuma sessão ainda.</div>';
+  const head = `<div class="usage-sessions-row head">
+      <span class="usage-sessions-hcell">Quando</span><span class="usage-sessions-hcell">Tipo</span>
+      <span class="usage-sessions-hcell">PR / sessão</span><span class="usage-sessions-hcell">Modelo</span>
+      <span class="usage-sessions-hcell">Farol</span>
+      <span class="usage-sessions-hcell right">Tokens</span><span class="usage-sessions-hcell right">~US$</span>
+      <span class="usage-sessions-hcell right">Estado</span></div>`;
+  const rows = lista.map(s => {
+    const r = usageSessionRow(s);
+    return `<div class="usage-sessions-row">
+      <span class="usage-sessions-when">${esc(r.whenLabel)}</span>
+      <span class="usage-sessions-kind"><span class="dot" style="background:${USAGE_KIND_COLOR[s.kind] || 'var(--faint)'};width:8px;height:8px;border-radius:2.5px;display:inline-block"></span>${esc(r.kindLabel)}</span>
+      ${sessionRefCell(r.ref, 'usage-sessions-ref')}
+      <span class="usage-sessions-model">${esc(r.model)}</span>
+      <span class="usage-sessions-farol"${r.farol === FAROL_PRE_STAMP_LABEL ? ` title="sessão registrada antes da ${FAROL_STAMP_SINCE}, quando o carimbo de versão passou a existir"` : ''}>${esc(r.farol)}</span>
+      <span class="usage-sessions-num">${esc(r.tokLabel)}</span>
+      <span class="usage-sessions-num">${esc(r.costLabel)}</span>
+      <span style="text-align:right"><span class="usage-sessions-st ${r.stClass}">${esc(r.stLabel)}</span></span>
+    </div>`;
+  }).join('');
+  // cobertura declarada: o log individual nasceu na v2.38.0 (10/08/2026); sessoes
+  // anteriores existem SO nos agregados (KPI/linha do tempo/matriz, camada "Sem
+  // detalhamento"). Sem a data, a tabela parecia ser o historico inteiro.
+  const desde = u.sessionsSince ? new Date(u.sessionsSince) : null;
+  const p2 = n => String(n).padStart(2, '0');
+  const desdeTxt = desde ? `Registro individual desde ${p2(desde.getDate())}/${p2(desde.getMonth() + 1)}/${desde.getFullYear()}; sessões anteriores aparecem só nos agregados. ` : '';
+  return `<div class="usage-sessions">${head}${rows}</div>
+    <div class="usage-sessions-foot"><span>${esc(desdeTxt)}Registro permanente, sem botão de zerar.</span><span>Mostrando as ${lista.length} mais recentes</span></div>`;
+}
+
+/* ---------- perfil de review por pessoa: papel + matriz por domínio ----------
+   Molda o TOM e a POSTURA da revisão automática, nunca a decisão.
+   Saiu do app.js na onda 5; o mapa de pessoas entra por parâmetro (era lido de
+   STATE.config.people, global proibida aqui). Todo o grupo desce de personOf, que
+   era a única leitura de global: com `people` no argumento, os cinco viram puros
+   de uma vez.
+
+   As três tabelas abaixo DUPLICAM as chaves de lib/taxonomy.js, e a duplicação é
+   estrutural, não descuido: o servidor estático só serve UI_DIR (ver o
+   startsWith em lib/http-server.js), então o navegador não consegue importar
+   lib/. O que impede a duplicação de virar divergência é test/taxonomy-ui.test.js,
+   que compara os CONJUNTOS DE CHAVES com o engine. Os rótulos ficam livres de
+   propósito: aqui eles são mais curtos pra caber no <select> ("Infra" em vez de
+   "Infra/DevOps", "Interm." em vez de "Intermediário"). */
+export const PAPEL_OPTS = [['', 'papel'], ['estagio', 'Estágio'], ['junior', 'Júnior'], ['pleno', 'Pleno'], ['senior', 'Sênior'], ['techlead', 'Tech Lead'], ['arquiteto', 'Arquiteto'], ['especialista', 'Especialista']];
+export const DOMAIN_DEFS = [['backend', 'Backend'], ['frontend', 'Frontend'], ['dados', 'Dados'], ['infra', 'Infra']];
+export const DOMLEVEL_OPTS = [['', 'sem info'], ['basico', 'Básico'], ['intermediario', 'Interm.'], ['avancado', 'Avançado'], ['autoridade', 'Autoridade']];
+export function personOf(login, people) { return (people || {})[String(login || '').toLowerCase()] || {}; }
+export function papelOf(login, people) { return personOf(login, people).papel || ''; }
+export function domLevelOf(login, d, people) { return (personOf(login, people).dominios || {})[d] || ''; }
+// papel (compacto): usado nos cards do PR e no cabeçalho do card do time
+export function papelPicker(login, people) {
+  return `<select class="papel-level" data-login="${esc(login)}" title="Papel de @${esc(login)}: molda o tom da revisão automática, nunca a decisão">
+    ${PAPEL_OPTS.map(([v, t]) => `<option value="${v}"${papelOf(login, people) === v ? ' selected' : ''}>${t}</option>`).join('')}
+  </select>`;
+}
+// matriz por domínio (só na aba Time): competência por área calibra a postura
+export function domainMatrix(login, people) {
+  return `<div class="dom-matrix">${DOMAIN_DEFS.map(([d, label]) => `
+    <label class="dom-cell"><span class="dom-name">${label}</span>
+      <select class="dom-level" data-login="${esc(login)}" data-domain="${d}" title="Competência de @${esc(login)} em ${label}">
+        ${DOMLEVEL_OPTS.map(([v, t]) => `<option value="${v}"${domLevelOf(login, d, people) === v ? ' selected' : ''}>${t}</option>`).join('')}
+      </select></label>`).join('')}</div>`;
+}
+
+/* ---------- reviewers: rótulo e chip ----------
+   Saiu do app.js na onda 5. `cands` é o mapa de candidatos por org (era o global
+   reviewerCands): só serve pra achar o NOME de um time a partir do id; sem ele o
+   rótulo degrada pro slug do time, que é exatamente o que acontecia enquanto os
+   candidatos ainda não tinham carregado. */
+export function reviewerLabel(rv, cands) {
+  const isTeam = rv.includes('/');
+  const ent = isTeam && rv.split('/').slice(1).join('/').includes(':');
+  if (ent) return { label: `${rv.split('/').pop()} (enterprise, não pedível)`, cls: 'bad', ent: true };
+  if (isTeam) { const org = rv.split('/')[0]; const t = (((cands || {})[org] || {}).teams || []).find(t => t.id === rv); return { label: (t ? t.name : rv.split('/').pop()) + ' (time)', cls: 'team' }; }
+  return { label: rv, cls: '' };
+}
+export function chipHtml(rv, xClass, dataAttrs, cands) {
+  const r = reviewerLabel(rv, cands);
+  // os dois ternários saem do template: juntos numa linha só eles contavam como
+  // ternário aninhado no gate de qualidade, e a versão com nome é mais legível
+  const cls = r.cls ? ' ' + r.cls : '';
+  const title = r.ent ? 'title="Time enterprise não pode ser reviewer de PR (o GitHub recusa). Remova daqui."' : '';
+  return `<span class="rev-chip${cls}" ${title}>${esc(r.label)}<button class="${xClass}" ${dataAttrs} title="remover">×</button></span>`;
+}
+
+/* ---------- chat: o contador de mensagens no card ----------
+   Saiu do app.js na onda 5; o mapa de chats entra por parâmetro (era STATE.chats,
+   e o `?.` de lá cobria justamente o STATE ainda null antes do primeiro SSE). */
+export function chatBadge(key, chats) {
+  const c = (chats || {})[key];
+  return c && c.count ? ` <span class="count">${c.count}</span>` : '';
+}
+
 /* ---------- pushback: o controle das Revisões recentes ----------
    Saiu do app.js pra ganhar teste; o mapa de pushbacks entra por parâmetro
    (era lido de STATE, global proibida aqui). */
@@ -977,7 +1582,7 @@ export function resolvedRow(r, ctx) {
       <div class="rr-disc">
         ${vcLine ? `<div class="rr-verification">${esc(vcLine)}</div>` : ''}
         ${stLine ? `<div class="rr-stages">${esc(stLine)}</div>` : ''}
-        ${attn.length ? `<details class="resolved-attn"><summary>⚠ ${attn.length} ${attnLabel}</summary><ul class="dec-reasons">${attn.map(p => `<li>${esc(p)}</li>`).join('')}</ul></details>` : ''}
+        ${attn.length ? `<details class="resolved-attn"><summary>⚠ ${attn.length} ${attnLabel}</summary>${reasonGroupsHtml(attn, r.postRetry)}</details>` : ''}
         ${r.reportMarkdown ? `<details class="dec-report"><summary>Ver relatório completo</summary><div class="report">${md(r.reportMarkdown)}</div></details>` : ''}
         ${pushbackControl(r, ctx.pushbacks)}
       </div>

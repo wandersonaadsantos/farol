@@ -387,14 +387,16 @@ test('o rodape dos ocultos usa o texto puro e alterna estado so da tela', () => 
    que só existem no app.js/index.html: o título que trunca sem comer o autor e
    o handler ÚNICO de navegação interna. */
 
-test('Panorama: o autor fica FORA da caixa que trunca o título', () => {
+test('Panorama: o CSS que impede o título de empurrar o autor pra fora', () => {
   // regressão do defeito de "Revisões recentes" (v2.39.0) reencontrado aqui em
   // 11/08: com o @autor dentro do .pw-title (overflow hidden + ellipsis), título
-  // comprido empurrava foto e login pra fora da tela, sem aviso
-  assert.match(APPJS, /<span class="pw-title-txt" title="\$\{esc\(pr\.title\)\}">/,
-    'o texto do título tem elemento próprio, que é quem trunca');
-  assert.match(APPJS, /pw-title">\s*\n\s*<span class="pw-title-txt"/,
-    'a linha do título continua sendo o container do autor');
+  // comprido empurrava foto e login pra fora da tela, sem aviso.
+  //
+  // A metade de MARKUP deste teste saiu daqui na onda 5: o card do panorama virou
+  // panoramaRowHtml, em ui/pure.js, e lá dá pra renderizar de verdade em vez de
+  // casar regex no fonte. Ver "Panorama: o autor fica FORA da caixa que trunca o
+  // título" em ui-pure.test.js. O que sobra aqui é o par de CSS, que segue sendo
+  // texto porque app.css não é executável.
   assert.match(CSS, /\.pw-title-txt \{[^}]*text-overflow: ellipsis/,
     'quem corta é o texto, não a linha inteira');
   assert.match(CSS, /\.pw-title \.person-mention \{[^}]*flex: none/,
@@ -422,10 +424,18 @@ test('navegação interna tem UM handler só, delegado, e entende os 3 tipos', (
 });
 
 test('toda menção com data-goto é anunciada como botão (role + tabindex)', () => {
-  const alvos = [...APPJS.matchAll(/data-goto="[^"]*"/g)].length + [...HTML.matchAll(/data-goto="[^"]*"/g)].length;
+  // O pure.js entra na varredura desde a onda 5: os emissores de data-goto foram
+  // saindo do app.js junto com as funções puras (hoje são mais lá do que aqui), e
+  // um contrato de acessibilidade que só olha o arquivo de origem vira cego assim
+  // que o código muda de casa. Foi o que aconteceu ao mover o bloco de Consumo: o
+  // piso caiu de 6 pra 5 e o teste reprovou sem que nenhuma menção tivesse perdido
+  // role ou tabindex.
+  const PUREJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'pure.js'), 'utf8');
+  const fontes = [APPJS, HTML, PUREJS];
+  const alvos = fontes.reduce((n, src) => n + [...src.matchAll(/data-goto="[^"]*"/g)].length, 0);
   assert.ok(alvos >= 6, `esperava várias menções navegáveis, achei ${alvos}`);
   // cada emissão de data-goto em elemento não interativo tem role/tabindex junto
-  for (const src of [APPJS, HTML]) {
+  for (const src of fontes) {
     const semRole = [...src.matchAll(/<span[^>]*data-goto="[^"]*"[^>]*>/g)]
       .filter(m => !/role="button"/.test(m[0]) || !/tabindex="0"/.test(m[0]));
     assert.deepEqual(semRole.map(m => m[0].slice(0, 90)), [],

@@ -11,7 +11,12 @@ import {
   logSummaryLines, logTailLines, logSummaryShort,
   opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible, expiredSessionMarks, listViewState,
   splitHiddenPRs, effectiveHidden, hiddenFootLabel, myPRsEmptyMsg,
-  mergeToastKind, creditsHtml, buildFixPrompt
+  mergeToastKind, creditsHtml, buildFixPrompt,
+  papelPicker, domainMatrix, chatBadge, reviewerLabel, chipHtml,
+  fmtMoney, fmtUsageMetric, usageColorsFor, usageTooltipHtml,
+  usageKpisHtml, usageMatrixHtml, usageBudgetHtml, usageSessionsHtml, escAttrSelector,
+  defaultFor, overrideFor, reposOfOrg, suggestDefault, renderOrgBlock,
+  reviewChip, queueCardHtml, panoramaRowHtml
 } from './pure.js';
 
 const $ = (s) => document.querySelector(s);
@@ -1918,10 +1923,6 @@ function renderActive() {
 
 /* ---------- chat com o Claude ---------- */
 let chatKey = null, chatUrl = null;
-function chatBadge(key) {
-  const c = STATE?.chats?.[key];
-  return c && c.count ? ` <span class="count">${c.count}</span>` : '';
-}
 function openChat(key, url) {
   chatKey = key; chatUrl = url || null;
   $('#chatKey').textContent = key;
@@ -2015,6 +2016,10 @@ function renderDecisions() {
   const dbox = $('#decisions');
   if (document.activeElement && dbox.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) { renderResolved(); return; }
   const pending = (STATE.decisions?.pending || []).filter(scopeVisible);
+  // uma leitura só pra toda a renderização: os cards desta passada têm que
+  // enxergar o MESMO mapa de pessoas, senão um SSE no meio do map faria dois
+  // cards da mesma tela discordarem sobre o papel de alguém
+  const people = peopleOf();
   const wrap = $('#decisionsWrap');
   wrap.hidden = pending.length === 0;
   $('#decisionsCount').textContent = pending.length;
@@ -2032,7 +2037,7 @@ function renderDecisions() {
         <span class="dec-when" title="${esc(fmtStamp(d.createdAt))}">${esc(fmtWhenDay(d.createdAt))}</span>
       </div>
       ${d.pr?.title ? `<div class="dec-title">${esc(d.pr.title)}</div>` : ''}
-      ${author ? `<div class="dec-author">PR de ${personMention(author, 'xs')} ${papelPicker(author)}</div>` : ''}
+      ${author ? `<div class="dec-author">PR de ${personMention(author, 'xs')} ${papelPicker(author, people)}</div>` : ''}
       ${(d.reasons || []).length ? `<ul class="dec-reasons">${d.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
       ${d.blockedReason ? `<div class="dec-blocked">🚫 <span><b>Bloqueado:</b> ${esc(d.blockedReason)}</span></div>` : ''}
       <details class="dec-report"><summary>Ver relatório completo</summary><div class="report">${md(d.reportMarkdown)}</div></details>
@@ -2040,7 +2045,7 @@ function renderDecisions() {
         <button class="btn primary sm dec-act" data-action="approve">Aprovar</button>
         <button class="btn sm dec-act dec-rc" data-action="request_changes">Pedir mudanças</button>
         <button class="btn sm dec-act" data-action="comment">Só comentar</button>
-        <button class="btn sm act-chat" data-key="${esc(d.key)}" data-url="${esc(d.pr?.url || '')}">💬 Conversar${chatBadge(d.key)}</button>
+        <button class="btn sm act-chat" data-key="${esc(d.key)}" data-url="${esc(d.pr?.url || '')}">💬 Conversar${chatBadge(d.key, STATE?.chats)}</button>
         <button class="btn sm ghost dec-act" data-action="skip">Pular</button>
       </div>
     </div>`;
@@ -2077,7 +2082,7 @@ function renderResolved() {
   $('#resolved').innerHTML = resolved.map(r => resolvedRow(r, {
     pushbacks,
     chip: acctMark(r).chip,
-    chatBadge: chatBadge(r.key)
+    chatBadge: chatBadge(r.key, STATE?.chats)
   })).join('');
 }
 
@@ -2087,6 +2092,7 @@ function renderQueue() {
   const qbox = $('#queue');
   if (document.activeElement && qbox.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
   const q = (STATE.queue || []).filter(scopeVisible);
+  const people = peopleOf();   // idem renderDecisions: um mapa só pra toda a passada
   $('#queueCount').hidden = q.length === 0;
   $('#queueCount').textContent = q.length;
   const btnAll = $('#btnReviewAll');
@@ -2121,50 +2127,12 @@ function renderQueue() {
     </div>`;
     return;
   }
-  box.innerHTML = q.map(pr => {
-    const m = acctMark(pr);
-    return `
-    <div class="card pr-card urgent" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" style="${m.style}">
-      ${m.dot}${avatar(pr.author)}
-      <div class="info">
-        <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}${pr.isDraft ? '<span class="badge">rascunho</span>' : ''}${pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : ''}</div>
-        <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
-        <div class="pr-sub">${personMention(pr.author, 'xs')} · atualizado ${fmtRel(pr.updatedAt)}${pr.author ? ` ${papelPicker(pr.author)}` : ''}</div>
-      </div>
-      <div class="pr-actions">
-        <button class="btn primary sm act-review" data-url="${esc(pr.url)}">Revisar</button>
-        <button class="btn icon sm ghost act-chat" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" title="Conversar com o Claude sobre este PR" aria-label="Conversar com o Claude sobre este PR">
-          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2.5-2.7A8 8 0 1 1 21 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-        </button>
-        <button class="btn icon sm ghost act-more" data-key="${esc(pr.key)}" title="Mais ações" aria-label="Mais ações" aria-expanded="false">···</button>
-      </div>
-      <!-- O menu abre DENTRO do card, empurrando o conteúdo, em vez de flutuar por cima:
-           num card já estreito, dropdown flutuante sai da tela ou cobre o card vizinho.
-           Terminal e Ignorar vieram pra cá porque Ignorar é destrutivo e estava a um
-           toque de distância do Revisar. -->
-      <div class="pr-menu" data-menu="${esc(pr.key)}" hidden>
-        <button class="act-terminal" data-url="${esc(pr.url)}">Revisar no terminal (interativo)</button>
-        <a href="${esc(pr.url)}" target="_blank" rel="noreferrer">Abrir no GitHub ↗</a>
-        <button class="danger act-ignore" data-key="${esc(pr.key)}">Marcar como visto sem revisar</button>
-      </div>
-    </div>`;
-  }).join('');
+  box.innerHTML = q.map(pr => queueCardHtml(pr, { people, mark: acctMark(pr) })).join('');
 }
 
 /* selo de estado da SUA revisão numa linha do panorama: primeiro o que o Farol
    registrou (decisões), senão o que o GitHub diz (--reviewed-by, cobre reviews
    feitos fora do Farol). */
-function reviewChip(pr) {
-  const a = (STATE.reviewActions || {})[pr.key];
-  if (a) {
-    if (a.kind === 'pending') return '<span class="badge rev-pend" title="A análise terminou e está esperando a sua decisão em Precisa de você">🟡 aguardando você</span>';
-    if (a.kind === 'approve') return `<span class="badge rev-ok" title="APPROVE postado${a.auto ? ' automaticamente pelo protocolo' : ' por você'} via Farol">✅ você aprovou</span>`;
-    if (a.kind === 'request_changes') return '<span class="badge rev-rc" title="REQUEST CHANGES postado por você via Farol">✋ você pediu mudanças</span>';
-    if (a.kind === 'comment') return '<span class="badge rev-cm" title="COMMENT postado por você via Farol">💬 você comentou</span>';
-  }
-  if (pr.reviewedByMe) return '<span class="badge rev-ok" title="Você já revisou este PR no GitHub">✔ revisado por você</span>';
-  return '';
-}
 
 function renderPanorama() {
   const list = (STATE.panorama || []).filter(scopeVisible);
@@ -2185,60 +2153,9 @@ function renderPanorama() {
   box.style.display = '';
   const runningKeys = new Set([].concat(...(STATE.activeSessions || []).map(s => s.keys || [])));
   const waitingKeys = STATE.headlessWaiting || [];
-  box.innerHTML = list.map(pr => {
-    const chip = reviewChip(pr);
-    const m = acctMark(pr, { noBar: true });
-    // estado da SUA revisão: aprovado/mudanças pedidas = resolvido (sem botão de
-    // re-revisar); pendente = já na fila de decisão; senão, dá pra revisar.
-    const ra = (STATE.reviewActions || {})[pr.key];
-    const kind = ra ? ra.kind : (pr.reviewedByMe ? 'approve' : null);
-    // re-request (o autor pediu sua revisão DE NOVO): não é mais "resolvido/aguardando o
-    // autor", voltou a ser acionável (a review antiga foi dismissed no GitHub).
-    const reviewed = (kind === 'approve' || kind === 'request_changes') && !pr.reRequested;
-    const isPending = kind === 'pending';
-    // stale = você revisou e entrou commit novo depois: o "Re-revisar" volta a valer
-    const stale = reviewed && !!(STATE.staleStates || {})[pr.key];
-    // roda de verdade x só espera a vez: mesma distinção do "Meus PRs", pra não
-    // rotular de "Revisando…" um PR que ainda nem começou (B: fila e panorama divergiam)
-    const running = runningKeys.has(pr.key);
-    const qpos = running ? 0 : waitingKeys.indexOf(pr.key) + 1;
-    const queued = qpos > 0;
-    const showBtn = (!reviewed || stale) && !isPending && !running && !queued;
-    const settledLabel = kind === 'request_changes' ? 'aguardando o autor' : isPending ? 'aguardando você' : reviewed ? 'nada a fazer' : '';
-    const tail = running
-      ? '<button class="btn sm ghost pano-review" disabled>Revisando…</button>'
-      : queued
-      ? `<button class="btn sm ghost pano-review" disabled>Na fila (${qpos})</button>`
-      : showBtn
-        ? `<button class="btn sm ghost act-review pano-review" data-url="${esc(pr.url)}" title="${pr.reRequested ? 'O autor pediu sua revisão de novo (re-request): a review anterior foi dispensada' : stale ? 'Entrou commit novo depois da sua review: revisar de novo' : pr.mine ? 'Revisar (seu review pedido)' : 'Revisar sob demanda: o resultado sempre passa por você, nada é postado sozinho'}">${stale || pr.reRequested ? 'Re-revisar' : 'Revisar'}</button>`
-        : `<span class="settled">${esc(settledLabel)}</span>`;
-    return `
-    <div class="prow ${pr.mine ? 'mine' : ''} ${chip ? 'reviewed' : ''}" style="${m.varStyle}${m.dim}">
-      <span class="status-dot" aria-hidden="true"></span>
-      <div class="pw-main">
-        <div class="pw-head">
-          <a class="pw-ref" href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>
-          ${SCOPE === 'all' && m.chip ? m.chip : (pr.mine ? '<span class="badge">sua revisão</span>' : '')}
-          ${pr.isDraft ? '<span class="badge">rascunho</span>' : ''}
-          ${pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : ''}
-          ${chip}
-        </div>
-        <div class="pw-title">
-          <span class="pw-title-txt" title="${esc(pr.title)}">${esc(pr.title)}</span>
-          ${pr.title ? '<span class="pw-sep">·</span>' : ''}${personMention(pr.author, 'xs')}
-        </div>
-      </div>
-      <div class="pw-side">
-        <span class="pw-when">${fmtRel(pr.updatedAt)}</span>
-        <div class="pw-acts">
-          <button class="btn icon sm ghost act-chat" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" title="Conversar com o Claude sobre este PR" aria-label="Conversar sobre este PR">💬${chatBadge(pr.key)}</button>
-          ${tail}
-          <button class="btn icon sm ghost rr-copy" data-url="${esc(pr.url)}" data-key="${esc(pr.key)}" title="Copiar a URL do PR" aria-label="Copiar a URL do PR">⧉</button>
-          <a class="btn icon sm ghost" href="${esc(pr.url)}" target="_blank" rel="noreferrer" title="Abrir no GitHub" aria-label="Abrir no GitHub">↗</a>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
+  const ctxPano = { actions: STATE.reviewActions || {}, staleStates: STATE.staleStates || {}, running: runningKeys, waiting: waitingKeys,
+    todasContas: SCOPE === 'all', chats: STATE.chats };
+  box.innerHTML = list.map(pr => panoramaRowHtml(pr, { ...ctxPano, mark: acctMark(pr, { noBar: true }) })).join('');
 }
 
 /* ---------- render: meus PRs (autoanálise) ---------- */
@@ -2454,7 +2371,7 @@ $('#myPRs').addEventListener('click', (e) => {
     const repo = String(card?.dataset.key || '').split('#')[0];
     const org = repo.split('/')[0];
     // efetivo = exceção do repo, senão o padrão da org
-    const eff = overrideFor(repo) || defaultFor(org);
+    const eff = overrideFor(repo, revCtx()) || defaultFor(org, revCtx());
     // sem reviewers (nem exceção nem padrão): leva pra tela de config
     if (!eff || !eff.length) {
       switchTab('sistema');
@@ -2609,8 +2526,6 @@ $('#myPRsHiddenFoot').addEventListener('click', (e) => {
 /* ---------- Consumo de tokens (tela própria, charts em SVG puro) ---------- */
 const usageState = { metric: 'total', window: 30, dim: 'kind' };
 
-function fmtMoney(v) { return 'US$ ' + (Number(v) || 0).toFixed(2); }
-function fmtUsageMetric(v, metric) { return metric === 'custo' ? fmtMoney(v) : fmtCompact(v); }
 
 // 4 cartoes: Custo/Tokens/Sessoes do periodo escolhido + Hoje, cada um com
 // sparkline dos ultimos `win` dias (Hoje usa fixo 14 dias, igual ao mock) e chip
@@ -2621,63 +2536,8 @@ function fmtUsageMetric(v, metric) { return metric === 'custo' ? fmtMoney(v) : f
 // janela maior que o historico, comparava contra dias estruturalmente vazios e
 // inflava o percentual). Todas as somas passam por usageMetricVal: a DEFINICAO
 // de cada metrica mora num lugar so (ui/pure.js), a mesma da timeline/matriz.
-function drawUsageKpis(el, u, win) {
-  const map = {}; for (const d of (u.series || [])) map[d.day] = d;
-  const janela = usageDayKeysBack(win).map(day => map[day]);
-  const anteriorKeys = usageDayKeysBack(win * 2).slice(0, win);
-  const anterior = anteriorKeys.map(day => map[day]);
-  const primeiroDia = (u.series && u.series[0] && u.series[0].day) || null;
-  const comparavel = win * 2 <= ((u.retentionDays) || 120) && !!primeiroDia && primeiroDia <= anteriorKeys[0];
-  const soma = (list, m) => list.reduce((a, d) => a + usageMetricVal(d, m), 0);
-  const curCost = soma(janela, 'custo');
-  const curTok = soma(janela, 'total');
-  const curSess = janela.reduce((a, d) => a + ((d || {}).sessions || 0), 0);
-  const curCache = soma(janela, 'cache');
-  const antCost = comparavel ? soma(anterior, 'custo') : 0;
-  const antTok = comparavel ? soma(anterior, 'total') : 0;
-  const antSess = comparavel ? anterior.reduce((a, d) => a + ((d || {}).sessions || 0), 0) : 0;
-  const hoje = map[usageDayKeysBack(1)[0]] || {};
-  const ontemKey = usageDayKeysBack(2)[0];
-  const ontem = map[ontemKey] || {};
-  const spark14 = usageDayKeysBack(14).map(day => usageMetricVal(map[day], 'custo'));
 
-  const card = (label, big, sub, delta, vals) => {
-    const { line, area } = sparklinePath(vals, 100, 26);
-    return `<div class="usage-kpi">
-      <div class="usage-kpi-head"><span class="usage-kpi-label">${esc(label)}</span>${delta ? `<span class="usage-kpi-delta">${esc(delta)}</span>` : ''}</div>
-      <b>${esc(big)}</b>
-      <span class="usage-kpi-sub">${esc(sub)}</span>
-      <svg viewBox="0 0 100 26" preserveAspectRatio="none" aria-hidden="true" class="usage-kpi-spark">
-        <path d="${area}" fill="var(--accent-soft)"></path>
-        <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="1.5" vector-effect="non-scaling-stroke"></path>
-      </svg>
-    </div>`;
-  };
 
-  // o sub do KPI de tokens declara o cache quando houver: "Tokens" (in+out) nao
-  // inclui cache em nenhum painel, mas o CUSTO inclui o custo do cache, e sem a
-  // linha os dois cartoes vizinhos nao se explicavam (achado da auditoria).
-  const tokSub = `${fmtCompact(soma(janela, 'input'))} in · ${fmtCompact(soma(janela, 'output'))} out`
-    + (curCache > 0 ? ` · ${fmtCompact(curCache)} cache` : '');
-  el.innerHTML = [
-    card(`Custo estimado · ${win} dias`, fmtMoney(curCost), `~${fmtMoney(curCost / win)} por dia`, usageDelta(curCost, antCost), janela.map(d => usageMetricVal(d, 'custo'))),
-    card(`Tokens · ${win} dias`, fmtCompact(curTok), tokSub, usageDelta(curTok, antTok), janela.map(d => usageMetricVal(d, 'total'))),
-    card(`Sessões · ${win} dias`, String(curSess), `média de ${(curSess / win).toFixed(1)} por dia`, usageDelta(curSess, antSess), janela.map(d => (d || {}).sessions || 0)),
-    card('Hoje', fmtMoney(usageMetricVal(hoje, 'custo')), `${fmtCompact(usageMetricVal(hoje, 'total'))} tokens · ${hoje.sessions || 0} sessões`, usageDelta(usageMetricVal(hoje, 'custo'), usageMetricVal(ontem, 'custo')), spark14),
-  ].join('');
-}
-
-// cor por camada: fixa pro tipo (bate com o mock), ciclica pras outras dimensoes
-// (modelo/conta), que tem quantidade variavel de nomes. _resto (a fatia
-// reconciliada sem detalhamento) e SEMPRE apagado, em qualquer dimensao: e
-// registro antigo, nao pode parecer uma serie de verdade.
-const USAGE_KIND_COLOR = { review: 'var(--accent)', self: 'var(--info)', chat: 'var(--ok)', tool: '#b394f0', pushback: 'var(--danger)', outro: 'var(--faint)', _resto: 'var(--faint)' };
-const USAGE_PALETTE = ['var(--accent)', 'var(--info)', 'var(--ok)', '#b394f0', 'var(--danger)', 'var(--faint)'];
-
-function usageColorsFor(dim, names) {
-  if (dim === 'kind') return names.map(n => USAGE_KIND_COLOR[n] || 'var(--faint)');
-  return names.map((n, i) => n === '_resto' ? 'var(--faint)' : USAGE_PALETTE[i % USAGE_PALETTE.length]);
-}
 
 let usageHoverIdx = null;
 
@@ -2731,7 +2591,7 @@ function drawUsageTimeline(el, legendEl, u, metric, win, dim) {
       ${usageHoverIdx != null ? `<line x1="${geo.xs[usageHoverIdx]}" y1="${geo.padT}" x2="${geo.xs[usageHoverIdx]}" y2="${geo.padT + geo.ch}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" opacity="0.7"></line>` : ''}
       <rect x="${geo.padL}" y="0" width="${geo.cw}" height="${H}" fill="transparent" style="cursor:crosshair" data-usage-overlay="1"></rect>
     </svg>
-    ${usageHoverIdx != null ? drawUsageTooltip(days[usageHoverIdx], series[usageHoverIdx], names, labels, colors, metric, usageHoverIdx, geo, W) : ''}`;
+    ${usageHoverIdx != null ? usageTooltipHtml(days[usageHoverIdx], series[usageHoverIdx], names, labels, colors, metric, usageHoverIdx, geo, W) : ''}`;
 
   const svgEl = el.querySelector('#usvgTimeline');
   const overlay = el.querySelector('[data-usage-overlay]');
@@ -2746,46 +2606,9 @@ function drawUsageTimeline(el, legendEl, u, metric, win, dim) {
   }
 }
 
-function drawUsageTooltip(day, vals, names, labels, colors, metric, idx, geo, W) {
-  const total = vals.reduce((a, b) => a + b, 0);
-  const leftPct = Math.min(82, Math.max(4, (geo.xs[idx] / W) * 100));
-  const rows = names.map((n, i) => vals[i] > 0 ? `<div class="ut-row"><span class="dot" style="background:${colors[i]}"></span><span>${esc(labels[n] || n)}</span><b>${esc(fmtUsageMetric(vals[i], metric))}</b></div>` : '').join('');
-  return `<div class="usage-tooltip" style="left:${leftPct}%"><div class="ut-head">${esc(day.slice(8, 10))}/${esc(day.slice(5, 7))} · ${esc(fmtUsageMetric(total, metric))}</div>${rows}</div>`;
-}
 
 // matriz Tipo x Modelo do periodo escolhido (mesma janela da linha do tempo),
 // com heatmap leve (intensidade da celula sobre a maior celula da matriz).
-function drawUsageMatrix(el, captionEl, u, metric, win) {
-  const days = usageDayKeysBack(win);
-  // nomes PROPRIOS da matriz (matrixKindNames/matrixModelNames): incluem _resto
-  // quando algum dia tem fatia sem detalhamento, independente da linha do tempo
-  const kindNames = u.matrixKindNames || u.kindNames || [];
-  const modelNames = u.matrixModelNames || u.modelNames || [];
-  if (!modelNames.length) { el.innerHTML = '<div class="usage-empty">Sem dados ainda.</div>'; captionEl.textContent = ''; return; }
-  const m = usageMatrixRows(u.matrixSeries || [], kindNames, modelNames, days, metric);
-  if (!m.grand) { el.innerHTML = '<div class="usage-empty">Sem consumo nesta janela.</div>'; captionEl.textContent = ''; return; }
-  captionEl.textContent = metric === 'custo' ? 'custo estimado no período' : 'tokens no período';
-  const kindLabel = k => USAGE_KIND_LABEL[k] || k;
-  const modelLabelOf = mm => mm === '_resto' ? 'Sem detalhamento' : mm;
-  // valor EXATO no title da celula (fmtTok/fmtMoney): as celulas compactadas
-  // (43k) nao somam o proprio total a vista, e o title e onde confere sem ruido
-  const exact = v => metric === 'custo' ? fmtMoney(v) : fmtTok(v);
-  // modelo aposentado nunca some de u.modelNames (byModel, no backend, não tem poda:
-  // é histórico permanente), então sem esse filtro a coluna dele ficava pra sempre na
-  // matriz, zerada. A linha do tempo já faz o equivalente na legenda (totalPorNome[i]
-  // > 0); aqui é a mesma ideia aplicada às colunas (achado da revisão final).
-  const idxAtivos = modelNames.map((_, j) => j).filter(j => m.colTotals[j] > 0);
-  const modelosAtivos = idxAtivos.map(j => modelNames[j]);
-  const cols = `96px repeat(${modelosAtivos.length}, minmax(0,1fr)) 64px`;
-  const head = `<div class="usage-matrix-row head" style="grid-template-columns:${cols}"><span></span>${modelosAtivos.map(mm => `<span class="usage-matrix-hcell">${esc(modelLabelOf(mm))}</span>`).join('')}<span class="usage-matrix-hcell">Total</span></div>`;
-  const rows = m.rows.filter(r => r.total > 0).map(r => `<div class="usage-matrix-row" style="grid-template-columns:${cols}">
-      <span class="usage-matrix-label"><span class="dot" style="background:${USAGE_KIND_COLOR[r.kind] || 'var(--faint)'};width:8px;height:8px;border-radius:2.5px;display:inline-block"></span>${esc(kindLabel(r.kind))}</span>
-      ${idxAtivos.map(j => { const c = r.cells[j]; return `<span class="usage-matrix-cell" style="background:color-mix(in srgb, var(--accent) ${((0.04 + 0.24 * c.intensity) * 100).toFixed(0)}%, transparent)" title="${esc(kindLabel(r.kind))} × ${esc(modelLabelOf(c.model))}: ${esc(exact(c.value))}">${esc(fmtUsageMetric(c.value, metric))}</span>`; }).join('')}
-      <span class="usage-matrix-total" title="${esc(exact(r.total))}">${esc(fmtUsageMetric(r.total, metric))}</span>
-    </div>`).join('');
-  const foot = `<div class="usage-matrix-row foot" style="grid-template-columns:${cols}"><span>Total</span>${idxAtivos.map(j => `<span class="usage-matrix-total" title="${esc(exact(m.colTotals[j]))}">${esc(fmtUsageMetric(m.colTotals[j], metric))}</span>`).join('')}<span class="usage-matrix-grand" title="${esc(exact(m.grand))}">${esc(fmtUsageMetric(m.grand, metric))}</span></div>`;
-  el.innerHTML = `<div class="usage-matrix">${head}${rows}${foot}</div>`;
-}
 
 // um cartao por perfil de Claude configurado (Sistema -> Plano e chaves). Perfil de
 // assinatura (kind 'assinatura') nao tem teto, so uma nota informativa; perfil de
@@ -2797,93 +2620,9 @@ function drawUsageMatrix(el, captionEl, u, metric, win) {
 // (cache que so recalculava no boot/Verificar agora/salvar perfis) e o teto de
 // STATE.config: o cartao congelava enquanto o KPI "Hoje" da mesma tela crescia, e
 // a automacao pausava por estouro com o cartao ainda dizendo "no orcamento".
-function drawUsageBudget(el, u) {
-  const perfis = (u && u.budgets) || [];
-  if (!perfis.length) { el.innerHTML = '<div class="usage-empty">Nenhum perfil de Claude configurado ainda.</div>'; return; }
-  const meter = (label, spent, cap) => {
-    // cap == null: teto NAO configurado (meter() nem chega a ser chamado nesse caso, ver
-    // abaixo). cap === 0 e um teto valido (lib/parse.js aceita 0), e qualquer gasto acima
-    // de zero ja estoura ele, por isso cap > 0 (que tratava 0 como "sem teto") virava um
-    // sliver vazio e nao vermelho, contradizendo o selo "estourado" do cartao (achado de
-    // review). >= no lugar de > pra bater com o mesmo criterio de profileBudgetStatus
-    // (lib/engine/usage.js), que bloqueia em spent >= cap, nao só spent > cap.
-    const pct = cap != null ? Math.min(100, cap > 0 ? (spent / cap) * 100 : (spent > 0 ? 100 : 0)) : 0;
-    const over = cap != null && spent >= cap;
-    return `<div class="usage-meter">
-      <div class="usage-meter-row"><span>${esc(label)}</span><span>${esc(fmtMoney(spent))} / ${esc(fmtMoney(cap))}</span></div>
-      <span class="usage-meter-track"><span class="usage-meter-fill${over ? ' over' : ''}" style="width:${Math.max(2, pct).toFixed(0)}%"></span></span>
-    </div>`;
-  };
-  const temChave = perfis.some(p => p.kind === 'apikey');
-  el.innerHTML = perfis.map(p => {
-    const isApiKey = p.kind === 'apikey';
-    const statusCls = p.blocked ? 'bad' : 'ok';
-    const statusTxt = !isApiKey ? 'coberto pela assinatura' : (p.blocked ? 'orçamento estourado' : 'no orçamento');
-    const meters = isApiKey
-      ? [p.budgetDaily != null ? meter('Teto diário', p.today, p.budgetDaily) : '', p.budgetTotal != null ? meter('Teto total', p.sinceCutoff, p.budgetTotal) : ''].join('')
-      : '';
-    const irAoTeto = `sys:plans:.cp-budget-daily[data-id="${String(p.id).replace(/"/g, '\\"')}"]`;
-    const nota = !isApiKey
-      ? '<span class="usage-budget-note">Sem teto configurado: o gasto em tokens não vira fatura, só entra no registro.</span>'
-      : (p.budgetDaily == null && p.budgetTotal == null
-        ? `<span class="usage-budget-note">Nenhum teto definido pra este perfil (<span class="is-goto" data-goto="${esc(irAoTeto)}" role="button" tabindex="0">definir em Sistema → Plano e chaves</span>).</span>`
-        : (p.blocked ? '<span class="usage-budget-note">Automação de gasto pausada pra este perfil (revisão automática, retentativa e scan de pushback).</span>' : ''));
-    // o nome do perfil leva ao card DELE em Sistema (o input do nome carrega o
-    // mesmo id; seletor montado aqui porque CSS.escape não existe no pure.js)
-    const alvoPerfil = `sys:plans:.cp-label[data-id="${String(p.id).replace(/"/g, '\\"')}"]`;
-    return `<div class="usage-budget-card">
-      <div class="usage-budget-head">
-        <span class="usage-budget-name is-goto" data-goto="${esc(alvoPerfil)}" role="button" tabindex="0" title="Abrir este perfil em Sistema → Plano e chaves">${esc(p.label || p.id)}</span>
-        <span class="usage-budget-kind">${isApiKey ? 'Chave de API' : 'Login por assinatura'}</span>
-        <span class="usage-budget-status ${statusCls}">${esc(statusTxt)}</span>
-      </div>
-      ${meters}
-      ${nota}
-    </div>`;
-  }).join('')
-    // lacuna declarada (auditoria de 10/08): a sessao interativa de terminal usa a
-    // MESMA credencial do perfil, mas o claude interativo nao emite stream-json,
-    // entao esse gasto nao tem como entrar na medicao nem no teto. Sem declarar,
-    // o cartao prometia um teto que um dos caminhos de gasto nunca encontra.
-    + (temChave ? '<span class="usage-budget-note">Sessões interativas no terminal usam a mesma credencial, mas não entram na medição nem no teto: o CLI não reporta o consumo delas ao Farol.</span>' : '');
-}
 
 // tabela das sessoes mais recentes (ate 100, cortado no backend). Log permanente
 // em disco (usage-sessions.json); a UI so mostra as mais novas, com rolagem.
-function drawUsageSessions(el, u) {
-  const lista = u.recentSessions || [];
-  // mensagem curta de proposito: a explicacao completa (o que gera consumo) ja
-  // aparece na linha do tempo, logo acima nesta mesma aba; repetir a frase
-  // inteira aqui so duplicava as mesmas 25 palavras duas vezes na tela.
-  if (!lista.length) { el.innerHTML = '<div class="usage-empty">Nenhuma sessão ainda.</div>'; return; }
-  const head = `<div class="usage-sessions-row head">
-      <span class="usage-sessions-hcell">Quando</span><span class="usage-sessions-hcell">Tipo</span>
-      <span class="usage-sessions-hcell">PR / sessão</span><span class="usage-sessions-hcell">Modelo</span>
-      <span class="usage-sessions-hcell">Farol</span>
-      <span class="usage-sessions-hcell right">Tokens</span><span class="usage-sessions-hcell right">~US$</span>
-      <span class="usage-sessions-hcell right">Estado</span></div>`;
-  const rows = lista.map(s => {
-    const r = usageSessionRow(s);
-    return `<div class="usage-sessions-row">
-      <span class="usage-sessions-when">${esc(r.whenLabel)}</span>
-      <span class="usage-sessions-kind"><span class="dot" style="background:${USAGE_KIND_COLOR[s.kind] || 'var(--faint)'};width:8px;height:8px;border-radius:2.5px;display:inline-block"></span>${esc(r.kindLabel)}</span>
-      ${sessionRefCell(r.ref, 'usage-sessions-ref')}
-      <span class="usage-sessions-model">${esc(r.model)}</span>
-      <span class="usage-sessions-farol"${r.farol === FAROL_PRE_STAMP_LABEL ? ` title="sessão registrada antes da ${FAROL_STAMP_SINCE}, quando o carimbo de versão passou a existir"` : ''}>${esc(r.farol)}</span>
-      <span class="usage-sessions-num">${esc(r.tokLabel)}</span>
-      <span class="usage-sessions-num">${esc(r.costLabel)}</span>
-      <span style="text-align:right"><span class="usage-sessions-st ${r.stClass}">${esc(r.stLabel)}</span></span>
-    </div>`;
-  }).join('');
-  // cobertura declarada: o log individual nasceu na v2.38.0 (10/08/2026); sessoes
-  // anteriores existem SO nos agregados (KPI/linha do tempo/matriz, camada "Sem
-  // detalhamento"). Sem a data, a tabela parecia ser o historico inteiro.
-  const desde = u.sessionsSince ? new Date(u.sessionsSince) : null;
-  const p2 = n => String(n).padStart(2, '0');
-  const desdeTxt = desde ? `Registro individual desde ${p2(desde.getDate())}/${p2(desde.getMonth() + 1)}/${desde.getFullYear()}; sessões anteriores aparecem só nos agregados. ` : '';
-  el.innerHTML = `<div class="usage-sessions">${head}${rows}</div>
-    <div class="usage-sessions-foot"><span>${esc(desdeTxt)}Registro permanente, sem botão de zerar.</span><span>Mostrando as ${lista.length} mais recentes</span></div>`;
-}
 
 function renderUsage() {
   const u = STATE && STATE.usage;
@@ -2896,15 +2635,16 @@ function renderUsage() {
   // (arquivos diferentes). Gatear a aba inteira num campo agregado só deixava a
   // tela se contradizer quando os dois arquivos discordam entre si (achado da
   // revisão final: timeline dizia "nenhuma sessão" com a matriz e a tabela de
-  // sessões cheias logo abaixo). drawUsageTimeline/Matrix/Budget/Sessions já
-  // sabem ficar vazias sozinhas (Task 14); só drawUsageKpis não tem essa
-  // defesa, então o guard fica só pra ela.
+  // sessões cheias logo abaixo). drawUsageTimeline e os builders de matriz,
+  // orçamento e sessões já sabem ficar vazios sozinhos (Task 14); só o
+  // usageKpisHtml não tem essa defesa, então o guard fica só pra ele.
   if (!u || !u.totals || !u.totals.sessions) kpisEl.innerHTML = '';
-  else drawUsageKpis(kpisEl, u, usageState.window);
+  else kpisEl.innerHTML = usageKpisHtml(u, usageState.window);
   drawUsageTimeline(tl, legend, u || {}, usageState.metric, usageState.window, usageState.dim);
-  drawUsageMatrix(matrix, matrixCap, u || {}, usageState.metric, usageState.window);
-  drawUsageBudget(budget, u || {});
-  drawUsageSessions(sessions, u || {});
+  const mtx = usageMatrixHtml(u || {}, usageState.metric, usageState.window);
+  matrix.innerHTML = mtx.html; matrixCap.textContent = mtx.caption;
+  budget.innerHTML = usageBudgetHtml(u || {});
+  sessions.innerHTML = usageSessionsHtml(u || {});
 }
 
 function wireUsageControls() {
@@ -3025,28 +2765,11 @@ async function loadHighlights() {
   }
 }
 
-/* ---------- perfil de review por pessoa: papel + matriz por domínio ----------
-   Molda o TOM e a POSTURA da revisão automática, nunca a decisão. */
-const PAPEL_OPTS = [['', 'papel'], ['estagio', 'Estágio'], ['junior', 'Júnior'], ['pleno', 'Pleno'], ['senior', 'Sênior'], ['techlead', 'Tech Lead'], ['arquiteto', 'Arquiteto'], ['especialista', 'Especialista']];
-const DOMAIN_DEFS = [['backend', 'Backend'], ['frontend', 'Frontend'], ['dados', 'Dados'], ['infra', 'Infra']];
-const DOMLEVEL_OPTS = [['', 'sem info'], ['basico', 'Básico'], ['intermediario', 'Interm.'], ['avancado', 'Avançado'], ['autoridade', 'Autoridade']];
-function personOf(login) { return ((STATE.config && STATE.config.people) || {})[String(login || '').toLowerCase()] || {}; }
-function papelOf(login) { return personOf(login).papel || ''; }
-function domLevelOf(login, d) { return (personOf(login).dominios || {})[d] || ''; }
-// papel (compacto): usado nos cards do PR e no cabeçalho do card do time
-function papelPicker(login) {
-  return `<select class="papel-level" data-login="${esc(login)}" title="Papel de @${esc(login)}: molda o tom da revisão automática, nunca a decisão">
-    ${PAPEL_OPTS.map(([v, t]) => `<option value="${v}"${papelOf(login) === v ? ' selected' : ''}>${t}</option>`).join('')}
-  </select>`;
-}
-// matriz por domínio (só na aba Time): competência por área calibra a postura
-function domainMatrix(login) {
-  return `<div class="dom-matrix">${DOMAIN_DEFS.map(([d, label]) => `
-    <label class="dom-cell"><span class="dom-name">${label}</span>
-      <select class="dom-level" data-login="${esc(login)}" data-domain="${d}" title="Competência de @${esc(login)} em ${label}">
-        ${DOMLEVEL_OPTS.map(([v, t]) => `<option value="${v}"${domLevelOf(login, d) === v ? ' selected' : ''}>${t}</option>`).join('')}
-      </select></label>`).join('')}</div>`;
-}
+/* ---------- perfil de review por pessoa ----------
+   As puras (personOf, papelOf, domLevelOf, papelPicker, domainMatrix e as três
+   tabelas de opções) foram pra pure.js na onda 5. Aqui fica só o atalho que
+   resolve o mapa de pessoas do STATE, que é justamente o que não pode viajar. */
+const peopleOf = () => (STATE.config && STATE.config.people) || {};
 
 /* ---------- render: time (separado por conta) ---------- */
 async function loadTeam() {
@@ -3056,6 +2779,7 @@ async function loadTeam() {
   const team = (await get('/api/team')) || [];
   closeOp(opId, 'done');
   const multi = multiAccount();
+  const people = peopleOf();   // idem renderDecisions: um mapa só pra toda a passada
   // conta de uma entrada: pelo owner do ref (owner/repo#num); antigo (só nome) = sem conta
   const entryUser = e => { const ref = e.ref || ''; const owner = ref.includes('/') ? ref.split('/')[0] : ''; return owner ? (OWNER2USER[owner.toLowerCase()] || '') : ''; };
   const refShort = ref => (ref.includes('/') ? ref.split('/').slice(1).join('/') : ref);
@@ -3076,12 +2800,12 @@ async function loadTeam() {
           <div class="login">${personMention(m.login, 'xs', true)} · ${entries.length} review(s) registrados</div>
         </div>
         ${verdictChip}
-        ${papelPicker(m.login)}
+        ${papelPicker(m.login, people)}
         <button class="btn sm ghost member-remove" data-login="${esc(m.login)}" title="Remover @${esc(m.login)} do Time (apaga a memória local sobre a pessoa; pede confirmação)">Remover</button>
       </div>
       <div class="member-profile">
         <span class="mp-label">Competência por domínio</span>
-        ${domainMatrix(m.login)}
+        ${domainMatrix(m.login, people)}
       </div>
       <div class="member-entries">${es}</div>
     </div>`;
@@ -3154,7 +2878,7 @@ function renderDoctor() {
     {
       ok: d.ghAuth, label: STATE.config.ghUser ? `Conta @${STATE.config.ghUser}` : 'Conta do GitHub',
       detail: d.ghAuth ? 'autenticada no gh' : 'sem token: rode gh auth login (conta de trabalho)',
-      goto: STATE.config.ghUser ? `sys:accounts:.acct-label[data-user="${String(STATE.config.ghUser).replace(/"/g, '\\"')}"]` : 'sys:accounts:#accountsManager'
+      goto: STATE.config.ghUser ? `sys:accounts:.acct-label[data-user="${escAttrSelector(STATE.config.ghUser)}"]` : 'sys:accounts:#accountsManager'
     },
     { ok: !!d.claude, label: 'Claude Code', detail: d.claude || 'claude não encontrado no PATH', goto: 'sys:plans:#claudeProfilesManager' },
     // Git Bash é pré-requisito só no Windows (CLAUDE_CODE_GIT_BASH_PATH)
@@ -3178,6 +2902,8 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.48.1', ['Correção de duas brechas no reenvio automático que a 2.48.0 estreou. A primeira: quando a postagem falhava por instabilidade e o Farol reenviava depois, ele não conferia se o PR tinha mudado, então um commit novo do autor no meio do caminho fazia a aprovação guardada ir pro PR assim mesmo, falando de código que não estava mais lá. Agora ele confere antes, e se mudou não posta: avisa na pendência e deixa a revisão nova entrar pelo caminho normal.', 'A segunda: antes de reenviar, o Farol pergunta ao GitHub se aquele review já está lá. Quando não dava pra perguntar (rede ou token fora do ar) ele reenviava mesmo assim, e como a tentativa anterior pode ter chegado antes do erro, dava pra sair review repetido. Agora ele espera o próximo ciclo em vez de arriscar.']],
+  ['2.48.0', ['Review que não saiu por instabilidade do GitHub agora vai sozinho depois. Quando a revisão já tinha decidido aprovar (ou pedir mudanças) e só o envio falhou por algo passageiro (rede caindo, API do GitHub fora do ar), o PR ficava parado na sua mesa esperando clique, com a decisão pronta. Agora o Farol reenvia sozinho nos ciclos seguintes, reusando a decisão que já tinha tomado, sem abrir sessão nova nem gastar do seu limite. Ele confere antes se o review já está no PR, então não sai review duplicado; depois de 3 tentativas sem sucesso ele para e avisa na tela que desistiu. Falha que não passa sozinha (credencial recusada, por exemplo) nunca entra nesse retry.', 'Os motivos de um PR ter vindo pra você agora vêm separados por tipo. A lista era plana e misturava o que a revisão achou no código, o que é regra do app (cobertura incompleta, discordância com outro review, política da conta) e falha técnica no envio, então um "GitHub fora do ar" lia igual a uma ressalva técnica e dava pra achar que a aprovação automática tinha quebrado. Agora são blocos com rótulo e cor: falha técnica primeiro (avisando quando o app ainda vai tentar sozinho), regra do app, e por último o que a revisão levantou.', 'Correções do macOS, todas encontradas num Mac real: a atualização automática apagava o Electron e deixava o app sem abrir; a atualização era aplicada mas o app nunca reiniciava sozinho; executar por um caminho com atalho de pasta não subia nada, em silêncio (valia também para os gates de qualidade, que passavam por aprovados sem verificar nada); e o npm test escrevia na instalação real do Farol em vez do temporário dele.', 'Ao atualizar de uma v2.47.0 já instalada no macOS: esta release LEVA a correção do reinício, mas quem a aplica ainda é a cópia antiga, então neste salto o app atualiza os arquivos e não reabre sozinho. Feche e abra uma vez na mão; das próximas em diante é automático.']],
   ['2.47.0', ['Nova chave em Sistema > Automação: "Aprovar sozinho mesmo discordando de outro review". Quando a revisão discorda de um apontamento de outro revisor (Acrity, Sonar, uma pessoa) e prova a discordância, o Farol sempre segurou o PR pra você decidir. Agora é escolha sua: desligada (padrão) nada muda, ligada a discordância deixa de travar e vira só ponto de atenção, com a regra de ressalvas decidindo o resto. A discordância segue nunca sendo escrita no PR, e reprovar sozinho em cima dela continua sempre passando por você.', 'A linha de uma revisão que você aprovou na mão agora diz por que ela veio pra sua mesa. Antes mostrava só "postado por você (APPROVE)" e o motivo (discordância, cobertura incompleta, revisão disparada por você, política da conta) ficava invisível, mesmo já estando gravado.']],
   ['2.46.2', ['Intervalo de checagem com piso de 3 minutos: as opções de 1 e 2 minutos saíram do sistema (curtas demais, só gastavam chamadas do gh); quem estava nelas passa automaticamente pra 3 minutos.', 'O log de falhas (farol.log) agora carimba em horário de Brasília com o fuso explícito na linha, em vez de UTC sem marcador (que ficava 3 horas deslocado do resto do app e confundia o Diagnóstico). Linhas antigas continuam sendo lidas normalmente.']],
   ['2.46.1', ['Clicar em Atualizar durante uma análise não dá mais erro: o update fica agendado e aplica sozinho quando a análise termina. O aviso virou informativo (explica o agendamento), o banner da Visão geral mostra quando há update agendado, e o clique vale mesmo com o "Atualizar sozinho" desligado (pedido explícito, válido por uma vez).']],
@@ -3346,52 +3072,23 @@ async function loadReviewerCands(force) {
 /* ---- helpers do modelo padrão/exceção ---- */
 function cfgDefaults() { return (STATE.config || {}).defaultReviewers || {}; }
 function cfgProjects() { return (STATE.config || {}).projectReviewers || {}; }
-function defaultFor(org) { const d = cfgDefaults(); return d[org] || d[(org || '').toLowerCase()] || []; }
-function overrideFor(repo) { const p = cfgProjects(); return p[repo] || p[(repo || '').toLowerCase()] || null; }
-function reviewerLabel(rv) {
-  const isTeam = rv.includes('/');
-  const ent = isTeam && rv.split('/').slice(1).join('/').includes(':');
-  if (ent) return { label: `${rv.split('/').pop()} (enterprise, não pedível)`, cls: 'bad', ent: true };
-  if (isTeam) { const org = rv.split('/')[0]; const t = ((reviewerCands[org] || {}).teams || []).find(t => t.id === rv); return { label: (t ? t.name : rv.split('/').pop()) + ' (time)', cls: 'team' }; }
-  return { label: rv, cls: '' };
-}
-function reposOfOrg(org) {
-  const o = String(org).toLowerCase(), set = new Set();
-  const add = k => { const r = String(k || ''); if (r.split('/')[0].toLowerCase() === o) set.add(r); };
-  (STATE.myPRs || []).forEach(p => add(p.key.split('#')[0]));
-  (STATE.panorama || []).forEach(p => add(String(p.key || '').split('#')[0]));
-  Object.keys(cfgProjects()).forEach(add);
-  [...pendingExc].forEach(add);
-  return [...set].filter(Boolean).sort();
-}
+// ctx do editor de reviewers: uma leitura so por renderizacao. Mesmo motivo do
+// peopleOf, do primeiro passo da onda: os blocos de uma mesma passada tem que
+// enxergar o mesmo estado, senao um SSE no meio do render faz duas orgs da mesma
+// tela discordarem. Os Sets viajam por referencia de proposito, porque quem os
+// muta sao os handlers aqui embaixo, e o render seguinte ja le o valor novo.
+const revCtx = () => ({
+  defaults: cfgDefaults(), projects: cfgProjects(),
+  cands: reviewerCands, candsLoaded: reviewerCandsLoaded,
+  abertas: openExceptions, pendentes: pendingExc, expandidas: foldedOpen,
+  prKeys: [...(STATE.myPRs || []).map(p => p.key), ...(STATE.panorama || []).map(p => p.key)],
+  owner2user: OWNER2USER, ghUser: (STATE.config || {}).ghUser || '',
+});
+
 // reviewers presentes na maioria das exceções da org: sugestão pra virar padrão
-function suggestDefault(org) {
-  const lists = reposOfOrg(org).map(overrideFor).filter(l => l && l.length);
-  if (lists.length < 2) return [];
-  const count = {}, rep = {};
-  for (const list of lists) for (const rv of new Set(list)) { const k = rv.toLowerCase(); count[k] = (count[k] || 0) + 1; rep[k] = rv; }
-  const th = Math.ceil(lists.length / 2);
-  return Object.keys(count).filter(k => count[k] >= th).map(k => rep[k]).sort();
-}
-function chipHtml(rv, xClass, dataAttrs) {
-  const r = reviewerLabel(rv);
-  return `<span class="rev-chip${r.cls ? ' ' + r.cls : ''}" ${r.ent ? 'title="Time enterprise não pode ser reviewer de PR (o GitHub recusa). Remova daqui."' : ''}>${esc(r.label)}<button class="${xClass}" ${dataAttrs} title="remover">×</button></span>`;
-}
 // seletor de adicionar reviewer, SÓ com os candidatos da org. Quando a org não
 // tem membros enumeráveis (ex.: conta pessoal, namespace sem org no GitHub), cai
 // num campo pra digitar o handle na mão (Enter adiciona).
-function addControl(cls, dataAttrs, list, org) {
-  const c = reviewerCands[org] || { members: [], teams: [] };
-  const me = (OWNER2USER[String(org || '').toLowerCase()] || (STATE.config || {}).ghUser || '').toLowerCase();
-  const has = v => (list || []).some(l => l.toLowerCase() === String(v).toLowerCase());
-  if (!reviewerCandsLoaded) return `<select class="rev-add ${cls}" ${dataAttrs}><option value="">carregando…</option></select>`;
-  if (!c.members.length && !c.teams.length) return `<input class="rev-add rev-manual ${cls}" ${dataAttrs} placeholder="+ digite um handle e Enter…" spellcheck="false">`;
-  const opts = [
-    ...c.members.filter(x => x.toLowerCase() !== me && !has(x)).map(x => `<option value="${esc(x)}">${esc(x)}</option>`),
-    ...c.teams.filter(t => !has(t.id)).map(t => `<option value="${esc(t.id)}">${esc(t.name)} (time)</option>`)
-  ].join('');
-  return `<select class="rev-add ${cls}" ${dataAttrs}><option value="">+ adicionar…</option>${opts}</select>`;
-}
 
 /* ---- persistência otimista ---- */
 function applyDefaults(map) {
@@ -3416,7 +3113,7 @@ function applyProjects(map, keepRepo) {
   for (const k of Object.keys(map)) {
     const list = map[k] || []; if (!list.length) continue;
     // dropa exceção idêntica ao padrão (salvo a que está aberta em edição)
-    if (k !== keepRepo && !openExceptions.has(k) && !pendingExc.has(k) && sameSet(list, defaultFor(k.split('/')[0]))) continue;
+    if (k !== keepRepo && !openExceptions.has(k) && !pendingExc.has(k) && sameSet(list, defaultFor(k.split('/')[0], revCtx()))) continue;
     clean[k] = list;
   }
   if (!STATE.config) STATE.config = {};
@@ -3427,77 +3124,12 @@ function applyProjects(map, keepRepo) {
 function seedException(repo) {
   pendingExc.add(repo); openExceptions.add(repo);
   const map = { ...cfgProjects() };
-  if (!overrideFor(repo)) map[repo] = [...defaultFor(repo.split('/')[0])];
+  const ctx = revCtx();
+  if (!overrideFor(repo, ctx)) map[repo] = [...defaultFor(repo.split('/')[0], ctx)];
   applyProjects(map, repo);
 }
 
 /* ---- render de um bloco de org (padrão + exceções + colapsado) ---- */
-function renderOrgBlock(org, accent) {
-  const def = defaultFor(org);
-  const repos = reposOfOrg(org);
-  const isExc = r => { const o = overrideFor(r); return (o && !sameSet(o, def)) || openExceptions.has(r) || pendingExc.has(r); };
-  const excRepos = repos.filter(isExc);
-  const following = repos.filter(r => !excRepos.includes(r));
-
-  // card do padrão
-  let defCard;
-  if (def.length) {
-    const chips = def.map(rv => chipHtml(rv, 'rev-def-x', `data-org="${esc(org)}" data-rv="${esc(rv)}"`)).join('');
-    defCard = `<div class="rev-default">
-      <div class="rev-default-top"><span class="t">Reviewers padrão</span><span class="scope">${esc(org)}</span></div>
-      <div class="rev-chips">${chips}${addControl('rev-def-add', `data-org="${esc(org)}"`, def, org)}</div>
-      <div class="rev-hint">Aplicado a todos os projetos de <code>${esc(org)}</code> quando você clica em "👥 Reviewers", salvo as exceções abaixo.</div>
-    </div>`;
-  } else {
-    const sug = suggestDefault(org);
-    const sugChips = sug.map(rv => `<span class="rev-chip ghost">${esc(reviewerLabel(rv).label)}</span>`).join('');
-    defCard = `<div class="rev-default empty">
-      <div class="rev-default-top"><span class="t">Reviewers padrão</span><span class="scope">${esc(org)}</span></div>
-      ${sug.length
-        ? `<div class="rev-hint">Detectei ${sug.length} reviewers comuns nos seus projetos de ${esc(org)}. Vira o padrão num clique, e os projetos iguais colapsam:</div>
-           <div class="rev-chips">${sugChips}</div>
-           <button class="btn sm ok rev-make-default" data-org="${esc(org)}">Criar padrão com estes ${sug.length}</button>`
-        : `<div class="rev-chips">${addControl('rev-def-add', `data-org="${esc(org)}"`, [], org)}</div>
-           <div class="rev-hint">Escolha os reviewers padrão de <code>${esc(org)}</code>.</div>`}
-    </div>`;
-  }
-
-  // exceções
-  const excHtml = excRepos.map(repo => {
-    const list = overrideFor(repo) || (pendingExc.has(repo) ? [...def] : []);
-    if (openExceptions.has(repo)) {
-      const chips = list.map(rv => chipHtml(rv, 'rev-exc-x', `data-repo="${esc(repo)}" data-rv="${esc(rv)}"`)).join('');
-      return `<div class="rev-exc open" data-repo="${esc(repo)}">
-        <div class="rev-exc-head"><code>${esc(repoShort(repo))}</code>
-          <button class="rev-exc-reset" data-repo="${esc(repo)}" title="remover a exceção e voltar ao padrão da org">voltar ao padrão</button>
-          <button class="rev-exc-toggle" data-repo="${esc(repo)}">fechar</button></div>
-        <div class="rev-chips">${chips || '<span class="rev-empty">sem reviewers</span>'}${addControl('rev-exc-add', `data-repo="${esc(repo)}"`, list, repo.split('/')[0])}</div>
-      </div>`;
-    }
-    const d = diffVs(def, list);
-    const pills = '<span class="rev-pill base">padrão</span>'
-      + d.added.map(x => `<span class="rev-pill add">+ ${esc(reviewerLabel(x).label)}</span>`).join('')
-      + d.removed.map(x => `<span class="rev-pill rem">− ${esc(reviewerLabel(x).label)}</span>`).join('');
-    return `<div class="rev-exc" data-repo="${esc(repo)}"><code>${esc(repoShort(repo))}</code><div class="rev-diff">${def.length ? pills : list.map(x => `<span class="rev-pill add">${esc(reviewerLabel(x).label)}</span>`).join('')}</div><button class="rev-exc-toggle" data-repo="${esc(repo)}">editar</button></div>`;
-  }).join('');
-
-  // colapsado: projetos que seguem o padrão
-  const open = foldedOpen.has(org);
-  const followHtml = following.length ? `<div class="rev-folded">
-      <span><span class="count">${following.length}</span> ${following.length === 1 ? 'projeto segue' : 'projetos seguem'} o padrão</span>
-      <button class="rev-fold-toggle" data-org="${esc(org)}">${open ? 'ocultar' : 'ver'}</button>
-    </div>${open ? `<div class="rev-folded-list">${following.map(r => `<span class="rev-repo-mini">${esc(repoShort(r))}<button class="rev-mk-exc" data-repo="${esc(r)}" title="criar exceção pra este projeto">+</button></span>`).join('')}</div>` : ''}` : '';
-
-  // criar exceção pra um projeto (só quando há padrão)
-  const dl = following.map(r => `<option value="${esc(r)}"></option>`).join('');
-  const newExc = def.length ? `<div class="rev-newexc">
-      <input class="rev-newexc-input" list="revExcList-${esc(org)}" placeholder="owner/repo, exceção" spellcheck="false">
-      <datalist id="revExcList-${esc(org)}">${dl}</datalist>
-      <button class="btn sm rev-newexc-go" data-org="${esc(org)}">+ criar exceção</button>
-    </div>` : '';
-
-  return `<div class="rev-org" data-org="${esc(org)}" style="--ac:${accent}">${defCard}${excRepos.length ? `<div class="rev-sec-title">Exceções (${excRepos.length})</div>${excHtml}` : ''}${followHtml}${newExc}</div>`;
-}
 
 function renderReviewersEditor() {
   const box = $('#reviewersEditor'); if (!box) return;
@@ -3511,7 +3143,8 @@ function renderReviewersEditor() {
     [...Object.keys(cfgDefaults()), ...Object.keys(cfgProjects()).map(r => r.split('/')[0])].forEach(o => {
       if (OWNER2USER[o.toLowerCase()] === a.user && !orgs.some(x => x.toLowerCase() === o.toLowerCase())) orgs.push(o);
     });
-    const blocks = orgs.filter(Boolean).sort().map(o => { seen.add(o.toLowerCase()); return renderOrgBlock(o, meta.color || 'var(--accent)'); }).join('');
+    const ctxRev = revCtx();
+    const blocks = orgs.filter(Boolean).sort().map(o => { seen.add(o.toLowerCase()); return renderOrgBlock(o, meta.color || 'var(--accent, ctxRev)'); }).join('');
     if (!blocks) continue;
     if (multiAccount()) parts.push(`<div class="rev-group-head" style="--ac:${meta.color}"><span class="g-dot"></span>${esc(meta.label || a.user)}</div>`);
     parts.push(blocks);
@@ -3520,7 +3153,7 @@ function renderReviewersEditor() {
   const orphans = [...new Set([...Object.keys(cfgDefaults()), ...Object.keys(cfgProjects()).map(r => r.split('/')[0])])].filter(o => o && !seen.has(o.toLowerCase())).sort();
   if (orphans.length) {
     if (multiAccount()) parts.push('<div class="rev-group-head" style="--ac:var(--muted)"><span class="g-dot"></span>Outros</div>');
-    parts.push(orphans.map(o => renderOrgBlock(o, 'var(--muted)')).join(''));
+    parts.push(orphans.map(o => renderOrgBlock(o, 'var(--muted, ctxRev)')).join(''));
   }
   box.innerHTML = parts.join('') || '<div class="rev-empty">Nenhuma organização monitorada ainda. Configure as organizações no campo acima.</div>';
 }
@@ -3529,7 +3162,7 @@ $('#reviewersEditor').addEventListener('change', (e) => {
   const defAdd = e.target.closest('.rev-def-add');
   if (defAdd) {
     const val = (defAdd.value || '').trim(); if (!val) return;
-    const org = defAdd.dataset.org, cur = defaultFor(org);
+    const org = defAdd.dataset.org, cur = defaultFor(org, revCtx());
     if (cur.some(x => x.toLowerCase() === val.toLowerCase())) return;
     const map = { ...cfgDefaults() }; map[org] = [...cur, val];
     applyDefaults(map); return;
@@ -3538,7 +3171,7 @@ $('#reviewersEditor').addEventListener('change', (e) => {
   if (excAdd) {
     const val = (excAdd.value || '').trim(); if (!val) return;
     const repo = excAdd.dataset.repo;
-    const cur = overrideFor(repo) || (pendingExc.has(repo) ? [...defaultFor(repo.split('/')[0])] : []);
+    const c = revCtx(); const cur = overrideFor(repo, c) || (pendingExc.has(repo) ? [...defaultFor(repo.split('/')[0], c)] : []);
     if (cur.some(x => x.toLowerCase() === val.toLowerCase())) return;
     const map = { ...cfgProjects() }; map[repo] = [...cur, val];
     applyProjects(map, repo); return;
@@ -3550,18 +3183,18 @@ $('#reviewersEditor').addEventListener('keydown', (e) => {
 });
 $('#reviewersEditor').addEventListener('click', (e) => {
   const defX = e.target.closest('.rev-def-x');
-  if (defX) { const org = defX.dataset.org, map = { ...cfgDefaults() }; map[org] = defaultFor(org).filter(r => r !== defX.dataset.rv); applyDefaults(map); return; }
+  if (defX) { const org = defX.dataset.org, map = { ...cfgDefaults() }; map[org] = defaultFor(org, revCtx()).filter(r => r !== defX.dataset.rv); applyDefaults(map); return; }
   const mkDef = e.target.closest('.rev-make-default');
-  if (mkDef) { const org = mkDef.dataset.org, map = { ...cfgDefaults() }; map[org] = suggestDefault(org); applyDefaults(map); toast('ok', 'Padrão criado. Projetos iguais colapsaram; os diferentes viraram exceção.', 5000); return; }
+  if (mkDef) { const org = mkDef.dataset.org, map = { ...cfgDefaults() }; map[org] = suggestDefault(org, revCtx()); applyDefaults(map); toast('ok', 'Padrão criado. Projetos iguais colapsaram; os diferentes viraram exceção.', 5000); return; }
   const excX = e.target.closest('.rev-exc-x');
-  if (excX) { const repo = excX.dataset.repo, map = { ...cfgProjects() }; const cur = overrideFor(repo) || [...defaultFor(repo.split('/')[0])]; map[repo] = cur.filter(r => r !== excX.dataset.rv); applyProjects(map, repo); return; }
+  if (excX) { const repo = excX.dataset.repo, map = { ...cfgProjects() }; const cur = overrideFor(repo, revCtx()) || [...defaultFor(repo.split('/')[0])]; map[repo] = cur.filter(r => r !== excX.dataset.rv); applyProjects(map, repo); return; }
   const excToggle = e.target.closest('.rev-exc-toggle');
   if (excToggle) {
     const repo = excToggle.dataset.repo;
     if (openExceptions.has(repo)) {
       openExceptions.delete(repo); pendingExc.delete(repo);
-      const o = overrideFor(repo);
-      if (o && sameSet(o, defaultFor(repo.split('/')[0]))) { const map = { ...cfgProjects() }; delete map[repo]; delete map[repo.toLowerCase()]; applyProjects(map); }
+      const o = overrideFor(repo, revCtx());
+      if (o && sameSet(o, defaultFor(repo.split('/')[0], revCtx()))) { const map = { ...cfgProjects() }; delete map[repo]; delete map[repo.toLowerCase()]; applyProjects(map); }
       else renderReviewersEditor();
     } else { openExceptions.add(repo); renderReviewersEditor(); }
     return;

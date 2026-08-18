@@ -7,10 +7,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { EventEmitter } from 'node:events';
-import { pathToFileURL } from 'node:url';
 
 // Camada base: versão, plataforma e caminhos (compartilhada com os módulos de lib/).
 import {
+  executadoDireto,
   APP_VERSION, APP_NAME, DELIVERIES_LIMIT, IS_WIN, IS_MAC, IS_LINUX, APP_ROOT,
   HOME, WORKSPACE, STATE_DIR, CONFIG_FILE, LOG_FILE, SEEN_FILE, BASELINE_FILE,
   INFLIGHT_FILE, CHATS_FILE, SELF_FILE, HIDDEN_FILE, TEMPLATE_DIR, UI_DIR,
@@ -672,6 +672,11 @@ class Engine extends EventEmitter {
       // por gh na mão): tira o card de "Precisa de você", que antes ficava preso pra
       // sempre porque só o clique no botão esvaziava decisions.pending
       try { await this.reconcilePending(); } catch (e) { this.log('WARN', `reconcilePending: ${e.message}`); }
+      // posts que falharam por instabilidade transitória (rede, gateway do GitHub fora
+      // do ar) tentam de novo sozinhos aqui, reusando o payload já decidido: roda DEPOIS
+      // do reconcilePending de propósito, pra nunca reenviar em cima de uma pendência que
+      // já foi atendida por fora nesse mesmo ciclo.
+      try { await this.retryFailedPosts(); } catch (e) { this.log('WARN', `retryFailedPosts: ${e.message}`); }
       // pushback automático: contestação do autor a um review meu (fire-and-forget:
       // roda em background pra não segurar a checagem, com guarda anti-concorrência)
       this.scanPushbacks().catch(e => this.log('WARN', `scanPushbacks: ${e.message}`));
@@ -1135,6 +1140,7 @@ class Engine extends EventEmitter {
   async myReviewsWithTime(pr) { return decisionMod.myReviewsWithTime(this, pr); }
   async myReviewStates(pr, headSha) { return decisionMod.myReviewStates(this, pr, headSha); }
   async reconcilePending(keys) { return decisionMod.reconcilePending(this, keys); }
+  async retryFailedPosts() { return decisionMod.retryFailedPosts(this); }
   shouldAutoApprove(pr, result) { return decisionMod.shouldAutoApprove(this, pr, result); }
   shouldAutoReject(pr, result) { return decisionMod.shouldAutoReject(this, pr, result); }
   rejectBodyWithMark(body) { return decisionMod.rejectBodyWithMark(this, body); }
@@ -1490,7 +1496,7 @@ export { start, HOME, WORKSPACE, Engine, modelLabel, isPermanentBranch, parsePro
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId, applyClaudeAuthEnv, claudeAuthShellLines };
 
 // execucao direta: modo servidor (fallback sem Electron, ou desenvolvimento)
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (executadoDireto(import.meta.url)) {
   start((url, err) => {
     if (err) { console.error('[farol] erro ao subir o servidor:', err.message); process.exit(1); }
     console.log(`[farol] monitorando · UI em ${url}`);

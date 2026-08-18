@@ -263,6 +263,35 @@ test('buildUpdateScriptMac: apóstrofo no caminho não escapa da atribuição', 
   assert.ok(!s.includes("bash '/Users/O'Brien"), 'a interpolação crua antiga não pode voltar');
 });
 
+// O pkill do install.sh NÃO alcança o Farol no caminho do auto-update, e isso é
+// regra documentada do macOS, não acidente: `man pkill` diz que "the current pgrep
+// or pkill process and all of its ANCESTORS are excluded" por padrão. O script de
+// update é spawnado PELO próprio app, então o installer é descendente dele e o app
+// nunca casa o padrão. Medido num Mac real em 17/08/2026: o installer matava só os
+// processos auxiliares do Electron e o principal seguia vivo; os arquivos novos
+// chegavam no disco, o app continuava rodando o código VELHO, e o `open` seguinte
+// só focava a janela já aberta. Resultado pro usuário: o toast prometia "vai fechar
+// e reabrir sozinho" e nada acontecia até reiniciar na mão.
+// A saída é matar pelo PID, que não tem a regra de ancestral (verificado no mesmo
+// Mac: kill por PID no ancestral sai 0 e o processo morre).
+test('buildUpdateScriptMac: mata o app pelo PID ANTES de rodar o installer', () => {
+  const s = update.buildUpdateScriptMac('/Users/ana/farol/installer/install.sh', '/Users/ana/log', 4242);
+  assert.match(s, /kill 4242\b/, 'mata pelo PID: o pkill do installer não alcança ancestral no macOS');
+  assert.ok(s.indexOf('kill 4242') < s.indexOf("bash '/Users/ana/farol/installer/install.sh'"),
+    'o kill vem ANTES do installer: ele sobrescreve os arquivos que o app em execução usa');
+});
+
+test('buildUpdateScriptMac: espera o app morrer antes de seguir (sem corrida com o installer)', () => {
+  const s = update.buildUpdateScriptMac('/i/install.sh', '/l', 4242);
+  assert.match(s, /kill -0 4242/, 'confere que o processo saiu em vez de assumir');
+});
+
+test('buildUpdateScriptMac: sem PID conhecido não inventa kill (degrada pro comportamento antigo)', () => {
+  const s = update.buildUpdateScriptMac('/i/install.sh', '/l');
+  assert.equal(/\bkill\b/.test(s), false, 'sem pid não emite kill nenhum');
+  assert.ok(s.includes("bash '/i/install.sh'"), 'e o resto do script segue igual');
+});
+
 /* ---------- Linux experimental (v2.45.0): script de update e instalador ---------- */
 
 test('buildUpdateScriptLinux: mesmo escaping do mac, reabre pelo lançador com setsid', () => {

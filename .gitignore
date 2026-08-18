@@ -16,3 +16,10 @@ scratchpad_test/
 
 # config local de ferramenta (aponta pra caminho da maquina, nao serve pra mais ninguem)
 .claude/
+# ... MENOS o workspace-template, que e ARTEFATO DISTRIBUIDO: o protocolo de review
+# (agentes, comandos) vive la e vai dentro do pacote. Sem esta excecao o `.claude/`
+# acima engole agente novo em silencio: foi o que aconteceu com o claim-verifier.md
+# no PR #16, que passou verde na maquina de quem escreveu e nao existia pra mais
+# ninguem, deixando a verificacao empirica sem o agente que ela dispara.
+!workspace-template/.claude/
+!workspace-template/.claude/**

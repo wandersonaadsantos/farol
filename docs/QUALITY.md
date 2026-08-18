@@ -44,27 +44,147 @@ O débito original era o `server.js`: uma classe `Engine` de 3122 linhas fazendo
 
   **Regra do arquivo novo:** só entra o que for puro. Função que precise de `STATE`, `SCOPE` ou `document` fica no `app.js`; para trazer, primeiro passe o que ela lê como parâmetro.
 
-- **Onda 5 (não feita, o débito atual):** o que sobrou no `ui/app.js` são ~2690 linhas de render, estado, atalhos, paleta de comandos, busca e SSE, ainda sem teste. O próximo passo barato já está mapeado: sete funções (`chatBadge`, `papelPicker`, `domainMatrix`, `reviewerLabel`, `chipHtml`, `buildFixPrompt`, `pushbackControl`) são puras em forma e só leem global, e viram puras com **um parâmetro a mais**; juntas têm menos de 20 chamadores. Depois disso é que faz sentido encarar a separação entre render e estado.
+- **Onda 5 (em andamento, o débito atual):** o que sobrou no `ui/app.js` são ~4000 linhas de render, estado, atalhos, paleta de comandos, busca e SSE, ainda sem teste que o execute.
+
+  **Primeiro passo, feito em 17/08/2026:** as sete funções que o texto anterior mapeava saíram. `buildFixPrompt` e `pushbackControl` já tinham ido antes; as cinco restantes foram na mesma leva, e não como cinco casos soltos: `personOf` era a única leitura de global de todo o grupo de perfil, então com `people` no argumento os cinco (`personOf`, `papelOf`, `domLevelOf`, `papelPicker`, `domainMatrix`) viraram puros de uma vez, junto das três tabelas de opções. `reviewerLabel`/`chipHtml` foram juntas (uma chama a outra, ambas liam `reviewerCands`) e `chatBadge` levou `chats`. São 8 funções e ~36 linhas. Os pontos de chamada são **13 no `app.js`** mais 5 internos ao `pure.js` (`personOf` por `papelOf`/`domLevelOf`, `papelOf` por `papelPicker`, `domLevelOf` por `domainMatrix`, `reviewerLabel` por `chipHtml`): 18 no total. O número que circulou antes (19) contava a linha da própria definição como chamador.
+
+  Duas coisas que a extração trouxe de brinde. A primeira: as tabelas de opções **duplicam** as chaves de `lib/taxonomy.js`, e a duplicação é estrutural (o servidor estático só entrega `UI_DIR`, então o navegador não importa `lib/`). Ninguém defendia isso, então chave nova no engine sumiria da UI em silêncio; `test/taxonomy-ui.test.js` passou a comparar os **conjuntos de chaves**, deixando os rótulos livres de propósito (a UI abrevia pra caber no `<select>`). A segunda: o `chipHtml` carregava dois ternários no mesmo statement, o que fez o `ternarioAninhado` do `ui/pure.js` subir ao receber a função; foi corrigido na mudança em vez de re-baselinado, então a dívida líquida **caiu** (`ui/app.js` foi de 57 pra 56 e o `ui/pure.js` não subiu).
+
+  **Como se provou que foi movimentação e não reescrita:** as funções antigas foram reconstruídas do `git show main:ui/app.js`, com os globais injetados, e comparadas com as novas em 27 entradas (login vazio, caixa alta, pessoa inexistente, tentativa de XSS, time desconhecido, time enterprise, chat com contagem zero e sem chat). **Zero divergências** na saída.
+
+  **Segundo passo, no mesmo dia:** o bloco da aba **Consumo** (`fmtMoney`,
+  `fmtUsageMetric`, `usageColorsFor`, `usageTooltipHtml` e os quatro construtores
+  `usageKpisHtml`/`usageMatrixHtml`/`usageBudgetHtml`/`usageSessionsHtml`, mais as duas
+  tabelas de cor). São ~175 linhas, e o bloco **já era puro**: não lia global nenhuma, só
+  montava string a partir do resumo que o engine manda. O que o prendia no `app.js` era a
+  forma, não o conteúdo: cada função terminava atribuindo em `el.innerHTML`, então parecia
+  render de DOM. Separado o build da atribuição, o `app.js` fica com
+  `el.innerHTML = xHtml(...)`. O `usageMatrixHtml` devolve `{ html, caption }` porque a
+  versão antiga escrevia em dois lugares. Fica de fora o `drawUsageTimeline`, que mede
+  `clientWidth` e ata listener, ou seja, precisa do elemento de verdade.
+
+  Três coisas que este passo ensinou, e que valem pros próximos:
+
+  1. **Mover pode quebrar sem que nada acuse.** Deixei `USAGE_KIND_COLOR` e
+     `USAGE_PALETTE` pra trás no `app.js`, e três funções passaram a referenciar constante
+     inexistente. `node --check` passa (é erro de runtime) e `npm test` passava (nada
+     executava o código recém-chegado). Quem denunciou foi a comparação com o original.
+     A lição virou teste: o primeiro caso do bloco novo só **executa** cada construtor.
+  2. **O ratchet reclama de mudança de casa.** Os 4 ternários aninhados que vieram junto
+     fizeram o `pure.js` subir de 16 pra 20 enquanto o `app.js` caía de 56 pra 52, soma
+     idêntica. Reescrevi os quatro em vez de re-baselinar, e aí a dívida caiu de verdade:
+     72 → 68 nos dois arquivos somados.
+  3. **Asserção de texto sobre o `app.js` fica cega quando o código sai dele.** O teste de
+     acessibilidade contava `data-goto` só no `app.js` e no HTML, e reprovou por piso
+     (6 → 5) sem que nenhuma menção tivesse perdido `role`. Hoje o `pure.js` tem **mais**
+     emissores que o `app.js` (5 contra 3), então a varredura passou a incluí-lo: o teste
+     ficou mais forte, não só verde.
+
+  **Terceiro passo, ainda no mesmo dia:** o **editor de reviewers** (`defaultFor`,
+  `overrideFor`, `reposOfOrg`, `suggestDefault`, `addControl` e o `renderOrgBlock`, que
+  compõe todos). Diferente dos dois anteriores, aqui não bastava um parâmetro: as funções
+  liam **sete globais** entre config, candidatos e três Sets de estado de tela. Todas só
+  **leem** (quem muta os Sets são os handlers, que ficaram no `app.js`), então entra um
+  `ctx` único, montado uma vez por renderização (`revCtx`) — mesmo motivo do `peopleOf`.
+
+  A extração foi **de baixo pra cima**: primeiro as folhas, e só então o compositor.
+  Tentar o `renderOrgBlock` antes arrastaria as folhas impuras junto. Ficaram de fora o
+  `seedException` (muta os Sets e persiste via API) e o `renderReviewersEditor` (escreve
+  no DOM).
+
+  A comparação com o original cobriu 32 combinações de estado (exceção aberta, pendente,
+  org expandida, candidatos carregados ou não) contra 4 orgs e 4 repos: **768 comparações,
+  zero divergências**. Ela pegou dois erros meus antes do commit — `ctx` usado sem ser
+  declarado no `seedException`, e três chamadas de `addControl` que ficaram sem receber o
+  `ctx`. Os dois são `ReferenceError`/`TypeError` de runtime: `node --check` passa e a
+  suíte passava, porque nada executava o caminho novo.
+
+  Um achado de comportamento ficou registrado em teste em vez de corrigido: o
+  `suggestDefault` usa limiar `ceil(n/2)`, então com **exatamente duas** exceções o limiar
+  vira 1 e qualquer reviewer que apareça numa delas é sugerido. É surpreendente ao ler o
+  nome da função, mas mudar seria decisão de produto, não refactor.
+
+  **Quarto passo:** os dois maiores construtores de card do Radar (`queueCardHtml`,
+  `panoramaRowHtml`) e o `reviewChip`, 93 linhas. O `acctMark` **ficou** no `app.js` e o
+  ctx recebe o resultado dele: ele depende de `SCOPE`, `TWEAK` e da tabela de contas, uma
+  cadeia que não tem a ver com desenhar o card, e puxá-la junto arrastaria meio painel de
+  contas sem ganho de teste.
+
+  Este foi o primeiro passo a **esbarrar de verdade** no obstáculo previsto: o teste
+  "Panorama: o autor fica FORA da caixa que trunca o título" era regex sobre o texto do
+  `app.js`, e reprovou quando o markup mudou de arquivo. A resposta não foi repontar o
+  regex pro `pure.js`, e sim **migrar a asserção pra teste real** — agora ele renderiza um
+  título de 300 caracteres e verifica a estrutura, que é o que o regex tentava aproximar.
+  Provado por mutação: reintroduzir o defeito de 11/08 (menção do autor dentro da caixa
+  que trunca) faz o teste novo reprovar. A metade de CSS ficou no `ui-widgets`, porque
+  `app.css` não é executável. **É o caminho pros próximos passos**: cada extração que
+  cruzar uma asserção de texto migra ela junto, e o teste sai mais forte do que entrou.
+
+  O `panoramaRowHtml` trouxe **duas** globais declaradas dentro do `renderPanorama`
+  (`runningKeys`, `waitingKeys`) que o regex de conversão não pegou — de novo achadas pela
+  comparação, não pelos gates. E carregava as cadeias de ternário mais densas do arquivo
+  (o rótulo do estado, o botão, o tooltip com quatro motivos): nomeadas uma a uma, o
+  `app.js` caiu de 51 pra 46 e a dívida somada de 67 pra 62.
+
+  **O que vem depois, e o obstáculo real:** a separação entre render e estado. O `app.js` tem **25 globais mutáveis** espalhados e nenhuma função de boot (tudo é efeito de topo, em ordem de arquivo), então o corte não é mecânico. E há um risco a respeitar: `test/ui-widgets.test.js` fixa **22 corpos de função inteiros** por regex sobre o texto do `app.js`, e mover qualquer um deles faz o `match` devolver `null`. Nenhum dos chamadores deste primeiro passo caía dentro dessas 22 (foi conferido antes de mexer); do próximo em diante, cada extração precisa vir junto com a migração da asserção de texto pra teste real em `pure.js`, que é a direção que o cabeçalho daquele arquivo já defende.
 
 ### Números de hoje (mantenha esta linha viva)
 
 | Arquivo | Linhas | Testes |
 |---|---|---|
-| `ui/app.js` | ~4030 | nenhum (o que sobrou não é puro) |
-| `ui/pure.js` | ~1216 | `ui-pure.test.js`, 184 testes |
-| `server.js` | ~1477 | via `boot`, `facades`, e os testes de comportamento |
-| maior módulo de `lib/` (`decision.js`) | ~772 | `decision-envelope.test.js`, `decision-history.test.js` |
-| suíte | | 1169 testes |
+| `ui/app.js` | ~3662 | nenhum que o execute (os 5 que o tocam leem o arquivo como texto) |
+| `ui/pure.js` | ~1821 | `ui-pure.test.js`, 244 testes |
+| `server.js` | ~1483 | via `boot`, `facades`, e os testes de comportamento |
+| maior módulo de `lib/` (`decision.js`) | ~869 | `decision-envelope.test.js`, `decision-history.test.js` |
+| suíte | | 1264 testes (1257 passando, 7 pulados fora do macOS) |
 
-Medidos em 17/08/2026, na v2.47.0. O `ui/pure.js` cresceu 5x desde a onda 4 (a extração
-continuou acontecendo), e o `ui/app.js` cresceu junto: a onda 5 segue aberta e ficou maior
-do que o texto acima descreve.
+Os cinco que leem o `ui/app.js` do disco: `ui-widgets` (fixa 22 corpos de função por
+regex), `ui-contract` (extrai as rotas `/api/*` e cruza com o `http-server.js`),
+`ui-semantics` (varre texto proibido), `ui-pure` (compara `app.js` com `pure.js`) e
+`release-consistency`, que é o único que não olha código: lê só o banner `RELEASE_NOTES`.
+
+Medidos em 17/08/2026, na v2.48.0, depois do primeiro passo da onda 5. O `ui/app.js` só
+agora começou a encolher; a onda 5 segue aberta e o grosso dela (render x estado) não foi
+tocado.
 
 Quem mexer aqui e deixar esses números defasados repete o problema que esta seção teve: o documento afirmava "~2600 linhas com ~120 métodos" muito depois de o `server.js` ter caído para mil.
 
 Padrão do colaborador: funções `(engine, ...args)`, todo `this.` vira `engine.`, e a `Engine` ganha um método-fachada `x(a) { return mod.x(this, a); }`. Assim nenhum chamador muda e o comportamento é idêntico.
 
 Regra de cada onda: extrai um pedaço → `grep this.` no módulo novo deve dar zero → `npm run check && npm test` verde → só então segue. Sem regressão; refactor é movimentação, não reescrita.
+
+## Achar trava sem guarda (auditoria de mutação)
+
+O gate diz se a suíte passa. Ele **não** diz se a suíte testa alguma coisa. A
+diferença apareceu em 17/08/2026, quando o repo passou a receber contribuição de mais
+gente e a pergunta virou "o que dá pra quebrar sem ninguém perceber?".
+
+O método é bruto e funciona: **apaga a trava, roda a suíte inteira, vê se alguém
+reclama.** Zero falhas significa que aquela linha não tem dono.
+
+Rodado sobre as 15 travas do caminho de decisão e postagem, achou **três** sem guarda,
+todas com a mesma assinatura: um par onde uma metade tinha teste e a outra não.
+
+| trava | approve | reject |
+|---|---|---|
+| clique nunca auto-posta | 2 testes | **nenhum** |
+| cobertura incompleta | 8 testes | **nenhum** |
+| token da conta dona (não é par, é única) | — | **nenhum** |
+
+As duas primeiras eram assimetria pura: o mesmo invariante, guardado de um lado e
+esquecido do outro, sendo que o comentário do código dizia que o lado desguardado era
+o *mais* grave ("reprovar com leitura parcial é pior ainda"). A terceira era a única
+coisa impedindo um review de sair assinado pela conta errada, o cenário A1.
+
+**A heurística que sobra disso, e que vale pra revisar contribuição de fora: assimetria
+é cheiro.** Quando um caminho novo faz diferente de um caminho velho equivalente, o
+velho quase sempre tem uma razão. Foi assim que os dois furos do reenvio apareceram
+também: `retryFailedPosts` e `decide()` fazem a mesma coisa (postar um payload decidido
+antes) e só um deles lia o head ao vivo.
+
+Vale repetir a varredura quando mexer em gate, e obrigatoriamente antes de afrouxar
+qualquer trava: se apagar a linha não reprova nada, o teste que deveria protegê-la não
+existe, e o próximo a mexer ali não vai ter aviso nenhum.
 
 ## O gate, em um comando
 

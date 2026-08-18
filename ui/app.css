@@ -531,6 +531,16 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 .dec-reasons { margin: 8px 0 0; padding-left: 18px; font-size: 13px; }
 .dec-reasons li { margin: 3px 0; }
 .dec-reasons li::marker { color: var(--ac); }
+/* motivos agrupados por eixo (falha técnica / regra do app / o que a revisão
+   achou): a cor do cabeçalho é o que deixa varrer de olho sem ler tudo. */
+.reason-groups { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.reason-group-head { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 650; color: var(--muted); }
+.reason-group .dec-reasons { margin-top: 4px; }
+.rg-infra .reason-group-head { color: var(--danger); }
+.rg-infra .dec-reasons li::marker { color: var(--danger); }
+.rg-gate .reason-group-head { color: var(--info); }
+.rg-gate .dec-reasons li::marker { color: var(--info); }
+.reason-note { font-weight: 500; color: var(--faint); font-style: italic; }
 .dec-blocked { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--danger) 10%, transparent); font-size: 12.5px; color: var(--text); }
 .dec-blocked b { color: var(--danger); }
 .dec-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }

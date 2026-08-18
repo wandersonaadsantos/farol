@@ -1745,3 +1745,573 @@ test('resolvedRow: o rótulo de aprovado sozinho continua falando de ponto de at
   assert.match(html, /ponto de atenção/, 'auto_approved não herdou o texto novo');
   assert.doesNotMatch(html, /veio pra você/);
 });
+
+/* ---------- motivos agrupados por eixo (biud-frontend#774) ----------
+   Antes tudo era uma <ul> plana, então "a rede caiu no meio do POST" lia igual a
+   "a revisão achou um problema no código". O print do #774 mostrava "7 motivos de
+   ter vindo pra você" misturando os dois, o que fazia o gate parecer quebrado. */
+
+test('reasonGroups: separa os três eixos e respeita a ordem de leitura', () => {
+  const g = P.reasonGroups([
+    { text: 'achado da revisão', kind: 'content' },
+    { text: 'a política manda esperar', kind: 'gate' },
+    { text: 'falha ao postar o APPROVE: HTTP 503', kind: 'infra' },
+  ]);
+  assert.deepEqual(g.map(x => x.kind), ['infra', 'gate', 'content'],
+    'infra primeiro (é o acionável), conteúdo por último');
+});
+
+test('reasonGroups: string solta (histórico antigo) entra como achado da revisão', () => {
+  // decisions.json gravado antes da v2.48.0 não tem etiqueta; a leitura
+  // conservadora nunca inventa um gate nem uma falha de infra que não houve
+  const g = P.reasonGroups(['motivo antigo sem etiqueta']);
+  assert.equal(g.length, 1);
+  assert.equal(g[0].kind, 'content');
+  assert.deepEqual(g[0].items, ['motivo antigo sem etiqueta']);
+});
+
+test('reasonGroups: agrupa vários motivos do mesmo eixo num bloco só', () => {
+  const g = P.reasonGroups([
+    { text: 'um', kind: 'gate' },
+    { text: 'dois', kind: 'gate' },
+  ]);
+  assert.equal(g.length, 1);
+  assert.deepEqual(g[0].items, ['um', 'dois']);
+});
+
+test('reasonGroups: lista vazia não inventa grupo', () => {
+  assert.deepEqual(P.reasonGroups([]), []);
+  assert.deepEqual(P.reasonGroups(null), []);
+});
+
+test('reasonGroupsHtml: falha de infra avisa que o app ainda vai tentar sozinho', () => {
+  const html = P.reasonGroupsHtml(
+    [{ text: 'falha ao postar o APPROVE: HTTP 503', kind: 'infra' }],
+    { attempts: 1, exhausted: false });
+  assert.match(html, /tentando de novo sozinho/, 'você não precisa fazer nada, e a tela diz isso');
+  assert.match(html, /falha técnica ao postar/);
+});
+
+test('reasonGroupsHtml: retry esgotado diz que desistiu, e quantas vezes tentou', () => {
+  const html = P.reasonGroupsHtml(
+    [{ text: 'falha ao postar o APPROVE: HTTP 503', kind: 'infra' }],
+    { attempts: 3, exhausted: true });
+  assert.match(html, /desisti de tentar sozinho depois de 3 tentativa/);
+  assert.doesNotMatch(html, /tentando de novo/, 'não pode dizer as duas coisas');
+});
+
+test('reasonGroupsHtml: sem postRetry o grupo de infra não promete retry nenhum', () => {
+  const html = P.reasonGroupsHtml([{ text: 'falha ao postar', kind: 'infra' }], null);
+  assert.doesNotMatch(html, /tentando de novo|desisti de tentar/);
+});
+
+test('reasonGroupsHtml: escapa o texto do motivo (não confia no que veio da sessão)', () => {
+  const html = P.reasonGroupsHtml([{ text: '<img src=x onerror=alert(1)>', kind: 'content' }], null);
+  assert.doesNotMatch(html, /<img/, 'nada de HTML cru vindo de texto de modelo');
+});
+
+test('resolvedRow: infra e conteúdo aparecem separados na mesma linha', () => {
+  const html = P.resolvedRow(linhaPostada({
+    reasons: [
+      { text: 'a doc afirma algo que o GitHub não faz', kind: 'content' },
+      { text: 'falha ao postar o APPROVE: HTTP 503', kind: 'infra' },
+    ],
+  }), CTX);
+  assert.match(html, /2 motivos de ter vindo pra você/, 'a contagem total continua honesta');
+  assert.match(html, /falha técnica ao postar/);
+  assert.match(html, /ponto que a revisão levantou/);
+});
+
+/* ---------- onda 5: perfil por pessoa, reviewers e chat ----------
+   As oito funções abaixo eram do app.js e liam global (STATE.config.people,
+   reviewerCands, STATE.chats). Viraram puras com um parâmetro a mais, que é o
+   passo que docs/QUALITY.md já deixava mapeado. O que os testes guardam aqui é
+   justamente o que o global escondia: o comportamento quando o mapa NÃO chegou
+   ainda, que na tela é o estado normal antes do primeiro SSE. */
+
+const PEOPLE = {
+  alice: { papel: 'senior', dominios: { backend: 'autoridade', frontend: 'basico' } },
+  bob: { papel: 'junior' },
+};
+
+test('personOf: acha por login em minúsculas, e login com caixa diferente também', () => {
+  assert.equal(P.personOf('alice', PEOPLE).papel, 'senior');
+  assert.equal(P.personOf('ALICE', PEOPLE).papel, 'senior', 'o login vem do GitHub com a caixa do dono');
+});
+
+test('personOf: sem mapa, sem pessoa e sem login devolve objeto vazio, nunca undefined', () => {
+  // é o caso real: STATE ainda null antes do primeiro SSE. Quem chama faz
+  // .papel logo depois, então devolver undefined aqui viraria TypeError na tela.
+  assert.deepEqual(P.personOf('alice', null), {});
+  assert.deepEqual(P.personOf('ninguem', PEOPLE), {});
+  assert.deepEqual(P.personOf('', PEOPLE), {});
+  assert.deepEqual(P.personOf(undefined, undefined), {});
+});
+
+test('papelOf e domLevelOf: valor quando existe, string vazia quando não', () => {
+  assert.equal(P.papelOf('alice', PEOPLE), 'senior');
+  assert.equal(P.papelOf('bob', PEOPLE), 'junior');
+  assert.equal(P.papelOf('ninguem', PEOPLE), '');
+  assert.equal(P.domLevelOf('alice', 'backend', PEOPLE), 'autoridade');
+  assert.equal(P.domLevelOf('bob', 'backend', PEOPLE), '', 'pessoa sem matriz não quebra');
+  assert.equal(P.domLevelOf('alice', 'infra', PEOPLE), '', 'domínio não marcado é vazio');
+});
+
+test('papelPicker: marca selected no papel da pessoa, e só nele', () => {
+  const html = P.papelPicker('alice', PEOPLE);
+  assert.match(html, /<option value="senior" selected>/);
+  assert.equal((html.match(/ selected/g) || []).length, 1, 'exatamente uma opção selecionada');
+  assert.match(html, /data-login="alice"/);
+});
+
+test('papelPicker: sem pessoa cai na opção vazia, que é o rótulo "papel"', () => {
+  const html = P.papelPicker('ninguem', PEOPLE);
+  assert.match(html, /<option value="" selected>papel<\/option>/);
+});
+
+test('papelPicker: escapa o login (vem do GitHub, não é confiável)', () => {
+  // Procurar a TAG com regex é asserção fraca (não pega <SCRIPT>, e o CodeQL
+  // reprova com razão: js/bad-tag-filter). O que prova o escape de verdade é
+  // que os caracteres perigosos do login viraram entidade: sem `<` cru não há
+  // tag, e sem `"` cru o login não consegue fechar o atributo em que está.
+  const login = 'a"><script>x</script>';
+  const html = P.papelPicker(login, PEOPLE);
+  // captura o VALOR do atributo em vez de recortar por posição: o slice amarrava
+  // a asserção à ordem dos atributos no template, e se ela mudasse o recorte
+  // sairia vazio e as duas asserções abaixo passariam à toa.
+  const m = html.match(/data-login="([^"]*)"/);
+  assert.ok(m, 'o atributo data-login precisa existir pra asserção significar algo');
+  const atributo = m[1];
+  assert.ok(!atributo.includes('<'), 'nenhum < cru no atributo: sem ele não se abre tag');
+  assert.ok(!atributo.includes(login), 'o login não aparece cru em lugar nenhum');
+  assert.match(html, /&lt;script&gt;/, 'ele aparece, mas escapado');
+  assert.match(html, /&quot;/, 'a aspa virou entidade e não fecha o atributo');
+});
+
+test('domainMatrix: um seletor por domínio, com o nível certo marcado em cada', () => {
+  const html = P.domainMatrix('alice', PEOPLE);
+  assert.equal((html.match(/class="dom-level"/g) || []).length, P.DOMAIN_DEFS.length);
+  assert.match(html, /data-domain="backend"[\s\S]*?<option value="autoridade" selected>/);
+  assert.match(html, /data-domain="frontend"[\s\S]*?<option value="basico" selected>/);
+});
+
+test('domainMatrix: pessoa sem matriz marca "sem info" em todos os domínios', () => {
+  const html = P.domainMatrix('bob', PEOPLE);
+  assert.equal((html.match(/<option value="" selected>/g) || []).length, P.DOMAIN_DEFS.length);
+});
+
+test('reviewerLabel: pessoa é o próprio handle, sem enfeite', () => {
+  assert.deepEqual(P.reviewerLabel('alice', {}), { label: 'alice', cls: '' });
+});
+
+test('reviewerLabel: time resolve o nome pelos candidatos da org', () => {
+  const cands = { acme: { teams: [{ id: 'acme/plataforma', name: 'Plataforma' }] } };
+  const r = P.reviewerLabel('acme/plataforma', cands);
+  assert.equal(r.label, 'Plataforma (time)');
+  assert.equal(r.cls, 'team');
+});
+
+test('reviewerLabel: sem candidatos carregados, o time degrada pro slug em vez de quebrar', () => {
+  // é o estado real enquanto o fetch dos candidatos não voltou
+  for (const cands of [null, undefined, {}, { outra: { teams: [] } }]) {
+    assert.equal(P.reviewerLabel('acme/plataforma', cands).label, 'plataforma (time)');
+  }
+});
+
+test('reviewerLabel: time enterprise é marcado como não pedível', () => {
+  // o GitHub recusa esses; a UI precisa dizer isso em vez de deixar tentar
+  const r = P.reviewerLabel('acme/ent:seguranca', {});
+  assert.equal(r.ent, true);
+  assert.equal(r.cls, 'bad');
+  assert.match(r.label, /não pedível/);
+});
+
+test('chipHtml: leva o rótulo resolvido e o botão de remover com os data-attrs', () => {
+  const cands = { acme: { teams: [{ id: 'acme/plataforma', name: 'Plataforma' }] } };
+  const html = P.chipHtml('acme/plataforma', 'rev-def-x', 'data-org="acme"', cands);
+  assert.match(html, /Plataforma \(time\)/);
+  assert.match(html, /class="rev-chip team"/);
+  assert.match(html, /class="rev-def-x" data-org="acme"/);
+});
+
+test('chipHtml: chip de enterprise ganha o title explicando por que não serve', () => {
+  const html = P.chipHtml('acme/ent:seguranca', 'x', '', {});
+  assert.match(html, /title="Time enterprise não pode ser reviewer/);
+});
+
+test('chatBadge: mostra a contagem, e some quando é zero ou não há chat', () => {
+  assert.match(P.chatBadge('o/r#1', { 'o/r#1': { count: 3 } }), /<span class="count">3<\/span>/);
+  assert.equal(P.chatBadge('o/r#1', { 'o/r#1': { count: 0 } }), '', 'zero não vira selo vazio');
+  assert.equal(P.chatBadge('o/r#2', { 'o/r#1': { count: 3 } }), '');
+});
+
+test('chatBadge: sem mapa de chats devolve vazio em vez de quebrar', () => {
+  // o app.js chama com STATE?.chats, que é undefined antes do primeiro SSE
+  assert.equal(P.chatBadge('o/r#1', undefined), '');
+  assert.equal(P.chatBadge('o/r#1', null), '');
+});
+
+/* As três abaixo são as portas de entrada: papelPicker, domainMatrix e chipHtml são
+   exatamente as que o app.js chama, então são elas que recebem o parâmetro novo do
+   chamador. Um chamador esquecido passa undefined, e é esse o único risco que a
+   extração criou. Testar só as internas (personOf, reviewerLabel) deixaria o
+   caminho de verdade descoberto. */
+
+test('papelPicker: sem mapa de pessoas cai em "não marcado" em vez de quebrar', () => {
+  for (const people of [undefined, null, {}]) {
+    const html = P.papelPicker('alice', people);
+    assert.match(html, /<option value="" selected>papel<\/option>/);
+    assert.equal((html.match(/ selected/g) || []).length, 1, 'exatamente uma opção marcada');
+  }
+});
+
+test('domainMatrix: sem mapa de pessoas marca "sem info" em todo domínio', () => {
+  for (const people of [undefined, null, {}]) {
+    const html = P.domainMatrix('alice', people);
+    assert.equal((html.match(/<option value="" selected>/g) || []).length, P.DOMAIN_DEFS.length);
+    assert.equal((html.match(/class="dom-level"/g) || []).length, P.DOMAIN_DEFS.length,
+      'a matriz continua completa: some o nível, não a linha');
+  }
+});
+
+test('chipHtml: sem candidatos o chip ainda sai, com o slug do time', () => {
+  // estado real enquanto o fetch dos candidatos não voltou; o chip não pode sumir
+  for (const cands of [undefined, null, {}]) {
+    const html = P.chipHtml('acme/plataforma', 'rev-x', 'data-a="1"', cands);
+    assert.match(html, /plataforma \(time\)/);
+    assert.match(html, /class="rev-x" data-a="1"/, 'o botão de remover continua funcional');
+  }
+});
+
+/* ---------- onda 5, segundo passo: os construtores da aba Consumo ----------
+   O bloco já era puro: só montava string a partir do resumo que o engine manda.
+   O que o prendia no app.js era a forma (cada um terminava atribuindo em
+   `el.innerHTML`), não o conteúdo.
+
+   O teste mais importante daqui é o mais bobo: EXECUTAR cada um. Ao mover o bloco
+   eu deixei USAGE_KIND_COLOR e USAGE_PALETTE pra trás no app.js, e três funções
+   passaram a referenciar constante inexistente. Nem `node --check` nem a suíte
+   pegavam: é ReferenceError em runtime, e nada executava o código novo. Foi a
+   comparação com o original que denunciou. Estes testes fecham essa porta. */
+
+const usageDayKeysBackFake = (n) => P.usageDayKeysBack(n);
+
+// Os nomes dos campos são os do engine (costUsd, inputTokens, outputTokens), não
+// apelidos: usageMetricVal lê exatamente esses. Fixture com nome inventado passa
+// pelo código sem erro e devolve zero, o que faria o teste medir o caminho vazio
+// achando que mediu o cheio.
+const bloco = (c, i, o) => ({ costUsd: c, inputTokens: i, outputTokens: o });
+const USO = {
+  series: usageDayKeysBackFake(14).map((day, i) => ({
+    day, costUsd: 1.5 + i * 0.2, inputTokens: 6000 + i * 400, outputTokens: 6000 + i * 500, sessions: 3 + (i % 4),
+  })),
+  totals: { sessions: 42, costUsd: 22.5, inputTokens: 90000, outputTokens: 90000 },
+  matrixKindNames: ['review', 'chat'], matrixModelNames: ['opus', 'sonnet'],
+  // matrixSeries é por DIA e a matriz filtra pela janela (usageDayKeysBack), então
+  // o dia precisa ser recente de verdade; data fixa cairia fora da janela
+  matrixSeries: [{ day: P.usageDayKeysBack(1)[0], cells: { review: { opus: bloco(10, 4000, 5000) }, chat: { sonnet: bloco(1, 400, 400) } } }],
+  budgets: [{ profileId: 'p1', label: 'Assinatura', spent: 12.5, limit: 100, blocked: false }],
+  sessions: [{ id: 's1', at: Date.parse('2026-08-17T12:00:00Z'), kind: 'review', model: 'opus', costUsd: 0.42, inputTokens: 4000, outputTokens: 5000, ref: 'o/r#1', result: 'ok' }],
+};
+
+test('Consumo: os quatro construtores rodam e devolvem markup, com dados e sem', () => {
+  // é o teste que teria pego a constante deixada pra trás
+  for (const u of [USO, {}]) {
+    assert.match(P.usageKpisHtml(u, 7), /</);
+    const mtx = P.usageMatrixHtml(u, 'custo', 7);
+    assert.equal(typeof mtx.html, 'string');
+    assert.equal(typeof mtx.caption, 'string');
+    assert.match(P.usageBudgetHtml(u), /</);
+    assert.match(P.usageSessionsHtml(u), /</);
+  }
+});
+
+test('Consumo: resumo vazio vira mensagem de vazio, não markup quebrado', () => {
+  assert.match(P.usageMatrixHtml({}, 'custo', 7).html, /usage-empty/);
+  assert.equal(P.usageMatrixHtml({}, 'custo', 7).caption, '', 'sem dado a legenda some junto');
+  assert.match(P.usageBudgetHtml({}), /Nenhum perfil/);
+  assert.match(P.usageSessionsHtml({}), /Nenhuma sessão/);
+});
+
+test('usageMatrixHtml: a legenda acompanha a métrica escolhida', () => {
+  // guarda-corpo antes das asserções: se o fixture parar de produzir matriz (nome
+  // de campo errado, dia fora da janela), a função cai no early return, a legenda
+  // volta '' e este teste passaria a medir o caminho VAZIO achando que mede o cheio.
+  // Foi exatamente isso que aconteceu enquanto o fixture usava `cost` em vez de
+  // `costUsd`: verde no caminho errado.
+  const cheia = P.usageMatrixHtml(USO, 'custo', 7);
+  assert.doesNotMatch(cheia.html, /usage-empty/, 'o fixture precisa produzir matriz de verdade');
+  assert.match(cheia.caption, /custo estimado/);
+  assert.match(P.usageMatrixHtml(USO, 'total', 7).caption, /tokens/);
+});
+
+test('usageColorsFor: cor fixa por tipo, cíclica nas outras dimensões', () => {
+  assert.deepEqual(P.usageColorsFor('kind', ['review', 'chat']), ['var(--accent)', 'var(--ok)']);
+  const muitos = P.usageColorsFor('model', ['a', 'b', 'c', 'd', 'e', 'f', 'g']);
+  assert.equal(muitos.length, 7);
+  assert.equal(muitos[6], muitos[0], 'a paleta cicla quando os nomes passam do tamanho dela');
+});
+
+test('usageColorsFor: _resto é sempre apagado, em qualquer dimensão', () => {
+  // é registro antigo sem detalhamento: não pode parecer uma série de verdade
+  assert.equal(P.usageColorsFor('kind', ['_resto'])[0], 'var(--faint)');
+  assert.equal(P.usageColorsFor('model', ['_resto'])[0], 'var(--faint)');
+});
+
+test('fmtMoney e fmtUsageMetric: custo sai em dinheiro, o resto em contagem', () => {
+  assert.match(P.fmtMoney(12.5), /12/);
+  assert.equal(P.fmtUsageMetric(12.5, 'custo'), P.fmtMoney(12.5));
+  assert.equal(P.fmtUsageMetric(12500, 'total'), P.fmtCompact(12500));
+});
+
+test('usageTooltipHtml: só entra na legenda a camada com valor', () => {
+  const geo = { xs: [10, 50, 90, 130], y0: 5, y1: 100 };
+  const html = P.usageTooltipHtml('2026-08-10', [3, 0], ['review', 'chat'], { review: 'Review' },
+    ['#f00', '#0f0'], 'total', 2, geo, 300);
+  assert.match(html, /Review/);
+  assert.doesNotMatch(html, /chat/, 'camada zerada não polui o tooltip');
+});
+
+/* ---------- escape de valor em seletor de atributo ----------
+   Achado pelo CodeQL ao mover o bloco de Consumo (js/incomplete-sanitization). O
+   código era anterior à onda 5 e existia em QUATRO lugares, cada um repetindo o
+   mesmo `.replace(/"/g, ...)` sem tratar a barra invertida. Não era teórico: id
+   terminado em barra gerava [data-id="a\"], onde a barra escapa a aspa de
+   fechamento, o seletor fica inválido e o clique não navega pra lugar nenhum,
+   sem erro visível. */
+
+test('escAttrSelector: aspa vira escapada e a barra invertida também', () => {
+  assert.equal(P.escAttrSelector('normal'), 'normal');
+  assert.equal(P.escAttrSelector('a"b'), 'a\\"b');
+  assert.equal(P.escAttrSelector('a\\b'), 'a\\\\b');
+});
+
+test('escAttrSelector: id terminado em barra não engole a aspa de fechamento', () => {
+  // o caso que o escape antigo quebrava
+  const sel = `[data-id="${P.escAttrSelector('perfil\\')}"]`;
+  assert.equal(sel, '[data-id="perfil\\\\"]');
+  // a barra escapada vem em par, então a aspa final continua sendo delimitador
+  const corpo = sel.slice('[data-id="'.length, -2);
+  assert.equal(corpo.length % 2, 0, 'barras invertidas sempre em par antes do fecha-aspas');
+});
+
+test('escAttrSelector: aceita não-string sem quebrar', () => {
+  assert.equal(P.escAttrSelector(42), '42');
+  assert.equal(P.escAttrSelector(null), 'null');
+  assert.equal(P.escAttrSelector(undefined), 'undefined');
+});
+
+test('nenhum seletor de atributo escapa só a aspa (a barra tem que vir junto)', () => {
+  // trava a volta do padrão antigo nos dois arquivos de UI
+  const fs2 = fs, path2 = path;
+  for (const arq of ['app.js', 'pure.js']) {
+    const src = fs2.readFileSync(path2.join(import.meta.dirname, '..', 'ui', arq), 'utf8');
+    const soAspa = [...src.matchAll(/\[data-[\w-]+="\$\{String\([^)]*\)\.replace\(\/"\/g/g)];
+    assert.deepEqual(soAspa.map(m => m[0]), [],
+      `${arq}: use escAttrSelector em vez de escapar só a aspa`);
+  }
+});
+
+/* ---------- onda 5, terceiro passo: o editor de reviewers ----------
+   Diferente dos blocos anteriores, aqui não bastava um parâmetro: as funções liam
+   SETE globais entre config, candidatos e três Sets de estado de tela. Todas só
+   LEEM (quem muta os Sets são os handlers, que ficaram no app.js), então entra um
+   ctx único, montado uma vez por renderização.
+
+   A extração foi de baixo pra cima: primeiro as folhas, depois o renderOrgBlock
+   que compõe todas elas. */
+
+const CTX_REV = {
+  defaults: { acme: ['alice', 'acme/plataforma'] },
+  projects: { 'acme/api': ['bob'], 'acme/web': ['alice', 'acme/plataforma'] },
+  cands: { acme: { members: ['alice', 'bob', 'eu'], teams: [{ id: 'acme/plataforma', name: 'Plataforma' }] } },
+  candsLoaded: true,
+  abertas: new Set(), pendentes: new Set(), expandidas: new Set(),
+  prKeys: ['acme/api#1', 'acme/web#2', 'acme/site#3', 'outra/x#4'],
+  owner2user: { acme: 'eu' }, ghUser: 'eu',
+};
+
+test('defaultFor e overrideFor: acham por chave exata e por minúscula', () => {
+  assert.deepEqual(P.defaultFor('acme', CTX_REV), ['alice', 'acme/plataforma']);
+  assert.deepEqual(P.defaultFor('ACME', CTX_REV), ['alice', 'acme/plataforma'], 'org vem do GitHub com a caixa do dono');
+  assert.deepEqual(P.defaultFor('nao-existe', CTX_REV), [], 'sem padrão é lista vazia, nunca undefined');
+  assert.deepEqual(P.overrideFor('acme/api', CTX_REV), ['bob']);
+  assert.equal(P.overrideFor('nao/existe', CTX_REV), null, 'sem exceção é null, que é diferente de lista vazia');
+});
+
+test('defaultFor e overrideFor: ctx sem os mapas não quebra', () => {
+  assert.deepEqual(P.defaultFor('acme', {}), []);
+  assert.equal(P.overrideFor('acme/api', {}), null);
+});
+
+test('reposOfOrg: junta PRs, exceções e pendentes da org, sem repetir e ordenado', () => {
+  const r = P.reposOfOrg('acme', CTX_REV);
+  assert.deepEqual(r, ['acme/api', 'acme/site', 'acme/web']);
+  assert.ok(!r.some(x => x.startsWith('outra/')), 'repo de outra org fica de fora');
+});
+
+test('reposOfOrg: repo pendente entra mesmo sem PR nem exceção salva', () => {
+  // é o caso de criar exceção pra um projeto que ainda não apareceu em lugar nenhum
+  const ctx = { ...CTX_REV, pendentes: new Set(['acme/novo']) };
+  assert.ok(P.reposOfOrg('acme', ctx).includes('acme/novo'));
+});
+
+test('suggestDefault: sugere quem aparece em pelo menos metade das exceções', () => {
+  // o limiar é ceil(n/2), então com 3 listas exige 2, e alice (em 2) passa
+  const tres = { ...CTX_REV, defaults: {},
+    projects: { 'a/1': ['alice'], 'a/2': ['alice'], 'a/3': ['bob'] }, prKeys: ['a/1#1', 'a/2#2', 'a/3#3'] };
+  assert.deepEqual(P.suggestDefault('a', tres), ['alice'], 'bob, em 1 de 3, fica de fora');
+});
+
+test('suggestDefault: com exatamente 2 exceções o limiar vira 1 e tudo é sugerido', () => {
+  // Aresta REAL do ceil(n/2), não intenção: com 2 listas o limiar é 1, então
+  // qualquer reviewer que apareça numa delas entra na sugestão. Fica travado aqui
+  // porque é surpreendente ao ler o nome da função, e porque mudar isso seria
+  // decisão de produto, não refactor. O comportamento é idêntico ao de antes da
+  // extração (provado na comparação com o original).
+  assert.deepEqual(P.suggestDefault('acme', CTX_REV), ['acme/plataforma', 'alice', 'bob']);
+});
+
+test('suggestDefault: com menos de duas exceções não sugere nada', () => {
+  const ctx = { ...CTX_REV, projects: { 'a/1': ['alice'] }, prKeys: ['a/1#1'] };
+  assert.deepEqual(P.suggestDefault('a', ctx), []);
+});
+
+test('addControl: sem candidatos carregados mostra "carregando", não campo vazio', () => {
+  const html = P.addControl('c', 'data-org="acme"', [], 'acme', { ...CTX_REV, candsLoaded: false });
+  assert.match(html, /carregando/);
+});
+
+test('addControl: org sem membros enumeráveis cai no campo de digitar à mão', () => {
+  // conta pessoal ou namespace sem org: o GitHub não lista membros
+  const html = P.addControl('c', 'data-org="x"', [], 'x', CTX_REV);
+  assert.match(html, /rev-manual/);
+  assert.match(html, /digite um handle/);
+});
+
+test('addControl: não oferece quem já está na lista nem você mesmo', () => {
+  const html = P.addControl('c', 'data-org="acme"', ['alice'], 'acme', CTX_REV);
+  assert.doesNotMatch(html, /value="alice"/, 'já está na lista');
+  assert.doesNotMatch(html, /value="eu"/, 'pedir review pra si mesmo não faz sentido');
+  assert.match(html, /value="bob"/);
+  assert.match(html, /value="acme\/plataforma"/);
+});
+
+test('renderOrgBlock: org com padrão mostra o padrão e as exceções', () => {
+  const html = P.renderOrgBlock('acme', 'var(--accent)', CTX_REV);
+  assert.match(html, /rev-chips/);
+  assert.match(html, /acme\/api/, 'o repo com exceção aparece');
+});
+
+test('renderOrgBlock: lista colapsada só abre quando a org está expandida', () => {
+  const fechada = P.renderOrgBlock('acme', 'var(--accent)', CTX_REV);
+  const aberta = P.renderOrgBlock('acme', 'var(--accent)', { ...CTX_REV, expandidas: new Set(['acme']) });
+  assert.doesNotMatch(fechada, /rev-folded-list/);
+  assert.match(aberta, /rev-folded-list/);
+  assert.match(fechada, /rev-fold-toggle/, 'o botão de abrir existe nos dois estados');
+});
+
+test('renderOrgBlock: org sem nada não quebra', () => {
+  const html = P.renderOrgBlock('vazia', 'var(--muted)', { ...CTX_REV, defaults: {}, projects: {}, prKeys: [] });
+  assert.equal(typeof html, 'string');
+  assert.ok(html.length > 0);
+});
+
+/* ---------- onda 5, quarto passo: os cards do Radar ----------
+   queueCardHtml e panoramaRowHtml são os dois maiores construtores de card que
+   sobravam no app.js. O acctMark ficou lá: o ctx recebe o RESULTADO dele, porque
+   ele depende de SCOPE, TWEAK e da tabela de contas, cadeia que não tem a ver com
+   desenhar o card.
+
+   O primeiro teste abaixo veio do ui-widgets.test.js, onde era regex sobre o texto
+   do app.js. Agora que a função é pura, ele RENDERIZA e verifica a estrutura, que
+   é o que o regex tentava aproximar. */
+
+const MARK_T = { style: '--ac:#f00;', varStyle: '--ac:#f00;', dim: '', chip: '<span class="acct-chip">acme</span>', dot: '<span class="acct-dot"></span>', acct: { label: 'acme' } };
+const PR_T = (o = {}) => ({ key: 'acme/api#7', url: 'https://github.com/acme/api/pull/7',
+  title: 'Corrige o gate', author: 'alice', updatedAt: '2026-08-17T10:00:00Z', ...o });
+const CTX_PANO = { mark: MARK_T, actions: {}, staleStates: {}, todasContas: true, chats: {}, running: new Set(), waiting: [] };
+
+test('Panorama: o autor fica FORA da caixa que trunca o título', () => {
+  // regressão do defeito de "Revisões recentes" (v2.39.0) reencontrado em 11/08:
+  // com o @autor dentro do .pw-title (overflow hidden + ellipsis), título comprido
+  // empurrava foto e login pra fora da tela, sem aviso. Era regex no ui-widgets;
+  // agora renderiza.
+  const html = P.panoramaRowHtml(PR_T({ title: 'T'.repeat(300) }), CTX_PANO);
+  const linha = html.match(/<div class="pw-title">([\s\S]*?)<\/div>/);
+  assert.ok(linha, 'a linha do título existe');
+  assert.match(linha[1], /<span class="pw-title-txt"/, 'o texto do título tem elemento próprio, que é quem trunca');
+  assert.match(linha[1], /person-mention/, 'o autor está na LINHA, irmão do texto');
+  const txt = html.match(/<span class="pw-title-txt"[^>]*>([\s\S]*?)<\/span>/);
+  assert.doesNotMatch(txt[1], /person-mention/, 'e nunca DENTRO da caixa que trunca');
+});
+
+test('cards do Radar: título e autor saem escapados', () => {
+  // A asserção NÃO procura por uma tag específica: o CodeQL reprovou a primeira
+  // versão deste teste (js/bad-tag-filter) porque /<script>/ não casa <SCRIPT>, ou
+  // seja, um escape quebrado em caixa alta passaria batido. O que se verifica agora
+  // é a propriedade de verdade: nenhum `<` do dado do usuário sobrevive cru, venha
+  // ele em que caixa vier.
+  const PAYLOADS = ['<img src=x onerror=1>', '<SCRIPT>x</SCRIPT>', '<ScRiPt>x</ScRiPt>', '"><b>', "'><b>"];
+  for (const carga of PAYLOADS) {
+    const mau = PR_T({ title: carga, author: carga });
+    for (const html of [P.queueCardHtml(mau, { people: {}, mark: MARK_T }), P.panoramaRowHtml(mau, CTX_PANO)]) {
+      assert.ok(!html.includes(carga), `a carga "${carga}" não pode aparecer crua`);
+      assert.match(html, /&lt;|&quot;|&#39;/, 'e o que entrou saiu como entidade');
+    }
+  }
+});
+
+test('cards do Radar: o escape não depende da caixa da tag', () => {
+  // trava explícita do que o CodeQL apontou
+  for (const tag of ['<script>', '<SCRIPT>', '<ScRiPt>']) {
+    const mau = PR_T({ title: tag });
+    const html = P.panoramaRowHtml(mau, CTX_PANO);
+    assert.doesNotMatch(html, new RegExp(tag.replace(/[<>]/g, m => '\\' + m), 'i'),
+      `${tag} escapado em qualquer caixa`);
+  }
+});
+
+test('queueCardHtml: rascunho e re-pedido ganham selo; PR comum não', () => {
+  const limpo = P.queueCardHtml(PR_T(), { people: {}, mark: MARK_T });
+  assert.doesNotMatch(limpo, /rascunho|pedida de novo/);
+  assert.match(P.queueCardHtml(PR_T({ isDraft: true }), { people: {}, mark: MARK_T }), /rascunho/);
+  assert.match(P.queueCardHtml(PR_T({ reRequested: true }), { people: {}, mark: MARK_T }), /pedida de novo/);
+});
+
+test('queueCardHtml: sem autor não renderiza o seletor de papel', () => {
+  const html = P.queueCardHtml(PR_T({ author: '' }), { people: {}, mark: MARK_T });
+  assert.doesNotMatch(html, /papel-level/, 'PR sem autor não tem papel a marcar');
+});
+
+test('panoramaRowHtml: a precedência do botão é rodando > fila > revisar', () => {
+  const rodando = P.panoramaRowHtml(PR_T(), { ...CTX_PANO, running: new Set(['acme/api#7']), waiting: ['acme/api#7'] });
+  assert.match(rodando, /Revisando…/, 'rodando ganha da fila');
+  const naFila = P.panoramaRowHtml(PR_T(), { ...CTX_PANO, waiting: ['acme/api#7'] });
+  assert.match(naFila, /Na fila \(1\)/);
+  const livre = P.panoramaRowHtml(PR_T(), CTX_PANO);
+  assert.match(livre, /act-review/, 'sem nada em curso, dá pra revisar');
+});
+
+test('panoramaRowHtml: estado resolvido troca o botão por rótulo', () => {
+  const pedido = P.panoramaRowHtml(PR_T(), { ...CTX_PANO, actions: { 'acme/api#7': { kind: 'request_changes' } } });
+  assert.match(pedido, /aguardando o autor/);
+  assert.doesNotMatch(pedido, /act-review/, 'já pedi mudanças: não oferece revisar de novo');
+  const pendente = P.panoramaRowHtml(PR_T(), { ...CTX_PANO, actions: { 'acme/api#7': { kind: 'pending' } } });
+  assert.match(pendente, /aguardando você/);
+});
+
+test('panoramaRowHtml: commit novo depois da review reabre o botão', () => {
+  const base = { ...CTX_PANO, actions: { 'acme/api#7': { kind: 'approve' } } };
+  assert.doesNotMatch(P.panoramaRowHtml(PR_T(), base), /act-review/, 'aprovado e parado: nada a fazer');
+  const stale = P.panoramaRowHtml(PR_T(), { ...base, staleStates: { 'acme/api#7': true } });
+  assert.match(stale, /act-review/, 'entrou commit novo: revisar de novo');
+  assert.match(stale, /commit novo/, 'e o tooltip diz por quê');
+});
+
+test('panoramaRowHtml: o selo da conta só aparece no escopo "todas"', () => {
+  assert.match(P.panoramaRowHtml(PR_T(), CTX_PANO), /acct-chip/);
+  const umaConta = P.panoramaRowHtml(PR_T({ mine: true }), { ...CTX_PANO, todasContas: false });
+  assert.doesNotMatch(umaConta, /acct-chip/);
+  assert.match(umaConta, /sua revisão/, 'numa conta só, o que importa é ser seu');
+});

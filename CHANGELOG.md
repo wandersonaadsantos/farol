@@ -9,6 +9,76 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.48.1
+
+Correção de duas brechas no reenvio automático que a v2.48.0 estreou. Quem está na
+v2.48.0 tem o comportamento antigo até atualizar.
+
+**Correções**
+- **O reenvio automático podia aprovar código que ninguém revisou.** Quando a postagem
+  falhava por instabilidade do GitHub, o Farol reenviava nos ciclos seguintes, o que é o
+  certo. O problema é que ele reenviava a decisão **sem conferir se o PR tinha mudado**:
+  se o autor empurrasse commit novo enquanto o reenvio esperava, a aprovação guardada ia
+  pro PR assim mesmo, falando de um código que não estava mais lá. Agora o Farol confere
+  o estado do PR antes de reenviar; se mudou, ele não posta, avisa na pendência que o
+  código mudou e deixa a revisão nova entrar pelo caminho normal.
+- **O reenvio podia duplicar o review.** Antes de reenviar, o Farol pergunta ao GitHub se
+  aquele review já está lá. Quando não dava pra perguntar (rede fora, token fora do ar),
+  ele reenviava mesmo assim, e como a tentativa anterior pode ter chegado antes do erro,
+  dava pra sair review repetido no PR. Agora, sem conseguir confirmar, ele espera o
+  próximo ciclo em vez de arriscar.
+
+## v2.48.0
+
+Review que não saiu por instabilidade do GitHub agora vai sozinho depois, e a lista de
+motivos de um PR passa a separar o que a revisão achou do que é regra do app e do que
+foi só falha técnica.
+
+**Novidades**
+- **Postagem que falhou por instabilidade tenta de novo sozinha.** Quando a revisão
+  já tinha decidido aprovar (ou pedir mudanças) e só o envio pro GitHub falhou por
+  algo passageiro (rede caindo, API do GitHub fora do ar), o PR ficava parado na sua
+  mesa esperando um clique, mesmo com a decisão pronta. Agora o Farol reenvia sozinho
+  nos ciclos seguintes, reusando a decisão que já tinha tomado, sem abrir sessão nova
+  nem gastar do seu limite. Antes de reenviar ele confere se o review já está no PR,
+  então não existe risco de sair review duplicado. Depois de 3 tentativas sem sucesso
+  ele para e deixa com você, dizendo na tela que desistiu. Falha que não passa sozinha
+  (credencial recusada, por exemplo) nunca entra nesse retry, porque insistir não
+  resolveria e só esconderia de você o problema real.
+
+**Melhorias**
+- **Os motivos de um PR ter vindo pra você agora vêm separados por tipo.** A lista era
+  plana e misturava três coisas bem diferentes: o que a revisão achou no código, o que
+  é regra deliberada do app (cobertura incompleta, discordância com outro review,
+  política da conta) e falha técnica no envio. Um "GitHub fora do ar" lia igual a uma
+  ressalva técnica, e dava pra achar que a aprovação automática tinha quebrado quando
+  o que houve foi a rede cair. Agora aparecem em blocos com rótulo e cor: falha técnica
+  primeiro (com aviso de que o app ainda vai tentar sozinho), regra do app, e por último
+  o que a revisão levantou. Revisões antigas continuam aparecendo normalmente.
+
+**Correções**
+- **macOS: a atualização automática apagava o Electron e deixava o app sem abrir.** O
+  pacote de atualização não traz as dependências de propósito (a cópia instalada já
+  tem), mas o instalador do Mac apagava a pasta antes de saber se tinha com que
+  substituir. O resultado era a instalação inteira parar de abrir, sozinha, na primeira
+  atualização. Reproduzido num Mac de verdade com o pacote publicado da v2.47.0.
+- **macOS: a atualização era aplicada e o app nunca reiniciava.** Os arquivos novos
+  chegavam ao disco, mas o Farol seguia rodando o código velho e a janela não se
+  mexia, então o aviso de "vai fechar e reabrir sozinho" não acontecia. Causa: no
+  macOS o comando que encerrava o app ignora, por regra do sistema, o processo que
+  disparou a própria atualização.
+- **Executar por um caminho com atalho de pasta não subia nada, em silêncio.** Valia
+  para o servidor e para os dois gates de qualidade, onde era pior: um gate que sai
+  sem verificar nada passa por aprovado.
+- **`npm test` escrevia na sua instalação real do Farol.** Um teste semeava o
+  workspace de verdade em vez do temporário dele, e passava verde.
+
+> **Ao atualizar de uma v2.47.0 já instalada no macOS:** esta é a release que *leva* a
+> correção do reinício, mas quem a aplica ainda é a cópia antiga. Neste salto o app
+> atualiza os arquivos e não reabre sozinho: feche e abra uma vez na mão. Das próximas
+> atualizações em diante é automático. Se a sua instalação já parou de abrir por causa
+> do problema acima, reinstale pelo instalador offline.
+
 ## v2.47.0
 
 Discordar de outro revisor deixa de travar a aprovação automática por decreto e vira

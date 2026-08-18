@@ -69,6 +69,31 @@ function rejectableResult(extra) {
   };
 }
 
+/* Cobertura no lado do REJECT (achado por mutação em 17/08/2026).
+   O gate tem a trava desde a v2.26.0, e o comentário dela diz "reprovar com leitura
+   parcial é pior ainda" — mas era só o lado do approve que tinha teste: removendo
+   `if (coverageGap(result).length) return false;` do shouldAutoReject, a suíte
+   inteira passava (1265 verdes), enquanto a mesma remoção no approve reprovava 8.
+   Mesma assimetria da trava do clique, achada no mesmo dia e pelo mesmo método. */
+
+test('shouldAutoReject: cobertura incompleta também bloqueia o auto-reject', () => {
+  const e = engineWithPolicy('approve');
+  e.rejectPolicyFor = () => 'request_changes';
+  const r = rejectableResult({ coverage: { total: 3, reviewed: ['a.ts'], missing: ['b.ts', 'c.ts'] } });
+  assert.equal(e.shouldAutoReject(PR, r), false,
+    'sem ter lido o diff inteiro não se pede mudanças sozinho: o blocker pode estar no que não foi lido');
+  // controle: com a cobertura completa, a mesma revisão passa
+  assert.equal(e.shouldAutoReject(PR, rejectableResult()), true);
+});
+
+test('shouldAutoReject: a rede de segurança de cobertura vale igual (reviewed < total)', () => {
+  // mesmo caso do approve: missing vazio não prova cobertura completa
+  const e = engineWithPolicy('approve');
+  e.rejectPolicyFor = () => 'request_changes';
+  const r = rejectableResult({ coverage: { total: 5, reviewed: ['a.ts'], missing: [] } });
+  assert.equal(e.shouldAutoReject(PR, r), false);
+});
+
 test('shouldAutoReject: checkpoint com conflito também bloqueia o auto-reject', () => {
   const e = engineWithPolicy('approve');
   e.rejectPolicyFor = () => 'request_changes';

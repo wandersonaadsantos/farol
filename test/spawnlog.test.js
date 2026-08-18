@@ -7,7 +7,10 @@ process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-spawnlog-' + process
 
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine } from '../server.js'; // cria os diretórios de state
+// await import (nunca import estático): o estático é hasteado ACIMA do FAROL_HOME
+// acima e o paths.js resolveria HOME no ~/.farol REAL, fazendo este teste semear o
+// workspace do usuário e escrever spawns.log lá, sempre verde. Ver test-isolation.test.js.
+const { Engine } = await import('../server.js'); // cria os diretórios de state
 const { logSpawn, SPAWN_LOG_FILE } = await import('../lib/spawnlog.js');
 
 new Engine(); // garante workspace/state existindo
