@@ -2162,10 +2162,28 @@ test('Panorama: o autor fica FORA da caixa que trunca o título', () => {
 });
 
 test('cards do Radar: título e autor saem escapados', () => {
-  const mau = PR_T({ title: '<img src=x onerror=1>', author: 'a"><script>x</script>' });
-  for (const html of [P.queueCardHtml(mau, { people: {}, mark: MARK_T }), P.panoramaRowHtml(mau, CTX_PANO)]) {
-    assert.doesNotMatch(html, /<img src=x/, 'título não vira tag');
-    assert.doesNotMatch(html, /<script>/, 'autor não vira script');
+  // A asserção NÃO procura por uma tag específica: o CodeQL reprovou a primeira
+  // versão deste teste (js/bad-tag-filter) porque /<script>/ não casa <SCRIPT>, ou
+  // seja, um escape quebrado em caixa alta passaria batido. O que se verifica agora
+  // é a propriedade de verdade: nenhum `<` do dado do usuário sobrevive cru, venha
+  // ele em que caixa vier.
+  const PAYLOADS = ['<img src=x onerror=1>', '<SCRIPT>x</SCRIPT>', '<ScRiPt>x</ScRiPt>', '"><b>', "'><b>"];
+  for (const carga of PAYLOADS) {
+    const mau = PR_T({ title: carga, author: carga });
+    for (const html of [P.queueCardHtml(mau, { people: {}, mark: MARK_T }), P.panoramaRowHtml(mau, CTX_PANO)]) {
+      assert.ok(!html.includes(carga), `a carga "${carga}" não pode aparecer crua`);
+      assert.match(html, /&lt;|&quot;|&#39;/, 'e o que entrou saiu como entidade');
+    }
+  }
+});
+
+test('cards do Radar: o escape não depende da caixa da tag', () => {
+  // trava explícita do que o CodeQL apontou
+  for (const tag of ['<script>', '<SCRIPT>', '<ScRiPt>']) {
+    const mau = PR_T({ title: tag });
+    const html = P.panoramaRowHtml(mau, CTX_PANO);
+    assert.doesNotMatch(html, new RegExp(tag.replace(/[<>]/g, m => '\\' + m), 'i'),
+      `${tag} escapado em qualquer caixa`);
   }
 });
 
