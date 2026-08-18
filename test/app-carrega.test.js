@@ -59,6 +59,19 @@ const ESTADO = {
   paths: { home: '/tmp/.farol', workspace: '/tmp/.farol/workspace' },
 };
 
+// Assertiva que faltava, e é a lição do bug de 18/08 à noite: os testes abaixo
+// perguntavam só "levanta exceção?", e `[object Object]` NÃO levanta. Depois que
+// `reasons` virou { text, kind }, o card de "Precisa de você" passou a imprimir isso
+// na tela do usuário com a suíte inteira verde, e quem viu foi o Wanderson, usando.
+// Interpolar objeto em template é erro silencioso por natureza, então vira asserção.
+function semObjectObject(rotulo) {
+  const alvos = ['#decisions', '#queue', '#panorama', '#myPRs', '#resolved', '#team', '#usage', '#relNotes', '#reviewersEditor'];
+  for (const sel of alvos) {
+    const html = document.querySelector(sel).innerHTML || '';
+    assert.ok(!html.includes('[object Object]'), `${rotulo}: "${sel}" imprimiu [object Object]`);
+  }
+}
+
 test('o app.js carrega e registra o handler de state do SSE', () => {
   assert.ok(listeners.has('state'), 'sem isto a tela nunca receberia estado nenhum');
 });
@@ -66,6 +79,7 @@ test('o app.js carrega e registra o handler de state do SSE', () => {
 test('desenhar a tela com um estado plausível não levanta exceção', () => {
   // é o teste que teria pego os dois bugs de 18/08
   assert.equal(emitir('state', ESTADO), 1, 'o handler rodou');
+  semObjectObject('estado cheio');
 });
 
 test('estado vazio (primeiro boot, antes de qualquer checagem) não explode', () => {
@@ -104,6 +118,7 @@ test('decisão pendente com motivos e ressalvas não explode', () => {
     },
   };
   assert.equal(emitir('state', comDecisao), 1);
+  semObjectObject('decisão pendente');
 });
 
 /* As abas Sistema e Consumo só desenham quando estão ATIVAS (o handler de state

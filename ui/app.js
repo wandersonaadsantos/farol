@@ -16,7 +16,7 @@ import {
   fmtMoney, fmtUsageMetric, usageColorsFor, usageTooltipHtml,
   usageKpisHtml, usageMatrixHtml, usageBudgetHtml, usageSessionsHtml, escAttrSelector,
   defaultFor, overrideFor, reposOfOrg, suggestDefault, renderOrgBlock,
-  reviewChip, queueCardHtml, panoramaRowHtml
+  reviewChip, queueCardHtml, panoramaRowHtml, reasonGroupsHtml, reasonText
 } from './pure.js';
 
 const $ = (s) => document.querySelector(s);
@@ -2038,7 +2038,7 @@ function renderDecisions() {
       </div>
       ${d.pr?.title ? `<div class="dec-title">${esc(d.pr.title)}</div>` : ''}
       ${author ? `<div class="dec-author">PR de ${personMention(author, 'xs')} ${papelPicker(author, people)}</div>` : ''}
-      ${(d.reasons || []).length ? `<ul class="dec-reasons">${d.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
+      ${(d.reasons || []).length ? reasonGroupsHtml(d.reasons, d.postRetry) : ''}
       ${d.blockedReason ? `<div class="dec-blocked">🚫 <span><b>Bloqueado:</b> ${esc(d.blockedReason)}</span></div>` : ''}
       <details class="dec-report"><summary>Ver relatório completo</summary><div class="report">${md(d.reportMarkdown)}</div></details>
       <div class="dec-actions">
@@ -3680,7 +3680,7 @@ function connect() {
     ping();
     const d = safeJsonParse(e.data); if (!d) return; const { pr, item } = d;
     if (!isElectron && 'Notification' in window && Notification.permission === 'granted') {
-      const n = new Notification('Farol · precisa da sua atenção', { body: `${pr.key}: ${(item.reasons || [])[0] || 'ver relatório'}` });
+      const n = new Notification('Farol · precisa da sua atenção', { body: `${pr.key}: ${reasonText((item.reasons || [])[0]) || 'ver relatório'}` });
       n.onclick = () => { window.focus(); focusPr(pr.url); };
     }
   });
