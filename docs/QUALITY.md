@@ -153,6 +153,39 @@ Padrão do colaborador: funções `(engine, ...args)`, todo `this.` vira `engine
 
 Regra de cada onda: extrai um pedaço → `grep this.` no módulo novo deve dar zero → `npm run check && npm test` verde → só então segue. Sem regressão; refactor é movimentação, não reescrita.
 
+## Achar trava sem guarda (auditoria de mutação)
+
+O gate diz se a suíte passa. Ele **não** diz se a suíte testa alguma coisa. A
+diferença apareceu em 17/08/2026, quando o repo passou a receber contribuição de mais
+gente e a pergunta virou "o que dá pra quebrar sem ninguém perceber?".
+
+O método é bruto e funciona: **apaga a trava, roda a suíte inteira, vê se alguém
+reclama.** Zero falhas significa que aquela linha não tem dono.
+
+Rodado sobre as 15 travas do caminho de decisão e postagem, achou **três** sem guarda,
+todas com a mesma assinatura: um par onde uma metade tinha teste e a outra não.
+
+| trava | approve | reject |
+|---|---|---|
+| clique nunca auto-posta | 2 testes | **nenhum** |
+| cobertura incompleta | 8 testes | **nenhum** |
+| token da conta dona (não é par, é única) | — | **nenhum** |
+
+As duas primeiras eram assimetria pura: o mesmo invariante, guardado de um lado e
+esquecido do outro, sendo que o comentário do código dizia que o lado desguardado era
+o *mais* grave ("reprovar com leitura parcial é pior ainda"). A terceira era a única
+coisa impedindo um review de sair assinado pela conta errada, o cenário A1.
+
+**A heurística que sobra disso, e que vale pra revisar contribuição de fora: assimetria
+é cheiro.** Quando um caminho novo faz diferente de um caminho velho equivalente, o
+velho quase sempre tem uma razão. Foi assim que os dois furos do reenvio apareceram
+também: `retryFailedPosts` e `decide()` fazem a mesma coisa (postar um payload decidido
+antes) e só um deles lia o head ao vivo.
+
+Vale repetir a varredura quando mexer em gate, e obrigatoriamente antes de afrouxar
+qualquer trava: se apagar a linha não reprova nada, o teste que deveria protegê-la não
+existe, e o próximo a mexer ali não vai ter aviso nenhum.
+
 ## O gate, em um comando
 
 ```bash
