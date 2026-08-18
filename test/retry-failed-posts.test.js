@@ -44,13 +44,17 @@ function pendencia(extra = {}) {
 // engine sem rede: postReview e myReviewStates são os únicos pontos de I/O e entram
 // stubados. `posts` acumula o que teria ido pro GitHub, que é como os testes provam
 // ausência de duplicata.
-function engineCom(item, { postOk = true, states = [] } = {}) {
+function engineCom(item, { postOk = true, states = [], head = HEAD } = {}) {
   const e = new Engine();
   const posts = [];
   e.decisions = { pending: item ? [item] : [], resolved: [] };
   e.saveDecisions = () => { };
   e.accountForPr = () => 'trabalho';
   e.writeMemory = () => { };
+  // head AO VIVO: o retry confere se o código ainda é o mesmo que a revisão leu.
+  // Por padrão devolve o mesmo HEAD, que é o caminho feliz; os testes de gate
+  // passam outro valor (ou null) pra exercitar a recusa.
+  e.headSha = async () => head;
   e.myReviewStates = async () => states;
   e.postReview = async (pr, payload) => {
     posts.push({ pr, payload });
@@ -134,4 +138,55 @@ test('marcador sem o payload correspondente desarma em vez de reenviar às cegas
   assert.equal(n, 0);
   assert.equal(e.posts.length, 0, 'não inventa um review pra postar');
   assert.equal(e.decisions.pending[0].postRetry, null, 'e não fica tentando pra sempre');
+});
+
+/* ---------- os dois gates do reenvio (achados em auditoria, 17/08/2026) ----------
+   A primeira versão deste sweep conferia só "eu já postei neste head?". Faltavam
+   duas perguntas, e as duas viraram furo real:
+
+   1. O head ainda é o mesmo? A decisão foi tomada sobre item.headSha e o reenvio
+      pode acontecer horas depois (até 3 ciclos de polling). Se o autor empurrou
+      commit novo, o APPROVE guardado fala de código que não está mais lá, e postar
+      aprova o que ninguém revisou. O decide() (caminho do clique) já lia o head ao
+      vivo antes de postar; o retry não.
+
+   2. Dá pra confirmar? Nos caminhos de PRIMEIRA tentativa, seguir sem confirmação
+      é seguro porque nada tinha sido enviado. Aqui um POST já saiu (é por isso que
+      existe retry) e o erro pode ter vindo DEPOIS de o GitHub aceitar, então
+      reenviar sem prova arrisca review duplicado. */
+
+test('head mudou: não posta, desarma o retry e explica na pendência', () => {
+  const item = pendencia();
+  const e = engineCom(item, { head: 'outro-head-porque-o-autor-empurrou' });
+  return e.retryFailedPosts().then(() => {
+    assert.equal(e.posts.length, 0, 'não aprova código que a revisão não leu');
+    assert.equal(e.decisions.pending.length, 1, 'a pendência fica na mesa');
+    assert.equal(e.decisions.pending[0].postRetry, null, 'e o retry desarma, não fica tentando pra sempre');
+    const txt = (e.decisions.pending[0].reasons || []).map(r => r.text).join(' ');
+    assert.match(txt, /commit novo/, 'o motivo diz o que houve');
+    assert.ok(!(e.decisions.pending[0].reasons || []).some(r => r.kind === 'infra'),
+      'a razão de infra sai: o problema já não é mais a rede');
+  });
+});
+
+test('head não confirmado (null): não posta e tenta no ciclo seguinte', () => {
+  const item = pendencia();
+  const e = engineCom(item, { head: null });
+  return e.retryFailedPosts().then(() => {
+    assert.equal(e.posts.length, 0, 'sem prova do head, não escreve');
+    assert.equal(e.decisions.pending.length, 1);
+    assert.deepEqual(e.decisions.pending[0].postRetry, { event: 'approve', attempts: 0 },
+      'o marcador fica intacto: não gastou tentativa por falta de dado nossa');
+  });
+});
+
+test('dedup não confirmado (null): não reenvia, pra não arriscar duplicata', () => {
+  const item = pendencia();
+  const e = engineCom(item, { states: null });
+  return e.retryFailedPosts().then(() => {
+    assert.equal(e.posts.length, 0, 'a 1a tentativa pode ter ido pro ar: sem confirmar, não repete');
+    assert.equal(e.decisions.pending.length, 1);
+    assert.deepEqual(e.decisions.pending[0].postRetry, { event: 'approve', attempts: 0 },
+      'tampouco gasta tentativa');
+  });
 });
