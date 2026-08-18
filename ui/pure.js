@@ -849,6 +849,134 @@ export function sessionProgress(count) {
 }
 
 
+
+/* ---------- editor de reviewers: padrao da org e excecoes por repo ----------
+   Saiu do app.js na onda 5, terceiro passo. Diferente dos blocos anteriores, aqui
+   nao bastava um parametro: as funcoes liam SETE globais entre config, candidatos
+   e tres Sets de estado de tela. Todas so LEEM (quem muta os Sets sao os handlers,
+   que ficaram no app.js), entao o que entra e um ctx unico, montado uma vez por
+   renderizacao (revCtx no app.js). E o mesmo motivo do peopleOf do primeiro passo:
+   os blocos de uma mesma passada tem que enxergar o mesmo estado.
+
+   A extracao foi de BAIXO PRA CIMA: primeiro as folhas (defaultFor, overrideFor,
+   reposOfOrg, suggestDefault, addControl), e so entao o renderOrgBlock, que compoe
+   todas elas. Tentar o compositor primeiro exigiria arrastar as folhas impuras
+   junto.
+
+   Fica de fora o seedException: ele muta os Sets e persiste via API, ou seja, nao e
+   render. E o renderReviewersEditor, que escreve no DOM. */
+
+export function defaultFor(org, ctx) { const d = ctx.defaults || {}; return d[org] || d[(org || '').toLowerCase()] || []; }
+
+export function overrideFor(repo, ctx) { const p = ctx.projects || {}; return p[repo] || p[(repo || '').toLowerCase()] || null; }
+
+export function reposOfOrg(org, ctx) {
+  const o = String(org).toLowerCase(), set = new Set();
+  const add = k => { const r = String(k || ''); if (r.split('/')[0].toLowerCase() === o) set.add(r); };
+  // prKeys ja vem achatado do app.js (myPRs + panorama): aqui nao se sabe de onde
+  // a chave veio, so que ela e "owner/repo#N"
+  (ctx.prKeys || []).forEach(k => add(String(k).split('#')[0]));
+  Object.keys(ctx.projects || {}).forEach(add);
+  [...(ctx.pendentes || [])].forEach(add);
+  return [...set].filter(Boolean).sort();
+}
+
+export function suggestDefault(org, ctx) {
+  const lists = reposOfOrg(org, ctx).map(repo => overrideFor(repo, ctx)).filter(l => l && l.length);
+  if (lists.length < 2) return [];
+  const count = {}, rep = {};
+  for (const list of lists) for (const rv of new Set(list)) { const k = rv.toLowerCase(); count[k] = (count[k] || 0) + 1; rep[k] = rv; }
+  const th = Math.ceil(lists.length / 2);
+  return Object.keys(count).filter(k => count[k] >= th).map(k => rep[k]).sort();
+}
+
+export function addControl(cls, dataAttrs, list, org, ctx) {
+  const c = (ctx.cands || {})[org] || { members: [], teams: [] };
+  const me = ((ctx.owner2user || {})[String(org || '').toLowerCase()] || ctx.ghUser || '').toLowerCase();
+  const has = v => (list || []).some(l => l.toLowerCase() === String(v).toLowerCase());
+  if (!ctx.candsLoaded) return `<select class="rev-add ${cls}" ${dataAttrs}><option value="">carregando…</option></select>`;
+  if (!c.members.length && !c.teams.length) return `<input class="rev-add rev-manual ${cls}" ${dataAttrs} placeholder="+ digite um handle e Enter…" spellcheck="false">`;
+  const opts = [
+    ...c.members.filter(x => x.toLowerCase() !== me && !has(x)).map(x => `<option value="${esc(x)}">${esc(x)}</option>`),
+    ...c.teams.filter(t => !has(t.id)).map(t => `<option value="${esc(t.id)}">${esc(t.name)} (time)</option>`)
+  ].join('');
+  return `<select class="rev-add ${cls}" ${dataAttrs}><option value="">+ adicionar…</option>${opts}</select>`;
+}
+
+export function renderOrgBlock(org, accent, ctx) {
+  const def = defaultFor(org, ctx);
+  const repos = reposOfOrg(org, ctx);
+  const isExc = r => { const o = overrideFor(r, ctx); return (o && !sameSet(o, def)) || ctx.abertas.has(r) || ctx.pendentes.has(r); };
+  const excRepos = repos.filter(isExc);
+  const following = repos.filter(r => !excRepos.includes(r));
+
+  // card do padrão
+  let defCard;
+  if (def.length) {
+    const chips = def.map(rv => chipHtml(rv, 'rev-def-x', `data-org="${esc(org)}" data-rv="${esc(rv)}"`, ctx.cands)).join('');
+    defCard = `<div class="rev-default">
+      <div class="rev-default-top"><span class="t">Reviewers padrão</span><span class="scope">${esc(org)}</span></div>
+      <div class="rev-chips">${chips}${addControl('rev-def-add', `data-org="${esc(org)}"`, def, org, ctx)}</div>
+      <div class="rev-hint">Aplicado a todos os projetos de <code>${esc(org)}</code> quando você clica em "👥 Reviewers", salvo as exceções abaixo.</div>
+    </div>`;
+  } else {
+    const sug = suggestDefault(org, ctx);
+    const sugChips = sug.map(rv => `<span class="rev-chip ghost">${esc(reviewerLabel(rv, ctx.cands).label)}</span>`).join('');
+    defCard = `<div class="rev-default empty">
+      <div class="rev-default-top"><span class="t">Reviewers padrão</span><span class="scope">${esc(org)}</span></div>
+      ${sug.length
+        ? `<div class="rev-hint">Detectei ${sug.length} reviewers comuns nos seus projetos de ${esc(org)}. Vira o padrão num clique, e os projetos iguais colapsam:</div>
+           <div class="rev-chips">${sugChips}</div>
+           <button class="btn sm ok rev-make-default" data-org="${esc(org)}">Criar padrão com estes ${sug.length}</button>`
+        : `<div class="rev-chips">${addControl('rev-def-add', `data-org="${esc(org)}"`, [], org, ctx)}</div>
+           <div class="rev-hint">Escolha os reviewers padrão de <code>${esc(org)}</code>.</div>`}
+    </div>`;
+  }
+
+  // exceções
+  const excHtml = excRepos.map(repo => {
+    const list = overrideFor(repo, ctx) || (ctx.pendentes.has(repo) ? [...def] : []);
+    if (ctx.abertas.has(repo)) {
+      const chips = list.map(rv => chipHtml(rv, 'rev-exc-x', `data-repo="${esc(repo)}" data-rv="${esc(rv)}"`, ctx.cands)).join('');
+      return `<div class="rev-exc open" data-repo="${esc(repo)}">
+        <div class="rev-exc-head"><code>${esc(repoShort(repo))}</code>
+          <button class="rev-exc-reset" data-repo="${esc(repo)}" title="remover a exceção e voltar ao padrão da org">voltar ao padrão</button>
+          <button class="rev-exc-toggle" data-repo="${esc(repo)}">fechar</button></div>
+        <div class="rev-chips">${chips || '<span class="rev-empty">sem reviewers</span>'}${addControl('rev-exc-add', `data-repo="${esc(repo)}"`, list, repo.split('/')[0], ctx)}</div>
+      </div>`;
+    }
+    const d = diffVs(def, list);
+    const pills = '<span class="rev-pill base">padrão</span>'
+      + d.added.map(x => `<span class="rev-pill add">+ ${esc(reviewerLabel(x, ctx.cands).label)}</span>`).join('')
+      + d.removed.map(x => `<span class="rev-pill rem">− ${esc(reviewerLabel(x, ctx.cands).label)}</span>`).join('');
+    return `<div class="rev-exc" data-repo="${esc(repo)}"><code>${esc(repoShort(repo))}</code><div class="rev-diff">${def.length ? pills : list.map(x => `<span class="rev-pill add">${esc(reviewerLabel(x, ctx.cands).label)}</span>`).join('')}</div><button class="rev-exc-toggle" data-repo="${esc(repo)}">editar</button></div>`;
+  }).join('');
+
+  // colapsado: projetos que seguem o padrão
+  const open = ctx.expandidas.has(org);
+  // os quatro ternarios que estavam nesta expressao (tem projeto? singular ou
+  // plural? aberto ou fechado? mostra a lista?) viraram quatro nomes: era o ponto
+  // com mais ternario aninhado do arquivo, e nenhum deles dizia o que decidia.
+  const rotuloSegue = following.length === 1 ? 'projeto segue' : 'projetos seguem';
+  const rotuloBotao = open ? 'ocultar' : 'ver';
+  const miniRepos = following.map(r => `<span class="rev-repo-mini">${esc(repoShort(r))}<button class="rev-mk-exc" data-repo="${esc(r)}" title="criar exceção pra este projeto">+</button></span>`).join('');
+  const listaAberta = open ? `<div class="rev-folded-list">${miniRepos}</div>` : '';
+  const followHtml = !following.length ? '' : `<div class="rev-folded">
+      <span><span class="count">${following.length}</span> ${rotuloSegue} o padrão</span>
+      <button class="rev-fold-toggle" data-org="${esc(org)}">${rotuloBotao}</button>
+    </div>${listaAberta}`;
+
+  // criar exceção pra um projeto (só quando há padrão)
+  const dl = following.map(r => `<option value="${esc(r)}"></option>`).join('');
+  const newExc = def.length ? `<div class="rev-newexc">
+      <input class="rev-newexc-input" list="revExcList-${esc(org)}" placeholder="owner/repo, exceção" spellcheck="false">
+      <datalist id="revExcList-${esc(org)}">${dl}</datalist>
+      <button class="btn sm rev-newexc-go" data-org="${esc(org)}">+ criar exceção</button>
+    </div>` : '';
+
+  return `<div class="rev-org" data-org="${esc(org)}" style="--ac:${accent}">${defCard}${excRepos.length ? `<div class="rev-sec-title">Exceções (${excRepos.length})</div>${excHtml}` : ''}${followHtml}${newExc}</div>`;
+}
+
 /* Valor de string dentro de seletor de atributo CSS: [data-id="AQUI"].
    Escapa a barra invertida ANTES da aspa, e a ordem e o ponto: fazendo so a aspa
    (como era ate a onda 5), um id terminado em barra produz [data-id="a\\"], onde a

@@ -14,7 +14,8 @@ import {
   mergeToastKind, creditsHtml, buildFixPrompt,
   papelPicker, domainMatrix, chatBadge, reviewerLabel, chipHtml,
   fmtMoney, fmtUsageMetric, usageColorsFor, usageTooltipHtml,
-  usageKpisHtml, usageMatrixHtml, usageBudgetHtml, usageSessionsHtml, escAttrSelector
+  usageKpisHtml, usageMatrixHtml, usageBudgetHtml, usageSessionsHtml, escAttrSelector,
+  defaultFor, overrideFor, reposOfOrg, suggestDefault, renderOrgBlock
 } from './pure.js';
 
 const $ = (s) => document.querySelector(s);
@@ -2428,7 +2429,7 @@ $('#myPRs').addEventListener('click', (e) => {
     const repo = String(card?.dataset.key || '').split('#')[0];
     const org = repo.split('/')[0];
     // efetivo = exceção do repo, senão o padrão da org
-    const eff = overrideFor(repo) || defaultFor(org);
+    const eff = overrideFor(repo, revCtx()) || defaultFor(org, revCtx());
     // sem reviewers (nem exceção nem padrão): leva pra tela de config
     if (!eff || !eff.length) {
       switchTab('sistema');
@@ -3128,41 +3129,23 @@ async function loadReviewerCands(force) {
 /* ---- helpers do modelo padrão/exceção ---- */
 function cfgDefaults() { return (STATE.config || {}).defaultReviewers || {}; }
 function cfgProjects() { return (STATE.config || {}).projectReviewers || {}; }
-function defaultFor(org) { const d = cfgDefaults(); return d[org] || d[(org || '').toLowerCase()] || []; }
-function overrideFor(repo) { const p = cfgProjects(); return p[repo] || p[(repo || '').toLowerCase()] || null; }
-function reposOfOrg(org) {
-  const o = String(org).toLowerCase(), set = new Set();
-  const add = k => { const r = String(k || ''); if (r.split('/')[0].toLowerCase() === o) set.add(r); };
-  (STATE.myPRs || []).forEach(p => add(p.key.split('#')[0]));
-  (STATE.panorama || []).forEach(p => add(String(p.key || '').split('#')[0]));
-  Object.keys(cfgProjects()).forEach(add);
-  [...pendingExc].forEach(add);
-  return [...set].filter(Boolean).sort();
-}
+// ctx do editor de reviewers: uma leitura so por renderizacao. Mesmo motivo do
+// peopleOf, do primeiro passo da onda: os blocos de uma mesma passada tem que
+// enxergar o mesmo estado, senao um SSE no meio do render faz duas orgs da mesma
+// tela discordarem. Os Sets viajam por referencia de proposito, porque quem os
+// muta sao os handlers aqui embaixo, e o render seguinte ja le o valor novo.
+const revCtx = () => ({
+  defaults: cfgDefaults(), projects: cfgProjects(),
+  cands: reviewerCands, candsLoaded: reviewerCandsLoaded,
+  abertas: openExceptions, pendentes: pendingExc, expandidas: foldedOpen,
+  prKeys: [...(STATE.myPRs || []).map(p => p.key), ...(STATE.panorama || []).map(p => p.key)],
+  owner2user: OWNER2USER, ghUser: (STATE.config || {}).ghUser || '',
+});
+
 // reviewers presentes na maioria das exceções da org: sugestão pra virar padrão
-function suggestDefault(org) {
-  const lists = reposOfOrg(org).map(overrideFor).filter(l => l && l.length);
-  if (lists.length < 2) return [];
-  const count = {}, rep = {};
-  for (const list of lists) for (const rv of new Set(list)) { const k = rv.toLowerCase(); count[k] = (count[k] || 0) + 1; rep[k] = rv; }
-  const th = Math.ceil(lists.length / 2);
-  return Object.keys(count).filter(k => count[k] >= th).map(k => rep[k]).sort();
-}
 // seletor de adicionar reviewer, SÓ com os candidatos da org. Quando a org não
 // tem membros enumeráveis (ex.: conta pessoal, namespace sem org no GitHub), cai
 // num campo pra digitar o handle na mão (Enter adiciona).
-function addControl(cls, dataAttrs, list, org) {
-  const c = reviewerCands[org] || { members: [], teams: [] };
-  const me = (OWNER2USER[String(org || '').toLowerCase()] || (STATE.config || {}).ghUser || '').toLowerCase();
-  const has = v => (list || []).some(l => l.toLowerCase() === String(v).toLowerCase());
-  if (!reviewerCandsLoaded) return `<select class="rev-add ${cls}" ${dataAttrs}><option value="">carregando…</option></select>`;
-  if (!c.members.length && !c.teams.length) return `<input class="rev-add rev-manual ${cls}" ${dataAttrs} placeholder="+ digite um handle e Enter…" spellcheck="false">`;
-  const opts = [
-    ...c.members.filter(x => x.toLowerCase() !== me && !has(x)).map(x => `<option value="${esc(x)}">${esc(x)}</option>`),
-    ...c.teams.filter(t => !has(t.id)).map(t => `<option value="${esc(t.id)}">${esc(t.name)} (time)</option>`)
-  ].join('');
-  return `<select class="rev-add ${cls}" ${dataAttrs}><option value="">+ adicionar…</option>${opts}</select>`;
-}
 
 /* ---- persistência otimista ---- */
 function applyDefaults(map) {
@@ -3187,7 +3170,7 @@ function applyProjects(map, keepRepo) {
   for (const k of Object.keys(map)) {
     const list = map[k] || []; if (!list.length) continue;
     // dropa exceção idêntica ao padrão (salvo a que está aberta em edição)
-    if (k !== keepRepo && !openExceptions.has(k) && !pendingExc.has(k) && sameSet(list, defaultFor(k.split('/')[0]))) continue;
+    if (k !== keepRepo && !openExceptions.has(k) && !pendingExc.has(k) && sameSet(list, defaultFor(k.split('/')[0], revCtx()))) continue;
     clean[k] = list;
   }
   if (!STATE.config) STATE.config = {};
@@ -3198,77 +3181,12 @@ function applyProjects(map, keepRepo) {
 function seedException(repo) {
   pendingExc.add(repo); openExceptions.add(repo);
   const map = { ...cfgProjects() };
-  if (!overrideFor(repo)) map[repo] = [...defaultFor(repo.split('/')[0])];
+  const ctx = revCtx();
+  if (!overrideFor(repo, ctx)) map[repo] = [...defaultFor(repo.split('/')[0], ctx)];
   applyProjects(map, repo);
 }
 
 /* ---- render de um bloco de org (padrão + exceções + colapsado) ---- */
-function renderOrgBlock(org, accent) {
-  const def = defaultFor(org);
-  const repos = reposOfOrg(org);
-  const isExc = r => { const o = overrideFor(r); return (o && !sameSet(o, def)) || openExceptions.has(r) || pendingExc.has(r); };
-  const excRepos = repos.filter(isExc);
-  const following = repos.filter(r => !excRepos.includes(r));
-
-  // card do padrão
-  let defCard;
-  if (def.length) {
-    const chips = def.map(rv => chipHtml(rv, 'rev-def-x', `data-org="${esc(org)}" data-rv="${esc(rv)}"`, reviewerCands)).join('');
-    defCard = `<div class="rev-default">
-      <div class="rev-default-top"><span class="t">Reviewers padrão</span><span class="scope">${esc(org)}</span></div>
-      <div class="rev-chips">${chips}${addControl('rev-def-add', `data-org="${esc(org)}"`, def, org)}</div>
-      <div class="rev-hint">Aplicado a todos os projetos de <code>${esc(org)}</code> quando você clica em "👥 Reviewers", salvo as exceções abaixo.</div>
-    </div>`;
-  } else {
-    const sug = suggestDefault(org);
-    const sugChips = sug.map(rv => `<span class="rev-chip ghost">${esc(reviewerLabel(rv, reviewerCands).label)}</span>`).join('');
-    defCard = `<div class="rev-default empty">
-      <div class="rev-default-top"><span class="t">Reviewers padrão</span><span class="scope">${esc(org)}</span></div>
-      ${sug.length
-        ? `<div class="rev-hint">Detectei ${sug.length} reviewers comuns nos seus projetos de ${esc(org)}. Vira o padrão num clique, e os projetos iguais colapsam:</div>
-           <div class="rev-chips">${sugChips}</div>
-           <button class="btn sm ok rev-make-default" data-org="${esc(org)}">Criar padrão com estes ${sug.length}</button>`
-        : `<div class="rev-chips">${addControl('rev-def-add', `data-org="${esc(org)}"`, [], org)}</div>
-           <div class="rev-hint">Escolha os reviewers padrão de <code>${esc(org)}</code>.</div>`}
-    </div>`;
-  }
-
-  // exceções
-  const excHtml = excRepos.map(repo => {
-    const list = overrideFor(repo) || (pendingExc.has(repo) ? [...def] : []);
-    if (openExceptions.has(repo)) {
-      const chips = list.map(rv => chipHtml(rv, 'rev-exc-x', `data-repo="${esc(repo)}" data-rv="${esc(rv)}"`, reviewerCands)).join('');
-      return `<div class="rev-exc open" data-repo="${esc(repo)}">
-        <div class="rev-exc-head"><code>${esc(repoShort(repo))}</code>
-          <button class="rev-exc-reset" data-repo="${esc(repo)}" title="remover a exceção e voltar ao padrão da org">voltar ao padrão</button>
-          <button class="rev-exc-toggle" data-repo="${esc(repo)}">fechar</button></div>
-        <div class="rev-chips">${chips || '<span class="rev-empty">sem reviewers</span>'}${addControl('rev-exc-add', `data-repo="${esc(repo)}"`, list, repo.split('/')[0])}</div>
-      </div>`;
-    }
-    const d = diffVs(def, list);
-    const pills = '<span class="rev-pill base">padrão</span>'
-      + d.added.map(x => `<span class="rev-pill add">+ ${esc(reviewerLabel(x, reviewerCands).label)}</span>`).join('')
-      + d.removed.map(x => `<span class="rev-pill rem">− ${esc(reviewerLabel(x, reviewerCands).label)}</span>`).join('');
-    return `<div class="rev-exc" data-repo="${esc(repo)}"><code>${esc(repoShort(repo))}</code><div class="rev-diff">${def.length ? pills : list.map(x => `<span class="rev-pill add">${esc(reviewerLabel(x, reviewerCands).label)}</span>`).join('')}</div><button class="rev-exc-toggle" data-repo="${esc(repo)}">editar</button></div>`;
-  }).join('');
-
-  // colapsado: projetos que seguem o padrão
-  const open = foldedOpen.has(org);
-  const followHtml = following.length ? `<div class="rev-folded">
-      <span><span class="count">${following.length}</span> ${following.length === 1 ? 'projeto segue' : 'projetos seguem'} o padrão</span>
-      <button class="rev-fold-toggle" data-org="${esc(org)}">${open ? 'ocultar' : 'ver'}</button>
-    </div>${open ? `<div class="rev-folded-list">${following.map(r => `<span class="rev-repo-mini">${esc(repoShort(r))}<button class="rev-mk-exc" data-repo="${esc(r)}" title="criar exceção pra este projeto">+</button></span>`).join('')}</div>` : ''}` : '';
-
-  // criar exceção pra um projeto (só quando há padrão)
-  const dl = following.map(r => `<option value="${esc(r)}"></option>`).join('');
-  const newExc = def.length ? `<div class="rev-newexc">
-      <input class="rev-newexc-input" list="revExcList-${esc(org)}" placeholder="owner/repo, exceção" spellcheck="false">
-      <datalist id="revExcList-${esc(org)}">${dl}</datalist>
-      <button class="btn sm rev-newexc-go" data-org="${esc(org)}">+ criar exceção</button>
-    </div>` : '';
-
-  return `<div class="rev-org" data-org="${esc(org)}" style="--ac:${accent}">${defCard}${excRepos.length ? `<div class="rev-sec-title">Exceções (${excRepos.length})</div>${excHtml}` : ''}${followHtml}${newExc}</div>`;
-}
 
 function renderReviewersEditor() {
   const box = $('#reviewersEditor'); if (!box) return;
@@ -3282,7 +3200,8 @@ function renderReviewersEditor() {
     [...Object.keys(cfgDefaults()), ...Object.keys(cfgProjects()).map(r => r.split('/')[0])].forEach(o => {
       if (OWNER2USER[o.toLowerCase()] === a.user && !orgs.some(x => x.toLowerCase() === o.toLowerCase())) orgs.push(o);
     });
-    const blocks = orgs.filter(Boolean).sort().map(o => { seen.add(o.toLowerCase()); return renderOrgBlock(o, meta.color || 'var(--accent)'); }).join('');
+    const ctxRev = revCtx();
+    const blocks = orgs.filter(Boolean).sort().map(o => { seen.add(o.toLowerCase()); return renderOrgBlock(o, meta.color || 'var(--accent, ctxRev)'); }).join('');
     if (!blocks) continue;
     if (multiAccount()) parts.push(`<div class="rev-group-head" style="--ac:${meta.color}"><span class="g-dot"></span>${esc(meta.label || a.user)}</div>`);
     parts.push(blocks);
@@ -3291,7 +3210,7 @@ function renderReviewersEditor() {
   const orphans = [...new Set([...Object.keys(cfgDefaults()), ...Object.keys(cfgProjects()).map(r => r.split('/')[0])])].filter(o => o && !seen.has(o.toLowerCase())).sort();
   if (orphans.length) {
     if (multiAccount()) parts.push('<div class="rev-group-head" style="--ac:var(--muted)"><span class="g-dot"></span>Outros</div>');
-    parts.push(orphans.map(o => renderOrgBlock(o, 'var(--muted)')).join(''));
+    parts.push(orphans.map(o => renderOrgBlock(o, 'var(--muted, ctxRev)')).join(''));
   }
   box.innerHTML = parts.join('') || '<div class="rev-empty">Nenhuma organização monitorada ainda. Configure as organizações no campo acima.</div>';
 }
@@ -3300,7 +3219,7 @@ $('#reviewersEditor').addEventListener('change', (e) => {
   const defAdd = e.target.closest('.rev-def-add');
   if (defAdd) {
     const val = (defAdd.value || '').trim(); if (!val) return;
-    const org = defAdd.dataset.org, cur = defaultFor(org);
+    const org = defAdd.dataset.org, cur = defaultFor(org, revCtx());
     if (cur.some(x => x.toLowerCase() === val.toLowerCase())) return;
     const map = { ...cfgDefaults() }; map[org] = [...cur, val];
     applyDefaults(map); return;
@@ -3309,7 +3228,7 @@ $('#reviewersEditor').addEventListener('change', (e) => {
   if (excAdd) {
     const val = (excAdd.value || '').trim(); if (!val) return;
     const repo = excAdd.dataset.repo;
-    const cur = overrideFor(repo) || (pendingExc.has(repo) ? [...defaultFor(repo.split('/')[0])] : []);
+    const c = revCtx(); const cur = overrideFor(repo, c) || (pendingExc.has(repo) ? [...defaultFor(repo.split('/')[0], c)] : []);
     if (cur.some(x => x.toLowerCase() === val.toLowerCase())) return;
     const map = { ...cfgProjects() }; map[repo] = [...cur, val];
     applyProjects(map, repo); return;
@@ -3321,18 +3240,18 @@ $('#reviewersEditor').addEventListener('keydown', (e) => {
 });
 $('#reviewersEditor').addEventListener('click', (e) => {
   const defX = e.target.closest('.rev-def-x');
-  if (defX) { const org = defX.dataset.org, map = { ...cfgDefaults() }; map[org] = defaultFor(org).filter(r => r !== defX.dataset.rv); applyDefaults(map); return; }
+  if (defX) { const org = defX.dataset.org, map = { ...cfgDefaults() }; map[org] = defaultFor(org, revCtx()).filter(r => r !== defX.dataset.rv); applyDefaults(map); return; }
   const mkDef = e.target.closest('.rev-make-default');
-  if (mkDef) { const org = mkDef.dataset.org, map = { ...cfgDefaults() }; map[org] = suggestDefault(org); applyDefaults(map); toast('ok', 'Padrão criado. Projetos iguais colapsaram; os diferentes viraram exceção.', 5000); return; }
+  if (mkDef) { const org = mkDef.dataset.org, map = { ...cfgDefaults() }; map[org] = suggestDefault(org, revCtx()); applyDefaults(map); toast('ok', 'Padrão criado. Projetos iguais colapsaram; os diferentes viraram exceção.', 5000); return; }
   const excX = e.target.closest('.rev-exc-x');
-  if (excX) { const repo = excX.dataset.repo, map = { ...cfgProjects() }; const cur = overrideFor(repo) || [...defaultFor(repo.split('/')[0])]; map[repo] = cur.filter(r => r !== excX.dataset.rv); applyProjects(map, repo); return; }
+  if (excX) { const repo = excX.dataset.repo, map = { ...cfgProjects() }; const cur = overrideFor(repo, revCtx()) || [...defaultFor(repo.split('/')[0])]; map[repo] = cur.filter(r => r !== excX.dataset.rv); applyProjects(map, repo); return; }
   const excToggle = e.target.closest('.rev-exc-toggle');
   if (excToggle) {
     const repo = excToggle.dataset.repo;
     if (openExceptions.has(repo)) {
       openExceptions.delete(repo); pendingExc.delete(repo);
-      const o = overrideFor(repo);
-      if (o && sameSet(o, defaultFor(repo.split('/')[0]))) { const map = { ...cfgProjects() }; delete map[repo]; delete map[repo.toLowerCase()]; applyProjects(map); }
+      const o = overrideFor(repo, revCtx());
+      if (o && sameSet(o, defaultFor(repo.split('/')[0], revCtx()))) { const map = { ...cfgProjects() }; delete map[repo]; delete map[repo.toLowerCase()]; applyProjects(map); }
       else renderReviewersEditor();
     } else { openExceptions.add(repo); renderReviewersEditor(); }
     return;
