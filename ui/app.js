@@ -1,23 +1,21 @@
 /* Farol · UI: consome o engine local via SSE + fetch. Sem frameworks. */
 
 import {
-  esc, safeJsonParse, fmtClock, fmtTok, fmtCompact, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence, hexToRgba,
-  sameSet, diffVs, usageMetricVal, sparklinePath, usageDelta, usageStackLayers, usageHoverIndex, usageMatrixRows,
-  USAGE_KIND_LABEL, usageSessionRow, FAROL_STAMP_SINCE, FAROL_PRE_STAMP_LABEL, accountSaveArray, delivCappedMsg, fmtRel,
-  usageDayKeysBack, aprovadosHoje, avatar, md, feedLine, agentsTitle, stageFlowFrom, stageFlowHtml, analysisOpsPlan, selfSessionKey, sessionProgress,
-  personMention, repoMention, prRefMention, parseGoto, sessionRefCell, reviewBoxHtml, operationChecks,
-  delivFilterItems, delivStats, delivStatsCards, delivActivityCard, delivEmptyState, deliveriesByRepo, deliveriesByAuthor,
-  pushbackControl, PB_OPTS, PB_SHORT, fmtStamp, fmtWhenDay, resolvedRow,
-  logSummaryLines, logTailLines, logSummaryShort,
-  opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible, expiredSessionMarks, listViewState,
-  splitHiddenPRs, effectiveHidden, hiddenFootLabel, myPRsEmptyMsg,
-  mergeToastKind, creditsHtml, buildFixPrompt,
-  papelPicker, domainMatrix, chatBadge, reviewerLabel, chipHtml,
-  fmtMoney, fmtUsageMetric, usageColorsFor, usageTooltipHtml,
-  usageKpisHtml, usageMatrixHtml, usageBudgetHtml, usageSessionsHtml, escAttrSelector,
-  defaultFor, overrideFor, reposOfOrg, suggestDefault, renderOrgBlock,
-  reviewChip, queueCardHtml, panoramaRowHtml, reasonGroupsHtml, reasonText,
-  claudeAuthBadge, claudeProfilesHtml, accountsManagerHtml
+  statusBannerHtml, queueEmptyOkHtml, esc, safeJsonParse, fmtClock, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence,
+  hexToRgba, sameSet, usageMetricVal, usageStackLayers, usageHoverIndex, accountSaveArray,
+  delivCappedMsg, fmtRel, usageDayKeysBack, aprovadosHoje, avatar, md, feedLine,
+  agentsTitle, stageFlowFrom, stageFlowHtml, analysisOpsPlan, selfSessionKey,
+  sessionProgress, personMention, repoMention, prRefMention, parseGoto, reviewBoxHtml,
+  operationChecks, delivFilterItems, delivStats, delivStatsCards, delivActivityCard,
+  delivEmptyState, deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS,
+  PB_SHORT, fmtStamp, fmtWhenDay, resolvedRow, logSummaryLines, logTailLines,
+  logSummaryShort, opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible,
+  expiredSessionMarks, listViewState, splitHiddenPRs, effectiveHidden, hiddenFootLabel,
+  myPRsEmptyMsg, mergeToastKind, creditsHtml, buildFixPrompt, papelPicker, domainMatrix,
+  chatBadge, fmtUsageMetric, usageColorsFor, usageTooltipHtml, usageKpisHtml,
+  usageMatrixHtml, usageBudgetHtml, usageSessionsHtml, escAttrSelector, defaultFor,
+  overrideFor, suggestDefault, renderOrgBlock, queueCardHtml, panoramaRowHtml,
+  reasonGroupsHtml, reasonText, claudeProfilesHtml, accountsManagerHtml
 } from './pure.js';
 
 const $ = (s) => document.querySelector(s);
@@ -1594,16 +1592,11 @@ function renderStatus() {
   $('#appVer').textContent = s.app?.version ? `v${s.app.version}` : '';
 
   const banner = $('#banner');
-  if (!s.account.user && s.status !== 'starting') {
-    banner.hidden = false;
-    banner.innerHTML = `Bem-vindo ao Farol! Nenhuma conta do GitHub foi detectada. Rode <code>gh auth login</code> no terminal (conta de trabalho) e clique em Verificar agora.`;
-  } else if (!s.account.tokenOk && s.status !== 'starting') {
-    banner.hidden = false;
-    banner.innerHTML = `A conta <b>${esc(s.account.user)}</b> não está autenticada no GitHub CLI. Rode <code>gh auth login</code> no terminal e clique em Verificar agora.`;
-  } else if (s.status === 'error' && s.error) {
-    banner.hidden = false;
-    banner.innerHTML = `Falha na última checagem: ${esc(s.error)}. Vou tentar de novo no próximo ciclo.`;
-  } else banner.hidden = true;
+  const aviso = statusBannerHtml(s);
+  // hidden ANTES do innerHTML: o banner e aria-live, e trocar o texto de um elemento
+  // ainda escondido evita o leitor de tela anunciar duas vezes
+  banner.hidden = !aviso;
+  if (aviso) banner.innerHTML = aviso;
 }
 
 function tickCountdown() {
@@ -1924,23 +1917,12 @@ function renderQueue() {
     return;
   }
   if (!q.length) {
-    // Vazio bom merece CONFIRMAR o que o app fez, não só dizer que não tem nada.
-    // resolvedAt é epoch em ms; a comparação de dia é LOCAL e vive no pure.js (testada lá).
-    const aprovados = aprovadosHoje(STATE.decisions?.resolved);
-    const orgs = (STATE.config?.owners || []).map(o => `<b>${esc(o)}</b>`).join(', ');
-    const min = Math.round((STATE.config?.intervalSeconds || 300) / 60);
-    const feito = aprovados
-      ? `O Farol aprovou ${aprovados} ${aprovados === 1 ? 'PR' : 'PRs'} sozinho hoje e monitora `
-      : 'O Farol monitora ';
-    box.innerHTML = `<div class="empty-ok">
-      <div class="eo-check" aria-hidden="true">✓</div>
-      <div class="eo-title">Nada esperando por você</div>
-      <p class="eo-sub">${feito}${orgs || 'as organizações configuradas'} a cada ${min} ${min === 1 ? 'minuto' : 'minutos'}. Quando pedirem sua revisão, o card aparece aqui.</p>
-      <div class="eo-acts">
-        <button class="btn sm eo-resolved">Ver o que foi aprovado</button>
-        <button class="btn sm ghost eo-check-now">Verificar agora</button>
-      </div>
-    </div>`;
+    // aprovadosHoje compara o dia em fuso LOCAL e vive no pure.js (testada la)
+    box.innerHTML = queueEmptyOkHtml({
+      aprovados: aprovadosHoje(STATE.decisions?.resolved),
+      owners: STATE.config?.owners || [],
+      intervalSeconds: STATE.config?.intervalSeconds,
+    });
     return;
   }
   box.innerHTML = q.map(pr => queueCardHtml(pr, { people, mark: acctMark(pr) })).join('');

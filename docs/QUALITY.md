@@ -146,17 +146,41 @@ O débito original era o `server.js`: uma classe `Engine` de 3122 linhas fazendo
   virou um nome em vez de um bloco inteiro no meio do markup. `app.js` foi de 46 pra 42
   e o `pure.js` voltou pra baseline; a soma caiu de 62 pra 58.
 
+  **Sexto passo:** o banner do topo (`statusBannerHtml`) e o vazio da fila
+  (`queueEmptyOkHtml`), mais a limpeza de **17 imports mortos** que os passos 2 a 5
+  tinham deixado para trás.
+
+  Este passo foi planejado por uma rodada de análise em paralelo (dez candidatos, cada
+  plano passando por dois céticos independentes: um procurando furo no plano, outro só
+  no eixo do gate). Valeu por três coisas que eu não teria achado sozinho:
+
+  1. **Import morto não quebra nada e por isso apodrece.** Um cético apontou o risco
+     antes de eu cometer o próximo; ao medir, havia **17** já acumulados, todos meus.
+     Símbolo importado do `pure.js` que ninguém mais usa passa por `node --check`, pelo
+     lint, pela suíte e pelo CI. Virou guarda em `test/app-carrega.test.js`.
+  2. **Extrair para função NÃO reduz o ratchet; só nomear em `const` reduz.** O
+     `rules.js` conta `?` por trecho separado por `;` no arquivo inteiro, então cada
+     hoist precisa ser statement próprio. Foi por isso que o banner saiu com `if`
+     planos em vez de ternário encadeado: medido, a escada subiria o `pure.js` de 16
+     para 17, e o arquivo tem folga ZERO nesse eixo.
+  3. **Um candidato foi descartado com razão.** O `cmdStatic` não tem parte pura com
+     ganho real, e saber isso vale tanto quanto extrair.
+
+  O banner saiu **sem `?.`** de propósito: snapshot sem `account` tem que explodir
+  alto, como explode hoje, em vez de virar silenciosamente "Nenhuma conta detectada" e
+  mentir para quem está olhando.
+
   **O que vem depois, e o obstáculo real:** a separação entre render e estado. O `app.js` tem **25 globais mutáveis** espalhados e nenhuma função de boot (tudo é efeito de topo, em ordem de arquivo), então o corte não é mecânico. E há um risco a respeitar: `test/ui-widgets.test.js` fixa **22 corpos de função inteiros** por regex sobre o texto do `app.js`, e mover qualquer um deles faz o `match` devolver `null`. Nenhum dos chamadores deste primeiro passo caía dentro dessas 22 (foi conferido antes de mexer); do próximo em diante, cada extração precisa vir junto com a migração da asserção de texto pra teste real em `pure.js`, que é a direção que o cabeçalho daquele arquivo já defende.
 
 ### Números de hoje (mantenha esta linha viva)
 
 | Arquivo | Linhas | Testes |
 |---|---|---|
-| `ui/app.js` | ~3524 | nenhum que o execute (os 5 que o tocam leem o arquivo como texto) |
-| `ui/pure.js` | ~2151 | `ui-pure.test.js`, 260 testes |
+| `ui/app.js` | ~3506 | nenhum que o execute (os 5 que o tocam leem o arquivo como texto) |
+| `ui/pure.js` | ~2205 | `ui-pure.test.js`, 270 testes |
 | `server.js` | ~1483 | via `boot`, `facades`, e os testes de comportamento |
 | maior módulo de `lib/` (`decision.js`) | ~869 | `decision-envelope.test.js`, `decision-history.test.js` |
-| suíte | | 1389 testes (1382 passando, 7 pulados fora do macOS) |
+| suíte | | 1400 testes (1393 passando, 7 pulados fora do macOS) |
 
 Os cinco que leem o `ui/app.js` do disco: `ui-widgets` (fixa 22 corpos de função por
 regex), `ui-contract` (extrai as rotas `/api/*` e cruza com o `http-server.js`),
