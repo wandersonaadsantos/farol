@@ -170,17 +170,41 @@ O débito original era o `server.js`: uma classe `Engine` de 3122 linhas fazendo
   alto, como explode hoje, em vez de virar silenciosamente "Nenhuma conta detectada" e
   mentir para quem está olhando.
 
+  **Sétimo passo:** o **diagnóstico** (`diagnosticsText`) e o **cartão da sessão ao
+  vivo** (`sessionCardHtml`).
+
+  O diagnóstico é o único texto do Farol que alguém lê **fora** do Farol: a pessoa
+  clica em "gerar diagnóstico", cola no chat e espera socorro. Estava sem um único
+  teste. Agora tem dez, e um deles é o que faltava — o relatório **promete** no rodapé
+  que não contém tokens nem senhas, e nada garantia isso. O teste planta token, senha e
+  cabeçalho de autorização no estado e exige que nenhum apareça na saída. Provado por
+  mutação: um `JSON.stringify(config)` no relatório faz o teste falhar.
+
+  A extração custou trabalho extra por causa do ratchet. `buildDiagnostics` era um
+  `return [...]` gigante com uma dúzia de ternários dentro de template literals — um
+  único statement, portanto uma única contagem no `app.js`, mas que estouraria o
+  `pure.js` (folga zero). Cada ternário virou seu próprio `const`, o que baixou a soma
+  em 2 em vez de subir.
+
+  **As duas asserções fixadas migraram, e a migração é a parte que interessa.** O
+  `ui-widgets.test.js` casava regex contra o corpo de `buildDiagnostics` (`indexOf('  Resumo:')
+  < indexOf('Detalhe')`) e contra a marcação do cartão (`class="session-stage" data-started=`,
+  metade do guarda de B13). Regex contra o fonte quebra quando o código se move mesmo
+  sem mudar de comportamento — foi o que aconteceu. Cada uma virou teste de **saída** em
+  `ui-pure.test.js`; do lado do `app.js` sobrou só a metade que de fato mora lá (de onde
+  vem o dado, quem envelhece o rótulo), com comentário dizendo para onde foi a outra.
+
   **O que vem depois, e o obstáculo real:** a separação entre render e estado. O `app.js` tem **25 globais mutáveis** espalhados e nenhuma função de boot (tudo é efeito de topo, em ordem de arquivo), então o corte não é mecânico. E há um risco a respeitar: `test/ui-widgets.test.js` fixa **22 corpos de função inteiros** por regex sobre o texto do `app.js`, e mover qualquer um deles faz o `match` devolver `null`. Nenhum dos chamadores deste primeiro passo caía dentro dessas 22 (foi conferido antes de mexer); do próximo em diante, cada extração precisa vir junto com a migração da asserção de texto pra teste real em `pure.js`, que é a direção que o cabeçalho daquele arquivo já defende.
 
 ### Números de hoje (mantenha esta linha viva)
 
 | Arquivo | Linhas | Testes |
 |---|---|---|
-| `ui/app.js` | ~3506 | nenhum que o execute (os 5 que o tocam leem o arquivo como texto) |
-| `ui/pure.js` | ~2205 | `ui-pure.test.js`, 270 testes |
+| `ui/app.js` | ~3446 | nenhum que o execute (os 5 que o tocam leem o arquivo como texto) |
+| `ui/pure.js` | ~2316 | `ui-pure.test.js`, 285 testes |
 | `server.js` | ~1483 | via `boot`, `facades`, e os testes de comportamento |
 | maior módulo de `lib/` (`decision.js`) | ~869 | `decision-envelope.test.js`, `decision-history.test.js` |
-| suíte | | 1400 testes (1393 passando, 7 pulados fora do macOS) |
+| suíte | | 1415 testes (1408 passando, 7 pulados fora do macOS) |
 
 Os cinco que leem o `ui/app.js` do disco: `ui-widgets` (fixa 22 corpos de função por
 regex), `ui-contract` (extrai as rotas `/api/*` e cruza com o `http-server.js`),

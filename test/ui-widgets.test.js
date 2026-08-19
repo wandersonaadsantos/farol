@@ -151,8 +151,11 @@ test('stageLabel muda com o tempo de vida da sessao', () => {
   assert.equal(P.stageLabel(600), '');
 });
 
+/* B13 tem duas metades: a marcacao precisa carregar o data-started, e o ticker precisa
+   voltar nele de segundo em segundo. A marcacao virou sessionCardHtml no ui/pure.js na
+   onda 5 e o guarda dela foi junto (ui-pure.test.js, "cartao de sessao"). Aqui fica a
+   outra metade, que so existe no app.js: quem envelhece o rotulo. */
 test('o rotulo de estagio tem ticker proprio e nao congela no primeiro paint (B13)', () => {
-  assert.match(APPJS, /class="session-stage" data-started=/, 'o estagio mora num span com data-started');
   const fn = APPJS.match(/function tickElapsed\([\s\S]*?\n\}/);
   assert.ok(fn, 'tickElapsed existe');
   assert.match(fn[0], /session-stage/, 'o ticker de 1s envelhece o estagio, como ja faz com o elapsed');
@@ -282,13 +285,16 @@ test('renderMyPRs, renderQueue e renderPanorama decidem o empty state pelo listV
    invariantes do CONSUMO: o app tem que ler a rota agrupada, montar resumo antes do
    detalhe e nao voltar a despejar o log inteiro. */
 
-test('buildDiagnostics consome a rota agrupada e poe o Resumo ANTES do Detalhe', () => {
+/* A montagem do texto virou `diagnosticsText` no ui/pure.js na onda 5, e as assercoes
+   de ordem e de teto foram junto -- viraram teste de verdade em ui-pure.test.js, que
+   compara SAIDA em vez de casar regex contra o corpo da funcao. Aqui sobrou so o que e
+   invariante de CONSUMO e nao da pra ver de dentro do pure.js: de onde vem o dado. */
+test('buildDiagnostics le a rota agrupada do servidor, nao agrupa por conta propria', () => {
   const fn = APPJS.match(/async function buildDiagnostics\(\)[\s\S]*?\n\}/);
   assert.ok(fn, 'buildDiagnostics existe');
   assert.match(fn[0], /get\('\/api\/log\/triage'\)/, 'o agrupamento vem do servidor (a UI nao pode require lib/)');
-  assert.match(fn[0], /logSummaryLines\(grupos\)/, 'o resumo entra no relatorio');
-  assert.match(fn[0], /logTailLines\(log, DIAG_LOG_TAIL\)/, 'o detalhe cru entra limitado');
-  assert.ok(fn[0].indexOf("'  Resumo:'") < fn[0].indexOf('Detalhe'), 'resumo antes do detalhe');
+  assert.match(fn[0], /get\('\/api\/log'\)/, 'o detalhe cru tambem vem do servidor');
+  assert.match(fn[0], /tail: DIAG_LOG_TAIL/, 'o teto do detalhe continua sendo aplicado');
   assert.doesNotMatch(fn[0], /log\.join\('\n'\)/, 'o despejo das 159 linhas cruas saiu do relatorio');
 });
 

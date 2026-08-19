@@ -2203,3 +2203,114 @@ export function buildFixPrompt(args = {}) {
   linhas.push('', 'Implemente as correções no código, rode os testes e o lint que fizerem sentido, e no final me diga o que mudou e por quê.');
   return linhas.join('\n');
 }
+
+/* ---------- diagnóstico ----------
+   O texto que a pessoa copia e cola quando vem pedir ajuda. É a única saída do app que
+   alguém lê fora do app, então mudança aqui é mudança de contrato com quem socorre.
+   Cada ternário mora no seu próprio `const` porque o ratchet conta '?' por statement e
+   este arquivo não tem folga nesse eixo. */
+
+function contaLinhaDiag(a) {
+  const primaria = a.primary ? ' [primária]' : '';
+  const silenciada = a.muted ? ' · silenciada' : '';
+  const token = a.tokenOk ? 'ok' : 'NAO';
+  const orgs = (a.owners || []).join(',') || '-';
+  return `  @${a.user}${primaria} · rótulo=${a.label || '-'} · tipo=${a.kind || '-'} · orgs=${orgs} · token=${token}${silenciada}`;
+}
+
+function assinaturaLinhaDiag(p) {
+  const rotulo = p.label ? ' [' + p.label + ']' : '';
+  const onde = p.configDir ? 'dir próprio (' + p.configDir + ')' : 'padrão da máquina';
+  const conta = p.account ? ' · conta ' + p.account : '';
+  const semLogin = p.ready === false ? ' · SEM LOGIN (rode: claude login nesse dir)' : '';
+  return `  assinatura Claude${rotulo}: ${onde}${conta}${semLogin}`;
+}
+
+function atualizacaoLinhaDiag(u) {
+  if (!u) return '?';
+  const alvo = u.available ? 'v' + u.sourceVersion + ' DISPONÍVEL' : 'na mais recente';
+  const repo = u.repo ? ' ' + u.repo : '';
+  const nota = u.note ? ' · ' + u.note : '';
+  return `v${u.current} · ${alvo} (${u.channel}${repo})${nota}`;
+}
+
+export function diagnosticsText(ctx = {}) {
+  const s = ctx.s || {};
+  const log = ctx.log || [];
+  const grupos = ctx.grupos || [];
+  const tail = ctx.tail || 40;
+  const d = s.doctor || {};
+  const c = s.config || {};
+  const contas = s.accounts || [];
+  const accts = contas.map(contaLinhaDiag).join('\n');
+  const erroSuf = s.error ? ' · último erro: ' + s.error : '';
+  const ghAuth = d.ghAuth ? 'sim' : 'NAO';
+  const eventos = grupos.reduce((n, g) => n + g.count, 0);
+  // resumo primeiro, detalhe depois: quem lê o relatório precisa saber QUANTOS
+  // episódios distintos existem antes de encarar linha crua.
+  const resumo = grupos.length ? ['  Resumo:', ...logSummaryLines(grupos).map(l => '    ' + l), ''] : [];
+  const cabecalhoDetalhe = `  Detalhe (as ${Math.min(log.length, tail)} linhas mais recentes):`;
+  const detalhe = log.length ? [cabecalhoDetalhe, ...logTailLines(log, tail)] : ['  (sem falhas registradas)'];
+  return [
+    '=== Farol · diagnóstico ===',
+    `gerado: ${ctx.agora || '?'}`,
+    `versão: v${s.app?.version || '?'} · plataforma: ${s.app?.platform || '?'} · node: ${d.node || '?'}`,
+    `status: ${s.status || '?'}${erroSuf}`,
+    '',
+    'Ambiente (doctor):',
+    `  gh: ${d.gh || 'NAO ENCONTRADO'}`,
+    `  claude: ${d.claude || 'NAO ENCONTRADO'}`,
+    ...(d.claudeAuth || []).map(assinaturaLinhaDiag),
+    `  git bash: ${d.gitBash || '(n/a)'}`,
+    `  conta primária autenticada no gh: ${ghAuth}`,
+    `  workspace: ${d.workspace || s.paths?.workspace || '?'}`,
+    `  home: ${s.paths?.home || '?'}`,
+    '',
+    `Contas (${contas.length}):`,
+    accts || '  (nenhuma)',
+    '',
+    'Config:',
+    `  intervalo: ${c.intervalSeconds}s · autoReview: ${!!c.autoReview} · autoApproveAll: ${c.autoApproveAll !== false} · autoApproveContested: ${c.autoApproveContested === true} · skipPermissions: ${!!c.skipPermissions}`,
+    `  autostart: ${!!c.autostart} · som: ${!!c.soundEnabled} · tema: ${c.theme || '-'}`,
+    `  updateRepo: ${c.updateRepo || '-'} · updateSource: ${c.updateSource || '(release)'}`,
+    `  mergeBlockedRepos: ${(c.mergeBlockedRepos || []).join(', ') || '-'}`,
+    '',
+    'Estado agora:',
+    `  fila: ${(s.queue || []).length} · panorama: ${(s.panorama || []).length} · meus PRs: ${(s.myPRs || []).length} · decisões pendentes: ${(s.decisions?.pending || []).length} · sessões ativas: ${(s.activeSessions || []).length}`,
+    `  atualização: ${atualizacaoLinhaDiag(s.update)}`,
+    '',
+    // evento = linha com timestamp; o total de LINHAS é maior porque mensagem de erro
+    // multilinha (gh, cmd.exe) ocupa mais de uma. Dizer só "159 linhas" e depois "146
+    // eventos" na linha de leitura confundia, então o cabeçalho traz os dois.
+    `Log de falhas (${eventos} evento(s) em ${grupos.length} grupo(s), ${log.length} linha(s)):`,
+    ...resumo,
+    ...detalhe,
+    '',
+    '(este relatório não contém tokens nem senhas)'
+  ].join('\n');
+}
+
+/* ---------- cartão da sessão ao vivo ----------
+   O bloco que aparece enquanto o Claude está trabalhando num PR. Os `data-id`/`data-started`
+   não são decoração: o app volta neles depois para atualizar tempo, modelo e progresso sem
+   redesenhar o cartão. Trocar um atributo desses quebra a atualização, não o layout. */
+export function sessionCardHtml(s = {}, stages = '') {
+  const id = esc(s.id);
+  const linkPR = s.pr?.url ? `<a href="${esc(s.pr.url)}" target="_blank" rel="noreferrer">abrir PR</a>` : '';
+  const cancelar = s.cancellable ? `<button class="btn sm danger-ghost act-cancel" data-id="${id}">Cancelar</button>` : '';
+  return `
+      <div class="card session-card" data-id="${id}">
+        <div class="session-head">
+          <span class="spin accent"></span>
+          <b>${esc(s.label)}</b> <span class="session-stage" data-started="${s.startedAt || ''}">${stages}</span>
+          <span class="session-model" data-id="${id}" hidden></span>
+          <span class="session-agents" data-id="${id}" hidden></span>
+          ${linkPR}
+          <span class="session-elapsed" data-started="${s.startedAt}"></span>
+          ${cancelar}
+        </div>
+        <div class="op-progress sess-progress" data-id="${id}"><span class="sess-pct"></span><div class="op-bar"><div class="op-bar-fill"></div></div></div>
+        <div class="stage-flow" data-id="${id}" hidden></div>
+        <div class="activity-feed" data-id="${id}"></div>
+      </div>`;
+}

@@ -8,7 +8,7 @@ import {
   sessionProgress, personMention, repoMention, prRefMention, parseGoto, reviewBoxHtml,
   operationChecks, delivFilterItems, delivStats, delivStatsCards, delivActivityCard,
   delivEmptyState, deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS,
-  PB_SHORT, fmtStamp, fmtWhenDay, resolvedRow, logSummaryLines, logTailLines,
+  diagnosticsText, sessionCardHtml, PB_SHORT, fmtStamp, fmtWhenDay, resolvedRow,
   logSummaryShort, opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible,
   expiredSessionMarks, listViewState, splitHiddenPRs, effectiveHidden, hiddenFootLabel,
   myPRsEmptyMsg, mergeToastKind, creditsHtml, buildFixPrompt, papelPicker, domainMatrix,
@@ -1692,22 +1692,7 @@ function renderActive() {
   if (have !== want) {
     box.innerHTML = sessions.map(s => {
       const uptime = Math.round((Date.now() - (s.startedAt || Date.now())) / 1000);
-      const stages = stageLabel(uptime);
-      return `
-      <div class="card session-card" data-id="${esc(s.id)}">
-        <div class="session-head">
-          <span class="spin accent"></span>
-          <b>${esc(s.label)}</b> <span class="session-stage" data-started="${s.startedAt || ''}">${stages}</span>
-          <span class="session-model" data-id="${esc(s.id)}" hidden></span>
-          <span class="session-agents" data-id="${esc(s.id)}" hidden></span>
-          ${s.pr?.url ? `<a href="${esc(s.pr.url)}" target="_blank" rel="noreferrer">abrir PR</a>` : ''}
-          <span class="session-elapsed" data-started="${s.startedAt}"></span>
-          ${s.cancellable ? `<button class="btn sm danger-ghost act-cancel" data-id="${esc(s.id)}">Cancelar</button>` : ''}
-        </div>
-        <div class="op-progress sess-progress" data-id="${esc(s.id)}"><span class="sess-pct"></span><div class="op-bar"><div class="op-bar-fill"></div></div></div>
-        <div class="stage-flow" data-id="${esc(s.id)}" hidden></div>
-        <div class="activity-feed" data-id="${esc(s.id)}"></div>
-      </div>`;
+      return sessionCardHtml(s, stageLabel(uptime));
     }).join('');
   }
   for (const s of sessions) {
@@ -3158,56 +3143,11 @@ async function loadLog() {
 const DIAG_LOG_TAIL = 40;
 
 async function buildDiagnostics() {
-  const s = STATE || {};
   const [logRaw, gruposRaw] = await Promise.all([get('/api/log'), get('/api/log/triage')]);
-  const log = logRaw || [];
-  const grupos = gruposRaw || [];
-  const d = s.doctor || {}, c = s.config || {};
-  const accts = (s.accounts || []).map(a => `  @${a.user}${a.primary ? ' [primária]' : ''} · rótulo=${a.label || '-'} · tipo=${a.kind || '-'} · orgs=${(a.owners || []).join(',') || '-'} · token=${a.tokenOk ? 'ok' : 'NAO'}${a.muted ? ' · silenciada' : ''}`).join('\n');
-  const u = s.update;
-  return [
-    '=== Farol · diagnóstico ===',
-    `gerado: ${new Date().toLocaleString('pt-BR')}`,
-    `versão: v${s.app?.version || '?'} · plataforma: ${s.app?.platform || '?'} · node: ${d.node || '?'}`,
-    `status: ${s.status || '?'}${s.error ? ' · último erro: ' + s.error : ''}`,
-    '',
-    'Ambiente (doctor):',
-    `  gh: ${d.gh || 'NAO ENCONTRADO'}`,
-    `  claude: ${d.claude || 'NAO ENCONTRADO'}`,
-    ...((d.claudeAuth || []).map(p =>
-      `  assinatura Claude${p.label ? ' [' + p.label + ']' : ''}: ${(p.configDir ? 'dir próprio (' + p.configDir + ')' : 'padrão da máquina') + (p.account ? ' · conta ' + p.account : '') + (p.ready === false ? ' · SEM LOGIN (rode: claude login nesse dir)' : '')}`
-    )),
-    `  git bash: ${d.gitBash || '(n/a)'}`,
-    `  conta primária autenticada no gh: ${d.ghAuth ? 'sim' : 'NAO'}`,
-    `  workspace: ${d.workspace || s.paths?.workspace || '?'}`,
-    `  home: ${s.paths?.home || '?'}`,
-    '',
-    `Contas (${(s.accounts || []).length}):`,
-    accts || '  (nenhuma)',
-    '',
-    'Config:',
-    `  intervalo: ${c.intervalSeconds}s · autoReview: ${!!c.autoReview} · autoApproveAll: ${c.autoApproveAll !== false} · autoApproveContested: ${c.autoApproveContested === true} · skipPermissions: ${!!c.skipPermissions}`,
-    `  autostart: ${!!c.autostart} · som: ${!!c.soundEnabled} · tema: ${c.theme || '-'}`,
-    `  updateRepo: ${c.updateRepo || '-'} · updateSource: ${c.updateSource || '(release)'}`,
-    `  mergeBlockedRepos: ${(c.mergeBlockedRepos || []).join(', ') || '-'}`,
-    '',
-    'Estado agora:',
-    `  fila: ${(s.queue || []).length} · panorama: ${(s.panorama || []).length} · meus PRs: ${(s.myPRs || []).length} · decisões pendentes: ${(s.decisions?.pending || []).length} · sessões ativas: ${(s.activeSessions || []).length}`,
-    `  atualização: ${u ? `v${u.current} · ${u.available ? 'v' + u.sourceVersion + ' DISPONÍVEL' : 'na mais recente'} (${u.channel}${u.repo ? ' ' + u.repo : ''})${u.note ? ' · ' + u.note : ''}` : '?'}`,
-    '',
-    // evento = linha com timestamp; o total de LINHAS é maior porque mensagem de erro
-    // multilinha (gh, cmd.exe) ocupa mais de uma. Dizer só "159 linhas" e depois "146
-    // eventos" na linha de leitura confundia, então o cabeçalho traz os dois.
-    `Log de falhas (${grupos.reduce((n, g) => n + g.count, 0)} evento(s) em ${grupos.length} grupo(s), ${log.length} linha(s)):`,
-    // resumo primeiro, detalhe depois: quem lê o relatório precisa saber QUANTOS
-    // episódios distintos existem antes de encarar linha crua.
-    ...(grupos.length ? ['  Resumo:', ...logSummaryLines(grupos).map(l => '    ' + l), ''] : []),
-    ...(log.length
-      ? [`  Detalhe (as ${Math.min(log.length, DIAG_LOG_TAIL)} linhas mais recentes):`, ...logTailLines(log, DIAG_LOG_TAIL)]
-      : ['  (sem falhas registradas)']),
-    '',
-    '(este relatório não contém tokens nem senhas)'
-  ].join('\n');
+  return diagnosticsText({
+    s: STATE || {}, log: logRaw || [], grupos: gruposRaw || [],
+    agora: new Date().toLocaleString('pt-BR'), tail: DIAG_LOG_TAIL
+  });
 }
 let lastDiag = '';
 $('#btnDiag').onclick = async () => {

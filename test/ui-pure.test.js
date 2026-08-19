@@ -2440,3 +2440,140 @@ test('vazio da fila: nome de org sai escapado', () => {
 test('vazio da fila: sem intervalo cai no padrão de 5 minutos', () => {
   assert.match(P.queueEmptyOkHtml({ aprovados: 0, owners: [] }), /a cada 5 minutos/);
 });
+
+/* ---------- onda 5, sétimo passo: o diagnóstico ----------
+   Este é o único texto do Farol que alguém lê FORA do Farol: a pessoa clica em "gerar
+   diagnóstico", cola no chat e espera socorro. Estava sem um único teste. O que importa
+   aqui não é o layout — é que o relatório diga a verdade e não leve segredo junto. */
+
+const DIAG_BASE = {
+  status: 'ok',
+  app: { version: '2.48.3', platform: 'win32' },
+  doctor: { node: 'v24', gh: 'gh 2.0', claude: '/bin/claude', ghAuth: true, workspace: '/w' },
+  paths: { home: '/h', workspace: '/w' },
+  config: { intervalSeconds: 300 },
+  queue: [], panorama: [], myPRs: [], decisions: { pending: [] }, activeSessions: [],
+};
+
+test('diagnóstico: relatório vazio ainda traz versão, status e o aviso de sigilo', () => {
+  const t = P.diagnosticsText({ s: DIAG_BASE, agora: '19/08/2026' });
+  assert.match(t, /versão: v2\.48\.3 · plataforma: win32 · node: v24/);
+  assert.match(t, /gerado: 19\/08\/2026/);
+  assert.match(t, /não contém tokens nem senhas/);
+});
+
+test('diagnóstico: sem estado nenhum não explode, e admite o que não sabe', () => {
+  const t = P.diagnosticsText();
+  assert.match(t, /versão: v\?/);
+  assert.match(t, /\(nenhuma\)/);
+  assert.match(t, /\(sem falhas registradas\)/);
+});
+
+test('diagnóstico: ferramenta ausente é dita em voz alta, não omitida', () => {
+  const s = { ...DIAG_BASE, doctor: { ...DIAG_BASE.doctor, gh: '', claude: '', ghAuth: false } };
+  const t = P.diagnosticsText({ s });
+  assert.match(t, /gh: NAO ENCONTRADO/);
+  assert.match(t, /claude: NAO ENCONTRADO/);
+  assert.match(t, /autenticada no gh: NAO/);
+});
+
+test('diagnóstico: conta sem token e conta silenciada aparecem marcadas', () => {
+  const s = { ...DIAG_BASE, accounts: [
+    { user: 'ana', primary: true, label: 'Pessoal', kind: 'pat', owners: ['acme'], tokenOk: true },
+    { user: 'bia', tokenOk: false, muted: true },
+  ] };
+  const t = P.diagnosticsText({ s });
+  assert.match(t, /Contas \(2\):/);
+  assert.match(t, /@ana \[primária\].*orgs=acme · token=ok/);
+  assert.match(t, /@bia.*token=NAO · silenciada/);
+});
+
+test('diagnóstico: assinatura Claude sem login é denunciada com o conserto junto', () => {
+  const s = { ...DIAG_BASE, doctor: { ...DIAG_BASE.doctor, claudeAuth: [{ label: 'p', configDir: '/x', ready: false }] } };
+  assert.match(P.diagnosticsText({ s }), /SEM LOGIN \(rode: claude login nesse dir\)/);
+});
+
+test('diagnóstico: log traz contagem de eventos, de grupos e de linhas', () => {
+  const grupos = [{ id: 'a', count: 3 }, { id: 'b', count: 4 }];
+  const t = P.diagnosticsText({ s: DIAG_BASE, grupos, log: ['x', 'y', 'z'] });
+  assert.match(t, /Log de falhas \(7 evento\(s\) em 2 grupo\(s\), 3 linha\(s\)\)/);
+  assert.match(t, /Resumo:/);
+});
+
+test('diagnóstico: log longo é cortado no teto e o texto diz quanto mostrou', () => {
+  const log = Array.from({ length: 90 }, (_, i) => 'linha ' + i);
+  const t = P.diagnosticsText({ s: DIAG_BASE, log, tail: 40 });
+  assert.match(t, /Detalhe \(as 40 linhas mais recentes\)/);
+});
+
+test('diagnóstico: atualização disponível e em dia se descrevem diferente', () => {
+  const dia = P.diagnosticsText({ s: { ...DIAG_BASE, update: { current: '2.48.3', available: false, channel: 'release' } } });
+  assert.match(dia, /atualização: v2\.48\.3 · na mais recente \(release\)/);
+  const nova = P.diagnosticsText({ s: { ...DIAG_BASE, update: { current: '2.48.3', available: true, sourceVersion: '2.49.0', channel: 'branch', repo: 'a/b', note: 'beta' } } });
+  assert.match(nova, /v2\.49\.0 DISPONÍVEL \(branch a\/b\) · beta/);
+});
+
+test('diagnóstico: NÃO leva token, senha nem cabeçalho de autorização', () => {
+  const s = {
+    ...DIAG_BASE,
+    accounts: [{ user: 'ana', tokenOk: true, token: 'ghp_SEGREDO123', password: 'senha!' }],
+    config: { ...DIAG_BASE.config, githubToken: 'ghp_OUTRO', pat: 'ghp_MAIS' },
+    doctor: { ...DIAG_BASE.doctor, authHeader: 'Bearer xyz' },
+  };
+  const t = P.diagnosticsText({ s, log: ['Authorization: Bearer xyz'], grupos: [] });
+  for (const segredo of ['ghp_SEGREDO123', 'ghp_OUTRO', 'ghp_MAIS', 'senha!'])
+    assert.ok(!t.includes(segredo), `vazou ${segredo} no diagnóstico`);
+});
+
+/* As duas invariantes que moravam em ui-widgets.test.js como casamento de regex contra o
+   corpo de buildDiagnostics. Aqui elas olham a SAÍDA, que é o que de fato importa. */
+
+test('diagnóstico: o Resumo agrupado vem ANTES do despejo cru', () => {
+  const t = P.diagnosticsText({ s: DIAG_BASE, grupos: [{ id: 'a', count: 2 }], log: ['x', 'y'] });
+  assert.ok(t.indexOf('  Resumo:') < t.indexOf('  Detalhe'), 'resumo antes do detalhe');
+});
+
+test('diagnóstico: log cru nunca sai inteiro, só o rabo limitado', () => {
+  const log = Array.from({ length: 159 }, (_, i) => 'linha ' + i);
+  const t = P.diagnosticsText({ s: DIAG_BASE, log, tail: 40 });
+  assert.ok(!t.includes('linha 0'), 'a linha mais antiga das 159 não entra');
+  assert.ok(t.includes('linha 158'), 'a mais recente entra');
+  assert.match(t, /159 linha\(s\)/, 'mas o total continua sendo dito');
+});
+
+/* ---------- onda 5, sétimo passo: o cartão da sessão ao vivo ----------
+   Os data-attributes deste cartão são contrato: o app volta neles depois pra atualizar
+   tempo, modelo e progresso sem redesenhar. Perder um `data-id` não quebra o layout —
+   quebra a atualização, em silêncio, e a barra fica parada pra sempre. */
+
+test('cartão de sessão: os ganchos de atualização existem todos', () => {
+  const html = P.sessionCardHtml({ id: 'abc', label: 'acme#12', startedAt: 1755600000000 }, 'preparo');
+  for (const cls of ['session-card', 'session-stage', 'session-model', 'session-agents', 'session-elapsed', 'sess-progress', 'stage-flow', 'activity-feed'])
+    assert.match(html, new RegExp(`class="[^"]*${cls}`), `sumiu o gancho .${cls}`);
+  assert.equal((html.match(/data-id="abc"/g) || []).length, 6, 'todo gancho carrega o id da sessão');
+  // metade do guarda de B13 (o rótulo de estágio congelava no primeiro paint): sem o
+  // data-started aqui, o tickElapsed do app.js não tem de onde recalcular a idade.
+  assert.match(html, /class="session-stage" data-started="1755600000000"/);
+  assert.match(html, /class="session-elapsed" data-started="1755600000000"/);
+});
+
+test('cartão de sessão: sem PR não inventa link; com PR, abre em aba nova e sem referrer', () => {
+  assert.doesNotMatch(P.sessionCardHtml({ id: 'a', label: 'x' }, ''), /<a href/);
+  const com = P.sessionCardHtml({ id: 'a', label: 'x', pr: { url: 'https://github.com/a/b/pull/1' } }, '');
+  assert.match(com, /target="_blank" rel="noreferrer"/);
+});
+
+test('cartão de sessão: botão Cancelar só aparece quando dá pra cancelar', () => {
+  assert.doesNotMatch(P.sessionCardHtml({ id: 'a', label: 'x' }, ''), /act-cancel/);
+  assert.match(P.sessionCardHtml({ id: 'a', label: 'x', cancellable: true }, ''), /act-cancel" data-id="a"/);
+});
+
+test('cartão de sessão: id e label hostis não viram markup nem escapam do atributo', () => {
+  const html = P.sessionCardHtml({ id: 'a"><b>', label: '<script>alert(1)</script>', pr: { url: 'x" onerror="y' } }, '');
+  assert.ok(!html.includes('<script>'), 'label não vira tag');
+  assert.ok(!html.includes('a"><b>'), 'id não escapa do atributo');
+  // o payload sobra como TEXTO inerte; o que não pode é a aspa crua que o faria virar
+  // atributo de verdade. Testar a ausência da string "onerror=" testaria a coisa errada.
+  assert.ok(!html.includes('onerror="'), 'url não consegue fechar o atributo e abrir outro');
+  assert.match(html, /href="x&quot; onerror=&quot;y"/, 'a aspa da url sai escapada');
+});

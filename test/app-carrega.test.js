@@ -53,7 +53,11 @@ const ESTADO = {
   panorama: [{ key: 'acme/web#2', url: 'u', title: 'Sobe versão', author: 'carol', updatedAt: new Date().toISOString(), mine: true }],
   myPRs: [{ key: 'acme/api#3', url: 'u', title: 'Meu PR', author: 'alice', updatedAt: new Date().toISOString() }],
   hiddenPRs: [], selfAnalyses: {}, decisions: { pending: [], resolved: [] },
-  activeSessions: [], headlessWaiting: [], chats: {}, reviewActions: {}, staleStates: {},
+  // sessão ativa de verdade no fixture: sem ela o cartão de "Analisando agora" nunca é
+  // desenhado no smoke test, e ele é justamente um render de DADO — o lugar onde
+  // objeto interpolado passa despercebido.
+  activeSessions: [{ id: 'sess-1', mode: 'auto', label: 'acme/repo#42', startedAt: 1755600000000, cancellable: true, pr: { url: 'https://github.com/acme/repo/pull/42', user: 'alice' } }],
+  headlessWaiting: ['acme/repo#43'], chats: {}, reviewActions: {}, staleStates: {},
   usage: {}, usageSessions: [], toolRuns: {}, pushbacks: {}, team: [], highlights: [],
   update: { state: 'idle' }, doctor: null, deliveries: null,
   // o painel Sistema le daqui; sem isto o renderDoctor quebra, e foi o proprio teste
@@ -72,7 +76,7 @@ function semObjectObject(rotulo) {
   // motivos"). O guarda existe pra pegar OBJETO INTERPOLADO em render de DADO, e
   // incluir texto autoral só produziria falso positivo — que foi o que aconteceu ao
   // escrever a nota da v2.48.3.
-  const alvos = ['#decisions', '#queue', '#panorama', '#myPRs', '#resolved', '#team', '#usage', '#reviewersEditor'];
+  const alvos = ['#decisions', '#queue', '#panorama', '#myPRs', '#resolved', '#team', '#usage', '#reviewersEditor', '#activeSessions'];
   for (const sel of alvos) {
     const html = document.querySelector(sel).innerHTML || '';
     assert.ok(!html.includes('[object Object]'), `${rotulo}: "${sel}" imprimiu [object Object]`);
