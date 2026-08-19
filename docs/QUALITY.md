@@ -126,17 +126,37 @@ O débito original era o `server.js`: uma classe `Engine` de 3122 linhas fazendo
   (o rótulo do estado, o botão, o tooltip com quatro motivos): nomeadas uma a uma, o
   `app.js` caiu de 51 pra 46 e a dívida somada de 67 pra 62.
 
+  **Quinto passo:** o painel **Sistema** (`claudeAuthBadge`, `claudeProfilesHtml`,
+  `accountsManagerHtml`), 199 linhas. Dois pedaços ficaram no `app.js` de propósito,
+  porque são DOM e não markup: o guarda de foco (não reconstruir enquanto a pessoa
+  digita num campo do bloco) e o `hint.hidden` do fim dos perfis, que o listener do
+  seletor desfaz.
+
+  Este passo rendeu a lição mais útil sobre o **ratchet de ternário**, e ela custou
+  caro: eu passei a maior parte do tempo caçando falso positivo. O gate conta `?` por
+  statement **depois de remover comentários e strings** (`strip`, em `rules.js`), coisa
+  que eu só fui verificar depois de reescrever comentários e trocar um `'?'` de texto
+  da UI por outra palavra. Essa troca chegou a mudar texto visível, e a comparação não
+  pegou porque os fixtures não cobriam aquele ramo. **Antes de perseguir o número, leia
+  como ele é medido, e bisecte com o scanner de verdade** (`scanFile(source, relPath)`)
+  em vez de reimplementar a fórmula.
+
+  O que de fato reduziu a dívida foi tratar repetição, não espremer expressão: um
+  helper `sel(cond)` eliminou onze `? ' selected' : ''` idênticos, e a barra de ações
+  virou um nome em vez de um bloco inteiro no meio do markup. `app.js` foi de 46 pra 42
+  e o `pure.js` voltou pra baseline; a soma caiu de 62 pra 58.
+
   **O que vem depois, e o obstáculo real:** a separação entre render e estado. O `app.js` tem **25 globais mutáveis** espalhados e nenhuma função de boot (tudo é efeito de topo, em ordem de arquivo), então o corte não é mecânico. E há um risco a respeitar: `test/ui-widgets.test.js` fixa **22 corpos de função inteiros** por regex sobre o texto do `app.js`, e mover qualquer um deles faz o `match` devolver `null`. Nenhum dos chamadores deste primeiro passo caía dentro dessas 22 (foi conferido antes de mexer); do próximo em diante, cada extração precisa vir junto com a migração da asserção de texto pra teste real em `pure.js`, que é a direção que o cabeçalho daquele arquivo já defende.
 
 ### Números de hoje (mantenha esta linha viva)
 
 | Arquivo | Linhas | Testes |
 |---|---|---|
-| `ui/app.js` | ~3662 | nenhum que o execute (os 5 que o tocam leem o arquivo como texto) |
-| `ui/pure.js` | ~1821 | `ui-pure.test.js`, 244 testes |
+| `ui/app.js` | ~3524 | nenhum que o execute (os 5 que o tocam leem o arquivo como texto) |
+| `ui/pure.js` | ~2151 | `ui-pure.test.js`, 260 testes |
 | `server.js` | ~1483 | via `boot`, `facades`, e os testes de comportamento |
 | maior módulo de `lib/` (`decision.js`) | ~869 | `decision-envelope.test.js`, `decision-history.test.js` |
-| suíte | | 1264 testes (1257 passando, 7 pulados fora do macOS) |
+| suíte | | 1389 testes (1382 passando, 7 pulados fora do macOS) |
 
 Os cinco que leem o `ui/app.js` do disco: `ui-widgets` (fixa 22 corpos de função por
 regex), `ui-contract` (extrai as rotas `/api/*` e cruza com o `http-server.js`),

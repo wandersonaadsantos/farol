@@ -16,7 +16,8 @@ import {
   fmtMoney, fmtUsageMetric, usageColorsFor, usageTooltipHtml,
   usageKpisHtml, usageMatrixHtml, usageBudgetHtml, usageSessionsHtml, escAttrSelector,
   defaultFor, overrideFor, reposOfOrg, suggestDefault, renderOrgBlock,
-  reviewChip, queueCardHtml, panoramaRowHtml, reasonGroupsHtml, reasonText
+  reviewChip, queueCardHtml, panoramaRowHtml, reasonGroupsHtml, reasonText,
+  claudeAuthBadge, claudeProfilesHtml, accountsManagerHtml
 } from './pure.js';
 
 const $ = (s) => document.querySelector(s);
@@ -485,108 +486,13 @@ function addAccount(user, owners, label) {
 }
 function renderAccountsManager() {
   const box = $('#accountsManager'); if (!box) return;
-  // não re-renderiza enquanto você edita um campo (senão apaga o que está digitando)
   if (document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
-  const accounts = (STATE.accounts || []);
-  const multi = accounts.length > 1;
-  const c = STATE.config || {};
-  const globalAR = c.autoReview !== false;      // padrão herdado: revisar automaticamente
-  const globalCav = c.autoApproveAll !== false; // padrão herdado: aprovar com ressalvas
-  const rows = accounts.map(a => {
-    const meta = ACCT[a.user.toLowerCase()] || {};
-    const auth = a.muted ? 'silenciada (fora dos avisos e da auto-revisão)' : (a.tokenOk ? 'autenticada no gh' : 'sem token: rode gh auth login');
-    return `<div class="card acct-card ${a.muted ? 'muted' : ''}" style="--ac:${meta.color};--ac-soft:${meta.soft};--ac-ink:${meta.ink};">
-      <input type="color" class="acct-color" data-user="${esc(a.user)}" value="${esc(a.color || meta.color || '#ffb454')}" title="cor da conta">
-      <div class="a-body">
-        <div class="a-editrow">
-          <input class="acct-label" data-user="${esc(a.user)}" value="${esc(a.label || a.user)}" placeholder="rótulo" spellcheck="false" title="rótulo da conta">
-          <input class="acct-kind" data-user="${esc(a.user)}" list="acctKinds" value="${esc(a.kind || '')}" placeholder="tipo (Pessoal/Trabalho)" spellcheck="false">
-          ${a.primary ? '<span class="a-tag">primária</span>' : ''}
-        </div>
-        <div class="a-sub"><a class="a-auth ${a.tokenOk && !a.muted ? 'ok' : ''}" href="https://github.com/${encodeURIComponent(a.user)}" target="_blank" rel="noreferrer" title="Abrir @${esc(a.user)} no GitHub">@${esc(a.user)}</a> · ${esc(auth)}</div>
-        <div class="a-editrow orgs"><span class="a-fieldlabel">orgs</span>
-          <input class="acct-owners" data-user="${esc(a.user)}" value="${esc((a.owners || []).join(', '))}" placeholder="org1, org2" spellcheck="false" title="organizações monitoradas por esta conta"></div>
-        <div class="a-pol-note">O que o Farol faz sozinho nos PRs desta conta (o que não escolher, segue o padrão geral):</div>
-        <div class="a-policy">
-          <div class="a-pol-item"><span class="a-fieldlabel">quando chega um PR pra você</span>
-            <select class="acct-autoreview" data-user="${esc(a.user)}" title="Revisar na hora ou só listar e esperar você mandar revisar">
-              <option value="">herda o geral: ${globalAR ? 'revisa na hora' : 'só põe na fila'}</option>
-              <option value="on"${a.autoReview === true ? ' selected' : ''}>revisa na hora</option>
-              <option value="off"${a.autoReview === false ? ' selected' : ''}>só põe na fila (você manda revisar)</option>
-            </select></div>
-          <div class="a-pol-item"><span class="a-fieldlabel">quando fica aprovável sem ressalvas</span>
-            <select class="acct-onclean" data-user="${esc(a.user)}" title="PR aprovável e sem nenhum ponto de atenção">
-              <option value="">herda o geral: aprova sozinho</option>
-              <option value="approve"${a.onClean === 'approve' ? ' selected' : ''}>aprova sozinho</option>
-              <option value="wait"${a.onClean === 'wait' ? ' selected' : ''}>espera você aprovar</option>
-            </select></div>
-          <div class="a-pol-item"><span class="a-fieldlabel">quando fica aprovável com ressalvas</span>
-            <select class="acct-oncaveats" data-user="${esc(a.user)}" title="PR aprovável, mas com pontos de atenção anotados">
-              <option value="">herda o geral: ${globalCav ? 'aprova e destaca as ressalvas' : 'espera você'}</option>
-              <option value="approve"${a.onCaveats === 'approve' ? ' selected' : ''}>aprova e destaca as ressalvas</option>
-              <option value="wait"${a.onCaveats === 'wait' ? ' selected' : ''}>espera você aprovar</option>
-            </select></div>
-          <div class="a-pol-item"><span class="a-fieldlabel">quando tem bloqueios</span>
-            <select class="acct-onreject" data-user="${esc(a.user)}" title="PR com bloqueios reais (a revisão pediu mudanças)">
-              <option value=""${!a.onReject || a.onReject === 'wait' ? ' selected' : ''}>espera você (padrão)</option>
-              <option value="request_changes"${a.onReject === 'request_changes' ? ' selected' : ''}>reprova sozinho (posta pedir mudanças)</option>
-            </select></div>
-          <div class="a-pol-item"><span class="a-fieldlabel">perfil Claude</span>
-            <select class="acct-claudeprofile" data-user="${esc(a.user)}" title="Assinatura Claude usada nas sessões desta conta">
-              <option value="">usa o perfil padrão do Farol</option>
-              ${(STATE.config.claudeProfiles || []).map(p => `<option value="${esc(p.id)}"${a.claudeProfileId === p.id ? ' selected' : ''}>${esc(p.label)}</option>`).join('')}
-            </select>
-            ${claudeAuthBadge(a.claudeProfileId || STATE.config.claudeProfileId || '')}
-          </div>
-        </div>
-      </div>
-      ${multi ? `<div class="a-actions">
-        <button class="btn sm ${a.muted ? 'ok' : 'ghost'} act-mute" data-user="${esc(a.user)}">${a.muted ? 'Reativar' : 'Silenciar'}</button>
-        <button class="btn sm danger-ghost acct-remove" data-user="${esc(a.user)}" title="parar de monitorar esta conta no Farol">Remover</button>
-      </div>` : ''}
-    </div>`;
-  }).join('');
-  const addForm = `<div class="card acct-add">
-    <div class="a-add-title">Adicionar conta</div>
-    <div class="a-editrow">
-      <input id="acctAddUser" placeholder="login do github" spellcheck="false">
-      <input id="acctAddOwners" placeholder="orgs (org1, org2)" spellcheck="false">
-      <input id="acctAddLabel" placeholder="rótulo (opcional)" spellcheck="false">
-      <button class="btn sm" id="btnAcctAdd">Adicionar</button>
-    </div>
-    <div class="a-hint">A conta precisa estar logada no <code>gh</code> (<code>gh auth login</code>) pra buscar e postar. Sem token, ela aparece aqui mas sem acesso.</div>
-  </div>
-  <datalist id="acctKinds"><option value="Pessoal"></option><option value="Trabalho"></option><option value="Teste antigo"></option></datalist>`;
-  box.innerHTML = (rows || '<div class="empty">Nenhuma conta configurada.</div>') + addForm;
+  box.innerHTML = accountsManagerHtml({ accounts: STATE.accounts, config: STATE.config, acct: ACCT, doctor: STATE.doctor, usage: STATE.usage });
 }
 
 // Gerenciador de perfis de assinatura Claude (Sistema): cada perfil é {id,label,dir}
 // (login por assinatura) ou {id,label,kind:'apikey',apiKey,baseUrl} (chave de API).
 // Perfil padrão global + perfis salvos, cada um com o e-mail logado (badge, via doctor).
-function claudeAuthBadge(id) {
-  const all = (STATE.doctor && STATE.doctor.claudeAuth) || [];
-  // servidor sempre inclui a entrada '' (padrão da máquina/legado), mesmo com perfis
-  // salvos - então id === '' (padrão global sem override, ou conta sem claudeProfileId
-  // próprio) acha essa entrada direto. all[0] fica só como último recurso pra doctorInfo
-  // ainda não ter chegado num formato esperado (nunca devolve string vazia à toa).
-  const info = all.find(x => x.id === id) || all.find(x => x.id === '') || all[0] || null;
-  if (!info) return '';
-  if (info.apiKeyMode) {
-    if (!info.ready) return `<span class="a-claude bad" title="Perfil de chave de API sem chave preenchida">SEM CHAVE</span>`;
-    // bloqueio de orçamento vem de STATE.usage.budgets (fonte única, viva a cada
-    // pushState, v2.40.0); o doctor parou de carregar blocked/reason, e este selo
-    // lia de lá (achado da revisão adversarial: o ramo tinha virado código morto)
-    const budget = ((STATE.usage && STATE.usage.budgets) || []).find(b => b.id === (info.id || id)) || {};
-    if (budget.blocked) {
-      const motivo = budget.reason === 'diario' ? 'orçamento diário' : 'orçamento total';
-      return `<span class="a-claude bad" title="${motivo} estourado, automação pausada (clique manual continua liberado)">🔴 ${motivo} estourado</span>`;
-    }
-    return `<span class="a-claude ok" title="Autenticação por chave de API">🔑 chave configurada</span>`;
-  }
-  if (info.ready === false) return `<span class="a-claude bad" title="rode claude login nesse diretório">SEM LOGIN</span>`;
-  if (info.account) return `<span class="a-claude ok" title="${esc(info.configDir || 'padrão da máquina')}">@${esc(info.account)}</span>`;
-  return `<span class="a-claude" title="${esc(info.configDir || 'padrão da máquina')}">${info.configDir ? 'logada' : 'padrão da máquina'}</span>`;
-}
 
 function genProfileId() {
   return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -607,101 +513,11 @@ function saveClaudeProfiles(profiles, defaultId) {
 
 function renderClaudeProfiles() {
   const box = $('#claudeProfilesManager'); if (!box) return;
+  // guarda de foco: não reconstrói enquanto você digita num campo deste bloco
   if (document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
-  const c = STATE.config || {};
-  const profiles = c.claudeProfiles || [];
-  // migração: legado preenchido e nenhum perfil salvo ainda -> oferece virar o primeiro perfil
-  const migrateCard = (!profiles.length && c.claudeConfigDir) ? `<div class="card acct-add">
-    <div class="a-add-title">Perfil atual detectado</div>
-    <div class="a-hint">Você já tem um diretório configurado: <code>${esc(c.claudeConfigDir)}</code>. Salvar como o primeiro perfil?</div>
-    <div class="a-editrow">
-      <input id="claudeMigrateLabel" placeholder="nome do perfil" value="Perfil atual" spellcheck="false">
-      <button class="btn sm" id="btnClaudeMigrate">Salvar como perfil</button>
-    </div>
-  </div>` : '';
-  // se o legado (claudeConfigDir) ainda estiver preenchido, "Padrão da máquina" na
-  // verdade cai nele por baixo dos panos (ver resolveClaudeConfigDir) - deixa isso
-  // visível aqui, já que a Task 6 tirou o campo texto que mostrava esse valor.
-  const defaultEmptyLabel = c.claudeConfigDir ? `Padrão da máquina (legado: ${esc(c.claudeConfigDir)})` : 'Padrão da máquina';
-  const defaultOptions = [`<option value="">${defaultEmptyLabel}</option>`]
-    .concat(profiles.map(p => `<option value="${esc(p.id)}"${c.claudeProfileId === p.id ? ' selected' : ''}>${esc(p.label)}</option>`))
-    .join('');
-  // botão de login da linha padrão: data-id dinâmico (era fixo "" antes desta feature,
-  // então sempre abria o legado ao clicar, mesmo com outro perfil selecionado no dropdown
-  // - bug preexistente, corrigido junto por ser exigido pra esconder o botão certo).
-  const defaultProfile = profiles.find(p => p.id === (c.claudeProfileId || ''));
-  const defaultIsApiKey = defaultProfile && defaultProfile.kind === 'apikey';
-  const defaultLoginBtn = defaultIsApiKey ? '' : `<button class="btn sm cp-login" data-id="${esc(c.claudeProfileId || '')}">Abrir sessão de login</button>`;
-  const defaultRow = `<div class="card set-row">
-    <div class="set-txt">
-      <span class="set-title">Perfil padrão do Farol</span>
-      <span class="set-desc">Vale pra toda conta do GitHub que não tiver um perfil próprio (painel Contas).</span>
-    </div>
-    <div class="set-ctl">
-      <select id="claudeProfileDefault">${defaultOptions}</select>
-      ${defaultLoginBtn}
-    </div>
-  </div>`;
-  const rows = profiles.map(p => {
-    const isApiKey = p.kind === 'apikey';
-    // gasto vem de STATE.usage.budgets (fonte unica do orcamento, viva a cada
-    // pushState), nunca mais do cache do doctor, que congelava o "Hoje" daqui
-    // enquanto a aba Consumo andava (v2.40.0)
-    const budgetInfo = isApiKey ? ((STATE.usage && STATE.usage.budgets) || []).find(x => x.id === p.id) : null;
-    const budgetStatusText = budgetInfo
-      ? `Hoje: US$ ${(budgetInfo.today || 0).toFixed(2)}${p.budgetDaily != null ? ` de US$ ${p.budgetDaily.toFixed(2)}` : ''}`
-        + (p.budgetTotal != null ? ` · Desde ${p.budgetSince || '?'}: US$ ${(budgetInfo.sinceCutoff || 0).toFixed(2)} de US$ ${p.budgetTotal.toFixed(2)}` : '')
-      : '';
-    const fields = isApiKey ? `
-      <div class="a-editrow">
-        <input class="cp-apikey" type="password" data-id="${esc(p.id)}" value="${esc(p.apiKey || '')}" placeholder="chave de API" spellcheck="false" autocomplete="off">
-        <button class="btn icon sm ghost cp-toggle-key" data-id="${esc(p.id)}" title="Mostrar/ocultar a chave" aria-label="Mostrar/ocultar a chave">👁</button>
-      </div>
-      <div class="a-editrow">
-        <input class="cp-baseurl" data-id="${esc(p.id)}" value="${esc(p.baseUrl || '')}" placeholder="URL base (opcional, deixe em branco pra usar a Anthropic direto)" spellcheck="false">
-      </div>
-      <div class="a-editrow">
-        <input class="cp-budget-daily" type="number" min="0" step="0.01" data-id="${esc(p.id)}" value="${p.budgetDaily != null ? p.budgetDaily : ''}" placeholder="Orçamento diário (US$, opcional)">
-        <input class="cp-budget-total" type="number" min="0" step="0.01" data-id="${esc(p.id)}" value="${p.budgetTotal != null ? p.budgetTotal : ''}" placeholder="Orçamento total (US$, opcional)">
-        <input class="cp-budget-since" type="date" data-id="${esc(p.id)}" value="${esc(p.budgetSince || '')}" title="Contar o total a partir de">
-      </div>
-      ${budgetStatusText ? `<div class="a-hint">${esc(budgetStatusText)}</div>` : ''}` : `
-      <div class="a-editrow">
-        <input class="cp-dir" data-id="${esc(p.id)}" value="${esc(p.dir || '')}" placeholder="${ehWin() ? 'C:\\Users\\voce\\.claude-perfil' : '~/.claude-perfil'}" spellcheck="false">
-      </div>`;
-    return `<div class="card acct-card">
-    <div class="a-body">
-      <div class="a-editrow">
-        <input class="cp-label" data-id="${esc(p.id)}" value="${esc(p.label)}" placeholder="nome do perfil" spellcheck="false">
-        ${claudeAuthBadge(p.id)}
-      </div>
-      ${fields}
-    </div>
-    <div class="a-actions">
-      ${isApiKey ? '' : `<button class="btn sm cp-login" data-id="${esc(p.id)}">Abrir sessão de login</button>`}
-      <button class="btn sm danger-ghost cp-remove" data-id="${esc(p.id)}">Remover</button>
-    </div>
-  </div>`;
-  }).join('');
-  const addForm = `<div class="card acct-add">
-    <div class="a-add-title">Adicionar perfil</div>
-    <div class="a-editrow">
-      <div class="seg" id="cpAddKind" role="group" aria-label="Tipo de perfil">
-        <button type="button" class="seg-btn active" data-kind="dir">Login por assinatura</button>
-        <button type="button" class="seg-btn" data-kind="apikey">Chave de API</button>
-      </div>
-    </div>
-    <div class="a-editrow">
-      <input id="cpAddLabel" placeholder="nome (ex.: BIUD Trabalho)" spellcheck="false">
-      <input id="cpAddDir" placeholder="diretório de config (ex.: ${ehWin() ? 'C:\\Users\\voce\\.claude-biud-trabalho' : '~/.claude-biud-trabalho'})" spellcheck="false">
-      <input id="cpAddApiKey" type="password" placeholder="chave de API" spellcheck="false" autocomplete="off" hidden>
-      <input id="cpAddBaseUrl" placeholder="URL base (opcional)" spellcheck="false" hidden>
-      <button class="btn sm" id="btnCpAdd">Adicionar</button>
-    </div>
-    <div class="a-hint" id="cpAddHint">Deixe em branco pra usar a Anthropic direto. Um endpoint customizado precisa falar a API de Mensagens da Anthropic, não é garantia de que qualquer provedor (ex.: OpenRouter) funcione sem um proxy tradutor.</div>
-  </div>`;
-  box.innerHTML = migrateCard + defaultRow + rows + addForm;
-  const hint = $('#cpAddHint'); if (hint) hint.hidden = true; // só aparece no modo Chave de API (ver listener do seletor)
+  box.innerHTML = claudeProfilesHtml({ config: STATE.config, usage: STATE.usage, doctor: STATE.doctor, ehWin: ehWin() });
+  // efeito de DOM, não de markup: o listener do seletor mostra de volta no modo Chave de API
+  const hint = $('#cpAddHint'); if (hint) hint.hidden = true;
 }
 
 // re-render das seções sensíveis ao escopo (sem esperar novo state do engine)

@@ -33,7 +33,7 @@
     "maxLines": 1,
     "emptyCatch": 1,
     "ternarioAninhado": 1,
-    "profundidadeExcedida": 16
+    "profundidadeExcedida": 15
   },
   "lib/engine/selfpr.js": {
     "maxLines": 1,
@@ -108,7 +108,7 @@
   "ui/app.js": {
     "maxLines": 1,
     "jsonStringifyCru": 2,
-    "ternarioAninhado": 46,
+    "ternarioAninhado": 42,
     "profundidadeExcedida": 9
   },
   "ui/pure.js": {
