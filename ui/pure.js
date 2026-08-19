@@ -713,6 +713,15 @@ export function reasonGroups(reasons) {
 // Uma linha por grupo, com os motivos daquele grupo embaixo. `postRetry` (já
 // projetado por decisionForUi) só decora o grupo de infra: é ali que "o app ainda
 // vai tentar sozinho" muda o que VOCÊ precisa fazer, que é nada.
+// Texto de UM motivo, aceitando as duas formas: { text, kind } (v2.48.0+) e string
+// solta (histórico gravado antes). Existe porque nem todo consumidor mostra a lista
+// agrupada: o toast e a notificação do sistema mostram só o primeiro motivo, e
+// interpolar o objeto direto imprimia "[object Object]" na cara do usuário.
+export function reasonText(r) {
+  if (r && typeof r === 'object') return String(r.text || '');
+  return String(r || '');
+}
+
 export function reasonGroupsHtml(reasons, postRetry) {
   const grupos = reasonGroups(reasons);
   if (!grupos.length) return '';
