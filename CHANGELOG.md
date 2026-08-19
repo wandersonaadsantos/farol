@@ -9,6 +9,33 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.48.3
+
+O card de decisão voltou a mostrar os motivos. Junto vai o primeiro teste que de fato
+abre as telas do Farol, e um ajuste nos nomes das etapas da revisão.
+
+**Correções**
+- **O card de "Precisa de você" mostrava `[object Object]` no lugar dos motivos.** Era o
+  card que você lê pra decidir entre aprovar e pedir mudanças, então ele ficou sem
+  nenhuma informação útil desde a v2.48.0. A notificação do Windows dizia a mesma coisa.
+  Agora os motivos aparecem agrupados por tipo (falha técnica, regra do app, ponto que a
+  revisão levantou), do mesmo jeito que já apareciam em Revisões recentes.
+
+**Melhorias**
+- **As etapas da revisão ficaram mais honestas.** "Redação" virou "fechamento", porque é
+  o que ela mede: o tempo entre a última atividade e o fim da sessão, não o tempo
+  escrevendo. E "card" passou a contar só quando o Farol de fato consulta o card; antes,
+  qualquer frase que mencionasse o Jira era classificada como consulta e levava junto
+  todo o tempo de raciocínio até ali. As etapas continuam sem custar nada em tokens: são
+  calculadas a partir do que já aparece no feed.
+
+**Por dentro**
+- As telas do Farol passaram a ser abertas em teste. Até aqui nenhum teste executava a
+  interface, só lia o código como texto, e foi por isso que a tela de reviewers quebrou
+  por duas versões sem ninguém perceber. Agora a suíte carrega a interface e desenha
+  cada aba com dados de exemplo, incluindo a checagem de que nenhuma tela imprime
+  `[object Object]`.
+
 ## v2.48.2
 
 Três correções de coisas que apareceram no uso: a tela de reviewers quebrada, PR que

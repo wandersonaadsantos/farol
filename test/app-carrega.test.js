@@ -65,7 +65,12 @@ const ESTADO = {
 // na tela do usuário com a suíte inteira verde, e quem viu foi o Wanderson, usando.
 // Interpolar objeto em template é erro silencioso por natureza, então vira asserção.
 function semObjectObject(rotulo) {
-  const alvos = ['#decisions', '#queue', '#panorama', '#myPRs', '#resolved', '#team', '#usage', '#relNotes', '#reviewersEditor'];
+  // `#relNotes` fica de FORA: as notas de versão são prosa escrita por nós, e uma
+  // delas descreve justamente este bug ("mostrava [object Object] no lugar dos
+  // motivos"). O guarda existe pra pegar OBJETO INTERPOLADO em render de DADO, e
+  // incluir texto autoral só produziria falso positivo — que foi o que aconteceu ao
+  // escrever a nota da v2.48.3.
+  const alvos = ['#decisions', '#queue', '#panorama', '#myPRs', '#resolved', '#team', '#usage', '#reviewersEditor'];
   for (const sel of alvos) {
     const html = document.querySelector(sel).innerHTML || '';
     assert.ok(!html.includes('[object Object]'), `${rotulo}: "${sel}" imprimiu [object Object]`);
