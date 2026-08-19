@@ -2368,3 +2368,75 @@ test('claudeProfilesHtml: perfil de chave de API mostra os campos de teto', () =
   assert.match(html, /cp-budget-daily/);
   assert.match(html, /value="10"/, 'o teto salvo aparece preenchido');
 });
+
+/* ---------- onda 5, sexto passo: o banner do topo ----------
+   Os três avisos (sem conta, conta sem token, falha na última checagem) são decisão de
+   TEXTO; quem esconde e mostra o elemento continua no app.js.
+
+   A precedência importa e por isso está travada aqui: "sem conta" ganha de "sem token"
+   (uma conta que não existe não pode estar sem token), e `starting` cala os dois,
+   porque durante o boot ainda não se sabe nada e o aviso seria mentira. */
+
+test('banner: sem conta pede gh auth login, e ganha de qualquer outro aviso', () => {
+  const s = { account: { user: '', tokenOk: false }, status: 'error', error: 'algo' };
+  assert.match(P.statusBannerHtml(s), /Nenhuma conta do GitHub/);
+});
+
+test('banner: conta sem token nomeia a conta, escapada', () => {
+  const s = { account: { user: 'a<b>&"x', tokenOk: false }, status: 'idle', error: null };
+  const html = P.statusBannerHtml(s);
+  assert.match(html, /não está autenticada/);
+  assert.doesNotMatch(html, /<b>&"x/, 'o login vai escapado, não vira markup');
+});
+
+test('banner: durante o boot (starting) nenhum aviso de conta aparece', () => {
+  // ainda não se sabe nada; avisar seria mentira
+  for (const acc of [{ user: '', tokenOk: false }, { user: 'alice', tokenOk: false }]) {
+    assert.equal(P.statusBannerHtml({ account: acc, status: 'starting', error: null }), '');
+  }
+});
+
+test('banner: falha da checagem só aparece com status de erro E mensagem', () => {
+  const ok = { account: { user: 'alice', tokenOk: true } };
+  assert.match(P.statusBannerHtml({ ...ok, status: 'error', error: 'ECONNRESET' }), /Falha na última checagem/);
+  assert.equal(P.statusBannerHtml({ ...ok, status: 'error', error: '' }), '', 'erro sem mensagem não vira banner vazio');
+  assert.equal(P.statusBannerHtml({ ...ok, status: 'idle', error: 'resto antigo' }), '', 'mensagem velha sem status de erro não ressuscita');
+});
+
+test('banner: tudo em ordem devolve vazio (o app esconde o elemento)', () => {
+  assert.equal(P.statusBannerHtml({ account: { user: 'alice', tokenOk: true }, status: 'idle', error: null }), '');
+});
+
+/* ---------- onda 5, sexto passo: o vazio da fila ----------
+   Vazio bom CONFIRMA o que o app fez, em vez de só dizer que não tem nada. É o texto
+   que a pessoa lê quando abre o Radar e não tem PR esperando, então a contagem e o
+   plural precisam estar certos. */
+
+test('vazio da fila: sem aprovação hoje, não inventa contagem', () => {
+  const html = P.queueEmptyOkHtml({ aprovados: 0, owners: ['acme'], intervalSeconds: 300 });
+  assert.match(html, /O Farol monitora/);
+  assert.doesNotMatch(html, /aprovou/, 'zero não vira "aprovou 0"');
+});
+
+test('vazio da fila: singular e plural de PR e de minuto', () => {
+  const um = P.queueEmptyOkHtml({ aprovados: 1, owners: ['acme'], intervalSeconds: 60 });
+  assert.match(um, /aprovou 1 PR sozinho/);
+  assert.match(um, /a cada 1 minuto\b/);
+  const varios = P.queueEmptyOkHtml({ aprovados: 3, owners: ['acme'], intervalSeconds: 300 });
+  assert.match(varios, /aprovou 3 PRs sozinho/);
+  assert.match(varios, /a cada 5 minutos/);
+});
+
+test('vazio da fila: sem orgs configuradas usa o texto genérico', () => {
+  assert.match(P.queueEmptyOkHtml({ aprovados: 0, owners: [] }), /as organizações configuradas/);
+});
+
+test('vazio da fila: nome de org sai escapado', () => {
+  const html = P.queueEmptyOkHtml({ aprovados: 0, owners: ['a<b>&"x'] });
+  assert.doesNotMatch(html, /<b>&"x/, 'org com HTML não vira markup');
+  assert.match(html, /&lt;b&gt;/);
+});
+
+test('vazio da fila: sem intervalo cai no padrão de 5 minutos', () => {
+  assert.match(P.queueEmptyOkHtml({ aprovados: 0, owners: [] }), /a cada 5 minutos/);
+});

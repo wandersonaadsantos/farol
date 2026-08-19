@@ -20,6 +20,8 @@
 // app pra validar visual e clique. Runner nativo, ZERO deps.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import { instalarDom } from './helpers/dom-stub.js';
 
 // NOTA sobre o `--test-force-exit` no script de test: carregar o app.js liga os
@@ -159,4 +161,22 @@ test('aba Sistema ativa: doctor, contas e perfis desenham sem explodir', () => {
   };
   assert.equal(emitir('state', comSistema), 1);
   document.querySelector('#tab-sistema').classList.remove('active');
+});
+
+/* Import morto: símbolo trazido do pure.js que ninguém mais usa depois de uma
+   extração. Não quebra nada em runtime, então passa por `node --check`, pelo lint,
+   pela suíte e pelo CI — e vai apodrecendo. Quando este teste nasceu havia 17 deles
+   acumulados dos passos 2 a 5 da onda 5, todos meus.
+
+   Um cético do workflow de análise apontou o risco antes de eu cometer o próximo. */
+
+test('nenhum símbolo importado do pure.js está morto no app.js', () => {
+  const src = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
+  const m = src.match(/import \{([\s\S]*?)\} from '\.\/pure\.js';/);
+  assert.ok(m, 'o app.js importa do pure.js');
+  const nomes = m[1].split(',').map(s => s.trim()).filter(Boolean);
+  assert.ok(nomes.length >= 40, `esperava o import cheio, achei ${nomes.length}`);
+  const corpo = src.slice(m.index + m[0].length);
+  const mortos = nomes.filter(n => !new RegExp(`\\b${n}\\b`).test(corpo));
+  assert.deepEqual(mortos, [], 'símbolo importado e não usado: sobrou de uma extração');
 });

@@ -933,6 +933,60 @@ export function sessionProgress(count) {
 
 
 
+/* ---------- fila: o vazio que CONFIRMA ----------
+   Sexto passo da onda 5. Vazio bom merece confirmar o que o app fez, nao so dizer que
+   nao tem nada: quantos PRs foram aprovados sozinhos hoje, quais orgs sao monitoradas
+   e de quanto em quanto tempo. Tudo isso e texto derivado de estado, entao e puro.
+
+   `aprovadosHoje` continua no pure.js e e chamada pelo app.js, nao aqui: ela le
+   `decisions.resolved`, que e estado, e o construtor recebe so o numero pronto. */
+export function queueEmptyOkHtml(ctx = {}) {
+  const aprovados = ctx.aprovados || 0;
+  const orgs = (ctx.owners || []).map(o => `<b>${esc(o)}</b>`).join(', ');
+  const min = Math.round((ctx.intervalSeconds || 300) / 60);
+  const plural = aprovados === 1 ? 'PR' : 'PRs';
+  const feito = aprovados
+    ? `O Farol aprovou ${aprovados} ${plural} sozinho hoje e monitora `
+    : 'O Farol monitora ';
+  const quem = orgs || 'as organizações configuradas';
+  const cadencia = min === 1 ? 'minuto' : 'minutos';
+  return `<div class="empty-ok">
+      <div class="eo-check" aria-hidden="true">✓</div>
+      <div class="eo-title">Nada esperando por você</div>
+      <p class="eo-sub">${feito}${quem} a cada ${min} ${cadencia}. Quando pedirem sua revisão, o card aparece aqui.</p>
+      <div class="eo-acts">
+        <button class="btn sm eo-resolved">Ver o que foi aprovado</button>
+        <button class="btn sm ghost eo-check-now">Verificar agora</button>
+      </div>
+    </div>`;
+}
+
+/* ---------- banner do topo ----------
+   Sexto passo da onda 5. Os tres avisos que o banner pode mostrar (sem conta, conta
+   sem token, falha na ultima checagem) sao decisao de TEXTO, nao de DOM: quem esconde
+   e mostra o elemento continua no app.js.
+
+   A forma e `if` plano de proposito, nao ternario encadeado: medido com scanFile, a
+   escada de ternarios subiria o ternarioAninhado do pure.js de 16 pra 17, e o arquivo
+   nao tem folga nenhuma nesse eixo.
+
+   Sem `?.` tambem de proposito: snapshot sem `account` tem que explodir alto, como
+   explode hoje, em vez de virar silenciosamente "Nenhuma conta detectada" e mentir
+   pra quem esta olhando. */
+export function statusBannerHtml(s = {}) {
+  const partindo = s.status === 'starting';
+  if (!s.account.user && !partindo) {
+    return 'Bem-vindo ao Farol! Nenhuma conta do GitHub foi detectada. Rode <code>gh auth login</code> no terminal (conta de trabalho) e clique em Verificar agora.';
+  }
+  if (!s.account.tokenOk && !partindo) {
+    return `A conta <b>${esc(s.account.user)}</b> não está autenticada no GitHub CLI. Rode <code>gh auth login</code> no terminal e clique em Verificar agora.`;
+  }
+  if (s.status === 'error' && s.error) {
+    return `Falha na última checagem: ${esc(s.error)}. Vou tentar de novo no próximo ciclo.`;
+  }
+  return '';
+}
+
 /* ---------- painel Sistema: perfis do Claude e contas ----------
    Saiu do app.js na onda 5, quinto passo. Mesmo padrão dos anteriores: o render lê o
    estado e atribui; o CONSTRUTOR só recebe um ctx e devolve string.
