@@ -2315,3 +2315,56 @@ test('panoramaRowHtml: o selo da conta só aparece no escopo "todas"', () => {
   assert.doesNotMatch(umaConta, /acct-chip/);
   assert.match(umaConta, /sua revisão/, 'numa conta só, o que importa é ser seu');
 });
+
+/* ---------- onda 5, quinto passo: o painel Sistema (perfis e contas) ----------
+   Dois pedaços ficaram no app.js de propósito, porque são DOM e não markup: o guarda
+   de foco (não reconstruir enquanto a pessoa digita num campo do bloco) e o
+   `hint.hidden` do fim dos perfis, que o listener do seletor desfaz. */
+
+const CTX_SIS = {
+  config: { claudeProfiles: [{ id: 'p1', label: 'Pessoal', dir: '/home/x/.claude' }], claudeProfileId: 'p1' },
+  usage: { budgets: [] },
+  doctor: { claudeAuth: [{ id: 'p1', ready: true, account: 'alice' }, { id: '', ready: true }] },
+  ehWin: true,
+  accounts: [{ user: 'alice', owners: ['acme'], tokenOk: true }],
+  acct: { alice: { label: 'Pessoal', color: '#f80' } },
+};
+
+test('claudeAuthBadge: acha o perfil, cai no padrão da máquina, e some sem dado', () => {
+  assert.match(P.claudeAuthBadge('p1', CTX_SIS), /alice/);
+  assert.match(P.claudeAuthBadge('', CTX_SIS), /a-claude/, 'id vazio acha a entrada do padrão');
+  assert.equal(P.claudeAuthBadge('p1', { doctor: {} }), '', 'sem doctor não inventa selo');
+});
+
+test('painel Sistema: os três construtores desenham com ctx cheio e com ctx vazio', () => {
+  const vazio = { config: {}, usage: {}, doctor: {}, accounts: [], acct: {}, ehWin: false };
+  for (const ctx of [CTX_SIS, vazio]) {
+    assert.equal(typeof P.claudeAuthBadge('x', ctx), 'string');
+    assert.match(P.claudeProfilesHtml(ctx), /^\s*(<|$)/, 'perfis devolve markup ou vazio');
+    assert.equal(typeof P.accountsManagerHtml(ctx), 'string');
+  }
+});
+
+test('accountsManagerHtml: sem contas mostra o vazio, com conta mostra a linha', () => {
+  assert.match(P.accountsManagerHtml({ ...CTX_SIS, accounts: [] }), /Nenhuma conta configurada/);
+  assert.match(P.accountsManagerHtml(CTX_SIS), /acct-color/);
+});
+
+test('accountsManagerHtml: conta silenciada muda rótulo e classe do botão', () => {
+  const mudo = { ...CTX_SIS, accounts: [{ user: 'alice', owners: ['acme'], muted: true }] };
+  const html = P.accountsManagerHtml(mudo);
+  assert.match(html, /silenciada/, 'o estado aparece no texto de autenticação');
+});
+
+test('claudeProfilesHtml: sem perfil e com diretório legado oferece a migração', () => {
+  const legado = { ...CTX_SIS, config: { claudeProfiles: [], claudeConfigDir: '/home/x/.claude' } };
+  assert.match(P.claudeProfilesHtml(legado), /primeiro perfil/);
+  assert.doesNotMatch(P.claudeProfilesHtml(CTX_SIS), /primeiro perfil/, 'com perfil salvo, some');
+});
+
+test('claudeProfilesHtml: perfil de chave de API mostra os campos de teto', () => {
+  const api = { ...CTX_SIS, config: { claudeProfiles: [{ id: 'p2', label: 'API', kind: 'apikey', apiKey: 'k', budgetDaily: 10 }], claudeProfileId: 'p2' } };
+  const html = P.claudeProfilesHtml(api);
+  assert.match(html, /cp-budget-daily/);
+  assert.match(html, /value="10"/, 'o teto salvo aparece preenchido');
+});
