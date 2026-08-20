@@ -27,6 +27,7 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
 | `lib/engine/decision.js` | O gate de postagem: `shouldAutoApprove`, `shouldAutoReject`, `coverageGap`, `checkpointGap`, `attentionPoints`, `postReview`, `decide`, capabilities das sessões interativas e projeção segura das decisões para a UI |
 | `lib/engine/public-review.js` | Fronteira determinística entre diagnóstico interno e review: valida schema/linguagem de corpos e inlines, extrai review humano de registros legados e monta a allowlist enviada à UI |
 | `lib/engine/skip-review.js` | **UM Farol por PR** (v2.50.1). Ver a label `<conta>:revisando` de outra pessoa faz o Farol SAIR DE CENA naquele head, de forma DURÁVEL (na v2.49.0 era só um adiamento, ver o parágrafo próprio abaixo). `revisandoPorOutros` é PURA, `outrosRevisando` é o gate SÍNCRONO e sem IO (contrato do reReviewTargets), `saiDeCena` comenta e ancora por head, `standDownCaducou` é a rede de segurança (sessão do colega morreu sem review = volta a revisar) e `coAssinar` é o opt-in que aprova em seu nome quando quem pegou aprovou. **`acrity` nunca conta como pessoa** (review de ferramenta não dispensa olho humano). Vale só no caminho AUTOMÁTICO: clique manual sempre revisa |
+| `lib/engine/codeowners.js` | **Quem é AUTORIDADE sobre cada arquivo do PR** (v2.51.0). Tudo PURO: `parseCodeowners`, `patternToRegex` (estilo gitignore), `ownersForPath` (a ÚLTIMA regra que casa vence, semântica do GitHub, NÃO acumula), `souAutoridade` e `cobreMinhaExigencia` (só saio de cena se quem pegou o PR é dono de TODO arquivo em que eu sou). Dono que é TIME (`@org/slug`) é inconclusivo e cai sempre no lado seguro |
 | `lib/engine/fanout.js` | Fan-out de revisão em PR grande: mede o PR (`prMetrics`), decide se fatia (`shouldFanOut`), monta os lotes por afinidade de caminho (`planLotes`, função PURA) e injeta o instrutivo (`fanOutBlock`). Determinístico, ZERO IA e zero rede na parte que decide |
 | `lib/engine/session.js` | Sessões do Claude: headless (`runClaudeStream`, `buildModelFlags`), terminal por SO (`buildSessionScript`/`Mac`), cancelamento (`killTree`). É aqui que o marcador `FAROL_CHECKPOINT` é interceptado (ver a seção "Checkpoint de verificação") |
 | `lib/engine/verification-checkpoint.js` | Checkpoint de verificação da revisão headless: memória append-only por PR do que já foi confirmado contra o código (`checkpointPath`, `appendCheckpointEntry`, `readCheckpoint`, `summarizeCheckpoint`, `resumeBlock`). Só o ENGINE escreve, nunca a sessão; detalhe na seção "Checkpoint de verificação" |
@@ -399,6 +400,48 @@ Distinção que evita dois destinos pro mesmo texto: dentro de uma LISTA, nome d
 pessoa/repo leva ao GitHub; nos CARTÕES DE ESTATÍSTICA ("@X na frente", "repo na
 frente", "+N hoje"), que são atalhos da própria tela, o clique leva ao grupo
 correspondente na lista abaixo, trocando a visão se preciso.
+
+### Aprovação não é fungível: o CODEOWNERS entra no gate (v2.51.0)
+
+A v2.50.1 consertou o marcador transitório mas manteve um pressuposto errado:
+que "outra pessoa está revisando" bastava. **Não basta, importa QUEM.** Dados
+medidos em 20/08/2026:
+
+| repo | CODEOWNERS | gate |
+|---|---|---|
+| `biudtech/engine-ai` | `* @Alexpraxedes` | ruleset com codeowners |
+| `biudtech/biud-frontend` | `* @wandersonbiuder @thiagocarvalho-dev` + `/package.json @Alexpraxedes` | `PR_LINT_DEV` e `PR_LINT` com `require_code_owner_review: true` |
+
+No front o gate é EXIGIDO de verdade, então aprovação do Alex não libera nada
+fora do `package.json`. Com o comportamento da v2.50.1, se o Farol dele pegasse
+um PR do front primeiro, os Farols do Wanderson e do Thiago saíam de cena e o PR
+travava sem a aprovação exigida. E com a co-assinatura ligada era **pior**: o
+gate de codeowner seria satisfeito sem nenhum codeowner ter revisado, que é o
+oposto do que ele existe pra fazer ("filtrar o que sobe ou não").
+
+`cobreMinhaExigencia(regras, caminhos, eu, outro)` é a pergunta que decide: só
+saio de cena se, pra TODO arquivo em que eu sou dono, `outro` também é. Os quatro
+casos reais estão travados em `test/codeowners.test.js`. **CODEOWNERS é OU dentro
+da linha e a ÚLTIMA regra que casa vence por arquivo** (não acumula), então Thiago
+cobre o Wanderson no front mas nenhum dos dois cobre o `package.json`.
+
+Duas travas que vêm junto: **nunca co-assino onde sou autoridade** (registrado em
+`skipComentado[key].autoridade` na hora de sair de cena) e **falta de dado nunca
+libera** (CODEOWNERS ilegível, diff não medido ou dono de time = reviso). O cache
+do CODEOWNERS é por repo, em memória, TTL de 1h.
+
+### Reabertura silenciosa pós-update (v2.51.0)
+
+O auto-update é ligado por padrão desde a v2.46.0, então o ciclo "fecha e reabre"
+acontecia sozinho no meio do dia e a janela nova roubava o foco. Agora o app
+reabre **escondido, direto na bandeja**, e quem avisa é uma notificação.
+
+O sinal é um ARQUIVO (`state/reabrir-silencioso.json`), não um argumento de linha
+de comando, porque no Windows quem reabre é `explorer.exe <atalho>` e os
+argumentos vêm do `.lnk`. Ele é gravado antes de disparar o installer e consumido
+(e apagado) pelo `main.js` no boot, uma vez só. **Tem prazo de 10 minutos de
+propósito**: update que falha no meio deixaria o marcador no disco e a próxima
+abertura MANUAL sairia sem janela, o que pareceria app quebrado.
 
 ## Um Farol por PR (v2.50.1): a lição do marcador transitório
 

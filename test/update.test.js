@@ -9,6 +9,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 const update = (await import('../lib/engine/update.js')).default;
 const { APP_ROOT } = await import('../lib/paths.js');
+const { TEMPOS } = await import('../lib/constants.js');
 const { Engine } = await import('../server.js');
 const decision = (await import('../lib/engine/decision.js')).default;
 
@@ -479,4 +480,46 @@ test('maybeAutoUpdate: skipped "em-andamento" quando updateApplying já é truth
   });
   assert.equal(chamou, false);
   assert.deepEqual(r, { ok: false, skipped: 'em-andamento' });
+});
+
+/* ---------- reabertura silenciosa pos-update (v2.51.0) ----------
+   Pedido do Wanderson: o auto-update fechava e reabria o app com a janela
+   VISIVEL, roubando o foco no meio do trabalho. O marcador tem PRAZO de
+   proposito: update que falhou nao pode deixar a proxima abertura MANUAL sem
+   janela, porque isso pareceria app quebrado. */
+
+test('reaberturaEhRecente: dentro da janela vale', () => {
+  const agora = 1_000_000_000;
+  assert.equal(update.reaberturaEhRecente({ at: agora - 1000 }, agora), true);
+});
+
+test('reaberturaEhRecente: fora da janela NAO vale (update que falhou)', () => {
+  const agora = 1_000_000_000;
+  const velho = agora - TEMPOS.REABERTURA_SILENCIOSA_MS - 1;
+  assert.equal(update.reaberturaEhRecente({ at: velho }, agora), false);
+});
+
+test('reaberturaEhRecente: carimbo torto nunca vale', () => {
+  const agora = 1_000_000_000;
+  assert.equal(update.reaberturaEhRecente(null, agora), false);
+  assert.equal(update.reaberturaEhRecente({}, agora), false);
+  assert.equal(update.reaberturaEhRecente({ at: 'ontem' }, agora), false);
+  // carimbo no FUTURO (relogio mexido) tambem nao vale
+  assert.equal(update.reaberturaEhRecente({ at: agora + 5000 }, agora), false);
+});
+
+test('consumir: marcador de uso unico, some mesmo quando vencido', () => {
+  update.marcarReaberturaSilenciosa('9.9.9');
+  assert.equal(fs.existsSync(update.REABRIR_SILENCIOSO), true);
+  const lido = update.consumirReaberturaSilenciosa();
+  assert.equal(lido.to, '9.9.9');
+  assert.equal(fs.existsSync(update.REABRIR_SILENCIOSO), false, 'apagado na leitura');
+  assert.equal(update.consumirReaberturaSilenciosa(), null, 'segunda leitura nao devolve nada');
+});
+
+test('consumir: vencido devolve null E apaga (nao fica preso no disco)', () => {
+  update.marcarReaberturaSilenciosa('9.9.9');
+  const muitoDepois = Date.now() + TEMPOS.REABERTURA_SILENCIOSA_MS + 1000;
+  assert.equal(update.consumirReaberturaSilenciosa(muitoDepois), null);
+  assert.equal(fs.existsSync(update.REABRIR_SILENCIOSO), false);
 });
