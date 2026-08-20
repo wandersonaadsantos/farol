@@ -9,6 +9,38 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.50.1
+
+Correção do pulo de revisão que a v2.49.0 estreou. Ele prometia em público que não ia
+revisar e revisava minutos depois.
+
+**Correções**
+- **O Farol dizia no PR que não ia duplicar a revisão e duplicava assim mesmo.** A label
+  `<conta>:revisando` só existe enquanto a revisão da outra pessoa está rodando, e some
+  quando ela termina. Como o Farol decidia olhando essa label, o que parecia um pulo era
+  um adiamento de poucos minutos: passado esse tempo ele revisava e aprovava, deixando o
+  comentário público mentindo. Medido num PR real: o aviso saiu às 18:50, a label da outra
+  pessoa saiu às 18:52, e o Farol aprovou às 18:59. Agora sair de cena vale para aquele
+  estado do PR inteiro, então o comentário passou a descrever o que de fato acontece.
+- **Um Farol por PR.** Com várias pessoas do time usando o Farol, cada uma aprovava o
+  mesmo PR sem perguntar se aquilo ainda era necessário. Agora, quando alguém já pegou o
+  PR, os outros ficam de fora.
+
+**Novidades**
+- **Aprovar junto com quem pegou o PR** (Sistema → Automação, desligado por padrão).
+  Ligado, quando a pessoa que assumiu a revisão aprova, o Farol aprova em seu nome sem
+  abrir sessão nem gastar do seu limite. Serve para o caso em que a sua aprovação continua
+  sendo exigida (código do qual você é dono, por exemplo) mesmo que outra pessoa já tenha
+  revisado. O preço é explícito e por isso a chave nasce desligada: você endossa uma
+  revisão que não fez e não tem como saber com que rigor ou com que modelo ela foi feita.
+- **Se a revisão de quem pegou o PR não sair, o Farol assume de volta.** Sessão que morre
+  no meio na máquina do colega não deixa mais o PR órfão.
+
+**Aviso importante**
+- Com a chave de aprovar junto **desligada**, um PR em que a sua aprovação é a exigida
+  pode ficar esperando você, porque o Farol sai de cena e ninguém aprova no seu lugar. O
+  botão Revisar continua funcionando normalmente e nunca passa por esse gate.
+
 ## v2.50.0
 
 O orçamento virou um painel só, igual pra qualquer perfil, e agora o teto pode ser

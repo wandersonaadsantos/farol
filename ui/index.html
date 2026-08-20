@@ -371,6 +371,13 @@
               </span>
               <span class="set-ctl"><input id="setAutoApproveContested" type="checkbox"><span class="switch"></span></span>
             </label>
+            <label class="set-row" id="sys-row-coassinar">
+              <span class="set-txt">
+                <span class="set-title">Aprovar junto com quem pegou o PR</span>
+                <span class="set-desc">Quando outra pessoa do time já está revisando um PR, o Farol sai de cena e avisa no PR (um Farol por PR, pra não empilhar revisão em cima da mesma coisa). Com esta chave ligada, ele ainda aprova <b>em seu nome</b> quando essa pessoa aprova, sem abrir sessão nem gastar do seu limite, o que mantém a sua aprovação chegando quando ela é exigida (código do qual você é dono, por exemplo). O preço é explícito: você endossa uma revisão que não fez e não tem como saber com que rigor ou com que modelo ela foi feita. Desligado (padrão), o PR simplesmente espera você, e o botão Revisar continua funcionando normalmente.</span>
+              </span>
+              <span class="set-ctl"><input id="setCoAssinarReview" type="checkbox"><span class="switch"></span></span>
+            </label>
             <label class="set-row" id="sys-row-reviewfast">
               <span class="set-txt">
                 <span class="set-title">Modo rápido da revisão</span>
