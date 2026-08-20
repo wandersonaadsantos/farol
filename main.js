@@ -80,6 +80,21 @@ function createWindow() {
   win.setMenuBarVisibility(false);
   win.loadURL(appUrl);
 
+  // Renderer pode morrer sozinho (driver de GPU, principalmente no Windows, onde
+  // o titleBarOverlay é composição via GPU do Chromium; o macOS usa hiddenInset,
+  // sem esse caminho). Sem este handler a janela fica em branco pra sempre com o
+  // processo principal vivo (achado real, 20/08/2026: 4 processos Farol.exe no
+  // Task Manager e tela preta). recarrega sozinho; falha do reload não trava o app.
+  win.webContents.on('render-process-gone', (_e, details) => {
+    engine && engine.log('ERROR', `renderer caiu (${details.reason}); recarregando a janela`);
+    if (win && !win.isDestroyed()) { try { win.loadURL(appUrl); } catch { /* próxima interação do usuário reabre pela bandeja */ } }
+  });
+  // trava (não caiu, mas parou de responder) tem outro sintoma: avisa em vez de
+  // recarregar sozinho, pra não interromper um processo que ainda pode voltar.
+  // Só WARN na trava: "voltou a responder" é ruído operacional, não falha
+  // (invariante 3 do CLAUDE.md), então não vira linha de log.
+  win.on('unresponsive', () => { engine && engine.log('WARN', 'janela sem responder'); });
+
   // no macOS o lancador (Farol.app) e um wrapper que da exec no Electron: quem o Finder
   // ativa morre na hora, e o Electron sobe sem ativacao, com a janela atras de tudo.
   // O steal traz o app pra frente na abertura (sem ele, parece que o app nao abriu)
