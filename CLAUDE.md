@@ -401,6 +401,38 @@ pessoa/repo leva ao GitHub; nos CARTÕES DE ESTATÍSTICA ("@X na frente", "repo 
 frente", "+N hoje"), que são atalhos da própria tela, o clique leva ao grupo
 correspondente na lista abaixo, trocando a visão se preciso.
 
+### A garantia mora no estrangulamento, não no chamador (v2.51.1)
+
+Terceiro tropeço da mesma feature, e o mais instrutivo. A saída de cena foi
+implementada como um filtro no `toReview`, e existem **três** caminhos automáticos
+que enfileiram revisão:
+
+| caminho | via label viva | via saída registrada |
+|---|---|---|
+| `toReview` | sim | sim |
+| `reReviewTargets` | sim | **não** (até a v2.51.0) |
+| `retryTargets` | **não** | **não** (até a v2.51.0) |
+
+Medido no `biudtech/engine-ai#68` (20/08/2026): o Farol comentou às 19:55:52 e a
+label dele subiu às **19:57:45**, com a label do colega ainda no ar (ela só saiu às
+20:00:01). Ou seja, entrou por um caminho que nem olhava a label. Diferente do #60,
+aqui não foi o marcador transitório: foi gate no lugar errado.
+
+**A regra que sai daqui:** garantia que precisa valer sempre mora no PONTO DE
+ESTRANGULAMENTO, nunca em cada chamador. `enqueueHeadless` é por onde toda revisão
+headless passa (`launchReview` e `launchReReviews`), então é lá que a saída de cena
+é honrada. Os filtros em `retryTargets`/`reReviewTargets` continuam, mas agora são
+economia (não ficar repescando em silêncio), não a garantia.
+
+O CLAUDE.md **já avisava** disso no parágrafo do `reReviewTargets` ("as MESMAS
+travas do toReview: quem mexer lá, mexe aqui") e eu acrescentei uma trava nova sem
+espelhar. Aviso em prosa não substitui invariante no código.
+
+**Clique explícito atravessa e DESFAZ** (`pr.manual`, `origem: 'clique'` na rota):
+quem mandou revisar foi você, sabendo que outra pessoa está lá, e a partir daí o
+app volta a agir no PR. Mesmo espírito do estacionamento (lançar tira de lá).
+Travado em `test/saida-de-cena-estrangulamento.test.js`.
+
 ### Aprovação não é fungível: o CODEOWNERS entra no gate (v2.51.0)
 
 A v2.50.1 consertou o marcador transitório mas manteve um pressuposto errado:
