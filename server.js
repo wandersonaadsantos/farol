@@ -907,11 +907,13 @@ class Engine extends EventEmitter {
         ...this.headlessQueue.map(p => p.key),
         ...[...this.activeReviews.values()].flatMap(s => s.keys || [])
       ]);
-      // PRs que outra PESSOA já está revisando (label "<conta>:revisando" dela no
-      // PR). Coletados aqui e comentados depois do filtro, porque comentar é IO e
-      // este filtro é síncrono de propósito. Ferramenta não conta como pessoa, e
-      // clique manual nunca passa por aqui (ver lib/engine/skip-review.js).
+      // UM Farol por PR: quem já saiu de cena naquele head fica fora, e quem vê a
+      // label de outra pessoa sai agora. Os dois são coletados aqui e resolvidos
+      // depois do filtro, porque comentar/consultar review é IO e este filtro é
+      // síncrono de propósito. Ferramenta não conta como pessoa, e clique manual
+      // nunca passa por aqui (ver lib/engine/skip-review.js).
       const pulados = [];
+      const foraDeCena = [];
       const toReview = this.queue.filter(p => {
         const acct = this.accountForPr(p);
         if (this.isMuted(acct)) return false;
@@ -920,6 +922,7 @@ class Engine extends EventEmitter {
         if (inflight.has(p.key)) return false;
         if (this.autoReviewParked.has(p.key)) return false;
         if (this.retryAfterNet.has(p.key)) return false;
+        if (this.skipComentado[p.key]) { foraDeCena.push(p); return false; }
         if (this._registraPulo(p, pulados)) return false;
         const blockedProfile = this.budgetBlockedFor(acct);
         if (blockedProfile) {
@@ -935,9 +938,11 @@ class Engine extends EventEmitter {
         this.emit('new-prs', { items: freshActive, total: this.queue.filter(p => !this.isMuted(this.accountForPr(p))).length, auto: toReview.length > 0 });
       }
       if (toReview.length) this.launchReview(toReview.map(p => p.url), 'auto');
-      // fire-and-forget, no padrão do scanPushbacks: comentar o pulo é cortesia
-      // com quem já pegou o PR, nunca pré-requisito do ciclo de polling.
-      if (pulados.length) this.comentarPulos(pulados).catch(err => this.log('WARN', `comentários de pulo: ${err.message}`));
+      // fire-and-forget, no padrão do scanPushbacks: sair de cena e co-assinar são
+      // cortesia com quem já pegou o PR, nunca pré-requisito do ciclo de polling.
+      if (pulados.length || foraDeCena.length) {
+        this.resolvePulos(pulados, foraDeCena).catch(err => this.log('WARN', `saída de cena: ${err.message}`));
+      }
 
       // a checagem funcionou = a rede voltou: relança revisões que caíram por algo
       // transitório. Vale pra QUALQUER revisão que caiu (clique no panorama e conta
@@ -1064,10 +1069,34 @@ class Engine extends EventEmitter {
   saveReReviewLaunched() { return reviewMod.saveReReviewLaunched(this); }
   // G15: estacionamento pós-falha persistido (padrão do savePushbackScanned)
   saveAutoReviewParked() { return reviewMod.saveAutoReviewParked(this); }
-  // pulo por outra pessoa já estar revisando (lib/engine/skip-review.js)
+  // UM Farol por PR (lib/engine/skip-review.js): sair de cena e co-assinar
   outrosRevisando(pr) { return skipMod.outrosRevisando(this, pr); }
-  comentarPulos(pulados) { return skipMod.comentarPulos(this, pulados); }
+  saiDeCena(pr, outros, head) { return skipMod.saiDeCena(this, pr, outros, head); }
+  seguirForaDeCena(pr, registro, head) { return skipMod.seguirForaDeCena(this, pr, registro, head); }
   podarSkipComentado(abertos) { return skipMod.podarSkipComentado(this, abertos); }
+
+  /* Resolve, num ciclo, os dois lados do "um Farol por PR". Assíncrono e
+     best-effort: nada aqui é pré-requisito do polling.
+     - `pulados`: acabei de ver a label de outra pessoa. Saio de cena AGORA, de
+       forma durável naquele head, e comento (o comentário só é verdade porque a
+       saída é durável; era a mentira da v2.49.0).
+     - `foraDeCena`: já estava fora. Aqui é onde a saída pode CADUCAR (a sessão do
+       colega morreu sem deixar review) ou virar co-assinatura (ele aprovou e a
+       chave está ligada).
+     O head vem de `headSha`, e falha ali degrada pra head vazio: sem head, a
+     âncora vale pro PR inteiro, que é o lado seguro de "um Farol por PR". */
+  async resolvePulos(pulados, foraDeCena) {
+    for (const { pr, outros } of pulados || []) {
+      await this.saiDeCena(pr, outros, await this._headSeguro(pr));
+    }
+    for (const pr of foraDeCena || []) {
+      await this.seguirForaDeCena(pr, this.skipComentado[pr.key] || {}, await this._headSeguro(pr));
+    }
+  }
+
+  async _headSeguro(pr) {
+    try { return await this.headSha(pr); } catch { return ''; }
+  }
   // `agora` com default nos DOIS lados de propósito: a fachada repassa o parâmetro
   // (nada é engolido) e o Function.length segue casando com o da implementação, que
   // é o que test/facades.test.js confere lendo este fonte.
