@@ -289,6 +289,29 @@ Como o Farol espalha `process.env` pros filhos, por padrão ele herda o login da
    vai estourar o limite, assume que vai estourar" (Wanderson, 20/08/2026) e a que COMEÇOU
    sempre termina.
 
+   **Desde a v2.50.0 o teto do dia tem TRÊS granularidades, resolvidas num lugar só.**
+   `dailyCapFor(profile, day)` (PURA, `lib/engine/usage.js`) é a peça central e vale
+   igual pros dois tipos de perfil, cada um independente: data única
+   (`budgetDates['YYYY-MM-DD']`) vence dia da semana (`budgetByWeekday['0'..'6']`), que
+   vence o teto base (`budgetDaily`). `dailyCapSource` diz de ONDE veio o teto que vale
+   hoje, e a UI precisa disso: sem ele, um sábado com teto próprio mostraria o número do
+   campo base no medidor e pareceria defeito. **`0` é um teto VÁLIDO** ("não gaste nada
+   neste dia") e por isso todo teste de presença usa `Number.isFinite`, nunca `||` nem
+   truthy; campo vazio na UI APAGA a chave em vez de gravar 0. O dia da semana sai de
+   **meio-dia local** (`new Date(day + 'T12:00:00')`): com meia-noite, a virada de
+   horário de verão jogaria a data pro dia anterior em parte do ano.
+
+   O campo de teto vem **preenchido com uma sugestão** (`sugestaoTetoDiario`, PURA): a
+   mediana do gasto dos DIAS ÚTEIS dos últimos 30 dias. Dia útil e não todo dia porque o
+   fim de semana tem poucos dias medidos e distorce (em 20/08/2026: 8 dias úteis com
+   mediana US$ 72,31 contra 2 dias de fim de semana com US$ 132,05, e dois dias não
+   sustentam teto). A sugestão é POR PERFIL quando há gasto atribuído a ele, senão cai no
+   gasto total da máquina, porque perfil de assinatura só passou a ter gasto atribuído na
+   v2.49.0 e exigir dado próprio deixaria sem sugestão justamente quem mais precisa.
+   **Ela NUNCA passa a valer sozinha** (decisão do Wanderson, 20/08/2026): só preenche o
+   campo, e o bloqueio só existe depois de salvar. Aplicar sozinho pararia a automação de
+   quem nunca configurou nada, que é o pior default possível num app que revisa PR.
+
    Desde a v2.35.0, cada perfil pode ter um **orçamento**: teto diário e/ou total (contado a partir de uma data de corte editável), configurados no mesmo card do perfil. Estourar qualquer um dos dois pausa toda a automação de revisão (disparo automático de PR novo, retentativa automática pós-falha transitória, e o scan automático de pushback), sem bloquear clique manual nem a autoanálise de Meus PRs (que só roda por clique); libera sozinho quando o gasto volta a caber, sem precisar de nenhum botão de "despausar". **A liberação automática vale pro gate de ENFILEIRAMENTO** (PR novo volta a disparar sozinho, o retry pós-falha volta a repescar, o scan de pushback volta a rodar). **PR que já estava na fila headless e foi barrado na BOCA da sessão é outra história: ele ESTACIONA (`autoReviewParked`) e espera clique** (decisão da spec, G16). O motivo é o teto do estacionamento em si: o que estaciona nunca relança sozinho, e abrir uma exceção só pro caso do orçamento faria a mesma leva reabrir sozinha horas depois, sem ninguém pedindo, exatamente o que o estacionamento existe pra impedir. Na prática, o card volta visível na fila com o botão Revisar ativo, e um clique retoma. O aviso desse estouro sai **uma vez por perfil por janela de bloqueio** (Set `budgetWarned`, o MESMO do gate de enfileiramento, reconciliado no topo do `check()` quando o perfil destrava): um lote de 8 PRs barrados pelo mesmo teto dava 8 toasts idênticos no mesmo segundo. **Correção importante junto desta feature**: sessões que terminam em erro agora também registram consumo no `usage.json` (`lib/engine/usage.js`), porque uma sessão pode gastar tokens de verdade em turnos anteriores e falhar só no passo final; antes disso, esse gasto ficava invisível na aba Consumo (achado real de um incidente de 04/08/2026, ~US$ 11 gastos em sessões que nunca terminaram com sucesso).
 
 **Passo a passo (perfil isolado):**

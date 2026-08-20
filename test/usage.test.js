@@ -595,3 +595,109 @@ test('budgetsFrom: perfil de assinatura agora expõe teto e gasto, sem vazar seg
   assert.equal('apiKey' in b, false);
   assert.equal('dir' in b, false);
 });
+
+/* ---------- teto por dia da semana e por data única (v2.50.0) ----------
+   Centralizado em dailyCapFor: um lugar só resolve o teto do dia, e vale igual
+   pra perfil de assinatura e de chave de API, cada um independente. */
+
+test('dailyCapFor: sem teto nenhum devolve null (e null nunca bloqueia)', () => {
+  assert.equal(usage.dailyCapFor({ id: 'p1' }, '2026-08-20'), null);
+  assert.equal(usage.dailyCapFor(null, '2026-08-20'), null);
+});
+
+test('dailyCapFor: cai no teto base quando não há override', () => {
+  assert.equal(usage.dailyCapFor({ id: 'p1', budgetDaily: 50 }, '2026-08-20'), 50);
+});
+
+// 2026-08-22 é sábado, 2026-08-20 é quinta
+test('dailyCapFor: dia da semana vence o base', () => {
+  const p = { id: 'p1', budgetDaily: 50, budgetByWeekday: { '6': 10 } };
+  assert.equal(usage.dailyCapFor(p, '2026-08-22'), 10, 'sábado usa o override');
+  assert.equal(usage.dailyCapFor(p, '2026-08-20'), 50, 'quinta segue no base');
+});
+
+test('dailyCapFor: data única vence o dia da semana e o base', () => {
+  const p = { id: 'p1', budgetDaily: 50, budgetByWeekday: { '6': 10 }, budgetDates: { '2026-08-22': 300 } };
+  assert.equal(usage.dailyCapFor(p, '2026-08-22'), 300);
+});
+
+// teto 0 é válido e significa "não gaste nada neste dia": não pode ser confundido
+// com ausência de teto, que é o que um `||` faria
+test('dailyCapFor: teto 0 é teto de verdade, não ausência', () => {
+  assert.equal(usage.dailyCapFor({ id: 'p1', budgetDaily: 50, budgetByWeekday: { '0': 0 } }, '2026-08-23'), 0);
+});
+
+test('dailyCapSource: diz de onde veio o teto que vale hoje', () => {
+  const p = { id: 'p1', budgetDaily: 50, budgetByWeekday: { '6': 10 }, budgetDates: { '2026-08-25': 300 } };
+  assert.equal(usage.dailyCapSource(p, '2026-08-20'), 'base');
+  assert.equal(usage.dailyCapSource(p, '2026-08-22'), 'semana');
+  assert.equal(usage.dailyCapSource(p, '2026-08-25'), 'data');
+  assert.equal(usage.dailyCapSource({ id: 'p1' }, '2026-08-20'), 'nenhum');
+});
+
+test('profileBudgetStatus: bloqueia pelo teto DO DIA, não pelo base', () => {
+  const store = usage.defaultUsage();
+  const u = usage.extractUsage({ usage: { input_tokens: 1 }, total_cost_usd: 20 }, 'x');
+  usage.applyUsage(store, usage.localDay(), 'review', 'a', 'x', u, 'p1');
+  const hoje = usage.localDay();
+  // teto base folgado, mas o dia de hoje tem override apertado
+  const p = { id: 'p1', budgetDaily: 100, budgetDates: { [hoje]: 5 } };
+  assert.equal(usage.profileBudgetStatus(p, store).blocked, true);
+  // e o contrário: base apertado, hoje liberado
+  const p2 = { id: 'p1', budgetDaily: 5, budgetDates: { [hoje]: 100 } };
+  assert.equal(usage.profileBudgetStatus(p2, store).blocked, false);
+});
+
+/* ---------- sugestão de teto diário ---------- */
+
+test('sugestaoTetoDiario: mediana dos DIAS ÚTEIS, ignorando fim de semana', () => {
+  const agora = Date.parse('2026-08-20T12:00:00');
+  // seg 10, ter 20, qua 30 (úteis) e sáb 999 (tem que ficar de fora)
+  const sessions = [
+    { at: agora - 1000, day: '2026-08-17', costUsd: 10, profileId: 'p1' },
+    { at: agora - 1000, day: '2026-08-18', costUsd: 20, profileId: 'p1' },
+    { at: agora - 1000, day: '2026-08-19', costUsd: 30, profileId: 'p1' },
+    { at: agora - 1000, day: '2026-08-15', costUsd: 999, profileId: 'p1' },
+  ];
+  assert.equal(usage.sugestaoTetoDiario(sessions, 'p1', agora), 20);
+});
+
+test('sugestaoTetoDiario: soma o dia inteiro, não uma sessão por dia', () => {
+  const agora = Date.parse('2026-08-20T12:00:00');
+  const sessions = [
+    { at: agora - 1000, day: '2026-08-18', costUsd: 5, profileId: 'p1' },
+    { at: agora - 1000, day: '2026-08-18', costUsd: 7, profileId: 'p1' },
+  ];
+  assert.equal(usage.sugestaoTetoDiario(sessions, 'p1', agora), 12);
+});
+
+// perfil de assinatura só passou a ter gasto atribuído na v2.49.0, então exigir
+// dado próprio deixaria sem sugestão justamente quem mais precisa dela
+test('sugestaoTetoDiario: sem dado do perfil cai no gasto total da máquina', () => {
+  const agora = Date.parse('2026-08-20T12:00:00');
+  const sessions = [
+    { at: agora - 1000, day: '2026-08-18', costUsd: 40, profileId: '' },
+    { at: agora - 1000, day: '2026-08-19', costUsd: 40, profileId: 'outro' },
+  ];
+  assert.equal(usage.sugestaoTetoDiario(sessions, 'p1', agora), 40);
+});
+
+test('sugestaoTetoDiario: sem nada pra medir devolve 0 (sem sugestão)', () => {
+  const agora = Date.parse('2026-08-20T12:00:00');
+  assert.equal(usage.sugestaoTetoDiario([], 'p1', agora), 0);
+  assert.equal(usage.sugestaoTetoDiario(null, 'p1', agora), 0);
+  // só fim de semana no histórico: não dá pra sugerir teto de dia útil
+  assert.equal(usage.sugestaoTetoDiario([{ at: agora - 1000, day: '2026-08-15', costUsd: 50 }], 'p1', agora), 0);
+});
+
+test('budgetsFrom: leva overrides, teto de hoje, origem e sugestão pra tela', () => {
+  const store = usage.defaultUsage();
+  const hoje = usage.localDay();
+  const perfil = { id: 'p1', label: 'X', dir: '/tmp/x', budgetDaily: 50, budgetDates: { [hoje]: 7 } };
+  const [b] = usage.budgetsFrom(store, [perfil], 0, []);
+  assert.equal(b.capHoje, 7);
+  assert.equal(b.capOrigem, 'data');
+  assert.deepEqual(b.budgetDates, { [hoje]: 7 });
+  assert.deepEqual(b.budgetByWeekday, {});
+  assert.equal(b.sugestaoDiaria, 0);
+});

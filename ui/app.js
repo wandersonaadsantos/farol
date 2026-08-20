@@ -710,8 +710,75 @@ $('#accountsManager').addEventListener('click', (e) => {
 });
 
 /* editor de perfis de assinatura Claude: adicionar / remover / editar / migrar / padrão global */
+/* ---------- cliques do editor de orçamento ----------
+   Separado do handler grande de cliques do gerenciador porque são cinco botões de
+   um mesmo assunto; devolve true quando tratou, pra o handler original sair cedo. */
+
+// escreve o mesmo valor num conjunto de dias da semana (atalho "dias úteis" e "fim
+// de semana"). Sem valor base preenchido não faz nada e explica: copiar `undefined`
+// pros sete dias apagaria a configuração em silêncio.
+function espalhaTeto(id, dows) {
+  const campo = document.querySelector(`.cp-budget-daily[data-id="${CSS.escape(id)}"]`);
+  const v = (campo && campo.value.trim()) || '';
+  if (v === '') { toast('info', 'Preencha o teto por dia antes de copiar pros dias.', 3500); return; }
+  saveClaudeProfiles(mapProfile(id, p => {
+    const porDia = { ...(p.budgetByWeekday || {}) };
+    for (const d of dows) porDia[d] = Number(v);
+    return { ...p, budgetByWeekday: porDia };
+  }));
+}
+
+function adicionaDataDeTeto(id) {
+  const dia = document.querySelector(`.cp-budget-date-new[data-id="${CSS.escape(id)}"]`);
+  const val = document.querySelector(`.cp-budget-date-val[data-id="${CSS.escape(id)}"]`);
+  const d = (dia && dia.value) || '';
+  const v = (val && val.value.trim()) || '';
+  if (!d || v === '') { toast('info', 'Escolha a data e o valor do teto desse dia.', 3500); return; }
+  saveClaudeProfiles(mapProfile(id, p => ({ ...p, budgetDates: { ...(p.budgetDates || {}), [d]: Number(v) } })));
+}
+
+function removeDataDeTeto(id, dia) {
+  saveClaudeProfiles(mapProfile(id, p => {
+    const datas = { ...(p.budgetDates || {}) };
+    delete datas[dia];
+    return { ...p, budgetDates: datas };
+  }));
+}
+
+// vazio APAGA a chave (o dia volta ao teto base), nunca grava 0: 0 é um teto
+// válido que bloquearia o dia inteiro, e seria o oposto do que "limpar" quer dizer
+function salvaTetoDoDia(id, dow, valor) {
+  return saveClaudeProfiles(mapProfile(id, p => {
+    const porDia = { ...(p.budgetByWeekday || {}) };
+    if (valor === '') delete porDia[dow]; else porDia[dow] = Number(valor);
+    return { ...p, budgetByWeekday: porDia };
+  }));
+}
+
+function tratouOrcamento(t) {
+  const id = t.dataset && t.dataset.id;
+  if (!id) return false;
+  // a sugestão só PREENCHE o campo; quem salva é o change do próprio input, e é
+  // por isso que ela nunca passa a bloquear sozinha (decisão de 20/08/2026)
+  if (t.classList.contains('cp-usar-sugerido')) {
+    const campo = document.querySelector(`.cp-budget-daily[data-id="${CSS.escape(id)}"]`);
+    if (campo) { campo.value = t.dataset.valor; campo.dispatchEvent(new Event('change', { bubbles: true })); }
+    return true;
+  }
+  if (t.classList.contains('cp-budget-uteis')) { espalhaTeto(id, ['1', '2', '3', '4', '5']); return true; }
+  if (t.classList.contains('cp-budget-fds')) { espalhaTeto(id, ['0', '6']); return true; }
+  if (t.classList.contains('cp-budget-limpa-dow')) {
+    saveClaudeProfiles(mapProfile(id, p => ({ ...p, budgetByWeekday: {} })));
+    return true;
+  }
+  if (t.classList.contains('cp-budget-date-add')) { adicionaDataDeTeto(id); return true; }
+  if (t.classList.contains('cp-budget-date-del')) { removeDataDeTeto(id, t.dataset.dia); return true; }
+  return false;
+}
+
 $('#claudeProfilesManager').addEventListener('click', (e) => {
   const t = e.target;
+  if (tratouOrcamento(t)) return;
   // seletor "Login por assinatura" / "Chave de API" no form de adicionar: troca os
   // campos visíveis, sem tocar em nenhum perfil já salvo.
   const seg = t.closest('#cpAddKind .seg-btn');
@@ -799,6 +866,13 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
     return;
   }
 });
+// aplica uma transformação num perfil e devolve a lista inteira, que é o que o
+// PATCH /api/settings espera (claudeProfiles é substituído por completo). Existe
+// pra os handlers de orçamento não repetirem o mesmo .map cinco vezes.
+function mapProfile(id, fn) {
+  return (STATE.config.claudeProfiles || []).map(p => (p.id === id ? fn(p) : p));
+}
+
 $('#claudeProfilesManager').addEventListener('change', (e) => {
   const t = e.target;
   if (t.id === 'claudeProfileDefault') {
@@ -813,6 +887,10 @@ $('#claudeProfilesManager').addEventListener('change', (e) => {
     t.blur();
     return patch;
   }
+  // teto por dia da semana: mesmo caminho dos outros campos, só que o valor mora
+  // num mapa em vez de num campo solto. Vazio APAGA a chave (o dia volta ao teto
+  // base), nunca grava 0, porque 0 é um teto válido que bloquearia o dia inteiro.
+  if (t.classList.contains('cp-budget-dow')) return salvaTetoDoDia(t.dataset.id, t.dataset.dow, t.value.trim());
   const camposEditaveis = ['cp-label', 'cp-dir', 'cp-apikey', 'cp-baseurl', 'cp-budget-daily', 'cp-budget-total', 'cp-budget-since'];
   if (camposEditaveis.some(cls => t.classList.contains(cls))) {
     const id = t.dataset.id;
@@ -2685,6 +2763,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.50.0', ['Teto por dia da semana e por data unica. O teto diario deixou de ser um numero so: da pra ter um valor proprio pra cada dia da semana (sabado mais baixo, sexta mais alto) ou pra uma data especifica. Vale o mais especifico: a data ganha do dia da semana, que ganha do padrao. Dia em branco usa o padrao, e ha atalhos pra aplicar de uma vez aos dias uteis ou ao fim de semana.', 'O campo de teto ja vem com um valor sugerido: o Farol calcula quanto voce costuma gastar num dia util (mediana dos ultimos 30 dias) e oferece esse numero num toque. Ele NAO passa a valer sozinho, so bloqueia depois que voce salvar, e a sugestao some quando ja existe teto configurado.', 'O orcamento virou um bloco unico no card do perfil, com o gasto de hoje, o teto que esta valendo e de onde ele veio. O mesmo painel serve pra qualquer perfil, de assinatura ou de chave (Claude, OpenRouter, o que for), e cada um guarda o seu de forma independente.', 'Na aba Consumo, o medidor diario mostra o teto que vale HOJE e diz se ele veio do padrao, do dia da semana ou daquela data. Antes mostrava o numero do campo padrao mesmo num dia com teto proprio, e parecia defeito.']],
   ['2.49.0', ['PR que outra pessoa ja esta revisando nao recebe uma segunda revisao. A label <conta>:revisando ja existia como aviso pro time e agora vale como decisao: se o PR carrega a label de outra pessoa, o Farol nao abre sessao em cima do mesmo trabalho, comenta no PR que esta deixando com quem pegou (uma vez so) e segue a fila. Ferramenta nao conta como pessoa: a label do Acrity e ignorada de proposito. O clique manual em Revisar continua revisando sempre.', 'Teto de gasto agora vale tambem pro login por assinatura. Antes so perfil de chave de API podia ter orcamento, e o gasto de quem roda por assinatura nem era atribuido ao perfil. Num perfil de assinatura o teto nao fala de fatura, fala de ritmo. O gasto comeca a contar a partir desta versao: o consumo anterior foi gravado sem dono.', 'O teto pergunta se a PROXIMA revisao cabe, nao se a anterior coube. O Farol mede quanto custa uma revisao tipica sua (a mediana das suas revisoes dos ultimos 30 dias) e para antes de comecar uma que nao caberia. Sessao de revisao nao da pra interromper no meio sem perder o que ja foi pago, entao decidir na porta e o unico momento barato. A tela separa "no limite" de "orcamento estourado". Sem historico, a projecao fica desligada.', 'A janela ficava em branco pra sempre quando o processo de renderizacao caia: o app seguia vivo e o motor continuava monitorando, mas a tela nao voltava. Agora ela se recarrega sozinha e a queda vira linha no log.']],
   ['2.48.3', ['O card de "Precisa de você" mostrava [object Object] no lugar dos motivos, desde a 2.48.0. É o card que você lê pra decidir entre aprovar e pedir mudanças, então ele ficou sem informação nenhuma; a notificação do Windows dizia o mesmo. Agora os motivos aparecem agrupados por tipo, como já apareciam em Revisões recentes.', 'As etapas da revisão ficaram mais honestas: "redação" virou "fechamento", porque mede o tempo entre a última atividade e o fim da sessão, não o tempo escrevendo. E "card" só conta quando o Farol de fato consulta o card, em vez de qualquer frase que mencione o Jira. Continuam sem custar tokens.', 'Por dentro: as telas passaram a ser abertas em teste. Até aqui nenhum teste executava a interface, só lia o código como texto, e foi por isso que a tela de reviewers quebrou por duas versões sem ninguém perceber.']],
   ['2.48.2', ['A tela Sistema > Reviewers não abria: um erro introduzido na 2.48.0, ao mover o código do editor de lugar, fazia a tela morrer antes de desenhar. Valia pros dois blocos, ou seja, a tela inteira.', 'PR podia exigir clique manual pra ser revisado, mesmo com a automação ligada. O Farol marca o PR como visto quando LANÇA a revisão, não quando ela termina, então sessão que morria no meio deixava o PR marcado pra sempre e fora da fila. Agora ele confere a cada ciclo e devolve o que ficou preso; o que você marcou como visto de propósito continua de fora.', 'Preferência que não salvava mas dizia que sim: quando a tela mandava algo que o servidor não reconhecia, sumia em silêncio com a mensagem de sucesso na tela. Agora o servidor devolve o que não aceitou e a tela mostra o erro com o nome da preferência.']],

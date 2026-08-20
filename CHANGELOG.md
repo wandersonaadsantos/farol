@@ -9,6 +9,32 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.50.0
+
+O orçamento virou um painel só, igual pra qualquer perfil, e agora o teto pode ser
+diferente por dia da semana ou num dia específico.
+
+**Novidades**
+- **Teto por dia da semana e por data única.** O teto diário deixou de ser um número
+  só. Você define um teto padrão e, se quiser, um valor próprio pra cada dia da semana
+  (sábado mais baixo, sexta mais alto) ou pra uma data específica ("nesse dia eu topo
+  gastar mais"). Vale o mais específico: a data ganha do dia da semana, que ganha do
+  padrão. Dia em branco continua usando o padrão, e há atalhos pra aplicar de uma vez
+  aos dias úteis ou ao fim de semana.
+- **O campo já vem com um valor sugerido.** O Farol calcula quanto você costuma gastar
+  num dia útil (a mediana dos últimos 30 dias) e oferece esse número num toque. Ele
+  **não passa a valer sozinho**: é só um preenchimento, e só bloqueia depois que você
+  salvar. A sugestão some quando já existe um teto configurado.
+
+**Melhorias**
+- **O orçamento agora é um bloco único no card do perfil**, com o gasto de hoje, o teto
+  que está valendo e de onde ele veio, em vez de dois campos soltos entre a chave de API
+  e o diretório. O mesmo painel serve pra qualquer perfil, de assinatura ou de chave
+  (Claude, OpenRouter, o que for), e cada perfil guarda o seu de forma independente.
+- Na aba Consumo, o medidor diário passou a mostrar o teto que vale **hoje** e a dizer
+  se ele veio do padrão, do dia da semana ou daquela data. Antes mostraria o número do
+  campo padrão mesmo num dia com teto próprio, e pareceria defeito.
+
 ## v2.49.0
 
 O Farol passou a respeitar quem já está revisando, e o teto de gasto deixou de ser

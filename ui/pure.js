@@ -1033,6 +1033,92 @@ export function claudeAuthBadge(id, ctx) {
   return `<span class="a-claude" title="${esc(info.configDir || 'padrão da máquina')}">${info.configDir ? 'logada' : 'padrão da máquina'}</span>`;
 }
 
+/* ---------- editor de orçamento por perfil (v2.50.0) ----------
+   Centralizado: o MESMO bloco vale pra perfil de assinatura e de chave de API
+   (Claude, OpenRouter, qualquer um), e cada perfil guarda o seu, independente.
+   Três granularidades, do geral pro específico, que é a mesma ordem em que o
+   dailyCapFor resolve: teto base, teto por dia da semana, teto de uma data só. */
+const DIAS_DO_TETO = [
+  { dow: '1', nome: 'seg' }, { dow: '2', nome: 'ter' }, { dow: '3', nome: 'qua' },
+  { dow: '4', nome: 'qui' }, { dow: '5', nome: 'sex' },
+  { dow: '6', nome: 'sáb' }, { dow: '0', nome: 'dom' },
+];
+
+const CAP_ORIGEM_LABEL = { data: 'só hoje', semana: 'deste dia da semana', base: 'padrão' };
+
+// valor de input numérico: campo vazio quando não há teto (placeholder explica),
+// nunca 0, porque 0 é um teto VÁLIDO que bloqueia tudo e seria mentira mostrá-lo
+function valorTeto(v) { return Number.isFinite(v) ? v : ''; }
+
+function linhaGastoHoje(info) {
+  if (!info) return '';
+  const gasto = fmtMoney(info.today || 0);
+  if (!Number.isFinite(info.capHoje)) return `Hoje: ${gasto} (sem teto)`;
+  const origem = CAP_ORIGEM_LABEL[info.capOrigem] || '';
+  const marca = info.capOrigem === 'base' ? '' : ` · teto ${origem}`;
+  return `Hoje: ${gasto} de ${fmtMoney(info.capHoje)}${marca}`;
+}
+
+function botaoSugestao(p, info) {
+  // some assim que existe teto salvo: sugestão é ajuda pra começar, não conselho
+  // permanente, e um botão que reescreve o que a pessoa configurou seria hostil
+  const sugestao = info && info.sugestaoDiaria;
+  if (!sugestao || Number.isFinite(p.budgetDaily)) return '';
+  // arredonda em centavos: o valor cru é uma mediana com 9 casas, e ela ia parar
+  // dentro do config.json e do campo da tela do jeito que saiu da conta
+  const emCentavos = Math.round(sugestao * 100) / 100;
+  return `<button class="btn sm ghost cp-usar-sugerido" data-id="${esc(p.id)}" data-valor="${emCentavos}"
+    title="Mediana do que você gastou nos dias úteis dos últimos 30 dias. Só passa a valer depois de salvar.">usar ${esc(fmtMoney(sugestao))}</button>`;
+}
+
+function campoDia(p, d) {
+  const v = valorTeto((p.budgetByWeekday || {})[d.dow]);
+  return `<label class="cp-dow"><span>${esc(d.nome)}</span>
+    <input class="cp-budget-dow" type="number" min="0" step="0.01" data-id="${esc(p.id)}" data-dow="${d.dow}" value="${v}" placeholder="padrão"></label>`;
+}
+
+function linhaData(p, dia, valor) {
+  return `<li><span class="cp-data-dia">${esc(dia)}</span><span class="cp-data-valor">${esc(fmtMoney(valor))}</span>
+    <button class="btn icon sm ghost cp-budget-date-del" data-id="${esc(p.id)}" data-dia="${esc(dia)}" title="Remover o teto desta data" aria-label="Remover o teto desta data">✕</button></li>`;
+}
+
+function listaDeDatas(p) {
+  const datas = Object.entries(p.budgetDates || {}).sort((a, b) => a[0].localeCompare(b[0]));
+  if (!datas.length) return '<p class="a-hint">Nenhuma data com teto próprio.</p>';
+  return `<ul class="cp-datas">${datas.map(([dia, v]) => linhaData(p, dia, v)).join('')}</ul>`;
+}
+
+export function budgetEditorHtml(p, info) {
+  const id = esc(p.id);
+  return `<div class="cp-budget">
+    <div class="cp-budget-head"><strong>Orçamento</strong><span class="a-hint">${esc(linhaGastoHoje(info))}</span></div>
+    <div class="a-editrow">
+      <input class="cp-budget-daily" type="number" min="0" step="0.01" data-id="${id}" value="${valorTeto(p.budgetDaily)}" placeholder="Teto por dia (US$, opcional)">
+      ${botaoSugestao(p, info)}
+    </div>
+    <div class="a-editrow">
+      <input class="cp-budget-total" type="number" min="0" step="0.01" data-id="${id}" value="${valorTeto(p.budgetTotal)}" placeholder="Teto total (US$, opcional)">
+      <input class="cp-budget-since" type="date" data-id="${id}" value="${esc(p.budgetSince || '')}" title="Contar o teto total a partir desta data">
+    </div>
+    <details class="cp-budget-mais">
+      <summary>Ajustar por dia</summary>
+      <div class="a-editrow cp-atalhos">
+        <button class="btn sm ghost cp-budget-uteis" data-id="${id}" title="Copia o teto por dia para segunda a sexta">aplicar aos dias úteis</button>
+        <button class="btn sm ghost cp-budget-fds" data-id="${id}" title="Copia o teto por dia para sábado e domingo">aplicar ao fim de semana</button>
+        <button class="btn sm ghost cp-budget-limpa-dow" data-id="${id}" title="Remove os tetos por dia da semana (volta todos ao padrão)">limpar</button>
+      </div>
+      <div class="cp-dows">${DIAS_DO_TETO.map(d => campoDia(p, d)).join('')}</div>
+      <p class="a-hint">Dia em branco usa o teto por dia lá de cima.</p>
+      <div class="a-editrow">
+        <input class="cp-budget-date-new" type="date" data-id="${id}" title="Data com teto próprio">
+        <input class="cp-budget-date-val" type="number" min="0" step="0.01" data-id="${id}" placeholder="Teto só nesse dia (US$)">
+        <button class="btn sm cp-budget-date-add" data-id="${id}">adicionar</button>
+      </div>
+      ${listaDeDatas(p)}
+    </details>
+  </div>`;
+}
+
 export function claudeProfilesHtml(ctx) {
   const c = ctx.config || {};
   const profiles = c.claudeProfiles || [];
@@ -1080,35 +1166,10 @@ export function claudeProfilesHtml(ctx) {
     // desde a v2.48.4 o teto vale pros DOIS tipos de perfil, então o gasto é
     // buscado pros dois (era só apikey: perfil de assinatura não tinha teto)
     const budgetInfo = ((ctx.usage && ctx.usage.budgets) || []).find(x => x.id === p.id);
-    // uma pergunta por linha, em vez de encadear os ternários dentro do template:
-    // primeiro o gasto, depois o teto diário, depois o total
-    const tetoDia = p.budgetDaily != null ? ` de US$ ${p.budgetDaily.toFixed(2)}` : '';
-    const gastoTotal = budgetInfo ? (budgetInfo.sinceCutoff || 0) : 0;
-    // o fallback e uma STRING de um caractere, e o gate conta esse caractere por
-    // statement sem distinguir string de ternario: inline, os dois somavam 2 na mesma
-    // linha. O texto NAO muda, a constante guarda exatamente o que estava ali.
-    const SEM_DATA = '?';
-    const desde = p.budgetSince || SEM_DATA;
-    const tetoTotal = p.budgetTotal != null
-      ? ` · Desde ${desde}: US$ ${gastoTotal.toFixed(2)} de US$ ${p.budgetTotal.toFixed(2)}`
-      : '';
-    let budgetStatusText = '';
-    if (budgetInfo) budgetStatusText = `Hoje: US$ ${(budgetInfo.today || 0).toFixed(2)}${tetoDia}` + tetoTotal;
-    // cada ramo num nome proprio: juntos num ternario so, os dois templates
-    // somavam interrogacoes de statement e estouravam o gate
-    // os dois `value` saem pra nomes: dentro do template eles somavam com o
-    // ternario do budgetStatusText no mesmo statement
-    const valorTetoDia = p.budgetDaily != null ? p.budgetDaily : '';
-    const valorTetoTotal = p.budgetTotal != null ? p.budgetTotal : '';
-    // os campos de teto são os MESMOS nos dois tipos de perfil, então saem de um
-    // lugar só: duplicar o bloco faria o de assinatura envelhecer sozinho
-    const camposOrcamento = `
-      <div class="a-editrow">
-        <input class="cp-budget-daily" type="number" min="0" step="0.01" data-id="${esc(p.id)}" value="${valorTetoDia}" placeholder="Orçamento diário (US$, opcional)">
-        <input class="cp-budget-total" type="number" min="0" step="0.01" data-id="${esc(p.id)}" value="${valorTetoTotal}" placeholder="Orçamento total (US$, opcional)">
-        <input class="cp-budget-since" type="date" data-id="${esc(p.id)}" value="${esc(p.budgetSince || '')}" title="Contar o total a partir de">
-      </div>
-      ${budgetStatusText ? `<div class="a-hint">${esc(budgetStatusText)}</div>` : ''}`;
+    // todo o orçamento sai de budgetEditorHtml: um bloco só, igual pros dois
+    // tipos de perfil (assinatura e chave), com teto base, por dia da semana e
+    // por data única. Duplicar aqui faria um dos tipos envelhecer sozinho.
+    const camposOrcamento = budgetEditorHtml(p, budgetInfo);
     const camposChave = `
       <div class="a-editrow">
         <input class="cp-apikey" type="password" data-id="${esc(p.id)}" value="${esc(p.apiKey || '')}" placeholder="chave de API" spellcheck="false" autocomplete="off">
@@ -1663,7 +1724,10 @@ export function usageBudgetHtml(u) {
   return perfis.map(p => {
     const isApiKey = p.kind === 'apikey';
     const statusCls = p.blocked ? 'bad' : 'ok';
-    const temTeto = p.budgetDaily != null || p.budgetTotal != null;
+    // "tem teto" passou a considerar os overrides: perfil que só configurou sábado
+    // TEM teto, e dizer "nenhum teto definido" ali seria falso
+    const temOverride = Object.keys(p.budgetByWeekday || {}).length > 0 || Object.keys(p.budgetDates || {}).length > 0;
+    const temTeto = p.budgetDaily != null || p.budgetTotal != null || temOverride;
     // "coberto pela assinatura" era o status FIXO de todo perfil de assinatura,
     // porque ele nunca podia ter teto. Agora pode, então o status segue o teto:
     // sem teto, a frase de sempre; com teto, a mesma régua da chave de API.
@@ -1674,7 +1738,11 @@ export function usageBudgetHtml(u) {
     const statusBloqueado = previsto ? 'no limite' : 'orçamento estourado';
     const statusComTeto = p.blocked ? statusBloqueado : 'no orçamento';
     const statusTxt = temTeto ? statusComTeto : statusSemTeto;
-    const medidorDiario = p.budgetDaily != null ? meter('Teto diário', p.today, p.budgetDaily) : '';
+    // o medidor mostra o teto que vale HOJE (base, dia da semana ou data única) e
+    // diz de onde ele veio: sem isso, um sábado com teto próprio mostraria o número
+    // do campo base e pareceria defeito
+    const rotuloDia = { data: 'Teto de hoje', semana: 'Teto deste dia da semana', base: 'Teto diário' }[p.capOrigem] || 'Teto diário';
+    const medidorDiario = Number.isFinite(p.capHoje) ? meter(rotuloDia, p.today, p.capHoje) : '';
     const medidorTotal = p.budgetTotal != null ? meter('Teto total', p.sinceCutoff, p.budgetTotal) : '';
     const meters = medidorDiario + medidorTotal;
     const irAoTeto = `sys:plans:.cp-budget-daily[data-id="${escAttrSelector(p.id)}"]`;
