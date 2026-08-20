@@ -24,6 +24,15 @@ Correção: a promessa de não duplicar a revisão valia em um caminho só.
 - **Clicar em Revisar volta a valer de verdade.** O clique nunca é barrado (você
   mandou revisar sabendo que outra pessoa está lá) e agora também desfaz a saída de
   cena, do mesmo jeito que já acontece com PR que estava aguardando ação manual.
+- **As notificações do sistema mostravam `[object Object]` no lugar do motivo.**
+  Valia para as três (aprovado com ressalvas, reprovado e precisa de você). A causa
+  é a mesma do card que foi corrigido na v2.48.3, e a nota daquela versão dizia que
+  a notificação também tinha sido corrigida, o que não era verdade. Agora o texto do
+  motivo sai de um lugar só, e um teste impede a quarta vez.
+- **Clicar na notificação não trazia a janela para frente no Windows.** O sistema só
+  deixa quem já está em primeiro plano tomar o foco, e clicar numa notificação não
+  conta, então o clique não fazia nada visível. Agora a janela é trazida ao topo de
+  verdade.
 
 ## v2.51.0
 

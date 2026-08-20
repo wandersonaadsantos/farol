@@ -10,6 +10,9 @@ import { consumirReaberturaSilenciosa } from './lib/engine/update.js';
 
 // fonte única do branch de plataforma (lib/paths.js), como no resto do app
 import { IS_MAC } from './lib/paths.js';
+// motivo viaja como { text, kind } desde a v2.48.0; interpolar o objeto cru
+// escreve "[object Object]" na notificação (achado do Wanderson em 20/08/2026)
+import { reasonText } from './lib/format.js';
 
 let win = null;
 let tray = null;
@@ -139,9 +142,17 @@ function createWindow() {
 }
 
 function showWindow() {
-  if (!win) return;
+  if (!win || win.isDestroyed()) return;
   if (win.isMinimized()) win.restore();
   win.show();
+  // No Windows, `focus()` sozinho NÃO traz a janela pra frente: o SO só deixa
+  // quem já é o processo em primeiro plano roubar o foco (foreground lock), e
+  // clicar numa notificação não conta. O resultado era o clique não fazer nada
+  // visível (achado do Wanderson em 20/08/2026). O pulo do alwaysOnTop força a
+  // janela pro topo e é desfeito na sequência, pra ela não ficar presa lá.
+  if (!IS_MAC) {
+    try { win.setAlwaysOnTop(true); win.setAlwaysOnTop(false); } catch { /* cosmético, nunca derruba */ }
+  }
   win.focus();
   // mesmo motivo do createWindow: reabrir via segundo clique no Farol.app chega
   // como second-instance de um app que o macOS nao considera ativo
@@ -250,20 +261,20 @@ function wireEngine() {
     const ressalvas = points || [];
     if (ressalvas.length) {
       const extra = ressalvas.length > 1 ? ` (+${ressalvas.length - 1})` : '';
-      notify('Farol · aprovado com ressalvas ⚠️', `${pr.key}: APPROVE postado. Ressalva: ${ressalvas[0]}${extra}. Detalhes em Revisões recentes.`, pr.url);
+      notify('Farol · aprovado com ressalvas ⚠️', `${pr.key}: APPROVE postado. Ressalva: ${reasonText(ressalvas[0])}${extra}. Detalhes em Revisões recentes.`, pr.url);
     } else {
       notify('Farol · aprovado sem ressalvas ✅', `${pr.key} (${result.card || 'sem card'}): revisão completa, nenhum ponto de atenção. APPROVE postado.`, pr.url);
     }
   });
   engine.on('auto-rejected', ({ pr, result }) => {
-    const motivo = (result.reasons && result.reasons[0]) || 'ver relatório';
+    const motivo = reasonText((result.reasons || [])[0]) || 'ver relatório';
     notify('Farol · reprovado 🔴', `${pr.key}: mudanças pedidas. Motivo: ${motivo}`, pr.url);
   });
   engine.on('tool-done', ({ name, label }) => {
     notify(`Farol · ${label}`, name === 'kudos' ? 'Kudos prontos pra copiar na aba Destaques.' : 'Relatório disponível na aba Sistema.');
   });
   engine.on('needs-decision', ({ pr, item }) => {
-    const motivo = (item.reasons && item.reasons[0]) || 'ver relatório';
+    const motivo = reasonText((item.reasons || [])[0]) || 'ver relatório';
     const extra = (item.reasons || []).length > 1 ? ` (+${item.reasons.length - 1} motivo(s))` : '';
     notify('Farol · precisa da sua atenção 🟡', `${pr.key}: ${motivo}${extra}`, pr.url);
     if (win) win.flashFrame(true);
