@@ -343,3 +343,51 @@ test('logStamp: carimbo do farol.log em Brasília com offset explícito, nunca U
   // formato estável pro LINHA_RE do log-taxonomy: data hora offset, tudo ASCII
   assert.match(logStamp(), /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+-]\d{2}:\d{2}$/);
 });
+
+/* ---------- orçamento por dia da semana e por data (v2.50.0) ---------- */
+
+test('normalizeClaudeProfiles: aceita teto por dia da semana e por data', () => {
+  const out = normalizeClaudeProfiles([
+    { id: 'p1', label: 'P1', dir: '/tmp/x', budgetByWeekday: { '0': 10, '6': 20 }, budgetDates: { '2026-08-25': 300 } },
+  ]);
+  assert.deepEqual(out[0].budgetByWeekday, { '0': 10, '6': 20 });
+  assert.deepEqual(out[0].budgetDates, { '2026-08-25': 300 });
+});
+
+// config editada à mão com UMA linha torta não pode levar as outras seis junto
+test('normalizeClaudeProfiles: chave ou valor invalido é descartado sem levar o resto', () => {
+  const out = normalizeClaudeProfiles([
+    { id: 'p1', label: 'P1', dir: '/tmp/x',
+      budgetByWeekday: { '1': 10, '9': 5, 'seg': 7, '2': -1, '3': [4] },
+      budgetDates: { '2026-08-25': 300, '25/08/2026': 50, '2026-08-26': 'lixo' } },
+  ]);
+  assert.deepEqual(out[0].budgetByWeekday, { '1': 10 });
+  assert.deepEqual(out[0].budgetDates, { '2026-08-25': 300 });
+});
+
+test('normalizeClaudeProfiles: mapa vazio ou nao-objeto vira campo ausente', () => {
+  const out = normalizeClaudeProfiles([
+    { id: 'p1', label: 'P1', dir: '/tmp/x', budgetByWeekday: {}, budgetDates: 'nao-e-objeto' },
+    { id: 'p2', label: 'P2', dir: '/tmp/y', budgetByWeekday: ['array'], budgetDates: null },
+  ]);
+  assert.equal('budgetByWeekday' in out[0], false);
+  assert.equal('budgetDates' in out[0], false);
+  assert.equal('budgetByWeekday' in out[1], false);
+  assert.equal('budgetDates' in out[1], false);
+});
+
+// 0 é um teto VÁLIDO ("não gaste nada neste dia"), não ausência de teto
+test('normalizeClaudeProfiles: teto 0 sobrevive nos mapas', () => {
+  const out = normalizeClaudeProfiles([
+    { id: 'p1', label: 'P1', dir: '/tmp/x', budgetByWeekday: { '0': 0 }, budgetDates: { '2026-08-25': 0 } },
+  ]);
+  assert.equal(out[0].budgetByWeekday['0'], 0);
+  assert.equal(out[0].budgetDates['2026-08-25'], 0);
+});
+
+test('normalizeClaudeProfiles: perfil de CHAVE tambem carrega os overrides (mesmo mecanismo)', () => {
+  const out = normalizeClaudeProfiles([
+    { id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', budgetByWeekday: { '5': 30 } },
+  ]);
+  assert.deepEqual(out[0].budgetByWeekday, { '5': 30 });
+});
