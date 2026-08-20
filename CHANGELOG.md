@@ -9,6 +9,22 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.51.1
+
+Correção: a promessa de não duplicar a revisão valia em um caminho só.
+
+**Correções**
+- **O Farol comentava que não ia revisar e revisava por outro caminho.** A trava
+  nasceu no lugar errado: ela vivia no caminho principal, e os outros dois por onde
+  uma revisão pode ser relançada (a retentativa depois de uma falha passageira e a
+  re-análise pós-push) entravam por baixo dela. Medido num PR real: o aviso saiu
+  às 19:55:52 e a revisão começou às 19:57:45, com a outra pessoa ainda revisando.
+  Agora a garantia mora no ponto por onde toda revisão passa, então nenhum caminho
+  novo consegue esquecê-la.
+- **Clicar em Revisar volta a valer de verdade.** O clique nunca é barrado (você
+  mandou revisar sabendo que outra pessoa está lá) e agora também desfaz a saída de
+  cena, do mesmo jeito que já acontece com PR que estava aguardando ação manual.
+
 ## v2.51.0
 
 O Farol passou a respeitar quem é dono do código, e a atualização deixou de tomar a

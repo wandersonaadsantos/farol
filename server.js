@@ -1057,7 +1057,7 @@ class Engine extends EventEmitter {
 
   // Pipeline de revisão headless: colaborador lib/engine/review.js (gate intacto, Onda 2).
   prFromUrl(url) { return reviewMod.prFromUrl(this, url); }
-  async launchReview(urls, mode = 'auto') { return reviewMod.launchReview(this, urls, mode); }
+  async launchReview(urls, mode = 'auto', origem = 'auto') { return reviewMod.launchReview(this, urls, mode, origem); }
   enqueueHeadless(pr) { return reviewMod.enqueueHeadless(this, pr); }
   headlessAcct(pr) { return reviewMod.headlessAcct(this, pr); }
   processHeadless() { return reviewMod.processHeadless(this); }
@@ -1069,6 +1069,7 @@ class Engine extends EventEmitter {
   saveReReviewLaunched() { return reviewMod.saveReReviewLaunched(this); }
   // G15: estacionamento pós-falha persistido (padrão do savePushbackScanned)
   saveAutoReviewParked() { return reviewMod.saveAutoReviewParked(this); }
+  saveSkipComentado() { return skipMod.saveSkipComentado(this); }
   // UM Farol por PR (lib/engine/skip-review.js): sair de cena e co-assinar
   outrosRevisando(pr) { return skipMod.outrosRevisando(this, pr); }
   saiDeCena(pr, outros, head, autoridade) { return skipMod.saiDeCena(this, pr, outros, head, autoridade); }
