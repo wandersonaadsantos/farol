@@ -151,10 +151,26 @@ test('profileBudgetStatus: perfil sem teto nenhum nunca bloqueia', () => {
   assert.equal(usage.profileBudgetStatus(profile, store).blocked, false);
 });
 
-test('profileBudgetStatus: perfil kind dir nunca bloqueia (não participa de orçamento)', () => {
+// Contrato NOVO desde a v2.48.4 (pedido do Wanderson, 20/08/2026): perfil de
+// ASSINATURA também participa do orçamento. O teto de assinatura não fala de
+// fatura, fala de ritmo, e era a metade que faltava da mesma feature. O que
+// segue valendo: perfil SEM teto nunca bloqueia, seja de que tipo for.
+test('profileBudgetStatus: perfil de assinatura COM teto participa do orçamento', () => {
   const store = usage.defaultUsage();
-  const profile = { id: 'p1', dir: 'C:\\x', budgetDaily: 0.01 };
-  assert.deepEqual(usage.profileBudgetStatus(profile, store), { blocked: false });
+  const u = usage.extractUsage({ usage: { input_tokens: 1 }, total_cost_usd: 5 }, 'x');
+  usage.applyUsage(store, usage.localDay(), 'review', 'a', 'x', u, 'p1');
+  const profile = { id: 'p1', dir: 'C:\\x', budgetDaily: 3 };
+  const st = usage.profileBudgetStatus(profile, store);
+  assert.equal(st.blocked, true);
+  assert.equal(st.reason, 'diario');
+});
+
+test('profileBudgetStatus: perfil sem teto nenhum nunca bloqueia (os dois tipos)', () => {
+  const store = usage.defaultUsage();
+  const u = usage.extractUsage({ usage: { input_tokens: 1 }, total_cost_usd: 99 }, 'x');
+  usage.applyUsage(store, usage.localDay(), 'review', 'a', 'x', u, 'p1');
+  assert.equal(usage.profileBudgetStatus({ id: 'p1', dir: 'C:\\x' }, store).blocked, false);
+  assert.equal(usage.profileBudgetStatus({ id: 'p1', kind: 'apikey' }, store).blocked, false);
 });
 
 test('profileBudgetStatus: estoura teto diário', () => {
@@ -486,4 +502,96 @@ test('usageSummary.recentSessions corta em 100 e mostra a mais nova primeiro', (
   assert.equal(s.recentSessions.length, 100);
   assert.equal(s.recentSessions[0].ref, 'ref104', 'mais nova primeiro');
   assert.equal(engine.usageSessions.sessions.length, 105, 'o arquivo em disco nao foi cortado, so o que trafega pra UI');
+});
+
+/* ---------- custo típico de uma revisão e a projeção do gate (v2.48.4) ----------
+   Pedido do Wanderson (20/08/2026): "se a revisão vai estourar o limite, assume
+   que vai estourar pra concluir essa revisão" e "com base nas minhas reviews do
+   mês, estipular uma média de valor de review justa". A estimativa é MEDIANA e
+   sai do próprio histórico; o gate pergunta se a PRÓXIMA revisão cabe. */
+
+const DIA_MS = 24 * 60 * 60 * 1000;
+const sessaoDe = (custo, at, kind = 'review') => ({ kind, at, costUsd: custo });
+
+test('custoTipicoDeReview: mediana das revisões, não média (a cauda não manda)', () => {
+  const agora = Date.now();
+  // 1, 2, 3, 4, 100: média 22, mediana 3. A cauda é real (medido: o PR mais caro
+  // do mês custou 7x a mediana), e é justamente o que a mediana existe pra ignorar.
+  const sessions = [1, 2, 3, 4, 100].map(c => sessaoDe(c, agora - DIA_MS));
+  assert.equal(usage.custoTipicoDeReview(sessions, agora), 3);
+});
+
+test('custoTipicoDeReview: número par de revisões usa a média dos dois do meio', () => {
+  const agora = Date.now();
+  const sessions = [2, 4, 6, 8].map(c => sessaoDe(c, agora - DIA_MS));
+  assert.equal(usage.custoTipicoDeReview(sessions, agora), 5);
+});
+
+test('custoTipicoDeReview: só conta REVISÃO, e só dentro da janela', () => {
+  const agora = Date.now();
+  const sessions = [
+    sessaoDe(10, agora - DIA_MS, 'self'),      // autoanálise não é revisão
+    sessaoDe(10, agora - DIA_MS, 'pushback'),  // scan de pushback também não
+    sessaoDe(99, agora - 40 * DIA_MS),         // revisão velha, fora dos 30 dias
+    sessaoDe(4, agora - DIA_MS),
+  ];
+  assert.equal(usage.custoTipicoDeReview(sessions, agora), 4);
+});
+
+// sem histórico a projeção desliga e o gate volta a ser o de antes desta feature:
+// falta de dado nunca vira ação, que é a régua do app inteiro
+test('custoTipicoDeReview: sem histórico devolve 0 (projeção desligada)', () => {
+  assert.equal(usage.custoTipicoDeReview([], Date.now()), 0);
+  assert.equal(usage.custoTipicoDeReview(null, Date.now()), 0);
+  assert.equal(usage.custoTipicoDeReview([sessaoDe(0, Date.now())], Date.now()), 0);
+});
+
+test('profileBudgetStatus: barra ANTES de estourar quando a próxima revisão não cabe', () => {
+  const store = usage.defaultUsage();
+  const u = usage.extractUsage({ usage: { input_tokens: 1 }, total_cost_usd: 7 }, 'x');
+  usage.applyUsage(store, usage.localDay(), 'review', 'a', 'x', u, 'p1');
+  const profile = { id: 'p1', kind: 'apikey', budgetDaily: 10 };
+  // gastou 7 de 10: não estourou, mas a próxima revisão (4) passaria
+  const st = usage.profileBudgetStatus(profile, store, 4);
+  assert.equal(st.blocked, true);
+  assert.equal(st.reason, 'diario-previsto');
+  assert.equal(st.projetado, 4);
+});
+
+test('profileBudgetStatus: com folga pra próxima revisão não barra', () => {
+  const store = usage.defaultUsage();
+  const u = usage.extractUsage({ usage: { input_tokens: 1 }, total_cost_usd: 2 }, 'x');
+  usage.applyUsage(store, usage.localDay(), 'review', 'a', 'x', u, 'p1');
+  const st = usage.profileBudgetStatus({ id: 'p1', kind: 'apikey', budgetDaily: 10 }, store, 4);
+  assert.equal(st.blocked, false);
+});
+
+// o motivo separa o que JÁ aconteceu do que foi previsto, porque a ação de quem
+// lê é diferente: 'diario' pede esperar amanhã, 'diario-previsto' pede decidir
+test('profileBudgetStatus: já estourado continua sendo "diario", não "previsto"', () => {
+  const store = usage.defaultUsage();
+  const u = usage.extractUsage({ usage: { input_tokens: 1 }, total_cost_usd: 12 }, 'x');
+  usage.applyUsage(store, usage.localDay(), 'review', 'a', 'x', u, 'p1');
+  const st = usage.profileBudgetStatus({ id: 'p1', kind: 'apikey', budgetDaily: 10 }, store, 4);
+  assert.equal(st.reason, 'diario');
+});
+
+test('profileBudgetStatus: sem projeção (tipico 0) mantém o gate de antes', () => {
+  const store = usage.defaultUsage();
+  const u = usage.extractUsage({ usage: { input_tokens: 1 }, total_cost_usd: 7 }, 'x');
+  usage.applyUsage(store, usage.localDay(), 'review', 'a', 'x', u, 'p1');
+  assert.equal(usage.profileBudgetStatus({ id: 'p1', kind: 'apikey', budgetDaily: 10 }, store, 0).blocked, false);
+});
+
+test('budgetsFrom: perfil de assinatura agora expõe teto e gasto, sem vazar segredo', () => {
+  const store = usage.defaultUsage();
+  const u = usage.extractUsage({ usage: { input_tokens: 1 }, total_cost_usd: 3 }, 'x');
+  usage.applyUsage(store, usage.localDay(), 'review', 'a', 'x', u, 'p1');
+  const [b] = usage.budgetsFrom(store, [{ id: 'p1', label: 'Pessoal', dir: '/tmp/x', budgetDaily: 10 }], 4);
+  assert.equal(b.kind, 'assinatura');
+  assert.equal(b.budgetDaily, 10);
+  assert.equal(b.today, 3);
+  assert.equal(b.tipicoReview, 4);
+  assert.equal('apiKey' in b, false);
+  assert.equal('dir' in b, false);
 });

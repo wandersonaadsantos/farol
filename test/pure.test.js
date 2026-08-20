@@ -175,11 +175,30 @@ test('normalizeClaudeProfiles: budgetSince válido (YYYY-MM-DD) é aceito, forma
   assert.equal(out[2].budgetSince, undefined);
 });
 
-test('normalizeClaudeProfiles: perfil dir nunca ganha campos de orçamento, mesmo se enviados', () => {
+// Contrato NOVO desde a v2.48.4: perfil dir também carrega orçamento (o teto
+// passou a valer pra assinatura). Continua SEM o campo `kind`, que é o que
+// preserva a leitura de perfil salvo antes desta feature, sem migração.
+test('normalizeClaudeProfiles: perfil dir carrega orçamento e segue sem kind', () => {
   const out = normalizeClaudeProfiles([
-    { id: 'p1', label: 'P1', dir: 'C:\\x', budgetDaily: 5 },
+    { id: 'p1', label: 'P1', dir: 'C:\\x', budgetDaily: 5, budgetSince: '2026-08-01' },
   ]);
-  assert.equal('budgetDaily' in out[0], false);
+  assert.equal(out[0].budgetDaily, 5);
+  assert.equal(out[0].budgetSince, '2026-08-01');
+  assert.equal('kind' in out[0], false);
+});
+
+test('normalizeClaudeProfiles: perfil dir sem orçamento nasce sem os campos (sem migração)', () => {
+  const out = normalizeClaudeProfiles([{ id: 'p1', label: 'P1', dir: 'C:\\x' }]);
+  assert.deepEqual(out[0], { id: 'p1', label: 'P1', dir: 'C:\\x' });
+});
+
+test('normalizeClaudeProfiles: perfil dir rejeita orçamento lixo igual ao de chave', () => {
+  const out = normalizeClaudeProfiles([
+    { id: 'p1', label: 'P1', dir: 'C:\\x', budgetDaily: [5], budgetTotal: -1, budgetSince: '01/08/2026' },
+  ]);
+  assert.equal(out[0].budgetDaily, undefined);
+  assert.equal(out[0].budgetTotal, undefined);
+  assert.equal(out[0].budgetSince, undefined);
 });
 
 test('normalizeClaudeProfiles: budgetDaily/budgetTotal rejeita tipos garbage (array, boolean, objeto) como undefined', () => {

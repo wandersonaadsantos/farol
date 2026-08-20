@@ -41,9 +41,6 @@ const EXCECOES = {
   // desta é `{ keys = [], label, id, code } = {}`. Então impl.length é 1 (só `engine`),
   // a conta daria 0, e a fachada declara 1 de propósito. Não é argumento engolido.
   handleSessionExit: 'segundo parâmetro é objeto desestruturado com default, que zera o Function.length',
-  // profileBudgetStatus: a fachada vincula intencionalmente o 2o parâmetro (store) a this.usage,
-  // em vez de repassar this como 1o argumento. O binding é intencional e não engole argumento.
-  profileBudgetStatus: 'delega para profileBudgetStatus(profile, store) vinculando store a this.usage',
 };
 
 function mapaDeModulos() {
