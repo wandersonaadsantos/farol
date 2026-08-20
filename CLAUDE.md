@@ -401,6 +401,36 @@ pessoa/repo leva ao GitHub; nos CARTÕES DE ESTATÍSTICA ("@X na frente", "repo 
 frente", "+N hoje"), que são atalhos da própria tela, o clique leva ao grupo
 correspondente na lista abaixo, trocando a visão se preciso.
 
+### Motivo é OBJETO: o unwrap tem UM endereço (v2.51.1)
+
+Desde a v2.48.0 `reasons`/`attention` viajam como `{ text, kind }`. Interpolar o
+objeto cru numa string escreve **"[object Object]"** na cara do usuário, e isso
+já saiu em produção DUAS vezes:
+
+| onde | versão | corrigido |
+|---|---|---|
+| card "Precisa de você" | v2.48.0 | v2.48.3 |
+| as TRÊS notificações do sistema (`main.js`) | v2.48.0 | **v2.51.1** |
+
+O agravante: **o CHANGELOG da v2.48.3 afirmava que a notificação tinha sido
+corrigida** ("A notificação do Windows dizia a mesma coisa"). Não tinha. O
+`main.js` nunca teve teste nenhum, então nada denunciou.
+
+`reasonText` mora em **`lib/format.js`** e é a fonte única pro engine e pro shell.
+`ui/pure.js` mantém a própria cópia **de propósito**: ele é servido ao NAVEGADOR
+como módulo ES e não pode importar de `lib/`, que o servidor não expõe.
+
+`test/motivo-nunca-vira-objeto.test.js` trava as duas metades: o unwrap, e a
+AUSÊNCIA de interpolação crua no `main.js` (lê o fonte e proíbe `${x[0]}` que não
+passe por `reasonText`, mesma técnica do `ui-pure.test.js` contra menção de pessoa
+escrita à mão). Consumidor sem teste é onde o mesmo bug volta.
+
+**Foco da janela no Windows, no mesmo pacote:** `win.focus()` sozinho NÃO traz a
+janela pra frente. O SO só deixa quem já é o processo em primeiro plano roubar o
+foco (foreground lock), e clicar numa notificação não conta, então o clique não
+fazia nada visível. `showWindow` faz o pulo do `setAlwaysOnTop(true)`/`(false)`
+antes do `focus()`, só no ramo não-mac.
+
 ### A garantia mora no estrangulamento, não no chamador (v2.51.1)
 
 Terceiro tropeço da mesma feature, e o mais instrutivo. A saída de cena foi
