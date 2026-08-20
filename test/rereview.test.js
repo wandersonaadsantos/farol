@@ -45,6 +45,9 @@ function engineBase() {
     autoReviewFor: () => true,
     tokenFor: () => 'tok',
     budgetBlockedFor: () => null,
+    // ninguém mais revisando: o gate de pulo (v2.48.4) lê isto e o default do
+    // stub é "só eu", pra estes testes seguirem falando só de re-revisão
+    outrosRevisando: () => [],
     saveReReviewLaunched() { this.saved++; },
     emit(ev, payload) { this.toasts.push({ ev, payload }); },
     enqueueHeadless(p) { this.enq.push(p); },

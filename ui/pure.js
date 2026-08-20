@@ -1000,6 +1000,18 @@ export function statusBannerHtml(s = {}) {
 // e o markup fica legível: `${sel(a.onClean === 'approve')}` em vez do ternário inteiro.
 function sel(cond) { return cond ? ' selected' : ''; }
 
+// Selo do teto estourado. Os motivos `-previsto` dizem que o gasto ainda NÃO
+// passou do teto, mas a próxima revisão passaria: é a diferença entre "acabou" e
+// "a próxima não cabe", e a ação de quem lê é diferente em cada caso.
+function seloOrcamento(budget) {
+  const eixo = String(budget.reason || '').startsWith('total') ? 'orçamento total' : 'orçamento diário';
+  if (String(budget.reason || '').endsWith('-previsto')) {
+    const custo = Number(budget.tipicoReview || 0).toFixed(2);
+    return `<span class="a-claude bad" title="a próxima revisão (US$ ${custo} em média) passaria do ${eixo}, então a automação pausou antes de gastar (clique manual continua liberado)">🔴 ${eixo} no limite</span>`;
+  }
+  return `<span class="a-claude bad" title="${eixo} estourado, automação pausada (clique manual continua liberado)">🔴 ${eixo} estourado</span>`;
+}
+
 export function claudeAuthBadge(id, ctx) {
   const all = (ctx.doctor && ctx.doctor.claudeAuth) || [];
   // servidor sempre inclui a entrada '' (padrão da máquina/legado), mesmo com perfis
@@ -1008,18 +1020,14 @@ export function claudeAuthBadge(id, ctx) {
   // ainda não ter chegado num formato esperado (nunca devolve string vazia à toa).
   const info = all.find(x => x.id === id) || all.find(x => x.id === '') || all[0] || null;
   if (!info) return '';
-  if (info.apiKeyMode) {
-    if (!info.ready) return `<span class="a-claude bad" title="Perfil de chave de API sem chave preenchida">SEM CHAVE</span>`;
-    // bloqueio de orçamento vem de ctx.usage.budgets (fonte única, viva a cada
-    // pushState, v2.40.0); o doctor parou de carregar blocked/reason, e este selo
-    // lia de lá (achado da revisão adversarial: o ramo tinha virado código morto)
-    const budget = ((ctx.usage && ctx.usage.budgets) || []).find(b => b.id === (info.id || id)) || {};
-    if (budget.blocked) {
-      const motivo = budget.reason === 'diario' ? 'orçamento diário' : 'orçamento total';
-      return `<span class="a-claude bad" title="${motivo} estourado, automação pausada (clique manual continua liberado)">🔴 ${motivo} estourado</span>`;
-    }
-    return `<span class="a-claude ok" title="Autenticação por chave de API">🔑 chave configurada</span>`;
-  }
+  if (info.apiKeyMode && !info.ready) return `<span class="a-claude bad" title="Perfil de chave de API sem chave preenchida">SEM CHAVE</span>`;
+  // bloqueio de orçamento vem de ctx.usage.budgets (fonte única, viva a cada
+  // pushState, v2.40.0); o doctor parou de carregar blocked/reason, e este selo
+  // lia de lá (achado da revisão adversarial: o ramo tinha virado código morto).
+  // Desde a v2.48.4 o selo vale pros dois tipos de perfil, porque o teto também vale.
+  const budget = ((ctx.usage && ctx.usage.budgets) || []).find(b => b.id === (info.id || id)) || {};
+  if (budget.blocked) return seloOrcamento(budget);
+  if (info.apiKeyMode) return `<span class="a-claude ok" title="Autenticação por chave de API">🔑 chave configurada</span>`;
   if (info.ready === false) return `<span class="a-claude bad" title="rode claude login nesse diretório">SEM LOGIN</span>`;
   if (info.account) return `<span class="a-claude ok" title="${esc(info.configDir || 'padrão da máquina')}">@${esc(info.account)}</span>`;
   return `<span class="a-claude" title="${esc(info.configDir || 'padrão da máquina')}">${info.configDir ? 'logada' : 'padrão da máquina'}</span>`;
@@ -1069,7 +1077,9 @@ export function claudeProfilesHtml(ctx) {
     // gasto vem de ctx.usage.budgets (fonte unica do orcamento, viva a cada
     // pushState), nunca mais do cache do doctor, que congelava o "Hoje" daqui
     // enquanto a aba Consumo andava (v2.40.0)
-    const budgetInfo = isApiKey ? ((ctx.usage && ctx.usage.budgets) || []).find(x => x.id === p.id) : null;
+    // desde a v2.48.4 o teto vale pros DOIS tipos de perfil, então o gasto é
+    // buscado pros dois (era só apikey: perfil de assinatura não tinha teto)
+    const budgetInfo = ((ctx.usage && ctx.usage.budgets) || []).find(x => x.id === p.id);
     // uma pergunta por linha, em vez de encadear os ternários dentro do template:
     // primeiro o gasto, depois o teto diário, depois o total
     const tetoDia = p.budgetDaily != null ? ` de US$ ${p.budgetDaily.toFixed(2)}` : '';
@@ -1090,6 +1100,15 @@ export function claudeProfilesHtml(ctx) {
     // ternario do budgetStatusText no mesmo statement
     const valorTetoDia = p.budgetDaily != null ? p.budgetDaily : '';
     const valorTetoTotal = p.budgetTotal != null ? p.budgetTotal : '';
+    // os campos de teto são os MESMOS nos dois tipos de perfil, então saem de um
+    // lugar só: duplicar o bloco faria o de assinatura envelhecer sozinho
+    const camposOrcamento = `
+      <div class="a-editrow">
+        <input class="cp-budget-daily" type="number" min="0" step="0.01" data-id="${esc(p.id)}" value="${valorTetoDia}" placeholder="Orçamento diário (US$, opcional)">
+        <input class="cp-budget-total" type="number" min="0" step="0.01" data-id="${esc(p.id)}" value="${valorTetoTotal}" placeholder="Orçamento total (US$, opcional)">
+        <input class="cp-budget-since" type="date" data-id="${esc(p.id)}" value="${esc(p.budgetSince || '')}" title="Contar o total a partir de">
+      </div>
+      ${budgetStatusText ? `<div class="a-hint">${esc(budgetStatusText)}</div>` : ''}`;
     const camposChave = `
       <div class="a-editrow">
         <input class="cp-apikey" type="password" data-id="${esc(p.id)}" value="${esc(p.apiKey || '')}" placeholder="chave de API" spellcheck="false" autocomplete="off">
@@ -1097,18 +1116,12 @@ export function claudeProfilesHtml(ctx) {
       </div>
       <div class="a-editrow">
         <input class="cp-baseurl" data-id="${esc(p.id)}" value="${esc(p.baseUrl || '')}" placeholder="URL base (opcional, deixe em branco pra usar a Anthropic direto)" spellcheck="false">
-      </div>
-      <div class="a-editrow">
-        <input class="cp-budget-daily" type="number" min="0" step="0.01" data-id="${esc(p.id)}" value="${valorTetoDia}" placeholder="Orçamento diário (US$, opcional)">
-        <input class="cp-budget-total" type="number" min="0" step="0.01" data-id="${esc(p.id)}" value="${valorTetoTotal}" placeholder="Orçamento total (US$, opcional)">
-        <input class="cp-budget-since" type="date" data-id="${esc(p.id)}" value="${esc(p.budgetSince || '')}" title="Contar o total a partir de">
-      </div>
-      ${budgetStatusText ? `<div class="a-hint">${esc(budgetStatusText)}</div>` : ''}`;
+      </div>`;
     const camposDir = `
       <div class="a-editrow">
         <input class="cp-dir" data-id="${esc(p.id)}" value="${esc(p.dir || '')}" placeholder="${ctx.ehWin ? 'C:\\Users\\voce\\.claude-perfil' : '~/.claude-perfil'}" spellcheck="false">
       </div>`;
-    const fields = isApiKey ? camposChave : camposDir;
+    const fields = (isApiKey ? camposChave : camposDir) + camposOrcamento;
     return `<div class="card acct-card">
     <div class="a-body">
       <div class="a-editrow">
@@ -1644,25 +1657,38 @@ export function usageBudgetHtml(u) {
       <span class="usage-meter-track"><span class="usage-meter-fill${over ? ' over' : ''}" style="width:${Math.max(2, pct).toFixed(0)}%"></span></span>
     </div>`;
   };
-  const temChave = perfis.some(p => p.kind === 'apikey');
+  // a lacuna do terminal interativo vale pra qualquer perfil COM TETO (antes era
+  // só chave de API, porque só ela tinha teto): o aviso segue o teto, não o tipo
+  const temTetoAlgum = perfis.some(p => p.budgetDaily != null || p.budgetTotal != null);
   return perfis.map(p => {
     const isApiKey = p.kind === 'apikey';
     const statusCls = p.blocked ? 'bad' : 'ok';
-    const statusApi = p.blocked ? 'orçamento estourado' : 'no orçamento';
-    const statusTxt = isApiKey ? statusApi : 'coberto pela assinatura';
+    const temTeto = p.budgetDaily != null || p.budgetTotal != null;
+    // "coberto pela assinatura" era o status FIXO de todo perfil de assinatura,
+    // porque ele nunca podia ter teto. Agora pode, então o status segue o teto:
+    // sem teto, a frase de sempre; com teto, a mesma régua da chave de API.
+    const statusSemTeto = isApiKey ? 'no orçamento' : 'coberto pela assinatura';
+    // "estourado" seria mentira quando o gasto ainda não passou do teto e o que
+    // barrou foi a projeção: o chip tem que concordar com a nota logo abaixo
+    const previsto = String(p.reason || '').endsWith('-previsto');
+    const statusBloqueado = previsto ? 'no limite' : 'orçamento estourado';
+    const statusComTeto = p.blocked ? statusBloqueado : 'no orçamento';
+    const statusTxt = temTeto ? statusComTeto : statusSemTeto;
     const medidorDiario = p.budgetDaily != null ? meter('Teto diário', p.today, p.budgetDaily) : '';
     const medidorTotal = p.budgetTotal != null ? meter('Teto total', p.sinceCutoff, p.budgetTotal) : '';
-    const meters = isApiKey ? medidorDiario + medidorTotal : '';
+    const meters = medidorDiario + medidorTotal;
     const irAoTeto = `sys:plans:.cp-budget-daily[data-id="${escAttrSelector(p.id)}"]`;
     // tres casos excludentes, um por linha: sem chave de API, com chave e sem teto,
     // e com teto batido. A cadeia de ternarios que estava aqui escondia qual deles
     // ganhava quando mais de um parecia valer.
-    const NOTA_SEM_CHAVE = '<span class="usage-budget-note">Sem teto configurado: o gasto em tokens não vira fatura, só entra no registro.</span>';
+    const NOTA_ASSINATURA = '<span class="usage-budget-note">O gasto em tokens não vira fatura neste perfil, mas o teto vale como ritmo do dia a dia.</span>';
     const NOTA_PAUSADO = '<span class="usage-budget-note">Automação de gasto pausada pra este perfil (revisão automática, retentativa e scan de pushback).</span>';
+    const notaPrevisto = `<span class="usage-budget-note">A próxima revisão (${esc(fmtMoney(p.tipicoReview || 0))} em média) não caberia no teto, então a automação parou antes de gastar. O clique manual continua liberado.</span>`;
     const notaSemTeto = `<span class="usage-budget-note">Nenhum teto definido pra este perfil (<span class="is-goto" data-goto="${esc(irAoTeto)}" role="button" tabindex="0">definir em Sistema → Plano e chaves</span>).</span>`;
     let nota = '';
-    if (!isApiKey) nota = NOTA_SEM_CHAVE;
-    else if (p.budgetDaily == null && p.budgetTotal == null) nota = notaSemTeto;
+    if (!temTeto && !isApiKey) nota = NOTA_ASSINATURA;
+    else if (!temTeto) nota = notaSemTeto;
+    else if (previsto) nota = notaPrevisto;
     else if (p.blocked) nota = NOTA_PAUSADO;
     // o nome do perfil leva ao card DELE em Sistema (o input do nome carrega o
     // mesmo id; seletor montado aqui porque CSS.escape não existe no pure.js)
@@ -1681,7 +1707,7 @@ export function usageBudgetHtml(u) {
     // MESMA credencial do perfil, mas o claude interativo nao emite stream-json,
     // entao esse gasto nao tem como entrar na medicao nem no teto. Sem declarar,
     // o cartao prometia um teto que um dos caminhos de gasto nunca encontra.
-    + (temChave ? '<span class="usage-budget-note">Sessões interativas no terminal usam a mesma credencial, mas não entram na medição nem no teto: o CLI não reporta o consumo delas ao Farol.</span>' : '');
+    + (temTetoAlgum ? '<span class="usage-budget-note">Sessões interativas no terminal usam a mesma credencial, mas não entram na medição nem no teto: o CLI não reporta o consumo delas ao Farol.</span>' : '');
 }
 
 export function usageSessionsHtml(u) {

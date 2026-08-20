@@ -39,6 +39,7 @@ import sessionMod from './lib/engine/session.js';
 import selfMod from './lib/engine/selfpr.js';
 import reviewMod from './lib/engine/review.js';
 import fileProofMod from './lib/engine/file-proof.js';
+import skipMod from './lib/engine/skip-review.js';
 import usageMod from './lib/engine/usage.js';
 import { EDITAVEIS, defaults as settingsDefaults, sanear } from './lib/settings.js';
 import { startServer } from './lib/http-server.js';
@@ -156,6 +157,7 @@ class Engine extends EventEmitter {
     for (const v of Object.values(this.pushbacks)) { if (v && !v.source) { v.source = 'manual'; v.status = 'confirmed'; } }
     this.pushbackScanned = readJson(path.join(STATE_DIR, 'pushback-scanned.json'), {}, warn); // { key: marcador da última atividade do autor já avaliada }
     this.reReviewLaunched = readJson(path.join(STATE_DIR, 'rereview-launched.json'), {}, warn); // { key: head já relançado pela re-revisão automática (âncora por round) }
+    this.skipComentado = skipMod.loadSkipComentado(warn); // { key: { at, quem } } âncora do comentário de "outra pessoa já está revisando"
     this.toolRuns = readJson(path.join(STATE_DIR, 'tool-results.json'), {}, warn);
     // kudos passou a ser POR CONTA (mapa escopo->execução); migra o formato antigo
     // (execução única, global) pro escopo "todas" ('*') pra não perder o que já existia
@@ -657,6 +659,9 @@ class Engine extends EventEmitter {
       // relançava a sessão fadada à mesma falha, que estacionava de novo: loop pago
       // de 30 em 30 segundos, o próprio G15 reaberto (revisão final da onda 3).
       this._podarEstacionamento(panorama, ownersOk, monitoredOwners);
+      // âncora do comentário de pulo: some junto com o PR. Mesmo compromisso do
+      // reReviewLaunched, e por isso a mesma fonte (o panorama deste ciclo).
+      this.podarSkipComentado(new Set(panorama.map(p => p.key)));
 
       await this._dispararAutomacoes(fresh);
 
@@ -902,6 +907,11 @@ class Engine extends EventEmitter {
         ...this.headlessQueue.map(p => p.key),
         ...[...this.activeReviews.values()].flatMap(s => s.keys || [])
       ]);
+      // PRs que outra PESSOA já está revisando (label "<conta>:revisando" dela no
+      // PR). Coletados aqui e comentados depois do filtro, porque comentar é IO e
+      // este filtro é síncrono de propósito. Ferramenta não conta como pessoa, e
+      // clique manual nunca passa por aqui (ver lib/engine/skip-review.js).
+      const pulados = [];
       const toReview = this.queue.filter(p => {
         const acct = this.accountForPr(p);
         if (this.isMuted(acct)) return false;
@@ -910,6 +920,7 @@ class Engine extends EventEmitter {
         if (inflight.has(p.key)) return false;
         if (this.autoReviewParked.has(p.key)) return false;
         if (this.retryAfterNet.has(p.key)) return false;
+        if (this._registraPulo(p, pulados)) return false;
         const blockedProfile = this.budgetBlockedFor(acct);
         if (blockedProfile) {
           if (!this.budgetWarned.has(blockedProfile.id)) {
@@ -924,6 +935,9 @@ class Engine extends EventEmitter {
         this.emit('new-prs', { items: freshActive, total: this.queue.filter(p => !this.isMuted(this.accountForPr(p))).length, auto: toReview.length > 0 });
       }
       if (toReview.length) this.launchReview(toReview.map(p => p.url), 'auto');
+      // fire-and-forget, no padrão do scanPushbacks: comentar o pulo é cortesia
+      // com quem já pegou o PR, nunca pré-requisito do ciclo de polling.
+      if (pulados.length) this.comentarPulos(pulados).catch(err => this.log('WARN', `comentários de pulo: ${err.message}`));
 
       // a checagem funcionou = a rede voltou: relança revisões que caíram por algo
       // transitório. Vale pra QUALQUER revisão que caiu (clique no panorama e conta
@@ -1050,6 +1064,10 @@ class Engine extends EventEmitter {
   saveReReviewLaunched() { return reviewMod.saveReReviewLaunched(this); }
   // G15: estacionamento pós-falha persistido (padrão do savePushbackScanned)
   saveAutoReviewParked() { return reviewMod.saveAutoReviewParked(this); }
+  // pulo por outra pessoa já estar revisando (lib/engine/skip-review.js)
+  outrosRevisando(pr) { return skipMod.outrosRevisando(this, pr); }
+  comentarPulos(pulados) { return skipMod.comentarPulos(this, pulados); }
+  podarSkipComentado(abertos) { return skipMod.podarSkipComentado(this, abertos); }
   // `agora` com default nos DOIS lados de propósito: a fachada repassa o parâmetro
   // (nada é engolido) e o Function.length segue casando com o da implementação, que
   // é o que test/facades.test.js confere lendo este fonte.
@@ -1434,19 +1452,35 @@ class Engine extends EventEmitter {
     };
   }
 
+  // Outra PESSOA já revisando este PR? Registra no acumulador do ciclo e devolve
+  // true pro filtro do toReview cortar. Extraído do próprio filtro porque o corpo
+  // dele já era um if por trava, e mais um bloco estourava a profundidade do gate
+  // de qualidade. Ver lib/engine/skip-review.js.
+  _registraPulo(pr, pulados) {
+    const outros = this.outrosRevisando(pr);
+    if (!outros.length) return false;
+    pulados.push({ pr, outros });
+    return true;
+  }
+
   // Consumo de tokens: colaborador lib/engine/usage.js (registro permanente, sem custo);
   // ref é a referência amigável (PR/chat/ferramenta) que alimenta a tabela de sessões.
   recordUsage(id, account, resultEvent, model, profileId, ref) { return usageMod.recordUsage(this, id, account, resultEvent, model, profileId, ref); }
   usageSummary() { return usageMod.usageSummary(this); }
-  profileBudgetStatus(profile) { return usageMod.profileBudgetStatus(profile, this.usage); }
+  // custo típico de UMA revisão, medido no próprio histórico do mês (mediana).
+  // Alimenta a projeção do gate: o teto pergunta se a PRÓXIMA revisão cabe.
+  custoTipicoReview() { return usageMod.custoTipicoDoEngine(this); }
+  profileBudgetStatus(profile) { return usageMod.budgetStatusFor(this, profile); }
 
   // devolve o perfil bloqueado por orçamento pra essa conta, ou null se não estiver
-  // bloqueada (conta sem perfil apikey, perfil sem teto, ou dentro do teto). Usado em
+  // bloqueada (conta sem perfil, perfil sem teto, ou dentro do teto). Usado em
   // TODO caminho automático de gasto (toReview, retry pós-transitório, scan de
   // pushback), pra nenhum deles vazar gasto quando um perfil já estourou.
+  // Desde a v2.48.4 vale pros DOIS tipos de perfil: o teto de assinatura não fala
+  // de fatura, fala de ritmo, e era a metade que faltava da mesma feature.
   budgetBlockedFor(acct) {
     const auth = this.resolveClaudeAuth(acct);
-    if (auth.kind !== 'apikey') return null;
+    if (!auth.id) return null; // legado (sem perfil configurado) não tem a quem atribuir teto
     const profile = (this.config.claudeProfiles || []).find(x => x.id === auth.id);
     return (profile && this.profileBudgetStatus(profile).blocked) ? profile : null;
   }

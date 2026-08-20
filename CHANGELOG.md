@@ -9,6 +9,43 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.49.0
+
+O Farol passou a respeitar quem já está revisando, e o teto de gasto deixou de ser
+privilégio de quem usa chave de API.
+
+**Novidades**
+- **PR que outra pessoa já está revisando não recebe uma segunda revisão.** A label
+  `<conta>:revisando` já existia como aviso pro time, e agora ela também vale como
+  decisão: se o PR carrega a label de outra pessoa, o Farol não abre uma sessão em
+  cima do mesmo trabalho. Ele comenta no PR que está deixando com quem pegou (uma vez
+  só, por PR) e segue a fila. Ferramenta não conta como pessoa: a label do Acrity é
+  ignorada de propósito, porque review de ferramenta não substitui olho humano. O
+  clique manual em Revisar continua revisando sempre, mesmo que outra pessoa esteja lá.
+- **Teto de gasto agora vale também pro login por assinatura.** Antes só perfil de
+  chave de API podia ter orçamento; o gasto de quem roda por assinatura nem chegava a
+  ser atribuído ao perfil, então não havia como medir nem limitar. Os campos de teto
+  diário e total aparecem agora em qualquer perfil. Num perfil de assinatura o teto não
+  fala de fatura, fala de ritmo: é o jeito de o dia a dia caber num consumo previsível.
+
+**Melhorias**
+- **O teto pergunta se a PRÓXIMA revisão cabe, não se a anterior coube.** O Farol mede
+  quanto custa uma revisão típica sua (a mediana das suas revisões dos últimos 30 dias)
+  e para antes de começar uma que não caberia no teto. O motivo é simples: sessão de
+  revisão não dá pra interromper no meio sem perder o que já foi pago, então decidir na
+  porta é o único momento em que a decisão é barata. A tela distingue os dois casos, "no
+  limite" (a próxima não cabe) e "orçamento estourado" (o teto já foi passado), porque a
+  sua ação é diferente em cada um. Sem histórico de revisão, a projeção fica desligada e
+  o teto funciona como antes.
+- O gasto por perfil de assinatura começa a contar a partir desta versão: o consumo
+  anterior foi gravado sem dono e não dá pra atribuir depois.
+
+**Correções**
+- **A janela ficava em branco pra sempre quando o processo de renderização caía.** O app
+  seguia vivo (aparecia na lista de processos, o motor continuava monitorando), mas a
+  tela não voltava mais. Agora a janela se recarrega sozinha nesse caso, e a queda vira
+  uma linha no log pra dar pra investigar depois.
+
 ## v2.48.3
 
 O card de decisão voltou a mostrar os motivos. Junto vai o primeiro teste que de fato
