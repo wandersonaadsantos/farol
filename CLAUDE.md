@@ -407,23 +407,28 @@ A v2.50.1 consertou o marcador transitório mas manteve um pressuposto errado:
 que "outra pessoa está revisando" bastava. **Não basta, importa QUEM.** Dados
 medidos em 20/08/2026:
 
-| repo | CODEOWNERS | gate |
-|---|---|---|
-| `biudtech/engine-ai` | `* @Alexpraxedes` | ruleset com codeowners |
-| `biudtech/biud-frontend` | `* @wandersonbiuder @thiagocarvalho-dev` + `/package.json @Alexpraxedes` | `PR_LINT_DEV` e `PR_LINT` com `require_code_owner_review: true` |
+As duas formas encontradas nos repos da empresa (logins trocados por letras: este
+arquivo viaja no pacote de distribuição, que é auditado e não aceita conta de
+ninguém, ver invariante 7):
 
-No front o gate é EXIGIDO de verdade, então aprovação do Alex não libera nada
-fora do `package.json`. Com o comportamento da v2.50.1, se o Farol dele pegasse
-um PR do front primeiro, os Farols do Wanderson e do Thiago saíam de cena e o PR
-travava sem a aprovação exigida. E com a co-assinatura ligada era **pior**: o
-gate de codeowner seria satisfeito sem nenhum codeowner ter revisado, que é o
-oposto do que ele existe pra fazer ("filtrar o que sobe ou não").
+| forma | CODEOWNERS | gate |
+|---|---|---|
+| dono único | `* @dona-do-repo` | ruleset com codeowners |
+| dupla de guardiãs + exceção por caminho | `* @dona-A @dona-B` + `/package.json @dona-C` | ruleset com `require_code_owner_review: true` |
+
+Na segunda o gate é EXIGIDO de verdade, então aprovação da dona-C não libera nada
+fora do `package.json`. Com o comportamento da v2.50.1, se o Farol dela pegasse um
+PR primeiro, os Farols das donas A e B saíam de cena e o PR travava sem a aprovação
+exigida. E com a co-assinatura ligada era **pior**: o gate de codeowner seria
+satisfeito sem nenhum codeowner ter revisado, que é o oposto do que ele existe pra
+fazer ("filtrar o que sobe ou não").
 
 `cobreMinhaExigencia(regras, caminhos, eu, outro)` é a pergunta que decide: só
 saio de cena se, pra TODO arquivo em que eu sou dono, `outro` também é. Os quatro
-casos reais estão travados em `test/codeowners.test.js`. **CODEOWNERS é OU dentro
-da linha e a ÚLTIMA regra que casa vence por arquivo** (não acumula), então Thiago
-cobre o Wanderson no front mas nenhum dos dois cobre o `package.json`.
+casos reais estão travados em `test/codeowners.test.js` (lá os logins são os de
+verdade: o diretório `test/` NÃO viaja no pacote). **CODEOWNERS é OU dentro da
+linha e a ÚLTIMA regra que casa vence por arquivo** (não acumula), então a dona-B
+cobre a dona-A mas nenhuma das duas cobre o `package.json`.
 
 Duas travas que vêm junto: **nunca co-assino onde sou autoridade** (registrado em
 `skipComentado[key].autoridade` na hora de sair de cena) e **falta de dado nunca
