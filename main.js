@@ -6,6 +6,7 @@ import { app, BrowserWindow, Tray, Menu, Notification, shell, nativeImage } from
 import path from 'node:path';
 
 import farol from './server.js';
+import { consumirReaberturaSilenciosa } from './lib/engine/update.js';
 
 // fonte única do branch de plataforma (lib/paths.js), como no resto do app
 import { IS_MAC } from './lib/paths.js';
@@ -17,6 +18,10 @@ let appUrl = null;
 let quitting = false;
 let hideHintShown = false;
 let attachedToExisting = false; // porta ocupada: esta janela é só um VISOR da instância que já roda
+// reabertura DEPOIS de um auto-update: sobe direto na bandeja, sem roubar o foco
+// de quem está trabalhando (pedido do Wanderson, 20/08/2026). O marcador é lido
+// UMA vez, aqui no topo do boot, porque o consumo apaga o arquivo.
+const reabertura = consumirReaberturaSilenciosa();
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -40,6 +45,8 @@ if (!gotLock) {
       createTray();
       wireEngine();
       applyAutostart();
+      // depois da bandeja existir: o fallback de balão do notify() precisa dela
+      if (reabertura) notify('Farol atualizado', `Agora na versão ${reabertura.to || 'nova'}. Segue monitorando na bandeja.`);
     });
     engine = eng;
   });
@@ -76,9 +83,15 @@ function createWindow() {
     opts.titleBarStyle = 'hidden';
     opts.titleBarOverlay = { color: c.bg, symbolColor: c.symbol, height: 44 };
   }
+  // pós-update: nasce escondida e fica na bandeja. O aviso de que atualizou sai
+  // por notificação (não rouba foco); o ícone da bandeja reabre quando você quiser.
+  if (reabertura) opts.show = false;
   win = new BrowserWindow(opts);
   win.setMenuBarVisibility(false);
   win.loadURL(appUrl);
+  // a janela nunca apareceu, então o aviso de "continua por aqui" do close não faz
+  // sentido; quem conta que o app está vivo é a notificação logo abaixo, no boot
+  if (reabertura) hideHintShown = true;
 
   // Renderer pode morrer sozinho (driver de GPU, principalmente no Windows, onde
   // o titleBarOverlay é composição via GPU do Chromium; o macOS usa hiddenInset,
@@ -98,7 +111,7 @@ function createWindow() {
   // no macOS o lancador (Farol.app) e um wrapper que da exec no Electron: quem o Finder
   // ativa morre na hora, e o Electron sobe sem ativacao, com a janela atras de tudo.
   // O steal traz o app pra frente na abertura (sem ele, parece que o app nao abriu)
-  if (IS_MAC) {
+  if (IS_MAC && !reabertura) {
     app.focus({ steal: true });
     // e o Dock mostra o icone do processo (Electron cru), nao o do lancador;
     // o setIcon troca em runtime pro icone do Farol

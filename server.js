@@ -1071,7 +1071,8 @@ class Engine extends EventEmitter {
   saveAutoReviewParked() { return reviewMod.saveAutoReviewParked(this); }
   // UM Farol por PR (lib/engine/skip-review.js): sair de cena e co-assinar
   outrosRevisando(pr) { return skipMod.outrosRevisando(this, pr); }
-  saiDeCena(pr, outros, head) { return skipMod.saiDeCena(this, pr, outros, head); }
+  saiDeCena(pr, outros, head, autoridade) { return skipMod.saiDeCena(this, pr, outros, head, autoridade); }
+  podeSairDeCena(pr, outros) { return skipMod.podeSairDeCena(this, pr, outros); }
   seguirForaDeCena(pr, registro, head) { return skipMod.seguirForaDeCena(this, pr, registro, head); }
   podarSkipComentado(abertos) { return skipMod.podarSkipComentado(this, abertos); }
 
@@ -1087,7 +1088,12 @@ class Engine extends EventEmitter {
      âncora vale pro PR inteiro, que é o lado seguro de "um Farol por PR". */
   async resolvePulos(pulados, foraDeCena) {
     for (const { pr, outros } of pulados || []) {
-      await this.saiDeCena(pr, outros, await this._headSeguro(pr));
+      // CODEOWNERS decide: só saio de cena se quem pegou o PR cobre a MESMA
+      // exigência que eu cobriria. Aprovação não é fungível onde há dono de
+      // código (ver lib/engine/codeowners.js). Sem prova, reviso.
+      const { pode, autoridade } = await this.podeSairDeCena(pr, outros);
+      if (!pode) continue;
+      await this.saiDeCena(pr, outros, await this._headSeguro(pr), autoridade);
     }
     for (const pr of foraDeCena || []) {
       await this.seguirForaDeCena(pr, this.skipComentado[pr.key] || {}, await this._headSeguro(pr));

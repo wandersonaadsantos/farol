@@ -9,6 +9,30 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.51.0
+
+O Farol passou a respeitar quem é dono do código, e a atualização deixou de tomar a
+tela.
+
+**Correções**
+- **Sair de cena podia calar justamente quem o repositório exige.** A v2.50.1 fez o
+  Farol sair de cena quando outra pessoa já estava revisando, mas tratava aprovação
+  como se qualquer uma servisse, e não é assim onde há dono de código. No front, o
+  gate exige aprovação sua ou do Thiago; se o Farol de outra pessoa pegasse o PR
+  primeiro, os seus Farols saíam de cena e o PR travava sem a aprovação exigida.
+  Agora o Farol lê o CODEOWNERS do repositório e só sai de cena quando quem pegou o
+  PR cobre a mesma exigência que você cobriria, arquivo por arquivo. Sem conseguir
+  ler, ele revisa, que é o lado seguro.
+- **Aprovar junto nunca carimba onde você é a autoridade.** Se a sua aprovação é a
+  que filtra o que sobe, ela precisa vir de uma revisão de verdade, não de endosso.
+  A chave segue valendo nos PRs em que você não é dono do código.
+
+**Melhorias**
+- **A atualização automática não toma mais a tela.** O Farol fecha, atualiza e reabre
+  direto na bandeja, sem roubar o foco de quem está trabalhando; quem avisa que
+  atualizou é uma notificação. Se a atualização falhar no meio, a próxima abertura
+  manual continua normal, com janela.
+
 ## v2.50.1
 
 Correção do pulo de revisão que a v2.49.0 estreou. Ele prometia em público que não ia
