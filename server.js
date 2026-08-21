@@ -42,6 +42,8 @@ import fileProofMod from './lib/engine/file-proof.js';
 import skipMod from './lib/engine/skip-review.js';
 import usageMod from './lib/engine/usage.js';
 import { EDITAVEIS, defaults as settingsDefaults, sanear } from './lib/settings.js';
+import { parseJiraSites, maskJiraSites } from './lib/jira/sites.js';
+import credMod from './lib/jira/credentials.js';
 import { startServer } from './lib/http-server.js';
 
 // App aberto pelo Finder/Dock herda um PATH minimo (sem /opt/homebrew/bin):
@@ -79,7 +81,7 @@ const DEFAULTS = settingsDefaults(DEFAULT_PORT);
 const PARSERS = {
   parseAccounts, parseProjectReviewers, parseDefaultReviewers, parsePeople,
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
-  sanitizeModel, sanitizeEffort, sanitizeParallelReviews,
+  sanitizeModel, sanitizeEffort, sanitizeParallelReviews, parseJiraSites,
 };
 
 // carência anti-lag do índice de busca do GitHub: logo após EU postar um review, o PR
@@ -1442,6 +1444,12 @@ class Engine extends EventEmitter {
     return { ok: true, ignoradas };
   }
 
+  // Credencial do Jira: colaborador lib/jira/credentials.js, único lugar que lê ou
+  // escreve o arquivo separado (o token nunca entra no config.json, que trafega
+  // inteiro pra UI). Nunca ecoe o retorno com o valor: as duas devolvem só booleano.
+  setJiraCredential(siteId, valor) { return credMod.setCredential(siteId, valor); }
+  removeJiraCredential(siteId) { return credMod.removeCredential(siteId); }
+
   snapshot() {
     return {
       app: { name: APP_NAME, version: APP_VERSION, platform: process.platform },
@@ -1456,6 +1464,9 @@ class Engine extends EventEmitter {
       })),
       pushbacks: this.pushbacks,
       config: { ...this.config },
+      // lista mascarada dos sites do Jira: mesmos campos do config, mais só a
+      // EXISTÊNCIA da credencial (hasCredential), nunca o valor (ver lib/jira/sites.js).
+      jiraSites: maskJiraSites(this.config.jiraSites || [], credMod.hasCredential),
       lastCheckAt: this.lastCheckAt,
       nextCheckAt: this.nextCheckAt,
       queue: this.queue,

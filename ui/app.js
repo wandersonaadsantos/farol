@@ -924,6 +924,131 @@ $('#claudeProfilesManager').addEventListener('change', (e) => {
   }
 });
 
+/* ---------- sites do Jira e credencial (Sistema > Conexões) ----------
+   Espelha o gerenciador de perfis do Claude logo acima: STATE.jiraSites (a lista
+   MASCARADA que o snapshot manda, com hasCredential) é a fonte de leitura E de
+   edição; salvar manda ela de volta em PATCH /api/settings, e o servidor descarta
+   o campo hasCredential ao sanear (parseJiraSites só lê os campos que conhece).
+   O id nasce aqui com genProfileId(), nunca digitado: mantém o formato que a
+   allowlist do servidor exige e evita a tela oferecer um campo de id livre.
+   A credencial (e-mail e token) NUNCA entra em STATE: os dois campos são lidos
+   direto do DOM na hora do clique e a chamada zera o formulário depois. */
+function saveJiraSites(sites) {
+  STATE.jiraSites = sites;
+  renderJiraSites();
+  api('/api/settings', { jiraSites: sites }).then(r => {
+    if (r && Array.isArray(r.ignoradas) && r.ignoradas.includes('jiraSites')) {
+      toast('error', '"jiraSites" não foi salvo: o servidor não reconhece essa preferência.', 6000);
+      return;
+    }
+    toast('ok', '✓ Configurações salvas', 2000);
+  });
+}
+function jiraSiteCardHtml(s) {
+  const selo = s.hasCredential ? '<span class="a-tag">credencial cadastrada</span>' : '<span class="a-tag">sem credencial</span>';
+  const removerCred = s.hasCredential
+    ? `<button class="btn sm danger-ghost js-cred-remove" data-id="${esc(s.id)}">Remover credencial</button>` : '';
+  return `<div class="card acct-card">
+    <div class="a-body">
+      <div class="a-editrow">
+        <input class="js-label" data-id="${esc(s.id)}" value="${esc(s.label)}" placeholder="rótulo" spellcheck="false">
+        ${selo}
+      </div>
+      <div class="a-editrow">
+        <input class="js-baseurl" data-id="${esc(s.id)}" value="${esc(s.baseUrl)}" placeholder="https://empresa.atlassian.net" spellcheck="false">
+      </div>
+      <div class="a-editrow orgs"><span class="a-fieldlabel">orgs</span>
+        <input class="js-owners" data-id="${esc(s.id)}" value="${esc((s.owners || []).join(', '))}" placeholder="org1, org2" spellcheck="false"></div>
+      <div class="a-editrow orgs"><span class="a-fieldlabel">prefixos</span>
+        <input class="js-projectkeys" data-id="${esc(s.id)}" value="${esc((s.projectKeys || []).join(', '))}" placeholder="ABC, XYZ" spellcheck="false"></div>
+      <div class="a-editrow">
+        <input class="js-cred-email" data-id="${esc(s.id)}" placeholder="e-mail da conta do Jira" spellcheck="false" autocomplete="off">
+        <input class="js-cred-token" type="password" data-id="${esc(s.id)}" placeholder="token de API" spellcheck="false" autocomplete="off">
+        <button class="btn sm js-cred-save" data-id="${esc(s.id)}">Cadastrar credencial</button>
+      </div>
+    </div>
+    <div class="a-actions">
+      ${removerCred}
+      <button class="btn sm danger-ghost js-site-remove" data-id="${esc(s.id)}">Remover site</button>
+    </div>
+  </div>`;
+}
+function jiraSiteAddFormHtml() {
+  return `<div class="card acct-add">
+    <div class="a-add-title">Adicionar site do Jira</div>
+    <div class="a-editrow">
+      <input id="jsAddLabel" placeholder="rótulo (ex.: Jira BIUD)" spellcheck="false">
+      <input id="jsAddBaseUrl" placeholder="https://empresa.atlassian.net" spellcheck="false">
+    </div>
+    <div class="a-editrow">
+      <input id="jsAddOwners" placeholder="orgs do GitHub (org1, org2)" spellcheck="false">
+      <input id="jsAddProjectKeys" placeholder="prefixos do projeto (ABC, XYZ)" spellcheck="false">
+      <button class="btn sm" id="btnJiraSiteAdd">Adicionar</button>
+    </div>
+    <div class="a-hint">A credencial se cadastra depois, dentro do card do site já salvo.</div>
+  </div>`;
+}
+function renderJiraSites() {
+  const box = $('#jiraSitesManager'); if (!box) return;
+  if (document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
+  const sites = STATE.jiraSites || [];
+  const rows = sites.map(jiraSiteCardHtml).join('');
+  box.innerHTML = rows + jiraSiteAddFormHtml();
+}
+$('#jiraSitesManager').addEventListener('click', (e) => {
+  const t = e.target;
+  if (t.id === 'btnJiraSiteAdd') {
+    const label = ($('#jsAddLabel').value || '').trim();
+    const baseUrl = ($('#jsAddBaseUrl').value || '').trim();
+    const owners = ($('#jsAddOwners').value || '').split(',').map(x => x.trim()).filter(Boolean);
+    const projectKeys = ($('#jsAddProjectKeys').value || '').split(',').map(x => x.trim()).filter(Boolean);
+    if (!label || !baseUrl) return toast('error', 'Preencha rótulo e URL base.', 3000);
+    const site = { id: genProfileId(), label, baseUrl, owners, projectKeys };
+    $('#jsAddLabel').value = ''; $('#jsAddBaseUrl').value = ''; $('#jsAddOwners').value = ''; $('#jsAddProjectKeys').value = '';
+    saveJiraSites([...(STATE.jiraSites || []), site]);
+    return;
+  }
+  if (t.classList.contains('js-site-remove')) {
+    saveJiraSites((STATE.jiraSites || []).filter(s => s.id !== t.dataset.id));
+    return;
+  }
+  if (t.classList.contains('js-cred-save')) {
+    const card = t.closest('.acct-card');
+    const email = (card.querySelector('.js-cred-email').value || '').trim();
+    const token = (card.querySelector('.js-cred-token').value || '').trim();
+    if (!email || !token) return toast('error', 'Preencha e-mail e token.', 3000);
+    api('/api/jira/credential', { siteId: t.dataset.id, email, token }).then(r => {
+      card.querySelector('.js-cred-email').value = ''; card.querySelector('.js-cred-token').value = '';
+      if (r && r.ok) toast('ok', 'Credencial salva.', 2500);
+      else toast('error', 'Não deu pra salvar a credencial.');
+    });
+    return;
+  }
+  if (t.classList.contains('js-cred-remove')) {
+    api('/api/jira/credential/remove', { siteId: t.dataset.id }).then(r => {
+      if (r && r.ok) toast('ok', 'Credencial removida.', 2500);
+      else toast('error', 'Não deu pra remover a credencial.');
+    });
+    return;
+  }
+});
+$('#jiraSitesManager').addEventListener('change', (e) => {
+  const t = e.target;
+  const campos = ['js-label', 'js-baseurl', 'js-owners', 'js-projectkeys'];
+  if (!campos.some(cls => t.classList.contains(cls))) return;
+  const id = t.dataset.id;
+  const sites = (STATE.jiraSites || []).map(s => {
+    if (s.id !== id) return s;
+    const next = { ...s };
+    if (t.classList.contains('js-label')) next.label = t.value.trim() || s.label;
+    if (t.classList.contains('js-baseurl')) next.baseUrl = t.value.trim();
+    if (t.classList.contains('js-owners')) next.owners = t.value.split(',').map(x => x.trim()).filter(Boolean);
+    if (t.classList.contains('js-projectkeys')) next.projectKeys = t.value.split(',').map(x => x.trim()).filter(Boolean);
+    return next;
+  });
+  saveJiraSites(sites);
+});
+
 /* ---------- tema ---------- */
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
@@ -983,7 +1108,7 @@ function switchTab(name) {
   if (name === 'entregas') loadDeliveries();
   if (name === 'destaques') { loadHighlights(); renderTools(); }   // renderTools: kudos do escopo atual, não o defasado
   if (name === 'time') loadTeam();
-  if (name === 'sistema') { switchSistemaSection(); loadLog(); renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); loadReviewerCands(); }
+  if (name === 'sistema') { switchSistemaSection(); loadLog(); renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); loadReviewerCands(); }
   if (name === 'consumo') renderUsage();
 }
 $('#nav').addEventListener('click', (e) => {
@@ -3115,6 +3240,7 @@ function renderSettings() {
   setIf($('#setMergeBlocked'), (c.mergeBlockedRepos || []).join(', '));
   renderReviewersEditor();
   renderClaudeProfiles();
+  renderJiraSites();
   $('#setInterval').value = String(c.intervalSeconds);
   $('#setReviewModel').value = (c.reviewModel != null ? c.reviewModel : '');
   $('#setParallelReviews').value = String(c.parallelReviews || 1);
@@ -3443,7 +3569,7 @@ function connect() {
     renderRadarNav();
     syncAnalysisOps();
     renderSettings(); renderTools(); renderUpdate(); tickCountdown();
-    if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); }
+    if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); }
     if ($('#tab-consumo').classList.contains('active')) renderUsage();
   });
   es.addEventListener('activity', (e) => {
