@@ -20,7 +20,7 @@ Você **pode** (e deve) ler à vontade: `gh pr view`, `gh pr diff`, `gh api` de 
 
 ## Fluxo
 
-1. **Metadados + card.** `gh pr view <url> --json author,headRefName,title,body,isDraft,url,number`. Extraia o key `BT-\d+` do título, da branch ou do corpo. Se achou, leia o card no Jira (site `biudtecnologia.atlassian.net`, projeto `BT`, **getJiraIssue** com `fields=["summary","description","status"]`): critérios de aceite, escopo técnico, fora de escopo. Jira inacessível ou sem key → trate o card como não-verificável e valide contra o título/descrição do PR (diga isso no relatório).
+1. **Metadados + card.** `gh pr view <url> --json author,headRefName,title,body,isDraft,url,number`. Extraia a chave do card (formato `PROJETO-NUMERO`) do título, da branch ou do corpo. Se achou, leia o card com **getJiraIssue**: a ferramenta já está apontada para o Jira da organização dona deste PR, então você não escolhe site nem informa `cloudId`. Pegue critérios de aceite, escopo técnico e fora de escopo. Jira inacessível ou sem chave, trate o card como **não-verificável** e valide contra o título e a descrição do PR (diga isso no relatório).
 
 2. **Rode o agente `pr-reviewer`** (subagent_type `pr-reviewer`) no **modo headless `--json`**, passando o PR, os critérios/escopo do card (se obtidos) e a nota de que é uma autoanálise do próprio autor. Ele devolve o veredito estruturado (findings com severidade, cardMet, ciPassing). Use como base factual. Ele não posta nada, é o comportamento esperado.
 
