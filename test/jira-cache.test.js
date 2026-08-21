@@ -40,9 +40,14 @@ test('cache ausente ou corrompido é miss, nunca exceção', () => {
 });
 
 test('sanitizar é exportado e impede identificador de escapar da pasta', () => {
-  assert.equal(cache.sanitizar('../fuga'), '__fuga');
+  assert.equal(cache.sanitizar('../fuga'), '___fuga');
   assert.equal(cache.sanitizar('a b'), 'a_b');
   const p = cache.cardCachePath('../fuga', 'XX/1');
   assert.ok(!p.includes('..'), 'siteId com .. não pode subir de pasta');
-  assert.ok(p.endsWith(path.join('__fuga', 'XX_1.json')));
+  assert.ok(p.endsWith(path.join('___fuga', 'XX_1.json')));
+});
+
+test('ids distintos e validos na borda nao colidem no cache', () => {
+  assert.notEqual(cache.sanitizar('s__1'), cache.sanitizar('s___1'));
+  assert.notEqual(cache.cardCachePath('s__1', 'XX-1'), cache.cardCachePath('s___1', 'XX-1'));
 });
