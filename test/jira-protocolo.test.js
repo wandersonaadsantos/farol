@@ -29,3 +29,8 @@ test('a regra de card não verificável continua nos dois', () => {
   assert.ok(/n[ãa]o[- ]verific[áa]vel/i.test(PROTOCOLO));
   assert.ok(/n[ãa]o[- ]verific[áa]vel/i.test(SELF));
 });
+
+test('o protocolo da revisão instrui o caso da seção de card ausente', () => {
+  assert.match(PROTOCOLO, /n[ãa]o\s+aparecer/i);
+  assert.ok(/getJiraIssue/.test(PROTOCOLO), 'sem a seção, o modelo precisa saber que lê o card ele mesmo');
+});
