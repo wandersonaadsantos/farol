@@ -616,6 +616,7 @@ class Engine extends EventEmitter {
   async myAuthoredPRs(user) { return ghMod.myAuthoredPRs(this, user); }
   async prState(pr) { return ghMod.prState(this, pr); }
   async headSha(pr) { return ghMod.headSha(this, pr); }
+  async prCardSources(pr) { return ghMod.prCardSources(this, pr); }
   async fetchPrFiles(pr) { return fileProofMod.fetchPrFiles(this, pr); }
   deliveriesSince(days) { return ghMod.deliveriesSince(this, days); }
   async fetchDeliveries(days, owner) { return ghMod.fetchDeliveries(this, days, owner); }
