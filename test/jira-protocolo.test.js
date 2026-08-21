@@ -34,3 +34,16 @@ test('o protocolo da revisão instrui o caso da seção de card ausente', () => 
   assert.match(PROTOCOLO, /n[ãa]o\s+aparecer/i);
   assert.ok(/getJiraIssue/.test(PROTOCOLO), 'sem a seção, o modelo precisa saber que lê o card ele mesmo');
 });
+
+// Os dois testes abaixo travam o que o passo 2 promete nos caminhos NÃO escopados
+// (revisão pelo terminal, ou prompt sem a seção de card): lá a ferramenta do Jira
+// exige cloudId e alcança um tenant que pode ser de outra empresa.
+test('o protocolo exige o cloudId quando a ferramenta não vem escopada', () => {
+  assert.ok(/cloudId/.test(PROTOCOLO), 'sem a seção de card, chamar getJiraIssue sem cloudId é recusado no schema');
+  assert.ok(/getAccessibleAtlassianResources/.test(PROTOCOLO), 'o modelo precisa saber como descobrir o site');
+});
+
+test('card lido fora do caminho escopado só vale se for da organização do PR', () => {
+  assert.match(PROTOCOLO, /[Cc]onfirme[^\n]*organiza[çc][ãa]o dona deste PR/,
+    'a mesma chave existe em mais de um tenant: sem confirmar a origem, o card é não-verificável');
+});
