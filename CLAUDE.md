@@ -610,6 +610,42 @@ falando. E o corolário de UI: status que significa "não postei" é o único lu
 onde o achado existe, então ele nunca pode esconder as reasons na linha
 (`resolvedRow`, "achados que ficaram só aqui").
 
+### Head que anda DURANTE a sessão: não posta (v2.51.2)
+
+Caso medido (biud-esg#224, 21/08/2026): a sessão leu o head `3cf42b3`, o autor
+empurrou `b8722a3` dois minutos antes do POST, e o APPROVE saiu ancorado no sha
+lido. O GitHub recusou com um `422` genérico ("Unprocessable Entity"), o card
+caiu em "Precisa de você" com essa frase de oito palavras como único motivo, e o
+clique em Aprovar reenviava o MESMO payload, ou seja, falhava idêntico pra sempre.
+
+A regra do G1 não mudou (a âncora é sempre o head que a sessão LEU). O que mudou
+é o desfecho quando esse head já não é o do PR, porque aí as duas saídas eram
+erradas: com a âncora velha o GitHub recusa; sem ela o review sairia carimbado num
+código que ninguém leu E o `staleForReview` passaria a ver review meu no head novo,
+desarmando o round 2 (o buraco do #742). Então **não posta**, nos DOIS pontos, e
+quem mexer num tem que mexer no outro:
+
+- `review.js`, logo antes dos ramos `canAuto`/`canReject`: relê o head (`engine.headSha`,
+  exceção e vazio degradam pro comportamento antigo, como no dedup) e, se andou,
+  derruba os dois gates e prepende uma `gateReason`. O achado vira pendência.
+- `decision.js` (`decide()`): reusa o `head` que o dedup já buscou, grava
+  `blockedReason` no item (mesmo mecanismo do bloqueio de linguagem, G13) e devolve
+  `blocked: 'stale_head'`. A pendência FICA na mesa, com o motivo no card.
+
+A frase é uma só, em `lib/format.js` (`staleHeadText`), com os dois shas curtos.
+
+Duas correções irmãs, no `postReview`:
+
+- **A mensagem de erro do `gh`**: ele fala por dois canais quando o GitHub recusa,
+  a linha curta no stderr e o corpo JSON inteiro no stdout, e é no `errors[]` do
+  stdout que mora o campo recusado. O código fazia `r.stderr || r.stdout`, então o
+  stderr sempre vencia e o detalhe ia pro lixo: era por isso que o 422 não dizia nada.
+  `ghErrorMessage` junta as duas metades (teto de 300, `errors[]` de string ou objeto).
+- **Degrau de recuo sem inline**: o fallback de 422 era gateado em `comments.length`,
+  então review sem comentário de linha (o APPROVE, quase sempre) não tinha saída
+  nenhuma. `semAncoraPayload` recua a âncora uma vez. Só chega aí payload cujo head
+  JÁ foi conferido acima, então largar a âncora não muda de que código o texto fala.
+
 ## Re-revisão automática pós-push (v2.41.0): o round 2 fecha sozinho
 
 O caso medido que motivou (biud-frontend#756, 15/08/2026): CHANGES_REQUESTED

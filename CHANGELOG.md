@@ -9,6 +9,30 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.51.2
+
+Correção: aprovação que morria num erro sem explicação quando o autor empurrava
+commit durante a revisão.
+
+**Correções**
+- **O APPROVE falhava com "Unprocessable Entity (HTTP 422)" e o botão Aprovar
+  repetia a mesma falha pra sempre.** Medido num PR real em 21/08/2026: a revisão
+  terminou às 18:34, o autor tinha empurrado um commit novo dois minutos antes, e o
+  review saiu ancorado no commit que a sessão leu. O GitHub recusou, o card caiu em
+  "Precisa de você" com uma mensagem de oito palavras que não diz nada, e cada clique
+  em Aprovar reenviava exatamente o mesmo pedido recusado. Agora o Farol confere o
+  commit antes de postar: se o PR andou durante a revisão, ele não posta (aquele texto
+  fala do código anterior) e escreve o motivo no card, com os dois commits, pra você
+  pedir uma revisão nova do estado atual.
+- **Erro do GitHub deixou de chegar como frase genérica.** O `gh` escreve em dois
+  canais quando o GitHub recusa: numa linha curta vai "deu 422", e no outro canal vai
+  o campo que de fato foi recusado. O Farol só lia o da linha curta, e por isso o erro
+  chegava no log e na tela sem motivo nenhum. Agora as duas metades andam juntas.
+- **Review recusado por causa da âncora de commit ganha uma segunda chance.** Quando
+  a recusa vem num review sem comentário de linha (o caso do APPROVE), o Farol reenvia
+  uma vez sem a âncora em vez de desistir. Já existia saída parecida pro review com
+  comentário de linha; o sem comentário ficava sem nenhuma.
+
 ## v2.51.1
 
 Correção: a promessa de não duplicar a revisão valia em um caminho só.

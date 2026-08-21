@@ -58,14 +58,29 @@ function pendenciaDeClique(extra) {
   };
 }
 
-test('decide(): o commit_id é o head que a SESSÃO leu, não o head fresco do clique', async () => {
+test('decide(): o commit_id é o head que a SESSÃO leu', async () => {
   const LIDO = 'a'.repeat(40);
   const { engine, capturado } = engineComPendencia(pendenciaDeClique({ headSha: LIDO }));
-  engine.headSha = async () => 'b'.repeat(40);   // autor empurrou entre a sessão e o clique
+  engine.headSha = async () => LIDO;
   const r = await engine.decide('d1', 'approve');
   assert.equal(r.ok, true);
-  assert.equal(capturado.payload.commit_id, LIDO,
-    'o texto do review fala do código lido; carimbar o head novo mente e desarma o round 2');
+  assert.equal(capturado.payload.commit_id, LIDO, 'a âncora é do head lido, não do que o GitHub escolher no POST');
+});
+
+// Atualizado na v2.51.2 (biud-esg#224): a regra "o head LIDO vence" continua de pé, o que
+// mudou é o desfecho quando o autor empurrou commit entre a análise e o clique. Postar
+// ancorado no head velho o GitHub recusa (422 genérico, e o clique repetia a recusa pra
+// sempre); postar sem âncora carimbaria o review num código que ninguém leu. Então o
+// clique não posta: fica na mesa, com o motivo escrito no card. Detalhe em
+// test/post-422-ancora.test.js.
+test('decide(): autor empurrou commit entre a análise e o clique, então nada é postado', async () => {
+  const LIDO = 'a'.repeat(40);
+  const { engine, capturado } = engineComPendencia(pendenciaDeClique({ headSha: LIDO }));
+  engine.headSha = async () => 'b'.repeat(40);
+  const r = await engine.decide('d1', 'approve');
+  assert.equal(r.ok, false);
+  assert.equal(capturado.payload, null, 'review de head velho não vai pro PR nem por clique');
+  assert.equal(engine.decisions.pending.length, 1, 'a pendência fica na mesa');
 });
 
 test('decide(): pendência SEM headSha (gravada antes do campo) cai no head buscado no clique', async () => {
