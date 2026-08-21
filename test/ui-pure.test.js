@@ -2577,3 +2577,40 @@ test('cartão de sessão: id e label hostis não viram markup nem escapam do atr
   assert.ok(!html.includes('onerror="'), 'url não consegue fechar o atributo e abrir outro');
   assert.match(html, /href="x&quot; onerror=&quot;y"/, 'a aspa da url sai escapada');
 });
+
+/* ---------- site do Jira: a recusa é da TELA, o servidor só descarta ----------
+   Medido no fonte: baseUrl fora de forma faz normalizeBaseUrl devolver '' e o
+   parseJiraSites derrubar o site INTEIRO (rótulo, orgs e prefixos junto), com a
+   tela dizendo "Configurações salvas". E projectKeys vazio faz o extractCardKeys
+   aceitar qualquer PALAVRA-NUMERO do título ('feat: normaliza UTF-8 e SHA-256 no
+   ISO-8601 (AB-7)' devolve UTF-8 primeiro), o Farol pedir esse "card" ao Jira,
+   tomar 404 e o PR perder o auto-approve por uma falha que ele inventou. */
+test('jiraBaseUrlProblema aceita origem pura https e recusa o resto', () => {
+  assert.equal(P.jiraBaseUrlProblema('https://empresa.exemplo.com'), '');
+  assert.equal(P.jiraBaseUrlProblema('  https://empresa.exemplo.com/  '), '', 'barra final e espaço são normalizados, como no servidor');
+  assert.ok(P.jiraBaseUrlProblema('empresa.exemplo.com'), 'sem esquema o servidor apagaria o site inteiro');
+  assert.ok(P.jiraBaseUrlProblema('http://empresa.exemplo.com'), 'http ofereceria a credencial em texto claro');
+  assert.ok(P.jiraBaseUrlProblema('https://empresa.exemplo.com@evil.example'), 'userinfo troca o host real da requisição');
+  assert.ok(P.jiraBaseUrlProblema('https://empresa.exemplo.com/jira'), 'caminho muda o destino da chamada');
+  assert.ok(P.jiraBaseUrlProblema('https://empresa.exemplo.com/?a=1'), 'query muda o destino da chamada');
+  assert.ok(P.jiraBaseUrlProblema(''), 'vazio não é URL');
+});
+
+test('jiraPrefixosProblema exige ao menos um prefixo de projeto', () => {
+  assert.equal(P.jiraPrefixosProblema(['ABC']), '');
+  assert.ok(P.jiraPrefixosProblema([]));
+  assert.ok(P.jiraPrefixosProblema(['  ']));
+  assert.ok(P.jiraPrefixosProblema(null));
+});
+
+test('a tela do Jira valida no cadastro E na edição, e não deixa credencial órfã', () => {
+  const APP = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
+  const add = APP.slice(APP.indexOf("t.id === 'btnJiraSiteAdd'"), APP.indexOf("t.classList.contains('js-site-remove')"));
+  assert.match(add, /jiraBaseUrlProblema\(baseUrl\) \|\| jiraPrefixosProblema\(projectKeys\)/, 'cadastro valida antes de salvar');
+  const edicao = APP.slice(APP.indexOf('function jiraEdicaoProblema'), APP.indexOf('function jiraCampoSalvo'));
+  assert.match(edicao, /jiraBaseUrlProblema/);
+  assert.match(edicao, /jiraPrefixosProblema/);
+  const remover = APP.slice(APP.indexOf("t.classList.contains('js-site-remove')"), APP.indexOf("t.classList.contains('js-cred-save')"));
+  assert.match(remover, /\/api\/jira\/credential\/remove/, 'remover o site tem que apagar a credencial dele antes');
+  assert.ok(remover.indexOf('/api/jira/credential/remove') < remover.indexOf('saveJiraSites'), 'a credencial sai antes de o site sumir da lista');
+});

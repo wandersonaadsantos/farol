@@ -15,7 +15,8 @@ import {
   chatBadge, fmtUsageMetric, usageColorsFor, usageTooltipHtml, usageKpisHtml,
   usageMatrixHtml, usageBudgetHtml, usageSessionsHtml, escAttrSelector, defaultFor,
   overrideFor, suggestDefault, renderOrgBlock, queueCardHtml, panoramaRowHtml,
-  reasonGroupsHtml, reasonText, claudeProfilesHtml, accountsManagerHtml
+  reasonGroupsHtml, reasonText, claudeProfilesHtml, accountsManagerHtml,
+  jiraBaseUrlProblema, jiraPrefixosProblema
 } from './pure.js';
 
 const $ = (s) => document.querySelector(s);
@@ -933,6 +934,19 @@ $('#claudeProfilesManager').addEventListener('change', (e) => {
    allowlist do servidor exige e evita a tela oferecer um campo de id livre.
    A credencial (e-mail e token) NUNCA entra em STATE: os dois campos são lidos
    direto do DOM na hora do clique e a chamada zera o formulário depois. */
+const jiraLista = (v) => String(v || '').split(',').map(x => x.trim()).filter(Boolean);
+/* Recusa ANTES de mandar: o servidor não corrige nem devolve erro por campo (ver
+   jiraBaseUrlProblema em pure.js). Na edição in loco o campo recusado volta ao
+   valor salvo, senão a tela mostraria um texto que o site já não tem. */
+function jiraEdicaoProblema(t) {
+  if (t.classList.contains('js-baseurl')) return jiraBaseUrlProblema(t.value);
+  if (t.classList.contains('js-projectkeys')) return jiraPrefixosProblema(jiraLista(t.value));
+  return '';
+}
+function jiraCampoSalvo(site, t) {
+  if (t.classList.contains('js-baseurl')) return site.baseUrl;
+  return (site.projectKeys || []).join(', ');
+}
 function saveJiraSites(sites) {
   STATE.jiraSites = sites;
   renderJiraSites();
@@ -985,7 +999,7 @@ function jiraSiteAddFormHtml() {
       <input id="jsAddProjectKeys" placeholder="prefixos do projeto (ABC, XYZ)" spellcheck="false">
       <button class="btn sm" id="btnJiraSiteAdd">Adicionar</button>
     </div>
-    <div class="a-hint">A credencial se cadastra depois, dentro do card do site já salvo.</div>
+    <div class="a-hint">Rótulo, URL base e ao menos um prefixo de projeto são obrigatórios. A credencial se cadastra depois, dentro do card do site já salvo.</div>
   </div>`;
 }
 function renderJiraSites() {
@@ -1000,16 +1014,23 @@ $('#jiraSitesManager').addEventListener('click', (e) => {
   if (t.id === 'btnJiraSiteAdd') {
     const label = ($('#jsAddLabel').value || '').trim();
     const baseUrl = ($('#jsAddBaseUrl').value || '').trim();
-    const owners = ($('#jsAddOwners').value || '').split(',').map(x => x.trim()).filter(Boolean);
-    const projectKeys = ($('#jsAddProjectKeys').value || '').split(',').map(x => x.trim()).filter(Boolean);
+    const owners = jiraLista($('#jsAddOwners').value);
+    const projectKeys = jiraLista($('#jsAddProjectKeys').value);
     if (!label || !baseUrl) return toast('error', 'Preencha rótulo e URL base.', 3000);
+    const problema = jiraBaseUrlProblema(baseUrl) || jiraPrefixosProblema(projectKeys);
+    if (problema) return toast('error', problema, 6000);
     const site = { id: genProfileId(), label, baseUrl, owners, projectKeys };
     $('#jsAddLabel').value = ''; $('#jsAddBaseUrl').value = ''; $('#jsAddOwners').value = ''; $('#jsAddProjectKeys').value = '';
     saveJiraSites([...(STATE.jiraSites || []), site]);
     return;
   }
   if (t.classList.contains('js-site-remove')) {
-    saveJiraSites((STATE.jiraSites || []).filter(s => s.id !== t.dataset.id));
+    // a credencial mora FORA do config.json: tirar o site da lista sem isto
+    // deixaria e-mail e token órfãos no arquivo de credenciais pra sempre
+    const id = t.dataset.id;
+    api('/api/jira/credential/remove', { siteId: id }).then(() => {
+      saveJiraSites((STATE.jiraSites || []).filter(s => s.id !== id));
+    });
     return;
   }
   if (t.classList.contains('js-cred-save')) {
@@ -1037,13 +1058,20 @@ $('#jiraSitesManager').addEventListener('change', (e) => {
   const campos = ['js-label', 'js-baseurl', 'js-owners', 'js-projectkeys'];
   if (!campos.some(cls => t.classList.contains(cls))) return;
   const id = t.dataset.id;
+  const atual = (STATE.jiraSites || []).find(s => s.id === id);
+  const problema = jiraEdicaoProblema(t);
+  if (problema) {
+    toast('error', problema, 6000);
+    t.value = atual ? jiraCampoSalvo(atual, t) : '';
+    return;
+  }
   const sites = (STATE.jiraSites || []).map(s => {
     if (s.id !== id) return s;
     const next = { ...s };
     if (t.classList.contains('js-label')) next.label = t.value.trim() || s.label;
     if (t.classList.contains('js-baseurl')) next.baseUrl = t.value.trim();
-    if (t.classList.contains('js-owners')) next.owners = t.value.split(',').map(x => x.trim()).filter(Boolean);
-    if (t.classList.contains('js-projectkeys')) next.projectKeys = t.value.split(',').map(x => x.trim()).filter(Boolean);
+    if (t.classList.contains('js-owners')) next.owners = jiraLista(t.value);
+    if (t.classList.contains('js-projectkeys')) next.projectKeys = jiraLista(t.value);
     return next;
   });
   saveJiraSites(sites);

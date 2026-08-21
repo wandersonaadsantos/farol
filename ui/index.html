@@ -528,7 +528,7 @@
             </div>
           </div>
           <div class="section-head"><h3>Jira</h3></div>
-          <p class="section-desc">Sites do Jira por organização do GitHub, pra revisão automática ler o card do PR. A credencial (e-mail e token de API) fica num arquivo separado do config e nunca aparece na tela depois de salva.</p>
+          <p class="section-desc">Sites do Jira por organização do GitHub, pra revisão automática ler o card do PR. A credencial (e-mail e token de API) fica num arquivo separado do config e nunca aparece na tela depois de salva. <b>Do primeiro site cadastrado em diante, o Farol assume TODOS os MCPs das sessões de revisão e de autoanálise e remove os outros conectores delas</b>, inclusive em PR de organização que não tenha site aqui, pra nenhuma sessão ler o Jira de outra empresa.</p>
           <div id="jiraSitesManager" class="cards"></div>
         </div>
 
