@@ -45,6 +45,9 @@ test('issueValida separa card de qualquer outro JSON válido', () => {
   assert.equal(issueValida({ errorMessages: ['Issue does not exist'], errors: {} }), false);
   assert.equal(issueValida({ key: '', fields: {} }), false);
   assert.equal(issueValida({ key: 'XX-1' }), false);
+  // fields como array passa no typeof e normalizaria pra card sem critério nenhum
+  assert.equal(issueValida({ key: 'XX-1', fields: [] }), false);
+  assert.equal(issueValida({ key: 'XX-1', fields: ['summary'] }), false);
   assert.equal(issueValida([]), false);
   assert.equal(issueValida(123), false);
   assert.equal(issueValida(null), false);

@@ -174,3 +174,13 @@ test('a decisão de tenant sai de um lugar só', () => {
   assert.match(corpo, /const site = siteForPr\(engine, pr\)/);
   assert.doesNotMatch(corpo, /siteForOwner\(/, 'quem resolve o site do PR é o siteForPr, sempre');
 });
+
+test('a config de "sem site" não pode colidir com id de site nenhum', () => {
+  // 'vazio' é um ID_SITE legal: com o nome antigo, o site de id "vazio" tinha a
+  // config sobrescrita por { mcpServers: {} } e subia sem Jira nenhum
+  const semSite = path.basename(jira.mcpConfigPath(''));
+  assert.notEqual(semSite, path.basename(jira.mcpConfigPath('vazio')));
+  assert.ok(!/^[A-Za-z0-9_-]+\.json$/.test(semSite), 'nenhum id saneado produz este nome');
+  const args = jira.mcpArgsFor(engineCom([SITE]), null);
+  assert.ok(args[1].includes(semSite), 'é este o arquivo usado quando a org não tem site');
+});
