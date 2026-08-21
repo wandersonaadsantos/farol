@@ -51,3 +51,12 @@ test('ids distintos e validos na borda nao colidem no cache', () => {
   assert.notEqual(cache.sanitizar('s__1'), cache.sanitizar('s___1'));
   assert.notEqual(cache.cardCachePath('s__1', 'XX-1'), cache.cardCachePath('s___1', 'XX-1'));
 });
+
+test('o cache não mora dentro do workspace da sessão de revisão', () => {
+  // state/ é o diretório em que a sessão roda com permissão liberada, e o
+  // protocolo já manda o modelo escrever lá: cache ali é card da empresa A
+  // legível pela sessão da empresa B.
+  const p = cache.cardCachePath('s1', 'XX-1');
+  assert.ok(p.startsWith(path.join(process.env.FAROL_HOME, JIRA.CACHE_DIR)), p);
+  assert.ok(!p.includes(`${path.sep}workspace${path.sep}`), 'o cache saiu do state/ de propósito');
+});

@@ -147,3 +147,30 @@ test('o arquivo de mcp-config não contém segredo', () => {
   assert.ok(!conteudo.includes('tok'));
   assert.ok(!conteudo.includes('a@b.com'));
 });
+
+test('mesmo id com baseUrl diferente não compartilha card no cache', async () => {
+  // a tela deixa corrigir o baseUrl mantendo o id: sem o host no namespace, por
+  // até uma hora a revisão receberia o card do tenant anterior como "lido pelo
+  // Farol", com o cardMet livre pra ser true
+  const A = { ...SITE, baseUrl: 'https://a.exemplo.com' };
+  const B = { ...SITE, baseUrl: 'https://b.exemplo.com' };
+  cred.setCredential('s1', { email: 'a@b.com', token: 'tok' });
+  let chamadas = 0;
+  const fetchImpl = async (...args) => { chamadas++; return respostaOk('XX-4')(...args); };
+  const pr = { ...PR, title: 'feat (XX-4)' };
+  const primeira = await jira.cardForPr(engineCom([A]), pr, 8000, fetchImpl);
+  assert.equal(primeira.ok, true);
+  const depoisDaTroca = await jira.cardForPr(engineCom([B]), pr, 8001, fetchImpl);
+  assert.equal(depoisDaTroca.fromCache, false, 'trocar o host não pode servir o card do tenant anterior');
+  assert.equal(chamadas, 2, 'o segundo site tem que ir à rede dele');
+});
+
+test('a decisão de tenant sai de um lugar só', () => {
+  // review.js escopa o MCP a partir do site que esta função devolve e o selfpr.js
+  // a partir do siteForPr: duas expressões equivalentes são duas chances de o
+  // mesmo PR cair em tenants diferentes nos dois caminhos.
+  const fonte = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'engine', 'jira.js'), 'utf8');
+  const corpo = fonte.slice(fonte.indexOf('async function cardForPr'), fonte.indexOf('function listaOuTraco'));
+  assert.match(corpo, /const site = siteForPr\(engine, pr\)/);
+  assert.doesNotMatch(corpo, /siteForOwner\(/, 'quem resolve o site do PR é o siteForPr, sempre');
+});
