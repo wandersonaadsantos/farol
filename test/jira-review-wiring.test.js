@@ -53,3 +53,20 @@ test('os argumentos do mcp CHEGAM no streamOpts do headless', () => {
 test('card não lido com o Jira ligado derruba o cardMet', () => {
   assert.match(FONTE, /if \(!cardRes\.ok && jiraLigado\) result\.cardMet = false/);
 });
+
+// A assimetria entre os dois códigos silenciosos é deliberada e frágil: os dois
+// são rotina demais pra virar linha de log e de feed (PR sem card e org fora do
+// Jira não são falha de ninguém), mas só o sem_chave sai também do motivo
+// etiquetado. Org sem site DERRUBA o cardMet, então sem o motivo a revisão cairia
+// na mesa do humano sem nada na tela explicando por quê.
+test('sem_chave e site_nao_configurado calam log e feed, só sem_chave cala o motivo', () => {
+  const silencio = FONTE.slice(FONTE.indexOf('} else if (jiraLigado'), FONTE.indexOf('if (heranca.ativa)'));
+  assert.match(silencio, /JIRA_CODES\.SEM_CHAVE/, 'PR sem chave não vira WARN');
+  assert.match(silencio, /JIRA_CODES\.SITE_NAO_CONFIGURADO/, 'org sem site não vira WARN');
+
+  const i = FONTE.indexOf('if (!cardRes.ok && jiraLigado && cardRes.code !== JIRA_CODES.SEM_CHAVE)');
+  assert.ok(i > 0, 'o motivo etiquetado do card continua condicionado ao sem_chave');
+  const condicao = FONTE.slice(i, FONTE.indexOf('\n', i));
+  assert.ok(!condicao.includes('SITE_NAO_CONFIGURADO'),
+    'org sem site derruba o cardMet: tirar o motivo deixaria a decisão sem explicação na tela');
+});

@@ -1447,8 +1447,13 @@ class Engine extends EventEmitter {
   // Credencial do Jira: colaborador lib/jira/credentials.js, único lugar que lê ou
   // escreve o arquivo separado (o token nunca entra no config.json, que trafega
   // inteiro pra UI). Nunca ecoe o retorno com o valor: as duas devolvem só booleano.
-  setJiraCredential(siteId, valor) { return credMod.setCredential(siteId, valor); }
-  removeJiraCredential(siteId) { return credMod.removeCredential(siteId); }
+  //
+  // O pushState não é enfeite: o selo "credencial cadastrada" sai do snapshot, e
+  // sem empurrar o estado a tela só descobria a mudança no próximo ciclo de
+  // polling (300s por padrão). Quem removia via clicar de novo no botão e receber
+  // false, que a UI mostra como erro vermelho de uma remoção que já tinha dado certo.
+  setJiraCredential(siteId, valor) { const ok = credMod.setCredential(siteId, valor); this.pushState(); return ok; }
+  removeJiraCredential(siteId) { const ok = credMod.removeCredential(siteId); this.pushState(); return ok; }
 
   snapshot() {
     return {

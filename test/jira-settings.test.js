@@ -27,3 +27,17 @@ test('o saneador da tabela é o parseJiraSites', () => {
   assert.equal(saneado[0].baseUrl, 'https://a.atlassian.net');
   assert.deepEqual(saneado[0].owners, ['orga']);
 });
+
+// O selo "credencial cadastrada" sai do snapshot (maskJiraSites), então cadastrar
+// ou remover credencial sem empurrar estado deixa a tela mentindo até o próximo
+// ciclo de polling. O sintoma medido: clicar em "Remover credencial" de novo, ver
+// o retorno false e a tela chamar de erro uma remoção que já tinha dado certo.
+test('mexer na credencial empurra o estado pra tela na hora', () => {
+  const servidor = fs.readFileSync(path.join(import.meta.dirname, '..', 'server.js'), 'utf8');
+  for (const nome of ['setJiraCredential', 'removeJiraCredential']) {
+    const i = servidor.indexOf(`  ${nome}(siteId`);
+    assert.ok(i > 0, `${nome} existe`);
+    const linha = servidor.slice(i, servidor.indexOf('\n', i));
+    assert.match(linha, /this\.pushState\(\)/, `${nome} precisa atualizar o selo da tela`);
+  }
+});
