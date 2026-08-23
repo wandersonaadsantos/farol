@@ -9,6 +9,28 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.51.3
+
+Refino da revisão: sigla interna de ferramenta deixa de passar como explicação,
+nem no código que o Farol lê, nem no texto que ele escreve.
+
+**Melhorias**
+- **Comentário que se apoia numa sigla vira ressalva.** Docblock, comentário,
+  mensagem de commit ou título de PR que cita código de regra do Sonar
+  (`S2871`, `S3358`), marcador do Acrity (`[acrity-fp:...]`) ou nome de check
+  **sem dizer em palavras o que a regra quer** agora é apontado como detalhe
+  não-bloqueante. Medido num PR real de 18/08/2026: o autor documentou a
+  correção citando dois códigos de regra, e a revisão elogiou o registro sem
+  notar que quem abre o arquivo seis meses depois lê só uma sigla opaca. O
+  pedido é pelas palavras JUNTO do código, nunca no lugar dele, e o supressor
+  (`NOSONAR`, `eslint-disable-next-line`) fica de fora, porque ele precisa do
+  identificador pra funcionar.
+- **O texto que o Farol posta nunca carrega esses identificadores**, nem quando
+  ele adota o achado de outra ferramenta. Em vez do código, a frase diz o que a
+  regra exige ("o Sonar pede comparador no `sort()`"), pra o autor entender o
+  ponto sem abrir o catálogo da ferramenta. Na prática ele já vinha fazendo
+  isso por instinto; agora é regra escrita.
+
 ## v2.51.2
 
 Correção: aprovação que morria num erro sem explicação quando o autor empurrava
