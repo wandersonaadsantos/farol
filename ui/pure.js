@@ -1927,7 +1927,8 @@ const RESOLVED_LABELS = {
   already_reviewed: ['✔', 'já revisado por você (não repostei)'],
   already_merged: ['🔀', 'já foi mergeado (cancelei a revisão pendente)'],
   already_closed: ['🚫', 'PR fechado sem merge (cancelei a revisão pendente)'],
-  skipped: ['⏭', 'pulado']
+  skipped: ['⏭', 'pulado'],
+  superseded: ['♻', 'substituída por uma revisão nova']
 };
 const RESOLVED_ACTIONS = { approve: 'APPROVE', request_changes: 'REQUEST CHANGES', comment: 'COMMENT' };
 // cor do selo pela AÇÃO postada, não pelo status: o desfecho é o que se procura ao
