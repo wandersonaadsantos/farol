@@ -38,6 +38,15 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
 | `lib/engine/tools.js` | Ferramentas internas (kudos, diagnóstico), com escopo por conta |
 | `lib/engine/update.js` | Auto-update: comparação de versão, download da release e aplicação por SO |
 | `lib/engine/usage.js` | Agregação do consumo (por dia, tipo, conta e modelo) + log permanente por sessão (`usage-sessions.json`, sem poda, com o campo `ref`). **FONTE ÚNICA da aba Consumo (v2.40.0)**: `usageSummary` entrega série diária, séries empilhadas e matriz JÁ RECONCILIADAS contra `days` (a fatia de um dia sem detalhamento vira a camada `_resto`, "Sem detalhamento"; invariante travado em teste: soma das camadas == série do dia), o orçamento por perfil (`budgets`, mesma conta do gate real, refeita a cada push; o doctor NÃO carrega mais gasto/bloqueio), `sessionsSince` e `retentionDays`. A UI só fatia janela e formata; não crie definição de dado (janela, métrica, teto) do lado de lá |
+| `lib/engine/jira.js` | **O único arquivo do recurso de Jira que COMPÕE os outros** (v2.52.0). `siteForPr` (resolve org do GitHub -> site, sem tocar rede nem credencial), `cardForPr` (lê o card, com cache), `cardBlock` (o bloco delimitado que entra no prompt), `mcpArgsFor` (o `--mcp-config` + `--strict-mcp-config` da sessão) e `mcpConfigPath`. Os módulos de `lib/jira/` são FOLHAS e não se importam entre si: quem junta site, credencial, cache, cliente e normalização é aqui, e só aqui |
+| **`lib/jira/`** | **Folhas do recurso de Jira, puras ou de IO simples** |
+| `lib/jira/sites.js` | Modelo do site (`parseJiraSites`, `siteForOwner`, `maskJiraSites`): allowlist de id, validação de origem e a máscara que impede o segredo de chegar na tela |
+| `lib/jira/credentials.js` | Credencial por site em `~/.farol/jira-credentials.json`, FORA do `config.json` (que trafega inteiro pra UI), com permissão restrita em TODA gravação |
+| `lib/jira/client.js` | Cliente REST do Jira em Node puro, API **v2** (a v3 devolve descrição em ADF e exigiria um interpretador), timeout próprio e corpo provado |
+| `lib/jira/card.js` | `normalizeIssue`/`issueValida`: whitelist de saída (título, status, critérios, escopo, fora de escopo) e prova de forma. Card só é card se tiver a forma esperada; `fields` array não é card |
+| `lib/jira/cache.js` | Cache de card por site, fora do workspace da sessão. Namespace é id **E** host (a tela deixa corrigir o `baseUrl` mantendo o id, e sem o host o Farol serviria por até uma hora o card do tenant ANTERIOR) |
+| `lib/jira/errors.js` | Taxonomia com três donos de falha (do Farol, do Jira, do usuário). Os códigos `desligado` e `sem_chave` são SILENCIOSOS por decisão, ver a seção do Jira |
+| `tools/jira-mcp.js` | **O servidor MCP local do Farol** (v2.52.0). Expõe `getJiraIssue` e `searchJiraIssuesUsingJql` já apontados pro site certo. Recebe SÓ o `siteId` por argumento e lê a credencial do disco por conta própria: o `state/spawns.log` registra a linha de comando inteira, então segredo ali seria segredo em texto puro pra sempre |
 | `ui/` | UI sem framework: `index.html` + `pure.js` + `app.js` + `app.css` |
 | `ui/pure.js` | As funções PURAS da UI (esc, md, formatadores, agrupamento das Entregas). Módulo ES nativo: `ui/app.js` importa por `import { ... } from './pure.js'` (um `<script type="module">` só, sem o truque de carga dupla), e o `node --test` importa o mesmo arquivo por `import`/`import()`. É o único código de front que tem teste. Só entra aqui o que não toca DOM nem lê estado global |
 | `workspace-template/` | Workspace semeado em `~/.farol/workspace` (protocolo de review do Claude); `prompts/pr-review-auto.md` é a revisão headless, `prompts/self-review.md` é a autoanálise dos meus PRs (só leitura, nunca posta) |
@@ -332,6 +341,68 @@ $env:CLAUDE_CONFIG_DIR="C:\Users\voce\.claude-pessoal"; claude login
 - **Stubs**: `FAROL_REVIEW_CMD` substitui o `claude` da sessão terminal; `FAROL_HEADLESS_CMD` substitui o headless (imprima um envelope `{"result": "..."}` no stdout).
 - **Gate de qualidade** (rodar antes de QUALQUER entrega): `npm run check && npm run lint && npm test`. O `lint` é o gate de ratchet do contrato engineering-standards em Node puro (`tools/quality/`): compara as violações com `baseline.json` e reprova qualquer contagem que SUBA. Corrigiu dívida? `npm run lint:update` trava o número mais baixo. A baseline nunca sobe à mão. O `check` valida a sintaxe (`tools/check-syntax.js` roda `node --check` por processo filho em TODO `.js` do projeto, 98 arquivos, ESM nativo desde a migração; `package.json` tem `"type": "module"`); o `test` roda a rede (`node --test`, runner nativo, ZERO dependências): funções puras + smoke de boot com `FAROL_HOME` temporário. Verde em todos é pré-requisito. A rede vive em `test/` e é o que protege a decomposição do engine em ondas (ver `docs/QUALITY.md`, o contrato de qualidade extraído do lace-be-fastify).
 - As buscas `gh search prs` são read-only; rodar `check` contra o GitHub real é seguro.
+
+## Jira multi-tenant (v2.52.0)
+
+O Farol lê cards de VÁRIOS Jiras, escolhendo o site pela org do GitHub dona do
+PR. Antes disso ele dependia do conector `Atlassian Rovo` do claude.ai, que é um
+grant OAuth por conta Claude e alcança **um tenant só**. Hoje existe um cliente
+REST em Node puro e um servidor MCP local (`tools/jira-mcp.js`): a sessão sobe
+com `--mcp-config` apontando pro MCP do Farol mais `--strict-mcp-config`, que
+desliga todos os outros. O modelo continua chamando `getJiraIssue` como sempre,
+só que a ferramenta agora é do Farol e já nasce apontada pro Jira certo.
+
+**Decisões fechadas (não reabrir sem motivo novo):**
+
+1. **A chave do mapeamento é a ORG do GitHub, não a conta.** Uma conta cobre
+   várias orgs, que podem ter Jiras diferentes.
+2. **Sem fallback de conta.** Org sem site cadastrado = card não-verificável,
+   nunca "tenta o site padrão". Ler o Jira errado é pior do que não ler.
+3. **Modelo híbrido.** O Farol pré-busca o card E expõe a ferramenta escopada,
+   porque a medição mostrou 7,5% de chamadas que são investigação própria do
+   modelo (card ligado, JQL). Tirar isso seria perda real.
+4. **A credencial é e-mail + API token do Atlassian, por site.** É o único
+   formato que funciona headless (OAuth exigiria navegador) e o único que
+   funciona pra quem é convidado numa org que não administra.
+5. **O segredo NUNCA passa por linha de comando.** O `--mcp-config` carrega só o
+   `siteId`; o servidor MCP lê a credencial do disco. Ver `tools/jira-mcp.js` no
+   mapa de arquivos.
+6. **`--strict-mcp-config` só entra quando existe pelo menos um site.** Enquanto
+   ninguém cadastrar nada, o comportamento é idêntico ao de antes. A partir do
+   primeiro site o Farol assume TODOS os MCPs da sessão, **inclusive quando a org
+   daquele PR não tem site**: deixar o conector antigo vivo faria o modelo ler o
+   Jira de outra empresa sem ninguém perceber.
+7. **Card ilegível força `cardMet = false`.** Antes o `cardMet` era afirmação do
+   modelo e ninguém conferia (a medição achou 1 em 165 com `cardMet: true` sem
+   nenhuma leitura de card na sessão).
+8. **Recurso DESLIGADO não é card ilegível, e é isto que faz a decisão 6 valer.**
+   Sem o código próprio `desligado`, `jiraSites` vazio devolveria "site não
+   configurado" em todo PR, o que zeraria o `clean` e **derrubaria o auto-approve
+   de quem nunca ligou o recurso**. `desligado` não loga, não etiqueta, não injeta
+   bloco no prompt e não encosta no `cardMet`.
+9. **O conteúdo do card é DADO, não instrução.** Card é escrito por qualquer
+   pessoa com acesso ao tenant e a revisão abre aprovação automática, então o
+   texto entra delimitado e rotulado, e as marcas do delimitador são removidas do
+   conteúdo antes de entrar.
+
+**Pegadinhas já pagas (todas com teste):**
+
+- **O `sanitizar` do cache não pode colapsar underscore.** Ele achata ponto em
+  underscore, então id `s1_a` + host `net` e id `s1` + host `a.net` cairiam na
+  mesma pasta. Por isso o namespace leva o TAMANHO do id na frente.
+- **A tela recusa site inválido, o servidor não descarta em silêncio.** Config
+  rejeitada sem aviso é o tipo de falha que o usuário lê como "não funciona".
+- **A config de "sem site" usa um nome que id nenhum produz**, senão um site
+  cadastrado colidiria com o arquivo do caminho não escopado.
+- **`fields` array não é card.** O Jira responde 200 com envelope de erro, e sem
+  prova de forma isso viraria "card lido".
+- **O protocolo do workspace tem que instruir o caso da seção de card AUSENTE**
+  (revisão aberta pelo terminal, ou Farol sem site) e **não pode prometer escopo
+  em caminho não escopado**: ali a ferramenta alcança o único tenant que o
+  conector tiver, que pode ser o de outra empresa.
+- **Fora de escopo por decisão:** a sessão de **chat** do PR continua sem MCP
+  escopado (`lib/engine/chat.js` sobrescreve `extraArgs` inteiro por
+  `['--resume', sid]`); chat não produz veredito. A autoanálise, essa sim, entra.
 
 ## Menções navegáveis (regra de usabilidade, v2.40.1)
 
