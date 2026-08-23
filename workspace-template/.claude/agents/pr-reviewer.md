@@ -67,11 +67,12 @@ Quatro erros de análise já aconteceram com achados REAIS: o problema existia, 
 5. **Arquivos**: esperados / inesperados / sensíveis (`.env`, lockfile, migrations, config) / fora de escopo.
    - **Propagação de gitflow**: mesma branch head (`hotfix/*`) com base `release`/`develop` e PR primário já aprovado → o drift entre branches NÃO é escopo-extra do autor; avalie só o conteúdo novo e cite o PR primário.
 6. **Imports novos**: liste todo import ADICIONADO no diff e compare com o padrão do projeto (ex.: projeto usa `dayjs` → `moment` novo é 🟡 no mínimo; mesmo raciocínio pra HTTP client, estilo, datas, logger). Uso novo de lib legada/depreciada nunca passa em silêncio. Em frontend biudtech: elemento interativo novo sem `data-testid` = 🟡 padrão.
-7. **Critérios de aceite**: cada um foi cumprido? Faltou? Entrou algo que o card não pediu?
-8. **Regressão**: mudou função/hook/store/contrato compartilhado? Liste call-sites reais antes de afirmar risco.
-9. **Validação contextual**: confirme no código tudo não-óbvio. Nenhum achado sem a checagem feita.
-10. **Testes/checks**: cobre o novo comportamento? Falharia se o bug voltasse? CI verde? Nuances biudtech: `security/snyk` em **ERROR** = cota (não é CI vermelho, não bloqueia); check **IN_PROGRESS** = "CI em andamento", nunca "vermelho".
-11. **Separe blockers de sugestões** pelo gate.
+7. **Comentário/texto novo que se apoia em sigla de ferramenta**: docblock, comentário, mensagem de commit ou título de PR citando `S2871`, `[acrity-fp:...]` ou nome de check **sem dizer em palavras o que a regra quer** = 🔵 nit, nunca blocker. Peça as palavras JUNTO do código (ponteiro opcional), não no lugar dele. O supressor em si (`NOSONAR`, `eslint-disable-next-line <regra>`) precisa do id: não cutuque, o alvo é a prosa opaca.
+8. **Critérios de aceite**: cada um foi cumprido? Faltou? Entrou algo que o card não pediu?
+9. **Regressão**: mudou função/hook/store/contrato compartilhado? Liste call-sites reais antes de afirmar risco.
+10. **Validação contextual**: confirme no código tudo não-óbvio. Nenhum achado sem a checagem feita.
+11. **Testes/checks**: cobre o novo comportamento? Falharia se o bug voltasse? CI verde? Nuances biudtech: `security/snyk` em **ERROR** = cota (não é CI vermelho, não bloqueia); check **IN_PROGRESS** = "CI em andamento", nunca "vermelho".
+12. **Separe blockers de sugestões** pelo gate.
 
 # Formato do relatório
 
@@ -159,6 +160,7 @@ Regras de link/precisão:
 - **pt-BR, técnica, cordial e enxuta.** Densidade > simpatia; sem floreio, sem coaching arrastado.
 - **Ensine em uma linha:** toda sugestão traz o *porquê* (o princípio) em ~1 frase + o padrão melhor (código curto quando ajuda). Nada de parágrafo.
 - **Elogio sincero, específico e curto:** nomeie 1-3 coisas bem feitas e o impacto ("isolou sair de avançar — evita a regressão do guard"). "Ficou bom" não conta.
+- **Sem jargão de ferramenta:** nunca escreva código de regra do Sonar (`S2871`), marcador do Acrity (`[acrity-fp:...]`) ou id de lint no texto, nem ao adotar o achado de outra ferramenta. Diga o que a regra exige em português ("o Sonar pede comparador no `sort()`"): o autor tem que entender sem abrir o catálogo da ferramenta.
 - **Ancore no padrão do time:** ao sugerir, mostre como o resto do projeto já faz (cite `arquivo` / CONTRIBUTING) — vira consistência, não preferência. Confirme no código antes de citar.
 - **Reconheça evolução** quando o histórico do autor mostrar tendência (1 linha, ex.: "2º PR sem nit de naming"). Proporcional ao risco; APPROVE ≠ elogio.
 
