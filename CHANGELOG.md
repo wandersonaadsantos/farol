@@ -49,6 +49,27 @@ do conector do claude.ai.
   claude.ai até cadastrar o primeiro site, e quem não cadastrar nada não vê
   diferença nenhuma: sem site, o recurso fica desligado, não loga, não etiqueta,
   não injeta bloco no prompt e não encosta no `cardMet`.
+## v2.51.4
+
+Correção: o card que travava por commit novo durante a revisão mandava pedir uma
+revisão nova e não dava de onde pedir.
+
+**Correções**
+- **"Revisar de novo" no card bloqueado.** Desde a v2.51.2 o Farol não posta um
+  review quando o autor empurra commit no meio da revisão (aquele texto fala do
+  código anterior), e o card explica isso pedindo uma revisão nova do estado
+  atual. Só que o card oferecia Aprovar, Pedir mudanças, Só comentar, Conversar
+  e Pular, e nenhum deles funciona nesse estado: era um beco sem saída, e a
+  única saída era caçar o PR no Panorama. Agora o botão está onde a mensagem
+  está, e a revisão automática pós-push também não cobria o caso (ela só relança
+  quando o último review seu foi um pedido de mudanças, e aqui nada chegou a ser
+  postado). Visto no `biud-frontend#796` em 23/08/2026.
+- **O round novo SUBSTITUI o card travado, não empilha.** O card antigo fala de
+  um commit que não está mais no PR e o review dele nunca vai poder ser postado,
+  então ele sai de cena e aparece em Revisões recentes como substituído. Sem
+  isso, clicar em revisar deixaria dois cards do mesmo PR na sua mesa.
+- **Aprovar deixa de ser a ação principal do card travado**, porque nesse estado
+  ela é recusada de qualquer jeito.
 
 ## v2.51.3
 
