@@ -9,6 +9,47 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.52.0
+
+O Farol passa a ler cards de VÁRIOS Jiras, de empresas diferentes, sem depender
+do conector do claude.ai.
+
+**Novidades**
+- **Jira multi-tenant, escolhido pela org do PR.** Cadastre em Sistema > Jira um
+  site por organização do GitHub (URL do Jira, org dona dos PRs e prefixo dos
+  projetos), com e-mail e API token do Atlassian. Antes de abrir a revisão, o
+  Farol descobre o site pela org dona do PR, lê o card e injeta título, status,
+  critérios de aceite, escopo e fora de escopo direto no prompt. Some a
+  dependência do conector `Atlassian Rovo` do claude.ai, que é um grant por
+  conta e alcança um tenant só.
+- **A ferramenta que a revisão usa é do Farol, e já nasce apontada pro Jira
+  certo.** A sessão sobe com um servidor MCP local (`getJiraIssue`,
+  `searchJiraIssuesUsingJql`) e com `--strict-mcp-config`, que desliga todos os
+  outros MCPs. O modelo continua investigando além do card (card ligado, JQL),
+  só que sem a chance de alcançar o Jira de outra empresa.
+- **Sem site cadastrado pra org, o card é não-verificável, nunca "tenta o
+  padrão".** Ler o Jira errado é pior do que não ler, então não existe fallback
+  de conta.
+- **Card ilegível derruba o `cardMet`.** Antes o "card atendido" era afirmação
+  do modelo e ninguém conferia.
+- **A credencial mora fora do `config.json`** (`~/.farol/jira-credentials.json`,
+  permissão restrita) e **nunca passa por linha de comando**: o arquivo de
+  `--mcp-config` carrega só o id do site, e o servidor MCP lê o segredo do disco
+  por conta própria. O `state/spawns.log` registra a linha de comando inteira,
+  então segredo ali seria segredo em texto puro pra sempre.
+- **O texto do card entra delimitado e rotulado como DADO.** Card é escrito por
+  qualquer pessoa com acesso ao tenant, e a revisão abre aprovação automática:
+  nada que estiver escrito lá muda o protocolo, o veredito ou o `cardMet`.
+- **A autoanálise dos seus PRs também roda com o MCP escopado.**
+
+**Fora de escopo desta entrega** (pra não virar surpresa depois)
+- **A sessão de chat do PR continua sem o MCP escopado.** Chat é conversa sobre
+  a revisão e não produz veredito, então ficou pra depois.
+- **Não existe migração de dados.** Quem já usa o Farol segue no conector do
+  claude.ai até cadastrar o primeiro site, e quem não cadastrar nada não vê
+  diferença nenhuma: sem site, o recurso fica desligado, não loga, não etiqueta,
+  não injeta bloco no prompt e não encosta no `cardMet`.
+
 ## v2.51.3
 
 Refino da revisão: sigla interna de ferramenta deixa de passar como explicação,
