@@ -9,6 +9,25 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.52.2
+
+Correção de review duplicado: dois APPROVE seus no mesmo PR, com segundos de
+diferença.
+
+**Correções**
+- **Duas vias do Farol não postam mais o mesmo review ao mesmo tempo.** Medido no
+  biud-esg#230 em 23/08/2026: a postagem falhou por rede às 22:10, e às 23:04
+  saíram dois APPROVE com 10 segundos entre eles, um do reenvio automático e outro
+  do clique em Aprovar. Cada caminho pergunta ao GitHub se já existe review seu
+  antes de postar, e os dois perguntaram; só que a resposta fala do passado, e
+  entre a pergunta e a postagem cabia outra postagem. Agora as postagens do mesmo
+  PR entram em fila, e quem chega depois não repete o veredito que acabou de sair
+  para o mesmo commit.
+- Continua valendo o que é legítimo: rodada nova depois de um commit novo posta
+  normalmente, comentário do chat nunca é engolido (comentar duas vezes é
+  conversa, não duplicata), PR de outra pessoa e conta diferente seguem
+  independentes, e postagem que FALHOU nunca conta como entregue.
+
 ## v2.52.1
 
 O card da revisão em andamento passou a dizer de quem é o PR.
