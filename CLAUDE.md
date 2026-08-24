@@ -385,6 +385,25 @@ só que a ferramenta agora é do Farol e já nasce apontada pro Jira certo.
    texto entra delimitado e rotulado, e as marcas do delimitador são removidas do
    conteúdo antes de entrar.
 
+**A tela (v2.52.4).** Jira é **seção própria** de Sistema (`sys-jira`), não mais
+um bloco no fim de Conexões. Três decisões de apresentação que valem pra quem
+mexer ali: (1) o **mapeamento** org -> host se lê como frase no topo do cartão
+(`jiraMapaHtml`), porque ele é o recurso inteiro e estava implícito em dois
+campos de texto; (2) a **credencial** tem bloco próprio, e o selo mais a barra
+esquerda do cartão dizem o estado (verde com credencial, âmbar sem); (3) o aviso
+de escopo dos MCPs é `callout`, não prosa, porque é o que muda o comportamento da
+máquina de quem salva o primeiro site.
+
+**`testarSite` (v2.52.4)** prova o site sem esperar PR nenhum, e usa
+`/rest/api/2/myself` de propósito: qualquer credencial válida responde, então
+falha ali é sempre credencial ou URL, nunca permissão em projeto. A recusa carrega
+`motivo` junto do `code` (a tabela de `errors.js` vive em `lib/`, que o navegador
+não alcança; duplicar no front seria a segunda fonte de verdade que o próprio
+`errors.js` existe pra impedir). Rota `POST /api/jira/test`, fachada
+`Engine.testarJiraSite`, testes em `test/jira-teste-site.test.js`. Erro cru do
+fetch chega como `indisponivel`, não `falha_interna`: quem normaliza é o cliente
+(`comoJiraError`), e fetch estourando É falha de rede.
+
 **Pegadinhas já pagas (todas com teste):**
 
 - **O `sanitizar` do cache não pode colapsar underscore.** Ele achata ponto em

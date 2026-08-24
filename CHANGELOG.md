@@ -9,6 +9,46 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.52.4
+
+Refino da tela do Jira, a mais nova do app e a que menos tinha passado por
+desenho, mais um jeito de saber que o site funciona sem esperar o próximo PR.
+
+**Novidades**
+- **Testar leitura.** Cada site cadastrado ganhou um botão que prova a
+  credencial na hora, e a resposta fica na linha ao lado (não num toast que
+  some): "respondeu como Fulano" quando dá certo, e o motivo em português
+  quando não dá. Usa o endpoint de identidade do Jira de propósito, porque
+  qualquer credencial válida responde a ele: falha ali é sempre credencial ou
+  URL errada, nunca falta de permissão num projeto específico.
+- **Jira virou seção própria em Sistema**, com item na barra lateral. Antes era
+  um bloco no fim de Conexões, dividindo a tela com conta do GitHub e repos
+  bloqueados pra merge.
+
+**Melhorias**
+- **O cartão do site parou de ser uma pilha de caixas sem legenda.** Todos os
+  campos ganharam rótulo (placeholder some quando você digita, e quem volta seis
+  meses depois não sabe o que é cada caixa), e o cartão passou a ter três blocos
+  com papel próprio: identidade, configuração e credencial.
+- **O mapeamento aparece.** "Org do GitHub leva a este site do Jira" é o coração
+  do recurso e estava implícito em dois campos de texto separados por vírgula.
+  Agora se lê como uma frase no topo do cartão, e org ou URL faltando aparece
+  como lacuna marcada em vez de frase pela metade.
+- **A credencial ganhou bloco separado, com cadeado**, dizendo onde o segredo
+  fica guardado e que ele não volta a aparecer. Antes o campo de token dividia a
+  fileira com os outros, como se fosse mais um texto qualquer. A barra esquerda
+  do cartão e o selo acompanham o estado: verde quando a credencial está lá,
+  âmbar quando falta.
+- **O aviso que muda o comportamento da sua máquina saiu da prosa.** "Do
+  primeiro site cadastrado em diante o Farol assume todos os MCPs das sessões"
+  estava em negrito no meio de um parágrafo de descrição; agora é um aviso
+  emoldurado, acima dos cartões.
+- **A seta do select passou a ser desenhada**, nos cinco lugares em que a caixa
+  já era estilizada e a seta continuava sendo a nativa do sistema (Sistema,
+  política por conta, formulários, papel e domínio na aba Time). O seletor de
+  papel dentro do cartão de decisão fica de fora de propósito: ali o controle é
+  miúdo, no meio de uma frase.
+
 ## v2.52.3
 
 A queda de rede mais comum do Windows voltou a ser tratada como rede, e o
