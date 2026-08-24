@@ -2392,6 +2392,11 @@ export function diagnosticsText(ctx = {}) {
 export function sessionCardHtml(s = {}, stages = '') {
   const id = esc(s.id);
   const linkPR = s.pr?.url ? `<a href="${esc(s.pr.url)}" target="_blank" rel="noreferrer">abrir PR</a>` : '';
+  // dono do PR que está sendo revisto AGORA: mesma menção navegável (foto + link)
+  // que as outras telas usam, nunca "@login" solto. Sessão sem PR (ferramenta) e
+  // autor desconhecido não inventam linha: a menção só existe quando há alguém.
+  const autor = String(s.pr?.author || '').trim();
+  const quemPR = autor ? `<span class="session-author">PR de ${personMention(autor, 'xs')}</span>` : '';
   const cancelar = s.cancellable ? `<button class="btn sm danger-ghost act-cancel" data-id="${id}">Cancelar</button>` : '';
   return `
       <div class="card session-card" data-id="${id}">
@@ -2400,6 +2405,7 @@ export function sessionCardHtml(s = {}, stages = '') {
           <b>${esc(s.label)}</b> <span class="session-stage" data-started="${s.startedAt || ''}">${stages}</span>
           <span class="session-model" data-id="${id}" hidden></span>
           <span class="session-agents" data-id="${id}" hidden></span>
+          ${quemPR}
           ${linkPR}
           <span class="session-elapsed" data-started="${s.startedAt}"></span>
           ${cancelar}

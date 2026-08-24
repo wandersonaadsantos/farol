@@ -2563,6 +2563,14 @@ test('cartão de sessão: sem PR não inventa link; com PR, abre em aba nova e s
   assert.match(com, /target="_blank" rel="noreferrer"/);
 });
 
+test('cartão de sessão: o dono do PR aparece com foto e link, pelo personMention', () => {
+  const html = P.sessionCardHtml({ id: 'a', label: 'x', pr: { url: 'https://github.com/a/b/pull/1', author: 'gabrielk5' } }, '');
+  assert.match(html, /class="session-author">PR de <a class="person-mention"/, 'a menção sai do helper central, com a foto junto');
+  assert.match(html, /github\.com\/gabrielk5\.png/, 'a foto é a do GitHub de quem escreveu o PR');
+  assert.doesNotMatch(P.sessionCardHtml({ id: 'a', label: 'x', pr: { url: 'https://github.com/a/b/pull/1' } }, ''), /session-author/,
+    'sem autor conhecido não sobra rótulo órfão ("PR de" sem ninguém)');
+});
+
 test('cartão de sessão: botão Cancelar só aparece quando dá pra cancelar', () => {
   assert.doesNotMatch(P.sessionCardHtml({ id: 'a', label: 'x' }, ''), /act-cancel/);
   assert.match(P.sessionCardHtml({ id: 'a', label: 'x', cancellable: true }, ''), /act-cancel" data-id="a"/);

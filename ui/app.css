@@ -902,8 +902,9 @@ label.set-row { cursor: pointer; }
 .session-model { font-size: 10.5px; font-weight: 700; flex: none; color: var(--info); background: var(--info-soft); border-radius: 99px; padding: 1px 8px; letter-spacing: .02em; }
 /* subagentes trabalhando na revisão (vivos/total); o title lista quem faz o quê */
 .session-agents { font-size: 10.5px; font-weight: 700; flex: none; color: var(--info); background: var(--info-soft); border-radius: 99px; padding: 1px 8px; font-variant-numeric: tabular-nums; cursor: default; }
-.session-author { color: var(--muted); font-size: 12px; flex: none; }
-.session-author b { color: var(--text); }
+/* dono do PR em revisão: menção navegável (foto + @login) no cabeçalho do card */
+.session-author { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; flex: none; max-width: 40%; }
+.session-author .person-mention { color: var(--muted); min-width: 0; }
 .session-elapsed { color: var(--muted); font-size: 12px; margin-left: auto; font-variant-numeric: tabular-nums; }
 .spin.accent { display: inline-block; width: 13px; height: 13px; flex: none; border: 2px solid var(--info); border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
 .activity-feed { margin-top: 10px; max-height: 210px; overflow-y: auto; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; font: 12px/1.7 "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; }

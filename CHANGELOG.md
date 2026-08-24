@@ -9,6 +9,18 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.52.1
+
+O card da revisão em andamento passou a dizer de quem é o PR.
+
+**Melhorias**
+- **Foto e @ do dono do PR em "Analisando agora".** Enquanto a revisão roda, o
+  card mostra a menção de quem escreveu o PR, com foto do GitHub e clique que
+  leva ao perfil. É a mesma menção navegável que Revisões recentes, Panorama e
+  Entregas já usavam: o card ao vivo era o último lugar que ainda falava do PR
+  sem dizer por quem você está esperando. Sessão de ferramenta (Kudos,
+  Diagnóstico) e autor desconhecido não ganham rótulo vazio.
+
 ## v2.52.0
 
 O Farol passa a ler cards de VÁRIOS Jiras, de empresas diferentes, sem depender
