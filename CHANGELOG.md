@@ -9,6 +9,66 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.52.3
+
+A queda de rede mais comum do Windows voltou a ser tratada como rede, e o
+diagnóstico parou de chamar de passageiro o que dura dias.
+
+**Correções**
+- **Falha de conexão com o GitHub era classificada como problema permanente.** O
+  `gh` escreve `dial tcp ...: connectex:` (e a explicação já traduzida pelo
+  Windows) quando não consegue nem abrir a conexão, sem nenhuma das palavras que o
+  Farol procurava. Resultado medido no log de 21 a 24/08/2026: 773 falhas de rede
+  entravam como "Falha não classificada", que o app trata como permanente. Isso não
+  era só rótulo errado na tela: **postagem de review que morre nessa falha nunca era
+  reenviada sozinha** (o reenvio automático só vale pro que é passageiro) e a
+  revisão que caía na mesma rede ficava parada esperando clique. Agora as três
+  formas dessa queda (`dial tcp`, `connectex`, `TLS handshake timeout`) são rede.
+- **"Nenhuma atualização disponível" deixou de virar erro no log.** Quando o
+  Farol vai aplicar a atualização e descobre que já não há nenhuma, nada foi
+  baixado e nada foi mexido; ainda assim isso aparecia como falha e represava a
+  próxima tentativa por 30 minutos.
+
+**Melhorias**
+- **O diagnóstico distingue episódio de regime.** Antes ele somava os eventos e
+  concluía "101 se resolvem sozinhos, 0 exigem ação humana" sobre seis horas
+  ininterruptas de falha de rede. Cada evento se resolve mesmo, e mesmo assim
+  nesse ritmo o Farol perde consulta e postagem o tempo todo. Agora, quando um
+  problema que "passa sozinho" dura mais de duas horas com pelo menos duas falhas
+  por hora, o resumo diz a duração, a taxa por hora e que a decisão é sua (rede,
+  provedor), não do app. A aba Sistema mostra a mesma duração na linha do log.
+
+## v2.52.2
+
+Correção de review duplicado: dois APPROVE seus no mesmo PR, com segundos de
+diferença.
+
+**Correções**
+- **Duas vias do Farol não postam mais o mesmo review ao mesmo tempo.** Medido no
+  biud-esg#230 em 23/08/2026: a postagem falhou por rede às 22:10, e às 23:04
+  saíram dois APPROVE com 10 segundos entre eles, um do reenvio automático e outro
+  do clique em Aprovar. Cada caminho pergunta ao GitHub se já existe review seu
+  antes de postar, e os dois perguntaram; só que a resposta fala do passado, e
+  entre a pergunta e a postagem cabia outra postagem. Agora as postagens do mesmo
+  PR entram em fila, e quem chega depois não repete o veredito que acabou de sair
+  para o mesmo commit.
+- Continua valendo o que é legítimo: rodada nova depois de um commit novo posta
+  normalmente, comentário do chat nunca é engolido (comentar duas vezes é
+  conversa, não duplicata), PR de outra pessoa e conta diferente seguem
+  independentes, e postagem que FALHOU nunca conta como entregue.
+
+## v2.52.1
+
+O card da revisão em andamento passou a dizer de quem é o PR.
+
+**Melhorias**
+- **Foto e @ do dono do PR em "Analisando agora".** Enquanto a revisão roda, o
+  card mostra a menção de quem escreveu o PR, com foto do GitHub e clique que
+  leva ao perfil. É a mesma menção navegável que Revisões recentes, Panorama e
+  Entregas já usavam: o card ao vivo era o último lugar que ainda falava do PR
+  sem dizer por quem você está esperando. Sessão de ferramenta (Kudos,
+  Diagnóstico) e autor desconhecido não ganham rótulo vazio.
+
 ## v2.52.0
 
 O Farol passa a ler cards de VÁRIOS Jiras, de empresas diferentes, sem depender

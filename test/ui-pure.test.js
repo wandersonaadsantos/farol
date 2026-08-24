@@ -1358,10 +1358,14 @@ test('logReadingLine: kind fora da tabela conta como ação humana (nunca some d
 
 test('logSummaryLines: uma linha por grupo, na ordem que veio, e a leitura no fim', () => {
   const linhas = P.logSummaryLines(GRUPOS);
-  assert.equal(linhas.length, GRUPOS.length + 1);
   assert.match(linhas[0], /^70x/);
   assert.match(linhas[3], /^4x/);
-  assert.match(linhas[4], /^Leitura:/);
+  assert.match(linhas[4], /^Leitura:/, 'a leitura fecha o bloco de contagem');
+  // desde a v2.52.3 pode vir linha de REGIME depois da leitura (grupo que passa
+  // sozinho mas dura horas). O fixture tem um: 70 falhas de limite de plano em ~4h.
+  const regime = linhas.slice(5);
+  assert.equal(linhas.length, GRUPOS.length + 1 + regime.length, 'nada além de grupo, leitura e regime');
+  assert.ok(regime.every(l => /é regime/.test(l)), 'o que vem depois da leitura é só regime');
 });
 
 test('logSummaryLines: sem grupo nenhum não inventa cabeçalho nem leitura', () => {
@@ -2561,6 +2565,14 @@ test('cartão de sessão: sem PR não inventa link; com PR, abre em aba nova e s
   assert.doesNotMatch(P.sessionCardHtml({ id: 'a', label: 'x' }, ''), /<a href/);
   const com = P.sessionCardHtml({ id: 'a', label: 'x', pr: { url: 'https://github.com/a/b/pull/1' } }, '');
   assert.match(com, /target="_blank" rel="noreferrer"/);
+});
+
+test('cartão de sessão: o dono do PR aparece com foto e link, pelo personMention', () => {
+  const html = P.sessionCardHtml({ id: 'a', label: 'x', pr: { url: 'https://github.com/a/b/pull/1', author: 'gabrielk5' } }, '');
+  assert.match(html, /class="session-author">PR de <a class="person-mention"/, 'a menção sai do helper central, com a foto junto');
+  assert.match(html, /github\.com\/gabrielk5\.png/, 'a foto é a do GitHub de quem escreveu o PR');
+  assert.doesNotMatch(P.sessionCardHtml({ id: 'a', label: 'x', pr: { url: 'https://github.com/a/b/pull/1' } }, ''), /session-author/,
+    'sem autor conhecido não sobra rótulo órfão ("PR de" sem ninguém)');
 });
 
 test('cartão de sessão: botão Cancelar só aparece quando dá pra cancelar', () => {

@@ -681,6 +681,40 @@ falando. E o corolário de UI: status que significa "não postei" é o único lu
 onde o achado existe, então ele nunca pode esconder as reasons na linha
 (`resolvedRow`, "achados que ficaram só aqui").
 
+### A pergunta é sobre o passado; o POST é sobre o presente (v2.52.2)
+
+Caso medido (biud-esg#230, 23/08/2026): **dois APPROVE meus no mesmo PR, com 10
+segundos de diferença** (02:04:33Z e 02:04:43Z). O log fecha a história: às
+22:10:53 -03 a postagem morreu por rede, e às 23:04:42 -03 saiu `decide
+biud-esg#230: pendência já resolvida durante o post, histórico preservado`,
+exatamente ENTRE os dois reviews. O reenvio automático e o clique postaram nos
+dois lados da mesma janela.
+
+Não faltava dedup: as CINCO vias que postam (revisão automática, `retryFailedPosts`,
+`decide`, chat e co-assinatura) consultam `myReviewStates` antes, e as duas
+consultaram. O problema é que **a consulta responde sobre o passado**: entre o
+"ainda não há review meu" e o POST cabe outro POST, e quem perguntou primeiro não
+tem como ver o review que ainda está no ar.
+
+A trava mora no **funil** (`postReview`, `lib/engine/decision.js`), pela mesma
+regra da seção "A garantia mora no estrangulamento": postagens do mesmo PR pela
+mesma conta entram em FILA (`postLanes`), e quem chega depois não repete o veredito
+que acabou de sair para o MESMO head (`postedReviews`, TTL de 6h). O retorno é
+`{ ok: true, deduped: true }`, nunca erro: o review que aquele chamador queria ver
+no PR está lá, e devolver falha faria a pendência voltar pra mesa.
+
+O que **continua passando**, de propósito: round novo (head diferente é outra
+manifestação; o engine-ai#51 tem dois APPROVE legítimos, de 18/08 e 23/08),
+`COMMENT` (o chat conversa, travar isso o emudeceria), outro PR, outra conta, e o
+repost depois de uma tentativa que FALHOU (falha não é entrega). O sha da
+assinatura passa pela MESMA régua do `normalizeReviewPayload` (7 a 40 hex, caixa
+ignorada): sha torto é descartado lá e o review sai sem âncora, então ele não pode
+inventar rodada nova aqui.
+
+Limite honesto: a fila é por PROCESSO. Duas instâncias do Farol (ou o app
+reiniciado no meio) continuam contando com o dedup remoto de cada via, que é o
+que sempre existiu e cobre o caso sem corrida.
+
 ### Head que anda DURANTE a sessão: não posta (v2.51.2)
 
 Caso medido (biud-esg#224, 21/08/2026): a sessão leu o head `3cf42b3`, o autor
