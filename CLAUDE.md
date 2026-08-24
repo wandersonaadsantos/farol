@@ -718,7 +718,17 @@ tem como ver o review que ainda está no ar.
 A trava mora no **funil** (`postReview`, `lib/engine/decision.js`), pela mesma
 regra da seção "A garantia mora no estrangulamento": postagens do mesmo PR pela
 mesma conta entram em FILA (`postLanes`), e quem chega depois não repete o veredito
-que acabou de sair para o MESMO head (`postedReviews`, TTL de 6h). O retorno é
+que acabou de sair para o MESMO head (`postedReviews`, janela de 5 min em
+`TEMPOS.POSTAGEM_MEMORIA_MS`).
+
+**A janela é curta de propósito, e a primeira versão errou nisso** (nasceu com 6h,
+corrigido na v2.52.5 na auditoria da própria entrega): esta memória sabe só
+`veredito + head`, enquanto o dedup remoto sabe o que ela não sabe. Review
+**DISMISSED** pelo autor deixou de valer (`DECISIVE_REVIEW_STATES`), então aprovar
+de novo no MESMO head depois de um dismiss é LEGÍTIMO e o `myReviewStates` deixa
+passar. Com janela longa, a memória vetaria essa repostagem devolvendo `ok`, e a
+pendência seria resolvida com o PR sem aprovação nenhuma. A corrida que ela existe
+pra resolver dura segundos (10, no #230); o resto é com quem pergunta ao GitHub. O retorno é
 `{ ok: true, deduped: true }`, nunca erro: o review que aquele chamador queria ver
 no PR está lá, e devolver falha faria a pendência voltar pra mesa.
 

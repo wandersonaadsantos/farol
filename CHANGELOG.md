@@ -9,6 +9,21 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.52.5
+
+Ajuste na trava contra review duplicado da v2.52.2, achado numa auditoria da
+própria entrega.
+
+**Correções**
+- **A memória que impede review duplicado passou a durar 5 minutos, e não 6
+  horas.** Ela existe pra cobrir a corrida entre duas vias postando ao mesmo
+  tempo, que dura segundos. Com a janela longa, um caso legítimo ficava barrado:
+  se o autor DERRUBA a sua aprovação e pede review de novo no mesmo commit,
+  aprovar outra vez é correto (é isso que o Farol sempre fez, perguntando ao
+  GitHub antes), e a memória vetaria, dando a pendência por resolvida com o PR
+  sem aprovação nenhuma. Passada a janela, quem decide volta a ser a consulta ao
+  GitHub, que sabe distinguir review derrubado de review válido.
+
 ## v2.52.4
 
 Refino da tela do Jira, a mais nova do app e a que menos tinha passado por

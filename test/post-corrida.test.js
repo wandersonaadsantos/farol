@@ -42,6 +42,7 @@ io.run = function runEspiao(cmd, args, opts) {
 
 const { Engine } = await import('../server.js');
 const D = (await import('../lib/engine/decision.js')).default;
+const { TEMPOS } = await import('../lib/constants.js');
 
 after(() => {
   io.run = runReal;
@@ -162,4 +163,36 @@ test('sha torto não inventa round novo: o GitHub descarta a âncora, o dedup ta
   assert.equal(D.postedSignature('lane', { event: 'APPROVE', body: 'x', commit_id: '3CF42B3' }),
     D.postedSignature('lane', { event: 'approve', body: 'x', commit_id: '3cf42b3' }),
     'caixa do sha e do evento não são rodadas diferentes');
+});
+
+/* ---------- a janela é curta de propósito (24/08/2026) ----------
+   Auditoria da própria entrega: com a memória valendo horas, um caso LEGÍTIMO era
+   engolido. O autor pode DERRUBAR (dismiss) a aprovação e pedir review de novo; o
+   dedup remoto sabe disso (DISMISSED não conta como review postado, ver
+   DECISIVE_REVIEW_STATES) e reposta no mesmo head. A memória local não sabe: ela só
+   compara veredito + head, e vetaria a repostagem devolvendo ok, o que faria a
+   pendência ser resolvida com o PR sem aprovação nenhuma.
+   A memória existe pra corrida (10 segundos no #230). Passada a janela, a decisão
+   volta pra quem consulta o GitHub. */
+
+test('a memória da corrida dura minutos, não horas', () => {
+  assert.ok(TEMPOS.POSTAGEM_MEMORIA_MS <= 10 * 60 * 1000,
+    'janela longa veta repostagem legítima depois de um dismiss');
+  assert.ok(TEMPOS.POSTAGEM_MEMORIA_MS >= 60 * 1000,
+    'e curta demais deixaria a corrida voltar');
+});
+
+test('passada a janela, o mesmo veredito no mesmo head POSTA de novo (o dedup remoto é quem decide)', async () => {
+  const e = engineDeTeste();
+  runImpl = ghLento(1);
+  const payload = { event: 'APPROVE', body: 'O gate ficou correto.', commit_id: '3cf42b3' };
+  await e.postReview(PR, { ...payload });
+  assert.equal(posts.length, 1);
+  // envelhece a memória em vez de esperar: o cenário é o autor derrubando a
+  // aprovação e pedindo review de novo, minutos depois, no mesmo commit
+  for (const k of e.postedReviews.keys()) e.postedReviews.set(k, Date.now() - TEMPOS.POSTAGEM_MEMORIA_MS - 1000);
+  const segunda = await e.postReview(PR, { ...payload });
+  assert.equal(segunda.ok, true);
+  assert.equal(segunda.deduped, undefined, 'fora da janela a memória não opina');
+  assert.equal(posts.length, 2, 'quem barra aqui é o myReviewStates de cada via, que sabe do DISMISSED');
 });
