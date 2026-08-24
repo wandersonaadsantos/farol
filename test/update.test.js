@@ -357,6 +357,36 @@ test('maybeAutoUpdate: skipped "nada" quando não há update disponível', async
   assert.deepEqual(r, { ok: false, skipped: 'nada' });
 });
 
+/* A corrida PRE-tentativa nao e falha (23/08/2026). O maybeAutoUpdate decide olhando um
+   engine.update que pode ser de um ciclo anterior; quando o applyUpdate re-checa e nao ve
+   mais atualizacao, nada foi baixado e nada foi mexido. Tratar isso como falha escrevia
+   "auto-update falhou: nenhuma atualizacao disponivel" num log que so guarda FALHA (e foi
+   isso que apareceu no farol.log real), e ainda armava o backoff de 30 min, castigando a
+   proxima release de verdade. Mesmo motivo do BUSY_ERROR, que ja era isento. */
+test('maybeAutoUpdate: "nenhuma atualização disponível" não vira erro no log nem arma backoff', async () => {
+  const engine = engineOcioso();
+  const logs = [];
+  engine.log = (nivel, msg) => logs.push(`${nivel}: ${msg}`);
+  const r = await update.maybeAutoUpdate(engine, {
+    applyUpdate: async () => ({ ok: false, error: 'nenhuma atualização disponível' })
+  });
+  assert.equal(r.ok, false);
+  assert.equal(logs.filter(l => l.startsWith('ERROR')).length, 0, 'o farol.log só guarda falha, e esta não é uma');
+  assert.ok(!engine.autoUpdateFailedAt, 'nada foi tentado de verdade: não há o que penalizar');
+});
+
+test('maybeAutoUpdate: falha DE VERDADE continua logando e armando o backoff', async () => {
+  const engine = engineOcioso();
+  const logs = [];
+  engine.log = (nivel, msg) => logs.push(`${nivel}: ${msg}`);
+  const r = await update.maybeAutoUpdate(engine, {
+    applyUpdate: async () => ({ ok: false, error: 'falha ao extrair (unzip)' })
+  });
+  assert.equal(r.ok, false);
+  assert.equal(logs.filter(l => l.startsWith('ERROR')).length, 1, 'isso sim é falha e precisa aparecer');
+  assert.ok(Number.isFinite(engine.autoUpdateFailedAt) && engine.autoUpdateFailedAt > 0, 'e não pode martelar download a cada ciclo');
+});
+
 test('maybeAutoUpdate: skipped "desligado" quando config.autoUpdate === false', async () => {
   const engine = engineOcioso();
   engine.config.autoUpdate = false;

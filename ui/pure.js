@@ -324,6 +324,68 @@ export function logGroupLine(g) {
   return `${g.count}x  ${g.label}  [${g.grupo}/${g.kind}]  ${quando}${prs}`;
 }
 
+/* ---------- regime x episódio: a TAXA da janela ----------
+   Caso real (24/08/2026): o diagnóstico dizia "101 eventos se resolvem sozinhos, 0
+   exigem ação humana" sobre 6 horas ININTERRUPTAS de falha de rede, madrugada
+   inclusive. Cada evento se resolvia mesmo, e ainda assim a leitura estava errada:
+   somar episódios transitórios e concluir tranquilidade esconde que aquilo não é
+   episódio, é REGIME. Nesse ritmo, busca perdida e postagem que morre no meio
+   voltam a acontecer o dia inteiro, e isso é decisão de gente (trocar de rede,
+   cobrar o provedor), não do app.
+
+   O cálculo é sobre o que o triage já entrega (`first`/`last`/`count`), então não
+   custa dado novo. */
+
+// diferença em MINUTOS entre dois carimbos do farol.log, pelos componentes. Os dois
+// vêm do mesmo relógio local, então tratar ambos como UTC preserva a diferença e
+// evita a única coisa que interessa evitar aqui: o parser do runtime reinterpretar
+// fuso e mover a hora que a pessoa lê no arquivo (mesma razão do fmtLogStamp).
+export function logSpanMinutes(first, last) {
+  const re = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/;
+  const a = re.exec(String(first ?? '')), b = re.exec(String(last ?? ''));
+  if (!a || !b) return null;
+  const ms = (m) => Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+  const dif = ms(b) - ms(a);
+  return dif >= 0 ? Math.round(dif / 60000) : null;
+}
+
+// A partir de quando um grupo deixa de ser episódio. Duas horas porque abaixo disso
+// uma queda de rede comum já enche o log, e 2 por hora porque é o ritmo em que o
+// Farol perde consulta em TODO ciclo de polling (o intervalo mínimo é de 3 min).
+const REGIME_MIN_MINUTOS = 120;
+const REGIME_MIN_POR_HORA = 2;
+
+export function logGroupRate(g) {
+  g = g || {};
+  const count = Number(g.count) || 0;
+  const minutos = logSpanMinutes(g.first, g.last);
+  if (!count || minutos === null || minutos < REGIME_MIN_MINUTOS) return null;
+  const porHora = count / (minutos / 60);
+  return { minutos, porHora, regime: porHora >= REGIME_MIN_POR_HORA };
+}
+
+// "5h57" / "48min": duração pra leitura humana, sem biblioteca.
+export function fmtSpan(minutos) {
+  const m = Math.max(0, Math.round(Number(minutos) || 0));
+  if (m < 60) return `${m}min`;
+  const h = Math.floor(m / 60), resto = m % 60;
+  return resto ? `${h}h${String(resto).padStart(2, '0')}` : `${h}h`;
+}
+
+// A linha que o resumo ganhou: o que é contínuo é nomeado como contínuo. Sai só pro
+// que o app trataria como "passa sozinho": problema que já exige gente não precisa
+// desta linha pra ser levado a sério.
+export function logRegimeLines(grupos) {
+  return (grupos || []).filter(Boolean).filter(g => LOG_KINDS_SOZINHO.includes(g.kind)).map(g => {
+    const r = logGroupRate(g);
+    if (!r || !r.regime) return '';
+    const porHora = r.porHora >= 10 ? Math.round(r.porHora) : Math.round(r.porHora * 10) / 10;
+    return `Atenção: ${g.label} não é episódio, é regime: ${g.count} falhas em ${fmtSpan(r.minutos)}`
+      + ` (${porHora} por hora). Cada uma se resolve sozinha, e mesmo assim nesse ritmo o Farol perde`
+      + ` consulta e postagem o tempo todo. Isso é decisão sua (rede, provedor), não do app.`;
+  }).filter(Boolean);
+}
+
 // kinds que passam sozinhos (ver lib/log-taxonomy.js): espera-reset espera a hora dela,
 // transitorio passa rapido. O resto que nao for operacional exige gente, inclusive kind
 // novo que apareca depois: falha nao classificada nunca some da conta.
@@ -345,7 +407,7 @@ export function logReadingLine(grupos) {
 export function logSummaryLines(grupos) {
   const gs = (grupos || []).filter(Boolean);
   if (!gs.length) return [];
-  return [...gs.map(logGroupLine), logReadingLine(gs)];
+  return [...gs.map(logGroupLine), logReadingLine(gs), ...logRegimeLines(gs)];
 }
 
 // o detalhe cru, limitado: o relatorio e copiado e colado, entao as 159 linhas inteiras
@@ -368,8 +430,18 @@ export function logSummaryShort(grupos, n = 3) {
   const total = gs.reduce((a, g) => a + (Number(g.count) || 0), 0);
   const top = gs.slice(0, n).map(g => `${g.count}x ${g.label}`).join(' · ');
   const resto = gs.length - Math.min(n, gs.length);
+  // grupo em REGIME entra com a duração junto: na aba Sistema esta é a única linha
+  // sobre o log, e "101x Rede indisponível" sem a janela lê como pico de um minuto.
+  const continuo = gs.map(g => {
+    const r = logGroupRate(g);
+    return r && r.regime ? `${g.label} há ${fmtSpan(r.minutos)}` : '';
+  }).filter(Boolean);
+  // cada ternário no seu próprio const: o ratchet conta '?' por statement e este
+  // arquivo não tem folga nesse eixo (mesma razão do diagnosticsText)
+  const sufixoResto = resto ? ` · e mais ${plural(resto, 'grupo', 'grupos')}` : '';
+  const sufixoContinuo = continuo.length ? ` · contínuo: ${continuo.join(' · ')}` : '';
   return `${plural(total, 'falha', 'falhas')} em ${plural(gs.length, 'grupo', 'grupos')}: ${top}`
-    + (resto ? ` · e mais ${plural(resto, 'grupo', 'grupos')}` : '');
+    + sufixoResto + sufixoContinuo;
 }
 
 /* ---------- "Meus PRs": PR oculto ----------

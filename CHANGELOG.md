@@ -9,6 +9,35 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.52.3
+
+A queda de rede mais comum do Windows voltou a ser tratada como rede, e o
+diagnóstico parou de chamar de passageiro o que dura dias.
+
+**Correções**
+- **Falha de conexão com o GitHub era classificada como problema permanente.** O
+  `gh` escreve `dial tcp ...: connectex:` (e a explicação já traduzida pelo
+  Windows) quando não consegue nem abrir a conexão, sem nenhuma das palavras que o
+  Farol procurava. Resultado medido no log de 21 a 24/08/2026: 773 falhas de rede
+  entravam como "Falha não classificada", que o app trata como permanente. Isso não
+  era só rótulo errado na tela: **postagem de review que morre nessa falha nunca era
+  reenviada sozinha** (o reenvio automático só vale pro que é passageiro) e a
+  revisão que caía na mesma rede ficava parada esperando clique. Agora as três
+  formas dessa queda (`dial tcp`, `connectex`, `TLS handshake timeout`) são rede.
+- **"Nenhuma atualização disponível" deixou de virar erro no log.** Quando o
+  Farol vai aplicar a atualização e descobre que já não há nenhuma, nada foi
+  baixado e nada foi mexido; ainda assim isso aparecia como falha e represava a
+  próxima tentativa por 30 minutos.
+
+**Melhorias**
+- **O diagnóstico distingue episódio de regime.** Antes ele somava os eventos e
+  concluía "101 se resolvem sozinhos, 0 exigem ação humana" sobre seis horas
+  ininterruptas de falha de rede. Cada evento se resolve mesmo, e mesmo assim
+  nesse ritmo o Farol perde consulta e postagem o tempo todo. Agora, quando um
+  problema que "passa sozinho" dura mais de duas horas com pelo menos duas falhas
+  por hora, o resumo diz a duração, a taxa por hora e que a decisão é sua (rede,
+  provedor), não do app. A aba Sistema mostra a mesma duração na linha do log.
+
 ## v2.52.2
 
 Correção de review duplicado: dois APPROVE seus no mesmo PR, com segundos de

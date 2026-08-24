@@ -536,3 +536,25 @@ test('triage: no log real, 59 dos 146 eventos NÃO se resolvem sozinhos', () => 
   assert.equal(operacional, 6, 'restart 3 + console fechado 3');
   assert.equal(espera + preciso + operacional, 146);
 });
+
+/* ---------- a queda de rede REAL desta máquina (23-24/08/2026) ----------
+   O cliente Go do `gh` não fala ECONNRESET nem ETIMEDOUT quando nem consegue abrir a
+   conexão: ele escreve `dial tcp <ip>:443: connectex:` e a prosa do WSAETIMEDOUT sai
+   TRADUZIDA pelo Windows, então nenhuma palavra em inglês aparece na linha. Sem estes
+   três pedaços, 590 das 593 falhas do farol.log caíam em 'desconhecido' -> permanente,
+   e o `kind` não é rótulo de tela: é o que o retry consulta (invariante 3 do CLAUDE.md).
+   Com `permanente`, o APPROVE já pago que morre no dial NUNCA é reenviado e a revisão
+   que cai na mesma rede estaciona esperando olho humano. */
+const REDE_REAL = [
+  ['gh search falhou (conta: --review-requested=@me): Post "https://api.github.com/graphql": dial tcp 4.228.31.149:443: connectex: Uma tentativa de conexão falhou porque o componente conectado não respondeu\ncorretamente após um período de tempo', 'dial/connectex do Windows'],
+  ['gh search falhou (conta: --owner acme): Post "https://api.github.com/graphql": net/http: TLS handshake timeout', 'TLS handshake timeout'],
+  ['postar review acme/api#230 (APPROVE): Post "https://api.github.com/repos/acme/api/pulls/230/reviews": dial tcp 4.228.31.149:443: connectex: tentativa de conexao falhou', 'postagem que morre no dial'],
+];
+
+for (const [msg, oque] of REDE_REAL) {
+  test(`classify: ${oque} é rede transitória, não falha permanente`, () => {
+    const c = classify(msg);
+    assert.equal(c.id, 'rede', `caiu em ${c.id}`);
+    assert.equal(c.kind, 'transitorio', 'o kind é o que decide o retry, não só o rótulo da tela');
+  });
+}
