@@ -958,50 +958,118 @@ function saveJiraSites(sites) {
     toast('ok', '✓ Configurações salvas', 2000);
   });
 }
-function jiraSiteCardHtml(s) {
-  const selo = s.hasCredential ? '<span class="a-tag">credencial cadastrada</span>' : '<span class="a-tag">sem credencial</span>';
-  const removerCred = s.hasCredential
-    ? `<button class="btn sm danger-ghost js-cred-remove" data-id="${esc(s.id)}">Remover credencial</button>` : '';
-  return `<div class="card acct-card">
-    <div class="a-body">
-      <div class="a-editrow">
-        <input class="js-label" data-id="${esc(s.id)}" value="${esc(s.label)}" placeholder="rótulo" spellcheck="false">
-        ${selo}
+function jiraSelo(s) {
+  if (s.hasCredential) {
+    return '<span class="jira-chip"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5 6.5 11.5 12.5 5"/></svg>credencial cadastrada</span>';
+  }
+  return '<span class="jira-chip falta"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M8 4.5v4.2M8 11.2v.5"/></svg>falta a credencial</span>';
+}
+
+/* O mapeamento org do GitHub -> site do Jira e o coracao do recurso e estava implicito
+   em dois campos de texto. Aqui ele vira uma frase legivel no topo do cartao. Org ou
+   URL faltando aparece como lacuna marcada, nunca como frase pela metade. */
+function jiraMapaHtml(s) {
+  const orgs = (s.owners || []).filter(Boolean);
+  const esquerda = orgs.length ? `<code>${esc(orgs.join(', '))}</code>` : '<span class="vago">sem org</span>';
+  const host = String(s.baseUrl || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const direita = host ? `<code>${esc(host)}</code>` : '<span class="vago">sem URL</span>';
+  return `<span class="jira-mapa">${esquerda} <span class="seta">&rarr;</span> ${direita}</span>`;
+}
+
+function jiraCredHtml(s) {
+  const cabecalho = `<div class="jira-cred-topo">
+      <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.5" y="7" width="9" height="6" rx="1.5"/><path d="M5.8 7V5.4a2.2 2.2 0 0 1 4.4 0V7"/></svg>
+      <span class="jira-cred-titulo">Credencial</span>
+      <span class="jira-cred-onde">${s.hasCredential ? 'jira-credentials.json' : 'token criado em id.atlassian.com'}</span>
+    </div>`;
+  if (s.hasCredential) {
+    return `<div class="jira-cred">${cabecalho}
+      <div class="jira-cred-guardada">
+        <span>Guardada fora do <code>config.json</code>, com permissão restrita. O token não volta a aparecer.</span>
+        <span class="espaco"></span>
+        <button class="btn sm danger-ghost js-cred-remove" data-id="${esc(s.id)}">Remover credencial</button>
       </div>
-      <div class="a-editrow">
-        <input class="js-baseurl" data-id="${esc(s.id)}" value="${esc(s.baseUrl)}" placeholder="https://empresa.atlassian.net" spellcheck="false">
-      </div>
-      <div class="a-editrow orgs"><span class="a-fieldlabel">orgs</span>
-        <input class="js-owners" data-id="${esc(s.id)}" value="${esc((s.owners || []).join(', '))}" placeholder="org1, org2" spellcheck="false"></div>
-      <div class="a-editrow orgs"><span class="a-fieldlabel">prefixos</span>
-        <input class="js-projectkeys" data-id="${esc(s.id)}" value="${esc((s.projectKeys || []).join(', '))}" placeholder="ABC, XYZ" spellcheck="false"></div>
-      <div class="a-editrow">
-        <input class="js-cred-email" data-id="${esc(s.id)}" placeholder="e-mail da conta do Jira" spellcheck="false" autocomplete="off">
-        <input class="js-cred-token" type="password" data-id="${esc(s.id)}" placeholder="token de API" spellcheck="false" autocomplete="off">
-        <button class="btn sm js-cred-save" data-id="${esc(s.id)}">Cadastrar credencial</button>
-      </div>
+    </div>`;
+  }
+  return `<div class="jira-cred">${cabecalho}
+    <div class="jira-cred-corpo">
+      <span class="jira-campo">
+        <label for="jcEmail-${esc(s.id)}">E-mail da conta Atlassian</label>
+        <input id="jcEmail-${esc(s.id)}" class="js-cred-email" data-id="${esc(s.id)}" placeholder="voce@empresa.com" spellcheck="false" autocomplete="off">
+      </span>
+      <span class="jira-campo">
+        <label for="jcToken-${esc(s.id)}">Token de API</label>
+        <input id="jcToken-${esc(s.id)}" class="js-cred-token" type="password" data-id="${esc(s.id)}" placeholder="token de API" spellcheck="false" autocomplete="off">
+      </span>
+      <button class="btn sm js-cred-save" data-id="${esc(s.id)}">Cadastrar credencial</button>
     </div>
-    <div class="a-actions">
-      ${removerCred}
+    <p class="jira-cred-nota">O token nunca passa por linha de comando: o arquivo de configuração do MCP carrega só o id do site, e quem lê o segredo do disco é o servidor do Farol.</p>
+  </div>`;
+}
+
+function jiraSiteCardHtml(s) {
+  return `<div class="card jira-site${s.hasCredential ? '' : ' sem-cred'}" data-site="${esc(s.id)}">
+    <div class="jira-topo">
+      <input class="jira-nome js-label" data-id="${esc(s.id)}" value="${esc(s.label)}" placeholder="rótulo" spellcheck="false" aria-label="Rótulo do site">
+      ${jiraMapaHtml(s)}
+      <span class="jira-espaco"></span>
+      ${jiraSelo(s)}
+    </div>
+    <div class="jira-corpo">
+      <span class="jira-campo">
+        <label for="jsUrl-${esc(s.id)}">URL do Jira</label>
+        <input id="jsUrl-${esc(s.id)}" class="js-baseurl" data-id="${esc(s.id)}" value="${esc(s.baseUrl)}" placeholder="https://empresa.atlassian.net" spellcheck="false">
+      </span>
+      <span class="jira-campo">
+        <label for="jsOwners-${esc(s.id)}">Orgs do GitHub</label>
+        <input id="jsOwners-${esc(s.id)}" class="js-owners" data-id="${esc(s.id)}" value="${esc((s.owners || []).join(', '))}" placeholder="org1, org2" spellcheck="false">
+        <span class="dica">quem é dona do PR decide o site</span>
+      </span>
+      <span class="jira-campo">
+        <label for="jsKeys-${esc(s.id)}">Prefixos de projeto</label>
+        <input id="jsKeys-${esc(s.id)}" class="js-projectkeys" data-id="${esc(s.id)}" value="${esc((s.projectKeys || []).join(', '))}" placeholder="ABC, XYZ" spellcheck="false">
+        <span class="dica">é por onde a chave do card é reconhecida</span>
+      </span>
+    </div>
+    ${jiraCredHtml(s)}
+    <div class="jira-rodape">
+      <button class="btn sm js-site-test" data-id="${esc(s.id)}">
+        <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.9-4.2"/><path d="M13.7 2.5v3.2h-3.2"/></svg>
+        Testar leitura
+      </button>
+      <span class="jira-teste" data-teste="${esc(s.id)}"></span>
+      <span class="espaco"></span>
       <button class="btn sm danger-ghost js-site-remove" data-id="${esc(s.id)}">Remover site</button>
     </div>
   </div>`;
 }
+
 function jiraSiteAddFormHtml() {
-  return `<div class="card acct-add">
-    <div class="a-add-title">Adicionar site do Jira</div>
-    <div class="a-editrow">
-      <input id="jsAddLabel" placeholder="rótulo (ex.: Jira BIUD)" spellcheck="false">
-      <input id="jsAddBaseUrl" placeholder="https://empresa.atlassian.net" spellcheck="false">
+  return `<div class="card jira-add">
+    <div class="jira-add-titulo">Adicionar site</div>
+    <div class="jira-add-grade">
+      <span class="jira-campo">
+        <label for="jsAddLabel">Rótulo</label>
+        <input id="jsAddLabel" placeholder="Jira Acme" spellcheck="false">
+      </span>
+      <span class="jira-campo">
+        <label for="jsAddBaseUrl">URL do Jira</label>
+        <input id="jsAddBaseUrl" placeholder="https://acme.atlassian.net" spellcheck="false">
+      </span>
+      <span class="jira-campo">
+        <label for="jsAddOwners">Orgs do GitHub</label>
+        <input id="jsAddOwners" placeholder="acme, acme-labs" spellcheck="false">
+      </span>
+      <span class="jira-campo">
+        <label for="jsAddProjectKeys">Prefixos de projeto</label>
+        <input id="jsAddProjectKeys" placeholder="ACME, OPS" spellcheck="false">
+      </span>
+      <button class="btn js-site-add" id="btnJiraSiteAdd">Adicionar</button>
     </div>
-    <div class="a-editrow">
-      <input id="jsAddOwners" placeholder="orgs do GitHub (org1, org2)" spellcheck="false">
-      <input id="jsAddProjectKeys" placeholder="prefixos do projeto (ABC, XYZ)" spellcheck="false">
-      <button class="btn sm" id="btnJiraSiteAdd">Adicionar</button>
-    </div>
-    <div class="a-hint">Rótulo, URL base e ao menos um prefixo de projeto são obrigatórios. A credencial se cadastra depois, dentro do card do site já salvo.</div>
+    <p class="jira-add-hint">Rótulo, URL e ao menos um prefixo são obrigatórios. A credencial se cadastra depois, dentro do card do site já salvo.</p>
   </div>`;
 }
+
 function renderJiraSites() {
   const box = $('#jiraSitesManager'); if (!box) return;
   if (document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
@@ -1034,7 +1102,7 @@ $('#jiraSitesManager').addEventListener('click', (e) => {
     return;
   }
   if (t.classList.contains('js-cred-save')) {
-    const card = t.closest('.acct-card');
+    const card = t.closest('.jira-site');
     const email = (card.querySelector('.js-cred-email').value || '').trim();
     const token = (card.querySelector('.js-cred-token').value || '').trim();
     if (!email || !token) return toast('error', 'Preencha e-mail e token.', 3000);
@@ -1049,6 +1117,28 @@ $('#jiraSitesManager').addEventListener('click', (e) => {
     api('/api/jira/credential/remove', { siteId: t.dataset.id }).then(r => {
       if (r && r.ok) toast('ok', 'Credencial removida.', 2500);
       else toast('error', 'Não deu pra remover a credencial.');
+    });
+    return;
+  }
+  // Testar leitura: prova o site AGORA, sem esperar o próximo PR. O resultado fica na
+  // linha ao lado do botão (e não só num toast que some), porque é estado do site.
+  const btnTeste = t.closest('.js-site-test');
+  if (btnTeste) {
+    const id = btnTeste.dataset.id;
+    const linha = $(`.jira-teste[data-teste="${id}"]`);
+    btnTeste.disabled = true;
+    if (linha) { linha.className = 'jira-teste'; linha.textContent = 'testando...'; }
+    api('/api/jira/test', { siteId: id }).then(r => {
+      btnTeste.disabled = false;
+      if (!linha) return;
+      if (!r) { linha.className = 'jira-teste ruim'; linha.textContent = 'o Farol não respondeu ao teste'; return; }
+      if (r.ok) {
+        linha.className = 'jira-teste ok';
+        linha.textContent = r.quem ? `respondeu como ${r.quem}` : 'o Jira respondeu, credencial válida';
+        return;
+      }
+      linha.className = 'jira-teste ruim';
+      linha.textContent = r.motivo || 'o teste falhou';
     });
     return;
   }

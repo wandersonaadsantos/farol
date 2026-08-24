@@ -55,7 +55,7 @@ test('a sidebar do Sistema também é um tablist completo', () => {
   assert.ok(nav);
   assert.match(nav[0], /role="tablist"/);
   const botoes = todos(/<button[^>]*class="sys-nav-item[^"]*"[^>]*>/g, nav[1]);
-  assert.equal(botoes.length, 10, 'as 10 seções do Sistema');
+  assert.equal(botoes.length, 11, 'as 11 seções do Sistema');
   for (const [b] of botoes) {
     assert.match(b, /role="tab"/);
     assert.match(b, /aria-selected="(true|false)"/);

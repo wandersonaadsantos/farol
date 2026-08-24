@@ -47,6 +47,8 @@
   --ac: #ffb454;
   --ac-soft: rgba(255, 180, 84, .14);
   --ac-ink: #201302;
+  /* seta do select, desenhada por nos (ver a secao "select com a seta da casa") */
+  --seta-select: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none' stroke='%238b97ab' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1 1 4 4 4-4'/%3E%3C/svg%3E");
   color-scheme: dark;
 }
 :root[data-theme="light"] {
@@ -69,6 +71,7 @@
   --info-soft: rgba(47, 111, 214, .1);
   --logo-tower: #33415c;
   --shadow: 0 8px 24px rgba(23, 34, 56, .1);
+  --seta-select: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none' stroke='%235e6c82' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1 1 4 4 4-4'/%3E%3C/svg%3E");
   color-scheme: light;
 }
 
@@ -1456,4 +1459,105 @@ body.electron .chat-head { padding-right: 150px; }
 @media (max-width: 560px) {
   .cp-dows { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .cp-budget input[type="number"] { width: 100%; }
+}
+
+
+/* ---------- select com a seta da casa ---------- */
+/* A caixa do select ja era estilizada em cinco lugares e a SETA continuava a nativa
+   do sistema: e ela que denuncia a tela que nao passou por desenho. Uma regra por
+   lugar (a especificidade de cada um ja vence uma regra generica em `select`), e a
+   cor da seta troca junto com o tema pelo token --seta-select. */
+.set-ctl select,
+.acct-card .a-pol-item select,
+.field select,
+.papel-level, .dom-level,
+.rev-add,
+.jira-site select {
+  appearance: none; -webkit-appearance: none;
+  padding-right: 28px;
+  background-image: var(--seta-select);
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+/* O papel dentro do cartao de decisao e do PR e um controle MIUDO, inline no meio de
+   uma frase: ali a seta desenhada nao cabe e a regra acima seria pior que a nativa. */
+.dec-author .papel-level, .pr-sub .papel-level {
+  appearance: auto; -webkit-appearance: auto;
+  padding: 1px 5px;
+  background-image: none;
+}
+
+/* ---------- aviso emoldurado (callout) ---------- */
+/* Pra o fato que MUDA O COMPORTAMENTO da maquina de quem clica em salvar. Em prosa,
+   dentro do paragrafo de descricao, ele passava batido: era o caso do escopo dos MCPs
+   na tela do Jira. */
+.callout {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 11px 14px; margin: 0 0 16px;
+  border-radius: 10px; font-size: 12.5px; max-width: 860px; text-wrap: pretty;
+  border: 1px solid color-mix(in srgb, var(--info) 35%, transparent);
+  background: var(--info-soft); color: var(--muted);
+}
+.callout svg { width: 16px; height: 16px; flex: none; margin-top: 1px; color: var(--info); }
+.callout b { color: var(--text); }
+.callout.warn { border-color: color-mix(in srgb, var(--accent) 35%, transparent); background: var(--accent-soft); }
+.callout.warn svg { color: var(--accent); }
+
+/* ---------- site do Jira ---------- */
+/* O cartao era uma pilha de inputs sem rotulo, com a credencial na mesma fileira dos
+   outros campos e o mapeamento org -> site espalhado em dois campos de texto. Aqui ele
+   ganha tres blocos com papel proprio: identidade (topo), configuracao (corpo) e
+   credencial (bloco separado, que e o que decide se o recurso funciona). */
+.jira-site { padding: 0; border-left: 3px solid var(--ok); }
+.jira-site.sem-cred { border-left-color: var(--accent); }
+
+.jira-topo { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--border-soft); }
+.jira-nome { font-size: 14px; font-weight: 650; background: var(--surface-2); color: var(--text); border: 1px solid transparent; border-radius: 7px; padding: 3px 9px; width: 190px; max-width: 40%; }
+.jira-nome:hover { border-color: var(--border); }
+.jira-nome:focus { outline: none; border-color: var(--ac); background: var(--surface); }
+/* o mapeamento e o coracao do recurso: a org do GitHub leva ao site do Jira. Ele
+   deixa de estar implicito em dois campos e passa a se ler como uma frase. */
+.jira-mapa { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); background: var(--surface-2); border: 1px solid var(--border); border-radius: 99px; padding: 3px 11px; min-width: 0; }
+.jira-mapa code { background: none; padding: 0; color: var(--text); font-size: 11.5px; }
+.jira-mapa .seta { color: var(--ac); font-weight: 700; }
+.jira-mapa .vago { color: var(--faint); font-style: italic; }
+.jira-espaco { flex: 1; }
+.jira-chip { font-size: 10.5px; font-weight: 700; border-radius: 99px; padding: 2px 9px; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; color: var(--ok); background: var(--ok-soft); }
+.jira-chip.falta { color: var(--accent); background: var(--accent-soft); }
+.jira-chip svg { width: 11px; height: 11px; }
+
+.jira-corpo { padding: 14px 16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.jira-campo { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.jira-campo > label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); }
+.jira-campo input { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 12.5px; width: 100%; }
+.jira-campo input:focus { outline: none; border-color: var(--accent); }
+.jira-campo .dica { font-size: 11px; color: var(--faint); }
+
+.jira-cred { margin: 0 16px 14px; border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+.jira-cred-topo { display: flex; align-items: center; gap: 9px; padding: 9px 13px; border-bottom: 1px solid var(--border-soft); }
+.jira-cred-topo svg { width: 14px; height: 14px; flex: none; color: var(--ok); }
+.jira-site.sem-cred .jira-cred-topo svg { color: var(--accent); }
+.jira-cred-titulo { font-size: 12.5px; font-weight: 650; }
+.jira-cred-onde { font-size: 11.5px; color: var(--faint); margin-left: auto; font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; }
+.jira-cred-corpo { padding: 12px 13px; display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.jira-cred-corpo .jira-campo { flex: 1; min-width: 190px; }
+.jira-cred-nota { padding: 0 13px 11px; margin: 0; font-size: 11.5px; color: var(--faint); text-wrap: pretty; }
+.jira-cred-guardada { padding: 12px 13px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.jira-cred-guardada .quem { color: var(--text); font-weight: 600; }
+.jira-cred-guardada .espaco { flex: 1; }
+
+.jira-rodape { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 0 16px 13px; }
+.jira-rodape .espaco { flex: 1; }
+.jira-teste { font-size: 11.5px; color: var(--faint); }
+.jira-teste.ok { color: var(--ok); }
+.jira-teste.ruim { color: var(--danger); }
+
+.jira-add { padding: 14px 16px; border-style: dashed; background: color-mix(in srgb, var(--surface) 50%, transparent); }
+.jira-add-titulo { font-size: 13px; font-weight: 650; margin-bottom: 10px; }
+.jira-add-grade { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 12px; align-items: end; }
+.jira-add-hint { margin: 10px 0 0; font-size: 11.5px; color: var(--faint); text-wrap: pretty; }
+
+@media (max-width: 900px) {
+  .jira-corpo { grid-template-columns: 1fr; }
+  .jira-add-grade { grid-template-columns: 1fr; }
 }

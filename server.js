@@ -44,6 +44,7 @@ import usageMod from './lib/engine/usage.js';
 import { EDITAVEIS, defaults as settingsDefaults, sanear } from './lib/settings.js';
 import { parseJiraSites, maskJiraSites } from './lib/jira/sites.js';
 import credMod from './lib/jira/credentials.js';
+import jiraMod from './lib/engine/jira.js';
 import { startServer } from './lib/http-server.js';
 
 // App aberto pelo Finder/Dock herda um PATH minimo (sem /opt/homebrew/bin):
@@ -1454,6 +1455,9 @@ class Engine extends EventEmitter {
   // false, que a UI mostra como erro vermelho de uma remoção que já tinha dado certo.
   setJiraCredential(siteId, valor) { const ok = credMod.setCredential(siteId, valor); this.pushState(); return ok; }
   removeJiraCredential(siteId) { const ok = credMod.removeCredential(siteId); this.pushState(); return ok; }
+
+  // Testa o site cadastrado contra o Jira de verdade (ver testarSite em lib/engine/jira.js).
+  testarJiraSite(siteId) { return jiraMod.testarSite(this, siteId); }
 
   snapshot() {
     return {
