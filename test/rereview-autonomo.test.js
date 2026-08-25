@@ -129,6 +129,31 @@ test('pendência stale_head fora do panorama carrega o account pra fila poder re
   assert.equal(alvos[0].account, 'conta-certa');
 });
 
+// FIX 2: o candidato do gatilho B carregava isDraft: false FIXO, mesmo quando
+// a pendência guarda um PR de verdade rascunho. Agora usa o isDraft real
+// gravado na pendência (recordDecision passou a preservá-lo).
+test('pendência stale_head com pr.isDraft true NÃO relança (G10 draft)', () => {
+  const e = engineBase();
+  e.panorama = [];
+  e.decisions.pending.push({
+    key: 'outra/org#9', blockedKind: 'stale_head', blockedHead: H2, createdAt: QUIETO,
+    pr: { repo: 'outra/org', number: 9, url: 'u9', title: 't', author: 'dev', isDraft: true },
+  });
+  assert.equal(e.reReviewTargets(semInflight, AGORA).length, 0);
+});
+
+test('pendência stale_head com isDraft false/ausente relança (pendência antiga sem o campo degrada pro comportamento atual)', () => {
+  const e = engineBase();
+  e.panorama = [];
+  e.decisions.pending.push({
+    key: 'outra/org#9', blockedKind: 'stale_head', blockedHead: H2, createdAt: QUIETO,
+    pr: { repo: 'outra/org', number: 9, url: 'u9', title: 't', author: 'dev' },
+  });
+  const alvos = e.reReviewTargets(semInflight, AGORA);
+  assert.equal(alvos.length, 1);
+  assert.equal(alvos[0].isDraft, false);
+});
+
 test('mesmo PR nos dois gatilhos sai UMA vez', () => {
   const e = engineBase();
   e.staleInfo['acme/r#1'] = { stale: true, head: H2, lastState: 'APPROVED' };

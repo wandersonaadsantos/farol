@@ -93,6 +93,17 @@ const PARSERS = {
 // carência + 1 intervalo de polling.
 const REREQ_GRACE_MS = 10 * 60 * 1000;
 
+// FIX 3 (v2.53.1): a metade que o recoverInflight aplica na âncora de re-revisão
+// de um PR que estava inflight no reinício. Âncora OBJETO ({head,dia,rodadas})
+// só libera o head (fica ''), preservando dia/rodadas, pra o teto diário não
+// zerar por causa de um reinício; âncora STRING legada devolve undefined (não
+// há contador a preservar, então o chamador apaga como sempre). Função pura,
+// extraída pra manter a profundidade de chaves do método baixa.
+function ancoraAposReinicio(v) {
+  if (v && typeof v === 'object') return { ...v, head: '' };
+  return undefined;
+}
+
 // --- Engine -----------------------------------------------------------------
 class Engine extends EventEmitter {
   constructor() {
@@ -232,12 +243,18 @@ class Engine extends EventEmitter {
     try { writeJsonAtomic(INFLIGHT_FILE, []); } catch { }
     // G7: a âncora do round 2 é gravada ANTES de enfileirar; se o app morreu com
     // a re-revisão na fila/rodando, a âncora sem a revisão mataria o round pra
-    // sempre naquele head. Poda: o próximo check() re-arma pelo staleInfo.
+    // sempre naquele head. Poda em duas metades via ancoraAposReinicio (head
+    // vazio nunca casa com headRound e o gate re-arma igual, mas o teto do dia
+    // sobrevive ao reinício); a âncora legada não tem contador a preservar.
     let podado = false;
     for (const pr of inflight) {
-      if (pr && pr.key && this.reReviewLaunched && this.reReviewLaunched[pr.key] !== undefined) {
-        delete this.reReviewLaunched[pr.key]; podado = true;
-      }
+      if (!pr || !pr.key || !this.reReviewLaunched) continue;
+      const v = this.reReviewLaunched[pr.key];
+      if (v === undefined) continue;
+      const nova = ancoraAposReinicio(v);
+      if (nova === undefined) delete this.reReviewLaunched[pr.key];
+      else this.reReviewLaunched[pr.key] = nova;
+      podado = true;
     }
     if (podado) this.saveReReviewLaunched();
     this.log('WARN', `app reiniciado com revisão em andamento: ${inflight.map(p => p.key).join(', ')} devolvido(s) à fila`);

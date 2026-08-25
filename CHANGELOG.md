@@ -9,6 +9,26 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.53.1
+
+Três dívidas conscientes da v2.53.0 (round autônomo pós-push) resolvidas.
+
+**Correções**
+- **Poda de `headQuietoDesde` e `avisoRodadasDia`.** Os dois mapas de memória
+  do round automático cresciam pra sempre. Agora `launchReReviews` poda a cada
+  ciclo: key fora do panorama (e fora de pendência `stale_head` viva) sai do
+  debounce, e aviso de teto diário de dias anteriores ao de hoje sai do Set.
+- **O candidato do gatilho B carrega o `isDraft` real do PR.** Quando a
+  pendência bloqueada por head velho reconstrói o alvo (PR fora do panorama),
+  ela assumia rascunho como `false` sempre. Agora a pendência guarda o valor
+  verdadeiro e o gate de draft do round automático (G10) passa a valer também
+  nesse caminho.
+- **O teto diário de rodadas sobrevive ao reinício.** `recoverInflight` apagava
+  a âncora inteira do PR que estava em revisão quando o app morreu, zerando
+  também o contador de rodadas do dia. Agora só o head é liberado (o gate
+  re-arma igual, porque head vazio nunca casa com o head atual); dia e rodadas
+  ficam intactos.
+
 ## v2.53.0
 
 O round de re-revisão automática pós-push passou a respeitar de verdade a

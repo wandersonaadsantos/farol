@@ -138,6 +138,52 @@ test('gatilho A (review meu stale) continua pulando quando o diff efetivo é id�
   assert.equal(enfileirados.length, 0, 'push trivial no gatilho A continua pulando');
 });
 
+// FIX 1: poda de headQuietoDesde e avisoRodadasDia (cresciam pra sempre em
+// memória). Key fora do panorama (e fora de pendência stale_head) some dos
+// dois mapas; key válida (aberta / aviso de hoje) sobrevive.
+test('poda headQuietoDesde: key fora do panorama some, key aberta sobrevive', async () => {
+  const e = engineBase();
+  e.enqueueHeadless = () => {};
+  e.emit = () => {};
+  e.headQuietoDesde = {
+    'acme/r#1': { head: H1, at: QUIETO }, // aberta (está no panorama)
+    'fechado/pr#9': { head: H1, at: QUIETO }, // fora do panorama: poda
+  };
+
+  await e.launchReReviews();
+
+  assert.ok('acme/r#1' in e.headQuietoDesde, 'key aberta preservada');
+  assert.ok(!('fechado/pr#9' in e.headQuietoDesde), 'key fora do panorama podada');
+});
+
+test('poda headQuietoDesde: key de pendência stale_head fora do panorama sobrevive', async () => {
+  const e = engineBase();
+  e.enqueueHeadless = () => {};
+  e.emit = () => {};
+  e.panorama = [];
+  e.headQuietoDesde = { 'outra/org#9': { head: H1, at: QUIETO } };
+  e.decisions.pending.push({ key: 'outra/org#9', blockedKind: 'stale_head', blockedHead: H1, createdAt: Date.now() });
+
+  await e.launchReReviews();
+
+  assert.ok('outra/org#9' in e.headQuietoDesde, 'pendência stale_head conta como aberta');
+});
+
+test('poda avisoRodadasDia: entrada de dia anterior some, entrada de hoje sobrevive', async () => {
+  const e = engineBase();
+  e.enqueueHeadless = () => {};
+  e.emit = () => {};
+  e.avisoRodadasDia = new Set([
+    `acme/r#1:${HOJE}`,
+    'acme/r#1:2020-01-01',
+  ]);
+
+  await e.launchReReviews();
+
+  assert.ok(e.avisoRodadasDia.has(`acme/r#1:${HOJE}`), 'aviso de hoje preservado');
+  assert.ok(!e.avisoRodadasDia.has('acme/r#1:2020-01-01'), 'aviso de dia anterior podado');
+});
+
 test('teto esgotado avisa UMA vez por PR por dia e nunca enfileira', async () => {
   const enfileirados = [];
   const eventos = [];

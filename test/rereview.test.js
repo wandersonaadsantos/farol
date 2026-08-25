@@ -265,19 +265,27 @@ test('lastReviewSessionId: pending vence resolved e ausência devolve vazio', ()
 test('recoverInflight poda a âncora de re-revisão dos PRs que estavam em andamento', () => {
   // monta o FAROL_HOME temporário do processo com:
   //  - state/inflight.json = [{ key: 'acme/repo#5', url: '...', title: 't' }]
-  //  - state/rereview-launched.json = { 'acme/repo#5': 'a'.repeat(40), 'acme/outro#6': 'b'.repeat(40) }
+  //  - state/rereview-launched.json = { 'acme/repo#5': {head, dia, rodadas} (formato novo),
+  //    'acme/legado#7': 'c'.repeat(40) (formato string legado), 'acme/outro#6': 'b'.repeat(40) (alheia) }
   // ANTES do new Engine(), padrão dos testes de boot em test/boot.test.js.
+  // FIX 3: apagar a âncora INTEIRA zerava o teto diário de rodadas do PR no
+  // reinício. Âncora objeto preserva dia/rodadas e só libera o head (head vazio
+  // nunca casa com headRound, o gate re-arma igual); âncora string legada não
+  // tem contador pra preservar, então some como antes.
   const stateDir = path.join(process.env.FAROL_HOME, 'workspace', 'state');
   fs.mkdirSync(stateDir, { recursive: true });
   fs.writeFileSync(path.join(stateDir, 'inflight.json'), JSON.stringify([
     { key: 'acme/repo#5', url: 'https://github.com/acme/repo/pull/5', title: 't' },
+    { key: 'acme/legado#7', url: 'https://github.com/acme/legado/pull/7', title: 't' },
   ]));
   fs.writeFileSync(path.join(stateDir, 'rereview-launched.json'), JSON.stringify({
-    'acme/repo#5': 'a'.repeat(40),
+    'acme/repo#5': { head: 'a'.repeat(40), dia: '2026-08-25', rodadas: 2 },
+    'acme/legado#7': 'c'.repeat(40),
     'acme/outro#6': 'b'.repeat(40),
   }));
 
   const e = new Engine();
-  assert.equal(e.reReviewLaunched['acme/repo#5'], undefined, 'âncora do PR interrompido foi podada');
+  assert.deepEqual(e.reReviewLaunched['acme/repo#5'], { head: '', dia: '2026-08-25', rodadas: 2 }, 'teto do dia sobrevive ao reinício, só o head libera');
+  assert.equal(e.reReviewLaunched['acme/legado#7'], undefined, 'âncora legada (string) some, não há contador a preservar');
   assert.equal(e.reReviewLaunched['acme/outro#6'], 'b'.repeat(40), 'âncora alheia intacta');
 });

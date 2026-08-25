@@ -46,6 +46,22 @@ test('recordDecision sem pr.account grava string vazia, nunca undefined (allowli
   assert.equal(item.pr.account, '');
 });
 
+// FIX 2: o gate de draft do round automático precisa do dado real quando o PR
+// só existe na pendência (candidatosReRound reconstrói o alvo A PARTIR dela).
+test('recordDecision preserva pr.isDraft na pendência', () => {
+  const e = engineMinima();
+  const prDraft = { ...PR, isDraft: true };
+  const item = e.recordDecision(prDraft, { verdict: 'approve', reasons: [] }, { status: 'pending' });
+  assert.equal(item.pr.isDraft, true);
+  assert.equal(e.decisions.pending[0].pr.isDraft, true);
+});
+
+test('recordDecision sem pr.isDraft grava false, nunca undefined', () => {
+  const e = engineMinima();
+  const item = e.recordDecision(PR, { verdict: 'approve', reasons: [] }, { status: 'pending' });
+  assert.equal(item.pr.isDraft, false);
+});
+
 test('os dois pontos de bloqueio por stale_head carimbam blockedKind e blockedHead', () => {
   const review = fs.readFileSync(new URL('../lib/engine/review.js', import.meta.url), 'utf8');
   const decision = fs.readFileSync(new URL('../lib/engine/decision.js', import.meta.url), 'utf8');

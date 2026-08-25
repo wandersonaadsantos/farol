@@ -906,22 +906,20 @@ sessão relançada produz payload postável no head atual.
 sem IO, mesmo contrato de sempre; `reReviewTargets` devolve CÓPIAS RASAS (nunca o
 objeto do panorama, que `_headRound` mutaria em compartilhado).
 
-**Dívidas conscientes** (decisão da revisão final desta entrega, deixadas
-registradas em vez de resolvidas no meio do caminho):
+**Dívidas conscientes que ficam por decisão** (as três de orçamento/reinício da
+leva original foram resolvidas na v2.53.1: `avisoRodadasDia`/`headQuietoDesde`
+agora podam a cada `launchReReviews`, o candidato do gatilho B carrega o
+`isDraft` real da pendência, e `recoverInflight` só libera o `head` da âncora
+objeto, preservando `dia`/`rodadas`; as duas abaixo continuam por decisão):
 
-- `avisoRodadasDia` e `headQuietoDesde` não têm poda: são só memória, e o custo de
-  não podar é bytes por PR, nunca sessão paga.
-- O candidato do gatilho B fora do panorama assume `isDraft: false` e não carrega
-  labels (janela estreita: `candidatosReRound` reconstrói do que a pendência
-  guardou, não do panorama de verdade). `enqueueHeadless` segue honrando
-  `skipComentado` normalmente nesse caminho, então "um Farol por PR" não afrouxa.
+- O candidato do gatilho B fora do panorama não carrega labels (janela estreita:
+  `candidatosReRound` reconstrói do que a pendência guardou, não do panorama de
+  verdade; label é sinal transitório e dado velho seria pior que nenhum).
+  `enqueueHeadless` segue honrando `skipComentado` normalmente nesse caminho,
+  então "um Farol por PR" não afrouxa.
 - O debounce do gatilho B usa `createdAt` FIXO: não reinicia se chegar um push novo
   durante a espera. A sessão relançada relê o head real no início como sempre, então
   o pior caso é relançar um pouco cedo, nunca com head errado.
-- `recoverInflight` apaga a âncora INTEIRA da key que estava inflight no reinício,
-  o que zera o teto de rodadas do dia daquele PR também. Coerente com a regra de
-  sempre ("reinício zera o debounce"), mas vale registrar: reinício no meio de uma
-  rajada dá um round extra de folga naquele PR.
 
 ### Prova por arquivo: round incremental, pulo de push trivial e retomada de sessão (17/08/2026, ainda não publicado)
 
