@@ -32,6 +32,20 @@ test('recordDecision: pendência viva (sem blockedKind) NUNCA é superseded por 
   assert.equal(e.decisions.pending.length, 1, 'pendência de julgamento é sua, ninguém tira da mesa');
 });
 
+test('recordDecision preserva pr.account na pendência (I1: a fila headless relança pela identidade certa)', () => {
+  const e = engineMinima();
+  const prComConta = { ...PR, account: 'conta-dona-do-pr' };
+  const item = e.recordDecision(prComConta, { verdict: 'approve', reasons: [] }, { status: 'pending' });
+  assert.equal(item.pr.account, 'conta-dona-do-pr');
+  assert.equal(e.decisions.pending[0].pr.account, 'conta-dona-do-pr');
+});
+
+test('recordDecision sem pr.account grava string vazia, nunca undefined (allowlist sempre tem a chave)', () => {
+  const e = engineMinima();
+  const item = e.recordDecision(PR, { verdict: 'approve', reasons: [] }, { status: 'pending' });
+  assert.equal(item.pr.account, '');
+});
+
 test('os dois pontos de bloqueio por stale_head carimbam blockedKind e blockedHead', () => {
   const review = fs.readFileSync(new URL('../lib/engine/review.js', import.meta.url), 'utf8');
   const decision = fs.readFileSync(new URL('../lib/engine/decision.js', import.meta.url), 'utf8');

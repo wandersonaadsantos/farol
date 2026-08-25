@@ -113,6 +113,22 @@ test('pendência stale_head de PR FORA do panorama ainda relança (a fila mine n
   assert.equal(alvos[0].key, 'outra/org#9');
 });
 
+test('pendência stale_head fora do panorama carrega o account pra fila poder relançar pela identidade certa (I1)', () => {
+  const e = engineBase();
+  // stub real: accountForPr lê pr.account como accountForPr de verdade faz
+  // (pr.account || fallback da conta primária), pra provar que o candidato
+  // reconstruído da pendência não cai no fallback errado.
+  e.accountForPr = (pr) => pr.account || 'conta-primaria-errada';
+  e.panorama = [];
+  e.decisions.pending.push({
+    key: 'outra/org#9', blockedKind: 'stale_head', blockedHead: H2, createdAt: QUIETO,
+    pr: { repo: 'outra/org', number: 9, url: 'u9', title: 't', author: 'dev', account: 'conta-certa' },
+  });
+  const alvos = e.reReviewTargets(semInflight, AGORA);
+  assert.equal(alvos.length, 1);
+  assert.equal(alvos[0].account, 'conta-certa');
+});
+
 test('mesmo PR nos dois gatilhos sai UMA vez', () => {
   const e = engineBase();
   e.staleInfo['acme/r#1'] = { stale: true, head: H2, lastState: 'APPROVED' };

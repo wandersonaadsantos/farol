@@ -1,8 +1,8 @@
-// Task 5: launchReReviews fecha o ciclo. Complementa test/rereview.test.js (que ja
-// cobre o pulo de push trivial e a fiacao basica) com o que faltava: a ancora nova
-// {head, dia, rodadas} (em vez do head cru lido de staleInfo, que e undefined no
+// Task 5: launchReReviews fecha o ciclo. Complementa test/rereview.test.js (que já
+// cobre o pulo de push trivial e a fiação básica) com o que faltava: a âncora nova
+// {head, dia, rodadas} (em vez do head cru lido de staleInfo, que é undefined no
 // gatilho B), o knownHead vindo de pr._headRound (cobre os dois gatilhos) e o aviso
-// de teto diario.
+// de teto diário.
 import test from 'node:test';
 import assert from 'node:assert';
 import os from 'node:os';
@@ -13,10 +13,11 @@ process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-relaunch-'
 const { Engine } = await import('../server.js');
 const { MAX_RODADAS_AUTO_DIA, diaLocal } = await import('../lib/engine/review.js');
 const { TEMPOS } = await import('../lib/constants.js');
+const { saveFileProof } = await import('../lib/engine/file-proof.js');
 
 const H1 = 'a'.repeat(40), H2 = 'b'.repeat(40);
 // tempos relativos ao Date.now() real: launchReReviews usa Date.now() por dentro,
-// entao nao da pra semear um AGORA fixo, so garantir que os carimbos ja passaram
+// então não dá pra semear um AGORA fixo, só garantir que os carimbos já passaram
 // do debounce de head quieto.
 const QUIETO = Date.now() - TEMPOS.HEAD_QUIETO_MS - 1000;
 const HOJE = diaLocal(Date.now());
@@ -41,7 +42,7 @@ function engineBase() {
   e.activeReviews = new Map();
   e.saveReReviewLaunched = () => {};
   e.log = () => {};
-  // sem prova salva: launchReReviews nao chega a chamar fetchPrFiles no caminho
+  // sem prova salva: launchReReviews não chega a chamar fetchPrFiles no caminho
   // comum, mas o stub existe pra garantir que, se chamar, o teste denuncia (o
   // brief pede exatamente esse stub: 'sem prova' significa que nunca deveria ir
   // ao gh sem prova em disco).
@@ -95,6 +96,46 @@ test('toast de relançamento não menciona mais só pedido de mudanças', async 
   assert.ok(toast, 'toast de relançamento tem que sair');
   assert.ok(!/pedido de mudanças/.test(toast.dados.text));
   assert.match(toast.dados.text, /commit novo depois da sua revisão/);
+});
+
+// I2: alvo do gatilho B (pendência stale_head na mesa) nunca pode cair no pulo de
+// push trivial. A prova salva é do head ANTERIOR ao bloqueio (a sessão que a
+// gravou nem chegou a postar); se o diff efetivo do head novo medir "igual" a
+// essa prova, pular emitiria "a revisão anterior segue valendo" sem NENHUMA
+// revisão ter sido postada, e a âncora já queimou o head novo: deadlock com
+// toast falso.
+const MESMOS_ARQUIVOS = [{ path: 'a.js', sha: 'shaA', status: 'modified', lines: 3 }];
+
+test('gatilho B (stale_head) nunca pula, mesmo com diff efetivo idêntico à prova salva', async () => {
+  const enfileirados = [];
+  const e = engineBase();
+  e.enqueueHeadless = (p) => enfileirados.push(p);
+  e.emit = () => {};
+  saveFileProof('acme/r#1', { head: H1, files: MESMOS_ARQUIVOS, reviewed: ['a.js'] });
+  // se launchReReviews chamar fetchPrFiles pra este alvo, o teste falharia: o
+  // ponto do fix é NUNCA medir/pular quando há pendência stale_head na mesa.
+  e.fetchPrFiles = async () => { throw new Error('não deveria medir push trivial pro gatilho B'); };
+  e.decisions.pending.push({ key: 'acme/r#1', blockedKind: 'stale_head', blockedHead: H2, createdAt: QUIETO });
+
+  await e.launchReReviews();
+
+  assert.equal(enfileirados.length, 1, 'gatilho B relança sempre, sem pulo');
+  assert.equal(enfileirados[0].key, 'acme/r#1');
+});
+
+test('gatilho A (review meu stale) continua pulando quando o diff efetivo é idêntico à prova salva', async () => {
+  const enfileirados = [];
+  const e = engineBase();
+  e.enqueueHeadless = (p) => enfileirados.push(p);
+  e.emit = () => {};
+  saveFileProof('acme/r#1', { head: H1, files: MESMOS_ARQUIVOS, reviewed: ['a.js'] });
+  e.fetchPrFiles = async () => MESMOS_ARQUIVOS;
+  e.staleInfo['acme/r#1'] = { stale: true, head: H2, lastState: 'CHANGES_REQUESTED' };
+  e.headQuietoDesde['acme/r#1'] = { head: H2, at: QUIETO };
+
+  await e.launchReReviews();
+
+  assert.equal(enfileirados.length, 0, 'push trivial no gatilho A continua pulando');
 });
 
 test('teto esgotado avisa UMA vez por PR por dia e nunca enfileira', async () => {

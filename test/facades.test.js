@@ -49,8 +49,8 @@ const EXCECOES = {
   // `agora = Date.now()`, então impl.length para em 2 (conta só engine e
   // inflightKeys). A fachada declara 2 (inflightKeys, agora) de propósito,
   // pra repassar o agora explícito. Não é argumento engolido.
-  reReviewTargets: 'terceiro parâmetro (agora) tem default, que zera o Function.length',
-  reReviewEsgotados: 'terceiro parâmetro (agora) tem default, que zera o Function.length',
+  reReviewTargets: 'terceiro parâmetro (agora) tem default, que trunca a contagem do Function.length no parâmetro com default',
+  reReviewEsgotados: 'terceiro parâmetro (agora) tem default, que trunca a contagem do Function.length no parâmetro com default',
 };
 
 function mapaDeModulos() {
