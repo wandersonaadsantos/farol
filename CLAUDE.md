@@ -780,6 +780,18 @@ Duas correções irmãs, no `postReview`:
   nenhuma. `semAncoraPayload` recua a âncora uma vez. Só chega aí payload cujo head
   JÁ foi conferido acima, então largar a âncora não muda de que código o texto fala.
 
+**Desde a v2.53.0 essa pendência não fica presa esperando clique pra sempre.** Ela
+carrega `blockedKind: 'stale_head'` e `blockedHead: <head observado>` nos DOIS
+pontos que a criam (`review.js`, fim de `runHeadlessReview`, e `decision.js`,
+`decide()`; quem mexer num tem que mexer no outro), e é esse par que o round
+automático pós-push lê pra se destravar sozinho quando a conta é autônoma (ver
+"Autonomia completa do round automático" logo abaixo). Motivação medida:
+engine-ai#90, 25/08/2026, 14 commits em rajada com as rodadas de correção
+dependendo de clique, porque até aqui o próprio bloqueio impedia o mecanismo que
+o resolveria. Ela é superseded em QUALQUER desfecho do round novo (`recordDecision`
+em `decision.js`): postou, virou outra pendência ou falhou de outro jeito, o card
+velho sai da mesa e vira `superseded` no histórico, nunca fica duplicado.
+
 ## Re-revisão automática pós-push (v2.41.0): o round 2 fecha sozinho
 
 O caso medido que motivou (biud-frontend#756, 15/08/2026): CHANGES_REQUESTED
@@ -797,12 +809,16 @@ Peças e contratos:
   Re-revisar) e `staleInfo` fica interno, fora do snapshot. Não funda os dois.
 - **`reReviewTargets(engine, inflightKeys)`** (`lib/engine/review.js`) é o gate:
   SÍNCRONO e sem IO, como retryTargets/pushbackTargets, porque decide gastar
-  sessão Claude. Só arma com prova completa: `stale` true, `head` conhecido e
-  `lastState === 'CHANGES_REQUESTED'`. **Aprovação stale NÃO relança** (fica no
-  botão, por clique). **Draft NÃO arma round automático** (v2.41.3, G10: WIP
-  geraria sessão e, com onReject, um review por push; o chip manual segue
-  cobrindo). Pendência na mesa segura (um card por PR). E repete as
-  MESMAS travas do toReview: quem mexer lá, mexe aqui.
+  sessão Claude. **Desde a v2.53.0 não é mais só `CHANGES_REQUESTED`**: dois
+  gatilhos armam (review meu que ficou stale, OU pendência bloqueada por head
+  velho), com debounce e teto diário próprios; ver a seção "Autonomia completa
+  do round automático" logo abaixo pro mecanismo inteiro. **Draft NÃO arma round
+  automático** (v2.41.3, G10: WIP geraria sessão e, com onReject, um review por
+  push; o chip manual segue cobrindo). Pendência na mesa segura o relançamento
+  (um card por PR), **exceto a pendência `blockedKind === 'stale_head'`**: essa
+  é ignorada por esta trava de propósito, porque ela é o SINTOMA que o gatilho B
+  existe pra resolver, não um julgamento humano esperando. E repete as MESMAS
+  travas do toReview: quem mexer lá, mexe aqui.
 - **Âncora por head** (`state/rereview-launched.json`, `reReviewLaunched`):
   cada estado do PR relança NO MÁXIMO uma vez, gravada ANTES de enfileirar.
   Falha da revisão cai no retry/estacionamento de sempre; head mais novo reabre,
@@ -823,6 +839,89 @@ Junto na v2.41.0, e relacionados: **rascunhos entram no radar** (caiu o
 `.filter(p => !p.isDraft)` do `searchPRs`; `isDraft` viaja no objeto pro selo
 "rascunho" em fila/panorama; o `mergeSelfPR` segue recusando draft, revalidado
 na hora do clique) e o **paralelismo por conta** documentado no invariante 4.
+
+### Autonomia completa do round automático: dois gatilhos, debounce e teto diário (v2.53.0)
+
+Motivação medida: engine-ai#90, 25/08/2026, 14 commits em rajada com as rodadas de
+correção dependendo de clique. Duas causas raiz, e as duas eram falta de respeito
+à autonomia que a conta já tinha configurado: (1) o gate só armava com
+`CHANGES_REQUESTED`, então round iterativo que já tinha recebido um APPROVE stale
+travava no primeiro e nunca mais fechava sozinho; (2) quando o head andava NO MEIO
+da sessão anterior (ver "Head que anda DURANTE a sessão" acima), a pendência que
+isso gerava travava o próprio mecanismo que a resolveria. Decisão do Wanderson: "se
+configurei pra ser autônomo, quero que seja respeitado". **Nenhum toggle novo**:
+tudo continua governado por `autoReviewFor` da conta, do jeito que já era.
+
+O que mudou de fundo:
+
+1. **APPROVE stale também relança** (antes só `CHANGES_REQUESTED` armava; aprovação
+   stale ficava só no botão, por clique).
+2. **Pendência bloqueada por `stale_head` deixa de segurar o round e passa a ARMAR
+   um segundo gatilho**, em vez de impedir o mecanismo que a resolveria.
+
+`classificaReRound` (`lib/engine/review.js`) escolhe entre dois gatilhos
+independentes pro mesmo `headRound`:
+
+- **Gatilho A (staleInfo)**: meu último review postado (APPROVE ou
+  CHANGES_REQUESTED) ficou stale contra o head atual, com prova completa
+  (`stale` true, `head` conhecido). Debounce lido de `engine.headQuietoDesde[key]`,
+  carimbado no `refreshStaleStates` toda vez que o head observado muda.
+- **Gatilho B (pendência)**: o resultado nunca chegou a postar porque o head andou
+  durante a sessão anterior. Lê `blockedHead` da pendência `stale_head` (os dois
+  pontos que a criam, `review.js` e `decision.js`, ver a seção acima). Debounce
+  pelo `createdAt` da própria pendência. O candidato pode estar FORA do panorama
+  (a fila mine não filtra por owner): `candidatosReRound` o reconstrói a partir da
+  pendência, com `isDraft: false` e sem labels, e a CONTA junto (`recordDecision`
+  passou a incluir `account` na allowlist de `item.pr`, sem ela o relançamento e a
+  postagem cairiam na conta primária errada).
+
+Os dois convergem nas MESMAS travas do `toReview` (conta muda, sem token,
+orçamento estourado, `outrosRevisando`, `skipComentado`, draft). A trava de
+"pendência na mesa segura" continua valendo pra julgamento humano pendente, e por
+isso a pendência `stale_head` é a ÚNICA exceção: ela não segura porque é o sintoma
+que este gate existe pra resolver, não uma decisão esperando o Wanderson.
+
+**Debounce** (`TEMPOS.HEAD_QUIETO_MS`, 5 minutos): os dois gatilhos só armam com o
+head QUIETO por esse tempo, proteção contra rajada de pushes. Carimbo ausente
+nunca dispara.
+
+**Teto diário** (`MAX_RODADAS_AUTO_DIA`, 3 por PR por dia): proteção de orçamento
+dentro do modo autônomo, nunca redução de autonomia. A âncora `reReviewLaunched`
+(`state/rereview-launched.json`) mudou de string (só o head) pra
+`{ head, dia, rodadas }`; `normalizeAncora` lê os dois formatos (string legada vira
+`{ head, dia: '', rodadas: 1 }`, nunca infla o teto por acidente de migração) e
+`proximaAncora` incrementa `rodadas` quando o dia bate, reseta pra 1 quando muda.
+Estourou: `reReviewEsgotados` avisa UMA vez por PR por dia (`avisoRodadasDia`, Set
+em memória) e nunca enfileira sozinho; o botão Re-revisar continua valendo sempre
+(o teto é só do caminho automático).
+
+**Gatilho B NUNCA entra no pulo de push trivial** (`pushTrivial`, mesmo arquivo): a
+prova salva que o pulo compara é do head ANTERIOR ao bloqueio, e o payload da
+pendência já está ancorado nesse head velho. Pular ali recriaria o deadlock que
+esta feature existe pra matar: um toast de "a revisão anterior segue valendo" sem
+NENHUMA revisão de fato postada, com a âncora já queimada pro head novo. Só a
+sessão relançada produz payload postável no head atual.
+
+`classificaReRound`, `reReviewTargets` e `reReviewEsgotados` continuam SÍNCRONAS e
+sem IO, mesmo contrato de sempre; `reReviewTargets` devolve CÓPIAS RASAS (nunca o
+objeto do panorama, que `_headRound` mutaria em compartilhado).
+
+**Dívidas conscientes** (decisão da revisão final desta entrega, deixadas
+registradas em vez de resolvidas no meio do caminho):
+
+- `avisoRodadasDia` e `headQuietoDesde` não têm poda: são só memória, e o custo de
+  não podar é bytes por PR, nunca sessão paga.
+- O candidato do gatilho B fora do panorama assume `isDraft: false` e não carrega
+  labels (janela estreita: `candidatosReRound` reconstrói do que a pendência
+  guardou, não do panorama de verdade). `enqueueHeadless` segue honrando
+  `skipComentado` normalmente nesse caminho, então "um Farol por PR" não afrouxa.
+- O debounce do gatilho B usa `createdAt` FIXO: não reinicia se chegar um push novo
+  durante a espera. A sessão relançada relê o head real no início como sempre, então
+  o pior caso é relançar um pouco cedo, nunca com head errado.
+- `recoverInflight` apaga a âncora INTEIRA da key que estava inflight no reinício,
+  o que zera o teto de rodadas do dia daquele PR também. Coerente com a regra de
+  sempre ("reinício zera o debounce"), mas vale registrar: reinício no meio de uma
+  rajada dá um round extra de folga naquele PR.
 
 ### Prova por arquivo: round incremental, pulo de push trivial e retomada de sessão (17/08/2026, ainda não publicado)
 

@@ -9,6 +9,38 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.53.0
+
+O round de re-revisão automática pós-push passou a respeitar de verdade a
+autonomia que a conta já tinha configurado. Motivação medida: engine-ai#90,
+25/08/2026, 14 commits em rajada com as rodadas de correção dependendo de
+clique.
+
+**Novidades**
+- **APPROVE stale também relança.** Até aqui só `CHANGES_REQUESTED` armava o
+  round automático; um review iterativo que já tinha recebido um APPROVE
+  travava no primeiro e nunca mais fechava sozinho.
+- **Pendência bloqueada por commit novo durante a sessão (`stale_head`) deixa de
+  travar o round e passa a destravá-lo sozinho**, quando a conta é autônoma.
+  Antes o próprio bloqueio impedia o mecanismo que o resolveria, e o card
+  ficava esperando clique com o PR continuando a andar embaixo dele.
+- **Teto de 3 rodadas automáticas por PR por dia**, com aviso único quando
+  estoura (o botão Re-revisar continua valendo sempre). E um debounce de 5
+  minutos de head quieto contra rajada de pushes, nos dois gatilhos que armam
+  o round.
+
+Nenhum toggle novo: tudo continua governado pelo que a conta já tinha
+configurado em Sistema > Contas ("revisa sozinho").
+
+**Correções**
+- **A conta viaja com a pendência bloqueada por head velho.** Sem isso, um PR
+  bloqueado por commit novo durante a sessão, fora do panorama nas contas com
+  vários times, podia relançar (e postar) pela identidade errada do GitHub.
+- **A pendência de commit novo nunca mais entra no pulo de "push não mudou
+  nada"**: ela é sempre do head anterior ao bloqueio, e pular ali recriava um
+  deadlock com aviso de "revisão anterior segue valendo" sem nenhuma revisão
+  de fato postada.
+
 ## v2.52.5
 
 Ajuste na trava contra review duplicado da v2.52.2, achado numa auditoria da
