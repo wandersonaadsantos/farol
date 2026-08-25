@@ -159,7 +159,7 @@ class Engine extends EventEmitter {
     // registros antigos (sem source) eram todos marcados à mão e confirmados
     for (const v of Object.values(this.pushbacks)) { if (v && !v.source) { v.source = 'manual'; v.status = 'confirmed'; } }
     this.pushbackScanned = readJson(path.join(STATE_DIR, 'pushback-scanned.json'), {}, warn); // { key: marcador da última atividade do autor já avaliada }
-    this.reReviewLaunched = readJson(path.join(STATE_DIR, 'rereview-launched.json'), {}, warn); // { key: head já relançado pela re-revisão automática (âncora por round) }
+    this.reReviewLaunched = readJson(path.join(STATE_DIR, 'rereview-launched.json'), {}, warn); // { key: { head, dia, rodadas } da re-revisão automática; string legada = só o head }
     this.skipComentado = skipMod.loadSkipComentado(warn); // { key: { at, quem } } âncora do comentário de "outra pessoa já está revisando"
     this.toolRuns = readJson(path.join(STATE_DIR, 'tool-results.json'), {}, warn);
     // kudos passou a ser POR CONTA (mapa escopo->execução); migra o formato antigo
