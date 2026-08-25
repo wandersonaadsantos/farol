@@ -871,7 +871,8 @@ independentes pro mesmo `headRound`:
   pontos que a criam, `review.js` e `decision.js`, ver a seção acima). Debounce
   pelo `createdAt` da própria pendência. O candidato pode estar FORA do panorama
   (a fila mine não filtra por owner): `candidatosReRound` o reconstrói a partir da
-  pendência, com `isDraft: false` e sem labels, e a CONTA junto (`recordDecision`
+  pendência, sem labels e com o `isDraft` real gravado na pendência (desde a
+  v2.53.1), e a CONTA junto (`recordDecision`
   passou a incluir `account` na allowlist de `item.pr`, sem ela o relançamento e a
   postagem cairiam na conta primária errada).
 
