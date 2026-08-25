@@ -160,6 +160,7 @@ class Engine extends EventEmitter {
     for (const v of Object.values(this.pushbacks)) { if (v && !v.source) { v.source = 'manual'; v.status = 'confirmed'; } }
     this.pushbackScanned = readJson(path.join(STATE_DIR, 'pushback-scanned.json'), {}, warn); // { key: marcador da última atividade do autor já avaliada }
     this.reReviewLaunched = readJson(path.join(STATE_DIR, 'rereview-launched.json'), {}, warn); // { key: { head, dia, rodadas } da re-revisão automática; string legada = só o head }
+    this.headQuietoDesde = {}; // { key: { head, at } } debounce do round automático, só memória
     this.skipComentado = skipMod.loadSkipComentado(warn); // { key: { at, quem } } âncora do comentário de "outra pessoa já está revisando"
     this.toolRuns = readJson(path.join(STATE_DIR, 'tool-results.json'), {}, warn);
     // kudos passou a ser POR CONTA (mapa escopo->execução); migra o formato antigo
@@ -1168,7 +1169,7 @@ class Engine extends EventEmitter {
   async fetchAutoMergeAllowed(repo) { return selfMod.fetchAutoMergeAllowed(this, repo); }
   async fetchRuleBlocked(repo, base) { return selfMod.fetchRuleBlocked(this, repo, base); }
   async refreshMergeStates() { return selfMod.refreshMergeStates(this); }
-  async refreshStaleStates() { return selfMod.refreshStaleStates(this); }
+  async refreshStaleStates(agora) { return selfMod.refreshStaleStates(this, agora); }
   async staleForReview(pr) { return selfMod.staleForReview(this, pr); }
 
   // --- pushback automático: detecta e classifica a contestação do autor ------

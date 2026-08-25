@@ -41,6 +41,10 @@ const EXCECOES = {
   // desta é `{ keys = [], label, id, code } = {}`. Então impl.length é 1 (só `engine`),
   // a conta daria 0, e a fachada declara 1 de propósito. Não é argumento engolido.
   handleSessionExit: 'segundo parâmetro é objeto desestruturado com default, que zera o Function.length',
+  // Function.length para de contar no primeiro parâmetro com default, e o 2o parâmetro
+  // desta é `agora = Date.now()`. Então impl.length é 1 (só `engine`), a conta daria 0,
+  // e a fachada declara 1 de propósito (repassa `agora` direto). Não é argumento engolido.
+  refreshStaleStates: 'segundo parâmetro (agora) tem default, que zera o Function.length',
 };
 
 function mapaDeModulos() {
