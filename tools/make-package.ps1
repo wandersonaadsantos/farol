@@ -21,7 +21,7 @@ Write-Host "  Farol · empacotador v$version" -ForegroundColor Yellow
 # worktree limpa no commit da release. FAROL_ALLOW_DIRTY=1 e a escotilha
 # consciente (dev local, teste), nunca o fluxo de publicacao.
 if ($env:FAROL_ALLOW_DIRTY -ne '1') {
-  $dirty = git -C $Src status --porcelain -- main.js server.js package.json lib ui assets workspace-template installer 2>$null
+  $dirty = git -C $Src status --porcelain -- main.js server.js package.json lib ui assets workspace-template installer tools/jira-mcp.js 2>$null
   if ($LASTEXITCODE -eq 0 -and $dirty) {
     Write-Host '  ERRO: arvore com mudancas nao commitadas nos arquivos do pacote:' -ForegroundColor Red
     $dirty | ForEach-Object { Write-Host "    $_" -ForegroundColor Red }
@@ -39,8 +39,12 @@ foreach ($d in @('lib', 'ui', 'assets', 'workspace-template', 'installer')) {
   robocopy (Join-Path $Src $d) (Join-Path $staging $d) /E /NFL /NDL /NJH /NJS /NP | Out-Null
   if ($LASTEXITCODE -ge 8) { throw "robocopy falhou em $d" }
 }
+# jira-mcp.js e codigo de RUNTIME (a sessao de revisao sobe ele como servidor MCP,
+# ver lib/engine/jira.js): sem ele no pacote, toda copia instalada mostra
+# "Unable to find Electron app at ~/.farol/app/tools/jira-mcp.js" ao revisar PR
+# com site de Jira cadastrado (bug real no macOS do Guilherme, 25/08/2026).
 New-Item -ItemType Directory -Force -Path (Join-Path $staging 'tools') | Out-Null
-foreach ($t in @('make-icons.ps1', 'pack-ico.js', 'make-package.ps1', 'make-icns.sh')) {
+foreach ($t in @('jira-mcp.js', 'make-icons.ps1', 'pack-ico.js', 'make-package.ps1', 'make-icns.sh')) {
   Copy-Item (Join-Path (Join-Path $Src 'tools') $t) (Join-Path (Join-Path $staging 'tools') $t)
 }
 
