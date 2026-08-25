@@ -127,12 +127,18 @@ test('pendência bloqueada de OUTRO PR não é tocada', () => {
   assert.ok(engine.decisions.pending.some(d => d.id === 'd-outro'), 'a substituição é por PR, nunca varredura');
 });
 
-test('decisão que já nasce resolvida não mexe em pendência nenhuma', () => {
+// Este teste descrevia o defeito corrigido na Task 2 (round-autonomo-stale): antes o
+// supersede só rodava dentro do `if (item.status === 'pending')`, então um round novo
+// que POSTAVA (auto_approved/auto_rejected) deixava o card morto na mesa pra sempre,
+// já que nenhum round seguinte ia nascer pending pra ocupar o lugar dele. Agora o
+// supersede roda pra QUALQUER desfecho novo do mesmo PR: o card stale_head sai assim
+// que o round novo termina, seja qual for o resultado dele.
+test('decisão que já nasce resolvida TAMBÉM supersede a pendência bloqueada por head velho', () => {
   const engine = novoEngine();
   engine.decisions = { pending: [pendenciaBloqueada()], resolved: [] };
   engine.recordDecision(PR, resultado(), { status: 'auto_approved', action: 'approve' });
-  assert.equal(engine.decisions.pending.length, 1, 'o card bloqueado só sai quando um round NOVO ocupa o lugar dele');
-  assert.equal(engine.decisions.pending[0].id, 'd-velha');
+  assert.equal(engine.decisions.pending.length, 0, 'o card morto some, o round novo já resolveu sozinho');
+  assert.ok(engine.decisions.resolved.some(d => d.id === 'd-velha' && d.status === 'superseded'));
 });
 
 /* ---------- 3. a tela oferece a saída ---------- */
