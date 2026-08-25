@@ -147,7 +147,7 @@ test('reReviewTargets: PR já na fila headless ou rodando fica de fora', () => {
 test('launchReReviews: ancora o head, persiste e enfileira como revisão pedida a mim', async () => {
   const e = engineBase();
   await reviewMod.launchReReviews(e);
-  assert.equal(e.reReviewLaunched[KEY], 'sha-novo', 'âncora gravada ANTES de enfileirar');
+  assert.equal(e.reReviewLaunched[KEY].head, 'sha-novo', 'âncora gravada ANTES de enfileirar');
   assert.equal(e.saved, 1, 'âncora persistida');
   assert.equal(e.enq.length, 1);
   assert.equal(e.enq[0].key, KEY);
@@ -211,7 +211,7 @@ test('launchReReviews: push que não muda o diff efetivo NÃO gasta sessão (ân
   e.fetchPrFiles = async () => ARQUIVOS.map(f => ({ ...f }));
   await reviewMod.launchReReviews(e);
   assert.deepEqual(e.enq, [], 'diff efetivo idêntico: nenhuma sessão aberta');
-  assert.equal(e.reReviewLaunched[KEY], 'sha-novo',
+  assert.equal(e.reReviewLaunched[KEY].head, 'sha-novo',
     'a âncora do head novo fica gravada: o pulo vale até o próximo push de verdade');
   assert.ok(e.toasts.some(t => t.ev === 'toast' && /não mudou o diff efetivo/.test(t.payload.text)),
     'o pulo é avisado, nunca silencioso');
