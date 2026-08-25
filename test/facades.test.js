@@ -45,6 +45,12 @@ const EXCECOES = {
   // desta é `agora = Date.now()`. Então impl.length é 1 (só `engine`), a conta daria 0,
   // e a fachada declara 1 de propósito (repassa `agora` direto). Não é argumento engolido.
   refreshStaleStates: 'segundo parâmetro (agora) tem default, que zera o Function.length',
+  // Mesmo motivo do refreshStaleStates: o 3o parâmetro da implementação é
+  // `agora = Date.now()`, então impl.length para em 2 (conta só engine e
+  // inflightKeys). A fachada declara 2 (inflightKeys, agora) de propósito,
+  // pra repassar o agora explícito. Não é argumento engolido.
+  reReviewTargets: 'terceiro parâmetro (agora) tem default, que zera o Function.length',
+  reReviewEsgotados: 'terceiro parâmetro (agora) tem default, que zera o Function.length',
 };
 
 function mapaDeModulos() {

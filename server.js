@@ -1069,7 +1069,8 @@ class Engine extends EventEmitter {
   freeHeadlessSlot(acct) { return reviewMod.freeHeadlessSlot(this, acct); }
   async runOneHeadless(pr, acct) { return reviewMod.runOneHeadless(this, pr, acct); }
   // re-revisão automática pós-push (round 2 sem clique): gate + lançamento + âncora
-  reReviewTargets(inflightKeys) { return reviewMod.reReviewTargets(this, inflightKeys); }
+  reReviewTargets(inflightKeys, agora) { return reviewMod.reReviewTargets(this, inflightKeys, agora); }
+  reReviewEsgotados(inflightKeys, agora) { return reviewMod.reReviewEsgotados(this, inflightKeys, agora); }
   launchReReviews() { return reviewMod.launchReReviews(this); }
   saveReReviewLaunched() { return reviewMod.saveReReviewLaunched(this); }
   // G15: estacionamento pós-falha persistido (padrão do savePushbackScanned)

@@ -105,6 +105,8 @@ test('reReviewTargets: round 2 automático não fura a saída de cena', () => {
   const e = engineFalso();
   e.panorama = [{ ...PR, isDraft: false }];
   e.staleInfo['o/r#1'] = { stale: true, head: 'sha2', lastState: 'CHANGES_REQUESTED' };
+  // debounce (v2.53.0): head quieto o bastante pra armar o gate neste teste
+  e.headQuietoDesde = { 'o/r#1': { head: 'sha2', at: 0 } };
   assert.equal(reviewMod.reReviewTargets(e, new Set()).length, 1, 'sem saída de cena, arma');
   e.skipComentado['o/r#1'] = { head: 'sha1', quem: ['ana'] };
   assert.equal(reviewMod.reReviewTargets(e, new Set()).length, 0, 'com saída de cena, não arma');

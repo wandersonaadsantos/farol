@@ -31,6 +31,9 @@ function engineBase() {
     pr,
     panorama: [pr],
     staleInfo: { [KEY]: { stale: true, head: 'sha-novo', lastState: 'CHANGES_REQUESTED' } },
+    // debounce (v2.53.0): head visto há muito tempo, pra estes testes armarem o
+    // gate sem precisar semear em cada um. at: 0 é "quieto" com qualquer agora real.
+    headQuietoDesde: { [KEY]: { head: 'sha-novo', at: 0 } },
     reReviewLaunched: {},
     decisions: { pending: [], resolved: [] },
     autoReviewParked: new Set(),
@@ -66,10 +69,15 @@ test('reReviewTargets: pedi mudanças + head novo + gates ok = alvo', () => {
 
 /* ---------- o que NUNCA pode relançar ---------- */
 
-test('reReviewTargets: aprovação stale não relança (só pedido de mudanças fecha round)', () => {
+// Até a v2.52.x, aprovação stale NÃO relançava round nenhum (só pedido de
+// mudanças fechava). Invertido na v2.53.0 (decisão do Wanderson, 25/08/2026,
+// medida no engine-ai#90): PR iterativo travava no primeiro APPROVE, porque
+// nada reabria o gate pro round seguinte. Autonomia de verdade cobre os dois
+// vereditos; ver classificaReRound em lib/engine/review.js.
+test('reReviewTargets: aprovação stale TAMBÉM relança (autonomia cobre os dois vereditos)', () => {
   const e = engineBase();
   e.staleInfo[KEY].lastState = 'APPROVED';
-  assert.deepEqual(targets(e), []);
+  assert.deepEqual(targets(e).map(p => p.key), [KEY]);
 });
 
 test('reReviewTargets: PR em rascunho não relança sozinho (G10, chip manual segue cobrindo)', () => {
@@ -101,12 +109,16 @@ test('reReviewTargets: head já relançado não repete; head mais novo reabre', 
   e.reReviewLaunched[KEY] = 'sha-novo';
   assert.deepEqual(targets(e), [], 'mesma âncora = já cuidei deste estado');
   e.staleInfo[KEY].head = 'sha-mais-novo';
+  e.headQuietoDesde[KEY] = { head: 'sha-mais-novo', at: 0 };
   assert.deepEqual(targets(e).map(p => p.key), [KEY], 'push novo reabre o gate');
 });
 
-test('reReviewTargets: pendência na sua mesa segura o relançamento (um card por vez)', () => {
+// Pendência VIVA (sem blockedKind) continua segurando: julgamento é seu. Pendência
+// bloqueada por stale_head NÃO segura mais (v2.53.0): ela é o sintoma que o gatilho
+// B existe pra resolver, ver classificaReRound.
+test('reReviewTargets: pendência VIVA na sua mesa segura o relançamento (um card por vez)', () => {
   const e = engineBase();
-  e.decisions.pending.push({ key: KEY });
+  e.decisions.pending.push({ key: KEY, status: 'pending' });
   assert.deepEqual(targets(e), []);
 });
 
