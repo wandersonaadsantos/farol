@@ -9,6 +9,21 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.53.2
+
+Conserto do recurso de Jira multi-tenant (v2.52.0) nas cópias instaladas.
+
+**Correções**
+- **O servidor MCP do Jira não viajava no pacote de distribuição.** O Farol
+  manda a sessão de revisão subir `tools/jira-mcp.js` como servidor MCP, mas a
+  whitelist do empacotador só levava os scripts de build da pasta `tools`.
+  Na máquina do mantenedor (rodando do fonte) tudo funcionava; em toda cópia
+  instalada, revisar PR com site de Jira cadastrado estourava o diálogo do
+  Electron "Unable to find Electron app at ~/.farol/app/tools/jira-mcp.js"
+  (visto num macOS em 25/08/2026). O arquivo agora viaja no pacote, e um teste
+  novo trava que todo arquivo de `tools/` referenciado em runtime pelo código
+  esteja na whitelist, derivado do fonte pra referência nova entrar sozinha.
+
 ## v2.53.1
 
 Três dívidas conscientes da v2.53.0 (round autônomo pós-push) resolvidas.

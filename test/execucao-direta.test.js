@@ -42,12 +42,21 @@ test('caminho idêntico conta como execução direta', () => {
   assert.equal(executadoDireto(urlReal, real), true);
 });
 
-test('caminho ABSOLUTO por symlink ainda conta como execução direta', () => {
-  const link = path.join(dir, 'link.js');
-  fs.symlinkSync(real, link);
-  assert.equal(executadoDireto(urlReal, link), true,
-    'sem isto, node /caminho/symlink/server.js carrega tudo e sai 0 sem subir nada');
-});
+// No Windows, criar symlink exige privilégio ou modo desenvolvedor; sem ele o
+// symlinkSync sai com EPERM e o teste falharia por limitação da MÁQUINA, não do
+// código. O cenário que importa (symlink em /tmp) é do macOS/Linux, cobertos na
+// matriz do CI, então aqui o pulo é honesto, mesmo padrão dos testes posix.
+let linkOk = true;
+const link = path.join(dir, 'link.js');
+try { fs.symlinkSync(real, link); } catch (e) {
+  if (process.platform === 'win32' && e.code === 'EPERM') linkOk = false;
+  else throw e;
+}
+test('caminho ABSOLUTO por symlink ainda conta como execução direta',
+  { skip: linkOk ? false : 'symlink indisponível neste Windows (sem modo desenvolvedor)' }, () => {
+    assert.equal(executadoDireto(urlReal, link), true,
+      'sem isto, node /caminho/symlink/server.js carrega tudo e sai 0 sem subir nada');
+  });
 
 test('outro arquivo NÃO conta como execução direta (import continua sendo import)', () => {
   const outro = path.join(dir, 'outro.js');
