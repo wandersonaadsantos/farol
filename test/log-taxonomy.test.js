@@ -25,6 +25,7 @@ const MSG = {
   ghBuscas: 'ciclo de monitoramento: todas as buscas gh falharam (veja o log)',
   githubIndisponivel: 'postar review biudtech/biud-frontend#774 (APPROVE): gh: No server is currently available to service your request. Sorry about that. Please try resubmitting your request and contact us if the problem persists. (HTTP 503)',
   token: 'revisao biudtech/biud-esg#193: sem token no gh pra wandersonbiuder',
+  skipRoot: 'revisao biudtech/engine-ai#97 (transitório, tenta de novo): claude saiu com código 1: --dangerously-skip-permissions cannot be used with root/sudo privileges for security reasons',
   binario: "claude saiu com código 1: '\"C:\\nvm4w\\nodejs\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe\"' não é reconhecido como um comando interno",
   stream: 'claude saiu com código 4294967295: stream interrompido antes do evento result',
   bashCd: 'review ai-assisted-scheduling-operations#362: bash cd falhou, cd: tmp-pr362: No such file or directory',
@@ -38,7 +39,7 @@ const MSG = {
 test('CLASSES: toda classe tem os cinco campos e um kind válido', () => {
   const KINDS = ['operacional', 'espera-reset', 'transitorio', 'permanente'];
   const GRUPOS = ['operacional', 'ambiente', 'credencial', 'rede', 'app'];
-  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 10, 'são 10 classes');
+  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 11, 'são 11 classes');
   for (const c of CLASSES) {
     assert.equal(typeof c.id, 'string');
     assert.ok(c.label, `${c.id} precisa de label humano`);
@@ -59,7 +60,7 @@ test('CLASSES: a ordem é a documentada (primeira que casar vence)', () => {
   assert.deepEqual(CLASSES.map(c => c.id), [
     'restart-fila', 'console-fechado', 'limite-plano', 'assinatura-bloqueada',
     'credencial-invalida', 'credito-insuficiente', 'rede', 'github-indisponivel',
-    'token-gh', 'ferramenta'
+    'token-gh', 'skip-permissions-root', 'ferramenta'
   ]);
 });
 
@@ -75,6 +76,7 @@ const CASOS = [
   ['rede', MSG.ghBuscas],
   ['github-indisponivel', MSG.githubIndisponivel],
   ['token-gh', MSG.token],
+  ['skip-permissions-root', MSG.skipRoot],
   ['ferramenta', MSG.binario],
   ['ferramenta', MSG.stream],
   ['ferramenta', MSG.bashCd],
@@ -558,3 +560,30 @@ for (const [msg, oque] of REDE_REAL) {
     assert.equal(c.kind, 'transitorio', 'o kind é o que decide o retry, não só o rótulo da tela');
   });
 }
+
+/* ---------- root + skip-permissions: a falha que fingia ser transitória ----------
+   Caso real (biudtech/engine-ai#97, 25/08/2026, Farol rodando em Android via Termux
+   + proot Debian): o login padrão do proot é root, o Claude Code recusa
+   `--dangerously-skip-permissions` com uid 0, e a mensagem termina em "saiu com
+   código 1". O catch-all de 'ferramenta' casava com isso e devolvia TRANSITÓRIO,
+   então o Farol relançou a mesma revisão a cada ciclo, indefinidamente, sem nunca
+   dizer o motivo. Só sai com ação humana, então é permanente. */
+
+test('classify: recusa por root é PERMANENTE, não entra no retry infinito', () => {
+  const c = classify(MSG.skipRoot);
+  assert.equal(c.id, 'skip-permissions-root', `caiu em ${c.id}`);
+  assert.equal(c.kind, 'permanente', 'o kind é o que decide o retry: transitório aqui é loop pra sempre');
+  assert.equal(c.grupo, 'ambiente');
+});
+
+test('classify: a precedência sobre ferramenta é o que faz a classe funcionar', () => {
+  assert.match(MSG.skipRoot, /saiu com c[óo]digo \d/i, 'o texto casaria com ferramenta também');
+  const ordem = CLASSES.map(c => c.id);
+  assert.ok(ordem.indexOf('skip-permissions-root') < ordem.indexOf('ferramenta'),
+    'skip-permissions-root tem que vir ANTES de ferramenta');
+});
+
+test('classify: pega as duas metades da mensagem do CLI', () => {
+  assert.equal(classify('--dangerously-skip-permissions cannot be used with root/sudo privileges for security reasons').id, 'skip-permissions-root');
+  assert.equal(classify('sessão retornou erro: cannot be used with root/sudo privileges').id, 'skip-permissions-root');
+});

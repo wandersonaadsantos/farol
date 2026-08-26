@@ -729,6 +729,27 @@ export function operationChecks(accounts) {
   return checks;
 }
 
+/* Terceira pergunta do Diagnóstico, irmã de operationChecks: o Farol consegue
+   ABRIR a sessão? Ambiente verde e operação verde não impedem que TODA revisão
+   autônoma morra no instante do spawn, e foi exatamente o que aconteceu no Farol
+   rodando em Android (Termux + proot Debian, 25/08/2026): o login padrão do proot
+   é root, o Claude Code recusa `--dangerously-skip-permissions` com uid 0, e o
+   headless passa essa flag SEMPRE (é fixa em runClaudeStream, não sai do toggle
+   de skipPermissions, que só alcança as sessões de terminal). O resultado era um
+   "saiu com código 1" por ciclo, pra sempre, sem uma linha na tela dizendo por quê.
+   Devolve lista (vazia quando não há o que dizer) pra compor com os outros checks. */
+export function runtimeChecks(doctor) {
+  const d = doctor || {};
+  if (!d.root) return [];
+  return [{
+    // sem `goto` de propósito: não há tela do app que conserte isso, e clique que
+    // não leva a lugar nenhum é pior que texto puro (doutrina das menções navegáveis)
+    ok: false, label: 'Usuário do sistema',
+    detail: 'rodando como root (uid 0): o Claude Code recusa --dangerously-skip-permissions '
+      + 'nessa condição e toda revisão autônoma falha no spawn. Crie um usuário não-root e rode o Farol por ele'
+  }];
+}
+
 /* A célula da coluna "PR / sessão" do Consumo. DOIS destinos no mesmo lugar, e
    por isso dois elementos (a doutrina do app é um destino por elemento): o texto
    leva ao PR no GitHub, o botão ao lado abre a caixa de revisão AQUI DENTRO.
@@ -2432,6 +2453,9 @@ export function diagnosticsText(ctx = {}) {
     `  conta primária autenticada no gh: ${ghAuth}`,
     `  workspace: ${d.workspace || s.paths?.workspace || '?'}`,
     `  home: ${s.paths?.home || '?'}`,
+    // só aparece quando dói: uid 0 mata toda revisão autônoma no spawn, e o
+    // relatório é justamente o que a pessoa cola quando "não funciona e não sei por quê"
+    ...(d.root ? ['  ATENÇÃO: rodando como root (uid 0), o claude recusa --dangerously-skip-permissions e nenhuma revisão autônoma consegue abrir'] : []),
     '',
     `Contas (${contas.length}):`,
     accts || '  (nenhuma)',

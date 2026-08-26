@@ -9,6 +9,27 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.53.3
+
+Uma falha de ambiente que se disfarçava de problema passageiro e fazia o Farol
+tentar a mesma revisão pra sempre, em silêncio.
+
+**Correções**
+- **Rodar como root deixou de virar retentativa infinita.** O Claude Code recusa
+  o modo sem prompts de permissão quando o usuário do sistema é root, e a
+  mensagem dele termina em "saiu com código 1". O Farol lia esse final e
+  concluía que era binário faltando, ou seja, algo passageiro, então relançava a
+  mesma revisão a cada ciclo, indefinidamente, sem nunca dizer o motivo. Agora
+  essa recusa é reconhecida pelo que é: só sai com alguém agindo, então a
+  revisão estaciona na primeira vez, em vez de repetir.
+- **O Diagnóstico passou a avisar antes de doer.** Rodar como root deixa os
+  checks de ambiente todos verdes e ainda assim nenhuma revisão autônoma
+  consegue abrir. Sistema → Visão geral ganhou a linha que falta ("Usuário do
+  sistema"), e o relatório de diagnóstico copiável traz o mesmo aviso, com a
+  saída: criar um usuário não-root e rodar o Farol por ele. Não é hipótese de
+  laboratório, é o caso de quem roda o motor num Android (Termux + proot), onde
+  o login padrão é root.
+
 ## v2.53.2
 
 Conserto do recurso de Jira multi-tenant (v2.52.0) nas cópias instaladas.

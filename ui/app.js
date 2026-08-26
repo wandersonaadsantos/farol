@@ -6,7 +6,7 @@ import {
   delivCappedMsg, fmtRel, usageDayKeysBack, aprovadosHoje, avatar, md, feedLine,
   agentsTitle, stageFlowFrom, stageFlowHtml, analysisOpsPlan, selfSessionKey,
   sessionProgress, personMention, repoMention, prRefMention, parseGoto, reviewBoxHtml,
-  operationChecks, delivFilterItems, delivStats, delivStatsCards, delivActivityCard,
+  operationChecks, runtimeChecks, delivFilterItems, delivStats, delivStatsCards, delivActivityCard,
   delivEmptyState, deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS,
   diagnosticsText, sessionCardHtml, PB_SHORT, fmtStamp, fmtWhenDay, resolvedRow,
   logSummaryShort, opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible,
@@ -2993,7 +2993,10 @@ function renderDoctor() {
     { ok: true, label: 'Pasta de trabalho', detail: d.workspace },
     // ambiente ok não quer dizer que vai achar PR: os checks de operação (conta
     // sem organização, conta sem token, tudo silenciado) moram no pure.js
-    ...operationChecks(STATE.accounts)
+    ...operationChecks(STATE.accounts),
+    // nem que vai conseguir ABRIR a sessão: rodar como root faz toda revisão
+    // autônoma morrer no spawn, com o resto da tela verde
+    ...runtimeChecks(STATE.doctor)
   ];
   box.innerHTML = checks.map(c => `
     <div class="check ${c.ok ? 'ok' : 'bad'}${c.goto ? ' is-goto' : ''}"${c.goto ? ` data-goto="${esc(c.goto)}" role="button" tabindex="0" title="Abrir a configuração deste item"` : ''}>
@@ -3009,6 +3012,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.53.3', ['Rodar o Farol como root fazia toda revisão autônoma morrer no instante em que a sessão abria, e o app tratava isso como problema passageiro: relançava a mesma revisão a cada ciclo, pra sempre, sem dizer o motivo. O Claude Code recusa o modo sem prompts de permissão quando o usuário do sistema é root, e agora essa recusa é reconhecida pelo que é (só sai com alguém agindo), então a revisão estaciona na primeira vez.', 'O Diagnóstico passou a avisar antes de doer. Nessa situação os checks de ambiente ficavam todos verdes enquanto nada funcionava; Sistema > Visão geral ganhou a linha "Usuário do sistema" e o relatório copiável traz o mesmo aviso, com a saída: criar um usuário não-root e rodar o Farol por ele. É o caso de quem roda o motor num Android (Termux + proot), onde o login padrão é root.']],
   ['2.53.2', ['Conserto do recurso de Jira em quem instala o Farol pronto: o servidor MCP local do Jira (tools/jira-mcp.js) não viajava no pacote de distribuição, então revisar PR com site de Jira cadastrado mostrava o erro "Unable to find Electron app" em toda cópia instalada, embora funcionasse na máquina que roda do fonte. O arquivo entrou no pacote e um teste novo garante que todo arquivo de tools usado em runtime viaja junto.']],
   ['2.53.1',['Refino da re-revisão automática pós-push da v2.53.0. O mapa de memória que segura o debounce de head quieto e o aviso de teto diário agora é podado a cada ciclo, em vez de crescer pra sempre. O candidato de PR reconstruído a partir de uma pendência travada por commit novo passou a carregar se ele é rascunho de verdade, em vez de assumir que nunca é. E o teto de 3 rodadas automáticas por dia deixou de zerar quando o app reinicia no meio de uma revisão: só o trava de head é liberada, o contador do dia continua valendo.']],
   ['2.53.0', ['O round de re-revisão automática pós-push passou a respeitar de verdade a autonomia que a conta já tinha configurado. Motivação medida: 14 commits em rajada com as rodadas de correção dependendo de clique. Agora um APPROVE stale também relança (antes só pedido de mudanças armava), e a pendência que travava quando o autor empurrava commit novo durante a sessão deixa de segurar o round e passa a destravá-lo sozinha, em vez de travar o próprio mecanismo que a resolveria. Nenhum toggle novo: continua tudo governado pelo que a conta já tinha configurado em Sistema > Contas.', 'Duas proteções de orçamento acompanham a autonomia nova: teto de 3 rodadas automáticas por PR por dia (com aviso único quando estoura; o botão Re-revisar continua valendo sempre) e um debounce de 5 minutos de head quieto contra rajada de pushes.', 'Correção: a conta certa passou a viajar junto de uma pendência bloqueada por commit novo, e essa pendência deixou de poder entrar no pulo de "o push não mudou o diff", que existia pra rebase e merge da base e recriava um travamento silencioso se aplicado ali.']],

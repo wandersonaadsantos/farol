@@ -2626,3 +2626,24 @@ test('a tela do Jira valida no cadastro E na edição, e não deixa credencial �
   assert.match(remover, /\/api\/jira\/credential\/remove/, 'remover o site tem que apagar a credencial dele antes');
   assert.ok(remover.indexOf('/api/jira/credential/remove') < remover.indexOf('saveJiraSites'), 'a credencial sai antes de o site sumir da lista');
 });
+
+/* Configuração de EXECUÇÃO (25/08/2026). Terceira pergunta do Diagnóstico, depois
+   de "consegue rodar?" (doctor) e "vai achar algo?" (operationChecks): consegue
+   ABRIR a sessão? No Farol em Android (Termux + proot Debian) o login padrão é
+   root, o Claude Code recusa `--dangerously-skip-permissions` com uid 0, e toda
+   revisão autônoma morria no spawn com os checks todos verdes. */
+test('runtimeChecks: root é falha visível, com o motivo e a saída no detalhe', () => {
+  const [c] = P.runtimeChecks({ root: true });
+  assert.equal(c.ok, false);
+  assert.match(c.detail, /root/i, 'o detalhe nomeia a causa');
+  assert.match(c.detail, /skip-permissions/i, 'e a flag exata, que é o que aparece no log');
+  assert.match(c.detail, /não-root/i, 'e a saída, senão o check só reclama');
+  assert.equal(c.goto, undefined, 'nenhuma tela do app conserta isso: clique morto é pior que texto');
+});
+
+test('runtimeChecks: sem root não inventa linha (Windows nem tem uid)', () => {
+  assert.deepEqual(P.runtimeChecks({ root: false }), []);
+  assert.deepEqual(P.runtimeChecks({}), []);
+  assert.deepEqual(P.runtimeChecks(null), [], 'doctor ainda não carregado não pode derrubar a tela');
+  assert.deepEqual(P.runtimeChecks(undefined), []);
+});

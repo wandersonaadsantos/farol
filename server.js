@@ -10,7 +10,7 @@ import { EventEmitter } from 'node:events';
 
 // Camada base: versão, plataforma e caminhos (compartilhada com os módulos de lib/).
 import {
-  executadoDireto,
+  executadoDireto, rodandoComoRoot,
   APP_VERSION, APP_NAME, DELIVERIES_LIMIT, IS_WIN, IS_MAC, IS_LINUX, APP_ROOT,
   HOME, WORKSPACE, STATE_DIR, CONFIG_FILE, LOG_FILE, SEEN_FILE, IGNORED_FILE, BASELINE_FILE,
   INFLIGHT_FILE, CHATS_FILE, SELF_FILE, HIDDEN_FILE, TEMPLATE_DIR, UI_DIR,
@@ -1410,6 +1410,12 @@ class Engine extends EventEmitter {
       claude: claude.ok ? claude.stdout.trim().split('\n')[0] : null,
       ghAuth: auth.ok && !!auth.stdout.trim(),
       gitBash: this.gitBash,
+      // rodar como root quebra a revisão autônoma INTEIRA, e não é opção de
+      // config: o `--dangerously-skip-permissions` do headless é fixo na linha
+      // do runClaudeStream (só as sessões de terminal olham skipPermissions),
+      // então desligar o toggle não salva ninguém. Sem este campo, o sintoma é
+      // um "saiu com código 1" por ciclo, pra sempre, com o doctor todo verde.
+      root: rodandoComoRoot(),
       home: HOME,
       workspace: WORKSPACE,
       claudeAuth: this.allClaudeAuthInfo(), // status de cada perfil de assinatura Claude salvo
