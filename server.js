@@ -26,7 +26,8 @@ import {
   parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople,
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
   applyClaudeAuthEnv, claudeAuthShellLines,
-  sanitizeModel, sanitizeEffort, sanitizeParallelReviews
+  sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort,
+  sanitizeParallelReviews
 } from './lib/parse.js';
 import io, { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, prependPathDirs } from './lib/io.js';
 import updateMod from './lib/engine/update.js';
@@ -116,7 +117,8 @@ const DEFAULTS = settingsDefaults(DEFAULT_PORT);
 const PARSERS = {
   parseAccounts, parseProjectReviewers, parseDefaultReviewers, parsePeople,
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
-  sanitizeModel, sanitizeEffort, sanitizeParallelReviews, parseJiraSites,
+  sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort,
+  sanitizeParallelReviews, parseJiraSites,
 };
 
 // carência anti-lag do índice de busca do GitHub: logo após EU postar um review, o PR
@@ -143,7 +145,8 @@ class Engine extends EventEmitter {
   constructor() {
     super();
     const warn = (m) => this.log('WARN', m); // corrupção de estado precisa aparecer no farol.log
-    this.config = { ...DEFAULTS, ...readJson(CONFIG_FILE, {}, warn) };
+    const configSalva = readJson(CONFIG_FILE, {}, warn);
+    this.config = { ...DEFAULTS, ...configSalva };
     delete this.config.autoOpenReview; // chave antiga (terminal); o modo autonomo tem semantica nova
     this.config.accounts = parseAccounts(this.config.accounts); // normaliza (array de {user,owners})
     // idem accounts/people acima: config.json pode estar malformado (editado à mão,
@@ -153,11 +156,20 @@ class Engine extends EventEmitter {
     this.config.claudeProfiles = normalizeClaudeProfiles(this.config.claudeProfiles);
     this.config.claudeProfileId = normalizeClaudeProfileId(this.config.claudeProfileId);
     this.config.claudeConfigDir = sanitizeClaudeDir(this.config.claudeConfigDir);
-    // modelo/esforco entram na linha de comando passada a um shell. Ate aqui so o caminho
-    // HTTP validava, entao um config.json editado a mao passava cru. `?? ''` porque
-    // sanitize* devolve null pro invalido, e invalido vira o padrao (nao passa flag).
-    this.config.reviewModel = sanitizeModel(this.config.reviewModel) ?? '';
-    this.config.reviewEffort = sanitizeEffort(this.config.reviewEffort) ?? '';
+    // A configuracao nasceu compartilhada entre os CLIs. Agora cada provedor tem o
+    // proprio par: um alias Claude nunca pode rotular uma sessao Codex, e vice-versa.
+    // Config antiga com GPT migra pro Codex; o effort compartilhado vira o ponto de
+    // partida dos dois provedores. Invalidos caem no padrao (nao passa flag).
+    const modeloCodexLegado = sanitizeCodexModel(this.config.reviewModel) || '';
+    const esforcoCodexLegado = sanitizeCodexEffort(this.config.reviewEffort) || '';
+    const temModeloCodex = Object.hasOwn(configSalva, 'codexReviewModel');
+    const temEsforcoCodex = Object.hasOwn(configSalva, 'codexReviewEffort');
+    this.config.codexReviewModel = temModeloCodex
+      ? (sanitizeCodexModel(this.config.codexReviewModel) || '') : modeloCodexLegado;
+    this.config.codexReviewEffort = temEsforcoCodex
+      ? (sanitizeCodexEffort(this.config.codexReviewEffort) || '') : esforcoCodexLegado;
+    this.config.reviewModel = sanitizeClaudeModel(this.config.reviewModel) || '';
+    this.config.reviewEffort = sanitizeClaudeEffort(this.config.reviewEffort) || '';
     // intervalo do polling: o caminho HTTP (updateSettings) já clampa em 180..3600, mas
     // o boot engolia config.json editado à mão. Não numérico virava Math.max(180, NaN)
     // = NaN no schedule(), e setTimeout(fn, NaN) dispara em ~1ms: polling contínuo

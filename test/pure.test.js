@@ -313,9 +313,9 @@ test('normalizeClaudeProfiles: kind openrouter preenche baseUrl padrão e exige 
   assert.equal(out[1].baseUrl, 'https://openrouter.ai/api');
 });
 
-test('sanitizeClaudeModel: auto é aceito em sanitizeModel mas não vira flag do Claude', () => {
+test('sanitizeClaudeModel: auto é aceito em sanitizeModel e persiste (roteador resolve na revisão)', () => {
   assert.equal(sanitizeModel('auto'), 'auto');
-  assert.equal(sanitizeClaudeModel('auto'), '');
+  assert.equal(sanitizeClaudeModel('auto'), 'auto');
 });
 
 test('applyClaudeAuthEnv: limpa CLAUDE_CONFIG_DIR/ANTHROPIC_* residuais do objeto recebido (achado crítico de vazamento de ambiente)', () => {

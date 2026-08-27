@@ -2037,6 +2037,17 @@ test('Consumo: resumo vazio vira mensagem de vazio, não markup quebrado', () =>
   assert.match(P.usageSessionsHtml({}), /Nenhuma sessão/);
 });
 
+test('Consumo: perfil Codex explica tokens, custo zero e plano ChatGPT sem fingir orçamento em US$', () => {
+  const html = P.usageBudgetHtml({ budgets: [{
+    id: 'cx1', label: 'Codex ChatGPT', kind: 'codex', blocked: false,
+    today: 0, sinceCutoff: 0, budgetDaily: 10, budgetTotal: null,
+  }] });
+  assert.match(html, /Codex · plano ChatGPT/);
+  assert.match(html, /tokens das sessões autônomas/);
+  assert.match(html, /US\$ 0,00/);
+  assert.doesNotMatch(html, /usage-meter/, 'teto em dólar não se aplica ao plano ChatGPT');
+});
+
 test('usageMatrixHtml: a legenda acompanha a métrica escolhida', () => {
   // guarda-corpo antes das asserções: se o fixture parar de produzir matriz (nome
   // de campo errado, dia fora da janela), a função cai no early return, a legenda

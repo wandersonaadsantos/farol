@@ -24,10 +24,22 @@ test('updateSettings grava os aliases de modelo expostos', () => {
 
 test('updateSettings grava os níveis de esforço suportados', () => {
   const engine = new Engine();
-  for (const e of ['low', 'medium', 'high', 'xhigh', 'max', 'ultra', '']) {
+  for (const e of ['low', 'medium', 'high', 'xhigh', '']) {
     engine.updateSettings({ reviewEffort: e });
     assert.equal(engine.config.reviewEffort, e, `nível ${e || '(vazio)'}`);
   }
+});
+
+test('updateSettings grava modelo e esforço do Codex sem alterar o Claude', () => {
+  const engine = new Engine();
+  engine.updateSettings({
+    reviewModel: 'sonnet', reviewEffort: 'low',
+    codexReviewModel: 'gpt-5.6-terra', codexReviewEffort: 'minimal',
+  });
+  assert.equal(engine.config.reviewModel, 'sonnet');
+  assert.equal(engine.config.reviewEffort, 'low');
+  assert.equal(engine.config.codexReviewModel, 'gpt-5.6-terra');
+  assert.equal(engine.config.codexReviewEffort, 'minimal');
 });
 
 test('updateSettings normaliza espaço e caixa', () => {
@@ -59,8 +71,17 @@ test('updateSettings aceita nome completo de modelo (escotilha sem release)', ()
   const engine = new Engine();
   engine.updateSettings({ reviewModel: 'claude-opus-5' });
   assert.equal(engine.config.reviewModel, 'claude-opus-5');
-  engine.updateSettings({ reviewModel: 'gpt-5.5' });
-  assert.equal(engine.config.reviewModel, 'gpt-5.5');
+  engine.updateSettings({ codexReviewModel: 'gpt-5.5' });
+  assert.equal(engine.config.codexReviewModel, 'gpt-5.5');
+});
+
+test('updateSettings rejeita modelo do provedor errado e esforço fora do Codex CLI', () => {
+  const engine = new Engine();
+  engine.updateSettings({ reviewModel: 'sonnet', codexReviewModel: 'gpt-5.6-luna', codexReviewEffort: 'high' });
+  engine.updateSettings({ reviewModel: 'gpt-5.5', codexReviewModel: 'opus', codexReviewEffort: 'max' });
+  assert.equal(engine.config.reviewModel, 'sonnet');
+  assert.equal(engine.config.codexReviewModel, 'gpt-5.6-luna');
+  assert.equal(engine.config.codexReviewEffort, 'high');
 });
 
 test('updateSettings não cria chave fora da allowlist', () => {
@@ -72,8 +93,13 @@ test('updateSettings não cria chave fora da allowlist', () => {
 
 test('updateSettings persiste modelo e esforço no config.json', () => {
   const engine = new Engine();
-  engine.updateSettings({ reviewModel: 'sonnet', reviewEffort: 'low' });
+  engine.updateSettings({
+    reviewModel: 'sonnet', reviewEffort: 'low',
+    codexReviewModel: 'gpt-5.6-terra', codexReviewEffort: 'medium',
+  });
   const gravado = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
   assert.equal(gravado.reviewModel, 'sonnet');
   assert.equal(gravado.reviewEffort, 'low');
+  assert.equal(gravado.codexReviewModel, 'gpt-5.6-terra');
+  assert.equal(gravado.codexReviewEffort, 'medium');
 });

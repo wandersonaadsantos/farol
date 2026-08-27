@@ -596,6 +596,16 @@ test('budgetsFrom: perfil de assinatura agora expõe teto e gasto, sem vazar seg
   assert.equal('dir' in b, false);
 });
 
+test('budgetsFrom: perfil Codex mantém identidade própria e orçamento em US$ nunca bloqueia', () => {
+  const store = usage.defaultUsage();
+  const profile = { id: 'cx1', label: 'Codex ChatGPT', kind: 'codex', budgetDaily: 1 };
+  const [b] = usage.budgetsFrom(store, [profile], 20);
+  assert.equal(b.kind, 'codex');
+  assert.equal(b.blocked, false, 'projeção de custo Claude não pode pausar o Codex');
+  assert.equal(b.sugestaoDiaria, 0, 'não sugere dólar quando o CLI não informa custo');
+  assert.equal(usage.profileBudgetStatus(profile, store, 20).blocked, false);
+});
+
 /* ---------- teto por dia da semana e por data única (v2.50.0) ----------
    Centralizado em dailyCapFor: um lugar só resolve o teto do dia, e vale igual
    pra perfil de assinatura e de chave de API, cada um independente. */
