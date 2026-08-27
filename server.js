@@ -47,13 +47,30 @@ import credMod from './lib/jira/credentials.js';
 import jiraMod from './lib/engine/jira.js';
 import { startServer } from './lib/http-server.js';
 
-// App aberto pelo Finder/Dock herda um PATH minimo (sem /opt/homebrew/bin):
-// gh e claude sumiriam. Prependa os diretorios usuais que existirem.
-if (!IS_WIN) {
-  const extras = ['/opt/homebrew/bin', '/usr/local/bin',
-    path.join(os.homedir(), '.local', 'bin'), path.join(os.homedir(), 'bin')];
+function codexWindowsPathDirs() {
+  const root = path.join(os.homedir(), 'AppData', 'Local', 'OpenAI', 'Codex', 'bin');
+  const dirs = [path.join(os.homedir(), 'AppData', 'Roaming', 'npm')];
+  try {
+    for (const item of fs.readdirSync(root, { withFileTypes: true })) {
+      if (item.isDirectory()) dirs.push(path.join(root, item.name));
+    }
+  } catch (err) { void err; /* Codex pode ainda não estar instalado nesta máquina */ }
+  return dirs;
+}
+
+function aplicarPathDoBoot(extras) {
   const next = prependPathDirs(process.env.PATH, extras, fs.existsSync);
   if (next) process.env.PATH = next;
+}
+
+// App aberto pelo Finder/Dock ou pelo atalho do Windows herda um PATH reduzido:
+// gh/claude/codex podem sumir mesmo existindo no terminal interativo.
+if (IS_WIN) {
+  aplicarPathDoBoot(codexWindowsPathDirs());
+} else {
+  const extras = ['/opt/homebrew/bin', '/usr/local/bin',
+    path.join(os.homedir(), '.local', 'bin'), path.join(os.homedir(), 'bin')];
+  aplicarPathDoBoot(extras);
 }
 
 // Windows e macOS são suportados; Linux é EXPERIMENTAL desde a v2.45.0 (ramo
@@ -1073,9 +1090,14 @@ class Engine extends EventEmitter {
   handleSessionExit(opts) { return sessionMod.handleSessionExit(this, opts); }
   buildLoginScript(dir) { return sessionMod.buildLoginScript(this, dir); }
   buildLoginScriptMac(dir, id) { return sessionMod.buildLoginScriptMac(this, dir, id); }
+  buildCodexLoginScript() { return sessionMod.buildCodexLoginScript(this); }
+  buildCodexLoginScriptMac(id) { return sessionMod.buildCodexLoginScriptMac(this, id); }
   spawnLoginConsoleMac(dir) { return sessionMod.spawnLoginConsoleMac(this, dir); }
   spawnLoginConsoleLinux(dir) { return sessionMod.spawnLoginConsoleLinux(this, dir); }
   spawnLoginConsole(dir) { return sessionMod.spawnLoginConsole(this, dir); }
+  spawnCodexLoginConsoleMac() { return sessionMod.spawnCodexLoginConsoleMac(this); }
+  spawnCodexLoginConsoleLinux() { return sessionMod.spawnCodexLoginConsoleLinux(this); }
+  spawnCodexLoginConsole() { return sessionMod.spawnCodexLoginConsole(this); }
 
   // Pipeline de revisão headless: colaborador lib/engine/review.js (gate intacto, Onda 2).
   prFromUrl(url) { return reviewMod.prFromUrl(this, url); }
@@ -1351,7 +1373,7 @@ class Engine extends EventEmitter {
       return { ok: false, error: 'perfis de chave de API não usam login: a chave já é a credencial' };
     }
     if (auth.kind === 'codex') {
-      return { ok: false, error: 'perfis Codex usam codex login no terminal do sistema' };
+      return this.spawnCodexLoginConsole();
     }
     return this.spawnLoginConsole(auth.dir);
   }

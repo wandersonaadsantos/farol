@@ -30,7 +30,11 @@ childProcess.spawn = function mockableSpawn(...args) {
   return realSpawn(...args);
 };
 
-const { buildSessionScript, buildSessionScriptMac, buildLoginScript, buildLoginScriptMac, spawnLoginConsole } = await import('../lib/engine/session.js');
+const {
+  buildSessionScript, buildSessionScriptMac, buildLoginScript, buildLoginScriptMac,
+  buildCodexLoginScript, buildCodexLoginScriptMac, codexLoginConsoleEnv,
+  spawnLoginConsole, spawnCodexLoginConsole
+} = await import('../lib/engine/session.js');
 import { EventEmitter } from 'node:events';
 import { execSync } from 'node:child_process';
 
@@ -137,6 +141,8 @@ function fakeLoginEngine() {
     activeReviews: new Map(),
     sessionSeq: 0,
     buildLoginScript(dir) { return buildLoginScript(this, dir); },
+    buildCodexLoginScript() { return buildCodexLoginScript(this); },
+    doctor() { this.doctorCalled = true; return Promise.resolve({}); },
     log() {},
     emit(kind, payload) { toasts.push({ kind, payload }); },
     pushState() {},
@@ -176,6 +182,68 @@ test('spawnLoginConsole (Windows): registra keys=[] e NÃO inclui GH_TOKEN no en
     fakeChild.emit('exit', 0);
     assert.equal(engine.checkedNow, undefined, 'não deve rechecar (sessão sem keys)');
     assert.deepEqual(engine._unseen, [], 'não deve desfazer visto de PR nenhum');
+  } finally {
+    spawnImpl = null;
+  }
+});
+
+test('buildCodexLoginScript (Windows): abre codex login e depois mostra o status', () => {
+  const script = buildCodexLoginScript(fakeLoginEngine());
+  assert.match(script, /chcp 65001>nul/);
+  assert.match(script, /where codex>nul/);
+  assert.match(script, /codex login/);
+  assert.match(script, /codex login status/);
+  assert.doesNotMatch(script, /claude/);
+});
+
+test('buildCodexLoginScriptMac: limpa chaves e abre codex login', () => {
+  const script = buildCodexLoginScriptMac(fakeLoginEngine(), 'id1');
+  assert.match(script, /unset GH_TOKEN OPENAI_API_KEY CODEX_API_KEY/);
+  assert.match(script, /command -v codex/);
+  assert.match(script, /codex login/);
+  assert.match(script, /codex login status/);
+});
+
+test('codexLoginConsoleEnv: remove tokens e chaves que desviariam do plano ChatGPT', () => {
+  const antes = {
+    gh: process.env.GH_TOKEN,
+    openai: process.env.OPENAI_API_KEY,
+    codex: process.env.CODEX_API_KEY,
+  };
+  process.env.GH_TOKEN = 'gh';
+  process.env.OPENAI_API_KEY = 'sk-openai';
+  process.env.CODEX_API_KEY = 'codex-key';
+  try {
+    const out = codexLoginConsoleEnv();
+    assert.equal('GH_TOKEN' in out, false);
+    assert.equal('OPENAI_API_KEY' in out, false);
+    assert.equal('CODEX_API_KEY' in out, false);
+    assert.equal(out.GH_PAGER, 'cat');
+  } finally {
+    if (antes.gh === undefined) delete process.env.GH_TOKEN; else process.env.GH_TOKEN = antes.gh;
+    if (antes.openai === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = antes.openai;
+    if (antes.codex === undefined) delete process.env.CODEX_API_KEY; else process.env.CODEX_API_KEY = antes.codex;
+  }
+});
+
+test('spawnCodexLoginConsole (Windows): registra terminal sem keys e revalida doctor ao fechar', { skip: process.platform !== 'win32' ? 'caminho Windows do spawnCodexLoginConsole' : false }, () => {
+  const fakeChild = new EventEmitter();
+  let capturedEnv = null;
+  spawnImpl = (cmd, args, opts) => { capturedEnv = opts.env; return fakeChild; };
+  try {
+    const engine = fakeLoginEngine();
+    spawnCodexLoginConsole(engine);
+
+    const id = Array.from(engine.activeReviews.keys())[0];
+    const sess = engine.activeReviews.get(id);
+    assert.ok(sess, 'sessão de login Codex registrada');
+    assert.deepEqual(sess.keys, []);
+    assert.equal(sess.label, 'Login do Codex');
+    assert.equal('OPENAI_API_KEY' in capturedEnv, false);
+    assert.equal('CODEX_API_KEY' in capturedEnv, false);
+
+    fakeChild.emit('exit', 0);
+    assert.equal(engine.doctorCalled, true, 'ao fechar, revalida o status do Codex');
   } finally {
     spawnImpl = null;
   }

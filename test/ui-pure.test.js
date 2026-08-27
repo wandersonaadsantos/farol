@@ -2399,6 +2399,17 @@ test('claudeProfilesHtml: perfil de chave de API mostra os campos de teto', () =
   assert.match(html, /value="10"/, 'o teto salvo aparece preenchido');
 });
 
+test('claudeProfilesHtml: perfil Codex tambem oferece abrir sessao de login', () => {
+  const ctx = {
+    ...CTX_SIS,
+    config: { claudeProfiles: [{ id: 'codex', label: 'Codex', kind: 'codex' }], claudeProfileId: 'codex' },
+    doctor: { codexChatGPT: false, claudeAuth: [{ id: 'codex', label: 'Codex', codexMode: true, ready: true }] }
+  };
+  const html = P.claudeProfilesHtml(ctx);
+  assert.match(html, /class="btn sm cp-login" data-id="codex"/);
+  assert.match(html, /Abrir sessão de login/);
+});
+
 /* ---------- onda 5, sexto passo: o banner do topo ----------
    Os três avisos (sem conta, conta sem token, falha na última checagem) são decisão de
    TEXTO; quem esconde e mostra o elemento continua no app.js.

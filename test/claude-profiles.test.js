@@ -214,15 +214,17 @@ test('openClaudeLoginSession: perfil apikey NÃO abre sessão, devolve erro amig
   assert.equal(spawnChamado, false, 'spawnLoginConsole não deve ser chamado pra perfil apikey');
 });
 
-test('openClaudeLoginSession: perfil Codex não abre login Claude', () => {
+test('openClaudeLoginSession: perfil Codex abre sessão de login Codex', () => {
   const engine = new Engine();
   engine.config.claudeProfiles = [{ id: 'codex', label: 'Codex', kind: 'codex' }];
-  let spawnChamado = false;
-  engine.spawnLoginConsole = () => { spawnChamado = true; };
+  let spawnClaudeChamado = false;
+  let spawnCodexChamado = false;
+  engine.spawnLoginConsole = () => { spawnClaudeChamado = true; };
+  engine.spawnCodexLoginConsole = () => { spawnCodexChamado = true; return { ok: true }; };
   const r = engine.openClaudeLoginSession('codex');
-  assert.equal(r.ok, false);
-  assert.match(r.error, /Codex/);
-  assert.equal(spawnChamado, false);
+  assert.equal(r.ok, true);
+  assert.equal(spawnClaudeChamado, false);
+  assert.equal(spawnCodexChamado, true);
 });
 
 test('openClaudeLoginSession: perfil dir chama spawnLoginConsole com o MESMO contrato de hoje (dir cru)', () => {

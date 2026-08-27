@@ -1275,7 +1275,7 @@ export function claudeProfilesHtml(ctx) {
   // então sempre abria o legado ao clicar, mesmo com outro perfil selecionado no dropdown
   // - bug preexistente, corrigido junto por ser exigido pra esconder o botão certo).
   const defaultProfile = profiles.find(p => p.id === (c.claudeProfileId || ''));
-  const defaultNeedsClaudeLogin = !defaultProfile || (defaultProfile.kind !== 'apikey' && defaultProfile.kind !== 'codex');
+  const defaultNeedsClaudeLogin = !defaultProfile || defaultProfile.kind !== 'apikey';
   const defaultLoginBtn = defaultNeedsClaudeLogin ? `<button class="btn sm cp-login" data-id="${esc(c.claudeProfileId || '')}">Abrir sessão de login</button>` : '';
   const defaultRow = `<div class="card set-row">
     <div class="set-txt">
@@ -1322,7 +1322,7 @@ export function claudeProfilesHtml(ctx) {
       ${fields}
     </div>
     <div class="a-actions">
-      ${(isApiKey || isCodex) ? '' : `<button class="btn sm cp-login" data-id="${esc(p.id)}">Abrir sessão de login</button>`}
+      ${isApiKey ? '' : `<button class="btn sm cp-login" data-id="${esc(p.id)}">Abrir sessão de login</button>`}
       <button class="btn sm danger-ghost cp-remove" data-id="${esc(p.id)}">Remover</button>
     </div>
   </div>`;

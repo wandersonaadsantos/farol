@@ -9,6 +9,23 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.53.6
+
+O fluxo Codex agora tem a mesma ação direta de login que o Claude e o diagnóstico
+no Windows deixa de quebrar acentos.
+
+**Correções**
+- **Botão de login também para Codex.** Perfis Codex em Sistema → Plano e chaves
+  agora mostram `Abrir sessão de login`. O botão abre um terminal próprio com
+  `codex login` e, ao final, mostra `codex login status` e revalida a saúde do
+  Farol.
+- **PATH do Codex no app instalado.** No Windows, o Farol passa a incluir no boot
+  os diretórios locais do Codex instalado em `%LOCALAPPDATA%\OpenAI\Codex\bin`,
+  porque o atalho do app pode não herdar o mesmo PATH do terminal.
+- **Acentuação do diagnóstico Codex.** Chamadas via `cmd.exe` agora forçam UTF-8
+  antes do comando, evitando mensagens como `n�� reconhecido` quando o Windows
+  devolve erro em português.
+
 ## v2.53.5
 
 Correção de acabamento da primeira versão com Codex: a tela agora mostra o

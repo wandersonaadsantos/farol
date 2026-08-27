@@ -203,6 +203,13 @@ test('runShell NÃO lança quando o comando falha', async () => {
   assert.equal(typeof r.stderr, 'string');
 });
 
+test('runShell no Windows força UTF-8 antes do comando', { skip: IS_WIN ? false : 'só roda no Windows' }, async () => {
+  const r = await runShell('echo acentuação');
+  assert.equal(r.ok, true);
+  assert.match(r.stdout, /acentuação/);
+  assert.doesNotMatch(r.stdout, /�/);
+});
+
 /* ---------- taxonomy ---------- */
 
 test('taxonomy: todo papel listado tem rótulo E texto de tom', () => {
@@ -280,4 +287,9 @@ test('prependPathDirs: PATH vazio não vira ":dir" nem quebra', () => {
   const out = prependPathDirs('', ['/opt/homebrew/bin'], () => true);
   assert.equal(out, '/opt/homebrew/bin:');
   assert.equal(prependPathDirs(undefined, [], () => true), null);
+});
+
+test('prependPathDirs: respeita ponto-e-virgula de PATH Windows', () => {
+  const out = prependPathDirs('C:\\A;C:\\B', ['C:\\Novo'], p => p === 'C:\\Novo');
+  assert.equal(out, 'C:\\Novo;C:\\A;C:\\B');
 });
