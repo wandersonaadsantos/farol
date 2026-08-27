@@ -26,6 +26,10 @@ let attachedToExisting = false; // porta ocupada: esta janela é só um VISOR da
 // UMA vez, aqui no topo do boot, porque o consumo apaga o arquivo.
 const reabertura = consumirReaberturaSilenciosa();
 
+// Quando o macOS executa o binário cru do Electron, a barra de menu pode herdar
+// "Electron" do bundle nativo. O nome do app precisa ser afirmado pelo processo.
+app.setName('Farol');
+
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();

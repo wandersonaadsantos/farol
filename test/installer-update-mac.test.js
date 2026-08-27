@@ -63,6 +63,16 @@ function montaInstalacaoExistente() {
   const home = tmpdir('farol-home-update-');
   const macos = path.join(home, '.farol', 'app', 'node_modules', 'electron', 'dist', 'Electron.app', 'Contents', 'MacOS');
   fs.mkdirSync(macos, { recursive: true });
+  fs.writeFileSync(path.join(home, '.farol', 'app', 'node_modules', 'electron', 'dist', 'Electron.app', 'Contents', 'Info.plist'), `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key><string>Electron</string>
+  <key>CFBundleDisplayName</key><string>Electron</string>
+  <key>CFBundleIdentifier</key><string>com.github.Electron</string>
+  <key>CFBundleExecutable</key><string>Electron</string>
+</dict>
+</plist>
+`);
   const nativo = path.join(macos, 'Electron');
   fs.writeFileSync(nativo, '#!/bin/sh\nexit 0\n');
   fs.chmodSync(nativo, 0o755);
@@ -90,6 +100,23 @@ test('install.sh a partir do pacote de update PRESERVA o Electron instalado', { 
   assert.equal(r.status, 0, `installer falhou (status ${r.status}): ${(r.stdout || '') + (r.stderr || '')}`);
   assert.ok(fs.existsSync(nativo), 'o binário nativo do Electron continua lá: sem ele o lançador não abre nada');
   assert.ok(fs.statSync(nativo).mode & 0o111, 'o binário nativo continua executável');
+});
+
+test('install.sh ajusta a identidade visível do Electron preservado', { skip: temBash ? false : 'só roda em POSIX com bash' }, () => {
+  const src = montaPacoteDeUpdate();
+  const { home } = montaInstalacaoExistente();
+
+  const r = cp.spawnSync('/bin/bash', [path.join(src, 'installer', 'install.sh')], {
+    env: { ...process.env, HOME: home },
+    encoding: 'utf8',
+  });
+
+  assert.equal(r.status, 0, `installer falhou: ${(r.stdout || '') + (r.stderr || '')}`);
+  const plist = fs.readFileSync(path.join(home, '.farol', 'app', 'node_modules', 'electron', 'dist', 'Electron.app', 'Contents', 'Info.plist'), 'utf8');
+  assert.match(plist, /<key>CFBundleName<\/key><string>Farol<\/string>/, 'menu/Cmd-Tab nao podem herdar Electron como nome');
+  assert.match(plist, /<key>CFBundleDisplayName<\/key><string>Farol<\/string>/, 'nome visivel do bundle interno vira Farol');
+  assert.match(plist, /<key>CFBundleIdentifier<\/key><string>com\.biud\.farol\.electron<\/string>/, 'bundle interno deixa de usar o identificador generico do Electron');
+  assert.match(plist, /<key>CFBundleExecutable<\/key><string>Electron<\/string>/, 'executavel nativo continua sendo o binario real do Electron');
 });
 
 test('install.sh a partir do pacote de update ainda recria o lançador e o app', { skip: temBash ? false : 'só roda em POSIX com bash' }, () => {

@@ -185,3 +185,8 @@ test('nenhum símbolo importado do pure.js está morto no app.js', () => {
   const mortos = nomes.filter(n => !new RegExp(`\\b${n}\\b`).test(corpo));
   assert.deepEqual(mortos, [], 'símbolo importado e não usado: sobrou de uma extração');
 });
+
+test('shell Electron declara Farol como nome do processo', () => {
+  const src = fs.readFileSync(path.join(import.meta.dirname, '..', 'main.js'), 'utf8');
+  assert.match(src, /app\.setName\('Farol'\)/, 'macOS nao pode herdar "Electron" como nome do app em runtime');
+});

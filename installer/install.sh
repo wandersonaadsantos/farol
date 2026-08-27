@@ -17,6 +17,37 @@ step() { printf '  -> %s\n' "$1"; }
 ok()   { printf '     %s\n' "$1"; }
 die()  { printf '  x  %s\n' "$1"; exit 1; }
 
+plist_set_string() {
+  local plist="$1"
+  local key="$2"
+  local value="$3"
+  awk -v key="$key" -v value="$value" '
+    $0 ~ "<key>" key "</key>" {
+      if ($0 ~ /<string>[^<]*<\/string>/) {
+        sub(/<string>[^<]*<\/string>/, "<string>" value "</string>")
+        print
+        next
+      }
+      print
+      if (getline > 0) {
+        sub(/<string>[^<]*<\/string>/, "<string>" value "</string>")
+        print
+      }
+      next
+    }
+    { print }
+  ' "$plist" > "$plist.tmp" && mv "$plist.tmp" "$plist"
+}
+
+brand_electron_bundle() {
+  local plist="$APP/node_modules/electron/dist/Electron.app/Contents/Info.plist"
+  [ -f "$plist" ] || return 0
+  plist_set_string "$plist" 'CFBundleName' 'Farol'
+  plist_set_string "$plist" 'CFBundleDisplayName' 'Farol'
+  plist_set_string "$plist" 'CFBundleIdentifier' 'com.biud.farol.electron'
+  ok 'Identidade do bundle interno do Electron ajustada para Farol'
+}
+
 echo
 echo '  Farol . instalador (macOS)'
 echo '  =========================='
@@ -100,6 +131,7 @@ chmod +x "$ELECTRON_BIN" 2>/dev/null || true
 # validar so ele declarava sucesso numa instalacao que nao abre (falha silenciosa)
 NATIVE="$APP/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
 [ -x "$NATIVE" ] || die "Electron nao instalado (faltou $NATIVE). Rode: cd $APP && npm install"
+brand_electron_bundle
 
 # --- workspace do Claude -----------------------------------------------------------
 # protocolo sempre atualizado a partir do template; state/ nunca e tocado

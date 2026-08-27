@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.53.8
+
+Correção de acabamento no macOS: o app deixa de aparecer com a identidade
+genérica do Electron.
+
+**Correções**
+- **Nome correto no macOS.** O app deixa de aparecer como `Electron` na barra de
+  menu/Cmd-Tab: o processo agora declara `Farol` no boot e o instalador ajusta a
+  identidade visível do bundle interno do Electron preservado nos updates.
+
 ## v2.53.7
 
 Automação e consumo agora tratam Claude Code e Codex CLI como provedores
