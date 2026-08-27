@@ -786,12 +786,24 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
   if (seg) {
     $('#cpAddKind').querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b === seg));
     const isApiKey = seg.dataset.kind === 'apikey';
+    const isOpenRouter = seg.dataset.kind === 'openrouter';
     const isCodex = seg.dataset.kind === 'codex';
-    $('#cpAddDir').hidden = isApiKey || isCodex;
-    $('#cpAddApiKey').hidden = !isApiKey;
-    $('#cpAddBaseUrl').hidden = !isApiKey;
+    const usaChave = isApiKey || isOpenRouter;
+    $('#cpAddDir').hidden = usaChave || isCodex;
+    $('#cpAddApiKey').hidden = !usaChave;
+    $('#cpAddBaseUrl').hidden = !usaChave;
     $('#cpAddHint').hidden = !isApiKey;
+    const orHint = $('#cpAddOpenRouterHint');
+    if (orHint) orHint.hidden = !isOpenRouter;
     $('#cpAddCodexHint').hidden = !isCodex;
+    if (isOpenRouter) {
+      $('#cpAddApiKey').placeholder = 'chave OpenRouter (sk-or-...)';
+      $('#cpAddBaseUrl').placeholder = 'https://openrouter.ai/api';
+      $('#cpAddBaseUrl').value = $('#cpAddBaseUrl').value || 'https://openrouter.ai/api';
+    } else if (isApiKey) {
+      $('#cpAddApiKey').placeholder = 'chave de API';
+      $('#cpAddBaseUrl').placeholder = 'URL base (opcional)';
+    }
     return;
   }
   // mostrar/ocultar a chave de um perfil já salvo (não é validação nem salvamento, só
@@ -805,6 +817,7 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
     const label = ($('#cpAddLabel').value || '').trim();
     const kindBtn = $('#cpAddKind .seg-btn.active');
     const isApiKey = kindBtn && kindBtn.dataset.kind === 'apikey';
+    const isOpenRouter = kindBtn && kindBtn.dataset.kind === 'openrouter';
     const isCodex = kindBtn && kindBtn.dataset.kind === 'codex';
     if (isCodex) {
       if (!label) return toast('error', 'Preencha o nome do perfil.', 3000);
@@ -813,14 +826,15 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
       saveClaudeProfiles(profiles);
       return;
     }
-    if (isApiKey) {
+    if (isApiKey || isOpenRouter) {
       const apiKey = ($('#cpAddApiKey').value || '').trim();
       const baseUrl = ($('#cpAddBaseUrl').value || '').trim();
       if (!label || !apiKey) return toast('error', 'Preencha nome e chave.', 3000);
       if (/["\r\n]/.test(apiKey.replace(/^"(.*)"$/s, '$1').trim()) || /["\r\n]/.test(baseUrl.replace(/^"(.*)"$/s, '$1').trim())) {
         return toast('error', 'Chave ou URL base com aspas ou quebra de linha no meio (não em volta) não pode ser usada.', 4500);
       }
-      const profiles = [...(STATE.config.claudeProfiles || []), { id: genProfileId(), label, kind: 'apikey', apiKey, baseUrl }];
+      const kind = isOpenRouter ? 'openrouter' : 'apikey';
+      const profiles = [...(STATE.config.claudeProfiles || []), { id: genProfileId(), label, kind, apiKey, baseUrl }];
       $('#cpAddLabel').value = ''; $('#cpAddApiKey').value = ''; $('#cpAddBaseUrl').value = '';
       saveClaudeProfiles(profiles);
       return;
@@ -1276,8 +1290,8 @@ const SYS_INDEX = [
   { sec: 'automation', at: '#sys-row-autoreview', title: 'Revisar automaticamente quando chegar PR', hint: 'auto review, revisão na hora, fila' },
   { sec: 'automation', at: '#sys-row-autoapprove', title: 'Aprovar sozinho os aprováveis com ressalvas', hint: 'auto approve, ressalva, aprovação' },
   { sec: 'automation', at: '#sys-row-pushback', title: 'Detectar pushback automaticamente', hint: 'contestação, autor, desfecho' },
-  { sec: 'automation', at: '#sys-row-provedor', title: 'Configuração do provedor', hint: 'claude, codex, perfil, conta, provedor' },
-  { sec: 'automation', at: '#sys-row-modelo', title: 'Modelo das sessões autônomas', hint: 'opus, sonnet, haiku, fable, codex, gpt, sol, terra, luna, modelo, limite do plano' },
+  { sec: 'automation', at: '#sys-row-provedor', title: 'Configuração do provedor', hint: 'claude, codex, openrouter, perfil, conta, provedor' },
+  { sec: 'automation', at: '#sys-row-modelo', title: 'Modelo das sessões autônomas', hint: 'opus, sonnet, haiku, fable, auto, best, codex, gpt, sol, terra, luna, modelo, limite do plano, openrouter' },
   { sec: 'automation', at: '#sys-row-paralelas', title: 'Revisões paralelas por conta', hint: 'paralelo, simultâneo, série, fila, velocidade' },
   { sec: 'automation', at: '#sys-row-esforco', title: 'Esforço de raciocínio', hint: 'effort, pensar, raciocínio, alto, baixo, xhigh' },
   { sec: 'automation', at: '#sys-row-intervalo', title: 'Intervalo de checagem', hint: 'polling, minutos, frequência' },
@@ -3408,16 +3422,20 @@ function renderAutomationSettings(c) {
   renderEffortBox($('#setReviewEffort'), String(c.reviewEffort || ''));
   renderEffortBox($('#setCodexReviewEffort'), String(c.codexReviewEffort || ''));
 
-  const semEsforco = String(c.reviewModel || '') === 'haiku';
+  const semEsforco = claudeModel === 'haiku' || claudeModel === 'auto';
   $('#setReviewEffort').classList.toggle('disabled', semEsforco);
   if (codex) {
     $('#reviewModelHint').textContent = 'Modelo usado pelo Codex nas revisões, pushback, autoanálise e ferramentas. O padrão acompanha a seleção do CLI e costuma ser a opção mais compatível com o teu plano.';
     $('#effortHint').textContent = 'Quanto o Codex raciocina nas sessões autônomas. O CLI aceita minimal, low, medium, high e xhigh; o último depende do modelo.';
   } else {
-    $('#reviewModelHint').textContent = 'Modelo usado pelo Claude nas revisões, pushback, autoanálise e ferramentas. O padrão herda a tua assinatura; Sonnet e Haiku poupam o limite do plano.';
-    $('#effortHint').textContent = semEsforco
-      ? 'O Haiku não aceita nível de esforço, então o Farol não passa a flag enquanto ele estiver escolhido.'
-      : 'Quanto o Claude pensa nas sessões autônomas. Mais esforço aumenta profundidade e consumo do limite.';
+    $('#reviewModelHint').textContent = 'Modelo usado pelo Claude nas revisões, pushback, autoanálise e ferramentas. O padrão herda a tua assinatura; Auto (custo-benefício) escolhe Haiku ou Sonnet pelo tamanho do PR só na revisão headless; Sonnet e Haiku poupam o limite do plano.';
+    let effortHint = 'Quanto o Claude pensa nas sessões autônomas. Mais esforço aumenta profundidade e consumo do limite.';
+    if (claudeModel === 'haiku') {
+      effortHint = 'O Haiku não aceita nível de esforço, então o Farol não passa a flag enquanto ele estiver escolhido.';
+    } else if (claudeModel === 'auto') {
+      effortHint = 'No modo Auto o Farol escolhe modelo e esforço pelo tamanho do PR; o nível fixo desta seção não entra.';
+    }
+    $('#effortHint').textContent = effortHint;
   }
 }
 

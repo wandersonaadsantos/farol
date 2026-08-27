@@ -1135,6 +1135,7 @@ export function claudeAuthBadge(id, ctx) {
   const info = all.find(x => x.id === id) || all.find(x => x.id === '') || all[0] || null;
   if (!info) return '';
   if (info.apiKeyMode && !info.ready) return `<span class="a-claude bad" title="Perfil de chave de API sem chave preenchida">SEM CHAVE</span>`;
+  if (info.openrouterMode && !info.ready) return `<span class="a-claude bad" title="Perfil OpenRouter sem chave preenchida">SEM CHAVE</span>`;
   // bloqueio de orçamento vem de ctx.usage.budgets (fonte única, viva a cada
   // pushState, v2.40.0); o doctor parou de carregar blocked/reason, e este selo
   // lia de lá (achado da revisão adversarial: o ramo tinha virado código morto).
@@ -1148,6 +1149,7 @@ export function claudeAuthBadge(id, ctx) {
       ? '<span class="a-claude ok" title="Codex CLI autenticado no plano ChatGPT">Codex ChatGPT</span>'
       : `<span class="a-claude bad" title="${esc(detail)}">SEM CODEX</span>`;
   }
+  if (info.openrouterMode) return '<span class="a-claude ok" title="Claude Code via OpenRouter (Anthropic Skin)">OpenRouter</span>';
   if (info.apiKeyMode) return `<span class="a-claude ok" title="Autenticação por chave de API">🔑 chave configurada</span>`;
   if (info.ready === false) return `<span class="a-claude bad" title="rode claude login nesse diretório">SEM LOGIN</span>`;
   if (info.account) return `<span class="a-claude ok" title="${esc(info.configDir || 'padrão da máquina')}">@${esc(info.account)}</span>`;
@@ -1240,10 +1242,11 @@ export function budgetEditorHtml(p, info) {
   </div>`;
 }
 
-function profileFieldsHtml(p, isApiKey, isCodex, camposChave, camposDir, camposOrcamento) {
+function profileFieldsHtml(p, isApiKey, isCodex, isOpenRouter, camposChave, camposDir, camposOrcamento, camposOpenRouter) {
   if (isCodex) {
     return '<div class="a-hint">Usa o Codex CLI local com login ChatGPT. O Farol registra os tokens das automações, mas o CLI não informa saldo da cota nem custo por sessão. Use o botão de login se o diagnóstico acusar falta de autenticação.</div>';
   }
+  if (isOpenRouter) return camposOpenRouter + camposOrcamento;
   if (isApiKey) return camposChave + camposOrcamento;
   return camposDir + camposOrcamento;
 }
@@ -1275,7 +1278,8 @@ export function claudeProfilesHtml(ctx) {
   // então sempre abria o legado ao clicar, mesmo com outro perfil selecionado no dropdown
   // - bug preexistente, corrigido junto por ser exigido pra esconder o botão certo).
   const defaultProfile = profiles.find(p => p.id === (c.claudeProfileId || ''));
-  const defaultNeedsClaudeLogin = !defaultProfile || defaultProfile.kind !== 'apikey';
+  const defaultNeedsClaudeLogin = !defaultProfile
+    || (defaultProfile.kind !== 'apikey' && defaultProfile.kind !== 'openrouter');
   const defaultLoginBtn = defaultNeedsClaudeLogin ? `<button class="btn sm cp-login" data-id="${esc(c.claudeProfileId || '')}">Abrir sessão de login</button>` : '';
   const defaultRow = `<div class="card set-row">
     <div class="set-txt">
@@ -1290,6 +1294,7 @@ export function claudeProfilesHtml(ctx) {
   const rows = profiles.map(p => {
     const isApiKey = p.kind === 'apikey';
     const isCodex = p.kind === 'codex';
+    const isOpenRouter = p.kind === 'openrouter';
     // gasto vem de ctx.usage.budgets (fonte unica do orcamento, viva a cada
     // pushState), nunca mais do cache do doctor, que congelava o "Hoje" daqui
     // enquanto a aba Consumo andava (v2.40.0)
@@ -1308,11 +1313,21 @@ export function claudeProfilesHtml(ctx) {
       <div class="a-editrow">
         <input class="cp-baseurl" data-id="${esc(p.id)}" value="${esc(p.baseUrl || '')}" placeholder="URL base (opcional, deixe em branco pra usar a Anthropic direto)" spellcheck="false">
       </div>`;
+    const camposOpenRouter = `
+      <div class="a-editrow">
+        <input class="cp-apikey" type="password" data-id="${esc(p.id)}" value="${esc(p.apiKey || '')}" placeholder="chave OpenRouter (sk-or-...)" spellcheck="false" autocomplete="off">
+        <button class="btn icon sm ghost cp-toggle-key" data-id="${esc(p.id)}" title="Mostrar/ocultar a chave" aria-label="Mostrar/ocultar a chave">👁</button>
+      </div>
+      <div class="a-editrow">
+        <input class="cp-baseurl" data-id="${esc(p.id)}" value="${esc(p.baseUrl || '')}" placeholder="https://openrouter.ai/api" spellcheck="false">
+      </div>
+      <div class="a-hint">Usa o Claude Code apontado pro Anthropic Skin do OpenRouter. A chave vai em ANTHROPIC_AUTH_TOKEN; não precisa de claude login.</div>`;
     const camposDir = `
       <div class="a-editrow">
         <input class="cp-dir" data-id="${esc(p.id)}" value="${esc(p.dir || '')}" placeholder="${ctx.ehWin ? 'C:\\Users\\voce\\.claude-perfil' : '~/.claude-perfil'}" spellcheck="false">
       </div>`;
-    const fields = profileFieldsHtml(p, isApiKey, isCodex, camposChave, camposDir, camposOrcamento);
+    const fields = profileFieldsHtml(p, isApiKey, isCodex, isOpenRouter, camposChave, camposDir, camposOrcamento, camposOpenRouter);
+    const semLogin = isApiKey || isOpenRouter;
     return `<div class="card acct-card">
     <div class="a-body">
       <div class="a-editrow">
@@ -1322,7 +1337,7 @@ export function claudeProfilesHtml(ctx) {
       ${fields}
     </div>
     <div class="a-actions">
-      ${isApiKey ? '' : `<button class="btn sm cp-login" data-id="${esc(p.id)}">Abrir sessão de login</button>`}
+      ${semLogin ? '' : `<button class="btn sm cp-login" data-id="${esc(p.id)}">Abrir sessão de login</button>`}
       <button class="btn sm danger-ghost cp-remove" data-id="${esc(p.id)}">Remover</button>
     </div>
   </div>`;
@@ -1333,6 +1348,7 @@ export function claudeProfilesHtml(ctx) {
       <div class="seg" id="cpAddKind" role="group" aria-label="Tipo de perfil">
         <button type="button" class="seg-btn active" data-kind="dir">Login por assinatura</button>
         <button type="button" class="seg-btn" data-kind="apikey">Chave de API</button>
+        <button type="button" class="seg-btn" data-kind="openrouter">OpenRouter</button>
         <button type="button" class="seg-btn" data-kind="codex">Codex</button>
       </div>
     </div>
@@ -1343,7 +1359,8 @@ export function claudeProfilesHtml(ctx) {
       <input id="cpAddBaseUrl" placeholder="URL base (opcional)" spellcheck="false" hidden>
       <button class="btn sm" id="btnCpAdd">Adicionar</button>
     </div>
-    <div class="a-hint" id="cpAddHint">Deixe em branco pra usar a Anthropic direto. Um endpoint customizado precisa falar a API de Mensagens da Anthropic, não é garantia de que qualquer provedor (ex.: OpenRouter) funcione sem um proxy tradutor.</div>
+    <div class="a-hint" id="cpAddHint">Deixe em branco pra usar a Anthropic direto. Um endpoint customizado precisa falar a API de Mensagens da Anthropic.</div>
+    <div class="a-hint" id="cpAddOpenRouterHint" hidden>Chave em openrouter.ai. O Farol aponta o Claude Code pra https://openrouter.ai/api (Anthropic Skin). Modelos não-Anthropic pelo Skin não são garantia do Claude Code.</div>
     <div class="a-hint" id="cpAddCodexHint" hidden>Usa a cota do plano ChatGPT pelo Codex CLI local. API key do Codex não é aceita nesse perfil.</div>
   </div>`;
   return migrateCard + defaultRow + rows + addForm;
@@ -1854,7 +1871,7 @@ export function usageBudgetHtml(u) {
   // só chave de API, porque só ela tinha teto): o aviso segue o teto, não o tipo
   const temTetoAlgum = perfis.some(p => p.kind !== 'codex' && (p.budgetDaily != null || p.budgetTotal != null));
   return perfis.map(p => {
-    const isApiKey = p.kind === 'apikey';
+    const isApiKey = p.kind === 'apikey' || p.kind === 'openrouter';
     const isCodex = p.kind === 'codex';
     const statusCls = p.blocked ? 'bad' : 'ok';
     // "tem teto" passou a considerar os overrides: perfil que só configurou sábado

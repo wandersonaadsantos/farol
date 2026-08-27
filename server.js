@@ -39,6 +39,23 @@ import ghMod from './lib/engine/gh-queries.js';
 import sessionMod from './lib/engine/session.js';
 import selfMod from './lib/engine/selfpr.js';
 import reviewMod from './lib/engine/review.js';
+
+// Resolve o shape de auth a partir de um perfil já escolhido (sem cascata de conta).
+// Fica FORA da Engine pra não empilhar chave dentro do método (gate profundidadeExcedida).
+function authFromProfile(p) {
+  if (!p) return null;
+  if (p.kind === 'codex') return { kind: 'codex', id: p.id };
+  if (p.kind === 'openrouter' && p.apiKey) {
+    return { kind: 'openrouter', id: p.id, apiKey: p.apiKey, baseUrl: p.baseUrl || '' };
+  }
+  if (p.kind === 'apikey' && p.apiKey) {
+    return { kind: 'apikey', id: p.id, apiKey: p.apiKey, baseUrl: p.baseUrl || '' };
+  }
+  if (p.kind !== 'apikey' && p.kind !== 'openrouter' && p.dir) {
+    return { kind: 'dir', id: p.id, dir: p.dir };
+  }
+  return null;
+}
 import fileProofMod from './lib/engine/file-proof.js';
 import skipMod from './lib/engine/skip-review.js';
 import usageMod from './lib/engine/usage.js';
@@ -1337,20 +1354,18 @@ class Engine extends EventEmitter {
     const profiles = this.config.claudeProfiles || [];
     if (profiles.length) {
       const id = acc?.claudeProfileId || this.config.claudeProfileId || '';
-      const p = profiles.find(p => p.id === id);
-      if (p?.kind === 'codex') return { kind: 'codex', id: p.id };
-      if (p?.kind === 'apikey' && p.apiKey) return { kind: 'apikey', id: p.id, apiKey: p.apiKey, baseUrl: p.baseUrl || '' };
-      if (p && p.kind !== 'apikey' && p.dir) return { kind: 'dir', id: p.id, dir: p.dir };
+      const resolved = authFromProfile(profiles.find(p => p.id === id));
+      if (resolved) return resolved;
     }
     return { kind: 'dir', id: '', dir: this.config.claudeConfigDir || '' };
   }
 
   // compat: quem só quer "o dir, se houver" (nenhum call site de produção deveria
   // sobrar depois da migração das Tasks 2/3/5, mas mantido por garantia). Devolve ''
-  // quando o resolvido for kind apikey - nunca confunde os dois formatos de auth.
+  // quando o resolvido for kind apikey/openrouter - nunca confunde com dir.
   resolveClaudeConfigDir(user) {
     const auth = this.resolveClaudeAuth(user);
-    return auth.kind === 'apikey' ? '' : (auth.dir || '');
+    return (auth.kind === 'apikey' || auth.kind === 'openrouter') ? '' : (auth.dir || '');
   }
 
   // dir de um perfil ESPECÍFICO pelo id, pra "abrir sessão de login" sem depender de
@@ -1369,19 +1384,23 @@ class Engine extends EventEmitter {
   resolveAuthForLogin(profileId) {
     const profiles = this.config.claudeProfiles || [];
     const p = profileId ? profiles.find(x => x.id === profileId) : null;
-    if (p?.kind === 'apikey' && p.apiKey) return { kind: 'apikey', apiKey: p.apiKey, baseUrl: p.baseUrl || '' };
-    if (p?.kind === 'codex') return { kind: 'codex' };
-    if (p && p.kind !== 'apikey' && p.dir) return { kind: 'dir', dir: p.dir };
+    const resolved = authFromProfile(p);
+    if (resolved) {
+      // login não precisa do id no shape (openClaudeLoginSession só olha kind/dir)
+      if (resolved.kind === 'dir') return { kind: 'dir', dir: resolved.dir };
+      if (resolved.kind === 'codex') return { kind: 'codex' };
+      return { kind: resolved.kind, apiKey: resolved.apiKey, baseUrl: resolved.baseUrl || '' };
+    }
     return { kind: 'dir', dir: this.config.claudeConfigDir || '' };
   }
 
   // abre a sessão de terminal SÓ pra login (ver Fix 2, lib/engine/session.js). Perfil de
-  // chave de API não tem fluxo de claude login (a chave já é a credencial): nem chega a
-  // chamar spawnLoginConsole. A UI já esconde o botão nesse caso, isto é o segundo lado
-  // da defesa.
+  // chave de API / OpenRouter não tem fluxo de claude login (a chave já é a credencial):
+  // nem chega a chamar spawnLoginConsole. A UI já esconde o botão nesse caso, isto é o
+  // segundo lado da defesa.
   openClaudeLoginSession(profileId) {
     const auth = this.resolveAuthForLogin(profileId);
-    if (auth.kind === 'apikey') {
+    if (auth.kind === 'apikey' || auth.kind === 'openrouter') {
       return { ok: false, error: 'perfis de chave de API não usam login: a chave já é a credencial' };
     }
     if (auth.kind === 'codex') {
@@ -1423,6 +1442,7 @@ class Engine extends EventEmitter {
     if (!profiles.length) return [legacy];
     const authEntry = (p) => {
       if (p.kind === 'apikey') return { configDir: null, account: null, ready: !!p.apiKey, apiKeyMode: true };
+      if (p.kind === 'openrouter') return { configDir: null, account: null, ready: !!p.apiKey, openrouterMode: true };
       if (p.kind === 'codex') return { configDir: null, account: null, ready: true, codexMode: true };
       return this.claudeAuthInfo(p.dir);
     };

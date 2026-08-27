@@ -413,7 +413,7 @@
             <div class="set-row" id="sys-row-provedor">
               <div class="set-txt">
                 <span class="set-title">Configuração do provedor</span>
-                <span class="set-desc">Edite separadamente o modelo e o raciocínio de cada CLI. Na execução, cada conta usa o perfil associado no painel Contas.</span>
+                <span class="set-desc">Edite separadamente o modelo e o raciocínio de cada CLI. Na execução, cada conta usa o perfil associado no painel Contas. No Claude, Auto (custo-benefício) escolhe Haiku ou Sonnet pelo tamanho do PR, só na revisão headless.</span>
               </div>
               <div class="set-ctl">
                 <div class="seg" id="setAutomationProvider" role="group" aria-label="Provedor que está sendo configurado">
@@ -430,6 +430,7 @@
               <div class="set-ctl">
                 <select id="setReviewModel" aria-label="Modelo do Claude Code">
                   <option value="">Padrão do Claude (herda a tua assinatura)</option>
+                  <option value="auto">Auto (custo-benefício: Haiku/Sonnet pelo tamanho do PR)</option>
                   <option value="best">Melhor disponível (o Claude escolhe o topo da conta)</option>
                   <option value="opus">Opus (qualidade máxima, gasta mais do limite)</option>
                   <option value="sonnet">Sonnet (equilíbrio: bom e bem mais leve)</option>
