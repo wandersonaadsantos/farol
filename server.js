@@ -1414,12 +1414,20 @@ class Engine extends EventEmitter {
       io.runShell('codex login status'),
       io.run('gh', tokenArgs)
     ]);
+    let codexLoginDetail = '';
+    if (codexLogin.stdout || codexLogin.stderr) {
+      codexLoginDetail = `${codexLogin.stdout}\n${codexLogin.stderr}`.trim().split(/\r?\n/)[0];
+    } else if (!codexLogin.ok) {
+      codexLoginDetail = 'codex login status falhou';
+      if (codexLogin.code) codexLoginDetail += ` (código ${codexLogin.code})`;
+    }
     this.doctorInfo = {
       node: process.version,
       gh: gh.ok ? gh.stdout.split('\n')[0].trim() : null,
       claude: claude.ok ? claude.stdout.trim().split('\n')[0] : null,
       codex: codex.ok ? codex.stdout.trim().split('\n')[0] : null,
       codexChatGPT: codexLogin.ok && /logged in using chatgpt/i.test(`${codexLogin.stdout}\n${codexLogin.stderr}`),
+      codexLoginDetail,
       ghAuth: auth.ok && !!auth.stdout.trim(),
       gitBash: this.gitBash,
       // rodar como root quebra a revisão autônoma INTEIRA, e não é opção de

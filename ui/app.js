@@ -3006,7 +3006,7 @@ function renderDoctor() {
     ...operationChecks(STATE.accounts),
     // nem que vai conseguir ABRIR a sessão: rodar como root faz toda revisão
     // autônoma morrer no spawn, com o resto da tela verde
-    ...runtimeChecks(STATE.doctor)
+    ...runtimeChecks(STATE.doctor, STATE.config)
   ];
   box.innerHTML = checks.map(c => `
     <div class="check ${c.ok ? 'ok' : 'bad'}${c.goto ? ' is-goto' : ''}"${c.goto ? ` data-goto="${esc(c.goto)}" role="button" tabindex="0" title="Abrir a configuração deste item"` : ''}>
@@ -3022,6 +3022,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.53.5', ['Correção de acabamento da primeira versão com Codex: quando há perfil Codex configurado, a Visão geral passa a mostrar `Codex CLI` e `Login Codex` separadamente.', 'O selo "SEM CODEX" deixou de esconder a causa: agora o tooltip mostra a primeira linha real de `codex login status`, então fica claro se o app não encontrou o CLI, se o login é por API key ou se falta login ChatGPT.']],
   ['2.53.4', ['O Farol passa a usar também a cota do plano ChatGPT pelo Codex CLI. Em Sistema > Plano e chaves, além de login Claude e chave de API, agora dá para criar um perfil Codex; ele não pede diretório nem chave e só roda quando `codex login status` confirma login pelo ChatGPT.', 'A alternância usa o mesmo seletor de perfil padrão e o mesmo override por conta GitHub: dá para deixar uma conta no Claude e outra no Codex, ou trocar o padrão quando quiser, sem sair do Farol.', 'Correções de segurança e compatibilidade: o Farol limpa OPENAI_API_KEY e CODEX_API_KEY antes desse caminho para não cair em cobrança por chave, e separa modelo/esforço por executor para não mandar opção de GPT ao Claude nem alias de Claude ao Codex.']],
   ['2.53.3', ['Rodar o Farol como root fazia toda revisão autônoma morrer no instante em que a sessão abria, e o app tratava isso como problema passageiro: relançava a mesma revisão a cada ciclo, pra sempre, sem dizer o motivo. O Claude Code recusa o modo sem prompts de permissão quando o usuário do sistema é root, e agora essa recusa é reconhecida pelo que é (só sai com alguém agindo), então a revisão estaciona na primeira vez.', 'O Diagnóstico passou a avisar antes de doer. Nessa situação os checks de ambiente ficavam todos verdes enquanto nada funcionava; Sistema > Visão geral ganhou a linha "Usuário do sistema" e o relatório copiável traz o mesmo aviso, com a saída: criar um usuário não-root e rodar o Farol por ele. É o caso de quem roda o motor num Android (Termux + proot), onde o login padrão é root.']],
   ['2.53.2', ['Conserto do recurso de Jira em quem instala o Farol pronto: o servidor MCP local do Jira (tools/jira-mcp.js) não viajava no pacote de distribuição, então revisar PR com site de Jira cadastrado mostrava o erro "Unable to find Electron app" em toda cópia instalada, embora funcionasse na máquina que roda do fonte. O arquivo entrou no pacote e um teste novo garante que todo arquivo de tools usado em runtime viaja junto.']],

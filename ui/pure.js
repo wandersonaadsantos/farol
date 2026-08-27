@@ -738,16 +738,37 @@ export function operationChecks(accounts) {
    de skipPermissions, que só alcança as sessões de terminal). O resultado era um
    "saiu com código 1" por ciclo, pra sempre, sem uma linha na tela dizendo por quê.
    Devolve lista (vazia quando não há o que dizer) pra compor com os outros checks. */
-export function runtimeChecks(doctor) {
+export function runtimeChecks(doctor, config = {}) {
   const d = doctor || {};
-  if (!d.root) return [];
-  return [{
-    // sem `goto` de propósito: não há tela do app que conserte isso, e clique que
-    // não leva a lugar nenhum é pior que texto puro (doutrina das menções navegáveis)
-    ok: false, label: 'Usuário do sistema',
-    detail: 'rodando como root (uid 0): o Claude Code recusa --dangerously-skip-permissions '
-      + 'nessa condição e toda revisão autônoma falha no spawn. Crie um usuário não-root e rode o Farol por ele'
-  }];
+  const perfis = Array.isArray(config.claudeProfiles) ? config.claudeProfiles : [];
+  const usaCodex = perfis.some(p => p && p.kind === 'codex');
+  const checks = [];
+  if (d.root) {
+    checks.push({
+      // sem `goto` de propósito: não há tela do app que conserte isso, e clique que
+      // não leva a lugar nenhum é pior que texto puro (doutrina das menções navegáveis)
+      ok: false, label: 'Usuário do sistema',
+      detail: 'rodando como root (uid 0): o Claude Code recusa --dangerously-skip-permissions '
+        + 'nessa condição e toda revisão autônoma falha no spawn. Crie um usuário não-root e rode o Farol por ele'
+    });
+  }
+  if (usaCodex) {
+    const temCli = !!d.codex;
+    let loginDetail = d.codexLoginDetail || '';
+    if (!loginDetail && temCli) loginDetail = 'rode codex login no terminal do sistema';
+    if (!loginDetail) loginDetail = 'instale o Codex CLI e rode codex login';
+    checks.push({
+      ok: temCli, label: 'Codex CLI',
+      goto: 'sys:plans:#claudeProfilesManager',
+      detail: temCli ? d.codex : 'codex não encontrado no PATH do processo do Farol'
+    });
+    checks.push({
+      ok: d.codexChatGPT === true, label: 'Login Codex',
+      goto: 'sys:plans:#claudeProfilesManager',
+      detail: d.codexChatGPT === true ? 'autenticado no plano ChatGPT' : loginDetail
+    });
+  }
+  return checks;
 }
 
 /* A célula da coluna "PR / sessão" do Consumo. DOIS destinos no mesmo lugar, e
@@ -1121,10 +1142,11 @@ export function claudeAuthBadge(id, ctx) {
   const budget = ((ctx.usage && ctx.usage.budgets) || []).find(b => b.id === (info.id || id)) || {};
   if (budget.blocked) return seloOrcamento(budget);
   if (info.codexMode) {
-    const ok = ctx.doctor && ctx.doctor.codexChatGPT;
+    const ok = ctx.doctor && ctx.doctor.codexChatGPT === true;
+    const detail = (ctx.doctor && ctx.doctor.codexLoginDetail) || 'rode codex login e confirme codex login status';
     return ok
       ? '<span class="a-claude ok" title="Codex CLI autenticado no plano ChatGPT">Codex ChatGPT</span>'
-      : '<span class="a-claude bad" title="rode codex login e confirme codex login status">SEM CODEX</span>';
+      : `<span class="a-claude bad" title="${esc(detail)}">SEM CODEX</span>`;
   }
   if (info.apiKeyMode) return `<span class="a-claude ok" title="Autenticação por chave de API">🔑 chave configurada</span>`;
   if (info.ready === false) return `<span class="a-claude bad" title="rode claude login nesse diretório">SEM LOGIN</span>`;

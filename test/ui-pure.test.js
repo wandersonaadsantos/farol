@@ -2340,6 +2340,32 @@ test('claudeAuthBadge: acha o perfil, cai no padrão da máquina, e some sem dad
   assert.equal(P.claudeAuthBadge('p1', { doctor: {} }), '', 'sem doctor não inventa selo');
 });
 
+test('claudeAuthBadge: perfil Codex mostra a causa real quando o login ChatGPT nao confirmou', () => {
+  const ctx = {
+    ...CTX_SIS,
+    doctor: {
+      codexChatGPT: false,
+      codexLoginDetail: 'Logged in using API key',
+      claudeAuth: [{ id: 'codex', label: 'Codex', codexMode: true, ready: true }]
+    }
+  };
+  const html = P.claudeAuthBadge('codex', ctx);
+  assert.match(html, /SEM CODEX/);
+  assert.match(html, /Logged in using API key/);
+});
+
+test('claudeAuthBadge: perfil Codex confirma ChatGPT quando o doctor confirma', () => {
+  const ctx = {
+    ...CTX_SIS,
+    doctor: {
+      codexChatGPT: true,
+      codexLoginDetail: 'Logged in using ChatGPT',
+      claudeAuth: [{ id: 'codex', label: 'Codex', codexMode: true, ready: true }]
+    }
+  };
+  assert.match(P.claudeAuthBadge('codex', ctx), /Codex ChatGPT/);
+});
+
 test('painel Sistema: os três construtores desenham com ctx cheio e com ctx vazio', () => {
   const vazio = { config: {}, usage: {}, doctor: {}, accounts: [], acct: {}, ehWin: false };
   for (const ctx of [CTX_SIS, vazio]) {
@@ -2646,4 +2672,25 @@ test('runtimeChecks: sem root não inventa linha (Windows nem tem uid)', () => {
   assert.deepEqual(P.runtimeChecks({}), []);
   assert.deepEqual(P.runtimeChecks(null), [], 'doctor ainda não carregado não pode derrubar a tela');
   assert.deepEqual(P.runtimeChecks(undefined), []);
+});
+
+test('runtimeChecks: perfil Codex aparece na Visao geral com CLI e login separados', () => {
+  const checks = P.runtimeChecks(
+    { root: false, codex: 'codex-cli 0.150.0', codexChatGPT: true, codexLoginDetail: 'Logged in using ChatGPT' },
+    { claudeProfiles: [{ id: 'codex', label: 'Codex', kind: 'codex' }] }
+  );
+  assert.equal(checks.length, 2);
+  assert.deepEqual(checks.map(c => [c.label, c.ok]), [['Codex CLI', true], ['Login Codex', true]]);
+  assert.ok(checks.every(c => c.goto === 'sys:plans:#claudeProfilesManager'));
+});
+
+test('runtimeChecks: perfil Codex denuncia quando o app nao acha o codex do terminal', () => {
+  const checks = P.runtimeChecks(
+    { root: false, codex: null, codexChatGPT: false, codexLoginDetail: 'codex login status falhou (código 1)' },
+    { claudeProfiles: [{ id: 'codex', label: 'Codex', kind: 'codex' }] }
+  );
+  assert.equal(checks[0].ok, false);
+  assert.match(checks[0].detail, /PATH/);
+  assert.equal(checks[1].ok, false);
+  assert.match(checks[1].detail, /codex login status falhou/);
 });

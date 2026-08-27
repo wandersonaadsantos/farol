@@ -9,6 +9,21 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.53.5
+
+Correção de acabamento da primeira versão com Codex: a tela agora mostra o
+estado real do Codex onde ele importa.
+
+**Correções**
+- **Visão geral contempla Codex.** Quando há perfil Codex configurado, a Visão
+  geral passa a mostrar duas linhas próprias: `Codex CLI` e `Login Codex`.
+  Assim fica claro se o app não encontrou o binário no PATH ou se o login não é
+  do plano ChatGPT.
+- **"SEM CODEX" deixou de esconder a causa.** O selo do perfil Codex agora usa
+  a saída real de `codex login status` no tooltip. Se o terminal diz uma coisa
+  e o Farol diz outra, a diferença fica diagnosticável em vez de virar só um
+  badge vermelho genérico.
+
 ## v2.53.4
 
 O Farol passa a usar também a cota do plano ChatGPT pelo Codex CLI, para quem
