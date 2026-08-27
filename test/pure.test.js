@@ -11,6 +11,9 @@ import assert from 'node:assert/strict';
 const farol = (await import('../server.js')).default;
 const { modelLabel, isPermanentBranch, parseAccounts, parseProjectReviewers, parseDefaultReviewers,
   normalizeClaudeProfiles, sanitizeClaudeDir, applyClaudeAuthEnv, claudeAuthShellLines } = farol;
+const {
+  OPENROUTER_DEFAULT_BASE, sanitizeModel, sanitizeClaudeModel, claudeAuthPosixPrefix,
+} = await import('../lib/parse.js');
 
 test('modelLabel: família + versão pontuada', () => {
   assert.equal(modelLabel('claude-opus-4-8'), 'Opus 4.8');
@@ -268,14 +271,51 @@ test('applyClaudeAuthEnv: kind dir sem dir não seta nada', () => {
   assert.deepEqual(env, {});
 });
 
-test('applyClaudeAuthEnv: kind apikey seta ANTHROPIC_API_KEY (+ BASE_URL se houver)', () => {
-  const env1 = {};
-  applyClaudeAuthEnv(env1, { kind: 'apikey', apiKey: 'sk-ant-123', baseUrl: '' });
-  assert.deepEqual(env1, { ANTHROPIC_API_KEY: 'sk-ant-123' });
+test('applyClaudeAuthEnv: kind openrouter usa AUTH_TOKEN + API_KEY vazia + base OpenRouter', () => {
+  const env = {};
+  applyClaudeAuthEnv(env, { kind: 'openrouter', apiKey: 'sk-or-abc', baseUrl: '' });
+  assert.equal(env.ANTHROPIC_AUTH_TOKEN, 'sk-or-abc');
+  assert.equal(env.ANTHROPIC_API_KEY, '');
+  assert.equal(env.ANTHROPIC_BASE_URL, OPENROUTER_DEFAULT_BASE);
+  assert.equal(Object.prototype.hasOwnProperty.call(env, 'ANTHROPIC_API_KEY'), true,
+    'API_KEY tem que existir como string vazia, não ausente');
+});
 
-  const env2 = {};
-  applyClaudeAuthEnv(env2, { kind: 'apikey', apiKey: 'sk-ant-123', baseUrl: 'https://proxy.x' });
-  assert.deepEqual(env2, { ANTHROPIC_API_KEY: 'sk-ant-123', ANTHROPIC_BASE_URL: 'https://proxy.x' });
+test('applyClaudeAuthEnv: openrouter com baseUrl própria a respeita', () => {
+  const env = {};
+  applyClaudeAuthEnv(env, { kind: 'openrouter', apiKey: 'sk-or-abc', baseUrl: 'https://openrouter.ai/api' });
+  assert.equal(env.ANTHROPIC_BASE_URL, 'https://openrouter.ai/api');
+});
+
+test('claudeAuthShellLines: kind openrouter exporta AUTH_TOKEN e API_KEY vazia', () => {
+  const lines = claudeAuthShellLines(
+    { kind: 'openrouter', apiKey: 'sk-or-abc', baseUrl: OPENROUTER_DEFAULT_BASE },
+    false,
+  );
+  assert.ok(lines.some(l => l.includes("ANTHROPIC_AUTH_TOKEN='sk-or-abc'")));
+  assert.ok(lines.some(l => l === 'export ANTHROPIC_API_KEY='));
+  assert.ok(lines.some(l => l.includes(`ANTHROPIC_BASE_URL='${OPENROUTER_DEFAULT_BASE}'`)));
+});
+
+test('claudeAuthPosixPrefix: openrouter não põe a chave na cmdline', () => {
+  assert.equal(claudeAuthPosixPrefix({ kind: 'openrouter', apiKey: 'sk-or-abc' }), '');
+});
+
+test('normalizeClaudeProfiles: kind openrouter preenche baseUrl padrão e exige chave', () => {
+  const out = normalizeClaudeProfiles([
+    { id: 'or1', label: 'OR', kind: 'openrouter', apiKey: 'sk-or-1' },
+    { id: 'or2', label: 'Sem chave', kind: 'openrouter', apiKey: '' },
+    { id: 'or3', label: 'Base custom', kind: 'openrouter', apiKey: 'sk-or-2', baseUrl: 'https://openrouter.ai/api' },
+  ]);
+  assert.equal(out.length, 2);
+  assert.equal(out[0].kind, 'openrouter');
+  assert.equal(out[0].baseUrl, OPENROUTER_DEFAULT_BASE);
+  assert.equal(out[1].baseUrl, 'https://openrouter.ai/api');
+});
+
+test('sanitizeClaudeModel: auto é aceito em sanitizeModel mas não vira flag do Claude', () => {
+  assert.equal(sanitizeModel('auto'), 'auto');
+  assert.equal(sanitizeClaudeModel('auto'), '');
 });
 
 test('applyClaudeAuthEnv: limpa CLAUDE_CONFIG_DIR/ANTHROPIC_* residuais do objeto recebido (achado crítico de vazamento de ambiente)', () => {

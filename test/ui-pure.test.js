@@ -2399,11 +2399,38 @@ test('claudeProfilesHtml: perfil de chave de API mostra os campos de teto', () =
   assert.match(html, /value="10"/, 'o teto salvo aparece preenchido');
 });
 
+test('claudeProfilesHtml: perfil OpenRouter mostra campos de chave e hint do Skin', () => {
+  const ctx = {
+    ...CTX_SIS,
+    config: {
+      claudeProfiles: [{
+        id: 'or', label: 'OR', kind: 'openrouter', apiKey: 'sk-or-1',
+        baseUrl: 'https://openrouter.ai/api',
+      }],
+      claudeProfileId: 'or',
+    },
+    doctor: { claudeAuth: [{ id: 'or', label: 'OR', openrouterMode: true, ready: true }] },
+  };
+  const html = P.claudeProfilesHtml(ctx);
+  assert.match(html, /OpenRouter/);
+  assert.match(html, /data-kind="openrouter"/);
+  assert.doesNotMatch(html, /cp-login" data-id="or"/, 'OpenRouter não oferece login OAuth');
+  assert.match(html, /Anthropic Skin/);
+});
+
+test('claudeAuthBadge: perfil OpenRouter pronto', () => {
+  const ctx = {
+    ...CTX_SIS,
+    doctor: { claudeAuth: [{ id: 'or', label: 'OR', openrouterMode: true, ready: true }] },
+  };
+  assert.match(P.claudeAuthBadge('or', ctx), /OpenRouter/);
+});
+
 test('claudeProfilesHtml: perfil Codex tambem oferece abrir sessao de login', () => {
   const ctx = {
     ...CTX_SIS,
     config: { claudeProfiles: [{ id: 'codex', label: 'Codex', kind: 'codex' }], claudeProfileId: 'codex' },
-    doctor: { codexChatGPT: false, claudeAuth: [{ id: 'codex', label: 'Codex', codexMode: true, ready: true }] }
+    doctor: { codexChatGPT: false, claudeAuth: [{ id: 'codex', label: 'Codex', codexMode: true, ready: true }] },
   };
   const html = P.claudeProfilesHtml(ctx);
   assert.match(html, /class="btn sm cp-login" data-id="codex"/);

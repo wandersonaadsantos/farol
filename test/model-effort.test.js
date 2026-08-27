@@ -11,7 +11,7 @@ process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-model-' + process.pi
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-const { sanitizeModel, sanitizeEffort, effortForModel, MODEL_ALIASES, EFFORT_LEVELS } = await import('../lib/parse.js');
+const { sanitizeModel, sanitizeEffort, effortForModel, MODEL_ALIASES, EFFORT_LEVELS, sanitizeClaudeModel } = await import('../lib/parse.js');
 const { buildModelFlags } = await import('../lib/engine/session.js');
 const { modelLabel } = await import('../lib/format.js');
 
@@ -34,7 +34,11 @@ test('sanitizeModel: alias fora da lista é rejeitado', () => {
   assert.equal(sanitizeModel('opusplan'), null);
   // default: indistinguível de '' porque o Farol nunca seta ANTHROPIC_MODEL
   assert.equal(sanitizeModel('default'), null);
-  assert.equal(sanitizeModel('auto'), null);
+});
+
+test('sanitizeModel: auto é alias do Farol (roteador), não do CLI', () => {
+  assert.equal(sanitizeModel('auto'), 'auto');
+  assert.equal(sanitizeClaudeModel('auto'), '', 'nunca vira --model auto');
 });
 
 test('sanitizeModel: rejeita metacaractere de shell (injeção)', () => {
@@ -190,10 +194,24 @@ test('modelLabel: não confunde data com versão', () => {
   assert.equal(modelLabel('claude-haiku-4-5-20251001'), 'Haiku 4.5');
 });
 
-test('modelLabel: vazio e família desconhecida', () => {
-  assert.equal(modelLabel(''), '');
-  assert.equal(modelLabel(null), '');
-  assert.equal(modelLabel('gpt-4o'), 'gpt-4o');
+test('buildModelFlags: auto na config NÃO vira --model auto (CLI mataria a sessão)', () => {
+  assert.equal(buildModelFlags({ reviewModel: 'auto', reviewEffort: 'high' }), ' --effort high');
+});
+
+test('buildModelFlags: override do roteador vence a config auto', () => {
+  assert.equal(
+    buildModelFlags({ reviewModel: 'auto' }, { model: 'haiku', effort: '', fast: true }),
+    ' --model haiku',
+  );
+  assert.equal(
+    buildModelFlags({ reviewModel: 'auto' }, { model: 'sonnet', effort: 'high' }),
+    ' --model sonnet --effort high',
+  );
+});
+
+test('modelLabel: auto tem rótulo humano', () => {
+  assert.equal(modelLabel('auto'), 'Auto (custo-benefício)');
+  assert.equal(modelLabel('AUTO'), 'Auto (custo-benefício)');
 });
 
 /* ---------- modo rápido: o esforço cai na LINHA DE COMANDO, não só no prompt ----------

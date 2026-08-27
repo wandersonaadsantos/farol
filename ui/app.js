@@ -786,12 +786,24 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
   if (seg) {
     $('#cpAddKind').querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b === seg));
     const isApiKey = seg.dataset.kind === 'apikey';
+    const isOpenRouter = seg.dataset.kind === 'openrouter';
     const isCodex = seg.dataset.kind === 'codex';
-    $('#cpAddDir').hidden = isApiKey || isCodex;
-    $('#cpAddApiKey').hidden = !isApiKey;
-    $('#cpAddBaseUrl').hidden = !isApiKey;
+    const usaChave = isApiKey || isOpenRouter;
+    $('#cpAddDir').hidden = usaChave || isCodex;
+    $('#cpAddApiKey').hidden = !usaChave;
+    $('#cpAddBaseUrl').hidden = !usaChave;
     $('#cpAddHint').hidden = !isApiKey;
+    const orHint = $('#cpAddOpenRouterHint');
+    if (orHint) orHint.hidden = !isOpenRouter;
     $('#cpAddCodexHint').hidden = !isCodex;
+    if (isOpenRouter) {
+      $('#cpAddApiKey').placeholder = 'chave OpenRouter (sk-or-...)';
+      $('#cpAddBaseUrl').placeholder = 'https://openrouter.ai/api';
+      $('#cpAddBaseUrl').value = $('#cpAddBaseUrl').value || 'https://openrouter.ai/api';
+    } else if (isApiKey) {
+      $('#cpAddApiKey').placeholder = 'chave de API';
+      $('#cpAddBaseUrl').placeholder = 'URL base (opcional)';
+    }
     return;
   }
   // mostrar/ocultar a chave de um perfil já salvo (não é validação nem salvamento, só
@@ -805,6 +817,7 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
     const label = ($('#cpAddLabel').value || '').trim();
     const kindBtn = $('#cpAddKind .seg-btn.active');
     const isApiKey = kindBtn && kindBtn.dataset.kind === 'apikey';
+    const isOpenRouter = kindBtn && kindBtn.dataset.kind === 'openrouter';
     const isCodex = kindBtn && kindBtn.dataset.kind === 'codex';
     if (isCodex) {
       if (!label) return toast('error', 'Preencha o nome do perfil.', 3000);
@@ -813,14 +826,15 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
       saveClaudeProfiles(profiles);
       return;
     }
-    if (isApiKey) {
+    if (isApiKey || isOpenRouter) {
       const apiKey = ($('#cpAddApiKey').value || '').trim();
       const baseUrl = ($('#cpAddBaseUrl').value || '').trim();
       if (!label || !apiKey) return toast('error', 'Preencha nome e chave.', 3000);
       if (/["\r\n]/.test(apiKey.replace(/^"(.*)"$/s, '$1').trim()) || /["\r\n]/.test(baseUrl.replace(/^"(.*)"$/s, '$1').trim())) {
         return toast('error', 'Chave ou URL base com aspas ou quebra de linha no meio (não em volta) não pode ser usada.', 4500);
       }
-      const profiles = [...(STATE.config.claudeProfiles || []), { id: genProfileId(), label, kind: 'apikey', apiKey, baseUrl }];
+      const kind = isOpenRouter ? 'openrouter' : 'apikey';
+      const profiles = [...(STATE.config.claudeProfiles || []), { id: genProfileId(), label, kind, apiKey, baseUrl }];
       $('#cpAddLabel').value = ''; $('#cpAddApiKey').value = ''; $('#cpAddBaseUrl').value = '';
       saveClaudeProfiles(profiles);
       return;
@@ -1276,7 +1290,7 @@ const SYS_INDEX = [
   { sec: 'automation', at: '#sys-row-autoreview', title: 'Revisar automaticamente quando chegar PR', hint: 'auto review, revisão na hora, fila' },
   { sec: 'automation', at: '#sys-row-autoapprove', title: 'Aprovar sozinho os aprováveis com ressalvas', hint: 'auto approve, ressalva, aprovação' },
   { sec: 'automation', at: '#sys-row-pushback', title: 'Detectar pushback automaticamente', hint: 'contestação, autor, desfecho' },
-  { sec: 'automation', at: '#sys-row-modelo', title: 'Modelo das revisões automáticas', hint: 'opus, sonnet, haiku, fable, best, modelo, limite do plano' },
+  { sec: 'automation', at: '#sys-row-modelo', title: 'Modelo das revisões automáticas', hint: 'opus, sonnet, haiku, fable, best, auto, modelo, limite do plano, openrouter' },
   { sec: 'automation', at: '#sys-row-paralelas', title: 'Revisões paralelas por conta', hint: 'paralelo, simultâneo, série, fila, velocidade' },
   { sec: 'automation', at: '#sys-row-esforco', title: 'Esforço de raciocínio', hint: 'effort, pensar, raciocínio, alto, baixo, xhigh' },
   { sec: 'automation', at: '#sys-row-intervalo', title: 'Intervalo de checagem', hint: 'polling, minutos, frequência' },
@@ -3373,11 +3387,16 @@ function renderEffort(c) {
   if (alvo) alvo.checked = true;
   // o Haiku não aceita nível de esforço (ver effortForModel em lib/parse.js): desliga os
   // cartões e explica, em vez de deixar escolher algo que o engine vai descartar
-  const semEsforco = String(c.reviewModel || '') === 'haiku';
+  const semEsforco = String(c.reviewModel || '') === 'haiku' || String(c.reviewModel || '') === 'auto';
   box.classList.toggle('disabled', semEsforco);
-  $('#effortHint').textContent = semEsforco
-    ? 'O Haiku não aceita nível de esforço, então o Farol não passa a flag enquanto ele estiver escolhido.'
-    : 'Quanto o Claude pensa antes de responder nas sessões autônomas. Mais esforço acha mais coisa e gasta mais do teu limite. A sessão no terminal não é afetada.';
+  const modelo = String(c.reviewModel || '');
+  let hint = 'Quanto o Claude pensa antes de responder nas sessões autônomas. Mais esforço acha mais coisa e gasta mais do teu limite. A sessão no terminal não é afetada.';
+  if (modelo === 'haiku') {
+    hint = 'O Haiku não aceita nível de esforço, então o Farol não passa a flag enquanto ele estiver escolhido.';
+  } else if (modelo === 'auto') {
+    hint = 'No modo Auto o Farol escolhe modelo e esforço pelo tamanho do PR; o nível fixo desta seção não entra.';
+  }
+  $('#effortHint').textContent = hint;
 }
 
 function renderSettings() {

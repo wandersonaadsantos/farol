@@ -413,11 +413,12 @@
             <div class="set-row" id="sys-row-modelo">
               <div class="set-txt">
                 <label class="set-title" for="setReviewModel">Modelo das revisões automáticas</label>
-                <p class="set-desc">Modelo das sessões autônomas (revisão, pushback, autoanálise, ferramentas). O padrão herda a tua assinatura; troque pra Sonnet ou Haiku se quiser poupar o teto do plano. A sessão no terminal não é afetada.</p>
+                <p class="set-desc">Modelo das sessões autônomas (revisão, pushback, autoanálise, ferramentas). O padrão herda a tua assinatura. Auto (custo-benefício) escolhe Haiku ou Sonnet pelo tamanho do PR, só na revisão headless. A sessão no terminal não é afetada.</p>
               </div>
               <div class="set-ctl">
                 <select id="setReviewModel">
                   <option value="">Padrão do Claude (herda a tua assinatura)</option>
+                  <option value="auto">Auto (custo-benefício: Haiku/Sonnet pelo tamanho do PR)</option>
                   <option value="best">Melhor disponível (o Claude escolhe o topo da conta)</option>
                   <option value="opus">Opus (qualidade máxima, gasta mais do limite)</option>
                   <option value="sonnet">Sonnet (equilíbrio: bom e bem mais leve)</option>

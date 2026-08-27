@@ -95,6 +95,39 @@ test('resolveClaudeAuth: padrão global apikey, conta sem override', () => {
   assert.deepEqual(engine.resolveClaudeAuth('carol'), { kind: 'apikey', id: 'chave', apiKey: 'sk-ant-456', baseUrl: 'https://proxy.x' });
 });
 
+test('resolveClaudeAuth: perfil OpenRouter resolve AUTH via kind openrouter', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [{
+    id: 'or', label: 'OR', kind: 'openrouter', apiKey: 'sk-or-1', baseUrl: 'https://openrouter.ai/api',
+  }];
+  engine.config.claudeProfileId = 'or';
+  assert.deepEqual(engine.resolveClaudeAuth('alice'), {
+    kind: 'openrouter', id: 'or', apiKey: 'sk-or-1', baseUrl: 'https://openrouter.ai/api',
+  });
+  assert.equal(engine.resolveClaudeConfigDir('alice'), '');
+});
+
+test('openClaudeLoginSession: perfil OpenRouter não abre login (chave já é a credencial)', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [{
+    id: 'or', label: 'OR', kind: 'openrouter', apiKey: 'sk-or-1', baseUrl: 'https://openrouter.ai/api',
+  }];
+  const r = engine.openClaudeLoginSession('or');
+  assert.equal(r.ok, false);
+  assert.match(r.error, /chave/i);
+});
+
+test('allClaudeAuthInfo: perfil openrouter reporta openrouterMode', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [{
+    id: 'or', label: 'OR', kind: 'openrouter', apiKey: 'sk-or-1', baseUrl: 'https://openrouter.ai/api',
+  }];
+  const entry = engine.allClaudeAuthInfo().find(x => x.id === 'or');
+  assert.equal(entry.openrouterMode, true);
+  assert.equal(entry.ready, true);
+  assert.equal(entry.apiKeyMode, undefined);
+});
+
 test('resolveClaudeAuth: perfil Codex da conta vence o padrão global Claude', () => {
   const engine = new Engine();
   engine.config.claudeProfiles = [
