@@ -12,7 +12,8 @@ const farol = (await import('../server.js')).default;
 const { modelLabel, isPermanentBranch, parseAccounts, parseProjectReviewers, parseDefaultReviewers,
   normalizeClaudeProfiles, sanitizeClaudeDir, applyClaudeAuthEnv, claudeAuthShellLines } = farol;
 const {
-  OPENROUTER_DEFAULT_BASE, sanitizeModel, sanitizeClaudeModel, claudeAuthPosixPrefix,
+  OPENROUTER_DEFAULT_BASE, OPENROUTER_SECRET_ENV,
+  sanitizeModel, sanitizeClaudeModel, claudeAuthPosixPrefix,
 } = await import('../lib/parse.js');
 
 test('modelLabel: família + versão pontuada', () => {
@@ -277,6 +278,7 @@ test('applyClaudeAuthEnv: kind openrouter usa AUTH_TOKEN + API_KEY vazia + base 
   assert.equal(env.ANTHROPIC_AUTH_TOKEN, 'sk-or-abc');
   assert.equal(env.ANTHROPIC_API_KEY, '');
   assert.equal(env.ANTHROPIC_BASE_URL, OPENROUTER_DEFAULT_BASE);
+  assert.equal(env[OPENROUTER_SECRET_ENV], 'sk-or-abc');
   assert.equal(Object.prototype.hasOwnProperty.call(env, 'ANTHROPIC_API_KEY'), true,
     'API_KEY tem que existir como string vazia, não ausente');
 });
@@ -297,8 +299,14 @@ test('claudeAuthShellLines: kind openrouter exporta AUTH_TOKEN e API_KEY vazia',
   assert.ok(lines.some(l => l.includes(`ANTHROPIC_BASE_URL='${OPENROUTER_DEFAULT_BASE}'`)));
 });
 
-test('claudeAuthPosixPrefix: openrouter não põe a chave na cmdline', () => {
-  assert.equal(claudeAuthPosixPrefix({ kind: 'openrouter', apiKey: 'sk-or-abc' }), '');
+test('claudeAuthPosixPrefix: openrouter restaura o env depois do profile sem pôr a chave na cmdline', () => {
+  const prefixo = claudeAuthPosixPrefix({ kind: 'openrouter', apiKey: 'sk-or-abc' });
+  assert.match(prefixo, /^unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL CLAUDE_CONFIG_DIR;/);
+  assert.match(prefixo, /export ANTHROPIC_AUTH_TOKEN="\$FAROL_OPENROUTER_AUTH_TOKEN"/);
+  assert.match(prefixo, /unset FAROL_OPENROUTER_AUTH_TOKEN/);
+  assert.match(prefixo, /export ANTHROPIC_API_KEY=/);
+  assert.match(prefixo, /export ANTHROPIC_BASE_URL='https:\/\/openrouter\.ai\/api'/);
+  assert.doesNotMatch(prefixo, /sk-or-abc/, 'o segredo não entra em ps nem spawns.log');
 });
 
 test('normalizeClaudeProfiles: kind openrouter preenche baseUrl padrão e exige chave', () => {

@@ -34,7 +34,7 @@ childProcess.spawn = function mockableSpawn(...args) {
 const { runClaudeStream, buildSessionScriptMac, buildLoginScriptMac, killTree } = await import('../lib/engine/session.js');
 const { claudeAuthShellLines, claudeAuthPosixPrefix } = await import('../lib/parse.js');
 const { WORKSPACE, IS_WIN } = await import('../lib/paths.js');
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 
 after(() => {
   childProcess.spawn = realSpawn;
@@ -217,7 +217,7 @@ try {
   bashDisponivel = false;
 }
 
-function rodaComProfileSujo(prefixo) {
+function rodaComProfileSujo(prefixo, extraEnv = {}) {
   const base = path.join(os.tmpdir(), 'farol-test-prefixo-' + process.pid).replace(/\\/g, '/');
   const profile = `${base}-profile.sh`;
   const script = `${base}-run.sh`;
@@ -230,7 +230,7 @@ function rodaComProfileSujo(prefixo) {
   // `. profile` é o que o -l faz por dentro; o prefixo vem DEPOIS, como na linha real
   fs.writeFileSync(script, `#!/bin/bash\n. '${profile}'\n${prefixo}echo "[$ANTHROPIC_API_KEY|$ANTHROPIC_AUTH_TOKEN|$ANTHROPIC_BASE_URL|$CLAUDE_CONFIG_DIR]"\n`);
   try {
-    return execSync(`bash "${script}"`).toString().trim();
+    return execFileSync('bash', [script], { env: { ...process.env, ...extraEnv } }).toString().trim();
   } finally {
     for (const f of [profile, script]) { try { fs.unlinkSync(f); } catch { /* best-effort */ } }
   }
@@ -242,6 +242,14 @@ test('prefixo posix: profile sujo perde pro perfil resolvido (execução real co
 
   const semDir = rodaComProfileSujo(claudeAuthPosixPrefix({ kind: 'dir', dir: '' }));
   assert.equal(semDir, '[|||]', 'padrão da máquina: nenhuma var de auth sobrevive ao prefixo');
+});
+
+test('prefixo posix: OpenRouter vence profile sujo sem expor a chave na linha', { skip: bashDisponivel ? false : 'bash não encontrado no PATH' }, () => {
+  const auth = { kind: 'openrouter', apiKey: 'sk-or-resolvida', baseUrl: 'https://openrouter.ai/api' };
+  const prefixo = claudeAuthPosixPrefix(auth);
+  assert.doesNotMatch(prefixo, /sk-or-resolvida/);
+  const saida = rodaComProfileSujo(prefixo, { FAROL_OPENROUTER_AUTH_TOKEN: auth.apiKey });
+  assert.equal(saida, '[|sk-or-resolvida|https://openrouter.ai/api|]');
 });
 
 test('prefixo posix: aspa simples no dir não injeta comando (execução real com bash)', { skip: bashDisponivel ? false : 'bash não encontrado no PATH' }, () => {

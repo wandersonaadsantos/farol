@@ -202,8 +202,8 @@ test('modelLabel: não confunde data com versão', () => {
   assert.equal(modelLabel('claude-haiku-4-5-20251001'), 'Haiku 4.5');
 });
 
-test('buildModelFlags: auto na config NÃO vira --model auto (CLI mataria a sessão)', () => {
-  assert.equal(buildModelFlags({ reviewModel: 'auto', reviewEffort: 'high' }), ' --effort high');
+test('buildModelFlags: auto fora do roteador não vira flag de modelo nem de esforço', () => {
+  assert.equal(buildModelFlags({ reviewModel: 'auto', reviewEffort: 'high' }), '');
 });
 
 test('buildModelFlags: override do roteador vence a config auto', () => {
