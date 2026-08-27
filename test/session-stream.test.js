@@ -222,7 +222,10 @@ test('runClaudeStream: perfil Codex confirma ChatGPT, limpa API key e registra t
   };
   const chamadasUso = [];
   const engine = engineFalso();
-  engine.config = { reviewModel: 'gpt-5.5', reviewEffort: 'high' };
+  engine.config = {
+    reviewModel: 'opus', reviewEffort: 'low',
+    codexReviewModel: 'gpt-5.6-terra', codexReviewEffort: 'high',
+  };
   engine.ghEnv = () => ({ PATH: process.env.PATH, OPENAI_API_KEY: 'nao-usar', CODEX_API_KEY: 'nao-usar' });
   engine.resolveClaudeAuth = () => ({ kind: 'codex', id: 'codex-oss' });
   engine.recordUsage = (id, account, resultEvent, model, profileId, ref) => {
@@ -248,10 +251,11 @@ test('runClaudeStream: perfil Codex confirma ChatGPT, limpa API key e registra t
   assert.deepEqual(chamadasSpawn[0].args, ['login', 'status']);
   assert.equal(chamadasSpawn[0].opcoes.env.OPENAI_API_KEY, undefined);
   assert.equal(chamadasSpawn[1].args.includes('--model'), true);
-  assert.equal(chamadasSpawn[1].args[chamadasSpawn[1].args.indexOf('--model') + 1], 'gpt-5.5');
+  assert.equal(chamadasSpawn[1].args[chamadasSpawn[1].args.indexOf('--model') + 1], 'gpt-5.6-terra');
   assert.equal(chamadasSpawn[1].opcoes.env.CODEX_API_KEY, undefined);
   assert.equal(chamadasUso.length, 1);
   assert.equal(chamadasUso[0].profileId, 'codex-oss');
+  assert.equal(chamadasUso[0].model, 'gpt-5.6-terra', 'Consumo registra o modelo enviado ao Codex, nunca o alias Claude');
   assert.equal(chamadasUso[0].resultEvent.usage.input_tokens, 12);
   assert.equal(chamadasUso[0].resultEvent.total_cost_usd, 0);
 });

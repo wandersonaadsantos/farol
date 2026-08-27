@@ -385,7 +385,7 @@
             <label class="set-row" id="sys-row-reviewfast">
               <span class="set-txt">
                 <span class="set-title">Modo rápido da revisão</span>
-                <span class="set-desc">Corta o tempo da revisão automática: leitura orientada ao diff (abre o arquivo inteiro só quando o trecho não se explica sozinho), verificação empírica só do que muda a decisão, e o esforço de raciocínio da sessão cai pra <b>medium</b> (salvo se você escolheu low ali em cima, que fica). Verificação que exigiria experimento longo vira decisão sua, com o motivo registrado. Nenhum gate afrouxa: a troca é velocidade por profundidade e autonomia, então mais PRs podem cair na sua mesa. A cobertura da leitura continua completa. Só vale pra revisão; chat, autoanálise e ferramentas seguem no esforço configurado.</span>
+                <span class="set-desc">Corta o tempo da revisão automática: leitura orientada ao diff (abre o arquivo inteiro só quando o trecho não se explica sozinho), verificação empírica só do que muda a decisão, e o esforço de raciocínio da sessão cai pra <b>medium</b> (minimal ou low explícito continua valendo). Verificação que exigiria experimento longo vira decisão sua, com o motivo registrado. Nenhum gate afrouxa: a troca é velocidade por profundidade e autonomia, então mais PRs podem cair na sua mesa. A cobertura da leitura continua completa. Só vale pra revisão; chat, autoanálise e ferramentas seguem no esforço configurado.</span>
               </span>
               <span class="set-ctl"><input id="setReviewFast" type="checkbox"><span class="switch"></span></span>
             </label>
@@ -406,23 +406,43 @@
             <label class="set-row" id="sys-row-pushback">
               <span class="set-txt">
                 <span class="set-title">Detectar pushback automaticamente</span>
-                <span class="set-desc">Roda 1 sessão do Claude por PR que o autor contestar, pra classificar o desfecho. Vem <b>ligado</b>; desligue se um dia quiser poupar o teu limite. A marcação manual (em Revisões recentes) funciona sempre.</span>
+                <span class="set-desc">Roda 1 sessão do provedor de IA associado à conta por PR que o autor contestar, pra classificar o desfecho. Vem <b>ligado</b>; desligue se um dia quiser poupar o teu limite. A marcação manual (em Revisões recentes) funciona sempre.</span>
               </span>
               <span class="set-ctl"><input id="setAutoPushback" type="checkbox"><span class="switch"></span></span>
             </label>
-            <div class="set-row" id="sys-row-modelo">
+            <div class="set-row" id="sys-row-provedor">
               <div class="set-txt">
-                <label class="set-title" for="setReviewModel">Modelo das revisões automáticas</label>
-                <p class="set-desc">Modelo das sessões autônomas (revisão, pushback, autoanálise, ferramentas). O padrão herda a tua assinatura; troque pra Sonnet ou Haiku se quiser poupar o teto do plano. A sessão no terminal não é afetada.</p>
+                <span class="set-title">Configuração do provedor</span>
+                <span class="set-desc">Edite separadamente o modelo e o raciocínio de cada CLI. Na execução, cada conta usa o perfil associado no painel Contas.</span>
               </div>
               <div class="set-ctl">
-                <select id="setReviewModel">
+                <div class="seg" id="setAutomationProvider" role="group" aria-label="Provedor que está sendo configurado">
+                  <button type="button" class="seg-btn active" data-provider="claude" aria-pressed="true">Claude Code</button>
+                  <button type="button" class="seg-btn" data-provider="codex" aria-pressed="false">Codex</button>
+                </div>
+              </div>
+            </div>
+            <div class="set-row" id="sys-row-modelo">
+              <div class="set-txt">
+                <span class="set-title">Modelo das sessões autônomas</span>
+                <p class="set-desc" id="reviewModelHint"></p>
+              </div>
+              <div class="set-ctl">
+                <select id="setReviewModel" aria-label="Modelo do Claude Code">
                   <option value="">Padrão do Claude (herda a tua assinatura)</option>
                   <option value="best">Melhor disponível (o Claude escolhe o topo da conta)</option>
                   <option value="opus">Opus (qualidade máxima, gasta mais do limite)</option>
                   <option value="sonnet">Sonnet (equilíbrio: bom e bem mais leve)</option>
                   <option value="haiku">Haiku (o mais leve, pra economizar)</option>
                   <option value="fable">Fable (raciocínio longo, sessão mais demorada)</option>
+                </select>
+                <select id="setCodexReviewModel" aria-label="Modelo do Codex" hidden>
+                  <option value="">Padrão do Codex (recomendado)</option>
+                  <option value="gpt-5.6-sol">GPT-5.6 Sol (máxima capacidade)</option>
+                  <option value="gpt-5.6-terra">GPT-5.6 Terra (equilíbrio)</option>
+                  <option value="gpt-5.6-luna">GPT-5.6 Luna (mais rápido e econômico)</option>
+                  <option value="gpt-5.5">GPT-5.5 (compatibilidade)</option>
+                  <option value="gpt-5.4">GPT-5.4 (compatibilidade)</option>
                 </select>
               </div>
             </div>
@@ -444,7 +464,7 @@
               <div class="set-txt wide">
                 <span class="set-title">Esforço de raciocínio</span>
                 <p class="set-desc" id="effortHint"></p>
-                <div class="effort-cards" id="setReviewEffort" role="radiogroup" aria-label="Esforço de raciocínio">
+                <div class="effort-cards" id="setReviewEffort" role="radiogroup" aria-label="Esforço de raciocínio do Claude Code">
                   <label class="effort-card">
                     <input type="radio" name="reviewEffort" value="">
                     <span class="ec-name">Padrão do Claude</span>
@@ -476,6 +496,44 @@
                     <span class="ec-value">raciocínio mais longo</span>
                     <span class="ec-cap">acha mais coisa e gasta bem mais</span>
                     <span class="ec-note">só os Opus, Sonnet e Fable recentes aceitam</span>
+                  </label>
+                </div>
+                <div class="effort-cards" id="setCodexReviewEffort" role="radiogroup" aria-label="Esforço de raciocínio do Codex" hidden>
+                  <label class="effort-card">
+                    <input type="radio" name="codexReviewEffort" value="">
+                    <span class="ec-name">Padrão do Codex</span>
+                    <span class="ec-value">o CLI decide pelo modelo</span>
+                    <span class="ec-cap">recomendado pra acompanhar a conta</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="codexReviewEffort" value="minimal">
+                    <span class="ec-name">Mínimo</span>
+                    <span class="ec-value">menor raciocínio</span>
+                    <span class="ec-cap">prioriza velocidade e cota</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="codexReviewEffort" value="low">
+                    <span class="ec-name">Baixo</span>
+                    <span class="ec-value">resposta mais rápida</span>
+                    <span class="ec-cap">bom pra PR pequeno e direto</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="codexReviewEffort" value="medium">
+                    <span class="ec-name">Médio</span>
+                    <span class="ec-value">equilíbrio</span>
+                    <span class="ec-cap">ponto de partida geral</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="codexReviewEffort" value="high">
+                    <span class="ec-name">Alto</span>
+                    <span class="ec-value">análise mais profunda</span>
+                    <span class="ec-cap">consome mais da cota</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="codexReviewEffort" value="xhigh">
+                    <span class="ec-name">Muito alto</span>
+                    <span class="ec-value">raciocínio mais longo</span>
+                    <span class="ec-cap">depende do modelo escolhido</span>
                   </label>
                 </div>
               </div>
@@ -673,7 +731,7 @@
           <div class="card about-card" id="aboutPrivacy">
             <h3 class="about-title">Privacidade</h3>
             <p>O Farol não coleta nem envia nenhum dado a quem o mantém. Não existe telemetria nem servidor do projeto: tudo o que o app registra fica na sua máquina, em <code>~/.farol</code> (log de falhas, consumo, decisões de review, configurações).</p>
-            <p>O tráfego de rede é todo em seu nome, com as suas credenciais: GitHub pelo seu <code>gh</code> e Anthropic pelo seu Claude Code. As automações que postam review são opt-in, e quem as liga responde pelo que é postado.</p>
+            <p>O tráfego de rede é todo em seu nome, com as suas credenciais: GitHub pelo seu <code>gh</code> e o provedor de IA pelo Claude Code ou Codex CLI configurado. As automações que postam review são opt-in, e quem as liga responde pelo que é postado.</p>
           </div>
           <div class="card about-card" id="aboutLicense">
             <h3 class="about-title">Licença</h3>

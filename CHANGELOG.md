@@ -9,6 +9,34 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.53.7
+
+Automação e consumo agora tratam Claude Code e Codex CLI como provedores
+independentes, sem misturar modelo, esforço ou orçamento em dólares.
+
+**Novidades**
+- **Modelo e raciocínio próprios do Codex.** Sistema → Automação ganhou um
+  seletor Claude Code/Codex. Cada lado preserva sua escolha, e o Codex oferece
+  os modelos GPT atuais e os esforços `minimal`, `low`, `medium`, `high` e
+  `xhigh` aceitos pelo CLI.
+- **Consumo Codex identificável.** As sessões autônomas do Codex entram nos
+  gráficos e na lista de sessões com os tokens, o tipo de operação e o modelo
+  realmente enviado. Quando o modelo fica no padrão do CLI, o Farol registra
+  `Codex (padrão)` em vez de atribuir incorretamente um modelo Claude.
+
+**Correções**
+- **Sem orçamento fictício em US$ para o plano ChatGPT.** O perfil Codex não
+  mostra nem aplica teto em dólares: o CLI informa tokens, mas não expõe saldo
+  da cota ou custo por sessão. A tela explica essa limitação e o orçamento de
+  Claude não bloqueia execuções Codex.
+- **Retomada de conversa no Codex.** O round 2 e o chat agora usam a sintaxe
+  real `codex exec resume`, preservando a sessão anterior quando ela existe.
+- **Migração sem quebra.** Instalações que já tinham um modelo GPT salvo na
+  configuração compartilhada migram automaticamente para as novas chaves do
+  Codex, mantendo as preferências de Claude separadas.
+- **Documentação por provedor.** README, privacidade e textos do app deixaram de
+  apresentar o Farol como exclusivamente Claude.
+
 ## v2.53.6
 
 O fluxo Codex agora tem a mesma ação direta de login que o Claude e o diagnóstico

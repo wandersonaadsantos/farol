@@ -1276,7 +1276,8 @@ const SYS_INDEX = [
   { sec: 'automation', at: '#sys-row-autoreview', title: 'Revisar automaticamente quando chegar PR', hint: 'auto review, revisão na hora, fila' },
   { sec: 'automation', at: '#sys-row-autoapprove', title: 'Aprovar sozinho os aprováveis com ressalvas', hint: 'auto approve, ressalva, aprovação' },
   { sec: 'automation', at: '#sys-row-pushback', title: 'Detectar pushback automaticamente', hint: 'contestação, autor, desfecho' },
-  { sec: 'automation', at: '#sys-row-modelo', title: 'Modelo das revisões automáticas', hint: 'opus, sonnet, haiku, fable, best, modelo, limite do plano' },
+  { sec: 'automation', at: '#sys-row-provedor', title: 'Configuração do provedor', hint: 'claude, codex, perfil, conta, provedor' },
+  { sec: 'automation', at: '#sys-row-modelo', title: 'Modelo das sessões autônomas', hint: 'opus, sonnet, haiku, fable, codex, gpt, sol, terra, luna, modelo, limite do plano' },
   { sec: 'automation', at: '#sys-row-paralelas', title: 'Revisões paralelas por conta', hint: 'paralelo, simultâneo, série, fila, velocidade' },
   { sec: 'automation', at: '#sys-row-esforco', title: 'Esforço de raciocínio', hint: 'effort, pensar, raciocínio, alto, baixo, xhigh' },
   { sec: 'automation', at: '#sys-row-intervalo', title: 'Intervalo de checagem', hint: 'polling, minutos, frequência' },
@@ -1284,7 +1285,7 @@ const SYS_INDEX = [
   { sec: 'connections', at: '#sys-row-ghuser', title: 'Conta do GitHub (trabalho)', hint: 'usuário, login, gh, conta primária' },
   { sec: 'connections', at: '#sys-row-orgs', title: 'Organizações monitoradas', hint: 'org, owners, panorama, repositórios' },
   { sec: 'connections', at: '#sys-row-mergeblocked', title: 'Repos bloqueados pra merge', hint: 'merge, bloqueio, repo, self merge' },
-  { sec: 'plans', at: '#claudeProfilesManager', title: 'Perfis de assinatura do Claude', hint: 'plano, assinatura, config dir, login, chave' },
+  { sec: 'plans', at: '#claudeProfilesManager', title: 'Perfis de IA e chaves', hint: 'claude, codex, chatgpt, plano, assinatura, config dir, login, chave' },
   { sec: 'reviewers', at: '#reviewersEditor', title: 'Reviewers por projeto', hint: 'revisor, time, padrão da org, exceção, repo' },
   { sec: 'prefs', at: '#sys-row-identity', title: 'Identidade nos cards', hint: 'barra, etiqueta, ponto, marcador' },
   { sec: 'prefs', at: '#sys-row-mutedview', title: 'Contas silenciadas', hint: 'recolher, esmaecer, ocultar, exibição' },
@@ -1918,7 +1919,7 @@ function renderStatus() {
   const sp = $('#sessionsPill');
   const term = (s.activeSessions || []).filter(x => x.mode === 'terminal').length;
   sp.hidden = term === 0;
-  if (!sp.hidden) sp.textContent = term === 1 ? '1 sessão do Claude no terminal' : `${term} sessões do Claude no terminal`;
+  if (!sp.hidden) sp.textContent = term === 1 ? '1 sessão de IA no terminal' : `${term} sessões de IA no terminal`;
 
   $('#appVer').textContent = s.app?.version ? `v${s.app.version}` : '';
 
@@ -3013,7 +3014,7 @@ function renderDoctor() {
       <span class="led"></span>
       <div><div class="label">${esc(c.label)}</div><div class="detail">${esc(c.detail)}</div></div>
     </div>`).join('');
-  $('#about').innerHTML = `O polling usa só o GitHub CLI (zero tokens de IA). O Claude entra apenas quando você abre uma revisão.`;
+  $('#about').innerHTML = `O polling usa só o GitHub CLI (zero tokens de IA). Claude ou Codex entram apenas quando uma sessão de IA é aberta.`;
   // versão e caminho dos dados moram no rodapé da sidebar, visíveis em qualquer seção.
   // A versão leva às Novidades dela (a menção mais citada da tela toda).
   $('#sysFoot').innerHTML = `<span class="is-goto" data-goto="sys:news:#relNotes" role="button" tabindex="0" title="Ver as novidades desta versão">Farol v${esc(STATE.app.version)}</span><br>dados em <code>${esc(STATE.paths.home)}</code>`;
@@ -3022,6 +3023,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.53.7', ['Sistema > Automação agora separa Claude Code e Codex: cada provedor preserva o próprio modelo e esforço, e o Codex oferece os níveis minimal, low, medium, high e xhigh aceitos pelo CLI.', 'O consumo do Codex registra tokens, tipo de operação e o modelo realmente enviado. Sem modelo explícito, aparece `Codex (padrão)`; o Farol não atribui mais um alias Claude à sessão Codex.', 'Perfis Codex deixaram de mostrar ou aplicar orçamento fictício em US$: o CLI informa tokens, mas não expõe saldo da cota nem custo por sessão. A retomada de round e chat também passou a usar `codex exec resume`.']],
   ['2.53.6', ['O fluxo Codex agora tem ação direta de login: perfis Codex em Sistema > Plano e chaves mostram "Abrir sessão de login", abrindo um terminal próprio com `codex login` e `codex login status`.', 'No Windows, o Farol inclui no boot os diretórios locais do Codex instalado em `%LOCALAPPDATA%\\OpenAI\\Codex\\bin`, porque o atalho do app pode não herdar o mesmo PATH do terminal.', 'Acentuação do diagnóstico Codex corrigida: chamadas via `cmd.exe` forçam UTF-8 antes do comando, evitando mensagens como `n�� reconhecido` quando o Windows devolve erro em português.']],
   ['2.53.5', ['Correção de acabamento da primeira versão com Codex: quando há perfil Codex configurado, a Visão geral passa a mostrar `Codex CLI` e `Login Codex` separadamente.', 'O selo "SEM CODEX" deixou de esconder a causa: agora o tooltip mostra a primeira linha real de `codex login status`, então fica claro se o app não encontrou o CLI, se o login é por API key ou se falta login ChatGPT.']],
   ['2.53.4', ['O Farol passa a usar também a cota do plano ChatGPT pelo Codex CLI. Em Sistema > Plano e chaves, além de login Claude e chave de API, agora dá para criar um perfil Codex; ele não pede diretório nem chave e só roda quando `codex login status` confirma login pelo ChatGPT.', 'A alternância usa o mesmo seletor de perfil padrão e o mesmo override por conta GitHub: dá para deixar uma conta no Claude e outra no Codex, ou trocar o padrão quando quiser, sem sair do Farol.', 'Correções de segurança e compatibilidade: o Farol limpa OPENAI_API_KEY e CODEX_API_KEY antes desse caminho para não cair em cobrança por chave, e separa modelo/esforço por executor para não mandar opção de GPT ao Claude nem alias de Claude ao Codex.']],
@@ -3362,23 +3364,69 @@ $('#reviewersEditor').addEventListener('click', (e) => {
   }
 });
 
+let AUTOMATION_PROVIDER = null;
+
+function providerInicial(c) {
+  const profiles = Array.isArray(c.claudeProfiles) ? c.claudeProfiles : [];
+  const padrao = profiles.find(p => p.id === c.claudeProfileId);
+  return padrao && padrao.kind === 'codex' ? 'codex' : 'claude';
+}
+
+function addCustomOption(select, value) {
+  if (!value || !select || !select.options) return;
+  if (Array.from(select.options).some(o => o.value === value)) return;
+  const opt = document.createElement('option');
+  opt.value = value;
+  opt.textContent = `${value} (config.json)`;
+  select.appendChild(opt);
+}
+
 /* Cartões de esforço: marca o que está salvo e explica o estado. Valor desconhecido
-   (config antigo, ou nível que saiu da lista) cai no cartão do padrão, em vez de deixar
-   nenhum marcado. */
-function renderEffort(c) {
-  const box = $('#setReviewEffort');
+   cai no cartão do padrão, em vez de deixar nenhum marcado. */
+function renderEffortBox(box, eff) {
   if (!box) return;
-  const eff = String(c.reviewEffort || '');
   const alvo = box.querySelector(`input[value="${CSS.escape(eff)}"]`) || box.querySelector('input[value=""]');
   if (alvo) alvo.checked = true;
-  // o Haiku não aceita nível de esforço (ver effortForModel em lib/parse.js): desliga os
-  // cartões e explica, em vez de deixar escolher algo que o engine vai descartar
-  const semEsforco = String(c.reviewModel || '') === 'haiku';
-  box.classList.toggle('disabled', semEsforco);
-  $('#effortHint').textContent = semEsforco
-    ? 'O Haiku não aceita nível de esforço, então o Farol não passa a flag enquanto ele estiver escolhido.'
-    : 'Quanto o Claude pensa antes de responder nas sessões autônomas. Mais esforço acha mais coisa e gasta mais do teu limite. A sessão no terminal não é afetada.';
 }
+
+function renderAutomationSettings(c) {
+  if (!AUTOMATION_PROVIDER) AUTOMATION_PROVIDER = providerInicial(c);
+  const codex = AUTOMATION_PROVIDER === 'codex';
+  const botoes = [...document.querySelectorAll('#setAutomationProvider .seg-btn')];
+  marcarSeg(botoes, b => b.dataset.provider === AUTOMATION_PROVIDER);
+  $('#setReviewModel').hidden = codex;
+  $('#setCodexReviewModel').hidden = !codex;
+  $('#setReviewEffort').hidden = codex;
+  $('#setCodexReviewEffort').hidden = !codex;
+
+  const claudeModel = String(c.reviewModel || '');
+  const codexModel = String(c.codexReviewModel || '');
+  addCustomOption($('#setReviewModel'), claudeModel);
+  addCustomOption($('#setCodexReviewModel'), codexModel);
+  $('#setReviewModel').value = claudeModel;
+  $('#setCodexReviewModel').value = codexModel;
+  renderEffortBox($('#setReviewEffort'), String(c.reviewEffort || ''));
+  renderEffortBox($('#setCodexReviewEffort'), String(c.codexReviewEffort || ''));
+
+  const semEsforco = String(c.reviewModel || '') === 'haiku';
+  $('#setReviewEffort').classList.toggle('disabled', semEsforco);
+  if (codex) {
+    $('#reviewModelHint').textContent = 'Modelo usado pelo Codex nas revisões, pushback, autoanálise e ferramentas. O padrão acompanha a seleção do CLI e costuma ser a opção mais compatível com o teu plano.';
+    $('#effortHint').textContent = 'Quanto o Codex raciocina nas sessões autônomas. O CLI aceita minimal, low, medium, high e xhigh; o último depende do modelo.';
+  } else {
+    $('#reviewModelHint').textContent = 'Modelo usado pelo Claude nas revisões, pushback, autoanálise e ferramentas. O padrão herda a tua assinatura; Sonnet e Haiku poupam o limite do plano.';
+    $('#effortHint').textContent = semEsforco
+      ? 'O Haiku não aceita nível de esforço, então o Farol não passa a flag enquanto ele estiver escolhido.'
+      : 'Quanto o Claude pensa nas sessões autônomas. Mais esforço aumenta profundidade e consumo do limite.';
+  }
+}
+
+$('#setAutomationProvider').addEventListener('click', (e) => {
+  const btn = e.target.closest('.seg-btn');
+  if (!btn) return;
+  AUTOMATION_PROVIDER = btn.dataset.provider;
+  renderAutomationSettings((STATE && STATE.config) || {});
+});
 
 function renderSettings() {
   renderReleaseNotes();
@@ -3392,9 +3440,8 @@ function renderSettings() {
   renderClaudeProfiles();
   renderJiraSites();
   $('#setInterval').value = String(c.intervalSeconds);
-  $('#setReviewModel').value = (c.reviewModel != null ? c.reviewModel : '');
   $('#setParallelReviews').value = String(c.parallelReviews || 1);
-  renderEffort(c);
+  renderAutomationSettings(c);
   $('#setAutoReview').checked = !!c.autoReview;
   $('#setAutoApproveAll').checked = c.autoApproveAll !== false;
   $('#setAutoApproveContested').checked = c.autoApproveContested === true;
@@ -3681,9 +3728,11 @@ const settingsMap = [
   ['#setMergeBlocked', 'mergeBlockedRepos', el => el.value],
   ['#setInterval', 'intervalSeconds', el => parseInt(el.value, 10)],
   ['#setReviewModel', 'reviewModel', el => el.value],
+  ['#setCodexReviewModel', 'codexReviewModel', el => el.value],
   ['#setParallelReviews', 'parallelReviews', el => parseInt(el.value, 10)],
   // radio: o change borbulha até o container, então e.target já é o rádio marcado
   ['#setReviewEffort', 'reviewEffort', el => el.value],
+  ['#setCodexReviewEffort', 'codexReviewEffort', el => el.value],
   ['#setAutoPushback', 'autoPushback', el => el.checked],
   ['#setAutoUpdate', 'autoUpdate', el => el.checked],
   ['#setDebugSpawns', 'debugSpawns', el => el.checked],

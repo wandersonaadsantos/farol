@@ -1242,7 +1242,7 @@ export function budgetEditorHtml(p, info) {
 
 function profileFieldsHtml(p, isApiKey, isCodex, camposChave, camposDir, camposOrcamento) {
   if (isCodex) {
-    return '<div class="a-hint">Usa o Codex CLI local com login ChatGPT. Rode <code>codex login</code> no terminal se o diagnóstico acusar falta de login.</div>' + camposOrcamento;
+    return '<div class="a-hint">Usa o Codex CLI local com login ChatGPT. O Farol registra os tokens das automações, mas o CLI não informa saldo da cota nem custo por sessão. Use o botão de login se o diagnóstico acusar falta de autenticação.</div>';
   }
   if (isApiKey) return camposChave + camposOrcamento;
   return camposDir + camposOrcamento;
@@ -1413,8 +1413,8 @@ export function accountsManagerHtml(ctx) {
               <option value=""${sel(!a.onReject || a.onReject === 'wait')}>espera você (padrão)</option>
               <option value="request_changes"${sel(a.onReject === 'request_changes')}>reprova sozinho (posta pedir mudanças)</option>
             </select></div>
-          <div class="a-pol-item"><span class="a-fieldlabel">perfil Claude</span>
-            <select class="acct-claudeprofile" data-user="${esc(a.user)}" title="Assinatura Claude usada nas sessões desta conta">
+          <div class="a-pol-item"><span class="a-fieldlabel">perfil de IA</span>
+            <select class="acct-claudeprofile" data-user="${esc(a.user)}" title="Perfil de IA usado nas sessões desta conta">
               <option value="">usa o perfil padrão do Farol</option>
               ${(ctx.config.claudeProfiles || []).map(p => `<option value="${esc(p.id)}"${sel(a.claudeProfileId === p.id)}>${esc(p.label)}</option>`).join('')}
             </select>
@@ -1830,7 +1830,7 @@ export function usageMatrixHtml(u, metric, win) {
 
 export function usageBudgetHtml(u) {
   const perfis = (u && u.budgets) || [];
-  if (!perfis.length) return '<div class="usage-empty">Nenhum perfil de Claude configurado ainda.</div>';
+  if (!perfis.length) return '<div class="usage-empty">Nenhum perfil de IA configurado ainda.</div>';
   const meter = (label, spent, cap) => {
     // cap == null: teto NAO configurado (meter() nem chega a ser chamado nesse caso, ver
     // abaixo). cap === 0 e um teto valido (lib/parse.js aceita 0), e qualquer gasto acima
@@ -1852,18 +1852,21 @@ export function usageBudgetHtml(u) {
   };
   // a lacuna do terminal interativo vale pra qualquer perfil COM TETO (antes era
   // só chave de API, porque só ela tinha teto): o aviso segue o teto, não o tipo
-  const temTetoAlgum = perfis.some(p => p.budgetDaily != null || p.budgetTotal != null);
+  const temTetoAlgum = perfis.some(p => p.kind !== 'codex' && (p.budgetDaily != null || p.budgetTotal != null));
   return perfis.map(p => {
     const isApiKey = p.kind === 'apikey';
+    const isCodex = p.kind === 'codex';
     const statusCls = p.blocked ? 'bad' : 'ok';
     // "tem teto" passou a considerar os overrides: perfil que só configurou sábado
     // TEM teto, e dizer "nenhum teto definido" ali seria falso
     const temOverride = Object.keys(p.budgetByWeekday || {}).length > 0 || Object.keys(p.budgetDates || {}).length > 0;
-    const temTeto = p.budgetDaily != null || p.budgetTotal != null || temOverride;
+    const temTeto = !isCodex && (p.budgetDaily != null || p.budgetTotal != null || temOverride);
     // "coberto pela assinatura" era o status FIXO de todo perfil de assinatura,
     // porque ele nunca podia ter teto. Agora pode, então o status segue o teto:
     // sem teto, a frase de sempre; com teto, a mesma régua da chave de API.
-    const statusSemTeto = isApiKey ? 'no orçamento' : 'coberto pela assinatura';
+    let statusSemTeto = 'coberto pela assinatura';
+    if (isApiKey) statusSemTeto = 'no orçamento';
+    else if (isCodex) statusSemTeto = 'coberto pelo plano ChatGPT';
     // "estourado" seria mentira quando o gasto ainda não passou do teto e o que
     // barrou foi a projeção: o chip tem que concordar com a nota logo abaixo
     const previsto = String(p.reason || '').endsWith('-previsto');
@@ -1881,22 +1884,27 @@ export function usageBudgetHtml(u) {
     // tres casos excludentes, um por linha: sem chave de API, com chave e sem teto,
     // e com teto batido. A cadeia de ternarios que estava aqui escondia qual deles
     // ganhava quando mais de um parecia valer.
-    const NOTA_ASSINATURA = '<span class="usage-budget-note">O gasto em tokens não vira fatura neste perfil, mas o teto vale como ritmo do dia a dia.</span>';
+    const NOTA_ASSINATURA = '<span class="usage-budget-note">O gasto em tokens não vira fatura por sessão neste perfil, mas o teto vale como ritmo do dia a dia.</span>';
+    const NOTA_CODEX = '<span class="usage-budget-note">O Codex informa os tokens das sessões autônomas. O Farol registra esse volume, mas mantém US$ 0,00 porque o plano ChatGPT não expõe uma fatura por sessão.</span>';
     const NOTA_PAUSADO = '<span class="usage-budget-note">Automação de gasto pausada pra este perfil (revisão automática, retentativa e scan de pushback).</span>';
     const notaPrevisto = `<span class="usage-budget-note">A próxima revisão (${esc(fmtMoney(p.tipicoReview || 0))} em média) não caberia no teto, então a automação parou antes de gastar. O clique manual continua liberado.</span>`;
     const notaSemTeto = `<span class="usage-budget-note">Nenhum teto definido pra este perfil (<span class="is-goto" data-goto="${esc(irAoTeto)}" role="button" tabindex="0">definir em Sistema → Plano e chaves</span>).</span>`;
     let nota = '';
-    if (!temTeto && !isApiKey) nota = NOTA_ASSINATURA;
+    if (!temTeto && isCodex) nota = NOTA_CODEX;
+    else if (!temTeto && !isApiKey) nota = NOTA_ASSINATURA;
     else if (!temTeto) nota = notaSemTeto;
     else if (previsto) nota = notaPrevisto;
     else if (p.blocked) nota = NOTA_PAUSADO;
+    let kindTxt = 'Claude · assinatura';
+    if (isApiKey) kindTxt = 'Chave de API';
+    else if (isCodex) kindTxt = 'Codex · plano ChatGPT';
     // o nome do perfil leva ao card DELE em Sistema (o input do nome carrega o
     // mesmo id; seletor montado aqui porque CSS.escape não existe no pure.js)
     const alvoPerfil = `sys:plans:.cp-label[data-id="${escAttrSelector(p.id)}"]`;
     return `<div class="usage-budget-card">
       <div class="usage-budget-head">
         <span class="usage-budget-name is-goto" data-goto="${esc(alvoPerfil)}" role="button" tabindex="0" title="Abrir este perfil em Sistema → Plano e chaves">${esc(p.label || p.id)}</span>
-        <span class="usage-budget-kind">${isApiKey ? 'Chave de API' : 'Login por assinatura'}</span>
+        <span class="usage-budget-kind">${kindTxt}</span>
         <span class="usage-budget-status ${statusCls}">${esc(statusTxt)}</span>
       </div>
       ${meters}
@@ -1907,7 +1915,7 @@ export function usageBudgetHtml(u) {
     // MESMA credencial do perfil, mas o claude interativo nao emite stream-json,
     // entao esse gasto nao tem como entrar na medicao nem no teto. Sem declarar,
     // o cartao prometia um teto que um dos caminhos de gasto nunca encontra.
-    + (temTetoAlgum ? '<span class="usage-budget-note">Sessões interativas no terminal usam a mesma credencial, mas não entram na medição nem no teto: o CLI não reporta o consumo delas ao Farol.</span>' : '');
+    + (temTetoAlgum ? '<span class="usage-budget-note">Sessões interativas no terminal usam a mesma credencial, mas não entram na medição nem no teto: Claude e Codex não reportam esse consumo ao Farol.</span>' : '');
 }
 
 export function usageSessionsHtml(u) {
