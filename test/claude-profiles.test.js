@@ -95,6 +95,17 @@ test('resolveClaudeAuth: padrão global apikey, conta sem override', () => {
   assert.deepEqual(engine.resolveClaudeAuth('carol'), { kind: 'apikey', id: 'chave', apiKey: 'sk-ant-456', baseUrl: 'https://proxy.x' });
 });
 
+test('resolveClaudeAuth: perfil Codex da conta vence o padrão global Claude', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [
+    { id: 'claude', label: 'Claude', dir: 'C:\\claude' },
+    { id: 'codex', label: 'Codex OSS', kind: 'codex' },
+  ];
+  engine.config.claudeProfileId = 'claude';
+  engine.config.accounts = [{ user: 'bob', owners: ['x'], claudeProfileId: 'codex' }];
+  assert.deepEqual(engine.resolveClaudeAuth('bob'), { kind: 'codex', id: 'codex' });
+});
+
 test('resolveClaudeAuth: perfil apikey apontado mas sem apiKey (corrompido) cai no legado', () => {
   const engine = new Engine();
   engine.config.claudeConfigDir = 'C:\\legado';
@@ -201,6 +212,17 @@ test('openClaudeLoginSession: perfil apikey NÃO abre sessão, devolve erro amig
   assert.equal(r.ok, false);
   assert.match(r.error, /chave de API/);
   assert.equal(spawnChamado, false, 'spawnLoginConsole não deve ser chamado pra perfil apikey');
+});
+
+test('openClaudeLoginSession: perfil Codex não abre login Claude', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [{ id: 'codex', label: 'Codex', kind: 'codex' }];
+  let spawnChamado = false;
+  engine.spawnLoginConsole = () => { spawnChamado = true; };
+  const r = engine.openClaudeLoginSession('codex');
+  assert.equal(r.ok, false);
+  assert.match(r.error, /Codex/);
+  assert.equal(spawnChamado, false);
 });
 
 test('openClaudeLoginSession: perfil dir chama spawnLoginConsole com o MESMO contrato de hoje (dir cru)', () => {
@@ -380,6 +402,13 @@ test('allClaudeAuthInfo: perfil apikey com chave preenchida reporta ready + apiK
   assert.deepEqual(entry, { id: 'chave', label: 'Chave OK', configDir: null, account: null, ready: true, apiKeyMode: true });
 });
 
+test('allClaudeAuthInfo: perfil Codex reporta modo Codex sem segredo', () => {
+  const engine = new Engine();
+  engine.config.claudeProfiles = [{ id: 'codex', label: 'Codex OSS', kind: 'codex' }];
+  const entry = engine.allClaudeAuthInfo().find(x => x.id === 'codex');
+  assert.deepEqual(entry, { id: 'codex', label: 'Codex OSS', configDir: null, account: null, ready: true, codexMode: true });
+});
+
 test('allClaudeAuthInfo: perfil apikey sem chave (não deveria existir, mas defensivo) reporta ready:false', () => {
   const engine = new Engine();
   // normalizeClaudeProfiles já descartaria isto no updateSettings normal; testa o método
@@ -391,16 +420,18 @@ test('allClaudeAuthInfo: perfil apikey sem chave (não deveria existir, mas defe
   assert.equal(entry.apiKeyMode, true);
 });
 
-test('allClaudeAuthInfo: mistura perfil dir e apikey na mesma lista, cada um com o formato certo', () => {
+test('allClaudeAuthInfo: mistura perfil dir, apikey e codex na mesma lista, cada um com o formato certo', () => {
   const engine = new Engine();
   engine.config.claudeProfiles = [
     { id: 'a', label: 'A', dir: path.join(HOME, 'a') },
     { id: 'b', label: 'B', kind: 'apikey', apiKey: 'sk-ant-b', baseUrl: '' },
+    { id: 'c', label: 'C', kind: 'codex' },
   ];
   const all = engine.allClaudeAuthInfo();
-  assert.deepEqual(all.map(x => x.id), ['', 'a', 'b']);
+  assert.deepEqual(all.map(x => x.id), ['', 'a', 'b', 'c']);
   assert.equal('apiKeyMode' in all.find(x => x.id === 'a'), false, 'perfil dir não carrega apiKeyMode');
   assert.equal(all.find(x => x.id === 'b').apiKeyMode, true);
+  assert.equal(all.find(x => x.id === 'c').codexMode, true);
 });
 
 test('updateSettings: persiste claudeProfiles e claudeProfileId globais', () => {
@@ -414,6 +445,16 @@ test('updateSettings: persiste claudeProfiles e claudeProfileId globais', () => 
   });
   assert.deepEqual(engine.config.claudeProfiles, [{ id: 'trabalho', label: 'BIUD Trabalho', dir: 'C:\\biud-trabalho' }]);
   assert.equal(engine.config.claudeProfileId, 'trabalho');
+});
+
+test('updateSettings: persiste perfil Codex sem dir nem chave', () => {
+  const engine = new Engine();
+  engine.updateSettings({
+    claudeProfiles: [{ id: 'codex', label: 'Codex OSS', kind: 'codex' }],
+    claudeProfileId: 'codex',
+  });
+  assert.deepEqual(engine.config.claudeProfiles, [{ id: 'codex', label: 'Codex OSS', kind: 'codex' }]);
+  assert.equal(engine.config.claudeProfileId, 'codex');
 });
 
 test('updateSettings: persiste claudeProfileId por conta via accounts[]', () => {

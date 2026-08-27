@@ -1304,6 +1304,7 @@ class Engine extends EventEmitter {
     if (profiles.length) {
       const id = acc?.claudeProfileId || this.config.claudeProfileId || '';
       const p = profiles.find(p => p.id === id);
+      if (p?.kind === 'codex') return { kind: 'codex', id: p.id };
       if (p?.kind === 'apikey' && p.apiKey) return { kind: 'apikey', id: p.id, apiKey: p.apiKey, baseUrl: p.baseUrl || '' };
       if (p && p.kind !== 'apikey' && p.dir) return { kind: 'dir', id: p.id, dir: p.dir };
     }
@@ -1335,6 +1336,7 @@ class Engine extends EventEmitter {
     const profiles = this.config.claudeProfiles || [];
     const p = profileId ? profiles.find(x => x.id === profileId) : null;
     if (p?.kind === 'apikey' && p.apiKey) return { kind: 'apikey', apiKey: p.apiKey, baseUrl: p.baseUrl || '' };
+    if (p?.kind === 'codex') return { kind: 'codex' };
     if (p && p.kind !== 'apikey' && p.dir) return { kind: 'dir', dir: p.dir };
     return { kind: 'dir', dir: this.config.claudeConfigDir || '' };
   }
@@ -1347,6 +1349,9 @@ class Engine extends EventEmitter {
     const auth = this.resolveAuthForLogin(profileId);
     if (auth.kind === 'apikey') {
       return { ok: false, error: 'perfis de chave de API não usam login: a chave já é a credencial' };
+    }
+    if (auth.kind === 'codex') {
+      return { ok: false, error: 'perfis Codex usam codex login no terminal do sistema' };
     }
     return this.spawnLoginConsole(auth.dir);
   }
@@ -1382,6 +1387,11 @@ class Engine extends EventEmitter {
     const profiles = this.config.claudeProfiles || [];
     const legacy = { id: '', label: 'Padrão', ...this.claudeAuthInfo() };
     if (!profiles.length) return [legacy];
+    const authEntry = (p) => {
+      if (p.kind === 'apikey') return { configDir: null, account: null, ready: !!p.apiKey, apiKeyMode: true };
+      if (p.kind === 'codex') return { configDir: null, account: null, ready: true, codexMode: true };
+      return this.claudeAuthInfo(p.dir);
+    };
     return [legacy, ...profiles.map(p => ({
       id: p.id,
       label: p.label,
@@ -1389,9 +1399,7 @@ class Engine extends EventEmitter {
       // cache (boot/Verificar agora/salvar perfis) e congelava o cartao da aba
       // Consumo enquanto o gate real recalculava ao vivo. A fonte unica do
       // orcamento e usageSummary().budgets, refeita a cada pushState (v2.40.0).
-      ...(p.kind === 'apikey'
-        ? { configDir: null, account: null, ready: !!p.apiKey, apiKeyMode: true }
-        : this.claudeAuthInfo(p.dir))
+      ...authEntry(p)
     }))];
   }
 
@@ -1399,15 +1407,19 @@ class Engine extends EventEmitter {
     const tokenArgs = ['auth', 'token'];
     const primary = this.primaryUser();
     if (primary) tokenArgs.push('--user', primary);
-    const [gh, claude, auth] = await Promise.all([
+    const [gh, claude, codex, codexLogin, auth] = await Promise.all([
       io.run('gh', ['--version']),
       io.runShell('claude --version'),
+      io.runShell('codex --version'),
+      io.runShell('codex login status'),
       io.run('gh', tokenArgs)
     ]);
     this.doctorInfo = {
       node: process.version,
       gh: gh.ok ? gh.stdout.split('\n')[0].trim() : null,
       claude: claude.ok ? claude.stdout.trim().split('\n')[0] : null,
+      codex: codex.ok ? codex.stdout.trim().split('\n')[0] : null,
+      codexChatGPT: codexLogin.ok && /logged in using chatgpt/i.test(`${codexLogin.stdout}\n${codexLogin.stderr}`),
       ghAuth: auth.ok && !!auth.stdout.trim(),
       gitBash: this.gitBash,
       // rodar como root quebra a revisão autônoma INTEIRA, e não é opção de

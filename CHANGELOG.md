@@ -9,6 +9,30 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.53.4
+
+O Farol passa a usar também a cota do plano ChatGPT pelo Codex CLI, para quem
+quiser alternar entre Claude e Codex sem trocar de app.
+
+**Novidades**
+- **Perfil Codex em Sistema → Plano e chaves.** Além de login Claude e chave de
+  API, agora dá para criar um perfil Codex. Ele não pede diretório nem chave:
+  usa o `codex` instalado na máquina e exige que `codex login status` confirme
+  login pelo ChatGPT antes de abrir qualquer revisão.
+- **Alternância por padrão ou por conta.** O perfil Codex entra no mesmo seletor
+  de perfil padrão do Farol e no mesmo override por conta GitHub, então dá para
+  deixar uma conta no Claude e outra no Codex, ou trocar o padrão quando quiser.
+
+**Correções**
+- **API key do Codex não vaza para esse caminho.** Se `OPENAI_API_KEY` ou
+  `CODEX_API_KEY` estiverem no ambiente, o Farol limpa essas variáveis antes do
+  preflight e antes da sessão. O objetivo é explícito: consumir o plano ChatGPT,
+  não cair sem querer em cobrança separada por chave.
+- **Modelo e esforço agora respeitam o executor.** Nomes `gpt-*` e esforços
+  `max`/`ultra` podem ser salvos para o Codex, mas são filtrados quando a sessão
+  resolvida é Claude. O inverso também vale: alias de Claude não vira argumento
+  do Codex.
+
 ## v2.53.3
 
 Uma falha de ambiente que se disfarçava de problema passageiro e fazia o Farol

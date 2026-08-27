@@ -786,10 +786,12 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
   if (seg) {
     $('#cpAddKind').querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b === seg));
     const isApiKey = seg.dataset.kind === 'apikey';
-    $('#cpAddDir').hidden = isApiKey;
+    const isCodex = seg.dataset.kind === 'codex';
+    $('#cpAddDir').hidden = isApiKey || isCodex;
     $('#cpAddApiKey').hidden = !isApiKey;
     $('#cpAddBaseUrl').hidden = !isApiKey;
     $('#cpAddHint').hidden = !isApiKey;
+    $('#cpAddCodexHint').hidden = !isCodex;
     return;
   }
   // mostrar/ocultar a chave de um perfil já salvo (não é validação nem salvamento, só
@@ -803,6 +805,14 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
     const label = ($('#cpAddLabel').value || '').trim();
     const kindBtn = $('#cpAddKind .seg-btn.active');
     const isApiKey = kindBtn && kindBtn.dataset.kind === 'apikey';
+    const isCodex = kindBtn && kindBtn.dataset.kind === 'codex';
+    if (isCodex) {
+      if (!label) return toast('error', 'Preencha o nome do perfil.', 3000);
+      const profiles = [...(STATE.config.claudeProfiles || []), { id: genProfileId(), label, kind: 'codex' }];
+      $('#cpAddLabel').value = '';
+      saveClaudeProfiles(profiles);
+      return;
+    }
     if (isApiKey) {
       const apiKey = ($('#cpAddApiKey').value || '').trim();
       const baseUrl = ($('#cpAddBaseUrl').value || '').trim();
@@ -3012,6 +3022,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.53.4', ['O Farol passa a usar também a cota do plano ChatGPT pelo Codex CLI. Em Sistema > Plano e chaves, além de login Claude e chave de API, agora dá para criar um perfil Codex; ele não pede diretório nem chave e só roda quando `codex login status` confirma login pelo ChatGPT.', 'A alternância usa o mesmo seletor de perfil padrão e o mesmo override por conta GitHub: dá para deixar uma conta no Claude e outra no Codex, ou trocar o padrão quando quiser, sem sair do Farol.', 'Correções de segurança e compatibilidade: o Farol limpa OPENAI_API_KEY e CODEX_API_KEY antes desse caminho para não cair em cobrança por chave, e separa modelo/esforço por executor para não mandar opção de GPT ao Claude nem alias de Claude ao Codex.']],
   ['2.53.3', ['Rodar o Farol como root fazia toda revisão autônoma morrer no instante em que a sessão abria, e o app tratava isso como problema passageiro: relançava a mesma revisão a cada ciclo, pra sempre, sem dizer o motivo. O Claude Code recusa o modo sem prompts de permissão quando o usuário do sistema é root, e agora essa recusa é reconhecida pelo que é (só sai com alguém agindo), então a revisão estaciona na primeira vez.', 'O Diagnóstico passou a avisar antes de doer. Nessa situação os checks de ambiente ficavam todos verdes enquanto nada funcionava; Sistema > Visão geral ganhou a linha "Usuário do sistema" e o relatório copiável traz o mesmo aviso, com a saída: criar um usuário não-root e rodar o Farol por ele. É o caso de quem roda o motor num Android (Termux + proot), onde o login padrão é root.']],
   ['2.53.2', ['Conserto do recurso de Jira em quem instala o Farol pronto: o servidor MCP local do Jira (tools/jira-mcp.js) não viajava no pacote de distribuição, então revisar PR com site de Jira cadastrado mostrava o erro "Unable to find Electron app" em toda cópia instalada, embora funcionasse na máquina que roda do fonte. O arquivo entrou no pacote e um teste novo garante que todo arquivo de tools usado em runtime viaja junto.']],
   ['2.53.1',['Refino da re-revisão automática pós-push da v2.53.0. O mapa de memória que segura o debounce de head quieto e o aviso de teto diário agora é podado a cada ciclo, em vez de crescer pra sempre. O candidato de PR reconstruído a partir de uma pendência travada por commit novo passou a carregar se ele é rascunho de verdade, em vez de assumir que nunca é. E o teto de 3 rodadas automáticas por dia deixou de zerar quando o app reinicia no meio de uma revisão: só o trava de head é liberada, o contador do dia continua valendo.']],

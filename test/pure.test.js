@@ -301,6 +301,12 @@ test('applyClaudeAuthEnv: limpa ANTHROPIC_AUTH_TOKEN residual (precedencia ofici
   assert.deepEqual(env, { CLAUDE_CONFIG_DIR: 'C:\\perfil', OUTRA_VAR: 'preservada' });
 });
 
+test('applyClaudeAuthEnv: perfil Codex limpa chaves OpenAI/Codex para nao sair do plano ChatGPT', () => {
+  const env = { OPENAI_API_KEY: 'sk-fora', CODEX_API_KEY: 'codex-fora', GH_TOKEN: 'gh' };
+  applyClaudeAuthEnv(env, { kind: 'codex' });
+  assert.deepEqual(env, { GH_TOKEN: 'gh' });
+});
+
 test('claudeAuthShellLines: kind dir, Windows', () => {
   assert.deepEqual(claudeAuthShellLines({ kind: 'dir', dir: 'C:\\perfil' }, true), ['set "CLAUDE_CONFIG_DIR=C:\\perfil"']);
   assert.deepEqual(claudeAuthShellLines({ kind: 'dir', dir: '' }, true), ['rem sem config dir proprio']);
@@ -390,4 +396,15 @@ test('normalizeClaudeProfiles: perfil de CHAVE tambem carrega os overrides (mesm
     { id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', budgetByWeekday: { '5': 30 } },
   ]);
   assert.deepEqual(out[0].budgetByWeekday, { '5': 30 });
+});
+
+test('normalizeClaudeProfiles: perfil Codex nao exige diretorio nem chave e carrega teto', () => {
+  const out = normalizeClaudeProfiles([
+    { id: 'codex', label: 'Codex OSS', kind: 'codex', budgetDaily: 20 },
+    { id: 'sem-label', kind: 'codex' },
+  ]);
+  assert.deepEqual(out, [
+    { id: 'codex', label: 'Codex OSS', kind: 'codex', budgetDaily: 20 },
+    { id: 'sem-label', label: '', kind: 'codex' },
+  ]);
 });

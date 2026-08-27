@@ -22,9 +22,9 @@ test('updateSettings grava os aliases de modelo expostos', () => {
   }
 });
 
-test('updateSettings grava os níveis de esforço expostos', () => {
+test('updateSettings grava os níveis de esforço suportados', () => {
   const engine = new Engine();
-  for (const e of ['low', 'medium', 'high', 'xhigh', '']) {
+  for (const e of ['low', 'medium', 'high', 'xhigh', 'max', 'ultra', '']) {
     engine.updateSettings({ reviewEffort: e });
     assert.equal(engine.config.reviewEffort, e, `nível ${e || '(vazio)'}`);
   }
@@ -51,8 +51,6 @@ test('updateSettings MANTÉM o anterior quando o valor é inválido', () => {
   engine.updateSettings({ reviewModel: 'opus && calc.exe' });
   assert.equal(engine.config.reviewModel, 'fable');
 
-  engine.updateSettings({ reviewEffort: 'max' });       // session-only
-  assert.equal(engine.config.reviewEffort, 'xhigh');
   engine.updateSettings({ reviewEffort: 'ultracode' }); // session-only
   assert.equal(engine.config.reviewEffort, 'xhigh');
 });
@@ -61,6 +59,8 @@ test('updateSettings aceita nome completo de modelo (escotilha sem release)', ()
   const engine = new Engine();
   engine.updateSettings({ reviewModel: 'claude-opus-5' });
   assert.equal(engine.config.reviewModel, 'claude-opus-5');
+  engine.updateSettings({ reviewModel: 'gpt-5.5' });
+  assert.equal(engine.config.reviewModel, 'gpt-5.5');
 });
 
 test('updateSettings não cria chave fora da allowlist', () => {

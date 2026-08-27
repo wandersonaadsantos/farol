@@ -1120,6 +1120,12 @@ export function claudeAuthBadge(id, ctx) {
   // Desde a v2.48.4 o selo vale pros dois tipos de perfil, porque o teto também vale.
   const budget = ((ctx.usage && ctx.usage.budgets) || []).find(b => b.id === (info.id || id)) || {};
   if (budget.blocked) return seloOrcamento(budget);
+  if (info.codexMode) {
+    const ok = ctx.doctor && ctx.doctor.codexChatGPT;
+    return ok
+      ? '<span class="a-claude ok" title="Codex CLI autenticado no plano ChatGPT">Codex ChatGPT</span>'
+      : '<span class="a-claude bad" title="rode codex login e confirme codex login status">SEM CODEX</span>';
+  }
   if (info.apiKeyMode) return `<span class="a-claude ok" title="Autenticação por chave de API">🔑 chave configurada</span>`;
   if (info.ready === false) return `<span class="a-claude bad" title="rode claude login nesse diretório">SEM LOGIN</span>`;
   if (info.account) return `<span class="a-claude ok" title="${esc(info.configDir || 'padrão da máquina')}">@${esc(info.account)}</span>`;
@@ -1212,6 +1218,14 @@ export function budgetEditorHtml(p, info) {
   </div>`;
 }
 
+function profileFieldsHtml(p, isApiKey, isCodex, camposChave, camposDir, camposOrcamento) {
+  if (isCodex) {
+    return '<div class="a-hint">Usa o Codex CLI local com login ChatGPT. Rode <code>codex login</code> no terminal se o diagnóstico acusar falta de login.</div>' + camposOrcamento;
+  }
+  if (isApiKey) return camposChave + camposOrcamento;
+  return camposDir + camposOrcamento;
+}
+
 export function claudeProfilesHtml(ctx) {
   const c = ctx.config || {};
   const profiles = c.claudeProfiles || [];
@@ -1239,8 +1253,8 @@ export function claudeProfilesHtml(ctx) {
   // então sempre abria o legado ao clicar, mesmo com outro perfil selecionado no dropdown
   // - bug preexistente, corrigido junto por ser exigido pra esconder o botão certo).
   const defaultProfile = profiles.find(p => p.id === (c.claudeProfileId || ''));
-  const defaultIsApiKey = defaultProfile && defaultProfile.kind === 'apikey';
-  const defaultLoginBtn = defaultIsApiKey ? '' : `<button class="btn sm cp-login" data-id="${esc(c.claudeProfileId || '')}">Abrir sessão de login</button>`;
+  const defaultNeedsClaudeLogin = !defaultProfile || (defaultProfile.kind !== 'apikey' && defaultProfile.kind !== 'codex');
+  const defaultLoginBtn = defaultNeedsClaudeLogin ? `<button class="btn sm cp-login" data-id="${esc(c.claudeProfileId || '')}">Abrir sessão de login</button>` : '';
   const defaultRow = `<div class="card set-row">
     <div class="set-txt">
       <span class="set-title">Perfil padrão do Farol</span>
@@ -1253,6 +1267,7 @@ export function claudeProfilesHtml(ctx) {
   </div>`;
   const rows = profiles.map(p => {
     const isApiKey = p.kind === 'apikey';
+    const isCodex = p.kind === 'codex';
     // gasto vem de ctx.usage.budgets (fonte unica do orcamento, viva a cada
     // pushState), nunca mais do cache do doctor, que congelava o "Hoje" daqui
     // enquanto a aba Consumo andava (v2.40.0)
@@ -1275,7 +1290,7 @@ export function claudeProfilesHtml(ctx) {
       <div class="a-editrow">
         <input class="cp-dir" data-id="${esc(p.id)}" value="${esc(p.dir || '')}" placeholder="${ctx.ehWin ? 'C:\\Users\\voce\\.claude-perfil' : '~/.claude-perfil'}" spellcheck="false">
       </div>`;
-    const fields = (isApiKey ? camposChave : camposDir) + camposOrcamento;
+    const fields = profileFieldsHtml(p, isApiKey, isCodex, camposChave, camposDir, camposOrcamento);
     return `<div class="card acct-card">
     <div class="a-body">
       <div class="a-editrow">
@@ -1285,7 +1300,7 @@ export function claudeProfilesHtml(ctx) {
       ${fields}
     </div>
     <div class="a-actions">
-      ${isApiKey ? '' : `<button class="btn sm cp-login" data-id="${esc(p.id)}">Abrir sessão de login</button>`}
+      ${(isApiKey || isCodex) ? '' : `<button class="btn sm cp-login" data-id="${esc(p.id)}">Abrir sessão de login</button>`}
       <button class="btn sm danger-ghost cp-remove" data-id="${esc(p.id)}">Remover</button>
     </div>
   </div>`;
@@ -1296,6 +1311,7 @@ export function claudeProfilesHtml(ctx) {
       <div class="seg" id="cpAddKind" role="group" aria-label="Tipo de perfil">
         <button type="button" class="seg-btn active" data-kind="dir">Login por assinatura</button>
         <button type="button" class="seg-btn" data-kind="apikey">Chave de API</button>
+        <button type="button" class="seg-btn" data-kind="codex">Codex</button>
       </div>
     </div>
     <div class="a-editrow">
@@ -1306,6 +1322,7 @@ export function claudeProfilesHtml(ctx) {
       <button class="btn sm" id="btnCpAdd">Adicionar</button>
     </div>
     <div class="a-hint" id="cpAddHint">Deixe em branco pra usar a Anthropic direto. Um endpoint customizado precisa falar a API de Mensagens da Anthropic, não é garantia de que qualquer provedor (ex.: OpenRouter) funcione sem um proxy tradutor.</div>
+    <div class="a-hint" id="cpAddCodexHint" hidden>Usa a cota do plano ChatGPT pelo Codex CLI local. API key do Codex não é aceita nesse perfil.</div>
   </div>`;
   return migrateCard + defaultRow + rows + addForm;
 }

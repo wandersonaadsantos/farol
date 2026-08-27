@@ -211,6 +211,95 @@ test('runClaudeStream: repassa opts.ref pra recordUsage (Task 4, plumbing PR/cha
   assert.equal(chamadas[0].ref, 'biudtech/farol#88', 'opts.ref precisa chegar em recordUsage');
 });
 
+test('runClaudeStream: perfil Codex confirma ChatGPT, limpa API key e registra tokens sem custo', async () => {
+  const chamadasSpawn = [];
+  const filhos = [];
+  spawnImpl = (cmd, args, opcoes) => {
+    const child = filhoStream();
+    chamadasSpawn.push({ cmd, args, opcoes, child });
+    filhos.push(child);
+    return child;
+  };
+  const chamadasUso = [];
+  const engine = engineFalso();
+  engine.config = { reviewModel: 'gpt-5.5', reviewEffort: 'high' };
+  engine.ghEnv = () => ({ PATH: process.env.PATH, OPENAI_API_KEY: 'nao-usar', CODEX_API_KEY: 'nao-usar' });
+  engine.resolveClaudeAuth = () => ({ kind: 'codex', id: 'codex-oss' });
+  engine.recordUsage = (id, account, resultEvent, model, profileId, ref) => {
+    chamadasUso.push({ id, account, resultEvent, model, profileId, ref });
+  };
+  const p = runClaudeStream(engine, 'prompt', { id: 'a1', account: 'trabalho', ref: 'o/r#1' });
+  await new Promise(r => setImmediate(r));
+  filhos[0].stdout.write('Logged in using ChatGPT\n');
+  filhos[0].stdout.end();
+  filhos[0].emit('close', 0);
+  await new Promise(r => setImmediate(r));
+  filhos[1].stdout.write(JSON.stringify({ type: 'thread.started', thread_id: 'ct1' }) + '\n');
+  filhos[1].stdout.write(JSON.stringify({ type: 'turn.started' }) + '\n');
+  filhos[1].stdout.write(JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: 'ok codex' } }) + '\n');
+  filhos[1].stdout.write(JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 12, cached_input_tokens: 3, output_tokens: 4 } }) + '\n');
+  filhos[1].stdout.end();
+  filhos[1].emit('close', 0);
+  spawnImpl = null;
+
+  const res = await p;
+  assert.equal(res.text, 'ok codex');
+  assert.equal(res.sessionId, 'ct1');
+  assert.deepEqual(chamadasSpawn[0].args, ['login', 'status']);
+  assert.equal(chamadasSpawn[0].opcoes.env.OPENAI_API_KEY, undefined);
+  assert.equal(chamadasSpawn[1].args.includes('--model'), true);
+  assert.equal(chamadasSpawn[1].args[chamadasSpawn[1].args.indexOf('--model') + 1], 'gpt-5.5');
+  assert.equal(chamadasSpawn[1].opcoes.env.CODEX_API_KEY, undefined);
+  assert.equal(chamadasUso.length, 1);
+  assert.equal(chamadasUso[0].profileId, 'codex-oss');
+  assert.equal(chamadasUso[0].resultEvent.usage.input_tokens, 12);
+  assert.equal(chamadasUso[0].resultEvent.total_cost_usd, 0);
+});
+
+test('runClaudeStream: perfil Codex recusa login por API key antes do prompt', async () => {
+  const filhos = [];
+  spawnImpl = () => {
+    const child = filhoStream();
+    filhos.push(child);
+    return child;
+  };
+  const engine = engineFalso();
+  engine.resolveClaudeAuth = () => ({ kind: 'codex', id: 'codex-oss' });
+  const p = runClaudeStream(engine, 'prompt', { id: 'a1' });
+  await new Promise(r => setImmediate(r));
+  filhos[0].stdout.write('Logged in using an API key\n');
+  filhos[0].stdout.end();
+  filhos[0].emit('close', 0);
+  spawnImpl = null;
+
+  await assert.rejects(p, /login ativo nao usa o plano ChatGPT/);
+  assert.equal(filhos.length, 1, 'nao deve iniciar o modelo quando o preflight falha');
+});
+
+test('runClaudeStream: cancelamento durante preflight Codex nao tenta matar child ausente', async () => {
+  const filhos = [];
+  spawnImpl = () => {
+    const child = filhoStream();
+    filhos.push(child);
+    return child;
+  };
+  const engine = engineFalso();
+  engine.resolveClaudeAuth = () => ({ kind: 'codex', id: 'codex-oss' });
+  const p = runClaudeStream(engine, 'prompt', { id: 'a1' });
+  await new Promise(r => setImmediate(r));
+  assert.equal(cancelSession(engine, 'a1').ok, true);
+  filhos[0].stdout.write('Logged in using ChatGPT\n');
+  filhos[0].stdout.end();
+  filhos[0].emit('close', 0);
+  spawnImpl = null;
+
+  await assert.rejects(p, (err) => {
+    assert.equal(err.cancelled, true);
+    return true;
+  });
+  assert.equal(filhos.length, 1);
+});
+
 test('runClaudeStream: stdin tem handler de error (EPIPE de processo morto não derruba o engine) (B4)', async () => {
   const child = filhoStream();
   spawnImpl = () => child;

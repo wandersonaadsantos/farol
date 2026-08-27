@@ -35,7 +35,6 @@ test('sanitizeModel: alias fora da lista é rejeitado', () => {
   // default: indistinguível de '' porque o Farol nunca seta ANTHROPIC_MODEL
   assert.equal(sanitizeModel('default'), null);
   assert.equal(sanitizeModel('auto'), null);
-  assert.equal(sanitizeModel('gpt-4o'), null);
 });
 
 test('sanitizeModel: rejeita metacaractere de shell (injeção)', () => {
@@ -60,8 +59,11 @@ test('sanitizeModel: rejeita metacaractere de shell (injeção)', () => {
 test('sanitizeModel: aceita nome completo validado (escotilha pra modelo novo)', () => {
   assert.equal(sanitizeModel('claude-opus-5'), 'claude-opus-5');
   assert.equal(sanitizeModel('claude-haiku-4-5-20251001'), 'claude-haiku-4-5-20251001');
+  assert.equal(sanitizeModel('gpt-4o'), 'gpt-4o');
+  assert.equal(sanitizeModel('gpt-5.5'), 'gpt-5.5');
   // e só o que casa a regex estrita
   assert.equal(sanitizeModel('claude-opus-5; whoami'), null);
+  assert.equal(sanitizeModel('gpt-5.5; whoami'), null);
   assert.equal(sanitizeModel('claude opus'), null);
   assert.equal(sanitizeModel('opus-5'), null, 'sem o prefixo claude- não passa');
   assert.equal(sanitizeModel('claude-' + 'a'.repeat(80)), null, 'teto de tamanho');
@@ -80,10 +82,9 @@ test('sanitizeEffort: normaliza espaço e caixa', () => {
   assert.equal(sanitizeEffort('  HIGH '), 'high');
 });
 
-test('sanitizeEffort: rejeita os session-only e o desconhecido', () => {
-  // max e ultracode são session-only (nem o settings.json do CLI os aceita) e a revisão
-  // headless roda desacompanhada com timeout de 30 min
-  assert.equal(sanitizeEffort('max'), null);
+test('sanitizeEffort: aceita Codex max/ultra e rejeita desconhecido', () => {
+  assert.equal(sanitizeEffort('max'), 'max');
+  assert.equal(sanitizeEffort('ultra'), 'ultra');
   assert.equal(sanitizeEffort('ultracode'), null);
   assert.equal(sanitizeEffort('auto'), null);
   assert.equal(sanitizeEffort('high;id'), null);
@@ -129,6 +130,7 @@ test('buildModelFlags: modelo e esforço juntos, nessa ordem', () => {
 
 test('buildModelFlags: esforço sem modelo é válido', () => {
   assert.equal(buildModelFlags({ reviewEffort: 'high' }), ' --effort high');
+  assert.equal(buildModelFlags({ reviewEffort: 'max' }), '', 'Claude filtra esforço exclusivo do Codex');
 });
 
 test('buildModelFlags: Haiku derruba o esforço', () => {
@@ -145,6 +147,7 @@ test('buildModelFlags: config envenenada nunca chega na linha', () => {
   // defesa em profundidade: mesmo que o config.json escape do saneamento de boot
   assert.equal(buildModelFlags({ reviewModel: 'opus && calc.exe', reviewEffort: 'high;id' }), '');
   assert.equal(buildModelFlags({ reviewModel: 'opus[1m]' }), '');
+  assert.equal(buildModelFlags({ reviewModel: 'gpt-5.5', reviewEffort: 'max' }), '', 'modelo e esforço Codex não entram no claude -p');
   assert.equal(buildModelFlags({ reviewModel: { toString: () => 'opus; id' } }), '');
 });
 
