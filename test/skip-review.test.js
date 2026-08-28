@@ -1,9 +1,12 @@
 // UM Farol por PR (v2.51.0). O que dá pra provar sem rede é o que importa aqui:
-// a leitura das labels é PURA, o gate é síncrono e sem IO (mesmo contrato do
-// reReviewTargets: quem decide gastar sessão Claude tem que ser testável), a saída
-// de cena é DURÁVEL (era o defeito da v2.49.0: adiava cinco minutos e revisava
-// depois, deixando o comentário público mentindo), ela CADUCA quando a sessão do
-// colega morre sem deixar review, e a co-assinatura é opt-in com gates próprios.
+// a leitura dos sinais é PURA (labels legadas E refs, com a união no gate), o
+// gate é síncrono e sem IO (mesmo contrato do reReviewTargets: quem decide
+// gastar sessão Claude tem que ser testável), a saída de cena é DURÁVEL (era o
+// defeito da v2.49.0: adiava cinco minutos e revisava depois), ela CADUCA quando
+// a sessão do colega morre sem deixar review, e a co-assinatura é opt-in com
+// gates próprios. Desde 28/08/2026 (incidente do biud-frontend#845) a saída de
+// cena é SILENCIOSA no GitHub: nada de comentário público (era template
+// detectável), a âncora nasce da decisão e o aviso é um toast no app.
 import os from 'node:os';
 import path from 'node:path';
 // ISOLAMENTO OBRIGATÓRIO, e ele estava faltando: saiDeCena/podarSkipComentado
@@ -20,7 +23,10 @@ import fs from 'node:fs';
 
 const skip = await import('../lib/engine/skip-review.js');
 const io = (await import('../lib/io.js')).default;
-const { revisandoPorOutros, textoDoPulo, outrosRevisando, standDownCaducou, quemAprovou } = skip;
+const { TEMPOS } = await import('../lib/constants.js');
+const { revisandoPorOutros, revisandoPorSinais, textoDoPulo, outrosRevisando, standDownCaducou, quemAprovou } = skip;
+
+const TTL = TEMPOS.SINAL_REVISAO_TTL_MS;
 
 /* ---------- leitura das labels (PURA) ---------- */
 
@@ -53,9 +59,52 @@ test('revisandoPorOutros: entrada torta nunca lança', () => {
   assert.deepEqual(revisandoPorOutros([null, '', ':revisando'], 'eu'), []);
 });
 
-/* ---------- o gate: síncrono e sem IO ---------- */
+/* ---------- leitura das refs (PURA) ---------- */
 
-test('outrosRevisando: lê só o que a busca já trouxe, nunca chama gh', () => {
+const sinal = (number, login, epochMs) => ({ ref: `refs/farol/revisando/${number}/${login}/${epochMs}`, number, login, epochMs });
+
+test('revisandoPorSinais: acha a ref de outra pessoa no PR certo', () => {
+  const agora = 1756400000000;
+  const entries = [sinal(845, 'ana', agora - 1000), sinal(846, 'zoe', agora - 1000)];
+  assert.deepEqual(revisandoPorSinais(entries, 845, 'eu', agora, TTL), ['ana'], 'a ref do PR 846 não fala deste PR');
+});
+
+test('revisandoPorSinais: a MINHA própria ref não me barra, mesmo com outra caixa', () => {
+  const agora = 1756400000000;
+  assert.deepEqual(revisandoPorSinais([sinal(1, 'WandersonBiuder', agora)], 1, 'wandersonbiuder', agora, TTL), []);
+});
+
+test('revisandoPorSinais: acrity NUNCA entra na conta (review de ferramenta não dispensa olho humano)', () => {
+  const agora = 1756400000000;
+  assert.deepEqual(revisandoPorSinais([sinal(1, 'acrity', agora), sinal(1, 'ana', agora)], 1, 'eu', agora, TTL), ['ana']);
+});
+
+test('revisandoPorSinais: o TTL vale pros DOIS lados do relógio', () => {
+  const agora = 1756400000000;
+  const entries = [
+    sinal(1, 'morta', agora - TTL - 1000),          // sessão morta há mais de um TTL
+    sinal(1, 'viva', agora - 1000),                 // sessão de agora
+    sinal(1, 'relogio-adiantado', agora + TTL + 1000), // máquina alheia com relógio adiantado
+  ];
+  assert.deepEqual(revisandoPorSinais(entries, 1, 'eu', agora, TTL), ['viva'],
+    'ref imortal de relógio adiantado é ignorada igual à expirada');
+});
+
+test('revisandoPorSinais: dedup sem caixa, primeira grafia, ordem estável', () => {
+  const agora = 1756400000000;
+  const entries = [sinal(1, 'Zoe', agora), sinal(1, 'ana', agora), sinal(1, 'zoe', agora - 1)];
+  assert.deepEqual(revisandoPorSinais(entries, 1, 'eu', agora, TTL), ['ana', 'Zoe']);
+});
+
+test('revisandoPorSinais: entrada torta nunca lança', () => {
+  assert.deepEqual(revisandoPorSinais(null, 1, 'eu', 1, TTL), []);
+  assert.deepEqual(revisandoPorSinais('nao-e-array', 1, 'eu', 1, TTL), []);
+  assert.deepEqual(revisandoPorSinais([null, {}, { number: 1 }], 1, 'eu', 1, TTL), []);
+});
+
+/* ---------- o gate: síncrono, sem IO, união das duas fontes ---------- */
+
+test('outrosRevisando: lê só o que os ciclos já trouxeram, nunca chama gh', () => {
   const engine = {
     accountForPr: () => 'eu',
     ghEnv: () => { throw new Error('o gate não podia tocar o gh'); },
@@ -67,7 +116,47 @@ test('outrosRevisando: lê só o que a busca já trouxe, nunca chama gh', () => 
   assert.deepEqual(outrosRevisando(engine, {}), []);
 });
 
-/* ---------- texto do comentário ---------- */
+test('outrosRevisando: UNIÃO das labels legadas com as refs, ordem estável', () => {
+  const engine = {
+    accountForPr: () => 'eu',
+    reviewSignals: new Map([['o/r', [sinal(1, 'zoe', Date.now())]]]),
+  };
+  const pr = { key: 'o/r#1', repo: 'o/r', number: 1, labels: ['ana:revisando'] };
+  assert.deepEqual(outrosRevisando(engine, pr), ['ana', 'zoe'], 'colega de versão antiga (label) e de versão nova (ref) contam juntos');
+});
+
+test('outrosRevisando: dedup sem caixa entre as fontes, primeira grafia (a da label) vence', () => {
+  const engine = {
+    accountForPr: () => 'eu',
+    reviewSignals: new Map([['o/r', [sinal(1, 'Ana', Date.now())]]]),
+  };
+  const pr = { key: 'o/r#1', repo: 'o/r', number: 1, labels: ['ana:revisando'] };
+  assert.deepEqual(outrosRevisando(engine, pr), ['ana']);
+});
+
+test('outrosRevisando: ref expirada não conta, e a minha ref não me barra', () => {
+  const agora = Date.now();
+  const engine = {
+    accountForPr: () => 'eu',
+    reviewSignals: new Map([['o/r', [sinal(1, 'ana', agora - TTL - 60000), sinal(1, 'EU', agora)]]]),
+  };
+  assert.deepEqual(outrosRevisando(engine, { key: 'o/r#1', repo: 'o/r', number: 1, labels: [] }), []);
+});
+
+test('outrosRevisando: engine sem snapshot de refs degrada pras labels (transição)', () => {
+  const engine = { accountForPr: () => 'eu' }; // sem reviewSignals nenhum
+  assert.deepEqual(outrosRevisando(engine, { key: 'o/r#1', repo: 'o/r', number: 1, labels: ['ana:revisando'] }), ['ana']);
+});
+
+test('outrosRevisando: refs de outro repo não vazam pra este PR', () => {
+  const engine = {
+    accountForPr: () => 'eu',
+    reviewSignals: new Map([['o/outro', [sinal(1, 'ana', Date.now())]]]),
+  };
+  assert.deepEqual(outrosRevisando(engine, { key: 'o/r#1', repo: 'o/r', number: 1, labels: [] }), []);
+});
+
+/* ---------- texto do toast (era o comentário público até 28/08/2026) ---------- */
 
 test('textoDoPulo: sem citar automação, sem pronome de gênero e sem travessão', () => {
   const t = textoDoPulo(['ana']);
@@ -151,31 +240,31 @@ function espiaGh(engine, ok = true) {
 
 const PR = { key: 'o/r#1', url: 'https://github.com/o/r/pull/1', repo: 'o/r', number: 1 };
 
-test('saiDeCena: comenta e grava a âncora POR HEAD', async (t) => {
+// desde 28/08/2026 a saída de cena é silenciosa no GitHub: a âncora nasce da
+// DECISÃO (não mais de um comentário que saiu) e o aviso é o toast no app
+test('saiDeCena: grava a âncora POR HEAD e avisa por toast, sem gh nenhum', async (t) => {
   const engine = engineFalso();
   t.after(espiaGh(engine));
-  const ok = await skip.saiDeCena(engine, PR, ['ana'], 'sha1');
+  const ok = await skip.saiDeCena(engine, PR, ['ana'], 'sha1', true);
   assert.equal(ok, true);
-  assert.deepEqual(engine.rodou[0].slice(0, 3), ['pr', 'comment', PR.url]);
+  assert.equal(engine.rodou.length, 0, 'NENHUM gh roda (nem pr comment, nem nada): zero rastro público');
   assert.equal(engine.skipComentado['o/r#1'].head, 'sha1');
   assert.deepEqual(engine.skipComentado['o/r#1'].quem, ['ana']);
+  assert.equal(engine.skipComentado['o/r#1'].autoridade, true);
+  const toast = engine.toasts.find(x => x.ev === 'toast');
+  assert.ok(toast, 'o aviso existe, só que no app');
+  assert.match(toast.payload.text, /@ana já está revisando/);
+  assert.match(toast.payload.text, /o\/r#1/);
+  assert.match(toast.payload.text, /sem postar nada público/i, 'o toast diz que nada foi postado');
 });
 
-// a âncora só nasce de um comentário que SAIU: um 503 não pode registrar uma
-// saída de cena silenciosa, senão o Farol some do PR sem ninguém ser avisado
-test('saiDeCena: gh que falha não grava âncora', async (t) => {
+// o contrato antigo "a âncora só nasce de comentário que saiu" morreu junto com
+// o comentário; a exigência que fica é a lista de quem está revisando
+test('saiDeCena: sem ninguém revisando não registra saída nenhuma', async (t) => {
   const engine = engineFalso();
-  t.after(espiaGh(engine, false));
-  assert.equal(await skip.saiDeCena(engine, PR, ['ana'], 'sha1'), false);
-  assert.equal(engine.skipComentado['o/r#1'], undefined);
-  assert.equal(engine.logs[0].nivel, 'WARN');
-});
-
-// mesma raiz A1 do resto do engine: agir sem identidade provada é pior que não agir
-test('saiDeCena: conta sem token não roda gh', async (t) => {
-  const engine = engineFalso({ tokenFor: () => null });
   t.after(espiaGh(engine));
-  assert.equal(await skip.saiDeCena(engine, PR, ['ana'], 'sha1'), false);
+  assert.equal(await skip.saiDeCena(engine, PR, [], 'sha1'), false);
+  assert.equal(engine.skipComentado['o/r#1'], undefined);
   assert.equal(engine.rodou.length, 0);
 });
 

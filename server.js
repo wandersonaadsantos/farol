@@ -58,6 +58,7 @@ function authFromProfile(p) {
 }
 import fileProofMod from './lib/engine/file-proof.js';
 import skipMod from './lib/engine/skip-review.js';
+import signalMod from './lib/engine/review-signal.js';
 import usageMod from './lib/engine/usage.js';
 import { EDITAVEIS, defaults as settingsDefaults, sanear } from './lib/settings.js';
 import { parseJiraSites, maskJiraSites } from './lib/jira/sites.js';
@@ -218,7 +219,8 @@ class Engine extends EventEmitter {
     this.pushbackScanned = readJson(path.join(STATE_DIR, 'pushback-scanned.json'), {}, warn); // { key: marcador da última atividade do autor já avaliada }
     this.reReviewLaunched = readJson(path.join(STATE_DIR, 'rereview-launched.json'), {}, warn); // { key: { head, dia, rodadas } da re-revisão automática; string legada = só o head }
     this.headQuietoDesde = {}; // { key: { head, at } } debounce do round automático, só memória
-    this.skipComentado = skipMod.loadSkipComentado(warn); // { key: { at, quem } } âncora do comentário de "outra pessoa já está revisando"
+    this.skipComentado = skipMod.loadSkipComentado(warn); // { key: { at, quem } } âncora da saída de cena silenciosa ("outra pessoa já está revisando"; desde 28/08/2026 nada é comentado no PR, o aviso é toast)
+    this.reviewSignals = new Map(); // repoLower -> entries das refs de "revisando" (lib/engine/review-signal.js); snapshot por ciclo, só memória
     this.toolRuns = readJson(path.join(STATE_DIR, 'tool-results.json'), {}, warn);
     // kudos passou a ser POR CONTA (mapa escopo->execução); migra o formato antigo
     // (execução única, global) pro escopo "todas" ('*') pra não perder o que já existia
@@ -727,9 +729,19 @@ class Engine extends EventEmitter {
       // relançava a sessão fadada à mesma falha, que estacionava de novo: loop pago
       // de 30 em 30 segundos, o próprio G15 reaberto (revisão final da onda 3).
       this._podarEstacionamento(panorama, ownersOk, monitoredOwners);
-      // âncora do comentário de pulo: some junto com o PR. Mesmo compromisso do
+      // âncora da saída de cena: some junto com o PR. Mesmo compromisso do
       // reReviewLaunched, e por isso a mesma fonte (o panorama deste ciclo).
       this.podarSkipComentado(new Set(panorama.map(p => p.key)));
+
+      // sinal invisível de "revisando" (refs git, lib/engine/review-signal.js):
+      // UMA busca por repo de interesse por ciclo, ANTES de qualquer decisão de
+      // gastar sessão. O filtro toReview lê via _registraPulo/outrosRevisando e o
+      // launchReReviews lê via reReviewTargets, então o refresh precisa vir antes
+      // dos dois. Os repos de pendência stale_head vêm do decisions persistido e
+      // os de staleInfo do ciclo ANTERIOR (o refreshStaleStates roda mais abaixo);
+      // um repo que ficou stale agora entra no refresh do próximo ciclo, o que só
+      // atrasa a leitura do sinal em um ciclo, nunca a segurança do gate.
+      await this.refreshReviewSignals();
 
       await this._dispararAutomacoes(fresh);
 
@@ -975,11 +987,12 @@ class Engine extends EventEmitter {
         ...this.headlessQueue.map(p => p.key),
         ...[...this.activeReviews.values()].flatMap(s => s.keys || [])
       ]);
-      // UM Farol por PR: quem já saiu de cena naquele head fica fora, e quem vê a
-      // label de outra pessoa sai agora. Os dois são coletados aqui e resolvidos
-      // depois do filtro, porque comentar/consultar review é IO e este filtro é
-      // síncrono de propósito. Ferramenta não conta como pessoa, e clique manual
-      // nunca passa por aqui (ver lib/engine/skip-review.js).
+      // UM Farol por PR: quem já saiu de cena naquele head fica fora, e quem vê o
+      // sinal de outra pessoa (label legada ou ref) sai agora. Os dois são
+      // coletados aqui e resolvidos depois do filtro, porque consultar review e
+      // CODEOWNERS é IO e este filtro é síncrono de propósito. Ferramenta não
+      // conta como pessoa, e clique manual nunca passa por aqui (ver
+      // lib/engine/skip-review.js).
       const pulados = [];
       const foraDeCena = [];
       const toReview = this.queue.filter(p => {
@@ -1144,6 +1157,8 @@ class Engine extends EventEmitter {
   // G15: estacionamento pós-falha persistido (padrão do savePushbackScanned)
   saveAutoReviewParked() { return reviewMod.saveAutoReviewParked(this); }
   saveSkipComentado() { return skipMod.saveSkipComentado(this); }
+  // sinal invisível de "revisando" por ref git (lib/engine/review-signal.js)
+  refreshReviewSignals() { return signalMod.refreshReviewSignals(this); }
   // UM Farol por PR (lib/engine/skip-review.js): sair de cena e co-assinar
   outrosRevisando(pr) { return skipMod.outrosRevisando(this, pr); }
   saiDeCena(pr, outros, head, autoridade) { return skipMod.saiDeCena(this, pr, outros, head, autoridade); }
@@ -1153,9 +1168,10 @@ class Engine extends EventEmitter {
 
   /* Resolve, num ciclo, os dois lados do "um Farol por PR". Assíncrono e
      best-effort: nada aqui é pré-requisito do polling.
-     - `pulados`: acabei de ver a label de outra pessoa. Saio de cena AGORA, de
-       forma durável naquele head, e comento (o comentário só é verdade porque a
-       saída é durável; era a mentira da v2.49.0).
+     - `pulados`: acabei de ver o sinal de outra pessoa (label legada ou ref).
+       Saio de cena AGORA, de forma durável naquele head, e o aviso é um toast
+       no app (desde 28/08/2026 nada é comentado no PR: o comentário era template
+       detectável e denunciava a automação).
      - `foraDeCena`: já estava fora. Aqui é onde a saída pode CADUCAR (a sessão do
        colega morreu sem deixar review) ou virar co-assinatura (ele aprovou e a
        chave está ligada).

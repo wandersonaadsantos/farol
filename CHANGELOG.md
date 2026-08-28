@@ -9,6 +9,28 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.53.9
+
+Nenhum rastro de automação aparece mais publicamente no GitHub: a revisão em
+andamento deixou de ser sinalizada por label no PR e o comentário de pulo
+deixou de existir.
+
+**Correções**
+- **A label pública `<conta>:revisando` morreu.** Ela ficava visível na página
+  do PR enquanto a revisão rodava (e os eventos de adicionar/remover ficam para
+  sempre na timeline), o que denunciava a automação; em 28/08/2026 isso vazou de
+  verdade num PR de trabalho. O sinal de revisão em andamento agora é uma ref
+  git invisível na interface do GitHub (`refs/farol/revisando/...`), com
+  validade de 1 hora e coleta automática de refs órfãs. Cópias antigas ainda
+  escrevem a label e só leem labels; esta versão lê os dois sinais e escreve só
+  o invisível, então a coordenação de "um Farol por PR" segue funcionando na
+  transição.
+- **O comentário público de pulo ("não vou duplicar a revisão") foi removido.**
+  Era um texto fixo, igual em toda conta e todo PR, postado minutos depois do
+  sinal alheio subir: qualquer pessoa percebia o padrão. A saída de cena
+  continua durável e registrada, e o aviso agora é um toast no app, sem nada
+  público no GitHub.
+
 ## v2.53.8
 
 Correção de acabamento no macOS: o app deixa de aparecer com a identidade
