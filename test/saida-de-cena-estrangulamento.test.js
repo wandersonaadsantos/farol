@@ -40,6 +40,9 @@ function engineFalso(extra = {}) {
     // o stub delega no modulo de verdade: e justamente o ponto de estrangulamento
     // que estes testes existem pra provar, entao ele nao pode ser falsificado
     enqueueHeadless(pr) { return reviewMod.enqueueHeadless(this, pr); },
+    // o gate de consciência tem suíte própria (test/consciencia-historico.test.js);
+    // aqui ele fica sempre livre pra estes testes seguirem falando SÓ da saída de cena
+    bloqueiaAutomatico: async () => false,
     prFromUrl: (u) => ({ key: 'o/r#1', url: u, repo: 'o/r', number: 1 }),
     accountForPr: () => 'eu',
     isMuted: () => false,

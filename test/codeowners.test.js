@@ -1,12 +1,14 @@
 // CODEOWNERS: quem é AUTORIDADE sobre cada arquivo do PR (v2.51.0). Tudo PURO,
 // então dá pra provar sem rede. Os casos usam os CODEOWNERS REAIS medidos em
-// 20/08/2026, porque a feature nasceu de um furo achado em produção: sair de cena
-// porque alguém está revisando tratava aprovação como fungível, e ela não é.
+// 20/08/2026. Desde 28/08/2026 a cobertura de exigência (cobreMinhaExigencia)
+// saiu do módulo junto com a regra plana da saída de cena (ver o cabeçalho de
+// lib/engine/codeowners.js); o que fica testado é o parse, o casamento de
+// padrão e a AUTORIDADE, que segue gateando a co-assinatura.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 const co = (await import('../lib/engine/codeowners.js')).default;
-const { parseCodeowners, ownersForPath, souAutoridade, cobreMinhaExigencia } = co;
+const { parseCodeowners, ownersForPath, souAutoridade } = co;
 
 // os dois repos reais que motivaram a feature
 const ENGINE_AI = parseCodeowners(`
@@ -74,7 +76,7 @@ test('ownersForPath: arquivo sem regra que case não tem dono', () => {
   assert.deepEqual(ownersForPath(parseCodeowners('/docs/ @ana'), 'src/x.ts'), []);
 });
 
-/* ---------- autoridade ---------- */
+/* ---------- autoridade (é o que gateia a co-assinatura) ---------- */
 
 test('souAutoridade: caixa do login não importa', () => {
   assert.equal(souAutoridade(ENGINE_AI, ['src/x.ts'], 'alexpraxedes'), true);
@@ -82,49 +84,18 @@ test('souAutoridade: caixa do login não importa', () => {
   assert.equal(souAutoridade(ENGINE_AI, ['src/x.ts'], 'thiagocarvalho-dev'), false);
 });
 
-/* ---------- a pergunta que decide a saída de cena ----------
-   Os quatro casos reais que a feature existe pra acertar. */
-
-test('front: Thiago pega, Wanderson pode sair (mesma linha, CODEOWNERS é OU)', () => {
-  const arquivos = ['src/app.tsx', 'src/components/Botao.tsx'];
-  assert.equal(cobreMinhaExigencia(FRONTEND, arquivos, 'wandersonbiuder', 'thiagocarvalho-dev'), true);
+test('souAutoridade: basta UM arquivo do PR em que eu sou dono', () => {
+  assert.equal(souAutoridade(FRONTEND, ['src/app.tsx', 'package.json'], 'Alexpraxedes'), true, 'dono só do package.json ainda é autoridade no PR');
+  assert.equal(souAutoridade(FRONTEND, ['src/app.tsx'], 'Alexpraxedes'), false, 'fora do arquivo dele, não é');
 });
 
-test('front: Alex pega, Wanderson NÃO pode sair (Alex não é dono do *)', () => {
-  const arquivos = ['src/app.tsx'];
-  assert.equal(cobreMinhaExigencia(FRONTEND, arquivos, 'wandersonbiuder', 'Alexpraxedes'), false);
+test('souAutoridade: repo sem CODEOWNERS não tem autoridade nenhuma', () => {
+  assert.equal(souAutoridade([], ['src/x.ts'], 'ana'), false);
 });
 
-// o PR mexe em package.json (dono: Alex) E em código (dono: Wanderson/Thiago).
-// Thiago não cobre o package.json, então o Farol do Alex tem que revisar.
-test('front: PR que mexe no package.json, Thiago pega, Alex NÃO pode sair', () => {
-  const arquivos = ['src/app.tsx', 'package.json'];
-  assert.equal(cobreMinhaExigencia(FRONTEND, arquivos, 'Alexpraxedes', 'thiagocarvalho-dev'), false);
-});
-
-// o caso medido no #60: quem se calou era o dono do repo inteiro
-test('engine-ai: Thiago pega, Alex NÃO pode sair (era o bug do #60)', () => {
-  assert.equal(cobreMinhaExigencia(ENGINE_AI, ['src/x.ts'], 'Alexpraxedes', 'thiagocarvalho-dev'), false);
-});
-
-test('quem não é dono de nada pode sair de cena (não há exigência a preservar)', () => {
-  assert.equal(cobreMinhaExigencia(ENGINE_AI, ['src/x.ts'], 'guilherme-lima-dev', 'thiagocarvalho-dev'), true);
-});
-
-test('repo sem CODEOWNERS: ninguém é exigido, então pode sair', () => {
-  assert.equal(cobreMinhaExigencia([], ['src/x.ts'], 'ana', 'bia'), true);
-});
-
-// limite declarado: time não dá pra resolver sem outra chamada de rede, então
-// arquivo com dono de time é inconclusivo e cai sempre no lado seguro
-test('dono que é TIME torna a análise inconclusiva (nunca sai de cena)', () => {
+// limite declarado: dono que é TIME não se resolve sem outra chamada de rede,
+// então time nunca prova autoridade minha (souDono só olha menção individual)
+test('souAutoridade: dono que é TIME não vira autoridade individual', () => {
   const comTime = parseCodeowners('* @biudtech/squad-engine');
-  assert.equal(cobreMinhaExigencia(comTime, ['src/x.ts'], 'ana', 'bia'), false);
-  assert.equal(co.temDonoDeTime(comTime, ['src/x.ts']), true);
-});
-
-test('time em UM arquivo contamina a decisão do PR inteiro (conservador)', () => {
-  const regras = parseCodeowners('* @ana\ninfra/ @biudtech/plataforma');
-  assert.equal(cobreMinhaExigencia(regras, ['src/x.ts'], 'ana', 'ana'), true, 'sem tocar infra, resolve normal');
-  assert.equal(cobreMinhaExigencia(regras, ['src/x.ts', 'infra/a.yaml'], 'ana', 'ana'), false);
+  assert.equal(souAutoridade(comTime, ['src/x.ts'], 'ana'), false);
 });

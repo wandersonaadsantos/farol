@@ -23,6 +23,9 @@ function engineBase() {
   // tokens por conta (tokenFor consulta este mapa): 'semtoken' fica de fora de propósito
   e.tokens = { eu: 'tok-eu', silenciada: 'tok-sil' };
   e.log = () => { };
+  // gate de consciência sempre livre (é rede; a suíte dele é
+  // test/consciencia-historico.test.js)
+  e.bloqueadoPorHistorico = async () => ({ bloqueado: false, head: '', quem: [], decisivos: [] });
   return e;
 }
 const prDe = (key, extra) => ({ key, url: `https://github.com/${key.replace('#', '/pull/')}`, ...extra });

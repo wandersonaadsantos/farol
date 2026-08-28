@@ -730,10 +730,14 @@ class Engine extends EventEmitter {
       // de 30 em 30 segundos, o próprio G15 reaberto (revisão final da onda 3).
       this._podarEstacionamento(panorama, ownersOk, monitoredOwners);
       // âncora da saída de cena: some junto com o PR. Mesmo compromisso do
-      // reReviewLaunched, e por isso a mesma fonte (o panorama deste ciclo).
-      this.podarSkipComentado(new Set(panorama.map(p => p.key)));
+      // reReviewLaunched, e por isso a mesma fonte (o panorama deste ciclo). A
+      // memória de aviso do gate de consciência segue a mesma poda.
+      const chavesDoPanorama = new Set(panorama.map(p => p.key));
+      this.podarSkipComentado(chavesDoPanorama);
+      this.podarHistoricoAvisado(chavesDoPanorama);
 
-      // sinal invisível de "revisando" (refs git, lib/engine/review-signal.js):
+      // refs de "revisando" da v2.53.9 (leitura de TRANSIÇÃO, ver o cabeçalho de
+      // lib/engine/review-signal.js; o sinal escrito voltou a ser a label):
       // UMA busca por repo de interesse por ciclo, ANTES de qualquer decisão de
       // gastar sessão. O filtro toReview lê via _registraPulo/outrosRevisando e o
       // launchReReviews lê via reReviewTargets, então o refresh precisa vir antes
@@ -1028,41 +1032,57 @@ class Engine extends EventEmitter {
       // a checagem funcionou = a rede voltou: relança revisões que caíram por algo
       // transitório. Vale pra QUALQUER revisão que caiu (clique no panorama e conta
       // sem autoReview inclusive): a promessa do toast não depende da política da conta.
-      if (this.retryAfterNet.size) {
-        const retry = this.retryTargets(new Set(fresh.map(f => f.key)), inflight);
-        if (retry.length) {
-          // poda PRs que foram mergeados/fechados enquanto esperavam no retry,
-          // ANTES de notificar e lançar: sem isso cada ciclo gera uma cascata
-          // de "relançando..." + "já mergeado, cancelei" pra cada PR fechado
-          const stillOpen = [];
-          for (const pr of retry) {
-            let state = null;
-            try { state = await this.prState(pr); } catch {}
-            if (state === 'MERGED' || state === 'CLOSED') {
-              this.retryAfterNet.delete(pr.key);
-            } else {
-              stillOpen.push(pr);
-            }
-          }
-          if (stillOpen.length) {
-            this.emit('toast', { kind: 'info', text: `Conexão de volta: relançando a revisão de ${stillOpen.map(p => p.key).join(', ')}.` });
-            // G9: relança o OBJETO guardado (era o motivo de guardá-lo): relançar
-            // por URL re-resolvia no panorama e requested virava false, rebaixando
-            // um round automático a manual com a reason errada
-            for (const pr of stillOpen) {
-              // a falha transitória original (runOneHeadless) fez unsee + queue.push
-              // pra deixar o card visível "aguardando você" enquanto esperava o retry.
-              // O launchReview desfazia os dois (markSeen + saída da fila) no
-              // relançamento; enqueueHeadless sozinho não faz isso, e o card mentia
-              // "aguardando você" com o botão Revisar ativo enquanto a revisão
-              // relançada já estava rodando.
-              this.markSeen(pr.key);
-              this.queue = this.queue.filter(p => p.key !== pr.key);
-              this.enqueueHeadless(pr);
-            }
-          }
-        }
+      await this._repescarRetry(fresh, inflight);
+  }
+
+  // Repesca do retry pós-transitório (extraído do _dispararAutomacoes quando o
+  // gate de consciência entrou no caminho, pra manter a profundidade no teto do
+  // gate de qualidade). O comportamento é o de sempre, mais o gate novo no meio.
+  async _repescarRetry(fresh, inflight) {
+    if (!this.retryAfterNet.size) return;
+    const retry = this.retryTargets(new Set(fresh.map(f => f.key)), inflight);
+    if (!retry.length) return;
+    // poda PRs que foram mergeados/fechados enquanto esperavam no retry,
+    // ANTES de notificar e lançar: sem isso cada ciclo gera uma cascata
+    // de "relançando..." + "já mergeado, cancelei" pra cada PR fechado
+    const stillOpen = [];
+    for (const pr of retry) {
+      let state = null;
+      try { state = await this.prState(pr); } catch {}
+      if (state === 'MERGED' || state === 'CLOSED') {
+        this.retryAfterNet.delete(pr.key);
+      } else {
+        stillOpen.push(pr);
       }
+    }
+    // gate de consciência do review automático (28/08/2026 à tarde): head ativo
+    // com review decisivo de outra pessoa deixa o retry aguardando ação manual.
+    // A entrada do retry morre junto (a promessa "retomo sozinho" caducou:
+    // alguém decisivo se manifestou, e insistir seria reconsultar o mesmo head
+    // a cada ciclo); o card segue visível na fila, deixado lá pela falha
+    // transitória original, com o botão Revisar valendo. Roda ANTES do toast de
+    // relançamento pra nunca anunciar um relançamento que não vai acontecer.
+    const relancaveis = [];
+    for (const pr of stillOpen) {
+      if (await this.bloqueiaAutomatico(pr)) this.retryAfterNet.delete(pr.key);
+      else relancaveis.push(pr);
+    }
+    if (!relancaveis.length) return;
+    this.emit('toast', { kind: 'info', text: `Conexão de volta: relançando a revisão de ${relancaveis.map(p => p.key).join(', ')}.` });
+    // G9: relança o OBJETO guardado (era o motivo de guardá-lo): relançar
+    // por URL re-resolvia no panorama e requested virava false, rebaixando
+    // um round automático a manual com a reason errada
+    for (const pr of relancaveis) {
+      // a falha transitória original (runOneHeadless) fez unsee + queue.push
+      // pra deixar o card visível "aguardando você" enquanto esperava o retry.
+      // O launchReview desfazia os dois (markSeen + saída da fila) no
+      // relançamento; enqueueHeadless sozinho não faz isso, e o card mentia
+      // "aguardando você" com o botão Revisar ativo enquanto a revisão
+      // relançada já estava rodando.
+      this.markSeen(pr.key);
+      this.queue = this.queue.filter(p => p.key !== pr.key);
+      this.enqueueHeadless(pr);
+    }
   }
 
   setStatus(s) { this.status = s; this.pushState(); }
@@ -1162,9 +1182,14 @@ class Engine extends EventEmitter {
   // UM Farol por PR (lib/engine/skip-review.js): sair de cena e co-assinar
   outrosRevisando(pr) { return skipMod.outrosRevisando(this, pr); }
   saiDeCena(pr, outros, head, autoridade) { return skipMod.saiDeCena(this, pr, outros, head, autoridade); }
-  podeSairDeCena(pr, outros) { return skipMod.podeSairDeCena(this, pr, outros); }
+  autoridadeNaSaida(pr) { return skipMod.autoridadeNaSaida(this, pr); }
   seguirForaDeCena(pr, registro, head) { return skipMod.seguirForaDeCena(this, pr, registro, head); }
   podarSkipComentado(abertos) { return skipMod.podarSkipComentado(this, abertos); }
+  // gate de consciência do review automático (28/08/2026 à tarde): head ativo com
+  // review decisivo de outra pessoa deixa o caminho automático aguardando você
+  bloqueadoPorHistorico(pr) { return skipMod.bloqueadoPorHistorico(this, pr); }
+  bloqueiaAutomatico(pr) { return skipMod.bloqueiaAutomatico(this, pr); }
+  podarHistoricoAvisado(abertos) { return skipMod.podarHistoricoAvisado(this, abertos); }
 
   /* Resolve, num ciclo, os dois lados do "um Farol por PR". Assíncrono e
      best-effort: nada aqui é pré-requisito do polling.
@@ -1179,11 +1204,11 @@ class Engine extends EventEmitter {
      âncora vale pro PR inteiro, que é o lado seguro de "um Farol por PR". */
   async resolvePulos(pulados, foraDeCena) {
     for (const { pr, outros } of pulados || []) {
-      // CODEOWNERS decide: só saio de cena se quem pegou o PR cobre a MESMA
-      // exigência que eu cobriria. Aprovação não é fungível onde há dono de
-      // código (ver lib/engine/codeowners.js). Sem prova, reviso.
-      const { pode, autoridade } = await this.podeSairDeCena(pr, outros);
-      if (!pode) continue;
+      // regra PLANA (28/08/2026 à tarde): ver alguém revisando SEMPRE segura o
+      // automático, sem a exceção de CODEOWNERS da v2.51.0. O que o CODEOWNERS
+      // ainda responde é se eu sou AUTORIDADE, porque isso gateia a
+      // co-assinatura ("nunca co-assino onde sou autoridade").
+      const autoridade = await this.autoridadeNaSaida(pr);
       await this.saiDeCena(pr, outros, await this._headSeguro(pr), autoridade);
     }
     for (const pr of foraDeCena || []) {

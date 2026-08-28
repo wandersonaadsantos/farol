@@ -26,8 +26,8 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
 | `lib/engine/review.js` | Revisão headless: fila por conta, escalonador paralelo (`processHeadless`), prompt (`headlessPromptFor`) e o ciclo de uma revisão |
 | `lib/engine/decision.js` | O gate de postagem: `shouldAutoApprove`, `shouldAutoReject`, `coverageGap`, `checkpointGap`, `attentionPoints`, `postReview`, `decide`, capabilities das sessões interativas e projeção segura das decisões para a UI |
 | `lib/engine/public-review.js` | Fronteira determinística entre diagnóstico interno e review: valida schema/linguagem de corpos e inlines, extrai review humano de registros legados e monta a allowlist enviada à UI |
-| `lib/engine/skip-review.js` | **UM Farol por PR** (v2.50.1; sinal reformado em 28/08/2026, ver "O sinal público morreu" na seção própria). Ver o SINAL de outra pessoa (ref invisível de `review-signal.js` ou label legada `<conta>:revisando` de cópia antiga) faz o Farol SAIR DE CENA naquele head, de forma DURÁVEL (na v2.49.0 era só um adiamento, ver o parágrafo próprio abaixo). `revisandoPorOutros` (labels legadas) e `revisandoPorSinais` (refs) são PURAS, `outrosRevisando` é a UNIÃO das duas e segue SÍNCRONA e sem IO (contrato do reReviewTargets), `saiDeCena` ancora por head e avisa por TOAST (desde 28/08/2026 nada é postado no PR), `standDownCaducou` é a rede de segurança (sessão do colega morreu sem review = volta a revisar) e `coAssinar` é o opt-in que aprova em seu nome quando quem pegou aprovou. **`acrity` nunca conta como pessoa** (review de ferramenta não dispensa olho humano). Vale só no caminho AUTOMÁTICO: clique manual sempre revisa |
-| `lib/engine/review-signal.js` | **Sinal invisível de revisão em andamento** (28/08/2026). Ref git `refs/farol/revisando/<pr>/<login>/<epoch-ms>` no repo do PR: invisível em toda a interface do GitHub e fora do alcance dos rulesets (que só alvejam branch e tag; conferido nos rulesets reais da biudtech). Criada no início da revisão headless apontando pro head SHA, removida no finally; TTL de 1h dos DOIS lados do relógio (`TEMPOS.SINAL_REVISAO_TTL_MS`) e coleta de refs órfãs do passado. `refreshReviewSignals` roda no `check()` (uma chamada `matching-refs` com `--paginate` por repo de interesse por ciclo: fila + pendências stale_head + panorama stale) e alimenta `engine.reviewSignals`; falha preserva o snapshot anterior. Substituiu a label pública `<conta>:revisando`, que vazava automação (o cabeçalho do arquivo conta o incidente do biud-frontend#845) |
+| `lib/engine/skip-review.js` | **UM Farol por PR** (v2.50.1; regras reformadas em 28/08/2026, ver "As duas decisões de 28/08" na seção própria). Ver o SINAL de outra pessoa (a label `<conta>:revisando`, que é o sinal escrito; ou ref de transição da v2.53.9) faz o Farol SAIR DE CENA naquele head, de forma DURÁVEL, SEMPRE (regra plana: caiu a exceção de CODEOWNERS da v2.51.0). `revisandoPorOutros` (labels) e `revisandoPorSinais` (refs de transição) são PURAS, `outrosRevisando` é a UNIÃO das duas e segue SÍNCRONA e sem IO (contrato do reReviewTargets), `saiDeCena` ancora por head e avisa por TOAST (desde 28/08/2026 nada é postado no PR), `standDownCaducou` é a rede de segurança (sessão do colega morreu sem review = volta a revisar), `coAssinar` é o opt-in que aprova em seu nome quando quem pegou aprovou, e `autoridadeNaSaida` responde só se EU sou autoridade (gateia a co-assinatura; falta de dado cai em true, o lado seguro). **Gate de consciência** (28/08/2026 à tarde): `bloqueadoPorHistorico` (head ativo com APPROVED/CHANGES_REQUESTED de outra pessoa = automático não roda) com boca única `bloqueiaAutomatico` (clique manual atravessa sem gh) + `avisaBloqueioHistorico`/`podarHistoricoAvisado` (toast único por PR+head). **`acrity` nunca conta como pessoa** (review de ferramenta não dispensa olho humano). Vale só no caminho AUTOMÁTICO: clique manual sempre revisa |
+| `lib/engine/review-signal.js` | **LEITURA DE TRANSIÇÃO das refs da v2.53.9** (28/08/2026). Por algumas horas a v2.53.9 escreveu o sinal de revisão em andamento como ref git `refs/farol/revisando/<pr>/<login>/<epoch-ms>`; a v2.54.0 devolveu a escrita pra label `<conta>:revisando` (decisão da tarde: label visível é desejada) e este módulo ficou só LENDO e coletando as refs até a frota convergir (remover no futuro). `refreshReviewSignals` roda no `check()` (uma chamada `matching-refs` com `--paginate` por repo de interesse por ciclo) e alimenta `engine.reviewSignals`; TTL de 1h dos DOIS lados do relógio (`TEMPOS.SINAL_REVISAO_TTL_MS`); GC apaga só ref órfã do passado; falha preserva o snapshot anterior. Também abriga `repoDoPr`/`numeroDoPr` |
 | `lib/engine/codeowners.js` | **Quem é AUTORIDADE sobre cada arquivo do PR** (v2.51.0). Tudo PURO: `parseCodeowners`, `patternToRegex` (estilo gitignore), `ownersForPath` (a ÚLTIMA regra que casa vence, semântica do GitHub, NÃO acumula), `souAutoridade` e `cobreMinhaExigencia` (só saio de cena se quem pegou o PR é dono de TODO arquivo em que eu sou). Dono que é TIME (`@org/slug`) é inconclusivo e cai sempre no lado seguro |
 | `lib/engine/fanout.js` | Fan-out de revisão em PR grande: mede o PR (`prMetrics`), decide se fatia (`shouldFanOut`), monta os lotes por afinidade de caminho (`planLotes`, função PURA) e injeta o instrutivo (`fanOutBlock`). Determinístico, ZERO IA e zero rede na parte que decide |
 | `lib/engine/model-router.js` | **Roteador de modelo por custo-benefício** (quando `reviewModel === 'auto'`). PURA: escolhe haiku/sonnet (+ esforço/fast) pelas métricas do PR. `auto` nunca entra na cmdline do CLI |
@@ -556,7 +556,13 @@ quem mandou revisar foi você, sabendo que outra pessoa está lá, e a partir da
 app volta a agir no PR. Mesmo espírito do estacionamento (lançar tira de lá).
 Travado em `test/saida-de-cena-estrangulamento.test.js`.
 
-### Aprovação não é fungível: o CODEOWNERS entra no gate (v2.51.0)
+### Aprovação não é fungível: o CODEOWNERS entra no gate (v2.51.0; SUPERADA em 28/08/2026)
+
+**Nota de 28/08/2026: a cobertura de exigência foi SUPERADA pela regra plana**
+(ver "As duas decisões de 28/08" acima): ver alguém revisando sempre segura o
+automático e o PR espera ação manual, então `cobreMinhaExigencia` saiu do
+código. O que sobreviveu desta seção: `souAutoridade` e o guarda "nunca
+co-assino onde sou autoridade". O texto abaixo fica como registro da motivação.
 
 A v2.50.1 consertou o marcador transitório mas manteve um pressuposto errado:
 que "outra pessoa está revisando" bastava. **Não basta, importa QUEM.** Dados
@@ -663,31 +669,45 @@ Três peças que a decisão exige, e nenhuma é opcional:
 veem (nenhum tem sinal ainda) e os dois revisam. O sinal reduz duplicata, não é
 trava distribuída. Fingir o contrário no código ou na tela seria mentira.
 
-### O sinal público morreu (28/08/2026, v2.53.9)
+### As duas decisões de 28/08/2026 (v2.53.9 e v2.54.0): o que é vazamento e o que não é
 
-O Wanderson viu a label `thiagocarvalho-dev:revisando` na página do
-biud-frontend#845 e cravou a regra: a revisão do Farol tem que parecer 100%
-humana, NENHUM rastro de automação em página pública do GitHub. Caíram na mesma
-leva a label `<conta>:revisando` (além de visível enquanto a sessão roda, os
-eventos de add/remove ficam PARA SEMPRE na timeline do PR) e o comentário de
-pulo (template fixo detectável: a mesma frase, de contas diferentes, minutos
-depois do sinal alheio). O que existe agora:
+O dia teve DUAS rodadas de decisão do Wanderson, e só a segunda vale. De manhã,
+ao ver a label `thiagocarvalho-dev:revisando` no biud-frontend#845, a leitura
+foi "nenhum rastro de automação em público" e a v2.53.9 trocou a label por uma
+ref git invisível e matou o comentário de pulo. À tarde ele corrigiu o rumo:
+**a label visível é DESEJADA** ("deixa os demais membros cientes da revisão");
+o que é proibido é **TEXTO público não-humanizado** (template, contexto interno,
+coisa irrelevante ao trabalho revisado). Estado final (v2.54.0):
 
-- O sinal é a ref git invisível de `lib/engine/review-signal.js` (linha própria
-  no mapa de arquivos). As labels `*:revisando` foram apagadas à mão de todos os
-  repos das orgs monitoradas no mesmo dia.
-- A saída de cena é SILENCIOSA no GitHub: âncora local + toast no app. O texto
-  de `textoDoPulo` só alimenta o toast.
-- Transição: cópia antiga ainda escreve label (e RECRIA a que for apagada,
-  porque cria quando falta) e só lê label. Esta versão lê os DOIS sinais e
-  escreve só a ref, então a coordenação segue de pé até todo mundo
-  auto-atualizar. Custo declarado: colega em versão antiga não enxerga a ref de
-  quem já atualizou e pode duplicar uma revisão; o dedup por head e os gates de
-  postagem seguram o estrago, e o custo some quando a frota atualiza.
-- Regra pra qualquer feature futura: escrita visível no GitHub (label,
-  comentário, reaction, status, texto fora do review) é vazamento em potencial e
-  passa pelo crivo desta regra ANTES de existir. Sinalização entre instâncias
-  vai por canal invisível ou não vai.
+- **A label `<conta>:revisando` é o sinal ESCRITO**, de volta como sempre foi
+  (aplicada no início da revisão headless, removida no finally, criada no repo
+  quando falta). `lib/engine/review-signal.js` ficou só como LEITURA DE
+  TRANSIÇÃO das refs que a v2.53.9 escreveu por algumas horas.
+- **O comentário de pulo segue MORTO** (esse era texto público não-humanizado de
+  verdade: a mesma frase, de contas diferentes, minutos depois do sinal alheio).
+  A saída de cena é silenciosa no GitHub: âncora local + toast no app.
+- **Gate de consciência do review automático** (formulação dele: "se alguém já
+  aprovou, se alguém tá revisando e se alguém já reprovou que não seja o acrity,
+  não fazemos review a menos que haja ação manual"): antes de gastar sessão, o
+  caminho automático consulta o head ATIVO (`bloqueadoPorHistorico`,
+  no máximo 2 chamadas gh e SÓ na boca do lançamento, nunca por ciclo em todo
+  PR); APPROVED ou CHANGES_REQUESTED de gente (DISMISSED/COMMENTED não contam,
+  `acrity` nunca conta) = o PR fica na fila esperando clique, com toast único
+  por PR+head. Head novo zera o histórico e a automação volta. Falta de dado
+  NUNCA bloqueia (o pior caso é revisão redundante, nunca post errado). A boca
+  única é `bloqueiaAutomatico`, aguardada nos TRÊS caminhos automáticos:
+  `launchReview` (toReview do check), `launchReReviews` (antes até do
+  pushTrivial) e `_repescarRetry` (server.js; retry bloqueado também sai do
+  `retryAfterNet`, senão reconsultaria o mesmo head pra sempre). Clique manual
+  (`pr.manual`) atravessa sem nenhuma chamada.
+- **Regra plana na saída de cena**: ver alguém revisando SEMPRE segura o
+  automático. Caiu a exceção da v2.51.0 (`cobreMinhaExigencia`, removida de
+  `codeowners.js`): PR cuja exigência de codeowner é minha agora ESPERA meu
+  clique em vez de revisar por cima. O guarda "nunca co-assino onde sou
+  autoridade" permanece (`autoridadeNaSaida`, via `souAutoridade`).
+- Regra pra feature futura: TEXTO público novo (comentário, corpo, descrição)
+  passa pelo crivo de humanização antes de existir; sinal de ESTADO visível
+  (label) é aceitável e desejado.
 
 ## Dedup é por ROUND, não por "alguma vez" (v2.40.5)
 

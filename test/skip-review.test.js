@@ -213,6 +213,50 @@ test('quemAprovou: só considera quem eu saí de cena por causa', () => {
   assert.equal(quemAprovou(reg, [{ quem: 'bob', state: 'APPROVED' }]), '');
 });
 
+/* ---------- autoridade na saída de cena (regra PLANA, 28/08/2026 à tarde) ----------
+   A saída de cena não consulta mais cobreMinhaExigencia (ver alguém revisando
+   SEMPRE segura o automático); o CODEOWNERS só responde se eu sou AUTORIDADE,
+   porque isso gateia a co-assinatura ("nunca co-assino onde sou autoridade"). */
+
+const PR_AUT = { key: 'o/r#1', url: 'https://github.com/o/r/pull/1', repo: 'o/r', number: 1 };
+const { parseCodeowners } = await import('../lib/engine/codeowners.js');
+
+// semeia o cache do CODEOWNERS pra decisão sair sem rede nenhuma
+function engineComRegras(regrasTexto, extra = {}) {
+  return {
+    accountForPr: () => 'eu',
+    tokenFor: () => 'tok',
+    codeownersCache: new Map([['o/r', { regras: parseCodeowners(regrasTexto), at: Date.now() }]]),
+    fetchPrFiles: async () => [{ path: 'src/x.ts' }],
+    ...extra,
+  };
+}
+
+test('autoridadeNaSaida: sou dono de arquivo do PR, autoridade true', async () => {
+  assert.equal(await skip.autoridadeNaSaida(engineComRegras('* @eu'), { ...PR_AUT }), true);
+});
+
+test('autoridadeNaSaida: dono é outra pessoa, autoridade false', async () => {
+  assert.equal(await skip.autoridadeNaSaida(engineComRegras('* @ana'), { ...PR_AUT }), false);
+});
+
+test('autoridadeNaSaida: repo sem CODEOWNERS é conclusivo, autoridade false', async () => {
+  const engine = engineComRegras('');
+  assert.equal(await skip.autoridadeNaSaida(engine, { ...PR_AUT }), false);
+});
+
+// CODEOWNERS ilegível cai no lado seguro TRUE: co-assinar sem saber se sou
+// autoridade é pior que não co-assinar
+test('autoridadeNaSaida: sem token (CODEOWNERS ilegível) cai no lado seguro true', async () => {
+  const engine = engineComRegras('* @ana', { tokenFor: () => null });
+  assert.equal(await skip.autoridadeNaSaida(engine, { ...PR_AUT }), true);
+});
+
+test('autoridadeNaSaida: diff não medido cai no mesmo lado seguro true', async () => {
+  const engine = engineComRegras('* @ana', { fetchPrFiles: async () => { throw new Error('rede'); } });
+  assert.equal(await skip.autoridadeNaSaida(engine, { ...PR_AUT }), true);
+});
+
 /* ---------- saída de cena e co-assinatura ---------- */
 
 function engineFalso(extra = {}) {

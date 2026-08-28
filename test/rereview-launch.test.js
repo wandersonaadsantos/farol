@@ -47,6 +47,9 @@ function engineBase() {
   // brief pede exatamente esse stub: 'sem prova' significa que nunca deveria ir
   // ao gh sem prova em disco).
   e.fetchPrFiles = async () => { throw new Error('sem prova'); };
+  // gate de consciência sempre livre (senão o prototype real iria ao gh); a
+  // suíte dele é test/consciencia-historico.test.js
+  e.bloqueadoPorHistorico = async () => ({ bloqueado: false, head: '', quem: [], decisivos: [] });
   return e;
 }
 

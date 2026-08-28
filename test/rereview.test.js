@@ -54,6 +54,9 @@ function engineBase() {
     saveReReviewLaunched() { this.saved++; },
     emit(ev, payload) { this.toasts.push({ ev, payload }); },
     enqueueHeadless(p) { this.enq.push(p); },
+    // gate de consciência sempre livre aqui: a suíte dele é
+    // test/consciencia-historico.test.js, e estes testes falam só de re-revisão
+    bloqueiaAutomatico: async () => false,
   };
   return e;
 }

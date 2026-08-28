@@ -1,53 +1,28 @@
-// Sinal de "revisão em andamento" por ref git (28/08/2026): substituiu a label
-// pública `<conta>:revisando` porque NENHUM rastro de automação pode aparecer no
-// GitHub (a label era visível e os eventos de add/remove ficam pra sempre na
-// timeline do PR). O contrato aqui é o mesmo do teste da label que este arquivo
-// substitui: composição/parse do nome são PUROS, o TTL vale pros DOIS lados do
-// relógio, os GUARDAS impedem qualquer gh sem identidade provada (raiz A1) e a
-// SEQUÊNCIA criar/listar/apagar é provada com runner injetado, sem rede.
+// Refs de "revisão em andamento": LEITURA DE TRANSIÇÃO (28/08/2026 à tarde).
+// A v2.53.9 escreveu refs git por algumas horas na manhã do mesmo dia (quando a
+// label pública foi tratada como vazamento); à tarde a label voltou a ser o
+// sinal escrito (lib/engine/review.js) e este módulo ficou só com o lado de
+// LER as refs remanescentes e coletar as órfãs até a frota convergir. O
+// contrato aqui: o parse do nome é PURO, o TTL vale pros DOIS lados do relógio,
+// os GUARDAS impedem qualquer gh sem identidade provada (raiz A1) e a sequência
+// listar/apagar é provada com runner injetado, sem rede.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 const {
-  repoDoPr, signalRefName, parseSignalRef, sinalVivo,
-  addReviewSignal, removeReviewSignal, fetchSignalsDoRepo, gcSignals, refreshReviewSignals,
+  repoDoPr, parseSignalRef, sinalVivo,
+  fetchSignalsDoRepo, gcSignals, refreshReviewSignals,
 } = await import('../lib/engine/review-signal.js');
 const { TEMPOS } = await import('../lib/constants.js');
 
 const TTL = TEMPOS.SINAL_REVISAO_TTL_MS;
 
-/* ---------- nome da ref (PURA) ---------- */
-
-test('signalRefName compõe refs/farol/revisando/<numero>/<login>/<epoch>', () => {
-  assert.equal(signalRefName(845, 'thiagocarvalho-dev', 1756400000000),
-    'refs/farol/revisando/845/thiagocarvalho-dev/1756400000000');
-});
-
-test('signalRefName recusa entrada torta com vazio', () => {
-  assert.equal(signalRefName(0, 'ana', 1), '');
-  assert.equal(signalRefName(-3, 'ana', 1), '');
-  assert.equal(signalRefName(1.5, 'ana', 1), '');
-  assert.equal(signalRefName('845', 'ana', 1), '', 'número tem que ser número');
-  assert.equal(signalRefName(845, '', 1), '');
-  assert.equal(signalRefName(845, 'a b', 1), '');
-  assert.equal(signalRefName(845, 'a/b', 1), '', 'barra abriria segmento extra');
-  assert.equal(signalRefName(845, 'a_b', 1), '', 'login do GitHub não tem underscore');
-  assert.equal(signalRefName(845, 'ana', 0), '');
-  assert.equal(signalRefName(845, 'ana', -1), '');
-  assert.equal(signalRefName(845, 'ana', NaN), '');
-  assert.equal(signalRefName(845, 'ana', Infinity), '');
-  assert.equal(signalRefName(845, 'ana', 1.5), '');
-});
+/* ---------- parse da ref (PURA) ---------- */
 
 test('parseSignalRef aceita com e sem o prefixo refs/', () => {
   const esperado = { number: 845, login: 'Ana-1', epochMs: 123456 };
   assert.deepEqual(parseSignalRef('refs/farol/revisando/845/Ana-1/123456'), esperado);
   assert.deepEqual(parseSignalRef('farol/revisando/845/Ana-1/123456'), esperado);
-});
-
-test('parseSignalRef e signalRefName fecham o círculo', () => {
-  const ref = signalRefName(7, 'zoe', 1700000000000);
-  assert.deepEqual(parseSignalRef(ref), { number: 7, login: 'zoe', epochMs: 1700000000000 });
 });
 
 test('parseSignalRef rejeita forma torta com null', () => {
@@ -78,7 +53,7 @@ test('sinalVivo: fora da janela morre, dos dois lados (relógio adiantado não g
   assert.equal(sinalVivo(NaN, agora, TTL), false);
 });
 
-/* ---------- guardas (raiz A1): sem identidade provada o gh NUNCA roda ---------- */
+/* ---------- resolução de repo (compartilhada com a label, ver review.js) ---------- */
 
 test('repoDoPr resolve o repo do objeto ou da key, e recusa formato inválido', () => {
   assert.equal(repoDoPr({ repo: 'biudtech/biud-core', key: 'x/y#1' }), 'biudtech/biud-core');
@@ -99,36 +74,7 @@ function engineQueNaoPodeRodarGh({ account, token }) {
   };
 }
 
-const PR = { key: 'o/r#1', url: 'https://github.com/o/r/pull/1', repo: 'o/r', number: 1 };
-
-test('addReviewSignal sem conta resolvida não roda gh e devolve vazio', async () => {
-  const e = engineQueNaoPodeRodarGh({ account: '', token: 'tok' });
-  assert.equal(await addReviewSignal(e, { ...PR }, 'sha1'), '');
-});
-
-test('addReviewSignal sem token da conta não roda gh e devolve vazio', async () => {
-  const e = engineQueNaoPodeRodarGh({ account: 'thiagocarvalho-dev', token: null });
-  assert.equal(await addReviewSignal(e, { ...PR }, 'sha1'), '');
-});
-
-test('addReviewSignal sem url do PR não roda gh e devolve vazio', async () => {
-  const e = engineQueNaoPodeRodarGh({ account: 'thiagocarvalho-dev', token: 'tok' });
-  assert.equal(await addReviewSignal(e, { ...PR, url: '' }, 'sha1'), '');
-});
-
-test('addReviewSignal sem repo resolvível não roda gh e devolve vazio', async () => {
-  const e = engineQueNaoPodeRodarGh({ account: 'thiagocarvalho-dev', token: 'tok' });
-  assert.equal(await addReviewSignal(e, { key: 'estranho', url: PR.url, number: 1 }, 'sha1'), '');
-});
-
-// a guarda NOVA em relação à label: o POST de ref exige um SHA existente no repo
-test('addReviewSignal sem headSha não roda gh e devolve vazio', async () => {
-  const e = engineQueNaoPodeRodarGh({ account: 'thiagocarvalho-dev', token: 'tok' });
-  assert.equal(await addReviewSignal(e, { ...PR }, ''), '');
-  assert.equal(await addReviewSignal(e, { ...PR }, '   '), '');
-});
-
-/* ---------- criar e remover, com runner injetado ---------- */
+/* ---------- listagem por repo ---------- */
 
 function engineComGh() {
   return {
@@ -139,61 +85,6 @@ function engineComGh() {
     log(nivel, msg) { this.logs.push({ nivel, msg }); },
   };
 }
-
-test('addReviewSignal cria a ref com POST ancorado no headSha e devolve o nome', async () => {
-  const chamadas = [];
-  const run = async (cmd, args) => { chamadas.push(args); return { ok: true }; };
-  const antes = Date.now();
-  const ref = await addReviewSignal(engineComGh(), { ...PR }, 'sha1', run);
-  const info = parseSignalRef(ref);
-  assert.ok(info, `a ref criada tem a forma canônica (${ref})`);
-  assert.equal(info.number, 1);
-  assert.equal(info.login, 'thiagocarvalho-dev');
-  assert.ok(info.epochMs >= antes && info.epochMs <= Date.now(), 'o epoch é o de agora');
-  assert.equal(chamadas.length, 1);
-  const args = chamadas[0];
-  assert.deepEqual(args.slice(0, 3), ['api', '-X', 'POST']);
-  assert.equal(args[3], 'repos/o/r/git/refs');
-  assert.ok(args.includes(`ref=${ref}`), 'o nome inteiro (com refs/) vai no corpo do POST');
-  assert.ok(args.includes('sha=sha1'), 'o POST ancora no head da sessão');
-});
-
-test('addReviewSignal com gh falhando devolve vazio (best-effort, sem retentativa)', async () => {
-  const chamadas = [];
-  const run = async (cmd, args) => { chamadas.push(args); return { ok: false, stderr: 'boom' }; };
-  assert.equal(await addReviewSignal(engineComGh(), { ...PR }, 'sha1', run), '');
-  assert.equal(chamadas.length, 1);
-});
-
-test('removeReviewSignal sem criação comprovada é no-op (não toca o engine)', async () => {
-  const e = engineQueNaoPodeRodarGh({ account: 'thiagocarvalho-dev', token: 'tok' });
-  const run = async () => { throw new Error('o gh não podia rodar sem ref criada'); };
-  await removeReviewSignal(e, { ...PR }, '', run);
-});
-
-test('removeReviewSignal apaga pelo caminho sem o prefixo refs/', async () => {
-  const chamadas = [];
-  const run = async (cmd, args) => { chamadas.push(args); return { ok: true }; };
-  const e = engineComGh();
-  await removeReviewSignal(e, { ...PR }, 'refs/farol/revisando/1/thiagocarvalho-dev/123', run);
-  assert.deepEqual(chamadas[0].slice(0, 3), ['api', '-X', 'DELETE']);
-  assert.equal(chamadas[0][3], 'repos/o/r/git/refs/farol/revisando/1/thiagocarvalho-dev/123');
-  assert.equal(e.logs.length, 0, 'remoção que funcionou não gera WARN');
-});
-
-test('falha na remoção DEPOIS de criação comprovada nunca sobe: vira WARN no log', async () => {
-  const e = engineComGh();
-  // ghEnv explode simulando o token sumindo entre a criação e a remoção (flake
-  // do keyring): a remoção não pode derrubar o finally da revisão por causa disso.
-  e.ghEnv = () => { throw new Error('conta sem token no gh'); };
-  await removeReviewSignal(e, { ...PR }, 'refs/farol/revisando/1/thiagocarvalho-dev/123');
-  assert.equal(e.logs.length, 1);
-  assert.equal(e.logs[0].nivel, 'WARN');
-  assert.match(e.logs[0].msg, /farol\/revisando\/1\/thiagocarvalho-dev\/123/);
-  assert.match(e.logs[0].msg, /o\/r#1/);
-});
-
-/* ---------- listagem por repo ---------- */
 
 test('fetchSignalsDoRepo usa --paginate (refs órfãs não podem empurrar as vivas pra fora da página 1)', async () => {
   const chamadas = [];

@@ -51,6 +51,9 @@ function checkEngine() {
   e.launchReview = () => { throw new Error('launchReview não deveria rodar neste teste'); };
   e.schedule = () => {};
   e.saveSeen = () => {}; // seen em memória basta pro cenário
+  // gate de consciência sempre livre (é rede; a suíte dele é
+  // test/consciencia-historico.test.js)
+  e.bloqueadoPorHistorico = async () => ({ bloqueado: false, head: '', quem: [], decisivos: [] });
   e.scenario = { panorama: [], mine: [], reviewed: [] };
   e.searchPRs = async (extraArgs) => {
     const lista = extraArgs[0] === '--owner' ? e.scenario.panorama

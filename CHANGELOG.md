@@ -9,6 +9,33 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.54.0
+
+O review automático ganhou consciência do estado do PR, e a label de revisão em
+andamento voltou a ser visível.
+
+**Novidades**
+- **Gate de consciência do review automático.** Antes de gastar uma sessão, o
+  Farol olha o head atual do PR: se já existe aprovação ou pedido de mudanças de
+  uma pessoa (review de ferramenta não conta), a revisão automática não roda e o
+  PR fica na fila aguardando o seu clique, com um aviso único no app. Commit
+  novo zera esse histórico e a automação volta a valer, sempre conforme a
+  configuração da conta. O botão Revisar continua valendo em qualquer situação.
+- **Ver alguém revisando sempre segura o automático.** Caiu a exceção que
+  mandava revisar por cima quando quem pegou o PR não cobria a sua exigência de
+  dono de código: agora, com outra pessoa revisando, o PR espera a sua ação
+  manual. O guarda que impede co-assinar onde você é a autoridade do repositório
+  continua de pé.
+
+**Correções**
+- **A label `<conta>:revisando` voltou.** A v2.53.9 a tinha trocado por um sinal
+  invisível; a decisão final é que a label visível é desejada, porque deixa o
+  time ciente de que a revisão está acontecendo. Ela volta a ser aplicada no
+  início da revisão e removida no fim, criando a label no repositório quando
+  faltar, como antes. O que segue proibido é texto público não-humanizado: o
+  comentário fixo de "não vou duplicar a revisão" continua removido, e as refs
+  da v2.53.9 seguem sendo lidas por uns tempos só para a transição.
+
 ## v2.53.9
 
 Nenhum rastro de automação aparece mais publicamente no GitHub: a revisão em
