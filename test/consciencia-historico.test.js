@@ -3,8 +3,10 @@
 // reprovou que não seja o acrity, não fazemos review a menos que haja ação
 // manual. Se ninguém está revisando e não temos histórico de review no head
 // ativo então devemos seguir na revisão automatizada." O que se prova aqui:
-// - bloqueadoPorHistorico bloqueia SÓ com review decisivo (APPROVED ou
-//   CHANGES_REQUESTED) de OUTRA pessoa no head ATIVO; ferramenta (acrity),
+// - bloqueadoPorHistorico bloqueia com reprovação de OUTRA pessoa no head
+//   ATIVO (a primeira já basta) ou com DUAS aprovações humanas (o "(máximo 2)"
+//   da regra: com uma só, a revisão automática ainda vale como a segunda);
+//   cada pessoa conta pelo ÚLTIMO estado decisivo dela; ferramenta (acrity),
 //   DISMISSED, COMMENTED e head antigo nunca bloqueiam; falta de dado (sem
 //   head, sem rede) NUNCA bloqueia, porque o pior caso é revisão redundante,
 //   nunca post errado.
@@ -56,13 +58,44 @@ function engineFalso(extra = {}) {
   };
 }
 
-test('bloqueia com APPROVED de outra pessoa no head ativo', async (t) => {
+test('UMA aprovação de outra pessoa NÃO bloqueia (a automática ainda vale como a segunda)', async (t) => {
   const e = engineFalso();
   t.after(espiaReviews(e, [{ quem: 'ana', state: 'APPROVED', commit_id: 'sha1' }]));
   const r = await skip.bloqueadoPorHistorico(e, { ...PR });
+  assert.equal(r.bloqueado, false);
+  assert.deepEqual(r.quem, []);
+});
+
+test('DUAS aprovações humanas no head ativo bloqueiam (o teto do fluxo do time)', async (t) => {
+  const e = engineFalso();
+  t.after(espiaReviews(e, [
+    { quem: 'ana', state: 'APPROVED', commit_id: 'sha1' },
+    { quem: 'zoe', state: 'APPROVED', commit_id: 'sha1' },
+  ]));
+  const r = await skip.bloqueadoPorHistorico(e, { ...PR });
   assert.equal(r.bloqueado, true);
   assert.equal(r.head, 'sha1');
-  assert.deepEqual(r.quem, ['ana']);
+  assert.deepEqual(r.quem, ['ana', 'zoe']);
+});
+
+test('duas aprovações sendo uma do acrity NÃO bloqueiam (ferramenta não conta no teto)', async (t) => {
+  const e = engineFalso();
+  t.after(espiaReviews(e, [
+    { quem: 'ana', state: 'APPROVED', commit_id: 'sha1' },
+    { quem: 'acrity', state: 'APPROVED', commit_id: 'sha1' },
+  ]));
+  const r = await skip.bloqueadoPorHistorico(e, { ...PR });
+  assert.equal(r.bloqueado, false);
+});
+
+test('reprovação seguida de aprovação da MESMA pessoa conta como aprovação (último estado vence)', async (t) => {
+  const e = engineFalso();
+  t.after(espiaReviews(e, [
+    { quem: 'ana', state: 'CHANGES_REQUESTED', commit_id: 'sha1' },
+    { quem: 'ana', state: 'APPROVED', commit_id: 'sha1' },
+  ]));
+  const r = await skip.bloqueadoPorHistorico(e, { ...PR });
+  assert.equal(r.bloqueado, false, 'a ressalva dela foi atendida e virou a primeira aprovação');
 });
 
 test('bloqueia com CHANGES_REQUESTED de outra pessoa no head ativo', async (t) => {
@@ -119,7 +152,7 @@ test('lista de reviews indisponível (rede) NÃO bloqueia', async (t) => {
   assert.equal(r.head, 'sha1', 'o head foi lido, o que faltou foi a lista');
 });
 
-test('quem sai único, sem caixa duplicada e em ordem estável', async (t) => {
+test('reprovação lidera o bloqueio e quem sai sem caixa duplicada', async (t) => {
   const e = engineFalso();
   t.after(espiaReviews(e, [
     { quem: 'Zoe', state: 'APPROVED', commit_id: 'sha1' },
@@ -127,8 +160,9 @@ test('quem sai único, sem caixa duplicada e em ordem estável', async (t) => {
     { quem: 'zoe', state: 'APPROVED', commit_id: 'sha1' },
   ]));
   const r = await skip.bloqueadoPorHistorico(e, { ...PR });
-  assert.equal(r.bloqueado, true);
-  assert.deepEqual(r.quem, ['ana', 'Zoe']);
+  assert.equal(r.bloqueado, true, 'a reprovação da ana segura sozinha');
+  assert.deepEqual(r.quem, ['ana'], 'o toast nomeia quem segura (a reprovação), não os aprovadores');
+  assert.deepEqual(r.decisivos, [{ quem: 'ana', state: 'CHANGES_REQUESTED' }]);
 });
 
 /* ---------- o texto do toast (PURO) ---------- */

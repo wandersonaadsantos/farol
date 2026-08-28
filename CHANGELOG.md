@@ -9,6 +9,18 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.54.1
+
+Calibração do gate de consciência lançado na v2.54.0.
+
+**Correções**
+- **Uma aprovação não segura mais a automática.** O fluxo do time usa até duas
+  aprovações por PR, então com uma só a revisão automática ainda é útil como a
+  segunda; o bloqueio por aprovação passa a valer quando o head já tem as duas.
+  Reprovação de pessoa continua segurando na primeira, e cada pessoa conta pelo
+  último estado dela no head: quem pediu mudanças e depois aprovou conta como
+  aprovação, não como as duas coisas. Review de ferramenta segue fora da conta.
+
 ## v2.54.0
 
 O review automático ganhou consciência do estado do PR, e a label de revisão em
