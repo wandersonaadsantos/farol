@@ -35,6 +35,40 @@ falhou() {
   exit 1
 }
 
+# --- push direto na main: PROIBIDO (decisao do Wanderson, 29/08/2026) ----------
+# O ruleset "main protegida" exige pull request e o check `ci`, e o Repository
+# admin tem bypass. Ate hoje TODO push da main passou por cima da propria regra:
+# o proprio git responde "Bypassed rule violations for refs/heads/main".
+#
+# A regra virou: NUNCA usar o bypass. E ela nao pode depender de disciplina, que
+# e a doutrina do repo (ver "Travas automaticas" no CLAUDE.md). Entao o gate
+# recusa aqui, antes de o bypass ser exercido.
+#
+# Custa pouco porque o ruleset pede ZERO aprovacoes: o fluxo e branch -> PR ->
+# CI verde -> merge, sem depender de ninguem. E de quebra a matriz
+# Linux/Windows/macOS passa a rodar ANTES da main, que era a outra metade que
+# faltava (o CI roda em pull_request desde sempre).
+#
+# git manda por stdin: <ref local> <sha local> <ref remota> <sha remota>
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  [ -n "$remote_ref" ] || continue
+  case "$remote_ref" in
+    refs/heads/main)
+      echo "  BLOQUEADO: push direto na main usa o bypass de admin, e isso nao se faz mais aqui."
+      echo ""
+      echo "  O caminho e:"
+      echo "    git switch -c <branch> && git push origin <branch>"
+      echo "    gh pr create --fill"
+      echo "    (CI verde nos tres SOs) && gh pr merge --merge --delete-branch"
+      echo ""
+      echo "  O ruleset pede ZERO aprovacoes, entao voce mesmo fecha o PR."
+      echo "  Emergencia real: 'git push --no-verify', e registre o porque."
+      echo ""
+      exit 1
+      ;;
+  esac
+done
+
 echo "  -> sintaxe (npm run check)"
 npm run check --silent || falhou "a sintaxe"
 
