@@ -219,6 +219,11 @@ class Engine extends EventEmitter {
     this.pushbackScanned = readJson(path.join(STATE_DIR, 'pushback-scanned.json'), {}, warn); // { key: marcador da última atividade do autor já avaliada }
     this.reReviewLaunched = readJson(path.join(STATE_DIR, 'rereview-launched.json'), {}, warn); // { key: { head, dia, rodadas } da re-revisão automática; string legada = só o head }
     this.headQuietoDesde = {}; // { key: { head, at } } debounce do round automático, só memória
+    // Relógio LOCAL das labels `<login>:revisando` de outras pessoas: { key do PR:
+    // { login minúsculo: epochMs da primeira vez que ESTE Farol viu } }. Existe
+    // porque a label não carrega hora nenhuma e uma sessão que morreu deixa a
+    // label presa pra sempre, calando a frota naquele PR (ver marcarLabelsVistas).
+    this.labelVistaDesde = readJson(path.join(STATE_DIR, 'label-vista.json'), {}, warn);
     this.skipComentado = skipMod.loadSkipComentado(warn); // { key: { at, quem } } âncora da saída de cena silenciosa ("outra pessoa já está revisando"; desde 28/08/2026 nada é comentado no PR, o aviso é toast)
     this.reviewSignals = new Map(); // repoLower -> entries das refs de "revisando" (lib/engine/review-signal.js); snapshot por ciclo, só memória
     this.toolRuns = readJson(path.join(STATE_DIR, 'tool-results.json'), {}, warn);
@@ -305,6 +310,9 @@ class Engine extends EventEmitter {
       podado = true;
     }
     if (podado) this.saveReReviewLaunched();
+    // a label `<conta>:revisando` desses PRs ficou presa (o finally que a remove
+    // não roda quando o processo morre); o start() limpa, já com token na mão
+    this.inflightRecuperado = inflight.filter(p => p && p.url);
     this.log('WARN', `app reiniciado com revisão em andamento: ${inflight.map(p => p.key).join(', ')} devolvido(s) à fila`);
   }
 
@@ -939,6 +947,9 @@ class Engine extends EventEmitter {
       const fresh = queue.filter(p => !prevQueue.has(p.key));
 
       this.panorama = panorama;
+      // relógio das labels alheias: carimba antes de qualquer gate consultar
+      // outrosRevisando neste ciclo (o gate é síncrono e só lê o que já está aqui)
+      skipMod.marcarLabelsVistas(this, panorama);
       this.queue = queue;
       this.lastCheckAt = Date.now();
       this.lastError = null;
@@ -1177,6 +1188,10 @@ class Engine extends EventEmitter {
   // G15: estacionamento pós-falha persistido (padrão do savePushbackScanned)
   saveAutoReviewParked() { return reviewMod.saveAutoReviewParked(this); }
   saveSkipComentado() { return skipMod.saveSkipComentado(this); }
+  saveLabelVistaDesde() {
+    try { writeJsonAtomic(path.join(STATE_DIR, 'label-vista.json'), this.labelVistaDesde); }
+    catch { /* best-effort: perder o relógio só reinicia a contagem de validade da label */ }
+  }
   // sinal invisível de "revisando" por ref git (lib/engine/review-signal.js)
   refreshReviewSignals() { return signalMod.refreshReviewSignals(this); }
   // UM Farol por PR (lib/engine/skip-review.js): sair de cena e co-assinar
@@ -1693,6 +1708,13 @@ class Engine extends EventEmitter {
     this.migrarIgnorados();
     this.checkUpdate().catch(() => {});
     this.doctor().catch(() => {});
+    // label presa por morte do processo: limpa antes do primeiro ciclo, pra a
+    // frota não continuar saindo de cena por uma sessão que não existe mais
+    if (this.inflightRecuperado && this.inflightRecuperado.length) {
+      const presos = this.inflightRecuperado;
+      this.inflightRecuperado = [];
+      reviewMod.limparLabelsOrfas(this, presos).catch(() => {});
+    }
     await this.check('startup');
   }
 }

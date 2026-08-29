@@ -683,6 +683,16 @@ coisa irrelevante ao trabalho revisado). Estado final (v2.54.0):
   (aplicada no início da revisão headless, removida no finally, criada no repo
   quando falta). `lib/engine/review-signal.js` ficou só como LEITURA DE
   TRANSIÇÃO das refs que a v2.53.9 escreveu por algumas horas.
+  **Ela CADUCA desde a v2.54.3, e isso não é detalhe:** o finally não roda
+  quando o processo morre (queda de renderer, kill, reinício do auto-update), e
+  label presa não tinha relógio nenhum, então um Farol morto calava a frota
+  inteira naquele PR para sempre (as refs da v2.53.9 já caducavam em 1h; a label
+  não). Duas frentes: quem LÊ usa `labelVistaDesde` (relógio LOCAL de há quanto
+  tempo ESTA cópia vê a mesma label, carimbado uma vez por ciclo em
+  `marcarLabelsVistas`, com validade de `SINAL_REVISAO_TTL_MS`; sem carimbo a
+  label VALE, porque falta de dado nunca libera revisão sozinha), e quem ESCREVE
+  limpa no boot as próprias labels presas (`limparLabelsOrfas`, sobre a lista
+  que o `recoverInflight` recuperou).
 - **O comentário de pulo segue MORTO** (esse era texto público não-humanizado de
   verdade: a mesma frase, de contas diferentes, minutos depois do sinal alheio).
   A saída de cena é silenciosa no GitHub: âncora local + toast no app.
@@ -705,7 +715,18 @@ coisa irrelevante ao trabalho revisado). Estado final (v2.54.0):
   **fixture de login tem que ser o login REAL da API.** As três provas de
   `ehFerramenta` são `user.type === 'Bot'`, sufixo `[bot]` no login e o nome
   da lista (exato ou como prefixo antes de um hífen). Bloqueado = o PR fica na fila esperando clique, com toast único por
-  PR+head. Head novo zera o histórico e a automação volta. Falta de dado
+  PR+head. **INVARIANTE (v2.54.3, bug de campo): bloqueio NÃO grava a âncora
+  do `reReviewLaunched`.** Até a v2.54.2 o `launchReReviews` gravava a âncora de
+  todos os alvos ANTES do gate, pra não reconsultar o mesmo head a cada ciclo;
+  como a âncora é o que o `classificaReRound` lê pra dizer "esse head já teve o
+  round dele", um bloqueio momentâneo matava o relançamento automático PARA
+  SEMPRE naquele head e o PR passava a depender de clique. Mesma classe do G7 do
+  `recoverInflight`, que já tinha fechado o caminho do crash. A âncora agora só é
+  gravada por round CONSUMIDO (relançado, ou pulado pelo `pushTrivial`), e o
+  custo de gh fica em `bloqueioConsultado`: memória em processo, janela de
+  `HEAD_QUIETO_MS`, que adia a reconsulta e nunca mata o round.
+  **Regra geral: âncora que impede repetição só se grava depois de o trabalho
+  acontecer; antes disso ela não é dedup, é cancelamento silencioso.** Head novo zera o histórico e a automação volta. Falta de dado
   NUNCA bloqueia (o pior caso é revisão redundante, nunca post errado). A boca
   única é `bloqueiaAutomatico`, aguardada nos TRÊS caminhos automáticos:
   `launchReview` (toReview do check), `launchReReviews` (antes até do

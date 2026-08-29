@@ -9,6 +9,28 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.54.3
+
+Dois furos de autonomia fechados: commit novo no meio da revisão não exige mais
+clique, e label de revisão presa não cala mais o Farol.
+
+**Correções**
+- **Commit novo durante a revisão volta a se resolver sozinho.** Quando o autor
+  empurra código enquanto a sessão lê o PR, o Farol não posta (o texto falaria do
+  código anterior) e agenda um round novo sobre o head atual. Esse round estava
+  sendo cancelado em silêncio: a marca de "já rodei neste head" era gravada antes
+  de o round acontecer, então bastava o PR estar momentaneamente segurado para a
+  revisão automática morrer naquele head e passar a depender de clique, e o clique
+  levava ao mesmo lugar. Agora a marca só é gravada quando o round realmente
+  acontece; se o motivo da espera some, o Farol relança sozinho na janela seguinte.
+- **Label de revisão em andamento agora tem validade.** A `<conta>:revisando` é
+  removida no fim da sessão, mas isso não acontece quando o app morre no meio
+  (queda, encerramento, reinício de atualização). A label ficava no PR para sempre
+  e todo Farol da equipe entendia "já tem alguém revisando" e pulava, sem ninguém
+  estar revisando de fato. Duas frentes: uma label alheia que este Farol vê há mais
+  de uma hora passa a ser tratada como abandonada, e no boot o Farol remove as
+  labels que ele mesmo deixou presas.
+
 ## v2.54.2
 
 Conserto no gate de consciência: review de ferramenta voltou a não contar como

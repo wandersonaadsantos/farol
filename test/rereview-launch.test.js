@@ -204,3 +204,86 @@ test('teto esgotado avisa UMA vez por PR por dia e nunca enfileira', async () =>
   assert.equal(avisos.length, 1);
   assert.equal(enfileirados.length, 0);
 });
+
+/* AUTONOMIA PERDIDA NO COMMIT DURANTE A SESSÃO (bug de campo relatado em
+   29/08/2026). A cadeia: a sessão lê H1, o autor empurra H2 no meio, o gate de
+   postagem recusa por head que andou e grava pendência stale_head. O round
+   automático existe pra fechar isso sozinho, mas `launchReReviews` gravava a
+   ÂNCORA de todos os alvos ANTES de consultar o gate de consciência; alvo
+   bloqueado saía pelo `continue` com a âncora já queimada, e o
+   `classificaReRound` nunca mais devolvia 'relanca' pra aquele head. Resultado
+   visto pelo Wanderson: o PR fica esperando clique, e o clique gera um round
+   que precisa de clique de novo. O G7 do recoverInflight já tinha identificado
+   essa classe de defeito no caminho do CRASH; o caminho do BLOQUEIO ficou. */
+
+function engineBloqueavel(bloqueado) {
+  const e = engineBase();
+  e.staleInfo = { 'acme/r#1': { stale: true, head: H2, lastState: 'APPROVED' } };
+  e.headQuietoDesde = { 'acme/r#1': { head: H2, at: QUIETO } };
+  e.chamadasDoGate = 0;
+  e.bloqueadoPorHistorico = async () => {
+    e.chamadasDoGate++;
+    return bloqueado
+      ? { bloqueado: true, head: H2, quem: ['ana'], decisivos: [{ quem: 'ana', state: 'APPROVED' }] }
+      : { bloqueado: false, head: H2, quem: [], decisivos: [] };
+  };
+  e.emit = () => {};
+  return e;
+}
+
+test('alvo BLOQUEADO pelo gate não queima a âncora (o round não rodou)', async () => {
+  const e = engineBloqueavel(true);
+  e.enqueueHeadless = () => { throw new Error('não devia enfileirar bloqueado'); };
+  await e.launchReReviews();
+  assert.equal(e.reReviewLaunched['acme/r#1'], undefined,
+    'âncora gravada sem round mata o relançamento automático pra sempre naquele head');
+});
+
+test('quando o bloqueio sai, o round relança sozinho, sem clique', async () => {
+  const e = engineBloqueavel(true);
+  e.enqueueHeadless = () => {};
+  await e.launchReReviews();
+  // o bloqueio saiu (a pessoa dispensou o review, ou era ferramenta mal contada)
+  const enfileirados = [];
+  e.bloqueadoPorHistorico = async () => ({ bloqueado: false, head: H2, quem: [], decisivos: [] });
+  e.enqueueHeadless = (p) => enfileirados.push(p);
+  e.bloqueioConsultado = {}; // passou a janela de reconsulta
+  await e.launchReReviews();
+  assert.equal(enfileirados.length, 1, 'o round tem que voltar sozinho quando o motivo do bloqueio some');
+  assert.equal(enfileirados[0].requested, true, 'round automático posta conforme a política, não vira clique');
+});
+
+test('bloqueio não é reconsultado a cada ciclo (o custo de gh continua sob controle)', async () => {
+  const e = engineBloqueavel(true);
+  e.enqueueHeadless = () => {};
+  await e.launchReReviews();
+  await e.launchReReviews();
+  await e.launchReReviews();
+  assert.equal(e.chamadasDoGate, 1, 'a janela de reconsulta segura as chamadas repetidas do mesmo head');
+});
+
+/* LABEL PRESA POR MORTE DO PROCESSO (mesma rodada de 29/08/2026). O finally que
+   remove `<conta>:revisando` não roda quando o app morre; a label ficava no PR
+   pra sempre e a frota inteira saía de cena por uma sessão inexistente. */
+test('limparLabelsOrfas: remove a label da conta dona em cada PR que estava inflight', async () => {
+  const { limparLabelsOrfas } = await import('../lib/engine/review.js');
+  const chamadas = [];
+  const e = { accountForPr: () => 'euzinho', tokenFor: () => 'tok', ghEnv: () => ({}), log: () => {} };
+  const prs = [{ key: 'o/r#1', url: 'u1' }, { key: 'o/r#2', url: 'u2' }];
+  await limparLabelsOrfas(e, prs, async (cmd, args) => { chamadas.push(args.join(' ')); return { ok: true }; });
+  assert.deepEqual(chamadas, [
+    'pr edit u1 --remove-label euzinho:revisando',
+    'pr edit u2 --remove-label euzinho:revisando',
+  ]);
+});
+
+test('limparLabelsOrfas: conta sem token e PR sem url são pulados, e falha do gh não lança', async () => {
+  const { limparLabelsOrfas } = await import('../lib/engine/review.js');
+  const chamadas = [];
+  const e = { accountForPr: () => 'euzinho', tokenFor: (a) => a === 'euzinho' ? '' : 'tok', ghEnv: () => ({}), log: () => {} };
+  await limparLabelsOrfas(e, [{ key: 'o/r#1', url: 'u1' }], async () => { chamadas.push('foi'); return { ok: true }; });
+  assert.deepEqual(chamadas, [], 'sem token não fala com o gh');
+  const e2 = { accountForPr: () => 'euzinho', tokenFor: () => 'tok', ghEnv: () => ({}), log: () => {} };
+  await limparLabelsOrfas(e2, [{ key: 'o/r#2' }], async () => { throw new Error('boom'); });
+  await limparLabelsOrfas(e2, [{ key: 'o/r#3', url: 'u3' }], async () => { throw new Error('boom'); });
+});

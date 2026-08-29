@@ -68,6 +68,56 @@ test('ehFerramenta: gente continua sendo gente', () => {
   assert.equal(ehFerramenta(null), false);
 });
 
+/* LABEL ÓRFÃ (bug de campo relatado em 29/08/2026: "o Farol tem pulado review
+   sem nunca ninguém estar analisando o PR"). A label `<conta>:revisando` é
+   aplicada no início da sessão e removida no finally, mas o finally não roda
+   quando o app morre no meio (o farol.log desta máquina tem 3 quedas de
+   renderer em 3 dias, além dos reinícios do auto-update), e a remoção também
+   pode falhar por rede (WARN `label ... não saiu de ...` observado em
+   biud-esg#260). Label presa não tem relógio nenhum: as REFS da v2.53.9 já
+   caducavam em 1h (sinalVivo), a label não caducava NUNCA, então um Farol morto
+   calava a frota inteira naquele PR pra sempre. O relógio é local e honesto: há
+   quanto tempo ESTE Farol vê a mesma label. Falta de carimbo = label nova = vale,
+   então o gate nunca fica mais permissivo do que era na primeira observação. */
+test('revisandoPorOutros: label vista há mais que o TTL é órfã e não segura mais', () => {
+  const agora = 1_000_000_000;
+  const vistas = { ana: agora - TTL - 1 };
+  assert.deepEqual(revisandoPorOutros(['ana:revisando'], 'eu', vistas, agora, TTL), []);
+});
+
+test('revisandoPorOutros: label vista há POUCO continua segurando', () => {
+  const agora = 1_000_000_000;
+  const vistas = { ana: agora - 60_000 };
+  assert.deepEqual(revisandoPorOutros(['ana:revisando'], 'eu', vistas, agora, TTL), ['ana']);
+});
+
+test('revisandoPorOutros: sem carimbo a label vale (falta de dado nunca libera sozinha)', () => {
+  const agora = 1_000_000_000;
+  assert.deepEqual(revisandoPorOutros(['ana:revisando'], 'eu', {}, agora, TTL), ['ana']);
+  assert.deepEqual(revisandoPorOutros(['ana:revisando'], 'eu'), ['ana'], 'chamada antiga, sem relógio, segue igual');
+});
+
+test('marcarLabelsVistas: carimba na primeira vez e PRESERVA o carimbo depois', () => {
+  const e = { labelVistaDesde: {}, accountForPr: () => 'eu', saveLabelVistaDesde: () => {} };
+  const pano = [{ key: 'o/r#1', labels: ['ana:revisando'] }];
+  skip.marcarLabelsVistas(e, pano, 1000);
+  assert.deepEqual(e.labelVistaDesde['o/r#1'], { ana: 1000 });
+  skip.marcarLabelsVistas(e, pano, 9000);
+  assert.equal(e.labelVistaDesde['o/r#1'].ana, 1000, 'é isso que faz o tempo passar');
+});
+
+test('marcarLabelsVistas: label que saiu do PR perde o carimbo (sessão nova recomeça o relógio)', () => {
+  const e = { labelVistaDesde: { 'o/r#1': { ana: 1000 } }, accountForPr: () => 'eu', saveLabelVistaDesde: () => {} };
+  skip.marcarLabelsVistas(e, [{ key: 'o/r#1', labels: [] }], 9000);
+  assert.equal(e.labelVistaDesde['o/r#1'], undefined);
+});
+
+test('marcarLabelsVistas: PR que saiu do panorama perde o carimbo', () => {
+  const e = { labelVistaDesde: { 'o/r#9': { ana: 1000 } }, accountForPr: () => 'eu', saveLabelVistaDesde: () => {} };
+  skip.marcarLabelsVistas(e, [{ key: 'o/r#1', labels: ['ana:revisando'] }], 9000);
+  assert.equal(e.labelVistaDesde['o/r#9'], undefined);
+});
+
 test('revisandoPorOutros: label que não é de revisando é ignorada', () => {
   assert.deepEqual(revisandoPorOutros(['bug', 'acrity:approved', 'review:in-progress'], 'eu'), []);
 });

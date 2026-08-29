@@ -344,7 +344,17 @@ test('launchReview por clique atravessa o bloqueio (ação manual sempre vale)',
 });
 
 // caminho 2: o round automático pós-push (launchReReviews)
-test('launchReReviews bloqueado: não enfileira, não mede diff, e a âncora do head fica gravada', async () => {
+/* CONTRATO INVERTIDO EM 29/08/2026, e de propósito. A versão anterior deste
+   teste exigia que o bloqueio GRAVASSE a âncora do head, para o caminho
+   automático não reconsultar o mesmo head a cada ciclo. O efeito colateral, que
+   o teste não via, é que a âncora é justamente o que o classificaReRound usa
+   pra dizer "esse head já teve o round dele": com ela gravada por um round que
+   NUNCA rodou, o relançamento automático morria pra sempre naquele head e o PR
+   passava a depender de clique. Foi o bug de campo do Wanderson ("entra um
+   commit novo, a review não fica automática e depende de ação manual").
+   O controle de custo continua, agora em `bloqueioConsultado`: memória, não
+   decisão, com janela de HEAD_QUIETO_MS (ver test/rereview-launch.test.js). */
+test('launchReReviews bloqueado: não enfileira, não mede diff, e a âncora NÃO é gravada', async () => {
   const e = engineFiacao({
     bloqueadoPorHistorico: async () => BLOQUEADO,
     fetchPrFiles: async () => { throw new Error('bloqueado não podia nem medir o diff'); },
@@ -354,8 +364,10 @@ test('launchReReviews bloqueado: não enfileira, não mede diff, e a âncora do 
   e.headQuietoDesde = { 'o/r#1': { head: 'sha2', at: 0 } };
   await reviewMod.launchReReviews(e);
   assert.equal(e.headlessQueue.length, 0, 'round automático não abre sessão');
-  assert.equal((e.reReviewLaunched['o/r#1'] || {}).head, 'sha2',
-    'a âncora fica: o caminho automático não reconsulta o mesmo head a cada ciclo');
+  assert.equal(e.reReviewLaunched['o/r#1'], undefined,
+    'round que não rodou não pode gastar a âncora do head');
+  assert.equal((e.bloqueioConsultado['o/r#1'] || {}).head, 'sha2',
+    'o custo de gh fica controlado pela memória do bloqueio, que não mata o round');
 });
 
 test('launchReReviews livre: segue enfileirando como sempre', async () => {
