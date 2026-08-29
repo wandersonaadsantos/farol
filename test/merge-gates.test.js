@@ -61,13 +61,30 @@ function roteador({ view = prView(), mergeOk = true, mergeErr = '' } = {}) {
   };
 }
 
+// P0a: `approvable` deixou de autorizar merge. Quem libera o gate 1 e a EVIDENCIA
+// do engine (cobertura, desfecho da sessao, verificacao) + a ausencia de blocker.
+// As fixtures daqui carregam evidencia COMPLETA de proposito: cada teste abaixo
+// existe pra exercitar OUTRO gate (autor, rascunho, conflito, head, repo bloqueado),
+// e sem isso todos parariam no gate 1 e deixariam de provar o que prometem.
+function analiseElegivel(over = {}) {
+  return {
+    approvable: true, blockers: [], cardMet: true,
+    observed: {
+      sessionOutcome: 'complete',
+      scope: { total: ['src/a.js'], reviewed: ['src/a.js'], missing: [] },
+      verification: { status: 'satisfied' }
+    },
+    ...over
+  };
+}
+
 function novoEngine({ approvable = true, blocked = [] } = {}) {
   const engine = new Engine();
   engine.token = 'token-falso';
   engine.tokens = { eu: 'token-falso' };
   engine.config.accounts = [{ user: 'eu', owners: ['acme'] }];
   engine.config.mergeBlockedRepos = blocked;
-  engine.selfAnalyses = approvable === null ? {} : { [CHAVE]: { approvable } };
+  engine.selfAnalyses = approvable === null ? {} : { [CHAVE]: analiseElegivel({ approvable }) };
   engine.myPRs = [{ key: CHAVE }];
   engine.saveSelfAnalyses = () => { };
   engine.pushState = () => { };
@@ -102,18 +119,23 @@ test('sem autoanálise, recusa e NÃO chama o gh', async () => {
   runImpl = roteador();
   const r = await novoEngine({ approvable: null }).mergeSelfPR(URL_PR);
   assert.equal(r.ok, false);
-  assert.match(r.error, /autoanálise marca o PR como aprovável/);
+  assert.match(r.error, /não comprova qualidade suficiente/);
   assert.equal(mergeChamado().length, 0, 'nenhum merge tentado');
 });
 
-test('autoanálise que não marcou aprovável recusa', async () => {
+// ANTES da v2.55.0 este teste afirmava que `approvable` diferente de true recusava,
+// ou seja, afirmava a autoridade do booleano do modelo. Ele foi VIRADO de proposito:
+// hoje o que recusa e a falta de evidencia, e o valor de `approvable` e irrelevante
+// nos dois sentidos. A contradicao interna (`approvable: false` com evidencia completa
+// e zero blocker) e assunto do parser, nao deste gate.
+test('sem evidência do engine, nenhum valor de approvable mergeia', async () => {
   runImpl = roteador();
-  for (const valor of [false, undefined, 'true', 1, null]) {
+  for (const valor of [false, undefined, 'true', 1, null, true]) {
     chamadas.length = 0;
     const engine = novoEngine();
-    engine.selfAnalyses = { [CHAVE]: { approvable: valor } };
+    engine.selfAnalyses = { [CHAVE]: { approvable: valor } }; // sem `observed`
     const r = await engine.mergeSelfPR(URL_PR);
-    assert.equal(r.ok, false, `approvable=${JSON.stringify(valor)} não pode mergear`);
+    assert.equal(r.ok, false, `approvable=${JSON.stringify(valor)} não pode mergear sem evidência`);
     assert.equal(mergeChamado().length, 0);
   }
 });
@@ -205,7 +227,7 @@ test('gh pr view falhando aborta em vez de mergear no escuro', async () => {
 test('mergeSelfPR: recusa quando o head atual difere do headSha da autoanálise', async () => {
   runImpl = roteador({ view: prView({ headRefOid: 'b'.repeat(40) }) });
   const engine = novoEngine();
-  engine.selfAnalyses[CHAVE] = { approvable: true, headSha: 'a'.repeat(40) };
+  engine.selfAnalyses[CHAVE] = analiseElegivel({ headSha: 'a'.repeat(40) });
   const r = await engine.mergeSelfPR(URL_PR);
   assert.equal(r.ok, false);
   assert.match(r.error, /commit depois da sua análise/);
@@ -215,7 +237,7 @@ test('mergeSelfPR: recusa quando o head atual difere do headSha da autoanálise'
 test('mergeSelfPR: análise sem headSha registrado não bloqueia (comportamento atual preservado)', async () => {
   runImpl = roteador({ view: prView({ headRefOid: 'b'.repeat(40) }) });
   const engine = novoEngine();
-  engine.selfAnalyses[CHAVE] = { approvable: true };
+  engine.selfAnalyses[CHAVE] = analiseElegivel();
   const r = await engine.mergeSelfPR(URL_PR);
   assert.equal(r.ok, true);
   assert.equal(mergeChamado().length, 1);
