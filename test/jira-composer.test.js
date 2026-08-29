@@ -184,3 +184,19 @@ test('a config de "sem site" não pode colidir com id de site nenhum', () => {
   const args = jira.mcpArgsFor(engineCom([SITE]), null);
   assert.ok(args[1].includes(semSite), 'é este o arquivo usado quando a org não tem site');
 });
+
+test('MCP do Jira sob Electron: ELECTRON_RUN_AS_NODE e caminho do jira-mcp.js', () => {
+  // sem ELECTRON_RUN_AS_NODE o process.execPath (Electron) tenta abrir o .js como
+  // app e estoura o diálogo "Unable to find Electron app at .../jira-mcp.js"
+  const args = jira.mcpArgsFor(engineCom([SITE]), SITE);
+  assert.equal(args[0], '--mcp-config');
+  const arquivo = args[1].replace(/^"|"$/g, '');
+  const cfg = JSON.parse(fs.readFileSync(arquivo, 'utf8'));
+  const srv = cfg.mcpServers['farol-jira'];
+  assert.ok(srv, 'servidor farol-jira presente');
+  assert.equal(srv.env && srv.env.ELECTRON_RUN_AS_NODE, '1');
+  assert.ok(String(srv.args[0]).endsWith(`${path.sep}tools${path.sep}jira-mcp.js`)
+    || String(srv.args[0]).endsWith('/tools/jira-mcp.js'),
+    `args[0] aponta pro jira-mcp.js, veio: ${srv.args[0]}`);
+  assert.equal(srv.args[1], SITE.id);
+});

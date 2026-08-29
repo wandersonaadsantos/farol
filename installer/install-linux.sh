@@ -34,7 +34,9 @@ mkdir -p "$APP"
 for f in main.js server.js package.json README.md CLAUDE.md; do
   [ -f "$SRC/$f" ] && cp "$SRC/$f" "$APP/$f"
 done
-for d in lib ui assets workspace-template installer; do
+# tools/ carrega runtime (jira-mcp.js); ver o mesmo comentário em install.sh.
+for d in lib ui assets workspace-template installer tools; do
+  [ -d "$SRC/$d" ] || continue
   rm -rf "${APP:?}/$d"
   cp -R "$SRC/$d" "$APP/$d"
 done

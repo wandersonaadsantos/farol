@@ -62,3 +62,24 @@ for (const ref of referenciados) {
       `tools/${ref} é usado em runtime e não está na whitelist do make-package.ps1: cópia instalada quebraria (o bug do jira-mcp.js de 25/08/2026)`);
   });
 }
+
+// Metade que a v2.53.2 NÃO cobriu: o pacote levava tools/, mas os três
+// instaladores não copiavam a pasta pra ~/.farol/app. Achado no Mac do
+// Guilherme (29/08/2026, v2.53.9 instalada sem tools/): o zip tinha
+// tools/jira-mcp.js e o diálogo do Electron continuava igual.
+const instaladores = [
+  path.join(raiz, 'installer', 'install.sh'),
+  path.join(raiz, 'installer', 'install.ps1'),
+  path.join(raiz, 'installer', 'install-linux.sh'),
+];
+for (const inst of instaladores) {
+  test(`${path.basename(inst)} copia a pasta tools/ pra o app instalado`, () => {
+    const fonte = fs.readFileSync(inst, 'utf8');
+    assert.match(fonte, /\btools\b/,
+      `${path.basename(inst)} não menciona tools/: update/instalação apagaria o jira-mcp.js da cópia`);
+    // a lista de pastas que o installer espelha tem que incluir tools de verdade
+    // (não só um comentário). Nos três, tools aparece junto de lib/ui/assets.
+    assert.match(fonte, /['"]tools['"]|\btools;/,
+      `${path.basename(inst)} cita tools mas não na lista de pastas copiadas`);
+  });
+}
