@@ -1357,7 +1357,19 @@ v2.31.0/export do pure.js). Estas regras existem pra nenhum desses se repetir:
    (mesmo comando). Se o número foi tomado no meio do caminho, renumerar TUDO
    (package.json + CHANGELOG + RELEASE_NOTES + spec) e publicar com o número
    novo; jamais sobrescrever a release do outro.
-5. **Travas automáticas (não confiar em disciplina):**
+5. **NUNCA usar o bypass de admin na `main`** (decisão do Wanderson, 29/08/2026).
+   O ruleset "main protegida" exige pull request e o check `ci`; o Repository
+   admin tem `bypass_mode: always` e, até essa data, **todo** push direto na
+   `main` passou por cima da própria regra (o git responde `Bypassed rule
+   violations for refs/heads/main`). Isso acabou.
+   O custo é baixo porque o ruleset pede **zero aprovações**
+   (`required_approving_review_count: 0`): o fluxo é `branch → PR → CI verde →
+   merge`, e você mesmo fecha o PR, sem depender de ninguém. De quebra, a matriz
+   Linux/Windows/macOS passa a rodar ANTES da `main`, que era a metade que o gate
+   local não cobre. A trava é mecânica, não moral: o `tools/hooks/pre-push`
+   recusa qualquer push cujo ref remoto seja `refs/heads/main`. Emergência real
+   usa `--no-verify` e fica registrada.
+6. **Travas automáticas (não confiar em disciplina):**
    - `test/release-consistency.test.js` (roda no `npm test`): package.json,
      `## vX.Y.Z` do CHANGELOG e `RELEASE_NOTES[0]` do ui/app.js têm que
      concordar, RELEASE_NOTES estritamente decrescente, CHANGELOG sem seção
@@ -1418,10 +1430,21 @@ gh run watch --repo wandersonaadsantos/farol
 Verde nos três, então fast-forward na `main`. Para mudança que não toca
 instalador nem spawn, o gate local já responde.
 
-### 3. Commit e push
+### 3. Commit e PR (não empurre na `main`)
 
 - [ ] Commit com mensagem descritiva (ex.: `chore: release v2.27.0`).
-- [ ] Push pra `main`. Desde 17/08/2026 o `origin` aponta pro alias SSH da conta pessoal (`git@github-pessoal:wandersonaadsantos/farol.git`, definido no `~/.ssh/config`), então o **push** não depende mais da conta ativa do `gh` e o 403 crônico descrito abaixo deixou de acontecer nesse passo. A `main` é protegida por ruleset, mas o Repository admin tem bypass, então o push direto continua passando. O que continua dependendo da conta ativa é a **release** (passo 4), que usa a API.
+- [ ] **Branch + PR + CI verde + merge.** Desde 29/08/2026 o push direto na
+      `main` está proibido (regra 5 de "Versionamento") e o `pre-push` recusa.
+      O bump de versão entra pela mesma porta que qualquer mudança:
+      ```
+      git switch -c release/vX.Y.Z && git push origin release/vX.Y.Z
+      gh pr create --fill
+      gh pr merge --merge --delete-branch      # depois do CI verde
+      git switch main && git pull --ff-only
+      ```
+      Só então siga pro passo 4: o `publish-release.ps1` publica a partir da
+      `main` já mergeada.
+- [ ] Sobre o **push do branch**: desde 17/08/2026 o `origin` aponta pro alias SSH da conta pessoal (`git@github-pessoal:wandersonaadsantos/farol.git`, definido no `~/.ssh/config`), então ele não depende da conta ativa do `gh` e o 403 crônico descrito abaixo não acontece nesse passo. O que DEPENDE da conta ativa é o `gh pr create`/`gh pr merge` e a **release** (passo 4), que usam a API. **O bypass de admin na `main` existe no ruleset e não se usa** (regra 5 de "Versionamento"): ele é o motivo de este passo ter deixado de ser um push direto.
 - [ ] **Conta do gh**: o repo é `wandersonaadsantos/farol`, então o push e a release têm que sair pela conta DONA do repo, não pela conta de trabalho (que costuma ser a ativa e devolve 403). Confira com `gh auth status` e, se precisar, `gh auth switch --user wandersonaadsantos`. **Confira de novo IMEDIATAMENTE antes de rodar o `publish-release.ps1`, num comando só com ele:** a conta ativa do `gh` mora no keyring e já foi observada revertendo entre um comando e o outro na mesma sessão. Em 01/08/2026 isso derrubou a publicação da v2.29.0 no meio: o push passou, os dois artefatos foram construídos, e só o `gh release create` falhou (o erro que aparece é um `gh auth refresh ... -s workflow`, que engana, porque o problema é a conta e não o escopo). Rodar de novo com a conta certa resolve, e o script é idempotente. **Não escreva o login da conta de trabalho neste arquivo**: o `CLAUDE.md` vai dentro do zip de distribuição e a auditoria do `make-package.ps1` reprova o pacote se achar (invariante 7).
 
 ### 4. Publicar a release
