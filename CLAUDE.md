@@ -1386,6 +1386,38 @@ npm run check && npm test
 
 Verde nos dois é pré-requisito. Não publique com teste vermelho.
 
+**Gate de pré-push (29/08/2026).** `npm run hooks:install` aponta o
+`core.hooksPath` pra `tools/hooks/`, e o `pre-push` roda `check` + `lint` +
+`test` antes de qualquer push. Existe porque o CI roda DEPOIS do push e a `main`
+aceita push direto (o admin tem bypass do ruleset), então havia uma janela entre
+"empurrei" e "descobri que quebrou". `core.hooksPath` é config LOCAL do clone:
+cada clone instala uma vez. Escape hatch é o `--no-verify` do próprio git.
+
+**O hook NÃO substitui o CI, e confundir os dois é o erro a evitar.** Parte da
+suíte pula fora do POSIX, e isso depende do SISTEMA, não do shell: no Windows,
+Git Bash não recupera nenhum desses casos. O que pula aqui e só fecha no CI:
+
+| pula no Windows | por quê |
+|---|---|
+| 4 testes do `install.sh` | é o instalador do macOS: mexe em `Electron.app/Contents/Info.plist` e cria `~/Applications/Farol.app` |
+| `spawn headless posix` | branch `/bin/sh -lc` + `detached`; `IS_WIN` é const de nível de módulo |
+| `killTree posix` | semântica de grupo de processo POSIX |
+| credencial não legível por outros | `chmod` não existe em NTFS |
+
+Não existe "CI local completo" pra este repo: container cobriria Linux e nunca
+macOS. **Quando a mudança tocar esses caminhos, o jeito de ver a matriz ANTES da
+`main` é subir num branch e disparar o workflow nele** (o `ci.yml` tem
+`workflow_dispatch`, então aceita ref arbitrário):
+
+```
+git push origin HEAD:refs/heads/prova
+gh workflow run CI --repo wandersonaadsantos/farol --ref prova
+gh run watch --repo wandersonaadsantos/farol
+```
+
+Verde nos três, então fast-forward na `main`. Para mudança que não toca
+instalador nem spawn, o gate local já responde.
+
 ### 3. Commit e push
 
 - [ ] Commit com mensagem descritiva (ex.: `chore: release v2.27.0`).

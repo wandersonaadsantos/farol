@@ -1,0 +1,49 @@
+#!/bin/sh
+# Gate de pré-push do Farol (29/08/2026).
+#
+# POR QUE EXISTE: o CI roda DEPOIS do push, e a `main` aceita push direto (o
+# Repository admin tem bypass do ruleset). Ou seja, entre "empurrei" e "descobri
+# que quebrou" havia uma janela em que a `main` já estava vermelha. Este hook
+# fecha a janela do lado que dá pra fechar localmente: nada sobe com o gate local
+# vermelho.
+#
+# O QUE ELE NÃO FAZ, e é importante não confundir: ele NÃO substitui o CI. Parte
+# da suíte pula fora do POSIX (o instalador do macOS, o spawn headless posix, o
+# killTree por grupo de processo, o chmod da credencial), e isso depende do
+# SISTEMA, não do shell: Git Bash no Windows não recupera nenhum deles. Quem
+# cobre as três plataformas é a matriz do .github/workflows/ci.yml, e continua
+# sendo. Aqui o contrato é mais modesto e honesto: o que roda nesta máquina tem
+# que estar verde antes de sair dela.
+#
+# Escape hatch: `git push --no-verify`. É do git, não precisa de opção nossa.
+# Use quando souber por que está pulando (ex.: subir um branch de trabalho pra
+# disparar o CI da matriz justamente porque o local não cobre aquilo).
+#
+# Instalação: `npm run hooks:install` (grava core.hooksPath nesta pasta). O
+# core.hooksPath é config LOCAL do clone, então cada clone instala uma vez.
+
+set -e
+
+echo ""
+echo "  Farol · gate de pre-push"
+echo ""
+
+falhou() {
+  echo ""
+  echo "  BLOQUEADO: $1 reprovou. Corrija, ou use 'git push --no-verify' se souber por que esta pulando."
+  echo ""
+  exit 1
+}
+
+echo "  -> sintaxe (npm run check)"
+npm run check --silent || falhou "a sintaxe"
+
+echo "  -> qualidade e higiene (npm run lint)"
+npm run lint --silent || falhou "o gate de qualidade"
+
+echo "  -> suite (npm test)"
+npm test --silent || falhou "a suite"
+
+echo ""
+echo "  ok  gate local verde. Lembrando que a matriz Linux/Windows/macOS so fecha no CI."
+echo ""
