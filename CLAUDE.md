@@ -1229,15 +1229,35 @@ As peças (`lib/engine/verification-checkpoint.js` + costuras em `session.js`,
   `test/checkpoint-gate.test.js`, `test/checkpoint-review-wiring.test.js` e
   `test/checkpoint-retry-same-path.test.js`.
 
-## Diagnóstico: ambiente x operação (v2.40.4)
+## Diagnóstico: ambiente x operação x runtime (v2.40.4, terceira dimensão na v2.53.3)
 
-Os checks de Sistema → Visão geral respondem DUAS perguntas diferentes, e
+Os checks de Sistema → Visão geral respondem TRÊS perguntas diferentes, e
 misturá-las foi o defeito de origem:
 
 | pergunta | de onde vem | exemplos |
 |---|---|---|
 | o Farol consegue RODAR? | `STATE.doctor` (engine) | gh, conta primária, Claude Code, Git Bash, pasta |
 | o Farol vai ACHAR algo? | `operationChecks(STATE.accounts)` (`ui/pure.js`) | conta sem organização, conta sem token, tudo silenciado |
+| o Farol consegue ABRIR A SESSÃO? | `runtimeChecks(STATE.doctor, STATE.config)` (`ui/pure.js`) | rodando como root, Codex sem CLI ou sem login |
+
+A terceira nasceu na v2.53.3 e é diferente das outras duas em natureza: o
+ambiente está instalado e a busca acha PRs, mas a sessão de IA **morre no
+spawn**. Caso que motivou (Termux + proot Debian num Android, 25/08/2026): o
+login padrão do proot é root, o Claude Code recusa
+`--dangerously-skip-permissions` com uid 0, e o headless passa essa flag SEMPRE
+(é fixa no `runClaudeStream`, não sai do toggle de `skipPermissions`, que só
+alcança sessão de terminal). O resultado era "saiu com código 1" a cada ciclo,
+para sempre, com os cinco checks de ambiente verdes.
+
+Onde cada peça mora: `rodandoComoRoot()` em `lib/paths.js` (uid 0 em POSIX,
+sempre false no Windows), exposta como `doctor.root` no `server.js`; a classe
+`skip-permissions-root` em `lib/log-taxonomy.js`, que faz a falha ser lida como
+PERMANENTE (estaciona na primeira, em vez de relançar para sempre); e o check
+visível em `runtimeChecks`.
+
+Esse check **não tem `goto`**, de propósito: não existe tela do app que conserte
+"você é root". Clique que não leva a lugar nenhum é pior que texto puro, é a
+mesma doutrina das menções navegáveis.
 
 O caso que motivou (Wanderson, 11/08/2026): **conta cadastrada sem nenhum owner
 deixava os 5 checks de ambiente verdes e o painel vazio pra sempre, sem erro,
@@ -1246,7 +1266,9 @@ sem log e sem nada na tela**. A causa é o fan-out da busca ser
 vazia, o `gh` nunca é chamado, e não existe falha pra registrar. Silêncio por
 construção, que é o tipo de defeito que faz desconfiar do app inteiro.
 
-Ao acrescentar check novo aqui: **o rótulo tem que nomear a DIMENSÃO**, não a
+Ao acrescentar check novo aqui: **decida primeiro em qual das TRÊS perguntas ele
+entra** (ambiente, operação ou runtime), porque isso define o arquivo e a fonte
+do dado. E **o rótulo tem que nomear a DIMENSÃO**, não a
 coisa. "Conta @X" já é o check de autenticação; o de monitoramento é
 "Monitoramento de @X". Dois checks com o mesmo rótulo leem como linha
 duplicada, mesmo dizendo coisas diferentes (travado em `ui-pure.test.js`).
