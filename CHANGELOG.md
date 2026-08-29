@@ -9,6 +9,29 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.54.6
+
+Revisão com Jira cadastrado volta a funcionar na cópia instalada, no Mac e no
+Windows.
+
+**Correções**
+- **O Jira parou de estourar "Unable to find Electron app".** Eram dois problemas
+  somados, e cada um sozinho já quebrava. Primeiro, os instaladores não copiavam a
+  pasta `tools/` para a cópia instalada, então o servidor local do Jira não existia
+  lá, embora viajasse no pacote desde a v2.53.2. Segundo, mesmo com o arquivo no
+  lugar o Farol chamava o binário do Electron sem avisar que ele deveria agir como
+  Node, e o Electron tentava abrir o arquivo como se fosse um aplicativo. Os dois
+  estão corrigidos; a instalação e a atualização passam a levar a pasta, e ela é
+  ignorada com segurança quando não existe na origem, em vez de apagar o que já
+  estava lá. Correção do Guilherme, encontrada no Mac dele.
+
+**Melhorias**
+- **O teste que protege essa pasta parou de depender da ordem da lista.** Ele
+  procurava o nome no arquivo inteiro e só reconhecia a pasta quando ela era a
+  última da lista, então reorganizar a lista reprovava o teste sem nada ter
+  quebrado. Agora ele lê a lista do laço que copia de verdade e verifica só a
+  presença. Confirmado por mutação nos três instaladores.
+
 ## v2.54.5
 
 A autoanálise volta a ser exclusivamente por clique, desfazendo a v2.54.4.

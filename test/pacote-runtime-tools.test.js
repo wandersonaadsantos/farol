@@ -72,14 +72,38 @@ const instaladores = [
   path.join(raiz, 'installer', 'install.ps1'),
   path.join(raiz, 'installer', 'install-linux.sh'),
 ];
+/* A lista de pastas que o installer ESPELHA, lida do loop que copia DE VERDADE.
+
+   Ancorar no loop certo não é preciosismo. A primeira versão deste teste (PR #36)
+   procurava `'tools'` ou `tools;` no arquivo inteiro, e `tools;` só casa quando
+   `tools` é o ÚLTIMO item da lista do shell, porque é o único seguido de `;`.
+   Provado por mutação em 29/08/2026: mover `tools` para o meio da lista, sem
+   mudar comportamento nenhum, reprovava o teste. Teste preso à posição faz a
+   pessoa seguinte "consertar" reordenando de volta em vez de entender.
+
+   E o loop tem que ser o de cópia: o `install.sh` tem um `for d in` ANTES dele,
+   que monta o PATH do Homebrew e não copia nada. Distinguir pelo CORPO (copia de
+   $SRC, ou roda robocopy) é o que separa os dois, não a ordem no arquivo. */
+function listaEspelhada(fonte) {
+  // shell: `for d in <lista>; do ... done`, com o corpo copiando de $SRC
+  for (const m of fonte.matchAll(/for d in ([^;\n]+);\s*do\n([\s\S]*?)\ndone/g)) {
+    if (m[2].includes('$SRC/$d')) return m[1];
+  }
+  // PowerShell: `foreach ($d in @(<lista>)) { ... robocopy ... }`
+  for (const m of fonte.matchAll(/foreach \(\$d in @\(([^)]*)\)\) \{\n([\s\S]*?)\n\}/g)) {
+    if (m[2].includes('robocopy')) return m[1];
+  }
+  return '';
+}
+
 for (const inst of instaladores) {
   test(`${path.basename(inst)} copia a pasta tools/ pra o app instalado`, () => {
-    const fonte = fs.readFileSync(inst, 'utf8');
-    assert.match(fonte, /\btools\b/,
-      `${path.basename(inst)} não menciona tools/: update/instalação apagaria o jira-mcp.js da cópia`);
-    // a lista de pastas que o installer espelha tem que incluir tools de verdade
-    // (não só um comentário). Nos três, tools aparece junto de lib/ui/assets.
-    assert.match(fonte, /['"]tools['"]|\btools;/,
-      `${path.basename(inst)} cita tools mas não na lista de pastas copiadas`);
+    // normaliza a quebra de linha antes de casar: o contrato do repo é LF, e um
+    // CRLF que escape não pode virar falha de teste com mensagem enganosa
+    const fonte = fs.readFileSync(inst, 'utf8').replace(/\r\n/g, '\n');
+    const lista = listaEspelhada(fonte);
+    assert.ok(lista, `não achei o loop de cópia em ${path.basename(inst)}: o teste ficou cego, conserte o leitor antes de confiar nele`);
+    assert.match(lista, /\btools\b/,
+      `${path.basename(inst)} não copia tools/: update/instalação deixaria a cópia instalada sem o jira-mcp.js (a ordem na lista não importa, a presença sim)`);
   });
 }
