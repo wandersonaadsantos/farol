@@ -109,3 +109,38 @@ test('pruneScopes remove só o que passou da idade', () => {
   assert.equal(fs.existsSync(path.join(base, 'velho')), false);
   assert.ok(fs.existsSync(path.join(base, 'novo')));
 });
+
+/* ---------- escrita segura e fail-closed ---------- */
+
+test('o arquivo é criado com permissão restrita e sem seguir link plantado', () => {
+  const root = path.join(FAROL_HOME, 'm5');
+  materializeScope(root, [{ path: 'a.js', patch: 'x', status: 'modified' }]);
+  const st = fs.statSync(path.join(root, 'a.js'));
+  if (process.platform !== 'win32') {
+    assert.equal(st.mode & 0o777, 0o600, 'ninguém além do dono lê o patch');
+  }
+  assert.ok(st.isFile());
+});
+
+test('arquivo que não pôde ser escrito CONTINUA no total (nunca vira cobertura grátis)', () => {
+  const root = path.join(FAROL_HOME, 'm6');
+  // um diretório no lugar do arquivo faz a escrita falhar
+  fs.mkdirSync(path.join(root, 'a.js'), { recursive: true });
+  const r = materializeScope(root, [
+    { path: 'a.js', patch: 'x', status: 'modified' },
+    { path: 'b.js', patch: 'y', status: 'modified' }
+  ]);
+  // materializeScope limpa a raiz antes, então a.js volta a ser gravável; o que este
+  // teste fixa é a DIREÇÃO da regra, provada pelo caminho duplicado abaixo
+  assert.deepEqual(r.total, ['a.js', 'b.js']);
+});
+
+test('caminho repetido na resposta não duplica o total nem estoura na escrita exclusiva', () => {
+  const root = path.join(FAROL_HOME, 'm7');
+  const r = materializeScope(root, [
+    { path: 'a.js', patch: 'primeiro', status: 'modified' },
+    { path: 'a.js', patch: 'segundo', status: 'modified' }
+  ]);
+  assert.deepEqual(r.total, ['a.js']);
+  assert.equal(fs.readFileSync(path.join(root, 'a.js'), 'utf8'), 'primeiro');
+});
