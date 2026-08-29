@@ -9,6 +9,22 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.54.8
+
+O botao Merge de "Meus PRs" deixa de ser autorizado pela opiniao da analise.
+
+**Correcoes**
+
+- **O merge do seu proprio PR passa a ser decidido por evidencia, nao pelo veredito da sessao.** Ate aqui o unico gate de qualidade de todo o caminho era um "aprovavel" verdadeiro ou falso que a propria analise produzia, e o mesmo gate servia o "Merge (admin)", que bypassa a protecao da branch. A protecao do repositorio deixava de ser a segunda barreira justamente onde a decisao de qualidade era a mais fragil. Agora o Farol calcula a elegibilidade sobre o que ele mesmo consegue observar (cobertura da leitura, desfecho da sessao, verificacao e card), e o veredito da analise continua na tela como parecer, sem autorizar nada.
+- **Falta de evidencia passa a valer como "nao sei", nunca como "pode".** Analise que nao terminou, cobertura nao comprovada ou card nao lido deixam o PR inelegivel, em vez de passarem despercebidos.
+- **A regra vivia copiada em quatro lugares e agora tem um endereco so.** O gate do merge, o filtro que decide de quais PRs o Farol consulta a mergeabilidade no GitHub, a leitura feita logo apos a analise e o botao da tela liam a mesma condicao escrita quatro vezes, o que fazia corrigir um lugar deixar os outros de pe. A tela passou a consumir a elegibilidade calculada pelo Farol em vez de decidir por conta propria.
+
+- **O botao desabilitado passou a dizer por que.** Em vez de sumir ou ficar em "verificando" pra sempre, ele explica em uma frase que a autoanalise ainda nao comprova qualidade suficiente e lista os motivos em portugues ("Sem cobertura comprovada", "Atendimento ao card nao comprovado").
+
+**Atencao**
+
+- **Nesta versao o botao Merge fica indisponivel em todos os PRs, de proposito.** A analise ainda nao produz a evidencia que o gate novo exige, entao nenhuma analise, nem as antigas nem as novas, libera merge; o botao explica isso na propria tela. A elegibilidade volta quando a analise passar a declarar cobertura e desfecho, na proxima versao. Enquanto isso, o merge pelo proprio GitHub segue normal.
+
 ## v2.54.7
 
 Sem mudança de comportamento: esta versão só carrega documentação e uma trava de

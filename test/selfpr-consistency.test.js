@@ -36,6 +36,22 @@ const URL_PR = 'https://github.com/acme/app/pull/42';
 const CHAVE = 'acme/app#42';
 const MEU_PR = { key: CHAVE, repo: 'acme/app', number: 42, url: URL_PR, title: 'PR meu' };
 
+// P0a: o alvo do refreshMergeStates deixou de ser "approvable === true" e passou a
+// ser a elegibilidade calculada sobre EVIDENCIA. Sem `observed` nenhum PR entra na
+// lista, e os testes de mecanica abaixo (ruleset, reconciliacao, limpeza) parariam de
+// exercitar o que prometem. A evidencia completa aqui e o que os mantem honestos.
+function analiseElegivel(over = {}) {
+  return {
+    approvable: true, blockers: [], cardMet: true,
+    observed: {
+      sessionOutcome: 'complete',
+      scope: { total: ['src/a.js'], reviewed: ['src/a.js'], missing: [] },
+      verification: { status: 'satisfied' }
+    },
+    ...over
+  };
+}
+
 function novoEngine() {
   const engine = new Engine();
   engine.token = 'token-falso';
@@ -100,7 +116,7 @@ test('push DURANTE a análise descarta o resultado com registro claro (TOCTOU)',
 test('análise sem SHA registrado é descartada quando o head atual é conhecido', async () => {
   const engine = novoEngine();
   engine.myPRs = [{ ...MEU_PR }];
-  engine.selfAnalyses = { [CHAVE]: { approvable: true, headSha: null } };
+  engine.selfAnalyses = { [CHAVE]: analiseElegivel({ headSha: null }) };
   engine.mergeStates = { [CHAVE]: { status: 'CLEAN', at: Date.now() } };
   runImpl = (cmd, args) => {
     const sub = args.join(' ');
@@ -132,7 +148,7 @@ test('fetchMergeState devolve baseRefName (o fallback do ruleset deixa de ser c�
 test('refreshMergeStates em BLOCKED sem pr.base checa o ruleset com a base do fetchMergeState', async () => {
   const engine = novoEngine();
   engine.myPRs = [{ ...MEU_PR, base: '' }];      // ainda não passou pelo enrichMyPRBranches
-  engine.selfAnalyses = { [CHAVE]: { approvable: true } };
+  engine.selfAnalyses = { [CHAVE]: analiseElegivel() };
   engine.fetchMergeState = async () => ({ mergeable: 'MERGEABLE', status: 'BLOCKED', isDraft: false, state: 'OPEN', baseRefName: 'develop', at: Date.now() });
   engine.fetchAutoMergeAllowed = async () => true;
   const consultas = [];
@@ -151,7 +167,7 @@ function msFresco(extra) {
 test('escrita concorrente do runSelfAnalysis durante o refresh não é engolida', async () => {
   const engine = novoEngine();
   engine.myPRs = [{ ...MEU_PR }];
-  engine.selfAnalyses = { [CHAVE]: { approvable: true } };
+  engine.selfAnalyses = { [CHAVE]: analiseElegivel() };
   engine.fetchAutoMergeAllowed = async () => true;
   engine.fetchMergeState = async () => {
     // simula a autoanálise de OUTRO PR terminando no meio do await deste ciclo
@@ -175,7 +191,7 @@ test('entrada velha de PR que deixou de ser alvo continua saindo no refresh', as
 test('fetch que falhou continua derrubando a entrada do alvo (semântica original)', async () => {
   const engine = novoEngine();
   engine.myPRs = [{ ...MEU_PR }];
-  engine.selfAnalyses = { [CHAVE]: { approvable: true } };
+  engine.selfAnalyses = { [CHAVE]: analiseElegivel() };
   engine.mergeStates = { [CHAVE]: msFresco({ at: Date.now() - 60000 }) };
   engine.fetchMergeState = async () => null;
   await engine.refreshMergeStates();

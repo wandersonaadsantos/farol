@@ -16,7 +16,8 @@ import {
   usageMatrixHtml, usageBudgetHtml, usageSessionsHtml, escAttrSelector, defaultFor,
   overrideFor, suggestDefault, renderOrgBlock, queueCardHtml, panoramaRowHtml,
   reasonGroupsHtml, reasonText, claudeProfilesHtml, accountsManagerHtml,
-  jiraBaseUrlProblema, jiraPrefixosProblema
+  jiraBaseUrlProblema, jiraPrefixosProblema,
+  canMergeSelfAnalysis, qualityBlockTitle
 } from './pure.js';
 
 const $ = (s) => document.querySelector(s);
@@ -2370,7 +2371,9 @@ function renderMyPRs() {
     // real vem do GitHub (STATE.mergeStates): CLEAN/UNSTABLE = mergeia agora;
     // BLOCKED = proteção exige requisitos (mostra auto/admin); DIRTY/BEHIND/DRAFT =
     // não dá, botão desabilitado com o motivo.
-    const canMerge = !!(a && a.approvable);
+    // a decisao mora em ui/pure.js (testada); aqui so consome. NUNCA volte a ler
+    // `a.approvable`: ele e parecer, e quem autoriza e o `quality` que o engine calcula.
+    const canMerge = canMergeSelfAnalysis(a);
     const repoBlocked = blockedRepos.has(String(pr.key.split('#')[0]).toLowerCase());
     const ms = (STATE.mergeStates || {})[pr.key];
     const dataAttrs = `data-url="${esc(pr.url)}" data-key="${esc(pr.key)}"`;
@@ -2388,7 +2391,10 @@ function renderMyPRs() {
       return auto + (admin ? '\n         ' + admin : '');
     };
     let mergeBtns = '';
-    if (canMerge) {
+    if (!canMerge && a && a.quality && a.quality.status !== 'eligible') {
+      // fail-closed explicado: sem isto o botao sumia e o usuario nao sabia por que
+      mergeBtns = btnMerge(true, qualityBlockTitle(a.quality));
+    } else if (canMerge) {
       if (running || queued) mergeBtns = btnMerge(true, 'Aguarde a análise terminar');
       else if (repoBlocked) mergeBtns = btnMerge(true, 'Merge bloqueado para este repo (edite a lista na aba Sistema)');
       else if (mergeBlockedByPolicy.has(pr.key)) mergeBtns = btnOptions();
@@ -3037,6 +3043,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.54.8', ['O botão Merge de "Meus PRs" deixa de ser autorizado pelo veredito da própria análise. Até aqui o único gate de qualidade do merge era um "aprovável" que a sessão produzia, e o mesmo gate servia o "Merge (admin)", que bypassa a proteção da branch: a proteção do repositório deixava de valer justamente onde a decisão de qualidade era a mais frágil. Agora quem calcula a elegibilidade é o Farol, sobre o que ele mesmo observa, e o veredito da análise fica na tela como parecer.', 'Falta de evidência passa a valer como "não sei", nunca como "pode": análise que não terminou, cobertura não comprovada ou card não lido deixam o PR inelegível.', 'O botão desabilitado passou a dizer por quê: uma frase explicando que a autoanálise ainda não comprova qualidade suficiente, e os motivos listados em português ("Sem cobertura comprovada", "Atendimento ao card não comprovado") em vez de sumir da tela.', 'ATENÇÃO: nesta versão o botão Merge fica indisponível em todos os PRs, de propósito. A análise ainda não produz a evidência que o gate novo exige, então nenhuma análise libera merge, nem as antigas nem as novas. A elegibilidade volta na próxima versão, quando a análise passar a declarar cobertura e desfecho. O merge pelo próprio GitHub segue normal.']],
   ['2.54.7', ['Sem mudança de comportamento: esta versão carrega documentação e uma trava de desenvolvimento, e nada muda para quem usa o Farol.', 'O servidor do Jira ganhou teste de verdade. Ele era o único componente que roda como programa separado sem nenhum teste que o executasse (os testes liam arquivos de configuração e concluíam que estava certo), e foi por isso que o defeito da versão anterior passou pelo gate.', 'Nada sobe mais sem o gate local passar, e tudo passa a entrar por pull request, o que faz a checagem nos três sistemas acontecer antes e não depois.']],
   ['2.54.6', ['Revisão com Jira cadastrado volta a funcionar na cópia instalada. Eram dois problemas somados: os instaladores não copiavam a pasta `tools/` para a cópia instalada (o servidor local do Jira não existia lá, embora viajasse no pacote desde a v2.53.2), e o Farol chamava o binário do Electron sem avisar que ele deveria agir como Node, então ele tentava abrir o arquivo como se fosse um aplicativo. Instalação e atualização passam a levar a pasta, e ela é ignorada com segurança quando falta na origem em vez de apagar o que já estava instalado. Correção do Guilherme, encontrada no Mac dele.', 'O teste que protege essa pasta parou de depender da ordem da lista: ele reprovava quando a pasta saía do fim da lista, sem nada ter quebrado. Agora lê o laço que copia de verdade e verifica só a presença.']],
   ['2.54.5', ['A autoanálise volta a ser exclusivamente por clique, desfazendo a v2.54.4. Analisar o próprio PR é decisão sua, sempre: quando um commit novo invalida a análise, o card volta a "não analisado" e espera você pedir de novo, em vez de gastar uma sessão por conta própria.']],

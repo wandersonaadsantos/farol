@@ -2600,3 +2600,41 @@ export function jiraPrefixosProblema(lista) {
   if (!itens.length) return 'Informe ao menos um prefixo de projeto: sem ele o Farol procura no Jira qualquer coisa com hífen e número que apareça no título do PR.';
   return '';
 }
+
+// --- elegibilidade de merge da autoanálise: a UI CONSOME, nunca reconstrói ---
+// O `canMerge` do app.js era `!!(a && a.approvable)`, uma quarta cópia da regra que
+// o engine centralizou em evaluateQualityEligibility. A decisão mora aqui, e não no
+// render, porque aqui tem teste: `quality` chega calculado no snapshot e a única
+// pergunta desta camada é se o status é `eligible`. `approvable` não é consultado
+// em lugar nenhum deste arquivo, de propósito.
+export function canMergeSelfAnalysis(analysis) {
+  return !!(analysis && analysis.quality && analysis.quality.status === 'eligible');
+}
+
+// O engine entrega CÓDIGO (contrato de máquina) e a apresentação escreve a frase.
+// Código desconhecido cai numa frase genérica em vez de vazar o identificador cru:
+// a tela nunca fica em branco e o usuário nunca lê CONSTANTE_EM_CAIXA_ALTA.
+const QUALITY_REASON_LABELS = {
+  BLOCKER_PRESENT: 'A análise apontou bloqueios',
+  BLOCKERS_UNKNOWN: 'A análise não declarou os bloqueios',
+  COVERAGE_UNKNOWN: 'Sem cobertura comprovada',
+  COVERAGE_INCOMPLETE: 'Parte do PR ficou sem análise',
+  ANALYSIS_INCOMPLETE: 'A análise não chegou ao fim',
+  CARD_UNSATISFIED: 'O card não foi atendido',
+  CARD_UNKNOWN: 'Atendimento ao card não comprovado',
+  VERIFICATION_FAILED: 'Uma verificação falhou',
+  VERIFICATION_MISSING: 'Verificação necessária não foi feita'
+};
+
+export function qualityReasonLabel(code) {
+  return QUALITY_REASON_LABELS[code] || 'Requisito de qualidade não atendido';
+}
+
+// Título do botão desabilitado: uma frase principal que explica o fail-closed, e os
+// motivos como lista embaixo. Concatenar os códigos num toast só transformaria
+// contrato de máquina em copy, que é justamente o que a separação acima evita.
+export function qualityBlockTitle(quality) {
+  const principal = 'Sua autoanálise ainda não comprova qualidade suficiente para merge.';
+  const motivos = ((quality && quality.reasons) || []).map(r => `• ${qualityReasonLabel(r && r.code)}`);
+  return motivos.length ? `${principal}\n${motivos.join('\n')}` : principal;
+}
