@@ -54,8 +54,12 @@ foreach ($f in @('main.js', 'server.js', 'package.json', 'README.md', 'CLAUDE.md
 # deletado sobrevivia pra sempre em ~/.farol/app, update apos update.
 # 'installer' entra na copia (paridade com o mac): sem ele, quem instalou pelo
 # Setup.exe e apagou o download nao tinha como desinstalar.
-foreach ($d in @('lib', 'ui', 'assets', 'workspace-template', 'installer')) {
-  robocopy (Join-Path $Src $d) (Join-Path $App $d) /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
+# 'tools' carrega runtime (jira-mcp.js): sem ela, revisao com Jira cadastrado
+# dispara o dialogo do Electron "Unable to find Electron app at .../tools/jira-mcp.js".
+foreach ($d in @('lib', 'ui', 'assets', 'workspace-template', 'installer', 'tools')) {
+  $srcDir = Join-Path $Src $d
+  if (-not (Test-Path $srcDir)) { continue }
+  robocopy $srcDir (Join-Path $App $d) /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
   if ($LASTEXITCODE -ge 8) { Die "Falha ao copiar a pasta '$d' (robocopy $LASTEXITCODE)." }
 }
 if (Test-Path (Join-Path $Src 'Desinstalar.cmd')) { Copy-Item (Join-Path $Src 'Desinstalar.cmd') (Join-Path $App 'Desinstalar.cmd') -Force }
