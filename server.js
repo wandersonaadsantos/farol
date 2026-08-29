@@ -1639,7 +1639,9 @@ class Engine extends EventEmitter {
       // só as CHAVES: myPRs vai completo de propósito, porque quem esconde é a UI
       // (que também precisa oferecer "mostrar os ocultos")
       hiddenPRs: Object.keys(this.hiddenPRs),
-      selfAnalyses: this.selfAnalyses,
+      // quality DERIVADO (calculado agora, nunca lido do disco): e o unico dado que
+      // a UI pode usar pra decidir merge. Ver projectSelfAnalyses em selfpr.js.
+      selfAnalyses: selfMod.projectSelfAnalyses(this.selfAnalyses),
       mergeStates: this.mergeStates,
       staleStates: this.staleStates,
       // projeção pura: tira o interno (fileBlobs, mapa cru de agents) e entrega a

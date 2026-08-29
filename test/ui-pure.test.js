@@ -2743,3 +2743,40 @@ test('runtimeChecks: perfil Codex denuncia quando o app nao acha o codex do term
   assert.equal(checks[1].ok, false);
   assert.match(checks[1].detail, /codex login status falhou/);
 });
+
+/* ---------- quarta porta: a UI não reconstrói a autoridade do merge ----------
+   O `canMerge` do app.js era `!!(a && a.approvable)`, uma quarta cópia da regra que
+   o engine acabou de centralizar. A decisão saiu do render (que não tem harness) e
+   virou função pura, pra ficar travada em teste em vez de depender de disciplina. */
+
+test('canMergeSelfAnalysis decide por quality, nunca por approvable', () => {
+  const q = (status) => ({ quality: { status, reasons: [] } });
+  assert.equal(P.canMergeSelfAnalysis({ approvable: true, ...q('inconclusive') }), false,
+    'approvable true não libera quando a evidência não fecha');
+  assert.equal(P.canMergeSelfAnalysis({ approvable: false, ...q('eligible') }), true,
+    'approvable false não impede: a UI também deixou de tratar o parecer como autoridade');
+  assert.equal(P.canMergeSelfAnalysis({ approvable: true, ...q('ineligible') }), false);
+  assert.equal(P.canMergeSelfAnalysis({ approvable: true }), false, 'sem quality, fecha');
+  assert.equal(P.canMergeSelfAnalysis(null), false);
+  assert.equal(P.canMergeSelfAnalysis(undefined), false);
+});
+
+test('qualityReasonLabel traduz código em frase; o engine nunca escreve copy', () => {
+  assert.equal(P.qualityReasonLabel('COVERAGE_UNKNOWN'), 'Sem cobertura comprovada');
+  assert.equal(P.qualityReasonLabel('CARD_UNKNOWN'), 'Atendimento ao card não comprovado');
+  assert.equal(P.qualityReasonLabel('BLOCKER_PRESENT'), 'A análise apontou bloqueios');
+  // código desconhecido não pode virar buraco na tela nem vazar o código cru
+  assert.equal(P.qualityReasonLabel('COISA_NOVA'), 'Requisito de qualidade não atendido');
+  assert.equal(P.qualityReasonLabel(''), 'Requisito de qualidade não atendido');
+});
+
+test('qualityBlockTitle lidera com a frase principal e lista os detalhes', () => {
+  const titulo = P.qualityBlockTitle({
+    status: 'inconclusive',
+    reasons: [{ code: 'COVERAGE_UNKNOWN' }, { code: 'CARD_UNKNOWN' }]
+  });
+  assert.match(titulo, /não comprova qualidade suficiente/);
+  assert.match(titulo, /Sem cobertura comprovada/);
+  assert.match(titulo, /Atendimento ao card não comprovado/);
+  assert.doesNotMatch(titulo, /COVERAGE_UNKNOWN/, 'código de máquina não vira copy');
+});

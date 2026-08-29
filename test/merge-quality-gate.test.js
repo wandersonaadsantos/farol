@@ -154,6 +154,71 @@ test('approvable não tem autoridade: mesma evidência, mesmo resultado', () => 
   }
 });
 
+/* ---------- estrutura inválida NUNCA vira satisfação ----------
+   Esta bateria é a condição para o parser estrito sair da contenção e virar P1: se a
+   função pura já falha fechada contra dado malformado do modelo, o parser deixa de ser
+   a única defesa. Dado inválido tem que virar "não sei", nunca "está tudo certo". */
+
+test('blockers ausente, null ou não-lista é desconhecido, não é "sem blocker"', () => {
+  for (const valor of [undefined, null, 'nenhum', 0, {}]) {
+    const a = parecer();
+    if (valor === undefined) delete a.blockers; else a.blockers = valor;
+    const r = evaluateQualityEligibility(a, evidencia());
+    assert.notEqual(r.status, 'eligible', `blockers=${JSON.stringify(valor)} não pode liberar`);
+    assert.ok(codes(r).includes('BLOCKERS_UNKNOWN'), `blockers=${JSON.stringify(valor)}`);
+  }
+});
+
+test('lista vazia de blockers é declaração legítima de "não achei nada"', () => {
+  const r = evaluateQualityEligibility(parecer({ blockers: [] }), evidencia());
+  assert.equal(r.status, 'eligible');
+});
+
+test('cardMet como string não é coercido para atendido', () => {
+  const r = evaluateQualityEligibility(parecer({ cardMet: 'true' }), evidencia());
+  assert.equal(r.status, 'inconclusive');
+  assert.ok(codes(r).includes('CARD_UNKNOWN'));
+});
+
+test('cobertura malformada cai em desconhecida, não em completa', () => {
+  const malformadas = [
+    { total: 'src/a.js', reviewed: ['src/a.js'], missing: [] },
+    { total: ['src/a.js'], reviewed: 'src/a.js', missing: [] },
+    { reviewed: [], missing: [] },
+    'completa'
+  ];
+  for (const scope of malformadas) {
+    const r = evaluateQualityEligibility(parecer(), evidencia({ scope }));
+    assert.equal(r.status, 'inconclusive', `scope=${JSON.stringify(scope)}`);
+    assert.ok(codes(r).includes('COVERAGE_UNKNOWN'));
+  }
+});
+
+test('verificação em formato inesperado não satisfaz', () => {
+  for (const verification of ['satisfied', null, {}, { status: 'sim' }]) {
+    const r = evaluateQualityEligibility(parecer(), evidencia({ verification }));
+    assert.equal(r.status, 'inconclusive', `verification=${JSON.stringify(verification)}`);
+    assert.ok(codes(r).includes('VERIFICATION_MISSING'));
+  }
+});
+
+test('contradição verdict x approvable não muda a elegibilidade', () => {
+  // A contradição deixou de ser autoridade contraditória (nenhum dos dois autoriza),
+  // então ela é registro ruim, assunto do parser, e não deste gate.
+  const base = { blockers: [], cardMet: true };
+  const contraditorios = [
+    { verdict: 'needs_work', approvable: true },
+    { verdict: 'approvable', approvable: false },
+    { verdict: 'aprovável', approvable: true }
+  ];
+  const esperado = evaluateQualityEligibility({ ...base }, evidencia());
+  for (const extra of contraditorios) {
+    const r = evaluateQualityEligibility({ ...base, ...extra }, evidencia());
+    assert.equal(r.status, esperado.status, JSON.stringify(extra));
+    assert.deepEqual(codes(r), codes(esperado));
+  }
+});
+
 /* ---------- integração: as portas ---------- */
 
 function prView(over = {}) {
@@ -219,6 +284,28 @@ test('contradição interna (approvable true com blocker) recusa', async () => {
   const r = await novoEngine(analise).mergeSelfPR(URL_PR);
   assert.equal(r.ok, false);
   assert.equal(mergeChamado().length, 0);
+});
+
+/* ---------- a fronteira com a UI ----------
+   `quality` é estado DERIVADO e não pode ser persistido: gravado no disco, um registro
+   marcado eligible sobreviveria à evidência que o justificava. O disco guarda o parecer
+   bruto; quem calcula é a projeção, agora, a cada snapshot. */
+
+test('o snapshot publica quality calculado, e o disco continua só com o parecer', () => {
+  const engine = novoEngine({ key: CHAVE, approvable: true }); // sem observed
+  const publicado = engine.snapshot().selfAnalyses[CHAVE];
+  assert.equal(publicado.quality.status, 'inconclusive');
+  assert.ok(publicado.quality.reasons.some(r => r.code === 'COVERAGE_UNKNOWN'));
+  assert.equal(publicado.approvable, true, 'o parecer segue publicado, como parecer');
+  assert.equal(engine.selfAnalyses[CHAVE].quality, undefined, 'nada de quality no registro persistido');
+});
+
+test('o snapshot recalcula: mesma análise com evidência completa publica eligible', () => {
+  const engine = novoEngine({
+    key: CHAVE, approvable: false, blockers: [], cardMet: true, observed: evidencia()
+  });
+  assert.equal(engine.snapshot().selfAnalyses[CHAVE].quality.status, 'eligible',
+    'approvable false não impede: quem decide é a evidência');
 });
 
 test('autoridade derivada: refreshMergeStates não consulta o gh para análise inelegível', async () => {
