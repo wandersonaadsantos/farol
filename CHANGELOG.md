@@ -9,6 +9,27 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.55.0
+
+O botao Merge de "Meus PRs" volta a funcionar, agora sobre evidencia que o proprio Farol observa.
+
+**Novidades**
+
+- **A autoanalise volta a poder liberar o Merge**, e so quando o Farol tem prova propria: qual commit foi analisado, se a sessao terminou, quais arquivos ela de fato abriu e o que a verificacao empirica devolveu. O parecer da analise continua na tela, e continua sem autorizar nada.
+- **A cobertura passou a ser medida, nao declarada.** O Farol grava o patch de cada arquivo do PR num diretorio proprio e a analise le dali, um arquivo por vez. Arquivo que ela nao abrir conta como nao analisado, e nao existe nada que ela possa escrever pra aumentar esse numero. Ela pode DIMINUIR: quando abre um arquivo e ainda assim nao consegue avalia-lo (binario, patch ausente), ela declara e a cobertura cai.
+- **A autoanalise passou a verificar de verdade.** O mecanismo de checagem empirica que existia so na revisao oficial agora vale pra ela tambem, com registro proprio: verificacao que refuta uma afirmacao derruba a elegibilidade, e verificacao que ficou faltando vale como "nao sei", nunca como aprovacao.
+- **O card do Jira passou a ser lido pelo Farol** tambem na autoanalise, como ja era na revisao. Antes a sessao ia buscar sozinha, o que variava a cada rodada; agora vem pronto, delimitado e marcado como dado a conferir.
+
+**Melhorias**
+
+- **A analise pode investigar com git de novo.** A regra antiga proibia qualquer comando git, o que impedia justamente a verificacao que da valor a ela. O que continua proibido e MUTAR: nada de escrever no seu repositorio ou trocar a sua branch. Experimento que precise disso roda em copia descartavel.
+- **A evidencia esta amarrada ao commit analisado.** Prova produzida para um commit nao vale para outro, e a falta dessa amarra tambem reprova. E uma checagem diferente da que ja existia no instante do merge, e as duas continuam valendo.
+- **O envelope da analise passou a ser conferido na forma.** Veredito fora do vocabulario, lista que veio como texto ou como nulo, e "atende ao card" escrito como texto em vez de sim/nao sao recusados na entrada. Ausencia deixou de virar lista vazia, que e a afirmacao mais forte possivel ("nao achei nada") e era exatamente como dado invalido virava aprovacao.
+
+**Correcoes**
+
+- Campo de confianca da autoanalise, que nao tinha nenhum consumidor, saiu do registro.
+
 ## v2.54.8
 
 O botao Merge de "Meus PRs" deixa de ser autorizado pela opiniao da analise.

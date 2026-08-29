@@ -67,9 +67,11 @@ function roteador({ view = prView(), mergeOk = true, mergeErr = '' } = {}) {
 // existe pra exercitar OUTRO gate (autor, rascunho, conflito, head, repo bloqueado),
 // e sem isso todos parariam no gate 1 e deixariam de provar o que prometem.
 function analiseElegivel(over = {}) {
+  const head = over.headSha === undefined ? 'e'.repeat(40) : over.headSha;
   return {
-    approvable: true, blockers: [], cardMet: true,
+    approvable: true, blockers: [], cardMet: true, headSha: head,
     observed: {
+      headSha: head,
       sessionOutcome: 'complete',
       scope: { total: ['src/a.js'], reviewed: ['src/a.js'], missing: [] },
       verification: { status: 'satisfied' }
@@ -234,13 +236,18 @@ test('mergeSelfPR: recusa quando o head atual difere do headSha da autoanálise'
   assert.equal(mergeChamado().length, 0, 'divergência barra ANTES de qualquer pr merge');
 });
 
-test('mergeSelfPR: análise sem headSha registrado não bloqueia (comportamento atual preservado)', async () => {
+// ANTES do P0b este teste afirmava que analise SEM headSha nao bloqueava o merge (o
+// G3 nao tinha base de comparacao e deixava passar). Com a evidencia observada, sem
+// head nao ha como provar que ela pertence ao snapshot analisado, entao o cenario
+// deixou de existir: quem recusa agora e o gate de qualidade, nao o G3.
+test('mergeSelfPR: análise sem headSha não mergeia, por falta de prova de identidade', async () => {
   runImpl = roteador({ view: prView({ headRefOid: 'b'.repeat(40) }) });
   const engine = novoEngine();
-  engine.selfAnalyses[CHAVE] = analiseElegivel();
+  engine.selfAnalyses[CHAVE] = analiseElegivel({ headSha: '' });
   const r = await engine.mergeSelfPR(URL_PR);
-  assert.equal(r.ok, true);
-  assert.equal(mergeChamado().length, 1);
+  assert.equal(r.ok, false);
+  assert.match(r.error, /EVIDENCE_STALE/);
+  assert.equal(mergeChamado().length, 0);
 });
 
 /* ---------- caminho feliz e a proteção de branch ---------- */
