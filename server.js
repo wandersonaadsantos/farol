@@ -194,14 +194,6 @@ class Engine extends EventEmitter {
     this.queue = [];
     this.myPRs = [];                 // PRs abertos de autoria minha (fonte da autoanalise)
     this.selfAnalyses = readJson(SELF_FILE, {}, warn); // key do PR -> resultado da autoanalise
-    // relançamento da autoanálise (v2.54.4): `pendente` é a INTENÇÃO de refazer
-    // ({ key: { head, at } }, gravada quando um commit invalida a análise) e
-    // `lancada` é a âncora por head ({ key: { head, dia, rodadas } }, mesma forma
-    // do reReviewLaunched). Persistem porque reiniciar o app não pode perder um
-    // trabalho que você pediu e o Farol se comprometeu a terminar.
-    const selfRe = readJson(path.join(STATE_DIR, 'self-reanalise.json'), {}, warn);
-    this.selfReanalisePendente = (selfRe && selfRe.pendente) || {};
-    this.selfReanaliseLancada = (selfRe && selfRe.lancada) || {};
     // key do PR -> { at, updatedAt } dos PRs meus que o usuario mandou sumir da aba.
     // Nao filtra myPRs (quem esconde e a UI); o updatedAt guardado e o que permite o
     // retorno automatico quando o PR recebe atividade nova (reconcileHiddenPRs).
@@ -767,10 +759,6 @@ class Engine extends EventEmitter {
 
       // branch origem->destino de cada PR meu (o card mostra de/para)
       try { await this.enrichMyPRBranches(); } catch (e) { this.log('WARN', `enrichMyPRBranches: ${e.message}`); }
-      // autoanálise que um commit invalidou volta sozinha no head novo. Vem logo
-      // depois do enrich de propósito: é ele que carimba a intenção e que traz o
-      // headSha fresco que o debounce usa, sem gastar chamada nova.
-      try { await this.launchSelfReanalyses(); } catch (e) { this.log('WARN', `re-análise pós-push: ${e.message}`); }
       // mergeabilidade real dos PRs aprovaveis (gate honesto do botao Merge)
       try { await this.refreshMergeStates(); } catch (e) { this.log('WARN', `refreshMergeStates: ${e.message}`); }
       // stale: PRs que EU revisei e receberam commit novo depois (reativa o "Re-revisar")
@@ -907,7 +895,6 @@ class Engine extends EventEmitter {
         this.myPRs = mineAuthored;
         // poda de autoanálise: só de chave cuja conta dona RESPONDEU neste ciclo
         const openKeys = new Set(mineAuthored.map(p => p.key));
-        selfMod.podarReanalise(this, openKeys);
         let pruned = false;
         for (const k of Object.keys(this.selfAnalyses)) {
           if (openKeys.has(k)) continue;
@@ -1304,11 +1291,6 @@ class Engine extends EventEmitter {
   reconcileHiddenPRs(okAccounts) { return selfMod.reconcileHiddenPRs(this, okAccounts); }
   async fetchMergeState(url) { return selfMod.fetchMergeState(this, url); }
   async enrichMyPRBranches() { return selfMod.enrichMyPRBranches(this); }
-  async launchSelfReanalyses(agora) { return selfMod.launchSelfReanalyses(this, agora); }
-  saveSelfReanalise() {
-    try { writeJsonAtomic(path.join(STATE_DIR, 'self-reanalise.json'), { pendente: this.selfReanalisePendente, lancada: this.selfReanaliseLancada }); }
-    catch { /* best-effort: perder isto custa no máximo uma re-análise a menos */ }
-  }
   async fetchAutoMergeAllowed(repo) { return selfMod.fetchAutoMergeAllowed(this, repo); }
   async fetchRuleBlocked(repo, base) { return selfMod.fetchRuleBlocked(this, repo, base); }
   async refreshMergeStates() { return selfMod.refreshMergeStates(this); }

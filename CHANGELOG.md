@@ -9,20 +9,17 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.54.4
+## v2.54.5
 
-A autoanálise dos seus PRs deixou de jogar trabalho fora quando entra commit novo.
+A autoanálise volta a ser exclusivamente por clique, desfazendo a v2.54.4.
 
 **Correções**
-- **Análise invalidada por commit novo volta sozinha.** A autoanálise só existia
-  por clique: quando o código mudava, o resultado era descartado e ficava
-  esperando você pedir de novo. Cada descarte queimava uma sessão inteira sem
-  entregar nada, e no histórico desta máquina foram 10 em 3 dias. Agora uma
-  análise que você pediu e que um commit invalidou é refeita sozinha sobre o
-  código atual, com as mesmas travas do round de revisão: espera o código parar
-  de mudar, refaz no máximo uma vez por versão do PR e respeita o teto diário, a
-  conta silenciada e o orçamento do perfil. Continua sendo só o trabalho que você
-  pediu: o Farol não passou a analisar PR seu por conta própria.
+- **Autoanálise não relança sozinha.** A v2.54.4 fazia a análise invalidada por
+  commit novo ser refeita automaticamente. Isso contraria a regra do produto:
+  analisar o próprio PR é decisão de clique, sempre, e o descarte silencioso do
+  resultado é o comportamento pretendido, não um defeito. O relançamento
+  automático foi removido inteiro, junto com o estado que ele guardava. Quando um
+  commit invalida a análise, o card volta a "não analisado" e espera você.
 
 ## v2.54.3
 
