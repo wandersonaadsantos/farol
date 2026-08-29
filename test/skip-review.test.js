@@ -45,6 +45,29 @@ test('revisandoPorOutros: acrity NUNCA entra na conta', () => {
   assert.deepEqual(revisandoPorOutros(['acrity:revisando', 'ana:revisando'], 'eu'), ['ana']);
 });
 
+/* ehFerramenta: as DUAS grafias da mesma ferramenta têm que se encontrar. O
+   prefixo da label é `acrity`; o login na API de reviews é
+   `acrity-advesarial-code-review[bot]`. Confundir os dois custou a revisão
+   automática de um PR inteiro do time (biudtech/engine-ai#108, 29/08/2026). */
+test('ehFerramenta: reconhece a ferramenta pelas três provas', () => {
+  const { ehFerramenta } = skip;
+  assert.equal(ehFerramenta('acrity'), true, 'o nome cru da lista');
+  assert.equal(ehFerramenta('acrity-advesarial-code-review[bot]'), true, 'o login REAL da API');
+  assert.equal(ehFerramenta('acrity-advesarial-code-review'), true, 'o mesmo login sem o sufixo');
+  assert.equal(ehFerramenta('ACRITY-Advesarial-Code-Review[BOT]'), true, 'caixa não importa');
+  assert.equal(ehFerramenta('coderabbitai[bot]'), true, 'qualquer bot, sem estar em lista');
+  assert.equal(ehFerramenta('alguem', 'Bot'), true, 'o type da API basta sozinho');
+});
+
+test('ehFerramenta: gente continua sendo gente', () => {
+  const { ehFerramenta } = skip;
+  assert.equal(ehFerramenta('Alexpraxedes'), false);
+  assert.equal(ehFerramenta('wandersonbiuder', 'User'), false);
+  assert.equal(ehFerramenta('acrityana'), false, 'prefixo sem hífen não é a ferramenta');
+  assert.equal(ehFerramenta(''), false);
+  assert.equal(ehFerramenta(null), false);
+});
+
 test('revisandoPorOutros: label que não é de revisando é ignorada', () => {
   assert.deepEqual(revisandoPorOutros(['bug', 'acrity:approved', 'review:in-progress'], 'eu'), []);
 });

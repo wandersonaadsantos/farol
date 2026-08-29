@@ -695,8 +695,16 @@ coisa irrelevante ao trabalho revisado). Estado final (v2.54.0):
   `APROVACOES_QUE_SEGURAM` (2) aprovações humanas, o "(máximo 2)" da regra: com
   UMA aprovação a automática ainda vale como a segunda (calibração da v2.54.1).
   Cada pessoa conta pelo ÚLTIMO estado decisivo dela no head (pediu mudanças e
-  depois aprovou = aprovação); DISMISSED/COMMENTED não contam e `acrity` nunca
-  conta. Bloqueado = o PR fica na fila esperando clique, com toast único por
+  depois aprovou = aprovação); DISMISSED/COMMENTED não contam e FERRAMENTA nunca
+  conta. **Quem decide se é ferramenta é `ehFerramenta`, e não a lista crua**
+  (v2.54.2, incidente do biudtech/engine-ai#108): `NAO_SAO_PESSOAS` guarda o
+  prefixo da LABEL (`acrity`), mas a API de reviews devolve
+  `acrity-advesarial-code-review[bot]`, então o `has()` cru dava falso e a
+  reprovação do bot segurou a automática de um PR inteiro em silêncio. As
+  fixtures da suíte usavam o prefixo curto e ficaram verdes o tempo todo:
+  **fixture de login tem que ser o login REAL da API.** As três provas de
+  `ehFerramenta` são `user.type === 'Bot'`, sufixo `[bot]` no login e o nome
+  da lista (exato ou como prefixo antes de um hífen). Bloqueado = o PR fica na fila esperando clique, com toast único por
   PR+head. Head novo zera o histórico e a automação volta. Falta de dado
   NUNCA bloqueia (o pior caso é revisão redundante, nunca post errado). A boca
   única é `bloqueiaAutomatico`, aguardada nos TRÊS caminhos automáticos:

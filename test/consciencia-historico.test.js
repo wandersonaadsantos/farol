@@ -114,6 +114,51 @@ test('NÃO bloqueia quando o decisivo é do acrity (ferramenta)', async (t) => {
   assert.deepEqual(r.quem, []);
 });
 
+/* FALHA REAL DE CAMPO (biudtech/engine-ai#108, 29/08/2026). O login do Acrity na
+   API de reviews é `acrity-advesarial-code-review[bot]`, com `user.type: "Bot"`;
+   `acrity` é o prefixo da LABEL, e era a única grafia que a lista de ferramentas
+   casava. As fixtures acima usavam o prefixo, então a suíte ficava verde
+   enquanto o gate contava o bot como PESSOA: a reprovação dele segurou a revisão
+   automática do time num PR inteiro. Estes testes existem pra que a próxima
+   ferramenta com login de bot não repita o episódio. */
+
+test('login REAL do acrity na API não bloqueia (o bug do engine-ai#108)', async (t) => {
+  const e = engineFalso();
+  t.after(espiaReviews(e, [{ quem: 'acrity-advesarial-code-review[bot]', tipo: 'Bot', state: 'CHANGES_REQUESTED', commit_id: 'sha1' }]));
+  const r = await skip.bloqueadoPorHistorico(e, { ...PR });
+  assert.equal(r.bloqueado, false);
+  assert.deepEqual(r.quem, []);
+});
+
+test('login real do acrity SEM o type (jq antigo, cópia velha) também não bloqueia', async (t) => {
+  const e = engineFalso();
+  t.after(espiaReviews(e, [{ quem: 'acrity-advesarial-code-review[bot]', state: 'APPROVED', commit_id: 'sha1' }, { quem: 'ana', state: 'APPROVED', commit_id: 'sha1' }]));
+  const r = await skip.bloqueadoPorHistorico(e, { ...PR });
+  assert.equal(r.bloqueado, false, 'uma aprovação humana só não fecha o teto de duas');
+});
+
+// a regra vale pra QUALQUER ferramenta, não só a que doeu: review de bot não
+// dispensa olho humano, então nunca entra na conta que segura o automático
+test('review de qualquer bot não conta como pessoa', async (t) => {
+  const e = engineFalso();
+  t.after(espiaReviews(e, [
+    { quem: 'coderabbitai[bot]', tipo: 'Bot', state: 'CHANGES_REQUESTED', commit_id: 'sha1' },
+    { quem: 'vercel[bot]', tipo: 'Bot', state: 'APPROVED', commit_id: 'sha1' },
+  ]));
+  const r = await skip.bloqueadoPorHistorico(e, { ...PR });
+  assert.equal(r.bloqueado, false);
+});
+
+// contrato da consulta: sem o type na projeção do jq, a regra geral de bot fica
+// cega e a defesa volta a depender só da lista de nomes
+test('reviewsDeOutros pede o type do autor ao gh', async (t) => {
+  const e = engineFalso();
+  t.after(espiaReviews(e, []));
+  await skip.bloqueadoPorHistorico(e, { ...PR });
+  const jq = e.rodou.map(a => (a || []).join(' ')).find(t => t.includes('/reviews'));
+  assert.ok(jq && /\.user\.type/.test(jq), `o jq tem que projetar .user.type: ${jq}`);
+});
+
 test('NÃO bloqueia com DISMISSED nem COMMENTED (não são decisivos)', async (t) => {
   const e = engineFalso();
   t.after(espiaReviews(e, [

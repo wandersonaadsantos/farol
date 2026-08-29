@@ -9,6 +9,26 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.54.2
+
+Conserto no gate de consciência: review de ferramenta voltou a não contar como
+pessoa, e as recusas silenciosas passaram a deixar rastro no log.
+
+**Correções**
+- **O Acrity voltou a ser reconhecido como ferramenta.** O gate de consciência
+  identificava ele só pelo nome curto que aparece na label; na lista de reviews
+  o GitHub devolve o login completo do bot, que não casava com nome nenhum.
+  Resultado: a reprovação da ferramenta contava como reprovação de gente e
+  segurava a revisão automática do PR até alguém clicar, sem dizer por quê.
+  Agora a identificação usa três provas independentes (o tipo de conta que a
+  própria API informa, o sufixo de bot no login e o nome cadastrado), e vale
+  para qualquer bot de review, não só o Acrity.
+- **O motivo de não ter revisado passa a ficar no log.** Duas situações
+  terminavam sem rastro algum: o automático segurado pelo histórico do head e a
+  revisão que rodou inteira mas não postou porque o código mudou no meio da
+  sessão. Vistas de fora, as duas são iguais a uma revisão que morreu. As duas
+  agora escrevem no `farol.log` quem segurou, qual head e o que mudou.
+
 ## v2.54.1
 
 Calibração do gate de consciência lançado na v2.54.0.
