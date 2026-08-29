@@ -370,6 +370,26 @@ só que a ferramenta agora é do Farol e já nasce apontada pro Jira certo.
 5. **O segredo NUNCA passa por linha de comando.** O `--mcp-config` carrega só o
    `siteId`; o servidor MCP lê a credencial do disco. Ver `tools/jira-mcp.js` no
    mapa de arquivos.
+5bis. **O `command` é o `process.execPath`, que no app é o binário do ELECTRON, e
+   por isso o config leva `env: { ELECTRON_RUN_AS_NODE: '1' }`** (v2.54.6). Sem a
+   variável o Electron trata o `.js` como aplicativo e estoura o diálogo
+   "Unable to find Electron app at .../jira-mcp.js", mesmo com o arquivo no lugar.
+   Esse diálogo tinha DUAS causas somadas, cada uma suficiente sozinha, e a
+   segunda escondeu a primeira por dias: os instaladores também não copiavam a
+   pasta `tools/` pra `~/.farol/app` (o pacote já a levava desde a v2.53.2, mas
+   `install.sh`, `install.ps1` e `install-linux.sh` só espelhavam
+   lib/ui/assets/workspace-template/installer). Achado no Mac do Guilherme em
+   29/08/2026 e corrigido no PR #36.
+   **VALIDADO ponta a ponta em 29/08/2026 (Windows).** Os testes do repo são
+   estáticos (leem o config escrito e a lista de pastas dos instaladores) e NÃO
+   provam que o servidor sobe; a prova foi feita à mão, uma vez, e fica aqui:
+   `electron.exe tools/jira-mcp.js <site>` com `ELECTRON_RUN_AS_NODE=1` e um
+   `FAROL_HOME` de sandbox respondeu `initialize` (protocolo 2024-11-05,
+   `farol-jira` 1.0.0) e `tools/list` (`getJiraIssue`,
+   `searchJiraIssuesUsingJql`). Sem a variável, o mesmo comando morre antes de
+   falar JSON-RPC. **Falta a mesma prova num Mac real**, que é onde o defeito
+   apareceu; o mecanismo é o mesmo binário do Electron nos dois sistemas, mas
+   isso é dedução, não medição.
 6. **`--strict-mcp-config` só entra quando existe pelo menos um site.** Enquanto
    ninguém cadastrar nada, o comportamento é idêntico ao de antes. A partir do
    primeiro site o Farol assume TODOS os MCPs da sessão, **inclusive quando a org
