@@ -82,3 +82,16 @@ test('a autoanálise participa do protocolo de verificação (era exclusivo da r
   assert.match(SELF, /claim-verifier/);
   assert.match(SELF, /Nunca escreva o arquivo de checkpoint/i, 'quem grava continua sendo o app');
 });
+
+test('o subagente sabe ler do escopo quando ele existe, e só cai no patch quando não existe', () => {
+  const AGENTE = fs.readFileSync(path.join(RAIZ, 'workspace-template', '.claude', 'agents', 'pr-reviewer.md'), 'utf8');
+  assert.match(AGENTE, /RAIZ DE ESCOPO/, 'o subagente precisa saber que a raiz pode existir');
+  assert.match(AGENTE, /um arquivo por vez/i);
+  assert.match(AGENTE, /Sem raiz de escopo/i, 'a revisão comum não pode ser afetada');
+  assert.match(AGENTE, /n[ãa]o prova nada sobre arquivo nenhum/i);
+});
+
+test('a autoanálise repassa a raiz do escopo pro subagente (senão ninguém abre os arquivos)', () => {
+  assert.match(SELF, /RAIZ DO ESCOPO/);
+  assert.match(SELF, /A leitura do subagente conta pra cobertura/i);
+});

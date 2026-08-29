@@ -59,7 +59,12 @@ qualquer git e com isso impedia justamente a verificação que dá valor a esta 
    como não analisado, mesmo que você tenha visto o conteúdo por outro caminho.
 
 4. **Rode o agente `pr-reviewer`** (subagent_type `pr-reviewer`) no modo headless `--json`,
-   passando o PR, os critérios/escopo do card e a nota de que é uma autoanálise do próprio autor.
+   passando o PR, os critérios/escopo do card, a nota de que é uma autoanálise do próprio autor
+   e — obrigatoriamente — **a RAIZ DO ESCOPO e a lista de arquivos** da seção "Escopo do PR".
+   Diga a ele, com essas palavras, que leia cada arquivo **de dentro daquela raiz**, com `Read`,
+   um por vez, e que não substitua isso por `gh pr diff`. Em PR grande, cada subagente recebe a
+   raiz e só os caminhos do lote dele. A leitura do subagente conta pra cobertura igual à sua;
+   o que não conta é ninguém abrir o arquivo.
    Ele devolve o veredito estruturado (findings com severidade, cardMet, ciPassing). Use como base
    factual. Ele não posta nada, é o comportamento esperado. Em PR grande, dispare **um por lote**
    e consolide você mesmo, aplicando o gate de blocker uma vez só sobre o conjunto.

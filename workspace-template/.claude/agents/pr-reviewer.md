@@ -63,7 +63,10 @@ Quatro erros de análise já aconteceram com achados REAIS: o problema existia, 
    - `gh pr view <NN> --repo <org/repo> --json number,title,author,state,baseRefName,headRefName,headRefOid,additions,deletions,changedFiles,body,url,isDraft,mergeable,labels,reviewDecision,statusCheckRollup`
    - `gh pr diff <NN> --repo <org/repo> --patch > pr<NN>.patch` (remova com `rm -f pr<NN>.patch` ao final).
    Anote `headRefOid` (links) e `statusCheckRollup` (CI).
-4. **Leia o diff inteiro** (`Read` no patch; truncado → `gh api ".../contents/<path>?ref=<headRefOid>" --jq '.content' | base64 -d`). Não invente truncado.
+4. **Leia o diff inteiro.**
+   - **Se o prompt te deu uma RAIZ DE ESCOPO** (um diretório onde o Farol já gravou o patch de cada arquivo, preservando o caminho do repositório): leia **de lá**, com `Read`, **um arquivo por vez**. É essa leitura que o app usa pra comprovar cobertura, então arquivo que você não abrir dali conta como não analisado, mesmo que você tenha visto o conteúdo por outro caminho. Não substitua por `gh pr diff`: o patch único cobre tudo e não prova nada sobre arquivo nenhum.
+   - **Sem raiz de escopo** (o caso da revisão comum): `Read` no patch que você gerou no passo 3; truncado → `gh api ".../contents/<path>?ref=<headRefOid>" --jq '.content' | base64 -d`. Não invente truncado.
+   - Abriu um arquivo e ainda assim não conseguiu avaliá-lo (binário, patch ausente, grande demais)? Diga isso no relatório com o caminho: quem chamou você precisa repassar essa limitação, e ela só SUBTRAI cobertura, nunca soma.
 5. **Arquivos**: esperados / inesperados / sensíveis (`.env`, lockfile, migrations, config) / fora de escopo.
    - **Propagação de gitflow**: mesma branch head (`hotfix/*`) com base `release`/`develop` e PR primário já aprovado → o drift entre branches NÃO é escopo-extra do autor; avalie só o conteúdo novo e cite o PR primário.
 6. **Imports novos**: liste todo import ADICIONADO no diff e compare com o padrão do projeto (ex.: projeto usa `dayjs` → `moment` novo é 🟡 no mínimo; mesmo raciocínio pra HTTP client, estilo, datas, logger). Uso novo de lib legada/depreciada nunca passa em silêncio. Em frontend biudtech: elemento interativo novo sem `data-testid` = 🟡 padrão.
