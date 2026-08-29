@@ -23,7 +23,7 @@ O botao Merge de "Meus PRs" deixa de ser autorizado pela opiniao da analise.
 
 **Atencao**
 
-- **Nesta versao o botao Merge fica indisponivel em todos os PRs, de proposito.** A analise ainda nao produz a evidencia que o gate novo exige, entao nenhuma analise, nem as antigas nem as novas, libera merge; o botao explica isso na propria tela. A elegibilidade volta quando a analise passar a declarar cobertura e desfecho, na proxima versao. Enquanto isso, o merge pelo proprio GitHub segue normal.
+- **Nesta versao o botao Merge fica indisponivel em todos os PRs, de proposito.** A analise ainda nao produz a evidencia que o gate novo exige, entao nenhuma analise, nem as antigas nem as novas, libera merge; o botao explica isso na propria tela. A elegibilidade volta quando o FAROL passar a observar por conta propria cobertura, desfecho da sessao e verificacao. Nao e a analise que vai passar a declarar isso: quem se autodeclara completo devolve ao modelo exatamente a autoridade que esta versao tirou dele. O modelo segue podendo REDUZIR a cobertura observada ("nao consegui ler X"), nunca amplia-la. Enquanto isso, o merge pelo proprio GitHub segue normal.
 
 ## v2.54.7
 
