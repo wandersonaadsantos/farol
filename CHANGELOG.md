@@ -9,6 +9,25 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.54.7
+
+Sem mudança de comportamento: esta versão só carrega documentação e uma trava de
+desenvolvimento. Se você usa o Farol, nada muda para você.
+
+**Melhorias**
+- **O servidor do Jira ganhou teste de verdade.** Até agora ele era o único
+  componente que roda como programa separado sem nenhum teste que o executasse:
+  os testes liam arquivos de configuração e concluíam que estava certo. Foi por
+  isso que o defeito da v2.54.6 passou pelo gate. Agora existe um teste que
+  conversa com o programa de verdade e confere que ele responde, e que sem a
+  configuração certa ele não responde.
+- **Nada sobe mais sem o gate local passar.** `npm run hooks:install` liga uma
+  verificação que roda sintaxe, qualidade e a suíte antes de qualquer envio, e
+  recusa envio direto para a linha principal: tudo passa a entrar por pull
+  request, que é o que faz a checagem nos três sistemas acontecer ANTES e não
+  depois. O guia do mantenedor foi atualizado junto, incluindo o que essa
+  verificação local não cobre e por quê.
+
 ## v2.54.6
 
 Revisão com Jira cadastrado volta a funcionar na cópia instalada, no Mac e no
