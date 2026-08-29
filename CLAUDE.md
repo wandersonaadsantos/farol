@@ -726,7 +726,16 @@ coisa irrelevante ao trabalho revisado). Estado final (v2.54.0):
   custo de gh fica em `bloqueioConsultado`: memória em processo, janela de
   `HEAD_QUIETO_MS`, que adia a reconsulta e nunca mata o round.
   **Regra geral: âncora que impede repetição só se grava depois de o trabalho
-  acontecer; antes disso ela não é dedup, é cancelamento silencioso.** Head novo zera o histórico e a automação volta. Falta de dado
+  acontecer; antes disso ela não é dedup, é cancelamento silencioso.**
+  Essa regra virou contrato do repo na v2.54.4, quando a AUTOANÁLISE ganhou o
+  mesmo relançamento (`launchSelfReanalyses` em `lib/engine/selfpr.js`): ela era
+  100% manual, descartava o resultado a cada commit novo com a justificativa
+  "relançar é decisão do usuário", e isso queimou 10 sessões em 3 dias sem
+  entregar nada. O relançamento reusa as travas do round de review (debounce,
+  âncora por head, teto diário, token/silêncio/orçamento) e o `headSha` que o
+  `enrichMyPRBranches` já buscou fresco, então o debounce não custa chamada gh.
+  **Fronteira declarada: só refaz análise que VOCÊ pediu.** Analisar PR seu por
+  conta própria seria capacidade nova, e não é o que está no ar. Head novo zera o histórico e a automação volta. Falta de dado
   NUNCA bloqueia (o pior caso é revisão redundante, nunca post errado). A boca
   única é `bloqueiaAutomatico`, aguardada nos TRÊS caminhos automáticos:
   `launchReview` (toReview do check), `launchReReviews` (antes até do

@@ -51,6 +51,10 @@ const EXCECOES = {
   // pra repassar o agora explícito. Não é argumento engolido.
   reReviewTargets: 'terceiro parâmetro (agora) tem default, que trunca a contagem do Function.length no parâmetro com default',
   reReviewEsgotados: 'terceiro parâmetro (agora) tem default, que trunca a contagem do Function.length no parâmetro com default',
+  // Mesmo motivo do refreshStaleStates: o 2o parâmetro da implementação é
+  // `agora = Date.now()`, então impl.length é 1 (só engine) e a conta daria 0.
+  // A fachada declara 1 (agora) de propósito, pra o ciclo poder passar o relógio.
+  launchSelfReanalyses: 'segundo parâmetro (agora) tem default, que zera o Function.length',
 };
 
 function mapaDeModulos() {
