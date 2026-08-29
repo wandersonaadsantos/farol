@@ -20,9 +20,14 @@ test('a revisão sabe que o card já vem lido pelo Farol', () => {
   assert.ok(/lido pelo Farol/i.test(PROTOCOLO));
 });
 
-test('a autoanálise NÃO afirma que o card vem lido, porque ela não recebe o bloco', () => {
-  assert.ok(!/lido pelo Farol/i.test(SELF), 'a autoanálise recebe só a ferramenta escopada, não o card pré-lido');
-  assert.ok(/getJiraIssue/.test(SELF));
+// ANTES do P0b a autoanálise NÃO recebia o bloco do card: ela mandava o modelo caçar a
+// chave e chamar getJiraIssue sozinho. Isso foi invertido de propósito, porque o card é
+// entrada de uma decisão e precisa vir do app: determinismo, cache, escopo de tenant e o
+// guard de "isto é dado, não instrução" que só o cardBlock aplica.
+test('a autoanálise recebe o card PRÉ-LIDO pelo app e não sai buscando sozinha', () => {
+  assert.ok(/j[áa] vem lido pelo Farol/i.test(SELF), 'o card entra pelo Farol');
+  assert.ok(/N[ãa]o busque de novo/i.test(SELF));
+  assert.ok(!/extraia a chave do card/i.test(SELF), 'não sobrou instrução de caçar a chave');
 });
 
 test('a regra de card não verificável continua nos dois', () => {
@@ -46,4 +51,34 @@ test('o protocolo exige o cloudId quando a ferramenta não vem escopada', () => 
 test('card lido fora do caminho escopado só vale se for da organização do PR', () => {
   assert.match(PROTOCOLO, /[Cc]onfirme[^\n]*organiza[çc][ãa]o dona deste PR/,
     'a mesma chave existe em mais de um tenant: sem confirmar a origem, o card é não-verificável');
+});
+
+/* ---------- P0b: o que o prompt da autoanálise passou a mandar ---------- */
+
+test('a regra de git virou "não mutar", não "não executar"', () => {
+  assert.match(SELF, /n[ãa]o mutar/i, 'o alvo é a mutação');
+  assert.match(SELF, /Inspe[çc][ãa]o com git é permitida/i);
+  assert.match(SELF, /tempor[áa]rio descart[áa]vel|clone ou diret[óo]rio tempor[áa]rio/i);
+});
+
+test('o prompt manda ler o escopo materializado, e não substituir por gh pr diff', () => {
+  assert.match(SELF, /ferramenta `Read`, um por vez/i);
+  assert.match(SELF, /comprova cobertura/i);
+});
+
+test('o prompt diz que coverageLimitations só SUBTRAI, e não existe campo que some', () => {
+  assert.match(SELF, /coverageLimitations/);
+  assert.match(SELF, /s[óo] SUBTRAI|só SUBTRAI cobertura/i);
+  assert.match(SELF, /Nada que voc[êe] escreva no JSON aumenta isso/i);
+});
+
+test('o prompt fixa o enum de verdict e proíbe a coerção que o parser recusa', () => {
+  assert.match(SELF, /"approvable"\s*\|\s*"needs_work"|exatamente `"approvable"` ou `"needs_work"`/);
+  assert.match(SELF, /aus[êe]ncia n[ãa]o [ée] o mesmo que\s*\n?\s*vazio|ausência não é o mesmo que/i);
+});
+
+test('a autoanálise participa do protocolo de verificação (era exclusivo da revisão)', () => {
+  assert.match(SELF, /FAROL_CHECKPOINT/);
+  assert.match(SELF, /claim-verifier/);
+  assert.match(SELF, /Nunca escreva o arquivo de checkpoint/i, 'quem grava continua sendo o app');
 });

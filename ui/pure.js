@@ -2623,7 +2623,9 @@ const QUALITY_REASON_LABELS = {
   CARD_UNSATISFIED: 'O card não foi atendido',
   CARD_UNKNOWN: 'Atendimento ao card não comprovado',
   VERIFICATION_FAILED: 'Uma verificação falhou',
-  VERIFICATION_MISSING: 'Verificação necessária não foi feita'
+  VERIFICATION_MISSING: 'Verificação necessária não foi feita',
+  EVIDENCE_STALE: 'A evidência não é do código analisado',
+  COVERAGE_LIMITS_MALFORMED: 'A análise devolveu limitações de cobertura inválidas'
 };
 
 export function qualityReasonLabel(code) {

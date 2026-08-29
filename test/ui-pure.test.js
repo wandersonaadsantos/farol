@@ -2780,3 +2780,12 @@ test('qualityBlockTitle lidera com a frase principal e lista os detalhes', () =>
   assert.match(titulo, /Atendimento ao card não comprovado/);
   assert.doesNotMatch(titulo, /COVERAGE_UNKNOWN/, 'código de máquina não vira copy');
 });
+
+test('os códigos do P0b também têm frase; nenhum vaza cru na tela', () => {
+  const codigos = ['EVIDENCE_STALE', 'COVERAGE_LIMITS_MALFORMED', 'BLOCKERS_UNKNOWN'];
+  for (const code of codigos) {
+    const frase = P.qualityReasonLabel(code);
+    assert.notEqual(frase, 'Requisito de qualidade não atendido', `${code} precisa de frase própria`);
+    assert.doesNotMatch(frase, /[A-Z]{4,}_/, 'a frase não pode carregar o código');
+  }
+});

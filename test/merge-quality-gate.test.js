@@ -43,15 +43,17 @@ after(() => {
 
 const URL_PR = 'https://github.com/acme/app/pull/42';
 const CHAVE = 'acme/app#42';
+const SHA = 'f'.repeat(40);
 
 // parecer do MODELO: o que ele tem direito de afirmar
 function parecer(over = {}) {
-  return { approvable: true, blockers: [], cardMet: true, ...over };
+  return { approvable: true, blockers: [], cardMet: true, headSha: SHA, ...over };
 }
 
 // evidência do ENGINE: o que o app sabe objetivamente
 function evidencia(over = {}) {
   return {
+    headSha: SHA,
     sessionOutcome: 'complete',
     scope: { total: ['src/a.js', 'src/b.js'], reviewed: ['src/a.js', 'src/b.js'], missing: [] },
     verification: { status: 'satisfied' },
@@ -302,7 +304,7 @@ test('o snapshot publica quality calculado, e o disco continua só com o parecer
 
 test('o snapshot recalcula: mesma análise com evidência completa publica eligible', () => {
   const engine = novoEngine({
-    key: CHAVE, approvable: false, blockers: [], cardMet: true, observed: evidencia()
+    key: CHAVE, approvable: false, blockers: [], cardMet: true, headSha: SHA, observed: evidencia()
   });
   assert.equal(engine.snapshot().selfAnalyses[CHAVE].quality.status, 'eligible',
     'approvable false não impede: quem decide é a evidência');
@@ -316,4 +318,213 @@ test('autoridade derivada: refreshMergeStates não consulta o gh para análise i
   engine.fetchAutoMergeAllowed = async () => false;
   await engine.refreshMergeStates();
   assert.equal(consultou, 0, 'PR inelegível não pode nem entrar na lista de alvos');
+});
+
+/* ================= P0b: o contrato de `observed` ================= */
+
+/* ---------- freshness: a evidência pertence ao snapshot analisado ---------- */
+
+test('observed de outro head não produz eligible', () => {
+  const a = parecer({ headSha: 'b'.repeat(40) });
+  const o = evidencia({ headSha: 'a'.repeat(40) });
+  const r = evaluateQualityEligibility(a, o);
+  assert.equal(r.status, 'inconclusive');
+  assert.ok(codes(r).includes('EVIDENCE_STALE'));
+});
+
+test('evidência sem headSha não prova pertencer ao snapshot', () => {
+  const a = parecer({ headSha: 'a'.repeat(40) });
+  const r = evaluateQualityEligibility(a, evidencia({ headSha: '' }));
+  assert.equal(r.status, 'inconclusive');
+  assert.ok(codes(r).includes('EVIDENCE_STALE'));
+});
+
+test('mesmo head nos dois lados libera a dimensão', () => {
+  const sha = 'a'.repeat(40);
+  const r = evaluateQualityEligibility(parecer({ headSha: sha }), evidencia({ headSha: sha }));
+  assert.equal(r.status, 'eligible');
+});
+
+/* ---------- desfecho da sessão é do engine ---------- */
+
+test('cancelamento e erro nunca satisfazem o desfecho', () => {
+  for (const outcome of ['cancelled', 'failed', 'unknown', '', null, undefined, 'complete ']) {
+    const r = evaluateQualityEligibility(parecer(), evidencia({ sessionOutcome: outcome }));
+    assert.notEqual(r.status, 'eligible', `outcome=${JSON.stringify(outcome)}`);
+    assert.ok(codes(r).includes('ANALYSIS_INCOMPLETE'));
+  }
+});
+
+/* ---------- o modelo só REDUZ cobertura, nunca amplia ---------- */
+
+test('limitação declarada pelo modelo reduz a cobertura observada', () => {
+  const a = parecer({ coverageLimitations: ['src/b.js'] });
+  const o = evidencia({ scope: { total: ['src/a.js', 'src/b.js'], reviewed: ['src/a.js', 'src/b.js'], missing: [] } });
+  const r = evaluateQualityEligibility(a, o);
+  assert.equal(r.status, 'inconclusive');
+  const motivo = r.reasons.find(x => x.code === 'COVERAGE_INCOMPLETE');
+  assert.deepEqual(motivo.detail.missing, ['src/b.js']);
+});
+
+test('o modelo não amplia cobertura: arquivo que o engine não observou não conta', () => {
+  // o parecer alega ter avaliado os dois; o engine só observou um
+  const a = parecer({ coverageClaimed: ['src/a.js', 'src/b.js'], coverageLimitations: [] });
+  const o = evidencia({ scope: { total: ['src/a.js', 'src/b.js'], reviewed: ['src/a.js'], missing: ['src/b.js'] } });
+  const r = evaluateQualityEligibility(a, o);
+  assert.equal(r.status, 'inconclusive');
+  assert.ok(codes(r).includes('COVERAGE_INCOMPLETE'));
+});
+
+test('limitação em formato inválido não é ignorada em silêncio', () => {
+  for (const lim of ['src/b.js', 42, {}]) {
+    const r = evaluateQualityEligibility(parecer({ coverageLimitations: lim }), evidencia());
+    assert.equal(r.status, 'inconclusive', JSON.stringify(lim));
+    assert.ok(codes(r).includes('COVERAGE_LIMITS_MALFORMED'));
+  }
+});
+
+test('limitação ausente ou lista vazia é o caso normal e não penaliza', () => {
+  assert.equal(evaluateQualityEligibility(parecer(), evidencia()).status, 'eligible');
+  assert.equal(evaluateQualityEligibility(parecer({ coverageLimitations: [] }), evidencia()).status, 'eligible');
+});
+
+/* ================= parser estrito (dependência do primeiro eligible) ================= */
+
+const { parseSelfResult } = await import('../lib/engine/selfpr.js');
+const envelopeOk = {
+  verdict: 'approvable', approvable: true, cardMet: true,
+  blockers: [], tips: [], coverageLimitations: [], reportMarkdown: '# ok', summary: 's'
+};
+const parse = (over) => parseSelfResult({ parseEnvelope: (t) => t }, JSON.stringify({ ...envelopeOk, ...over }));
+
+test('envelope válido passa e mantém os campos estruturados', () => {
+  const d = parse({});
+  assert.equal(d.verdict, 'approvable');
+  assert.deepEqual(d.blockers, []);
+  assert.deepEqual(d.coverageLimitations, []);
+});
+
+test('verdict fora do enum é recusado, inclusive o legado em português', () => {
+  for (const verdict of ['aprovável', 'approve', '', null, 42, 'APPROVABLE']) {
+    assert.throws(() => parse({ verdict }), /contrato/i, `verdict=${JSON.stringify(verdict)}`);
+  }
+});
+
+test('blockers precisa ser lista de verdade; conveniência não vira lista vazia', () => {
+  for (const blockers of ['nenhum', null, 0, {}, [1, 2]]) {
+    assert.throws(() => parse({ blockers }), /contrato/i, `blockers=${JSON.stringify(blockers)}`);
+  }
+  assert.doesNotThrow(() => parse({ blockers: ['x'], verdict: 'needs_work', approvable: false }));
+});
+
+test('cardMet só aceita booleano ou null explícito, nunca coerção', () => {
+  for (const cardMet of ['true', 1, 0, 'sim', {}]) {
+    assert.throws(() => parse({ cardMet }), /contrato/i, `cardMet=${JSON.stringify(cardMet)}`);
+  }
+  for (const cardMet of [true, false, null]) assert.doesNotThrow(() => parse({ cardMet }));
+});
+
+test('ausência de campo obrigatório não vira vazio', () => {
+  for (const campo of ['verdict', 'blockers', 'reportMarkdown']) {
+    const env = { ...envelopeOk };
+    delete env[campo];
+    assert.throws(() => parseSelfResult({ parseEnvelope: (t) => t }, JSON.stringify(env)), /contrato/i, campo);
+  }
+});
+
+test('coverageLimitations tem que ser lista de caminhos quando vier', () => {
+  for (const lim of ['src/a.js', 42, [1], {}]) {
+    assert.throws(() => parse({ coverageLimitations: lim }), /contrato/i, JSON.stringify(lim));
+  }
+  assert.doesNotThrow(() => parse({ coverageLimitations: ['src/a.js'] }));
+  const semCampo = { ...envelopeOk };
+  delete semCampo.coverageLimitations;
+  assert.doesNotThrow(() => parseSelfResult({ parseEnvelope: (t) => t }, JSON.stringify(semCampo)));
+});
+
+test('o parser não deixa a contradição virar dado válido', () => {
+  assert.throws(() => parse({ verdict: 'approvable', approvable: false }), /contrato/i);
+  assert.throws(() => parse({ verdict: 'needs_work', approvable: true }), /contrato/i);
+  assert.throws(() => parse({ verdict: 'approvable', blockers: ['x'] }), /contrato/i);
+});
+
+/* ================= P0b: a restauração, e o que continua recusando ================= */
+
+function analiseCompleta(over = {}) {
+  const head = over.headSha === undefined ? 'e'.repeat(40) : over.headSha;
+  return {
+    key: CHAVE, approvable: true, verdict: 'approvable', blockers: [], cardMet: true,
+    coverageLimitations: [], headSha: head,
+    observed: {
+      headSha: head, sessionOutcome: 'complete',
+      scope: { total: ['src/a.js', 'src/b.js'], reviewed: ['src/a.js', 'src/b.js'], missing: [] },
+      verification: { status: 'satisfied', confirmed: 2, refuted: 0 }
+    },
+    ...over
+  };
+}
+
+test('RESTAURAÇÃO: evidência observada, completa e fresca volta a liberar o merge', async () => {
+  runImpl = roteador();
+  const engine = novoEngine(analiseCompleta());
+  assert.equal(engine.snapshot().selfAnalyses[CHAVE].quality.status, 'eligible');
+  const r = await engine.mergeSelfPR(URL_PR);
+  assert.equal(r.ok, true, r.error);
+  assert.equal(mergeChamado().length, 1, 'o merge acontece de verdade');
+});
+
+test('a mesma análise com cobertura incompleta continua recusando', async () => {
+  runImpl = roteador();
+  const analise = analiseCompleta();
+  analise.observed.scope = { total: ['src/a.js', 'src/b.js'], reviewed: ['src/a.js'], missing: ['src/b.js'] };
+  const r = await novoEngine(analise).mergeSelfPR(URL_PR);
+  assert.equal(r.ok, false);
+  assert.match(r.error, /COVERAGE_INCOMPLETE/);
+  assert.equal(mergeChamado().length, 0);
+});
+
+test('a mesma análise com verificação refutada continua recusando', async () => {
+  runImpl = roteador();
+  const analise = analiseCompleta();
+  analise.observed.verification = { status: 'failed', confirmed: 1, refuted: 1 };
+  const r = await novoEngine(analise).mergeSelfPR(URL_PR);
+  assert.equal(r.ok, false);
+  assert.match(r.error, /VERIFICATION_FAILED/);
+  assert.equal(mergeChamado().length, 0);
+});
+
+test('a mesma análise com evidência de outro head continua recusando', async () => {
+  runImpl = roteador();
+  const analise = analiseCompleta();
+  analise.observed.headSha = 'd'.repeat(40); // evidência de um snapshot que não é o analisado
+  const r = await novoEngine(analise).mergeSelfPR(URL_PR);
+  assert.equal(r.ok, false);
+  assert.match(r.error, /EVIDENCE_STALE/);
+  assert.equal(mergeChamado().length, 0);
+});
+
+test('a mesma análise com sessão cancelada continua recusando', async () => {
+  runImpl = roteador();
+  const analise = analiseCompleta();
+  analise.observed.sessionOutcome = 'cancelled';
+  const r = await novoEngine(analise).mergeSelfPR(URL_PR);
+  assert.equal(r.ok, false);
+  assert.match(r.error, /ANALYSIS_INCOMPLETE/);
+  assert.equal(mergeChamado().length, 0);
+});
+
+test('--admin continua sem reduzir o gate de qualidade depois da restauração', async () => {
+  runImpl = roteador();
+  const analise = analiseCompleta();
+  analise.observed.scope = { total: ['src/a.js', 'src/b.js'], reviewed: ['src/a.js'], missing: ['src/b.js'] };
+  const r = await novoEngine(analise).mergeSelfPR(URL_PR, { mode: 'admin' });
+  assert.equal(r.ok, false);
+  assert.equal(mergeChamado().length, 0, 'admin nunca fura qualidade, só proteção de branch');
+});
+
+test('limitação declarada pelo modelo derruba um merge que sem ela passaria', async () => {
+  runImpl = roteador();
+  const r = await novoEngine(analiseCompleta({ coverageLimitations: ['src/b.js'] })).mergeSelfPR(URL_PR);
+  assert.equal(r.ok, false, 'o modelo consegue SUBTRAIR cobertura');
+  assert.match(r.error, /COVERAGE_INCOMPLETE/);
 });

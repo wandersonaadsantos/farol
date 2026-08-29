@@ -41,9 +41,11 @@ const MEU_PR = { key: CHAVE, repo: 'acme/app', number: 42, url: URL_PR, title: '
 // lista, e os testes de mecanica abaixo (ruleset, reconciliacao, limpeza) parariam de
 // exercitar o que prometem. A evidencia completa aqui e o que os mantem honestos.
 function analiseElegivel(over = {}) {
+  const head = over.headSha === undefined ? 'e'.repeat(40) : over.headSha;
   return {
-    approvable: true, blockers: [], cardMet: true,
+    approvable: true, blockers: [], cardMet: true, headSha: head,
     observed: {
+      headSha: head,
       sessionOutcome: 'complete',
       scope: { total: ['src/a.js'], reviewed: ['src/a.js'], missing: [] },
       verification: { status: 'satisfied' }
@@ -67,8 +69,9 @@ function novoEngine() {
 
 function envelope(extra) {
   return JSON.stringify({
-    approvable: true, verdict: 'aprovável', confidence: 'alta', summary: 'ok',
-    blockers: [], tips: [], reportMarkdown: '# ok', ...extra
+    // contrato estrito do P0b: enum real de verdict, listas de verdade, sem coerção
+    approvable: true, verdict: 'approvable', summary: 'ok',
+    blockers: [], tips: [], coverageLimitations: [], reportMarkdown: '# ok', ...extra
   });
 }
 

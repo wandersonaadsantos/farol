@@ -42,7 +42,9 @@ function filhoStream() {
 
 function engineFalso(id, prKey, extraReviewFields) {
   const activeReviews = new Map();
-  activeReviews.set(id, { id, mode: 'auto', pr: { key: prKey }, ...(extraReviewFields || {}) });
+  // `checkpoint` e a propriedade EXPLICITA que habilita a captura (era `mode === 'auto'`
+  // implicito ate o P0b). Ela nomeia a LOJA que a sessao alimenta.
+  activeReviews.set(id, { id, mode: 'auto', checkpoint: 'review', pr: { key: prKey }, ...(extraReviewFields || {}) });
   return {
     config: {},
     ghEnv: () => ({ PATH: process.env.PATH }),
@@ -194,15 +196,34 @@ test('marcador com payload em formato de array é ignorado, não grava entrada v
   assert.equal(cp.entries.length, 0, 'array não é um objeto de claim válido, não deveria virar entrada nenhuma');
 });
 
-test('sessão de autoanálise (mode self) nunca escreve no checkpoint, mesmo com marcador válido', async () => {
+// ANTES do P0b a autoanalise era barrada por `mode !== 'auto'` e NUNCA produzia
+// verificacao capturavel, que era exatamente o furo: o caminho menos verificavel era o
+// que autorizava merge. Ela passa a capturar, mas numa LOJA PROPRIA: a revisao oficial
+// e a autoanalise falam do mesmo PR, e misturar faria a analise que EU fiz do MEU PR
+// alimentar o gate de uma revisao feita por outra conta.
+test('autoanálise captura checkpoint na loja própria, sem tocar a da revisão', async () => {
   const id = 'a7';
   const prKey = 'org/repo#102';
-  const engine = engineFalso(id, prKey, { mode: 'self' });
+  const engine = engineFalso(id, prKey, { mode: 'self', checkpoint: 'self' });
 
   await rodarSessaoComMarcador(engine, id, {
     claim: 'x', file: 'f.ts', line: 1, verdict: 'confirmado', evidence: 'e',
   });
 
-  const cp = readCheckpoint(checkpointPath(prKey));
-  assert.equal(cp.entries.length, 0, 'autoanalise nunca escreve em state/ (invariante 4 do CLAUDE.md), mesmo com marcador bem formado');
+  assert.equal(readCheckpoint(checkpointPath(prKey, 'self')).entries.length, 1, 'a autoanálise agora verifica');
+  assert.equal(readCheckpoint(checkpointPath(prKey)).entries.length, 0, 'e não contamina a loja da revisão');
+});
+
+test('sessão sem a propriedade checkpoint continua ignorada (terminal, chat, ferramenta)', async () => {
+  const id = 'a8';
+  const prKey = 'org/repo#103';
+  const engine = engineFalso(id, prKey, { mode: 'terminal', checkpoint: undefined });
+  engine.activeReviews.set(id, { id, mode: 'terminal', pr: { key: prKey } });
+
+  await rodarSessaoComMarcador(engine, id, {
+    claim: 'x', file: 'f.ts', line: 1, verdict: 'confirmado', evidence: 'e',
+  });
+
+  assert.equal(readCheckpoint(checkpointPath(prKey)).entries.length, 0);
+  assert.equal(readCheckpoint(checkpointPath(prKey, 'self')).entries.length, 0);
 });

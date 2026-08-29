@@ -38,6 +38,7 @@ import decisionMod from './lib/engine/decision.js';
 import ghMod from './lib/engine/gh-queries.js';
 import sessionMod from './lib/engine/session.js';
 import selfMod from './lib/engine/selfpr.js';
+import scopeMod from './lib/engine/pr-scope.js';
 import reviewMod from './lib/engine/review.js';
 
 // Resolve o shape de auth a partir de um perfil já escolhido (sem cascata de conta).
@@ -285,6 +286,7 @@ class Engine extends EventEmitter {
     // prova por arquivo de PR morto há semanas não serve pra nada (G20, best-effort):
     // podar só custa uma revisão cheia na próxima vez, nunca postagem errada
     try { fileProofMod.pruneFileProofs(); } catch { /* best-effort */ }
+    try { scopeMod.pruneScopes(); } catch { /* best-effort */ } // escopo materializado do PR
   }
 
   // revisões que estavam rodando quando o app morreu: devolve à fila (o PR já

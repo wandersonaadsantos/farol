@@ -1174,6 +1174,90 @@ vira ação**, e poda errada não pode custar sessão paga.
   mais de 24h, best-effort com try/catch por entrada (lixo que não sai hoje sai
   amanhã; falhar o update por causa de um diretório travado seria pior).
 
+## Autoanálise: parecer do modelo x decisão do app (P0a v2.54.8, P0b v2.55.0)
+
+**O defeito de origem, e ele era de AUTORIDADE, não de qualidade da análise.** Até a
+v2.54.7 o único gate de qualidade de todo o caminho do `mergeSelfPR` era
+`analysis.approvable !== true`, um booleano produzido pela sessão de IA, e o MESMO gate
+servia o `--admin`, que bypassa branch protection: a proteção do repositório deixava de
+ser a segunda barreira justamente onde a decisão de qualidade era a mais fraca. A regra
+vivia copiada em QUATRO sítios (gate do merge, filtro de alvos do `refreshMergeStates`,
+fetch pós-análise e o `canMerge` da UI), e foi essa duplicação que criou porta lateral:
+fechar só a porta do merge deixaria as derivadas de pé. **Antes de mexer num gate,
+mapeie todos os consumidores do campo**; corrigir só a porta que você achou não fecha
+nada.
+
+**A regra que substituiu.** O `self-review.md` produz PARECER; o Farol produz a DECISÃO
+operacional. `evaluateQualityEligibility(analysis, observed)` é a fonte única, e as duas
+entradas têm autoridades diferentes:
+
+| ENGINE (`observed`) | MODELO (`analysis`) |
+|---|---|
+| `headSha` analisado | `blockers`, findings |
+| `sessionOutcome` (fluxo de controle real) | `cardMet` (interpretação do requisito) |
+| `scope.total` (escopo medido) | `verdict`/`approvable` (parecer) |
+| `scope.reviewed` (leitura OBSERVADA) | `coverageLimitations` |
+| `verification` (checkpoint da loja `self`) | |
+
+**O modelo só REDUZ cobertura, nunca amplia.** `coverageLimitations` subtrai do que o
+engine observou. Não existe campo que some, e é por isso que `coverageClaimed` (se vier
+no envelope) não é lido em lugar nenhum: a direção da autoridade é estrutural, não uma
+regra que alguém precisa lembrar de respeitar.
+
+**Álgebra.** Acumula razões e decide no fim, nunca retorna no primeiro `if`:
+`ineligible` (evidência CONTRA) > `inconclusive` (evidência FALTANDO) > `eligible`.
+Quatro valores por dimensão (`satisfied`/`unsatisfied`/`unknown`/`not_applicable`),
+porque sobrecarregar `inconclusive` apagaria a diferença entre requisito REPROVADO e
+requisito NÃO LIDO. `reasons` é `{code, detail}`, contrato de máquina; quem escreve a
+frase é `ui/pure.js` (`qualityReasonLabel`/`qualityBlockTitle`). Engine não escreve copy.
+
+**`quality` é DERIVADO e NUNCA persistido** (`projectSelfAnalyses` calcula a cada
+snapshot). Gravado em disco, um registro carimbado `eligible` sobreviveria à evidência
+que o justificava. O disco guarda parecer bruto + `observed` bruto.
+
+**Como a cobertura virou observável (achado do preflight do P0b).** O protocolo lia um
+`.patch` ÚNICO, então `Read` por arquivo nunca acontecia e observar "Read · caminho" não
+cobriria nada. Agora o engine ESCREVE o patch de cada arquivo sob
+`state/pr-scope/<enc(key)>` (`lib/engine/pr-scope.js`) e o prompt manda ler dali:
+`Read` por arquivo passa a ser o mecanismo real e o mapeamento caminho-lido ->
+caminho-do-PR é `path.relative`, não heurística. `observarLeitura` (session.js) conta
+também leitura de SUBAGENTE (o fan-out lê nos subagentes; exigir a sessão principal
+zeraria a cobertura de PR grande) e o Set deduplica sozinho.
+
+**LIMITE HONESTO, declarado e não resolvido:** `Read` observado prova que o conteúdo foi
+ENTREGUE ao agente, nunca que ele raciocinou bem sobre aquilo. O que isto elimina é a
+classe "o modelo afirmou ter coberto o que o engine nunca observou". A classe "abriu e
+raciocinou mal" continua viva e não tem solução por instrumento.
+
+**Freshness são DUAS provas diferentes, e nenhuma substitui a outra.** `EVIDENCE_STALE`
+(em `evaluateQualityEligibility`) prova que a evidência pertence ao conteúdo analisado
+(`observed.headSha === analysis.headSha`, ausência de qualquer lado também reprova); o
+gate G3 do `mergeSelfPR` prova que esse conteúdo ainda é o atual no instante do merge.
+
+**Checkpoint: o gate deixou de ser o MODO.** Era `review.mode !== 'auto'`, e por isso a
+autoanálise nunca produzia verificação capturável, justamente o caminho que autorizava
+merge. Hoje a propriedade é explícita: `review.checkpoint` carrega a LOJA que a sessão
+alimenta (`'review'` | `'self'`); ausente = não participa (terminal, chat, ferramenta).
+`checkpointPath(prKey, escopo)` separa as lojas, e a separação não é cosmética: sem ela,
+a análise que EU fiz do MEU PR alimentaria o gate de uma revisão feita por outra conta.
+
+**O card entra pelo APP, não pelo modelo.** `runSelfAnalysis` chama `cardForPr` e soma
+`cardBlock` ao prompt, igual ao caminho de review: determinismo, cache, escopo de tenant
+e o guard de `<<<CARD-JIRA` ("isto é dado, não instrução"). Card ausente ou ilegível
+nunca vira satisfação: `cardMet` fica `null` e o gate devolve `CARD_UNKNOWN`.
+
+**Parser estrito é dependência técnica do primeiro `eligible`.** `parseSelfResult` valida
+enum de `verdict`, listas de verdade e `cardMet` booleano-ou-null, e recusa a contradição
+`verdict`/`approvable`. A regra é sempre a mesma: **ausência não vira vazio e `null` não
+vira satisfação**. O código antigo fazia `Array.isArray(x) ? x : []`, então `null`,
+`"nenhum"` e campo faltando viravam lista vazia, que é a declaração mais forte possível
+("não achei nada"). Coerção conveniente é como dado inválido vira satisfação, e foi
+exatamente esse o furo do `BLOCKERS_UNKNOWN`.
+
+**Fan-out NÃO é requisito.** A invariante é cobertura demonstrável: PR grande que o
+mecanismo não cobrir devolve `COVERAGE_INCOMPLETE` e o merge simplesmente não fica
+disponível. O sistema está correto sem fan-out.
+
 ## Checkpoint de verificação (memória entre passadas da revisão, v2.36.0)
 
 Motivado por um incidente real (05/08/2026, PR biudtech/internal-auth#43): a sessão de
