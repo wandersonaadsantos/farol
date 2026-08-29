@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.56.0
+
+O Jira deixa de ser obrigatorio pro Merge da autoanalise.
+
+**Novidades**
+
+- **Repo sem card volta a poder mergear pelo app.** A versao anterior exigia card atendido pra liberar o Merge, e em repo que nao usa Jira isso nunca acontecia: o botao ficaria indisponivel pra sempre, com "atendimento ao card nao comprovado" como unico motivo. Agora, quando NAO EXISTE card a cobrar (recurso de Jira desligado, organizacao sem site ligado, ou PR sem chave de card no titulo, na branch e no corpo), o requisito simplesmente nao se aplica.
+- **A distincao que faz isso ser seguro:** quem decide se EXISTE requisito de card e o Farol, que e quem chama o Jira e sabe por que nao leu. Card que existe e o Farol nao conseguiu ler (credencial recusada, Jira fora do ar, card inexistente, sem permissao) continua segurando o Merge, porque ali a resposta e "nao sei", nao "nao ha". E card que a analise diz que NAO foi atendido continua bloqueando, mesmo em repo sem cultura de card: dispensar o requisito nunca apaga um achado.
+
 ## v2.55.1
 
 Conserto do que a v2.55.0 prometia: o subagente de review nao sabia ler o escopo, entao a cobertura podia nunca ser comprovada.
