@@ -9,6 +9,18 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.55.1
+
+Conserto do que a v2.55.0 prometia: o subagente de review nao sabia ler o escopo, entao a cobertura podia nunca ser comprovada.
+
+**Correcoes**
+
+- **O agente que faz a leitura do PR passou a ler do escopo que o Farol prepara.** A v2.55.0 mandou a analise abrir arquivo por arquivo, mas o trabalho de leitura e delegado a um subagente que tinha instrucao propria de baixar o diff inteiro num arquivo so. Na pratica a leitura por arquivo podia nunca acontecer e o Merge ficaria indisponivel pra sempre, sem o usuario entender por que. A instrucao e condicional: com escopo preparado le de la, um arquivo por vez; sem escopo (a revisao comum) segue como sempre.
+
+**Prova de campo**
+
+- A autoanalise rodou de ponta a ponta contra um PR real, com sessao de verdade: 3 arquivos no escopo, 3 abertos e observados pelo Farol, 3 verificacoes empiricas registradas, e a evidencia amarrada ao commit analisado. Ate aqui o mecanismo so tinha prova de laboratorio.
+
 ## v2.55.0
 
 O botao Merge de "Meus PRs" volta a funcionar, agora sobre evidencia que o proprio Farol observa.
