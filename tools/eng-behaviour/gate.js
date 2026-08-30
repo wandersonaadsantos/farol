@@ -1,22 +1,8 @@
 // Gate do eng-behaviour, a constituição de engenharia que o Farol assina.
 //
-// POR QUE NÃO ESTÁ NO `npm run lint`, e portanto não está no CI: duas razões
-// independentes, e cada uma sozinha já bastaria.
-//
-//  1. O CI roda SEM `npm install` de propósito (invariante 1: zero dependências
-//     além do Electron). O eng-behaviour é um pacote à parte, com dependências
-//     próprias, e não é publicado em registro nenhum. Trazê-lo para dentro do CI
-//     exigiria ou quebrar a invariante 1, ou dar ao runner acesso a um segundo
-//     repositório privado. Nenhuma das duas é decisão deste arquivo.
-//  2. O `audit` lê o registro de avaliação das regras de julgamento, e esse
-//     registro vive FORA do controle de versão por decisão do próprio pacote
-//     (`avaliacoes.jsonl` no .gitignore; ver o comentário lá). O runner não tem
-//     como enxergá-lo. Rodar o audit no CI reprovaria toda rodada por evidência
-//     ausente, que é falha de arranjo e não do código.
-//
-// Então ele mora no pre-push, que é onde o Farol já põe o gate que o CI não
-// alcança. Como o pre-push também proíbe push direto na main, todo caminho até
-// a main atravessa este gate.
+// Ele roda no pre-push e NÃO no CI. O porquê tem um endereço só, em
+// `docs/QUALITY.md`, seção "A constituição vem do eng-behaviour"; repetir o
+// argumento aqui obrigaria a achar os dois para mudar um comportamento só.
 //
 // FALHA FECHADO. Sem a CLI resolvida, o gate reprova em vez de pular. Gate que
 // se cala quando não sabe é pior que gate nenhum: ele passa a atestar o que não
@@ -28,19 +14,18 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { executadoDireto } from '../../lib/paths.js';
 import { readJson } from '../../lib/io.js';
-import { engBehaviourHome } from '../../lib/env.js';
 
 const RAIZ = path.join(import.meta.dirname, '..', '..');
 
-// Arranjo mais comum: o clone do pacote ao lado do clone do Farol. Quem tiver
-// outro layout aponta ENG_BEHAVIOUR_HOME; a leitura da variavel mora em
-// lib/env.js, que e o endereco unico de process.env aqui.
+// O clone do pacote ao lado do clone do Farol. Sem variavel de ambiente para
+// apontar outro lugar: nenhuma chamada de hoje precisa dela, e chave de
+// configuracao que nunca muda de valor e o que a core.abstraction.no-premature
+// condena. Aparecendo um layout diferente de verdade, ela nasce ali.
 const IRMAO = path.join(RAIZ, '..', 'eng-behaviour');
 
 const AJUDA = [
   'Como resolver:',
-  `  1. clone ${'https://github.com/wandersonaadsantos/eng-behaviour'} ao lado do farol,`,
-  '     ou aponte a variavel ENG_BEHAVIOUR_HOME para o clone;',
+  '  1. clone https://github.com/wandersonaadsantos/eng-behaviour ao lado do farol;',
   '  2. dentro dele: pnpm install && pnpm build.',
 ].join('\n');
 
@@ -52,7 +37,7 @@ const AJUDA = [
  * sem `dist/` é problema de build, e mandar rodar o build num diretório que não
  * existe manda a pessoa para o lugar errado.
  */
-function resolverCli(home = engBehaviourHome() || IRMAO) {
+function resolverCli(home = IRMAO) {
   if (!fs.existsSync(home)) {
     return { erro: `eng-behaviour nao encontrado em ${home}.` };
   }

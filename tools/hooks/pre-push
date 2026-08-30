@@ -79,12 +79,10 @@ echo "  -> suite (npm test)"
 npm test --silent || falhou "a suite"
 
 # --- constituicao (npm run eng) ------------------------------------------------
-# Fica AQUI e nao no `npm run lint` por duas razoes independentes: o CI roda sem
-# `npm install` (invariante 1) e nao alcanca a CLI do eng-behaviour, e o registro
-# de avaliacao vive fora do versionamento por decisao em aberto do proprio
-# pacote, entao o runner nao teria como le-lo. O detalhe esta em
-# tools/eng-behaviour/gate.js. Como este hook tambem proibe push direto na main,
-# todo caminho ate a main atravessa este gate.
+# Fica AQUI e nao no `npm run lint`, que roda no CI. O porque tem um endereco so,
+# em docs/QUALITY.md, secao "A constituicao vem do eng-behaviour". O que importa
+# para este hook: como ele tambem proibe push direto na main, todo caminho ate a
+# main atravessa este gate.
 echo "  -> constituicao (npm run eng)"
 npm run eng --silent || falhou "o gate do eng-behaviour"
 
