@@ -13,7 +13,16 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { resolverCli, versaoDo, raizPrincipal } from '../tools/eng-behaviour/gate.js';
+import { resolverCli, versaoDo, raizPrincipal, ajudaPara } from '../tools/eng-behaviour/gate.js';
+
+/**
+ * Ate quando esperar cada chamada de git da montagem antes de desistir.
+ *
+ * Mesma fronteira que a producao nomeia, pelo mesmo motivo: passado esse tempo,
+ * desistir e falhar com mensagem vale mais que esperar. O numero e outro porque
+ * aqui a chamada escreve em disco, e nao so consulta.
+ */
+const TETO_DO_GIT_NO_TESTE_MS = 20_000;
 
 function temporario(prefixo) {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefixo));
@@ -65,18 +74,33 @@ test('a versao vem do package.json do pacote, e nao do farol', () => {
  * comportamento sob teste É a resposta do git, e substituí-la trocaria a
  * pergunta que importa por uma pergunta sobre o dublê.
  */
-function repoComWorktree() {
+function repoComWorktree(nomeDoPacote = 'farol') {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-wt-'));
   // `git worktree` recusa caminho dentro do próprio .git, então principal e
   // worktree ficam lado a lado dentro da base.
   const principal = path.join(base, 'principal');
   const wt = path.join(base, 'copia');
   fs.mkdirSync(principal);
-  // Teto por chamada: sem ele, um git que trave deixa o runner de testes pendurado
-  // sem mensagem, e no CI isso vira um job em curso por tempo indeterminado em vez
-  // de uma falha que alguém consegue ler. Aconteceu de verdade no runner de macOS.
+  // A identidade é parâmetro porque os dois casos precisam de repositórios com
+  // papéis opostos: um que É este projeto, e um que é outro projeto qualquer com
+  // uma cópia do Farol dentro.
+  fs.writeFileSync(
+    path.join(principal, 'package.json'),
+    JSON.stringify({ name: nomeDoPacote }),
+    'utf8',
+  );
+  // Teto por chamada, e `commit.gpgsign=false` local: os dois existem para este
+  // bloco nao poder pendurar a suite. Assinatura ligada no config global faria o
+  // `git commit` esperar o pinentry, e `execFileSync` bloqueia o event loop, entao
+  // nem o teto do runner de testes interromperia. So o teto do proprio processo
+  // resolve, e por isso ele esta aqui e nao no caso.
   const git = (args, cwd) =>
-    execFileSync('git', args, { cwd, encoding: 'utf8', stdio: 'pipe', timeout: 20_000 });
+    execFileSync('git', ['-c', 'commit.gpgsign=false', ...args], {
+      cwd,
+      encoding: 'utf8',
+      stdio: 'pipe',
+      timeout: TETO_DO_GIT_NO_TESTE_MS,
+    });
 
   // A base nasce antes da primeira chamada e só é devolvida no fim, então uma
   // chamada que estoure o teto sairia daqui sem passar pelo `finally` do caso,
@@ -98,33 +122,70 @@ function repoComWorktree() {
 }
 
 /**
- * Compara caminho sem depender de separador, caixa ou forma do nome no Windows.
+ * Compara caminho sem depender de separador nem da forma do nome no Windows.
  *
  * `realpathSync.native` e não o `realpathSync` comum: no Windows o `os.tmpdir()`
  * devolve o nome curto 8.3 (`WANDER~1`) e o git devolve o longo, e só a variante
- * nativa canoniza os dois para a mesma coisa. Com o `realpathSync` comum este
- * caso reprovava por causa da comparação, com o valor certo do lado de dentro.
+ * nativa canoniza os dois para a mesma coisa.
+ *
+ * E ela NÃO pode lançar. O valor que chega aqui num caso que reprova costuma ser
+ * um caminho que não existe, e `realpathSync.native` responde a isso com ENOENT:
+ * o caso morreria com pilha de erro de sistema de arquivos, e a mensagem que diria
+ * qual caminho veio nunca apareceria. Caminho que não resolve cai na comparação
+ * textual, que é pior mas ainda responde.
+ *
+ * A caixa só é dobrada onde o sistema de arquivos de fato ignora caixa. No Linux
+ * dobrar afrouxaria a comparação e deixaria passar divergência real.
  */
 function mesmoCaminho(a, b) {
-  const norm = (p) => fs.realpathSync.native(p).replace(/\\/g, '/').toLowerCase();
+  const dobraCaixa = process.platform !== 'linux';
+  const norm = (p) => {
+    let resolvido;
+    try {
+      resolvido = fs.realpathSync.native(p);
+    } catch {
+      resolvido = path.resolve(p);
+    }
+    const barras = resolvido.replace(/\\/g, '/');
+    return dobraCaixa ? barras.toLowerCase() : barras;
+  };
   return norm(a) === norm(b);
 }
 
-test('a raiz resolvida a partir de uma worktree e a do repositorio principal', { timeout: 60_000 }, () => {
+test('a raiz resolvida a partir de uma worktree e a do repositorio principal', () => {
   const { base, principal, wt } = repoComWorktree();
   try {
-    assert.ok(
-      mesmoCaminho(raizPrincipal(wt), principal),
-      `esperava a raiz principal, veio ${raizPrincipal(wt)}`,
-    );
+    const daWorktree = raizPrincipal(wt);
+    assert.ok(mesmoCaminho(daWorktree, principal), `esperava ${principal}, veio ${daWorktree}`);
     // E o principal continua respondendo por si mesmo, que é o caso comum.
-    assert.ok(mesmoCaminho(raizPrincipal(principal), principal));
+    const doPrincipal = raizPrincipal(principal);
+    assert.ok(mesmoCaminho(doPrincipal, principal), `esperava ${principal}, veio ${doPrincipal}`);
   } finally {
     fs.rmSync(base, { recursive: true, force: true });
   }
 });
 
-test('fora de repositorio git, a raiz e o proprio diretorio consultado', { timeout: 30_000 }, () => {
+test('a raiz nao vem de um repositorio de fora quando o farol nao e repositorio', () => {
+  // Cópia do Farol extraída dentro de um repositório qualquer. Aqui o git NÃO
+  // falha, ele responde pelo repositório de fora, então o fallback de erro não
+  // pega: é preciso provar que a pasta consultada é uma raiz git antes de aceitar
+  // a worktree listada. Sem isso, o gate procuraria o pacote ao lado do repositório errado.
+  const { base, principal } = repoComWorktree();
+  const dentro = path.join(principal, 'copia-do-farol');
+  try {
+    fs.mkdirSync(dentro);
+    fs.writeFileSync(path.join(dentro, 'package.json'), JSON.stringify({ name: 'farol' }), 'utf8');
+    const resolvida = raizPrincipal(dentro);
+    assert.ok(
+      mesmoCaminho(resolvida, dentro),
+      `esperava a propria copia ${dentro}, veio ${resolvida}`,
+    );
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('fora de repositorio git, a raiz e o proprio diretorio consultado', () => {
   // O fallback existe para o gate não morrer onde o git não responde; ali o
   // comportamento antigo, o irmão de onde o arquivo está, continua correto.
   const solto = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-sem-git-'));
@@ -133,6 +194,17 @@ test('fora de repositorio git, a raiz e o proprio diretorio consultado', { timeo
   } finally {
     fs.rmSync(solto, { recursive: true, force: true });
   }
+});
+
+test('a instrucao de conserto aponta para o caminho que o gate espera', () => {
+  // A outra metade do defeito da worktree: a resolução passou a acertar, mas a
+  // instrução era texto fixo mandando clonar "ao lado do farol", que dentro de
+  // uma worktree apontava para `.worktrees/`. Sem este caso, voltar ao texto fixo
+  // deixa a suíte inteira verde com metade do defeito de volta.
+  const alvo = path.join('qualquer', 'lugar', 'eng-behaviour');
+  const texto = ajudaPara(alvo);
+  assert.ok(texto.includes(alvo), 'a ajuda precisa nomear o caminho resolvido');
+  assert.ok(texto.includes('pnpm build'), 'a ajuda precisa dizer que o pacote e construido');
 });
 
 test('versao ilegivel nao derruba o gate, so deixa de ser afirmada', () => {
