@@ -1534,7 +1534,13 @@ class Engine extends EventEmitter {
       io.runShell('claude --version'),
       io.runShell('codex --version'),
       io.runShell('codex login status'),
-      io.run('gh', tokenArgs)
+      // o probe roda no MESMO env que o engine usa, e nao no herdado: `gh auth
+      // token` SEM --user honra o GH_TOKEN do ambiente, entao sem conta primaria
+      // o check ficava verde por um token que o ghEnv recusa, e o doctor mentia
+      // pro lado pior, o de dizer que da pra rodar. Com conta primaria o --user
+      // ja lia o keyring; passar o env mantem os dois casos falando da mesma
+      // identidade. ghEnv() sem user nunca lanca (o contrato legado do doctor).
+      io.run('gh', tokenArgs, { env: this.ghEnv() })
     ]);
     let codexLoginDetail = '';
     if (codexLogin.stdout || codexLogin.stderr) {

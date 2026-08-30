@@ -1355,6 +1355,8 @@ sempre false no Windows), exposta como `doctor.root` no `server.js`; a classe
 PERMANENTE (estaciona na primeira, em vez de relançar para sempre); e o check
 visível em `runtimeChecks`.
 
+**O check de ambiente pergunta no ambiente em que o app AGE** (30/08/2026). `gh auth token` SEM `--user` honra o `GH_TOKEN` do ambiente (medido), e o `doctor()` só acrescenta o `--user` quando existe conta primária: sem conta configurada, o check de autenticação ficava VERDE por causa de um token exportado no shell de quem abriu o app, que o `ghEnv` recusa usar desde a correção do mesmo dia. Doctor mais verde que a realidade é a pior falha possível num painel que existe pra dizer se dá pra rodar. O probe passou a receber `this.ghEnv()` como env, que é exatamente o "caminho legado do doctor/boot" nomeado no contrato do `ghEnv` (sem user ele nunca lança). Travado em `test/doctor-identidade.test.js`, cujo primeiro caso quase nasceu inútil: `env` AUSENTE não é `env` limpo, e afirmar sobre `(probe.env || {})` passava verde justamente no caso em que o filho herda `process.env` inteiro.
+
 Esse check **não tem `goto`**, de propósito: não existe tela do app que conserte
 "você é root". Clique que não leva a lugar nenhum é pior que texto puro, é a
 mesma doutrina das menções navegáveis.
