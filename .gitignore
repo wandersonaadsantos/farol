@@ -23,3 +23,14 @@ scratchpad_test/
 # ninguem, deixando a verificacao empirica sem o agente que ela dispara.
 !workspace-template/.claude/
 !workspace-template/.claude/**
+
+# registro de avaliacao do eng-behaviour: FORA do versionamento, e nao por
+# descuido. A identidade de uma avaliacao e a regra mais o head avaliado.
+# Commitar o registro dentro do proprio repositorio que ele avalia move esse
+# head: a avaliacao recem-escrita passa a apontar para um commit que deixou de
+# ser o corrente, e o gate volta a perguntar por um head sem registro. Manter o
+# arquivo fora do git e uma das quatro saidas conhecidas dessa decisao, que
+# continua EM ABERTO no pacote (docs/arquitetura.md, secao "Decisao aberta:
+# onde mora o registro de avaliacao"). Nenhuma foi escolhida; esta aqui e o
+# arranjo vigente, nao a decisao tomada.
+avaliacoes.jsonl
