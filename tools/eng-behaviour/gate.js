@@ -262,10 +262,10 @@ function main() {
 // antes do SO e `process.exit` trunca em 8 bits: um engano futuro que devolvesse
 // 256 daqui viraria aprovacao silenciosa no shell.
 if (executadoDireto(import.meta.url)) process.exit(Math.min(main(), 2));
-// Exporta so o que tem leitor: `resolverCli`, `versaoDo`, `raizPrincipal` e
-// `ajudaPara` sao observados pela suite, e sem essa costura os comportamentos
-// deles nao seriam observaveis. `irmaoDoRepositorio` e `ehEsteCheckout` ficam de
-// fora porque ninguem as le daqui, e exportar o que ninguem le e o campo sem
-// leitor que a core.abstraction.no-premature condena.
-export default { resolverCli, versaoDo, raizPrincipal, ajudaPara };
-export { resolverCli, versaoDo, raizPrincipal, ajudaPara };
+// Exporta so o que tem leitor, e todos os leitores sao a suite: sem essa costura
+// nao havia como observar os comportamentos, que e a excecao que a
+// core.abstraction.no-premature nomeia. `irmaoDoRepositorio` e `ehEsteCheckout`
+// ficam de fora porque ninguem as le daqui, e exportar o que ninguem le e o campo
+// sem leitor que a mesma regra condena.
+export default { resolverCli, versaoDo, raizPrincipal, ajudaPara, rodar };
+export { resolverCli, versaoDo, raizPrincipal, ajudaPara, rodar };

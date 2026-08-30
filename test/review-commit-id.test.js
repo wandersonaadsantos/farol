@@ -4,6 +4,7 @@
 // postagem (canAuto, canReject, decide) o propagam.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { normalizeReviewPayload } from '../lib/engine/public-review.js';
 
 test('normalizeReviewPayload: commit_id sha válido é preservado', () => {
@@ -29,6 +30,13 @@ test('normalizeReviewPayload: commit_id que não é sha é DESCARTADO (nunca vir
 import os from 'node:os';
 import path from 'node:path';
 process.env.FAROL_HOME = process.env.FAROL_HOME || path.join(os.tmpdir(), 'farol-test-commitid-' + process.pid);
+
+// Apagado no fim. O caminho e derivado do pid e nao de `mkdtemp`, entao ele se
+// repete entre rodadas do mesmo processo, mas acumula uma pasta por processo:
+// medido em centenas na maquina.
+after(() => {
+  fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true });
+});
 const { Engine } = await import('../server.js');
 
 // C2 da revisão final da onda 2: o clique posta o payload que a SESSÃO escreveu, e esse
