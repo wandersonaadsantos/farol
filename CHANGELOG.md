@@ -15,7 +15,7 @@ Higiene: o instalador de macOS deixa de depender de alguem lembrar, e o parecer 
 
 **Correcoes**
 
-- **A publicacao passa a construir e anexar o instalador de macOS sozinha.** Ate aqui isso era um lembrete impresso no fim do script, e o resultado foi previsivel: tres releases seguidas sairam sem o anexo, e quem fosse instalar no Mac pela primeira vez nao tinha por onde. Lembrete que depende de disciplina nao e processo. Se a maquina que publica nao tiver bash, a release sai sem o anexo como antes, mas agora avisando alto em vez de em silencio.
+- **A publicacao passa a construir e anexar o instalador de macOS sozinha.** (A primeira versao deste passo abortava a publicacao: o download escreve a barra de progresso no canal de erro, e o script trata isso como falha fatal. Pego rodando de verdade, corrigido antes de publicar.) Ate aqui isso era um lembrete impresso no fim do script, e o resultado foi previsivel: tres releases seguidas sairam sem o anexo, e quem fosse instalar no Mac pela primeira vez nao tinha por onde. Lembrete que depende de disciplina nao e processo. Se a maquina que publica nao tiver bash, a release sai sem o anexo como antes, mas agora avisando alto em vez de em silencio.
 - **O parecer da analise passou a viver num campo so.** "Aprovavel" era gravado duas vezes, em dois campos que diziam a mesma coisa; agora um deriva do outro na leitura. Analise antiga continua sendo lida como sempre, sem migracao.
 
 ## v2.56.0
