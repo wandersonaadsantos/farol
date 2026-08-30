@@ -35,8 +35,8 @@
     <div class="tabs-row">
     <nav class="tabs" id="nav" role="tablist" aria-label="Seções do Farol">
       <button class="nav-item active" id="tabbtn-radar" data-tab="radar" role="tab" aria-selected="true" aria-controls="tab-radar">Radar</button>
-      <button class="nav-item" id="tabbtn-entregas" data-tab="entregas" role="tab" aria-selected="false" aria-controls="tab-entregas">Entregas</button>
-      <button class="nav-item" id="tabbtn-destaques" data-tab="destaques" role="tab" aria-selected="false" aria-controls="tab-destaques">Destaques</button>
+      <button class="nav-item" id="tabbtn-entregas" data-tab="entregas" role="tab" aria-selected="false" aria-controls="tab-entregas" hidden>Entregas</button>
+      <button class="nav-item" id="tabbtn-destaques" data-tab="destaques" role="tab" aria-selected="false" aria-controls="tab-destaques" hidden>Destaques</button>
       <button class="nav-item" id="tabbtn-time" data-tab="time" role="tab" aria-selected="false" aria-controls="tab-time">Time</button>
       <button class="nav-item" id="tabbtn-consumo" data-tab="consumo" role="tab" aria-selected="false" aria-controls="tab-consumo">Consumo</button>
       <button class="nav-item" id="tabbtn-sistema" data-tab="sistema" role="tab" aria-selected="false" aria-controls="tab-sistema">Sistema</button>
@@ -659,6 +659,20 @@
                 <span class="set-desc">Um toque curto quando entra PR novo na tua fila.</span>
               </span>
               <span class="set-ctl"><input id="setSound" type="checkbox"><span class="switch"></span></span>
+            </label>
+            <label class="set-row" id="sys-row-teamhighlights">
+              <span class="set-txt">
+                <span class="set-title">Destaques do time</span>
+                <span class="set-desc">Mostra a aba Destaques e registra momentos exemplares encontrados nas revisões. Suas autoanálises também entram, então você faz parte do time exibido. Desligar oculta a função e para novos registros, sem apagar o histórico existente.</span>
+              </span>
+              <span class="set-ctl"><input id="setTeamHighlights" type="checkbox"><span class="switch"></span></span>
+            </label>
+            <label class="set-row" id="sys-row-deliveries">
+              <span class="set-txt">
+                <span class="set-title">Entregas</span>
+                <span class="set-desc">Mostra a aba Entregas e consulta no GitHub os PRs mergeados das organizações monitoradas. Esta função não usa IA; desligá-la evita as chamadas ao GitHub e o processamento local quando você não utiliza essa visão.</span>
+              </span>
+              <span class="set-ctl"><input id="setDeliveriesEnabled" type="checkbox"><span class="switch"></span></span>
             </label>
             <label class="set-row" id="rowAutostart">
               <span class="set-txt">

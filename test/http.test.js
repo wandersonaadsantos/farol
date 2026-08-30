@@ -102,6 +102,29 @@ test('GET /api/state devolve o snapshot serializável', async () => {
   assert.ok(snap.decisions.resolved.length <= 30, 'payload do SSE respeita o cap de 30 (Revisões recentes)');
 });
 
+test('GET /api/deliveries só consulta o GitHub quando Entregas está ligado', async () => {
+  const real = engine.fetchDeliveries;
+  const previous = engine.config.deliveriesEnabled;
+  let calls = 0;
+  engine.fetchDeliveries = async () => { calls++; return { items: [{ key: 'acme/app#1' }] }; };
+  engine.config.deliveriesEnabled = false;
+  try {
+    const off = await get('/api/deliveries?days=7&owner=acme');
+    assert.equal(off.status, 200);
+    assert.deepEqual(JSON.parse(off.body), { items: [], disabled: true });
+    assert.equal(calls, 0, 'desligado não chega ao fetchDeliveries/gh search');
+
+    engine.config.deliveriesEnabled = true;
+    const on = await get('/api/deliveries?days=7&owner=acme');
+    assert.equal(on.status, 200);
+    assert.deepEqual(JSON.parse(on.body), { items: [{ key: 'acme/app#1' }] });
+    assert.equal(calls, 1, 'ligado consulta exatamente uma vez');
+  } finally {
+    engine.fetchDeliveries = real;
+    engine.config.deliveriesEnabled = previous;
+  }
+});
+
 test('GET / serve a UI estática (index.html)', async () => {
   const r = await get('/');
   assert.equal(r.status, 200);

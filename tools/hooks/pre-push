@@ -69,6 +69,13 @@ while read -r _local_ref _local_sha remote_ref _remote_sha; do
   esac
 done
 
+# Hooks recebem `GIT_DIR`, `GIT_WORK_TREE` e outras variáveis locais do processo
+# que chamou o push. Elas são corretas enquanto o hook inspeciona o push acima,
+# mas não podem vazar para a suíte: testes que criam repositórios temporários
+# passariam a operar no gitdir do Farol e falhariam como "not a work tree".
+# O próprio Git mantém a lista autoritativa; não repetimos nomes à mão.
+unset $(git rev-parse --local-env-vars)
+
 echo "  -> sintaxe (npm run check)"
 npm run check --silent || falhou "a sintaxe"
 

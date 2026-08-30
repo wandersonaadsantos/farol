@@ -116,6 +116,27 @@ test('writeMemory atribui o dossiê pelo autor da fila, nunca pelo memory.author
   assert.match(texto, /bullet factual sobre o trabalho/, 'os bullets da sessão continuam entrando');
 });
 
+test('Destaques é opt-in e usa autor, PR e data confiáveis em vez do envelope', () => {
+  const engine = novoEngine();
+  const highlights = path.join(FAROL_HOME, 'workspace', 'state', 'highlights.md');
+  const result = {
+    pr: prDaFila(46),
+    memory: {
+      author: 'mallory', bullets: [],
+      highlight: '- 1999-01-01 · @mallory · [evil/repo#1](https://example.test) — cobriu a regressão com um teste comportamental'
+    }
+  };
+  engine.config.teamHighlights = false;
+  engine.writeMemory(result, 'APPROVE');
+  assert.equal(fs.existsSync(highlights), false, 'desligado não cria nem altera o histórico de destaques');
+
+  engine.config.teamHighlights = true;
+  engine.writeMemory(result, 'APPROVE');
+  const texto = fs.readFileSync(highlights, 'utf8');
+  assert.match(texto, /@dev · \[acme\/app#46\]\(https:\/\/github\.com\/acme\/app\/pull\/46\)/);
+  assert.doesNotMatch(texto, /mallory|evil\/repo|example\.test|1999-01-01/);
+});
+
 test('caminho automático: auto-approve grava decisão e memória com a identidade da fila', async () => {
   runImpl = roteadorPost();
   const engine = novoEngine();

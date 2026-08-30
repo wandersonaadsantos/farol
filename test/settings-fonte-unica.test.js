@@ -62,6 +62,10 @@ test('saneamento: os defaults que ligados só desligam com valor explícito', ()
   // e os opt-in são o contrário: só ligam com valor verdadeiro
   assert.equal(sanear('reviewFast', undefined, {}, {}), false);
   assert.equal(sanear('reviewFast', true, {}, {}), true);
+  assert.equal(sanear('teamHighlights', undefined, {}, {}), false);
+  assert.equal(sanear('teamHighlights', true, {}, {}), true);
+  assert.equal(sanear('deliveriesEnabled', undefined, {}, {}), false);
+  assert.equal(sanear('deliveriesEnabled', true, {}, {}), true);
 });
 
 test('saneamento: valor inválido mantém o anterior, não derruba pro padrão', () => {

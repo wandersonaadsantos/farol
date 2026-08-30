@@ -291,6 +291,19 @@ let CURRENT_TAB = 'radar';   // a barra de contas só filtra o Radar; nas outras
 // espelha a aba no <body> pro CSS ajustar a largura útil (a aba Sistema tem sidebar e
 // precisa de mais). switchTab não roda no boot, então a aba inicial é marcada aqui.
 document.body.dataset.tab = CURRENT_TAB;
+function teamHighlightsEnabled() { return STATE?.config?.teamHighlights === true; }
+function deliveriesEnabled() { return STATE?.config?.deliveriesEnabled === true; }
+function syncOptionalTabsVisibility() {
+  const features = [
+    { tab: 'destaques', enabled: teamHighlightsEnabled() },
+    { tab: 'entregas', enabled: deliveriesEnabled() },
+  ];
+  for (const feature of features) {
+    $(`#tabbtn-${feature.tab}`).hidden = !feature.enabled;
+    $(`#tab-${feature.tab}`).hidden = !feature.enabled;
+    if (!feature.enabled && CURRENT_TAB === feature.tab) switchTab('radar');
+  }
+}
 function identGuardada() {
   const v = localStorage.getItem('farol-identity-style');
   if (v === 'Só ponto') return v;
@@ -1238,6 +1251,8 @@ function marcarSeg(botoes, ehAtivo) {
 }
 
 function switchTab(name) {
+  if (name === 'destaques' && !teamHighlightsEnabled()) name = 'radar';
+  if (name === 'entregas' && !deliveriesEnabled()) name = 'radar';
   CURRENT_TAB = name;
   document.body.dataset.tab = name;   // largura útil por aba (ver body[data-tab] no app.css)
   // aria-selected junto com a classe: a classe pinta, o aria é o que o leitor de tela lê
@@ -1305,6 +1320,8 @@ const SYS_INDEX = [
   { sec: 'prefs', at: '#sys-row-identity', title: 'Identidade nos cards', hint: 'barra, etiqueta, ponto, marcador' },
   { sec: 'prefs', at: '#sys-row-mutedview', title: 'Contas silenciadas', hint: 'recolher, esmaecer, ocultar, exibição' },
   { sec: 'prefs', at: '#sys-row-sound', title: 'Som ao chegar PR novo', hint: 'som, aviso, notificação' },
+  { sec: 'prefs', at: '#sys-row-teamhighlights', title: 'Destaques do time', hint: 'destaques, kudos, elogios, memória, time, equipe' },
+  { sec: 'prefs', at: '#sys-row-deliveries', title: 'Entregas', hint: 'entregas, merges, prs mergeados, github, atividade' },
   { sec: 'prefs', at: '#rowAutostart', title: 'Iniciar com o Windows', hint: 'autostart, inicialização, segundo plano' },
   { sec: 'news', at: '#relNotes', title: 'Novidades por versão', hint: 'changelog, release notes, o que mudou' },
   { sec: 'diag', at: '#sys-row-spawns', title: 'Registrar processos (diagnóstico)', hint: 'spawns, terminal piscando, debug' },
@@ -1629,7 +1646,7 @@ function cmdStatic() { return [
           run: async () => { for (const d of visiveis) await decide(d.id, 'approve'); } }]
       : [];
   })(),
-  ...[...document.querySelectorAll('.nav-item')].map(b => ({ kind: 'tab', label: `Ir para ${b.textContent}`, hint: 'aba', run: () => switchTab(b.dataset.tab) })),
+  ...[...document.querySelectorAll('.nav-item')].filter(b => !b.hidden).map(b => ({ kind: 'tab', label: `Ir para ${b.textContent}`, hint: 'aba', run: () => switchTab(b.dataset.tab) })),
   // as 9 seções do Sistema, lidas do DOM: seção nova entra aqui sozinha.
   // .trim() porque o botão tem um <svg aria-hidden="true"> antes do texto e sobra espaço em branco.
   ...[...document.querySelectorAll('.sys-nav-item')].map(b => ({
@@ -1714,7 +1731,7 @@ document.addEventListener('keydown', (e) => {
   if (!$('#chatPanel').hidden) return;
   const k = e.key;
   if (k >= '1' && k <= '6') {
-    const tabs = [...document.querySelectorAll('.nav-item')];
+    const tabs = [...document.querySelectorAll('.nav-item')].filter(b => !b.hidden);
     const btn = tabs[Number(k) - 1];
     if (btn) { switchTab(btn.dataset.tab); e.preventDefault(); }
     return;
@@ -1775,6 +1792,7 @@ function marcarDelivDays() {
 }
 
 async function loadDeliveries() {
+  if (!deliveriesEnabled()) return;
   renderDelivOrgSelect();
   marcarDelivDays();
   marcarSeg(document.querySelectorAll('#delivBy .seg-btn'), b => b.dataset.by === deliveriesBy);
@@ -3043,6 +3061,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.56.3', ['Destaques do time agora só aparece e trabalha quando você habilita a função em Sistema > Preferências. Desligado, o Farol não pede à IA que procure elogios, não grava novos destaques e não roda o kudos; ao habilitar, suas próprias autoanálises também entram na visão com identidade e PR atribuídos pelo app.', 'Entregas também passa a ser opt-in. Desligada, a aba fica oculta e o Farol não consulta no GitHub os PRs mergeados. Essa visão não usa IA, mas agora evita rede e processamento local quando você não a utiliza.']],
   ['2.56.2', ['Um token do GitHub exportado no terminal da sua máquina deixa de valer por cima da conta que o Farol resolveu. O app monta o ambiente de cada comando gh a partir do ambiente da máquina, então um GH_TOKEN (ou GITHUB_TOKEN) solto no seu shell viajava junto, e nas chamadas em que o Farol não tinha token resolvido o gh saía agindo como o dono daquela variável, sem nada na tela e sem linha no log. Com conta e token normais, nada muda.', 'O Diagnóstico deixa de ficar verde por um token que o Farol não usaria. Sem conta configurada, o check de autenticação do GitHub aceitava o token do ambiente e podia dizer "autenticado" enquanto nenhuma ação usaria aquela credencial; agora ele pergunta no mesmo ambiente em que o app age.']],
   ['2.56.1', ['A publicação passa a construir e anexar o instalador de macOS sozinha. Até aqui era um lembrete impresso no fim do script, e três releases seguidas saíram sem o anexo: quem fosse instalar no Mac pela primeira vez não tinha por onde. Lembrete que depende de disciplina não é processo.', 'O parecer da análise passou a viver num campo só. "Aprovável" era gravado duas vezes, em dois campos que diziam a mesma coisa; agora um deriva do outro na leitura, e análise antiga continua sendo lida como sempre.']],
   ['2.56.0', ['O Jira deixa de ser obrigatório pro Merge da autoanálise. Em repo que não usa card, o botão ficaria indisponível pra sempre com "atendimento ao card não comprovado" como único motivo; agora, quando não existe card a cobrar (Jira desligado, organização sem site ligado, ou PR sem chave de card), o requisito não se aplica.', 'O que mantém isso seguro: quem decide se EXISTE requisito é o Farol, que é quem chama o Jira e sabe por que não leu. Card que existe e não pôde ser lido (credencial recusada, Jira fora do ar, sem permissão) continua segurando o Merge, porque ali a resposta é "não sei" e não "não há". E card que a análise diz que não foi atendido continua bloqueando: dispensar o requisito nunca apaga um achado.']],
@@ -3492,6 +3511,8 @@ function renderSettings() {
   $('#setDebugSpawns').checked = !!c.debugSpawns;
   $('#setSkipPerms').checked = !!c.skipPermissions;
   $('#setSound').checked = !!c.soundEnabled;
+  $('#setTeamHighlights').checked = c.teamHighlights === true;
+  $('#setDeliveriesEnabled').checked = c.deliveriesEnabled === true;
   $('#setAutostart').checked = !!c.autostart;
   // autostart: só no Windows (no macOS o login item abriria o Electron sem os args do app,
   // ver applyAutostart em main.js). A plataforma vem do engine, não do userAgent.
@@ -3783,6 +3804,8 @@ const settingsMap = [
   ['#setReReviewResume', 'reReviewResume', el => el.checked],
   ['#setSkipPerms', 'skipPermissions', el => el.checked],
   ['#setSound', 'soundEnabled', el => el.checked],
+  ['#setTeamHighlights', 'teamHighlights', el => el.checked],
+  ['#setDeliveriesEnabled', 'deliveriesEnabled', el => el.checked],
   ['#setAutostart', 'autostart', el => el.checked]
 ];
 for (const [sel, key, read] of settingsMap) {
@@ -3806,6 +3829,7 @@ function connect() {
   es.addEventListener('state', (e) => {
     const d = safeJsonParse(e.data); if (!d) return; STATE = d;
     aplicaPlataforma(STATE.app && STATE.app.platform);   // engine manda; o userAgent era só o palpite inicial
+    syncOptionalTabsVisibility();
     rebuildAccounts();
     renderStatus(); renderAccountBar(); renderIdentity();
     renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSilenced();

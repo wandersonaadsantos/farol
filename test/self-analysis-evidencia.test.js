@@ -191,6 +191,27 @@ test('o prompt carrega o escopo medido e a raiz onde ler cada arquivo', async ()
   assert.ok(fs.existsSync(path.join(scopeMod.scopeRootFor(CHAVE), 'src', 'a.js')), 'o patch foi materializado');
 });
 
+test('Destaques desligado não pede memória nem elogio na autoanálise', () => {
+  const engine = novoEngine();
+  engine.config.teamHighlights = false;
+  const prompt = engine.selfPromptFor(URL_PR);
+  assert.doesNotMatch(prompt, /Memória opcional de destaques|"memory"|"highlight"/);
+});
+
+test('Destaques habilitado inclui o próprio usuário a partir da autoanálise', async () => {
+  const engine = novoEngine({
+    envelopeTexto: envelope({
+      memory: { bullets: ['ganho: cobriu a regressão'], highlight: 'cobriu a regressão com um teste comportamental' }
+    })
+  });
+  engine.config.teamHighlights = true;
+  await engine.runSelfAnalysis({ ...PR });
+  const highlights = fs.readFileSync(path.join(FAROL_HOME, 'workspace', 'state', 'highlights.md'), 'utf8');
+  assert.match(engine.promptRecebido, /Memória opcional de destaques/);
+  assert.match(highlights, /@eu · \[acme\/app#42\]\(https:\/\/github\.com\/acme\/app\/pull\/42\)/);
+  assert.match(highlights, /teste comportamental/);
+});
+
 /* ---------- persistência: bruto sim, decisão não ---------- */
 
 test('o registro guarda a evidência bruta e nunca o veredito calculado', async () => {
