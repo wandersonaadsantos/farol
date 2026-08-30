@@ -1,7 +1,7 @@
 /* Farol · UI: consome o engine local via SSE + fetch. Sem frameworks. */
 
 import {
-  statusBannerHtml, queueEmptyOkHtml, esc, safeJsonParse, fmtClock, sysNorm, ownerFromUrl, prKeyFromUrl, repoShort, stripFence,
+  statusBannerHtml, queueEmptyOkHtml, esc, safeJsonParse, fmtClock, sysNorm, ownerFromUrl, canonicalGithubPrUrl, prKeyFromUrl, repoShort, stripFence,
   hexToRgba, sameSet, usageMetricVal, usageStackLayers, usageHoverIndex, accountSaveArray,
   delivCappedMsg, fmtRel, usageDayKeysBack, aprovadosHoje, avatar, md, feedLine,
   agentsTitle, stageFlowFrom, stageFlowHtml, analysisOpsPlan, selfSessionKey,
@@ -61,12 +61,25 @@ function api(path, body) {
 }
 function get(path) { return fetch(path).then(r => r.json()).catch(() => null); }
 
-function toast(kind, html, ms = 5000) {
+function toastBase(kind, ms) {
   const el = document.createElement('div');
   el.className = `toast ${kind}`;
-  el.innerHTML = html;
   $('#toasts').appendChild(el);
   setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 300); }, ms);
+  return el;
+}
+
+export function toast(kind, text, ms = 5000) {
+  const el = toastBase(kind, ms);
+  el.textContent = String(text ?? '');
+  return el;
+}
+
+// Só os dois avisos que realmente têm estrutura usam esta variante. O chamador
+// constrói nós DOM; nenhuma string volta a ser reinterpretada como HTML.
+function toastRich(kind, build, ms = 5000) {
+  const el = toastBase(kind, ms);
+  build(el);
   return el;
 }
 
@@ -257,7 +270,7 @@ document.addEventListener('click', async (e) => {
     else {
       // NUNCA afirmar "cancelado" sem o servidor confirmar (a mentira do achado M18)
       closeOp(opId, 'error', (r && r.error) || 'não consegui cancelar');
-      toast('error', esc((r && r.error) || 'não consegui cancelar a autoanálise'));
+      toast('error', (r && r.error) || 'não consegui cancelar a autoanálise');
     }
   }
 });
@@ -1605,7 +1618,7 @@ function kbdHelp() {
    O achado A5: a paleta chamava um decide() que nunca existiu (ReferenceError engolido). */
 function decide(id, action) {
   return api('/api/decide', { id, action }).then(r => {
-    if (!r || !r.ok) toast('error', esc((r && r.error) || 'não consegui registrar a decisão'));
+    if (!r || !r.ok) toast('error', (r && r.error) || 'não consegui registrar a decisão');
     return r;
   });
 }
@@ -1709,7 +1722,7 @@ function cmdOpen() {
     [...list.querySelectorAll('.cmd-item')].forEach((el, idx) => {
       // fecha ANTES de rodar: um run() que lança não pode travar a paleta aberta,
       // e a rejeição vira toast em vez de sumir no console
-      el.onclick = () => { cmdClose(); Promise.resolve().then(() => items[idx].run()).catch(err => toast('error', esc((err && err.message) || 'a ação falhou'))); };
+      el.onclick = () => { cmdClose(); Promise.resolve().then(() => items[idx].run()).catch(err => toast('error', (err && err.message) || 'a ação falhou')); };
     });
   };
   input.addEventListener('input', renderList);
@@ -2083,10 +2096,12 @@ function renderActive() {
 /* ---------- chat com o Claude ---------- */
 let chatKey = null, chatUrl = null;
 function openChat(key, url) {
-  chatKey = key; chatUrl = url || null;
+  const safeUrl = canonicalGithubPrUrl(url);
+  chatKey = key; chatUrl = safeUrl || null;
   $('#chatKey').textContent = key;
   const link = $('#chatLink');
-  if (url) { link.href = url; link.hidden = false; } else link.hidden = true;
+  if (safeUrl) { link.href = safeUrl; link.hidden = false; }
+  else { link.removeAttribute('href'); link.hidden = true; }
   $('#chatPanel').hidden = false;
   $('#chatMsgs').innerHTML = '<div class="chat-hint">carregando…</div>';
   get('/api/chat?key=' + encodeURIComponent(key)).then(c => { if (c && chatKey === key) renderChat(c); });
@@ -2147,7 +2162,7 @@ $('#chatForm').addEventListener('submit', async (e) => {
   if (!text || !chatKey) return;
   $('#chatInput').value = '';
   const r = await api('/api/chat/send', { key: chatKey, url: chatUrl, text });
-  if (!r?.ok) toast('error', esc(r?.error || 'não consegui enviar a mensagem'));
+  if (!r?.ok) toast('error', r?.error || 'não consegui enviar a mensagem');
 });
 $('#chatInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#chatForm').requestSubmit(); }
@@ -2161,10 +2176,10 @@ document.addEventListener('click', (e) => {
    (some do "Revisões recentes" por escopo ou pelo limite de 30). Reusa o chat. */
 $('#lookupForm').addEventListener('submit', (e) => {
   e.preventDefault();
-  const url = ($('#lookupUrl').value || '').trim();
-  const m = url.match(/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)/i);
-  if (!m) { toast('error', 'Cole a URL de um PR do GitHub (…/pull/NN).'); return; }
-  openChat(`${m[1]}#${m[2]}`, url);
+  const url = canonicalGithubPrUrl($('#lookupUrl').value);
+  const key = prKeyFromUrl(url);
+  if (!key) { toast('error', 'Cole a URL de um PR do GitHub (…/pull/NN).'); return; }
+  openChat(key, url);
   $('#lookupUrl').value = '';
 });
 
@@ -2545,7 +2560,7 @@ $('#myPRs').addEventListener('click', (e) => {
     // tem config: aplica na hora, sem confirmação
     rev.disabled = true; rev.textContent = 'Setando…';
     api('/api/self-review/reviewers', { url: rev.dataset.url }).then(r => {
-      if (!r?.ok) toast('error', esc(r?.error || 'não consegui setar os reviewers'));
+      if (!r?.ok) toast('error', r?.error || 'não consegui setar os reviewers');
       rev.disabled = false; rev.textContent = '👥 Reviewers';
     });
     return;
@@ -2569,7 +2584,7 @@ $('#myPRs').addEventListener('click', (e) => {
     api('/api/self-review', { url: run.dataset.url }).then(r => {
       if (!r?.ok) {
         closeOp(opId, 'error', r?.error || 'falha ao iniciar');
-        toast('error', esc(r?.error || 'não consegui iniciar a autoanálise'));
+        toast('error', r?.error || 'não consegui iniciar a autoanálise');
         run.disabled = false; run.textContent = 'Analisar';
       } else {
         // daqui em diante quem move a barra é o feed real da sessão (evento
@@ -2601,7 +2616,7 @@ $('#myPRs').addEventListener('click', (e) => {
           toast('info', 'A branch de destino tem proteção. Escolha: Auto-merge (espera os requisitos) ou Merge (admin).', 6000);
           return;
         }
-        toast(mergeToastKind(r?.error), esc(r?.error || 'não consegui mergear'));
+        toast(mergeToastKind(r?.error), r?.error || 'não consegui mergear');
         mrg.disabled = false; mrg.textContent = 'Merge';
       });
     });
@@ -2618,7 +2633,7 @@ $('#myPRs').addEventListener('click', (e) => {
         // servidor já mostrou o toast acionável). Mantém as opções visíveis.
         autoUnavailableKeys.set(key, STATE.lastCheckAt || 0); mergeBlockedByPolicy.add(key); renderMyPRs(); return;
       }
-      toast(mergeToastKind(r?.error), esc(r?.error || 'não consegui ativar o auto-merge'));
+      toast(mergeToastKind(r?.error), r?.error || 'não consegui ativar o auto-merge');
       renderMyPRs();
     });
     return;
@@ -2636,7 +2651,7 @@ $('#myPRs').addEventListener('click', (e) => {
       api('/api/self-review/merge', { url: mAdmin.dataset.url, mode: 'admin' }).then(r => {
         if (r?.ok) { mergeBlockedByPolicy.delete(key); return; } // state push atualiza
         if (r?.blocked === 'rule') { adminUnavailableKeys.set(key, STATE.lastCheckAt || 0); renderMyPRs(); return; }
-        toast(mergeToastKind(r?.error), esc(r?.error || 'não consegui mergear como admin'));
+        toast(mergeToastKind(r?.error), r?.error || 'não consegui mergear como admin');
         mAdmin.disabled = false; mAdmin.textContent = 'Merge (admin)';
       });
     });
@@ -2654,7 +2669,7 @@ $('#myPRs').addEventListener('click', (e) => {
     api('/api/pr/hide', { key }).then(r => {
       if (r?.ok) return;
       hideOptimistic.delete(key); renderMyPRs(); renderRadarNav();
-      toast('error', esc(r?.error || 'não consegui ocultar este PR'));
+      toast('error', r?.error || 'não consegui ocultar este PR');
     });
     return;
   }
@@ -2666,7 +2681,7 @@ $('#myPRs').addEventListener('click', (e) => {
     api('/api/pr/unhide', { key }).then(r => {
       if (r?.ok) return;
       unhideOptimistic.delete(key); renderMyPRs(); renderRadarNav();
-      toast('error', esc(r?.error || 'não consegui reexibir este PR'));
+      toast('error', r?.error || 'não consegui reexibir este PR');
     });
   }
 });
@@ -2863,7 +2878,7 @@ function renderUpdate() {
       const r = await api('/api/update', {});
       // ocupado não é erro (v2.46.1): o clique agenda e o Farol aplica ao ficar ocioso
       if (r?.queued) toast('info', 'Tem análise, chat ou sessão de terminal em andamento. O update ficou agendado: assim que terminar, o Farol aplica sozinho, fecha e reabre.');
-      else if (!r?.ok) toast('error', esc(r?.error || 'não consegui iniciar a atualização'));
+      else if (!r?.ok) toast('error', r?.error || 'não consegui iniciar a atualização');
     };
   } else if (noAccess) {
     box.innerHTML = `
@@ -3018,8 +3033,8 @@ $('#team').addEventListener('click', async (e) => {
   });
   if (!ok) return;
   const r = await api('/api/team/remove', { login });
-  if (r && r.ok) { toast('ok', `@${esc(login)} removido do Time.`); loadTeam(); }
-  else toast('error', `Não deu pra remover: ${esc((r && r.error) || 'falha na chamada')}.`);
+  if (r && r.ok) { toast('ok', `@${login} removido do Time.`); loadTeam(); }
+  else toast('error', `Não deu pra remover: ${(r && r.error) || 'falha na chamada'}.`);
 });
 
 /* ---------- render: sistema ---------- */
@@ -3565,11 +3580,11 @@ $('#btnKudosCopy').onclick = async () => {
 /* limpar resultados de ferramenta: o painel some, nada além disso */
 $('#btnKudosClear').onclick = async () => {
   const r = await api('/api/tool/clear', { name: 'kudos', scope: kudosScopeKey() });
-  if (!r?.ok) toast('error', esc(r?.error || 'não consegui limpar'));
+  if (!r?.ok) toast('error', r?.error || 'não consegui limpar');
 };
 $('#btnHealthClear').onclick = async () => {
   const r = await api('/api/tool/clear', { name: 'health' });
-  if (!r?.ok) toast('error', esc(r?.error || 'não consegui limpar'));
+  if (!r?.ok) toast('error', r?.error || 'não consegui limpar');
   else toast('ok', 'Diagnóstico limpo. O próximo parte do estado atual.', 3000);
 };
 $('#btnLogClear').onclick = async () => {
@@ -3582,7 +3597,7 @@ $('#btnLogClear').onclick = async () => {
   });
   if (!ok) return;
   const r = await api('/api/log/clear');
-  if (!r?.ok) { toast('error', esc(r?.error || 'não consegui limpar o log')); return; }
+  if (!r?.ok) { toast('error', r?.error || 'não consegui limpar o log'); return; }
   toast('ok', 'Log de falhas zerado.', 3000);
   loadLog();
 };
@@ -3661,7 +3676,12 @@ function notifyNewPRs(data) {
     ? (n === 1 ? 'PR novo, revisando sozinho' : `${n} PRs novos, revisando sozinho`)
     : (n === 1 ? `PR aguardando sua revisão` : `${n} PRs aguardando sua revisão`);
   const body = n === 1 ? `${first.key}: ${first.title}` : data.items.map(i => i.key).join('  ·  ');
-  toast('info', `<b>${esc(title)}</b>&nbsp; ${esc(n === 1 ? first.key : '')}`);
+  toastRich('info', (el) => {
+    const strong = document.createElement('b');
+    strong.textContent = title;
+    el.appendChild(strong);
+    if (n === 1) el.appendChild(document.createTextNode(`\u00a0 ${first.key}`));
+  });
   if (!isElectron && 'Notification' in window) {
     if (Notification.permission === 'granted') {
       const notif = new Notification(`Farol · ${title}`, { body });
@@ -3695,7 +3715,7 @@ $('#btnKudos').onclick = async () => {
   showOp(opId, { type: 'tool', title: 'Gerando kudos', inline: true, container: btn.parentElement });
   const r = await api('/api/tool', { name: 'kudos', scope: kudosScopeKey() });
   if (r?.ok) closeOp(opId, 'done', 'Kudos gerado');
-  else { closeOp(opId, 'error', r?.error || 'não consegui gerar'); toast('info', esc(r?.error || 'não consegui gerar')); }
+  else { closeOp(opId, 'error', r?.error || 'não consegui gerar'); toast('info', r?.error || 'não consegui gerar'); }
 };
 $('#btnHealth').onclick = async () => {
   const btn = $('#btnHealth');
@@ -3752,8 +3772,17 @@ $('#queue').addEventListener('click', (e) => {
   if (ign) {
     const key = ign.dataset.key;
     api('/api/ignore', { key });
-    const t = toast('info', `<span>${esc(key)} ignorado.</span><button class="undo">Desfazer</button>`, 8000);
-    t.querySelector('.undo').onclick = () => { api('/api/restore', { key }); t.remove(); };
+    let undo;
+    const t = toastRich('info', (el) => {
+      const message = document.createElement('span');
+      message.textContent = `${key} ignorado.`;
+      undo = document.createElement('button');
+      undo.className = 'undo';
+      undo.textContent = 'Desfazer';
+      el.appendChild(message);
+      el.appendChild(undo);
+    }, 8000);
+    undo.onclick = () => { api('/api/restore', { key }); t.remove(); };
   }
 });
 
@@ -3888,7 +3917,7 @@ function connect() {
   });
   es.addEventListener('toast', (e) => {
     const t = safeJsonParse(e.data); if (!t) return;
-    toast(t.kind || 'info', esc(t.text));
+    toast(t.kind || 'info', t.text);
   });
   es.addEventListener('new-prs', (e) => { const d = safeJsonParse(e.data); if (d) notifyNewPRs(d); });
   es.addEventListener('auto-approved', () => ping());

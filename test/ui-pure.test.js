@@ -978,6 +978,26 @@ test('prKeyFromUrl devolve vazio pra entrada que não é URL de PR', () => {
   assert.equal(P.prKeyFromUrl(null), '');
 });
 
+test('canonicalGithubPrUrl aceita só PR do host github.com e remove query/fragmento', () => {
+  assert.equal(
+    P.canonicalGithubPrUrl(' https://github.com/biudtech/app/pull/123?notification_referrer_id=x#discussion_r1 '),
+    'https://github.com/biudtech/app/pull/123'
+  );
+  for (const value of [
+    'http://github.com/biudtech/app/pull/123',
+    'https://github.com.evil.example/biudtech/app/pull/123',
+    'https://evil.example/github.com/biudtech/app/pull/123',
+    'javascript:alert(1)//github.com/biudtech/app/pull/123',
+    'https://user@github.com/biudtech/app/pull/123',
+    'https://github.com/biudtech/app/pull/123/files',
+  ]) assert.equal(P.canonicalGithubPrUrl(value), '', value);
+});
+
+test('prKeyFromUrl não deriva chave de URL parecida com GitHub', () => {
+  assert.equal(P.prKeyFromUrl('https://github.com.evil.example/biudtech/app/pull/123'), '');
+  assert.equal(P.prKeyFromUrl('javascript:alert(1)//github.com/biudtech/app/pull/123'), '');
+});
+
 /* ---------- analysisOpsPlan: ciclo de vida do widget de autoanálise ---------- */
 
 test('analysisOpsPlan marca seen quando o key aparece rodando ou na fila', () => {

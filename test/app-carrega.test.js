@@ -32,7 +32,7 @@ import { instalarDom } from './helpers/dom-stub.js';
 
 const { emitir, listeners } = instalarDom();
 // carrega DEPOIS do stub: o app.js toca `document` no topo
-await import('../ui/app.js');
+const UI = await import('../ui/app.js');
 
 // estado plausível, no formato do snapshot() do engine
 const ESTADO = {
@@ -87,6 +87,14 @@ function semObjectObject(rotulo) {
 
 test('o app.js carrega e registra o handler de state do SSE', () => {
   assert.ok(listeners.has('state'), 'sem isto a tela nunca receberia estado nenhum');
+});
+
+test('toast trata conteúdo recebido como texto, nunca como HTML', () => {
+  const payload = '<img src=x onerror="globalThis.executou=true">';
+  const item = UI.toast('info', payload, 0);
+  assert.equal(item.textContent, payload);
+  assert.equal(item.innerHTML, '');
+  assert.equal(globalThis.executou, undefined);
 });
 
 test('desenhar a tela com um estado plausível não levanta exceção', () => {
