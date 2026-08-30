@@ -13,10 +13,21 @@ import path from 'node:path';
 import fs from 'node:fs';
 
 const HOME = process.env.FAROL_UI_SANDBOX || path.join(os.tmpdir(), 'farol-ui-sandbox');
-fs.mkdirSync(path.join(HOME, 'workspace', 'state'), { recursive: true });
+fs.mkdirSync(path.join(HOME, 'workspace', 'state'), { recursive: true, mode: 0o700 });
+
+// Criacao EXCLUSIVA com permissao restrita, e sem `existsSync` antes: o caminho e
+// previsivel dentro do temp compartilhado do SO, entao checar-e-depois-escrever abre
+// janela pra outro processo trocar o alvo entre as duas chamadas, e a escrita sem
+// `wx` seguiria um symlink plantado ali. `EEXIST` e o caso NORMAL (ja existe config
+// da rodada anterior) e por isso e o unico erro engolido. Alertas
+// js/insecure-temporary-file e js/file-system-race do CodeQL, PR #45; mesmo remedio
+// do materializeScope em lib/engine/pr-scope.js.
 const cfg = path.join(HOME, 'config.json');
-if (!fs.existsSync(cfg)) {
-  fs.writeFileSync(cfg, JSON.stringify({ port: 47192, autoReview: false, autoUpdate: false }, null, 2), 'utf8');
+try {
+  fs.writeFileSync(cfg, JSON.stringify({ port: 47192, autoReview: false, autoUpdate: false }, null, 2),
+    { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+} catch (err) {
+  if (err.code !== 'EEXIST') throw err;
 }
 process.env.FAROL_HOME = HOME;
 console.log(`[sandbox] FAROL_HOME=${HOME}`);
