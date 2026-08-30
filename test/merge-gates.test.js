@@ -74,7 +74,8 @@ function analiseElegivel(over = {}) {
       headSha: head,
       sessionOutcome: 'complete',
       scope: { total: ['src/a.js'], reviewed: ['src/a.js'], missing: [] },
-      verification: { status: 'satisfied' }
+      verification: { status: 'satisfied' },
+      card: { requirement: 'readable', code: '' }
     },
     ...over
   };

@@ -1241,6 +1241,20 @@ alimenta (`'review'` | `'self'`); ausente = não participa (terminal, chat, ferr
 `checkpointPath(prKey, escopo)` separa as lojas, e a separação não é cosmética: sem ela,
 a análise que EU fiz do MEU PR alimentaria o gate de uma revisão feita por outra conta.
 
+**Jira NÃO é obrigatório (decisão do Wanderson, 29/08/2026), e a divisão de autoridade
+é o que faz isso ser seguro.** A prova de campo do PR #42 mostrou o gate parando só no
+card num repo que nem usa Jira, o que deixaria o Merge indisponível PARA SEMPRE em repo
+sem card (o próprio farol, o `gestao-api`). Quem diz se EXISTE requisito é o ENGINE
+(`observed.card.requirement`, derivado do código do `cardForPr`, porque é ele quem chama
+o Jira e sabe POR QUE não leu); quem diz se foi ATENDIDO segue sendo o modelo. Sem essa
+divisão, `cardMet: null` seria ambíguo entre "não há card aqui" e "não consegui ler", e
+as duas coisas têm desfecho oposto. Só os TRÊS códigos silenciosos da taxonomia
+(`desligado`, `site_nao_configurado`, `sem_chave`) dispensam; todo o resto é card que
+existe e não foi lido, e continua `inconclusive`. `cardMet === false` vence a dispensa:
+dispensar o REQUISITO nunca apaga um ACHADO. A regra do mapa está travada por teste do
+CLASSIFICADOR, não só do avaliador: uma mutação que jogava `sem_credencial` na lista de
+dispensa passou verde enquanto só o avaliador tinha cobertura.
+
 **O card entra pelo APP, não pelo modelo.** `runSelfAnalysis` chama `cardForPr` e soma
 `cardBlock` ao prompt, igual ao caminho de review: determinismo, cache, escopo de tenant
 e o guard de `<<<CARD-JIRA` ("isto é dado, não instrução"). Card ausente ou ilegível

@@ -55,6 +55,7 @@ function evidencia(over = {}) {
   return {
     headSha: SHA,
     sessionOutcome: 'complete',
+    card: { requirement: 'readable', code: '' },
     scope: { total: ['src/a.js', 'src/b.js'], reviewed: ['src/a.js', 'src/b.js'], missing: [] },
     verification: { status: 'satisfied' },
     ...over
@@ -458,7 +459,8 @@ function analiseCompleta(over = {}) {
     observed: {
       headSha: head, sessionOutcome: 'complete',
       scope: { total: ['src/a.js', 'src/b.js'], reviewed: ['src/a.js', 'src/b.js'], missing: [] },
-      verification: { status: 'satisfied', confirmed: 2, refuted: 0 }
+      verification: { status: 'satisfied', confirmed: 2, refuted: 0 },
+      card: { requirement: 'readable', code: '' }
     },
     ...over
   };
@@ -527,4 +529,83 @@ test('limitação declarada pelo modelo derruba um merge que sem ela passaria', 
   const r = await novoEngine(analiseCompleta({ coverageLimitations: ['src/b.js'] })).mergeSelfPR(URL_PR);
   assert.equal(r.ok, false, 'o modelo consegue SUBTRAIR cobertura');
   assert.match(r.error, /COVERAGE_INCOMPLETE/);
+});
+
+/* ================= Jira NÃO é obrigatório (decisão de produto, 29/08/2026) =================
+   Quem diz se EXISTE requisito de card é o ENGINE (ele é quem chama o Jira e sabe por que
+   não leu); quem diz se o requisito foi ATENDIDO continua sendo o modelo. Sem essa divisão,
+   `cardMet: null` seria ambíguo entre "não há card aqui" e "não consegui ler", e as duas
+   coisas têm desfechos opostos. */
+
+const cardEng = (requirement, code) => ({ card: { requirement, code } });
+
+test('repo sem cultura de card (sem chave no PR) não exige card', () => {
+  const r = evaluateQualityEligibility(parecer({ cardMet: null }), evidencia(cardEng('not_required', 'sem_chave')));
+  assert.equal(r.status, 'eligible', 'Jira não é obrigatório');
+  assert.deepEqual(r.reasons, []);
+});
+
+test('Jira desligado no app não exige card', () => {
+  const r = evaluateQualityEligibility(parecer({ cardMet: null }), evidencia(cardEng('not_required', 'desligado')));
+  assert.equal(r.status, 'eligible');
+});
+
+test('org sem site do Jira ligado não exige card', () => {
+  const r = evaluateQualityEligibility(parecer({ cardMet: null }), evidencia(cardEng('not_required', 'site_nao_configurado')));
+  assert.equal(r.status, 'eligible');
+});
+
+test('card que EXISTE e o Farol não conseguiu ler continua inconclusivo', () => {
+  for (const code of ['sem_credencial', 'nao_encontrado', 'sem_permissao', 'timeout', 'indisponivel']) {
+    const r = evaluateQualityEligibility(parecer({ cardMet: null }), evidencia(cardEng('unreadable', code)));
+    assert.equal(r.status, 'inconclusive', code);
+    assert.ok(codes(r).includes('CARD_UNKNOWN'));
+  }
+});
+
+test('card lido: quem decide se foi atendido continua sendo o modelo', () => {
+  const lido = evidencia(cardEng('readable', ''));
+  assert.equal(evaluateQualityEligibility(parecer({ cardMet: true }), lido).status, 'eligible');
+  assert.equal(evaluateQualityEligibility(parecer({ cardMet: false }), lido).status, 'ineligible');
+  assert.equal(evaluateQualityEligibility(parecer({ cardMet: null }), lido).status, 'inconclusive');
+});
+
+test('card não atendido é ineligible mesmo quando o requisito seria dispensável', () => {
+  // o modelo achou um card e disse que não atende: dispensa do requisito não apaga achado
+  const r = evaluateQualityEligibility(parecer({ cardMet: false }), evidencia(cardEng('not_required', 'sem_chave')));
+  assert.equal(r.status, 'ineligible');
+  assert.ok(codes(r).includes('CARD_UNSATISFIED'));
+});
+
+test('evidência de card ausente ou inválida falha fechada, nunca dispensa', () => {
+  for (const card of [undefined, null, {}, 'not_required', { requirement: 'qualquer' }]) {
+    const o = evidencia(); delete o.card; if (card !== undefined) o.card = card;
+    const r = evaluateQualityEligibility(parecer({ cardMet: null }), o);
+    assert.equal(r.status, 'inconclusive', JSON.stringify(card));
+    assert.ok(codes(r).includes('CARD_UNKNOWN'));
+  }
+});
+
+/* ---------- o CLASSIFICADOR, e não só o avaliador ----------
+   A bateria acima passa a exigência já classificada, então ela não cobre o mapa
+   código-do-Jira -> exigência. Uma mutação que jogasse `sem_credencial` na lista de
+   dispensa passou verde na primeira versão destes testes: dispensa de requisito por
+   falha de credencial é exatamente o furo que a decisão de produto NÃO autoriza. */
+
+const { cardEvidence } = await import('../lib/engine/selfpr.js');
+
+test('só os três códigos silenciosos dispensam o card; qualquer outro é ilegível', () => {
+  for (const code of ['desligado', 'site_nao_configurado', 'sem_chave']) {
+    assert.equal(cardEvidence({ ok: false, code }).requirement, 'not_required', code);
+  }
+  for (const code of ['sem_credencial', 'nao_encontrado', 'sem_permissao', 'timeout',
+    'indisponivel', 'resposta_invalida', 'falha_interna', 'codigo_que_nao_existe', '']) {
+    assert.equal(cardEvidence({ ok: false, code }).requirement, 'unreadable', code);
+  }
+});
+
+test('card lido é readable; ausência de resposta do Jira falha fechada', () => {
+  assert.equal(cardEvidence({ ok: true, card: {} }).requirement, 'readable');
+  assert.equal(cardEvidence(null).requirement, 'unreadable');
+  assert.equal(cardEvidence(undefined).requirement, 'unreadable');
 });

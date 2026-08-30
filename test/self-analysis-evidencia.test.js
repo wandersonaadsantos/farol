@@ -202,3 +202,26 @@ test('o registro guarda a evidência bruta e nunca o veredito calculado', async 
   assert.equal(gravado.confidence, undefined, 'campo morto saiu do registro');
   assert.equal(engine.snapshot().selfAnalyses[CHAVE].quality.status, 'eligible');
 });
+
+/* ---------- Jira não é obrigatório: o cenário exato medido no PR #42 ---------- */
+
+test('repo sem Jira configurado passa a poder ficar elegível (era o único motivo que sobrava)', async () => {
+  // reproduz a prova de campo: cobertura completa, sessão completa, verificação ok, e
+  // `cardMet: null` porque não há Jira. Antes desta decisão isso travava em CARD_UNKNOWN.
+  const engine = novoEngine({ envelopeTexto: envelope({ cardMet: null }) });
+  engine.config.jiraSites = [];
+  await engine.runSelfAnalysis({ ...PR });
+  const gravado = engine.selfAnalyses[CHAVE];
+  assert.equal(gravado.observed.card.requirement, 'not_required');
+  assert.equal(gravado.observed.card.code, 'desligado');
+  assert.equal(engine.snapshot().selfAnalyses[CHAVE].quality.status, 'eligible');
+});
+
+test('quem classifica a exigência do card é o engine, não o envelope', async () => {
+  const engine = novoEngine({ envelopeTexto: envelope({ cardMet: true }) });
+  engine.config.jiraSites = [];
+  await engine.runSelfAnalysis({ ...PR });
+  // o modelo disse que atende; o engine registra que nem havia card a atender
+  assert.equal(engine.selfAnalyses[CHAVE].cardMet, true);
+  assert.equal(engine.selfAnalyses[CHAVE].observed.card.requirement, 'not_required');
+});
