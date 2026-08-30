@@ -301,7 +301,7 @@ Não existe `AppError` nem classificação central de erro. Há dezenas de `catc
 
 ## A constituição vem do eng-behaviour
 
-A doutrina que este repositório assina é o [eng-behaviour](https://github.com/wandersonaadsantos/eng-behaviour), constituição pessoal, e não mais o `engineering-standards` da BIUD. O Farol é repositório pessoal e responde à doutrina pessoal.
+A doutrina que este repositório assina é o [eng-behaviour](https://github.com/wandersonaadsantos/eng-behaviour). É a única, e não existe segunda doutrina valendo aqui.
 
 O escopo aplicável está em `eng-behaviour.json` (`core`), o recorte das regras vive versionado em `eng-behaviour.rules.md`, e `npm run eng` roda os dois gates do pacote: `check`, que prova byte a byte que o recorte versionado é o que o catálogo gera hoje, e `audit`, que roda a regra hard aplicável e exige evidência de avaliação das de julgamento.
 
