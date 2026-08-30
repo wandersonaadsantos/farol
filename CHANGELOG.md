@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.56.2
+
+Identidade: o token do GitHub que estiver no ambiente da sua máquina deixa de valer por cima da conta que o Farol resolveu.
+
+**Correções**
+
+- **Token do GitHub exportado no seu terminal deixa de entrar nas ações do Farol.** O app monta o ambiente de cada comando `gh` a partir do ambiente da máquina, então um `GH_TOKEN` (ou `GITHUB_TOKEN`) exportado no seu shell viajava junto. Nas chamadas em que o Farol não tinha token resolvido, o `gh` saía agindo como o dono daquela variável, sem nada na tela e sem linha no log. As duas variáveis passam a ser apagadas antes de o token da conta entrar, e "sem token" volta a significar o que sempre quis dizer, que é o `gh` usar o login dele mesmo. Com conta e token normais, nada muda.
+- **O Diagnóstico deixa de ficar verde por um token que o Farol não usaria.** Sem conta configurada, o check de autenticação do GitHub perguntava de um jeito que aceita o token do ambiente, então ele podia dizer "autenticado" enquanto nenhuma ação usaria aquela credencial. Agora ele pergunta no mesmo ambiente em que o app age, e responde pela identidade certa.
+- Efeito colateral útil pra quem desenvolve o Farol: a suíte deixou de depender de a máquina não ter `GH_TOKEN` exportado. Quem usa o `gh` no dia a dia via o gate local reprovar com cara de regressão do código.
+
 ## v2.56.1
 
 Higiene: o instalador de macOS deixa de depender de alguem lembrar, e o parecer da autoanalise passa a ter um campo so.
