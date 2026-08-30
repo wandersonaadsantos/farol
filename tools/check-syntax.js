@@ -13,10 +13,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { ignorar } from './nao-e-fonte.js';
 
 const RAIZ = path.join(import.meta.dirname, '..');
-// node_modules e dist não são nossos; .worktrees e scratchpad são scratch local
-const IGNORAR = new Set(['node_modules', 'dist', '.git', '.worktrees', '.claude', '.superpowers', 'scratchpad_test']);
+// Este gate olha TODO .js do projeto, entao nao pula nada alem do comum.
+const IGNORAR = ignorar();
 
 function varrer(dir, achados = []) {
   for (const item of fs.readdirSync(dir, { withFileTypes: true })) {

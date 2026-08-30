@@ -8,10 +8,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { executadoDireto } from '../../lib/paths.js';
 import { scanFile } from './rules.js';
+import { ignorar } from '../nao-e-fonte.js';
 
 const RAIZ = path.join(import.meta.dirname, '..', '..');
 const BASELINE = path.join(import.meta.dirname, 'baseline.json');
-const IGNORAR = new Set(['node_modules', 'dist', '.git', '.worktrees', '.claude', '.superpowers', 'scratchpad_test', 'test', 'docs', 'workspace-template', 'installer', 'assets']);
+// Os extras sao deste gate: ele mede o codigo de producao, entao suite,
+// documentacao, o template distribuido e material de instalador ficam de fora.
+const IGNORAR = ignorar('test', 'docs', 'workspace-template', 'installer', 'assets');
 
 function listar(dir, achados = []) {
   for (const item of fs.readdirSync(dir, { withFileTypes: true })) {

@@ -7,9 +7,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { executadoDireto } from '../../lib/paths.js';
+import { ignorar } from '../nao-e-fonte.js';
 
 const RAIZ = path.join(import.meta.dirname, '..', '..');
-const IGNORAR = new Set(['node_modules', 'dist', '.git', '.worktrees', '.claude', 'scratchpad_test', 'docs', 'workspace-template', 'assets', '.superpowers']);
+// Os extras sao desta higiene: mapear release a card e o papel do CHANGELOG e
+// do docs/, e o workspace-template e o produto do Farol, nao fonte auditada.
+const IGNORAR = ignorar('docs', 'workspace-template', 'assets');
 // Arquivo especifico ignorado: test/quality-higiene.test.js contém fixtures
 // com BT-*/BUGS-* literais como dados de teste para validar a detecção.
 const ARQUIVOS_IGNORADOS = new Set(['test/quality-higiene.test.js']);
