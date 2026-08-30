@@ -78,6 +78,14 @@ npm run lint --silent || falhou "o gate de qualidade"
 echo "  -> suite (npm test)"
 npm test --silent || falhou "a suite"
 
+# --- constituicao (npm run eng) ------------------------------------------------
+# Fica AQUI e nao no `npm run lint`, que roda no CI. O porque tem um endereco so,
+# em docs/QUALITY.md, secao "A constituicao vem do eng-behaviour". O que importa
+# para este hook: como ele tambem proibe push direto na main, todo caminho ate a
+# main atravessa este gate.
+echo "  -> constituicao (npm run eng)"
+npm run eng --silent || falhou "o gate do eng-behaviour"
+
 echo ""
 echo "  ok  gate local verde. Lembrando que a matriz Linux/Windows/macOS so fecha no CI."
 echo ""

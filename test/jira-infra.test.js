@@ -1,5 +1,5 @@
 // As duas peças de infra que o resto do Jira consome: os literais com endereço
-// único (contrato engineering-standards) e o serializador que não derruba o
+// único (core.duplication.business-rule) e o serializador que não derruba o
 // processo em referência circular, já que o servidor MCP escreve resposta a
 // cada chamada e um throw ali mataria a sessão de revisão inteira.
 import { test } from 'node:test';

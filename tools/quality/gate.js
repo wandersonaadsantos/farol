@@ -1,4 +1,4 @@
-// Gate de ratchet do contrato engineering-standards. A baseline registra a
+// Gate de ratchet do enforcement mecânico do Farol. A baseline registra a
 // dívida ATUAL por arquivo/regra; o gate reprova qualquer contagem que SUBA
 // (arquivo novo com violação = subir de zero). Corrigiu dívida? Rode --update
 // pra travar o número novo, mais baixo. A baseline NUNCA sobe à mão.
@@ -61,7 +61,7 @@ function main() {
   catch { console.error('baseline.json ilegível: regenere com --update'); return 2; }
   const { regressoes } = comparar(atual, baseline);
   if (regressoes.length) {
-    console.error('== regressão de qualidade (contrato engineering-standards) ==');
+    console.error('== regressão de qualidade (gate mecanico do Farol) ==');
     for (const r of regressoes) console.error('  ' + r);
     console.error('Corrija a violação nova; a baseline só desce.');
     return 1;
