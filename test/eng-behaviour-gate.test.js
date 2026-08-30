@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { envGitLimpo } from './helpers/git-limpo.js';
-import { resolverCli, versaoDo, raizPrincipal, ajudaPara, rodar } from '../tools/eng-behaviour/gate.js';
+import { resolverCli, versaoDo, raizPrincipal, ajudaPara, rodar, baseDaEntrega } from '../tools/eng-behaviour/gate.js';
 
 /**
  * Ate quando esperar cada chamada de git da montagem antes de desistir.
@@ -401,4 +401,57 @@ test('a leitura do package.json alheio nao escreve nada ao lado dele', () => {
   fs.writeFileSync(alvo, '{ isto nao e json', 'utf8');
   assert.equal(versaoDo(home), 'desconhecida');
   assert.deepEqual(fs.readdirSync(home), ['package.json'], 'nada pode ter sido criado ao lado');
+});
+
+/*
+ * A base da entrega.
+ *
+ * O `audit` do eng-behaviour 0.4.0 passou a exigir `--base`, porque sem ela não
+ * há entrega para auditar, só uma árvore. O gate não passava a flag, e o efeito
+ * foi imediato e amplo: `npm run eng` saía 2 em qualquer clone, e como ele roda
+ * no pre-push, NENHUM push passava sem `--no-verify`.
+ *
+ * A base é derivada do git, não configurada: `origin/main` quando existe, e
+ * `main` como degrau para o clone que ainda não buscou o remoto. Sem nenhuma das
+ * duas o gate falha fechado, que é a doutrina deste arquivo.
+ *
+ * Repositório de verdade, com o mesmo cuidado de ambiente do resto do arquivo: o
+ * comportamento sob teste É a resposta do git.
+ */
+function repoComBase(criarOriginMain, nomeDoRamo = 'main') {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-base-'));
+  const env = envGitLimpo();
+  const git = (args) =>
+    execFileSync('git', [...ARGS_GIT_NEUTROS, ...args], {
+      cwd: dir, env, encoding: 'utf8', stdio: 'pipe', timeout: 20_000,
+    });
+  git(['init', '-q', '-b', nomeDoRamo]);
+  git(['config', 'user.email', 'teste@exemplo.invalido']);
+  git(['config', 'user.name', 'teste']);
+  fs.writeFileSync(path.join(dir, 'a.txt'), 'conteudo inicial');
+  git(['add', '-A']);
+  git(['commit', '-qm', 'inicial']);
+  if (criarOriginMain) git(['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+  return dir;
+}
+
+test('a base da entrega e origin/main quando o remoto ja foi buscado', { timeout: 30_000 }, () => {
+  const dir = repoComBase(true);
+  try {
+    assert.equal(baseDaEntrega(dir), 'origin/main');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('sem origin/main, a base cai na main local (clone que ainda nao buscou o remoto)', { timeout: 30_000 }, () => {
+  const dir = repoComBase(false);
+  try {
+    assert.equal(baseDaEntrega(dir), 'main');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('sem base nenhuma o gate falha fechado, em vez de auditar arvore sem entrega', { timeout: 30_000 }, () => {
+  const dir = repoComBase(false, 'outra');
+  try {
+    assert.equal(baseDaEntrega(dir), null);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

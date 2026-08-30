@@ -216,6 +216,38 @@ function leituraSemRastro(caminho) {
  * a CLI não conseguiu rodar, que é problema de ambiente e não do código medido, e
  * mandar regenerar o recorte por causa disso apontaria para o repositório errado.
  */
+/**
+ * Base da entrega que o `audit` audita.
+ *
+ * A partir da v0.4.0 o `audit` exige `--base`, porque sem ela não há entrega
+ * para auditar, só uma árvore. Sem a flag ele sai 2, e como este gate roda no
+ * pre-push isso bloqueava TODO push do repositório.
+ *
+ * A base é DERIVADA do git e não configurada, pela mesma razão de
+ * `raizPrincipal`: chave para alguém preencher seria configuração sem
+ * consumidor, e o git já sabe a resposta. `origin/main` primeiro, porque é
+ * contra ela que a entrega abre PR; `main` local é o degrau para o clone que
+ * ainda não buscou o remoto. Sem nenhuma das duas devolve null, e quem chama
+ * falha fechado: auditar árvore sem entrega é atestar o que não se verificou.
+ *
+ * Mesmo cuidado de ambiente e de teto do `raizPrincipal`, e pelo mesmo motivo:
+ * rodando dentro do pre-push, um git que herde GIT_DIR responderia pelo
+ * repositório do hook, e um git que trave penduraria o push em vez de reprovar.
+ */
+function baseDaEntrega(base = RAIZ) {
+  const env = envSemRepositorioHerdado();
+  for (const ref of ['origin/main', 'main']) {
+    const r = spawnSync('git', ['rev-parse', '--verify', '--quiet', ref], {
+      cwd: base,
+      env,
+      encoding: 'utf8',
+      timeout: TETO_DE_ESPERA_DO_GIT_MS,
+    });
+    if (r.status === 0 && (r.stdout || '').trim()) return ref;
+  }
+  return null;
+}
+
 function rodar(cli, args) {
   const r = spawnSync(process.execPath, [cli, ...args], {
     cwd: RAIZ,
@@ -254,7 +286,14 @@ function main() {
     return drift.code;
   }
 
-  const audit = rodar(cli, ['audit', '--repo', '.', '--assessments', 'avaliacoes.jsonl']);
+  const base = baseDaEntrega();
+  if (!base) {
+    console.error('eng-behaviour: nao achei origin/main nem main para servir de base da entrega.');
+    console.error('Busque o remoto (git fetch origin) ou rode o gate de um clone que tenha a main.');
+    return 2;
+  }
+
+  const audit = rodar(cli, ['audit', '--repo', '.', '--base', base, '--assessments', 'avaliacoes.jsonl']);
   console.log(audit.saida);
   if (audit.code !== 0) {
     console.error('eng-behaviour: o gate reprovou.');
@@ -280,5 +319,5 @@ if (executadoDireto(import.meta.url)) process.exit(Math.min(main(), 2));
 // core.abstraction.no-premature nomeia. `irmaoDoRepositorio` e `ehEsteCheckout`
 // ficam de fora porque ninguem as le daqui, e exportar o que ninguem le e o campo
 // sem leitor que a mesma regra condena.
-export default { resolverCli, versaoDo, raizPrincipal, ajudaPara, rodar };
-export { resolverCli, versaoDo, raizPrincipal, ajudaPara, rodar };
+export default { resolverCli, versaoDo, raizPrincipal, ajudaPara, rodar, baseDaEntrega };
+export { resolverCli, versaoDo, raizPrincipal, ajudaPara, rodar, baseDaEntrega };
