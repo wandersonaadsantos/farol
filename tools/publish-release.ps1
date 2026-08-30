@@ -67,7 +67,16 @@ if (Test-Path $macInstaller) { Remove-Item $macInstaller -Force }
 $bash = Get-Command bash -ErrorAction SilentlyContinue
 if ($bash) {
   Write-Host '  -> Gerando o instalador offline do macOS (Apple Silicon)' -ForegroundColor Cyan
-  & bash (Join-Path $PSScriptRoot 'make-offline-mac.sh') 2>&1 | Out-Null
+  # `*> $null` engole TODOS os fluxos, e o ErrorActionPreference cai pra Continue em
+  # volta da chamada de proposito: o curl do script escreve a barra de progresso no
+  # STDERR, e com 'Stop' o PowerShell trata saida nativa em stderr como erro
+  # terminante. Medido em campo: a primeira versao deste passo usava `2>&1 | Out-Null`
+  # e abortou a publicacao da v2.56.1 depois de ja ter construido os dois instaladores.
+  # O que decide se deu certo e o arquivo existir, nao o fluxo de erro.
+  $eapAnterior = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  & bash (Join-Path $PSScriptRoot 'make-offline-mac.sh') *> $null
+  $ErrorActionPreference = $eapAnterior
 } else {
   Write-Host '  !  bash nao encontrado: instalador de macOS NAO sera anexado' -ForegroundColor Yellow
 }
