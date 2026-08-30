@@ -259,8 +259,13 @@ function main() {
 }
 
 // `main` ja devolve so 0, 1 ou 2. O clamp existe porque esta e a ultima linha
-// antes do SO e `process.exit` trunca em 8 bits: um engano futuro que devolvesse
-// 256 daqui viraria aprovacao silenciosa no shell.
+// antes do SO e o codigo de saida e truncado em 8 bits: um engano futuro que
+// devolvesse 256 daqui viraria aprovacao silenciosa.
+//
+// Ele protege a saida DESTE processo, e so ela. Medido em CI: quando o truncamento
+// acontece no filho, em Linux e macOS ele ocorre antes de o pai ler, entao 256
+// chega ao `rodar` como 0 e nao ha o que traduzir. No Windows chega inteiro. A
+// assimetria e do sistema, nao do codigo.
 if (executadoDireto(import.meta.url)) process.exit(Math.min(main(), 2));
 // Exporta so o que tem leitor, e todos os leitores sao a suite: sem essa costura
 // nao havia como observar os comportamentos, que e a excecao que a

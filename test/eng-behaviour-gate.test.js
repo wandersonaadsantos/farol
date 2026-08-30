@@ -270,14 +270,20 @@ test('exit fora de 0 e 1 e problema de ambiente, nao achado do repositorio', () 
   assert.equal(rodar(cli, []).code, 2);
 });
 
-test('codigo multiplo de 256 nao vira aprovacao', () => {
-  // `process.exit` trunca em 8 bits: 256 chega ao shell como 0. Sem a traducao, um
-  // processo morto com esse codigo passaria por aprovado.
-  const cli = cliDeMentira('console.log("morri"); process.exit(256);\n');
-  const r = rodar(cli, []);
-  assert.notEqual(r.code, 0, '256 nao pode ser lido como sucesso');
-  assert.equal(r.code, 2);
-});
+/*
+ * Não existe caso para "filho sai com 256", e a ausência é a conclusão de uma
+ * medição, não um esquecimento.
+ *
+ * Eu escrevi esse caso. Ele passou no Windows e REPROVOU no Linux e no macOS: em
+ * POSIX o próprio sistema trunca o código do filho em 8 bits ANTES de o pai ler,
+ * então 256 chega ao `rodar` como 0 e não há como distinguir de sucesso. Não há o
+ * que traduzir ali, e um caso que afirmasse o contrário estaria afirmando uma
+ * verdade de um sistema só.
+ *
+ * O que a tradução protege de verdade está no caso acima, de código fora de 0 e 1.
+ * O clamp da última linha do módulo protege a saída DESTE processo, que é a parte
+ * que está na nossa mão.
+ */
 
 test('saida grande nao e descartada por estouro de buffer', () => {
   // Com o `maxBuffer` padrao de 1 MiB o processo morre por ENOBUFS e TODOS os
