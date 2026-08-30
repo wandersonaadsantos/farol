@@ -46,6 +46,7 @@ const ESTADO = {
     parallelReviews: 1, theme: 'dark', autoUpdate: true, autoPushback: true,
     reviewModel: '', reviewEffort: '', codexReviewModel: '', codexReviewEffort: '',
     mergeBlockedRepos: [], soundEnabled: true,
+    teamHighlights: false, deliveriesEnabled: false,
     defaultReviewers: { acme: ['bob'] }, projectReviewers: { 'acme/api': ['carol'] },
     people: { bob: { papel: 'senior' } }, claudeProfiles: [], claudeProfileId: '',
   },
@@ -92,6 +93,17 @@ test('desenhar a tela com um estado plausível não levanta exceção', () => {
   // é o teste que teria pego os dois bugs de 18/08
   assert.equal(emitir('state', ESTADO), 1, 'o handler rodou');
   semObjectObject('estado cheio');
+});
+
+test('Destaques e Entregas só ficam visíveis quando habilitados em Sistema', () => {
+  const destaques = document.querySelector('#tabbtn-destaques');
+  const entregas = document.querySelector('#tabbtn-entregas');
+  emitir('state', { ...ESTADO, config: { ...ESTADO.config, teamHighlights: false, deliveriesEnabled: false } });
+  assert.equal(destaques.hidden, true);
+  assert.equal(entregas.hidden, true);
+  emitir('state', { ...ESTADO, config: { ...ESTADO.config, teamHighlights: true, deliveriesEnabled: true } });
+  assert.equal(destaques.hidden, false);
+  assert.equal(entregas.hidden, false);
 });
 
 test('estado vazio (primeiro boot, antes de qualquer checagem) não explode', () => {

@@ -291,6 +291,19 @@ let CURRENT_TAB = 'radar';   // a barra de contas só filtra o Radar; nas outras
 // espelha a aba no <body> pro CSS ajustar a largura útil (a aba Sistema tem sidebar e
 // precisa de mais). switchTab não roda no boot, então a aba inicial é marcada aqui.
 document.body.dataset.tab = CURRENT_TAB;
+function teamHighlightsEnabled() { return STATE?.config?.teamHighlights === true; }
+function deliveriesEnabled() { return STATE?.config?.deliveriesEnabled === true; }
+function syncOptionalTabsVisibility() {
+  const features = [
+    { tab: 'destaques', enabled: teamHighlightsEnabled() },
+    { tab: 'entregas', enabled: deliveriesEnabled() },
+  ];
+  for (const feature of features) {
+    $(`#tabbtn-${feature.tab}`).hidden = !feature.enabled;
+    $(`#tab-${feature.tab}`).hidden = !feature.enabled;
+    if (!feature.enabled && CURRENT_TAB === feature.tab) switchTab('radar');
+  }
+}
 function identGuardada() {
   const v = localStorage.getItem('farol-identity-style');
   if (v === 'Só ponto') return v;
@@ -1238,6 +1251,8 @@ function marcarSeg(botoes, ehAtivo) {
 }
 
 function switchTab(name) {
+  if (name === 'destaques' && !teamHighlightsEnabled()) name = 'radar';
+  if (name === 'entregas' && !deliveriesEnabled()) name = 'radar';
   CURRENT_TAB = name;
   document.body.dataset.tab = name;   // largura útil por aba (ver body[data-tab] no app.css)
   // aria-selected junto com a classe: a classe pinta, o aria é o que o leitor de tela lê
@@ -1305,6 +1320,8 @@ const SYS_INDEX = [
   { sec: 'prefs', at: '#sys-row-identity', title: 'Identidade nos cards', hint: 'barra, etiqueta, ponto, marcador' },
   { sec: 'prefs', at: '#sys-row-mutedview', title: 'Contas silenciadas', hint: 'recolher, esmaecer, ocultar, exibição' },
   { sec: 'prefs', at: '#sys-row-sound', title: 'Som ao chegar PR novo', hint: 'som, aviso, notificação' },
+  { sec: 'prefs', at: '#sys-row-teamhighlights', title: 'Destaques do time', hint: 'destaques, kudos, elogios, memória, time, equipe' },
+  { sec: 'prefs', at: '#sys-row-deliveries', title: 'Entregas', hint: 'entregas, merges, prs mergeados, github, atividade' },
   { sec: 'prefs', at: '#rowAutostart', title: 'Iniciar com o Windows', hint: 'autostart, inicialização, segundo plano' },
   { sec: 'news', at: '#relNotes', title: 'Novidades por versão', hint: 'changelog, release notes, o que mudou' },
   { sec: 'diag', at: '#sys-row-spawns', title: 'Registrar processos (diagnóstico)', hint: 'spawns, terminal piscando, debug' },
@@ -1629,7 +1646,7 @@ function cmdStatic() { return [
           run: async () => { for (const d of visiveis) await decide(d.id, 'approve'); } }]
       : [];
   })(),
-  ...[...document.querySelectorAll('.nav-item')].map(b => ({ kind: 'tab', label: `Ir para ${b.textContent}`, hint: 'aba', run: () => switchTab(b.dataset.tab) })),
+  ...[...document.querySelectorAll('.nav-item')].filter(b => !b.hidden).map(b => ({ kind: 'tab', label: `Ir para ${b.textContent}`, hint: 'aba', run: () => switchTab(b.dataset.tab) })),
   // as 9 seções do Sistema, lidas do DOM: seção nova entra aqui sozinha.
   // .trim() porque o botão tem um <svg aria-hidden="true"> antes do texto e sobra espaço em branco.
   ...[...document.querySelectorAll('.sys-nav-item')].map(b => ({
@@ -1714,7 +1731,7 @@ document.addEventListener('keydown', (e) => {
   if (!$('#chatPanel').hidden) return;
   const k = e.key;
   if (k >= '1' && k <= '6') {
-    const tabs = [...document.querySelectorAll('.nav-item')];
+    const tabs = [...document.querySelectorAll('.nav-item')].filter(b => !b.hidden);
     const btn = tabs[Number(k) - 1];
     if (btn) { switchTab(btn.dataset.tab); e.preventDefault(); }
     return;
@@ -1775,6 +1792,7 @@ function marcarDelivDays() {
 }
 
 async function loadDeliveries() {
+  if (!deliveriesEnabled()) return;
   renderDelivOrgSelect();
   marcarDelivDays();
   marcarSeg(document.querySelectorAll('#delivBy .seg-btn'), b => b.dataset.by === deliveriesBy);
@@ -3492,6 +3510,8 @@ function renderSettings() {
   $('#setDebugSpawns').checked = !!c.debugSpawns;
   $('#setSkipPerms').checked = !!c.skipPermissions;
   $('#setSound').checked = !!c.soundEnabled;
+  $('#setTeamHighlights').checked = c.teamHighlights === true;
+  $('#setDeliveriesEnabled').checked = c.deliveriesEnabled === true;
   $('#setAutostart').checked = !!c.autostart;
   // autostart: só no Windows (no macOS o login item abriria o Electron sem os args do app,
   // ver applyAutostart em main.js). A plataforma vem do engine, não do userAgent.
@@ -3783,6 +3803,8 @@ const settingsMap = [
   ['#setReReviewResume', 'reReviewResume', el => el.checked],
   ['#setSkipPerms', 'skipPermissions', el => el.checked],
   ['#setSound', 'soundEnabled', el => el.checked],
+  ['#setTeamHighlights', 'teamHighlights', el => el.checked],
+  ['#setDeliveriesEnabled', 'deliveriesEnabled', el => el.checked],
   ['#setAutostart', 'autostart', el => el.checked]
 ];
 for (const [sel, key, read] of settingsMap) {
@@ -3806,6 +3828,7 @@ function connect() {
   es.addEventListener('state', (e) => {
     const d = safeJsonParse(e.data); if (!d) return; STATE = d;
     aplicaPlataforma(STATE.app && STATE.app.platform);   // engine manda; o userAgent era só o palpite inicial
+    syncOptionalTabsVisibility();
     rebuildAccounts();
     renderStatus(); renderAccountBar(); renderIdentity();
     renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSilenced();
