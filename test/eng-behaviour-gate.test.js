@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { envGitLimpo } from './helpers/git-limpo.js';
 import { resolverCli, versaoDo, raizPrincipal, ajudaPara } from '../tools/eng-behaviour/gate.js';
 
 /**
@@ -23,6 +24,22 @@ import { resolverCli, versaoDo, raizPrincipal, ajudaPara } from '../tools/eng-be
  * aqui a chamada escreve em disco, e nao so consulta.
  */
 const TETO_DO_GIT_NO_TESTE_MS = 20_000;
+
+/**
+ * Argumentos que neutralizam o que a maquina de quem roda a suite pode ter ligado.
+ *
+ * `commit.gpgsign=false` porque assinatura obrigatoria faz o `git commit` esperar
+ * o pinentry, e `execFileSync` bloqueia o event loop: nem o teto do runner
+ * interromperia. `core.hooksPath=` porque um `pre-commit` que reprova derruba a
+ * montagem por um motivo que nao tem nada a ver com o que este arquivo mede.
+ *
+ * Os dois sobrevivem ao config neutro do `envGitLimpo` de proposito: eles tambem
+ * cobrem hook no caminho padrao (`.git/hooks`), que config nenhum desliga.
+ *
+ * Mora aqui, e nao no ajudante compartilhado, porque este e o unico arquivo que
+ * ESCREVE com git. Quem so consulta nao precisa deles.
+ */
+const ARGS_GIT_NEUTROS = ['-c', 'commit.gpgsign=false', '-c', 'core.hooksPath='];
 
 function temporario(prefixo) {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefixo));
@@ -89,14 +106,25 @@ function repoComWorktree(nomeDoPacote = 'farol') {
     JSON.stringify({ name: nomeDoPacote }),
     'utf8',
   );
-  // Teto por chamada, e `commit.gpgsign=false` local: os dois existem para este
-  // bloco nao poder pendurar a suite. Assinatura ligada no config global faria o
-  // `git commit` esperar o pinentry, e `execFileSync` bloqueia o event loop, entao
-  // nem o teto do runner de testes interromperia. So o teto do proprio processo
-  // resolve, e por isso ele esta aqui e nao no caso.
+  // Tres protecoes, com motivos diferentes, e nenhuma e opcional.
+  //
+  // O TETO por chamada existe para este bloco nao poder pendurar a suite:
+  // `execFileSync` bloqueia o event loop, entao nem o teto do runner de testes
+  // interromperia uma chamada travada. So o teto do proprio processo resolve.
+  //
+  // Os ARGS_GIT_NEUTROS desligam assinatura (que faria o `git commit` esperar o
+  // pinentry, o jeito mais provavel de travar) e hooks (um `pre-commit` global
+  // que reprova derrubaria a montagem por um motivo alheio ao que se mede aqui).
+  //
+  // O ENV LIMPO e o mais serio dos tres, e a razao esta no `git-limpo.js`: sem
+  // ele, `git init` e `git config` herdam o GIT_DIR do hook de push e escrevem no
+  // repositorio REAL em vez do temporario. Ja aconteceu, e o estrago foi
+  // `core.bare = true` mais a identidade do teste no config do Farol.
+  const env = envGitLimpo();
   const git = (args, cwd) =>
-    execFileSync('git', ['-c', 'commit.gpgsign=false', ...args], {
+    execFileSync('git', [...ARGS_GIT_NEUTROS, ...args], {
       cwd,
+      env,
       encoding: 'utf8',
       stdio: 'pipe',
       timeout: TETO_DO_GIT_NO_TESTE_MS,
@@ -120,6 +148,65 @@ function repoComWorktree(nomeDoPacote = 'farol') {
   }
   return { base, principal, wt };
 }
+
+/*
+ * A montagem acima escreve em disco, e por isso ela mesma precisa de teste: um
+ * `git init` que erra o alvo nao falha, ele acerta OUTRO repositorio calado.
+ *
+ * Regressao de 30/08/2026. Empurrando de uma worktree ligada, o hook de pre-push
+ * exportou GIT_DIR para o `npm test`, a montagem herdou, e as tres primeiras
+ * chamadas foram parar no repositorio do proprio Farol: o `git init` o
+ * reinicializou como BARE (gitdir de worktree nao tem arvore ao lado) e o
+ * `git config` gravou `teste` / `teste@exemplo` no config compartilhado. A
+ * identidade contaminada teria posto autor errado em qualquer commit, e o
+ * `core.bare` derrubou em seguida todo `git check-ignore` da suite.
+ *
+ * O caso compara o config do repositorio de fora byte a byte, e nao so procura
+ * `[user]`: os dois estragos foram diferentes, e a proxima variante tambem sera.
+ */
+test('a montagem do repositorio de prova nao escreve no repositorio apontado por GIT_DIR', () => {
+  const casa = temporario('farol-vitima-');
+  // Um `finally` so, e a limpeza condicionada ao que existe: sem o conserto a
+  // montagem LANCA no meio, e o caminho de falha e justamente o que precisa
+  // limpar. E a mesma licao que a propria montagem ja aprendeu logo acima.
+  let montado;
+  try {
+    const vitima = path.join(casa, 'vitima');
+    fs.mkdirSync(vitima);
+    execFileSync('git', [...ARGS_GIT_NEUTROS, 'init', '-q', '-b', 'main'], {
+      cwd: vitima,
+      env: envGitLimpo(),
+      stdio: 'pipe',
+      timeout: TETO_DO_GIT_NO_TESTE_MS,
+    });
+    const config = path.join(vitima, '.git', 'config');
+    const antes = fs.readFileSync(config, 'utf8');
+
+    // Envenena do jeito exato que o hook de push envenenava, e restaura sempre: o
+    // processo de teste e compartilhado com os outros casos deste arquivo.
+    const salvo = process.env.GIT_DIR;
+    try {
+      process.env.GIT_DIR = path.join(vitima, '.git');
+      montado = repoComWorktree();
+    } finally {
+      if (salvo === undefined) delete process.env.GIT_DIR;
+      else process.env.GIT_DIR = salvo;
+    }
+
+    assert.equal(
+      fs.readFileSync(config, 'utf8'),
+      antes,
+      'a montagem alterou o config de um repositorio que nao e dela',
+    );
+    // E o repositorio de prova precisa ter sido montado de verdade, senao o caso
+    // passaria tambem se a montagem nao tivesse feito nada.
+    assert.ok(fs.existsSync(path.join(montado.principal, '.git')), 'o repositorio de prova nasceu');
+    assert.ok(fs.existsSync(path.join(montado.wt, 'a.txt')), 'a worktree de prova nasceu');
+  } finally {
+    if (montado) fs.rmSync(montado.base, { recursive: true, force: true });
+    fs.rmSync(casa, { recursive: true, force: true });
+  }
+});
 
 /**
  * Compara caminho sem depender de separador nem da forma do nome no Windows.
