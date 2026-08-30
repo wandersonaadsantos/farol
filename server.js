@@ -681,6 +681,16 @@ class Engine extends EventEmitter {
     const env = { ...process.env, GH_PAGER: 'cat', PAGER: 'cat', GH_PROMPT_DISABLED: '1' };
     const tok = this.tokenFor(user);
     if (user && !tok) throw new Error(`conta ${user} sem token no gh (rode: gh auth login --user ${user})`);
+    // limpa ANTES de setar, pela mesma razão do applyClaudeAuthEnv: o env parte de
+    // { ...process.env }, e um token exportado no shell de quem abriu o Farol é
+    // identidade herdada igual à do A1, só que vinda de fora. Sem token resolvido
+    // (primária sem token, caminho legado do doctor/boot) o filho saía agindo como
+    // o dono daquela variável, calado; agora o gh cai no próprio keyring, que é o
+    // que "sem token" sempre quis dizer. As DUAS variáveis porque o gh lê as duas
+    // no github.com (GH_TOKEN vence, GITHUB_TOKEN é a reserva) e limpar uma só
+    // deixaria a mesma herança entrar pela vizinha.
+    delete env.GH_TOKEN;
+    delete env.GITHUB_TOKEN;
     if (tok) env.GH_TOKEN = tok;
     env.FAROL_PORT = String(this.config.port || DEFAULT_PORT);
     if (this.gitBash) env.CLAUDE_CODE_GIT_BASH_PATH = this.gitBash;

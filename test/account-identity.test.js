@@ -242,3 +242,44 @@ test('ghEnv: sem user e sem token nenhum não lança (comportamento legado do do
   const env = e.ghEnv();
   assert.equal('GH_TOKEN' in env, false);
 });
+
+// Token da MÁQUINA no ambiente é o mesmo A1 por outra porta: ghEnv parte de
+// { ...process.env }, então, sem token resolvido, o filho saía agindo como a
+// identidade do shell de quem abriu o Farol. Mesma correção (e mesma lição) do
+// loginConsoleEnv em G21: quem cumpre a promessa tem que ser o código, não o
+// ambiente. O helper suja o ambiente de propósito e restaura no fim; sem ele,
+// estes casos passariam só nas máquinas que não exportam token nenhum.
+function comEnvDaMaquina(vars, fn) {
+  const antes = {};
+  for (const [k, v] of Object.entries(vars)) { antes[k] = process.env[k]; process.env[k] = v; }
+  try { return fn(); } finally {
+    for (const [k, v] of Object.entries(antes)) {
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
+  }
+}
+
+test('ghEnv: GH_TOKEN da máquina no ambiente não vaza pro filho quando não há token resolvido', () => {
+  const e = engineDuasContas();
+  e.token = null;
+  comEnvDaMaquina({ GH_TOKEN: 'tok-da-maquina' }, () => {
+    assert.equal('GH_TOKEN' in e.ghEnv(), false, 'o gh sairia agindo como a identidade do shell, não como a conta do Farol');
+  });
+});
+
+test('ghEnv: GITHUB_TOKEN da máquina também não vaza (o gh lê os dois no github.com)', () => {
+  const e = engineDuasContas();
+  e.token = null;
+  comEnvDaMaquina({ GITHUB_TOKEN: 'tok-da-maquina' }, () => {
+    assert.equal('GITHUB_TOKEN' in e.ghEnv(), false, 'limpar só o GH_TOKEN deixaria a mesma herança pela variável vizinha');
+  });
+});
+
+test('ghEnv: token da conta resolvida vence o do ambiente, e o GITHUB_TOKEN sai junto', () => {
+  const e = engineDuasContas();
+  comEnvDaMaquina({ GH_TOKEN: 'tok-da-maquina', GITHUB_TOKEN: 'tok-da-maquina' }, () => {
+    const env = e.ghEnv('alice');
+    assert.equal(env.GH_TOKEN, 'tok-alice');
+    assert.equal('GITHUB_TOKEN' in env, false, 'GH_TOKEN vence no gh, mas GITHUB_TOKEN sobrando é identidade de reserva no filho');
+  });
+});
