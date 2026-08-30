@@ -16,7 +16,7 @@ import { execFileSync } from 'node:child_process';
 
 const RAIZ = path.join(import.meta.dirname, '..');
 // node_modules e dist não são nossos; .worktrees e scratchpad são scratch local
-const IGNORAR = new Set(['node_modules', 'dist', '.git', '.worktrees', 'scratchpad_test']);
+const IGNORAR = new Set(['node_modules', 'dist', '.git', '.worktrees', '.claude', '.superpowers', 'scratchpad_test']);
 
 function varrer(dir, achados = []) {
   for (const item of fs.readdirSync(dir, { withFileTypes: true })) {

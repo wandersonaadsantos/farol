@@ -9,7 +9,7 @@ import path from 'node:path';
 import { executadoDireto } from '../../lib/paths.js';
 
 const RAIZ = path.join(import.meta.dirname, '..', '..');
-const IGNORAR = new Set(['node_modules', 'dist', '.git', '.worktrees', 'scratchpad_test', 'docs', 'workspace-template', 'assets', '.superpowers']);
+const IGNORAR = new Set(['node_modules', 'dist', '.git', '.worktrees', '.claude', 'scratchpad_test', 'docs', 'workspace-template', 'assets', '.superpowers']);
 // Arquivo especifico ignorado: test/quality-higiene.test.js contém fixtures
 // com BT-*/BUGS-* literais como dados de teste para validar a detecção.
 const ARQUIVOS_IGNORADOS = new Set(['test/quality-higiene.test.js']);

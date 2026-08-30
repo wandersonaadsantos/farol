@@ -12,7 +12,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { resolverCli, versaoDo } from '../tools/eng-behaviour/gate.js';
+import { execFileSync } from 'node:child_process';
+import { resolverCli, versaoDo, raizPrincipal } from '../tools/eng-behaviour/gate.js';
 
 function temporario(prefixo) {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefixo));
@@ -51,6 +52,73 @@ test('a versao vem do package.json do pacote, e nao do farol', () => {
   fs.writeFileSync(path.join(home, 'package.json'), JSON.stringify({ version: '9.9.9' }), 'utf8');
   assert.equal(versaoDo(home), '9.9.9');
   fs.rmSync(home, { recursive: true, force: true });
+});
+
+/*
+ * A raiz que o gate usa para achar o pacote precisa ser a do repositório
+ * PRINCIPAL, e não a do diretório em que o arquivo está. Em worktree os dois são
+ * diferentes, e a diferença não é cosmética: uma worktree em `.worktrees/x`
+ * procuraria o pacote em `.worktrees/eng-behaviour`, reprovaria o pre-push e
+ * ainda mandaria clonar num lugar que não resolveria nada.
+ *
+ * O caso monta repositório e worktree de verdade, sem dublê de git: o
+ * comportamento sob teste É a resposta do git, e substituí-la trocaria a
+ * pergunta que importa por uma pergunta sobre o dublê.
+ */
+function repoComWorktree() {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-wt-'));
+  // `git worktree` recusa caminho dentro do próprio .git, então principal e
+  // worktree ficam lado a lado dentro da base.
+  const principal = path.join(base, 'principal');
+  const wt = path.join(base, 'copia');
+  fs.mkdirSync(principal);
+  const git = (args, cwd) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: 'pipe' });
+  git(['init', '-q', '-b', 'main'], principal);
+  git(['config', 'user.email', 'teste@exemplo'], principal);
+  git(['config', 'user.name', 'teste'], principal);
+  fs.writeFileSync(path.join(principal, 'a.txt'), 'a', 'utf8');
+  git(['add', '-A'], principal);
+  git(['commit', '-qm', 'inicial'], principal);
+  git(['worktree', 'add', '-q', '-b', 'ramo', wt, 'main'], principal);
+  return { base, principal, wt };
+}
+
+/**
+ * Compara caminho sem depender de separador, caixa ou forma do nome no Windows.
+ *
+ * `realpathSync.native` e não o `realpathSync` comum: no Windows o `os.tmpdir()`
+ * devolve o nome curto 8.3 (`WANDER~1`) e o git devolve o longo, e só a variante
+ * nativa canoniza os dois para a mesma coisa. Com o `realpathSync` comum este
+ * caso reprovava por causa da comparação, com o valor certo do lado de dentro.
+ */
+function mesmoCaminho(a, b) {
+  const norm = (p) => fs.realpathSync.native(p).replace(/\\/g, '/').toLowerCase();
+  return norm(a) === norm(b);
+}
+
+test('a raiz resolvida a partir de uma worktree e a do repositorio principal', () => {
+  const { base, principal, wt } = repoComWorktree();
+  try {
+    assert.ok(
+      mesmoCaminho(raizPrincipal(wt), principal),
+      `esperava a raiz principal, veio ${raizPrincipal(wt)}`,
+    );
+    // E o principal continua respondendo por si mesmo, que é o caso comum.
+    assert.ok(mesmoCaminho(raizPrincipal(principal), principal));
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('fora de repositorio git, a raiz e o proprio diretorio consultado', () => {
+  // O fallback existe para o gate não morrer onde o git não responde; ali o
+  // comportamento antigo, o irmão de onde o arquivo está, continua correto.
+  const solto = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-sem-git-'));
+  try {
+    assert.ok(mesmoCaminho(raizPrincipal(solto), solto));
+  } finally {
+    fs.rmSync(solto, { recursive: true, force: true });
+  }
 });
 
 test('versao ilegivel nao derruba o gate, so deixa de ser afirmada', () => {

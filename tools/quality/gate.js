@@ -11,7 +11,7 @@ import { scanFile } from './rules.js';
 
 const RAIZ = path.join(import.meta.dirname, '..', '..');
 const BASELINE = path.join(import.meta.dirname, 'baseline.json');
-const IGNORAR = new Set(['node_modules', 'dist', '.git', '.worktrees', 'scratchpad_test', 'test', 'docs', 'workspace-template', 'installer', 'assets']);
+const IGNORAR = new Set(['node_modules', 'dist', '.git', '.worktrees', '.claude', '.superpowers', 'scratchpad_test', 'test', 'docs', 'workspace-template', 'installer', 'assets']);
 
 function listar(dir, achados = []) {
   for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
