@@ -1389,6 +1389,16 @@ a suíte usa o runner nativo e o Electron só serve pra abrir a janela. O job ag
 reconfigurar a regra. O macOS na matriz é a única validação contínua do caminho POSIX
 (ver a seção "macOS: estado real"): rodada inteira em menos de 1 minuto.
 
+**Todo job tem teto de tempo** (`timeout-minutes`, travado em `test/ci-teto-de-tempo.test.js`):
+sem ele o default do GitHub é de SEIS HORAS, e em 30/08/2026 o job de macOS ficou preso no
+passo de testes duas vezes no mesmo dia (a suíte roda em segundos), segurando PR em `BLOCKED`
+e queimando runner até alguém cancelar na mão. Job eterno é pior que job vermelho: não informa
+nada e ainda segura a fila. É a mesma doutrina que a suíte já aplicava por dentro, levada pro
+workflow. **A trava do macOS em si não foi diagnosticada**, e a evidência aponta flake de
+runner e não regressão: o mesmo commit passou em 40 segundos ao ser relançado, e a suíte
+inteira roda no POSIX (WSL) sem travar. Se voltar, o teto dá o registro em 15 minutos em vez
+de seis horas.
+
 **Proteção da `main`** (ruleset `main protegida`, não branch protection clássica): PR
 obrigatório com resolução de conversa, `ci` verde e branch atualizada, force push e
 deleção bloqueados. **Bypass pra Repository admin**, de propósito: o checklist de release
