@@ -309,6 +309,30 @@ O escopo aplicável está em `eng-behaviour.json` (`core`), o recorte das regras
 
 **O custo, medido.** O escopo `core` seleciona 10 regras: 2 hard e 8 de julgamento. `core.suppression.declared` examinou 176 arquivos de código com zero achado na medição de 30/08/2026, e o número acompanha o tamanho do repositório; `core.testing.e2e-without-mocks` não roda, porque não existe suíte de ponta a ponta declarada aqui e o pacote não adivinha qual diretório é. Restam **8 avaliações escritas por commit**, cada uma com fundamentação própria sobre aquele diff. Um laço escrevendo a mesma frase nas oito passa no gate sem avaliar nada, e é por isso que não existe script para gerá-las.
 
+**Estado em 30/08/2026: a metade de julgamento está BLOQUEADA por cima, no pacote.** A CLI subiu para a
+v0.4.0 e mudou duas coisas do contrato. A primeira o Farol já acompanhou: `audit` passou a exigir `--base`,
+porque sem ela não há entrega para auditar, só uma árvore, e sem esse argumento `npm run eng` saía 2 em
+qualquer clone, o que bloqueava TODO push (o gate mora no pre-push). `baseDaEntrega` resolve isso derivando
+do git, `origin/main` e `main` como degrau, e falhando fechado quando não acha nenhuma das duas.
+
+A segunda não dá para acompanhar daqui. A identidade de uma avaliação deixou de ser o head e passou a ser o
+`materialFingerprint` do que a regra observou (ADR-0012), e o registro v2 (ADR-0013) exige esse campo, mais
+`ruleVersion`, evidência apontando para dentro da worktree e confiança declarada. **A CLI calcula o
+fingerprint e nunca o imprime**: o relato do `audit` só escreve regra, tipo, veredito e motivo, não existe
+saída JSON nem modo verboso, e nenhuma flag o expõe. Sem ele não há como escrever uma avaliação v2 válida,
+então as 8 regras de julgamento terminam `not-run` e o gate reprova com exit 2.
+
+Consequência prática enquanto isso durar: **push precisa de `--no-verify`**, e isso está registrado aqui em
+vez de resolvido por conta própria de propósito. As duas saídas erradas seriam afrouxar o gate para o
+`not-run` passar, que é exatamente o "gate que se cala quando não sabe" que o `tools/eng-behaviour/gate.js`
+proíbe no próprio cabeçalho, ou recalcular o fingerprint aqui a partir do fonte do pacote, que acoplaria o
+Farol a um interno dele e seria forjar a chave de uma fechadura que existe para provar que alguém olhou. A
+saída certa é o pacote expor o fingerprint (uma flag de saída estruturada no `audit` basta), e isso é
+trabalho do eng-behaviour, não deste repositório.
+
+O parágrafo do custo abaixo descreve o regime da v0.3.x e continua valendo como intenção; os números mudam
+quando a identidade material entrar em vigor, porque a ADR-0012 corta o número de regras cobradas por commit.
+
 ## Gate de ratchet (v2.45.1)
 
 O `lint` é o gate de ratchet do **enforcement mecânico local do Farol** em Node puro (`tools/quality/`), que é coisa diferente da constituição acima: compara as violações com `baseline.json` e reprova qualquer contagem que SUBA. Corrigiu dívida? `npm run lint:update` trava o número mais baixo. A baseline nunca sobe à mão.

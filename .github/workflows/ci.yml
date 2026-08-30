@@ -21,6 +21,12 @@ jobs:
   gate:
     name: gate
     runs-on: ${{ matrix.os }}
+    # Teto de tempo: a suite roda em segundos, entao 15 minutos e folga larga.
+    # Ele existe porque sem teto o default do GitHub e de SEIS HORAS, e em
+    # 30/08/2026 o job de macOS ficou preso no passo de testes duas vezes no
+    # mesmo dia, segurando PR em BLOCKED enquanto queimava runner. Job eterno
+    # nao informa nada; job vermelho informa.
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -49,6 +55,7 @@ jobs:
   ci:
     name: ci
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: [gate]
     if: always()
     steps:
