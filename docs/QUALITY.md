@@ -291,7 +291,7 @@ existe, e o próximo a mexer ali não vai ter aviso nenhum.
 npm run check && npm run lint && npm test
 ```
 
-`check` = `tools/check-syntax.js`, que **descobre** todo `.js` do projeto (98 arquivos, ESM nativo desde a migração da fase 13) e valida a sintaxe rodando `node --check` por processo filho em cada um (`execFileSync`, sem `vm.Script`: `node --check` já entende ESM direto, então não precisa de wrapper nenhum). Era uma lista fixa de três arquivos, e por isso os 19 módulos de `lib/` ficavam de fora. `test` = `node --test test/` (a rede). Verde nos dois é pré-requisito de qualquer entrega.
+`check` = `tools/check-syntax.js`, que **descobre** todo `.js` do projeto (ESM nativo desde a migração da fase 13; o gate imprime quantos achou, e por isso o número não é escrito aqui) e valida a sintaxe rodando `node --check` por processo filho em cada um (`execFileSync`, sem `vm.Script`: `node --check` já entende ESM direto, então não precisa de wrapper nenhum). Era uma lista fixa de três arquivos, e por isso os 19 módulos de `lib/` ficavam de fora. `test` = `node --test test/` (a rede). Verde nos dois é pré-requisito de qualquer entrega.
 
 Os dois testes estruturais da rede trazem **piso anti-vacuidade** (`facades.test.js` exige um mínimo de fachadas casadas, `check-syntax.js` um mínimo de arquivos encontrados): verificação dirigida por varredura que deixa de casar vira laço vazio e fica verde sem verificar nada, que é a pior falha possível num gate.
 
@@ -307,7 +307,7 @@ O escopo aplicável está em `eng-behaviour.json` (`core`), o recorte das regras
 
 **Por que ele não está no CI.** Duas razões independentes, cada uma suficiente sozinha. O CI roda sem `npm install` de propósito (invariante 1, zero dependências além do Electron) e não alcança a CLI de um pacote que não é publicado em registro nenhum. E o `audit` lê `avaliacoes.jsonl`, que fica fora do controle de versão por decisão em aberto do próprio pacote: a identidade de uma avaliação é a regra mais o head, e commitar o registro dentro do repositório que ele avalia move esse head e invalida a avaliação recém-escrita. O runner não tem como ler um arquivo que não viaja no commit. Então o gate mora no pre-push, que é onde o Farol já põe o que o CI não alcança; como o pre-push também proíbe push direto na main, todo caminho até a main atravessa o gate.
 
-**O custo, medido.** O escopo `core` seleciona 10 regras: 2 hard e 8 de julgamento. `core.suppression.declared` examina 170 arquivos de código com zero achado; `core.testing.e2e-without-mocks` não roda, porque não existe suíte de ponta a ponta declarada aqui e o pacote não adivinha qual diretório é. Restam **8 avaliações escritas por commit**, cada uma com fundamentação própria sobre aquele diff. Um laço escrevendo a mesma frase nas oito passa no gate sem avaliar nada, e é por isso que não existe script para gerá-las.
+**O custo, medido.** O escopo `core` seleciona 10 regras: 2 hard e 8 de julgamento. `core.suppression.declared` examinou 176 arquivos de código com zero achado na medição de 30/08/2026, e o número acompanha o tamanho do repositório; `core.testing.e2e-without-mocks` não roda, porque não existe suíte de ponta a ponta declarada aqui e o pacote não adivinha qual diretório é. Restam **8 avaliações escritas por commit**, cada uma com fundamentação própria sobre aquele diff. Um laço escrevendo a mesma frase nas oito passa no gate sem avaliar nada, e é por isso que não existe script para gerá-las.
 
 ## Gate de ratchet (v2.45.1)
 

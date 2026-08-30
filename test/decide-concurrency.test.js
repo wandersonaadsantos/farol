@@ -7,8 +7,16 @@
 import os from 'node:os';
 import path from 'node:path';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-decide-conc-' + process.pid);
-import { test } from 'node:test';
+
+// Apagado no fim. O caminho e derivado do pid e nao de `mkdtemp`, entao ele se
+// repete entre rodadas do mesmo processo, mas acumula uma pasta por processo:
+// medido em centenas na maquina.
+after(() => {
+  fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true });
+});
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 const { Engine } = await import('../server.js');
 
 function pendencia(id, key) {

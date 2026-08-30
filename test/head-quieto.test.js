@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert';
 import os from 'node:os';
 import fs from 'node:fs';
@@ -6,6 +6,13 @@ import path from 'node:path';
 
 process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-quieto-'));
 const { Engine } = await import('../server.js');
+
+// O FAROL_HOME de teste e apagado no fim. Sem isto cada rodada da suite deixa um
+// diretorio para tras: medido em 6 por rodada, somando mais de mil na maquina.
+after(() => {
+  fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true });
+});
+
 
 const H1 = 'a'.repeat(40), H2 = 'b'.repeat(40);
 function engineComPanorama(infoPorKey) {

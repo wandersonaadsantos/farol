@@ -7,14 +7,14 @@
 // disponível, e elas pedem mensagens diferentes: diretório ausente é problema de
 // checkout, diretório presente sem `dist/` é problema de build. Mandar rodar o
 // build num caminho que não existe manda a pessoa para o lugar errado.
-import test from 'node:test';
+import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { envGitLimpo } from './helpers/git-limpo.js';
-import { resolverCli, versaoDo, raizPrincipal, ajudaPara } from '../tools/eng-behaviour/gate.js';
+import { resolverCli, versaoDo, raizPrincipal, ajudaPara, rodar } from '../tools/eng-behaviour/gate.js';
 
 /**
  * Ate quando esperar cada chamada de git da montagem antes de desistir.
@@ -24,6 +24,33 @@ import { resolverCli, versaoDo, raizPrincipal, ajudaPara } from '../tools/eng-be
  * aqui a chamada escreve em disco, e nao so consulta.
  */
 const TETO_DO_GIT_NO_TESTE_MS = 20_000;
+
+/**
+ * Todos os diretorios deste arquivo moram dentro de um so, apagado no fim.
+ *
+ * Antes cada caso fazia o proprio `mkdtemp` e chamava `rmSync` no corpo, fora de
+ * `finally`: o caso que so monta o caminho nunca apagava, e os outros vazavam
+ * sempre que a asercao caia. Medido: 166 diretorios `farol-eng-` acumulados na
+ * maquina. Com uma raiz so, o hook de fim fecha os dois buracos de uma vez.
+ */
+let raizDeTestes = '';
+
+before(() => {
+  raizDeTestes = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-eng-'));
+});
+
+after(() => {
+  fs.rmSync(raizDeTestes, { recursive: true, force: true });
+});
+
+let criados = 0;
+
+function temporario() {
+  criados += 1;
+  const dir = path.join(raizDeTestes, `caso-${criados}`);
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
 
 /**
  * Argumentos que neutralizam o que a maquina de quem roda a suite pode ter ligado.
@@ -41,12 +68,8 @@ const TETO_DO_GIT_NO_TESTE_MS = 20_000;
  */
 const ARGS_GIT_NEUTROS = ['-c', 'commit.gpgsign=false', '-c', 'core.hooksPath='];
 
-function temporario(prefixo) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), prefixo));
-}
-
 test('recusa quando o pacote nao esta no caminho', () => {
-  const ausente = path.join(temporario('farol-eng-'), 'nao-existe');
+  const ausente = path.join(temporario(), 'nao-existe');
   const r = resolverCli(ausente);
   assert.equal(r.cli, undefined);
   assert.match(r.erro, /nao encontrado/);
@@ -55,29 +78,26 @@ test('recusa quando o pacote nao esta no caminho', () => {
 test('recusa quando o pacote existe mas nao foi construido, e diz que o problema e o build', () => {
   // A distinção importa: aqui o clone está no lugar, e mandar clonar de novo
   // seria a orientação errada.
-  const home = temporario('farol-eng-');
+  const home = temporario();
   const r = resolverCli(home);
   assert.equal(r.cli, undefined);
   assert.match(r.erro, /sem build/);
-  fs.rmSync(home, { recursive: true, force: true });
 });
 
 test('aceita quando dist/cli/main.js existe, e devolve o home junto', () => {
-  const home = temporario('farol-eng-');
+  const home = temporario();
   fs.mkdirSync(path.join(home, 'dist', 'cli'), { recursive: true });
   fs.writeFileSync(path.join(home, 'dist', 'cli', 'main.js'), '', 'utf8');
   const r = resolverCli(home);
   assert.equal(r.erro, undefined);
   assert.equal(r.home, home);
   assert.ok(r.cli.endsWith(path.join('dist', 'cli', 'main.js')));
-  fs.rmSync(home, { recursive: true, force: true });
 });
 
 test('a versao vem do package.json do pacote, e nao do farol', () => {
-  const home = temporario('farol-eng-');
+  const home = temporario();
   fs.writeFileSync(path.join(home, 'package.json'), JSON.stringify({ version: '9.9.9' }), 'utf8');
   assert.equal(versaoDo(home), '9.9.9');
-  fs.rmSync(home, { recursive: true, force: true });
 });
 
 /*
@@ -298,8 +318,87 @@ test('versao ilegivel nao derruba o gate, so deixa de ser afirmada', () => {
   // A versão é transparência, não gate. Um package.json quebrado no pacote é
   // problema dele, e travar o Farol por causa disso trocaria uma informação
   // perdida por um bloqueio, que é pior.
-  const home = temporario('farol-eng-');
+  const home = temporario();
   fs.writeFileSync(path.join(home, 'package.json'), '{ nao e json', 'utf8');
   assert.equal(versaoDo(home), 'desconhecida');
-  fs.rmSync(home, { recursive: true, force: true });
+});
+
+/*
+ * O `rodar` traduz o resultado de um processo externo para o vocabulario deste
+ * gate, e cada uma das quatro traducoes sumiria calada. A CLI de mentira e um
+ * script node que responde o que o caso pedir: nao e duble do comportamento sob
+ * teste, e sim o processo externo de verdade, que e justamente a parte que o
+ * `rodar` precisa saber tratar. Dublar o `spawnSync` trocaria a pergunta.
+ */
+function cliDeMentira(corpo) {
+  // `.mjs` e nao `.js`: o diretorio temporario nao tem `package.json`, entao um
+  // `.js` seria lido como CommonJS e o `import` viraria erro de sintaxe. O erro
+  // sai em stderr e vira saida, o que quebraria justamente o caso que exige
+  // saida vazia.
+  const arq = path.join(temporario(), 'falsa-cli.mjs');
+  fs.writeFileSync(arq, `import fs from 'node:fs';\n${corpo}`, 'utf8');
+  return arq;
+}
+
+test('saida vazia e tratada como nao tendo medido, e nao como repositorio limpo', () => {
+  // Piso anti-vacuidade. Sem ele o gate aprova o silencio: a CLI sempre diz o que
+  // examinou, entao rodada muda significa que ela nao rodou.
+  const cli = cliDeMentira('process.exit(0);\n');
+  const r = rodar(cli, []);
+  assert.equal(r.code, 2, 'saida vazia com exit 0 precisa reprovar como ambiente');
+  assert.match(r.saida, /nao produziu saida nenhuma/);
+});
+
+test('exit 1 com saida e achado do repositorio', () => {
+  const cli = cliDeMentira('console.log("um achado"); process.exit(1);\n');
+  assert.equal(rodar(cli, []).code, 1);
+});
+
+test('exit fora de 0 e 1 e problema de ambiente, nao achado do repositorio', () => {
+  // A CLI que nao consegue subir tambem sai diferente de zero. Reportar isso como
+  // achado mandaria regenerar o recorte, ou seja, corrigir o repositorio errado.
+  const cli = cliDeMentira('console.log("nao consegui rodar"); process.exit(3);\n');
+  assert.equal(rodar(cli, []).code, 2);
+});
+
+/*
+ * Não existe caso para "filho sai com 256", e a ausência é a conclusão de uma
+ * medição, não um esquecimento.
+ *
+ * Eu escrevi esse caso. Ele passou no Windows e REPROVOU no Linux e no macOS: em
+ * POSIX o próprio sistema trunca o código do filho em 8 bits ANTES de o pai ler,
+ * então 256 chega ao `rodar` como 0 e não há como distinguir de sucesso. Não há o
+ * que traduzir ali, e um caso que afirmasse o contrário estaria afirmando uma
+ * verdade de um sistema só.
+ *
+ * O que a tradução protege de verdade está no caso acima, de código fora de 0 e 1.
+ * O clamp da última linha do módulo protege a saída DESTE processo, que é a parte
+ * que está na nossa mão.
+ */
+
+test('saida grande nao e descartada por estouro de buffer', () => {
+  // Com o `maxBuffer` padrao de 1 MiB o processo morre por ENOBUFS e TODOS os
+  // achados sao jogados fora, sobrando so a mensagem do erro.
+  //
+  // A escrita e `writeSync` e nao `console.log`: escrever num pipe e assincrono, e
+  // sair logo depois trunca o que ainda nao saiu. Medido no CI, o caso reprovou so
+  // no macOS, entregando 8192 bytes dos 4 MiB. Era corrida da fixture, nao defeito
+  // do que ela mede, e um `console.log` aqui deixaria o caso mentir conforme o SO.
+  const cli = cliDeMentira(
+    'fs.writeSync(1, "x".repeat(4 * 1024 * 1024)); process.exit(1);\n',
+  );
+  const r = rodar(cli, []);
+  assert.equal(r.code, 1);
+  assert.ok(r.saida.length > 1024 * 1024, `esperava a saida inteira, veio ${r.saida.length} bytes`);
+});
+
+test('a leitura do package.json alheio nao escreve nada ao lado dele', () => {
+  // `versaoDo` le o clone do eng-behaviour. O `readJson` de lib/io.js preserva
+  // arquivo corrompido criando um `.bad` do lado, o que aqui seria escrever dentro
+  // de um repositorio que nao e nosso, sem avisar.
+  const home = temporario();
+  const alvo = path.join(home, 'package.json');
+  fs.writeFileSync(alvo, '{ isto nao e json', 'utf8');
+  assert.equal(versaoDo(home), 'desconhecida');
+  assert.deepEqual(fs.readdirSync(home), ['package.json'], 'nada pode ter sido criado ao lado');
 });
