@@ -17,17 +17,57 @@ import { readJson } from '../../lib/io.js';
 
 const RAIZ = path.join(import.meta.dirname, '..', '..');
 
-// O clone do pacote ao lado do clone do Farol. Sem variavel de ambiente para
-// apontar outro lugar: nenhuma chamada de hoje precisa dela, e chave de
-// configuracao que nunca muda de valor e o que a core.abstraction.no-premature
-// condena. Aparecendo um layout diferente de verdade, ela nasce ali.
-const IRMAO = path.join(RAIZ, '..', 'eng-behaviour');
+/**
+ * Até quando vale a pena esperar o git responder antes de desistir dele.
+ *
+ * O conceito é a fronteira de uma decisão, e não o número: passado esse tempo, o
+ * gate para de perguntar ao git e assume a raiz de onde o arquivo está. Uma
+ * consulta local responde em dezenas de milissegundos, então o teto é folgado de
+ * propósito; ele existe para o caso patológico, não para o caso comum.
+ */
+const TETO_DE_ESPERA_DO_GIT_MS = 5000;
 
-const AJUDA = [
-  'Como resolver:',
-  '  1. clone https://github.com/wandersonaadsantos/eng-behaviour ao lado do farol;',
-  '  2. dentro dele: pnpm install && pnpm build.',
-].join('\n');
+/**
+ * Raiz do repositório PRINCIPAL, mesmo quando este arquivo roda de uma worktree.
+ *
+ * Em worktree, `import.meta.dirname` aponta para a cópia, e o irmão da cópia não
+ * é o irmão do repositório: uma worktree em `.worktrees/x` procuraria o pacote em
+ * `.worktrees/eng-behaviour`, que não existe, e o gate reprovaria dando uma
+ * instrução que não resolve o problema. O `.git` compartilhado é o único endereço
+ * que a worktree e o principal enxergam igual, e `--git-common-dir` é o que o
+ * git responde para ele nos dois casos.
+ *
+ * Isto não é configuração: é derivação do próprio git, sem chave para ninguém
+ * preencher. Falhando a chamada, cai na raiz de onde o arquivo está, que é o
+ * comportamento anterior e continua correto fora de worktree.
+ */
+function raizPrincipal(base = RAIZ) {
+  // Teto de tempo porque isto roda dentro do pre-push: um git que trave por
+  // qualquer motivo, rede, filesystem, credential helper esperando entrada,
+  // travaria o push para sempre em vez de reprovar. Estourando o teto, `status`
+  // vem nulo e a funcao cai no mesmo fallback da falha comum.
+  const r = spawnSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
+    cwd: base,
+    encoding: 'utf8',
+    timeout: TETO_DE_ESPERA_DO_GIT_MS,
+  });
+  const saida = (r.stdout || '').trim();
+  if (r.status !== 0 || !saida) return base;
+  return path.dirname(saida);
+}
+
+/** O clone do pacote ao lado do clone principal do Farol. */
+function irmaoDoRepositorio() {
+  return path.join(raizPrincipal(), '..', 'eng-behaviour');
+}
+
+function ajudaPara(home) {
+  return [
+    'Como resolver:',
+    `  1. clone https://github.com/wandersonaadsantos/eng-behaviour em ${home};`,
+    '  2. dentro dele: pnpm install && pnpm build.',
+  ].join('\n');
+}
 
 /**
  * Caminho da CLI construída, ou um motivo por que ela não serve.
@@ -37,7 +77,7 @@ const AJUDA = [
  * sem `dist/` é problema de build, e mandar rodar o build num diretório que não
  * existe manda a pessoa para o lugar errado.
  */
-function resolverCli(home = IRMAO) {
+function resolverCli(home = irmaoDoRepositorio()) {
   if (!fs.existsSync(home)) {
     return { erro: `eng-behaviour nao encontrado em ${home}.` };
   }
@@ -68,10 +108,11 @@ function rodar(cli, args) {
 }
 
 function main() {
-  const { cli, home, erro } = resolverCli();
+  const esperado = irmaoDoRepositorio();
+  const { cli, home, erro } = resolverCli(esperado);
   if (erro) {
     console.error(`eng-behaviour: ${erro}`);
-    console.error(AJUDA);
+    console.error(ajudaPara(esperado));
     return 2;
   }
   console.log(`eng-behaviour ${versaoDo(home)} (${home})`);
@@ -100,5 +141,5 @@ function main() {
 }
 
 if (executadoDireto(import.meta.url)) process.exit(main());
-export default { resolverCli, versaoDo };
-export { resolverCli, versaoDo };
+export default { resolverCli, versaoDo, raizPrincipal, irmaoDoRepositorio };
+export { resolverCli, versaoDo, raizPrincipal, irmaoDoRepositorio };
