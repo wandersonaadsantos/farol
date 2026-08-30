@@ -14,6 +14,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { executadoDireto } from '../../lib/paths.js';
 import { parseJson } from '../../lib/io.js';
+import { envSemRepositorioHerdado } from '../git-env.js';
 
 const RAIZ = path.join(import.meta.dirname, '..', '..');
 
@@ -69,8 +70,15 @@ function raizPrincipal(base = RAIZ) {
   // qualquer motivo, rede, filesystem, credential helper esperando entrada,
   // travaria o push para sempre em vez de reprovar. Estourando o teto, `status`
   // vem nulo e a funcao cai no mesmo fallback da falha comum.
+  //
+  // Ambiente sem o repositorio herdado (ver tools/git-env.js). Este gate roda
+  // DENTRO do pre-push, que exporta GIT_DIR: sem a limpeza, as duas perguntas
+  // abaixo respondem pelo repositorio do hook em vez de pelo `base` que o
+  // chamador escolheu, e a resolucao inteira sai errada sem nenhum erro.
+  const env = envSemRepositorioHerdado();
   const git = (args) => spawnSync('git', args, {
     cwd: base,
+    env,
     encoding: 'utf8',
     timeout: TETO_DE_ESPERA_DO_GIT_MS,
   });
