@@ -9,6 +9,20 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.56.3
+
+Destaques e Entregas passam a existir só quando você escolhe habilitá-los em Sistema.
+
+**Novidades**
+
+- **Destaques do time agora é opt-in de verdade.** Desligado, o Farol oculta a aba, bloqueia o kudos e remove do prompt de revisão o trabalho de procurar ou produzir elogios; não é só uma diferença visual. Ao habilitar em **Sistema > Preferências**, novas revisões voltam a alimentar a visão sem apagar nem adulterar o histórico existente.
+- **Você também entra nos Destaques.** Com a função ligada, a autoanálise dos seus próprios PRs pode registrar um destaque. Data, pessoa e PR são atribuídos pelo Farol a partir da conta autenticada e do PR observado, nunca pelo texto produzido pela IA.
+- **Entregas também passa a ser opt-in.** Desligada, a aba não aparece e a rota não faz a busca de PRs mergeados. Essa visão não usa IA, mas a mudança evita chamadas ao GitHub e processamento local quando ninguém a utiliza.
+
+**Melhorias**
+
+- O gate local do `eng-behaviour` passa a encontrar corretamente a raiz principal quando roda numa worktree, sem aceitar por engano um repositório-pai de outra cópia. O check de sintaxe também restringe a exceção do template ao caminho exato.
+
 ## v2.56.2
 
 Identidade: o token do GitHub que estiver no ambiente da sua máquina deixa de valer por cima da conta que o Farol resolveu.
