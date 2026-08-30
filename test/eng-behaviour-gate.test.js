@@ -244,8 +244,12 @@ test('versao ilegivel nao derruba o gate, so deixa de ser afirmada', () => {
  * `rodar` precisa saber tratar. Dublar o `spawnSync` trocaria a pergunta.
  */
 function cliDeMentira(corpo) {
-  const arq = path.join(temporario(), 'falsa-cli.js');
-  fs.writeFileSync(arq, corpo, 'utf8');
+  // `.mjs` e nao `.js`: o diretorio temporario nao tem `package.json`, entao um
+  // `.js` seria lido como CommonJS e o `import` viraria erro de sintaxe. O erro
+  // sai em stderr e vira saida, o que quebraria justamente o caso que exige
+  // saida vazia.
+  const arq = path.join(temporario(), 'falsa-cli.mjs');
+  fs.writeFileSync(arq, `import fs from 'node:fs';\n${corpo}`, 'utf8');
   return arq;
 }
 
@@ -288,7 +292,14 @@ test('exit fora de 0 e 1 e problema de ambiente, nao achado do repositorio', () 
 test('saida grande nao e descartada por estouro de buffer', () => {
   // Com o `maxBuffer` padrao de 1 MiB o processo morre por ENOBUFS e TODOS os
   // achados sao jogados fora, sobrando so a mensagem do erro.
-  const cli = cliDeMentira('console.log("x".repeat(4 * 1024 * 1024)); process.exit(1);\n');
+  //
+  // A escrita e `writeSync` e nao `console.log`: escrever num pipe e assincrono, e
+  // sair logo depois trunca o que ainda nao saiu. Medido no CI, o caso reprovou so
+  // no macOS, entregando 8192 bytes dos 4 MiB. Era corrida da fixture, nao defeito
+  // do que ela mede, e um `console.log` aqui deixaria o caso mentir conforme o SO.
+  const cli = cliDeMentira(
+    'fs.writeSync(1, "x".repeat(4 * 1024 * 1024)); process.exit(1);\n',
+  );
   const r = rodar(cli, []);
   assert.equal(r.code, 1);
   assert.ok(r.saida.length > 1024 * 1024, `esperava a saida inteira, veio ${r.saida.length} bytes`);
