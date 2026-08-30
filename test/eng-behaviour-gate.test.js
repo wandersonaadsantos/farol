@@ -77,13 +77,23 @@ function repoComWorktree() {
   // de uma falha que alguém consegue ler. Aconteceu de verdade no runner de macOS.
   const git = (args, cwd) =>
     execFileSync('git', args, { cwd, encoding: 'utf8', stdio: 'pipe', timeout: 20_000 });
-  git(['init', '-q', '-b', 'main'], principal);
-  git(['config', 'user.email', 'teste@exemplo'], principal);
-  git(['config', 'user.name', 'teste'], principal);
-  fs.writeFileSync(path.join(principal, 'a.txt'), 'a', 'utf8');
-  git(['add', '-A'], principal);
-  git(['commit', '-qm', 'inicial'], principal);
-  git(['worktree', 'add', '-q', '-b', 'ramo', wt, 'main'], principal);
+
+  // A base nasce antes da primeira chamada e só é devolvida no fim, então uma
+  // chamada que estoure o teto sairia daqui sem passar pelo `finally` do caso,
+  // que só existe depois do retorno. O diretório vazaria exatamente no caminho de
+  // falha, que é o caminho que o teto passou a tornar possível.
+  try {
+    git(['init', '-q', '-b', 'main'], principal);
+    git(['config', 'user.email', 'teste@exemplo'], principal);
+    git(['config', 'user.name', 'teste'], principal);
+    fs.writeFileSync(path.join(principal, 'a.txt'), 'a', 'utf8');
+    git(['add', '-A'], principal);
+    git(['commit', '-qm', 'inicial'], principal);
+    git(['worktree', 'add', '-q', '-b', 'ramo', wt, 'main'], principal);
+  } catch (erro) {
+    fs.rmSync(base, { recursive: true, force: true });
+    throw erro;
+  }
   return { base, principal, wt };
 }
 
