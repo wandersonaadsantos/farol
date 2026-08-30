@@ -1,4 +1,4 @@
-// Higiene de repositório (doutrina do engineering-standards, adaptada ao Farol):
+// Higiene de repositório (doutrina de repositório do eng-behaviour, aplicada aqui):
 // número de card em código só aponta pra frente, na forma TODO(BT-123).
 // "Veio do card X" mora no git blame, não no fonte. CHANGELOG e docs/ ficam
 // fora (mapear release a card é o papel deles). Artefatos de ferramenta NÃO são

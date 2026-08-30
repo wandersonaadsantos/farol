@@ -1,4 +1,4 @@
-// As regras do contrato engineering-standards que dá pra medir sem AST, sobre o
+// As regras do gate mecânico do Farol que dá pra medir sem AST, sobre o
 // código já limpo pelo strip.js. APROXIMAÇÕES ASSUMIDAS (o gate mede regressão
 // por baseline, então imprecisão estável não machuca):
 //  - ternarioAninhado: 2+ '?' de ternário no mesmo statement (separado por ;),

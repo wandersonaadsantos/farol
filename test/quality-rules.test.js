@@ -1,4 +1,4 @@
-// Cada regra do contrato engineering-standards tem ao menos 1 caso que viola e
+// Cada regra do gate mecânico do Farol tem ao menos 1 caso que viola e
 // 1 que não viola. As contagens alimentam o ratchet (gate.js), então o que se
 // testa aqui é: a regra ENXERGA a violação e NÃO alucina em código limpo.
 import { test } from 'node:test';

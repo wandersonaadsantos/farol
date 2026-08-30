@@ -299,9 +299,25 @@ Os dois testes estruturais da rede trazem **piso anti-vacuidade** (`facades.test
 
 Não existe `AppError` nem classificação central de erro. Há dezenas de `catch` vazios espalhados, alguns com justificativa no comentário ("best-effort", "log nunca derruba o app") e a maioria sem. É a lacuna conhecida deste contrato, e o lugar certo de atacá-la é junto com a Onda 4, não antes.
 
+## A constituição vem do eng-behaviour
+
+A doutrina que este repositório assina é o [eng-behaviour](https://github.com/wandersonaadsantos/eng-behaviour), constituição pessoal, e não mais o `engineering-standards` da BIUD. O Farol é repositório pessoal e responde à doutrina pessoal.
+
+O escopo aplicável está em `eng-behaviour.json` (`core`), o recorte das regras vive versionado em `eng-behaviour.rules.md`, e `npm run eng` roda os dois gates do pacote: `check`, que prova byte a byte que o recorte versionado é o que o catálogo gera hoje, e `audit`, que roda a regra hard aplicável e exige evidência de avaliação das de julgamento.
+
+**Por que ele não está no CI.** Duas razões independentes, cada uma suficiente sozinha. O CI roda sem `npm install` de propósito (invariante 1, zero dependências além do Electron) e não alcança a CLI de um pacote que não é publicado em registro nenhum. E o `audit` lê `avaliacoes.jsonl`, que fica fora do controle de versão por decisão em aberto do próprio pacote: a identidade de uma avaliação é a regra mais o head, e commitar o registro dentro do repositório que ele avalia move esse head e invalida a avaliação recém-escrita. O runner não tem como ler um arquivo que não viaja no commit. Então o gate mora no pre-push, que é onde o Farol já põe o que o CI não alcança; como o pre-push também proíbe push direto na main, todo caminho até a main atravessa o gate.
+
+**O custo, medido.** O escopo `core` seleciona 10 regras: 2 hard e 8 de julgamento. `core.suppression.declared` examina 170 arquivos de código com zero achado; `core.testing.e2e-without-mocks` não roda, porque não existe suíte de ponta a ponta declarada aqui e o pacote não adivinha qual diretório é. Restam **8 avaliações escritas por commit**, cada uma com fundamentação própria sobre aquele diff. Um laço escrevendo a mesma frase nas oito passa no gate sem avaliar nada, e é por isso que não existe script para gerá-las.
+
 ## Gate de ratchet (v2.45.1)
 
-O `lint` é o gate de ratchet do contrato engineering-standards em Node puro (`tools/quality/`): compara as violações com `baseline.json` e reprova qualquer contagem que SUBA. Corrigiu dívida? `npm run lint:update` trava o número mais baixo. A baseline nunca sobe à mão.
+O `lint` é o gate de ratchet do **enforcement mecânico local do Farol** em Node puro (`tools/quality/`), que é coisa diferente da constituição acima: compara as violações com `baseline.json` e reprova qualquer contagem que SUBA. Corrigiu dívida? `npm run lint:update` trava o número mais baixo. A baseline nunca sobe à mão.
+
+As regras abaixo se dividem em três grupos em relação ao catálogo, e vale saber em qual cada uma cai.
+
+- **Face mecânica de `core.duplication.business-rule`** (fonte de verdade única): `jsonParseCru`, `jsonStringifyCru`, `processEnvDireto`, `portaLiteral` e `tempoMagico`. O catálogo deixa essa regra como julgamento porque distinguir invariante compartilhado de coincidência de valor exige entender o domínio. Aqui o domínio é conhecido e os santuários são nomeados no `rules.js`, então dá pra medir sem adivinhar.
+- **Eixos que o catálogo não cobre**: `emptyCatch`, `varUse`, `ternarioAninhado`, `profundidadeExcedida`.
+- **Uma divergência declarada**: `maxLines` (400) mede tamanho de arquivo, e `core.file.single-responsibility` **rejeita esse eixo por princípio**. O contador fica como ratchet sobre dívida já medida, não como afirmação de que tamanho é o critério certo. Tirá-lo é decisão do dono; deixá-lo sem dizer isto seria a divergência ficar escondida.
 
 Regras medidas (chaves do `rules.js`):
 
