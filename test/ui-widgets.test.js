@@ -86,6 +86,14 @@ test('loadDeliveries descarta resposta velha por token de requisicao (M19)', () 
     'a guarda vem ANTES do closeOp: resposta velha nao encerra a op da carga nova');
 });
 
+test('loadDeliveries não chama a rota quando Entregas está desligado', () => {
+  const fn = APPJS.match(/async function loadDeliveries\([\s\S]*?\n\}/);
+  assert.ok(fn, 'loadDeliveries existe');
+  assert.match(fn[0], /if \(!deliveriesEnabled\(\)\) return;/,
+    'a guarda vem antes de renderizar ou chamar get(\/api\/deliveries)');
+  assert.ok(fn[0].indexOf('deliveriesEnabled()') < fn[0].indexOf("get('/api/deliveries"));
+});
+
 test('Entregas guarda disclosure de Pessoas separado e confirma o reset pela resposta do novo contexto', () => {
   assert.match(APPJS, /let deliveriesOpen = new Set\(\)/,
     'details aberto/fechado não pode reutilizar deliveriesExpanded (mostrar mais/menos)');
