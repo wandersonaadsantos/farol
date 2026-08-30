@@ -96,9 +96,19 @@ export function sysNorm(s) { return String(s || '').normalize('NFD').replace(/\p
 /* ---- atribuição de conta pra memória (Destaques/Time) ---- */
 export function ownerFromUrl(url) { const m = String(url || '').match(/github\.com\/([^\/]+)\//i); return m ? m[1] : ''; }
 
+// Fronteira única dos links de PR que a UI torna clicáveis. Aceita query/fragmento
+// copiados do navegador, mas devolve sempre a URL canônica, sem carregar esses dados.
+export function canonicalGithubPrUrl(value) {
+  let url;
+  try { url = new URL(String(value || '').trim()); } catch { return ''; }
+  if (url.protocol !== 'https:' || url.hostname.toLowerCase() !== 'github.com' || url.port || url.username || url.password) return '';
+  const match = /^\/([^/]+)\/([^/]+)\/pull\/([1-9]\d*)\/?$/.exec(url.pathname);
+  return match ? `https://github.com/${match[1]}/${match[2]}/pull/${match[3]}` : '';
+}
+
 // 'https://github.com/owner/repo/pull/123' -> 'owner/repo#123' (o key canônico do app)
 export function prKeyFromUrl(url) {
-  const m = String(url || '').match(/github\.com\/([^\/]+\/[^\/]+)\/pull\/(\d+)/i);
+  const m = canonicalGithubPrUrl(url).match(/^https:\/\/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)$/);
   return m ? `${m[1]}#${m[2]}` : '';
 }
 
