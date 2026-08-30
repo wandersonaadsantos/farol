@@ -36,16 +36,26 @@ const IGNORAR = ignorar();
 // ignoram `workspace-template` inteiro, por medirem código de produção.
 const TEMPLATE_DISTRIBUIDO = path.join('workspace-template', '.claude');
 
-function ignorado(dir, nome) {
-  if (nome === '.claude' && path.join(dir, nome).endsWith(TEMPLATE_DISTRIBUIDO)) return false;
+/**
+ * A exceção é de UM caminho, e a comparação precisa ser de igualdade.
+ *
+ * Comparar pelo fim da string reabriria o `.claude` de qualquer diretório cujo
+ * NOME termine em `workspace-template`, em qualquer profundidade. Ancorar na raiz
+ * do módulo também não serve, porque a varredura é chamada com raiz arbitrária
+ * nos testes e a comparação passaria a ser verdadeira por acidente fora do
+ * projeto. Então a raiz da varredura viaja junto na recursão, e a exceção vale
+ * para exatamente uma posição relativa a ela.
+ */
+function ignorado(dir, nome, raiz) {
+  if (nome === '.claude') return path.join(dir, nome) !== path.join(raiz, TEMPLATE_DISTRIBUIDO);
   return IGNORAR.has(nome);
 }
 
-function varrer(dir, achados = []) {
+function varrer(dir, achados = [], raiz = dir) {
   for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (ignorado(dir, item.name)) continue;
+    if (ignorado(dir, item.name, raiz)) continue;
     const p = path.join(dir, item.name);
-    if (item.isDirectory()) varrer(p, achados);
+    if (item.isDirectory()) varrer(p, achados, raiz);
     else if (item.name.endsWith('.js')) achados.push(p);
   }
   return achados;

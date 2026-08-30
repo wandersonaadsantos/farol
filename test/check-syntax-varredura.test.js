@@ -28,6 +28,10 @@ function arvore() {
   escrever('.claude/worktrees/copia/lib/real.js');
   escrever('.worktrees/outra/lib/real.js');
   escrever('node_modules/pacote/index.js');
+  // Nomes vizinhos do template, para a exceção não virar prefixo nem sufixo:
+  // ambos têm `.claude` dentro e nenhum dos dois é o caminho excepcionado.
+  escrever('farol-workspace-template/.claude/impostor.js');
+  escrever('lib/workspace-template/.claude/aninhado.js');
   return { raiz, escrever };
 }
 
