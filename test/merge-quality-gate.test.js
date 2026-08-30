@@ -609,3 +609,36 @@ test('card lido é readable; ausência de resposta do Jira falha fechada', () =>
   assert.equal(cardEvidence(null).requirement, 'unreadable');
   assert.equal(cardEvidence(undefined).requirement, 'unreadable');
 });
+
+/* ================= P1: uma fonte de verdade pro parecer =================
+   `verdict` e `approvable` diziam a mesma coisa em dois campos. Deixou de ser
+   perigoso no P0a (nenhum dos dois autoriza), mas duas fontes continuam sendo duas
+   chances de divergir. `verdict` passa a ser o persistido e `approvable` é derivado
+   na leitura, mantendo o contrato da UI. */
+
+test('o registro novo persiste só verdict; approvable vem derivado na projeção', () => {
+  const engine = novoEngine(analiseCompleta({ approvable: undefined }));
+  delete engine.selfAnalyses[CHAVE].approvable;
+  const publicado = engine.snapshot().selfAnalyses[CHAVE];
+  assert.equal(publicado.approvable, true, 'derivado de verdict, pra UI não mudar');
+  assert.equal(engine.selfAnalyses[CHAVE].approvable, undefined, 'e não volta pro disco');
+});
+
+test('needs_work deriva approvable false', () => {
+  const engine = novoEngine(analiseCompleta({ verdict: 'needs_work', approvable: undefined }));
+  delete engine.selfAnalyses[CHAVE].approvable;
+  assert.equal(engine.snapshot().selfAnalyses[CHAVE].approvable, false);
+});
+
+test('registro LEGADO com verdict fora do enum preserva o approvable gravado', () => {
+  // 'aprovável' é o verdict que o contrato antigo escrevia; derivar dele daria false
+  // e o histórico passaria a mentir na tela. Compatibilidade na leitura, sem migração.
+  const engine = novoEngine({ key: CHAVE, verdict: 'aprovável', approvable: true, blockers: [] });
+  assert.equal(engine.snapshot().selfAnalyses[CHAVE].approvable, true);
+});
+
+test('a derivação não toca na elegibilidade', () => {
+  const engine = novoEngine(analiseCompleta({ verdict: 'needs_work', approvable: undefined }));
+  assert.equal(engine.snapshot().selfAnalyses[CHAVE].quality.status, 'eligible',
+    'o parecer segue sem autorizar nem impedir: quem decide é a evidência');
+});

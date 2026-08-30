@@ -54,6 +54,28 @@ Write-Host '  -> Gerando o instalador unico do Windows (primeira instalacao)' -F
 $offline = Join-Path $Src "dist\Farol-Setup-v$version.exe"
 if (-not (Test-Path $offline)) { throw "instalador nao gerado: $offline" }
 
+# Instalador offline do macOS (primeira instalacao no Mac). Ate a v2.56.0 este passo
+# era so um LEMBRETE impresso no fim, e o resultado foi previsivel: as releases
+# v2.54.8, v2.55.0 e v2.55.1 sairam sem o anexo. Lembrete que depende de disciplina
+# nao e processo. Agora e construido aqui, com o resto.
+#
+# Nao e fatal: ele exige bash (Git Bash no Windows) e baixa ~116 MB do Electron
+# darwin. Falhar a release inteira por causa disso seria pior do que publicar sem o
+# anexo do Mac, que e o comportamento de sempre. O AVISO fala alto quando cai.
+$macInstaller = Join-Path $Src 'dist\Farol-Instalar-mac.command'
+if (Test-Path $macInstaller) { Remove-Item $macInstaller -Force }
+$bash = Get-Command bash -ErrorAction SilentlyContinue
+if ($bash) {
+  Write-Host '  -> Gerando o instalador offline do macOS (Apple Silicon)' -ForegroundColor Cyan
+  & bash (Join-Path $PSScriptRoot 'make-offline-mac.sh') 2>&1 | Out-Null
+} else {
+  Write-Host '  !  bash nao encontrado: instalador de macOS NAO sera anexado' -ForegroundColor Yellow
+}
+if (-not (Test-Path $macInstaller)) {
+  Write-Host '  !  instalador de macOS ausente: a release sai sem ele (primeira instalacao no Mac fica de fora)' -ForegroundColor Yellow
+  Write-Host '     Para anexar depois: bash tools/make-offline-mac.sh; gh release upload <tag> dist/Farol-Instalar-mac.command' -ForegroundColor DarkGray
+}
+
 # --- notas: extrai a secao desta versao do CHANGELOG.md -----------------------
 $changelog = Join-Path $Src 'CHANGELOG.md'
 $notesFile = Join-Path $Src "dist\release-notes-v$version.md"
@@ -119,15 +141,21 @@ if ($exists) {
   Write-Host "  -> Release $tag ja existe; FAROL_REPUBLISH=1: atualizando notas e anexos" -ForegroundColor Cyan
   & gh release edit $tag --repo $repo --title "Farol $tag" --notes-file $notesFile
   if ($LASTEXITCODE -ne 0) { throw "gh release edit falhou (codigo $LASTEXITCODE)" }
-  & gh release upload $tag $light $offline --repo $repo --clobber
+  $anexos = @($light, $offline); if (Test-Path $macInstaller) { $anexos += $macInstaller }
+  & gh release upload $tag @anexos --repo $repo --clobber
 } else {
   Write-Host "  -> Criando a release $tag" -ForegroundColor Cyan
-  & gh release create $tag $light $offline --repo $repo --title "Farol $tag" --notes-file $notesFile
+  $anexos = @($light, $offline); if (Test-Path $macInstaller) { $anexos += $macInstaller }
+  & gh release create $tag @anexos --repo $repo --title "Farol $tag" --notes-file $notesFile
 }
 if ($LASTEXITCODE -ne 0) { throw "gh release falhou (codigo $LASTEXITCODE)" }
 
 Write-Host ''
 Write-Host "  ok  release $tag publicada em $repo" -ForegroundColor Green
 Write-Host '      As copias instaladas (>= 1.15.0) vao ver o update no proximo ciclo.' -ForegroundColor DarkGray
-Write-Host '      macOS: bash tools/make-offline-mac.sh (roda em qualquer SO) e anexe com gh release upload.' -ForegroundColor DarkGray
+if (Test-Path $macInstaller) {
+  Write-Host '      Instalador de macOS (Apple Silicon) anexado. Intel: ARCH=x64 bash tools/make-offline-mac.sh' -ForegroundColor DarkGray
+} else {
+  Write-Host '      SEM instalador de macOS nesta release (ver aviso acima).' -ForegroundColor Yellow
+}
 Write-Host ''
