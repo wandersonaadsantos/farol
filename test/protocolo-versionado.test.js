@@ -17,23 +17,46 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import os from 'node:os';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { envGitLimpo } from './helpers/git-limpo.js';
 
 const RAIZ = path.join(import.meta.dirname, '..');
 const TPL = path.join(RAIZ, 'workspace-template', '.claude');
 
+// Ambiente limpo em TODA consulta, e montado a cada chamada (ver
+// test/helpers/git-limpo.js). Estes casos rodam dentro do pre-push, que exporta
+// GIT_DIR: consulta que responde pelo repositorio errado nao estraga nada em
+// disco, mas afirma o que nao mediu, e aqui ela afirma sobre a FONTE.
+const opcoes = () => ({ cwd: RAIZ, env: envGitLimpo(), encoding: 'utf8' });
+
 // `git check-ignore` sozinho engana: com regra de negação ele imprime a regra e sai 0.
 // A pergunta sem ambiguidade é se o arquivo está RASTREADO.
 function rastreado(rel) {
-  try {
-    execFileSync('git', ['ls-files', '--error-unmatch', rel], { cwd: RAIZ, stdio: 'pipe' });
-    return true;
-  } catch { return false; }
+  return spawnSync('git', ['ls-files', '--error-unmatch', rel], opcoes()).status === 0;
 }
-function ignorado(rel) {
-  const r = execFileSync('git', ['check-ignore', '--no-index', '-q', rel], { cwd: RAIZ, stdio: 'pipe' })
-    .toString();
-  return r !== null;
+
+/**
+ * O que o git diz sobre ignorar, com "nao sei" separado de "nao ignora".
+ *
+ * `git check-ignore` responde em TRES estados, e juntar dois deles foi o defeito:
+ * 0 = ignorado, 1 = nao ignorado, 128 = nao consegui responder. Um `catch` que
+ * devolve `false` transforma o 128 em acusacao contra o `.gitignore`, e foi
+ * exatamente isso que se viu em 30/08/2026: outro teste da suite corrompeu o
+ * config do repositorio com `core.bare = true`, todo `check-ignore` passou a
+ * morrer com "must be run in a work tree", e a suite apontou para a fonte quando
+ * o defeito estava no ambiente. Diagnostico errado custa mais que teste vermelho.
+ *
+ * Sem `--no-index` de proposito: se o arquivo chegar a ser RASTREADO, a resposta
+ * vira "nao ignorado" e o caso reprova, que e o desfecho certo. A propriedade e
+ * que este arquivo nao entre no git, nao que exista uma regra escrita.
+ */
+function respostaDoIgnore(rel) {
+  const r = spawnSync('git', ['check-ignore', '-q', rel], opcoes());
+  if (r.error) return { erro: r.error.message };
+  if (r.status === 0) return { ignorado: true };
+  if (r.status === 1) return { ignorado: false };
+  return { erro: `git saiu ${r.status}: ${String(r.stderr || '').trim()}` };
 }
 
 test('todo agente e comando do workspace-template está versionado', () => {
@@ -53,12 +76,39 @@ test('todo agente e comando do workspace-template está versionado', () => {
 test('a config local de ferramenta da raiz continua FORA do git', () => {
   // o outro lado da mesma regra: a exceção do template não pode ter aberto a raiz,
   // que aponta pra caminho da máquina e não serve pra mais ninguém
-  let ignora = false;
+  const r = respostaDoIgnore('.claude/settings.local.json');
+  assert.equal(r.erro, undefined, `o git nao conseguiu responder, entao nada foi medido: ${r.erro}`);
+  assert.equal(r.ignorado, true, '.claude/ da raiz precisa seguir ignorado');
+});
+
+test('a resposta sobre a fonte nao depende do ambiente git herdado', () => {
+  // Regressao de 30/08/2026: empurrando de uma worktree ligada, os casos acima
+  // reprovavam dentro do hook de pre-push e passavam rodados direto.
+  //
+  // Envenena com um repositorio BARE, que e a forma mais severa do problema: com
+  // ele herdado o git recusa toda operacao que precise de arvore de trabalho, que
+  // e o estado em que a suite se meteu sozinha ao ter o repositorio reinicializado
+  // por outro teste (ver test/helpers/git-limpo.js).
+  //
+  // Os DOIS ajudantes entram no caso porque os dois estavam expostos, e o do
+  // `ls-files` e o pior dos dois: sob ambiente herdado ele responde que o
+  // protocolo versionado nao esta no git, que e uma acusacao grave e falsa.
+  const casa = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-git-sujo-'));
+  const salvo = process.env.GIT_DIR;
   try {
-    execFileSync('git', ['check-ignore', '-q', '.claude/settings.local.json'], { cwd: RAIZ, stdio: 'pipe' });
-    ignora = true;
-  } catch { ignora = false; }
-  assert.equal(ignora, true, '.claude/ da raiz precisa seguir ignorado');
+    const nu = path.join(casa, 'nu.git');
+    execFileSync('git', ['init', '-q', '--bare', nu], { env: envGitLimpo(), stdio: 'pipe' });
+    process.env.GIT_DIR = nu;
+
+    const r = respostaDoIgnore('.claude/settings.local.json');
+    assert.equal(r.erro, undefined, `ambiente herdado quebrou a consulta: ${r.erro}`);
+    assert.equal(r.ignorado, true, 'a resposta sobre o .claude/ mudou por causa do ambiente');
+    assert.equal(rastreado('.gitignore'), true, 'a resposta sobre o rastreamento mudou por causa do ambiente');
+  } finally {
+    if (salvo === undefined) delete process.env.GIT_DIR;
+    else process.env.GIT_DIR = salvo;
+    fs.rmSync(casa, { recursive: true, force: true });
+  }
 });
 
 test('o .gitignore diz POR QUE a exceção existe', () => {
