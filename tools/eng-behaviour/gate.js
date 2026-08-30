@@ -18,6 +18,16 @@ import { readJson } from '../../lib/io.js';
 const RAIZ = path.join(import.meta.dirname, '..', '..');
 
 /**
+ * Até quando vale a pena esperar o git responder antes de desistir dele.
+ *
+ * O conceito é a fronteira de uma decisão, e não o número: passado esse tempo, o
+ * gate para de perguntar ao git e assume a raiz de onde o arquivo está. Uma
+ * consulta local responde em dezenas de milissegundos, então o teto é folgado de
+ * propósito; ele existe para o caso patológico, não para o caso comum.
+ */
+const TETO_DE_ESPERA_DO_GIT_MS = 5000;
+
+/**
  * Raiz do repositório PRINCIPAL, mesmo quando este arquivo roda de uma worktree.
  *
  * Em worktree, `import.meta.dirname` aponta para a cópia, e o irmão da cópia não
@@ -32,9 +42,14 @@ const RAIZ = path.join(import.meta.dirname, '..', '..');
  * comportamento anterior e continua correto fora de worktree.
  */
 function raizPrincipal(base = RAIZ) {
+  // Teto de tempo porque isto roda dentro do pre-push: um git que trave por
+  // qualquer motivo, rede, filesystem, credential helper esperando entrada,
+  // travaria o push para sempre em vez de reprovar. Estourando o teto, `status`
+  // vem nulo e a funcao cai no mesmo fallback da falha comum.
   const r = spawnSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
     cwd: base,
     encoding: 'utf8',
+    timeout: TETO_DE_ESPERA_DO_GIT_MS,
   });
   const saida = (r.stdout || '').trim();
   if (r.status !== 0 || !saida) return base;

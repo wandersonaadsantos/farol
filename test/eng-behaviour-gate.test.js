@@ -72,7 +72,11 @@ function repoComWorktree() {
   const principal = path.join(base, 'principal');
   const wt = path.join(base, 'copia');
   fs.mkdirSync(principal);
-  const git = (args, cwd) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: 'pipe' });
+  // Teto por chamada: sem ele, um git que trave deixa o runner de testes pendurado
+  // sem mensagem, e no CI isso vira um job em curso por tempo indeterminado em vez
+  // de uma falha que alguém consegue ler. Aconteceu de verdade no runner de macOS.
+  const git = (args, cwd) =>
+    execFileSync('git', args, { cwd, encoding: 'utf8', stdio: 'pipe', timeout: 20_000 });
   git(['init', '-q', '-b', 'main'], principal);
   git(['config', 'user.email', 'teste@exemplo'], principal);
   git(['config', 'user.name', 'teste'], principal);
@@ -96,7 +100,7 @@ function mesmoCaminho(a, b) {
   return norm(a) === norm(b);
 }
 
-test('a raiz resolvida a partir de uma worktree e a do repositorio principal', () => {
+test('a raiz resolvida a partir de uma worktree e a do repositorio principal', { timeout: 60_000 }, () => {
   const { base, principal, wt } = repoComWorktree();
   try {
     assert.ok(
@@ -110,7 +114,7 @@ test('a raiz resolvida a partir de uma worktree e a do repositorio principal', (
   }
 });
 
-test('fora de repositorio git, a raiz e o proprio diretorio consultado', () => {
+test('fora de repositorio git, a raiz e o proprio diretorio consultado', { timeout: 30_000 }, () => {
   // O fallback existe para o gate não morrer onde o git não responde; ali o
   // comportamento antigo, o irmão de onde o arquivo está, continua correto.
   const solto = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-sem-git-'));
