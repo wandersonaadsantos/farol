@@ -9,6 +9,22 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.56.4
+
+A revisão automática parava sozinha por um gasto que ela não fez, e a tela não contava.
+
+**Correções**
+
+- **A autoanálise para na hora em que entra commit novo, em vez de rodar até o fim pra ser descartada.** O resultado dela vale para o commit que ela leu, então commit novo no meio sempre invalidou a análise; só que a conferência acontecia no fim, depois de a sessão inteira ter sido paga. Em 30/08/2026 isso jogou fora oito de dez análises num único dia. Agora o Farol interrompe a análise no ciclo em que percebe o commit novo e diz por quê, em vez do aviso genérico de cancelamento.
+- **O teto de gasto estourado aparece na tela do Radar e no log.** Quando o perfil passa do teto, a revisão automática pausa (o comportamento é esse desde sempre), mas a fila vazia continuava dizendo que o Farol estava monitorando, e o único aviso era um alerta passageiro. Agora a fila vazia diz que a automação está pausada, por qual perfil e com quanto de quanto, e o bloqueio entra no log que alimenta o Diagnóstico.
+- **A contagem de "aprovou sozinho hoje" passou a dizer a verdade.** Ela somava também o que você mesmo mandou postar pelo chat e contava cada rodada de um mesmo PR como um PR diferente. Num dia em que o Farol aprovou 2 PRs por conta própria, a tela dizia 5.
+- **Uma revisão que refina o próprio parecer deixa de travar a aprovação automática.** Quando a mesma sessão reavaliava uma afirmação e mudava o veredito segundos depois, o Farol lia aquilo como discordância entre rodadas e segurava o PR para sempre. Discordância agora é entre sessões diferentes, que é o que ela sempre quis dizer.
+- **A análise dos seus PRs passou a registrar a qual commit cada verificação pertence.** Sem isso, verificação feita sobre código antigo continuava valendo como prova do código atual, nos dois sentidos: um ponto refutado que já tinha sido corrigido bloqueava o Merge daquele PR para sempre, e um ponto confirmado sobre trecho já alterado liberava o Merge sobre código que ninguém conferiu.
+- **A limpeza de etiqueta presa no boot voltou a funcionar.** Ela roda quando o app morre no meio de uma revisão e nunca removeu nada, porque acontecia antes de o Farol resolver as credenciais. Etiqueta presa faz os Farols do time saírem de cena naquele PR sem que ninguém esteja revisando.
+- **Rodada que não conseguiu confirmar o commit deixa rastro.** Ela continua acontecendo (falha de rede nunca derruba a revisão), mas era invisível, e é ela que abre caminho para uma segunda aprovação no mesmo commit.
+- **Envelope incompleto passou a ser explicado como envelope.** Quando a sessão terminava sem o parecer pronto, o cartão dizia apenas "precisa da sua atenção", o que fazia o problema parecer do código revisado. E "a sessão não devolveu JSON" agora separa resposta vazia de resposta sem o formato esperado, que são causas diferentes.
+- **O registro de comandos disparados parou de crescer sem limite.** Ele é opcional e serve para diagnóstico, mas nada o rotacionava: no dia da medição estava com 60 MB.
+
 ## v2.56.3
 
 Destaques e Entregas passam a existir só quando você escolhe habilitá-los em Sistema.

@@ -575,12 +575,26 @@ export function usageDayKeysBack(n, agora = Date.now()) {
   return out;
 }
 
-// conta os resolvidos de HOJE (dia local) que terminaram em APPROVE: alimenta o
-// "vazio bom" do Radar. resolvedAt é epoch em ms (Date.now() do engine); a versão
-// antiga fatiava String(epoch) contra data ISO e nunca batia (ramo morto da v2.30.0).
+// Quantos PRs o app aprovou SOZINHO hoje (dia local): alimenta a frase do "vazio bom"
+// do Radar. resolvedAt é epoch em ms (Date.now() do engine); a versão antiga fatiava
+// String(epoch) contra data ISO e nunca batia (ramo morto da v2.30.0).
+//
+// Duas correções de 30/08/2026, feitas porque a tela dizia 5 e a verdade era 2:
+// - `status === 'auto_approved'` é o ÚNICO desfecho em que o APPROVE saiu sem você.
+//   Só `action === 'approve'` também somava `posted` (o APPROVE que você mandou postar
+//   pelo chat) e `already_reviewed` (em que nada foi postado), então a frase creditava
+//   ao app trabalho que era seu, justo na tela onde você confere se a automação age.
+// - a contagem é de PRs DISTINTOS, porque é isso que a frase promete: um PR que tem
+//   commit novo e é reaprovado três vezes no mesmo dia é um PR, não três.
 export function aprovadosHoje(resolved, agora = Date.now()) {
   const hoje = localDayKey(agora);
-  return (resolved || []).filter(r => r && r.action === 'approve' && localDayKey(r.resolvedAt) === hoje).length;
+  const prs = new Set();
+  for (const r of resolved || []) {
+    if (!r || r.status !== 'auto_approved' || r.action !== 'approve') continue;
+    if (localDayKey(r.resolvedAt) !== hoje) continue;
+    prs.add(r.key || r.id || r);   // sem key (registro antigo) cada item conta por si
+  }
+  return prs.size;
 }
 
 /* ---------- ciclo de vida das operacoes (widgets showOp/updateOp/closeOp da UI) ---------- */
@@ -1064,6 +1078,45 @@ export function sessionProgress(count) {
 
    `aprovadosHoje` continua no pure.js e e chamada pelo app.js, nao aqui: ela le
    `decisions.resolved`, que e estado, e o construtor recebe so o numero pronto. */
+/* A automação está pausada por teto de gasto? PURA.
+
+   Devolve o primeiro perfil BLOQUEADO que alguma conta monitorada usa de fato
+   (override da conta, senão o padrão do Farol), ou null. Conta silenciada não conta:
+   ela já está fora da automação por escolha.
+
+   POR QUE ISTO EXISTE (medido em 30/08/2026): o teto diário do perfil padrão estourou
+   às 19:52, num dia em que a autoanálise (que passa por fora do gate, por decisão)
+   levou US$ 74,48 dos US$ 94,39 gastos. Das 19:52 em diante a revisão automática ficou
+   pausada nas DUAS contas, e esta tela seguia dizendo "o Farol monitora biudtech a cada
+   3 minutos", que é a frase de quem está trabalhando. O selo do bloqueio existia, mas só
+   em Sistema e no Consumo, ou seja, longe da tela onde se pergunta "ele está agindo?".
+   Vazio que tranquiliza enquanto a automação está parada é pior que vazio nenhum. */
+export function automacaoPausadaPor(accounts, config, usage) {
+  const budgets = (usage && usage.budgets) || [];
+  if (!budgets.length) return null;
+  const padrao = (config && config.claudeProfileId) || '';
+  for (const a of accounts || []) {
+    if (!a || a.muted) continue;
+    const id = a.claudeProfileId || padrao;
+    const b = budgets.find(x => x.id === id);
+    if (b && b.blocked) return b;
+  }
+  return null;
+}
+
+// Frase do bloqueio, no eixo certo. Os motivos `-previsto` dizem que o gasto ainda NÃO
+// passou do teto, mas a próxima revisão passaria: quem lê age diferente em cada caso.
+function textoPausa(b) {
+  const motivo = String(b.reason || '');
+  const eixo = motivo.startsWith('total') ? 'teto total' : 'teto de hoje';
+  const gasto = motivo.startsWith('total') ? b.sinceCutoff : b.today;
+  const cap = motivo.startsWith('total') ? b.budgetTotal : b.capHoje;
+  const valores = `${fmtMoney(gasto)} de ${fmtMoney(cap)}`;
+  return motivo.endsWith('-previsto')
+    ? `a próxima revisão (${fmtMoney(b.tipicoReview)} em média) passaria do ${eixo} do perfil <b>${esc(b.label || 'padrão')}</b> (${valores})`
+    : `o perfil <b>${esc(b.label || 'padrão')}</b> passou do ${eixo} (${valores})`;
+}
+
 export function queueEmptyOkHtml(ctx = {}) {
   const aprovados = ctx.aprovados || 0;
   const orgs = (ctx.owners || []).map(o => `<b>${esc(o)}</b>`).join(', ');
@@ -1074,6 +1127,20 @@ export function queueEmptyOkHtml(ctx = {}) {
     : 'O Farol monitora ';
   const quem = orgs || 'as organizações configuradas';
   const cadencia = min === 1 ? 'minuto' : 'minutos';
+  // pausado por orçamento: a fila vazia não significa "está tudo em dia", significa que
+  // nada vai ser revisado sozinho até o teto liberar. É a informação que muda o que
+  // você faz agora, então ela vem primeiro e o resto do texto muda de tempo verbal.
+  if (ctx.pausado) {
+    return `<div class="empty-ok pausado">
+      <div class="eo-check" aria-hidden="true">⏸</div>
+      <div class="eo-title">Revisão automática pausada</div>
+      <p class="eo-sub">Nada está esperando a sua decisão, mas ${textoPausa(ctx.pausado)}, então nenhum PR novo vai ser revisado sozinho até isso liberar. O clique em Revisar continua valendo.</p>
+      <div class="eo-acts">
+        <button class="btn sm" data-goto="aba:consumo">Ver o consumo</button>
+        <button class="btn sm ghost eo-check-now">Verificar agora</button>
+      </div>
+    </div>`;
+  }
   return `<div class="empty-ok">
       <div class="eo-check" aria-hidden="true">✓</div>
       <div class="eo-title">Nada esperando por você</div>

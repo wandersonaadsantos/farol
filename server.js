@@ -220,6 +220,10 @@ class Engine extends EventEmitter {
     this.pushbackScanned = readJson(path.join(STATE_DIR, 'pushback-scanned.json'), {}, warn); // { key: marcador da última atividade do autor já avaliada }
     this.reReviewLaunched = readJson(path.join(STATE_DIR, 'rereview-launched.json'), {}, warn); // { key: { head, dia, rodadas } da re-revisão automática; string legada = só o head }
     this.headQuietoDesde = {}; // { key: { head, at } } debounce do round automático, só memória
+    // { key: motivo } do cancelamento AUTOMÁTICO de autoanálise (commit novo durante a
+    // sessão). Só memória, consumido uma vez pelo toast do runOneHeadless: sem isso a
+    // pessoa leria "cancelada" sem ter cancelado nada, a mesma frase do botão Cancelar.
+    this.selfCancelMotivo = new Map();
     // Relógio LOCAL das labels `<login>:revisando` de outras pessoas: { key do PR:
     // { login minúsculo: epochMs da primeira vez que ESTE Farol viu } }. Existe
     // porque a label não carrega hora nenhuma e uma sessão que morreu deixa a
@@ -1037,6 +1041,11 @@ class Engine extends EventEmitter {
           if (!this.budgetWarned.has(blockedProfile.id)) {
             this.budgetWarned.add(blockedProfile.id);
             this.emit('toast', { kind: 'error', text: `Orçamento do perfil "${blockedProfile.label}" estourado; automação pausada até liberar (clique manual continua liberado).` });
+            // rastro DURÁVEL, pelo mesmo motivo do gate de consciência (skip-review.js):
+            // toast some, e visto de fora uma automação pausada por teto é idêntica a uma
+            // automação quebrada. Em 30/08/2026 o teto estourou às 19:52 e o farol.log,
+            // que é a fonte do Diagnóstico, não tinha uma linha sequer sobre isso.
+            this.log('WARN', `orçamento do perfil "${blockedProfile.label}" estourado; revisão automática pausada até liberar (clique manual continua valendo).`);
           }
           return false;
         }
@@ -1733,7 +1742,15 @@ class Engine extends EventEmitter {
     if (this.inflightRecuperado && this.inflightRecuperado.length) {
       const presos = this.inflightRecuperado;
       this.inflightRecuperado = [];
-      reviewMod.limparLabelsOrfas(this, presos).catch(() => {});
+      // os tokens ANTES da limpeza: `this.tokens` nasce vazio no construtor e só é
+      // preenchido pelo refreshTokens de dentro do check(), que roda depois daqui.
+      // Sem isto, o `if (!engine.tokenFor(acc)) continue` do limparLabelsOrfas caía
+      // em TODA iteração, de forma síncrona, e a cura da label presa nunca removeu
+      // uma label sequer: a função ficava verde em teste (que injeta tokenFor) e era
+      // um no-op garantido em produção.
+      this.refreshTokens()
+        .then(() => reviewMod.limparLabelsOrfas(this, presos))
+        .catch(() => {});
     }
     await this.check('startup');
   }

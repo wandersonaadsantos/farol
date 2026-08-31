@@ -41,3 +41,28 @@ test('nunca grava env/token (só recebe cmd e args, não opts)', () => {
   assert.equal(/GH_TOKEN|ghp_|Bearer|password|secret/i.test(log), false, 'sem segredo no log');
   process.env.FAROL_DEBUG_SPAWNS = '';
 });
+
+// O arquivo é de alto volume (uma linha por comando disparado) e não tinha relógio
+// nenhum: medido em 30/08/2026 estava com 60 MB e crescendo. Rotaciona como o
+// farol.log: passou do teto, o atual vira `.1` e um novo começa.
+test('rotaciona quando passa do teto, preservando o anterior em .1', async () => {
+  const { TEMPOS } = await import('../lib/constants.js');
+  process.env.FAROL_DEBUG_SPAWNS = '1';
+  fs.writeFileSync(SPAWN_LOG_FILE, 'x'.repeat(TEMPOS.SPAWN_LOG_ROTACAO_BYTES + 1));
+  logSpawn('gh', ['pr', 'view', 'depois-da-rotacao']);
+  const atual = readLog();
+  assert.match(atual, /depois-da-rotacao/, 'a linha nova entrou no arquivo novo');
+  assert.ok(atual.length < TEMPOS.SPAWN_LOG_ROTACAO_BYTES, 'o arquivo recomeçou pequeno');
+  assert.equal(fs.existsSync(SPAWN_LOG_FILE + '.1'), true, 'o anterior virou .1');
+  process.env.FAROL_DEBUG_SPAWNS = '';
+});
+
+test('abaixo do teto NÃO rotaciona (o arquivo continua acumulando)', () => {
+  process.env.FAROL_DEBUG_SPAWNS = '1';
+  fs.writeFileSync(SPAWN_LOG_FILE, 'linha antiga que tem que continuar aqui\n');
+  logSpawn('gh', ['pr', 'view', 'sem-rotacao']);
+  const atual = readLog();
+  assert.match(atual, /linha antiga que tem que continuar aqui/, 'não jogou fora o que havia');
+  assert.match(atual, /sem-rotacao/, 'e acrescentou a nova');
+  process.env.FAROL_DEBUG_SPAWNS = '';
+});

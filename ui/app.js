@@ -1,7 +1,7 @@
 /* Farol · UI: consome o engine local via SSE + fetch. Sem frameworks. */
 
 import {
-  statusBannerHtml, queueEmptyOkHtml, esc, safeJsonParse, fmtClock, sysNorm, ownerFromUrl, canonicalGithubPrUrl, prKeyFromUrl, repoShort, stripFence,
+  statusBannerHtml, queueEmptyOkHtml, automacaoPausadaPor, esc, safeJsonParse, fmtClock, sysNorm, ownerFromUrl, canonicalGithubPrUrl, prKeyFromUrl, repoShort, stripFence,
   hexToRgba, sameSet, usageMetricVal, usageStackLayers, usageHoverIndex, accountSaveArray,
   delivCappedMsg, fmtRel, usageDayKeysBack, aprovadosHoje, avatar, md, feedLine,
   agentsTitle, stageFlowFrom, stageFlowHtml, analysisOpsPlan, selfSessionKey,
@@ -2290,6 +2290,9 @@ function renderQueue() {
       aprovados: aprovadosHoje(STATE.decisions?.resolved),
       owners: STATE.config?.owners || [],
       intervalSeconds: STATE.config?.intervalSeconds,
+      // fila vazia com a automação pausada por teto não é "está tudo em dia":
+      // é "nada vai ser revisado sozinho até liberar" (ver automacaoPausadaPor)
+      pausado: automacaoPausadaPor(STATE.accounts, STATE.config, STATE.usage),
     });
     return;
   }
@@ -3076,6 +3079,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.56.4', ['A autoanálise para na hora em que entra commit novo, em vez de rodar até o fim pra ser descartada. O resultado dela vale pro commit que ela leu, então commit novo no meio sempre invalidou a análise; só que a conferência acontecia no fim, com a sessão inteira já paga. Num único dia isso jogou fora oito de dez análises. Agora o Farol interrompe no ciclo em que percebe o commit novo e diz por quê.', 'O teto de gasto estourado aparece no Radar e no log. Passar do teto pausa a revisão automática, e isso é assim desde sempre; o que mudou é que a fila vazia dizia que o Farol estava monitorando, e o único aviso era um alerta passageiro. Agora a fila vazia diz que a automação está pausada, por qual perfil e com quanto de quanto.', 'A contagem de "aprovou sozinho hoje" passou a dizer a verdade: ela somava também o que você mandou postar pelo chat e contava cada rodada de um mesmo PR como um PR diferente. Num dia de 2 PRs aprovados por conta própria, a tela dizia 5.', 'Uma revisão que refina o próprio parecer deixa de travar a aprovação automática. Quando a mesma sessão reavaliava uma afirmação segundos depois, o Farol lia aquilo como discordância entre rodadas e segurava o PR pra sempre.', 'A análise dos seus PRs passou a registrar a qual commit cada verificação pertence. Sem isso, um ponto refutado já corrigido bloqueava o Merge daquele PR pra sempre, e um ponto confirmado sobre trecho já alterado liberava o Merge sobre código que ninguém conferiu.', 'A limpeza de etiqueta presa no boot voltou a funcionar: ela rodava antes de o Farol resolver as credenciais e nunca removeu nada. Etiqueta presa faz os Farols do time saírem de cena naquele PR sem ninguém estar revisando.', 'Rodada que não conseguiu confirmar o commit deixa rastro, envelope incompleto é explicado como envelope em vez de virar "precisa da sua atenção", e o registro de comandos disparados parou de crescer sem limite (estava com 60 MB).']],
   ['2.56.3', ['Destaques do time agora só aparece e trabalha quando você habilita a função em Sistema > Preferências. Desligado, o Farol não pede à IA que procure elogios, não grava novos destaques e não roda o kudos; ao habilitar, suas próprias autoanálises também entram na visão com identidade e PR atribuídos pelo app.', 'Entregas também passa a ser opt-in. Desligada, a aba fica oculta e o Farol não consulta no GitHub os PRs mergeados. Essa visão não usa IA, mas agora evita rede e processamento local quando você não a utiliza.']],
   ['2.56.2', ['Um token do GitHub exportado no terminal da sua máquina deixa de valer por cima da conta que o Farol resolveu. O app monta o ambiente de cada comando gh a partir do ambiente da máquina, então um GH_TOKEN (ou GITHUB_TOKEN) solto no seu shell viajava junto, e nas chamadas em que o Farol não tinha token resolvido o gh saía agindo como o dono daquela variável, sem nada na tela e sem linha no log. Com conta e token normais, nada muda.', 'O Diagnóstico deixa de ficar verde por um token que o Farol não usaria. Sem conta configurada, o check de autenticação do GitHub aceitava o token do ambiente e podia dizer "autenticado" enquanto nenhuma ação usaria aquela credencial; agora ele pergunta no mesmo ambiente em que o app age.']],
   ['2.56.1', ['A publicação passa a construir e anexar o instalador de macOS sozinha. Até aqui era um lembrete impresso no fim do script, e três releases seguidas saíram sem o anexo: quem fosse instalar no Mac pela primeira vez não tinha por onde. Lembrete que depende de disciplina não é processo.', 'O parecer da análise passou a viver num campo só. "Aprovável" era gravado duas vezes, em dois campos que diziam a mesma coisa; agora um deriva do outro na leitura, e análise antiga continua sendo lida como sempre.']],
