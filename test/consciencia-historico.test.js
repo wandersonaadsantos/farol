@@ -300,6 +300,9 @@ function engineFiacao(extra = {}) {
     enqueueHeadless(pr) { return reviewMod.enqueueHeadless(this, pr); },
     bloqueiaAutomatico(pr) { return skip.bloqueiaAutomatico(this, pr); },
     bloqueadoPorHistorico: async () => LIVRE,
+    // gate de checks obrigatorios livre por padrao: a suite dele e
+    // test/checks-obrigatorios.test.js, e aqui o que se prova e a fiacao do historico
+    bloqueadoPorChecks: async () => ({ bloqueado: false, faltando: [] }),
     prFromUrl: (u) => ({ key: 'o/r#1', url: u, repo: 'o/r', number: 1 }),
     accountForPr: () => 'eu',
     isMuted: () => false,
