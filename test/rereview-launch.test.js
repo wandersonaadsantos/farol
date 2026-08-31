@@ -57,6 +57,8 @@ function engineBase() {
   // gate de consciência sempre livre (senão o prototype real iria ao gh); a
   // suíte dele é test/consciencia-historico.test.js
   e.bloqueadoPorHistorico = async () => ({ bloqueado: false, head: '', quem: [], decisivos: [] });
+  // idem pro gate de checks obrigatorios: sem o stub, o prototype real iria ao gh
+  e.bloqueadoPorChecks = async () => ({ bloqueado: false, faltando: [] });
   return e;
 }
 

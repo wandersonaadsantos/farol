@@ -9,6 +9,21 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.57.0
+
+A revisão automática espera os checks obrigatórios ficarem verdes, e quem tem pressa continua tendo o botão.
+
+**Novidades**
+
+- **O Farol só começa a revisar sozinho quando 100% dos checks obrigatórios do PR estão verdes.** Sugestão do Guilherme, a partir de dois desperdícios que ele mediu no dia a dia: o Farol começava a revisar, alguém clicava em "Update branch", entrava commit novo e a sessão inteira virava lixo; e o Farol aprovava, a pipe quebrava depois, e o ciclo de correção custava outra revisão. Esperar a pipe fechar resolve os dois, porque um PR com os obrigatórios verdes é um PR que parou de se mexer.
+- **Obrigatórios, e não todos, e essa distinção é o que faz a regra funcionar.** O Farol lê da própria branch de destino quais checks ela exige, então um check que vive vermelho sem ser exigido (o caso do `sonar` em alguns repositórios) não segura nada. Exigir tudo verde nunca revisaria esses repositórios.
+- **Quem tem pressa não espera.** O botão Revisar atravessa o gate sem consultar nada, como sempre fez. E quando o Farol segura, ele avisa uma vez dizendo o que falta (o check, e se está rodando, vermelho ou nem começou) e lembrando que o botão continua valendo.
+
+**Melhorias**
+
+- Uma rodada de check relançada deixa de ser confundida com a que falhou antes. Quando o mesmo check aparece mais de uma vez no PR (job relançado), vale a rodada mais recente; contar as duas travaria o PR por uma falha já corrigida.
+- Falta de dado nunca segura: repositório sem check obrigatório, ou leitura que não deu certo, seguem revisando na hora, como antes.
+
 ## v2.56.6
 
 A conta do Consumo passa a fechar: nada gasto fica invisível, e nada descartado é contado como sucesso.

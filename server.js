@@ -60,6 +60,7 @@ function authFromProfile(p) {
 import fileProofMod from './lib/engine/file-proof.js';
 import wsTmpMod from './lib/engine/workspace-tmp.js';
 import skipMod from './lib/engine/skip-review.js';
+import checksMod from './lib/engine/checks-exigidos.js';
 import signalMod from './lib/engine/review-signal.js';
 import usageMod from './lib/engine/usage.js';
 import { EDITAVEIS, defaults as settingsDefaults, sanear } from './lib/settings.js';
@@ -1229,6 +1230,10 @@ class Engine extends EventEmitter {
   // gate de consciência do review automático (28/08/2026 à tarde): head ativo com
   // review decisivo de outra pessoa deixa o caminho automático aguardando você
   bloqueadoPorHistorico(pr) { return skipMod.bloqueadoPorHistorico(this, pr); }
+  // 100% dos checks obrigatórios verdes antes de gastar sessão (31/08/2026). Fachada,
+  // e não chamada direta do bloqueiaAutomatico, pelo mesmo motivo do gate acima: é
+  // aqui que a suíte substitui a ida ao gh.
+  bloqueadoPorChecks(pr) { return checksMod.bloqueadoPorChecks(this, pr); }
   bloqueiaAutomatico(pr) { return skipMod.bloqueiaAutomatico(this, pr); }
   podarHistoricoAvisado(abertos) { return skipMod.podarHistoricoAvisado(this, abertos); }
 
