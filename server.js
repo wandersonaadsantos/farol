@@ -58,6 +58,7 @@ function authFromProfile(p) {
   return null;
 }
 import fileProofMod from './lib/engine/file-proof.js';
+import wsTmpMod from './lib/engine/workspace-tmp.js';
 import skipMod from './lib/engine/skip-review.js';
 import signalMod from './lib/engine/review-signal.js';
 import usageMod from './lib/engine/usage.js';
@@ -291,6 +292,10 @@ class Engine extends EventEmitter {
     // podar só custa uma revisão cheia na próxima vez, nunca postagem errada
     try { fileProofMod.pruneFileProofs(); } catch { /* best-effort */ }
     try { scopeMod.pruneScopes(); } catch { /* best-effort */ } // escopo materializado do PR
+    // rascunho que a SESSÃO deixou em workspace/tmp (clone, patch avulso). As duas
+    // podas acima cuidam do que o APP cria; esta fecha a assimetria, e ela existia
+    // porque aquele diretório não tinha dono nenhum no código.
+    try { wsTmpMod.pruneWorkspaceTmp(); } catch { /* best-effort */ }
   }
 
   // revisões que estavam rodando quando o app morreu: devolve à fila (o PR já
