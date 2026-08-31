@@ -261,18 +261,43 @@ test('localDayKey aceita epoch ms e ISO; entrada inválida devolve vazio', () =>
   assert.equal(P.localDayKey('lixo'), '');
 });
 
-test('aprovadosHoje conta só APPROVE do dia LOCAL (resolvedAt em epoch ms)', () => {
+// A frase do vazio bom diz "o Farol aprovou N PRs SOZINHO hoje", então a conta é de
+// PRs distintos aprovados PELO APP. Medido em 30/08/2026, quando a tela dizia 5 e a
+// verdade eram 2: a conta antiga olhava só `action === 'approve'` e somava (a) o
+// APPROVE que o próprio usuário mandou postar pelo chat, (b) o `already_reviewed`, em
+// que nada foi postado, e (c) a mesma decisão repetida, contando as 3 rodadas do
+// wandersonaadsantos/farol#49 como 3 PRs.
+test('aprovadosHoje conta PRs DISTINTOS aprovados sozinho no dia LOCAL (resolvedAt em epoch ms)', () => {
   const agora = Date.parse('2026-08-01T22:00:00-03:00');
   const resolved = [
-    { action: 'approve', resolvedAt: agora - 60 * 60 * 1000 },             // 21:00 local de hoje
-    { action: 'approve', resolvedAt: Date.parse('2026-08-02T01:00:00Z') }, // 22:00 local de hoje (dia UTC já virou)
-    { action: 'approve', resolvedAt: agora - 26 * 60 * 60 * 1000 },        // ontem
-    { action: 'request_changes', resolvedAt: agora },                      // não é approve
-    { action: 'approve' },                                                 // sem resolvedAt: fora
+    { key: 'o/r#1', status: 'auto_approved', action: 'approve', resolvedAt: agora - 60 * 60 * 1000 },             // 21:00 local de hoje
+    { key: 'o/r#2', status: 'auto_approved', action: 'approve', resolvedAt: Date.parse('2026-08-02T01:00:00Z') }, // 22:00 local de hoje (dia UTC já virou)
+    { key: 'o/r#3', status: 'auto_approved', action: 'approve', resolvedAt: agora - 26 * 60 * 60 * 1000 },        // ontem
+    { key: 'o/r#4', status: 'auto_approved', action: 'request_changes', resolvedAt: agora },                      // não é approve
+    { key: 'o/r#5', status: 'auto_approved', action: 'approve' },                                                 // sem resolvedAt: fora
   ];
   assert.equal(P.aprovadosHoje(resolved, agora), 2);
   assert.equal(P.aprovadosHoje([], agora), 0);
   assert.equal(P.aprovadosHoje(undefined, agora), 0);
+});
+
+test('aprovadosHoje ignora o que o próprio usuário postou e o que não foi postado', () => {
+  const agora = Date.parse('2026-08-01T22:00:00-03:00');
+  const resolved = [
+    { key: 'o/r#1', status: 'auto_approved', action: 'approve', resolvedAt: agora },
+    { key: 'o/r#2', status: 'posted', action: 'approve', resolvedAt: agora },          // clique/chat: não foi sozinho
+    { key: 'o/r#3', status: 'already_reviewed', action: 'approve', resolvedAt: agora }, // nada foi postado
+    { key: 'o/r#4', action: 'approve', resolvedAt: agora },                             // sem status: não prova autonomia
+  ];
+  assert.equal(P.aprovadosHoje(resolved, agora), 1);
+});
+
+test('aprovadosHoje conta o mesmo PR uma vez, por mais rodadas que ele tenha tido', () => {
+  const agora = Date.parse('2026-08-01T22:00:00-03:00');
+  const tresRodadas = [1, 2, 3].map(h => (
+    { key: 'o/r#49', status: 'auto_approved', action: 'approve', resolvedAt: agora - h * 60 * 60 * 1000 }
+  ));
+  assert.equal(P.aprovadosHoje(tresRodadas, agora), 1);
 });
 
 /* ---------- reviewers: comparações que APAGAM configuração ---------- */
@@ -2808,4 +2833,51 @@ test('os códigos do P0b também têm frase; nenhum vaza cru na tela', () => {
     assert.notEqual(frase, 'Requisito de qualidade não atendido', `${code} precisa de frase própria`);
     assert.doesNotMatch(frase, /[A-Z]{4,}_/, 'a frase não pode carregar o código');
   }
+});
+
+/* ---------- fila vazia com a automação PAUSADA por teto ---------- */
+// Medido em 30/08/2026: o teto diário do perfil padrão estourou às 19:52 e as duas
+// contas ficaram sem revisão automática, enquanto esta tela seguia dizendo "o Farol
+// monitora biudtech a cada 3 minutos". O selo do bloqueio existia, mas só em Sistema
+// e no Consumo, longe da tela onde se pergunta "ele está agindo?".
+
+const BLOQUEADO = { id: 'p1', label: 'Perfil atual', blocked: true, reason: 'diario', today: 94.39, capHoje: 72.31 };
+const LIVRE = { id: 'p2', label: 'Outro', blocked: false, reason: null, today: 1, capHoje: 72.31 };
+
+test('automacaoPausadaPor acha o perfil bloqueado que a conta usa de fato', () => {
+  const usage = { budgets: [BLOQUEADO, LIVRE] };
+  const contas = [{ user: 'a' }];
+  assert.equal(P.automacaoPausadaPor(contas, { claudeProfileId: 'p1' }, usage), BLOQUEADO);
+  assert.equal(P.automacaoPausadaPor(contas, { claudeProfileId: 'p2' }, usage), null);
+});
+
+test('automacaoPausadaPor respeita o override de perfil da conta', () => {
+  const usage = { budgets: [BLOQUEADO, LIVRE] };
+  const contas = [{ user: 'a', claudeProfileId: 'p2' }];
+  assert.equal(P.automacaoPausadaPor(contas, { claudeProfileId: 'p1' }, usage), null, 'a conta não usa o perfil bloqueado');
+  assert.equal(P.automacaoPausadaPor([{ user: 'b', claudeProfileId: 'p1' }], { claudeProfileId: 'p2' }, usage), BLOQUEADO);
+});
+
+test('conta silenciada não conta: ela já está fora da automação por escolha', () => {
+  const usage = { budgets: [BLOQUEADO] };
+  assert.equal(P.automacaoPausadaPor([{ user: 'a', muted: true }], { claudeProfileId: 'p1' }, usage), null);
+});
+
+test('automacaoPausadaPor sem dado nenhum devolve null, não quebra', () => {
+  assert.equal(P.automacaoPausadaPor(undefined, undefined, undefined), null);
+  assert.equal(P.automacaoPausadaPor([], {}, { budgets: [] }), null);
+});
+
+test('a fila vazia diz que a automação está pausada, em vez de tranquilizar', () => {
+  const html = P.queueEmptyOkHtml({ aprovados: 5, owners: ['biudtech'], intervalSeconds: 180, pausado: BLOQUEADO });
+  assert.match(html, /Revisão automática pausada/);
+  assert.match(html, /Perfil atual/);
+  assert.match(html, /US\$ 94\.39 de US\$ 72\.31/);
+  assert.equal(/monitora/.test(html), false, 'não pode dizer que monitora enquanto está parado');
+});
+
+test('sem pausa, a fila vazia continua sendo o vazio bom de sempre', () => {
+  const html = P.queueEmptyOkHtml({ aprovados: 2, owners: ['biudtech'], intervalSeconds: 180 });
+  assert.match(html, /Nada esperando por você/);
+  assert.match(html, /aprovou 2 PRs sozinho hoje/);
 });

@@ -166,3 +166,44 @@ test('resumeBlock: menciona a contagem e o caminho, em tom de atenção', () => 
   assert.match(texto, /\/caminho\/x\.json/);
   assert.match(texto, /ATENÇÃO/);
 });
+
+/* ---------- divergência é ENTRE passadas, não dentro de uma ---------- */
+// biudtech/biud-mia#121, medido em 30/08/2026: a mesma sessão `a3`, mesmo head e mesmo
+// blob, gravou `confirmado` às 18:37:02 e `parcial` às 18:37:47. Ela refinou a própria
+// resposta, e o app leu isso como conflito entre rodadas, travando approve E reject
+// naquele PR pra sempre (nada expira a entrada).
+
+test('mesma sessão que refina o próprio veredito NÃO é divergência', () => {
+  const entries = [
+    { claim: 'a', file: 'x.ts', line: 2, verdict: 'confirmado', sessionId: 'a3' },
+    { claim: 'a', file: 'x.ts', line: 2, verdict: 'parcial', sessionId: 'a3' },
+  ];
+  const vc = summarizeCheckpoint(entries);
+  assert.equal(vc.conflicts.length, 0);
+  assert.equal(vc.total, 2, 'as duas entradas continuam contadas: nada é apagado');
+});
+
+test('sessões DIFERENTES que discordam continuam sendo divergência', () => {
+  const entries = [
+    { claim: 'a', file: 'x.ts', line: 2, verdict: 'confirmado', sessionId: 'a3' },
+    { claim: 'a', file: 'x.ts', line: 2, verdict: 'refutado', sessionId: 'a9' },
+  ];
+  assert.equal(summarizeCheckpoint(entries).conflicts.length, 1);
+});
+
+test('dentro da sessão vale o ÚLTIMO veredito, e é ele que confronta a outra sessão', () => {
+  const iguais = [
+    { claim: 'a', file: 'x.ts', line: 2, verdict: 'refutado', sessionId: 'a3' },
+    { claim: 'a', file: 'x.ts', line: 2, verdict: 'confirmado', sessionId: 'a3' },
+    { claim: 'a', file: 'x.ts', line: 2, verdict: 'confirmado', sessionId: 'a9' },
+  ];
+  assert.equal(summarizeCheckpoint(iguais).conflicts.length, 0, 'o último da a3 concorda com a a9');
+});
+
+test('entrada sem sessionId conta como passada própria (dado antigo não apaga divergência)', () => {
+  const entries = [
+    { claim: 'a', file: 'x.ts', line: 2, verdict: 'confirmado' },
+    { claim: 'a', file: 'x.ts', line: 2, verdict: 'refutado' },
+  ];
+  assert.equal(summarizeCheckpoint(entries).conflicts.length, 1);
+});
