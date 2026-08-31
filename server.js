@@ -1712,6 +1712,9 @@ class Engine extends EventEmitter {
   // Consumo de tokens: colaborador lib/engine/usage.js (registro permanente, sem custo);
   // ref é a referência amigável (PR/chat/ferramenta) que alimenta a tabela de sessões.
   recordUsage(id, account, resultEvent, model, profileId, ref) { return usageMod.recordUsage(this, id, account, resultEvent, model, profileId, ref); }
+  // corrige o DESFECHO de uma sessão já registrada (o gasto continua contado; o que
+  // muda é se ele virou resultado). Ver a seção de auditoria no lib/engine/usage.js.
+  marcarDesfecho(id, status) { return usageMod.marcarDesfecho(this, id, status); }
   usageSummary() { return usageMod.usageSummary(this); }
   // custo típico de UMA revisão, medido no próprio histórico do mês (mediana).
   // Alimenta a projeção do gate: o teto pergunta se a PRÓXIMA revisão cabe.

@@ -244,6 +244,11 @@ export function usageMatrixRows(matrixSeries, kindNames, modelNames, days, metri
 // buckets cruzados da v2.38.0, ou sessao gravada por versao antiga no meio do dia):
 // o engine garante que soma(camadas) == serie do dia, e essa camada e a diferenca.
 export const USAGE_KIND_LABEL = { review: 'Revisão', self: 'Autoanálise', pushback: 'Pushback', tool: 'Ferramentas', chat: 'Chat', outro: 'Outro', _resto: 'Sem detalhamento' };
+// Desfecho da sessão. Status desconhecido (registro de uma versão futura, arquivo
+// editado à mão) cai em 'ok' na leitura, que é o comportamento que sempre valeu.
+export const USAGE_ST_LABEL = {
+  ok: 'ok', erro: 'erro', cancelada: 'cancelada', parcial: 'parcial', descartada: 'descartada',
+};
 
 // o carimbo de versao por sessao (campo `farol`) nasceu na v2.42.0: sessao sem
 // o campo e, por definicao, anterior a essa versao. Constante FIXA, nunca
@@ -253,6 +258,30 @@ export const FAROL_PRE_STAMP_LABEL = `< ${FAROL_STAMP_SINCE}`;
 
 // linha pronta pra tabela de Sessoes recentes: rotulo de tipo, referencia (com
 // fallback sem travessao), tokens somados, custo com 2 casas e o estado (ok/erro).
+/* Como a coluna de custo se apresenta, conforme a ORIGEM do número.
+
+   Custo estimado ganha til na frente: sessão que morreu no meio tem token medido e um
+   custo que não existe em lugar nenhum do stream, então o valor entra na conta (o
+   dinheiro foi gasto de verdade) sem se passar por medição. `sem-base` é o caso em que
+   nem estimar deu, e aí a coluna diz isso em vez de mostrar um zero que mente para
+   baixo. Registro antigo não tem o campo e é lido como medido, que é o que ele era. */
+function custoDaSessao(s) {
+  const valor = (s.costUsd || 0).toFixed(2);
+  if (s.costSource === 'sem-base') {
+    return {
+      costLabel: 'não medido',
+      costTitle: 'a sessão morreu antes de reportar o custo e ainda não há sessão concluída deste tipo e modelo pra estimar a taxa',
+    };
+  }
+  if (s.costSource === 'estimado') {
+    return {
+      costLabel: `~${valor}`,
+      costTitle: 'custo estimado pela taxa que as sessões concluídas mediram; a sessão morreu antes de reportar o valor',
+    };
+  }
+  return { costLabel: valor, costTitle: '' };
+}
+
 export function usageSessionRow(s, agora = Date.now()) {
   return {
     whenLabel: fmtWhenDay(s.at, agora),
@@ -264,11 +293,14 @@ export function usageSessionRow(s, agora = Date.now()) {
     // registro em usage-sessions.json continua intocado, sem retro-carimbo).
     farol: s.farol || FAROL_PRE_STAMP_LABEL,
     tokLabel: fmtTok((s.inputTokens || 0) + (s.outputTokens || 0)),
-    costLabel: (s.costUsd || 0).toFixed(2),
+    ...custoDaSessao(s),
     // 'cancelada' existe desde a v2.40.0 (sessão morta pelo usuário DEPOIS do result:
-    // gastou, mas não concluiu); antes caía como 'ok', indistinguível de concluída
-    stLabel: s.status === 'erro' ? 'erro' : s.status === 'cancelada' ? 'cancelada' : 'ok',
-    stClass: s.status === 'erro' ? 'erro' : s.status === 'cancelada' ? 'cancelada' : 'ok',
+    // gastou, mas não concluiu); antes caía como 'ok', indistinguível de concluída.
+    // 'parcial' e 'descartada' entraram em 31/08/2026 e fecham a auditoria: a primeira
+    // é a sessão que morreu no meio, a segunda é a que terminou e teve o RESULTADO
+    // jogado fora (commit novo durante a análise), que até então contava como 'ok'.
+    stLabel: USAGE_ST_LABEL[s.status] || 'ok',
+    stClass: USAGE_ST_LABEL[s.status] ? s.status : 'ok',
   };
 }
 
@@ -2033,7 +2065,7 @@ export function usageSessionsHtml(u) {
       <span class="usage-sessions-model">${esc(r.model)}</span>
       <span class="usage-sessions-farol"${r.farol === FAROL_PRE_STAMP_LABEL ? ` title="sessão registrada antes da ${FAROL_STAMP_SINCE}, quando o carimbo de versão passou a existir"` : ''}>${esc(r.farol)}</span>
       <span class="usage-sessions-num">${esc(r.tokLabel)}</span>
-      <span class="usage-sessions-num">${esc(r.costLabel)}</span>
+      <span class="usage-sessions-num"${r.costTitle ? ` title="${esc(r.costTitle)}"` : ''}>${esc(r.costLabel)}</span>
       <span style="text-align:right"><span class="usage-sessions-st ${r.stClass}">${esc(r.stLabel)}</span></span>
     </div>`;
   }).join('');
@@ -2044,7 +2076,33 @@ export function usageSessionsHtml(u) {
   const p2 = n => String(n).padStart(2, '0');
   const desdeTxt = desde ? `Registro individual desde ${p2(desde.getDate())}/${p2(desde.getMonth() + 1)}/${desde.getFullYear()}; sessões anteriores aparecem só nos agregados. ` : '';
   return `<div class="usage-sessions">${head}${rows}</div>
+    ${auditoriaLinhaHtml(u.auditoria)}
     <div class="usage-sessions-foot"><span>${esc(desdeTxt)}Registro permanente, sem botão de zerar.</span><span>Mostrando as ${lista.length} mais recentes</span></div>`;
+}
+
+/* Uma linha que responde a pergunta que a tabela sozinha nao responde: quanto do
+   gasto virou resultado. Ela existe porque em 30/08/2026 o dia fechou com US$ 94,39
+   e 87% da autoanalise no lixo, e a aba mostrava sucesso em 100% das sessoes: pra
+   enxergar o desperdicio foi preciso cruzar dois arquivos na mao.
+
+   So aparece quando ha o que dizer (algum gasto perdido ou estimado): linha fixa
+   dizendo "0% perdido" seria ruido em cima de quem esta com tudo certo. PURA. */
+export function auditoriaLinhaHtml(a) {
+  if (!a || !a.total || !a.total.sessions) return '';
+  const perdido = (a.perdido && a.perdido.costUsd) || 0;
+  const estimado = (a.estimado && a.estimado.costUsd) || 0;
+  if (perdido <= 0 && estimado <= 0) return '';
+  const total = (a.total && a.total.costUsd) || 0;
+  const pct = total > 0 ? Math.round((perdido / total) * 100) : 0;
+  const partes = [];
+  if (perdido > 0) {
+    partes.push(`<b>${fmtMoney(perdido)}</b> em ${a.perdido.sessions} sessão(ões) que não viraram resultado`
+      + (total > 0 ? `, ${pct}% do gasto registrado` : ''));
+  }
+  if (estimado > 0) {
+    partes.push(`<b>${fmtMoney(estimado)}</b> com custo estimado, não medido`);
+  }
+  return `<div class="usage-sessions-foot audit"><span>Auditoria do registro inteiro: ${partes.join('; ')}.</span></div>`;
 }
 
 /* ---------- perfil de review por pessoa: papel + matriz por domínio ----------

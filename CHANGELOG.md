@@ -9,6 +9,17 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.56.6
+
+A conta do Consumo passa a fechar: nada gasto fica invisível, e nada descartado é contado como sucesso.
+
+**Correções**
+
+- **Sessão que morre no meio deixa de sumir da conta.** O consumo só era registrado quando a sessão chegava ao fim e reportava o total. Sessão interrompida antes disso (cancelamento, tempo esgotado) não gerava registro nenhum, e os tokens já gastos ficavam fora da tela **e fora do teto de orçamento**, que é justamente o mecanismo que deveria enxergar esse dinheiro. Agora o Farol soma o gasto mensagem a mensagem enquanto a sessão roda, e registra o que houve mesmo quando ela não termina.
+- **Custo estimado nunca se disfarça de medido.** O valor em dólar só existe no relatório final da sessão; as mensagens trazem token e nunca custo. Então uma sessão interrompida tem token medido e custo estimado, e a tela diz qual é qual: o valor aparece com `~` e explica de onde veio ao passar o mouse. A taxa usada não vem de tabela de preço nenhuma, vem das suas próprias sessões concluídas do mesmo tipo e modelo, então ela se corrige sozinha quando o preço muda. Conferida contra o seu histórico: o valor estimado fica sem viés (fator mediano de 1,00x) e dentro de 2x do real em 72% a 86% dos casos, o que é impreciso o suficiente para nunca ser confundido com medição e útil o suficiente para o teto parar de ser cego.
+- **Análise descartada deixa de aparecer como sucesso.** Quando entra commit novo e o resultado da autoanálise é jogado fora, o gasto existiu e não virou nada; ele era gravado como concluído, indistinguível de uma análise que serviu. Em 30/08 foram US$ 64,81 assim, com a aba mostrando sucesso em todas as sessões. Agora esses dois casos têm nome próprio na coluna Estado (`descartada` e `parcial`), inclusive quando o descarte só é percebido ciclos depois.
+- **A aba Consumo passa a responder quanto do gasto virou resultado.** Uma linha ao pé da tabela soma o que não virou nada e quanto do custo é estimativa, sobre o registro inteiro. Ela só aparece quando há o que dizer.
+
 ## v2.56.5
 
 O rascunho que as sessões deixam no workspace passou a ter dono, e por isso passou a ter prazo.
