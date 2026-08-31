@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.56.5
+
+O rascunho que as sessões deixam no workspace passou a ter dono, e por isso passou a ter prazo.
+
+**Correções**
+
+- **O Farol apaga sozinho o rascunho antigo das sessões.** As sessões de revisão criam material próprio em `~/.farol/workspace/tmp` (clone de repositório, patch avulso, cópia para comparar), e nada olhava para aquilo. O app já limpava o que ele mesmo cria, e a assimetria não era descuido: aquele diretório não tinha dono no código. Medido em 31/08/2026 numa instalação de uso diário: 4,0 GB em 394.683 arquivos, o mais novo com quatro dias. Agora, no boot, o que passou de sete dias sai. O prazo é folgado de propósito, porque uma sessão vive no máximo trinta minutos, e a limpeza é best-effort: diretório travado tenta de novo na próxima abertura, e nunca derruba a subida do app.
+
 ## v2.56.4
 
 A revisão automática parava sozinha por um gasto que ela não fez, e a tela não contava.

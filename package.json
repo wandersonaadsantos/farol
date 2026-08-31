@@ -1,7 +1,7 @@
 {
   "name": "farol",
   "productName": "Farol",
-  "version": "2.56.4",
+  "version": "2.56.5",
   "description": "Radar de Pull Requests: monitora o GitHub e revisa com Claude Code ou Codex CLI.",
   "main": "main.js",
   "type": "module",
