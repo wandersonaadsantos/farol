@@ -54,6 +54,8 @@ function checkEngine() {
   // gate de consciência sempre livre (é rede; a suíte dele é
   // test/consciencia-historico.test.js)
   e.bloqueadoPorHistorico = async () => ({ bloqueado: false, head: '', quem: [], decisivos: [] });
+  // idem pro gate de checks obrigatorios: sem o stub, o prototype real iria ao gh
+  e.bloqueadoPorChecks = async () => ({ bloqueado: false, faltando: [] });
   e.scenario = { panorama: [], mine: [], reviewed: [] };
   e.searchPRs = async (extraArgs) => {
     const lista = extraArgs[0] === '--owner' ? e.scenario.panorama

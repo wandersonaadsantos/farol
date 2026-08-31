@@ -9,13 +9,38 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.56.6
+## v2.57.1
 
 Revisao automatica de PR de sync entre branches continuas do gitflow.
 
 **Melhorias**
 
 - O protocolo de revisao aprende o "sync de linhagem": PR que promove uma branch continua do gitflow para outra (release para production, homologation para development) e que antes era tratado como um pacote gigante sem card, caindo sempre em "Precisa de voce". Agora a revisao prova a PROCEDENCIA (todo commit do diff chegou por PR ja mesclado ou tag publicada) em vez de reler o pacote arquivo a arquivo, e um sync verificado sai aprovavel limpo, com os PRs e tags de origem citados como ancora. Commit sem procedencia continua sendo lido como escopo normal e vira o assunto do review. Motivado por caso real: um fast-forward de release para production com o pacote inteiro de uma versao ja publicada ficou preso esperando clique em todos os Farols do time.
+## v2.57.0
+
+A revisão automática espera os checks obrigatórios ficarem verdes, e quem tem pressa continua tendo o botão.
+
+**Novidades**
+
+- **O Farol só começa a revisar sozinho quando 100% dos checks obrigatórios do PR estão verdes.** Sugestão do Guilherme, a partir de dois desperdícios que ele mediu no dia a dia: o Farol começava a revisar, alguém clicava em "Update branch", entrava commit novo e a sessão inteira virava lixo; e o Farol aprovava, a pipe quebrava depois, e o ciclo de correção custava outra revisão. Esperar a pipe fechar resolve os dois, porque um PR com os obrigatórios verdes é um PR que parou de se mexer.
+- **Obrigatórios, e não todos, e essa distinção é o que faz a regra funcionar.** O Farol lê da própria branch de destino quais checks ela exige, então um check que vive vermelho sem ser exigido (o caso do `sonar` em alguns repositórios) não segura nada. Exigir tudo verde nunca revisaria esses repositórios.
+- **Quem tem pressa não espera.** O botão Revisar atravessa o gate sem consultar nada, como sempre fez. E quando o Farol segura, ele avisa uma vez dizendo o que falta (o check, e se está rodando, vermelho ou nem começou) e lembrando que o botão continua valendo.
+
+**Melhorias**
+
+- Uma rodada de check relançada deixa de ser confundida com a que falhou antes. Quando o mesmo check aparece mais de uma vez no PR (job relançado), vale a rodada mais recente; contar as duas travaria o PR por uma falha já corrigida.
+- Falta de dado nunca segura: repositório sem check obrigatório, ou leitura que não deu certo, seguem revisando na hora, como antes.
+
+## v2.56.6
+
+A conta do Consumo passa a fechar: nada gasto fica invisível, e nada descartado é contado como sucesso.
+
+**Correções**
+
+- **Sessão que morre no meio deixa de sumir da conta.** O consumo só era registrado quando a sessão chegava ao fim e reportava o total. Sessão interrompida antes disso (cancelamento, tempo esgotado) não gerava registro nenhum, e os tokens já gastos ficavam fora da tela **e fora do teto de orçamento**, que é justamente o mecanismo que deveria enxergar esse dinheiro. Agora o Farol soma o gasto mensagem a mensagem enquanto a sessão roda, e registra o que houve mesmo quando ela não termina.
+- **Custo estimado nunca se disfarça de medido.** O valor em dólar só existe no relatório final da sessão; as mensagens trazem token e nunca custo. Então uma sessão interrompida tem token medido e custo estimado, e a tela diz qual é qual: o valor aparece com `~` e explica de onde veio ao passar o mouse. A taxa usada não vem de tabela de preço nenhuma, vem das suas próprias sessões concluídas do mesmo tipo e modelo, então ela se corrige sozinha quando o preço muda. Conferida contra o seu histórico: o valor estimado fica sem viés (fator mediano de 1,00x) e dentro de 2x do real em 72% a 86% dos casos, o que é impreciso o suficiente para nunca ser confundido com medição e útil o suficiente para o teto parar de ser cego.
+- **Análise descartada deixa de aparecer como sucesso.** Quando entra commit novo e o resultado da autoanálise é jogado fora, o gasto existiu e não virou nada; ele era gravado como concluído, indistinguível de uma análise que serviu. Em 30/08 foram US$ 64,81 assim, com a aba mostrando sucesso em todas as sessões. Agora esses dois casos têm nome próprio na coluna Estado (`descartada` e `parcial`), inclusive quando o descarte só é percebido ciclos depois.
+- **A aba Consumo passa a responder quanto do gasto virou resultado.** Uma linha ao pé da tabela soma o que não virou nada e quanto do custo é estimativa, sobre o registro inteiro. Ela só aparece quando há o que dizer.
 
 ## v2.56.5
 

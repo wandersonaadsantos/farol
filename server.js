@@ -60,6 +60,7 @@ function authFromProfile(p) {
 import fileProofMod from './lib/engine/file-proof.js';
 import wsTmpMod from './lib/engine/workspace-tmp.js';
 import skipMod from './lib/engine/skip-review.js';
+import checksMod from './lib/engine/checks-exigidos.js';
 import signalMod from './lib/engine/review-signal.js';
 import usageMod from './lib/engine/usage.js';
 import { EDITAVEIS, defaults as settingsDefaults, sanear } from './lib/settings.js';
@@ -1229,6 +1230,10 @@ class Engine extends EventEmitter {
   // gate de consciência do review automático (28/08/2026 à tarde): head ativo com
   // review decisivo de outra pessoa deixa o caminho automático aguardando você
   bloqueadoPorHistorico(pr) { return skipMod.bloqueadoPorHistorico(this, pr); }
+  // 100% dos checks obrigatórios verdes antes de gastar sessão (31/08/2026). Fachada,
+  // e não chamada direta do bloqueiaAutomatico, pelo mesmo motivo do gate acima: é
+  // aqui que a suíte substitui a ida ao gh.
+  bloqueadoPorChecks(pr) { return checksMod.bloqueadoPorChecks(this, pr); }
   bloqueiaAutomatico(pr) { return skipMod.bloqueiaAutomatico(this, pr); }
   podarHistoricoAvisado(abertos) { return skipMod.podarHistoricoAvisado(this, abertos); }
 
@@ -1712,6 +1717,9 @@ class Engine extends EventEmitter {
   // Consumo de tokens: colaborador lib/engine/usage.js (registro permanente, sem custo);
   // ref é a referência amigável (PR/chat/ferramenta) que alimenta a tabela de sessões.
   recordUsage(id, account, resultEvent, model, profileId, ref) { return usageMod.recordUsage(this, id, account, resultEvent, model, profileId, ref); }
+  // corrige o DESFECHO de uma sessão já registrada (o gasto continua contado; o que
+  // muda é se ele virou resultado). Ver a seção de auditoria no lib/engine/usage.js.
+  marcarDesfecho(id, status) { return usageMod.marcarDesfecho(this, id, status); }
   usageSummary() { return usageMod.usageSummary(this); }
   // custo típico de UMA revisão, medido no próprio histórico do mês (mediana).
   // Alimenta a projeção do gate: o teto pergunta se a PRÓXIMA revisão cabe.
