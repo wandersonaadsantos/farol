@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.56.6
+
+Revisao automatica de PR de sync entre branches continuas do gitflow.
+
+**Melhorias**
+
+- O protocolo de revisao aprende o "sync de linhagem": PR que promove uma branch continua do gitflow para outra (release para production, homologation para development) e que antes era tratado como um pacote gigante sem card, caindo sempre em "Precisa de voce". Agora a revisao prova a PROCEDENCIA (todo commit do diff chegou por PR ja mesclado ou tag publicada) em vez de reler o pacote arquivo a arquivo, e um sync verificado sai aprovavel limpo, com os PRs e tags de origem citados como ancora. Commit sem procedencia continua sendo lido como escopo normal e vira o assunto do review. Motivado por caso real: um fast-forward de release para production com o pacote inteiro de uma versao ja publicada ficou preso esperando clique em todos os Farols do time.
+
 ## v2.56.5
 
 O rascunho que as sessões deixam no workspace passou a ter dono, e por isso passou a ter prazo.
