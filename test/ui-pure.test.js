@@ -2881,3 +2881,58 @@ test('sem pausa, a fila vazia continua sendo o vazio bom de sempre', () => {
   assert.match(html, /Nada esperando por você/);
   assert.match(html, /aprovou 2 PRs sozinho hoje/);
 });
+
+/* ---------- auditoria de consumo: a tela tem que distinguir medido de estimado ---------- */
+// Em 30/08/2026 o dia fechou com US$ 94,39 e 87% da autoanálise no lixo, e a aba
+// Consumo mostrava sucesso em 100% das sessões. Distinguir desfecho e origem do custo
+// é o que faz a tabela responder "quanto disso virou resultado".
+
+test('linha de sessão nomeia os desfechos novos', () => {
+  assert.equal(P.usageSessionRow({ status: 'parcial' }).stLabel, 'parcial');
+  assert.equal(P.usageSessionRow({ status: 'descartada' }).stLabel, 'descartada');
+  assert.equal(P.usageSessionRow({ status: 'cancelada' }).stLabel, 'cancelada');
+  assert.equal(P.usageSessionRow({ status: 'ok' }).stLabel, 'ok');
+});
+
+test('status desconhecido cai em ok, que e o comportamento de sempre', () => {
+  assert.equal(P.usageSessionRow({ status: 'de-uma-versao-futura' }).stLabel, 'ok');
+  assert.equal(P.usageSessionRow({}).stLabel, 'ok');
+});
+
+test('custo estimado leva til e explicacao; medido continua limpo', () => {
+  const est = P.usageSessionRow({ costUsd: 1.5, costSource: 'estimado' });
+  assert.equal(est.costLabel, '~1.50');
+  assert.match(est.costTitle, /estimado/);
+  const med = P.usageSessionRow({ costUsd: 1.5, costSource: 'medido' });
+  assert.equal(med.costLabel, '1.50');
+  assert.equal(med.costTitle, '');
+});
+
+test('custo que nem deu pra estimar diz isso, em vez de mostrar zero', () => {
+  const r = P.usageSessionRow({ costUsd: 0, costSource: 'sem-base' });
+  assert.equal(r.costLabel, 'não medido');
+  assert.match(r.costTitle, /ainda não há sessão concluída/);
+});
+
+test('sessao antiga sem costSource continua sendo lida como medida', () => {
+  assert.equal(P.usageSessionRow({ costUsd: 2 }).costLabel, '2.00');
+});
+
+test('a linha de auditoria diz quanto se perdeu e quanto e estimativa', () => {
+  const html = P.auditoriaLinhaHtml({
+    total: { sessions: 10, costUsd: 100 },
+    perdido: { sessions: 3, costUsd: 40 },
+    estimado: { sessions: 1, costUsd: 5 },
+  });
+  assert.match(html, /US\$ 40\.00/);
+  assert.match(html, /3 sessão\(ões\)/);
+  assert.match(html, /40% do gasto registrado/);
+  assert.match(html, /US\$ 5\.00/);
+});
+
+test('sem perda e sem estimativa, a linha de auditoria some', () => {
+  const limpo = { total: { sessions: 5, costUsd: 50 }, perdido: { sessions: 0, costUsd: 0 }, estimado: { sessions: 0, costUsd: 0 } };
+  assert.equal(P.auditoriaLinhaHtml(limpo), '', 'dizer "0% perdido" seria ruido em cima de quem esta com tudo certo');
+  assert.equal(P.auditoriaLinhaHtml(null), '');
+  assert.equal(P.auditoriaLinhaHtml({ total: { sessions: 0, costUsd: 0 } }), '');
+});
