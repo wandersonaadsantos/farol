@@ -2754,6 +2754,10 @@ const QUALITY_REASON_LABELS = {
   BLOCKERS_UNKNOWN: 'A análise não declarou os bloqueios',
   COVERAGE_UNKNOWN: 'Sem cobertura comprovada',
   COVERAGE_INCOMPLETE: 'Parte do PR ficou sem análise',
+  // limitação do INSTRUMENTO, não da análise: o provedor da sessão não reporta leitura
+  // de arquivo, então a cobertura não pôde ser observada. O Merge segue indisponível
+  // (sem prova de leitura não se libera), mas a linha para de culpar quem leu.
+  COVERAGE_UNOBSERVABLE: 'Não deu pra observar a leitura nesta sessão',
   ANALYSIS_INCOMPLETE: 'A análise não chegou ao fim',
   CARD_UNSATISFIED: 'O card não foi atendido',
   CARD_UNKNOWN: 'Atendimento ao card não comprovado',

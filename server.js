@@ -297,6 +297,9 @@ class Engine extends EventEmitter {
     // podas acima cuidam do que o APP cria; esta fecha a assimetria, e ela existia
     // porque aquele diretório não tinha dono nenhum no código.
     try { wsTmpMod.pruneWorkspaceTmp(); } catch { /* best-effort */ }
+    // e o mesmo rascunho largado um nivel acima, na raiz do workspace: preserva o que
+    // o app semeia (derivado do template) e o state, e nunca apaga sem saber o que preservar
+    try { wsTmpMod.pruneWorkspaceRaiz(); } catch { /* best-effort */ }
   }
 
   // revisões que estavam rodando quando o app morreu: devolve à fila (o PR já

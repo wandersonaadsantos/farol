@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.57.2
+
+Fecha as três pendências que o check-up tinha deixado registradas em vez de resolvidas.
+
+**Correções**
+
+- **Aprovação em branco não sai mais sozinha.** O gate exigia texto para reprovar sozinho (corpo ou comentário de linha) e não exigia para aprovar, então uma aprovação sem uma palavra sairia no PR assinada por você. Conferido antes de fechar: as doze aprovações automáticas mais recentes têm de 651 a 2886 caracteres, então isto não segura nada que hoje passa; segura o envelope que veio quebrado, que agora chega como decisão sua, com o motivo escrito.
+- **O rascunho solto na raiz do workspace também passou a ter prazo.** A limpeza anterior cobria só o `tmp/`, e sobraram 331 MB em 16.638 arquivos um nível acima (clones e patches que as sessões largaram ali). Agora o Farol também poda a raiz no boot, preservando o que ele mesmo semeia, o `state` e o `tmp`. A lista do que preservar é derivada do próprio template, e não escrita à mão: se o template ganhar um arquivo novo, ele já nasce protegido. E se o Farol não conseguir ler o template, ele não apaga nada, porque sem saber o que preservar não se apaga.
+- **"Parte do PR ficou sem análise" deixa de aparecer quando o problema é o instrumento.** Em sessões do Codex, que não reportam leitura de arquivo, a cobertura nunca podia ser observada, e o Merge da autoanálise culpava a análise por isso. O botão continua indisponível, porque sem prova de leitura não se libera merge, mas a linha agora diz a verdade.
+
 ## v2.57.1
 
 Revisao automatica de PR de sync entre branches continuas do gitflow.
