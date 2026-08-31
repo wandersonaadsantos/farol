@@ -642,3 +642,49 @@ test('a derivação não toca na elegibilidade', () => {
   assert.equal(engine.snapshot().selfAnalyses[CHAVE].quality.status, 'eligible',
     'o parecer segue sem autorizar nem impedir: quem decide é a evidência');
 });
+
+/* ---------- leitura NÃO OBSERVÁVEL não é análise incompleta (31/08/2026) ----------
+   O caminho do Codex não emite evento de leitura de arquivo (o stream dele só tem
+   command_execution e agent_message), então `scope.reviewed` fica sempre vazio e o
+   gate acusava COVERAGE_INCOMPLETE, ou seja, culpava a ANÁLISE por uma limitação do
+   INSTRUMENTO. O desfecho continua o mesmo, o Merge não fica disponível, porque sem
+   prova de leitura não se libera merge; o que muda é a linha dizer a verdade. */
+
+test('sem observabilidade, o motivo é do instrumento e não da análise', () => {
+  const observed = {
+    headSha: 'h', sessionOutcome: 'complete',
+    scope: { total: ['a.ts', 'b.ts'], reviewed: [], missing: ['a.ts', 'b.ts'], observavel: false },
+    verification: { status: 'not_applicable' },
+    card: { requirement: 'not_required' },
+  };
+  const analysis = { headSha: 'h', blockers: [], cardMet: null, verdict: 'approve', approvable: true };
+  const r = evaluateQualityEligibility(analysis, observed);
+  const codigos = r.reasons.map(x => x.code);
+  assert.ok(codigos.includes('COVERAGE_UNOBSERVABLE'), 'o motivo nomeia o instrumento');
+  assert.equal(codigos.includes('COVERAGE_INCOMPLETE'), false, 'e não culpa a análise');
+  assert.equal(r.status, 'inconclusive', 'sem prova de leitura o Merge continua indisponível');
+});
+
+test('com observabilidade, a régua de cobertura é a de sempre', () => {
+  const observed = {
+    headSha: 'h', sessionOutcome: 'complete',
+    scope: { total: ['a.ts', 'b.ts'], reviewed: ['a.ts'], missing: ['b.ts'], observavel: true },
+    verification: { status: 'not_applicable' },
+    card: { requirement: 'not_required' },
+  };
+  const analysis = { headSha: 'h', blockers: [], cardMet: null, verdict: 'approve', approvable: true };
+  const codigos = evaluateQualityEligibility(analysis, observed).reasons.map(x => x.code);
+  assert.ok(codigos.includes('COVERAGE_INCOMPLETE'));
+  assert.equal(codigos.includes('COVERAGE_UNOBSERVABLE'), false);
+});
+
+test('registro antigo, sem o campo, continua sendo lido como observável', () => {
+  const observed = {
+    headSha: 'h', sessionOutcome: 'complete',
+    scope: { total: ['a.ts'], reviewed: [], missing: ['a.ts'] },
+    verification: { status: 'not_applicable' }, card: { requirement: 'not_required' },
+  };
+  const analysis = { headSha: 'h', blockers: [], cardMet: null, verdict: 'approve', approvable: true };
+  const codigos = evaluateQualityEligibility(analysis, observed).reasons.map(x => x.code);
+  assert.ok(codigos.includes('COVERAGE_INCOMPLETE'), 'sem o campo, nada muda pro que ja esta em disco');
+});

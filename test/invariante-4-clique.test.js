@@ -85,3 +85,22 @@ test('requested ausente (undefined) não é tratado como clique', () => {
   assert.equal(e.shouldAutoApprove(semCampo, aprovavel()).ok, true);
   assert.equal(e.shouldAutoReject(semCampo, reprovavel()), true);
 });
+
+/* ---------- APPROVE em branco não sai sozinho (31/08/2026) ----------
+   Assimetria achada no check-up: `shouldAutoReject` exige `hasPublicFinding` (corpo ou
+   inline), e o approve exigia só o evento ser APPROVE. Uma aprovação em branco sairia
+   pro PR assinada por você, sem uma palavra, e seria gravada como auto_approved.
+   Medido antes de fechar: os 12 auto-approves mais recentes têm corpo de 651 a 2886
+   caracteres, então exigir corpo não segura nada que hoje passa. Clique manual não
+   passa por aqui e continua livre. */
+test('auto-approve exige corpo ou comentário: aprovação em branco vira decisão sua', () => {
+  const e = enginePermissivo();
+  const vazio = { ...aprovavel(), payloads: { approve: { event: 'APPROVE', body: '   ', comments: [] } } };
+  assert.deepEqual(e.shouldAutoApprove({ ...PR, requested: true }, vazio), { ok: false, motivo: 'sem_texto' });
+});
+
+test('inline sem corpo basta: o achado está escrito, só que na linha', () => {
+  const e = enginePermissivo();
+  const soInline = { ...aprovavel(), payloads: { approve: { event: 'APPROVE', body: '', comments: [{ path: 'a.js', line: 1, body: 'olha isto' }] } } };
+  assert.equal(e.shouldAutoApprove({ ...PR, requested: true }, soInline).ok, true);
+});

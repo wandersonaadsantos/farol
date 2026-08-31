@@ -15,7 +15,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 // await import, nunca estático: o estático é hasteado acima do FAROL_HOME e o paths.js
 // resolveria o ~/.farol REAL. Ver test/test-isolation.test.js.
-const { pruneWorkspaceTmp, workspaceTmpDir } = await import('../lib/engine/workspace-tmp.js');
+const { pruneWorkspaceTmp, workspaceTmpDir, pruneWorkspaceRaiz } = await import('../lib/engine/workspace-tmp.js');
 const { TEMPOS } = await import('../lib/constants.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
@@ -106,4 +106,85 @@ test('o boot poda o tmp da sessão, ao lado do que o app já podava', () => {
 test('a poda do boot é best-effort, como as outras', () => {
   assert.match(FONTE, /try \{ wsTmpMod\.pruneWorkspaceTmp\(\); \} catch/,
     'derrubar o boot por um diretório travado seria pior que o lixo ficar');
+});
+
+/* ---------- a RAIZ do workspace também acumula, e ela tem coisa que não pode sair ----
+
+   Medido em 31/08/2026, depois da poda do tmp/: sobraram 331 MB em 16.638 arquivos na
+   raiz, sendo 152 MB só no `_pr849/`, mais os `biud-esg-*`, `_esg204`, `esg208`. É o
+   mesmo rascunho de sessão do tmp/, só que largado um nível acima.
+
+   A diferença que muda o desenho: na raiz moram `state/` (dados do usuário), o
+   protocolo (`CLAUDE.md`, `prompts/`, `.claude/`) e o `tmp/`, que tem poda própria.
+   Por isso a regra aqui é de PRESERVAÇÃO, e a lista do que preservar é DERIVADA do que
+   o app semeia (o workspace-template), nunca curada à mão: lista curada envelheceria
+   calada no dia em que o template ganhasse um arquivo novo, e o app apagaria o próprio
+   protocolo. */
+
+function raizDeTeste() { return path.join(process.env.FAROL_HOME, 'workspace'); }
+
+function semearRaiz(nome, idadeDias, { dir = true } = {}) {
+  const base = raizDeTeste();
+  fs.mkdirSync(base, { recursive: true });
+  const alvo = path.join(base, nome);
+  if (dir) { fs.mkdirSync(alvo, { recursive: true }); fs.writeFileSync(path.join(alvo, 'x'), 'x'); }
+  else fs.writeFileSync(alvo, 'x');
+  const q = new Date(Date.now() - idadeDias * DIA);
+  fs.utimesSync(alvo, q, q);
+  return alvo;
+}
+
+function templateFalso(...nomes) {
+  const t = path.join(process.env.FAROL_HOME, 'template-' + nomes.join('-'));
+  fs.mkdirSync(t, { recursive: true });
+  for (const n of nomes) fs.writeFileSync(path.join(t, n), 'x');
+  return t;
+}
+
+function limparRaiz() {
+  try { fs.rmSync(raizDeTeste(), { recursive: true, force: true }); } catch { }
+}
+
+test('apaga rascunho velho da raiz e preserva o que o app semeia', () => {
+  limparRaiz();
+  const tpl = templateFalso('CLAUDE.md', 'prompts');
+  const lixo = semearRaiz('_pr849', 30);
+  const protocolo = semearRaiz('CLAUDE.md', 30, { dir: false });
+  const prompts = semearRaiz('prompts', 30);
+  assert.equal(pruneWorkspaceRaiz(TEMPOS.TMP_SESSAO_MAX_AGE_MS, Date.now(), tpl), 1);
+  assert.equal(fs.existsSync(lixo), false);
+  assert.equal(fs.existsSync(protocolo), true, 'o protocolo é do app e nunca sai');
+  assert.equal(fs.existsSync(prompts), true);
+});
+
+test('state e tmp nunca saem, por mais velhos que estejam', () => {
+  limparRaiz();
+  const tpl = templateFalso('CLAUDE.md');
+  const state = semearRaiz('state', 900);
+  const tmp = semearRaiz('tmp', 900);
+  assert.equal(pruneWorkspaceRaiz(TEMPOS.TMP_SESSAO_MAX_AGE_MS, Date.now(), tpl), 0);
+  assert.equal(fs.existsSync(state), true, 'state é dado do usuário');
+  assert.equal(fs.existsSync(tmp), true, 'tmp tem poda própria');
+});
+
+test('TEMPLATE ILEGÍVEL não apaga nada: sem saber o que preservar, não se apaga', () => {
+  limparRaiz();
+  const lixo = semearRaiz('_pr849', 30);
+  const protocolo = semearRaiz('CLAUDE.md', 30, { dir: false });
+  assert.equal(pruneWorkspaceRaiz(TEMPOS.TMP_SESSAO_MAX_AGE_MS, Date.now(), path.join(process.env.FAROL_HOME, 'nao-existe')), 0);
+  assert.equal(fs.existsSync(lixo), true, 'na dúvida, não apaga');
+  assert.equal(fs.existsSync(protocolo), true);
+});
+
+test('rascunho recente na raiz continua onde está', () => {
+  limparRaiz();
+  const tpl = templateFalso('CLAUDE.md');
+  const novo = semearRaiz('_pr999', 1);
+  assert.equal(pruneWorkspaceRaiz(TEMPOS.TMP_SESSAO_MAX_AGE_MS, Date.now(), tpl), 0);
+  assert.equal(fs.existsSync(novo), true);
+});
+
+test('a poda da raiz também roda no boot, junto das outras', () => {
+  assert.match(FONTE, /wsTmpMod\.pruneWorkspaceRaiz\(\)/);
+  assert.match(FONTE, /try \{ wsTmpMod\.pruneWorkspaceRaiz\(\); \} catch/);
 });
