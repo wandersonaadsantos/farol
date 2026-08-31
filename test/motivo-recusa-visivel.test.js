@@ -26,8 +26,11 @@ test('o gate devolve os motivos que este teste conhece', () => {
 
 test('todo motivo de recusa tem tradução no runHeadlessReview', () => {
   for (const motivo of new Set(MOTIVOS)) {
-    assert.match(REVIEW, new RegExp(`autoDec\.motivo === '${motivo}'|pr\.requested === false`),
-      `o motivo ${motivo} não vira razão nenhuma na tela`);
+    // Substring, e não regex montada com o motivo interpolado: a comparação é literal
+    // por natureza, e montar padrão obrigaria a escapar metacaractere a cada leitura.
+    const tratado = REVIEW.includes(`autoDec.motivo === '${motivo}'`)
+      || REVIEW.includes('pr.requested === false');   // o motivo `clique` é dito por este outro caminho
+    assert.ok(tratado, `o motivo ${motivo} não vira razão nenhuma na tela`);
   }
 });
 
