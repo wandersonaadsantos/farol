@@ -1,1 +1,9 @@
-{ "scopes": ["core"] }
+{
+  "scopes": [
+    "core"
+  ],
+  "testDirs": [
+    "test"
+  ],
+  "e2eDirs": null
+}
