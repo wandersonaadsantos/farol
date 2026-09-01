@@ -133,6 +133,12 @@ const PARSERS = {
 // carência + 1 intervalo de polling.
 const REREQ_GRACE_MS = 10 * 60 * 1000;
 
+// Ausencias SEGUIDAS na busca de PRs meus abertos antes de remover a autoanalise do
+// disco. Nao e tempo, e contagem de ciclos, entao nao passa pelo TEMPOS: o que importa
+// aqui e "duas medicoes independentes concordarem", nao quanto tempo passou. Ver a poda
+// no check() pro motivo (indice do gh search atrasado devolve `ok` incompleto).
+const SELF_PRUNE_STRIKES = 2;
+
 // FIX 3 (v2.53.1): a metade que o recoverInflight aplica na âncora de re-revisão
 // de um PR que estava inflight no reinício. Âncora OBJETO ({head,dia,rodadas})
 // só libera o head (fica ''), preservando dia/rodadas, pra o teto diário não
@@ -197,6 +203,10 @@ class Engine extends EventEmitter {
     this.queue = [];
     this.myPRs = [];                 // PRs abertos de autoria minha (fonte da autoanalise)
     this.selfAnalyses = readJson(SELF_FILE, {}, warn); // key do PR -> resultado da autoanalise
+    // key do PR -> quantos ciclos SEGUIDOS ela sumiu da busca de PRs meus abertos. Em
+    // memoria de proposito (ver a poda no check): reinicio zerar e a chave sobreviver
+    // dois ciclos a mais e o lado seguro; o lado errado apaga analise paga sem volta.
+    this.selfPruneStrikes = new Map();
     // key do PR -> { at, updatedAt } dos PRs meus que o usuario mandou sumir da aba.
     // Nao filtra myPRs (quem esconde e a UI); o updatedAt guardado e o que permite o
     // retorno automatico quando o PR recebe atividade nova (reconcileHiddenPRs).
@@ -918,14 +928,35 @@ class Engine extends EventEmitter {
         mineAuthored = [...authMap.values()];
         mineAuthored.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
         this.myPRs = mineAuthored;
-        // poda de autoanálise: só de chave cuja conta dona RESPONDEU neste ciclo
+        // Poda de autoanálise: a chave saiu da lista de PRs meus ABERTOS, então o PR
+        // fechou (mergeou ou foi fechado) e a análise perdeu o objeto que ela descreve.
+        //
+        // DUAS travas, e as duas nasceram de perda real de análise paga:
+        // (1) só se poda chave cuja conta dona RESPONDEU neste ciclo (busca que caiu não
+        //     prova PR fechado, o mesmo G5 do reconcileHiddenPRs);
+        // (2) só na SEGUNDA ausência seguida (`selfPruneStrikes`). O `gh search prs` é
+        //     índice, não estado: ele volta `ok` com resultado incompleto quando o índice
+        //     está atrasado, e aí a trava (1) passa e a análise morre por um piscar do
+        //     GitHub. Duas ausências não provam nada matematicamente, mas custam um ciclo
+        //     de polling e cobrem a flutuação de índice, que é o caso observado.
+        // A contagem é em memória de propósito: reinício reseta e a chave só some depois
+        // de dois ciclos novos, que é o lado seguro (o lado errado apaga sem volta).
+        //
+        // E ela LOGA. Enquanto não logava, este era o único caminho de exclusão sem
+        // rastro nenhum: a análise sumia da tela e o farol.log ficava mudo no horário,
+        // o que faz o app inteiro parecer não-confiável por uma linha de `delete`.
         const openKeys = new Set(mineAuthored.map(p => p.key));
+        for (const k of this.selfPruneStrikes.keys()) if (openKeys.has(k)) this.selfPruneStrikes.delete(k);
         let pruned = false;
         for (const k of Object.keys(this.selfAnalyses)) {
           if (openKeys.has(k)) continue;
           const dona = String(this.accountForOwner(k.split('/')[0]) || '').toLowerCase();
           if (!authOk.has(dona)) continue; // conta falhou: "sumiu" não prova nada
+          const faltas = (this.selfPruneStrikes.get(k) || 0) + 1;
+          if (faltas < SELF_PRUNE_STRIKES) { this.selfPruneStrikes.set(k, faltas); continue; }
+          this.selfPruneStrikes.delete(k);
           delete this.selfAnalyses[k]; pruned = true;
+          this.log('WARN', `autoanálise de ${k} removida: o PR não está mais aberto (ausente em ${faltas} ciclos seguidos)`);
         }
         if (pruned) this.saveSelfAnalyses();
       }
@@ -1315,10 +1346,12 @@ class Engine extends EventEmitter {
   async reviewerCandidates() { return selfMod.reviewerCandidates(this); }
   async setReviewers(url) { return selfMod.setReviewers(this, url); }
   saveSelfAnalyses() { return selfMod.saveSelfAnalyses(this); }
-  clearSelfAnalysis(key) { return selfMod.clearSelfAnalysis(this, key); }
-  // Ocultar um PR de "Meus PRs" (some da aba, sem tocar no GitHub). Não confundir com
-  // o clearSelfAnalysis acima, que só apaga a AUTOANÁLISE. Ocultar se desfaz sozinho
-  // quando o PR recebe atividade nova (reconcileHiddenPRs, chamada no check()).
+  setSelfAnalysisVisibility(key, hidden) { return selfMod.setSelfAnalysisVisibility(this, key, hidden); }
+  // Ocultar um PR de "Meus PRs" (some da aba, sem tocar no GitHub). Não confundir com o
+  // setSelfAnalysisVisibility acima, que esconde só a AUTOANÁLISE e mantém o PR na lista.
+  // Ocultar PR se desfaz sozinho quando o PR recebe atividade nova (reconcileHiddenPRs,
+  // chamada no check()); ocultar ANÁLISE só se desfaz por clique, porque é preferência de
+  // leitura, não estado do PR.
   saveHiddenPRs() { return selfMod.saveHiddenPRs(this); }
   hidePR(key) { return selfMod.hidePR(this, key); }
   unhidePR(key) { return selfMod.unhidePR(this, key); }

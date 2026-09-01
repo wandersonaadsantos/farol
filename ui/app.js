@@ -17,7 +17,7 @@ import {
   overrideFor, suggestDefault, renderOrgBlock, queueCardHtml, panoramaRowHtml,
   reasonGroupsHtml, reasonText, claudeProfilesHtml, accountsManagerHtml,
   jiraBaseUrlProblema, jiraPrefixosProblema,
-  canMergeSelfAnalysis, qualityBlockTitle
+  canMergeSelfAnalysis, qualityBlockTitle, selfAnalysisBadge, selfAnalysisToggle, selfAnalysisStale
 } from './pure.js';
 
 const $ = (s) => document.querySelector(s);
@@ -2347,6 +2347,12 @@ const adminUnavailableKeys = new Map();
 const hideOptimistic = new Set();
 const unhideOptimistic = new Set();
 // mostrar os ocultos é estado local da tela (não persiste), igual ao silencedOpen
+// A barra esquerda do card de "Meus PRs" fala o mesmo que o selo, e é por isso que ela
+// deriva do `cls` dele em vez de reler `approvable`: eram duas leituras do mesmo estado, e
+// com a análise podendo VENCER (ver selfAnalysisStale) a segunda passaria a mentir, pintando
+// de verde um PR cujo veredito já não vale.
+const BARRA_DO_SELO = { approve: 'ok', rc: 'warn', stale: 'stale' };
+
 let hiddenOpen = false;
 function renderMyPRs() {
   // os marcadores de sessão valem até o PRÓXIMO refresh de mergeStates (que roda
@@ -2443,13 +2449,17 @@ function renderMyPRs() {
         mergeBtns = btnMerge(false, 'Atribui você ao PR se preciso, faz o merge na branch de destino e deleta a branch de origem se for descartável');
       else mergeBtns = btnMerge(true, `Não dá pra mergear agora (${ms.status || ms.mergeable || 'estado desconhecido'})`);
     }
-    const badge = a
-      ? (a.approvable ? '<span class="verdict approve">aprovável</span>' : '<span class="verdict rc">precisa de ajuste</span>')
-      : '';
+    const sel = selfAnalysisBadge(a);
+    const badge = sel ? `<span class="verdict ${sel.cls}"${sel.title ? ` title="${esc(sel.title)}"` : ''}>${esc(sel.label)}</span>` : '';
+    const vis = selfAnalysisToggle(a);
+    const desatualizada = selfAnalysisStale(a);
     const hasBlockers = !!(a && (a.blockers || []).length);
     const hasWork = !!(a && ((a.blockers || []).length || (a.tips || []).length));
-    const analysisPanel = a ? `
-      <div class="mypr-analysis">
+    // OCULTA some com o painel, nunca com o registro: o botão ao lado traz de volta.
+    // Sem essa distinção o "Ocultar" antigo prometia recolher e deletava do disco.
+    const analysisPanel = a && !vis.hidden ? `
+      <div class="mypr-analysis${desatualizada ? ' desatualizada' : ''}">
+        ${desatualizada ? '<div class="mypr-stale">Entrou commit novo depois desta análise. O que está escrito aqui continua valendo pro código que foi lido, mas o veredito não fala do código de agora: reanalise pra ter o veredito atual.</div>' : ''}
         ${a.summary ? `<div class="mypr-summary">${esc(a.summary)}</div>` : ''}
         ${(a.blockers || []).length ? `<div class="mypr-block"><b>Antes de pedir review</b><ul class="dec-reasons">${a.blockers.map(b => `<li>🔴 ${esc(b)}</li>`).join('')}</ul></div>` : ''}
         ${(a.tips || []).length ? `<div class="mypr-tips"><b>Dá pra melhorar</b><ul class="dec-reasons">${a.tips.map(t => `<li>🟡 ${esc(t)}</li>`).join('')}</ul></div>` : ''}
@@ -2458,7 +2468,7 @@ function renderMyPRs() {
         <div class="mypr-when">analisado ${fmtRel(new Date(a.at).toISOString())}${a.card ? ` · ${esc(a.card)}` : ''}</div>
       </div>` : '';
     return `
-    <div class="card mypr-card ${a ? (a.approvable ? 'ok' : 'warn') : ''}${escondido ? ' oculto' : ''}" data-key="${esc(pr.key)}" style="${m.style}">
+    <div class="card mypr-card ${sel ? BARRA_DO_SELO[sel.cls] : ''}${escondido ? ' oculto' : ''}" data-key="${esc(pr.key)}" style="${m.style}">
       <div class="mypr-top">
         ${m.dot}${avatar(pr.author)}
         <div class="info">
@@ -2472,7 +2482,7 @@ function renderMyPRs() {
           <button class="btn primary sm act-self" data-url="${esc(pr.url)}" ${running || queued ? 'disabled' : ''}>${btnLabel}</button>
           <button class="btn sm ghost act-set-reviewers" data-url="${esc(pr.url)}" title="Atribui você e pede review dos reviewers configurados deste repo (aba Sistema). Aplica na hora, sem confirmação.">👥 Reviewers</button>
           ${mergeBtns}
-          ${a ? `<button class="btn sm ghost act-self-clear" data-key="${esc(pr.key)}" title="Ocultar esta autoanálise (é só sua, some da tela; dá pra reanalisar quando quiser)">Ocultar análise</button>` : ''}
+          ${a ? `<button class="btn sm ghost act-self-visibility" data-key="${esc(pr.key)}" data-hidden="${vis.alvo ? '1' : '0'}" title="${esc(vis.title)}">${esc(vis.label)}</button>` : ''}
           ${escondido
         ? `<button class="btn sm ghost act-pr-unhide" data-key="${esc(pr.key)}" title="Traz este PR de volta pra lista de Meus PRs">Reexibir</button>`
         : `<button class="btn sm ghost act-pr-hide" data-key="${esc(pr.key)}" title="Some com este PR de Meus PRs. Ele volta sozinho se receber commit novo">Ocultar</button>`}
@@ -2660,8 +2670,22 @@ $('#myPRs').addEventListener('click', (e) => {
     });
     return;
   }
-  const clr = e.target.closest('.act-self-clear');
-  if (clr) { api('/api/self-review/clear', { key: clr.dataset.key }); return; }
+  // recolher/mostrar o PARECER (o registro fica no disco nos dois casos). Otimista como
+  // o ocultar de PR ao lado: o clique responde na hora e o estado do motor confirma no
+  // push seguinte; falhou, desfaz e avisa, senão a tela mentiria sobre o que gravou.
+  const visBtn = e.target.closest('.act-self-visibility');
+  if (visBtn) {
+    const key = visBtn.dataset.key;
+    const hidden = visBtn.dataset.hidden === '1';
+    const a = (STATE.selfAnalyses || {})[key];
+    if (a) { a.hidden = hidden; renderMyPRs(); }
+    api('/api/self-review/visibility', { key, hidden }).then(r => {
+      if (r?.ok) return;
+      if (a) { a.hidden = !hidden; renderMyPRs(); }
+      toast('error', r?.error || 'não consegui mudar a visibilidade dessa análise');
+    });
+    return;
+  }
   // ocultar/reexibir o PR inteiro: some (ou volta) na hora, otimista, e o estado que o
   // motor devolve confirma. Falhou, desfaz a marca e avisa, senão a tela mentiria.
   const hide = e.target.closest('.act-pr-hide');
@@ -3079,6 +3103,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.57.3', ['Ocultar análise apagava a análise. O botão prometia recolher da tela e por baixo removia o registro do disco: o relatório, as dicas e a evidência que uma sessão paga produziu morriam num clique que parecia reversível, e recuperar exigia reanalisar, ou seja, pagar de novo pra reproduzir o que já tinha sido pago. Agora ocultar é só visual, a análise fica guardada e o botão vira Mostrar análise, que a traz de volta sem custar nada.', 'Commit novo no PR não apaga mais a análise inteira. O que envelhece com um push é o veredito, não o texto: o relatório continua descrevendo o código que foi lido. A análise fica, marcada como desatualizada, com um aviso no topo dizendo isso. O Merge continua indisponível, porque veredito vencido não autoriza nada, e o motivo aparece escrito no botão.', 'A remoção silenciosa acabou. Quando o PR saía da lista de PRs seus abertos, a análise era apagada sem uma linha de log e sem nada na tela. Agora a remoção é registrada, e só acontece depois de duas buscas seguidas confirmarem a ausência, porque a busca do GitHub é índice e índice atrasado já respondeu não achei sobre PR que estava aberto.', 'O gasto de uma análise que envelheceu aparece no Consumo como parcial, e não como descartada: a sessão não liberou merge, mas produziu um relatório que continua na tela.']],
   ['2.57.2', ['Aprovação em branco não sai mais sozinha. O gate exigia texto para reprovar sozinho e não exigia para aprovar, então uma aprovação sem uma palavra sairia no PR assinada por você. As doze aprovações automáticas mais recentes têm de 651 a 2886 caracteres, então isto não segura nada que hoje passa: segura o envelope que veio quebrado, que agora chega como decisão sua, com o motivo escrito.', 'O rascunho solto na raiz do workspace também passou a ter prazo. A limpeza anterior cobria só o tmp, e sobraram 331 MB um nível acima. Agora o Farol também poda a raiz no boot, preservando o que ele mesmo semeia, o state e o tmp. A lista do que preservar vem do próprio template, então arquivo novo já nasce protegido; e se o Farol não conseguir ler o template, ele não apaga nada.', 'Parte do PR ficou sem análise deixa de aparecer quando o problema é o instrumento. Em sessões do Codex, que não reportam leitura de arquivo, a cobertura nunca podia ser observada e o Merge da autoanálise culpava a análise por isso. O botão continua indisponível, porque sem prova de leitura não se libera merge, mas a linha agora diz a verdade.']],
   ['2.57.1', ['A revisão automática aprende o sync de linhagem: PR que só promove uma branch contínua do gitflow para outra (release para production, por exemplo) era lido como um pacote gigante sem card e ficava sempre esperando o seu clique. Agora a revisão prova a procedência de cada commit (veio de PR mesclado ou tag publicada) em vez de reler tudo, e o sync verificado sai aprovável sozinho, citando os PRs e tags de origem. Commit sem procedência continua sendo lido por inteiro.']],
   ['2.57.0', ['O Farol só começa a revisar sozinho quando 100% dos checks obrigatórios do PR estão verdes. Sugestão do Guilherme, a partir de dois desperdícios medidos no dia a dia: o Farol começava a revisar, alguém clicava em Update branch, entrava commit novo e a sessão inteira virava lixo; e o Farol aprovava, a pipe quebrava depois, e o ciclo de correção custava outra revisão.', 'Obrigatórios, e não todos: o Farol lê da branch de destino quais checks ela exige, então um check que vive vermelho sem ser exigido não segura nada. Exigir tudo verde nunca revisaria esses repositórios.', 'Quem tem pressa não espera: o botão Revisar atravessa o gate sem consultar nada, como sempre fez. Quando o Farol segura, ele avisa uma vez dizendo o que falta (o check, e se está rodando, vermelho ou nem começou) e lembra que o botão continua valendo.', 'Check relançado deixa de ser confundido com a rodada que falhou antes: quando o mesmo check aparece mais de uma vez, vale a rodada mais recente. E falta de dado nunca segura: repositório sem check obrigatório, ou leitura que não deu certo, seguem revisando na hora.']],

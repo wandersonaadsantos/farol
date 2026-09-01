@@ -337,7 +337,7 @@ test('cap sem createdAt (formato antigo em memória) não ganha isenção: falha
   }
 });
 
-/* ---------- ocultar um PR de "Meus PRs" (mesmo molde do /api/self-review/clear) ---------- */
+/* ---------- ocultar um PR de "Meus PRs" (mesmo molde do /api/self-review/visibility) ---------- */
 
 test('POST /api/pr/hide e /api/pr/unhide mexem no estado e aparecem no snapshot', async () => {
   const CHAVE = 'acme/app#12';
