@@ -2746,6 +2746,38 @@ export function canMergeSelfAnalysis(analysis) {
   return !!(analysis && analysis.quality && analysis.quality.status === 'eligible');
 }
 
+// A análise DESATUALIZOU: o PR recebeu commit depois dela (carimbo do engine em
+// `observed.stale`). O registro fica, o veredito não vale mais, e a tela precisa dizer
+// as duas coisas ao mesmo tempo. Ler `observed` e não um campo solto é de propósito: a
+// evidência do engine mora num lugar só, e é ela que o gate consome.
+export function selfAnalysisStale(analysis) {
+  return !!(analysis && analysis.observed && analysis.observed.stale === true);
+}
+
+// O selo ao lado do número do PR. Desatualizada VENCE o parecer: mostrar "aprovável"
+// sobre código que já mudou é a única leitura que faria alguém agir errado, e o custo
+// de esconder o parecer por um ciclo é zero (ele continua escrito no painel).
+export function selfAnalysisBadge(analysis) {
+  if (!analysis) return null;
+  if (selfAnalysisStale(analysis)) {
+    return { cls: 'stale', label: 'desatualizada', title: 'O PR recebeu commit novo depois desta análise. O relatório continua aqui, mas o veredito não vale pro código atual: reanalise quando quiser o veredito de novo.' };
+  }
+  return analysis.approvable
+    ? { cls: 'approve', label: 'aprovável', title: '' }
+    : { cls: 'rc', label: 'precisa de ajuste', title: '' };
+}
+
+// Ocultar/mostrar a análise é PREFERÊNCIA DE LEITURA e nada mais: não apaga, não expira
+// e não encosta em gate nenhum. O par de rótulos mora aqui porque o botão é um só e
+// alterna, e um texto errado nesse botão foi exatamente o defeito de origem (ele dizia
+// "Ocultar" e apagava o registro do disco).
+export function selfAnalysisToggle(analysis) {
+  const oculta = !!(analysis && analysis.hidden);
+  return oculta
+    ? { hidden: true, alvo: false, label: 'Mostrar análise', title: 'Mostrar de novo o parecer desta autoanálise. Ele continua guardado desde que a análise rodou.' }
+    : { hidden: false, alvo: true, label: 'Ocultar análise', title: 'Recolhe o parecer desta autoanálise da tela. O relatório continua guardado e volta com um clique, sem gastar uma análise nova.' };
+}
+
 // O engine entrega CÓDIGO (contrato de máquina) e a apresentação escreve a frase.
 // Código desconhecido cai numa frase genérica em vez de vazar o identificador cru:
 // a tela nunca fica em branco e o usuário nunca lê CONSTANTE_EM_CAIXA_ALTA.
@@ -2763,6 +2795,7 @@ const QUALITY_REASON_LABELS = {
   CARD_UNKNOWN: 'Atendimento ao card não comprovado',
   VERIFICATION_FAILED: 'Uma verificação falhou',
   VERIFICATION_MISSING: 'Verificação necessária não foi feita',
+  ANALYSIS_STALE: 'O PR mudou depois desta análise',
   EVIDENCE_STALE: 'A evidência não é do código analisado',
   COVERAGE_LIMITS_MALFORMED: 'A análise devolveu limitações de cobertura inválidas'
 };

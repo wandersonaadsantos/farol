@@ -9,6 +9,17 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.57.3
+
+A autoanálise dos seus PRs deixa de sumir sozinha: ela é guardada, e "Ocultar análise" passou a ocultar de verdade.
+
+**Correções**
+
+- **"Ocultar análise" apagava a análise.** O botão prometia recolher da tela ("é só sua, some da tela; dá pra reanalisar quando quiser") e por baixo removia o registro do disco. O relatório, as dicas e a evidência que uma sessão paga produziu morriam num clique que parecia reversível, e recuperar exigia reanalisar, ou seja, pagar de novo para reproduzir o que já tinha sido pago. Agora ocultar é só visual, a análise fica guardada e o botão vira **Mostrar análise**, que a traz de volta sem custar nada.
+- **Commit novo no PR não apaga mais a análise inteira.** O que envelhece com um push é o veredito, não o texto: o relatório continua descrevendo o código que foi lido. A análise agora fica, marcada como **desatualizada**, com um aviso no topo dizendo exatamente isso. O Merge continua indisponível, porque veredito vencido não autoriza nada, e o motivo aparece escrito no botão.
+- **A remoção silenciosa acabou.** Quando o PR saía da lista de PRs seus abertos, a análise era apagada sem uma linha de log, sem carimbo no Consumo e sem nada na tela: era o único caminho em que ela sumia sem deixar rastro. Agora a remoção é registrada, e só acontece depois de duas buscas seguidas confirmarem a ausência, porque a busca do GitHub é índice e índice atrasado já respondeu "não achei" sobre PR que estava aberto.
+- **O gasto de uma análise que envelheceu deixa de ser contado como perda total.** Na aba Consumo ele aparece como parcial, e não como descartada: a sessão não liberou merge, mas produziu um relatório que continua na tela.
+
 ## v2.57.2
 
 Fecha as três pendências que o check-up tinha deixado registradas em vez de resolvidas.

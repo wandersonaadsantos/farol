@@ -195,9 +195,15 @@ test('o descarte imediato carimba o desfecho da sessão', () => {
   assert.match(SELF, /engine\.marcarDesfecho\(id, 'descartada'\)/);
 });
 
-test('o descarte tardio reencontra a sessão pelo id gravado na análise', () => {
+test('o desfecho tardio reencontra a sessão pelo id gravado na análise', () => {
   assert.match(SELF, /usageId: id/, 'a análise guarda o id da sessão do Farol');
-  assert.match(SELF, /if \(a\.usageId\) engine\.marcarDesfecho\(a\.usageId, 'descartada'\)/);
+  // `parcial`, e nao `descartada`: desde que o registro passou a PERSISTIR quando o head
+  // anda, o gasto continua nao virando merge mas vira um relatorio que segue na tela e
+  // segue sendo lido. Carimbar `descartada` diria que nada sobrou, e sobrou.
+  assert.match(SELF, /if \(a\.usageId\) engine\.marcarDesfecho\(a\.usageId, 'parcial'\)/);
+  // o descarte IMEDIATO (push durante a sessao) continua `descartada`: ali nao sobra
+  // relatorio nenhum, a sessao inteira foi jogada fora.
+  assert.match(SELF, /engine\.marcarDesfecho\(id, 'descartada'\)/);
 });
 
 test('a fachada existe no engine', () => {
