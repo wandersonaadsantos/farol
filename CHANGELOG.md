@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.57.3
+
+Check obrigatório vermelho deixa de sair como aprovação sozinha, em qualquer política.
+
+**Correções**
+
+- **Aprovação não sai mais com a pipe reprovando.** A regra "CI vermelho não aprova" só existia no protocolo da sessão, e a política de "aprova com ressalvas" passava por cima dela: a revisão devolvia "precisa de você" escrevendo no próprio relatório que o merge estava travado, e o app postava o APPROVE mesmo assim. Caso real de 02/09/2026: aprovação postada com o check obrigatório de auditoria vermelho, e o PR mergeado por bypass de admin três minutos depois, com a aprovação servindo de cobertura. Agora o app lê o estado dos checks obrigatórios da branch de destino na saída da revisão (a mesma leitura que o gate de entrada já fazia) e segura a aprovação quando qualquer um está em falha, inclusive na revisão iniciada pelo botão Revisar, que atravessa o gate de entrada por desenho. Check ainda rodando não segura, e leitura que falha não inventa CI vermelho. A decisão vai pra sua mesa com o motivo nomeando o check.
+- **Gatilho declarado no tipo é gatilho provado.** O protocolo do revisor rebaixava para ressalva um defeito no fluxo principal da feature "por não ter provado que o backend produz aquele valor", quando o valor estava declarado na própria união de tipos do código. Agora o ônus de tratar um valor que o código declara possível é do PR, e defeito assim no fluxo principal é bloqueio. Contestação passada do autor calibra o tom, nunca a severidade.
+- **CI vermelho segura o veredito da sessão, não só a decisão.** O protocolo passa a mandar a sessão escrever no corpo da aprovação que ela vale para o código e que o merge espera a pipe verde, em vez de aprovar em silêncio com a falha registrada só no relatório interno.
+
 ## v2.57.2
 
 Fecha as três pendências que o check-up tinha deixado registradas em vez de resolvidas.
