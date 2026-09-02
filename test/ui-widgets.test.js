@@ -357,11 +357,27 @@ test('a marca otimista morre quando o motor confirma (nao sobrevive a estado nov
 });
 
 test('o card nao tem mais DOIS botoes escritos "Ocultar" (a confusao que originou a feature)', () => {
-  // o act-self-clear some so com a AUTOANALISE, e o usuario lia como "ocultar o PR"
-  assert.match(APPJS, /class="btn sm ghost act-self-clear"[\s\S]{0,220}>Ocultar análise<\/button>/,
-    'o botao da autoanalise diz o que ele oculta');
-  assert.doesNotMatch(APPJS, /act-self-clear"[\s\S]{0,220}>Ocultar<\/button>/,
+  // o botao da analise some so com o PARECER, e o usuario lia como "ocultar o PR".
+  // O rotulo virou par (Ocultar/Mostrar) e mora no selfAnalysisToggle, entao aqui a
+  // afirmacao e que o card CONSOME o par, nunca escreve rotulo proprio: rotulo escrito
+  // a mao no template foi exatamente o que deixou o botao mentindo sobre o que fazia.
+  assert.match(APPJS, /class="btn sm ghost act-self-visibility"[\s\S]{0,220}\$\{esc\(vis\.label\)\}<\/button>/,
+    'o botao da autoanalise tira o rotulo do par puro');
+  assert.doesNotMatch(APPJS, /act-self-visibility"[\s\S]{0,220}>Ocultar<\/button>/,
     'o rotulo ambiguo saiu');
+  assert.doesNotMatch(APPJS, /act-self-clear/,
+    'o botao que APAGAVA a analise nao existe mais (ocultar deixou de deletar)');
+});
+
+test('ocultar analise NUNCA apaga: a rota e de visibilidade e o handler e otimista', () => {
+  const handler = APPJS.match(/const visBtn = e\.target\.closest\('\.act-self-visibility'\);[\s\S]*?\n    return;\n  \}/);
+  assert.ok(handler, 'o handler de ocultar/mostrar a analise existe');
+  assert.match(handler[0], /api\('\/api\/self-review\/visibility', \{ key, hidden \}\)/,
+    'fala com a rota de VISIBILIDADE, nao com uma rota de limpeza');
+  assert.match(handler[0], /a\.hidden = !hidden;[\s\S]{0,120}toast\('error'/,
+    'rota que falha desfaz a marca otimista e avisa, senao a tela mentiria');
+  assert.doesNotMatch(APPJS, /\/api\/self-review\/clear/,
+    'a rota que apagava a analise saiu da UI');
 });
 
 test('o botao Ocultar do PR promete o comportamento REAL (volta sozinho com commit novo)', () => {

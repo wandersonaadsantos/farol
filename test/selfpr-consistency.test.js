@@ -24,6 +24,7 @@ io.run = function runEspiao(cmd, args, opts) {
 };
 
 const { Engine } = await import('../server.js');
+const { qualityOf } = await import('../lib/engine/selfpr.js');
 
 after(() => {
   io.run = runReal;
@@ -130,8 +131,28 @@ test('análise sem SHA registrado é descartada quando o head atual é conhecido
     return Promise.resolve({ ok: true, stdout: '', stderr: '' });
   };
   await engine.enrichMyPRBranches();
-  assert.equal(engine.selfAnalyses[CHAVE], undefined, 'sem SHA não dá pra provar que a análise vale pro commit atual');
+  const reg = engine.selfAnalyses[CHAVE];
+  assert.ok(reg, 'o registro PERSISTE: envelhecer deixou de apagar o relatório que a sessão pagou');
+  assert.equal(reg.observed.stale, true, 'mas nasce carimbado como desatualizado');
+  assert.equal(qualityOf(reg).status, 'ineligible', 'sem SHA não dá pra provar que a análise vale pro commit atual');
+  assert.ok(qualityOf(reg).reasons.some(r => r.code === 'ANALYSIS_STALE'), 'e o motivo é nomeado, não genérico');
   assert.equal(engine.mergeStates[CHAVE], undefined, 'o botão Merge não pode viver de análise incomprovável');
+});
+
+test('análise desatualizada não é recarimbada a cada ciclo', async () => {
+  const engine = novoEngine();
+  engine.myPRs = [{ ...MEU_PR }];
+  engine.selfAnalyses = { [CHAVE]: analiseElegivel({ headSha: 'aaa111' }) };
+  const avisos = [];
+  engine.log = (lvl, msg) => avisos.push(`${lvl}: ${msg}`);
+  runImpl = (cmd, args) => args.join(' ').includes('headRefName')
+    ? Promise.resolve({ ok: true, stdout: JSON.stringify({ headRefName: 'f', baseRefName: 'develop', headRefOid: 'ccc333' }), stderr: '' })
+    : Promise.resolve({ ok: true, stdout: '', stderr: '' });
+  await engine.enrichMyPRBranches();
+  const avisosDepoisDoPrimeiro = avisos.length;
+  await engine.enrichMyPRBranches();
+  assert.equal(avisos.length, avisosDepoisDoPrimeiro, 'o WARN sai UMA vez; o log é de falha, não de estado');
+  assert.equal(engine.selfAnalyses[CHAVE].observed.stale, true, 'e o carimbo continua de pé');
 });
 
 /* ---------- B7: a base que alimenta o gate de ruleset ---------- */

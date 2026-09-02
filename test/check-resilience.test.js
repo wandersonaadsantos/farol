@@ -111,8 +111,16 @@ test('falha da busca de UMA conta preserva myPRs, autoanálise e ocultos DELA (G
     'o PR da conta caída fica (preservado do ciclo anterior); o da conta que respondeu, e fechou, sai');
   assert.ok(e.selfAnalyses[PR_B.key],
     'autoanálise da conta caída NÃO é podada: com a busca falha, "sumiu" não prova nada');
+  assert.ok(e.selfAnalyses[PR.key],
+    'nem a da conta que respondeu sai na PRIMEIRA ausência: o gh search é índice, e índice atrasado devolve ok incompleto');
+
+  // ciclo 3: a mesma conta responde de novo e o PR continua ausente. Duas medições
+  // independentes concordando é o que separa "o PR fechou" de "o índice piscou".
+  await e.check('test');
   assert.equal(e.selfAnalyses[PR.key], undefined,
-    'a autoanálise da conta que respondeu é podada como sempre foi (o PR fechou de verdade)');
+    'na segunda ausência seguida a análise é podada (o PR fechou de verdade)');
+  assert.ok(e.selfAnalyses[PR_B.key],
+    'e a da conta caída segue intacta, porque ela nunca chegou a responder');
   assert.ok(e.hiddenPRs[PR_B.key],
     'oculto da conta caída continua oculto: uma queda de rede não pode desocultar os PRs dela');
   assert.equal(e.hiddenPRs[PR.key], undefined,
