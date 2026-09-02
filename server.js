@@ -1405,6 +1405,7 @@ class Engine extends EventEmitter {
   contestations(result) { return decisionMod.contestations(result); }
   coverageGap(result) { return decisionMod.coverageGap(result); }
   checkpointGap(result) { return decisionMod.checkpointGap(result); }
+  checksVermelhos(result) { return decisionMod.checksVermelhos(result); }
   async postReview(pr, payload) { return decisionMod.postReview(this, pr, payload); }
   async postReviewFromSession(submission, capability) { return decisionMod.postReviewFromSession(this, submission, capability); }
   decisionForUi(item) { return decisionMod.decisionForUi(item); }
