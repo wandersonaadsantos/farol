@@ -2296,7 +2296,8 @@ function renderQueue() {
     });
     return;
   }
-  box.innerHTML = q.map(pr => queueCardHtml(pr, { people, mark: acctMark(pr) })).join('');
+  const parked = STATE.parked || {};
+  box.innerHTML = q.map(pr => queueCardHtml(pr, { people, mark: acctMark(pr), parked })).join('');
 }
 
 /* selo de estado da SUA revisão numa linha do panorama: primeiro o que o Farol
