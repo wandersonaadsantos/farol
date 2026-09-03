@@ -10,7 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 
-const HOME = path.join(os.tmpdir(), 'farol-test-inflight-sid-' + process.pid);
+const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-inflight-sid-'));
 process.env.FAROL_HOME = HOME;
 
 import { test, after } from 'node:test';
