@@ -31,7 +31,7 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
 | `lib/engine/codeowners.js` | **Quem é AUTORIDADE sobre cada arquivo do PR** (v2.51.0). Tudo PURO: `parseCodeowners`, `patternToRegex` (estilo gitignore), `ownersForPath` (a ÚLTIMA regra que casa vence, semântica do GitHub, NÃO acumula), `souAutoridade` e `cobreMinhaExigencia` (só saio de cena se quem pegou o PR é dono de TODO arquivo em que eu sou). Dono que é TIME (`@org/slug`) é inconclusivo e cai sempre no lado seguro |
 | `lib/engine/fanout.js` | Fan-out de revisão em PR grande: mede o PR (`prMetrics`), decide se fatia (`shouldFanOut`), monta os lotes por afinidade de caminho (`planLotes`, função PURA) e injeta o instrutivo (`fanOutBlock`). Determinístico, ZERO IA e zero rede na parte que decide |
 | `lib/engine/model-router.js` | **Roteador de modelo por custo-benefício** (quando `reviewModel === 'auto'`). PURA: escolhe haiku/sonnet (+ esforço/fast) pelas métricas do PR. `auto` nunca entra na cmdline do CLI |
-| `lib/engine/session.js` | Sessões do Claude: headless (`runClaudeStream`, `buildModelFlags`), terminal por SO (`buildSessionScript`/`Mac`), cancelamento (`killTree`). É aqui que o marcador `FAROL_CHECKPOINT` é interceptado (ver a seção "Checkpoint de verificação") |
+| `lib/engine/session.js` | Sessões do Claude: headless (`runClaudeStream`, `buildModelFlags`), terminal por SO (`buildSessionScript`/`Mac`), cancelamento (`killTree`). É aqui que o marcador `FAROL_CHECKPOINT` é interceptado (ver a seção "Checkpoint de verificação"); é aqui também que o sid é capturado (`opts.onSession`) e o sufixo de reconexão é anexado (ver "Retomada após falha transitória") |
 | `lib/engine/verification-checkpoint.js` | Checkpoint de verificação da revisão headless: memória append-only por PR do que já foi confirmado contra o código (`checkpointPath`, `appendCheckpointEntry`, `readCheckpoint`, `summarizeCheckpoint`, `resumeBlock`). Só o ENGINE escreve, nunca a sessão; detalhe na seção "Checkpoint de verificação" |
 | `lib/engine/selfpr.js` | "Meus PRs": autoanálise (nunca posta), `setReviewers` e `mergeSelfPR` (as duas ÚNICAS escritas no GitHub partindo daqui, com os gates travados em `test/merge-gates.test.js`) e o **ocultar PR** (`hidePR`/`unhidePR`/`reconcileHiddenPRs`, estado em `state/hidden-prs.json`, travado em `test/hidden-prs.test.js`). Ocultar é 100% local e **temporário por natureza**: guarda o `updatedAt` do PR e o `check()` desoculta sozinho quando esse carimbo muda (atividade nova). O engine NÃO filtra `myPRs` (quem esconde é a UI, que também mostra os ocultos), e a limpeza de chave órfã é POR CONTA desde a v2.41.2 (`reconcileHiddenPRs(okAccounts)`): só limpa chave cuja conta dona respondeu à busca de PRs meus neste ciclo, senão a queda de UMA conta desocultaria (e apagaria autoanálise) das outras. Não confunda com `setSelfAnalysisVisibility`, que só recolhe a AUTOANÁLISE da tela (o registro fica no disco; ver "A autoanálise PERSISTE") |
 | `lib/engine/pushback.js` | Memória de contestação: quem entra no scan (`pushbackTargets`), detecção e classificação |
@@ -1365,6 +1365,46 @@ As peças (`lib/engine/verification-checkpoint.js` + costuras em `session.js`,
 - Testes: `test/verification-checkpoint.test.js`, `test/session-checkpoint-capture.test.js`,
   `test/checkpoint-gate.test.js`, `test/checkpoint-review-wiring.test.js` e
   `test/checkpoint-retry-same-path.test.js`.
+
+### Retomada após falha transitória (v2.57.3)
+
+Sessão que cai no meio da revisão (rede ou tempo esgotado) já leu o PR, e relançar do
+zero pagava de novo o que já tinha sido lido. Peças:
+
+- `lib/log-taxonomy.js` ganhou a classe `tempo-esgotado` (transitória, teto de 30 min),
+  e a classe `rede` passa a casar também o sufixo "após N tentativa(s) de reconexão com a
+  API" que `session.js` (`runClaudeStream`) anexa à mensagem quando a sessão emitiu
+  eventos `api_retry` antes de morrer. Esse sufixo é o que liga a morte pós-retry à classe
+  `rede`. Todo caminho de erro do `runClaudeStream` também anexa `err.sessionId`.
+- O sid é capturado no início da sessão (`opts.onSession`, primeiro `session_id` do
+  stream), gravado no registro da revisão ativa e gravado em `state/inflight.json`
+  assim que nasce (o `onSession` dispara uma vez, no primeiro evento que traz
+  `session_id`), não só no fim. Na recuperação do boot, `recoverInflight` preenche
+  `engine.retomadaPendente` com `{ sid, head }` e `enqueueHeadless` carimba `retomarSid`
+  e `knownHead` no PR quando ele reaparece na fila. Falha transitória em pleno voo também guarda o sid no
+  `retryAfterNet`, com o mesmo campo `retomarSid`.
+- `sidDeRetomada` (`lib/engine/review.js`) decide o sid do `--resume`: `retomarSid` tem
+  precedência sobre `resumeSid` e não depende de `config.reReviewResume` (é a mesma
+  revisão retomando, não o opt-in do round incremental), sempre validado por
+  `RESUME_SID_RE`. Head conhecido dos dois lados (`pr.knownHead` e o head atual) que
+  divergiu descarta o sid, porque retomar seria pedir pra não reler o que mudou; head
+  desconhecido de qualquer lado mantém a retomada. O `knownHead` que alimenta essa
+  guarda existe em todo caminho, não só no relançamento da re-revisão: o
+  `runHeadlessReview` estampa `pr.headLido` assim que resolve o head da rodada, o
+  `prComRetomada` copia isso pro `knownHead` da entrada do `retryAfterNet`, e o boot
+  guarda o head junto do sid (`headSha` no `inflight.json`, `{ sid, head }` no
+  `retomadaPendente`), com o `enqueueHeadless` carimbando os dois. Campo próprio e não
+  `knownHead` direto porque o objeto do PR atravessa rounds, e escrever `knownHead` ali
+  contaminaria o fallback G8 do head da rodada seguinte.
+- O bloco de prompt da retomada NÃO entra no prompt base: ele é passado à parte pro
+  `rodarSessao` e somado só na tentativa com `--resume`. Quando o CLI recusa a retomada
+  e a sessão degrada pra nova, o prompt sai sem o bloco (senão a sessão nova receberia
+  ordem de não reler o que ninguém leu). A retomada vale pras revisões feitas pelo
+  Claude, e não porque falte `--resume` ao Codex (o `codexArgs` aceita, virando `exec
+  resume`): é que `opts.onSession` só é chamado no stream do Claude e o stream do Codex
+  não estampa `err.sessionId`, então `retomarSid` nunca nasce nesse caminho.
+- Sem sid recuperável, ou com o resume falhando, `rodarSessao` degrada pra sessão nova
+  (comportamento de sempre), nunca vira erro.
 
 ## Diagnóstico: ambiente x operação x runtime (v2.40.4, terceira dimensão na v2.53.3)
 

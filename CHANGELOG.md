@@ -11,7 +11,7 @@ e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
 ## v2.57.3
 
-Duas correções de comportamento esperado: check obrigatório vermelho deixa de sair como aprovação sozinha, em qualquer política; e a autoanálise dos seus PRs deixa de sumir sozinha (ela é guardada, e "Ocultar análise" passou a ocultar de verdade).
+Correções de comportamento esperado: check obrigatório vermelho deixa de sair como aprovação sozinha, em qualquer política; a autoanálise dos seus PRs deixa de sumir sozinha (ela é guardada, e "Ocultar análise" passou a ocultar de verdade); e falha de rede na sessão autônoma deixa de estacionar o PR esperando você.
 
 **Correções**
 
@@ -22,6 +22,8 @@ Duas correções de comportamento esperado: check obrigatório vermelho deixa de
 - **Commit novo no PR não apaga mais a análise inteira.** O que envelhece com um push é o veredito, não o texto: o relatório continua descrevendo o código que foi lido. A análise agora fica, marcada como **desatualizada**, com um aviso no topo dizendo exatamente isso. O Merge continua indisponível, porque veredito vencido não autoriza nada, e o motivo aparece escrito no botão.
 - **A remoção silenciosa acabou.** Quando o PR saía da lista de PRs seus abertos, a análise era apagada sem uma linha de log, sem carimbo no Consumo e sem nada na tela: era o único caminho em que ela sumia sem deixar rastro. Agora a remoção é registrada, e só acontece depois de duas buscas seguidas confirmarem a ausência, porque a busca do GitHub é índice e índice atrasado já respondeu "não achei" sobre PR que estava aberto.
 - **O gasto de uma análise que envelheceu deixa de ser contado como perda total.** Na aba Consumo ele aparece como parcial, e não como descartada: a sessão não liberou merge, mas produziu um relatório que continua na tela.
+- **Falha de rede na sessão autônoma: morte após retries de API e estouro do teto de 30 min agora são transitórios** (voltam pra fila e relançam sozinhos, teto de 3) em vez de estacionar o PR.
+- **O relançamento retoma a sessão que caiu, em vez de reler o PR do zero.** O Farol guarda a sessão da revisão assim que ela nasce e, quando a queda é transitória, relança com `--resume` pedindo a continuação dela: o que já foi lido e verificado não é pago de novo. Sem sessão recuperável, recomeça do zero como antes. Se o PR ganhou commit novo durante a espera, a retomada também é descartada e a revisão lê o head atual do zero, porque continuar ali seria pedir pra não reler justamente o que mudou. A retomada acontece nas revisões feitas pelo Claude: no caminho do Codex o Farol não recebe o identificador da sessão, então não há sessão pra retomar e o relançamento lê do zero (o teto de 3 tentativas vale nos dois casos).
 
 ## v2.57.2
 

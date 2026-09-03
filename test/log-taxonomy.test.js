@@ -22,6 +22,8 @@ const MSG = {
   credito: 'sessão retornou erro: API Error: 402 OpenRouter returned 402: {"error":{"message":"This request requires more credits...',
   rede: 'error connecting to api.github.com',
   redeSessao: 'sessão retornou erro: fetch failed',
+  redeReconexao: 'sessão retornou erro: API Error (após 10 tentativa(s) de reconexão com a API)',
+  tempoEsgotado: 'tempo esgotado (30min) na sessão autônoma',
   ghBuscas: 'ciclo de monitoramento: todas as buscas gh falharam (veja o log)',
   githubIndisponivel: 'postar review biudtech/biud-frontend#774 (APPROVE): gh: No server is currently available to service your request. Sorry about that. Please try resubmitting your request and contact us if the problem persists. (HTTP 503)',
   token: 'revisao biudtech/biud-esg#193: sem token no gh pra wandersonbiuder',
@@ -39,7 +41,7 @@ const MSG = {
 test('CLASSES: toda classe tem os cinco campos e um kind válido', () => {
   const KINDS = ['operacional', 'espera-reset', 'transitorio', 'permanente'];
   const GRUPOS = ['operacional', 'ambiente', 'credencial', 'rede', 'app'];
-  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 11, 'são 11 classes');
+  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 12, 'são 12 classes');
   for (const c of CLASSES) {
     assert.equal(typeof c.id, 'string');
     assert.ok(c.label, `${c.id} precisa de label humano`);
@@ -60,7 +62,7 @@ test('CLASSES: a ordem é a documentada (primeira que casar vence)', () => {
   assert.deepEqual(CLASSES.map(c => c.id), [
     'restart-fila', 'console-fechado', 'limite-plano', 'assinatura-bloqueada',
     'credencial-invalida', 'credito-insuficiente', 'rede', 'github-indisponivel',
-    'token-gh', 'skip-permissions-root', 'ferramenta'
+    'token-gh', 'skip-permissions-root', 'tempo-esgotado', 'ferramenta'
   ]);
 });
 
@@ -73,7 +75,9 @@ const CASOS = [
   ['credito-insuficiente', MSG.credito],
   ['rede', MSG.rede],
   ['rede', MSG.redeSessao],
+  ['rede', MSG.redeReconexao],
   ['rede', MSG.ghBuscas],
+  ['tempo-esgotado', MSG.tempoEsgotado],
   ['github-indisponivel', MSG.githubIndisponivel],
   ['token-gh', MSG.token],
   ['skip-permissions-root', MSG.skipRoot],
