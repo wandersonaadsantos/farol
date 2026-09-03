@@ -661,3 +661,38 @@ test('check() preserva PR quando prState retorna null (sem token)', async () => 
   assert.equal(e.retryAfterNet.has('o/r#7'), true, 'null = sem prova, preserva');
   assert.equal(stillOpen.length, 1);
 });
+
+/* ---------- retomada: o sid da sessão caída viaja na entrada do retry ---------- */
+// A sessão que caiu por rede/tempo já leu o PR. Guardar o sid dela junto das
+// tentativas é o que permite ao relançamento pedir `--resume` em vez de recomeçar.
+test('falha transitória com sessionId guarda o retomarSid no PR do retry', async () => {
+  const e = engineBase();
+  e.runHeadlessReview = async () => { throw Object.assign(new Error('fetch failed'), { sessionId: 'abc-12345' }); };
+  await e.runOneHeadless(prDe('o/r#11'), 'eu');
+  assert.equal(e.retryAfterNet.get('o/r#11').pr.retomarSid, 'abc-12345');
+});
+
+test('segunda falha sem sessionId preserva o sid da anterior', async () => {
+  const e = engineBase();
+  e.runHeadlessReview = async () => { throw Object.assign(new Error('fetch failed'), { sessionId: 'abc-12345' }); };
+  await e.runOneHeadless(prDe('o/r#12'), 'eu');
+  // a retomada seguinte pode cair antes de a sessão nascer (sem sid novo): manter o
+  // anterior é o que evita perder a continuidade em cascata de quedas de rede
+  e.runHeadlessReview = async () => { throw new Error('fetch failed'); };
+  await e.runOneHeadless(e.retryAfterNet.get('o/r#12').pr, 'eu');
+  const guardado = e.retryAfterNet.get('o/r#12');
+  assert.equal(guardado.tries, 2);
+  assert.equal(guardado.pr.retomarSid, 'abc-12345');
+});
+
+test('tempo esgotado é transitório e entra no retry com o sid', async () => {
+  const e = engineBase();
+  e.runHeadlessReview = async () => {
+    throw Object.assign(new Error('tempo esgotado (30min) na sessão autônoma'), { sessionId: 'abc-12345' });
+  };
+  await e.runOneHeadless(prDe('o/r#13'), 'eu');
+  const guardado = e.retryAfterNet.get('o/r#13');
+  assert.ok(guardado, 'tempo esgotado se resolve numa retomada, não estaciona de cara');
+  assert.equal(guardado.pr.retomarSid, 'abc-12345');
+  assert.equal(e.autoReviewParked.has('o/r#13'), false);
+});
