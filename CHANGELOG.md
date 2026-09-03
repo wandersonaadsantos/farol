@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.57.4
+
+Correções no estacionamento da revisão automática: o card da fila passa a dizer quando e por que a revisão parou, morte por provedor de IA indisponível deixa de estacionar o PR, e a poda do estacionamento exige duas ausências seguidas do panorama.
+
+**Correções**
+
+- **O card diz quando e por que a revisão automática parou.** Caso real de 03/09/2026 (biud-core#317, no Farol de um colega): a sessão abriu às 13:14, morreu às 13:21 sem postar nada, e o PR voltou para "Sua fila" idêntico a um PR que nunca foi revisado. O único rastro era um toast de cinco segundos e uma linha no Diagnóstico, e o PR ficou duas horas parado enquanto o mesmo Farol revisava os vizinhos. Agora o estacionamento guarda a hora e o motivo (falha, cancelamento, orçamento estourado ou tentativas esgotadas) e o card mostra isso embaixo do título, lembrando que o botão Revisar tenta de novo. O arquivo de estado passou a guardar os motivos junto das chaves; o formato antigo continua sendo lido.
+- **Provedor de IA fora do ar não estaciona mais o PR.** "API Error: 529 Overloaded" e os demais 5xx da API caíam em falha desconhecida, que é permanente por desenho, e o PR ficava esperando clique. Sete sessões morreram assim na mesma manhã de 03/09. O próprio texto do provedor diz que é temporário: agora a classe é transitória, o PR volta para a fila e relança sozinho com o teto de três tentativas, retomando a sessão interrompida quando há sessão para retomar. A v2.57.3 já cobria a morte depois de reconexões visíveis; esta cobre o resultado de erro que chega sem reconexão.
+- **A poda do estacionamento exige duas ausências seguidas.** A busca do GitHub é índice, e índice atrasado responde "não achei" sobre PR aberto. Uma ausência bastava para tirar a chave do estacionamento, o ciclo seguinte relançava a sessão fadada à mesma falha, e ela estacionava de novo. É a leitura mais provável das sete relançadas do biud-esg#268 em 83 minutos, sem commit novo. Agora vale a mesma régua da poda da autoanálise: duas medições seguidas concordando.
+
 ## v2.57.3
 
 Correções de comportamento esperado: check obrigatório vermelho deixa de sair como aprovação sozinha, em qualquer política; a autoanálise dos seus PRs deixa de sumir sozinha (ela é guardada, e "Ocultar análise" passou a ocultar de verdade); e falha de rede na sessão autônoma deixa de estacionar o PR esperando você.
