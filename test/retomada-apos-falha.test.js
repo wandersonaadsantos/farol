@@ -80,6 +80,9 @@ test('retomada por falha injeta o bloco de continuidade no prompt e avisa na ati
   assert.ok(e.chamadas[0].prompt.includes(retomadaAposFalhaBlock()), 'o prompt carrega o bloco de retomada');
   assert.ok(e.atividades.some(t => /Retomando a sessão interrompida por instabilidade/.test(t)),
     'a linha de atividade explica por que não está relendo tudo');
+  // uma linha por evento: o rodarSessao não pode repetir a mesma notícia com outro texto
+  const linhas = e.atividades.filter(t => /Retomando/.test(t));
+  assert.equal(linhas.length, 1, 'a esteira anuncia a retomada uma vez só');
 });
 
 test('sid fora do formato nunca entra na linha de comando', async () => {
@@ -141,4 +144,41 @@ test('_repescarRetry relança o objeto guardado, preservando retomarSid e knownH
   assert.equal(enfileirados[0].retomarSid, 'abc-12345', 'o sid da sessão caída sobrevive ao relançamento');
   assert.equal(enfileirados[0].knownHead, HEAD);
   assert.equal(enfileirados[0].requested, true);
+});
+
+/* ---------- guarda de head: commit novo durante a espera do retry ---------- */
+// A espera do retry pode ser longa (limite de plano tem cap 12 e hora de reset), e o
+// bloco de retomada pede pra não reler o que já foi lido. Se o head andou nesse meio
+// tempo, retomar seria pedir pra não reler justamente o que mudou.
+
+test('head diferente do knownHead da queda derruba a retomada', async () => {
+  const e = engineCom({ reReviewResume: false });
+  await e.runHeadlessReview({ ...PR_BASE, retomarSid: 'abc-12345', knownHead: 'aaaaaaaaaaaa' });
+  const args = e.chamadas[0].extraArgs;
+  assert.equal(args.indexOf('--resume'), -1, 'commit novo = sessão nova');
+  assert.ok(!e.chamadas[0].prompt.includes(retomadaAposFalhaBlock()), 'sem retomada, sem bloco');
+  assert.ok(e.atividades.some(t => /recebeu commit novo depois da queda/.test(t)),
+    'a esteira diz por que não retomou');
+  assert.equal(e.atividades.filter(t => /Retomando/.test(t)).length, 0, 'nada de anunciar retomada que não houve');
+});
+
+test('head igual ao knownHead da queda retoma normalmente', async () => {
+  const e = engineCom({ reReviewResume: false });
+  await e.runHeadlessReview({ ...PR_BASE, retomarSid: 'abc-12345', knownHead: HEAD });
+  const args = e.chamadas[0].extraArgs;
+  assert.equal(args[args.indexOf('--resume') + 1], 'abc-12345');
+});
+
+test('head desconhecido de um dos lados mantém a retomada', async () => {
+  // sem knownHead (queda antes de o head ser conhecido)
+  const semKnown = engineCom({ reReviewResume: false });
+  await semKnown.runHeadlessReview({ ...PR_BASE, retomarSid: 'abc-12345' });
+  const a1 = semKnown.chamadas[0].extraArgs;
+  assert.equal(a1[a1.indexOf('--resume') + 1], 'abc-12345', 'falta de dado nunca vira decisão nova');
+  // sem head atual (gh não respondeu agora); o knownHead é o único head conhecido
+  const semAtual = engineCom({ reReviewResume: false });
+  semAtual.headSha = async () => '';
+  await semAtual.runHeadlessReview({ ...PR_BASE, retomarSid: 'abc-12345', knownHead: 'aaaaaaaaaaaa' });
+  const a2 = semAtual.chamadas[0].extraArgs;
+  assert.equal(a2[a2.indexOf('--resume') + 1], 'abc-12345', 'sem head atual não há como afirmar que andou');
 });
