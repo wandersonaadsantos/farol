@@ -1377,17 +1377,30 @@ zero pagava de novo o que já tinha sido lido. Peças:
   eventos `api_retry` antes de morrer. Esse sufixo é o que liga a morte pós-retry à classe
   `rede`. Todo caminho de erro do `runClaudeStream` também anexa `err.sessionId`.
 - O sid é capturado no início da sessão (`opts.onSession`, primeiro `session_id` do
-  stream), gravado no registro da revisão ativa e regravado em `state/inflight.json` a
-  cada evento, não só no fim. Na recuperação do boot, `recoverInflight` preenche
-  `engine.retomadaPendente` e `enqueueHeadless` carimba `retomarSid` no PR quando ele
-  reaparece na fila. Falha transitória em pleno voo também guarda o sid no
+  stream), gravado no registro da revisão ativa e gravado em `state/inflight.json`
+  assim que nasce (o `onSession` dispara uma vez, no primeiro evento que traz
+  `session_id`), não só no fim. Na recuperação do boot, `recoverInflight` preenche
+  `engine.retomadaPendente` com `{ sid, head }` e `enqueueHeadless` carimba `retomarSid`
+  e `knownHead` no PR quando ele reaparece na fila. Falha transitória em pleno voo também guarda o sid no
   `retryAfterNet`, com o mesmo campo `retomarSid`.
 - `sidDeRetomada` (`lib/engine/review.js`) decide o sid do `--resume`: `retomarSid` tem
   precedência sobre `resumeSid` e não depende de `config.reReviewResume` (é a mesma
   revisão retomando, não o opt-in do round incremental), sempre validado por
   `RESUME_SID_RE`. Head conhecido dos dois lados (`pr.knownHead` e o head atual) que
   divergiu descarta o sid, porque retomar seria pedir pra não reler o que mudou; head
-  desconhecido de qualquer lado mantém a retomada.
+  desconhecido de qualquer lado mantém a retomada. O `knownHead` que alimenta essa
+  guarda existe em todo caminho, não só no relançamento da re-revisão: o
+  `runHeadlessReview` estampa `pr.headLido` assim que resolve o head da rodada, o
+  `prComRetomada` copia isso pro `knownHead` da entrada do `retryAfterNet`, e o boot
+  guarda o head junto do sid (`headSha` no `inflight.json`, `{ sid, head }` no
+  `retomadaPendente`), com o `enqueueHeadless` carimbando os dois. Campo próprio e não
+  `knownHead` direto porque o objeto do PR atravessa rounds, e escrever `knownHead` ali
+  contaminaria o fallback G8 do head da rodada seguinte.
+- O bloco de prompt da retomada NÃO entra no prompt base: ele é passado à parte pro
+  `rodarSessao` e somado só na tentativa com `--resume`. Quando o CLI recusa a retomada
+  e a sessão degrada pra nova, o prompt sai sem o bloco (senão a sessão nova receberia
+  ordem de não reler o que ninguém leu). A retomada vale pras sessões do Claude: o
+  Codex não tem `--resume` e relança do zero.
 - Sem sid recuperável, ou com o resume falhando, `rodarSessao` degrada pra sessão nova
   (comportamento de sempre), nunca vira erro.
 
