@@ -304,6 +304,44 @@ test('runClaudeStream: cancelamento durante preflight Codex nao tenta matar chil
   assert.equal(filhos.length, 1);
 });
 
+test('runClaudeStream: erro após api_retry ganha sufixo de reconexão e err.sessionId (Task 1)', async () => {
+  const child = filhoStream();
+  spawnImpl = () => child;
+  const p = runClaudeStream(engineFalso(), 'prompt', {});
+  spawnImpl = null;
+
+  child.stdout.write(JSON.stringify({ type: 'system', subtype: 'init', session_id: 'abc-123' }) + '\n');
+  child.stdout.write(JSON.stringify({ type: 'system', subtype: 'api_retry', attempt: 1, max_retries: 10 }) + '\n');
+  child.stdout.write(JSON.stringify({ type: 'system', subtype: 'api_retry', attempt: 2, max_retries: 10 }) + '\n');
+  child.stdout.write(JSON.stringify({ type: 'result', is_error: true, result: 'API Error: Connection error' }) + '\n');
+  child.stdout.once('end', () => child.emit('close', 1));
+  child.stdout.end();
+
+  await assert.rejects(p, (err) => {
+    assert.match(err.message, /após 2 tentativa\(s\) de reconexão/);
+    assert.equal(err.sessionId, 'abc-123');
+    return true;
+  });
+});
+
+test('runClaudeStream: sem api_retry, a mensagem de erro NÃO ganha o sufixo (Task 1)', async () => {
+  const child = filhoStream();
+  spawnImpl = () => child;
+  const p = runClaudeStream(engineFalso(), 'prompt', {});
+  spawnImpl = null;
+
+  child.stdout.write(JSON.stringify({ type: 'system', subtype: 'init', session_id: 'abc-123' }) + '\n');
+  child.stdout.write(JSON.stringify({ type: 'result', is_error: true, result: 'API Error: Connection error' }) + '\n');
+  child.stdout.once('end', () => child.emit('close', 1));
+  child.stdout.end();
+
+  await assert.rejects(p, (err) => {
+    assert.doesNotMatch(err.message, /tentativa\(s\) de reconexão/);
+    assert.equal(err.sessionId, 'abc-123');
+    return true;
+  });
+});
+
 test('runClaudeStream: stdin tem handler de error (EPIPE de processo morto não derruba o engine) (B4)', async () => {
   const child = filhoStream();
   spawnImpl = () => child;
