@@ -1587,6 +1587,31 @@ export function reviewChip(pr, actions) {
   return '';
 }
 
+// Frase do estacionamento por tipo (ver `estacionar` em lib/engine/review.js). O
+// motivo só entra onde ele diz algo que o tipo não diz: cancelamento e orçamento já
+// são a explicação inteira.
+function comMotivo(base, motivo, rotulo = '') {
+  if (!motivo) return base;
+  return `${base} (${rotulo}${motivo})`;
+}
+const PARKED_FRASE = {
+  cancelado: () => 'cancelada por você',
+  orcamento: (motivo) => comMotivo('o orçamento estourou', motivo),
+  esgotado: (motivo) => comMotivo('falhou várias vezes seguidas', motivo, 'último erro: '),
+  falha: (motivo) => comMotivo('falhou', motivo),
+};
+
+// Aviso no card da fila de que a revisão automática PAROU, com quando e por quê.
+// Existe porque o estacionamento era invisível: o toast morria em cinco segundos e o
+// card voltava idêntico ao de um PR nunca revisado (biud-core#317, 03/09/2026: duas
+// horas parado no Farol de um colega enquanto ele revisava os vizinhos). '' sem info.
+export function parkedNoteHtml(info) {
+  if (!info || typeof info !== 'object') return '';
+  const frase = (PARKED_FRASE[info.tipo] || PARKED_FRASE.falha)(String(info.motivo || '').trim());
+  const quando = info.at ? ` <span title="${esc(fmtStamp(info.at))}">${esc(fmtWhenDay(info.at))}</span>` : '';
+  return `<div class="pr-parked">Revisão automática parada${quando}: ${esc(frase)}. Ela não relança sozinha; o botão Revisar tenta de novo.</div>`;
+}
+
 export function queueCardHtml(pr, ctx) {
   const m = ctx.mark;
   // os selos inline saem do template: dentro dele o gate conta todos os ternarios
@@ -1594,6 +1619,7 @@ export function queueCardHtml(pr, ctx) {
   const seloRascunho = pr.isDraft ? '<span class="badge">rascunho</span>' : '';
   const seloRepedida = pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : '';
   const papel = pr.author ? ` ${papelPicker(pr.author, ctx.people)}` : '';
+  const parked = parkedNoteHtml((ctx.parked || {})[pr.key]);
   return `
     <div class="card pr-card urgent" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" style="${m.style}">
       ${m.dot}${avatar(pr.author)}
@@ -1601,6 +1627,7 @@ export function queueCardHtml(pr, ctx) {
         <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}${seloRascunho}${seloRepedida}</div>
         <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
         <div class="pr-sub">${personMention(pr.author, 'xs')} · atualizado ${fmtRel(pr.updatedAt)}${papel}</div>
+        ${parked}
       </div>
       <div class="pr-actions">
         <button class="btn primary sm act-review" data-url="${esc(pr.url)}">Revisar</button>

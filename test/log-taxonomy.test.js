@@ -26,6 +26,10 @@ const MSG = {
   tempoEsgotado: 'tempo esgotado (30min) na sessão autônoma',
   ghBuscas: 'ciclo de monitoramento: todas as buscas gh falharam (veja o log)',
   githubIndisponivel: 'postar review biudtech/biud-frontend#774 (APPROVE): gh: No server is currently available to service your request. Sorry about that. Please try resubmitting your request and contact us if the problem persists. (HTTP 503)',
+  // 03/09/2026, sete vezes no mesmo farol.log entre 10:47 e 11:56: caía em 'desconhecido'
+  // e estacionava o PR em silêncio, que foi o caso do biud-core#317 no Farol de um colega
+  provedor: 'sessão retornou erro: API Error: 529 Overloaded. This is a server-side issue, usually temporary — try again in a moment. If it persists, check https://status.claude.com.',
+  provedor500: 'sessão retornou erro: API Error: 500 {"type":"error","error":{"type":"api_error","message":"Internal server error"}}',
   token: 'revisao biudtech/biud-esg#193: sem token no gh pra wandersonbiuder',
   skipRoot: 'revisao biudtech/engine-ai#97 (transitório, tenta de novo): claude saiu com código 1: --dangerously-skip-permissions cannot be used with root/sudo privileges for security reasons',
   binario: "claude saiu com código 1: '\"C:\\nvm4w\\nodejs\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe\"' não é reconhecido como um comando interno",
@@ -41,7 +45,7 @@ const MSG = {
 test('CLASSES: toda classe tem os cinco campos e um kind válido', () => {
   const KINDS = ['operacional', 'espera-reset', 'transitorio', 'permanente'];
   const GRUPOS = ['operacional', 'ambiente', 'credencial', 'rede', 'app'];
-  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 12, 'são 12 classes');
+  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 13, 'são 13 classes');
   for (const c of CLASSES) {
     assert.equal(typeof c.id, 'string');
     assert.ok(c.label, `${c.id} precisa de label humano`);
@@ -62,7 +66,7 @@ test('CLASSES: a ordem é a documentada (primeira que casar vence)', () => {
   assert.deepEqual(CLASSES.map(c => c.id), [
     'restart-fila', 'console-fechado', 'limite-plano', 'assinatura-bloqueada',
     'credencial-invalida', 'credito-insuficiente', 'rede', 'github-indisponivel',
-    'token-gh', 'skip-permissions-root', 'tempo-esgotado', 'ferramenta'
+    'provedor-indisponivel', 'token-gh', 'skip-permissions-root', 'tempo-esgotado', 'ferramenta'
   ]);
 });
 
@@ -79,6 +83,8 @@ const CASOS = [
   ['rede', MSG.ghBuscas],
   ['tempo-esgotado', MSG.tempoEsgotado],
   ['github-indisponivel', MSG.githubIndisponivel],
+  ['provedor-indisponivel', MSG.provedor],
+  ['provedor-indisponivel', MSG.provedor500],
   ['token-gh', MSG.token],
   ['skip-permissions-root', MSG.skipRoot],
   ['ferramenta', MSG.binario],

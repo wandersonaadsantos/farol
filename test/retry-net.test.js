@@ -520,8 +520,29 @@ test('check() poda key de owner que respondeu e cujo PR saiu do panorama (fechou
   e.autoReviewParked.add('globex/repo#2');
   e.panoramaByOwner = { acme: [], globex: [] }; // globex respondeu; o PR não está mais na lista dele
   await e.check('test');
+  assert.equal(e.autoReviewParked.has('globex/repo#2'), true,
+    'UMA ausência não prova PR fechado: o índice do gh search já respondeu "não achei" sobre PR aberto');
+  await e.check('test');
   assert.equal(e.autoReviewParked.has('globex/repo#2'), false,
-    'owner respondeu neste ciclo: PR fechado é podado de verdade');
+    'owner respondeu em DOIS ciclos seguidos sem o PR: fechado de verdade, podado');
+});
+
+// A poda por uma ausência só era um loop pago: o índice piscava, a key saía do
+// estacionamento, o toReview relançava a sessão fadada à mesma falha, ela estacionava
+// de novo. Leitura mais provável das 7 linhas ERROR do biud-esg#268 em 83 minutos
+// (03/09/2026), sem commit novo nem clique. Mesma régua da poda da autoanálise
+// (SELF_PRUNE_STRIKES): duas medições independentes concordando.
+test('check() reaparecer no panorama entre as duas ausências zera a contagem (G15)', async () => {
+  const e = checkEngineG15();
+  e.autoReviewParked.add('globex/repo#2');
+  e.panoramaByOwner = { acme: [], globex: [] };
+  await e.check('test');
+  e.panoramaByOwner = { acme: [], globex: [{ key: 'globex/repo#2', url: 'https://github.com/globex/repo/pull/2', updatedAt: new Date().toISOString() }] };
+  await e.check('test');
+  e.panoramaByOwner = { acme: [], globex: [] };
+  await e.check('test');
+  assert.equal(e.autoReviewParked.has('globex/repo#2'), true,
+    'a ausência tem que ser SEGUIDA: piscada do índice no meio recomeça a contagem');
 });
 
 test('check() não poda nada quando TODAS as buscas de owner falham (G15)', async () => {
@@ -546,8 +567,9 @@ test('check() poda key de owner que SAIU da config, mesmo com todas as buscas fa
   e.autoReviewParked.add('desmonitorado/repo#9'); // owner não está em config.accounts[].owners (só acme/globex)
   e.panoramaByOwner = { acme: null, globex: null }; // flake total nos owners monitorados
   await e.check('test');
+  await e.check('test'); // duas ausências seguidas: a mesma régua vale pra owner fora da config
   assert.equal(e.autoReviewParked.has('desmonitorado/repo#9'), false,
-    'owner fora da config é podado de primeira: PR fora do panorama, ninguém pra reclamar');
+    'owner fora da config é podado sem depender de ownersOk: PR fora do panorama, ninguém pra reclamar');
 });
 
 // Revisão final da onda 3 (C1): a exceção acima era INCONDICIONAL, e é aí que ela
@@ -579,6 +601,7 @@ test('check() poda key de owner fora da config quando o PR FECHOU (sumiu da fila
   const e = checkEngineG15();
   e.autoReviewParked.add('desmonitorado/repo#9');
   e.mineList = []; // o PR fechou: não vem mais em lugar nenhum do panorama
+  await e.check('test');
   await e.check('test');
   assert.equal(e.autoReviewParked.has('desmonitorado/repo#9'), false,
     'PR fechado de owner fora da config sai do estacionamento: o arquivo não pode só crescer');

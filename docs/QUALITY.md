@@ -318,17 +318,22 @@ do git, `origin/main` e `main` como degrau, e falhando fechado quando não acha 
 A segunda não dá para acompanhar daqui. A identidade de uma avaliação deixou de ser o head e passou a ser o
 `materialFingerprint` do que a regra observou (ADR-0012), e o registro v2 (ADR-0013) exige esse campo, mais
 `ruleVersion`, evidência apontando para dentro da worktree e confiança declarada. **A CLI calcula o
-fingerprint e nunca o imprime**: o relato do `audit` só escreve regra, tipo, veredito e motivo, não existe
-saída JSON nem modo verboso, e nenhuma flag o expõe. Sem ele não há como escrever uma avaliação v2 válida,
-então as 8 regras de julgamento terminam `not-run` e o gate reprova com exit 2.
+fingerprint e não o imprime**: o relato do `audit` só escreve regra, tipo, veredito e motivo, sem saída
+JSON. Até 30/08/2026 isso parecia bloquear as 8 avaliações (terminavam `not-run`, exit 2) e o push saía com
+`--no-verify`.
 
-Consequência prática enquanto isso durar: **push precisa de `--no-verify`**, e isso está registrado aqui em
-vez de resolvido por conta própria de propósito. As duas saídas erradas seriam afrouxar o gate para o
-`not-run` passar, que é exatamente o "gate que se cala quando não sabe" que o `tools/eng-behaviour/gate.js`
-proíbe no próprio cabeçalho, ou recalcular o fingerprint aqui a partir do fonte do pacote, que acoplaria o
-Farol a um interno dele e seria forjar a chave de uma fechadura que existe para provar que alguém olhou. A
-saída certa é o pacote expor o fingerprint (uma flag de saída estruturada no `audit` basta), e isso é
-trabalho do eng-behaviour, não deste repositório.
+**Desde 03/09/2026 (PR #67) o gate passa sem `--no-verify`, pela API pública do pacote.** O fingerprint sai
+de `runAudit` (`dist/index.js` do eng-behaviour, `rules[].materialFingerprint`, mais `acionadores` e
+`contexto`), e `loadBundledCatalog` dá a `ruleVersion` (campo `since` da regra). Isso NÃO é recalcular o
+fingerprint a partir do fonte do pacote (que continua sendo a saída errada, por acoplar o Farol a um interno
+dele): é consumir o que o pacote expõe. O roteiro: rodar `runAudit` com `{ repositoryId: basename(cwd),
+base: 'origin/main', head: 'HEAD' }`, escrever `avaliacoes.jsonl` na raiz da worktree (uma linha por regra
+acionada, `schemaVersion: 2`, `repositoryId` = basename do diretório, que numa worktree é o nome da worktree,
+`rule`, `ruleVersion`, `materialFingerprint`, `head`, `verdict`, `confidence` alta ou media, `evidence[]`
+apontando para arquivo que existe na worktree, `rationale`, `author`, `date`; o schema é estrito e campo extra
+reprova) e só então `npm run eng`. Commit novo muda o `head` e, se o material mudou, o fingerprint: as
+avaliações se escrevem no head final, depois das revisões, porque cada uma precisa de fundamentação própria
+sobre AQUELE diff. A saída definitiva continua sendo o pacote imprimir o fingerprint no próprio `audit`.
 
 O parágrafo do custo abaixo descreve o regime da v0.3.x e continua valendo como intenção; os números mudam
 quando a identidade material entrar em vigor, porque a ADR-0012 corta o número de regras cobradas por commit.

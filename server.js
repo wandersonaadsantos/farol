@@ -138,6 +138,20 @@ const REREQ_GRACE_MS = 10 * 60 * 1000;
 // aqui e "duas medicoes independentes concordarem", nao quanto tempo passou. Ver a poda
 // no check() pro motivo (indice do gh search atrasado devolve `ok` incompleto).
 const SELF_PRUNE_STRIKES = 2;
+// A poda do ESTACIONAMENTO segue a mesma régua (v2.57.4): uma ausência do panorama não
+// prova PR fechado, e aqui a poda errada custa mais do que na autoanálise, porque
+// des-estacionar relança sozinha uma sessão fadada à mesma falha (o loop pago do G15).
+// Leitura mais provável das 7 linhas ERROR do biud-esg#268 em 83 minutos (03/09/2026),
+// sem commit novo: o índice piscou, a key saiu, a sessão relançou e estacionou de novo.
+const PARKED_PRUNE_STRIKES = 2;
+// keys do arquivo de estacionamento, nos dois formatos que ele já teve (lista crua até
+// a v2.57.3; `{ keys, motivos }` desde a v2.57.4). Qualquer outra forma é vazio.
+function chavesEstacionadas(salvo) {
+  let lista = [];
+  if (Array.isArray(salvo)) lista = salvo;
+  else if (salvo && Array.isArray(salvo.keys)) lista = salvo.keys;
+  return lista.filter(k => typeof k === 'string');
+}
 
 // FIX 3 (v2.53.1): a metade que o recoverInflight aplica na âncora de re-revisão
 // de um PR que estava inflight no reinício. Âncora OBJETO ({head,dia,rodadas})
@@ -263,8 +277,17 @@ class Engine extends EventEmitter {
     // iterável), derrubando o boot inteiro por causa de um arquivo de estado
     // corrompido (gravação interrompida, edição à mão). Formato errado degrada
     // pra estacionamento vazio, que é recuperável.
+    // Dois formatos no disco: a lista crua de keys (até a v2.57.3) e `{ keys, motivos }`
+    // (v2.57.4, ver saveAutoReviewParked em lib/engine/review.js). Lista antiga entra
+    // sem motivo; objeto sem `keys` (inclusive o `{}` corrompido) degrada pra vazio.
     const parkedSalvo = readJson(path.join(STATE_DIR, 'auto-review-parked.json'), [], warn);
-    this.autoReviewParked = new Set(Array.isArray(parkedSalvo) ? parkedSalvo : []); // keys que falharam sem ser rede (ou foram canceladas): aguardam ação manual, não relançam sozinhas
+    this.autoReviewParked = new Set(chavesEstacionadas(parkedSalvo)); // keys que falharam sem ser rede (ou foram canceladas): aguardam ação manual, não relançam sozinhas
+    // motivo e hora de cada estacionamento, pra tela (só de key que está no Set:
+    // motivo órfão é lixo de migração e não sobrevive ao boot)
+    this.parkedMotivos = {};
+    const motivosSalvos = (parkedSalvo && !Array.isArray(parkedSalvo) && parkedSalvo.motivos && typeof parkedSalvo.motivos === 'object') ? parkedSalvo.motivos : {};
+    for (const k of this.autoReviewParked) if (motivosSalvos[k] && typeof motivosSalvos[k] === 'object') this.parkedMotivos[k] = motivosSalvos[k];
+    this.parkedPruneStrikes = new Map(); // key estacionada -> ausências SEGUIDAS do panorama (memória; reinício zera, lado seguro)
     this.budgetWarned = new Set(); // ids de perfil apikey já avisados de orçamento estourado, enquanto o estouro persistir (evita repetir o toast a cada checagem)
     this.chats = readJson(CHATS_FILE, {}, warn);
     for (const k of Object.keys(this.chats)) {
@@ -1051,8 +1074,15 @@ class Engine extends EventEmitter {
     for (const k of [...this.autoReviewParked]) {
       const owner = String(k.split('/')[0] || '').toLowerCase();
       if (monitoredOwners.has(owner) && !ownersOk.has(owner)) continue;
-      if (!abertosParked.has(k)) { this.autoReviewParked.delete(k); parkedMudou = true; }
+      if (abertosParked.has(k)) { this.parkedPruneStrikes.delete(k); continue; }
+      // ausência tem que ser SEGUIDA (PARKED_PRUNE_STRIKES): o gh search é índice, e
+      // índice atrasado responde `ok` sem o PR que está aberto
+      const faltas = (this.parkedPruneStrikes.get(k) || 0) + 1;
+      if (faltas < PARKED_PRUNE_STRIKES) { this.parkedPruneStrikes.set(k, faltas); continue; }
+      this.parkedPruneStrikes.delete(k);
+      if (reviewMod.desestacionar(this, k)) parkedMudou = true;
     }
+    for (const k of [...this.parkedPruneStrikes.keys()]) if (!this.autoReviewParked.has(k)) this.parkedPruneStrikes.delete(k);
     if (parkedMudou) this.saveAutoReviewParked();
   }
 
@@ -1263,6 +1293,8 @@ class Engine extends EventEmitter {
   saveReReviewLaunched() { return reviewMod.saveReReviewLaunched(this); }
   // G15: estacionamento pós-falha persistido (padrão do savePushbackScanned)
   saveAutoReviewParked() { return reviewMod.saveAutoReviewParked(this); }
+  // projeção do estacionamento pra tela (at, motivo curto, tipo), só das keys estacionadas
+  parkedParaUi() { return reviewMod.parkedParaUi(this); }
   saveSkipComentado() { return skipMod.saveSkipComentado(this); }
   saveLabelVistaDesde() {
     try { writeJsonAtomic(path.join(STATE_DIR, 'label-vista.json'), this.labelVistaDesde); }
@@ -1723,6 +1755,9 @@ class Engine extends EventEmitter {
       lastCheckAt: this.lastCheckAt,
       nextCheckAt: this.nextCheckAt,
       queue: this.queue,
+      // PRs da fila que estacionaram (falha, cancelamento, orçamento): o card mostra
+      // quando e por quê, senão "nunca revisou" e "revisou e caiu" são idênticos na tela
+      parked: this.parkedParaUi(),
       panorama: this.panorama,
       myPRs: this.myPRs,
       // só as CHAVES: myPRs vai completo de propósito, porque quem esconde é a UI

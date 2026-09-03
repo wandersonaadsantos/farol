@@ -307,6 +307,10 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 .mypr-top .info { flex: 1; min-width: 0; }
 .mypr-card .badge { font-size: 10.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 99px; padding: 1px 8px; }
 .pr-card .badge { font-size: 10.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 99px; padding: 1px 8px; margin-left: 6px; }
+/* revisão automática parada (estacionamento): é a diferença entre "nunca revisou" e
+   "revisou, caiu e espera clique", que até a v2.57.4 a tela não mostrava */
+.pr-card .pr-parked { margin-top: 4px; font-size: 11.5px; line-height: 1.35; color: var(--danger); overflow-wrap: anywhere; }
+.pr-card .pr-parked span { text-decoration: underline dotted; }
 .mypr-analysis { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
 .mypr-summary { font-size: 13.5px; margin-bottom: 8px; }
 /* analise DESATUALIZADA: o PR andou depois dela. O painel continua legivel (o texto
