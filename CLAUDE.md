@@ -1399,8 +1399,10 @@ zero pagava de novo o que já tinha sido lido. Peças:
 - O bloco de prompt da retomada NÃO entra no prompt base: ele é passado à parte pro
   `rodarSessao` e somado só na tentativa com `--resume`. Quando o CLI recusa a retomada
   e a sessão degrada pra nova, o prompt sai sem o bloco (senão a sessão nova receberia
-  ordem de não reler o que ninguém leu). A retomada vale pras sessões do Claude: o
-  Codex não tem `--resume` e relança do zero.
+  ordem de não reler o que ninguém leu). A retomada vale pras revisões feitas pelo
+  Claude, e não porque falte `--resume` ao Codex (o `codexArgs` aceita, virando `exec
+  resume`): é que `opts.onSession` só é chamado no stream do Claude e o stream do Codex
+  não estampa `err.sessionId`, então `retomarSid` nunca nasce nesse caminho.
 - Sem sid recuperável, ou com o resume falhando, `rodarSessao` degrada pra sessão nova
   (comportamento de sempre), nunca vira erro.
 
