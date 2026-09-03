@@ -81,6 +81,24 @@ test('runClaudeStream: multibyte cortado no limite do chunk não vira U+FFFD (M4
   assert.equal(res.sessionId, 's1');
 });
 
+test('runClaudeStream: onSession dispara UMA vez, assim que session_id chega, não só no fim (Task 2)', async () => {
+  const child = filhoStream();
+  spawnImpl = () => child;
+  const chamadas = [];
+  const p = runClaudeStream(engineFalso(), 'prompt', { onSession: (sid) => chamadas.push(sid) });
+  spawnImpl = null;
+
+  child.stdout.write('{"type":"system","subtype":"init","model":"claude-opus-5","session_id":"s1"}\n');
+  // sid repetido em evento seguinte (comportamento real do CLI) não dispara de novo
+  child.stdout.write(JSON.stringify({ type: 'result', result: 'ok', session_id: 's1' }) + '\n');
+  child.stdout.once('end', () => child.emit('close', 0));
+  child.stdout.end();
+
+  const res = await p;
+  assert.equal(res.sessionId, 's1');
+  assert.deepEqual(chamadas, ['s1'], 'onSession chamado uma única vez, com o sid');
+});
+
 test('runClaudeStream: exit != 0 com stream parcial (sem evento result) é ERRO, não sucesso (M3)', async () => {
   const child = filhoStream();
   spawnImpl = () => child;
