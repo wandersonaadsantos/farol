@@ -696,3 +696,16 @@ test('tempo esgotado é transitório e entra no retry com o sid', async () => {
   assert.equal(guardado.pr.retomarSid, 'abc-12345');
   assert.equal(e.autoReviewParked.has('o/r#13'), false);
 });
+
+/* ---------- retomadaPendente não vaza: PR podado leva o sid do boot com ele ---------- */
+// O sid guardado na recuperação do boot só é consumido quando o PR reaparece na
+// fila. PR mergeado/fechado nunca reaparece, então sem esta poda o Map só cresce.
+test('_repescarRetry poda o retomadaPendente do PR mergeado', async () => {
+  const e = engineForPrune();
+  e.prState = async () => 'MERGED';
+  e.retryAfterNet.set('o/r#21', { tries: 1, pr: prDe('o/r#21') });
+  e.retomadaPendente = new Map([['o/r#21', { sid: 'sid-21', head: 'head-21' }]]);
+  await e._repescarRetry([], new Set());
+  assert.equal(e.retryAfterNet.has('o/r#21'), false);
+  assert.equal(e.retomadaPendente.has('o/r#21'), false, 'sid do boot morre junto do PR');
+});

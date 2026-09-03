@@ -324,7 +324,11 @@ class Engine extends EventEmitter {
     // retomarSid pro round seguinte pedir retomada em vez de sessão nova.
     if (!this.retomadaPendente) this.retomadaPendente = new Map();
     for (const pr of inflight) {
-      if (pr && pr.key && pr.sessionId) this.retomadaPendente.set(pr.key, pr.sessionId);
+      if (!pr || !pr.key || !pr.sessionId) continue;
+      // o head vai junto do sid: o app pode ter ficado horas fora do ar, e o
+      // sidDeRetomada precisa dele pra descartar a retomada quando o PR ganhou
+      // commit novo nesse meio-tempo (retomar aí pediria pra não reler o que mudou).
+      this.retomadaPendente.set(pr.key, { sid: pr.sessionId, head: pr.headSha || '' });
     }
     try { writeJsonAtomic(INFLIGHT_FILE, []); } catch { }
     // G7: a âncora do round 2 é gravada ANTES de enfileirar; se o app morreu com
@@ -353,7 +357,7 @@ class Engine extends EventEmitter {
     try {
       const list = [...this.activeReviews.values()]
         .filter(s => s.mode === 'auto' && s.pr)
-        .map(s => ({ ...s.pr, sessionId: s.sessionId || '' }))
+        .map(s => ({ ...s.pr, sessionId: s.sessionId || '', headSha: s.headSha || '' }))
         .concat(this.headlessQueue.filter(p => p.kind !== 'self').map(p => ({ key: p.key, url: p.url, title: p.title })));
       writeJsonAtomic(INFLIGHT_FILE, list);
     } catch { /* melhor perder a recuperação que derrubar a revisão */ }
@@ -1131,6 +1135,9 @@ class Engine extends EventEmitter {
       try { state = await this.prState(pr); } catch {}
       if (state === 'MERGED' || state === 'CLOSED') {
         this.retryAfterNet.delete(pr.key);
+        // PR fechado não volta: o sid guardado no boot pra ele nunca vai ser
+        // consumido pelo enqueueHeadless, e sem isto o Map só cresce.
+        if (this.retomadaPendente) this.retomadaPendente.delete(pr.key);
       } else {
         stillOpen.push(pr);
       }

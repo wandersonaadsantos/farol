@@ -182,3 +182,68 @@ test('head desconhecido de um dos lados mantém a retomada', async () => {
   const a2 = semAtual.chamadas[0].extraArgs;
   assert.equal(a2[a2.indexOf('--resume') + 1], 'abc-12345', 'sem head atual não há como afirmar que andou');
 });
+
+/* ---------- a guarda de head vale sem ninguém injetar knownHead ---------- */
+// O knownHead vinha só do relançamento da re-revisão, então nos caminhos comuns
+// (launchReview, check, recuperação de boot) a guarda nunca armava. Agora quem
+// estampa é o próprio runHeadlessReview, com o head que a sessão de fato leu.
+test('queda transitória carimba o head lido, e commit novo na espera derruba a retomada', async () => {
+  const e = engineCom();
+  let headAtual = HEAD;
+  e.headSha = async () => headAtual;
+  let n = 0;
+  e.runClaudeStream = async (prompt, opts) => {
+    n++;
+    e.chamadas.push({ prompt, extraArgs: [...(opts.extraArgs || [])] });
+    if (n === 1) throw Object.assign(new Error('fetch failed'), { sessionId: 'abc-12345' });
+    return { text: JSON.stringify({ result: JSON.stringify(ENVELOPE) }), sessionId: 'nova-sessao-2' };
+  };
+  await e.runOneHeadless({ ...PR_BASE }, 'eu');
+  const guardado = e.retryAfterNet.get(PR_BASE.key);
+  assert.ok(guardado, 'falha de rede vira retry');
+  assert.equal(guardado.pr.retomarSid, 'abc-12345');
+  assert.equal(guardado.pr.knownHead, HEAD, 'head da sessão que caiu carimbado sem ajuda do teste');
+  assert.equal(PR_BASE.knownHead, undefined, 'o carimbo não polui o knownHead do objeto que vive entre rounds');
+
+  headAtual = 'facada99887766';
+  await e.runHeadlessReview(guardado.pr);
+  assert.equal(e.chamadas.length, 2, 'o relançamento rodou');
+  assert.equal(e.chamadas[1].extraArgs.includes('--resume'), false, 'head novo não retoma');
+  assert.equal(e.chamadas[1].prompt.includes(retomadaAposFalhaBlock()), false, 'nem o bloco entra');
+});
+
+test('mesmo head depois da queda retoma normalmente (sem knownHead injetado)', async () => {
+  const e = engineCom();
+  let n = 0;
+  e.runClaudeStream = async (prompt, opts) => {
+    n++;
+    e.chamadas.push({ prompt, extraArgs: [...(opts.extraArgs || [])] });
+    if (n === 1) throw Object.assign(new Error('fetch failed'), { sessionId: 'abc-12345' });
+    return { text: JSON.stringify({ result: JSON.stringify(ENVELOPE) }), sessionId: 'nova-sessao-3' };
+  };
+  await e.runOneHeadless({ ...PR_BASE }, 'eu');
+  const guardado = e.retryAfterNet.get(PR_BASE.key);
+  await e.runHeadlessReview(guardado.pr);
+  const args = e.chamadas[1].extraArgs;
+  assert.equal(args[args.indexOf('--resume') + 1], 'abc-12345', 'head igual retoma');
+});
+
+/* ---------- degradação pra sessão nova sai sem o bloco de retomada ---------- */
+// O bloco manda não reler o que já foi lido. Numa sessão que nasce agora isso é
+// ordem pra pular leitura que ninguém fez, então ele só vale na tentativa com
+// --resume.
+test('resume recusado pelo CLI: a sessão nova roda sem o bloco e sem --resume', async () => {
+  const e = engineCom();
+  let n = 0;
+  e.runClaudeStream = async (prompt, opts) => {
+    n++;
+    e.chamadas.push({ prompt, extraArgs: [...(opts.extraArgs || [])] });
+    if (n === 1) throw new Error('No conversation found with session id abc-12345');
+    return { text: JSON.stringify({ result: JSON.stringify(ENVELOPE) }), sessionId: 'nova-sessao-4' };
+  };
+  await e.runHeadlessReview({ ...PR_BASE, retomarSid: 'abc-12345' });
+  assert.equal(e.chamadas.length, 2, 'tentou retomar e degradou');
+  assert.ok(e.chamadas[0].prompt.includes(retomadaAposFalhaBlock()), 'a tentativa com --resume leva o bloco');
+  assert.equal(e.chamadas[1].prompt.includes(retomadaAposFalhaBlock()), false, 'a sessão nova não leva o bloco');
+  assert.equal(e.chamadas[1].extraArgs.includes('--resume'), false);
+});

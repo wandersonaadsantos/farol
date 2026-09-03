@@ -60,7 +60,7 @@ test('boot com inflight.json contendo sessionId popula retomadaPendente, consumi
   ]));
   const e = engineBase();
   assert.ok(e.retomadaPendente instanceof Map, 'retomadaPendente populado no boot');
-  assert.equal(e.retomadaPendente.get('o/r#3'), 'sid-recuperado');
+  assert.deepEqual(e.retomadaPendente.get('o/r#3'), { sid: 'sid-recuperado', head: '' });
 
   // dependências do enqueueHeadless real: processHeadless/pushState viram no-op,
   // o teste foca só no dado que entra na fila
@@ -80,4 +80,51 @@ test('boot com inflight.json sem sessionId não gera retomadaPendente pro PR', (
   ]));
   const e = engineBase();
   assert.equal(e.retomadaPendente && e.retomadaPendente.has('o/r#4'), false);
+});
+
+/* ---------- head da sessão caída persiste junto do sid (guarda de head no boot) ---------- */
+// Sem o head gravado, a guarda de head era inerte no caminho do boot: o app podia
+// ficar horas fora do ar, o PR ganhar commit novo e a sessão morta ser retomada
+// com ordem de não reler o que mudou.
+test('writeInflight grava o headSha da sessão ativa', () => {
+  const e = engineBase();
+  e.activeReviews.set('id1', {
+    mode: 'auto',
+    pr: { key: 'o/r#5', url: 'https://github.com/o/r/pull/5', title: 't' },
+    sessionId: 'abc-123',
+    headSha: 'head-da-queda'
+  });
+  e.writeInflight();
+  const inflight = JSON.parse(fs.readFileSync(path.join(HOME, 'workspace', 'state', 'inflight.json'), 'utf8'));
+  const item = inflight.find(p => p.key === 'o/r#5');
+  assert.equal(item.headSha, 'head-da-queda');
+});
+
+test('boot com headSha carimba knownHead junto do retomarSid no enqueueHeadless', () => {
+  fs.mkdirSync(path.join(HOME, 'workspace', 'state'), { recursive: true });
+  fs.writeFileSync(path.join(HOME, 'workspace', 'state', 'inflight.json'), JSON.stringify([
+    { key: 'o/r#6', url: 'https://github.com/o/r/pull/6', title: 't', sessionId: 'sid-6', headSha: 'head-6' }
+  ]));
+  const e = engineBase();
+  assert.deepEqual(e.retomadaPendente.get('o/r#6'), { sid: 'sid-6', head: 'head-6' });
+  e.processHeadless = () => { };
+  e.pushState = () => { };
+  enqueueHeadless(e, { key: 'o/r#6', url: 'https://github.com/o/r/pull/6', title: 't' });
+  const enfileirado = e.headlessQueue.find(p => p.key === 'o/r#6');
+  assert.equal(enfileirado.retomarSid, 'sid-6');
+  assert.equal(enfileirado.knownHead, 'head-6');
+});
+
+test('knownHead que já veio no objeto não é sobrescrito pelo head do boot', () => {
+  fs.mkdirSync(path.join(HOME, 'workspace', 'state'), { recursive: true });
+  fs.writeFileSync(path.join(HOME, 'workspace', 'state', 'inflight.json'), JSON.stringify([
+    { key: 'o/r#7', url: 'https://github.com/o/r/pull/7', title: 't', sessionId: 'sid-7', headSha: 'head-antigo' }
+  ]));
+  const e = engineBase();
+  e.processHeadless = () => { };
+  e.pushState = () => { };
+  enqueueHeadless(e, { key: 'o/r#7', url: 'https://github.com/o/r/pull/7', title: 't', knownHead: 'head-vivo' });
+  const enfileirado = e.headlessQueue.find(p => p.key === 'o/r#7');
+  assert.equal(enfileirado.knownHead, 'head-vivo', 'o caminho vivo manda');
+  assert.equal(enfileirado.retomarSid, 'sid-7');
 });
