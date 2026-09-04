@@ -1176,8 +1176,9 @@ vira ação**, e poda errada não pode custar sessão paga.
   motivo, e motivo órfão de key que não está no Set morre no boot); (b) `desestacionar`
   é o único caminho de saída e apaga o motivo junto (launchReview e a poda); (c) o
   `snapshot` leva `parked` (allowlist `at`/`motivo` cortado em 200/`tipo`, só das keys
-  no Set, via `parkedParaUi`) e `queueCardHtml` desenha `parkedNoteHtml` embaixo do
-  título; (d) a poda exige `PARKED_PRUNE_STRIKES` (2) ausências SEGUIDAS do panorama,
+  no Set, via `parkedParaUi`; desde a v2.57.5 key sem motivo, estacionada pelo arquivo
+  antigo, sai como tipo `legado`, senão o estoque anterior seguia invisível) e
+  `queueCardHtml` desenha `parkedNoteHtml` embaixo do título; (d) a poda exige `PARKED_PRUNE_STRIKES` (2) ausências SEGUIDAS do panorama,
   pela mesma razão da `SELF_PRUNE_STRIKES`: o `gh search` é índice e índice atrasado
   responde `ok` sem o PR aberto, e aqui a poda errada relança sessão paga (leitura mais
   provável das 7 linhas ERROR do biud-esg#268 em 83 minutos no mesmo dia, sem commit
