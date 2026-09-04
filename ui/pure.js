@@ -1599,6 +1599,8 @@ const PARKED_FRASE = {
   orcamento: (motivo) => comMotivo('o orçamento estourou', motivo),
   esgotado: (motivo) => comMotivo('falhou várias vezes seguidas', motivo, 'último erro: '),
   falha: (motivo) => comMotivo('falhou', motivo),
+  // estacionada antes da v2.57.4: o arquivo antigo não guardava motivo nem hora
+  legado: () => 'parou antes desta versão, sem motivo registrado',
 };
 
 // Aviso no card da fila de que a revisão automática PAROU, com quando e por quê.

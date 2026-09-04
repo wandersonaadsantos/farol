@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.57.5
+
+Completa a v2.57.4: PR que já estava estacionado antes dela também ganha o aviso no card.
+
+**Correções**
+
+- **PR estacionado antes da v2.57.4 também aparece avisado.** O arquivo antigo guardava só a chave, sem hora nem motivo, e a v2.57.4 só desenhava o aviso quando havia motivo: o estoque que já estava parado (o próprio biud-core#317 que motivou o conserto) continuava idêntico a um PR nunca revisado. Agora ele aparece como "parou antes desta versão, sem motivo registrado", com a mesma lembrança de que o botão Revisar tenta de novo.
+
 ## v2.57.4
 
 Correções no estacionamento da revisão automática: o card da fila passa a dizer quando e por que a revisão parou, morte por provedor de IA indisponível deixa de estacionar o PR, e a poda do estacionamento exige duas ausências seguidas do panorama.

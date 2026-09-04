@@ -101,6 +101,14 @@ test('arquivo legado (lista de keys) continua lido, só que sem motivo', () => {
   const e = new Engine();
   assert.equal(e.autoReviewParked.has('legado/repo#1'), true, 'a key do formato antigo entra');
   assert.equal(e.parkedMotivos['legado/repo#1'], undefined, 'sem motivo não se inventa motivo');
+  // v2.57.5: o estoque antigo TAMBÉM aparece na tela, como legado. Era o furo que
+  // sobrou da v2.57.4: o #317 (estacionado antes dela) seguia sem aviso no card.
+  const parked = e.snapshot().parked['legado/repo#1'];
+  assert.deepEqual(parked, { at: '', motivo: '', tipo: 'legado' }, 'key sem motivo vai pra UI como legado');
+  const html = P.queueCardHtml({ ...PR, key: 'legado/repo#1' }, { people: {}, mark: MARK, parked: { 'legado/repo#1': parked } });
+  assert.match(html, /pr-parked/);
+  assert.match(html, /antes desta versão/);
+  assert.doesNotMatch(html, /<span title=/, 'sem hora não desenha hora');
   fs.unlinkSync(arquivo);
 });
 
