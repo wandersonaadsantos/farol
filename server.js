@@ -796,9 +796,19 @@ class Engine extends EventEmitter {
       // estourou com a fila vazia (ou só com PRs excluídos por outro motivo) nunca sai
       // do Set quando o gasto volta a caber, e o próximo estouro de verdade fica mudo
       // (sem toast).
-      for (const id of [...this.budgetWarned]) {
-        const profile = (this.config.claudeProfiles || []).find(p => p.id === id);
-        if (!profile || !this.profileBudgetStatus(profile).blocked) this.budgetWarned.delete(id);
+      // Desde a Política 2 o Set guarda DOIS formatos: `idDoPerfil` (teto duro estourado)
+      // e `idDoPerfil|conta` (cota da conta cedendo a vez). Reconciliar os dois no mesmo
+      // laço é obrigatório: tratar a chave composta como id de perfil não acharia perfil
+      // nenhum, o aviso sairia do Set todo ciclo e o toast de cota repetiria sem parar,
+      // que é exatamente o barulho que este Set existe pra impedir.
+      for (const chave of [...this.budgetWarned]) {
+        const corte = String(chave).indexOf('|');
+        if (corte >= 0) {
+          if (!this.quotaBlockedFor(String(chave).slice(corte + 1))) this.budgetWarned.delete(chave);
+          continue;
+        }
+        const profile = (this.config.claudeProfiles || []).find(p => p.id === chave);
+        if (!profile || !this.profileBudgetStatus(profile).blocked) this.budgetWarned.delete(chave);
       }
       const { panorama, queue, fresh, mineList, ownersOk, monitoredOwners } = await this._coletarPanorama();
 
@@ -1144,6 +1154,30 @@ class Engine extends EventEmitter {
             // automação quebrada. Em 30/08/2026 o teto estourou às 19:52 e o farol.log,
             // que é a fonte do Diagnóstico, não tinha uma linha sequer sobre isso.
             this.log('WARN', `orçamento do perfil "${blockedProfile.label}" estourado; revisão automática pausada até liberar (clique manual continua valendo).`);
+          }
+          return false;
+        }
+        /* COTA da conta dentro do perfil (Política 2, spec 2026-09-10). Avaliada DEPOIS
+           do teto duro de propósito: perfil estourado barra todo mundo e essa é a
+           mensagem certa; a cota é um segundo motivo, mais cedo e mais seletivo, e só
+           existe quando duas contas dividem o mesmo perfil E a outra está esperando.
+
+           O aviso NOMEIA os dois lados. O toast antigo dizia só "orçamento do perfil X
+           estourado", e com duas contas no mesmo perfil essa frase escondia justamente o
+           que a pessoa precisa saber: quem consumiu e quem ficou sem vez. */
+        const cota = this.quotaBlockedFor(acct);
+        if (cota) {
+          // chave por perfil+conta, e não só por perfil: duas contas cedendo a vez são
+          // dois fatos diferentes, e colapsá-las esconderia uma das duas.
+          const chave = `${cota.profile.id}|${acct}`;
+          if (!this.budgetWarned.has(chave)) {
+            this.budgetWarned.add(chave);
+            const para = cota.cedendoPara.map(u => `@${u}`).join(', ');
+            const texto = `@${acct} atingiu a cota do dia dentro do perfil "${cota.profile.label}" (US$ ${cota.spent.toFixed(2)} de US$ ${cota.quota.toFixed(2)}) e está cedendo a vez para ${para}. Volta sozinha quando a fila do outro lado esvaziar ou o dia virar; clique manual continua liberado.`;
+            this.emit('toast', { kind: 'info', text: texto });
+            // rastro DURÁVEL pelo mesmo motivo do teto: toast some, e visto de fora uma
+            // automação em rodízio é idêntica a uma automação quebrada.
+            this.log('INFO', `cota: @${acct} cedeu a vez para ${cota.cedendoPara.join(', ')} no perfil "${cota.profile.label}" (gasto US$ ${cota.spent.toFixed(2)} de cota US$ ${cota.quota.toFixed(2)}).`);
           }
           return false;
         }
@@ -1836,10 +1870,59 @@ class Engine extends EventEmitter {
   // Desde a v2.48.4 vale pros DOIS tipos de perfil: o teto de assinatura não fala
   // de fatura, fala de ritmo, e era a metade que faltava da mesma feature.
   budgetBlockedFor(acct) {
-    const auth = this.resolveClaudeAuth(acct);
-    if (!auth.id) return null; // legado (sem perfil configurado) não tem a quem atribuir teto
-    const profile = (this.config.claudeProfiles || []).find(x => x.id === auth.id);
+    const profile = this.profileOfAccount(acct);
     return (profile && this.profileBudgetStatus(profile).blocked) ? profile : null;
+  }
+
+  // perfil Claude efetivo de uma conta GitHub. Legado (sem perfil configurado) devolve
+  // null: não há a quem atribuir teto nem cota.
+  profileOfAccount(acct) {
+    const auth = this.resolveClaudeAuth(acct);
+    if (!auth.id) return null;
+    return (this.config.claudeProfiles || []).find(x => x.id === auth.id) || null;
+  }
+
+  /* Contas ATIVAS que dividem um perfil (Política 2). Ativa = não silenciada e com
+     revisão automática ligada: quem não revisa sozinho não disputa cota, e incluí-la no
+     divisor encolheria a fatia de quem de fato trabalha.
+
+     `waiting` é "tem PR esperando na fila AGORA", e é ele que faz a cota morder só
+     quando há disputa. Sai da fila VIVA (this.queue) e de propósito NÃO reconsulta o
+     gate de orçamento: isso recursaria (o gate é justamente quem chama esta função). Os
+     filtros aqui são os baratos e síncronos do toReview, o suficiente pra distinguir
+     "tem alguém esperando" de "a fila do outro está vazia". */
+  contasDoPerfil(profileId) {
+    const espera = new Set();
+    for (const p of this.queue) {
+      const dona = String(this.accountForPr(p) || '').toLowerCase();
+      if (!dona) continue;
+      if (this.isMuted(dona) || !this.autoReviewFor(dona) || !this.tokenFor(dona)) continue;
+      if (this.autoReviewParked.has(p.key) || this.skipComentado[p.key]) continue;
+      espera.add(dona);
+    }
+    return this.accountList()
+      .filter(a => a && a.user && !this.isMuted(a.user) && this.autoReviewFor(a.user))
+      .filter(a => { const pf = this.profileOfAccount(a.user); return pf && pf.id === profileId; })
+      .map(a => ({
+        user: String(a.user).toLowerCase(),
+        weight: a.budgetWeight,
+        waiting: espera.has(String(a.user).toLowerCase()),
+      }));
+  }
+
+  // Veredito da COTA desta conta dentro do perfil dela (Política 2). Fachada fina: a
+  // decisão inteira é pura e mora em lib/engine/usage.js.
+  quotaBlockedFor(acct) {
+    const profile = this.profileOfAccount(acct);
+    if (!profile) return null;
+    const st = usageMod.quotaStatusFor(
+      profile,
+      (this.usageSessions && this.usageSessions.sessions) || [],
+      this.contasDoPerfil(profile.id),
+      acct,
+      usageMod.custoTipicoDoEngine(this)
+    );
+    return st.blocked ? { profile, ...st } : null;
   }
 
   pushState() { this.emit('state', this.snapshot()); }
