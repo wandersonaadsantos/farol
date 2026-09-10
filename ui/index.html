@@ -210,6 +210,18 @@
 
     <div id="usageKpis" class="usage-kpis"></div>
 
+    <!-- Justica de fila (spec 2026-09-10-justica-de-fila-entre-orgs): torna VISIVEL o
+         criterio com que o escalonador escolhe a proxima revisao e a cota de cada conta
+         dentro do perfil. Uma automacao que cede a vez, vista de fora, e identica a uma
+         automacao quebrada; este painel e o que separa as duas. Leitura pura. -->
+    <div class="card fj-card" id="filaJustaCard" hidden>
+      <div class="fj-head">
+        <h3>Justiça de fila</h3>
+        <p class="section-desc">Quem é atendido primeiro e por quê. Com fila, o Farol divide entre as orgs e entre as contas que dividem o mesmo perfil; sem fila, o que chegar é atendido na hora.</p>
+      </div>
+      <div id="filaJustaBody"></div>
+    </div>
+
     <div class="card usage-chart-card">
       <div class="usage-chart-head">
         <h3>Linha do tempo</h3>
@@ -458,6 +470,23 @@
                   <option value="2">2 ao mesmo tempo</option>
                   <option value="3">3 ao mesmo tempo</option>
                   <option value="4">4 ao mesmo tempo</option>
+                </select>
+              </div>
+            </div>
+            <div class="set-row" id="sys-row-teto-global">
+              <div class="set-txt">
+                <label class="set-title" for="setGlobalParallelReviews">Teto global de revisões simultâneas</label>
+                <p class="set-desc">Limite do TOTAL de revisões automáticas rodando ao mesmo tempo, somando todas as contas. Desligado (padrão) o único teto é o por conta, como sempre foi. Ligue se a máquina ou a API sentirem o volume: a vaga que liberar vai para a org que está esperando há mais tempo, não para a primeira da fila.</p>
+              </div>
+              <div class="set-ctl">
+                <select id="setGlobalParallelReviews">
+                  <option value="0">Desligado (padrão)</option>
+                  <option value="1">1 no total</option>
+                  <option value="2">2 no total</option>
+                  <option value="3">3 no total</option>
+                  <option value="4">4 no total</option>
+                  <option value="6">6 no total</option>
+                  <option value="8">8 no total</option>
                 </select>
               </div>
             </div>

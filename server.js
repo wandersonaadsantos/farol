@@ -27,7 +27,7 @@ import {
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
   applyClaudeAuthEnv, claudeAuthShellLines,
   sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort,
-  sanitizeParallelReviews
+  sanitizeParallelReviews, sanitizeGlobalParallelReviews
 } from './lib/parse.js';
 import io, { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, prependPathDirs } from './lib/io.js';
 import updateMod from './lib/engine/update.js';
@@ -63,6 +63,7 @@ import skipMod from './lib/engine/skip-review.js';
 import checksMod from './lib/engine/checks-exigidos.js';
 import signalMod from './lib/engine/review-signal.js';
 import usageMod from './lib/engine/usage.js';
+import quotaMod from './lib/engine/quota.js';
 import { EDITAVEIS, defaults as settingsDefaults, sanear } from './lib/settings.js';
 import { parseJiraSites, maskJiraSites } from './lib/jira/sites.js';
 import credMod from './lib/jira/credentials.js';
@@ -122,7 +123,7 @@ const PARSERS = {
   parseAccounts, parseProjectReviewers, parseDefaultReviewers, parsePeople,
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
   sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort,
-  sanitizeParallelReviews, parseJiraSites,
+  sanitizeParallelReviews, sanitizeGlobalParallelReviews, parseJiraSites,
 };
 
 // carência anti-lag do índice de busca do GitHub: logo após EU postar um review, o PR
@@ -204,6 +205,9 @@ class Engine extends EventEmitter {
     // paralelismo por conta: mesmo tratamento (boot engole config.json editado à mão);
     // o escalonador clampa de novo por defesa em profundidade (parallelLimit em review.js)
     this.config.parallelReviews = sanitizeParallelReviews(this.config.parallelReviews) ?? DEFAULTS.parallelReviews;
+    // teto GLOBAL de revisoes simultaneas (Politica 3): mesmo tratamento de boot, e o
+    // escalonador clampa de novo (globalParallelLimit em review.js). 0 = desligado.
+    this.config.globalParallelReviews = sanitizeGlobalParallelReviews(this.config.globalParallelReviews) ?? DEFAULTS.globalParallelReviews;
     // perfil de review por pessoa (papel + matriz por domínio); migra a senioridade plana antiga pro campo `papel`
     this.config.people = migrateSeniorityToPeople(this.config.seniority, parsePeople(this.config.people));
     delete this.config.seniority;
@@ -239,6 +243,19 @@ class Engine extends EventEmitter {
     this.sessionSeq = 0;
     this.headlessQueue = [];
     this.headlessBusyAccounts = new Map(); // conta -> nº de revisões headless rodando (teto = config.parallelReviews, default 1)
+    /* Rodizio por org (Politica 1 da spec 2026-09-10-justica-de-fila-entre-orgs):
+       org (owner, minusculo) -> { seq, at } da ultima revisao headless INICIADA dela.
+       O escalonador da a proxima vaga pra org de menor `seq`, e org ausente do Map
+       (nunca atendida) ganha de todas. `seq` e um contador monotonico e nao o relogio,
+       porque o escalonador dispara varias revisoes no mesmo milissegundo e o empate
+       apagaria a alternancia justamente no lote que a feature existe pra resolver;
+       `at` fica so pra tela dizer "atendida ha 12 min", nunca decide a vez.
+
+       EFEMERO de proposito, como headlessBusyAccounts: o rodizio e sobre a fila VIVA.
+       Persistir a ultima org atendida faria o primeiro PR depois de um restart herdar
+       uma divida de ontem, e o app abriria ja devendo a vez pra alguem. */
+    this.orgLastStart = new Map();
+    this.headlessSeq = 0;
     this.decisions = readJson(path.join(STATE_DIR, 'decisions.json'), { pending: [], resolved: [] }, warn);
     this.pushbacks = readJson(path.join(STATE_DIR, 'pushbacks.json'), {}, warn); // { key do PR: { author, outcome, note, at, source, status, confidence } }
     // registros antigos (sem source) eram todos marcados à mão e confirmados
@@ -780,9 +797,13 @@ class Engine extends EventEmitter {
       // estourou com a fila vazia (ou só com PRs excluídos por outro motivo) nunca sai
       // do Set quando o gasto volta a caber, e o próximo estouro de verdade fica mudo
       // (sem toast).
-      for (const id of [...this.budgetWarned]) {
-        const profile = (this.config.claudeProfiles || []).find(p => p.id === id);
-        if (!profile || !this.profileBudgetStatus(profile).blocked) this.budgetWarned.delete(id);
+      // Desde a Política 2 o Set guarda DOIS formatos: `idDoPerfil` (teto duro estourado)
+      // e `idDoPerfil|conta` (cota da conta cedendo a vez). Reconciliar os dois no mesmo
+      // laço é obrigatório: tratar a chave composta como id de perfil não acharia perfil
+      // nenhum, o aviso sairia do Set todo ciclo e o toast de cota repetiria sem parar,
+      // que é exatamente o barulho que este Set existe pra impedir.
+      for (const chave of [...this.budgetWarned]) {
+        if (!this._avisoDeOrcamentoAindaVale(chave)) this.budgetWarned.delete(chave);
       }
       const { panorama, queue, fresh, mineList, ownersOk, monitoredOwners } = await this._coletarPanorama();
 
@@ -1131,6 +1152,15 @@ class Engine extends EventEmitter {
           }
           return false;
         }
+        /* COTA da conta dentro do perfil (Política 2, spec 2026-09-10). Avaliada DEPOIS
+           do teto duro de propósito: perfil estourado barra todo mundo e essa é a
+           mensagem certa; a cota é um segundo motivo, mais cedo e mais seletivo, e só
+           existe quando duas contas dividem o mesmo perfil E a outra está esperando.
+
+           O aviso NOMEIA os dois lados. O toast antigo dizia só "orçamento do perfil X
+           estourado", e com duas contas no mesmo perfil essa frase escondia justamente o
+           que a pessoa precisa saber: quem consumiu e quem ficou sem vez. */
+        if (this._registraCotaCedida(acct)) return false;
         return true;
       });
       if (freshActive.length > 0) {
@@ -1773,6 +1803,10 @@ class Engine extends EventEmitter {
       activeSessions: sessionMod.projectSessions([...this.activeReviews.values()]),
       activity: Object.fromEntries(this.activity),
       headlessWaiting: this.headlessQueue.map(p => p.key),
+      // Justiça de fila (spec 2026-09-10): leitura PURA do estado que as três
+      // políticas já produzem, sem coleta nova. É o que torna o rodízio visível: uma
+      // automação que cede a vez, vista de fora, é idêntica a uma automação quebrada.
+      filaJusta: this.filaJusta(),
       chats: this.chatSummaries(),
       toolRuns: this.toolRuns,
       decisions: {
@@ -1820,10 +1854,158 @@ class Engine extends EventEmitter {
   // Desde a v2.48.4 vale pros DOIS tipos de perfil: o teto de assinatura não fala
   // de fatura, fala de ritmo, e era a metade que faltava da mesma feature.
   budgetBlockedFor(acct) {
-    const auth = this.resolveClaudeAuth(acct);
-    if (!auth.id) return null; // legado (sem perfil configurado) não tem a quem atribuir teto
-    const profile = (this.config.claudeProfiles || []).find(x => x.id === auth.id);
+    const profile = this.profileOfAccount(acct);
     return (profile && this.profileBudgetStatus(profile).blocked) ? profile : null;
+  }
+
+  // perfil Claude efetivo de uma conta GitHub. Legado (sem perfil configurado) devolve
+  // null: não há a quem atribuir teto nem cota.
+  profileOfAccount(acct) {
+    const auth = this.resolveClaudeAuth(acct);
+    if (!auth.id) return null;
+    return (this.config.claudeProfiles || []).find(x => x.id === auth.id) || null;
+  }
+
+  /* Contas ATIVAS que dividem um perfil (Política 2). Ativa = não silenciada e com
+     revisão automática ligada: quem não revisa sozinho não disputa cota, e incluí-la no
+     divisor encolheria a fatia de quem de fato trabalha.
+
+     `waiting` é "tem PR esperando na fila AGORA", e é ele que faz a cota morder só
+     quando há disputa. Sai da fila VIVA (this.queue) e de propósito NÃO reconsulta o
+     gate de orçamento: isso recursaria (o gate é justamente quem chama esta função). Os
+     filtros aqui são os baratos e síncronos do toReview, o suficiente pra distinguir
+     "tem alguém esperando" de "a fila do outro está vazia". */
+  contasDoPerfil(profileId) {
+    const espera = new Set();
+    for (const p of this.queue) {
+      const dona = String(this.accountForPr(p) || '').toLowerCase();
+      if (!dona) continue;
+      if (this.isMuted(dona) || !this.autoReviewFor(dona) || !this.tokenFor(dona)) continue;
+      if (this.autoReviewParked.has(p.key) || this.skipComentado[p.key]) continue;
+      espera.add(dona);
+    }
+    return this.accountList()
+      .filter(a => a && a.user && !this.isMuted(a.user) && this.autoReviewFor(a.user))
+      .filter(a => { const pf = this.profileOfAccount(a.user); return pf && pf.id === profileId; })
+      .map(a => ({
+        user: String(a.user).toLowerCase(),
+        weight: a.budgetWeight,
+        waiting: espera.has(String(a.user).toLowerCase()),
+      }));
+  }
+
+  // Veredito da COTA desta conta dentro do perfil dela (Política 2). Fachada fina: a
+  // decisão inteira é pura e mora em lib/engine/usage.js.
+  quotaBlockedFor(acct) {
+    const profile = this.profileOfAccount(acct);
+    if (!profile) return null;
+    const st = quotaMod.quotaStatusFor(
+      profile,
+      (this.usageSessions && this.usageSessions.sessions) || [],
+      this.contasDoPerfil(profile.id),
+      acct,
+      usageMod.custoTipicoDoEngine(this)
+    );
+    return st.blocked ? { profile, ...st } : null;
+  }
+
+  /* Painel de Justiça de fila (spec 2026-09-10-justica-de-fila-entre-orgs). Junta o que
+     as três políticas já sabem, sem medir nada novo:
+
+     - por ORG: quantos PRs esperam, há quanto tempo espera o mais antigo, e quando ela
+       foi atendida pela última vez (o critério do rodízio, em cima da mesa);
+     - por PERFIL: teto do dia, e cada conta contra a própria cota, marcando quem está
+       cedendo a vez e pra quem;
+     - teto GLOBAL: em curso contra teto, só quando ligado.
+
+     Leitura pura: não decide nada, não escreve nada. */
+  filaJusta() {
+    const agora = Date.now();
+    const orgs = new Map();
+    for (const pr of this.queue) {
+      const org = reviewMod.headlessOrg(pr);
+      const o = orgs.get(org) || { org, esperando: 0, esperaMaisAntigaMs: 0, ultimaVezMs: null };
+      o.esperando++;
+      const desde = Date.parse(pr.updatedAt || pr.createdAt || '') || 0;
+      if (desde) o.esperaMaisAntigaMs = Math.max(o.esperaMaisAntigaMs, agora - desde);
+      orgs.set(org, o);
+    }
+    for (const [org, v] of this.orgLastStart) {
+      const o = orgs.get(org) || { org, esperando: 0, esperaMaisAntigaMs: 0, ultimaVezMs: null };
+      o.ultimaVezMs = agora - v.at;
+      orgs.set(org, o);
+    }
+    // a org que espera há mais tempo primeiro: é a ordem em que o escalonador vai
+    // atender, então a tela mostra a fila na mesma ordem em que ela vai andar
+    const porOrg = [...orgs.values()].sort((a, b) => b.esperaMaisAntigaMs - a.esperaMaisAntigaMs);
+
+    const sessions = (this.usageSessions && this.usageSessions.sessions) || [];
+    const tipico = usageMod.custoTipicoDoEngine(this);
+    const porPerfil = (this.config.claudeProfiles || [])
+      .map(profile => this._filaJustaDoPerfil(profile, sessions, tipico))
+      .filter(p => p.contas.length > 0);
+
+    let total = 0;
+    for (const n of this.headlessBusyAccounts.values()) total += n;
+    const tetoGlobal = Number(this.config.globalParallelReviews) || 0;
+    return { porOrg, porPerfil, emCurso: total, tetoGlobal };
+  }
+
+  /* Gate da COTA no enfileiramento (Política 2). Devolve true quando esta conta cede a
+     vez. Mora num método próprio, e não inline no filtro do toReview, pelo mesmo motivo
+     do `_registraPulo` logo acima: o filtro já é o ponto mais aninhado do check(), e
+     enfiar mais um bloco com aviso dentro dele passa do teto de profundidade do gate de
+     qualidade do repo (tools/quality) — que é uma régua boa, não burocracia.
+
+     O aviso NOMEIA os dois lados. O toast antigo dizia só "orçamento do perfil X
+     estourado", e com duas contas no mesmo perfil essa frase escondia justamente o que
+     a pessoa precisa saber: quem consumiu e quem ficou sem vez. */
+  _registraCotaCedida(acct) {
+    const cota = this.quotaBlockedFor(acct);
+    if (!cota) return false;
+    // chave por perfil+conta, e não só por perfil: duas contas cedendo a vez são dois
+    // fatos diferentes, e colapsá-las esconderia uma das duas.
+    const chave = `${cota.profile.id}|${acct}`;
+    if (this.budgetWarned.has(chave)) return true;
+    this.budgetWarned.add(chave);
+    const para = cota.cedendoPara.map(u => `@${u}`).join(', ');
+    const gasto = cota.spent.toFixed(2), teto = cota.quota.toFixed(2);
+    this.emit('toast', { kind: 'info', text: `@${acct} atingiu a cota do dia dentro do perfil "${cota.profile.label}" (US$ ${gasto} de US$ ${teto}) e está cedendo a vez para ${para}. Volta sozinha quando a fila do outro lado esvaziar ou o dia virar; clique manual continua liberado.` });
+    // rastro DURÁVEL pelo mesmo motivo do teto: toast some, e vista de fora uma
+    // automação em rodízio é idêntica a uma automação quebrada.
+    this.log('INFO', `cota: @${acct} cedeu a vez para ${cota.cedendoPara.join(', ')} no perfil "${cota.profile.label}" (gasto US$ ${gasto} de cota US$ ${teto}).`);
+    return true;
+  }
+
+  // uma linha do painel por perfil. Separado do filaJusta() pelo mesmo motivo do
+  // _registraCotaCedida: o map dentro do map passava do teto de profundidade do gate.
+  _filaJustaDoPerfil(profile, sessions, tipico) {
+    const contas = this.contasDoPerfil(profile.id);
+    return {
+      id: profile.id,
+      label: profile.label || profile.id,
+      tetoDoDia: usageMod.dailyCapFor(profile, usageMod.localDay()),
+      contas: contas.map(c => {
+        const st = quotaMod.quotaStatusFor(profile, sessions, contas, c.user, tipico);
+        return {
+          user: c.user, peso: quotaMod.pesoDaConta(c), esperando: c.waiting,
+          cota: st.quota, gasto: st.spent, cedendo: st.blocked, cedendoPara: st.cedendoPara,
+        };
+      }),
+    };
+  }
+
+  /* O aviso de orçamento guardado em `budgetWarned` ainda descreve a realidade ATUAL?
+     Desde a Política 2 o Set guarda DOIS formatos: `idDoPerfil` (teto duro estourado) e
+     `idDoPerfil|conta` (cota da conta cedendo a vez). Reconciliar os dois é obrigatório:
+     tratar a chave composta como id de perfil não acharia perfil nenhum, o aviso sairia
+     do Set todo ciclo e o toast de cota repetiria sem parar, que é exatamente o barulho
+     que este Set existe pra impedir. */
+  _avisoDeOrcamentoAindaVale(chave) {
+    const corte = String(chave).indexOf('|');
+    if (corte >= 0) return !!this.quotaBlockedFor(String(chave).slice(corte + 1));
+    const profile = (this.config.claudeProfiles || []).find(p => p.id === chave);
+    return !!(profile && this.profileBudgetStatus(profile).blocked);
   }
 
   pushState() { this.emit('state', this.snapshot()); }

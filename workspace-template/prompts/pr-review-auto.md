@@ -9,7 +9,7 @@ Siga o protocolo do `CLAUDE.md` deste diretório (identidade → card do Jira �
 1. **NÃO poste nada no GitHub** (nem review, nem comentário). O app posta por você a partir dos payloads.
 2. **NÃO escreva em `state/`** (nem memória de autor, nem highlights). O app grava a partir do campo `memory`.
 3. **NÃO faça perguntas**: você não tem interlocutor. Qualquer coisa que no fluxo interativo viraria pergunta vira `"needs_decision"` com o motivo em `reasons`.
-4. Rode o agente `pr-reviewer` (subagent_type `pr-reviewer`) pedindo o modo headless `--json` e use o resultado como base.
+4. Rode o agente `pr-reviewer` (subagent_type `pr-reviewer`) pedindo o modo headless `--json` e use o resultado como base. Aguarde a conclusão das verificações necessárias antes do resultado final; uma mensagem de espera por lint, testes ou subagentes não é um relatório. Se uma ferramenta for recusada, interrompida ou não puder concluir, não repita a ação recusada: registre o impedimento no relatório interno e devolva o envelope com `analysisStatus: "incomplete"` e `decision: "needs_decision"`, conforme a regra de erro fatal abaixo. Falha de lint do PR é evidência para a análise, não motivo para omitir o JSON.
 5. Sua saída final deve ser **apenas um bloco JSON** (sem texto antes ou depois, sem cerca de código), neste schema:
 
 ```

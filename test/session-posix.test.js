@@ -79,7 +79,7 @@ test('spawn headless posix: /bin/sh -lc, detached e cwd no WORKSPACE', { skip: I
   assert.equal(argv[0], '-lc', 'login shell, senão o PATH do Homebrew não entra');
   // o unset vem colado no começo da linha, DEPOIS do sourcing do profile que o -l faz (G21).
   // engineFalso resolve um perfil legado (sem dir), então não há re-export de CLAUDE_CONFIG_DIR.
-  assert.match(argv[1], /^unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL CLAUDE_CONFIG_DIR; claude -p --output-format stream-json --verbose --dangerously-skip-permissions/);
+  assert.match(argv[1], /^unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL CLAUDE_CONFIG_DIR CLAUDE_CODE_OAUTH_TOKEN; claude -p --output-format stream-json --verbose --dangerously-skip-permissions/);
   assert.match(argv[1], / --model opus --effort high$/, 'as flags entram no fim da linha');
   assert.equal(opts.detached, true, 'pré-condição do killTree posix (process.kill(-pid))');
   assert.equal(opts.cwd, WORKSPACE);
@@ -116,11 +116,10 @@ test('spawn headless windows: cmd.exe com verbatim args e janela escondida', { s
 // em silêncio. Por isso o unset é emitido DENTRO do shell, depois de qualquer sourcing e
 // antes do exec do claude.
 //
-// A lista cobre as MESMAS quatro vars que applyClaudeAuthEnv apaga, não só as duas de
-// credencial: ANTHROPIC_BASE_URL redireciona o endpoint (mandaria credencial de assinatura
-// pra host de terceiro) e CLAUDE_CONFIG_DIR troca a conta logada. Ficar em duas era
-// inconsistente com o env e deixava dois furos da mesma classe abertos.
-const UNSET = 'unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL CLAUDE_CONFIG_DIR';
+// A lista cobre também CLAUDE_CODE_OAUTH_TOKEN, que vence o login salvo. A URL base
+// redireciona o endpoint e CLAUDE_CONFIG_DIR troca a conta logada: todos precisam
+// ceder ao perfil escolhido no Farol depois do sourcing do profile.
+const UNSET = 'unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL CLAUDE_CONFIG_DIR CLAUDE_CODE_OAUTH_TOKEN';
 
 function ordem(texto, ...pedacos) {
   return pedacos.map(p => texto.indexOf(p));
@@ -175,8 +174,10 @@ test('claudeAuthPosixPrefix: dir com aspa simples é escapado (vai pra linha de 
   assert.equal(prefixo, `${UNSET}; export CLAUDE_CONFIG_DIR='/tmp/x'\\'' ; touch /tmp/PROOF #'; `);
 });
 
-test('claudeAuthPosixPrefix: perfil de chave NÃO prefixa (a chave viaja pelo env, e não pode ir pra linha de comando)', () => {
-  assert.equal(claudeAuthPosixPrefix({ kind: 'apikey', apiKey: 'sk-ant-1', baseUrl: '' }), '');
+test('claudeAuthPosixPrefix: perfil de chave remove só o token OAuth (a chave continua no env)', () => {
+  const prefixo = claudeAuthPosixPrefix({ kind: 'apikey', apiKey: 'sk-ant-1', baseUrl: '' });
+  assert.equal(prefixo, 'unset CLAUDE_CODE_OAUTH_TOKEN; ');
+  assert.doesNotMatch(prefixo, /sk-ant-1/);
 });
 
 test('buildSessionScriptMac (assinatura): unset vem antes da linha do claude', () => {
@@ -218,7 +219,16 @@ try {
 }
 
 function rodaComProfileSujo(prefixo, extraEnv = {}) {
-  const base = path.join(os.tmpdir(), 'farol-test-prefixo-' + process.pid).replace(/\\/g, '/');
+  /* Diretório EXCLUSIVO (mkdtemp), e não um nome derivado do pid dentro do tmp
+     compartilhado. É a mesma correção que o teste do inflight já levou (48545c4):
+     nome previsível num diretório que qualquer processo da máquina escreve é a brecha
+     clássica de arquivo temporário, e aqui ela vale dobrado, porque o que se escreve é
+     um SCRIPT que o teste manda o bash executar em seguida. O CodeQL aponta isso como
+     js/insecure-temporary-file, e ele tem razão.
+
+     O diretório inteiro sai no finally, então não sobra rastro por rodada. */
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-prefixo-'));
+  const base = path.join(dir, 'p').replace(/\\/g, '/');
   const profile = `${base}-profile.sh`;
   const script = `${base}-run.sh`;
   fs.writeFileSync(profile, [
@@ -226,22 +236,23 @@ function rodaComProfileSujo(prefixo, extraEnv = {}) {
     'export ANTHROPIC_AUTH_TOKEN=token-do-profile',
     'export ANTHROPIC_BASE_URL=https://host-de-terceiro',
     'export CLAUDE_CONFIG_DIR=/dir/do/profile',
+    'export CLAUDE_CODE_OAUTH_TOKEN=oauth-expirado-do-profile',
   ].join('\n') + '\n');
   // `. profile` é o que o -l faz por dentro; o prefixo vem DEPOIS, como na linha real
-  fs.writeFileSync(script, `#!/bin/bash\n. '${profile}'\n${prefixo}echo "[$ANTHROPIC_API_KEY|$ANTHROPIC_AUTH_TOKEN|$ANTHROPIC_BASE_URL|$CLAUDE_CONFIG_DIR]"\n`);
+  fs.writeFileSync(script, `#!/bin/bash\n. '${profile}'\n${prefixo}echo "[$ANTHROPIC_API_KEY|$ANTHROPIC_AUTH_TOKEN|$ANTHROPIC_BASE_URL|$CLAUDE_CONFIG_DIR|$CLAUDE_CODE_OAUTH_TOKEN]"\n`);
   try {
     return execFileSync('bash', [script], { env: { ...process.env, ...extraEnv } }).toString().trim();
   } finally {
-    for (const f of [profile, script]) { try { fs.unlinkSync(f); } catch { /* best-effort */ } }
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* best-effort */ }
   }
 }
 
 test('prefixo posix: profile sujo perde pro perfil resolvido (execução real com bash)', { skip: bashDisponivel ? false : 'bash não encontrado no PATH' }, () => {
   const comDir = rodaComProfileSujo(claudeAuthPosixPrefix({ kind: 'dir', dir: '/dir/do/perfil' }));
-  assert.equal(comDir, '[|||/dir/do/perfil]', 'as três vars de auth somem e o dir é o do perfil, não o do profile');
+  assert.equal(comDir, '[|||/dir/do/perfil|]', 'as credenciais herdadas somem e o dir é o do perfil, não o do profile');
 
   const semDir = rodaComProfileSujo(claudeAuthPosixPrefix({ kind: 'dir', dir: '' }));
-  assert.equal(semDir, '[|||]', 'padrão da máquina: nenhuma var de auth sobrevive ao prefixo');
+  assert.equal(semDir, '[||||]', 'padrão da máquina: nenhuma var de auth sobrevive ao prefixo');
 });
 
 test('prefixo posix: OpenRouter vence profile sujo sem expor a chave na linha', { skip: bashDisponivel ? false : 'bash não encontrado no PATH' }, () => {
@@ -249,7 +260,18 @@ test('prefixo posix: OpenRouter vence profile sujo sem expor a chave na linha', 
   const prefixo = claudeAuthPosixPrefix(auth);
   assert.doesNotMatch(prefixo, /sk-or-resolvida/);
   const saida = rodaComProfileSujo(prefixo, { FAROL_OPENROUTER_AUTH_TOKEN: auth.apiKey });
-  assert.equal(saida, '[|sk-or-resolvida|https://openrouter.ai/api|]');
+  assert.equal(saida, '[|sk-or-resolvida|https://openrouter.ai/api||]');
+});
+
+test('prefixo posix: apikey remove OAuth do profile sem apagar a chave/base do perfil', { skip: bashDisponivel ? false : 'bash não encontrado no PATH' }, () => {
+  const auth = { kind: 'apikey', apiKey: 'sk-ant-resolvida', baseUrl: 'https://proxy.x' };
+  const prefixo = claudeAuthPosixPrefix(auth);
+  assert.doesNotMatch(prefixo, /sk-ant-resolvida/);
+  const script = `export CLAUDE_CODE_OAUTH_TOKEN=oauth-expirado-do-profile; ${prefixo}echo "[$ANTHROPIC_API_KEY|$ANTHROPIC_BASE_URL|$CLAUDE_CODE_OAUTH_TOKEN]"`;
+  const saida = execFileSync('bash', ['-c', script], {
+    env: { ...process.env, ANTHROPIC_API_KEY: auth.apiKey, ANTHROPIC_BASE_URL: auth.baseUrl },
+  }).toString().trim();
+  assert.equal(saida, '[sk-ant-resolvida|https://proxy.x|]');
 });
 
 test('prefixo posix: aspa simples no dir não injeta comando (execução real com bash)', { skip: bashDisponivel ? false : 'bash não encontrado no PATH' }, () => {
@@ -259,7 +281,7 @@ test('prefixo posix: aspa simples no dir não injeta comando (execução real co
     const dir = `/tmp/x' ; touch ${proofFile} #`;
     const saida = rodaComProfileSujo(claudeAuthPosixPrefix({ kind: 'dir', dir }));
     assert.equal(fs.existsSync(proofFile), false, 'comando injetado NÃO deve ter rodado');
-    assert.equal(saida, `[|||${dir}]`, 'valor preservado como string literal única');
+    assert.equal(saida, `[|||${dir}|]`, 'valor preservado como string literal única');
   } finally {
     try { fs.unlinkSync(proofFile); } catch { /* limpeza, caso o teste falhe e o comando tenha rodado */ }
   }

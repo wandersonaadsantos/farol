@@ -17,7 +17,8 @@ import {
   overrideFor, suggestDefault, renderOrgBlock, queueCardHtml, panoramaRowHtml,
   reasonGroupsHtml, reasonText, claudeProfilesHtml, accountsManagerHtml,
   jiraBaseUrlProblema, jiraPrefixosProblema,
-  canMergeSelfAnalysis, qualityBlockTitle, selfAnalysisBadge, selfAnalysisToggle, selfAnalysisStale
+  canMergeSelfAnalysis, qualityBlockTitle, selfAnalysisBadge, selfAnalysisToggle, selfAnalysisStale,
+  filaJustaHtml
 } from './pure.js';
 
 const $ = (s) => document.querySelector(s);
@@ -687,6 +688,9 @@ $('#accountsManager').addEventListener('change', (e) => {
   if (t.classList.contains('acct-oncaveats')) return editAccount(user, { onCaveats: t.value || undefined });
   if (t.classList.contains('acct-onreject')) return editAccount(user, { onReject: t.value === 'request_changes' ? 'request_changes' : undefined });
   if (t.classList.contains('acct-claudeprofile')) return editAccount(user, { claudeProfileId: t.value || undefined });
+  // peso na cota do perfil (Politica 2): vazio = igual as outras, que e o padrao e
+  // nao guarda campo nenhum (accountSaveArray so persiste peso positivo).
+  if (t.classList.contains('acct-budgetweight')) return editAccount(user, { budgetWeight: Number(t.value) || undefined });
 });
 /* editor de contas: silenciar/reativar, remover, adicionar */
 $('#accountsManager').addEventListener('click', (e) => {
@@ -2823,7 +2827,23 @@ function drawUsageTimeline(el, legendEl, u, metric, win, dim) {
 // tabela das sessoes mais recentes (ate 100, cortado no backend). Log permanente
 // em disco (usage-sessions.json); a UI so mostra as mais novas, com rolagem.
 
+/* Painel de Justiça de fila (spec 2026-09-10-justica-de-fila-entre-orgs). Fica na aba
+   Consumo porque metade dele é dinheiro (a cota da conta dentro do perfil) e a outra
+   metade só faz sentido ao lado dela.
+
+   Decide a PRÓPRIA vaziez, no mesmo padrão do resto desta aba: quem tem uma org e um
+   perfil só não tem rodízio nenhum pra explicar, e um card vazio na tela parece defeito.
+   O filaJustaHtml devolve '' nesse caso, e o card inteiro some. */
+function renderFilaJusta() {
+  const card = $('#filaJustaCard'), body = $('#filaJustaBody');
+  if (!card || !body) return;
+  const html = filaJustaHtml(STATE && STATE.filaJusta);
+  body.innerHTML = html;
+  card.hidden = !html;
+}
+
 function renderUsage() {
+  renderFilaJusta();
   const u = STATE && STATE.usage;
   const kpisEl = $('#usageKpis'), tl = $('#usageTimeline'), legend = $('#usageLegend');
   const matrix = $('#usageMatrix'), matrixCap = $('#usageMatrixCaption');
@@ -3104,6 +3124,7 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.58.0', ["A fila passou a alternar entre as orgs em vez de atender por ordem de chegada. O Farol sempre separou o trabalho por conta, então duas contas nunca disputaram vez entre si; o que não existia era divisão entre as orgs de uma mesma conta. Uma org de alto volume comia o lugar sozinha e a org pequena esperava a fila inteira da grande esvaziar. Agora a próxima vaga vai para a org que está esperando há mais tempo, e dentro da mesma org continua valendo a ordem de chegada: com dez PRs de uma org e um de outra, o PR sozinho entra na segunda vaga, não na décima primeira. Quem tem uma org por conta não vê diferença nenhuma.", "Cada conta ganhou uma cota dentro do perfil de IA que ela usa. O teto de gasto sempre foi do perfil, não da conta: duas contas apontando para o mesmo perfil dividiam um teto único, e a de alto volume queimava a cota do dia sozinha. A outra era barrada sem nunca ter tido uma revisão, e o aviso falava do perfil, então nem dava para ver quem tinha consumido. Agora o teto do dia é dividido entre as contas daquele perfil, e o aviso diz quem cedeu a vez, para quem e quanto falta.", "A cota só vale quando há disputa de verdade. Se ninguém do outro lado está esperando, a conta segue sendo atendida até o teto do perfil, como antes. Com fila, o Farol divide; sem fila, o que chegar é atendido.", "Teto global de revisões simultâneas, opcional, em Sistema > Automação: um limite do total rodando ao mesmo tempo somando todas as contas. Vem desligado, que é o comportamento de sempre. A vaga que liberar vai para a org que espera há mais tempo, não para a primeira da fila.", "Um painel de Justiça de fila na aba Consumo, mostrando por org quantos PRs esperam e quando ela foi atendida pela última vez, e por perfil cada conta contra a própria cota, marcando quem está cedendo a vez. Ele existe porque uma automação que cede a vez, vista de fora, é idêntica a uma automação quebrada. Some sozinho quando não há rodízio a explicar.", "Peso por conta no painel Contas, para quem não quer divisão igual: uma conta pode valer o dobro, o triplo ou a metade das outras no rateio da cota. O padrão é todo mundo igual.", "Token OAuth expirado deixou de ser tratado como problema de rede. A mensagem do provedor vem com um sufixo de tentativas de reconexao, e isso fazia a falha ser lida como transitoria: o Farol relancava a revisao contra uma credencial que nao ia funcionar ate esgotar as tentativas, e o PR parava com “falhou varias vezes seguidas”. Agora a credencial expirada e reconhecida na primeira falha e o card diz o que de fato resolve, que e renovar o login do perfil em Plano e chaves antes de clicar em Revisar. Vale tambem para os PRs que ja estavam parados por tentativas esgotadas.", "Um token OAuth solto no ambiente da maquina deixou de vencer o perfil escolhido. O Farol ja limpava as variaveis de chave, de URL e de diretorio antes de cada sessao, mas nao o CLAUDE_CODE_OAUTH_TOKEN, que passa por cima do login salvo no diretorio do perfil: um token expirado esquecido no shell se reinjetava em toda sessao nova e derrubava a revisao sem nada na tela explicar. Agora ele e removido junto com as outras, no ambiente e tambem dentro do shell no macOS e no Linux, onde o perfil do usuario e carregado depois.", "Sessao que so produziu texto de progresso deixou de contar como decisao. Uma resposta em prosa dizendo que esta esperando lint, testes ou subagentes podia encobrir uma verificacao interrompida ou uma ferramenta recusada, e o Farol seguia adiante como se tivesse um parecer. Agora, sem o resultado estruturado, a revisao fica explicitamente nao concluida: nao posta nada e nao e relancada sozinha para repetir a acao ja recusada.", "A leitura do resultado da revisao ficou mais rigorosa: aceita o JSON puro ou um unico bloco marcado como json, e parou de confundir chaves de template no meio da prosa com o comeco do objeto. Bloco ambiguo, nao encerrado ou fora do contrato continua recusado, em vez de virar um parecer meio lido.", "O protocolo de revisao passou a exigir que as verificacoes necessarias terminem antes do parecer. Quando alguma nao puder concluir, a sessao devolve o envelope marcado como incompleto e pede decisao sua, em vez de omitir o resultado.", "Nada aqui muda o resultado de uma revisão: as políticas mexem só em ordem e admissão, e um PR atendido mais cedo ou mais tarde recebe exatamente a mesma revisão, com os mesmos gates de aprovação de sempre."]],
   ['2.57.6', ['O card de “Precisa de você” parou de sumir quando você filtra por conta. A conta dona da revisão era descartada no caminho entre o motor e a tela, e sem ela o app tentava adivinhar pela organização do repositório: em organização que não está cadastrada nas suas contas não havia palpite, e o card aparecia em Todas e sumia ao escolher qualquer conta, sem erro e sem aviso. Em organização cadastrada o palpite acertava por coincidência, e foi por isso que a falha ficou escondida.', 'A conversa do PR passa a agir pela conta dona daquele PR. Conversando sobre um PR de organização não cadastrada, a sessão caía na conta principal, e num repositório privado que essa conta não enxerga a postagem morria com não encontrado. O app já sabia de quem era o PR e jogava essa informação fora; agora ele a usa.', 'Electron atualizado da série 43 para a 44, que é a base do aplicativo de janela. A instalação e a atualização passaram a conferir o runtime antes de dar por pronto: a compatibilidade sai de uma regra única usada pelo instalador e pelo update, e pacote sem requisito declarado recusa explicitamente pedindo o instalador completo, em vez de instalar algo que não abriria. O CI ganhou provas de execução real do Electron nos três sistemas.']],
   ['2.57.5', ['PR que já estava estacionado antes da v2.57.4 também aparece avisado no card. O arquivo antigo guardava só a chave, sem hora nem motivo, e o aviso só era desenhado quando havia motivo: o estoque que já estava parado continuava idêntico a um PR nunca revisado. Agora ele aparece como parou antes desta versão, sem motivo registrado, com a lembrança de que o botão Revisar tenta de novo.']],
   ['2.57.4', ['O card da fila diz quando e por que a revisão automática parou. Caso real de 03/09/2026: a sessão abriu, morreu sete minutos depois sem postar nada, e o PR voltou para Sua fila idêntico a um PR que nunca foi revisado. O único rastro era um toast de cinco segundos e uma linha no Diagnóstico, e o PR ficou duas horas parado enquanto o mesmo Farol revisava os vizinhos. Agora o estacionamento guarda a hora e o motivo (falha, cancelamento, orçamento estourado ou tentativas esgotadas) e o card mostra isso embaixo do título, lembrando que o botão Revisar tenta de novo.', 'Provedor de IA fora do ar não estaciona mais o PR. API Error 529 Overloaded e os demais 5xx caíam em falha desconhecida, que é permanente por desenho, e o PR esperava clique. Sete sessões morreram assim na mesma manhã. O próprio texto do provedor diz que é temporário: agora a classe é transitória, o PR volta para a fila e relança sozinho com o teto de três tentativas, retomando a sessão interrompida quando dá.', 'A poda do estacionamento exige duas ausências seguidas do panorama. A busca do GitHub é índice, e índice atrasado responde não achei sobre PR aberto: uma ausência tirava a chave do estacionamento, o ciclo seguinte relançava a sessão fadada à mesma falha, e ela estacionava de novo. Agora vale a mesma régua da poda da autoanálise: duas medições seguidas concordando.']],
@@ -3552,6 +3573,8 @@ function renderSettings() {
   renderJiraSites();
   $('#setInterval').value = String(c.intervalSeconds);
   $('#setParallelReviews').value = String(c.parallelReviews || 1);
+  // teto global: 0 = desligado, e o `|| 0` do default cai certo nele de propósito
+  $('#setGlobalParallelReviews').value = String(c.globalParallelReviews || 0);
   renderAutomationSettings(c);
   $('#setAutoReview').checked = !!c.autoReview;
   $('#setAutoApproveAll').checked = c.autoApproveAll !== false;
@@ -3857,6 +3880,7 @@ const settingsMap = [
   ['#setReviewModel', 'reviewModel', el => el.value],
   ['#setCodexReviewModel', 'codexReviewModel', el => el.value],
   ['#setParallelReviews', 'parallelReviews', el => parseInt(el.value, 10)],
+  ['#setGlobalParallelReviews', 'globalParallelReviews', el => parseInt(el.value, 10)],
   // radio: o change borbulha até o container, então e.target já é o rádio marcado
   ['#setReviewEffort', 'reviewEffort', el => el.value],
   ['#setCodexReviewEffort', 'codexReviewEffort', el => el.value],

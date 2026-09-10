@@ -301,7 +301,7 @@ test('claudeAuthShellLines: kind openrouter exporta AUTH_TOKEN e API_KEY vazia',
 
 test('claudeAuthPosixPrefix: openrouter restaura o env depois do profile sem pôr a chave na cmdline', () => {
   const prefixo = claudeAuthPosixPrefix({ kind: 'openrouter', apiKey: 'sk-or-abc' });
-  assert.match(prefixo, /^unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL CLAUDE_CONFIG_DIR;/);
+  assert.match(prefixo, /^unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL CLAUDE_CONFIG_DIR CLAUDE_CODE_OAUTH_TOKEN;/);
   assert.match(prefixo, /export ANTHROPIC_AUTH_TOKEN="\$FAROL_OPENROUTER_AUTH_TOKEN"/);
   assert.match(prefixo, /unset FAROL_OPENROUTER_AUTH_TOKEN/);
   assert.match(prefixo, /export ANTHROPIC_API_KEY=/);
@@ -349,6 +349,24 @@ test('applyClaudeAuthEnv: limpa ANTHROPIC_AUTH_TOKEN residual (precedencia ofici
   assert.deepEqual(env, { CLAUDE_CONFIG_DIR: 'C:\\perfil', OUTRA_VAR: 'preservada' });
 });
 
+test('applyClaudeAuthEnv: OAuth herdado não substitui o perfil escolhido nem o login renovado', () => {
+  const casos = [
+    [{ kind: 'dir', dir: 'C:\\perfil' }, { CLAUDE_CONFIG_DIR: 'C:\\perfil' }],
+    [{ kind: 'dir', dir: '' }, {}],
+    [{ kind: 'apikey', apiKey: 'sk-ant-perfil', baseUrl: 'https://proxy.x' },
+      { ANTHROPIC_API_KEY: 'sk-ant-perfil', ANTHROPIC_BASE_URL: 'https://proxy.x' }],
+    [{ kind: 'openrouter', apiKey: 'sk-or-perfil', baseUrl: '' },
+      { ANTHROPIC_AUTH_TOKEN: 'sk-or-perfil', ANTHROPIC_API_KEY: '',
+        ANTHROPIC_BASE_URL: OPENROUTER_DEFAULT_BASE, [OPENROUTER_SECRET_ENV]: 'sk-or-perfil' }],
+    [{ kind: 'codex' }, {}],
+  ];
+  for (const [auth, esperado] of casos) {
+    const env = { CLAUDE_CODE_OAUTH_TOKEN: 'oauth-expirado-da-maquina', OUTRA_VAR: 'preservada' };
+    applyClaudeAuthEnv(env, auth);
+    assert.deepEqual(env, { ...esperado, OUTRA_VAR: 'preservada' }, `perfil ${auth.kind}`);
+  }
+});
+
 test('applyClaudeAuthEnv: perfil Codex limpa chaves OpenAI/Codex para nao sair do plano ChatGPT', () => {
   const env = { OPENAI_API_KEY: 'sk-fora', CODEX_API_KEY: 'codex-fora', GH_TOKEN: 'gh' };
   applyClaudeAuthEnv(env, { kind: 'codex' });
@@ -363,8 +381,8 @@ test('claudeAuthShellLines: kind dir, Windows', () => {
 // no posix a lista abre com o unset das vars de auth da máquina (G21, ver POSIX_AUTH_UNSET
 // em lib/parse.js): o profile do usuário é sourceado DEPOIS do env montado, então limpar só
 // o env não basta. A ordem é contrato: o perfil resolvido vem sempre DEPOIS do unset. As
-// vars são as MESMAS quatro que applyClaudeAuthEnv apaga, senão o shell cobriria menos que o env.
-const UNSET_POSIX = 'unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL CLAUDE_CONFIG_DIR';
+// vars são as mesmas de auth Claude que applyClaudeAuthEnv apaga, incluindo o token OAuth.
+const UNSET_POSIX = 'unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL CLAUDE_CONFIG_DIR CLAUDE_CODE_OAUTH_TOKEN';
 
 test('claudeAuthShellLines: kind dir, macOS/posix, com escaping de aspa simples e unset na frente', () => {
   const lines = claudeAuthShellLines({ kind: 'dir', dir: "/tmp/x' ; touch /tmp/PROOF #" }, false);

@@ -344,7 +344,13 @@ $env:CLAUDE_CONFIG_DIR="C:\Users\voce\.claude-pessoal"; claude login
 # 2) no Farol: Sistema > "Assinatura do Claude" > criar perfil apontando pra C:\Users\voce\.claude-pessoal
 # 3) marcar esse perfil como padrão, ou atribuí-lo só a uma conta em Sistema > Contas
 ```
-**Alternar assinaturas** vira trocar de perfil (ou, no modo legado, trocar o caminho): mantenha um dir por assinatura (`.claude-pessoal`, `.claude-trabalho`), um perfil pra cada. Cada conta e cada perfil mostram um selo com a conta em uso (email do `oauthAccount`) e avisam **"SEM LOGIN"** se o dir apontado não tiver `.credentials.json` (você esqueceu o `claude login` nele); o selo se atualiza sozinho ao salvar, sem precisar de "Reverificar" manual. **Pegadinha:** o login é interativo e tem que ser feito ANTES; sessão headless com dir sem credencial falha. **As vars de auth do ambiente da máquina são ignoradas de propósito:** `applyClaudeAuthEnv` (`lib/parse.js`) limpa as QUATRO (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL` e `CLAUDE_CONFIG_DIR`) em TODA sessão que o Farol dispara, antes de aplicar o perfil resolvido, justamente pra um perfil de assinatura (dir) ou de chave nunca ser sobrescrito em silêncio por uma var de ambiente perdida no processo (ex.: perfil de shell do usuário, sem relação com o Farol). São quatro e não duas porque as outras duas são a mesma classe de furo: a URL base redireciona o endpoint (mandaria credencial de assinatura pra host de terceiro) e o config dir troca a conta logada. **No posix, limpar o env NÃO basta** (G21): o profile do usuário é sourceado DEPOIS do env montado (o `-l` do `/bin/sh -lc` no headless, o login shell do Terminal.app antes do `.command`), então um `export ANTHROPIC_API_KEY` perdido no `~/.profile` re-injetava a chave por cima do perfil resolvido. Por isso o `unset` das quatro é emitido DENTRO do shell, depois de qualquer sourcing e antes do `exec` do claude, e o perfil resolvido é re-exportado logo em seguida (no Windows não existe esse sourcing, o `cmd.exe` não lê profile nenhum, então lá o env limpo basta). **Limitação conhecida, e é deliberada:** no headless posix com perfil de **chave de API** não há prefixo de propósito nenhum (`claudeAuthPosixPrefix` devolve string vazia), porque re-setar a chave ali a colocaria na linha de comando, visível no `ps` de qualquer processo da máquina; a chave viaja só pelo env, e um profile sujo ainda vence nesse caso específico. Nos scripts de terminal isso não se aplica (a chave já está no arquivo, então o unset sai e a chave é re-exportada depois). Backlog pra fechar de vez: passar a chave por uma var sombra, com o script traduzindo pra `ANTHROPIC_API_KEY` depois do sourcing. **O console de login** (`loginConsoleEnv`, `lib/engine/session.js`) usa o mesmo `applyClaudeAuthEnv` e ainda apaga o `GH_TOKEN` herdado: "sem token de conta" era promessa do comentário e do teste, mas não injetar não impede HERDAR, e o `gh` de lá cai no login do próprio keyring, como tem que ser. **O mesmo furo existia pro token do GitHub, e quem denunciou foi o gate de pré-push** (30/08/2026): `ghEnv` (`server.js`) também parte de `{ ...process.env }`, então um `GH_TOKEN` exportado no shell de quem abre o Farol entrava no filho sempre que não havia token resolvido (primária sem token, o caminho legado do doctor/boot), e o `gh` saía agindo como o dono daquela variável, em silêncio, que é o A1 por outra porta. Hoje `ghEnv` apaga `GH_TOKEN` e `GITHUB_TOKEN` ANTES de setar o da conta (as DUAS porque o `gh` lê as duas no github.com, com `GH_TOKEN` vencendo e `GITHUB_TOKEN` de reserva: limpar uma só deixaria a herança entrar pela vizinha), e "sem token" volta a significar o que sempre quis dizer, que é o `gh` cair no próprio keyring. O sintoma foi um teste: `ghEnv: sem user e sem token nenhum não lança` reprovava na máquina de quem exporta `GH_TOKEN` no shell, bloqueando o push com cara de regressão, porque a invariante estava sendo afirmada pelo AMBIENTE e não pelo código, o mesmo diagnóstico do `loginConsoleEnv` logo acima. Quem quiser billing por API tem que usar o **perfil por chave de API**, documentado no parágrafo acima ("Perfil por chave de API"), que é o jeito suportado hoje; setar a var no ambiente da máquina não tem mais efeito em nenhuma sessão do Farol. **Nunca** logar/gravar credencial pelo Claude Code em nome do usuário: o `claude login` é ação dele.
+**Alternar assinaturas** vira trocar de perfil (ou, no modo legado, trocar o caminho): mantenha um dir por assinatura (`.claude-pessoal`, `.claude-trabalho`), um perfil pra cada. Cada conta e cada perfil mostram um selo com a conta em uso (email do `oauthAccount`) e avisam **"SEM LOGIN"** se o dir apontado não tiver `.credentials.json` (você esqueceu o `claude login` nele); o selo se atualiza sozinho ao salvar, sem precisar de "Reverificar" manual. **Pegadinha:** o login é interativo e tem que ser feito ANTES; sessão headless com dir sem credencial falha. **As vars de auth do ambiente da máquina são ignoradas de propósito:** `applyClaudeAuthEnv` (`lib/parse.js`) limpa `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, `CLAUDE_CONFIG_DIR` e `CLAUDE_CODE_OAUTH_TOKEN` em TODA sessão que o Farol dispara, antes de aplicar o perfil resolvido, justamente pra um perfil de assinatura (dir) ou de chave nunca ser sobrescrito em silêncio por uma var de ambiente perdida no processo (ex.: perfil de shell do usuário, sem relação com o Farol). `CLAUDE_CODE_OAUTH_TOKEN` também é removido porque vence o login do diretório selecionado e pode manter um token expirado em toda sessão nova. Além das credenciais, URL e diretório também precisam de isolamento: a URL base redireciona o endpoint (mandaria credencial de assinatura pra host de terceiro) e o config dir troca a conta logada. **No posix, limpar o env NÃO basta** (G21): o profile do usuário é sourceado DEPOIS do env montado (o `-l` do `/bin/sh -lc` no headless, o login shell do Terminal.app antes do `.command`), então um `export ANTHROPIC_API_KEY` perdido no `~/.profile` re-injetava a chave por cima do perfil resolvido. Por isso o `unset` dessas variáveis é emitido DENTRO do shell, depois de qualquer sourcing e antes do `exec` do claude, e o perfil resolvido é re-exportado logo em seguida (no Windows não existe esse sourcing, o `cmd.exe` não lê profile nenhum, então lá o env limpo basta). **Limitação conhecida, e é deliberada:** no headless posix com perfil de **chave de API** o prefixo remove apenas `CLAUDE_CODE_OAUTH_TOKEN`, sem restaurar as variáveis `ANTHROPIC_*`, porque re-setar a chave ali a colocaria na linha de comando, visível no `ps` de qualquer processo da máquina; a chave viaja só pelo env, e um profile sujo ainda vence nesse caso específico. Nos scripts de terminal isso não se aplica (a chave já está no arquivo, então o unset sai e a chave é re-exportada depois). Backlog pra fechar de vez: passar a chave por uma var sombra, com o script traduzindo pra `ANTHROPIC_API_KEY` depois do sourcing. **O console de login** (`loginConsoleEnv`, `lib/engine/session.js`) usa o mesmo `applyClaudeAuthEnv` e ainda apaga o `GH_TOKEN` herdado: "sem token de conta" era promessa do comentário e do teste, mas não injetar não impede HERDAR, e o `gh` de lá cai no login do próprio keyring, como tem que ser. **O mesmo furo existia pro token do GitHub, e quem denunciou foi o gate de pré-push** (30/08/2026): `ghEnv` (`server.js`) também parte de `{ ...process.env }`, então um `GH_TOKEN` exportado no shell de quem abre o Farol entrava no filho sempre que não havia token resolvido (primária sem token, o caminho legado do doctor/boot), e o `gh` saía agindo como o dono daquela variável, em silêncio, que é o A1 por outra porta. Hoje `ghEnv` apaga `GH_TOKEN` e `GITHUB_TOKEN` ANTES de setar o da conta (as DUAS porque o `gh` lê as duas no github.com, com `GH_TOKEN` vencendo e `GITHUB_TOKEN` de reserva: limpar uma só deixaria a herança entrar pela vizinha), e "sem token" volta a significar o que sempre quis dizer, que é o `gh` cair no próprio keyring. O sintoma foi um teste: `ghEnv: sem user e sem token nenhum não lança` reprovava na máquina de quem exporta `GH_TOKEN` no shell, bloqueando o push com cara de regressão, porque a invariante estava sendo afirmada pelo AMBIENTE e não pelo código, o mesmo diagnóstico do `loginConsoleEnv` logo acima. Quem quiser billing por API tem que usar o **perfil por chave de API**, documentado no parágrafo acima ("Perfil por chave de API"), que é o jeito suportado hoje; setar a var no ambiente da máquina não tem mais efeito em nenhuma sessão do Farol. **Nunca** logar/gravar credencial pelo Claude Code em nome do usuário: o `claude login` é ação dele.
+
+### Falhas de autenticação e conclusão da revisão
+
+`OAuth access token has expired` é credencial expirada, mesmo quando a mensagem contém tentativas de reconexão. A taxonomia estaciona a revisão na primeira falha e a fila orienta renovar o login do perfil, inclusive para registros antigos estacionados por esgotamento de retries. Remover `CLAUDE_CODE_OAUTH_TOKEN` herdado isola o perfil escolhido; não renova uma credencial já expirada.
+
+O parser de revisão aceita JSON bruto ou um único bloco explicitamente `json`, sem confundir chaves de templates na prosa com o início do objeto. Blocos ambíguos ou inválidos continuam recusados. Uma resposta só de progresso não é uma decisão: sem resultado estruturado a revisão permanece não concluída e não pode postar nem ser retomada automaticamente para repetir uma ferramenta recusada. O protocolo exige o envelope com `analysisStatus: "incomplete"` quando alguma verificação necessária não puder terminar.
 
 ## Como rodar e testar sem estragar nada
 
@@ -581,6 +587,82 @@ economia (não ficar repescando em silêncio), não a garantia.
 O CLAUDE.md **já avisava** disso no parágrafo do `reReviewTargets` ("as MESMAS
 travas do toReview: quem mexer lá, mexe aqui") e eu acrescentei uma trava nova sem
 espelhar. Aviso em prosa não substitui invariante no código.
+
+### Justiça de fila entre orgs e contas (v2.58.0)
+
+Spec: `docs/superpowers/specs/2026-09-10-justica-de-fila-entre-orgs-design.md`.
+
+**O invariante que manda nas três políticas: elas são WORK-CONSERVING.** Se existe PR
+elegível esperando e existe slot ou cota disponível, alguma revisão dispara. Nenhuma
+política pode deixar recurso ocioso pra "guardar a vez" de quem não chegou. É a regra
+do Wanderson (10/09/2026) escrita como invariante: *com fila, divide; sem fila, o que
+chegar é atendido.* Quem mexer aqui e sentir vontade de segurar uma vaga vazia está
+quebrando a feature, não melhorando ela.
+
+**Segundo invariante: justiça mexe em ORDEM e ADMISSÃO, nunca em VEREDITO.** Nada deste
+bloco toca `verdict`, `decision`, `cardMet`, `shouldAutoApprove`, `shouldAutoReject` ou
+o corpo postado. Um PR atendido mais cedo ou mais tarde recebe exatamente a mesma
+revisão. É o que mantém o invariante 4 ("nada é postado no GitHub sem gate") intacto.
+
+**Política 1, rodízio por org** (`proximoHeadless`/`headlessOrg` em `lib/engine/review.js`).
+O escalonador já isolava por CONTA (`headlessBusyAccounts`), então contas diferentes
+NUNCA disputaram slot entre si; o que não existia era divisão entre as ORGS de uma mesma
+conta, e ali a escolha era FIFO puro. Agora, entre os ELEGÍVEIS (conta abaixo de
+`parallelReviews`), ganha a org de menor `seq` em `engine.orgLastStart`; org ausente do
+Map (nunca atendida) vale `-Infinity` e ganha de todas; empate resolve por ordem de
+chegada, o que faz uma org só se comportar exatamente como antes da feature.
+
+A ordem é por CONTADOR MONOTÔNICO (`engine.headlessSeq`) e **não por relógio**:
+`Date.now()` tem granularidade de milissegundo e o escalonador dispara várias revisões
+no mesmo tick, então o empate de relógio apagaria a alternância justamente no lote que a
+feature existe pra resolver. O `at` guardado junto é só pra tela dizer "atendida há 12
+min"; ele nunca decide a vez. `orgLastStart` é EFÊMERO como o `headlessBusyAccounts`:
+persistir a última org atendida faria o primeiro PR depois de um restart herdar uma
+dívida de ontem, e o app abriria já devendo a vez pra alguém.
+
+**Política 2, cota de conta dentro do perfil** (`quotaStatusFor`/`accountSpendInProfile`
+em `lib/engine/usage.js`, `quotaBlockedFor`/`contasDoPerfil` em `server.js`). O teto de
+orçamento sempre foi do PERFIL: duas contas no mesmo `claudeProfileId` dividiam um teto
+único, a de alto volume queimava a cota do dia sozinha, e a outra era barrada no gate de
+enfileiramento sem NUNCA ter tido uma revisão. Pior, o toast falava do perfil, então nem
+dava pra ver quem consumiu.
+
+A cota é o teto do dia rateado por peso (`accounts[].budgetWeight`, default 1) entre as
+contas ATIVAS (não silenciadas, com `autoReview` ligado) daquele perfil. **A cláusula
+que faz a feature ser o que é: a cota só barra quando existe OUTRA conta do mesmo perfil
+esperando na fila E que ainda cabe na cota dela.** Sem disputa, quem chegou é atendido
+até o teto duro, como sempre. Ceder pra quem também estourou não devolveria a vez a
+ninguém, só deixaria o teto sem gastar, que é exatamente o que o invariante proíbe.
+
+O teto DURO do perfil (`profileBudgetStatus`) continua valendo por cima e é avaliado
+ANTES: perfil estourado barra todo mundo, e essa é a mensagem certa. A cota é um segundo
+motivo, mais cedo e mais seletivo. **Nada aqui fura o teto.**
+
+`waiting` (quem está esperando) sai da fila VIVA e de propósito NÃO reconsulta o gate de
+orçamento: isso recursaria, porque o gate é justamente quem chama `contasDoPerfil`. Os
+filtros ali são os baratos e síncronos do `toReview`.
+
+`budgetWarned` guarda DOIS formatos desde aqui: `idDoPerfil` (teto duro) e
+`idDoPerfil|conta` (cota). A reconciliação no topo do `check()` trata os dois no mesmo
+laço; tratar a chave composta como id de perfil não acharia perfil nenhum, o aviso sairia
+do Set todo ciclo e o toast repetiria sem parar, que é o barulho que o Set existe pra
+impedir.
+
+**Política 3, teto global** (`globalParallelLimit`, `config.globalParallelReviews`).
+Limita o TOTAL somando todas as contas. **Default 0 = desligado**, o comportamento de
+sempre. Clampa 1..8 no consumidor além do saneamento (defesa em profundidade, padrão do
+`parallelLimit`), e negativo vira 0 e não 1: config torta não pode LIGAR uma trava que
+ninguém pediu. **Só é seguro porque a Política 1 existe:** teto global sozinho concentra,
+porque quem tem mais PR na fila ocupa o teto inteiro; com o rodízio decidindo quem ocupa
+cada vaga liberada, ele vira distribuição de vazão em vez de corrida.
+
+**Visibilidade é parte da feature, não enfeite** (`filaJusta()` no snapshot,
+`filaJustaHtml` em `ui/pure.js`, painel na aba Consumo). Mesma lição do estacionamento
+visível (v2.57.4) e do rastro durável do gate de orçamento: uma automação que CEDE A VEZ,
+vista de fora, é idêntica a uma automação QUEBRADA. Nos dois casos o PR fica parado e
+nada explica. O aviso de cota nomeia os dois lados (quem cedeu, pra quem, quanto falta) e
+tem rastro no log, não só toast. O painel decide a própria vaziez: uma org e um perfil só
+não têm rodízio a explicar, e o card some inteiro.
 
 **Clique explícito atravessa e DESFAZ** (`pr.manual`, `origem: 'clique'` na rota):
 quem mandou revisar foi você, sabendo que outra pessoa está lá, e a partir daí o
