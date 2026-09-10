@@ -15,6 +15,7 @@ function exigirSmoke(texto) {
   assert.match(runtime, /node node_modules\/electron\/install.js/);
   assert.match(runtime, /node lib\/electron-runtime.js check-installed \./);
   assert.equal((runtime.match(/node tools\/electron-smoke.js --output/g) || []).length, 2);
+  assert.match(runtime, /if: runner.os == 'macOS'\s+shell: bash\s+run: bash tools\/electron-smoke-macos-sign.sh/);
   assert.doesNotMatch(runtime, /continue-on-error:\s*true/);
   assert.match(texto, /needs: \[gate, electron\]/);
   assert.match(texto, /if \[ "\$\{\{ needs\.electron\.result \}\}" != "success" \]; then\s*echo[^\n]+\s*exit 1/);
@@ -30,6 +31,7 @@ test('contraprovas: remover desktop, execução ou gate do runtime reprova', () 
     workflow.replaceAll('ubuntu-latest, windows-latest, macos-latest', 'ubuntu-latest, windows-latest'),
     workflow.replaceAll('node tools/electron-smoke.js --output', 'echo smoke --output'),
     workflow.replace('node node_modules/electron/install.js', 'echo binario'),
+    workflow.replace('bash tools/electron-smoke-macos-sign.sh', 'echo macOS'),
     workflow.replace('needs: [gate, electron]', 'needs: [gate]'),
     workflow.replace('needs.electron.result', 'needs.gate.result'),
   ]) assert.throws(() => exigirSmoke(alterado));

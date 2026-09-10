@@ -96,12 +96,20 @@ jobs:
             node tools/electron-smoke.js --output artifacts/electron-smoke
           '
 
-      - name: Abrir o Farol no Windows e macOS
-        if: runner.os != 'Linux'
+      - name: Abrir o Farol no Windows
+        if: runner.os == 'Windows'
         shell: bash
         run: |
           node --test --test-force-exit test/jira-mcp-processo.test.js
           node tools/electron-smoke.js --output artifacts/electron-smoke
+
+      # O zip npm arm64 traz assinatura linker ad hoc sem recursos selados.
+      # A identidade efemera viabiliza UNNotifications, como no CI do Electron;
+      # nao altera permissoes/TCC e nao representa assinatura de distribuicao.
+      - name: Assinar o runtime de teste e abrir o Farol no macOS
+        if: runner.os == 'macOS'
+        shell: bash
+        run: bash tools/electron-smoke-macos-sign.sh
 
       - name: Guardar evidencias do runtime
         if: always()

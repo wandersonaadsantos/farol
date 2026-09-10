@@ -16,12 +16,18 @@ const PERMISSION_STAGE = 'notification-permission-requested';
 const AX_SCRIPT = `(() => {
   const system = Application('System Events');
   const read = fn => { try { return fn(); } catch (error) { return { error: String(error) }; } };
+  const allProcesses = system.applicationProcesses();
   const processes = [];
-  for (const process of system.applicationProcesses()) {
+  for (const process of allProcesses.slice(0, 80)) {
     const windows = read(() => process.windows());
-    if (!Array.isArray(windows) || !windows.length) continue;
     const entry = { name: read(() => process.name()), pid: read(() => process.unixId()),
       bundleId: read(() => process.bundleIdentifier()), windows: [] };
+    processes.push(entry);
+    if (!Array.isArray(windows)) {
+      entry.windowsError = windows?.error || 'System Events returned a non-array window collection';
+      continue;
+    }
+    entry.windowCount = windows.length;
     for (const window of windows.slice(0, 6)) {
       let remaining = 120;
       const visit = (element, depth) => {
@@ -34,9 +40,9 @@ const AX_SCRIPT = `(() => {
       };
       entry.windows.push(visit(window, 0));
     }
-    processes.push(entry);
   }
-  return JSON.stringify({ uiEnabled: read(() => system.UIElementsEnabled()), processes });
+  return JSON.stringify({ processCount: allProcesses.length, inspectedProcessCount: processes.length,
+    truncated: allProcesses.length > processes.length, processes });
 })()`;
 
 function permissionStageObserved(report, probeId) {
@@ -100,4 +106,4 @@ function startMacosDiagnostics({ output, binary, probeId, child }) {
   return { done, stop };
 }
 
-export { PERMISSION_STAGE, permissionStageObserved, startMacosDiagnostics };
+export { AX_SCRIPT, PERMISSION_STAGE, permissionStageObserved, startMacosDiagnostics };

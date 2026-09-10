@@ -42,9 +42,25 @@ isso não comprova exibição visual nem interação do usuário.
 No runner Linux, o helper `chrome-sandbox` recebe proprietário root e modo 4755,
 conforme exigido pelo Chromium distribuído. O smoke mantém o sandbox habilitado.
 
+No runner macOS efêmero, o Electron 44 recebe uma assinatura com identidade de
+teste, seguindo o mecanismo de keychain do usuário usado nos testes do Electron.
+A distribuição npm observada tinha apenas assinatura ad-hoc do linker, sem selo
+do bundle, e o macOS recusou a autorização de notificações com `UNErrorDomain 1`.
+A preparação de teste não altera o código do Farol nem concede permissão de
+notificação: a chamada nativa ainda precisa ser aceita para o smoke passar.
+Essa assinatura é exclusiva da CI; não é assinatura de distribuição ou notarização.
+
+Enquanto investigamos a autorização no macOS, a CI também mantém o processo vivo
+por 20 segundos após iniciar o pedido e registra assinatura, árvore de
+acessibilidade e capturas do desktop aos 2 e 10 segundos. O diagnóstico não clica
+em diálogos nem altera permissões. Erros de observação ficam explícitos e não
+comprovam ausência de um diálogo; falha ou timeout da notificação continuam
+reprovando o smoke.
+
 Os artefatos da CI valem para o commit identificado na execução. O smoke usa o
-runtime original do Electron, sem validar assinatura ou notarização do bundle
-personalizado pelo instalador. Também não demonstra que um instalador foi
+runtime declarado, com a preparação de assinatura de teste descrita acima no
+macOS, sem validar assinatura ou notarização do bundle personalizado pelo
+instalador. Também não demonstra que um instalador foi
 publicado ou que um aplicativo já instalado foi atualizado.
 
 ## Compatibilidade de instalação
@@ -60,4 +76,6 @@ com orientação para usar o instalador completo. Os builders também recusam
 runtime incompatível, para evitar distribuir manifesto novo com binário antigo.
 
 Referências: [Electron 44](https://www.electronjs.org/blog/electron-44-0) e
-[mudanças incompatíveis](https://www.electronjs.org/docs/latest/breaking-changes/).
+[mudanças incompatíveis](https://www.electronjs.org/docs/latest/breaking-changes/),
+[identidade de teste do Electron 44](https://github.com/electron/electron/blob/v44.1.0/script/codesign/generate-identity.sh)
+e [preparação do runtime nos testes upstream](https://github.com/electron/electron/blob/v44.1.0/.github/workflows/pipeline-segment-electron-test.yml#L258-L277).
