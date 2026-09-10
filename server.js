@@ -1823,6 +1823,10 @@ class Engine extends EventEmitter {
       activeSessions: sessionMod.projectSessions([...this.activeReviews.values()]),
       activity: Object.fromEntries(this.activity),
       headlessWaiting: this.headlessQueue.map(p => p.key),
+      // Justiça de fila (spec 2026-09-10): leitura PURA do estado que as três
+      // políticas já produzem, sem coleta nova. É o que torna o rodízio visível: uma
+      // automação que cede a vez, vista de fora, é idêntica a uma automação quebrada.
+      filaJusta: this.filaJusta(),
       chats: this.chatSummaries(),
       toolRuns: this.toolRuns,
       decisions: {
@@ -1923,6 +1927,60 @@ class Engine extends EventEmitter {
       usageMod.custoTipicoDoEngine(this)
     );
     return st.blocked ? { profile, ...st } : null;
+  }
+
+  /* Painel de Justiça de fila (spec 2026-09-10-justica-de-fila-entre-orgs). Junta o que
+     as três políticas já sabem, sem medir nada novo:
+
+     - por ORG: quantos PRs esperam, há quanto tempo espera o mais antigo, e quando ela
+       foi atendida pela última vez (o critério do rodízio, em cima da mesa);
+     - por PERFIL: teto do dia, e cada conta contra a própria cota, marcando quem está
+       cedendo a vez e pra quem;
+     - teto GLOBAL: em curso contra teto, só quando ligado.
+
+     Leitura pura: não decide nada, não escreve nada. */
+  filaJusta() {
+    const agora = Date.now();
+    const orgs = new Map();
+    for (const pr of this.queue) {
+      const org = reviewMod.headlessOrg(pr);
+      const o = orgs.get(org) || { org, esperando: 0, esperaMaisAntigaMs: 0, ultimaVezMs: null };
+      o.esperando++;
+      const desde = Date.parse(pr.updatedAt || pr.createdAt || '') || 0;
+      if (desde) o.esperaMaisAntigaMs = Math.max(o.esperaMaisAntigaMs, agora - desde);
+      orgs.set(org, o);
+    }
+    for (const [org, v] of this.orgLastStart) {
+      const o = orgs.get(org) || { org, esperando: 0, esperaMaisAntigaMs: 0, ultimaVezMs: null };
+      o.ultimaVezMs = agora - v.at;
+      orgs.set(org, o);
+    }
+    // a org que espera há mais tempo primeiro: é a ordem em que o escalonador vai
+    // atender, então a tela mostra a fila na mesma ordem em que ela vai andar
+    const porOrg = [...orgs.values()].sort((a, b) => b.esperaMaisAntigaMs - a.esperaMaisAntigaMs);
+
+    const sessions = (this.usageSessions && this.usageSessions.sessions) || [];
+    const tipico = usageMod.custoTipicoDoEngine(this);
+    const porPerfil = (this.config.claudeProfiles || []).map(profile => {
+      const contas = this.contasDoPerfil(profile.id);
+      return {
+        id: profile.id,
+        label: profile.label || profile.id,
+        tetoDoDia: usageMod.dailyCapFor(profile, usageMod.localDay()),
+        contas: contas.map(c => {
+          const st = usageMod.quotaStatusFor(profile, sessions, contas, c.user, tipico);
+          return {
+            user: c.user, peso: usageMod.pesoDaConta(c), esperando: c.waiting,
+            cota: st.quota, gasto: st.spent, cedendo: st.blocked, cedendoPara: st.cedendoPara,
+          };
+        }),
+      };
+    }).filter(p => p.contas.length > 0);
+
+    let total = 0;
+    for (const n of this.headlessBusyAccounts.values()) total += n;
+    const tetoGlobal = Number(this.config.globalParallelReviews) || 0;
+    return { porOrg, porPerfil, emCurso: total, tetoGlobal };
   }
 
   pushState() { this.emit('state', this.snapshot()); }

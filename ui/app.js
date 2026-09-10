@@ -17,7 +17,8 @@ import {
   overrideFor, suggestDefault, renderOrgBlock, queueCardHtml, panoramaRowHtml,
   reasonGroupsHtml, reasonText, claudeProfilesHtml, accountsManagerHtml,
   jiraBaseUrlProblema, jiraPrefixosProblema,
-  canMergeSelfAnalysis, qualityBlockTitle, selfAnalysisBadge, selfAnalysisToggle, selfAnalysisStale
+  canMergeSelfAnalysis, qualityBlockTitle, selfAnalysisBadge, selfAnalysisToggle, selfAnalysisStale,
+  filaJustaHtml
 } from './pure.js';
 
 const $ = (s) => document.querySelector(s);
@@ -687,6 +688,9 @@ $('#accountsManager').addEventListener('change', (e) => {
   if (t.classList.contains('acct-oncaveats')) return editAccount(user, { onCaveats: t.value || undefined });
   if (t.classList.contains('acct-onreject')) return editAccount(user, { onReject: t.value === 'request_changes' ? 'request_changes' : undefined });
   if (t.classList.contains('acct-claudeprofile')) return editAccount(user, { claudeProfileId: t.value || undefined });
+  // peso na cota do perfil (Politica 2): vazio = igual as outras, que e o padrao e
+  // nao guarda campo nenhum (accountSaveArray so persiste peso positivo).
+  if (t.classList.contains('acct-budgetweight')) return editAccount(user, { budgetWeight: Number(t.value) || undefined });
 });
 /* editor de contas: silenciar/reativar, remover, adicionar */
 $('#accountsManager').addEventListener('click', (e) => {
@@ -2823,7 +2827,23 @@ function drawUsageTimeline(el, legendEl, u, metric, win, dim) {
 // tabela das sessoes mais recentes (ate 100, cortado no backend). Log permanente
 // em disco (usage-sessions.json); a UI so mostra as mais novas, com rolagem.
 
+/* Painel de Justiça de fila (spec 2026-09-10-justica-de-fila-entre-orgs). Fica na aba
+   Consumo porque metade dele é dinheiro (a cota da conta dentro do perfil) e a outra
+   metade só faz sentido ao lado dela.
+
+   Decide a PRÓPRIA vaziez, no mesmo padrão do resto desta aba: quem tem uma org e um
+   perfil só não tem rodízio nenhum pra explicar, e um card vazio na tela parece defeito.
+   O filaJustaHtml devolve '' nesse caso, e o card inteiro some. */
+function renderFilaJusta() {
+  const card = $('#filaJustaCard'), body = $('#filaJustaBody');
+  if (!card || !body) return;
+  const html = filaJustaHtml(STATE && STATE.filaJusta);
+  body.innerHTML = html;
+  card.hidden = !html;
+}
+
 function renderUsage() {
+  renderFilaJusta();
   const u = STATE && STATE.usage;
   const kpisEl = $('#usageKpis'), tl = $('#usageTimeline'), legend = $('#usageLegend');
   const matrix = $('#usageMatrix'), matrixCap = $('#usageMatrixCaption');
@@ -3551,6 +3571,8 @@ function renderSettings() {
   renderJiraSites();
   $('#setInterval').value = String(c.intervalSeconds);
   $('#setParallelReviews').value = String(c.parallelReviews || 1);
+  // teto global: 0 = desligado, e o `|| 0` do default cai certo nele de propósito
+  $('#setGlobalParallelReviews').value = String(c.globalParallelReviews || 0);
   renderAutomationSettings(c);
   $('#setAutoReview').checked = !!c.autoReview;
   $('#setAutoApproveAll').checked = c.autoApproveAll !== false;
@@ -3856,6 +3878,7 @@ const settingsMap = [
   ['#setReviewModel', 'reviewModel', el => el.value],
   ['#setCodexReviewModel', 'codexReviewModel', el => el.value],
   ['#setParallelReviews', 'parallelReviews', el => parseInt(el.value, 10)],
+  ['#setGlobalParallelReviews', 'globalParallelReviews', el => parseInt(el.value, 10)],
   // radio: o change borbulha até o container, então e.target já é o rádio marcado
   ['#setReviewEffort', 'reviewEffort', el => el.value],
   ['#setCodexReviewEffort', 'codexReviewEffort', el => el.value],

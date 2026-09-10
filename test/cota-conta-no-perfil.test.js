@@ -196,3 +196,15 @@ test('contasDoPerfil só junta quem divide o MESMO perfil, e ignora silenciada e
   const r = Engine.prototype.contasDoPerfil.call(e, 'p1');
   assert.deepEqual(r.map(c => c.user), ['biuder', 'pessoal'], 'quem não revisa sozinho não encolhe a fatia de quem revisa');
 });
+
+// O peso viaja pela UI: accountSaveArray é quem monta o array salvo pelo painel Contas.
+const { accountSaveArray } = await import('../ui/pure.js');
+
+test('accountSaveArray leva o peso quando ele existe e não inventa quando é o padrão', () => {
+  const [com] = accountSaveArray([{ user: 'a', owners: [], budgetWeight: 2 }]);
+  assert.equal(com.budgetWeight, 2);
+  for (const torto of [undefined, 0, -1, 'x']) {
+    const [sem] = accountSaveArray([{ user: 'a', owners: [], budgetWeight: torto }]);
+    assert.equal(sem.budgetWeight, undefined, `peso ${JSON.stringify(torto)} não pode ser salvo`);
+  }
+});
