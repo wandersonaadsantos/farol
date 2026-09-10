@@ -26,6 +26,11 @@ Write-Host '  Farol · instalador' -ForegroundColor Yellow
 Write-Host '  ==================' -ForegroundColor DarkGray
 
 # --- pre-requisitos ---------------------------------------------------------
+# Electron 44 nao tem binario Windows de 32 bits. Validar o SISTEMA, nao o
+# processo PowerShell (que pode ser x86 num Windows x64), antes de parar/copiar.
+if (-not [Environment]::Is64BitOperatingSystem) {
+  Die 'O Farol requer Windows de 64 bits (x64 ou ARM64). Electron 44 nao oferece binarios para Windows de 32 bits. A instalacao existente foi preservada.'
+}
 # Node/npm NAO sao exigidos no modo offline (o Electron ja viaja embutido no
 # pacote e so e copiado). So o caminho de fallback (baixar o Electron) precisa
 # de npm, e a checagem vive la embaixo. gh e claude sao avisos (o app precisa
@@ -35,6 +40,11 @@ foreach ($opt in @(@('gh', 'GitHub CLI (https://cli.github.com)'), @('claude', '
     Write-Host ("  !  '{0}' nao encontrado no PATH: o Farol instala, mas precisa dele pra funcionar ({1})." -f $opt[0], $opt[1]) -ForegroundColor Yellow
   }
 }
+
+# --- runtime antes de alterar a instalacao -------------------------------------
+. (Join-Path $PSScriptRoot 'electron-runtime.ps1')
+$Runtime = Prepare-ElectronRuntime
+try {
 
 # --- encerra instancias em execucao ------------------------------------------
 Step 'Encerrando instancias do Farol em execucao (se houver)'
@@ -66,27 +76,20 @@ if (Test-Path (Join-Path $Src 'Desinstalar.cmd')) { Copy-Item (Join-Path $Src 'D
 
 # --- dependencias (Electron) ---------------------------------------------------
 $electronExe = Join-Path $App 'node_modules\electron\dist\electron.exe'
-if (Test-Path (Join-Path $Src 'node_modules\electron\dist\electron.exe')) {
-  Step 'Copiando dependencias ja baixadas (node_modules)'
-  robocopy (Join-Path $Src 'node_modules') (Join-Path $App 'node_modules') /E /NFL /NDL /NJH /NJS /NP | Out-Null
+if ($Runtime.Source -ne (Join-Path $App 'node_modules')) {
+  Step 'Copiando o Electron validado'
+  robocopy $Runtime.Source (Join-Path $App 'node_modules') /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
   if ($LASTEXITCODE -ge 8) { Die 'Falha ao copiar node_modules.' }
-} elseif (-not (Test-Path $electronExe)) {
-  if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
-    Die 'Electron nao veio embutido e npm nao esta no PATH pra baixa-lo. Use o instalador offline (Farol-Setup.exe), que ja traz o Electron.'
-  }
-  Step 'Baixando o Electron (npm install, pode levar alguns minutos)'
-  Push-Location $App
-  npm install --omit=dev --no-audit --no-fund 2>&1 | Out-Null
-  Pop-Location
 }
 if (-not (Test-Path $electronExe)) { Die 'Electron nao instalado (node_modules\electron ausente). Rode npm install em ' + $App }
 
 # executavel com o nome do app (hardlink: zero disco extra, assinatura preservada)
 $farolExe = Join-Path (Split-Path $electronExe) 'Farol.exe'
-if (-not (Test-Path $farolExe)) {
-  try { New-Item -ItemType HardLink -Path $farolExe -Target $electronExe -ErrorAction Stop | Out-Null }
-  catch { $farolExe = $electronExe }
-}
+# Um hardlink antigo pode continuar apontando pro binario substituido. Recriar
+# depois da copia garante que o atalho inicia a mesma versao que foi validada.
+if (Test-Path -LiteralPath $farolExe) { Remove-Item -LiteralPath $farolExe -Force }
+try { New-Item -ItemType HardLink -Path $farolExe -Target $electronExe -ErrorAction Stop | Out-Null }
+catch { $farolExe = $electronExe }
 
 # --- workspace do Claude -------------------------------------------------------
 Step "Preparando o workspace do Claude em $Ws"
@@ -175,3 +178,4 @@ Write-Host '  Instalacao concluida.' -ForegroundColor Green
 Write-Host '  Abra o Farol pelo Menu Iniciar (ou pelo atalho na area de trabalho).' -ForegroundColor Gray
 Write-Host "  Dados e estado: $Ws" -ForegroundColor DarkGray
 Write-Host ''
+} finally { Clear-ElectronRuntimeStage $Runtime.Stage }

@@ -40,7 +40,7 @@ jobs:
 
       # Sem npm install de propósito: invariante 1 (zero dependências além do
       # Electron) e a suíte usa o runner nativo `node --test`, que não toca em
-      # node_modules. O Electron só é preciso pra abrir a janela, não pra testar.
+      # node_modules. A abertura real do app tem uma matriz separada abaixo.
       - name: Sintaxe
         run: npm run check
 
@@ -50,13 +50,83 @@ jobs:
       - name: Testes
         run: npm test
 
+  electron:
+    name: electron
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.12'
+
+      # Testar o piso declarado, sem deixar o caret escolher outra release.
+      - name: Instalar o Electron declarado
+        shell: bash
+        run: |
+          version=$(node lib/electron-runtime.js required package.json)
+          npm install --no-save --package-lock=false --no-audit --no-fund "electron@$version"
+          node node_modules/electron/install.js
+          node lib/electron-runtime.js check-installed .
+
+      - name: Preparar desktop Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb dbus-x11 fluxbox trayer dunst
+          # O zip npm nao instala as permissoes do helper nativo. Manter o
+          # sandbox ativo no runner, com o dono/modo exigidos pelo Chromium.
+          sudo chown root:root node_modules/electron/dist/chrome-sandbox
+          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+
+      - name: Abrir o Farol no desktop Linux
+        if: runner.os == 'Linux'
+        run: |
+          xvfb-run -a dbus-run-session -- bash -euo pipefail -c '
+            mkdir -p artifacts/electron-smoke
+            fluxbox > artifacts/electron-smoke/fluxbox.log 2>&1 &
+            trayer --edge top --align right > artifacts/electron-smoke/trayer.log 2>&1 &
+            dunst > artifacts/electron-smoke/dunst.log 2>&1 &
+            node --test --test-force-exit test/jira-mcp-processo.test.js
+            node tools/electron-smoke.js --output artifacts/electron-smoke
+          '
+
+      - name: Abrir o Farol no Windows
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          node --test --test-force-exit test/jira-mcp-processo.test.js
+          node tools/electron-smoke.js --output artifacts/electron-smoke
+
+      # O zip npm arm64 traz assinatura linker ad hoc sem recursos selados.
+      # A identidade efemera viabiliza UNNotifications, como no CI do Electron;
+      # nao altera permissoes/TCC e nao representa assinatura de distribuicao.
+      - name: Assinar o runtime de teste e abrir o Farol no macOS
+        if: runner.os == 'macOS'
+        shell: bash
+        run: bash tools/electron-smoke-macos-sign.sh
+
+      - name: Guardar evidencias do runtime
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: electron-smoke-${{ matrix.os }}
+          path: artifacts/electron-smoke/
+          if-no-files-found: error
+          retention-days: 14
+
   # Job agregador: é ESTE nome que a proteção da branch exige. Assim dá pra
   # mexer na matriz (tirar ou somar sistema) sem reconfigurar a regra.
   ci:
     name: ci
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [gate]
+    needs: [gate, electron]
     if: always()
     steps:
       - name: Conferir resultado da matriz
@@ -65,4 +135,8 @@ jobs:
             echo "gate falhou em pelo menos um sistema: ${{ needs.gate.result }}"
             exit 1
           fi
-          echo "gate verde nos tres sistemas"
+          if [ "${{ needs.electron.result }}" != "success" ]; then
+            echo "Electron falhou em pelo menos um sistema: ${{ needs.electron.result }}"
+            exit 1
+          fi
+          echo "qualidade e Electron verdes nos tres sistemas"

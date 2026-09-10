@@ -54,6 +54,7 @@ function montaPacoteDeUpdate() {
   fs.writeFileSync(path.join(src, 'main.js'), '// shell\n');
   fs.writeFileSync(path.join(src, 'server.js'), '// engine\n');
   fs.copyFileSync(INSTALL_SH, path.join(src, 'installer', 'install.sh'));
+  fs.copyFileSync(path.join(RAIZ, 'installer/electron-runtime.sh'), path.join(src, 'installer/electron-runtime.sh'));
   assert.equal(fs.existsSync(path.join(src, 'node_modules')), false, 'a fonte simula o zip de update: sem node_modules');
   return src;
 }
@@ -85,6 +86,15 @@ function montaInstalacaoExistente() {
   const falso = path.join(bin, 'pkill');
   fs.writeFileSync(falso, '#!/bin/sh\nexit 0\n');
   fs.chmodSync(falso, 0o755);
+  // A bancada simula Mac suportado tambem no CI Linux. O preflight real de
+  // plataforma tem contraprovas proprias em installer-compatibility.test.js.
+  for (const [cmd, body] of [
+    ['uname', 'if [ "$1" = "-s" ]; then echo Darwin; else echo x86_64; fi'],
+    ['sw_vers', 'echo 13.0'],
+  ]) {
+    fs.writeFileSync(path.join(bin, cmd), `#!/bin/sh\n${body}\n`);
+    fs.chmodSync(path.join(bin, cmd), 0o755);
+  }
   return { home, nativo };
 }
 
@@ -134,6 +144,8 @@ test('install.sh a partir do pacote de update ainda recria o lançador e o app',
   assert.ok(fs.existsSync(path.join(home, '.farol', 'app', 'server.js')), 'código novo copiado');
   const plist = fs.readFileSync(path.join(home, 'Applications', 'Farol.app', 'Contents', 'Info.plist'), 'utf8');
   assert.match(plist, /9\.9\.9/, 'a versão do pacote entra no Info.plist (sed do package.json, sem node)');
+  assert.match(plist, /<key>LSMinimumSystemVersion<\/key><string>13\.0<\/string>/,
+    'o lancador informa ao macOS o requisito minimo do Electron 44');
 });
 
 test('install.sh com fonte COMPLETA (primeira instalação) continua copiando node_modules', { skip: temBash ? false : 'só roda em POSIX com bash' }, () => {

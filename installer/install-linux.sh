@@ -20,8 +20,21 @@ echo
 echo '  Farol . instalador (Linux, experimental)'
 echo '  ========================================'
 
+# Electron 44 so publica x64/arm64. Recusar antes de parar processos, apagar
+# node_modules ou tentar baixar um linux-armv7l que nao existe mais.
+[ "$(uname -s)" = 'Linux' ] || die 'Use este instalador em Linux.'
+case "$(uname -m)" in
+  x86_64) TARGET_ARCH=x64 ;;
+  aarch64|arm64) TARGET_ARCH=arm64 ;;
+  *) die 'O Farol requer Linux de 64 bits (x64 ou arm64). Electron 44 nao oferece binarios de 32 bits. A instalacao existente foi preservada.' ;;
+esac
+
 command -v gh >/dev/null 2>&1 || echo "  !  'gh' nao encontrado: o Farol instala, mas precisa dele (https://cli.github.com; gh auth login)."
 command -v claude >/dev/null 2>&1 || echo "  !  'claude' nao encontrado: o Farol instala, mas precisa do Claude Code no PATH."
+
+# --- runtime antes de alterar a instalacao -------------------------------------
+source "$SRC/installer/electron-runtime.sh"
+preparar_runtime 'electron/dist/electron'
 
 # --- encerra instancias em execucao ------------------------------------------
 step 'Encerrando instancias do Farol em execucao (se houver)'
@@ -42,24 +55,8 @@ for d in lib ui assets workspace-template installer tools; do
 done
 
 # --- dependencias (Electron) --------------------------------------------------
-step 'Copiando dependencias (node_modules)'
-rm -rf "$APP/node_modules"
-# fonte sem node_modules (clone limpo) cai direto no npm install la embaixo
-[ -d "$SRC/node_modules" ] && cp -R "$SRC/node_modules" "$APP/node_modules" || true
+instalar_runtime
 NATIVE="$APP/node_modules/electron/dist/electron"
-if [ -x "$NATIVE" ]; then
-  ok 'Electron ja presente no pacote'
-else
-  step 'Baixando o Electron (npm install, pode levar alguns minutos)'
-  command -v npm >/dev/null || die 'npm nao encontrado e o Electron linux nao veio no pacote. Instale o Node (https://nodejs.org) e rode de novo.'
-  (cd "$APP" && npm install --omit=dev --no-audit --no-fund)
-fi
-# npm pode pular o postinstall do electron (visto no WSL em 16/08: "added 13
-# packages" sem baixar o dist); o install.js dele e idempotente, roda direto
-if [ ! -x "$NATIVE" ] && [ -f "$APP/node_modules/electron/install.js" ]; then
-  step 'Baixando o binario do Electron (install.js)'
-  (cd "$APP/node_modules/electron" && node install.js)
-fi
 chmod +x "$NATIVE" 2>/dev/null || true
 # valida o binario que o lancador executa (mesma licao do install.sh do mac)
 [ -x "$NATIVE" ] || die "Electron nao instalado (faltou $NATIVE). Rode: cd $APP && npm install"

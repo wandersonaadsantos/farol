@@ -159,6 +159,13 @@ assim que se testa sem tocar a instalação real) e com um `pkill` neutro em
 `$HOME/.local/bin`, que o próprio script prependa no PATH: sem esse cuidado o
 `pkill -f '\.farol/app'` do installer mataria o Farol da máquina de quem roda a suíte.
 
+**Contrato atual com Electron 44:** preservar o runtime exige executá-lo com
+`ELECTRON_RUN_AS_NODE=1` e comprovar compatibilidade com o manifesto novo. Os
+instaladores preparam e validam o substituto em pasta temporária antes de parar o
+app ou copiar arquivos. O update leve recusa runtime incompatível e orienta usar
+o instalador completo. `npm install` sozinho já não baixa o binário do Electron;
+o fallback executa também `node node_modules/electron/install.js`.
+
 **2. O update aplicava e o app nunca reiniciava (`lib/engine/update.js`).** Mesmo com o
 item 1 corrigido, o ciclo não fechava: os arquivos novos chegavam ao disco e o app seguia
 rodando o código VELHO, com o toast prometendo "vai fechar e reabrir sozinho". A causa é
@@ -234,9 +241,9 @@ escapou.
   `$0`, o que quebra invocação por caminho relativo; rodar `bash ~/.farol/app/installer/install.sh`
   (o installer que o próprio projeto copia pra dentro do app) tem `SRC == APP` e destrói a
   instalação; `buildUpdateScriptMac` ignora o exit status do installer, então update que
-  falha não gera toast, log nem diálogo; e no Linux o `install-linux.sh` também apaga o
-  `node_modules` antes de saber se tem com que substituir, só que degrada pro `npm install`
-  em vez de quebrar.
+  falha não gera toast, log nem diálogo. A remoção antecipada de `node_modules` no
+  Linux foi corrigida no fluxo de preparação do Electron 44: primeiro valida o
+  runtime instalado ou prepara o substituto em uma pasta temporária.
 - Segue valendo o de sempre: **autostart** não existe no macOS, o **nome no Dock** é
   "Electron", e o `.app` vai pra `~/Applications`, não pra `/Applications`.
 
@@ -250,7 +257,7 @@ O que existe:
 
 - **Sessão de terminal**: os scripts bash do mac servem sem mudança; o que muda é o lançador. `pickLinuxTerminal(candidates, exists)` (pura, testada) escolhe na cadeia `x-terminal-emulator` (alternatives do Debian) → `gnome-terminal` → `konsole` → `xterm`; nenhum achado = toast alto com instrução, nunca silêncio. `spawnConsolePosix`/`spawnLoginConsolePosix` são o núcleo compartilhado mac/linux (o mac vira wrapper com `open -a Terminal`); o contrato M5 (exit != 0 = janela nunca abriu, limpa e devolve keys) vale igual nos dois.
 - **Update**: `buildUpdateScriptLinux` (pura, mesmo escaping do mac) roda `install-linux.sh` e reabre via `setsid ~/.farol/bin/farol`; `posixInstallerName(isMac)` escolhe o instalador do ramo posix.
-- **Instalação**: `installer/install-linux.sh` + `uninstall-linux.sh`. App em `~/.farol/app`, lançador `~/.farol/bin/farol` (exec no binário NATIVO `node_modules/electron/dist/electron`, mesma lição do mac), `.desktop` em `~/.local/share/applications` com ícone PNG. `FAROL_INSTALL_ROOT` permite instalar num root de teste sem tocar a instalação real (a lacuna A5 que o mac ainda tem). Fonte sem `node_modules` (clone limpo) cai no `npm install`.
+- **Instalação**: `installer/install-linux.sh` + `uninstall-linux.sh`. App em `~/.farol/app`, lançador `~/.farol/bin/farol` (exec no binário NATIVO `node_modules/electron/dist/electron`, mesma lição do mac), `.desktop` em `~/.local/share/applications` com ícone PNG. `FAROL_INSTALL_ROOT` permite instalar num root de teste sem tocar a instalação real (a lacuna A5 que o mac ainda tem). O Electron instalado só é preservado se atender ao manifesto; caso contrário, o substituto é preparado e validado em pasta temporária antes de alterar o app.
 - **UI**: exemplos de caminho decidem por `ehWin()` (Linux vê `~/`); autostart só aparece no Windows (`setLoginItemSettings` é no-op no Linux).
 
 Validação real (WSL Ubuntu-24.04, 16/08/2026, bancada oficial do ramo): `npm test` VERDE no Linux (1110 pass, incluindo os posix reais: killTree de grupo, quoting em bash, prefixo de auth); `install-linux.sh` rodou de ponta a ponta a partir de clone limpo com `FAROL_INSTALL_ROOT` (npm pulou o postinstall do electron e o fallback pro `install.js` cobriu, ver comentário no script); o app instalado ABRIU no WSLg pelo lançador e o engine respondeu HTTP 200 na 47170. NÃO validados (limite do WSLg, não do código): tray, notificações, sessão de terminal com emulador real (o WSL não tem terminal gráfico instalado; o caminho do "nenhum terminal" avisa alto por construção).
@@ -1574,11 +1581,13 @@ O repo é público desde sempre, mas até 17/08/2026 estava sem CI, sem proteç�
 com a aba de segurança inteiramente desligada. O que existe agora:
 
 **CI (`.github/workflows/ci.yml`).** `npm run check`, `npm run lint` e `npm test` em todo
-push na `main` e em todo PR, numa matriz Linux + Windows + macOS. Não roda `npm install`:
-a suíte usa o runner nativo e o Electron só serve pra abrir a janela. O job agregador
-**`ci`** é o único status check exigido pela proteção, então dá pra mexer na matriz sem
-reconfigurar a regra. O macOS na matriz é a única validação contínua do caminho POSIX
-(ver a seção "macOS: estado real"): rodada inteira em menos de 1 minuto.
+push na `main` e em todo PR, numa matriz Linux + Windows + macOS sem dependências
+instaladas. Uma segunda matriz, `electron`, instala a versão mínima declarada no
+manifesto e abre o aplicativo real com perfil temporário. O monitor externo fica
+desligado nesse smoke: não consulta contas nem inicia revisões. Artefatos registram
+runtime, janela, bandeja, notificação e autostart aplicável. O job agregador **`ci`**
+exige sucesso das DUAS matrizes, inclusive o smoke dos três sistemas; uma matriz
+cancelada ou pulada reprova. Veja `docs/ELECTRON-SMOKE.md` para os limites da prova.
 
 **Todo job tem teto de tempo** (`timeout-minutes`, travado em `test/ci-teto-de-tempo.test.js`):
 sem ele o default do GitHub é de SEIS HORAS, e em 30/08/2026 o job de macOS ficou preso no

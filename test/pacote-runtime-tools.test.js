@@ -107,3 +107,29 @@ for (const inst of instaladores) {
       `${path.basename(inst)} não copia tools/: update/instalação deixaria a cópia instalada sem o jira-mcp.js (a ordem na lista não importa, a presença sim)`);
   });
 }
+
+function toolsCopiadosNoOffline(fonte) {
+  const semComentarios = fonte.replace(/^\s*#.*$/gm, '');
+  for (const m of semComentarios.matchAll(/^for (\w+) in ([^;\n]+);\s*do([\s\S]*?)\bdone/gm)) {
+    const copia = m[3].match(/(?:^|;|\n)\s*cp\s+"\$SRC\/tools\/\$(\w+)"\s+"\$STAGING\/tools\/\$\1"/);
+    if (copia && copia[1] === m[1]) return m[2].trim().split(/\s+/).sort();
+  }
+  return [];
+}
+
+const offline = fs.readFileSync(path.join(raiz, 'tools/make-offline-mac.sh'), 'utf8').replace(/\r\n/g, '\n');
+test('offline macOS copia a mesma whitelist de tools do pacote leve', () => {
+  const loop = empacotador.match(/foreach \(\$t in @\(([^)]*)\)\) \{\s*Copy-Item[^\n]*\$Src 'tools'/);
+  assert.ok(loop, 'whitelist real de copia do pacote leve precisa ser encontrada');
+  const permitidos = [...loop[1].matchAll(/'([^']+)'/g)].map(m => m[1]).sort();
+  const copiados = toolsCopiadosNoOffline(offline);
+  assert.deepEqual(copiados, permitidos, 'offline deve levar runtime/build permitido, sem copiar ferramentas de desenvolvimento');
+  for (const ref of referenciados) assert.ok(copiados.includes(ref), `offline omite tools/${ref} usado em runtime`);
+});
+
+test('contraprova offline: mencionar Jira em comentario nao substitui copia no loop', () => {
+  const copiados = toolsCopiadosNoOffline(offline);
+  assert.ok(copiados.includes('jira-mcp.js'), 'a contraprova precisa partir de uma copia real');
+  const semJira = offline.replace(/(^for \w+ in [^;\n]*)\bjira-mcp\.js\s*/m, '$1');
+  assert.equal(toolsCopiadosNoOffline(semJira + '\n# cp "$SRC/tools/$t" "$STAGING/tools/$t"; jira-mcp.js\n').includes('jira-mcp.js'), false);
+});

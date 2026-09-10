@@ -35,6 +35,19 @@ Nada aqui muda o resultado de uma revisão. As três políticas mexem só em ORD
 - **Sessão que só produziu texto de progresso deixou de contar como decisão.** Uma resposta em prosa dizendo que está esperando lint, testes ou subagentes podia encobrir uma verificação interrompida ou uma ferramenta recusada, e o Farol seguia adiante como se tivesse um parecer. Agora, sem o resultado estruturado, a revisão fica explicitamente não concluída: não posta nada e não é relançada sozinha para repetir a ação que já tinha sido recusada. A falha ganhou nome próprio no Diagnóstico.
 - **A leitura do resultado da revisão ficou mais rigorosa e mais previsível.** Ela aceita o JSON puro ou um único bloco marcado como `json`, e parou de confundir chaves de template no meio da prosa com o começo do objeto. Bloco ambíguo, não encerrado ou fora do contrato continua sendo recusado, em vez de virar um parecer meio lido.
 - **O protocolo de revisão passou a exigir que as verificações necessárias terminem antes do parecer.** Quando alguma não puder concluir, a sessão devolve o envelope marcado como incompleto e pede decisão sua, em vez de omitir o resultado. Falha de lint do PR é evidência para a análise, não motivo para não entregar o parecer.
+## v2.57.6
+
+Conserta a conta dona da revisão em dois pontos e atualiza o Electron para a série 44, com prova de que o runtime instalado abre de verdade.
+
+**Correções**
+
+- **O card de "Precisa de você" some ao filtrar por conta.** A conta dona da revisão era descartada no caminho entre o motor e a tela, e sem ela o app tentava adivinhar pela organização do repositório. Em organização que não está cadastrada nas suas contas não havia palpite: o card aparecia em "Todas" e sumia ao escolher qualquer conta, sem erro e sem aviso. Em organização cadastrada o palpite acertava por coincidência, e por isso a falha ficou escondida.
+- **A conversa do PR passa a agir pela conta dona daquele PR.** Ao conversar sobre um PR de organização não cadastrada, a sessão caía na sua conta principal, e num repositório privado que essa conta não enxerga a postagem morria com "não encontrado". O app já sabia de quem era o PR e jogava essa informação fora; agora ele a usa, e a conta principal deixou de ser o palpite.
+
+**Melhorias**
+
+- **Electron atualizado da série 43 para a 44**, que é a base do aplicativo de janela.
+- **A instalação e a atualização conferem o runtime antes de dar por pronto.** A compatibilidade da versão distribuída passou a ser decidida por uma regra única, usada tanto pelo instalador quanto pelo update, e pacote sem requisito declarado ou com faixa fora do formato suportado recusa de forma explícita, pedindo o instalador completo, em vez de instalar algo que não abriria. O CI ganhou provas de execução real do Electron nos três sistemas, incluindo a assinatura necessária no macOS.
 
 ## v2.57.5
 
