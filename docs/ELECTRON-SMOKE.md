@@ -11,8 +11,9 @@ do smoke. Prepare o binário da mesma forma para a execução local.
 
 A matriz também executa o handshake real do servidor MCP/Jira com o comando e o
 ambiente produzidos pelo Farol. Site e credencial são sintéticos; initialize e
-tools/list não consultam o Jira. As contraprovas distinguem variável de ambiente
-ausente de variável presente com valor vazio.
+tools/list não consultam o Jira. A configuração deve selecionar o modo Node;
+remover a variável deve produzir modo browser. Valor vazio é apenas caracterizado,
+pois seu efeito varia entre os sistemas.
 
 O comando é `node tools/electron-smoke.js --output artifacts/electron-smoke`.
 Fora da CI, acrescente `--allow-desktop`: ele abre uma janela e uma notificação
@@ -35,11 +36,16 @@ Autostart está disponível no produto apenas no Windows. O probe usa uma entrad
 de registro com nome aleatório e a remove ao final, sem alterar a entrada Farol.
 macOS e Linux não são tratados como aprovações de um recurso que o app não oferece.
 O roundtrip verifica o registro nativo, sem simular reinício ou login do usuário.
-A notificação verifica o comportamento da API nativa e seu resultado; uma captura
-da janela não é evidência de entrega de uma notificação.
+A notificação verifica a aceitação pela API nativa e reprova falha ou timeout;
+isso não comprova exibição visual nem interação do usuário.
 
-Os artefatos da CI valem para o commit identificado na execução. Não demonstram
-que um instalador foi publicado ou que um aplicativo já instalado foi atualizado.
+No runner Linux, o helper `chrome-sandbox` recebe proprietário root e modo 4755,
+conforme exigido pelo Chromium distribuído. O smoke mantém o sandbox habilitado.
+
+Os artefatos da CI valem para o commit identificado na execução. O smoke usa o
+runtime original do Electron, sem validar assinatura ou notarização do bundle
+personalizado pelo instalador. Também não demonstra que um instalador foi
+publicado ou que um aplicativo já instalado foi atualizado.
 
 ## Compatibilidade de instalação
 

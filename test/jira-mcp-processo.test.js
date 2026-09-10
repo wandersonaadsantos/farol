@@ -10,8 +10,9 @@
 
    O defeito de campo tinha DUAS causas somadas, cada uma suficiente sozinha:
    a pasta `tools/` não era copiada pro app instalado, e o `command` do MCP é o
-   `process.execPath`, que no app é o binário do ELECTRON. Sem
-   `ELECTRON_RUN_AS_NODE` o Electron não serve o script.
+   `process.execPath`, que no app é o binário do ELECTRON. A variável
+   `ELECTRON_RUN_AS_NODE=1` garante o modo Node. Com a variável ausente, inicia
+   em modo browser, mesmo quando consegue responder ao MCP.
 
    O DESENHO QUE IMPORTA: o comando e o env NÃO são digitados aqui. Eles são
    lidos do `--mcp-config` que a PRODUÇÃO escreve (`escreverConfig` em
@@ -22,16 +23,16 @@
 
    Divisão de trabalho com o test/jira-composer.test.js: lá se prova que o config
    CARREGA o env (mutação que remove o env reprova lá, não aqui); aqui se prova
-   que o env FUNCIONA, e que sem ele não funciona. Um é a fiação, o outro é a
-   premissa da fiação.
+   que o env seleciona o modo Node real, e que sem ele o processo usa browser.
+   Um é a fiação, o outro é a premissa da fiação.
 
    O que se prova, falando JSON-RPC de verdade com o processo:
    1. sob NODE o servidor responde `initialize` e `tools/list` (portátil, roda no
-      CI, que não faz `npm install` e por isso não tem Electron);
+      job de qualidade da CI, que não instala Electron);
    2. sob ELECTRON, com o env que a produção escreveu, o resultado é o MESMO
       (pula quando o binário não está presente, mesmo idioma do
       installer-update-mac.test.js);
-   3. sob ELECTRON sem esse env, o processo roda e NÃO serve (vazio não é ausente);
+   3. sob ELECTRON o env produzido seleciona Node; removê-lo seleciona browser;
    4. site inexistente MORRE com erro legível em vez de travar o cliente MCP
       esperando resposta pra sempre.
 
@@ -86,6 +87,7 @@ function servidorDaProducao() {
   const cfg = JSON.parse(fs.readFileSync(arquivo, 'utf8'));
   const srv = cfg.mcpServers && cfg.mcpServers['farol-jira'];
   assert.ok(srv && srv.command && Array.isArray(srv.args), `config sem servidor utilizável: ${JSON.stringify(cfg)}`);
+  assert.equal(srv.env?.ELECTRON_RUN_AS_NODE, '1', 'a configuração precisa selecionar o modo Node em todos os sistemas');
   return srv;
 }
 
@@ -126,14 +128,6 @@ function conversar(cmd, args, env, mensagens, esperadas, tetoMs = 20000, remover
   });
 }
 
-test('sob electron: ELECTRON_RUN_AS_NODE vazio ainda ativa o servidor, não representa variável ausente',
-  { skip: TEM_ELECTRON ? false : SEM_ELECTRON },
-  async () => {
-    const srv = servidorDaProducao();
-    assert.equal(srv.env?.ELECTRON_RUN_AS_NODE, '1', 'o cenário vazio é contraprova da configuração real');
-    await provaDoHandshake(ELECTRON, srv.args, { ...srv.env, ELECTRON_RUN_AS_NODE: '' });
-  });
-
 // o contrato que o cliente MCP espera: um envelope JSON-RPC por linha
 const respostas = (linhas) => linhas.map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
 
@@ -156,22 +150,31 @@ async function provaDoHandshake(cmd, args, env) {
   assert.deepEqual(lista.result.tools.map(t => t.name).sort(), ['getJiraIssue', 'searchJiraIssuesUsingJql']);
 }
 
-test('Electron real: variável ausente usa browser; vazia ou 1 usa Node, na versão declarada',
-  { skip: TEM_ELECTRON ? false : SEM_ELECTRON }, async () => {
+test('Electron real: env da produção seleciona Node; removê-lo muda para browser',
+  { skip: TEM_ELECTRON ? false : SEM_ELECTRON }, async (t) => {
+    const srv = servidorDaProducao();
     const probe = path.join(SANDBOX, 'modo-electron.cjs');
     fs.writeFileSync(probe, "console.log(JSON.stringify({version:process.versions.electron, mode:process.type || 'node', present:Object.hasOwn(process.env,'ELECTRON_RUN_AS_NODE')})); process.exit(0);");
-    for (const value of [undefined, '', '1']) {
-      const env = value === undefined ? {} : { ELECTRON_RUN_AS_NODE: value };
-      const remover = value === undefined ? ['ELECTRON_RUN_AS_NODE'] : [];
+    async function modo(env, remover = []) {
       const { linhas, executou, erroDeSpawn } = await conversar(ELECTRON, [probe], env, [], 1, 8000, remover);
       assert.equal(erroDeSpawn, undefined);
       assert.equal(executou, true);
       const [result] = respostas(linhas);
       assert.ok(result, 'o processo deve informar o modo e a versão reais');
       assert.equal(electronVersionSatisfies(result.version, REQUISITO_ELECTRON), true);
-      assert.equal(result.present, value !== undefined);
-      assert.equal(result.mode, value === undefined ? 'browser' : 'node');
+      return result;
     }
+    const produzido = await modo(srv.env);
+    assert.equal(produzido.present, true);
+    assert.equal(produzido.mode, 'node', 'o env escrito pela produção precisa selecionar Node');
+    const removido = await modo({}, Object.keys(srv.env));
+    assert.equal(removido.present, false);
+    assert.equal(removido.mode, 'browser', 'remover o env deve reprovar o requisito de execução como Node');
+    // Valor vazio não é contrato portátil: Electron 44 o trata como Node no
+    // Windows e browser no macOS. Só caracterizamos, sem exigir esse modo.
+    const vazio = await modo({ ...srv.env, ELECTRON_RUN_AS_NODE: '' });
+    assert.equal(vazio.present, true);
+    t.diagnostic(`Electron ${produzido.version} em ${process.platform}: produção=${produzido.mode}, ausente=${removido.mode}, vazio=${vazio.mode}`);
   });
 
 test('sob node: o servidor MCP responde initialize e tools/list', async () => {
@@ -187,33 +190,6 @@ test('com o comando e o env que a PRODUÇÃO escreveu: mesmo handshake (o bug de
     // no teste é o node. Aqui o alvo é o binário do app, então troca-se só o
     // executável: os args e o env continuam sendo os que a produção declarou.
     await provaDoHandshake(ELECTRON, srv.args, srv.env || {});
-  });
-
-/* Sem esse env o Electron não serve o script. O que se afirma é o efeito
-   observável (o handshake NÃO acontece), nunca COMO ele falha: isso muda por
-   plataforma e por versão do Electron, e teste preso ao formato da falha alheia
-   quebra sozinho.
-
-   A guarda do `erroDeSpawn` não é zelo: sem ela este teste passaria também
-   quando o binário nem chega a executar (caminho errado, permissão, arquivo
-   corrompido), que é aprovação VAZIA. Ela é o que separa "o Electron rodou e não
-   conseguiu servir" de "nada aconteceu". Medido em 29/08/2026 no Windows: sem a
-   variável o processo morria em ~70ms com código 134; no Electron 44 também
-   pode encerrar normalmente como browser, sem servir MCP. O código de saída
-   não comprova o handshake: a contraprova exige spawn real e nenhuma resposta. */
-test('sob electron SEM o env da produção: o processo até roda, mas não há handshake',
-  { skip: TEM_ELECTRON ? false : SEM_ELECTRON },
-  async () => {
-    const srv = servidorDaProducao();
-    const removerEnv = Object.keys(srv.env || {});
-    assert.ok(removerEnv.length, 'a produção parou de declarar env: se isso for intencional, este teste perdeu o objeto e tem que sair junto');
-    // Electron 44 aceita até valor vazio como presença da variável. Removê-la
-    // do ambiente FINAL do spawn preserva a contraprova, mesmo se o runner a herdar.
-    const { linhas, erroDeSpawn, executou } = await conversar(ELECTRON, srv.args, {}, [INIT], 1, 8000, removerEnv);
-    assert.equal(erroDeSpawn, undefined, 'o binário tem que ter executado, senão este teste não prova nada');
-    assert.equal(executou, true, 'sem spawn confirmado não existe contraprova do handshake');
-    assert.equal(respostas(linhas).filter(r => r.id === 1 && r.result).length, 0,
-      'sem o env não pode existir handshake: se existir, ele virou código morto e o comentário do jira.js mente');
   });
 
 test('site inexistente: o servidor morre com erro legível em vez de travar o cliente', async () => {

@@ -12,6 +12,7 @@ import { installedElectronBinary, smokeEnv, validateSmokeReport } from './electr
 import { requiredElectronVersion } from '../lib/electron-runtime.js';
 import { readJson, writeJsonAtomic } from '../lib/io.js';
 import { semAsVariaveis } from '../lib/env.js';
+import { IS_WIN } from '../lib/paths.js';
 
 const root = path.dirname(import.meta.dirname);
 const PROCESS_TIMEOUT_MS = 5000;
@@ -48,7 +49,7 @@ function valorDeAutostartExiste(key, name) {
 }
 
 function limparAutostart(name) {
-  if (process.platform !== 'win32') return;
+  if (!IS_WIN) return;
   // Nome aleatório do probe: nunca apaga a entrada Farol nem enumera valores reais.
   for (const key of ['HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run',
     'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run']) {
@@ -61,7 +62,7 @@ function limparAutostart(name) {
 function encerrarArvore(child) {
   if (!child.pid) return;
   try {
-    if (process.platform === 'win32') execFileSync('taskkill.exe', ['/pid', String(child.pid), '/t', '/f'], { windowsHide: true, timeout: PROCESS_TIMEOUT_MS, stdio: 'pipe' });
+    if (IS_WIN) execFileSync('taskkill.exe', ['/pid', String(child.pid), '/t', '/f'], { windowsHide: true, timeout: PROCESS_TIMEOUT_MS, stdio: 'pipe' });
     else process.kill(-child.pid, 'SIGKILL');
   } catch (err) { if (child.exitCode === null) throw new Error(`Não consegui encerrar a árvore isolada PID ${child.pid}: ${err.message}`); }
 }
@@ -69,7 +70,7 @@ function encerrarArvore(child) {
 function executar(bin, args, env) {
   return new Promise((resolve, reject) => {
     const child = spawn(bin, args, { cwd: root, env, windowsHide: true,
-      detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] });
+      detached: !IS_WIN, stdio: ['ignore', 'pipe', 'pipe'] });
     const out = fs.createWriteStream(path.join(output, 'electron.stdout.log'));
     const err = fs.createWriteStream(path.join(output, 'electron.stderr.log'));
     child.stdout.pipe(out); child.stderr.pipe(err);
@@ -120,6 +121,6 @@ try {
     fs.rmSync(base, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   } catch (err) { errors.push(err.message); }
   writeJsonAtomic(path.join(output, 'cleanup.json'), { status: errors.length ? 'failed' : 'passed',
-    sandboxRemoved: !fs.existsSync(base), autostartChecked: process.platform === 'win32' && autostart, errors });
+    sandboxRemoved: !fs.existsSync(base), autostartChecked: IS_WIN && autostart, errors });
   if (errors.length) { process.exitCode = 1; console.error(errors.join('\n')); }
 }

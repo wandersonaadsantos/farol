@@ -7,9 +7,10 @@ import assert from 'node:assert/strict';
 import childProcess from 'node:child_process';
 import { syncBuiltinESMExports } from 'node:module';
 import { app, Notification, session } from 'electron';
-import { localRequest } from './electron-smoke-lib.js';
+import { localRequest, validateWindowEvidence, validateLoginItem } from './electron-smoke-lib.js';
 import { readJson, writeJsonAtomic } from '../lib/io.js';
 import { semAsVariaveis } from '../lib/env.js';
+import { IS_WIN, IS_LINUX } from '../lib/paths.js';
 
 if (!process.versions.electron) throw new Error('Este bootstrap exige o runtime Electron real.');
 const config = readJson(semAsVariaveis([]).FAROL_ELECTRON_SMOKE_CONFIG, null);
@@ -23,7 +24,7 @@ let main;
 let notification;
 let nativeLoginSetter;
 let loginWrites = 0;
-const loginArgs = [config.root, '--farol-electron-smoke', config.name];
+const loginArgs = [config.root, config.name];
 
 function writeReport() {
   writeJsonAtomic(path.join(config.output, 'result.json'), report);
@@ -63,7 +64,7 @@ function isolateProcesses() {
 }
 
 function isolateAutostart() {
-  if (process.platform !== 'win32') return;
+  if (!IS_WIN) return;
   nativeLoginSetter = app.setLoginItemSettings.bind(app);
   // Intercepta ANTES do import main: até autostart:false no boot removeria o
   // registro real. A chamada continua NATIVA, só muda para uma identidade única.
@@ -83,10 +84,30 @@ function watchRenderer(window) {
   });
 }
 
+async function checkNavigation(win) {
+  const navigation = [];
+  // Consumo só renderiza o snapshot já recebido; Sistema/Time disparam outras
+  // consultas que não pertencem à prova do shell isolado.
+  for (const tab of ['consumo', 'radar']) {
+    navigation.push(await win.webContents.executeJavaScript(`(() => {
+      const button = document.querySelector('#tabbtn-${tab}');
+      button.click();
+      return { tab: '${tab}', selected: button.getAttribute('aria-selected') === 'true',
+        visible: getComputedStyle(document.querySelector('#tab-${tab}')).display !== 'none',
+        activePanels: document.querySelectorAll('.tabpane.active').length, bodyTab: document.body.dataset.tab };
+    })()`));
+  }
+  return navigation;
+}
+
 async function checkWindow() {
   const win = await waitFor(() => main.win, 'main.js criar BrowserWindow');
   assert.equal(main.attachedToExisting, false, 'não pode anexar a um Farol já em execução');
   assert.equal(main.appUrl, origin);
+  const response = await fetch(origin + '/api/state');
+  assert.equal(response.status, 200, 'snapshot HTTP deve responder 200');
+  assert.ok(response.headers.get('content-type')?.includes('application/json'));
+  const snapshot = await response.json();
   const dom = await waitFor(async () => {
     if (win.webContents.isLoading()) return null;
     return win.webContents.executeJavaScript(`(() => {
@@ -96,16 +117,22 @@ async function checkWindow() {
         autostartHidden: getComputedStyle(document.querySelector('#rowAutostart')).display === 'none' } : null;
     })()`);
   }, 'UI real renderizar o estado do servidor');
-  assert.equal(dom.title, 'Farol');
-  assert.equal(dom.brand, 'Farol');
-  assert.ok(dom.version.includes(config.expectedApp));
-  assert.ok(dom.tabs > 1);
-  assert.notEqual(dom.status, 'iniciando…');
+  dom.navigation = await checkNavigation(win);
+  validateWindowEvidence(response.status, snapshot, dom, { expectedApp: config.expectedApp, platform: process.platform });
+  // Engine.start está desativado: "iniciando…" é o estado honesto enquanto não
+  // houve checagem. A prova é HTTP real + versão renderizada + handlers da UI.
+  assert.equal(snapshot.lastCheckAt, null, 'smoke não executa nem inventa checagem externa');
+  await waitFor(() => win.webContents.executeJavaScript(`(() => {
+    const panel = document.querySelector('.tabpane.active');
+    return getComputedStyle(panel).opacity === '1' && panel.getAnimations().every(animation =>
+      !Number.isFinite(animation.effect.getComputedTiming().endTime) || animation.playState === 'finished');
+  })()`), 'painel ativo concluir a pintura e a animação reais antes da captura');
   const image = await win.capturePage();
   assert.equal(image.isEmpty(), false);
   const screenshot = config.name + '-window.png';
   fs.writeFileSync(path.join(config.output, screenshot), image.toPNG());
-  report.checks.window = { status: 'passed', dom, bounds: win.getBounds(), url: win.webContents.getURL(), screenshot };
+  report.checks.window = { status: 'passed', dom, bounds: win.getBounds(), url: win.webContents.getURL(), screenshot,
+    httpSnapshot: { status: response.status, app: snapshot.app, engineStatus: snapshot.status, lastCheckAt: snapshot.lastCheckAt } };
 }
 
 async function checkTray() {
@@ -114,7 +141,7 @@ async function checkTray() {
   assert.ok(tray.listenerCount('click') > 0);
   // Electron só expõe getBounds para macOS/Windows. No Linux, objeto e
   // handler não comprovam que o painel do desktop desenhou o ícone.
-  const bounds = process.platform === 'linux' ? null : tray.getBounds();
+  const bounds = IS_LINUX ? null : tray.getBounds();
   main.win.hide();
   assert.equal(main.win.isVisible(), false);
   tray.emit('click');
@@ -141,7 +168,7 @@ function observeNotificationShow(nativeShow, resolve, timer) {
 
 async function checkNotification() {
   const supported = Notification.isSupported();
-  report.checks.notification = { supported, status: 'pending', delivered: false };
+  report.checks.notification = { supported, status: 'pending', acceptedByNativeApi: false, visualDisplay: 'not inspected' };
   assert.equal(supported, true, 'notificações nativas indisponíveis neste desktop');
   main.win.hide();
   await waitFor(() => !main.win.isFocused(), 'janela perder foco antes da notificação');
@@ -157,13 +184,13 @@ async function checkNotification() {
   assert.ok(notification, 'notify deve construir uma Notification real');
   const outcome = await outcomePromise;
   report.checks.notification = { supported, status: outcome.event === 'show' ? 'passed' : 'failed',
-    delivered: outcome.event === 'show', ...outcome, userClick: 'not exercised' };
+    acceptedByNativeApi: outcome.event === 'show', ...outcome, visualDisplay: 'not inspected', userClick: 'not exercised' };
   notification.close();
-  assert.equal(outcome.event, 'show', `notificação não foi exibida: ${outcome.error || outcome.event}`);
+  assert.equal(outcome.event, 'show', `API nativa não confirmou a notificação: ${outcome.error || outcome.event}`);
 }
 
 function checkAutostart() {
-  if (process.platform !== 'win32') {
+  if (!IS_WIN) {
     report.checks.autostart = { status: 'not-applicable', reason: 'Farol só oferece autostart no Windows.' };
     assert.equal(report.checks.window.dom.autostartHidden, true);
     return;
@@ -173,14 +200,18 @@ function checkAutostart() {
     report.checks.autostart = { status: 'not-executed', reason: 'Probe de registro não autorizado fora da CI.' };
     return;
   }
-  const options = { path: process.execPath, args: loginArgs };
-  assert.equal(app.getLoginItemSettings(options).openAtLogin, false, 'identidade única começa ausente');
+  // openAtLogin consulta só AppUserModelID; name custom aparece em launchItems.
+  // Não troca a identidade real do app para tornar o teste artificialmente verde.
+  const options = { path: `"${process.execPath}"`, args: loginArgs };
+  const expected = { name: config.name, path: process.execPath, args: loginArgs };
+  report.checks.autostart = { status: 'pending', isolatedName: config.name };
+  validateLoginItem(app.getLoginItemSettings(options), expected, false);
   main.engine.config.autostart = true;
   main.applyAutostart();
-  assert.equal(app.getLoginItemSettings(options).openAtLogin, true, 'API nativa gravou o login item isolado');
+  validateLoginItem(app.getLoginItemSettings(options), expected, true);
   main.engine.config.autostart = false;
   main.applyAutostart();
-  assert.equal(app.getLoginItemSettings(options).openAtLogin, false, 'API nativa removeu o login item isolado');
+  validateLoginItem(app.getLoginItemSettings(options), expected, false);
   report.checks.autostart = { status: 'passed', roundtrip: 'disabled -> enabled -> disabled', isolatedName: config.name };
 }
 

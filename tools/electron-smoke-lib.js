@@ -1,6 +1,7 @@
 // Helpers puros do smoke real do Electron. Nenhum deles importa o runtime nativo.
 import path from 'node:path';
 import fs from 'node:fs';
+import assert from 'node:assert/strict';
 
 function installedElectronBinary(root) {
   const electronDir = path.join(root, 'node_modules', 'electron');
@@ -42,4 +43,29 @@ function validateSmokeReport(report, expected) {
   return report;
 }
 
-export { installedElectronBinary, smokeEnv, localRequest, validateSmokeReport };
+function validateWindowEvidence(httpStatus, snapshot, dom, expected) {
+  assert.equal(httpStatus, 200, 'snapshot HTTP deve responder 200');
+  assert.deepEqual(snapshot?.app, { name: 'Farol', version: expected.expectedApp, platform: expected.platform }, 'snapshot identifica o app real');
+  assert.equal(dom.title, 'Farol');
+  assert.equal(dom.brand, 'Farol');
+  assert.equal(dom.version, `v${snapshot.app.version}`, 'versão renderizada deve corresponder ao snapshot HTTP');
+  assert.deepEqual(dom.navigation?.map(item => item.tab), ['consumo', 'radar'], 'navegação deve executar ida e volta');
+  for (const item of dom.navigation) {
+    assert.equal(item.selected, true, 'botão real deve selecionar a aba');
+    assert.equal(item.visible, true, 'painel da aba deve ficar visível');
+    assert.equal(item.activePanels, 1, 'só um painel deve ficar ativo');
+    assert.equal(item.bodyTab, item.tab, 'handler real atualiza a aba no body');
+  }
+}
+
+function validateLoginItem(settings, expected, enabled) {
+  const own = settings.launchItems.filter(item => item.name === expected.name);
+  assert.equal(own.length, enabled ? 1 : 0, 'entrada isolada deve existir só enquanto habilitada');
+  if (!enabled) return;
+  assert.equal(own[0].enabled, true, 'entrada isolada deve estar habilitada');
+  assert.equal(own[0].scope, 'user', 'entrada isolada deve pertencer ao usuário');
+  assert.equal(path.win32.normalize(own[0].path).toLowerCase(), path.win32.normalize(expected.path).toLowerCase());
+  assert.deepEqual(own[0].args, expected.args, 'argumentos devem corresponder ao probe isolado');
+}
+
+export { installedElectronBinary, smokeEnv, localRequest, validateSmokeReport, validateWindowEvidence, validateLoginItem };
