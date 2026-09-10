@@ -22,6 +22,6 @@
     "hooks:install": "git config core.hooksPath tools/hooks"
   },
   "dependencies": {
-    "electron": "^43.1.0"
+    "electron": "^44.1.0"
   }
 }

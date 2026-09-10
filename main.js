@@ -308,3 +308,6 @@ function applyAutostart() {
     });
   } catch { }
 }
+
+// Observação do shell real pelo smoke Electron; não altera boot, UI ou monitoramento.
+export { win, tray, engine, appUrl, attachedToExisting, notify, applyAutostart };

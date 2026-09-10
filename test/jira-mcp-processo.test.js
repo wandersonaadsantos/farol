@@ -10,8 +10,9 @@
 
    O defeito de campo tinha DUAS causas somadas, cada uma suficiente sozinha:
    a pasta `tools/` não era copiada pro app instalado, e o `command` do MCP é o
-   `process.execPath`, que no app é o binário do ELECTRON. Sem
-   `ELECTRON_RUN_AS_NODE` o Electron não serve o script.
+   `process.execPath`, que no app é o binário do ELECTRON. A variável
+   `ELECTRON_RUN_AS_NODE=1` garante o modo Node. Com a variável ausente, inicia
+   em modo browser, mesmo quando consegue responder ao MCP.
 
    O DESENHO QUE IMPORTA: o comando e o env NÃO são digitados aqui. Eles são
    lidos do `--mcp-config` que a PRODUÇÃO escreve (`escreverConfig` em
@@ -22,16 +23,16 @@
 
    Divisão de trabalho com o test/jira-composer.test.js: lá se prova que o config
    CARREGA o env (mutação que remove o env reprova lá, não aqui); aqui se prova
-   que o env FUNCIONA, e que sem ele não funciona. Um é a fiação, o outro é a
-   premissa da fiação.
+   que o env seleciona o modo Node real, e que sem ele o processo usa browser.
+   Um é a fiação, o outro é a premissa da fiação.
 
    O que se prova, falando JSON-RPC de verdade com o processo:
    1. sob NODE o servidor responde `initialize` e `tools/list` (portátil, roda no
-      CI, que não faz `npm install` e por isso não tem Electron);
+      job de qualidade da CI, que não instala Electron);
    2. sob ELECTRON, com o env que a produção escreveu, o resultado é o MESMO
       (pula quando o binário não está presente, mesmo idioma do
       installer-update-mac.test.js);
-   3. sob ELECTRON sem esse env, o processo roda e NÃO serve;
+   3. sob ELECTRON o env produzido seleciona Node; removê-lo seleciona browser;
    4. site inexistente MORRE com erro legível em vez de travar o cliente MCP
       esperando resposta pra sempre.
 
@@ -49,13 +50,19 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 
 const jira = await import('../lib/engine/jira.js');
+const { electronVersionSatisfies } = await import('../lib/electron-runtime.js');
 
 const SANDBOX = process.env.FAROL_HOME;
 const RAIZ = path.join(import.meta.dirname, '..');
 const ELECTRON = path.join(RAIZ, 'node_modules', 'electron', 'dist',
-  process.platform === 'win32' ? 'electron.exe' : 'electron');
+  process.platform === 'win32' ? 'electron.exe' : process.platform === 'darwin' ? 'Electron.app/Contents/MacOS/Electron' : 'electron');
 const TEM_ELECTRON = fs.existsSync(ELECTRON);
-const SEM_ELECTRON = 'electron não instalado (o CI não roda npm install, por invariante)';
+const SEM_ELECTRON = 'binário Electron não instalado neste checkout';
+const REQUISITO_ELECTRON = JSON.parse(fs.readFileSync(path.join(RAIZ, 'package.json'), 'utf8')).dependencies.electron;
+const PERFIL = { HOME: path.join(SANDBOX, 'home'), USERPROFILE: path.join(SANDBOX, 'home'),
+  APPDATA: path.join(SANDBOX, 'appdata'), LOCALAPPDATA: path.join(SANDBOX, 'localdata'),
+  XDG_CONFIG_HOME: path.join(SANDBOX, 'appdata'), XDG_CACHE_HOME: path.join(SANDBOX, 'localdata') };
+for (const dir of Object.values(PERFIL)) fs.mkdirSync(dir, { recursive: true });
 
 const SITE = { id: 'sandbox', label: 'sandbox', baseUrl: 'https://exemplo.atlassian.net', owners: ['orga'], projectKeys: ['XX'] };
 // O FILHO lê site e credencial DO DISCO, por conta própria: o `--mcp-config`
@@ -80,6 +87,7 @@ function servidorDaProducao() {
   const cfg = JSON.parse(fs.readFileSync(arquivo, 'utf8'));
   const srv = cfg.mcpServers && cfg.mcpServers['farol-jira'];
   assert.ok(srv && srv.command && Array.isArray(srv.args), `config sem servidor utilizável: ${JSON.stringify(cfg)}`);
+  assert.equal(srv.env?.ELECTRON_RUN_AS_NODE, '1', 'a configuração precisa selecionar o modo Node em todos os sistemas');
   return srv;
 }
 
@@ -91,18 +99,24 @@ const LISTA = rpc(2, 'tools/list');
    linhas de resposta (ou quando o processo morrer, ou no teto de tempo). Resolver
    por CONTAGEM e não por sleep fixo é o que mantém o teste rápido no Node e ainda
    tolerante com o boot mais lento do Electron. */
-function conversar(cmd, args, env, mensagens, esperadas, tetoMs = 20000) {
+function conversar(cmd, args, env, mensagens, esperadas, tetoMs = 20000, removerEnv = []) {
   return new Promise((resolve) => {
-    const p = spawn(cmd, args, { env: { ...process.env, ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
-    let out = '', err = '', pronto = false;
+    const ambiente = { ...process.env, ...PERFIL, ...env };
+    const removidos = new Set(removerEnv.map(k => k.toUpperCase()));
+    for (const key of Object.keys(ambiente)) {
+      if (removidos.has(key.toUpperCase())) delete ambiente[key];
+    }
+    const p = spawn(cmd, args, { env: ambiente, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+    let out = '', err = '', pronto = false, executou = false;
     const fim = (extra = {}) => {
       if (pronto) return;
       pronto = true;
       clearTimeout(timer);
       try { p.kill(); } catch { /* já morreu */ }
-      resolve({ linhas: out.split('\n').map(l => l.trim()).filter(Boolean), err, ...extra });
+      resolve({ linhas: out.split('\n').map(l => l.trim()).filter(Boolean), err, executou, ...extra });
     };
     const timer = setTimeout(fim, tetoMs);
+    p.once('spawn', () => { executou = true; });
     p.on('error', (e) => fim({ erroDeSpawn: e.message }));
     p.on('exit', (code) => fim({ code }));
     p.stderr.on('data', (d) => { err += d; });
@@ -118,8 +132,9 @@ function conversar(cmd, args, env, mensagens, esperadas, tetoMs = 20000) {
 const respostas = (linhas) => linhas.map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
 
 async function provaDoHandshake(cmd, args, env) {
-  const { linhas, err, erroDeSpawn } = await conversar(cmd, args, env, [INIT, LISTA], 2);
+  const { linhas, err, erroDeSpawn, executou } = await conversar(cmd, args, env, [INIT, LISTA], 2);
   assert.equal(erroDeSpawn, undefined, `não deu pra lançar o servidor: ${erroDeSpawn}`);
+  assert.equal(executou, true, 'o processo precisa ter sido lançado de verdade');
   const rs = respostas(linhas);
   assert.equal(rs.length, 2, `esperava 2 envelopes JSON-RPC, veio ${rs.length}. stderr: ${err.slice(0, 400)}`);
 
@@ -135,6 +150,33 @@ async function provaDoHandshake(cmd, args, env) {
   assert.deepEqual(lista.result.tools.map(t => t.name).sort(), ['getJiraIssue', 'searchJiraIssuesUsingJql']);
 }
 
+test('Electron real: env da produção seleciona Node; removê-lo muda para browser',
+  { skip: TEM_ELECTRON ? false : SEM_ELECTRON }, async (t) => {
+    const srv = servidorDaProducao();
+    const probe = path.join(SANDBOX, 'modo-electron.cjs');
+    fs.writeFileSync(probe, "console.log(JSON.stringify({version:process.versions.electron, mode:process.type || 'node', present:Object.hasOwn(process.env,'ELECTRON_RUN_AS_NODE')})); process.exit(0);");
+    async function modo(env, remover = []) {
+      const { linhas, executou, erroDeSpawn } = await conversar(ELECTRON, [probe], env, [], 1, 8000, remover);
+      assert.equal(erroDeSpawn, undefined);
+      assert.equal(executou, true);
+      const [result] = respostas(linhas);
+      assert.ok(result, 'o processo deve informar o modo e a versão reais');
+      assert.equal(electronVersionSatisfies(result.version, REQUISITO_ELECTRON), true);
+      return result;
+    }
+    const produzido = await modo(srv.env);
+    assert.equal(produzido.present, true);
+    assert.equal(produzido.mode, 'node', 'o env escrito pela produção precisa selecionar Node');
+    const removido = await modo({}, Object.keys(srv.env));
+    assert.equal(removido.present, false);
+    assert.equal(removido.mode, 'browser', 'remover o env deve reprovar o requisito de execução como Node');
+    // Valor vazio não é contrato portátil: Electron 44 o trata como Node no
+    // Windows e browser no macOS. Só caracterizamos, sem exigir esse modo.
+    const vazio = await modo({ ...srv.env, ELECTRON_RUN_AS_NODE: '' });
+    assert.equal(vazio.present, true);
+    t.diagnostic(`Electron ${produzido.version} em ${process.platform}: produção=${produzido.mode}, ausente=${removido.mode}, vazio=${vazio.mode}`);
+  });
+
 test('sob node: o servidor MCP responde initialize e tools/list', async () => {
   const srv = servidorDaProducao();
   await provaDoHandshake(process.execPath, srv.args, {});
@@ -148,30 +190,6 @@ test('com o comando e o env que a PRODUÇÃO escreveu: mesmo handshake (o bug de
     // no teste é o node. Aqui o alvo é o binário do app, então troca-se só o
     // executável: os args e o env continuam sendo os que a produção declarou.
     await provaDoHandshake(ELECTRON, srv.args, srv.env || {});
-  });
-
-/* Sem esse env o Electron não serve o script. O que se afirma é o efeito
-   observável (o handshake NÃO acontece), nunca COMO ele falha: isso muda por
-   plataforma e por versão do Electron, e teste preso ao formato da falha alheia
-   quebra sozinho.
-
-   A guarda do `erroDeSpawn` não é zelo: sem ela este teste passaria também
-   quando o binário nem chega a executar (caminho errado, permissão, arquivo
-   corrompido), que é aprovação VAZIA. Ela é o que separa "o Electron rodou e não
-   conseguiu servir" de "nada aconteceu". Medido em 29/08/2026 no Windows: sem a
-   variável o processo morre em ~70ms com código 134 e uma asserção interna do
-   Electron no stderr; com ela, executa como Node em ~86ms. */
-test('sob electron SEM o env da produção: o processo até roda, mas não há handshake',
-  { skip: TEM_ELECTRON ? false : SEM_ELECTRON },
-  async () => {
-    const srv = servidorDaProducao();
-    const limpo = Object.fromEntries(Object.keys(srv.env || {}).map(k => [k, '']));
-    assert.ok(Object.keys(limpo).length, 'a produção parou de declarar env: se isso for intencional, este teste perdeu o objeto e tem que sair junto');
-    const { linhas, erroDeSpawn, code } = await conversar(ELECTRON, srv.args, limpo, [INIT], 1, 8000);
-    assert.equal(erroDeSpawn, undefined, 'o binário tem que ter executado, senão este teste não prova nada');
-    assert.notEqual(code, 0, 'sem o env o processo não pode terminar bem: se terminar, a premissa do fix mudou');
-    assert.equal(respostas(linhas).filter(r => r.id === 1 && r.result).length, 0,
-      'sem o env não pode existir handshake: se existir, ele virou código morto e o comentário do jira.js mente');
   });
 
 test('site inexistente: o servidor morre com erro legível em vez de travar o cliente', async () => {
