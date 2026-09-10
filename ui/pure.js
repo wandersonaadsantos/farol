@@ -1596,6 +1596,7 @@ function comMotivo(base, motivo, rotulo = '') {
 }
 const PARKED_FRASE = {
   cancelado: () => 'cancelada por você',
+  autenticacao: () => 'a credencial usada na revisão expirou; renove o login do perfil em Sistema > Plano e chaves antes de clicar em Revisar',
   orcamento: (motivo) => comMotivo('o orçamento estourou', motivo),
   esgotado: (motivo) => comMotivo('falhou várias vezes seguidas', motivo, 'último erro: '),
   falha: (motivo) => comMotivo('falhou', motivo),

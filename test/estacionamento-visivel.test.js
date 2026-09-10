@@ -30,6 +30,7 @@ after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: 
 // mensagem REAL do farol.log de 03/09/2026 (7 linhas idênticas entre 10:47 e 11:56)
 const MSG_529 = 'sessão retornou erro: API Error: 529 Overloaded. This is a server-side issue, usually temporary — try again in a moment. If it persists, check https://status.claude.com.';
 const MSG_CONTRATO = 'JSON da sessão fora do contrato';
+const MSG_OAUTH_EXPIRADO = 'sessão retornou erro: Failed to authenticate. API Error: 401 OAuth access token has expired. Re-authenticate to continue. (após 2 tentativa(s) de reconexão com a API)';
 
 function engineBase() {
   const e = new Engine();
@@ -55,6 +56,42 @@ test('falha permanente estaciona com motivo, tipo e hora', async () => {
   assert.equal(info.tipo, 'falha');
   assert.match(info.motivo, /fora do contrato/);
   assert.ok(!isNaN(Date.parse(info.at)), 'a hora é um ISO legível');
+});
+
+test('OAuth expirado estaciona na primeira falha e não agenda retry de rede', async () => {
+  const e = engineBase();
+  const pr = prDe('o/oauth#1');
+  let tentativas = 0;
+  e.runHeadlessReview = async () => { tentativas++; throw new Error(MSG_OAUTH_EXPIRADO); };
+  await e.runOneHeadless(pr, 'eu');
+  assert.equal(tentativas, 1);
+  assert.equal(e.autoReviewParked.has(pr.key), true);
+  assert.equal(e.parkedMotivos[pr.key].tipo, 'falha');
+  assert.equal(e.parkedMotivos[pr.key].motivo, MSG_OAUTH_EXPIRADO);
+  assert.equal(e.retryAfterNet.has(pr.key), false);
+  assert.ok(e.queue.some(p => p.key === pr.key), 'o PR continua visível para ação manual');
+});
+
+test('OAuth expirado remove retry anterior para não relançar no próximo ciclo', async () => {
+  const e = engineBase();
+  const pr = prDe('o/oauth#2');
+  e.retryAfterNet.set(pr.key, { tries: 1, pr, notBefore: null });
+  e.runHeadlessReview = async () => { throw new Error(MSG_OAUTH_EXPIRADO); };
+  await e.runOneHeadless(pr, 'eu');
+  assert.equal(e.autoReviewParked.has(pr.key), true);
+  assert.equal(e.parkedMotivos[pr.key].tipo, 'falha');
+  assert.equal(e.retryAfterNet.has(pr.key), false);
+  assert.ok(!e.retryTargets(new Set(), new Set()).some(p => p.key === pr.key));
+});
+
+test('reconexão sem OAuth expirado segue no retry transitório', async () => {
+  const e = engineBase();
+  const pr = prDe('o/rede#1');
+  e.runHeadlessReview = async () => { throw new Error('sessão retornou erro: API Error (após 2 tentativa(s) de reconexão com a API)'); };
+  await e.runOneHeadless(pr, 'eu');
+  assert.equal(e.autoReviewParked.has(pr.key), false);
+  assert.equal(e.retryAfterNet.get(pr.key).tries, 1);
+  assert.ok(e.retryTargets(new Set(), new Set()).some(p => p.key === pr.key));
 });
 
 test('cancelamento estaciona com tipo cancelado', async () => {

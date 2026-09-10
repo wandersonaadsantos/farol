@@ -19,6 +19,8 @@ const MSG = {
   limite: "sessão retornou erro: You've hit your weekly limit · resets 9pm (America/Sao_Paulo)",
   assinatura: 'sessão retornou erro: Your organization has disabled Claude subscription access for Claude Code · Use an Anthropic API key instead, or ask your admin to enable access',
   credencial: 'sessão retornou erro: Invalid API key · Fix external API key',
+  // 10/09/2026: o 401 de OAuth expirado era classificado como rede pelo sufixo.
+  oauthExpirado: 'sessão retornou erro: Failed to authenticate. API Error: 401 OAuth access token has expired. Re-authenticate to continue. (após 2 tentativa(s) de reconexão com a API)',
   credito: 'sessão retornou erro: API Error: 402 OpenRouter returned 402: {"error":{"message":"This request requires more credits...',
   rede: 'error connecting to api.github.com',
   redeSessao: 'sessão retornou erro: fetch failed',
@@ -45,7 +47,7 @@ const MSG = {
 test('CLASSES: toda classe tem os cinco campos e um kind válido', () => {
   const KINDS = ['operacional', 'espera-reset', 'transitorio', 'permanente'];
   const GRUPOS = ['operacional', 'ambiente', 'credencial', 'rede', 'app'];
-  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 13, 'são 13 classes');
+  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 15, 'são 15 classes');
   for (const c of CLASSES) {
     assert.equal(typeof c.id, 'string');
     assert.ok(c.label, `${c.id} precisa de label humano`);
@@ -65,17 +67,34 @@ test('CLASSES: ids únicos', () => {
 test('CLASSES: a ordem é a documentada (primeira que casar vence)', () => {
   assert.deepEqual(CLASSES.map(c => c.id), [
     'restart-fila', 'console-fechado', 'limite-plano', 'assinatura-bloqueada',
-    'credencial-invalida', 'credito-insuficiente', 'rede', 'github-indisponivel',
+    'oauth-expirado', 'credencial-invalida', 'credito-insuficiente', 'resultado-invalido', 'rede', 'github-indisponivel',
     'provedor-indisponivel', 'token-gh', 'skip-permissions-root', 'tempo-esgotado', 'ferramenta'
   ]);
 });
 
 /* ---------- classify: mensagens reais ---------- */
 
+test('resultado ausente ou inválido tem diagnóstico próprio e não provoca retry', () => {
+  for (const message of [
+    'a sessão não devolveu JSON (71 caracteres de texto, nenhum objeto)',
+    'revisão não concluída: a sessão não devolveu JSON (o resultado veio vazio)',
+    'JSON da sessão inválido',
+    'JSON da sessão ambíguo: múltiplos blocos json',
+    'JSON da sessão com bloco json não encerrado',
+    'JSON da sessão fora do contrato',
+  ]) {
+    const c = classify(message);
+    assert.equal(c.id, 'resultado-invalido');
+    assert.equal(c.kind, 'permanente');
+  }
+  assert.notEqual(classify('ESLint: 10 erros prettier/prettier no PR').id, 'resultado-invalido');
+});
+
 const CASOS = [
   ['limite-plano', MSG.limite],
   ['assinatura-bloqueada', MSG.assinatura],
   ['credencial-invalida', MSG.credencial],
+  ['oauth-expirado', MSG.oauthExpirado],
   ['credito-insuficiente', MSG.credito],
   ['rede', MSG.rede],
   ['rede', MSG.redeSessao],
@@ -110,6 +129,31 @@ test('classify: a ORDEM importa, console-fechado ganha de ferramenta', () => {
   assert.equal(c.id, 'console-fechado');
   assert.equal(c.kind, 'operacional');
   assert.match(MSG.console, /saiu com c[óo]digo \d/i, 'confirma que o texto casaria com ferramenta também');
+});
+
+test('classify: OAuth expirado exige ação na credencial, mesmo após reconexões', () => {
+  for (const msg of [MSG.oauthExpirado, 'authentication_error: OAuth access token has expired', 'OAUTH ACCESS TOKEN HAS EXPIRED']) {
+    const c = classify(msg);
+    assert.equal(c.id, 'oauth-expirado');
+    assert.equal(c.grupo, 'credencial');
+    assert.equal(c.kind, 'permanente');
+    assert.equal(c.label, 'Token OAuth expirado');
+  }
+});
+
+test('classify: reconexão sem OAuth expirado continua transitória', () => {
+  const c = classify(MSG.redeReconexao);
+  assert.equal(c.id, 'rede');
+  assert.equal(c.kind, 'transitorio');
+});
+
+test('classify: 401 genérico não inventa OAuth expirado nem atribui o erro ao Claude', () => {
+  for (const msg of ['API Error: 401 Unauthorized', 'gh: Bad credentials (HTTP 401)', 'Failed to authenticate. Re-authenticate to continue.']) {
+    const c = classify(msg);
+    assert.equal(c.id, 'desconhecido');
+    assert.equal(c.kind, 'permanente');
+    assert.doesNotMatch(c.label, /Claude|OAuth/i);
+  }
 });
 
 test('classify: nunca devolve null e nunca lança com entrada inválida', () => {
@@ -360,6 +404,19 @@ test('triage: carrega label, grupo e kind da classe', () => {
   assert.equal(g.label, 'Limite do plano Claude');
   assert.equal(g.grupo, 'ambiente');
   assert.equal(g.kind, 'espera-reset');
+});
+
+test('triage: histórico de OAuth expirado vira credencial mesmo com antigo aviso transitório', () => {
+  const [g] = triage([
+    L('2026-09-10 09:40:00 -03:00', 'WARN', 'revisao acme/app#1 (transitório, tenta de novo): ' + MSG.oauthExpirado),
+    L('2026-09-10 09:42:00 -03:00', 'ERROR', 'revisao autonoma acme/app#1: ' + MSG.oauthExpirado),
+  ]);
+  assert.equal(g.id, 'oauth-expirado');
+  assert.equal(g.label, 'Token OAuth expirado');
+  assert.equal(g.grupo, 'credencial');
+  assert.equal(g.kind, 'permanente');
+  assert.equal(g.count, 2);
+  assert.deepEqual(g.refs, ['acme/app#1']);
 });
 
 test('triage: first e last são o primeiro e o último evento do grupo', () => {

@@ -254,9 +254,10 @@ test('spawnCodexLoginConsole (Windows): registra terminal sem keys e revalida do
 // pura loginConsoleEnv tem os seus em claude-profiles.test.js): sem ele, o helper podia
 // existir certinho e ninguém chamar, que é exatamente o defeito do fanOutBlock na v2.27.0.
 test('spawnLoginConsole (Windows): env da máquina com ANTHROPIC_API_KEY não chega no console de login', { skip: process.platform !== 'win32' ? 'caminho Windows do spawnLoginConsole' : false }, () => {
-  const antes = { key: process.env.ANTHROPIC_API_KEY, tok: process.env.ANTHROPIC_AUTH_TOKEN };
+  const antes = { key: process.env.ANTHROPIC_API_KEY, tok: process.env.ANTHROPIC_AUTH_TOKEN, oauth: process.env.CLAUDE_CODE_OAUTH_TOKEN };
   process.env.ANTHROPIC_API_KEY = 'sk-da-maquina';
   process.env.ANTHROPIC_AUTH_TOKEN = 'tok-da-maquina';
+  process.env.CLAUDE_CODE_OAUTH_TOKEN = 'oauth-expirado-da-maquina';
   let capturedEnv = null;
   spawnImpl = (cmd, args, opts) => { capturedEnv = opts.env; return new EventEmitter(); };
   try {
@@ -264,11 +265,13 @@ test('spawnLoginConsole (Windows): env da máquina com ANTHROPIC_API_KEY não ch
     assert.ok(capturedEnv, 'env foi passado pro spawn');
     assert.equal('ANTHROPIC_API_KEY' in capturedEnv, false, 'a chave da máquina anularia o login OAuth do perfil');
     assert.equal('ANTHROPIC_AUTH_TOKEN' in capturedEnv, false);
+    assert.equal('CLAUDE_CODE_OAUTH_TOKEN' in capturedEnv, false, 'um /login novo não pode ser encoberto pelo token herdado');
     assert.equal(capturedEnv.CLAUDE_CONFIG_DIR, 'C:\\biud-trabalho', 'o perfil resolvido do login é quem manda');
   } finally {
     spawnImpl = null;
     if (antes.key === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = antes.key;
     if (antes.tok === undefined) delete process.env.ANTHROPIC_AUTH_TOKEN; else process.env.ANTHROPIC_AUTH_TOKEN = antes.tok;
+    if (antes.oauth === undefined) delete process.env.CLAUDE_CODE_OAUTH_TOKEN; else process.env.CLAUDE_CODE_OAUTH_TOKEN = antes.oauth;
   }
 });
 

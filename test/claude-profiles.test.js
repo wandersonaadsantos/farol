@@ -287,18 +287,20 @@ function comEnvDaMaquina(vars, fn) {
 }
 
 test('loginConsoleEnv: chave/token de auth da máquina NÃO entram no console de login', () => {
-  comEnvDaMaquina({ ANTHROPIC_API_KEY: 'sk-da-maquina', ANTHROPIC_AUTH_TOKEN: 'tok-da-maquina' }, () => {
+  comEnvDaMaquina({ ANTHROPIC_API_KEY: 'sk-da-maquina', ANTHROPIC_AUTH_TOKEN: 'tok-da-maquina', CLAUDE_CODE_OAUTH_TOKEN: 'oauth-expirado-da-maquina' }, () => {
     const env = loginConsoleEnv('C:\\perfil-assinatura');
     assert.equal('ANTHROPIC_API_KEY' in env, false, 'chave da máquina anularia o login OAuth do perfil');
     assert.equal('ANTHROPIC_AUTH_TOKEN' in env, false);
+    assert.equal('CLAUDE_CODE_OAUTH_TOKEN' in env, false, 'token herdado não pode vencer o /login do perfil');
     assert.equal(env.CLAUDE_CONFIG_DIR, 'C:\\perfil-assinatura');
   });
 });
 
 test('loginConsoleEnv: sem dir (padrão da máquina) limpa mesmo assim e não seta CLAUDE_CONFIG_DIR', () => {
-  comEnvDaMaquina({ ANTHROPIC_API_KEY: 'sk-da-maquina', CLAUDE_CONFIG_DIR: 'C:\\herdado' }, () => {
+  comEnvDaMaquina({ ANTHROPIC_API_KEY: 'sk-da-maquina', CLAUDE_CONFIG_DIR: 'C:\\herdado', CLAUDE_CODE_OAUTH_TOKEN: 'oauth-expirado-da-maquina' }, () => {
     const env = loginConsoleEnv('');
     assert.equal('ANTHROPIC_API_KEY' in env, false);
+    assert.equal('CLAUDE_CODE_OAUTH_TOKEN' in env, false);
     assert.equal('CLAUDE_CONFIG_DIR' in env, false, 'dir herdado do ambiente mentiria sobre onde o login foi gravado');
   });
 });
@@ -329,6 +331,11 @@ test('ghEnv: injeta CLAUDE_CONFIG_DIR do perfil da conta', () => {
   engine.tokens = { bob: 't-b', alice: 't-a' }; // ghEnv estrito: conta pedida precisa de token
   assert.equal(engine.ghEnv('bob').CLAUDE_CONFIG_DIR, 'C:\\biud-trabalho');
   assert.equal(engine.ghEnv('alice').CLAUDE_CONFIG_DIR, 'C:\\pessoal');
+  comEnvDaMaquina({ CLAUDE_CODE_OAUTH_TOKEN: 'oauth-expirado-da-maquina' }, () => {
+    const env = engine.ghEnv('bob');
+    assert.equal('CLAUDE_CODE_OAUTH_TOKEN' in env, false, 'a sessão usa o login do perfil da conta');
+    assert.equal(env.CLAUDE_CONFIG_DIR, 'C:\\biud-trabalho');
+  });
 });
 
 test('ghEnv: sem profiles, comportamento legado (claudeConfigDir global ou nenhum)', () => {

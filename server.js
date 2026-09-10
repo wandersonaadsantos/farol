@@ -27,7 +27,7 @@ import {
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
   applyClaudeAuthEnv, claudeAuthShellLines,
   sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort,
-  sanitizeParallelReviews
+  sanitizeParallelReviews, sanitizeGlobalParallelReviews
 } from './lib/parse.js';
 import io, { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, prependPathDirs } from './lib/io.js';
 import updateMod from './lib/engine/update.js';
@@ -122,7 +122,7 @@ const PARSERS = {
   parseAccounts, parseProjectReviewers, parseDefaultReviewers, parsePeople,
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
   sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort,
-  sanitizeParallelReviews, parseJiraSites,
+  sanitizeParallelReviews, sanitizeGlobalParallelReviews, parseJiraSites,
 };
 
 // carência anti-lag do índice de busca do GitHub: logo após EU postar um review, o PR
@@ -204,6 +204,9 @@ class Engine extends EventEmitter {
     // paralelismo por conta: mesmo tratamento (boot engole config.json editado à mão);
     // o escalonador clampa de novo por defesa em profundidade (parallelLimit em review.js)
     this.config.parallelReviews = sanitizeParallelReviews(this.config.parallelReviews) ?? DEFAULTS.parallelReviews;
+    // teto GLOBAL de revisoes simultaneas (Politica 3): mesmo tratamento de boot, e o
+    // escalonador clampa de novo (globalParallelLimit em review.js). 0 = desligado.
+    this.config.globalParallelReviews = sanitizeGlobalParallelReviews(this.config.globalParallelReviews) ?? DEFAULTS.globalParallelReviews;
     // perfil de review por pessoa (papel + matriz por domínio); migra a senioridade plana antiga pro campo `papel`
     this.config.people = migrateSeniorityToPeople(this.config.seniority, parsePeople(this.config.people));
     delete this.config.seniority;
@@ -239,6 +242,19 @@ class Engine extends EventEmitter {
     this.sessionSeq = 0;
     this.headlessQueue = [];
     this.headlessBusyAccounts = new Map(); // conta -> nº de revisões headless rodando (teto = config.parallelReviews, default 1)
+    /* Rodizio por org (Politica 1 da spec 2026-09-10-justica-de-fila-entre-orgs):
+       org (owner, minusculo) -> { seq, at } da ultima revisao headless INICIADA dela.
+       O escalonador da a proxima vaga pra org de menor `seq`, e org ausente do Map
+       (nunca atendida) ganha de todas. `seq` e um contador monotonico e nao o relogio,
+       porque o escalonador dispara varias revisoes no mesmo milissegundo e o empate
+       apagaria a alternancia justamente no lote que a feature existe pra resolver;
+       `at` fica so pra tela dizer "atendida ha 12 min", nunca decide a vez.
+
+       EFEMERO de proposito, como headlessBusyAccounts: o rodizio e sobre a fila VIVA.
+       Persistir a ultima org atendida faria o primeiro PR depois de um restart herdar
+       uma divida de ontem, e o app abriria ja devendo a vez pra alguem. */
+    this.orgLastStart = new Map();
+    this.headlessSeq = 0;
     this.decisions = readJson(path.join(STATE_DIR, 'decisions.json'), { pending: [], resolved: [] }, warn);
     this.pushbacks = readJson(path.join(STATE_DIR, 'pushbacks.json'), {}, warn); // { key do PR: { author, outcome, note, at, source, status, confidence } }
     // registros antigos (sem source) eram todos marcados à mão e confirmados
