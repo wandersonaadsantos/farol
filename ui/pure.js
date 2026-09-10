@@ -312,10 +312,11 @@ export function accountSaveArray(list) {
     if (a.onCaveats === 'approve' || a.onCaveats === 'wait') o.onCaveats = a.onCaveats;
     if (a.onReject === 'request_changes' || a.onReject === 'wait') o.onReject = a.onReject;
     if (a.claudeProfileId) o.claudeProfileId = a.claudeProfileId;
-    // peso da conta no rateio da cota do perfil (Politica 2). So viaja quando e
-    // POSITIVO: 0/negativo zerariam a cota e barrariam a conta pra sempre, e o
-    // parseAccounts do server recusa do mesmo jeito (defesa nas duas pontas).
-    if (Number(a.budgetWeight) > 0) o.budgetWeight = Number(a.budgetWeight);
+    // peso da conta no rateio da cota do perfil (Politica 2). O serializador so decide
+    // se o campo VIAJA (ausente = padrao, e ausente nao vira `undefined` no JSON); o que
+    // conta como peso valido e decidido num lugar so, o parseAccounts do server, que e a
+    // fronteira de persistencia. Repetir a regra aqui seria uma terceira copia dela.
+    if (a.budgetWeight != null && a.budgetWeight !== '') o.budgetWeight = a.budgetWeight;
     return o;
   });
 }

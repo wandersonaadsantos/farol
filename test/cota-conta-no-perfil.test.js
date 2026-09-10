@@ -200,11 +200,17 @@ test('contasDoPerfil só junta quem divide o MESMO perfil, e ignora silenciada e
 // O peso viaja pela UI: accountSaveArray é quem monta o array salvo pelo painel Contas.
 const { accountSaveArray } = await import('../ui/pure.js');
 
-test('accountSaveArray leva o peso quando ele existe e não inventa quando é o padrão', () => {
+test('accountSaveArray decide se o peso VIAJA, e nunca o que é peso válido', () => {
+  // a fronteira de persistência (parseAccounts) é a fonte de verdade sobre peso válido;
+  // o serializador da tela só evita mandar campo ausente como `undefined`.
   const [com] = accountSaveArray([{ user: 'a', owners: [], budgetWeight: 2 }]);
   assert.equal(com.budgetWeight, 2);
-  for (const torto of [undefined, 0, -1, 'x']) {
-    const [sem] = accountSaveArray([{ user: 'a', owners: [], budgetWeight: torto }]);
-    assert.equal(sem.budgetWeight, undefined, `peso ${JSON.stringify(torto)} não pode ser salvo`);
+  for (const ausente of [undefined, null, '']) {
+    const [sem] = accountSaveArray([{ user: 'a', owners: [], budgetWeight: ausente }]);
+    assert.equal('budgetWeight' in sem, false, `peso ausente (${JSON.stringify(ausente)}) não vira campo`);
   }
+  // peso torto ATRAVESSA o serializador de propósito e morre no parseAccounts, que é
+  // onde a regra mora: ver o teste "parseAccounts guarda o peso e recusa..." acima.
+  const [torto] = accountSaveArray([{ user: 'a', owners: [], budgetWeight: -1 }]);
+  assert.equal(parseAccounts([torto])[0].budgetWeight, undefined);
 });
