@@ -219,7 +219,16 @@ try {
 }
 
 function rodaComProfileSujo(prefixo, extraEnv = {}) {
-  const base = path.join(os.tmpdir(), 'farol-test-prefixo-' + process.pid).replace(/\\/g, '/');
+  /* Diretório EXCLUSIVO (mkdtemp), e não um nome derivado do pid dentro do tmp
+     compartilhado. É a mesma correção que o teste do inflight já levou (48545c4):
+     nome previsível num diretório que qualquer processo da máquina escreve é a brecha
+     clássica de arquivo temporário, e aqui ela vale dobrado, porque o que se escreve é
+     um SCRIPT que o teste manda o bash executar em seguida. O CodeQL aponta isso como
+     js/insecure-temporary-file, e ele tem razão.
+
+     O diretório inteiro sai no finally, então não sobra rastro por rodada. */
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-prefixo-'));
+  const base = path.join(dir, 'p').replace(/\\/g, '/');
   const profile = `${base}-profile.sh`;
   const script = `${base}-run.sh`;
   fs.writeFileSync(profile, [
@@ -234,7 +243,7 @@ function rodaComProfileSujo(prefixo, extraEnv = {}) {
   try {
     return execFileSync('bash', [script], { env: { ...process.env, ...extraEnv } }).toString().trim();
   } finally {
-    for (const f of [profile, script]) { try { fs.unlinkSync(f); } catch { /* best-effort */ } }
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* best-effort */ }
   }
 }
 
