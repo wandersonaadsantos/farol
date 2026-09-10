@@ -11,7 +11,7 @@ e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
 ## v2.58.0
 
-Quem tem mais de uma conta do GitHub revisando sozinha para de ver uma delas monopolizar a fila.
+Quem tem mais de uma conta do GitHub revisando sozinha para de ver uma delas monopolizar a fila. Junto, um bloco de correções em credencial expirada e na leitura do resultado da revisão.
 
 **Novidades**
 
@@ -27,6 +27,14 @@ Quem tem mais de uma conta do GitHub revisando sozinha para de ver uma delas mon
 - O aviso de orçamento deixou de ser um alerta passageiro que some: quando uma conta cede a vez, o motivo também fica registrado no log, com os dois lados nomeados.
 
 Nada aqui muda o resultado de uma revisão. As três políticas mexem só em ORDEM e ADMISSÃO: um PR atendido mais cedo ou mais tarde recebe exatamente a mesma revisão, com os mesmos gates de aprovação de sempre.
+
+**Correções**
+
+- **Token OAuth expirado deixou de ser tratado como problema de rede.** A mensagem do provedor vem com um sufixo de tentativas de reconexão, e isso fazia a falha ser lida como transitória: o Farol relançava a revisão contra uma credencial que não ia funcionar, até esgotar as tentativas, e o PR parava com "falhou várias vezes seguidas". Agora a credencial expirada é reconhecida na primeira falha, e o card diz o que de fato resolve, que é renovar o login do perfil em Plano e chaves antes de clicar em Revisar. Vale também para os PRs que já estavam parados por tentativas esgotadas.
+- **Um token OAuth solto no ambiente da máquina deixou de vencer o perfil escolhido.** O Farol já limpava as variáveis de chave, de URL e de diretório antes de cada sessão, mas não o `CLAUDE_CODE_OAUTH_TOKEN`, que passa por cima do login salvo no diretório do perfil. Na prática, um token expirado esquecido no shell se reinjetava em toda sessão nova e derrubava a revisão sem nada na tela explicar. Agora ele é removido junto com as outras, no ambiente e também dentro do shell no macOS e no Linux, onde o perfil do usuário é carregado depois.
+- **Sessão que só produziu texto de progresso deixou de contar como decisão.** Uma resposta em prosa dizendo que está esperando lint, testes ou subagentes podia encobrir uma verificação interrompida ou uma ferramenta recusada, e o Farol seguia adiante como se tivesse um parecer. Agora, sem o resultado estruturado, a revisão fica explicitamente não concluída: não posta nada e não é relançada sozinha para repetir a ação que já tinha sido recusada. A falha ganhou nome próprio no Diagnóstico.
+- **A leitura do resultado da revisão ficou mais rigorosa e mais previsível.** Ela aceita o JSON puro ou um único bloco marcado como `json`, e parou de confundir chaves de template no meio da prosa com o começo do objeto. Bloco ambíguo, não encerrado ou fora do contrato continua sendo recusado, em vez de virar um parecer meio lido.
+- **O protocolo de revisão passou a exigir que as verificações necessárias terminem antes do parecer.** Quando alguma não puder concluir, a sessão devolve o envelope marcado como incompleto e pede decisão sua, em vez de omitir o resultado. Falha de lint do PR é evidência para a análise, não motivo para não entregar o parecer.
 
 ## v2.57.5
 
