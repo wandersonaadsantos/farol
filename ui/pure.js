@@ -2910,9 +2910,9 @@ function fjContaHtml(c) {
   // Sem foto aqui: sao as contas do proprio dono do app, numa lista curta, e o avatar
   // repetido brigaria com a barra de cota que e o assunto da linha.
   const para = (c.cedendoPara || []).map(u => personMention(u, '', true)).join(', ');
-  const marca = c.cedendo
-    ? `<span class="fj-tag fj-tag-cede">cedendo a vez para ${para}</span>`
-    : (c.esperando ? '<span class="fj-tag">com PR esperando</span>' : '');
+  let marca = '';
+  if (c.cedendo) marca = `<span class="fj-tag fj-tag-cede">cedendo a vez para ${para}</span>`;
+  else if (c.esperando) marca = '<span class="fj-tag">com PR esperando</span>';
   const peso = c.peso !== 1 ? ` <span class="fj-peso">peso ${esc(c.peso)}</span>` : '';
   return `<div class="fj-conta${c.cedendo ? ' is-cedendo' : ''}">
     <div class="fj-conta-top"><span class="fj-user">${personMention(c.user, '', true)}</span>${peso} ${marca}</div>

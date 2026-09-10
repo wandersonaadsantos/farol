@@ -14,7 +14,7 @@ process.env.FAROL_HOME = process.env.FAROL_HOME || path.join(os.tmpdir(), 'farol
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-const usageMod = (await import('../lib/engine/usage.js')).default;
+const usageMod = (await import('../lib/engine/quota.js')).default;
 
 const HOJE = '2026-09-10';
 const perfil = (extra = {}) => ({ id: 'p1', label: 'Principal', budgetDaily: 100, ...extra });

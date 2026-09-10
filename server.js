@@ -63,6 +63,7 @@ import skipMod from './lib/engine/skip-review.js';
 import checksMod from './lib/engine/checks-exigidos.js';
 import signalMod from './lib/engine/review-signal.js';
 import usageMod from './lib/engine/usage.js';
+import quotaMod from './lib/engine/quota.js';
 import { EDITAVEIS, defaults as settingsDefaults, sanear } from './lib/settings.js';
 import { parseJiraSites, maskJiraSites } from './lib/jira/sites.js';
 import credMod from './lib/jira/credentials.js';
@@ -802,13 +803,7 @@ class Engine extends EventEmitter {
       // nenhum, o aviso sairia do Set todo ciclo e o toast de cota repetiria sem parar,
       // que é exatamente o barulho que este Set existe pra impedir.
       for (const chave of [...this.budgetWarned]) {
-        const corte = String(chave).indexOf('|');
-        if (corte >= 0) {
-          if (!this.quotaBlockedFor(String(chave).slice(corte + 1))) this.budgetWarned.delete(chave);
-          continue;
-        }
-        const profile = (this.config.claudeProfiles || []).find(p => p.id === chave);
-        if (!profile || !this.profileBudgetStatus(profile).blocked) this.budgetWarned.delete(chave);
+        if (!this._avisoDeOrcamentoAindaVale(chave)) this.budgetWarned.delete(chave);
       }
       const { panorama, queue, fresh, mineList, ownersOk, monitoredOwners } = await this._coletarPanorama();
 
@@ -1165,22 +1160,7 @@ class Engine extends EventEmitter {
            O aviso NOMEIA os dois lados. O toast antigo dizia só "orçamento do perfil X
            estourado", e com duas contas no mesmo perfil essa frase escondia justamente o
            que a pessoa precisa saber: quem consumiu e quem ficou sem vez. */
-        const cota = this.quotaBlockedFor(acct);
-        if (cota) {
-          // chave por perfil+conta, e não só por perfil: duas contas cedendo a vez são
-          // dois fatos diferentes, e colapsá-las esconderia uma das duas.
-          const chave = `${cota.profile.id}|${acct}`;
-          if (!this.budgetWarned.has(chave)) {
-            this.budgetWarned.add(chave);
-            const para = cota.cedendoPara.map(u => `@${u}`).join(', ');
-            const texto = `@${acct} atingiu a cota do dia dentro do perfil "${cota.profile.label}" (US$ ${cota.spent.toFixed(2)} de US$ ${cota.quota.toFixed(2)}) e está cedendo a vez para ${para}. Volta sozinha quando a fila do outro lado esvaziar ou o dia virar; clique manual continua liberado.`;
-            this.emit('toast', { kind: 'info', text: texto });
-            // rastro DURÁVEL pelo mesmo motivo do teto: toast some, e visto de fora uma
-            // automação em rodízio é idêntica a uma automação quebrada.
-            this.log('INFO', `cota: @${acct} cedeu a vez para ${cota.cedendoPara.join(', ')} no perfil "${cota.profile.label}" (gasto US$ ${cota.spent.toFixed(2)} de cota US$ ${cota.quota.toFixed(2)}).`);
-          }
-          return false;
-        }
+        if (this._registraCotaCedida(acct)) return false;
         return true;
       });
       if (freshActive.length > 0) {
@@ -1919,7 +1899,7 @@ class Engine extends EventEmitter {
   quotaBlockedFor(acct) {
     const profile = this.profileOfAccount(acct);
     if (!profile) return null;
-    const st = usageMod.quotaStatusFor(
+    const st = quotaMod.quotaStatusFor(
       profile,
       (this.usageSessions && this.usageSessions.sessions) || [],
       this.contasDoPerfil(profile.id),
@@ -1961,26 +1941,71 @@ class Engine extends EventEmitter {
 
     const sessions = (this.usageSessions && this.usageSessions.sessions) || [];
     const tipico = usageMod.custoTipicoDoEngine(this);
-    const porPerfil = (this.config.claudeProfiles || []).map(profile => {
-      const contas = this.contasDoPerfil(profile.id);
-      return {
-        id: profile.id,
-        label: profile.label || profile.id,
-        tetoDoDia: usageMod.dailyCapFor(profile, usageMod.localDay()),
-        contas: contas.map(c => {
-          const st = usageMod.quotaStatusFor(profile, sessions, contas, c.user, tipico);
-          return {
-            user: c.user, peso: usageMod.pesoDaConta(c), esperando: c.waiting,
-            cota: st.quota, gasto: st.spent, cedendo: st.blocked, cedendoPara: st.cedendoPara,
-          };
-        }),
-      };
-    }).filter(p => p.contas.length > 0);
+    const porPerfil = (this.config.claudeProfiles || [])
+      .map(profile => this._filaJustaDoPerfil(profile, sessions, tipico))
+      .filter(p => p.contas.length > 0);
 
     let total = 0;
     for (const n of this.headlessBusyAccounts.values()) total += n;
     const tetoGlobal = Number(this.config.globalParallelReviews) || 0;
     return { porOrg, porPerfil, emCurso: total, tetoGlobal };
+  }
+
+  /* Gate da COTA no enfileiramento (Política 2). Devolve true quando esta conta cede a
+     vez. Mora num método próprio, e não inline no filtro do toReview, pelo mesmo motivo
+     do `_registraPulo` logo acima: o filtro já é o ponto mais aninhado do check(), e
+     enfiar mais um bloco com aviso dentro dele passa do teto de profundidade do gate de
+     qualidade do repo (tools/quality) — que é uma régua boa, não burocracia.
+
+     O aviso NOMEIA os dois lados. O toast antigo dizia só "orçamento do perfil X
+     estourado", e com duas contas no mesmo perfil essa frase escondia justamente o que
+     a pessoa precisa saber: quem consumiu e quem ficou sem vez. */
+  _registraCotaCedida(acct) {
+    const cota = this.quotaBlockedFor(acct);
+    if (!cota) return false;
+    // chave por perfil+conta, e não só por perfil: duas contas cedendo a vez são dois
+    // fatos diferentes, e colapsá-las esconderia uma das duas.
+    const chave = `${cota.profile.id}|${acct}`;
+    if (this.budgetWarned.has(chave)) return true;
+    this.budgetWarned.add(chave);
+    const para = cota.cedendoPara.map(u => `@${u}`).join(', ');
+    const gasto = cota.spent.toFixed(2), teto = cota.quota.toFixed(2);
+    this.emit('toast', { kind: 'info', text: `@${acct} atingiu a cota do dia dentro do perfil "${cota.profile.label}" (US$ ${gasto} de US$ ${teto}) e está cedendo a vez para ${para}. Volta sozinha quando a fila do outro lado esvaziar ou o dia virar; clique manual continua liberado.` });
+    // rastro DURÁVEL pelo mesmo motivo do teto: toast some, e vista de fora uma
+    // automação em rodízio é idêntica a uma automação quebrada.
+    this.log('INFO', `cota: @${acct} cedeu a vez para ${cota.cedendoPara.join(', ')} no perfil "${cota.profile.label}" (gasto US$ ${gasto} de cota US$ ${teto}).`);
+    return true;
+  }
+
+  // uma linha do painel por perfil. Separado do filaJusta() pelo mesmo motivo do
+  // _registraCotaCedida: o map dentro do map passava do teto de profundidade do gate.
+  _filaJustaDoPerfil(profile, sessions, tipico) {
+    const contas = this.contasDoPerfil(profile.id);
+    return {
+      id: profile.id,
+      label: profile.label || profile.id,
+      tetoDoDia: usageMod.dailyCapFor(profile, usageMod.localDay()),
+      contas: contas.map(c => {
+        const st = quotaMod.quotaStatusFor(profile, sessions, contas, c.user, tipico);
+        return {
+          user: c.user, peso: quotaMod.pesoDaConta(c), esperando: c.waiting,
+          cota: st.quota, gasto: st.spent, cedendo: st.blocked, cedendoPara: st.cedendoPara,
+        };
+      }),
+    };
+  }
+
+  /* O aviso de orçamento guardado em `budgetWarned` ainda descreve a realidade ATUAL?
+     Desde a Política 2 o Set guarda DOIS formatos: `idDoPerfil` (teto duro estourado) e
+     `idDoPerfil|conta` (cota da conta cedendo a vez). Reconciliar os dois é obrigatório:
+     tratar a chave composta como id de perfil não acharia perfil nenhum, o aviso sairia
+     do Set todo ciclo e o toast de cota repetiria sem parar, que é exatamente o barulho
+     que este Set existe pra impedir. */
+  _avisoDeOrcamentoAindaVale(chave) {
+    const corte = String(chave).indexOf('|');
+    if (corte >= 0) return !!this.quotaBlockedFor(String(chave).slice(corte + 1));
+    const profile = (this.config.claudeProfiles || []).find(p => p.id === chave);
+    return !!(profile && this.profileBudgetStatus(profile).blocked);
   }
 
   pushState() { this.emit('state', this.snapshot()); }
