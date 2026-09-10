@@ -10,7 +10,7 @@ import { app, Notification, session } from 'electron';
 import { localRequest, validateWindowEvidence, validateLoginItem, createIsolatedLoginSetter } from './electron-smoke-lib.js';
 import { readJson, writeJsonAtomic } from '../lib/io.js';
 import { semAsVariaveis } from '../lib/env.js';
-import { IS_WIN, IS_LINUX, IS_MAC } from '../lib/paths.js';
+import { IS_WIN, IS_LINUX } from '../lib/paths.js';
 
 if (!process.versions.electron) throw new Error('Este bootstrap exige o runtime Electron real.');
 const config = readJson(semAsVariaveis([]).FAROL_ELECTRON_SMOKE_CONFIG, null);
@@ -171,13 +171,6 @@ function observeNotificationShow(nativeShow, resolve, timer) {
 
 async function checkNotification() {
   const supported = Notification.isSupported();
-  // isSupported cria o presenter nativo, que pede autorização assincronamente.
-  // Só a CI Mac mantém o processo vivo para observar esse pedido; não há clique,
-  // retry ou aprovação sintética. O show real abaixo ainda precisa passar.
-  if (IS_MAC && config.macosDiagnostics && semAsVariaveis([]).CI === 'true') {
-    stage('notification-permission-requested');
-    await new Promise(resolve => setTimeout(resolve, 20000));
-  }
   report.checks.notification = { supported, status: 'pending', acceptedByNativeApi: false, visualDisplay: 'not inspected' };
   assert.equal(supported, true, 'notificações nativas indisponíveis neste desktop');
   main.win.hide();

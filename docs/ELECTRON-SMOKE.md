@@ -50,13 +50,6 @@ A preparação de teste não altera o código do Farol nem concede permissão de
 notificação: a chamada nativa ainda precisa ser aceita para o smoke passar.
 Essa assinatura é exclusiva da CI; não é assinatura de distribuição ou notarização.
 
-Enquanto investigamos a autorização no macOS, a CI também mantém o processo vivo
-por 20 segundos após iniciar o pedido e registra assinatura, árvore de
-acessibilidade e capturas do desktop aos 2 e 10 segundos. O diagnóstico não clica
-em diálogos nem altera permissões. Erros de observação ficam explícitos e não
-comprovam ausência de um diálogo; falha ou timeout da notificação continuam
-reprovando o smoke.
-
 Os artefatos da CI valem para o commit identificado na execução. O smoke usa o
 runtime declarado, com a preparação de assinatura de teste descrita acima no
 macOS, sem validar assinatura ou notarização do bundle personalizado pelo
