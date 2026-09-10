@@ -9,6 +9,25 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.58.0
+
+Quem tem mais de uma conta do GitHub revisando sozinha para de ver uma delas monopolizar a fila.
+
+**Novidades**
+
+- **A fila passou a alternar entre as orgs em vez de atender por ordem de chegada.** O Farol sempre separou o trabalho por CONTA, então duas contas nunca disputaram vez entre si; o que não existia era divisão entre as ORGS de uma mesma conta. Uma org de alto volume comia o lugar sozinha e a org pequena esperava a fila inteira da grande esvaziar. Agora a próxima vaga vai para a org que está esperando há mais tempo, e dentro da mesma org continua valendo a ordem de chegada. Na prática: com dez PRs de uma org e um de outra, o PR sozinho entra na segunda vaga, não na décima primeira. Quem tem uma org por conta não vê diferença nenhuma, porque com uma org só o rodízio é exatamente a ordem de chegada.
+- **Cada conta ganhou uma cota dentro do perfil de IA que ela usa.** O teto de gasto sempre foi do perfil, não da conta: duas contas apontando para o mesmo perfil dividiam um teto único, e a de alto volume queimava a cota do dia sozinha. A outra era barrada sem nunca ter tido uma revisão, e o aviso falava do perfil, então nem dava para ver quem tinha consumido. Agora o teto do dia é dividido entre as contas que usam aquele perfil, e o aviso diz quem cedeu a vez, para quem e quanto falta.
+- **A cota só vale quando há disputa de verdade.** Se ninguém do outro lado está esperando, a conta segue sendo atendida até o teto do perfil, exatamente como antes. Dividir só faz sentido quando há o que dividir: nenhum dólar do teto fica sem ser gasto guardando a vez de quem não chegou. Vale a mesma regra em toda a feature: com fila, o Farol divide; sem fila, o que chegar é atendido.
+- **Teto global de revisões simultâneas, opcional.** Um limite do total rodando ao mesmo tempo somando todas as contas, em Sistema > Automação. Vem desligado, que é o comportamento de sempre. Ligue se a máquina ou a API sentirem o volume: a vaga que liberar vai para a org que está esperando há mais tempo, não para a primeira da fila.
+- **Um painel de Justiça de fila na aba Consumo.** Mostra, por org, quantos PRs esperam e quando ela foi atendida pela última vez; e, por perfil, cada conta contra a própria cota, marcando quem está cedendo a vez. Ele existe porque uma automação que cede a vez, vista de fora, é idêntica a uma automação quebrada: nos dois casos o PR fica parado e nada explica. O painel some sozinho quando não há rodízio nenhum a explicar.
+- **Peso por conta, para quem não quer divisão igual.** No painel Contas, uma conta pode valer o dobro, o triplo ou a metade das outras no rateio da cota. O padrão é todo mundo igual.
+
+**Melhorias**
+
+- O aviso de orçamento deixou de ser um alerta passageiro que some: quando uma conta cede a vez, o motivo também fica registrado no log, com os dois lados nomeados.
+
+Nada aqui muda o resultado de uma revisão. As três políticas mexem só em ORDEM e ADMISSÃO: um PR atendido mais cedo ou mais tarde recebe exatamente a mesma revisão, com os mesmos gates de aprovação de sempre.
+
 ## v2.57.5
 
 Completa a v2.57.4: PR que já estava estacionado antes dela também ganha o aviso no card.

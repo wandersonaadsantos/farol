@@ -581,6 +581,82 @@ O CLAUDE.md **já avisava** disso no parágrafo do `reReviewTargets` ("as MESMAS
 travas do toReview: quem mexer lá, mexe aqui") e eu acrescentei uma trava nova sem
 espelhar. Aviso em prosa não substitui invariante no código.
 
+### Justiça de fila entre orgs e contas (v2.58.0)
+
+Spec: `docs/superpowers/specs/2026-09-10-justica-de-fila-entre-orgs-design.md`.
+
+**O invariante que manda nas três políticas: elas são WORK-CONSERVING.** Se existe PR
+elegível esperando e existe slot ou cota disponível, alguma revisão dispara. Nenhuma
+política pode deixar recurso ocioso pra "guardar a vez" de quem não chegou. É a regra
+do Wanderson (10/09/2026) escrita como invariante: *com fila, divide; sem fila, o que
+chegar é atendido.* Quem mexer aqui e sentir vontade de segurar uma vaga vazia está
+quebrando a feature, não melhorando ela.
+
+**Segundo invariante: justiça mexe em ORDEM e ADMISSÃO, nunca em VEREDITO.** Nada deste
+bloco toca `verdict`, `decision`, `cardMet`, `shouldAutoApprove`, `shouldAutoReject` ou
+o corpo postado. Um PR atendido mais cedo ou mais tarde recebe exatamente a mesma
+revisão. É o que mantém o invariante 4 ("nada é postado no GitHub sem gate") intacto.
+
+**Política 1, rodízio por org** (`proximoHeadless`/`headlessOrg` em `lib/engine/review.js`).
+O escalonador já isolava por CONTA (`headlessBusyAccounts`), então contas diferentes
+NUNCA disputaram slot entre si; o que não existia era divisão entre as ORGS de uma mesma
+conta, e ali a escolha era FIFO puro. Agora, entre os ELEGÍVEIS (conta abaixo de
+`parallelReviews`), ganha a org de menor `seq` em `engine.orgLastStart`; org ausente do
+Map (nunca atendida) vale `-Infinity` e ganha de todas; empate resolve por ordem de
+chegada, o que faz uma org só se comportar exatamente como antes da feature.
+
+A ordem é por CONTADOR MONOTÔNICO (`engine.headlessSeq`) e **não por relógio**:
+`Date.now()` tem granularidade de milissegundo e o escalonador dispara várias revisões
+no mesmo tick, então o empate de relógio apagaria a alternância justamente no lote que a
+feature existe pra resolver. O `at` guardado junto é só pra tela dizer "atendida há 12
+min"; ele nunca decide a vez. `orgLastStart` é EFÊMERO como o `headlessBusyAccounts`:
+persistir a última org atendida faria o primeiro PR depois de um restart herdar uma
+dívida de ontem, e o app abriria já devendo a vez pra alguém.
+
+**Política 2, cota de conta dentro do perfil** (`quotaStatusFor`/`accountSpendInProfile`
+em `lib/engine/usage.js`, `quotaBlockedFor`/`contasDoPerfil` em `server.js`). O teto de
+orçamento sempre foi do PERFIL: duas contas no mesmo `claudeProfileId` dividiam um teto
+único, a de alto volume queimava a cota do dia sozinha, e a outra era barrada no gate de
+enfileiramento sem NUNCA ter tido uma revisão. Pior, o toast falava do perfil, então nem
+dava pra ver quem consumiu.
+
+A cota é o teto do dia rateado por peso (`accounts[].budgetWeight`, default 1) entre as
+contas ATIVAS (não silenciadas, com `autoReview` ligado) daquele perfil. **A cláusula
+que faz a feature ser o que é: a cota só barra quando existe OUTRA conta do mesmo perfil
+esperando na fila E que ainda cabe na cota dela.** Sem disputa, quem chegou é atendido
+até o teto duro, como sempre. Ceder pra quem também estourou não devolveria a vez a
+ninguém, só deixaria o teto sem gastar, que é exatamente o que o invariante proíbe.
+
+O teto DURO do perfil (`profileBudgetStatus`) continua valendo por cima e é avaliado
+ANTES: perfil estourado barra todo mundo, e essa é a mensagem certa. A cota é um segundo
+motivo, mais cedo e mais seletivo. **Nada aqui fura o teto.**
+
+`waiting` (quem está esperando) sai da fila VIVA e de propósito NÃO reconsulta o gate de
+orçamento: isso recursaria, porque o gate é justamente quem chama `contasDoPerfil`. Os
+filtros ali são os baratos e síncronos do `toReview`.
+
+`budgetWarned` guarda DOIS formatos desde aqui: `idDoPerfil` (teto duro) e
+`idDoPerfil|conta` (cota). A reconciliação no topo do `check()` trata os dois no mesmo
+laço; tratar a chave composta como id de perfil não acharia perfil nenhum, o aviso sairia
+do Set todo ciclo e o toast repetiria sem parar, que é o barulho que o Set existe pra
+impedir.
+
+**Política 3, teto global** (`globalParallelLimit`, `config.globalParallelReviews`).
+Limita o TOTAL somando todas as contas. **Default 0 = desligado**, o comportamento de
+sempre. Clampa 1..8 no consumidor além do saneamento (defesa em profundidade, padrão do
+`parallelLimit`), e negativo vira 0 e não 1: config torta não pode LIGAR uma trava que
+ninguém pediu. **Só é seguro porque a Política 1 existe:** teto global sozinho concentra,
+porque quem tem mais PR na fila ocupa o teto inteiro; com o rodízio decidindo quem ocupa
+cada vaga liberada, ele vira distribuição de vazão em vez de corrida.
+
+**Visibilidade é parte da feature, não enfeite** (`filaJusta()` no snapshot,
+`filaJustaHtml` em `ui/pure.js`, painel na aba Consumo). Mesma lição do estacionamento
+visível (v2.57.4) e do rastro durável do gate de orçamento: uma automação que CEDE A VEZ,
+vista de fora, é idêntica a uma automação QUEBRADA. Nos dois casos o PR fica parado e
+nada explica. O aviso de cota nomeia os dois lados (quem cedeu, pra quem, quanto falta) e
+tem rastro no log, não só toast. O painel decide a própria vaziez: uma org e um perfil só
+não têm rodízio a explicar, e o card some inteiro.
+
 **Clique explícito atravessa e DESFAZ** (`pr.manual`, `origem: 'clique'` na rota):
 quem mandou revisar foi você, sabendo que outra pessoa está lá, e a partir daí o
 app volta a agir no PR. Mesmo espírito do estacionamento (lançar tira de lá).
