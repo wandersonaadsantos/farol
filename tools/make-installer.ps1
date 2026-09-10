@@ -13,6 +13,12 @@ $out = Join-Path $dist "Farol-Setup-v$version.exe"
 Write-Host ''
 Write-Host "  Farol · instalador unico (Windows) v$version" -ForegroundColor Yellow
 
+# Verifica antes de staging/NSIS: um node_modules antigo não pode virar instalador
+# com package.json novo. dist/version também precisa corresponder ao pacote npm.
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) { throw 'Node.js necessario para validar o runtime do build.' }
+& node (Join-Path $Src 'lib\electron-runtime.js') check-installed $Src
+if ($LASTEXITCODE -ne 0) { throw 'Runtime Electron incompativel ou incompleto. Rode npm install e node node_modules/electron/install.js antes de gerar o instalador.' }
+
 # --- makensis -----------------------------------------------------------------
 $makensis = @(
   (Join-Path $env:LOCALAPPDATA 'tauri\NSIS\Bin\makensis.exe'),

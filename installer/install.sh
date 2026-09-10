@@ -59,12 +59,31 @@ done
 export PATH
 
 # --- pre-requisitos -----------------------------------------------------------
+# Electron 44 exige Ventura; a verificacao precede pkill, copias e downloads
+# para um update em Mac antigo nao desmontar a instalacao que ainda funciona.
+[ "$(uname -s)" = 'Darwin' ] || die 'Use este instalador em macOS 13 (Ventura) ou posterior.'
+MACOS_VERSION="$(sw_vers -productVersion 2>/dev/null || true)"
+MACOS_MAJOR="${MACOS_VERSION%%.*}"
+case "$MACOS_MAJOR" in
+  ''|*[!0-9]*) die 'Nao foi possivel confirmar macOS 13 (Ventura) ou posterior. A instalacao existente foi preservada.' ;;
+esac
+[ "$MACOS_MAJOR" -ge 13 ] || die 'O Farol requer macOS 13 (Ventura) ou posterior (Electron 44). A instalacao existente foi preservada.'
+case "$(uname -m)" in
+  x86_64) TARGET_ARCH=x64 ;;
+  arm64) TARGET_ARCH=arm64 ;;
+  *) die 'O Farol requer Mac Intel (x64) ou Apple Silicon (arm64). A instalacao existente foi preservada.' ;;
+esac
+
 # Node/npm NAO sao exigidos aqui (mesma promessa do install.ps1): o modo offline
 # (Electron no pacote ou zip darwin embutido) instala sem Node; so o fallback de
 # rede (npm install) cobra, la embaixo. Exigir aqui derrubava o instalador
 # offline E o auto-update em Mac sem Node.
 command -v gh >/dev/null 2>&1 || echo "  !  'gh' nao encontrado: o Farol instala, mas precisa dele (brew install gh; gh auth login)."
 command -v claude >/dev/null 2>&1 || echo "  !  'claude' nao encontrado: o Farol instala, mas precisa do Claude Code no PATH."
+
+# --- runtime antes de alterar a instalacao -------------------------------------
+source "$SRC/installer/electron-runtime.sh"
+preparar_runtime 'electron/dist/Electron.app/Contents/MacOS/Electron' "$SRC/installer/electron-darwin.zip"
 
 # --- encerra instancias em execucao ---------------------------------------------
 step 'Encerrando instancias do Farol em execucao (se houver)'
@@ -88,46 +107,9 @@ done
 
 # --- dependencias (Electron) -----------------------------------------------------
 ELECTRON_BIN="$APP/node_modules/.bin/electron"
-# O pacote LEVE (auto-update) nao traz node_modules de proposito: "O Electron NAO
-# viaja no update: a copia instalada ja tem, o installer preserva" (lib/engine/update.js).
-# Entao so mexe em node_modules quando a fonte tem com que substituir, igual ao
-# install.ps1 do Windows (que so copia se a fonte tiver o electron.exe). Apagar antes
-# de saber disso quebrava o macOS: o `cp` falhava, o `set -e` derrubava o script e
-# ~/.farol/app ficava SEM Electron, ou seja, o app nunca mais abria. Como o autoUpdate
-# e ligado por padrao desde a v2.46.0, isso quebraria sozinho na release seguinte.
-if [ -d "$SRC/node_modules" ]; then
-  step 'Copiando dependencias (node_modules)'
-  rm -rf "$APP/node_modules"
-  cp -R "$SRC/node_modules" "$APP/node_modules"
-else
-  step 'Pacote sem node_modules (update): preservando o Electron ja instalado'
-fi
-# Electron para macOS, em ordem de preferencia:
-#  1) o dist (.app) ja veio no pacote (instalador montado num Mac): usa direto;
-#  2) veio o zip darwin embutido (instalador montado FORA do Mac): extrai AQUI,
-#     porque o unzip do proprio Mac preserva os symlinks do .app (o Windows nao);
-#  3) nada disso: baixa via npm (precisa de rede).
-if [ -d "$APP/node_modules/electron/dist/Electron.app" ]; then
-  ok 'Electron ja presente no pacote'
-elif [ -f "$SRC/installer/electron-darwin.zip" ]; then
-  step 'Montando o Electron para macOS (do pacote embutido)'
-  command -v unzip >/dev/null || die 'unzip nao encontrado (necessario pro Electron embutido).'
-  rm -rf "$APP/node_modules/electron/dist"; mkdir -p "$APP/node_modules/electron/dist"
-  (cd "$APP/node_modules/electron/dist" && unzip -oq "$SRC/installer/electron-darwin.zip")
-  printf 'Electron.app/Contents/MacOS/Electron' > "$APP/node_modules/electron/path.txt"
-else
-  step 'Baixando o Electron (npm install, pode levar alguns minutos)'
-  command -v npm >/dev/null || die 'npm nao encontrado, e este pacote nao trouxe o Electron embutido. Instale o Node (brew install node) ou use o instalador offline.'
-  (cd "$APP" && npm install --omit=dev --no-audit --no-fund)
-fi
+instalar_runtime
 # bit de execucao: instalador montado fora do Mac (ou tar sem perms) perde o +x;
 # o lancador chama o electron direto, entao garante que os binarios rodam.
-# npm pode pular o postinstall do electron (visto no fallback do Linux em 16/08);
-# o install.js dele e idempotente e baixa o dist que faltou
-if [ ! -d "$APP/node_modules/electron/dist/Electron.app" ] && [ -f "$APP/node_modules/electron/install.js" ] && command -v node >/dev/null; then
-  step 'Baixando o binario do Electron (install.js)'
-  (cd "$APP/node_modules/electron" && node install.js)
-fi
 chmod +x "$ELECTRON_BIN" 2>/dev/null || true
 [ -d "$APP/node_modules/electron/dist/Electron.app" ] && chmod -R +x "$APP/node_modules/electron/dist/Electron.app" 2>/dev/null || true
 # valida o binario que o LANCADOR executa (o nativo do dist), nao o .bin/electron:
@@ -169,7 +151,7 @@ cat > "$BUNDLE/Contents/Info.plist" <<PLIST
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleExecutable</key><string>Farol</string>
   <key>CFBundleIconFile</key><string>farol</string>
-  <key>LSMinimumSystemVersion</key><string>11.0</string>
+  <key>LSMinimumSystemVersion</key><string>13.0</string>
 </dict>
 </plist>
 PLIST

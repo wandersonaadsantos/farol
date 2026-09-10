@@ -19,22 +19,27 @@
 set -euo pipefail
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ARCH="${ARCH:-arm64}"
+case "$ARCH" in
+  arm64|x64) ;;
+  *) echo '  x  ARCH deve ser arm64 (Apple Silicon) ou x64 (Intel).'; exit 1 ;;
+esac
 # require com caminho RELATIVO (cd no SRC): o node do Windows nao entende caminho
 # estilo git-bash "/c/...". Assim funciona em qualquer SO.
-VER="$(cd "$SRC" && node -p "require('./package.json').version")"
-ELVER="$(cd "$SRC" && node -p "require('./node_modules/electron/package.json').version")"
 DIST="$SRC/dist"
 OUT="$DIST/Farol-Instalar-mac.command"
-ARCH="${ARCH:-arm64}"; [ "$ARCH" = "x64" ] || ARCH="arm64"
-ZIP_URL="https://github.com/electron/electron/releases/download/v$ELVER/electron-v$ELVER-darwin-$ARCH.zip"
-
-echo
-echo "  Farol . instalador offline (macOS $ARCH) v$VER . electron v$ELVER"
 
 command -v node >/dev/null || { echo '  x  Node.js necessario pro build.'; exit 1; }
 command -v curl >/dev/null || { echo '  x  curl necessario pro build.'; exit 1; }
 command -v tar  >/dev/null || { echo '  x  tar necessario pro build.'; exit 1; }
 [ -d "$SRC/node_modules/electron" ] || { echo '  x  node_modules ausente. Rode npm install antes.'; exit 1; }
+(cd "$SRC" && node lib/electron-runtime.js check-package .)
+VER="$(cd "$SRC" && node -p "require('./package.json').version")"
+ELVER="$(cd "$SRC" && node -p "require('./node_modules/electron/package.json').version")"
+ZIP_URL="https://github.com/electron/electron/releases/download/v$ELVER/electron-v$ELVER-darwin-$ARCH.zip"
+
+echo
+echo "  Farol . instalador offline (macOS $ARCH) v$VER . electron v$ELVER"
 
 BUILD="$(mktemp -d)"; STAGING="$BUILD/payload"; mkdir -p "$STAGING"
 trap 'rm -rf "$BUILD"' EXIT
@@ -45,6 +50,12 @@ curl -fL --retry 3 -o "$BUILD/electron-darwin.zip" "$ZIP_URL"
 echo '  -> Reunindo o app + Electron (embutido, montado no Mac)'
 for f in main.js server.js package.json README.md CLAUDE.md; do cp "$SRC/$f" "$STAGING/$f"; done
 for d in lib ui assets workspace-template installer node_modules; do cp -R "$SRC/$d" "$STAGING/$d"; done
+# Mesma whitelist do pacote leve: Jira MCP e ferramentas de build permitidas.
+# Nao copiar tools/ inteiro: smoke e outras ferramentas de desenvolvimento ficam fora.
+mkdir -p "$STAGING/tools"
+for t in jira-mcp.js make-icons.ps1 pack-ico.js make-package.ps1 make-icns.sh; do
+  cp "$SRC/tools/$t" "$STAGING/tools/$t"
+done
 # tira o dist do Electron (arco do build, ex.: win32) e embute o zip darwin. O
 # install.sh descompacta NO Mac, preservando os symlinks do .app.
 rm -rf "$STAGING/node_modules/electron/dist"

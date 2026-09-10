@@ -9,6 +9,8 @@ O Farol nasceu de uma iniciativa do Thiago ([@thiagopcdev](https://github.com/th
 
 ## Instalar
 
+Requisitos do sistema: **Windows de 64 bits (x64 ou ARM64)**, **macOS 13 (Ventura) ou posterior** em Intel ou Apple Silicon, ou **Linux de 64 bits (x64 ou ARM64, experimental)**. O Electron 44 deixou de oferecer suporte a macOS 12, Windows de 32 bits e Linux ARM de 32 bits; os instaladores recusam esses sistemas antes de alterar uma instalação existente. [Compatibilidade do Electron 44](https://www.electronjs.org/docs/latest/breaking-changes/#removed-macos-12-support).
+
 ### Jeito mais fácil (offline, sem pré-requisitos)
 
 Um arquivo único com o Electron já embutido: não precisa de Node, npm nem download.

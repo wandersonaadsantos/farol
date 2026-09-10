@@ -115,6 +115,112 @@ Arquivo cuja unidade declarada é o agrupamento e não o assunto: ponto de entra
 ### Como verificar
 
 Não é verificável por ferramenta, e limiar de linhas seria pior que verificação nenhuma: reprovaria arquivo coeso e longo e aprovaria arquivo curto que decide demais, ensinando a quebrar arquivo em pedaços arbitrários para caber no número. Quem avalia responde três perguntas. Qual frase única descreve o que este arquivo faz. Se a frase precisa de "e também" para ficar verdadeira, quais assuntos ela está juntando. E, para cada assunto, que motivo faria este arquivo mudar. Assuntos que mudam por motivos independentes são responsabilidades diferentes, e o número de linhas não entra no veredito. O agente avalia e registra a avaliação com fundamentação.
+## core.javascript.modern-and-explicit
+
+Tipo: judgment
+
+### Regra
+
+Em JavaScript/TypeScript, preferir ECMAScript moderno suportado pelo runtime e
+toolchain declarados, com fluxo de controle e contratos explícitos. Usar const por
+padrão, let quando houver reatribuição, template literals para interpolação e
+desestruturação quando ela tornar o significado mais claro. Sintaxe mais curta
+não justifica esconder falhas ou alterar ordem, concorrência ou tratamento de erros.
+
+Em React, usar componentes funcionais e imports nomeados de hooks quando disponíveis,
+como import { useState } from "react", em vez de repetir React.useState. Não introduzir
+class components em código novo; código legado permanece sujeito ao escopo da entrega.
+
+Optional chaining (?.) é preferível a encadeamentos manuais de verificações quando
+null/undefined são estados legítimos. Nullish coalescing (??) fornece um padrão
+somente para esses estados, preservando 0, false e string vazia quando válidos.
+Campo obrigatório exige validação explícita; ?. não valida tipo, não captura
+exceções, não aguarda promessas e não transforma resposta externa em confiável.
+
+### Por quê
+
+Modernizar não é trocar uma sintaxe por outra com resultado parecido. for...of
+já pertence ao ES2015; ?. e ?? pertencem ao ES2020. O suporte efetivo precisa ser
+conferido, não inferido da expressão "ES6+". Evitar um TypeError tornando uma
+permissão desconhecida em uma lista vazia pode apagar o defeito mais importante.
+Trocar um laço aguardado por forEach(async ...) pode encerrar um teste antes das
+asserções ou liberar recursos enquanto operações ainda os utilizam.
+
+### Bom
+
+Para uma preferência opcional, preservar valores válidos:
+
+    const showHints = preferences?.showHints ?? true;
+
+Para recursos que podem não ter sido inicializados:
+
+    await app?.close();
+
+Para campo obrigatório, conferir a forma antes de usar:
+
+    if (!session || typeof session.user?.id !== "string" || !session.user.id.trim()) {
+      throw new Error("Identidade de sessão inválida");
+    }
+
+Escolher a iteração pela semântica:
+
+- map para transformação, filter para seleção, find para busca e some/every
+  para predicados; não usar map somente por efeitos colaterais.
+- forEach para efeitos síncronos quando não for necessário interromper a iteração;
+  não usar callbacks async esperando que forEach aguarde sua conclusão.
+- for...of com await quando ordem, recursos compartilhados, carga ou interrupção
+  na primeira falha exigirem sequência.
+- Promise.all com map para operações independentes cuja concorrência seja segura.
+  A primeira rejeição não cancela as demais operações. Não fechar recursos
+  compartilhados em finally supondo que todas já terminaram; aguardar sua conclusão
+  ou usar sequência quando esse ciclo de vida exigir.
+
+Nomes devem revelar o propósito: login(credentials) comunica mais que post(body)
+quando o helper só chama o endpoint de autenticação.
+
+### Ruim
+
+await items.forEach(async (item) => {
+      await persist(item);
+    });
+
+O await externo não aguarda as promessas dos callbacks.
+
+    const authorized = response?.permissions?.includes("ADMIN") ?? true;
+
+Ausência de evidência virou autorização.
+
+    const total = response?.pagination?.total ?? 0;
+
+Quando o contrato exige total, o padrão inventa uma medição. Esta regra identifica
+a escolha de sintaxe; a violação da garantia pertence à regra específica de entrada
+ou verificação inconclusiva, sem duplicar o mesmo achado.
+
+### Exceções
+
+Código de outra linguagem não exige tradução para ECMAScript. Código gerado segue
+seu gerador. Compatibilidade com runtime anterior deve apontar o requisito concreto
+ou a transformação comprovada pelo build. Não reescrever legado fora da entrega
+apenas para padronizar aparência.
+
+for...of não é exceção nem construção proibida: é moderno e correto quando a
+semântica pede sequência. Acesso direto após validação também é correto e evita
+defensividade redundante.
+
+### Como verificar
+
+Regra de julgamento, sem verificador sintático automático. O avaliador registra:
+
+1. O runtime/target suporta os recursos usados? O build comprova a transformação?
+2. Cada ausência tratada por ?. ou ?? é legítima? Qual cenário exige recusa em vez
+   de padrão? A contraprova com campo obrigatório ausente continua reprovando?
+3. A iteração transforma dados ou executa efeitos? Precisa de ordem ou admite
+   concorrência? O chamador aguarda a conclusão e observa rejeições?
+4. Remover a espera faria o teste terminar verde antes do trabalho? Uma falha pode
+   iniciar cleanup com tarefas ainda ativas?
+
+Registrar evidências concretas. O gate exige avaliação, mas não prova sozinho
+que o julgamento está correto.
 ## core.locality.promote-on-real-reuse
 
 Tipo: judgment
