@@ -283,3 +283,23 @@ test('ghEnv: token da conta resolvida vence o do ambiente, e o GITHUB_TOKEN sai 
     assert.equal('GITHUB_TOKEN' in env, false, 'GH_TOKEN vence no gh, mas GITHUB_TOKEN sobrando é identidade de reserva no filho');
   });
 });
+
+// Org fora do `owners` do config (Edicoes-CNBB#13, 10/09/2026): o chat montava o PR na
+// mão como { key, url }, sem a conta que a decisão pendente já trazia, e o accountForPr
+// caía no fallback da primária. Ali o repo era invisível pra ela e o POST morreu em 404;
+// com acesso, o APPROVE teria saído assinado pela conta ERRADA, que é a raiz A1.
+test('chatSend usa a conta que o PR já traz quando a org não está mapeada (nunca a primária)', async () => {
+  const e = engineDuasContas();
+  e.tokens.bob = 'tok-bob';
+  e.decisions.pending.push({
+    key: 'edicoes/app#13',
+    pr: { repo: 'edicoes/app', number: 13, url: 'https://github.com/edicoes/app/pull/13', account: 'bob' },
+  });
+  let captured = null;
+  e.runClaudeStream = async (prompt, opts) => { captured = opts; return { text: 'oi', sessionId: 's1' }; };
+  e.saveChats = () => { };
+  const r = await e.chatSend('edicoes/app#13', 'https://github.com/edicoes/app/pull/13', 'olá');
+  assert.equal(r.ok, true);
+  while (e.chats['edicoes/app#13'].status === 'running') await new Promise(res => setTimeout(res, 10));
+  assert.equal(captured.account, 'bob', 'a conta dona já estava em disco; cair na primária é agir com identidade errada');
+});

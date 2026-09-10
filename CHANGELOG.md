@@ -9,6 +9,20 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.57.6
+
+Conserta a conta dona da revisão em dois pontos e atualiza o Electron para a série 44, com prova de que o runtime instalado abre de verdade.
+
+**Correções**
+
+- **O card de "Precisa de você" some ao filtrar por conta.** A conta dona da revisão era descartada no caminho entre o motor e a tela, e sem ela o app tentava adivinhar pela organização do repositório. Em organização que não está cadastrada nas suas contas não havia palpite: o card aparecia em "Todas" e sumia ao escolher qualquer conta, sem erro e sem aviso. Em organização cadastrada o palpite acertava por coincidência, e por isso a falha ficou escondida.
+- **A conversa do PR passa a agir pela conta dona daquele PR.** Ao conversar sobre um PR de organização não cadastrada, a sessão caía na sua conta principal, e num repositório privado que essa conta não enxerga a postagem morria com "não encontrado". O app já sabia de quem era o PR e jogava essa informação fora; agora ele a usa, e a conta principal deixou de ser o palpite.
+
+**Melhorias**
+
+- **Electron atualizado da série 43 para a 44**, que é a base do aplicativo de janela.
+- **A instalação e a atualização conferem o runtime antes de dar por pronto.** A compatibilidade da versão distribuída passou a ser decidida por uma regra única, usada tanto pelo instalador quanto pelo update, e pacote sem requisito declarado ou com faixa fora do formato suportado recusa de forma explícita, pedindo o instalador completo, em vez de instalar algo que não abriria. O CI ganhou provas de execução real do Electron nos três sistemas, incluindo a assinatura necessária no macOS.
+
 ## v2.57.5
 
 Completa a v2.57.4: PR que já estava estacionado antes dela também ganha o aviso no card.
