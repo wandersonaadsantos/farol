@@ -826,3 +826,23 @@ test('parseHeadlessResult rejeita analysisStatus ausente ou fora do contrato', (
   assert.throws(() => e.parseHeadlessResult(JSON.stringify({ ...base, analysisStatus: 'partial' })), /analysisStatus/i);
   assert.equal(e.parseHeadlessResult(JSON.stringify({ ...base, analysisStatus: 'incomplete' })).analysisStatus, 'incomplete');
 });
+
+/* ---------- conta na projeção: o filtro por conta da UI depende dela ---------- */
+
+// Medido no Edicoes-CNBB/biblioteca-cnbb-ai-engine#13 (10/09/2026): a conta dona da
+// decisão mora em `pr.account`, e a allowlist do `pr` aninhado não a listava. A UI
+// recebia a decisão sem conta em campo nenhum, caía no mapa org->conta e, para uma org
+// FORA do config, resolvia vazio: o card existia em "Todas" e sumia em qualquer filtro
+// de conta. Nas orgs mapeadas o mapa mascarava a poda, então o bug era invisível.
+test('decisionForUi entrega a conta dona do PR (sem ela o card some do filtro por conta)', () => {
+  const d = publicReview.decisionForUi({
+    key: 'acme/app#13',
+    pr: { repo: 'acme/app', number: 13, url: 'https://github.com/acme/app/pull/13', account: 'bob' },
+  });
+  assert.equal(d.account, 'bob');
+});
+
+test('decisionForUi preserva a conta já projetada no topo (decisões antigas seguem valendo)', () => {
+  const d = publicReview.decisionForUi({ key: 'acme/app#13', account: 'alice', pr: { repo: 'acme/app', account: 'bob' } });
+  assert.equal(d.account, 'alice', 'o campo do topo é o que a UI sempre leu; a conta aninhada só preenche a lacuna');
+});

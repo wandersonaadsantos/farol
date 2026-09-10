@@ -13,6 +13,13 @@ Tipo: judgment
 
 Camada, campo, configuração ou ponto de extensão só passam a existir quando já existe chamada que deixa de funcionar sem eles. A pergunta aqui é se a peça deve existir, e não onde ela mora.
 
+Helper de validação precisa responder uma pergunta precisa, com entrada e garantia
+claras. Um predicado local pode justificar seu nome com um consumidor real quando
+revela o significado; promover a função a compartilhada exige consumidores reais
+da mesma responsabilidade. Não criar validChar ou utils genérico apenas para mover
+uma expressão de lugar, juntar validações diferentes ou preparar um uso futuro.
+Dois formulários lerem tokens não prova que validam o mesmo contrato.
+
 ### Por quê
 
 Abstração sem consumidor cobra leitura para sempre e não paga nada. A interface com uma implementação obriga quem depura a seguir a indireção para descobrir que ela sempre desemboca no mesmo lugar. O campo que ninguém lê precisa ser preenchido, migrado e mantido consistente em todo caminho que produz o registro. A chave de configuração que nunca muda de valor multiplica os caminhos que alguém considera ao explicar um comportamento, e nenhum deles é exercido. O mesmo vale para a constante criada por ritual: quando o literal não representa conceito com dono, dar nome a ele só insere um salto entre a leitura e o valor.
@@ -21,9 +28,19 @@ Abstração sem consumidor cobra leitura para sempre e não paga nada. A interfa
 
 O envio de notificação chama o serviço de e-mail direto, enquanto e-mail é o único canal. A interface de canal aparece junto com o segundo canal e nasce com as duas implementações.
 
+Dois formulários compartilham a mesma precondição de presença de token opaco recebido
+por link e chamam um helper que declara exatamente essa verificação. Cada operação
+continua sujeita à validade decidida pelo servidor. Com apenas um consumidor, o
+predicado pode ficar local; seu nome deve pagar a leitura adicional com significado.
+
 ### Ruim
 
 Interface de canal de notificação com uma implementação, chave `notification.channel` que só assume um valor e ponto de extensão que nenhuma chamada alcança, tudo escrito antes de existir um segundo canal. Também é ruim `MAX_RETRIES = 3` extraído quando o três aparece uma vez, dentro do único ponto que decide sobre nova tentativa.
+
+Um validChar em utils recebe e-mail, senha e token e aplica a mesma expressão, apesar
+de cada entrada ter uma regra diferente. Também é ruim criar uma família de helpers
+exportados para formulários que ainda não existem. A ausência de repetição textual
+não prova que a abstração preservou o significado.
 
 ### Exceções
 
@@ -32,6 +49,13 @@ Ponto de extensão exigido por contrato externo, quando a fronteira precisa acei
 ### Como verificar
 
 Não é verificável por ferramenta: contar implementações acusaria toda interface nova, inclusive a que já tem contrato externo esperando por ela, e nenhum contador sabe se o consumidor está a caminho ou é imaginado. Quem avalia responde três perguntas. Qual chamada que já existe no repositório deixa de funcionar se esta peça for removida. Se a resposta for nenhuma, o que se perde ao adiar a criação dela até a primeira chamada aparecer. E, quando a peça é um nome dado a um valor, qual conceito esse nome carrega além de repetir o literal. O agente avalia e registra a avaliação com fundamentação.
+
+Para validação compartilhada, apontar os consumidores concretos, a pergunta comum e
+os casos que comprovam seu limite. Sem o helper, qual consumidor real perde uma regra
+que precisa compartilhar? Se ele apenas encobre uma expressão, o nome acrescenta
+significado ou exige mais navegação para entender a mesma coisa? Não usar quantidade
+de caracteres nem promessa de reutilização futura como prova. Uma garantia falsa de
+validade pertence à regra de contrato correspondente, sem repetir o mesmo achado aqui.
 ## core.convention.one-per-repository
 
 Tipo: judgment
@@ -94,6 +118,15 @@ Tipo: judgment
 
 Um arquivo expressa uma responsabilidade que cabe em uma frase, sem "e também".
 
+Essa fronteira também define quem trata a falha assíncrona. Provider, formulário
+e adaptador precisam combinar quem transforma erro esperado em estado ou mensagem
+para a pessoa, e como o chamador observa o resultado. Não usar catch vazio ou só
+com comentário para esconder uma rejeição, nem apresentar a mesma falha em duas
+camadas. Se o provider assume o erro esperado, seu contrato expõe estado ou resultado
+explícito; se o formulário assume, a falha chega até ele. O chamador não pode seguir
+o caminho de sucesso por falta de um resultado verificável. finally libera recursos
+ou o estado de envio, mas não substitui tratamento de erro.
+
 ### Por quê
 
 Arquivo que acumula assuntos esconde onde a mudança precisa acontecer. Quem procura o cálculo de imposto abre o arquivo de pedido e encontra junto o acesso ao banco, a montagem da resposta e o disparo do e-mail, e passa a ler tudo para ter certeza de que mexeu no lugar certo. O efeito seguinte é que mudança em qualquer um desses assuntos toca o mesmo arquivo, então conflito de merge, revisão e regressão passam a atravessar assuntos que não têm relação entre si, e quem revisa uma alteração de imposto precisa julgar diff de infraestrutura.
@@ -104,17 +137,143 @@ Tamanho é sintoma, não critério. Arquivo grande com uma responsabilidade clar
 
 O cálculo de imposto mora em um arquivo que contém a regra de imposto e nada mais. O arquivo do caso de uso chama esse cálculo, chama o repositório e devolve o resultado, e a frase que o descreve é "orquestra o fechamento do pedido".
 
+O formulário recebe a rejeição da operação, apresenta a mensagem uma vez e libera
+o envio em finally; o provider não apresenta a mesma mensagem. Outra escolha válida
+é o provider ser dono do estado de autenticação e do erro esperado, com resultado
+explícito que o formulário consome sem catch vazio e sem uma segunda mensagem.
+A escolha segue o contrato real dos consumidores, não uma preferência global por camada.
+
 ### Ruim
 
 O arquivo do pedido calcula imposto, monta SQL, formata moeda para a interface e decide quando enviar e-mail. A frase que o descreve só fica verdadeira com quatro "e também".
+
+    try {
+      await login(credentials);
+    } catch {
+      // O provider já trata.
+    }
+    navigateToPrivatePage();
+
+O comentário não demonstra tratamento nem impede o caminho de sucesso. Também é
+ruim provider e formulário apresentarem a mesma rejeição, ou trocar o comentário
+por console.error sem devolver a falha a um chamador que depende dela.
 
 ### Exceções
 
 Arquivo cuja unidade declarada é o agrupamento e não o assunto: ponto de entrada que só reexporta, arquivo de configuração de ferramenta e código gerado, que responde ao gerador e não a quem lê. Também fica de fora a coesão que só parece múltipla, como um tipo com muitas operações sobre o mesmo estado, que é uma responsabilidade com muitos métodos.
 
+Cancelamento reconhecido pode encerrar sem mensagem de falha quando esse é o contrato;
+o código distingue esse caso e encaminha os demais erros. Um catch vazio não faz essa
+distinção. Falha de operação acessória pode ter consequência diferente da operação
+principal, desde que observável conforme seu contrato; não autoriza sucesso aparente
+em autenticação, persistência ou outra garantia obrigatória.
+
 ### Como verificar
 
 Não é verificável por ferramenta, e limiar de linhas seria pior que verificação nenhuma: reprovaria arquivo coeso e longo e aprovaria arquivo curto que decide demais, ensinando a quebrar arquivo em pedaços arbitrários para caber no número. Quem avalia responde três perguntas. Qual frase única descreve o que este arquivo faz. Se a frase precisa de "e também" para ficar verdadeira, quais assuntos ela está juntando. E, para cada assunto, que motivo faria este arquivo mudar. Assuntos que mudam por motivos independentes são responsabilidades diferentes, e o número de linhas não entra no veredito. O agente avalia e registra a avaliação com fundamentação.
+
+Quando há tratamento assíncrono entre camadas, localizar o dono da mensagem e a
+garantia recebida pelo chamador. Exercitar a rejeição: o erro aparece uma vez, a
+ação de sucesso não ocorre e o envio é liberado? O teste falha se a rejeição for
+engolida ou se outra camada apresentar o erro de novo? Usar provider e formulário
+reais quando possível, substituindo só a fronteira necessária. Comentário não é
+evidência de tratamento; contar catches também não substitui julgamento. Não duplicar
+o mesmo achado se outra regra já descreve a garantia violada.
+## core.imports.prefer-supported-aliases
+
+Tipo: judgment
+
+### Regra
+
+Em JavaScript/TypeScript, preferir os aliases canônicos do projeto para referências
+a módulos internos sempre que a resolução seja suportada nos consumidores reais.
+Usar a mesma convenção nos imports estáticos e de tipos, reexports, import()
+dinâmico, require e identificadores de módulos em mocks ou spies quando esses
+consumidores suportarem o alias. A preferência também vale para módulos próximos:
+não trocar ../../ por ./ como forma de contornar a convenção.
+
+Conferir compilador, bundler, testes e pontos de execução envolvidos, incluindo
+artefato compilado, scripts de manutenção e CLIs de migração. Um mapeamento paths
+do TypeScript, sozinho, não garante que o specifier seja reescrito ou resolvido
+pelo Node. Manter o mesmo destino antes e depois da troca e os limites de acesso
+entre pacotes. Usar um alias existente; criar ou completar a configuração quando
+houver consumidor real e a mudança estiver no escopo autorizado.
+
+### Por quê
+
+Caminhos que dependem da profundidade da pasta aumentam o custo de mover módulos
+e tornam referências ao mesmo destino difíceis de comparar. Duas convenções para
+a mesma responsabilidade multiplicam esse custo. Um alias que só funciona no
+editor, porém, transforma uma melhoria de leitura em falha de inicialização ou
+de operação: o build pode passar e o comando de migração parar antes de executar.
+
+### Bom
+
+Com @/ mapeado e exercitado no projeto:
+
+    import { normalizeEmail } from "@/auth/normalize-email";
+    export { SessionProvider } from "@/session/session-provider";
+    const { runMigration } = await import("@/database/run-migration");
+    jest.mock("@/notifications/gateway");
+
+O teste carrega a implementação real pelo alias antes de substituir somente a
+fronteira necessária. O build e a inicialização do artefato comprovam a resolução
+de produção; o comando real de manutenção comprova o seu próprio ponto de entrada.
+
+Um pacote ESM distribuído usa import relativo com extensão .js porque o consumidor
+executa o artefato com Node sem resolver aliases privados do autor. O teste do
+pacote instalado comprova esse contrato, e a exceção tem uma razão verificável.
+
+### Ruim
+
+import { normalizeEmail } from "../../auth/normalize-email";
+
+O projeto já tem um alias para esse módulo e todos os consumidores o resolvem,
+mas a entrega introduz outra forma para o mesmo destino.
+
+    import { normalizeEmail } from "@/auth/normalize-email";
+
+Apenas tsconfig.json conhece @/. O JavaScript emitido preserva esse specifier e
+o Node que inicia a aplicação não o resolve. Compilação verde não torna esse caso
+conforme. Um mock que intercepta o nome inteiro sem carregar o módulo também não
+comprova que o destino existe ou resolve fora do teste.
+
+### Exceções
+
+Caminhos de arquivos usados por fs, URLs, globs e referências impostas por um
+gerador não são imports de módulos internos e não devem receber alias por troca
+textual. Código gerado segue seu gerador. Imports públicos de dependências e de
+outros pacotes seguem exports/imports e não devem atravessar fronteiras internas
+por um alias para a raiz do monorepo.
+
+Runtime, loader ou CLI sem suporte real, e artefato ESM distribuído que depende de
+specifier relativo, admitem caminhos relativos com justificativa concreta e prova
+do comando relevante. Ausência de configuração não é licença automática para
+ignorar aliases: avaliar a configuração necessária dentro do escopo. Não criar
+um resolver genérico sem consumidor nem ampliar a entrega para migração do legado
+sem autorização. Migração parcial tem escopo e critério de conclusão explícitos.
+
+### Como verificar
+
+Regra de julgamento, sem detector automático de imports. O avaliador registra:
+
+1. Qual alias canônico cobre cada módulo interno alterado e qual configuração o
+   resolve em cada consumidor? Conferir as configurações efetivas, não só o editor.
+2. A varredura cobriu imports, reexports, import(), require e identificadores de
+   módulos dos testes? Restou relativo em lugar que suporta o alias? Por quê?
+3. Testes carregam implementações reais? Build, inicialização do artefato e scripts
+   ou CLIs envolvidos passaram sem resolver herdado incidentalmente do ambiente?
+4. Qual contraprova recusa o comportamento removido? Quando a configuração muda,
+   remover o mapeamento relevante deve fazer a prova de resolução falhar; trocar
+   o destino por módulo inexistente deve reprovar o consumidor real.
+5. Cada exceção aponta para um arquivo e uma restrição verificável? A troca
+   preserva o destino do módulo, os efeitos e os limites entre pacotes?
+
+O gate exige avaliação material e bloqueia uma violação registrada. Ele não prova
+sozinho que o julgamento está correto. A aplicabilidade atual observa código;
+alterações apenas em configurações JSON precisam de revisão de resolução, pois
+não acionam automaticamente esta regra. Não duplicar um achado de convenção
+quando esta regra já nomeia o mesmo desvio de import.
 ## core.javascript.modern-and-explicit
 
 Tipo: judgment
@@ -127,15 +286,32 @@ padrão, let quando houver reatribuição, template literals para interpolação
 desestruturação quando ela tornar o significado mais claro. Sintaxe mais curta
 não justifica esconder falhas ou alterar ordem, concorrência ou tratamento de erros.
 
-Em React, usar componentes funcionais e imports nomeados de hooks quando disponíveis,
-como import { useState } from "react", em vez de repetir React.useState. Não introduzir
-class components em código novo; código legado permanece sujeito ao escopo da entrega.
+Em React, usar componentes funcionais e imports nomeados de hooks e tipos quando
+disponíveis. Não usar React.useCallback, React.useState ou outro hook pelo namespace
+React; renomear o namespace não contorna a regra. Importar useCallback e useState
+pelo nome, e ReactNode, FormEvent e outros tipos com import type ou o modificador
+type no import nomeado. Não introduzir class components em código novo.
+Com o runtime JSX automático, não importar React somente para escrever JSX.
+Código legado permanece sujeito ao escopo da entrega.
 
 Optional chaining (?.) é preferível a encadeamentos manuais de verificações quando
 null/undefined são estados legítimos. Nullish coalescing (??) fornece um padrão
 somente para esses estados, preservando 0, false e string vazia quando válidos.
 Campo obrigatório exige validação explícita; ?. não valida tipo, não captura
 exceções, não aguarda promessas e não transforma resposta externa em confiável.
+
+Validação precisa dizer o que comprova: presença, formato e validade são garantias
+diferentes. Uma string de token presente na URL não comprova assinatura, existência,
+revogação, autorização ou expiração. Quando o contrato atribui essas decisões ao
+servidor, o cliente só verifica a precondição local e continua sujeito à recusa dele.
+Nomear o predicado pelo que ele realmente verifica; não chamar presença de
+isValidToken nem inventar restrição de caracteres para um token opaco.
+Verificar formato local é permitido quando o contrato real de emissão e aceitação
+foi conferido e a verificação preserva os links legítimos, inclusive os ainda aceitos.
+Nesse caso, um nome como hasValidAuthTokenFormat delimita a garantia: formato
+compatível não comprova validade no servidor nem autoriza normalizar o token no envio.
+Evitar validChar ou outro nome genérico que esconda a pergunta de domínio.
+Compartilhar essa verificação só quando os consumidores têm a mesma responsabilidade.
 
 ### Por quê
 
@@ -147,6 +323,19 @@ Trocar um laço aguardado por forEach(async ...) pode encerrar um teste antes da
 asserções ou liberar recursos enquanto operações ainda os utilizam.
 
 ### Bom
+
+Em componente funcional com runtime JSX automático:
+
+    import { useCallback, useState, type FormEvent, type ReactNode } from "react";
+
+Para a presença de um token recebido na URL:
+
+    const resetToken = searchParams.get("token");
+    const hasResetToken = resetToken !== null && resetToken.trim().length > 0;
+
+hasResetToken permite tentar a operação; o servidor ainda precisa aceitar o token.
+Não alterar o token opaco ao enviá-lo. Se um helper for necessário, seu nome continua
+limitado à precondição comprovada, compartilhada apenas por consumidores dessa mesma regra.
 
 Para uma preferência opcional, preservar valores válidos:
 
@@ -180,7 +369,18 @@ quando o helper só chama o endpoint de autenticação.
 
 ### Ruim
 
-await items.forEach(async (item) => {
+import React from "react";
+    const submit = React.useCallback(handleSubmit, []);
+
+O hook está disponível como import nomeado. Importar React só para JSX também
+mantém um binding sem uso quando o projeto usa o runtime automático.
+
+    const isValidToken = Boolean(searchParams.get("token"));
+    if (isValidToken) showSuccess("Token válido");
+
+Presença virou validade. Extrair a expressão para validChar só desloca a confusão.
+
+    await items.forEach(async (item) => {
       await persist(item);
     });
 
@@ -203,6 +403,11 @@ seu gerador. Compatibilidade com runtime anterior deve apontar o requisito concr
 ou a transformação comprovada pelo build. Não reescrever legado fora da entrega
 apenas para padronizar aparência.
 
+Runtime JSX clássico ou ferramenta que realmente exija o binding React precisa
+ser demonstrado por configuração e build; não é exceção para React.useCallback
+quando existe import nomeado. Um tipo sem export nomeado suportado também exige
+limitação concreta da versão usada, não preferência de estilo.
+
 for...of não é exceção nem construção proibida: é moderno e correto quando a
 semântica pede sequência. Acesso direto após validação também é correto e evita
 defensividade redundante.
@@ -218,6 +423,14 @@ Regra de julgamento, sem verificador sintático automático. O avaliador registr
    concorrência? O chamador aguarda a conclusão e observa rejeições?
 4. Remover a espera faria o teste terminar verde antes do trabalho? Uma falha pode
    iniciar cleanup com tarefas ainda ativas?
+5. Hooks e tipos React usam imports nomeados? Se existe binding React só por JSX,
+   qual configuração e prova de build o exigem?
+6. Qual propriedade cada predicado comprova? Os casos ausente, vazio e presente
+   estão separados da validade decidida pelo servidor? O teste ainda observa a
+   recusa do servidor quando a precondição local passa? Se há verificação de formato,
+   qual contrato real de emissão e aceitação a sustenta, e quais links legítimos
+   o teste preserva? Não inventar teste de expiração em uma entrega que só muda a
+   presença do token.
 
 Registrar evidências concretas. O gate exige avaliação, mas não prova sozinho
 que o julgamento está correto.
