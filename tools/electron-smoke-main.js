@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import childProcess from 'node:child_process';
 import { syncBuiltinESMExports } from 'node:module';
 import { app, Notification, session } from 'electron';
-import { localRequest, validateWindowEvidence, validateLoginItem, createIsolatedLoginSetter } from './electron-smoke-lib.js';
+import { localRequest, validateWindowEvidence, validateLoginItem, createIsolatedLoginSetter, loopbackOrigin } from './electron-smoke-lib.js';
 import { readJson, writeJsonAtomic } from '../lib/io.js';
 import { semAsVariaveis } from '../lib/env.js';
 import { IS_WIN, IS_LINUX } from '../lib/paths.js';
@@ -15,7 +15,7 @@ import { IS_WIN, IS_LINUX } from '../lib/paths.js';
 if (!process.versions.electron) throw new Error('Este bootstrap exige o runtime Electron real.');
 const config = readJson(semAsVariaveis([]).FAROL_ELECTRON_SMOKE_CONFIG, null);
 if (!config) throw new Error('Configuração do smoke ausente ou inválida.');
-const origin = `http://127.0.0.1:${config.port}`;
+const origin = loopbackOrigin(config.port);
 const report = { status: 'running', probeId: config.name, platform: process.platform, versions: { ...process.versions },
   expectedElectron: config.expectedElectron, expectedApp: config.expectedApp,
   isolation: { monitoring: 'disabled at Engine.start/schedule only', externalProcesses: [], blockedRequests: [] },
@@ -107,10 +107,6 @@ async function checkWindow() {
   const win = await waitFor(() => main.win, 'main.js criar BrowserWindow');
   assert.equal(main.attachedToExisting, false, 'não pode anexar a um Farol já em execução');
   assert.equal(main.appUrl, origin);
-  const response = await fetch(origin + '/api/state');
-  assert.equal(response.status, 200, 'snapshot HTTP deve responder 200');
-  assert.ok(response.headers.get('content-type')?.includes('application/json'));
-  const snapshot = await response.json();
   const dom = await waitFor(async () => {
     if (win.webContents.isLoading()) return null;
     return win.webContents.executeJavaScript(`(() => {
@@ -120,6 +116,16 @@ async function checkWindow() {
         autostartHidden: getComputedStyle(document.querySelector('#rowAutostart')).display === 'none' } : null;
     })()`);
   }, 'UI real renderizar o estado do servidor');
+  assert.equal(win.webContents.getURL(), origin + '/', 'renderer deve estar na raiz HTTP loopback isolada');
+  // O renderer consulta um caminho literal da própria origem já verificada.
+  // Nenhum conteúdo do arquivo de configuração compõe a URL da requisição.
+  const response = await win.webContents.executeJavaScript(`(async () => {
+    const response = await fetch('/api/state', { method: 'GET', redirect: 'error' });
+    return { status: response.status, contentType: response.headers.get('content-type'), snapshot: await response.json() };
+  })()`);
+  assert.equal(response.status, 200, 'snapshot HTTP deve responder 200');
+  assert.ok(response.contentType?.includes('application/json'));
+  const snapshot = response.snapshot;
   dom.navigation = await checkNavigation(win);
   validateWindowEvidence(response.status, snapshot, dom, { expectedApp: config.expectedApp, platform: process.platform });
   // Engine.start está desativado: "iniciando…" é o estado honesto enquanto não
@@ -130,6 +136,8 @@ async function checkWindow() {
     return getComputedStyle(panel).opacity === '1' && panel.getAnimations({ subtree: true }).every(animation =>
       !Number.isFinite(animation.effect.getComputedTiming().endTime) || animation.playState === 'finished');
   })()`), 'painel ativo concluir a pintura e a animação reais antes da captura');
+  // A animação pode terminar antes de o compositor apresentar o último frame.
+  await win.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   const image = await win.capturePage();
   assert.equal(image.isEmpty(), false);
   const screenshot = config.name + '-window.png';

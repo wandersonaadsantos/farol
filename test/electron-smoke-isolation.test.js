@@ -3,7 +3,21 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { installedElectronBinary, smokeEnv, localRequest, validateSmokeReport, validateWindowEvidence, validateLoginItem, createIsolatedLoginSetter } from '../tools/electron-smoke-lib.js';
+import { installedElectronBinary, smokeEnv, localRequest, validateSmokeReport, validateWindowEvidence, validateLoginItem, createIsolatedLoginSetter, loopbackOrigin } from '../tools/electron-smoke-lib.js';
+
+test('porta do arquivo não pode injetar endereço, credencial, caminho nem query na origem do smoke', () => {
+  const origin = loopbackOrigin(51234);
+  assert.equal(origin, 'http://127.0.0.1:51234');
+  assert.equal(localRequest(origin + '/api/state', origin), true);
+  assert.equal(loopbackOrigin(1), 'http://127.0.0.1:1');
+  assert.equal(loopbackOrigin(65535), 'http://127.0.0.1:65535');
+  for (const port of [0, -1, 65536, 1.5, NaN, Infinity, undefined, null, {}, '51234',
+    '80@evil.example', '51234/private?data=secret', '51234#secret', 'https://evil.example']) {
+    assert.throws(() => loopbackOrigin(port), /porta inteira/, String(port));
+  }
+  for (const address of ['http://evil.example:51234/api/state', 'http://127.0.0.1:51234@evil.example/api/state',
+    'http://127.0.0.1.evil.example:51234/api/state']) assert.equal(localRequest(address, origin), false);
+});
 
 test('isolamento de autostart reprova args/path de produção antes de chamar o setter nativo', () => {
   const expected = { path: 'C:\\Farol\\electron.exe', args: ['C:\\Farol'] };

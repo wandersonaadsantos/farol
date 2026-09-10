@@ -34,6 +34,11 @@ function localRequest(url, origin) {
   catch { return false; }
 }
 
+function loopbackOrigin(port) {
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Smoke exige porta inteira entre 1 e 65535.');
+  return `http://127.0.0.1:${port}`;
+}
+
 function validateSmokeReport(report, expected) {
   if (!report || report.probeId !== expected.name) throw new Error('Relatório ausente ou pertencente a outra execução do smoke.');
   if (report.status !== 'passed') throw new Error('O processo encerrou sem prova completa do smoke.');
@@ -79,4 +84,4 @@ function createIsolatedLoginSetter(nativeSetter, expected, isolated, onContractE
   };
 }
 
-export { installedElectronBinary, smokeEnv, localRequest, validateSmokeReport, validateWindowEvidence, validateLoginItem, createIsolatedLoginSetter };
+export { installedElectronBinary, smokeEnv, localRequest, validateSmokeReport, validateWindowEvidence, validateLoginItem, createIsolatedLoginSetter, loopbackOrigin };
