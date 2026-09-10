@@ -2924,8 +2924,10 @@ function fjContaHtml(c) {
 function fjPerfisHtml(porPerfil) {
   const comDisputa = (porPerfil || []).filter(p => p.contas.length > 1);
   if (!comDisputa.length) return '';
+  // o rotulo do perfil ja costuma comecar com "Perfil" (o default do app e "Perfil
+  // atual"), e prefixar de novo dava "Perfil Perfil atual" na tela.
   return comDisputa.map(p => `<div class="fj-bloco">
-    <h4>Perfil ${esc(p.label)}</h4>
+    <h4>${/^perfil/i.test(String(p.label || '')) ? esc(p.label) : `Perfil ${esc(p.label)}`}</h4>
     <p class="fj-nota">Teto do dia ${esc(fjMoeda(p.tetoDoDia))}, dividido entre as contas que usam este perfil. A cota só barra quando outra conta está de fato esperando; sem disputa, quem chegar é atendido até o teto.</p>
     ${p.contas.map(fjContaHtml).join('')}
   </div>`).join('');

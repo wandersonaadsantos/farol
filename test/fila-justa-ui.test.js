@@ -96,3 +96,34 @@ test('nome de org e login são escapados: eles vêm do GitHub, não do app', () 
   assert.doesNotMatch(html, /<img/);
   assert.match(html, /&lt;img/);
 });
+
+test('rótulo de perfil que já começa com "Perfil" não vira "Perfil Perfil atual"', () => {
+  const contas = [
+    { user: 'a', peso: 1, esperando: false, cota: 50, gasto: 1, cedendo: false, cedendoPara: [] },
+    { user: 'b', peso: 1, esperando: false, cota: 50, gasto: 1, cedendo: false, cedendoPara: [] },
+  ];
+  const base = { porOrg: [], emCurso: 0, tetoGlobal: 0 };
+  const comPrefixo = filaJustaHtml({ ...base, porPerfil: [{ id: 'p', label: 'Perfil atual', tetoDoDia: 100, contas }] });
+  assert.match(comPrefixo, /<h4>Perfil atual<\/h4>/);
+  const semPrefixo = filaJustaHtml({ ...base, porPerfil: [{ id: 'p', label: 'Trabalho', tetoDoDia: 100, contas }] });
+  assert.match(semPrefixo, /<h4>Perfil Trabalho<\/h4>/);
+});
+
+// Achado real de 10/09/2026, durante esta feature: um script de edição gravou um
+// BACKSPACE (0x08) de verdade onde devia ir a sequência "\b" de uma regex. O fonte
+// parecia certo em todo editor e em `grep`, o teste falhava sem explicação, e a regex
+// silenciosamente deixou de casar. Caractere de controle em fonte é sempre engano.
+test('INVARIANTE: nenhum fonte carrega caractere de controle invisível', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const raiz = path.join(import.meta.dirname, '..');
+  const alvos = ['ui/pure.js', 'ui/app.js', 'server.js', 'lib/engine/review.js', 'lib/engine/usage.js', 'lib/parse.js'];
+  const sujos = [];
+  for (const rel of alvos) {
+    const src = fs.readFileSync(path.join(raiz, rel), 'utf8');
+    // tudo abaixo de 0x20 menos \t e \n (e \r, que o .gitattributes já persegue)
+    const m = src.match(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g);
+    if (m) sujos.push(`${rel}: ${m.length} ocorrência(s), primeira 0x${m[0].charCodeAt(0).toString(16)}`);
+  }
+  assert.deepEqual(sujos, [], 'caractere de controle no fonte: quase sempre uma sequência de escape que virou o byte de verdade');
+});
