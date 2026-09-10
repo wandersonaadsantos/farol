@@ -7,10 +7,10 @@ import assert from 'node:assert/strict';
 import childProcess from 'node:child_process';
 import { syncBuiltinESMExports } from 'node:module';
 import { app, Notification, session } from 'electron';
-import { localRequest, validateWindowEvidence, validateLoginItem } from './electron-smoke-lib.js';
+import { localRequest, validateWindowEvidence, validateLoginItem, createIsolatedLoginSetter } from './electron-smoke-lib.js';
 import { readJson, writeJsonAtomic } from '../lib/io.js';
 import { semAsVariaveis } from '../lib/env.js';
-import { IS_WIN, IS_LINUX } from '../lib/paths.js';
+import { IS_WIN, IS_LINUX, IS_MAC } from '../lib/paths.js';
 
 if (!process.versions.electron) throw new Error('Este bootstrap exige o runtime Electron real.');
 const config = readJson(semAsVariaveis([]).FAROL_ELECTRON_SMOKE_CONFIG, null);
@@ -68,10 +68,13 @@ function isolateAutostart() {
   nativeLoginSetter = app.setLoginItemSettings.bind(app);
   // Intercepta ANTES do import main: até autostart:false no boot removeria o
   // registro real. A chamada continua NATIVA, só muda para uma identidade única.
+  const forward = createIsolatedLoginSetter(nativeLoginSetter,
+    { path: process.execPath, args: [config.root] },
+    { name: config.name, args: loginArgs, authorized: config.autostart },
+    () => report.errors.push('autostart: path/args de produção divergiram antes do isolamento'));
   app.setLoginItemSettings = settings => {
     loginWrites++;
-    if (!config.autostart) return;
-    nativeLoginSetter({ ...settings, name: config.name, args: loginArgs });
+    forward(settings);
   };
 }
 
@@ -124,7 +127,7 @@ async function checkWindow() {
   assert.equal(snapshot.lastCheckAt, null, 'smoke não executa nem inventa checagem externa');
   await waitFor(() => win.webContents.executeJavaScript(`(() => {
     const panel = document.querySelector('.tabpane.active');
-    return getComputedStyle(panel).opacity === '1' && panel.getAnimations().every(animation =>
+    return getComputedStyle(panel).opacity === '1' && panel.getAnimations({ subtree: true }).every(animation =>
       !Number.isFinite(animation.effect.getComputedTiming().endTime) || animation.playState === 'finished');
   })()`), 'painel ativo concluir a pintura e a animação reais antes da captura');
   const image = await win.capturePage();
@@ -168,6 +171,13 @@ function observeNotificationShow(nativeShow, resolve, timer) {
 
 async function checkNotification() {
   const supported = Notification.isSupported();
+  // isSupported cria o presenter nativo, que pede autorização assincronamente.
+  // Só a CI Mac mantém o processo vivo para observar esse pedido; não há clique,
+  // retry ou aprovação sintética. O show real abaixo ainda precisa passar.
+  if (IS_MAC && config.macosDiagnostics && semAsVariaveis([]).CI === 'true') {
+    stage('notification-permission-requested');
+    await new Promise(resolve => setTimeout(resolve, 20000));
+  }
   report.checks.notification = { supported, status: 'pending', acceptedByNativeApi: false, visualDisplay: 'not inspected' };
   assert.equal(supported, true, 'notificações nativas indisponíveis neste desktop');
   main.win.hide();

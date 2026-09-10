@@ -12,12 +12,14 @@ import { installedElectronBinary, smokeEnv, validateSmokeReport } from './electr
 import { requiredElectronVersion } from '../lib/electron-runtime.js';
 import { readJson, writeJsonAtomic } from '../lib/io.js';
 import { semAsVariaveis } from '../lib/env.js';
-import { IS_WIN } from '../lib/paths.js';
+import { IS_WIN, IS_MAC } from '../lib/paths.js';
+import { startMacosDiagnostics } from './electron-smoke-macos-diagnostics.js';
 
 const root = path.dirname(import.meta.dirname);
 const PROCESS_TIMEOUT_MS = 5000;
 const argv = process.argv.slice(2);
 const ambient = semAsVariaveis([]);
+const macosDiagnostics = IS_MAC && ambient.CI === 'true';
 const outputIndex = argv.indexOf('--output');
 if (outputIndex < 0 || !argv[outputIndex + 1]) throw new Error('Informe --output <diretório dos artefatos>.');
 if (ambient.CI !== 'true' && !argv.includes('--allow-desktop')) {
@@ -68,9 +70,10 @@ function encerrarArvore(child) {
 }
 
 function executar(bin, args, env) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(bin, args, { cwd: root, env, windowsHide: true,
-      detached: !IS_WIN, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(bin, args, { cwd: root, env, windowsHide: true,
+    detached: !IS_WIN, stdio: ['ignore', 'pipe', 'pipe'] });
+  const diagnostics = macosDiagnostics ? startMacosDiagnostics({ output, binary: bin, probeId: name, child }) : null;
+  const result = new Promise((resolve, reject) => {
     const out = fs.createWriteStream(path.join(output, 'electron.stdout.log'));
     const err = fs.createWriteStream(path.join(output, 'electron.stderr.log'));
     child.stdout.pipe(out); child.stderr.pipe(err);
@@ -84,6 +87,10 @@ function executar(bin, args, env) {
       if (code !== 0) reject(new Error(`Electron smoke encerrou com code=${code}, signal=${signal || 'nenhum'}.`));
       else resolve();
     });
+  });
+  return result.finally(async () => {
+    diagnostics?.stop();
+    await diagnostics?.done;
   });
 }
 
@@ -102,10 +109,13 @@ try {
     autoReview: false, autoApproveAll: false, autoPushback: false, autoUpdate: false,
     autostart: false, updateRepo: '', jiraSites: [], claudeProfiles: [] });
   const configFile = path.join(base, 'probe.json');
-  writeJsonAtomic(configFile, { dirs, root, output, port, name, autostart,
+  writeJsonAtomic(configFile, { dirs, root, output, port, name, autostart, macosDiagnostics,
     expectedElectron, expectedApp: pkg.version });
   const bin = installedElectronBinary(root);
-  await executar(bin, [path.join(import.meta.dirname, 'electron-smoke-main.js')], smokeEnv(ambient, dirs, configFile));
+  const args = [path.join(import.meta.dirname, 'electron-smoke-main.js')];
+  const env = smokeEnv(ambient, dirs, configFile);
+  if (macosDiagnostics) { args.unshift('--enable-logging'); env.ELECTRON_DEBUG_NOTIFICATIONS = '1'; }
+  await executar(bin, args, env);
   const result = validateSmokeReport(readJson(path.join(output, 'result.json'), null), { name, expectedElectron, expectedApp: pkg.version });
   console.log(`Electron ${result.versions.electron} / ${process.platform}: smoke real passou. Artefatos: ${output}`);
 } catch (err) {

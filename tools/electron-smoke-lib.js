@@ -68,4 +68,15 @@ function validateLoginItem(settings, expected, enabled) {
   assert.deepEqual(own[0].args, expected.args, 'argumentos devem corresponder ao probe isolado');
 }
 
-export { installedElectronBinary, smokeEnv, localRequest, validateSmokeReport, validateWindowEvidence, validateLoginItem };
+function createIsolatedLoginSetter(nativeSetter, expected, isolated, onContractError) {
+  return settings => {
+    try {
+      assert.equal(settings.path, expected.path, 'path de produção deve apontar para o runtime real');
+      assert.deepEqual(settings.args, expected.args, 'args de produção devem abrir a raiz real do app');
+    } catch (err) { onContractError(); throw err; }
+    if (!isolated.authorized) return;
+    nativeSetter({ ...settings, name: isolated.name, args: isolated.args });
+  };
+}
+
+export { installedElectronBinary, smokeEnv, localRequest, validateSmokeReport, validateWindowEvidence, validateLoginItem, createIsolatedLoginSetter };

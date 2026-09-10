@@ -3,7 +3,24 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { installedElectronBinary, smokeEnv, localRequest, validateSmokeReport, validateWindowEvidence, validateLoginItem } from '../tools/electron-smoke-lib.js';
+import { installedElectronBinary, smokeEnv, localRequest, validateSmokeReport, validateWindowEvidence, validateLoginItem, createIsolatedLoginSetter } from '../tools/electron-smoke-lib.js';
+
+test('isolamento de autostart reprova args/path de produção antes de chamar o setter nativo', () => {
+  const expected = { path: 'C:\\Farol\\electron.exe', args: ['C:\\Farol'] };
+  const isolated = { name: 'FarolElectronSmoke-único', args: ['C:\\Farol', 'probe'], authorized: true };
+  const calls = [], errors = [];
+  const setter = createIsolatedLoginSetter(settings => calls.push(settings), expected, isolated, () => errors.push('contrato inválido'));
+  const settings = { ...expected, openAtLogin: true };
+  setter(settings);
+  assert.deepEqual(calls, [{ ...settings, name: isolated.name, args: isolated.args }]);
+  assert.deepEqual(settings.args, expected.args, 'não altera a entrada observada');
+  calls.length = 0;
+  for (const invalid of [{ ...settings, args: undefined }, { ...settings, args: ['BROKEN_APP_PATH'] }, { ...settings, path: 'WRONG_EXECUTABLE' }]) {
+    assert.throws(() => setter(invalid), /produção/);
+    assert.deepEqual(calls, [], 'erro não chega ao setter nativo nem fica mascarado pela identidade isolada');
+  }
+  assert.equal(errors.length, 3, 'reprovação continua observável mesmo se applyAutostart engolir a exceção');
+});
 
 test('autostart isolado usa launchItems por nome e nunca o openAtLogin da identidade real', () => {
   const expected = { name: 'FarolElectronSmoke-único', path: 'C:\\Farol\\electron.exe', args: ['C:\\Farol', 'probe'] };
