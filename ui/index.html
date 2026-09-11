@@ -212,6 +212,15 @@
         <button class="seg-btn active" data-escopo="este" aria-pressed="true">Este aparelho</button>
         <button class="seg-btn" data-escopo="todos" aria-pressed="false">Todos os aparelhos</button>
       </div>
+      <!-- A janela vale para as DUAS visões (o consolidado busca por ?days=), então ela
+           mora no cabeçalho da seção e não dentro do painel local, que fica escondido
+           em "Todos os aparelhos". Ali dentro, trocar de visão fazia o seletor sumir
+           junto, sem a janela deixar de valer. -->
+      <div class="seg" id="usageWindow" role="group" aria-label="Janela">
+        <button class="seg-btn" data-window="7" aria-pressed="false">7 dias</button>
+        <button class="seg-btn active" data-window="30" aria-pressed="true">30 dias</button>
+        <button class="seg-btn" data-window="90" aria-pressed="false">90 dias</button>
+      </div>
     </div>
     <p class="section-desc">Quanto as sessões autônomas do Claude (revisão, autoanálise, pushback, ferramentas e chat) consomem, em tokens e custo estimado. Mede o Farol como um todo. Registro pessoal e permanente; não influencia nenhuma decisão da automação.</p>
 
@@ -243,11 +252,6 @@
             <button class="seg-btn" data-metric="input" aria-pressed="false">Input</button>
             <button class="seg-btn" data-metric="output" aria-pressed="false">Output</button>
             <button class="seg-btn" data-metric="cache" aria-pressed="false">Cache</button>
-          </div>
-          <div class="seg" id="usageWindow" role="group" aria-label="Janela">
-            <button class="seg-btn" data-window="7" aria-pressed="false">7 dias</button>
-            <button class="seg-btn active" data-window="30" aria-pressed="true">30 dias</button>
-            <button class="seg-btn" data-window="90" aria-pressed="false">90 dias</button>
           </div>
           <div class="seg" id="usageStack" role="group" aria-label="Empilhar por">
             <button class="seg-btn active" data-dim="kind" aria-pressed="true">Por tipo</button>

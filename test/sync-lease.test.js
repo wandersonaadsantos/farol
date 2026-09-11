@@ -242,3 +242,16 @@ test('sem ETag na resposta, adquirir, renovar e soltar viram indisponivel sem es
     fake.setSemEtag(false);
   }
 });
+
+// A borda existe nos DOIS lados: aqui e na regra do banco (firebase/database.rules.json),
+// que autoriza a tomada quando `expiresAt <= now`. Os dois usavam sinais diferentes (o
+// cliente `<=`, a regra `<`), e no milissegundo exato o cliente tentava uma escrita que
+// a regra recusava. Nenhuma suíte executa as regras, então o que trava o lado de cá é
+// este teste, e o lado de lá é o roteiro manual do firebase/README.md.
+test('expirado é <=, e o milissegundo exato já conta como expirado', () => {
+  const agora = 1_000_000;
+  const vivo = { leaseId: 'L', deviceId: 'd', expiresAt: agora + 1 };
+  const naBorda = { leaseId: 'L', deviceId: 'd', expiresAt: agora };
+  assert.equal(leaseAcquirable(vivo, { leaseId: 'outro', nowMs: agora }), 'alheio');
+  assert.equal(leaseAcquirable(naBorda, { leaseId: 'outro', nowMs: agora }), 'expirado');
+});

@@ -198,6 +198,10 @@ test('syncTick conectado com a coordenação ligada faz a faxina uma vez por dia
   engine.sync.agora = () => AGORA;
   engine.sync.lastFaxinaAt = 0;
   await engine.syncTick();
+  // a faxina sai do tick SEM await de propósito (ela varre até 200 nós e o check()
+  // espera o tick antes de relançar as re-revisões); quem quiser o desfecho espera a
+  // promessa guardada
+  await engine.sync.faxinaEmVoo;
   const t = rtdb.tree().users.u1;
   assert.equal(t.dailyRounds[EU][PR2], undefined, 'o tick fez a faxina');
   assert.deepEqual(Object.keys(t.receipts[EU][PR1]).sort(), [FP_NOVO, FP_SEM_PRAZO].sort());

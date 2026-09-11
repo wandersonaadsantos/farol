@@ -309,3 +309,18 @@ test('nome de aparelho vindo do banco é escapado também no consolidado', () =>
   const html = P.usageConsolidatedHtml({ devices: [{ deviceId: 'd', name: '<img src=x onerror=alert(1)>', sessions: 1, costUsd: 1, lastAt: 0 }], totals: { sessions: 1, costUsd: 1 } });
   assert.doesNotMatch(html, /<img/);
 });
+
+test('desligar a chave geral zera as duas sub-chaves no objeto salvo', () => {
+  const ligado = { enabled: true, coordination: { enabled: true }, consolidation: { enabled: true }, apiKey: 'k' };
+  const desligado = P.syncCfgComGeral(ligado, false);
+  assert.equal(desligado.enabled, false);
+  assert.equal(desligado.coordination.enabled, false, 'coordenação desce junto');
+  assert.equal(desligado.consolidation.enabled, false, 'consolidação desce junto');
+  assert.equal(desligado.apiKey, 'k', 'o resto do objeto é preservado');
+  // religar a geral NÃO religa sub-chave: senão a consolidação voltaria a enviar
+  // consumo sozinha, sem ninguém ter pedido
+  const dnovo = P.syncCfgComGeral(desligado, true);
+  assert.equal(dnovo.enabled, true);
+  assert.equal(dnovo.coordination.enabled, false);
+  assert.equal(dnovo.consolidation.enabled, false);
+});

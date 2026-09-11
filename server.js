@@ -1761,7 +1761,10 @@ class Engine extends EventEmitter {
     // dizia "Configuração salva." mesmo quando o servidor tinha descartado a chave, e
     // a preferência sumia sem ninguém saber. Vazio = tudo entrou.
     if (ignoradas.length) this.log('WARN', `updateSettings ignorou chave desconhecida: ${ignoradas.join(', ')}`);
-    return { ok: true, ignoradas };
+    // a fatia `sync` volta JÁ SANEADA: o saneador mantém o valor anterior quando o novo
+    // é recusado (URL fora da allowlist de host), e sem devolver o que de fato ficou a
+    // tela não tem como distinguir "salvou" de "recusou em silêncio"
+    return { ok: true, ignoradas, sync: this.config.sync };
   }
 
   // Credencial do Jira: colaborador lib/jira/credentials.js, único lugar que lê ou
@@ -1788,6 +1791,7 @@ class Engine extends EventEmitter {
   syncLogout() { return syncMod.syncLogout(this); }
   syncTest() { return syncMod.syncTest(this); }
   syncEraseRemote() { return syncMod.syncEraseRemote(this); }
+  syncStop() { return syncMod.stopSync(this); }
   syncTick() { return syncMod.syncTick(this); }
   syncAplicarConfig() { return syncMod.aplicarConfig(this); }
   syncAdmit(ctx) { return syncMod.admit(this, ctx); }
@@ -2080,6 +2084,20 @@ class Engine extends EventEmitter {
 
 // --- bootstrap ---------------------------------------------------------------
 
+// Saída ORDENADA devolve os leases que este aparelho segura, para outro aparelho não
+// esperar até o TTL por um trabalho que já morreu. `once` nos dois sinais porque o
+// handler não pode correr duas vezes, e o `stopSync` é síncrono (os aborts saem em
+// best effort, sem await): pendurar a saída do processo em rede seria pior que o
+// lease preso que ela evita. Queda dura continua coberta só pelo TTL.
+function registrarSaidaOrdenada(engine) {
+  if (engine.saidaRegistrada) return;
+  engine.saidaRegistrada = true;
+  const sair = () => { try { engine.syncStop(); } catch { /* encerrando: nada a fazer */ } };
+  process.once('SIGINT', () => { sair(); process.exit(0); });
+  process.once('SIGTERM', () => { sair(); process.exit(0); });
+  process.once('beforeExit', sair);
+}
+
 function start(onReady) {
   const engine = new Engine();
   let began = false;
@@ -2089,7 +2107,7 @@ function start(onReady) {
     // usando este ~/.farol: um segundo engine com polling próprio revisaria PR
     // em dobro e escreveria seen/inflight/usage sem lock (A7). Por isso o
     // monitoramento só começa DEPOIS do listen dar certo.
-    if (!err && !began) { began = true; engine.schedule(); engine.start(); }
+    if (!err && !began) { began = true; engine.schedule(); engine.start(); registrarSaidaOrdenada(engine); }
     if (onReady) onReady(url, err);
   });
   return { engine, server, port: engine.config.port };

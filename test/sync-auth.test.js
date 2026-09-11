@@ -181,7 +181,10 @@ test('createTokenSource: a rotação do refresh token chega no onRefresh e é us
   await fonte.getIdToken();
   assert.equal(rotacoes.length, 1);
   assert.notEqual(rotacoes[0].refreshToken, login.refreshToken);
-  assert.deepEqual(Object.keys(rotacoes[0]), ['refreshToken']);
+  // o uid viaja junto: quem persiste precisa saber de QUAL conta é este token, porque a
+  // rotação é assíncrona e pode chegar depois de a pessoa trocar de conta
+  assert.deepEqual(Object.keys(rotacoes[0]).sort(), ['refreshToken', 'uid']);
+  assert.equal(rotacoes[0].uid, login.uid, 'o uid é o da conta que rotacionou');
   fonte.invalidate();
   await fonte.getIdToken();
   const req = fake.requests.at(-1);

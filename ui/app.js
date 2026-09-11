@@ -18,7 +18,7 @@ import {
   reasonGroupsHtml, reasonText, claudeProfilesHtml, accountsManagerHtml,
   jiraBaseUrlProblema, jiraPrefixosProblema,
   canMergeSelfAnalysis, qualityBlockTitle, selfAnalysisBadge, selfAnalysisToggle, selfAnalysisStale,
-  filaJustaHtml, syncSecaoHtml, syncConfirmacoesDoClique, usageConsolidadoEnvelopeHtml
+  filaJustaHtml, syncSecaoHtml, syncConfirmacoesDoClique, usageConsolidadoEnvelopeHtml, syncCfgComGeral
 } from './pure.js';
 
 const $ = (s) => document.querySelector(s);
@@ -1239,7 +1239,7 @@ function syncCfgAtual() {
 
 /* Salva o objeto INTEIRO de sync. Mandar só o campo alterado faria o engine receber uma
    config parcial e apagar o resto, que é o oposto do que a tela mostra. */
-function saveSync(sync) {
+function saveSync(sync, aoSalvar) {
   if (!STATE) return;
   STATE.config = { ...STATE.config, sync };
   renderSync();
@@ -1248,6 +1248,8 @@ function saveSync(sync) {
       toast('error', '"sync" não foi salvo: o servidor não reconhece essa preferência.', 6000);
       return;
     }
+    // o servidor devolve a config JÁ saneada: é ela que diz o que de fato ficou gravado
+    if (typeof aoSalvar === 'function' && r && r.sync) { aoSalvar(r); return; }
     toast('ok', '✓ Configurações salvas', 2000);
   });
 }
@@ -1263,24 +1265,34 @@ function renderSync() {
   box.innerHTML = syncSecaoHtml((STATE && STATE.sync) || {}, syncCfgAtual());
 }
 
-// Os três interruptores. A chave geral desligada arrasta as outras duas no objeto
-// salvo, e não só na tela: config que diz "coordenação ligada" com o recurso desligado
-// voltaria sozinha ao ligar a chave geral, sem ninguém ter pedido.
+// Os três interruptores. A regra da chave geral mora em syncCfgComGeral (ui/pure.js),
+// que é pura e testada: o comentário aqui já prometeu o arrasto das sub-chaves antes de
+// o código fazê-lo, e promessa em prosa não se verifica sozinha.
 function syncToggle(id, valor) {
   const c = syncCfgAtual();
   if (id === 'setSyncEnabled') {
-    saveSync({ ...c, enabled: valor });
+    saveSync(syncCfgComGeral(c, valor));
     return;
   }
   const chave = id === 'setSyncCoordination' ? 'coordination' : 'consolidation';
   saveSync({ ...c, [chave]: { ...(c[chave] || {}), enabled: valor } });
 }
 
+// A URL do banco passa por allowlist de host no servidor (lib/sync/config.js), e valor
+// recusado faz o saneador MANTER o anterior. Sem este aviso, o campo simplesmente
+// voltava ao valor velho depois do salvamento: da tela, é indistinguível de "não salvou"
+// ou de bug. Quem valida continua sendo o servidor, que é a fonte única; aqui só se
+// compara o que foi pedido com o que ficou.
 function syncCampoSalvar(id, valor) {
   const c = syncCfgAtual();
   const campo = { syncApiKey: 'apiKey', syncDatabaseUrl: 'databaseUrl', syncDeviceName: 'deviceName' }[id];
   if (!campo || String(c[campo] || '') === valor) return;
-  saveSync({ ...c, [campo]: valor });
+  saveSync({ ...c, [campo]: valor }, (r) => {
+    const ficou = String(((r || {}).sync || {})[campo] || '');
+    if (ficou === String(valor)) return;
+    if (campo === 'databaseUrl') toast('error', 'Endereço do banco recusado: use a URL do Realtime Database do seu projeto (…firebaseio.com ou …firebasedatabase.app). O valor anterior foi mantido.', 8000);
+    else toast('error', 'Valor recusado pelo servidor; o anterior foi mantido.', 6000);
+  });
 }
 
 async function syncFazerLogin() {
@@ -1322,7 +1334,8 @@ async function syncApagarRemoto() {
     title: 'Apagar dados sincronizados?',
     confirmLabel: 'Apagar do Firebase',
     body: `<p>Apaga do seu Firebase os aparelhos, as coordenações e o consumo enviado por <b>todos</b> os aparelhos.</p>
-      <p>Nenhum arquivo local é tocado: o histórico de cada aparelho continua nele. A sincronização segue ligada e recomeça do zero.</p>`,
+      <p><b>Análise em curso em outro aparelho é interrompida.</b> A coordenação dela sai junto, e aquele aparelho descarta o resultado sem postar quando perceber.</p>
+      <p>Nenhum arquivo local é tocado: o histórico de cada aparelho continua nele. A sincronização segue ligada e o consumo deste aparelho é reenviado do zero.</p>`,
   });
   if (!ok) return;
   const r = await api('/api/sync/erase-remote', {});
@@ -1464,6 +1477,7 @@ $('#sysNav').addEventListener('click', (e) => {
 const SYS_INDEX = [
   { sec: 'overview', at: '#updateBox', title: 'Versão e atualização', hint: 'update, atualizar, versão, release' },
   { sec: 'overview', at: '#doctor', title: 'Saúde do ambiente', hint: 'doctor, gh, claude, git bash, diagnóstico' },
+  { sec: 'sync', at: '#syncManager', title: 'Sincronização entre aparelhos', hint: 'sync, firebase, aparelho, dispositivo, coordenação, lease, consolidação, consumo, um farol por pr' },
   { sec: 'accounts', at: '#accountsManager', title: 'Contas do GitHub', hint: 'conta, identidade, cor, silenciar, política, token' },
   { sec: 'automation', at: '#sys-row-autoreview', title: 'Revisar automaticamente quando chegar PR', hint: 'auto review, revisão na hora, fila' },
   { sec: 'automation', at: '#sys-row-autoapprove', title: 'Aprovar sozinho os aprováveis com ressalvas', hint: 'auto approve, ressalva, aprovação' },

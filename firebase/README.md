@@ -115,7 +115,9 @@ Pré-requisitos, instalados na sua máquina e fora do repositório: o `firebase-
    - um lease com `expiresAt` acima de agora mais 300000 ms é recusado;
    - um nó de `dailyRounds` com `dayPolicy` diferente de `America/Sao_Paulo` é recusado;
    - **lease vivo de outro dono é recusado**: com `users/<uid>/leases/<conta>/<pr>`
-     já gravado e `expiresAt` no futuro, um PUT com `leaseId` DIFERENTE responde 403.
+     já gravado e `expiresAt` no futuro, um PUT com `leaseId` DIFERENTE responde 401
+     (o RTDB usa 401 tanto para token vencido quanto para regra que recusa a escrita;
+     `lib/sync/errors.js` mapeia os dois para `nao_autorizado`).
      É esta regra que faz "um Farol por PR" valer no servidor, e não só no cliente;
    - **o mesmo PUT é aceito depois que o lease vence**: repita a escrita acima com o
      `expiresAt` do nó existente já no passado e ela passa. Sem este caso, a regra
@@ -123,6 +125,11 @@ Pré-requisitos, instalados na sua máquina e fora do repositório: o `firebase-
    - **renovação não troca de aparelho**: sobre um lease vivo, um PUT com o MESMO
      `leaseId` e `deviceId` diferente é recusado (renovar é do dono, não de quem
      souber o id).
+
+   **A remoção NÃO é barrada pela regra.** `.validate` não roda em DELETE, então apagar
+   um lease de outra pessoa passa pelas regras; quem protege isso é o `if-match` do
+   cliente (`lib/sync/rtdb.js`), que só apaga o lease cujo ETag ele leu. Se um dia
+   alguém escrever direto no banco, essa é a porta aberta, e ela é consciente.
 
    Estes três casos não têm teste automatizado: nenhuma suíte do repositório executa
    as regras do banco. Rode-os à mão a cada mudança neste arquivo.

@@ -3011,6 +3011,21 @@ function syncSubToggle(id, ligada, on, titulo, desc) {
     </label>`;
 }
 
+// Desligar a chave geral zera as DUAS sub-chaves no objeto salvo, e não só na tela.
+// Sem isso, o config guardaria "coordenação ligada" com o recurso desligado, e religar a
+// geral faria a consolidação voltar a enviar consumo sozinha, sem ninguém ter pedido.
+// Ligar a geral não liga sub-chave nenhuma: quem religa escolhe o que quer de volta.
+export function syncCfgComGeral(cfg, ligado) {
+  const c = cfg || {};
+  if (ligado) return { ...c, enabled: true };
+  return {
+    ...c,
+    enabled: false,
+    coordination: { ...(c.coordination || {}), enabled: false },
+    consolidation: { ...(c.consolidation || {}), enabled: false },
+  };
+}
+
 export function syncTogglesHtml(cfg) {
   const c = cfg || {};
   const geral = c.enabled === true;
