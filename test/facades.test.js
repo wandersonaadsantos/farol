@@ -22,6 +22,7 @@ process.env.FAROL_HOME = FAROL_HOME;
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 const { Engine } = await import('../server.js');
+const reviewMod = (await import('../lib/engine/review.js')).default;
 
 after(() => { try { fs.rmSync(FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 
@@ -51,6 +52,12 @@ const EXCECOES = {
   // pra repassar o agora explícito. Não é argumento engolido.
   reReviewTargets: 'terceiro parâmetro (agora) tem default, que trunca a contagem do Function.length no parâmetro com default',
   reReviewEsgotados: 'terceiro parâmetro (agora) tem default, que trunca a contagem do Function.length no parâmetro com default',
+  // O Function.length trunca dos DOIS lados aqui: impl é (engine, urls, mode = 'auto',
+  // origem = 'auto', extras = {}) e para em 2; a fachada é (urls, mode = 'auto', ...) e
+  // para em 1. A conta (2 - 1 = 1) fecha por coincidência, e fecharia igual se a fachada
+  // tivesse esquecido o `extras`, que é justamente o que carrega os overrides do clique
+  // (ignorarRecibo, semCoordenacao). Quem prova a passagem é o caso logo abaixo.
+  launchReview: 'os dois lados têm parâmetro com default e a contagem fecha por coincidência; o repasse é provado por teste próprio',
 };
 
 function mapaDeModulos() {
@@ -124,4 +131,24 @@ test('as exceções declaradas ainda existem como fachada', () => {
     assert.ok(FACHADAS.some(f => f.nome === nome),
       `EXCECOES tem "${nome}", mas nenhuma fachada com esse nome foi encontrada. Remova a exceção.`);
   }
+});
+
+// A conta do Function.length não vale para o launchReview (ver EXCECOES). Como é ele
+// que carrega os overrides do clique, o repasse é provado de verdade: um argumento a
+// mais esquecido na fachada chegaria undefined e falharia EM SILÊNCIO.
+test('fachada launchReview repassa origem e extras até a implementação', async () => {
+  const engine = new Engine();
+  const vistos = [];
+  engine.prFromUrl = () => null;
+  engine.enqueueHeadless = () => {};
+  engine.log = () => {};
+  engine.pushState = () => {};
+  const impl = reviewMod.launchReview;
+  try {
+    reviewMod.launchReview = async (...args) => { vistos.push(args.slice(1)); return { ok: true }; };
+    await engine.launchReview(['https://github.com/o/r/pull/1'], 'auto', 'clique', { ignorarRecibo: true, semCoordenacao: true });
+  } finally {
+    reviewMod.launchReview = impl;
+  }
+  assert.deepEqual(vistos, [[['https://github.com/o/r/pull/1'], 'auto', 'clique', { ignorarRecibo: true, semCoordenacao: true }]]);
 });

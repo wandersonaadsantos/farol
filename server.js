@@ -64,8 +64,11 @@ import checksMod from './lib/engine/checks-exigidos.js';
 import signalMod from './lib/engine/review-signal.js';
 import usageMod from './lib/engine/usage.js';
 import quotaMod from './lib/engine/quota.js';
+import syncMod from './lib/engine/sync.js';
+import syncUsageMod from './lib/engine/sync-usage.js';
 import { EDITAVEIS, defaults as settingsDefaults, sanear } from './lib/settings.js';
 import { parseJiraSites, maskJiraSites } from './lib/jira/sites.js';
+import { parseSyncConfig, syncDefaults } from './lib/sync/config.js';
 import credMod from './lib/jira/credentials.js';
 import jiraMod from './lib/engine/jira.js';
 import { startServer } from './lib/http-server.js';
@@ -123,7 +126,7 @@ const PARSERS = {
   parseAccounts, parseProjectReviewers, parseDefaultReviewers, parsePeople,
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
   sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort,
-  sanitizeParallelReviews, sanitizeGlobalParallelReviews, parseJiraSites,
+  sanitizeParallelReviews, sanitizeGlobalParallelReviews, parseJiraSites, parseSyncConfig,
 };
 
 // carência anti-lag do índice de busca do GitHub: logo após EU postar um review, o PR
@@ -195,6 +198,13 @@ class Engine extends EventEmitter {
       ? (sanitizeCodexEffort(this.config.codexReviewEffort) || '') : esforcoCodexLegado;
     this.config.reviewModel = sanitizeClaudeModel(this.config.reviewModel) || '';
     this.config.reviewEffort = sanitizeClaudeEffort(this.config.reviewEffort) || '';
+    // sincronização entre dispositivos: opt-in que segura revisão quando ligado, então
+    // config.json editado à mão passa pelo mesmo saneador do caminho HTTP antes de
+    // qualquer coisa ler `enabled`. Base nos defaults: no boot não há valor anterior.
+    this.config.sync = parseSyncConfig(this.config.sync, syncDefaults());
+    // runtime da sincronização (lib/engine/sync.js): montado a partir do config JÁ
+    // saneado e sem rede nem arquivo novo; quem conecta é o primeiro tick do check()
+    this.sync = syncMod.bootSync(this);
     // intervalo do polling: o caminho HTTP (updateSettings) já clampa em 180..3600, mas
     // o boot engolia config.json editado à mão. Não numérico virava Math.max(180, NaN)
     // = NaN no schedule(), e setTimeout(fn, NaN) dispara em ~1ms: polling contínuo
@@ -847,6 +857,9 @@ class Engine extends EventEmitter {
       try { await this.enrichMyPRBranches(); } catch (e) { this.log('WARN', `enrichMyPRBranches: ${e.message}`); }
       // mergeabilidade real dos PRs aprovaveis (gate honesto do botao Merge)
       try { await this.refreshMergeStates(); } catch (e) { this.log('WARN', `refreshMergeStates: ${e.message}`); }
+      // sincronização entre dispositivos: presença e reconexão. Desligada custa zero, e
+      // falha dela vira estado da própria sincronização, nunca erro do ciclo.
+      try { await this.syncTick(); } catch (e) { this.log('WARN', `sincronização: ${e.message}`); }
       // stale: PRs que EU revisei e receberam commit novo depois (reativa o "Re-revisar")
       try { await this.refreshStaleStates(); } catch (e) { this.log('WARN', `refreshStaleStates: ${e.message}`); }
       // round 2 sozinho: PR onde EU pedi mudanças e o autor empurrou commit novo volta
@@ -1132,6 +1145,8 @@ class Engine extends EventEmitter {
         if (inflight.has(p.key)) return false;
         if (this.autoReviewParked.has(p.key)) return false;
         if (this.retryAfterNet.has(p.key)) return false;
+        // coordenação entre aparelhos: conexão fora ou espera anotada segura (D11)
+        if (this.syncSeguraAutomacao(p.key)) return false;
         if (this.skipComentado[p.key]) { foraDeCena.push(p); return false; }
         if (this._registraPulo(p, pulados)) return false;
         const blockedProfile = this.budgetBlockedFor(acct);
@@ -1305,7 +1320,7 @@ class Engine extends EventEmitter {
 
   // Pipeline de revisão headless: colaborador lib/engine/review.js (gate intacto, Onda 2).
   prFromUrl(url) { return reviewMod.prFromUrl(this, url); }
-  async launchReview(urls, mode = 'auto', origem = 'auto') { return reviewMod.launchReview(this, urls, mode, origem); }
+  async launchReview(urls, mode = 'auto', origem = 'auto', extras = {}) { return reviewMod.launchReview(this, urls, mode, origem, extras); }
   enqueueHeadless(pr) { return reviewMod.enqueueHeadless(this, pr); }
   headlessAcct(pr) { return reviewMod.headlessAcct(this, pr); }
   processHeadless() { return reviewMod.processHeadless(this); }
@@ -1442,7 +1457,7 @@ class Engine extends EventEmitter {
   // Claude por candidato novo, LEITURA pura (nunca posta), limitada por ciclo.
   async scanPushbacks() { return pushbackMod.scanPushbacks(this); }
   async detectAuthorPushback(pr, seen) { return pushbackMod.detectAuthorPushback(this, pr, seen); }
-  async classifyPushback(pr) { return pushbackMod.classifyPushback(this, pr); }
+  async classifyPushback(pr, marker) { return pushbackMod.classifyPushback(this, pr, marker); }
 
   // --- merge do MEU PR quando a MINHA autoanalise diz "aprovavel" -------------
   // Unica escrita no GitHub partindo de "Meus PRs" (a autoanalise em si continua
@@ -1726,6 +1741,9 @@ class Engine extends EventEmitter {
     }
     env.setDebugSpawns(this.config.debugSpawns); // liga/desliga o logger na hora
     this.saveConfig();
+    // a sincronização liga, desliga ou reconecta conforme o objeto novo; não espera a
+    // rede (aplicarConfig nunca rejeita) e o estado final chega pela tela via pushState
+    if ('sync' in (patch || {})) this.syncAplicarConfig();
     if (userChanged) { this.token = null; this.tokenOk = false; this.tokens = {}; }
     if (intervalChanged || userChanged) this.checkNow();
     // perfil (lista ou padrão global) mudou: o badge de assinatura Claude (doctor.claudeAuth)
@@ -1760,6 +1778,26 @@ class Engine extends EventEmitter {
   // Testa o site cadastrado contra o Jira de verdade (ver testarSite em lib/engine/jira.js).
   testarJiraSite(siteId) { return jiraMod.testarSite(this, siteId); }
 
+  // Sincronização entre dispositivos: colaborador lib/engine/sync.js, o único que junta
+  // config, credencial, aparelho e cliente do Firebase. A senha do login atravessa só a
+  // fachada de login e nunca volta em resultado nenhum.
+  syncCoordenacaoAtiva() { return syncMod.coordenacaoAtiva(this); }
+  syncSeguraAutomacao(key) { return syncMod.seguraAutomacao(this, key); }
+  syncRegistrarEspera(key, admissao) { return syncMod.registrarEspera(this, key, admissao); }
+  syncLogin(credenciais, fetchImpl) { return syncMod.syncLogin(this, credenciais, fetchImpl); }
+  syncLogout() { return syncMod.syncLogout(this); }
+  syncTest() { return syncMod.syncTest(this); }
+  syncEraseRemote() { return syncMod.syncEraseRemote(this); }
+  syncTick() { return syncMod.syncTick(this); }
+  syncAplicarConfig() { return syncMod.aplicarConfig(this); }
+  syncAdmit(ctx) { return syncMod.admit(this, ctx); }
+  syncPreflightManual(pr) { return syncMod.preflightManual(this, pr); }
+  syncRedoReceipt(key) { return syncMod.redoReceipt(this, key); }
+  // gancho do consumo (usage.js): no-op com a consolidação entre aparelhos desligada
+  syncEnqueueUsage(sessao) { return syncUsageMod.enqueueUsage(this, sessao); }
+  syncConsolidated(days) { return syncUsageMod.consolidated(this, days); }
+  syncConsolidate() { return syncUsageMod.consolidate(this); }
+
   snapshot() {
     return {
       app: { name: APP_NAME, version: APP_VERSION, platform: process.platform },
@@ -1777,6 +1815,9 @@ class Engine extends EventEmitter {
       // lista mascarada dos sites do Jira: mesmos campos do config, mais só a
       // EXISTÊNCIA da credencial (hasCredential), nunca o valor (ver lib/jira/sites.js).
       jiraSites: maskJiraSites(this.config.jiraSites || [], credMod.hasCredential),
+      // sincronização entre dispositivos por allowlist (statusForUi): nunca senha,
+      // token ou URL com auth=, só estado, aparelhos e o que a coordenação viu
+      sync: syncMod.statusForUi(this),
       lastCheckAt: this.lastCheckAt,
       nextCheckAt: this.nextCheckAt,
       queue: this.queue,
@@ -1877,6 +1918,10 @@ class Engine extends EventEmitter {
       if (!dona) continue;
       if (this.isMuted(dona) || !this.autoReviewFor(dona) || !this.tokenFor(dona)) continue;
       if (this.autoReviewParked.has(p.key) || this.skipComentado[p.key]) continue;
+      // D19: PR segurado pela coordenação não vai rodar agora, então não é disputa; sem
+      // isto a outra conta cederia a vez pra quem não pode usá-la. A fachada falta no
+      // engine mínimo dos testes da cota, e ausência vale como coordenação desligada.
+      if (typeof this.syncSeguraAutomacao === 'function' && this.syncSeguraAutomacao(p.key)) continue;
       espera.add(dona);
     }
     return this.accountList()
