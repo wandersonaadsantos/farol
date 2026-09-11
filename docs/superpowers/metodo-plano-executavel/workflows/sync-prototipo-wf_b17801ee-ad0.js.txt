@@ -1,0 +1,148 @@
+export const meta = {
+  name: 'sync-prototipo',
+  description: 'Implementa em worktree descartavel as tarefas nao visuais do contrato de sincronizacao, com TDD, gate verde por tarefa e revisao adversarial por bloco',
+  phases: [
+    { title: 'Construir', detail: 'um implementador por bloco, sequencial, commit por tarefa' },
+    { title: 'Revisar', detail: 'revisor adversarial por bloco, com prova de mutacao' },
+    { title: 'Corrigir', detail: 'uma rodada de correcao quando houver achado grave' },
+  ],
+}
+
+const WT = 'C:/Users/wanderson/Documents/farol/.worktrees/sync-prova'
+const CONTRATO = 'C:/Users/wanderson/Documents/farol/docs/superpowers/plans/2026-09-10-sync-00-contrato.md'
+
+const BASE = `
+Você implementa parte de uma feature do Farol (Node ESM puro + Electron) num WORKTREE DESCARTÁVEL.
+
+LUGARES:
+- Worktree de trabalho (HEAD destacado): ${WT}. Todo arquivo que você cria ou edita fica AQUI. Todo comando roda com cwd aqui.
+- Contrato (fonte da verdade, SOMENTE LEITURA): ${CONTRATO}. Leia INTEIRO antes de começar, em especial "Global Constraints", "Decisões fechadas" (D1 a D19), "Atualização pós-#71" e as seções do seu bloco. NUNCA edite o contrato.
+- Guia do mantenedor: ${WT}/CLAUDE.md. Leia as seções que tocam o que você vai mexer.
+- NUNCA toque em C:/Users/wanderson/Documents/farol fora do .worktrees (exceto LER o contrato). NUNCA faça git push, nunca crie branch, nunca use git stash, nunca rode npm install.
+
+MÉTODO, por tarefa, na ordem dada:
+1. Leia os arquivos existentes que a tarefa modifica (inteiros no trecho relevante).
+2. Escreva o teste em test/<nome>.test.js. RODE com \`node --test --test-force-exit test/<nome>.test.js\` e VEJA FALHAR. Guarde a primeira linha significativa da falha.
+3. Implemente o mínimo que o contrato especifica, com os NOMES, ASSINATURAS, FORMAS DE RETORNO, CAMINHOS e CONSTANTES exatamente como no contrato.
+4. Rode o teste da tarefa e veja passar. Depois rode o gate inteiro: \`npm run check && npm run lint && npm test\`. Tem que dar 0 fail e "sem regressão". Se o lint acusar regressão, CORRIJA O CÓDIGO (extraia função, constante nomeada, mova literal pra lib/constants.js). PROIBIDO mexer em tools/quality/baseline.json ou em qualquer coisa de tools/quality/.
+5. Commit de UMA tarefa: \`git add <arquivos da tarefa> && git commit -m "feat(sync): <resumo em português>"\`. Sem trailer Co-Authored-By, sem mencionar IA. Mensagem no formato Conventional Commits.
+
+REGRAS DE CÓDIGO (as mesmas do contrato, resumidas; na dúvida o contrato manda):
+- Zero dependência npm. ESM. JSON.parse/JSON.stringify só em lib/io.js (use io.parseJson / io.safeStringify). process.env só em lib/env.js e lib/paths.js. Tempo só em lib/constants.js com nome MAIÚSCULO. Máximo 400 linhas úteis por arquivo. Profundidade de chaves máxima efetiva 4 contada do topo do arquivo (objeto literal conta). Sem ternário aninhado, sem catch vazio sem comentário, sem var.
+- Teste que fixa process.env.FAROL_HOME carrega módulos do repo que alcançam lib/paths.js SÓ com await import(). Módulo puro pode ser import estático.
+- Teste nunca toca a internet: fetchImpl injetado ou dublê HTTP local em test/helpers/ ouvindo em 127.0.0.1 porta 0.
+- Comentário em português, sem travessão (use vírgula, parênteses ou dois pontos), explica o PORQUÊ. Nunca imprima e-mail, senha, token ou URL com auth= em log, erro, resposta HTTP ou snapshot.
+- Não enfraqueça teste existente. Ajustar a EXPECTATIVA de um teste existente só quando o contrato manda (ex.: contagem de classes da taxonomia).
+
+DESVIOS: se o contrato estiver errado, incompleto, contraditório com o código real ou impossível sob o gate, faça a coisa correta MÍNIMA e registre em "deviations" com a seção do contrato, o que o contrato dizia, o que você fez e a prova (saída de comando ou arquivo:linha). Toda decisão que o contrato deixava implícita (ex.: ponto de injeção de fetch pra teste) também entra em "deviations" com kind "decisao", porque o plano final vai transcrever o seu código literalmente e precisa saber o porquê.
+
+SAÍDA: o objeto do schema. Em tasks[].failFirst cole a primeira linha da falha do passo 2. Em gate cole as linhas finais reais (tests/pass/fail/skipped e a linha do lint).`
+
+const IMPL_SCHEMA = {
+  type: 'object',
+  properties: {
+    tasks: { type: 'array', items: { type: 'object', properties: {
+      id: { type: 'string' }, commit: { type: 'string' }, summary: { type: 'string' },
+      files: { type: 'array', items: { type: 'string' } }, testFile: { type: 'string' },
+      testsAdded: { type: 'integer' }, failFirst: { type: 'string' },
+    }, required: ['id', 'commit', 'files', 'testFile', 'failFirst'] } },
+    deviations: { type: 'array', items: { type: 'object', properties: {
+      task: { type: 'string' }, kind: { type: 'string', description: 'defeito-contrato | decisao | codigo-real-diverge' },
+      section: { type: 'string' }, contractSaid: { type: 'string' }, didInstead: { type: 'string' }, evidence: { type: 'string' },
+    }, required: ['task', 'kind', 'section', 'didInstead'] } },
+    gate: { type: 'string' },
+    blocked: { type: 'string', description: 'vazio se terminou tudo; senão o que impediu e em qual tarefa' },
+  },
+  required: ['tasks', 'deviations', 'gate', 'blocked'],
+}
+
+const REVIEW_SCHEMA = {
+  type: 'object',
+  properties: {
+    findings: { type: 'array', items: { type: 'object', properties: {
+      severity: { type: 'string', description: 'critical | important | minor' },
+      task: { type: 'string' }, file: { type: 'string' }, line: { type: 'integer' },
+      issue: { type: 'string' }, evidence: { type: 'string' }, fix: { type: 'string' },
+    }, required: ['severity', 'task', 'issue', 'evidence', 'fix'] } },
+    mutationChecks: { type: 'array', items: { type: 'object', properties: {
+      what: { type: 'string' }, testFailed: { type: 'boolean' }, detail: { type: 'string' },
+    }, required: ['what', 'testFailed'] } },
+    gate: { type: 'string' },
+  },
+  required: ['findings', 'mutationChecks', 'gate'],
+}
+
+const BLOCOS = [
+  { id: 'C1', title: 'folhas de lib/sync e taxonomia', tasks: `
+T1: SYNC em lib/constants.js (verbatim da seção "Constantes"; declare const DIA_MS = 24 * HORA_MS antes do objeto se precisar) + lib/sync/errors.js (seção "Erros") + test/sync-errors.test.js e test/sync-constants.test.js (este segundo SÓ afirma LEASE_TTL_MS < LEASE_TTL_MAX_MS e os tipos; a parte que lê firebase/database.rules.json entra na T10).
+T2: lib/sync/keys.js (seção "Chaves") + test/sync-keys.test.js. Obrigatório testar brasiliaDay nas bordas: Date.UTC(2026,8,10,2,59,59) -> '2026-09-09' e Date.UTC(2026,8,10,3,0,0) -> '2026-09-10'; nextBrasiliaDayStartMs de 2026-09-09T15:00Z devolve exatamente Date.UTC(2026,8,10,3,0,0); prHash igual para 'Acme/Repo#7' e 'acme/repo#7'; operationFingerprint lança SyncError em kind inválido e em materialVersion vazio; eventIdFor estável e sensível a tokens; assertRtdbKey recusa '.', '$', '#', '[', ']', '/'.
+T3: lib/sync/config.js (seção "Config") + entrada 'sync' em lib/settings.js logo depois de jiraSites + parseSyncConfig em PARSERS do server.js + saneamento no boot do construtor (ache onde o construtor reaplica saneadores do config.json lido e aplique this.config.sync = parseSyncConfig(this.config.sync, syncDefaults())) + test/sync-config.test.js (inclui: config.json sem sync inicia com enabled false; valor lixo não liga nada; databaseUrl inválida mantém a anterior; emulador http://127.0.0.1:9000 aceito; http em host remoto recusado).
+T4: lib/sync/credentials.js e lib/sync/device.js (seção "Credenciais e dispositivo", espelhando lib/jira/credentials.js) + test/sync-credentials.test.js e test/sync-device.test.js (FAROL_HOME temporário + await import; o teste de modo 0600 pula no Windows com { skip: IS_WIN }).
+T5: test/helpers/fake-identity.js (seção "Dublês") + lib/sync/auth.js (seção "Auth") + test/sync-auth.test.js (signIn ok, senha errada -> credencial_invalida, TOO_MANY_ATTEMPTS -> muitas_tentativas, expiresIn string vira expiresAtMs, refresh form-urlencoded, rotação de refresh token chega no onRefresh, createTokenSource usa cache até a margem e faz UMA renovação para chamadas concorrentes, timeout vira 'timeout' com mock.timers, rede caída vira 'indisponivel', e nenhum resultado de erro contém a senha).
+T6: lib/sync/sse.js + test/sync-sse.test.js (chunks cortados no meio da linha, \\r\\n, várias linhas data:, comentário ':', end() despacha o pendente).
+T7: test/helpers/fake-rtdb.js + lib/sync/rtdb.js (seção "Cliente REST") + test/sync-rtdb.test.js: get/put/patch/del; ETag e if-match com null_etag; 412 devolve valor e etag atuais; PATCH nunca manda if-match; {".sv":"timestamp"}; ?ns só com http; token inválido -> nao_autorizado; stream recebe put inicial, put incremental, ignora keep-alive, repassa auth_revoked, e fecha com signal; redactUrl esconde o auth=; mensagem de erro de rede não contém o token.
+T8: classe 'coordenacao-indisponivel' em lib/log-taxonomy.js IMEDIATAMENTE antes de 'rede' (verbatim da seção "Taxonomia") e test/log-taxonomy.test.js atualizado: contagem 16, lista ordenada com a classe nova entre 'resultado-invalido' e 'rede', MSG.coordenacao em CASOS. Confira que 'fetch failed' dentro da frase da coordenação cai na classe nova e não em 'rede'.` },
+  { id: 'C2', title: 'composição lib/engine/sync.js, fiação no server, rotas e regras do banco', tasks: `
+T9: lib/engine/sync.js base (seção "Runtime e composição": bootSync, startSync, stopSync, aplicarConfig, syncTick, touchPresence, syncLogin, syncLogout, syncTest, syncEraseRemote, statusForUi, coordenacaoAtiva, consolidacaoAtiva, seguraAutomacao, registrarEspera; admit, preflightManual e redoReceipt NÃO entram nesta tarefa) + fiação no server.js (this.sync via bootSync no construtor DEPOIS do config saneado; fachadas finas de uma linha no formato das outras: syncCoordenacaoAtiva, syncSeguraAutomacao, syncRegistrarEspera, syncLogin, syncLogout, syncTest, syncEraseRemote, syncTick, syncAplicarConfig; snapshot().sync = syncMod.statusForUi(this); check() chama await this.syncTick() no fim do ciclo; updateSettings chama this.syncAplicarConfig() depois do saveConfig quando a chave 'sync' veio no patch) + rotas POST /api/sync/login, /api/sync/logout, /api/sync/test, /api/sync/erase-remote em lib/http-server.js (resposta NUNCA ecoa senha; siga o padrão de helper raso do okResponse pra não subir profundidadeExcedida do http-server.js). Precisa de uma costura de teste pra injetar fetch e as URLs dos dublês (identity/token/database): decida a mais simples compatível com o gate (sem process.env), registre em deviations como 'decisao'. Testes (test/sync-engine.test.js, FAROL_HOME temporário, Engine real via await import('../server.js')): (a) boot com sync ausente: status 'desligado', nenhuma chamada ao fetch injetado, nenhum arquivo sync-credentials.json nem sync-device.json criado, snapshot().sync.enabled === false; (b) habilitar + login com os dublês: status 'conectado', credencial gravada sem senha no arquivo, deviceId persistido, devices/{deviceId} com lastSeenAt de servidor no fake; (c) syncTick respeita PRESENCE_TICK_MS; (d) logout apaga credencial e volta a 'sem-credencial'; (e) erase-remote apaga /users/{uid} e não apaga arquivo local; (f) desligar (enabled false) para tudo e status volta a 'desligado' sem apagar nada; (g) seguraAutomacao: false com coordenação desligada; true com coordenação ligada e status != conectado; true com espera vigente; (h) nenhum campo do snapshot contém a senha, o refresh token ou 'auth='. Rode também test/facades.test.js e test/ui-contract.test.js e test/settings-fonte-unica.test.js e confirme verdes.
+T10: firebase/database.rules.json (verbatim da seção "Regras do banco"), firebase/firebase.json, firebase/README.md (roteiro do usuário e da Fase 5, em português, sem travessão, sem credencial pessoal, sem número de card) + completar test/sync-constants.test.js lendo o JSON das regras (fs + JSON.parse no teste é permitido) e afirmando que o '300000' que aparece na regra de leases é igual a SYNC.LEASE_TTL_MAX_MS e que dayPolicy da regra é SYNC.DAY_TZ. Confira em tools/make-package.ps1 se a pasta firebase/ entraria no pacote de distribuição e registre em deviations o que achou (não mude o make-package).` },
+  { id: 'C3', title: 'lease, recibos, rodadas e coordenador', tasks: `
+T13: lib/sync/lease.js (seção "Lease") + test/sync-lease.test.js com o fake-rtdb: dois clientes chamam acquireLease ao MESMO tempo (Promise.all) e exatamente um recebe ok; lease expirado é assumido; lease 'meu' é readquirido; renewLease de lease alheio devolve 'perdido'; renew de lease expirado devolve 'perdido'; releaseLease nunca apaga o lease de outro (released false); release atrasado depois de o sucessor adquirir não apaga o sucessor; rede caída devolve 'indisponivel'.
+T14: lib/sync/receipts.js (seção "Recibos") + test/sync-receipts.test.js: receiptBlocks por outcome e expiresAt; receiptOrphanState nos casos ativo/orfao/desconhecido (lastSeenAt ausente, no futuro, recibo recente com device antigo NÃO é órfão, publicationState published nunca é órfão); writeReceipt com null_etag e 412 devolvendo o atual; invalidateReceipt com etag.
+T15: lib/sync/rounds.js (seção "Rodadas do dia") + test/sync-rounds.test.js: teto DAILY_ROUNDS_MAX com reservas started; reserva 'reserved' expirada não conta; reserva viva conta; esgotado; dois clientes reservando ao mesmo tempo no último lugar: só um passa; startRound exige o mesmo leaseId; pruneRounds apaga dia antigo e mantém o de hoje; o dia usado vem de brasiliaDay (teste com instante 02:30Z que ainda é o dia anterior em Brasília).
+T16: lib/sync/coordinator.js (seção "Coordenador": admit, createHandle, noopHandle, preflightManual, registrarRecibo) + em lib/engine/sync.js as funções admit, preflightManual e redoReceipt (esta última pode ficar para C4 se depender de launchReview com extras: se ficar, registre) + fachadas syncAdmit(ctx) e syncPreflightManual(pr) no server.js + test/sync-coordinator.test.js cobrindo: coordenação desligada -> admitted com handle noop sem tocar rede; semCoordenacao -> admitted + log INFO; status != conectado -> indisponivel; materialVersion vazio -> indisponivel; recibo válido -> 'recibo' e markSeen do PR (review); preflight do GitHub com APPROVED no head -> 'recibo' externo e recibo external_review gravado; myReviewStates null NÃO bloqueia; lease alheio -> 'alheio' com deviceName; releitura sob lease: outro dispositivo grava recibo entre a primeira leitura e a aquisição (use hook/ordem do fake para provocar) -> 'recibo' e o lease é liberado; contaRodada esgotado -> 'esgotado' e lease liberado; handle.complete grava recibo e libera; handle.abort libera sem recibo; heartbeat recusado (outro dispositivo toma o lease) marca lost, chama onLost e engine.cancelSession(opId) (mock.timers ou relógio injetado); complete depois de lost não grava.` },
+  { id: 'C4', title: 'gate no runClaudeStream e chamadores (sem UI)', tasks: `
+T17: em lib/engine/session.js: OPERACOES, admitirOperacao e runClaudeStream como invólucro de runProvedor (seção "Gate em lib/engine/session.js", verbatim). O corpo atual de runClaudeStream é renomeado para runProvedor SEM mudar uma linha do corpo; exporte runProvedor junto. test/sync-gate.test.js: (a) coordenação desligada: runClaudeStream chama o spawn no MESMO tick (mesma técnica de childProcess.spawn mockado de test/session-checkpoint-capture.test.js) e test/session-checkpoint-capture.test.js continua verde; (b) ligada, operationKind ausente -> rejeita antes do spawn e antes do ramo Codex (engine com resolveClaudeAuth devolvendo kind 'codex' e FAROL_HEADLESS_CMD definido: spawn nunca chamado); (c) ligada, 'chat' e 'tool' passam sem chamar syncAdmit; (d) ligada, 'review' sem coordination -> rejeita; (e) admissão recusada resolve { blocked: true, coordination, text: '', sessionId: null } sem spawn; (f) admitida: resultado ganha coordination = handle; erro do provedor chama handle.abort e, com handle.lost, err.coordenacao === 'perdido'.
+T18: lib/engine/review.js e server.js conforme "Contratos dos chamadores" (runHeadlessReview com operationKind/coordination, tratarBloqueioDeCoordenacao, complete/abort nos desfechos, finally com abort; runOneHeadless com err.coordenacao; launchReReviews com rodadaAutomatica; MAX_RODADAS_AUTO_DIA = SYNC.DAILY_ROUNDS_MAX) + filtros syncSeguraAutomacao em toReview, reReviewTargets e retryTargets + D19 em contasDoPerfil + test/sync-review.test.js (use FAROL_HEADLESS_CMD stub ou mocks no padrão dos testes existentes de review; leia test/rereview.test.js e test/estacionamento-visivel.test.js pra copiar o jeito de montar engine). Casos: bloqueio 'alheio' devolve o PR pra fila, NÃO estaciona, NÃO entra no retryAfterNet e registra espera; 'recibo' não estaciona e não re-enfileira; lease perdido durante a sessão (err.coordenacao) não estaciona e não posta; toReview pula PR com espera vigente; contasDoPerfil NÃO marca waiting para conta cujo único PR na fila está segurado (D19) e continua marcando quando não está; com coordenação desligada NADA muda (rode a suíte inteira e mostre 0 fail).
+T19: selfpr.js, pushback.js (classifyPushback(pr, marker) e scanPushbacks avançando o marcador em { deduped }), chat.js ('chat'), tools.js ('tool') + test/sync-callers.test.js cobrindo o bloqueio da autoanálise (toast, sem registro), complete com not_applicable, pushback deduped avança pushbackScanned, e que chat/tool mandam o operationKind.
+T20 (parte sem UI): launchReview(engine, urls, mode, origem, extras = {}) com preflight manual e overrides (seção "Contratos dos chamadores") + fachada nova + rota /api/review repassando semCoordenacao/ignorarRecibo só quando === true + redoReceipt em lib/engine/sync.js + fachada + rota POST /api/sync/redo + test/sync-manual.test.js (preflight bloqueado devolve coordenacao[{key,reason,detail}] sem enfileirar; semCoordenacao só vale para 'indisponivel'; ignorarRecibo só para 'recibo'; 'alheio' não tem override; com coordenação desligada launchReview é idêntico ao de antes). O test/facades.test.js vai derivar a aridade das fachadas novas: se algum parâmetro com default truncar o Function.length, siga a regra do próprio arquivo (EXCECOES com motivo) e registre.` },
+  { id: 'C5', title: 'outbox e consolidação de consumo (sem UI)', tasks: `
+T22: lib/sync/outbox.js (seção "Outbox e consolidação") + ganchos em lib/engine/usage.js (recordUsage e marcarDesfecho chamam engine.syncEnqueueUsage quando existir) + fachada syncEnqueueUsage (no-op com consolidação desligada) + flush no syncTick + test/sync-outbox.test.js: migração repetida não duplica (mesmo eventId); crash entre save local e outbox recuperado por reconcileFromSessions; correção de status reenvia o mesmo eventId; sessões com o mesmo id local em boots diferentes não colidem; consolidação desligada nunca grava sync-outbox.json; 4xx repetido vai para rejeitados após OUTBOX_MAX_REJEICOES; rede caída mantém pending; profileId e costSource sobrevivem. Se lib/engine/sync.js passar de 380 linhas úteis, extraia lib/engine/sync-usage.js como o contrato prevê.
+T23: lib/sync/consolidated.js (puro) + fachada/rota GET /api/sync/consolidated?days= (envelope { ok, resumo } ou { ok:false, code, motivo }) + POST /api/sync/consolidate (resetForFullSync + reconcilia) + test/sync-consolidated.test.js (janela por dia de Brasília, euMesmo, totais medido/estimado/sem base, outro UID nunca aparece porque a leitura é sempre em /users/{uid}).` },
+]
+
+const REVIEW_PROMPT = (b) => `
+Você é REVISOR ADVERSARIAL do bloco ${b.id} (${b.title}) de um protótipo no worktree ${WT} (HEAD destacado). Contrato (fonte da verdade): ${CONTRATO}. Guia: ${WT}/CLAUDE.md. SOMENTE LEITURA, exceto que você PODE editar arquivos temporariamente para a prova de mutação e DEVE desfazer com \`git checkout -- <arquivo>\` logo depois (confira com git status que ficou limpo). Nunca commit, nunca push, nunca stash.
+
+As tarefas do bloco foram:
+${b.tasks}
+
+Faça:
+1. \`git log --oneline\` e \`git show --stat\` dos commits do bloco. Leia o código e os testes inteiros.
+2. Confronte com o contrato: nomes, assinaturas, formas de retorno, caminhos, constantes, decisões D1 a D19. Aponte todo desvio NÃO justificado.
+3. Invariantes que você deve tentar quebrar: com sync desligado nada toca rede nem cria arquivo; nenhum segredo (senha, refresh token, idToken, URL com auth=) em log, erro, resposta HTTP ou snapshot; o gate falha FECHADO com coordenação ativa; coordenação desligada preserva o spawn síncrono; bloqueio de coordenação nunca estaciona nem entra em retryAfterNet; recibo só depois de persistir resultado; lease alheio nunca é removido; regras do gate de qualidade (rode npm run lint).
+4. PROVA DE MUTAÇÃO: escolha as 3 a 5 linhas que sustentam as garantias mais importantes do bloco (ex.: o if-match do PUT, o teste 'alheio' do leaseAcquirable, o early return da coordenação desligada), neutralize UMA de cada vez, rode o teste correspondente, registre se ele FALHOU (bom) ou passou (teste fraco = achado important), e desfaça.
+5. Rode \`npm run check && npm run lint && npm test\` no fim e cole o resumo em gate.
+Severidade: critical = quebra invariante de segurança/produção ou a garantia central; important = contrato violado, teste que não prova o que diz, ou defeito que um executor copiaria para o plano; minor = estilo, comentário. Seja concreto: arquivo, linha, evidência (saída de comando), correção proposta.`
+
+const FIX_PROMPT = (b, findings) => `
+Você corrige achados de revisão do bloco ${b.id} no worktree ${WT} (HEAD destacado). Contrato: ${CONTRATO} (SOMENTE LEITURA). Regras de trabalho idênticas às do implementador:
+${BASE}
+
+Achados a corrigir (critical e important; minor só se trivial):
+${JSON.stringify(findings, null, 2)}
+
+Para cada achado: corrija com TDD (teste que falha antes, passa depois, quando o achado é de comportamento), rode o gate inteiro verde e faça UM commit por achado: \`git commit -m "fix(sync): <resumo>"\`. Se discordar de um achado, NÃO corrija e explique em deviations com kind "discorda" e a prova. Devolva o schema (tasks = um item por achado corrigido, id = "fix:<task>:<n>").`
+
+const resultados = []
+for (const b of BLOCOS) {
+  phase('Construir')
+  log(`${b.id}: ${b.title}`)
+  const impl = await agent(`${BASE}\n\nSEU BLOCO: ${b.id} (${b.title}). Tarefas, nesta ordem:\n${b.tasks}`,
+    { label: `impl:${b.id}`, phase: 'Construir', schema: IMPL_SCHEMA, effort: 'high' })
+  if (!impl) { resultados.push({ bloco: b.id, erro: 'implementador morreu' }); break }
+  if (impl.blocked) { resultados.push({ bloco: b.id, impl, parou: impl.blocked }); break }
+
+  phase('Revisar')
+  const rev = await agent(REVIEW_PROMPT(b), { label: `review:${b.id}`, phase: 'Revisar', schema: REVIEW_SCHEMA, effort: 'high' })
+  const graves = ((rev && rev.findings) || []).filter(f => f.severity === 'critical' || f.severity === 'important')
+
+  let fix = null
+  if (graves.length) {
+    phase('Corrigir')
+    log(`${b.id}: ${graves.length} achado(s) grave(s), corrigindo`)
+    fix = await agent(FIX_PROMPT(b, graves), { label: `fix:${b.id}`, phase: 'Corrigir', schema: IMPL_SCHEMA, effort: 'high' })
+  }
+  resultados.push({ bloco: b.id, impl, review: rev, fix })
+  if (fix && fix.blocked) break
+}
+return resultados

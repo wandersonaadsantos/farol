@@ -1,0 +1,177 @@
+export const meta = {
+  name: 'sync-plan-audit',
+  description: 'Mapear touchpoints do código, fatos do Firebase REST e pontas soltas do spec de sincronização, com refutação adversarial',
+  phases: [
+    { title: 'Mapear', detail: 'leitores do código, pesquisa Firebase e auditores do spec em paralelo' },
+    { title: 'Refutar', detail: 'cada ponta solta é atacada por 3 refutadores independentes' },
+  ],
+}
+
+const REPO = 'C:/Users/wanderson/Documents/farol'
+const SPEC = `${REPO}/docs/PLANO-SINCRONIZACAO-DISPOSITIVOS.md`
+
+const COMMON = `
+Repositório: ${REPO} (Node ESM puro + Electron; leia CLAUDE.md na raiz primeiro, ele é o guia do mantenedor).
+REGRAS: você é SOMENTE LEITURA. Não edite, não crie arquivos, não rode npm, não rode git que altere estado (git status/log/diff são ok). A árvore tem alterações não commitadas de outra sessão: leia o estado atual do disco tal como está.
+Seu texto final é DADO devolvido a um orquestrador, não mensagem para humano. Seja exato: cite arquivo:linha e copie assinaturas/trechos literalmente (até 30 linhas por trecho). Onde algo NÃO existe, diga "não existe" em vez de supor.
+Escreva em português, sem travessão (use vírgula, parênteses ou dois pontos).`
+
+const MAP_SCHEMA = {
+  type: 'object',
+  properties: {
+    facts: { type: 'array', items: { type: 'object', properties: {
+      file: { type: 'string' }, line: { type: 'integer' }, symbol: { type: 'string' },
+      signature: { type: 'string' }, excerpt: { type: 'string' }, note: { type: 'string' },
+    }, required: ['file', 'symbol', 'note'] } },
+    notes: { type: 'string', description: 'markdown com o que um implementador precisa saber desta região, incluindo armadilhas' },
+  },
+  required: ['facts', 'notes'],
+}
+
+const READERS = [
+  { key: 'session-gate', prompt: `${COMMON}
+TAREFA: mapear o estrangulamento do provedor de IA e todos os seus chamadores.
+1. lib/engine/session.js: função runClaudeStream inteira (assinatura, o retorno antecipado do Codex, uso de stub FAROL_HEADLESS_CMD, como opts é usado: onEvent, onSession, account, extraArgs, reviewCap, fast, model, effort, e qualquer outro campo lido de opts). Copie as primeiras ~25 linhas literalmente. Liste TODOS os campos de opts que a função lê.
+2. lib/codex/stream.js: runCodexStream, assinatura e se faz spawn próprio (sim/não, onde).
+3. Todos os chamadores de engine.runClaudeStream em lib/engine/*.js: review.js (rodarSessao), selfpr.js, pushback.js, chat.js, tools.js. Para cada: linha, prefixo do id (a/s/pb/c/f), objeto opts completo passado (copie literalmente), e o que o chamador faz com o retorno (parse do envelope? persistência?).
+4. server.js: a fachada runClaudeStream (linha, assinatura) e como activeReviews é preenchido (registro {id, mode, keys, startedAt, ...}: copie a forma).
+5. Existe algum outro caminho que crie processo do claude/codex fora de runClaudeStream? (spawnConsole/terminal). Liste.
+Saída: facts + notes. Em notes, diga explicitamente ONDE um gate inserido em runClaudeStream teria que ficar para valer também para o Codex e para o stub.` },
+  { key: 'review-pipeline', prompt: `${COMMON}
+TAREFA: mapear o pipeline de revisão headless e os estados locais que a sincronização entre dispositivos precisa reconciliar.
+Em lib/engine/review.js: enqueueHeadless, processHeadless, runOneHeadless, runHeadlessReview (do início: como resolve head (engine.headSha), como aplica a label <conta>:revisando, onde chama rodarSessao; até o fim: onde decide postar (canAuto/canReject), onde grava decisão (recordDecision), onde estaciona (estacionar/desestacionar, tipos), onde entra retryAfterNet e prComRetomada), rodarSessao, sidDeRetomada, launchReReviews, classificaReRound, pushTrivial, reReviewLaunched + normalizeAncora + proximaAncora + MAX_RODADAS_AUTO_DIA e COMO O DIA É CALCULADO (função e fuso), saveAutoReviewParked/chavesEstacionadas.
+Em server.js: seen/markSeen/unsee/saveSeen e o arquivo, o filtro toReview no check() (linhas), a ordem das etapas do check() (liste as chamadas na ordem), recoverInflight e o formato de state/inflight.json, retryAfterNet (forma do Map e de cada entrada), autoReviewParked, launchReview(urls, origem) e o que 'manual'/'clique' significa em pr.manual.
+Em lib/engine/decision.js: myReviewStates (assinatura, retorno exato: forma do objeto e o que null significa), recordDecision (forma do item gravado em decisions.json: campos), DECISIVE_REVIEW_STATES, postReview retorno.
+Em lib/engine/gh-queries.js (ou onde estiver): headSha(engine, pr) assinatura e retorno.
+Saída: facts + notes. Em notes, descreva o ciclo de vida de UMA revisão headless como lista numerada de funções na ordem em que rodam.` },
+  { key: 'self-pushback', prompt: `${COMMON}
+TAREFA: mapear autoanálise (Meus PRs) e o scan de pushback.
+Em lib/engine/selfpr.js: runSelfAnalysis do início ao fim (como resolve head, como monta prompt, chamada de runClaudeStream com opts literal, parseSelfResult, onde persiste em self-analyses.json e a forma do registro: campos incluindo observed, headSha, hidden, stale), marcarDesfecho, qualquer dedup local (o que impede rodar duas vezes o mesmo PR), como a UI dispara (rota /api/... e fachada em server.js), SELF_PRUNE_STRIKES.
+Em lib/engine/pushback.js: pushbackTargets, scanPushbacks (gate pushbackScanning, MAX_PER_CYCLE, gate updatedAt), detectAuthorPushback (assinatura e RETORNO EXATO: qual é o "marcador da atividade do autor", é timestamp? id de comentário?), classifyPushback (opts de runClaudeStream literal, o que grava em state/pushbacks.json e em state/pushback-scanned.json e a forma de cada), onde o marcador é avançado (antes ou depois da sessão?) e o que acontece em falha.
+Também: como a config autoPushback é lida (nome exato da chave de config e default).
+Saída: facts + notes.` },
+  { key: 'usage-io-infra', prompt: `${COMMON}
+TAREFA: mapear infraestrutura que os módulos novos vão reutilizar.
+1. lib/engine/usage.js: recordUsage (assinatura completa e o registro EXATO que faz push em usageSessions.sessions: copie o objeto literal inteiro com todos os campos), marcarDesfecho (assinatura e o que muda), usageSummary (assinatura e forma do retorno, campos de topo), SESSIONS_FILE e USAGE_FILE caminhos, saveUsage/saveUsageSessions, dailyCapFor e como o dia é calculado (funções diaLocal/localDay se existirem: copie), MAX_DAYS.
+2. lib/constants.js: exporte TEMPOS inteiro (copie) e qualquer outra constante.
+3. lib/env.js: todas as exportações com assinatura (o que é o "santuário" de process.env).
+4. lib/io.js: todas as exportações (run, runShell, readJson, parseJson, writeJsonAtomic, writeTextAtomic, ensureDir, copyRecursive...) com assinatura e contrato (lança ou devolve {ok}?).
+5. lib/paths.js: exportações (FAROL_HOME, STATE_DIR, WORKSPACE, IS_WIN, IS_MAC, IS_LINUX, rodandoComoRoot, executadoDireto...).
+6. lib/jira/credentials.js: copie o ARQUIVO INTEIRO (é o precedente a espelhar).
+7. lib/log-taxonomy.js: forma de CLASSES (copie 3 entradas literais incluindo uma transitória e a de github-indisponivel), assinatura de classify e o que devolve, e como test/log-taxonomy.test.js testa uma classe (copie um caso).
+8. lib/format.js: reasonText e staleHeadText assinaturas.
+9. node:crypto está em uso em algum lugar? (randomUUID, createHash) cite.
+Saída: facts + notes.` },
+  { key: 'engine-config-http-tests', prompt: `${COMMON}
+TAREFA: mapear config, snapshot, rotas HTTP e padrões de teste.
+1. server.js: construtor da Engine (como carrega config.json, defaults, funções sanitize* aplicadas: liste), updateSettings (assinatura, allowlist de chaves aceitas: copie), snapshot() (liste TODOS os campos de topo que devolve e de onde vem cada um), emit()/SSE, log(level, msg) assinatura, this.config campos conhecidos (liste os nomes), como fachadas finas são escritas (copie 3 exemplos de uma linha) e a regra do test/facades.test.js (EXCECOES).
+2. lib/http-server.js: como as rotas são registradas (copie uma rota GET e uma POST completas, ex.: /api/jira/test), como o corpo JSON é lido, como o erro é devolvido, lista de TODAS as rotas existentes (método + caminho + fachada chamada).
+3. lib/parse.js: exportações (assinaturas) e o padrão de um normalizador (copie parseJiraSites ou normalizeClaudeProfiles resumido).
+4. Testes: test/test-isolation.test.js (regra exata que aplica), dois exemplos de teste que sobem Engine com FAROL_HOME temporário (copie o boilerplate de setup/teardown literal), um exemplo de teste que stuba io.run ou engine.headSha/myReviewStates (como fazem o stub: monkeypatch? injeção?), test/facades.test.js como detecta fachadas, test/ui-contract.test.js regras (data-goto, ids), test/release-consistency.test.js o que exige.
+5. tools/quality/rules.js: LIMITES, lista de regras e para cada regra os "santuários" (arquivos onde a violação é permitida), e tools/quality/higiene.js o que checa. tools/quality/baseline.json: copie 5 entradas.
+6. .github/workflows/ci.yml: copie inteiro.
+7. package.json scripts (copie) e tools/hooks/pre-push (copie).
+Saída: facts + notes.` },
+  { key: 'ui', prompt: `${COMMON}
+TAREFA: mapear a UI para acrescentar uma seção "Sincronização entre dispositivos" em Sistema e um seletor de dispositivo na aba Consumo.
+1. ui/index.html: estrutura da aba Sistema (liste os ids de todas as seções sys-*, e copie o HTML COMPLETO da seção sys-jira como modelo), a aba Consumo (ids dos elementos: gráfico, matriz, tabela de sessões, filtros de janela), classes CSS usadas para cartão/callout/selo/toggle/botão (nomes exatos).
+2. ui/app.js: como a seção Jira é renderizada e ligada (funções: nome, como lê STATE.config.jiraSites, como salva via post('/api/...'), como mostra selo/callout, como trata resposta de /api/jira/test), helpers get()/post()/toast()/esc(), como o handler 'state' do SSE atualiza STATE e chama render, como os toggles de Sistema > Automação são ligados (ex.: #setReviewFast: copie o wiring), como a aba Consumo consome STATE.usage (funções e campos lidos: série diária, camadas, matriz, sessionsSince), RELEASE_NOTES forma.
+3. ui/pure.js: estilo de exportação (named exports), 3 funções pequenas como modelo (esc, fmtDur, parkedNoteHtml) copiadas, e como test/ui-pure.test.js as importa e testa (copie um caso).
+4. ui/app.css: convenções de nome (prefixos), e a regra de tema (variáveis CSS).
+5. test/ui-widgets.test.js e test/ui-contract.test.js: o que travam (resumo com as regras que uma seção nova precisa obedecer).
+Saída: facts + notes.` },
+]
+
+const RESEARCH = [
+  { key: 'rtdb-rest', prompt: `Você pesquisa documentação oficial do Firebase com WebFetch. Seu texto final é DADO para um orquestrador. Português, sem travessão.
+Objetivo: fatos exatos da API REST do Firebase Realtime Database para um cliente em Node 22 usando fetch nativo, SEM SDK.
+Busque e cite (URL + trecho) em:
+- https://firebase.google.com/docs/database/rest/save-data (requisições condicionais: header X-Firebase-ETag: true na leitura, header if-match na escrita, o que volta em 412 (corpo e header ETag?), ETag para valor ausente ("null_etag"?), PUT/PATCH/DELETE/POST semânticas, print=silent, valores de servidor {".sv":"timestamp"})
+- https://firebase.google.com/docs/database/rest/retrieve-data#section-rest-streaming (SSE: header Accept: text/event-stream, tipos de evento put/patch/keep-alive/cancel/auth_revoked, formato de data {path, data}, redirecionamento 307 para host de stream, shallow=true)
+- https://firebase.google.com/docs/database/rest/auth (como autenticar: ?auth=<idToken> vs header Authorization: Bearer <idToken>, qual funciona para ID token de usuário)
+- https://firebase.google.com/docs/reference/rest/database (parâmetros, limites de tamanho de payload, formato de erro JSON {"error": "..."})
+- https://firebase.google.com/docs/reference/security/database (variáveis now, data, newData, auth.uid, root; .validate; se now é ms; como exigir newData.child('expiresAt').val() > now)
+- https://firebase.google.com/docs/database/usage/limits (limites relevantes: conexões, tamanho de nó, profundidade 32, chaves proibidas . $ # [ ] /)
+- https://firebase.google.com/docs/emulator-suite/connect_rtdb e https://firebase.google.com/docs/emulator-suite/install_and_configure (porta padrão 9000, URL REST do emulador com ?ns=<projeto>, precisa de Java? precisa de firebase-tools? como carregar regras; auth no emulador aceita token falso? ex.: ?auth=owner)
+Devolva um FACT SHEET numerado; para cada fato: afirmação, URL, trecho literal curto. Se um fato não estiver na doc, diga "não confirmado na doc" (não invente).` },
+  { key: 'identity-toolkit', prompt: `Você pesquisa documentação oficial do Firebase/Google com WebFetch. Seu texto final é DADO para um orquestrador. Português, sem travessão.
+Objetivo: fatos exatos para autenticar um usuário Firebase por REST (Identity Toolkit), sem SDK, em Node 22 com fetch.
+Busque e cite (URL + trecho) em https://firebase.google.com/docs/reference/rest/auth :
+- signInWithPassword: URL exata (https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=[API_KEY]), corpo {email, password, returnSecureToken:true}, campos da resposta (idToken, refreshToken, expiresIn, localId), códigos de erro (EMAIL_NOT_FOUND, INVALID_PASSWORD, INVALID_LOGIN_CREDENTIALS, USER_DISABLED, TOO_MANY_ATTEMPTS_TRY_LATER)
+- refresh: URL exata (https://securetoken.googleapis.com/v1/token?key=[API_KEY]), corpo (grant_type=refresh_token&refresh_token=..., é form-urlencoded ou JSON?), campos da resposta (id_token, refresh_token, expires_in, user_id), erros (TOKEN_EXPIRED, USER_DISABLED, USER_NOT_FOUND, INVALID_REFRESH_TOKEN)
+- tempo de vida do ID token (1 hora) e se o refresh token expira
+- signInWithIdp com GitHub (postBody com access_token e providerId=github.com) como alternativa: URL e campos mínimos
+- a Web API key é segredo? (buscar https://firebase.google.com/docs/projects/api-keys : "API keys for Firebase are different from typical API keys ... not used to control access")
+- Auth emulator: https://firebase.google.com/docs/emulator-suite/connect_auth : porta 9099, URL base REST no emulador (http://localhost:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=any), se exige key real.
+Devolva um FACT SHEET numerado; cada fato com URL e trecho literal curto; "não confirmado na doc" quando faltar.` },
+]
+
+const AUDIT_SCHEMA = {
+  type: 'object',
+  properties: {
+    findings: { type: 'array', items: { type: 'object', properties: {
+      id: { type: 'string' }, section: { type: 'string' }, kind: { type: 'string', description: 'contradicao | indefinido | delegado-ao-executor | claim-falsa | falta-decisao | formato-nao-especificado | teste-nao-verificavel' },
+      claim: { type: 'string' }, evidence: { type: 'string' }, why_haiku_would_guess: { type: 'string' }, proposed_fix: { type: 'string' },
+    }, required: ['id', 'section', 'kind', 'claim', 'evidence', 'why_haiku_would_guess', 'proposed_fix'] } },
+  },
+  required: ['findings'],
+}
+
+const AUDITORS = [
+  { key: 'spec-loose-ends', prompt: `${COMMON}
+Leia o spec inteiro: ${SPEC} (893 linhas). Leia também CLAUDE.md.
+TAREFA: encontrar PONTAS SOLTAS que impediriam um executor de capacidade limitada (Claude Haiku) de implementar sem adivinhar. Procure especificamente:
+- contradições internas entre seções (ex.: §7.1 diz X, §13 exige Y incompatível);
+- termos usados sem definição (ex.: "marcador da atividade do autor" sem dizer o tipo/formato);
+- decisões explicitamente delegadas ao executor ("forma concreta da árvore é decisão técnica do executor", "o executor escolhe arquivos") que um Haiku não deveria decidir;
+- formatos não especificados (nome de arquivos de estado, chaves de config exatas, forma dos nós, algoritmo de hash, formato de eventId, forma do resultado tipado de coordenação);
+- testes listados em §13 que não dizem COMO seriam verificados (qual double, qual fixture);
+- decisões pendentes de §17 que na verdade podem ser decididas agora com um default seguro;
+- qualquer lugar onde "pode", "quando aplicável", "conforme o tipo" esconde uma regra não escrita.
+Para cada achado: id F-n, seção, tipo, a afirmação do spec (citação curta), evidência, por que o Haiku teria que adivinhar, correção proposta (concreta: o texto/regra que deveria existir).
+Seja exaustivo: 25 a 60 achados é o esperado para um spec deste tamanho. Não repita o mesmo achado em seções diferentes.` },
+  { key: 'spec-claims-vs-code', prompt: `${COMMON}
+Leia o spec: ${SPEC}. TAREFA: verificar contra o código TODA afirmação factual que o spec faz sobre o repositório (§4, §4.2, §7.1 sobre runClaudeStream/Codex/stub, §7.4 sobre myReviewStates, §11.5/§11.6 sobre lint/baseline/maxLines/test-isolation/CI, §8.4 sobre pushback/activeReviews/MAX_PER_CYCLE, §6.2 sobre localDay/diaLocal, o que diz sobre reReviewLaunched e teto de 3, sobre install/update e node_modules, sobre seen).
+Para cada afirmação: cite a linha do spec, a evidência no código (arquivo:linha + trecho), veredito (verdadeira / falsa / imprecisa) e, se imprecisa ou falsa, o texto correto. Devolva como findings com kind 'claim-falsa' apenas para as falsas/imprecisas, e liste as verdadeiras em um único finding final com kind 'indefinido' e id F-OK contendo a lista das confirmadas em evidence.` },
+]
+
+phase('Mapear')
+const readerRuns = READERS.map(r => () => agent(r.prompt, { label: `map:${r.key}`, phase: 'Mapear', schema: MAP_SCHEMA, effort: 'medium' }).then(v => ({ key: r.key, ...v })))
+const researchRuns = RESEARCH.map(r => () => agent(r.prompt, { label: `research:${r.key}`, phase: 'Mapear', effort: 'medium' }).then(v => ({ key: r.key, text: v })))
+const auditRuns = AUDITORS.map(a => () => agent(a.prompt, { label: `audit:${a.key}`, phase: 'Mapear', schema: AUDIT_SCHEMA, effort: 'high' }).then(v => ({ key: a.key, ...v })))
+
+const [maps, research, audits] = await Promise.all([
+  parallel(readerRuns), parallel(researchRuns), parallel(auditRuns),
+])
+
+const findings = audits.filter(Boolean).flatMap(a => (a.findings || []).map(f => ({ ...f, auditor: a.key })))
+log(`${findings.length} achados brutos dos auditores; refutando cada um com 3 lentes`)
+
+phase('Refutar')
+const VERDICT = { type: 'object', properties: { refuted: { type: 'boolean' }, reason: { type: 'string' }, corrected_fix: { type: 'string' } }, required: ['refuted', 'reason'] }
+const LENSES = [
+  'lente CÓDIGO: verifique no repositório se o spec de fato deixa isso indefinido ou se o código/CLAUDE.md já responde; refute se já está respondido em algum lugar que o executor lê',
+  'lente SPEC: releia a seção citada e as vizinhas; refute se o spec já define isso em outra seção (cite a linha)',
+  'lente HAIKU: pergunte se um implementador competente mas sem contexto REALMENTE teria que adivinhar, ou se existe um default óbvio e único; refute se o default é único e seguro',
+]
+const verified = await pipeline(findings,
+  f => parallel(LENSES.map((lens, i) => () => agent(`${COMMON}
+Spec: ${SPEC}. Um auditor afirmou a seguinte PONTA SOLTA no spec de sincronização entre dispositivos:
+id: ${f.id} | seção: ${f.section} | tipo: ${f.kind}
+afirmação: ${f.claim}
+evidência: ${f.evidence}
+por que o Haiku adivinharia: ${f.why_haiku_would_guess}
+correção proposta: ${f.proposed_fix}
+Sua tarefa: TENTAR REFUTAR usando a ${lens}. Na dúvida, refuted=true. Se não refutar, opcionalmente melhore a correção em corrected_fix (mais concreta, com nomes/valores).`, { label: `refute:${f.id}:${i}`, phase: 'Refutar', schema: VERDICT, effort: 'medium' }))).then(votes => {
+    const v = votes.filter(Boolean)
+    const refutedCount = v.filter(x => x.refuted).length
+    const survives = v.length > 0 && refutedCount < 2
+    const fix = v.filter(x => !x.refuted && x.corrected_fix).map(x => x.corrected_fix)
+    return { ...f, survives, votes: v.map(x => ({ refuted: x.refuted, reason: x.reason })), improved_fixes: fix }
+  })
+)
+
+const confirmed = verified.filter(Boolean).filter(f => f.survives)
+const dropped = verified.filter(Boolean).filter(f => !f.survives)
+log(`${confirmed.length} pontas soltas confirmadas, ${dropped.length} refutadas`)
+return { maps, research, confirmed, dropped: dropped.map(d => ({ id: d.id, claim: d.claim, votes: d.votes })) }
