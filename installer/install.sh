@@ -83,6 +83,7 @@ command -v claude >/dev/null 2>&1 || echo "  !  'claude' nao encontrado: o Farol
 
 # --- runtime antes de alterar a instalacao -------------------------------------
 source "$SRC/installer/electron-runtime.sh"
+incluir_npm_de_gerenciador
 preparar_runtime 'electron/dist/Electron.app/Contents/MacOS/Electron' "$SRC/installer/electron-darwin.zip"
 
 # --- encerra instancias em execucao ---------------------------------------------
