@@ -21,6 +21,7 @@ const MSG = {
   credencial: 'sessão retornou erro: Invalid API key · Fix external API key',
   // 10/09/2026: o 401 de OAuth expirado era classificado como rede pelo sufixo.
   oauthExpirado: 'sessão retornou erro: Failed to authenticate. API Error: 401 OAuth access token has expired. Re-authenticate to continue. (após 2 tentativa(s) de reconexão com a API)',
+  oauthSemRefresh: 'sessão retornou erro: OAuth session expired and could not be refreshed',
   credito: 'sessão retornou erro: API Error: 402 OpenRouter returned 402: {"error":{"message":"This request requires more credits...',
   rede: 'error connecting to api.github.com',
   redeSessao: 'sessão retornou erro: fetch failed',
@@ -132,7 +133,13 @@ test('classify: a ORDEM importa, console-fechado ganha de ferramenta', () => {
 });
 
 test('classify: OAuth expirado exige ação na credencial, mesmo após reconexões', () => {
-  for (const msg of [MSG.oauthExpirado, 'authentication_error: OAuth access token has expired', 'OAUTH ACCESS TOKEN HAS EXPIRED']) {
+  // 11/09/2026: a variante que o CLI cospe quando o refresh do OAuth falha
+  // ("OAuth session expired and could not be refreshed") nao casava com nada e caia
+  // em desconhecido/app, ou seja, o Diagnostico culpava o Farol em vez da credencial.
+  // Caso real: Edicoes-CNBB/biblioteca-cnbb-ai-engine#13, com os quatro lotes mortos
+  // na largada e um card mudo de "precisa de voce".
+  for (const msg of [MSG.oauthExpirado, 'authentication_error: OAuth access token has expired', 'OAUTH ACCESS TOKEN HAS EXPIRED',
+    MSG.oauthSemRefresh, 'OAuth session expired and could not be refreshed']) {
     const c = classify(msg);
     assert.equal(c.id, 'oauth-expirado');
     assert.equal(c.grupo, 'credencial');

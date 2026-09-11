@@ -96,3 +96,44 @@ test('parseHeadlessResult: objeto iniciado e truncado é JSON inválido, não re
   assert.throws(() => parse('{"decision":'), err =>
     err instanceof SyntaxError && err.code !== 'FAROL_RESULT_MISSING' && err.message === 'JSON da sessão inválido');
 });
+
+/* ---------- envelope incompleto por falha de infra não vira veredito ---------- */
+
+// 11/09/2026, Edicoes-CNBB/biblioteca-cnbb-ai-engine#13: os quatro lotes morreram na
+// largada com "OAuth session expired and could not be refreshed" e a sessão devolveu
+// um envelope VÁLIDO com analysisStatus incomplete e payloads vazios. Como não houve
+// exceção, toda a máquina de retry/estacionamento (retryAfterNet, classify) ficou de
+// fora e o Farol gravou a falha de credencial como se fosse veredito: card mudo de
+// "precisa de você" com 24 pendências que ninguém leu. Envelope sem NENHUM conteúdo,
+// incompleto e com falha de credencial/infra na prosa é falha, não revisão.
+const INFRA = {
+  decision: 'needs_decision',
+  verdict: 'request_changes',
+  analysisStatus: 'incomplete',
+  reportMarkdown: 'Os quatro lotes obrigatórios foram disparados em paralelo no modo headless, mas todos encerraram antes de analisar arquivos por falha de autenticação da sessão do `pr-reviewer` (`OAuth session expired and could not be refreshed`).',
+  payloads: {
+    approve: { event: 'APPROVE', body: '', comments: [] },
+    request_changes: { event: 'REQUEST_CHANGES', body: '', comments: [] },
+    comment: { event: 'COMMENT', body: '', comments: [] },
+  },
+};
+
+test('parseHeadlessResult: envelope vazio e incompleto com falha de credencial vira erro de sessão', () => {
+  assert.throws(() => parse(json(INFRA)), /OAuth session expired/);
+});
+
+test('parseHeadlessResult: incompleto COM conteúdo continua sendo revisão', () => {
+  // parcial legítima: a sessão não cobriu tudo, mas escreveu achado. Não é infra.
+  const parcial = {
+    ...INFRA,
+    payloads: { ...INFRA.payloads, request_changes: { event: 'REQUEST_CHANGES', body: 'Faltou tratar o retorno nulo em app/main.py.', comments: [] } },
+  };
+  assert.deepEqual(parse(json(parcial)), parcial);
+});
+
+test('parseHeadlessResult: incompleto e vazio sem falha de infra continua sendo revisão', () => {
+  // sessão que só não terminou: sem assinatura de credencial/rede na prosa, o gate
+  // de envelope incompleto do review.js segue sendo quem decide, como antes.
+  const mudo = { ...INFRA, reportMarkdown: 'Não consegui concluir a leitura do diff dentro do orçamento de contexto.' };
+  assert.deepEqual(parse(json(mudo)), mudo);
+});

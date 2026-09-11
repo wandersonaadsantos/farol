@@ -24,7 +24,7 @@ import { modelLabel, isPermanentBranch, logStamp } from './lib/format.js';
 import { ACCOUNT_PALETTE } from './lib/taxonomy.js'; // resto da taxonomia é usado nos colaboradores (review/pushback)
 import {
   parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople,
-  sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
+  sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId, workspaceTrust,
   applyClaudeAuthEnv, claudeAuthShellLines,
   sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort,
   sanitizeParallelReviews, sanitizeGlobalParallelReviews
@@ -464,21 +464,16 @@ class Engine extends EventEmitter {
           return;
         }
       }
-      data.projects = data.projects || {};
-      // o claude ora registra a chave com \ ora com /: semeia as duas variantes
-      const variants = [WORKSPACE, WORKSPACE.replace(/\\/g, '/')];
-      let changed = false;
-      for (const key of variants) {
-        const entry = data.projects[key] || {};
-        if (entry.hasTrustDialogAccepted === true && entry.hasCompletedProjectOnboarding === true) continue;
-        entry.hasTrustDialogAccepted = true;
-        entry.hasCompletedProjectOnboarding = true;
-        data.projects[key] = entry;
-        changed = true;
-      }
+      // a decisao (o que muda, e se muda) mora em lib/parse.js, testada sem disco
+      const { data: atualizado, changed } = workspaceTrust(data, WORKSPACE);
       if (!changed) return;
       if (fs.existsSync(file)) fs.copyFileSync(file, file + '.farol-bak');
-      fs.writeFileSync(file, JSON.stringify(data, null, 2));
+      // ATOMICO: escreve no .tmp e renomeia. O writeFileSync direto trunca o arquivo
+      // final e so depois preenche, e essa janela era exatamente o que o Claude Code
+      // (que le o mesmo arquivo o tempo todo) pegava pela metade. Do outro lado do
+      // espelho, o proprio Farol lia "~/.claude.json ilegivel" e desistia de confiar
+      // no workspace, o que faz a primeira sessao parar no dialogo bloqueante.
+      writeJsonAtomic(file, atualizado);
     } catch (err) {
       this.log('WARN', `nao consegui pre-confiar o workspace no ~/.claude.json: ${err.message}`);
     }
