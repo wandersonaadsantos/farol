@@ -211,31 +211,81 @@ function closeOp(opId, result = 'done', message = '') {
   }
 }
 
+// ---- auxiliares de rótulo e escolha, extraídos de cadeias de ternários ----
+
+const TEXTO_DA_LISTA_VAZIA = {
+  loading: () => 'Verificando os PRs abertos…',
+  error: () => 'Não foi possível confirmar ainda (a checagem falhou; veja o aviso no topo). Vou tentar de novo no próximo ciclo.',
+};
+function textoDaListaVazia(vs) {
+  const f = TEXTO_DA_LISTA_VAZIA[vs];
+  if (f) return f();
+  return `Nenhum PR aberto ${SCOPE === 'all' ? 'nas organizações monitoradas' : 'nesta conta'}.`;
+}
+
+// a ordem é de precedência: rodando agora vence a fila, que vence "já analisei antes"
+function rotuloDoBotaoDeAnalise({ running, queued, qpos, analisado }) {
+  if (running) return 'Analisando…';
+  if (queued) return `Na fila (${qpos})`;
+  return analisado ? 'Reanalisar' : 'Analisar';
+}
+
+// a dimensão escolhe de qual mapa do envelope sair e onde estão os nomes das camadas
+const DIMENSAO_DO_CONSUMO = {
+  model: { key: 'byModel', campoDeNomes: 'modelNames' },
+  account: { key: 'byAccount', campoDeNomes: 'accountNames' },
+  kind: { key: 'byKind', campoDeNomes: 'kindNames' },
+};
+
+function origemLocal(u) {
+  return u.source ? `fonte em <code>${esc(u.source)}</code>` : '';
+}
+
+function tituloDaNotificacao(auto, n) {
+  if (auto) return n === 1 ? 'PR novo, revisando sozinho' : `${n} PRs novos, revisando sozinho`;
+  return n === 1 ? 'PR aguardando sua revisão' : `${n} PRs aguardando sua revisão`;
+}
+
+// conta silenciada mostra a pausa; as demais mostram a contagem, quando há o que contar
+function selo(a, showCounts, att) {
+  if (a.muted) return '<span class="seg-pause">⏸</span>';
+  return showCounts && att ? `<span class="seg-count">${att}</span>` : '';
+}
+
+// '__all__' passa tudo; usuário nomeado compara sem caixa; vazio pede entrada SEM dono
+function doUsuario(dono, user) {
+  if (user === '__all__') return true;
+  return user ? dono.toLowerCase() === user.toLowerCase() : !dono;
+}
+
+// três estados, e o que não é 'running' nem 'done' é erro: o ícone não inventa um
+// quarto estado para status desconhecido
+const ICONE_DA_OPERACAO = { running: 'spin', done: 'done' };
+function classeDoIcone(status) {
+  return ICONE_DA_OPERACAO[status] || 'error';
+}
+
+// a posição na fila manda quando existe (mesmo zero, que apaga o texto); sem ela, a
+// estimativa de tempo; sem as duas, nada
+function metaDaOperacao(op) {
+  if (op.queuePos !== undefined) return `<span>${op.queuePos > 0 ? `fila: ${op.queuePos}` : ''}</span>`;
+  if (op.eta) return `<span>~${formatDuration(op.eta)}</span>`;
+  return '';
+}
+
 function updateOpDisplay(opId) {
   const op = ACTIVE_OPS.get(opId);
   if (!op || !op.element) return;
   const isInline = op.element.classList.contains('op-inline-pill');
   if (isInline) {
     op.element.className = `op-inline-pill ${op.status}`;
-    const iconHtml = op.status === 'running'
-      ? '<span class="op-icon spin"></span>'
-      : op.status === 'done'
-      ? '<span class="op-icon done"></span>'
-      : '<span class="op-icon error"></span>';
+    const iconHtml = `<span class="op-icon ${classeDoIcone(op.status)}"></span>`;
     const text = esc(op.step || op.title);
     op.element.innerHTML = `${iconHtml} ${text}`;
   } else {
     op.element.className = `op-widget ${op.status}`;
-    const iconHtml = op.status === 'running'
-      ? '<span class="op-icon spin"></span>'
-      : op.status === 'done'
-      ? '<span class="op-icon done"></span>'
-      : '<span class="op-icon error"></span>';
-    const metaHtml = op.queuePos !== undefined
-      ? `<span>${op.queuePos > 0 ? `fila: ${op.queuePos}` : ''}</span>`
-      : op.eta
-      ? `<span>~${formatDuration(op.eta)}</span>`
-      : '';
+    const iconHtml = `<span class="op-icon ${classeDoIcone(op.status)}"></span>`;
+    const metaHtml = metaDaOperacao(op);
     const progressHtml = op.progress > 0 && op.progress < 100
       ? `<div class="op-progress"><span>${op.progress}%</span><div class="op-bar"><div class="op-bar-fill" style="width: ${op.progress}%"></div></div></div>`
       : '';
@@ -243,7 +293,7 @@ function updateOpDisplay(opId) {
       ? `<button class="op-cancel" data-op-id="${esc(opId)}">Cancelar</button>`
       : '';
     op.element.innerHTML = `
-      <div class="op-header"><span class="op-icon ${op.status === 'running' ? 'spin' : (op.status === 'done' ? 'done' : 'error')}"></span><span>${esc(op.title)}</span></div>
+      <div class="op-header"><span class="op-icon ${classeDoIcone(op.status)}"></span><span>${esc(op.title)}</span></div>
       ${op.step ? `<div class="op-step">${esc(op.step)}</div>` : ''}
       ${progressHtml}
       ${metaHtml ? `<div class="op-meta">${metaHtml}</div>` : ''}
@@ -432,7 +482,7 @@ function renderAccountBar() {
     const style = `--ac:${meta.color};` + (active ? `--seg-bg:${meta.soft};--seg-fg:${meta.color};--seg-badge-bg:${meta.color};--seg-badge-fg:${meta.ink};` : '');
     return `<button class="acct-seg ${active ? 'active' : ''} ${a.muted ? 'muted' : ''}" data-scope="${esc(a.user)}"
         title="@${esc(a.user)}${meta.org ? ' · ' + esc(meta.org) : ''}${a.muted ? ' (silenciada)' : ''}" style="${style}">
-        <span class="seg-dot"></span>${esc(meta.label || a.user)}${a.muted ? '<span class="seg-pause">⏸</span>' : (showCounts && att ? `<span class="seg-count">${att}</span>` : '')}</button>`;
+        <span class="seg-dot"></span>${esc(meta.label || a.user)}${selo(a, showCounts, att)}</button>`;
   }).join('');
   bar.innerHTML = segAll + segs;
 }
@@ -1746,7 +1796,9 @@ function kbdMove(delta) {
   if (!cards.length) return;
   switchTab('radar');
   const cur = kbdSelected();
-  let i = cur ? cards.indexOf(cur) + delta : (delta > 0 ? 0 : cards.length - 1);
+  // sem card atual, entra pela ponta que o sentido do passo indica
+  const daPonta = delta > 0 ? 0 : cards.length - 1;
+  let i = cur ? cards.indexOf(cur) + delta : daPonta;
   i = Math.max(0, Math.min(cards.length - 1, i));
   cards.forEach(c => c.classList.remove('kbd-sel'));
   cards[i].classList.add('kbd-sel');
@@ -2476,11 +2528,7 @@ function renderPanorama() {
   const vs = listViewState({ lastCheckAt: STATE.lastCheckAt, status: STATE.status, length: list.length });
   if (vs !== 'list') {
     box.style.display = 'block';
-    box.innerHTML = vs === 'loading'
-      ? `<div class="empty" style="border:0">Verificando os PRs abertos…</div>`
-      : vs === 'error'
-        ? `<div class="empty" style="border:0">Não foi possível confirmar ainda (a checagem falhou; veja o aviso no topo). Vou tentar de novo no próximo ciclo.</div>`
-        : `<div class="empty" style="border:0">Nenhum PR aberto ${SCOPE === 'all' ? 'nas organizações monitoradas' : 'nesta conta'}.</div>`;
+    box.innerHTML = `<div class="empty" style="border:0">${textoDaListaVazia(vs)}</div>`;
     return;
   }
   box.style.display = '';
@@ -2570,7 +2618,7 @@ function renderMyPRs() {
     // fila serial (um por vez): posicao = ordem real na headlessQueue
     const qpos = running ? 0 : waiting.indexOf(pr.key) + 1;
     const queued = qpos > 0;
-    const btnLabel = running ? 'Analisando…' : queued ? `Na fila (${qpos})` : a ? 'Reanalisar' : 'Analisar';
+    const btnLabel = rotuloDoBotaoDeAnalise({ running, queued, qpos, analisado: a });
     // merge so quando a autoanalise diz aprovavel; desativado (com motivo) se o
     // repo estiver na lista bloqueada ou se ainda ha analise rodando/na fila
     // O Merge só fica disponível quando dá pra mergear DE VERDADE. A mergeabilidade
@@ -2908,8 +2956,8 @@ let usageHoverIdx = null;
 // backend com granularidade diaria (Task 3 de lib/engine/usage.js); aqui so
 // fatia a janela escolhida e desenha.
 function drawUsageTimeline(el, legendEl, u, metric, win, dim) {
-  const key = dim === 'model' ? 'byModel' : dim === 'account' ? 'byAccount' : 'byKind';
-  const names = dim === 'model' ? (u.modelNames || []) : dim === 'account' ? (u.accountNames || []) : (u.kindNames || []);
+  const { key, campoDeNomes } = DIMENSAO_DO_CONSUMO[dim] || DIMENSAO_DO_CONSUMO.kind;
+  const names = u[campoDeNomes] || [];
   const labels = {}; // name -> label amigavel, tirado do proprio stackedSeries
   const byDay = {}; for (const d of ((u.stackedSeries || {})[key]) || []) { byDay[d.day] = d.items; for (const it of d.items) labels[it.name] = it.label; }
   const days = usageDayKeysBack(win);
@@ -3164,7 +3212,7 @@ function renderUpdate() {
   // o repo das releases é menção a coisa navegável: abre a página de releases
   const origin = remote
     ? `GitHub Releases (<a href="https://github.com/${esc(u.repo || '')}/releases" target="_blank" rel="noreferrer" title="Abrir as releases no GitHub"><code>${esc(u.repo || '')}</code></a>)`
-    : (u.source ? `fonte em <code>${esc(u.source)}</code>` : '');
+    : origemLocal(u);
   const hasChannel = remote || !!u.source;
   // não deu pra ler a release (repo privado/sem acesso, sem release ainda, ou rede):
   // sourceVersion nulo + note. Não é "está na mais recente", é falta de acesso.
@@ -3307,7 +3355,7 @@ async function loadTeam() {
   const groupCards = (user) => {
     const out = [];
     for (const m of team) {
-      const es = (m.entries || []).filter(e => { const u = entryUser(e); return user === '__all__' ? true : (user ? u.toLowerCase() === user.toLowerCase() : !u); });
+      const es = (m.entries || []).filter(e => doUsuario(entryUser(e), user));
       if (es.length) out.push(memberCard(m, es, user === '__all__' ? entryUser(es[0]) : user));
     }
     return out;
@@ -4011,9 +4059,7 @@ function notifyNewPRs(data) {
   ping();
   const n = data.items.length;
   const first = data.items[0];
-  const title = data.auto
-    ? (n === 1 ? 'PR novo, revisando sozinho' : `${n} PRs novos, revisando sozinho`)
-    : (n === 1 ? `PR aguardando sua revisão` : `${n} PRs aguardando sua revisão`);
+  const title = tituloDaNotificacao(data.auto, n);
   const body = n === 1 ? `${first.key}: ${first.title}` : data.items.map(i => i.key).join('  ·  ');
   toastRich('info', (el) => {
     const strong = document.createElement('b');
