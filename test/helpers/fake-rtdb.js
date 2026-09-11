@@ -33,8 +33,18 @@ function etagDe(v) {
 // porque o caminho da requisição vira nome de propriedade aqui dentro, e `__proto__`
 // num PUT poluiria o objeto do dublê em vez de gravar um filho.
 const CHAVES_DE_PROTOTIPO = new Set(['__proto__', 'constructor', 'prototype']);
+// allowlist POSITIVA: o nome só vira propriedade se for inteiramente feito destes
+// caracteres. Negar uma lista de proibidos depende de lembrar de todos; aceitar uma
+// lista fechada não depende, e é o que a análise estática consegue provar.
+const CHAVE_ACEITA = /^[A-Za-z0-9_~@+-]{1,200}$/;
 function chaveInvalida(k) {
-  return !k || PROIBIDO.test(k) || CHAVES_DE_PROTOTIPO.has(k);
+  return !k || PROIBIDO.test(k) || CHAVES_DE_PROTOTIPO.has(k) || !CHAVE_ACEITA.test(k);
+}
+// escreve num objeto sem protótipo e só depois da chave provada: nem herda Object.prototype
+// nem aceita nome fora da allowlist
+function porChave(alvo, k, valor) {
+  if (chaveInvalida(k)) throw new Error('chave inválida');
+  Object.defineProperty(alvo, k, { value: valor, enumerable: true, writable: true, configurable: true });
 }
 
 // resolve {".sv":"timestamp"}, poda nulos e objeto vazio vira null, como o RTDB
@@ -42,11 +52,11 @@ function normalizar(v, agora) {
   if (v === null || v === undefined) return null;
   if (typeof v !== 'object') return v;
   if (!Array.isArray(v) && Object.keys(v).length === 1 && v['.sv'] === 'timestamp') return agora();
-  const saida = {};
+  const saida = Object.create(null);
   for (const [k, filho] of Object.entries(v)) {
     if (chaveInvalida(k)) throw new Error('chave inválida');
     const n = normalizar(filho, agora);
-    if (n !== null) saida[k] = n;
+    if (n !== null) porChave(saida, k, n);
   }
   return Object.keys(saida).length ? saida : null;
 }
@@ -66,11 +76,13 @@ function ler(raiz, segs) {
 
 function gravar(raiz, segs, valor) {
   if (!segs.length) return valor;
-  if (chaveInvalida(segs[0])) throw new Error('chave inválida');
-  const base = raiz && typeof raiz === 'object' ? { ...raiz } : {};
-  const filho = gravar(base[segs[0]], segs.slice(1), valor);
-  if (filho === null) delete base[segs[0]];
-  else base[segs[0]] = filho;
+  const k = segs[0];
+  if (chaveInvalida(k)) throw new Error('chave inválida');
+  const base = Object.assign(Object.create(null), raiz && typeof raiz === 'object' ? raiz : {});
+  const atual = Object.hasOwn(base, k) ? base[k] : undefined;
+  const filho = gravar(atual, segs.slice(1), valor);
+  if (filho === null) delete base[k];
+  else porChave(base, k, filho);
   return Object.keys(base).length ? base : null;
 }
 
