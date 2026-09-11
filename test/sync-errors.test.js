@@ -5,10 +5,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import errors, { SYNC_CODES, MOTIVOS, SyncError, codeFromStatus, codeFromIdentityMessage, motivoDe } from '../lib/sync/errors.js';
 
-test('SYNC_CODES: os doze códigos do contrato, cada um com frase própria', () => {
+test('SYNC_CODES: os catorze códigos do contrato, cada um com frase própria', () => {
   assert.deepEqual(Object.values(SYNC_CODES).sort(), [
-    'config_invalida', 'conflito', 'credencial_invalida', 'desligado', 'falha_interna', 'indisponivel',
-    'muitas_tentativas', 'nao_autorizado', 'nao_encontrado', 'resposta_invalida', 'sem_credencial', 'timeout',
+    'auth_nao_configurado', 'config_invalida', 'conflito', 'credencial_invalida', 'desligado', 'falha_interna',
+    'indisponivel', 'muitas_tentativas', 'nao_autorizado', 'nao_encontrado', 'provedor_desabilitado',
+    'resposta_invalida', 'sem_credencial', 'timeout',
   ]);
   for (const code of Object.values(SYNC_CODES)) {
     assert.equal(typeof MOTIVOS[code], 'string', `${code} sem frase`);
@@ -54,9 +55,30 @@ test('codeFromIdentityMessage: compara pelo prefixo antes de " : "', () => {
 test('codeFromIdentityMessage: chave web inválida é config, resto é resposta inesperada', () => {
   assert.equal(codeFromIdentityMessage('API key not valid. Please pass a valid API key.'), 'config_invalida');
   assert.equal(codeFromIdentityMessage('api KEY NOT valid'), 'config_invalida');
-  assert.equal(codeFromIdentityMessage('OPERATION_NOT_ALLOWED'), 'resposta_invalida');
+  assert.equal(codeFromIdentityMessage('CODIGO_QUE_NAO_EXISTE'), 'resposta_invalida');
   assert.equal(codeFromIdentityMessage(''), 'resposta_invalida');
   assert.equal(codeFromIdentityMessage(undefined), 'resposta_invalida');
+});
+
+// A recusa que motivou: com o provedor de e-mail e senha desligado no console, o Firebase
+// responde OPERATION_NOT_ALLOWED e a tela dizia "o Firebase respondeu em formato
+// inesperado", mandando investigar o fornecedor por uma caixa desmarcada. O projeto sem
+// Authentication inicializado tem o mesmo desfecho por outro código.
+test('codeFromIdentityMessage: recusa que fala do PROJETO não vira formato inesperado', () => {
+  for (const m of ['OPERATION_NOT_ALLOWED', 'PASSWORD_LOGIN_DISABLED', 'ADMIN_ONLY_OPERATION']) {
+    assert.equal(codeFromIdentityMessage(m), 'provedor_desabilitado', m);
+  }
+  assert.equal(codeFromIdentityMessage('OPERATION_NOT_ALLOWED : Password sign-in is disabled.'), 'provedor_desabilitado');
+  assert.equal(codeFromIdentityMessage('CONFIGURATION_NOT_FOUND'), 'auth_nao_configurado');
+  // as duas frases dizem ONDE resolver, senão trocar o código não muda nada pra quem lê
+  assert.match(motivoDe('provedor_desabilitado'), /Authentication/);
+  assert.match(motivoDe('auth_nao_configurado'), /Authentication/);
+});
+
+test('codeFromIdentityMessage: e-mail ou senha malformados são credencial, não defeito', () => {
+  for (const m of ['INVALID_EMAIL', 'MISSING_EMAIL', 'MISSING_PASSWORD']) {
+    assert.equal(codeFromIdentityMessage(m), 'credencial_invalida', m);
+  }
 });
 
 test('export default carrega o mesmo contrato dos nomeados', () => {

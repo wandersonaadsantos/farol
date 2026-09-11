@@ -87,6 +87,54 @@ test('syncContaHtml: conectado mostra quem é; desconectado pede e-mail e senha'
   assert.match(expirado, /recusou o acesso guardado/);
 });
 
+/* A recusa do Firebase repinta o cartão inteiro, e sem rascunho o e-mail sumia junto:
+   errar a senha custava redigitar tudo. A senha sobrevive à recusa de propósito; quem a
+   apaga é o sucesso do login (ui/app.js). */
+test('syncContaHtml: o rascunho devolve e-mail e senha à tela repintada', () => {
+  const vazio = P.syncContaHtml(sync({ status: 'sem-credencial' }));
+  assert.match(vazio, /id="syncEmail" class="sync-input" type="email" value=""/);
+  assert.match(vazio, /id="syncSenha" class="sync-input" type="password" value=""/);
+
+  const cheio = P.syncContaHtml(sync({ status: 'sem-credencial' }), { email: 'a@b.com', senha: 's3nh@' });
+  assert.match(cheio, /id="syncEmail" class="sync-input" type="email" value="a@b\.com"/);
+  assert.match(cheio, /value="s3nh@"/);
+});
+
+test('syncContaHtml: o rascunho é escapado, não interpolado cru', () => {
+  const html = P.syncContaHtml(sync({ status: 'sem-credencial' }), { email: '"><script>x</script>', senha: '"><b>' });
+  assert.doesNotMatch(html, /<script>/);
+  assert.doesNotMatch(html, /value=""><b>/);
+});
+
+/* O olho da senha. O estado mora no aria-pressed E no type do input: se os dois
+   divergissem, quem usa leitor de tela ouviria o oposto do que está na tela. */
+test('syncContaHtml: o olho alterna senha oculta e visível, com rótulo e type de acordo', () => {
+  const oculta = P.syncContaHtml(sync({ status: 'sem-credencial' }), { senha: 'x' });
+  assert.match(oculta, /id="syncSenhaOlho"/);
+  assert.match(oculta, /aria-pressed="false"/);
+  assert.match(oculta, /aria-label="Mostrar senha"/);
+  assert.match(oculta, /id="syncSenha" class="sync-input" type="password"/);
+
+  const visivel = P.syncContaHtml(sync({ status: 'sem-credencial' }), { senha: 'x', senhaVisivel: true });
+  assert.match(visivel, /aria-pressed="true"/);
+  assert.match(visivel, /aria-label="Ocultar senha"/);
+  assert.match(visivel, /id="syncSenha" class="sync-input" type="text"/);
+});
+
+test('syncContaHtml: conectado não tem campo de senha nem olho', () => {
+  const dentro = P.syncContaHtml(sync(), { senha: 'x', senhaVisivel: true });
+  assert.doesNotMatch(dentro, /id="syncSenhaOlho"/);
+  assert.doesNotMatch(dentro, /id="syncSenha"/);
+});
+
+/* O rascunho tem que atravessar as duas fachadas; sem isso o teste acima passaria e a
+   tela continuaria apagando o e-mail, que foi o defeito de origem. */
+test('syncSecaoHtml e syncConexaoHtml repassam o rascunho até o campo', () => {
+  const r = { email: 'a@b.com', senha: 'p@ss', senhaVisivel: true };
+  assert.match(P.syncConexaoHtml(sync({ status: 'sem-credencial' }), CFG, r), /value="a@b\.com"/);
+  assert.match(P.syncSecaoHtml(sync({ status: 'sem-credencial' }), CFG, r), /value="p@ss"/);
+});
+
 test('syncConexaoHtml: os campos vêm da config e a degradação diz o motivo do engine', () => {
   const html = P.syncConexaoHtml(sync(), CFG);
   assert.match(html, /id="syncApiKey" type="text" class="sync-input" value="AIzaChave"/);

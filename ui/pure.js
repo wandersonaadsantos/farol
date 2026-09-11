@@ -3088,11 +3088,29 @@ function syncCampo(id, rotulo, valor, dica) {
   </div>`;
 }
 
+/* O olho que alterna a senha entre oculta e visível. Estado no `aria-pressed`, que é a
+   fonte única: quem alterna (ui/app.js) lê dali e troca o `type` do input, então a
+   leitura assistiva e o que se vê na tela nunca divergem. */
+function syncOlhoHtml(visivel) {
+  const rotulo = visivel ? 'Ocultar senha' : 'Mostrar senha';
+  const desenho = visivel
+    ? '<path d="M3 3l18 18M10.6 10.6a3 3 0 0 0 4.2 4.2M9.9 4.9A9.6 9.6 0 0 1 12 4.7c5 0 9 4.3 9 7.3a11 11 0 0 1-2.5 3.9M6.3 6.4A11.9 11.9 0 0 0 3 12c0 3 4 7.3 9 7.3a9.9 9.9 0 0 0 3.6-.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
+    : '<path d="M3 12c0-3 4-7.3 9-7.3s9 4.3 9 7.3-4 7.3-9 7.3S3 15 3 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/>';
+  return `<button type="button" class="sync-olho" id="syncSenhaOlho" aria-pressed="${visivel ? 'true' : 'false'}" aria-label="${rotulo}" title="${rotulo}"><svg aria-hidden="true" viewBox="0 0 24 24">${desenho}</svg></button>`;
+}
+
 /* O bloco de login. Conectado mostra quem é e o botão de sair; desconectado pede e-mail
-   e senha. A senha é `type="password"`, lida do DOM na hora e nunca guardada: o engine
-   troca por um acesso renovável, e só ele vai pro disco. */
-export function syncContaHtml(sync) {
+   e senha. A senha é `type="password"`, lida do DOM na hora e nunca guardada NO DISCO: o
+   engine troca por um acesso renovável, e só ele é gravado.
+
+   O `rascunho` é o que a pessoa digitou, devolvido pela tela a cada repintura. Sem ele o
+   `renderSync()` que vem depois da tentativa reescreve o cartão inteiro e apaga o e-mail
+   junto, e o ciclo de polling seguinte faria o mesmo: uma recusa do Firebase custava
+   redigitar tudo. O preço assumido é a senha continuar na tela enquanto o login não deu
+   certo, que é exatamente o caso em que ela ainda é útil; no sucesso ela é apagada. */
+export function syncContaHtml(sync, rascunho) {
   const s = sync || {};
+  const d = rascunho || {};
   const estado = syncEstado(s);
   if (estado === 'conectada' || estado === 'entrando') {
     const quem = s.email ? `<span class="sync-quem">${esc(s.email)}</span>` : '<span class="sync-vago">sem e-mail</span>';
@@ -3112,8 +3130,8 @@ export function syncContaHtml(sync) {
   return `<div class="sync-conta">
     <div class="sync-conta-topo warn"><span class="sync-conta-titulo">Login no Firebase</span><span class="sync-conta-onde">o mesmo usuário em todos os aparelhos</span></div>
     <div class="sync-conta-corpo">
-      <span class="sync-campo"><label for="syncEmail">E-mail</label><input id="syncEmail" class="sync-input" type="email" placeholder="voce@exemplo.com" spellcheck="false" autocomplete="off"></span>
-      <span class="sync-campo"><label for="syncSenha">Senha</label><input id="syncSenha" class="sync-input" type="password" placeholder="senha do Firebase" autocomplete="off"></span>
+      <span class="sync-campo"><label for="syncEmail">E-mail</label><input id="syncEmail" class="sync-input" type="email" value="${esc(d.email || '')}" placeholder="voce@exemplo.com" spellcheck="false" autocomplete="off"></span>
+      <span class="sync-campo"><label for="syncSenha">Senha</label><span class="sync-senha"><input id="syncSenha" class="sync-input" type="${d.senhaVisivel ? 'text' : 'password'}" value="${esc(d.senha || '')}" placeholder="senha do Firebase" spellcheck="false" autocomplete="off">${syncOlhoHtml(!!d.senhaVisivel)}</span></span>
       <button class="btn sm primary" id="syncLogin">${rotulo}</button>
     </div>
     ${aviso}
@@ -3133,7 +3151,7 @@ export function syncEnvioHtml(sync) {
   return `<span class="sync-teste ok">histórico enviado ${esc(quando)}, nada pendente</span>`;
 }
 
-export function syncConexaoHtml(sync, cfg) {
+export function syncConexaoHtml(sync, cfg, rascunho) {
   const s = sync || {};
   const c = cfg || {};
   const estado = syncEstado(s);
@@ -3150,7 +3168,7 @@ export function syncConexaoHtml(sync, cfg) {
     <div class="sync-topo"><span class="sync-titulo">Firebase pessoal</span><span class="sync-espaco"></span>${syncSeloHtml(estado)}</div>
     ${campos}
     ${degradada}
-    ${syncContaHtml(s)}
+    ${syncContaHtml(s, rascunho)}
     <div class="sync-rodape">
       <button class="btn sm" id="syncTest">Testar conexão</button>
       <span class="sync-teste" id="syncTestOut"></span>
@@ -3212,12 +3230,12 @@ export function syncCoordenacaoHtml(sync) {
   return `<div class="sync-sub-head">Coordenação agora</div><div class="card sync-lista">${corpo}</div>`;
 }
 
-export function syncSecaoHtml(sync, cfg) {
+export function syncSecaoHtml(sync, cfg, rascunho) {
   const s = sync || {};
   if (!(cfg && cfg.enabled === true)) return syncTogglesHtml(cfg);
   return `${syncTogglesHtml(cfg)}
     <div class="sync-sub-head">Conexão</div>
-    ${syncConexaoHtml(s, cfg)}
+    ${syncConexaoHtml(s, cfg, rascunho)}
     <div class="sync-sub-head">Aparelhos</div>
     ${syncAparelhosHtml(s.devices)}
     ${syncCoordenacaoHtml(s)}`;
