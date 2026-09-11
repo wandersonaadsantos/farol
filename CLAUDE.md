@@ -249,6 +249,47 @@ escapou.
 
 Quando validar (ou corrigir) qualquer item acima, **atualize esta seção**: risque o que passou, documente o que mudou e por quê. Este arquivo é a memória do port.
 
+### Auto-update travado pelo Electron 44 e o npm do nvm (11/09/2026, Mac do Thiago)
+
+Primeiro salto de Electron desde que o auto-update ficou ligado por padrão, e ele
+travou em campo. O `update.log` dizia `O Electron exigido nao esta disponivel e npm nao
+foi encontrado`, todo ciclo, com a v2.57.5 preservada (o instalador fez o certo ao
+recusar). As três causas somadas: (1) a v2.58 passou a exigir Electron 44 e o
+instalado era 43.2.0; (2) o pacote leve não traz Electron, por desenho, então a única
+saída era o fallback de rede via `npm`; (3) o `npm` da máquina vive no nvm do Homebrew
+(`/opt/homebrew/opt/nvm/versions/node/vX/bin`), que só entra no PATH dentro do profile
+do shell, e o instalador chega pelo APP, que o Finder abriu com PATH mínimo.
+`/opt/homebrew/bin` estava no PATH, o `npm` não.
+
+Correção em `installer/electron-runtime.sh`: `incluir_npm_de_gerenciador`, chamada nos
+DOIS instaladores POSIX logo depois do `source` e ANTES do `preparar_runtime` (que é
+quem consulta `npm`). Ela só age quando `command -v npm` falha, e então prependa o
+`bin` do nvm (`NVM_DIR`, `~/.nvm`, `${HOMEBREW_PREFIX}/opt/nvm`; versão MAIS NOVA por
+`sort -V`), ou o alias default do fnm, ou o `~/.volta/bin`. **A raiz do Homebrew sai
+de `HOMEBREW_PREFIX`** com os dois defaults (Apple Silicon e Intel), e isso não é
+enfeite: é o que permite ao teste isolar o nvm REAL da máquina de quem roda a suíte,
+que vazou na primeira rodada. Travado em `test/installer-npm-gerenciador.test.js`, que
+roda a função de verdade em bash com HOME falso.
+
+**No Windows isso não se aplica, e por dois motivos distintos.** O `install.ps1` acha o
+`npm` por `Get-Command`, sobre o PATH que o app herdou, e no Windows o PATH é
+PERSISTIDO no registro: nvm-windows, fnm e volta registram os diretórios deles lá, então
+o app aberto pelo atalho já enxerga o `npm`. E não existe `~/.local/bin` no fluxo do
+Windows: symlink ali não é lido por ninguém. Se um dia aparecer um Windows com `npm` só
+visível dentro do shell, o lugar do conserto é o `Prepare-ElectronRuntime` do
+`electron-runtime.ps1`, não o `.sh`. Não foi medido.
+
+Paliativo local que também funciona, e que fica registrado porque foi o que destravou
+esta máquina antes da correção: symlinks de `node` e `npm` em `~/.local/bin`, que o
+`install.sh` já prependa. Fica preso à versão do nvm da hora (o alvo do link é o
+diretório da versão), então um `nvm install` de versão nova quebra o link até refazer.
+Com a correção acima o symlink deixa de ser necessário.
+
+A atualização em si foi feita à mão a partir do repo (`npm install` + `node install.js`
+do Electron, porque o npm pulou o postinstall, o mesmo caso documentado no ramo Linux;
+depois `bash installer/install.sh`). O app abriu pelo lançador com PATH mínimo na
+2.58.1 com Electron 44.3.0.
+
 ## Linux (experimental, v2.45.0)
 
 Fundação aprovada pelo Wanderson em 16/08/2026 (sem usuário concreto; a motivação é completude honesta nos três SOs). NÃO é port desktop completo: **fora de escopo por decisão** ficam tray/autostart/notificações polidos, AppImage e instalador offline. WSLg não tem bandeja, então essa borda só se valida em desktop nativo, quando houver usuário.
