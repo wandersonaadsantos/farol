@@ -2226,9 +2226,7 @@ export function pushbackControl(r, pushbacks) {
   if (!author) return '';
   const pb = (pushbacks || {})[r.key] || null;
   const pending = pb && pb.status === 'pending';    // auto em dúvida: pede confirmação
-  const sum = pending ? `↩ confirmar: ${esc(PB_SHORT[pb.outcome] || 'pushback')}?`
-    : pb ? `↩ ${esc(PB_SHORT[pb.outcome] || 'pushback')}${pb.source === 'auto' ? ' (auto)' : ''}`
-      : '↩ pushback?';
+  const sum = resumoDoPushback(pending, pb);
   const title = pending ? 'O Farol suspeita de pushback aqui; confirme ou corrija o desfecho'
     : 'Marque se o autor contestou este review, pra calibrar os reviews futuros dele';
   return `<details class="pushback"${pb ? ' data-set="1"' : ''}${pending ? ' data-pending="1" open' : ''}>
@@ -2274,6 +2272,42 @@ const RESOLVED_ACTIONS = { approve: 'APPROVE', request_changes: 'REQUEST CHANGES
 // varrer a lista. Pulado fica neutro de propósito, porque nada foi postado.
 const VERDICT_CLASS = { approve: 'rev-ok', request_changes: 'rev-rc', comment: 'rev-cm' };
 
+// O rótulo diz de QUE lista se está falando, e ela muda com o status: em
+// already_reviewed o achado não foi postado, em auto_rejected ele é o bloqueio, em
+// posted é o que trouxe o PR pra mesa. Fora desses, é ponto de atenção comum.
+const ROTULO_DOS_PONTOS = {
+  already_reviewed: (p) => `achado${p ? 's' : ''} que ${p ? 'ficaram' : 'ficou'} só aqui`,
+  auto_rejected: (p) => `motivo${p ? 's' : ''} do pedido de mudanças`,
+  posted: (p) => `motivo${p ? 's' : ''} de ter vindo pra você`,
+};
+function rotuloDosPontos(status, plural) {
+  const f = ROTULO_DOS_PONTOS[status];
+  return f ? f(plural) : `ponto${plural ? 's' : ''} de atenção`;
+}
+
+// `attention` manda quando existe; senão, nos status que carregam motivo, os reasons
+// fazem as vezes (a recusa por contestação ou cobertura precisa aparecer em algum lugar).
+function pontosDeAtencao(r, comReasons) {
+  if (r.attention && r.attention.length) return r.attention;
+  return comReasons.includes(r.status) ? (r.reasons || []) : [];
+}
+
+// a contagem vem pronta quando é número; sem ela, conta a lista; sem as duas, zero
+function divergenciasDoCheckpoint(vc) {
+  if (!vc) return 0;
+  const n = Number(vc.conflictCount);
+  if (Number.isFinite(n)) return n;
+  return Array.isArray(vc.conflicts) ? vc.conflicts.length : 0;
+}
+
+// pendente pede confirmação; confirmado mostra o desfecho (e de onde ele veio)
+function resumoDoPushback(pending, pb) {
+  const nome = (p) => esc(PB_SHORT[p.outcome] || 'pushback');
+  if (pending) return `↩ confirmar: ${nome(pb)}?`;
+  if (pb) return `↩ ${nome(pb)}${pb.source === 'auto' ? ' (auto)' : ''}`;
+  return '↩ pushback?';
+}
+
 export function resolvedRow(r, ctx) {
   ctx = ctx || {};
   const [icon, label] = RESOLVED_LABELS[r.status] || ['•', r.status];
@@ -2292,21 +2326,12 @@ export function resolvedRow(r, ctx) {
   // recusa por contestação ou cobertura era lida como se a chave de aprovar sozinho
   // estivesse quebrada. O motivo já estava gravado em `reasons`, faltava a superfície.
   const COM_REASONS = ['auto_approved', 'auto_rejected', 'already_reviewed', 'posted'];
-  const attn = (r.attention && r.attention.length) ? r.attention
-    : (COM_REASONS.includes(r.status) ? (r.reasons || []) : []);
+  const attn = pontosDeAtencao(r, COM_REASONS);
   const plural = attn.length > 1;
-  const attnLabel = r.status === 'already_reviewed'
-    ? `achado${plural ? 's' : ''} que ${plural ? 'ficaram' : 'ficou'} só aqui`
-    : r.status === 'auto_rejected'
-      ? `motivo${plural ? 's' : ''} do pedido de mudanças`
-      : r.status === 'posted'
-        ? `motivo${plural ? 's' : ''} de ter vindo pra você`
-        : `ponto${plural ? 's' : ''} de atenção`;
+  const attnLabel = rotuloDosPontos(r.status, plural);
   const vcls = VERDICT_CLASS[r.action] || '';
   const vc = r.verificationCheckpoint;
-  const vcConflicts = vc
-    ? (Number.isFinite(Number(vc.conflictCount)) ? Number(vc.conflictCount) : (Array.isArray(vc.conflicts) ? vc.conflicts.length : 0))
-    : 0;
+  const vcConflicts = divergenciasDoCheckpoint(vc);
   const vcLine = (vc && vc.total)
     ? `Verificação de afirmações: ${vc.confirmedCount} confirmadas de ${vc.total}`
       + (vcConflicts ? ` · ⚠ ${vcConflicts} divergência(s) entre passadas` : '')
@@ -2406,13 +2431,19 @@ export function delivStats(items, days, agora = Date.now()) {
   return [
     {
       rotulo: 'PRs mergeados', valor: String(total),
-      sub: days === 0 ? 'desde 00:00' : (deHoje > 0 ? `+${deHoje} hoje` : 'nenhum hoje'),
+      sub: subtituloDoPeriodo(days, deHoje),
       goto: days !== 0 && deHoje > 0 ? 'deliv:days:0' : ''
     },
     { rotulo: 'Pessoas entregando', valor: String(porAutor.length), sub: '@' + porAutor[0][0] + ' na frente', goto: `deliv:author:${porAutor[0][0]}` },
     { rotulo: 'Repositórios ativos', valor: String(porRepo.length), sub: repoShort(porRepo[0][0]) + ' na frente', goto: `deliv:repo:${porRepo[0][0]}` },
     quarto
   ];
+}
+
+// days === 0 é a janela "hoje", e aí o subtítulo diz desde quando, não quantos hoje
+function subtituloDoPeriodo(days, deHoje) {
+  if (days === 0) return 'desde 00:00';
+  return deHoje > 0 ? `+${deHoje} hoje` : 'nenhum hoje';
 }
 
 export function delivStatsCards(stats) {
@@ -2430,13 +2461,21 @@ export function delivStatsCards(stats) {
 // na última barra.
 export function delivActivityChart(items, days, agora = Date.now()) {
   const buckets = delivDayBuckets(items, days, agora);
+// A última barra é sempre "hoje". Nas demais, a janela decide a densidade do rótulo:
+// 7 dias cabe o dia da semana em todas; 15 e 30 ficariam ilegíveis, então rotula de 3
+// em 3 e de 5 em 5.
+const PASSO_DO_ROTULO = { 7: 1, 15: 3 };
+function rotuloDaBarra(days, hojeBar, i, data) {
+  if (hojeBar) return 'hoje';
+  if (days === 7) return DIAS_SEMANA[data.getDay()];
+  const passo = PASSO_DO_ROTULO[days] || 5;
+  return i % passo === 0 ? ddmm(data) : '';
+}
+
   const max = Math.max(1, ...buckets.map(b => b.n));
   return buckets.map((b, i) => {
     const hojeBar = i === buckets.length - 1;
-    let rotulo = '';
-    if (days === 7) rotulo = hojeBar ? 'hoje' : DIAS_SEMANA[b.date.getDay()];
-    else if (days === 15) rotulo = hojeBar ? 'hoje' : (i % 3 === 0 ? ddmm(b.date) : '');
-    else rotulo = hojeBar ? 'hoje' : (i % 5 === 0 ? ddmm(b.date) : '');
+    const rotulo = rotuloDaBarra(days, hojeBar, i, b.date);
     const pct = b.n === 0 ? 0 : Math.max(6, Math.round(b.n / max * 100));
     const dica = `${DIAS_SEMANA[b.date.getDay()]} ${ddmm(b.date)} · ${plural(b.n, 'PR', 'PRs')}`;
     // classe 'zero', NUNCA 'empty': .empty e o estado vazio GLOBAL do app (padding
