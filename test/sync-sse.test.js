@@ -71,22 +71,15 @@ test('o nome do evento zera depois de despachar', () => {
   assert.deepEqual(eventos, [{ event: 'keep-alive', data: 'null' }, { event: 'message', data: '2' }]);
 });
 
-test('end() despacha o pendente, inclusive a última linha sem \n', () => {
+test('evento sem a linha em branco final NUNCA e despachado, e nao ha end() para forcar', () => {
   const { p, eventos } = coletar();
   p.feed('event: put\ndata: {"x":');
   assert.deepEqual(eventos, []);
   p.feed('1}');
-  p.end();
-  assert.deepEqual(eventos, [{ event: 'put', data: '{"x":1}' }]);
-  p.end();
-  assert.equal(eventos.length, 1, 'end() repetido não duplica');
-});
-
-test('end() sem pendência não despacha', () => {
-  const { p, eventos } = coletar();
-  p.feed('event: put\ndata: 1\n\n');
-  p.end();
-  assert.equal(eventos.length, 1);
+  assert.deepEqual(eventos, [], 'sem a linha em branco, o evento segue cortado');
+  assert.equal(typeof p.end, 'undefined', 'nao existe porta para despachar o cortado');
+  p.feed('\n\n');
+  assert.deepEqual(eventos, [{ event: 'put', data: '{"x":1}' }], 'a linha em branco fecha e ai despacha');
 });
 
 test('export default carrega o mesmo contrato do nomeado', () => {

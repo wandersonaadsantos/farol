@@ -5,7 +5,9 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 
-const HOME = path.join(os.tmpdir(), 'farol-test-sync-config-' + process.pid);
+// mkdtemp e não um nome derivado do pid: o nome previsível no diretório temporário
+// compartilhado deixa outro processo criar o caminho antes e decidir o que o teste lê.
+const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-sync-config-'));
 process.env.FAROL_HOME = HOME;
 
 import { test, after } from 'node:test';

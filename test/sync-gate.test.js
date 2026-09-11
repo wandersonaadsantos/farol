@@ -117,14 +117,19 @@ test('(a) engine sem a fachada syncCoordenacaoAtiva também segue o caminho de s
 });
 
 test('(b) ligada e operationKind ausente: recusa antes do stub, do spawn e do ramo Codex', async () => {
+  // finally: sem ele, uma asserção que falha deixa o stub exportado e o próximo teste
+  // deste arquivo passa a rodar com o caminho stubado, medindo outra coisa
   process.env.FAROL_HEADLESS_CMD = 'node -e "process.exit(0)"';
-  spawnImpl = () => filho();
-  const e = motor({ ativa: true, auth: { kind: 'codex', id: 'cx' } });
-  await assert.rejects(runClaudeStream(e, 'prompt', { id: 'a2', coordination: COORD }), /operationKind ausente ou desconhecido \(vazio\)/);
-  assert.equal(spawns, 0, 'spawn nunca chamado');
-  assert.equal(e.authPedida, 0, 'nem chegou a resolver o provedor (ramo Codex)');
-  assert.equal(e.admissoes.length, 0);
-  delete process.env.FAROL_HEADLESS_CMD;
+  try {
+    spawnImpl = () => filho();
+    const e = motor({ ativa: true, auth: { kind: 'codex', id: 'cx' } });
+    await assert.rejects(runClaudeStream(e, 'prompt', { id: 'a2', coordination: COORD }), /operationKind ausente ou desconhecido \(vazio\)/);
+    assert.equal(spawns, 0, 'spawn nunca chamado');
+    assert.equal(e.authPedida, 0, 'nem chegou a resolver o provedor (ramo Codex)');
+    assert.equal(e.admissoes.length, 0);
+  } finally {
+    delete process.env.FAROL_HEADLESS_CMD;
+  }
 });
 
 test('(b) ligada e operationKind desconhecido também recusa, nomeando o tipo', async () => {

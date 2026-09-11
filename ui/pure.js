@@ -3270,6 +3270,8 @@ export function usageConsolidatedHtml(resumo) {
   const estimado = Number((t.estimado || {}).costUsd) || 0;
   const total = medido + estimado;
   const pct = total > 0 ? Math.round((medido / total) * 100) : 100;
+  // cada nome ja sai escapado daqui; quem interpola NAO pode escapar de novo, senao
+  // 'Note & PC' vira 'Note &amp; PC' na tela
   const porAparelho = (campo) => devices.filter(d => d[campo]).map(d => `${esc(d.name || d.deviceId)}: ${campo === 'costUsd' ? fjMoeda(d[campo]) : fmtTok(d[campo])}`).join(', ');
   const linhas = devices.map(d => {
     const eu = d.euMesmo ? ' <span class="sync-chip mute">este</span>' : '';
@@ -3277,8 +3279,8 @@ export function usageConsolidatedHtml(resumo) {
     return `<div class="sync-linha"><span class="sync-nome">${esc(d.name || d.deviceId || 'aparelho')}${eu}</span><span class="sync-fraco">${fmtTok(d.sessions)}</span><span class="sync-fraco">${fjMoeda(d.costUsd)} · ${esc(visto)}</span></div>`;
   }).join('');
   return `<div class="usage-kpis">
-      <div class="usage-kpi"><span class="usage-kpi-label">custo, todos os aparelhos</span><b>${fjMoeda(t.costUsd)}</b><span class="usage-kpi-sub">${esc(porAparelho('costUsd')) || 'nenhum gasto na janela'}</span></div>
-      <div class="usage-kpi"><span class="usage-kpi-label">sessões</span><b>${fmtTok(t.sessions)}</b><span class="usage-kpi-sub">${esc(porAparelho('sessions')) || 'nenhuma sessão na janela'}</span></div>
+      <div class="usage-kpi"><span class="usage-kpi-label">custo, todos os aparelhos</span><b>${fjMoeda(t.costUsd)}</b><span class="usage-kpi-sub">${porAparelho('costUsd') || 'nenhum gasto na janela'}</span></div>
+      <div class="usage-kpi"><span class="usage-kpi-label">sessões</span><b>${fmtTok(t.sessions)}</b><span class="usage-kpi-sub">${porAparelho('sessions') || 'nenhuma sessão na janela'}</span></div>
       <div class="usage-kpi"><span class="usage-kpi-label">medido x estimado</span><b>${pct}%</b><span class="usage-kpi-sub">${fjMoeda(estimado)} estimado</span></div>
     </div>
     <div class="card sync-lista">

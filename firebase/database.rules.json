@@ -7,7 +7,7 @@
         "leases": {
           "$acct": {
             "$pr": {
-              ".validate": "newData.hasChildren(['leaseId', 'deviceId', 'operationKind', 'expiresAt']) && newData.child('expiresAt').isNumber() && newData.child('expiresAt').val() > now && newData.child('expiresAt').val() <= now + 300000 && (!data.exists() || data.child('expiresAt').val() < now || data.child('leaseId').val() == newData.child('leaseId').val())"
+              ".validate": "newData.hasChildren(['leaseId', 'deviceId', 'operationKind', 'expiresAt']) && newData.child('expiresAt').isNumber() && newData.child('expiresAt').val() > now && newData.child('expiresAt').val() <= now + 300000 && (!data.exists() || data.child('expiresAt').val() < now || (data.child('leaseId').val() == newData.child('leaseId').val() && data.child('deviceId').val() == newData.child('deviceId').val()))"
             }
           }
         },

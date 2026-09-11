@@ -71,7 +71,6 @@ function motor({ resposta, policy = 'approve', coordenacao = true } = {}) {
   e.accountForPr = (pr) => pr.account || 'eu';
   e.tokenFor = () => 'tok-eu';
   e.isMuted = () => false;
-  e.log = () => { };
   e.logs = [];
   e.log = (nivel, msg) => { e.logs.push(`${nivel} ${msg}`); };
   e.prState = async () => 'OPEN';

@@ -113,7 +113,19 @@ Pré-requisitos, instalados na sua máquina e fora do repositório: o `firebase-
    - escrita em `users/<uid>/devices/x` com `?auth=<idToken>` é aceita;
    - a mesma escrita em `users/<outro-uid>/devices/x` é recusada;
    - um lease com `expiresAt` acima de agora mais 300000 ms é recusado;
-   - um nó de `dailyRounds` com `dayPolicy` diferente de `America/Sao_Paulo` é recusado.
+   - um nó de `dailyRounds` com `dayPolicy` diferente de `America/Sao_Paulo` é recusado;
+   - **lease vivo de outro dono é recusado**: com `users/<uid>/leases/<conta>/<pr>`
+     já gravado e `expiresAt` no futuro, um PUT com `leaseId` DIFERENTE responde 403.
+     É esta regra que faz "um Farol por PR" valer no servidor, e não só no cliente;
+   - **o mesmo PUT é aceito depois que o lease vence**: repita a escrita acima com o
+     `expiresAt` do nó existente já no passado e ela passa. Sem este caso, a regra
+     poderia estar recusando por outro motivo e o teste anterior enganaria;
+   - **renovação não troca de aparelho**: sobre um lease vivo, um PUT com o MESMO
+     `leaseId` e `deviceId` diferente é recusado (renovar é do dono, não de quem
+     souber o id).
+
+   Estes três casos não têm teste automatizado: nenhuma suíte do repositório executa
+   as regras do banco. Rode-os à mão a cada mudança neste arquivo.
 
    Exemplo de escrita:
 

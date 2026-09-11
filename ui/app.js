@@ -1255,6 +1255,11 @@ function saveSync(sync) {
 function renderSync() {
   const box = $('#syncManager');
   if (!box) return;
+  // Mesma guarda do renderJiraSites: o estado chega por push a cada ciclo, e repintar
+  // por baixo de quem digita apaga e-mail, senha ou URL no meio da frase. Checkbox fica
+  // FORA da guarda de propósito: o interruptor precisa repintar a seção no mesmo clique.
+  const foco = document.activeElement;
+  if (foco && box.contains(foco) && /INPUT|SELECT/.test(foco.tagName) && foco.type !== 'checkbox') return;
   box.innerHTML = syncSecaoHtml((STATE && STATE.sync) || {}, syncCfgAtual());
 }
 
@@ -1297,11 +1302,11 @@ async function syncTestar() {
   const r = await api('/api/sync/test', {});
   if (!out) return;
   if (r && r.ok) {
-    out.className = 'teste ok';
+    out.className = 'sync-teste ok';
     out.textContent = `respondeu agora, ${r.devices} aparelho(s) neste banco`;
     return;
   }
-  out.className = 'teste ruim';
+  out.className = 'sync-teste ruim';
   out.textContent = (r && r.motivo) || 'não respondeu';
 }
 
@@ -3021,14 +3026,27 @@ function renderUsage() {
    aqui fica só o modal e o reenvio. O override é reenviado por PR, e só pelo PR que
    a pessoa confirmou: mandar o lote inteiro com a flag contornaria a coordenação de
    PRs que ninguém confirmou. */
-async function tratarCoordenacaoDoClique(resp, mode) {
+// owner/repo#N a partir da URL do PR: é assim que a URL que o clique ENVIOU vira a
+// chave que a resposta devolve, sem depender de o PR estar numa lista da tela.
+function keyDaUrl(url) {
+  const m = /github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/.exec(String(url || ''));
+  return m ? `${m[1]}/${m[2]}#${m[3]}` : '';
+}
+
+// `urls` é a lista que o clique enviou, e é ela que resolve a chave. Procurar só em
+// STATE.queue e STATE.panorama deixava a confirmação sem abrir quando o clique vinha de
+// Resolvidos ou de Decisões, que é justamente onde o PR não está nas duas listas. As
+// listas ficam como degrau de recuo para chamador que não passe as urls.
+async function tratarCoordenacaoDoClique(resp, mode, urls = []) {
+  const porKey = new Map(urls.map((u) => [keyDaUrl(u), u]).filter(([k]) => k));
   for (const c of syncConfirmacoesDoClique(resp)) {
     if (c.tipo === 'aviso') { toast('info', c.texto, 7000); continue; }
-    const pr = (STATE.queue || []).concat(STATE.panorama || []).find(p => p.key === c.key);
-    if (!pr) { toast('info', `${c.key}: a coordenação segurou a revisão, e o PR não está mais na tela.`, 6000); continue; }
-    // eslint-disable-next-line no-await-in-loop -- uma confirmação por vez é o ponto: são modais
+    const daLista = (STATE.queue || []).concat(STATE.panorama || []).find(p => p.key === c.key);
+    const url = porKey.get(c.key) || (daLista && daLista.url) || '';
+    if (!url) { toast('info', `${c.key}: a coordenação segurou a revisão, e o PR não está mais na tela.`, 6000); continue; }
+    // uma confirmação por vez é o ponto: são modais, e empilhar dois esconderia um
     const ok = await confirmModal({ title: c.titulo, confirmLabel: c.acao, body: c.corpo });
-    if (ok) revisarUrls([pr.url], { [c.override]: true }, mode);
+    if (ok) revisarUrls([url], { [c.override]: true }, mode);
   }
 }
 
@@ -3041,7 +3059,7 @@ function revisarUrls(urls, extras = {}, mode = 'auto') {
   const corpo = { urls, ...extras };
   if (mode === 'terminal') corpo.mode = 'terminal';
   return api('/api/review', corpo).then(r => {
-    if (r && Array.isArray(r.coordenacao) && r.coordenacao.length) tratarCoordenacaoDoClique(r, mode);
+    if (r && Array.isArray(r.coordenacao) && r.coordenacao.length) tratarCoordenacaoDoClique(r, mode, urls);
     return r;
   });
 }
@@ -3066,14 +3084,30 @@ function renderUsageDeviceSeg() {
   if (box.hidden && usageDeviceState.escopo !== 'este') usageDeviceState.escopo = 'este';
 }
 
+// O estado chega por push a cada ciclo de polling, e este painel é o único que faz IO
+// para pintar. Sem memória, cada push trocava o conteúdo por "Buscando…" (pisca) e
+// repetia o GET. A resposta anterior pinta na hora e a busca só se repete depois do
+// intervalo mínimo; trocar a janela busca na hora, porque aí a resposta é outra.
+const consolidadoCache = { janela: null, resposta: null, at: 0, buscando: false };
+const CONSOLIDADO_MIN_MS = 30000;
+
 async function renderUsageConsolidado() {
   const alvo = $('#usageConsolidado');
   if (!alvo) return;
-  alvo.innerHTML = '<p class="vago">Buscando o consumo de todos os aparelhos…</p>';
   const janela = usageState.window;
-  const r = await get(`/api/sync/consolidated?days=${encodeURIComponent(janela)}`);
+  const serveCache = consolidadoCache.resposta && consolidadoCache.janela === janela;
+  alvo.innerHTML = serveCache
+    ? usageConsolidadoEnvelopeHtml(consolidadoCache.resposta)
+    : '<p class="vago">Buscando o consumo de todos os aparelhos…</p>';
+  const recente = serveCache && (Date.now() - consolidadoCache.at) < CONSOLIDADO_MIN_MS;
+  if (recente || consolidadoCache.buscando) return;
+  consolidadoCache.buscando = true;
+  let r;
+  try { r = await get(`/api/sync/consolidated?days=${encodeURIComponent(janela)}`); }
+  finally { consolidadoCache.buscando = false; }
   // a janela pode ter mudado enquanto a busca corria: resposta velha não pinta a tela
   if (usageDeviceState.escopo !== 'todos' || usageState.window !== janela) return;
+  Object.assign(consolidadoCache, { janela, resposta: r, at: Date.now() });
   alvo.innerHTML = usageConsolidadoEnvelopeHtml(r);
 }
 

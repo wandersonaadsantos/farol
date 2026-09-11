@@ -29,8 +29,12 @@ function etagDe(v) {
   return createHash('sha1').update(canonico(v)).digest('hex');
 }
 
+// O RTDB recusa estes caracteres na chave; as três chaves de protótipo entram junto
+// porque o caminho da requisição vira nome de propriedade aqui dentro, e `__proto__`
+// num PUT poluiria o objeto do dublê em vez de gravar um filho.
+const CHAVES_DE_PROTOTIPO = new Set(['__proto__', 'constructor', 'prototype']);
 function chaveInvalida(k) {
-  return !k || PROIBIDO.test(k);
+  return !k || PROIBIDO.test(k) || CHAVES_DE_PROTOTIPO.has(k);
 }
 
 // resolve {".sv":"timestamp"}, poda nulos e objeto vazio vira null, como o RTDB
@@ -54,7 +58,7 @@ function segmentos(caminho) {
 function ler(raiz, segs) {
   let no = raiz;
   for (const s of segs) {
-    if (!no || typeof no !== 'object') return null;
+    if (!no || typeof no !== 'object' || !Object.hasOwn(no, s)) return null;
     no = no[s];
   }
   return no === undefined ? null : no;
@@ -62,6 +66,7 @@ function ler(raiz, segs) {
 
 function gravar(raiz, segs, valor) {
   if (!segs.length) return valor;
+  if (chaveInvalida(segs[0])) throw new Error('chave inválida');
   const base = raiz && typeof raiz === 'object' ? { ...raiz } : {};
   const filho = gravar(base[segs[0]], segs.slice(1), valor);
   if (filho === null) delete base[segs[0]];
