@@ -264,8 +264,10 @@ do shell, e o instalador chega pelo APP, que o Finder abriu com PATH mínimo.
 Correção em `installer/electron-runtime.sh`: `incluir_npm_de_gerenciador`, chamada nos
 DOIS instaladores POSIX logo depois do `source` e ANTES do `preparar_runtime` (que é
 quem consulta `npm`). Ela só age quando `command -v npm` falha, e então prependa o
-`bin` do nvm (`NVM_DIR`, `~/.nvm`, `${HOMEBREW_PREFIX}/opt/nvm`; versão MAIS NOVA por
-`sort -V`), ou o alias default do fnm, ou o `~/.volta/bin`. **A raiz do Homebrew sai
+`bin` do nvm (`NVM_DIR`, `~/.nvm`, `${HOMEBREW_PREFIX}/opt/nvm`; a versão MAIS NOVA que
+de fato TENHA `bin/npm`, varrendo em ordem decrescente por `sort -rV`, porque um
+`nvm install` interrompido deixa a pasta da versão sem npm e parar nela pularia a raiz
+inteira), ou o alias default do fnm, ou o `~/.volta/bin`. **A raiz do Homebrew sai
 de `HOMEBREW_PREFIX`** com os dois defaults (Apple Silicon e Intel), e isso não é
 enfeite: é o que permite ao teste isolar o nvm REAL da máquina de quem roda a suíte,
 que vazou na primeira rodada. Travado em `test/installer-npm-gerenciador.test.js`, que

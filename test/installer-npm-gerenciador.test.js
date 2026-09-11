@@ -45,10 +45,20 @@ function semeiaNvm(raiz, versoes) {
   }
 }
 
+// um `npm` executável de mentira num bin qualquer; devolve o caminho dele
+function semeiaBin(bin, marca) {
+  fs.mkdirSync(bin, { recursive: true });
+  const alvo = path.join(bin, 'npm');
+  fs.writeFileSync(alvo, `#!/bin/sh
+echo ${marca}
+`, { mode: 0o755 });
+  return alvo;
+}
+
 // roda a função com o mesmo `set -euo pipefail` dos instaladores e imprime o PATH
 // resultante e onde `npm` foi parar. `ok` é o helper que os instaladores definem
 // antes do source; aqui é um stub.
-function roda({ home, nvmDir = '', pathInicial = '/usr/bin:/bin' }) {
+function roda({ home, nvmDir = '', fnmDir = '', pathInicial = '/usr/bin:/bin' }) {
   const script = [
     'set -euo pipefail',
     'ok() { :; }',
@@ -61,7 +71,7 @@ function roda({ home, nvmDir = '', pathInicial = '/usr/bin:/bin' }) {
     encoding: 'utf8',
     // HOMEBREW_PREFIX falso: sem isso o nvm REAL de /opt/homebrew da máquina de quem
     // roda a suíte vazaria pros casos "vazio" e "volta"
-    env: { HOME: home, NVM_DIR: nvmDir, PATH: pathInicial, HOMEBREW_PREFIX: path.join(home, 'sem-homebrew') },
+    env: { HOME: home, NVM_DIR: nvmDir, FNM_DIR: fnmDir, PATH: pathInicial, HOMEBREW_PREFIX: path.join(home, 'sem-homebrew') },
   });
   assert.equal(r.status, 0, `bash saiu ${r.status}: ${r.stderr}`);
   const [pathFinal, npm] = r.stdout.trim().split('\n');
@@ -104,13 +114,40 @@ test('nenhum gerenciador: nao encontra, nao morre sob set -e e deixa o PATH como
   assert.equal(npm, 'SEM_NPM');
 });
 
-test('volta e fnm (alias default) tambem sao descobertos quando nao ha nvm', { skip: !temBash }, () => {
+test('volta e descoberto quando nao ha nvm', { skip: !temBash }, () => {
   const home = tmpdir('farol-home-volta-');
-  const volta = path.join(home, '.volta', 'bin');
-  fs.mkdirSync(volta, { recursive: true });
-  fs.writeFileSync(path.join(volta, 'npm'), '#!/bin/sh\necho volta\n', { mode: 0o755 });
+  const npmFalso = semeiaBin(path.join(home, '.volta', 'bin'), 'volta');
   const { npm } = roda({ home });
-  assert.equal(npm, path.join(volta, 'npm'));
+  assert.equal(npm, npmFalso);
+});
+
+// Cada layout do fnm precisa de caso PRÓPRIO: com só o volta semeado, uma regressão
+// na descoberta do fnm passaria verde, porque nenhum layout dele seria exercitado.
+test('fnm: os tres layouts do alias default sao descobertos', { skip: !temBash }, () => {
+  const porFnmDir = tmpdir('farol-home-fnmdir-');
+  const dir = path.join(porFnmDir, 'fnm-custom');
+  const npmFnmDir = semeiaBin(path.join(dir, 'aliases', 'default', 'bin'), 'fnm');
+  assert.equal(roda({ home: porFnmDir, fnmDir: dir }).npm, npmFnmDir, 'FNM_DIR declarado');
+
+  const porXdg = tmpdir('farol-home-fnm-xdg-');
+  const npmXdg = semeiaBin(path.join(porXdg, '.local', 'share', 'fnm', 'aliases', 'default', 'bin'), 'fnm');
+  assert.equal(roda({ home: porXdg }).npm, npmXdg, 'layout de Linux');
+
+  const porMac = tmpdir('farol-home-fnm-mac-');
+  const npmMac = semeiaBin(path.join(porMac, 'Library', 'Application Support', 'fnm', 'aliases', 'default', 'bin'), 'fnm');
+  assert.equal(roda({ home: porMac }).npm, npmMac, 'layout de macOS');
+});
+
+// `nvm install` interrompido deixa a pasta da versao sem bin/npm. Parar na mais nova
+// pularia a raiz INTEIRA e ignoraria a anterior, que funciona.
+test('nvm: versao mais nova sem npm cai pra anterior, em vez de pular a raiz', { skip: !temBash }, () => {
+  const home = tmpdir('farol-home-nvm-quebrado-');
+  const raiz = path.join(home, '.nvm');
+  semeiaNvm(raiz, ['v18.20.0', 'v20.11.1']);
+  // a mais nova existe mas ficou pela metade: pasta criada, npm nunca instalado
+  fs.mkdirSync(path.join(raiz, 'versions', 'node', 'v24.14.1', 'bin'), { recursive: true });
+  const { npm } = roda({ home });
+  assert.equal(npm, path.join(raiz, 'versions', 'node', 'v20.11.1', 'bin', 'npm'));
 });
 
 test('os dois instaladores POSIX chamam a descoberta ANTES de preparar o runtime', () => {

@@ -59,8 +59,8 @@ instalar_runtime() {
 # Caso medido em 11/09/2026 (Mac, nvm do Homebrew): Electron 43 instalado, a
 # release exigindo 44, e o npm em /opt/homebrew/opt/nvm/versions/node/vX/bin.
 # So mexe no PATH quando npm NAO esta acessivel: npm ja visivel sempre vence.
-# No nvm a versao escolhida e a MAIS NOVA instalada (`sort -V`, que o sort do
-# macOS e do GNU aceitam); no fnm e no volta vale o alias default deles. A raiz
+# No nvm a versao escolhida e a MAIS NOVA que de fato tenha npm (`sort -rV`, que
+# o sort do macOS e o do GNU aceitam); no fnm e no volta vale o alias default deles. A raiz
 # do Homebrew sai de HOMEBREW_PREFIX (o `brew shellenv` exporta; sem ela valem
 # os dois defaults, Apple Silicon e Intel), o que tambem deixa o teste isolar
 # a maquina de quem roda a suite.
@@ -69,10 +69,16 @@ incluir_npm_de_gerenciador() {
   local raiz versao dir=''
   for raiz in "${NVM_DIR:-}" "$HOME/.nvm" "${HOMEBREW_PREFIX:-/opt/homebrew}/opt/nvm" "${HOMEBREW_PREFIX:-/usr/local}/opt/nvm"; do
     [ -n "$raiz" ] && [ -d "$raiz/versions/node" ] || continue
-    versao="$(ls -1 "$raiz/versions/node" 2>/dev/null | sort -V | tail -1)"
-    [ -n "$versao" ] && [ -x "$raiz/versions/node/$versao/bin/npm" ] || continue
-    dir="$raiz/versions/node/$versao/bin"
-    break
+    # da mais nova pra mais velha, e nao so a mais nova: um `nvm install`
+    # interrompido deixa a pasta da versao sem `bin/npm`, e parar nela pularia a
+    # raiz inteira, ignorando uma versao anterior que TEM npm. Nome de versao do
+    # nvm nao tem espaco, entao o word splitting do $(...) e seguro aqui.
+    for versao in $(ls -1 "$raiz/versions/node" 2>/dev/null | sort -rV); do
+      [ -x "$raiz/versions/node/$versao/bin/npm" ] || continue
+      dir="$raiz/versions/node/$versao/bin"
+      break
+    done
+    [ -n "$dir" ] && break
   done
   if [ -z "$dir" ]; then
     for raiz in "${FNM_DIR:-}/aliases/default/bin" "$HOME/.local/share/fnm/aliases/default/bin" \
