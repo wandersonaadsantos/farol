@@ -1,0 +1,42 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid",
+        "leases": {
+          "$acct": {
+            "$pr": {
+              ".validate": "newData.hasChildren(['leaseId', 'deviceId', 'operationKind', 'expiresAt']) && newData.child('expiresAt').isNumber() && newData.child('expiresAt').val() > now && newData.child('expiresAt').val() <= now + 300000 && (!data.exists() || data.child('expiresAt').val() < now || data.child('leaseId').val() == newData.child('leaseId').val())"
+            }
+          }
+        },
+        "receipts": {
+          "$acct": {
+            "$pr": {
+              "$fp": {
+                ".validate": "newData.hasChildren(['operationKind', 'materialVersion', 'deviceId', 'completedAt', 'outcome', 'publicationState']) && newData.child('completedAt').isNumber()"
+              }
+            }
+          }
+        },
+        "dailyRounds": {
+          "$acct": {
+            "$pr": {
+              "$day": {
+                ".validate": "$day.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && newData.child('dayPolicy').val() == 'America/Sao_Paulo'"
+              }
+            }
+          }
+        },
+        "usageEvents": {
+          "$device": {
+            "$event": {
+              ".validate": "newData.hasChildren(['at', 'kind', 'costUsd']) && newData.child('at').isNumber()"
+            }
+          }
+        }
+      }
+    }
+  }
+}
