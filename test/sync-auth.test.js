@@ -86,6 +86,26 @@ test('signInWithPassword: 5xx sem corpo vira indisponivel; 200 sem os campos vir
   assert.equal((await entrar({ fetchImpl: respostaFixa(400) })).code, 'resposta_invalida');
 });
 
+/* Conta com segundo fator responde 200 e SEM idToken, o que a guarda de forma acima
+   pegaria pelo motivo errado: "formato inesperado" manda investigar o Firebase, e o
+   corpo está bem formado. Quem não sabe a etapa é o Farol, e a frase tem que dizer isso
+   pra pessoa trocar de usuário em vez de caçar defeito no console. */
+test('signInWithPassword: 200 com mfaPendingCredential vira segundo_fator, não formato inesperado', async () => {
+  const mfa = { mfaPendingCredential: 'pend-1', mfaInfo: [{ mfaEnrollmentId: 'e1', phoneInfo: '+*******1234' }] };
+  const r = await entrar({ fetchImpl: respostaFixa(200, mfa) });
+  assert.equal(r.code, 'segundo_fator');
+  assert.match(r.motivo, /segundo aparelho/);
+  semSenha(r);
+  // o telefone mascarado e a credencial pendente são da conta de quem entra: nem um nem
+  // outro têm o que fazer numa recusa que só precisa dizer o que houve
+  assert.doesNotMatch(JSON.stringify(r), /pend-1|1234/);
+});
+
+test('signInWithPassword: 200 sem idToken E sem mfaPendingCredential continua resposta_invalida', async () => {
+  const r = await entrar({ fetchImpl: respostaFixa(200, { mfaInfo: [{ mfaEnrollmentId: 'e1' }] }) });
+  assert.equal(r.code, 'resposta_invalida', 'corpo truncado não é segundo fator: sem a credencial pendente não há etapa a cumprir');
+});
+
 test('signInWithPassword: sem chave web ou sem senha nem toca a rede', async () => {
   let chamadas = 0;
   const fetchImpl = async () => { chamadas++; return new Response('{}'); };

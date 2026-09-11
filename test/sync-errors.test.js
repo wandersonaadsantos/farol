@@ -5,11 +5,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import errors, { SYNC_CODES, MOTIVOS, SyncError, codeFromStatus, codeFromIdentityMessage, motivoDe } from '../lib/sync/errors.js';
 
-test('SYNC_CODES: os catorze códigos do contrato, cada um com frase própria', () => {
+test('SYNC_CODES: os quinze códigos do contrato, cada um com frase própria', () => {
   assert.deepEqual(Object.values(SYNC_CODES).sort(), [
     'auth_nao_configurado', 'config_invalida', 'conflito', 'credencial_invalida', 'desligado', 'falha_interna',
     'indisponivel', 'muitas_tentativas', 'nao_autorizado', 'nao_encontrado', 'provedor_desabilitado',
-    'resposta_invalida', 'sem_credencial', 'timeout',
+    'resposta_invalida', 'segundo_fator', 'sem_credencial', 'timeout',
   ]);
   for (const code of Object.values(SYNC_CODES)) {
     assert.equal(typeof MOTIVOS[code], 'string', `${code} sem frase`);
@@ -70,6 +70,10 @@ test('codeFromIdentityMessage: recusa que fala do PROJETO não vira formato ines
   }
   assert.equal(codeFromIdentityMessage('OPERATION_NOT_ALLOWED : Password sign-in is disabled.'), 'provedor_desabilitado');
   assert.equal(codeFromIdentityMessage('CONFIGURATION_NOT_FOUND'), 'auth_nao_configurado');
+  // o caminho normal do segundo fator é o 200 sem idToken (test/sync-auth.test.js); aqui
+  // fica o outro, que algumas configuracoes do Identity Platform anunciam por erro
+  assert.equal(codeFromIdentityMessage('SECOND_FACTOR_REQUIRED'), 'segundo_fator');
+  assert.equal(codeFromIdentityMessage('MFA_ENROLLMENT_NOT_FOUND'), 'segundo_fator');
   // as duas frases dizem ONDE resolver, senão trocar o código não muda nada pra quem lê
   assert.match(motivoDe('provedor_desabilitado'), /Authentication/);
   assert.match(motivoDe('auth_nao_configurado'), /Authentication/);
