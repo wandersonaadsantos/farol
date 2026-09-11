@@ -1,0 +1,240 @@
+{
+  "base": "1ddee35",
+  "alvo": "ff9f818",
+  "tarefas": [
+    {
+      "id": "T01",
+      "titulo": "Constantes, taxonomia de erros e regras do banco",
+      "mensagem": "feat(sync): constantes de infra, taxonomia de erros e regras do Realtime Database",
+      "arquivos": [
+        "lib/constants.js",
+        "lib/sync/errors.js",
+        "firebase/database.rules.json",
+        "firebase/firebase.json",
+        "firebase/README.md",
+        "test/sync-constants.test.js",
+        "test/sync-errors.test.js"
+      ]
+    },
+    {
+      "id": "T02",
+      "titulo": "Chaves: hash de conta e PR, fingerprint e dia de Brasília",
+      "mensagem": "feat(sync): chaves derivadas, fingerprint de operação e dia canônico",
+      "arquivos": [
+        "lib/sync/keys.js",
+        "test/sync-keys.test.js"
+      ]
+    },
+    {
+      "id": "T03",
+      "titulo": "Config da sincronização",
+      "mensagem": "feat(sync): saneamento da config da sincronização",
+      "arquivos": [
+        "lib/sync/config.js"
+      ]
+    },
+    {
+      "id": "T04",
+      "titulo": "Credencial e identidade deste aparelho",
+      "mensagem": "feat(sync): credencial fora do config.json e identidade do aparelho",
+      "arquivos": [
+        "lib/sync/credentials.js",
+        "lib/sync/device.js",
+        "test/sync-credentials.test.js",
+        "test/sync-device.test.js"
+      ]
+    },
+    {
+      "id": "T05",
+      "titulo": "Auth do Firebase e o dublê de identidade",
+      "mensagem": "feat(sync): login por e-mail e senha com renovação do ID token",
+      "arquivos": [
+        "test/helpers/sem-tier-wasm.js",
+        "test/helpers/fake-identity.js",
+        "lib/sync/auth.js",
+        "test/sync-auth.test.js"
+      ]
+    },
+    {
+      "id": "T06",
+      "titulo": "Parser de SSE",
+      "mensagem": "feat(sync): parser de Server-Sent Events",
+      "arquivos": [
+        "lib/sync/sse.js",
+        "test/sync-sse.test.js"
+      ]
+    },
+    {
+      "id": "T07",
+      "titulo": "Cliente REST do Realtime Database e o dublê do banco",
+      "mensagem": "feat(sync): cliente REST do RTDB com CAS por ETag e stream",
+      "arquivos": [
+        "test/helpers/fake-rtdb.js",
+        "lib/sync/rtdb.js",
+        "test/sync-rtdb.test.js"
+      ]
+    },
+    {
+      "id": "T08",
+      "titulo": "Classe de falha da coordenação na taxonomia",
+      "mensagem": "feat(sync): classe transitória de coordenação indisponível",
+      "arquivos": [
+        "lib/log-taxonomy.js",
+        "test/log-taxonomy.test.js"
+      ]
+    },
+    {
+      "id": "T09",
+      "titulo": "Lease: quem está analisando o PR agora",
+      "mensagem": "feat(sync): lease por conta e PR com aquisição condicional",
+      "arquivos": [
+        "lib/sync/lease.js",
+        "test/sync-lease.test.js"
+      ]
+    },
+    {
+      "id": "T10",
+      "titulo": "Recibos: a análise que já terminou",
+      "mensagem": "feat(sync): recibo por operação e head, com estado de órfão",
+      "arquivos": [
+        "lib/sync/receipts.js",
+        "test/sync-receipts.test.js"
+      ]
+    },
+    {
+      "id": "T11",
+      "titulo": "Rodadas do dia",
+      "mensagem": "feat(sync): teto de rodadas automáticas por PR e dia",
+      "arquivos": [
+        "lib/sync/rounds.js",
+        "test/sync-rounds.test.js"
+      ]
+    },
+    {
+      "id": "T12",
+      "titulo": "Coordenador da admissão",
+      "mensagem": "feat(sync): coordenador decide se esta análise pode rodar aqui",
+      "arquivos": [
+        "lib/engine/decision.js",
+        "lib/sync/coordinator.js"
+      ]
+    },
+    {
+      "id": "T13",
+      "titulo": "Outbox do consumo",
+      "mensagem": "feat(sync): fila idempotente do consumo, amarrada ao destino",
+      "arquivos": [
+        "lib/sync/outbox.js"
+      ]
+    },
+    {
+      "id": "T14",
+      "titulo": "Resumo consolidado do consumo",
+      "mensagem": "feat(sync): resumo do consumo somando todos os aparelhos",
+      "arquivos": [
+        "lib/sync/consolidated.js"
+      ]
+    },
+    {
+      "id": "T15",
+      "titulo": "Runtime da sincronização, em cinco módulos",
+      "mensagem": "feat(sync): runtime da sincronização, consumo, stream, faxina e refazer",
+      "arquivos": [
+        "lib/engine/sync-usage.js",
+        "lib/engine/sync-stream.js",
+        "lib/engine/sync-faxina.js",
+        "lib/engine/sync-redo.js",
+        "lib/engine/sync.js"
+      ]
+    },
+    {
+      "id": "T16",
+      "titulo": "Fiação no engine: config, rotas, snapshot e fachadas",
+      "mensagem": "feat(sync): fiação do runtime no engine, rotas e projeção para a tela",
+      "arquivos": [
+        "lib/settings.js",
+        "lib/engine/usage.js",
+        "lib/http-server.js",
+        "server.js",
+        "lib/engine/pushback.js",
+        "test/facades.test.js",
+        "test/sync-config.test.js",
+        "test/sync-engine-boot.test.js"
+      ]
+    },
+    {
+      "id": "T17",
+      "titulo": "Provas do runtime, do coordenador e do consumo",
+      "mensagem": "test(sync): runtime, coordenador e consumo provados contra os dublês",
+      "arquivos": [
+        "test/sync-engine.test.js",
+        "test/sync-coordinator.test.js",
+        "test/sync-outbox.test.js",
+        "test/sync-consolidated.test.js"
+      ]
+    },
+    {
+      "id": "T18",
+      "titulo": "Provas do stream, da faxina e da saída limpa",
+      "mensagem": "test(sync): stream dos leases, faxina de retenção e saída limpa do processo",
+      "arquivos": [
+        "test/sync-stream.test.js",
+        "test/sync-faxina.test.js",
+        "test/sync-saida-limpa.test.js"
+      ]
+    },
+    {
+      "id": "T19",
+      "titulo": "Gate de admissão na boca das sessões",
+      "mensagem": "feat(sync): gate de coordenação no runClaudeStream",
+      "arquivos": [
+        "lib/format.js",
+        "lib/engine/session.js",
+        "test/sync-gate.test.js"
+      ]
+    },
+    {
+      "id": "T20",
+      "titulo": "Revisão headless sob coordenação",
+      "mensagem": "feat(sync): revisão headless pede admissão e grava recibo no fim",
+      "arquivos": [
+        "lib/engine/review.js",
+        "test/sync-review.test.js",
+        "test/sync-coordenacao-nao-estaciona.test.js"
+      ]
+    },
+    {
+      "id": "T21",
+      "titulo": "Autoanálise, chat e ferramentas sob coordenação",
+      "mensagem": "feat(sync): os demais chamadores pedem admissão pela mesma boca",
+      "arquivos": [
+        "lib/engine/selfpr.js",
+        "lib/engine/chat.js",
+        "lib/engine/tools.js",
+        "test/sync-callers.test.js"
+      ]
+    },
+    {
+      "id": "T22",
+      "titulo": "Clique manual: preflight, overrides e refazer",
+      "mensagem": "feat(sync): clique manual com preflight, overrides e refazer recibo órfão",
+      "arquivos": [
+        "test/sync-manual.test.js"
+      ]
+    },
+    {
+      "id": "T23",
+      "titulo": "Interface da sincronização",
+      "mensagem": "feat(sync): seção Sistema, confirmações do clique, nota na fila e Consumo de todos",
+      "arquivos": [
+        "ui/pure.js",
+        "ui/app.css",
+        "ui/index.html",
+        "ui/app.js",
+        "test/ui-pure-sync.test.js",
+        "test/ui-semantics.test.js",
+        "test/rerevisar-head-velho.test.js"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,157 @@
+export const meta = {
+  name: 'sync-prototipo-2',
+  description: 'Fecha as lacunas de integracao do prototipo de sincronizacao, constroi a UI a partir do desenho e revisa a branch inteira',
+  phases: [
+    { title: 'Lacunas', detail: 'SSE de leases, faxina diaria, teste instavel e defeitos menores reais' },
+    { title: 'Interface', detail: 'secao sys-sync, confirmacoes, card da fila e Consumo' },
+    { title: 'Revisao final', detail: 'branch inteira por duas lentes, e correcao' },
+  ],
+}
+
+const WT = 'C:/Users/wanderson/Documents/farol/.worktrees/sync-prova'
+const CONTRATO = 'C:/Users/wanderson/Documents/farol/docs/superpowers/plans/2026-09-10-sync-00-contrato.md'
+const DESENHO = 'C:/Users/WANDER~1/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/fe2ff0a0-c8c5-4bdf-979e-acf81551eb1f/scratchpad/design-sync'
+
+const BASE = `
+Você continua um PROTÓTIPO do Farol (Node ESM puro + Electron) num WORKTREE DESCARTÁVEL. Cinco blocos já foram construídos, revisados e corrigidos; o gate está verde (2684 testes, 0 fail). O código deste worktree vai ser TRANSCRITO literalmente para planos que um modelo menor vai executar, então todo defeito que ficar aqui vira defeito de plano.
+
+LUGARES:
+- Worktree de trabalho (HEAD destacado): ${WT}. Todo arquivo que você cria ou edita fica AQUI. Todo comando roda com cwd aqui.
+- Contrato (SOMENTE LEITURA, fonte da verdade, mas já se sabe que tem defeitos que o protótipo corrigiu): ${CONTRATO}. Leia "Global Constraints", "Decisões fechadas", "Desenho", "Atualização pós-#71" e as seções do seu trabalho.
+- Guia do mantenedor: ${WT}/CLAUDE.md.
+- Histórico do protótipo: \`git log --oneline 1ddee35..HEAD\` e \`git show <commit>\`. Leia o código atual dos arquivos antes de mexer.
+- NUNCA toque em C:/Users/wanderson/Documents/farol fora do .worktrees, exceto LER o contrato e o que for dito abaixo. NUNCA git push, nunca crie branch, nunca git stash, nunca npm install, nunca apague node_modules.
+
+MÉTODO por item: TDD (teste que falha, guarde a primeira linha da falha; implemente; teste passa); depois \`npm run check && npm run lint && npm test\` com 0 fail e "sem regressão" (lint que regride: corrija o CÓDIGO, proibido tocar tools/quality/ ou baseline.json); um commit por item, Conventional Commits em português, sem trailer de co-autoria e sem mencionar IA.
+
+REGRAS DE CÓDIGO: as do contrato (JSON cru só em lib/io.js; process.env só em lib/env.js e lib/paths.js; tempo só em lib/constants.js com nome MAIÚSCULO; 400 linhas úteis por arquivo; profundidade de chaves efetiva 4 contada do topo, objeto literal conta; sem ternário aninhado; sem catch vazio sem comentário; sem var; teste que fixa FAROL_HOME usa await import para módulos que alcançam lib/paths.js; teste nunca toca a internet). Comentário em português, sem travessão, explica o porquê. Nunca imprima senha, token ou URL com auth= em log, erro, resposta HTTP ou snapshot (o e-mail só em sync.email do snapshot, exceção já declarada).
+
+DESVIOS E DECISÕES: registre em deviations (kind "decisao" para escolhas, "defeito-contrato" quando o contrato precisa mudar, com a seção e o texto novo que o contrato deveria ter).
+
+SAÍDA: o objeto do schema, com o gate final real.`
+
+const IMPL_SCHEMA = {
+  type: 'object',
+  properties: {
+    tasks: { type: 'array', items: { type: 'object', properties: {
+      id: { type: 'string' }, commit: { type: 'string' }, summary: { type: 'string' },
+      files: { type: 'array', items: { type: 'string' } }, failFirst: { type: 'string' },
+    }, required: ['id', 'commit', 'files', 'failFirst'] } },
+    deviations: { type: 'array', items: { type: 'object', properties: {
+      task: { type: 'string' }, kind: { type: 'string' }, section: { type: 'string' },
+      contractSaid: { type: 'string' }, didInstead: { type: 'string' }, evidence: { type: 'string' },
+    }, required: ['task', 'kind', 'section', 'didInstead'] } },
+    gate: { type: 'string' },
+    blocked: { type: 'string' },
+  },
+  required: ['tasks', 'deviations', 'gate', 'blocked'],
+}
+
+const REVIEW_SCHEMA = {
+  type: 'object',
+  properties: {
+    findings: { type: 'array', items: { type: 'object', properties: {
+      severity: { type: 'string' }, task: { type: 'string' }, file: { type: 'string' }, line: { type: 'integer' },
+      issue: { type: 'string' }, evidence: { type: 'string' }, fix: { type: 'string' },
+    }, required: ['severity', 'task', 'issue', 'evidence', 'fix'] } },
+    mutationChecks: { type: 'array', items: { type: 'object', properties: {
+      what: { type: 'string' }, testFailed: { type: 'boolean' }, detail: { type: 'string' },
+    }, required: ['what', 'testFailed'] } },
+    gate: { type: 'string' },
+  },
+  required: ['findings', 'mutationChecks', 'gate'],
+}
+
+const LACUNAS_A = `
+SEU TRABALHO (lacunas de integração, nesta ordem):
+
+L1, TESTE INSTÁVEL. test/sync-auth.test.js derruba o processo em ~20% das execuções no Windows com a asserção do libuv "!(handle->flags & UV_HANDLE_CLOSING)" ao sair (--test-force-exit com socket keep-alive fechando). Os testes de lease/receipts/rounds/coordinator contornaram com uma espera DRENO_MS depois do close. Conserte na RAIZ, dentro dos dublês test/helpers/fake-rtdb.js e test/helpers/fake-identity.js (ex.: responder com 'Connection: close' em toda resposta que não é SSE, manter closeAllConnections, e o close() só resolver depois de todos os sockets fecharem), e REMOVA os DRENO_MS dos testes (o executor do plano não pode ter que lembrar de um contorno por arquivo). PROVA obrigatória no relatório: rode \`node --test --test-force-exit test/sync-auth.test.js\` 40 vezes seguidas, e \`node --test --test-force-exit test/sync-*.test.js\` 10 vezes, e cole a contagem de falhas (tem que ser 0). Se ainda falhar, investigue até achar a causa; não entregue instável.
+
+L2, TEMPO REAL (objetivo 1 do spec, §5 escolheu REST+SSE por isso). Hoje rtdb.stream não tem chamador e engine.sync.leasesVistos nunca é preenchido. Implemente o stream de leases, num módulo novo lib/engine/sync-stream.js (lib/engine/sync.js está com 380 linhas úteis; não pode passar de 400), com fachada/ganchos mínimos em lib/engine/sync.js:
+- abre quando a coordenação está ativa e o runtime conecta (fim do startSync), em /users/{uid}/leases; fecha no stopSync e quando a coordenação é desligada (aplicarConfig);
+- mantém em memória a árvore remota {accountHash:{prHash:lease}} aplicando os eventos put/patch pelo path (put substitui o nó, patch mescla chave a chave, data null apaga);
+- deriva engine.sync.leasesVistos = { [prKey]: { deviceId, deviceName, since: acquiredAt, operationKind } } só para lease vivo (expiresAt > rt.agora()) de OUTRO aparelho, traduzindo prHash para prKey pelos PRs que ESTE Farol conhece (panorama, queue e myPRs, cada key com accountHash da conta dona via engine.accountForPr); PR desconhecido localmente fica fora (o nome do PR nunca sobe, D6), e conte-os em engine.sync.leasesOutros (número) para a UI poder dizer "mais N em PRs que este aparelho não acompanha";
+- reconexão com backoff SYNC.STREAM_RECONNECT_MS dobrando até SYNC.STREAM_RECONNECT_MAX_MS; evento auth_revoked invalida o token (tokenSource.invalidate()) e reabre; evento cancel fecha, loga WARN uma vez e reabre com backoff; vigia de inatividade: sem nenhum evento (keep-alive incluso) por SYNC.STREAM_IDLE_MS (constante nova, 90 * 1000, porque o RTDB manda keep-alive a cada ~30 s) aborta e reconecta;
+- pushState quando leasesVistos muda; statusForUi passa a projetar leasesVistos e leasesOutros;
+- a derivação (árvore -> leasesVistos) é PURA e testada isoladamente; o ciclo de vida é testado contra o fake-rtdb: outro cliente adquire lease de um PR conhecido e leasesVistos ganha o PR com o nome do outro aparelho; o release some com ele; lease do próprio aparelho nunca aparece; lease vencido não aparece; auth_revoked reabre; inatividade reconecta (injete o tempo, sem dormir de verdade); stopSync fecha (fake.streams volta a 0); coordenação desligada nunca abre stream.
+
+L3, RETENÇÃO (D17 não roda). pruneRounds não tem chamador e ninguém apaga recibo vencido. Implemente uma FAXINA diária no syncTick (constante SYNC.FAXINA_MS = DIA_MS e teto SYNC.FAXINA_MAX_PRS = 200 PRs por faxina, pra nunca travar um tick), só com coordenação ativa e conectado: para o accountHash de cada conta da engine, leia shallow dailyRounds/{acct} e chame pruneRounds por prHash; leia shallow receipts/{acct} e, por prHash, apague com if-match cada fingerprint cujo expiresAt já venceu. Registre em deviations (kind defeito-contrato, seção D17) que a remoção antecipada de recibo por "PR saiu do panorama por PRUNE_STRIKES ciclos" SAI do MVP: a expiração de 180 dias cobre, e a remoção antecipada exigiria um mapa local persistente de PRs tocados; remova SYNC.PRUNE_STRIKES se ficou sem uso. Teste contra o fake-rtdb, com relógio injetado.
+
+L4, ESCRITA INCONDICIONAL POR ETAG AUSENTE. Se o GET não devolve cabeçalho ETag, rtdb.get devolve etag '' e renewLease, releaseLease e startRound acabam fazendo PUT/DELETE SEM if-match, ou seja, escrita incondicional. Toda operação de CAS (lease, receipts, rounds) tem que tratar etag vazio vindo de GET que PEDIU etag como 'indisponivel' (resposta_invalida), nunca como licença para escrever. Teste com o fake configurado para não devolver ETag.`
+
+const LACUNAS_B = `
+SEU TRABALHO (defeitos menores reais apontados pelas revisões anteriores; cada um vira item com teste):
+
+M1 coordenador: conta vazia. accountHash('') devolve hash válido; dois aparelhos com accountForPr vazio num e preenchido no outro coordenam em namespaces diferentes. Em admit e preflightManual, conta vazia vira 'indisponivel' com motivo próprio, antes de tocar rede.
+M2 coordenador: exceção inesperada DEPOIS de adquirir o lease (ex.: markSeen lança na releitura) cai no catch e devolve 'indisponivel' sem liberar o lease. Libere o lease (best-effort) nesse caminho.
+M3 preflightManual: o lease vivo do PRÓPRIO aparelho (revisão automática ou pushback em andamento aqui) é tratado como 'alheio' e nomeia este aparelho como "outro". Lease com deviceId igual ao deste aparelho não bloqueia o preflight (a deduplicação local do enqueueHeadless já cobre); teste.
+M4 sync-usage enviarLotes: relê rt.client a cada lote; logout/stopSync no meio deixa null e o lote seguinte lança TypeError, contra "nada aqui lança para o engine". Capture o client no início e pare o laço se o runtime mudou (geração).
+M5 outbox: o cursor não está amarrado ao destino. Troca de usuário Firebase (uid) ou de databaseUrl deixa o histórico já enviado ao destino antigo sem nunca chegar ao novo. Grave na outbox o destino (uid + databaseUrl) e, quando mudar, zere o cursor e reenfileire (a idempotência por eventId torna isso seguro).
+M6 mensagem de boot: com login e status 'conectando' (sem lastError), semConexao responde sem_credencial ("nenhum login do Firebase foi feito neste aparelho") a um aparelho logado. Unifique o helper (hoje duplicado em sync.js e sync-usage.js) num lugar só e faça 'conectando' responder 'indisponivel' com motivo de conexão em andamento.
+M7 Diagnóstico: com a coordenação DESLIGADA (só consolidação), falha de presença é logada como "coordenação entre dispositivos indisponível" e o Diagnóstico mostra "Coordenação indisponível" pra quem nem ligou a coordenação. Faça o log dizer "sincronização entre dispositivos indisponível" nesse caso e amplie a regex da classe coordenacao-indisponivel em lib/log-taxonomy.js para casar as duas frases, com label "Sincronização entre dispositivos indisponível" (id inalterado); atualize test/log-taxonomy.test.js.
+M8 pushback, ordem D14: o recibo do pushback é gravado dentro de classifyPushback, ANTES de scanPushbacks persistir pushbackScanned e pushbacks. Mova a conclusão (complete) para depois da persistência local no scanPushbacks, sem subir profundidadeExcedida de pushback.js (extraia função se preciso). Teste a ordem.
+M9 redoReceipt: apaga QUALQUER recibo de review do head e apaga antes de saber se o relançamento vai acontecer. Só aceite recibo com publicationState pending ou failed e receiptOrphanState 'orfao' (os outros casos recusam com motivo); e só apague depois que o preflight manual do relançamento disser que o único bloqueio é o recibo. Teste os dois lados.
+M10 autoanálise com lease perdido: vira o toast "Autoanálise de X cancelada." como se você tivesse cancelado. Dê texto próprio ("outro aparelho assumiu a coordenação; a autoanálise foi encerrada sem registrar") no ramo self do runOneHeadless quando err.coordenacao === 'perdido'. E no ramo de revisão com err.coordenacao, remova entrada preexistente do retryAfterNet daquele PR.
+M11 facades: launchReview ganhou um 4o parâmetro com default e o Function.length trunca dos dois lados, então test/facades.test.js passa por coincidência. Registre launchReview em EXCECOES com o motivo, no molde das outras entradas, e acrescente um teste que prove que o 'extras' chega na implementação pela fachada.
+M12 login concorrente: syncLogin que chega com um start em voo reaproveita a promessa de iniciar() que leu a credencial ANTIGA. Faça o login esperar o start em voo terminar e iniciar de novo com a credencial nova (ou invalidar a geração), com teste.`
+
+const UI = `
+SEU TRABALHO: a INTERFACE da sincronização (tarefas T12, parte de UI da T20, T21 e T24 do contrato), implementando o DESENHO já produzido.
+- Desenho de referência (SOMENTE LEITURA, fora do repo): ${DESENHO}/gerar.mjs contém a folha de estilo e o markup de cada tela; as telas geradas são ${DESENHO}/*.dc.html. Leia gerar.mjs inteiro. Ele usa valores literais do app.css; na implementação use os TOKENS do ui/app.css (var(--surface), var(--ok) etc.), não os hex, e reaproveite as classes existentes (.card, .set-list, .set-row, .switch, .callout, .btn, .seg, .modal-card, .usage-kpi...) sempre que o desenho usa a mesma coisa. Classes novas com prefixo .sync- e a nota do card .pr-coord (azul var(--info) para espera por outro aparelho; âmbar var(--accent) para indisponível e teto de rodadas; nunca o vermelho do .pr-parked).
+- Leia o contrato, seções D12, D16, "Desenho", "Runtime e composição" e o que a statusForUi realmente projeta hoje (lib/engine/sync.js), inclusive leasesVistos/leasesOutros se já existirem. Leia ui/app.js e ui/pure.js nas partes da seção Jira (renderJiraSites, jiraSiteCardHtml), do settingsMap, do renderUsage/wireUsageControls, do queueCardHtml/parkedNoteHtml e do modal existente (procure modal-card no app.js) para seguir os padrões.
+
+Entregue, um commit por tarefa:
+U1 (T12): seção sys-sync (botão sysbtn-sync na nav logo depois de sysbtn-jira, painel sys-sync logo depois de sys-jira, entrada na busca de Sistema se o app tiver o índice de busca), renderSync(STATE.sync, STATE.config.sync) chamado nos mesmos lugares que renderJiraSites, saveSync(objetoInteiro) que manda /api/settings { sync } e confere 'ignoradas', os três toggles (a chave geral desabilita os outros dois), cartão de Conexão com os estados do desenho (desligada, sem login, entrando, conectada, degradada, login expirado, dados apagados, envio do histórico), login (POST /api/sync/login com email e senha lidos do DOM em const locais, input type=password, campos limpos depois), Testar conexão (/api/sync/test, resultado na linha ao lado), Sair deste aparelho (/api/sync/logout), Apagar dados sincronizados (modal danger e /api/sync/erase-remote), lista de Aparelhos (este marcado), lista "Coordenação agora" (leasesVistos, recibosVistos com órfão e botão "Refazer neste aparelho" que confirma e chama /api/sync/redo). Tudo que é texto e HTML vira função PURA em ui/pure.js com teste em test/ui-pure-sync.test.js (sem DOM). Todo elemento que o app.js liga no topo do módulo existe no index.html NO MESMO COMMIT (o smoke do Electron reprova TypeError de addEventListener em null).
+U2 (T20 UI): no clique Revisar, quando a resposta de /api/review traz coordenacao[], abre a confirmação certa por motivo: indisponivel -> "Revisar sem coordenação?" e reenvia com semCoordenacao:true; recibo -> "Revisar de novo este commit?" e reenvia com ignorarRecibo:true; alheio -> só toast informativo nomeando o aparelho, sem override. Textos e decisão por motivo em função pura testada.
+U3 (T21): anotação .pr-coord no card da fila a partir de STATE.sync.espera[key] (e leasesVistos quando houver), no molde do parkedNoteHtml; função pura testada; o estacionamento continua com prioridade visual quando os dois existirem? decida e registre (o esperado: estacionamento é falha e vence).
+U4 (T24): no Consumo, segmentado #usageDevice ("Este aparelho" | "Todos os aparelhos") visível só com STATE.sync.consolidation; "Todos" busca get('/api/sync/consolidated?days=' + janela) e renderiza usageConsolidatedHtml(resumo) (KPIs somados + tabela por aparelho + linha de envio "enviado há X, N pendentes"); "Este aparelho" volta ao renderUsage de sempre sem nenhuma diferença; envelope com ok:false mostra o motivo, nunca tela vazia muda. Função pura testada.
+
+Rode test/ui-contract.test.js, test/settings-fonte-unica.test.js, test/ui-widgets.test.js e a suíte inteira. SMOKE REAL DO ELECTRON (obrigatório ao fim): o worktree não tem node_modules. Crie uma JUNÇÃO para o do checkout principal com \`cmd //c mklink /J node_modules ..\\..\\node_modules\` rodado dentro do worktree, rode \`node tools/electron-smoke.js --output ${DESENHO}/smoke --allow-desktop\` (abre uma janela temporária do Farol com perfil vazio, sem conta), cole no gate o resultado e o caminho do relatório JSON, e REMOVA a junção com \`cmd //c rmdir node_modules\` (NUNCA rm -rf, que apagaria o node_modules do checkout principal). Se o smoke falhar por causa da UI nova, corrija. Se falhar por motivo alheio à UI nova (ex.: versão do Electron local 44.3 contra a mínima 44.1, notificação do Windows), registre em deviations com a saída e não mascare.`
+
+const REVIEW_PROMPT = (titulo, escopo, lente) => `
+Você é REVISOR ADVERSARIAL (${titulo}) do protótipo no worktree ${WT} (HEAD destacado, base 1ddee35). Contrato: ${CONTRATO}. Guia: ${WT}/CLAUDE.md. SOMENTE LEITURA, exceto edições temporárias para prova de mutação, desfeitas com \`git checkout -- <arquivo>\` (confira git status limpo no fim). Nunca commit, push ou stash.
+ESCOPO: ${escopo}
+LENTE: ${lente}
+Faça prova de mutação nas 4 a 8 linhas que sustentam as garantias mais importantes do escopo (neutralize uma por vez, rode o teste correspondente, registre se falhou, desfaça). Rode \`npm run check && npm run lint && npm test\` no fim. Severidade: critical = quebra invariante de segurança/produção ou garantia central; important = contrato ou spec violado, teste que não prova o que diz, integração faltando, ou defeito que um executor copiaria para o plano; minor = estilo. Seja concreto: arquivo, linha, evidência (saída de comando), correção.`
+
+const FIX_PROMPT = (titulo, findings) => `${BASE}
+
+Corrija estes achados de revisão (${titulo}), critical e important; minor só se trivial:
+${JSON.stringify(findings, null, 2)}
+Um commit por achado (fix(sync): ...), TDD quando é comportamento. Se discordar, não corrija e registre em deviations com kind "discorda" e a prova. tasks = um item por achado, id "fix:<n>".`
+
+const out = {}
+
+phase('Lacunas')
+out.lacunasA = await agent(`${BASE}\n${LACUNAS_A}`, { label: 'lacunas:A', phase: 'Lacunas', schema: IMPL_SCHEMA, effort: 'high' })
+out.lacunasB = await agent(`${BASE}\n${LACUNAS_B}`, { label: 'lacunas:B', phase: 'Lacunas', schema: IMPL_SCHEMA, effort: 'high' })
+const revL = await agent(REVIEW_PROMPT('lacunas', 'os commits de L1 a L4 e M1 a M12 feitos nesta rodada (use git log para achá-los, são os mais recentes)',
+  'as garantias que esses itens prometem valem de verdade e têm teste que falha sem elas; o teste instável foi resolvido na raiz (rode 30 vezes test/sync-auth.test.js e 5 vezes a suíte sync-*); o stream de leases não abre com coordenação desligada e nunca expõe nome de PR que não é local'),
+  { label: 'review:lacunas', phase: 'Lacunas', schema: REVIEW_SCHEMA, effort: 'high' })
+out.revL = revL
+const gravesL = ((revL && revL.findings) || []).filter(f => f.severity === 'critical' || f.severity === 'important')
+if (gravesL.length) out.fixL = await agent(FIX_PROMPT('lacunas', gravesL), { label: 'fix:lacunas', phase: 'Lacunas', schema: IMPL_SCHEMA, effort: 'high' })
+
+phase('Interface')
+out.ui = await agent(`${BASE}\n${UI}`, { label: 'ui', phase: 'Interface', schema: IMPL_SCHEMA, effort: 'high' })
+const revU = await agent(REVIEW_PROMPT('interface', 'os commits de U1 a U4 (interface da sincronização)',
+  'fidelidade ao desenho em ' + DESENHO + '/gerar.mjs (hierarquia, textos, estados, cores por significado); nenhum segredo chega ao DOM (senha, refresh token) e a senha não fica em variável global nem no STATE; todo elemento ligado no topo do app.js existe no index.html; as funções puras cobrem os textos e têm teste; com a sincronização desligada a aba Consumo e a fila ficam idênticas às de hoje; acessibilidade básica (labels nos inputs, role e tabindex nos clicáveis que não são botão)'),
+  { label: 'review:ui', phase: 'Interface', schema: REVIEW_SCHEMA, effort: 'high' })
+out.revU = revU
+const gravesU = ((revU && revU.findings) || []).filter(f => f.severity === 'critical' || f.severity === 'important')
+if (gravesU.length) out.fixU = await agent(FIX_PROMPT('interface', gravesU), { label: 'fix:ui', phase: 'Interface', schema: IMPL_SCHEMA, effort: 'high' })
+
+phase('Revisao final')
+const [fa, fb] = await parallel([
+  () => agent(REVIEW_PROMPT('final, segurança e produção', 'a branch INTEIRA, git diff 1ddee35..HEAD',
+    'invariantes de produção e segurança ponta a ponta: com sync ausente ou desligado o app é idêntico ao de antes (nenhum fetch, nenhum arquivo novo, nenhum toast, nenhuma mudança de fluxo na revisão, autoanálise, pushback, chat, ferramentas, fila, Consumo); nenhum segredo vaza (log, erro, toast, snapshot, resposta HTTP, spawns.log, prompt); gate falha fechado com coordenação ativa; nenhuma sessão de IA nasce sem admissão; nenhum review é postado sem lease válido; bloqueio de coordenação nunca estaciona nem gasta retry; o invariante 4 do CLAUDE.md (nada postado sem gate) e os gates de postagem existentes seguem intactos; interação com a justiça de fila (D18, D19); regras do banco coerentes com o cliente. Procure especialmente defeitos de INTEGRAÇÃO entre módulos que revisões por bloco não veem.'),
+    { label: 'final:seguranca', phase: 'Revisao final', schema: REVIEW_SCHEMA, effort: 'high' }),
+  () => agent(REVIEW_PROMPT('final, conformidade e transcrição', 'a branch INTEIRA, git diff 1ddee35..HEAD',
+    'o código vai ser transcrito para planos executados por um modelo menor. Procure: (1) objetivos e critérios de conclusão do spec (docs/PLANO-SINCRONIZACAO-DISPOSITIVOS.md, §1, §13 e §18, leia no checkout principal C:/Users/wanderson/Documents/farol/docs/) sem implementação ou sem teste; (2) código morto (exportado e sem chamador), constantes sem uso, TODO; (3) teste que não prova o que o título diz; (4) testes instáveis (rode a suíte inteira 3 vezes e compare); (5) arquivos perto do teto de 400 linhas úteis e profundidade; (6) comentários que narram a sessão de trabalho ou mencionam revisão/protótipo/contrato em vez de explicar o porquê do código (proibido pelas regras de escrita); (7) textos com travessão; (8) qualquer coisa que dependa de estado desta máquina.'),
+    { label: 'final:conformidade', phase: 'Revisao final', schema: REVIEW_SCHEMA, effort: 'high' }),
+])
+out.finalSeg = fa
+out.finalConf = fb
+const gravesF = [...((fa && fa.findings) || []), ...((fb && fb.findings) || [])].filter(f => f.severity === 'critical' || f.severity === 'important')
+if (gravesF.length) out.fixF = await agent(FIX_PROMPT('revisão final', gravesF), { label: 'fix:final', phase: 'Revisao final', schema: IMPL_SCHEMA, effort: 'high' })
+return out

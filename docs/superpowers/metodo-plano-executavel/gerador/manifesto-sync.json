@@ -1,0 +1,261 @@
+{
+  "titulo": "Sincronização entre dispositivos",
+  "cabecalho": "# Sincronização entre dispositivos: plano de implementação\n\nGerado por máquina a partir de commits já provados verdes (`gerador/gerar-plano.mjs`), e\nconferido pelo executor perfeito: aplicar este plano sobre a base reproduz, tarefa a\ntarefa, exatamente a árvore que o protótipo provou.\n\n**Como executar.** Uma tarefa por vez, na ordem. Em cada uma: aplique as mudanças\nEXATAMENTE como escritas, rode os testes indicados e depois `npm run check && npm run\nlint && npm test`. Só passe para a próxima com os três verdes. Um commit por tarefa, com\na mensagem indicada, sem trailer de co-autoria e sem mencionar IA.\n\n**Onde colar.** Arquivo NOVO entra inteiro, com o conteúdo literal. Arquivo QUE JÁ EXISTE\nentra como pares \"localize este trecho / troque por este\": o trecho a localizar aparece\numa única vez no arquivo naquele momento, e isso foi PROVADO na geração. Não reescreva o\narquivo inteiro, não reformate, não mude nada que o plano não peça.\n\n**Escreva os arquivos com a ferramenta de escrita de arquivo, não por heredoc de shell.**\nO conteúdo tem sequências como `\\u0000` que o shell interpreta: `bash`, `cat <<EOF` e\namigos transformam a barra invertida antes de o arquivo existir, e aí o hash nunca bate. A\nferramenta que grava o conteúdo direto (Write, ou equivalente do seu ambiente) copia byte\na byte e é a única forma confiável aqui.\n\n**Sequência de escape é TEXTO, não atalho.** Onde o bloco mostra `\\u2014`, `\\u0000` ou\nqualquer `\\u` seguido de quatro dígitos, escreva esses seis caracteres, um a um. NÃO os\ntroque pelo caractere que eles representam, mesmo sabendo qual é: o JavaScript fica\nequivalente, a suíte fica verde, e ainda assim a árvore deixa de ser a que foi provada.\nCada arquivo criado vem com uma conferência por hash logo abaixo; rode-a antes de seguir.\n\n**O contrato** (`docs/superpowers/plans/2026-09-10-sync-00-contrato.md`) explica as\ndecisões. Leia a seção \"Atualização pós-protótipo\" antes de começar: é onde estão os\npontos em que o contrato original estava errado.",
+  "tarefas": [
+    {
+      "id": "T01",
+      "titulo": "Constantes, taxonomia de erros e regras do banco",
+      "commit": "e03e0a5",
+      "porque": "Todo o recurso pendura número de tempo e código de falha nestes dois arquivos. Eles vêm primeiro porque nada mais compila sem eles, e porque as regras do banco (firebase/) declaram os MESMOS tetos: o teste das constantes confere um contra o outro, então os dois nascem juntos ou a primeira tarefa já nasce mentindo.",
+      "falhaEsperada": "SYNC não é exportado de lib/constants.js.",
+      "testes": [
+        "test/sync-constants.test.js",
+        "test/sync-errors.test.js"
+      ],
+      "mensagem": "feat(sync): constantes de infra, taxonomia de erros e regras do Realtime Database"
+    },
+    {
+      "id": "T02",
+      "titulo": "Chaves: hash de conta e PR, fingerprint e dia de Brasília",
+      "commit": "9e81c00",
+      "porque": "O nome do repositório e o título do PR NUNCA sobem para o banco. O que sobe é hash, e é aqui que ele é derivado, junto do fingerprint da operação e do dia canônico de Brasília, que é o corte compartilhado do teto diário entre aparelhos em fusos diferentes.",
+      "falhaEsperada": "Cannot find module lib/sync/keys.js.",
+      "testes": [
+        "test/sync-keys.test.js"
+      ],
+      "mensagem": "feat(sync): chaves derivadas, fingerprint de operação e dia canônico"
+    },
+    {
+      "id": "T03",
+      "titulo": "Config da sincronização",
+      "commit": "8d72cb3",
+      "porque": "A config nasce DESLIGADA e só liga com objeto explícito. O saneamento mora aqui, fora do settings.js, porque ele é injetado como os outros parsers e precisa ser testável sem subir a Engine.",
+      "falhaEsperada": "Cannot find module lib/sync/config.js.",
+      "testes": [],
+      "mensagem": "feat(sync): saneamento da config da sincronização"
+    },
+    {
+      "id": "T04",
+      "titulo": "Credencial e identidade deste aparelho",
+      "commit": "6a1deed",
+      "porque": "A credencial fica FORA do config.json, que trafega inteiro para a tela, e com permissão restrita em toda gravação. A identidade do aparelho é o que dá nome a ele para os outros, e precisa sobreviver a reinício.",
+      "falhaEsperada": "Cannot find module lib/sync/credentials.js.",
+      "testes": [
+        "test/sync-credentials.test.js",
+        "test/sync-device.test.js"
+      ],
+      "mensagem": "feat(sync): credencial fora do config.json e identidade do aparelho"
+    },
+    {
+      "id": "T05",
+      "titulo": "Auth do Firebase e o dublê de identidade",
+      "commit": "787bdf3",
+      "porque": "Login por e-mail e senha é o único formato que funciona headless. A senha é usada uma vez e nunca gravada: o que fica é o acesso renovável. O dublê de identidade entra junto porque sem ele não há como testar a rotação do token sem tocar a internet.",
+      "falhaEsperada": "Cannot find module lib/sync/auth.js.",
+      "testes": [
+        "test/sync-auth.test.js"
+      ],
+      "mensagem": "feat(sync): login por e-mail e senha com renovação do ID token"
+    },
+    {
+      "id": "T06",
+      "titulo": "Parser de SSE",
+      "commit": "6c587d7",
+      "porque": "O tempo real do recurso é REST mais SSE, sem SDK. O parser é puro e vem antes do cliente porque é ele que separa evento de keep-alive, e um evento cortado no meio de um pedaço da rede seria entregue pela metade.",
+      "falhaEsperada": "Cannot find module lib/sync/sse.js.",
+      "testes": [
+        "test/sync-sse.test.js"
+      ],
+      "mensagem": "feat(sync): parser de Server-Sent Events"
+    },
+    {
+      "id": "T07",
+      "titulo": "Cliente REST do Realtime Database e o dublê do banco",
+      "commit": "fb38f9e",
+      "porque": "É o único ponto que fala com o banco. Tudo que é CAS (lease, recibo, rodada) depende do ETag que ele lê, e uma leitura que pede ETag e volta sem ele é RECUSADA: aceitar o vazio faria a escrita seguinte sair sem if-match, por cima do que outro aparelho acabou de gravar.",
+      "falhaEsperada": "Cannot find module lib/sync/rtdb.js.",
+      "testes": [
+        "test/sync-rtdb.test.js"
+      ],
+      "mensagem": "feat(sync): cliente REST do RTDB com CAS por ETag e stream"
+    },
+    {
+      "id": "T08",
+      "titulo": "Classe de falha da coordenação na taxonomia",
+      "commit": "0f999c9",
+      "porque": "Falha de coordenação é TRANSITÓRIA: o certo é esperar, nunca estacionar o PR. Quem decide retry e quem monta o Diagnóstico leem a mesma tabela, então a classe entra aqui, antes de qualquer chamador, e vem ANTES de 'rede' porque a mensagem carrega o texto do fetch.",
+      "falhaEsperada": "classify não reconhece a frase de coordenação indisponível.",
+      "testes": [
+        "test/log-taxonomy.test.js"
+      ],
+      "mensagem": "feat(sync): classe transitória de coordenação indisponível"
+    },
+    {
+      "id": "T09",
+      "titulo": "Lease: quem está analisando o PR agora",
+      "commit": "0d48587",
+      "porque": "O lease responde 'quem está com este PR AGORA'. A aquisição é condicional pelo ETag, então dois aparelhos que tentam ao mesmo tempo não ficam os dois com ele; e o vencido é livre, porque um aparelho que morreu não pode travar o PR para sempre.",
+      "falhaEsperada": "Cannot find module lib/sync/lease.js.",
+      "testes": [
+        "test/sync-lease.test.js"
+      ],
+      "mensagem": "feat(sync): lease por conta e PR com aquisição condicional"
+    },
+    {
+      "id": "T10",
+      "titulo": "Recibos: a análise que já terminou",
+      "commit": "eb22136",
+      "porque": "O recibo responde 'esta análise JÁ FOI FEITA neste commit'. É ele que impede pagar duas vezes pela mesma análise, e o estado de órfão é o que distingue um resultado que ainda vale de um que ficou preso num aparelho que sumiu.",
+      "falhaEsperada": "Cannot find module lib/sync/receipts.js.",
+      "testes": [
+        "test/sync-receipts.test.js"
+      ],
+      "mensagem": "feat(sync): recibo por operação e head, com estado de órfão"
+    },
+    {
+      "id": "T11",
+      "titulo": "Rodadas do dia",
+      "commit": "b0e2401",
+      "porque": "O teto de rodadas automáticas por PR e por dia passa a ser COMPARTILHADO entre os aparelhos. Sem isso, três aparelhos multiplicariam por três o teto que existe para proteger orçamento.",
+      "falhaEsperada": "Cannot find module lib/sync/rounds.js.",
+      "testes": [
+        "test/sync-rounds.test.js"
+      ],
+      "mensagem": "feat(sync): teto de rodadas automáticas por PR e dia"
+    },
+    {
+      "id": "T12",
+      "titulo": "Coordenador da admissão",
+      "commit": "3ae6326",
+      "porque": "É o cérebro da admissão, e a ordem dos passos é a feature: recibo antes de tudo, preflight do GitHub, lease, releitura do recibo SOB o lease, e só então o teto do dia. Ele NUNCA lança pelo motivo de coordenação: exceção cairia na taxonomia de falha e estacionaria o PR, e segurar não é falhar.",
+      "falhaEsperada": "Cannot find module lib/sync/coordinator.js.",
+      "testes": [],
+      "mensagem": "feat(sync): coordenador decide se esta análise pode rodar aqui"
+    },
+    {
+      "id": "T13",
+      "titulo": "Outbox do consumo",
+      "commit": "7624226",
+      "porque": "A fila do consumo é idempotente por construção: o id do evento sai dos campos imutáveis da sessão, então reenviar nunca conta o mesmo dinheiro duas vezes. O cursor é amarrado ao DESTINO, senão trocar de conta do Firebase deixaria todo o histórico na conta antiga.",
+      "falhaEsperada": "Cannot find module lib/sync/outbox.js.",
+      "testes": [],
+      "mensagem": "feat(sync): fila idempotente do consumo, amarrada ao destino"
+    },
+    {
+      "id": "T14",
+      "titulo": "Resumo consolidado do consumo",
+      "commit": "31d4f25",
+      "porque": "Soma o consumo de todos os aparelhos numa janela de dias civis. Aparelho sem evento na janela aparece ZERADO, de propósito: a tabela diz quem existe, não só quem gastou.",
+      "falhaEsperada": "Cannot find module lib/sync/consolidated.js.",
+      "testes": [],
+      "mensagem": "feat(sync): resumo do consumo somando todos os aparelhos"
+    },
+    {
+      "id": "T15",
+      "titulo": "Runtime da sincronização, em cinco módulos",
+      "commit": "dda738d",
+      "porque": "As cinco peças do runtime. Elas saíram de um módulo só por teto de linhas E por ciclo de vida próprio: o consumo nunca decide nada, o stream abre e fecha com a coordenação, a faxina é manutenção, e o refazer é o caminho que APAGA a prova de uma análise. Entram juntas porque o sync.js importa as outras quatro; ainda ninguém as chama, então o gate segue verde.",
+      "falhaEsperada": "Cannot find module lib/engine/sync.js.",
+      "testes": [],
+      "mensagem": "feat(sync): runtime da sincronização, consumo, stream, faxina e refazer"
+    },
+    {
+      "id": "T16",
+      "titulo": "Fiação no engine: config, rotas, snapshot e fachadas",
+      "commit": "2816fae",
+      "porque": "É aqui que o runtime encosta no app: a entrada na tabela de settings (com o saneador injetado, senão o boot quebra), o gancho do consumo, as rotas, o snapshot e as fachadas. O pushback entra junto porque a fachada dele ganhou um parâmetro, e o teste que deriva a aridade do fonte reprova se implementação e fachada nascerem em commits diferentes.",
+      "falhaEsperada": "engine.syncTick não é função.",
+      "testes": [
+        "test/facades.test.js",
+        "test/sync-config.test.js",
+        "test/sync-engine-boot.test.js"
+      ],
+      "mensagem": "feat(sync): fiação do runtime no engine, rotas e projeção para a tela"
+    },
+    {
+      "id": "T17",
+      "titulo": "Provas do runtime, do coordenador e do consumo",
+      "commit": "0f76fee",
+      "porque": "Agora que a fiação existe, os dublês provam o que ela faz: boot sem rede, login, presença, tick, o coordenador de ponta a ponta e o dinheiro do consumo. São os casos que seguram o recurso inteiro.",
+      "falhaEsperada": "engine.syncLogin não existe.",
+      "testes": [
+        "test/sync-engine.test.js",
+        "test/sync-coordinator.test.js",
+        "test/sync-outbox.test.js",
+        "test/sync-consolidated.test.js"
+      ],
+      "mensagem": "test(sync): runtime, coordenador e consumo provados contra os dublês"
+    },
+    {
+      "id": "T18",
+      "titulo": "Provas do stream, da faxina e da saída limpa",
+      "commit": "59e864d",
+      "porque": "As três provas que faltam, e as três nasceram de defeito medido: o tempo real do stream, a retenção que ninguém rodava, e a saída do processo, que abortava no Windows por causa da subida de tier do WebAssembly no parser HTTP.",
+      "falhaEsperada": "engine.sync.stream é sempre null.",
+      "testes": [
+        "test/sync-stream.test.js",
+        "test/sync-faxina.test.js",
+        "test/sync-saida-limpa.test.js"
+      ],
+      "mensagem": "test(sync): stream dos leases, faxina de retenção e saída limpa do processo"
+    },
+    {
+      "id": "T19",
+      "titulo": "Gate de admissão na boca das sessões",
+      "commit": "d9e82a0",
+      "porque": "O gate é a boca ÚNICA por onde toda sessão de IA passa. Ele falha FECHADO: qualquer forma de resposta que não seja admissão explícita segura a sessão, porque admitir por engano é gastar sessão paga em cima de uma análise que outro aparelho já está fazendo.",
+      "falhaEsperada": "runClaudeStream não devolve coordination.",
+      "testes": [
+        "test/sync-gate.test.js"
+      ],
+      "mensagem": "feat(sync): gate de coordenação no runClaudeStream"
+    },
+    {
+      "id": "T20",
+      "titulo": "Revisão headless sob coordenação",
+      "commit": "8c3f8b3",
+      "porque": "A revisão headless é o maior consumidor. Ela pede admissão antes de nascer e grava o recibo DEPOIS de registrar a decisão local, nessa ordem: recibo gravado antes deixaria, num processo morto no meio, o recibo de pé e a decisão ausente.",
+      "falhaEsperada": "a revisão não pede admissão e roda mesmo com lease alheio.",
+      "testes": [
+        "test/sync-review.test.js",
+        "test/sync-coordenacao-nao-estaciona.test.js"
+      ],
+      "mensagem": "feat(sync): revisão headless pede admissão e grava recibo no fim"
+    },
+    {
+      "id": "T21",
+      "titulo": "Autoanálise, chat e ferramentas sob coordenação",
+      "commit": "ae27993",
+      "porque": "Autoanálise, chat e ferramentas passam pela MESMA boca. Coordenação que vale só na revisão deixaria três caminhos gastando sessão em cima do que outro aparelho já fez.",
+      "falhaEsperada": "runSelfAnalysis não manda operationKind self.",
+      "testes": [
+        "test/sync-callers.test.js"
+      ],
+      "mensagem": "feat(sync): os demais chamadores pedem admissão pela mesma boca"
+    },
+    {
+      "id": "T22",
+      "titulo": "Clique manual: preflight, overrides e refazer",
+      "commit": "27a2367",
+      "porque": "O clique é seu, e por isso ele pode CONTORNAR a coordenação, mas nunca em silêncio: cada motivo tem a sua confirmação, e lease de outro aparelho não tem contorno nenhum, porque o Farol não toma uma análise em andamento.",
+      "falhaEsperada": "o clique não devolve coordenacao[] para a tela confirmar.",
+      "testes": [
+        "test/sync-manual.test.js"
+      ],
+      "mensagem": "feat(sync): clique manual com preflight, overrides e refazer recibo órfão"
+    },
+    {
+      "id": "T23",
+      "titulo": "Interface da sincronização",
+      "commit": "8cee935",
+      "porque": "Sem tela, o recurso é invisível: uma automação que CEDE A VEZ, vista de fora, é idêntica a uma automação quebrada. Todo HTML sai de função pura e testada; o que toca o DOM fica no app.js. Todo elemento que o app.js liga no topo do módulo tem que existir no index.html NESTE commit, senão o smoke do Electron reprova com TypeError.",
+      "falhaEsperada": "syncSecaoHtml não é exportada de ui/pure.js.",
+      "testes": [
+        "test/ui-pure-sync.test.js",
+        "test/ui-semantics.test.js",
+        "test/rerevisar-head-velho.test.js"
+      ],
+      "mensagem": "feat(sync): seção Sistema, confirmações do clique, nota na fila e Consumo de todos"
+    }
+  ]
+}

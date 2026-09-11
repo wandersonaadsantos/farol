@@ -1,0 +1,94 @@
+{
+  "T01": {
+    "porque": "Todo o recurso pendura número de tempo e código de falha nestes dois arquivos. Eles vêm primeiro porque nada mais compila sem eles, e porque as regras do banco (firebase/) declaram os MESMOS tetos: o teste das constantes confere um contra o outro, então os dois nascem juntos ou a primeira tarefa já nasce mentindo.",
+    "falhaEsperada": "SYNC não é exportado de lib/constants.js."
+  },
+  "T02": {
+    "porque": "O nome do repositório e o título do PR NUNCA sobem para o banco. O que sobe é hash, e é aqui que ele é derivado, junto do fingerprint da operação e do dia canônico de Brasília, que é o corte compartilhado do teto diário entre aparelhos em fusos diferentes.",
+    "falhaEsperada": "Cannot find module lib/sync/keys.js."
+  },
+  "T03": {
+    "porque": "A config nasce DESLIGADA e só liga com objeto explícito. O saneamento mora aqui, fora do settings.js, porque ele é injetado como os outros parsers e precisa ser testável sem subir a Engine.",
+    "falhaEsperada": "Cannot find module lib/sync/config.js."
+  },
+  "T04": {
+    "porque": "A credencial fica FORA do config.json, que trafega inteiro para a tela, e com permissão restrita em toda gravação. A identidade do aparelho é o que dá nome a ele para os outros, e precisa sobreviver a reinício.",
+    "falhaEsperada": "Cannot find module lib/sync/credentials.js."
+  },
+  "T05": {
+    "porque": "Login por e-mail e senha é o único formato que funciona headless. A senha é usada uma vez e nunca gravada: o que fica é o acesso renovável. O dublê de identidade entra junto porque sem ele não há como testar a rotação do token sem tocar a internet.",
+    "falhaEsperada": "Cannot find module lib/sync/auth.js."
+  },
+  "T06": {
+    "porque": "O tempo real do recurso é REST mais SSE, sem SDK. O parser é puro e vem antes do cliente porque é ele que separa evento de keep-alive, e um evento cortado no meio de um pedaço da rede seria entregue pela metade.",
+    "falhaEsperada": "Cannot find module lib/sync/sse.js."
+  },
+  "T07": {
+    "porque": "É o único ponto que fala com o banco. Tudo que é CAS (lease, recibo, rodada) depende do ETag que ele lê, e uma leitura que pede ETag e volta sem ele é RECUSADA: aceitar o vazio faria a escrita seguinte sair sem if-match, por cima do que outro aparelho acabou de gravar.",
+    "falhaEsperada": "Cannot find module lib/sync/rtdb.js."
+  },
+  "T08": {
+    "porque": "Falha de coordenação é TRANSITÓRIA: o certo é esperar, nunca estacionar o PR. Quem decide retry e quem monta o Diagnóstico leem a mesma tabela, então a classe entra aqui, antes de qualquer chamador, e vem ANTES de 'rede' porque a mensagem carrega o texto do fetch.",
+    "falhaEsperada": "classify não reconhece a frase de coordenação indisponível."
+  },
+  "T09": {
+    "porque": "O lease responde 'quem está com este PR AGORA'. A aquisição é condicional pelo ETag, então dois aparelhos que tentam ao mesmo tempo não ficam os dois com ele; e o vencido é livre, porque um aparelho que morreu não pode travar o PR para sempre.",
+    "falhaEsperada": "Cannot find module lib/sync/lease.js."
+  },
+  "T10": {
+    "porque": "O recibo responde 'esta análise JÁ FOI FEITA neste commit'. É ele que impede pagar duas vezes pela mesma análise, e o estado de órfão é o que distingue um resultado que ainda vale de um que ficou preso num aparelho que sumiu.",
+    "falhaEsperada": "Cannot find module lib/sync/receipts.js."
+  },
+  "T11": {
+    "porque": "O teto de rodadas automáticas por PR e por dia passa a ser COMPARTILHADO entre os aparelhos. Sem isso, três aparelhos multiplicariam por três o teto que existe para proteger orçamento.",
+    "falhaEsperada": "Cannot find module lib/sync/rounds.js."
+  },
+  "T12": {
+    "porque": "É o cérebro da admissão, e a ordem dos passos é a feature: recibo antes de tudo, preflight do GitHub, lease, releitura do recibo SOB o lease, e só então o teto do dia. Ele NUNCA lança pelo motivo de coordenação: exceção cairia na taxonomia de falha e estacionaria o PR, e segurar não é falhar.",
+    "falhaEsperada": "Cannot find module lib/sync/coordinator.js."
+  },
+  "T13": {
+    "porque": "A fila do consumo é idempotente por construção: o id do evento sai dos campos imutáveis da sessão, então reenviar nunca conta o mesmo dinheiro duas vezes. O cursor é amarrado ao DESTINO, senão trocar de conta do Firebase deixaria todo o histórico na conta antiga.",
+    "falhaEsperada": "Cannot find module lib/sync/outbox.js."
+  },
+  "T14": {
+    "porque": "Soma o consumo de todos os aparelhos numa janela de dias civis. Aparelho sem evento na janela aparece ZERADO, de propósito: a tabela diz quem existe, não só quem gastou.",
+    "falhaEsperada": "Cannot find module lib/sync/consolidated.js."
+  },
+  "T15": {
+    "porque": "As cinco peças do runtime. Elas saíram de um módulo só por teto de linhas E por ciclo de vida próprio: o consumo nunca decide nada, o stream abre e fecha com a coordenação, a faxina é manutenção, e o refazer é o caminho que APAGA a prova de uma análise. Entram juntas porque o sync.js importa as outras quatro; ainda ninguém as chama, então o gate segue verde.",
+    "falhaEsperada": "Cannot find module lib/engine/sync.js."
+  },
+  "T23": {
+    "porque": "Sem tela, o recurso é invisível: uma automação que CEDE A VEZ, vista de fora, é idêntica a uma automação quebrada. Todo HTML sai de função pura e testada; o que toca o DOM fica no app.js. Todo elemento que o app.js liga no topo do módulo tem que existir no index.html NESTE commit, senão o smoke do Electron reprova com TypeError.",
+    "falhaEsperada": "syncSecaoHtml não é exportada de ui/pure.js."
+  },
+  "T22": {
+    "porque": "O clique é seu, e por isso ele pode CONTORNAR a coordenação, mas nunca em silêncio: cada motivo tem a sua confirmação, e lease de outro aparelho não tem contorno nenhum, porque o Farol não toma uma análise em andamento.",
+    "falhaEsperada": "o clique não devolve coordenacao[] para a tela confirmar."
+  },
+  "T21": {
+    "porque": "Autoanálise, chat e ferramentas passam pela MESMA boca. Coordenação que vale só na revisão deixaria três caminhos gastando sessão em cima do que outro aparelho já fez.",
+    "falhaEsperada": "runSelfAnalysis não manda operationKind self."
+  },
+  "T20": {
+    "porque": "A revisão headless é o maior consumidor. Ela pede admissão antes de nascer e grava o recibo DEPOIS de registrar a decisão local, nessa ordem: recibo gravado antes deixaria, num processo morto no meio, o recibo de pé e a decisão ausente.",
+    "falhaEsperada": "a revisão não pede admissão e roda mesmo com lease alheio."
+  },
+  "T19": {
+    "porque": "O gate é a boca ÚNICA por onde toda sessão de IA passa. Ele falha FECHADO: qualquer forma de resposta que não seja admissão explícita segura a sessão, porque admitir por engano é gastar sessão paga em cima de uma análise que outro aparelho já está fazendo.",
+    "falhaEsperada": "runClaudeStream não devolve coordination."
+  },
+  "T16": {
+    "porque": "É aqui que o runtime encosta no app: a entrada na tabela de settings (com o saneador injetado, senão o boot quebra), o gancho do consumo, as rotas, o snapshot e as fachadas. O pushback entra junto porque a fachada dele ganhou um parâmetro, e o teste que deriva a aridade do fonte reprova se implementação e fachada nascerem em commits diferentes.",
+    "falhaEsperada": "engine.syncTick não é função."
+  },
+  "T17": {
+    "porque": "Agora que a fiação existe, os dublês provam o que ela faz: boot sem rede, login, presença, tick, o coordenador de ponta a ponta e o dinheiro do consumo. São os casos que seguram o recurso inteiro.",
+    "falhaEsperada": "engine.syncLogin não existe."
+  },
+  "T18": {
+    "porque": "As três provas que faltam, e as três nasceram de defeito medido: o tempo real do stream, a retenção que ninguém rodava, e a saída do processo, que abortava no Windows por causa da subida de tier do WebAssembly no parser HTTP.",
+    "falhaEsperada": "engine.sync.stream é sempre null."
+  }
+}

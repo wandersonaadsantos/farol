@@ -1,0 +1,233 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+body { margin: 0; background: #0b0e14; color: #e7ecf5; font: 14px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: #ffb454; } a:hover { color: #ffc676; }
+* { box-sizing: border-box; }
+code { font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; font-size: .92em; background: #1a2130; padding: 1px 5px; border-radius: 5px; }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 4px; }
+.section-head h2 { font-size: 15px; font-weight: 650; margin: 0; }
+.section-desc { margin: -2px 0 14px; max-width: 640px; color: #8b97ab; font-size: 13px; text-wrap: pretty; }
+.sub-head { font-size: 13px; font-weight: 650; margin: 22px 0 8px; color: #e7ecf5; }
+.card { background: #121722; border: 1px solid #232c3d; border-radius: 12px; padding: 14px 16px; }
+.set-list { padding: 4px 18px; }
+.set-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 15px 0; }
+.set-row + .set-row { border-top: 1px solid rgba(35, 44, 61, .6); }
+.set-title { display: block; font-size: 13.5px; font-weight: 600; }
+.set-desc { display: block; margin-top: 2px; font-size: 12.5px; color: #8b97ab; text-wrap: pretty; }
+.set-row.off .set-title, .set-row.off .set-desc { color: #5c687d; }
+.switch { flex: none; width: 36px; height: 20px; border-radius: 99px; background: #1a2130; border: 1px solid #232c3d; position: relative; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #8b97ab; }
+.switch.on { background: #ffb454; border-color: #ffb454; }
+.switch.on::after { left: 18px; background: #201302; }
+.switch.dis { opacity: .45; }
+.callout { display: flex; align-items: flex-start; gap: 10px; padding: 11px 14px; margin: 0 0 16px; border-radius: 10px; font-size: 12.5px; max-width: 860px; text-wrap: pretty; border: 1px solid rgba(108, 168, 242, .35); background: rgba(108, 168, 242, .12); color: #8b97ab; }
+.callout b { color: #e7ecf5; }
+.callout svg { width: 16px; height: 16px; flex: none; margin-top: 1px; color: #6ca8f2; }
+.callout.warn { border-color: rgba(255, 180, 84, .35); background: rgba(255, 180, 84, .14); }
+.callout.warn svg { color: #ffb454; }
+.btn { display: inline-flex; align-items: center; gap: 7px; border: 1px solid #232c3d; border-radius: 9px; background: #121722; color: #e7ecf5; padding: 7px 13px; font: inherit; font-weight: 550; white-space: nowrap; cursor: pointer; }
+.btn.sm { padding: 5px 11px; font-size: 13px; border-radius: 8px; }
+.btn.primary { background: #ffb454; border-color: #ffb454; color: #201302; }
+.btn.danger-ghost { background: transparent; color: #8b97ab; }
+.btn.danger-solid { background: #f2707a; border-color: #f2707a; color: #fff; font-weight: 650; }
+.btn.ghost { background: transparent; }
+.btn svg { width: 14px; height: 14px; }
+.chip { font-size: 10.5px; font-weight: 700; border-radius: 99px; padding: 2px 9px; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.chip.ok { color: #4cc38a; background: rgba(76, 195, 138, .14); }
+.chip.warn { color: #ffb454; background: rgba(255, 180, 84, .14); }
+.chip.bad { color: #f2707a; background: rgba(242, 112, 122, .12); }
+.chip.info { color: #6ca8f2; background: rgba(108, 168, 242, .12); }
+.chip.mute { color: #8b97ab; background: #1a2130; }
+.chip svg { width: 11px; height: 11px; }
+.sync-card { padding: 0; border-left: 3px solid #4cc38a; }
+.sync-card.warn { border-left-color: #ffb454; }
+.sync-card.bad { border-left-color: #f2707a; }
+.sync-card.off { border-left-color: #232c3d; }
+.sync-topo { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid rgba(35, 44, 61, .6); }
+.sync-titulo { font-size: 14px; font-weight: 650; }
+.espaco { flex: 1; }
+.sync-corpo { padding: 14px 16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.campo { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.campo > label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #5c687d; }
+.campo .input { background: #1a2130; color: #e7ecf5; border: 1px solid #232c3d; border-radius: 8px; padding: 6px 10px; font-size: 12.5px; min-height: 31px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.campo .input.vazio { color: #5c687d; }
+.campo .dica { font-size: 11px; color: #5c687d; }
+.conta { margin: 0 16px 14px; border: 1px solid #232c3d; border-radius: 10px; background: color-mix(in srgb, #1a2130 60%, transparent); }
+.conta-topo { display: flex; align-items: center; gap: 9px; padding: 9px 13px; border-bottom: 1px solid rgba(35, 44, 61, .6); }
+.conta-topo svg { width: 14px; height: 14px; flex: none; color: #4cc38a; }
+.conta-topo.warn svg { color: #ffb454; }
+.conta-titulo { font-size: 12.5px; font-weight: 650; }
+.conta-onde { font-size: 11.5px; color: #5c687d; margin-left: auto; font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; }
+.conta-corpo { padding: 12px 13px; display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: #8b97ab; }
+.conta-corpo .campo { flex: 1; min-width: 190px; }
+.conta-corpo .quem { color: #e7ecf5; font-weight: 600; }
+.conta-nota { padding: 0 13px 11px; margin: 0; font-size: 11.5px; color: #5c687d; text-wrap: pretty; }
+.rodape { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 0 16px 13px; }
+.teste { font-size: 11.5px; color: #5c687d; }
+.teste.ok { color: #4cc38a; }
+.teste.ruim { color: #f2707a; }
+.lista { padding: 2px 16px; }
+.linha { display: grid; grid-template-columns: minmax(0, 1fr) 110px 150px; gap: 12px; align-items: center; padding: 10px 0; font-size: 12.5px; }
+.linha + .linha { border-top: 1px solid rgba(35, 44, 61, .6); }
+.linha.head { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: #5c687d; padding-bottom: 6px; }
+.nome { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; }
+.nome svg { width: 15px; height: 15px; flex: none; color: #8b97ab; }
+.fraco { color: #8b97ab; }
+.bem-fraco { color: #5c687d; }
+.coord { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 11px 0; font-size: 12.5px; }
+.coord + .coord { border-top: 1px solid rgba(35, 44, 61, .6); }
+.coord .ref { color: #ffb454; font-weight: 600; text-decoration: none; }
+.coord .o-que { display: block; color: #8b97ab; margin-top: 1px; }
+.coord .o-que.orfao { color: #ffb454; }
+.pr-card { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 11px; align-items: start; border-left: 3px solid #ffb454; }
+.avatar { width: 28px; height: 28px; border-radius: 50%; background: #1a2130; border: 1px solid #232c3d; }
+.pr-ref { font-size: 12.5px; font-weight: 600; }
+.pr-ref a { text-decoration: none; }
+.pr-title { font-size: 13.5px; font-weight: 600; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pr-sub { font-size: 12px; color: #8b97ab; margin-top: 1px; }
+.pr-coord { margin-top: 4px; font-size: 11.5px; line-height: 1.35; color: #6ca8f2; }
+.pr-coord.warn { color: #ffb454; }
+.pr-actions { grid-column: 1 / -1; margin-top: 10px; display: flex; gap: 8px; align-items: center; }
+.modal-card { background: #121722; border: 1px solid #232c3d; border-radius: 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, .35); width: 470px; padding: 20px 22px; }
+.modal-card.danger { border-top: 3px solid #f2707a; }
+.modal-card.warn { border-top: 3px solid #ffb454; }
+.modal-title { font-size: 15.5px; font-weight: 700; margin-bottom: 12px; }
+.modal-body { font-size: 13.5px; }
+.modal-body p { margin: 8px 0; color: #8b97ab; }
+.modal-acoes { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.seg { display: inline-flex; background: #1a2130; border: 1px solid #232c3d; border-radius: 8px; padding: 2px; gap: 2px; }
+.seg-btn { border: 0; background: transparent; color: #8b97ab; font: inherit; font-size: 11.5px; padding: 4px 10px; border-radius: 6px; }
+.seg-btn.active { background: #ffb454; color: #201302; font-weight: 600; }
+.kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.kpi { background: #1a2130; border: 1px solid #232c3d; border-radius: 12px; padding: 12px 14px 10px; display: flex; flex-direction: column; gap: 2px; }
+.kpi-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: #5c687d; font-weight: 600; }
+.kpi b { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.25; }
+.kpi-sub { font-size: 11.5px; color: #8b97ab; }
+.tabela-linha { display: grid; grid-template-columns: minmax(0, 1fr) 90px 100px 130px; gap: 10px; align-items: center; padding: 8px 2px; border-bottom: 1px solid rgba(35, 44, 61, .6); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.tabela-linha.head { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: #5c687d; font-weight: 600; border-bottom: 1px solid #232c3d; }
+.dir { text-align: right; }
+.legenda { font-size: 11.5px; color: #5c687d; }
+.rotulo-estado { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #5c687d; margin-bottom: 8px; }
+</style>
+</helmet>
+<div style="width: 900px; padding: 28px 30px 36px; display: flex; flex-direction: column;">
+
+<div class="section-head"><h2>Estados da conexão</h2></div>
+<p class="section-desc">O mesmo cartão de Conexão em cada estado. A barra da esquerda e o selo dizem o estado, como no cartão de site do Jira.</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 22px;">
+
+<div style="display: flex; flex-direction: column;">
+  <div class="rotulo-estado">desligada</div>
+  <div class="card sync-card off">
+    <div class="sync-topo"><span class="sync-titulo">Firebase pessoal</span><span class="espaco"></span><span class="chip mute">desligada</span></div>
+    <div class="conta-corpo" style="padding: 14px 16px;"><span>Nada é enviado nem consultado. Ligue a chave geral acima para configurar.</span></div>
+  </div>
+</div>
+
+<div style="display: flex; flex-direction: column;">
+  <div class="rotulo-estado">ligada, sem login</div>
+  <div class="card sync-card warn">
+    <div class="sync-topo"><span class="sync-titulo">Firebase pessoal</span><span class="espaco"></span><span class="chip warn"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M8 4.5v4.2M8 11.2v.5"></path></svg>falta o login</span></div>
+    
+<div class="conta">
+  <div class="conta-topo warn"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.5" y="7" width="9" height="6" rx="1.5"></rect><path d="M5.8 7V5.4a2.2 2.2 0 0 1 4.4 0V7"></path></svg><span class="conta-titulo">Login no Firebase</span><span class="conta-onde">o mesmo usuário em todos os aparelhos</span></div>
+  <div class="conta-corpo">
+    <span class="campo"><label>E-mail</label><span class="input vazio">voce@exemplo.com</span></span>
+    <span class="campo"><label>Senha</label><span class="input vazio">••••••••</span></span>
+    <button class="btn sm primary">Entrar</button>
+  </div>
+  
+  <p class="conta-nota">Crie o usuário uma vez no console do Firebase (Authentication, provedor e-mail e senha) e entre com ele em cada aparelho. A senha é usada só agora e não é gravada.</p>
+</div>
+  </div>
+</div>
+
+<div style="display: flex; flex-direction: column;">
+  <div class="rotulo-estado">entrando</div>
+  <div class="card sync-card warn">
+    <div class="sync-topo"><span class="sync-titulo">Firebase pessoal</span><span class="espaco"></span><span class="chip info">entrando</span></div>
+    
+<div class="conta">
+  <div class="conta-topo warn"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.5" y="7" width="9" height="6" rx="1.5"></rect><path d="M5.8 7V5.4a2.2 2.2 0 0 1 4.4 0V7"></path></svg><span class="conta-titulo">Login no Firebase</span><span class="conta-onde">o mesmo usuário em todos os aparelhos</span></div>
+  <div class="conta-corpo">
+    <span class="campo"><label>E-mail</label><span class="input vazio">voce@exemplo.com</span></span>
+    <span class="campo"><label>Senha</label><span class="input vazio">••••••••</span></span>
+    <button class="btn sm primary">Entrando...</button>
+  </div>
+  
+  <p class="conta-nota">Crie o usuário uma vez no console do Firebase (Authentication, provedor e-mail e senha) e entre com ele em cada aparelho. A senha é usada só agora e não é gravada.</p>
+</div>
+  </div>
+</div>
+
+<div style="display: flex; flex-direction: column;">
+  <div class="rotulo-estado">conectada, só este aparelho</div>
+  <div class="card sync-card ">
+    <div class="sync-topo"><span class="sync-titulo">Firebase pessoal</span><span class="espaco"></span><span class="chip ok"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5 6.5 11.5 12.5 5"></path></svg>conectado</span></div>
+    
+<div class="conta">
+  <div class="conta-topo"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.5" y="7" width="9" height="6" rx="1.5"></rect><path d="M5.8 7V5.4a2.2 2.2 0 0 1 4.4 0V7"></path></svg><span class="conta-titulo">Login no Firebase</span><span class="conta-onde">sync-credentials.json</span></div>
+  <div class="conta-corpo">
+    <span>Conectado como <span class="quem">voce@exemplo.com</span>. A senha não fica guardada; só o acesso renovável, fora do <code>config.json</code>.</span>
+    <span class="espaco"></span>
+    <button class="btn sm danger-ghost">Sair deste aparelho</button>
+  </div>
+</div><div class="rodape"><span class="teste">este é o único aparelho neste banco por enquanto</span></div>
+  </div>
+</div>
+
+<div style="display: flex; flex-direction: column;">
+  <div class="rotulo-estado">conexão degradada</div>
+  <div class="card sync-card warn">
+    <div class="sync-topo"><span class="sync-titulo">Firebase pessoal</span><span class="espaco"></span><span class="chip warn"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M8 4.5v4.2M8 11.2v.5"></path></svg>coordenação indisponível</span></div>
+    <div class="callout warn" style="margin: 14px 16px;"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M8 4.5v4.2M8 11.2v.5"></path></svg><span><b>O Firebase não respondeu no último ciclo.</b> A revisão automática espera a conexão voltar, sem gastar sessão. Clique manual continua podendo executar, com confirmação.</span></div>
+  </div>
+</div>
+
+<div style="display: flex; flex-direction: column;">
+  <div class="rotulo-estado">login expirado</div>
+  <div class="card sync-card bad">
+    <div class="sync-topo"><span class="sync-titulo">Firebase pessoal</span><span class="espaco"></span><span class="chip bad"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M8 4.5v4.2M8 11.2v.5"></path></svg>login expirado</span></div>
+    
+<div class="conta">
+  <div class="conta-topo warn"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3.5" y="7" width="9" height="6" rx="1.5"></rect><path d="M5.8 7V5.4a2.2 2.2 0 0 1 4.4 0V7"></path></svg><span class="conta-titulo">Login no Firebase</span><span class="conta-onde">o mesmo usuário em todos os aparelhos</span></div>
+  <div class="conta-corpo">
+    <span class="campo"><label>E-mail</label><span class="input vazio">voce@exemplo.com</span></span>
+    <span class="campo"><label>Senha</label><span class="input vazio">••••••••</span></span>
+    <button class="btn sm primary">Entrar de novo</button>
+  </div>
+  <p class="conta-nota" style="color: #f2707a; padding-top: 0;">O Firebase recusou o acesso guardado. Enquanto isso a automação espera.</p>
+  <p class="conta-nota">Crie o usuário uma vez no console do Firebase (Authentication, provedor e-mail e senha) e entre com ele em cada aparelho. A senha é usada só agora e não é gravada.</p>
+</div>
+  </div>
+</div>
+
+<div style="display: flex; flex-direction: column;">
+  <div class="rotulo-estado">dados remotos apagados</div>
+  <div class="card sync-card ">
+    <div class="sync-topo"><span class="sync-titulo">Firebase pessoal</span><span class="espaco"></span><span class="chip ok"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5 6.5 11.5 12.5 5"></path></svg>conectado</span></div>
+    <div class="conta-corpo" style="padding: 14px 16px;"><span>Os dados sincronizados foram apagados do Firebase. O histórico deste aparelho continua intacto; o consumo consolidado recomeça do zero no próximo envio.</span></div>
+  </div>
+</div>
+
+<div style="display: flex; flex-direction: column;">
+  <div class="rotulo-estado">migração do histórico em andamento</div>
+  <div class="card sync-card ">
+    <div class="sync-topo"><span class="sync-titulo">Firebase pessoal</span><span class="espaco"></span><span class="chip ok"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5 6.5 11.5 12.5 5"></path></svg>conectado</span></div>
+    <div class="rodape" style="padding-top: 13px;"><span class="teste">enviando o histórico de consumo: 350 de 671 sessões, 0 recusadas</span><span class="espaco"></span><button class="btn sm">Pausar envio</button></div>
+  </div>
+</div>
+</div>
+
+</div>
+</x-dc>
+</body>
+</html>

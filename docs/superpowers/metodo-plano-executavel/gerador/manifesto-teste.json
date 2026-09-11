@@ -1,0 +1,12 @@
+{ "titulo": "teste", "cabecalho": "# Plano de teste do gerador",
+  "tarefas": [
+    { "id": "1", "titulo": "Constantes e erros", "commit": "af716b2", "falhaEsperada": "SYNC nao exportado.", "testes": ["test/sync-errors.test.js", "test/sync-constants.test.js"], "mensagem": "feat(sync): constantes e taxonomia de erros" },
+    { "id": "2", "titulo": "Chaves", "commit": "e6329d8", "falhaEsperada": "modulo ausente.", "testes": ["test/sync-keys.test.js"], "mensagem": "feat(sync): chaves" },
+    { "id": "3", "titulo": "Config", "commit": "6a2bf78", "falhaEsperada": "modulo ausente.", "testes": ["test/sync-config.test.js"], "mensagem": "feat(sync): config" },
+    { "id": "3b", "titulo": "Travessao no teste", "commit": "4f0d758", "testes": ["test/sync-config.test.js"], "mensagem": "test(sync): escape" },
+    { "id": "4", "titulo": "Credenciais", "commit": "995f817", "testes": ["test/sync-credentials.test.js"], "mensagem": "feat(sync): cred" },
+    { "id": "5", "titulo": "Auth", "commit": "7da5894", "testes": ["test/sync-auth.test.js"], "mensagem": "feat(sync): auth" },
+    { "id": "6", "titulo": "SSE", "commit": "07901fe", "testes": ["test/sync-sse.test.js"], "mensagem": "feat(sync): sse" },
+    { "id": "7", "titulo": "RTDB", "commit": "6fd3023", "testes": ["test/sync-rtdb.test.js"], "mensagem": "feat(sync): rtdb" },
+    { "id": "8", "titulo": "Taxonomia", "commit": "5eb3fb8", "falhaEsperada": "sao 16 classes.", "testes": ["test/log-taxonomy.test.js"], "mensagem": "feat(sync): taxonomia" }
+  ] }

@@ -1,0 +1,64 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 900,
+      "h": 1320,
+      "title": "Sistema > Sincronização (conectada)"
+    },
+    {
+      "file": "Mobile.dc.html",
+      "x": 980,
+      "y": 0,
+      "w": 390,
+      "h": 1420,
+      "title": "Mesma seção no celular (Termux)"
+    },
+    {
+      "file": "Estados.dc.html",
+      "x": 0,
+      "y": 1440,
+      "w": 900,
+      "h": 1260,
+      "title": "Estados da conexão"
+    },
+    {
+      "file": "Fila.dc.html",
+      "x": 980,
+      "y": 1500,
+      "w": 640,
+      "h": 640,
+      "title": "Card da fila com coordenação"
+    },
+    {
+      "file": "Confirmacoes.dc.html",
+      "x": 0,
+      "y": 2820,
+      "w": 1040,
+      "h": 840,
+      "title": "Confirmações do clique manual"
+    },
+    {
+      "file": "Consumo.dc.html",
+      "x": 1120,
+      "y": 2820,
+      "w": 900,
+      "h": 560,
+      "title": "Consumo de todos os aparelhos"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "premissas",
+      "x": 1460,
+      "y": 0,
+      "w": 320,
+      "text": "Tema escuro, que é o padrão do Farol. Valores copiados de ui/app.css: nenhuma cor nova.\nNúmeros, e-mail e nomes de PR são de exemplo.\nA coordenação usa azul (espera) e âmbar (atenção), nunca o vermelho do estacionamento, porque segurar não é falhar."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}
