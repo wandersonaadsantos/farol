@@ -434,6 +434,43 @@ Regra de julgamento, sem verificador sintático automático. O avaliador registr
 
 Registrar evidências concretas. O gate exige avaliação, mas não prova sozinho
 que o julgamento está correto.
+## core.javascript.no-nested-ternary
+
+Tipo: hard
+
+### Regra
+
+Não aninhar expressões ternárias. Quando uma decisão contém outra decisão, escrever o fluxo de forma explícita ou dar nome à responsabilidade em uma função específica.
+
+### Por quê
+
+Ternários são adequados para uma escolha curta entre dois valores. Ao aninhar outra escolha na condição ou nos resultados, a ordem de avaliação deixa de ser evidente e alterações simples passam a exigir a releitura de toda a expressão.
+
+### Bom
+
+function classeDoEstado(falhou, concluiu) {
+      if (falhou) return "erro";
+      if (concluiu) return "sucesso";
+      return "pendente";
+    }
+
+    const classe = ativo ? "visivel" : "oculto";
+
+### Ruim
+
+const classe = falhou ? "erro" : concluiu ? "sucesso" : "pendente";
+
+    const valor = (possuiAnterior ? anterior : atual) ? "sim" : "nao";
+
+### Exceções
+
+Não há exceção. Parênteses não tornam um ternário aninhado mais simples. Uma função extraída precisa representar uma responsabilidade real; não criar utilitário genérico apenas para contornar a regra.
+
+### Como verificar
+
+O verificador `no-nested-ternary` abre os arquivos JavaScript e TypeScript tocados pela entrega, incluindo JSX e TSX, e percorre a árvore sintática. Reprova uma expressão condicional quando, ignorados apenas parênteses, seu pai também é uma expressão condicional. Isso cobre aninhamento na condição, no resultado verdadeiro e no resultado falso sem confundir `?` escrito em comentário ou literal de texto com código.
+
+Arquivo removido ou de extensão não reconhecida não é aberto. Um ternário simples continua permitido.
 ## core.locality.promote-on-real-reuse
 
 Tipo: judgment
@@ -469,18 +506,17 @@ Tipo: hard
 
 ### Regra
 
-Todo supressor traz uma ficha: o identificador do que está sendo suprimido e o motivo, no mesmo comentário.
+Supressão de lint é proibida. `eslint-disable`, `eslint-disable-line` e `eslint-disable-next-line` reprovam a entrega mesmo quando trazem identificador e motivo.
+
+Os demais supressores reconhecidos pelo catálogo trazem uma ficha: o identificador do que está sendo suprimido e o motivo, no mesmo comentário.
 
 ### Por quê
 
-Supressor sem ficha apaga o problema e apaga junto o registro de que ele existiu. Quem encontra a linha meses depois não tem como saber se a supressão continua necessária, e a saída barata passa a ser deixar como está. Um teto sobre a quantidade de supressores controla volume e não responde nenhuma dessas perguntas: o que decide se a supressão pode sair é por que ela entrou.
+Supressão de lint desliga uma regra justamente no ponto em que ela deveria proteger o código. Uma justificativa não corrige a causa e cria uma exceção que se perpetua. Para os demais supressores, a ficha registra o problema e evita que a saída barata seja deixar a exceção sem explicação.
 
 ### Bom
 
-// eslint-disable-next-line no-console -- a saída deste comando é o próprio console
-    console.log(resumo);
-
-    // @ts-expect-error TS2345 -- a tipagem publicada declara string onde o runtime aceita número
+// @ts-expect-error TS2345 -- a tipagem publicada declara string onde o runtime aceita número
     conecta(porta);
 
     // skip -- o ambiente de teste ainda não expõe o serviço de cobrança
@@ -488,7 +524,7 @@ Supressor sem ficha apaga o problema e apaga junto o registro de que ele existiu
 
 ### Ruim
 
-// eslint-disable-next-line no-console
+// eslint-disable-next-line no-console -- a saída deste comando é o próprio console
     console.log(resumo);
 
     /* eslint-disable */
@@ -499,7 +535,9 @@ Supressor sem ficha apaga o problema e apaga junto o registro de que ele existiu
 
 ### Exceções
 
-Não há exceção à ficha: supressor sem ela é acusação em qualquer arquivo que o repositório escreva.
+Não há exceção para supressão de lint. A ficha não transforma `eslint-disable`, `eslint-disable-line` ou `eslint-disable-next-line` em código aceitável.
+
+Para os demais supressores, não há exceção à ficha: supressor sem ela é acusação em qualquer arquivo que o repositório escreva.
 
 Há uma classe de falso positivo, e ela não se resolve com ficha. O reconhecimento de `.skip`, `.only`, `xit`, `fit`, `xdescribe` e `fdescribe` sai do nome escrito no código, e não de análise de tipo, então um objeto local chamado `test` com um método `skip`, invocado como `test.skip(...)`, é acusado sem que exista supressão nenhuma. Escrever ficha ali seria justificar o que não suprime, e a ADR-0009 rejeita isso pelo nome: catálogo de justificativa mentirosa é pior que nenhuma justificativa. A saída é renomear o símbolo local, que desfaz a colisão de nome e é a menor mudança possível. Quando renomear não for possível, o caso é defeito desta regra e vai registrado como defeito da regra, nunca como ficha nem como supressão da regra que proíbe suprimir.
 
@@ -509,7 +547,7 @@ O vocabulário fechado de motivos previsto na ADR-0009, com a válvula por refer
 
 O verificador `suppression-declared` abre os arquivos de extensão `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs` e `.cjs`, fora dos diretórios que não são escritos no repositório, e trata duas formas de supressor. Arquivo de outra extensão não é aberto: um `.vue` ou um `.svelte` com supressor sem ficha passa sem ser visto.
 
-Supressor que mora em comentário: `eslint-disable`, `eslint-disable-line`, `eslint-disable-next-line`, `@ts-expect-error`, `@ts-ignore` e `istanbul ignore`. `eslint-disable` só conta em comentário de bloco, que é a única forma que o ESLint honra; em comentário de linha ela não suprime nada. O marcador abre o comentário, como as próprias ferramentas exigem, e a ficha vem depois dele, na forma `<identificador> -- <motivo>`. O separador são dois ou mais traços cercados por espaço, a mesma forma que o ESLint já usa para a descrição de uma diretiva. Identificador vazio, motivo vazio ou ausência do separador é acusação.
+Supressor que mora em comentário: `eslint-disable`, `eslint-disable-line`, `eslint-disable-next-line`, `@ts-expect-error`, `@ts-ignore` e `istanbul ignore`. `eslint-disable` só conta em comentário de bloco, que é a única forma que o ESLint honra; em comentário de linha ela não suprime nada. Os três marcadores do ESLint reprovam sempre. Para os demais, o marcador abre o comentário, como as próprias ferramentas exigem, e a ficha vem depois dele, na forma `<identificador> -- <motivo>`. O separador são dois ou mais traços cercados por espaço, a mesma forma que o ESLint já usa para a descrição de uma diretiva. Identificador vazio, motivo vazio ou ausência do separador é acusação.
 
 Por convenção, o identificador é o nome da regra do ESLint, o código do erro do TypeScript ou o alcance do istanbul. O verificador não confere nada disso: ele confere que existe texto antes do separador. Perguntar se o nome corresponde a uma regra que existe exigiria a configuração de ESLint do repositório analisado, e o resto não tem lista fechada contra a qual comparar.
 
