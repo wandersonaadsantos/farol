@@ -9,6 +9,43 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.59.0
+
+Seus aparelhos passam a conversar entre si: o mesmo PR deixa de ser analisado duas
+vezes, e o consumo de todos aparece junto. Tudo nasce DESLIGADO, e quem não ligar não
+muda de comportamento em nada.
+
+**Novidades**
+
+- **Sincronização entre aparelhos** (Sistema > Sincronização). Se você usa o Farol no
+  desktop e no notebook, os dois hoje analisam o mesmo PR e você paga a conta duas
+  vezes. Com a coordenação ligada, um aparelho assume a análise e o outro espera, com
+  o card da fila dizendo quem está com o PR e por quê.
+- **Consumo de todos os aparelhos numa tela só.** A aba Consumo ganhou a visão "Todos
+  os aparelhos", com o gasto somado e a quebra por aparelho.
+- **Conexão por e-mail e senha do seu Firebase.** Você aponta o app para o seu próprio
+  banco; nada passa por servidor nosso. Sobem hashes do PR, qual aparelho está com ele
+  e os números de consumo. Nome de repositório, título de PR, diff e relatório nunca
+  saem da sua máquina.
+
+**Melhorias**
+
+- O seletor de janela do Consumo saiu de dentro do painel e subiu para o topo da
+  seção, onde vale para as duas visões.
+- A busca do Sistema encontra a seção de sincronização por "aparelho", "dispositivo",
+  "coordenação" e "consolidação".
+- Campo de conexão recusado pelo servidor passou a avisar na tela, em vez de voltar ao
+  valor anterior sem explicação.
+
+**Correções**
+
+- Uma análise que perdia a coordenação no meio do caminho deixa de postar review: se
+  outro aparelho pode ter assumido o PR, nada sai no GitHub.
+- Coordenação fora do ar faz a revisão automática ESPERAR, e não estacionar, porque
+  esperar é o comportamento certo para uma falha que passa sozinha.
+- Login que vence durante o uso deixa de deixar o canal pendurado por um minuto e
+  meio: a reconexão passou a ser imediata.
+
 ## v2.58.1
 
 Revisão que morre por login vencido parou de virar um veredito sobre o seu PR. Três correções na mesma cadeia, achadas num caso real de 10/09/2026.
