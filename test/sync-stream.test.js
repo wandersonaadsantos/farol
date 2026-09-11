@@ -71,16 +71,9 @@ function disparar(ms) {
   t.fn();
 }
 
-// espera de I/O real (o dublê responde por socket); o tempo do stream NÃO passa por aqui.
-// O orçamento é GENEROSO de propósito: o node --test roda os arquivos em PARALELO, e num
-// runner de CI com poucos núcleos o socket do dublê fica starved enquanto o resto da
-// suíte corre. Orçamento curto aqui não pega defeito nenhum, só transforma carga da
-// máquina em falha vermelha (medido: 7 testes deste arquivo reprovaram nos três sistemas
-// do CI com 3 s, e passavam local). Espera por condição só gasta o teto quando algo
-// está de fato quebrado; quando funciona, sai no primeiro laço.
-const ATE_LIMITE_MS = 30000;
+// espera de I/O real (o dublê responde por socket); o tempo do stream NÃO passa por aqui
 async function ate(cond, rotulo) {
-  const limite = Date.now() + ATE_LIMITE_MS;
+  const limite = Date.now() + 3000;
   while (!cond()) {
     if (Date.now() > limite) throw new Error(`tempo esgotado esperando: ${rotulo}`);
     await new Promise((r) => setTimeout(r, 5));
