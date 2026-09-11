@@ -3113,7 +3113,8 @@ async function renderUsageConsolidado() {
   alvo.innerHTML = serveCache
     ? usageConsolidadoEnvelopeHtml(consolidadoCache.resposta)
     : '<p class="vago">Buscando o consumo de todos os aparelhos…</p>';
-  const recente = serveCache && (Date.now() - consolidadoCache.at) < CONSOLIDADO_MIN_MS;
+  const recente = consolidadoCache.janela === janela && consolidadoCache.at > 0
+    && (Date.now() - consolidadoCache.at) < CONSOLIDADO_MIN_MS;
   if (recente || consolidadoCache.buscando) return;
   consolidadoCache.buscando = true;
   let r;
@@ -3121,7 +3122,13 @@ async function renderUsageConsolidado() {
   finally { consolidadoCache.buscando = false; }
   // a janela pode ter mudado enquanto a busca corria: resposta velha não pinta a tela
   if (usageDeviceState.escopo !== 'todos' || usageState.window !== janela) return;
-  Object.assign(consolidadoCache, { janela, resposta: r, at: Date.now() });
+  // `at` é carimbado SEMPRE, inclusive na falha: o get() devolve null quando a rede cai,
+  // e guardar só o sucesso deixava o throttle sem efeito justamente com o endpoint fora
+  // do ar (cada push repintava "Buscando…" e disparava outro GET). A resposta nula não
+  // entra no cache, para a tela não servir vazio como se fosse dado.
+  consolidadoCache.janela = janela;
+  consolidadoCache.at = Date.now();
+  if (r) consolidadoCache.resposta = r;
   alvo.innerHTML = usageConsolidadoEnvelopeHtml(r);
 }
 

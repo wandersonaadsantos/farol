@@ -126,10 +126,23 @@ Pré-requisitos, instalados na sua máquina e fora do repositório: o `firebase-
      `leaseId` e `deviceId` diferente é recusado (renovar é do dono, não de quem
      souber o id).
 
-   **A remoção NÃO é barrada pela regra.** `.validate` não roda em DELETE, então apagar
-   um lease de outra pessoa passa pelas regras; quem protege isso é o `if-match` do
-   cliente (`lib/sync/rtdb.js`), que só apaga o lease cujo ETag ele leu. Se um dia
-   alguém escrever direto no banco, essa é a porta aberta, e ela é consciente.
+   **O que as regras NÃO garantem, e é preciso dizer com todas as letras.** Elas
+   protegem o uid (ninguém lê nem escreve na árvore de outra pessoa) e a tomada de lease
+   vivo pelo caminho normal. Dois furos continuam abertos ENTRE os aparelhos da MESMA
+   pessoa, os dois conhecidos:
+
+   1. **Remoção não é validada.** `.validate` não roda em DELETE, então um aparelho pode
+      apagar o lease vivo de outro. Quem protege isso é o `if-match` do cliente
+      (`lib/sync/rtdb.js`), que só apaga o lease cujo ETag ele leu.
+   2. **Escrita direta num campo não roda a regra do nó pai.** No Realtime Database a
+      `.validate` de um ancestral não é avaliada quando a escrita acontece num
+      descendente: valem a regra do nó escrito e as dos filhos dele. Por isso a validação
+      do lease é REPLICADA em `expiresAt`, `leaseId` e `deviceId`, senão um `PUT` em
+      `leases/{acct}/{pr}/expiresAt` esticaria o lease de outro aparelho sem passar por
+      nada. Campo novo no lease precisa da própria `.validate`, ou reabre esse furo.
+
+   Nos dois casos o limite é o mesmo: as regras defendem a fronteira entre PESSOAS, e
+   entre os aparelhos de uma mesma pessoa quem coordena é o cliente.
 
    Estes três casos não têm teste automatizado: nenhuma suíte do repositório executa
    as regras do banco. Rode-os à mão a cada mudança neste arquivo.

@@ -228,12 +228,21 @@ test('o release some com o PR da visão', async () => {
 });
 
 test('lease que vence sem evento nenhum sai da visão no tick seguinte', async () => {
-  const nowMs = engine.sync.agora() - SYNC.LEASE_TTL_MS + 300;
-  assert.equal((await acquireLease(outro, ids(PR_CONHECIDO), dadosDoLease('L-curto', 'dev-outro', nowMs))).ok, true);
+  // O lease nasce com validade NORMAL e quem anda é o relógio. A versão anterior o
+  // criava valendo 300 ms e esperava o SSE entregá-lo dentro dessa janela: com o runner
+  // carregado o lease já tinha vencido quando o evento chegava, e o caso reprovava por
+  // latência. O que está sob teste é o lease vencer sem evento nenhum, não o socket ser
+  // rápido. Mesmo padrão do sync-faxina.test.js.
+  const relogio = engine.sync.agora;
+  assert.equal((await acquireLease(outro, ids(PR_CONHECIDO), dadosDoLease('L-curto', 'dev-outro'))).ok, true);
   await ate(() => engine.sync.leasesVistos[PR_CONHECIDO], 'lease curto visto');
-  await new Promise((r) => setTimeout(r, 350));
-  await engine.syncTick();
-  assert.equal(engine.sync.leasesVistos[PR_CONHECIDO], undefined);
+  engine.sync.agora = () => relogio() + SYNC.LEASE_TTL_MS + 1000;
+  try {
+    await engine.syncTick();
+    assert.equal(engine.sync.leasesVistos[PR_CONHECIDO], undefined);
+  } finally {
+    engine.sync.agora = relogio;
+  }
   await releaseLease(outro, ids(PR_CONHECIDO), { leaseId: 'L-curto' });
 });
 
