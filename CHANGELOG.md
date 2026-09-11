@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.58.1
+
+Revisão que morre por login vencido parou de virar um veredito sobre o seu PR. Três correções na mesma cadeia, achadas num caso real de 10/09/2026.
+
+**Correções**
+
+- **A revisão que não conseguiu ler nada não vira mais uma lista de pendências.** Caso medido: a assinatura do Claude venceu, as quatro leituras em paralelo morreram antes de abrir o primeiro arquivo, e a sessão, que sobreviveu, devolveu um resultado bem-formado descrevendo a própria morte. Como ela não quebrou, nada no app percebeu falha: o Farol gravou aquilo como veredito, e o PR apareceu em "Precisa de você" com 24 pendências que ninguém tinha lido. Agora um resultado que não analisou NADA, sem uma linha escrita em lugar nenhum, e que aponta falha de credencial ou de rede, é tratado como o que é: falha. O PR volta para a fila com o motivo na cara, em vez de carregar uma acusação inventada. Revisão parcial que chegou a escrever algum achado continua sendo revisão, como sempre foi.
+- **Login vencido volta a ser reconhecido como login vencido.** O app conhecia uma das duas frases que o Claude Code usa para dizer que a credencial caiu; a outra, a que aparece quando a renovação automática falha, não casava com nada e caía em "erro desconhecido do aplicativo". O Diagnóstico culpava o Farol por um problema que era da assinatura, e quem lia não tinha como saber que bastava refazer o login.
+- **O Farol parou de brigar com o Claude Code pelo mesmo arquivo de configuração.** Ele gravava a permissão da pasta de trabalho por cima do arquivo aberto, sem a troca segura que o resto do app usa, e ainda reescrevia tudo a cada abertura por causa de um campo que o próprio Claude Code apaga quando salva. Resultado: os dois escrevendo no mesmo lugar o tempo todo, e o app avisando "arquivo ilegível" a cada boot. Agora a gravação é atômica e só acontece quando a permissão de fato falta.
+
 ## v2.58.0
 
 Quem tem mais de uma conta do GitHub revisando sozinha para de ver uma delas monopolizar a fila. Junto, um bloco de correções em credencial expirada e na leitura do resultado da revisão.
