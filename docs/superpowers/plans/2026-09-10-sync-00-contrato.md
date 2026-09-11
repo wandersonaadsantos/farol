@@ -87,6 +87,30 @@ Valem para TODAS as tarefas dos três planos. Copiadas e conferidas contra o che
 | D15 | **Outbox de consumo é idempotente por PUT/PATCH em `usageEvents/{deviceId}/{eventId}`**; o `eventId` deriva de campos imutáveis (D6 para conta e PR). Correção de desfecho reenvia o mesmo `eventId` com `status` novo. Migração inicial = zerar o cursor e reenfileirar tudo. | §6.3 e §9 do spec. |
 | D16 | **UI:** seção nova `sys-sync` em Sistema (nav + painel), toggles salvos por `saveSync` (objeto inteiro em `/api/settings { sync }`), e na aba Consumo um seletor `Este dispositivo`/`Todos os dispositivos` que só aparece com a consolidação ligada. O desenho no Claude Design (Fase 1 do spec) roda ANTES das tarefas de UI e pode mudar hierarquia e microcopy; os invariantes e os ids de elemento deste contrato não mudam. | §11 do spec. |
 | D17 | **Retenção:** lease e presença pelo TTL; `dailyRounds` de dias anteriores a 8 dias podados pelo `syncTick`; recibos expiram em 180 dias (`expiresAt`) e recibo de PR fechado é podado quando o PR sai do panorama por dois ciclos (`SYNC_PRUNE_STRIKES`); eventos de consumo não expiram. | §7.4 do spec. |
+| D18 | **Bloqueio de coordenação consome a vez da org no rodízio, e isso é aceito.** O `processHeadless` (v2.58.0) carimba `orgLastStart` no instante em que toma o slot, antes do spawn; a admissão recusada devolve o slot na hora (`runOneHeadless` libera no `finally` e reprograma), então nenhuma vaga fica ociosa. A org só vai pro fim do rodízio uma vez, e a anotação de espera (D11) impede que o mesmo PR volte a consumir a vez em laço. Desfazer o carimbo exigiria guardar o `seq` anterior por org e não compensa. | Interação com a justiça de fila entre orgs (PR #71). |
+| D19 | **PR segurado pela coordenação NÃO conta como "esperando" na cota por conta.** `contasDoPerfil` (server.js) passa a pular `this.syncSeguraAutomacao(p.key)`, ao lado de `autoReviewParked` e `skipComentado`. Sem isso, a conta B cede a cota do dia pra conta A cujo PR está parado por lease alheio ou por teto de rodadas (`esgotado` segura até a virada do dia em Brasília): ceder a vez pra quem não pode rodar viola o invariante work-conserving da v2.58.0. Travado por teste em T18. | Interação com a Política 2 da justiça de fila. |
+
+### Desenho (Fase 1 do spec, feita no planejamento)
+
+O desenho no Claude Design foi produzido durante o planejamento, antes de qualquer HTML, como o §11 do spec exige: https://claude.ai/code/artifact/6b40589b-2ed7-4adb-a029-43e35505ee31 (seis telas: seção em Sistema conectada, a mesma seção no celular, estados da conexão, card da fila com coordenação, confirmações do clique manual, Consumo de todos os aparelhos). Ele estende o vocabulário existente e não cria cor nova; o executor NÃO refaz o desenho. As decisões visuais que ele fixa e as tarefas de UI implementam:
+
+- A seção se chama **"Sincronização entre dispositivos"** e mora em Sistema como seção própria (`sys-sync`, botão de navegação `sysbtn-sync`), logo depois de `sys-jira`. Três blocos: os três toggles num `.card.set-list` (a chave geral desabilita visualmente os outros dois quando desligada), o cartão de Conexão no molde do cartão de site do Jira (barra esquerda e selo dizem o estado: verde conectado, âmbar sem login ou degradado, vermelho login expirado, cinza desligado), e duas listas (Aparelhos; Coordenação agora).
+- O login pede e-mail e senha só no estado sem credencial; conectado, mostra "Conectado como <e-mail>" e o botão "Sair deste aparelho". A senha nunca volta à tela.
+- Anotação de coordenação no card da fila é `.pr-coord`, AZUL (`--info`) para espera por outro aparelho e ÂMBAR (`--accent`) para indisponível e teto de rodadas. Nunca o vermelho do `.pr-parked`: segurar não é falhar.
+- Recibo órfão aparece na lista "Coordenação agora" com o botão **"Refazer neste aparelho"**, que abre confirmação.
+- Confirmações do clique manual: "Revisar sem coordenação?" (só `indisponivel`) e "Revisar de novo este commit?" / "Refazer neste aparelho" (só `recibo`). Lease de outro aparelho não tem confirmação. "Apagar dados sincronizados" usa o modal `danger`.
+- Consumo ganha o segmentado **"Este aparelho | Todos os aparelhos"** ao lado do de janela, só com a consolidação ligada; em "Todos" os KPIs somam os aparelhos e uma tabela lista aparelho, sessões, custo e última sessão. "Este aparelho" é a aba de hoje, byte a byte.
+- Na interface a palavra é "aparelho" (mais curta, cabe no celular); "dispositivo" fica só no título da seção.
+
+### Atualização pós-#71 (v2.58.0, justiça de fila entre orgs)
+
+Este contrato foi escrito contra a `main` anterior ao PR #71 e reconferido depois dele. O que mudou e já está refletido acima ou abaixo:
+
+- **`processHeadless`** agora escolhe por rodízio de org (`proximoHeadless`, `headlessOrg`) e respeita `globalParallelLimit`. Nenhum ponto de encaixe do gate mudou: a admissão continua dentro de `runClaudeStream`, que roda depois de o slot ser tomado (D18).
+- **`contasDoPerfil`/`quotaBlockedFor`** (server.js) são novos e leem a fila viva (D19).
+- **`lib/settings.js`** ganhou `globalParallelReviews` (logo depois de `parallelReviews` na tabela, sanitizado por `f.sanitizeGlobalParallelReviews` de `lib/parse.js`). A entrada `sync` continua entrando logo depois de `jiraSites`.
+- **CI**: o check obrigatório `ci` agora exige DUAS matrizes, `gate` e `electron` (`.github/workflows/ci.yml`, `needs: [gate, electron]`). A matriz `electron` abre o app REAL (main.js, servidor e UI) com configuração sem contas e o monitor desligado (`docs/ELECTRON-SMOKE.md`). Consequência para as tarefas de UI: `$('#id').addEventListener(...)` no topo de `ui/app.js` com elemento ausente do `index.html` lança `TypeError` no carregamento do módulo e reprova o smoke nos três sistemas. Todo elemento que o `app.js` liga no topo do módulo tem que existir no `index.html` no MESMO commit.
+- `lib/log-taxonomy.js` (15 classes), `lib/engine/session.js` (`runClaudeStream` intacto), `lib/constants.js`, `lib/engine/usage.js`, `lib/jira/credentials.js` e `tools/quality/rules.js` não mudaram nos trechos citados.
 
 ---
 
@@ -579,6 +603,7 @@ Fachadas em `server.js`: `syncCoordenacaoAtiva() { return syncMod.coordenacaoAti
 - **selfpr.js `runSelfAnalysis`**: opts ganham `operationKind: 'self'` e `coordination: { prKey: pr.key, account: accPr, materialVersion: shaAntes, headSha: shaAntes, contaRodada: false, manual: true, semCoordenacao: false, ignorarRecibo: false, pr: {...} }`; após o await: `if (res.blocked) { engine.emit('toast', { kind: 'info', text: textoBloqueio(pr.key, res.coordination) }); return; }`; depois de `engine.saveSelfAnalyses()`: `await res.coordination.complete({ publicationState: 'not_applicable' })`; no ramo `descartada` (head andou): `await res.coordination.abort()`.
 - **pushback.js `classifyPushback(engine, pr, marker)`** (ganha o 3o parâmetro, o `det.marker`): opts ganham `operationKind: 'pushback'`, `coordination: { prKey: pr.key, account: acc, materialVersion: String(marker||''), headSha: '', contaRodada:false, manual:false, semCoordenacao:false, ignorarRecibo:false, pr: {...} }`; `if (res.blocked) return res.coordination.reason === 'recibo' ? { deduped: true } : null;`; após parse com sucesso, `await res.coordination.complete({ publicationState: 'not_applicable' })`; em `scanPushbacks`: `const cls = await engine.classifyPushback(pr, det.marker); if (cls && cls.deduped) { engine.pushbackScanned[pr.key] = det.marker; engine.savePushbackScanned(); continue; }`. Fachada `classifyPushback(pr, marker)`.
 - **chat.js / tools.js**: `operationKind: 'chat'` / `operationKind: 'tool'` nos opts.
+- **server.js `contasDoPerfil`** (D19): dentro do laço sobre `this.queue`, logo depois de `if (this.autoReviewParked.has(p.key) || this.skipComentado[p.key]) continue;`, acrescentar `if (this.syncSeguraAutomacao(p.key)) continue;`.
 - **server.js `toReview`** (dentro de `_dispararAutomacoes`), logo depois de `if (this.retryAfterNet.has(p.key)) return false;`: `if (this.syncSeguraAutomacao(p.key)) return false;`. `syncSeguraAutomacao(key)` (fachada de `syncMod.seguraAutomacao(this, key)`): true quando coordenação ativa e (`runtime.status !== 'conectado'` OU `espera[key].until > Date.now()`); avisa uma vez por janela (`runtime.avisou`). `reReviewTargets` e `retryTargets` recebem o mesmo filtro (`!engine.syncSeguraAutomacao(pr.key)`).
 
 ---
@@ -752,6 +777,199 @@ startFakeIdentity({ apiKey = 'key-1', users = { 'a@b.com': { password: 'segredo'
 
 ---
 
+---
+
+## Atualização pós-protótipo (11/09/2026): o que o contrato dizia errado
+
+Este contrato foi escrito ANTES de o código existir. Um protótipo completo foi construído
+a partir dele (worktree descartável, 60 commits sobre `1ddee35`, gate verde com 2759
+testes), com revisão adversarial e prova de mutação por bloco. **Todo item abaixo é um
+lugar onde o contrato estava errado ou incompleto, e o protótipo provou.** O executor
+segue ESTA seção quando ela discordar do texto acima.
+
+### Arquivos: o `lib/engine/sync.js` não cabe sozinho
+
+O contrato previa UM módulo de runtime. Ele estourou o teto de 400 linhas úteis, e a
+decomposição não é estética: cada peça tem ciclo de vida próprio.
+
+| arquivo | o que leva | por que saiu |
+|---|---|---|
+| `lib/engine/sync-usage.js` | outbox + consolidação + `consolidated`/`consolidate` | consumo nunca decide nada, só agrega |
+| `lib/engine/sync-stream.js` | stream SSE dos leases, árvore remota, `leasesVistos` | abre e fecha junto com a coordenação, reconecta sozinho, nunca decide |
+| `lib/engine/sync-faxina.js` | retenção diária (D17) | manutenção; nunca decide admissão nem estado da conexão |
+| `lib/engine/sync-redo.js` | "Refazer neste aparelho" | é o caminho que APAGA a prova de uma análise, e por isso é o mais perigoso do recurso |
+
+### D17 reescrito: a retenção é uma FAXINA diária, e a poda antecipada saiu do MVP
+
+O contrato mandava podar `dailyRounds` no `syncTick` e remover recibo de PR fechado
+"quando o PR sai do panorama por dois ciclos (`SYNC_PRUNE_STRIKES`)". As duas partes
+mudaram:
+
+- A poda roda no máximo **uma vez por dia** (`SYNC.FAXINA_MS`), com teto de
+  `SYNC.FAXINA_MAX_PRS` (200) nós de PR por faxina, numa fatia que gira com o dia. Sem o
+  teto, quem usa há meses seguraria o tick com centenas de requisições.
+- A **remoção antecipada por "PR saiu do panorama" SAIU do MVP**: a expiração de 180 dias
+  cobre, e fazer certo exigiria um mapa local persistente de PRs tocados.
+  `SYNC.PRUNE_STRIKES` foi REMOVIDA de `lib/constants.js`.
+- A tentativa conta para a janela do dia **mesmo quando falha**: retenção não é urgente, e
+  repetir a cada tick contra um banco que acabou de recusar só gastaria rede.
+
+### Tempo real: o stream dos leases (o contrato não tinha chamador)
+
+`rtdb.stream` existia no contrato sem ninguém chamando, e `leasesVistos` nunca era
+preenchido. O objetivo 1 do spec (§5 escolheu REST+SSE justamente por isso) exige:
+
+- constante nova `SYNC.STREAM_IDLE_MS` (90 s): sem nenhum pedaço no SSE por esse tempo
+  (keep-alive incluso, e o banco manda um a cada ~30 s) a conexão está morta sem ter
+  avisado, e esperar o TCP perceber pode levar horas;
+- `rtdb.stream` ganha `onActivity`, chamado a CADA pedaço que chega, porque o keep-alive
+  nunca chega ao `onEvent` e é ele o sinal de vida que a vigia precisa;
+- `engine.sync.leasesOutros` (número) conta os leases vivos em PR que ESTE aparelho não
+  acompanha. A tela os CONTA e nunca os nomeia: o nome do PR não sobe pro banco (D6);
+- **soltar a conexão zera a visão** (`esquecerVisao`). Só o stream recalcula `leasesVistos`,
+  e `sincronizarStream` não roda no estado `erro`: sem isso, uma reconexão que FALHA
+  deixava "outro aparelho está analisando" na tela por tempo indefinido, apoiado num lease
+  de 120 s.
+
+### Escrita incondicional por ETag ausente
+
+`rtdb.get` que **pediu** ETag e voltou sem ele devolve `resposta_invalida`. O contrato
+deixava `etag: ''`, e `renewLease`/`releaseLease`/`startRound` acabavam fazendo PUT/DELETE
+SEM `if-match`, ou seja, escrita incondicional por cima do que outro aparelho acabou de
+gravar. Proxy que engole cabeçalho é o caso real; a saída segura é recusar a leitura.
+
+### Admissão: três correções que o contrato não tinha
+
+- **Conta vazia é recusa.** `accountHash('')` devolve hash VÁLIDO, então dois aparelhos
+  com `accountForPr` vazio num e preenchido no outro coordenariam em namespaces
+  diferentes, os dois se dariam por sozinhos e analisariam o mesmo PR no mesmo head.
+  `preparar` recusa com `indisponivel` e motivo próprio, ANTES de tocar a rede. Vale para
+  `admit` e para `preflightManual`.
+- **Exceção depois de adquirir o lease devolve o lease.** Toda saída abaixo do
+  `acquireLease` vive em `depoisDoLease`, com `try/catch` que solta o lease (best-effort)
+  e relança. Sem isso, um defeito na releitura do recibo travava o PR para os outros
+  aparelhos até o TTL, por causa de uma sessão que nem começou.
+- **Lease do PRÓPRIO aparelho não barra o clique.** `preflightManual` tratava como
+  "alheio" o lease deste mesmo aparelho e nomeava o próprio aparelho como "outro", mandando
+  a pessoa esperar por si mesma. Quem evita a análise em dobro local é o `enqueueHeadless`.
+
+### D14 vale também para o PUSHBACK
+
+O contrato aplicava "estado local antes do recibo" só à revisão. No pushback o recibo era
+gravado DENTRO de `classifyPushback`, antes de `scanPushbacks` persistir `pushbackScanned`
+e `pushbacks`: um processo morto no meio deixava o recibo de pé e o registro ausente, e o
+ciclo seguinte via a classificação deduplicada, avançava o marcador e perdia o pushback
+para sempre. Agora `classifyPushback` devolve `{ ...cls, coord }` e quem fecha a
+coordenação é `concluirPushback`, no `scanPushbacks`, depois dos dois saves.
+
+### D12 reescrito: "Refazer" ganha DUAS travas
+
+O contrato dizia "apaga o recibo do head atual condicionado ao etag". Faltavam as duas
+perguntas que importam, e sem elas o botão apagava a prova de qualquer análise:
+
+1. **O recibo é refazível?** Só com `publicationState` em `pending` ou `failed` E
+   `receiptOrphanState === 'orfao'`. Recibo publicado recusa com `conflito`; aparelho ainda
+   ativo recusa com `conflito`; recibo ausente recusa com `nao_encontrado`. Apagar um
+   recibo vivo faria a mesma análise ser paga de novo em todo aparelho que a encontrasse.
+2. **O relançamento vai acontecer?** O preflight manual roda ANTES do apagamento (pela
+   fachada `engine.syncPreflightManual`, a mesma boca do clique). Só o bloqueio `recibo` é
+   esperado; qualquer outro (lease alheio, banco fora) recusa sem apagar nada. Apagar antes
+   deixava, com um lease alheio no caminho, o recibo destruído e nenhuma análise no lugar.
+
+### Outbox: o cursor é amarrado ao DESTINO
+
+O contrato descrevia o cursor sem destino. A outbox ganha o campo `destino`
+(`outboxTarget(uid, databaseUrl)`, com a URL normalizada: barra a mais no fim não é outro
+destino). Trocar de conta do Firebase ou de banco zera o cursor e reenfileira tudo. Sem
+isso, todo o histórico que subiu para o destino ANTIGO nunca chegava ao novo, e o
+consolidado lá nascia pela metade. Reenviar é seguro: o `eventId` vem dos campos imutáveis
+da sessão (D15).
+
+O **envio prende o destino no início** do laço de lotes (client, uid, deviceId e geração) e
+para se a conexão mudou. Relendo `rt.client` a cada lote, um logout no meio deixava `null`
+e o lote seguinte lançava `TypeError` dentro do tick, contra a regra de que nada do consumo
+lança para o engine.
+
+### Falha e taxonomia: duas frases, uma classe
+
+- `lib/sync/errors.js` ganha `falhaSemConexao(rt)`, o lar ÚNICO da resposta "não dá pra
+  falar com o banco agora". Estava duplicada em `lib/engine/sync.js` e
+  `lib/engine/sync-usage.js`, e as duas respondiam `sem_credencial` no estado
+  `conectando`: a quem ACABOU de entrar, a tela dizia "nenhum login do Firebase foi feito
+  neste aparelho" e mandava entrar de novo numa conta em que já estava. `conectando`
+  responde `indisponivel` com motivo de conexão em andamento.
+- O prefixo do log da falha transitória depende do que a pessoa LIGOU: com a coordenação
+  desligada (só consolidação) ele diz "sincronização entre dispositivos indisponível". A
+  classe `coordenacao-indisponivel` de `lib/log-taxonomy.js` mantém o **id** (é ele que o
+  `runOneHeadless` reconhece para nunca estacionar), passa a casar
+  `(?:coordena[cç][aã]o|sincroniza[cç][aã]o) entre dispositivos indispon[ií]vel` e o label
+  vira "Sincronização entre dispositivos indisponível".
+
+### Autoanálise e retry: dois desfechos que o contrato não nomeava
+
+- Autoanálise encerrada por lease perdido tem **texto próprio**. Ela chega ao
+  `runOneHeadless` com `cancelled` também, então o ramo `err.coordenacao === 'perdido'` vem
+  ANTES: sem ele a pessoa lia "Autoanálise cancelada", como se tivesse cancelado, e sem
+  saber que a análise não ficou registrada em lugar nenhum.
+- O ramo de REVISÃO com `err.coordenacao` apaga a entrada preexistente do `retryAfterNet`.
+  Deixá-la viva fazia o `check()` relançar no ciclo seguinte um PR que a coordenação acabou
+  de tirar deste aparelho.
+
+### Login concorrente
+
+`syncLogin` espera o start EM VOO terminar antes de reconectar. O `startSync` reaproveita a
+promessa em voo, e aquela leu a credencial ANTIGA: o login voltava `ok` e a tela dizia
+"conectado" com a conta de antes.
+
+### Interface: o que o desenho não alcançava
+
+- **O `.switch` tem que ser IRMÃO IMEDIATO do `<input>`**, dentro de `.set-ctl`, com
+  `.set-txt` no outro lado. Com a classe no próprio input o interruptor simplesmente NÃO
+  APARECE, e a linha salva certo parecendo desligada. A suíte inteira fica verde; só
+  abrindo a tela se vê.
+- **Boca única do clique Revisar.** Os seis pontos de `ui/app.js` que chamavam
+  `/api/review` passam por `revisarUrls(urls, extras, mode)`, que é quem trata a
+  confirmação da coordenação. Mesma doutrina do `enqueueHeadless` no engine: sem o
+  estrangulamento, um botão acrescentado depois pula a confirmação em silêncio.
+  `test/rerevisar-head-velho.test.js` exige a boca única.
+- **Estacionamento vence a coordenação** no card da fila quando os dois valem. Ele é falha
+  e exige ação; a espera se resolve sozinha. Duas notas competindo deixariam a mais urgente
+  em segundo plano.
+- **Classes novas levam prefixo `.sync-`** sem exceção: `chip`, `linha`, `coord`, `campo`,
+  `conta`, `teste`, `rodape`, `lista` e `nome` são nomes genéricos demais para o CSS global.
+- **`test/ui-semantics.test.js` afirma o NÚMERO de seções do Sistema** (passou de 11 para
+  12). Seção nova mexe nesse teste.
+
+### Pendências de ambiente que o executor vai encontrar
+
+- **O smoke do Electron não roda em máquina com Electron acima do piso.** Ele exige
+  `'44.3.0' === '44.1.0'` e reprova em `stage: bootstrap-loaded`, antes de carregar
+  qualquer tela. Ou o piso do pacote sobe, ou o smoke passa a aceitar versão ACIMA do piso.
+  É decisão do dono; enquanto isso, a prova da UI é subir o engine com `FAROL_HOME`
+  temporário e abrir a tela num navegador, conferindo que o console fica limpo.
+- **Teste instável no Windows não era keep-alive.** O parser HTTP do fetch (llhttp, do
+  undici) é WebAssembly; depois de alguns fetch o V8 o otimiza numa thread de fundo, e o
+  `process.exit` do `--test-force-exit` aborta o node na asserção
+  `!(handle->flags & UV_HANDLE_CLOSING)` da libuv. Medido em 11/09/2026, Node 24: cinco
+  fetch seguidos de `process.exit` abortam 15 de 15 vezes SEM nenhum socket sendo fechado;
+  com o tiering desligado, 0 de 15. `test/helpers/sem-tier-wasm.js` desliga
+  `--no-wasm-dynamic-tiering` e `--no-wasm-tier-up` ANTES do primeiro fetch do processo, e
+  os dois dublês o chamam ao subir. Nenhum teste precisa de espera de drenagem.
+
+### Índice de tarefas: o que muda
+
+O índice de 24 tarefas acima descreve a ordem de CONSTRUÇÃO original. A decomposição final
+dos planos sai do replay limpo (ordem topológica pelos imports do código FINAL), agrupada
+em PRs inertes com o sync desligado:
+
+- **PR 1 (folhas, sem fiação):** constantes/erros, chaves, config, credencial/aparelho,
+  auth + dublê de identidade, SSE, rtdb + dublê RTDB, taxonomia, lease, recibos, rodadas,
+  coordenador (+ export de `DECISIVE_REVIEW_STATES` em `decision.js`), outbox, consolidado.
+- **PR 2 (fiação):** `lib/engine/sync*.js` (os cinco), `server.js`, `http-server.js`,
+  `usage.js`, gate no `session.js`, chamadores (review, selfpr, pushback, chat, tools),
+  clique manual.
+- **PR 3:** interface. **PR 4:** `firebase/` (regras, config do emulador, README).
+
 ## Índice de tarefas (24)
 
 | # | Tarefa | Plano | Depende de |
@@ -773,7 +991,7 @@ startFakeIdentity({ apiKey = 'key-1', users = { 'a@b.com': { password: 'segredo'
 | T15 | `lib/sync/rounds.js` + teste (teto, dia canônico com dois fusos, CAS) | 02 | T7, T2 |
 | T16 | `lib/sync/coordinator.js` + teste (fluxo completo com fake, releitura sob lease, heartbeat perdido, complete/abort, noop) | 02 | T13, T14, T15, T9 |
 | T17 | Gate em `session.js` (`OPERACOES`, `admitirOperacao`, invólucro) + teste (antes do stub e do Codex; ausente falha alto; bypass; desligado é síncrono) | 02 | T16 |
-| T18 | review.js (opts, bloqueio, complete/abort, `runOneHeadless`, `rodadaAutomatica`, `MAX_RODADAS_AUTO_DIA`) + `toReview`/`reReviewTargets`/`retryTargets` + teste | 02 | T17 |
+| T18 | review.js (opts, bloqueio, complete/abort, `runOneHeadless`, `rodadaAutomatica`, `MAX_RODADAS_AUTO_DIA`) + `toReview`/`reReviewTargets`/`retryTargets` + `contasDoPerfil` pula PR segurado (D19) + teste | 02 | T17 |
 | T19 | selfpr.js + pushback.js + chat.js + tools.js + testes | 02 | T17 |
 | T20 | Clique manual: `launchReview` com preflight/overrides + rota + UI (confirmação) + `redo` de recibo órfão + teste | 02 | T18 |
 | T21 | UI de coordenação: anotação de espera no card da fila, recibos/órfãos e leases vistos na seção `sys-sync` + testes | 02 | T18, T12 |

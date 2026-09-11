@@ -1610,3 +1610,67 @@ body.electron .chat-head { padding-right: 150px; }
 .fj-barra > span { display: block; height: 100%; background: var(--working); }
 .fj-conta.is-cedendo .fj-barra > span { background: var(--urgent); }
 .fj-conta-num { margin-top: 6px; font-size: 12px; color: var(--muted); }
+
+/* ---------- Sistema > Sincronização entre dispositivos ----------
+   Só tokens, nenhum hex novo. A cor da coordenação é deliberada: --info para espera e
+   --accent para atenção, nunca o --danger do estacionamento, porque segurar não é falhar. */
+.sync-sub-head { font-size: 13px; font-weight: 650; margin: var(--sp-5) 0 var(--sp-2); color: var(--text); }
+.sync-card { padding: 0; border-left: 3px solid var(--ok); }
+.sync-card.warn { border-left-color: var(--accent); }
+.sync-card.bad { border-left-color: var(--danger); }
+.sync-card.off { border-left-color: var(--border); }
+.sync-topo { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; padding: 12px var(--sp-4); border-bottom: 1px solid var(--border-soft); }
+.sync-titulo { font-size: 14px; font-weight: 650; }
+.sync-espaco { flex: 1; }
+.sync-corpo { padding: var(--sp-3) var(--sp-4); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); }
+.sync-campo { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.sync-campo > label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); }
+.sync-input { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 12.5px; min-height: 31px; width: 100%; }
+.sync-input:focus { outline: none; border-color: var(--accent); }
+.sync-dica { font-size: 11px; color: var(--faint); }
+.sync-vago { color: var(--faint); }
+.sync-vazio { margin: var(--sp-3) 2px; font-size: 12.5px; }
+.sync-conta { margin: 0 var(--sp-4) var(--sp-3); border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+.sync-conta-topo { display: flex; align-items: center; gap: 9px; padding: 9px 13px; border-bottom: 1px solid var(--border-soft); }
+.sync-conta-titulo { font-size: 12.5px; font-weight: 650; }
+.sync-conta-onde { font-size: 11.5px; color: var(--faint); margin-left: auto; font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; }
+.sync-conta-corpo { padding: 12px 13px; display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.sync-conta-corpo .sync-campo { flex: 1; min-width: 190px; }
+.sync-quem { color: var(--text); font-weight: 600; }
+.sync-conta-nota { padding: 0 13px 11px; margin: 0; font-size: 11.5px; color: var(--faint); text-wrap: pretty; }
+.sync-conta-nota-ruim { color: var(--danger); padding-top: 0; }
+.sync-degradada { margin: var(--sp-3) var(--sp-4); }
+.sync-rodape { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 0 var(--sp-4) 13px; }
+.sync-teste { font-size: 11.5px; color: var(--faint); }
+.sync-teste.ok { color: var(--ok); }
+.sync-teste.ruim { color: var(--danger); }
+.sync-lista { padding: 2px var(--sp-4); }
+.sync-linha { display: grid; grid-template-columns: minmax(0, 1fr) 110px 150px; gap: var(--sp-3); align-items: center; padding: 10px 0; font-size: 12.5px; }
+.sync-linha + .sync-linha { border-top: 1px solid var(--border-soft); }
+.sync-linha.sync-head { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); padding-bottom: 6px; }
+.sync-nome { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; font-weight: 600; }
+.sync-fraco { color: var(--muted); }
+.sync-coord { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-3); align-items: center; padding: 11px 0; font-size: 12.5px; }
+.sync-coord + .sync-coord { border-top: 1px solid var(--border-soft); }
+.sync-ref { color: var(--accent); font-weight: 600; }
+.sync-o-que { display: block; color: var(--muted); margin-top: 1px; }
+.sync-o-que.sync-orfao { color: var(--accent); }
+.sync-legenda { font-size: 11.5px; color: var(--faint); margin: var(--sp-2) 2px 0; }
+.sync-chip { font-size: 10.5px; font-weight: 700; border-radius: 99px; padding: 2px 9px; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.sync-chip.ok { color: var(--ok); background: var(--ok-soft); }
+.sync-chip.warn { color: var(--accent); background: var(--accent-soft); }
+.sync-chip.bad { color: var(--danger); background: var(--danger-soft); }
+.sync-chip.info { color: var(--info); background: var(--info-soft); }
+.sync-chip.mute { color: var(--muted); background: var(--surface-2); }
+/* Anotação de coordenação no card da fila. Azul é espera (o PR está com outro aparelho),
+   âmbar é atenção (indisponível, teto de rodadas). O vermelho fica reservado ao
+   estacionamento, que é falha de verdade. */
+.pr-coord { margin-top: var(--sp-1); font-size: 11.5px; line-height: 1.35; color: var(--info); }
+.pr-coord.warn { color: var(--accent); }
+/* Telas estreitas (o Farol aberto no navegador do celular, via Termux): os três campos
+   viram um por linha e a lista de aparelhos perde a coluna do sistema. */
+@media (max-width: 720px) {
+  .sync-corpo { grid-template-columns: 1fr; }
+  .sync-linha { grid-template-columns: minmax(0, 1fr) auto; }
+  .sync-linha > :nth-child(2) { display: none; }
+}

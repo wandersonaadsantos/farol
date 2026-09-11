@@ -205,9 +205,29 @@
   <section id="tab-consumo" class="tabpane" role="tabpanel" aria-labelledby="tabbtn-consumo" tabindex="0">
     <div class="section-head">
       <h2>Consumo</h2>
+      <!-- Segmentado da consolidação (T24). Só aparece com a consolidação ligada:
+           sem ela não há nada de outros aparelhos pra mostrar, e um botão que não faz
+           nada é pior que botão nenhum. -->
+      <div class="seg" id="usageDevice" role="group" aria-label="Aparelhos" hidden>
+        <button class="seg-btn active" data-escopo="este" aria-pressed="true">Este aparelho</button>
+        <button class="seg-btn" data-escopo="todos" aria-pressed="false">Todos os aparelhos</button>
+      </div>
+      <!-- A janela vale para as DUAS visões (o consolidado busca por ?days=), então ela
+           mora no cabeçalho da seção e não dentro do painel local, que fica escondido
+           em "Todos os aparelhos". Ali dentro, trocar de visão fazia o seletor sumir
+           junto, sem a janela deixar de valer. -->
+      <div class="seg" id="usageWindow" role="group" aria-label="Janela">
+        <button class="seg-btn" data-window="7" aria-pressed="false">7 dias</button>
+        <button class="seg-btn active" data-window="30" aria-pressed="true">30 dias</button>
+        <button class="seg-btn" data-window="90" aria-pressed="false">90 dias</button>
+      </div>
     </div>
     <p class="section-desc">Quanto as sessões autônomas do Claude (revisão, autoanálise, pushback, ferramentas e chat) consomem, em tokens e custo estimado. Mede o Farol como um todo. Registro pessoal e permanente; não influencia nenhuma decisão da automação.</p>
 
+    <!-- "Todos os aparelhos" é uma SEGUNDA visão, nunca uma reescrita da primeira:
+         "Este aparelho" volta ao painel de sempre, sem nenhuma diferença. -->
+    <div id="usageConsolidado" hidden></div>
+    <div id="usageLocal">
     <div id="usageKpis" class="usage-kpis"></div>
 
     <!-- Justica de fila (spec 2026-09-10-justica-de-fila-entre-orgs): torna VISIVEL o
@@ -232,11 +252,6 @@
             <button class="seg-btn" data-metric="input" aria-pressed="false">Input</button>
             <button class="seg-btn" data-metric="output" aria-pressed="false">Output</button>
             <button class="seg-btn" data-metric="cache" aria-pressed="false">Cache</button>
-          </div>
-          <div class="seg" id="usageWindow" role="group" aria-label="Janela">
-            <button class="seg-btn" data-window="7" aria-pressed="false">7 dias</button>
-            <button class="seg-btn active" data-window="30" aria-pressed="true">30 dias</button>
-            <button class="seg-btn" data-window="90" aria-pressed="false">90 dias</button>
           </div>
           <div class="seg" id="usageStack" role="group" aria-label="Empilhar por">
             <button class="seg-btn active" data-dim="kind" aria-pressed="true">Por tipo</button>
@@ -274,6 +289,7 @@
       </div>
       <div id="usageSessions" class="usage-sessions-wrap"></div>
     </div>
+    </div>
   </section>
 
   <!-- ============ SISTEMA ============ -->
@@ -304,6 +320,10 @@
           <button class="sys-nav-item" id="sysbtn-jira" data-section="jira" role="tab" aria-selected="false" aria-controls="sys-jira">
             <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 9.5h18M8 14h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             Jira
+          </button>
+          <button class="sys-nav-item" id="sysbtn-sync" data-section="sync" role="tab" aria-selected="false" aria-controls="sys-sync">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-7.5-4M3 12a9 9 0 0 1 9-9 9 9 0 0 1 7.5 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M19.5 3v4h-4M4.5 21v-4h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Sincronização
           </button>
           <button class="sys-nav-item" id="sysbtn-plans" data-section="plans" role="tab" aria-selected="false" aria-controls="sys-plans">
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78m.27-2.34L19.07 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M17 8l-1.5 1.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -630,6 +650,17 @@
             <span><b>Do primeiro site cadastrado em diante, o Farol assume todos os MCPs</b> das sessões de revisão e de autoanálise, e remove os outros conectores delas. Vale inclusive em PR de organização que não tenha site aqui, pra nenhuma sessão alcançar o Jira de outra empresa.</span>
           </div>
           <div id="jiraSitesManager" class="cards"></div>
+        </div>
+
+        <!-- Sincronização entre dispositivos -->
+        <div class="sys-section" id="sys-sync" role="tabpanel" aria-labelledby="sysbtn-sync" tabindex="0">
+          <div class="section-head"><h2>Sincronização entre dispositivos</h2></div>
+          <p class="section-desc">Opcional. Evita que dois aparelhos seus revisem o mesmo PR e mostra o consumo de todos juntos. Cada aparelho continua com o próprio histórico e funciona sem internet.</p>
+          <div class="callout info">
+            <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><path d="M8 7.4v3.8M8 5.1v.6" stroke-linecap="round"/></svg>
+            <span><b>Nenhum prompt, diff ou relatório sai daqui.</b> Sobem hashes do PR, o aparelho que está com ele e os números de consumo. O nome do repositório e o título do PR nunca são enviados.</span>
+          </div>
+          <div id="syncManager"></div>
         </div>
 
         <!-- Plano e chaves -->

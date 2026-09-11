@@ -41,6 +41,9 @@ const MSG = {
   restart: 'app reiniciado com revisão em andamento: biudtech/biud-core#262 devolvido(s) à fila',
   console: 'sessao "Login do Claude" saiu com codigo 3221225786',
   nadaVer: 'qualquer coisa que ninguém previu',
+  // a coordenação entre dispositivos (Firebase) carrega o texto do fetch; sem classe
+  // própria ANTES de 'rede' ela seria lida como queda de rede genérica
+  coordenacao: 'coordenação entre dispositivos indisponível: fetch failed',
 };
 
 /* ---------- CLASSES: forma e ordem ---------- */
@@ -48,7 +51,7 @@ const MSG = {
 test('CLASSES: toda classe tem os cinco campos e um kind válido', () => {
   const KINDS = ['operacional', 'espera-reset', 'transitorio', 'permanente'];
   const GRUPOS = ['operacional', 'ambiente', 'credencial', 'rede', 'app'];
-  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 15, 'são 15 classes');
+  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 16, 'são 16 classes');
   for (const c of CLASSES) {
     assert.equal(typeof c.id, 'string');
     assert.ok(c.label, `${c.id} precisa de label humano`);
@@ -68,7 +71,7 @@ test('CLASSES: ids únicos', () => {
 test('CLASSES: a ordem é a documentada (primeira que casar vence)', () => {
   assert.deepEqual(CLASSES.map(c => c.id), [
     'restart-fila', 'console-fechado', 'limite-plano', 'assinatura-bloqueada',
-    'oauth-expirado', 'credencial-invalida', 'credito-insuficiente', 'resultado-invalido', 'rede', 'github-indisponivel',
+    'oauth-expirado', 'credencial-invalida', 'credito-insuficiente', 'resultado-invalido', 'coordenacao-indisponivel', 'rede', 'github-indisponivel',
     'provedor-indisponivel', 'token-gh', 'skip-permissions-root', 'tempo-esgotado', 'ferramenta'
   ]);
 });
@@ -97,6 +100,7 @@ const CASOS = [
   ['credencial-invalida', MSG.credencial],
   ['oauth-expirado', MSG.oauthExpirado],
   ['credito-insuficiente', MSG.credito],
+  ['coordenacao-indisponivel', MSG.coordenacao],
   ['rede', MSG.rede],
   ['rede', MSG.redeSessao],
   ['rede', MSG.redeReconexao],
@@ -660,4 +664,21 @@ test('classify: a precedência sobre ferramenta é o que faz a classe funcionar'
 test('classify: pega as duas metades da mensagem do CLI', () => {
   assert.equal(classify('--dangerously-skip-permissions cannot be used with root/sudo privileges for security reasons').id, 'skip-permissions-root');
   assert.equal(classify('sessão retornou erro: cannot be used with root/sudo privileges').id, 'skip-permissions-root');
+});
+
+test('coordenação entre dispositivos indisponível: transitória e vence rede mesmo com "fetch failed"', () => {
+  const c = classify(MSG.coordenacao);
+  assert.equal(c.id, 'coordenacao-indisponivel');
+  assert.equal(c.kind, 'transitorio', 'espera é o comportamento certo, nunca estacionamento');
+  assert.equal(c.grupo, 'rede');
+  assert.match(MSG.coordenacao, /fetch failed/, 'confirma que o texto casaria com rede também');
+  assert.equal(classify('Coordenacao entre dispositivos indisponivel: timeout').id, 'coordenacao-indisponivel', 'sem acento também');
+  assert.equal(classify(MSG.redeSessao).id, 'rede', 'fetch failed sozinho continua sendo rede');
+  // com só a consolidação ligada a MESMA falha se chama "sincronização": sem isto o
+  // Diagnóstico mostrava "Coordenação indisponível" a quem nem ligou a coordenação
+  const c2 = classify('sincronização entre dispositivos indisponível: fetch failed');
+  assert.equal(c2.id, 'coordenacao-indisponivel', 'mesma classe, porque é a mesma falha');
+  assert.equal(c2.kind, 'transitorio');
+  assert.equal(c2.label, 'Sincronização entre dispositivos indisponível', 'o rótulo não pode nomear um recurso que ninguém ligou');
+  assert.equal(classify('Sincronizacao entre dispositivos indisponivel: timeout').id, 'coordenacao-indisponivel', 'sem acento também');
 });

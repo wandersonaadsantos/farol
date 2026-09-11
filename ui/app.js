@@ -18,7 +18,7 @@ import {
   reasonGroupsHtml, reasonText, claudeProfilesHtml, accountsManagerHtml,
   jiraBaseUrlProblema, jiraPrefixosProblema,
   canMergeSelfAnalysis, qualityBlockTitle, selfAnalysisBadge, selfAnalysisToggle, selfAnalysisStale,
-  filaJustaHtml
+  filaJustaHtml, syncSecaoHtml, syncConfirmacoesDoClique, usageConsolidadoEnvelopeHtml, syncCfgComGeral
 } from './pure.js';
 
 const $ = (s) => document.querySelector(s);
@@ -667,7 +667,7 @@ $('#resolved').addEventListener('click', async (e) => {
   // global (o da fila é escutado dentro do #queue, o do panorama dentro do #panorama),
   // então a seção escuta o seu. O botão desabilita até o próximo estado re-renderizar.
   const rev = e.target.closest('.act-review');
-  if (rev) { rev.disabled = true; api('/api/review', { urls: [rev.dataset.url] }); return; }
+  if (rev) { rev.disabled = true; revisarUrls([rev.dataset.url]); return; }
   const cp = e.target.closest('.rr-copy');
   if (cp) {
     const ok = await copyToClipboard(cp.dataset.url || cp.dataset.key || '');
@@ -1222,6 +1222,164 @@ $('#jiraSitesManager').addEventListener('change', (e) => {
   saveJiraSites(sites);
 });
 
+
+/* ---------- Sistema > Sincronização entre dispositivos ----------
+
+   O HTML todo sai de funções puras (ui/pure.js, testadas em test/ui-pure-sync.test.js);
+   aqui fica só o que toca o DOM e a rede. O padrão é o do Jira: um container que a
+   seção inteira reescreve, com delegação de evento no container, porque os elementos
+   nascem e morrem a cada render e um listener por botão vazaria.
+
+   A senha é lida do DOM no instante do clique, numa const local, e some com o re-render:
+   ela nunca entra no STATE nem em nada que o snapshot carregue. */
+
+function syncCfgAtual() {
+  return (STATE && STATE.config && STATE.config.sync) || {};
+}
+
+/* Salva o objeto INTEIRO de sync. Mandar só o campo alterado faria o engine receber uma
+   config parcial e apagar o resto, que é o oposto do que a tela mostra. */
+function saveSync(sync, aoSalvar) {
+  if (!STATE) return;
+  STATE.config = { ...STATE.config, sync };
+  renderSync();
+  api('/api/settings', { sync }).then(r => {
+    if (r && Array.isArray(r.ignoradas) && r.ignoradas.includes('sync')) {
+      toast('error', '"sync" não foi salvo: o servidor não reconhece essa preferência.', 6000);
+      return;
+    }
+    // o servidor devolve a config JÁ saneada: é ela que diz o que de fato ficou gravado
+    if (typeof aoSalvar === 'function' && r && r.sync) { aoSalvar(r); return; }
+    toast('ok', '✓ Configurações salvas', 2000);
+  });
+}
+
+function renderSync() {
+  const box = $('#syncManager');
+  if (!box) return;
+  // Mesma guarda do renderJiraSites: o estado chega por push a cada ciclo, e repintar
+  // por baixo de quem digita apaga e-mail, senha ou URL no meio da frase. Checkbox fica
+  // FORA da guarda de propósito: o interruptor precisa repintar a seção no mesmo clique.
+  const foco = document.activeElement;
+  if (foco && box.contains(foco) && /INPUT|SELECT/.test(foco.tagName) && foco.type !== 'checkbox') return;
+  box.innerHTML = syncSecaoHtml((STATE && STATE.sync) || {}, syncCfgAtual());
+}
+
+// Os três interruptores. A regra da chave geral mora em syncCfgComGeral (ui/pure.js),
+// que é pura e testada: o comentário aqui já prometeu o arrasto das sub-chaves antes de
+// o código fazê-lo, e promessa em prosa não se verifica sozinha.
+function syncToggle(id, valor) {
+  const c = syncCfgAtual();
+  if (id === 'setSyncEnabled') {
+    saveSync(syncCfgComGeral(c, valor));
+    return;
+  }
+  const chave = id === 'setSyncCoordination' ? 'coordination' : 'consolidation';
+  saveSync({ ...c, [chave]: { ...(c[chave] || {}), enabled: valor } });
+}
+
+// A URL do banco passa por allowlist de host no servidor (lib/sync/config.js), e valor
+// recusado faz o saneador MANTER o anterior. Sem este aviso, o campo simplesmente
+// voltava ao valor velho depois do salvamento: da tela, é indistinguível de "não salvou"
+// ou de bug. Quem valida continua sendo o servidor, que é a fonte única; aqui só se
+// compara o que foi pedido com o que ficou.
+function syncCampoSalvar(id, valor) {
+  const c = syncCfgAtual();
+  const campo = { syncApiKey: 'apiKey', syncDatabaseUrl: 'databaseUrl', syncDeviceName: 'deviceName' }[id];
+  if (!campo || String(c[campo] || '') === valor) return;
+  saveSync({ ...c, [campo]: valor }, (r) => {
+    const ficou = String(((r || {}).sync || {})[campo] || '');
+    if (ficou === String(valor)) return;
+    if (campo === 'databaseUrl') toast('error', 'Endereço do banco recusado: use a URL do Realtime Database do seu projeto (…firebaseio.com ou …firebasedatabase.app). O valor anterior foi mantido.', 8000);
+    else toast('error', 'Valor recusado pelo servidor; o anterior foi mantido.', 6000);
+  });
+}
+
+async function syncFazerLogin() {
+  const email = ($('#syncEmail') || {}).value || '';
+  const senha = ($('#syncSenha') || {}).value || '';
+  if (!email.trim() || !senha) { toast('error', 'Informe o e-mail e a senha do Firebase.', 4000); return; }
+  const r = await api('/api/sync/login', { email: email.trim(), password: senha });
+  // os campos são limpos nos DOIS desfechos: senha digitada não fica na tela esperando
+  const campoSenha = $('#syncSenha');
+  if (campoSenha) campoSenha.value = '';
+  if (r && r.ok) toast('ok', '✓ Conectado ao Firebase', 3000);
+  else toast('error', `Não deu pra entrar: ${(r && r.motivo) || 'o servidor não respondeu'}`, 7000);
+  renderSync();
+}
+
+async function syncTestar() {
+  const out = $('#syncTestOut');
+  if (out) out.textContent = 'testando…';
+  const r = await api('/api/sync/test', {});
+  if (!out) return;
+  if (r && r.ok) {
+    out.className = 'sync-teste ok';
+    out.textContent = `respondeu agora, ${r.devices} aparelho(s) neste banco`;
+    return;
+  }
+  out.className = 'sync-teste ruim';
+  out.textContent = (r && r.motivo) || 'não respondeu';
+}
+
+async function syncSair() {
+  await api('/api/sync/logout', {});
+  toast('info', 'Este aparelho saiu do Firebase. Nada local foi apagado.', 4000);
+  renderSync();
+}
+
+async function syncApagarRemoto() {
+  const ok = await confirmModal({
+    danger: true,
+    title: 'Apagar dados sincronizados?',
+    confirmLabel: 'Apagar do Firebase',
+    body: `<p>Apaga do seu Firebase os aparelhos, as coordenações e o consumo enviado por <b>todos</b> os aparelhos.</p>
+      <p><b>Análise em curso em outro aparelho é interrompida.</b> A coordenação dela sai junto, e aquele aparelho descarta o resultado sem postar quando perceber.</p>
+      <p>Nenhum arquivo local é tocado: o histórico de cada aparelho continua nele. A sincronização segue ligada e o consumo deste aparelho é reenviado do zero.</p>`,
+  });
+  if (!ok) return;
+  const r = await api('/api/sync/erase-remote', {});
+  if (r && r.ok) toast('ok', '✓ Dados sincronizados apagados do Firebase', 4000);
+  else toast('error', `Não deu pra apagar: ${(r && r.motivo) || 'o servidor não respondeu'}`, 7000);
+  renderSync();
+}
+
+/* "Refazer neste aparelho" APAGA a prova de que uma análise foi feita, então ele
+   confirma sempre, nomeando o aparelho e o custo. O engine ainda recusa por conta
+   própria se o recibo tiver deixado de ser órfão entre a tela e o clique. */
+async function syncRefazer(key) {
+  const r = ((STATE && STATE.sync && STATE.sync.recibosVistos) || {})[key] || {};
+  const onde = esc(r.deviceName || 'outro aparelho');
+  const ok = await confirmModal({
+    title: 'Refazer este commit neste aparelho?',
+    confirmLabel: 'Refazer neste aparelho',
+    body: `<p><code>${esc(key)}</code> já foi analisado no <b>${onde}</b> neste commit, e o resultado só existe lá.</p>
+      <p>Refazer aqui abre uma sessão nova e consome tokens. Se o ${onde} voltar, ele confere antes de postar e não publica por cima.</p>`,
+  });
+  if (!ok) return;
+  const resp = await api('/api/sync/redo', { key });
+  if (resp && resp.ok) toast('ok', `✓ ${key} relançado neste aparelho`, 4000);
+  else toast('error', `Não deu pra refazer: ${(resp && resp.motivo) || 'o servidor não respondeu'}`, 7000);
+  renderSync();
+}
+
+$('#syncManager').addEventListener('click', (e) => {
+  const redo = e.target.closest('.sync-redo');
+  if (redo) { syncRefazer(redo.dataset.key); return; }
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.id === 'syncLogin') syncFazerLogin();
+  else if (b.id === 'syncLogout') syncSair();
+  else if (b.id === 'syncTest') syncTestar();
+  else if (b.id === 'syncErase') syncApagarRemoto();
+});
+
+$('#syncManager').addEventListener('change', (e) => {
+  const t = e.target;
+  if (t.type === 'checkbox' && t.id.startsWith('setSync')) { syncToggle(t.id, t.checked); return; }
+  if (t.id && t.id.startsWith('sync')) syncCampoSalvar(t.id, String(t.value || '').trim());
+});
+
 /* ---------- tema ---------- */
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
@@ -1283,7 +1441,7 @@ function switchTab(name) {
   if (name === 'entregas') loadDeliveries();
   if (name === 'destaques') { loadHighlights(); renderTools(); }   // renderTools: kudos do escopo atual, não o defasado
   if (name === 'time') loadTeam();
-  if (name === 'sistema') { switchSistemaSection(); loadLog(); renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); loadReviewerCands(); }
+  if (name === 'sistema') { switchSistemaSection(); loadLog(); renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); loadReviewerCands(); }
   if (name === 'consumo') renderUsage();
 }
 $('#nav').addEventListener('click', (e) => {
@@ -1319,6 +1477,7 @@ $('#sysNav').addEventListener('click', (e) => {
 const SYS_INDEX = [
   { sec: 'overview', at: '#updateBox', title: 'Versão e atualização', hint: 'update, atualizar, versão, release' },
   { sec: 'overview', at: '#doctor', title: 'Saúde do ambiente', hint: 'doctor, gh, claude, git bash, diagnóstico' },
+  { sec: 'sync', at: '#syncManager', title: 'Sincronização entre aparelhos', hint: 'sync, firebase, aparelho, dispositivo, coordenação, lease, consolidação, consumo, um farol por pr' },
   { sec: 'accounts', at: '#accountsManager', title: 'Contas do GitHub', hint: 'conta, identidade, cor, silenciar, política, token' },
   { sec: 'automation', at: '#sys-row-autoreview', title: 'Revisar automaticamente quando chegar PR', hint: 'auto review, revisão na hora, fila' },
   { sec: 'automation', at: '#sys-row-autoapprove', title: 'Aprovar sozinho os aprováveis com ressalvas', hint: 'auto approve, ressalva, aprovação' },
@@ -2301,7 +2460,7 @@ function renderQueue() {
     return;
   }
   const parked = STATE.parked || {};
-  box.innerHTML = q.map(pr => queueCardHtml(pr, { people, mark: acctMark(pr), parked })).join('');
+  box.innerHTML = q.map(pr => queueCardHtml(pr, { people, mark: acctMark(pr), parked, sync: STATE.sync })).join('');
 }
 
 /* selo de estado da SUA revisão numa linha do panorama: primeiro o que o Farol
@@ -2844,6 +3003,13 @@ function renderFilaJusta() {
 
 function renderUsage() {
   renderFilaJusta();
+  renderUsageDeviceSeg();
+  const consolidado = usageDeviceState.escopo === 'todos';
+  const painelLocal = $('#usageLocal');
+  const painelTodos = $('#usageConsolidado');
+  if (painelLocal) painelLocal.hidden = consolidado;
+  if (painelTodos) painelTodos.hidden = !consolidado;
+  if (consolidado) { renderUsageConsolidado(); return; }
   const u = STATE && STATE.usage;
   const kpisEl = $('#usageKpis'), tl = $('#usageTimeline'), legend = $('#usageLegend');
   const matrix = $('#usageMatrix'), matrixCap = $('#usageMatrixCaption');
@@ -2866,6 +3032,106 @@ function renderUsage() {
   sessions.innerHTML = usageSessionsHtml(u || {});
 }
 
+
+/* ---------- coordenação no clique Revisar (U2) ----------
+
+   A resposta de /api/review traz `coordenacao[]` quando o preflight segurou algum PR.
+   A ESCOLHA do desfecho por motivo é pura (syncConfirmacaoDoClique, em ui/pure.js);
+   aqui fica só o modal e o reenvio. O override é reenviado por PR, e só pelo PR que
+   a pessoa confirmou: mandar o lote inteiro com a flag contornaria a coordenação de
+   PRs que ninguém confirmou. */
+// owner/repo#N a partir da URL do PR: é assim que a URL que o clique ENVIOU vira a
+// chave que a resposta devolve, sem depender de o PR estar numa lista da tela.
+function keyDaUrl(url) {
+  const m = /github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/.exec(String(url || ''));
+  return m ? `${m[1]}/${m[2]}#${m[3]}` : '';
+}
+
+// `urls` é a lista que o clique enviou, e é ela que resolve a chave. Procurar só em
+// STATE.queue e STATE.panorama deixava a confirmação sem abrir quando o clique vinha de
+// Resolvidos ou de Decisões, que é justamente onde o PR não está nas duas listas. As
+// listas ficam como degrau de recuo para chamador que não passe as urls.
+async function tratarCoordenacaoDoClique(resp, mode, urls = []) {
+  const porKey = new Map(urls.map((u) => [keyDaUrl(u), u]).filter(([k]) => k));
+  for (const c of syncConfirmacoesDoClique(resp)) {
+    if (c.tipo === 'aviso') { toast('info', c.texto, 7000); continue; }
+    const daLista = (STATE.queue || []).concat(STATE.panorama || []).find(p => p.key === c.key);
+    const url = porKey.get(c.key) || (daLista && daLista.url) || '';
+    if (!url) { toast('info', `${c.key}: a coordenação segurou a revisão, e o PR não está mais na tela.`, 6000); continue; }
+    // uma confirmação por vez é o ponto: são modais, e empilhar dois esconderia um
+    const ok = await confirmModal({ title: c.titulo, confirmLabel: c.acao, body: c.corpo });
+    if (ok) revisarUrls([url], { [c.override]: true }, mode);
+  }
+}
+
+/* Boca ÚNICA do clique Revisar. Todos os caminhos (fila, panorama, "revisar de novo",
+   revisar tudo, terminal) passam por aqui, pela mesma razão do enqueueHeadless no
+   engine: garantia que precisa valer sempre mora no estrangulamento, e não em cada
+   chamador. Sem isto, o botão que alguém acrescentasse amanhã ignoraria a confirmação
+   da coordenação em silêncio. */
+function revisarUrls(urls, extras = {}, mode = 'auto') {
+  const corpo = { urls, ...extras };
+  if (mode === 'terminal') corpo.mode = 'terminal';
+  return api('/api/review', corpo).then(r => {
+    if (r && Array.isArray(r.coordenacao) && r.coordenacao.length) tratarCoordenacaoDoClique(r, mode, urls);
+    return r;
+  });
+}
+
+/* ---------- Consumo: este aparelho x todos os aparelhos (U4) ----------
+
+   "Este aparelho" volta ao renderUsage de sempre, sem NENHUMA diferença: a consolidação
+   é uma segunda visão, nunca uma reescrita da primeira. O segmentado só existe com a
+   consolidação ligada, porque sem ela não há o que consolidar. */
+const usageDeviceState = { escopo: 'este' };
+
+function usageConsolidadoVisivel() {
+  return !!(STATE && STATE.sync && STATE.sync.consolidation);
+}
+
+function renderUsageDeviceSeg() {
+  const box = $('#usageDevice');
+  if (!box) return;
+  box.hidden = !usageConsolidadoVisivel();
+  // consolidação desligada no meio do caminho: a visão volta pra deste aparelho, senão
+  // a tela ficaria presa numa aba que não pode mais buscar nada
+  if (box.hidden && usageDeviceState.escopo !== 'este') usageDeviceState.escopo = 'este';
+}
+
+// O estado chega por push a cada ciclo de polling, e este painel é o único que faz IO
+// para pintar. Sem memória, cada push trocava o conteúdo por "Buscando…" (pisca) e
+// repetia o GET. A resposta anterior pinta na hora e a busca só se repete depois do
+// intervalo mínimo; trocar a janela busca na hora, porque aí a resposta é outra.
+const consolidadoCache = { janela: null, resposta: null, at: 0, buscando: false };
+const CONSOLIDADO_MIN_MS = 30000;
+
+async function renderUsageConsolidado() {
+  const alvo = $('#usageConsolidado');
+  if (!alvo) return;
+  const janela = usageState.window;
+  const serveCache = consolidadoCache.resposta && consolidadoCache.janela === janela;
+  alvo.innerHTML = serveCache
+    ? usageConsolidadoEnvelopeHtml(consolidadoCache.resposta)
+    : '<p class="vago">Buscando o consumo de todos os aparelhos…</p>';
+  const recente = consolidadoCache.janela === janela && consolidadoCache.at > 0
+    && (Date.now() - consolidadoCache.at) < CONSOLIDADO_MIN_MS;
+  if (recente || consolidadoCache.buscando) return;
+  consolidadoCache.buscando = true;
+  let r;
+  try { r = await get(`/api/sync/consolidated?days=${encodeURIComponent(janela)}`); }
+  finally { consolidadoCache.buscando = false; }
+  // a janela pode ter mudado enquanto a busca corria: resposta velha não pinta a tela
+  if (usageDeviceState.escopo !== 'todos' || usageState.window !== janela) return;
+  // `at` é carimbado SEMPRE, inclusive na falha: o get() devolve null quando a rede cai,
+  // e guardar só o sucesso deixava o throttle sem efeito justamente com o endpoint fora
+  // do ar (cada push repintava "Buscando…" e disparava outro GET). A resposta nula não
+  // entra no cache, para a tela não servir vazio como se fosse dado.
+  consolidadoCache.janela = janela;
+  consolidadoCache.at = Date.now();
+  if (r) consolidadoCache.resposta = r;
+  alvo.innerHTML = usageConsolidadoEnvelopeHtml(r);
+}
+
 function wireUsageControls() {
   const bind = (sel, attr, key, cast) => {
     const box = document.querySelector(sel); if (!box) return;
@@ -2879,6 +3145,14 @@ function wireUsageControls() {
   bind('#usageMetric', 'metric', 'metric');
   bind('#usageWindow', 'window', 'window', Number);
   bind('#usageStack', 'dim', 'dim');
+  const dev = document.querySelector('#usageDevice');
+  if (dev) {
+    dev.querySelectorAll('.seg-btn').forEach(b => b.addEventListener('click', () => {
+      marcarSeg(dev.querySelectorAll('.seg-btn'), x => x === b);
+      usageDeviceState.escopo = b.dataset.escopo;
+      renderUsage();
+    }));
+  }
 }
 wireUsageControls();
 
@@ -3574,6 +3848,7 @@ function renderSettings() {
   renderReviewersEditor();
   renderClaudeProfiles();
   renderJiraSites();
+  renderSync();
   $('#setInterval').value = String(c.intervalSeconds);
   $('#setParallelReviews').value = String(c.parallelReviews || 1);
   // teto global: 0 = desligado, e o `|| 0` do default cai certo nele de propósito
@@ -3763,7 +4038,7 @@ $('#btnReviewAll').onclick = () => {
   // (mandar {} fazia o servidor revisar a fila INTEIRA, achado B22)
   const urls = (STATE.queue || []).filter(scopeVisible).map(p => p.url);
   if (!urls.length) { toast('info', 'Nada visível pra revisar agora (a fila mudou embaixo do botão).'); return; }
-  api('/api/review', { urls });
+  revisarUrls(urls);
 };
 
 /* tweaks de exibição (guardados no navegador, não vão pro engine) */
@@ -3808,7 +4083,7 @@ $('#panorama').addEventListener('click', async (e) => {
   if (btn) {
     btn.disabled = true;
     btn.textContent = 'Revisando…';
-    api('/api/review', { urls: [btn.dataset.url] });
+    revisarUrls([btn.dataset.url]);
     return;
   }
   // .act-chat é ouvido globalmente (document); só o copiar precisa de listener aqui,
@@ -3829,9 +4104,9 @@ $('#activeSessions').addEventListener('click', (e) => {
 
 $('#queue').addEventListener('click', (e) => {
   const rev = e.target.closest('.act-review');
-  if (rev) { api('/api/review', { urls: [rev.dataset.url] }); return; }
+  if (rev) { revisarUrls([rev.dataset.url]); return; }
   const term = e.target.closest('.act-terminal');
-  if (term) { api('/api/review', { urls: [term.dataset.url], mode: 'terminal' }); return; }
+  if (term) { revisarUrls([term.dataset.url], {}, 'terminal'); return; }
   const ign = e.target.closest('.act-ignore');
   if (ign) {
     const key = ign.dataset.key;
@@ -3855,7 +4130,7 @@ $('#decisions').addEventListener('click', async (e) => {
   // global (cada seção escuta o seu, ver #resolved), e o card bloqueado por head
   // velho é o único caso em que ele aparece aqui: o round novo substitui este card.
   const rev = e.target.closest('.act-review');
-  if (rev) { rev.disabled = true; api('/api/review', { urls: [rev.dataset.url] }); return; }
+  if (rev) { rev.disabled = true; revisarUrls([rev.dataset.url]); return; }
   const btn = e.target.closest('.dec-act');
   if (!btn) return;
   const id = btn.closest('.decision').dataset.id;
@@ -3930,7 +4205,7 @@ function connect() {
     renderRadarNav();
     syncAnalysisOps();
     renderSettings(); renderTools(); renderUpdate(); tickCountdown();
-    if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); }
+    if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); }
     if ($('#tab-consumo').classList.contains('active')) renderUsage();
   });
   es.addEventListener('activity', (e) => {
