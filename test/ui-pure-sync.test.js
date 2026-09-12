@@ -100,10 +100,17 @@ test('syncContaHtml: o rascunho devolve e-mail e senha à tela repintada', () =>
   assert.match(cheio, /value="s3nh@"/);
 });
 
+/* A prova forte é a PRESENÇA da forma escapada, não a ausência da crua: "sumiu do HTML"
+   e "foi escapado" se confundem numa asserção negativa, e só a segunda é o que `esc`
+   promete. A negativa fica junto, mas insensível a caixa: `/<script>/` não casa
+   `<SCRIPT>`, então ela passaria verde justamente no caso em que o escape falhou e a
+   marcação veio em maiúsculas (js/bad-tag-filter, achado do CodeQL neste PR). */
 test('syncContaHtml: o rascunho é escapado, não interpolado cru', () => {
   const html = P.syncContaHtml(sync({ status: 'sem-credencial' }), { email: '"><script>x</script>', senha: '"><b>' });
-  assert.doesNotMatch(html, /<script>/);
-  assert.doesNotMatch(html, /value=""><b>/);
+  assert.match(html, /value="&quot;&gt;&lt;script&gt;x&lt;\/script&gt;"/, 'o e-mail sai escapado dentro do atributo');
+  assert.match(html, /value="&quot;&gt;&lt;b&gt;"/, 'a senha sai escapada dentro do atributo');
+  assert.doesNotMatch(html, /<\s*\/?\s*script/i, 'nenhuma tag script crua, em qualquer caixa');
+  assert.doesNotMatch(html, /value=""\s*>/, 'as aspas do rascunho nunca fecham o atributo');
 });
 
 /* O olho da senha. O estado mora no aria-pressed E no type do input: se os dois
