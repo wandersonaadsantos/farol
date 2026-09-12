@@ -1154,6 +1154,36 @@ function textoPausa(b) {
     : `o perfil <b>${esc(b.label || 'padrão')}</b> passou do ${eixo} (${valores})`;
 }
 
+/* As orgs que o vazio da fila pode NOMEAR. PURA.
+
+   Existe porque a frase saía de `config.owners` (`ui/app.js`), o campo legado do modo
+   simples: `accountList()` (server.js) só cai nele quando NÃO há conta cadastrada, então
+   com contas o motor ignorava aquele campo e a tela seguia exibindo ele. Medido em
+   12/09/2026: `config.owners` dizia uma org enquanto as contas monitoravam cinco.
+
+   A régua é o que de fato é BUSCADO, e por isso as duas exclusões não são zelo:
+   `searchPRs` pula conta sem token (`lib/engine/gh-queries.js`) e conta silenciada está
+   fora da automação por escolha, como `automacaoPausadaPor` logo acima já reconhece.
+
+   O escopo entra aqui porque a LISTA da fila é filtrada por ele (`scopeVisible`) e a frase
+   não era: escolher uma conta no seletor seguia citando org que ela nem cobre. */
+export function orgsMonitoradas(accounts, scope) {
+  const todas = String(scope || 'all') === 'all';
+  const alvo = String(scope || '').toLowerCase();
+  // minúscula -> primeira grafia vista: a mesma org em duas contas é uma org só, e quem
+  // lê deve ver o nome do jeito que cadastrou, não normalizado
+  const vistas = new Map();
+  for (const a of Array.isArray(accounts) ? accounts : []) {
+    if (!a || a.muted || !a.tokenOk) continue;
+    if (!todas && String(a.user || '').toLowerCase() !== alvo) continue;
+    for (const org of orgsDaConta(a)) if (!vistas.has(org.toLowerCase())) vistas.set(org.toLowerCase(), org);
+  }
+  return [...vistas.values()];
+}
+function orgsDaConta(a) {
+  return (Array.isArray(a.owners) ? a.owners : []).map(o => String(o || '').trim()).filter(Boolean);
+}
+
 export function queueEmptyOkHtml(ctx = {}) {
   const aprovados = ctx.aprovados || 0;
   const orgs = (ctx.owners || []).map(o => `<b>${esc(o)}</b>`).join(', ');

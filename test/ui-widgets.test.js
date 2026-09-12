@@ -485,3 +485,35 @@ test('progresso literal no app.js so existe no paint inicial (<= 10); o resto sa
     'percentual literal acima de 10 no app.js: use sessionProgress (ui/pure.js), a regua unica de progresso');
   assert.ok(APPJS.includes('sessionProgress('), 'a regua central sumiu do app.js');
 });
+
+/* ---------- o vazio da fila nomeia a org CERTA ----------
+   Bug de 12/09/2026: a frase "o Farol monitora X" saía de `config.owners`, o campo legado
+   que o `accountList()` do server só usa quando não há conta cadastrada. Com contas, o
+   motor ignorava aquele campo e a tela continuava exibindo ele, e o escopo do seletor não
+   entrava na conta. Não dá pra testar o render sem DOM, então a trava é estática: a fonte
+   daquele parâmetro tem que ser a régua de `ui/pure.js`, nunca o campo legado. */
+
+// o trecho da chamada, do `(` até o `});` que a fecha. Recortar por índice e não por
+// regex de chaves de propósito: comentário dentro do objeto já quebrou a versão com
+// quantificador, e o teste tem que reprovar a FONTE errada, nunca o comentário novo.
+function chamadaDoVazio() {
+  const i = APPJS.indexOf('queueEmptyOkHtml({');
+  if (i < 0) return '';
+  const fim = APPJS.indexOf('});', i);
+  return fim < 0 ? '' : APPJS.slice(i, fim);
+}
+
+test('o vazio da fila recebe as orgs da régua, não o campo legado config.owners', () => {
+  const chamada = chamadaDoVazio();
+  assert.ok(chamada, 'a chamada de queueEmptyOkHtml sumiu do app.js');
+  assert.match(chamada, /owners:\s*orgsMonitoradas\(/,
+    'owners tem que vir de orgsMonitoradas (ui/pure.js), a régua do que é de fato buscado');
+  assert.doesNotMatch(chamada, /owners:\s*STATE\.config/,
+    'config.owners é o campo legado que o engine descarta quando há contas cadastradas');
+});
+
+test('a régua do vazio recebe o escopo, senão volta a citar org de outra conta', () => {
+  const chamada = APPJS.match(/owners:\s*orgsMonitoradas\([^)]*\)/);
+  assert.ok(chamada, 'orgsMonitoradas não é chamada no app.js');
+  assert.match(chamada[0], /SCOPE/, 'sem o escopo, escolher uma conta segue citando as orgs das outras');
+});

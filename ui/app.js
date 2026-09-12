@@ -1,7 +1,7 @@
 /* Farol · UI: consome o engine local via SSE + fetch. Sem frameworks. */
 
 import {
-  statusBannerHtml, queueEmptyOkHtml, automacaoPausadaPor, esc, safeJsonParse, fmtClock, sysNorm, ownerFromUrl, canonicalGithubPrUrl, prKeyFromUrl, repoShort, stripFence,
+  statusBannerHtml, queueEmptyOkHtml, automacaoPausadaPor, orgsMonitoradas, esc, safeJsonParse, fmtClock, sysNorm, ownerFromUrl, canonicalGithubPrUrl, prKeyFromUrl, repoShort, stripFence,
   hexToRgba, sameSet, usageMetricVal, usageStackLayers, usageHoverIndex, accountSaveArray,
   delivCappedMsg, fmtRel, usageDayKeysBack, aprovadosHoje, avatar, md, feedLine,
   agentsTitle, stageFlowFrom, stageFlowHtml, analysisOpsPlan, selfSessionKey,
@@ -2541,7 +2541,10 @@ function renderQueue() {
     // aprovadosHoje compara o dia em fuso LOCAL e vive no pure.js (testada la)
     box.innerHTML = queueEmptyOkHtml({
       aprovados: aprovadosHoje(STATE.decisions?.resolved),
-      owners: STATE.config?.owners || [],
+      // as orgs saem da régua do que é DE FATO buscado (conta não silenciada e com
+      // token), no escopo em que a lista acima foi filtrada. Ler config.owners aqui
+      // mostrava um campo que o accountList() do server descarta quando há contas.
+      owners: orgsMonitoradas(STATE.accounts, SCOPE),
       intervalSeconds: STATE.config?.intervalSeconds,
       // fila vazia com a automação pausada por teto não é "está tudo em dia":
       // é "nada vai ser revisado sozinho até liberar" (ver automacaoPausadaPor)
