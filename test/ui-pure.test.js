@@ -2565,6 +2565,54 @@ test('vazio da fila: sem intervalo cai no padrão de 5 minutos', () => {
   assert.match(P.queueEmptyOkHtml({ aprovados: 0, owners: [] }), /a cada 5 minutos/);
 });
 
+/* ---------- as orgs que o vazio pode nomear ----------
+   Até 12/09/2026 a frase saía de `config.owners`, o campo LEGADO do modo simples, que o
+   `accountList()` do server só usa quando NÃO existe conta cadastrada. Com contas, o motor
+   ignorava aquele campo e a tela seguia mostrando ele: uma máquina com 5 orgs monitoradas
+   anunciava só a primeira. E o escopo era ignorado, então escolher uma conta no seletor
+   continuava citando org que aquela conta nem cobre.
+
+   A régua é "o que de fato é buscado": `searchPRs` pula conta sem token
+   (lib/engine/gh-queries.js) e conta silenciada está fora da automação por escolha. */
+
+const CONTAS = [
+  { user: 'ana', owners: ['acme', 'globex'], muted: false, tokenOk: true },
+  { user: 'bia', owners: ['initech'], muted: false, tokenOk: true },
+];
+
+test('orgs monitoradas: em Todas, junta as orgs de todas as contas', () => {
+  assert.deepEqual(P.orgsMonitoradas(CONTAS, 'all'), ['acme', 'globex', 'initech']);
+});
+
+test('orgs monitoradas: com escopo numa conta, só as orgs dela', () => {
+  assert.deepEqual(P.orgsMonitoradas(CONTAS, 'bia'), ['initech']);
+});
+
+test('orgs monitoradas: o escopo casa sem olhar caixa do login', () => {
+  assert.deepEqual(P.orgsMonitoradas(CONTAS, 'ANA'), ['acme', 'globex']);
+});
+
+test('orgs monitoradas: conta silenciada não entra (está fora da automação)', () => {
+  const contas = [{ user: 'ana', owners: ['acme'], muted: true, tokenOk: true }, CONTAS[1]];
+  assert.deepEqual(P.orgsMonitoradas(contas, 'all'), ['initech']);
+});
+
+test('orgs monitoradas: conta sem token não entra (a busca dela é pulada)', () => {
+  const contas = [{ user: 'ana', owners: ['acme'], muted: false, tokenOk: false }, CONTAS[1]];
+  assert.deepEqual(P.orgsMonitoradas(contas, 'all'), ['initech']);
+});
+
+test('orgs monitoradas: a mesma org em duas contas aparece uma vez', () => {
+  const contas = [CONTAS[0], { user: 'bia', owners: ['ACME'], muted: false, tokenOk: true }];
+  assert.deepEqual(P.orgsMonitoradas(contas, 'all'), ['acme', 'globex'],
+    'dedup ignora a caixa e preserva a primeira grafia vista');
+});
+
+test('orgs monitoradas: sem conta elegível devolve vazio (o vazio cai no genérico)', () => {
+  assert.deepEqual(P.orgsMonitoradas([], 'all'), []);
+  assert.deepEqual(P.orgsMonitoradas(null, 'all'), []);
+});
+
 /* ---------- onda 5, sétimo passo: o diagnóstico ----------
    Este é o único texto do Farol que alguém lê FORA do Farol: a pessoa clica em "gerar
    diagnóstico", cola no chat e espera socorro. Estava sem um único teste. O que importa
