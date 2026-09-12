@@ -1304,6 +1304,22 @@ function saveSync(sync, aoSalvar) {
   });
 }
 
+/* O que foi digitado no login do Firebase, entre uma repintura e a próxima. Vive só em
+   memória da tela: nada daqui vai pro engine sem clique, e nada vai pro disco nunca. É
+   zerado no sucesso do login e ao sair do aparelho, porque aí a senha já não serve pra
+   nada. Ver syncContaHtml (ui/pure.js) pro porquê de a senha sobreviver à recusa. */
+function syncRascunhoVazio() { return { email: '', senha: '', senhaVisivel: false }; }
+
+let syncRascunho = syncRascunhoVazio();
+
+function syncRascunhoDoDom() {
+  const email = $('#syncEmail');
+  const senha = $('#syncSenha');
+  if (email) syncRascunho.email = email.value || '';
+  if (senha) syncRascunho.senha = senha.value || '';
+  return syncRascunho;
+}
+
 function renderSync() {
   const box = $('#syncManager');
   if (!box) return;
@@ -1312,7 +1328,10 @@ function renderSync() {
   // FORA da guarda de propósito: o interruptor precisa repintar a seção no mesmo clique.
   const foco = document.activeElement;
   if (foco && box.contains(foco) && /INPUT|SELECT/.test(foco.tagName) && foco.type !== 'checkbox') return;
-  box.innerHTML = syncSecaoHtml((STATE && STATE.sync) || {}, syncCfgAtual());
+  // o rascunho sai do DOM ANTES de reescrevê-lo: a guarda de foco acima não cobre quem
+  // clicou em Entrar (o foco está no botão), e era por ali que o e-mail se perdia
+  syncRascunhoDoDom();
+  box.innerHTML = syncSecaoHtml((STATE && STATE.sync) || {}, syncCfgAtual(), syncRascunho);
 }
 
 // Os três interruptores. A regra da chave geral mora em syncCfgComGeral (ui/pure.js),
@@ -1350,12 +1369,28 @@ async function syncFazerLogin() {
   const senha = ($('#syncSenha') || {}).value || '';
   if (!email.trim() || !senha) { toast('error', 'Informe o e-mail e a senha do Firebase.', 4000); return; }
   const r = await api('/api/sync/login', { email: email.trim(), password: senha });
-  // os campos são limpos nos DOIS desfechos: senha digitada não fica na tela esperando
-  const campoSenha = $('#syncSenha');
-  if (campoSenha) campoSenha.value = '';
-  if (r && r.ok) toast('ok', '✓ Conectado ao Firebase', 3000);
-  else toast('error', `Não deu pra entrar: ${(r && r.motivo) || 'o servidor não respondeu'}`, 7000);
+  // Só o SUCESSO limpa. Na recusa o que foi digitado fica: quase sempre falta uma caixa
+  // marcada no console do Firebase, e obrigar a redigitar e-mail e senha a cada tentativa
+  // punia quem está justamente corrigindo a configuração do outro lado.
+  if (r && r.ok) {
+    syncRascunho = syncRascunhoVazio();
+    toast('ok', '✓ Conectado ao Firebase', 3000);
+  } else {
+    syncRascunho.email = email;
+    syncRascunho.senha = senha;
+    toast('error', `Não deu pra entrar: ${(r && r.motivo) || 'o servidor não respondeu'}`, 7000);
+  }
   renderSync();
+}
+
+/* O olho da senha. O `aria-pressed` do botão é o estado; o rascunho só o espelha pra
+   sobreviver à repintura, e o input volta a ficar oculto sozinho quando o login dá certo. */
+function syncAlternarSenha() {
+  syncRascunhoDoDom();
+  syncRascunho.senhaVisivel = !syncRascunho.senhaVisivel;
+  renderSync();
+  const campo = $('#syncSenha');
+  if (campo) { campo.focus(); campo.setSelectionRange(campo.value.length, campo.value.length); }
 }
 
 async function syncTestar() {
@@ -1374,6 +1409,8 @@ async function syncTestar() {
 
 async function syncSair() {
   await api('/api/sync/logout', {});
+  // sair zera o rascunho: a senha da conta anterior não fica esperando na tela
+  syncRascunho = syncRascunhoVazio();
   toast('info', 'Este aparelho saiu do Firebase. Nada local foi apagado.', 4000);
   renderSync();
 }
@@ -1419,6 +1456,7 @@ $('#syncManager').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
   if (b.id === 'syncLogin') syncFazerLogin();
+  else if (b.id === 'syncSenhaOlho') syncAlternarSenha();
   else if (b.id === 'syncLogout') syncSair();
   else if (b.id === 'syncTest') syncTestar();
   else if (b.id === 'syncErase') syncApagarRemoto();

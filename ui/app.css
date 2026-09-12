@@ -1627,6 +1627,14 @@ body.electron .chat-head { padding-right: 150px; }
 .sync-campo > label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); }
 .sync-input { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 12.5px; min-height: 31px; width: 100%; }
 .sync-input:focus { outline: none; border-color: var(--accent); }
+/* o olho fica DENTRO da moldura do campo: o input já tem largura total, então o botão
+   flutua sobre ele e o padding à direita reserva o espaço pro texto não passar por baixo */
+.sync-senha { position: relative; display: block; width: 100%; }
+.sync-senha > .sync-input { padding-right: 34px; }
+.sync-olho { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; background: none; border: 0; border-radius: 6px; color: var(--faint); cursor: pointer; }
+.sync-olho:hover { color: var(--text); background: var(--surface-3, var(--surface-2)); }
+.sync-olho:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sync-olho > svg { width: 15px; height: 15px; }
 .sync-dica { font-size: 11px; color: var(--faint); }
 .sync-vago { color: var(--faint); }
 .sync-vazio { margin: var(--sp-3) 2px; font-size: 12.5px; }
