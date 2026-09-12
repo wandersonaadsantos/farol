@@ -9,6 +9,35 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.59.1
+
+Entrar no seu Firebase parou de acusar o Firebase por problemas que são de configuração
+sua ou do próprio Farol, e a tentativa que falha deixou de custar redigitar tudo.
+
+**Correções**
+
+- **"O Firebase respondeu em formato inesperado" quase nunca era isso.** O app conhecia
+  sete recusas do login e mandava todo o resto para essa frase, que manda investigar o
+  fornecedor. Caíam ali justamente as que você resolve sozinho em um clique: o provedor
+  de e-mail e senha desligado no console, o Authentication do projeto nunca inicializado
+  e o e-mail digitado errado. Agora cada uma diz o que é e onde resolver.
+- **Conta que pede confirmação no celular agora é reconhecida.** Com segundo fator
+  ligado, o Firebase responde bem, só que pedindo a etapa seguinte em vez da sessão, e o
+  Farol lia isso como defeito do fornecedor. O login headless do app não sabe fazer essa
+  etapa, então ele passa a dizer exatamente isso e a sugerir um usuário sem segundo
+  fator para a sincronização, em vez de deixar você caçando um problema que não existe.
+- **A tentativa que falhou não apaga mais o que você digitou.** O e-mail sumia junto com
+  a senha a cada recusa, e quem estava justamente corrigindo a configuração do outro lado
+  redigitava os dois a cada ida e volta. Agora só o login que dá certo limpa os campos.
+- **Recusa que só sai com ação sua parou de ser tentada a cada ciclo.** Provedor
+  desligado, Authentication não inicializado e segundo fator não viram sessão por
+  insistência; o app espera você resolver no console.
+
+**Melhorias**
+
+- O campo de senha da sincronização ganhou o botão de mostrar e ocultar, para conferir o
+  que foi digitado antes de tentar de novo.
+
 ## v2.59.0
 
 Seus aparelhos passam a conversar entre si: o mesmo PR deixa de ser analisado duas
