@@ -9,6 +9,33 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.59.2
+
+A tela de fila vazia parou de nomear a organização errada quando você monitora mais de
+uma.
+
+**Correções**
+
+- **"O Farol monitora X a cada N minutos" citava a organização errada.** A frase lia o
+  campo antigo de organizações (o de quando o Farol tinha uma conta só), e esse campo
+  deixa de valer no momento em que você cadastra contas no painel Contas: de lá em
+  diante quem manda são as organizações de cada conta, e o campo antigo fica parado no
+  que você digitou um dia. Medido numa máquina real: a tela prometia monitorar uma
+  organização enquanto o Farol buscava em cinco. Agora a frase nomeia o que ele de fato
+  consulta.
+- **Escolher uma conta no seletor mudava a lista e não mudava a frase.** Com o filtro
+  numa conta, o vazio continuava citando as organizações do campo global, incluindo
+  organização que aquela conta nem cobre. Agora a frase acompanha o filtro: numa conta,
+  as organizações dela; em Todas, as de todas as contas.
+- **Organização monitorada só por conta silenciada, ou por conta sem login no gh,
+  aparecia como monitorada.** As duas estão fora da busca (a silenciada por escolha sua,
+  a sem login porque o Farol pula a consulta dela), então citá-las prometia vigilância
+  que não existe. Elas saíram da frase.
+
+Um vazio que nomeia a organização é o vazio em que se confia, e era justamente ele que
+estava dizendo a coisa errada com cara de quem sabe. Nada aqui muda decisão de revisão:
+é texto de tela.
+
 ## v2.59.1
 
 Entrar no seu Firebase parou de acusar o Firebase por problemas que são de configuração
