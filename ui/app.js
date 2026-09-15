@@ -3489,6 +3489,9 @@ function renderDoctor() {
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.59.4', ['Entregas: até 5000 por organização. Organização com mais de 1000 entregas no período mostrava só as 1000 mais recentes, e os números e o gráfico ficavam abaixo do real. A busca agora divide o período quando uma consulta volta cheia, e o aviso de limite só aparece acima de 5000.',
+    'O instalador do Windows volta a levar o servidor do Jira. Quem instalava pelo Farol-Setup.exe ficava sem ele até o primeiro auto-update.',
+    'Os guias vêm com o app: configuração, gates de revisão, macOS e Linux, e release ficam em quatro guias na pasta docs da instalação.']],
   ['2.59.3', ['O card de commit novo diz quem está com a bola. Quando o autor envia commit durante a revisão, a caixa azul mostra "Reviso de novo sozinho a partir de 19:47", avisa quando a revisão nova está rodando, e fica âmbar com o motivo quando o Farol não vai agir sozinho. Antes o card pedia uma revisão nova num caso em que o app já ia revisar minutos depois.',
     'Aprovar, Pedir mudanças e Só comentar saíram do card de commit novo, porque o texto fala do commit anterior e o GitHub recusaria a postagem. O botão agora é Revisar agora.',
     'Commit novo ou pedido de revisão destrava o que ficava preso: a revisão refeita que falhava, a revisão estacionada por falha e o PR que você pulou, se ele ainda pede a sua revisão, voltam sozinhos. Continuam manuais a revisão que você cancelou, o PR que você ignorou e a revisão que ficou estacionada antes da v2.57.4, que não tem motivo gravado pra dizer se foi cancelamento.',
