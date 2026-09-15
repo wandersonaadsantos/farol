@@ -117,11 +117,17 @@ function toolsCopiadosNoOffline(fonte) {
   return [];
 }
 
-const offline = fs.readFileSync(path.join(raiz, 'tools/make-offline-mac.sh'), 'utf8').replace(/\r\n/g, '\n');
-test('offline macOS copia a mesma whitelist de tools do pacote leve', () => {
+// A whitelist de tools que o pacote leve copia, lida do laço que copia de verdade. É a fonte
+// única para as rotas que precisam levar a mesma lista (o offline do macOS e o Setup.exe).
+function whitelistDoPacote() {
   const loop = empacotador.match(/foreach \(\$t in @\(([^)]*)\)\) \{\s*Copy-Item[^\n]*\$Src 'tools'/);
   assert.ok(loop, 'whitelist real de copia do pacote leve precisa ser encontrada');
-  const permitidos = [...loop[1].matchAll(/'([^']+)'/g)].map(m => m[1]).sort();
+  return [...loop[1].matchAll(/'([^']+)'/g)].map((m) => m[1]).sort();
+}
+
+const offline = fs.readFileSync(path.join(raiz, 'tools/make-offline-mac.sh'), 'utf8').replace(/\r\n/g, '\n');
+test('offline macOS copia a mesma whitelist de tools do pacote leve', () => {
+  const permitidos = whitelistDoPacote();
   const copiados = toolsCopiadosNoOffline(offline);
   assert.deepEqual(copiados, permitidos, 'offline deve levar runtime/build permitido, sem copiar ferramentas de desenvolvimento');
   for (const ref of referenciados) assert.ok(copiados.includes(ref), `offline omite tools/${ref} usado em runtime`);
@@ -132,4 +138,19 @@ test('contraprova offline: mencionar Jira em comentario nao substitui copia no l
   assert.ok(copiados.includes('jira-mcp.js'), 'a contraprova precisa partir de uma copia real');
   const semJira = offline.replace(/(^for \w+ in [^;\n]*)\bjira-mcp\.js\s*/m, '$1');
   assert.equal(toolsCopiadosNoOffline(semJira + '\n# cp "$SRC/tools/$t" "$STAGING/tools/$t"; jira-mcp.js\n').includes('jira-mcp.js'), false);
+});
+
+/* O Setup.exe (tools/make-installer.ps1) monta o payload com lista própria, e ela não levava
+   tools/: quem instalava por ele ficava sem o jira-mcp.js até o primeiro auto-update, porque
+   o install.ps1 pula pasta ausente em silêncio. Medido em 15/09/2026. A pasta inteira NÃO é a
+   correção: o pacote leve e o offline levam só os arquivos de runtime nomeados, e o Setup.exe
+   tem de levar a mesma lista, copiada para o payload. */
+const setupExe = fs.readFileSync(path.join(raiz, 'tools/make-installer.ps1'), 'utf8').replace(/\r\n/g, '\n');
+test('Setup.exe copia a mesma whitelist de tools do pacote leve', () => {
+  const permitidos = whitelistDoPacote();
+  const doSetup = setupExe.match(/foreach \(\$t in @\(([^)]*)\)\) \{\s*Copy-Item[^\n]*\$Src 'tools'[^\n]*\$payload/);
+  assert.ok(doSetup, 'o Setup.exe nao copia tools para o payload: quem instala por ele fica sem o jira-mcp.js');
+  const copiados = [...doSetup[1].matchAll(/'([^']+)'/g)].map((m) => m[1]).sort();
+  assert.deepEqual(copiados, permitidos, 'o Setup.exe deve levar os mesmos arquivos de tools que o pacote leve');
+  for (const ref of referenciados) assert.ok(copiados.includes(ref), `o Setup.exe omite tools/${ref} usado em runtime`);
 });

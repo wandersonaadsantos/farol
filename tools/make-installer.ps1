@@ -48,6 +48,13 @@ foreach ($d in @('lib', 'ui', 'assets', 'workspace-template', 'installer', 'node
   robocopy (Join-Path $Src $d) (Join-Path $payload $d) /E /NFL /NDL /NJH /NJS /NP | Out-Null
   if ($LASTEXITCODE -ge 8) { throw "robocopy falhou em $d" }
 }
+# tools/ viaja por arquivos NOMEADOS, a mesma lista do pacote leve (make-package.ps1): o resto
+# da pasta é ferramenta de build. Sem este laço o Setup.exe instalava sem o jira-mcp.js, e o
+# install.ps1 pula pasta ausente em silêncio (test/pacote-runtime-tools.test.js).
+New-Item -ItemType Directory -Force -Path (Join-Path $payload 'tools') | Out-Null
+foreach ($t in @('jira-mcp.js', 'make-icons.ps1', 'pack-ico.js', 'make-package.ps1', 'make-icns.sh')) {
+  Copy-Item (Join-Path (Join-Path $Src 'tools') $t) (Join-Path (Join-Path $payload 'tools') $t)
+}
 
 # --- compila -------------------------------------------------------------------
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
