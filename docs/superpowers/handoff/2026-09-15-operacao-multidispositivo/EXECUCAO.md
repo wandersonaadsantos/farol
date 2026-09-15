@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026 (iniciativa inteira, limites no plano mestre, seção 4).
-- **Entrega em curso:** C0.
+- **Entrega em curso:** A5.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 - **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026.
@@ -27,8 +27,8 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 | Ordem | Entrega | Branch | Estado | Evidência |
 |---|---|---|---|---|
 | 1 | C1a Allowlist de Host | `md/c1a` | validado localmente, integrado (`be95e67`) | `evidencias-execucao/c1a.md` |
-| 2 | C0 Correções da sincronização publicada | `md/c0` | em curso | |
-| 3 | A5 Retomada durável | `md/a5` | plano pronto | |
+| 2 | C0 Correções da sincronização publicada | `md/c0` | validado localmente, integrado | `evidencias-execucao/c0.md` |
+| 3 | A5 Retomada durável | `md/a5` | em curso | |
 | 4 | A1 Consumo fiel (sem o item 1) | `md/a1` | plano em escrita | |
 | 5 | C0b Arbitragem de postagem no funil | `md/c0b` | plano em escrita | |
 | 6 | A4 Autenticação local, núcleo | `md/a4` | plano pronto | |
@@ -60,7 +60,8 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 | `6f56c12`, `6377b08`, `e8dc8a6`, `626a16f` | `md/integracao` | handoff, spec, correção da spec e anexos, plano mestre e plano da C1a (cherry-pick) |
 | `081e9f4` | `md/integracao` | autorização, retenção decidida, base `8c043bc` |
 | `716650d`, `06d06bb`, merge `be95e67` | `md/c1a` | C1a: função pura, guarda no servidor, mapa e evidência |
+| `a71f485`, `6ca587e`, `39cbb11`, `1d22d32`, `173c6d2`, `bdd960c` | `md/c0` | C0: os seis defeitos, um commit cada |
 
 ## Próxima ação concreta
 
-Executar a Tarefa 1 do plano da C0 em `md/c0`.
+Executar a Tarefa 1 do plano da A5 em `md/a5`.
