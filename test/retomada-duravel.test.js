@@ -57,6 +57,9 @@ beforeEach(() => {
   spawnsDoCli = 0;
   fs.mkdirSync(path.dirname(INFLIGHT), { recursive: true });
   fs.writeFileSync(INFLIGHT, '[]');
+  // o estacionamento é persistido (G15): sem limpar, o PR estacionado por um teste
+  // anterior chegaria estacionado na Engine nova do teste seguinte
+  fs.rmSync(path.join(path.dirname(INFLIGHT), 'auto-review-parked.json'), { force: true });
 });
 
 function lerInflight() { return JSON.parse(fs.readFileSync(INFLIGHT, 'utf8')); }
@@ -250,3 +253,122 @@ test('falha permanente: a referência sai junto', async () => {
   assert.equal(e.autoReviewParked.has(PR.key), true);
   assert.equal(e.retomadas.has(PR.key), false);
 });
+
+/* ---------- Tarefa 4: validação antes de reutilizar ---------- */
+
+function coordenado(e, admissao) {
+  e.syncCoordenacaoAtiva = () => true;
+  e.syncAdmit = async () => admissao;
+  e.syncRegistrarEspera = () => { };
+  delete e.runClaudeStream; // volta pra fachada real: admissão antes de qualquer provedor
+}
+
+test('retomada local válida depois de reiniciar: --resume com o bloco, e a referência é consumida pelo resultado', async () => {
+  const a = motor();
+  semear(a);
+  a.writeInflight();
+  const e = motor(); // reinício
+  e.processHeadless = () => { };
+  e.pushState = () => { };
+  e.enqueueHeadless({ ...PR });
+  const pr = e.headlessQueue.shift();
+  await e.runHeadlessReview(pr);
+  assert.equal(e.chamadas.length, 1);
+  const args = e.chamadas[0].extraArgs;
+  assert.equal(args[args.indexOf('--resume') + 1], SID);
+  assert.ok(e.chamadas[0].prompt.includes(retomadaAposFalhaBlock()));
+  assert.equal(e.retomadas.has(PR.key), false, 'sessão que devolveu resultado consome');
+  assert.equal(lerInflight().some(i => i.key === PR.key), false);
+});
+
+test('HEAD alterado: sessão nova sem --resume e sem bloco, sem confirmação humana, referência consumida', async () => {
+  const e = motor();
+  semear(e, { knownHead: 'aaaaaaaaaaaa' });
+  await e.runHeadlessReview({ ...PR, knownHead: 'aaaaaaaaaaaa' });
+  assert.equal(e.chamadas.length, 1, 'a revisão segue sozinha pelas regras normais');
+  assert.equal(e.chamadas[0].extraArgs.includes('--resume'), false);
+  assert.equal(e.chamadas[0].prompt.includes(retomadaAposFalhaBlock()), false, 'nenhuma prova herdada');
+  assert.equal(e.chamadas[0].guardada, false, 'descartada antes de a sessão abrir');
+  assert.equal(e.decididos.length, 1);
+  assert.equal(e.autoReviewParked.has(PR.key), false);
+});
+
+for (const [nome, headSha] of [['vazio', async () => ''], ['exceção', async () => { throw new Error('gh fora do ar'); }]]) {
+  test(`HEAD não confirmado (${nome}): o head salvo não vale como prova, nenhuma sessão abre e a referência espera`, async () => {
+    const e = motor();
+    semear(e);
+    e.headSha = headSha;
+    e.prState = async () => 'OPEN';
+    await e.runOneHeadless({ ...PR, knownHead: HEAD }, 'trabalho');
+    assert.equal(e.chamadas.length, 0, 'sem confirmação não injeta o bloco nem abre sessão');
+    assert.equal(e.retomadas.get(PR.key).retomarSid, SID);
+    const espera = e.retryAfterNet.get(PR.key);
+    assert.ok(espera, 'revalida no próximo ciclo que funcionar');
+    assert.equal(espera.tries, 0, 'aguardar confirmação não gasta tentativa');
+    assert.equal(e.autoReviewParked.has(PR.key), false);
+    assert.equal(linha(PR.key).estado, 'pendente');
+  });
+}
+
+test('perfil diferente do que originou a sessão: não retoma, sessão nova sem bloco', async () => {
+  const e = motor();
+  e.config = { ...e.config, claudeProfiles: [{ id: 'p2', label: 'P2', kind: 'dir', dir: path.join(HOME, 'cfg-p2') }], claudeProfileId: 'p2' };
+  semear(e); // originada no perfil legado ('')
+  await e.runHeadlessReview({ ...PR });
+  assert.equal(e.chamadas.length, 1);
+  assert.equal(e.chamadas[0].extraArgs.includes('--resume'), false);
+  assert.equal(e.chamadas[0].prompt.includes(retomadaAposFalhaBlock()), false);
+  assert.equal(e.chamadas[0].guardada, false);
+});
+
+test('provedor diferente do que originou a sessão: não retoma', async () => {
+  const e = motor();
+  semear(e, { provedor: 'apikey', perfilId: '' });
+  await e.runHeadlessReview({ ...PR });
+  assert.equal(e.chamadas[0].extraArgs.includes('--resume'), false);
+  assert.equal(e.chamadas[0].guardada, false);
+});
+
+test('contexto local ausente (inflight legado sem provedor): não retoma', async () => {
+  fs.writeFileSync(INFLIGHT, JSON.stringify([{ key: PR.key, url: PR.url, title: PR.title, sessionId: SID, headSha: HEAD }]));
+  const e = motor();
+  assert.equal(e.retomadas.get(PR.key).provedor, '');
+  await e.runHeadlessReview({ ...PR });
+  assert.equal(e.chamadas[0].extraArgs.includes('--resume'), false);
+  assert.equal(e.chamadas[0].prompt.includes(retomadaAposFalhaBlock()), false);
+});
+
+test('revisão equivalente já concluída depois da queda: não retoma', async () => {
+  const e = motor();
+  semear(e);
+  e.retomadas.get(PR.key).atualizadoEm = new Date(Date.now() - 60000).toISOString();
+  e.decisions.resolved.unshift({ key: PR.key, headSha: HEAD, createdAt: Date.now(), status: 'already_reviewed' });
+  await e.runHeadlessReview({ ...PR });
+  assert.equal(e.chamadas[0].extraArgs.includes('--resume'), false);
+  assert.equal(e.chamadas[0].guardada, false);
+});
+
+test('recibo de outro aparelho na admissão: consome a referência sem abrir sessão', async () => {
+  const e = motor();
+  semear(e);
+  coordenado(e, { admitted: false, reason: 'recibo', detail: { deviceName: 'notebook' } });
+  await e.runHeadlessReview({ ...PR });
+  assert.equal(spawnsDoCli, 0);
+  assert.equal(e.decididos.length, 0);
+  assert.equal(e.retomadas.has(PR.key), false);
+});
+
+for (const reason of ['alheio', 'indisponivel']) {
+  test(`recusa da coordenação (${reason}) antes do provedor: sem sessão e sem consumir a retomada`, async () => {
+    const e = motor();
+    semear(e);
+    coordenado(e, { admitted: false, reason, detail: { deviceName: 'notebook' } });
+    await e.runHeadlessReview({ ...PR });
+    assert.equal(spawnsDoCli, 0, 'nenhum spawn do CLI');
+    assert.equal(e.decididos.length, 0);
+    assert.equal(e.retomadas.get(PR.key).retomarSid, SID);
+    assert.equal(linha(PR.key).estado, 'pendente', 'espera de lease sobrevive a reinício');
+    const b = new Engine();
+    assert.equal(b.retomadas.get(PR.key).retomarSid, SID);
+  });
+}
