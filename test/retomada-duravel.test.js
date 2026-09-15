@@ -174,3 +174,79 @@ test('PR fechado enquanto aguardava o retry: a referência sai junto', async () 
   assert.equal(e.retryAfterNet.has(PR.key), false);
   assert.equal(e.retomadas.has(PR.key), false);
 });
+
+/* ---------- Tarefa 3: a referência nasce durável e os desfechos a consomem ---------- */
+
+test('o sid da sessão nova vai pro disco com head e contexto enquanto ela roda', async () => {
+  const e = motor();
+  let visto = null;
+  e.runClaudeStream = async (prompt, opts) => {
+    opts.onSession('sessao-viva-0001');
+    visto = linha(PR.key);
+    return RESPOSTA();
+  };
+  await e.runHeadlessReview({ ...PR });
+  assert.ok(visto, 'linha gravada durante a sessão');
+  assert.equal(visto.estado, 'execucao');
+  assert.equal(visto.retomarSid, 'sessao-viva-0001');
+  assert.equal(visto.sessionId, 'sessao-viva-0001');
+  assert.equal(visto.knownHead, HEAD);
+  assert.equal(visto.provedor, 'dir');
+  assert.equal(visto.perfilId, '');
+});
+
+test('queda transitória: a referência vai pro disco com head e contexto e sobrevive ao reinício', async () => {
+  const e = motor();
+  e.prState = async () => 'OPEN';
+  e.runClaudeStream = async () => { throw Object.assign(new Error('fetch failed'), { sessionId: SID }); };
+  await e.runOneHeadless({ ...PR }, 'trabalho');
+  assert.ok(e.retryAfterNet.has(PR.key), 'falha de rede vira retry');
+  const item = linha(PR.key);
+  assert.equal(item.estado, 'pendente');
+  assert.equal(item.retomarSid, SID);
+  assert.equal(item.knownHead, HEAD);
+  assert.equal(item.provedor, 'dir');
+  assert.equal(item.perfilId, '');
+  const b = new Engine();
+  assert.equal(b.retomadas.get(PR.key).retomarSid, SID, 'o retry deixou de ser só memória');
+});
+
+test('orçamento estourado na boca da sessão: estaciona sem abrir sessão e sem consumir a retomada', async () => {
+  const e = motor();
+  semear(e);
+  e.prState = async () => 'OPEN';
+  e.budgetBlockedFor = () => ({ id: 'p1', label: 'Perfil 1' });
+  await e.runOneHeadless({ ...PR }, 'trabalho');
+  assert.equal(e.chamadas.length, 0);
+  assert.equal(e.autoReviewParked.has(PR.key), true);
+  assert.equal(e.retomadas.get(PR.key).retomarSid, SID);
+  assert.equal(linha(PR.key).estado, 'pendente');
+});
+
+test('PR já mergeado na boca da sessão: a referência é consumida', async () => {
+  const e = motor();
+  semear(e);
+  e.prState = async () => 'MERGED';
+  await e.runOneHeadless({ ...PR }, 'trabalho');
+  assert.equal(e.chamadas.length, 0);
+  assert.equal(e.retomadas.has(PR.key), false);
+});
+
+test('cancelada por você: a referência sai junto', async () => {
+  const e = motor();
+  semear(e);
+  e.prState = async () => 'OPEN';
+  e.runHeadlessReview = async () => { throw Object.assign(new Error('cancelada por você'), { cancelled: true, sessionId: SID }); };
+  await e.runOneHeadless({ ...PR }, 'trabalho');
+  assert.equal(e.retomadas.has(PR.key), false);
+});
+
+test('falha permanente: a referência sai junto', async () => {
+  const e = motor();
+  semear(e);
+  e.prState = async () => 'OPEN';
+  e.runHeadlessReview = async () => { throw Object.assign(new Error('JSON da sessão fora do contrato'), { sessionId: SID }); };
+  await e.runOneHeadless({ ...PR }, 'trabalho');
+  assert.equal(e.autoReviewParked.has(PR.key), true);
+  assert.equal(e.retomadas.has(PR.key), false);
+});
