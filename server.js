@@ -35,6 +35,7 @@ import chatMod from './lib/engine/chat.js';
 import toolsMod from './lib/engine/tools.js';
 import pushbackMod from './lib/engine/pushback.js';
 import decisionMod from './lib/engine/decision.js';
+import arbitragemMod from './lib/engine/postagem-arbitragem.js';
 import ghMod from './lib/engine/gh-queries.js';
 import sessionMod from './lib/engine/session.js';
 import selfMod from './lib/engine/selfpr.js';
@@ -1534,7 +1535,8 @@ class Engine extends EventEmitter {
   coverageGap(result) { return decisionMod.coverageGap(result); }
   checkpointGap(result) { return decisionMod.checkpointGap(result); }
   checksVermelhos(result) { return decisionMod.checksVermelhos(result); }
-  async postReview(pr, payload) { return decisionMod.postReview(this, pr, payload); }
+  async postReview(pr, payload, opcoes) { return decisionMod.postReview(this, pr, payload, opcoes); }
+  async reconciliarPostagensIncertas() { return arbitragemMod.reconciliarPostagensIncertas(this); }
   async postReviewFromSession(submission, capability) { return decisionMod.postReviewFromSession(this, submission, capability); }
   decisionForUi(item) { return decisionMod.decisionForUi(item); }
   createReviewPostCapability(keys, account, source, ownerId) { return decisionMod.createReviewPostCapability(this, keys, account, source, ownerId); }
