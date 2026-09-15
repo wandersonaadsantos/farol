@@ -1,5 +1,7 @@
 # Handoff: operação sincronizada multidispositivo do Farol
 
+> **Histórico.** O planejamento terminou em 15/09/2026. O contrato vigente é `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`, o pacote de execução é `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`, e o estado atual da execução está em `EXECUCAO.md`, nesta pasta. Onde este arquivo divergir deles, valem eles.
+
 **Data:** 15/09/2026
 **Estado:** planejamento (brainstorming) em andamento. **Nenhuma linha de código de produção foi escrita.** O que existe é documentação de planejamento.
 **Por que existe:** a sessão original (Claude Code, Opus 5, ultracode ligado) foi encerrada para o dono continuar em outra conta. Este arquivo é autossuficiente: quem continuar não precisa da conversa original.
