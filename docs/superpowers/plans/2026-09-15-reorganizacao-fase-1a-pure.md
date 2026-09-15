@@ -1214,8 +1214,8 @@ Esperado: o número de módulos criados.
 ## Registro da execução (15/09/2026)
 
 A fase foi executada tarefa a tarefa, com a suíte, o ratchet e a tela conferidos a cada
-passo. O plano acertou o desenho (as 14 fronteiras e as três decisões de fronteira se
-sustentaram, e o grafo final não tem ciclo). O que a execução corrigiu, e que a **Fase 1b**
+passo. O plano acertou o desenho quase inteiro (13 das 14 fronteiras e as três decisões de
+fronteira se sustentaram, e o grafo final não tem ciclo). O que a execução corrigiu, e que a **Fase 1b**
 precisa saber antes de começar:
 
 1. **A Task 2 original estava errada** e foi substituída. O contador `ternarioAninhado` é
@@ -1249,3 +1249,12 @@ precisa saber antes de começar:
    `TypeError` por argumento de exemplo é aceitável, `ReferenceError` é import faltando. A
    instância isolada roda em porta própria (47185): a padrão estava ocupada pelo Farol real
    do usuário, e o primeiro `curl` bateu nele sem ninguém perceber.
+8. **Dois módulos do plano juntavam assuntos, e só a avaliação honesta da regra mostrou.**
+   Ao escrever a `core.file.single-responsibility` de cada arquivo, o `contas.js` precisava
+   de um "e também" para a validação do formulário do site do Jira, e o `sistema.js` para os
+   créditos do Sobre: os dois mudam por motivos que não têm nada a ver com o resto do
+   arquivo. Arquivo NOVO em violação não pode entrar no baseline, então eles viraram
+   `jira.js` e `sobre.js`, e a fase fechou com 16 módulos em vez de 14. A lição para a 1b: a
+   frase de responsabilidade de cada arquivo se escreve ANTES de mover, na tabela de
+   estrutura do plano, e cada "e também" ali é um módulo a mais.
+

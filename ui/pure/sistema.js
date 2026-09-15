@@ -1,5 +1,5 @@
 // A aba Sistema: o log de falhas agrupado, regime contra episódio, os checks de operação e
-// de runtime, os créditos do Sobre e o texto do diagnóstico. Extraído do ui/pure.js na
+// de runtime e o texto do diagnóstico. Extraído do ui/pure.js na
 // Fase 1a da reorganização; o conteúdo não mudou.
 //
 // Log agrupado: o agrupamento em si é do lib/log-taxonomy.js (triage), servido em
@@ -17,9 +17,6 @@
 // painel vazio para sempre, sem erro nem log. Um check por conta, mais um agregado para o
 // caso de tudo silenciado.
 //
-// Sobre: idealizador é o dono do repo do update, contribuidores vêm da API do mesmo repo.
-// Sem dado ainda, aviso explicativo, nunca vazio mudo.
-//
 // Diagnóstico: é a única saída do app que alguém lê fora do app, então mudança aqui é
 // mudança de contrato com quem socorre.
 // Cada ternário do diagnosticsText mora no seu próprio `const` porque o ratchet conta '?'
@@ -29,8 +26,7 @@
 // ja grava em horario LOCAL, entao passar por new Date() so criaria chance de mover a
 // hora que a pessoa le no arquivo. Carimbo que nao casa volta como veio, nunca vira
 // "Invalid Date" na tela.
-import { esc, escAttrSelector, fmtSpan, plural } from './comum.js';
-import { personMention, repoMention } from './mencoes.js';
+import { escAttrSelector, fmtSpan, plural } from './comum.js';
 
 export function fmtLogStamp(ts) {
   const m = String(ts ?? '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
@@ -225,25 +221,6 @@ export function runtimeChecks(doctor, config = {}) {
   return checks;
 }
 
-export function creditsHtml(credits) {
-  if (!credits || !credits.owner || !credits.owner.login) {
-    return `<div class="credits-wait">Buscando os contribuidores no GitHub… precisa do <code>gh</code> autenticado; a lista aparece sozinha quando a busca responder.</div>`;
-  }
-  const own = credits.owner;
-  const ownName = own.name && own.name.toLowerCase() !== own.login.toLowerCase() ? `<span class="credits-name">${esc(own.name)}</span>` : '';
-  // o idealizador tem card próprio; na lista geral ele não repete
-  const rest = (credits.contributors || []).filter(c => (c.login || '').toLowerCase() !== own.login.toLowerCase());
-  const linhas = rest.map(c =>
-    `<div class="credits-item">${personMention(c.login, 'sm')}<span class="credits-meta">${plural(c.contributions | 0, 'contribuição', 'contribuições')}</span></div>`
-  ).join('');
-  return `
-    <div class="credits-founder">
-      ${personMention(own.login)}
-      <span class="credits-role">Idealizador e mantenedor${ownName ? ' · ' : ''}${ownName}</span>
-    </div>
-    ${rest.length ? `<div class="credits-sub">Contribuidores</div><div class="credits-grid">${linhas}</div>` : ''}
-    <div class="credits-foot">Lista sincronizada com ${repoMention(credits.repo)} no GitHub: quem contribui no repositório entra aqui automaticamente.</div>`;
-}
 
 // Monta um prompt pronto pra colar no chat que está resolvendo o PR, a partir
 // dos pontos da autoanálise (blockers = travam a aprovação; tips = melhorias).

@@ -201,7 +201,7 @@ O débito original era o `server.js`: uma classe `Engine` de 3122 linhas fazendo
 | Arquivo | Linhas | Testes |
 |---|---|---|
 | `ui/app.js` | ~3446 | nenhum que o execute (os 5 que o tocam leem o arquivo como texto) |
-| `ui/pure.js` e `ui/pure/` | fachada de 20 linhas; 14 módulos, o maior (`contas.js`) com ~340 linhas úteis | `ui-pure.test.js` e `ui-pure-superficie.test.js` (atualizado em 15/09/2026, Fase 1a) |
+| `ui/pure.js` e `ui/pure/` | fachada de 20 linhas; 16 módulos, o maior (`consumo.js`) com ~335 linhas úteis | `ui-pure.test.js` e `ui-pure-superficie.test.js` (atualizado em 15/09/2026, Fase 1a) |
 | `server.js` | ~1483 | via `boot`, `facades`, e os testes de comportamento |
 | maior módulo de `lib/` (`decision.js`) | ~869 | `decision-envelope.test.js`, `decision-history.test.js` |
 | suíte | | 1415 testes (1408 passando, 7 pulados fora do macOS) |
@@ -358,7 +358,7 @@ A lista inicial saiu de uma avaliação arquivo a arquivo, pelas três perguntas
 | `lib/engine/public-review.js` | média | a projeção da decisão para a UI (`decisionForUi` e vizinhos) sai |
 | `lib/taxonomy.js` | média | a paleta de cores por conta sai para perto da normalização de contas |
 
-**Resolvido:** `ui/pure.js` saiu da lista em 15/09/2026, na Fase 1a da reorganização. Ele só reexporta, e o conteúdo mora em 14 módulos de `ui/pure/`, um por assunto, em camadas sem ciclo (`comum`, depois `mencoes`, depois os de domínio). A condição de fechamento era exatamente essa, e `currentFindings` baixou de 15 para 14. O contrato do diretório está em `ui/pure/README.md`.
+**Resolvido:** `ui/pure.js` saiu da lista em 15/09/2026, na Fase 1a da reorganização. Ele só reexporta, e o conteúdo mora em 16 módulos de `ui/pure/`, um por assunto, em camadas sem ciclo (`comum`, depois `mencoes`, depois os de domínio). A condição de fechamento era exatamente essa, e `currentFindings` baixou de 15 para 14. O contrato do diretório está em `ui/pure/README.md`.
 
 **Como manter o número honesto:**
 

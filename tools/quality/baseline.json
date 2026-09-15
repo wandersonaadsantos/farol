@@ -121,6 +121,9 @@
     "ternarioAninhado": 6
   },
   "ui/pure/sistema.js": {
-    "ternarioAninhado": 2
+    "ternarioAninhado": 1
+  },
+  "ui/pure/sobre.js": {
+    "ternarioAninhado": 1
   }
 }

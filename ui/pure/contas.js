@@ -1,6 +1,5 @@
 // Contas, perfis do Claude e orçamento: escopo e barra de contas, banner do topo, selo de
-// autenticação, editor de orçamento por perfil, gerenciador de contas e a validação do site
-// do Jira antes de salvar. Extraído do ui/pure.js na Fase 1a da reorganização; o conteúdo
+// autenticação, editor de orçamento por perfil e gerenciador de contas. Extraído do ui/pure.js na Fase 1a da reorganização; o conteúdo
 // não mudou.
 //
 // Banner do topo: os três avisos (sem conta, conta sem token, falha na última checagem)
@@ -15,12 +14,6 @@
 // Editor de orçamento (v2.50.0): o MESMO bloco vale para perfil de assinatura e de chave de
 // API, cada perfil com o seu. Três granularidades, do geral para o específico, na mesma
 // ordem em que o dailyCapFor resolve: teto base, por dia da semana, de uma data só.
-//
-// Site do Jira: o saneador do servidor (lib/jira/sites.js) não corrige nem avisa, URL fora
-// de forma faz o site INTEIRO ser descartado enquanto a tela diz "Configurações salvas".
-// As regras espelhadas aqui são as de lá. Prefixo é exigência da TELA: sem nenhum, o
-// extractCardKeys aceita qualquer PALAVRA-NUMERO do título (UTF-8, SHA-256), o Farol pede
-// esse "card" ao Jira, toma 404 e o PR perde o auto-approve por falha inventada.
 
 // escopo salvo no navegador validado contra as contas atuais: conta removida ou
 // renomeada deixava um escopo orfao que esvaziava o Radar pra sempre (B15).
@@ -422,19 +415,3 @@ export function accountsManagerHtml(ctx) {
   return (rows || '<div class="empty">Nenhuma conta configurada.</div>') + addForm;
 }
 
-export function jiraBaseUrlProblema(valor) {
-  const s = String(valor || '').trim().replace(/\/+$/, '');
-  if (!s) return 'Informe a URL base do Jira.';
-  let u = null;
-  try { u = new URL(s); } catch { return 'URL base inválida: escreva o endereço completo, com https:// na frente.'; }
-  if (u.protocol !== 'https:') return 'A URL base precisa começar com https://.';
-  if (u.username || u.password) return 'A URL base não pode carregar usuário nem senha.';
-  if (u.pathname !== '/' || u.search || u.hash) return 'A URL base é só o endereço do site, sem caminho, parâmetro ou âncora.';
-  return '';
-}
-
-export function jiraPrefixosProblema(lista) {
-  const itens = (Array.isArray(lista) ? lista : []).filter((x) => String(x || '').trim());
-  if (!itens.length) return 'Informe ao menos um prefixo de projeto: sem ele o Farol procura no Jira qualquer coisa com hífen e número que apareça no título do PR.';
-  return '';
-}

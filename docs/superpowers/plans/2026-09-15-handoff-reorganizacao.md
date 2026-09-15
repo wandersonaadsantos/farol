@@ -119,7 +119,7 @@ quando a Fase 4 for planejada.
 >
 > **Atualização de 15/09/2026, noite: a Fase 1a foi executada** (branch
 > `refactor/ui-pure-fase-1a`). O `ui/pure.js` virou fachada de reexport, o conteúdo mora em
-> 14 módulos de `ui/pure/` em camadas sem ciclo, a superfície pública (174 nomes) ficou
+> 16 módulos de `ui/pure/` em camadas sem ciclo, a superfície pública (174 nomes) ficou
 > congelada por teste, e o `ui/pure.js` saiu da dívida de responsabilidade única
 > (`currentFindings` de 15 para 14). O que a execução corrigiu no plano está na seção
 > "Registro da execução" do próprio plano. Próximo: o plano da Fase 1b (`ui/app.js`).
