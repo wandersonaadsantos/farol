@@ -35,6 +35,12 @@ test('as classes da spec cobrem os 46 caminhos, e as públicas são só as duas 
   assert.deepEqual(Object.keys(CLASSES).sort(), ['autenticacao-publica', 'demais', 'destrutiva', 'escreve-github', 'evento', 'leitura-baixo-risco', 'leitura-sensivel', 'recebe-segredo', 'sessao-paga']);
 });
 
+test('toda rota inventariada existe no servidor (sem classe morta)', () => {
+  const servidas = rotasServidas();
+  const mortas = todasAsRotas().filter(r => !servidas.has(r));
+  assert.deepEqual(mortas, [], `rota inventariada que o servidor não roteia: ${mortas.join(', ')}`);
+});
+
 test('a exceção pública depende do método', () => {
   assert.deepEqual({ ...PUBLICAS }, { '/api/auth/pair': 'POST', '/api/auth/status': 'GET' });
   assert.equal(rotaPublicaDeAutenticacao('POST', '/api/auth/pair'), true);
