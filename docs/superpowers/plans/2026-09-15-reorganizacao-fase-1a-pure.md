@@ -61,11 +61,46 @@ e `maxLines: 1` (`tools/quality/baseline.json:115-119`). Mover um símbolo com t
 aninhado para `ui/pure/review.js` cria uma violação nova num caminho com teto zero, e o
 gate reprova com "subiu de 0 pra N". A baseline nunca sobe à mão.
 
-Daí a ordem: a **Task 2 zera os ternários aninhados** antes de qualquer movimentação (a
-dívida desce de verdade, e `npm run lint:update` trava o número menor), e a **Task 4**
+Daí a ordem: a **Task 2 reparticiona a dívida mecânica junto com o código**, e a **Task 4**
 resolve o `JSON.parse` declarando o parser único da UI como santuário, do mesmo jeito que
-`lib/io.js` já é (`tools/quality/rules.js:16`). Com isso, toda tarefa de movimentação
-começa e termina com a baseline intacta.
+`lib/io.js` já é (`tools/quality/rules.js:16`).
+
+> **Correção de 15/09/2026, medida durante a execução.** A primeira versão deste plano
+> mandava **zerar** os ternários aninhados antes de mover, supondo que fossem 16 ternários
+> aninhados de verdade. A medição do que o contador de fato acusa (11 statements hoje, não
+> 16) mostrou que ele é **mais cru que a regra do catálogo**: ele quebra o arquivo por `;` e
+> conta `?` por statement, então acusa também ternário dentro de template literal, cujo pai
+> não é outro ternário e que a regra hard `core.javascript.no-nested-ternary` (que lê a
+> árvore sintática) **não** acusa. Casos reais deste arquivo: o rótulo de
+> `ROTULO_DOS_PONTOS` (2405-2409), que é uma tabela de três funções com um plural cada, e
+> `rotuloDosPontos` (2412). Zerar o contador exigiria contorcer código legítimo por causa de
+> métrica, que é exatamente o que `docs/QUALITY.md` condena ao declarar a divergência do
+> `maxLines`. Então a dívida **muda de caminho junto com o código**, do mesmo jeito que a
+> assinatura do baseline do eng-behaviour acompanha um arquivo movido, e o que se prova é
+> que **o total por regra não sobe**.
+
+**Como provar que o total não subiu** (roda em toda tarefa que mover código, depois do
+`npm run lint:update`):
+
+```bash
+node --input-type=module -e "
+import { execSync } from 'node:child_process';
+import fs from 'node:fs';
+const soma = (b) => Object.values(b).reduce((acc, regras) => {
+  for (const [r, n] of Object.entries(regras)) acc[r] = (acc[r] || 0) + n;
+  return acc;
+}, {});
+const antes = soma(JSON.parse(execSync('git show HEAD:tools/quality/baseline.json', { encoding: 'utf8' })));
+const agora = soma(JSON.parse(fs.readFileSync('tools/quality/baseline.json', 'utf8')));
+for (const r of new Set([...Object.keys(antes), ...Object.keys(agora)])) {
+  const a = antes[r] || 0, b = agora[r] || 0;
+  console.log((b > a ? 'SUBIU  ' : b < a ? 'desceu ' : 'igual  ') + r + ': ' + a + ' -> ' + b);
+}
+"
+```
+
+Nenhuma linha pode sair como `SUBIU`. `desceu` é bem-vindo e `igual` é o esperado numa
+movimentação pura.
 
 ## Linha de base medida (15/09/2026, `144b0c1`, Windows, Node 24)
 
@@ -273,30 +308,31 @@ Esperado: FALHA com `subpasta de ui/ precisa ser servida`. Desfaça com
 
 - [ ] **Passo 8: fazer os dois leitores de fonte enxergarem `ui/pure/`**
 
-Em `test/ui-contract.test.js:81`, troque a leitura única do `pure.js` por uma leitura
-concatenada de todos os fontes puros:
+Os dois leitores (`test/ui-contract.test.js:81` e `test/ui-widgets.test.js:463`) leem só o
+`ui/pure.js` e ficariam cegos assim que o trecho que eles afirmam mudar de módulo. Como são
+dois consumidores concretos da mesma pergunta, e a Fase 1b vai precisar da mesma leitura, o
+varredor nasce compartilhado em `test/helpers/fontes-ui.js`:
 
 ```js
-const PUREJS = fs.readdirSync(path.join(RAIZ, 'ui', 'pure'), { withFileTypes: true })
-  .filter((e) => e.isFile() && e.name.endsWith('.js'))
-  .map((e) => fs.readFileSync(path.join(RAIZ, 'ui', 'pure', e.name), 'utf8'))
-  .concat(fs.readFileSync(path.join(RAIZ, 'ui', 'pure.js'), 'utf8'))
-  .join('\n');
+// Todo o código puro da UI (ui/pure.js e ui/pure/*.js) concatenado, na ordem de leitura.
+function fonteDosPuros() {
+  const dir = path.join(RAIZ, 'ui', 'pure');
+  const modulos = fs.existsSync(dir)
+    ? fs.readdirSync(dir, { withFileTypes: true })
+      .filter((e) => e.isFile() && e.name.endsWith('.js'))
+      .map((e) => fs.readFileSync(path.join(dir, e.name), 'utf8'))
+    : [];
+  return [fs.readFileSync(path.join(RAIZ, 'ui', 'pure.js'), 'utf8'), ...modulos].join('
+');
+}
 ```
 
-Use o mesmo trecho em `test/ui-widgets.test.js:463`. Nos dois arquivos, confira o nome da
-constante de raiz que já existe no topo (`RAIZ` ou equivalente) e reaproveite; não crie
-outra.
+O `fs.existsSync` não é zelo: `ui/pure/` só nasce na Task 3, e sem a guarda os dois testes
+ficariam vermelhos entre duas tarefas. Nos dois arquivos, troque a linha do `readFileSync`
+por `const PUREJS = fonteDosPuros();` e importe o helper.
 
-Como `ui/pure/` ainda não existe, acrescente a guarda na primeira linha do trecho:
-
-```js
-const DIR_PURO = path.join(RAIZ, 'ui', 'pure');
-const arquivosPuros = fs.existsSync(DIR_PURO) ? fs.readdirSync(DIR_PURO) : [];
-```
-
-e itere sobre `arquivosPuros`. Sem a guarda, os dois testes quebram agora e só voltam a
-passar na Task 3, o que deixaria a suíte vermelha entre duas tarefas.
+**Contraprova do varredor:** crie `ui/pure/zz-prova.js` com um marcador qualquer e confirme
+que `fonteDosPuros()` o inclui e continua incluindo a fachada; apague em seguida.
 
 - [ ] **Passo 9: gate**
 
@@ -315,111 +351,62 @@ git commit -m "test: trava a superficie do pure.js, a entrega de subpasta e os l
 
 ---
 
-### Task 2: zerar os ternários aninhados do `ui/pure.js`
+### Task 2: registrar a regra da dívida que muda de caminho
 
-São 16 (`tools/quality/baseline.json:118`). Enquanto existirem, nenhum símbolo que os
-contenha pode mudar de arquivo sem reprovar o ratchet no destino. Esta é a única tarefa do
-plano que reescreve código, e ela é provada pela suíte de `ui-pure.test.js`, que é a maior
-do repositório.
+**Substituiu** a tarefa original ("zerar os ternários aninhados"), pelo motivo medido na
+seção "O ratchet mecânico" acima: o contador é mais cru que a regra do catálogo e acusa
+ternário dentro de template literal. A dívida mecânica passa a **acompanhar o código**, e o
+que se prova é que o total por regra não sobe. Isso precisa estar escrito onde a próxima
+pessoa procura, senão a primeira tarefa que rodar `lint:update` parece estar burlando o
+ratchet.
 
 **Arquivos:**
-- Modificar: `ui/pure.js`
-- Modificar: `tools/quality/baseline.json` (por comando, nunca à mão)
+- Modificar: `docs/QUALITY.md` (seção "Gate de ratchet")
 
 **Interfaces:**
-- Consome: a trava de superfície da Task 1.
-- Produz: `ui/pure.js` com `ternarioAninhado: 0`, pré-condição de todas as movimentações.
+- Consome: nada.
+- Produz: a regra que as Tasks 3 a 11 citam ao mexer na baseline.
 
-- [ ] **Passo 1: listar os 16**
+- [ ] **Passo 1: escrever a regra**
 
-A regra conta statement (separado por `;`) com dois ou mais `?` de ternário, ignorando `?.`
-(`tools/quality/rules.js:47`). Liste as linhas candidatas:
+Na seção "Gate de ratchet (v2.45.1)" do `docs/QUALITY.md`, acrescente ao fim:
+
+```markdown
+**Dívida que muda de caminho** (15/09/2026, Fase 1a da reorganização). O teto é por arquivo
+e arquivo ausente vale zero, então mover código com dívida registrada reprova no destino
+mesmo sem nada ter piorado. Nesse caso a dívida acompanha o código: a entrega roda
+`npm run lint:update` e prova, no próprio commit, que **o total por regra não subiu**
+(some as contagens do `baseline.json` antes e depois; nenhuma regra pode crescer). É a mesma
+doutrina da assinatura do baseline do eng-behaviour, que acompanha o arquivo movido na mesma
+entrega. O que continua proibido é o total subir, que é dívida nova entrando pela porta dos
+fundos.
+
+Não confunda o contador com a regra do catálogo: `ternarioAninhado` quebra o arquivo por `;`
+e conta `?` por statement, então ele também acusa ternário dentro de template literal, que a
+regra hard `core.javascript.no-nested-ternary` (que lê a árvore sintática) não acusa.
+Contorcer código legítimo para zerar o contador é perseguir métrica, o mesmo motivo pelo
+qual o `maxLines` está declarado como divergência logo acima.
+```
+
+- [ ] **Passo 2: conferir que os guias continuam navegáveis**
 
 ```bash
-node --input-type=module -e "
-import fs from 'node:fs';
-const linhas = fs.readFileSync('ui/pure.js','utf8').split(/\r?\n/);
-linhas.forEach((l,i)=>{
-  const sem = l.replace(/\?\./g,'').replace(/'[^']*'|\"[^\"]*\"|\`[^\`]*\`/g,'');
-  if ((sem.match(/\?/g)||[]).length >= 2) console.log((i+1)+': '+l.trim().slice(0,110));
-});
-"
+node --test --test-force-exit test/guias-navegaveis.test.js
 ```
 
-A contagem do gate é por statement, e a varredura acima é por linha, então ela pode mostrar
-alguns casos a mais (ternário quebrado em várias linhas aparece uma vez por linha). Quem
-manda é o `npm run lint`: o alvo é o contador chegar a zero.
+Esperado: PASSA (a trava de link morto da Fase 0 cobre o `docs/QUALITY.md`).
 
-O comentário de `ui/pure.js:486-487` já registra esse ratchet e é um bom ponto de partida
-para entender por que a dívida existe.
-
-- [ ] **Passo 2: reescrever um por vez**
-
-Para cada ocorrência, troque o encadeamento por uma função nomeada com `if`, no padrão que
-o próprio catálogo pede (`core.javascript.no-nested-ternary`, seção "Bom"):
-
-```js
-// antes
-const classe = falhou ? 'erro' : concluiu ? 'sucesso' : 'pendente';
-
-// depois
-function classeDoEstado(falhou, concluiu) {
-  if (falhou) return 'erro';
-  if (concluiu) return 'sucesso';
-  return 'pendente';
-}
-const classe = classeDoEstado(falhou, concluiu);
-```
-
-A função nova fica **privada** (sem `export`), no mesmo bloco da que a usa. Nome em
-português, dizendo o que a decisão significa, nunca `aux` nem `helper`.
-
-Depois de CADA reescrita:
-
-```bash
-node --test --test-force-exit test/ui-pure.test.js test/ui-pure-superficie.test.js
-```
-
-Esperado: PASSA. Se falhar, a reescrita mudou comportamento: desfaça e refaça.
-
-- [ ] **Passo 3: conferir que zerou**
-
-```bash
-npm run lint
-```
-
-Esperado: `gate de qualidade: sem regressão`. O número de `ternarioAninhado` do `ui/pure.js`
-deve estar em 0 (a baseline ainda diz 16, e teto maior que o atual nunca reprova).
-
-- [ ] **Passo 4: travar o número menor**
-
-```bash
-npm run lint:update
-git diff tools/quality/baseline.json
-```
-
-Esperado no diff: `ui/pure.js` perdeu a chave `ternarioAninhado` (ou foi a zero), e **nada
-mais mudou**. Se outro arquivo mudou, pare: a baseline está sendo regenerada sobre um
-estado que não é o desta tarefa.
-
-- [ ] **Passo 5: contraprova**
-
-Reintroduza um ternário aninhado qualquer no `ui/pure.js` e rode `npm run lint`.
-
-Esperado: FALHA com `ui/pure.js: ternarioAninhado subiu de 0 pra 1`. Desfaça.
-
-- [ ] **Passo 6: gate e commit**
+- [ ] **Passo 3: gate e commit**
 
 ```bash
 npm run check && npm run lint && npm test
 ```
 
 ```bash
-git add ui/pure.js tools/quality/baseline.json
-git commit -m "refactor(ui): ternario aninhado do pure.js vira funcao nomeada"
+git add docs/QUALITY.md docs/superpowers/plans/2026-09-15-reorganizacao-fase-1a-pure.md
+git commit -m "docs: divida mecanica acompanha o codigo que muda de caminho"
 ```
 
----
 
 ### Task 3: o diretório, a fachada e o primeiro módulo
 

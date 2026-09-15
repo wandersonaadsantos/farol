@@ -395,6 +395,10 @@ Regras medidas (chaves do `rules.js`):
 9. `portaLiteral` — porta 47170 escrita em código fora de `lib/constants.js` reprova.
 10. `profundidadeExcedida` — profundidade de chaves dentro de função acima de 3 níveis reprova (contada a partir do corpo da função).
 
+**Dívida que muda de caminho** (15/09/2026, Fase 1a da reorganização). O teto é por arquivo e arquivo ausente vale zero (`gate.js:44`), então mover código com dívida registrada reprova no destino mesmo sem nada ter piorado. Nesse caso a dívida acompanha o código: a entrega roda `npm run lint:update` e prova, no próprio commit, que **o total por regra não subiu** (somando as contagens do `baseline.json` antes e depois; nenhuma regra pode crescer). É a mesma doutrina da assinatura do baseline do eng-behaviour, que acompanha o arquivo movido na mesma entrega, e o que continua proibido é o total subir, que é dívida nova entrando pela porta dos fundos.
+
+Não confunda o contador com a regra do catálogo. O `ternarioAninhado` quebra o arquivo por `;` e conta `?` por statement, então ele também acusa ternário dentro de template literal (`\`${p ? 's' : ''}\`` dentro do ramo de outro ternário), que a regra hard `core.javascript.no-nested-ternary`, que lê a árvore sintática, **não** acusa: lá o pai do ternário de dentro é o template, não o ternário de fora. Medido no `ui/pure.js` em 15/09/2026, onde parte das 11 ocorrências é disso. Contorcer código legítimo para zerar o contador é perseguir métrica, o mesmo motivo pelo qual o `maxLines` está declarado como divergência acima.
+
 ## Backlog da onda de qualidade (16/08/2026, deferido com veredito de review)
 
 Itens julgados no review final da v2.45.1 como "não bloqueia, fica pra depois". Quem pegar qualidade em seguida, começa por aqui:
