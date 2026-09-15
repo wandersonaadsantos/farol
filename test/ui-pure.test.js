@@ -2984,3 +2984,10 @@ test('sem perda e sem estimativa, a linha de auditoria some', () => {
   assert.equal(P.auditoriaLinhaHtml(null), '');
   assert.equal(P.auditoriaLinhaHtml({ total: { sessions: 0, costUsd: 0 } }), '');
 });
+
+test('custo desconhecido aparece como não medido, e interrompida tem rótulo próprio', () => {
+  assert.equal(P.usageSessionRow({ costUsd: 0, costSource: 'desconhecido' }).costLabel, 'não medido');
+  const r = P.usageSessionRow({ costUsd: 0, status: 'interrompida' });
+  assert.equal(r.stLabel, 'interrompida');
+  assert.equal(r.stClass, 'interrompida');
+});

@@ -223,3 +223,10 @@ test('rotas: envelope nas duas, janela saneada e nada de e-mail ou token na resp
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test('custo desconhecido entra no balde sem base do consolidado, nunca no medido', () => {
+  const eventos = { d1: { a: ev(AGORA, { costUsd: 0, costSource: 'desconhecido' }) } };
+  const r = consolidatedSummary(eventos, {}, { days: 7, agoraMs: AGORA, euDeviceId: 'd1' });
+  assert.deepEqual(r.totals.semBase, { sessions: 1, costUsd: 0 });
+  assert.deepEqual(r.totals.medido, { sessions: 0, costUsd: 0 });
+});
