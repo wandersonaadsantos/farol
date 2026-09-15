@@ -372,3 +372,89 @@ for (const reason of ['alheio', 'indisponivel']) {
     assert.equal(b.retomadas.get(PR.key).retomarSid, SID);
   });
 }
+
+/* ---------- Tarefa 5: diagnóstico distingue retomada, recusa do CLI e sessão nova ---------- */
+
+test('desfecho retomada: opts, registro ativo e resultado dizem retomada', async () => {
+  const e = motor();
+  semear(e);
+  await e.runHeadlessReview({ ...PR });
+  assert.equal(e.chamadas.length, 1);
+  assert.equal(e.chamadas[0].opcao, 'retomada');
+  assert.equal(e.chamadas[0].registro, 'retomada');
+  assert.equal(e.decididos[0].resumeOutcome, 'retomada');
+});
+
+test('desfecho recusada: a referência sai antes da sessão nova, que nunca aparece como retomada', async () => {
+  const e = motor();
+  semear(e);
+  let n = 0;
+  const base = e.runClaudeStream;
+  e.runClaudeStream = async (prompt, opts) => {
+    n++;
+    if (n === 1) {
+      await base(prompt, opts);
+      e.chamadas[0].falhou = true;
+      throw new Error(`No conversation found with session id ${SID}`);
+    }
+    return base(prompt, opts);
+  };
+  await e.runHeadlessReview({ ...PR });
+  assert.equal(e.chamadas.length, 2);
+  assert.equal(e.chamadas[0].opcao, 'retomada');
+  assert.equal(e.chamadas[1].opcao, 'recusada');
+  assert.equal(e.chamadas[1].registro, 'recusada');
+  assert.equal(e.chamadas[1].guardada, false, 'a referência recusada não sobrevive pra outra tentativa');
+  assert.equal(e.chamadas[1].extraArgs.includes('--resume'), false);
+  assert.equal(e.chamadas[1].prompt.includes(retomadaAposFalhaBlock()), false);
+  assert.equal(e.decididos[0].resumeOutcome, 'recusada');
+});
+
+test('desfecho nova: referência descartada vira sessão nova, rotulada nova', async () => {
+  const e = motor();
+  semear(e, { knownHead: 'aaaaaaaaaaaa' });
+  await e.runHeadlessReview({ ...PR });
+  assert.equal(e.chamadas[0].opcao, 'nova');
+  assert.equal(e.chamadas[0].registro, 'nova');
+  assert.equal(e.decididos[0].resumeOutcome, 'nova');
+});
+
+test('desfecho nenhuma: sem referência, e também com o resumeSid incremental desligado', async () => {
+  const e = motor();
+  await e.runHeadlessReview({ ...PR, resumeSid: 'zzz-98765-xx' });
+  assert.equal(e.chamadas[0].opcao, 'nenhuma');
+  assert.equal(e.chamadas[0].registro, 'nenhuma');
+  assert.equal(e.decididos[0].resumeOutcome, 'nenhuma');
+});
+
+test('admissão recusada na tentativa de retomada: o registro volta pra nenhuma, sem sessão', async () => {
+  const e = motor();
+  semear(e);
+  let registroNoFim = null;
+  e.syncCoordenacaoAtiva = () => true;
+  e.syncRegistrarEspera = () => { };
+  e.runClaudeStream = async (prompt, opts) => {
+    e.chamadas.push({ opcao: opts.resumeOutcome, registro: (e.activeReviews.get(opts.id) || {}).resumeOutcome });
+    return { blocked: true, coordination: { admitted: false, reason: 'alheio', detail: {} }, text: '', sessionId: null };
+  };
+  const tratar = e.syncRegistrarEspera;
+  e.syncRegistrarEspera = (key, adm) => {
+    registroNoFim = [...e.activeReviews.values()].find(s => (s.keys || []).includes(PR.key)).resumeOutcome;
+    return tratar(key, adm);
+  };
+  await e.runHeadlessReview({ ...PR });
+  assert.equal(e.chamadas[0].opcao, 'retomada', 'a tentativa foi de retomada');
+  assert.equal(registroNoFim, 'nenhuma', 'nada abriu, então o desfecho efetivo é nenhuma');
+  assert.equal(e.retomadas.get(PR.key).retomarSid, SID, 'e a referência fica');
+});
+
+test('rodarSessao em motor mínimo (sem activeReviews) não lança e devolve o desfecho', async () => {
+  const review = await import('../lib/engine/review.js');
+  const vistos = [];
+  const motorMinimo = { pushActivity: () => { }, runClaudeStream: async (_p, opts) => { vistos.push(opts.resumeOutcome); return {}; } };
+  const res = await review.rodarSessao(motorMinimo, 'prompt', { id: 1 }, null);
+  assert.equal(res.resumeOutcome, 'nenhuma');
+  const res2 = await review.rodarSessao(motorMinimo, 'prompt', { id: 1 }, null, false, '', 'nova');
+  assert.equal(res2.resumeOutcome, 'nova');
+  assert.deepEqual(vistos, ['nenhuma', 'nova']);
+});
