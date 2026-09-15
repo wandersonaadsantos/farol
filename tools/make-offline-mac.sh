@@ -48,8 +48,12 @@ echo "  -> Baixando o Electron para macOS ($ARCH)"
 curl -fL --retry 3 -o "$BUILD/electron-darwin.zip" "$ZIP_URL"
 
 echo '  -> Reunindo o app + Electron (embutido, montado no Mac)'
-for f in main.js server.js package.json README.md CLAUDE.md; do cp "$SRC/$f" "$STAGING/$f"; done
-for d in lib ui assets workspace-template installer node_modules; do cp -R "$SRC/$d" "$STAGING/$d"; done
+for f in main.js server.js package.json README.md CLAUDE.md; do
+  cp "$SRC/$f" "$STAGING/$f"
+done
+for d in lib ui assets workspace-template installer node_modules; do
+  cp -R "$SRC/$d" "$STAGING/$d"
+done
 # Mesma whitelist do pacote leve: Jira MCP e ferramentas de build permitidas.
 # Nao copiar tools/ inteiro: smoke e outras ferramentas de desenvolvimento ficam fora.
 mkdir -p "$STAGING/tools"

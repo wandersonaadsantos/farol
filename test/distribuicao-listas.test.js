@@ -22,6 +22,7 @@ const RE_PS = {
 const RE_SH = {
   f: /^for f in (.+); do$/gm,
   d: /^for d in (.+); do$/gm,
+  t: /^for t in (.+); do$/gm,
 };
 
 function listaPowershell(texto, variavel, arquivo) {
@@ -52,6 +53,35 @@ const pacoteArquivos = listaPowershell(pacote, 'f', 'tools/make-package.ps1');
 const pacotePastas = listaPowershell(pacote, 'd', 'tools/make-package.ps1');
 const pacoteTools = listaPowershell(pacote, 't', 'tools/make-package.ps1');
 const instalado = listas['installer/install.ps1'];
+
+/* As rotas de instalador COMPLETO (Setup.exe e offline do macOS) montam o app com listas
+   próprias e são o que a pessoa baixa na primeira instalação (decisão D1 da Fase 1.5,
+   15/09/2026). Duas regras de comparação, as duas medidas: elas carregam node_modules a mais,
+   que é o que as torna offline, e só esse item sai da comparação de pastas; e tools/ viaja por
+   ARQUIVOS nomeados em toda rota que monta pacote, então a pasta sai da comparação e a lista
+   de arquivos de tools de cada rota tem de ser igual à do pacote. */
+const EMBUTEM_RUNTIME = new Set(['node_modules']);
+const PASTA_POR_ARQUIVOS = 'tools';
+
+const ROTAS_COMPLETAS = {
+  'tools/make-installer.ps1': (t, a) => ({
+    arquivos: listaPowershell(t, 'f', a), pastas: listaPowershell(t, 'd', a), tools: listaPowershell(t, 't', a),
+  }),
+  'tools/make-offline-mac.sh': (t, a) => ({
+    arquivos: listaBash(t, 'f', a), pastas: listaBash(t, 'd', a), tools: listaBash(t, 't', a),
+  }),
+};
+const completas = Object.fromEntries(Object.entries(ROTAS_COMPLETAS).map(([arq, fn]) => [arq, fn(ler(arq), arq)]));
+
+test('os instaladores completos (Setup.exe e offline do mac) levam o mesmo que o instalador', () => {
+  const pastasDoInstalador = instalado.pastas.filter((d) => d !== PASTA_POR_ARQUIVOS);
+  for (const [arq, l] of Object.entries(completas)) {
+    assert.deepEqual(l.arquivos, instalado.arquivos, `${arq} diverge nos arquivos de raiz`);
+    const pastas = l.pastas.filter((d) => !EMBUTEM_RUNTIME.has(d));
+    assert.deepEqual(pastas, pastasDoInstalador, `${arq} diverge nas pastas (fora node_modules e tools)`);
+    assert.deepEqual(l.tools, pacoteTools, `${arq} nao leva os mesmos arquivos de tools que o pacote`);
+  }
+});
 
 test('os tres instaladores copiam os mesmos arquivos de raiz e as mesmas pastas', () => {
   for (const [arq, l] of Object.entries(listas)) {
