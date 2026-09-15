@@ -2,6 +2,33 @@
 
 Leia isto antes de mexer em qualquer arquivo. Este documento existe pra que qualquer Claude Code (em qualquer máquina, Windows ou macOS) consiga manter o Farol sem quebrar os contratos do app.
 
+<!-- indice:inicio (gerado; test/guias-navegaveis.test.js reprova se divergir das seções) -->
+
+## Índice
+
+- [O que é](#o-que-é)
+- [Mapa de arquivos](#mapa-de-arquivos)
+- [Invariantes do projeto (não negociar)](#invariantes-do-projeto-não-negociar)
+- [Pontos com branch de plataforma](#pontos-com-branch-de-plataforma)
+- [macOS: estado real e o que falta validar](#macos-estado-real-e-o-que-falta-validar)
+- [Linux (experimental, v2.45.0)](#linux-experimental-v2450)
+- [Modelo e esforço das sessões autônomas](#modelo-e-esforço-das-sessões-autônomas)
+- [Assinatura do Claude (qual conta/plano o Farol usa, e como alternar)](#assinatura-do-claude-qual-contaplano-o-farol-usa-e-como-alternar)
+- [Como rodar e testar sem estragar nada](#como-rodar-e-testar-sem-estragar-nada)
+- [Jira multi-tenant (v2.52.0)](#jira-multi-tenant-v2520)
+- [Menções navegáveis (regra de usabilidade, v2.40.1)](#menções-navegáveis-regra-de-usabilidade-v2401)
+- [Um Farol por PR (v2.50.1): a lição do marcador transitório](#um-farol-por-pr-v2501-a-lição-do-marcador-transitório)
+- [Dedup é por ROUND, não por "alguma vez" (v2.40.5)](#dedup-é-por-round-não-por-alguma-vez-v2405)
+- [Re-revisão automática pós-push (v2.41.0): o round 2 fecha sozinho](#re-revisão-automática-pós-push-v2410-o-round-2-fecha-sozinho)
+- [Autoanálise: parecer do modelo x decisão do app (P0a v2.54.8, P0b v2.55.0)](#autoanálise-parecer-do-modelo-x-decisão-do-app-p0a-v2548-p0b-v2550)
+- [Checkpoint de verificação (memória entre passadas da revisão, v2.36.0)](#checkpoint-de-verificação-memória-entre-passadas-da-revisão-v2360)
+- [Diagnóstico: ambiente x operação x runtime (v2.40.4, terceira dimensão na v2.53.3)](#diagnóstico-ambiente-x-operação-x-runtime-v2404-terceira-dimensão-na-v2533)
+- [Governança do repositório público (17/08/2026)](#governança-do-repositório-público-17082026)
+- [Versionamento (regras firmes; houve erro demais aqui)](#versionamento-regras-firmes-houve-erro-demais-aqui)
+- [Release (checklist obrigatório)](#release-checklist-obrigatório)
+
+<!-- indice:fim -->
+
 ## O que é
 
 Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o GitHub com comandos `gh` (zero tokens de IA), serve a UI local por HTTP + SSE e orquestra sessões do Claude Code (headless pra revisão autônoma, terminal pra sessão interativa). O `main.js` é só o shell Electron (janela, bandeja, notificações).

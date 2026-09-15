@@ -35,3 +35,25 @@ test('todo caminho do repositorio citado no mapa existe', () => {
     assert.ok(fs.existsSync(path.join(RAIZ, c)), `o mapa do README cita ${c}, que não existe`);
   }
 });
+
+/* O índice do CLAUDE.md é gerado, nunca escrito à mão: seção nova sem entrada no
+   índice reprova aqui. O slug segue a regra do GitHub (minúsculas, pontuação fora,
+   espaço vira hífen, acento fica). */
+const slugDeTitulo = (t) => t.toLowerCase().replace(/[^\p{L}\p{N} -]/gu, '').replace(/ /g, '-');
+
+test('o indice do CLAUDE.md lista TODAS as secoes, na ordem, com ancora valida', () => {
+  const guia = ler('CLAUDE.md');
+  // por PREFIXO: o marcador de abertura carrega um comentário depois do nome
+  const inicio = guia.indexOf('<!-- indice:inicio');
+  const fim = guia.indexOf('<!-- indice:fim');
+  assert.ok(inicio >= 0 && fim > inicio, 'o CLAUDE.md não tem o bloco de índice delimitado');
+  const indice = guia.slice(inicio, fim);
+  // os títulos saem do arquivo SEM o bloco do índice: o "## Índice" mora dentro dele e
+  // listar a si mesmo seria ruído (e deixaria o teste impossível de satisfazer)
+  const fora = guia.slice(0, inicio) + guia.slice(fim);
+  const titulos = fora.split('\n').filter((l) => l.startsWith('## ')).map((l) => l.slice(3).trim());
+  assert.ok(titulos.length >= 15, `esperava o CLAUDE.md com muitas seções, achei ${titulos.length}`);
+  const esperado = titulos.map((t) => `- [${t}](#${slugDeTitulo(t)})`);
+  const linhas = indice.split('\n').filter((l) => l.startsWith('- ['));
+  assert.deepEqual(linhas, esperado, 'o índice do CLAUDE.md divergiu das seções do arquivo');
+});
