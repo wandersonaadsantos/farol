@@ -131,6 +131,14 @@ quando a Fase 4 for planejada.
 > conteúdo foi para `docs/REVIEW-GATES.md`, `docs/CONFIGURATION.md`, `docs/MACOS.md` e
 > `docs/RELEASE.md`, que viajam por allowlist nas seis rotas. As decisões D1 a D4 estão na
 > spec. Fica aberta a fase futura de documentação de sincronização distribuível.
+>
+> **Atualização de 15/09/2026, fim da noite: o plano da Fase 1b está escrito**
+> ([`2026-09-15-reorganizacao-fase-1b-app.md`](2026-09-15-reorganizacao-fase-1b-app.md)). A
+> medição dele achou o fato que decide a fase: dividir o `ui/app.js` por aba **não é
+> acíclico**. São sete pares mútuos, todos passando por `switchTab` e `connect()`, que chamam
+> as abas pelo nome enquanto as abas chamam de volta. Por isso o plano inverte essa aresta
+> (um registro de telas e um módulo de estado) ANTES de mover qualquer linha. A v2.59.4
+> publicou a Fase 1.5 e o limite de 5000 entregas.
 
 1. ~~**Decisão do Wanderson na Fase 1.5**~~ tomada e executada em 15/09/2026: o `CLAUDE.md`
    viaja como sumário e só os quatro guias de `docs/` viajam com ele.

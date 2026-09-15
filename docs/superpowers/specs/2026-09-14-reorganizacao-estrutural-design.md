@@ -293,7 +293,11 @@ irrevisável):
    módulo por assunto sob `ui/pure/`, com o `ui/pure.js` virando só
    `export * from './pure/...'`. Plano:
    [`2026-09-15-reorganizacao-fase-1a-pure.md`](../plans/2026-09-15-reorganizacao-fase-1a-pure.md).
-2. **Fase 1b, quebrar `ui/app.js`** (4398 linhas), depois de 1a.
+2. **Fase 1b, quebrar `ui/app.js`** (4401 linhas na medição de 15/09), depois de 1a. Plano:
+   [`2026-09-15-reorganizacao-fase-1b-app.md`](../plans/2026-09-15-reorganizacao-fase-1b-app.md).
+   A medição do plano acrescentou o fato que decide a fase: a divisão por aba **não é
+   acíclica** (sete pares mútuos, todos por `switchTab` e `connect()`), então ela começa
+   invertendo essa dependência com um registro de telas, e só depois move código.
 3. **Fase 1c, fatiar `ui/app.css`** (1696 linhas) em parciais por seção, sem build.
 
 **O que a medição de 15/09/2026 acrescentou, e que muda o desenho das três:**
