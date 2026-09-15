@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026 (iniciativa inteira, limites no plano mestre, seção 4).
-- **Entrega em curso:** C0b. A1 e A4 concluídas e integradas em `md/integracao`.
+- **Entrega em curso:** nenhuma. C1a, C0, A5, A1 e A4 integradas; C0b validada localmente em `md/c0b`, pronta para integrar. Próxima: C1 (contrato de dados), com plano a escrever.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 - **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026.
@@ -40,7 +40,7 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | 2 | C0 Correções da sincronização publicada | `md/c0` | validado localmente, integrado | `evidencias-execucao/c0.md` |
 | 3 | A5 Retomada durável | `md/a5` | validado localmente, integrado | `evidencias-execucao/a5.md` |
 | 4 | A1 Consumo fiel (sem o item 1) | `md/a1` | validado localmente, integrado (`225165a`), item 1 bloqueado | `evidencias-execucao/a1.md` |
-| 5 | C0b Arbitragem de postagem no funil | `md/c0b` | plano pronto | |
+| 5 | C0b Arbitragem de postagem no funil | `md/c0b` | validado localmente | `evidencias-execucao/c0b.md` |
 | 6 | A4 Autenticação local, núcleo | `md/a4` | validado localmente, integrado (`7387179`); ativação automática desligada | `evidencias-execucao/a4.md` |
 | seguintes | C1, C2, C3, C4, C4b, C5, C6, C7, C8, telas | | planos a escrever | |
 
@@ -57,6 +57,7 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 |---|---|---|
 | C1a | `Origin` real do Chromium na janela do Electron | job `electron` do CI, na publicação |
 | A1 | `test/usage-interrompida-processo.test.js` no POSIX (o ramo `/bin/sh -lc` com grupo destacado só existe fora do Windows) | WSL ou CI |
+| C0b | ajustar `POSTAGEM_COORDENADA_DESDE` para a versão publicada | PR de release desta entrega |
 
 ## Decisões e ajustes técnicos
 
@@ -67,6 +68,8 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 - A5: isolamento de estado persistido no teste novo e ajuste do teste de rodada cega, detalhados na evidência.
 - A1: `lib/engine/usage-desfechos.js` criado fora do plano para manter `usage.js` abaixo do teto de linhas do ratchet, em vez de subir a baseline. Detalhes e as outras correções de forma na evidência.
 - A1: uma contraprova da Tarefa 13 não provava nada (mutava uma marca redundante) e foi refeita. Contraprova que não falha não é contraprova.
+- C0b: três contraprovas do plano não falhavam e foram refeitas, duas delas exigindo reforçar o teste (guarda da coordenação desligada e exigência do 422). Numa delas ficou registrado que duas travas da co-assinatura são independentemente suficientes, o que é redundância, não prova. Detalhes na evidência.
+- C0b: `POSTAGEM_COORDENADA_DESDE` nasce `2.59.4` e precisa ser ajustada no PR de release para a versão publicada.
 
 ## Commits
 
@@ -79,7 +82,8 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | `fe1ab5e`, `0181acb`, `3f5c486`, `24e1ff3`, `6c927ec` | `md/a5` | A5: módulo puro, persistência, referência com contexto, validação, desfechos |
 | `5bbde8b`, `160b581`, `7ab3fc5`, `659642f`, `3ab53d3`, `75a3d15`, `a488424`, `1fd7f38`, `436305b`, `c684e38`, `8256b95`, `d436c9c`, `d478abf`, `2557b05`, `106d5bb`, `eed54ed`, `7c3bfac`, merge `225165a` | `md/a1` | A1: instrumento de medição, id opaco, falha durável, custo desconhecido, reserva no gate, Codex, recusa de envelope, teto de pushback, correção pelo carimbo da linha, diário de tentativas, fiação, prova com processo real, mapa e evidência |
 | `4f8b475`, `8f0a06a`, `473de56`, `826c0b5`, `a90041c`, `855512f`, `3dbec40`, `d446efa`, `6d50526`, `bc5a872`, merge `7387179` | `md/a4` | A4: modo celular decidido no servidor, chave de arquivo fora da tela, pareamento de uso único, sessões por token, inventário das rotas, porteiro da API, comando de pareamento, transporte autenticado da UI, mapa e evidência |
+| `ed27d04`, `ce3c6a5`, `8e24193`, `7cc0c93`, `961666c`, `73b3743`, `df58c12`, `f0fab5e`, `fcf4714`, `7828a27` | `md/c0b` | C0b: caracterização do caminho desligado, posse com margem e recibo que preserva postagens, posse de postagem, registro durável, reconciliação, arbitragem no funil com as cinco vias, reconciliação no ciclo, co-assinatura coordenada, cobertura por versão, trava de fonte |
 
 ## Próxima ação concreta
 
-Executar a C0b (arbitragem de postagem no funil) na branch `md/c0b`, cortada da ponta verificada de `md/integracao`. A dependência da C0, `syncAtualizarPublicacao` em `lib/engine/sync.js`, está presente (Tarefa 0, passo 2).
+Integrar `md/c0b` em `md/integracao`, rodar o gate na integração e seguir para a próxima entrega elegível do plano mestre (C1, contrato de dados), escrevendo o plano dela antes do código.
