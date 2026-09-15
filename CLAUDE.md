@@ -6,6 +6,7 @@ Leia isto antes de mexer em qualquer arquivo. Este documento existe pra que qual
 
 ## Índice
 
+- [Os guias operacionais](#os-guias-operacionais)
 - [O que é](#o-que-é)
 - [Mapa de arquivos](#mapa-de-arquivos)
 - [Invariantes do projeto (não negociar)](#invariantes-do-projeto-não-negociar)
@@ -14,6 +15,20 @@ Leia isto antes de mexer em qualquer arquivo. Este documento existe pra que qual
 - [Diagnóstico: ambiente x operação x runtime (v2.40.4, terceira dimensão na v2.53.3)](#diagnóstico-ambiente-x-operação-x-runtime-v2404-terceira-dimensão-na-v2533)
 
 <!-- indice:fim -->
+
+## Os guias operacionais
+
+O conteúdo detalhado mora em quatro guias, que viajam junto com o app instalado:
+
+| guia | assunto |
+|---|---|
+| [`docs/REVIEW-GATES.md`](docs/REVIEW-GATES.md) | o invariante 4 em detalhe: gates de postagem, dedup, re-revisão, autoanálise, checkpoint |
+| [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) | assinatura e perfis do Claude, orçamento, modelo e esforço, Jira |
+| [`docs/MACOS.md`](docs/MACOS.md) | macOS, Linux e os pontos com branch de plataforma |
+| [`docs/RELEASE.md`](docs/RELEASE.md) | versionamento, checklist de release e governança do repositório |
+
+A documentação de sincronização entre dispositivos ainda não viaja com o app: ela depende de
+`firebase/`, que não faz parte da distribuição, e tem fase própria.
 
 ## O que é
 
@@ -75,6 +90,7 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
 | `tools/make-offline-mac.sh` | Gera o instalador OFFLINE do macOS (`dist/Farol-Instalar-mac.command`): autoextraível único, Electron embutido. RODA EM QUALQUER SO (baixa o zip darwin do GitHub e EMBUTE; o `.app` é montado no Mac na instalação, pois só o unzip do Mac preserva os symlinks do `.app`). Default Apple Silicon; `ARCH=x64` pra Intel. É BETA até validar num Mac real |
 | `tools/publish-release.ps1` | Publica a release no GitHub (`wandersonaadsantos/farol`): sobe o pacote leve (update) + o instalador único Windows. É como as cópias distribuídas recebem atualização |
 | `tools/make-icns.sh` | Gera `assets/farol.icns` (rodar num Mac) |
+| `docs/` | Documentação. Só os quatro guias da tabela "Os guias operacionais" viajam com o app (allowlist nas seis rotas, travada em `test/distribuicao-listas.test.js`); `docs/superpowers/`, `docs/QUALITY.md` e o resto ficam no repositório |
 
 ## Invariantes do projeto (não negociar)
 

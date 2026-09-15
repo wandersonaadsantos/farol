@@ -49,13 +49,13 @@ const LINK_RELATIVO = /\[[^\]]*\]\(([^)\s]+)\)/g;
 const EXTERNO = /^(https?:|mailto:)/;
 
 // Piso de seções por guia: existe para o teste não passar vazio, não para travar tamanho.
-// A Task 8 da Fase 1.5 troca cada zero pelo número MEDIDO de seções daquele guia.
+// Números MEDIDOS no fim da Fase 1.5 (15/09/2026); guia que perde seção precisa de motivo.
 const PISO_DE_SECOES = {
-  'CLAUDE.md': 0,
-  'docs/CONFIGURATION.md': 0,
-  'docs/REVIEW-GATES.md': 0,
-  'docs/MACOS.md': 0,
-  'docs/RELEASE.md': 0,
+  'CLAUDE.md': 7,
+  'docs/CONFIGURATION.md': 3,
+  'docs/REVIEW-GATES.md': 11,
+  'docs/MACOS.md': 3,
+  'docs/RELEASE.md': 4,
 };
 
 function destinoDoLink(guia, alvo) {

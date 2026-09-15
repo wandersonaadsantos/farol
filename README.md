@@ -61,9 +61,11 @@ Por onde começar a ler, dependendo do que você quer mexer:
 | como o app é instalado e atualizado | `installer/` e `lib/engine/update.js` |
 | as regras de qualidade e o gate | `docs/QUALITY.md` e `tools/quality/` |
 
-O guia completo do mantenedor, com os invariantes que reprovam um PR, é o
-[`CLAUDE.md`](CLAUDE.md). Ele é grande de propósito: é a memória do projeto, e o índice
-no topo dele leva direto ao assunto.
+O guia do mantenedor começa no [`CLAUDE.md`](CLAUDE.md): um sumário com o mapa de arquivos
+e os invariantes que reprovam um PR. O detalhe mora em quatro guias, que também viajam com o
+app instalado: [`docs/REVIEW-GATES.md`](docs/REVIEW-GATES.md),
+[`docs/CONFIGURATION.md`](docs/CONFIGURATION.md), [`docs/MACOS.md`](docs/MACOS.md) e
+[`docs/RELEASE.md`](docs/RELEASE.md).
 
 ## Como funciona
 

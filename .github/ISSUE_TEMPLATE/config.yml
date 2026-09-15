@@ -8,4 +8,4 @@ contact_links:
     about: Invariantes do projeto, gate de qualidade e padrão de PR.
   - name: Guia do mantenedor
     url: https://github.com/wandersonaadsantos/farol/blob/main/CLAUDE.md
-    about: Mapa de arquivos, decisões e histórico do porquê de cada regra.
+    about: Sumário, invariantes e mapa de arquivos, com ponteiros para os guias.

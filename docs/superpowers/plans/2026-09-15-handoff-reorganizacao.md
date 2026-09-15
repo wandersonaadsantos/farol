@@ -123,11 +123,17 @@ quando a Fase 4 for planejada.
 > congelada por teste, e o `ui/pure.js` saiu da dívida de responsabilidade única
 > (`currentFindings` de 15 para 14). O que a execução corrigiu no plano está na seção
 > "Registro da execução" do próprio plano. Próximo: o plano da Fase 1b (`ui/app.js`).
+>
+> **Atualização de 15/09/2026, fim da noite: a Fase 1.5 foi executada** (branch
+> `docs/reorganizacao-fase-1-5`, plano
+> [`2026-09-15-reorganizacao-fase-1-5-guias.md`](2026-09-15-reorganizacao-fase-1-5-guias.md)),
+> depois do PR #90, que devolveu `tools/` ao Setup.exe. O `CLAUDE.md` virou sumário e o
+> conteúdo foi para `docs/REVIEW-GATES.md`, `docs/CONFIGURATION.md`, `docs/MACOS.md` e
+> `docs/RELEASE.md`, que viajam por allowlist nas seis rotas. As decisões D1 a D4 estão na
+> spec. Fica aberta a fase futura de documentação de sincronização distribuível.
 
-1. **Decisão do Wanderson na Fase 1.5**, que não pode ser tomada por quem executa. A escolha é
-   entre fazer `docs/` viajar na distribuição (o pacote fica maior, e `docs/superpowers/`
-   precisaria de recorte) ou tirar o `CLAUDE.md` dela (a cópia instalada perde o guia, e o
-   README precisa parar de mandar o usuário de macOS abri-lo).
+1. ~~**Decisão do Wanderson na Fase 1.5**~~ tomada e executada em 15/09/2026: o `CLAUDE.md`
+   viaja como sumário e só os quatro guias de `docs/` viajam com ele.
 2. ~~**Executar a Fase 0**~~ feito em 15/09/2026, PR #87. Duas lições para as próximas: o
    código de teste que um plano traz pronto pode divergir da convenção do repositório, e pode
    repetir o que outro teste já decide; nos dois casos quem cobra é o `npm run eng`, não a
