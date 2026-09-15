@@ -13,19 +13,23 @@
 
 // Fachada: o conteúdo mora em ui/pure/*.js desde a Fase 1a da reorganização. Cada linha
 // de `export *` reexporta um módulo inteiro; nome novo nasce no módulo, nunca aqui.
+export * from './pure/autoanalise.js';
 export * from './pure/comum.js';
 export * from './pure/consumo.js';
 export * from './pure/entregas.js';
 export * from './pure/fila-justa.js';
 export * from './pure/mencoes.js';
+export * from './pure/pessoas.js';
+export * from './pure/review.js';
 export * from './pure/sessao.js';
 export * from './pure/sync.js';
 // Imports de volta: o `export *` reexporta sem trazer nome nenhum para o escopo deste
 // arquivo, e o que ainda mora aqui chama estes nomes. A lista é derivada do uso e some
 // sozinha quando o último consumidor sair.
-import { diffVs, esc, escAttrSelector, fmtClock, fmtMoney, fmtRel, fmtSpan, fmtStamp, fmtWhenDay, md, plural, repoShort, sameSet } from './pure/comum.js';
-import { avatar, personMention, prRefMention, repoMention } from './pure/mencoes.js';
-import { stagesLine } from './pure/sessao.js';
+import { esc, escAttrSelector, fmtMoney, fmtRel, fmtSpan, fmtStamp, fmtWhenDay, plural } from './pure/comum.js';
+import { avatar, personMention, repoMention } from './pure/mencoes.js';
+import { papelPicker } from './pure/pessoas.js';
+import { chatBadge, reviewChip } from './pure/review.js';
 import { prCoordNoteHtml } from './pure/sync.js';
 
 /* ---------- folhas: sem dependencia nenhuma ---------- */
@@ -379,12 +383,6 @@ export function runtimeChecks(doctor, config = {}) {
 }
 
 
-// O conteúdo da caixa de revisão (o mesmo que o card mostra em "Precisa de você"
-// e "Revisões recentes"): veredito, PR, autor, pontos de atenção e o relatório.
-// Cada ausência vira texto explícito: caixa em branco não distingue "não achei"
-// de "achei e está vazio", e é exatamente essa confusão que motivou a feature.
-const VERDICT_LABEL = { approve: 'Aprovável', request_changes: 'Com blocker', comment: 'Comentado' };
-
 /* ---------- os três eixos de "por que isto está na sua mesa" ----------
    A pergunta que o agrupamento responde é a que o biud-frontend#774 deixou sem
    resposta: dos N motivos listados, quais foram JULGAMENTO da revisão, quais são
@@ -394,57 +392,7 @@ const VERDICT_LABEL = { approve: 'Aprovável', request_changes: 'Com blocker', c
    A ordem é a de quem lê: falha técnica primeiro (é a única acionável agora e
    costuma ser a que segurou tudo), regra depois (explica o comportamento), e o
    que a revisão achou por último (é o conteúdo, não o motivo do bloqueio). */
-const REASON_GROUPS = [
-  ['infra', '🔌', 'falha técnica ao postar'],
-  ['gate', '📏', 'regra do app'],
-  ['content', '🧭', 'ponto que a revisão levantou'],
-];
 
-export function reasonGroups(reasons) {
-  const porKind = new Map();
-  for (const r of (Array.isArray(reasons) ? reasons : [])) {
-    if (!r) continue;
-    // string solta = decisão gravada antes da v2.48.0: entra como 'content', a
-    // leitura conservadora (nunca inventa gate nem falha de infra que não houve)
-    const text = (typeof r === 'object') ? r.text : r;
-    const kind = (typeof r === 'object' && r.kind) ? r.kind : 'content';
-    if (!text) continue;
-    if (!porKind.has(kind)) porKind.set(kind, []);
-    porKind.get(kind).push(text);
-  }
-  return REASON_GROUPS
-    .filter(([kind]) => porKind.has(kind))
-    .map(([kind, icon, label]) => ({ kind, icon, label, items: porKind.get(kind) }));
-}
-
-// Uma linha por grupo, com os motivos daquele grupo embaixo. `postRetry` (já
-// projetado por decisionForUi) só decora o grupo de infra: é ali que "o app ainda
-// vai tentar sozinho" muda o que VOCÊ precisa fazer, que é nada.
-// Texto de UM motivo, aceitando as duas formas: { text, kind } (v2.48.0+) e string
-// solta (histórico gravado antes). Existe porque nem todo consumidor mostra a lista
-// agrupada: o toast e a notificação do sistema mostram só o primeiro motivo, e
-// interpolar o objeto direto imprimia "[object Object]" na cara do usuário.
-export function reasonText(r) {
-  if (r && typeof r === 'object') return String(r.text || '');
-  return String(r || '');
-}
-
-export function reasonGroupsHtml(reasons, postRetry) {
-  const grupos = reasonGroups(reasons);
-  if (!grupos.length) return '';
-  return `<div class="reason-groups">${grupos.map(g => {
-    let nota = '';
-    if (g.kind === 'infra' && postRetry) {
-      nota = postRetry.exhausted
-        ? `<span class="reason-note">desisti de tentar sozinho depois de ${postRetry.attempts} tentativa(s)</span>`
-        : `<span class="reason-note">tentando de novo sozinho</span>`;
-    }
-    return `<div class="reason-group rg-${esc(g.kind)}">`
-      + `<div class="reason-group-head"><span aria-hidden="true">${g.icon}</span> ${esc(g.label)}${nota}</div>`
-      + `<ul class="dec-reasons">${g.items.map(t => `<li>${esc(t)}</li>`).join('')}</ul>`
-      + `</div>`;
-  }).join('')}</div>`;
-}
 
 /* ---------- card de commit novo (pendência stale_head, v2.59.3) ----------
    A tela diz quem está com a bola. Até a v2.59.2 o card mandava "Peça uma revisão
@@ -452,119 +400,6 @@ export function reasonGroupsHtml(reasons, postRetry) {
    num caso em que o round automático ia revisar sozinho minutos depois
    (Edicoes-CNBB/biblioteca-cnbb-api#22, 09/09/2026). O estado vem do engine
    (reRoundParaUi, lib/engine/review.js); aqui só vira frase. */
-const REROUND_MOTIVO = {
-  rascunho: () => 'o PR está como rascunho.',
-  auto_desligado: (d) => `a revisão automática está desligada na conta ${d} (Sistema > Contas).`,
-  conta_silenciada: (d) => `a conta ${d} está silenciada.`,
-  sem_token: (d) => `a conta ${d} está sem login no gh.`,
-  orcamento: () => 'o orçamento do perfil desta conta estourou.',
-  estacionado: (d) => (d === 'cancelado'
-    ? 'você cancelou a última tentativa.'
-    : 'a última tentativa falhou e ficou estacionada. Volto sozinho se chegar commit novo ou pedirem revisão de novo.'),
-  outros_revisando: (d) => `${d} já está revisando este PR.`,
-  saiu_de_cena: () => 'saí de cena porque outra pessoa pegou este PR.',
-  coordenacao: () => 'outro aparelho seu está cuidando deste PR.',
-  pendencia_viva: () => 'há outra decisão deste PR esperando você.',
-  consciencia: () => 'outra pessoa já deu um review decisivo neste commit.',
-  ancora: () => 'já tentei neste commit e a revisão não terminou. Volto sozinho se chegar commit novo ou pedirem revisão de novo.',
-};
-
-const shaCurto = (s) => String(s || '').slice(0, 7);
-
-function reRoundAguardando(r, d) {
-  if (r.motivo === 'retry') {
-    return { lead: 'Reviso de novo sozinho quando a conexão voltar.', texto: 'A última tentativa caiu por instabilidade e não postou nada.' };
-  }
-  const de = shaCurto(d && d.headSha), para = shaCurto(d && d.blockedHead);
-  const commits = (de && para) ? ` (${de} para ${para})` : '';
-  return {
-    lead: r.aPartirDe ? `Reviso de novo sozinho a partir de ${fmtClock(r.aPartirDe)}.` : 'Reviso de novo sozinho no próximo ciclo.',
-    texto: `O autor enviou commit novo${commits} enquanto eu revisava, então este texto fala do código anterior. Começo quando o PR ficar uns minutos sem push.`,
-  };
-}
-
-// null = sem estado do engine (snapshot antigo ou PR sem gatilho): o card cai no aviso de sempre
-export function reRoundStatus(r, d) {
-  if (!r || !r.estado || r.estado === 'sem_gatilho') return null;
-  if (r.estado === 'revisando') {
-    return { tom: 'info', icone: 'spin', automatico: true, lead: 'Revisando de novo agora,', texto: 'já no commit novo. Este card sai da mesa sozinho quando a revisão nova terminar.' };
-  }
-  if (r.estado === 'espera_longa') {
-    const n = Number(r.rodadasPresas) || 0;
-    return {
-      tom: 'info', icone: 'hourglass', automatico: true,
-      lead: r.aPartirDe ? `Próxima tentativa a partir de ${fmtClock(r.aPartirDe)}.` : 'Próxima tentativa quando o PR ficar mais tempo sem push.',
-      texto: `As últimas ${n} revisões pegaram commit novo no meio, então agora espero o PR ficar mais tempo sem push antes de revisar de novo.`,
-    };
-  }
-  if (r.estado === 'parado') {
-    const frase = REROUND_MOTIVO[r.motivo];
-    return { tom: 'accent', icone: 'pause', automatico: false, lead: 'Não vou revisar de novo sozinho:', texto: `${frase ? frase(r.detalhe || '') : 'motivo desconhecido.'} Use Revisar agora quando quiser.` };
-  }
-  return { tom: 'info', icone: 'clock', automatico: true, ...reRoundAguardando(r, d) };
-}
-
-const REROUND_ICONE = {
-  clock: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.6V8l2.3 1.5"/></svg>',
-  spin: '<svg class="dec-status-spin" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M14.2 8A6.2 6.2 0 1 1 8 1.8"/></svg>',
-  hourglass: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 1.8h8M4 14.2h8M4.8 1.8c0 3.2 6.4 3.2 6.4 6.2s-6.4 3-6.4 6.2M11.2 1.8c0 3.2-6.4 3.2-6.4 6.2s6.4 3 6.4 6.2"/></svg>',
-  pause: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.2"/><path d="M6.4 5.6v4.8M9.6 5.6v4.8"/></svg>',
-};
-
-export function reRoundBoxHtml(st) {
-  if (!st) return '';
-  return `<div class="dec-status ${esc(st.tom)}"><span class="dec-status-icon" aria-hidden="true">${REROUND_ICONE[st.icone] || ''}</span>`
-    + `<span><b>${esc(st.lead)}</b> ${esc(st.texto)}</span></div>`;
-}
-
-// Tudo que muda no card de decisão quando ele é de commit novo, num lugar só e testável.
-// reviewBtn: 'primary' (você precisa agir), 'secondary' (atalho: o Farol já vai agir),
-// 'none' (revisão nova já rodando) ou '' (card comum, sem o botão).
-export function staleCardMeta(d, r) {
-  const reasons = Array.isArray(d && d.reasons) ? d.reasons : [];
-  const stale = !!(d && d.blockedKind === 'stale_head');
-  const legado = d && d.blockedReason ? `<div class="dec-blocked">🚫 <span><b>Bloqueado:</b> ${esc(d.blockedReason)}</span></div>` : '';
-  const verdictComum = d && d.verdict === 'approve' ? '<span class="verdict approve">APROVÁVEL</span>' : '<span class="verdict rc">COM BLOCKER</span>';
-  if (!stale) {
-    return { stale, cardClass: d && d.verdict === 'approve' ? 'urgent' : 'blocked', verdictHtml: verdictComum, reasons, statusHtml: legado, reviewBtn: '' };
-  }
-  const st = reRoundStatus(r, d);
-  if (!st) return { stale, cardClass: d.verdict === 'approve' ? 'urgent' : 'blocked', verdictHtml: verdictComum, reasons, statusHtml: legado, reviewBtn: 'primary' };
-  let reviewBtn = st.automatico ? 'secondary' : 'primary';
-  if (r.estado === 'revisando') reviewBtn = 'none';
-  return {
-    stale,
-    cardClass: st.automatico ? 'working' : 'urgent',
-    verdictHtml: '<span class="verdict stale">COMMIT NOVO</span>',
-    // a "regra do app" repetia a caixa de status; o que a revisão levantou continua
-    reasons: reasons.filter(x => !(x && typeof x === 'object' && x.kind === 'gate')),
-    statusHtml: reRoundBoxHtml(st),
-    reviewBtn,
-  };
-}
-
-export function reviewBoxHtml(d) {
-  if (!d) return `<div class="empty">Nenhuma revisão registrada pra este PR no histórico do Farol.</div>`;
-  const v = VERDICT_LABEL[d.verdict] || d.verdict || 'sem veredito';
-  const cls = d.verdict === 'approve' ? 'approve' : 'rc';
-  const autor = (d.pr && d.pr.author) || d.author || '';
-  const razoes = Array.isArray(d.reasons) ? d.reasons : [];
-  return `<div class="review-box">
-    <div class="review-box-head">
-      <span class="verdict ${cls}">${esc(v)}</span>
-      ${prRefMention(d.key || '', 'dec-ref')}
-      ${d.card ? `<span class="pill">${esc(d.card)}</span>` : ''}
-    </div>
-    ${d.pr && d.pr.title ? `<div class="dec-title">${esc(d.pr.title)}</div>` : ''}
-    ${autor ? `<div class="dec-author">PR de ${personMention(autor, 'xs')}</div>` : ''}
-    ${d.status === 'pending' && razoes.length
-      ? `<div class="review-box-context"><strong>Por que precisa de você</strong>${reasonGroupsHtml(razoes, d.postRetry)}</div>`
-      : ''}
-    ${d.reportMarkdown
-      ? `<div class="report">${md(d.reportMarkdown)}</div>`
-      : `<div class="empty">Esta revisão ficou sem relatório gravado.</div>`}
-  </div>`;
-}
 
 
 /* ---------- fila: o vazio que CONFIRMA ----------
@@ -1077,17 +912,6 @@ export function accountsManagerHtml(ctx) {
    nao tem a ver com desenhar o card: puxa-la junto arrastaria meio painel de
    contas pra ca sem ganho nenhum de teste. */
 
-export function reviewChip(pr, actions) {
-  const a = (actions || {})[pr.key];
-  if (a) {
-    if (a.kind === 'pending') return '<span class="badge rev-pend" title="A análise terminou e está esperando a sua decisão em Precisa de você">🟡 aguardando você</span>';
-    if (a.kind === 'approve') return `<span class="badge rev-ok" title="APPROVE postado${a.auto ? ' automaticamente pelo protocolo' : ' por você'} via Farol">✅ você aprovou</span>`;
-    if (a.kind === 'request_changes') return '<span class="badge rev-rc" title="REQUEST CHANGES postado por você via Farol">✋ você pediu mudanças</span>';
-    if (a.kind === 'comment') return '<span class="badge rev-cm" title="COMMENT postado por você via Farol">💬 você comentou</span>';
-  }
-  if (pr.reviewedByMe) return '<span class="badge rev-ok" title="Você já revisou este PR no GitHub">✔ revisado por você</span>';
-  return '';
-}
 
 // Frase do estacionamento por tipo (ver `estacionar` em lib/engine/review.js). O
 // motivo só entra onde ele diz algo que o tipo não diz: cancelamento e orçamento já
@@ -1254,117 +1078,6 @@ export function panoramaRowHtml(pr, ctx) {
    Fica de fora o seedException: ele muta os Sets e persiste via API, ou seja, nao e
    render. E o renderReviewersEditor, que escreve no DOM. */
 
-export function defaultFor(org, ctx) { const d = ctx.defaults || {}; return d[org] || d[(org || '').toLowerCase()] || []; }
-
-export function overrideFor(repo, ctx) { const p = ctx.projects || {}; return p[repo] || p[(repo || '').toLowerCase()] || null; }
-
-export function reposOfOrg(org, ctx) {
-  const o = String(org).toLowerCase(), set = new Set();
-  const add = k => { const r = String(k || ''); if (r.split('/')[0].toLowerCase() === o) set.add(r); };
-  // prKeys ja vem achatado do app.js (myPRs + panorama): aqui nao se sabe de onde
-  // a chave veio, so que ela e "owner/repo#N"
-  (ctx.prKeys || []).forEach(k => add(String(k).split('#')[0]));
-  Object.keys(ctx.projects || {}).forEach(add);
-  [...(ctx.pendentes || [])].forEach(add);
-  return [...set].filter(Boolean).sort();
-}
-
-export function suggestDefault(org, ctx) {
-  const lists = reposOfOrg(org, ctx).map(repo => overrideFor(repo, ctx)).filter(l => l && l.length);
-  if (lists.length < 2) return [];
-  const count = {}, rep = {};
-  for (const list of lists) for (const rv of new Set(list)) { const k = rv.toLowerCase(); count[k] = (count[k] || 0) + 1; rep[k] = rv; }
-  const th = Math.ceil(lists.length / 2);
-  return Object.keys(count).filter(k => count[k] >= th).map(k => rep[k]).sort();
-}
-
-export function addControl(cls, dataAttrs, list, org, ctx) {
-  const c = (ctx.cands || {})[org] || { members: [], teams: [] };
-  const me = ((ctx.owner2user || {})[String(org || '').toLowerCase()] || ctx.ghUser || '').toLowerCase();
-  const has = v => (list || []).some(l => l.toLowerCase() === String(v).toLowerCase());
-  if (!ctx.candsLoaded) return `<select class="rev-add ${cls}" ${dataAttrs}><option value="">carregando…</option></select>`;
-  if (!c.members.length && !c.teams.length) return `<input class="rev-add rev-manual ${cls}" ${dataAttrs} placeholder="+ digite um handle e Enter…" spellcheck="false">`;
-  const opts = [
-    ...c.members.filter(x => x.toLowerCase() !== me && !has(x)).map(x => `<option value="${esc(x)}">${esc(x)}</option>`),
-    ...c.teams.filter(t => !has(t.id)).map(t => `<option value="${esc(t.id)}">${esc(t.name)} (time)</option>`)
-  ].join('');
-  return `<select class="rev-add ${cls}" ${dataAttrs}><option value="">+ adicionar…</option>${opts}</select>`;
-}
-
-export function renderOrgBlock(org, accent, ctx) {
-  const def = defaultFor(org, ctx);
-  const repos = reposOfOrg(org, ctx);
-  const isExc = r => { const o = overrideFor(r, ctx); return (o && !sameSet(o, def)) || ctx.abertas.has(r) || ctx.pendentes.has(r); };
-  const excRepos = repos.filter(isExc);
-  const following = repos.filter(r => !excRepos.includes(r));
-
-  // card do padrão
-  let defCard;
-  if (def.length) {
-    const chips = def.map(rv => chipHtml(rv, 'rev-def-x', `data-org="${esc(org)}" data-rv="${esc(rv)}"`, ctx.cands)).join('');
-    defCard = `<div class="rev-default">
-      <div class="rev-default-top"><span class="t">Reviewers padrão</span><span class="scope">${esc(org)}</span></div>
-      <div class="rev-chips">${chips}${addControl('rev-def-add', `data-org="${esc(org)}"`, def, org, ctx)}</div>
-      <div class="rev-hint">Aplicado a todos os projetos de <code>${esc(org)}</code> quando você clica em "👥 Reviewers", salvo as exceções abaixo.</div>
-    </div>`;
-  } else {
-    const sug = suggestDefault(org, ctx);
-    const sugChips = sug.map(rv => `<span class="rev-chip ghost">${esc(reviewerLabel(rv, ctx.cands).label)}</span>`).join('');
-    defCard = `<div class="rev-default empty">
-      <div class="rev-default-top"><span class="t">Reviewers padrão</span><span class="scope">${esc(org)}</span></div>
-      ${sug.length
-        ? `<div class="rev-hint">Detectei ${sug.length} reviewers comuns nos seus projetos de ${esc(org)}. Vira o padrão num clique, e os projetos iguais colapsam:</div>
-           <div class="rev-chips">${sugChips}</div>
-           <button class="btn sm ok rev-make-default" data-org="${esc(org)}">Criar padrão com estes ${sug.length}</button>`
-        : `<div class="rev-chips">${addControl('rev-def-add', `data-org="${esc(org)}"`, [], org, ctx)}</div>
-           <div class="rev-hint">Escolha os reviewers padrão de <code>${esc(org)}</code>.</div>`}
-    </div>`;
-  }
-
-  // exceções
-  const excHtml = excRepos.map(repo => {
-    const list = overrideFor(repo, ctx) || (ctx.pendentes.has(repo) ? [...def] : []);
-    if (ctx.abertas.has(repo)) {
-      const chips = list.map(rv => chipHtml(rv, 'rev-exc-x', `data-repo="${esc(repo)}" data-rv="${esc(rv)}"`, ctx.cands)).join('');
-      return `<div class="rev-exc open" data-repo="${esc(repo)}">
-        <div class="rev-exc-head"><code>${esc(repoShort(repo))}</code>
-          <button class="rev-exc-reset" data-repo="${esc(repo)}" title="remover a exceção e voltar ao padrão da org">voltar ao padrão</button>
-          <button class="rev-exc-toggle" data-repo="${esc(repo)}">fechar</button></div>
-        <div class="rev-chips">${chips || '<span class="rev-empty">sem reviewers</span>'}${addControl('rev-exc-add', `data-repo="${esc(repo)}"`, list, repo.split('/')[0], ctx)}</div>
-      </div>`;
-    }
-    const d = diffVs(def, list);
-    const pills = '<span class="rev-pill base">padrão</span>'
-      + d.added.map(x => `<span class="rev-pill add">+ ${esc(reviewerLabel(x, ctx.cands).label)}</span>`).join('')
-      + d.removed.map(x => `<span class="rev-pill rem">− ${esc(reviewerLabel(x, ctx.cands).label)}</span>`).join('');
-    return `<div class="rev-exc" data-repo="${esc(repo)}"><code>${esc(repoShort(repo))}</code><div class="rev-diff">${def.length ? pills : list.map(x => `<span class="rev-pill add">${esc(reviewerLabel(x, ctx.cands).label)}</span>`).join('')}</div><button class="rev-exc-toggle" data-repo="${esc(repo)}">editar</button></div>`;
-  }).join('');
-
-  // colapsado: projetos que seguem o padrão
-  const open = ctx.expandidas.has(org);
-  // os quatro ternarios que estavam nesta expressao (tem projeto? singular ou
-  // plural? aberto ou fechado? mostra a lista?) viraram quatro nomes: era o ponto
-  // com mais ternario aninhado do arquivo, e nenhum deles dizia o que decidia.
-  const rotuloSegue = following.length === 1 ? 'projeto segue' : 'projetos seguem';
-  const rotuloBotao = open ? 'ocultar' : 'ver';
-  const miniRepos = following.map(r => `<span class="rev-repo-mini">${esc(repoShort(r))}<button class="rev-mk-exc" data-repo="${esc(r)}" title="criar exceção pra este projeto">+</button></span>`).join('');
-  const listaAberta = open ? `<div class="rev-folded-list">${miniRepos}</div>` : '';
-  const followHtml = !following.length ? '' : `<div class="rev-folded">
-      <span><span class="count">${following.length}</span> ${rotuloSegue} o padrão</span>
-      <button class="rev-fold-toggle" data-org="${esc(org)}">${rotuloBotao}</button>
-    </div>${listaAberta}`;
-
-  // criar exceção pra um projeto (só quando há padrão)
-  const dl = following.map(r => `<option value="${esc(r)}"></option>`).join('');
-  const newExc = def.length ? `<div class="rev-newexc">
-      <input class="rev-newexc-input" list="revExcList-${esc(org)}" placeholder="owner/repo, exceção" spellcheck="false">
-      <datalist id="revExcList-${esc(org)}">${dl}</datalist>
-      <button class="btn sm rev-newexc-go" data-org="${esc(org)}">+ criar exceção</button>
-    </div>` : '';
-
-  return `<div class="rev-org" data-org="${esc(org)}" style="--ac:${accent}">${defCard}${excRepos.length ? `<div class="rev-sec-title">Exceções (${excRepos.length})</div>${excHtml}` : ''}${followHtml}${newExc}</div>`;
-}
-
 
 /* ---------- aba Consumo: os construtores de HTML/SVG ----------
    Saiu do app.js na onda 5, segundo passo. O bloco inteiro ja era puro: nao lia
@@ -1396,81 +1109,20 @@ export function renderOrgBlock(org, accent, ctx) {
    que compara os CONJUNTOS DE CHAVES com o engine. Os rótulos ficam livres de
    propósito: aqui eles são mais curtos pra caber no <select> ("Infra" em vez de
    "Infra/DevOps", "Interm." em vez de "Intermediário"). */
-export const PAPEL_OPTS = [['', 'papel'], ['estagio', 'Estágio'], ['junior', 'Júnior'], ['pleno', 'Pleno'], ['senior', 'Sênior'], ['techlead', 'Tech Lead'], ['arquiteto', 'Arquiteto'], ['especialista', 'Especialista']];
-export const DOMAIN_DEFS = [['backend', 'Backend'], ['frontend', 'Frontend'], ['dados', 'Dados'], ['infra', 'Infra']];
-export const DOMLEVEL_OPTS = [['', 'sem info'], ['basico', 'Básico'], ['intermediario', 'Interm.'], ['avancado', 'Avançado'], ['autoridade', 'Autoridade']];
-export function personOf(login, people) { return (people || {})[String(login || '').toLowerCase()] || {}; }
-export function papelOf(login, people) { return personOf(login, people).papel || ''; }
-export function domLevelOf(login, d, people) { return (personOf(login, people).dominios || {})[d] || ''; }
-// papel (compacto): usado nos cards do PR e no cabeçalho do card do time
-export function papelPicker(login, people) {
-  return `<select class="papel-level" data-login="${esc(login)}" title="Papel de @${esc(login)}: molda o tom da revisão automática, nunca a decisão">
-    ${PAPEL_OPTS.map(([v, t]) => `<option value="${v}"${papelOf(login, people) === v ? ' selected' : ''}>${t}</option>`).join('')}
-  </select>`;
-}
-// matriz por domínio (só na aba Time): competência por área calibra a postura
-export function domainMatrix(login, people) {
-  return `<div class="dom-matrix">${DOMAIN_DEFS.map(([d, label]) => `
-    <label class="dom-cell"><span class="dom-name">${label}</span>
-      <select class="dom-level" data-login="${esc(login)}" data-domain="${d}" title="Competência de @${esc(login)} em ${label}">
-        ${DOMLEVEL_OPTS.map(([v, t]) => `<option value="${v}"${domLevelOf(login, d, people) === v ? ' selected' : ''}>${t}</option>`).join('')}
-      </select></label>`).join('')}</div>`;
-}
 
 /* ---------- reviewers: rótulo e chip ----------
    Saiu do app.js na onda 5. `cands` é o mapa de candidatos por org (era o global
    reviewerCands): só serve pra achar o NOME de um time a partir do id; sem ele o
    rótulo degrada pro slug do time, que é exatamente o que acontecia enquanto os
    candidatos ainda não tinham carregado. */
-export function reviewerLabel(rv, cands) {
-  const isTeam = rv.includes('/');
-  const ent = isTeam && rv.split('/').slice(1).join('/').includes(':');
-  if (ent) return { label: `${rv.split('/').pop()} (enterprise, não pedível)`, cls: 'bad', ent: true };
-  if (isTeam) { const org = rv.split('/')[0]; const t = (((cands || {})[org] || {}).teams || []).find(t => t.id === rv); return { label: (t ? t.name : rv.split('/').pop()) + ' (time)', cls: 'team' }; }
-  return { label: rv, cls: '' };
-}
-export function chipHtml(rv, xClass, dataAttrs, cands) {
-  const r = reviewerLabel(rv, cands);
-  // os dois ternários saem do template: juntos numa linha só eles contavam como
-  // ternário aninhado no gate de qualidade, e a versão com nome é mais legível
-  const cls = r.cls ? ' ' + r.cls : '';
-  const title = r.ent ? 'title="Time enterprise não pode ser reviewer de PR (o GitHub recusa). Remova daqui."' : '';
-  return `<span class="rev-chip${cls}" ${title}>${esc(r.label)}<button class="${xClass}" ${dataAttrs} title="remover">×</button></span>`;
-}
 
 /* ---------- chat: o contador de mensagens no card ----------
    Saiu do app.js na onda 5; o mapa de chats entra por parâmetro (era STATE.chats,
    e o `?.` de lá cobria justamente o STATE ainda null antes do primeiro SSE). */
-export function chatBadge(key, chats) {
-  const c = (chats || {})[key];
-  return c && c.count ? ` <span class="count">${c.count}</span>` : '';
-}
 
 /* ---------- pushback: o controle das Revisões recentes ----------
    Saiu do app.js pra ganhar teste; o mapa de pushbacks entra por parâmetro
    (era lido de STATE, global proibida aqui). */
-export const PB_OPTS = [['', 'sem pushback'], ['author_right', 'o autor tinha razão'], ['we_right', 'nós tínhamos razão'], ['mixed', 'meio-termo']];
-export const PB_SHORT = { author_right: 'autor tinha razão', we_right: 'nós tínhamos razão', mixed: 'meio-termo' };
-export function pushbackControl(r, pushbacks) {
-  const author = (r.pr && r.pr.author) || r.author || '';
-  if (!author) return '';
-  const pb = (pushbacks || {})[r.key] || null;
-  const pending = pb && pb.status === 'pending';    // auto em dúvida: pede confirmação
-  const sum = resumoDoPushback(pending, pb);
-  const title = pending ? 'O Farol suspeita de pushback aqui; confirme ou corrija o desfecho'
-    : 'Marque se o autor contestou este review, pra calibrar os reviews futuros dele';
-  return `<details class="pushback"${pb ? ' data-set="1"' : ''}${pending ? ' data-pending="1" open' : ''}>
-    <summary title="${title}">${sum}</summary>
-    <div class="pb-body">
-      ${pending ? `<span class="pb-hint">O Farol detectou possível pushback${pb.note ? ` (${esc(pb.note)})` : ''}. Confirme o desfecho:</span>` : ''}
-      <select class="pb-outcome" data-key="${esc(r.key)}" data-author="${esc(author)}">
-        ${PB_OPTS.map(([v, t]) => `<option value="${v}"${pb && pb.outcome === v ? ' selected' : ''}>${t}</option>`).join('')}
-      </select>
-      <input class="pb-note" data-key="${esc(r.key)}" data-author="${esc(author)}" value="${esc(pb && pb.note || '')}" placeholder="nota curta (opcional)" spellcheck="false" maxlength="300">
-      ${pending ? `<button class="btn sm primary pb-confirm" data-key="${esc(r.key)}" data-author="${esc(author)}" title="Grava o desfecho selecionado como confirmado (re-selecionar a mesma opção não dispara change; com '' confirma que NÃO houve pushback)">Confirmar</button>` : ''}
-    </div>
-  </details>`;
-}
 
 /* ---------- Revisões recentes: a linha inteira ----------
    Três colunas: ícone | conteúdo | quando + ações. A coluna da direita era só o
@@ -1487,116 +1139,7 @@ export function pushbackControl(r, pushbacks) {
    relatado). Foto vem do mesmo avatar() que a fila, "precisa de você",
    destaques e time já usam, fechando a inconsistência visual desta tela com
    o resto do app. */
-const RESOLVED_LABELS = {
-  auto_approved: ['✅', 'aprovado sozinho'],
-  auto_rejected: ['🔴', 'mudanças pedidas sozinho'],
-  posted: ['📬', 'postado por você'],
-  already_reviewed: ['✔', 'já revisado por você (não repostei)'],
-  already_merged: ['🔀', 'já foi mergeado (cancelei a revisão pendente)'],
-  already_closed: ['🚫', 'PR fechado sem merge (cancelei a revisão pendente)'],
-  skipped: ['⏭', 'pulado'],
-  superseded: ['♻', 'substituída por uma revisão nova']
-};
-const RESOLVED_ACTIONS = { approve: 'APPROVE', request_changes: 'REQUEST CHANGES', comment: 'COMMENT' };
-// cor do selo pela AÇÃO postada, não pelo status: o desfecho é o que se procura ao
-// varrer a lista. Pulado fica neutro de propósito, porque nada foi postado.
-const VERDICT_CLASS = { approve: 'rev-ok', request_changes: 'rev-rc', comment: 'rev-cm' };
 
-// O rótulo diz de QUE lista se está falando, e ela muda com o status: em
-// already_reviewed o achado não foi postado, em auto_rejected ele é o bloqueio, em
-// posted é o que trouxe o PR pra mesa. Fora desses, é ponto de atenção comum.
-const ROTULO_DOS_PONTOS = {
-  already_reviewed: (p) => `achado${p ? 's' : ''} que ${p ? 'ficaram' : 'ficou'} só aqui`,
-  auto_rejected: (p) => `motivo${p ? 's' : ''} do pedido de mudanças`,
-  posted: (p) => `motivo${p ? 's' : ''} de ter vindo pra você`,
-};
-function rotuloDosPontos(status, plural) {
-  const f = ROTULO_DOS_PONTOS[status];
-  return f ? f(plural) : `ponto${plural ? 's' : ''} de atenção`;
-}
-
-// `attention` manda quando existe; senão, nos status que carregam motivo, os reasons
-// fazem as vezes (a recusa por contestação ou cobertura precisa aparecer em algum lugar).
-function pontosDeAtencao(r, comReasons) {
-  if (r.attention && r.attention.length) return r.attention;
-  return comReasons.includes(r.status) ? (r.reasons || []) : [];
-}
-
-// a contagem vem pronta quando é número; sem ela, conta a lista; sem as duas, zero
-function divergenciasDoCheckpoint(vc) {
-  if (!vc) return 0;
-  const n = Number(vc.conflictCount);
-  if (Number.isFinite(n)) return n;
-  return Array.isArray(vc.conflicts) ? vc.conflicts.length : 0;
-}
-
-// pendente pede confirmação; confirmado mostra o desfecho (e de onde ele veio)
-function resumoDoPushback(pending, pb) {
-  const nome = (p) => esc(PB_SHORT[p.outcome] || 'pushback');
-  if (pending) return `↩ confirmar: ${nome(pb)}?`;
-  if (pb) return `↩ ${nome(pb)}${pb.source === 'auto' ? ' (auto)' : ''}`;
-  return '↩ pushback?';
-}
-
-export function resolvedRow(r, ctx) {
-  ctx = ctx || {};
-  const [icon, label] = RESOLVED_LABELS[r.status] || ['•', r.status];
-  const act = (r.status === 'posted' || r.status === 'already_reviewed')
-    ? ` (${RESOLVED_ACTIONS[r.action] || r.action})` : '';
-  const url = (r.pr && r.pr.url) || '';
-  const title = (r.pr && r.pr.title) || '';
-  const author = (r.pr && r.pr.author) || r.author || '';
-  // pontos de atenção de um PR resolvido sozinho: ficam claros aqui (expansível).
-  // already_reviewed entra na mesma regra desde o #742: "não repostei" significa que o
-  // que a revisão achou ficou SÓ no app, então esconder as reasons justo nesse status
-  // deixava o achado sem nenhuma superfície (nem no PR, nem na linha). O rótulo dele diz
-  // isso na cara, pra não parecer que alguém já leu.
-  // `posted` (você resolveu na mão) entrou na lista depois do #767: a linha mostrava
-  // só "postado por você" e engolia o motivo de o PR ter caído na sua mesa, então uma
-  // recusa por contestação ou cobertura era lida como se a chave de aprovar sozinho
-  // estivesse quebrada. O motivo já estava gravado em `reasons`, faltava a superfície.
-  const COM_REASONS = ['auto_approved', 'auto_rejected', 'already_reviewed', 'posted'];
-  const attn = pontosDeAtencao(r, COM_REASONS);
-  const plural = attn.length > 1;
-  const attnLabel = rotuloDosPontos(r.status, plural);
-  const vcls = VERDICT_CLASS[r.action] || '';
-  const vc = r.verificationCheckpoint;
-  const vcConflicts = divergenciasDoCheckpoint(vc);
-  const vcLine = (vc && vc.total)
-    ? `Verificação de afirmações: ${vc.confirmedCount} confirmadas de ${vc.total}`
-      + (vcConflicts ? ` · ⚠ ${vcConflicts} divergência(s) entre passadas` : '')
-    : '';
-  const stLine = stagesLine(r.stages);
-  return `<div class="rrow${attn.length ? ' has-attn' : ''}">
-    <span class="rr-icon" aria-hidden="true">${icon}</span>
-    <div class="rr-main">
-      <div class="rr-head">
-        <a class="rr-ref" href="${esc(url || '#')}" target="_blank" rel="noreferrer">${esc(r.key)}</a>
-        ${ctx.chip || ''}
-        ${r.card ? `<span class="pill">${esc(r.card)}</span>` : ''}
-        <span class="rr-verdict${vcls ? ` ${vcls}` : ''}">${label}${act}</span>
-      </div>
-      ${title ? `<div class="rr-title" title="${esc(title)}">${esc(title)}</div>` : ''}
-      ${author ? `<div class="rr-person">${personMention(author, 'sm')}</div>` : ''}
-      <div class="rr-disc">
-        ${vcLine ? `<div class="rr-verification">${esc(vcLine)}</div>` : ''}
-        ${stLine ? `<div class="rr-stages">${esc(stLine)}</div>` : ''}
-        ${attn.length ? `<details class="resolved-attn"><summary>⚠ ${attn.length} ${attnLabel}</summary>${reasonGroupsHtml(attn, r.postRetry)}</details>` : ''}
-        ${r.reportMarkdown ? `<details class="dec-report"><summary>Ver relatório completo</summary><div class="report">${md(r.reportMarkdown)}</div></details>` : ''}
-        ${pushbackControl(r, ctx.pushbacks)}
-      </div>
-    </div>
-    <div class="rr-side">
-      <span class="rr-when" title="${esc(fmtStamp(r.resolvedAt))}">${esc(fmtWhenDay(r.resolvedAt, ctx.agora))}</span>
-      <div class="rr-acts">
-        <button class="btn icon sm ghost act-chat" data-key="${esc(r.key)}" data-url="${esc(url)}" title="Conversar com o Claude sobre este PR" aria-label="Conversar sobre este PR">💬${ctx.chatBadge || ''}</button>
-        ${url ? `<button class="btn icon sm ghost act-review" data-url="${esc(url)}" title="Revisar de novo" aria-label="Revisar de novo">↻</button>` : ''}
-        <button class="btn icon sm ghost rr-copy" data-url="${esc(url)}" data-key="${esc(r.key)}" title="Copiar a URL do PR" aria-label="Copiar a URL do PR">⧉</button>
-        <a class="btn icon sm ghost" href="${esc(url || '#')}" target="_blank" rel="noreferrer" title="Abrir no GitHub" aria-label="Abrir no GitHub">↗</a>
-      </div>
-    </div>
-  </div>`;
-}
 
 /* ---------- montagem da aba Entregas v2 (busca, estatísticas, atividade,
    grupos com progresso/rank/paginação). Releitura desenhada no Claude Design,
@@ -1764,83 +1307,6 @@ export function jiraPrefixosProblema(lista) {
   const itens = (Array.isArray(lista) ? lista : []).filter((x) => String(x || '').trim());
   if (!itens.length) return 'Informe ao menos um prefixo de projeto: sem ele o Farol procura no Jira qualquer coisa com hífen e número que apareça no título do PR.';
   return '';
-}
-
-// --- elegibilidade de merge da autoanálise: a UI CONSOME, nunca reconstrói ---
-// O `canMerge` do app.js era `!!(a && a.approvable)`, uma quarta cópia da regra que
-// o engine centralizou em evaluateQualityEligibility. A decisão mora aqui, e não no
-// render, porque aqui tem teste: `quality` chega calculado no snapshot e a única
-// pergunta desta camada é se o status é `eligible`. `approvable` não é consultado
-// em lugar nenhum deste arquivo, de propósito.
-export function canMergeSelfAnalysis(analysis) {
-  return !!(analysis && analysis.quality && analysis.quality.status === 'eligible');
-}
-
-// A análise DESATUALIZOU: o PR recebeu commit depois dela (carimbo do engine em
-// `observed.stale`). O registro fica, o veredito não vale mais, e a tela precisa dizer
-// as duas coisas ao mesmo tempo. Ler `observed` e não um campo solto é de propósito: a
-// evidência do engine mora num lugar só, e é ela que o gate consome.
-export function selfAnalysisStale(analysis) {
-  return !!(analysis && analysis.observed && analysis.observed.stale === true);
-}
-
-// O selo ao lado do número do PR. Desatualizada VENCE o parecer: mostrar "aprovável"
-// sobre código que já mudou é a única leitura que faria alguém agir errado, e o custo
-// de esconder o parecer por um ciclo é zero (ele continua escrito no painel).
-export function selfAnalysisBadge(analysis) {
-  if (!analysis) return null;
-  if (selfAnalysisStale(analysis)) {
-    return { cls: 'stale', label: 'desatualizada', title: 'O PR recebeu commit novo depois desta análise. O relatório continua aqui, mas o veredito não vale pro código atual: reanalise quando quiser o veredito de novo.' };
-  }
-  return analysis.approvable
-    ? { cls: 'approve', label: 'aprovável', title: '' }
-    : { cls: 'rc', label: 'precisa de ajuste', title: '' };
-}
-
-// Ocultar/mostrar a análise é PREFERÊNCIA DE LEITURA e nada mais: não apaga, não expira
-// e não encosta em gate nenhum. O par de rótulos mora aqui porque o botão é um só e
-// alterna, e um texto errado nesse botão foi exatamente o defeito de origem (ele dizia
-// "Ocultar" e apagava o registro do disco).
-export function selfAnalysisToggle(analysis) {
-  const oculta = !!(analysis && analysis.hidden);
-  return oculta
-    ? { hidden: true, alvo: false, label: 'Mostrar análise', title: 'Mostrar de novo o parecer desta autoanálise. Ele continua guardado desde que a análise rodou.' }
-    : { hidden: false, alvo: true, label: 'Ocultar análise', title: 'Recolhe o parecer desta autoanálise da tela. O relatório continua guardado e volta com um clique, sem gastar uma análise nova.' };
-}
-
-// O engine entrega CÓDIGO (contrato de máquina) e a apresentação escreve a frase.
-// Código desconhecido cai numa frase genérica em vez de vazar o identificador cru:
-// a tela nunca fica em branco e o usuário nunca lê CONSTANTE_EM_CAIXA_ALTA.
-const QUALITY_REASON_LABELS = {
-  BLOCKER_PRESENT: 'A análise apontou bloqueios',
-  BLOCKERS_UNKNOWN: 'A análise não declarou os bloqueios',
-  COVERAGE_UNKNOWN: 'Sem cobertura comprovada',
-  COVERAGE_INCOMPLETE: 'Parte do PR ficou sem análise',
-  // limitação do INSTRUMENTO, não da análise: o provedor da sessão não reporta leitura
-  // de arquivo, então a cobertura não pôde ser observada. O Merge segue indisponível
-  // (sem prova de leitura não se libera), mas a linha para de culpar quem leu.
-  COVERAGE_UNOBSERVABLE: 'Não deu pra observar a leitura nesta sessão',
-  ANALYSIS_INCOMPLETE: 'A análise não chegou ao fim',
-  CARD_UNSATISFIED: 'O card não foi atendido',
-  CARD_UNKNOWN: 'Atendimento ao card não comprovado',
-  VERIFICATION_FAILED: 'Uma verificação falhou',
-  VERIFICATION_MISSING: 'Verificação necessária não foi feita',
-  ANALYSIS_STALE: 'O PR mudou depois desta análise',
-  EVIDENCE_STALE: 'A evidência não é do código analisado',
-  COVERAGE_LIMITS_MALFORMED: 'A análise devolveu limitações de cobertura inválidas'
-};
-
-export function qualityReasonLabel(code) {
-  return QUALITY_REASON_LABELS[code] || 'Requisito de qualidade não atendido';
-}
-
-// Título do botão desabilitado: uma frase principal que explica o fail-closed, e os
-// motivos como lista embaixo. Concatenar os códigos num toast só transformaria
-// contrato de máquina em copy, que é justamente o que a separação acima evita.
-export function qualityBlockTitle(quality) {
-  const principal = 'Sua autoanálise ainda não comprova qualidade suficiente para merge.';
-  const motivos = ((quality && quality.reasons) || []).map(r => `• ${qualityReasonLabel(r && r.code)}`);
-  return motivos.length ? `${principal}\n${motivos.join('\n')}` : principal;
 }
 
 

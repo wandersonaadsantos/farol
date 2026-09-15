@@ -113,12 +113,15 @@
   },
   "ui/pure.js": {
     "maxLines": 1,
-    "ternarioAninhado": 8
+    "ternarioAninhado": 2
   },
   "ui/pure/consumo.js": {
     "ternarioAninhado": 1
   },
   "ui/pure/entregas.js": {
     "ternarioAninhado": 2
+  },
+  "ui/pure/review.js": {
+    "ternarioAninhado": 6
   }
 }
