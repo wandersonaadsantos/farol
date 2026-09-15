@@ -5,11 +5,38 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { guiasDistribuidos, alvosDistribuidos } from './helpers/guias-distribuidos.js';
 
 const RAIZ = path.join(import.meta.dirname, '..');
 const ler = (rel) => fs.readFileSync(path.join(RAIZ, rel), 'utf8');
 const README = ler('README.md');
+
+/* Os guias que viajam com o app instalado saem do EMPACOTADOR, nunca de uma lista escrita
+   aqui, que envelheceria sozinha. Os testes de distribuição leem as seis rotas por conta
+   própria, porque o que eles provam é justamente a concordância entre elas; aqui basta a
+   fonte do pacote leve. */
+function listaDoPacote(variavel) {
+  const fonte = ler('tools/make-package.ps1');
+  const m = fonte.match(new RegExp(`foreach \\(\\$${variavel} in @\\(([\\s\\S]*?)\\)\\)`));
+  if (!m) throw new Error(`tools/make-package.ps1 sem a lista $${variavel}`);
+  return (m[1].match(/'([^']+)'/g) || []).map((s) => s.slice(1, -1));
+}
+
+/** Caminhos relativos dos guias distribuídos: o CLAUDE.md e os guias da allowlist. */
+function guiasDistribuidos() {
+  return ['CLAUDE.md', ...listaDoPacote('doc').map((d) => `docs/${d}`)];
+}
+
+/** Tudo que viaja: arquivos (raiz, tools nomeados, guias) e pastas inteiras. */
+function alvosDistribuidos() {
+  return {
+    arquivos: new Set([
+      ...listaDoPacote('f'),
+      ...listaDoPacote('t').map((t) => `tools/${t}`),
+      ...guiasDistribuidos(),
+    ]),
+    pastas: listaDoPacote('d'),
+  };
+}
 
 test('o README tem o mapa do codigo', () => {
   assert.match(README, /^## Mapa do código$/m, 'faltou a seção "Mapa do código" no README');
