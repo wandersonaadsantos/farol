@@ -35,6 +35,7 @@ import chatMod from './lib/engine/chat.js';
 import toolsMod from './lib/engine/tools.js';
 import pushbackMod from './lib/engine/pushback.js';
 import decisionMod from './lib/engine/decision.js';
+import arbitragemMod from './lib/engine/postagem-arbitragem.js';
 import ghMod from './lib/engine/gh-queries.js';
 import sessionMod from './lib/engine/session.js';
 import selfMod from './lib/engine/selfpr.js';
@@ -910,6 +911,9 @@ class Engine extends EventEmitter {
       // por gh na mão): tira o card de "Precisa de você", que antes ficava preso pra
       // sempre porque só o clique no botão esvaziava decisions.pending
       try { await this.reconcilePending(); } catch (e) { this.log('WARN', `reconcilePending: ${e.message}`); }
+      // postagem incerta (CT-POST): confere no GitHub se ela saiu ANTES de qualquer reenvio,
+      // que é o passo logo abaixo; com a coordenação desligada não faz nada
+      try { await this.reconciliarPostagensIncertas(); } catch (e) { this.log('WARN', `reconciliar postagens: ${e.message}`); }
       // posts que falharam por instabilidade transitória (rede, gateway do GitHub fora
       // do ar) tentam de novo sozinhos aqui, reusando o payload já decidido: roda DEPOIS
       // do reconcilePending de propósito, pra nunca reenviar em cima de uma pendência que
@@ -1534,7 +1538,8 @@ class Engine extends EventEmitter {
   coverageGap(result) { return decisionMod.coverageGap(result); }
   checkpointGap(result) { return decisionMod.checkpointGap(result); }
   checksVermelhos(result) { return decisionMod.checksVermelhos(result); }
-  async postReview(pr, payload) { return decisionMod.postReview(this, pr, payload); }
+  async postReview(pr, payload, opcoes) { return decisionMod.postReview(this, pr, payload, opcoes); }
+  async reconciliarPostagensIncertas() { return arbitragemMod.reconciliarPostagensIncertas(this); }
   async postReviewFromSession(submission, capability) { return decisionMod.postReviewFromSession(this, submission, capability); }
   decisionForUi(item) { return decisionMod.decisionForUi(item); }
   createReviewPostCapability(keys, account, source, ownerId) { return decisionMod.createReviewPostCapability(this, keys, account, source, ownerId); }
