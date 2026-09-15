@@ -720,15 +720,15 @@ test('tempo esgotado é transitório e entra no retry com o sid', async () => {
   assert.equal(e.autoReviewParked.has('o/r#13'), false);
 });
 
-/* ---------- retomadaPendente não vaza: PR podado leva o sid do boot com ele ---------- */
-// O sid guardado na recuperação do boot só é consumido quando o PR reaparece na
-// fila. PR mergeado/fechado nunca reaparece, então sem esta poda o Map só cresce.
-test('_repescarRetry poda o retomadaPendente do PR mergeado', async () => {
+/* ---------- a referência de retomada não vaza: PR podado leva ela junto ---------- */
+// A referência só sai do Map por um desfecho. PR mergeado/fechado nunca volta a
+// rodar, então sem esta poda ela ficaria no inflight.json pra sempre.
+test('_repescarRetry consome a referência de retomada do PR mergeado', async () => {
   const e = engineForPrune();
   e.prState = async () => 'MERGED';
   e.retryAfterNet.set('o/r#21', { tries: 1, pr: prDe('o/r#21') });
-  e.retomadaPendente = new Map([['o/r#21', { sid: 'sid-21', head: 'head-21' }]]);
+  e.retomadas.set('o/r#21', { key: 'o/r#21', retomarSid: 'sid-000021', knownHead: 'head-21', provedor: 'dir', perfilId: '' });
   await e._repescarRetry([], new Set());
   assert.equal(e.retryAfterNet.has('o/r#21'), false);
-  assert.equal(e.retomadaPendente.has('o/r#21'), false, 'sid do boot morre junto do PR');
+  assert.equal(e.retomadas.has('o/r#21'), false, 'a referência morre junto do PR');
 });

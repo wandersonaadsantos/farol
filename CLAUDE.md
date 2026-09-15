@@ -1635,21 +1635,20 @@ zero pagava de novo o que já tinha sido lido. Peças:
 - O sid é capturado no início da sessão (`opts.onSession`, primeiro `session_id` do
   stream), gravado no registro da revisão ativa e gravado em `state/inflight.json`
   assim que nasce (o `onSession` dispara uma vez, no primeiro evento que traz
-  `session_id`), não só no fim. Na recuperação do boot, `recoverInflight` preenche
-  `engine.retomadaPendente` com `{ sid, head }` e `enqueueHeadless` carimba `retomarSid`
-  e `knownHead` no PR quando ele reaparece na fila. Falha transitória em pleno voo também guarda o sid no
-  `retryAfterNet`, com o mesmo campo `retomarSid`.
+  `session_id`), não só no fim. Desde a A5 a referência mora em `engine.retomadas`
+  (ver "Retomada durável" logo abaixo): o boot restaura e regrava, e `enqueueHeadless`
+  só LÊ, carimbando `retomarSid` e `knownHead` no PR quando ele reaparece na fila. Falha
+  transitória em pleno voo grava a mesma referência, além do `retryAfterNet`.
 - `sidDeRetomada` (`lib/engine/review.js`) decide o sid do `--resume`: `retomarSid` tem
   precedência sobre `resumeSid` e não depende de `config.reReviewResume` (é a mesma
   revisão retomando, não o opt-in do round incremental), sempre validado por
-  `RESUME_SID_RE`. Head conhecido dos dois lados (`pr.knownHead` e o head atual) que
-  divergiu descarta o sid, porque retomar seria pedir pra não reler o que mudou; head
-  desconhecido de qualquer lado mantém a retomada. O `knownHead` que alimenta essa
+  `RESUME_SID_RE`. Desde a A5 quem decide é `validarRetomada`: head salvo ausente
+  descarta, head atual não confirmado espera, e head diferente descarta. O `knownHead` que alimenta essa
   guarda existe em todo caminho, não só no relançamento da re-revisão: o
   `runHeadlessReview` estampa `pr.headLido` assim que resolve o head da rodada, o
   `prComRetomada` copia isso pro `knownHead` da entrada do `retryAfterNet`, e o boot
-  guarda o head junto do sid (`headSha` no `inflight.json`, `{ sid, head }` no
-  `retomadaPendente`), com o `enqueueHeadless` carimbando os dois. Campo próprio e não
+  guarda o head junto do sid (`headSha` e `knownHead` no `inflight.json` e na entrada de
+  `engine.retomadas`), com o `enqueueHeadless` carimbando os dois. Campo próprio e não
   `knownHead` direto porque o objeto do PR atravessa rounds, e escrever `knownHead` ali
   contaminaria o fallback G8 do head da rodada seguinte.
 - O bloco de prompt da retomada NÃO entra no prompt base: ele é passado à parte pro
@@ -1661,6 +1660,16 @@ zero pagava de novo o que já tinha sido lido. Peças:
   não estampa `err.sessionId`, então `retomarSid` nunca nasce nesse caminho.
 - Sem sid recuperável, ou com o resume falhando, `rodarSessao` degrada pra sessão nova
   (comportamento de sempre), nunca vira erro.
+
+### Retomada durável (A5 da operação multidispositivo)
+
+Contrato: CT-RET da spec `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`.
+
+- **Uma fonte só:** `engine.retomadas` (`lib/engine/retomada-duravel.js`), key do PR para `{ key, url, title, author, kind: 'auto', estado, retomarSid, knownHead, provedor, perfilId, sessionId, headSha, atualizadoEm }`. O `inflight.json` é o espelho (`montarInflight`): execução vence fila, fila vence pendente, e a referência que não está em nenhuma das duas sai como `pendente`. O `retomadaPendente` em memória e o `inflight.json` esvaziado no boot deixaram de existir: o boot restaura e **regrava**, então dois reinícios seguidos não perdem a referência.
+- **Só desfecho consome:** resultado da sessão, `--resume` recusado pelo CLI, descarte comprovado, recibo de outro aparelho, cancelamento, falha permanente, PR mergeado ou fechado. Enfileirar, esperar vaga, lease alheio, coordenação fora, orçamento e head não confirmado **mantêm**.
+- **Validar antes de reutilizar** (`validarRetomada`): mesmo PR, contexto local igual (`provedor` = kind do auth resolvido, `perfilId`), nenhuma decisão do mesmo head criada depois da referência, head salvo presente, head atual **confirmado pelo GitHub** e igual. O head salvo e o `knownHead` do G8 são evidência da tentativa anterior, nunca confirmação: sem head confirmado a revisão espera no `retryAfterNet` sem gastar tentativa e sem abrir sessão. Descarte segue em sessão nova sem o bloco "não releia" e sem confirmação humana. Inflight legado da v2.57.3 não tem contexto e por isso não retoma.
+- **Diagnóstico:** `resumeOutcome` em `'retomada' | 'recusada' | 'nova' | 'nenhuma'` no registro ativo, no `opts` do `runClaudeStream` e no `result` do `recordDecision`. O desfecho não vai pro `farol.log` (invariante 3); persistir em uso e decisão é da A1.
+- **Escopo:** só o `retomarSid`. O `resumeSid` do round incremental segue opt-in e sem mudança.
 
 ## Diagnóstico: ambiente x operação x runtime (v2.40.4, terceira dimensão na v2.53.3)
 
