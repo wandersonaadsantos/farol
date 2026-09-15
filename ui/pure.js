@@ -16,12 +16,16 @@
 export * from './pure/comum.js';
 export * from './pure/fila-justa.js';
 export * from './pure/mencoes.js';
+export * from './pure/sessao.js';
+export * from './pure/sync.js';
 // Imports de volta: o `export *` reexporta sem trazer nome nenhum para o escopo deste
 // arquivo, e o que ainda mora aqui chama estes nomes. A lista é derivada do uso (ver
 // scratchpad/religa.py do plano da Fase 1a); some sozinha quando o último consumidor sair.
-import { aprovadosHoje, diffVs, esc, escAttrSelector, fmtClock, fmtCompact, fmtDur, fmtMoney, fmtRel, fmtSpan, fmtStamp, fmtTok, fmtWhenDay, groupBy, lastMerge, listViewState, localDayKey, md, plural, repoShort, sameSet, usageDayKeysBack } from './pure/comum.js';
+import { aprovadosHoje, diffVs, esc, escAttrSelector, fmtClock, fmtCompact, fmtMoney, fmtRel, fmtSpan, fmtStamp, fmtTok, fmtWhenDay, groupBy, lastMerge, listViewState, localDayKey, md, plural, repoShort, sameSet, usageDayKeysBack } from './pure/comum.js';
 import { fjMoeda } from './pure/fila-justa.js';
 import { avatar, personMention, prRefMention, repoMention, sessionRefCell } from './pure/mencoes.js';
+import { selfSessionKey, sessionProgress, stagesLine } from './pure/sessao.js';
+import { prCoordNoteHtml } from './pure/sync.js';
 
 /* ---------- folhas: sem dependencia nenhuma ---------- */
 
@@ -456,22 +460,6 @@ export function mergeToastKind(erro) {
 
 /* ---------- ciclo de vida das operacoes (widgets showOp/updateOp/closeOp da UI) ---------- */
 
-// Maquina de estados minima: 'running' e o unico estado que anda; done/error/cancelled
-// sao terminais (nao viram um ao outro nem voltam a running: quem quer "de novo"
-// cria outra operacao). O DOM do app.js so consome estas duas decisoes.
-export function opTransition(atual, proximo) {
-  if (atual === 'running' && (proximo === 'done' || proximo === 'error' || proximo === 'cancelled')) return proximo;
-  return atual;
-}
-
-// prazo de auto-dismiss por estado: running nao some sozinho; done some rapido;
-// erro e cancelamento ficam mais tempo na tela pra dar tempo de ler, mas SEMPRE
-// somem (pill de erro imortal acumulava uma por tentativa, o M22).
-export function opDismissDelay(status) {
-  if (status === 'running') return null;
-  if (status === 'done') return 3000;
-  return 6000;
-}
 
 /* ---------- dependem das folhas ---------- */
 
@@ -745,71 +733,12 @@ export function reviewBoxHtml(d) {
 }
 
 
-// linha "Tempo por etapa" das Revisões recentes, a partir do resumo persistido
-// na decisão (stageSummaryFrom, lib/engine/review.js). Vazio quando não há traço.
-export function stagesLine(st) {
-  if (!st || !Array.isArray(st.stages) || !st.stages.length) return '';
-  const partes = st.stages.map(s => `${s.label} ${fmtDur(s.ms) || '0s'}`);
-  const total = fmtDur(st.totalMs);
-  return `Tempo por etapa: ${partes.join(' · ')}${total ? ` (total ${total})` : ''}`;
-}
-
 /* ---------- esteira de etapas da revisão ao vivo (estilo n8n) ----------
    Os itens do feed chegam ESTAMPADOS com a etapa (item.s, decidido no engine em
    stageOfLine; a UI nunca reclassifica). O tempo entre dois itens pertence à
    etapa do item que o encerra; item sem estampa (linha informativa do app) herda
    a etapa corrente. A etapa do último item é a ATIVA e acumula até `agora`. */
-export const STAGE_FLOW_ORDER = [
-  ['preparo', 'preparo'], ['leitura', 'leitura'], ['card', 'card'],
-  ['verificacao', 'verificação'], ['raciocinio', 'raciocínio'], ['redacao', 'redação'],
-];
 
-export function stageFlowFrom(items, startedAt, agora = Date.now()) {
-  const linhas = (items || []).filter(i => i && i.t);
-  if (!startedAt) return [];
-  const ms = {};
-  let prev = startedAt, atual = null;
-  for (const it of linhas) {
-    const s = it.s || atual || 'preparo';
-    ms[s] = (ms[s] || 0) + Math.max(0, it.t - prev);
-    prev = it.t; atual = s;
-  }
-  if (atual) ms[atual] = (ms[atual] || 0) + Math.max(0, agora - prev);
-  return STAGE_FLOW_ORDER.map(([id, label]) => {
-    const passada = ms[id] ? 'done' : 'pending';
-    return { id, label, ms: ms[id] || 0, state: id === atual ? 'active' : passada };
-  });
-}
-
-// vazio até o primeiro evento (a esteira só aparece com traço de verdade)
-export function stageFlowHtml(flow) {
-  if (!flow || !flow.length || !flow.some(s => s.ms)) return '';
-  return flow.map(s => {
-    const dur = s.ms ? fmtDur(s.ms) : '';
-    const titulo = dur ? `${s.label} · ${dur}` : s.label;
-    const durHtml = dur ? `<span class="sf-ms">${esc(dur)}</span>` : '';
-    return `<span class="sf-node sf-${esc(s.state)}" title="${esc(titulo)}">` +
-      `<span class="sf-dot"></span><span class="sf-lbl">${esc(s.label)}</span>${durHtml}</span>`;
-  }).join('<span class="sf-link"></span>');
-}
-
-// tooltip do badge 👥 do card de sessão: uma linha por subagente, com a tarefa
-// e o estado. PURA (texto de atributo title, sem HTML, então sem esc aqui).
-export function agentsTitle(lista) {
-  return (lista || []).map(a => {
-    const desc = a.desc ? `: ${a.desc}` : '';
-    const situacao = a.done ? 'concluído' : 'trabalhando';
-    return `${a.label}${desc} (${situacao})`;
-  }).join('\n');
-}
-
-export function feedLine(it) {
-  const icon = { tool: '⚙', text: '💬', warn: '⚠', info: '·' }[it.k] || '·';
-  // it.a = rótulo do subagente dono da linha (fan-out de leitura/verificação):
-  // a linha ganha a etiqueta 👤 pra distinguir do trabalho da sessão principal
-  const ag = it.a ? `<span class="feed-agent" title="linha de um subagente">👤 ${esc(it.a)}</span>` : '';
-  return `<div class="feed-line k-${esc(it.k)}${it.a ? ' from-agent' : ''}"><span class="feed-t">${fmtClock(it.t)}</span><span class="feed-i">${icon}</span>${ag}<span class="feed-x">${esc(it.text)}</span></div>`;
-}
 
 /* ---------- ops de autoanálise: decisão de fechamento ----------
    A UI cria um widget por análise lançada (opId 'analysis-<key>'), mas quem sabe o FIM
@@ -818,20 +747,6 @@ export function feedLine(it) {
    emitido antes do servidor enfileirar pode chegar depois do clique, e sem o `seen` o
    widget recém-nascido fecharia como "concluído". headlessWaiting também carrega keys
    de revisão normal, sem colisão na prática (o GitHub não pede review pro autor). */
-export function analysisOpsPlan(ops, snap) {
-  snap = snap || {};
-  const presentes = new Set();
-  for (const s of (snap.activeSessions || [])) {
-    if (s && s.mode === 'self') for (const k of (s.keys || [])) presentes.add(k);
-  }
-  for (const k of (snap.headlessWaiting || [])) presentes.add(k);
-  const markSeen = [], close = [];
-  for (const op of (ops || [])) {
-    if (presentes.has(op.key)) { if (!op.seen) markSeen.push(op.id); }
-    else if (op.seen) close.push(op.id);
-  }
-  return { markSeen, close };
-}
 
 /* ---------- progresso de sessão: a régua ÚNICA do app ----------
    Regra do Wanderson (16/08/2026): previsibilidade com qualidade, centralizada
@@ -844,14 +759,6 @@ export function analysisOpsPlan(ops, snap) {
    app usa ESTA função, nunca um número escrito à mão; quem mudar a curva muda
    pra todos os fluxos de uma vez. selfSessionKey acha o PR da sessão de
    autoanálise dona de um evento de atividade (roteio feed -> widget). */
-export function selfSessionKey(sessions, id) {
-  const s = (sessions || []).find(x => x && x.id === id && x.mode === 'self');
-  return (s && s.keys && s.keys[0]) || null;
-}
-export function sessionProgress(count) {
-  const n = Math.max(0, Number(count) || 0);
-  return Math.min(90, 5 + Math.round(85 * (1 - Math.exp(-n / 18))));
-}
 
 
 /* ---------- fila: o vazio que CONFIRMA ----------
@@ -2536,32 +2443,6 @@ export function diagnosticsText(ctx = {}) {
    O bloco que aparece enquanto o Claude está trabalhando num PR. Os `data-id`/`data-started`
    não são decoração: o app volta neles depois para atualizar tempo, modelo e progresso sem
    redesenhar o cartão. Trocar um atributo desses quebra a atualização, não o layout. */
-export function sessionCardHtml(s = {}, stages = '') {
-  const id = esc(s.id);
-  const linkPR = s.pr?.url ? `<a href="${esc(s.pr.url)}" target="_blank" rel="noreferrer">abrir PR</a>` : '';
-  // dono do PR que está sendo revisto AGORA: mesma menção navegável (foto + link)
-  // que as outras telas usam, nunca "@login" solto. Sessão sem PR (ferramenta) e
-  // autor desconhecido não inventam linha: a menção só existe quando há alguém.
-  const autor = String(s.pr?.author || '').trim();
-  const quemPR = autor ? `<span class="session-author">PR de ${personMention(autor, 'xs')}</span>` : '';
-  const cancelar = s.cancellable ? `<button class="btn sm danger-ghost act-cancel" data-id="${id}">Cancelar</button>` : '';
-  return `
-      <div class="card session-card" data-id="${id}">
-        <div class="session-head">
-          <span class="spin accent"></span>
-          <b>${esc(s.label)}</b> <span class="session-stage" data-started="${s.startedAt || ''}">${stages}</span>
-          <span class="session-model" data-id="${id}" hidden></span>
-          <span class="session-agents" data-id="${id}" hidden></span>
-          ${quemPR}
-          ${linkPR}
-          <span class="session-elapsed" data-started="${s.startedAt}"></span>
-          ${cancelar}
-        </div>
-        <div class="op-progress sess-progress" data-id="${id}"><span class="sess-pct"></span><div class="op-bar"><div class="op-bar-fill"></div></div></div>
-        <div class="stage-flow" data-id="${id}" hidden></div>
-        <div class="activity-feed" data-id="${id}"></div>
-      </div>`;
-}
 
 /* ---------- site do Jira: o que a tela recusa antes de mandar pro servidor ----------
    O saneador do servidor (normalizeBaseUrl/parseJiraSites, lib/jira/sites.js) não
@@ -2685,309 +2566,6 @@ export function qualityBlockTitle(quality) {
    vermelho do estacionamento. Segurar um PR porque outro aparelho está com ele não é
    falha, e pintar de vermelho faria procurar defeito onde não há. */
 
-const SYNC_SELOS = {
-  desligada: { classe: 'mute', texto: 'desligada' },
-  'sem-login': { classe: 'warn', texto: 'falta o login' },
-  entrando: { classe: 'info', texto: 'entrando' },
-  conectada: { classe: 'ok', texto: 'conectado' },
-  degradada: { classe: 'warn', texto: 'coordenação indisponível' },
-  'login-expirado': { classe: 'bad', texto: 'login expirado' },
-};
-const SYNC_BORDA = { desligada: 'off', 'sem-login': 'warn', entrando: 'warn', conectada: '', degradada: 'warn', 'login-expirado': 'bad' };
-// o Firebase recusou a credencial guardada: é o único erro que se resolve entrando de
-// novo, e por isso o único que vira "login expirado" em vez de indisponibilidade
-const SYNC_ERROS_DE_LOGIN = new Set(['credencial_invalida', 'sem_credencial']);
-
-// UM estado, derivado do runtime, porque a tela precisava escolher entre seis em três
-// lugares diferentes (selo, borda do cartão e corpo), e três derivações separadas
-// divergiriam na primeira mudança.
-export function syncEstado(sync) {
-  const s = sync || {};
-  if (s.enabled !== true || s.status === 'desligado') return 'desligada';
-  if (s.status === 'conectado') return 'conectada';
-  if (s.status === 'conectando') return 'entrando';
-  if (s.status === 'sem-credencial') return 'sem-login';
-  const code = (s.lastError && s.lastError.code) || '';
-  return SYNC_ERROS_DE_LOGIN.has(code) ? 'login-expirado' : 'degradada';
-}
-
-export function syncSeloHtml(estado) {
-  const selo = SYNC_SELOS[estado] || SYNC_SELOS.desligada;
-  return `<span class="sync-chip ${selo.classe}">${esc(selo.texto)}</span>`;
-}
-
-export function syncClasseCartao(estado) {
-  const b = SYNC_BORDA[estado];
-  return b === undefined ? 'off' : b;
-}
-
-/* Os três interruptores. A chave geral manda nos outros dois: com ela desligada este
-   Farol não fala com o Firebase, então oferecer as sub-chaves ativas prometeria um
-   efeito que não existe. */
-// o .switch tem que ser IRMÃO IMEDIATO do input, senão ele para de refletir o estado
-// sem erro nenhum (salva certo e parece desligado); ver o comentário em ui/app.css
-function syncSubToggle(id, ligada, on, titulo, desc) {
-  const classe = ligada ? '' : ' off';
-  const marcado = on ? ' checked' : '';
-  const travado = ligada ? '' : ' disabled';
-  return `<label class="set-row${classe}" id="sys-row-${esc(id)}">
-      <span class="set-txt"><span class="set-title">${esc(titulo)}</span><span class="set-desc">${esc(desc)}</span></span>
-      <span class="set-ctl"><input type="checkbox" id="${esc(id)}"${marcado}${travado}><span class="switch"></span></span>
-    </label>`;
-}
-
-// Desligar a chave geral zera as DUAS sub-chaves no objeto salvo, e não só na tela.
-// Sem isso, o config guardaria "coordenação ligada" com o recurso desligado, e religar a
-// geral faria a consolidação voltar a enviar consumo sozinha, sem ninguém ter pedido.
-// Ligar a geral não liga sub-chave nenhuma: quem religa escolhe o que quer de volta.
-export function syncCfgComGeral(cfg, ligado) {
-  const c = cfg || {};
-  if (ligado) return { ...c, enabled: true };
-  return {
-    ...c,
-    enabled: false,
-    coordination: { ...(c.coordination || {}), enabled: false },
-    consolidation: { ...(c.consolidation || {}), enabled: false },
-  };
-}
-
-export function syncTogglesHtml(cfg) {
-  const c = cfg || {};
-  const geral = c.enabled === true;
-  const coord = geral && !!(c.coordination && c.coordination.enabled === true);
-  const cons = geral && !!(c.consolidation && c.consolidation.enabled === true);
-  return `<div class="card set-list">
-    <label class="set-row" id="sys-row-setSyncEnabled">
-      <span class="set-txt"><span class="set-title">Sincronizar entre dispositivos</span><span class="set-desc">Chave geral. Desligada, este Farol não fala com o Firebase: nenhuma conexão, nenhum envio, nenhuma consulta.</span></span>
-      <span class="set-ctl"><input type="checkbox" id="setSyncEnabled"${geral ? ' checked' : ''}><span class="switch"></span></span>
-    </label>
-    ${syncSubToggle('setSyncCoordination', geral, coord, 'Evitar análises simultâneas', 'Antes de abrir uma revisão, autoanálise ou classificação de pushback automática, confere se outro aparelho seu já cuidou daquele PR neste commit. Se já cuidou, nenhuma sessão nasce aqui.')}
-    ${syncSubToggle('setSyncConsolidation', geral, cons, 'Consolidar histórico de consumo', 'Envia tokens, custo e desfecho de cada sessão, sem prompt, diff ou relatório, pra aba Consumo mostrar todos os aparelhos juntos. O histórico deste aparelho continua aqui do jeito que está.')}
-  </div>`;
-}
-
-function syncCampo(id, rotulo, valor, dica) {
-  return `<div class="sync-campo">
-    <label for="${esc(id)}">${esc(rotulo)}</label>
-    <input id="${esc(id)}" type="text" class="sync-input" value="${esc(valor || '')}" spellcheck="false" autocomplete="off">
-    <span class="sync-dica">${esc(dica)}</span>
-  </div>`;
-}
-
-/* O olho que alterna a senha entre oculta e visível. Estado no `aria-pressed`, que é a
-   fonte única: quem alterna (ui/app.js) lê dali e troca o `type` do input, então a
-   leitura assistiva e o que se vê na tela nunca divergem. */
-function syncOlhoHtml(visivel) {
-  const rotulo = visivel ? 'Ocultar senha' : 'Mostrar senha';
-  const desenho = visivel
-    ? '<path d="M3 3l18 18M10.6 10.6a3 3 0 0 0 4.2 4.2M9.9 4.9A9.6 9.6 0 0 1 12 4.7c5 0 9 4.3 9 7.3a11 11 0 0 1-2.5 3.9M6.3 6.4A11.9 11.9 0 0 0 3 12c0 3 4 7.3 9 7.3a9.9 9.9 0 0 0 3.6-.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
-    : '<path d="M3 12c0-3 4-7.3 9-7.3s9 4.3 9 7.3-4 7.3-9 7.3S3 15 3 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/>';
-  return `<button type="button" class="sync-olho" id="syncSenhaOlho" aria-pressed="${visivel ? 'true' : 'false'}" aria-label="${rotulo}" title="${rotulo}"><svg aria-hidden="true" viewBox="0 0 24 24">${desenho}</svg></button>`;
-}
-
-/* O bloco de login. Conectado mostra quem é e o botão de sair; desconectado pede e-mail
-   e senha. A senha é `type="password"`, lida do DOM na hora e nunca guardada NO DISCO: o
-   engine troca por um acesso renovável, e só ele é gravado.
-
-   O `rascunho` é o que a pessoa digitou, devolvido pela tela a cada repintura. Sem ele o
-   `renderSync()` que vem depois da tentativa reescreve o cartão inteiro e apaga o e-mail
-   junto, e o ciclo de polling seguinte faria o mesmo: uma recusa do Firebase custava
-   redigitar tudo. O preço assumido é a senha continuar na tela enquanto o login não deu
-   certo, que é exatamente o caso em que ela ainda é útil; no sucesso ela é apagada. */
-export function syncContaHtml(sync, rascunho) {
-  const s = sync || {};
-  const d = rascunho || {};
-  const estado = syncEstado(s);
-  if (estado === 'conectada' || estado === 'entrando') {
-    const quem = s.email ? `<span class="sync-quem">${esc(s.email)}</span>` : '<span class="sync-vago">sem e-mail</span>';
-    return `<div class="sync-conta">
-      <div class="sync-conta-topo"><span class="sync-conta-titulo">Login no Firebase</span><span class="sync-conta-onde">sync-credentials.json</span></div>
-      <div class="sync-conta-corpo">
-        <span>Conectado como ${quem}. A senha não fica guardada; só o acesso renovável, fora do <code>config.json</code>.</span>
-        <span class="sync-espaco"></span>
-        <button class="btn sm danger-ghost" id="syncLogout">Sair deste aparelho</button>
-      </div>
-    </div>`;
-  }
-  const aviso = estado === 'login-expirado'
-    ? '<p class="sync-conta-nota sync-conta-nota-ruim">O Firebase recusou o acesso guardado. Enquanto isso a automação espera.</p>'
-    : '';
-  const rotulo = estado === 'login-expirado' ? 'Entrar de novo' : 'Entrar';
-  return `<div class="sync-conta">
-    <div class="sync-conta-topo warn"><span class="sync-conta-titulo">Login no Firebase</span><span class="sync-conta-onde">o mesmo usuário em todos os aparelhos</span></div>
-    <div class="sync-conta-corpo">
-      <span class="sync-campo"><label for="syncEmail">E-mail</label><input id="syncEmail" class="sync-input" type="email" value="${esc(d.email || '')}" placeholder="voce@exemplo.com" spellcheck="false" autocomplete="off"></span>
-      <span class="sync-campo"><label for="syncSenha">Senha</label><span class="sync-senha"><input id="syncSenha" class="sync-input" type="${d.senhaVisivel ? 'text' : 'password'}" value="${esc(d.senha || '')}" placeholder="senha do Firebase" spellcheck="false" autocomplete="off">${syncOlhoHtml(!!d.senhaVisivel)}</span></span>
-      <button class="btn sm primary" id="syncLogin">${rotulo}</button>
-    </div>
-    ${aviso}
-    <p class="sync-conta-nota">Crie o usuário uma vez no console do Firebase (Authentication, provedor e-mail e senha) e entre com ele em cada aparelho. A senha é usada só agora e não é gravada.</p>
-  </div>`;
-}
-
-/* A linha do envio do histórico. Só existe com a consolidação ligada E com a outbox já
-   reconciliada: antes disso não há número honesto a mostrar, e o `null` diz isso. */
-export function syncEnvioHtml(sync) {
-  const s = sync || {};
-  if (!s.consolidation || !s.outbox) return '';
-  const o = s.outbox;
-  if (o.paused) return `<span class="sync-teste ruim">envio do histórico pausado, ${fmtTok(o.pendentes)} pendente(s)</span>`;
-  if (o.pendentes > 0) return `<span class="sync-teste">enviando o histórico de consumo: ${fmtTok(o.pendentes)} pendente(s), ${fmtTok(o.rejeitados)} recusada(s)</span>`;
-  const quando = o.lastSentAt ? fmtWhenDay(o.lastSentAt) : 'ainda não';
-  return `<span class="sync-teste ok">histórico enviado ${esc(quando)}, nada pendente</span>`;
-}
-
-export function syncConexaoHtml(sync, cfg, rascunho) {
-  const s = sync || {};
-  const c = cfg || {};
-  const estado = syncEstado(s);
-  const campos = `<div class="sync-corpo">
-    ${syncCampo('syncApiKey', 'Chave web do projeto', c.apiKey, 'em Configurações do projeto, no Firebase')}
-    ${syncCampo('syncDatabaseUrl', 'URL do banco', c.databaseUrl, 'Realtime Database')}
-    ${syncCampo('syncDeviceName', 'Nome deste aparelho', c.deviceName, 'é como os outros aparelhos o chamam')}
-  </div>`;
-  const motivo = (s.lastError && s.lastError.motivo) || 'A coordenação está indisponível.';
-  const degradada = estado === 'degradada'
-    ? `<div class="callout warn sync-degradada"><span><b>O Firebase não respondeu no último ciclo:</b> ${esc(motivo)}. A revisão automática espera a conexão voltar, sem gastar sessão. O clique manual continua podendo executar, com confirmação.</span></div>`
-    : '';
-  return `<div class="card sync-card ${syncClasseCartao(estado)}">
-    <div class="sync-topo"><span class="sync-titulo">Firebase pessoal</span><span class="sync-espaco"></span>${syncSeloHtml(estado)}</div>
-    ${campos}
-    ${degradada}
-    ${syncContaHtml(s, rascunho)}
-    <div class="sync-rodape">
-      <button class="btn sm" id="syncTest">Testar conexão</button>
-      <span class="sync-teste" id="syncTestOut"></span>
-      ${syncEnvioHtml(s)}
-      <span class="sync-espaco"></span>
-      <button class="btn sm danger-ghost" id="syncErase">Apagar dados sincronizados</button>
-    </div>
-  </div>`;
-}
-
-export function syncAparelhosHtml(devices, agora = Date.now()) {
-  const lista = Array.isArray(devices) ? devices : [];
-  if (!lista.length) return '<div class="card sync-lista"><p class="sync-vago sync-vazio">Nenhum aparelho registrado ainda. O primeiro aparece assim que a conexão sobe.</p></div>';
-  const linhas = lista.map((d) => {
-    const eu = d.euMesmo ? ' <span class="sync-chip mute">este</span>' : '';
-    const visto = d.lastSeenAt ? fmtWhenDay(d.lastSeenAt, agora) : 'nunca';
-    return `<div class="sync-linha"><span class="sync-nome">${esc(d.name || d.deviceId || 'aparelho')}${eu}</span><span class="sync-fraco">${esc(d.platform || '')}</span><span class="sync-fraco">${esc(visto)}</span></div>`;
-  }).join('');
-  return `<div class="card sync-lista">
-    <div class="sync-linha sync-head"><span>aparelho</span><span>sistema</span><span>visto por último</span></div>
-    ${linhas}
-  </div>`;
-}
-
-// Uma linha por PR que a coordenação está segurando ou que já foi analisado em outro
-// aparelho. O recibo ÓRFÃO é o único que ganha botão: refazer um recibo vivo apagaria a
-// prova de uma análise que ainda vale (ver recusaDoRefazer, em lib/engine/sync-redo.js).
-function syncLinhaLease(key, v) {
-  const onde = v.deviceName || 'outro aparelho';
-  const desde = v.since ? ` desde ${esc(fmtClock(v.since))}` : '';
-  return `<div class="sync-coord"><span><span class="sync-ref">${esc(key)}</span><span class="sync-o-que">sendo analisado no ${esc(onde)}${desde}; este aparelho espera</span></span><span class="sync-chip info">em outro aparelho</span></div>`;
-}
-
-function syncLinhaRecibo(key, r) {
-  const onde = r.deviceName || 'outro aparelho';
-  const quando = r.at ? ` em ${esc(fmtWhenDay(r.at))}` : '';
-  if (r.orfao === 'orfao') {
-    return `<div class="sync-coord"><span><span class="sync-ref">${esc(key)}</span><span class="sync-o-que sync-orfao">pendente no ${esc(onde)}${quando}, sem atividade há dias; o resultado só existe lá</span></span><button class="btn sm sync-redo" data-key="${esc(key)}">Refazer neste aparelho</button></div>`;
-  }
-  return `<div class="sync-coord"><span><span class="sync-ref">${esc(key)}</span><span class="sync-o-que">analisado no ${esc(onde)}${quando} neste commit</span></span><span class="sync-chip mute">pendente lá</span></div>`;
-}
-
-export function syncCoordenacaoHtml(sync) {
-  const s = sync || {};
-  if (!s.coordination) return '';
-  const leases = s.leasesVistos || {};
-  const recibos = s.recibosVistos || {};
-  const linhas = [
-    ...Object.entries(leases).map(([k, v]) => syncLinhaLease(k, v || {})),
-    ...Object.entries(recibos).map(([k, v]) => syncLinhaRecibo(k, v || {})),
-  ];
-  const outros = Number(s.leasesOutros) || 0;
-  // PR que ESTE aparelho não acompanha nunca é nomeado: o nome do PR não sobe pro banco
-  // (D6), então a tela só consegue contá-lo
-  const nota = outros > 0 ? `<p class="sync-legenda sync-outros">e mais ${fmtTok(outros)} em PR que este aparelho não acompanha</p>` : '';
-  const corpo = linhas.length || nota
-    ? `${linhas.join('')}${nota}`
-    : '<p class="sync-vago sync-vazio">Nenhum PR seu está sendo analisado em outro aparelho agora.</p>';
-  return `<div class="sync-sub-head">Coordenação agora</div><div class="card sync-lista">${corpo}</div>`;
-}
-
-export function syncSecaoHtml(sync, cfg, rascunho) {
-  const s = sync || {};
-  if (!(cfg && cfg.enabled === true)) return syncTogglesHtml(cfg);
-  return `${syncTogglesHtml(cfg)}
-    <div class="sync-sub-head">Conexão</div>
-    ${syncConexaoHtml(s, cfg, rascunho)}
-    <div class="sync-sub-head">Aparelhos</div>
-    ${syncAparelhosHtml(s.devices)}
-    ${syncCoordenacaoHtml(s)}`;
-}
-
-
-/* A resposta de /api/review traz `coordenacao[]` quando o preflight do clique segurou
-   algum PR. Cada motivo tem um desfecho DIFERENTE, e é essa escolha que mora aqui:
-
-   - `indisponivel`: o banco não respondeu, então este aparelho não SABE se outro está
-     revisando. Dá pra seguir assumindo o risco, com confirmação.
-   - `recibo`: outro aparelho já analisou este commit. Refazer é legítimo (o resultado
-     só existe lá), mas custa uma sessão nova, então também confirma.
-   - `alheio`: outro aparelho está com o PR AGORA. Não existe override, e é de propósito:
-     o Farol nunca toma uma análise em andamento. Só avisa quem está com ele.
-
-   Motivo desconhecido cai no aviso, nunca num override: contornar a coordenação por
-   um motivo que a tela não entende seria exatamente o contrário do que ela existe pra
-   fazer. */
-const SYNC_CONFIRMACOES = {
-  indisponivel: {
-    override: 'semCoordenacao',
-    titulo: 'Revisar sem coordenação?',
-    acao: 'Revisar mesmo assim',
-  },
-  recibo: {
-    override: 'ignorarRecibo',
-    titulo: 'Revisar de novo este commit?',
-    acao: 'Refazer neste aparelho',
-  },
-};
-
-function syncCorpoIndisponivel(key, detalhe) {
-  const motivo = detalhe.motivo ? ` (${esc(detalhe.motivo)})` : '';
-  return `<p>O Firebase não respondeu${motivo}, então este aparelho não consegue saber se outro já está revisando <code>${esc(key)}</code>.</p>
-    <p>Se estiver, as duas sessões gastam tokens pelo mesmo PR. O dedup de postagem continua impedindo review duplicado no GitHub.</p>`;
-}
-
-function syncCorpoRecibo(key, detalhe) {
-  const onde = esc(detalhe.deviceName || 'outro aparelho');
-  const quando = detalhe.receipt && detalhe.receipt.completedAt ? ` em ${esc(fmtWhenDay(detalhe.receipt.completedAt))}` : '';
-  return `<p><code>${esc(key)}</code> já foi analisado no <b>${onde}</b> neste commit${quando}. O resultado só existe lá.</p>
-    <p>Refazer aqui abre uma sessão nova e consome tokens. Se o ${onde} voltar, ele confere antes de postar e não publica por cima.</p>`;
-}
-
-export function syncConfirmacaoDoClique(entrada) {
-  const e = entrada || {};
-  const key = String(e.key || '');
-  const detalhe = (e.detail && typeof e.detail === 'object') ? e.detail : {};
-  const modelo = SYNC_CONFIRMACOES[e.reason];
-  if (!modelo) {
-    const onde = detalhe.deviceName || 'outro aparelho';
-    // não é falha: é o app respeitando uma análise que já está rodando
-    return { tipo: 'aviso', key, texto: `${key} está sendo analisado no ${onde} agora. O Farol não toma uma análise em andamento; tente de novo quando ela terminar.` };
-  }
-  const corpo = e.reason === 'recibo' ? syncCorpoRecibo(key, detalhe) : syncCorpoIndisponivel(key, detalhe);
-  return { tipo: 'confirma', key, titulo: modelo.titulo, acao: modelo.acao, override: modelo.override, corpo };
-}
-
-/* Uma confirmação por PR, na ordem em que o engine devolveu. Lista vazia (ou resposta
-   sem coordenação nenhuma) não produz nada: o silêncio aqui quer dizer que a revisão
-   seguiu normalmente. */
-export function syncConfirmacoesDoClique(resposta) {
-  const lista = resposta && Array.isArray(resposta.coordenacao) ? resposta.coordenacao : [];
-  return lista.map(syncConfirmacaoDoClique);
-}
 
 /* ---------- U3: a nota de coordenação no card da fila ----------
 
@@ -2995,25 +2573,7 @@ export function syncConfirmacoesDoClique(resposta) {
    (--info), atenção é âmbar (--accent), e o vermelho fica reservado ao estacionamento,
    que é falha de verdade. Estacionamento e coordenação juntos: o estacionamento VENCE,
    porque ele é o que exige ação sua, e a espera se resolve sozinha. */
-const SYNC_ESPERA_FRASE = {
-  alheio: (onde) => `Em análise no ${onde}. A revisão automática espera por aqui.`,
-  indisponivel: () => 'Coordenação entre dispositivos indisponível agora. A revisão automática espera a conexão voltar.',
-  esgotado: () => 'Teto de rodadas automáticas de hoje atingido entre seus aparelhos. Volta amanhã; o Revisar vale agora.',
-};
-const SYNC_ESPERA_CLASSE = { alheio: '', indisponivel: ' warn', esgotado: ' warn' };
 
-export function prCoordNoteHtml(key, sync) {
-  const s = sync || {};
-  const espera = (s.espera || {})[key];
-  const lease = (s.leasesVistos || {})[key];
-  if (espera && SYNC_ESPERA_FRASE[espera.reason]) {
-    const onde = esc(espera.deviceName || (lease && lease.deviceName) || 'outro aparelho');
-    return `<div class="pr-coord${SYNC_ESPERA_CLASSE[espera.reason]}">${SYNC_ESPERA_FRASE[espera.reason](onde)}</div>`;
-  }
-  // sem espera registrada, o stream ainda pode saber que outro aparelho está com ele
-  if (lease) return `<div class="pr-coord">${SYNC_ESPERA_FRASE.alheio(esc(lease.deviceName || 'outro aparelho'))}</div>`;
-  return '';
-}
 
 /* ---------- U4: o Consumo de todos os aparelhos ----------
 
