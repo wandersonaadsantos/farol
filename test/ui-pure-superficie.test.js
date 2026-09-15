@@ -8,6 +8,7 @@
 // depois de qualquer perda). Nome sai daqui só com motivo declarado no commit.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { arquivosDosPuros } from './helpers/fontes-ui.js';
 
 const CONGELADA = [
   "DOMAIN_DEFS",
@@ -208,21 +209,11 @@ test('todo nome exportado e usavel, nao so declarado', async () => {
    no ui/pure.js E num módulo que ninguém importava. A suíte ficou verde, porque arquivo
    órfão não é lido por ninguém, e a duplicata só apareceria quando alguém corrigisse um
    lado só. Derivado do fonte: módulo novo entra na varredura sozinho. */
-test('nenhum simbolo exportado do ui/pure esta declarado em dois arquivos', async () => {
-  const fs = await import('node:fs');
-  const path = await import('node:path');
-  const dir = path.join(import.meta.dirname, '..', 'ui', 'pure');
-  const arquivos = [path.join(import.meta.dirname, '..', 'ui', 'pure.js')];
-  if (fs.existsSync(dir)) {
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (e.isFile() && e.name.endsWith('.js')) arquivos.push(path.join(dir, e.name));
-    }
-  }
+test('nenhum simbolo exportado do ui/pure esta declarado em dois arquivos', () => {
   const dono = new Map();
   const repetidos = [];
-  for (const arq of arquivos) {
-    const nome = path.basename(arq);
-    for (const m of fs.readFileSync(arq, 'utf8').matchAll(/^export (?:function|const) (\w+)/gm)) {
+  for (const { nome, texto } of arquivosDosPuros()) {
+    for (const m of texto.matchAll(/^export (?:function|const) (\w+)/gm)) {
       if (dono.has(m[1])) repetidos.push(`${m[1]} em ${dono.get(m[1])} e em ${nome}`);
       else dono.set(m[1], nome);
     }

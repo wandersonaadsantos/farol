@@ -15,15 +15,27 @@ import path from 'node:path';
 
 const RAIZ = path.join(import.meta.dirname, '..', '..');
 
-/** Todo o código puro da UI (ui/pure.js e ui/pure/*.js) concatenado, na ordem de leitura. */
-function fonteDosPuros() {
+/**
+ * Os arquivos do código puro da UI, fachada primeiro: `[{ nome, texto }]`.
+ *
+ * É a fonte única de "quais arquivos compõem o ui/pure". Quem precisa do texto inteiro usa
+ * `fonteDosPuros`; quem precisa saber EM QUAL arquivo algo mora (a trava de nome declarado
+ * em dois arquivos) usa esta. Duas enumerações do diretório seriam duas respostas para a
+ * mesma pergunta, e a primeira que ficasse para trás mentiria em silêncio.
+ */
+function arquivosDosPuros() {
   const dir = path.join(RAIZ, 'ui', 'pure');
   const modulos = fs.existsSync(dir)
     ? fs.readdirSync(dir, { withFileTypes: true })
       .filter((e) => e.isFile() && e.name.endsWith('.js'))
-      .map((e) => fs.readFileSync(path.join(dir, e.name), 'utf8'))
+      .map((e) => ({ nome: `pure/${e.name}`, texto: fs.readFileSync(path.join(dir, e.name), 'utf8') }))
     : [];
-  return [fs.readFileSync(path.join(RAIZ, 'ui', 'pure.js'), 'utf8'), ...modulos].join('\n');
+  return [{ nome: 'pure.js', texto: fs.readFileSync(path.join(RAIZ, 'ui', 'pure.js'), 'utf8') }, ...modulos];
 }
 
-export { fonteDosPuros };
+/** Todo o código puro da UI concatenado, na ordem de leitura. */
+function fonteDosPuros() {
+  return arquivosDosPuros().map((a) => a.texto).join('\n');
+}
+
+export { arquivosDosPuros, fonteDosPuros };
