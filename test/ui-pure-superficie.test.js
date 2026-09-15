@@ -202,3 +202,31 @@ test('todo nome exportado e usavel, nao so declarado', async () => {
   const indefinidos = CONGELADA.filter((n) => modulo[n] === undefined);
   assert.deepEqual(indefinidos, [], 'nomes exportados com valor undefined');
 });
+
+/* Nenhum nome pode estar declarado em DOIS arquivos do ui/pure. Achado durante a própria
+   Fase 1a: uma contraprova desfeita com `git checkout` deixou fjQuando e fjMoeda definidos
+   no ui/pure.js E num módulo que ninguém importava. A suíte ficou verde, porque arquivo
+   órfão não é lido por ninguém, e a duplicata só apareceria quando alguém corrigisse um
+   lado só. Derivado do fonte: módulo novo entra na varredura sozinho. */
+test('nenhum simbolo exportado do ui/pure esta declarado em dois arquivos', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const dir = path.join(import.meta.dirname, '..', 'ui', 'pure');
+  const arquivos = [path.join(import.meta.dirname, '..', 'ui', 'pure.js')];
+  if (fs.existsSync(dir)) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (e.isFile() && e.name.endsWith('.js')) arquivos.push(path.join(dir, e.name));
+    }
+  }
+  const dono = new Map();
+  const repetidos = [];
+  for (const arq of arquivos) {
+    const nome = path.basename(arq);
+    for (const m of fs.readFileSync(arq, 'utf8').matchAll(/^export (?:function|const) (\w+)/gm)) {
+      if (dono.has(m[1])) repetidos.push(`${m[1]} em ${dono.get(m[1])} e em ${nome}`);
+      else dono.set(m[1], nome);
+    }
+  }
+  assert.deepEqual(repetidos, [], 'simbolo declarado em dois arquivos do ui/pure');
+  assert.ok(dono.size >= 100, `esperava a maioria dos simbolos declarada, achei ${dono.size}`);
+});

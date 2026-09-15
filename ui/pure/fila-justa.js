@@ -7,10 +7,8 @@
 // Puro: recebe o `filaJusta` do snapshot e devolve HTML. Não decide nada.
 //
 // Extraído do ui/pure.js na Fase 1a da reorganização; o conteúdo não mudou. O import
-// abaixo aponta para a FACHADA, e é temporário por uma tarefa: a Task 4 o troca por
-// './comum.js', quando fmtDur passar a morar lá. Ele funciona porque fjQuando só chama
-// fmtDur em tempo de chamada, nunca no topo do módulo.
-import { fmtDur } from '../pure.js';
+// abaixo é a camada de baixo do diretório.
+import { fmtDur } from './comum.js';
 
 // "há 12m" / "agora" pra um intervalo já medido em ms (o snapshot manda a diferença
 // pronta, não o instante, pra tela não depender do relógio da máquina bater com o do
