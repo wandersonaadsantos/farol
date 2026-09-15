@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026 (iniciativa inteira, limites no plano mestre, seção 4).
-- **Entrega em curso:** nenhuma. C1a, C0, A5, A1 e A4 integradas; C0b validada localmente em `md/c0b`, pronta para integrar. Próxima: C1 (contrato de dados), com plano a escrever.
+- **Entrega em curso:** C1 (contrato de dados), com plano a escrever. C1a, C0, A5, A1, A4 e C0b já integradas em `md/integracao`.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 - **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026.
@@ -22,13 +22,13 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 | `npm test` | 2841 testes, 2817 aprovados, 24 pulados, 0 falhas |
 | `npm run eng` | `not-run` na base sem entrega (reprova por construção, o esperado); com entrega exige `avaliacoes.jsonl` |
 
-## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1 e A4)
+## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1, A4 e C0b)
 
 | Gate | Resultado |
 |---|---|
-| `npm run check` | verde, 333 arquivos `.js` |
+| `npm run check` | verde, 353 arquivos `.js` |
 | `npm run lint` | verde, sem regressão |
-| `npm test` | 3108 testes, 3082 aprovados, 26 pulados, 0 falhas |
+| `npm test` | 3191 testes, 3165 aprovados, 26 pulados, 0 falhas |
 
 Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações escritas.
 
@@ -40,7 +40,7 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | 2 | C0 Correções da sincronização publicada | `md/c0` | validado localmente, integrado | `evidencias-execucao/c0.md` |
 | 3 | A5 Retomada durável | `md/a5` | validado localmente, integrado | `evidencias-execucao/a5.md` |
 | 4 | A1 Consumo fiel (sem o item 1) | `md/a1` | validado localmente, integrado (`225165a`), item 1 bloqueado | `evidencias-execucao/a1.md` |
-| 5 | C0b Arbitragem de postagem no funil | `md/c0b` | validado localmente | `evidencias-execucao/c0b.md` |
+| 5 | C0b Arbitragem de postagem no funil | `md/c0b` | validado localmente, integrado (`355f6d8`) | `evidencias-execucao/c0b.md` |
 | 6 | A4 Autenticação local, núcleo | `md/a4` | validado localmente, integrado (`7387179`); ativação automática desligada | `evidencias-execucao/a4.md` |
 | seguintes | C1, C2, C3, C4, C4b, C5, C6, C7, C8, telas | | planos a escrever | |
 
