@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { guiasDistribuidos, alvosDistribuidos } from './helpers/guias-distribuidos.js';
 
 const RAIZ = path.join(import.meta.dirname, '..');
 const ler = (rel) => fs.readFileSync(path.join(RAIZ, rel), 'utf8');
@@ -35,26 +36,97 @@ test('todo caminho do repositorio citado no mapa existe', () => {
   }
 });
 
-/* O índice do CLAUDE.md é gerado, nunca escrito à mão: seção nova sem entrada no
-   índice reprova aqui. O slug segue a regra do GitHub (minúsculas, pontuação fora,
-   espaço vira hífen, acento fica). */
+/* O índice de cada guia distribuído é gerado, nunca escrito à mão: seção nova sem entrada no
+   índice reprova aqui. O slug segue a regra do GitHub (minúsculas, pontuação fora, espaço vira
+   hífen, acento fica). Desde a Fase 1.5 os guias são o CLAUDE.md (sumário) e os quatro de docs/
+   que viajam por allowlist, e a lista sai do empacotador pelo helper, nunca escrita aqui.
+
+   O README fica fora das quatro travas abaixo, de propósito: ele viaja, mas é a página pública
+   do repositório, lida no GitHub, e aponta legitimamente para .github/ e para o que não viaja. */
 const slugDeTitulo = (t) => t.toLowerCase().replace(/[^\p{L}\p{N} -]/gu, '').replace(/ /g, '-');
 
-test('o indice do CLAUDE.md lista TODAS as secoes, na ordem, com ancora valida', () => {
-  const guia = ler('CLAUDE.md');
-  // por PREFIXO: o marcador de abertura carrega um comentário depois do nome
-  const inicio = guia.indexOf('<!-- indice:inicio');
-  const fim = guia.indexOf('<!-- indice:fim');
-  assert.ok(inicio >= 0 && fim > inicio, 'o CLAUDE.md não tem o bloco de índice delimitado');
-  const indice = guia.slice(inicio, fim);
-  // os títulos saem do arquivo SEM o bloco do índice: o "## Índice" mora dentro dele e
-  // listar a si mesmo seria ruído (e deixaria o teste impossível de satisfazer)
-  const fora = guia.slice(0, inicio) + guia.slice(fim);
-  const titulos = fora.split('\n').filter((l) => l.startsWith('## ')).map((l) => l.slice(3).trim());
-  assert.ok(titulos.length >= 15, `esperava o CLAUDE.md com muitas seções, achei ${titulos.length}`);
-  const esperado = titulos.map((t) => `- [${t}](#${slugDeTitulo(t)})`);
-  const linhas = indice.split('\n').filter((l) => l.startsWith('- ['));
-  assert.deepEqual(linhas, esperado, 'o índice do CLAUDE.md divergiu das seções do arquivo');
+const LINK_RELATIVO = /\[[^\]]*\]\(([^)\s]+)\)/g;
+const EXTERNO = /^(https?:|mailto:)/;
+
+// Piso de seções por guia: existe para o teste não passar vazio, não para travar tamanho.
+// A Task 8 da Fase 1.5 troca cada zero pelo número MEDIDO de seções daquele guia.
+const PISO_DE_SECOES = {
+  'CLAUDE.md': 0,
+  'docs/CONFIGURATION.md': 0,
+  'docs/REVIEW-GATES.md': 0,
+  'docs/MACOS.md': 0,
+  'docs/RELEASE.md': 0,
+};
+
+function destinoDoLink(guia, alvo) {
+  const arquivo = alvo.split('#')[0];
+  if (!arquivo) return guia;
+  const absoluto = path.join(path.dirname(path.join(RAIZ, guia)), arquivo);
+  return path.relative(RAIZ, absoluto).split(path.sep).join('/');
+}
+
+function ancorasDe(texto) {
+  return new Set(texto.split('\n')
+    .filter((l) => /^#{1,6} /.test(l))
+    .map((l) => slugDeTitulo(l.replace(/^#{1,6} /, '').trim())));
+}
+
+test('cada guia distribuido tem indice igual as proprias secoes', () => {
+  for (const guia of guiasDistribuidos()) {
+    const texto = ler(guia);
+    // por PREFIXO: o marcador de abertura carrega um comentário depois do nome
+    const inicio = texto.indexOf('<!-- indice:inicio');
+    const fim = texto.indexOf('<!-- indice:fim');
+    assert.ok(inicio >= 0 && fim > inicio, `${guia} nao tem o bloco de indice delimitado`);
+    // os títulos saem do arquivo SEM o bloco do índice: o "## Índice" mora dentro dele e
+    // listar a si mesmo seria ruído (e deixaria o teste impossível de satisfazer)
+    const fora = texto.slice(0, inicio) + texto.slice(fim);
+    const titulos = fora.split('\n').filter((l) => l.startsWith('## ')).map((l) => l.slice(3).trim());
+    const piso = PISO_DE_SECOES[guia] ?? 1;
+    assert.ok(titulos.length >= piso, `${guia}: ${titulos.length} secoes, abaixo do piso ${piso}`);
+    const esperado = titulos.map((t) => `- [${t}](#${slugDeTitulo(t)})`);
+    const linhas = texto.slice(inicio, fim).split('\n').filter((l) => l.startsWith('- ['));
+    assert.deepEqual(linhas, esperado, `o indice de ${guia} divergiu das secoes do arquivo`);
+  }
+});
+
+test('toda ancora citada num guia distribuido existe no documento de destino', () => {
+  for (const guia of guiasDistribuidos()) {
+    for (const m of ler(guia).matchAll(LINK_RELATIVO)) {
+      const alvo = m[1];
+      if (EXTERNO.test(alvo) || !alvo.includes('#')) continue;
+      const destino = destinoDoLink(guia, alvo);
+      if (!destino.endsWith('.md') || !fs.existsSync(path.join(RAIZ, destino))) continue;
+      const ancora = alvo.split('#')[1];
+      assert.ok(ancorasDe(ler(destino)).has(ancora), `${guia} cita ${alvo}, e ${destino} nao tem esse titulo`);
+    }
+  }
+});
+
+test('guia distribuido so aponta para o que tambem viaja com o app instalado', () => {
+  const { arquivos, pastas } = alvosDistribuidos();
+  for (const guia of guiasDistribuidos()) {
+    for (const m of ler(guia).matchAll(LINK_RELATIVO)) {
+      const alvo = m[1];
+      if (EXTERNO.test(alvo) || alvo.startsWith('#')) continue;
+      const destino = destinoDoLink(guia, alvo);
+      const viaja = arquivos.has(destino) || pastas.some((d) => destino === d || destino.startsWith(`${d}/`));
+      assert.ok(viaja, `${guia} aponta para ${destino}, que nao viaja com o app instalado (escreva o caminho entre crases, sem link)`);
+    }
+  }
+});
+
+test('nenhum paragrafo longo aparece em dois guias distribuidos', () => {
+  const dono = new Map();
+  const repetidos = [];
+  for (const guia of guiasDistribuidos()) {
+    const paragrafos = ler(guia).split(/\n\s*\n/).map((p) => p.trim()).filter((p) => p.length > 120);
+    for (const p of paragrafos) {
+      if (dono.has(p) && dono.get(p) !== guia) repetidos.push(`${guia} repete um paragrafo de ${dono.get(p)}: ${p.slice(0, 60)}`);
+      else dono.set(p, guia);
+    }
+  }
+  assert.deepEqual(repetidos, [], 'conteudo duplicado entre guias: a extracao move, nunca copia');
 });
 
 test('o CONTRIBUTING manda o recem-chegado pro mapa do codigo', () => {
