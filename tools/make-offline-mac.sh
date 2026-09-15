@@ -60,6 +60,12 @@ mkdir -p "$STAGING/tools"
 for t in jira-mcp.js make-icons.ps1 pack-ico.js make-package.ps1 make-icns.sh; do
   cp "$SRC/tools/$t" "$STAGING/tools/$t"
 done
+# Guias distribuídos: allowlist explícita (decisão de 15/09/2026); o install.sh recria a pasta
+# no destino.
+mkdir -p "$STAGING/docs"
+for doc in CONFIGURATION.md REVIEW-GATES.md MACOS.md RELEASE.md; do
+  cp "$SRC/docs/$doc" "$STAGING/docs/$doc"
+done
 # tira o dist do Electron (arco do build, ex.: win32) e embute o zip darwin. O
 # install.sh descompacta NO Mac, preservando os symlinks do .app.
 rm -rf "$STAGING/node_modules/electron/dist"

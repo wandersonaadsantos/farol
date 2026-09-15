@@ -55,6 +55,12 @@ New-Item -ItemType Directory -Force -Path (Join-Path $payload 'tools') | Out-Nul
 foreach ($t in @('jira-mcp.js', 'make-icons.ps1', 'pack-ico.js', 'make-package.ps1', 'make-icns.sh')) {
   Copy-Item (Join-Path (Join-Path $Src 'tools') $t) (Join-Path (Join-Path $payload 'tools') $t)
 }
+# Guias distribuídos: allowlist explícita (decisão de 15/09/2026); o install.ps1 que roda de
+# dentro do Setup.exe recria a pasta no destino.
+New-Item -ItemType Directory -Force -Path (Join-Path $payload 'docs') | Out-Null
+foreach ($doc in @('CONFIGURATION.md', 'REVIEW-GATES.md', 'MACOS.md', 'RELEASE.md')) {
+  Copy-Item (Join-Path (Join-Path $Src 'docs') $doc) (Join-Path (Join-Path $payload 'docs') $doc)
+}
 
 # --- compila -------------------------------------------------------------------
 New-Item -ItemType Directory -Force -Path $dist | Out-Null

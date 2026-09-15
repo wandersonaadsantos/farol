@@ -105,6 +105,14 @@ for d in lib ui assets workspace-template installer tools; do
   rm -rf "${APP:?}/$d"
   cp -R "$SRC/$d" "$APP/$d"
 done
+# Guias distribuídos: allowlist explícita (decisão de 15/09/2026). A pasta é recriada para
+# um guia que saia da lista não ficar para sempre na cópia instalada.
+rm -rf "${APP:?}/docs"
+mkdir -p "$APP/docs"
+for doc in CONFIGURATION.md REVIEW-GATES.md MACOS.md RELEASE.md; do
+  [ -f "$SRC/docs/$doc" ] || die "Guia ausente na origem: docs/$doc"
+  cp "$SRC/docs/$doc" "$APP/docs/$doc"
+done
 
 # --- dependencias (Electron) -----------------------------------------------------
 ELECTRON_BIN="$APP/node_modules/.bin/electron"

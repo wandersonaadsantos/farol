@@ -73,6 +73,16 @@ foreach ($d in @('lib', 'ui', 'assets', 'workspace-template', 'installer', 'tool
   if ($LASTEXITCODE -ge 8) { Die "Falha ao copiar a pasta '$d' (robocopy $LASTEXITCODE)." }
 }
 if (Test-Path (Join-Path $Src 'Desinstalar.cmd')) { Copy-Item (Join-Path $Src 'Desinstalar.cmd') (Join-Path $App 'Desinstalar.cmd') -Force }
+# Guias distribuídos: allowlist explícita (decisão de 15/09/2026). A pasta é recriada para
+# um guia que saia da lista não ficar para sempre na cópia instalada.
+$docsDst = Join-Path $App 'docs'
+if (Test-Path -LiteralPath $docsDst) { Remove-Item -LiteralPath $docsDst -Recurse -Force }
+New-Item -ItemType Directory -Force -Path $docsDst | Out-Null
+foreach ($doc in @('CONFIGURATION.md', 'REVIEW-GATES.md', 'MACOS.md', 'RELEASE.md')) {
+  $origem = Join-Path (Join-Path $Src 'docs') $doc
+  if (-not (Test-Path -LiteralPath $origem)) { Die "Guia ausente na origem: docs/$doc" }
+  Copy-Item -LiteralPath $origem -Destination (Join-Path $docsDst $doc) -Force
+}
 
 # --- dependencias (Electron) ---------------------------------------------------
 $electronExe = Join-Path $App 'node_modules\electron\dist\electron.exe'
