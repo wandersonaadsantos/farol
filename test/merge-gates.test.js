@@ -1,7 +1,7 @@
 // Gates de segurança do mergeSelfPR: o ÚNICO caminho do Farol que mergeia um PR no
 // GitHub. Até aqui tinha zero teste, num arquivo de 487 linhas.
 //
-// O que está em jogo: o CLAUDE.md promete que o botão Merge "só o autor mergeia o
+// O que está em jogo: o docs/REVIEW-GATES.md promete que o botão Merge "só o autor mergeia o
 // próprio PR, só quando a autoanálise marcou approvable === true, só em repo fora de
 // mergeBlockedRepos, e nunca em rascunho/PR com conflito", e que "nem admin mergeia repo
 // bloqueado". Nada disso estava travado por teste: qualquer refatoração podia afrouxar um
@@ -161,7 +161,7 @@ test('a lista de bloqueados não diferencia maiúscula de minúscula', async () 
 });
 
 test('NEM ADMIN mergeia repo bloqueado', async () => {
-  // é a promessa mais forte do CLAUDE.md sobre o botão Merge: os modos auto e admin
+  // é a promessa mais forte do docs/REVIEW-GATES.md sobre o botão Merge: os modos auto e admin
   // passam pelos MESMOS gates, então nem admin fura a lista (ex.: biud-frontend)
   runImpl = roteador();
   for (const mode of ['admin', 'auto', 'normal']) {

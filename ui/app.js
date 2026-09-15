@@ -4054,7 +4054,7 @@ async function loadLog() {
   $('#logBox').textContent = linhas.length ? linhas.join('\n') : 'Nenhuma falha registrada. Bom sinal.';
   // resumo agrupado ANTES do despejo: contagem crua não distingue "1 problema repetido
   // 70 vezes" de "70 problemas". Fica num parágrafo próprio de propósito, e não dentro
-  // da .section-head: aquela linha é flex e quebra cedo (ver CLAUDE.md/CSS da aba).
+  // da .section-head: aquela linha é flex e quebra cedo (ver o CSS da aba).
   const resumo = $('#logResumo');
   const texto = logSummaryShort(grupos || [], 3);
   resumo.textContent = texto;

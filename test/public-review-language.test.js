@@ -234,7 +234,7 @@ test('detector normaliza NFKC, acentos decompostos e caracteres invisíveis', ()
 // PROVENIÊNCIA (quem/o que produziu ESTE review), não qualquer menção: "Farol
 // vX.Y.Z" sozinho é assunto técnico legítimo em PR de release do próprio repo
 // (achado do revisor, provado ao vivo com as 4 frases abaixo), e a doutrina do
-// CLAUDE.md já protege isso (Farol não é proibido sozinho). Só bloqueia quando
+// projeto já protege isso (Farol não é proibido sozinho). Só bloqueia quando
 // um verbo de proveniência (gerado, revisado, produzido...) e uma preposição
 // (pelo/com/via) colam o par Farol+versão à revisão em si.
 test('detector bloqueia proveniência com versão ("gerado pelo Farol vX.Y.Z"), mas passa menção técnica legítima', () => {

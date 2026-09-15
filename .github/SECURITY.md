@@ -53,7 +53,7 @@ O que interessa reportar:
 
 Estes pontos são decisão de projeto, estão documentados, e reportá-los não gera correção:
 
-- **Sessão do Claude Code com credencial.** As sessões de revisão recebem uma credencial do GitHub para investigar PRs, inclusive privados. A capability efêmera do `/api/review/post` evita bypass acidental do gate de linguagem, mas **não é uma fronteira contra um processo deliberadamente malicioso** que ignore o protocolo e use a credencial diretamente. Está escrito no `CLAUDE.md`, seção "Fronteira do review humano".
+- **Sessão do Claude Code com credencial.** As sessões de revisão recebem uma credencial do GitHub para investigar PRs, inclusive privados. A capability efêmera do `/api/review/post` evita bypass acidental do gate de linguagem, mas **não é uma fronteira contra um processo deliberadamente malicioso** que ignore o protocolo e use a credencial diretamente. Está escrito em [`docs/REVIEW-GATES.md`](../docs/REVIEW-GATES.md#invariante-4-em-detalhe), parágrafo "Fronteira do review humano".
 - **Binários sem assinatura de código.** O instalador do Windows e o `.command` do macOS não são assinados, então SmartScreen e Gatekeeper avisam na primeira execução. É custo de certificado, não bug.
 - **Quem liga a automação responde por ela.** `autoApproveAll`, `onReject: request_changes` e `autoApproveContested` são opt-in, e o que elas postam sai na conta de quem ligou. Comportamento indesejado de uma automação que você ligou é configuração, não vulnerabilidade.
 - **Acesso local à máquina.** Quem já tem sessão de usuário na máquina lê `~/.farol` e fala com `127.0.0.1:47170`. O app não protege contra o dono da máquina nem contra malware já rodando com o seu usuário.
