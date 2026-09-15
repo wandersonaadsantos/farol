@@ -63,3 +63,21 @@ test('o CONTRIBUTING manda o recem-chegado pro mapa do codigo', () => {
   assert.ok(contrib.includes('README.md#mapa-do-código'),
     'o CONTRIBUTING não aponta para a seção "Mapa do código" do README');
 });
+
+/* Link relativo quebrado é o modo de falha das fases que MOVEM arquivo: o guia
+   continua parecendo certo e o destino sumiu. Vale pros guias da raiz e pro docs/,
+   menos as pastas de método e de plano, que citam caminho de worktree que não existe
+   mais de propósito. */
+const GUIAS = ['README.md', 'CLAUDE.md', '.github/CONTRIBUTING.md', '.github/SECURITY.md', 'docs/QUALITY.md'];
+
+test('todo link relativo dos guias aponta pra arquivo que existe', () => {
+  for (const guia of GUIAS) {
+    const base = path.dirname(path.join(RAIZ, guia));
+    for (const m of ler(guia).matchAll(/\[[^\]]*\]\(([^)\s]+)\)/g)) {
+      const alvo = m[1];
+      if (/^(https?:|mailto:|#)/.test(alvo)) continue;
+      const arquivo = path.join(base, alvo.split('#')[0]);
+      assert.ok(fs.existsSync(arquivo), `${guia} aponta pra ${alvo}, que não existe`);
+    }
+  }
+});
