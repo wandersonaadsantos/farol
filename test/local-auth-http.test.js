@@ -247,6 +247,19 @@ test('POST /api/settings não liga nem desliga localAuth', async () => {
   assert.equal(engine.config.localAuth, antes);
 });
 
+test('transporte da UI lê o SSE real com o cabeçalho no modo que exige', async () => {
+  const { FonteDeEventosAutenticada } = await import('../ui/transporte.js');
+  await comExigencia(async () => {
+    const { token } = await parearViaHttp('navegador');
+    const estado = await new Promise((resolve, reject) => {
+      const fonte = new FonteDeEventosAutenticada('/api/events', () => token, (url, init) => fetch(base + url, init), (fn, ms) => { if (ms === 0) fn(); });
+      fonte.onerror = () => reject(new Error('o stream autenticado falhou'));
+      fonte.addEventListener('state', e => { fonte.close(); resolve(JSON.parse(e.data)); });
+    });
+    assert.ok(estado.decisions, 'o evento state chegou com o snapshot');
+  });
+});
+
 test('sessão sobrevive a reinício do engine e some depois da revogação', async () => {
   engine.config.localAuth = 'exigir';
   const { token } = await parearViaHttp();
