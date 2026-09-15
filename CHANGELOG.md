@@ -35,8 +35,10 @@ pedido de revisão.
 - **Commit novo ou pedido de revisão destrava o que ficava preso.** Três casos esperavam
   clique pra sempre, mesmo com o autor empurrando código ou pedindo revisão de novo: a
   revisão refeita que falhava depois de um commit novo, a revisão estacionada por falha, e
-  o PR em que alguém clicou Pular. Agora os três voltam sozinhos. Continuam manuais só a
-  revisão que você cancelou e o PR que você ignorou.
+  o PR que você pulou, se ele ainda pede a sua revisão. Agora os três voltam sozinhos.
+  Continuam manuais a revisão que você cancelou, o PR que você ignorou e a revisão que
+  ficou estacionada antes da v2.57.4, que não tem motivo gravado pra dizer se foi
+  cancelamento.
 - **Acabou o teto de 3 revisões automáticas por PR por dia.** O quarto push do dia só era
   revisado com clique ou no dia seguinte. No lugar, se 3 revisões seguidas pegarem commit
   novo no meio, o Farol espera 30 minutos sem push antes de tentar de novo, e volta
