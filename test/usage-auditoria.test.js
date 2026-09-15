@@ -71,13 +71,15 @@ test('com base, estima pelo token de saída e marca a origem', () => {
     { costUsd: 0.25, source: 'estimado' });
 });
 
-test('sem base, devolve zero com origem `sem-base`, e nunca um numero inventado', () => {
-  assert.deepEqual(usage.estimarCusto([], 'review', 'Opus 5', 250), { costUsd: 0, source: 'sem-base' });
+// o nome da origem virou `desconhecido` na A1 (o valor antigo `sem-base` continua sendo
+// LIDO igual pelos consumidores); a garantia é a mesma: sem base, nenhum número inventado
+test('sem base, devolve zero com origem `desconhecido`, e nunca um numero inventado', () => {
+  assert.deepEqual(usage.estimarCusto([], 'review', 'Opus 5', 250), { costUsd: 0, source: 'desconhecido' });
 });
 
 test('sem token de saída não há o que estimar', () => {
   const sessions = [medida(), medida(), medida()];
-  assert.deepEqual(usage.estimarCusto(sessions, 'review', 'Opus 5', 0), { costUsd: 0, source: 'sem-base' });
+  assert.deepEqual(usage.estimarCusto(sessions, 'review', 'Opus 5', 0), { costUsd: 0, source: 'desconhecido' });
 });
 
 /* ---------- o registro parcial entra, e diz que é estimado ---------- */
@@ -125,7 +127,7 @@ test('parcial sem base de estimativa ainda registra o TOKEN, que e medido', () =
   const s = eng.usageSessions.sessions.at(-1);
   assert.equal(s.outputTokens, 500);
   assert.equal(s.costUsd, 0);
-  assert.equal(s.costSource, 'sem-base');
+  assert.equal(s.costSource, 'desconhecido');
 });
 
 /* ---------- gasto descartado deixa de parecer util ---------- */
