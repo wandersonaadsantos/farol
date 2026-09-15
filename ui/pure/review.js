@@ -202,10 +202,19 @@ export function reviewBoxHtml(d) {
   </div>`;
 }
 
-export function reviewChip(pr, actions) {
+// O estado do GitHub vence o histórico local pelo mesmo motivo do kindDaRevisao
+// (ui/pure/radar.js): o que outro aparelho postou só existe lá.
+const CHIP_DO_GH = {
+  APPROVED: '<span class="badge rev-ok" title="Seu último review decisivo neste PR, no GitHub, aprovou">✅ você aprovou</span>',
+  CHANGES_REQUESTED: '<span class="badge rev-rc" title="Seu último review decisivo neste PR, no GitHub, pediu mudanças">✋ você pediu mudanças</span>',
+};
+
+export function reviewChip(pr, actions, estadosGh) {
   const a = (actions || {})[pr.key];
+  if (a && a.kind === 'pending') return '<span class="badge rev-pend" title="A análise terminou e está esperando a sua decisão em Precisa de você">🟡 aguardando você</span>';
+  const gh = String((estadosGh || {})[pr.key]);
+  if (Object.hasOwn(CHIP_DO_GH, gh)) return CHIP_DO_GH[gh];
   if (a) {
-    if (a.kind === 'pending') return '<span class="badge rev-pend" title="A análise terminou e está esperando a sua decisão em Precisa de você">🟡 aguardando você</span>';
     if (a.kind === 'approve') return `<span class="badge rev-ok" title="APPROVE postado${a.auto ? ' automaticamente pelo protocolo' : ' por você'} via Farol">✅ você aprovou</span>`;
     if (a.kind === 'request_changes') return '<span class="badge rev-rc" title="REQUEST CHANGES postado por você via Farol">✋ você pediu mudanças</span>';
     if (a.kind === 'comment') return '<span class="badge rev-cm" title="COMMENT postado por você via Farol">💬 você comentou</span>';

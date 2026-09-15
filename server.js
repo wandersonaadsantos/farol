@@ -1838,6 +1838,18 @@ class Engine extends EventEmitter {
   syncConsolidated(days) { return syncUsageMod.consolidated(this, days); }
   syncConsolidate() { return syncUsageMod.consolidate(this); }
 
+  // Último estado decisivo MEU no GitHub por PR do panorama (staleInfo, que o
+  // refreshStaleStates já busca). É o que faz o selo concordar entre aparelhos: o
+  // histórico local só sabe o que ESTE aparelho postou.
+  reviewStatesGhParaUi() {
+    const saida = {};
+    const chaves = new Set((this.panorama || []).map(p => p.key));
+    for (const [k, info] of Object.entries(this.staleInfo || {})) {
+      if (chaves.has(k) && info && (info.lastState === 'APPROVED' || info.lastState === 'CHANGES_REQUESTED')) saida[k] = info.lastState;
+    }
+    return saida;
+  }
+
   snapshot() {
     return {
       app: { name: APP_NAME, version: APP_VERSION, platform: process.platform },
@@ -1877,6 +1889,7 @@ class Engine extends EventEmitter {
       selfAnalyses: selfMod.projectSelfAnalyses(this.selfAnalyses),
       mergeStates: this.mergeStates,
       staleStates: this.staleStates,
+      reviewStatesGh: this.reviewStatesGhParaUi(),
       // projeção pura: tira o interno (fileBlobs, mapa cru de agents) e entrega a
       // contagem/lista compacta de subagentes que a UI mostra no card da sessão
       activeSessions: sessionMod.projectSessions([...this.activeReviews.values()]),

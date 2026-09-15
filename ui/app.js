@@ -2580,7 +2580,7 @@ function renderPanorama() {
   box.style.display = '';
   const runningKeys = new Set([].concat(...(STATE.activeSessions || []).map(s => s.keys || [])));
   const waitingKeys = STATE.headlessWaiting || [];
-  const ctxPano = { actions: STATE.reviewActions || {}, staleStates: STATE.staleStates || {}, running: runningKeys, waiting: waitingKeys,
+  const ctxPano = { actions: STATE.reviewActions || {}, staleStates: STATE.staleStates || {}, reviewStatesGh: STATE.reviewStatesGh || {}, running: runningKeys, waiting: waitingKeys,
     todasContas: SCOPE === 'all', chats: STATE.chats };
   box.innerHTML = list.map(pr => panoramaRowHtml(pr, { ...ctxPano, mark: acctMark(pr, { noBar: true }) })).join('');
 }
