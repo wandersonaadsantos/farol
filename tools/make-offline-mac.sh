@@ -13,8 +13,8 @@
 # Gatekeeper: o .command vem baixado (quarentena); na 1a vez, botao direito >
 # Abrir (uma vez). Sem assinatura/notarizacao (conta paga da Apple) esse passo fica.
 #
-# ATENCAO: o runtime do Farol no macOS nunca rodou num Mac de verdade (ver a secao
-# macOS do CLAUDE.md). Trate o instalador gerado como BETA e valide com o
+# ATENCAO: o runtime do Farol no macOS nunca rodou num Mac de verdade (ver o
+# docs/MACOS.md). Trate o instalador gerado como BETA e valide com o
 # "Exportar diagnostico" (aba Sistema > Saude) do primeiro Mac que instalar.
 set -euo pipefail
 
@@ -48,13 +48,23 @@ echo "  -> Baixando o Electron para macOS ($ARCH)"
 curl -fL --retry 3 -o "$BUILD/electron-darwin.zip" "$ZIP_URL"
 
 echo '  -> Reunindo o app + Electron (embutido, montado no Mac)'
-for f in main.js server.js package.json README.md CLAUDE.md; do cp "$SRC/$f" "$STAGING/$f"; done
-for d in lib ui assets workspace-template installer node_modules; do cp -R "$SRC/$d" "$STAGING/$d"; done
+for f in main.js server.js package.json README.md CLAUDE.md; do
+  cp "$SRC/$f" "$STAGING/$f"
+done
+for d in lib ui assets workspace-template installer node_modules; do
+  cp -R "$SRC/$d" "$STAGING/$d"
+done
 # Mesma whitelist do pacote leve: Jira MCP e ferramentas de build permitidas.
 # Nao copiar tools/ inteiro: smoke e outras ferramentas de desenvolvimento ficam fora.
 mkdir -p "$STAGING/tools"
 for t in jira-mcp.js make-icons.ps1 pack-ico.js make-package.ps1 make-icns.sh; do
   cp "$SRC/tools/$t" "$STAGING/tools/$t"
+done
+# Guias distribuídos: allowlist explícita (decisão de 15/09/2026); o install.sh recria a pasta
+# no destino.
+mkdir -p "$STAGING/docs"
+for doc in CONFIGURATION.md REVIEW-GATES.md MACOS.md RELEASE.md; do
+  cp "$SRC/docs/$doc" "$STAGING/docs/$doc"
 done
 # tira o dist do Electron (arco do build, ex.: win32) e embute o zip darwin. O
 # install.sh descompacta NO Mac, preservando os symlinks do .app.

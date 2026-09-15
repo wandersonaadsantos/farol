@@ -21,7 +21,7 @@ Write-Host ''
 Write-Host "  Farol · publicar release $tag em $repo" -ForegroundColor Yellow
 
 # --- versionamento: a referencia e a ULTIMA RELEASE PUBLICADA -----------------
-# Historico real de erro (ver CLAUDE.md, "Versionamento"): fonte ja esteve 2
+# Historico real de erro (ver docs/RELEASE.md, "Versionamento"): fonte ja esteve 2
 # versoes a frente do publicado, e sessoes paralelas ja colidiram no mesmo
 # numero (a segunda sobrescrevia a release da primeira em silencio). Regra:
 # so publica se a versao do package.json for MAIOR que a ultima publicada.

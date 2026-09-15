@@ -317,7 +317,7 @@ test('a aba Sistema mostra o resumo agrupado do log, sem mexer no botao de zerar
   assert.match(fn[0], /get\('\/api\/log\/triage'\)/);
   assert.match(fn[0], /logSummaryShort\(grupos \|\| \[\], 3\)/, 'os 3 maiores grupos');
   assert.match(HTML, /<p class="sys-note" id="logResumo" hidden><\/p>/,
-    'o resumo mora em paragrafo proprio: a .section-head e flex e quebra cedo (CLAUDE.md)');
+    'o resumo mora em paragrafo proprio: a .section-head e flex e quebra cedo');
   assert.match(HTML, /id="btnLogClear"/, 'o botao de zerar segue onde estava');
   assert.match(HTML, /id="logBox"/, 'o despejo cru continua disponivel embaixo');
 });
