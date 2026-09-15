@@ -21,7 +21,7 @@ Write-Host "  Farol · empacotador v$version" -ForegroundColor Yellow
 # worktree limpa no commit da release. FAROL_ALLOW_DIRTY=1 e a escotilha
 # consciente (dev local, teste), nunca o fluxo de publicacao.
 if ($env:FAROL_ALLOW_DIRTY -ne '1') {
-  $dirty = git -C $Src status --porcelain -- main.js server.js package.json lib ui assets workspace-template installer tools/jira-mcp.js 2>$null
+  $dirty = git -C $Src status --porcelain -- main.js server.js package.json CLAUDE.md lib ui assets workspace-template installer tools/jira-mcp.js docs/CONFIGURATION.md docs/REVIEW-GATES.md docs/MACOS.md docs/RELEASE.md 2>$null
   if ($LASTEXITCODE -eq 0 -and $dirty) {
     Write-Host '  ERRO: arvore com mudancas nao commitadas nos arquivos do pacote:' -ForegroundColor Red
     $dirty | ForEach-Object { Write-Host "    $_" -ForegroundColor Red }
@@ -46,6 +46,12 @@ foreach ($d in @('lib', 'ui', 'assets', 'workspace-template', 'installer')) {
 New-Item -ItemType Directory -Force -Path (Join-Path $staging 'tools') | Out-Null
 foreach ($t in @('jira-mcp.js', 'make-icons.ps1', 'pack-ico.js', 'make-package.ps1', 'make-icns.sh')) {
   Copy-Item (Join-Path (Join-Path $Src 'tools') $t) (Join-Path (Join-Path $staging 'tools') $t)
+}
+# Guias distribuídos: allowlist explícita (decisão de 15/09/2026). Só estes quatro de docs/
+# viajam; docs/superpowers, docs/evidencias, planos e specs ficam no repositório.
+New-Item -ItemType Directory -Force -Path (Join-Path $staging 'docs') | Out-Null
+foreach ($doc in @('CONFIGURATION.md', 'REVIEW-GATES.md', 'MACOS.md', 'RELEASE.md')) {
+  Copy-Item (Join-Path (Join-Path $Src 'docs') $doc) (Join-Path (Join-Path $staging 'docs') $doc)
 }
 
 # --- zip ------------------------------------------------------------------------

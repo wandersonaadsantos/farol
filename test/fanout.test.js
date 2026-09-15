@@ -217,7 +217,7 @@ test('a lacuna aparece nos pontos de atenção, com amostra dos arquivos', () =>
 });
 
 /* ---------- limiares: são decisão MEDIDA, não número redondo ----------
-   O CLAUDE.md registra que 1000 linhas OU 20 arquivos foi calibrado sobre o histórico
+   O docs/REVIEW-GATES.md registra que 1000 linhas OU 20 arquivos foi calibrado sobre o histórico
    real (pega 28% dos PRs, 7 de 25) e que MAX_LOTES é o knob pra cauda de PRs gigantes.
    Sem teste, esses valores eram três constantes exportadas que ninguém lia: mudar 1000
    pra 100 triplicaria o custo de review sem nada reclamar. Isto não impede a mudança,

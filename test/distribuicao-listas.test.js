@@ -18,10 +18,13 @@ const RE_PS = {
   f: /foreach \(\$f in @\(([\s\S]*?)\)\)/g,
   d: /foreach \(\$d in @\(([\s\S]*?)\)\)/g,
   t: /foreach \(\$t in @\(([\s\S]*?)\)\)/g,
+  doc: /foreach \(\$doc in @\(([\s\S]*?)\)\)/g,
 };
 const RE_SH = {
   f: /^for f in (.+); do$/gm,
   d: /^for d in (.+); do$/gm,
+  t: /^for t in (.+); do$/gm,
+  doc: /^for doc in (.+); do$/gm,
 };
 
 function listaPowershell(texto, variavel, arquivo) {
@@ -52,6 +55,35 @@ const pacoteArquivos = listaPowershell(pacote, 'f', 'tools/make-package.ps1');
 const pacotePastas = listaPowershell(pacote, 'd', 'tools/make-package.ps1');
 const pacoteTools = listaPowershell(pacote, 't', 'tools/make-package.ps1');
 const instalado = listas['installer/install.ps1'];
+
+/* As rotas de instalador COMPLETO (Setup.exe e offline do macOS) montam o app com listas
+   próprias e são o que a pessoa baixa na primeira instalação (decisão D1 da Fase 1.5,
+   15/09/2026). Duas regras de comparação, as duas medidas: elas carregam node_modules a mais,
+   que é o que as torna offline, e só esse item sai da comparação de pastas; e tools/ viaja por
+   ARQUIVOS nomeados em toda rota que monta pacote, então a pasta sai da comparação e a lista
+   de arquivos de tools de cada rota tem de ser igual à do pacote. */
+const EMBUTEM_RUNTIME = new Set(['node_modules']);
+const PASTA_POR_ARQUIVOS = 'tools';
+
+const ROTAS_COMPLETAS = {
+  'tools/make-installer.ps1': (t, a) => ({
+    arquivos: listaPowershell(t, 'f', a), pastas: listaPowershell(t, 'd', a), tools: listaPowershell(t, 't', a),
+  }),
+  'tools/make-offline-mac.sh': (t, a) => ({
+    arquivos: listaBash(t, 'f', a), pastas: listaBash(t, 'd', a), tools: listaBash(t, 't', a),
+  }),
+};
+const completas = Object.fromEntries(Object.entries(ROTAS_COMPLETAS).map(([arq, fn]) => [arq, fn(ler(arq), arq)]));
+
+test('os instaladores completos (Setup.exe e offline do mac) levam o mesmo que o instalador', () => {
+  const pastasDoInstalador = instalado.pastas.filter((d) => d !== PASTA_POR_ARQUIVOS);
+  for (const [arq, l] of Object.entries(completas)) {
+    assert.deepEqual(l.arquivos, instalado.arquivos, `${arq} diverge nos arquivos de raiz`);
+    const pastas = l.pastas.filter((d) => !EMBUTEM_RUNTIME.has(d));
+    assert.deepEqual(pastas, pastasDoInstalador, `${arq} diverge nas pastas (fora node_modules e tools)`);
+    assert.deepEqual(l.tools, pacoteTools, `${arq} nao leva os mesmos arquivos de tools que o pacote`);
+  }
+});
 
 test('os tres instaladores copiam os mesmos arquivos de raiz e as mesmas pastas', () => {
   for (const [arq, l] of Object.entries(listas)) {
@@ -85,4 +117,44 @@ test('tudo que as listas nomeiam existe no repositorio', () => {
     assert.ok(fs.existsSync(path.join(RAIZ, d)) && fs.statSync(path.join(RAIZ, d)).isDirectory(), `${d} nao e pasta do repositorio`);
   }
   for (const t of pacoteTools) assert.ok(fs.existsSync(path.join(RAIZ, 'tools', t)), `tools/${t} nao existe`);
+});
+
+const LEITOR_DA_ROTA = {
+  'installer/install.ps1': listaPowershell,
+  'installer/install.sh': listaBash,
+  'installer/install-linux.sh': listaBash,
+  'tools/make-package.ps1': listaPowershell,
+  'tools/make-installer.ps1': listaPowershell,
+  'tools/make-offline-mac.sh': listaBash,
+};
+const textoDaRota = Object.fromEntries(Object.keys(LEITOR_DA_ROTA).map((arq) => [arq, ler(arq)]));
+const docsPorRota = Object.fromEntries(Object.entries(LEITOR_DA_ROTA)
+  .map(([arq, leitor]) => [arq, leitor(textoDaRota[arq], 'doc', arq)]));
+const pastasPorRota = Object.fromEntries(Object.entries(LEITOR_DA_ROTA)
+  .map(([arq, leitor]) => [arq, leitor(textoDaRota[arq], 'd', arq)]));
+
+/* A allowlist dos guias distribuídos é CONGELADA de propósito e é a única lista curada deste
+   arquivo: a decisão do dono (15/09/2026, revista no mesmo dia) nomeou exatamente estes quatro,
+   e o que não pode acontecer é um quinto entrar por descuido. Mudar esta lista é decisão, não
+   ajuste. */
+const GUIAS_APROVADOS = ['CONFIGURATION.md', 'REVIEW-GATES.md', 'MACOS.md', 'RELEASE.md'];
+
+test('as seis rotas levam exatamente os quatro guias aprovados', () => {
+  for (const [arq, docs] of Object.entries(docsPorRota)) {
+    assert.deepEqual([...docs].sort(), [...GUIAS_APROVADOS].sort(), `${arq} diverge da allowlist de guias`);
+  }
+});
+
+test('docs/ nunca viaja como pasta inteira', () => {
+  for (const [arq, pastas] of Object.entries(pastasPorRota)) {
+    assert.ok(!pastas.includes('docs'), `${arq} copia a pasta docs inteira, e docs/superpowers iria junto`);
+  }
+});
+
+test('cada guia aprovado existe e o protocolo do workspace continua distribuido', () => {
+  for (const d of GUIAS_APROVADOS) assert.ok(fs.existsSync(path.join(RAIZ, 'docs', d)), `docs/${d} nao existe`);
+  assert.ok(fs.existsSync(path.join(RAIZ, 'workspace-template', 'CLAUDE.md')), 'o protocolo das sessoes sumiu');
+  for (const [arq, pastas] of Object.entries(pastasPorRota)) {
+    assert.ok(pastas.includes('workspace-template'), `${arq} deixou de levar workspace-template (e o CLAUDE.md das sessoes)`);
+  }
 });

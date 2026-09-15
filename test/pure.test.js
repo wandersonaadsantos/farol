@@ -340,7 +340,7 @@ test('applyClaudeAuthEnv: limpa CLAUDE_CONFIG_DIR/ANTHROPIC_* residuais do objet
 });
 
 test('applyClaudeAuthEnv: limpa ANTHROPIC_AUTH_TOKEN residual (precedencia oficial fica acima de ANTHROPIC_API_KEY)', () => {
-  // ANTHROPIC_AUTH_TOKEN vence ANTHROPIC_API_KEY na precedencia oficial do CLI (ver CLAUDE.md).
+  // ANTHROPIC_AUTH_TOKEN vence ANTHROPIC_API_KEY na precedencia oficial do CLI (ver docs/CONFIGURATION.md, secao Assinatura).
   // Se a maquina/ambiente do processo do Farol tiver essa var setada por fora (ex.: perfil de
   // shell do usuario, sem relacao com o Farol), ela venceria em silencio tanto um perfil dir
   // quanto um perfil apikey recem aplicado, derrotando a garantia desta funcao.

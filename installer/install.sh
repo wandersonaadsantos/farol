@@ -4,7 +4,7 @@
 # Uso: bash installer/install.sh
 #
 # ATENCAO: portado do install.ps1 (Windows) sem um Mac real pra testar.
-# Se algo falhar, a secao macOS do CLAUDE.md na raiz da fonte explica o
+# Se algo falhar, o docs/MACOS.md (na fonte e em ~/.farol/app/docs) explica o
 # desenho e o checklist de validacao.
 set -euo pipefail
 
@@ -104,6 +104,14 @@ for d in lib ui assets workspace-template installer tools; do
   [ -d "$SRC/$d" ] || continue
   rm -rf "${APP:?}/$d"
   cp -R "$SRC/$d" "$APP/$d"
+done
+# Guias distribuídos: allowlist explícita (decisão de 15/09/2026). A pasta é recriada para
+# um guia que saia da lista não ficar para sempre na cópia instalada.
+rm -rf "${APP:?}/docs"
+mkdir -p "$APP/docs"
+for doc in CONFIGURATION.md REVIEW-GATES.md MACOS.md RELEASE.md; do
+  [ -f "$SRC/docs/$doc" ] || die "Guia ausente na origem: docs/$doc"
+  cp "$SRC/docs/$doc" "$APP/docs/$doc"
 done
 
 # --- dependencias (Electron) -----------------------------------------------------
