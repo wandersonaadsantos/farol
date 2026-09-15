@@ -42,6 +42,29 @@ O instalador copia o app para `~/.farol/app` e cria o lançador `~/Applications/
 
 **Importante**: o suporte a macOS foi construído sem um Mac de teste. Se algo falhar, abra o Claude Code na pasta do Farol e peça pra ele seguir a seção "macOS" do `CLAUDE.md`, que tem o checklist de validação e o mapa do que é específico de cada sistema.
 
+## Mapa do código
+
+O Farol tem **duas entradas**, e as duas estão corretas:
+
+| entrada | o que é | como roda |
+|---|---|---|
+| `main.js` | o shell Electron: janela, bandeja, notificações, autostart | `npm start` (que é `electron .`, e o `electron` lê o campo `main` do `package.json`) |
+| `server.js` | o engine puro, sem janela: polling do GitHub, fila, sessões de IA e o servidor HTTP + SSE que serve a interface | `npm run server` (que é `node server.js`) |
+
+Por onde começar a ler, dependendo do que você quer mexer:
+
+| quero mexer em | comece por |
+|---|---|
+| o que o app decide (revisar, aprovar, esperar) | `lib/engine/` |
+| o que aparece na tela | `ui/pure.js` (funções puras, com teste) e `ui/app.js` |
+| como o app fala com o GitHub | `lib/io.js` e `lib/engine/gh-queries.js` |
+| como o app é instalado e atualizado | `installer/` e `lib/engine/update.js` |
+| as regras de qualidade e o gate | `docs/QUALITY.md` e `tools/quality/` |
+
+O guia completo do mantenedor, com os invariantes que reprovam um PR, é o
+[`CLAUDE.md`](CLAUDE.md). Ele é grande de propósito: é a memória do projeto, e o índice
+no topo dele leva direto ao assunto.
+
 ## Como funciona
 
 ```

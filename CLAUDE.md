@@ -2,6 +2,33 @@
 
 Leia isto antes de mexer em qualquer arquivo. Este documento existe pra que qualquer Claude Code (em qualquer máquina, Windows ou macOS) consiga manter o Farol sem quebrar os contratos do app.
 
+<!-- indice:inicio (gerado; test/guias-navegaveis.test.js reprova se divergir das seções) -->
+
+## Índice
+
+- [O que é](#o-que-é)
+- [Mapa de arquivos](#mapa-de-arquivos)
+- [Invariantes do projeto (não negociar)](#invariantes-do-projeto-não-negociar)
+- [Pontos com branch de plataforma](#pontos-com-branch-de-plataforma)
+- [macOS: estado real e o que falta validar](#macos-estado-real-e-o-que-falta-validar)
+- [Linux (experimental, v2.45.0)](#linux-experimental-v2450)
+- [Modelo e esforço das sessões autônomas](#modelo-e-esforço-das-sessões-autônomas)
+- [Assinatura do Claude (qual conta/plano o Farol usa, e como alternar)](#assinatura-do-claude-qual-contaplano-o-farol-usa-e-como-alternar)
+- [Como rodar e testar sem estragar nada](#como-rodar-e-testar-sem-estragar-nada)
+- [Jira multi-tenant (v2.52.0)](#jira-multi-tenant-v2520)
+- [Menções navegáveis (regra de usabilidade, v2.40.1)](#menções-navegáveis-regra-de-usabilidade-v2401)
+- [Um Farol por PR (v2.50.1): a lição do marcador transitório](#um-farol-por-pr-v2501-a-lição-do-marcador-transitório)
+- [Dedup é por ROUND, não por "alguma vez" (v2.40.5)](#dedup-é-por-round-não-por-alguma-vez-v2405)
+- [Re-revisão automática pós-push (v2.41.0): o round 2 fecha sozinho](#re-revisão-automática-pós-push-v2410-o-round-2-fecha-sozinho)
+- [Autoanálise: parecer do modelo x decisão do app (P0a v2.54.8, P0b v2.55.0)](#autoanálise-parecer-do-modelo-x-decisão-do-app-p0a-v2548-p0b-v2550)
+- [Checkpoint de verificação (memória entre passadas da revisão, v2.36.0)](#checkpoint-de-verificação-memória-entre-passadas-da-revisão-v2360)
+- [Diagnóstico: ambiente x operação x runtime (v2.40.4, terceira dimensão na v2.53.3)](#diagnóstico-ambiente-x-operação-x-runtime-v2404-terceira-dimensão-na-v2533)
+- [Governança do repositório público (17/08/2026)](#governança-do-repositório-público-17082026)
+- [Versionamento (regras firmes; houve erro demais aqui)](#versionamento-regras-firmes-houve-erro-demais-aqui)
+- [Release (checklist obrigatório)](#release-checklist-obrigatório)
+
+<!-- indice:fim -->
+
 ## O que é
 
 Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o GitHub com comandos `gh` (zero tokens de IA), serve a UI local por HTTP + SSE e orquestra sessões do Claude Code (headless pra revisão autônoma, terminal pra sessão interativa). O `main.js` é só o shell Electron (janela, bandeja, notificações).
@@ -405,6 +432,15 @@ O parser de revisão aceita JSON bruto ou um único bloco explicitamente `json`,
 - **`tools/quality/` continua, e não é o eng-behaviour.** É o enforcement mecânico local do Farol, e ele cobre dois tipos de coisa. (a) A face mecânica de regras que no catálogo são de julgamento: `jsonParseCru`, `jsonStringifyCru`, `processEnvDireto`, `portaLiteral` e `tempoMagico` são todos casos de `core.duplication.business-rule`, fonte de verdade única, que o catálogo não verifica por ferramenta porque distinguir invariante compartilhado de coincidência de valor exige entender o domínio. Aqui o domínio é conhecido e os santuários são nomeados, então dá pra medir. (b) Eixos que o catálogo não tem: `emptyCatch`, `varUse`, `ternarioAninhado` e `profundidadeExcedida`. **Uma divergência declarada:** `maxLines` (400) mede tamanho de arquivo, e `core.file.single-responsibility` rejeita esse eixo por princípio. O contador fica como ratchet sobre dívida já medida, não como afirmação de que tamanho é o critério; se ele sai, é decisão do dono, não descuido.
 - **Gate de qualidade** (rodar antes de QUALQUER entrega): `npm run check && npm run lint && npm test`, e `npm run eng` antes de empurrar. O `lint` é o gate de ratchet do enforcement mecânico em Node puro (`tools/quality/`): compara as violações com `baseline.json` e reprova qualquer contagem que SUBA. Corrigiu dívida? `npm run lint:update` trava o número mais baixo. A baseline nunca sobe à mão. O `check` valida a sintaxe (`tools/check-syntax.js` roda `node --check` por processo filho em TODO `.js` do projeto, ESM nativo desde a migração; a lista é DESCOBERTA e o próprio gate imprime quantos achou, então não existe número escrito aqui para apodrecer; `package.json` tem `"type": "module"`); o `test` roda a rede (`node --test`, runner nativo, ZERO dependências): funções puras + smoke de boot com `FAROL_HOME` temporário. Verde em todos é pré-requisito. A rede vive em `test/` e é o que protege a decomposição do engine em ondas (ver `docs/QUALITY.md`, o contrato de qualidade extraído do lace-be-fastify).
 - As buscas `gh search prs` são read-only; rodar `check` contra o GitHub real é seguro.
+- **As travas de navegação e distribuição** (Fase 0 da reorganização, 14/09/2026):
+  `test/distribuicao-listas.test.js` deriva as QUATRO listas fixas do que viaja
+  (`install.ps1`, `install.sh`, `install-linux.sh`, `make-package.ps1`) e reprova
+  divergência entre elas, que é o modo de falha silenciosa que já custou a pasta
+  `tools/` no Mac (PR #36). `test/guias-navegaveis.test.js` trava o mapa do código no
+  README contra os scripts do `package.json`, o índice do `CLAUDE.md` contra as próprias
+  seções, e qualquer link relativo morto nos guias. Pasta de topo nova exige as quatro
+  listas na MESMA tarefa, e uma instalação real a partir do zip antes do commit: suíte
+  verde não prova que o instalador copiou o que precisava.
 
 ## Jira multi-tenant (v2.52.0)
 
