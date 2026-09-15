@@ -145,7 +145,7 @@ escapou.
 - **Revisão headless de ponta a ponta com sessão Claude real** (item 5, segunda metade): a
   assinatura do `claude` desta máquina está expirada (`OAuth session expired and could not
   be refreshed`). `claude login` é ação do dono da máquina; a seção
-  [Assinatura do Claude](../CLAUDE.md#assinatura-do-claude-qual-contaplano-o-farol-usa-e-como-alternar)
+  [Assinatura do Claude](CONFIGURATION.md#assinatura-do-claude-qual-contaplano-o-farol-usa-e-como-alternar)
   proíbe o Claude Code logar em nome do usuário. Falta ver relatório, veredito e o card em "Precisa de
   você" saídos de uma sessão de verdade.
 - **Update pelo canal REMOTO ponta a ponta**: validado pelo canal local apontando pro
