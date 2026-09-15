@@ -307,7 +307,7 @@ O escopo aplicável está em `eng-behaviour.json` (`core`), o recorte das regras
 
 **Por que ele não está no CI.** Duas razões independentes, cada uma suficiente sozinha. O CI roda sem `npm install` de propósito (invariante 1, zero dependências além do Electron) e não alcança a CLI de um pacote que não é publicado em registro nenhum. E o `audit` lê `avaliacoes.jsonl`, que fica fora do controle de versão por decisão em aberto do próprio pacote: a identidade de uma avaliação é a regra mais o head, e commitar o registro dentro do repositório que ele avalia move esse head e invalida a avaliação recém-escrita. O runner não tem como ler um arquivo que não viaja no commit. Então o gate mora no pre-push, que é onde o Farol já põe o que o CI não alcança; como o pre-push também proíbe push direto na main, todo caminho até a main atravessa o gate.
 
-**O custo, medido.** O escopo `core` seleciona 10 regras: 2 hard e 8 de julgamento. `core.suppression.declared` examinou 176 arquivos de código com zero achado na medição de 30/08/2026, e o número acompanha o tamanho do repositório; `core.testing.e2e-without-mocks` não roda, porque não existe suíte de ponta a ponta declarada aqui e o pacote não adivinha qual diretório é. Restam **8 avaliações escritas por commit**, cada uma com fundamentação própria sobre aquele diff. Um laço escrevendo a mesma frase nas oito passa no gate sem avaliar nada, e é por isso que não existe script para gerá-las.
+**O custo, medido.** O escopo `core` seleciona 13 regras desde a v0.12.0 do pacote: 3 hard e 10 de julgamento (eram 10, com 2 hard e 8 de julgamento, na medição de 30/08/2026). `core.suppression.declared` examinou 176 arquivos de código com zero achado na medição de 30/08/2026, e o número acompanha o tamanho do repositório; `core.testing.e2e-without-mocks` não roda, porque não existe suíte de ponta a ponta declarada aqui e o pacote não adivinha qual diretório é. Restam **até 10 avaliações escritas por commit**, uma por regra de julgamento que a entrega aciona, cada uma com fundamentação própria sobre aquele diff. Um laço escrevendo a mesma frase em todas passa no gate sem avaliar nada, e é por isso que não existe script para gerá-las.
 
 **Estado em 30/08/2026: a metade de julgamento está BLOQUEADA por cima, no pacote.** A CLI subiu para a
 v0.4.0 e mudou duas coisas do contrato. A primeira o Farol já acompanhou: `audit` passou a exigir `--base`,
@@ -326,14 +326,48 @@ JSON. Até 30/08/2026 isso parecia bloquear as 8 avaliações (terminavam `not-r
 de `runAudit` (`dist/index.js` do eng-behaviour, `rules[].materialFingerprint`, mais `acionadores` e
 `contexto`), e `loadBundledCatalog` dá a `ruleVersion` (campo `since` da regra). Isso NÃO é recalcular o
 fingerprint a partir do fonte do pacote (que continua sendo a saída errada, por acoplar o Farol a um interno
-dele): é consumir o que o pacote expõe. O roteiro: rodar `runAudit` com `{ repositoryId: basename(cwd),
+dele): é consumir o que o pacote expõe. O roteiro: rodar `runAudit` com `{ repositoryId: 'farol',
 base: 'origin/main', head: 'HEAD' }`, escrever `avaliacoes.jsonl` na raiz da worktree (uma linha por regra
-acionada, `schemaVersion: 2`, `repositoryId` = basename do diretório, que numa worktree é o nome da worktree,
+acionada, `schemaVersion: 2`, `repositoryId` = `farol` em qualquer checkout, porque o gate passa `--repo-id farol` desde a v0.12.0,
 `rule`, `ruleVersion`, `materialFingerprint`, `head`, `verdict`, `confidence` alta ou media, `evidence[]`
 apontando para arquivo que existe na worktree, `rationale`, `author`, `date`; o schema é estrito e campo extra
 reprova) e só então `npm run eng`. Commit novo muda o `head` e, se o material mudou, o fingerprint: as
 avaliações se escrevem no head final, depois das revisões, porque cada uma precisa de fundamentação própria
 sobre AQUELE diff. A saída definitiva continua sendo o pacote imprimir o fingerprint no próprio `audit`.
+
+### Dívida registrada de responsabilidade única (v0.12.0 do pacote, 15/09/2026)
+
+Até a v0.12.0, `core.file.single-responsibility` só tinha duas respostas para arquivo que já violava a regra antes da entrega: `violacao`, que reprovava a entrega que não causou a dívida, ou `conforme`. O Farol escolheu a segunda sete vezes sobre o `ui/app.js`, com a tensão escrita só na fundamentação, e foi essa medição que virou a ADR-0015 do eng-behaviour. Desde a v0.12.0 a dívida anterior de uma regra de julgamento mora num baseline finito, com contagem e condição de fechamento, e o gate passa `--baselines tools/eng-behaviour/baselines.json` e `--repo-id farol` (a identidade fixa é o que faz o baseline valer também dentro de uma worktree).
+
+A lista inicial saiu de uma avaliação arquivo a arquivo, pelas três perguntas da regra, em 14/09/2026. Nove arquivos saíram com confiança alta e seis com média. Os de confiança média entram assim mesmo, porque o custo de errar é assimétrico: um arquivo listado que na verdade é conforme sai da lista na primeira avaliação `conforme`, e um arquivo em violação que ficasse de fora exigiria reabrir o baseline.
+
+| arquivo | confiança | condição de fechamento |
+|---|---|---|
+| `ui/app.js` | alta | fica só o bootstrap da página (SSE, estado global, troca de aba, `data-goto`); cada aba vira módulo ES importado por ele, e `RELEASE_NOTES` vira dado próprio |
+| `ui/pure.js` | alta | um módulo comum (escape, formatadores, menções) e um por aba; `pure.js` some ou só reexporta |
+| `server.js` | alta | fica a carga de estado, as fachadas de uma linha e o ciclo de vida; os corpos com assunto próprio (workspace, PATH do boot, vistos, política por conta, identidade no GitHub, polling, auth do Claude, doctor, settings, orçamento e fila justa, snapshot) viram colaboradores |
+| `lib/engine/review.js` | alta | fica o ciclo de uma revisão (`runHeadlessReview`); escalonador, prompt, label de revisando, etapas, coordenação, re-revisão e estacionamento saem |
+| `lib/engine/selfpr.js` | alta | fica a sessão de autoanálise; elegibilidade de qualidade, ocultar PR, merge com mergeabilidade, reviewers e staleness dos meus reviews saem |
+| `lib/engine/session.js` | alta | fica o spawn e o controle do processo headless; terminal e login, feed e subagentes, captura de checkpoint, consumo e parsing do envelope saem |
+| `lib/engine/decision.js` | alta | fica o ciclo do registro de decisão; gate puro, funil de postagem com reenvio, capabilities e memória do time saem |
+| `lib/parse.js` | alta | ficam os normalizadores de config; isolamento de credencial, `extractCardKeys` e `workspaceTrust` saem |
+| `lib/engine/skip-review.js` | alta | fica a saída de cena; co-assinatura e a junção dos gates de lançamento (`bloqueiaAutomatico`) saem |
+| `lib/engine/usage.js` | média | a política de orçamento sai para perto de `quota.js` |
+| `lib/io.js` | média | arquivo e JSON, execução de processo e descoberta de ambiente de boot se separam |
+| `lib/format.js` | média | `isPermanentBranch`, que é política de merge, sai |
+| `lib/log-taxonomy.js` | média | `parseLine` e `triage` vão para um módulo do Diagnóstico que importa `classify` |
+| `lib/engine/public-review.js` | média | a projeção da decisão para a UI (`decisionForUi` e vizinhos) sai |
+| `lib/taxonomy.js` | média | a paleta de cores por conta sai para perto da normalização de contas |
+
+**Como manter o número honesto:**
+
+- **Entrega que toca um arquivo listado e não resolve a dívida:** a avaliação da regra é `violacao`, uma por arquivo, com o arquivo na frente da evidência; os itens seguintes da evidência são contexto. O gate absorve e imprime `baseline: core.file.single-responsibility: N achado(s) conhecido(s)`.
+- **Entrega que resolve a dívida de um arquivo:** a avaliação é `conforme`, o gate imprime `resolvido <assinatura>`, e a mesma entrega tira a assinatura de `known` e baixa `currentFindings`.
+- **Arquivo listado que muda de caminho** ainda em violação: a assinatura acompanha o caminho novo na mesma entrega, e `test/eng-behaviour-baseline.test.js` reprova se isso ficar para trás. Dividir um arquivo listado em dois que continuam violando não cabe no baseline, porque a contagem subiria: a divisão precisa resolver a responsabilidade.
+- **Arquivo fora da lista julgado em violação** não entra sozinho. `initialFindings` só desce, e reabrir o baseline é decisão explícita, registrada nesta seção.
+- **A cada release do eng-behaviour**, a mesma entrega que regenera o recorte migra o `catalogVersion` do baseline; a CLI recusa baseline aberto sob outra versão.
+- **Fora da avaliação:** `tools/` e `test/` também contam como código para o pacote e não foram avaliados. Se um avaliador achar violação ali, vale a regra do item anterior.
+
 
 O parágrafo do custo abaixo descreve o regime da v0.3.x e continua valendo como intenção; os números mudam
 quando a identidade material entrar em vigor, porque a ADR-0012 corta o número de regras cobradas por commit.

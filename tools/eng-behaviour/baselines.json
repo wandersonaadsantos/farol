@@ -1,0 +1,28 @@
+[
+  {
+    "repositoryId": "farol",
+    "catalogVersion": "0.12.0",
+    "rule": "core.file.single-responsibility",
+    "openedAt": "2026-09-15",
+    "initialFindings": 15,
+    "currentFindings": 15,
+    "closureCondition": "Cada arquivo listado passa a expressar uma responsabilidade que cabe numa frase, sem \"e também\". A condição de cada um está em docs/QUALITY.md, seção \"Dívida registrada de responsabilidade única\", e o caminho é a reorganização estrutural do repositório.",
+    "known": [
+      "core.file.single-responsibility|lib/engine/decision.js|violacao",
+      "core.file.single-responsibility|lib/engine/public-review.js|violacao",
+      "core.file.single-responsibility|lib/engine/review.js|violacao",
+      "core.file.single-responsibility|lib/engine/selfpr.js|violacao",
+      "core.file.single-responsibility|lib/engine/session.js|violacao",
+      "core.file.single-responsibility|lib/engine/skip-review.js|violacao",
+      "core.file.single-responsibility|lib/engine/usage.js|violacao",
+      "core.file.single-responsibility|lib/format.js|violacao",
+      "core.file.single-responsibility|lib/io.js|violacao",
+      "core.file.single-responsibility|lib/log-taxonomy.js|violacao",
+      "core.file.single-responsibility|lib/parse.js|violacao",
+      "core.file.single-responsibility|lib/taxonomy.js|violacao",
+      "core.file.single-responsibility|server.js|violacao",
+      "core.file.single-responsibility|ui/app.js|violacao",
+      "core.file.single-responsibility|ui/pure.js|violacao"
+    ]
+  }
+]
