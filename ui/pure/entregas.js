@@ -4,16 +4,16 @@
 //
 // Extraído do ui/pure.js na Fase 1a da reorganização; o conteúdo não mudou.
 
-// aviso de teto da aba Entregas: o gh search corta em DELIVERIES_LIMIT por org e o
-// server manda o limite no payload (fonte única do número; a mensagem antiga
-// afirmava 100 com o teto real em 1000). Fallback 1000 cobre payload em cache
-// gravado antes do campo existir. "atividade mais recente" (não "mais recentes"):
-// o corte do gh é por --sort updated, aproximação de recência, não data de merge.
+// aviso de teto da aba Entregas: a busca fatiada corta em DELIVERIES_LIMIT por org e
+// o server manda o limite no payload (fonte única do número; a mensagem antiga
+// afirmava 100 com o teto real em 1000). Fallback 5000 é o valor real atual e cobre
+// payload sem o campo. "atividade mais recente" (não "mais recentes"): dentro da
+// fatia mínima o corte do gh é por --sort updated, aproximação de recência.
 import { esc, fmtRel, groupBy, lastMerge, localDayKey, plural, repoShort, usageDayKeysBack } from './comum.js';
 import { personMention, repoMention } from './mencoes.js';
 
 export function delivCappedMsg(limit) {
-  const n = Number(limit) || 1000;
+  const n = Number(limit) || 5000;
   return `Alguma organização tem mais de ${n} entregas no período; mostrando as ${n} de atividade mais recente (números e gráfico podem subestimar).`;
 }
 

@@ -739,14 +739,14 @@ test('delivActivityChart: dia sem merge usa a classe "zero", NUNCA a "empty" glo
 });
 
 test('delivCappedMsg fala o limite REAL vindo do server, nunca o 100 antigo', () => {
-  // DELIVERIES_LIMIT = 1000 (lib/paths.js); a mensagem afirmava 100, fator de 10
-  assert.match(P.delivCappedMsg(1000), /mais de 1000 entregas/);
+  // DELIVERIES_LIMIT = 5000 (lib/paths.js); a mensagem afirmava 100 quando o teto era 1000
+  assert.match(P.delivCappedMsg(5000), /mais de 5000 entregas/);
   // "atividade mais recente", não "mais recentes": o corte do gh e por --sort
   // updated (aproximacao), e a mensagem nao pode prometer corte por data de merge
-  assert.match(P.delivCappedMsg(1000), /1000 de atividade mais recente/);
-  assert.match(P.delivCappedMsg(1000), /podem subestimar/);
-  assert.doesNotMatch(P.delivCappedMsg(1000), /\b100\b/);
-  assert.match(P.delivCappedMsg(undefined), /1000/, 'payload em cache sem limit cai no valor real atual');
+  assert.match(P.delivCappedMsg(5000), /5000 de atividade mais recente/);
+  assert.match(P.delivCappedMsg(5000), /podem subestimar/);
+  assert.doesNotMatch(P.delivCappedMsg(5000), /\b100\b/);
+  assert.match(P.delivCappedMsg(undefined), /5000/, 'payload sem limit cai no valor real atual');
 });
 
 /* ---------- Entregas v2: busca, estatísticas, atividade, paginação ---------- */
