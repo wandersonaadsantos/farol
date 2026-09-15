@@ -1,0 +1,116 @@
+export const meta = {
+  name: 'farol-s3-agendador-capacidade',
+  description: 'Mapeia a fila automática atual e desenha o agendador do admin, a capacidade e os comandos com crítica adversarial',
+  phases: [
+    { title: 'Mapear', detail: 'dono de cada estado e gate da fila automática hoje' },
+    { title: 'Desenhar', detail: 'divisão coletor, agendador, executor, degradação e preflight' },
+    { title: 'Criticar', detail: 'tentar quebrar o desenho contra o código e os invariantes' },
+    { title: 'Sintetizar', detail: 'desenho da seção 3 com decisões pendentes' },
+  ],
+}
+
+const SCR = '<pasta de evidencias deste handoff>' // original: scratchpad da sessao, ja copiado para evidencias/
+
+const BASE = `Repositório: <raiz do repositorio> (Farol; você já recebeu o CLAUDE.md). SOMENTE LEITURA: não edite, crie ou apague arquivos; não rode npm, server.js, instaladores nem nada que toque ~/.farol, GitHub ou Firebase. Read/Grep/Glob/git log apenas. Português, sem travessão. Toda afirmação sobre código leva caminho:linha; o que não verificou, diga "NÃO VERIFICADO".
+
+Fatos já verificados: ${SCR}\\mapa.json (áreas visao-ao-vivo, config-remota, listas-sincronizadas, checkpoint-firebase) e ${SCR}\\c1.json (campo sintese: contrato de dados v2 aprovado, com nós live/control, live/devicePolicies, live/deviceStatus, live/operations, live/pending, reserva para live/queue e live/commands, assinatura Ed25519 do admin, batimento a cada 120 s, admin fora com beatAt + 360 s vencido).
+
+DECISÕES FECHADAS PELO DONO (não reabrir):
+- Agendador = o aparelho admin, SEM substituto. Admin online (batimento válido): ele distribui, os outros não enfileiram sozinhos e atendem o que recebem. Admin fora: cada aparelho volta NA HORA à configuração local e à revisão automática de hoje, coordenada por lease; o que roda termina onde está. Admin volta: retoma a distribuição sem mexer no que roda; o lease impede duplicidade na virada; histerese contra oscilação.
+- Dois papéis: COLETOR por conta (faz polling do GitHub e publica candidatos; só quem tem o token daquela conta) e AGENDADOR global (o admin). A fila (rodízio por org, estacionamento, retry) passa a ter dono único: o agendador.
+- Distribuição é chave própria, desligada por padrão. Sincronização ligada + distribuição desligada = modelo de hoje. Um aparelho só = hoje. Aparelho em versão antiga não obedece o agendador e coordena por lease; o agendador enxerga os leases dele e não atribui por cima. Sincronização desligada = zero efeito.
+- Por aparelho: prioridade (menor vence), teto de revisões simultâneas POR APARELHO (não por conta), habilitado/pausado, contas atendidas. Exemplo: celular prioridade 1 máximo 1, PC prioridade 2 máximo 3; excesso vai para o próximo apto; revisão já atribuída não migra quando o prioritário libera.
+- Capacidade: antes de atribuir e de novo antes do spawn, cruzar capacidade MECÂNICA do aparelho (RAM é a causa mais provável de falha no celular, que roda Node em Termux/proot) com o peso estimado do PR. Resultado apto / inapto com motivos / desconhecido. Telemetria vencida conta como inapta. Nenhum aparelho apto = fica na fila com motivo, sem abrir sessão.
+- Teto de orçamento ÚNICO do conjunto (mesma assinatura em vários aparelhos).
+- Admin só age num aparelho que ligou LOCALMENTE a permissão (config.sync.aceitarAdmin). Comandos remotos previstos para depois: cancelar, repetir, decidir/postar review usando a credencial LOCAL do executor, iniciar em outro aparelho; executor offline = comando pendente; transferência voluntária e tomada forçada vêm depois ainda.
+- Clique manual continua atravessando os gates automáticos como hoje.
+- Invariante 4 do CLAUDE.md intacto: nada é postado sem gate; dedup por head; postLanes é por processo.`
+
+const MAPA_SCHEMA = {
+  type: 'object',
+  properties: {
+    pipeline: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          passo: { type: 'string' },
+          onde: { type: 'string' },
+          estado_lido_ou_escrito: { type: 'string' },
+          persistido: { type: 'string' },
+          natureza: { type: 'string', enum: ['descoberta', 'filtro', 'ordem', 'admissao', 'execucao', 'pos-execucao', 'reconciliacao'] },
+          depende_de_dado_local_do_aparelho: { type: 'string' },
+        },
+        required: ['passo', 'onde', 'estado_lido_ou_escrito', 'persistido', 'natureza', 'depende_de_dado_local_do_aparelho'],
+      },
+    },
+    armadilhas: { type: 'array', items: { type: 'object', properties: { armadilha: { type: 'string' }, evidencia: { type: 'string' } }, required: ['armadilha', 'evidencia'] } },
+    sinais_de_capacidade_disponiveis: { type: 'array', items: { type: 'object', properties: { sinal: { type: 'string' }, fonte: { type: 'string' }, termux: { type: 'string' } }, required: ['sinal', 'fonte', 'termux'] } },
+    peso_do_pr_disponivel: { type: 'string' },
+  },
+  required: ['pipeline', 'armadilhas', 'sinais_de_capacidade_disponiveis', 'peso_do_pr_disponivel'],
+}
+
+const DESENHO_SCHEMA = {
+  type: 'object',
+  properties: {
+    resumo: { type: 'string' },
+    papeis: { type: 'string' },
+    quem_e_dono_de_cada_estado: {
+      type: 'array',
+      items: { type: 'object', properties: { estado: { type: 'string' }, dono_com_admin_online: { type: 'string' }, dono_com_admin_fora: { type: 'string' }, na_virada: { type: 'string' } }, required: ['estado', 'dono_com_admin_online', 'dono_com_admin_fora', 'na_virada'] },
+    },
+    ciclo_de_atribuicao: { type: 'string' },
+    degradacao_e_volta: { type: 'string' },
+    capacidade_e_preflight: { type: 'string' },
+    teto_do_conjunto: { type: 'string' },
+    comandos_esboco: { type: 'string' },
+    continuidade_esboco: { type: 'string' },
+    compatibilidade: { type: 'string' },
+    modos_de_falha: { type: 'array', items: { type: 'string' } },
+    contraprovas: { type: 'array', items: { type: 'string' } },
+    corte_yagni: { type: 'array', items: { type: 'string' } },
+    decisoes_para_o_dono: { type: 'array', items: { type: 'object', properties: { pergunta: { type: 'string' }, opcoes: { type: 'array', items: { type: 'string' } }, recomendacao: { type: 'string' } }, required: ['pergunta', 'opcoes', 'recomendacao'] } },
+  },
+  required: ['resumo', 'papeis', 'quem_e_dono_de_cada_estado', 'ciclo_de_atribuicao', 'degradacao_e_volta', 'capacidade_e_preflight', 'teto_do_conjunto', 'comandos_esboco', 'continuidade_esboco', 'compatibilidade', 'modos_de_falha', 'contraprovas', 'corte_yagni', 'decisoes_para_o_dono'],
+}
+
+const CRITICA_SCHEMA = {
+  type: 'object',
+  properties: {
+    erros: { type: 'array', items: { type: 'object', properties: { erro: { type: 'string' }, gravidade: { type: 'string', enum: ['fatal', 'alta', 'media', 'baixa'] }, cenario: { type: 'string' }, evidencia: { type: 'string' }, correcao: { type: 'string' } }, required: ['erro', 'gravidade', 'cenario', 'evidencia', 'correcao'] } },
+    excesso: { type: 'array', items: { type: 'string' } },
+    faltando: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['erros', 'excesso', 'faltando'],
+}
+
+phase('Mapear')
+const mapa = await agent(
+  `${BASE}\n\nMapeie com precisão a FILA AUTOMÁTICA de hoje, do polling ao fim da sessão, para decidir o que o agendador precisa assumir. Siga o check() de server.js e tudo que ele chama: coleta do panorama e da fila (gh-queries), reconciliarVistos, toReview e seus filtros (conta muda, sem token, orçamento e cota da justiça de fila, syncSeguraAutomacao, outrosRevisando e skipComentado do skip-review, bloqueiaAutomatico, estacionamento, ignorados, rascunho), launchReview, enqueueHeadless, processHeadless com rodízio por org e globalParallelLimit, runOneHeadless, admissão por lease (lib/sync/coordinator.js), runHeadlessReview, retry (retryAfterNet, retryTargets, _repescarRetry), estacionamento (autoReviewParked, parkedMotivos), re-revisão pós-push (launchReReviews, reReviewTargets, reReviewLaunched, headQuietoDesde), retryFailedPosts, reconcilePending, recoverInflight e inflight.json. Para cada passo diga que estado lê/escreve, se persiste, e se depende de dado LOCAL do aparelho (token, arquivo em state/, decisions.json). Liste armadilhas que um agendador remoto quebraria. Liste também os sinais de capacidade mecânica que o código já tem ou que o Node consegue ler (os.freemem, os.totalmem, /proc/meminfo, loadavg, disco), marcando o comportamento em Termux/proot como NÃO VERIFICADO se não houver prova, e o que o código já sabe medir do peso de um PR (lib/engine/fanout.js prMetrics, model-router).`,
+  { label: 'mapa-fila', phase: 'Mapear', schema: MAPA_SCHEMA },
+)
+
+phase('Desenhar')
+const desenho = await agent(
+  `${BASE}\n\nMapa da fila automática de hoje (JSON):\n${JSON.stringify(mapa)}\n\nDesenhe a SEÇÃO 3 do plano: agendador do admin, coletores, executores, degradação e volta, capacidade e preflight, teto do conjunto, e um ESBOÇO (não detalhado) de comandos e continuidade. Regra de ouro: REAPROVEITE a máquina que existe (toReview, gates, rodízio, estacionamento, retry, re-revisão, lease) em vez de reescrever; o agendador idealmente roda o MESMO pipeline de hoje sobre a união dos candidatos e troca só o passo de execução local por atribuição. Diga quem é dono de cada estado com admin online, com admin fora e na virada. Seja explícito sobre YAGNI: liste o que corta (corte_yagni). Não invente layout de tela.`,
+  { label: 'desenho-s3', phase: 'Desenhar', schema: DESENHO_SCHEMA },
+)
+
+phase('Criticar')
+const LENTES = [
+  'CONCORRÊNCIA E VIRADA: dois aparelhos admitindo o mesmo PR, atribuição perdida, admin caindo no meio de uma atribuição, histerese, relógio, lease, recibo, rodada do dia, dedup por head e postLanes por processo. Monte cenários de linha do tempo concretos.',
+  'INVARIANTES E EXCESSO: sincronização desligada sem efeito, um aparelho igual a hoje, versão antiga, invariante 4, work-conserving da justiça de fila, clique manual, e o que é complexidade que não paga (YAGNI). Aponte o que pode ser removido sem perder as decisões do dono.',
+]
+const criticas = (await parallel(LENTES.map((l, i) => () => agent(
+  `${BASE}\n\nMapa (JSON):\n${JSON.stringify(mapa)}\n\nDesenho a derrubar (JSON):\n${JSON.stringify(desenho)}\n\nVocê é um CRÍTICO adversarial com a lente: ${l}\nAbra o código para cada afirmação. Gravidade honesta.`,
+  { label: `critica-s3-${i + 1}`, phase: 'Criticar', schema: CRITICA_SCHEMA },
+)))).filter(Boolean)
+
+phase('Sintetizar')
+const sintese = await agent(
+  `${BASE}\n\nSintetize o desenho FINAL da seção 3 a partir do desenho e das críticas. Todo erro fatal ou alto resolvido ou virado risco explícito; aplique os cortes de excesso que não violem decisões do dono; decisoes_para_o_dono só com o que muda o desenho e ainda não foi decidido, cada uma com recomendação.\n\nMapa (JSON):\n${JSON.stringify(mapa)}\n\nDesenho (JSON):\n${JSON.stringify(desenho)}\n\nCríticas (JSON):\n${JSON.stringify(criticas)}`,
+  { label: 'sintese-s3', phase: 'Sintetizar', schema: DESENHO_SCHEMA },
+)
+
+return { sintese, criticas, desenho, mapa }
