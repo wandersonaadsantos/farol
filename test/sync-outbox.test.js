@@ -471,11 +471,14 @@ test('correção feita com a consolidação desligada chega ao banco quando ela 
   const engine = new Engine();
   engine.sync.fetchImpl = fetchDosDubles;
   await salvarSync(engine, syncCfg({ consolidation: { enabled: true } }));
-  // o caso do 401 acima deixa a fila PAUSADA no arquivo, e a pausa é do arquivo, não do
-  // engine: sem limpar aqui, nada é enviado e o teste mediria a pausa, não a correção
-  engine.sync.outbox = outbox.readOutbox();
-  engine.sync.outbox.paused = false;
-  if (engine.sync.status !== 'conectado') assert.equal((await engine.syncLogin({ email: EMAIL, password: SENHA })).ok, true);
+  // o caso anterior deste arquivo termina logado na CONTA 2, e a sessão do Firebase é
+  // gravada em disco: ela sobrevive ao engine novo. Sem sair e entrar de propósito em
+  // u1, este caso mediria a fila de u2 e as asserções cairiam em `undefined`. O login
+  // explícito também retarga a outbox, e é isso que devolve o cursor ao zero para a
+  // sessão criada abaixo subir.
+  engine.syncLogout();
+  assert.equal((await engine.syncLogin({ email: EMAIL, password: SENHA })).ok, true);
+  assert.equal(engine.sync.uid, 'u1');
   const deviceId = engine.sync.deviceId;
   engine.recordUsage('a-correcao-tardia', 'Fulano', RESULTADO, 'opus', 'perfil-9', 'Org/Repo#9');
   const id = eventIdFor(engine.usageSessions.sessions.at(-1), deviceId);
