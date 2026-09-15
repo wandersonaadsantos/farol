@@ -70,7 +70,7 @@ import tentativasMod from './lib/engine/usage-tentativas.js';
 import quotaMod from './lib/engine/quota.js';
 import syncMod from './lib/engine/sync.js';
 import syncUsageMod from './lib/engine/sync-usage.js';
-import { EDITAVEIS, defaults as settingsDefaults, sanear } from './lib/settings.js';
+import { EDITAVEIS, defaults as settingsDefaults, sanear, paraGravar } from './lib/settings.js';
 import { parseJiraSites, maskJiraSites } from './lib/jira/sites.js';
 import { parseSyncConfig, syncDefaults } from './lib/sync/config.js';
 import credMod from './lib/jira/credentials.js';
@@ -505,7 +505,10 @@ class Engine extends EventEmitter {
 
   saveConfig() {
     ensureDir(HOME);
-    writeJsonAtomic(CONFIG_FILE, this.config);
+    // paraGravar tira as chaves que estão no padrão e são marcadas para não viajar
+    // (hoje só localAuth, da A4): recurso não habilitado não escreve no config.json
+    // de quem nunca o ligou (CT-COMPAT, item a). O que está em memória não muda.
+    writeJsonAtomic(CONFIG_FILE, paraGravar(this.config));
   }
 
   // --- log: so falhas, sem ruido (mesmo contrato do tool antigo) ---

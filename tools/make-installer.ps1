@@ -52,7 +52,7 @@ foreach ($d in @('lib', 'ui', 'assets', 'workspace-template', 'installer', 'node
 # da pasta é ferramenta de build. Sem este laço o Setup.exe instalava sem o jira-mcp.js, e o
 # install.ps1 pula pasta ausente em silêncio (test/pacote-runtime-tools.test.js).
 New-Item -ItemType Directory -Force -Path (Join-Path $payload 'tools') | Out-Null
-foreach ($t in @('jira-mcp.js', 'make-icons.ps1', 'pack-ico.js', 'make-package.ps1', 'make-icns.sh')) {
+foreach ($t in @('jira-mcp.js', 'farol-parear.js', 'make-icons.ps1', 'pack-ico.js', 'make-package.ps1', 'make-icns.sh')) {
   Copy-Item (Join-Path (Join-Path $Src 'tools') $t) (Join-Path (Join-Path $payload 'tools') $t)
 }
 
