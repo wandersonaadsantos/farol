@@ -4,7 +4,7 @@
 # Uso: bash installer/install.sh
 #
 # ATENCAO: portado do install.ps1 (Windows) sem um Mac real pra testar.
-# Se algo falhar, a secao macOS do CLAUDE.md na raiz da fonte explica o
+# Se algo falhar, o docs/MACOS.md (na fonte e em ~/.farol/app/docs) explica o
 # desenho e o checklist de validacao.
 set -euo pipefail
 

@@ -40,7 +40,7 @@ Para desinstalar: `Desinstalar.cmd`. O estado é preservado por padrão (`uninst
 
 O instalador copia o app para `~/.farol/app` e cria o lançador `~/Applications/Farol.app`. Desinstalar: `bash Desinstalar.command` (estado preservado; `bash installer/uninstall.sh --remove-data` apaga tudo).
 
-**Importante**: o suporte a macOS foi construído sem um Mac de teste. Se algo falhar, abra o Claude Code na pasta do Farol e peça pra ele seguir a seção "macOS" do `CLAUDE.md`, que tem o checklist de validação e o mapa do que é específico de cada sistema.
+**Importante**: o suporte a macOS foi construído sem um Mac de teste. Se algo falhar, abra o Claude Code na pasta do Farol e peça pra ele seguir o [`docs/MACOS.md`](docs/MACOS.md), que tem o checklist de validação e o mapa do que é específico de cada sistema. O mesmo guia viaja com o app instalado, em `~/.farol/app/docs/MACOS.md`.
 
 ## Mapa do código
 

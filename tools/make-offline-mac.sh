@@ -13,8 +13,8 @@
 # Gatekeeper: o .command vem baixado (quarentena); na 1a vez, botao direito >
 # Abrir (uma vez). Sem assinatura/notarizacao (conta paga da Apple) esse passo fica.
 #
-# ATENCAO: o runtime do Farol no macOS nunca rodou num Mac de verdade (ver a secao
-# macOS do CLAUDE.md). Trate o instalador gerado como BETA e valide com o
+# ATENCAO: o runtime do Farol no macOS nunca rodou num Mac de verdade (ver o
+# docs/MACOS.md). Trate o instalador gerado como BETA e valide com o
 # "Exportar diagnostico" (aba Sistema > Saude) do primeiro Mac que instalar.
 set -euo pipefail
 

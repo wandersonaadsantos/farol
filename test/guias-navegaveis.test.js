@@ -129,6 +129,12 @@ test('nenhum paragrafo longo aparece em dois guias distribuidos', () => {
   assert.deepEqual(repetidos, [], 'conteudo duplicado entre guias: a extracao move, nunca copia');
 });
 
+test('o README manda o usuario de macOS para o guia distribuido', () => {
+  const blocoMac = README.split('### macOS')[1]?.split('\n## ')[0] || '';
+  assert.ok(blocoMac.includes('docs/MACOS.md'), 'o bloco de instalacao do macOS no README nao aponta para docs/MACOS.md');
+  assert.ok(!/se[cç][aã]o ["“]?macOS["”]? do `CLAUDE\.md`/.test(blocoMac), 'o README ainda manda abrir a secao macOS do CLAUDE.md');
+});
+
 test('o CONTRIBUTING manda o recem-chegado pro mapa do codigo', () => {
   const contrib = ler('.github/CONTRIBUTING.md');
   assert.ok(contrib.includes('README.md#mapa-do-código'),

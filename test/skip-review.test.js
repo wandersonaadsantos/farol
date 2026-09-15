@@ -13,7 +13,7 @@ import path from 'node:path';
 // GRAVAM em STATE_DIR, que o paths.js resolve na hora do import. Sem fixar o
 // FAROL_HOME antes, a suíte escrevia `skip-comentado.json` na instalação REAL
 // (achado em 20/08/2026, com lixo de teste no ~/.farol de verdade). É a mesma
-// lição do spawnlog.test.js documentada no CLAUDE.md, com outra roupa: lá o
+// lição do spawnlog.test.js documentada no docs/MACOS.md, com outra roupa: lá o
 // problema era o import hasteado, aqui era não ter env nenhuma.
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-skip-' + process.pid);
 
