@@ -60,6 +60,7 @@ function authFromProfile(p) {
 import fileProofMod from './lib/engine/file-proof.js';
 import wsTmpMod from './lib/engine/workspace-tmp.js';
 import skipMod from './lib/engine/skip-review.js';
+import destravaMod from './lib/engine/destrava.js';
 import checksMod from './lib/engine/checks-exigidos.js';
 import signalMod from './lib/engine/review-signal.js';
 import usageMod from './lib/engine/usage.js';
@@ -282,6 +283,9 @@ class Engine extends EventEmitter {
     // porque a label não carrega hora nenhuma e uma sessão que morreu deixa a
     // label presa pra sempre, calando a frota naquele PR (ver marcarLabelsVistas).
     this.labelVistaDesde = readJson(path.join(STATE_DIR, 'label-vista.json'), {}, warn);
+    // { key: epoch do sinal } do destrave por estado novo (lib/engine/destrava.js): o mesmo
+    // commit ou pedido de revisão nunca destrava duas vezes, nem depois de reinício
+    this.destravados = destravaMod.loadDestravados(warn);
     this.skipComentado = skipMod.loadSkipComentado(warn); // { key: { at, quem } } âncora da saída de cena silenciosa ("outra pessoa já está revisando"; desde 28/08/2026 nada é comentado no PR, o aviso é toast)
     this.reviewSignals = new Map(); // repoLower -> entries das refs de "revisando" (lib/engine/review-signal.js); snapshot por ciclo, só memória
     this.toolRuns = readJson(path.join(STATE_DIR, 'tool-results.json'), {}, warn);
@@ -851,6 +855,12 @@ class Engine extends EventEmitter {
       // atrasa a leitura do sinal em um ciclo, nunca a segurança do gate.
       await this.refreshReviewSignals();
 
+      // estado novo destrava o que esperava clique (v2.59.3): commit novo ou pedido de
+      // revisão depois de uma revisão estacionada, pulada ou presa em head velho devolve
+      // o PR aos caminhos automáticos. ANTES do _dispararAutomacoes, pro toReview deste
+      // mesmo ciclo já enxergar o PR de volta na fila.
+      try { await this.destravarPorEstadoNovo(); } catch (e) { this.log('WARN', `destrave por estado novo: ${e.message}`); }
+
       await this._dispararAutomacoes(fresh);
 
       // branch origem->destino de cada PR meu (o card mostra de/para)
@@ -1328,7 +1338,9 @@ class Engine extends EventEmitter {
   async runOneHeadless(pr, acct) { return reviewMod.runOneHeadless(this, pr, acct); }
   // re-revisão automática pós-push (round 2 sem clique): gate + lançamento + âncora
   reReviewTargets(inflightKeys, agora) { return reviewMod.reReviewTargets(this, inflightKeys, agora); }
-  reReviewEsgotados(inflightKeys, agora) { return reviewMod.reReviewEsgotados(this, inflightKeys, agora); }
+  reRoundParaUi() { return reviewMod.reRoundParaUi(this); }
+  destravarPorEstadoNovo() { return destravaMod.destravarPorEstadoNovo(this); }
+  saveDestravados() { return destravaMod.saveDestravados(this); }
   launchReReviews() { return reviewMod.launchReReviews(this); }
   saveReReviewLaunched() { return reviewMod.saveReReviewLaunched(this); }
   // G15: estacionamento pós-falha persistido (padrão do savePushbackScanned)
@@ -1828,6 +1840,9 @@ class Engine extends EventEmitter {
       // PRs da fila que estacionaram (falha, cancelamento, orçamento): o card mostra
       // quando e por quê, senão "nunca revisou" e "revisou e caiu" são idênticos na tela
       parked: this.parkedParaUi(),
+      // card de commit novo (pendência stale_head): o que o round automático vai fazer e
+      // quando, ou por que não vai. Sem isto o card pedia clique no caso em que o app agia sozinho
+      reRounds: this.reRoundParaUi(),
       panorama: this.panorama,
       myPRs: this.myPRs,
       // só as CHAVES: myPRs vai completo de propósito, porque quem esconde é a UI

@@ -82,6 +82,65 @@ O terminal interativo continua disponível como opção secundária (ícone de t
 
 Tema escuro por padrão; o sol/lua no topo alterna pro claro.
 
+## Perguntas frequentes: commit novo durante a revisão
+
+### Por que o card aparece com o selo "COMMIT NOVO"?
+
+O autor empurrou commit enquanto o Farol lia o PR. O texto da revisão fala do código anterior, então o Farol **não posta**: postar ancorado no commit antigo o GitHub recusa, e postar sem âncora deixaria um review falando de código que ninguém leu. Por isso o card de commit novo não tem Aprovar, Pedir mudanças nem Só comentar. O que vale é a revisão do commit atual.
+
+### O Farol revisa de novo sozinho? Quanto tempo leva?
+
+Sim, em conta com revisão automática ligada. A caixa azul do card diz a hora: "Reviso de novo sozinho a partir de 19:47". A conta é:
+
+1. **5 minutos sem push novo** no PR (proteção contra rajada de commits);
+2. mais **o próximo ciclo de verificação** (no mínimo 3 minutos, o intervalo configurado em Sistema);
+3. mais **o tempo da própria revisão**.
+
+Na prática o card fica de 10 a 25 minutos na mesa antes de ser substituído pela revisão nova. Enquanto a caixa estiver azul, não há nada pra fazer. **Revisar agora** é só um atalho: roda a revisão já, no commit atual, e a postagem segue as mesmas regras de sempre.
+
+### Pedi revisão de novo no GitHub. O Farol do revisor pega?
+
+Depende de onde o PR está no Farol de quem revisa:
+
+| situação no Farol do revisor | o que o seu pedido faz |
+|---|---|
+| card de commit novo na mesa (caixa azul) | nada a mais, e não precisa: a revisão nova já sai sozinha |
+| card de commit novo parado (caixa âmbar, "já tentei neste commit") | destrava: o Farol volta a tentar sozinho |
+| revisão estacionada por falha | destrava: sai do estacionamento e volta pra fila automática |
+| alguém clicou **Pular** e o PR segue pedindo a revisão dessa pessoa | destrava: o PR volta pra fila |
+| revisão cancelada por quem revisa, ou PR **ignorado** | nada: foi decisão da pessoa, e só ela reabre |
+
+Commit novo tem o mesmo efeito do pedido nas três linhas que destravam. O Farol só aceita commit ou pedido **posterior** à parada, e o mesmo sinal nunca destrava duas vezes. O pedido precisa ser pra conta que o Farol usa naquela org.
+
+### Quando o Farol NÃO revisa de novo sozinho?
+
+A caixa fica âmbar e diz o motivo. As saídas:
+
+| o card diz | o que fazer |
+|---|---|
+| a revisão automática está desligada na conta | ligue em Sistema > Contas, ou use Revisar agora |
+| a conta está silenciada | tire o silêncio, ou use Revisar agora |
+| a conta está sem login no gh | rode `gh auth login` com essa conta |
+| o orçamento do perfil desta conta estourou | espere liberar ou ajuste o teto em Consumo |
+| o PR está como rascunho | o Farol volta a revisar quando o PR sair de rascunho |
+| outra pessoa já está revisando este PR | espere a label `<conta>:revisando` sair |
+| saí de cena porque outra pessoa pegou este PR | use Revisar agora se quiser revisar mesmo assim |
+| outra pessoa já deu um review decisivo neste commit | o Farol confere de novo a cada 5 minutos e volta sozinho se o review sair |
+| outro aparelho seu está cuidando deste PR | nada: a sincronização entre aparelhos evita revisão dobrada |
+| a última tentativa falhou e ficou estacionada | volta sozinho com commit novo ou pedido de revisão; ou use Revisar agora |
+| já tentei neste commit e a revisão não terminou | idem: commit novo ou pedido de revisão destrava |
+| há outra decisão deste PR esperando você | decida o outro card primeiro |
+
+### O autor continua empurrando commit durante cada revisão. O Farol fica gastando sessão?
+
+Não indefinidamente. Depois de **3 revisões seguidas** que pegaram commit novo no meio, o Farol passa a esperar **30 minutos sem push** (em vez de 5) antes de tentar de novo, e a caixa diz "Próxima tentativa a partir de...". Ele volta sozinho depois disso, sem clique. A contagem zera quando uma revisão termina normalmente.
+
+Até a v2.59.2 havia um teto de 3 revisões automáticas por PR por dia, e o 4º push do dia só era revisado com clique ou no dia seguinte. Esse teto local caiu. **Com a sincronização entre aparelhos ligada**, o teto compartilhado de 3 revisões automáticas por PR por dia continua valendo entre os seus aparelhos, e o card mostra esse caso como "outro aparelho seu está cuidando deste PR".
+
+### Cliquei Pular por engano. E agora?
+
+Se o PR ainda pede a sua revisão, ele volta sozinho pra fila quando chegar commit novo ou quando o autor pedir revisão de novo. Pra trazer na hora, abra o PR no Panorama e clique em Revisar.
+
 ## Compartilhando com o time
 
 Pra distribuir, gere o pacote limpo:

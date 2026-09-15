@@ -13,7 +13,7 @@ after(() => {
   fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true });
 });
 
-const { MAX_RODADAS_AUTO_DIA, diaLocal } = await import('../lib/engine/review.js');
+const { diaLocal } = await import('../lib/engine/review.js');
 const { TEMPOS } = await import('../lib/constants.js');
 
 const H1 = 'a'.repeat(40), H2 = 'b'.repeat(40);
@@ -80,15 +80,15 @@ test('pendência stale_head fresca (createdAt recente) também espera o debounce
   assert.equal(e.reReviewTargets(semInflight, AGORA).length, 0);
 });
 
-test('teto diário: MAX_RODADAS_AUTO_DIA rodadas hoje = esgotado, dia novo reabre', () => {
+// O teto diário local (3 rodadas por PR por dia) caiu na v2.59.3: o 4º push do dia
+// virava clique obrigatório até amanhã. O que contém desperdício agora é a sequência de
+// rodadas PRESAS (test/rereview-estado-novo.test.js).
+test('sem teto diário local: 3 rodadas hoje não seguram o round de um head novo', () => {
   const e = engineBase();
   e.staleInfo['acme/r#1'] = { stale: true, head: H2, lastState: 'CHANGES_REQUESTED' };
   e.headQuietoDesde['acme/r#1'] = { head: H2, at: QUIETO };
-  e.reReviewLaunched['acme/r#1'] = { head: H1, dia: diaLocal(AGORA), rodadas: MAX_RODADAS_AUTO_DIA };
-  assert.equal(e.reReviewTargets(semInflight, AGORA).length, 0);
-  assert.deepEqual(e.reReviewEsgotados(semInflight, AGORA).map(p => p.key), ['acme/r#1']);
-  e.reReviewLaunched['acme/r#1'] = { head: H1, dia: '2026-08-24', rodadas: MAX_RODADAS_AUTO_DIA };
-  assert.equal(e.reReviewTargets(semInflight, AGORA).length, 1, 'dia novo zera o teto');
+  e.reReviewLaunched['acme/r#1'] = { head: H1, dia: diaLocal(AGORA), rodadas: 3 };
+  assert.equal(e.reReviewTargets(semInflight, AGORA).length, 1);
 });
 
 test('âncora no MESMO head continua segurando (dedup por round preservado, formato novo e legado)', () => {

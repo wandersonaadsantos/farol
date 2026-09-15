@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { normalizeAncora, proximaAncora, diaLocal, MAX_RODADAS_AUTO_DIA } from '../lib/engine/review.js';
+import { normalizeAncora, proximaAncora, diaLocal, MAX_RODADAS_PRESAS } from '../lib/engine/review.js';
 import { TEMPOS } from '../lib/constants.js';
 
 const AGORA = new Date('2026-08-25T15:00:00').getTime(); // horário local do teste
@@ -13,10 +13,10 @@ test('normalizeAncora: string legada vira objeto com o head preservado', () => {
 });
 
 test('normalizeAncora: objeto novo passa direto e valor inválido degrada pra vazio', () => {
-  const nova = { head: 'b'.repeat(40), dia: '2026-08-25', rodadas: 2 };
+  const nova = { head: 'b'.repeat(40), dia: '2026-08-25', rodadas: 2, at: 1756130400000 };
   assert.deepEqual(normalizeAncora(nova), nova);
-  assert.deepEqual(normalizeAncora(null), { head: '', dia: '', rodadas: 0 });
-  assert.deepEqual(normalizeAncora(42), { head: '', dia: '', rodadas: 0 });
+  assert.deepEqual(normalizeAncora(null), { head: '', dia: '', rodadas: 0, at: 0 });
+  assert.deepEqual(normalizeAncora(42), { head: '', dia: '', rodadas: 0, at: 0 });
 });
 
 test('proximaAncora: mesmo dia incrementa rodadas, dia novo zera pra 1', () => {
@@ -39,7 +39,13 @@ test('diaLocal devolve YYYY-MM-DD do fuso local', () => {
   assert.match(diaLocal(AGORA), /^\d{4}-\d{2}-\d{2}$/);
 });
 
-test('constantes do teto e do debounce existem com os valores decididos', () => {
+test('constantes do debounce e das rodadas presas existem com os valores decididos', () => {
   assert.equal(TEMPOS.HEAD_QUIETO_MS, 300000);
-  assert.equal(MAX_RODADAS_AUTO_DIA, 3);
+  assert.equal(TEMPOS.HEAD_QUIETO_LONGO_MS, 1800000);
+  assert.equal(MAX_RODADAS_PRESAS, 3);
+});
+
+test('proximaAncora carimba quando o round saiu (o destrave só aceita estado novo depois disso)', () => {
+  assert.equal(proximaAncora(undefined, 'x'.repeat(40), AGORA).at, AGORA);
+  assert.equal(normalizeAncora({ head: 'x', dia: '', rodadas: 1 }).at, 0, 'âncora sem carimbo lê 0, nunca undefined');
 });

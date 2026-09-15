@@ -15,7 +15,7 @@ import {
   chatBadge, fmtUsageMetric, usageColorsFor, usageTooltipHtml, usageKpisHtml,
   usageMatrixHtml, usageBudgetHtml, usageSessionsHtml, escAttrSelector, defaultFor,
   overrideFor, suggestDefault, renderOrgBlock, queueCardHtml, panoramaRowHtml,
-  reasonGroupsHtml, reasonText, claudeProfilesHtml, accountsManagerHtml,
+  reasonGroupsHtml, reasonText, claudeProfilesHtml, accountsManagerHtml, staleCardMeta,
   jiraBaseUrlProblema, jiraPrefixosProblema,
   canMergeSelfAnalysis, qualityBlockTitle, selfAnalysisBadge, selfAnalysisToggle, selfAnalysisStale,
   filaJustaHtml, syncSecaoHtml, syncConfirmacoesDoClique, usageConsolidadoEnvelopeHtml, syncCfgComGeral
@@ -2454,10 +2454,12 @@ function renderDecisions() {
   $('#decisions').innerHTML = pending.map(d => {
     const m = acctMark(d);
     const author = (d.pr && d.pr.author) || d.author || '';
+    // card de commit novo (v2.59.3): barra, veredito, motivos, aviso e botões saem daqui
+    const meta = staleCardMeta(d, (STATE.reRounds || {})[d.key]);
     return `
-    <div class="card decision ${d.verdict === 'approve' ? 'urgent' : 'blocked'}" data-id="${esc(d.id)}" data-url="${esc(d.pr?.url || '')}" style="${m.style}">
+    <div class="card decision ${meta.cardClass}" data-id="${esc(d.id)}" data-url="${esc(d.pr?.url || '')}" style="${m.style}">
       <div class="decision-head">
-        <span class="verdict ${d.verdict === 'approve' ? 'approve' : 'rc'}">${d.verdict === 'approve' ? 'APROVÁVEL' : 'COM BLOCKER'}</span>
+        ${meta.verdictHtml}
         <a class="dec-ref" href="${esc(d.pr?.url || '#')}" target="_blank" rel="noreferrer">${esc(d.key)}</a>
         ${m.chip}
         ${d.card ? `<span class="pill">${esc(d.card)}</span>` : '<span class="pill">sem card</span>'}
@@ -2465,16 +2467,16 @@ function renderDecisions() {
       </div>
       ${d.pr?.title ? `<div class="dec-title">${esc(d.pr.title)}</div>` : ''}
       ${author ? `<div class="dec-author">PR de ${personMention(author, 'xs')} ${papelPicker(author, people)}</div>` : ''}
-      ${(d.reasons || []).length ? reasonGroupsHtml(d.reasons, d.postRetry) : ''}
-      ${d.blockedReason ? `<div class="dec-blocked">🚫 <span><b>Bloqueado:</b> ${esc(d.blockedReason)}</span></div>` : ''}
+      ${meta.reasons.length ? reasonGroupsHtml(meta.reasons, d.postRetry) : ''}
+      ${meta.statusHtml}
       <details class="dec-report"><summary>Ver relatório completo</summary><div class="report">${md(d.reportMarkdown)}</div></details>
       <div class="dec-actions">
-        ${d.blockedKind === 'stale_head' && d.pr?.url
-          ? `<button class="btn primary sm act-review" data-url="${esc(d.pr.url)}" title="Revisa de novo, no commit atual do PR">Revisar de novo</button>`
+        ${(meta.reviewBtn === 'primary' || meta.reviewBtn === 'secondary') && d.pr?.url
+          ? `<button class="btn${meta.reviewBtn === 'primary' ? ' primary' : ''} sm act-review" data-url="${esc(d.pr.url)}" title="Revisa de novo agora, no commit atual do PR">Revisar agora</button>`
           : ''}
-        <button class="btn${d.blockedKind === 'stale_head' ? '' : ' primary'} sm dec-act" data-action="approve">Aprovar</button>
+        ${meta.stale ? '' : `<button class="btn primary sm dec-act" data-action="approve">Aprovar</button>
         <button class="btn sm dec-act dec-rc" data-action="request_changes">Pedir mudanças</button>
-        <button class="btn sm dec-act" data-action="comment">Só comentar</button>
+        <button class="btn sm dec-act" data-action="comment">Só comentar</button>`}
         <button class="btn sm act-chat" data-key="${esc(d.key)}" data-url="${esc(d.pr?.url || '')}">💬 Conversar${chatBadge(d.key, STATE?.chats)}</button>
         <button class="btn sm ghost dec-act" data-action="skip">Pular</button>
       </div>
