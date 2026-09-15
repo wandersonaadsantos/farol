@@ -65,6 +65,7 @@ import destravaMod from './lib/engine/destrava.js';
 import checksMod from './lib/engine/checks-exigidos.js';
 import signalMod from './lib/engine/review-signal.js';
 import usageMod from './lib/engine/usage.js';
+import falhasMod from './lib/engine/falhas.js';
 import quotaMod from './lib/engine/quota.js';
 import syncMod from './lib/engine/sync.js';
 import syncUsageMod from './lib/engine/sync-usage.js';
@@ -1930,6 +1931,10 @@ class Engine extends EventEmitter {
   // corrige o DESFECHO de uma sessão já registrada (o gasto continua contado; o que
   // muda é se ele virou resultado). Ver a seção de auditoria no lib/engine/usage.js.
   marcarDesfecho(id, status) { return usageMod.marcarDesfecho(this, id, status); }
+  // registro durável de falha por sessão, fora do farol.log (lib/engine/falhas.js)
+  registrarFalha(dados) { return falhasMod.registrarFalha(this, dados); }
+  falhasRecentes(opcoes) { return falhasMod.falhasRecentes(this, opcoes); }
+  falhaDaSessao(sessionId) { return falhasMod.falhaDaSessao(this, sessionId); }
   usageSummary() { return usageMod.usageSummary(this); }
   // custo típico de UMA revisão, medido no próprio histórico do mês (mediana).
   // Alimenta a projeção do gate: o teto pergunta se a PRÓXIMA revisão cabe.
