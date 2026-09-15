@@ -829,13 +829,20 @@ git commit -m "refactor(ui): consumo.js"
 `delivActivityChart` (2589), `delivActivityCard` (2620), `delivSliceRows` (2631),
 `deliveriesByRepo` (2690), `deliveriesByAuthor` (2712), `delivEmptyState` (2744), mais os
 privados `DIAS_SEMANA` (2525), `ddmm` (2526), `subtituloDoPeriodo` (2571),
-`PASSO_DO_ROTULO` (2594), `rotuloDaBarra` (2595), `delivPrRowV2` (2642), `delivGroupBody`
-(2653), `delivGroupCardV2` (2668), `delivVolumeOrder` (2684).
+`delivPrRowV2` (2642), `delivGroupBody` (2653), `delivGroupCardV2` (2668),
+`delivVolumeOrder` (2684).
+
+**`PASSO_DO_ROTULO` e `rotuloDaBarra` NÃO entram na lista**, e isto foi medido na execução:
+eles estão escritos na coluna zero, mas **dentro do corpo** de `delivActivityChart`, então
+são locais dela e viajam junto sem ser nomeados. São as duas únicas declarações aninhadas
+do arquivo inteiro (varredura com o tokenizador do ratchet, `tools/quality/strip.js`).
+Listá-los faz o recorte se sobrepor; e qualquer recorte que pare no primeiro `}` da
+coluna zero corta `delivActivityChart` ao meio, no fim de `rotuloDaBarra`.
 
 Comentários que viajam: 2498-2500 (cabeçalho), 324-328 (`delivCappedMsg`, e ele explica o
-`DELIVERIES_LIMIT`), 2545-2549, e o par 2012-2014 / 2016-2019, que está **separado da função
-que explica** por uma linha de export: leia os dois antes de cortar e cole cada um colado à
-função certa (`delivActivityChart` e `rotuloDaBarra`).
+`DELIVERIES_LIMIT`), 2545-2549. Os comentários de `delivActivityChart` e de `rotuloDaBarra` já estão no lugar
+certo: o que parecia um par de comentários separado da função por uma linha de export é a
+declaração local descrita acima.
 
 ```js
 // A aba Entregas: filtros, buckets por dia, estatística, gráfico de atividade e os grupos
