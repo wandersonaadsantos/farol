@@ -93,11 +93,15 @@ function formatarRelatorio(m) {
 
 // Fixture versionável: só o que a medição usa. Conteúdo, modelo, ferramenta e caminho
 // ficam de fora, porque o stream de sessão real carrega código e texto de PR.
+function linhaDeFixture(ev) {
+  if (ev.type === 'result') return { type: 'result', usage: ev.usage || {} };
+  return { type: 'assistant', message: { id: ev.message.id, usage: ev.message.usage || {} } };
+}
+
 function extrairFixture(texto) {
   const saida = [];
   for (const ev of eventos(texto)) {
-    if (ev.type === 'result') saida.push(safeStringify({ type: 'result', usage: ev.usage || {} }));
-    else if (ev.type === 'assistant' && ev.message) saida.push(safeStringify({ type: 'assistant', message: { id: ev.message.id, usage: ev.message.usage || {} } }));
+    if (ev.type === 'result' || (ev.type === 'assistant' && ev.message)) saida.push(safeStringify(linhaDeFixture(ev)));
   }
   return saida.join('\n') + '\n';
 }
