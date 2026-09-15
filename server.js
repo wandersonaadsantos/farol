@@ -911,6 +911,9 @@ class Engine extends EventEmitter {
       // por gh na mão): tira o card de "Precisa de você", que antes ficava preso pra
       // sempre porque só o clique no botão esvaziava decisions.pending
       try { await this.reconcilePending(); } catch (e) { this.log('WARN', `reconcilePending: ${e.message}`); }
+      // postagem incerta (CT-POST): confere no GitHub se ela saiu ANTES de qualquer reenvio,
+      // que é o passo logo abaixo; com a coordenação desligada não faz nada
+      try { await this.reconciliarPostagensIncertas(); } catch (e) { this.log('WARN', `reconciliar postagens: ${e.message}`); }
       // posts que falharam por instabilidade transitória (rede, gateway do GitHub fora
       // do ar) tentam de novo sozinhos aqui, reusando o payload já decidido: roda DEPOIS
       // do reconcilePending de propósito, pra nunca reenviar em cima de uma pendência que
