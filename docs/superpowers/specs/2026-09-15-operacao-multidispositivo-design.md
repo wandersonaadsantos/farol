@@ -779,7 +779,7 @@ Implementa CT-POST inteiro: o controle comum no funil `postReview`, aplicado às
 - **Destaques, Kudos e Time ficam locais**, e a tela diz isso, sem prometer memória unificada.
 - **Retenção declarada:** a tela e a documentação dizem o que é preservado, onde, e quais limites existem. A sincronização não é apresentada como backup.
 
-**Depende de decisão do dono:** retenção da autoanálise sincronizada (seção 16). O restante da C3 não depende dela.
+**Retenção da autoanálise sincronizada:** decidida (seção 16), sem poda destrutiva automática, versão com identidade estável e reenvio idempotente, leitura paginada.
 
 **Critérios de aceite.** Sem outro aparelho v2, zero escritas de andamento e Panorama; eventos de UI por SSE dedicado e zero `pushState` vindo do remoto; filtro "Todos" sem duplicar; envio de histórico interrompido e repetido sem duplicata; pushback corrigido num aparelho não volta no outro; visto em A cala B; C3 não ativável em modo celular sem A4.
 
@@ -1039,13 +1039,19 @@ Nenhuma delas é declarada comprovada por teste simulado.
 
 ---
 
-## 16. Decisões pendentes do dono
+## 16. Decisões do dono tomadas na autorização de execução
 
-Só decisões de produto que o código, os testes ou a investigação não resolvem. Nenhuma bloqueia as entregas que não dependem dela.
+Não há decisão de produto pendente. A última, a retenção da autoanálise sincronizada, foi decidida pelo dono na autorização de execução autônoma de 15/09/2026.
 
-| Decisão | Consequência de cada saída | Recomendação | Entregas que dependem |
-|---|---|---|---|
-| **Retenção da autoanálise sincronizada** | Permanente, write-once por versão: histórico completo de pareceres em todos os aparelhos, cerca de 48 KB por versão no teto do envelope, e nenhuma remoção fora da limpeza protegida. Removível depois de o PR fechar (por exemplo 30 dias): menos armazenamento, mas o parecer some dos outros aparelhos e abre uma exceção à regra de retenção das revisões | Permanente, pelo mesmo tratamento das revisões | C3 (só a parte de Meus PRs com autoanálise) |
+**Retenção da autoanálise sincronizada (decidida).** Entrega afetada: C3, só a parte de Meus PRs com autoanálise.
+
+- Nenhuma expiração nem poda destrutiva automática do histórico consolidado.
+- Cada versão tem identidade estável (conta, PR, commit analisado e versão do registro) e o reenvio é idempotente: a mesma versão enviada de novo não duplica nem sobrescreve.
+- Leitura por paginação e índices. Janela de visualização é só o que a tela mostra, nunca exclusão.
+- Só sincronizam as projeções e categorias já autorizadas pela spec, cifradas pelo envelope da D1. Esta decisão não inclui histórico bruto do CLI, prompts, credenciais nem conteúdo novo.
+- Qualquer exclusão acontece só pelo fluxo de limpeza protegida já aprovado (CT-ENV, seção 10).
+
+**Custos declarados.** O armazenamento cresce sem teto automático, cerca de 48 KB por versão no teto do envelope, e pesa na cota do plano do Firebase do dono (seção 12). A tela e a documentação dizem isso. A sincronização não é backup nem armazenamento sem limites: sem a chave não há leitura, a limpeza protegida apaga, e o plano do provedor limita.
 
 **Fora da iniciativa, com limite registrado:** migração dos caminhos de coordenação (lease, recibo e rodada) para identificadores com chave. Enquanto não existir, conta, PR e commit continuam descobríveis por dicionário nesses caminhos, e a tela diz isso (seção 11).
 

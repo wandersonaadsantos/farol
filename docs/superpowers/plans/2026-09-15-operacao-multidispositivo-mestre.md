@@ -3,9 +3,9 @@
 **Spec (contrato vigente):** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 **Anexos normativos:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-anexos/` (`C1-contrato-de-dados.md`, `S3-agendador.md`)
 **Registro de execução (único):** `docs/superpowers/handoff/2026-09-15-operacao-multidispositivo/EXECUCAO.md`
-**Base:** `origin/main` em `f80394e` (v2.59.3), mais os commits de documentação da branch `docs/handoff-operacao-multidispositivo`.
+**Base:** `origin/main` em `8c043bc` (v2.59.3, com as Fases 0 e 1a da reorganização), mais os commits de documentação, na branch `md/integracao`.
 
-Este documento é o que o dono aprova de uma vez: o lote, os limites e o protocolo. Depois da aprovação, nenhuma ação técnica dentro destes limites volta a pedir autorização.
+**Autorização:** o dono autorizou em 15/09/2026 a execução autônoma da iniciativa inteira, não só do lote 1, com os limites da seção 4. A autorização vale para todas as entregas elegíveis na ordem de dependências; nenhuma entrega volta a pedir aprovação.
 
 ---
 
@@ -35,10 +35,9 @@ Este documento é o que o dono aprova de uma vez: o lote, os limites e o protoco
 | A1, item 1: captura do stream real e correção do acumulador | exige sessões reais do CLI do Claude, que usam a assinatura do dono | autorização para até 3 sessões headless triviais, sem PR, com `FAROL_HOME` isolado |
 | A4: tela de pareamento, exigência automática, detecção validada | tela vem do Claude Design (D9); detecção e alcance do loopback precisam de um Termux real | desenho aprovado e validação no aparelho |
 | B0, B1 | reorganização conduzida por outra sessão | fora desta execução |
-| B2 e as telas de A2, A3, C2, C3 | todo desenho vem do Claude Design; publicar artefato é ato externo | autorização para produzir o desenho e aprovação do dono |
-| C1 contrato de dados v2 e cifragem | plano ainda não escrito; os gates de regra dependem de emulador (Java e `firebase-tools` ausentes nesta máquina) e de projeto real | **lote 2**: o plano pode ser escrito durante a execução autônoma; a execução pede nova aprovação |
-| C2, C3, C4, C4b, C5, C6, C7, C8 | dependem de C1, de telas e de medições entre aparelhos | lotes seguintes |
-| Retenção da autoanálise sincronizada | decisão de produto (seção 7) | resposta do dono; afeta só parte da C3 |
+| B2 e as telas de A2, A3, C2, C3 | todo desenho vem do Claude Design | autorizado conduzir o fluxo do Claude Design sem aprovação intermediária; se o artefato estiver inacessível, a parte visual fica bloqueada e o comportamento segue |
+| C1 contrato de dados v2 e cifragem | plano ainda não escrito; os gates de regra dependem de emulador (Java e `firebase-tools` ausentes nesta máquina) e de projeto real | **lote 2**, autorizado: plano escrito e implementação feita durante a execução autônoma; os critérios que só se provam no emulador ou no projeto real ficam "aguardando validação externa" |
+| C2, C3, C4, C4b, C5, C6, C7, C8 | dependem de C1, de telas e de medições entre aparelhos | lotes seguintes, autorizados; ativação protegida enquanto faltar a medição exigida |
 
 Nenhum item acima foi retirado do escopo final: eles continuam na spec e no grafo da seção 6 dela.
 
@@ -46,8 +45,8 @@ Nenhum item acima foi retirado do escopo final: eles continuam na spec e no graf
 
 ## 3. Estratégia local de branches
 
-- **Worktree de execução:** `C:\Users\wanderson\Documents\farol-md-exec`, criada a partir da branch de documentação. O checkout principal (`C:\Users\wanderson\Documents\farol`) e as worktrees de outras sessões não são tocados.
-- **Branch de integração:** `md/integracao`, nascida da ponta de `docs/handoff-operacao-multidispositivo` (que já contém a spec, os anexos e os planos).
+- **Worktree de execução:** `C:\Users\wanderson\Documents\farol-md-exec`, criada sobre `origin/main` `8c043bc`. O checkout principal (`C:\Users\wanderson\Documents\farol`) e as worktrees de outras sessões não são tocados.
+- **Branch de integração:** `md/integracao`, nascida de `origin/main` `8c043bc` com os commits de documentação trazidos por cherry-pick.
 - **Uma branch por entrega:** `md/c1a`, `md/c0`, `md/a5`, `md/a1`, `md/c0b`, `md/a4`, cortada da ponta de `md/integracao` no momento em que a entrega começa.
 - **Integração local:** entrega pronta entra em `md/integracao` com `git merge --no-ff md/<id>`, depois do gate verde na branch da entrega e de novo na integração.
 - **Sem rebase de trabalho integrado**, sem `git stash`, sem push. A branch de cada entrega fica preservada para, na publicação, virar um PR próprio sobre a `main` da época.
@@ -68,12 +67,15 @@ Nenhum item acima foi retirado do escopo final: eles continuam na spec e no graf
 - commits locais, merges locais em `md/integracao`, atualização do registro de execução;
 - revisar o diff de cada entrega e corrigir defeitos concretos achados;
 - abrir subagentes de revisão ou investigação existentes, sem criar sistema de orquestração novo;
-- escrever os planos do lote 2 (sem executá-los).
+- escrever e executar os planos das entregas seguintes, na ordem de dependências;
+- conduzir o fluxo do Claude Design a partir do brief da seção 8 da spec;
+- iniciar instâncias isoladas do Farol e emuladores de teste, com estado, portas e diretórios isolados.
 
 **Não autorizado (exige autorização específica):**
-- `git push`, abrir PR, merge na `main`, release, publicar artefato;
+- `git push`, abrir PR, merge na `main`, criar tag, release;
+- escrever no Jira, alterar permissões de contas, contratar serviços;
 - instalar ou atualizar o Farol em uso, tocar o `~/.farol` real, abrir o app instalado;
-- sessões reais do Claude ou do Codex, inclusive as triviais de medição;
+- sessões reais do Claude ou do Codex, inclusive as triviais de medição (mantido fora por consumir a assinatura do dono; a autorização de 15/09 proíbe ampliar gastos);
 - qualquer escrita no GitHub real (review, comentário, label) e uso de PR real para teste;
 - qualquer operação no Firebase real ou instalação de `firebase-tools`, Java ou outro pacote;
 - ativar funcionalidade para uso (ligar interruptor em config real, virar `ATIVACAO_AUTOMATICA_A4`);
@@ -109,11 +111,9 @@ Para cada entrega, na ordem da seção 1, pulando as bloqueadas:
 
 ---
 
-## 7. Decisão pendente do dono
+## 7. Decisões do dono
 
-| Decisão | Consequência | Recomendação | Entregas que dependem |
-|---|---|---|---|
-| Retenção da autoanálise sincronizada | Permanente, write-once por versão: histórico completo nos aparelhos, sem remoção fora da limpeza protegida. Removível depois de o PR fechar: menos armazenamento, mas o parecer some dos outros aparelhos e abre exceção à retenção das revisões | Permanente | só a parte de Meus PRs com autoanálise da C3, fora do lote 1 |
+Nenhuma pendente. A retenção da autoanálise sincronizada foi decidida na autorização de 15/09/2026 e está registrada na seção 16 da spec: sem poda destrutiva automática, versão com identidade estável e reenvio idempotente, leitura paginada, exclusão só pela limpeza protegida.
 
 ---
 
@@ -138,8 +138,9 @@ Nenhum comportamento em Termux, integração real ou medição entre aparelhos �
 | Item | Resultado |
 |---|---|
 | Node e npm | Node v24.15.0, npm 11.12.1 |
-| Suíte na worktree da base | 2824 testes, 2800 aprovados, 24 pulados (os POSIX), 0 falhas, cerca de 9 s |
-| `npm run check`, `npm run lint`, `npm run eng` | verdes; o `eng` usa o pacote local em `C:\Users\wanderson\Documents\eng-behaviour` (0.12.0) |
+| Suíte na base `8c043bc` (worktree `farol-md-base`) | 2841 testes, 2817 aprovados, 24 pulados (os POSIX), 0 falhas, cerca de 10 s |
+| `npm run check`, `npm run lint` | verdes; `check` com 287 arquivos `.js` |
+| `npm run eng` | na base sem entrega o veredito é `not-run` e o gate reprova, o esperado; com entrega exige `avaliacoes.jsonl` do head (roteiro em `docs/QUALITY.md`); usa o pacote local em `C:\Users\wanderson\Documents\eng-behaviour` (0.12.0) |
 | `node_modules` | ausente na worktree e desnecessário para a suíte |
 | Hooks | `core.hooksPath` aponta para `tools/hooks` do checkout principal; o pre-push só roda em push, que não está autorizado |
 | Claude Code CLI | 2.1.268 presente (não será usado para sessões reais sem autorização) |

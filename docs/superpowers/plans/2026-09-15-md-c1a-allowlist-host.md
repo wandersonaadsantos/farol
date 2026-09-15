@@ -33,7 +33,7 @@
 | `lib/http-server.js` | modificar (import depois da linha 10; guarda entre as linhas 81 e 83) | aplica a guarda antes de qualquer rota, com a porta efetiva do socket |
 | `test/http-host-allowlist.test.js` | criar | integração com o servidor real: uma rota por classe do inventário da A4, estático, SSE, Origin, Electron, navegador local, porta, `x-farol` (28 testes) |
 | `CLAUDE.md` | modificar (linha 23, acrescenta uma linha na tabela logo abaixo) | mapa de arquivos ganha `lib/http-guard.js` |
-| `docs/superpowers/handoff/2026-09-15-operacao-multidispositivo/EXECUCAO.md` | criar (não existe neste worktree) | registro da execução: comandos, contagens, critério x teste |
+| `docs/superpowers/handoff/2026-09-15-operacao-multidispositivo/EXECUCAO.md` | atualizar (já existe e é o registro único; a evidência detalhada vai para `evidencias-execucao/c1a.md` na mesma pasta) | registro da execução: comandos, contagens, critério x teste |
 
 Fatos conferidos no código que o plano usa:
 - `lib/http-server.js`: imports nas linhas 4 a 10; `startServer` nas linhas 54 a 209; `send` nas linhas 78 a 81; `try` na 83; `if (p.startsWith('/api/'))` na 84; checagem `x-farol` só em POST na 85; SSE `/api/events` nas linhas 113 a 120; 405 na 122; estáticos nas linhas 186 a 193; `server.listen(engine.config.port, '127.0.0.1', ...)` na 200.
@@ -53,20 +53,20 @@ Fatos conferidos no código que o plano usa:
 
 **Interfaces:** consome nada; produz o número `N0` de testes da suíte antes da entrega, usado na Tarefa 4.
 
-- [ ] **Passo 1: criar o branch da entrega a partir do HEAD deste worktree** (o `EXECUCAO.md` mora em `docs/superpowers/handoff/`, que só existe neste branch).
+- [ ] **Passo 1: criar o branch da entrega a partir da ponta de `md/integracao`**, na worktree `farol-md-exec` (base `origin/main` `8c043bc` mais os commits de documentação).
 
 ```bash
-cd /c/Users/wanderson/Documents/farol-multidispositivo
+cd /c/Users/wanderson/Documents/farol-md-exec
 git status --short
-git switch -c feat/md-c1a-allowlist-host
+git switch -c md/c1a md/integracao
 ```
 
-Esperado: `git status --short` vazio antes do switch; depois, `Switched to a new branch 'feat/md-c1a-allowlist-host'`.
+Esperado: `git status --short` vazio antes do switch; depois, `Switched to a new branch 'md/c1a'`.
 
 - [ ] **Passo 2: medir a suíte de partida.**
 
 ```bash
-cd /c/Users/wanderson/Documents/farol-multidispositivo
+cd /c/Users/wanderson/Documents/farol-md-exec
 npm run check && npm run lint && npm test 2>&1 | tail -n 12
 ```
 
@@ -156,7 +156,7 @@ test('porta inválida recusa até o host certo (falta de porta provada não libe
 - [ ] **Passo 2: rodar e ver falhar.**
 
 ```bash
-cd /c/Users/wanderson/Documents/farol-multidispositivo
+cd /c/Users/wanderson/Documents/farol-md-exec
 node --test test/http-guard.test.js
 ```
 
@@ -208,7 +208,7 @@ export { validarHostEOrigem };
 - [ ] **Passo 4: rodar e ver passar.**
 
 ```bash
-cd /c/Users/wanderson/Documents/farol-multidispositivo
+cd /c/Users/wanderson/Documents/farol-md-exec
 node --test test/http-guard.test.js
 ```
 
@@ -217,7 +217,7 @@ Esperado: `# tests 9`, `# pass 9`, `# fail 0`.
 - [ ] **Passo 5: contraprova.** Coloque os dois arquivos no índice para ter a referência de restauração, faça cada mutação, veja o teste certo reprovar e restaure do índice.
 
 ```bash
-cd /c/Users/wanderson/Documents/farol-multidispositivo
+cd /c/Users/wanderson/Documents/farol-md-exec
 git add lib/http-guard.js test/http-guard.test.js
 ```
 
@@ -259,7 +259,7 @@ Esperado: `restaurado` e de novo `# pass 9`.
 - [ ] **Passo 6: commit.**
 
 ```bash
-cd /c/Users/wanderson/Documents/farol-multidispositivo
+cd /c/Users/wanderson/Documents/farol-md-exec
 git add lib/http-guard.js test/http-guard.test.js
 git commit -m "feat(http): validarHostEOrigem, allowlist pura de Host e Origin da API local"
 ```
@@ -574,7 +574,7 @@ test('x-farol-review-cap continua sendo conferida depois da allowlist', async ()
 - [ ] **Passo 2: rodar e ver falhar.**
 
 ```bash
-cd /c/Users/wanderson/Documents/farol-multidispositivo
+cd /c/Users/wanderson/Documents/farol-md-exec
 node --test --test-force-exit test/http-host-allowlist.test.js
 ```
 
@@ -629,7 +629,7 @@ Nada mais muda no arquivo. O `server` referenciado dentro do callback é o `cons
 - [ ] **Passo 4: rodar e ver passar**, o arquivo novo e os testes que já sobem o servidor.
 
 ```bash
-cd /c/Users/wanderson/Documents/farol-multidispositivo
+cd /c/Users/wanderson/Documents/farol-md-exec
 node --test --test-force-exit test/http-host-allowlist.test.js
 node --test --test-force-exit test/http.test.js test/sync-consolidated.test.js test/sync-engine.test.js test/sync-manual.test.js test/settings-fonte-unica.test.js test/taxonomy-ui.test.js test/ui-contract.test.js test/http-guard.test.js
 ```
@@ -639,7 +639,7 @@ Esperado: o primeiro com `# tests 28`, `# pass 28`, `# fail 0`; o segundo com `#
 - [ ] **Passo 5: contraprova.** Coloque os arquivos no índice como referência, faça cada mutação, veja reprovar e restaure.
 
 ```bash
-cd /c/Users/wanderson/Documents/farol-multidispositivo
+cd /c/Users/wanderson/Documents/farol-md-exec
 git add lib/http-server.js test/http-host-allowlist.test.js
 ```
 
@@ -694,7 +694,7 @@ Esperado: `restaurado` e de novo `# pass 28`.
 - [ ] **Passo 6: commit.**
 
 ```bash
-cd /c/Users/wanderson/Documents/farol-multidispositivo
+cd /c/Users/wanderson/Documents/farol-md-exec
 git add lib/http-server.js test/http-host-allowlist.test.js
 git commit -m "feat(http): recusa Host e Origin fora da allowlist antes de qualquer rota"
 ```
@@ -710,7 +710,7 @@ git commit -m "feat(http): recusa Host e Origin fora da allowlist antes de qualq
 - [ ] **Passo 1: teste que falha.** Não há teste automatizado de conteúdo do mapa; a verificação é a busca abaixo, que precisa voltar vazia antes e com uma linha depois.
 
 ```bash
-cd /c/Users/wanderson/Documents/farol-multidispositivo
+cd /c/Users/wanderson/Documents/farol-md-exec
 grep -n "lib/http-guard.js" CLAUDE.md
 ```
 
@@ -725,7 +725,7 @@ Esperado: nenhuma saída e código de saída 1.
 - [ ] **Passo 3: rodar e ver passar.**
 
 ```bash
-cd /c/Users/wanderson/Documents/farol-multidispositivo
+cd /c/Users/wanderson/Documents/farol-md-exec
 grep -n "lib/http-guard.js" CLAUDE.md
 node --test --test-force-exit test/release-consistency.test.js
 ```
@@ -735,7 +735,7 @@ Esperado: uma linha, com número 24; o teste de consistência de release segue v
 - [ ] **Passo 4: contraprova.** Confira que a linha nova não quebra nenhum teste que lê o `CLAUDE.md`.
 
 ```bash
-cd /c/Users/wanderson/Documents/farol-multidispositivo
+cd /c/Users/wanderson/Documents/farol-md-exec
 git add CLAUDE.md
 grep -rl "CLAUDE.md" test --include=*.test.js | xargs node --test --test-force-exit
 ```
@@ -753,7 +753,7 @@ Esperado: `restaurado` e `sem travessão na linha nova`.
 - [ ] **Passo 5: commit.**
 
 ```bash
-cd /c/Users/wanderson/Documents/farol-multidispositivo
+cd /c/Users/wanderson/Documents/farol-md-exec
 git add CLAUDE.md
 git commit -m "docs: mapa de arquivos ganha lib/http-guard.js"
 ```
@@ -762,14 +762,14 @@ git commit -m "docs: mapa de arquivos ganha lib/http-guard.js"
 
 ### Tarefa 4: gate completo e registro da execução
 
-**Arquivos:** criar `docs/superpowers/handoff/2026-09-15-operacao-multidispositivo/EXECUCAO.md` (o arquivo não existe neste worktree; se outra entrega já o tiver criado quando esta for executada, acrescente a seção no fim em vez de sobrescrever).
+**Arquivos:** criar `docs/superpowers/handoff/2026-09-15-operacao-multidispositivo/evidencias-execucao/c1a.md` com a evidência abaixo, e atualizar o `EXECUCAO.md` existente (registro único) só com a linha de estado da C1a, os commits e o caminho da evidência. Nunca sobrescrever o registro.
 
 **Interfaces:** consome `N0` da Tarefa 0 e as saídas dos três comandos; produz o registro.
 
 - [ ] **Passo 1: rodar o gate.**
 
 ```bash
-cd /c/Users/wanderson/Documents/farol-multidispositivo
+cd /c/Users/wanderson/Documents/farol-md-exec
 npm run check && npm run lint && npm test 2>&1 | tail -n 12
 ```
 
@@ -780,12 +780,12 @@ Esperado:
 
 Se `# tests` não for `N0 + 37`, pare e descubra a diferença antes de registrar: teste pulado ou duplicado muda o que a suíte prova.
 
-- [ ] **Passo 2: registrar.** Crie (ou complete) `docs/superpowers/handoff/2026-09-15-operacao-multidispositivo/EXECUCAO.md` com a seção abaixo, trocando cada campo entre colchetes angulares pelo valor literal medido no Passo 1 e na Tarefa 0 (é registro de medição, não pode ser preenchido de cabeça):
+- [ ] **Passo 2: registrar.** Crie `docs/superpowers/handoff/2026-09-15-operacao-multidispositivo/evidencias-execucao/c1a.md` com a seção abaixo, trocando cada campo entre colchetes angulares pelo valor literal medido no Passo 1 e na Tarefa 0 (é registro de medição, não pode ser preenchido de cabeça):
 
 ```markdown
 ## C1a Allowlist de Host (plano 2026-09-15-md-c1a-allowlist-host)
 
-Branch `feat/md-c1a-allowlist-host`, commits da entrega: <saída de `git log --oneline -3`>.
+Branch `md/c1a`, commits da entrega: <saída de `git log --oneline -3`>.
 
 ### Comandos
 
@@ -830,8 +830,8 @@ Testes novos: 9 em `test/http-guard.test.js`, 28 em `test/http-host-allowlist.te
 - [ ] **Passo 3: contraprova do registro.** Confira que nenhum campo ficou sem medir.
 
 ```bash
-cd /c/Users/wanderson/Documents/farol-multidispositivo
-grep -n "<" docs/superpowers/handoff/2026-09-15-operacao-multidispositivo/EXECUCAO.md | grep -v "<porta>\|<classe>" || echo "sem campo aberto"
+cd /c/Users/wanderson/Documents/farol-md-exec
+grep -n "<" docs/superpowers/handoff/2026-09-15-operacao-multidispositivo/evidencias-execucao/c1a.md | grep -v "<porta>\|<classe>" || echo "sem campo aberto"
 ```
 
 Esperado: `sem campo aberto`. Mutação: deixe temporariamente um `<N0>` sem trocar, rode o mesmo comando e veja a linha aparecer; troque de volta pelo valor medido e rode de novo até imprimir `sem campo aberto`.
@@ -839,9 +839,9 @@ Esperado: `sem campo aberto`. Mutação: deixe temporariamente um `<N0>` sem tro
 - [ ] **Passo 4: commit.**
 
 ```bash
-cd /c/Users/wanderson/Documents/farol-multidispositivo
-git add docs/superpowers/handoff/2026-09-15-operacao-multidispositivo/EXECUCAO.md
-git commit -m "docs: registro de execução da C1a allowlist de Host"
+cd /c/Users/wanderson/Documents/farol-md-exec
+git add docs/superpowers/handoff/2026-09-15-operacao-multidispositivo/EXECUCAO.md docs/superpowers/handoff/2026-09-15-operacao-multidispositivo/evidencias-execucao/c1a.md
+git commit -m "docs: evidencia de execucao da C1a allowlist de Host"
 ```
 
 Push e PR ficam fora deste plano (seção 15 da spec: um PR por entrega, CI verde, nunca push direto na `main`).
