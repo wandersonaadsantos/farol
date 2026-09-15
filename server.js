@@ -66,6 +66,7 @@ import checksMod from './lib/engine/checks-exigidos.js';
 import signalMod from './lib/engine/review-signal.js';
 import usageMod from './lib/engine/usage.js';
 import falhasMod from './lib/engine/falhas.js';
+import tentativasMod from './lib/engine/usage-tentativas.js';
 import quotaMod from './lib/engine/quota.js';
 import syncMod from './lib/engine/sync.js';
 import syncUsageMod from './lib/engine/sync-usage.js';
@@ -365,6 +366,10 @@ class Engine extends EventEmitter {
     this.loadSeen();
     this.loadIgnorados();
     this.recoverInflight();
+    // tentativa de sessão que o processo anterior deixou aberta (queda, saída pela
+    // bandeja) vira linha `interrompida` no Consumo, nunca some (A1, item 9)
+    try { tentativasMod.reconciliarInterrompidas(this); }
+    catch (err) { this.log('WARN', `reconciliar tentativas interrompidas: ${err.message}`); }
     // prova por arquivo de PR morto há semanas não serve pra nada (G20, best-effort):
     // podar só custa uma revisão cheia na próxima vez, nunca postagem errada
     try { fileProofMod.pruneFileProofs(); } catch { /* best-effort */ }
