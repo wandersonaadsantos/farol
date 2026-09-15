@@ -5,6 +5,37 @@
 // que fica na decisão), e é por isso que eles moram juntos.
 //
 // Extraído do ui/pure.js na Fase 1a da reorganização; o conteúdo não mudou.
+//
+// Esteira de etapas da revisão ao vivo (estilo n8n).
+// Os itens do feed chegam ESTAMPADOS com a etapa (item.s, decidido no engine em
+// stageOfLine; a UI nunca reclassifica). O tempo entre dois itens pertence à
+// etapa do item que o encerra; item sem estampa (linha informativa do app) herda
+// a etapa corrente. A etapa do último item é a ATIVA e acumula até `agora`.
+//
+// Ops de autoanálise: decisão de fechamento.
+// A UI cria um widget por análise lançada (opId 'analysis-<key>'), mas quem sabe o FIM
+// é o snapshot do SSE: a análise some de activeSessions (mode self) e de
+// headlessWaiting quando termina. Protocolo seen/close por causa da corrida: um state
+// emitido antes do servidor enfileirar pode chegar depois do clique, e sem o `seen` o
+// widget recém-nascido fecharia como "concluído". headlessWaiting também carrega keys
+// de revisão normal, sem colisão na prática (o GitHub não pede review pro autor).
+//
+// Progresso de sessão: a régua ÚNICA do app.
+// Regra do Wanderson (16/08/2026): previsibilidade com qualidade, centralizada
+// e acessível pra todo o sistema. Antes cada fluxo chutava seu percentual (a
+// autoanálise ficava em 25% fixo e concluía do nada, o chat idem) e a revisão
+// automática nem barra tinha. sessionProgress é a régua única: converte a
+// contagem de eventos REAIS da sessão (feed do SSE 'activity', ou contagem
+// local no chat) num percentual sempre crescente, assintótico a 90 (os 10
+// finais pertencem ao fechamento real, decidido pelo snapshot). Barra nova no
+// app usa ESTA função, nunca um número escrito à mão; quem mudar a curva muda
+// pra todos os fluxos de uma vez. selfSessionKey acha o PR da sessão de
+// autoanálise dona de um evento de atividade (roteio feed -> widget).
+//
+// Cartão da sessão ao vivo.
+// O bloco que aparece enquanto o Claude está trabalhando num PR. Os `data-id`/`data-started`
+// não são decoração: o app volta neles depois para atualizar tempo, modelo e progresso sem
+// redesenhar o cartão. Trocar um atributo desses quebra a atualização, não o layout.
 import { esc, fmtClock, fmtDur, stageLabel, aprovadosHoje } from './comum.js';
 import { personMention } from './mencoes.js';
 

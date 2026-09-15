@@ -733,34 +733,6 @@ export function reviewBoxHtml(d) {
 }
 
 
-/* ---------- esteira de etapas da revisão ao vivo (estilo n8n) ----------
-   Os itens do feed chegam ESTAMPADOS com a etapa (item.s, decidido no engine em
-   stageOfLine; a UI nunca reclassifica). O tempo entre dois itens pertence à
-   etapa do item que o encerra; item sem estampa (linha informativa do app) herda
-   a etapa corrente. A etapa do último item é a ATIVA e acumula até `agora`. */
-
-
-/* ---------- ops de autoanálise: decisão de fechamento ----------
-   A UI cria um widget por análise lançada (opId 'analysis-<key>'), mas quem sabe o FIM
-   é o snapshot do SSE: a análise some de activeSessions (mode self) e de
-   headlessWaiting quando termina. Protocolo seen/close por causa da corrida: um state
-   emitido antes do servidor enfileirar pode chegar depois do clique, e sem o `seen` o
-   widget recém-nascido fecharia como "concluído". headlessWaiting também carrega keys
-   de revisão normal, sem colisão na prática (o GitHub não pede review pro autor). */
-
-/* ---------- progresso de sessão: a régua ÚNICA do app ----------
-   Regra do Wanderson (16/08/2026): previsibilidade com qualidade, centralizada
-   e acessível pra todo o sistema. Antes cada fluxo chutava seu percentual (a
-   autoanálise ficava em 25% fixo e concluía do nada, o chat idem) e a revisão
-   automática nem barra tinha. sessionProgress é a régua única: converte a
-   contagem de eventos REAIS da sessão (feed do SSE 'activity', ou contagem
-   local no chat) num percentual sempre crescente, assintótico a 90 (os 10
-   finais pertencem ao fechamento real, decidido pelo snapshot). Barra nova no
-   app usa ESTA função, nunca um número escrito à mão; quem mudar a curva muda
-   pra todos os fluxos de uma vez. selfSessionKey acha o PR da sessão de
-   autoanálise dona de um evento de atividade (roteio feed -> widget). */
-
-
 /* ---------- fila: o vazio que CONFIRMA ----------
    Sexto passo da onda 5. Vazio bom merece confirmar o que o app fez, nao so dizer que
    nao tem nada: quantos PRs foram aprovados sozinhos hoje, quais orgs sao monitoradas
@@ -2439,10 +2411,6 @@ export function diagnosticsText(ctx = {}) {
   ].join('\n');
 }
 
-/* ---------- cartão da sessão ao vivo ----------
-   O bloco que aparece enquanto o Claude está trabalhando num PR. Os `data-id`/`data-started`
-   não são decoração: o app volta neles depois para atualizar tempo, modelo e progresso sem
-   redesenhar o cartão. Trocar um atributo desses quebra a atualização, não o layout. */
 
 /* ---------- site do Jira: o que a tela recusa antes de mandar pro servidor ----------
    O saneador do servidor (normalizeBaseUrl/parseJiraSites, lib/jira/sites.js) não
@@ -2545,34 +2513,6 @@ export function qualityBlockTitle(quality) {
   const motivos = ((quality && quality.reasons) || []).map(r => `• ${qualityReasonLabel(r && r.code)}`);
   return motivos.length ? `${principal}\n${motivos.join('\n')}` : principal;
 }
-
-/* ---------- Justiça de fila (spec 2026-09-10-justica-de-fila-entre-orgs) ----------
-
-   O painel existe porque uma automação que CEDE A VEZ, vista de fora, é idêntica a uma
-   automação QUEBRADA: nos dois casos o PR fica parado e nada na tela explica. É a mesma
-   lição do estacionamento visível (v2.57.4) e do rastro durável do gate de orçamento.
-
-   Puro: recebe o `filaJusta` do snapshot e devolve HTML. Não decide nada. */
-
-
-/* ---------- Sincronização entre dispositivos (Sistema > Sincronização) ----------
-
-   Tudo aqui é PURO: recebe a projeção `STATE.sync` (statusForUi, em lib/engine/sync.js)
-   e a config, e devolve texto ou HTML. A seção usa os tokens de ui/app.css e as classes
-   que o resto do app já tem (.card, .set-list, .set-row, .switch, .callout, .btn, .chip);
-   o prefixo .sync- fica só no que é novo.
-
-   A cor da coordenação é DELIBERADA: azul para espera, âmbar para atenção, e nunca o
-   vermelho do estacionamento. Segurar um PR porque outro aparelho está com ele não é
-   falha, e pintar de vermelho faria procurar defeito onde não há. */
-
-
-/* ---------- U3: a nota de coordenação no card da fila ----------
-
-   Mesmo molde do parkedNoteHtml, e a diferença de COR é a regra: espera é azul
-   (--info), atenção é âmbar (--accent), e o vermelho fica reservado ao estacionamento,
-   que é falha de verdade. Estacionamento e coordenação juntos: o estacionamento VENCE,
-   porque ele é o que exige ação sua, e a espera se resolve sozinha. */
 
 
 /* ---------- U4: o Consumo de todos os aparelhos ----------

@@ -5,6 +5,24 @@
 // regra é de sincronização, e o Radar só a exibe.
 //
 // Extraído do ui/pure.js na Fase 1a da reorganização; o conteúdo não mudou.
+//
+// Sincronização entre dispositivos (Sistema > Sincronização).
+//
+// Tudo aqui é PURO: recebe a projeção `STATE.sync` (statusForUi, em lib/engine/sync.js)
+// e a config, e devolve texto ou HTML. A seção usa os tokens de ui/app.css e as classes
+// que o resto do app já tem (.card, .set-list, .set-row, .switch, .callout, .btn, .chip);
+// o prefixo .sync- fica só no que é novo.
+//
+// A cor da coordenação é DELIBERADA: azul para espera, âmbar para atenção, e nunca o
+// vermelho do estacionamento. Segurar um PR porque outro aparelho está com ele não é
+// falha, e pintar de vermelho faria procurar defeito onde não há.
+//
+// U3: a nota de coordenação no card da fila.
+//
+// Mesmo molde do parkedNoteHtml, e a diferença de COR é a regra: espera é azul
+// (--info), atenção é âmbar (--accent), e o vermelho fica reservado ao estacionamento,
+// que é falha de verdade. Estacionamento e coordenação juntos: o estacionamento VENCE,
+// porque ele é o que exige ação sua, e a espera se resolve sozinha.
 import { esc, fmtClock, fmtTok, fmtWhenDay } from './comum.js';
 
 const SYNC_SELOS = {
