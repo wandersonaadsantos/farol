@@ -102,8 +102,11 @@ function motor({ resposta, policy = 'approve', coordenacao = true } = {}) {
 const bloqueio = (reason, detail = {}) => ({ blocked: true, coordination: { admitted: false, reason, detail }, text: '', sessionId: null });
 const resultado = (envelope, handle) => ({ text: JSON.stringify({ result: JSON.stringify(envelope) }), sessionId: 's1', coordination: handle });
 
-test('MAX_RODADAS_AUTO_DIA lê a fonte única do teto compartilhado', () => {
-  assert.equal(reviewMod.MAX_RODADAS_AUTO_DIA, SYNC.DAILY_ROUNDS_MAX);
+// Até a v2.59.2 o gate local espelhava este número (MAX_RODADAS_AUTO_DIA). O teto
+// diário local caiu; o compartilhado é contrato da sincronização e mora só aqui.
+test('o teto diário vive só na sincronização: o gate local não tem cópia', () => {
+  assert.equal(SYNC.DAILY_ROUNDS_MAX, 3);
+  assert.equal(reviewMod.MAX_RODADAS_AUTO_DIA, undefined);
 });
 
 test('runHeadlessReview manda operationKind review e o contexto da coordenação', async () => {

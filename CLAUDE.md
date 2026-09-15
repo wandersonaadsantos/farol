@@ -27,6 +27,7 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
 | `lib/engine/decision.js` | O gate de postagem: `shouldAutoApprove`, `shouldAutoReject`, `coverageGap`, `checkpointGap`, `attentionPoints`, `postReview`, `decide`, capabilities das sessões interativas e projeção segura das decisões para a UI |
 | `lib/engine/public-review.js` | Fronteira determinística entre diagnóstico interno e review: valida schema/linguagem de corpos e inlines, extrai review humano de registros legados e monta a allowlist enviada à UI |
 | `lib/engine/skip-review.js` | **UM Farol por PR** (v2.50.1; regras reformadas em 28/08/2026, ver "As duas decisões de 28/08" na seção própria). Ver o SINAL de outra pessoa (a label `<conta>:revisando`, que é o sinal escrito; ou ref de transição da v2.53.9) faz o Farol SAIR DE CENA naquele head, de forma DURÁVEL, SEMPRE (regra plana: caiu a exceção de CODEOWNERS da v2.51.0). `revisandoPorOutros` (labels) e `revisandoPorSinais` (refs de transição) são PURAS, `outrosRevisando` é a UNIÃO das duas e segue SÍNCRONA e sem IO (contrato do reReviewTargets), `saiDeCena` ancora por head e avisa por TOAST (desde 28/08/2026 nada é postado no PR), `standDownCaducou` é a rede de segurança (sessão do colega morreu sem review = volta a revisar), `coAssinar` é o opt-in que aprova em seu nome quando quem pegou aprovou, e `autoridadeNaSaida` responde só se EU sou autoridade (gateia a co-assinatura; falta de dado cai em true, o lado seguro). **Gate de consciência** (28/08/2026 à tarde; calibrado na v2.54.1): `bloqueadoPorHistorico` (reprovação de gente no head ativo, ou 2 aprovações humanas, seguram o automático; 1 aprovação não, a automática vale como a segunda) com boca única `bloqueiaAutomatico` (clique manual atravessa sem gh) + `avisaBloqueioHistorico`/`podarHistoricoAvisado` (toast único por PR+head). **`acrity` nunca conta como pessoa** (review de ferramenta não dispensa olho humano). Vale só no caminho AUTOMÁTICO: clique manual sempre revisa |
+| `lib/engine/destrava.js` | **Estado novo destrava o que esperava clique** (v2.59.3). Commit novo ou pedido de revisão PRA MIM, posterior à parada, devolve aos caminhos automáticos três casos que ficavam presos pra sempre: pendência `stale_head` cuja rodada relançada não concluiu (âncora == `blockedHead`), revisão estacionada (exceto `cancelado`) e Pular num PR que segue pedindo minha revisão (exceto ignorado). Seleção SÍNCRONA gateada por `updatedAt`; só candidato real custa uma chamada `gh` (timeline) e, sem prova nela, uma de head. Marcador `state/destravados.json` impede o mesmo sinal de destravar duas vezes. Nunca posta nem lança sessão. Ver "Card que se explica e estado novo que destrava" |
 | `lib/engine/review-signal.js` | **LEITURA DE TRANSIÇÃO das refs da v2.53.9** (28/08/2026). Por algumas horas a v2.53.9 escreveu o sinal de revisão em andamento como ref git `refs/farol/revisando/<pr>/<login>/<epoch-ms>`; a v2.54.0 devolveu a escrita pra label `<conta>:revisando` (decisão da tarde: label visível é desejada) e este módulo ficou só LENDO e coletando as refs até a frota convergir (remover no futuro). `refreshReviewSignals` roda no `check()` (uma chamada `matching-refs` com `--paginate` por repo de interesse por ciclo) e alimenta `engine.reviewSignals`; TTL de 1h dos DOIS lados do relógio (`TEMPOS.SINAL_REVISAO_TTL_MS`); GC apaga só ref órfã do passado; falha preserva o snapshot anterior. Também abriga `repoDoPr`/`numeroDoPr` |
 | `lib/engine/codeowners.js` | **Quem é AUTORIDADE sobre cada arquivo do PR** (v2.51.0). Tudo PURO: `parseCodeowners`, `patternToRegex` (estilo gitignore), `ownersForPath` (a ÚLTIMA regra que casa vence, semântica do GitHub, NÃO acumula), `souAutoridade` e `cobreMinhaExigencia` (só saio de cena se quem pegou o PR é dono de TODO arquivo em que eu sou). Dono que é TIME (`@org/slug`) é inconclusivo e cai sempre no lado seguro |
 | `lib/engine/fanout.js` | Fan-out de revisão em PR grande: mede o PR (`prMetrics`), decide se fatia (`shouldFanOut`), monta os lotes por afinidade de caminho (`planLotes`, função PURA) e injeta o instrutivo (`fanOutBlock`). Determinístico, ZERO IA e zero rede na parte que decide |
@@ -1124,15 +1125,17 @@ que este gate existe pra resolver, não uma decisão esperando o Wanderson.
 head QUIETO por esse tempo, proteção contra rajada de pushes. Carimbo ausente
 nunca dispara.
 
-**Teto diário** (`MAX_RODADAS_AUTO_DIA`, 3 por PR por dia): proteção de orçamento
-dentro do modo autônomo, nunca redução de autonomia. A âncora `reReviewLaunched`
-(`state/rereview-launched.json`) mudou de string (só o head) pra
-`{ head, dia, rodadas }`; `normalizeAncora` lê os dois formatos (string legada vira
-`{ head, dia: '', rodadas: 1 }`, nunca infla o teto por acidente de migração) e
-`proximaAncora` incrementa `rodadas` quando o dia bate, reseta pra 1 quando muda.
-Estourou: `reReviewEsgotados` avisa UMA vez por PR por dia (`avisoRodadasDia`, Set
-em memória) e nunca enfileira sozinho; o botão Re-revisar continua valendo sempre
-(o teto é só do caminho automático).
+**Teto diário local: REMOVIDO na v2.59.3** (existia desde a v2.53.0 como
+`MAX_RODADAS_AUTO_DIA`, 3 por PR por dia, com `reReviewEsgotados`/`avisoRodadasDia`).
+Pedido do Wanderson, 15/09/2026: o 4º push do dia virava clique obrigatório até
+amanhã, anunciado por um toast de 5 segundos. No lugar entrou a contagem de
+**rodadas presas em sequência** (seção "Card que se explica" abaixo). A âncora
+`reReviewLaunched` segue `{ head, dia, rodadas, at }` (`at` novo na v2.59.3, quando o
+round saiu); `dia`/`rodadas` continuam gravados por compatibilidade com a âncora do
+reinício, mas nenhum gate lê mais o contador. **O teto COMPARTILHADO entre aparelhos
+(`SYNC.DAILY_ROUNDS_MAX`, D13) NÃO mudou**: é contrato da sincronização e só vale com
+ela ligada; lá o esgotado vira espera da coordenação e o card mostra "outro aparelho
+seu está cuidando deste PR". Alinhar os dois exige revisar o contrato D13, e ficou fora.
 
 **Gatilho B NUNCA entra no pulo de push trivial** (`pushTrivial`, mesmo arquivo): a
 prova salva que o pulo compara é do head ANTERIOR ao bloqueio, e o payload da
@@ -1141,12 +1144,12 @@ esta feature existe pra matar: um toast de "a revisão anterior segue valendo" s
 NENHUMA revisão de fato postada, com a âncora já queimada pro head novo. Só a
 sessão relançada produz payload postável no head atual.
 
-`classificaReRound`, `reReviewTargets` e `reReviewEsgotados` continuam SÍNCRONAS e
+`explicaReRound`, `classificaReRound` e `reReviewTargets` continuam SÍNCRONAS e
 sem IO, mesmo contrato de sempre; `reReviewTargets` devolve CÓPIAS RASAS (nunca o
 objeto do panorama, que `_headRound` mutaria em compartilhado).
 
 **Dívidas conscientes que ficam por decisão** (as três de orçamento/reinício da
-leva original foram resolvidas na v2.53.1: `avisoRodadasDia`/`headQuietoDesde`
+leva original foram resolvidas na v2.53.1: `headQuietoDesde` (e o `avisoRodadasDia`, que saiu na v2.59.3)
 agora podam a cada `launchReReviews`, o candidato do gatilho B carrega o
 `isDraft` real da pendência, e `recoverInflight` só libera o `head` da âncora
 objeto, preservando `dia`/`rodadas`; as duas abaixo continuam por decisão):
@@ -1158,7 +1161,58 @@ objeto, preservando `dia`/`rodadas`; as duas abaixo continuam por decisão):
   então "um Farol por PR" não afrouxa.
 - O debounce do gatilho B usa `createdAt` FIXO: não reinicia se chegar um push novo
   durante a espera. A sessão relançada relê o head real no início como sempre, então
-  o pior caso é relançar um pouco cedo, nunca com head errado.
+  o pior caso é relançar um pouco cedo, nunca com head errado. (Desde a v2.59.3 o
+  destrave carimba `headQuietoDesde` na pendência PRESA quando vê commit novo, e o
+  relógio usa o mais novo dos dois; a pendência que ainda não rodou segue no `createdAt`.)
+
+### Card que se explica e estado novo que destrava (v2.59.3)
+
+Caso de campo: Edicoes-CNBB/biblioteca-cnbb-api#22, 09/09/2026. Force-push às 19:39
+com a sessão lendo o PR, card `stale_head` às 19:42 pedindo "Peça uma revisão nova", e
+às 19:44 a pergunta "Farol travou aí?". Não tinha travado: o gatilho B só podia armar às
+19:47, e o review no head novo saiu às 19:54. O defeito era a tela pedir ação humana no
+caso em que o app ia agir sozinho. A pergunta seguinte ("se eu pedir revisão de novo, o
+outro Farol executa ou trava?") levou a três travas REAIS, reproduzidas em teste antes do
+conserto (`test/rereview-estado-novo.test.js`): (1) rodada relançada que não conclui
+deixa a âncora == `blockedHead` pra sempre, e o `blockedHead` nunca acompanha o head;
+(2) estacionamento só saía por clique; (3) Pular nunca volta, porque o `markReRequests`
+não conta Pular como revisado (isso continua certo lá: nada foi postado).
+
+Peças:
+
+- **`explicaReRound`** (`review.js`) substitui o miolo do `classificaReRound`, que virou
+  fachada do contrato antigo ('relanca' | null). Cada uma das saídas silenciosas tem nome:
+  `sem_gatilho` | `revisando` | `parado` com `motivo` (rascunho, auto_desligado,
+  conta_silenciada, sem_token, orcamento, estacionado, outros_revisando, saiu_de_cena,
+  coordenacao, pendencia_viva, ancora) | `aguardando`/`espera_longa` com `aPartirDe` |
+  `relanca`. A ordem das travas não muda desfecho (todas seguram), só qual motivo a tela
+  vê primeiro.
+- **`reRoundParaUi`** vai no snapshot como `reRounds` (mesmo padrão do `parkedParaUi`):
+  só pendências `stale_head`. `relanca` vira `aguardando` com `nextCheckAt` (quem dispara
+  é o ciclo), ou `parado`/`consciencia` quando o `bloqueioConsultado` barrou este head.
+- **Rodadas presas**: `recordDecision` grava `rodadasPresas` na pendência `stale_head` que
+  nasce de sessão (herda a da pendência que substitui, +1; outro desfecho não carrega e a
+  sequência recomeça). Com `rodadasPresas >= MAX_RODADAS_PRESAS` (3) a espera do gatilho B
+  passa a `TEMPOS.HEAD_QUIETO_LONGO_MS` (30 min). Nunca vira clique.
+- **`lib/engine/destrava.js`** roda no `check()` ANTES do `_dispararAutomacoes` (o toReview
+  do mesmo ciclo já vê o PR de volta). Ver a linha dele no mapa de arquivos. Pra pendência
+  presa: tira do estacionamento (se não foi cancelamento), solta o `head` da âncora (mesmo
+  movimento do G7 do reinício), leva o `blockedHead` pro head do push e carimba
+  `headQuietoDesde`. `estacionar` passou a gravar o `head` lido (quinto argumento), que é o
+  que prova commit novo depois de uma parada.
+- **Card** (`staleCardMeta`/`reRoundStatus` em `ui/pure.js`): barra azul (`working`) quando o
+  Farol vai agir, âmbar quando precisa de você; selo "COMMIT NOVO"; sai Aprovar/Pedir
+  mudanças/Só comentar (payload ancorado no head velho, o GitHub recusaria); a "regra do
+  app" (motivo `gate`) sai porque repetia a caixa; **Revisar agora** é secundário quando o
+  Farol já vai agir, primário quando parou, e some com a revisão rodando. Desenho no Claude
+  Design: https://claude.ai/artifact/1c2yxcUa3BtGEycq5Q695w. O toast de pendência nova
+  deixou de dizer "precisa da sua atenção" quando o motivo é commit novo.
+- **FAQ no README** ("Perguntas frequentes: commit novo durante a revisão") descreve cada
+  cenário pra quem usa. Mexeu num motivo ou num tempo daqui, atualize a FAQ junto.
+
+Dívidas conscientes: PR fora do panorama não tem `updatedAt` e fica fora do destrave (a
+fila mine entra no panorama, então o caso real é coberto); o marcador `destravados` só
+poda quando o PR sai do panorama e da mesa.
 
 ### Prova por arquivo: round incremental, pulo de push trivial e retomada de sessão (17/08/2026, ainda não publicado)
 

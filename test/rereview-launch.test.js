@@ -18,7 +18,7 @@ after(() => {
   fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true });
 });
 
-const { MAX_RODADAS_AUTO_DIA, diaLocal } = await import('../lib/engine/review.js');
+const { diaLocal } = await import('../lib/engine/review.js');
 const { TEMPOS } = await import('../lib/constants.js');
 const { saveFileProof } = await import('../lib/engine/file-proof.js');
 
@@ -181,22 +181,7 @@ test('poda headQuietoDesde: key de pendência stale_head fora do panorama sobrev
   assert.ok('outra/org#9' in e.headQuietoDesde, 'pendência stale_head conta como aberta');
 });
 
-test('poda avisoRodadasDia: entrada de dia anterior some, entrada de hoje sobrevive', async () => {
-  const e = engineBase();
-  e.enqueueHeadless = () => {};
-  e.emit = () => {};
-  e.avisoRodadasDia = new Set([
-    `acme/r#1:${HOJE}`,
-    'acme/r#1:2020-01-01',
-  ]);
-
-  await e.launchReReviews();
-
-  assert.ok(e.avisoRodadasDia.has(`acme/r#1:${HOJE}`), 'aviso de hoje preservado');
-  assert.ok(!e.avisoRodadasDia.has('acme/r#1:2020-01-01'), 'aviso de dia anterior podado');
-});
-
-test('teto esgotado avisa UMA vez por PR por dia e nunca enfileira', async () => {
+test('3 rodadas hoje não seguram mais: head novo enfileira sem aviso de teto (v2.59.3)', async () => {
   const enfileirados = [];
   const eventos = [];
   const e = engineBase();
@@ -204,14 +189,14 @@ test('teto esgotado avisa UMA vez por PR por dia e nunca enfileira', async () =>
   e.emit = (ev, dados) => eventos.push({ ev, dados });
   e.staleInfo['acme/r#1'] = { stale: true, head: H2, lastState: 'CHANGES_REQUESTED' };
   e.headQuietoDesde['acme/r#1'] = { head: H2, at: QUIETO };
-  e.reReviewLaunched['acme/r#1'] = { head: H1, dia: HOJE, rodadas: MAX_RODADAS_AUTO_DIA };
+  e.reReviewLaunched['acme/r#1'] = { head: H1, dia: HOJE, rodadas: 3 };
 
   await e.launchReReviews();
   await e.launchReReviews();
 
   const avisos = eventos.filter(x => x.ev === 'toast' && /rodadas automáticas/.test(x.dados.text));
-  assert.equal(avisos.length, 1);
-  assert.equal(enfileirados.length, 0);
+  assert.equal(avisos.length, 0);
+  assert.equal(enfileirados.length, 1, 'a âncora do head novo segura a segunda passada');
 });
 
 /* AUTONOMIA PERDIDA NO COMMIT DURANTE A SESSÃO (bug de campo relatado em

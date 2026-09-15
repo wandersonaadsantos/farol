@@ -914,6 +914,103 @@ export function reasonGroupsHtml(reasons, postRetry) {
   }).join('')}</div>`;
 }
 
+/* ---------- card de commit novo (pendência stale_head, v2.59.3) ----------
+   A tela diz quem está com a bola. Até a v2.59.2 o card mandava "Peça uma revisão
+   nova" e oferecia Aprovar/Pedir mudanças sobre um texto ancorado no commit anterior,
+   num caso em que o round automático ia revisar sozinho minutos depois
+   (Edicoes-CNBB/biblioteca-cnbb-api#22, 09/09/2026). O estado vem do engine
+   (reRoundParaUi, lib/engine/review.js); aqui só vira frase. */
+const REROUND_MOTIVO = {
+  rascunho: () => 'o PR está como rascunho.',
+  auto_desligado: (d) => `a revisão automática está desligada na conta ${d} (Sistema > Contas).`,
+  conta_silenciada: (d) => `a conta ${d} está silenciada.`,
+  sem_token: (d) => `a conta ${d} está sem login no gh.`,
+  orcamento: () => 'o orçamento do perfil desta conta estourou.',
+  estacionado: (d) => (d === 'cancelado'
+    ? 'você cancelou a última tentativa.'
+    : 'a última tentativa falhou e ficou estacionada. Volto sozinho se chegar commit novo ou pedirem revisão de novo.'),
+  outros_revisando: (d) => `${d} já está revisando este PR.`,
+  saiu_de_cena: () => 'saí de cena porque outra pessoa pegou este PR.',
+  coordenacao: () => 'outro aparelho seu está cuidando deste PR.',
+  pendencia_viva: () => 'há outra decisão deste PR esperando você.',
+  consciencia: () => 'outra pessoa já deu um review decisivo neste commit.',
+  ancora: () => 'já tentei neste commit e a revisão não terminou. Volto sozinho se chegar commit novo ou pedirem revisão de novo.',
+};
+
+const shaCurto = (s) => String(s || '').slice(0, 7);
+
+function reRoundAguardando(r, d) {
+  if (r.motivo === 'retry') {
+    return { lead: 'Reviso de novo sozinho quando a conexão voltar.', texto: 'A última tentativa caiu por instabilidade e não postou nada.' };
+  }
+  const de = shaCurto(d && d.headSha), para = shaCurto(d && d.blockedHead);
+  const commits = (de && para) ? ` (${de} para ${para})` : '';
+  return {
+    lead: r.aPartirDe ? `Reviso de novo sozinho a partir de ${fmtClock(r.aPartirDe)}.` : 'Reviso de novo sozinho no próximo ciclo.',
+    texto: `O autor enviou commit novo${commits} enquanto eu revisava, então este texto fala do código anterior. Começo quando o PR ficar uns minutos sem push.`,
+  };
+}
+
+// null = sem estado do engine (snapshot antigo ou PR sem gatilho): o card cai no aviso de sempre
+export function reRoundStatus(r, d) {
+  if (!r || !r.estado || r.estado === 'sem_gatilho') return null;
+  if (r.estado === 'revisando') {
+    return { tom: 'info', icone: 'spin', automatico: true, lead: 'Revisando de novo agora,', texto: 'já no commit novo. Este card sai da mesa sozinho quando a revisão nova terminar.' };
+  }
+  if (r.estado === 'espera_longa') {
+    const n = Number(r.rodadasPresas) || 0;
+    return {
+      tom: 'info', icone: 'hourglass', automatico: true,
+      lead: r.aPartirDe ? `Próxima tentativa a partir de ${fmtClock(r.aPartirDe)}.` : 'Próxima tentativa quando o PR ficar mais tempo sem push.',
+      texto: `As últimas ${n} revisões pegaram commit novo no meio, então agora espero o PR ficar mais tempo sem push antes de revisar de novo.`,
+    };
+  }
+  if (r.estado === 'parado') {
+    const frase = REROUND_MOTIVO[r.motivo];
+    return { tom: 'accent', icone: 'pause', automatico: false, lead: 'Não vou revisar de novo sozinho:', texto: `${frase ? frase(r.detalhe || '') : 'motivo desconhecido.'} Use Revisar agora quando quiser.` };
+  }
+  return { tom: 'info', icone: 'clock', automatico: true, ...reRoundAguardando(r, d) };
+}
+
+const REROUND_ICONE = {
+  clock: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.6V8l2.3 1.5"/></svg>',
+  spin: '<svg class="dec-status-spin" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M14.2 8A6.2 6.2 0 1 1 8 1.8"/></svg>',
+  hourglass: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 1.8h8M4 14.2h8M4.8 1.8c0 3.2 6.4 3.2 6.4 6.2s-6.4 3-6.4 6.2M11.2 1.8c0 3.2-6.4 3.2-6.4 6.2s6.4 3 6.4 6.2"/></svg>',
+  pause: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.2"/><path d="M6.4 5.6v4.8M9.6 5.6v4.8"/></svg>',
+};
+
+export function reRoundBoxHtml(st) {
+  if (!st) return '';
+  return `<div class="dec-status ${esc(st.tom)}"><span class="dec-status-icon" aria-hidden="true">${REROUND_ICONE[st.icone] || ''}</span>`
+    + `<span><b>${esc(st.lead)}</b> ${esc(st.texto)}</span></div>`;
+}
+
+// Tudo que muda no card de decisão quando ele é de commit novo, num lugar só e testável.
+// reviewBtn: 'primary' (você precisa agir), 'secondary' (atalho: o Farol já vai agir),
+// 'none' (revisão nova já rodando) ou '' (card comum, sem o botão).
+export function staleCardMeta(d, r) {
+  const reasons = Array.isArray(d && d.reasons) ? d.reasons : [];
+  const stale = !!(d && d.blockedKind === 'stale_head');
+  const legado = d && d.blockedReason ? `<div class="dec-blocked">🚫 <span><b>Bloqueado:</b> ${esc(d.blockedReason)}</span></div>` : '';
+  const verdictComum = d && d.verdict === 'approve' ? '<span class="verdict approve">APROVÁVEL</span>' : '<span class="verdict rc">COM BLOCKER</span>';
+  if (!stale) {
+    return { stale, cardClass: d && d.verdict === 'approve' ? 'urgent' : 'blocked', verdictHtml: verdictComum, reasons, statusHtml: legado, reviewBtn: '' };
+  }
+  const st = reRoundStatus(r, d);
+  if (!st) return { stale, cardClass: d.verdict === 'approve' ? 'urgent' : 'blocked', verdictHtml: verdictComum, reasons, statusHtml: legado, reviewBtn: 'primary' };
+  let reviewBtn = st.automatico ? 'secondary' : 'primary';
+  if (r.estado === 'revisando') reviewBtn = 'none';
+  return {
+    stale,
+    cardClass: st.automatico ? 'working' : 'urgent',
+    verdictHtml: '<span class="verdict stale">COMMIT NOVO</span>',
+    // a "regra do app" repetia a caixa de status; o que a revisão levantou continua
+    reasons: reasons.filter(x => !(x && typeof x === 'object' && x.kind === 'gate')),
+    statusHtml: reRoundBoxHtml(st),
+    reviewBtn,
+  };
+}
+
 export function reviewBoxHtml(d) {
   if (!d) return `<div class="empty">Nenhuma revisão registrada pra este PR no histórico do Farol.</div>`;
   const v = VERDICT_LABEL[d.verdict] || d.verdict || 'sem veredito';

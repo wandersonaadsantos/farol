@@ -51,7 +51,6 @@ const EXCECOES = {
   // inflightKeys). A fachada declara 2 (inflightKeys, agora) de propósito,
   // pra repassar o agora explícito. Não é argumento engolido.
   reReviewTargets: 'terceiro parâmetro (agora) tem default, que trunca a contagem do Function.length no parâmetro com default',
-  reReviewEsgotados: 'terceiro parâmetro (agora) tem default, que trunca a contagem do Function.length no parâmetro com default',
   // O Function.length trunca dos DOIS lados aqui: impl é (engine, urls, mode = 'auto',
   // origem = 'auto', extras = {}) e para em 2; a fachada é (urls, mode = 'auto', ...) e
   // para em 1. A conta (2 - 1 = 1) fecha por coincidência, e fecharia igual se a fachada

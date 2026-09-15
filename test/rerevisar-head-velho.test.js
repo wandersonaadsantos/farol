@@ -145,12 +145,14 @@ test('decisão que já nasce resolvida TAMBÉM supersede a pendência bloqueada 
 
 const appJs = fs.readFileSync(new URL('../ui/app.js', import.meta.url), 'utf8');
 
-test('o card de pendência oferece Revisar de novo, e SÓ no bloqueio por head velho', () => {
+test('o card de pendência oferece Revisar agora, e SÓ no bloqueio por head velho', () => {
   const i = appJs.indexOf('<div class="dec-actions">');
   assert.ok(i > 0, 'o bloco de ações do card tem que existir');
   const bloco = appJs.slice(i, i + 1200);
-  assert.match(bloco, /act-review/, 'sem o botão, o card manda pedir revisão nova e não dá como pedir');
-  assert.match(bloco, /blockedKind === 'stale_head'[\s\S]{0,200}act-review/, 'e ele é gateado pelo tipo do bloqueio');
+  assert.match(bloco, /act-review/, 'sem o botão, o card de commit novo parado não teria saída');
+  // desde a v2.59.3 o gate do botão mora no staleCardMeta (ui/pure.js), testável sem DOM:
+  // reviewBtn vazio fora do stale_head (test/ui-rerodada.test.js prova os valores)
+  assert.match(bloco, /meta\.reviewBtn[\s\S]{0,200}act-review/, 'e ele é gateado pelo tipo do card de commit novo');
 });
 
 test('o clique em Revisar de novo é escutado pela seção de decisões', () => {
