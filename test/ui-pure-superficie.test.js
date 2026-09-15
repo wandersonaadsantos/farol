@@ -1,0 +1,223 @@
+// A superfície pública do ui/pure.js é o contrato com o ui/app.js (que importa dezenas de
+// nomes num import só) e com os 13 testes que importam daqui. Durante a quebra em
+// ui/pure/*.js, nenhum nome pode sumir nem mudar de grafia: a tela quebraria em runtime
+// com a suíte possivelmente verde, porque quase nenhum teste chama TODOS os nomes.
+//
+// Esta lista é CONGELADA de propósito, e é a única do repositório que não deriva do fonte:
+// derivar do próprio arquivo que ela protege a tornaria vazia (ela casaria consigo mesma
+// depois de qualquer perda). Nome sai daqui só com motivo declarado no commit.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { arquivosDosPuros } from './helpers/fontes-ui.js';
+
+const CONGELADA = [
+  "DOMAIN_DEFS",
+  "DOMLEVEL_OPTS",
+  "FAROL_PRE_STAMP_LABEL",
+  "FAROL_STAMP_SINCE",
+  "MERGE_EM_ANDAMENTO",
+  "PAPEL_OPTS",
+  "PB_OPTS",
+  "PB_SHORT",
+  "STAGE_FLOW_ORDER",
+  "USAGE_KIND_COLOR",
+  "USAGE_KIND_LABEL",
+  "USAGE_PALETTE",
+  "USAGE_ST_LABEL",
+  "accountBarVisible",
+  "accountSaveArray",
+  "accountsManagerHtml",
+  "addControl",
+  "agentsTitle",
+  "analysisOpsPlan",
+  "aprovadosHoje",
+  "auditoriaLinhaHtml",
+  "automacaoPausadaPor",
+  "avatar",
+  "budgetEditorHtml",
+  "buildFixPrompt",
+  "canMergeSelfAnalysis",
+  "canonicalGithubPrUrl",
+  "chatBadge",
+  "chipHtml",
+  "claudeAuthBadge",
+  "claudeProfilesHtml",
+  "creditsHtml",
+  "defaultFor",
+  "delivActivityCard",
+  "delivActivityChart",
+  "delivCappedMsg",
+  "delivDayBuckets",
+  "delivEmptyState",
+  "delivFilterItems",
+  "delivSliceRows",
+  "delivStats",
+  "delivStatsCards",
+  "deliveriesByAuthor",
+  "deliveriesByRepo",
+  "diagnosticsText",
+  "diffVs",
+  "domLevelOf",
+  "domainMatrix",
+  "effectiveHidden",
+  "esc",
+  "escAttrSelector",
+  "expiredSessionMarks",
+  "feedLine",
+  "filaJustaHtml",
+  "fjMoeda",
+  "fjQuando",
+  "fmtClock",
+  "fmtCompact",
+  "fmtDur",
+  "fmtLogStamp",
+  "fmtMoney",
+  "fmtRel",
+  "fmtSpan",
+  "fmtStamp",
+  "fmtTok",
+  "fmtUsageMetric",
+  "fmtWhenDay",
+  "ghPrUrl",
+  "groupBy",
+  "hexToRgba",
+  "hiddenFootLabel",
+  "jiraBaseUrlProblema",
+  "jiraPrefixosProblema",
+  "lastMerge",
+  "listViewState",
+  "localDayKey",
+  "logGroupLine",
+  "logGroupRate",
+  "logReadingLine",
+  "logRegimeLines",
+  "logSpanMinutes",
+  "logSummaryLines",
+  "logSummaryShort",
+  "logTailLines",
+  "md",
+  "mergeToastKind",
+  "myPRsEmptyMsg",
+  "opDismissDelay",
+  "opTransition",
+  "operationChecks",
+  "orgsMonitoradas",
+  "overrideFor",
+  "ownerFromUrl",
+  "panoramaRowHtml",
+  "papelOf",
+  "papelPicker",
+  "parkedNoteHtml",
+  "parseGoto",
+  "personMention",
+  "personOf",
+  "plural",
+  "prCoordNoteHtml",
+  "prKeyFromUrl",
+  "prRefMention",
+  "pushbackControl",
+  "qualityBlockTitle",
+  "qualityReasonLabel",
+  "queueCardHtml",
+  "queueEmptyOkHtml",
+  "reRoundBoxHtml",
+  "reRoundStatus",
+  "reasonGroups",
+  "reasonGroupsHtml",
+  "reasonText",
+  "renderOrgBlock",
+  "repoMention",
+  "repoShort",
+  "reposOfOrg",
+  "resolvedRow",
+  "reviewBoxHtml",
+  "reviewChip",
+  "reviewerLabel",
+  "runtimeChecks",
+  "safeJsonParse",
+  "sameSet",
+  "selfAnalysisBadge",
+  "selfAnalysisStale",
+  "selfAnalysisToggle",
+  "selfSessionKey",
+  "sessionCardHtml",
+  "sessionProgress",
+  "sessionRefCell",
+  "sessionRefMention",
+  "sparklinePath",
+  "splitHiddenPRs",
+  "stageFlowFrom",
+  "stageFlowHtml",
+  "stageLabel",
+  "stagesLine",
+  "staleCardMeta",
+  "statusBannerHtml",
+  "stripFence",
+  "suggestDefault",
+  "syncAparelhosHtml",
+  "syncCfgComGeral",
+  "syncClasseCartao",
+  "syncConexaoHtml",
+  "syncConfirmacaoDoClique",
+  "syncConfirmacoesDoClique",
+  "syncContaHtml",
+  "syncCoordenacaoHtml",
+  "syncEnvioHtml",
+  "syncEstado",
+  "syncSecaoHtml",
+  "syncSeloHtml",
+  "syncTogglesHtml",
+  "sysNorm",
+  "toolRefGoto",
+  "usageBudgetHtml",
+  "usageColorsFor",
+  "usageConsolidadoEnvelopeHtml",
+  "usageConsolidatedHtml",
+  "usageDayKeysBack",
+  "usageDelta",
+  "usageHoverIndex",
+  "usageKpisHtml",
+  "usageMatrixHtml",
+  "usageMatrixRows",
+  "usageMetricVal",
+  "usageSessionRow",
+  "usageSessionsHtml",
+  "usageStackLayers",
+  "usageTooltipHtml",
+  "validScope",
+];
+
+test('o ui/pure.js exporta exatamente a superficie congelada', async () => {
+  const modulo = await import('../ui/pure.js');
+  const atual = Object.keys(modulo).sort();
+  const sumiram = CONGELADA.filter((n) => !atual.includes(n));
+  const nasceram = atual.filter((n) => !CONGELADA.includes(n));
+  assert.deepEqual(sumiram, [], 'sumiram nomes da superficie publica do ui/pure.js');
+  assert.deepEqual(nasceram, [], 'nomes novos na superficie: acrescente a lista congelada no mesmo commit');
+});
+
+test('todo nome exportado e usavel, nao so declarado', async () => {
+  // reexport quebrado (arquivo que não existe, nome com grafia errada no `export *`)
+  // aparece aqui como undefined, e não como ausência de chave.
+  const modulo = await import('../ui/pure.js');
+  const indefinidos = CONGELADA.filter((n) => modulo[n] === undefined);
+  assert.deepEqual(indefinidos, [], 'nomes exportados com valor undefined');
+});
+
+/* Nenhum nome pode estar declarado em DOIS arquivos do ui/pure. Achado durante a própria
+   Fase 1a: uma contraprova desfeita com `git checkout` deixou fjQuando e fjMoeda definidos
+   no ui/pure.js E num módulo que ninguém importava. A suíte ficou verde, porque arquivo
+   órfão não é lido por ninguém, e a duplicata só apareceria quando alguém corrigisse um
+   lado só. Derivado do fonte: módulo novo entra na varredura sozinho. */
+test('nenhum simbolo exportado do ui/pure esta declarado em dois arquivos', () => {
+  const dono = new Map();
+  const repetidos = [];
+  for (const { nome, texto } of arquivosDosPuros()) {
+    for (const m of texto.matchAll(/^export (?:function|const) (\w+)/gm)) {
+      if (dono.has(m[1])) repetidos.push(`${m[1]} em ${dono.get(m[1])} e em ${nome}`);
+      else dono.set(m[1], nome);
+    }
+  }
+  assert.deepEqual(repetidos, [], 'simbolo declarado em dois arquivos do ui/pure');
+  assert.ok(dono.size >= 100, `esperava a maioria dos simbolos declarada, achei ${dono.size}`);
+});

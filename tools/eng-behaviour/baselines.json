@@ -5,7 +5,7 @@
     "rule": "core.file.single-responsibility",
     "openedAt": "2026-09-15",
     "initialFindings": 15,
-    "currentFindings": 15,
+    "currentFindings": 14,
     "closureCondition": "Cada arquivo listado passa a expressar uma responsabilidade que cabe numa frase, sem \"e também\". A condição de cada um está em docs/QUALITY.md, seção \"Dívida registrada de responsabilidade única\", e o caminho é a reorganização estrutural do repositório.",
     "known": [
       "core.file.single-responsibility|lib/engine/decision.js|violacao",
@@ -21,8 +21,7 @@
       "core.file.single-responsibility|lib/parse.js|violacao",
       "core.file.single-responsibility|lib/taxonomy.js|violacao",
       "core.file.single-responsibility|server.js|violacao",
-      "core.file.single-responsibility|ui/app.js|violacao",
-      "core.file.single-responsibility|ui/pure.js|violacao"
+      "core.file.single-responsibility|ui/app.js|violacao"
     ]
   }
 ]

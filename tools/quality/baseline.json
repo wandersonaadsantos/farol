@@ -111,9 +111,19 @@
     "ternarioAninhado": 38,
     "profundidadeExcedida": 9
   },
-  "ui/pure.js": {
-    "maxLines": 1,
-    "jsonParseCru": 1,
-    "ternarioAninhado": 16
+  "ui/pure/consumo.js": {
+    "ternarioAninhado": 1
+  },
+  "ui/pure/entregas.js": {
+    "ternarioAninhado": 2
+  },
+  "ui/pure/review.js": {
+    "ternarioAninhado": 6
+  },
+  "ui/pure/sistema.js": {
+    "ternarioAninhado": 1
+  },
+  "ui/pure/sobre.js": {
+    "ternarioAninhado": 1
   }
 }

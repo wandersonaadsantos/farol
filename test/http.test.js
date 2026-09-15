@@ -13,7 +13,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 const { Engine } = await import('../server.js');
 const { startServer } = await import('../lib/http-server.js');
-const { LOG_FILE } = await import('../lib/paths.js');
+const { LOG_FILE, UI_DIR } = await import('../lib/paths.js');
 const { normalizeReviewPayload } = await import('../lib/engine/public-review.js');
 const { reviewCaps } = await import('../lib/engine/decision.js');
 
@@ -458,4 +458,26 @@ test('GET /api/decision sem chave nao explode', async () => {
   const r = await get('/api/decision');
   assert.equal(r.status, 200);
   assert.equal(JSON.parse(r.body).found, false);
+});
+
+/* A quebra do ui/pure.js em ui/pure/*.js depende de o servidor entregar arquivo em
+   SUBPASTA de ui/ com o tipo de módulo ES. O navegador carrega o app por
+   <script type="module">, e um 404 aqui quebraria a tela inteira com a suíte verde. */
+test('GET de arquivo em subpasta de ui/ e servido como modulo ES', async () => {
+  const dir = path.join(UI_DIR, 'prova-subpasta');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'modulo.js'), 'export const x = 1;\n');
+  try {
+    const r = await get('/prova-subpasta/modulo.js');
+    assert.equal(r.status, 200, 'subpasta de ui/ precisa ser servida');
+    assert.match(r.type, /text\/javascript/, 'modulo ES precisa do tipo javascript');
+    assert.match(r.body, /export const x/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('GET fora de ui/ continua recusado', async () => {
+  const r = await get('/../package.json');
+  assert.notEqual(r.status, 200, 'escapar de UI_DIR nao pode servir arquivo do repositorio');
 });
