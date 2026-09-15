@@ -18,7 +18,8 @@ import {
   reasonGroupsHtml, reasonText, claudeProfilesHtml, accountsManagerHtml, staleCardMeta,
   jiraBaseUrlProblema, jiraPrefixosProblema,
   canMergeSelfAnalysis, qualityBlockTitle, selfAnalysisBadge, selfAnalysisToggle, selfAnalysisStale,
-  filaJustaHtml, syncSecaoHtml, syncConfirmacoesDoClique, usageConsolidadoEnvelopeHtml, syncCfgComGeral
+  filaJustaHtml, syncSecaoHtml, syncConfirmacoesDoClique, usageConsolidadoEnvelopeHtml, syncCfgComGeral,
+  settingsIgnoradasTexto
 } from './pure.js';
 
 const $ = (s) => document.querySelector(s);
@@ -1056,8 +1057,9 @@ function saveJiraSites(sites) {
   STATE.jiraSites = sites;
   renderJiraSites();
   api('/api/settings', { jiraSites: sites }).then(r => {
-    if (r && Array.isArray(r.ignoradas) && r.ignoradas.includes('jiraSites')) {
-      toast('error', '"jiraSites" não foi salvo: o servidor não reconhece essa preferência.', 6000);
+    const recusa = settingsIgnoradasTexto(r);
+    if (recusa) {
+      toast('error', recusa, 6000);
       return;
     }
     toast('ok', '✓ Configurações salvas', 2000);
@@ -1294,8 +1296,9 @@ function saveSync(sync, aoSalvar) {
   STATE.config = { ...STATE.config, sync };
   renderSync();
   api('/api/settings', { sync }).then(r => {
-    if (r && Array.isArray(r.ignoradas) && r.ignoradas.includes('sync')) {
-      toast('error', '"sync" não foi salvo: o servidor não reconhece essa preferência.', 6000);
+    const recusa = settingsIgnoradasTexto(r);
+    if (recusa) {
+      toast('error', recusa, 6000);
       return;
     }
     // o servidor devolve a config JÁ saneada: é ela que diz o que de fato ficou gravado
@@ -4287,8 +4290,9 @@ for (const [sel, key, read] of settingsMap) {
     const r = await api('/api/settings', { [key]: read(e.target) });
     // o servidor devolve o que NÃO aceitou. Dizer "salva" sem olhar isso foi o que
     // fez preferência sumir em silêncio: a tela confirmava, o config não guardava.
-    if (r && Array.isArray(r.ignoradas) && r.ignoradas.includes(key)) {
-      toast('error', `"${key}" não foi salva: o servidor não reconhece essa preferência.`, 6000);
+    const recusa = settingsIgnoradasTexto(r);
+    if (recusa) {
+      toast('error', recusa, 6000);
       return;
     }
     toast('ok', 'Configuração salva.', 2500);

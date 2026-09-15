@@ -144,6 +144,7 @@ const CONGELADA = [
   "sessionProgress",
   "sessionRefCell",
   "sessionRefMention",
+  "settingsIgnoradasTexto",
   "sparklinePath",
   "splitHiddenPRs",
   "stageFlowFrom",
