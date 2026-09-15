@@ -265,6 +265,30 @@ function rodar(cli, args) {
   return { code: r.status === 1 ? 1 : 2, saida };
 }
 
+/** Onde mora a divida registrada que o `audit` desconta (ADR-0015 do eng-behaviour). */
+const CAMINHO_DOS_BASELINES = 'tools/eng-behaviour/baselines.json';
+
+/**
+ * Os argumentos do `audit`, num lugar so.
+ *
+ * `--repo-id` e o nome do pacote, e nao o do diretorio. A CLI usa o nome do diretorio
+ * quando a flag falta, e numa worktree ele e o nome da worktree: o baseline, registrado
+ * para `farol`, deixaria de valer justamente onde as entregas grandes rodam, e a divida
+ * registrada reprovaria como se fosse nova. As avaliacoes do `avaliacoes.jsonl` usam a
+ * mesma identidade.
+ *
+ * `--baselines` aponta a divida registrada, versionada junto do codigo porque ela e o
+ * numero que precisa descer entrega apos entrega e tem que ser o mesmo em toda maquina.
+ */
+function argumentosDoAudit(base) {
+  return [
+    'audit', '--repo', '.', '--base', base,
+    '--assessments', 'avaliacoes.jsonl',
+    '--baselines', CAMINHO_DOS_BASELINES,
+    '--repo-id', NOME_DO_PACOTE,
+  ];
+}
+
 function main() {
   const esperado = irmaoDoRepositorio();
   const { cli, home, erro } = resolverCli(esperado);
@@ -293,12 +317,12 @@ function main() {
     return 2;
   }
 
-  const audit = rodar(cli, ['audit', '--repo', '.', '--base', base, '--assessments', 'avaliacoes.jsonl']);
+  const audit = rodar(cli, argumentosDoAudit(base));
   console.log(audit.saida);
   if (audit.code !== 0) {
     console.error('eng-behaviour: o gate reprovou.');
     console.error('Regra de julgamento sem avaliacao para o head atual? Cada uma precisa da PROPRIA');
-    console.error('fundamentacao sobre ESTE diff. Repetir a mesma frase nas oito passa no gate sem');
+    console.error('fundamentacao sobre ESTE diff. Repetir a mesma frase em todas passa no gate sem');
     console.error('avaliar nada, e ai o registro deixa de significar o que ele existe para significar.');
     return audit.code;
   }
@@ -319,5 +343,5 @@ if (executadoDireto(import.meta.url)) process.exit(Math.min(main(), 2));
 // core.abstraction.no-premature nomeia. `irmaoDoRepositorio` e `ehEsteCheckout`
 // ficam de fora porque ninguem as le daqui, e exportar o que ninguem le e o campo
 // sem leitor que a mesma regra condena.
-export default { resolverCli, versaoDo, raizPrincipal, ajudaPara, rodar, baseDaEntrega };
-export { resolverCli, versaoDo, raizPrincipal, ajudaPara, rodar, baseDaEntrega };
+export default { resolverCli, versaoDo, raizPrincipal, ajudaPara, rodar, baseDaEntrega, argumentosDoAudit };
+export { resolverCli, versaoDo, raizPrincipal, ajudaPara, rodar, baseDaEntrega, argumentosDoAudit };
