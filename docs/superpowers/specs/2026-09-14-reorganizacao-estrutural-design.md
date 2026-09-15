@@ -261,24 +261,43 @@ Fase 0 e o teste de link morto são o que torna essa quebra conferível.
   folha (`app.css`). Quebrar o `app.js` exige que os pedaços sejam importados POR ele,
   nunca por tags novas no HTML, senão a ordem de execução muda.
 
-O que entra:
+O que entra, e **desde 15/09/2026 são três entregas separadas, com plano próprio cada
+uma** (a medição abaixo mostrou que os riscos não se parecem, e que um PR só seria
+irrevisável):
 
-1. **Quebrar `ui/pure.js` (3401 linhas) por domínio**, mantendo um arquivo de
-   reexport para não quebrar os imports existentes de uma vez: `pure/format.js`,
-   `pure/sync.js`, `pure/usage.js`, `pure/review.js`, `pure/deliveries.js`,
-   `pure/goto.js`. O `ui/pure.js` passa a ser só `export * from './pure/...'`.
-2. **Quebrar `ui/app.js` (4391 linhas)** pelos mesmos domínios, depois de 1.
-3. **`ui/app.css` (116 KB)** em parciais por seção, importadas por `@import` ou
-   por múltiplos `<link>`, sem build.
+1. **Fase 1a, quebrar `ui/pure.js`** (3498 linhas, 174 exports na medição de 15/09), num
+   módulo por assunto sob `ui/pure/`, com o `ui/pure.js` virando só
+   `export * from './pure/...'`. Plano:
+   [`2026-09-15-reorganizacao-fase-1a-pure.md`](../plans/2026-09-15-reorganizacao-fase-1a-pure.md).
+2. **Fase 1b, quebrar `ui/app.js`** (4398 linhas), depois de 1a.
+3. **Fase 1c, fatiar `ui/app.css`** (1696 linhas) em parciais por seção, sem build.
+
+**O que a medição de 15/09/2026 acrescentou, e que muda o desenho das três:**
+
+- **O `ui/pure.js` é o caso fácil, e por isso vai primeiro:** sem `import`, sem `let` de
+  módulo, e o grafo interno de chamadas é **acíclico**. Os 13 testes que dependem dele
+  **importam**, então a fachada de reexport os mantém verdes sem tocar em nenhum.
+- **O `ui/app.js` é o caso difícil, e não por tamanho:** o bootstrap está espalhado do
+  começo ao fim (dez efeitos no topo do módulo, incluindo o `connect()` do SSE e 56
+  ligações a `$('#id')`), `STATE` é lido em 163 pontos, e pelo menos nove testes
+  **recortam funções do fonte por regex de bloco**, alguns com contagem exata (um exige
+  exatamente três ocorrências de um trecho) e outros com fatia por índice de byte.
+- **O ratchet mecânico tem teto POR ARQUIVO e ausente vale zero** (`tools/quality/gate.js`).
+  Dívida que viaja junto com o código reprova no destino, então toda fase de quebra precisa
+  zerar a dívida do arquivo ANTES de mover, ou declarar santuário como `lib/io.js` já é.
+- **Subpasta de `ui/` é servida pelo servidor** (`lib/http-server.js` resolve por caminho
+  sob `UI_DIR`, com guarda de escape). Isso nunca teve teste, e a Fase 1a instala um.
 
 **A trava que decide esta fase:** `ui/` é uma das seis pastas que os instaladores
 espelham, então subpasta DENTRO de `ui/` viaja junto (o `robocopy /MIR` e o
 `cp -R` são recursivos). Criar `ui/pure/` é seguro; criar uma pasta nova na RAIZ
-não é. Confirmar isso na primeira tarefa da fase, com uma instalação real.
+não é. Conferir no zip gerado (`tools/make-package.ps1`) que a subpasta entrou; a
+instalação real só passa a ser exigida na fase que mexer em pasta de RAIZ.
 
-**Como provar:** além da suíte, abrir o app e navegar as quatro abas. O
+**Como provar:** além da suíte, abrir o app e navegar as seis abas. O
 `test/ui-contract.test.js` e o `test/ui-widgets.test.js` são os detetores de
-destino morto e de estrutura.
+destino morto e de estrutura, e a Fase 1a acrescenta a trava da superfície pública
+(nenhum dos 174 nomes pode sumir durante a quebra).
 
 ### Fase 2: `test/` espelha `lib/`
 

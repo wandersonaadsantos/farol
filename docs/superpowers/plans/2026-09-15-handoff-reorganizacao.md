@@ -110,15 +110,25 @@ quando a Fase 4 for planejada.
 
 ## Pendências, em ordem
 
+> **Atualização de 15/09/2026, fim do dia:** os itens 2 e 3 foram feitos. A **Fase 0 está na
+> `main`** (PR #87, merge `144b0c1`) e a **Fase 1 foi medida e dividida em 1a, 1b e 1c**, com
+> o plano da 1a escrito
+> ([`2026-09-15-reorganizacao-fase-1a-pure.md`](2026-09-15-reorganizacao-fase-1a-pure.md)).
+> Continua pendente o item 1, que é decisão do dono, mais a execução da 1a e os planos das
+> demais.
+
 1. **Decisão do Wanderson na Fase 1.5**, que não pode ser tomada por quem executa. A escolha é
    entre fazer `docs/` viajar na distribuição (o pacote fica maior, e `docs/superpowers/`
    precisaria de recorte) ou tirar o `CLAUDE.md` dela (a cópia instalada perde o guia, e o
    README precisa parar de mandar o usuário de macOS abri-lo).
-2. **Executar a Fase 0** pelo plano, que segue válido e já corrigido para `a74f2c0`. Ela não
-   toca nenhum dos 15 arquivos do baseline.
-3. **Escrever o plano da Fase 1** (`ui/`), com a restrição 3.8 como regra de toda tarefa:
-   `ui/app.js` e `ui/pure.js` estão no baseline, e o objetivo da fase passa a ser tirá-los de
-   lá.
+2. ~~**Executar a Fase 0**~~ feito em 15/09/2026, PR #87. Duas lições para as próximas: o
+   código de teste que um plano traz pronto pode divergir da convenção do repositório, e pode
+   repetir o que outro teste já decide; nos dois casos quem cobra é o `npm run eng`, não a
+   suíte.
+3. ~~**Escrever o plano da Fase 1**~~ feito em 15/09/2026, e a medição dividiu a fase em
+   três: `ui/pure.js` (sem estado de módulo, grafo interno acíclico, testes que importam) e
+   `ui/app.js` (bootstrap espalhado, `STATE` lido em 163 pontos, nove testes que recortam o
+   fonte por regex de bloco) não têm o mesmo risco nem a mesma rede de segurança.
 4. Depois: planos da Fase 1.5 (após a decisão), da Fase 2 (`test/`), da Fase 3 (raiz) e,
    revista, da Fase 4 (`server.js` e os demais arquivos da dívida em `lib/`).
 
