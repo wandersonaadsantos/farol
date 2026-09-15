@@ -7,9 +7,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+const RAIZ = path.join(import.meta.dirname, '..');
 const ler = (rel) => fs.readFileSync(path.join(RAIZ, rel), 'utf8');
 // nome de arquivo ou pasta do repositório, pra separar a lista de distribuição de
 // outros laços do mesmo script (o install.sh tem um `for d in /opt/homebrew/bin ...`)
@@ -70,8 +69,10 @@ test('todo arquivo de raiz instalado viaja no pacote', () => {
 test('toda pasta instalada viaja no pacote', () => {
   for (const d of instalado.pastas) {
     // tools/ viaja por lista de ARQUIVOS nomeados no pacote (o resto da pasta é
-    // ferramenta de build, não runtime), então a checagem aqui é do que é runtime
-    if (d === 'tools') { assert.ok(pacoteTools.includes('jira-mcp.js'), 'tools/ viaja por arquivos nomeados e jira-mcp.js e runtime'); continue; }
+    // ferramenta de build). QUAIS arquivos são de runtime não se decide aqui: quem
+    // deriva isso de lib/ é test/pacote-runtime-tools.test.js, e repetir um nome à
+    // mão criaria uma segunda fonte de verdade para a mesma pergunta
+    if (d === 'tools') { assert.ok(pacoteTools.length > 0, 'tools/ e instalada e o pacote nao nomeia nenhum arquivo dela'); continue; }
     assert.ok(pacotePastas.includes(d), `a pasta ${d} e instalada mas nao entra no zip`);
   }
 });
