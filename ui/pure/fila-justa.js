@@ -8,12 +8,13 @@
 //
 // Extraído do ui/pure.js na Fase 1a da reorganização; o conteúdo não mudou. O import
 // abaixo é a camada de baixo do diretório.
-import { esc, fmtDur, fmtMoney } from './comum.js';
-import { personMention } from './mencoes.js';
 
 // "há 12m" / "agora" pra um intervalo já medido em ms (o snapshot manda a diferença
 // pronta, não o instante, pra tela não depender do relógio da máquina bater com o do
 // engine). null = nunca aconteceu.
+import { esc, fmtDur } from './comum.js';
+import { personMention } from './mencoes.js';
+
 export function fjQuando(ms) {
   if (ms == null) return 'nunca';
   const d = fmtDur(ms);

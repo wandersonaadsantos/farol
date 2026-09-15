@@ -36,12 +36,13 @@
 // O bloco que aparece enquanto o Claude está trabalhando num PR. Os `data-id`/`data-started`
 // não são decoração: o app volta neles depois para atualizar tempo, modelo e progresso sem
 // redesenhar o cartão. Trocar um atributo desses quebra a atualização, não o layout.
-import { esc, fmtClock, fmtDur, stageLabel, aprovadosHoje } from './comum.js';
-import { personMention } from './mencoes.js';
 
 // Maquina de estados minima: 'running' e o unico estado que anda; done/error/cancelled
 // sao terminais (nao viram um ao outro nem voltam a running: quem quer "de novo"
 // cria outra operacao). O DOM do app.js so consome estas duas decisoes.
+import { esc, fmtClock, fmtDur } from './comum.js';
+import { personMention } from './mencoes.js';
+
 export function opTransition(atual, proximo) {
   if (atual === 'running' && (proximo === 'done' || proximo === 'error' || proximo === 'cancelled')) return proximo;
   return atual;

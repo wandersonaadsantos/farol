@@ -113,7 +113,9 @@
   },
   "ui/pure.js": {
     "maxLines": 1,
-    "jsonParseCru": 1,
-    "ternarioAninhado": 16
+    "ternarioAninhado": 10
+  },
+  "ui/pure/consumo.js": {
+    "ternarioAninhado": 1
   }
 }
