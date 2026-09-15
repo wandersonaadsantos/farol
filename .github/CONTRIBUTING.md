@@ -1,9 +1,13 @@
 # Contribuindo com o Farol
 
 Obrigado por olhar o código. O Farol é um app de desktop (Electron + Node puro) que
-monitora Pull Requests e dispara revisões com o Claude Code. Antes de mexer, leia o
-[`CLAUDE.md`](../CLAUDE.md) (guia do mantenedor, manda nos invariantes do app) e o
-[`docs/QUALITY.md`](../docs/QUALITY.md) (manda em como o código é organizado e verificado).
+monitora Pull Requests e dispara revisões com o Claude Code.
+
+Comece pelo [mapa do código](../README.md#mapa-do-código): ele diz quais são as duas
+entradas do app e por onde começar a ler conforme o que você quer mexer. Depois leia o
+[`CLAUDE.md`](../CLAUDE.md) (guia do mantenedor, manda nos invariantes do app; tem
+índice no topo) e o [`docs/QUALITY.md`](../docs/QUALITY.md) (manda em como o código é
+organizado e verificado).
 
 ## Invariantes que não se negociam
 

@@ -57,3 +57,9 @@ test('o indice do CLAUDE.md lista TODAS as secoes, na ordem, com ancora valida',
   const linhas = indice.split('\n').filter((l) => l.startsWith('- ['));
   assert.deepEqual(linhas, esperado, 'o índice do CLAUDE.md divergiu das seções do arquivo');
 });
+
+test('o CONTRIBUTING manda o recem-chegado pro mapa do codigo', () => {
+  const contrib = ler('.github/CONTRIBUTING.md');
+  assert.ok(contrib.includes('README.md#mapa-do-código'),
+    'o CONTRIBUTING não aponta para a seção "Mapa do código" do README');
+});
