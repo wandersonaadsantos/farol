@@ -21,6 +21,7 @@ import {
   filaJustaHtml, syncSecaoHtml, syncConfirmacoesDoClique, usageConsolidadoEnvelopeHtml, syncCfgComGeral,
   settingsIgnoradasTexto
 } from './pure.js';
+import { tokenLocal, comAutorizacao, FonteDeEventosAutenticada } from './transporte.js';
 
 const $ = (s) => document.querySelector(s);
 const isElectron = navigator.userAgent.includes('Electron');
@@ -54,14 +55,16 @@ let STATE = null;
 let logTimer = null;
 
 /* ---------- helpers ---------- */
+// A4: com token de pareamento salvo, as chamadas levam Authorization (ui/transporte.js);
+// sem token, os cabeçalhos são exatamente os de sempre.
 function api(path, body) {
   return fetch(path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-farol': '1' },
+    headers: comAutorizacao({ 'Content-Type': 'application/json', 'x-farol': '1' }),
     body: JSON.stringify(body || {})
   }).then(r => r.json()).catch(() => null);
 }
-function get(path) { return fetch(path).then(r => r.json()).catch(() => null); }
+function get(path) { return fetch(path, { headers: comAutorizacao() }).then(r => r.json()).catch(() => null); }
 
 function toastBase(kind, ms) {
   const el = document.createElement('div');
@@ -4303,7 +4306,8 @@ for (const [sel, key, read] of settingsMap) {
 let TENTATIVAS_RECONEXAO = 0;
 
 function connect() {
-  const es = new EventSource('/api/events');
+  // EventSource não aceita cabeçalho: com token, o stream é lido por fetch (A4)
+  const es = tokenLocal() ? new FonteDeEventosAutenticada('/api/events') : new EventSource('/api/events');
   es.addEventListener('state', (e) => {
     const d = safeJsonParse(e.data); if (!d) return; STATE = d;
     aplicaPlataforma(STATE.app && STATE.app.platform);   // engine manda; o userAgent era só o palpite inicial
