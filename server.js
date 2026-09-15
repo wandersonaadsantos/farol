@@ -1832,6 +1832,7 @@ class Engine extends EventEmitter {
   syncAdmit(ctx) { return syncMod.admit(this, ctx); }
   syncPreflightManual(pr) { return syncMod.preflightManual(this, pr); }
   syncRedoReceipt(key) { return syncMod.redoReceipt(this, key); }
+  syncAtualizarPublicacao(dados) { return syncMod.syncAtualizarPublicacao(this, dados); }
   // gancho do consumo (usage.js): no-op com a consolidação entre aparelhos desligada
   syncEnqueueUsage(sessao) { return syncUsageMod.enqueueUsage(this, sessao); }
   syncConsolidated(days) { return syncUsageMod.consolidated(this, days); }

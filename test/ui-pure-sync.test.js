@@ -209,6 +209,17 @@ test('syncCoordenacaoHtml: só o recibo ÓRFÃO ganha o botão de refazer', () =
   assert.doesNotMatch(desconhecido, /sync-redo/, 'falta de dado nunca libera o apagamento');
 });
 
+// C0, defeito 3: a linha dizia "pendente lá" para todo recibo, inclusive o já postado.
+test('syncCoordenacaoHtml: o chip do recibo diz o publicationState real', () => {
+  const linha = (publicationState) => P.syncCoordenacaoHtml(sync({ recibosVistos: { 'o/r#9': { deviceName: 'Celular', at: Date.now(), publicationState, orfao: 'ativo' } } }));
+  assert.match(linha('published'), /sync-chip ok">publicado lá/);
+  assert.doesNotMatch(linha('published'), /pendente lá/);
+  assert.match(linha('pending'), /sync-chip mute">pendente lá/);
+  assert.match(linha('failed'), /sync-chip bad">postagem falhou lá/);
+  assert.match(linha('not_applicable'), /sync-chip mute">concluído lá/);
+  assert.match(linha('constructor'), /concluído lá/, 'nome de protótipo não vira chip');
+});
+
 // D6: o nome do PR nunca sobe pro banco, então a tela só consegue CONTAR o que este
 // aparelho não acompanha. Nomear seria inventar.
 test('syncCoordenacaoHtml: PR que este aparelho não acompanha é contado, nunca nomeado', () => {

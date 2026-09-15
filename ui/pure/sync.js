@@ -230,13 +230,23 @@ function syncLinhaLease(key, v) {
   return `<div class="sync-coord"><span><span class="sync-ref">${esc(key)}</span><span class="sync-o-que">sendo analisado no ${esc(onde)}${desde}; este aparelho espera</span></span><span class="sync-chip info">em outro aparelho</span></div>`;
 }
 
+// O chip diz o estado REAL da publicação. Antes dizia "pendente lá" para todo recibo,
+// inclusive o já postado, e a linha mentia justamente no caso comum.
+const RECIBO_CHIP = {
+  published: '<span class="sync-chip ok">publicado lá</span>',
+  pending: '<span class="sync-chip mute">pendente lá</span>',
+  failed: '<span class="sync-chip bad">postagem falhou lá</span>',
+};
+const RECIBO_CHIP_SEM_PUBLICACAO = '<span class="sync-chip mute">concluído lá</span>';
+
 function syncLinhaRecibo(key, r) {
   const onde = r.deviceName || 'outro aparelho';
   const quando = r.at ? ` em ${esc(fmtWhenDay(r.at))}` : '';
   if (r.orfao === 'orfao') {
     return `<div class="sync-coord"><span><span class="sync-ref">${esc(key)}</span><span class="sync-o-que sync-orfao">pendente no ${esc(onde)}${quando}, sem atividade há dias; o resultado só existe lá</span></span><button class="btn sm sync-redo" data-key="${esc(key)}">Refazer neste aparelho</button></div>`;
   }
-  return `<div class="sync-coord"><span><span class="sync-ref">${esc(key)}</span><span class="sync-o-que">analisado no ${esc(onde)}${quando} neste commit</span></span><span class="sync-chip mute">pendente lá</span></div>`;
+  const chip = Object.hasOwn(RECIBO_CHIP, String(r.publicationState)) ? RECIBO_CHIP[r.publicationState] : RECIBO_CHIP_SEM_PUBLICACAO;
+  return `<div class="sync-coord"><span><span class="sync-ref">${esc(key)}</span><span class="sync-o-que">analisado no ${esc(onde)}${quando} neste commit</span></span>${chip}</div>`;
 }
 
 export function syncCoordenacaoHtml(sync) {
