@@ -82,8 +82,8 @@ mover a catraca quando o número melhora de verdade, nunca para esconder piora.
 
 ## O que fica com o mantenedor
 
-Versionamento, geração de instalador e publicação de release seguem o checklist do
-`CLAUDE.md` (seções "Versionamento" e "Release") e são executados pela conta dona do
+Versionamento, geração de instalador e publicação de release seguem o checklist de
+[`docs/RELEASE.md`](../docs/RELEASE.md) (seções "Versionamento" e "Release") e são executados pela conta dona do
 repositório. Nada disso é esperado de quem contribui.
 
 ## Reportando problema

@@ -7,7 +7,7 @@
 // numero. A referencia de SEQUENCIA e a ultima release publicada no GitHub
 // (checada pelo tools/publish-release.ps1, que recusa numero repetido ou
 // menor); aqui trava-se o que da pra travar OFFLINE: consistencia interna.
-// Ver CLAUDE.md, secao "Versionamento (regras firmes)".
+// Ver docs/RELEASE.md, secao "Versionamento (regras firmes)".
 import path from 'node:path';
 import fs from 'node:fs';
 import { test } from 'node:test';
