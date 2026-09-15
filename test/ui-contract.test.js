@@ -10,6 +10,7 @@ import fs from 'node:fs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { fonteDosPuros } from './helpers/fontes-ui.js';
 
 const APPJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
 const SERVERJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'http-server.js'), 'utf8');
@@ -78,7 +79,7 @@ test('o lote "Aprovar as N pendentes" só alcança as decisões visíveis no esc
    não faz nada. A trava confere, contra o index.html, que toda aba, seção e
    âncora citada num data-goto EXISTE. */
 const INDEXHTML = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'index.html'), 'utf8');
-const PUREJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'pure.js'), 'utf8');
+const PUREJS = fonteDosPuros();
 
 // specs literais: atributo no html e string em js. Quem monta o destino com
 // template (`sys:accounts:...${user}`) fica de fora: o valor só existe em runtime.

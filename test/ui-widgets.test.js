@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as P from '../ui/pure.js';
+import { fonteDosPuros } from './helpers/fontes-ui.js';
 const APPJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
 const HTML = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'index.html'), 'utf8');
 const CSS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.css'), 'utf8');
@@ -460,7 +461,7 @@ test('toda menção com data-goto é anunciada como botão (role + tabindex)', (
   // que o código muda de casa. Foi o que aconteceu ao mover o bloco de Consumo: o
   // piso caiu de 6 pra 5 e o teste reprovou sem que nenhuma menção tivesse perdido
   // role ou tabindex.
-  const PUREJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'pure.js'), 'utf8');
+  const PUREJS = fonteDosPuros();
   const fontes = [APPJS, HTML, PUREJS];
   const alvos = fontes.reduce((n, src) => n + [...src.matchAll(/data-goto="[^"]*"/g)].length, 0);
   assert.ok(alvos >= 6, `esperava várias menções navegáveis, achei ${alvos}`);
