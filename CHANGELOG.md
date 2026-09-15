@@ -9,6 +9,40 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.59.3
+
+Quando o autor envia commit durante a revisão, o card agora diz o que vai acontecer e
+quando, e nenhum PR fica esperando clique pra sempre depois de commit novo ou de um
+pedido de revisão.
+
+**Melhorias**
+
+- **O card de commit novo diz quem está com a bola.** Antes ele mandava "Peça uma
+  revisão nova" num caso em que o Farol já ia revisar sozinho minutos depois, e quem
+  olhava cedo concluía que o app tinha travado. Agora a caixa azul diz "Reviso de novo
+  sozinho a partir de 19:47", mostra quando a revisão nova está rodando, e fica âmbar
+  com o motivo quando o Farol não vai agir sozinho (revisão automática desligada,
+  rascunho, outra pessoa revisando, entre outros).
+- **Aprovar, Pedir mudanças e Só comentar saíram do card de commit novo.** O texto fala
+  do commit anterior e o GitHub recusaria a postagem. O botão agora é **Revisar agora**,
+  como atalho quando o Farol já vai agir e como ação principal quando ele parou.
+- **Perguntas frequentes no README** sobre commit novo durante a revisão: quanto tempo
+  leva, o que o pedido de revisão de novo faz no Farol de quem revisa, e cada motivo pelo
+  qual o Farol não revisa sozinho, com a saída de cada um.
+
+**Correções**
+
+- **Commit novo ou pedido de revisão destrava o que ficava preso.** Três casos esperavam
+  clique pra sempre, mesmo com o autor empurrando código ou pedindo revisão de novo: a
+  revisão refeita que falhava depois de um commit novo, a revisão estacionada por falha, e
+  o PR em que alguém clicou Pular. Agora os três voltam sozinhos. Continuam manuais só a
+  revisão que você cancelou e o PR que você ignorou.
+- **Acabou o teto de 3 revisões automáticas por PR por dia.** O quarto push do dia só era
+  revisado com clique ou no dia seguinte. No lugar, se 3 revisões seguidas pegarem commit
+  novo no meio, o Farol espera 30 minutos sem push antes de tentar de novo, e volta
+  sozinho. Com a sincronização entre aparelhos ligada, o teto compartilhado entre os seus
+  aparelhos continua como era.
+
 ## v2.59.2
 
 A tela de fila vazia parou de nomear a organização errada quando você monitora mais de
