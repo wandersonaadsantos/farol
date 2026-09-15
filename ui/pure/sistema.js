@@ -22,6 +22,8 @@
 //
 // Diagnóstico: é a única saída do app que alguém lê fora do app, então mudança aqui é
 // mudança de contrato com quem socorre.
+// Cada ternário do diagnosticsText mora no seu próprio `const` porque o ratchet conta '?'
+// por statement; juntá-los faria o contador subir sem nada ter piorado.
 
 // '2026-08-07 17:32:15' -> '07/08 17:32'. RECORTE DE TEXTO de proposito: o farol.log
 // ja grava em horario LOCAL, entao passar por new Date() so criaria chance de mover a

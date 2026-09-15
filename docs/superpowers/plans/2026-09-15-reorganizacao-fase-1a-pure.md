@@ -1210,3 +1210,42 @@ Esperado: o número de módulos criados.
 - **Não acrescenta nome novo à superfície pública.** Símbolo novo em módulo novo é feature,
   não reorganização.
 - **Não mexe nas quatro listas de distribuição.** Nada de novo na raiz.
+
+## Registro da execução (15/09/2026)
+
+A fase foi executada tarefa a tarefa, com a suíte, o ratchet e a tela conferidos a cada
+passo. O plano acertou o desenho (as 14 fronteiras e as três decisões de fronteira se
+sustentaram, e o grafo final não tem ciclo). O que a execução corrigiu, e que a **Fase 1b**
+precisa saber antes de começar:
+
+1. **A Task 2 original estava errada** e foi substituída. O contador `ternarioAninhado` é
+   mais cru que a regra do catálogo e acusa ternário dentro de template literal, então
+   zerá-lo exigiria contorcer código por métrica. A dívida passou a acompanhar o código, com
+   a prova de que o total por regra não sobe (seção "O ratchet mecânico" acima e
+   `docs/QUALITY.md`, "Dívida que muda de caminho").
+2. **`npm run lint:update` regenera a baseline inteira**, travando também tetos defasados
+   de arquivos que a entrega não toca. A entrega passou a trocar só as entradas dos
+   caminhos movidos, partindo da baseline do HEAD.
+3. **`export *` não traz nome para o escopo do próprio arquivo.** Enquanto um símbolo ainda
+   morava na fachada, ela precisou importar de volta o que ele chamava. Adivinhar essa lista
+   quebrou duas vezes; derivá-la do uso (com o tokenizador do ratchet,
+   `tools/quality/strip.js`, e aceitando o spread `...nome`) resolveu. Os imports de cada
+   módulo novo também saíram derivados do uso, nunca escritos à mão.
+4. **Uma contraprova desfeita com `git checkout` apagou uma edição não commitada** (a
+   fachada da Task 3), e o commit saiu com um módulo órfão que duplicava dois símbolos. A
+   suíte ficou verde, porque arquivo órfão não é lido por ninguém. Daí a trava nova em
+   `test/ui-pure-superficie.test.js`: nenhum nome declarado em dois arquivos do diretório.
+   **Regra para a 1b: contraprova se desfaz restaurando de cópia, nunca com `git checkout`
+   sobre arquivo que tem trabalho não commitado.**
+5. **Recorte por texto não serve para achar fim de função.** Contar chaves tropeça em regex
+   com aspas, e "primeiro `}` na coluna zero" cortaria `delivActivityChart` ao meio, porque
+   ela tem uma função local escrita na coluna zero dentro do corpo (as duas únicas
+   declarações aninhadas do arquivo). O fim de bloco passou a ser o primeiro candidato que
+   compila no V8. Para o `ui/app.js`, que é quatro vezes mais irregular, isso não é opcional.
+6. **Cabeçalho de seção não viaja sozinho** com o símbolo. Ao fim, 23 cabeçalhos com conteúdo
+   foram conferidos um a um contra os cabeçalhos dos módulos antes de sair da fachada.
+7. **A prova no navegador se fez importando a fachada dentro da própria página** e chamando
+   os construtores de cada módulo com dados de exemplo, anotando a CLASSE do erro:
+   `TypeError` por argumento de exemplo é aceitável, `ReferenceError` é import faltando. A
+   instância isolada roda em porta própria (47185): a padrão estava ocupada pelo Farol real
+   do usuário, e o primeiro `curl` bateu nele sem ninguém perceber.

@@ -201,7 +201,7 @@ O débito original era o `server.js`: uma classe `Engine` de 3122 linhas fazendo
 | Arquivo | Linhas | Testes |
 |---|---|---|
 | `ui/app.js` | ~3446 | nenhum que o execute (os 5 que o tocam leem o arquivo como texto) |
-| `ui/pure.js` | ~2316 | `ui-pure.test.js`, 285 testes |
+| `ui/pure.js` e `ui/pure/` | fachada de 20 linhas; 14 módulos, o maior (`contas.js`) com ~340 linhas úteis | `ui-pure.test.js` e `ui-pure-superficie.test.js` (atualizado em 15/09/2026, Fase 1a) |
 | `server.js` | ~1483 | via `boot`, `facades`, e os testes de comportamento |
 | maior módulo de `lib/` (`decision.js`) | ~869 | `decision-envelope.test.js`, `decision-history.test.js` |
 | suíte | | 1415 testes (1408 passando, 7 pulados fora do macOS) |
@@ -344,7 +344,6 @@ A lista inicial saiu de uma avaliação arquivo a arquivo, pelas três perguntas
 | arquivo | confiança | condição de fechamento |
 |---|---|---|
 | `ui/app.js` | alta | fica só o bootstrap da página (SSE, estado global, troca de aba, `data-goto`); cada aba vira módulo ES importado por ele, e `RELEASE_NOTES` vira dado próprio |
-| `ui/pure.js` | alta | um módulo comum (escape, formatadores, menções) e um por aba; `pure.js` some ou só reexporta |
 | `server.js` | alta | fica a carga de estado, as fachadas de uma linha e o ciclo de vida; os corpos com assunto próprio (workspace, PATH do boot, vistos, política por conta, identidade no GitHub, polling, auth do Claude, doctor, settings, orçamento e fila justa, snapshot) viram colaboradores |
 | `lib/engine/review.js` | alta | fica o ciclo de uma revisão (`runHeadlessReview`); escalonador, prompt, label de revisando, etapas, coordenação, re-revisão e estacionamento saem |
 | `lib/engine/selfpr.js` | alta | fica a sessão de autoanálise; elegibilidade de qualidade, ocultar PR, merge com mergeabilidade, reviewers e staleness dos meus reviews saem |
@@ -358,6 +357,8 @@ A lista inicial saiu de uma avaliação arquivo a arquivo, pelas três perguntas
 | `lib/log-taxonomy.js` | média | `parseLine` e `triage` vão para um módulo do Diagnóstico que importa `classify` |
 | `lib/engine/public-review.js` | média | a projeção da decisão para a UI (`decisionForUi` e vizinhos) sai |
 | `lib/taxonomy.js` | média | a paleta de cores por conta sai para perto da normalização de contas |
+
+**Resolvido:** `ui/pure.js` saiu da lista em 15/09/2026, na Fase 1a da reorganização. Ele só reexporta, e o conteúdo mora em 14 módulos de `ui/pure/`, um por assunto, em camadas sem ciclo (`comum`, depois `mencoes`, depois os de domínio). A condição de fechamento era exatamente essa, e `currentFindings` baixou de 15 para 14. O contrato do diretório está em `ui/pure/README.md`.
 
 **Como manter o número honesto:**
 

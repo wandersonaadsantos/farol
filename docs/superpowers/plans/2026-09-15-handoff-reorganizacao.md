@@ -116,6 +116,13 @@ quando a Fase 4 for planejada.
 > ([`2026-09-15-reorganizacao-fase-1a-pure.md`](2026-09-15-reorganizacao-fase-1a-pure.md)).
 > Continua pendente o item 1, que é decisão do dono, mais a execução da 1a e os planos das
 > demais.
+>
+> **Atualização de 15/09/2026, noite: a Fase 1a foi executada** (branch
+> `refactor/ui-pure-fase-1a`). O `ui/pure.js` virou fachada de reexport, o conteúdo mora em
+> 14 módulos de `ui/pure/` em camadas sem ciclo, a superfície pública (174 nomes) ficou
+> congelada por teste, e o `ui/pure.js` saiu da dívida de responsabilidade única
+> (`currentFindings` de 15 para 14). O que a execução corrigiu no plano está na seção
+> "Registro da execução" do próprio plano. Próximo: o plano da Fase 1b (`ui/app.js`).
 
 1. **Decisão do Wanderson na Fase 1.5**, que não pode ser tomada por quem executa. A escolha é
    entre fazer `docs/` viajar na distribuição (o pacote fica maior, e `docs/superpowers/`
