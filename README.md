@@ -109,6 +109,7 @@ Depende de onde o PR está no Farol de quem revisa:
 | revisão estacionada por falha | destrava: sai do estacionamento e volta pra fila automática |
 | alguém clicou **Pular** e o PR segue pedindo a revisão dessa pessoa | destrava: o PR volta pra fila |
 | revisão cancelada por quem revisa, ou PR **ignorado** | nada: foi decisão da pessoa, e só ela reabre |
+| revisão estacionada antes da v2.57.4 (sem motivo gravado) | nada: sem o motivo não dá pra saber se foi cancelamento, então fica com o botão Revisar |
 
 Commit novo tem o mesmo efeito do pedido nas três linhas que destravam. O Farol só aceita commit ou pedido **posterior** à parada, e o mesmo sinal nunca destrava duas vezes. O pedido precisa ser pra conta que o Farol usa naquela org.
 
