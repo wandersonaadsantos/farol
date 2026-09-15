@@ -1,0 +1,176 @@
+// Retomada durável na Engine real (CT-RET, 7.A5 da spec
+// docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md).
+// FAROL_HOME temporário ANTES do import do server.js (const de nível de módulo) e
+// import dinâmico, padrão de test/inflight-session-id.test.js. Sessão Claude nunca
+// abre: runClaudeStream é stubado, e onde a fachada real precisa rodar (admissão da
+// coordenação) o spawn do CLI é vigiado e recusado.
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
+import childProcess from 'node:child_process';
+
+const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-retomada-duravel-'));
+process.env.FAROL_HOME = HOME;
+delete process.env.FAROL_HEADLESS_CMD;
+
+const spawnReal = childProcess.spawn;
+let spawnsDoCli = 0;
+childProcess.spawn = function spawnVigiado(cmd, args, opts) {
+  if ((args || []).join(' ').includes('stream-json')) {
+    spawnsDoCli++;
+    throw new Error('spawn do CLI nesta suíte é defeito');
+  }
+  return spawnReal(cmd, args, opts);
+};
+
+import { test, after, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
+const { Engine } = await import('../server.js');
+const fanout = (await import('../lib/engine/fanout.js')).default;
+const retomada = await import('../lib/engine/retomada-duravel.js');
+const { retomadaAposFalhaBlock } = await import('../lib/engine/review.js');
+
+const prMetricsOriginal = fanout.prMetrics;
+fanout.prMetrics = async () => null;
+
+after(() => {
+  childProcess.spawn = spawnReal;
+  fanout.prMetrics = prMetricsOriginal;
+  try { fs.rmSync(HOME, { recursive: true, force: true }); } catch { /* best-effort */ }
+});
+
+const INFLIGHT = path.join(HOME, 'workspace', 'state', 'inflight.json');
+const HEAD = 'c0ffee1234ab';
+const SID = 'abcd-1234-efgh';
+const PR = {
+  key: 'o/r#21', repo: 'o/r', number: 21, url: 'https://github.com/o/r/pull/21',
+  requested: true, title: 'fix: algo', author: 'alguem'
+};
+const ENVELOPE = {
+  analysisStatus: 'complete', verdict: 'approve', decision: 'needs_decision', cardMet: true,
+  reasons: [], reportMarkdown: 'relatório', payloads: {}
+};
+const CONTEXTO = { provedor: 'dir', perfilId: '' };
+const RESPOSTA = () => ({ text: JSON.stringify({ result: JSON.stringify(ENVELOPE) }), sessionId: 'sessao-nova-0001' });
+
+beforeEach(() => {
+  spawnsDoCli = 0;
+  fs.mkdirSync(path.dirname(INFLIGHT), { recursive: true });
+  fs.writeFileSync(INFLIGHT, '[]');
+});
+
+function lerInflight() { return JSON.parse(fs.readFileSync(INFLIGHT, 'utf8')); }
+function linha(key) { return lerInflight().find(i => i.key === key); }
+
+// referência como a Engine deste teste a produziria: config sem claudeProfiles
+// resolve { kind: 'dir', id: '' }
+function semear(e, extra = {}) {
+  return retomada.guardarRetomada(e, PR, { retomarSid: SID, knownHead: HEAD, ...CONTEXTO, sessionId: SID, headSha: HEAD, ...extra });
+}
+
+// Engine real com o mínimo stubado (mesmo recorte de test/retomada-apos-falha.test.js)
+function motor() {
+  const e = new Engine();
+  e.log = () => { };
+  e.accountForPr = () => 'trabalho';
+  e.approvePolicyFor = () => 'wait';
+  e.rejectPolicyFor = () => 'wait';
+  e.scopeLabel = () => 'Conta Trabalho';
+  e.writeMemory = () => { };
+  e.headSha = async () => HEAD;
+  e.myReviewsWithTime = async () => [];
+  e.postReview = async () => ({ ok: true });
+  e.chamadas = [];
+  e.decididos = [];
+  const decidirOriginal = e.recordDecision.bind(e);
+  e.recordDecision = (pr, result, extra) => { e.decididos.push(result); return decidirOriginal(pr, result, extra); };
+  e.runClaudeStream = async (prompt, opts) => {
+    e.chamadas.push({
+      prompt, extraArgs: [...(opts.extraArgs || [])], opcao: opts.resumeOutcome,
+      registro: (e.activeReviews.get(opts.id) || {}).resumeOutcome, guardada: e.retomadas.has(PR.key),
+    });
+    return RESPOSTA();
+  };
+  return e;
+}
+
+/* ---------- Tarefa 2: persistência sem janela ---------- */
+
+test('writeInflight grava execução, fila e pendente no formato exato', () => {
+  const e = motor();
+  semear(e);
+  retomada.guardarRetomada(e, { key: 'o/r#22', url: 'u22', title: 't22', author: 'a' }, { retomarSid: 'sessao-fila-0022', knownHead: 'h22', ...CONTEXTO });
+  e.headlessQueue.push({ key: 'o/r#22', url: 'u22', title: 't22', author: 'a' });
+  e.activeReviews.set('a9', { mode: 'auto', pr: { key: 'o/r#23', url: 'u23', title: 't23', author: 'b' }, sessionId: 'sessao-exec-0023', headSha: 'h23' });
+  e.writeInflight();
+  const lista = lerInflight();
+  for (const item of lista) assert.deepEqual(Object.keys(item), [...retomada.CAMPOS_INFLIGHT]);
+  assert.equal(linha(PR.key).estado, 'pendente');
+  assert.equal(linha(PR.key).retomarSid, SID);
+  assert.equal(linha(PR.key).knownHead, HEAD);
+  assert.equal(linha(PR.key).provedor, 'dir');
+  assert.equal(linha('o/r#22').estado, 'fila');
+  assert.equal(linha('o/r#22').retomarSid, 'sessao-fila-0022');
+  assert.equal(linha('o/r#23').estado, 'execucao');
+  assert.equal(linha('o/r#23').sessionId, 'sessao-exec-0023');
+});
+
+test('dois reinícios antes da retomada não perdem a referência', () => {
+  const a = motor();
+  semear(a);
+  a.writeInflight();
+  const b = new Engine();
+  assert.equal(b.retomadas.get(PR.key).retomarSid, SID);
+  assert.equal(linha(PR.key).estado, 'pendente', 'o boot regrava a referência em vez de esvaziar o arquivo');
+  const c = new Engine();
+  const entrada = c.retomadas.get(PR.key);
+  assert.ok(entrada, 'o segundo reinício ainda encontra a referência');
+  assert.equal(entrada.retomarSid, SID);
+  assert.equal(entrada.knownHead, HEAD);
+  assert.equal(entrada.provedor, 'dir');
+  assert.equal(linha(PR.key).retomarSid, SID);
+});
+
+test('referência preservada enquanto espera vaga na fila, inclusive depois de reiniciar', () => {
+  const a = motor();
+  semear(a);
+  a.processHeadless = () => { }; // conta sem vaga: o item fica na fila
+  a.pushState = () => { };
+  a.enqueueHeadless({ ...PR });
+  assert.equal(a.headlessQueue.length, 1);
+  assert.equal(a.headlessQueue[0].retomarSid, SID, 'o PR enfileirado carrega a referência');
+  assert.equal(a.headlessQueue[0].knownHead, HEAD);
+  assert.equal(a.retomadas.has(PR.key), true, 'enfileirar não consome');
+  const item = linha(PR.key);
+  assert.equal(item.estado, 'fila');
+  assert.equal(item.retomarSid, SID);
+  assert.equal(item.knownHead, HEAD);
+  assert.equal(item.provedor, 'dir');
+  const b = new Engine();
+  assert.equal(b.retomadas.get(PR.key).retomarSid, SID, 'crash com o PR na fila não perde a referência');
+});
+
+test('boot com linha pendente não repete o aviso de revisão em andamento', () => {
+  const a = motor();
+  semear(a);
+  a.writeInflight();
+  const avisos = [];
+  const b = new Engine();
+  assert.deepEqual(b.inflightRecuperado, [], 'pendente não é revisão em andamento: nenhuma label a limpar');
+  b.log = (nivel, msg) => avisos.push(`${nivel} ${msg}`);
+  b.recoverInflight();
+  assert.equal(avisos.some(t => /app reiniciado com revisão em andamento/.test(t)), false);
+});
+
+test('PR fechado enquanto aguardava o retry: a referência sai junto', async () => {
+  const e = motor();
+  semear(e);
+  e.isMuted = () => false;
+  e.tokens = { trabalho: 'tok' };
+  e.budgetBlockedFor = () => false;
+  e.prState = async () => 'CLOSED';
+  e.retryAfterNet.set(PR.key, { tries: 1, pr: { ...PR }, notBefore: null });
+  await e._repescarRetry([], new Set());
+  assert.equal(e.retryAfterNet.has(PR.key), false);
+  assert.equal(e.retomadas.has(PR.key), false);
+});

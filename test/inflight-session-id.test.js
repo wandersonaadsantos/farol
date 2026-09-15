@@ -1,11 +1,10 @@
-// Task 2: sessionId persistido assim que nasce, não só no fim da revisão. Cobre
-// dois pontos: writeInflight serializa sessionId (ou '' sem ele) junto do PR
-// ativo, e o boot recupera esse sid via retomadaPendente, consumido em
-// enqueueHeadless (o pr.key volta pra fila via o próprio check(), redescoberto
-// no GitHub; a recuperação não reenfileira direto, só guarda o sid pra quando
-// o PR reaparecer). IMPORTANTE: FAROL_HOME temporário ANTES do require de
-// server.js (const de nível de módulo lida uma única vez no load), mesmo
-// padrão de test/boot.test.js e test/retry-net.test.js.
+// Task 2 (v2.57.3) e A5 (retomada durável): sessionId persistido assim que nasce,
+// não só no fim da revisão. writeInflight serializa sessionId (ou '' sem ele) junto
+// do PR ativo, e o boot restaura a referência em engine.retomadas
+// (lib/engine/retomada-duravel.js). enqueueHeadless só LÊ a referência: quem a
+// consome é um desfecho. IMPORTANTE: FAROL_HOME temporário ANTES do import de
+// server.js (const de nível de módulo lida uma única vez no load), mesmo padrão de
+// test/boot.test.js e test/retry-net.test.js.
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -53,14 +52,17 @@ test('writeInflight grava sessionId vazio quando a sessão ainda não recebeu o 
   assert.equal(item.sessionId, '');
 });
 
-test('boot com inflight.json contendo sessionId popula retomadaPendente, consumido por enqueueHeadless como retomarSid', () => {
+test('boot com inflight.json legado (só sessionId) restaura a referência e o enqueueHeadless não consome', () => {
   fs.mkdirSync(path.join(HOME, 'workspace', 'state'), { recursive: true });
   fs.writeFileSync(path.join(HOME, 'workspace', 'state', 'inflight.json'), JSON.stringify([
     { key: 'o/r#3', url: 'https://github.com/o/r/pull/3', title: 't', sessionId: 'sid-recuperado' }
   ]));
   const e = engineBase();
-  assert.ok(e.retomadaPendente instanceof Map, 'retomadaPendente populado no boot');
-  assert.deepEqual(e.retomadaPendente.get('o/r#3'), { sid: 'sid-recuperado', head: '' });
+  const entrada = e.retomadas.get('o/r#3');
+  assert.ok(entrada, 'referência restaurada no boot');
+  assert.equal(entrada.retomarSid, 'sid-recuperado');
+  assert.equal(entrada.knownHead, '');
+  assert.equal(entrada.provedor, '', 'inflight legado não tem contexto; a validação decide depois');
 
   // dependências do enqueueHeadless real: processHeadless/pushState viram no-op,
   // o teste foca só no dado que entra na fila
@@ -70,16 +72,16 @@ test('boot com inflight.json contendo sessionId popula retomadaPendente, consumi
   const enfileirado = e.headlessQueue.find(p => p.key === 'o/r#3');
   assert.ok(enfileirado, 'PR redescoberto entrou na fila');
   assert.equal(enfileirado.retomarSid, 'sid-recuperado', 'sid recuperado carimbado como retomarSid');
-  assert.equal(e.retomadaPendente.has('o/r#3'), false, 'consumido (get + delete), não reutilizável');
+  assert.equal(e.retomadas.has('o/r#3'), true, 'enfileirar não consome: quem consome é um desfecho');
 });
 
-test('boot com inflight.json sem sessionId não gera retomadaPendente pro PR', () => {
+test('boot com inflight.json sem sessionId não gera referência pro PR', () => {
   fs.mkdirSync(path.join(HOME, 'workspace', 'state'), { recursive: true });
   fs.writeFileSync(path.join(HOME, 'workspace', 'state', 'inflight.json'), JSON.stringify([
     { key: 'o/r#4', url: 'https://github.com/o/r/pull/4', title: 't' }
   ]));
   const e = engineBase();
-  assert.equal(e.retomadaPendente && e.retomadaPendente.has('o/r#4'), false);
+  assert.equal(e.retomadas.has('o/r#4'), false);
 });
 
 /* ---------- head da sessão caída persiste junto do sid (guarda de head no boot) ---------- */
@@ -103,22 +105,23 @@ test('writeInflight grava o headSha da sessão ativa', () => {
 test('boot com headSha carimba knownHead junto do retomarSid no enqueueHeadless', () => {
   fs.mkdirSync(path.join(HOME, 'workspace', 'state'), { recursive: true });
   fs.writeFileSync(path.join(HOME, 'workspace', 'state', 'inflight.json'), JSON.stringify([
-    { key: 'o/r#6', url: 'https://github.com/o/r/pull/6', title: 't', sessionId: 'sid-6', headSha: 'head-6' }
+    { key: 'o/r#6', url: 'https://github.com/o/r/pull/6', title: 't', sessionId: 'sid-000006', headSha: 'head-6' }
   ]));
   const e = engineBase();
-  assert.deepEqual(e.retomadaPendente.get('o/r#6'), { sid: 'sid-6', head: 'head-6' });
+  assert.equal(e.retomadas.get('o/r#6').retomarSid, 'sid-000006');
+  assert.equal(e.retomadas.get('o/r#6').knownHead, 'head-6');
   e.processHeadless = () => { };
   e.pushState = () => { };
   enqueueHeadless(e, { key: 'o/r#6', url: 'https://github.com/o/r/pull/6', title: 't' });
   const enfileirado = e.headlessQueue.find(p => p.key === 'o/r#6');
-  assert.equal(enfileirado.retomarSid, 'sid-6');
+  assert.equal(enfileirado.retomarSid, 'sid-000006');
   assert.equal(enfileirado.knownHead, 'head-6');
 });
 
 test('knownHead que já veio no objeto não é sobrescrito pelo head do boot', () => {
   fs.mkdirSync(path.join(HOME, 'workspace', 'state'), { recursive: true });
   fs.writeFileSync(path.join(HOME, 'workspace', 'state', 'inflight.json'), JSON.stringify([
-    { key: 'o/r#7', url: 'https://github.com/o/r/pull/7', title: 't', sessionId: 'sid-7', headSha: 'head-antigo' }
+    { key: 'o/r#7', url: 'https://github.com/o/r/pull/7', title: 't', sessionId: 'sid-000007', headSha: 'head-antigo' }
   ]));
   const e = engineBase();
   e.processHeadless = () => { };
@@ -126,5 +129,5 @@ test('knownHead que já veio no objeto não é sobrescrito pelo head do boot', (
   enqueueHeadless(e, { key: 'o/r#7', url: 'https://github.com/o/r/pull/7', title: 't', knownHead: 'head-vivo' });
   const enfileirado = e.headlessQueue.find(p => p.key === 'o/r#7');
   assert.equal(enfileirado.knownHead, 'head-vivo', 'o caminho vivo manda');
-  assert.equal(enfileirado.retomarSid, 'sid-7');
+  assert.equal(enfileirado.retomarSid, 'sid-000007');
 });

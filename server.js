@@ -40,6 +40,7 @@ import sessionMod from './lib/engine/session.js';
 import selfMod from './lib/engine/selfpr.js';
 import scopeMod from './lib/engine/pr-scope.js';
 import reviewMod from './lib/engine/review.js';
+import retomadaMod from './lib/engine/retomada-duravel.js';
 
 // Resolve o shape de auth a partir de um perfil já escolhido (sem cascata de conta).
 // Fica FORA da Engine pra não empilhar chave dentro do método (gate profundidadeExcedida).
@@ -301,6 +302,9 @@ class Engine extends EventEmitter {
     this.activity = new Map();       // id de sessão -> feed de eventos ao vivo
     this.running = new Map();        // id de sessão -> { child, cancelled } (só headless)
     this.retryAfterNet = new Map();  // key do PR -> { tries, pr } da re-revisão pós-falha transitória
+    // referência de retomada durável (CT-RET): key do PR -> entrada, espelhada no
+    // inflight.json por writeInflight; só um desfecho a consome (lib/engine/retomada-duravel.js)
+    this.retomadas = new Map();
     // G15: estacionamento persistido; era memória pura e cada reinício (inclusive
     // o do próprio auto-update) relançava sessões fadadas à mesma falha conhecida
     // o Array.isArray é o guarda-corpo do formato: readJson só protege de JSON
@@ -373,33 +377,30 @@ class Engine extends EventEmitter {
     try { wsTmpMod.pruneWorkspaceRaiz(); } catch { /* best-effort */ }
   }
 
-  // revisões que estavam rodando quando o app morreu: devolve à fila (o PR já
-  // tinha sido marcado como visto, então sem isso ele sumiria em silêncio)
+  // revisões que estavam rodando ou na fila quando o app morreu: devolve à fila (o PR
+  // já tinha sido marcado como visto, então sem isso ele sumiria em silêncio)
   recoverInflight() {
     const inflight = readJson(INFLIGHT_FILE, [], (m) => this.log('WARN', m));
     if (!Array.isArray(inflight) || !inflight.length) return;
     for (const pr of inflight) { if (pr && pr.key) this.unsee(pr.key); }
-    // a recuperação não reenfileira direto: unsee só devolve o PR pro check()
-    // redescobrir pelo GitHub, sem sessionId nenhum. Guarda o sid aqui e
-    // enqueueHeadless consome (get + delete) quando o PR reaparecer, carimbando
-    // retomarSid pro round seguinte pedir retomada em vez de sessão nova.
-    if (!this.retomadaPendente) this.retomadaPendente = new Map();
-    for (const pr of inflight) {
-      if (!pr || !pr.key || !pr.sessionId) continue;
-      // o head vai junto do sid: o app pode ter ficado horas fora do ar, e o
-      // sidDeRetomada precisa dele pra descartar a retomada quando o PR ganhou
-      // commit novo nesse meio-tempo (retomar aí pediria pra não reler o que mudou).
-      this.retomadaPendente.set(pr.key, { sid: pr.sessionId, head: pr.headSha || '' });
-    }
-    try { writeJsonAtomic(INFLIGHT_FILE, []); } catch { }
+    // CT-RET: a referência de retomada vai pro Map durável e o arquivo é REGRAVADO com
+    // ela em estado pendente, nunca esvaziado. Até a A5 o boot gravava [] logo depois
+    // de mover o sid pra memória, e um segundo reinício antes de o PR reaparecer perdia
+    // a única referência recuperável. Quem tira a entrada é um desfecho.
+    retomadaMod.restaurarRetomadas(this, inflight);
+    this.writeInflight();
+    // só o que estava em fila ou em execução é "revisão em andamento": a linha
+    // pendente de um boot anterior repetiria o aviso, a poda e a limpeza de label
+    // a cada reinício
+    const emCurso = retomadaMod.emAndamentoNoBoot(inflight);
     // G7: a âncora do round 2 é gravada ANTES de enfileirar; se o app morreu com
     // a re-revisão na fila/rodando, a âncora sem a revisão mataria o round pra
     // sempre naquele head. Poda em duas metades via ancoraAposReinicio (head
     // vazio nunca casa com headRound e o gate re-arma igual, mas o teto do dia
     // sobrevive ao reinício); a âncora legada não tem contador a preservar.
     let podado = false;
-    for (const pr of inflight) {
-      if (!pr || !pr.key || !this.reReviewLaunched) continue;
+    for (const pr of emCurso) {
+      if (!this.reReviewLaunched) continue;
       const v = this.reReviewLaunched[pr.key];
       if (v === undefined) continue;
       const nova = ancoraAposReinicio(v);
@@ -410,17 +411,13 @@ class Engine extends EventEmitter {
     if (podado) this.saveReReviewLaunched();
     // a label `<conta>:revisando` desses PRs ficou presa (o finally que a remove
     // não roda quando o processo morre); o start() limpa, já com token na mão
-    this.inflightRecuperado = inflight.filter(p => p && p.url);
-    this.log('WARN', `app reiniciado com revisão em andamento: ${inflight.map(p => p.key).join(', ')} devolvido(s) à fila`);
+    this.inflightRecuperado = emCurso.filter(p => p.url);
+    if (emCurso.length) this.log('WARN', `app reiniciado com revisão em andamento: ${emCurso.map(p => p.key).join(', ')} devolvido(s) à fila`);
   }
 
   writeInflight() {
     try {
-      const list = [...this.activeReviews.values()]
-        .filter(s => s.mode === 'auto' && s.pr)
-        .map(s => ({ ...s.pr, sessionId: s.sessionId || '', headSha: s.headSha || '' }))
-        .concat(this.headlessQueue.filter(p => p.kind !== 'self').map(p => ({ key: p.key, url: p.url, title: p.title })));
-      writeJsonAtomic(INFLIGHT_FILE, list);
+      writeJsonAtomic(INFLIGHT_FILE, retomadaMod.montarInflight(this));
     } catch { /* melhor perder a recuperação que derrubar a revisão */ }
   }
 
@@ -1238,9 +1235,9 @@ class Engine extends EventEmitter {
       try { state = await this.prState(pr); } catch {}
       if (state === 'MERGED' || state === 'CLOSED') {
         this.retryAfterNet.delete(pr.key);
-        // PR fechado não volta: o sid guardado no boot pra ele nunca vai ser
-        // consumido pelo enqueueHeadless, e sem isto o Map só cresce.
-        if (this.retomadaPendente) this.retomadaPendente.delete(pr.key);
+        // PR fechado não volta: a referência de retomada dele é consumida aqui, senão
+        // ficaria no inflight.json pra sempre
+        retomadaMod.consumirRetomada(this, pr.key);
       } else {
         stillOpen.push(pr);
       }
