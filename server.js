@@ -319,6 +319,13 @@ class Engine extends EventEmitter {
     const motivosSalvos = (parkedSalvo && !Array.isArray(parkedSalvo) && parkedSalvo.motivos && typeof parkedSalvo.motivos === 'object') ? parkedSalvo.motivos : {};
     for (const k of this.autoReviewParked) if (motivosSalvos[k] && typeof motivosSalvos[k] === 'object') this.parkedMotivos[k] = motivosSalvos[k];
     this.parkedPruneStrikes = new Map(); // key estacionada -> ausências SEGUIDAS do panorama (memória; reinício zera, lado seguro)
+    // PRs marcados vistos porque OUTRO aparelho já analisou o head (recibo da
+    // sincronização). Persistido porque reconciliarVistos os confundia com revisão que
+    // morreu no meio: sem o arquivo, todo reinício devolvia esses PRs à fila, a admissão
+    // ouvia o mesmo recibo e o WARN voltava. Formato errado degrada pra vazio, mesmo
+    // guarda-corpo do estacionamento acima (`{}` é JSON válido e não é lista).
+    const vistosRecibo = readJson(path.join(STATE_DIR, 'sync-vistos-por-recibo.json'), [], warn);
+    this.vistosPorRecibo = new Set(Array.isArray(vistosRecibo) ? vistosRecibo.filter(k => typeof k === 'string') : []);
     this.budgetWarned = new Set(); // ids de perfil apikey já avisados de orçamento estourado, enquanto o estouro persistir (evita repetir o toast a cada checagem)
     this.chats = readJson(CHATS_FILE, {}, warn);
     for (const k of Object.keys(this.chats)) {
@@ -548,8 +555,9 @@ class Engine extends EventEmitter {
   // Devolve à fila o que foi marcado como visto por uma revisão que NUNCA decidiu:
   // a sessão morreu no meio (app fechado, crash, falha não classificada) e o PR
   // saiu da fila pra sempre, exigindo clique manual. Não toca no que foi descartado
-  // de propósito, no que tem decisão, nem no que está em andamento, estacionado ou
-  // aguardando retry, que são estados legítimos.
+  // de propósito, no que tem decisão, no que outro aparelho já analisou (visto por
+  // recibo), nem no que está em andamento, estacionado ou aguardando retry, que são
+  // estados legítimos.
   reconciliarVistos(mineList) {
     if (!this.ignorados) return 0;
     const comDecisao = new Set([
@@ -563,7 +571,7 @@ class Engine extends EventEmitter {
     for (const pr of mineList) {
       const k = pr.key;
       if (!this.seen.has(k)) continue;
-      if (this.ignorados.has(k) || comDecisao.has(k)) continue;
+      if (this.ignorados.has(k) || comDecisao.has(k) || this.vistosPorRecibo?.has(k)) continue;
       if (emCurso.has(k) || this.autoReviewParked.has(k) || this.retryAfterNet.has(k)) continue;
       this.unsee(k);
       devolvidos++;
@@ -585,13 +593,28 @@ class Engine extends EventEmitter {
     writeTextAtomic(IGNORED_FILE, arr.join('\n') + (arr.length ? '\n' : ''));
   }
 
+  // Marcado como visto pela coordenação: a análise deste head terminou em outro
+  // aparelho (lib/sync/coordinator.js, registrarRecibo). Grava só quando muda, então
+  // quem nunca ligou a sincronização nunca ganha o arquivo.
+  marcarVistoPorRecibo(key) {
+    if (!this.vistosPorRecibo) this.vistosPorRecibo = new Set();
+    if (!this.vistosPorRecibo.has(key)) { this.vistosPorRecibo.add(key); this.saveVistosPorRecibo(); }
+  }
+
+  saveVistosPorRecibo() {
+    ensureDir(STATE_DIR);
+    writeJsonAtomic(path.join(STATE_DIR, 'sync-vistos-por-recibo.json'), [...(this.vistosPorRecibo || [])]);
+  }
+
   saveSeen() {
     ensureDir(STATE_DIR);
     writeTextAtomic(SEEN_FILE, [...this.seen].join('\n') + (this.seen.size ? '\n' : ''));
   }
 
   markSeen(key) { if (!this.seen.has(key)) { this.seen.add(key); this.saveSeen(); } }
-  unsee(key) { if (this.seen.delete(key)) this.saveSeen(); }
+  // o PR que volta à fila (re-request, destrave, restore, bloqueio de coordenação) deixa
+  // de ser "visto por recibo": a proteção do reconciliarVistos vale só enquanto ele está visto
+  unsee(key) { if (this.seen.delete(key)) this.saveSeen(); if (this.vistosPorRecibo?.delete(key)) this.saveVistosPorRecibo(); }
 
   // --- GitHub ---
   // lista normalizada de contas monitoradas: [{ user, owners }]. Sem config.accounts,
@@ -1809,10 +1832,23 @@ class Engine extends EventEmitter {
   syncAdmit(ctx) { return syncMod.admit(this, ctx); }
   syncPreflightManual(pr) { return syncMod.preflightManual(this, pr); }
   syncRedoReceipt(key) { return syncMod.redoReceipt(this, key); }
+  syncAtualizarPublicacao(dados) { return syncMod.syncAtualizarPublicacao(this, dados); }
   // gancho do consumo (usage.js): no-op com a consolidação entre aparelhos desligada
   syncEnqueueUsage(sessao) { return syncUsageMod.enqueueUsage(this, sessao); }
   syncConsolidated(days) { return syncUsageMod.consolidated(this, days); }
   syncConsolidate() { return syncUsageMod.consolidate(this); }
+
+  // Último estado decisivo MEU no GitHub por PR do panorama (staleInfo, que o
+  // refreshStaleStates já busca). É o que faz o selo concordar entre aparelhos: o
+  // histórico local só sabe o que ESTE aparelho postou.
+  reviewStatesGhParaUi() {
+    const saida = {};
+    const chaves = new Set((this.panorama || []).map(p => p.key));
+    for (const [k, info] of Object.entries(this.staleInfo || {})) {
+      if (chaves.has(k) && info && (info.lastState === 'APPROVED' || info.lastState === 'CHANGES_REQUESTED')) saida[k] = info.lastState;
+    }
+    return saida;
+  }
 
   snapshot() {
     return {
@@ -1853,6 +1889,7 @@ class Engine extends EventEmitter {
       selfAnalyses: selfMod.projectSelfAnalyses(this.selfAnalyses),
       mergeStates: this.mergeStates,
       staleStates: this.staleStates,
+      reviewStatesGh: this.reviewStatesGhParaUi(),
       // projeção pura: tira o interno (fileBlobs, mapa cru de agents) e entrega a
       // contagem/lista compacta de subagentes que a UI mostra no card da sessão
       activeSessions: sessionMod.projectSessions([...this.activeReviews.values()]),

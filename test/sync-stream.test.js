@@ -154,6 +154,28 @@ test('leasesVistosDe: só lease vivo de OUTRO aparelho em PR conhecido; o resto 
   assert.deepEqual(stream.leasesVistosDe(null, { euDeviceId: 'dev-eu', nowMs: agora, conhecidos, devices: {} }), { vistos: {}, outros: 0 });
 });
 
+test('proximoVencimentoDe: o menor expiresAt entre os leases que a visão mostra ou conta; nenhum dá 0', () => {
+  const agora = 1_800_000_000_000;
+  const ah = accountHash(CONTA);
+  const arvore = { [ah]: {
+    [prHash(PR_CONHECIDO)]: { deviceId: 'dev-outro', expiresAt: agora + 5000 },
+    [prHash(PR_DESCONHECIDO)]: { deviceId: 'dev-outro', expiresAt: agora + 3000 },
+    [prHash(PR_MEU)]: { deviceId: 'dev-eu', expiresAt: agora + 1000 },
+    [prHash(PR_VENCIDO)]: { deviceId: 'dev-outro', expiresAt: agora },
+    [prHash('Org/Repo#10')]: { deviceId: 'dev-outro' },
+  } };
+  assert.equal(stream.proximoVencimentoDe(arvore, { euDeviceId: 'dev-eu', nowMs: agora }), agora + 3000,
+    'lease de PR desconhecido também vence e muda a contagem de outros');
+  assert.equal(stream.proximoVencimentoDe(null, { euDeviceId: 'dev-eu', nowMs: agora }), 0);
+});
+
+test('fecharStream desarma o timer do vencimento', () => {
+  const t = agendador.setTimeout(() => { throw new Error('o timer do vencimento não podia disparar depois de fechar'); }, 1234);
+  const rt = { agendadorStream: agendador, stream: { fechado: false, vigia: null, espera: null, controle: null, acordar: null, vencimento: t } };
+  assert.equal(stream.fecharStream(rt), true);
+  assert.equal(t.vivo, false);
+});
+
 // --- ciclo de vida contra os dublês --------------------------------------------------
 
 const engine = new Engine();
@@ -227,19 +249,25 @@ test('o release some com o PR da visão', async () => {
   assert.deepEqual(engine.sync.leasesVistos, {});
 });
 
-test('lease que vence sem evento nenhum sai da visão no tick seguinte', async () => {
-  // O lease nasce com validade NORMAL e quem anda é o relógio. A versão anterior o
-  // criava valendo 300 ms e esperava o SSE entregá-lo dentro dessa janela: com o runner
-  // carregado o lease já tinha vencido quando o evento chegava, e o caso reprovava por
-  // latência. O que está sob teste é o lease vencer sem evento nenhum, não o socket ser
-  // rápido. Mesmo padrão do sync-faxina.test.js.
+// Atualizado DE PROPÓSITO na C0 (defeito 4). A versão anterior travava o comportamento
+// "sai no tick seguinte": o lease de um aparelho que morreu não gera evento, e a tela o
+// mostrava até o próximo ciclo de polling. Agora um timer acorda no menor vencimento
+// visível e recalcula a visão sozinho. O relógio anda à mão, como antes, porque o que
+// está sob teste é o lease vencer sem evento nenhum, não o socket ser rápido.
+test('lease que vence sem evento nenhum sai da visão no timer do vencimento, sem ciclo', async () => {
   const relogio = engine.sync.agora;
   assert.equal((await acquireLease(outro, ids(PR_CONHECIDO), dadosDoLease('L-curto', 'dev-outro'))).ok, true);
   await ate(() => engine.sync.leasesVistos[PR_CONHECIDO], 'lease curto visto');
+  const t = engine.sync.stream.vencimento;
+  assert.ok(t && t.vivo, 'há um timer armado no menor vencimento visível');
+  assert.ok(t.ms > 0 && t.ms <= SYNC.LEASE_TTL_MS, 'a espera vai até o vencimento, não até o ciclo');
+  const antes = pushes;
   engine.sync.agora = () => relogio() + SYNC.LEASE_TTL_MS + 1000;
   try {
-    await engine.syncTick();
-    assert.equal(engine.sync.leasesVistos[PR_CONHECIDO], undefined);
+    t.vivo = false;
+    t.fn();
+    assert.equal(engine.sync.leasesVistos[PR_CONHECIDO], undefined, 'saiu da visão sem syncTick');
+    assert.ok(pushes > antes, 'a tela é avisada');
   } finally {
     engine.sync.agora = relogio;
   }
@@ -285,7 +313,8 @@ test('cancel fecha, loga WARN uma vez e reabre com espera', async () => {
 });
 
 test('sem rede, a espera dobra até STREAM_RECONNECT_MAX_MS e volta ao mínimo quando o stream responde', async () => {
-  const esperaAgendada = () => timers.filter((t) => t.vivo && t.ms !== SYNC.STREAM_IDLE_MS).at(-1);
+  // o timer do vencimento (C0) também vive no agendador e não é espera de reconexão
+  const esperaAgendada = () => timers.filter((t) => t.vivo && t.ms !== SYNC.STREAM_IDLE_MS && t !== (engine.sync.stream && engine.sync.stream.vencimento)).at(-1);
   rede.fora = true;
   rtdb.fecharStreams();
   const esperas = [];

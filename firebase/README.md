@@ -18,15 +18,33 @@ escrita condicionada por ETag), mas são elas que impedem outro usuário de ler 
 
 ## O que sobe para o banco
 
-- **Presença do aparelho** (`users/{uid}/devices/{deviceId}`): nome, sistema, versão do
-  Farol e o horário da última vez em que o aparelho foi visto (carimbo do servidor).
+- **Presença do aparelho** (`users/{uid}/devices/{deviceId}`): nome do aparelho, sistema
+  operacional, versão do Farol e o horário da última vez em que o aparelho foi visto
+  (carimbo do servidor).
 - **Coordenação de análise** (`leases`, `receipts`, `dailyRounds`): quem está revisando
   qual PR agora, o que já foi concluído e quantas rodadas automáticas o PR teve no dia.
 - **Eventos de consumo** (`usageEvents`), só com a consolidação ligada: tokens, custo,
-  modelo e tipo de cada sessão.
+  modelo, perfil e tipo de cada sessão.
 
-Conta do GitHub e PR sobem só como hash SHA-256. Título, repositório, número de PR e
-texto de revisão nunca saem do aparelho.
+### Em claro, legível por quem abrir o banco
+
+- o SHA do commit analisado, no lease e no recibo (ele pode levar direto ao repositório,
+  quando o repositório é público);
+- o nome do aparelho, que vazio usa o nome da máquina (hostname), o sistema operacional e
+  a versão do Farol;
+- no consumo: o modelo, o perfil do Claude, os tokens e o custo de cada sessão;
+- identificadores e horários de cada análise (qual aparelho, quando começou, quando vence,
+  como terminou e se foi publicada).
+
+### Como resumo SHA-256 sem chave
+
+Conta do GitHub e PR (dono, repositório e número). Sem chave quer dizer que quem já
+conhece o nome consegue calcular o mesmo resumo e conferir.
+
+### Nunca sai do aparelho
+
+Prompts, diffs, relatórios, título do PR, nome do repositório em texto, texto de revisão,
+logs e credenciais.
 
 ## Configurar (uma vez, no console do Firebase)
 

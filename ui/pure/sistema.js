@@ -326,3 +326,14 @@ export function diagnosticsText(ctx = {}) {
     '(este relatório não contém tokens nem senhas)'
   ].join('\n');
 }
+
+// O que o servidor recusou num salvamento de preferências, em frase de toast. Vazio
+// quando tudo entrou. Um texto só para os três salvamentos da tela: cada handler olhando
+// a própria chave escondia a recusa das outras.
+export function settingsIgnoradasTexto(r) {
+  const lista = r && Array.isArray(r.ignoradas) ? r.ignoradas.filter((k) => typeof k === 'string' && k) : [];
+  if (!lista.length) return '';
+  const nomes = lista.map((k) => `"${k}"`).join(', ');
+  if (lista.length === 1) return `${nomes} não foi salva: o servidor não reconhece essa preferência.`;
+  return `${nomes} não foram salvas: o servidor não reconhece essas preferências.`;
+}
