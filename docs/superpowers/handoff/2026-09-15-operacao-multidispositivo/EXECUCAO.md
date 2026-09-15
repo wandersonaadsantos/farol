@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026 (iniciativa inteira, limites no plano mestre, seção 4).
-- **Entrega em curso:** A1.
+- **Entrega em curso:** A4 (revisão e integração da branch `md/a4`, executada em worktree própria). A1 concluída.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 - **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026.
@@ -29,9 +29,9 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 | 1 | C1a Allowlist de Host | `md/c1a` | validado localmente, integrado (`be95e67`) | `evidencias-execucao/c1a.md` |
 | 2 | C0 Correções da sincronização publicada | `md/c0` | validado localmente, integrado | `evidencias-execucao/c0.md` |
 | 3 | A5 Retomada durável | `md/a5` | validado localmente, integrado | `evidencias-execucao/a5.md` |
-| 4 | A1 Consumo fiel (sem o item 1) | `md/a1` | em curso | |
+| 4 | A1 Consumo fiel (sem o item 1) | `md/a1` | validado localmente, item 1 bloqueado | `evidencias-execucao/a1.md` |
 | 5 | C0b Arbitragem de postagem no funil | `md/c0b` | plano pronto | |
-| 6 | A4 Autenticação local, núcleo | `md/a4` | plano pronto | |
+| 6 | A4 Autenticação local, núcleo | `md/a4` | validado localmente na worktree `farol-md-a4`, aguardando integração | `evidencias-execucao/a4.md` (chega com o merge) |
 | seguintes | C1, C2, C3, C4, C4b, C5, C6, C7, C8, telas | | planos a escrever | |
 
 ## Bloqueios
@@ -46,6 +46,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 | Entrega | O que falta provar | Onde |
 |---|---|---|
 | C1a | `Origin` real do Chromium na janela do Electron | job `electron` do CI, na publicação |
+| A1 | `test/usage-interrompida-processo.test.js` no POSIX (o ramo `/bin/sh -lc` com grupo destacado só existe fora do Windows) | WSL ou CI |
 
 ## Decisões e ajustes técnicos
 
@@ -54,6 +55,8 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 - C1a: contagem esperada de uma mutação corrigida de 4 para 5; testes de estático incluem `/pure/comum.js`.
 - A `main` remota andou depois da base (reorganização Fase 1.5: seções do `CLAUDE.md` foram para `docs/REVIEW-GATES.md`, `docs/CONFIGURATION.md`, `docs/MACOS.md`, `docs/RELEASE.md`). A base segue fixa; as seções que as entregas acrescentam ao `CLAUDE.md` são reconciliadas com os guias na preparação da publicação.
 - A5: isolamento de estado persistido no teste novo e ajuste do teste de rodada cega, detalhados na evidência.
+- A1: `lib/engine/usage-desfechos.js` criado fora do plano para manter `usage.js` abaixo do teto de linhas do ratchet, em vez de subir a baseline. Detalhes e as outras correções de forma na evidência.
+- A1: uma contraprova da Tarefa 13 não provava nada (mutava uma marca redundante) e foi refeita. Contraprova que não falha não é contraprova.
 
 ## Commits
 
@@ -64,7 +67,8 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 | `716650d`, `06d06bb`, merge `be95e67` | `md/c1a` | C1a: função pura, guarda no servidor, mapa e evidência |
 | `a71f485`, `6ca587e`, `39cbb11`, `1d22d32`, `173c6d2`, `bdd960c` | `md/c0` | C0: os seis defeitos, um commit cada |
 | `fe1ab5e`, `0181acb`, `3f5c486`, `24e1ff3`, `6c927ec` | `md/a5` | A5: módulo puro, persistência, referência com contexto, validação, desfechos |
+| `5bbde8b`, `160b581`, `7ab3fc5`, `659642f`, `3ab53d3`, `75a3d15`, `a488424`, `1fd7f38`, `436305b`, `c684e38`, `8256b95`, `d436c9c`, `d478abf`, `2557b05`, `106d5bb`, `eed54ed` | `md/a1` | A1: instrumento de medição, id opaco, falha durável, custo desconhecido, reserva no gate, Codex, recusa de envelope, teto de pushback, correção pelo carimbo da linha, diário de tentativas, fiação e prova com processo real |
 
 ## Próxima ação concreta
 
-Revisar as premissas do plano da A1 contra a ponta de `md/integracao` e executar a Tarefa 1 em `md/a1`.
+Integrar `md/a1` em `md/integracao`, rodar o gate na integração e em seguida integrar `md/a4` (revisada: porteiro, pareamento, sessões, transporte da UI e as quatro listas de distribuição conferidas). Depois, executar a C0b.
