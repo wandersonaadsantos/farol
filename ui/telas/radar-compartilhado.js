@@ -421,8 +421,13 @@ function aoClicarHistorico(e) {
   if (e.target.closest('.md-enviar')) enviarHistorico();
 }
 
+// O tique também confere os recibos abertos: sem isso, "enviado" só mudava quando chegava um
+// snapshot novo do estado, e ele pode demorar minutos a vir depois que o executor aplicou.
 function tiqueDoAndamento() {
-  if (visaoCompartilhada(syncAtual()) === 'ligada') renderOperacoes(syncAtual());
+  const s = syncAtual();
+  if (visaoCompartilhada(s) !== 'ligada') return Promise.resolve();
+  renderOperacoes(s);
+  return atualizarRecibos(Array.isArray(s.comandosEmitidos) ? s.comandosEmitidos : []);
 }
 
 // Registro explícito, chamado pelo bootstrap DEPOIS do Consumo: registrar no import mudaria
@@ -431,12 +436,12 @@ function registrarTelaRadarCompartilhado() {
   registrarTela({ id: 'radar-compartilhado', aoEstado: renderCompartilhado });
   $('#mdCompartilhado').addEventListener('click', aoClicarCompartilhado);
   $('#mdHistorico').addEventListener('click', aoClicarHistorico);
-  const t = setInterval(tiqueDoAndamento, ANDAMENTO_TIQUE_MS);
+  const t = setInterval(() => { tiqueDoAndamento().catch(() => { /* o próximo tique tenta de novo */ }); }, ANDAMENTO_TIQUE_MS);
   if (t && typeof t.unref === 'function') t.unref();
 }
 
 export {
-  registrarTelaRadarCompartilhado, renderCompartilhado, aoAndamentoRemoto, aoPendenciasRemotas,
+  registrarTelaRadarCompartilhado, renderCompartilhado, aoAndamentoRemoto, aoPendenciasRemotas, tiqueDoAndamento,
   marcarVisto, decidirNoAparelho, cancelarOperacao, transferirOperacao, tomarOperacao, medirHistorico, enviarHistorico,
   atualizarRecibos, repetirRevisao, iniciarCandidato, buscarRevisoes,
 };

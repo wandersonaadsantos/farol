@@ -347,3 +347,19 @@ test('revisões: a contagem das que não abriram, vinda da rota, chega ao cartã
   await Tela.buscarRevisoes();
   assert.doesNotMatch($('#mdRevisoes').innerHTML, /não abriu/, 'sem contagem, nada a dizer');
 });
+
+// Visto na jornada da bancada: o executor já tinha aplicado, e a lista seguia "enviado"
+// porque os recibos só eram reconsultados quando chegava um snapshot novo do estado. O
+// tique de 10 s da tela passa a consultar os recibos abertos também (com o mesmo piso).
+test('o tique da tela consulta os recibos abertos, sem esperar um snapshot novo', async () => {
+  const cmd = { cmdId: '6'.repeat(32), tipo: 'transferir', alvo: 'dOutro', at: Date.now(), vence: Date.now() + 60000, prTag: OP.prTag, prKey: 'acme-exemplo/app-web#41', destino: 'dEu' };
+  RESPOSTAS['/api/sync/command-status'] = { ok: true, recibo: null };
+  emitir('state', estado({ sync: { admin: ADMIN, comandosEmitidos: [cmd] } }));
+  await Tela.atualizarRecibos([cmd], { forcar: true });
+  assert.match($('#mdComandos').innerHTML, />enviado</);
+  RESPOSTAS['/api/sync/command-status'] = { ok: true, recibo: { dev: 'dOutro', estado: 'aplicado', code: '', at: Date.now() } };
+  const agoraReal = Date.now;
+  Date.now = () => agoraReal() + 11000;
+  try { await Tela.tiqueDoAndamento(); } finally { Date.now = agoraReal; }
+  assert.match($('#mdComandos').innerHTML, /sync-chip ok">aplicado</);
+});
