@@ -99,6 +99,12 @@
             ".write": "@U@ && ((@H(['dev','x'])@ && newData.child('x').val() <= now + 1200000) || @LIMPA@)"
           }
         },
+        "pushbacks": {
+          ".write": "@U@ && @LIMPA@",
+          "$pr": {
+            ".write": "@U@ && ((@H(['v','u','dev'])@ && $pr.matches(/^[0-9a-f]+$/) && newData.child('u').isNumber() && (newData.child('del').val() == true || @ENC(1024)@)) || @LIMPA@)"
+          }
+        },
         "usageEvents": {
           ".write": "@U@",
           "$device": {

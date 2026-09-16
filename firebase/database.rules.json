@@ -99,6 +99,12 @@
             ".write": "auth != null && auth.uid == $uid && ((newData.hasChildren(['dev', 'x']) && newData.child('x').val() <= now + 1200000) || !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists())"
           }
         },
+        "pushbacks": {
+          ".write": "auth != null && auth.uid == $uid && !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
+          "$pr": {
+            ".write": "auth != null && auth.uid == $uid && ((newData.hasChildren(['v', 'u', 'dev']) && $pr.matches(/^[0-9a-f]+$/) && newData.child('u').isNumber() && (newData.child('del').val() == true || newData.child('enc').isString() && newData.child('enc').val().matches(/^e1[.]g[0-9]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$/) && newData.child('enc').val().length <= 1024)) || !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists())"
+          }
+        },
         "usageEvents": {
           ".write": "auth != null && auth.uid == $uid",
           "$device": {
