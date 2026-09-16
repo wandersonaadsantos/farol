@@ -341,3 +341,9 @@ do servidor. Quem protege esse nó é o cliente, pelas cinco condições do ato.
     viva fora da limpeza, **401**. Consulta `orderBy="su"` sem aviso de índice ausente.
 33. **`panoramaMeta/{scope}` e `myPrsMeta/{scope}`:** `x` até agora + 20 min, **200**;
     além disso, **401**.
+
+## Validação manual das regras v2 (C3f, memória de pushback)
+
+34. **`pushbacks/{prTag}`:** registro `{v, u, dev, enc}` até 1024, **200**; lápide
+    `{v, u, dev, del: true}` sem `enc`, **200**; id fora do formato de tag, **401**;
+    `DELETE` fora da limpeza, **401**.
