@@ -1893,6 +1893,7 @@ class Engine extends EventEmitter {
   syncMedirEnvio() { return syncMod.medirEnvio(this); }
   syncEnviarHistorico(dados) { return syncMod.enviarHistorico(this, dados); }
   syncRecentes(dados) { return syncMod.recentes(this, dados); }
+  syncListasRemotas() { return syncMod.listasRemotas(this); }
   syncAbrirRevisao(dados) { return syncMod.abrirRevisao(this, dados); }
   syncMarcarVisto(dados) { return syncMod.marcarVisto(this, dados); }
   syncAparelho(dados) { return syncMod.aparelho(this, dados); }
