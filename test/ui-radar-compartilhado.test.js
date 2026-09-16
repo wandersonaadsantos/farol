@@ -249,3 +249,13 @@ test('enviar sem medida não chama a rota', async () => {
   await Tela.enviarHistorico();
   assert.equal(pedidosPara('/api/sync/history-send').length, 0);
 });
+
+// reforço da contraprova M17: medida sem impressão não autoriza envio nenhum, porque o
+// engine só aceita confirmar AQUELE conteúdo medido
+test('enviar com medida sem impressão não chama a rota', async () => {
+  RESPOSTAS['/api/sync/history-measure'] = { ok: true, categorias: { revisoes: 3 }, pendentes: 3, bytes: 10 };
+  const medido = await Tela.medirHistorico();
+  assert.equal(medido.fase, 'medido');
+  await Tela.enviarHistorico();
+  assert.equal(pedidosPara('/api/sync/history-send').length, 0);
+});

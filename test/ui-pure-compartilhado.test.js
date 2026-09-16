@@ -100,6 +100,9 @@ test('prCoordNoteHtml: soma as notas novas sem mudar a da coordenação', () => 
   assert.ok(html.startsWith('<div class="pr-coord">Em análise no Desktop antigo.'), 'a nota antiga continua primeiro');
   assert.match(html, /Esperando distribuição/);
   assert.equal(P.prCoordNoteHtml('x/y#9', sync()), '', 'sem nada a dizer, nada');
+  // reforço da contraprova M15: a tomada sofrida chega ao card pela MESMA boca
+  const tomado = sync({ tomadasSofridas: [{ prKey: 'a/b#1', para: 'dOutro', geracao: 3, at: AGORA }] });
+  assert.match(P.prCoordNoteHtml('a/b#1', tomado, AGORA), /pr-coord bad">Tomado pelo Desktop antigo/);
 });
 
 /* ---------- quem pode emitir comando ---------- */
