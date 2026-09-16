@@ -141,7 +141,10 @@ test('testar um perfil de assinatura consulta o CLI naquele diretório e marca o
   assert.equal(r.perfil.label, 'Trabalho');
   const chamada = comandos.find((x) => x.linha === 'claude auth status --json');
   assert.ok(chamada, 'o CLI foi consultado');
-  assert.equal(chamada.env.CLAUDE_CONFIG_DIR, DIR_A);
+  // a credencial vem da pasta do perfil; a configuração que o CLI reescreve é uma cópia
+  // efêmera (test/perfil-claude-sem-escrita.test.js prova que a pasta não muda)
+  assert.equal(chamada.env.CLAUDE_SECURESTORAGE_CONFIG_DIR, DIR_A);
+  assert.ok(chamada.env.CLAUDE_CONFIG_DIR && chamada.env.CLAUDE_CONFIG_DIR !== DIR_A);
   // a chave e o token estavam NO AMBIENTE deste processo (o beforeEach os planta): sem a
   // limpeza da sessão de login, o teste do perfil responderia pela credencial da máquina
   assert.equal(chamada.env.ANTHROPIC_API_KEY, undefined, 'credencial da máquina não vaza para o teste');

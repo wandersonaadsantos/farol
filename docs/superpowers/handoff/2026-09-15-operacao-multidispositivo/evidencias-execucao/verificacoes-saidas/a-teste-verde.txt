@@ -1,0 +1,34 @@
+✔ testar um perfil de pasta não altera NENHUM arquivo da pasta, e a credencial vem dela (469.0258ms)
+✔ a cópia efêmera nunca recebe a credencial, e leva o settings.json (407.6614ms)
+✔ o padrão da máquina (sem pasta) não altera o ~/.claude.json nem o ~/.claude (434.3236ms)
+✔ CLI que falha ainda apaga a cópia efêmera (9.7773ms)
+✔ perfil padrão apontando para id que não existe é problema, não "usa o padrão" (1.1638ms)
+✔ override de conta para id inexistente é problema da conta (0.2494ms)
+✔ id preenchido com a lista de perfis vazia também é problema (a cascata ignora o id) (0.2041ms)
+✔ perfil que existe mas não resolve (sem chave, sem pasta) é inválido (0.243ms)
+✔ configuração saudável não tem problema, e sem id nenhum também não (0.2234ms)
+✔ o snapshot leva os problemas, e o Diagnóstico mostra um check por problema (23.0392ms)
+✔ sem problema, nenhum check de perfil aparece (0.1199ms)
+✔ a resolução real usa a mesma regra de perfil utilizável (17.5811ms)
+✔ testar um perfil de assinatura consulta o CLI naquele diretório e marca o que foi validado (9.6754ms)
+✔ CLI sem login (código 1 com JSON) é resposta válida: login falso, validado (8.9315ms)
+✔ CLI que não responde vira inferência do arquivo, nunca validação (8.4319ms)
+✔ testar perfil que não existe devolve erro, sem cair no padrão (6.9073ms)
+✔ perfil de chave de API: nada roda, a chave nunca sai e a origem é informado (7.2918ms)
+✔ sem id, o teste é do padrão da máquina, com a pasta como inferida (9.5997ms)
+✔ adotar sem confirmar só mostra a prévia e não grava nada (7.4506ms)
+✔ adotar com confirmação cria o perfil e o marca como padrão (11.3071ms)
+✔ confirmação que não é true literal não grava (8.0901ms)
+✔ quem já tem perfil ou usa o padrão da máquina não tem o que adotar (13.0806ms)
+✔ no macOS e no Linux, o fim da sessão de login reatualiza o doctor (o selo muda sem clique) (0.2754ms)
+✔ sessão de revisão que termina não dispara o doctor (0.0931ms)
+✔ as rotas fazem o mesmo que as fachadas, e a adoção pela rota exige confirmação literal (33.0758ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1473.8835
+codigo de saida: 0

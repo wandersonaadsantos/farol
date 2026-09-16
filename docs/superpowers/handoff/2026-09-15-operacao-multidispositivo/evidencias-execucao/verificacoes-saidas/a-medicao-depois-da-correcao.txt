@@ -1,0 +1,43 @@
+
+=== caso 1: pasta vazia (660 ms)
+resposta: ok=true escreveu=false login={"valor":false,"origem":"validado"} tipoAuth={"valor":"none","origem":"validado"} email={"valor":null,"origem":"desconhecido"} aviso=""
+pasta do perfil (CLAUDE_CONFIG_DIR) antes:
+  (vazia)
+diferença na pasta do perfil:
+  (nenhuma diferença)
+diferença no FAROL_HOME:
+  (nenhuma diferença)
+diferença no home falso:
+  + AppData/  dir
+  + AppData/Roaming/  dir
+
+=== caso 2: pasta com arquivos sintéticos (.claude.json, settings.json, .credentials.json falsa) (681 ms)
+resposta: ok=true escreveu=false login={"valor":false,"origem":"validado"} tipoAuth={"valor":"none","origem":"validado"} email={"valor":"sintetico@exemplo.invalid","origem":"detectado"} aviso=""
+pasta do perfil (CLAUDE_CONFIG_DIR) antes:
+  .claude.json  95B sha256:3bb183720c271e12
+  .credentials.json  98B sha256:bac9d131cc44788e
+  settings.json  26B sha256:101e18c8a8ae20ef
+diferença na pasta do perfil:
+  (nenhuma diferença)
+diferença no FAROL_HOME:
+  (nenhuma diferença)
+diferença no home falso:
+  (nenhuma diferença)
+
+=== caso 3: padrão da máquina (sem pasta; home falso com .claude/ e .claude.json sintéticos) (682 ms)
+resposta: ok=true escreveu=false login={"valor":false,"origem":"validado"} tipoAuth={"valor":"none","origem":"validado"} email={"valor":null,"origem":"desconhecido"} aviso=""
+pasta do perfil (home falso) antes:
+  .claude/  dir
+  .claude/.credentials.json  98B sha256:bac9d131cc44788e
+  .claude/settings.json  26B sha256:101e18c8a8ae20ef
+  .claude.json  95B sha256:3bb183720c271e12
+  AppData/  dir
+  AppData/Roaming/  dir
+diferença na pasta do perfil:
+  (nenhuma diferença)
+diferença no FAROL_HOME:
+  (nenhuma diferença)
+
+temporário removido: true
+codigo de saida: 0
+arquivos reais (~/.claude.json, ~/.claude/.credentials.json): tamanho e mtime inalterados

@@ -1,0 +1,62 @@
+CONFERE | C0 arvore limpa, sem escotilha | codigo=0 esperado=0 | marca "pacote limpo": true | restaurado: true | dist: ["farol-v2.59.5.zip"]
+      ok  pacote limpo: C:\Users\wanderson\Documents\farol\.claude\worktrees\agent-ace98a1f015ac9eb3\dist\farol-v2.59.5.zip (1.225 KB, 249 arquivos)
+          auditado: sem estado, sem config, sem tokens, sem conta pessoal.
+CONFERE | C1 controle: comentario inocente num .js (com escotilha) | codigo=0 esperado=0 | marca "pacote limpo": true | restaurado: true | dist: ["farol-v2.59.5.zip"]
+      ok  pacote limpo: C:\Users\wanderson\Documents\farol\.claude\worktrees\agent-ace98a1f015ac9eb3\dist\farol-v2.59.5.zip (1.225 KB, 249 arquivos)
+          auditado: sem estado, sem config, sem tokens, sem conta pessoal.
+CONFERE | C2 ghp_ num .js | codigo=1 esperado=diferente de 0 | marca "POSSIVEL CREDENCIAL": true | restaurado: true | dist: []
+      x  POSSIVEL CREDENCIAL/CONTA PESSOAL NO PACOTE:
+         io.js:152  // ghp_A1b2C3d4A1b2C3d4A1b2C3d4A1b2C3d4A1b2C3d4
+CONFERE | C3 github_pat_ num .js | codigo=1 esperado=diferente de 0 | marca "POSSIVEL CREDENCIAL": true | restaurado: true | dist: []
+      x  POSSIVEL CREDENCIAL/CONTA PESSOAL NO PACOTE:
+         io.js:152  // github_pat_x9x9x9x9x9x9x9x9x9x9x9x9x9x9x9
+CONFERE | C4 gho_ num .js | codigo=1 esperado=diferente de 0 | marca "POSSIVEL CREDENCIAL": true | restaurado: true | dist: []
+      x  POSSIVEL CREDENCIAL/CONTA PESSOAL NO PACOTE:
+         io.js:152  // gho_Z7y6X5w4Z7y6X5w4Z7y6X5w4Z7y6X5w4
+CONFERE | C5 ATATT num .js | codigo=1 esperado=diferente de 0 | marca "POSSIVEL CREDENCIAL": true | restaurado: true | dist: []
+      x  POSSIVEL CREDENCIAL/CONTA PESSOAL NO PACOTE:
+         io.js:152  // ATATTq1w2e3r4t5y6
+CONFERE | C6 Bearer com valor num .js | codigo=1 esperado=diferente de 0 | marca "POSSIVEL CREDENCIAL": true | restaurado: true | dist: []
+      x  POSSIVEL CREDENCIAL/CONTA PESSOAL NO PACOTE:
+         io.js:152  // Authorization: Bearer kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
+CONFERE | C7 conta pessoal num .js | codigo=1 esperado=diferente de 0 | marca "POSSIVEL CREDENCIAL": true | restaurado: true | dist: []
+      x  POSSIVEL CREDENCIAL/CONTA PESSOAL NO PACOTE:
+         io.js:152  // conta wandersonbiuder no meio da linha
+CONFERE | C8 barreira de nome: lib/config.json | codigo=1 esperado=diferente de 0 | marca "ARQUIVOS PROIBIDOS": true | restaurado: true | dist: []
+      x  ARQUIVOS PROIBIDOS NO PACOTE:
+         lib/config.json
+CONFERE | C9 barreira de nome: lib/state/sintetico.json | codigo=1 esperado=diferente de 0 | marca "ARQUIVOS PROIBIDOS": true | restaurado: true | dist: []
+      x  ARQUIVOS PROIBIDOS NO PACOTE:
+         lib/state/sintetico.json
+CONFERE | C10 barreira de nome: ui/farol.log | codigo=1 esperado=diferente de 0 | marca "ARQUIVOS PROIBIDOS": true | restaurado: true | dist: []
+      x  ARQUIVOS PROIBIDOS NO PACOTE:
+         ui/farol.log
+CONFERE | C11 guarda de arvore suja: mudanca em lib sem escotilha | codigo=1 esperado=diferente de 0 | marca "arvore suja": true | restaurado: true | dist: []
+      ERRO: arvore com mudancas nao commitadas nos arquivos do pacote:
+         M lib/io.js
+    arvore suja: o pacote sairia diferente do commit. Commite, ou construa de uma worktree limpa (FAROL_ALLOW_DIRTY=1 so
+    +     throw 'arvore suja: o pacote sairia diferente do commit. Commite, ...
+    +     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        + CategoryInfo          : OperationStopped: (arvore suja: o ...a teste local).:String) [], RuntimeException
+CONFERE | C12 ghp_ em MAIUSCULAS num .js (Select-String ignora caixa) | codigo=1 esperado=diferente de 0 | marca "POSSIVEL CREDENCIAL": true | restaurado: true | dist: []
+      x  POSSIVEL CREDENCIAL/CONTA PESSOAL NO PACOTE:
+         io.js:152  // GHP_A1B2C3D4A1B2C3D4A1B2C3D4A1B2C3D4A1B2C3D4
+DIVERGE | C13 ghp_ num comentario do ui/favicon.svg (texto que viaja) | codigo=0 esperado=diferente de 0 | marca "POSSIVEL CREDENCIAL": false | restaurado: true | dist: ["farol-v2.59.5.zip"]
+      ok  pacote limpo: C:\Users\wanderson\Documents\farol\.claude\worktrees\agent-ace98a1f015ac9eb3\dist\farol-v2.59.5.zip (1.225 KB, 249 arquivos)
+          auditado: sem estado, sem config, sem tokens, sem conta pessoal.
+DIVERGE | C14 ghp_ num comentario do installer/farol.nsi (texto que viaja) | codigo=0 esperado=diferente de 0 | marca "POSSIVEL CREDENCIAL": false | restaurado: true | dist: ["farol-v2.59.5.zip"]
+      ok  pacote limpo: C:\Users\wanderson\Documents\farol\.claude\worktrees\agent-ace98a1f015ac9eb3\dist\farol-v2.59.5.zip (1.225 KB, 249 arquivos)
+          auditado: sem estado, sem config, sem tokens, sem conta pessoal.
+DIVERGE | C15 ghp_ num arquivo novo lib/sintetico.txt | codigo=0 esperado=diferente de 0 | marca "POSSIVEL CREDENCIAL": false | restaurado: true | dist: ["farol-v2.59.5.zip"]
+      ok  pacote limpo: C:\Users\wanderson\Documents\farol\.claude\worktrees\agent-ace98a1f015ac9eb3\dist\farol-v2.59.5.zip (1.226 KB, 250 arquivos)
+          auditado: sem estado, sem config, sem tokens, sem conta pessoal.
+CONFERE | LIMITE-a ghp_ quebrado em duas linhas | codigo=0 esperado=0 | marca "pacote limpo": true | restaurado: true | dist: ["farol-v2.59.5.zip"]
+      ok  pacote limpo: C:\Users\wanderson\Documents\farol\.claude\worktrees\agent-ace98a1f015ac9eb3\dist\farol-v2.59.5.zip (1.225 KB, 249 arquivos)
+          auditado: sem estado, sem config, sem tokens, sem conta pessoal.
+CONFERE | LIMITE-b chave sk-ant- (formato fora do padrao) | codigo=0 esperado=0 | marca "pacote limpo": true | restaurado: true | dist: ["farol-v2.59.5.zip"]
+      ok  pacote limpo: C:\Users\wanderson\Documents\farol\.claude\worktrees\agent-ace98a1f015ac9eb3\dist\farol-v2.59.5.zip (1.225 KB, 249 arquivos)
+          auditado: sem estado, sem config, sem tokens, sem conta pessoal.
+CONFERE | LIMITE-c ghp_ com 19 caracteres de valor | codigo=0 esperado=0 | marca "pacote limpo": true | restaurado: true | dist: ["farol-v2.59.5.zip"]
+      ok  pacote limpo: C:\Users\wanderson\Documents\farol\.claude\worktrees\agent-ace98a1f015ac9eb3\dist\farol-v2.59.5.zip (1.225 KB, 249 arquivos)
+          auditado: sem estado, sem config, sem tokens, sem conta pessoal.
+git status --porcelain ao fim: ""

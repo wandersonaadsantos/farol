@@ -22,7 +22,8 @@ const ler = (rel) => fs.readFileSync(path.join(RAIZ, rel), 'utf8');
 after(() => { try { fs.rmSync(BASE, { recursive: true, force: true }); } catch { /* best-effort */ } });
 
 test('somente leitura restringe as ferramentas do Claude e não carrega MCP nenhum', () => {
-  assert.deepEqual(argsDeSomenteLeitura({ somenteLeitura: true }), ['--tools', 'Read,Grep,Glob', '--strict-mcp-config']);
+  // --safe-mode e --disable-slash-commands: hooks, plugins e skills não obedecem ao --tools
+  assert.deepEqual(argsDeSomenteLeitura({ somenteLeitura: true }), ['--tools', 'Read,Grep,Glob', '--strict-mcp-config', '--safe-mode', '--disable-slash-commands']);
   assert.deepEqual(argsDeSomenteLeitura({}), [], 'sessão normal não muda');
 });
 
@@ -43,6 +44,15 @@ test('a ferramenta de diagnóstico abre a sessão como somente leitura; kudos n�
   assert.equal(vistos.length, 1);
   assert.equal(vistos[0].opts.somenteLeitura, true);
   assert.equal(vistos[0].opts.operationKind, 'tool');
+  // o outro lado do título: kudos segue como estava, sem a restrição
+  const { STATE_DIR } = await import('../lib/paths.js');
+  fs.mkdirSync(STATE_DIR, { recursive: true });
+  fs.writeFileSync(path.join(STATE_DIR, 'highlights.md'), '- 2026-09-16 · @pessoa · destaque sintético\n');
+  e.config.teamHighlights = true;
+  await e.launchTool('kudos');
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(vistos.length, 2, 'o kudos também abriu a sessão');
+  assert.equal(vistos[1].opts.somenteLeitura, false);
 });
 
 test('o prompt do diagnóstico carrega o Markdown do diagnóstico, delimitado', () => {

@@ -1,0 +1,12 @@
+REPROVOU | C-M1 volta a lista de extensoes na varredura | codigo=1 pass=11 fail=1 | restaurado byte a byte: true
+REPROVOU | C-M2 varredura so de .js | codigo=1 pass=11 fail=1 | restaurado byte a byte: true
+REPROVOU | C-M3 pente perde o ghp_ | codigo=1 pass=11 fail=1 | restaurado byte a byte: true
+REPROVOU | C-M4 pente perde a conta pessoal | codigo=1 pass=11 fail=1 | restaurado byte a byte: true
+REPROVOU | C-M5 pente perde o Bearer com valor | codigo=1 pass=11 fail=1 | restaurado byte a byte: true
+REPROVOU | C-M6 pente perde o ATATT | codigo=1 pass=11 fail=1 | restaurado byte a byte: true
+REPROVOU | C-M7 pente perde o github_pat_ | codigo=1 pass=11 fail=1 | restaurado byte a byte: true
+REPROVOU | C-M8 pente perde o gho_ | codigo=1 pass=11 fail=1 | restaurado byte a byte: true
+PASSOU (inerte) | C-M9 pente vira mencao de prefixo (falso positivo no proprio codigo) | codigo=0 pass=12 fail=0 | restaurado byte a byte: true
+PASSOU (inerte) | C-M10 barreira de nome perde state/ | codigo=0 pass=12 fail=0 | restaurado byte a byte: true
+PASSOU (inerte) | C-M11 barreira de nome perde config.json | codigo=0 pass=12 fail=0 | restaurado byte a byte: true
+total: 11, reprovaram: 8, passaram inertes: 3

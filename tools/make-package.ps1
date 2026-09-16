@@ -108,9 +108,12 @@ foreach ($e in $entries) { if ($e -match '\.(js|md|json|cmd|ps1|html|css)$') {
 } }
 # extrai e procura credenciais/contas pessoais nos textos
 Expand-Archive -Path $zip -DestinationPath $tmpDir -Force
-# *.sh e *.command entram na varredura: sao os artefatos de mac que o pacote
-# transporta, e ficavam fora do pente de credencial (achado da auditoria 16/08)
-$hits = Get-ChildItem $tmpDir -Recurse -File -Include *.js, *.md, *.json, *.cmd, *.ps1, *.html, *.css, *.sh, *.command |
+# TODO arquivo do pacote entra na varredura, sem lista de extensao (verificacao C,
+# 16/09/2026): a lista anterior tinha nove extensoes e deixava de fora texto que VIAJA,
+# medido no caminho real com segredo sintetico em ui/favicon.svg, installer/farol.nsi e um
+# .txt novo em lib/, os tres empacotados sem uma linha de aviso. Lista de extensao e uma
+# exceção que envelhece calada a cada arquivo novo; ler tudo nao envelhece.
+$hits = Get-ChildItem $tmpDir -Recurse -File |
   Where-Object { $_.Name -ne 'make-package.ps1' } |
   # O padrao casa a FORMA de um segredo de verdade (prefixo + valor), nao a mencao do prefixo:
   # desde a A1 e a A4 o proprio codigo carrega a mascara de segredo (lib/engine/falhas.js) e o
