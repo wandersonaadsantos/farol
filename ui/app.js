@@ -13,7 +13,7 @@ import {
   ehMac, ehElectron, definirPlataforma,
 } from './telas/estado.js';
 import {
-  $, api, toast, showOp, updateOp, ACTIVE_OPS,
+  $, toast, showOp, updateOp, ACTIVE_OPS,
   syncAnalysisOps,
   sysFlash,
 } from './telas/infra.js';
@@ -41,6 +41,7 @@ import { initCaixaRevisao } from './telas/caixa-revisao.js';
 import { initAtalhos } from './telas/atalhos.js';
 import { initPaleta } from './telas/paleta.js';
 import { initTema } from './telas/tema.js';
+import { initPerfilPessoa } from './telas/perfil-pessoa.js';
 
 const isElectron = ehElectron();
 if (isElectron) document.body.classList.add('electron');
@@ -112,31 +113,12 @@ initTweaks(rerenderScope);
    relativo em que os dois listeners moravam. */
 initContasTriggers(rerenderScope);
 
-/* marcar o perfil de review de uma pessoa (papel e domínios): molda o tom e a
-   postura da revisão automática. Global (delegado no documento) pra funcionar na
-   aba Time E nos cards do PR (fila, Precisa de você), inclusive pra marcar o 1º
-   PR de quem ainda não está no time. */
-document.addEventListener('change', (e) => {
-  const t = e.target;
-  if (!t.classList) return;
-  const isPapel = t.classList.contains('papel-level');
-  const isDom = t.classList.contains('dom-level');
-  if (!isPapel && !isDom) return;
-  const login = String(t.dataset.login || '').toLowerCase();
-  if (!login) return;
-  const people = { ...((estado().config && estado().config.people) || {}) };
-  const person = { ...(people[login] || {}) };
-  if (isPapel) {
-    if (t.value) person.papel = t.value; else delete person.papel;
-  } else {
-    const dom = { ...(person.dominios || {}) };
-    if (t.value) dom[t.dataset.domain] = t.value; else delete dom[t.dataset.domain];
-    if (Object.keys(dom).length) person.dominios = dom; else delete person.dominios;
-  }
-  if (person.papel || person.dominios) people[login] = person; else delete people[login];
-  if (estado().config) estado().config.people = people;   // otimista, pra o select não piscar
-  api('/api/settings', { people });
-});
+/* Editar o perfil de review de uma pessoa (papel e domínios): mora em
+   telas/perfil-pessoa.js, que é a tela dona do ASSUNTO (o picker aparece na
+   aba Time e nos cards do Radar, então não pertence a nenhum dos dois).
+   Chamada aqui, no mesmo ponto relativo em que o listener morava, pra não
+   mudar a ordem dos handlers de change do document. */
+initPerfilPessoa();
 /* Gatilhos de #resolved (pushback e revisar de novo/copiar URL): moram em
    telas/radar.js, dono de renderResolved/submitPushback. Chamada aqui, no
    mesmo ponto relativo em que os dois listeners moravam. */

@@ -153,6 +153,9 @@
   "ui/telas/paleta.js": {
     "profundidadeExcedida": 7
   },
+  "ui/telas/perfil-pessoa.js": {
+    "profundidadeExcedida": 1
+  },
   "ui/telas/radar.js": {
     "ternarioAninhado": 2
   },
