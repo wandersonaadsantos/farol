@@ -182,6 +182,8 @@ test('spawnLoginConsole (Windows): registra keys=[] e NÃO inclui GH_TOKEN no en
     fakeChild.emit('exit', 0);
     assert.equal(engine.checkedNow, undefined, 'não deve rechecar (sessão sem keys)');
     assert.deepEqual(engine._unseen, [], 'não deve desfazer visto de PR nenhum');
+    // A2: o selo do perfil muda assim que o login termina, sem clique em Verificar agora
+    assert.equal(engine.doctorCalled, true, 'o fim do login reatualiza o doctor');
   } finally {
     spawnImpl = null;
   }

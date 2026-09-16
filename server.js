@@ -43,22 +43,9 @@ import scopeMod from './lib/engine/pr-scope.js';
 import reviewMod from './lib/engine/review.js';
 import retomadaMod from './lib/engine/retomada-duravel.js';
 
-// Resolve o shape de auth a partir de um perfil já escolhido (sem cascata de conta).
-// Fica FORA da Engine pra não empilhar chave dentro do método (gate profundidadeExcedida).
-function authFromProfile(p) {
-  if (!p) return null;
-  if (p.kind === 'codex') return { kind: 'codex', id: p.id };
-  if (p.kind === 'openrouter' && p.apiKey) {
-    return { kind: 'openrouter', id: p.id, apiKey: p.apiKey, baseUrl: p.baseUrl || '' };
-  }
-  if (p.kind === 'apikey' && p.apiKey) {
-    return { kind: 'apikey', id: p.id, apiKey: p.apiKey, baseUrl: p.baseUrl || '' };
-  }
-  if (p.kind !== 'apikey' && p.kind !== 'openrouter' && p.dir) {
-    return { kind: 'dir', id: p.id, dir: p.dir };
-  }
-  return null;
-}
+// Resolve o shape de auth a partir de um perfil já escolhido (sem cascata de conta). Mora em
+// lib/engine/perfil-claude.js desde a A2: o aviso de perfil quebrado lê a MESMA regra.
+import perfilMod, { authFromProfile } from './lib/engine/perfil-claude.js';
 import fileProofMod from './lib/engine/file-proof.js';
 import wsTmpMod from './lib/engine/workspace-tmp.js';
 import skipMod from './lib/engine/skip-review.js';
@@ -1581,6 +1568,9 @@ class Engine extends EventEmitter {
   toolPrompt(name, opts) { return toolsMod.toolPrompt(this, name, opts); }
   // diagnóstico unificado (A3): o MESMO markdown para a tela, para a cópia e para a IA
   diagnosticoMarkdown() { return diagnosticoMod.diagnosticoMarkdown(this); }
+  // plano e chaves explícito (A2): testar é ato explícito e nunca grava; adotar só com confirmação
+  claudeTestarPerfil(dados) { return perfilMod.testarPerfil(this, dados); }
+  claudeAdotarLegado(dados) { return perfilMod.adotarLegado(this, dados); }
   saveToolRuns() { return toolsMod.saveToolRuns(this); }
   toolRunGet(name, scope) { return toolsMod.toolRunGet(this, name, scope); }
   toolRunSet(name, scope, run) { return toolsMod.toolRunSet(this, name, scope, run); }
@@ -1910,6 +1900,8 @@ class Engine extends EventEmitter {
   snapshot() {
     return {
       app: { name: APP_NAME, version: APP_VERSION, platform: process.platform },
+      // perfil apontado que a cascata não usa (A2): a queda para o legado deixou de ser silenciosa
+      claudePerfis: { problemas: perfilMod.problemasDePerfil(this.config) },
       status: this.status,
       error: this.lastError,
       account: { user: this.primaryUser(), tokenOk: this.tokenOk },
