@@ -36,6 +36,26 @@ test('allowlist: chave desconhecida é descartada e o resto vale', () => {
   assert.equal(g.tetoUsd, 12.5);
 });
 
+// C4b: ativar é um campo booleano assinado. Verdade só com `true` literal.
+test('ativo só vale como booleano, e o estado diz se o teto barra', () => {
+  const id = 'd'.repeat(32);
+  assert.equal(grupo.sanearGrupo({ id, ativo: 'sim' }).ativo, undefined);
+  assert.equal(grupo.sanearGrupo({ id, ativo: 1 }).ativo, undefined);
+  assert.equal(grupo.sanearGrupo({ id, ativo: false }).ativo, false);
+  assert.equal(grupo.resumoDoGrupo(grupo.sanearGrupo({ id, tetoUsd: 5, ativo: true }), { vinculos: {} }).estado, 'ativo');
+  assert.equal(grupo.resumoDoGrupo(grupo.sanearGrupo({ id, tetoUsd: 5, ativo: false }), { vinculos: {} }).estado, 'configurado');
+  assert.equal(grupo.resumoDoGrupo(grupo.sanearGrupo({ id, ativo: true }), { vinculos: {} }).estado, 'sem-teto', 'ativo sem teto não barra nada');
+});
+
+test('requisitos da ativação: compartilhamento, teto e medição, cada um com código', () => {
+  const g = { id: 'd'.repeat(32), tetoUsd: 5 };
+  assert.deepEqual(grupo.requisitosDaAtivacao({ grupo: g, compartilhamento: true, medicaoFeita: true }), []);
+  assert.deepEqual(grupo.requisitosDaAtivacao({ grupo: g, compartilhamento: false, medicaoFeita: true }), ['compartilhamento']);
+  assert.deepEqual(grupo.requisitosDaAtivacao({ grupo: { id: g.id }, compartilhamento: true, medicaoFeita: true }), ['sem-teto']);
+  assert.deepEqual(grupo.requisitosDaAtivacao({ grupo: g, compartilhamento: true, medicaoFeita: false }), ['medicao-pendente']);
+  assert.deepEqual(grupo.requisitosDaAtivacao({ grupo: null, compartilhamento: true, medicaoFeita: true }), ['sem-grupo', 'sem-teto']);
+});
+
 test('teto inválido é descartado, nunca virado zero', () => {
   for (const v of [-1, 'muito', null, NaN, Infinity]) {
     assert.equal('tetoUsd' in grupo.sanearGrupo({ tetoUsd: v }), false, JSON.stringify(String(v)));

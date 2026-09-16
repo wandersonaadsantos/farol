@@ -101,6 +101,32 @@ test('publicar: o nó sobe cifrado e assinado, e o teto não aparece em claro', 
   assert.equal(cru.includes('Casa'), false, 'o nome em claro no banco');
 });
 
+// C4b: o admin não publica `ativo` sem os requisitos, e a liberação da medição não vem de
+// rota nem de config: é propriedade em memória do engine, só para teste.
+test('publicar ativo: recusado sem a medição, aceito com ela', async () => {
+  const e = await motorAdmin();
+  const r = await e.syncPublicarGrupo({ grupo: { ...GRUPO, ativo: true } });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'ativacao-bloqueada');
+  assert.match(r.motivo, /medi/);
+  assert.equal(noPublicado(), null, 'nada subiu');
+  e.ativacaoTetoGrupo = true;
+  assert.equal((await e.syncPublicarGrupo({ grupo: { ...GRUPO, ativo: true } })).ok, true);
+  assert.equal((await e.syncPublicarGrupo({ grupo: { ...GRUPO, id: 'e'.repeat(32), ativo: false } })).ok, true, 'desativar nunca é bloqueado');
+});
+
+test('publicar ativo sem teto é recusado mesmo com a medição', async () => {
+  const e = await motorAdmin();
+  e.ativacaoTetoGrupo = true;
+  const r = await e.syncPublicarGrupo({ grupo: { id: ID, nome: 'Casa', ativo: true } });
+  assert.equal(r.code, 'ativacao-bloqueada');
+});
+
+test('a liberação da ativação nasce desligada', async () => {
+  const { ATIVACAO_TETO_GRUPO_C4B } = await import('../lib/constants.js');
+  assert.equal(ATIVACAO_TETO_GRUPO_C4B, false);
+});
+
 test('publicar: quem não é admin da geração vigente não publica', async () => {
   const e = await motorAdmin();
   const arvore = fake.tree();
