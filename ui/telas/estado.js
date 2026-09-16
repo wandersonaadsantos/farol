@@ -41,6 +41,12 @@ const escopo = () => SCOPE;
 const abaAtual = () => ABA;
 const ehMac = () => PLATAFORMA === 'darwin';
 const ehWin = () => PLATAFORMA === 'win32';
+// Sem reconciliação com o engine (ao contrário de PLATAFORMA): o Electron do PRÓPRIO
+// processo não muda em runtime, então o userAgent já é fonte definitiva, não palpite.
+// Migrou de `const isElectron` do ui/app.js pra cá (Task 10, Fase 1b) porque
+// telas/sistema.js (renderSettings) também precisa perguntar "é Electron?" e não
+// pode importar o bootstrap de volta: mesma razão de PLATAFORMA/ehMac/ehWin.
+const ehElectron = () => typeof navigator !== 'undefined' && navigator.userAgent.includes('Electron');
 
 function definirEstado(novo) { STATE = novo; }
 function definirEscopo(novo) { SCOPE = novo; }
@@ -63,5 +69,5 @@ function peopleOf() { return (estado()?.config && estado().config.people) || {};
 export {
   estado, escopo, abaAtual, definirEstado, definirEscopo, definirAba,
   teamHighlightsEnabled, deliveriesEnabled, peopleOf,
-  ehMac, ehWin, definirPlataforma,
+  ehMac, ehWin, ehElectron, definirPlataforma,
 };
