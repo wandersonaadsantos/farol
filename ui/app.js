@@ -4,7 +4,7 @@ import {
   esc, safeJsonParse, fmtClock, sysNorm, canonicalGithubPrUrl, prKeyFromUrl, repoShort, stripFence,
   sameSet, accountSaveArray,
   avatar, md, feedLine, selfSessionKey,
-  sessionProgress, personMention, repoMention, prRefMention, parseGoto, reviewBoxHtml,
+  sessionProgress, personMention, parseGoto, reviewBoxHtml,
   operationChecks, runtimeChecks,
   diagnosticsText,
   logSummaryShort,
@@ -22,13 +22,13 @@ import {
 } from './telas/estado.js';
 import {
   $, api, get, toast, toastRich, confirmModal, showOp, updateOp, closeOp, ACTIVE_OPS,
-  syncAnalysisOps, selo,
+  syncAnalysisOps, copyToClipboard,
   origemLocal, doUsuario, tituloDaNotificacao, marcarSeg, sysFlash,
 } from './telas/infra.js';
 export { toast } from './telas/infra.js';
 import {
   TWEAK, ACCT, OWNER2USER, rebuildAccounts, multiAccount,
-  scopeVisible, acctMark, acctUserFromUrl, scopeMemVisible, acctStyleFor,
+  scopeVisible, acctUserFromUrl, scopeMemVisible, acctStyleFor,
   memGroupHead, renderAccountBar, renderIdentity, renderSilenced,
   fecharSilenciadas, alternarSilenciadas,
 } from './telas/contas.js';
@@ -39,7 +39,7 @@ import { openChat, renderChat, chatKeyAtual } from './telas/chat.js';
 import {
   renderDecisions, submitPushback, renderQueue, renderPanorama, renderRadarNav,
 } from './telas/radar.js';
-import { renderMyPRs, copyToClipboard } from './telas/meus-prs.js';
+import { renderMyPRs } from './telas/meus-prs.js';
 
 const isElectron = navigator.userAgent.includes('Electron');
 if (isElectron) document.body.classList.add('electron');

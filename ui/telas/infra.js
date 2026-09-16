@@ -16,6 +16,31 @@ export function api(path, body) {
 }
 export function get(path) { return fetch(path).then(r => r.json()).catch(() => null); }
 
+// Copia texto com fallback: a Clipboard API exige contexto seguro e foco; quando
+// falha (ex.: janela sem foco), recai pro textarea + execCommand, que não depende
+// de permissão. Devolve true se algum caminho copiou. Não é sobre nenhuma tela em
+// particular (o app.js usa em Revisões recentes, Panorama e Diagnóstico; Meus PRs
+// usa no prompt de correção): mora aqui, ao lado de $/toast/api, por só tocar
+// document/navigator.
+export async function copyToClipboard(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch { /* cai no fallback */ }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed'; ta.style.left = '-9999px'; ta.style.top = '0';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch { return false; }
+}
+
 // segmentado: a classe pinta, o aria-pressed e o que o leitor de tela anuncia.
 // Um helper so pra os dois nunca divergirem. Usado por Entregas, Consumo e Sistema:
 // mora aqui pra nenhuma dessas telas depender de outra por acidente de posição.

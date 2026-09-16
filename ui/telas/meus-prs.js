@@ -19,6 +19,7 @@ import {
 import { estado, escopo } from './estado.js';
 import {
   $, api, confirmModal, showOp, updateOp, closeOp, toast, rotuloDoBotaoDeAnalise,
+  copyToClipboard,
 } from './infra.js';
 import { scopeVisible, acctMark } from './contas.js';
 import { renderRadarNav } from './radar.js';
@@ -200,28 +201,6 @@ function renderMyPRsHiddenFoot(n) {
     : '';
 }
 
-// Copia texto com fallback: a Clipboard API exige contexto seguro e foco; quando
-// falha (ex.: janela sem foco), recai pro textarea + execCommand, que não depende
-// de permissão. Devolve true se algum caminho copiou.
-async function copyToClipboard(text) {
-  try {
-    if (navigator.clipboard && window.isSecureContext) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch { /* cai no fallback */ }
-  try {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed'; ta.style.left = '-9999px'; ta.style.top = '0';
-    document.body.appendChild(ta);
-    ta.focus(); ta.select();
-    const ok = document.execCommand('copy');
-    document.body.removeChild(ta);
-    return ok;
-  } catch { return false; }
-}
-
 // Wrapper fino: coleta do estado os dados do prompt (achados da autoanálise +
 // metadados do PR) e delega o miolo puro pra buildFixPrompt de ui/pure.js
 // (carregado antes deste arquivo via <script src>, migrado na Task 12).
@@ -387,4 +366,4 @@ $('#myPRsHiddenFoot').addEventListener('click', (e) => {
   renderMyPRs(); renderRadarNav();
 });
 
-export { renderMyPRs, renderMyPRsHiddenFoot, copyToClipboard, montaFixPrompt };
+export { renderMyPRs, renderMyPRsHiddenFoot, montaFixPrompt };

@@ -23,6 +23,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { instalarDom } from './helpers/dom-stub.js';
+import { arquivosDasTelas } from './helpers/fontes-ui.js';
+import { strip } from '../tools/quality/strip.js';
 
 // NOTA sobre o `--test-force-exit` no script de test: carregar o app.js liga os
 // timers dele (countdown, tick de elapsed, backoff de reconexão do SSE). O stub já
@@ -188,30 +190,69 @@ test('aba Sistema ativa: doctor, contas e perfis desenham sem explodir', () => {
   document.querySelector('#tab-sistema').classList.remove('active');
 });
 
-/* Import morto: símbolo trazido do pure.js que ninguém mais usa depois de uma
+/* Import morto: símbolo trazido de outro módulo que ninguém mais usa depois de uma
    extração. Não quebra nada em runtime, então passa por `node --check`, pelo lint,
    pela suíte e pelo CI — e vai apodrecendo. Quando este teste nasceu havia 17 deles
    acumulados dos passos 2 a 5 da onda 5, todos meus.
 
    Um cético do workflow de análise apontou o risco antes de eu cometer o próximo.
 
-   O piso de 40 nasceu como um sanity check de que a regex pegou o import CHEIO (em
-   vez de casar cedo demais numa linha do meio). A Fase 1b muda a premissa: ela
-   move seções inteiras (com o import de pure.js que cada uma usava) pra fora do
-   app.js tarefa após tarefa, então o import que sobra aqui encolhe de propósito a
-   cada extração. A Task 8 (radar.js e meus-prs.js) o levou a 39; o piso desceu
-   pra continuar sendo o mesmo sanity check (regex pegou o bloco todo), sem
-   reimpor um tamanho que a própria reorganização existe para reduzir. */
+   Nasceu olhando só o bloco de `./pure.js` dentro do `ui/app.js`, com um piso
+   numérico (`nomes.length >= 40`, depois 20) como sanity check de que a regex
+   pegou o import CHEIO, não um trecho no meio de um bloco multilinha. Os dois
+   defeitos que essa forma escondia: (1) um piso numérico é métrica que a própria
+   Fase 1b existe pra reduzir — ela move seções inteiras, com o import que cada
+   uma usava, pra fora do app.js tarefa após tarefa, então qualquer número vai
+   precisar descer nas próximas tarefas de novo; e (2) olhar só o bloco de
+   `pure.js` em `app.js` é cego a todo o resto: quando a Task 8 moveu Radar e
+   Meus PRs pra `ui/telas/`, `acctMark` sobrou como import morto no `app.js` (de
+   `telas/contas.js`) e este teste, de olho só em `pure.js`, não viu nada.
+   Generalizado pra varrer TODO bloco de import nomeado de TODO arquivo de tela
+   (`arquivosDasTelas()`), com duas afirmações ESTRUTURAIS no lugar do piso
+   numérico: o bloco capturado não engoliu outro import (sem `from`/`;` dentro),
+   e cada nome capturado parece um identificador de verdade. Esse par não
+   apodrece: continua válido não importa quantas seções a reorganização mova daqui
+   pra frente. `strip()` (o removedor léxico do `tools/quality/`) tira string,
+   comentário e regex antes de procurar uso, senão um símbolo só CITADO num
+   comentário (foi o caso de `pushbackControl`/`PB_OPTS`/`PB_SHORT`, achados
+   numa rodada de revisão desta mesma tarefa) passa por usado. */
 
-test('nenhum símbolo importado do pure.js está morto no app.js', () => {
-  const src = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
-  const m = src.match(/import \{([\s\S]*?)\} from '\.\/pure\.js';/);
-  assert.ok(m, 'o app.js importa do pure.js');
-  const nomes = m[1].split(',').map(s => s.trim()).filter(Boolean);
-  assert.ok(nomes.length >= 20, `esperava o import cheio, achei ${nomes.length}`);
-  const corpo = src.slice(m.index + m[0].length);
-  const mortos = nomes.filter(n => !new RegExp(`\\b${n}\\b`).test(corpo));
-  assert.deepEqual(mortos, [], 'símbolo importado e não usado: sobrou de uma extração');
+test('todo import nomeado de ui/telas é um bloco só, com nomes de identificador, sem símbolo morto', () => {
+  const identificador = /^[A-Za-z_$][\w$]*$/;
+  for (const { nome: arquivo, texto: src } of arquivosDasTelas()) {
+    const stripped = strip(src);
+    const re = /import\s*\{([\s\S]*?)\}\s*from\s*'([^']+)'/g;
+    let m;
+    while ((m = re.exec(src))) {
+      const bruto = m[1];
+      const de = m[2];
+      // bloco só: se sobrou "from" ou ";" dentro do que a regex capturou, ela
+      // não parou no `}` deste import, e o resto da checagem estaria olhando
+      // pro lugar errado.
+      assert.doesNotMatch(bruto, /\bfrom\b|;/,
+        `${arquivo}: import de '${de}' parece ter engolido outro bloco`);
+      const nomes = bruto.split(',').map(s => s.trim()).filter(Boolean).map(s => {
+        // "X as Y": o nome que existe no corpo do arquivo é o Y (o vínculo local)
+        const partes = s.split(/\s+as\s+/);
+        return partes.length > 1 ? partes[1].trim() : partes[0].trim();
+      });
+      for (const n of nomes) {
+        assert.match(n, identificador,
+          `${arquivo}: '${n}' não parece um identificador (import de '${de}')`);
+      }
+      const antes = stripped.slice(0, m.index);
+      const depois = stripped.slice(m.index + m[0].length);
+      const corpo = antes + depois;
+      // `\b` não serve pra símbolo com `$` (não é \w): usa lookaround com a
+      // classe de caractere de identificador JS de verdade.
+      const mortos = nomes.filter(n => {
+        const pattern = new RegExp(`(?<![\\w$])${n.replace(/[$]/g, '\\$&')}(?![\\w$])`);
+        return !pattern.test(corpo);
+      });
+      assert.deepEqual(mortos, [],
+        `${arquivo}: símbolo importado de '${de}' e não usado: ${mortos.join(', ')}`);
+    }
+  }
 });
 
 test('shell Electron declara Farol como nome do processo', () => {

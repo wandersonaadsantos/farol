@@ -119,8 +119,9 @@ function renderDecisions() {
   renderResolved();
 }
 
-/* ---------- pushback: PB_OPTS/PB_SHORT/pushbackControl moraram aqui e foram pro
-   ui/pure.js (testáveis); o submit e os listeners seguem aqui por tocarem DOM/estado ---------- */
+/* ---------- pushback: PB_OPTS/PB_SHORT/pushbackControl moraram no ui/app.js (de
+   onde esta seção veio) e foram pro ui/pure.js (testáveis); o submit e os
+   listeners seguem aqui por tocarem DOM/estado ---------- */
 function submitPushback(el) {
   const box = el.closest('.pushback'); if (!box) return;
   const sel = box.querySelector('.pb-outcome'), note = box.querySelector('.pb-note');
@@ -191,10 +192,6 @@ function renderQueue() {
   const parked = estado().parked || {};
   box.innerHTML = q.map(pr => queueCardHtml(pr, { people, mark: acctMark(pr), parked, sync: estado().sync })).join('');
 }
-
-/* selo de estado da SUA revisão numa linha do panorama: primeiro o que o Farol
-   registrou (decisões), senão o que o GitHub diz (--reviewed-by, cobre reviews
-   feitos fora do Farol). */
 
 function renderPanorama() {
   const list = (estado().panorama || []).filter(scopeVisible);
