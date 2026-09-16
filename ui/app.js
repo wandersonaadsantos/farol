@@ -20,6 +20,7 @@ import {
   canMergeSelfAnalysis, qualityBlockTitle, selfAnalysisBadge, selfAnalysisToggle, selfAnalysisStale,
   filaJustaHtml, syncSecaoHtml, syncConfirmacoesDoClique, usageConsolidadoEnvelopeHtml, syncCfgComGeral
 } from './pure.js';
+import { registrarTela, telasRegistradas, telaPorId } from './telas/registro.js';
 
 const $ = (s) => document.querySelector(s);
 const isElectron = navigator.userAgent.includes('Electron');
@@ -1526,11 +1527,8 @@ function switchTab(name) {
   });
   document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
   if (STATE) renderAccountBar();   // mostra/esconde a barra de contas conforme a aba
-  if (name === 'entregas') loadDeliveries();
-  if (name === 'destaques') { loadHighlights(); renderTools(); }   // renderTools: kudos do escopo atual, não o defasado
-  if (name === 'time') loadTeam();
-  if (name === 'sistema') { switchSistemaSection(); loadLog(); renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); loadReviewerCands(); }
-  if (name === 'consumo') renderUsage();
+  const tela = telaPorId(name);
+  if (tela && tela.aoEntrar) tela.aoEntrar();
 }
 $('#nav').addEventListener('click', (e) => {
   const btn = e.target.closest('.nav-item');
@@ -4313,8 +4311,7 @@ function connect() {
     renderRadarNav();
     syncAnalysisOps();
     renderSettings(); renderTools(); renderUpdate(); tickCountdown();
-    if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); }
-    if ($('#tab-consumo').classList.contains('active')) renderUsage();
+    for (const tela of telasRegistradas()) if (tela.aoEstado) tela.aoEstado();
   });
   es.addEventListener('activity', (e) => {
     const d = safeJsonParse(e.data); if (!d) return; const { id, item } = d;
@@ -4398,4 +4395,22 @@ function connect() {
   };
   es.addEventListener('open', () => { TENTATIVAS_RECONEXAO = 0; const f = $('#connLost'); if (f) f.hidden = true; });
 }
+
+// As telas ainda moram neste arquivo; a Fase 1b as move uma a uma, e cada uma leva o seu
+// registro junto. O que muda AQUI é só quem conhece quem: o switchTab e o connect() passam
+// a percorrer o registro em vez de listar nome de aba.
+registrarTela({ id: 'entregas', aoEntrar: () => loadDeliveries() });
+registrarTela({ id: 'destaques', aoEntrar: () => { loadHighlights(); renderTools(); } });
+registrarTela({ id: 'time', aoEntrar: () => loadTeam() });
+registrarTela({
+  id: 'sistema',
+  aoEntrar: () => { switchSistemaSection(); loadLog(); renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); loadReviewerCands(); },
+  aoEstado: () => { if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); } },
+});
+registrarTela({
+  id: 'consumo',
+  aoEntrar: () => renderUsage(),
+  aoEstado: () => { if ($('#tab-consumo').classList.contains('active')) renderUsage(); },
+});
+
 connect();
