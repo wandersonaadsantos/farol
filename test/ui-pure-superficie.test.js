@@ -78,6 +78,7 @@ const CONGELADA = [
   "fmtTok",
   "fmtUsageMetric",
   "fmtWhenDay",
+  "genProfileId",
   "ghPrUrl",
   "groupBy",
   "hexToRgba",

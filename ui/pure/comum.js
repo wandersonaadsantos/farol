@@ -255,3 +255,13 @@ export function escAttrSelector(v) {
 }
 
 export function fmtMoney(v) { return 'US$ ' + (Number(v) || 0).toFixed(2); }
+
+// Id genérico pra registro novo que a tela cria (perfil de assinatura Claude, site do
+// Jira): nasce aqui, nunca digitado, e mantém o formato que a allowlist do servidor
+// espera. Não lê DOM nem STATE (só Date.now/Math.random, fontes externas mas não
+// globais mutáveis da tela), por isso mora nesta camada em vez de em cada tela que
+// precisa de um id: telas/sistema-contas.js e telas/sistema-jira.js usam a MESMA
+// função, e duplicá-la por assunto criaria dois formatos de id por acidente.
+export function genProfileId() {
+  return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
