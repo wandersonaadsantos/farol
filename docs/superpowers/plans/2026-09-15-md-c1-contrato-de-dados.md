@@ -492,9 +492,11 @@ test('o domínio separa espaços: mesmo valor em domínios diferentes dá tags d
   assert.notEqual(tags.tag(K, 'event', 'x'), tags.tag(K, 'review', 'x'));
 });
 
-test('o separador é NUL, então concatenação não colide', () => {
-  // sem o NUL, ('acct','bc') e ('acctb','c') cairiam na mesma pré-imagem
-  assert.notEqual(tags.tag(K, 'acct', 'bc'), tags.tag64(K, 'acct', 'bc').slice(0, 32) === '' ? '' : tags.tag(K, 'acct', 'b\u0000c'));
+test('o valor entra inteiro na pré-imagem: NUL dentro do valor não é engolido', () => {
+  // se o separador fosse ignorado ou o valor fosse saneado, estes dois cairiam na mesma
+  // pré-imagem, e dois PRs diferentes dividiriam identificador
+  assert.notEqual(tags.tag(K, 'acct', 'b\u0000c'), tags.tag(K, 'acct', 'bc'));
+  assert.notEqual(tags.tag(K, 'acct', 'a\u0000b'), tags.tag(K, 'acct', 'ab'));
 });
 
 test('domínio fora da lista lança, em vez de gravar num espaço inventado', () => {
@@ -517,10 +519,12 @@ test('toda tag passa no validador de chave do banco', () => {
   for (const d of tags.DOMINIOS) assert.equal(assertRtdbKey(tags.tag(K, d, 'valor')), tags.tag(K, d, 'valor'));
 });
 
-test('vetor dourado: a construção não pode mudar sem quebrar o histórico', () => {
-  // HMAC-SHA256(K, 'farol\0v2\0pr\0org/repo#7'), com K = 32 bytes de 0x07
-  assert.equal(tags.tag(K, 'pr', 'org/repo#7'), tags.tag64(K, 'pr', 'org/repo#7').slice(0, 32));
-  assert.equal(tags.tag64(K, 'pr', 'org/repo#7').length, 64);
+test('mesmaTag compara em tempo constante e não confunde tamanhos', () => {
+  const t = tags.tag(K, 'pr', 'org/repo#7');
+  assert.equal(tags.mesmaTag(t, t), true);
+  assert.equal(tags.mesmaTag(t, t.slice(0, 31)), false);
+  assert.equal(tags.mesmaTag('', ''), false);
+  assert.equal(tags.mesmaTag(t, tags.tag(K2, 'pr', 'org/repo#7')), false);
 });
 ```
 
@@ -602,7 +606,10 @@ export { DOMINIOS, tag, tag64, acctTag, prTag, matTag, mesmaTag };
 
 - [ ] **Passo 4:** rodar `node --test test/sync-tags.test.js test/sync-keys.test.js`. Esperado: verde.
 
-- [ ] **Passo 5 (contraprova):** em `tags.js`, troque `createHmac('sha256', chaveValida(kId))` por `createHash('sha256')` (ajustando o import). Rode `node --test test/sync-tags.test.js`: reprova `HMAC, não SHA-256` e `a tag muda com a chave`. Restaure e rode: verde. Depois troque o separador `NUL` por `'|'` e rode: reprova o caso do separador. Restaure e rode: verde.
+- [ ] **Passo 5 (contraprova):** três mutações, uma de cada vez, restaurando e rodando de novo depois de cada uma. **Não** troque `createHmac` por `createHash`: sem o import o arquivo quebra, e o teste reprovaria por erro de carga, não pela garantia.
+  (a) troque `createHmac('sha256', chaveValida(kId))` por `createHmac('sha256', Buffer.alloc(32, 1))` (chave fixa, que é o que transforma a tag num hash sem segredo): reprovam `HMAC, não SHA-256`, `chave que não tem 32 bytes lança` e `mesmaTag` (3 falhas medidas);
+  (b) apague a linha do `throw` de domínio desconhecido: reprova `domínio fora da lista lança` (1 falha);
+  (c) em `preImagem`, troque o valor por `String(...).split(NUL).join('')` (saneamento do valor): reprova `o valor entra inteiro na pré-imagem` (1 falha).
 
 - [ ] **Passo 6:** commit.
 
