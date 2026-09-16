@@ -86,17 +86,19 @@ restrita ao seu usuário. A identidade do aparelho fica em
 Coordenação de análises e consolidação de consumo são dois interruptores separados, e
 os dois dependem da chave geral estar ligada.
 
-## Sair, desligar e apagar
+## Sair e desligar
 
-- **Sair deste aparelho** apaga o token de renovação local. O aparelho para de falar com
-  o Firebase até um novo login.
-- **Desligar a sincronização** para tudo e não apaga nada, nem local nem remoto.
-- **Apagar dados sincronizados** apaga a sua árvore inteira no banco
-  (`users/{uid}`). Credencial e identidade locais ficam; se o aparelho continuar ligado,
-  a presença dele volta a aparecer no próximo ciclo.
+- **Sair deste aparelho** apaga o token de renovação local e a chave do conjunto guardada
+  aqui. O aparelho para de falar com o Firebase até um novo login.
+- **Desligar a sincronização** para tudo e não apaga nada, nem local nem remoto. A chave
+  local também FICA: é ela que permite recuperar o conteúdo cifrado depois de uma
+  redefinição de senha por e-mail.
 
-Para parar de usar o recurso de vez: apague os dados sincronizados, desligue a
-sincronização em cada aparelho e, se quiser, apague o projeto no console do Firebase.
+**Não existe mais "apagar dados sincronizados" pelo app.** Sob as regras v2 a raiz
+`users/{uid}` não tem concessão de escrita, então o DELETE dela é negado pelo banco: um
+botão que o chamasse só produziria erro. Para parar de usar o recurso de vez: desligue a
+sincronização em cada aparelho e, se quiser, apague os dados (ou o projeto inteiro) pelo
+console do Firebase, que é onde essa autoridade mora.
 
 ## Validação manual com o emulador (Fase 5)
 
@@ -198,6 +200,35 @@ verdade.
    - ID do projeto: `farol-local`.
 4. Faça login nas duas com o usuário criado no passo 2 da Parte 1 e confira:
    - as duas aparecem na lista de aparelhos uma da outra;
-   - sair de uma apaga só a credencial dela;
-   - desligar uma não apaga nada no banco;
-   - apagar os dados sincronizados esvazia a árvore do usuário no banco.
+   - sair de uma apaga só a credencial e a chave local dela;
+   - desligar uma não apaga nada no banco.
+
+## Validação manual das regras v2 (C1)
+
+As regras são **geradas**: `npm run sync:rules` expande
+`database.rules.template.json` e escreve `database.rules.json`. Nunca edite o `.json` à
+mão, e rode `node tools/sync-rules.js --check` antes de publicar. A publicação continua
+manual, uma vez, pelo dono, colando o arquivo no console.
+
+As regras **não rodam no CI**: o dublê em processo não avalia regra. O que a bateria
+automática prova é o TEXTO publicado (`test/sync-rules-contrato.test.js`) e que os
+payloads reais do v1 satisfazem as validações (`test/sync-escritas-v1.test.js`). O
+comportamento no servidor é esta lista, feita no emulador e, onde indicado, num projeto
+real:
+
+1. **`auth_time`:** entre com senha, grave o `keyring` (deve responder 200), espere 6
+   minutos, renove o token e tente gravar de novo: precisa responder **401**. Refaça o
+   login e tente de novo: **200**. Repita **no projeto real**, porque o comportamento do
+   `auth_time` no emulador não é prova suficiente.
+2. **`.length`:** grave um `enc` acima do teto do nó e confira a recusa.
+3. **`matches` com classes:** grave um `enc` fora do formato `e1.g1.<iv>.<ct>.<tag>` e
+   confira a recusa.
+4. **`child()` dinâmico:** confira que as regras que leem `root.child(...)` avaliam.
+5. **Raiz sem escrita:** `DELETE /users/{uid}` precisa responder **401**.
+6. **Cada escrita v1 literal responde 200:** presença (PATCH e PUT), GET de `devices`,
+   PUT e DELETE de lease com `if-match`, PUT e DELETE de recibo (inclusive a faxina e o
+   Refazer), PUT de rodada e PATCH de poda, PATCH de consumo e o stream de leases.
+7. **`keyring` com `rev` repetido:** precisa responder **401**; com `rev + 1`, **200**.
+8. **Sonda:** escrever em `rulesProbe/v1/{aparelho}` precisa responder **401** (é o
+   caminho sem concessão que distingue regra nova de velha); em `rulesProbe/v2/{aparelho}`,
+   **200**.
