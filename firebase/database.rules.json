@@ -62,6 +62,21 @@
             }
           }
         },
+        "live": {
+          "control": {
+            "admin": {
+              ".write": "auth != null && auth.uid == $uid && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && newData.hasChildren(['deviceId', 'generation', 'publicKey', 'setAt']) && newData.child('publicKey').isString() && ((!data.exists() && newData.child('generation').val() == 1) || newData.child('generation').val() == data.child('generation').val() + 1)"
+            },
+            "beat": {
+              ".write": "auth != null && auth.uid == $uid && newData.hasChildren(['dev', 'generation', 'sequencia', 'beatAt', 'sig']) && newData.child('generation').val() == root.child('users').child($uid).child('live').child('control').child('admin').child('generation').val() && newData.child('dev').val() == root.child('users').child($uid).child('live').child('control').child('admin').child('deviceId').val() && newData.child('sequencia').isNumber() && newData.child('beatAt').isNumber() && newData.child('beatAt').val() + 60000 > now && newData.child('beatAt').val() < now + 60000"
+            }
+          },
+          "devicePolicies": {
+            "$dev": {
+              ".write": "auth != null && auth.uid == $uid && newData.hasChildren(['v', 'generation', 'enc', 'sig']) && newData.child('generation').val() == root.child('users').child($uid).child('live').child('control').child('admin').child('generation').val() && newData.child('enc').isString() && newData.child('enc').val().matches(/^e1[.]g[0-9]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$/) && newData.child('enc').val().length <= 2048 && newData.child('v').isNumber()"
+            }
+          }
+        },
         "rulesProbe": {
           "v2": {
             "$dev": {

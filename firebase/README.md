@@ -232,3 +232,30 @@ real:
 8. **Sonda:** escrever em `rulesProbe/v1/{aparelho}` precisa responder **401** (é o
    caminho sem concessão que distingue regra nova de velha); em `rulesProbe/v2/{aparelho}`,
    **200**.
+
+## Validação manual das regras v2 (C2a, autoridade e políticas)
+
+**O banco não verifica assinatura.** O Realtime Database não avalia criptografia: as
+regras conferem dono, forma, geração e frescor de login, e nada mais. Qualquer aparelho
+com a credencial da conta consegue ESCREVER em `live/control/admin`, em
+`live/control/beat` e em `live/devicePolicies/{aparelho}`. Quem recusa um valor mal
+assinado é sempre o CLIENTE que lê, antes de aplicar. Os itens abaixo provam o que o
+servidor consegue barrar, e só isso.
+
+9. **`live/control/admin`, primeira geração:** com o nó ausente, gravar
+   `{deviceId, generation: 1, publicKey, setAt}` precisa responder **200**; gravar com
+   `generation: 2` no nó ausente precisa responder **401**.
+10. **`live/control/admin`, geração +1:** com o nó em `generation: 1`, gravar `2` responde
+    **200**; gravar `1` de novo, ou `3`, precisa responder **401**. É o que impede um
+    admin deposto de reescrever a geração vigente com a própria chave pública.
+11. **`live/control/admin` e senha recente (REC):** repita o item 1 apontando para este nó,
+    inclusive a parte do **projeto real**: sem o `auth_time` conferível pelo servidor, a
+    tela não pode dizer que trocar de admin exige a senha, e o nó fica protegido só por
+    geração, ETag e assinatura.
+12. **`live/control/beat`:** com o admin em `generation: 2` e `deviceId` A, gravar um
+    batimento com `generation: 2` e `dev: A` responde **200**; com `generation: 1`, ou com
+    `dev: B`, precisa responder **401**. `beatAt` fora da janela de 60 s (para trás ou para
+    frente) também precisa responder **401**.
+13. **`live/devicePolicies/{aparelho}`:** política com `{v, generation, enc, sig}` na
+    geração vigente responde **200**; com geração diferente, **401**; com `enc` fora do
+    formato `e1.gN.<iv>.<ct>.<tag>` ou acima de 2048 caracteres, **401**.
