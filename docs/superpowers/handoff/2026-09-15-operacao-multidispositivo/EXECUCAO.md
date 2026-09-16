@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026 (iniciativa inteira, limites no plano mestre, seção 4).
-- **Entrega em curso:** nenhuma. Próxima é a C8 (tomada forçada). C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g, C4 (código), C5a, C5b, C5c, C5d, C2c, C3h, C4b, T0, C6, C7a e C7b validadas localmente e **todas integradas** em `md/integracao`.
+- **Entrega em curso:** nenhuma. O que falta são as telas, que saem do Claude Design. C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g, C4 (código), C5a, C5b, C5c, C5d, C2c, C3h, C4b, T0, C6, C7a, C7b e C8 validadas localmente e **todas integradas** em `md/integracao`.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 - **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026.
@@ -74,7 +74,8 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | 26 | C6 Comandos remotos | `md/c6` | validada localmente e **integrada** | `evidencias-execucao/c6.md` |
 | 27 | C7a Checkpoint de verificação compartilhado | `md/c7a` | validada localmente e **integrada** | `evidencias-execucao/c7a.md` |
 | 28 | C7b Transferência voluntária | `md/c7b` | validada localmente e **integrada** | `evidencias-execucao/c7b.md` |
-| seguintes | C8, telas | | planos a escrever | |
+| 29 | C8 Tomada forçada | `md/c8` | validada localmente e **integrada** | `evidencias-execucao/c8.md` |
+| seguintes | telas (Claude Design) | | plano a escrever | |
 
 ## Observação de instabilidade na suíte (16/09/2026)
 
@@ -149,6 +150,6 @@ Três vezes hoje, uma rodada de `npm test` disparada **logo depois de um merge**
 
 ## Próxima ação concreta
 
-A C5, a C4b, a T0, a C6 e a C7 (a e b) estão completas. Seguir pela C8 (tomada forçada) e depois as telas, estas a partir do Claude Design. A afinidade da C7 segue adiada pela medição de troca de dono.
+Todo o código da iniciativa está entregue (C0 a C8, mais A1, A4, A5 e as fiações T0, C2c e C3h). O que falta são as TELAS, que saem do Claude Design, e os itens que só o dono fecha: publicar as regras no Firebase (roteiro do `firebase/README.md`), as medições externas da seção 13 da spec e a reconciliação com a main.
 
 Segue pendente, e só o dono fecha: publicar as regras v2 no console do Firebase (roteiro do `firebase/README.md`, itens 1 a 34), conferir a sincronização depois do incidente registrado acima, e a medição de memória da C4.

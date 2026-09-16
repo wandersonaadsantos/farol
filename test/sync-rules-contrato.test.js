@@ -34,7 +34,11 @@ test('a raiz perdeu o .write: o apagão de /users/{uid} deixa de existir', () =>
 });
 
 test('as validações legadas continuam byte a byte as de hoje', () => {
-  assert.equal(regras.leases.$acct.$pr['.validate'], "newData.hasChildren(['leaseId', 'deviceId', 'operationKind', 'expiresAt']) && newData.child('expiresAt').isNumber() && newData.child('expiresAt').val() > now && newData.child('expiresAt').val() <= now + 300000 && (!data.exists() || data.child('expiresAt').val() <= now || (data.child('leaseId').val() == newData.child('leaseId').val() && data.child('deviceId').val() == newData.child('deviceId').val()))");
+  // C8: a regra do lease ganhou UMA saída a mais, a tomada forçada. O começo dela continua
+  // byte a byte o de sempre, e o acréscimo é conferido no caso próprio da tomada: escrita
+  // acidental por cima de lease vivo continua recusada.
+  const LEASE_LEGADO = "newData.hasChildren(['leaseId', 'deviceId', 'operationKind', 'expiresAt']) && newData.child('expiresAt').isNumber() && newData.child('expiresAt').val() > now && newData.child('expiresAt').val() <= now + 300000 && (!data.exists() || data.child('expiresAt').val() <= now || (data.child('leaseId').val() == newData.child('leaseId').val() && data.child('deviceId').val() == newData.child('deviceId').val())";
+  assert.ok(regras.leases.$acct.$pr['.validate'].startsWith(LEASE_LEGADO), 'o começo da regra do lease não muda');
   assert.equal(regras.receipts.$acct.$pr.$fp['.validate'], "newData.hasChildren(['operationKind', 'materialVersion', 'deviceId', 'completedAt', 'outcome', 'publicationState']) && newData.child('completedAt').isNumber()");
   assert.equal(regras.usageEvents.$device.$event['.validate'], "newData.hasChildren(['at', 'kind', 'costUsd']) && newData.child('at').isNumber()");
   assert.equal(regras.dailyRounds.$acct.$pr.$day['.validate'], "$day.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && newData.child('dayPolicy').val() == 'America/Sao_Paulo'");
@@ -200,6 +204,20 @@ test('toda concessão de escrita, inclusive a da limpeza, exige o próprio uid',
   }
   const todas = [...nos.map((n) => n['.write']), regras.live.control.cleanupLock['.write'], regras.live.control.lastCleanup['.write']];
   for (const w of todas) assert.ok(w.includes(dono), w.slice(0, 60));
+});
+
+// C8: tomada forçada. O sucessor sobe por cima de lease VIVO só com a geração anterior
+// mais um, nomeando de quem tomou e sendo outro aparelho; as regras dos FILHOS conhecem a
+// mesma saída, senão o servidor recusaria o sucessor por elas.
+test('leases: a tomada é a única saída nova, e ela é deliberada', () => {
+  const clausula = "newData.child('takeoverSeq').val() == (data.child('takeoverSeq').exists() ? data.child('takeoverSeq').val() + 1 : 2)";
+  const w = regras.leases.$acct.$pr['.validate'];
+  assert.ok(w.includes(clausula), 'geração do sucessor é a anterior mais um');
+  assert.ok(w.includes("newData.child('tomadoDe').val() == data.child('deviceId').val()"), 'o sucessor nomeia de quem tomou');
+  assert.ok(w.includes("newData.child('deviceId').val() != data.child('deviceId').val()"), 'ninguém toma de si mesmo');
+  for (const filho of ['expiresAt', 'leaseId']) {
+    assert.ok(regras.leases.$acct.$pr[filho]['.validate'].includes("newData.parent().child('tomadoDe').val() == data.parent().child('deviceId').val()"), filho);
+  }
 });
 
 // C7: checkpoint compartilhado. Loja no caminho (review e self nunca se misturam),
