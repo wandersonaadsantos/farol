@@ -1,11 +1,9 @@
 /* Farol · UI: consome o engine local via SSE + fetch. Sem frameworks. */
 
 import {
-  safeJsonParse, canonicalGithubPrUrl, prKeyFromUrl, repoShort,
+  safeJsonParse, canonicalGithubPrUrl, prKeyFromUrl,
   feedLine, selfSessionKey,
   sessionProgress, parseGoto,
-  defaultFor,
-  overrideFor,
   reasonText,
 } from './pure.js';
 import { telasRegistradas, telaPorId } from './telas/registro.js';
@@ -36,10 +34,9 @@ import { openChat, renderChat, chatKeyAtual } from './telas/chat.js';
 import {
   renderDecisions, submitPushback, renderQueue, renderPanorama, renderRadarNav,
 } from './telas/radar.js';
-import { renderMyPRs } from './telas/meus-prs.js';
-import { loadReviewerCands, renderReviewersEditor, revCtx } from './telas/reviewers.js';
+import { renderMyPRs, initReviewersButton } from './telas/meus-prs.js';
 import { renderUpdate } from './telas/sistema-atualizacao.js';
-import { switchSistemaSection, sysSearchFilter, sysGoTo, renderSettings } from './telas/sistema.js';
+import { sysGoTo, renderSettings } from './telas/sistema.js';
 import { initCaixaRevisao } from './telas/caixa-revisao.js';
 import { initAtalhos } from './telas/atalhos.js';
 import { initPaleta } from './telas/paleta.js';
@@ -329,42 +326,12 @@ $('#lookupForm').addEventListener('submit', (e) => {
   $('#lookupUrl').value = '';
 });
 
-/* ---------- Meus PRs: botão Reviewers ----------
-   O resto do bloco (renderMyPRs, merge, ocultar, prompt de correcao) mora em
-   telas/meus-prs.js. So este botao fica aqui: ele navega pra aba Sistema (switchTab,
-   switchSistemaSection e sysSearchFilter, de telas/sistema.js) e usa o editor de
-   reviewers (loadReviewerCands, renderReviewersEditor e revCtx, de
-   telas/reviewers.js). Segundo listener delegado no MESMO #myPRs: o de meus-prs.js
-   cuida de todo o resto dos cliques do card. */
-$('#myPRs').addEventListener('click', (e) => {
-  const rev = e.target.closest('.act-set-reviewers');
-  if (!rev) return;
-  const card = rev.closest('.mypr-card');
-  const repo = String(card?.dataset.key || '').split('#')[0];
-  const org = repo.split('/')[0];
-  // efetivo = exceção do repo, senão o padrão da org
-  const eff = overrideFor(repo, revCtx()) || defaultFor(org, revCtx());
-  // sem reviewers (nem exceção nem padrão): leva pra tela de config
-  if (!eff || !eff.length) {
-    switchTab('sistema');
-    // sem isso a seção fica display:none e o scroll abaixo não mostra nada: o usuário
-    // caía na Visão geral com um toast falando de uma tela que ele não estava vendo
-    switchSistemaSection('reviewers');
-    const busca = $('#sysSearch');
-    if (busca.value) { busca.value = ''; sysSearchFilter(''); }
-    loadReviewerCands();
-    renderReviewersEditor();
-    setTimeout(() => { const el = $('#reviewersEditor'); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); sysFlash(el); } }, 60);
-    toast('info', `Defina os reviewers padrão de ${org} (ou uma exceção pra ${repoShort(repo)}) aqui, depois é só clicar em Reviewers no PR.`, 7000);
-    return;
-  }
-  // tem config: aplica na hora, sem confirmação
-  rev.disabled = true; rev.textContent = 'Setando…';
-  api('/api/self-review/reviewers', { url: rev.dataset.url }).then(r => {
-    if (!r?.ok) toast('error', r?.error || 'não consegui setar os reviewers');
-    rev.disabled = false; rev.textContent = '👥 Reviewers';
-  });
-});
+/* Meus PRs: botão Reviewers. Mora em telas/meus-prs.js (a tela dona do botão);
+   initReviewersButton(switchTab) recebe a navegação de que precisa pra levar à
+   aba Sistema. Chamada aqui, no mesmo ponto relativo em que o listener morava,
+   no MESMO elemento #myPRs (o listener de meus-prs.js cuida do resto dos
+   cliques do card). */
+initReviewersButton(switchTab);
 
 /* ---------- SSE ---------- */
 let TENTATIVAS_RECONEXAO = 0;

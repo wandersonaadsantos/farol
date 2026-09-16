@@ -2,27 +2,28 @@
    registrarTela, é sub-seção do Radar): renderMyPRs é chamada pelo connect() do
    app.js a cada snapshot do SSE, na mesma ordem de sempre.
 
-   O botão "Reviewers" (.act-set-reviewers) é a UNICA ação deste bloco que fica de
-   fora: ela navega pra aba Sistema e mexe no editor de reviewers (switchTab,
-   switchSistemaSection, sysSearchFilter, loadReviewerCands, renderReviewersEditor,
-   revCtx), que são primitivas do shell/Sistema e não migraram nesta tarefa. Levá-las
-   pra cá criaria a MESMA dependência de volta pro app.js que esta fase existe pra
-   evitar. Por isso o app.js mantém um SEGUNDO listener, menor, só pra esse botão,
-   no mesmo elemento #myPRs (o de cá cuida do resto). */
+   O botão "Reviewers" (.act-set-reviewers) é a UNICA ação deste bloco que navega
+   pra fora do card: ela leva pra aba Sistema e mexe no editor de reviewers. Por
+   isso initReviewersButton recebe switchTab por parâmetro (a mesma navegação que
+   o bootstrap segura) e o app.js chama a função no lugar em que o listener
+   morava, no MESMO elemento #myPRs (o listener declarado aqui embaixo cuida do
+   resto dos cliques do card). */
 
 import {
   esc, fmtRel, personMention, md, avatar, expiredSessionMarks, splitHiddenPRs,
   effectiveHidden, hiddenFootLabel, myPRsEmptyMsg, mergeToastKind, buildFixPrompt,
   canMergeSelfAnalysis, qualityBlockTitle, selfAnalysisBadge, selfAnalysisToggle,
-  selfAnalysisStale, listViewState, prKeyFromUrl,
+  selfAnalysisStale, listViewState, prKeyFromUrl, defaultFor, overrideFor, repoShort,
 } from '../pure.js';
 import { estado, escopo } from './estado.js';
 import {
   $, api, confirmModal, showOp, updateOp, closeOp, toast, rotuloDoBotaoDeAnalise,
-  copyToClipboard,
+  copyToClipboard, sysFlash,
 } from './infra.js';
 import { scopeVisible, acctMark } from './contas.js';
 import { renderRadarNav } from './radar.js';
+import { loadReviewerCands, renderReviewersEditor, revCtx } from './reviewers.js';
+import { switchSistemaSection, sysSearchFilter } from './sistema.js';
 
 /* ---------- render: meus PRs (autoanálise) ---------- */
 // PRs cujo merge normal esbarrou na proteção de branch: mostram as saídas
@@ -366,4 +367,42 @@ $('#myPRsHiddenFoot').addEventListener('click', (e) => {
   renderMyPRs(); renderRadarNav();
 });
 
-export { renderMyPRs, renderMyPRsHiddenFoot, montaFixPrompt };
+/* ---------- Meus PRs: botão Reviewers ----------
+   Segundo listener delegado no MESMO #myPRs (o de cima cuida do resto dos cliques
+   do card): navega pra aba Sistema (switchTab, recebido por parâmetro,
+   switchSistemaSection e sysSearchFilter) e usa o editor de reviewers
+   (loadReviewerCands, renderReviewersEditor e revCtx). Chamada pelo bootstrap
+   (ui/app.js) no mesmo ponto relativo em que este listener morava. */
+function initReviewersButton(switchTab) {
+  $('#myPRs').addEventListener('click', (e) => {
+    const rev = e.target.closest('.act-set-reviewers');
+    if (!rev) return;
+    const card = rev.closest('.mypr-card');
+    const repo = String(card?.dataset.key || '').split('#')[0];
+    const org = repo.split('/')[0];
+    // efetivo = exceção do repo, senão o padrão da org
+    const eff = overrideFor(repo, revCtx()) || defaultFor(org, revCtx());
+    // sem reviewers (nem exceção nem padrão): leva pra tela de config
+    if (!eff || !eff.length) {
+      switchTab('sistema');
+      // sem isso a seção fica display:none e o scroll abaixo não mostra nada: o usuário
+      // caía na Visão geral com um toast falando de uma tela que ele não estava vendo
+      switchSistemaSection('reviewers');
+      const busca = $('#sysSearch');
+      if (busca.value) { busca.value = ''; sysSearchFilter(''); }
+      loadReviewerCands();
+      renderReviewersEditor();
+      setTimeout(() => { const el = $('#reviewersEditor'); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); sysFlash(el); } }, 60);
+      toast('info', `Defina os reviewers padrão de ${org} (ou uma exceção pra ${repoShort(repo)}) aqui, depois é só clicar em Reviewers no PR.`, 7000);
+      return;
+    }
+    // tem config: aplica na hora, sem confirmação
+    rev.disabled = true; rev.textContent = 'Setando…';
+    api('/api/self-review/reviewers', { url: rev.dataset.url }).then(r => {
+      if (!r?.ok) toast('error', r?.error || 'não consegui setar os reviewers');
+      rev.disabled = false; rev.textContent = '👥 Reviewers';
+    });
+  });
+}
+
+export { renderMyPRs, renderMyPRsHiddenFoot, montaFixPrompt, initReviewersButton };
