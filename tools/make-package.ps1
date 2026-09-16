@@ -112,7 +112,12 @@ Expand-Archive -Path $zip -DestinationPath $tmpDir -Force
 # transporta, e ficavam fora do pente de credencial (achado da auditoria 16/08)
 $hits = Get-ChildItem $tmpDir -Recurse -File -Include *.js, *.md, *.json, *.cmd, *.ps1, *.html, *.css, *.sh, *.command |
   Where-Object { $_.Name -ne 'make-package.ps1' } |
-  Select-String -Pattern 'wandersonbiuder|ghp_|github_pat_|gho_|ATATT|Bearer ' -SimpleMatch:$false
+  # O padrao casa a FORMA de um segredo de verdade (prefixo + valor), nao a mencao do prefixo:
+  # desde a A1 e a A4 o proprio codigo carrega a mascara de segredo (lib/engine/falhas.js) e o
+  # formato do token de sessao (lib/local-auth/acesso.js), e o pente reprovava o pacote por
+  # causa deles. Continua igualmente severo com valor colado por engano: 20 caracteres a menos
+  # nao formam credencial utilizavel. Travado em test/pacote-auditoria.test.js.
+  Select-String -Pattern 'wandersonbiuder|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|gho_[A-Za-z0-9]{20,}|ATATT[A-Za-z0-9]{10,}|Bearer [A-Za-z0-9._~+/=-]{20,}' -SimpleMatch:$false
 Remove-Item $tmpDir -Recurse -Force
 if ($hits) {
   Write-Host '  x  POSSIVEL CREDENCIAL/CONTA PESSOAL NO PACOTE:' -ForegroundColor Red
