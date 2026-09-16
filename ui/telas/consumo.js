@@ -292,6 +292,10 @@ function registrarTelaConsumo() {
     id: 'consumo',
     aoEntrar: () => renderUsage(),
     aoEstado: () => { if ($('#tab-consumo').classList.contains('active')) renderUsage(); },
+    // o gráfico mede o container pra montar o viewBox, então precisa ser refeito
+    // quando a largura muda; o bootstrap (ui/app.js) já debounça o resize antes de
+    // percorrer o registro, então aqui é só o MESMO predicado do aoEstado.
+    aoRedimensionar: () => { if ($('#tab-consumo').classList.contains('active')) renderUsage(); },
   });
 }
 

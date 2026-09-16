@@ -8,9 +8,10 @@
 const TELAS = new Map();
 
 /**
- * @param {{ id: string, aoEntrar?: () => void, aoEstado?: () => void }} tela
+ * @param {{ id: string, aoEntrar?: () => void, aoEstado?: () => void, aoRedimensionar?: () => void }} tela
  * `id` é o nome da aba (o `data-tab` do HTML), ou um nome próprio para tela sem aba.
- * `aoEntrar` roda quando a aba passa a ser a visível; `aoEstado`, a cada snapshot do SSE.
+ * `aoEntrar` roda quando a aba passa a ser a visível; `aoEstado`, a cada snapshot do SSE;
+ * `aoRedimensionar`, a cada resize da janela (já debounced pelo bootstrap, ui/app.js).
  */
 function registrarTela(tela) {
   if (!tela || !tela.id) throw new Error('tela sem id');
