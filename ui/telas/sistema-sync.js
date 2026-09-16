@@ -8,7 +8,7 @@
    A senha é lida do DOM no instante do clique, numa const local, e some com o re-render:
    ela nunca entra no estado nem em nada que o snapshot carregue. */
 
-import { esc, syncSecaoHtml, syncCfgComGeral, settingsIgnoradasTexto } from '../pure.js';
+import { esc, syncSecaoHtml, syncCfgComGeral, syncCfgSemCompartilhamento, settingsIgnoradasTexto } from '../pure.js';
 import { estado } from './estado.js';
 import { $, api, toast, confirmModal } from './infra.js';
 
@@ -61,20 +61,66 @@ export function renderSync() {
   // o rascunho sai do DOM ANTES de reescrevê-lo: a guarda de foco acima não cobre quem
   // clicou em Entrar (o foco está no botão), e era por ali que o e-mail se perdia
   syncRascunhoDoDom();
-  box.innerHTML = syncSecaoHtml((estado() && estado().sync) || {}, syncCfgAtual(), syncRascunho, estado() && estado().capacidades);
+  box.innerHTML = syncSecaoHtml((estado() && estado().sync) || {}, syncCfgAtual(), syncRascunho, estado() && estado().capacidades, recusaDaChave);
 }
 
 // Os três interruptores. A regra da chave geral mora em syncCfgComGeral (ui/pure.js),
 // que é pura e testada: o comentário aqui já prometeu o arrasto das sub-chaves antes de
 // o código fazê-lo, e promessa em prosa não se verifica sozinha.
+const CHAVE_DO_INTERRUPTOR = {
+  setSyncCoordination: 'coordination',
+  setSyncConsolidation: 'consolidation',
+  setSyncShared: 'shared',
+  setSyncDistribution: 'distribution',
+};
+
 function syncToggle(id, valor) {
   const c = syncCfgAtual();
   if (id === 'setSyncEnabled') {
     saveSync(syncCfgComGeral(c, valor));
     return;
   }
-  const chave = id === 'setSyncCoordination' ? 'coordination' : 'consolidation';
+  // desligar compartilhar leva distribuir junto: distribuir sem conteúdo cifrado nunca
+  // valeria, e religar compartilhar não deve religar a distribuição sozinha
+  if (id === 'setSyncShared' && !valor) {
+    saveSync(syncCfgSemCompartilhamento(c));
+    return;
+  }
+  const chave = CHAVE_DO_INTERRUPTOR[id];
+  if (!chave) return;
   saveSync({ ...c, [chave]: { ...(c[chave] || {}), enabled: valor } });
+}
+
+/* Chave do conjunto (C1): desbloquear com a senha, ou gerar uma nova quando ela se perdeu.
+   A senha é lida na hora e nunca guardada; a recusa fica só na tela, com o motivo do engine. */
+let recusaDaChave = null;
+
+// objeto literal fora da função: dentro dela ele conta como profundidade no gate de qualidade
+function recusaDe(r) {
+  return { motivo: (r && (r.motivo || r.error)) || 'não deu para falar com o Farol agora' };
+}
+
+const CHAVE_NOVA = {
+  danger: true,
+  title: 'Gerar uma chave nova?',
+  body: '<p>O conteúdo cifrado com a chave antiga continua ilegível para sempre. Os outros aparelhos precisam da mesma senha para abrir a nova.</p><p>Nada é apagado no banco.</p>',
+  confirmLabel: 'Gerar chave nova',
+};
+
+async function syncAcaoDaChave(rota, confirmar) {
+  const campo = $('#syncChaveSenha');
+  const password = (campo && campo.value) || '';
+  if (!password) { toast('error', 'Digite a senha da sincronização.', 4000); return; }
+  if (confirmar && !(await confirmar())) return;
+  const r = await api(rota, { password });
+  if (campo) campo.value = '';
+  recusaDaChave = r && r.ok ? null : recusaDe(r);
+  renderSync();
+  if (r && r.ok) toast('ok', rota.endsWith('unlock') ? 'Chave aberta neste aparelho.' : 'Chave nova gerada. O que vier daqui em diante usa ela.', 4000);
+}
+
+function confirmarChaveNova() {
+  return confirmModal(CHAVE_NOVA);
 }
 
 // A URL do banco passa por allowlist de host no servidor (lib/sync/config.js), e valor
@@ -173,6 +219,8 @@ $('#syncManager').addEventListener('click', (e) => {
   else if (b.id === 'syncSenhaOlho') syncAlternarSenha();
   else if (b.id === 'syncLogout') syncSair();
   else if (b.id === 'syncTest') syncTestar();
+  else if (b.id === 'syncUnlock') syncAcaoDaChave('/api/sync/unlock');
+  else if (b.id === 'syncNewEpoch') syncAcaoDaChave('/api/sync/new-epoch', confirmarChaveNova);
 });
 
 $('#syncManager').addEventListener('change', (e) => {

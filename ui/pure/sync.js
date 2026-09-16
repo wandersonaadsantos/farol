@@ -24,6 +24,7 @@
 // que é falha de verdade. Estacionamento e coordenação juntos: o estacionamento VENCE,
 // porque ele é o que exige ação sua, e a espera se resolve sozinha.
 import { esc, fmtClock, fmtTok, fmtWhenDay } from './comum.js';
+import { syncChaveHtml } from './sync-chave.js';
 import { capacidadesIndisponiveisHtml } from './capacidades.js';
 
 const SYNC_SELOS = {
@@ -69,12 +70,14 @@ export function syncClasseCartao(estado) {
    efeito que não existe. */
 // o .switch tem que ser IRMÃO IMEDIATO do input, senão ele para de refletir o estado
 // sem erro nenhum (salva certo e parece desligado); ver o comentário em ui/app.css
-function syncSubToggle(id, ligada, on, titulo, desc) {
+// `aviso` é o chip de estado que diz o que o engine está fazendo com o pedido (C1):
+// o interruptor mostra a escolha, e o chip, que ela não está valendo aqui.
+function syncSubToggle(id, ligada, on, titulo, desc, aviso = '') {
   const classe = ligada ? '' : ' off';
   const marcado = on ? ' checked' : '';
   const travado = ligada ? '' : ' disabled';
   return `<label class="set-row${classe}" id="sys-row-${esc(id)}">
-      <span class="set-txt"><span class="set-title">${esc(titulo)}</span><span class="set-desc">${esc(desc)}</span></span>
+      <span class="set-txt"><span class="set-title">${esc(titulo)}</span><span class="set-desc">${esc(desc)}</span>${aviso}</span>
       <span class="set-ctl"><input type="checkbox" id="${esc(id)}"${marcado}${travado}><span class="switch"></span></span>
     </label>`;
 }
@@ -91,10 +94,41 @@ export function syncCfgComGeral(cfg, ligado) {
     enabled: false,
     coordination: { ...(c.coordination || {}), enabled: false },
     consolidation: { ...(c.consolidation || {}), enabled: false },
+    shared: { ...(c.shared || {}), enabled: false },
+    distribution: { ...(c.distribution || {}), enabled: false },
   };
 }
 
-export function syncTogglesHtml(cfg) {
+// Desligar compartilhar leva distribuir junto: sem conteúdo cifrado a distribuição nunca
+// valeria, e deixar a chave marcada guardaria um pedido que o engine ignora. Religar
+// compartilhar não religa a distribuição: quem religa escolhe.
+export function syncCfgSemCompartilhamento(cfg) {
+  const c = cfg || {};
+  return {
+    ...c,
+    shared: { ...(c.shared || {}), enabled: false },
+    distribution: { ...(c.distribution || {}), enabled: false },
+  };
+}
+
+// Compartilhar e distribuir (C1, C5). Distribuir depende de compartilhar (o candidato sobe
+// cifrado) e de coordenar (a posse é o lease); o engine exige os três juntos, e a tela
+// trava o interruptor quando falta um, em vez de aceitar um pedido que nunca valeria.
+const AVISO_BLOQUEIO = '<span class="sync-chip warn sync-pedido">pedido, não aplicado aqui</span>';
+
+function syncTogglesConjuntoHtml(c, sync) {
+  const geral = c.enabled === true;
+  const coord = !!(c.coordination && c.coordination.enabled === true);
+  const compartilhar = !!(c.shared && c.shared.enabled === true);
+  const distribuir = !!(c.distribution && c.distribution.enabled === true);
+  const bloqueado = !!(sync && sync.bloqueioCompartilhamento);
+  const avisoCompartilhar = (bloqueado && compartilhar) ? AVISO_BLOQUEIO : '';
+  const avisoDistribuir = (bloqueado && distribuir) ? AVISO_BLOQUEIO : '';
+  return `${syncSubToggle('setSyncShared', geral, geral && compartilhar, 'Compartilhar a visão entre aparelhos', 'Andamento, pendências, revisões, Panorama e Meus PRs aparecem em todos os seus aparelhos, cifrados com a chave do conjunto.', avisoCompartilhar)}
+    ${syncSubToggle('setSyncDistribution', geral && compartilhar && coord, geral && distribuir, 'Distribuir a fila entre aparelhos', 'O aparelho admin escolhe onde cada revisão automática roda. Depende de compartilhar e de evitar análises simultâneas.', avisoDistribuir)}`;
+}
+
+export function syncTogglesHtml(cfg, sync) {
   const c = cfg || {};
   const geral = c.enabled === true;
   const coord = geral && !!(c.coordination && c.coordination.enabled === true);
@@ -106,6 +140,7 @@ export function syncTogglesHtml(cfg) {
     </label>
     ${syncSubToggle('setSyncCoordination', geral, coord, 'Evitar análises simultâneas', 'Antes de abrir uma revisão, autoanálise ou classificação de pushback automática, confere se outro aparelho seu já cuidou daquele PR neste commit. Se já cuidou, nenhuma sessão nasce aqui.')}
     ${syncSubToggle('setSyncConsolidation', geral, cons, 'Consolidar histórico de consumo', 'Envia tokens, custo e desfecho de cada sessão, sem prompt, diff ou relatório, pra aba Consumo mostrar todos os aparelhos juntos. O histórico deste aparelho continua aqui do jeito que está.')}
+    ${syncTogglesConjuntoHtml(c, sync)}
   </div>`;
 }
 
@@ -293,13 +328,14 @@ export function syncCoordenacaoHtml(sync) {
   return `<div class="sync-sub-head">Coordenação agora</div><div class="card sync-lista">${corpo}</div>`;
 }
 
-export function syncSecaoHtml(sync, cfg, rascunho, capacidades) {
+export function syncSecaoHtml(sync, cfg, rascunho, capacidades, recusaDaChave) {
   const s = sync || {};
   // o aviso do que NÃO está valendo vem antes dos interruptores, inclusive com a chave geral
   // desligada: é onde a pessoa acredita estar lendo o estado da proteção
   const indisponiveis = capacidadesIndisponiveisHtml(capacidades);
-  if (!(cfg && cfg.enabled === true)) return `${indisponiveis}${syncTogglesHtml(cfg)}`;
-  return `${indisponiveis}${syncTogglesHtml(cfg)}
+  if (!(cfg && cfg.enabled === true)) return `${indisponiveis}${syncTogglesHtml(cfg, s)}`;
+  return `${indisponiveis}${syncTogglesHtml(cfg, s)}
+    ${syncChaveHtml(s, recusaDaChave)}
     <div class="sync-sub-head">Conexão</div>
     ${syncConexaoHtml(s, cfg, rascunho)}
     <div class="sync-sub-head">Aparelhos</div>

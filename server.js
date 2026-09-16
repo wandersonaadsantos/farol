@@ -1943,7 +1943,10 @@ class Engine extends EventEmitter {
         claudeProfileId: a.claudeProfileId
       })),
       pushbacks: this.pushbacks,
-      config: { ...this.config },
+      // a tela recebe o que foi PEDIDO: ela devolve o objeto inteiro ao salvar, e a config
+      // já zerada pela guarda do celular apagaria o pedido a cada salvamento. O efeito segue
+      // bloqueado no engine, e `capacidades` diz à tela que não está valendo.
+      config: { ...this.configParaDisco() },
       // lista mascarada dos sites do Jira: mesmos campos do config, mais só a
       // EXISTÊNCIA da credencial (hasCredential), nunca o valor (ver lib/jira/sites.js).
       jiraSites: maskJiraSites(this.config.jiraSites || [], credMod.hasCredential),

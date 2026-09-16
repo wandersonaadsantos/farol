@@ -24,3 +24,4 @@ export * from './pure/sessao.js';
 export * from './pure/sistema.js';
 export * from './pure/sobre.js';
 export * from './pure/sync.js';
+export * from './pure/sync-chave.js';

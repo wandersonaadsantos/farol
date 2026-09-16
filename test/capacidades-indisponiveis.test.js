@@ -145,7 +145,9 @@ test('o cartão mostra o motivo e o que falta de cada item, não só o título',
 // seção volta a mostrar interruptor ligado sem dizer que o Farol não está aplicando nada.
 test('a tela da sincronização passa as capacidades do snapshot para a seção', () => {
   const fonte = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'telas', 'sistema-sync.js'), 'utf8');
-  assert.match(fonte, /syncSecaoHtml\([\s\S]{0,200}?estado\(\)\.capacidades\)/);
+  // a chamada ganhou a recusa da chave depois das capacidades (C1): o que importa é que
+  // as capacidades continuam sendo passadas
+  assert.match(fonte, /syncSecaoHtml\([\s\S]{0,200}?estado\(\)\.capacidades/);
 });
 
 test('distribuição ligada sozinha também é pedido de compartilhamento', () => {

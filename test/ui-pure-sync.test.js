@@ -53,7 +53,11 @@ test('syncTogglesHtml: a chave geral desabilita as outras duas', () => {
   const on = P.syncTogglesHtml(CFG);
   assert.match(on, /id="setSyncEnabled" checked/);
   assert.match(on, /id="setSyncCoordination" checked/);
-  assert.doesNotMatch(on, /disabled/);
+  // desde a trilha C há mais dois interruptores, e o de distribuir fica travado quando
+  // compartilhar está desligado (como neste CFG); a garantia deste caso é sobre os dois
+  // interruptores da coordenação e do consumo, que a chave geral ligada nunca trava
+  assert.doesNotMatch(on, /id="setSyncCoordination"[^>]*disabled/);
+  assert.doesNotMatch(on, /id="setSyncConsolidation"[^>]*disabled/);
 
   const off = P.syncTogglesHtml({ enabled: false, coordination: { enabled: true }, consolidation: { enabled: true } });
   assert.doesNotMatch(off, /id="setSyncEnabled" checked/);
