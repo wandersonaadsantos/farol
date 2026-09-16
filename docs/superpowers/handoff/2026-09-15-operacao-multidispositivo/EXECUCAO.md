@@ -56,7 +56,7 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | `npm run lint` | verde, sem regressão (a baseline nunca subiu) |
 | `npm test` | 4098 testes, 4070 aprovados, 28 pulados, 0 falhas |
 | POSIX em contêiner Linux | 3959 testes, 9 falhas, todas por falta de `git` na imagem (`evidencias-execucao/validacao-posix.md`) |
-| `npm run eng` | ver "Verificação D" abaixo |
+| `npm run eng` | **passa**, código de saída 0, em `fcec759`: 13 regras no escopo, 12 acionadas, 12 executadas, 8 achados conhecidos do baseline que não reprovam |
 
 Windows 11, Node v24.15.0. Nenhuma falha de arquivo inteiro nesta rodada.
 
@@ -79,6 +79,15 @@ das evidências dos agentes, com as saídas de teste e de contraprova guardadas 
    comportamento SEM memória continua fixando na mão (`test/admissao-local.test.js`). Provado
    com a memória forçada para baixo: antes, 6 reprovações; depois, 71 de 71 aprovados. A
    contraprova (fingir só uma fonte) devolve 5 reprovações.
+
+**`npm run eng` no HEAD final.** As 10 regras de julgamento acionadas receberam avaliação
+escrita em `avaliacoes.jsonl` (fora do git, como manda o roteiro), com o fingerprint que o
+próprio pacote calcula por `runAudit`: 9 `conforme`, 2 delas com confiança média e o motivo
+escrito, e `core.file.single-responsibility` como **`violacao`** em cada um dos 8 arquivos do
+baseline que a entrega tocou (`server.js`, `lib/log-taxonomy.js`, `lib/engine/session.js`,
+`review.js`, `decision.js`, `selfpr.js`, `skip-review.js`, `usage.js`), porque a dívida
+continua aberta. O baseline absorve os 8 e o veredito é `pass`. Saída guardada em
+`evidencias-execucao/verificacoes-saidas/eng-final-fcec759.txt`.
 
 ## Entregas
 

@@ -1,0 +1,21 @@
+
+> farol@2.59.5 eng
+> node tools/eng-behaviour/gate.js
+
+eng-behaviour 0.12.0 (C:\Users\wanderson\Documents\eng-behaviour)
+eng-behaviour.rules.md em dia.
+core.abstraction.no-premature	judgment	pass	-
+core.convention.one-per-repository	judgment	pass	-
+core.duplication.business-rule	judgment	pass	-
+core.file.single-responsibility	judgment	pass	-
+core.imports.prefer-supported-aliases	judgment	pass	-
+core.javascript.modern-and-explicit	judgment	pass	-
+core.javascript.no-nested-ternary	hard	pass	310 arquivo(s) de codigo
+core.locality.promote-on-real-reuse	judgment	pass	-
+core.suppression.declared	hard	pass	310 arquivo(s) de codigo
+core.testing.behavior-proof	judgment	pass	-
+core.testing.coverage-under-mocked-strategy	judgment	pass	-
+core.testing.unit-mock-minimal	judgment	pass	-
+baseline: core.file.single-responsibility: 8 achado(s) conhecido(s), que nao reprovam
+13 regra(s) no escopo, 12 acionada(s) pela entrega, 12 executada(s). Veredito: pass.
+exit 0
