@@ -4,7 +4,7 @@
 // ser carregado direto no Node.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { tokenLocal, comAutorizacao, separarEventos, FonteDeEventosAutenticada } from '../ui/transporte.js';
+import { tokenLocal, comAutorizacao, separarEventos, FonteDeEventosAutenticada, salvarToken, esquecerToken } from '../ui/transporte.js';
 
 const TOKEN = 'a'.repeat(21) + '_' + 'B'.repeat(20) + '-';
 
@@ -84,4 +84,35 @@ test('close interrompe e não reagenda', async () => {
   fonte.close();
   await agendados.shift().fn();
   assert.equal(agendados.length, 0);
+});
+
+// Pareamento (B2, 2.1): só entra token com a forma que o servidor emite, e a credencial que
+// cai no meio do uso é avisada para a tela voltar ao pareamento.
+function armazenamentoGravavel() {
+  const dados = new Map();
+  return { getItem: (k) => (dados.has(k) ? dados.get(k) : null), setItem: (k, v) => dados.set(k, v), removeItem: (k) => dados.delete(k) };
+}
+
+test('salvarToken guarda só token com a forma certa, e esquecerToken apaga', () => {
+  const arm = armazenamentoGravavel();
+  assert.equal(salvarToken('curto', arm), false);
+  assert.equal(tokenLocal(arm), '');
+  assert.equal(salvarToken(TOKEN + '"', arm), false);
+  assert.equal(salvarToken(TOKEN, arm), true);
+  assert.equal(tokenLocal(arm), TOKEN);
+  esquecerToken(arm);
+  assert.equal(tokenLocal(arm), '');
+  assert.equal(salvarToken(TOKEN, { setItem() { throw new Error('bloqueado'); } }), false, 'armazenamento bloqueado não finge que guardou');
+});
+
+test('stream recusado com 401 avisa que a credencial caiu; outra recusa não avisa', async () => {
+  for (const [status, espera] of [[401, 1], [403, 0], [500, 0]]) {
+    let avisos = 0;
+    const agendados = [];
+    const fonte = new FonteDeEventosAutenticada('/api/events', () => TOKEN, async () => ({ status, ok: false, body: null }), (fn) => agendados.push(fn));
+    fonte.addEventListener('nao-autenticado', () => { avisos++; });
+    await agendados.shift()();
+    fonte.close();
+    assert.equal(avisos, espera, `status ${status}`);
+  }
 });

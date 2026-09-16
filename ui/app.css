@@ -1703,3 +1703,33 @@ body.electron .chat-head { padding-right: 150px; }
   .sync-linha { grid-template-columns: minmax(0, 1fr) auto; }
   .sync-linha > :nth-child(2), .sync-linha > :nth-child(3) { display: none; }
 }
+
+/* ---------- pareamento da API local (A4) ----------
+   Tela inteira, sem topo, sem abas e sem nada do estado: com a exigência ligada e sem
+   credencial, é tudo o que a página mostra. O `body.parear` esconde o resto em vez de
+   apagar, para a volta depois do pareamento ser um reload limpo. */
+body.parear > *:not(.par-raiz) { display: none !important; }
+.par-wrap { max-width: 560px; margin: 0 auto; padding: 48px 20px 60px; display: flex; flex-direction: column; gap: 16px; }
+.par-marca { display: flex; align-items: center; gap: 9px; }
+.par-card { display: flex; flex-direction: column; gap: 16px; padding: 22px 24px; }
+.par-titulo { font-size: 20px; font-weight: 700; margin: 0; }
+.par-desc { margin: 0; color: var(--muted); font-size: 13.5px; text-wrap: pretty; }
+.par-passo { display: flex; flex-direction: column; gap: 8px; }
+.par-cmd { display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 12.5px; }
+.par-onde { color: var(--faint); }
+.par-cmd code { padding: 7px 10px; overflow-wrap: anywhere; }
+.par-rot { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); margin-top: 4px; }
+.par-input { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font: inherit; font-size: 14px; min-height: 44px; width: 100%; }
+.par-input:focus { outline: none; border-color: var(--accent); }
+.par-codigo { font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; font-size: 18px; letter-spacing: .16em; }
+.par-erro { color: var(--danger); font-size: 12.5px; }
+.par-erro:not(:empty) ~ .par-rot { margin-top: 8px; }
+.par-acoes { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.par-acoes .btn { min-height: 44px; }
+.par-dica { font-size: 11.5px; color: var(--faint); text-wrap: pretty; }
+.par-rodape { margin: 0; font-size: 11.5px; color: var(--faint); text-wrap: pretty; }
+@media (max-width: 480px) {
+  .par-wrap { padding: 24px 16px 40px; }
+  .par-cmd { grid-template-columns: minmax(0, 1fr) auto; }
+  .par-onde { grid-column: 1 / -1; }
+}

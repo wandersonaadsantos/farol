@@ -5,6 +5,7 @@ import {
 } from './pure.js';
 import { telasRegistradas, telaPorId } from './telas/registro.js';
 import { tokenLocal, FonteDeEventosAutenticada } from './transporte.js';
+import { montarPareamento, precisaParear } from './telas/pareamento.js';
 import {
   estado, abaAtual, definirEstado, definirEscopo, definirAba,
   teamHighlightsEnabled, deliveriesEnabled,
@@ -321,6 +322,11 @@ function connect() {
     const d = safeJsonParse(e.data); if (!d) return; const { key, text } = d;
     handleChatActivity(key, text);
   });
+  // credencial revogada ou vencida com a página aberta (A4)
+  es.addEventListener('nao-autenticado', () => {
+    es.close();
+    trocarPeloPareamento('A credencial deste navegador expirou ou foi revogada. Pareie de novo para voltar.');
+  });
   es.addEventListener('toast', (e) => {
     const t = safeJsonParse(e.data); if (!t) return;
     toast(t.kind || 'info', t.text);
@@ -366,4 +372,18 @@ function connect() {
 // entregas, destaques, time, sistema, consumo).
 registrarTelaConsumo();
 
-connect();
+/* A4: antes de qualquer coisa, a página pergunta se este navegador pode entrar. Com a
+   exigência ligada e sem credencial, a interface inteira vira o pareamento: nada do estado,
+   do log, do chat ou dos eventos é pedido antes. Sem exigência, nada muda. */
+function trocarPeloPareamento(aviso) {
+  const raiz = document.getElementById('pareamento');
+  if (!raiz || document.body.classList.contains('parear')) return;
+  document.body.classList.add('parear');
+  raiz.hidden = false;
+  montarPareamento(raiz, aviso);
+}
+
+precisaParear().then((precisa) => {
+  if (precisa) return trocarPeloPareamento('');
+  connect();
+});
