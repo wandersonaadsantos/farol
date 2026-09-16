@@ -6,13 +6,16 @@
   <div class="card" style="padding: 0;">
     <div class="sync-lista">
       <div class="linha" style="grid-template-columns: 18px minmax(0, 1fr) auto auto auto;"><span class="avatar xs">AE</span><span><a href="#" style="color: inherit;">acme-exemplo/app-web#35</a> <span class="fraco">Ajusta rodapé</span></span><span class="chip ok">aprovado</span><span class="chip info">este</span><span class="btn sm ghost">Ver revisão</span></div>
-      <div class="linha" style="grid-template-columns: 18px minmax(0, 1fr) auto auto auto;"><span class="avatar xs">BT</span><span><a href="#" style="color: inherit;">acme-exemplo/api-pedidos#97</a> <span class="fraco">Remove campo legado</span></span><span class="chip bad">mudanças</span><span class="chip mute">Desktop antigo</span><span class="btn sm ghost">Ver revisão</span></div>
+      <div class="linha" style="grid-template-columns: 18px minmax(0, 1fr) auto auto auto;"><span class="avatar xs">BT</span><span><a href="#" style="color: inherit;">acme-exemplo/api-pedidos#97</a> <span class="fraco">Remove campo legado</span></span><span class="chip bad">mudanças</span><span class="chip mute">Desktop antigo</span><span class="btn sm ghost">Ver revisão</span><span class="btn sm ghost">Repetir</span></div>
       <div class="linha" style="grid-template-columns: 18px minmax(0, 1fr) auto auto auto;"><span class="avatar xs">AE</span><span><a href="#" style="color: inherit;">acme-exemplo/app-web#33</a> <span class="fraco">Atualiza ícones</span></span><span class="chip ok">aprovado</span><span class="chip mute">Celular de teste</span><span class="btn sm ghost">Ver revisão</span></div>
     </div>
   </div>
   <div class="faixa" style="margin-top: 8px;"><span class="chip warn">1 revisão não abriu</span><span class="muted">O conteúdo veio de outro aparelho e não pôde ser verificado. Ficou de fora da lista inteira, nunca pela metade.</span></div>
 
   <div class="grade-2" style="margin-top: 12px;">
+    <div><div class="estado-rot">Repetir a análise</div><div class="faixa"><span class="muted">A análise é refeita no aparelho de origem, sobre o mesmo commit. Se o PR ganhou commit novo, ele recusa e a lista de comandos mostra a recusa. Nada é postado por causa deste comando.</span></div></div>
+    <div><div class="estado-rot">Repetir indisponível</div><div class="faixa"><span class="muted">esta revisão foi publicada antes de o commit entrar no índice</span></div></div>
+    <div><div class="estado-rot">Repetir recusado</div><div class="faixa"><span class="chip bad">recusado</span><span class="muted">aquele aparelho não conhece o PR</span></div></div>
     <div><div class="estado-rot">Carregando o corpo</div><div class="faixa"><span class="pill busy">buscando a revisão no Desktop antigo</span></div></div>
     <div><div class="estado-rot">Corpo indisponível</div><div class="faixa"><span class="chip bad">não deu para abrir</span><span class="muted">O resumo continua na lista.</span></div></div>
   </div>
