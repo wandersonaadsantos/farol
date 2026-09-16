@@ -53,6 +53,11 @@ function montaPacoteDeUpdate() {
   fs.writeFileSync(path.join(src, 'package.json'), JSON.stringify({ name: 'farol', version: '9.9.9', type: 'module' }, null, 2) + '\n');
   fs.writeFileSync(path.join(src, 'main.js'), '// shell\n');
   fs.writeFileSync(path.join(src, 'server.js'), '// engine\n');
+  // os quatro guias viajam no pacote desde a Fase 1.5, e o installer recusa fonte sem eles
+  fs.mkdirSync(path.join(src, 'docs'), { recursive: true });
+  for (const guia of ['CONFIGURATION.md', 'REVIEW-GATES.md', 'MACOS.md', 'RELEASE.md']) {
+    fs.writeFileSync(path.join(src, 'docs', guia), `# ${guia}\n`);
+  }
   fs.copyFileSync(INSTALL_SH, path.join(src, 'installer', 'install.sh'));
   fs.copyFileSync(path.join(RAIZ, 'installer/electron-runtime.sh'), path.join(src, 'installer/electron-runtime.sh'));
   assert.equal(fs.existsSync(path.join(src, 'node_modules')), false, 'a fonte simula o zip de update: sem node_modules');

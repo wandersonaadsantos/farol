@@ -1,6 +1,6 @@
 // Checkpoint de verificação: memória persistida e incremental do que a revisão headless
 // já confirmou, pra não reprocessar do zero depois de um subagente travar em 529 ou a
-// sessão ser relançada. Ver a seção "Checkpoint de verificação" do CLAUDE.md.
+// sessão ser relançada. Ver a seção "Checkpoint de verificação" do docs/REVIEW-GATES.md.
 // Runner nativo (node --test), ZERO dependências.
 import os from 'node:os';
 import path from 'node:path';

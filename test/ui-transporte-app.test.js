@@ -10,6 +10,8 @@ import { instalarDom } from './helpers/dom-stub.js';
 
 const TOKEN = 'c'.repeat(43);
 const APPJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
+// desde a Fase 1b, api() e get() moram na infraestrutura das telas
+const INFRA = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'telas', 'infra.js'), 'utf8');
 
 instalarDom();
 globalThis.localStorage.setItem('farol-auth-token', TOKEN);
@@ -35,8 +37,9 @@ test('nenhuma requisição leva o token na URL', () => {
 });
 
 test('api() e get() passam pelos cabeçalhos com autorização', () => {
-  assert.match(APPJS, /import \{ tokenLocal, comAutorizacao, FonteDeEventosAutenticada \} from '\.\/transporte\.js';/);
-  assert.match(APPJS, /headers: comAutorizacao\(\{ 'Content-Type': 'application\/json', 'x-farol': '1' \}\)/);
-  assert.match(APPJS, /function get\(path\) \{ return fetch\(path, \{ headers: comAutorizacao\(\) \}\)/);
+  assert.match(APPJS, /import \{ tokenLocal, FonteDeEventosAutenticada \} from '\.\/transporte\.js';/);
+  assert.match(INFRA, /import \{ comAutorizacao \} from '\.\.\/transporte\.js';/);
+  assert.match(INFRA, /headers: comAutorizacao\(\{ 'Content-Type': 'application\/json', 'x-farol': '1' \}\)/);
+  assert.match(INFRA, /function get\(path\) \{ return fetch\(path, \{ headers: comAutorizacao\(\) \}\)/);
   assert.match(APPJS, /const es = tokenLocal\(\) \? new FonteDeEventosAutenticada\('\/api\/events'\) : new EventSource\('\/api\/events'\);/);
 });

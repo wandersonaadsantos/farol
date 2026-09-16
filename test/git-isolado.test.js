@@ -10,7 +10,7 @@
 // noutro lugar, depois, com cara de outro problema.
 //
 // A doutrina do repositorio e "travas automaticas, nao confiar em disciplina"
-// (CLAUDE.md, "Versionamento"), e o proprio CLAUDE.md ja registrou que aviso em
+// (docs/RELEASE.md, "Versionamento"), e o docs/REVIEW-GATES.md ja registrou que aviso em
 // prosa nao substitui invariante no codigo (secao "A garantia mora no
 // estrangulamento"). Aqui nao ha estrangulamento possivel, porque cada chamada
 // monta as opcoes dela, entao a garantia e conferida no fonte.

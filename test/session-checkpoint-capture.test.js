@@ -2,7 +2,7 @@
 // disso, ela sinaliza um veredito de verificação via um marcador estruturado no campo
 // `description` de uma chamada Bash que já rodaria de qualquer forma; o ENGINE intercepta
 // esse tool_use (mesmo ponto que já alimenta o feed de atividade) e é ELE quem grava o
-// checkpoint. Ver a seção "Checkpoint de verificação" do CLAUDE.md.
+// checkpoint. Ver a seção "Checkpoint de verificação" do docs/REVIEW-GATES.md.
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';

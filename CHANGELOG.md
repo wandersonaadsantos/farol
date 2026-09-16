@@ -9,6 +9,44 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.59.5
+
+Correção de um aviso que aparecia diferente em dois lugares, e a maior manutenção interna
+da tela até hoje, sem mudança de uso.
+
+**Correções**
+
+- **A paleta de comandos avisava menos que o card ao pedir mudanças.** Ao usar Ctrl+K para
+  pedir mudanças num PR, a confirmação não dizia que o PR fica bloqueado até o autor tratar
+  e você reavaliar, apesar de o card dizer. Agora as duas telas mostram o mesmo texto.
+
+**Melhorias**
+
+- **A tela foi reorganizada por dentro.** Cada aba passou a ser um módulo próprio, em vez de
+  um arquivo único de quatro mil linhas. Nada muda no uso: a reorganização existe para que
+  defeito novo fique contido numa tela só, e para a próxima mudança ser mais segura.
+
+## v2.59.4
+
+A aba Entregas deixa de cortar em 1000 entregas por organização, o instalador do Windows
+volta a levar o servidor do Jira, e os guias de uso passam a vir junto com o app.
+
+**Melhorias**
+
+- **Os guias vêm com o app.** Configuração (assinatura, modelo, Jira), gates de revisão,
+  macOS e Linux, e release ficam em quatro guias na pasta `docs/` da instalação, em vez de
+  um documento só de quase 200 KB.
+
+**Correções**
+
+- **Entregas: até 5000 por organização.** Organização com mais de 1000 entregas no período
+  mostrava só as 1000 mais recentes, e os números e o gráfico ficavam abaixo do real. A busca
+  agora divide o período por data de merge quando uma consulta volta cheia; o período comum
+  continua custando uma consulta só. O aviso de limite só aparece quando uma organização
+  passa de 5000.
+- **O instalador do Windows volta a levar o servidor do Jira.** Quem instalava pelo
+  `Farol-Setup.exe` ficava sem ele até o primeiro auto-update.
+
 ## v2.59.3
 
 Quando o autor envia commit durante a revisão, o card agora diz o que vai acontecer e
