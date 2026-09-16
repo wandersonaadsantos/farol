@@ -113,6 +113,12 @@
             }
           }
         },
+        "commandReceipts": {
+          ".write": "auth != null && auth.uid == $uid && !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
+          "$cmd": {
+            ".write": "auth != null && auth.uid == $uid && ((newData.hasChildren(['dev', 'estado', 'code', 'at']) && !data.exists() && newData.child('dev').val() == root.child('users').child($uid).child('live').child('commands').child($cmd).child('alvo').val() && newData.child('at').isNumber() && newData.child('at').val() <= now + 60000 && newData.child('at').val() + 60000 > now) || (!newData.exists() && !root.child('users').child($uid).child('live').child('commands').child($cmd).exists()) || !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists())"
+          }
+        },
         "usageDaily": {
           ".write": "auth != null && auth.uid == $uid && !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
           "$dev": {
@@ -180,6 +186,12 @@
               "$dev": {
                 ".write": "auth != null && auth.uid == $uid && (!newData.exists() || (newData.hasChildren(['itemId', 'prTag', 'matTag', 'acctTag', 'orgTag', 'publishedAt', 'ttl', 'enc']) && $item.matches(/^[0-9a-f]+_[0-9a-f]+$/) && newData.child('ttl').isNumber() && newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 1800000 && newData.child('enc').isString() && newData.child('enc').val().matches(/^e1[.]g[0-9]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$/) && newData.child('enc').val().length <= 2048))"
               }
+            }
+          },
+          "commands": {
+            ".write": "auth != null && auth.uid == $uid && !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
+            "$cmd": {
+              ".write": "auth != null && auth.uid == $uid && ((newData.hasChildren(['v', 'generation', 'alvo', 'ttl', 'enc', 'sig']) && newData.child('generation').val() == root.child('users').child($uid).child('live').child('control').child('admin').child('generation').val() && $cmd.matches(/^[0-9a-f]{32}$/) && newData.child('ttl').isNumber() && newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 3600000 && newData.child('enc').isString() && newData.child('enc').val().matches(/^e1[.]g[0-9]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$/) && newData.child('enc').val().length <= 2048) || (!newData.exists() && data.child('ttl').val() < now) || !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists())"
             }
           },
           "assign": {

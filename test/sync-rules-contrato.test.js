@@ -56,11 +56,11 @@ test('keyring: exige senha recente e rev monotônico', () => {
 
 test('só os nós listados têm concessão de escrita: nó novo sem regra é negado por construção', () => {
   const comEscrita = Object.keys(regras).filter((k) => regras[k] && regras[k]['.write']);
-  assert.deepEqual(comEscrita.sort(), ['catalog', 'dailyRounds', 'devices', 'keyring', 'leases', 'myPrs', 'myPrsMeta', 'panorama', 'panoramaMeta', 'pushbacks', 'receipts', 'recentReviews', 'reviewBodies', 'usageDaily', 'usageEvents']);
+  assert.deepEqual(comEscrita.sort(), ['catalog', 'commandReceipts', 'dailyRounds', 'devices', 'keyring', 'leases', 'myPrs', 'myPrsMeta', 'panorama', 'panoramaMeta', 'pushbacks', 'receipts', 'recentReviews', 'reviewBodies', 'usageDaily', 'usageEvents']);
   assert.equal(regras.live['.write'], undefined, 'live não concede em bloco');
   assert.equal(regras.live.control['.write'], undefined, 'control também não');
   assert.deepEqual(Object.keys(regras.live.control).sort(), ['admin', 'beat', 'cleanup', 'cleanupLock', 'lastCleanup', 'ready', 'revokedBefore']);
-  assert.deepEqual(Object.keys(regras.live).sort(), ['ack', 'assign', 'control', 'devicePolicies', 'deviceStatus', 'groups', 'operations', 'pending', 'queue', 'rev', 'seen']);
+  assert.deepEqual(Object.keys(regras.live).sort(), ['ack', 'assign', 'commands', 'control', 'devicePolicies', 'deviceStatus', 'groups', 'operations', 'pending', 'queue', 'rev', 'seen']);
 });
 
 // A geração é o que impede um admin deposto de continuar mandando: ela só anda para cima,
@@ -194,12 +194,28 @@ test('live/deviceStatus e catalog: forma, envelope de 2048 e remoção só pela 
 // sempre que a chave de limpeza dela estivesse ligada.
 test('toda concessão de escrita, inclusive a da limpeza, exige o próprio uid', () => {
   const dono = 'auth != null && auth.uid == $uid';
-  const nos = [regras.catalog, regras.live.deviceStatus, regras.live.devicePolicies, regras.live.groups, regras.recentReviews, regras.reviewBodies, regras.reviewBodies.$r, regras.panorama, regras.panoramaMeta, regras.myPrs, regras.myPrsMeta, regras.pushbacks, regras.live.queue, regras.live.assign, regras.live.ack, regras.usageDaily, regras.usageDaily.$dev, regras.usageDaily.$dev.$day];
+  const nos = [regras.catalog, regras.live.deviceStatus, regras.live.devicePolicies, regras.live.groups, regras.recentReviews, regras.reviewBodies, regras.reviewBodies.$r, regras.panorama, regras.panoramaMeta, regras.myPrs, regras.myPrsMeta, regras.pushbacks, regras.live.queue, regras.live.assign, regras.live.ack, regras.live.commands, regras.live.commands.$cmd, regras.commandReceipts, regras.commandReceipts.$cmd, regras.usageDaily, regras.usageDaily.$dev, regras.usageDaily.$dev.$day];
   for (const no of nos) {
     assert.ok(no['.write'].startsWith(dono), `concessão sem dono: ${no['.write'].slice(0, 60)}`);
   }
   const todas = [...nos.map((n) => n['.write']), regras.live.control.cleanupLock['.write'], regras.live.control.lastCleanup['.write']];
   for (const w of todas) assert.ok(w.includes(dono), w.slice(0, 60));
+});
+
+// C6: comando remoto e recibo. O comando vale por no máximo uma hora, some sozinho depois
+// do prazo e é assinado na geração vigente; o recibo é do ALVO, é escrito uma vez só e não
+// pode ser reescrito por quem quiser mudar o desfecho depois.
+test('live/commands/$cmd e commandReceipts/$cmd: prazo, geração e recibo de escrita única', () => {
+  const w = regras.live.commands.$cmd['.write'];
+  assert.ok(w.includes("newData.hasChildren(['v', 'generation', 'alvo', 'ttl', 'enc', 'sig'])"));
+  assert.ok(w.includes("newData.child('generation').val() == root.child('users').child($uid).child('live').child('control').child('admin').child('generation').val()"));
+  assert.ok(w.includes("newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 3600000"));
+  assert.ok(w.includes("$cmd.matches(/^[0-9a-f]{32}$/)"));
+  assert.ok(w.includes("!newData.exists() && data.child('ttl').val() < now"), 'comando vencido some sem depender da limpeza');
+  const r = regras.commandReceipts.$cmd['.write'];
+  assert.ok(r.includes("!data.exists()"), 'recibo é escrita única: o desfecho não é reescrito depois');
+  assert.ok(r.includes("newData.child('dev').val() == root.child('users').child($uid).child('live').child('commands').child($cmd).child('alvo').val()"), 'só o alvo responde');
+  assert.ok(r.includes("newData.child('at').val() + 60000 > now"), 'recibo com carimbo antigo não entra');
 });
 
 // C4b: rollup diário do consumo por grupo. Números em claro (o contrato manda), chave do

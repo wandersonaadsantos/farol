@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026 (iniciativa inteira, limites no plano mestre, seção 4).
-- **Entrega em curso:** nenhuma. Próxima é a C6 (comandos remotos). C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g, C4 (código), C5a, C5b, C5c, C5d, C2c, C3h, C4b e T0 validadas localmente e **todas integradas** em `md/integracao`.
+- **Entrega em curso:** nenhuma. Próxima é a C7 (checkpoint compartilhado e transferência voluntária). C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g, C4 (código), C5a, C5b, C5c, C5d, C2c, C3h, C4b, T0 e C6 validadas localmente e **todas integradas** em `md/integracao`.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 - **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026.
@@ -71,7 +71,8 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | 23 | C3h Fiação da capacidade e do catálogo | `md/c3h` | validada localmente e **integrada** | `evidencias-execucao/c3h.md` |
 | 24 | C4b Ativação do teto do grupo (ativação protegida pela medição) | `md/c4b` | validada localmente e **integrada** | `evidencias-execucao/c4b.md` |
 | 25 | T0 Estabilidade da suíte (caso cancelado em silêncio) | `md/t0` | validada localmente e **integrada** | `evidencias-execucao/t0.md` |
-| seguintes | C6, C7, C8, telas | | planos a escrever | |
+| 26 | C6 Comandos remotos | `md/c6` | validada localmente e **integrada** | `evidencias-execucao/c6.md` |
+| seguintes | C7, C8, telas | | planos a escrever | |
 
 ## Observação de instabilidade na suíte (16/09/2026)
 
@@ -144,6 +145,6 @@ Três vezes hoje, uma rodada de `npm test` disparada **logo depois de um merge**
 
 ## Próxima ação concreta
 
-A C5, a C4b e a T0 estão completas. Seguir pela C6 (comandos remotos), depois C7, C8 e as telas, estas a partir do Claude Design.
+A C5, a C4b, a T0 e a C6 estão completas. Seguir pela C7 (checkpoint compartilhado e transferência voluntária; a afinidade depende de medição externa), depois C8 e as telas, estas a partir do Claude Design.
 
 Segue pendente, e só o dono fecha: publicar as regras v2 no console do Firebase (roteiro do `firebase/README.md`, itens 1 a 34), conferir a sincronização depois do incidente registrado acima, e a medição de memória da C4.

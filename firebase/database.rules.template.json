@@ -113,6 +113,12 @@
             }
           }
         },
+        "commandReceipts": {
+          ".write": "@U@ && @LIMPA@",
+          "$cmd": {
+            ".write": "@U@ && ((@H(['dev','estado','code','at'])@ && !data.exists() && newData.child('dev').val() == root.child('users').child($uid).child('live').child('commands').child($cmd).child('alvo').val() && newData.child('at').isNumber() && newData.child('at').val() <= now + 60000 && newData.child('at').val() + 60000 > now) || (!newData.exists() && !root.child('users').child($uid).child('live').child('commands').child($cmd).exists()) || @LIMPA@)"
+          }
+        },
         "usageDaily": {
           ".write": "@U@ && @LIMPA@",
           "$dev": {
@@ -180,6 +186,12 @@
               "$dev": {
                 ".write": "@U@ && (!newData.exists() || (@H(['itemId','prTag','matTag','acctTag','orgTag','publishedAt','ttl','enc'])@ && $item.matches(/^[0-9a-f]+_[0-9a-f]+$/) && newData.child('ttl').isNumber() && newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 1800000 && @ENC(2048)@))"
               }
+            }
+          },
+          "commands": {
+            ".write": "@U@ && @LIMPA@",
+            "$cmd": {
+              ".write": "@U@ && ((@H(['v','generation','alvo','ttl','enc','sig'])@ && @GEN@ && $cmd.matches(/^[0-9a-f]{32}$/) && newData.child('ttl').isNumber() && newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 3600000 && @ENC(2048)@) || (!newData.exists() && data.child('ttl').val() < now) || @LIMPA@)"
             }
           },
           "assign": {
