@@ -32,7 +32,9 @@ function deps({ respostas = {}, confirma = true, valor = '', status = null } = {
     api: async (rota, corpo) => { chamadas.push({ rota, corpo }); return Object.hasOwn(respostas, rota) ? respostas[rota] : { ok: true }; },
     get: async (rota) => { chamadas.push({ rota }); return status; },
     toast: (tipo, texto) => avisos.push({ tipo, texto }),
-    confirmarComCampo: async () => { d.confirmacoes++; return { ok: confirma, valor: confirma ? valor : '' }; },
+    // o valor volta mesmo na desistência: quem digitou a senha e cancelou não pode ver a
+    // rota chamada, e é a guarda do `ok` (não a do campo vazio) que precisa impedir isso
+    confirmarComCampo: async () => { d.confirmacoes++; return { ok: confirma, valor }; },
     confirmModal: async () => { d.confirmacoes++; return confirma; },
     recarregar: () => { d.recarregou = true; },
     idSorteado: () => ID,
@@ -93,7 +95,7 @@ test('revogarSessao: sem confirmação, a rota não é chamada', async () => {
 /* ---------- limpeza e revogação ---------- */
 
 test('limparDados: confirma, exige senha e manda a senha, sem categoria inventada pela tela', async () => {
-  const negado = deps({ confirma: false });
+  const negado = deps({ confirma: false, valor: 'digitada-e-cancelada' });
   assert.equal(await AP.limparDados(negado), false);
   assert.equal(negado.chamadas.length, 0);
   const semSenha = deps({ valor: '' });
@@ -112,7 +114,7 @@ test('limparDados: a recusa do servidor aparece com o motivo', async () => {
 });
 
 test('revogarConjunto: confirma, exige senha e só então chama a rota', async () => {
-  const negado = deps({ confirma: false });
+  const negado = deps({ confirma: false, valor: 'digitada-e-cancelada' });
   await AP.revogarConjunto(negado);
   assert.equal(negado.chamadas.length, 0);
   const semSenha = deps({ valor: '' });
@@ -146,6 +148,9 @@ test('aposentarAparelho: aposentar confirma; reativar não precisa', async () =>
 
 test('renomearAparelho: nome vazio não chama a rota', async () => {
   estadoCom({ devices: [{ deviceId: 'dX', name: 'Antigo' }] });
+  const cancelado = deps({ confirma: false, valor: 'Nome digitado e cancelado' });
+  assert.equal(await AP.renomearAparelho('dX', cancelado), false);
+  assert.equal(cancelado.chamadas.length, 0, 'cancelar o modal não renomeia');
   const vazio = deps({ valor: '   ' });
   assert.equal(await AP.renomearAparelho('dX', vazio), false);
   assert.equal(vazio.chamadas.length, 0);
@@ -184,6 +189,15 @@ test('publicarPolitica: devolve o motivo da recusa, e vazio no sucesso', async (
   assert.deepEqual(d.chamadas, [{ rota: '/api/sync/policy', corpo: { deviceId: 'dX', politica: pol } }]);
   const recusa = deps({ respostas: { '/api/sync/policy': { ok: false, code: 'nao-e-admin', motivo: 'este aparelho não é o admin da geração vigente' } } });
   assert.equal(await AP.publicarPolitica('dX', pol, recusa), 'este aparelho não é o admin da geração vigente');
+});
+
+test('abrirPolitica: sem ser o admin com batimento, o formulário não abre', () => {
+  estadoCom({ admin: { deviceId: 'dEu', generation: 1, souEu: true, fresca: false }, devices: [{ deviceId: 'dX', name: 'Desktop antigo' }] });
+  AP.abrirPolitica('dX');
+  assert.ok(!document.querySelector('#devicesManager').innerHTML.includes('Política do'));
+  estadoCom({ admin: { deviceId: 'dEu', generation: 1, souEu: true, fresca: true }, devices: [{ deviceId: 'dX', name: 'Desktop antigo' }] });
+  AP.abrirPolitica('dX');
+  assert.match(document.querySelector('#devicesManager').innerHTML, /Política do Desktop antigo/);
 });
 
 /* ---------- grupos ---------- */

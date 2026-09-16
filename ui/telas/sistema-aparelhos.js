@@ -258,7 +258,9 @@ async function aoRevogarSessao(id) {
   renderAparelhos();
 }
 
-function abrirPolitica(id) {
+// Exportada para o teste: o botão só existe para o admin, mas a guarda fica aqui também,
+// porque um snapshot novo pode tirar a autoridade entre o desenho e o clique.
+export function abrirPolitica(id) {
   if (!aparelhosSouAdmin(syncDoEstado().admin)) return;
   politicaAberta = id;
   politicaRecusa = '';
