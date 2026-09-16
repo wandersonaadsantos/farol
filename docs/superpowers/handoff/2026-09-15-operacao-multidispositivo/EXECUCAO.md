@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026 (iniciativa inteira, limites no plano mestre, seção 4).
-- **Entrega em curso:** nenhuma. Próxima é a C7b (transferência voluntária). C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g, C4 (código), C5a, C5b, C5c, C5d, C2c, C3h, C4b, T0, C6 e C7a validadas localmente e **todas integradas** em `md/integracao`.
+- **Entrega em curso:** nenhuma. Próxima é a C8 (tomada forçada). C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g, C4 (código), C5a, C5b, C5c, C5d, C2c, C3h, C4b, T0, C6, C7a e C7b validadas localmente e **todas integradas** em `md/integracao`.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 - **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026.
@@ -73,11 +73,14 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | 25 | T0 Estabilidade da suíte (caso cancelado em silêncio) | `md/t0` | validada localmente e **integrada** | `evidencias-execucao/t0.md` |
 | 26 | C6 Comandos remotos | `md/c6` | validada localmente e **integrada** | `evidencias-execucao/c6.md` |
 | 27 | C7a Checkpoint de verificação compartilhado | `md/c7a` | validada localmente e **integrada** | `evidencias-execucao/c7a.md` |
-| seguintes | C7b, C8, telas | | planos a escrever | |
+| 28 | C7b Transferência voluntária | `md/c7b` | validada localmente e **integrada** | `evidencias-execucao/c7b.md` |
+| seguintes | C8, telas | | planos a escrever | |
 
 ## Observação de instabilidade na suíte (16/09/2026)
 
 Três vezes hoje, uma rodada de `npm test` disparada **logo depois de um merge**, com a máquina ainda ocupada, terminou com UMA falha que não se repete. O sintoma é sempre o mesmo: o arquivo inteiro aparece como `✖`, **sem nenhum caso reprovando dentro dele**, e a contagem total fica menor que a normal (um arquivo não terminou). Foram arquivos diferentes (`sync-manual`, `sync-chaveiro`), e rodando o arquivo sozinho e a suíte de novo dá verde. A leitura mais provável é contenção (o `npm test` roda os arquivos em paralelo, e `sync-chaveiro` faz `scrypt` de verdade), somada ao `--test-force-exit` do script.
+
+**Medição de 16/09/2026, com a suíte já maior (C7b).** A falha passou a aparecer em cerca de 1 rodada a cada 3 ou 4, sempre num arquivo diferente e sempre sem nenhum caso reprovando dentro dele. Limitar a concorrência do runner reduziu, mas NÃO eliminou: com `--test-concurrency=4` foram 3 rodadas verdes; com 8, quatro verdes e uma com o mesmo sintoma; com o padrão (32 na máquina), três rodadas seguidas verdes logo depois. Como o tempo dobra com concorrência 4 e o defeito não some, a configuração do `npm test` fica como está. O critério de verde continua o mesmo: só vale a rodada completa sem falha e sem cancelado, e uma rodada com esse sintoma é REFEITA, nunca declarada verde.
 
 **Não está fechado**, e por isso fica escrito: se voltar FORA dessa condição (sem merge antes, máquina ociosa), é defeito e merece investigação própria. O primeiro passo barato seria rodar a suíte com `--test-concurrency=1` na hora em que acontecer: se sumir, é contenção; se ficar, é defeito de verdade.
 
@@ -146,6 +149,6 @@ Três vezes hoje, uma rodada de `npm test` disparada **logo depois de um merge**
 
 ## Próxima ação concreta
 
-A C5, a C4b, a T0, a C6 e a C7a estão completas. Seguir pela C7b (transferência voluntária), depois C8 (tomada forçada) e as telas, estas a partir do Claude Design. A afinidade da C7 segue adiada pela medição de troca de dono.
+A C5, a C4b, a T0, a C6 e a C7 (a e b) estão completas. Seguir pela C8 (tomada forçada) e depois as telas, estas a partir do Claude Design. A afinidade da C7 segue adiada pela medição de troca de dono.
 
 Segue pendente, e só o dono fecha: publicar as regras v2 no console do Firebase (roteiro do `firebase/README.md`, itens 1 a 34), conferir a sincronização depois do incidente registrado acima, e a medição de memória da C4.

@@ -196,7 +196,9 @@
             ".write": "auth != null && auth.uid == $uid && !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
             "$item": {
               "$dev": {
-                ".write": "auth != null && auth.uid == $uid && (!newData.exists() || (newData.hasChildren(['itemId', 'prTag', 'matTag', 'acctTag', 'orgTag', 'publishedAt', 'ttl', 'enc']) && $item.matches(/^[0-9a-f]+_[0-9a-f]+$/) && newData.child('ttl').isNumber() && newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 1800000 && newData.child('enc').isString() && newData.child('enc').val().matches(/^e1[.]g[0-9]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$/) && newData.child('enc').val().length <= 2048))"
+                ".write": "auth != null && auth.uid == $uid && (!newData.exists() || (newData.hasChildren(['itemId', 'prTag', 'matTag', 'acctTag', 'orgTag', 'publishedAt', 'ttl', 'enc']) && $item.matches(/^[0-9a-f]+_[0-9a-f]+$/) && newData.child('ttl').isNumber() && newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 1800000 && newData.child('enc').isString() && newData.child('enc').val().matches(/^e1[.]g[0-9]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$/) && newData.child('enc').val().length <= 2048))",
+                "prefDev": { ".validate": "newData.isString() && newData.val().length <= 64" },
+                "prefAte": { ".validate": "newData.isNumber() && newData.val() <= now + 1800000" }
               }
             }
           },
