@@ -147,11 +147,11 @@ test('pendenciasCompartilhadasHtml: vista perde o botão e o selo de nova', () =
   assert.doesNotMatch(html, />nova</);
 });
 
-test('pendenciasCompartilhadasHtml: o PR não é nomeado, porque não viaja', () => {
+test('pendenciasCompartilhadasHtml: sem o nome do catálogo, o PR não é nomeado', () => {
   const html = P.pendenciasCompartilhadasHtml([{ ...PEND, prTag: 'f'.repeat(32) }], {});
   assert.doesNotMatch(html, /f{32}/, 'a tag não é nome e não aparece como se fosse');
   assert.doesNotMatch(html, /github\.com/);
-  assert.match(html, /não viaja entre aparelhos/);
+  assert.match(html, /não abriu no catálogo cifrado/);
 });
 
 test('pendenciasCompartilhadasHtml: texto vindo de fora é escapado', () => {

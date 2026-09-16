@@ -327,8 +327,10 @@ test('o contador de Meus PRs conta o VISIVEL, nao o total', () => {
   // com 3 PRs e os 3 ocultos, a bolinha dizia 3 e a lista mostrava 0
   const fn = APPJS.match(/function renderMyPRs\(\) \{[\s\S]*?\n\}/);
   assert.ok(fn, 'renderMyPRs existe');
-  assert.match(fn[0], /\$\('#myPRsCount'\)\.textContent = visiveis\.length;/);
-  assert.match(fn[0], /\$\('#myPRsCount'\)\.hidden = visiveis\.length === 0;/);
+  // as linhas de outros aparelhos entram só pelo que passou no MESMO filtro de ocultos
+  assert.match(fn[0], /const contagem = visiveis\.length \+ remotasVisiveis;/);
+  assert.match(fn[0], /\$\('#myPRsCount'\)\.textContent = contagem;/);
+  assert.match(fn[0], /\$\('#myPRsCount'\)\.hidden = contagem === 0;/);
   assert.doesNotMatch(fn[0], /\$\('#myPRsCount'\)\.textContent = list\.length;/,
     'o contador pelo total saiu');
 });
