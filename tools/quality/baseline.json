@@ -158,8 +158,11 @@
   "ui/telas/reviewers.js": {
     "profundidadeExcedida": 1
   },
-  "ui/telas/sistema.js": {
-    "ternarioAninhado": 3
+  "ui/telas/sistema-ambiente.js": {
+    "ternarioAninhado": 2
+  },
+  "ui/telas/sistema-atualizacao.js": {
+    "ternarioAninhado": 1
   },
   "ui/telas/time.js": {
     "ternarioAninhado": 3

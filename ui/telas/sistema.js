@@ -1,9 +1,9 @@
-/* Farol · UI: a aba Sistema, o shell dela (sub-navegação, busca) e o que não ganhou
-   módulo próprio (saúde do ambiente, atualização, automação, preferências, sobre). */
+/* Farol · UI: a aba Sistema, sub-navegação e busca (SYS_INDEX), o formulário de
+   configurações (renderSettings) e o registro da tela. */
 
-import { esc, sysNorm, fmtClock, escAttrSelector, operationChecks, runtimeChecks, creditsHtml, personMention } from '../pure.js';
+import { esc, sysNorm } from '../pure.js';
 import { estado, ehWin, ehElectron } from './estado.js';
-import { $, api, toast, confirmModal, marcarSeg, sysFlash, origemLocal } from './infra.js';
+import { $, sysFlash } from './infra.js';
 import { registrarTela } from './registro.js';
 import { loadLog } from './ferramentas.js';
 import { loadReviewerCands, renderReviewersEditor } from './reviewers.js';
@@ -12,6 +12,9 @@ import { renderAccountsManager } from './sistema-contas.js';
 import { renderClaudeProfiles } from './sistema-perfis.js';
 import { renderJiraSites } from './sistema-jira.js';
 import { renderSync } from './sistema-sync.js';
+import { renderDoctor } from './sistema-ambiente.js';
+import { renderAbout } from './sistema-sobre.js';
+import { renderAutomationSettings } from './sistema-automacao.js';
 
 /* ---------- sistema: sub-navegação sidebar ---------- */
 let SISTEMA_SECTION = 'overview';
@@ -123,189 +126,6 @@ $('#sysResults').addEventListener('click', (e) => {
   if (btn) sysGoTo(btn.dataset.sec, btn.dataset.at);
 });
 
-/* ---------- render: versão e atualização ---------- */
-function renderUpdate() {
-  const u = estado().update;
-  const box = $('#updateBox');
-  if (!u) { box.textContent = 'Verificando…'; return; }
-  const remote = u.channel === 'remote';
-  // o repo das releases é menção a coisa navegável: abre a página de releases
-  const origin = remote
-    ? `GitHub Releases (<a href="https://github.com/${esc(u.repo || '')}/releases" target="_blank" rel="noreferrer" title="Abrir as releases no GitHub"><code>${esc(u.repo || '')}</code></a>)`
-    : origemLocal(u);
-  const hasChannel = remote || !!u.source;
-  // não deu pra ler a release (repo privado/sem acesso, sem release ainda, ou rede):
-  // sourceVersion nulo + note. Não é "está na mais recente", é falta de acesso.
-  const noAccess = hasChannel && !u.available && !u.sourceVersion && !!u.note;
-  box.classList.toggle('avail', !!u.available);
-  box.classList.toggle('ok-state', !u.available && hasChannel && !noAccess);
-  if (u.available) {
-    const autoOn = remote && estado().config?.autoUpdate !== false;
-    const noteAuto = autoOn
-      ? `Atualização disponível ${'nas ' + origin}. Com "Atualizar sozinho" ligado (Sistema > Automação), o Farol aplica sozinho assim que ficar ocioso (sem análise, chat ou terminal em andamento), fecha e reabre preservando estado e configurações. O botão abaixo aplica agora, sem esperar.`
-      : `Atualização disponível ${remote ? 'nas ' + origin : 'na ' + origin}. O Farol ${remote ? 'baixa e instala, ' : ''}fecha e reabre sozinho, preservando estado e configurações.`;
-    const queuedLine = u.queued ? ' <b>Agendado:</b> aplica sozinho assim que as sessões em andamento terminarem.' : '';
-    box.innerHTML = `
-      <span class="up-ver">v${esc(u.current)} → v${esc(u.sourceVersion)}</span>
-      <span class="up-note">${noteAuto}${queuedLine}</span>
-      <button id="btnUpdateNow" class="btn primary sm">Atualizar agora</button>`;
-    $('#btnUpdateNow').onclick = async () => {
-      // confirm() nativo era o último popup fora da identidade do app neste fluxo
-      // (pedido do Wanderson, 15/08/2026): o modal do próprio Farol explica o que
-      // vai acontecer, e nada roda sem o clique em Atualizar.
-      const ok = await confirmModal({
-        title: `Atualizar pra v${u.sourceVersion}?`,
-        body: `<p>O Farol sai da <b>v${esc(u.current)}</b> pra <b>v${esc(u.sourceVersion)}</b>.</p>
-          <ul>
-            <li>${remote ? 'baixa a release e instala' : 'copia os arquivos da pasta-fonte'} sozinho;</li>
-            <li>o app <b>fecha e reabre</b> no fim (leva alguns segundos);</li>
-            <li>estado, memória do time e configurações ficam intactos;</li>
-            <li>se houver revisão ou sessão em andamento, nada é morto no meio: o update fica agendado e aplica sozinho assim que terminar.</li>
-          </ul>`,
-        confirmLabel: 'Atualizar'
-      });
-      if (!ok) return;
-      const r = await api('/api/update', {});
-      // ocupado não é erro (v2.46.1): o clique agenda e o Farol aplica ao ficar ocioso
-      if (r?.queued) toast('info', 'Tem análise, chat ou sessão de terminal em andamento. O update ficou agendado: assim que terminar, o Farol aplica sozinho, fecha e reabre.');
-      else if (!r?.ok) toast('error', r?.error || 'não consegui iniciar a atualização');
-    };
-  } else if (noAccess) {
-    box.innerHTML = `
-      <span class="up-ver">v${esc(u.current)}</span>
-      <span class="up-note">Não consegui ler as releases em ${origin} (${esc(u.note || 'sem acesso')}). Se o repo for privado, a conta primária do gh precisa ter acesso a ele (ou torne o repo público). Última verificação ${fmtClock(u.checkedAt)}.</span>`;
-  } else if (hasChannel) {
-    box.innerHTML = `
-      <span class="up-ver">v${esc(u.current)}</span>
-      <span class="up-note">Você está na versão mais recente (${origin}${u.sourceVersion ? ` também na v${esc(u.sourceVersion)}` : ''}). Última verificação ${fmtClock(u.checkedAt)}.</span>`;
-  } else {
-    box.innerHTML = `
-      <span class="up-ver">v${esc(u.current)}</span>
-      <span class="up-note">Nenhuma fonte de atualização nesta máquina. Configure <code>updateRepo</code> (releases do GitHub) ou <code>updateSource</code> (pasta) no config.json.</span>`;
-  }
-}
-
-/* ---------- render: sistema ---------- */
-function renderDoctor() {
-  const d = estado() && estado().doctor;
-  const box = $('#doctor');
-  if (!d) { box.innerHTML = '<div class="empty">Verificando o ambiente…</div>'; return; }
-  // `goto` (opcional): o check cita uma coisa configurável do app, então clicar
-  // leva até ela (a conta abre o card dela em Contas)
-  const checks = [
-    { ok: !!d.gh, label: 'GitHub CLI', detail: d.gh || 'gh não encontrado no PATH' },
-    {
-      ok: d.ghAuth, label: estado().config.ghUser ? `Conta @${estado().config.ghUser}` : 'Conta do GitHub',
-      detail: d.ghAuth ? 'autenticada no gh' : 'sem token: rode gh auth login (conta de trabalho)',
-      goto: estado().config.ghUser ? `sys:accounts:.acct-label[data-user="${escAttrSelector(estado().config.ghUser)}"]` : 'sys:accounts:#accountsManager'
-    },
-    { ok: !!d.claude, label: 'Claude Code', detail: d.claude || 'claude não encontrado no PATH', goto: 'sys:plans:#claudeProfilesManager' },
-    // Git Bash é pré-requisito só no Windows (CLAUDE_CODE_GIT_BASH_PATH)
-    ...(ehWin() ? [{ ok: !!d.gitBash, label: 'Git Bash', detail: d.gitBash || 'não encontrado: sessões do Claude podem travar' }] : []),
-    { ok: true, label: 'Pasta de trabalho', detail: d.workspace },
-    // ambiente ok não quer dizer que vai achar PR: os checks de operação (conta
-    // sem organização, conta sem token, tudo silenciado) moram no pure.js
-    ...operationChecks(estado().accounts),
-    // nem que vai conseguir ABRIR a sessão: rodar como root faz toda revisão
-    // autônoma morrer no spawn, com o resto da tela verde
-    ...runtimeChecks(estado().doctor, estado().config)
-  ];
-  box.innerHTML = checks.map(c => `
-    <div class="check ${c.ok ? 'ok' : 'bad'}${c.goto ? ' is-goto' : ''}"${c.goto ? ` data-goto="${esc(c.goto)}" role="button" tabindex="0" title="Abrir a configuração deste item"` : ''}>
-      <span class="led"></span>
-      <div><div class="label">${esc(c.label)}</div><div class="detail">${esc(c.detail)}</div></div>
-    </div>`).join('');
-  $('#about').innerHTML = `O polling usa só o GitHub CLI (zero tokens de IA). Claude ou Codex entram apenas quando uma sessão de IA é aberta.`;
-  // versão e caminho dos dados moram no rodapé da sidebar, visíveis em qualquer seção.
-  // A versão leva às Novidades dela (a menção mais citada da tela toda).
-  $('#sysFoot').innerHTML = `<span class="is-goto" data-goto="sys:news:#relNotes" role="button" tabindex="0" title="Ver as novidades desta versão">Farol v${esc(estado().app.version)}</span><br>dados em <code>${esc(estado().paths.home)}</code>`;
-}
-
-/* ---------- Sistema > Sobre: privacidade, licença e créditos ---------- */
-// Créditos vêm do snapshot (engine busca os contribuidores do repo do update no
-// GitHub, cache de 24h): a lista se mantém sozinha quando entra colaborador novo.
-// O link da licença aponta pro LICENSE do MESMO repo, então fork continua certo.
-function renderAbout() {
-  const box = $('#creditsBox');
-  if (!box) return;
-  // crédito de ORIGEM é fixo de propósito: a inspiração não está no git (o código
-  // atual foi reconstruído do zero), então a lista sincronizada nunca a capturaria,
-  // e história não muda, logo não há manutenção. Decisão do Wanderson, 15/08/2026.
-  $('#aboutOrigem').innerHTML = `<span class="origem-label">Origem</span> O Farol nasceu de uma iniciativa do Thiago (${personMention('thiagopcdev', 'xs')}): um revisor de PRs que rodava numa janela de terminal e dependia de ação manual. O app atual foi reconstruído do zero em cima dessa essência.`;
-  box.innerHTML = creditsHtml(estado().credits);
-  const repo = ((estado().config && estado().config.updateRepo) || '').trim();
-  const link = $('#aboutLicenseLink');
-  if (link && /^[^\s/]+\/[^\s/]+$/.test(repo)) link.href = `https://github.com/${repo}/blob/main/LICENSE`;
-}
-
-let AUTOMATION_PROVIDER = null;
-
-function providerInicial(c) {
-  const profiles = Array.isArray(c.claudeProfiles) ? c.claudeProfiles : [];
-  const padrao = profiles.find(p => p.id === c.claudeProfileId);
-  return padrao && padrao.kind === 'codex' ? 'codex' : 'claude';
-}
-
-function addCustomOption(select, value) {
-  if (!value || !select || !select.options) return;
-  if (Array.from(select.options).some(o => o.value === value)) return;
-  const opt = document.createElement('option');
-  opt.value = value;
-  opt.textContent = `${value} (config.json)`;
-  select.appendChild(opt);
-}
-
-/* Cartões de esforço: marca o que está salvo e explica o estado. Valor desconhecido
-   cai no cartão do padrão, em vez de deixar nenhum marcado. */
-function renderEffortBox(box, eff) {
-  if (!box) return;
-  const alvo = box.querySelector(`input[value="${CSS.escape(eff)}"]`) || box.querySelector('input[value=""]');
-  if (alvo) alvo.checked = true;
-}
-
-function renderAutomationSettings(c) {
-  if (!AUTOMATION_PROVIDER) AUTOMATION_PROVIDER = providerInicial(c);
-  const codex = AUTOMATION_PROVIDER === 'codex';
-  const botoes = [...document.querySelectorAll('#setAutomationProvider .seg-btn')];
-  marcarSeg(botoes, b => b.dataset.provider === AUTOMATION_PROVIDER);
-  $('#setReviewModel').hidden = codex;
-  $('#setCodexReviewModel').hidden = !codex;
-  $('#setReviewEffort').hidden = codex;
-  $('#setCodexReviewEffort').hidden = !codex;
-
-  const claudeModel = String(c.reviewModel || '');
-  const codexModel = String(c.codexReviewModel || '');
-  addCustomOption($('#setReviewModel'), claudeModel);
-  addCustomOption($('#setCodexReviewModel'), codexModel);
-  $('#setReviewModel').value = claudeModel;
-  $('#setCodexReviewModel').value = codexModel;
-  renderEffortBox($('#setReviewEffort'), String(c.reviewEffort || ''));
-  renderEffortBox($('#setCodexReviewEffort'), String(c.codexReviewEffort || ''));
-
-  const semEsforco = claudeModel === 'haiku' || claudeModel === 'auto';
-  $('#setReviewEffort').classList.toggle('disabled', semEsforco);
-  if (codex) {
-    $('#reviewModelHint').textContent = 'Modelo usado pelo Codex nas revisões, pushback, autoanálise e ferramentas. O padrão acompanha a seleção do CLI e costuma ser a opção mais compatível com o teu plano.';
-    $('#effortHint').textContent = 'Quanto o Codex raciocina nas sessões autônomas. O CLI aceita minimal, low, medium, high e xhigh; o último depende do modelo.';
-  } else {
-    $('#reviewModelHint').textContent = 'Modelo usado pelo Claude nas revisões, pushback, autoanálise e ferramentas. O padrão herda a tua assinatura; Auto (custo-benefício) escolhe Haiku ou Sonnet pelo tamanho do PR só na revisão headless; Sonnet e Haiku poupam o limite do plano.';
-    let effortHint = 'Quanto o Claude pensa nas sessões autônomas. Mais esforço aumenta profundidade e consumo do limite.';
-    if (claudeModel === 'haiku') {
-      effortHint = 'O Haiku não aceita nível de esforço, então o Farol não passa a flag enquanto ele estiver escolhido.';
-    } else if (claudeModel === 'auto') {
-      effortHint = 'No modo Auto o Farol escolhe modelo e esforço pelo tamanho do PR; o nível fixo desta seção não entra.';
-    }
-    $('#effortHint').textContent = effortHint;
-  }
-}
-
-$('#setAutomationProvider').addEventListener('click', (e) => {
-  const btn = e.target.closest('.seg-btn');
-  if (!btn) return;
-  AUTOMATION_PROVIDER = btn.dataset.provider;
-  renderAutomationSettings((estado() && estado().config) || {});
-});
-
 function renderSettings() {
   renderReleaseNotes();
   renderAbout();
@@ -361,4 +181,4 @@ registrarTela({
   aoEstado: () => { if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); } },
 });
 
-export { switchSistemaSection, sysSearchFilter, sysGoTo, renderSettings, renderUpdate };
+export { switchSistemaSection, sysSearchFilter, sysGoTo, renderSettings };

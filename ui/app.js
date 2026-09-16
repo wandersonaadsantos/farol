@@ -38,10 +38,8 @@ import {
 } from './telas/radar.js';
 import { renderMyPRs } from './telas/meus-prs.js';
 import { loadReviewerCands, renderReviewersEditor, revCtx } from './telas/reviewers.js';
-import {
-  switchSistemaSection, sysSearchFilter, sysGoTo,
-  renderSettings, renderUpdate,
-} from './telas/sistema.js';
+import { renderUpdate } from './telas/sistema-atualizacao.js';
+import { switchSistemaSection, sysSearchFilter, sysGoTo, renderSettings } from './telas/sistema.js';
 
 const isElectron = ehElectron();
 if (isElectron) document.body.classList.add('electron');
