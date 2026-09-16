@@ -420,14 +420,20 @@ por
     enabled: cfg.enabled === true, coordination: coordinationActive(cfg), consolidation: consolidationActive(cfg), shared: sharedActive(cfg),
 ```
 
-- [ ] **Passo 5:** rodar `node --test test/sync-interruptor-compartilhamento.test.js test/sync-config.test.js test/sync-engine.test.js test/ui-pure-sync.test.js test/sync-compartilhamento-desligado.test.js`. Esperado: tudo verde.
+- [ ] **Passo 5:** a tabela de `lib/settings.js` (linha 31) tem uma **cópia** dos defaults de `sync`, e `test/sync-config.test.js` congela a forma deles. Medido na execução: sem os ajustes abaixo, dois testes existentes reprovam, e é exatamente para isso que eles existem (um deles compara `defaults().sync` com `syncDefaults()`, ou seja, pega a divergência entre as duas fontes).
+  - em `lib/settings.js`, acrescente `shared: { enabled: false },` ao `def` da chave `sync`, depois de `consolidation`;
+  - em `test/sync-config.test.js`, acrescente `shared: { enabled: true }` ao fixture `VALIDO` e `shared: { enabled: false }` ao literal do caso `syncDefaults: tudo desligado e vazio`.
 
-- [ ] **Passo 6 (contraprova):** em `parseSyncConfig`, troque `shared: interruptor(r.shared),` por `shared: { enabled: r.shared !== undefined },`. Rode o arquivo: reprova `só true explícito liga`. Restaure e rode: verde.
+  As duas garantias congeladas ali ficam **iguais**: o padrão continua com tudo desligado e objeto novo a cada chamada, e um objeto válido continua passando inteiro. É o caso previsto na autorização: teste ligado à forma antiga é ajustado preservando a garantia que ele verificava.
 
-- [ ] **Passo 7:** commit.
+- [ ] **Passo 6:** rodar `node --test test/sync-interruptor-compartilhamento.test.js test/sync-config.test.js test/settings.test.js test/sync-engine.test.js test/ui-pure-sync.test.js test/sync-compartilhamento-desligado.test.js`. Esperado: tudo verde.
+
+- [ ] **Passo 7 (contraprova):** em `parseSyncConfig`, troque `shared: interruptor(r.shared),` por `shared: { enabled: r.shared !== undefined },`. Rode o arquivo: reprova `só true explícito liga`. Restaure. Depois, em `sharedActive`, tire a exigência de `cfg.enabled === true` e rode: reprova `sharedActive exige a chave geral ligada também`. Restaure e rode: verde.
+
+- [ ] **Passo 8:** commit.
 
 ```bash
-git add lib/sync/config.js lib/engine/sync.js test/sync-interruptor-compartilhamento.test.js
+git add lib/sync/config.js lib/engine/sync.js lib/settings.js test/sync-interruptor-compartilhamento.test.js test/sync-config.test.js
 git commit -m "feat(sync): interruptor do compartilhamento cifrado, desligado por padrao"
 ```
 
