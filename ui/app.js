@@ -1,7 +1,7 @@
 /* Farol · UI: consome o engine local via SSE + fetch. Sem frameworks. */
 
 import {
-  safeJsonParse, canonicalGithubPrUrl, prKeyFromUrl,
+  safeJsonParse,
   feedLine, selfSessionKey,
   sessionProgress, parseGoto,
   reasonText,
@@ -30,7 +30,7 @@ import { ping, notifyNewPRs } from './telas/avisos.js';
 import { initTweaks } from './telas/acoes.js';
 import { revisarUrls, registrarTelaConsumo, renderUsage } from './telas/consumo.js';
 import { renderStatus, tickCountdown, updateStageFlow, updateSessionBar, renderActive } from './telas/sessoes.js';
-import { openChat, renderChat, chatKeyAtual } from './telas/chat.js';
+import { renderChat, chatKeyAtual, initChatTriggers } from './telas/chat.js';
 import {
   renderDecisions, submitPushback, renderQueue, renderPanorama, renderRadarNav,
 } from './telas/radar.js';
@@ -309,22 +309,11 @@ initPaleta(switchTab);
    keydown do document (o Ctrl+K da paleta registra ANTES deste). */
 initAtalhos(switchTab);
 
-/* ---------- chat com o Claude ---------- */
-/* qualquer botão .act-chat da página abre a conversa do PR */
-document.addEventListener('click', (e) => {
-  const btn = e.target.closest('.act-chat');
-  if (btn) openChat(btn.dataset.key, btn.dataset.url || null);
-});
-/* consultar um PR por URL: abre a conversa salva mesmo que ele não esteja na lista
-   (some do "Revisões recentes" por escopo ou pelo limite de 30). Reusa o chat. */
-$('#lookupForm').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const url = canonicalGithubPrUrl($('#lookupUrl').value);
-  const key = prKeyFromUrl(url);
-  if (!key) { toast('error', 'Cole a URL de um PR do GitHub (…/pull/NN).'); return; }
-  openChat(key, url);
-  $('#lookupUrl').value = '';
-});
+/* Chat com o Claude: os gatilhos que abrem a conversa (.act-chat e a busca por
+   URL) moram em telas/chat.js. Chamada aqui, no mesmo ponto relativo em que os
+   dois listeners moravam, pra não mudar a ordem dos handlers de click do
+   document. */
+initChatTriggers();
 
 /* Meus PRs: botão Reviewers. Mora em telas/meus-prs.js (a tela dona do botão);
    initReviewersButton(switchTab) recebe a navegação de que precisa pra levar à

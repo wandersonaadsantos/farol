@@ -4,7 +4,7 @@
    continua no connect() do app.js, que chama renderChat e lê a chave atual por
    chatKeyAtual() (o mesmo padrão de escopo()/definirEscopo()). */
 
-import { canonicalGithubPrUrl, esc, md } from '../pure.js';
+import { canonicalGithubPrUrl, esc, md, prKeyFromUrl } from '../pure.js';
 import { $, api, get, toast, ACTIVE_OPS, showOp, updateOp, closeOp } from './infra.js';
 
 let chatKey = null, chatUrl = null;
@@ -86,4 +86,25 @@ $('#chatInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#chatForm').requestSubmit(); }
 });
 
-export { openChat, closeChat, renderChat, chatKeyAtual };
+/* ---------- chat com o Claude: gatilhos que abrem a conversa ----------
+   Registrada pelo bootstrap (ui/app.js) no mesmo ponto relativo em que estes dois
+   listeners moravam, pra não mudar a ordem dos handlers de click do document. */
+function initChatTriggers() {
+  /* qualquer botão .act-chat da página abre a conversa do PR */
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.act-chat');
+    if (btn) openChat(btn.dataset.key, btn.dataset.url || null);
+  });
+  /* consultar um PR por URL: abre a conversa salva mesmo que ele não esteja na lista
+     (some do "Revisões recentes" por escopo ou pelo limite de 30). Reusa o chat. */
+  $('#lookupForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const url = canonicalGithubPrUrl($('#lookupUrl').value);
+    const key = prKeyFromUrl(url);
+    if (!key) { toast('error', 'Cole a URL de um PR do GitHub (…/pull/NN).'); return; }
+    openChat(key, url);
+    $('#lookupUrl').value = '';
+  });
+}
+
+export { openChat, closeChat, renderChat, chatKeyAtual, initChatTriggers };
