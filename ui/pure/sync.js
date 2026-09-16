@@ -24,6 +24,7 @@
 // que é falha de verdade. Estacionamento e coordenação juntos: o estacionamento VENCE,
 // porque ele é o que exige ação sua, e a espera se resolve sozinha.
 import { esc, fmtClock, fmtTok, fmtWhenDay } from './comum.js';
+import { capacidadesIndisponiveisHtml } from './capacidades.js';
 
 const SYNC_SELOS = {
   desligada: { classe: 'mute', texto: 'desligada' },
@@ -292,10 +293,13 @@ export function syncCoordenacaoHtml(sync) {
   return `<div class="sync-sub-head">Coordenação agora</div><div class="card sync-lista">${corpo}</div>`;
 }
 
-export function syncSecaoHtml(sync, cfg, rascunho) {
+export function syncSecaoHtml(sync, cfg, rascunho, capacidades) {
   const s = sync || {};
-  if (!(cfg && cfg.enabled === true)) return syncTogglesHtml(cfg);
-  return `${syncTogglesHtml(cfg)}
+  // o aviso do que NÃO está valendo vem antes dos interruptores, inclusive com a chave geral
+  // desligada: é onde a pessoa acredita estar lendo o estado da proteção
+  const indisponiveis = capacidadesIndisponiveisHtml(capacidades);
+  if (!(cfg && cfg.enabled === true)) return `${indisponiveis}${syncTogglesHtml(cfg)}`;
+  return `${indisponiveis}${syncTogglesHtml(cfg)}
     <div class="sync-sub-head">Conexão</div>
     ${syncConexaoHtml(s, cfg, rascunho)}
     <div class="sync-sub-head">Aparelhos</div>

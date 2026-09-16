@@ -1627,6 +1627,15 @@ body.electron .chat-head { padding-right: 150px; }
    Só tokens, nenhum hex novo. A cor da coordenação é deliberada: --info para espera e
    --accent para atenção, nunca o --danger do estacionamento, porque segurar não é falhar. */
 .sync-sub-head { font-size: 13px; font-weight: 650; margin: var(--sp-5) 0 var(--sp-2); color: var(--text); }
+
+/* capacidade que existe e não está valendo (adendo, item 5): cada item é um bloco, para o
+   estado nunca se confundir com o motivo numa linha corrida */
+.cap-card .sync-sub-head { margin-top: 0; }
+.cap-lista { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: grid; gap: var(--sp-3); }
+.cap-item { display: grid; gap: 2px; padding: var(--sp-3); border: 1px solid var(--border); border-radius: var(--radius); }
+.cap-titulo { font-weight: 650; }
+.cap-estado { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--warn, var(--muted)); }
+.cap-motivo, .cap-falta { font-size: 13px; color: var(--muted); }
 .sync-card { padding: 0; border-left: 3px solid var(--ok); }
 .sync-card.warn { border-left-color: var(--accent); }
 .sync-card.bad { border-left-color: var(--danger); }

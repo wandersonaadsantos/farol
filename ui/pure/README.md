@@ -27,7 +27,7 @@ comum.js  <-  mencoes.js  <-  módulos de domínio
 - **`mencoes.js`** transforma pessoa, repo, PR e sessão em menção navegável. Só importa de
   `comum.js`.
 - **Os de domínio** (`consumo`, `entregas`, `radar`, `review`, `pessoas`, `autoanalise`,
-  `meus-prs`, `contas`, `jira`, `sistema`, `sobre`, `sessao`, `sync`, `fila-justa`, `diagnostico`) importam das duas camadas
+  `meus-prs`, `contas`, `jira`, `sistema`, `sobre`, `sessao`, `sync`, `fila-justa`, `diagnostico`, `capacidades`) importam das duas camadas
   de baixo e, quando precisam, uns dos outros, sempre sem ciclo.
 
 ## Regras de quem mexe aqui

@@ -61,7 +61,7 @@ export function renderSync() {
   // o rascunho sai do DOM ANTES de reescrevê-lo: a guarda de foco acima não cobre quem
   // clicou em Entrar (o foco está no botão), e era por ali que o e-mail se perdia
   syncRascunhoDoDom();
-  box.innerHTML = syncSecaoHtml((estado() && estado().sync) || {}, syncCfgAtual(), syncRascunho);
+  box.innerHTML = syncSecaoHtml((estado() && estado().sync) || {}, syncCfgAtual(), syncRascunho, estado() && estado().capacidades);
 }
 
 // Os três interruptores. A regra da chave geral mora em syncCfgComGeral (ui/pure.js),
