@@ -1,6 +1,6 @@
 /* Farol · UI: sites do Jira e credencial (Sistema > Conexões).
 
-   Espelha o gerenciador de perfis do Claude (telas/sistema-contas.js): estado().jiraSites
+   Espelha o gerenciador de perfis do Claude (telas/sistema-perfis.js): estado().jiraSites
    (a lista MASCARADA que o snapshot manda, com hasCredential) é a fonte de leitura E de
    edição; salvar manda ela de volta em PATCH /api/settings, e o servidor descarta o campo
    hasCredential ao sanear (parseJiraSites só lê os campos que conhece). O id nasce aqui

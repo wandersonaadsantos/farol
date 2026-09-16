@@ -40,7 +40,8 @@ import {
   renderDecisions, submitPushback, renderQueue, renderPanorama, renderRadarNav,
 } from './telas/radar.js';
 import { renderMyPRs } from './telas/meus-prs.js';
-import { renderAccountsManager, renderClaudeProfiles } from './telas/sistema-contas.js';
+import { renderAccountsManager } from './telas/sistema-contas.js';
+import { renderClaudeProfiles } from './telas/sistema-perfis.js';
 import { renderJiraSites } from './telas/sistema-jira.js';
 import { renderSync } from './telas/sistema-sync.js';
 
@@ -56,7 +57,7 @@ if (isElectron) document.body.classList.add('electron');
    ehMac/ehWin são FUNÇÕES de propósito: uma referência esquecida a `isMac` vira
    ReferenceError alto, em vez de um `if (isMac)` sempre verdadeiro falhando calado.
    O estado (PLATAFORMA) e as duas funções moram em telas/estado.js desde a Task 10a (Fase
-   1b): telas/sistema-contas.js também precisa perguntar "é Windows?" pro editor de perfis
+   1b): telas/sistema-perfis.js também precisa perguntar "é Windows?" pro editor de perfis
    Claude, e um módulo de tela não pode importar o bootstrap de volta. */
 function aplicaPlataforma(p) {
   definirPlataforma(p);
