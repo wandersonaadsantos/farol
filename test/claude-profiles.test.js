@@ -14,6 +14,11 @@ const { Engine } = await import('../server.js');
 
 after(() => { try { fs.rmSync(HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 
+// Os `await` de topo vêm ANTES do primeiro caso: com `--test-force-exit`, o processo
+// encerra quando os casos já registrados terminam, e um `await` que só volta depois
+// disso deixa os casos seguintes CANCELADOS, numa rodada que ainda diz "0 falhas".
+const { loginConsoleEnv } = await import('../lib/engine/session.js');
+
 test('resolveClaudeConfigDir: sem profiles, cai no legado (claudeConfigDir)', () => {
   const engine = new Engine();
   engine.config.claudeConfigDir = 'C:\\legado';
@@ -274,7 +279,6 @@ test('openClaudeLoginSession: perfil dir chama spawnLoginConsole com o MESMO con
 // precedência oficial do claude CLI põe a chave acima do login OAuth, então a sessão
 // aberta pra logar num perfil de assinatura rodava na chave da máquina, sem erro nenhum
 // aparecer. loginConsoleEnv é o env desse console, isolado pra ser testável em qualquer SO.
-const { loginConsoleEnv } = await import('../lib/engine/session.js');
 
 function comEnvDaMaquina(vars, fn) {
   const antes = {};

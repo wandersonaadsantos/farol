@@ -65,6 +65,11 @@ function targets(e) { return reviewMod.reReviewTargets(e, new Set()); }
 
 /* ---------- o caso que a feature existe pra pegar ---------- */
 
+// Os `await` de topo vêm ANTES do primeiro caso: com `--test-force-exit`, o processo
+// encerra quando os casos já registrados terminam, e um `await` que só volta depois
+// disso deixa os casos seguintes CANCELADOS, numa rodada que ainda diz "0 falhas".
+const { saveFileProof, fileProofPath } = await import('../lib/engine/file-proof.js');
+
 test('reReviewTargets: pedi mudanças + head novo + gates ok = alvo', () => {
   const e = engineBase();
   assert.deepEqual(targets(e).map(p => p.key), [KEY]);
@@ -197,7 +202,6 @@ test('launchReReviews: sem alvo e sem órfão, não persiste nem toca a fila', a
 
 /* ---------- push trivial: prova por arquivo evita o round 2 inútil ---------- */
 
-const { saveFileProof, fileProofPath } = await import('../lib/engine/file-proof.js');
 // os testes deste bloco compartilham o FAROL_HOME do arquivo: cada um deixa a
 // prova de KEY no estado que o cenário pede (gravando ou apagando), sem depender
 // da ordem dos anteriores

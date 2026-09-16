@@ -16,6 +16,12 @@ const { STATE_DIR } = await import('../lib/paths.js');
 
 after(() => { try { fs.rmSync(FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 
+// Os `await` de topo vêm ANTES do primeiro caso: com `--test-force-exit`, o processo
+// encerra quando os casos já registrados terminam, e um `await` que só volta depois
+// disso deixa os casos seguintes CANCELADOS, numa rodada que ainda diz "0 falhas".
+const { readCheckpoint, summarizeCheckpoint } = await import('../lib/engine/verification-checkpoint.js');
+const { resumeBlock } = await import('../lib/engine/verification-checkpoint.js');
+
 test('checkpointPath: usa encodeURIComponent, nunca colide entre keys diferentes', () => {
   const p1 = checkpointPath('a__b/c#1');
   const p2 = checkpointPath('a/b__c#1');
@@ -52,7 +58,6 @@ test('appendCheckpointEntry: é append-only, nunca sobrescreve entrada anterior'
   assert.equal(saved.entries[1].verdict, 'refutado');
 });
 
-const { readCheckpoint, summarizeCheckpoint } = await import('../lib/engine/verification-checkpoint.js');
 
 test('readCheckpoint: arquivo ausente devolve ok:true com entries vazio', () => {
   const p = checkpointPath('nunca/existiu#1');
@@ -129,7 +134,6 @@ test('summarizeCheckpoint detecta conflito mesmo com fraseado ligeiramente difer
   assert.equal(r.conflicts.length, 1, 'variação de caixa/espaço/pontuação na claim não deveria esconder o conflito');
 });
 
-const { resumeBlock } = await import('../lib/engine/verification-checkpoint.js');
 
 test('summarizeCheckpoint sem currentHeadSha considera todas as entradas (compatibilidade)', () => {
   const entries = [

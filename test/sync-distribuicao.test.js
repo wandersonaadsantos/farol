@@ -110,6 +110,11 @@ async function motorDistribuidor(opcoes = {}) {
   return e;
 }
 
+// Os `await` de topo vêm ANTES do primeiro caso: com `--test-force-exit`, o processo
+// encerra quando os casos já registrados terminam, e um `await` que só volta depois
+// disso deixa os casos seguintes CANCELADOS, numa rodada que ainda diz "0 falhas".
+const reviewMod = (await import('../lib/engine/review.js')).default;
+
 test('com a distribuição desligada, nada é publicado', async () => {
   const e = await motorPronto();
   e.sync.autoridade = { fresca: true, agora: T, ultimaMudancaEm: T };
@@ -278,7 +283,6 @@ test('atribuição vencida não é aceita', async () => {
 });
 
 // Fiação no enqueueHeadless: as três correções obrigatórias do anexo S3.
-const reviewMod = (await import('../lib/engine/review.js')).default;
 
 function motorFila(e) {
   return Object.assign(e, {

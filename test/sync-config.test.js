@@ -27,6 +27,11 @@ const VALIDO = {
   deviceName: 'Notebook', apiKey: 'AIzaSyA-1234567890_abc', databaseUrl: DB, projectId: 'farol-abc',
 };
 
+// Os `await` de topo vêm ANTES do primeiro caso: com `--test-force-exit`, o processo
+// encerra quando os casos já registrados terminam, e um `await` que só volta depois
+// disso deixa os casos seguintes CANCELADOS, numa rodada que ainda diz "0 falhas".
+const { Engine } = await import('../server.js');
+
 test('syncDefaults: tudo desligado e vazio, objeto novo a cada chamada', () => {
   assert.deepEqual(syncDefaults(), {
     enabled: false, coordination: { enabled: false }, consolidation: { enabled: false }, shared: { enabled: false },
@@ -181,7 +186,6 @@ test('authUrlsFor: URL inválida ou http remoto nunca desvia o login', () => {
 
 /* ---------- boot da Engine ---------- */
 
-const { Engine } = await import('../server.js');
 const CONFIG = path.join(HOME, 'config.json');
 
 function comConfig(obj) {
