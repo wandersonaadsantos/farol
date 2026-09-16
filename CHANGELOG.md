@@ -9,6 +9,23 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.59.5
+
+Correção de um aviso que aparecia diferente em dois lugares, e a maior manutenção interna
+da tela até hoje, sem mudança de uso.
+
+**Correções**
+
+- **A paleta de comandos avisava menos que o card ao pedir mudanças.** Ao usar Ctrl+K para
+  pedir mudanças num PR, a confirmação não dizia que o PR fica bloqueado até o autor tratar
+  e você reavaliar, apesar de o card dizer. Agora as duas telas mostram o mesmo texto.
+
+**Melhorias**
+
+- **A tela foi reorganizada por dentro.** Cada aba passou a ser um módulo próprio, em vez de
+  um arquivo único de quatro mil linhas. Nada muda no uso: a reorganização existe para que
+  defeito novo fique contido numa tela só, e para a próxima mudança ser mais segura.
+
 ## v2.59.4
 
 A aba Entregas deixa de cortar em 1000 entregas por organização, o instalador do Windows

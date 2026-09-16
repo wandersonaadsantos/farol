@@ -7,6 +7,8 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.59.5', ['A paleta de comandos (Ctrl+K) avisava menos que o card ao pedir mudanças: a confirmação não dizia que o PR fica bloqueado até o autor tratar e você reavaliar. Agora as duas telas mostram o mesmo texto.',
+    'A tela foi reorganizada por dentro: cada aba virou um módulo próprio, no lugar de um arquivo único de quatro mil linhas. Nada muda no uso; a reorganização existe para defeito novo ficar contido numa tela só.']],
   ['2.59.4', ['Entregas: até 5000 por organização. Organização com mais de 1000 entregas no período mostrava só as 1000 mais recentes, e os números e o gráfico ficavam abaixo do real. A busca agora divide o período quando uma consulta volta cheia, e o aviso de limite só aparece acima de 5000.',
     'O instalador do Windows volta a levar o servidor do Jira. Quem instalava pelo Farol-Setup.exe ficava sem ele até o primeiro auto-update.',
     'Os guias vêm com o app: configuração, gates de revisão, macOS e Linux, e release ficam em quatro guias na pasta docs da instalação.']],
