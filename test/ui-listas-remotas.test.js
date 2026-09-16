@@ -166,6 +166,29 @@ test('o bootstrap só repassa: connect() entrega sync-lists à tela', () => {
   assert.match(corpo, /addEventListener\('sync-lists', \(e\) => \{\s*const d = safeJsonParse\(e\.data\); if \(!d\) return;\s*aoListasRemotas\(d\);\s*\}\)/);
 });
 
+function comRelogio(ms, fn) {
+  const real = Date.now;
+  Date.now = () => ms;
+  try { return fn(); } finally { Date.now = real; }
+}
+
+test('com a projeção já na tela, passar do piso não repete a busca', () => {
+  emitir('sync-lists', PROJ);
+  PEDIDOS.length = 0;
+  comRelogio(Date.now() + 10 * 60000, () => emitir('state', estado({ panorama: [LOCAL] })));
+  assert.equal(PEDIDOS.filter((p) => p.url === '/api/sync/lists').length, 0, 'quem já tem a projeção acompanha pelo evento');
+});
+
+test('a falha do andamento mostra a hora da última leitura BOA, não a da falha', () => {
+  const T0 = Date.UTC(2026, 8, 16, 13, 0, 0);
+  const op = { opId: 'op9', dev: 'dA', aparelho: 'Notebook', etapa: 'leitura', msPorEtapa: {}, subagentes: [], tipo: 'review', prTag: 'a'.repeat(32) };
+  comRelogio(T0, () => { emitir('state', estado()); emitir('sync-live', { operacoes: [op] }); });
+  comRelogio(T0 + 5 * 60000, () => emitir('sync-live', { operacoes: [op], falhaEm: T0 + 5 * 60000 }));
+  const html = $('#mdOperacoes').innerHTML;
+  assert.match(html, /falhou às 10:05/);
+  assert.match(html, /Mostrando o andamento de 10:00/);
+});
+
 test('os contêineres existem no HTML, cada um na sua sub-aba', () => {
   const html = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'index.html'), 'utf8');
   const meus = html.indexOf('id="rpane-meus"');

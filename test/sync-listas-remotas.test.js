@@ -27,7 +27,7 @@ const listas = (await import('../lib/engine/sync-listas.js')).default;
 const escopos = (await import('../lib/engine/sync-escopo.js')).default;
 const pendencias = (await import('../lib/engine/sync-pendencias.js')).default;
 const andamento = (await import('../lib/engine/sync-andamento.js')).default;
-const identificacao = (await import('../lib/engine/sync-identificacao.js')).default;
+const publicacao = (await import('../lib/engine/sync-publicacao.js')).default;
 const envelope = (await import('../lib/sync/envelope.js')).default;
 const kek = (await import('../lib/sync/kek.js')).default;
 const { prTag } = await import('../lib/sync/tags.js');
@@ -382,16 +382,31 @@ test('linha do catálogo que abre mas nomeia outro PR não é aceita', async () 
     r: 1, dados: { l: { key: 'acme/app#77', title: 'Outro PR', author: 'zeca' } },
   });
   assert.equal((await a.sync.client.put(`/users/u1/catalog/${tag}`, { v: 1, u: Date.now(), enc: c.enc }, {})).ok, true);
-  assert.equal(await identificacao.identificarPr(b, b.config.sync, { prTag: tag, acctTag: '' }), null);
+  assert.equal(await publicacao.prDaTag(b, b.config.sync, tag), null);
 });
 
 test('sem tag, sem compartilhamento ou sem catálogo: null, e a pendência sai com pr null', async () => {
   const { b } = await par();
-  assert.equal(await identificacao.identificarPr(b, b.config.sync, { prTag: '' }), null);
-  assert.equal(await identificacao.identificarPr(b, b.config.sync, { prTag: 'f'.repeat(32) }), null);
-  assert.equal(await identificacao.identificarPr(b, { ...b.config.sync, shared: { enabled: false } }, { prTag: 'f'.repeat(32) }), null);
+  assert.equal(await publicacao.prDaTag(b, b.config.sync, ''), null);
+  assert.equal(await publicacao.prDaTag(b, b.config.sync, 'f'.repeat(32)), null);
+  assert.equal(await publicacao.prDaTag(b, { ...b.config.sync, shared: { enabled: false } }, 'f'.repeat(32)), null);
   const lista = pendencias.lerPendencias(b, {}, {});
   assert.deepEqual(lista, []);
+});
+
+test('um campo pr dentro da pendência cifrada é ignorado: só o catálogo nomeia', async () => {
+  const { a, b } = await par();
+  const no = { v: 1, at: T, dev: 'dA' };
+  const c = envelope.cifrar({
+    uid: 'u1', caminho: 'live/pending/ab12', campo: 'pendencia', no: 'live/pending', esquema: 'pend1', cur: a.sync.cur, material: a.sync.material,
+    r: 1, extras: [no.at, no.dev], dados: { p: { prTag: '', acctTag: '', veredito: 'approve', motivos: [], bloqueio: '', pr: { key: 'acme/app#99', title: 'Nome plantado', author: 'x', account: LOGIN } } },
+  });
+  assert.equal(c.ok, true);
+  const [lida] = pendencias.lerPendencias(b, { ab12: { ...no, enc: c.enc } }, {});
+  assert.ok(lida, 'a pendência abre');
+  assert.equal(lida.pr, null, 'o nome não pode vir de dentro do item');
+  const r = await pendencias.aplicarPendenciasIdentificadas(b, b.config.sync, { ab12: { ...no, enc: c.enc } }, {});
+  assert.equal(r.lista[0].pr, null, 'sem tag não há nome, mesmo com o campo plantado');
 });
 
 test('o catálogo publicado inclui o PR das pendências e das sessões vivas', async () => {
