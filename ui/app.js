@@ -31,7 +31,8 @@ import {
 } from './telas/contas.js';
 import { gotoDeliv } from './telas/entregas.js';
 import { loadHighlights, loadTeam } from './telas/time.js';
-import { renderTools, loadLog, ping, notifyNewPRs } from './telas/ferramentas.js';
+import { renderTools, loadLog } from './telas/ferramentas.js';
+import { ping, notifyNewPRs } from './telas/avisos.js';
 import { decide, initTweaks } from './telas/acoes.js';
 import { revisarUrls, registrarTelaConsumo, renderUsage } from './telas/consumo.js';
 import { renderStatus, tickCountdown, updateStageFlow, updateSessionBar, renderActive } from './telas/sessoes.js';
