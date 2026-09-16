@@ -202,4 +202,5 @@ test('abrir a chave reescreve a presença na hora, com a chave pronta anunciada'
   assert.equal(noDoAparelho(e.sync.deviceId).keyReady, false, 'antes de abrir, o anúncio é honesto');
   assert.equal((await e.syncUnlock({ password: SENHA })).ok, true);
   assert.equal(noDoAparelho(e.sync.deviceId).keyReady, true, 'depois de abrir, o conjunto vê na hora');
+  assert.equal(e.sync.devices[e.sync.deviceId].keyReady, true, 'e a lista deste aparelho também, que é a que a tela e os destinos leem');
 });

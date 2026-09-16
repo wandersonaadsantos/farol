@@ -1880,7 +1880,7 @@ class Engine extends EventEmitter {
   syncLogin(credenciais, fetchImpl) { return syncMod.syncLogin(this, credenciais, fetchImpl); }
   syncUnlock(dados) { return syncMod.syncUnlock(this, dados); }
   // usado pela chave do conjunto: abrir a chave muda o que este aparelho anuncia
-  syncPresenca() { return syncMod.touchPresence(this); }
+  syncPresenca() { return syncMod.anunciarPresenca(this); }
   syncGerarChaveNova(dados) { return syncMod.syncGerarChaveNova(this, dados); }
   syncTornarAdmin(dados) { return syncMod.syncTornarAdmin(this, dados); }
   syncPublicarPolitica(dados) { return syncMod.syncPublicarPolitica(this, dados); }
