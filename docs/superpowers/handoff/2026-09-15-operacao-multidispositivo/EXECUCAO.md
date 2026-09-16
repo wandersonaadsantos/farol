@@ -43,7 +43,9 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | 5 | C0b Arbitragem de postagem no funil | `md/c0b` | validado localmente, integrado (`355f6d8`) | `evidencias-execucao/c0b.md` |
 | 6 | A4 Autenticação local, núcleo | `md/a4` | validado localmente, integrado (`7387179`); ativação automática desligada | `evidencias-execucao/a4.md` |
 | 7 | C1 Contrato de dados v2 e cifragem | `md/c1` | validado localmente, integrado (`6540b5a`); regras não publicadas | `evidencias-execucao/c1.md` |
-| seguintes | C2, C3, C4, C4b, C5, C6, C7, C8, telas | | planos a escrever | |
+| 8 | C2a Autoridade do admin, consentimento e políticas | `md/c2a` | plano pronto (`docs/superpowers/plans/2026-09-15-md-c2a-autoridade-e-politicas.md`) | |
+| 9 | C2b Grupo de consumo, aparelho, limpeza e revogação | `md/c2b` | plano a escrever | |
+| seguintes | C3, C4, C4b, C5, C6, C7, C8, telas | | planos a escrever | |
 
 ## Bloqueios
 
@@ -97,4 +99,4 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 
 ## Próxima ação concreta
 
-Escrever o plano da C2 (administração, políticas, grupo de consumo e limpeza protegida) e executá-lo na branch `md/c2`, cortada da ponta de `md/integracao`. A C1 deixou uma pendência que só o dono fecha: publicar as regras v2 no console do Firebase, depois do roteiro manual do `firebase/README.md`. Enquanto isso não acontece, o compartilhamento cifrado fica desligado e nada muda no comportamento de hoje.
+Executar a C2a pelo plano `docs/superpowers/plans/2026-09-15-md-c2a-autoridade-e-politicas.md`, na branch `md/c2a` cortada da ponta de `md/integracao`. A 7.C2 da spec foi dividida em duas entregas, porque cobre quatro assuntos independentes: a C2a traz autoridade do admin, consentimento local e políticas remotas; a C2b traz grupo de consumo configurado, gestão de aparelho, limpeza protegida e revogação, e depende da assinatura que nasce na C2a. A C1 deixou uma pendência que só o dono fecha: publicar as regras v2 no console do Firebase, depois do roteiro manual do `firebase/README.md`. Enquanto isso não acontece, o compartilhamento cifrado fica desligado e nada muda no comportamento de hoje.
