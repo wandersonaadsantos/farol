@@ -375,3 +375,41 @@ test('registro quebrado de um publicador não apaga o registro bom do outro', as
   assert.equal(itens[0].owner, 'dono', 'o nome sai do registro válido');
   assert.equal(defeituosos.length, 1);
 });
+
+// O giro completo do relógio: agenda, renova a prontidão e responde.
+test('um giro completo atribui, aceita, enfileira no ramo local e renova a prontidão', async () => {
+  const e = motorFila(await motorDistribuidor());
+  e.enfileirarDaDistribuicao = (pr, admissaoId) => reviewMod.enfileirarDaDistribuicao(e, pr, admissaoId);
+  await dist.publicarCandidato(e, e.config.sync, prDe(3), { agora: T });
+  await publicacao.publicarCapacidade(e, e.config.sync);
+  const giro = await dist.cicloDaDistribuicao(e, e.config.sync, { agora: T });
+  assert.equal(giro.ok, true);
+  assert.equal(giro.saudavel.ok, true);
+  assert.equal(giro.resposta.aceitas.length, 1);
+  assert.equal(e.headlessQueue.length, 1, 'voltou pelo ramo local');
+  assert.equal(admissao.resumo(e).total, 1, 'uma vaga só: o aceite já reservou');
+  const pronto = no('live/control')['ready'];
+  assert.equal(pronto.sequencia, 1);
+  assert.ok(pronto.sig);
+  // a sequência ANDA a cada renovação: é ela que prova frescor no outro aparelho, e um
+  // valor repetido seria reentrega, que por contrato não renova nada
+  await dist.publicarCandidato(e, e.config.sync, prDe(31), { agora: T + 10 });
+  await dist.cicloDaDistribuicao(e, e.config.sync, { agora: T + 10 });
+  assert.equal(no('live/control')['ready'].sequencia, 2);
+});
+
+test('ciclo que não foi saudável não renova a prontidão', async () => {
+  const e = motorFila(await motorDistribuidor());
+  await dist.publicarCandidato(e, e.config.sync, prDe(4), { agora: T });
+  await publicacao.publicarCapacidade(e, e.config.sync);
+  await dist.cicloDaDistribuicao(e, e.config.sync, { agora: T });
+  const get = e.sync.client.get.bind(e.sync.client);
+  e.sync.client.get = async (caminho, opcoes) => {
+    if (caminho.endsWith('live/deviceStatus')) return { ok: false, code: 'indisponivel' };
+    return get(caminho, opcoes);
+  };
+  const giro = await dist.cicloDaDistribuicao(e, e.config.sync, { agora: T + 1000 });
+  e.sync.client.get = get;
+  assert.equal(giro.saudavel.ok, false);
+  assert.equal(no('live/control')['ready'].sequencia, 1, 'a sequência não anda numa falha');
+});

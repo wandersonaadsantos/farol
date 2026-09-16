@@ -141,6 +141,9 @@
             "lastCleanup": {
               ".write": "auth != null && auth.uid == $uid && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && newData.hasChildren(['at', 'dev', 'categorias'])"
             },
+            "ready": {
+              ".write": "auth != null && auth.uid == $uid && newData.hasChildren(['dev', 'generation', 'sequencia', 'beatAt', 'sig']) && newData.child('generation').val() == root.child('users').child($uid).child('live').child('control').child('admin').child('generation').val() && newData.child('dev').val() == root.child('users').child($uid).child('live').child('control').child('admin').child('deviceId').val() && newData.child('sequencia').isNumber() && (!data.exists() || newData.child('sequencia').val() > data.child('sequencia').val()) && newData.child('beatAt').isNumber() && newData.child('beatAt').val() + 60000 > now && newData.child('beatAt').val() < now + 60000"
+            },
             "revokedBefore": {
               ".write": "auth != null && auth.uid == $uid && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && newData.isNumber() && newData.val() < auth.token.auth_time && (!data.exists() || newData.val() >= data.val())"
             }

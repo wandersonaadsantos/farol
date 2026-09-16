@@ -59,7 +59,7 @@ test('só os nós listados têm concessão de escrita: nó novo sem regra é neg
   assert.deepEqual(comEscrita.sort(), ['catalog', 'dailyRounds', 'devices', 'keyring', 'leases', 'myPrs', 'myPrsMeta', 'panorama', 'panoramaMeta', 'pushbacks', 'receipts', 'recentReviews', 'reviewBodies', 'usageEvents']);
   assert.equal(regras.live['.write'], undefined, 'live não concede em bloco');
   assert.equal(regras.live.control['.write'], undefined, 'control também não');
-  assert.deepEqual(Object.keys(regras.live.control).sort(), ['admin', 'beat', 'cleanup', 'cleanupLock', 'lastCleanup', 'revokedBefore']);
+  assert.deepEqual(Object.keys(regras.live.control).sort(), ['admin', 'beat', 'cleanup', 'cleanupLock', 'lastCleanup', 'ready', 'revokedBefore']);
   assert.deepEqual(Object.keys(regras.live).sort(), ['ack', 'assign', 'control', 'devicePolicies', 'deviceStatus', 'groups', 'operations', 'pending', 'queue', 'rev', 'seen']);
 });
 
@@ -294,4 +294,14 @@ test('live/queue, live/assign e live/ack: forma, TTL com teto e rev monotônico'
   const resposta = regras.live.ack.$item['.write'];
   assert.ok(resposta.includes("newData.hasChildren(['dev', 'estado', 'at'])"));
   assert.ok(resposta.includes("newData.child('at').val() <= now + 60000"));
+});
+
+// A prontidão é o sinal do agendador: só o admin do momento escreve, a sequência só sobe
+// (valor repetido é reentrega, que por contrato não renova) e a janela é a mesma do beat.
+test('live/control/ready: dono do momento, sequência que só sobe e janela de 60 s', () => {
+  const w = regras.live.control.ready['.write'];
+  assert.ok(w.includes("newData.hasChildren(['dev', 'generation', 'sequencia', 'beatAt', 'sig'])"));
+  assert.ok(w.includes(".child('admin').child('deviceId').val()"));
+  assert.ok(w.includes("newData.child('sequencia').val() > data.child('sequencia').val()"));
+  assert.ok(w.includes("newData.child('beatAt').val() + 60000 > now"));
 });

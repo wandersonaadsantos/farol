@@ -141,6 +141,9 @@
             "lastCleanup": {
               ".write": "@U@ && @REC@ && @H(['at','dev','categorias'])@"
             },
+            "ready": {
+              ".write": "@U@ && @H(['dev','generation','sequencia','beatAt','sig'])@ && @GEN@ && newData.child('dev').val() == @C@.child('admin').child('deviceId').val() && newData.child('sequencia').isNumber() && (!data.exists() || newData.child('sequencia').val() > data.child('sequencia').val()) && newData.child('beatAt').isNumber() && newData.child('beatAt').val() + 60000 > now && newData.child('beatAt').val() < now + 60000"
+            },
             "revokedBefore": {
               ".write": "@U@ && @REC@ && newData.isNumber() && newData.val() < auth.token.auth_time && (!data.exists() || newData.val() >= data.val())"
             }
