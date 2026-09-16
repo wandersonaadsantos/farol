@@ -55,6 +55,7 @@ const CONGELADA = [
   "delivStatsCards",
   "deliveriesByAuthor",
   "deliveriesByRepo",
+  "diagnosticoHtml",
   "diagnosticsText",
   "diffVs",
   "domLevelOf",

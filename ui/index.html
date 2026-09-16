@@ -783,7 +783,7 @@
             <div class="tool-head">
               <h3 class="tool-title">Diagnóstico</h3>
               <span id="healthMeta" class="section-sub"></span>
-              <button id="btnHealthClear" class="btn sm ghost" title="Fechar este relatório: use quando os pontos levantados já foram tratados">Limpar</button>
+              <button id="btnHealthClear" class="btn sm ghost" title="Fecha este relatório e descarta o texto; o log de falhas continua intacto">Descartar relatório</button>
             </div>
             <div id="healthOut" class="report"></div>
           </div>
@@ -791,10 +791,10 @@
             <h2>Log de falhas</h2>
             <div class="row-actions">
               <button id="btnLogRefresh" class="btn sm ghost">Atualizar</button>
-              <button id="btnLogClear" class="btn sm ghost" title="Zerar o log: use quando o episódio já foi diagnosticado e encerrado">Limpar log</button>
+              <button id="btnLogClear" class="btn sm ghost" title="Apaga o log de falhas do disco; não dá para desfazer">Apagar o log de falhas</button>
             </div>
           </div>
-          <p class="sys-note">Só falhas, sem ruído: é o que o <code>/pr-health</code> usa pra ajustar o próprio Farol.</p>
+          <p class="sys-note">Só falhas, sem ruído: é o que o diagnóstico com o Claude lê, em sessão somente leitura.</p>
           <p class="sys-note" id="logResumo" hidden></p>
           <pre id="logBox" class="logbox">…</pre>
         </div>

@@ -36,10 +36,10 @@ test('nenhuma rota aparece em duas classes', () => {
 // a C3d acrescentou a lista e o corpo das revisões (55 virou 57), e a C3g a medição e o
 // envio do histórico local (57 virou 59), e a C6 acrescentou /api/sync/command
 // (59 virou 60). O contrato das telas (B2) acrescentou desfecho de comando, publicar
-// política, aviso da tomada, estado da chave de limpeza e as sessões da A4 (60 virou 66).
-test('as classes da spec cobrem os 66 caminhos, e as públicas são só as duas de autenticação', () => {
+// política, aviso da tomada, estado da chave de limpeza e as sessões da A4 (60 virou 66). O diagnóstico unificado (A3) acrescentou /api/diagnostics (66 virou 67).
+test('as classes da spec cobrem os 67 caminhos, e as públicas são só as duas de autenticação', () => {
   const naoPublicas = Object.entries(CLASSES).filter(([c]) => c !== 'autenticacao-publica').flatMap(([, rotas]) => rotas);
-  assert.equal(naoPublicas.length, 66);
+  assert.equal(naoPublicas.length, 67);
   assert.deepEqual(CLASSES['autenticacao-publica'].slice().sort(), ['/api/auth/pair', '/api/auth/status']);
   assert.deepEqual(Object.keys(CLASSES).sort(), ['autenticacao-publica', 'demais', 'destrutiva', 'escreve-github', 'evento', 'leitura-baixo-risco', 'leitura-sensivel', 'recebe-segredo', 'sessao-paga']);
 });
