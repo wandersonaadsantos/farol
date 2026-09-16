@@ -65,7 +65,7 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | 17 | C4 Admissão local (parte de código) | `md/c4` | validada localmente e **integrada**; medição pendente por natureza | `evidencias-execucao/c4.md` |
 | 18 | C5a Candidato e escolha (parte pura) | `md/c5a` | validada localmente e **integrada** | `evidencias-execucao/c5a.md` |
 | 19 | C5b Prontidão do distribuidor (parte pura) | `md/c5b` | validada localmente e **integrada** | `evidencias-execucao/c5b.md` |
-| seguintes | C4, C4b, C5, C6, C7, C8, telas | | planos a escrever | |
+| seguintes | C5c, C5d, C4b, C6, C7, C8, telas | | planos a escrever | |
 
 ## Observação de instabilidade na suíte (16/09/2026)
 
