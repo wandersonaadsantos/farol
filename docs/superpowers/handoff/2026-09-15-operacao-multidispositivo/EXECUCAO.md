@@ -6,7 +6,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026, com o **adendo de 16/09/2026** (concluir as pendências, incluindo a experiência utilizável).
 - **Estado em uma frase:** **núcleo da trilha C integrado, experiência funcional parcial.** Os serviços, regras e contratos de C0 a C8 estão implementados e validados localmente, mas a interface só cobre o que já existia antes da iniciativa (login, teste, saída, refazer recibo, consumo consolidado, tabela de aparelhos com versão e os três interruptores da era C0). Não há, pela tela, desbloqueio da chave do conjunto, interruptor de compartilhamento ou de distribuição, administração, grupos, comandos, transferência, tomada, pareamento da A4, nem o Plano e chaves (A2) e o Diagnóstico unificado (A3).
-- **Frentes em curso (adendo):** acesso ao Claude Design (cadastrado, **aguardando o login do dono**); brief B2 escrito e contrato das telas integrado; A1b e A4b integradas; linha de integração **reconciliada com a `main` `dde2ac1`** (Fase 1b da reorganização e v2.59.5) em 16/09/2026; núcleos de A2 e A3 em seguida.
+- **Frentes em curso (adendo):** acesso ao Claude Design (cadastrado, **aguardando o login do dono**); brief B2 escrito e contrato das telas integrado; A1b e A4b integradas; linha de integração **reconciliada com a `main` `dde2ac1`** (Fase 1b da reorganização e v2.59.5) em 16/09/2026; **núcleos de A3 e A2 integrados** em 16/09/2026, os dois sem a tela, que depende do desenho.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 - **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026. Reconciliada em 16/09/2026 com a `main` local `dde2ac1` (Fase 1b: `ui/app.js` virou bootstrap e as telas moram em `ui/telas/`; v2.59.5; guias operacionais em `docs/`). Merge `3ec5d10` em `md/reconcilia-main`, integrado por `6eb2232`.
@@ -33,13 +33,13 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 | `npm test` | 2841 testes, 2817 aprovados, 24 pulados, 0 falhas |
 | `npm run eng` | `not-run` na base sem entrega (reprova por construção, o esperado); com entrega exige `avaliacoes.jsonl` |
 
-## Gate na linha de integração (16/09/2026, em `6eb2232`, depois da reconciliação com a `main`)
+## Gate na linha de integração (16/09/2026, em `c3abd65`, com a A3 e a A2)
 
 | Gate | Resultado |
 |---|---|
-| `npm run check` | verde, 515 arquivos `.js` |
+| `npm run check` | verde, 522 arquivos `.js` |
 | `npm run lint` | verde, sem regressão |
-| `npm test` | 3857 testes, 3829 aprovados, 28 pulados, 0 falhas |
+| `npm test` | 3899 testes, 3871 aprovados, 28 pulados, 0 falhas |
 
 Saída completa da suíte guardada fora do repositório (scratchpad da sessão, `suite-reconcilia2.txt`). Na primeira rodada depois do merge, `test/http-host-allowlist.test.js` terminou como falha de arquivo com os 28 casos aprovados; rodado sozinho três vezes, passou nas três (mesma família da falha nativa registrada em "Observação de instabilidade na suíte").
 
@@ -47,7 +47,7 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 
 ## Entregas
 
-Contagem: **34 linhas** (a 34 é a reconciliação, sem evidência própria), 33 evidências em `evidencias-execucao/` (29 da execução até a C8; A1b, A4b e a validação POSIX do adendo). "Núcleo" é serviço, regra e contrato; "interface" é a tela que configura, aciona ou mostra a capacidade; "validação local" é gate verde mais contraprovas.
+Contagem: **36 linhas** (a 34 é a reconciliação, sem evidência própria), 33 evidências em `evidencias-execucao/` (29 da execução até a C8; A1b, A4b e a validação POSIX do adendo). "Núcleo" é serviço, regra e contrato; "interface" é a tela que configura, aciona ou mostra a capacidade; "validação local" é gate verde mais contraprovas.
 
 | Ordem | Entrega | Branch | Núcleo | Interface | Integração e validação local | Validação externa pendente | Condição de publicação e ativação | Evidência |
 |---|---|---|---|---|---|---|---|---|
@@ -85,7 +85,9 @@ Contagem: **34 linhas** (a 34 é a reconciliação, sem evidência própria), 33
 | 33 | Contrato das telas (B2, seção 5) | `md/contrato-telas` | sim | **não** (é o que as telas vão chamar) | sim | não | não se aplica | `evidencias-execucao/contrato-telas.md` |
 | 32 | Validação POSIX em Linux isolado | `md/a4b` | não se aplica | não se aplica | sim (container Linux, uid 1000, sem rede) | Android/Termux continua sem prova | não se aplica | `evidencias-execucao/validacao-posix.md` |
 | 34 | Reconciliação com a `main` `dde2ac1` | `md/reconcilia-main` | não se aplica | transporte da A4 e textos da C0 portados para `ui/telas/` | sim, gate completo e quatro contraprovas nos testes ajustados | nenhuma | junto com a iniciativa | este registro, seção "Commits" |
-| seguintes | desenho B2 no Claude Design, A2, A3, telas de A4 e C1 a C8 | | | | | | | |
+| 35 | A3 Diagnóstico unificado (núcleo) | `md/a3` | sim | **não** (a visão única é desenho) | sim, 30 contraprovas | sessão real de diagnóstico no Claude e no Codex confirmando as ferramentas e o sandbox | junto com a iniciativa; a sessão de IA já nasce somente leitura | `evidencias-execucao/a3.md` |
+| 36 | A2 Plano e chaves explícito (núcleo) | `md/a2` | sim | **não** (cartão guiado e selo são desenho) | sim, 22 contraprovas | um `claude auth status --json` com login ativo, para confirmar o campo do e-mail | junto com a iniciativa; testar é ato explícito e nunca grava | `evidencias-execucao/a2.md` |
+| seguintes | desenho B2 no Claude Design e as telas de A2, A3, A4 e C1 a C8 | | | | | | | |
 
 ## Capacidades desligadas: o que falta em cada uma (adendo, item 5)
 
@@ -168,6 +170,8 @@ Três vezes hoje, uma rodada de `npm test` disparada **logo depois de um merge**
 | `335c0c1`, `6e1830e`, `ace44cb`, `b4545ef`, `9c33a1f`, `6a8c6a9`, `4c4a775`, `ab9a072`, `8c1abdd`, `76ea423`, `ceb41cf`, `1d76d58` | `md/c2b` | C2b: caracterização do desligado, identidade do grupo, vínculo por intervalo, grupo no banco com a ordem de recusa comum, renomear e aposentar, chave da limpeza, ato de apagar, revogação, regras v2 dos nós novos, seis rotas e documentação |
 | `35f40f2`, `9e56a4f`, `56e0cb6`, `d119de0`, `e263a7e`, `020fcab`, `8f4e076` | `md/c3a` | C3a: caracterização do desligado, frota v2, presença com contrato e chave pronta, capacidade cifrada, catálogo cifrado, regras v2 e a correção do dono na concessão de remoção |
 | merges `ed125e7`, `17ac164`, `8c1773e`, `f9f00a0` | `md/integracao` | adendo: A1b, brief B2, A4b e contrato das telas |
+| `a9ccced`, merge `d3e5b9d` | `md/a3` | A3: Markdown único e inerte do diagnóstico, rota, renderização inerte, sessão de IA somente leitura nos dois provedores, prompt do workspace reescrito e ressincronizado, botões que dizem o efeito |
+| `6eff2d5`, merge `c3abd65` | `md/a2` | A2: regra única de perfil utilizável, problemas de perfil no snapshot e no Diagnóstico, teste explícito com origem por campo, adoção guiada com confirmação literal, selo atualizado no fim do login nos três sistemas |
 | `3ec5d10`, merge `6eb2232` | `md/reconcilia-main` | reconciliação com a `main` `dde2ac1`: transporte da A4 em `ui/telas/infra.js`, textos da C0 nas telas, apagão remoto fora de `ui/telas/sistema-sync.js`, retomada durável portada para `docs/REVIEW-GATES.md`; três testes passaram a ler o bootstrap e todas as telas (`settings-ignoradas`, `sync-sem-apagao`, `ui-transporte-app`), com a mesma garantia |
 
 
