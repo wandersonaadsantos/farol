@@ -11,14 +11,29 @@
 // estado().accounts = lista, estado().config.people = pessoas) já acontecia no
 // ui/app.js antes desta tarefa e continua acontecendo: é herança preservada, não
 // licença nova. Módulo de tela lê por estado() e não muta nada dentro do que lê.
+//
+// Cada setter abaixo tem os donos que REALMENTE o chamam hoje (nem todos são só o
+// ui/app.js, e essa lista é o que evita a próxima extração quebrar por engano):
+//   definirEstado    -> só ui/app.js (o handler do evento 'state' do SSE).
+//   definirEscopo    -> ui/app.js (boot, a partir do localStorage, e o clique na barra
+//                        de contas), telas/contas.js (rebuildAccounts saneia escopo
+//                        órfão quando a conta some) e telas/sistema-contas.js (silenciar
+//                        ou remover a conta que é o escopo atual solta ela pra 'all').
+//   definirAba       -> só ui/app.js (switchTab).
+//   definirPlataforma -> só ui/app.js (aplicaPlataforma, reconciliando com o SO real
+//                        que o snapshot do engine manda).
 let STATE = null;
 let SCOPE = 'all';
 let ABA = 'radar';
 // Palpite do primeiro paint (antes do primeiro estado chegar pelo SSE); o ui/app.js
 // reconcilia com app.platform assim que o snapshot chega, por definirPlataforma. Migrou
-// de variável de módulo do ui/app.js pra cá porque telas/sistema-contas.js (Task 10,
+// de variável de módulo do ui/app.js pra cá porque telas/sistema-perfis.js (Task 10,
 // Fase 1b) também precisa perguntar "é Windows?" e não pode importar o bootstrap de
 // volta: mesma razão de STATE/SCOPE/ABA morarem aqui.
+// O guarda `typeof navigator` é só pra este módulo não explodir se algum dia for
+// importado fora de um contexto de navegador (o node --test sempre passa pelo
+// dom-stub, que define navigator antes deste import rodar); SEM navigator, o palpite
+// cai silenciosamente em 'win32' (o lado do `: 'win32'` do ternário), nunca em 'darwin'.
 let PLATAFORMA = typeof navigator !== 'undefined' && /Macintosh|Mac OS X/.test(navigator.userAgent) ? 'darwin' : 'win32';
 
 const estado = () => STATE;
@@ -27,8 +42,6 @@ const abaAtual = () => ABA;
 const ehMac = () => PLATAFORMA === 'darwin';
 const ehWin = () => PLATAFORMA === 'win32';
 
-// Escrita: só o ui/app.js chama. Não há setter parcial de propósito, para não existirem
-// dois donos do mesmo dado.
 function definirEstado(novo) { STATE = novo; }
 function definirEscopo(novo) { SCOPE = novo; }
 function definirAba(nome) { ABA = nome; }

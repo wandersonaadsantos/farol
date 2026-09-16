@@ -4,7 +4,7 @@
 import { estado } from './estado.js';
 import { toastRich, tituloDaNotificacao } from './infra.js';
 
-// mesmo palpite do app.js (linha 46): sem SSE/estado ainda no primeiro paint, o
+// mesmo palpite do `isElectron` de ui/app.js: sem SSE/estado ainda no primeiro paint, o
 // jeito de saber se é o shell Electron é olhar o userAgent.
 const isElectron = navigator.userAgent.includes('Electron');
 
