@@ -356,6 +356,13 @@ do servidor. Quem protege esse nó é o cliente, pelas cinco condições do ato.
     `rev`, ou menor, **401**; `ttl` além de 10 min, **401**.
 37. **`live/ack/{item}`:** resposta `{dev, estado, at}`, **200**; `at` além de agora + 60 s,
     **401**.
+40. **`live/commands/{cmdId}`:** comando `{v, generation, alvo, ttl, enc, sig}` com `ttl`
+    até agora + 1 h e geração vigente, **200**; `ttl` além de uma hora, geração antiga ou
+    chave fora de 32 hex, **401**; remoção depois do `ttl`, **200**; remoção antes do
+    `ttl` e sem a chave de limpeza, **401**.
+41. **`commandReceipts/{cmdId}`:** recibo `{dev, estado, code, at}` do aparelho ALVO,
+    **200**; segundo recibo por cima do primeiro, **401**; recibo de aparelho que não é o
+    alvo, **401**; remoção com o comando ainda lá, **401**.
 39. **`usageDaily/{dev}/{dia}`:** rollup `{v: 1, u, seq, g}` com dia `AAAA-MM-DD` e grupos
     de 32 hex com `c`, `s` e `d` numéricos, **200**; dia fora da forma, `v` diferente de 1,
     `seq` não numérico ou grupo com `c` em texto, **401**; remoção sem a chave de limpeza,
