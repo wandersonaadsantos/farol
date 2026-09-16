@@ -201,3 +201,58 @@ test('vencida há mais de um TTL é apagada por qualquer aparelho; recém-vencid
   assert.deepEqual(feitos, ['aa']);
   assert.ok(operacoes().bb, 'a recém-vencida continua para a tela mostrar "interrompida"');
 });
+
+function agendadorFalso() {
+  const a = { ligados: 0, desligados: 0, fn: null };
+  a.setInterval = (fn) => { a.ligados++; a.fn = fn; return { id: a.ligados }; };
+  a.clearInterval = () => { a.desligados++; };
+  return a;
+}
+
+test('o relógio liga uma vez só e desliga limpando a visão', async () => {
+  const e = await motorPronto();
+  const ag = agendadorFalso();
+  assert.equal(andamentoEng.ligarRelogio(e, (x) => x.config.sync, ag), true);
+  assert.equal(andamentoEng.ligarRelogio(e, (x) => x.config.sync, ag), false, 'nunca dois relógios');
+  assert.equal(ag.ligados, 1);
+  e.sync.andamentoRemoto = [{ opId: 'x' }];
+  assert.equal(andamentoEng.desligarRelogio(e.sync), true);
+  assert.equal(ag.desligados, 1);
+  assert.deepEqual(e.sync.andamentoRemoto, [], 'desligado não mostra andamento velho');
+});
+
+test('parar a sincronização para o relógio', async () => {
+  const e = await motorPronto();
+  andamentoEng.ligarRelogio(e, (x) => x.config.sync, agendadorFalso());
+  syncMod.stopSync(e);
+  assert.equal(e.sync.relogioAndamento, null);
+});
+
+test('o tick conectado liga o relógio só com o compartilhamento ligado', async () => {
+  const e = await motorPronto();
+  e.sync.lastPresenceAt = Date.now();
+  await syncMod.syncTick(e);
+  assert.ok(e.sync.relogioAndamento, 'ligado');
+  andamentoEng.desligarRelogio(e.sync);
+  e.updateSettings({ sync: { ...e.config.sync, shared: { enabled: false } } });
+  if (e.sync.iniciando) await e.sync.iniciando;
+  e.sync.lastPresenceAt = Date.now();
+  await syncMod.syncTick(e);
+  assert.ok(!e.sync.relogioAndamento, 'desligado não tem relógio');
+});
+
+test('um ciclo publica, lê e avisa a tela por sync-live', async () => {
+  const e = await motorPronto();
+  sessaoViva(e);
+  const eventos = [];
+  e.on('sync-live', (p) => eventos.push(p));
+  const r = await andamentoEng.ciclo(e, e.config.sync, { agora: T + 1000 });
+  assert.equal(r.escritas.length, 1);
+  assert.equal(eventos.length, 1);
+  assert.deepEqual(eventos[0].operacoes, [], 'o próprio aparelho não aparece para si');
+});
+
+test('a rota SSE repassa sync-live', () => {
+  const fonte = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'http-server.js'), 'utf8');
+  assert.match(fonte, /engine\.on\('sync-live', p => broadcast\('sync-live', p\)\)/);
+});
