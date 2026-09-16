@@ -134,7 +134,10 @@ test('toggle nativo de details atualiza Pessoas e mostrar mais preserva o card a
 });
 
 test('atalho @pessoa abre explicitamente o grupo, sem mudar o default recolhido', () => {
-  const fn = APPJS.match(/function gotoDeliv\(kind, valor\) \{[\s\S]*?\n\}/);
+  // gotoDeliv mora em ui/telas/entregas.js (Fase 1b, Task 7) e recebe switchTab por
+  // parâmetro: é primitiva do shell (troca de aba, aciona aoEntrar de toda tela) e
+  // não pode ser importada de lá sem criar ciclo com o bootstrap.
+  const fn = APPJS.match(/function gotoDeliv\(kind, valor, switchTab\) \{[\s\S]*?\n\}/);
   assert.ok(fn, 'gotoDeliv existe');
   assert.match(fn[0], /if \(by === 'author'\) deliveriesOpen\.add\('author:' \+ valor\);\s*\n\s*renderDeliveries\(\)/,
     'clicar em @fulano na frente é intenção explícita de abrir aquele grupo');
@@ -443,7 +446,9 @@ test('navegação interna tem UM handler só, delegado, e entende os 3 tipos', (
     'aba: repassa o seletor (destino de ferramenta precisa dele)');
   assert.match(fn[0], /switchTab\('sistema'\);\s*\n\s*return sysGoTo\(alvo, seletor \|\| null\);/,
     'sys: troca a aba ANTES do sysGoTo (elemento em aba escondida não rola)');
-  assert.match(fn[0], /if \(tipo === 'deliv'\) return gotoDeliv\(alvo, seletor\);/);
+  // switchTab vai por parâmetro: gotoDeliv mora em ui/telas/entregas.js e não pode
+  // importar o bootstrap de volta (mesmo motivo do teste de gotoDeliv acima)
+  assert.match(fn[0], /if \(tipo === 'deliv'\) return gotoDeliv\(alvo, seletor, switchTab\);/);
   // mesma ordem do sysGoTo, pelo mesmo motivo, e sem piscar painel escondido
   assert.match(APPJS, /function gotoAba\(nome, at\) \{\s*\n\s*switchTab\(nome\);/,
     'gotoAba troca a aba ANTES de procurar o alvo');

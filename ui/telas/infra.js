@@ -16,6 +16,30 @@ export function api(path, body) {
 }
 export function get(path) { return fetch(path).then(r => r.json()).catch(() => null); }
 
+// segmentado: a classe pinta, o aria-pressed e o que o leitor de tela anuncia.
+// Um helper so pra os dois nunca divergirem. Usado por Entregas, Consumo e Sistema:
+// mora aqui pra nenhuma dessas telas depender de outra por acidente de posição.
+export function marcarSeg(botoes, ehAtivo) {
+  botoes.forEach(b => { const a = ehAtivo(b); b.classList.toggle('active', a); b.setAttribute('aria-pressed', a ? 'true' : 'false'); });
+}
+
+// pisca o alvo depois de navegar, pra achar a linha no meio da seção. Usado pelo
+// roteador de navegação interna (sysGoTo, gotoAba, gotoDeliv) e por quem abre um
+// editor específico fora dele; mora aqui pelo mesmo motivo do marcarSeg acima.
+export function sysFlash(el) {
+  if (!el || !el.animate) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  el.animate([
+    { boxShadow: '0 0 0 0 rgba(255,180,84,0)' },
+    { boxShadow: '0 0 0 3px rgba(255,180,84,.32)', offset: .5 },
+    { boxShadow: '0 0 0 0 rgba(255,180,84,0)' }
+  ], { duration: 850, iterations: 2 });
+}
+
+// a aba Entregas só existe com a flag ligada (Sistema > Preferências). Usado pelo
+// switchTab (recusa a troca com a flag desligada) e pela própria tela de Entregas.
+export function deliveriesEnabled() { return estado()?.config?.deliveriesEnabled === true; }
+
 function toastBase(kind, ms) {
   const el = document.createElement('div');
   el.className = `toast ${kind}`;

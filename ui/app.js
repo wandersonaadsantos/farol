@@ -2,30 +2,28 @@
 
 import {
   statusBannerHtml, queueEmptyOkHtml, automacaoPausadaPor, orgsMonitoradas, esc, safeJsonParse, fmtClock, sysNorm, canonicalGithubPrUrl, prKeyFromUrl, repoShort, stripFence,
-  sameSet, usageMetricVal, usageStackLayers, usageHoverIndex, accountSaveArray,
-  delivCappedMsg, fmtRel, usageDayKeysBack, aprovadosHoje, avatar, md, feedLine,
+  sameSet, accountSaveArray,
+  fmtRel, aprovadosHoje, avatar, md, feedLine,
   agentsTitle, stageFlowFrom, stageFlowHtml, selfSessionKey,
   sessionProgress, personMention, repoMention, prRefMention, parseGoto, reviewBoxHtml,
-  operationChecks, runtimeChecks, delivFilterItems, delivStats, delivStatsCards, delivActivityCard,
-  delivEmptyState, deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS,
+  operationChecks, runtimeChecks, pushbackControl, PB_OPTS,
   diagnosticsText, sessionCardHtml, PB_SHORT, fmtStamp, fmtWhenDay, resolvedRow,
   logSummaryShort, stageLabel,
   expiredSessionMarks, listViewState, splitHiddenPRs, effectiveHidden, hiddenFootLabel,
   myPRsEmptyMsg, mergeToastKind, creditsHtml, buildFixPrompt, papelPicker, domainMatrix,
-  chatBadge, fmtUsageMetric, usageColorsFor, usageTooltipHtml, usageKpisHtml,
-  usageMatrixHtml, usageBudgetHtml, usageSessionsHtml, escAttrSelector, defaultFor,
+  chatBadge, escAttrSelector, defaultFor,
   overrideFor, suggestDefault, renderOrgBlock, queueCardHtml, panoramaRowHtml,
   reasonGroupsHtml, reasonText, claudeProfilesHtml, accountsManagerHtml, staleCardMeta,
   jiraBaseUrlProblema, jiraPrefixosProblema,
   canMergeSelfAnalysis, qualityBlockTitle, selfAnalysisBadge, selfAnalysisToggle, selfAnalysisStale,
-  filaJustaHtml, syncSecaoHtml, syncConfirmacoesDoClique, usageConsolidadoEnvelopeHtml, syncCfgComGeral
+  syncSecaoHtml, syncCfgComGeral
 } from './pure.js';
 import { registrarTela, telasRegistradas, telaPorId } from './telas/registro.js';
 import { estado, escopo, abaAtual, definirEstado, definirEscopo, definirAba } from './telas/estado.js';
 import {
   $, api, get, toast, toastRich, confirmModal, showOp, updateOp, closeOp, ACTIVE_OPS,
-  DIMENSAO_DO_CONSUMO, syncAnalysisOps, selo, textoDaListaVazia, rotuloDoBotaoDeAnalise,
-  origemLocal, doUsuario, tituloDaNotificacao
+  syncAnalysisOps, selo, textoDaListaVazia, rotuloDoBotaoDeAnalise,
+  origemLocal, doUsuario, tituloDaNotificacao, marcarSeg, sysFlash, deliveriesEnabled,
 } from './telas/infra.js';
 export { toast } from './telas/infra.js';
 import {
@@ -34,6 +32,8 @@ import {
   memGroupHead, renderAccountBar, renderIdentity, renderSilenced,
   fecharSilenciadas, alternarSilenciadas, rerenderScope as rerenderScopeContas
 } from './telas/contas.js';
+import { gotoDeliv } from './telas/entregas.js';
+import { revisarUrls, registrarTelaConsumo, renderUsage } from './telas/consumo.js';
 
 const isElectron = navigator.userAgent.includes('Electron');
 if (isElectron) document.body.classList.add('electron');
@@ -70,7 +70,6 @@ definirEscopo(localStorage.getItem('farol-scope') || 'all');   // 'all' ou o log
 // precisa de mais). switchTab não roda no boot, então a aba inicial é marcada aqui.
 document.body.dataset.tab = abaAtual();
 function teamHighlightsEnabled() { return estado()?.config?.teamHighlights === true; }
-function deliveriesEnabled() { return estado()?.config?.deliveriesEnabled === true; }
 function syncOptionalTabsVisibility() {
   const features = [
     { tab: 'destaques', enabled: teamHighlightsEnabled() },
@@ -1049,12 +1048,6 @@ window.addEventListener('resize', () => {
   }, 150);
 });
 
-// segmentado: a classe pinta, o aria-pressed e o que o leitor de tela anuncia.
-// Um helper so pra os dois nunca divergirem.
-function marcarSeg(botoes, ehAtivo) {
-  botoes.forEach(b => { const a = ehAtivo(b); b.classList.toggle('active', a); b.setAttribute('aria-pressed', a ? 'true' : 'false'); });
-}
-
 function switchTab(name) {
   if (name === 'destaques' && !teamHighlightsEnabled()) name = 'radar';
   if (name === 'entregas' && !deliveriesEnabled()) name = 'radar';
@@ -1138,17 +1131,6 @@ const SYS_INDEX = [
 function sysSecName(sec) {
   const b = document.querySelector(`.sys-nav-item[data-section="${sec}"]`);
   return b ? b.textContent.trim() : sec;
-}
-
-// pisca o alvo depois de navegar, pra achar a linha no meio da seção
-function sysFlash(el) {
-  if (!el || !el.animate) return;
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  el.animate([
-    { boxShadow: '0 0 0 0 rgba(255,180,84,0)' },
-    { boxShadow: '0 0 0 3px rgba(255,180,84,.32)', offset: .5 },
-    { boxShadow: '0 0 0 0 rgba(255,180,84,0)' }
-  ], { duration: 850, iterations: 2 });
 }
 
 /* Navega pra uma entrada do índice. A ordem importa: a seção precisa estar VISÍVEL
@@ -1235,44 +1217,6 @@ document.addEventListener('click', (e) => {
    Quem emite passa o valor CRU; a leitura é sempre por dataset (nada de parse
    de HTML). Elemento com data-goto ganha o affordance de clique no CSS
    (.is-goto) e vira botão pra teclado/leitor de tela via role/tabindex. */
-function gotoDeliv(kind, valor) {
-  // KPIs desta tela também usam data-goto. Não recarregue a própria aba antes
-  // de abrir/rolar o grupo: a resposta assíncrona substituiria o DOM recém-alvo.
-  if (abaAtual() !== 'entregas') switchTab('entregas');
-  if (kind === 'days') {
-    const d = parseInt(valor, 10);
-    deliveriesDays = [0, 7, 15, 30].includes(d) ? d : deliveriesDays;
-    localStorage.setItem('farol-deliv-days', String(deliveriesDays));
-    marcarDelivDays();
-    resetDeliveriesDisclosure();
-    loadDeliveries();
-    return;
-  }
-  // trocar a visão (repo x pessoa) é parte de "levar até a coisa": o grupo só
-  // existe na visão correspondente
-  const by = kind === 'author' ? 'author' : 'repo';
-  if (deliveriesBy !== by) {
-    deliveriesBy = by;
-    localStorage.setItem('farol-deliv-by', by);
-    marcarSeg(document.querySelectorAll('#delivBy .seg-btn'), x => x.dataset.by === by);
-  }
-  if (deliveriesQuery) { deliveriesQuery = ''; const q = $('#delivQuery'); if (q) q.value = ''; }
-  if (by === 'author') deliveriesOpen.add('author:' + valor);
-  renderDeliveries();
-  // o grupo é montado no render acima; achar pelo groupKey do próprio pure.js
-  setTimeout(() => {
-    const key = `${by === 'author' ? 'author' : 'repo'}:${valor}`;
-    const alvo = [...document.querySelectorAll('#deliveries .deliv-card')]
-      .find(c => c.querySelector(`[data-deliv-group="${CSS.escape(key)}"]`))
-      || [...document.querySelectorAll('#deliveries .deliv-card .deliv-name')]
-        .find(n => n.textContent.trim() === (by === 'author' ? '@' + valor : valor));
-    const card = alvo && (alvo.closest ? alvo.closest('.deliv-card') : alvo);
-    if (!card) return;
-    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    sysFlash(card);
-  }, 0);
-}
-
 // troca de aba e, se veio seletor, rola e pisca o alvo. Mesma ordem do sysGoTo
 // (aba visível ANTES do scroll: scrollIntoView em elemento escondido não faz nada
 // e não avisa). Painel de ferramenta nasce hidden: sem resultado gerado ainda, a
@@ -1295,7 +1239,7 @@ function goTo(spec) {
     switchTab('sistema');
     return sysGoTo(alvo, seletor || null);
   }
-  if (tipo === 'deliv') return gotoDeliv(alvo, seletor);
+  if (tipo === 'deliv') return gotoDeliv(alvo, seletor, switchTab);
 }
 
 document.addEventListener('click', (e) => {
@@ -1550,169 +1494,6 @@ document.addEventListener('keydown', (e) => {
     const card = kbdSelected();
     const btn = card && card.querySelector(`.dec-act[data-action="${KBD_ACTIONS[low]}"]`);
     if (btn) { btn.click(); e.preventDefault(); }
-  }
-});
-
-/* ---------- entregas v2 (PRs mergeados: busca, estatísticas, atividade,
-   grupos por repo/pessoa com paginação). Releitura do Claude Design, projeto
-   "Revisão página entregas" (Entregas v2.dc.html). ---------- */
-let deliveriesData = null;
-let deliveriesDays = parseInt(localStorage.getItem('farol-deliv-days'), 10);
-if (![0, 7, 15, 30].includes(deliveriesDays)) deliveriesDays = 7;
-let deliveriesBy = localStorage.getItem('farol-deliv-by') === 'author' ? 'author' : 'repo';
-let deliveriesOrg = localStorage.getItem('farol-deliv-org') || ''; // '' = ainda não resolvido → cai na principal
-let deliveriesQuery = ''; // busca livre, só em memória (não persiste entre sessões)
-let deliveriesExpanded = new Set(); // chaves 'repo:x'/'author:x' com paginação expandida
-let deliveriesOpen = new Set(); // disclosures abertos da visão Pessoas (default: todos fechados)
-let deliveriesDataContext = null; // org/período da última resposta aceita
-function resetDeliveriesDisclosure() { deliveriesOpen = new Set(); }
-// token de requisição: trocar org/período dispara cargas concorrentes e a resposta
-// VELHA não pode vencer a nova (mesma guarda que o openChat faz por chave)
-let deliveriesReqSeq = 0;
-
-// org principal (default da visão): 1º owner da 1ª conta, senão o legado config.owners
-function primaryOrg() {
-  for (const a of (estado() && estado().accounts) || []) if ((a.owners || []).length) return a.owners[0];
-  return (((estado() && estado().config) || {}).owners || [])[0] || '';
-}
-// todas as orgs monitoradas (união dos owners de todas as contas), c/ a conta dona
-function orgsWithAccount() {
-  const map = new Map(); // org -> user (conta dona)
-  for (const a of (estado() && estado().accounts) || []) for (const o of (a.owners || [])) if (!map.has(o)) map.set(o, a.user);
-  for (const o of (((estado() && estado().config) || {}).owners || [])) if (!map.has(o)) map.set(o, (estado().account || {}).user || '');
-  return [...map.entries()].map(([org, user]) => ({ org, user }));
-}
-function renderDelivOrgSelect() {
-  const sel = $('#delivOrg'); if (!sel) return;
-  const orgs = orgsWithAccount();
-  // resolve a seleção: mantém a salva se ainda existir, senão cai na principal
-  if (!deliveriesOrg || !orgs.some(o => o.org === deliveriesOrg)) deliveriesOrg = primaryOrg();
-  const multi = multiAccount && multiAccount();
-  sel.innerHTML = orgs.map(o =>
-    `<option value="${esc(o.org)}"${o.org === deliveriesOrg ? ' selected' : ''}>${esc(o.org)}${multi && o.user ? ` · @${esc(o.user)}` : ''}</option>`
-  ).join('') || '<option value="">(nenhuma org monitorada)</option>';
-}
-function marcarDelivDays() {
-  marcarSeg(document.querySelectorAll('#delivDays .seg-btn'), b => parseInt(b.dataset.days, 10) === deliveriesDays);
-}
-
-async function loadDeliveries() {
-  if (!deliveriesEnabled()) return;
-  renderDelivOrgSelect();
-  marcarDelivDays();
-  marcarSeg(document.querySelectorAll('#delivBy .seg-btn'), b => b.dataset.by === deliveriesBy);
-  // Capture o contexto efetivamente consultado. renderDelivOrgSelect pode trocar
-  // silenciosamente uma org salva que deixou de existir pela org principal.
-  const requestOrg = deliveriesOrg;
-  const requestDays = deliveriesDays;
-  const requestContext = JSON.stringify([requestOrg, requestDays]);
-  const box = $('#deliveries');
-  box.innerHTML = '<div class="empty">Carregando entregas…</div>';
-  const opId = 'load-deliveries';
-  showOp(opId, { type: 'data', title: 'Carregando entregas', inline: true, container: box });
-  const rid = ++deliveriesReqSeq;
-  const data = await get('/api/deliveries?days=' + requestDays + '&owner=' + encodeURIComponent(requestOrg || ''));
-  // outra carga começou depois desta: a resposta é velha e não pinta nada (a op
-  // 'load-deliveries' já é da carga nova, que fará o próprio closeOp)
-  if (rid !== deliveriesReqSeq) return;
-  // O reset do clique dá feedback imediato, mas a UI antiga ainda pode reabrir
-  // um autor durante o await. A resposta aceita é a autoridade final. Refresh
-  // do MESMO contexto preserva a abertura explícita do atalho @fulano.
-  if (deliveriesDataContext !== requestContext) resetDeliveriesDisclosure();
-  deliveriesDataContext = requestContext;
-  deliveriesData = data || { items: [] };
-  deliveriesExpanded = new Set(); // dado novo: paginação de grupo velha não faz sentido
-  closeOp(opId, 'done');
-  renderDeliveries();
-}
-
-function renderDeliveries() {
-  const data = deliveriesData || { items: [] };
-  const note = $('#delivNote');
-  const msgs = [];
-  // "o log em Sistema" é menção a lugar do app: vira clique que leva à linha do
-  // log no Diagnóstico. Por isso a nota passou de textContent pra innerHTML, com
-  // esc() em TODO texto que não seja o link (delivCappedMsg é texto do pure.js).
-  if (data.partial) msgs.push('Algumas buscas ao GitHub falharam; a lista pode estar incompleta (veja <span class="is-goto" data-goto="sys:diag:#sys-row-log" role="button" tabindex="0">o log em Sistema</span>).');
-  if (data.capped) msgs.push(esc(delivCappedMsg(data.limit)));
-  note.hidden = !msgs.length;
-  note.innerHTML = msgs.join(' ');
-
-  const items = delivFilterItems(data.items || [], deliveriesQuery);
-  $('#delivStats').innerHTML = delivStatsCards(delivStats(items, deliveriesDays));
-  $('#delivChart').innerHTML = delivActivityCard(items, deliveriesDays);
-
-  const box = $('#deliveries');
-  if (!items.length) {
-    box.innerHTML = delivEmptyState({ query: deliveriesQuery, canExpand: deliveriesDays < 30, canClear: !!deliveriesQuery });
-    return;
-  }
-  const opts = { teto: 4, expandedKeys: deliveriesExpanded, openKeys: deliveriesOpen };
-  box.innerHTML = deliveriesBy === 'author' ? deliveriesByAuthor(items, opts) : deliveriesByRepo(items, opts);
-}
-$('#delivOrg').addEventListener('change', (e) => {
-  deliveriesOrg = e.target.value || '';
-  localStorage.setItem('farol-deliv-org', deliveriesOrg);
-  resetDeliveriesDisclosure();
-  loadDeliveries();
-});
-$('#delivDays').addEventListener('click', (e) => {
-  const b = e.target.closest('.seg-btn'); if (!b) return;
-  const v = parseInt(b.dataset.days, 10); // "Hoje" = 0 (é falsy: não usar || aqui)
-  const nextDays = [0, 7, 15, 30].includes(v) ? v : 7;
-  if (nextDays === deliveriesDays) return;
-  deliveriesDays = nextDays;
-  localStorage.setItem('farol-deliv-days', String(deliveriesDays));
-  marcarDelivDays();
-  resetDeliveriesDisclosure();
-  loadDeliveries();
-});
-$('#delivBy').addEventListener('click', (e) => {
-  const b = e.target.closest('.seg-btn');
-  if (!b) return;
-  deliveriesBy = b.dataset.by === 'author' ? 'author' : 'repo';
-  localStorage.setItem('farol-deliv-by', deliveriesBy);
-  marcarSeg(document.querySelectorAll('#delivBy .seg-btn'), x => x.dataset.by === deliveriesBy);
-  renderDeliveries(); // troca de fatia é só re-render, sem novo fetch
-});
-$('#delivQuery').addEventListener('input', (e) => {
-  deliveriesQuery = e.target.value || '';
-  renderDeliveries();
-});
-// O evento nativo `toggle` de <details> não borbulha. Capture mantém um único
-// listener delegado e preserva a abertura de Pessoas nos re-renders da busca e
-// da paginação, sem interferir na semântica/teclado nativos de <summary>.
-$('#deliveries').addEventListener('toggle', (e) => {
-  const details = e.target.closest && e.target.closest('details[data-deliv-group^="author:"]');
-  if (!details || details !== e.target) return;
-  const key = details.dataset.delivGroup;
-  if (details.open) deliveriesOpen.add(key); else deliveriesOpen.delete(key);
-}, true);
-// delegação: "mostrar mais/menos" de cada grupo e as ações do estado vazio
-// ("Ver 30 dias" / "Limpar busca"), ambos desenhados no pure.js com data-*
-$('#deliveries').addEventListener('click', (e) => {
-  const mais = e.target.closest('.deliv-mais');
-  if (mais) {
-    const key = mais.dataset.delivGroup;
-    // `toggle` é enfileirado; o clique em mostrar mais pode re-renderizar antes
-    // de ele sincronizar o Set. Leia o estado vivo antes de remover o <details>.
-    if (key.startsWith('author:') && mais.closest('details[open]')) deliveriesOpen.add(key);
-    if (deliveriesExpanded.has(key)) deliveriesExpanded.delete(key); else deliveriesExpanded.add(key);
-    renderDeliveries();
-    return;
-  }
-  const acao = e.target.closest('[data-deliv-action]');
-  if (!acao) return;
-  if (acao.dataset.delivAction === 'ver30') {
-    deliveriesDays = 30;
-    localStorage.setItem('farol-deliv-days', '30');
-    marcarDelivDays();
-    resetDeliveriesDisclosure();
-    loadDeliveries();
-  } else if (acao.dataset.delivAction === 'limpar-busca') {
-    deliveriesQuery = '';
-    $('#delivQuery').value = '';
-    renderDeliveries();
   }
 });
 
@@ -2515,277 +2296,6 @@ $('#myPRsHiddenFoot').addEventListener('click', (e) => {
 });
 
 /* ---------- render: versão e atualização ---------- */
-/* ---------- Consumo de tokens (tela própria, charts em SVG puro) ---------- */
-const usageState = { metric: 'total', window: 30, dim: 'kind' };
-
-
-// 4 cartoes: Custo/Tokens/Sessoes do periodo escolhido + Hoje, cada um com
-// sparkline dos ultimos `win` dias (Hoje usa fixo 14 dias, igual ao mock) e chip
-// de delta vs o periodo anterior de mesmo tamanho. O chip so aparece quando o
-// periodo anterior tem base JUSTA: cabe inteiro na retencao do engine
-// (u.retentionDays, fonte unica, era uma replica manual de MAX_DAYS aqui) E o
-// historico registrado ja cobria o primeiro dia dele (senao um app novo, ou uma
-// janela maior que o historico, comparava contra dias estruturalmente vazios e
-// inflava o percentual). Todas as somas passam por usageMetricVal: a DEFINICAO
-// de cada metrica mora num lugar so (ui/pure.js), a mesma da timeline/matriz.
-
-
-
-let usageHoverIdx = null;
-
-// linha do tempo empilhada (area) por dimensao (tipo/modelo/conta), com legenda,
-// grade, marca de pico e tooltip de hover. `u.stackedSeries[dim]` ja vem do
-// backend com granularidade diaria (Task 3 de lib/engine/usage.js); aqui so
-// fatia a janela escolhida e desenha.
-function drawUsageTimeline(el, legendEl, u, metric, win, dim) {
-  const { key, campoDeNomes } = DIMENSAO_DO_CONSUMO[dim] || DIMENSAO_DO_CONSUMO.kind;
-  const names = u[campoDeNomes] || [];
-  const labels = {}; // name -> label amigavel, tirado do proprio stackedSeries
-  const byDay = {}; for (const d of ((u.stackedSeries || {})[key]) || []) { byDay[d.day] = d.items; for (const it of d.items) labels[it.name] = it.label; }
-  const days = usageDayKeysBack(win);
-  // troca de janela/metrica/dimensao sem o mouse sair do grafico reusa o hover antigo;
-  // sem esse clamp, um indice de uma janela maior (ex.: 25 em 30 dias) sobrevive pra uma
-  // janela menor (7 dias) e days[25]/series[25] ficam undefined mais abaixo (TypeError
-  // no tooltip, renderUsage quebra no meio do innerHTML).
-  if (usageHoverIdx != null && usageHoverIdx >= days.length) usageHoverIdx = null;
-  const series = days.map(day => (byDay[day] || names.map(n => ({ name: n }))).map(it => usageMetricVal(it, metric)));
-  const totalPeriodo = series.reduce((a, vals) => a + vals.reduce((x, y) => x + y, 0), 0);
-  if (!totalPeriodo) {
-    el.innerHTML = '<div class="usage-empty">Sem consumo nesta janela.</div>';
-    legendEl.innerHTML = '';
-    usageHoverIdx = null;
-    return;
-  }
-  const colors = usageColorsFor(dim, names);
-  const W = Math.max(300, Math.round(el.clientWidth || 820)), H = 220;
-  const geo = usageStackLayers(series, names, colors, W, H);
-
-  const totalPorNome = names.map((_, i) => series.reduce((a, vals) => a + vals[i], 0));
-  legendEl.innerHTML = names.map((n, i) => totalPorNome[i] > 0
-    ? `<span><span class="dot" style="background:${colors[i]}"></span>${esc(labels[n] || n)}<b>${esc(fmtUsageMetric(totalPorNome[i], metric))}</b></span>` : '').join('');
-
-  const fmtY = v => fmtUsageMetric(v, metric);
-  const step = Math.ceil(days.length / Math.max(3, Math.floor(W / 78)));
-  const xlab = days.map((d, i) => (i % step === 0 || i === days.length - 1)
-    ? `<text class="uaxis uaxis-x" x="${geo.xs[i]}" y="${H - 6}">${d.slice(8, 10)}/${d.slice(5, 7)}</text>` : '').join('');
-  const grid = geo.grid.map(g => `<line x1="${geo.padL}" y1="${g.y}" x2="${W - 14}" y2="${g.y}" class="ugrid"/><text x="${geo.padL - 6}" y="${g.y + 3.5}" class="uaxis uaxis-y">${esc(fmtY(g.value))}</text>`).join('');
-  const layerPaths = geo.layers.map(l => `<path d="${l.d}" fill="${l.color}" opacity="0.92"></path>`).join('');
-  const peakX = geo.xs[geo.peakIndex];
-  const total = `Total ${fmtUsageMetric(totalPeriodo, metric)} em ${days.length} dias, pico de ${fmtUsageMetric(geo.dayTotals[geo.peakIndex], metric)} em ${days[geo.peakIndex]}`;
-  // marca visivel do pico (o texto ja ia so pro aria-label, sem nada na tela pra
-  // apontar QUAL barra e o pico): mesma formula de y de usageStackLayers/yOf
-  // (ui/pure.js), com maxV/dayTotals ja calculados ali, so reaplicada aqui.
-  const peakY = geo.padT + geo.ch * (1 - (geo.dayTotals[geo.peakIndex] || 0) / geo.maxV);
-  const peakMark = `<circle cx="${peakX}" cy="${peakY.toFixed(1)}" r="3" class="upeak-dot"></circle>`;
-
-  el.innerHTML = `<svg role="img" aria-label="${esc(total)}" viewBox="0 0 ${W} ${H}" class="usvg" id="usvgTimeline">
-      ${grid}${layerPaths}${peakMark}${xlab}
-      ${usageHoverIdx != null ? `<line x1="${geo.xs[usageHoverIdx]}" y1="${geo.padT}" x2="${geo.xs[usageHoverIdx]}" y2="${geo.padT + geo.ch}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" opacity="0.7"></line>` : ''}
-      <rect x="${geo.padL}" y="0" width="${geo.cw}" height="${H}" fill="transparent" style="cursor:crosshair" data-usage-overlay="1"></rect>
-    </svg>
-    ${usageHoverIdx != null ? usageTooltipHtml(days[usageHoverIdx], series[usageHoverIdx], names, labels, colors, metric, usageHoverIdx, geo, W) : ''}`;
-
-  const svgEl = el.querySelector('#usvgTimeline');
-  const overlay = el.querySelector('[data-usage-overlay]');
-  if (overlay) {
-    overlay.addEventListener('mousemove', (e) => {
-      const rect = svgEl.getBoundingClientRect();
-      const mx = (e.clientX - rect.left) * (W / rect.width);
-      const idx = usageHoverIndex(mx, geo);
-      if (idx !== usageHoverIdx) { usageHoverIdx = idx; drawUsageTimeline(el, legendEl, u, metric, win, dim); }
-    });
-    overlay.addEventListener('mouseleave', () => { if (usageHoverIdx != null) { usageHoverIdx = null; drawUsageTimeline(el, legendEl, u, metric, win, dim); } });
-  }
-}
-
-
-// matriz Tipo x Modelo do periodo escolhido (mesma janela da linha do tempo),
-// com heatmap leve (intensidade da celula sobre a maior celula da matriz).
-
-// um cartao por perfil de Claude configurado (Sistema -> Plano e chaves). Perfil de
-// assinatura (kind 'assinatura') nao tem teto, so uma nota informativa; perfil de
-// chave mostra os 2 medidores (diario/total), gasto x teto.
-//
-// FONTE UNICA (v2.40.0): tudo vem de u.budgets (usageSummary), que traz teto E
-// gasto E bloqueio calculados pela MESMA funcao do gate real (profileBudgetStatus)
-// no momento de cada pushState. Antes, o gasto vinha de estado().doctor.claudeAuth
-// (cache que so recalculava no boot/Verificar agora/salvar perfis) e o teto de
-// estado().config: o cartao congelava enquanto o KPI "Hoje" da mesma tela crescia, e
-// a automacao pausava por estouro com o cartao ainda dizendo "no orcamento".
-
-// tabela das sessoes mais recentes (ate 100, cortado no backend). Log permanente
-// em disco (usage-sessions.json); a UI so mostra as mais novas, com rolagem.
-
-/* Painel de Justiça de fila (spec 2026-09-10-justica-de-fila-entre-orgs). Fica na aba
-   Consumo porque metade dele é dinheiro (a cota da conta dentro do perfil) e a outra
-   metade só faz sentido ao lado dela.
-
-   Decide a PRÓPRIA vaziez, no mesmo padrão do resto desta aba: quem tem uma org e um
-   perfil só não tem rodízio nenhum pra explicar, e um card vazio na tela parece defeito.
-   O filaJustaHtml devolve '' nesse caso, e o card inteiro some. */
-function renderFilaJusta() {
-  const card = $('#filaJustaCard'), body = $('#filaJustaBody');
-  if (!card || !body) return;
-  const html = filaJustaHtml(estado() && estado().filaJusta);
-  body.innerHTML = html;
-  card.hidden = !html;
-}
-
-function renderUsage() {
-  renderFilaJusta();
-  renderUsageDeviceSeg();
-  const consolidado = usageDeviceState.escopo === 'todos';
-  const painelLocal = $('#usageLocal');
-  const painelTodos = $('#usageConsolidado');
-  if (painelLocal) painelLocal.hidden = consolidado;
-  if (painelTodos) painelTodos.hidden = !consolidado;
-  if (consolidado) { renderUsageConsolidado(); return; }
-  const u = estado() && estado().usage;
-  const kpisEl = $('#usageKpis'), tl = $('#usageTimeline'), legend = $('#usageLegend');
-  const matrix = $('#usageMatrix'), matrixCap = $('#usageMatrixCaption');
-  const budget = $('#usageBudget'), sessions = $('#usageSessions');
-  if (!kpisEl || !tl || !legend || !matrix || !matrixCap || !budget || !sessions) return;
-  // cada painel decide a PROPRIA vaziez, lendo a PROPRIA fonte: u.totals vem de
-  // usage.json, mas a matriz/sessões leem usage-sessions.json e daysByKindModel
-  // (arquivos diferentes). Gatear a aba inteira num campo agregado só deixava a
-  // tela se contradizer quando os dois arquivos discordam entre si (achado da
-  // revisão final: timeline dizia "nenhuma sessão" com a matriz e a tabela de
-  // sessões cheias logo abaixo). drawUsageTimeline e os builders de matriz,
-  // orçamento e sessões já sabem ficar vazios sozinhos (Task 14); só o
-  // usageKpisHtml não tem essa defesa, então o guard fica só pra ele.
-  if (!u || !u.totals || !u.totals.sessions) kpisEl.innerHTML = '';
-  else kpisEl.innerHTML = usageKpisHtml(u, usageState.window);
-  drawUsageTimeline(tl, legend, u || {}, usageState.metric, usageState.window, usageState.dim);
-  const mtx = usageMatrixHtml(u || {}, usageState.metric, usageState.window);
-  matrix.innerHTML = mtx.html; matrixCap.textContent = mtx.caption;
-  budget.innerHTML = usageBudgetHtml(u || {});
-  sessions.innerHTML = usageSessionsHtml(u || {});
-}
-
-
-/* ---------- coordenação no clique Revisar (U2) ----------
-
-   A resposta de /api/review traz `coordenacao[]` quando o preflight segurou algum PR.
-   A ESCOLHA do desfecho por motivo é pura (syncConfirmacaoDoClique, em ui/pure.js);
-   aqui fica só o modal e o reenvio. O override é reenviado por PR, e só pelo PR que
-   a pessoa confirmou: mandar o lote inteiro com a flag contornaria a coordenação de
-   PRs que ninguém confirmou. */
-// owner/repo#N a partir da URL do PR: é assim que a URL que o clique ENVIOU vira a
-// chave que a resposta devolve, sem depender de o PR estar numa lista da tela.
-function keyDaUrl(url) {
-  const m = /github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/.exec(String(url || ''));
-  return m ? `${m[1]}/${m[2]}#${m[3]}` : '';
-}
-
-// `urls` é a lista que o clique enviou, e é ela que resolve a chave. Procurar só em
-// estado().queue e estado().panorama deixava a confirmação sem abrir quando o clique vinha de
-// Resolvidos ou de Decisões, que é justamente onde o PR não está nas duas listas. As
-// listas ficam como degrau de recuo para chamador que não passe as urls.
-async function tratarCoordenacaoDoClique(resp, mode, urls = []) {
-  const porKey = new Map(urls.map((u) => [keyDaUrl(u), u]).filter(([k]) => k));
-  for (const c of syncConfirmacoesDoClique(resp)) {
-    if (c.tipo === 'aviso') { toast('info', c.texto, 7000); continue; }
-    const daLista = (estado().queue || []).concat(estado().panorama || []).find(p => p.key === c.key);
-    const url = porKey.get(c.key) || (daLista && daLista.url) || '';
-    if (!url) { toast('info', `${c.key}: a coordenação segurou a revisão, e o PR não está mais na tela.`, 6000); continue; }
-    // uma confirmação por vez é o ponto: são modais, e empilhar dois esconderia um
-    const ok = await confirmModal({ title: c.titulo, confirmLabel: c.acao, body: c.corpo });
-    if (ok) revisarUrls([url], { [c.override]: true }, mode);
-  }
-}
-
-/* Boca ÚNICA do clique Revisar. Todos os caminhos (fila, panorama, "revisar de novo",
-   revisar tudo, terminal) passam por aqui, pela mesma razão do enqueueHeadless no
-   engine: garantia que precisa valer sempre mora no estrangulamento, e não em cada
-   chamador. Sem isto, o botão que alguém acrescentasse amanhã ignoraria a confirmação
-   da coordenação em silêncio. */
-function revisarUrls(urls, extras = {}, mode = 'auto') {
-  const corpo = { urls, ...extras };
-  if (mode === 'terminal') corpo.mode = 'terminal';
-  return api('/api/review', corpo).then(r => {
-    if (r && Array.isArray(r.coordenacao) && r.coordenacao.length) tratarCoordenacaoDoClique(r, mode, urls);
-    return r;
-  });
-}
-
-/* ---------- Consumo: este aparelho x todos os aparelhos (U4) ----------
-
-   "Este aparelho" volta ao renderUsage de sempre, sem NENHUMA diferença: a consolidação
-   é uma segunda visão, nunca uma reescrita da primeira. O segmentado só existe com a
-   consolidação ligada, porque sem ela não há o que consolidar. */
-const usageDeviceState = { escopo: 'este' };
-
-function usageConsolidadoVisivel() {
-  return !!(estado() && estado().sync && estado().sync.consolidation);
-}
-
-function renderUsageDeviceSeg() {
-  const box = $('#usageDevice');
-  if (!box) return;
-  box.hidden = !usageConsolidadoVisivel();
-  // consolidação desligada no meio do caminho: a visão volta pra deste aparelho, senão
-  // a tela ficaria presa numa aba que não pode mais buscar nada
-  if (box.hidden && usageDeviceState.escopo !== 'este') usageDeviceState.escopo = 'este';
-}
-
-// O estado chega por push a cada ciclo de polling, e este painel é o único que faz IO
-// para pintar. Sem memória, cada push trocava o conteúdo por "Buscando…" (pisca) e
-// repetia o GET. A resposta anterior pinta na hora e a busca só se repete depois do
-// intervalo mínimo; trocar a janela busca na hora, porque aí a resposta é outra.
-const consolidadoCache = { janela: null, resposta: null, at: 0, buscando: false };
-const CONSOLIDADO_MIN_MS = 30000;
-
-async function renderUsageConsolidado() {
-  const alvo = $('#usageConsolidado');
-  if (!alvo) return;
-  const janela = usageState.window;
-  const serveCache = consolidadoCache.resposta && consolidadoCache.janela === janela;
-  alvo.innerHTML = serveCache
-    ? usageConsolidadoEnvelopeHtml(consolidadoCache.resposta)
-    : '<p class="vago">Buscando o consumo de todos os aparelhos…</p>';
-  const recente = consolidadoCache.janela === janela && consolidadoCache.at > 0
-    && (Date.now() - consolidadoCache.at) < CONSOLIDADO_MIN_MS;
-  if (recente || consolidadoCache.buscando) return;
-  consolidadoCache.buscando = true;
-  let r;
-  try { r = await get(`/api/sync/consolidated?days=${encodeURIComponent(janela)}`); }
-  finally { consolidadoCache.buscando = false; }
-  // a janela pode ter mudado enquanto a busca corria: resposta velha não pinta a tela
-  if (usageDeviceState.escopo !== 'todos' || usageState.window !== janela) return;
-  // `at` é carimbado SEMPRE, inclusive na falha: o get() devolve null quando a rede cai,
-  // e guardar só o sucesso deixava o throttle sem efeito justamente com o endpoint fora
-  // do ar (cada push repintava "Buscando…" e disparava outro GET). A resposta nula não
-  // entra no cache, para a tela não servir vazio como se fosse dado.
-  consolidadoCache.janela = janela;
-  consolidadoCache.at = Date.now();
-  if (r) consolidadoCache.resposta = r;
-  alvo.innerHTML = usageConsolidadoEnvelopeHtml(r);
-}
-
-function wireUsageControls() {
-  const bind = (sel, attr, key, cast) => {
-    const box = document.querySelector(sel); if (!box) return;
-    box.querySelectorAll('.seg-btn').forEach(b => b.addEventListener('click', () => {
-      marcarSeg(box.querySelectorAll('.seg-btn'), x => x === b);
-      usageState[key] = cast ? cast(b.dataset[attr]) : b.dataset[attr];
-      usageHoverIdx = null; // troca de metrica/janela/dimensao aposenta o hover antigo
-      renderUsage();
-    }));
-  };
-  bind('#usageMetric', 'metric', 'metric');
-  bind('#usageWindow', 'window', 'window', Number);
-  bind('#usageStack', 'dim', 'dim');
-  const dev = document.querySelector('#usageDevice');
-  if (dev) {
-    dev.querySelectorAll('.seg-btn').forEach(b => b.addEventListener('click', () => {
-      marcarSeg(dev.querySelectorAll('.seg-btn'), x => x === b);
-      usageDeviceState.escopo = b.dataset.escopo;
-      renderUsage();
-    }));
-  }
-}
-wireUsageControls();
-
 function renderUpdate() {
   const u = estado().update;
   const box = $('#updateBox');
@@ -3940,7 +3450,13 @@ function connect() {
 // As telas ainda moram neste arquivo; a Fase 1b as move uma a uma, e cada uma leva o seu
 // registro junto. O que muda AQUI é só quem conhece quem: o switchTab e o connect() passam
 // a percorrer o registro em vez de listar nome de aba.
-registrarTela({ id: 'entregas', aoEntrar: () => loadDeliveries() });
+//
+// 'entregas' já se registrou sozinho ao ser importado (import estático roda antes deste
+// ponto). 'destaques' e 'time' registram aqui porque ainda moram neste arquivo. 'consumo'
+// só pode registrar DEPOIS de 'sistema': ele mora em módulo próprio (ui/telas/consumo.js),
+// mas se registrasse ao ser importado ficaria na frente de 'destaques'/'time'/'sistema', que
+// só se registram agora, no corpo do app.js (a ordem de telasRegistradas() é a ordem em que
+// registrarTela roda, e precisa continuar entregas, destaques, time, sistema, consumo).
 registrarTela({ id: 'destaques', aoEntrar: () => { loadHighlights(); renderTools(); } });
 registrarTela({ id: 'time', aoEntrar: () => loadTeam() });
 registrarTela({
@@ -3948,10 +3464,6 @@ registrarTela({
   aoEntrar: () => { switchSistemaSection(); loadLog(); renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); loadReviewerCands(); },
   aoEstado: () => { if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); } },
 });
-registrarTela({
-  id: 'consumo',
-  aoEntrar: () => renderUsage(),
-  aoEstado: () => { if ($('#tab-consumo').classList.contains('active')) renderUsage(); },
-});
+registrarTelaConsumo();
 
 connect();
