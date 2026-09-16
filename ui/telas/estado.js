@@ -26,10 +26,10 @@ let STATE = null;
 let SCOPE = 'all';
 let ABA = 'radar';
 // Palpite do primeiro paint (antes do primeiro estado chegar pelo SSE); o ui/app.js
-// reconcilia com app.platform assim que o snapshot chega, por definirPlataforma. Migrou
-// de variável de módulo do ui/app.js pra cá porque telas/sistema-perfis.js (Task 10,
-// Fase 1b) também precisa perguntar "é Windows?" e não pode importar o bootstrap de
-// volta: mesma razão de STATE/SCOPE/ABA morarem aqui.
+// reconcilia com app.platform assim que o snapshot chega, por definirPlataforma. Mora
+// aqui, e não no bootstrap, pela mesma razão de STATE/SCOPE/ABA: mais de uma tela
+// (por exemplo o editor de perfis Claude) precisa perguntar "é Windows?", e um módulo
+// de tela não pode importar o bootstrap de volta só pra fazer essa pergunta.
 // O guarda `typeof navigator` é só pra este módulo não explodir se algum dia for
 // importado fora de um contexto de navegador (o node --test sempre passa pelo
 // dom-stub, que define navigator antes deste import rodar); SEM navigator, o palpite
