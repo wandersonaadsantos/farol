@@ -114,6 +114,8 @@ const CONGELADA = [
   "parkedNoteHtml",
   "pareamentoHtml",
   "parseGoto",
+  "perfilProblemasHtml",
+  "perfilTesteHtml",
   "personMention",
   "personOf",
   "plural",
