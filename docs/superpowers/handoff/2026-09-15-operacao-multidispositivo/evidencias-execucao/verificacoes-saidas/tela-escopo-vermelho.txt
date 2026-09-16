@@ -1,0 +1,295 @@
+node:internal/modules/esm/resolve:271
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\Users\wanderson\AppData\Local\Temp\claude\C--Users-wanderson-Documents-farol\754930d5-b624-45f9-a89e-8b256fb78fe5\scratchpad\base\lib\engine\sync-listas.js' imported from C:\Users\wanderson\AppData\Local\Temp\claude\C--Users-wanderson-Documents-farol\754930d5-b624-45f9-a89e-8b256fb78fe5\scratchpad\base\test\sync-listas-remotas.test.js
+    at finalizeResolution (node:internal/modules/esm/resolve:271:11)
+    at moduleResolve (node:internal/modules/esm/resolve:861:10)
+    at defaultResolve (node:internal/modules/esm/resolve:988:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:697:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:714:38)
+    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:746:52)
+    at #resolve (node:internal/modules/esm/loader:679:17)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:599:35)
+    at node:internal/modules/esm/loader:628:32
+    at TracingChannel.tracePromise (node:diagnostics_channel:362:14) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base/lib/engine/sync-listas.js'
+}
+
+Node.js v24.15.0
+✖ test\sync-listas-remotas.test.js (308.151ms)
+✖ ao abrir com a visão valendo, a tela busca a projeção das listas uma vez (22.7136ms)
+✖ sync-lists chega pelo bootstrap: origem, sem dobra, e a contagem da aba soma sem repetir (0.7501ms)
+✖ o escopo de conta da barra filtra as linhas remotas (0.9817ms)
+✔ PR oculto em Meus PRs também some da linha remota (0.7105ms)
+✖ visão desligada esconde as linhas remotas; bloqueada diz que bloqueou (0.653ms)
+✖ leitura que falhou e leitura velha aparecem com frases diferentes (0.6369ms)
+✖ sync-live com falha diz que a leitura falhou e mantém o andamento (1.4751ms)
+✖ lista de revisões que falhou no banco aparece como falha, com o motivo (1.0522ms)
+✖ o bootstrap só repassa: connect() entrega sync-lists à tela (1.0637ms)
+✖ os contêineres existem no HTML, cada um na sua sub-aba (1.3239ms)
+file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base/test/ui-pure-listas-remotas.test.js:8
+  estadoDasListas, estadoDoEscopo, mesclarListaRemota, panoramaRemotoHtml, meusPrsRemotoHtml,
+  ^^^^^^^^^^^^^^^
+SyntaxError: The requested module '../ui/pure.js' does not provide an export named 'estadoDasListas'
+    at #asyncInstantiate (node:internal/modules/esm/module_job:326:21)
+    at async ModuleJob.run (node:internal/modules/esm/module_job:429:5)
+    at async node:internal/modules/esm/loader:639:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.15.0
+✖ test\ui-pure-listas-remotas.test.js (106.0282ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 1
+ℹ fail 11
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 316.8153
+
+✖ failing tests:
+
+test at test\sync-listas-remotas.test.js:1:1
+✖ test\sync-listas-remotas.test.js (308.151ms)
+  'test failed'
+
+test at test\ui-listas-remotas.test.js:75:1
+✖ ao abrir com a visão valendo, a tela busca a projeção das listas uma vez (22.7136ms)
+  AssertionError [ERR_ASSERTION]: uma busca só, não uma por snapshot
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base/test/ui-listas-remotas.test.js:81:10)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\ui-listas-remotas.test.js:86:1
+✖ sync-lists chega pelo bootstrap: origem, sem dobra, e a contagem da aba soma sem repetir (0.7501ms)
+  AssertionError [ERR_ASSERTION]: o bootstrap escuta sync-lists
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base/test/ui-listas-remotas.test.js:87:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\ui-listas-remotas.test.js:100:1
+✖ o escopo de conta da barra filtra as linhas remotas (0.9817ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /acme\/app#2/. Input:
+  
+  ''
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base/test/ui-listas-remotas.test.js:105:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: /acme\/app#2/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-listas-remotas.test.js:117:1
+✖ visão desligada esconde as linhas remotas; bloqueada diz que bloqueou (0.653ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base/test/ui-listas-remotas.test.js:120:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\ui-listas-remotas.test.js:128:1
+✖ leitura que falhou e leitura velha aparecem com frases diferentes (0.6369ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /leitura falhou/. Input:
+  
+  ''
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base/test/ui-listas-remotas.test.js:132:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: /leitura falhou/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-listas-remotas.test.js:140:1
+✖ sync-live com falha diz que a leitura falhou e mantém o andamento (1.4751ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /A última leitura falhou/. Input:
+  
+  '<div class="card working md-op">\n' +
+    '    <div class="md-linha"><span class="sync-chip mute">Notebook</span><span class="md-fraco">revisão</span><span class="md-espaco"></span><span class="md-fraco"></span></div>\n' +
+    '    <div class="md-sub">lendo o diff</div>\n' +
+    '    <div class="md-acoes">\n' +
+    '      <span class="md-nota">Cancelar: indisponível, nenhum aparelho admin é conhecido, e só o admin emite comandos</span>\n' +
+    '      <span class="md-nota">Transferir: indisponível, nenhum aparelho admin é conhecido, e só o admin emite comandos</span>\n' +
+    '      <span class="md-nota">Tomar para este aparelho: indisponível, nenhum aparelho admin é conhecido, e só o admin emite comandos</span>\n' +
+    '    </div>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base/test/ui-listas-remotas.test.js:146:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="card working md-op">\n    <div class="md-linha"><span class="sync-chip mute">Notebook</span><span class="md-fraco">revisão</span><span class="md-espaco"></span><span class="md-fraco"></span></div>\n    <div class="md-sub">lendo o diff</div>\n    <div class="md-acoes">\n      <span class="md-nota">Cancelar: indisponível, nenhum aparelho admin é conhecido, e só o admin emite comandos</span>\n      <span class="md-nota">Transferir: indisponível, nenhum aparelho admin é conhecido, e só o admin emite comandos</span>\n      <span class="md-nota">Tomar para este aparelho: indisponível, nenhum aparelho admin é conhecido, e só o admin emite comandos</span>\n    </div>\n  </div>',
+    expected: /A última leitura falhou/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-listas-remotas.test.js:152:1
+✖ lista de revisões que falhou no banco aparece como falha, com o motivo (1.0522ms)
+  TypeError: Tela.buscarRevisoes is not a function
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base/test/ui-listas-remotas.test.js:156:14)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+
+test at test\ui-listas-remotas.test.js:161:1
+✖ o bootstrap só repassa: connect() entrega sync-lists à tela (1.0637ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /addEventListener\('sync-lists', \(e\) => \{\s*const d = safeJsonParse\(e\.data\); if \(!d\) return;\s*aoListasRemotas\(d\);\s*\}\)/. Input:
+  
+  'function connect() {\n' +
+    '  // EventSource não aceita cabeçalho: com token, o stream é lido por fetch (A4)\n' +
+    "  const es = tokenLocal() ? new FonteDeEventosAutenticada('/api/events') : new EventSource('/api/events');\n" +
+    "  es.addEventListener('state', (e) => {\n" +
+    '    const d = safeJsonParse(e.data); if (!d) return; definirEstado(d);\n' +
+    '    aplicaPlataforma(estado().app && estado().app.platform);   // engine manda; o userAgent era só o palpite inicial\n' +
+    '    syncOptionalTabsVisibility();\n' +
+    '    rebuildAccounts();\n' +
+    '    renderStatus();\n' +
+    '    renderScopedSections();\n' +
+    '    syncAnalysisOps();\n' +
+    '    renderSettings(); renderTools(); renderUpdate(); tickCountdown();\n' +
+    '    for (const tela of telasRegistradas()) if (tela.aoEstado) tela.aoEstado();\n' +
+    '  });\n' +
+    '  // o app.js só entrega o evento: quem calcula o que ele significa é quem é\n' +
+    '  // dono do assunto (telas/sessoes.js, o feed e a barra de progresso da sessão;\n' +
+    '  // telas/meus-prs.js, o progresso do op de autoanálise que ela própria cria).\n' +
+    "  es.addEventListener('activity', (e) => {\n" +
+    '    const d = safeJsonParse(e.data); if (!d) return; const { id, item } = d;\n' +
+    '    handleActivity(id, item);\n' +
+    '    updateAnalysisProgress(id, item);\n' +
+    '  });\n' +
+    "  es.addEventListener('chat', (e) => {\n" +
+    '    const c = safeJsonParse(e.data); if (!c) return;\n' +
+    '    const chatKey = chatKeyAtual();\n' +
+    '    if (chatKey && c.key === chatKey) renderChat(c);\n' +
+    '  });\n' +
+    '  // idem: telas/chat.js já é dono de chatKeyAtual(), então é quem decide o que\n' +
+    '  // um evento de atividade do chat significa.\n' +
+    "  es.addEventListener('chat-activity', (e) => {\n" +
+    '    const d = safeJsonParse(e.data); if (!d) return; const { key, text } = d;\n' +
+    '    handleChatActivity(key, text);\n' +
+    '  });\n' +
+    '  // visão compartilhada (andamento e pendências de outros aparelhos): delta próprio, nunca o\n' +
+    '  // estado inteiro. O bootstrap só entrega; quem entende é telas/radar-compartilhado.js.\n' +
+    "  es.addEventListener('sync-live', (e) => {\n" +
+    '    const d = safeJsonParse(e.data); if (!d) return;\n' +
+    '    aoAndamentoRemoto(d);\n' +
+    '  });\n' +
+    "  es.addEventListener('sync-pending', (e) => {\n" +
+    '    const d = safeJsonParse(e.data); if (!d) return;\n' +
+    '    aoPendenciasRemotas(d);\n' +
+    '  });\n' +
+    '  // credencial revogada ou vencida com a página aberta (A4)\n' +
+    "  es.addEventListener('nao-autenticado', () => {\n" +
+    '    es.close();\n' +
+    "    trocarPeloPareamento('A credencial deste navegador expirou ou foi revogada. Pareie de novo para voltar.');\n" +
+    '  });\n' +
+    "  es.addEventListener('toast', (e) => {\n" +
+    '    const t = safeJsonParse(e.data); if (!t) return;\n' +
+    "    toast(t.kind || 'info', t.text);\n" +
+    '  });\n' +
+    "  es.addEventListener('new-prs', (e) => { const d = safeJsonParse(e.data); if (d) notifyNewPRs(d); });\n" +
+    "  es.addEventListener('auto-approved', () => ping());\n" +
+    "  es.addEventListener('auto-rejected', () => ping());\n" +
+    "  es.addEventListener('needs-decision', (e) => {\n" +
+    '    ping();\n' +
+    '    const d = safeJsonParse(e.data); if (!d) return; const { pr, item } = d;\n' +
+    '    // a política de quando notificar (Electron, permissão) é de telas/avisos.js;\n' +
+    '    // focusPr é navegação, e essa fica no bootstrap\n' +
+    '    notifyNeedsDecision(pr, item, () => focusPr(pr.url));\n' +
+    '  });\n' +
+    "  es.addEventListener('focus-pr', (e) => {\n" +
+    '    const d = safeJsonParse(e.data); if (!d) return; const { url } = d;\n' +
+    '    focusPr(url);\n' +
+    '  });\n' +
+    '  // A pill do topo sozinha não bastava: em janela estreita ela fica fora de vista atrás\n' +
+    '  // das abas, e o app parece só ter parado de atualizar. A faixa entra NO FLUXO, onde\n' +
+    '  // você está olhando, e conta as tentativas.\n' +
+    '  es.onerror = () => {\n' +
+    "    $('#statusPill').className = 'pill err';\n" +
+    "    $('#statusPill').textContent = 'reconectando…';\n" +
+    '    TENTATIVAS_RECONEXAO++;\n' +
+    "    const f = $('#connLost');\n" +
+    '    if (f) {\n' +
+    '      f.hidden = false;\n' +
+    "      const t = f.querySelector('.cl-try');\n" +
+    "      if (t) t.textContent = TENTATIVAS_RECONEXAO > 1 ? `tent. ${TENTATIVAS_RECONEXAO}` : '';\n" +
+    '    }\n' +
+    '  };\n' +
+    "  es.addEventListener('open', () => { TENTATIVAS_RECONEXAO = 0; const f = $('#connLost'); if (f) f.hidden = true; });"
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base/test/ui-listas-remotas.test.js:166:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: "function connect() {\n  // EventSource não aceita cabeçalho: com token, o stream é lido por fetch (A4)\n  const es = tokenLocal() ? new FonteDeEventosAutenticada('/api/events') : new EventSource('/api/events');\n  es.addEventListener('state', (e) => {\n    const d = safeJsonParse(e.data); if (!d) return; definirEstado(d);\n    aplicaPlataforma(estado().app && estado().app.platform);   // engine manda; o userAgent era só o palpite inicial\n    syncOptionalTabsVisibility();\n    rebuildAccounts();\n    renderStatus();\n    renderScopedSections();\n    syncAnalysisOps();\n    renderSettings(); renderTools(); renderUpdate(); tickCountdown();\n    for (const tela of telasRegistradas()) if (tela.aoEstado) tela.aoEstado();\n  });\n  // o app.js só entrega o evento: quem calcula o que ele significa é quem é\n  // dono do assunto (telas/sessoes.js, o feed e a barra de progresso da sessão;\n  // telas/meus-prs.js, o progresso do op de autoanálise que ela própria cria).\n  es.addEventListener('activity', (e) => {\n    const d = safeJsonParse(e.data); if (!d) return; const { id, item } = d;\n    handleActivity(id, item);\n    updateAnalysisProgress(id, item);\n  });\n  es.addEventListener('chat', (e) => {\n    const c = safeJsonParse(e.data); if (!c) return;\n    const chatKey = chatKeyAtual();\n    if (chatKey && c.key === chatKey) renderChat(c);\n  });\n  // idem: telas/chat.js já é dono de chatKeyAtual(), então é quem decide o que\n  // um evento de atividade do chat significa.\n  es.addEventListener('chat-activity', (e) => {\n    const d = safeJsonParse(e.data); if (!d) return; const { key, text } = d;\n    handleChatActivity(key, text);\n  });\n  // visão compartilhada (andamento e pendências de outros aparelhos): delta próprio, nunca o\n  // estado inteiro. O bootstrap só entrega; quem entende é telas/radar-compartilhado.js.\n  es.addEventListener('sync-live', (e) => {\n    const d = safeJsonParse(e.data); if (!d) return;\n    aoAndamentoRemoto(d);\n  });\n  es.addEventListener('sync-pending', (e) => {\n    const d = safeJsonParse(e.data); if (!d) return;\n    aoPendenciasRemotas(d);\n  });\n  // credencial revogada ou vencida com a página aberta (A4)\n  es.addEventListener('nao-autenticado', () => {\n    es.close();\n    trocarPeloPareamento('A credencial deste navegador expirou ou foi revogada. Pareie de novo para voltar.');\n  });\n  es.addEventListener('toast', (e) => {\n    const t = safeJsonParse(e.data); if (!t) return;\n    toast(t.kind || 'info', t.text);\n  });\n  es.addEventListener('new-prs', (e) => { const d = safeJsonParse(e.data); if (d) notifyNewPRs(d); });\n  es.addEventListener('auto-approved', () => ping());\n  es.addEventListener('auto-rejected', () => ping());\n  es.addEventListener('needs-decision', (e) => {\n    ping();\n    const d = safeJsonParse(e.data); if (!d) return; const { pr, item } = d;\n    // a política de quando notificar (Electron, permissão) é de telas/avisos.js;\n    // focusPr é navegação, e essa fica no bootstrap\n    notifyNeedsDecision(pr, item, () => focusPr(pr.url));\n  });\n  es.addEventListener('focus-pr', (e) => {\n    const d = safeJsonParse(e.data); if (!d) return; const { url } = d;\n    focusPr(url);\n  });\n  // A pill do topo sozinha não bastava: em janela estreita ela fica fora de vista atrás\n  // das abas, e o app parece só ter parado de atualizar. A faixa entra NO FLUXO, onde\n  // você está olhando, e conta as tentativas.\n  es.onerror = () => {\n    $('#statusPill').className = 'pill err';\n    $('#statusPill').textContent = 'reconectando…';\n    TENTATIVAS_RECONEXAO++;\n    const f = $('#connLost');\n    if (f) {\n      f.hidden = false;\n      const t = f.querySelector('.cl-try');\n      if (t) t.textContent = TENTATIVAS_RECONEXAO > 1 ? `tent. ${TENTATIVAS_RECONEXAO}` : '';\n    }\n  };\n  es.addEventListener('open', () => { TENTATIVAS_RECONEXAO = 0; const f = $('#connLost'); if (f) f.hidden = true; });",
+    expected: /addEventListener\('sync-lists', \(e\) => \{\s*const d = safeJsonParse\(e\.data\); if \(!d\) return;\s*aoListasRemotas\(d\);\s*\}\)/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-listas-remotas.test.js:169:1
+✖ os contêineres existem no HTML, cada um na sua sub-aba (1.3239ms)
+  AssertionError [ERR_ASSERTION]: Meus PRs remoto mora na sub-aba Meus PRs
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base/test/ui-listas-remotas.test.js:175:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-listas-remotas.test.js:1:1
+✖ test\ui-pure-listas-remotas.test.js (106.0282ms)
+  'test failed'

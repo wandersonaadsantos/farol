@@ -1,0 +1,7 @@
+M19 REPROVOU (saida 1, falhas 3) restaurado=sim sha=1224fef32f92 ui/pure/listas-remotas.js: o PR daqui não conta dobrado
+M21 REPROVOU (saida 1, falhas 3) restaurado=sim sha=1224fef32f92 ui/pure/listas-remotas.js: visão desligada não mostra linha guardada
+M27 REPROVOU (saida 1, falhas 1) restaurado=sim sha=574c261e252d ui/telas/listas-remotas.js: a busca inicial é uma só
+M28 REPROVOU (saida 1, falhas 1) restaurado=sim sha=2402b58e9b7b ui/telas/meus-prs.js: o PR oculto some da linha remota
+M29 REPROVOU (saida 1, falhas 1) restaurado=sim sha=25c77817aea2 ui/telas/radar.js: o escopo de conta filtra as remotas
+M31 REPROVOU (saida 1, falhas 3) restaurado=sim sha=9636f4d5486c ui/app.js: o bootstrap repassa sync-lists
+total 6, inertes 0

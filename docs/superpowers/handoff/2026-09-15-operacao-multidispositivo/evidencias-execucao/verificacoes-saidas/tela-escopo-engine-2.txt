@@ -1,0 +1,30 @@
+✔ B lê o que A publicou: origem, conta, hora e Meus PRs só leitura (381.1252ms)
+✔ a tela mostra a origem certa e não conta dobrado o PR visto aqui e lá (333.8126ms)
+✔ sem mudança no ponteiro não relê as linhas; com mudança, lê só o que é novo (340.6439ms)
+✔ PR que saiu em A some em B (314.5734ms)
+✔ linha que não abre fica de fora e é contada (320.3244ms)
+✔ leitura que falha vira estado de falha e mantém a visão anterior (313.6318ms)
+✔ falha ao ler o ponteiro marca todos os escopos como falha (384.489ms)
+✔ a conta que ESTE aparelho publica não aparece como remota (322.4844ms)
+✔ estados sem leitura: desligada, sem frota e sem chave são ditos, não viram lista vazia (285.0652ms)
+✔ o ciclo do relógio lê as listas depois de publicar (349.6062ms)
+✔ o evento não se repete sem mudança, e o batimento o reenvia (317.73ms)
+✔ a pendência de A chega a B com o PR nomeado pelo catálogo (335.7743ms)
+✔ o ciclo de B lê as pendências já identificadas (319.3625ms)
+✔ catálogo adulterado cai no rótulo genérico, nunca em nome de outro PR (283.795ms)
+✔ catálogo cifrado com chave de outra época cai no rótulo genérico (299.4734ms)
+✔ linha do catálogo que abre mas nomeia outro PR não é aceita (274.0546ms)
+✔ sem tag, sem compartilhamento ou sem catálogo: null, e a pendência sai com pr null (286.0415ms)
+✔ o catálogo publicado inclui o PR das pendências e das sessões vivas (301.7338ms)
+✔ leitura do andamento que falha emite a falha com a visão anterior, e não a apaga (312.2113ms)
+✔ a rota SSE repassa sync-lists (0.3254ms)
+✔ a leitura das revisões que falha chega como falha, e a vazia como lista vazia (310.352ms)
+✔ a rota das listas entrega a projeção, com envelope (318.0013ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 21116.0624
