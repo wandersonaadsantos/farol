@@ -3,7 +3,7 @@
    o mesmo formulário-tabela editável in loco (guarda de foco, PATCH /api/settings otimista,
    toast de confirmação) e o orçamento é sub-seção do perfil, não assunto à parte. */
 
-import { esc, accountSaveArray, accountsManagerHtml, claudeProfilesHtml, genProfileId } from '../pure.js';
+import { esc, accountSaveArray, accountsManagerHtml, claudeProfilesHtml, genId } from '../pure.js';
 import { estado, escopo, definirEscopo, ehWin } from './estado.js';
 import { $, api, toast, confirmModal } from './infra.js';
 import { ACCT, rebuildAccounts, renderAccountBar, renderIdentity } from './contas.js';
@@ -237,7 +237,7 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
     const isCodex = kindBtn && kindBtn.dataset.kind === 'codex';
     if (isCodex) {
       if (!label) return toast('error', 'Preencha o nome do perfil.', 3000);
-      const profiles = [...(estado().config.claudeProfiles || []), { id: genProfileId(), label, kind: 'codex' }];
+      const profiles = [...(estado().config.claudeProfiles || []), { id: genId(), label, kind: 'codex' }];
       $('#cpAddLabel').value = '';
       saveClaudeProfiles(profiles);
       return;
@@ -250,7 +250,7 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
         return toast('error', 'Chave ou URL base com aspas ou quebra de linha no meio (não em volta) não pode ser usada.', 4500);
       }
       const kind = isOpenRouter ? 'openrouter' : 'apikey';
-      const profiles = [...(estado().config.claudeProfiles || []), { id: genProfileId(), label, kind, apiKey, baseUrl }];
+      const profiles = [...(estado().config.claudeProfiles || []), { id: genId(), label, kind, apiKey, baseUrl }];
       $('#cpAddLabel').value = ''; $('#cpAddApiKey').value = ''; $('#cpAddBaseUrl').value = '';
       saveClaudeProfiles(profiles);
       return;
@@ -260,7 +260,7 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
     if (/["\r\n]/.test(dir.replace(/^"(.*)"$/s, '$1').trim())) {
       return toast('error', 'Esse caminho tem aspas ou quebra de linha no meio (não em volta), não pode ser usado. Confira se colou o caminho certo.', 4500);
     }
-    const profiles = [...(estado().config.claudeProfiles || []), { id: genProfileId(), label, dir }];
+    const profiles = [...(estado().config.claudeProfiles || []), { id: genId(), label, dir }];
     $('#cpAddLabel').value = ''; $('#cpAddDir').value = '';
     saveClaudeProfiles(profiles);
     return;
@@ -298,7 +298,7 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
   }
   if (t.id === 'btnClaudeMigrate') {
     const label = ($('#claudeMigrateLabel').value || '').trim() || 'Perfil atual';
-    const newId = genProfileId();
+    const newId = genId();
     const profiles = [{ id: newId, label, dir: estado().config.claudeConfigDir }];
     // o perfil migrado precisa virar o padrão global na hora: senão ele fica "novo" mas
     // sem dono, e o legado (claudeConfigDir) continua vencendo por baixo dos panos, sem

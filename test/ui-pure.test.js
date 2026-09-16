@@ -2988,3 +2988,12 @@ test('sem perda e sem estimativa, a linha de auditoria some', () => {
   assert.equal(P.auditoriaLinhaHtml(null), '');
   assert.equal(P.auditoriaLinhaHtml({ total: { sessions: 0, costUsd: 0 } }), '');
 });
+
+test('genId: formato determinístico com as duas fontes injetadas', () => {
+  assert.equal(P.genId(1755600000000, 0.123456), 'p' + (1755600000000).toString(36) + (0.123456).toString(36).slice(2, 6));
+});
+
+test('genId: id sempre começa com "p" e nunca é vazio depois do prefixo', () => {
+  const id = P.genId(0, 0);
+  assert.match(id, /^p[0-9a-z]*$/);
+});

@@ -256,12 +256,14 @@ export function escAttrSelector(v) {
 
 export function fmtMoney(v) { return 'US$ ' + (Number(v) || 0).toFixed(2); }
 
-// Id genérico pra registro novo que a tela cria (perfil de assinatura Claude, site do
-// Jira): nasce aqui, nunca digitado, e mantém o formato que a allowlist do servidor
-// espera. Não lê DOM nem STATE (só Date.now/Math.random, fontes externas mas não
-// globais mutáveis da tela), por isso mora nesta camada em vez de em cada tela que
-// precisa de um id: telas/sistema-contas.js e telas/sistema-jira.js usam a MESMA
-// função, e duplicá-la por assunto criaria dois formatos de id por acidente.
-export function genProfileId() {
-  return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+// Id genérico pra registro novo que a tela cria: perfil de assinatura Claude
+// (telas/sistema-perfis.js) OU site do Jira (telas/sistema-jira.js) — daí o nome sem
+// "Profile", que mentiria pro segundo uso. Nasce aqui, nunca digitado, e mantém o formato
+// que a allowlist do servidor espera; duplicá-lo por assunto criaria dois formatos de id
+// por acidente. As fontes não determinísticas entram por parâmetro com default, como as
+// vizinhas fmtRel/aprovadosHoje: sem isso seria o único export do diretório que o
+// `node --test` não consegue exercitar de forma determinística (regra de entrada do
+// ui/pure/README.md).
+export function genId(agora = Date.now(), aleatorio = Math.random()) {
+  return 'p' + agora.toString(36) + aleatorio.toString(36).slice(2, 6);
 }

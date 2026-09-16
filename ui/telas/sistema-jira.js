@@ -4,12 +4,12 @@
    (a lista MASCARADA que o snapshot manda, com hasCredential) é a fonte de leitura E de
    edição; salvar manda ela de volta em PATCH /api/settings, e o servidor descarta o campo
    hasCredential ao sanear (parseJiraSites só lê os campos que conhece). O id nasce aqui
-   com genProfileId(), nunca digitado: mantém o formato que a allowlist do servidor exige e
+   com genId(), nunca digitado: mantém o formato que a allowlist do servidor exige e
    evita a tela oferecer um campo de id livre. A credencial (e-mail e token) NUNCA entra em
    estado: os dois campos são lidos direto do DOM na hora do clique e a chamada zera o
    formulário depois. */
 
-import { esc, jiraBaseUrlProblema, jiraPrefixosProblema, genProfileId } from '../pure.js';
+import { esc, jiraBaseUrlProblema, jiraPrefixosProblema, genId } from '../pure.js';
 import { estado } from './estado.js';
 import { $, api, toast } from './infra.js';
 
@@ -166,7 +166,7 @@ $('#jiraSitesManager').addEventListener('click', (e) => {
     if (!label || !baseUrl) return toast('error', 'Preencha rótulo e URL base.', 3000);
     const problema = jiraBaseUrlProblema(baseUrl) || jiraPrefixosProblema(projectKeys);
     if (problema) return toast('error', problema, 6000);
-    const site = { id: genProfileId(), label, baseUrl, owners, projectKeys };
+    const site = { id: genId(), label, baseUrl, owners, projectKeys };
     $('#jsAddLabel').value = ''; $('#jsAddBaseUrl').value = ''; $('#jsAddOwners').value = ''; $('#jsAddProjectKeys').value = '';
     saveJiraSites([...(estado().jiraSites || []), site]);
     return;
