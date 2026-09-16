@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026 (iniciativa inteira, limites no plano mestre, seção 4).
-- **Entrega em curso:** nenhuma. Próxima é a C4b (ativação do teto do grupo). C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g e C4 (parte de código) validadas localmente e **todas integradas** em `md/integracao`.
+- **Entrega em curso:** nenhuma. Próxima é a C5b (prontidão do distribuidor). C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g, C4 (código) e C5a validadas localmente e **todas integradas** em `md/integracao`.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 - **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026.
@@ -32,13 +32,13 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 | `npm test` | 2841 testes, 2817 aprovados, 24 pulados, 0 falhas |
 | `npm run eng` | `not-run` na base sem entrega (reprova por construção, o esperado); com entrega exige `avaliacoes.jsonl` |
 
-## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g e C4)
+## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g, C4 e C5a)
 
 | Gate | Resultado |
 |---|---|
-| `npm run check` | verde, 444 arquivos `.js` |
+| `npm run check` | verde, 447 arquivos `.js` |
 | `npm run lint` | verde, sem regressão |
-| `npm test` | 3606 testes, 3578 aprovados, 28 pulados, 0 falhas |
+| `npm test` | 3622 testes, 3594 aprovados, 28 pulados, 0 falhas |
 
 Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações escritas.
 
@@ -63,7 +63,12 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | 15 | C3f Memória de pushback | `md/c3f` | validada localmente e **integrada** | `evidencias-execucao/c3f.md` |
 | 16 | C3g Envio do histórico local | `md/c3g` | validada localmente e **integrada** | `evidencias-execucao/c3g.md` |
 | 17 | C4 Admissão local (parte de código) | `md/c4` | validada localmente e **integrada**; medição pendente por natureza | `evidencias-execucao/c4.md` |
+| 18 | C5a Candidato e escolha (parte pura) | `md/c5a` | validada localmente e **integrada** | `evidencias-execucao/c5a.md` |
 | seguintes | C4, C4b, C5, C6, C7, C8, telas | | planos a escrever | |
+
+## Observação de instabilidade na suíte (16/09/2026)
+
+Duas vezes hoje, uma rodada de `npm test` disparada **logo depois de um merge**, com a máquina ainda ocupada, terminou com uma falha que não se repete: uma vez `sync-manual`, outra `sync-chaveiro` (o mais pesado, que faz `scrypt` de verdade). Rodando o arquivo sozinho e a suíte de novo, verde nas duas. A hipótese é contenção de CPU, e não regressão, mas **está registrado em vez de esquecido**: se voltar fora dessa condição, é defeito e precisa de investigação própria.
 
 ## Bloqueios
 
@@ -128,6 +133,6 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 
 ## Próxima ação concreta
 
-C4b (ativar o teto do grupo) só pode ser feita quando A1, C2, C4 e as duas definições de métrica estiverem prontas; A1, C2 e C4 (código) estão, e a métrica por tipo de perfil já está declarada na C2b, então a C4b é executável, com o cuidado de a tela não oferecer ativar sem as quatro. Alternativa de maior valor imediato: C5 (agendador, prontidão e fila global), que é a que faz a distribuição existir de fato.
+Seguir a C5 pelas partes que faltam: C5b (prontidão do distribuidor, CT-PRONT), C5c (publicar, atribuir, aceitar e recusar, com a fiação no `enqueueHeadless` e as três correções obrigatórias do anexo S3) e C5d (degradação e volta ao modo local). A C5c é a que muda comportamento de verdade e merece o cuidado maior: ela mexe no caminho que hoje enfileira a revisão.
 
 Segue pendente, e só o dono fecha: publicar as regras v2 no console do Firebase (roteiro do `firebase/README.md`, itens 1 a 34), conferir a sincronização depois do incidente registrado acima, e a medição de memória da C4.
