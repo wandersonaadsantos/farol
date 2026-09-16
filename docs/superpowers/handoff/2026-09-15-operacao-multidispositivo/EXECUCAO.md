@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026 (iniciativa inteira, limites no plano mestre, seção 4).
-- **Entrega em curso:** nenhuma. Próxima é a C4 (capacidade, admissão local e medição). C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b e C3a a C3g validadas localmente e **todas integradas** em `md/integracao`.
+- **Entrega em curso:** nenhuma. Próxima é a C4b (ativação do teto do grupo). C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g e C4 (parte de código) validadas localmente e **todas integradas** em `md/integracao`.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 - **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026.
@@ -32,13 +32,13 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 | `npm test` | 2841 testes, 2817 aprovados, 24 pulados, 0 falhas |
 | `npm run eng` | `not-run` na base sem entrega (reprova por construção, o esperado); com entrega exige `avaliacoes.jsonl` |
 
-## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g)
+## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g e C4)
 
 | Gate | Resultado |
 |---|---|
-| `npm run check` | verde, 441 arquivos `.js` |
+| `npm run check` | verde, 444 arquivos `.js` |
 | `npm run lint` | verde, sem regressão |
-| `npm test` | 3588 testes, 3560 aprovados, 28 pulados, 0 falhas |
+| `npm test` | 3606 testes, 3578 aprovados, 28 pulados, 0 falhas |
 
 Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações escritas.
 
@@ -62,6 +62,7 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | 14 | C3e Panorama e Meus PRs | `md/c3e` | validada localmente e **integrada** | `evidencias-execucao/c3e.md` |
 | 15 | C3f Memória de pushback | `md/c3f` | validada localmente e **integrada** | `evidencias-execucao/c3f.md` |
 | 16 | C3g Envio do histórico local | `md/c3g` | validada localmente e **integrada** | `evidencias-execucao/c3g.md` |
+| 17 | C4 Admissão local (parte de código) | `md/c4` | validada localmente e **integrada**; medição pendente por natureza | `evidencias-execucao/c4.md` |
 | seguintes | C4, C4b, C5, C6, C7, C8, telas | | planos a escrever | |
 
 ## Bloqueios
@@ -87,6 +88,7 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | C2a | modo 0600 do cache de política | rodada POSIX (pula no Windows) |
 | C2b | comportamento no servidor dos nós de limpeza, revogação e grupo (chave sem senha, `rev` monotônico, janela de 10 min da trava, corte abaixo do `auth_time`, remoção pelo pai) | emulador e projeto real, itens 14 a 21 do `firebase/README.md` |
 | C2b | publicação das regras v2 já com os nós da C2b | console do Firebase, manual, pelo dono |
+| C4 | medição do consumo real de memória por ambiente e teste do peso do PR como preditor; revalidar o piso de 1024 MB | execuções reais, por ambiente |
 | C3b | regras de `live/operations` no servidor e latência real entre aparelhos | item 26 do `firebase/README.md`; medição entre aparelhos |
 | C3a | comportamento no servidor dos nós novos e a checagem de dono com um SEGUNDO usuário autenticado | emulador e projeto real, itens 22 a 25 do `firebase/README.md` |
 
@@ -126,6 +128,6 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 
 ## Próxima ação concreta
 
-A C3 inteira (a a g) está integrada. Próxima: C4 (capacidade, admissão local e medição, CT-ADM), com a observação de que a etapa de medição da C4 exige execuções REAIS e não se fecha com teste simulado; a parte de código (reserva antes do provedor, requisitos duros, piso de memória com "medição indisponível é desconhecido") pode ser feita e testada, e a medição fica como pendência externa.
+C4b (ativar o teto do grupo) só pode ser feita quando A1, C2, C4 e as duas definições de métrica estiverem prontas; A1, C2 e C4 (código) estão, e a métrica por tipo de perfil já está declarada na C2b, então a C4b é executável, com o cuidado de a tela não oferecer ativar sem as quatro. Alternativa de maior valor imediato: C5 (agendador, prontidão e fila global), que é a que faz a distribuição existir de fato.
 
-Segue pendente, e só o dono fecha: publicar as regras v2 no console do Firebase, depois do roteiro manual do `firebase/README.md` (itens 1 a 34), e conferir a sincronização depois do incidente registrado acima.
+Segue pendente, e só o dono fecha: publicar as regras v2 no console do Firebase (roteiro do `firebase/README.md`, itens 1 a 34), conferir a sincronização depois do incidente registrado acima, e a medição de memória da C4.
