@@ -141,6 +141,9 @@
             "lastCleanup": {
               ".write": "auth != null && auth.uid == $uid && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && newData.hasChildren(['at', 'dev', 'categorias'])"
             },
+            "ready": {
+              ".write": "auth != null && auth.uid == $uid && newData.hasChildren(['dev', 'generation', 'sequencia', 'beatAt', 'sig']) && newData.child('generation').val() == root.child('users').child($uid).child('live').child('control').child('admin').child('generation').val() && newData.child('dev').val() == root.child('users').child($uid).child('live').child('control').child('admin').child('deviceId').val() && newData.child('sequencia').isNumber() && (!data.exists() || newData.child('sequencia').val() > data.child('sequencia').val()) && newData.child('beatAt').isNumber() && newData.child('beatAt').val() + 60000 > now && newData.child('beatAt').val() < now + 60000"
+            },
             "revokedBefore": {
               ".write": "auth != null && auth.uid == $uid && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && newData.isNumber() && newData.val() < auth.token.auth_time && (!data.exists() || newData.val() >= data.val())"
             }
@@ -155,6 +158,26 @@
               "$id": {
                 ".write": "auth != null && auth.uid == $uid && $tipo.matches(/^(recentReviews|panorama|myPrs)$/) && newData.isNumber()"
               }
+            }
+          },
+          "queue": {
+            ".write": "auth != null && auth.uid == $uid && !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
+            "$item": {
+              "$dev": {
+                ".write": "auth != null && auth.uid == $uid && (!newData.exists() || (newData.hasChildren(['itemId', 'prTag', 'matTag', 'acctTag', 'orgTag', 'publishedAt', 'ttl', 'enc']) && $item.matches(/^[0-9a-f]+_[0-9a-f]+$/) && newData.child('ttl').isNumber() && newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 1800000 && newData.child('enc').isString() && newData.child('enc').val().matches(/^e1[.]g[0-9]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$/) && newData.child('enc').val().length <= 2048))"
+              }
+            }
+          },
+          "assign": {
+            ".write": "auth != null && auth.uid == $uid && !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
+            "$item": {
+              ".write": "auth != null && auth.uid == $uid && (!newData.exists() || (newData.hasChildren(['itemId', 'dev', 'rev', 'generation', 'ttl', 'sig']) && newData.child('generation').val() == root.child('users').child($uid).child('live').child('control').child('admin').child('generation').val() && newData.child('ttl').isNumber() && newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 600000 && (!data.exists() || newData.child('rev').val() > data.child('rev').val())))"
+            }
+          },
+          "ack": {
+            ".write": "auth != null && auth.uid == $uid && !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
+            "$item": {
+              ".write": "auth != null && auth.uid == $uid && (!newData.exists() || (newData.hasChildren(['dev', 'estado', 'at']) && newData.child('at').isNumber() && newData.child('at').val() <= now + 60000))"
             }
           },
           "pending": {

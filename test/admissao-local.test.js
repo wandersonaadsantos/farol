@@ -148,7 +148,9 @@ const reviewMod = (await import('../lib/engine/review.js')).default;
 function engineFila(prs, extra = {}) {
   const e = motor(extra);
   return Object.assign(e, {
-    headlessQueue: [...prs],
+    // cópia dos PRs: o escalonador carimba `admissaoId` no objeto, e reaproveitar a
+    // mesma referência entre casos faria um teste enxergar a reserva do outro
+    headlessQueue: prs.map((p) => ({ ...p })),
     headlessBusyAccounts: new Map(),
     ran: [],
     accountForPr: (pr) => pr.acct,

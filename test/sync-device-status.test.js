@@ -164,3 +164,20 @@ test('a capacidade leva o resumo da admissão, sem referência de PR', async () 
   assert.equal(JSON.stringify(c).includes('dono/repo#9'), false, 'a capacidade não diz o que está rodando');
   assert.equal(c.admissao.refs, undefined);
 });
+
+// A RAM entra como FAIXA, e não como número: o número muda sozinho a cada segundo, e a
+// capacidade seria republicada sem nada ter mudado. Achado quando o caso da escrita única
+// passou a falhar só dentro da suíte, com a máquina ocupada.
+test('a RAM viaja em faixa, e variação pequena não republica a capacidade', async () => {
+  const e = await motorPronto();
+  const os = await import('node:os');
+  const real = os.default.freemem;
+  os.default.freemem = () => 8 * 1024 * 1024 * 1024;
+  const primeira = publicacao.capacidadeDe(e, e.config.sync);
+  os.default.freemem = () => 8 * 1024 * 1024 * 1024 - 300 * 1024 * 1024;
+  const segunda = publicacao.capacidadeDe(e, e.config.sync);
+  os.default.freemem = real;
+  assert.equal(primeira.ramLivre, 'alta');
+  assert.deepEqual(primeira, segunda, '300 MB a menos não é mudança de capacidade');
+  assert.equal(primeira.ramLivreMb, undefined, 'o número exato não sobe');
+});

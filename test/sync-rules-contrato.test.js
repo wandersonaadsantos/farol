@@ -59,8 +59,8 @@ test('só os nós listados têm concessão de escrita: nó novo sem regra é neg
   assert.deepEqual(comEscrita.sort(), ['catalog', 'dailyRounds', 'devices', 'keyring', 'leases', 'myPrs', 'myPrsMeta', 'panorama', 'panoramaMeta', 'pushbacks', 'receipts', 'recentReviews', 'reviewBodies', 'usageEvents']);
   assert.equal(regras.live['.write'], undefined, 'live não concede em bloco');
   assert.equal(regras.live.control['.write'], undefined, 'control também não');
-  assert.deepEqual(Object.keys(regras.live.control).sort(), ['admin', 'beat', 'cleanup', 'cleanupLock', 'lastCleanup', 'revokedBefore']);
-  assert.deepEqual(Object.keys(regras.live).sort(), ['control', 'devicePolicies', 'deviceStatus', 'groups', 'operations', 'pending', 'rev', 'seen']);
+  assert.deepEqual(Object.keys(regras.live.control).sort(), ['admin', 'beat', 'cleanup', 'cleanupLock', 'lastCleanup', 'ready', 'revokedBefore']);
+  assert.deepEqual(Object.keys(regras.live).sort(), ['ack', 'assign', 'control', 'devicePolicies', 'deviceStatus', 'groups', 'operations', 'pending', 'queue', 'rev', 'seen']);
 });
 
 // A geração é o que impede um admin deposto de continuar mandando: ela só anda para cima,
@@ -194,7 +194,7 @@ test('live/deviceStatus e catalog: forma, envelope de 2048 e remoção só pela 
 // sempre que a chave de limpeza dela estivesse ligada.
 test('toda concessão de escrita, inclusive a da limpeza, exige o próprio uid', () => {
   const dono = 'auth != null && auth.uid == $uid';
-  const nos = [regras.catalog, regras.live.deviceStatus, regras.live.devicePolicies, regras.live.groups, regras.recentReviews, regras.reviewBodies, regras.reviewBodies.$r, regras.panorama, regras.panoramaMeta, regras.myPrs, regras.myPrsMeta, regras.pushbacks];
+  const nos = [regras.catalog, regras.live.deviceStatus, regras.live.devicePolicies, regras.live.groups, regras.recentReviews, regras.reviewBodies, regras.reviewBodies.$r, regras.panorama, regras.panoramaMeta, regras.myPrs, regras.myPrsMeta, regras.pushbacks, regras.live.queue, regras.live.assign, regras.live.ack];
   for (const no of nos) {
     assert.ok(no['.write'].startsWith(dono), `concessão sem dono: ${no['.write'].slice(0, 60)}`);
   }
@@ -277,4 +277,31 @@ test('pushbacks: forma, envelope de 1024 e lápide sem conteúdo', () => {
   assert.ok(w.includes("newData.child('del').val() == true ||"), 'a lápide não carrega envelope');
   assert.ok(w.includes("newData.child('enc').val().length <= 1024"));
   assert.ok(w.includes('$pr.matches(/^[0-9a-f]+$/)'));
+});
+
+// A fila de candidatos, a atribuição e a resposta: TTL com teto, id com forma de item, e
+// `rev` que só sobe na atribuição (resposta atrasada não reativa decisão antiga).
+test('live/queue, live/assign e live/ack: forma, TTL com teto e rev monotônico', () => {
+  const fila = regras.live.queue.$item.$dev['.write'];
+  assert.ok(fila.includes("newData.hasChildren(['itemId', 'prTag', 'matTag', 'acctTag', 'orgTag', 'publishedAt', 'ttl', 'enc'])"));
+  assert.ok(fila.includes('$item.matches(/^[0-9a-f]+_[0-9a-f]+$/)'), 'o id do item é PR + versão material');
+  assert.ok(fila.includes("newData.child('ttl').val() <= now + 1800000"));
+  const atribuicao = regras.live.assign.$item['.write'];
+  assert.ok(atribuicao.includes("newData.hasChildren(['itemId', 'dev', 'rev', 'generation', 'ttl', 'sig'])"));
+  assert.ok(atribuicao.includes(".child('admin').child('generation').val()"), 'presa à geração vigente');
+  assert.ok(atribuicao.includes("newData.child('rev').val() > data.child('rev').val()"));
+  assert.ok(atribuicao.includes("newData.child('ttl').val() <= now + 600000"));
+  const resposta = regras.live.ack.$item['.write'];
+  assert.ok(resposta.includes("newData.hasChildren(['dev', 'estado', 'at'])"));
+  assert.ok(resposta.includes("newData.child('at').val() <= now + 60000"));
+});
+
+// A prontidão é o sinal do agendador: só o admin do momento escreve, a sequência só sobe
+// (valor repetido é reentrega, que por contrato não renova) e a janela é a mesma do beat.
+test('live/control/ready: dono do momento, sequência que só sobe e janela de 60 s', () => {
+  const w = regras.live.control.ready['.write'];
+  assert.ok(w.includes("newData.hasChildren(['dev', 'generation', 'sequencia', 'beatAt', 'sig'])"));
+  assert.ok(w.includes(".child('admin').child('deviceId').val()"));
+  assert.ok(w.includes("newData.child('sequencia').val() > data.child('sequencia').val()"));
+  assert.ok(w.includes("newData.child('beatAt').val() + 60000 > now"));
 });

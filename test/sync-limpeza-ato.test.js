@@ -71,6 +71,8 @@ function semearConteudo() {
   u.myPrsMeta = { a: { dev: 'd1', x: 1 } };
   u.pushbacks = { ['c'.repeat(32)]: { v: 1, u: 1, dev: 'd1', enc: 'e1.g1.a.b.c' } };
   u.reviewBodies = { ['b'.repeat(32)]: { 1: { v: 1, enc: 'e1.g1.a.b.c' } } };
+  u.live.queue = { a_b: { d1: { itemId: 'a_b' } } };
+  u.live.assign = { a_b: { itemId: 'a_b', dev: 'd1' } };
   u.live.deviceStatus = { d1: { v: 1, u: 1, enc: 'e1.g1.a.b.c' } };
   u.live.groups = { g1: { v: 1, generation: 1, enc: 'e1.g1.a.b.c', sig: 'x' } };
   u.keyring = u.keyring || { v: 1, rev: 1 };
@@ -110,6 +112,8 @@ test('caminho feliz: o alcançável some, o corte fica e a trava sai', async () 
   assert.equal(u.myPrsMeta, undefined);
   assert.equal(u.pushbacks, undefined);
   assert.equal(u.live.deviceStatus, undefined);
+  assert.equal(u.live.queue, undefined);
+  assert.equal(u.live.assign, undefined);
   assert.ok(u.live.control.lastCleanup.at > 0, 'o corte da outbox fica gravado');
   assert.equal(u.live.control.cleanupLock, undefined, 'a trava sai no fim');
 });

@@ -141,6 +141,9 @@
             "lastCleanup": {
               ".write": "@U@ && @REC@ && @H(['at','dev','categorias'])@"
             },
+            "ready": {
+              ".write": "@U@ && @H(['dev','generation','sequencia','beatAt','sig'])@ && @GEN@ && newData.child('dev').val() == @C@.child('admin').child('deviceId').val() && newData.child('sequencia').isNumber() && (!data.exists() || newData.child('sequencia').val() > data.child('sequencia').val()) && newData.child('beatAt').isNumber() && newData.child('beatAt').val() + 60000 > now && newData.child('beatAt').val() < now + 60000"
+            },
             "revokedBefore": {
               ".write": "@U@ && @REC@ && newData.isNumber() && newData.val() < auth.token.auth_time && (!data.exists() || newData.val() >= data.val())"
             }
@@ -155,6 +158,26 @@
               "$id": {
                 ".write": "@U@ && $tipo.matches(/^(recentReviews|panorama|myPrs)$/) && newData.isNumber()"
               }
+            }
+          },
+          "queue": {
+            ".write": "@U@ && @LIMPA@",
+            "$item": {
+              "$dev": {
+                ".write": "@U@ && (!newData.exists() || (@H(['itemId','prTag','matTag','acctTag','orgTag','publishedAt','ttl','enc'])@ && $item.matches(/^[0-9a-f]+_[0-9a-f]+$/) && newData.child('ttl').isNumber() && newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 1800000 && @ENC(2048)@))"
+              }
+            }
+          },
+          "assign": {
+            ".write": "@U@ && @LIMPA@",
+            "$item": {
+              ".write": "@U@ && (!newData.exists() || (@H(['itemId','dev','rev','generation','ttl','sig'])@ && @GEN@ && newData.child('ttl').isNumber() && newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 600000 && (!data.exists() || newData.child('rev').val() > data.child('rev').val())))"
+            }
+          },
+          "ack": {
+            ".write": "@U@ && @LIMPA@",
+            "$item": {
+              ".write": "@U@ && (!newData.exists() || (@H(['dev','estado','at'])@ && newData.child('at').isNumber() && newData.child('at').val() <= now + 60000))"
             }
           },
           "pending": {

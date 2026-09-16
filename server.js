@@ -1368,6 +1368,7 @@ class Engine extends EventEmitter {
   headlessAcct(pr) { return reviewMod.headlessAcct(this, pr); }
   processHeadless() { return reviewMod.processHeadless(this); }
   freeHeadlessSlot(acct, pr) { return reviewMod.freeHeadlessSlot(this, acct, pr); }
+  enfileirarDaDistribuicao(pr, admissaoId) { return reviewMod.enfileirarDaDistribuicao(this, pr, admissaoId); }
   async runOneHeadless(pr, acct) { return reviewMod.runOneHeadless(this, pr, acct); }
   // re-revisão automática pós-push (round 2 sem clique): gate + lançamento + âncora
   reReviewTargets(inflightKeys, agora) { return reviewMod.reReviewTargets(this, inflightKeys, agora); }
