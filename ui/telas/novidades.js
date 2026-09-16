@@ -7,6 +7,7 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.59.7', ['A trava que impede uma release de sair com código fora do commit passou a conferir tudo o que vai no pacote de atualização. Antes ela usava uma lista própria, que tinha ficado para trás: o README, os atalhos de instalação e quatro ferramentas de build iam no pacote sem conferência. Nada muda no uso do app.']],
   ['2.59.6', ['A revisão automática deixa de esperar por bot de review. Em repositório onde um bot de revisão é check obrigatório, o Farol ficava parado: o check só fecha com revisão, e a revisão não vinha porque o check estava vermelho. Agora ele revisa nesses PRs, inclusive para discordar do bot. Check de esteira continua segurando a revisão como antes.']],
   ['2.59.5', ['A paleta de comandos (Ctrl+K) avisava menos que o card ao pedir mudanças: a confirmação não dizia que o PR fica bloqueado até o autor tratar e você reavaliar. Agora as duas telas mostram o mesmo texto.',
     'A tela foi reorganizada por dentro: cada aba virou um módulo próprio, no lugar de um arquivo único de quatro mil linhas. Nada muda no uso; a reorganização existe para defeito novo ficar contido numa tela só.']],
