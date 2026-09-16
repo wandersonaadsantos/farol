@@ -71,6 +71,7 @@ import tentativasMod from './lib/engine/usage-tentativas.js';
 import quotaMod from './lib/engine/quota.js';
 import syncMod from './lib/engine/sync.js';
 import consumoGrupoMod from './lib/engine/sync-consumo-grupo.js';
+import comandosMod from './lib/engine/sync-comandos.js';
 import syncUsageMod from './lib/engine/sync-usage.js';
 import { EDITAVEIS, defaults as settingsDefaults, sanear, paraGravar } from './lib/settings.js';
 import { parseJiraSites, maskJiraSites } from './lib/jira/sites.js';
@@ -1844,6 +1845,9 @@ class Engine extends EventEmitter {
   syncTornarAdmin(dados) { return syncMod.syncTornarAdmin(this, dados); }
   syncPublicarPolitica(dados) { return syncMod.syncPublicarPolitica(this, dados); }
   syncPublicarGrupo(dados) { return syncMod.syncPublicarGrupo(this, dados); }
+  // C6: o admin emite; o desfecho só existe quando o recibo do alvo aparece
+  syncEmitirComando(dados) { return comandosMod.emitir(this, this.config.sync, dados); }
+  syncDesfechoDoComando(dados) { return comandosMod.desfechoDe(this, String((dados && dados.cmdId) || '')); }
   syncVincularPerfil(dados) { return syncMod.vincularPerfil(this, dados); }
   syncMedirEnvio() { return syncMod.medirEnvio(this); }
   syncEnviarHistorico(dados) { return syncMod.enviarHistorico(this, dados); }
