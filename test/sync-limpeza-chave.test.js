@@ -95,6 +95,7 @@ test('a lista de alcance é positiva: proibido e inventado ficam fora', () => {
   // C6: comando e recibo também só somem pela limpeza quando ainda não venceram
   assert.equal(limpeza.alcancavel('live/commands'), true);
   assert.equal(limpeza.alcancavel('commandReceipts'), true);
+  assert.equal(limpeza.alcancavel('checkpoints'), true);
 });
 
 test('pedido com categoria proibida não recusa o pacote: só o proibido some', () => {

@@ -56,7 +56,7 @@ test('keyring: exige senha recente e rev monotônico', () => {
 
 test('só os nós listados têm concessão de escrita: nó novo sem regra é negado por construção', () => {
   const comEscrita = Object.keys(regras).filter((k) => regras[k] && regras[k]['.write']);
-  assert.deepEqual(comEscrita.sort(), ['catalog', 'commandReceipts', 'dailyRounds', 'devices', 'keyring', 'leases', 'myPrs', 'myPrsMeta', 'panorama', 'panoramaMeta', 'pushbacks', 'receipts', 'recentReviews', 'reviewBodies', 'usageDaily', 'usageEvents']);
+  assert.deepEqual(comEscrita.sort(), ['catalog', 'checkpoints', 'commandReceipts', 'dailyRounds', 'devices', 'keyring', 'leases', 'myPrs', 'myPrsMeta', 'panorama', 'panoramaMeta', 'pushbacks', 'receipts', 'recentReviews', 'reviewBodies', 'usageDaily', 'usageEvents']);
   assert.equal(regras.live['.write'], undefined, 'live não concede em bloco');
   assert.equal(regras.live.control['.write'], undefined, 'control também não');
   assert.deepEqual(Object.keys(regras.live.control).sort(), ['admin', 'beat', 'cleanup', 'cleanupLock', 'lastCleanup', 'ready', 'revokedBefore']);
@@ -194,12 +194,22 @@ test('live/deviceStatus e catalog: forma, envelope de 2048 e remoção só pela 
 // sempre que a chave de limpeza dela estivesse ligada.
 test('toda concessão de escrita, inclusive a da limpeza, exige o próprio uid', () => {
   const dono = 'auth != null && auth.uid == $uid';
-  const nos = [regras.catalog, regras.live.deviceStatus, regras.live.devicePolicies, regras.live.groups, regras.recentReviews, regras.reviewBodies, regras.reviewBodies.$r, regras.panorama, regras.panoramaMeta, regras.myPrs, regras.myPrsMeta, regras.pushbacks, regras.live.queue, regras.live.assign, regras.live.ack, regras.live.commands, regras.live.commands.$cmd, regras.commandReceipts, regras.commandReceipts.$cmd, regras.usageDaily, regras.usageDaily.$dev, regras.usageDaily.$dev.$day];
+  const nos = [regras.catalog, regras.live.deviceStatus, regras.live.devicePolicies, regras.live.groups, regras.recentReviews, regras.reviewBodies, regras.reviewBodies.$r, regras.panorama, regras.panoramaMeta, regras.myPrs, regras.myPrsMeta, regras.pushbacks, regras.live.queue, regras.live.assign, regras.live.ack, regras.live.commands, regras.live.commands.$cmd, regras.commandReceipts, regras.commandReceipts.$cmd, regras.checkpoints, regras.checkpoints.$loja, regras.checkpoints.$loja.$pr, regras.checkpoints.$loja.$pr.$id, regras.usageDaily, regras.usageDaily.$dev, regras.usageDaily.$dev.$day];
   for (const no of nos) {
     assert.ok(no['.write'].startsWith(dono), `concessão sem dono: ${no['.write'].slice(0, 60)}`);
   }
   const todas = [...nos.map((n) => n['.write']), regras.live.control.cleanupLock['.write'], regras.live.control.lastCleanup['.write']];
   for (const w of todas) assert.ok(w.includes(dono), w.slice(0, 60));
+});
+
+// C7: checkpoint compartilhado. Loja no caminho (review e self nunca se misturam),
+// entrada de escrita única e envelope pequeno.
+test('checkpoints/$loja/$pr/$id: loja fechada, escrita única e envelope', () => {
+  const w = regras.checkpoints.$loja.$pr.$id['.write'];
+  assert.ok(w.includes("$loja.matches(/^(review|self)$/)"), 'loja é vocabulário fechado na própria regra');
+  assert.ok(w.includes('!data.exists()'), 'entrada de checkpoint não se reescreve');
+  assert.ok(w.includes("$id.matches(/^[0-9a-f]{32}$/)"));
+  assert.ok(w.includes("newData.child('enc').val().length <= 2048"));
 });
 
 // C6: comando remoto e recibo. O comando vale por no máximo uma hora, some sozinho depois

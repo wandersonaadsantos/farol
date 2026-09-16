@@ -356,6 +356,9 @@ do servidor. Quem protege esse nó é o cliente, pelas cinco condições do ato.
     `rev`, ou menor, **401**; `ttl` além de 10 min, **401**.
 37. **`live/ack/{item}`:** resposta `{dev, estado, at}`, **200**; `at` além de agora + 60 s,
     **401**.
+42. **`checkpoints/{loja}/{prTag}/{id}`:** entrada `{v, u, dev, enc}` com loja `review` ou
+    `self`, **200**; loja inventada, id fora de 32 hex ou segunda escrita no mesmo id,
+    **401**; remoção sem a chave de limpeza, **401**.
 40. **`live/commands/{cmdId}`:** comando `{v, generation, alvo, ttl, enc, sig}` com `ttl`
     até agora + 1 h e geração vigente, **200**; `ttl` além de uma hora, geração antiga ou
     chave fora de 32 hex, **401**; remoção depois do `ttl`, **200**; remoção antes do

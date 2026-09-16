@@ -113,6 +113,18 @@
             }
           }
         },
+        "checkpoints": {
+          ".write": "@U@ && @LIMPA@",
+          "$loja": {
+            ".write": "@U@ && @LIMPA@",
+            "$pr": {
+              ".write": "@U@ && @LIMPA@",
+              "$id": {
+                ".write": "@U@ && ((!data.exists() && @H(['v','u','dev','enc'])@ && $loja.matches(/^(review|self)$/) && $pr.matches(/^[0-9a-f]+$/) && $id.matches(/^[0-9a-f]{32}$/) && newData.child('u').isNumber() && @ENC(2048)@) || @LIMPA@)"
+              }
+            }
+          }
+        },
         "commandReceipts": {
           ".write": "@U@ && @LIMPA@",
           "$cmd": {
