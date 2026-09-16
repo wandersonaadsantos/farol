@@ -97,6 +97,11 @@
               ".write": "@U@ && @REC@ && newData.isNumber() && newData.val() < auth.token.auth_time && (!data.exists() || newData.val() >= data.val())"
             }
           },
+          "operations": {
+            "$op": {
+              ".write": "@U@ && (!newData.exists() || (@H(['v','dev','t0','x','enc'])@ && $op.matches(/^[0-9a-f]+$/) && newData.child('x').isNumber() && newData.child('x').val() > now && newData.child('x').val() <= now + 300000 && @ENC(2048)@ && (!data.exists() || (newData.child('dev').val() == data.child('dev').val() && newData.child('t0').val() == data.child('t0').val()))))"
+            }
+          },
           "deviceStatus": {
             ".write": "@U@ && @LIMPA@",
             "$dev": {
