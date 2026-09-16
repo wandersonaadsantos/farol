@@ -185,6 +185,35 @@ test('createTokenSource: usa o cache até a margem de renovação', async () => 
   assert.equal(fake.requests.length, antes + 2);
 });
 
+// A senha conferida de novo (admin, limpeza, revogação, chave nova) entrega uma entrada
+// inteira: o token novo vale na hora, sem rede, e a renovação seguinte usa o refresh
+// token DELA. Guardar só o token e seguir com o refresh antigo faria o aparelho voltar,
+// no vencimento, para uma credencial que o servidor pode já ter rotacionado.
+test('createTokenSource: adotar a entrada nova vale na hora e manda na renovação', async () => {
+  const login = await entrar();
+  let relogio = AGORA;
+  const fonte = createTokenSource({ apiKey: 'key-1', refreshToken: login.refreshToken, tokenUrl, agora: () => relogio });
+  assert.equal((await fonte.getIdToken()).ok, true);
+  const nova = await entrar();
+  const antes = fake.requests.length;
+  assert.equal(fonte.adotar(nova), true);
+  const agoraToken = await fonte.getIdToken();
+  assert.equal(agoraToken.idToken, nova.idToken, 'o token da senha recém-conferida vale na hora');
+  assert.equal(fake.requests.length, antes, 'sem rede: a entrada já veio pronta');
+  relogio = nova.expiresAtMs;
+  assert.equal((await fonte.getIdToken()).ok, true);
+  const renovacao = fake.requests[fake.requests.length - 1];
+  assert.equal(new URLSearchParams(renovacao.body || '').get('refresh_token'), nova.refreshToken);
+});
+
+test('createTokenSource: entrada incompleta não é adotada', async () => {
+  const login = await entrar();
+  const fonte = createTokenSource({ apiKey: 'key-1', refreshToken: login.refreshToken, tokenUrl, agora });
+  assert.equal(fonte.adotar(null), false);
+  assert.equal(fonte.adotar({ idToken: 'so-o-token' }), false);
+  assert.equal((await fonte.getIdToken()).ok, true, 'a fonte continua servindo pelo refresh de antes');
+});
+
 test('createTokenSource: chamadas concorrentes fazem UMA renovação', async () => {
   const login = await entrar();
   const fonte = createTokenSource({ apiKey: 'key-1', refreshToken: login.refreshToken, tokenUrl, agora });

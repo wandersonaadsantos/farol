@@ -118,6 +118,21 @@ test('caminho feliz: o alcançável some, o corte fica e a trava sai', async () 
   assert.equal(u.live.control.cleanupLock, undefined, 'a trava sai no fim');
 });
 
+// Mesma exigência do nó do admin: as regras só deixam apagar com senha RECENTE
+// (auth_time + 5 min). A entrada conferida aqui tem que valer no cliente vivo, senão a
+// remoção sai com o token do login e o banco recusa o que a pessoa acabou de autorizar.
+test('a remoção sai com o token da senha conferida agora', async () => {
+  const e = await motorAdmin();
+  const doLogin = identity.tokens.idTokens[identity.tokens.idTokens.length - 1];
+  const antes = identity.tokens.idTokens.length;
+  fake.requests.length = 0;
+  assert.equal((await e.syncLimpar({ password: SENHA })).ok, true);
+  const apagou = fake.requests.find((q) => q.method === 'DELETE');
+  assert.ok(apagou, 'a limpeza apagou alguma coisa');
+  assert.notEqual(apagou.query.auth, doLogin);
+  assert.ok(identity.tokens.idTokens.indexOf(apagou.query.auth) >= antes, 'o token é de depois da re-autenticação');
+});
+
 test('o que a limpeza nunca alcança continua lá depois do caminho feliz', async () => {
   const e = await motorAdmin();
   assert.equal((await e.syncLimpar({ password: SENHA })).ok, true);

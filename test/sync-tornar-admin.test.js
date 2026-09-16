@@ -68,6 +68,23 @@ function adminNoBanco() {
   return (c && c.admin) || null;
 }
 
+// As regras do banco exigem senha RECENTE para trocar o admin (auth_time + 5 min). O
+// cliente guarda o ID token do LOGIN, e sem adotar a entrada da re-autenticação a escrita
+// sai com o auth_time velho: o banco recusa, e o app conta que outro aparelho virou admin.
+// Medido na bancada com os emuladores oficiais e as regras do commit (16/09/2026).
+test('a gravação sai com o token da senha conferida agora, não com o do login', async () => {
+  const e = await motorLogado();
+  const doLogin = identity.tokens.idTokens[identity.tokens.idTokens.length - 1];
+  const antes = identity.tokens.idTokens.length;
+  fake.requests.length = 0;
+  const r = await e.syncTornarAdmin({ password: SENHA });
+  assert.equal(r.ok, true, r.motivo);
+  const put = fake.requests.find((q) => q.method === 'PUT' && q.path.includes('live/control/admin'));
+  assert.ok(put, 'o admin foi gravado');
+  assert.notEqual(put.query.auth, doLogin, 'o token do login não serve: o auth_time dele é velho');
+  assert.ok(identity.tokens.idTokens.indexOf(put.query.auth) >= antes, 'o token é de depois da re-autenticação');
+});
+
 test('senha certa: grava o admin na geração 1 e guarda a privada só aqui', async () => {
   const e = await motorLogado();
   const r = await e.syncTornarAdmin({ password: SENHA });
