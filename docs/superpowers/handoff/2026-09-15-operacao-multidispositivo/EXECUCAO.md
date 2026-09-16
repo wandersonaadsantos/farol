@@ -33,13 +33,16 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 | `npm test` | 2841 testes, 2817 aprovados, 24 pulados, 0 falhas |
 | `npm run eng` | `not-run` na base sem entrega (reprova por construção, o esperado); com entrega exige `avaliacoes.jsonl` |
 
-## Gate na linha de integração (16/09/2026, em `c3abd65`, com a A3 e a A2)
+## Gate na linha de integração (16/09/2026, em `443c91b`, com tudo do adendo)
 
 | Gate | Resultado |
 |---|---|
-| `npm run check` | verde, 522 arquivos `.js` |
+| `npm run check` | verde, 526 arquivos `.js` |
 | `npm run lint` | verde, sem regressão |
-| `npm test` | 3899 testes, 3871 aprovados, 28 pulados, 0 falhas |
+| `npm test` | 3919 testes, 3891 aprovados, 28 pulados, 0 falhas |
+| `tools/make-package.ps1` | pacote limpo, 249 arquivos, 1.224 KB, com os módulos novos dentro |
+
+A primeira rodada desta última suíte teve UMA falha de arquivo inteiro sem nenhum caso reprovando dentro (`sync-relogio-publicacao`), o mesmo sintoma registrado na seção de instabilidade; o arquivo passou três vezes sozinho e a suíte refeita deu 0 falhas. Vale a rodada refeita, como o critério manda.
 
 Saída completa da suíte guardada fora do repositório (scratchpad da sessão, `suite-reconcilia2.txt`). Na primeira rodada depois do merge, `test/http-host-allowlist.test.js` terminou como falha de arquivo com os 28 casos aprovados; rodado sozinho três vezes, passou nas três (mesma família da falha nativa registrada em "Observação de instabilidade na suíte").
 
@@ -47,7 +50,7 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 
 ## Entregas
 
-Contagem: **36 linhas** (a 34 é a reconciliação, sem evidência própria), 33 evidências em `evidencias-execucao/` (29 da execução até a C8; A1b, A4b e a validação POSIX do adendo). "Núcleo" é serviço, regra e contrato; "interface" é a tela que configura, aciona ou mostra a capacidade; "validação local" é gate verde mais contraprovas.
+Contagem: **39 linhas** (a 34 é a reconciliação e a 39 não tem evidência própria), 33 evidências em `evidencias-execucao/` (29 da execução até a C8; A1b, A4b e a validação POSIX do adendo). "Núcleo" é serviço, regra e contrato; "interface" é a tela que configura, aciona ou mostra a capacidade; "validação local" é gate verde mais contraprovas.
 
 | Ordem | Entrega | Branch | Núcleo | Interface | Integração e validação local | Validação externa pendente | Condição de publicação e ativação | Evidência |
 |---|---|---|---|---|---|---|---|---|
@@ -87,6 +90,9 @@ Contagem: **36 linhas** (a 34 é a reconciliação, sem evidência própria), 33
 | 34 | Reconciliação com a `main` `dde2ac1` | `md/reconcilia-main` | não se aplica | transporte da A4 e textos da C0 portados para `ui/telas/` | sim, gate completo e quatro contraprovas nos testes ajustados | nenhuma | junto com a iniciativa | este registro, seção "Commits" |
 | 35 | A3 Diagnóstico unificado (núcleo) | `md/a3` | sim | **não** (a visão única é desenho) | sim, 30 contraprovas | sessão real de diagnóstico no Claude e no Codex confirmando as ferramentas e o sandbox | junto com a iniciativa; a sessão de IA já nasce somente leitura | `evidencias-execucao/a3.md` |
 | 36 | A2 Plano e chaves explícito (núcleo) | `md/a2` | sim | **não** (cartão guiado e selo são desenho) | sim, 22 contraprovas | um `claude auth status --json` com login ativo, para confirmar o campo do e-mail | junto com a iniciativa; testar é ato explícito e nunca grava | `evidencias-execucao/a2.md` |
+| 37 | Estados de indisponibilidade na tela | `md/capacidades` | sim | sim (cartão na seção de sincronização) | sim, 18 contraprovas | nenhuma | nada é ligado por isto | `evidencias-execucao/capacidades-indisponiveis.md` |
+| 38 | Jornada integrada na aplicação real isolada | `md/jornada` | correção de dois defeitos | verificada em desktop e em 375 px | sim, 6 contraprovas | jornadas que dependem de tela e de segundo aparelho | junto com a iniciativa | `evidencias-execucao/jornada-integrada.md` |
+| 39 | Empacotamento com a auditoria corrigida | `md/empacotamento` | sim | não se aplica | sim, pacote gerado e conferido | nenhuma | pré-requisito de qualquer release | `evidencias-execucao/jornada-integrada.md`, seção 3, e o commit |
 | seguintes | desenho B2 no Claude Design e as telas de A2, A3, A4 e C1 a C8 | | | | | | | |
 
 ## Capacidades desligadas: o que falta em cada uma (adendo, item 5)
@@ -135,6 +141,10 @@ Três vezes hoje, uma rodada de `npm test` disparada **logo depois de um merge**
 | C4 | medição do consumo real de memória por ambiente e teste do peso do PR como preditor; revalidar o piso de 1024 MB | execuções reais, por ambiente |
 | C3b | regras de `live/operations` no servidor e latência real entre aparelhos | item 26 do `firebase/README.md`; medição entre aparelhos |
 | C3a | comportamento no servidor dos nós novos e a checagem de dono com um SEGUNDO usuário autenticado | emulador e projeto real, itens 22 a 25 do `firebase/README.md` |
+| A3 | uma sessão real de diagnóstico no Claude, confirmando que só Read, Grep e Glob aparecem | sessão real (o lote de sessões do adendo foi gasto na A1b) |
+| A3 | uma sessão real de diagnóstico no Codex, confirmando que `--sandbox read-only` recusa escrita | máquina com o Codex CLI instalado |
+| A2 | um `claude auth status --json` com login ativo, para confirmar o nome do campo de e-mail | máquina com assinatura logada |
+| A4 | a tela de pareamento e a exigência automática num Termux real | aparelho, depois do desenho |
 
 ## Decisões e ajustes técnicos
 
@@ -172,6 +182,9 @@ Três vezes hoje, uma rodada de `npm test` disparada **logo depois de um merge**
 | merges `ed125e7`, `17ac164`, `8c1773e`, `f9f00a0` | `md/integracao` | adendo: A1b, brief B2, A4b e contrato das telas |
 | `a9ccced`, merge `d3e5b9d` | `md/a3` | A3: Markdown único e inerte do diagnóstico, rota, renderização inerte, sessão de IA somente leitura nos dois provedores, prompt do workspace reescrito e ressincronizado, botões que dizem o efeito |
 | `6eff2d5`, merge `c3abd65` | `md/a2` | A2: regra única de perfil utilizável, problemas de perfil no snapshot e no Diagnóstico, teste explícito com origem por campo, adoção guiada com confirmação literal, selo atualizado no fim do login nos três sistemas |
+| `ec8a5c0`, merge `d24ccbd` | `md/capacidades` | estados de indisponibilidade: retrato no engine, cartão na tela, nada ligado |
+| `5173a35`, merge `3903e49` | `md/jornada` | jornada integrada: o bloqueio passa a provar o pedido, e a guarda do celular deixa de apagar a escolha no disco |
+| `5f04766`, merge `443c91b` | `md/empacotamento` | auditoria do pacote por forma de segredo, com teste que lê o padrão do próprio empacotador |
 | `3ec5d10`, merge `6eb2232` | `md/reconcilia-main` | reconciliação com a `main` `dde2ac1`: transporte da A4 em `ui/telas/infra.js`, textos da C0 nas telas, apagão remoto fora de `ui/telas/sistema-sync.js`, retomada durável portada para `docs/REVIEW-GATES.md`; três testes passaram a ler o bootstrap e todas as telas (`settings-ignoradas`, `sync-sem-apagao`, `ui-transporte-app`), com a mesma garantia |
 
 
