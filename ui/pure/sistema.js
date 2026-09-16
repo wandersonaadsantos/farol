@@ -188,7 +188,7 @@ export function operationChecks(accounts) {
    de skipPermissions, que só alcança as sessões de terminal). O resultado era um
    "saiu com código 1" por ciclo, pra sempre, sem uma linha na tela dizendo por quê.
    Devolve lista (vazia quando não há o que dizer) pra compor com os outros checks. */
-export function runtimeChecks(doctor, config = {}) {
+export function runtimeChecks(doctor, config = {}, claudePerfis = {}) {
   const d = doctor || {};
   const perfis = Array.isArray(config.claudeProfiles) ? config.claudeProfiles : [];
   const usaCodex = perfis.some(p => p && p.kind === 'codex');
@@ -218,7 +218,20 @@ export function runtimeChecks(doctor, config = {}) {
       detail: d.codexChatGPT === true ? 'autenticado no plano ChatGPT' : loginDetail
     });
   }
+  for (const p of (claudePerfis && Array.isArray(claudePerfis.problemas)) ? claudePerfis.problemas : []) {
+    checks.push({ ok: false, label: 'Perfil de assinatura', goto: 'sys:plans:#claudeProfilesManager', detail: perfilProblemaTexto(p) });
+  }
   return checks;
+}
+
+// A2: o texto diz o que a sessão FAZ nesse caso (cai na assinatura legada da máquina), sem
+// fingir que o perfil escolhido está valendo.
+function perfilProblemaTexto(p) {
+  const onde = p.escopo === 'conta' ? `a conta @${p.user}` : 'o padrão do Farol';
+  const causa = p.code === 'perfil-invalido'
+    ? `aponta para o perfil "${p.profileId}", que está incompleto (falta a pasta ou a chave)`
+    : `aponta para o perfil "${p.profileId}", que não existe mais`;
+  return `${onde} ${causa}: as sessões dela estão usando a assinatura legada da máquina até você escolher outro perfil`;
 }
 
 
