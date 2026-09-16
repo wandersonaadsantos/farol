@@ -322,3 +322,13 @@ do servidor. Quem protege esse nó é o cliente, pelas cinco condições do ato.
 28. **`live/seen/{i}`:** a primeira gravação `{at, dev}`, **200**; a segunda sobre o mesmo
     nó, **401**; `DELETE` com a pendência ainda existente e visto recente, **401**; com a
     pendência já apagada, **200**.
+
+## Validação manual das regras v2 (C3d, história de revisões)
+
+29. **`recentReviews`:** consulta `orderBy="t"&limitToLast=30` responde **200** e sem
+    aviso de índice ausente no log do banco; o mesmo para `orderBy="dt"`. Regravar um
+    índice com `t`, `d` ou `dt` diferentes, **401**.
+30. **`reviewBodies/{r}/{v}`:** a primeira gravação, **200**; a segunda na mesma versão,
+    **401**; versão não numérica, **401**; envelope acima de 48000, **401**.
+31. **`live/rev/{tipo}/{id}`:** número em `recentReviews`, **200**; tipo fora da lista,
+    **401**; `DELETE`, **401**.
