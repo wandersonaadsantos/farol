@@ -193,14 +193,22 @@ test('aba Sistema ativa: doctor, contas e perfis desenham sem explodir', () => {
    pela suíte e pelo CI — e vai apodrecendo. Quando este teste nasceu havia 17 deles
    acumulados dos passos 2 a 5 da onda 5, todos meus.
 
-   Um cético do workflow de análise apontou o risco antes de eu cometer o próximo. */
+   Um cético do workflow de análise apontou o risco antes de eu cometer o próximo.
+
+   O piso de 40 nasceu como um sanity check de que a regex pegou o import CHEIO (em
+   vez de casar cedo demais numa linha do meio). A Fase 1b muda a premissa: ela
+   move seções inteiras (com o import de pure.js que cada uma usava) pra fora do
+   app.js tarefa após tarefa, então o import que sobra aqui encolhe de propósito a
+   cada extração. A Task 8 (radar.js e meus-prs.js) o levou a 39; o piso desceu
+   pra continuar sendo o mesmo sanity check (regex pegou o bloco todo), sem
+   reimpor um tamanho que a própria reorganização existe para reduzir. */
 
 test('nenhum símbolo importado do pure.js está morto no app.js', () => {
   const src = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
   const m = src.match(/import \{([\s\S]*?)\} from '\.\/pure\.js';/);
   assert.ok(m, 'o app.js importa do pure.js');
   const nomes = m[1].split(',').map(s => s.trim()).filter(Boolean);
-  assert.ok(nomes.length >= 40, `esperava o import cheio, achei ${nomes.length}`);
+  assert.ok(nomes.length >= 20, `esperava o import cheio, achei ${nomes.length}`);
   const corpo = src.slice(m.index + m[0].length);
   const mortos = nomes.filter(n => !new RegExp(`\\b${n}\\b`).test(corpo));
   assert.deepEqual(mortos, [], 'símbolo importado e não usado: sobrou de uma extração');

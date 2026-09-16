@@ -107,8 +107,8 @@
   },
   "ui/app.js": {
     "maxLines": 1,
-    "ternarioAninhado": 17,
-    "profundidadeExcedida": 9
+    "ternarioAninhado": 12,
+    "profundidadeExcedida": 3
   },
   "ui/pure/consumo.js": {
     "ternarioAninhado": 1
@@ -138,6 +138,10 @@
   "ui/telas/infra.js": {
     "jsonStringifyCru": 1,
     "ternarioAninhado": 3
+  },
+  "ui/telas/meus-prs.js": {
+    "ternarioAninhado": 5,
+    "profundidadeExcedida": 6
   },
   "ui/telas/radar.js": {
     "ternarioAninhado": 1
