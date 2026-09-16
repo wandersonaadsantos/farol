@@ -45,7 +45,7 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 
 ## Entregas
 
-Contagem: **32 linhas**, 32 evidências em `evidencias-execucao/` (29 da execução até a C8; A1b, A4b e a validação POSIX do adendo). "Núcleo" é serviço, regra e contrato; "interface" é a tela que configura, aciona ou mostra a capacidade; "validação local" é gate verde mais contraprovas.
+Contagem: **33 linhas**, 33 evidências em `evidencias-execucao/` (29 da execução até a C8; A1b, A4b e a validação POSIX do adendo). "Núcleo" é serviço, regra e contrato; "interface" é a tela que configura, aciona ou mostra a capacidade; "validação local" é gate verde mais contraprovas.
 
 | Ordem | Entrega | Branch | Núcleo | Interface | Integração e validação local | Validação externa pendente | Condição de publicação e ativação | Evidência |
 |---|---|---|---|---|---|---|---|---|
@@ -80,6 +80,7 @@ Contagem: **32 linhas**, 32 evidências em `evidencias-execucao/` (29 da execuç
 | 29 | C8 Tomada forçada | `md/c8` | sim | **não** (o aviso existe como texto; sem tela de confirmação) | sim | regra do lease sucessor no servidor | comando do admin com confirmação | `evidencias-execucao/c8.md` |
 | 30 | A1b Medição real e correção do acumulador (A1, item 1) | `md/a1b` | sim | não se aplica | sim | estimativa da saída de tentativa interrompida (sem prova) | ativa por padrão | `evidencias-execucao/a1b.md` |
 | 31 | A4b Autenticação exigida exercitada e guarda do celular para a C3 | `md/a4b` | sim | **não** (sem tela de pareamento) | sim (servidor real isolado) | Termux real | exigência automática desligada; C3 presa a ela no celular | `evidencias-execucao/a4b.md` |
+| 33 | Contrato das telas (B2, seção 5) | `md/contrato-telas` | sim | **não** (é o que as telas vão chamar) | sim | não | não se aplica | `evidencias-execucao/contrato-telas.md` |
 | 32 | Validação POSIX em Linux isolado | `md/a4b` | não se aplica | não se aplica | sim (container Linux, uid 1000, sem rede) | Android/Termux continua sem prova | não se aplica | `evidencias-execucao/validacao-posix.md` |
 | seguintes | B2 (brief e desenho), A2, A3, telas de A4, C1 a C8 | | | | | | | |
 
