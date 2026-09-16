@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026 (iniciativa inteira, limites no plano mestre, seção 4).
-- **Entrega em curso:** nenhuma. Próxima é a C4b (ativação do teto do grupo). C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g, C4 (código), C5a, C5b, C5c e C5d validadas localmente e **todas integradas** em `md/integracao`.
+- **Entrega em curso:** nenhuma. Próxima é a C4b (ativação do teto do grupo). C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g, C4 (código), C5a, C5b, C5c, C5d e C2c validadas localmente e **todas integradas** em `md/integracao`.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 - **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026.
@@ -67,6 +67,7 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | 19 | C5b Prontidão do distribuidor (parte pura) | `md/c5b` | validada localmente e **integrada** | `evidencias-execucao/c5b.md` |
 | 20 | C5c Distribuição entre aparelhos | `md/c5c` | validada localmente e **integrada** | `evidencias-execucao/c5c.md` |
 | 21 | C5d Degradação e volta ao modo local | `md/c5d` | validada localmente e **integrada** | `evidencias-execucao/c5d.md` |
+| 22 | C2c Fiação do aceite de política e grupo | `md/c2c` | validada localmente e **integrada** | `evidencias-execucao/c2c.md` |
 | seguintes | C4b, C6, C7, C8, telas | | planos a escrever | |
 
 ## Observação de instabilidade na suíte (16/09/2026)
