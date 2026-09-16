@@ -292,3 +292,18 @@ provam é o que o servidor consegue barrar sozinho.
 **Limite declarado:** `usageEvents` continua com concessão de escrita ampla (`.write` do
 próprio dono), herdada do v1, então a remoção dele não depende da chave de limpeza no lado
 do servidor. Quem protege esse nó é o cliente, pelas cinco condições do ato.
+
+## Validação manual das regras v2 (C3a, presença v2, capacidade e catálogo)
+
+22. **Campos novos da presença:** gravar `contract` como texto, ou `keyReady` como número,
+    precisa responder **401**; com número e booleano, **200**. E a presença de um aparelho
+    ANTIGO (sem os dois campos) precisa continuar respondendo **200**.
+23. **`live/deviceStatus/{dev}` e `catalog/{prTag}`:** com `{v, u, enc}` e envelope dentro
+    de 2048 caracteres, **200**; faltando um campo, ou com `enc` maior, **401**. Chave do
+    catálogo fora do formato de tag (por exemplo `dono-repo-12`) precisa responder **401**.
+24. **Remoção pela limpeza nos dois:** com a chave ligada, senha recente e sem operação
+    viva, `DELETE` responde **200**; com a chave desligada, **401**.
+25. **Dono:** com um SEGUNDO usuário autenticado no mesmo projeto, toda escrita e toda
+    remoção em `users/{uid-do-primeiro}` precisa responder **401**, inclusive as de
+    limpeza. Este item existe por causa de um defeito real encontrado na C3a: a concessão
+    de remoção se apoiava só na senha recente, que não prova quem é o dono.
