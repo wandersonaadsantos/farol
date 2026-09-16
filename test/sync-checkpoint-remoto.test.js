@@ -253,3 +253,15 @@ test('a revisão herda antes de montar o prompt', () => {
   const j = fonte.indexOf('readCheckpoint(checkpointPath(pr.key))');
   assert.ok(i > 0 && i < j, 'herdar depois de ler o checkpoint local não serviria de nada');
 });
+
+// A herança decidida vai para a sessão, e dela ao andamento que a tela dos outros lê
+// (divergência 9 da tela do Radar). Só quando a leitura do conjunto aconteceu: o fallback
+// de erro diz "reinício" sem ter lido nada, e isso não pode virar afirmação na tela.
+test('a revisão grava na sessão a herança que decidiu, só com leitura feita', () => {
+  const fonte = fs.readFileSync(new URL('../lib/engine/review.js', import.meta.url), 'utf8');
+  const i = fonte.indexOf('herdarDoConjunto(engine, pr, headShaAtual, blobsAtuais)');
+  const trecho = fonte.slice(i, i + 400);
+  assert.match(trecho, /if \(doConjunto\.ok && engine\.activeReviews\.get\(id\)\) engine\.activeReviews\.get\(id\)\.heranca = doConjunto\.desfecho;/);
+  const fallback = fonte.slice(fonte.indexOf('async function herdarDoConjunto'), fonte.indexOf('function cfgDaSync'));
+  assert.doesNotMatch(fallback, /ok: true/, 'o caminho de erro não pode se apresentar como leitura feita');
+});

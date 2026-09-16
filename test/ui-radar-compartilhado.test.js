@@ -49,7 +49,9 @@ function estado({ sync = {}, cfgSync = {} } = {}) {
 
 const ADMIN = { deviceId: 'dEu', generation: 1, souEu: true, fresca: true };
 const OP = { opId: 'op1', dev: 'dOutro', aparelho: 'Desktop antigo', t0: 1, situacao: 'viva', etapa: 'leitura', msPorEtapa: { leitura: 1000 }, subagentes: [], modelo: 'opus', prTag: 'a'.repeat(32), acctTag: 'b'.repeat(32), tipo: 'review' };
-const OP_COMPLETA = { ...OP, opId: 'op2', matTag: 'c'.repeat(32), prKey: 'acme-exemplo/app-web#41', account: 'alice' };
+// o PR em claro chega em `pr`, resolvido pelo catálogo no engine (antes o teste o punha em
+// `prKey`/`account`, campos que o engine nunca mandou)
+const OP_COMPLETA = { ...OP, opId: 'op2', matTag: 'c'.repeat(32), pr: { key: 'acme-exemplo/app-web#41', account: 'alice', title: 'Ajusta o rodapé', author: 'bruno-exemplo' } };
 const PEND = { itemId: 'ab12', dev: 'dOutro', aparelho: 'Desktop antigo', at: 1, visto: false, veredito: 'approve', motivos: [], bloqueio: '' };
 
 beforeEach(() => {
@@ -187,7 +189,7 @@ test('tomar: o aviso vem primeiro, e sem confirmação o comando não sai', asyn
   RESPOSTAS['/api/sync/takeover-notice'] = { ok: true, podeTomar: true, dono: 'dOutro', risco: 'provavel', aviso: 'Este PR está sendo analisado em Desktop antigo.' };
   let visto = null;
   assert.equal(await Tela.tomarOperacao('op2', async (d) => { visto = d; return false; }), false);
-  assert.deepEqual(pedidosPara('/api/sync/takeover-notice').map((p) => p.corpo), [{ prKey: OP_COMPLETA.prKey, account: 'alice' }]);
+  assert.deepEqual(pedidosPara('/api/sync/takeover-notice').map((p) => p.corpo), [{ prKey: OP_COMPLETA.pr.key, account: 'alice' }]);
   assert.equal(pedidosPara('/api/sync/command').length, 0, 'sem confirmação, nenhum comando');
   assert.match(visto.corpo, /Duplicidade provável/, 'quem confirma viu o risco');
 });
@@ -207,6 +209,82 @@ test('tomar: aviso que diz nada a tomar não vira comando, mesmo com confirmaç�
   RESPOSTAS['/api/sync/takeover-notice'] = { ok: true, podeTomar: false, motivo: 'sem-lease' };
   assert.equal(await Tela.tomarOperacao('op2', async () => true), false);
   assert.equal(pedidosPara('/api/sync/command').length, 0);
+});
+
+/* ---------- transferir ---------- */
+
+const DESTINOS = {
+  ok: true, origem: { deviceId: 'dOutro', motivo: '' },
+  destinos: [
+    { deviceId: 'dEu', nome: 'Notebook de teste', apto: true, motivo: '', souEu: true },
+    { deviceId: 'dCel', nome: 'Celular de teste', apto: false, motivo: 'pausado', souEu: false },
+  ],
+};
+
+test('transferir: com o commit no andamento o botão aparece, e sem ele o motivo', () => {
+  emitir('state', estado({ sync: { admin: ADMIN } }));
+  emitir('sync-live', { operacoes: [OP, OP_COMPLETA] });
+  const html = $('#mdOperacoes').innerHTML;
+  assert.match(html, /md-transferir" data-op="op2"/);
+  assert.doesNotMatch(html, /md-transferir" data-op="op1"/);
+  assert.match(html, /Transferir: indisponível, o andamento não traz o commit/);
+});
+
+test('transferir: lista lida primeiro, escolha entre os aptos, confirmação, e o corpo exato', async () => {
+  emitir('state', estado({ sync: { admin: ADMIN } }));
+  emitir('sync-live', { operacoes: [OP_COMPLETA] });
+  RESPOSTAS['/api/sync/transfer-targets'] = DESTINOS;
+  RESPOSTAS['/api/sync/command'] = { ok: true, cmdId: '4'.repeat(32) };
+  let visto = null;
+  let confirmacao = null;
+  assert.equal(await Tela.transferirOperacao('op2', async (d) => { visto = d; return 'dEu'; }, async (c) => { confirmacao = c; return true; }), true);
+  assert.deepEqual(pedidosPara('/api/sync/transfer-targets').map((p) => p.corpo), [{ dono: 'dOutro', acctTag: OP.acctTag }]);
+  assert.deepEqual(visto.aptos, ['dEu']);
+  assert.match(visto.corpo, /Celular de teste.*pausado pelo admin/s);
+  assert.match(confirmacao.title, /Transferir para este aparelho\?/);
+  assert.deepEqual(pedidosPara('/api/sync/command').map((p) => p.corpo), [{ alvo: 'dOutro', tipo: 'transferir', args: { prTag: OP_COMPLETA.prTag, matTag: OP_COMPLETA.matTag, destino: 'dEu' } }]);
+});
+
+test('transferir: destino inapto escolhido, sem confirmação ou lista que falhou não mandam nada', async () => {
+  emitir('state', estado({ sync: { admin: ADMIN } }));
+  emitir('sync-live', { operacoes: [OP_COMPLETA] });
+  RESPOSTAS['/api/sync/transfer-targets'] = DESTINOS;
+  assert.equal(await Tela.transferirOperacao('op2', async () => 'dCel', async () => true), false, 'inapto não sai');
+  assert.equal(await Tela.transferirOperacao('op2', async () => 'dEu', async () => false), false, 'sem confirmação não sai');
+  RESPOSTAS['/api/sync/transfer-targets'] = null;
+  let visto = null;
+  assert.equal(await Tela.transferirOperacao('op2', async (d) => { visto = d; return 'dEu'; }, async () => true), false);
+  assert.equal(visto.pode, false);
+  assert.match(visto.corpo, /Não deu para ler/);
+  assert.equal(pedidosPara('/api/sync/command').length, 0);
+});
+
+test('transferir sem ser admin, ou sem o commit, nem pede a lista', async () => {
+  emitir('state', estado({ sync: { admin: { ...ADMIN, souEu: false } } }));
+  emitir('sync-live', { operacoes: [OP_COMPLETA, OP] });
+  assert.equal(await Tela.transferirOperacao('op2', async () => 'dEu', async () => true), false);
+  emitir('state', estado({ sync: { admin: ADMIN } }));
+  assert.equal(await Tela.transferirOperacao('op1', async () => 'dEu', async () => true), false);
+  assert.equal(PEDIDOS.length, 0);
+});
+
+test('tomadas feitas aparecem numa lista própria, que some vazia', () => {
+  emitir('state', estado({ sync: { admin: ADMIN, tomadas: [{ prKey: 'acme-exemplo/app-web#41', de: 'dOutro', para: 'dEu', geracao: 2, risco: 'provavel', at: 1 }] } }));
+  assert.equal($('#mdTomadasWrap').hidden, false);
+  assert.match($('#mdTomadas').innerHTML, /Desktop antigo para este aparelho/);
+  emitir('state', estado({ sync: { admin: ADMIN, tomadas: [] } }));
+  assert.equal($('#mdTomadasWrap').hidden, true);
+  assert.equal($('#mdTomadas').innerHTML, '');
+});
+
+test('comando recusado pelo executor aparece com o motivo na lista de comandos', async () => {
+  const cmd = { cmdId: '5'.repeat(32), tipo: 'transferir', alvo: 'dOutro', at: Date.now(), vence: Date.now() + 60000, prTag: OP.prTag, prKey: 'acme-exemplo/app-web#41', destino: 'dEu' };
+  RESPOSTAS['/api/sync/command-status'] = { ok: true, recibo: { dev: 'dOutro', estado: 'recusado', code: 'head_mudou', at: Date.now() } };
+  emitir('state', estado({ sync: { admin: ADMIN, comandosEmitidos: [cmd] } }));
+  await Tela.atualizarRecibos([cmd], { forcar: true });
+  assert.match($('#mdComandos').innerHTML, /sync-chip bad">recusado</);
+  assert.match($('#mdComandos').innerHTML, /o commit mudou desde o pedido/);
+  assert.match($('#mdComandos').innerHTML, /destino este aparelho/);
 });
 
 /* ---------- envio do histórico ---------- */

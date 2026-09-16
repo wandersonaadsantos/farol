@@ -119,6 +119,7 @@ async function motorDistribuidor(opcoes = {}) {
 // encerra quando os casos já registrados terminam, e um `await` que só volta depois
 // disso deixa os casos seguintes CANCELADOS, numa rodada que ainda diz "0 falhas".
 const reviewMod = (await import('../lib/engine/review.js')).default;
+const telas = (await import('../lib/engine/sync-telas.js')).default;
 
 test('com a distribuição desligada, nada é publicado', async () => {
   const e = await motorPronto();
@@ -285,6 +286,37 @@ test('atribuição vencida não é aceita', async () => {
   assert.deepEqual(rr.aceitas, []);
   assert.equal(rr.recusas[0].problema, 'vencida');
   assert.ok(r.itemId);
+});
+
+// Divergência 5 da tela do Radar: o motivo da espera, quando ESTE aparelho o conhece.
+
+function esperandoNaTela(e) {
+  return telas.distribuicaoParaTela(e).esperando.map((x) => [x.key, x.motivo]);
+}
+
+test('o motivo da espera chega à tela: ninguém apto, atribuição viva e recusa local', async () => {
+  const e = await motorDistribuidor();
+  const pr = prDe(1);
+  e.headlessDistribuindo = new Map([[pr.key, { pr, desde: T }]]);
+  const r = await dist.publicarCandidato(e, e.config.sync, pr, { agora: T });
+  assert.deepEqual(esperandoNaTela(e), [[pr.key, '']], 'antes de qualquer giro, o motivo é desconhecido');
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+  assert.deepEqual(esperandoNaTela(e), [[pr.key, 'sem-aparelho-apto']]);
+  await publicacao.publicarCapacidade(e, e.config.sync);
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T + 1 });
+  assert.deepEqual(esperandoNaTela(e), [[pr.key, 'atribuicao-viva']]);
+  e.sync.candidatos.get(r.itemId).pr.headSha = 'sha-novo';
+  await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T + 2 });
+  assert.deepEqual(esperandoNaTela(e), [[pr.key, 'head_mudou']], 'a recusa mais recente manda');
+});
+
+test('o motivo da espera de item que este aparelho não publicou não é anotado', async () => {
+  const e = await motorDistribuidor();
+  await publicacao.publicarCapacidade(e, e.config.sync);
+  const r = await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  e.sync.candidatos.delete(r.itemId);
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+  assert.equal(e.sync.motivosDaEspera instanceof Map ? e.sync.motivosDaEspera.size : 0, 0);
 });
 
 // Fiação no enqueueHeadless: as três correções obrigatórias do anexo S3.

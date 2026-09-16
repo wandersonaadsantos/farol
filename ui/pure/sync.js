@@ -27,6 +27,7 @@ import { esc, fmtClock, fmtTok, fmtWhenDay } from './comum.js';
 import { syncChaveHtml } from './sync-chave.js';
 import { capacidadesIndisponiveisHtml } from './capacidades.js';
 import { notaDistribuicaoHtml, notaTomadaSofridaHtml } from './compartilhado.js';
+import { notaComandoHtml } from './compartilhado-posse.js';
 
 const SYNC_SELOS = {
   desligada: { classe: 'mute', texto: 'desligada' },
@@ -439,9 +440,10 @@ function notaDeEsperaHtml(key, s) {
   return '';
 }
 
-// A espera da coordenação vem primeiro, como sempre veio; a espera da distribuição e a
-// tomada sofrida (visão compartilhada, ui/pure/compartilhado.js) somam depois.
+// A espera da coordenação vem primeiro, como sempre veio; a espera da distribuição, a
+// tomada sofrida e o comando enviado sobre o PR (visão compartilhada, ui/pure/compartilhado.js
+// e ui/pure/compartilhado-posse.js) somam depois.
 export function prCoordNoteHtml(key, sync, agora = Date.now()) {
   const s = sync || {};
-  return `${notaDeEsperaHtml(key, s)}${notaDistribuicaoHtml(key, s, agora)}${notaTomadaSofridaHtml(key, s)}`;
+  return `${notaDeEsperaHtml(key, s)}${notaDistribuicaoHtml(key, s, agora)}${notaTomadaSofridaHtml(key, s)}${notaComandoHtml(key, s)}`;
 }

@@ -10,9 +10,12 @@
 //   2. comando nunca aparece como concluído sem recibo do aparelho alvo. Sem recibo existem
 //      só dois estados honestos, "enviado" e "vencido";
 //   3. o que o engine não entrega, a tela não inventa. O andamento e a pendência de outro
-//      aparelho viajam com o PR como TAG (lib/sync/tags.js), nunca com o nome, então esta
-//      tela diz "um PR seu" e explica por quê, em vez de escrever um endereço que não tem.
+//      aparelho viajam com o PR como TAG (lib/sync/tags.js), nunca com o nome. O engine
+//      resolve a tag pelo catálogo cifrado e entrega `pr: { key, account, title, author }`
+//      no andamento; quando o catálogo não abre, `pr` vem nulo e a tela diz "um PR seu",
+//      em vez de escrever um endereço que não tem.
 import { esc, fmtClock, fmtDur, plural } from './comum.js';
+import { prRefMention } from './mencoes.js';
 
 // texto só quando a condição vale: evita ternário dentro de template
 function se(condicao, texto) {
@@ -42,7 +45,7 @@ export function compartilhadoBloqueioHtml(sync) {
 
 /* ---------- 2.8: a faixa do modo da distribuição ---------- */
 
-function nomeDoAparelho(devices, deviceId) {
+export function nomeDoAparelho(devices, deviceId) {
   const lista = Array.isArray(devices) ? devices : [];
   const achado = lista.find((d) => d && d.deviceId === deviceId);
   return (achado && achado.name) || '';
@@ -97,16 +100,34 @@ export function modoDistribuicaoHtml(sync, cfgSync) {
 /* ---------- 2.8 e 2.9: notas por PR no card da fila ---------- */
 
 // Chamadas por prCoordNoteHtml (sync.js), que continua sendo a boca única da nota do card.
-// Os dados já vêm no snapshot: `distribuicao.esperando[{key, desde}]` e
-// `tomadasSofridas[{prKey, para, geracao, at}]`. Comando emitido NÃO entra aqui: o
-// registro dele não carrega o PR (só tipo, alvo e instante), e amarrar um comando a um
-// card seria adivinhar.
+// Os dados já vêm no snapshot: `distribuicao.esperando[{key, desde, motivo}]` e
+// `tomadasSofridas[{prKey, para, geracao, at}]`. O comando emitido entra pela nota própria
+// (notaComandoHtml), só quando o engine resolveu o PR dele.
+//
+// O motivo só chega quando ESTE aparelho o conhece (é o admin que agendou, ou foi ele que
+// recusou a atribuição). Vazio não é "sem motivo": é "não se sabe daqui", e a nota diz isso.
+const MOTIVO_ESPERA = {
+  'sem-aparelho-apto': 'nenhum aparelho apto agora (sem vaga, pausado, sem sinal, ou que já recusou este commit)',
+  'atribuicao-viva': 'o distribuidor já escolheu um aparelho e espera ele aceitar',
+  sem_vaga: 'este aparelho recusou a atribuição por estar sem vaga',
+  head_mudou: 'o commit mudou antes de a análise começar',
+  orcamento: 'o teto do grupo de consumo segurou a atribuição',
+  inapto: 'este aparelho não estava apto quando a atribuição chegou',
+  saida_de_cena: 'outra pessoa já pegou este PR',
+  sem_token: 'faltou a credencial da conta neste aparelho',
+};
+
+function textoDaEspera(motivo) {
+  if (!motivo) return 'Ele volta a ser oferecido a cada giro, e o motivo da espera não chega a esta tela.';
+  return `Motivo: ${esc(MOTIVO_ESPERA[motivo] || `motivo registrado: ${motivo}`)}. Ele volta a ser oferecido a cada giro.`;
+}
+
 export function notaDistribuicaoHtml(key, sync, agora = Date.now()) {
   const d = (sync && sync.distribuicao) || {};
   const item = (Array.isArray(d.esperando) ? d.esperando : []).find((x) => x && x.key === key);
   if (!item) return '';
   const ha = item.desde ? ` há ${esc(fmtDur(Math.max(0, agora - item.desde)))}` : '';
-  return `<div class="pr-coord">Esperando distribuição${ha}: nenhum aparelho recebeu este PR ainda. Ele volta a ser oferecido a cada giro, e o motivo da espera não chega a esta tela.</div>`;
+  return `<div class="pr-coord">Esperando distribuição${ha}: nenhum aparelho recebeu este PR ainda. ${textoDaEspera(item.motivo)}</div>`;
 }
 
 export function notaTomadaSofridaHtml(key, sync) {
@@ -190,27 +211,47 @@ function tempoDaOperacao(op) {
   return Object.values(ms).reduce((total, v) => total + (Number(v) || 0), 0);
 }
 
-// O comando de posse (transferir, tomar) exige o commit e o PR em claro, e o andamento
-// remoto não traz nenhum dos dois. Dizer isso é melhor do que oferecer um botão que
-// sempre recusaria.
-function faltaParaComandoDePosse(op) {
-  if (!op.matTag) return 'o andamento de outro aparelho não traz o commit, que estes comandos exigem';
-  if (!op.prKey || !op.account) return 'o andamento de outro aparelho não traz o PR em claro, que a leitura do aviso exige';
-  return '';
+// Os comandos de posse exigem dados diferentes, e a tela diz qual falta em vez de oferecer
+// um botão que sempre recusaria. Transferir anda só com tags (PR e commit): a lista de
+// destinos vem de uma rota própria, e o aparelho de origem confere tudo de novo. Tomar
+// precisa também do PR em claro, porque o aviso lê a posse pela chave e pela conta.
+function faltaParaTransferir(op) {
+  if (!op.prTag) return 'o andamento não identifica o PR';
+  return op.matTag ? '' : 'o andamento não traz o commit, que a transferência exige';
+}
+
+function faltaParaTomar(op) {
+  if (!op.matTag) return 'o andamento não traz o commit, que a tomada exige';
+  const pr = op.pr || {};
+  return pr.key && pr.account ? '' : 'o nome do PR não abriu no catálogo, e o aviso da tomada precisa dele';
+}
+
+function acao(semAdmin, falta) {
+  return { pode: !semAdmin && !falta, motivo: semAdmin || falta };
 }
 
 export function acoesDaOperacao(op, ctx) {
   const o = op || {};
   const c = ctx || {};
   const semAdmin = c.podeComandar === true ? '' : (c.motivoSemComando || 'só o aparelho admin, com sinal fresco, emite comandos');
-  const falta = faltaParaComandoDePosse(o);
   return {
-    cancelar: { pode: !semAdmin && !!o.prTag, motivo: semAdmin || (o.prTag ? '' : 'o andamento não identifica o PR') },
-    // destino apto é decidido pelo aparelho de origem, e a tela não recebe a capacidade
-    // publicada por aparelho: sem isso não há lista de destinos honesta
-    transferir: { pode: false, motivo: semAdmin || falta || 'a tela não conhece a capacidade dos outros aparelhos para listar destinos' },
-    tomar: { pode: !semAdmin && !falta, motivo: semAdmin || falta },
+    cancelar: acao(semAdmin, o.prTag ? '' : 'o andamento não identifica o PR'),
+    transferir: acao(semAdmin, faltaParaTransferir(o)),
+    tomar: acao(semAdmin, faltaParaTomar(o)),
   };
+}
+
+const HERANCA = {
+  integral: 'herdou a memória inteira de outro aparelho',
+  parcial: 'herdou parte da memória de outro aparelho',
+  reinicio: 'começou do zero, sem memória herdada',
+};
+
+// O PR só é nomeado quando o catálogo abriu: sem isso, rótulo genérico
+function tituloDaOperacao(op) {
+  const pr = op.pr || null;
+  if (!pr || !pr.key) return 'Um PR seu, sem nome nesta tela (o catálogo cifrado não abriu)';
+  return `${prRefMention(pr.key)}${se(pr.title, ` <span class="md-fraco">${esc(pr.title)}</span>`)}`;
 }
 
 function botaoOuNota(classe, rotulo, acao, dados) {
@@ -224,9 +265,11 @@ function operacaoHtml(op, ctx) {
   const subagentes = Array.isArray(op.subagentes) ? op.subagentes.length : 0;
   const situacao = se(op.situacao === 'interrompida', '<span class="sync-chip warn">sem renovar</span>');
   const tempo = `${esc(fmtDur(tempoDaOperacao(op)))}${se(op.modelo, `, ${esc(op.modelo)}`)}`;
-  const etapa = `${esc(ETAPA[op.etapa] || ETAPA.desconhecida)}${se(subagentes, `, ${plural(subagentes, 'subagente', 'subagentes')}`)}`;
+  const heranca = HERANCA[op.heranca] || '';
+  const etapa = `${esc(ETAPA[op.etapa] || ETAPA.desconhecida)}${se(subagentes, `, ${plural(subagentes, 'subagente', 'subagentes')}`)}${se(heranca, `, ${esc(heranca)}`)}`;
   return `<div class="card working md-op">
     <div class="md-linha"><span class="sync-chip mute">${esc(op.aparelho || 'outro aparelho')}</span><span class="md-fraco">${esc(TIPO_OP[op.tipo] || 'revisão')}</span>${situacao}<span class="md-espaco"></span><span class="md-fraco">${tempo}</span></div>
+    <div class="md-titulo">${tituloDaOperacao(op)}</div>
     <div class="md-sub">${etapa}</div>
     <div class="md-acoes">
       ${botaoOuNota('md-cancelar', 'Cancelar', acoes.cancelar, dados)}
@@ -312,11 +355,23 @@ export function reciboEstado(cmd, recibo, agora = Date.now(), leituraFalhou = fa
   return { estado: 'enviado', classe: 'info', rotulo: 'enviado', detalhe: `esperando o recibo do aparelho alvo${prazo}${falha}` };
 }
 
+// o destino da transferência e o PR (quando o engine o resolveu) completam a linha
+function detalheDoComando(cmd, ctx) {
+  const destino = cmd.destino ? `, destino ${esc(nomeDoAparelhoOuEste(ctx, cmd.destino))}` : '';
+  const pr = cmd.prKey ? `, ${prRefMention(cmd.prKey)}` : '';
+  return `${destino}${pr}`;
+}
+
+function nomeDoAparelhoOuEste(ctx, deviceId) {
+  if (ctx.deviceIdLocal && deviceId === ctx.deviceIdLocal) return 'este aparelho';
+  return nomeDoAparelho(ctx.devices, deviceId) || deviceId;
+}
+
 function comandoLinhaHtml(cmd, recibos, ctx) {
   const r = reciboEstado(cmd, recibos[cmd.cmdId], ctx.agora, ctx.falhas.has(cmd.cmdId));
-  const onde = nomeDoAparelho(ctx.devices, cmd.alvo) || cmd.alvo;
+  const onde = nomeDoAparelhoOuEste(ctx, cmd.alvo);
   return `<div class="md-cmd" data-cmd="${esc(cmd.cmdId)}">
-    <span><b>${esc(TIPO_CMD[cmd.tipo] || cmd.tipo)}</b> para ${esc(onde)}, às ${esc(fmtClock(cmd.at))}</span>
+    <span><b>${esc(TIPO_CMD[cmd.tipo] || cmd.tipo)}</b> para ${esc(onde)}${detalheDoComando(cmd, ctx)}, às ${esc(fmtClock(cmd.at))}</span>
     <span class="md-espaco"></span>
     <span class="sync-chip ${r.classe}">${esc(r.rotulo)}</span>
     <span class="md-fraco">${esc(r.detalhe)}</span>
@@ -327,7 +382,7 @@ export function comandosEmitidosHtml(comandos, recibos, ctx) {
   const lista = Array.isArray(comandos) ? comandos : [];
   if (!lista.length) return '';
   const c = ctx || {};
-  const contexto = { devices: c.devices, agora: c.agora || Date.now(), falhas: c.falhas instanceof Set ? c.falhas : new Set() };
+  const contexto = { devices: c.devices, deviceIdLocal: c.deviceIdLocal || '', agora: c.agora || Date.now(), falhas: c.falhas instanceof Set ? c.falhas : new Set() };
   const mapa = recibos || {};
   return `<div class="card md-lista">${lista.map((cmd) => comandoLinhaHtml(cmd, mapa, contexto)).join('')}</div>`;
 }

@@ -12,6 +12,7 @@ export * from './pure/capacidades.js';
 export * from './pure/comum.js';
 export * from './pure/compartilhado.js';
 export * from './pure/compartilhado-historico.js';
+export * from './pure/compartilhado-posse.js';
 export * from './pure/consumo.js';
 export * from './pure/contas.js';
 export * from './pure/diagnostico.js';

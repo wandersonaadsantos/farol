@@ -1,0 +1,47 @@
+N1 andamento sem commit: REPROVOU (código 1, 9 caso(s) vermelhos em test/sync-andamento.test.js, test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N2 commit só do PR: REPROVOU (código 1, 9 caso(s) vermelhos em test/sync-andamento.test.js, test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N3 herança fora do vocabulário: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-andamento.test.js); restaurado byte a byte: sim
+N4 catálogo sem conferir a tag: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N5 leitura sem PR: REPROVOU (código 1, 5 caso(s) vermelhos em test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N6 relógio lê cru: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N7 catálogo sem sessões vivas: REPROVOU (código 1, 6 caso(s) vermelhos em test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N8 catálogo repete a chave: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N9 transferir lê head do PR: REPROVOU (código 1, 2 caso(s) vermelhos em test/sync-transferencia-tela.test.js, test/sync-transferencia.test.js); restaurado byte a byte: sim
+N10 candidato sem head: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-transferencia-tela.test.js, test/sync-transferencia.test.js); restaurado byte a byte: sim
+N11 destino sem consentimento apto: REPROVOU (código 1, 2 caso(s) vermelhos em test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N12 dono atual vira destino: REPROVOU (código 1, 2 caso(s) vermelhos em test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N13 versão antiga vira destino: REPROVOU (código 1, 2 caso(s) vermelhos em test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N14 memória desconhecida vira destino: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N15 sem sinal vira destino: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N16 origem sempre apta: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N17 destinos sem ordem: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N18 tomar não pergunta o head: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N19 tomar aceita head desconhecido: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N20 emitido sem prKey: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N21 emitido sem destino: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N22 agendador não anota: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-distribuicao.test.js); restaurado byte a byte: sim
+N23 recusa não anota: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-distribuicao.test.js); restaurado byte a byte: sim
+N24 anota item alheio: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-distribuicao.test.js); restaurado byte a byte: sim
+N25 atribuído sem motivo: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-distribuicao.test.js); restaurado byte a byte: sim
+N26 motivo nunca chega: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-distribuicao.test.js); restaurado byte a byte: sim
+N27 review não grava herança: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-checkpoint-remoto.test.js); restaurado byte a byte: sim
+N28 rota de destinos some: REPROVOU (código 1, 7 caso(s) vermelhos em test/local-auth-inventario.test.js, test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N29 tomar sem PR em claro: REPROVOU (código 1, 2 caso(s) vermelhos em test/ui-pure-compartilhado-posse.test.js, test/ui-pure-compartilhado.test.js, test/ui-radar-compartilhado.test.js); restaurado byte a byte: sim
+N30 transferir sem commit: REPROVOU (código 1, 3 caso(s) vermelhos em test/ui-pure-compartilhado-posse.test.js, test/ui-radar-compartilhado.test.js); restaurado byte a byte: sim
+N31 PR nunca nomeado: REPROVOU (código 1, 2 caso(s) vermelhos em test/ui-pure-compartilhado-posse.test.js, test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N32 motivo da espera some: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-pure-compartilhado-posse.test.js); restaurado byte a byte: sim
+N33 herança escondida: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-pure-compartilhado-posse.test.js); restaurado byte a byte: sim
+N34 linha do comando sem destino: REPROVOU (código 1, 3 caso(s) vermelhos em test/ui-pure-compartilhado-posse.test.js, test/ui-radar-compartilhado.test.js, test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N35 inaptos viram opção: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-pure-compartilhado-posse.test.js); restaurado byte a byte: sim
+N36 origem inapta ignorada: REPROVOU (código 1, 2 caso(s) vermelhos em test/ui-pure-compartilhado-posse.test.js, test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N37 comando em qualquer card: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-pure-compartilhado-posse.test.js); restaurado byte a byte: sim
+N38 card sem nota do comando: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-pure-compartilhado-posse.test.js); restaurado byte a byte: sim
+N39 tomadas nunca listadas: REPROVOU (código 1, 2 caso(s) vermelhos em test/ui-pure-compartilhado-posse.test.js, test/ui-radar-compartilhado.test.js); restaurado byte a byte: sim
+N40 tela aceita escolha forjada: REPROVOU (código 1, 3 caso(s) vermelhos em test/ui-radar-compartilhado.test.js, test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N41 tela sem confirmação: INERTE (código 0, 0 caso(s) vermelhos em test/ui-radar-compartilhado.test.js, test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N42 tela sem lista de tomadas: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-radar-compartilhado.test.js); restaurado byte a byte: sim
+N43 aviso sem conta: REPROVOU (código 1, 3 caso(s) vermelhos em test/ui-radar-compartilhado.test.js, test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N44 recibo não força o piso: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+N45 tela não pede destinos: REPROVOU (código 1, 6 caso(s) vermelhos em test/ui-radar-compartilhado.test.js, test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+
+1 problema(s)
