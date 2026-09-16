@@ -211,3 +211,13 @@ test('as rotas da história existem e o envelope diz se achou', async () => {
   assert.match(fonte, /p === '\/api\/sync\/reviews'/);
   assert.match(fonte, /r \? \{ found: true, revisao: r \} : \{ found: false \}/, 'nunca a revisão crua nem 404');
 });
+
+test('sem a projeção da tela, o relatório cru não sobe', async () => {
+  const e = await motorPronto();
+  decisao(e, 'd1');
+  const semProjecao = Object.create(e);
+  semProjecao.decisionForUi = undefined;
+  const { escritas: [id] } = await hist.sincronizarHistorico(semProjecao, e.config.sync, { agora: AGORA });
+  const aberta = await hist.abrirRevisao(outro(e), id);
+  assert.equal(aberta.reportMarkdown, undefined);
+});
