@@ -1,0 +1,13 @@
+== PUT anonimo em ns=demo-farol ==
+{"name":"sem token"}
+HTTP 200
+
+== PUT anonimo em ns=demo-farol-default-rtdb ==
+{
+  "error" : "Permission denied"
+}
+
+HTTP 401
+
+== limpeza da sonda anonima (token de dono do emulador) ==
+HTTP 200
