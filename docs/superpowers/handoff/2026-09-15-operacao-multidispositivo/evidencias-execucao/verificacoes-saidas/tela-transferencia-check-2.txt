@@ -1,0 +1,6 @@
+npm warn Unknown user config "always-auth". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> farol@2.59.5 check
+> node tools/check-syntax.js
+
+  ok  sintaxe validada em 554 arquivos .js

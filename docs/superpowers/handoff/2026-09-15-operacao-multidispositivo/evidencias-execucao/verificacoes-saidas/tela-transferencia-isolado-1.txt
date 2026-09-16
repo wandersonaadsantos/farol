@@ -1,0 +1,28 @@
+✔ sessionExit (mac): desfaz o visto de todas as keys da sessão registrada (2.1357ms)
+✔ sessionExit (mac): sessão sem keys (ex.: login dedicado) não chama checkNow nem quebra (0.2519ms)
+✔ sessionExit: id desconhecido (sessão já não existe) não lança e devolve ok (0.2013ms)
+✔ handleSessionExit: desfaz o visto de todas as keys e dispara checkNow (equivalente ao exit do spawnConsole) (0.2028ms)
+✔ handleSessionExit: sem keys (login dedicado) não chama checkNow (0.1837ms)
+✔ handleSessionExit: código de saída != 0 loga WARN (0.3137ms)
+✔ spawnConsole (Windows): ao sair de verdade, desfaz o visto de TODAS as keys da sessão (1535.0129ms)
+✔ spawnConsoleMac: open saindo != 0 desfaz o visto, remove a sessão e avisa (M5) (2.5805ms)
+✔ spawnConsoleMac: open saindo 0 não mexe em nada; o fim real chega pelo trap EXIT (M5) (0.8593ms)
+✔ spawnLoginConsoleMac: open saindo != 0 remove a sessão, apaga o script e avisa (M5, R13) (1.813ms)
+✔ sem frota nada sobe (276.9135ms)
+✔ a pendência sobe cifrada, sem relatório, título nem login (235.9369ms)
+✔ republicar sem mudança não escreve; a pendência resolvida é apagada (235.7746ms)
+✔ o outro aparelho lê, é avisado uma vez, e o próprio não aparece para si (209.8249ms)
+✔ visto em um aparelho cala o aviso no outro (D3) (203.836ms)
+✔ o visto é gravado uma vez só: o segundo encontra o nó e não sobrescreve (202.2645ms)
+✔ item que não decifra some, e dev trocado não decifra (180.1414ms)
+✔ visto sai quando a pendência some; com a pendência viva, fica (190.7934ms)
+✔ aplicar não chama pushState (181.8143ms)
+✔ o ciclo do relógio publica e lê pendências, e a rota do visto existe (226.8992ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2419.5446
