@@ -180,7 +180,9 @@ restauradas byte a byte.
 | 2 | idem | os dois arquivos isolados | **1**: 26 passam, 3 falham | `tela-radar-isolado-memoria.txt` |
 | 3 | idem | `npm test` (repetida uma vez) | **1**: 4014 testes, 3985 passam, **1 falha**, 28 pulados | `tela-radar-test-3.txt` |
 | 3 | idem | os dois arquivos isolados | 0: 29 passam | `tela-radar-isolado-memoria-2.txt` |
-| 4 | commit desta evidência | ver seção 6 | | |
+| 4 | `15ce282` (esta evidência) | `npm run check` | 0, 541 arquivos | `tela-radar-check-4.txt` |
+| 4 | idem | `npm run lint` | 0, sem regressão | `tela-radar-lint-4.txt` |
+| 4 | idem | `npm test` | 0: 4014 testes, 3986 passam, 0 falham, 28 pulados (5823 MB livres) | `tela-radar-test-4.txt` |
 
 **As falhas das rodadas 2 e 3 não são desta entrega e dependem da memória livre da máquina.**
 Os casos são `test/sync-consumo-grupo-remoto.test.js` ("outra conta, sem teto de grupo que a
@@ -195,4 +197,5 @@ só o `vence` do comando emitido), e os três passaram na rodada 1.
 
 ## 6. Rodada final
 
-Registrada na resposta de quem executou, depois do commit desta evidência.
+A rodada 4, com a máquina folgada (5823 MB livres), fecha verde nos três gates, e é a
+confirmação de que as falhas das rodadas 2 e 3 eram da memória livre, não da entrega.
