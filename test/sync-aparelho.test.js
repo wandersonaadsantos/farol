@@ -191,3 +191,15 @@ test('a leitura da frota preserva contrato e chave pronta, e o gate de publicaç
   await syncMod.lerAparelhos(e);
   assert.equal(frota.valePublicar(e.sync.devices, { meuId: e.sync.deviceId, agora: Date.now() }), false);
 });
+
+// Abrir a chave muda o que este aparelho ANUNCIA: enquanto a presença não é reescrita, os
+// outros leem `keyReady: false` e não publicam nada para ele, e a transferência o recusa
+// como "sem a chave do conjunto aberta". Medido na bancada em 16/09/2026: a presença só
+// seria reescrita até 5 minutos depois, e nesse meio tempo o aparelho recém-aberto some do
+// conjunto sem motivo visível.
+test('abrir a chave reescreve a presença na hora, com a chave pronta anunciada', async () => {
+  const e = await motorLogado();
+  assert.equal(noDoAparelho(e.sync.deviceId).keyReady, false, 'antes de abrir, o anúncio é honesto');
+  assert.equal((await e.syncUnlock({ password: SENHA })).ok, true);
+  assert.equal(noDoAparelho(e.sync.deviceId).keyReady, true, 'depois de abrir, o conjunto vê na hora');
+});
