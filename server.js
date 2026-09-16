@@ -1842,6 +1842,8 @@ class Engine extends EventEmitter {
   syncAparelho(dados) { return syncMod.aparelho(this, dados); }
   syncChaveDeLimpeza(dados) { return syncMod.chaveDeLimpeza(this, dados); }
   syncLimpar(dados) { return syncMod.limpar(this, dados); }
+  syncRevogar(dados) { return syncMod.revogar(this, dados); }
+  syncRetirarConsentimento() { return syncMod.retirarConsentimento(this); }
   syncLogout() { return syncMod.syncLogout(this); }
   syncTest() { return syncMod.syncTest(this); }
   syncStop() { return syncMod.stopSync(this); }
