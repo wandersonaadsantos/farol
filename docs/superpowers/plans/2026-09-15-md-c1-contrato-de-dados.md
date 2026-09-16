@@ -163,6 +163,7 @@ const SENHA = 'senha-de-teste';
 const AGORA = 1_800_000_000_000;
 const HEAD = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2';
 const PR_KEY = 'Org/Repo#7';
+const ORIGEM_EMULADOR_AUTH = new URL(SYNC.AUTH_EMULATOR_IDENTITY_URL).origin;
 let fake;
 let identity;
 
@@ -177,11 +178,36 @@ after(async () => {
 });
 beforeEach(() => { fake.setTree(null); fake.requests.length = 0; });
 
+// o banco do dublê é http em 127.0.0.1, então o login vai para o Auth do emulador; aqui
+// ele é desviado para o dublê de identidade, e nada sai da máquina
+async function fetchDosDubles(url, init) {
+  const alvo = String(url).replace(ORIGEM_EMULADOR_AUTH, identity.url);
+  if (!alvo.startsWith('http://127.0.0.1:')) throw new Error('o teste tentou sair da máquina');
+  return fetch(alvo, init);
+}
+
 function syncCfg(extra = {}) {
   return {
     enabled: true, coordination: { enabled: true }, consolidation: { enabled: false },
     deviceName: 'Notebook', apiKey: API_KEY, databaseUrl: fake.url, projectId: 'farol-local', ...extra,
   };
+}
+
+// `saveConfig()` do engine não recebe argumento: quem aplica configuração é o
+// updateSettings, e a conexão sobe de forma assíncrona (o mesmo helper dos testes de sync).
+async function salvarSync(engine, cfg) {
+  engine.updateSettings({ sync: cfg });
+  if (engine.sync.iniciando) await engine.sync.iniciando;
+}
+
+async function motorConectado(cfg = syncCfg()) {
+  const engine = new Engine();
+  engine.log = () => { };
+  engine.pushState = () => { };
+  engine.sync.fetchImpl = fetchDosDubles;
+  await salvarSync(engine, cfg);
+  assert.equal((await engine.syncLogin({ email: EMAIL, password: SENHA })).ok, true);
+  return engine;
 }
 
 // O corpo de cada escrita v1 sai das MESMAS funções puras que o engine usa. Se alguma
@@ -211,8 +237,8 @@ test('evento de consumo v1: hashes sem chave e campos em claro, como hoje', () =
 test('caminhos da coordenação continuam em SHA-256 sem sal', () => {
   assert.match(accountHash('fulano'), /^[0-9a-f]{64}$/);
   assert.match(prHash(PR_KEY), /^[0-9a-f]{64}$/);
-  assert.equal(operationFingerprint('review', HEAD), `review_${accountHash('x') ? '' : ''}${operationFingerprint('review', HEAD).slice(7)}`);
   assert.match(operationFingerprint('review', HEAD), /^review_[0-9a-f]{32}$/);
+  assert.equal(operationFingerprint('review', HEAD), operationFingerprint('review', HEAD), 'determinístico');
 });
 
 test('eventIdFor: vetor dourado sobre uma sessão literal', () => {
@@ -223,26 +249,21 @@ test('eventIdFor: vetor dourado sobre uma sessão literal', () => {
 });
 
 test('presença com o compartilhamento desligado: o PUT do aparelho é o de hoje', async () => {
-  const engine = new Engine();
-  engine.log = () => { };
-  engine.pushState = () => { };
-  await engine.saveConfig({ ...engine.config, sync: syncCfg() });
-  assert.equal((await engine.syncLogin({ email: EMAIL, password: SENHA })).ok, true);
+  const engine = await motorConectado();
   await engine.syncTick();
-  const dev = fake.requests.filter((r) => r.path.includes('/devices/') && r.method !== 'GET');
+  // o `createdAt` é escrito à parte, com o sentinela de timestamp como corpo inteiro: a
+  // presença é a outra escrita, e é ela que carrega os campos do aparelho
+  const dev = fake.requests.filter((r) => r.path.includes('/devices/') && r.method !== 'GET' && !r.path.includes('/createdAt'));
   assert.ok(dev.length >= 1, 'a presença sobe');
-  const corpo = dev.at(-1).body || {};
+  const corpo = JSON.parse(dev.at(-1).body || '{}');
+  assert.deepEqual(Object.keys(corpo).sort(), ['farolVersion', 'lastSeenAt', 'name', 'platform'], 'nenhum campo novo na presença');
   assert.equal(corpo.contract, undefined, 'sem campo de contrato v2');
   assert.equal(corpo.keyReady, undefined, 'sem prontidão de chave');
   assert.equal(typeof corpo.name, 'string', 'o nome do aparelho continua em claro');
 });
 
 test('nenhum nó novo do contrato v2 é escrito com o compartilhamento desligado', async () => {
-  const engine = new Engine();
-  engine.log = () => { };
-  engine.pushState = () => { };
-  await engine.saveConfig({ ...engine.config, sync: syncCfg() });
-  assert.equal((await engine.syncLogin({ email: EMAIL, password: SENHA })).ok, true);
+  const engine = await motorConectado();
   await engine.syncTick();
   const proibidos = ['/keyring', '/catalog', '/live/', '/rulesProbe'];
   const tocados = fake.requests.filter((r) => r.method !== 'GET' && proibidos.some((p) => r.path.includes(p)));
