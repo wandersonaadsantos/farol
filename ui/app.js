@@ -41,6 +41,7 @@ import { initAtalhos } from './telas/atalhos.js';
 import { initPaleta, rotularBtnCmdK } from './telas/paleta.js';
 import { initTema } from './telas/tema.js';
 import { initPerfilPessoa } from './telas/perfil-pessoa.js';
+import { registrarTelaRadarCompartilhado, aoAndamentoRemoto, aoPendenciasRemotas } from './telas/radar-compartilhado.js';
 
 const isElectron = ehElectron();
 if (isElectron) document.body.classList.add('electron');
@@ -322,6 +323,16 @@ function connect() {
     const d = safeJsonParse(e.data); if (!d) return; const { key, text } = d;
     handleChatActivity(key, text);
   });
+  // visão compartilhada (andamento e pendências de outros aparelhos): delta próprio, nunca o
+  // estado inteiro. O bootstrap só entrega; quem entende é telas/radar-compartilhado.js.
+  es.addEventListener('sync-live', (e) => {
+    const d = safeJsonParse(e.data); if (!d) return;
+    aoAndamentoRemoto(d);
+  });
+  es.addEventListener('sync-pending', (e) => {
+    const d = safeJsonParse(e.data); if (!d) return;
+    aoPendenciasRemotas(d);
+  });
   // credencial revogada ou vencida com a página aberta (A4)
   es.addEventListener('nao-autenticado', () => {
     es.close();
@@ -371,6 +382,9 @@ function connect() {
 // 'sistema' (telasRegistradas() devolve na ordem de registro, e precisa continuar
 // entregas, destaques, time, sistema, consumo).
 registrarTelaConsumo();
+// a visão compartilhada do Radar registra por último, pelo mesmo motivo: registrar no import
+// a poria antes de 'sistema' e mudaria a ordem garantida acima
+registrarTelaRadarCompartilhado();
 
 /* A4: antes de qualquer coisa, a página pergunta se este navegador pode entrar. Com a
    exigência ligada e sem credencial, a interface inteira vira o pareamento: nada do estado,

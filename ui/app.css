@@ -1744,3 +1744,45 @@ body.parear > *:not(.par-raiz) { display: none !important; }
 .falha-texto { margin-top: 0; max-height: 260px; }
 .falha-texto pre, #diagBox pre { margin: 8px 0; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 620px) { .falha-quando { margin-left: 0; width: 100%; } }
+
+/* ---------- visão compartilhada no Radar (B2, itens 2.7 a 2.9) ---------- */
+.pr-coord.bad { color: var(--danger); }
+.md-host { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 4px; }
+.md-faixa { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font-size: 12.5px; color: var(--text); text-wrap: pretty; }
+.md-faixa.warn { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.md-faixa.ok { border-color: color-mix(in srgb, var(--ok) 35%, var(--border)); }
+.md-espaco { flex: 1; }
+.md-goto { color: var(--info); cursor: pointer; }
+.md-goto:hover { text-decoration: underline; }
+.md-pend, .md-op { display: flex; flex-direction: column; gap: 6px; }
+.md-linha { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.md-titulo { font-size: 13.5px; font-weight: 650; overflow-wrap: anywhere; }
+.md-sub { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
+.md-fraco { font-size: 12px; color: var(--faint); overflow-wrap: anywhere; }
+.md-nota { margin: 6px 0 0; font-size: 12px; color: var(--muted); text-wrap: pretty; }
+.md-vazio { margin: 0; padding: 10px 2px; font-size: 12.5px; color: var(--muted); }
+.md-ruim { color: var(--danger); }
+.md-acoes { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.md-acoes .md-nota { margin: 0; }
+.md-lista { padding: 0; display: flex; flex-direction: column; }
+.md-cmd, .md-rev { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 9px 14px; border-top: 1px solid var(--border); font-size: 12.5px; min-width: 0; }
+.md-cmd:first-child, .md-rev:first-child { border-top: 0; }
+.md-rev-txt { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.md-rev-topo { margin-bottom: 8px; }
+.md-escopo.active { border-color: var(--accent); color: var(--accent); }
+.md-envio { display: flex; flex-direction: column; gap: 10px; }
+.md-numeros { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; }
+.md-modal-acoes { flex-wrap: wrap; }
+@media (max-width: 860px) {
+  .md-numeros { gap: 12px; }
+}
+@media (max-width: 720px) {
+  .md-cmd .md-espaco, .md-rev .md-espaco { display: none; }
+}
+@media (max-width: 620px) {
+  .md-acoes { flex-direction: column; align-items: stretch; }
+  .md-acoes .btn, .md-rev .btn, .md-rev-topo .btn, .md-envio .btn, .md-modal-acoes .btn { min-height: 44px; justify-content: center; }
+  .md-rev-topo .btn { flex: 1; }
+  .md-modal-acoes { flex-direction: column-reverse; align-items: stretch; }
+  .md-goto { min-height: 44px; display: inline-flex; align-items: center; }
+}
