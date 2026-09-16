@@ -3,7 +3,14 @@
 // POR QUE EXISTE: 109 das 169 funções do ui/app.js liam variável de módulo (STATE em 68,
 // SCOPE em 19). Com as telas em módulos, cada uma precisaria importar o bootstrap de volta
 // só para ler STATE, que é o ciclo que a Fase 1b existe para evitar. Aqui a leitura é de mão
-// única, e a escrita continua sendo só do bootstrap.
+// única.
+//
+// Duas coisas diferentes chamam de escrita, e só uma delas é regra nova. Trocar a
+// REFERÊNCIA (o snapshot inteiro) é só do ui/app.js, sempre por definirEstado: é o
+// contrato que este módulo garante. Mutar o CONTEÚDO de um campo (por exemplo
+// estado().accounts = lista, estado().config.people = pessoas) já acontecia no
+// ui/app.js antes desta tarefa e continua acontecendo: é herança preservada, não
+// licença nova. Módulo de tela lê por estado() e não muta nada dentro do que lê.
 let STATE = null;
 let SCOPE = 'all';
 let ABA = 'radar';
