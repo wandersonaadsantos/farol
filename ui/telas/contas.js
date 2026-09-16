@@ -1,6 +1,8 @@
 /* Farol · UI: camada de identidade de conta (de quem é cada PR, o que o escopo esconde,
-   como a conta é marcada) e o que depende dela: a barra de contas, a faixa de identidade,
-   o resumo de silenciadas e o re-render por troca de escopo. */
+   como a conta é marcada) e o que depende dela: a barra de contas, a faixa de identidade
+   e o resumo de silenciadas. O re-render por troca de escopo (rerenderScope) morou aqui
+   até a Task 8, que o levou pro ui/app.js: com o Radar e Meus PRs virando módulo, ele
+   passou a chamar mais telas do que esta camada de identidade pode conhecer sem ciclo. */
 
 import { esc, hexToRgba, ownerFromUrl, validScope, personMention, fmtRel, accountBarVisible } from '../pure.js';
 import { estado, escopo, abaAtual, definirEscopo } from './estado.js';
@@ -183,18 +185,4 @@ export function renderSilenced() {
       </div></div>`;
   }).join('')}</div>` : '';
   box.innerHTML = head + body;
-}
-
-// re-render das seções sensíveis ao escopo (sem esperar novo state do engine). O que ainda
-// mora no ui/app.js (fila, decisões, painel, meus PRs, panorama, sub-nav do Radar, Destaques
-// e Time) chega por PARÂMETRO: este módulo não pode importar o app.js de volta (seria o
-// ciclo que a Fase 1b existe para evitar). A Task 8 fecha renderMyPRs quando meus-prs.js
-// existir; as demais dependências deste objeto fecham conforme os módulos delas nascerem.
-export function rerenderScope(deps) {
-  if (!estado()) return;
-  renderAccountBar(); renderIdentity();
-  deps.renderActive(); deps.renderDecisions(); deps.renderQueue(); deps.renderMyPRs(); deps.renderPanorama(); renderSilenced();
-  deps.renderRadarNav();
-  if ($('#tab-destaques').classList.contains('active')) { deps.loadHighlights(); deps.renderTools(); }
-  if ($('#tab-time').classList.contains('active')) deps.loadTeam();
 }

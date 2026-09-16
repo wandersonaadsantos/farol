@@ -30,7 +30,7 @@ import {
   TWEAK, ACCT, OWNER2USER, rebuildAccounts, multiAccount,
   scopeVisible, acctMark, acctUserFromUrl, scopeMemVisible, acctStyleFor,
   memGroupHead, renderAccountBar, renderIdentity, renderSilenced,
-  fecharSilenciadas, alternarSilenciadas, rerenderScope as rerenderScopeContas
+  fecharSilenciadas, alternarSilenciadas,
 } from './telas/contas.js';
 import { gotoDeliv } from './telas/entregas.js';
 import { revisarUrls, registrarTelaConsumo, renderUsage } from './telas/consumo.js';
@@ -142,15 +142,20 @@ function renderClaudeProfiles() {
   const hint = $('#cpAddHint'); if (hint) hint.hidden = true;
 }
 
-// rerenderScope agora mora em telas/contas.js: o que ela chama e ainda vive aqui
-// (fila, decisões, painel, meus PRs, panorama, sub-nav do Radar, Destaques e Time) entra
-// por parâmetro, porque o módulo novo não pode importar este arquivo de volta (ciclo).
-// A Task 8 fecha renderMyPRs quando meus-prs.js existir; as demais fecham com os módulos delas.
+// re-render das seções sensíveis ao escopo (sem esperar novo state do engine). Morava em
+// telas/contas.js recebendo nove funções por parâmetro (a costura da Task 6, criada
+// enquanto elas ainda viviam no app.js). Com o Radar e Meus PRs virando módulo na Task
+// 8, quase todas essas nove viraram import de mão única, e deixar rerenderScope na
+// camada de identidade faria contas.js importar as telas que a importam de volta: o
+// ciclo que a Fase 1b existe para evitar. Por isso ela veio pra cá: o bootstrap pode
+// conhecer todas as telas, a camada de identidade não pode.
 function rerenderScope() {
-  rerenderScopeContas({
-    renderActive, renderDecisions, renderQueue, renderMyPRs, renderPanorama, renderRadarNav,
-    loadHighlights, renderTools, loadTeam
-  });
+  if (!estado()) return;
+  renderAccountBar(); renderIdentity();
+  renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSilenced();
+  renderRadarNav();
+  if ($('#tab-destaques').classList.contains('active')) { loadHighlights(); renderTools(); }
+  if ($('#tab-time').classList.contains('active')) loadTeam();
 }
 
 $('#btnCmdK').addEventListener('click', () => cmdOpen());
