@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import andamento from '../lib/sync/andamento.js';
+import { matTag } from '../lib/sync/tags.js';
 
 const K = randomBytes(32);
 const T0 = 1_800_000_000_000;
@@ -29,7 +30,9 @@ const FEED = [
 
 test('a projeção leva etapa, tempos, subagentes, modelo, tags e tipo, e nada mais', () => {
   const p = andamento.projetar(sessao(), FEED, { kId: K, agora: T0 + 20000 });
-  assert.deepEqual(Object.keys(p).sort(), ['acctTag', 'etapa', 'modelo', 'msPorEtapa', 'prTag', 'subagentes', 'tipo']);
+  assert.deepEqual(Object.keys(p).sort(), ['acctTag', 'etapa', 'heranca', 'matTag', 'modelo', 'msPorEtapa', 'prTag', 'subagentes', 'tipo']);
+  assert.equal(p.matTag, '', 'sessão sem head não inventa versão material');
+  assert.equal(p.heranca, '', 'herança não decidida sai vazia');
   assert.equal(p.etapa, 'raciocinio');
   assert.equal(p.tipo, 'review');
   assert.deepEqual(p.subagentes, ['leitor-1', 'leitor-2']);
@@ -43,9 +46,19 @@ test('a projeção leva etapa, tempos, subagentes, modelo, tags e tipo, e nada m
   assert.equal(p.msPorEtapa.raciocinio, 11000, 'a etapa corrente conta até agora');
 });
 
+test('o commit da sessão sobe como tag, e a herança só no vocabulário fechado', () => {
+  const p = andamento.projetar(sessao({ headSha: 'shaSecreto123', heranca: 'parcial' }), FEED, { kId: K, agora: T0 + 20000 });
+  assert.equal(p.matTag, matTag(K, 'shaSecreto123'), 'o head mora na sessão, não no PR');
+  assert.equal(p.heranca, 'parcial');
+  const doPr = andamento.projetar(sessao({ pr: { key: 'dono/repo#12', headSha: 'shaDoPr' } }), [], { kId: K, agora: T0 });
+  assert.equal(doPr.matTag, matTag(K, 'shaDoPr'), 'sem head na sessão, o do PR serve de reserva');
+  assert.equal(andamento.projetar(sessao({ heranca: 'tudo' }), [], { kId: K, agora: T0 }).heranca, '');
+  assert.equal(JSON.stringify(p).includes('shaSecreto123'), false, 'o SHA nunca sobe em claro');
+});
+
 test('nenhuma prosa, caminho, comando, título ou login sobe', () => {
-  const cru = JSON.stringify(andamento.projetar(sessao(), FEED, { kId: K, agora: T0 + 20000 }));
-  for (const proibido of ['segredo', 'rm -rf', 'Users', 'Titulo', 'dono/repo', 'alguem', 'conta1']) {
+  const cru = JSON.stringify(andamento.projetar(sessao({ headSha: 'shaSecreto123' }), FEED, { kId: K, agora: T0 + 20000 }));
+  for (const proibido of ['segredo', 'rm -rf', 'Users', 'Titulo', 'dono/repo', 'alguem', 'conta1', 'shaSecreto123']) {
     assert.equal(cru.includes(proibido), false, proibido);
   }
 });
