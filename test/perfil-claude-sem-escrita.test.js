@@ -99,7 +99,9 @@ async function instalarOndeOLoginEnxerga() {
     // e o `falsoResolve` vai pular os casos com o motivo escrito
     if (fs.existsSync(alvo)) return;
     try {
-      fs.writeFileSync(alvo, LANCADOR, { mode: 0o755 });
+      // `wx`: criação exclusiva, nunca sobrescrita. Os arquivos de teste rodam em paralelo, e
+      // dois falsos disputando o mesmo nome fariam um arquivo executar o falso do outro
+      fs.writeFileSync(alvo, LANCADOR, { mode: 0o755, flag: 'wx' });
       INSTALADOS.push(alvo);
       return;
     } catch { /* diretório do sistema sem permissão de escrita: tenta o próximo */ }
