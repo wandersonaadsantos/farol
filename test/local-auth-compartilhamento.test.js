@@ -66,3 +66,26 @@ test('o pedido de compartilhamento sobrevive ao disco: o Farol desliga o efeito,
   assert.equal(outro.config.sync.shared.enabled, false, 'no boot seguinte o efeito segue desligado');
   assert.equal(outro.syncBloqueioCompartilhamento, 'autenticacao-local', 'e o motivo continua visível');
 });
+
+// A tela edita a configuração que recebe e devolve o objeto INTEIRO de sync. Se ela
+// recebesse a config já zerada pela guarda, qualquer salvamento (renomear o aparelho, por
+// exemplo) mandaria `shared: false` de volta e apagaria o pedido, contornando a correção
+// acima. A tela recebe o PEDIDO; o engine segue aplicando o bloqueio.
+test('a tela recebe o pedido, e salvar pela tela não apaga a escolha nem liga o efeito', () => {
+  const arquivo = path.join(process.env.FAROL_HOME, 'config.json');
+  fs.writeFileSync(arquivo, JSON.stringify({ sync: ligado() }));
+  const e = new Engine();
+  e.pushState = () => { };
+  const vista = e.snapshot().config.sync;
+  assert.equal(vista.shared.enabled, true, 'a tela mostra o que foi pedido');
+  assert.equal(vista.distribution.enabled, true);
+  assert.equal(e.config.sync.shared.enabled, false, 'o efeito segue desligado');
+  // o que a tela faz ao renomear o aparelho: devolve o objeto que recebeu, com um campo mudado
+  e.updateSettings({ sync: { ...vista, deviceName: 'Celular de teste' } });
+  assert.equal(e.config.sync.shared.enabled, false, 'salvar não liga o efeito');
+  assert.equal(syncMod.statusForUi(e).bloqueioCompartilhamento, 'autenticacao-local');
+  const gravado = JSON.parse(fs.readFileSync(arquivo, 'utf8'));
+  assert.equal(gravado.sync.shared.enabled, true, 'o pedido continua no disco');
+  assert.equal(gravado.sync.deviceName, 'Celular de teste');
+  assert.equal(e.snapshot().capacidades.compartilhamento.aplicado, false);
+});

@@ -164,6 +164,8 @@ const CONGELADA = [
   "suggestDefault",
   "syncAparelhosHtml",
   "syncCfgComGeral",
+  "syncCfgSemCompartilhamento",
+  "syncChaveHtml",
   "syncClasseCartao",
   "syncConexaoHtml",
   "syncConfirmacaoDoClique",
