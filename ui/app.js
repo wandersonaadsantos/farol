@@ -1,7 +1,7 @@
 /* Farol · UI: consome o engine local via SSE + fetch. Sem frameworks. */
 
 import {
-  esc, safeJsonParse, canonicalGithubPrUrl, prKeyFromUrl, repoShort,
+  safeJsonParse, canonicalGithubPrUrl, prKeyFromUrl, repoShort,
   feedLine, selfSessionKey,
   sessionProgress, parseGoto,
   defaultFor,
@@ -15,21 +15,21 @@ import {
   ehMac, ehElectron, definirPlataforma,
 } from './telas/estado.js';
 import {
-  $, api, toast, confirmModal, showOp, updateOp, ACTIVE_OPS,
+  $, api, toast, showOp, updateOp, ACTIVE_OPS,
   syncAnalysisOps, copyToClipboard,
   sysFlash,
 } from './telas/infra.js';
 export { toast } from './telas/infra.js';
 import {
   rebuildAccounts,
-  scopeVisible, renderAccountBar, renderIdentity, renderSilenced,
+  renderAccountBar, renderIdentity, renderSilenced,
   fecharSilenciadas, alternarSilenciadas,
 } from './telas/contas.js';
 import { gotoDeliv } from './telas/entregas.js';
 import { loadHighlights, loadTeam } from './telas/time.js';
 import { renderTools } from './telas/ferramentas.js';
 import { ping, notifyNewPRs } from './telas/avisos.js';
-import { decide, initTweaks } from './telas/acoes.js';
+import { initTweaks } from './telas/acoes.js';
 import { revisarUrls, registrarTelaConsumo, renderUsage } from './telas/consumo.js';
 import { renderStatus, tickCountdown, updateStageFlow, updateSessionBar, renderActive } from './telas/sessoes.js';
 import { openChat, renderChat, chatKeyAtual } from './telas/chat.js';
@@ -41,7 +41,8 @@ import { loadReviewerCands, renderReviewersEditor, revCtx } from './telas/review
 import { renderUpdate } from './telas/sistema-atualizacao.js';
 import { switchSistemaSection, sysSearchFilter, sysGoTo, renderSettings } from './telas/sistema.js';
 import { initCaixaRevisao } from './telas/caixa-revisao.js';
-import { initAtalhos, kbdHelp } from './telas/atalhos.js';
+import { initAtalhos } from './telas/atalhos.js';
+import { initPaleta } from './telas/paleta.js';
 
 const isElectron = ehElectron();
 if (isElectron) document.body.classList.add('electron');
@@ -105,8 +106,6 @@ function rerenderScope() {
   if ($('#tab-time').classList.contains('active')) loadTeam();
 }
 initTweaks(rerenderScope);
-
-$('#btnCmdK').addEventListener('click', () => cmdOpen());
 
 /* trocar de conta na barra */
 $('#accountBar').addEventListener('click', (e) => {
@@ -311,122 +310,11 @@ function focusPr(url, tentativa = 0) {
   setTimeout(() => card.classList.remove('pulse-focus'), 2600);
 }
 
-// decide() (o caminho ÚNICO de POST de decisão, usado pelo card #decisions e por
-// esta paleta) mora em telas/acoes.js desde a Task 9: o card foi pra lá, e o achado
-// A5 (a paleta chamava um decide() que nunca existiu, ReferenceError engolido) é
-// exatamente o motivo de continuar sendo a MESMA função dos dois lados.
-// a paleta não tem o modal do card, então o REQUEST_CHANGES ganha a MESMA confirmação
-async function decideComConfirmacao(id, action, ref) {
-  if (action === 'request_changes') {
-    const ok = await confirmModal({
-      title: `Pedir mudanças em ${ref || 'este PR'}?`, danger: true, confirmLabel: 'Pedir mudanças', cancelLabel: 'Cancelar',
-      body: `<p>Isso <b>posta um REQUEST CHANGES no GitHub</b>, visível pra todo mundo do PR, com os pontos que a revisão levantou.</p>`
-    });
-    if (!ok) return { ok: false };
-  }
-  return decide(id, action);
-}
-/* ---------- paleta de comando (Ctrl+K / Cmd+K) ---------- */
-// Ir a qualquer lugar rápido: abas, seções do Radar, ou colar/digitar URL/key
-// de PR (org/repo#NN) pra abrir a conversa salva, sem precisar do mouse.
-/* Era `const`: o array era montado UMA vez, no load. As decisões pendentes mudam a cada
-   evento SSE, então nunca entravam na paleta. Como função, ela é remontada a cada
-   abertura. Em janela estreita a paleta deixa de ser atalho de gente avançada e vira a
-   rota principal pra tudo que não cabe na tira de abas. */
-function cmdStatic() { return [
-  // as decisões pendentes primeiro: são a única ação urgente e destrutiva do app
-  ...(estado()?.decisions?.pending || []).flatMap(d => {
-    const ref = d.key || '';
-    const acao = (rotulo, action) => ({
-      kind: 'decisão', label: `${rotulo} ${ref}`, hint: 'decisão',
-      run: () => decideComConfirmacao(d.id, action, ref)
-    });
-    return [acao('Aprovar', 'approve'), acao('Pedir mudanças em', 'request_changes')];
-  }),
-  // o lote respeita o ESCOPO: aprova só o que o filtro de conta mostra, nunca a
-  // fila inteira (agravante do achado A5, regra R13 do plano mestre)
-  ...(() => {
-    const visiveis = (estado()?.decisions?.pending || []).filter(scopeVisible);
-    return visiveis.length > 1
-      ? [{ kind: 'lote', label: `Aprovar as ${visiveis.length} pendentes`, hint: 'lote',
-          run: async () => { for (const d of visiveis) await decide(d.id, 'approve'); } }]
-      : [];
-  })(),
-  ...[...document.querySelectorAll('.nav-item')].filter(b => !b.hidden).map(b => ({ kind: 'tab', label: `Ir para ${b.textContent}`, hint: 'aba', run: () => switchTab(b.dataset.tab) })),
-  // as 9 seções do Sistema, lidas do DOM: seção nova entra aqui sozinha.
-  // .trim() porque o botão tem um <svg aria-hidden="true"> antes do texto e sobra espaço em branco.
-  ...[...document.querySelectorAll('.sys-nav-item')].map(b => ({
-    kind: 'section', label: `Sistema: ${b.textContent.trim()}`, hint: 'sistema',
-    run: () => { switchTab('sistema'); switchSistemaSection(b.dataset.section); }
-  })),
-  { kind: 'section', label: 'Ir para Precisa de você', hint: 'seção', run: () => { switchTab('radar'); document.getElementById('decisionsWrap')?.scrollIntoView({ behavior: 'smooth' }); } },
-  { kind: 'section', label: 'Ir para Sua fila', hint: 'seção', run: () => { switchTab('radar'); document.getElementById('queueSection')?.scrollIntoView({ behavior: 'smooth' }); } },
-  { kind: 'section', label: 'Ir para Meus PRs', hint: 'seção', run: () => { switchTab('radar'); document.getElementById('myPRsWrap')?.scrollIntoView({ behavior: 'smooth' }); } },
-  { kind: 'section', label: 'Ir para Panorama', hint: 'seção', run: () => { switchTab('radar'); document.getElementById('panoramaSection')?.scrollIntoView({ behavior: 'smooth' }); } },
-  { kind: 'action', label: 'Verificar agora', hint: 'ação', run: () => $('#btnCheck').click() },
-  { kind: 'action', label: 'Alternar tema', hint: 'ação', run: () => $('#btnTheme').click() },
-  { kind: 'action', label: 'Atalhos de teclado', hint: '?', run: () => kbdHelp() },
-]; }
-let cmdOverlay = null;
-function cmdClose() {
-  if (!cmdOverlay) return;
-  cmdOverlay.remove(); cmdOverlay = null;
-  document.removeEventListener('keydown', cmdOnKey, true);
-}
-function cmdOnKey(e) {
-  if (!cmdOverlay) return;
-  const list = [...cmdOverlay.querySelectorAll('.cmd-item')];
-  const cur = cmdOverlay.querySelector('.cmd-item.sel');
-  let i = cur ? list.indexOf(cur) : -1;
-  if (e.key === 'Escape') { cmdClose(); e.preventDefault(); }
-  else if (e.key === 'ArrowDown') { i = Math.min(list.length - 1, i + 1); cmdMark(list, i); e.preventDefault(); }
-  else if (e.key === 'ArrowUp') { i = Math.max(0, i - 1); cmdMark(list, i); e.preventDefault(); }
-  else if (e.key === 'Enter') { e.preventDefault(); (cur || list[0])?.click(); }
-}
-function cmdMark(list, i) {
-  list.forEach(el => el.classList.remove('sel'));
-  if (list[i]) { list[i].classList.add('sel'); list[i].scrollIntoView({ block: 'nearest' }); }
-}
-function cmdOpen() {
-  if (cmdOverlay) { cmdClose(); return; }
-  const ov = document.createElement('div');
-  ov.className = 'modal-overlay cmd-overlay';
-  ov.innerHTML = `<div class="cmd-box">
-    <input id="cmdInput" class="cmd-input" type="text" spellcheck="false" placeholder="Ir para… ou cole a URL/key de um PR (org/repo#NN)">
-    <div id="cmdList" class="cmd-list"></div>
-  </div>`;
-  document.body.appendChild(ov);
-  cmdOverlay = ov;
-  const input = ov.querySelector('#cmdInput');
-  const list = ov.querySelector('#cmdList');
-  const renderList = () => {
-    const q = input.value.trim();
-    const prMatch = q.match(/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)/i) || q.match(/^([\w.-]+\/[\w.-]+)#(\d+)$/);
-    const items = [];
-    if (prMatch) {
-      const key = `${prMatch[1]}#${prMatch[2]}`;
-      const url = q.startsWith('http') ? q : `https://github.com/${prMatch[1]}/pull/${prMatch[2]}`;
-      items.push({ label: `Abrir a conversa de ${key}`, hint: 'PR', run: () => openChat(key, url) });
-    }
-    const ql = q.toLowerCase();
-    items.push(...cmdStatic().filter(c => !ql || c.label.toLowerCase().includes(ql)));
-    list.innerHTML = items.map((c, idx) => `<div class="cmd-item${idx === 0 ? ' sel' : ''}" data-idx="${idx}"><span>${esc(c.label)}</span><span class="cmd-hint">${esc(c.hint)}</span></div>`).join('')
-      || '<div class="cmd-empty">Nada encontrado. Cole a URL de um PR pra abrir a conversa.</div>';
-    [...list.querySelectorAll('.cmd-item')].forEach((el, idx) => {
-      // fecha ANTES de rodar: um run() que lança não pode travar a paleta aberta,
-      // e a rejeição vira toast em vez de sumir no console
-      el.onclick = () => { cmdClose(); Promise.resolve().then(() => items[idx].run()).catch(err => toast('error', (err && err.message) || 'a ação falhou')); };
-    });
-  };
-  input.addEventListener('input', renderList);
-  ov.addEventListener('click', (e) => { if (e.target === ov) cmdClose(); });
-  document.addEventListener('keydown', cmdOnKey, true);
-  renderList();
-  setTimeout(() => input.focus(), 20);
-}
-document.addEventListener('keydown', (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); cmdOpen(); }
-});
+/* Paleta de comando (Ctrl+K / Cmd+K): mora em telas/paleta.js. Chamada aqui, no
+   mesmo ponto relativo em que a ligação do #btnCmdK e o listener de Ctrl+K
+   moravam, pra não mudar a ordem dos handlers de keydown do document (o Ctrl+K
+   registra ANTES do listener de atalhos, logo abaixo). */
+initPaleta(switchTab);
 
 /* Atalhos de teclado do Radar: mora em telas/atalhos.js. Chamada aqui, no mesmo
    ponto relativo em que o listener morava, pra não mudar a ordem dos handlers de
