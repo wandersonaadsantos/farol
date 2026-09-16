@@ -201,8 +201,6 @@ export function syncConexaoHtml(sync, cfg, rascunho) {
       <button class="btn sm" id="syncTest">Testar conexão</button>
       <span class="sync-teste" id="syncTestOut"></span>
       ${syncEnvioHtml(s)}
-      <span class="sync-espaco"></span>
-      <button class="btn sm danger-ghost" id="syncErase">Apagar dados sincronizados</button>
     </div>
   </div>`;
 }

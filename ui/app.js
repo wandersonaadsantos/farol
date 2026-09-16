@@ -1421,21 +1421,6 @@ async function syncSair() {
   renderSync();
 }
 
-async function syncApagarRemoto() {
-  const ok = await confirmModal({
-    danger: true,
-    title: 'Apagar dados sincronizados?',
-    confirmLabel: 'Apagar do Firebase',
-    body: `<p>Apaga do seu Firebase os aparelhos, as coordenações e o consumo enviado por <b>todos</b> os aparelhos.</p>
-      <p><b>Análise em curso em outro aparelho é interrompida.</b> A coordenação dela sai junto, e aquele aparelho descarta o resultado sem postar quando perceber.</p>
-      <p>Nenhum arquivo local é tocado: o histórico de cada aparelho continua nele. A sincronização segue ligada e o consumo deste aparelho é reenviado do zero.</p>`,
-  });
-  if (!ok) return;
-  const r = await api('/api/sync/erase-remote', {});
-  if (r && r.ok) toast('ok', '✓ Dados sincronizados apagados do Firebase', 4000);
-  else toast('error', `Não deu pra apagar: ${(r && r.motivo) || 'o servidor não respondeu'}`, 7000);
-  renderSync();
-}
 
 /* "Refazer neste aparelho" APAGA a prova de que uma análise foi feita, então ele
    confirma sempre, nomeando o aparelho e o custo. O engine ainda recusa por conta
@@ -1465,7 +1450,6 @@ $('#syncManager').addEventListener('click', (e) => {
   else if (b.id === 'syncSenhaOlho') syncAlternarSenha();
   else if (b.id === 'syncLogout') syncSair();
   else if (b.id === 'syncTest') syncTestar();
-  else if (b.id === 'syncErase') syncApagarRemoto();
 });
 
 $('#syncManager').addEventListener('change', (e) => {
