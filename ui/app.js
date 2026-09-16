@@ -21,6 +21,7 @@ import {
   filaJustaHtml, syncSecaoHtml, syncConfirmacoesDoClique, usageConsolidadoEnvelopeHtml, syncCfgComGeral
 } from './pure.js';
 import { registrarTela, telasRegistradas, telaPorId } from './telas/registro.js';
+import { estado, escopo, abaAtual, definirEstado, definirEscopo, definirAba } from './telas/estado.js';
 
 const $ = (s) => document.querySelector(s);
 const isElectron = navigator.userAgent.includes('Electron');
@@ -50,7 +51,6 @@ function aplicaPlataforma(p) {
 }
 aplicaPlataforma();
 
-let STATE = null;
 let logTimer = null;
 
 /* ---------- helpers ---------- */
@@ -221,7 +221,7 @@ const TEXTO_DA_LISTA_VAZIA = {
 function textoDaListaVazia(vs) {
   const f = TEXTO_DA_LISTA_VAZIA[vs];
   if (f) return f();
-  return `Nenhum PR aberto ${SCOPE === 'all' ? 'nas organizações monitoradas' : 'nesta conta'}.`;
+  return `Nenhum PR aberto ${escopo() === 'all' ? 'nas organizações monitoradas' : 'nesta conta'}.`;
 }
 
 // a ordem é de precedência: rodando agora vence a fila, que vence "já analisei antes"
@@ -339,7 +339,7 @@ function syncAnalysisOps() {
       if (card) card.appendChild(op.element);
     }
   }
-  const plan = analysisOpsPlan(ops.map(o => ({ id: o.id, key: o.key, seen: !!o.seen })), STATE || {});
+  const plan = analysisOpsPlan(ops.map(o => ({ id: o.id, key: o.key, seen: !!o.seen })), estado() || {});
   for (const id of plan.markSeen) { const op = ACTIVE_OPS.get(id); if (op) op.seen = true; }
   for (const id of plan.close) {
     const op = ACTIVE_OPS.get(id);
@@ -350,14 +350,13 @@ function syncAnalysisOps() {
 }
 
 /* ---------- camada de contas (separação por identidade) ---------- */
-let SCOPE = localStorage.getItem('farol-scope') || 'all';   // 'all' ou o login de uma conta
+definirEscopo(localStorage.getItem('farol-scope') || 'all');   // 'all' ou o login de uma conta
 let silencedOpen = false;
-let CURRENT_TAB = 'radar';   // a barra de contas só filtra o Radar; nas outras abas fica escondida
 // espelha a aba no <body> pro CSS ajustar a largura útil (a aba Sistema tem sidebar e
 // precisa de mais). switchTab não roda no boot, então a aba inicial é marcada aqui.
-document.body.dataset.tab = CURRENT_TAB;
-function teamHighlightsEnabled() { return STATE?.config?.teamHighlights === true; }
-function deliveriesEnabled() { return STATE?.config?.deliveriesEnabled === true; }
+document.body.dataset.tab = abaAtual();
+function teamHighlightsEnabled() { return estado()?.config?.teamHighlights === true; }
+function deliveriesEnabled() { return estado()?.config?.deliveriesEnabled === true; }
 function syncOptionalTabsVisibility() {
   const features = [
     { tab: 'destaques', enabled: teamHighlightsEnabled() },
@@ -366,7 +365,7 @@ function syncOptionalTabsVisibility() {
   for (const feature of features) {
     $(`#tabbtn-${feature.tab}`).hidden = !feature.enabled;
     $(`#tab-${feature.tab}`).hidden = !feature.enabled;
-    if (!feature.enabled && CURRENT_TAB === feature.tab) switchTab('radar');
+    if (!feature.enabled && abaAtual() === feature.tab) switchTab('radar');
   }
 }
 function identGuardada() {
@@ -384,7 +383,7 @@ let ACCT = {};        // user(lower) -> metadados da conta
 let OWNER2USER = {};  // owner/org(lower) -> user dono
 function rebuildAccounts() {
   ACCT = {}; OWNER2USER = {};
-  const list = (STATE && STATE.accounts) || [];
+  const list = (estado() && estado().accounts) || [];
   list.forEach((a, i) => {
     const color = a.color || '#ffb454';
     ACCT[String(a.user).toLowerCase()] = {
@@ -398,11 +397,11 @@ function rebuildAccounts() {
   // aqui, que roda a cada snapshot. So valida com a lista PRESENTE: o snapshot de
   // boot pode vir sem contas e nao pode resetar um escopo valido (B15).
   if (list.length) {
-    const v = validScope(SCOPE, list.map(a => a.user));
-    if (v !== SCOPE) { SCOPE = v; localStorage.setItem('farol-scope', SCOPE); }
+    const v = validScope(escopo(), list.map(a => a.user));
+    if (v !== escopo()) { definirEscopo(v); localStorage.setItem('farol-scope', escopo()); }
   }
 }
-function multiAccount() { return ((STATE && STATE.accounts) || []).length > 1; }
+function multiAccount() { return ((estado() && estado().accounts) || []).length > 1; }
 function prUser(pr) {
   if (pr && pr.account) return pr.account;
   const repo = (pr && (pr.repo || (pr.key || '').split('#')[0])) || '';
@@ -413,15 +412,15 @@ function acctOf(pr) { return ACCT[String(prUser(pr)).toLowerCase()] || null; }
 function isMutedPr(pr) { const a = acctOf(pr); return !!(a && a.muted); }
 // item visível no escopo atual (respeitando o tratamento de silenciadas)
 function scopeVisible(pr) {
-  if (SCOPE === 'all') { if (isMutedPr(pr)) return TWEAK.muted === 'Esmaecer'; return true; }
-  return String(prUser(pr)).toLowerCase() === String(SCOPE).toLowerCase();
+  if (escopo() === 'all') { if (isMutedPr(pr)) return TWEAK.muted === 'Esmaecer'; return true; }
+  return String(prUser(pr)).toLowerCase() === String(escopo()).toLowerCase();
 }
-function dimmedPr(pr) { return SCOPE === 'all' && isMutedPr(pr) && TWEAK.muted === 'Esmaecer'; }
+function dimmedPr(pr) { return escopo() === 'all' && isMutedPr(pr) && TWEAK.muted === 'Esmaecer'; }
 // marcador de conta pra um card: estilo (var --ac + barra + esmaecido), chip e ponto
 function acctMark(pr, opts) {
   opts = opts || {};
   const a = acctOf(pr);
-  const all = SCOPE === 'all';
+  const all = escopo() === 'all';
   const multi = multiAccount();
   // A BARRA ESQUERDA NÃO É MAIS A COR DA CONTA. Ela passou a significar URGÊNCIA, e quem
   // a pinta é quem sabe o estado: a fila (âmbar), as decisões (âmbar, ou vermelho quando
@@ -440,9 +439,9 @@ function acctMark(pr, opts) {
 function acctUserFromUrl(url) { return OWNER2USER[ownerFromUrl(url).toLowerCase()] || ''; }
 // entrada de memória sem conta (dados antigos) só aparece na visão Todas (grupo "Geral")
 function scopeMemVisible(user) {
-  if (!user) return SCOPE === 'all';
-  if (SCOPE === 'all') { const a = ACCT[user.toLowerCase()]; if (a && a.muted) return TWEAK.muted === 'Esmaecer'; return true; }
-  return String(user).toLowerCase() === String(SCOPE).toLowerCase();
+  if (!user) return escopo() === 'all';
+  if (escopo() === 'all') { const a = ACCT[user.toLowerCase()]; if (a && a.muted) return TWEAK.muted === 'Esmaecer'; return true; }
+  return String(user).toLowerCase() === String(escopo()).toLowerCase();
 }
 function acctStyleFor(user) { const a = ACCT[String(user || '').toLowerCase()]; return a ? `--ac:${a.color};--ac-soft:${a.soft};` : '--ac:var(--muted);'; }
 function memGroupHead(user) {
@@ -456,29 +455,29 @@ function memGroupHead(user) {
 // PRs que pedem sua atenção numa conta (fila + decisões pendentes)
 function attentionCount(user) {
   const u = String(user).toLowerCase();
-  const q = (STATE.queue || []).filter(p => String(prUser(p)).toLowerCase() === u).length;
-  const d = (STATE.decisions?.pending || []).filter(p => String(prUser(p)).toLowerCase() === u).length;
+  const q = (estado().queue || []).filter(p => String(prUser(p)).toLowerCase() === u).length;
+  const d = (estado().decisions?.pending || []).filter(p => String(prUser(p)).toLowerCase() === u).length;
   return q + d;
 }
 
 /* ---------- render: barra de contas ---------- */
 function renderAccountBar() {
   const bar = $('#accountBar');
-  const accounts = (STATE.accounts || []);
+  const accounts = (estado().accounts || []);
   // a allowlist de abas mora no pure.js (accountBarVisible): so Radar, Destaques
-  // e Time respeitam SCOPE; Entregas filtra por org propria e Sistema/Consumo
+  // e Time respeitam escopo(); Entregas filtra por org propria e Sistema/Consumo
   // sao visoes do Farol como app, nao de uma conta.
-  if (!accountBarVisible(accounts.length, CURRENT_TAB)) { bar.hidden = true; bar.innerHTML = ''; return; }
+  if (!accountBarVisible(accounts.length, abaAtual())) { bar.hidden = true; bar.innerHTML = ''; return; }
   bar.hidden = false;
-  const all = SCOPE === 'all';
+  const all = escopo() === 'all';
   // o contador (PRs precisando de você) é conceito do Radar; nas outras abas some
-  const showCounts = CURRENT_TAB === 'radar';
+  const showCounts = abaAtual() === 'radar';
   const totalAtt = accounts.filter(a => !a.muted).reduce((n, a) => n + attentionCount(a.user), 0);
   const segAll = `<button class="acct-seg ${all ? 'active' : ''}" data-scope="all" title="Ver todas as contas"
       style="${all ? '--seg-bg:var(--surface-2);--seg-fg:var(--text);--seg-badge-bg:var(--accent-soft);--seg-badge-fg:var(--accent);' : ''}">Todas${showCounts && totalAtt ? `<span class="seg-count">${totalAtt}</span>` : ''}</button>`;
   const segs = accounts.map(a => {
     const meta = ACCT[a.user.toLowerCase()] || {};
-    const active = String(SCOPE).toLowerCase() === a.user.toLowerCase();
+    const active = String(escopo()).toLowerCase() === a.user.toLowerCase();
     const att = a.muted ? 0 : attentionCount(a.user);
     const style = `--ac:${meta.color};` + (active ? `--seg-bg:${meta.soft};--seg-fg:${meta.color};--seg-badge-bg:${meta.color};--seg-badge-fg:${meta.ink};` : '');
     return `<button class="acct-seg ${active ? 'active' : ''} ${a.muted ? 'muted' : ''}" data-scope="${esc(a.user)}"
@@ -491,10 +490,10 @@ function renderAccountBar() {
 /* ---------- render: faixa de identidade ---------- */
 function renderIdentity() {
   const strip = $('#identityStrip');
-  const accounts = (STATE.accounts || []);
+  const accounts = (estado().accounts || []);
   if (accounts.length < 2) { strip.hidden = true; strip.removeAttribute('style'); return; }
   strip.hidden = false;
-  if (SCOPE === 'all') {
+  if (escopo() === 'all') {
     const mon = accounts.filter(a => !a.muted);
     const jobs = mon.filter(a => /trab/i.test(a.kind || '')).length;
     const pers = mon.filter(a => /pessoal/i.test(a.kind || '')).length;
@@ -507,7 +506,7 @@ function renderIdentity() {
     strip.removeAttribute('style');
     strip.innerHTML = `<div class="id-body"><span class="id-summary">${esc(parts.join(' · '))}</span></div>`;
   } else {
-    const a = accounts.find(x => x.user.toLowerCase() === String(SCOPE).toLowerCase());
+    const a = accounts.find(x => x.user.toLowerCase() === String(escopo()).toLowerCase());
     if (!a) { strip.hidden = true; return; }
     const meta = ACCT[a.user.toLowerCase()] || {};
     strip.className = 'identity-strip one';
@@ -521,10 +520,10 @@ function renderIdentity() {
 /* ---------- render: contas silenciadas (resumo recolhido) ---------- */
 function renderSilenced() {
   const box = $('#silenced');
-  const accounts = (STATE.accounts || []);
+  const accounts = (estado().accounts || []);
   const mutedAccts = accounts.filter(a => a.muted);
-  const items = (STATE.panorama || []).filter(pr => isMutedPr(pr));
-  const show = SCOPE === 'all' && TWEAK.muted === 'Recolher' && mutedAccts.length > 0 && items.length > 0;
+  const items = (estado().panorama || []).filter(pr => isMutedPr(pr));
+  const show = escopo() === 'all' && TWEAK.muted === 'Recolher' && mutedAccts.length > 0 && items.length > 0;
   if (!show) { box.hidden = true; box.innerHTML = ''; return; }
   box.hidden = false;
   const names = mutedAccts.map(a => (ACCT[a.user.toLowerCase()] || {}).label || a.user).join(', ');
@@ -545,27 +544,27 @@ function renderSilenced() {
 
 /* ---------- gerenciador/editor de contas (Sistema) ---------- */
 function editAccount(user, patch) {
-  const list = (STATE.accounts || []).map(a => a.user === user ? { ...a, ...patch } : a);
-  STATE.accounts = list; rebuildAccounts();
+  const list = (estado().accounts || []).map(a => a.user === user ? { ...a, ...patch } : a);
+  estado().accounts = list; rebuildAccounts();
   renderAccountsManager(); renderAccountBar(); renderIdentity();
   api('/api/settings', { accounts: accountSaveArray(list) });
 }
 function removeAccount(user) {
-  const list = (STATE.accounts || []).filter(a => a.user !== user);
-  STATE.accounts = list; rebuildAccounts();
+  const list = (estado().accounts || []).filter(a => a.user !== user);
+  estado().accounts = list; rebuildAccounts();
   renderAccountsManager(); renderAccountBar(); renderIdentity();
   api('/api/settings', { accounts: accountSaveArray(list) });
 }
 function addAccount(user, owners, label) {
-  const list = [...(STATE.accounts || []), { user, owners, label: label || user, color: '', kind: '', muted: false, tokenOk: false, primary: false }];
-  STATE.accounts = list; rebuildAccounts();
+  const list = [...(estado().accounts || []), { user, owners, label: label || user, color: '', kind: '', muted: false, tokenOk: false, primary: false }];
+  estado().accounts = list; rebuildAccounts();
   renderAccountsManager(); renderAccountBar();
   api('/api/settings', { accounts: accountSaveArray(list) });
 }
 function renderAccountsManager() {
   const box = $('#accountsManager'); if (!box) return;
   if (document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
-  box.innerHTML = accountsManagerHtml({ accounts: STATE.accounts, config: STATE.config, acct: ACCT, doctor: STATE.doctor, usage: STATE.usage });
+  box.innerHTML = accountsManagerHtml({ accounts: estado().accounts, config: estado().config, acct: ACCT, doctor: estado().doctor, usage: estado().usage });
 }
 
 // Gerenciador de perfis de assinatura Claude (Sistema): cada perfil é {id,label,dir}
@@ -577,12 +576,12 @@ function genProfileId() {
 }
 
 function saveClaudeProfiles(profiles, defaultId) {
-  STATE.config.claudeProfiles = profiles;
+  estado().config.claudeProfiles = profiles;
   const patch = { claudeProfiles: profiles };
   // defaultId opcional: usado pela migração (btnClaudeMigrate), que precisa setar o
   // perfil recém-criado como o padrão global no MESMO patch (senão o perfil migrado
   // fica sem dono, ver achado da revisão final sobre legado invisível).
-  if (defaultId !== undefined) { STATE.config.claudeProfileId = defaultId; patch.claudeProfileId = defaultId; }
+  if (defaultId !== undefined) { estado().config.claudeProfileId = defaultId; patch.claudeProfileId = defaultId; }
   api('/api/settings', patch).then(r => {
     if (r?.ok) toast('ok', '✓ Configurações salvas', 2000);
     else toast('error', 'Erro ao salvar configurações');
@@ -593,14 +592,14 @@ function renderClaudeProfiles() {
   const box = $('#claudeProfilesManager'); if (!box) return;
   // guarda de foco: não reconstrói enquanto você digita num campo deste bloco
   if (document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
-  box.innerHTML = claudeProfilesHtml({ config: STATE.config, usage: STATE.usage, doctor: STATE.doctor, ehWin: ehWin() });
+  box.innerHTML = claudeProfilesHtml({ config: estado().config, usage: estado().usage, doctor: estado().doctor, ehWin: ehWin() });
   // efeito de DOM, não de markup: o listener do seletor mostra de volta no modo Chave de API
   const hint = $('#cpAddHint'); if (hint) hint.hidden = true;
 }
 
 // re-render das seções sensíveis ao escopo (sem esperar novo state do engine)
 function rerenderScope() {
-  if (!STATE) return;
+  if (!estado()) return;
   renderAccountBar(); renderIdentity();
   renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSilenced();
   renderRadarNav();
@@ -610,7 +609,7 @@ function rerenderScope() {
 
 // mini-navegação do Radar: só lista seções visíveis (hidden=false), com contagem
 // quando o número ajuda a decidir pra onde ir. Espelha o estado real do DOM em
-// vez do STATE cru, então some/aparece junto com a própria seção.
+// vez do estado cru, então some/aparece junto com a própria seção.
 /* Sub-abas do Radar: uma tela, um propósito. Substituem a antiga faixa de âncoras
    (.radar-nav), que em janela estreita rolava horizontalmente e escondia metade dos
    destinos sem avisar que existiam. */
@@ -671,8 +670,8 @@ $('#radarSubs').addEventListener('click', (e) => {
 $('#accountBar').addEventListener('click', (e) => {
   const seg = e.target.closest('.acct-seg');
   if (!seg) return;
-  SCOPE = seg.dataset.scope;
-  localStorage.setItem('farol-scope', SCOPE);
+  definirEscopo(seg.dataset.scope);
+  localStorage.setItem('farol-scope', escopo());
   silencedOpen = false;
   rerenderScope();
 });
@@ -692,7 +691,7 @@ document.addEventListener('change', (e) => {
   if (!isPapel && !isDom) return;
   const login = String(t.dataset.login || '').toLowerCase();
   if (!login) return;
-  const people = { ...((STATE.config && STATE.config.people) || {}) };
+  const people = { ...((estado().config && estado().config.people) || {}) };
   const person = { ...(people[login] || {}) };
   if (isPapel) {
     if (t.value) person.papel = t.value; else delete person.papel;
@@ -702,7 +701,7 @@ document.addEventListener('change', (e) => {
     if (Object.keys(dom).length) person.dominios = dom; else delete person.dominios;
   }
   if (person.papel || person.dominios) people[login] = person; else delete people[login];
-  if (STATE.config) STATE.config.people = people;   // otimista, pra o select não piscar
+  if (estado().config) estado().config.people = people;   // otimista, pra o select não piscar
   api('/api/settings', { people });
 });
 /* registrar pushback nas linhas de Revisões recentes (desfecho + nota) */
@@ -748,17 +747,17 @@ $('#accountsManager').addEventListener('click', (e) => {
   const mute = e.target.closest('.act-mute');
   if (mute) {
     const user = mute.dataset.user;
-    const a = (STATE.accounts || []).find(x => x.user === user);
+    const a = (estado().accounts || []).find(x => x.user === user);
     const willMute = !(a && a.muted);
-    if (willMute && String(SCOPE).toLowerCase() === user.toLowerCase()) { SCOPE = 'all'; localStorage.setItem('farol-scope', 'all'); }
+    if (willMute && String(escopo()).toLowerCase() === user.toLowerCase()) { definirEscopo('all'); localStorage.setItem('farol-scope', 'all'); }
     editAccount(user, { muted: willMute });
     return;
   }
   const rem = e.target.closest('.acct-remove');
   if (rem) {
     const user = rem.dataset.user;
-    if ((STATE.accounts || []).length <= 1) { toast('error', 'Precisa de ao menos uma conta configurada.'); return; }
-    const a = (STATE.accounts || []).find(x => x.user === user) || {};
+    if ((estado().accounts || []).length <= 1) { toast('error', 'Precisa de ao menos uma conta configurada.'); return; }
+    const a = (estado().accounts || []).find(x => x.user === user) || {};
     const orgs = (a.owners || []).length ? ` (orgs: ${esc(a.owners.join(', '))})` : '';
     confirmModal({
       title: `Remover a conta @${user} do Farol?`,
@@ -774,7 +773,7 @@ $('#accountsManager').addEventListener('click', (e) => {
         <p>Dá pra <b>adicionar de volta</b> a qualquer momento (o rótulo, a cor e o tipo você reconfigura).</p>`
     }).then(ok => {
       if (!ok) return;
-      if (String(SCOPE).toLowerCase() === user.toLowerCase()) { SCOPE = 'all'; localStorage.setItem('farol-scope', 'all'); }
+      if (String(escopo()).toLowerCase() === user.toLowerCase()) { definirEscopo('all'); localStorage.setItem('farol-scope', 'all'); }
       removeAccount(user);
       toast('info', `Conta @${user} removida do Farol.`, 3000);
     });
@@ -785,7 +784,7 @@ $('#accountsManager').addEventListener('click', (e) => {
     const owners = ($('#acctAddOwners').value || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
     const label = ($('#acctAddLabel').value || '').trim();
     if (!u) { toast('error', 'Informe o login da conta.'); return; }
-    if ((STATE.accounts || []).some(a => a.user.toLowerCase() === u.toLowerCase())) { toast('error', 'Essa conta já está na lista.'); return; }
+    if ((estado().accounts || []).some(a => a.user.toLowerCase() === u.toLowerCase())) { toast('error', 'Essa conta já está na lista.'); return; }
     addAccount(u, owners, label);
     toast('ok', `Conta @${u} adicionada. Se ainda não estiver logada, rode gh auth login.`, 5000);
     return;
@@ -903,7 +902,7 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
     const isCodex = kindBtn && kindBtn.dataset.kind === 'codex';
     if (isCodex) {
       if (!label) return toast('error', 'Preencha o nome do perfil.', 3000);
-      const profiles = [...(STATE.config.claudeProfiles || []), { id: genProfileId(), label, kind: 'codex' }];
+      const profiles = [...(estado().config.claudeProfiles || []), { id: genProfileId(), label, kind: 'codex' }];
       $('#cpAddLabel').value = '';
       saveClaudeProfiles(profiles);
       return;
@@ -916,7 +915,7 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
         return toast('error', 'Chave ou URL base com aspas ou quebra de linha no meio (não em volta) não pode ser usada.', 4500);
       }
       const kind = isOpenRouter ? 'openrouter' : 'apikey';
-      const profiles = [...(STATE.config.claudeProfiles || []), { id: genProfileId(), label, kind, apiKey, baseUrl }];
+      const profiles = [...(estado().config.claudeProfiles || []), { id: genProfileId(), label, kind, apiKey, baseUrl }];
       $('#cpAddLabel').value = ''; $('#cpAddApiKey').value = ''; $('#cpAddBaseUrl').value = '';
       saveClaudeProfiles(profiles);
       return;
@@ -926,30 +925,30 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
     if (/["\r\n]/.test(dir.replace(/^"(.*)"$/s, '$1').trim())) {
       return toast('error', 'Esse caminho tem aspas ou quebra de linha no meio (não em volta), não pode ser usado. Confira se colou o caminho certo.', 4500);
     }
-    const profiles = [...(STATE.config.claudeProfiles || []), { id: genProfileId(), label, dir }];
+    const profiles = [...(estado().config.claudeProfiles || []), { id: genProfileId(), label, dir }];
     $('#cpAddLabel').value = ''; $('#cpAddDir').value = '';
     saveClaudeProfiles(profiles);
     return;
   }
   if (t.classList.contains('cp-remove')) {
     const id = t.dataset.id;
-    const profiles = (STATE.config.claudeProfiles || []).filter(p => p.id !== id);
+    const profiles = (estado().config.claudeProfiles || []).filter(p => p.id !== id);
     // combina TUDO num único PATCH (claudeProfiles + claudeProfileId + accounts), em vez de
     // N requests separados: com 2+ contas referenciando o perfil removido, PATCHes
     // concorrentes e fire-and-forget não garantiam ordem de chegada no servidor, e o último
     // a processar sobrescrevia o array accounts inteiro, podendo restaurar a referência
     // órfã que os PATCHes anteriores já tinham limpado (achado de auditoria adversarial).
     const patch = { claudeProfiles: profiles };
-    STATE.config.claudeProfiles = profiles;
-    if (STATE.config.claudeProfileId === id) {
-      STATE.config.claudeProfileId = '';
+    estado().config.claudeProfiles = profiles;
+    if (estado().config.claudeProfileId === id) {
+      estado().config.claudeProfileId = '';
       patch.claudeProfileId = '';
     }
-    const accounts = (STATE.accounts || []);
+    const accounts = (estado().accounts || []);
     const affected = accounts.some(a => a.claudeProfileId === id);
     if (affected) {
       const updated = accounts.map(a => a.claudeProfileId === id ? { ...a, claudeProfileId: undefined } : a);
-      STATE.accounts = updated; rebuildAccounts();
+      estado().accounts = updated; rebuildAccounts();
       patch.accounts = accountSaveArray(updated);
     }
     renderClaudeProfiles(); renderAccountsManager();
@@ -965,7 +964,7 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
   if (t.id === 'btnClaudeMigrate') {
     const label = ($('#claudeMigrateLabel').value || '').trim() || 'Perfil atual';
     const newId = genProfileId();
-    const profiles = [{ id: newId, label, dir: STATE.config.claudeConfigDir }];
+    const profiles = [{ id: newId, label, dir: estado().config.claudeConfigDir }];
     // o perfil migrado precisa virar o padrão global na hora: senão ele fica "novo" mas
     // sem dono, e o legado (claudeConfigDir) continua vencendo por baixo dos panos, sem
     // jeito de editar ou desativar (achado da revisão final).
@@ -977,13 +976,13 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
 // PATCH /api/settings espera (claudeProfiles é substituído por completo). Existe
 // pra os handlers de orçamento não repetirem o mesmo .map cinco vezes.
 function mapProfile(id, fn) {
-  return (STATE.config.claudeProfiles || []).map(p => (p.id === id ? fn(p) : p));
+  return (estado().config.claudeProfiles || []).map(p => (p.id === id ? fn(p) : p));
 }
 
 $('#claudeProfilesManager').addEventListener('change', (e) => {
   const t = e.target;
   if (t.id === 'claudeProfileDefault') {
-    STATE.config.claudeProfileId = t.value;
+    estado().config.claudeProfileId = t.value;
     const patch = api('/api/settings', { claudeProfileId: t.value });
     // tira o foco do select: renderClaudeProfiles() tem uma guarda que pula o re-render
     // enquanto INPUT/SELECT do gerenciador estiver focado (pra não atrapalhar quem está
@@ -1006,7 +1005,7 @@ $('#claudeProfilesManager').addEventListener('change', (e) => {
       toast('error', 'Esse valor tem aspas ou quebra de linha no meio, não pode ser usado.', 4500);
       return;
     }
-    const profiles = (STATE.config.claudeProfiles || []).map(p => {
+    const profiles = (estado().config.claudeProfiles || []).map(p => {
       if (p.id !== id) return p;
       const next = { ...p };
       if (t.classList.contains('cp-label')) next.label = t.value.trim() || p.label;
@@ -1032,13 +1031,13 @@ $('#claudeProfilesManager').addEventListener('change', (e) => {
 });
 
 /* ---------- sites do Jira e credencial (Sistema > Conexões) ----------
-   Espelha o gerenciador de perfis do Claude logo acima: STATE.jiraSites (a lista
+   Espelha o gerenciador de perfis do Claude logo acima: estado().jiraSites (a lista
    MASCARADA que o snapshot manda, com hasCredential) é a fonte de leitura E de
    edição; salvar manda ela de volta em PATCH /api/settings, e o servidor descarta
    o campo hasCredential ao sanear (parseJiraSites só lê os campos que conhece).
    O id nasce aqui com genProfileId(), nunca digitado: mantém o formato que a
    allowlist do servidor exige e evita a tela oferecer um campo de id livre.
-   A credencial (e-mail e token) NUNCA entra em STATE: os dois campos são lidos
+   A credencial (e-mail e token) NUNCA entra em estado: os dois campos são lidos
    direto do DOM na hora do clique e a chamada zera o formulário depois. */
 const jiraLista = (v) => String(v || '').split(',').map(x => x.trim()).filter(Boolean);
 /* Recusa ANTES de mandar: o servidor não corrige nem devolve erro por campo (ver
@@ -1054,7 +1053,7 @@ function jiraCampoSalvo(site, t) {
   return (site.projectKeys || []).join(', ');
 }
 function saveJiraSites(sites) {
-  STATE.jiraSites = sites;
+  estado().jiraSites = sites;
   renderJiraSites();
   api('/api/settings', { jiraSites: sites }).then(r => {
     if (r && Array.isArray(r.ignoradas) && r.ignoradas.includes('jiraSites')) {
@@ -1179,7 +1178,7 @@ function jiraSiteAddFormHtml() {
 function renderJiraSites() {
   const box = $('#jiraSitesManager'); if (!box) return;
   if (document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
-  const sites = STATE.jiraSites || [];
+  const sites = estado().jiraSites || [];
   const rows = sites.map(jiraSiteCardHtml).join('');
   box.innerHTML = rows + jiraSiteAddFormHtml();
 }
@@ -1195,7 +1194,7 @@ $('#jiraSitesManager').addEventListener('click', (e) => {
     if (problema) return toast('error', problema, 6000);
     const site = { id: genProfileId(), label, baseUrl, owners, projectKeys };
     $('#jsAddLabel').value = ''; $('#jsAddBaseUrl').value = ''; $('#jsAddOwners').value = ''; $('#jsAddProjectKeys').value = '';
-    saveJiraSites([...(STATE.jiraSites || []), site]);
+    saveJiraSites([...(estado().jiraSites || []), site]);
     return;
   }
   if (t.classList.contains('js-site-remove')) {
@@ -1203,7 +1202,7 @@ $('#jiraSitesManager').addEventListener('click', (e) => {
     // deixaria e-mail e token órfãos no arquivo de credenciais pra sempre
     const id = t.dataset.id;
     api('/api/jira/credential/remove', { siteId: id }).then(() => {
-      saveJiraSites((STATE.jiraSites || []).filter(s => s.id !== id));
+      saveJiraSites((estado().jiraSites || []).filter(s => s.id !== id));
     });
     return;
   }
@@ -1254,14 +1253,14 @@ $('#jiraSitesManager').addEventListener('change', (e) => {
   const campos = ['js-label', 'js-baseurl', 'js-owners', 'js-projectkeys'];
   if (!campos.some(cls => t.classList.contains(cls))) return;
   const id = t.dataset.id;
-  const atual = (STATE.jiraSites || []).find(s => s.id === id);
+  const atual = (estado().jiraSites || []).find(s => s.id === id);
   const problema = jiraEdicaoProblema(t);
   if (problema) {
     toast('error', problema, 6000);
     t.value = atual ? jiraCampoSalvo(atual, t) : '';
     return;
   }
-  const sites = (STATE.jiraSites || []).map(s => {
+  const sites = (estado().jiraSites || []).map(s => {
     if (s.id !== id) return s;
     const next = { ...s };
     if (t.classList.contains('js-label')) next.label = t.value.trim() || s.label;
@@ -1282,17 +1281,17 @@ $('#jiraSitesManager').addEventListener('change', (e) => {
    nascem e morrem a cada render e um listener por botão vazaria.
 
    A senha é lida do DOM no instante do clique, numa const local, e some com o re-render:
-   ela nunca entra no STATE nem em nada que o snapshot carregue. */
+   ela nunca entra no estado nem em nada que o snapshot carregue. */
 
 function syncCfgAtual() {
-  return (STATE && STATE.config && STATE.config.sync) || {};
+  return (estado() && estado().config && estado().config.sync) || {};
 }
 
 /* Salva o objeto INTEIRO de sync. Mandar só o campo alterado faria o engine receber uma
    config parcial e apagar o resto, que é o oposto do que a tela mostra. */
 function saveSync(sync, aoSalvar) {
-  if (!STATE) return;
-  STATE.config = { ...STATE.config, sync };
+  if (!estado()) return;
+  estado().config = { ...estado().config, sync };
   renderSync();
   api('/api/settings', { sync }).then(r => {
     if (r && Array.isArray(r.ignoradas) && r.ignoradas.includes('sync')) {
@@ -1332,7 +1331,7 @@ function renderSync() {
   // o rascunho sai do DOM ANTES de reescrevê-lo: a guarda de foco acima não cobre quem
   // clicou em Entrar (o foco está no botão), e era por ali que o e-mail se perdia
   syncRascunhoDoDom();
-  box.innerHTML = syncSecaoHtml((STATE && STATE.sync) || {}, syncCfgAtual(), syncRascunho);
+  box.innerHTML = syncSecaoHtml((estado() && estado().sync) || {}, syncCfgAtual(), syncRascunho);
 }
 
 // Os três interruptores. A regra da chave geral mora em syncCfgComGeral (ui/pure.js),
@@ -1436,7 +1435,7 @@ async function syncApagarRemoto() {
    confirma sempre, nomeando o aparelho e o custo. O engine ainda recusa por conta
    própria se o recibo tiver deixado de ser órfão entre a tela e o clique. */
 async function syncRefazer(key) {
-  const r = ((STATE && STATE.sync && STATE.sync.recibosVistos) || {})[key] || {};
+  const r = ((estado() && estado().sync && estado().sync.recibosVistos) || {})[key] || {};
   const onde = esc(r.deviceName || 'outro aparelho');
   const ok = await confirmModal({
     title: 'Refazer este commit neste aparelho?',
@@ -1517,7 +1516,7 @@ function marcarSeg(botoes, ehAtivo) {
 function switchTab(name) {
   if (name === 'destaques' && !teamHighlightsEnabled()) name = 'radar';
   if (name === 'entregas' && !deliveriesEnabled()) name = 'radar';
-  CURRENT_TAB = name;
+  definirAba(name);
   document.body.dataset.tab = name;   // largura útil por aba (ver body[data-tab] no app.css)
   // aria-selected junto com a classe: a classe pinta, o aria é o que o leitor de tela lê
   document.querySelectorAll('.nav-item').forEach(t => {
@@ -1526,7 +1525,7 @@ function switchTab(name) {
     t.setAttribute('aria-selected', ativo ? 'true' : 'false');
   });
   document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
-  if (STATE) renderAccountBar();   // mostra/esconde a barra de contas conforme a aba
+  if (estado()) renderAccountBar();   // mostra/esconde a barra de contas conforme a aba
   const tela = telaPorId(name);
   if (tela && tela.aoEntrar) tela.aoEntrar();
 }
@@ -1632,7 +1631,7 @@ function sysGoTo(sec, at) {
    histórico completo (3000 em disco). Handler delegado no document, igual ao
    data-goto: nenhuma tela registra listener próprio. */
 function decisaoLocal(key) {
-  const d = STATE?.decisions || {};
+  const d = estado()?.decisions || {};
   return (d.pending || []).find(x => x.key === key) || (d.resolved || []).find(x => x.key === key) || null;
 }
 
@@ -1697,7 +1696,7 @@ document.addEventListener('click', (e) => {
 function gotoDeliv(kind, valor) {
   // KPIs desta tela também usam data-goto. Não recarregue a própria aba antes
   // de abrir/rolar o grupo: a resposta assíncrona substituiria o DOM recém-alvo.
-  if (CURRENT_TAB !== 'entregas') switchTab('entregas');
+  if (abaAtual() !== 'entregas') switchTab('entregas');
   if (kind === 'days') {
     const d = parseInt(valor, 10);
     deliveriesDays = [0, 7, 15, 30].includes(d) ? d : deliveriesDays;
@@ -1893,7 +1892,7 @@ async function decideComConfirmacao(id, action, ref) {
    rota principal pra tudo que não cabe na tira de abas. */
 function cmdStatic() { return [
   // as decisões pendentes primeiro: são a única ação urgente e destrutiva do app
-  ...(STATE?.decisions?.pending || []).flatMap(d => {
+  ...(estado()?.decisions?.pending || []).flatMap(d => {
     const ref = d.key || '';
     const acao = (rotulo, action) => ({
       kind: 'decisão', label: `${rotulo} ${ref}`, hint: 'decisão',
@@ -1904,7 +1903,7 @@ function cmdStatic() { return [
   // o lote respeita o ESCOPO: aprova só o que o filtro de conta mostra, nunca a
   // fila inteira (agravante do achado A5, regra R13 do plano mestre)
   ...(() => {
-    const visiveis = (STATE?.decisions?.pending || []).filter(scopeVisible);
+    const visiveis = (estado()?.decisions?.pending || []).filter(scopeVisible);
     return visiveis.length > 1
       ? [{ kind: 'lote', label: `Aprovar as ${visiveis.length} pendentes`, hint: 'lote',
           run: async () => { for (const d of visiveis) await decide(d.id, 'approve'); } }]
@@ -2031,14 +2030,14 @@ let deliveriesReqSeq = 0;
 
 // org principal (default da visão): 1º owner da 1ª conta, senão o legado config.owners
 function primaryOrg() {
-  for (const a of (STATE && STATE.accounts) || []) if ((a.owners || []).length) return a.owners[0];
-  return (((STATE && STATE.config) || {}).owners || [])[0] || '';
+  for (const a of (estado() && estado().accounts) || []) if ((a.owners || []).length) return a.owners[0];
+  return (((estado() && estado().config) || {}).owners || [])[0] || '';
 }
 // todas as orgs monitoradas (união dos owners de todas as contas), c/ a conta dona
 function orgsWithAccount() {
   const map = new Map(); // org -> user (conta dona)
-  for (const a of (STATE && STATE.accounts) || []) for (const o of (a.owners || [])) if (!map.has(o)) map.set(o, a.user);
-  for (const o of (((STATE && STATE.config) || {}).owners || [])) if (!map.has(o)) map.set(o, (STATE.account || {}).user || '');
+  for (const a of (estado() && estado().accounts) || []) for (const o of (a.owners || [])) if (!map.has(o)) map.set(o, a.user);
+  for (const o of (((estado() && estado().config) || {}).owners || [])) if (!map.has(o)) map.set(o, (estado().account || {}).user || '');
   return [...map.entries()].map(([org, user]) => ({ org, user }));
 }
 function renderDelivOrgSelect() {
@@ -2177,7 +2176,7 @@ $('#deliveries').addEventListener('click', (e) => {
 
 /* ---------- render: topo/status ---------- */
 function renderStatus() {
-  const s = STATE;
+  const s = estado();
   const pill = $('#statusPill');
   if (s.status === 'checking') {
     pill.className = 'pill busy';
@@ -2229,13 +2228,13 @@ function renderStatus() {
 }
 
 function tickCountdown() {
-  if (!STATE) return;
+  if (!estado()) return;
   const el = $('#metaCheck');
-  const last = STATE.lastCheckAt ? `Última checagem ${fmtClock(STATE.lastCheckAt)}` : 'Primeira checagem em andamento';
-  if (STATE.status === 'checking') { el.textContent = `${last} · verificando…`; }
-  else if (!STATE.nextCheckAt) { el.textContent = last; }
+  const last = estado().lastCheckAt ? `Última checagem ${fmtClock(estado().lastCheckAt)}` : 'Primeira checagem em andamento';
+  if (estado().status === 'checking') { el.textContent = `${last} · verificando…`; }
+  else if (!estado().nextCheckAt) { el.textContent = last; }
   else {
-    const rem = Math.max(0, Math.round((STATE.nextCheckAt - Date.now()) / 1000));
+    const rem = Math.max(0, Math.round((estado().nextCheckAt - Date.now()) / 1000));
     const mm = Math.floor(rem / 60), ss = String(rem % 60).padStart(2, '0');
     el.textContent = `${last} · próxima em ${mm}:${ss}`;
   }
@@ -2268,8 +2267,8 @@ function tickElapsed() {
 function updateStageFlow(id) {
   const el = document.querySelector(`.stage-flow[data-id="${CSS.escape(id)}"]`);
   if (!el) return;
-  const sess = (STATE.activeSessions || []).find(x => x.id === id);
-  const html = stageFlowHtml(stageFlowFrom(STATE.activity && STATE.activity[id], sess && sess.startedAt));
+  const sess = (estado().activeSessions || []).find(x => x.id === id);
+  const html = stageFlowHtml(stageFlowFrom(estado().activity && estado().activity[id], sess && sess.startedAt));
   el.hidden = !html;
   if (html) el.innerHTML = html;
 }
@@ -2302,13 +2301,13 @@ function sessionVisible(s) {
 function updateSessionBar(id) {
   const wrap = document.querySelector(`.sess-progress[data-id="${CSS.escape(id)}"]`);
   if (!wrap) return;
-  const pct = sessionProgress((STATE?.activity?.[id] || []).length);
+  const pct = sessionProgress((estado()?.activity?.[id] || []).length);
   wrap.querySelector('.op-bar-fill').style.width = pct + '%';
   wrap.querySelector('.sess-pct').textContent = pct + '%';
 }
 function renderActive() {
-  const sessions = (STATE.activeSessions || []).filter(s => (s.mode === 'auto' || s.mode === 'self') && sessionVisible(s));
-  const waiting = (STATE.headlessWaiting || []).filter(k => scopeVisible({ key: k }));
+  const sessions = (estado().activeSessions || []).filter(s => (s.mode === 'auto' || s.mode === 'self') && sessionVisible(s));
+  const waiting = (estado().headlessWaiting || []).filter(k => scopeVisible({ key: k }));
   const wrap = $('#activeWrap');
   wrap.hidden = sessions.length === 0 && waiting.length === 0;
   $('#activeCount').textContent = sessions.length || '';
@@ -2326,7 +2325,7 @@ function renderActive() {
   }
   for (const s of sessions) {
     const feed = box.querySelector(`.activity-feed[data-id="${CSS.escape(s.id)}"]`);
-    if (feed) fillFeed(feed, STATE.activity && STATE.activity[s.id]);
+    if (feed) fillFeed(feed, estado().activity && estado().activity[s.id]);
     updateSessionBar(s.id);
     updateStageFlow(s.id);
     // o nivel (Opus/Sonnet/...) so chega no init da sessao, depois do card montar
@@ -2440,7 +2439,7 @@ function renderDecisions() {
   // (ou em outro input) de um card; ainda assim atualiza Revisões recentes
   const dbox = $('#decisions');
   if (document.activeElement && dbox.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) { renderResolved(); return; }
-  const pending = (STATE.decisions?.pending || []).filter(scopeVisible);
+  const pending = (estado().decisions?.pending || []).filter(scopeVisible);
   // uma leitura só pra toda a renderização: os cards desta passada têm que
   // enxergar o MESMO mapa de pessoas, senão um SSE no meio do map faria dois
   // cards da mesma tela discordarem sobre o papel de alguém
@@ -2453,7 +2452,7 @@ function renderDecisions() {
     const m = acctMark(d);
     const author = (d.pr && d.pr.author) || d.author || '';
     // card de commit novo (v2.59.3): barra, veredito, motivos, aviso e botões saem daqui
-    const meta = staleCardMeta(d, (STATE.reRounds || {})[d.key]);
+    const meta = staleCardMeta(d, (estado().reRounds || {})[d.key]);
     return `
     <div class="card decision ${meta.cardClass}" data-id="${esc(d.id)}" data-url="${esc(d.pr?.url || '')}" style="${m.style}">
       <div class="decision-head">
@@ -2475,7 +2474,7 @@ function renderDecisions() {
         ${meta.stale ? '' : `<button class="btn primary sm dec-act" data-action="approve">Aprovar</button>
         <button class="btn sm dec-act dec-rc" data-action="request_changes">Pedir mudanças</button>
         <button class="btn sm dec-act" data-action="comment">Só comentar</button>`}
-        <button class="btn sm act-chat" data-key="${esc(d.key)}" data-url="${esc(d.pr?.url || '')}">💬 Conversar${chatBadge(d.key, STATE?.chats)}</button>
+        <button class="btn sm act-chat" data-key="${esc(d.key)}" data-url="${esc(d.pr?.url || '')}">💬 Conversar${chatBadge(d.key, estado()?.chats)}</button>
         <button class="btn sm ghost dec-act" data-action="skip">Pular</button>
       </div>
     </div>`;
@@ -2484,16 +2483,16 @@ function renderDecisions() {
 }
 
 /* ---------- pushback: PB_OPTS/PB_SHORT/pushbackControl moraram aqui e foram pro
-   ui/pure.js (testáveis); o submit e os listeners seguem aqui por tocarem DOM/STATE ---------- */
+   ui/pure.js (testáveis); o submit e os listeners seguem aqui por tocarem DOM/estado ---------- */
 function submitPushback(el) {
   const box = el.closest('.pushback'); if (!box) return;
   const sel = box.querySelector('.pb-outcome'), note = box.querySelector('.pb-note');
   const key = sel.dataset.key, author = sel.dataset.author, outcome = sel.value;
   const noteVal = outcome ? (note.value || '').trim() : '';
-  const map = { ...(STATE.pushbacks || {}) };   // otimista, pra o controle não piscar
+  const map = { ...(estado().pushbacks || {}) };   // otimista, pra o controle não piscar
   if (outcome) map[key] = { author: String(author).toLowerCase(), outcome, note: noteVal, at: Date.now(), source: 'manual', status: 'confirmed' };
   else delete map[key];
-  STATE.pushbacks = map;
+  estado().pushbacks = map;
   api('/api/pushback', { key, author, outcome, note: noteVal });
   renderResolved();   // reflete na hora (a guarda de foco segura o caso do change no select/nota)
 }
@@ -2502,17 +2501,17 @@ function renderResolved() {
   const box0 = $('#resolved');
   // guarda de foco: não re-renderiza enquanto você digita a nota / escolhe o desfecho
   if (document.activeElement && box0.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
-  const resolved = (STATE.decisions?.resolved || []).filter(scopeVisible);
+  const resolved = (estado().decisions?.resolved || []).filter(scopeVisible);
   const wrap = $('#resolvedWrap');
   wrap.hidden = resolved.length === 0;
   if (!resolved.length) { $('#resolved').innerHTML = ''; return; }
   // a linha inteira mora no pure.js (testada); aqui só se resolve o que depende de
-  // estado global: a etiqueta da conta (SCOPE/TWEAK) e o contador de conversas.
-  const pushbacks = STATE.pushbacks || {};
+  // estado global: a etiqueta da conta (escopo/TWEAK) e o contador de conversas.
+  const pushbacks = estado().pushbacks || {};
   $('#resolved').innerHTML = resolved.map(r => resolvedRow(r, {
     pushbacks,
     chip: acctMark(r).chip,
-    chatBadge: chatBadge(r.key, STATE?.chats)
+    chatBadge: chatBadge(r.key, estado()?.chats)
   })).join('');
 }
 
@@ -2521,7 +2520,7 @@ function renderQueue() {
   // guarda de foco: não reconstrói a fila enquanto você mexe no seletor de papel de um card
   const qbox = $('#queue');
   if (document.activeElement && qbox.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
-  const q = (STATE.queue || []).filter(scopeVisible);
+  const q = (estado().queue || []).filter(scopeVisible);
   const people = peopleOf();   // idem renderDecisions: um mapa só pra toda a passada
   $('#queueCount').hidden = q.length === 0;
   $('#queueCount').textContent = q.length;
@@ -2530,7 +2529,7 @@ function renderQueue() {
   btnAll.textContent = `Revisar tudo (${q.length})`;
 
   const box = $('#queue');
-  const vs = listViewState({ lastCheckAt: STATE.lastCheckAt, status: STATE.status, length: q.length });
+  const vs = listViewState({ lastCheckAt: estado().lastCheckAt, status: estado().status, length: q.length });
   if (vs === 'loading' || vs === 'error') {
     box.innerHTML = `<div class="empty" style="border:0">${vs === 'loading'
       ? 'Verificando se há algo esperando por você…'
@@ -2540,20 +2539,20 @@ function renderQueue() {
   if (!q.length) {
     // aprovadosHoje compara o dia em fuso LOCAL e vive no pure.js (testada la)
     box.innerHTML = queueEmptyOkHtml({
-      aprovados: aprovadosHoje(STATE.decisions?.resolved),
+      aprovados: aprovadosHoje(estado().decisions?.resolved),
       // as orgs saem da régua do que é DE FATO buscado (conta não silenciada e com
       // token), no escopo em que a lista acima foi filtrada. Ler config.owners aqui
       // mostrava um campo que o accountList() do server descarta quando há contas.
-      owners: orgsMonitoradas(STATE.accounts, SCOPE),
-      intervalSeconds: STATE.config?.intervalSeconds,
+      owners: orgsMonitoradas(estado().accounts, escopo()),
+      intervalSeconds: estado().config?.intervalSeconds,
       // fila vazia com a automação pausada por teto não é "está tudo em dia":
       // é "nada vai ser revisado sozinho até liberar" (ver automacaoPausadaPor)
-      pausado: automacaoPausadaPor(STATE.accounts, STATE.config, STATE.usage),
+      pausado: automacaoPausadaPor(estado().accounts, estado().config, estado().usage),
     });
     return;
   }
-  const parked = STATE.parked || {};
-  box.innerHTML = q.map(pr => queueCardHtml(pr, { people, mark: acctMark(pr), parked, sync: STATE.sync })).join('');
+  const parked = estado().parked || {};
+  box.innerHTML = q.map(pr => queueCardHtml(pr, { people, mark: acctMark(pr), parked, sync: estado().sync })).join('');
 }
 
 /* selo de estado da SUA revisão numa linha do panorama: primeiro o que o Farol
@@ -2561,22 +2560,22 @@ function renderQueue() {
    feitos fora do Farol). */
 
 function renderPanorama() {
-  const list = (STATE.panorama || []).filter(scopeVisible);
+  const list = (estado().panorama || []).filter(scopeVisible);
   $('#panoCount').hidden = list.length === 0;
   $('#panoCount').textContent = list.length;
   $('#panoOwners').textContent = list.length ? 'PRs abertos, os seus destacados' : '';
   const box = $('#panorama');
-  const vs = listViewState({ lastCheckAt: STATE.lastCheckAt, status: STATE.status, length: list.length });
+  const vs = listViewState({ lastCheckAt: estado().lastCheckAt, status: estado().status, length: list.length });
   if (vs !== 'list') {
     box.style.display = 'block';
     box.innerHTML = `<div class="empty" style="border:0">${textoDaListaVazia(vs)}</div>`;
     return;
   }
   box.style.display = '';
-  const runningKeys = new Set([].concat(...(STATE.activeSessions || []).map(s => s.keys || [])));
-  const waitingKeys = STATE.headlessWaiting || [];
-  const ctxPano = { actions: STATE.reviewActions || {}, staleStates: STATE.staleStates || {}, running: runningKeys, waiting: waitingKeys,
-    todasContas: SCOPE === 'all', chats: STATE.chats };
+  const runningKeys = new Set([].concat(...(estado().activeSessions || []).map(s => s.keys || [])));
+  const waitingKeys = estado().headlessWaiting || [];
+  const ctxPano = { actions: estado().reviewActions || {}, staleStates: estado().staleStates || {}, running: runningKeys, waiting: waitingKeys,
+    todasContas: escopo() === 'all', chats: estado().chats };
   box.innerHTML = list.map(pr => panoramaRowHtml(pr, { ...ctxPano, mark: acctMark(pr, { noBar: true }) })).join('');
 }
 
@@ -2594,7 +2593,7 @@ const autoUnavailableKeys = new Map();
 // com geração da recusa, mesma poda.
 const adminUnavailableKeys = new Map();
 // PR oculto de "Meus PRs" (experimento velho que nunca vai mergear e ocupava a aba pra
-// sempre). Quem guarda a lista é o motor (STATE.hiddenPRs); estas duas marcas são só a
+// sempre). Quem guarda a lista é o motor (estado().hiddenPRs); estas duas marcas são só a
 // resposta OTIMISTA ao clique, pra o card sumir/voltar na hora em vez de esperar o
 // próximo push de estado. Cada uma é limpa assim que o motor confirma.
 const hideOptimistic = new Set();
@@ -2611,22 +2610,22 @@ function renderMyPRs() {
   // os marcadores de sessão valem até o PRÓXIMO refresh de mergeStates (que roda
   // no fim de cada check, junto do lastCheckAt novo): refresh mais novo que a
   // marcação poda a marca e o dado fresco do repo volta a decidir os botões
-  for (const k of expiredSessionMarks([...autoUnavailableKeys], STATE.lastCheckAt)) autoUnavailableKeys.delete(k);
-  for (const k of expiredSessionMarks([...adminUnavailableKeys], STATE.lastCheckAt)) adminUnavailableKeys.delete(k);
+  for (const k of expiredSessionMarks([...autoUnavailableKeys], estado().lastCheckAt)) autoUnavailableKeys.delete(k);
+  for (const k of expiredSessionMarks([...adminUnavailableKeys], estado().lastCheckAt)) adminUnavailableKeys.delete(k);
   // o motor é a fonte de verdade dos ocultos; a marca otimista morre assim que ele
   // confirma (ocultou de fato, ou de fato reexibiu), pra não sobreviver a um estado novo
-  const doMotor = new Set((STATE.hiddenPRs || []).map(k => String(k).toLowerCase()));
+  const doMotor = new Set((estado().hiddenPRs || []).map(k => String(k).toLowerCase()));
   for (const k of [...hideOptimistic]) if (doMotor.has(String(k).toLowerCase())) hideOptimistic.delete(k);
   for (const k of [...unhideOptimistic]) if (!doMotor.has(String(k).toLowerCase())) unhideOptimistic.delete(k);
 
-  const todos = (STATE.myPRs || []).filter(scopeVisible);
-  const { visiveis, ocultos } = splitHiddenPRs(todos, effectiveHidden(STATE.hiddenPRs, hideOptimistic, unhideOptimistic));
+  const todos = (estado().myPRs || []).filter(scopeVisible);
+  const { visiveis, ocultos } = splitHiddenPRs(todos, effectiveHidden(estado().hiddenPRs, hideOptimistic, unhideOptimistic));
   // sem nenhum oculto o rodapé não tem o que alternar: volta pro fechado, senão a tela
   // ficaria "aberta" pra sempre depois que o motor reexibisse tudo sozinho
   if (!ocultos.length) hiddenOpen = false;
   // a lista pintada: os visíveis sempre, os ocultos só quando a pessoa pede
   const list = hiddenOpen ? [...visiveis, ...ocultos] : visiveis;
-  const analyses = STATE.selfAnalyses || {};
+  const analyses = estado().selfAnalyses || {};
   const wrap = $('#myPRsWrap');
   wrap.hidden = false;
   // o contador da sub-aba conta o que está VISÍVEL: com o total, a bolinha dizia 3 e a
@@ -2636,17 +2635,17 @@ function renderMyPRs() {
   renderMyPRsHiddenFoot(ocultos.length);
   // o estado de carregamento é do MOTOR, então olha a lista completa: com tudo oculto o
   // ciclo terminou bem e o vazio é escolha da pessoa, não falta de resposta
-  const vs = listViewState({ lastCheckAt: STATE.lastCheckAt, status: STATE.status, length: todos.length });
+  const vs = listViewState({ lastCheckAt: estado().lastCheckAt, status: estado().status, length: todos.length });
   if (vs !== 'list' || !list.length) {
-    $('#myPRs').innerHTML = `<div class="empty" style="border:0">${esc(myPRsEmptyMsg(vs, { escopoTodas: SCOPE === 'all', ocultos: ocultos.length }))}</div>`;
+    $('#myPRs').innerHTML = `<div class="empty" style="border:0">${esc(myPRsEmptyMsg(vs, { escopoTodas: escopo() === 'all', ocultos: ocultos.length }))}</div>`;
     return;
   }
 
   const activeSelf = new Set(
-    [].concat(...(STATE.activeSessions || []).filter(s => s.mode === 'self').map(s => s.keys || []))
+    [].concat(...(estado().activeSessions || []).filter(s => s.mode === 'self').map(s => s.keys || []))
   );
-  const waiting = STATE.headlessWaiting || [];
-  const blockedRepos = new Set(((STATE.config && STATE.config.mergeBlockedRepos) || []).map(r => String(r).toLowerCase()));
+  const waiting = estado().headlessWaiting || [];
+  const blockedRepos = new Set(((estado().config && estado().config.mergeBlockedRepos) || []).map(r => String(r).toLowerCase()));
   // só tem conteúdo quando os ocultos estão à mostra: é o que esmaece o card e troca
   // o botão Ocultar pelo Reexibir
   const ocultosSet = new Set(ocultos.map(p => p.key));
@@ -2663,14 +2662,14 @@ function renderMyPRs() {
     // merge so quando a autoanalise diz aprovavel; desativado (com motivo) se o
     // repo estiver na lista bloqueada ou se ainda ha analise rodando/na fila
     // O Merge só fica disponível quando dá pra mergear DE VERDADE. A mergeabilidade
-    // real vem do GitHub (STATE.mergeStates): CLEAN/UNSTABLE = mergeia agora;
+    // real vem do GitHub (estado().mergeStates): CLEAN/UNSTABLE = mergeia agora;
     // BLOCKED = proteção exige requisitos (mostra auto/admin); DIRTY/BEHIND/DRAFT =
     // não dá, botão desabilitado com o motivo.
     // a decisao mora em ui/pure.js (testada); aqui so consome. NUNCA volte a ler
     // `a.approvable`: ele e parecer, e quem autoriza e o `quality` que o engine calcula.
     const canMerge = canMergeSelfAnalysis(a);
     const repoBlocked = blockedRepos.has(String(pr.key.split('#')[0]).toLowerCase());
-    const ms = (STATE.mergeStates || {})[pr.key];
+    const ms = (estado().mergeStates || {})[pr.key];
     const dataAttrs = `data-url="${esc(pr.url)}" data-key="${esc(pr.key)}"`;
     // auto-merge indisponível: repo sem "Allow auto-merge" (autoAllowed===false) ou
     // já recusou numa tentativa nesta sessão. Nesse caso só admin resolve.
@@ -2779,12 +2778,12 @@ async function copyToClipboard(text) {
   } catch { return false; }
 }
 
-// Wrapper fino: coleta do STATE os dados do prompt (achados da autoanálise +
+// Wrapper fino: coleta do estado os dados do prompt (achados da autoanálise +
 // metadados do PR) e delega o miolo puro pra buildFixPrompt de ui/pure.js
 // (carregado antes deste arquivo via <script src>, migrado na Task 12).
 function montaFixPrompt(key) {
-  const a = (STATE.selfAnalyses || {})[key];
-  const pr = (STATE.myPRs || []).find(p => p.key === key) || {};
+  const a = (estado().selfAnalyses || {})[key];
+  const pr = (estado().myPRs || []).find(p => p.key === key) || {};
   if (!a) return '';
   return buildFixPrompt({
     key, url: pr.url, title: pr.title, card: a.card, summary: a.summary,
@@ -2897,7 +2896,7 @@ $('#myPRs').addEventListener('click', (e) => {
       if (r?.blocked === 'autoUnavailable') {
         // repo sem "Allow auto-merge": some com o botão auto, sobra o admin (o
         // servidor já mostrou o toast acionável). Mantém as opções visíveis.
-        autoUnavailableKeys.set(key, STATE.lastCheckAt || 0); mergeBlockedByPolicy.add(key); renderMyPRs(); return;
+        autoUnavailableKeys.set(key, estado().lastCheckAt || 0); mergeBlockedByPolicy.add(key); renderMyPRs(); return;
       }
       toast(mergeToastKind(r?.error), r?.error || 'não consegui ativar o auto-merge');
       renderMyPRs();
@@ -2916,7 +2915,7 @@ $('#myPRs').addEventListener('click', (e) => {
       mAdmin.disabled = true; mAdmin.textContent = 'Mergeando…';
       api('/api/self-review/merge', { url: mAdmin.dataset.url, mode: 'admin' }).then(r => {
         if (r?.ok) { mergeBlockedByPolicy.delete(key); return; } // state push atualiza
-        if (r?.blocked === 'rule') { adminUnavailableKeys.set(key, STATE.lastCheckAt || 0); renderMyPRs(); return; }
+        if (r?.blocked === 'rule') { adminUnavailableKeys.set(key, estado().lastCheckAt || 0); renderMyPRs(); return; }
         toast(mergeToastKind(r?.error), r?.error || 'não consegui mergear como admin');
         mAdmin.disabled = false; mAdmin.textContent = 'Merge (admin)';
       });
@@ -2930,7 +2929,7 @@ $('#myPRs').addEventListener('click', (e) => {
   if (visBtn) {
     const key = visBtn.dataset.key;
     const hidden = visBtn.dataset.hidden === '1';
-    const a = (STATE.selfAnalyses || {})[key];
+    const a = (estado().selfAnalyses || {})[key];
     if (a) { a.hidden = hidden; renderMyPRs(); }
     api('/api/self-review/visibility', { key, hidden }).then(r => {
       if (r?.ok) return;
@@ -3067,9 +3066,9 @@ function drawUsageTimeline(el, legendEl, u, metric, win, dim) {
 //
 // FONTE UNICA (v2.40.0): tudo vem de u.budgets (usageSummary), que traz teto E
 // gasto E bloqueio calculados pela MESMA funcao do gate real (profileBudgetStatus)
-// no momento de cada pushState. Antes, o gasto vinha de STATE.doctor.claudeAuth
+// no momento de cada pushState. Antes, o gasto vinha de estado().doctor.claudeAuth
 // (cache que so recalculava no boot/Verificar agora/salvar perfis) e o teto de
-// STATE.config: o cartao congelava enquanto o KPI "Hoje" da mesma tela crescia, e
+// estado().config: o cartao congelava enquanto o KPI "Hoje" da mesma tela crescia, e
 // a automacao pausava por estouro com o cartao ainda dizendo "no orcamento".
 
 // tabela das sessoes mais recentes (ate 100, cortado no backend). Log permanente
@@ -3085,7 +3084,7 @@ function drawUsageTimeline(el, legendEl, u, metric, win, dim) {
 function renderFilaJusta() {
   const card = $('#filaJustaCard'), body = $('#filaJustaBody');
   if (!card || !body) return;
-  const html = filaJustaHtml(STATE && STATE.filaJusta);
+  const html = filaJustaHtml(estado() && estado().filaJusta);
   body.innerHTML = html;
   card.hidden = !html;
 }
@@ -3099,7 +3098,7 @@ function renderUsage() {
   if (painelLocal) painelLocal.hidden = consolidado;
   if (painelTodos) painelTodos.hidden = !consolidado;
   if (consolidado) { renderUsageConsolidado(); return; }
-  const u = STATE && STATE.usage;
+  const u = estado() && estado().usage;
   const kpisEl = $('#usageKpis'), tl = $('#usageTimeline'), legend = $('#usageLegend');
   const matrix = $('#usageMatrix'), matrixCap = $('#usageMatrixCaption');
   const budget = $('#usageBudget'), sessions = $('#usageSessions');
@@ -3137,14 +3136,14 @@ function keyDaUrl(url) {
 }
 
 // `urls` é a lista que o clique enviou, e é ela que resolve a chave. Procurar só em
-// STATE.queue e STATE.panorama deixava a confirmação sem abrir quando o clique vinha de
+// estado().queue e estado().panorama deixava a confirmação sem abrir quando o clique vinha de
 // Resolvidos ou de Decisões, que é justamente onde o PR não está nas duas listas. As
 // listas ficam como degrau de recuo para chamador que não passe as urls.
 async function tratarCoordenacaoDoClique(resp, mode, urls = []) {
   const porKey = new Map(urls.map((u) => [keyDaUrl(u), u]).filter(([k]) => k));
   for (const c of syncConfirmacoesDoClique(resp)) {
     if (c.tipo === 'aviso') { toast('info', c.texto, 7000); continue; }
-    const daLista = (STATE.queue || []).concat(STATE.panorama || []).find(p => p.key === c.key);
+    const daLista = (estado().queue || []).concat(estado().panorama || []).find(p => p.key === c.key);
     const url = porKey.get(c.key) || (daLista && daLista.url) || '';
     if (!url) { toast('info', `${c.key}: a coordenação segurou a revisão, e o PR não está mais na tela.`, 6000); continue; }
     // uma confirmação por vez é o ponto: são modais, e empilhar dois esconderia um
@@ -3175,7 +3174,7 @@ function revisarUrls(urls, extras = {}, mode = 'auto') {
 const usageDeviceState = { escopo: 'este' };
 
 function usageConsolidadoVisivel() {
-  return !!(STATE && STATE.sync && STATE.sync.consolidation);
+  return !!(estado() && estado().sync && estado().sync.consolidation);
 }
 
 function renderUsageDeviceSeg() {
@@ -3246,7 +3245,7 @@ function wireUsageControls() {
 wireUsageControls();
 
 function renderUpdate() {
-  const u = STATE.update;
+  const u = estado().update;
   const box = $('#updateBox');
   if (!u) { box.textContent = 'Verificando…'; return; }
   const remote = u.channel === 'remote';
@@ -3261,7 +3260,7 @@ function renderUpdate() {
   box.classList.toggle('avail', !!u.available);
   box.classList.toggle('ok-state', !u.available && hasChannel && !noAccess);
   if (u.available) {
-    const autoOn = remote && STATE.config?.autoUpdate !== false;
+    const autoOn = remote && estado().config?.autoUpdate !== false;
     const noteAuto = autoOn
       ? `Atualização disponível ${'nas ' + origin}. Com "Atualizar sozinho" ligado (Sistema > Automação), o Farol aplica sozinho assim que ficar ocioso (sem análise, chat ou terminal em andamento), fecha e reabre preservando estado e configurações. O botão abaixo aplica agora, sem esperar.`
       : `Atualização disponível ${remote ? 'nas ' + origin : 'na ' + origin}. O Farol ${remote ? 'baixa e instala, ' : ''}fecha e reabre sozinho, preservando estado e configurações.`;
@@ -3316,7 +3315,7 @@ async function loadHighlights() {
   const tagged = items.map(h => ({ ...h, _user: acctUserFromUrl(h.url) }));
   const visible = tagged.filter(h => scopeMemVisible(h._user));
   if (!visible.length) {
-    box.innerHTML = `<div class="empty"><span class="big">🌱</span>${SCOPE === 'all' ? 'Nenhum destaque registrado ainda.' : 'Nenhum destaque nesta conta ainda.'}<br><small>Quando um review encontrar algo exemplar, ele entra aqui.</small></div>`;
+    box.innerHTML = `<div class="empty"><span class="big">🌱</span>${escopo() === 'all' ? 'Nenhum destaque registrado ainda.' : 'Nenhum destaque nesta conta ainda.'}<br><small>Quando um review encontrar algo exemplar, ele entra aqui.</small></div>`;
     return;
   }
   const multi = multiAccount();
@@ -3328,14 +3327,14 @@ async function loadHighlights() {
           ${h.author ? `<span class="author">${personMention(h.author, 'xs', true)}</span>` : ''}
           ${h.ref ? `<a href="${esc(h.url)}" target="_blank" rel="noreferrer">${esc(h.ref)}</a>` : ''}
           <span>${esc(h.date || '')}</span>
-          ${SCOPE === 'all' && multi && h._user ? `<span class="acct-chip">${esc((ACCT[h._user.toLowerCase()] || {}).label || h._user)}</span>` : ''}
+          ${escopo() === 'all' && multi && h._user ? `<span class="acct-chip">${esc((ACCT[h._user.toLowerCase()] || {}).label || h._user)}</span>` : ''}
         </div>
         <div class="hl-text">${esc(h.text)}</div>
       </div>
     </div>`;
-  if (SCOPE === 'all' && multi) {
+  if (escopo() === 'all' && multi) {
     const parts = [];
-    for (const a of (STATE.accounts || [])) {
+    for (const a of (estado().accounts || [])) {
       const list = visible.filter(h => h._user && h._user.toLowerCase() === a.user.toLowerCase());
       if (list.length) { parts.push(memGroupHead(a.user)); parts.push(list.map(card).join('')); }
     }
@@ -3350,8 +3349,8 @@ async function loadHighlights() {
 /* ---------- perfil de review por pessoa ----------
    As puras (personOf, papelOf, domLevelOf, papelPicker, domainMatrix e as três
    tabelas de opções) foram pra pure.js na onda 5. Aqui fica só o atalho que
-   resolve o mapa de pessoas do STATE, que é justamente o que não pode viajar. */
-const peopleOf = () => (STATE.config && STATE.config.people) || {};
+   resolve o mapa de pessoas do estado, que é justamente o que não pode viajar. */
+const peopleOf = () => (estado().config && estado().config.people) || {};
 
 /* ---------- render: time (separado por conta) ---------- */
 async function loadTeam() {
@@ -3401,10 +3400,10 @@ async function loadTeam() {
     }
     return out;
   };
-  const emptyMsg = `<div class="empty"><span class="big">👋</span>${SCOPE === 'all' ? 'Ainda não há memória de reviews.' : 'Nenhuma memória nesta conta ainda.'}<br><small>A cada PR revisado, o Farol registra recorrências e ganhos por pessoa.</small></div>`;
-  if (SCOPE === 'all' && multi) {
+  const emptyMsg = `<div class="empty"><span class="big">👋</span>${escopo() === 'all' ? 'Ainda não há memória de reviews.' : 'Nenhuma memória nesta conta ainda.'}<br><small>A cada PR revisado, o Farol registra recorrências e ganhos por pessoa.</small></div>`;
+  if (escopo() === 'all' && multi) {
     const parts = [];
-    for (const a of (STATE.accounts || [])) {
+    for (const a of (estado().accounts || [])) {
       if (a.muted && TWEAK.muted !== 'Esmaecer') continue;
       const c = groupCards(a.user);
       if (c.length) { parts.push(memGroupHead(a.user)); parts.push(c.join('')); }
@@ -3412,8 +3411,8 @@ async function loadTeam() {
     const geral = groupCards('');
     if (geral.length) { parts.push(memGroupHead('')); parts.push(geral.join('')); }
     box.innerHTML = parts.join('') || emptyMsg;
-  } else if (SCOPE !== 'all') {
-    const c = groupCards(SCOPE);
+  } else if (escopo() !== 'all') {
+    const c = groupCards(escopo());
     box.innerHTML = c.length ? c.join('') : emptyMsg;
   } else {
     const c = groupCards('__all__');
@@ -3450,7 +3449,7 @@ $('#team').addEventListener('click', async (e) => {
 
 /* ---------- render: sistema ---------- */
 function renderDoctor() {
-  const d = STATE && STATE.doctor;
+  const d = estado() && estado().doctor;
   const box = $('#doctor');
   if (!d) { box.innerHTML = '<div class="empty">Verificando o ambiente…</div>'; return; }
   // `goto` (opcional): o check cita uma coisa configurável do app, então clicar
@@ -3458,9 +3457,9 @@ function renderDoctor() {
   const checks = [
     { ok: !!d.gh, label: 'GitHub CLI', detail: d.gh || 'gh não encontrado no PATH' },
     {
-      ok: d.ghAuth, label: STATE.config.ghUser ? `Conta @${STATE.config.ghUser}` : 'Conta do GitHub',
+      ok: d.ghAuth, label: estado().config.ghUser ? `Conta @${estado().config.ghUser}` : 'Conta do GitHub',
       detail: d.ghAuth ? 'autenticada no gh' : 'sem token: rode gh auth login (conta de trabalho)',
-      goto: STATE.config.ghUser ? `sys:accounts:.acct-label[data-user="${escAttrSelector(STATE.config.ghUser)}"]` : 'sys:accounts:#accountsManager'
+      goto: estado().config.ghUser ? `sys:accounts:.acct-label[data-user="${escAttrSelector(estado().config.ghUser)}"]` : 'sys:accounts:#accountsManager'
     },
     { ok: !!d.claude, label: 'Claude Code', detail: d.claude || 'claude não encontrado no PATH', goto: 'sys:plans:#claudeProfilesManager' },
     // Git Bash é pré-requisito só no Windows (CLAUDE_CODE_GIT_BASH_PATH)
@@ -3468,10 +3467,10 @@ function renderDoctor() {
     { ok: true, label: 'Pasta de trabalho', detail: d.workspace },
     // ambiente ok não quer dizer que vai achar PR: os checks de operação (conta
     // sem organização, conta sem token, tudo silenciado) moram no pure.js
-    ...operationChecks(STATE.accounts),
+    ...operationChecks(estado().accounts),
     // nem que vai conseguir ABRIR a sessão: rodar como root faz toda revisão
     // autônoma morrer no spawn, com o resto da tela verde
-    ...runtimeChecks(STATE.doctor, STATE.config)
+    ...runtimeChecks(estado().doctor, estado().config)
   ];
   box.innerHTML = checks.map(c => `
     <div class="check ${c.ok ? 'ok' : 'bad'}${c.goto ? ' is-goto' : ''}"${c.goto ? ` data-goto="${esc(c.goto)}" role="button" tabindex="0" title="Abrir a configuração deste item"` : ''}>
@@ -3481,7 +3480,7 @@ function renderDoctor() {
   $('#about').innerHTML = `O polling usa só o GitHub CLI (zero tokens de IA). Claude ou Codex entram apenas quando uma sessão de IA é aberta.`;
   // versão e caminho dos dados moram no rodapé da sidebar, visíveis em qualquer seção.
   // A versão leva às Novidades dela (a menção mais citada da tela toda).
-  $('#sysFoot').innerHTML = `<span class="is-goto" data-goto="sys:news:#relNotes" role="button" tabindex="0" title="Ver as novidades desta versão">Farol v${esc(STATE.app.version)}</span><br>dados em <code>${esc(STATE.paths.home)}</code>`;
+  $('#sysFoot').innerHTML = `<span class="is-goto" data-goto="sys:news:#relNotes" role="button" tabindex="0" title="Ver as novidades desta versão">Farol v${esc(estado().app.version)}</span><br>dados em <code>${esc(estado().paths.home)}</code>`;
 }
 
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
@@ -3682,7 +3681,7 @@ let relNotesShown = REL_NOTES_BATCH;
 function renderReleaseNotes() {
   const box = $('#relNotes');
   if (!box) return;
-  const cur = (STATE.app && STATE.app.version) || '';
+  const cur = (estado().app && estado().app.version) || '';
   const total = RELEASE_NOTES.length;
   const shown = Math.min(relNotesShown, total);
   const resto = total - shown;
@@ -3707,8 +3706,8 @@ function renderAbout() {
   // atual foi reconstruído do zero), então a lista sincronizada nunca a capturaria,
   // e história não muda, logo não há manutenção. Decisão do Wanderson, 15/08/2026.
   $('#aboutOrigem').innerHTML = `<span class="origem-label">Origem</span> O Farol nasceu de uma iniciativa do Thiago (${personMention('thiagopcdev', 'xs')}): um revisor de PRs que rodava numa janela de terminal e dependia de ação manual. O app atual foi reconstruído do zero em cima dessa essência.`;
-  box.innerHTML = creditsHtml(STATE.credits);
-  const repo = ((STATE.config && STATE.config.updateRepo) || '').trim();
+  box.innerHTML = creditsHtml(estado().credits);
+  const repo = ((estado().config && estado().config.updateRepo) || '').trim();
   const link = $('#aboutLicenseLink');
   if (link && /^[^\s/]+\/[^\s/]+$/.test(repo)) link.href = `https://github.com/${repo}/blob/main/LICENSE`;
 }
@@ -3728,8 +3727,8 @@ async function loadReviewerCands(force) {
 }
 
 /* ---- helpers do modelo padrão/exceção ---- */
-function cfgDefaults() { return (STATE.config || {}).defaultReviewers || {}; }
-function cfgProjects() { return (STATE.config || {}).projectReviewers || {}; }
+function cfgDefaults() { return (estado().config || {}).defaultReviewers || {}; }
+function cfgProjects() { return (estado().config || {}).projectReviewers || {}; }
 // ctx do editor de reviewers: uma leitura so por renderizacao. Mesmo motivo do
 // peopleOf, do primeiro passo da onda: os blocos de uma mesma passada tem que
 // enxergar o mesmo estado, senao um SSE no meio do render faz duas orgs da mesma
@@ -3739,8 +3738,8 @@ const revCtx = () => ({
   defaults: cfgDefaults(), projects: cfgProjects(),
   cands: reviewerCands, candsLoaded: reviewerCandsLoaded,
   abertas: openExceptions, pendentes: pendingExc, expandidas: foldedOpen,
-  prKeys: [...(STATE.myPRs || []).map(p => p.key), ...(STATE.panorama || []).map(p => p.key)],
-  owner2user: OWNER2USER, ghUser: (STATE.config || {}).ghUser || '',
+  prKeys: [...(estado().myPRs || []).map(p => p.key), ...(estado().panorama || []).map(p => p.key)],
+  owner2user: OWNER2USER, ghUser: (estado().config || {}).ghUser || '',
 });
 
 // reviewers presentes na maioria das exceções da org: sugestão pra virar padrão
@@ -3752,8 +3751,8 @@ const revCtx = () => ({
 function applyDefaults(map) {
   const clean = {};
   for (const k of Object.keys(map)) if ((map[k] || []).length) clean[k] = map[k];
-  if (!STATE.config) STATE.config = {};
-  STATE.config.defaultReviewers = clean;
+  if (!estado().config) estado().config = {};
+  estado().config.defaultReviewers = clean;
   // pruna exceções que passaram a igualar o padrão (viram "segue o padrão")
   const pr = { ...cfgProjects() }; let prChanged = false;
   for (const repo of Object.keys(pr)) {
@@ -3761,7 +3760,7 @@ function applyDefaults(map) {
     const d = clean[repo.split('/')[0]] || clean[repo.split('/')[0].toLowerCase()] || [];
     if (sameSet(pr[repo], d)) { delete pr[repo]; prChanged = true; }
   }
-  if (prChanged) STATE.config.projectReviewers = pr;
+  if (prChanged) estado().config.projectReviewers = pr;
   renderReviewersEditor();
   api('/api/settings', { defaultReviewers: clean });
   if (prChanged) api('/api/settings', { projectReviewers: pr });
@@ -3774,8 +3773,8 @@ function applyProjects(map, keepRepo) {
     if (k !== keepRepo && !openExceptions.has(k) && !pendingExc.has(k) && sameSet(list, defaultFor(k.split('/')[0], revCtx()))) continue;
     clean[k] = list;
   }
-  if (!STATE.config) STATE.config = {};
-  STATE.config.projectReviewers = clean;
+  if (!estado().config) estado().config = {};
+  estado().config.projectReviewers = clean;
   renderReviewersEditor();
   api('/api/settings', { projectReviewers: clean });
 }
@@ -3798,7 +3797,7 @@ function renderReviewersEditor() {
   // um ctx pra TODA a tela: o laço por conta e o bloco das órfãs lá embaixo têm que
   // enxergar o mesmo estado, e o `const` dentro do laço não alcançava as órfãs
   const ctxRev = revCtx();
-  for (const a of (STATE.accounts || [])) {
+  for (const a of (estado().accounts || [])) {
     const meta = ACCT[a.user.toLowerCase()] || {};
     const orgs = [...new Set((a.owners || []).map(String))];
     [...Object.keys(cfgDefaults()), ...Object.keys(cfgProjects()).map(r => r.split('/')[0])].forEach(o => {
@@ -3942,13 +3941,13 @@ $('#setAutomationProvider').addEventListener('click', (e) => {
   const btn = e.target.closest('.seg-btn');
   if (!btn) return;
   AUTOMATION_PROVIDER = btn.dataset.provider;
-  renderAutomationSettings((STATE && STATE.config) || {});
+  renderAutomationSettings((estado() && estado().config) || {});
 });
 
 function renderSettings() {
   renderReleaseNotes();
   renderAbout();
-  const c = STATE.config;
+  const c = estado().config;
   const setIf = (el, val) => { if (document.activeElement !== el) el.value = val; };
   setIf($('#setUser'), c.ghUser);
   setIf($('#setOwners'), (c.owners || []).join(', '));
@@ -3985,15 +3984,15 @@ function renderSettings() {
 
 /* ---------- ferramentas internas (kudos/diagnostico) ---------- */
 let lastKudosOutput = '';
-function kudosScopeKey() { return SCOPE === 'all' ? '*' : String(SCOPE).toLowerCase(); }
+function kudosScopeKey() { return escopo() === 'all' ? '*' : String(escopo()).toLowerCase(); }
 function renderTools() {
-  const runs = STATE.toolRuns || {};
+  const runs = estado().toolRuns || {};
   const btnK = $('#btnKudos'), btnH = $('#btnHealth');
 
   // kudos é por conta: cada escopo tem sua própria compilação (nunca mistura contas)
   const kmap = (runs.kudos && typeof runs.kudos === 'object') ? runs.kudos : {};
   const k = kmap[kudosScopeKey()] || {};
-  const scopeName = SCOPE === 'all' ? '' : ((ACCT[String(SCOPE).toLowerCase()] || {}).label || SCOPE);
+  const scopeName = escopo() === 'all' ? '' : ((ACCT[String(escopo()).toLowerCase()] || {}).label || escopo());
   btnK.disabled = k.status === 'running';
   btnK.innerHTML = k.status === 'running'
     ? '<span class="spin"></span> Gerando…'
@@ -4074,7 +4073,7 @@ const DIAG_LOG_TAIL = 40;
 async function buildDiagnostics() {
   const [logRaw, gruposRaw] = await Promise.all([get('/api/log'), get('/api/log/triage')]);
   return diagnosticsText({
-    s: STATE || {}, log: logRaw || [], grupos: gruposRaw || [],
+    s: estado() || {}, log: logRaw || [], grupos: gruposRaw || [],
     agora: new Date().toLocaleString('pt-BR'), tail: DIAG_LOG_TAIL
   });
 }
@@ -4099,7 +4098,7 @@ $('#btnDiagClear').onclick = () => { $('#diagPanel').hidden = true; };
 /* ---------- som + notificação ---------- */
 let audioCtx = null;
 function ping() {
-  if (!STATE?.config?.soundEnabled) return;
+  if (!estado()?.config?.soundEnabled) return;
   try {
     audioCtx = audioCtx || new AudioContext();
     const t = audioCtx.currentTime;
@@ -4142,7 +4141,7 @@ $('#btnCheck').onclick = () => api('/api/check');
 $('#btnReviewAll').onclick = () => {
   // revisa só o que está visível no escopo atual; a lista vai SEMPRE explícita
   // (mandar {} fazia o servidor revisar a fila INTEIRA, achado B22)
-  const urls = (STATE.queue || []).filter(scopeVisible).map(p => p.url);
+  const urls = (estado().queue || []).filter(scopeVisible).map(p => p.url);
   if (!urls.length) { toast('info', 'Nada visível pra revisar agora (a fila mudou embaixo do botão).'); return; }
   revisarUrls(urls);
 };
@@ -4302,8 +4301,8 @@ let TENTATIVAS_RECONEXAO = 0;
 function connect() {
   const es = new EventSource('/api/events');
   es.addEventListener('state', (e) => {
-    const d = safeJsonParse(e.data); if (!d) return; STATE = d;
-    aplicaPlataforma(STATE.app && STATE.app.platform);   // engine manda; o userAgent era só o palpite inicial
+    const d = safeJsonParse(e.data); if (!d) return; definirEstado(d);
+    aplicaPlataforma(estado().app && estado().app.platform);   // engine manda; o userAgent era só o palpite inicial
     syncOptionalTabsVisibility();
     rebuildAccounts();
     renderStatus(); renderAccountBar(); renderIdentity();
@@ -4315,7 +4314,7 @@ function connect() {
   });
   es.addEventListener('activity', (e) => {
     const d = safeJsonParse(e.data); if (!d) return; const { id, item } = d;
-    if (STATE?.activity) (STATE.activity[id] = STATE.activity[id] || []).push(item);
+    if (estado()?.activity) (estado().activity[id] = estado().activity[id] || []).push(item);
     const feed = document.querySelector(`.activity-feed[data-id="${CSS.escape(id)}"]`);
     if (feed) {
       const stick = feed.scrollTop + feed.clientHeight >= feed.scrollHeight - 30;
@@ -4327,11 +4326,11 @@ function connect() {
     updateSessionBar(id);
     updateStageFlow(id);
     // ...e, se for autoanálise, também o widget do card em Meus PRs
-    const selfKey = selfSessionKey(STATE?.activeSessions, id);
+    const selfKey = selfSessionKey(estado()?.activeSessions, id);
     if (selfKey) {
       const op = ACTIVE_OPS.get(`analysis-${selfKey}`);
       if (op && op.status === 'running') {
-        const n = (STATE?.activity?.[id] || []).length;
+        const n = (estado()?.activity?.[id] || []).length;
         updateOp(op.id, {
           step: (item && item.text) || op.step,
           progress: Math.max(op.progress || 0, sessionProgress(n))
@@ -4353,7 +4352,7 @@ function connect() {
       // textContent no container destruia a pill e orfanava a op (B16). Se a
       // atividade chegar antes do primeiro snapshot de chat, cria a op aqui.
       if (!ACTIVE_OPS.has(opId)) showOp(opId, { type: 'chat', title: 'Claude respondendo', inline: true, container: el });
-      // o chat nao acumula feed em STATE.activity; a contagem de eventos vive
+      // o chat nao acumula feed em estado().activity; a contagem de eventos vive
       // na propria op, e o percentual sai da MESMA regua dos outros fluxos
       const op = ACTIVE_OPS.get(opId);
       const n = (op.chatEvents = (op.chatEvents || 0) + 1);

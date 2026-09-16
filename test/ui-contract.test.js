@@ -63,12 +63,12 @@ test('o clique num item da paleta fecha a paleta ANTES de rodar e captura a reje
 test('o lote "Aprovar as N pendentes" só alcança as decisões visíveis no escopo', () => {
   // agravante do A5 (regra R13 do plano mestre): aprovar em lote não pode alcançar
   // decisões que o filtro de conta esconde; o lote itera a lista passada por
-  // scopeVisible, nunca STATE.decisions.pending inteiro
-  assert.match(APPJS, /const visiveis = \(STATE\?\.decisions\?\.pending \|\| \[\]\)\.filter\(scopeVisible\);/,
+  // scopeVisible, nunca estado().decisions.pending inteiro
+  assert.match(APPJS, /const visiveis = \(estado\(\)\?\.decisions\?\.pending \|\| \[\]\)\.filter\(scopeVisible\);/,
     'o lote nasce da lista filtrada por scopeVisible');
   assert.match(APPJS, /for \(const d of visiveis\) await decide\(d\.id, 'approve'\);/,
     'a iteração do lote é sobre as visíveis');
-  assert.doesNotMatch(APPJS, /for \(const d of \[\.\.\.STATE\.decisions\.pending\]\)/,
+  assert.doesNotMatch(APPJS, /for \(const d of \[\.\.\.estado\(\)\.decisions\.pending\]\)/,
     'a iteração antiga sobre a fila inteira saiu');
 });
 
