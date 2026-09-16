@@ -104,30 +104,77 @@ export function modoDistribuicaoHtml(sync, cfgSync) {
 // `tomadasSofridas[{prKey, para, geracao, at}]`. O comando emitido entra pela nota própria
 // (notaComandoHtml), só quando o engine resolveu o PR dele.
 //
-// O motivo só chega quando ESTE aparelho o conhece (é o admin que agendou, ou foi ele que
-// recusou a atribuição). Vazio não é "sem motivo": é "não se sabe daqui", e a nota diz isso.
+// O motivo chega pelo que o conjunto publicou (o veredito do agendador no nó do item, a
+// atribuição viva e a recusa do executor) ou pelo que este aparelho mesmo decidiu. Vazio
+// não é "sem motivo": é "não se sabe daqui", e a nota diz isso. As recusas nomeiam "o
+// aparelho escolhido" porque quem recusou pode ser outro, e o detalhe diz qual.
 const MOTIVO_ESPERA = {
   'sem-aparelho-apto': 'nenhum aparelho apto agora (sem vaga, pausado, sem sinal, ou que já recusou este commit)',
   'atribuicao-viva': 'o distribuidor já escolheu um aparelho e espera ele aceitar',
-  sem_vaga: 'este aparelho recusou a atribuição por estar sem vaga',
+  sem_vaga: 'o aparelho escolhido recusou a atribuição por estar sem vaga',
   head_mudou: 'o commit mudou antes de a análise começar',
   orcamento: 'o teto do grupo de consumo segurou a atribuição',
-  inapto: 'este aparelho não estava apto quando a atribuição chegou',
+  inapto: 'o aparelho escolhido não estava apto quando a atribuição chegou',
   saida_de_cena: 'outra pessoa já pegou este PR',
-  sem_token: 'faltou a credencial da conta neste aparelho',
+  sem_token: 'faltou a credencial da conta no aparelho escolhido',
 };
 
-function textoDaEspera(motivo) {
+// O motivo POR APARELHO: o veredito do agendador (lib/engine/escolha.js,
+// motivosPorAparelho) e o detalhe da admissão de quem recusou (lib/engine/admissao.js).
+const MOTIVO_APARELHO = {
+  'sem-sinal': 'sem sinal recente',
+  pausado: 'pausado pelo admin',
+  'sem-vaga': 'sem vaga',
+  recusou: 'recusou este commit há pouco, e a espera da recusa ainda vale',
+  'memoria-desconhecida': 'sem medida de memória livre, e a admissão não admite assim',
+  'memoria-insuficiente': 'com memória livre abaixo do piso da admissão',
+  'presenca-vencida': 'sem presença recente',
+  'provedor-nao-pronto': 'sem IA pronta',
+  root: 'rodando como root, que o Claude Code recusa',
+  'grupo-nao-verificavel': 'com o teto do grupo de consumo não verificável agora',
+  'nao-publiquei': 'sem este item publicado lá',
+  'tipo-desconhecido': 'sem permissão para este tipo de análise',
+};
+
+function textoDoAparelho(motivo) {
+  return MOTIVO_APARELHO[motivo] || MOTIVO_ESPERA[motivo] || `motivo registrado: ${motivo}`;
+}
+
+function nomeNaNotaDeEspera(sync, deviceId) {
+  if (deviceId && deviceId === sync.deviceId) return 'este aparelho';
+  return nomeDoAparelho(sync.devices, deviceId) || 'um aparelho sem nome nesta tela';
+}
+
+// "O Notebook está sem vaga": o detalhe que faltava na divergência 5. Sem detalhe, a nota
+// fica no motivo geral, que já é verdadeiro.
+function detalheDaEspera(item, sync) {
+  if (item.motivo === 'atribuicao-viva' && item.dev) {
+    return ` O distribuidor escolheu o ${esc(nomeNaNotaDeEspera(sync, item.dev))} e espera ele aceitar.`;
+  }
+  const aparelhos = (Array.isArray(item.aparelhos) ? item.aparelhos : []).filter((a) => a && a.deviceId && a.motivo);
+  if (!aparelhos.length) return '';
+  const partes = aparelhos.map((a) => `${esc(nomeNaNotaDeEspera(sync, a.deviceId))}, ${esc(textoDoAparelho(a.motivo))}`);
+  return ` Por aparelho: ${partes.join('; ')}.`;
+}
+
+// A recusa por PESO não existe ainda: o tamanho do PR não entra na escolha de aparelho.
+// A nota diz isso onde a pergunta aparece, que é quando ninguém pôde receber o item.
+const PESO_NAO_ATIVO = ' O tamanho do PR ainda não entra na escolha: a recusa por peso não está ativa.';
+
+function textoDaEspera(item, sync) {
+  const motivo = item.motivo;
   if (!motivo) return 'Ele volta a ser oferecido a cada giro, e o motivo da espera não chega a esta tela.';
-  return `Motivo: ${esc(MOTIVO_ESPERA[motivo] || `motivo registrado: ${motivo}`)}. Ele volta a ser oferecido a cada giro.`;
+  const peso = motivo === 'sem-aparelho-apto' || motivo === 'sem_vaga' ? PESO_NAO_ATIVO : '';
+  return `Motivo: ${esc(MOTIVO_ESPERA[motivo] || `motivo registrado: ${motivo}`)}.${detalheDaEspera(item, sync)}${peso} Ele volta a ser oferecido a cada giro.`;
 }
 
 export function notaDistribuicaoHtml(key, sync, agora = Date.now()) {
-  const d = (sync && sync.distribuicao) || {};
+  const s = sync || {};
+  const d = s.distribuicao || {};
   const item = (Array.isArray(d.esperando) ? d.esperando : []).find((x) => x && x.key === key);
   if (!item) return '';
   const ha = item.desde ? ` há ${esc(fmtDur(Math.max(0, agora - item.desde)))}` : '';
-  return `<div class="pr-coord">Esperando distribuição${ha}: nenhum aparelho recebeu este PR ainda. ${textoDaEspera(item.motivo)}</div>`;
+  return `<div class="pr-coord">Esperando distribuição${ha}: nenhum aparelho recebeu este PR ainda. ${textoDaEspera(item, s)}</div>`;
 }
 
 export function notaTomadaSofridaHtml(key, sync) {
@@ -326,6 +373,11 @@ const CODIGO = {
   inapto: 'o aparelho não estava apto', nao_e_minha: 'a pendência não é daquele aparelho',
   nao_postou: 'a decisão não foi postada', destino_inapto: 'o destino não estava apto',
   espera_senha: 'esperando a senha naquele aparelho',
+  nao_publiquei: 'aquele aparelho não publicou este item',
+  nao_enfileirou: 'a análise não entrou na fila de lá',
+  duplicado: 'já havia uma análise deste PR na fila ou rodando lá',
+  'saida-de-cena': 'outra pessoa já pegou este PR, e lá o Farol saiu de cena',
+  recusado_no_aparelho: 'recusado por quem está naquele aparelho',
 };
 
 const TIPO_CMD = { cancelar: 'cancelar', repetir: 'repetir', decidir: 'decidir', iniciar: 'iniciar', transferir: 'transferir', tomar: 'tomar', 'designar-admin': 'designar admin' };

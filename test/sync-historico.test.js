@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import historico from '../lib/sync/historico.js';
+import { matTag } from '../lib/sync/tags.js';
 
 const K = randomBytes(32);
 const D = {
@@ -14,17 +15,25 @@ const D = {
   verdict: 'approve', status: 'posted', action: 'approve', account: 'conta1',
   reasons: [{ text: 'a', kind: 'gate' }, { text: 'b', kind: 'content' }], attention: ['x'],
   pr: { repo: 'dono/repo', number: 3, url: 'u', title: 'Titulo', author: 'alguem' },
-  reportMarkdown: 'RELATORIO INTERNO',
+  reportMarkdown: 'RELATORIO INTERNO', headSha: 'shaanalisado3',
 };
 
-test('o índice leva veredito, status, ação, contagens e a tag do PR, e nada mais', () => {
+// `matTag` entrou com o comando repetir pela tela (C6): o admin pede de novo sobre o commit
+// que a revisão leu, e sem a tag no índice esse pedido não tinha como sair
+test('o índice leva veredito, status, ação, contagens, a tag do PR e a do commit, e nada mais', () => {
   const i = historico.indiceDe(D, { kId: K });
-  assert.deepEqual(Object.keys(i).sort(), ['acao', 'contagens', 'prTag', 'status', 'veredito']);
+  assert.deepEqual(Object.keys(i).sort(), ['acao', 'contagens', 'matTag', 'prTag', 'status', 'veredito']);
   assert.equal(i.status, 'posted');
   assert.deepEqual(i.contagens, { motivos: 2, atencao: 1 });
   assert.match(i.prTag, /^[0-9a-f]{32}$/);
   const cru = JSON.stringify(i);
-  for (const p of ['dono/repo', 'Titulo', 'conta1', 'RELATORIO']) assert.equal(cru.includes(p), false, p);
+  for (const p of ['dono/repo', 'Titulo', 'conta1', 'RELATORIO', 'shaanalisado3']) assert.equal(cru.includes(p), false, p);
+});
+
+test('a tag do commit é a do head que a revisão leu, e revisão sem head fica sem ela', () => {
+  assert.equal(historico.indiceDe(D, { kId: K }).matTag, matTag(K, 'shaanalisado3'));
+  assert.equal(historico.indiceDe({ ...D, headSha: '' }, { kId: K }).matTag, '');
+  assert.equal(historico.indiceDe({ ...D, headSha: undefined }, { kId: K }).matTag, '');
 });
 
 test('status e ação fora da lista viram vazio', () => {

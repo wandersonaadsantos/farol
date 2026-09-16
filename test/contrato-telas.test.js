@@ -106,7 +106,8 @@ test('o snapshot da sincronização leva admin, distribuição, admissão e coma
   const s = syncMod.statusForUi(engine);
   // ultimoBatimentoEm entrou com a resolução das divergências de Aparelhos (item 4)
   assert.deepEqual(s.admin, { deviceId: engine.sync.deviceId, generation: 1, souEu: true, fresca: true, ultimoBatimentoEm: engine.sync.autoridade.ultimaMudancaEm });
-  assert.deepEqual(s.distribuicao, { modo: 'local', esperando: [] });
+  // candidatos entrou com o comando iniciar pela tela: a fila do conjunto, vazia fora do admin que agenda
+  assert.deepEqual(s.distribuicao, { modo: 'local', esperando: [], candidatos: [] });
   assert.equal(s.admissao.teto >= 1, true);
   assert.equal(s.admissao.pausado, false);
   assert.deepEqual(s.comandosEmitidos, []);

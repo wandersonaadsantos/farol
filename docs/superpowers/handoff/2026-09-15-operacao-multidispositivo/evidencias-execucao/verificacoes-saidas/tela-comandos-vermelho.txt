@@ -1,0 +1,555 @@
+✔ o candidato é ponteiro: tags, rascunho, rodada e TTL, e nada mais (1.3616ms)
+✔ clique manual não é rodada automática, e rascunho viaja (0.1558ms)
+✔ sem PR ou sem head não existe candidato: o head é parte da identidade (0.0773ms)
+✔ head novo é item novo, e o mesmo head é o mesmo item (0.202ms)
+✔ a org é a mesma entre contas e caixas diferentes (0.1142ms)
+✔ o nome do owner é apresentação, e não entra no ponteiro (0.1205ms)
+✔ o mesmo PR publicado por dois aparelhos vira UM item com dois publicadores (0.2804ms)
+✔ candidato vencido não entra na fusão (0.1382ms)
+✔ onde: só publicador apto, não pausado e com vaga (0.2533ms)
+✔ onde: quem recusou este item neste head espera a janela passar (0.1526ms)
+✔ onde: prioridade vence, e empate vai para quem tem mais folga (0.1969ms)
+✖ nenhum aparelho apto não trava a fila: o item fica com motivo e o próximo sai (0.956ms)
+✔ qual: org nunca atendida fura a fila da que acabou de rodar (0.0995ms)
+✔ qual: entre duas orgs já atendidas, ganha a que esperou mais (0.0804ms)
+✔ qual: mesma org resolve pela ordem de chegada (0.0548ms)
+✔ com um aparelho só, a ordem é a mesma do escalonador de hoje (0.4249ms)
+✔ o comando sobe cifrado e assinado, e o tipo não aparece em claro (439.7836ms)
+✔ quem não é admin da geração vigente não emite (260.3048ms)
+✔ repetir: enfileira sem virar clique manual, e o recibo é o desfecho (268.8797ms)
+✔ comando duplicado produz UM efeito (269.1673ms)
+✔ comando para head antigo é recusado (265.8976ms)
+✖ repetir: PR da fila sem head pergunta o head atual e aplica quando ele bate (272.9383ms)
+✔ repetir: head que não dá para perguntar é desconhecido, e desconhecido recusa (291.6805ms)
+✔ repetir: o enfileiramento que recusa vira recibo com o código dele (269.561ms)
+✔ comando expirado não executa, e diz que venceu (266.3691ms)
+✔ sem consentimento local o comando é ignorado com o porquê (266.7262ms)
+✔ sem autoridade fresca o comando é ignorado, mesmo assinado (258.6847ms)
+✔ comando de outro alvo não é meu: nem executa, nem vira recibo (274.2785ms)
+✔ cancelar sem sessão viva é recusa com motivo, não silêncio (264.3907ms)
+✔ cancelar com sessão viva encerra aquela sessão (289.9813ms)
+✔ decidir: pendência que não é deste aparelho não posta nada (271.8796ms)
+✔ decidir: pendência deste aparelho vai pelo caminho de sempre (279.3418ms)
+✔ iniciar aqui: passa pela admissão e volta pelo ramo local (288.4169ms)
+✖ iniciar aqui: o head de AGORA é conferido, não o que o candidato guardou (253.1633ms)
+✔ iniciar aqui: sem vaga é recusa com sem_vaga, e nada é enfileirado (270.9438ms)
+✔ iniciar aqui: item que este aparelho não publicou é recusado (272.3919ms)
+✔ iniciar aqui: admissão que recusa vira recibo com motivo, e nada roda (283.8278ms)
+✔ designar admin não promove sozinho: acende o pedido e espera a senha daqui (329.106ms)
+✔ o desfecho que o emissor enxerga é o recibo, e antes dele não existe sucesso (279.5769ms)
+✔ o relógio roda os comandos depois do aceite (1.4231ms)
+✔ nenhum caminho de comando escreve manual ou requested (1.0565ms)
+✖ repetir pela tela: o índice traz o commit, o corpo sai exato, o dono aplica e a tela lê o recibo (609.8286ms)
+✖ repetir indisponível: revisão sem commit no índice, e admin sem sinal fresco, cada um com o motivo (497.69ms)
+✖ repetir sem confirmação não sai (516.4819ms)
+✖ repetir: o head muda entre a escolha e a execução, o dono recusa com head_mudou e a tela mostra (503.3913ms)
+✖ repetir: o admin perde a autoridade antes de o dono ler, e o dono ignora com o porquê (504.4519ms)
+✖ o motivo da espera chega a quem publicou: o veredito do admin diz que este aparelho está sem vaga (534.0852ms)
+✖ iniciar pela tela: a fila do conjunto, os executores pela rota, o corpo exato, a execução e o recibo (513.3868ms)
+✖ iniciar indisponível: sem vaga em quem publicou, a escolha diz por quê e nada sai (521.0754ms)
+✖ iniciar indisponível sem admin fresco: a fila mostra o motivo e o ato não sai (519.2881ms)
+✖ iniciar: a vaga some entre a escolha e a execução, o executor recusa com sem_vaga e a tela mostra (545.1544ms)
+✖ iniciar: o head muda entre a escolha e a execução, e o candidato antigo não começa (537.31ms)
+✖ iniciar: escolha forjada fora dos aptos não sai, nem com confirmação (511.3089ms)
+✖ designar pela tela: pedido enviado, pendente até a senha lá, e o recibo fecha a pendência (504.9604ms)
+✖ designar: a recusa no destino chega à tela como recusa (493.1826ms)
+✖ designar indisponível: admin sem sinal fresco não vê o ato, aparelho aposentado mostra o motivo, e nada sai (516.6722ms)
+✖ designar: o admin perde a autoridade antes de o destino ler, e o destino ignora com o porquê (523.9985ms)
+node:internal/modules/esm/resolve:271
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\Users\wanderson\AppData\Local\Temp\claude\C--Users-wanderson-Documents-farol\754930d5-b624-45f9-a89e-8b256fb78fe5\scratchpad\base-vermelho\lib\engine\sync-espera.js' imported from C:\Users\wanderson\AppData\Local\Temp\claude\C--Users-wanderson-Documents-farol\754930d5-b624-45f9-a89e-8b256fb78fe5\scratchpad\base-vermelho\test\sync-espera.test.js
+    at finalizeResolution (node:internal/modules/esm/resolve:271:11)
+    at moduleResolve (node:internal/modules/esm/resolve:861:10)
+    at defaultResolve (node:internal/modules/esm/resolve:988:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:697:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:714:38)
+    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:746:52)
+    at #resolve (node:internal/modules/esm/loader:679:17)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:599:35)
+    at node:internal/modules/esm/loader:628:32
+    at TracingChannel.tracePromise (node:diagnostics_channel:362:14) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/lib/engine/sync-espera.js'
+}
+
+Node.js v24.15.0
+✖ test\sync-espera.test.js (3661.7524ms)
+✖ o índice leva veredito, status, ação, contagens, a tag do PR e a do commit, e nada mais (1.87ms)
+✖ a tag do commit é a do head que a revisão leu, e revisão sem head fica sem ela (0.2996ms)
+✔ status e ação fora da lista viram vazio (0.6477ms)
+✔ t é o instante da decisão, dt ordena por aparelho com 13 dígitos, e a versão acompanha o status (0.1209ms)
+✔ o id da revisão amarra aparelho e decisão (0.1871ms)
+✔ o corpo é a projeção da tela, com o review humanizado e sem o login da conta (0.1184ms)
+✔ ordenar para a tela: mais recente primeiro, sem duplicar (0.199ms)
+✔ o arquivo publicado é exatamente o que o gerador produz (87.5253ms)
+✔ o template usa macro e o publicado não deixou nenhuma por expandir (0.3823ms)
+✔ a raiz perdeu o .write: o apagão de /users/{uid} deixa de existir (0.07ms)
+✔ as validações legadas continuam byte a byte as de hoje (0.1032ms)
+✔ cada nó legado ganhou concessão própria, já que a raiz não concede mais (0.0844ms)
+✔ keyring: exige senha recente e rev monotônico (0.0789ms)
+✔ só os nós listados têm concessão de escrita: nó novo sem regra é negado por construção (0.588ms)
+✔ live/control/admin: senha recente e geração +1, sem pulo e sem volta (0.0772ms)
+✔ live/control/beat: geração vigente, dono do momento e janela de 60 s (0.0765ms)
+✔ live/devicePolicies/$dev: forma, geração vigente e envelope de no máximo 2048 (0.1118ms)
+✔ a sonda depende desta assimetria: rulesProbe concede em v2/{aparelho} e em mais nada (0.0602ms)
+✔ live/control/cleanup: booleano, geração vigente e rev que só sobe (0.0756ms)
+✔ live/control/cleanupLock: nasce com REC e chave ligada, e sai sem condição (0.0585ms)
+✔ live/control/lastCleanup: só com senha recente, e com a forma do corte (0.0343ms)
+✔ live/control/revokedBefore: abaixo do auth_time do ato e sempre para cima (0.0388ms)
+✔ live/groups/$grupo: mesma forma do nó de política, com envelope de 2048 (0.0345ms)
+✔ a limpeza remove pelo pai, e só sob as condições da limpeza (0.0593ms)
+✔ nenhum nó protegido ganhou saída pela limpeza (0.0583ms)
+✔ devices: contract e keyReady ganham validação, e nada mais muda (0.0365ms)
+✔ live/deviceStatus e catalog: forma, envelope de 2048 e remoção só pela limpeza (0.0495ms)
+✔ toda concessão de escrita, inclusive a da limpeza, exige o próprio uid (0.0897ms)
+✔ leases: a tomada é a única saída nova, e ela é deliberada (0.0409ms)
+✔ checkpoints/$loja/$pr/$id: loja fechada, escrita única e envelope (0.0282ms)
+✔ live/commands/$cmd e commandReceipts/$cmd: prazo, geração e recibo de escrita única (0.0581ms)
+✔ usageDaily/$dev/$day: forma do rollup e remoção só pela limpeza (0.0388ms)
+✔ live/operations/$op: remoção livre, x com teto, dev e t0 imutáveis (0.0407ms)
+✔ live/pending/$i: remoção cooperativa, envelope de 4096, at e dev imutáveis (0.0314ms)
+✔ live/seen/$i: grava uma vez só, e sai só sem pendência ou com 30 dias (0.0258ms)
+✔ recentReviews: índice em t e dt, envelope de 1024, e t, d, dt imutáveis (0.043ms)
+✔ reviewBodies: versão write-once, numérica, envelope de 48000 (0.0261ms)
+✔ live/rev: só número, só nos três tipos, e sem remoção (0.0268ms)
+✔ panorama e myPrs: índice su, tombstone de 24 h e meta com teto (0.0658ms)
+✔ pushbacks: forma, envelope de 1024 e lápide sem conteúdo (0.0368ms)
+✔ live/queue, live/assign e live/ack: forma, TTL com teto e rev monotônico (0.0521ms)
+✖ live/assign/$item/espera: forma, prazo curto e envelope; a atribuição sobe por cima dele (0.1416ms)
+✔ live/control/ready: dono do momento, sequência que só sobe e janela de 60 s (0.0354ms)
+file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/ui-pure-comandos-tela.test.js:9
+  acoesDaRevisao, acoesDoCandidato, aparelhosDesignacaoPendente, aparelhosDesignarAcao,
+  ^^^^^^^^^^^^^^
+SyntaxError: The requested module '../ui/pure.js' does not provide an export named 'acoesDaRevisao'
+    at #asyncInstantiate (node:internal/modules/esm/module_job:326:21)
+    at async ModuleJob.run (node:internal/modules/esm/module_job:429:5)
+    at async node:internal/modules/esm/loader:639:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.15.0
+✖ test\ui-pure-comandos-tela.test.js (838.2124ms)
+ℹ tests 102
+ℹ suites 0
+ℹ pass 78
+ℹ fail 24
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13084.3061
+
+✖ failing tests:
+
+test at test\sync-candidato.test.js:119:1
+✖ nenhum aparelho apto não trava a fila: o item fica com motivo e o próximo sai (0.956ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      {
+  -     aparelhos: [
+  -       {
+  -         dev: 'dX',
+  -         motivo: 'sem-sinal'
+  -       }
+  -     ],
+        itemId: 'i1',
+        motivo: 'sem-aparelho-apto'
+      }
+    ]
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-candidato.test.js:125:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { itemId: 'i1', motivo: 'sem-aparelho-apto' } ],
+    expected: [ { itemId: 'i1', motivo: 'sem-aparelho-apto', aparelhos: [Array] } ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-comandos-remoto.test.js:157:1
+✖ repetir: PR da fila sem head pergunta o head atual e aplica quando ele bate (272.9383ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   'dono/repo#7'
+  - ]
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-remoto.test.js:167:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 'dono/repo#7' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-comandos-remoto.test.js:282:1
+✖ iniciar aqui: o head de AGORA é conferido, não o que o candidato guardou (253.1633ms)
+  AssertionError [ERR_ASSERTION]: head novo não inicia o item antigo
+      at e.enfileirarDaDistribuicao (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-remoto.test.js:288:45)
+      at iniciar (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/lib/engine/sync-comandos.js:169:10)
+      at executar (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/lib/engine/sync-comandos.js:234:34)
+      at aplicarUm (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/lib/engine/sync-comandos.js:271:26)
+      at Object.cicloDosComandos (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/lib/engine/sync-comandos.js:290:26)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-remoto.test.js:290:3)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'fail',
+    diff: 'simple'
+  }
+
+test at test\sync-comandos-tela.test.js:247:1
+✖ repetir pela tela: o índice traz o commit, o corpo sai exato, o dono aplica e a tela lê o recibo (609.8286ms)
+  TypeError: Tela.buscarRevisoes is not a function
+      at telaComRevisoes (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:243:14)
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:249:22)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3)
+
+test at test\sync-comandos-tela.test.js:264:1
+✖ repetir indisponível: revisão sem commit no índice, e admin sem sinal fresco, cada um com o motivo (497.69ms)
+  TypeError: Tela.buscarRevisoes is not a function
+      at telaComRevisoes (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:243:14)
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:266:22)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+
+test at test\sync-comandos-tela.test.js:279:1
+✖ repetir sem confirmação não sai (516.4819ms)
+  TypeError: Tela.buscarRevisoes is not a function
+      at telaComRevisoes (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:243:14)
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:281:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+
+test at test\sync-comandos-tela.test.js:286:1
+✖ repetir: o head muda entre a escolha e a execução, o dono recusa com head_mudou e a tela mostra (503.3913ms)
+  TypeError: Tela.buscarRevisoes is not a function
+      at telaComRevisoes (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:243:14)
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:288:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+
+test at test\sync-comandos-tela.test.js:298:1
+✖ repetir: o admin perde a autoridade antes de o dono ler, e o dono ignora com o porquê (504.4519ms)
+  TypeError: Tela.buscarRevisoes is not a function
+      at telaComRevisoes (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:243:14)
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:300:9)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+
+test at test\sync-comandos-tela.test.js:348:1
+✖ o motivo da espera chega a quem publicou: o veredito do admin diz que este aparelho está sem vaga (534.0852ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + ''
+  - 'sem-aparelho-apto'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:354:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: 'sem-aparelho-apto',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-comandos-tela.test.js:363:1
+✖ iniciar pela tela: a fila do conjunto, os executores pela rota, o corpo exato, a execução e o recibo (513.3868ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /md-iniciar" data-item="18b23b195aa2b9e3c01b2be9f4ef4668_0e546d880a06d7346ed6f178529e6e4f"/. Input:
+  
+  ''
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:367:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: /md-iniciar" data-item="18b23b195aa2b9e3c01b2be9f4ef4668_0e546d880a06d7346ed6f178529e6e4f"/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\sync-comandos-tela.test.js:388:1
+✖ iniciar indisponível: sem vaga em quem publicou, a escolha diz por quê e nada sai (521.0754ms)
+  TypeError: Tela.iniciarCandidato is not a function
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:392:27)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+
+test at test\sync-comandos-tela.test.js:398:1
+✖ iniciar indisponível sem admin fresco: a fila mostra o motivo e o ato não sai (519.2881ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Começar agora: indisponível, o admin está sem sinal fresco agora/. Input:
+  
+  ''
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:403:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: /Começar agora: indisponível, o admin está sem sinal fresco agora/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\sync-comandos-tela.test.js:409:1
+✖ iniciar: a vaga some entre a escolha e a execução, o executor recusa com sem_vaga e a tela mostra (545.1544ms)
+  TypeError: Tela.iniciarCandidato is not a function
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:413:27)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+
+test at test\sync-comandos-tela.test.js:420:1
+✖ iniciar: o head muda entre a escolha e a execução, e o candidato antigo não começa (537.31ms)
+  TypeError: Tela.iniciarCandidato is not a function
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:424:27)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+
+test at test\sync-comandos-tela.test.js:431:1
+✖ iniciar: escolha forjada fora dos aptos não sai, nem com confirmação (511.3089ms)
+  TypeError: Tela.iniciarCandidato is not a function
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:435:27)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+
+test at test\sync-comandos-tela.test.js:459:1
+✖ designar pela tela: pedido enviado, pendente até a senha lá, e o recibo fecha a pendência (504.9604ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /data-apar-designar="dExecTeste02">Designar como admin/. Input:
+  
+  '<div class="card sync-card ">\n' +
+    '    <div class="sync-topo"><span class="sync-titulo">Administração</span><span class="sync-chip ok">este aparelho é o admin</span><span class="sync-espaco"></span><span class="sync-fraco">geração 1</span></div>\n' +
+    '    <div class="apar-corpo">\n' +
+    '      <span class="set-desc">Este aparelho é o admin da geração 1, com batimento em dia. Políticas, grupos e comandos publicados daqui valem nos aparelhos que aceitam admin.</span>\n' +
+    '      \n' +
+    '    </div>\n' +
+    '  </div>\n' +
+    '    \n' +
+    '    <div class="sync-sub-head">Aparelhos da conta</div>\n' +
+    '    <div class="card sync-lista">\n' +
+    '    <div class="apar-linha apar-head"><span>aparelho</span><span>sistema</span><span>versão</span><span>visto por último</span><span></span></div>\n' +
+    '    <div class="apar-linha"><span class="sync-nome">Desktop de teste<span class="sync-chip bad">garantia não coberta</span></span><span class="sync-fraco">sistema desconhecido</span><span class="sync-fraco">desconhecida</span><span class="sync-fraco">hoje 16:59</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dExecTeste02">Renomear</button><button class="btn sm ghost" data-apar-politica="dExecTeste02">Política</button><button class="btn sm ghost" data-apar-aposentar="dExecTeste02">Aposentar</button></span></div><div class="apar-linha"><span class="sync-nome">Celular antigo<span class="sync-chip bad">garantia não coberta</span></span><span class="sync-fraco">sistema desconhecido</span><span class="sync-fraco">desconhecida</span><span class="sync-fraco">hoje 16:59</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dVelhoTeste02">Renomear</button><button class="btn sm ghost" data-apar-politica="dVelhoTeste02">Política</button><button class="btn sm ghost" data-apar-aposentar="dVelhoTeste02">Aposentar</button></span></div><div class="apar-linha"><span class="sync-nome">Notebook de teste<span class="sync-chip mute">este</span><span class="sync-chip warn">admin</span><span class="sync-chip bad">garantia não coberta</span></span><span class="sync-fraco">sistema desconhecido</span><span class="sync-fraco">desconhecida</span><span class="sync-fraco">hoje 16:59</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dAdminTeste02">Renomear</button><button class="btn sm ghost" data-apar-politica="dAdminTeste02">Política</button><button class="btn sm ghost" data-apar-aposentar="dAdminTeste02">Aposentar</button></span></div>\n' +
+    '    \n' +
+    '    <p class="apar-nota">"Garantia não coberta": um aparelho em versão anterior à 2.59.4 não participa da arbitragem de postagem. Nas contas que ele também revisa (conta-sintetica), dois Farois podem postar no mesmo PR até ele ser atualizado. <span class="btn sm ghost" data-goto="sys:overview:#updateBox" role="button" tabindex="0">Como atualizar o Farol</span></p>\n' +
+    '  </div>\n' +
+    '    \n' +
+    '    <div class="card set-list">\n' +
+    '    <label class="set-row" id="sys-row-setSyncAceitarAdmin">\n' +
+    '      <span class="set-txt"><span class="set-title">Aceitar políticas e comandos do admin</span><span class="set-desc">Sem isto, este aparelho ignora pausa, teto de paralelismo, grupo de consumo e comandos vindos do admin. Retirar vale na hora, e a última política aceita é esquecida junto.</span></span>\n' +
+    '      <span class="set-ctl"><input type="checkbox" id="setSyncAceitarAdmin" checked><span class="switch"></span></span>\n' +
+    '    </label>\n' +
+    '  </div>\n' +
+    '    <div class="sync-sub-head">Navegadores pareados com este aparelho</div>\n' +
+    '  <div class="card sync-lista"><p class="sync-vago sync-vazio">carregando as sessões pareadas…</p>\n' +
+    '    <p class="apar-nota">Revogar o navegador que você está usando leva direto ao pareamento. Para revogar todos de uma vez, no terminal: <code>node tools/farol-parear.js --revogar-todas</code>.</p>\n' +
+    '  </div>\n' +
+    '    <div class="sync-sub-head">Limpeza e revogação</div>\n' +
+    '  <div class="apar-duo">\n' +
+    '    <div class="card apar-corpo">\n' +
+    '      <div class="apar-titulo"><span class="set-title">Chave de limpeza</span><span class="sync-chip mute">carregando</span></div>\n' +
+    '      <span class="set-desc">carregando o estado da chave de limpeza…</span>\n' +
+    '      \n' +
+    '      \n' +
+    '    </div>\n' +
+    '    <div class="card apar-corpo">\n' +
+    '      <span class="set-title">Revogar o conjunto</span>\n' +
+    '      <span class="set-desc">Corta todos os acessos anteriores a agora e obriga cada aparelho a entrar de novo. Não cancela sessão em andamento em outro aparelho, não apaga o que eles já receberam e não depõe o admin.</span>\n' +
+    '      <span class="sync-dica">Revogar não retira o consentimento deste aparelho: isso é o interruptor "Aceitar políticas e comandos do admin", acima, e vale só aqui.</span>\n' +
+    '      <div class="row-actions"><button class="btn sm danger-ghost" id="aparRevogar">Revogar com a senha…</button></div>\n' +
+    '    </div>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:460:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="card sync-card ">\n    <div class="sync-topo"><span class="sync-titulo">Administração</span><span class="sync-chip ok">este aparelho é o admin</span><span class="sync-espaco"></span><span class="sync-fraco">geração 1</span></div>\n    <div class="apar-corpo">\n      <span class="set-desc">Este aparelho é o admin da geração 1, com batimento em dia. Políticas, grupos e comandos publicados daqui valem nos aparelhos que aceitam admin.</span>\n      \n    </div>\n  </div>\n    \n    <div class="sync-sub-head">Aparelhos da conta</div>\n    <div class="card sync-lista">\n    <div class="apar-linha apar-head"><span>aparelho</span><span>sistema</span><span>versão</span><span>visto por último</span><span></span></div>\n    <div class="apar-linha"><span class="sync-nome">Desktop de teste<span class="sync-chip bad">garantia não coberta</span></span><span class="sync-fraco">sistema desconhecido</span><span class="sync-fraco">desconhecida</span><span class="sync-fraco">hoje 16:59</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dExecTeste02">Renomear</button><button class="btn sm ghost" data-apar-politica="dExecTeste02">Política</button><button class="btn sm ghost" data-apar-aposentar="dExecTeste02">Aposentar</button></span></div><div class="apar-linha"><span class="sync-nome">Celular antigo<span class="sync-chip bad">garantia não coberta</span></span><span class="sync-fraco">sistema desconhecido</span><span class="sync-fraco">desconhecida</span><span class="sync-fraco">hoje 16:59</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dVelhoTeste02">Renomear</button><button class="btn sm ghost" data-apar-politica="dVelhoTeste02">Política</button><button class="btn sm ghost" data-apar-aposentar="dVelhoTeste02">Aposentar</button></span></div><div class="apar-linha"><span class="sync-nome">Notebook de teste<span class="sync-chip mute">este</span><span class="sync-chip warn">admin</span><span class="sync-chip bad">garantia não coberta</span></span><span class="sync-fraco">sistema desconhecido</span><span class="sync-fraco">desconhecida</span><span class="sync-fraco">hoje 16:59</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dAdminTeste02">Renomear</button><button class="btn sm ghost" data-apar-politica="dAdminTeste02">Política</button><button class="btn sm ghost" data-apar-aposentar="dAdminTeste02">Aposentar</button></span></div>\n    \n    <p class="apar-nota">"Garantia não coberta": um aparelho em versão anterior à 2.59.4 não participa da arbitragem de postagem. Nas contas que ele também revisa (conta-sintetica), dois Farois podem postar no mesmo PR até ele ser atualizado. <span class="btn sm ghost" data-goto="sys:overview:#updateBox" role="button" tabindex="0">Como atualizar o Farol</span></p>\n  </div>\n    \n    <div class="card set-list">\n    <label class="set-row" id="sys-row-setSyncAceitarAdmin">\n      <span class="set-txt"><span class="set-title">Aceitar políticas e comandos do admin</span><span class="set-desc">Sem isto, este aparelho ignora pausa, teto de paralelismo, grupo de consumo e comandos vindos do admin. Retirar vale na hora, e a última política aceita é esquecida junto.</span></span>\n      <span class="set-ctl"><input type="checkbox" id="setSyncAceitarAdmin" checked><span class="switch"></span></span>\n    </label>\n  </div>\n    <div class="sync-sub-head">Navegadores pareados com este aparelho</div>\n  <div class="card sync-lista"><p class="sync-vago sync-vazio">carregando as sessões pareadas…</p>\n    <p class="apar-nota">Revogar o navegador que você está usando leva direto ao pareamento. Para revogar todos de uma vez, no terminal: <code>node tools/farol-parear.js --revogar-todas</code>.</p>\n  </div>\n    <div class="sync-sub-head">Limpeza e revogação</div>\n  <div class="apar-duo">\n    <div class="card apar-corpo">\n      <div class="apar-titulo"><span class="set-title">Chave de limpeza</span><span class="sync-chip mute">carregando</span></div>\n      <span class="set-desc">carregando o estado da chave de limpeza…</span>\n      \n      \n    </div>\n    <div class="card apar-corpo">\n      <span class="set-title">Revogar o conjunto</span>\n      <span class="set-desc">Corta todos os acessos anteriores a agora e obriga cada aparelho a entrar de novo. Não cancela sessão em andamento em outro aparelho, não apaga o que eles já receberam e não depõe o admin.</span>\n      <span class="sync-dica">Revogar não retira o consentimento deste aparelho: isso é o interruptor "Aceitar políticas e comandos do admin", acima, e vale só aqui.</span>\n      <div class="row-actions"><button class="btn sm danger-ghost" id="aparRevogar">Revogar com a senha…</button></div>\n    </div>\n  </div>',
+    expected: /data-apar-designar="dExecTeste02">Designar como admin/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\sync-comandos-tela.test.js:477:1
+✖ designar: a recusa no destino chega à tela como recusa (493.1826ms)
+  TypeError: Aparelhos.designarAdmin is not a function
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:480:32)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+
+test at test\sync-comandos-tela.test.js:489:1
+✖ designar indisponível: admin sem sinal fresco não vê o ato, aparelho aposentado mostra o motivo, e nada sai (516.6722ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /designar: aparelho aposentado/. Input:
+  
+  '<div class="card sync-card ">\n' +
+    '    <div class="sync-topo"><span class="sync-titulo">Administração</span><span class="sync-chip ok">este aparelho é o admin</span><span class="sync-espaco"></span><span class="sync-fraco">geração 1</span></div>\n' +
+    '    <div class="apar-corpo">\n' +
+    '      <span class="set-desc">Este aparelho é o admin da geração 1, com batimento em dia. Políticas, grupos e comandos publicados daqui valem nos aparelhos que aceitam admin.</span>\n' +
+    '      \n' +
+    '    </div>\n' +
+    '  </div>\n' +
+    '    \n' +
+    '    <div class="sync-sub-head">Aparelhos da conta</div>\n' +
+    '    <div class="card sync-lista">\n' +
+    '    <div class="apar-linha apar-head"><span>aparelho</span><span>sistema</span><span>versão</span><span>visto por último</span><span></span></div>\n' +
+    '    <div class="apar-linha"><span class="sync-nome">Desktop de teste<span class="sync-chip bad">garantia não coberta</span></span><span class="sync-fraco">sistema desconhecido</span><span class="sync-fraco">desconhecida</span><span class="sync-fraco">hoje 16:59</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dExecTeste02">Renomear</button><button class="btn sm ghost" data-apar-politica="dExecTeste02">Política</button><button class="btn sm ghost" data-apar-aposentar="dExecTeste02">Aposentar</button></span></div><div class="apar-linha"><span class="sync-nome">Celular antigo<span class="sync-chip mute">aposentado</span><span class="sync-chip bad">garantia não coberta</span></span><span class="sync-fraco">sistema desconhecido</span><span class="sync-fraco">desconhecida</span><span class="sync-fraco">hoje 16:59</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dVelhoTeste02">Renomear</button><button class="btn sm ghost" data-apar-politica="dVelhoTeste02">Política</button><button class="btn sm ghost" data-apar-reativar="dVelhoTeste02">Reativar</button></span></div><div class="apar-linha"><span class="sync-nome">Notebook de teste<span class="sync-chip mute">este</span><span class="sync-chip warn">admin</span><span class="sync-chip bad">garantia não coberta</span></span><span class="sync-fraco">sistema desconhecido</span><span class="sync-fraco">desconhecida</span><span class="sync-fraco">hoje 16:59</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dAdminTeste02">Renomear</button><button class="btn sm ghost" data-apar-politica="dAdminTeste02">Política</button><button class="btn sm ghost" data-apar-aposentar="dAdminTeste02">Aposentar</button></span></div>\n' +
+    '    \n' +
+    '    <p class="apar-nota">"Garantia não coberta": um aparelho em versão anterior à 2.59.4 não participa da arbitragem de postagem. Nas contas que ele também revisa (conta-sintetica), dois Farois podem postar no mesmo PR até ele ser atualizado. <span class="btn sm ghost" data-goto="sys:overview:#updateBox" role="button" tabindex="0">Como atualizar o Farol</span></p>\n' +
+    '  </div>\n' +
+    '    \n' +
+    '    <div class="card set-list">\n' +
+    '    <label class="set-row" id="sys-row-setSyncAceitarAdmin">\n' +
+    '      <span class="set-txt"><span class="set-title">Aceitar políticas e comandos do admin</span><span class="set-desc">Sem isto, este aparelho ignora pausa, teto de paralelismo, grupo de consumo e comandos vindos do admin. Retirar vale na hora, e a última política aceita é esquecida junto.</span></span>\n' +
+    '      <span class="set-ctl"><input type="checkbox" id="setSyncAceitarAdmin" checked><span class="switch"></span></span>\n' +
+    '    </label>\n' +
+    '  </div>\n' +
+    '    <div class="sync-sub-head">Navegadores pareados com este aparelho</div>\n' +
+    '  <div class="card sync-lista"><p class="sync-vago sync-vazio">carregando as sessões pareadas…</p>\n' +
+    '    <p class="apar-nota">Revogar o navegador que você está usando leva direto ao pareamento. Para revogar todos de uma vez, no terminal: <code>node tools/farol-parear.js --revogar-todas</code>.</p>\n' +
+    '  </div>\n' +
+    '    <div class="sync-sub-head">Limpeza e revogação</div>\n' +
+    '  <div class="apar-duo">\n' +
+    '    <div class="card apar-corpo">\n' +
+    '      <div class="apar-titulo"><span class="set-title">Chave de limpeza</span><span class="sync-chip mute">carregando</span></div>\n' +
+    '      <span class="set-desc">carregando o estado da chave de limpeza…</span>\n' +
+    '      \n' +
+    '      \n' +
+    '    </div>\n' +
+    '    <div class="card apar-corpo">\n' +
+    '      <span class="set-title">Revogar o conjunto</span>\n' +
+    '      <span class="set-desc">Corta todos os acessos anteriores a agora e obriga cada aparelho a entrar de novo. Não cancela sessão em andamento em outro aparelho, não apaga o que eles já receberam e não depõe o admin.</span>\n' +
+    '      <span class="sync-dica">Revogar não retira o consentimento deste aparelho: isso é o interruptor "Aceitar políticas e comandos do admin", acima, e vale só aqui.</span>\n' +
+    '      <div class="row-actions"><button class="btn sm danger-ghost" id="aparRevogar">Revogar com a senha…</button></div>\n' +
+    '    </div>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:492:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="card sync-card ">\n    <div class="sync-topo"><span class="sync-titulo">Administração</span><span class="sync-chip ok">este aparelho é o admin</span><span class="sync-espaco"></span><span class="sync-fraco">geração 1</span></div>\n    <div class="apar-corpo">\n      <span class="set-desc">Este aparelho é o admin da geração 1, com batimento em dia. Políticas, grupos e comandos publicados daqui valem nos aparelhos que aceitam admin.</span>\n      \n    </div>\n  </div>\n    \n    <div class="sync-sub-head">Aparelhos da conta</div>\n    <div class="card sync-lista">\n    <div class="apar-linha apar-head"><span>aparelho</span><span>sistema</span><span>versão</span><span>visto por último</span><span></span></div>\n    <div class="apar-linha"><span class="sync-nome">Desktop de teste<span class="sync-chip bad">garantia não coberta</span></span><span class="sync-fraco">sistema desconhecido</span><span class="sync-fraco">desconhecida</span><span class="sync-fraco">hoje 16:59</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dExecTeste02">Renomear</button><button class="btn sm ghost" data-apar-politica="dExecTeste02">Política</button><button class="btn sm ghost" data-apar-aposentar="dExecTeste02">Aposentar</button></span></div><div class="apar-linha"><span class="sync-nome">Celular antigo<span class="sync-chip mute">aposentado</span><span class="sync-chip bad">garantia não coberta</span></span><span class="sync-fraco">sistema desconhecido</span><span class="sync-fraco">desconhecida</span><span class="sync-fraco">hoje 16:59</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dVelhoTeste02">Renomear</button><button class="btn sm ghost" data-apar-politica="dVelhoTeste02">Política</button><button class="btn sm ghost" data-apar-reativar="dVelhoTeste02">Reativar</button></span></div><div class="apar-linha"><span class="sync-nome">Notebook de teste<span class="sync-chip mute">este</span><span class="sync-chip warn">admin</span><span class="sync-chip bad">garantia não coberta</span></span><span class="sync-fraco">sistema desconhecido</span><span class="sync-fraco">desconhecida</span><span class="sync-fraco">hoje 16:59</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dAdminTeste02">Renomear</button><button class="btn sm ghost" data-apar-politica="dAdminTeste02">Política</button><button class="btn sm ghost" data-apar-aposentar="dAdminTeste02">Aposentar</button></span></div>\n    \n    <p class="apar-nota">"Garantia não coberta": um aparelho em versão anterior à 2.59.4 não participa da arbitragem de postagem. Nas contas que ele também revisa (conta-sintetica), dois Farois podem postar no mesmo PR até ele ser atualizado. <span class="btn sm ghost" data-goto="sys:overview:#updateBox" role="button" tabindex="0">Como atualizar o Farol</span></p>\n  </div>\n    \n    <div class="card set-list">\n    <label class="set-row" id="sys-row-setSyncAceitarAdmin">\n      <span class="set-txt"><span class="set-title">Aceitar políticas e comandos do admin</span><span class="set-desc">Sem isto, este aparelho ignora pausa, teto de paralelismo, grupo de consumo e comandos vindos do admin. Retirar vale na hora, e a última política aceita é esquecida junto.</span></span>\n      <span class="set-ctl"><input type="checkbox" id="setSyncAceitarAdmin" checked><span class="switch"></span></span>\n    </label>\n  </div>\n    <div class="sync-sub-head">Navegadores pareados com este aparelho</div>\n  <div class="card sync-lista"><p class="sync-vago sync-vazio">carregando as sessões pareadas…</p>\n    <p class="apar-nota">Revogar o navegador que você está usando leva direto ao pareamento. Para revogar todos de uma vez, no terminal: <code>node tools/farol-parear.js --revogar-todas</code>.</p>\n  </div>\n    <div class="sync-sub-head">Limpeza e revogação</div>\n  <div class="apar-duo">\n    <div class="card apar-corpo">\n      <div class="apar-titulo"><span class="set-title">Chave de limpeza</span><span class="sync-chip mute">carregando</span></div>\n      <span class="set-desc">carregando o estado da chave de limpeza…</span>\n      \n      \n    </div>\n    <div class="card apar-corpo">\n      <span class="set-title">Revogar o conjunto</span>\n      <span class="set-desc">Corta todos os acessos anteriores a agora e obriga cada aparelho a entrar de novo. Não cancela sessão em andamento em outro aparelho, não apaga o que eles já receberam e não depõe o admin.</span>\n      <span class="sync-dica">Revogar não retira o consentimento deste aparelho: isso é o interruptor "Aceitar políticas e comandos do admin", acima, e vale só aqui.</span>\n      <div class="row-actions"><button class="btn sm danger-ghost" id="aparRevogar">Revogar com a senha…</button></div>\n    </div>\n  </div>',
+    expected: /designar: aparelho aposentado/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\sync-comandos-tela.test.js:504:1
+✖ designar: o admin perde a autoridade antes de o destino ler, e o destino ignora com o porquê (523.9985ms)
+  TypeError: Aparelhos.designarAdmin is not a function
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-comandos-tela.test.js:507:32)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+
+test at test\sync-espera.test.js:1:1
+✖ test\sync-espera.test.js (3661.7524ms)
+  'test failed'
+
+test at test\sync-historico.test.js:23:1
+✖ o índice leva veredito, status, ação, contagens, a tag do PR e a do commit, e nada mais (1.87ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'acao',
+      'contagens',
+  -   'matTag',
+      'prTag',
+      'status',
+      'veredito'
+    ]
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-historico.test.js:25:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.start (node:internal/test_runner/test:1096:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'acao', 'contagens', 'prTag', 'status', 'veredito' ],
+    expected: [ 'acao', 'contagens', 'matTag', 'prTag', 'status', 'veredito' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-historico.test.js:33:1
+✖ a tag do commit é a do head que a revisão leu, e revisão sem head fica sem ela (0.2996ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - '2de14ef02a8bc9326306f0e8bb3decbf'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-historico.test.js:34:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: '2de14ef02a8bc9326306f0e8bb3decbf',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-rules-contrato.test.js:363:1
+✖ live/assign/$item/espera: forma, prazo curto e envelope; a atribuição sobe por cima dele (0.1416ms)
+  TypeError: Cannot read properties of undefined (reading '.write')
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/AppData/Local/Temp/claude/C--Users-wanderson-Documents-farol/754930d5-b624-45f9-a89e-8b256fb78fe5/scratchpad/base-vermelho/test/sync-rules-contrato.test.js:364:48)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+
+test at test\ui-pure-comandos-tela.test.js:1:1
+✖ test\ui-pure-comandos-tela.test.js (838.2124ms)
+  'test failed'

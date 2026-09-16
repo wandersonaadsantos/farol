@@ -121,7 +121,8 @@ test('nenhum aparelho apto não trava a fila: o item fica com motivo e o próxim
   const bom = item('i2', 'org2', T + 1, ['dA']);
   const r = escolha.escolher([travado, bom], { dA: APTO }, { agora: T });
   assert.equal(r.item.itemId, 'i2');
-  assert.deepEqual(r.semAparelho, [{ itemId: 'i1', motivo: 'sem-aparelho-apto' }]);
+  // `aparelhos` entrou com a divergência 5: o motivo de cada publicador que ficou de fora
+  assert.deepEqual(r.semAparelho, [{ itemId: 'i1', motivo: 'sem-aparelho-apto', aparelhos: [{ dev: 'dX', motivo: 'sem-sinal' }] }]);
 });
 
 test('qual: org nunca atendida fura a fila da que acabou de rodar', () => {

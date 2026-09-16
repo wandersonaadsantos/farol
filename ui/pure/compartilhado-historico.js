@@ -35,6 +35,40 @@ function origemChip(item, deviceIdLocal) {
   return `<span class="sync-chip mute">${esc(item.aparelho || 'outro aparelho')}</span>`;
 }
 
+// REPETIR é o comando C6 sobre a revisão que já aconteceu: o admin pede ao aparelho DONO
+// dela para analisar de novo o MESMO commit. Ele só é oferecido com o que o executor
+// exige (o PR e o commit, os dois como tag), e o commit só entra no índice desde esta
+// entrega: revisão antiga não tem o dado, e a tela diz isso em vez de mandar um comando
+// que nasceria recusado.
+export function acoesDaRevisao(item, ctx) {
+  const i = item || {};
+  const c = ctx || {};
+  const semAdmin = c.podeComandar === true ? '' : (c.motivoSemComando || 'só o aparelho admin, com sinal fresco, emite comandos');
+  const falta = faltaParaRepetir(i);
+  return { repetir: { pode: !semAdmin && !falta, motivo: semAdmin || falta } };
+}
+
+function faltaParaRepetir(i) {
+  if (!i.dev) return 'a revisão não diz de qual aparelho veio';
+  if (!i.prTag) return 'a revisão não identifica o PR';
+  return i.matTag ? '' : 'esta revisão foi publicada antes de o commit entrar no índice';
+}
+
+// A confirmação: quem aplica, sobre qual commit, e que o desfecho é o recibo.
+export function repetirConfirmacao({ aparelho, pr }) {
+  return {
+    title: `Repetir a análise no ${aparelho}?`,
+    body: `<p>${esc(pr || 'A análise')} é refeita no <b>${esc(aparelho)}</b>, sobre o mesmo commit que ele analisou. Se o PR ganhou commit novo desde então, ele recusa o pedido e a lista de comandos mostra a recusa.</p><p>Nada é postado por causa deste comando: ele lança a análise, e os gates de postagem de lá continuam valendo.</p>`,
+  };
+}
+
+function repetirBotaoHtml(item, ctx) {
+  const acao = acoesDaRevisao(item, ctx).repetir;
+  const dados = `data-review="${esc(item.reviewId)}" data-dev="${esc(item.dev || '')}" data-prtag="${esc(item.prTag || '')}" data-mattag="${esc(item.matTag || '')}"`;
+  if (acao.pode) return `<button class="btn sm ghost md-repetir" ${dados}>Repetir</button>`;
+  return `<span class="md-nota">Repetir: indisponível, ${esc(acao.motivo)}</span>`;
+}
+
 function revisaoLinhaHtml(item, ctx) {
   const status = STATUS[item.status] || 'sem desfecho';
   return `<div class="md-rev" data-review="${esc(item.reviewId)}">
@@ -42,6 +76,7 @@ function revisaoLinhaHtml(item, ctx) {
     ${chipDoVeredito(item.veredito)}
     ${origemChip(item, ctx.deviceIdLocal)}
     <button class="btn sm ghost md-ver-revisao" data-review="${esc(item.reviewId)}">Ver revisão</button>
+    ${repetirBotaoHtml(item, ctx)}
   </div>`;
 }
 
@@ -73,7 +108,10 @@ export function revisoesCompartilhadasHtml(entrada) {
   const lista = Array.isArray(e.revisoes) ? e.revisoes : [];
   const fora = naoAbriramHtml(e.naoAbriram);
   if (!lista.length) return `${topo}${fora}<p class="md-vazio">Nenhuma revisão compartilhada ainda.</p>`;
-  const ctx = { agora: e.agora || Date.now(), deviceIdLocal: e.deviceIdLocal || '' };
+  const ctx = {
+    agora: e.agora || Date.now(), deviceIdLocal: e.deviceIdLocal || '',
+    podeComandar: e.podeComandar === true, motivoSemComando: e.motivoSemComando || '',
+  };
   return `${topo}${fora}<div class="card md-lista">${lista.map((item) => revisaoLinhaHtml(item || {}, ctx)).join('')}</div>
     <p class="md-nota">O nome do PR vem do catálogo cifrado; quando ele não abre neste aparelho, a linha fica sem nome e o endereço aparece ao abrir a revisão, se o corpo trouxer. Revisão que não abriu fica de fora da lista inteira, nunca pela metade.</p>`;
 }

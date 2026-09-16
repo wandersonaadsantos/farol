@@ -211,7 +211,10 @@
           "assign": {
             ".write": "@U@ && @LIMPA@",
             "$item": {
-              ".write": "@U@ && (!newData.exists() || (@H(['itemId','dev','rev','generation','ttl','sig'])@ && @GEN@ && newData.child('ttl').isNumber() && newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 600000 && (!data.exists() || newData.child('rev').val() > data.child('rev').val())))"
+              ".write": "@U@ && (!newData.exists() || (@H(['itemId','dev','rev','generation','ttl','sig'])@ && @GEN@ && newData.child('ttl').isNumber() && newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 600000 && (!data.exists() || !data.child('rev').exists() || newData.child('rev').val() > data.child('rev').val())))",
+              "espera": {
+                ".write": "@U@ && (!newData.exists() || (@H(['v','ttl','enc'])@ && newData.child('ttl').isNumber() && newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 600000 && @ENC(2048)@))"
+              }
             }
           },
           "ack": {
