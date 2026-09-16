@@ -500,6 +500,32 @@ test('um giro completo atribui, aceita, enfileira no ramo local e renova a pront
   assert.equal(no('live/control')['ready'].sequencia, 2);
 });
 
+// A vaga é reservada no ACEITE e só é devolvida por quem executa (freeHeadlessSlot, pelo
+// admissaoId que viaja no PR). Enfileirar que NÃO leva o item (saída de cena registrada
+// depois da publicação, ou o mesmo PR já na fila local) deixava a reserva presa para
+// sempre: com teto 1, o aparelho passava a recusar toda atribuição seguinte por sem_vaga,
+// sem nada rodando.
+test('enfileiramento que não leva o item devolve a vaga', async () => {
+  const e = motorFila(await motorDistribuidor());
+  const pr = prDe(21);
+  const vaga = admissao.reservar(e, { tipo: 'review', ref: pr.key, agora: T });
+  e.skipComentado = { [pr.key]: true };
+  const r = reviewMod.enfileirarDaDistribuicao(e, pr, vaga.id);
+  assert.deepEqual(r, { ok: false, code: 'saida-de-cena' });
+  assert.equal(e.headlessQueue.length, 0);
+  assert.equal(admissao.resumo(e).total, 0, 'a vaga volta: ninguém vai executar este item');
+});
+
+test('enfileiramento que leva o item mantém a vaga com quem vai executar', async () => {
+  const e = motorFila(await motorDistribuidor());
+  const pr = prDe(22);
+  const vaga = admissao.reservar(e, { tipo: 'review', ref: pr.key, agora: T });
+  const r = reviewMod.enfileirarDaDistribuicao(e, pr, vaga.id);
+  assert.deepEqual(r, { ok: true, via: 'local' });
+  assert.equal(e.headlessQueue[0].admissaoId, vaga.id);
+  assert.equal(admissao.resumo(e).total, 1);
+});
+
 test('ciclo que não foi saudável não renova a prontidão', async () => {
   const e = motorFila(await motorDistribuidor());
   await dist.publicarCandidato(e, e.config.sync, prDe(4), { agora: T });
