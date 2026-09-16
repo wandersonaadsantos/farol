@@ -355,6 +355,14 @@
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-7.5-4M3 12a9 9 0 0 1 9-9 9 9 0 0 1 7.5 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M19.5 3v4h-4M4.5 21v-4h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             Sincronização
           </button>
+          <button class="sys-nav-item" id="sysbtn-devices" data-section="devices" role="tab" aria-selected="false" aria-controls="sys-devices">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="13" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 19h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="16.5" y="8.5" width="5" height="11" rx="1.2" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            Aparelhos
+          </button>
+          <button class="sys-nav-item" id="sysbtn-groups" data-section="groups" role="tab" aria-selected="false" aria-controls="sys-groups">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="8" cy="9" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16.5" cy="10" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 19c.6-3 2.6-4.5 5-4.5s4.4 1.5 5 4.5M13.5 18.5c.4-2.2 1.6-3.4 3-3.4s2.6 1.2 3 3.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Grupos de consumo
+          </button>
           <button class="sys-nav-item" id="sysbtn-plans" data-section="plans" role="tab" aria-selected="false" aria-controls="sys-plans">
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78m.27-2.34L19.07 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M17 8l-1.5 1.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             Plano e chaves
@@ -691,6 +699,20 @@
             <span><b>Nenhum prompt, diff, relatório ou título de PR sai daqui.</b> Sobem em claro o SHA do commit analisado (no lease e no recibo; ele pode levar direto ao repositório, quando o repositório é público), o nome do aparelho (vazio usa o nome da máquina), o sistema operacional, a versão do Farol e, no consumo, o modelo, o perfil, os tokens e o custo de cada sessão, além de identificadores e horários de cada análise. Conta do GitHub e PR sobem como resumo SHA-256 sem chave: quem já conhece o nome consegue conferir.</span>
           </div>
           <div id="syncManager"></div>
+        </div>
+
+        <!-- Aparelhos -->
+        <div class="sys-section" id="sys-devices" role="tabpanel" aria-labelledby="sysbtn-devices" tabindex="0">
+          <div class="section-head"><h2>Aparelhos</h2></div>
+          <p class="section-desc">Os aparelhos da sua conta de sincronização, quem administra o conjunto e o que cada um aceita receber. Aposentar não apaga nada e pode ser desfeito.</p>
+          <div id="devicesManager"></div>
+        </div>
+
+        <!-- Grupos de consumo -->
+        <div class="sys-section" id="sys-groups" role="tabpanel" aria-labelledby="sysbtn-groups" tabindex="0">
+          <div class="section-head"><h2>Grupos de consumo</h2></div>
+          <p class="section-desc">Um grupo soma o gasto dos perfis vinculados em todos os aparelhos e pode ter um teto. Só o admin cria e ativa. Enquanto o teto não está ativo, quem segura sessão é o orçamento de cada perfil.</p>
+          <div id="groupsManager"></div>
         </div>
 
         <!-- Plano e chaves -->
