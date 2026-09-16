@@ -328,3 +328,26 @@ test('export default carrega o mesmo contrato dos nomeados', () => {
   assert.equal(rtdb.createRtdbClient, createRtdbClient);
   assert.equal(rtdb.redactUrl, redactUrl);
 });
+
+// Consulta ordenada (C3d): o RTDB exige os valores em JSON na URL (`orderBy="t"`), e o
+// resultado vem SEM ordem garantida, por isso quem chama ordena no cliente.
+test('consulta ordenada: orderBy, startAt, endAt e limitToLast vão em JSON na URL', async () => {
+  const c = cliente();
+  await c.put('/users/u1/r', { a: { t: 3, dt: 'd1|3' }, b: { t: 1, dt: 'd2|1' }, c: { t: 2, dt: 'd1|2' } });
+  fake.requests.length = 0;
+  const r = await c.get('/users/u1/r', { consulta: { orderBy: 't', limitToLast: 2 } });
+  assert.equal(r.ok, true);
+  assert.deepEqual(Object.keys(r.data).sort(), ['a', 'c'], 'os dois de maior t');
+  assert.equal(fake.requests[0].query.orderBy, '"t"');
+  assert.equal(fake.requests[0].query.limitToLast, '2');
+  const porAparelho = await c.get('/users/u1/r', { consulta: { orderBy: 'dt', startAt: 'd1|', endAt: 'd1|~' } });
+  assert.deepEqual(Object.keys(porAparelho.data).sort(), ['a', 'c']);
+  const novidade = await c.get('/users/u1/r', { consulta: { orderBy: 't', startAt: 3 } });
+  assert.deepEqual(Object.keys(novidade.data), ['a']);
+});
+
+test('consulta com chave de ordenação inválida não sai', async () => {
+  const c = cliente();
+  const r = await c.get('/users/u1/r', { consulta: { orderBy: 't"&auth=x' } });
+  assert.equal(r.ok, false);
+});
