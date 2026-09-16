@@ -233,6 +233,10 @@ class Engine extends EventEmitter {
     // memoria de proposito (ver a poda no check): reinicio zerar e a chave sobreviver
     // dois ciclos a mais e o lado seguro; o lado errado apaga analise paga sem volta.
     this.selfPruneStrikes = new Map();
+    // busca que já deu certo pelo menos uma vez neste processo: sem ela, lista vazia é falta
+    // de leitura, e a visão compartilhada não pode publicá-la (lib/engine/sync-andamento.js)
+    this.ownersJaLidos = new Set();
+    this.contasMeusPrsLidas = new Set();
     // key do PR -> { at, updatedAt } dos PRs meus que o usuario mandou sumir da aba.
     // Nao filtra myPRs (quem esconde e a UI); o updatedAt guardado e o que permite o
     // retorno automatico quando o PR recebe atividade nova (reconcileHiddenPRs).
@@ -987,6 +991,7 @@ class Engine extends EventEmitter {
           if (list === null) continue;
           anyOk = true;
           ownersOk.add(String(owner).toLowerCase());
+          this.ownersJaLidos.add(String(owner).toLowerCase());
           for (const pr of list) {
             if (seenKeys.has(pr.key)) continue;
             seenKeys.add(pr.key);
@@ -1040,6 +1045,7 @@ class Engine extends EventEmitter {
         const part = await this.myAuthoredPRs(acc.user);
         if (part === null) continue;
         authOk.add(String(acc.user).toLowerCase());
+        this.contasMeusPrsLidas.add(String(acc.user).toLowerCase());
         for (const pr of part) if (!authMap.has(pr.key)) authMap.set(pr.key, pr);
       }
       if (authOk.size) {

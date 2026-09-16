@@ -196,6 +196,10 @@ test('o ciclo do relógio publica Panorama e Meus PRs por conta', async () => {
   e.panorama = PRS;
   e.myPRs = [PRS[0]];
   e.accountForPr = () => LOGIN;
+  // as listas acima fazem o papel da busca: ela precisa constar como feita, senão o relógio
+  // não publica lista que ninguém leu (guarda do arranque a frio)
+  for (const conta of e.accountList()) for (const o of conta.owners) e.ownersJaLidos.add(String(o).toLowerCase());
+  e.contasMeusPrsLidas.add(LOGIN.toLowerCase());
   const andamentoEng = await import('../lib/engine/sync-andamento.js');
   await andamentoEng.ciclo(e, e.config.sync, { agora: Date.now() });
   assert.equal(Object.keys(raiz('panorama')).length, 2);

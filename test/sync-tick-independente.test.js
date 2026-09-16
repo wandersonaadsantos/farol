@@ -45,3 +45,30 @@ test('ciclo sem erro continua com um tick só', async () => {
   await e.check('teste');
   assert.equal(e.ticks, 1);
 });
+
+function motorDeColeta({ ownerFalha = false, autoriaFalha = false } = {}) {
+  const e = motor();
+  e.resolveAccount = async () => { };
+  e.refreshTokens = async () => { };
+  e.accountList = () => [{ user: 'Eu', owners: ['Org'] }];
+  e.tokenFor = () => 'tok';
+  e.isMuted = () => false;
+  e.accountForPr = () => 'Eu';
+  e.accountForOwner = () => 'Eu';
+  e.myAuthoredPRs = async () => (autoriaFalha ? null : []);
+  e.searchPRs = async (args) => (ownerFalha && args[0] === '--owner' ? null : []);
+  return e;
+}
+
+// A guarda do arranque a frio (lib/engine/sync-andamento.js, publicarEscopos) depende de o
+// ciclo marcar só as buscas que responderam.
+test('a coleta marca owner e conta só quando a busca respondeu', async () => {
+  const boa = motorDeColeta();
+  await boa._coletarPanorama();
+  assert.equal(boa.ownersJaLidos.has('org'), true);
+  assert.equal(boa.contasMeusPrsLidas.has('eu'), true);
+  const ruim = motorDeColeta({ ownerFalha: true, autoriaFalha: true });
+  await ruim._coletarPanorama();
+  assert.equal(ruim.ownersJaLidos.size, 0, 'busca do owner que falhou não conta como lida');
+  assert.equal(ruim.contasMeusPrsLidas.size, 0, 'busca de autoria que falhou não conta como lida');
+});

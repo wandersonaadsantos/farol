@@ -280,10 +280,32 @@ test('estados sem leitura: desligada, sem frota e sem chave são ditos, não vir
   assert.deepEqual(a.syncListasRemotas().escopos, []);
 });
 
+// Arranque a frio: antes de a busca de uma conta dar certo UMA vez neste processo, as listas
+// dela estão vazias por falta de leitura, não por falta de PR. Publicar isso apagaria (com
+// lápide) as linhas que outro aparelho publicou. Aparece junto com o tick que roda mesmo
+// quando a coleta do GitHub falha.
+test('sem nenhuma busca bem-sucedida da conta, o relógio não publica as listas dela', async () => {
+  const { a } = await par();
+  a.panorama = PAN;
+  a.myPRs = MEUS;
+  fake.requests.length = 0;
+  await andamento.ciclo(a, a.config.sync, { agora: Date.now() });
+  const escritas = fake.requests.filter((r) => r.method === 'PUT' && /\/users\/u1\/(panorama|myPrs)(Meta)?\//.test(r.path));
+  assert.deepEqual(escritas, [], 'lista que ninguém leu não vira publicação');
+  a.ownersJaLidos.add('acme');
+  await andamento.ciclo(a, a.config.sync, { agora: Date.now() });
+  const depois = fake.requests.filter((r) => r.method === 'PUT' && /\/users\/u1\/panorama\//.test(r.path));
+  assert.ok(depois.length > 0, 'depois da primeira busca boa dos owners da conta, o Panorama sobe');
+  assert.equal(fake.requests.filter((r) => r.method === 'PUT' && /\/users\/u1\/myPrs\//.test(r.path)).length, 0, 'Meus PRs espera a busca própria');
+});
+
 test('o ciclo do relógio lê as listas depois de publicar', async () => {
   const { a, b } = await par();
   a.panorama = PAN;
   a.myPRs = MEUS;
+  // as listas acima fazem o papel da busca: ela precisa constar como feita
+  a.ownersJaLidos.add('acme');
+  a.contasMeusPrsLidas.add(LOGIN.toLowerCase());
   await andamento.ciclo(a, a.config.sync, { agora: Date.now() });
   await andamento.ciclo(b, b.config.sync, { agora: Date.now() });
   const pano = escopoDe(b.syncListasRemotas(), 'panorama');
