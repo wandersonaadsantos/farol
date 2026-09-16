@@ -10,8 +10,9 @@ import {
   automacaoPausadaPor, queueCardHtml, panoramaRowHtml, staleCardMeta,
 } from '../pure.js';
 import { estado, escopo, peopleOf } from './estado.js';
-import { $, api, textoDaListaVazia } from './infra.js';
+import { $, api, textoDaListaVazia, toast, copyToClipboard } from './infra.js';
 import { scopeVisible, acctMark } from './contas.js';
+import { revisarUrls } from './consumo.js';
 
 // mini-navegação do Radar: só lista seções visíveis (hidden=false), com contagem
 // quando o número ajuda a decidir pra onde ir. Espelha o estado real do DOM em
@@ -213,7 +214,36 @@ function renderPanorama() {
   box.innerHTML = list.map(pr => panoramaRowHtml(pr, { ...ctxPano, mark: acctMark(pr, { noBar: true }) })).join('');
 }
 
+/* ---------- gatilhos de #resolved (desfecho e nota de pushback, revisar de
+   novo, copiar URL) ----------
+   Não precisam de navegação: submitPushback já mora aqui, revisarUrls vem de
+   telas/consumo.js e copyToClipboard/toast de telas/infra.js. Chamada pelo
+   bootstrap (ui/app.js) no mesmo ponto relativo em que os dois listeners
+   moravam. */
+function initResolvedTriggers() {
+  /* registrar pushback nas linhas de Revisões recentes (desfecho + nota) */
+  $('#resolved').addEventListener('change', (e) => {
+    if (e.target.classList && (e.target.classList.contains('pb-outcome') || e.target.classList.contains('pb-note'))) submitPushback(e.target);
+  });
+  /* confirmar o palpite re-selecionando a MESMA opção não dispara change; o botão cobre
+     o caminho pending -> confirmed com o desfecho sugerido (achado M21) */
+  $('#resolved').addEventListener('click', async (e) => {
+    const btn = e.target.closest('.pb-confirm');
+    if (btn) { submitPushback(btn); return; }
+    // revisar de novo: mesma rota do Revisar da fila. O .act-review NÃO tem listener
+    // global (o da fila é escutado dentro do #queue, o do panorama dentro do #panorama),
+    // então a seção escuta o seu. O botão desabilita até o próximo estado re-renderizar.
+    const rev = e.target.closest('.act-review');
+    if (rev) { rev.disabled = true; revisarUrls([rev.dataset.url]); return; }
+    const cp = e.target.closest('.rr-copy');
+    if (cp) {
+      const ok = await copyToClipboard(cp.dataset.url || cp.dataset.key || '');
+      toast(ok ? 'ok' : 'error', ok ? 'URL do PR copiada.' : 'Não consegui copiar (permissão do navegador).', 2500);
+    }
+  });
+}
+
 export {
   renderDecisions, submitPushback, renderResolved, renderQueue, renderPanorama,
-  renderRadarNav, switchRadarSub,
+  renderRadarNav, switchRadarSub, initResolvedTriggers,
 };

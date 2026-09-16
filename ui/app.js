@@ -14,7 +14,7 @@ import {
 } from './telas/estado.js';
 import {
   $, api, toast, showOp, updateOp, ACTIVE_OPS,
-  syncAnalysisOps, copyToClipboard,
+  syncAnalysisOps,
   sysFlash,
 } from './telas/infra.js';
 export { toast } from './telas/infra.js';
@@ -28,11 +28,11 @@ import { loadHighlights, loadTeam } from './telas/time.js';
 import { renderTools } from './telas/ferramentas.js';
 import { ping, notifyNewPRs } from './telas/avisos.js';
 import { initTweaks } from './telas/acoes.js';
-import { revisarUrls, registrarTelaConsumo, renderUsage } from './telas/consumo.js';
+import { registrarTelaConsumo, renderUsage } from './telas/consumo.js';
 import { renderStatus, tickCountdown, updateStageFlow, updateSessionBar, renderActive } from './telas/sessoes.js';
 import { renderChat, chatKeyAtual, initChatTriggers } from './telas/chat.js';
 import {
-  renderDecisions, submitPushback, renderQueue, renderPanorama, renderRadarNav,
+  renderDecisions, renderQueue, renderPanorama, renderRadarNav, initResolvedTriggers,
 } from './telas/radar.js';
 import { renderMyPRs, initReviewersButton } from './telas/meus-prs.js';
 import { renderUpdate } from './telas/sistema-atualizacao.js';
@@ -143,26 +143,10 @@ document.addEventListener('change', (e) => {
   if (estado().config) estado().config.people = people;   // otimista, pra o select não piscar
   api('/api/settings', { people });
 });
-/* registrar pushback nas linhas de Revisões recentes (desfecho + nota) */
-$('#resolved').addEventListener('change', (e) => {
-  if (e.target.classList && (e.target.classList.contains('pb-outcome') || e.target.classList.contains('pb-note'))) submitPushback(e.target);
-});
-/* confirmar o palpite re-selecionando a MESMA opção não dispara change; o botão cobre
-   o caminho pending -> confirmed com o desfecho sugerido (achado M21) */
-$('#resolved').addEventListener('click', async (e) => {
-  const btn = e.target.closest('.pb-confirm');
-  if (btn) { submitPushback(btn); return; }
-  // revisar de novo: mesma rota do Revisar da fila. O .act-review NÃO tem listener
-  // global (o da fila é escutado dentro do #queue, o do panorama dentro do #panorama),
-  // então a seção escuta o seu. O botão desabilita até o próximo estado re-renderizar.
-  const rev = e.target.closest('.act-review');
-  if (rev) { rev.disabled = true; revisarUrls([rev.dataset.url]); return; }
-  const cp = e.target.closest('.rr-copy');
-  if (cp) {
-    const ok = await copyToClipboard(cp.dataset.url || cp.dataset.key || '');
-    toast(ok ? 'ok' : 'error', ok ? 'URL do PR copiada.' : 'Não consegui copiar (permissão do navegador).', 2500);
-  }
-});
+/* Gatilhos de #resolved (pushback e revisar de novo/copiar URL): moram em
+   telas/radar.js, dono de renderResolved/submitPushback. Chamada aqui, no
+   mesmo ponto relativo em que os dois listeners moravam. */
+initResolvedTriggers();
 
 /* Tema claro/escuro: mora em telas/tema.js. Chamada aqui, no mesmo ponto
    relativo em que o bloco morava. */

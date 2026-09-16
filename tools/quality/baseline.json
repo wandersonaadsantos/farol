@@ -106,7 +106,6 @@
     "profundidadeExcedida": 2
   },
   "ui/app.js": {
-    "ternarioAninhado": 1,
     "profundidadeExcedida": 1
   },
   "ui/pure/consumo.js": {
@@ -155,7 +154,7 @@
     "profundidadeExcedida": 7
   },
   "ui/telas/radar.js": {
-    "ternarioAninhado": 1
+    "ternarioAninhado": 2
   },
   "ui/telas/reviewers.js": {
     "profundidadeExcedida": 1
