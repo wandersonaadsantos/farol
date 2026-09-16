@@ -15,6 +15,7 @@ import { spawnSync } from 'node:child_process';
 import { executadoDireto } from '../../lib/paths.js';
 import { parseJson } from '../../lib/io.js';
 import { envSemRepositorioHerdado } from '../git-env.js';
+import { engBehaviourHome } from '../../lib/env.js';
 
 const RAIZ = path.join(import.meta.dirname, '..', '..');
 
@@ -129,9 +130,94 @@ function mesmoDiretorio(a, b) {
   return canonico(a) === canonico(b);
 }
 
-/** O clone do pacote ao lado do clone principal do Farol. */
-function irmaoDoRepositorio() {
-  return path.join(raizPrincipal(), '..', 'eng-behaviour');
+/**
+ * A versão do pacote que o Farol ADOTA, com o commit que a identifica.
+ *
+ * O clone ao lado é de quem desenvolve o eng-behaviour, e o que está nele pode ser
+ * trabalho em andamento (medido em 16/09/2026: 0.13.0 sem commit, com o `dist/`
+ * reconstruído a partir dele). O gate do Farol não pode medir contra "o que estiver
+ * lá": ele mede contra a versão que o baseline e o recorte versionados assumem, e
+ * recusa qualquer outra.
+ */
+const CAMINHO_DA_FERRAMENTA = 'tools/eng-behaviour/ferramenta.json';
+
+/** O que a construção grava em `dist/`, para o build ficar amarrado ao commit. */
+const CARIMBO_DO_BUILD = path.join('dist', '.farol-construido-de');
+
+const COMMIT_COMPLETO = /^[0-9a-f]{40}$/;
+
+function ferramentaAdotada(raiz = RAIZ) {
+  return leituraSemRastro(path.join(raiz, CAMINHO_DA_FERRAMENTA));
+}
+
+/**
+ * Onde procurar a CLI, em ordem.
+ *
+ * `FAROL_ENG_BEHAVIOUR_HOME` explícito vale sozinho: quem aponta um caminho quer
+ * aquele, e cair em outro calado seria medir contra o que ninguém escolheu. Sem
+ * ele, a cópia fixada ao lado (`eng-behaviour@<versão>`, montada por
+ * `preparar-copia.js`) vem antes do clone de desenvolvimento. Os dois passam pela
+ * mesma conferência de identidade.
+ */
+function candidatosDeHome({ explicito = engBehaviourHome(), principal = raizPrincipal(), ferramenta = ferramentaAdotada() } = {}) {
+  if (explicito) return [path.resolve(explicito)];
+  const lista = [];
+  if (ferramenta && ferramenta.versao) lista.push(path.join(principal, '..', `eng-behaviour@${ferramenta.versao}`));
+  lista.push(path.join(principal, '..', 'eng-behaviour'));
+  return lista;
+}
+
+function escolherHome(candidatos) {
+  return candidatos.find((c) => fs.existsSync(c)) || candidatos[candidatos.length - 1];
+}
+
+function gitEm(home, args) {
+  const r = spawnSync('git', args, {
+    cwd: home,
+    env: envSemRepositorioHerdado(),
+    encoding: 'utf8',
+    timeout: TETO_DE_ESPERA_DO_GIT_MS,
+  });
+  return { ok: r.status === 0, saida: (r.stdout || '').trim() };
+}
+
+function lerCarimbo(home) {
+  try { return fs.readFileSync(path.join(home, CARIMBO_DO_BUILD), 'utf8').trim(); } catch { return ''; }
+}
+
+/**
+ * A CLI encontrada é mesmo a versão adotada, construída do commit adotado?
+ *
+ * Quatro provas, todas obrigatórias, e cada falha diz qual foi: a versão do
+ * `package.json`; o HEAD do checkout (que precisa ser a raiz do próprio
+ * repositório, para um repositório de fora não responder por ele); a árvore sem
+ * alteração em arquivo versionado; e o carimbo que a construção deixa em `dist/`,
+ * porque `dist/` não é versionado e um build velho passaria pelas outras três.
+ */
+function conferirIdentidade(home, ferramenta) {
+  if (!ferramenta || !ferramenta.versao || !COMMIT_COMPLETO.test(String(ferramenta.commit || ''))) {
+    return { erro: `${CAMINHO_DA_FERRAMENTA} ausente, ou sem versao e commit completo: sem isso nao ha contra o que conferir a CLI.` };
+  }
+  const versao = versaoDo(home);
+  if (versao !== ferramenta.versao) {
+    return { erro: `eng-behaviour em ${home} declara a versao ${versao}, e o Farol adota a ${ferramenta.versao} (${CAMINHO_DA_FERRAMENTA}).` };
+  }
+  const topo = gitEm(home, ['rev-parse', '--show-toplevel']);
+  if (!topo.ok || !mesmoDiretorio(topo.saida, home)) {
+    return { erro: `eng-behaviour em ${home} nao e um checkout git proprio: o commit nao tem como ser conferido.` };
+  }
+  const head = gitEm(home, ['rev-parse', 'HEAD']);
+  if (!head.ok || head.saida !== ferramenta.commit) {
+    return { erro: `eng-behaviour em ${home} esta no commit ${head.saida || 'desconhecido'}, e o Farol adota o ${ferramenta.commit}.` };
+  }
+  const status = gitEm(home, ['status', '--porcelain', '--untracked-files=no']);
+  if (!status.ok || status.saida) {
+    return { erro: `eng-behaviour em ${home} tem alteracao local em arquivo versionado: o build nao corresponde ao commit.` };
+  }
+  if (lerCarimbo(home) !== ferramenta.commit) {
+    return { erro: `eng-behaviour em ${home} nao tem ${CARIMBO_DO_BUILD} com o commit adotado: o dist/ nao se prova construido dele.` };
+  }
+  return { versao, commit: ferramenta.commit };
 }
 
 /**
@@ -147,6 +233,8 @@ function ajudaPara(home) {
     'Como resolver:',
     `  1. clone https://github.com/wandersonaadsantos/eng-behaviour em ${home};`,
     '  2. dentro dele: pnpm install && pnpm build.',
+    '  Para a versao adotada pelo Farol (tools/eng-behaviour/ferramenta.json):',
+    '  node tools/eng-behaviour/preparar-copia.js, ou FAROL_ENG_BEHAVIOUR_HOME apontando uma copia construida.',
   ].join('\n');
 }
 
@@ -158,7 +246,7 @@ function ajudaPara(home) {
  * sem `dist/` é problema de build, e mandar rodar o build num diretório que não
  * existe manda a pessoa para o lugar errado.
  */
-function resolverCli(home = irmaoDoRepositorio()) {
+function resolverCli(home = escolherHome(candidatosDeHome())) {
   if (!fs.existsSync(home)) {
     return { erro: `eng-behaviour nao encontrado em ${home}.` };
   }
@@ -290,14 +378,21 @@ function argumentosDoAudit(base) {
 }
 
 function main() {
-  const esperado = irmaoDoRepositorio();
+  const ferramenta = ferramentaAdotada();
+  const esperado = escolherHome(candidatosDeHome({ ferramenta }));
   const { cli, home, erro } = resolverCli(esperado);
   if (erro) {
     console.error(`eng-behaviour: ${erro}`);
     console.error(ajudaPara(esperado));
     return 2;
   }
-  console.log(`eng-behaviour ${versaoDo(home)} (${home})`);
+  const identidade = conferirIdentidade(home, ferramenta);
+  if (identidade.erro) {
+    console.error(`eng-behaviour: ${identidade.erro}`);
+    console.error(ajudaPara(esperado));
+    return 2;
+  }
+  console.log(`eng-behaviour ${identidade.versao} @ ${identidade.commit} (${home})`);
 
   // Ordem importa: o `check` prova que o recorte versionado é o que o catalogo
   // gera hoje. Rodar o audit antes mediria o codigo contra um catalogo que o
@@ -340,8 +435,8 @@ function main() {
 if (executadoDireto(import.meta.url)) process.exit(Math.min(main(), 2));
 // Exporta so o que tem leitor, e todos os leitores sao a suite: sem essa costura
 // nao havia como observar os comportamentos, que e a excecao que a
-// core.abstraction.no-premature nomeia. `irmaoDoRepositorio` e `ehEsteCheckout`
+// core.abstraction.no-premature nomeia. `ehEsteCheckout`, `escolherHome` e `gitEm`
 // ficam de fora porque ninguem as le daqui, e exportar o que ninguem le e o campo
 // sem leitor que a mesma regra condena.
-export default { resolverCli, versaoDo, raizPrincipal, ajudaPara, rodar, baseDaEntrega, argumentosDoAudit };
-export { resolverCli, versaoDo, raizPrincipal, ajudaPara, rodar, baseDaEntrega, argumentosDoAudit };
+export default { resolverCli, versaoDo, raizPrincipal, ajudaPara, rodar, baseDaEntrega, argumentosDoAudit, candidatosDeHome, conferirIdentidade, ferramentaAdotada, CARIMBO_DO_BUILD };
+export { resolverCli, versaoDo, raizPrincipal, ajudaPara, rodar, baseDaEntrega, argumentosDoAudit, candidatosDeHome, conferirIdentidade, ferramentaAdotada, CARIMBO_DO_BUILD };
