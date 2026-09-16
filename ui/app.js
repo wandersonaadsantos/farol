@@ -70,8 +70,6 @@ function aplicaPlataforma(p) {
 }
 aplicaPlataforma();
 
-let logTimer = null;
-
 /* ---------- camada de contas (separação por identidade) ---------- */
 definirEscopo(localStorage.getItem('farol-scope') || 'all');   // 'all' ou o login de uma conta
 // espelha a aba no <body> pro CSS ajustar a largura útil (a aba Sistema tem sidebar e
