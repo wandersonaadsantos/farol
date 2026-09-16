@@ -369,40 +369,57 @@ $('#myPRsHiddenFoot').addEventListener('click', (e) => {
 
 /* ---------- Meus PRs: botão Reviewers ----------
    Segundo listener delegado no MESMO #myPRs (o de cima cuida do resto dos cliques
-   do card): navega pra aba Sistema (switchTab, recebido por parâmetro,
-   switchSistemaSection e sysSearchFilter) e usa o editor de reviewers
-   (loadReviewerCands, renderReviewersEditor e revCtx). Chamada pelo bootstrap
-   (ui/app.js) no mesmo ponto relativo em que este listener morava. */
-function initReviewersButton(switchTab) {
-  $('#myPRs').addEventListener('click', (e) => {
-    const rev = e.target.closest('.act-set-reviewers');
-    if (!rev) return;
-    const card = rev.closest('.mypr-card');
-    const repo = String(card?.dataset.key || '').split('#')[0];
-    const org = repo.split('/')[0];
-    // efetivo = exceção do repo, senão o padrão da org
-    const eff = overrideFor(repo, revCtx()) || defaultFor(org, revCtx());
-    // sem reviewers (nem exceção nem padrão): leva pra tela de config
-    if (!eff || !eff.length) {
-      switchTab('sistema');
-      // sem isso a seção fica display:none e o scroll abaixo não mostra nada: o usuário
-      // caía na Visão geral com um toast falando de uma tela que ele não estava vendo
-      switchSistemaSection('reviewers');
-      const busca = $('#sysSearch');
-      if (busca.value) { busca.value = ''; sysSearchFilter(''); }
-      loadReviewerCands();
-      renderReviewersEditor();
-      setTimeout(() => { const el = $('#reviewersEditor'); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); sysFlash(el); } }, 60);
-      toast('info', `Defina os reviewers padrão de ${org} (ou uma exceção pra ${repoShort(repo)}) aqui, depois é só clicar em Reviewers no PR.`, 7000);
-      return;
-    }
-    // tem config: aplica na hora, sem confirmação
-    rev.disabled = true; rev.textContent = 'Setando…';
-    api('/api/self-review/reviewers', { url: rev.dataset.url }).then(r => {
-      if (!r?.ok) toast('error', r?.error || 'não consegui setar os reviewers');
-      rev.disabled = false; rev.textContent = '👥 Reviewers';
-    });
+   do card): navega pra aba Sistema (switchTab) e usa o editor de reviewers
+   (loadReviewerCands, renderReviewersEditor e revCtx). O handler mora no TOPO
+   do módulo, na mesma profundidade que tinha quando vivia no ui/app.js;
+   switchTab é a única dependência de fora, guardada em _switchTabReviewers
+   (dono único de escrita: initReviewersButton), o mesmo desenho de estado.js.
+   initReviewersButton é chamada pelo bootstrap (ui/app.js) no mesmo ponto
+   relativo em que este listener morava, e só guarda a dependência e registra
+   o handler nomeado abaixo. */
+let _switchTabReviewers = null;
+
+// rola até o editor de reviewers e o pisca, depois que a seção do Sistema
+// desenhou (setTimeout). Função nomeada em vez de closure inline: mantém a
+// profundidade de chaves na mesma faixa que tinha em ui/app.js.
+function focarReviewersEditor() {
+  const el = $('#reviewersEditor');
+  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); sysFlash(el); }
+}
+
+function onMyPRsReviewersClick(e) {
+  const rev = e.target.closest('.act-set-reviewers');
+  if (!rev) return;
+  const card = rev.closest('.mypr-card');
+  const repo = String(card?.dataset.key || '').split('#')[0];
+  const org = repo.split('/')[0];
+  // efetivo = exceção do repo, senão o padrão da org
+  const eff = overrideFor(repo, revCtx()) || defaultFor(org, revCtx());
+  // sem reviewers (nem exceção nem padrão): leva pra tela de config
+  if (!eff || !eff.length) {
+    _switchTabReviewers('sistema');
+    // sem isso a seção fica display:none e o scroll abaixo não mostra nada: o usuário
+    // caía na Visão geral com um toast falando de uma tela que ele não estava vendo
+    switchSistemaSection('reviewers');
+    const busca = $('#sysSearch');
+    if (busca.value) { busca.value = ''; sysSearchFilter(''); }
+    loadReviewerCands();
+    renderReviewersEditor();
+    setTimeout(focarReviewersEditor, 60);
+    toast('info', `Defina os reviewers padrão de ${org} (ou uma exceção pra ${repoShort(repo)}) aqui, depois é só clicar em Reviewers no PR.`, 7000);
+    return;
+  }
+  // tem config: aplica na hora, sem confirmação
+  rev.disabled = true; rev.textContent = 'Setando…';
+  api('/api/self-review/reviewers', { url: rev.dataset.url }).then(r => {
+    if (!r?.ok) toast('error', r?.error || 'não consegui setar os reviewers');
+    rev.disabled = false; rev.textContent = '👥 Reviewers';
   });
+}
+
+function initReviewersButton(switchTab) {
+  _switchTabReviewers = switchTab;
+  $('#myPRs').addEventListener('click', onMyPRsReviewersClick);
 }
 
 export { renderMyPRs, renderMyPRsHiddenFoot, montaFixPrompt, initReviewersButton };

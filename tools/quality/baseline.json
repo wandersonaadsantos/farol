@@ -145,7 +145,7 @@
   },
   "ui/telas/meus-prs.js": {
     "ternarioAninhado": 5,
-    "profundidadeExcedida": 7
+    "profundidadeExcedida": 6
   },
   "ui/telas/novidades.js": {
     "ternarioAninhado": 1
