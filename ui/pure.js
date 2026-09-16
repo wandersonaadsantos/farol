@@ -5,6 +5,8 @@
 // O contrato de pureza do diretório, as camadas e as regras de quem mexe estão em
 // ui/pure/README.md.
 export * from './pure/aparelhos.js';
+export * from './pure/aparelhos-limpeza.js';
+export * from './pure/aparelhos-politica.js';
 export * from './pure/autoanalise.js';
 export * from './pure/capacidades.js';
 export * from './pure/comum.js';
