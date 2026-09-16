@@ -66,6 +66,8 @@ function semearConteudo() {
   const u = arvore.users.u1;
   u.usageEvents = { d1: { e1: { at: 1, kind: 'review', costUsd: 1 } } };
   u.catalog = { ['a'.repeat(32)]: { v: 1, u: 1, enc: 'e1.g1.a.b.c' } };
+  u.recentReviews = { ['b'.repeat(32)]: { v: 1, t: 1, d: 'd1', dt: 'd1|1', enc: 'e1.g1.a.b.c' } };
+  u.reviewBodies = { ['b'.repeat(32)]: { 1: { v: 1, enc: 'e1.g1.a.b.c' } } };
   u.live.deviceStatus = { d1: { v: 1, u: 1, enc: 'e1.g1.a.b.c' } };
   u.live.groups = { g1: { v: 1, generation: 1, enc: 'e1.g1.a.b.c', sig: 'x' } };
   u.keyring = u.keyring || { v: 1, rev: 1 };
@@ -99,6 +101,8 @@ test('caminho feliz: o alcançável some, o corte fica e a trava sai', async () 
   assert.equal(u.usageEvents, undefined);
   assert.equal(u.live.groups, undefined);
   assert.equal(u.catalog, undefined, 'o catálogo é regenerável, e a limpeza o alcança');
+  assert.equal(u.recentReviews, undefined);
+  assert.equal(u.reviewBodies, undefined);
   assert.equal(u.live.deviceStatus, undefined);
   assert.ok(u.live.control.lastCleanup.at > 0, 'o corte da outbox fica gravado');
   assert.equal(u.live.control.cleanupLock, undefined, 'a trava sai no fim');

@@ -57,6 +57,22 @@
             ".write": "@U@ && @H(['v','u','enc'])@ && $pr.matches(/^[0-9a-f]+$/) && @ENC(2048)@"
           }
         },
+        "recentReviews": {
+          ".write": "@U@ && @LIMPA@",
+          ".indexOn": ["t", "dt"],
+          "$r": {
+            ".write": "@U@ && ((@H(['v','t','d','dt','enc'])@ && $r.matches(/^[0-9a-f]+$/) && newData.child('t').isNumber() && @ENC(1024)@ && (!data.exists() || (newData.child('t').val() == data.child('t').val() && newData.child('d').val() == data.child('d').val() && newData.child('dt').val() == data.child('dt').val()))) || @LIMPA@)"
+          }
+        },
+        "reviewBodies": {
+          ".write": "@U@ && @LIMPA@",
+          "$r": {
+            ".write": "@U@ && @LIMPA@",
+            "$v": {
+              ".write": "@U@ && ((!data.exists() && @H(['v','enc'])@ && $v.matches(/^[0-9]+$/) && @ENC(48000)@) || @LIMPA@)"
+            }
+          }
+        },
         "usageEvents": {
           ".write": "@U@",
           "$device": {
@@ -100,6 +116,13 @@
           "operations": {
             "$op": {
               ".write": "@U@ && (!newData.exists() || (@H(['v','dev','t0','x','enc'])@ && $op.matches(/^[0-9a-f]+$/) && newData.child('x').isNumber() && newData.child('x').val() > now && newData.child('x').val() <= now + 300000 && @ENC(2048)@ && (!data.exists() || (newData.child('dev').val() == data.child('dev').val() && newData.child('t0').val() == data.child('t0').val()))))"
+            }
+          },
+          "rev": {
+            "$tipo": {
+              "$id": {
+                ".write": "@U@ && $tipo.matches(/^(recentReviews|panorama|myPrs)$/) && newData.isNumber()"
+              }
             }
           },
           "pending": {

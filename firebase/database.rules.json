@@ -57,6 +57,22 @@
             ".write": "auth != null && auth.uid == $uid && newData.hasChildren(['v', 'u', 'enc']) && $pr.matches(/^[0-9a-f]+$/) && newData.child('enc').isString() && newData.child('enc').val().matches(/^e1[.]g[0-9]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$/) && newData.child('enc').val().length <= 2048"
           }
         },
+        "recentReviews": {
+          ".write": "auth != null && auth.uid == $uid && !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
+          ".indexOn": ["t", "dt"],
+          "$r": {
+            ".write": "auth != null && auth.uid == $uid && ((newData.hasChildren(['v', 't', 'd', 'dt', 'enc']) && $r.matches(/^[0-9a-f]+$/) && newData.child('t').isNumber() && newData.child('enc').isString() && newData.child('enc').val().matches(/^e1[.]g[0-9]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$/) && newData.child('enc').val().length <= 1024 && (!data.exists() || (newData.child('t').val() == data.child('t').val() && newData.child('d').val() == data.child('d').val() && newData.child('dt').val() == data.child('dt').val()))) || !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists())"
+          }
+        },
+        "reviewBodies": {
+          ".write": "auth != null && auth.uid == $uid && !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
+          "$r": {
+            ".write": "auth != null && auth.uid == $uid && !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
+            "$v": {
+              ".write": "auth != null && auth.uid == $uid && ((!data.exists() && newData.hasChildren(['v', 'enc']) && $v.matches(/^[0-9]+$/) && newData.child('enc').isString() && newData.child('enc').val().matches(/^e1[.]g[0-9]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$/) && newData.child('enc').val().length <= 48000) || !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists())"
+            }
+          }
+        },
         "usageEvents": {
           ".write": "auth != null && auth.uid == $uid",
           "$device": {
@@ -100,6 +116,13 @@
           "operations": {
             "$op": {
               ".write": "auth != null && auth.uid == $uid && (!newData.exists() || (newData.hasChildren(['v', 'dev', 't0', 'x', 'enc']) && $op.matches(/^[0-9a-f]+$/) && newData.child('x').isNumber() && newData.child('x').val() > now && newData.child('x').val() <= now + 300000 && newData.child('enc').isString() && newData.child('enc').val().matches(/^e1[.]g[0-9]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$/) && newData.child('enc').val().length <= 2048 && (!data.exists() || (newData.child('dev').val() == data.child('dev').val() && newData.child('t0').val() == data.child('t0').val()))))"
+            }
+          },
+          "rev": {
+            "$tipo": {
+              "$id": {
+                ".write": "auth != null && auth.uid == $uid && $tipo.matches(/^(recentReviews|panorama|myPrs)$/) && newData.isNumber()"
+              }
             }
           },
           "pending": {

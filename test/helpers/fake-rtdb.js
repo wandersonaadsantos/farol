@@ -180,8 +180,24 @@ export async function startFakeRtdb({ token = 'tok-ok', agora = () => Date.now()
     return enviar(res, 200, resultado, querEtag ? etagDe(resultado) : '');
   }
 
+  // Consulta ordenada como o RTDB: orderBy por filho, startAt/endAt inclusivos, limites.
+  // Devolve objeto (sem ordem garantida para quem lê), igual ao servidor real.
+  function consultar(atual, params) {
+    if (!atual || typeof atual !== 'object') return atual;
+    const campo = JSON.parse(params.get('orderBy'));
+    const valor = (v) => (v && typeof v === 'object' ? v[campo] : undefined);
+    let itens = Object.entries(atual).filter(([, v]) => valor(v) !== undefined);
+    itens.sort((a, b) => (valor(a[1]) < valor(b[1]) ? -1 : valor(a[1]) > valor(b[1]) ? 1 : 0));
+    if (params.has('startAt')) { const s = JSON.parse(params.get('startAt')); itens = itens.filter(([, v]) => valor(v) >= s); }
+    if (params.has('endAt')) { const e = JSON.parse(params.get('endAt')); itens = itens.filter(([, v]) => valor(v) <= e); }
+    if (params.has('limitToFirst')) itens = itens.slice(0, Number(params.get('limitToFirst')));
+    if (params.has('limitToLast')) itens = itens.slice(-Number(params.get('limitToLast')));
+    return Object.fromEntries(itens);
+  }
+
   function executar(metodo, segs, body, u, atual) {
     if (metodo === 'GET') {
+      if (u.searchParams.has('orderBy')) return consultar(atual, u.searchParams);
       if (u.searchParams.get('shallow') !== 'true' || !atual || typeof atual !== 'object') return atual;
       return Object.fromEntries(Object.keys(atual).map((k) => [k, true]));
     }
