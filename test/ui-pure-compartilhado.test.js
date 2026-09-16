@@ -365,3 +365,11 @@ test('revisoesCompartilhadasHtml: as que não abriram são contadas, com ou sem 
   assert.match(duas, /2 revisões não abriram/);
   assert.doesNotMatch(P.revisoesCompartilhadasHtml({ estado: 'lista', revisoes: [], naoAbriram: 0 }), /não abri/);
 });
+
+test('revisoesCompartilhadasHtml: o PR aparece pelo nome quando o catálogo abriu, e genérico quando não', () => {
+  const base = { reviewId: 'a', t: 1, dev: 'x', aparelho: 'Desktop', veredito: 'approve', status: 'posted' };
+  const html = P.revisoesCompartilhadasHtml({ estado: 'lista', revisoes: [{ ...base, pr: { key: 'acme-exemplo/app-web#35', title: 'Ajusta rodapé', author: 'ana-exemplo' } }, { ...base, reviewId: 'b', pr: null }] });
+  assert.match(html, /href="https:\/\/github\.com\/acme-exemplo\/app-web\/pull\/35"/);
+  assert.match(html, /Ajusta rodapé/);
+  assert.match(html, /PR sem nome neste aparelho/);
+});

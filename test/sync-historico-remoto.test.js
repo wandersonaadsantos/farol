@@ -241,3 +241,20 @@ test('as recentes contam quantas não abriram, e a rota entrega a contagem', asy
   assert.equal(pela.revisoes.length, 2);
   assert.equal(pela.naoAbriram, 1, 'o aparelho carimbado foi trocado: a linha não abre para ninguém');
 });
+
+// O índice da história leva o PR só como tag; o nome sai do catálogo cifrado, como nas
+// pendências. Sem a linha do catálogo, `pr` é nulo e a tela fica com o rótulo genérico.
+test('as recentes lidas pela tela trazem o PR resolvido pelo catálogo, ou nulo', async () => {
+  const pub = await import('../lib/engine/sync-publicacao.js');
+  const e = await motorPronto();
+  decisao(e, 'd1', { createdAt: AGORA + 1001, key: 'dono/repo#11' });
+  decisao(e, 'd2', { createdAt: AGORA + 1002, key: 'dono/repo#12' });
+  await hist.sincronizarHistorico(e, e.config.sync, { agora: AGORA });
+  await pub.publicarNoCatalogo(e, e.config.sync, [{ key: 'dono/repo#11', title: 'Titulo do um', author: 'alguem', number: 11, repo: 'dono/repo' }]);
+  e.sync.catalogoLru = new Map();
+  const r = await e.syncRecentes({});
+  const porT = Object.fromEntries(r.revisoes.map((x) => [x.t, x]));
+  assert.equal(porT[AGORA + 1001].pr.key, 'dono/repo#11');
+  assert.equal(porT[AGORA + 1001].pr.title, 'Titulo do um');
+  assert.equal(porT[AGORA + 1002].pr, null, 'fora do catálogo, sem nome inventado');
+});

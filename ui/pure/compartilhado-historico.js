@@ -11,6 +11,7 @@
 // medir de novo, sem dizer que enviou nada.
 import { esc, fmtTok, fmtWhenDay, md } from './comum.js';
 import { prRefMention } from './mencoes.js';
+import { prIdentificadoHtml } from './pr-compartilhado.js';
 
 const VEREDITO_CHIP = {
   approve: { classe: 'ok', rotulo: 'aprovar' },
@@ -37,7 +38,7 @@ function origemChip(item, deviceIdLocal) {
 function revisaoLinhaHtml(item, ctx) {
   const status = STATUS[item.status] || 'sem desfecho';
   return `<div class="md-rev" data-review="${esc(item.reviewId)}">
-    <span class="md-rev-txt"><b>${esc(status)}</b> <span class="md-fraco">${esc(fmtWhenDay(item.t, ctx.agora))}</span></span>
+    <span class="md-rev-txt">${prIdentificadoHtml(item.pr, 'PR sem nome neste aparelho')} <b>${esc(status)}</b> <span class="md-fraco">${esc(fmtWhenDay(item.t, ctx.agora))}</span></span>
     ${chipDoVeredito(item.veredito)}
     ${origemChip(item, ctx.deviceIdLocal)}
     <button class="btn sm ghost md-ver-revisao" data-review="${esc(item.reviewId)}">Ver revisão</button>
@@ -74,7 +75,7 @@ export function revisoesCompartilhadasHtml(entrada) {
   if (!lista.length) return `${topo}${fora}<p class="md-vazio">Nenhuma revisão compartilhada ainda.</p>`;
   const ctx = { agora: e.agora || Date.now(), deviceIdLocal: e.deviceIdLocal || '' };
   return `${topo}${fora}<div class="card md-lista">${lista.map((item) => revisaoLinhaHtml(item || {}, ctx)).join('')}</div>
-    <p class="md-nota">O endereço do PR não viaja no índice; ele aparece ao abrir a revisão, se o corpo trouxer. Revisão que não abriu fica de fora da lista inteira, nunca pela metade.</p>`;
+    <p class="md-nota">O nome do PR vem do catálogo cifrado; quando ele não abre neste aparelho, a linha fica sem nome e o endereço aparece ao abrir a revisão, se o corpo trouxer. Revisão que não abriu fica de fora da lista inteira, nunca pela metade.</p>`;
 }
 
 // Resposta de POST /api/sync/review-body: `{found, revisao}` ou null (a chamada falhou).
