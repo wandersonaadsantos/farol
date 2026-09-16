@@ -8,7 +8,7 @@ import {
 } from './pure.js';
 import { telasRegistradas, telaPorId } from './telas/registro.js';
 import {
-  estado, escopo, abaAtual, definirEstado, definirEscopo, definirAba,
+  estado, abaAtual, definirEstado, definirEscopo, definirAba,
   teamHighlightsEnabled, deliveriesEnabled,
   ehMac, ehElectron, definirPlataforma,
 } from './telas/estado.js';
@@ -21,7 +21,7 @@ export { toast } from './telas/infra.js';
 import {
   rebuildAccounts,
   renderAccountBar, renderIdentity, renderSilenced,
-  fecharSilenciadas, alternarSilenciadas,
+  initContasTriggers,
 } from './telas/contas.js';
 import { gotoDeliv } from './telas/entregas.js';
 import { loadHighlights, loadTeam } from './telas/time.js';
@@ -105,19 +105,13 @@ function rerenderScope() {
 }
 initTweaks(rerenderScope);
 
-/* trocar de conta na barra */
-$('#accountBar').addEventListener('click', (e) => {
-  const seg = e.target.closest('.acct-seg');
-  if (!seg) return;
-  definirEscopo(seg.dataset.scope);
-  localStorage.setItem('farol-scope', escopo());
-  fecharSilenciadas();
-  rerenderScope();
-});
-/* abrir/fechar o resumo de silenciadas */
-$('#silenced').addEventListener('click', (e) => {
-  if (e.target.closest('.sil-toggle')) { alternarSilenciadas(); renderSilenced(); }
-});
+/* Gatilhos da barra de contas e do resumo de silenciadas: moram em
+   telas/contas.js, dono de renderAccountBar/renderSilenced.
+   initContasTriggers(rerenderScope) recebe o re-render de escopo, que
+   conhece todas as telas e por isso fica aqui. Chamada no mesmo ponto
+   relativo em que os dois listeners moravam. */
+initContasTriggers(rerenderScope);
+
 /* marcar o perfil de review de uma pessoa (papel e domínios): molda o tom e a
    postura da revisão automática. Global (delegado no documento) pra funcionar na
    aba Time E nos cards do PR (fila, Precisa de você), inclusive pra marcar o 1º

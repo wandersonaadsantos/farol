@@ -186,3 +186,25 @@ export function renderSilenced() {
   }).join('')}</div>` : '';
   box.innerHTML = head + body;
 }
+
+/* ---------- gatilhos da barra de contas e do resumo de silenciadas ----------
+   Trocam o escopo e reagem ao clique de expandir/recolher. rerenderScope
+   conhece TODAS as telas e por isso fica no bootstrap (ui/app.js): recebido
+   por parâmetro, na mesma injeção de initTweaks(rerenderScope). Chamada pelo
+   bootstrap no mesmo ponto relativo em que os dois listeners moravam. Este
+   módulo continua sem importar nenhuma tela. */
+export function initContasTriggers(rerenderScope) {
+  /* trocar de conta na barra */
+  $('#accountBar').addEventListener('click', (e) => {
+    const seg = e.target.closest('.acct-seg');
+    if (!seg) return;
+    definirEscopo(seg.dataset.scope);
+    localStorage.setItem('farol-scope', escopo());
+    fecharSilenciadas();
+    rerenderScope();
+  });
+  /* abrir/fechar o resumo de silenciadas */
+  $('#silenced').addEventListener('click', (e) => {
+    if (e.target.closest('.sil-toggle')) { alternarSilenciadas(); renderSilenced(); }
+  });
+}
