@@ -138,3 +138,14 @@ test('o resumo não promete apagar o que o outro aparelho já recebeu', () => {
   }
   assert.match(texto, /continuam com ele/, 'e precisa dizer o que NÃO acontece');
 });
+
+// Retirar o consentimento pela tela de configuração é o MESMO ato, e a restrição não pode
+// sobreviver por ter sido retirada pela outra porta.
+test('desligar aceitarAdmin pela configuração também descarta a política em cache', async () => {
+  const e = await motorLogado();
+  cachePolitica.gravarPolitica({ uid: 'u1', dev: e.sync.deviceId, generation: 1, versao: 3, politica: { pausado: true } });
+  assert.ok(cachePolitica.lerPolitica());
+  e.updateSettings({ sync: syncCfg({ aceitarAdmin: false }) });
+  if (e.sync.iniciando) await e.sync.iniciando;
+  assert.equal(cachePolitica.lerPolitica(), null);
+});
