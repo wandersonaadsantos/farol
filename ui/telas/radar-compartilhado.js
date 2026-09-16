@@ -16,6 +16,7 @@ import {
   envioDepoisDoLote, envioHistoricoHtml, esc, modoDistribuicaoHtml, oQueELocalHtml,
   operacoesRemotasHtml, pendenciasCompartilhadasHtml, reciboFinal, revisaoAbertaHtml,
   revisoesCompartilhadasHtml, tomadaDialogo, visaoCompartilhada, acoesDaOperacao,
+  tomadasFeitasHtml, transferenciaConfirmacao, transferenciaDialogo,
 } from '../pure.js';
 import { estado } from './estado.js';
 import { $, api, confirmModal, toast } from './infra.js';
@@ -29,7 +30,7 @@ const REVISOES_MIN_MS = 60000;
 
 const LIVE = { operacoes: [], at: 0 };
 const PEND = { pendencias: [], novas: new Set() };
-const RECIBOS = { mapa: {}, falhas: new Set(), at: 0, buscando: false };
+const RECIBOS = { mapa: {}, falhas: new Set(), at: 0, emCurso: null };
 const REVISOES = { escopo: 'todos', estado: 'inicial', revisoes: [], at: 0 };
 let ENVIO = { fase: 'inicial' };
 
@@ -79,11 +80,22 @@ function renderOperacoes(s) {
   $('#mdOperacoes').innerHTML = `${andamentoAtrasadoHtml(LIVE.at)}${operacoesRemotasHtml(LIVE.operacoes, { podeComandar: permissao.pode, motivoSemComando: permissao.motivo })}`;
 }
 
+function pintarComandos(s) {
+  $('#mdComandos').innerHTML = comandosEmitidosHtml(s.comandosEmitidos, RECIBOS.mapa, { devices: s.devices, deviceIdLocal: s.deviceId, falhas: RECIBOS.falhas });
+}
+
 function renderComandos(s) {
   const lista = Array.isArray(s.comandosEmitidos) ? s.comandosEmitidos : [];
   $('#mdComandosWrap').hidden = !lista.length;
-  $('#mdComandos').innerHTML = comandosEmitidosHtml(lista, RECIBOS.mapa, { devices: s.devices, falhas: RECIBOS.falhas });
+  pintarComandos(s);
   atualizarRecibos(lista);
+}
+
+// Histórico das tomadas feitas por este aparelho (quadro C8): lista própria, e some vazia.
+function renderTomadas(s) {
+  const html = tomadasFeitasHtml(s.tomadas, s.devices, s.deviceId);
+  $('#mdTomadasWrap').hidden = !html;
+  $('#mdTomadas').innerHTML = html;
 }
 
 function renderHistorico(s) {
@@ -107,6 +119,7 @@ function renderCompartilhado() {
   renderPendencias(s);
   renderOperacoes(s);
   renderComandos(s);
+  renderTomadas(s);
   renderHistorico(s);
 }
 
@@ -130,16 +143,21 @@ function aoPendenciasRemotas(d) {
 
 /* ---------- leituras avulsas ---------- */
 
-async function atualizarRecibos(lista) {
-  if (RECIBOS.buscando || Date.now() - RECIBOS.at < RECIBO_MIN_MS) return;
-  const abertos = lista.filter((c) => c && c.cmdId && !reciboFinal(RECIBOS.mapa[c.cmdId]));
-  if (!abertos.length) return;
-  RECIBOS.buscando = true;
+async function lerRecibosAbertos(abertos) {
   for (const c of abertos) await lerRecibo(c.cmdId);
-  RECIBOS.buscando = false;
+}
+
+// Uma consulta por vez: quem chega com outra em curso espera ela terminar. `forcar` passa
+// por cima do piso de tempo (é o que deixa conferir o recibo logo depois de uma ação).
+async function atualizarRecibos(lista, { forcar = false } = {}) {
+  if (RECIBOS.emCurso) await RECIBOS.emCurso;
+  if (!forcar && Date.now() - RECIBOS.at < RECIBO_MIN_MS) return;
+  const abertos = (Array.isArray(lista) ? lista : []).filter((c) => c && c.cmdId && !reciboFinal(RECIBOS.mapa[c.cmdId]));
+  if (!abertos.length) return;
+  RECIBOS.emCurso = lerRecibosAbertos(abertos);
+  try { await RECIBOS.emCurso; } finally { RECIBOS.emCurso = null; }
   RECIBOS.at = Date.now();
-  const s = syncAtual();
-  $('#mdComandos').innerHTML = comandosEmitidosHtml(s.comandosEmitidos, RECIBOS.mapa, { devices: s.devices, falhas: RECIBOS.falhas });
+  pintarComandos(syncAtual());
 }
 
 async function lerRecibo(cmdId) {
@@ -219,6 +237,36 @@ async function cancelarOperacao(opId, perguntar = perguntarCancelamento) {
   return emitirComando({ alvo: op.dev, tipo: 'cancelar', args: { prTag: op.prTag } }, aparelho);
 }
 
+// A escolha do destino: cada apto é um botão, e os inaptos ficam na lista com o motivo.
+async function perguntarDestino(dialogo) {
+  return escolherModal({ titulo: dialogo.titulo, corpo: dialogo.corpo, opcoes: dialogo.opcoes, fechar: dialogo.pode ? 'Cancelar' : 'Fechar', largo: true });
+}
+
+function confirmarTransferencia(texto) {
+  return confirmModal({ title: texto.title, body: texto.body, confirmLabel: 'Transferir', cancelLabel: 'Voltar' });
+}
+
+function nomeDoDestinoEscolhido(resposta, deviceId, s) {
+  const d = resposta.destinos.find((x) => x && x.deviceId === deviceId) || {};
+  return deviceId === s.deviceId ? 'este aparelho' : (d.nome || deviceId);
+}
+
+// Destinos lidos AGORA, escolha entre os aptos, confirmação, e só então o comando ao
+// aparelho que roda a análise. Escolha fora da lista de aptos não sai, venha de onde vier:
+// a origem confere de novo, mas a tela não manda o que ela já sabe que seria recusado.
+async function transferirOperacao(opId, escolher = perguntarDestino, confirmar = confirmarTransferencia) {
+  const s = syncAtual();
+  const op = operacaoPorId(opId);
+  if (!op || !acoesDaOperacao(op, { podeComandar: comandoPermitido(s).pode }).transferir.pode) return false;
+  const resposta = await api('/api/sync/transfer-targets', { dono: op.dev, acctTag: op.acctTag || '' });
+  const dialogo = transferenciaDialogo(resposta, op);
+  const destino = await escolher(dialogo);
+  if (!dialogo.pode || !dialogo.aptos.includes(destino)) return false;
+  const origem = op.aparelho || 'outro aparelho';
+  if (!await confirmar(transferenciaConfirmacao({ origem, destino: nomeDoDestinoEscolhido(resposta, destino, s) }))) return false;
+  return emitirComando({ alvo: op.dev, tipo: 'transferir', args: { prTag: op.prTag, matTag: op.matTag, destino } }, origem);
+}
+
 async function perguntarTomada(dialogo) {
   const opcoes = dialogo.pode ? [{ valor: 'tomar', rotulo: 'Tomar mesmo assim', classe: 'primary' }] : [];
   const escolha = await escolherModal({ titulo: dialogo.titulo, corpo: dialogo.corpo, opcoes, fechar: dialogo.pode ? 'Não tomar' : 'Fechar' });
@@ -230,7 +278,7 @@ async function tomarOperacao(opId, perguntar = perguntarTomada) {
   const s = syncAtual();
   const op = operacaoPorId(opId);
   if (!op || !acoesDaOperacao(op, { podeComandar: comandoPermitido(s).pode }).tomar.pode) return false;
-  const aviso = await api('/api/sync/takeover-notice', { prKey: op.prKey, account: op.account });
+  const aviso = await api('/api/sync/takeover-notice', { prKey: op.pr.key, account: op.pr.account });
   const dialogo = tomadaDialogo(aviso);
   if (!await perguntar(dialogo) || !dialogo.pode) return false;
   return emitirComando({ alvo: s.deviceId, tipo: 'tomar', args: { prTag: op.prTag, matTag: op.matTag, confirmado: true } }, 'este aparelho');
@@ -278,6 +326,8 @@ function aoClicarCompartilhado(e) {
   if (decidir) { decidirNoAparelho({ itemId: decidir.dataset.item, dev: decidir.dataset.dev, aparelho: decidir.dataset.aparelho }); return; }
   const cancelar = e.target.closest('.md-cancelar');
   if (cancelar) { cancelarOperacao(cancelar.dataset.op); return; }
+  const transferir = e.target.closest('.md-transferir');
+  if (transferir) { transferirOperacao(transferir.dataset.op); return; }
   const tomar = e.target.closest('.md-tomar');
   if (tomar) tomarOperacao(tomar.dataset.op);
 }
@@ -307,5 +357,6 @@ function registrarTelaRadarCompartilhado() {
 
 export {
   registrarTelaRadarCompartilhado, renderCompartilhado, aoAndamentoRemoto, aoPendenciasRemotas,
-  marcarVisto, decidirNoAparelho, cancelarOperacao, tomarOperacao, medirHistorico, enviarHistorico,
+  marcarVisto, decidirNoAparelho, cancelarOperacao, transferirOperacao, tomarOperacao, medirHistorico, enviarHistorico,
+  atualizarRecibos,
 };

@@ -189,12 +189,16 @@ test('acoesDaOperacao: transferir e tomar ficam indisponíveis com o motivo do c
   assert.match(html, /Transferir: indisponível/);
 });
 
+// O PR em claro chega em `op.pr` (resolvido pelo catálogo no engine) desde a entrega da
+// transferência pela tela; antes o teste o punha solto em `prKey`/`account`, que o engine
+// nunca mandou. E transferir deixou de ser sempre indisponível: a lista de destinos vem da
+// rota própria (test/ui-pure-compartilhado-posse.test.js).
 test('acoesDaOperacao: tomar só com commit E PR em claro, e nunca sem permissão', () => {
-  const completa = { ...OP, matTag: 'c'.repeat(32), prKey: 'a/b#1', account: 'conta' };
+  const completa = { ...OP, matTag: 'c'.repeat(32), pr: { key: 'a/b#1', account: 'conta', title: '', author: '' } };
   assert.equal(P.acoesDaOperacao(completa, { podeComandar: true }).tomar.pode, true);
-  assert.equal(P.acoesDaOperacao({ ...completa, account: '' }, { podeComandar: true }).tomar.pode, false);
+  assert.equal(P.acoesDaOperacao({ ...completa, pr: { ...completa.pr, account: '' } }, { podeComandar: true }).tomar.pode, false);
   assert.equal(P.acoesDaOperacao(completa, { podeComandar: false }).tomar.pode, false);
-  assert.equal(P.acoesDaOperacao(completa, { podeComandar: true }).transferir.pode, false, 'sem destinos conhecidos, nunca');
+  assert.equal(P.acoesDaOperacao(completa, { podeComandar: false }).transferir.pode, false, 'sem permissão, nunca');
   assert.equal(P.acoesDaOperacao({ ...OP, prTag: '' }, { podeComandar: true }).cancelar.pode, false);
   assert.equal(P.acoesDaOperacao(OP, {}).cancelar.pode, false);
 });

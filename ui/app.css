@@ -1785,6 +1785,7 @@ body.parear > *:not(.par-raiz) { display: none !important; }
   .md-rev-topo .btn { flex: 1; }
   .md-modal-acoes { flex-direction: column-reverse; align-items: stretch; }
   .md-goto { min-height: 44px; display: inline-flex; align-items: center; }
+}
 /* ---------- Sistema > Aparelhos e Grupos de consumo (C2, C4b) ----------
    Reaproveitam o cartão e a lista da Sincronização (.sync-card, .sync-lista, .sync-chip);
    o prefixo apar-/grupo- fica só no que é novo. No estreito, a linha do aparelho vira
@@ -1836,4 +1837,25 @@ body.parear > *:not(.par-raiz) { display: none !important; }
   #devicesManager .btn, #groupsManager .btn, #devicesManager .sync-input, #groupsManager .sync-input { min-height: 44px; }
   .apar-tipo { min-height: 44px; }
   .apar-acao .sync-campo { min-width: 0; width: 100%; }
+}
+
+/* ---------- transferência e tomada pela tela (B2, item 2.9, quadro C8) ----------
+   A lista de destinos mora dentro do diálogo: apto em destaque, inapto apagado e sem
+   ação, cada um com o motivo. As opções de envio são os botões do próprio diálogo
+   (.md-modal-acoes), que já chegam a 44 px no estreito. */
+.md-destinos { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 10px; }
+.md-destino { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 8px 12px; font-size: 12.5px; overflow-wrap: anywhere; }
+.md-destino + .md-destino { border-top: 1px solid var(--border-soft); }
+.md-destino.md-apto b { color: var(--ok); }
+.md-destino.md-inapto { color: var(--muted); }
+.md-destino.md-inapto b { font-weight: 600; }
+@media (max-width: 860px) {
+  .md-destinos { margin-top: 8px; }
+}
+@media (max-width: 720px) {
+  .md-destino { flex-direction: column; gap: 2px; }
+}
+@media (max-width: 620px) {
+  .md-destino { min-height: 44px; justify-content: center; }
+  .pr-coord .md-goto { min-height: 44px; }
 }
