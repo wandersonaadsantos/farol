@@ -310,7 +310,7 @@ function operacaoHtml(op, ctx) {
   const dados = `data-op="${esc(op.opId)}" data-dev="${esc(op.dev)}" data-prtag="${esc(op.prTag || '')}"`;
   const subagentes = Array.isArray(op.subagentes) ? op.subagentes.length : 0;
   const situacao = se(op.situacao === 'interrompida', '<span class="sync-chip warn">sem renovar</span>');
-  const tempo = `${esc(fmtDur(tempoDaOperacao(op)))}${se(op.modelo, `, ${esc(op.modelo)}`)}`;
+  const tempo = [fmtDur(tempoDaOperacao(op)), op.modelo].filter(Boolean).map((x) => esc(x)).join(', ');
   const heranca = HERANCA[op.heranca] || '';
   const etapa = `${esc(ETAPA[op.etapa] || ETAPA.desconhecida)}${se(subagentes, `, ${plural(subagentes, 'subagente', 'subagentes')}`)}${se(heranca, `, ${esc(heranca)}`)}`;
   return `<div class="card working md-op">

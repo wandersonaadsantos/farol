@@ -373,3 +373,10 @@ test('revisoesCompartilhadasHtml: o PR aparece pelo nome quando o catálogo abri
   assert.match(html, /Ajusta rodapé/);
   assert.match(html, /PR sem nome neste aparelho/);
 });
+
+test('operacoesRemotasHtml: operação recém-começada não mostra vírgula solta antes do modelo', () => {
+  const op = { opId: 'o9', dev: 'x', aparelho: 'Notebook', situacao: 'viva', etapa: 'leitura', msPorEtapa: {}, subagentes: [], modelo: 'Opus 5', prTag: 'a'.repeat(32), tipo: 'review' };
+  const html = P.operacoesRemotasHtml([op], {});
+  assert.match(html, /Opus 5/);
+  assert.doesNotMatch(html, />, Opus 5/, 'sem tempo, o modelo vem sozinho');
+});
