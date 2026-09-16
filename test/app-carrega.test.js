@@ -25,6 +25,7 @@ import path from 'node:path';
 import { instalarDom } from './helpers/dom-stub.js';
 import { arquivosDasTelas } from './helpers/fontes-ui.js';
 import { strip } from '../tools/quality/strip.js';
+import { telasRegistradas } from '../ui/telas/registro.js';
 
 // NOTA sobre o `--test-force-exit` no script de test: carregar o app.js liga os
 // timers dele (countdown, tick de elapsed, backoff de reconexão do SSE). O stub já
@@ -89,6 +90,22 @@ function semObjectObject(rotulo) {
 
 test('o app.js carrega e registra o handler de state do SSE', () => {
   assert.ok(listeners.has('state'), 'sem isto a tela nunca receberia estado nenhum');
+});
+
+test('a ordem REAL de registro das telas é entregas, destaques, time, sistema, consumo', () => {
+  // test/ui-telas-registro.test.js só prova a propriedade genérica (a ordem de
+  // registro é preservada); este aqui trava o valor de verdade. A ordem nasce do
+  // encadeamento de imports estáticos do ui/app.js (cada import estático roda por
+  // completo antes do próximo, na ordem em que aparece no arquivo) mais a chamada
+  // explícita de registrarTelaConsumo() no fim: um import novo em QUALQUER módulo
+  // de tela, se importar (direta ou indiretamente) um dos cinco antes da hora,
+  // pode reordenar isso em silêncio, e telasRegistradas() é a única fonte de
+  // verdade de quem desenha em cima de quem no rodapé de sistema.
+  assert.deepEqual(
+    telasRegistradas().map(t => t.id),
+    ['entregas', 'destaques', 'time', 'sistema', 'consumo'],
+    'ordem de registro mudou: um import novo em algum módulo de tela reordenou o encadeamento em silêncio'
+  );
 });
 
 test('toast trata conteúdo recebido como texto, nunca como HTML', () => {
