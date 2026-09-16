@@ -2,12 +2,8 @@
    ui/app.js). */
 
 import { reasonText } from '../pure.js';
-import { estado } from './estado.js';
+import { estado, ehElectron } from './estado.js';
 import { toastRich, tituloDaNotificacao } from './infra.js';
-
-// mesmo palpite do `isElectron` de ui/app.js: sem SSE/estado ainda no primeiro paint, o
-// jeito de saber se é o shell Electron é olhar o userAgent.
-const isElectron = navigator.userAgent.includes('Electron');
 
 /* ---------- som + notificação ---------- */
 let audioCtx = null;
@@ -38,9 +34,9 @@ function notifyNewPRs(data) {
     const strong = document.createElement('b');
     strong.textContent = title;
     el.appendChild(strong);
-    if (n === 1) el.appendChild(document.createTextNode(`  ${first.key}`));
+    if (n === 1) el.appendChild(document.createTextNode(`\u00a0 ${first.key}`));
   });
-  if (!isElectron && 'Notification' in window) {
+  if (!ehElectron() && 'Notification' in window) {
     if (Notification.permission === 'granted') {
       const notif = new Notification(`Farol · ${title}`, { body });
       notif.onclick = () => window.focus();
@@ -53,11 +49,11 @@ function notifyNewPRs(data) {
 /* ---------- notificação nativa de "precisa da sua atenção" ----------
    Mesma política de permissão/Electron de notifyNewPRs, num lugar só: o
    connect() do ui/app.js chamava new Notification(...) com a MESMA checagem
-   (!isElectron && 'Notification' in window && permission === 'granted') que
+   (!ehElectron() && 'Notification' in window && permission === 'granted') que
    já morava aqui. onAbrir é a navegação (focusPr), que fica no app.js: este
    módulo não navega, só decide SE notifica. */
 function notifyNeedsDecision(pr, item, onAbrir) {
-  if (!isElectron && 'Notification' in window && Notification.permission === 'granted') {
+  if (!ehElectron() && 'Notification' in window && Notification.permission === 'granted') {
     const notif = new Notification('Farol · precisa da sua atenção', { body: `${pr.key}: ${reasonText((item.reasons || [])[0]) || 'ver relatório'}` });
     notif.onclick = () => { window.focus(); onAbrir(); };
   }

@@ -20,12 +20,26 @@ function identGuardada() {
 export function escopoGuardado() {
   return localStorage.getItem('farol-scope') || 'all';
 }
+// escrita do escopo persistido: mesma chave da leitura acima, num arquivo só.
+// Usada pela troca de conta na barra (abaixo) e pelo saneamento de escopo órfão
+// (rebuildAccounts) e pelo gerenciador de contas (ui/telas/sistema-contas.js).
+export function guardarEscopo(valor) {
+  localStorage.setItem('farol-scope', valor);
+}
 export const TWEAK = {
   muted: localStorage.getItem('farol-muted-handling') || 'Recolher',   // Recolher | Esmaecer | Ocultar
   // 'Só barra' saiu quando a borda esquerda virou urgência: quem tinha essa opção ficaria
   // sem NENHUM marcador de conta. Migra pro equivalente mais informativo.
   ident: identGuardada(), // Ponto + etiqueta | Só ponto
 };
+// escrita das duas preferências de exibição (tweaks de topo, ui/telas/acoes.js):
+// chave e default moram só aqui, junto da leitura em TWEAK/identGuardada acima.
+export function guardarMutedHandling(valor) {
+  localStorage.setItem('farol-muted-handling', valor);
+}
+export function guardarIdentityStyle(valor) {
+  localStorage.setItem('farol-identity-style', valor);
+}
 export let ACCT = {};        // user(lower) -> metadados da conta
 export let OWNER2USER = {};  // owner/org(lower) -> user dono
 export function rebuildAccounts() {
@@ -45,7 +59,7 @@ export function rebuildAccounts() {
   // boot pode vir sem contas e nao pode resetar um escopo valido (B15).
   if (list.length) {
     const v = validScope(escopo(), list.map(a => a.user));
-    if (v !== escopo()) { definirEscopo(v); localStorage.setItem('farol-scope', escopo()); }
+    if (v !== escopo()) { definirEscopo(v); guardarEscopo(escopo()); }
   }
 }
 export function multiAccount() { return ((estado() && estado().accounts) || []).length > 1; }
@@ -206,7 +220,7 @@ export function initContasTriggers(rerenderScope) {
     const seg = e.target.closest('.acct-seg');
     if (!seg) return;
     definirEscopo(seg.dataset.scope);
-    localStorage.setItem('farol-scope', escopo());
+    guardarEscopo(escopo());
     fecharSilenciadas();
     rerenderScope();
   });

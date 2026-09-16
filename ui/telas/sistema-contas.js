@@ -3,7 +3,7 @@
 import { esc, accountSaveArray, accountsManagerHtml } from '../pure.js';
 import { estado, escopo, definirEscopo } from './estado.js';
 import { $, api, toast, confirmModal } from './infra.js';
-import { ACCT, rebuildAccounts, renderAccountBar, renderIdentity } from './contas.js';
+import { ACCT, rebuildAccounts, renderAccountBar, renderIdentity, guardarEscopo } from './contas.js';
 
 /* ---------- gerenciador/editor de contas (Sistema) ---------- */
 function editAccount(user, patch) {
@@ -55,7 +55,7 @@ $('#accountsManager').addEventListener('click', (e) => {
     const user = mute.dataset.user;
     const a = (estado().accounts || []).find(x => x.user === user);
     const willMute = !(a && a.muted);
-    if (willMute && String(escopo()).toLowerCase() === user.toLowerCase()) { definirEscopo('all'); localStorage.setItem('farol-scope', 'all'); }
+    if (willMute && String(escopo()).toLowerCase() === user.toLowerCase()) { definirEscopo('all'); guardarEscopo('all'); }
     editAccount(user, { muted: willMute });
     return;
   }
@@ -79,7 +79,7 @@ $('#accountsManager').addEventListener('click', (e) => {
         <p>Dá pra <b>adicionar de volta</b> a qualquer momento (o rótulo, a cor e o tipo você reconfigura).</p>`
     }).then(ok => {
       if (!ok) return;
-      if (String(escopo()).toLowerCase() === user.toLowerCase()) { definirEscopo('all'); localStorage.setItem('farol-scope', 'all'); }
+      if (String(escopo()).toLowerCase() === user.toLowerCase()) { definirEscopo('all'); guardarEscopo('all'); }
       removeAccount(user);
       toast('info', `Conta @${user} removida do Farol.`, 3000);
     });

@@ -6,7 +6,7 @@ import { estado } from './estado.js';
 import {
   $, api, get, toast, toastRich, confirmModal, showOp, closeOp, copyToClipboard,
 } from './infra.js';
-import { TWEAK, scopeVisible } from './contas.js';
+import { TWEAK, scopeVisible, guardarMutedHandling, guardarIdentityStyle } from './contas.js';
 import { revisarUrls } from './consumo.js';
 import { kudosScopeKey, loadLog } from './ferramentas.js';
 
@@ -53,8 +53,8 @@ $('#btnReviewAll').onclick = () => {
    sem criar ciclo de volta pro app.js. */
 function initTweaks(rerenderScope) {
   const mh = $('#setMutedHandling'), is = $('#setIdentityStyle');
-  if (mh) { mh.value = TWEAK.muted; mh.onchange = () => { TWEAK.muted = mh.value; localStorage.setItem('farol-muted-handling', mh.value); rerenderScope(); }; }
-  if (is) { is.value = TWEAK.ident; is.onchange = () => { TWEAK.ident = is.value; localStorage.setItem('farol-identity-style', is.value); rerenderScope(); }; }
+  if (mh) { mh.value = TWEAK.muted; mh.onchange = () => { TWEAK.muted = mh.value; guardarMutedHandling(mh.value); rerenderScope(); }; }
+  if (is) { is.value = TWEAK.ident; is.onchange = () => { TWEAK.ident = is.value; guardarIdentityStyle(is.value); rerenderScope(); }; }
 }
 $('#btnKudos').onclick = async () => {
   const btn = $('#btnKudos');
