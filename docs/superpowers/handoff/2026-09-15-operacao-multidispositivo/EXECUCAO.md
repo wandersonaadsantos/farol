@@ -352,6 +352,14 @@ desta linha com a `main` (a base desta execução é `8c043bc`; a `main` está e
 
 ## Próxima ação concreta
 
-Todo o código da iniciativa está entregue (C0 a C8, mais A1, A4, A5 e as fiações T0, C2c e C3h). O que falta são as TELAS, que saem do Claude Design, e os itens que só o dono fecha: publicar as regras no Firebase (roteiro do `firebase/README.md`), as medições externas da seção 13 da spec (a reconciliação com a `main` foi feita em 16/09/2026).
+Código e telas da iniciativa estão integrados em `md/integracao`, com gate completo e
+`npm run eng` verdes. Nada foi empurrado. O que falta está em "Validações externas
+pendentes", cada item com o tipo de impedimento, e depende do dono:
 
-Segue pendente, e só o dono fecha: publicar as regras v2 no console do Firebase (roteiro do `firebase/README.md`, itens 1 a 34), conferir a sincronização depois do incidente registrado acima, e a medição de memória da C4.
+1. decidir o push da branch e a abertura do PR (fora da autorização);
+2. publicar as regras v2 no console do Firebase, ou autorizar a instalação do emulador para
+   rodar os itens 1 a 42 do `firebase/README.md` localmente;
+3. autorizar as sessões reais de modelo que faltam (diagnóstico no Claude e no Codex, a
+   estimativa da saída interrompida da A1);
+4. rodar os roteiros de aparelho físico (Termux, dois aparelhos);
+5. reconfigurar a sincronização real depois do incidente registrado acima.
