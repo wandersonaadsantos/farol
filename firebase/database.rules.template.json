@@ -196,7 +196,9 @@
             ".write": "@U@ && @LIMPA@",
             "$item": {
               "$dev": {
-                ".write": "@U@ && (!newData.exists() || (@H(['itemId','prTag','matTag','acctTag','orgTag','publishedAt','ttl','enc'])@ && $item.matches(/^[0-9a-f]+_[0-9a-f]+$/) && newData.child('ttl').isNumber() && newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 1800000 && @ENC(2048)@))"
+                ".write": "@U@ && (!newData.exists() || (@H(['itemId','prTag','matTag','acctTag','orgTag','publishedAt','ttl','enc'])@ && $item.matches(/^[0-9a-f]+_[0-9a-f]+$/) && newData.child('ttl').isNumber() && newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 1800000 && @ENC(2048)@))",
+                "prefDev": { ".validate": "newData.isString() && newData.val().length <= 64" },
+                "prefAte": { ".validate": "newData.isNumber() && newData.val() <= now + 1800000" }
               }
             }
           },

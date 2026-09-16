@@ -45,6 +45,8 @@ test('comando pela metade, de tipo desconhecido ou com ação inválida não exi
   assert.equal(comando.sanearComando({ tipo: 'decidir', args: { itemId: ITEM, acao: 'merge' } }), null);
   assert.equal(comando.sanearComando({ tipo: 'iniciar', args: { prTag: PR } }), null, 'iniciar sem head não é comando');
   assert.deepEqual(comando.sanearComando({ tipo: 'iniciar', args: { prTag: PR, matTag: MAT } }), { tipo: 'iniciar', args: { prTag: PR, matTag: MAT } });
+  assert.equal(comando.sanearComando({ tipo: 'transferir', args: { prTag: PR, matTag: MAT } }), null, 'transferir sem destino não é comando');
+  assert.deepEqual(comando.sanearComando({ tipo: 'transferir', args: { prTag: PR, matTag: MAT, destino: 'dB', extra: 1 } }), { tipo: 'transferir', args: { prTag: PR, matTag: MAT, destino: 'dB' } });
   assert.equal(comando.sanearComando({ tipo: 'apagar-tudo', args: {} }), null);
   assert.equal(comando.sanearComando({ tipo: 'cancelar', args: { prTag: 'nao-e-tag' } }), null);
   assert.equal(comando.sanearComando(null), null);
