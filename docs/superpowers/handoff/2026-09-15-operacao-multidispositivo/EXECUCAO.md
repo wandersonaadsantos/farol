@@ -75,6 +75,8 @@ Três vezes hoje, uma rodada de `npm test` disparada **logo depois de um merge**
 
 **Não está fechado**, e por isso fica escrito: se voltar FORA dessa condição (sem merge antes, máquina ociosa), é defeito e merece investigação própria. O primeiro passo barato seria rodar a suíte com `--test-concurrency=1` na hora em que acontecer: se sumir, é contenção; se ficar, é defeito de verdade.
 
+**Causa medida na C5d (16/09/2026).** O quarto episódio (`sync-device-status`, logo depois do merge da C5d) foi reproduzido rodando o arquivo 24 vezes em paralelo com o repórter TAP: uma das execuções saiu com `exitCode: 3221226505` (0xC0000409, encerramento nativo do processo Node no Windows) em cerca de 340 ms, antes de qualquer caso rodar. Outras 24 execuções paralelas do mesmo arquivo e 36 de três outros arquivos não repetiram. Não é asserção de teste nem estado vazando entre casos: é o processo filho morrendo na partida, sob carga, no Node v24.15.0. A suíte refeita em seguida deu 3681 testes e 0 falhas. Fica registrado como limite do ambiente, e o critério segue o mesmo: só vale como verde a rodada completa sem falha.
+
 ## Bloqueios
 
 | Entrega | Causa | Evidência | Tentado | Condição para continuar |
