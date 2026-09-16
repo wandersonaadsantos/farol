@@ -1744,3 +1744,56 @@ body.parear > *:not(.par-raiz) { display: none !important; }
 .falha-texto { margin-top: 0; max-height: 260px; }
 .falha-texto pre, #diagBox pre { margin: 8px 0; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 620px) { .falha-quando { margin-left: 0; width: 100%; } }
+
+/* ---------- Sistema > Aparelhos e Grupos de consumo (C2, C4b) ----------
+   Reaproveitam o cartão e a lista da Sincronização (.sync-card, .sync-lista, .sync-chip);
+   o prefixo apar-/grupo- fica só no que é novo. No estreito, a linha do aparelho vira
+   bloco, as ações vão para baixo e todo alvo de toque chega a 44 px. */
+.apar-corpo { display: flex; flex-direction: column; gap: 10px; padding: 14px var(--sp-4); }
+.card.apar-corpo { padding: 14px 18px; }
+.apar-titulo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.apar-acao { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.apar-acao .sync-campo { flex: 1; min-width: 200px; }
+.apar-linha { display: grid; grid-template-columns: minmax(0, 1fr) 90px 100px 130px auto; gap: var(--sp-3); align-items: center; padding: 10px 0; font-size: 12.5px; }
+.apar-linha + .apar-linha { border-top: 1px solid var(--border-soft); }
+.apar-linha.apar-head { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); padding-bottom: 6px; }
+.apar-linha .sync-nome { flex-wrap: wrap; }
+.apar-linha .row-actions { justify-content: flex-end; flex-wrap: wrap; }
+.apar-nota { margin: var(--sp-2) 2px var(--sp-3); font-size: 11.5px; color: var(--faint); text-wrap: pretty; }
+.apar-recusa { margin: 0; font-size: 12.5px; color: var(--danger); text-wrap: pretty; }
+.apar-grade { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); align-items: end; }
+.apar-campo { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.apar-campo > span:first-child { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); }
+.apar-tipos { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 12.5px; }
+.apar-tipo { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.apar-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
+.apar-aviso { margin-bottom: var(--sp-3); }
+.grupo-cartao { margin-bottom: var(--sp-3); }
+.grupo-rotulo { display: block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); }
+.grupo-linha { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.grupo-gasto { font-size: 16px; font-weight: 650; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.grupo-vago { color: var(--faint); font-size: 12px; font-weight: 400; }
+.grupo-falta ul, .grupo-perfis ul { margin: 4px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--muted); }
+.grupo-perfil { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--sp-3); align-items: center; padding: 10px 0; font-size: 12.5px; }
+.grupo-perfil + .grupo-perfil { border-top: 1px solid var(--border-soft); }
+.grupo-vinc { display: inline-flex; gap: 6px; align-items: center; }
+.grupo-vinc .sync-input { width: auto; max-width: 180px; }
+@media (max-width: 860px) {
+  .apar-grade { grid-template-columns: 1fr 1fr; }
+  .apar-linha { grid-template-columns: minmax(0, 1fr) 90px auto; }
+  .apar-linha > :nth-child(2), .apar-linha > :nth-child(4) { display: none; }
+}
+@media (max-width: 720px) {
+  .apar-duo, .apar-grade { grid-template-columns: 1fr; }
+  .apar-linha, .grupo-perfil { grid-template-columns: minmax(0, 1fr); }
+  .apar-linha.apar-head { display: none; }
+  .apar-linha > :nth-child(2), .apar-linha > :nth-child(4) { display: inline; }
+  .apar-linha .row-actions { justify-content: flex-start; }
+  .grupo-vinc { flex-wrap: wrap; }
+  .grupo-vinc .sync-input { max-width: none; flex: 1; }
+}
+@media (max-width: 620px) {
+  #devicesManager .btn, #groupsManager .btn, #devicesManager .sync-input, #groupsManager .sync-input { min-height: 44px; }
+  .apar-tipo { min-height: 44px; }
+  .apar-acao .sync-campo { min-width: 0; width: 100%; }
+}
