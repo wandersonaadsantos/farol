@@ -41,11 +41,12 @@ const escopo = () => SCOPE;
 const abaAtual = () => ABA;
 const ehMac = () => PLATAFORMA === 'darwin';
 const ehWin = () => PLATAFORMA === 'win32';
-// Sem reconciliação com o engine (ao contrário de PLATAFORMA): o Electron do PRÓPRIO
-// processo não muda em runtime, então o userAgent já é fonte definitiva, não palpite.
-// Migrou de `const isElectron` do ui/app.js pra cá (Task 10, Fase 1b) porque
-// telas/sistema.js (renderSettings) também precisa perguntar "é Electron?" e não
-// pode importar o bootstrap de volta: mesma razão de PLATAFORMA/ehMac/ehWin.
+// Responde "esta página está rodando dentro do shell Electron do Farol?". Ao
+// contrário de PLATAFORMA, não tem reconciliação com o engine: o Electron do PRÓPRIO
+// processo desta página não muda em runtime, então o userAgent já é fonte definitiva
+// aqui, nunca palpite. Mora nesta camada, e não em cada módulo que precisa saber, pela
+// mesma razão de PLATAFORMA/ehMac/ehWin: um módulo de tela não pode importar o
+// bootstrap de volta só pra fazer esta pergunta.
 const ehElectron = () => typeof navigator !== 'undefined' && navigator.userAgent.includes('Electron');
 
 function definirEstado(novo) { STATE = novo; }

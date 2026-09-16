@@ -337,30 +337,28 @@ function renderSettings() {
   $('#setTeamHighlights').checked = c.teamHighlights === true;
   $('#setDeliveriesEnabled').checked = c.deliveriesEnabled === true;
   $('#setAutostart').checked = !!c.autostart;
-  // autostart: só no Windows (no macOS o login item abriria o Electron sem os args do app,
-  // ver applyAutostart em main.js). A plataforma vem do engine, não do userAgent.
-  // autostart só existe de verdade no Windows (setLoginItemSettings é no-op no
-  // Linux e desabilitado por decisão no mac); mostrar a opção seria mentira
+  // autostart só existe de verdade no Windows (setLoginItemSettings é no-op no Linux e
+  // desabilitado por decisão no mac; ver applyAutostart em main.js), e só faz sentido
+  // dentro do Electron (fora dele não há app pra logar no login do SO). ehWin() é a
+  // PLATAFORMA reconciliada com o engine; ehElectron() é do PRÓPRIO processo desta
+  // página, lido do userAgent (as duas leituras moram em telas/estado.js).
   $('#rowAutostart').style.display = ehElectron() && ehWin() ? '' : 'none';
 }
 
-// Import estático roda ANTES do corpo do app.js, e a ordem de registro das telas
-// precisa continuar entregas, destaques, time, sistema, consumo (telasRegistradas()
-// devolve na ordem de registro). Se o registro rodasse aqui, no topo do módulo,
-// sistema passaria à frente de destaques/time, que ainda se registram no CORPO do
-// app.js. Por isso o registro fica atrás desta função, que o app.js chama no lugar
-// exato de onde tirou o registrarTela literal (mesmo padrão de
-// telas/consumo.js/registrarTelaConsumo).
-function registrarTelaSistema() {
-  registrarTela({
-    id: 'sistema',
-    aoEntrar: () => { switchSistemaSection(); loadLog(); renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); loadReviewerCands(); },
-    aoEstado: () => { if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); } },
-  });
-}
+// Import estático roda ANTES do corpo do app.js: assim como telas/time.js registra
+// 'destaques'/'time' e telas/entregas.js registra 'entregas' ao serem importados, este
+// módulo registra 'sistema' ao ser importado. A ÚNICA restrição real de ordem
+// (telasRegistradas() devolve na ordem de registro, e precisa continuar entregas,
+// destaques, time, sistema, consumo) é a de 'consumo': telas/consumo.js não se
+// registra ao ser importado, e sim quando o app.js chama registrarTelaConsumo() no
+// corpo, depois do import deste módulo — se consumo se registrasse ao ser importado,
+// ele poderia passar à frente de 'sistema' dependendo da ordem dos imports. 'sistema'
+// não tem essa restrição: só precisa que o IMPORT deste módulo, no app.js, venha
+// depois do import de telas/time.js.
+registrarTela({
+  id: 'sistema',
+  aoEntrar: () => { switchSistemaSection(); loadLog(); renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); loadReviewerCands(); },
+  aoEstado: () => { if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); } },
+});
 
-export {
-  switchSistemaSection, sysSearchFilter, sysGoTo,
-  renderSettings, renderUpdate,
-  registrarTelaSistema,
-};
+export { switchSistemaSection, sysSearchFilter, sysGoTo, renderSettings, renderUpdate };

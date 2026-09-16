@@ -40,7 +40,7 @@ import { renderMyPRs } from './telas/meus-prs.js';
 import { loadReviewerCands, renderReviewersEditor, revCtx } from './telas/reviewers.js';
 import {
   switchSistemaSection, sysSearchFilter, sysGoTo,
-  renderSettings, renderUpdate, registrarTelaSistema,
+  renderSettings, renderUpdate,
 } from './telas/sistema.js';
 
 const isElectron = ehElectron();
@@ -697,15 +697,14 @@ function connect() {
   es.addEventListener('open', () => { TENTATIVAS_RECONEXAO = 0; const f = $('#connLost'); if (f) f.hidden = true; });
 }
 
-// 'entregas', 'destaques' e 'time' já se registraram sozinhos ao serem importados
-// (import estático roda antes deste ponto, na ordem em que aparecem lá em cima).
-// 'sistema' registra a si mesma (registrarTelaSistema, telas/sistema.js), mas só é
-// CHAMADA aqui: se registrasse ao ser importada, o import estático rodaria antes do
-// corpo do app.js e ela passaria à frente de destaques/time, que ainda se registram
-// no CORPO do app.js. 'consumo' pela mesma razão, e depois de 'sistema' na ordem de
-// chamada (telasRegistradas() devolve na ordem de registro, e precisa continuar
+// 'entregas', 'destaques', 'time' e 'sistema' já se registraram sozinhas ao serem
+// importadas (import estático roda antes deste ponto, na ordem em que aparecem lá em
+// cima; telas/sistema.js é importado depois de telas/time.js, por isso 'sistema'
+// registra depois de 'destaques'/'time'). Só 'consumo' precisa ser CHAMADA aqui: ela
+// não se registra ao ser importada porque telas/consumo.js é importado bem mais
+// acima, antes de telas/sistema.js, e se registrasse no import passaria à frente de
+// 'sistema' (telasRegistradas() devolve na ordem de registro, e precisa continuar
 // entregas, destaques, time, sistema, consumo).
-registrarTelaSistema();
 registrarTelaConsumo();
 
 connect();
