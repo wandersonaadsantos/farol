@@ -395,6 +395,40 @@ test('iniciar indisponível: sem vaga em quem publicou, a escolha diz por quê e
   assert.deepEqual(pedidosPara('/api/sync/command'), []);
 });
 
+test('iniciar indisponível: quem publicou sem credencial da conta do item aparece com esse motivo', async () => {
+  const itemId = await candidatoEsperando();
+  emitir('state', estadoDaTela());
+  exec.doctorInfo = { claude: '1.0.0', ghAuth: false };
+  await execGanhaVaga();
+  let dialogo = null;
+  assert.equal(await Tela.iniciarCandidato(itemId, async (d) => { dialogo = d; return EXEC; }, async () => true), false);
+  assert.match(dialogo.corpo, /Desktop de teste.*sem credencial desta conta/s, 'a conta do item vem do próprio candidato');
+  assert.deepEqual(pedidosPara('/api/sync/command'), []);
+});
+
+test('iniciar indisponível: publicação vencida não conta como executor', async () => {
+  const itemId = await candidatoEsperando();
+  emitir('state', estadoDaTela());
+  await execGanhaVaga();
+  const t = fake.tree();
+  t.users.u1.live.queue[itemId][EXEC].ttl = Date.now() - 1;
+  fake.setTree(t);
+  let dialogo = null;
+  assert.equal(await Tela.iniciarCandidato(itemId, async (d) => { dialogo = d; return EXEC; }, async () => true), false);
+  assert.match(dialogo.corpo, /Desktop de teste.*não publicou este candidato/s);
+});
+
+test('iniciar indisponível: o distribuidor já escolheu o executor, e a fila diz quem', async () => {
+  const itemId = await candidatoEsperando();
+  await execGanhaVaga();
+  const ciclo = await dist.cicloDoAgendador(admin, admin.config.sync, { agora: Date.now() });
+  assert.equal(ciclo.atribuido.dev, EXEC);
+  emitir('state', estadoDaTela());
+  assert.match($('#mdCandidatos').innerHTML, /Começar agora: indisponível, o distribuidor já escolheu o Desktop de teste e espera ele aceitar/);
+  assert.equal(await Tela.iniciarCandidato(itemId, async () => EXEC, async () => true), false);
+  assert.deepEqual(pedidosPara('/api/sync/command'), []);
+});
+
 test('iniciar indisponível sem admin fresco: a fila mostra o motivo e o ato não sai', async () => {
   const itemId = await candidatoEsperando();
   admin.sync.autoridade = { ...fresca(), fresca: false };
@@ -466,6 +500,11 @@ test('designar pela tela: pedido enviado, pendente até a senha lá, e o recibo 
   assert.ok(syncMod.statusForUi(exec).designacaoAdmin, 'o cartão do pedido aparece no destino');
   telaDeAparelhos();
   assert.equal(await Aparelhos.lerRecibosDaDesignacao(d, { forcar: true }), false, 'sem senha, sem recibo');
+  // sem forçar, o piso de tempo segura a próxima consulta: cada snapshot não vira uma leitura
+  const contadas = [];
+  const contando = { ...d, api: async (rota, corpo) => { contadas.push(rota); return apiDaTela(rota, corpo); } };
+  assert.equal(await Aparelhos.lerRecibosDaDesignacao(contando), false);
+  assert.deepEqual(contadas, []);
   assert.match(telaDeAparelhos(), /designação pendente/);
   // a senha é digitada no DESTINO, e só isso promove
   assert.equal((await exec.syncTornarAdmin({ password: SENHA })).ok, true);
