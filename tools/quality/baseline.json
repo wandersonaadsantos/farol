@@ -107,7 +107,7 @@
   },
   "ui/app.js": {
     "maxLines": 1,
-    "ternarioAninhado": 12,
+    "ternarioAninhado": 9,
     "profundidadeExcedida": 3
   },
   "ui/pure/consumo.js": {
@@ -145,5 +145,8 @@
   },
   "ui/telas/radar.js": {
     "ternarioAninhado": 1
+  },
+  "ui/telas/time.js": {
+    "ternarioAninhado": 3
   }
 }
