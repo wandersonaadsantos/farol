@@ -2,9 +2,9 @@
   "rules": {
     "users": {
       "$uid": {
-        ".read": "auth != null && auth.uid == $uid",
+        ".read": "@U@",
         "leases": {
-          ".write": "auth != null && auth.uid == $uid",
+          ".write": "@U@",
           "$acct": {
             "$pr": {
               ".validate": "newData.hasChildren(['leaseId', 'deviceId', 'operationKind', 'expiresAt']) && newData.child('expiresAt').isNumber() && newData.child('expiresAt').val() > now && newData.child('expiresAt').val() <= now + 300000 && (!data.exists() || data.child('expiresAt').val() <= now || (data.child('leaseId').val() == newData.child('leaseId').val() && data.child('deviceId').val() == newData.child('deviceId').val()))",
@@ -21,7 +21,7 @@
           }
         },
         "receipts": {
-          ".write": "auth != null && auth.uid == $uid",
+          ".write": "@U@",
           "$acct": {
             "$pr": {
               "$fp": {
@@ -31,7 +31,7 @@
           }
         },
         "dailyRounds": {
-          ".write": "auth != null && auth.uid == $uid",
+          ".write": "@U@",
           "$acct": {
             "$pr": {
               "$day": {
@@ -41,10 +41,10 @@
           }
         },
         "devices": {
-          ".write": "auth != null && auth.uid == $uid"
+          ".write": "@U@"
         },
         "usageEvents": {
-          ".write": "auth != null && auth.uid == $uid",
+          ".write": "@U@",
           "$device": {
             "$event": {
               ".validate": "newData.hasChildren(['at', 'kind', 'costUsd']) && newData.child('at').isNumber()"
@@ -52,7 +52,7 @@
           }
         },
         "keyring": {
-          ".write": "auth != null && auth.uid == $uid && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && newData.hasChildren(['v', 'rev', 'updatedAt', 'epochSince', 'cur', 'kids', 'kcv', 'slots']) && newData.child('rev').isNumber() && ((!data.exists() && newData.child('rev').val() == 1) || newData.child('rev').val() == data.child('rev').val() + 1) && newData.child('updatedAt').val() <= now + 60000 && newData.child('updatedAt').val() + 60000 > now",
+          ".write": "@U@ && @REC@ && @H(['v','rev','updatedAt','epochSince','cur','kids','kcv','slots'])@ && newData.child('rev').isNumber() && ((!data.exists() && newData.child('rev').val() == 1) || newData.child('rev').val() == data.child('rev').val() + 1) && newData.child('updatedAt').val() <= now + 60000 && newData.child('updatedAt').val() + 60000 > now",
           "slots": {
             "$s": {
               ".validate": "$s.matches(/^(pw|pp)$/)",
@@ -65,7 +65,7 @@
         "rulesProbe": {
           "v2": {
             "$dev": {
-              ".write": "auth != null && auth.uid == $uid",
+              ".write": "@U@",
               ".validate": "!newData.exists() || newData.hasChildren(['at', 'v'])"
             }
           }
