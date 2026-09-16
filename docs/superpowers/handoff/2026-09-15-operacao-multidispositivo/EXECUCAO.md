@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026 (iniciativa inteira, limites no plano mestre, seção 4).
-- **Entrega em curso:** nenhuma. Próxima é a C3g (envio do histórico local). C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a, C3b, C3c, C3d, C3e e C3f validadas localmente e **todas integradas** em `md/integracao`.
+- **Entrega em curso:** nenhuma. Próxima é a C4 (capacidade, admissão local e medição). C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b e C3a a C3g validadas localmente e **todas integradas** em `md/integracao`.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 - **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026.
@@ -32,13 +32,13 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 | `npm test` | 2841 testes, 2817 aprovados, 24 pulados, 0 falhas |
 | `npm run eng` | `not-run` na base sem entrega (reprova por construção, o esperado); com entrega exige `avaliacoes.jsonl` |
 
-## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a, C3b, C3c, C3d, C3e e C3f)
+## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g)
 
 | Gate | Resultado |
 |---|---|
-| `npm run check` | verde, 439 arquivos `.js` |
+| `npm run check` | verde, 441 arquivos `.js` |
 | `npm run lint` | verde, sem regressão |
-| `npm test` | 3574 testes, 3546 aprovados, 28 pulados, 0 falhas |
+| `npm test` | 3588 testes, 3560 aprovados, 28 pulados, 0 falhas |
 
 Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações escritas.
 
@@ -61,7 +61,8 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | 13 | C3d História de revisões | `md/c3d` | validada localmente e **integrada** | `evidencias-execucao/c3d.md` |
 | 14 | C3e Panorama e Meus PRs | `md/c3e` | validada localmente e **integrada** | `evidencias-execucao/c3e.md` |
 | 15 | C3f Memória de pushback | `md/c3f` | validada localmente e **integrada** | `evidencias-execucao/c3f.md` |
-| seguintes | C3g, C4, C4b, C5, C6, C7, C8, telas | | planos a escrever | |
+| 16 | C3g Envio do histórico local | `md/c3g` | validada localmente e **integrada** | `evidencias-execucao/c3g.md` |
+| seguintes | C4, C4b, C5, C6, C7, C8, telas | | planos a escrever | |
 
 ## Bloqueios
 
@@ -125,6 +126,6 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 
 ## Próxima ação concreta
 
-Executar a C3g (envio do histórico local existente: ato explícito, cifrado, só as categorias autorizadas, tamanho MEDIDO antes da confirmação, retomável e sem duplicar se repetido). Depois as C4 a C8.
+A C3 inteira (a a g) está integrada. Próxima: C4 (capacidade, admissão local e medição, CT-ADM), com a observação de que a etapa de medição da C4 exige execuções REAIS e não se fecha com teste simulado; a parte de código (reserva antes do provedor, requisitos duros, piso de memória com "medição indisponível é desconhecido") pode ser feita e testada, e a medição fica como pendência externa.
 
 Segue pendente, e só o dono fecha: publicar as regras v2 no console do Firebase, depois do roteiro manual do `firebase/README.md` (itens 1 a 34), e conferir a sincronização depois do incidente registrado acima.
