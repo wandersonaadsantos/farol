@@ -52,7 +52,7 @@
           }
         },
         "catalog": {
-          ".write": "@LIMPA@",
+          ".write": "@U@ && @LIMPA@",
           "$pr": {
             ".write": "@U@ && @H(['v','u','enc'])@ && $pr.matches(/^[0-9a-f]+$/) && @ENC(2048)@"
           }
@@ -98,19 +98,19 @@
             }
           },
           "deviceStatus": {
-            ".write": "@LIMPA@",
+            ".write": "@U@ && @LIMPA@",
             "$dev": {
               ".write": "@U@ && @H(['v','u','enc'])@ && @ENC(2048)@"
             }
           },
           "devicePolicies": {
-            ".write": "@LIMPA@",
+            ".write": "@U@ && @LIMPA@",
             "$dev": {
               ".write": "@U@ && @H(['v','generation','enc','sig'])@ && @GEN@ && @ENC(2048)@ && newData.child('v').isNumber()"
             }
           },
           "groups": {
-            ".write": "@LIMPA@",
+            ".write": "@U@ && @LIMPA@",
             "$grupo": {
               ".write": "@U@ && @H(['v','generation','enc','sig'])@ && @GEN@ && @ENC(2048)@ && newData.child('v').isNumber()"
             }

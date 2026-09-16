@@ -186,3 +186,18 @@ test('live/deviceStatus e catalog: forma, envelope de 2048 e remoção só pela 
   }
   assert.ok(regras.catalog.$pr['.write'].includes('$pr.matches(/^[0-9a-f]+$/)'), 'a chave do catálogo é tag, e a regra exige a forma');
 });
+
+// Achado da C3a, corrigido na hora: a concessão de REMOÇÃO pela limpeza não pode se apoiar
+// só na senha recente. `REC` prova que o token é de login por senha e é novo; ele NÃO prova
+// que quem escreve é o dono desta conta. Sem `U`, um segundo usuário autenticado no mesmo
+// projeto apagaria o catálogo, a capacidade, as políticas e os grupos de outra pessoa
+// sempre que a chave de limpeza dela estivesse ligada.
+test('toda concessão de escrita, inclusive a da limpeza, exige o próprio uid', () => {
+  const dono = 'auth != null && auth.uid == $uid';
+  const nos = [regras.catalog, regras.live.deviceStatus, regras.live.devicePolicies, regras.live.groups];
+  for (const no of nos) {
+    assert.ok(no['.write'].startsWith(dono), `concessão sem dono: ${no['.write'].slice(0, 60)}`);
+  }
+  const todas = [...nos.map((n) => n['.write']), regras.live.control.cleanupLock['.write'], regras.live.control.lastCleanup['.write']];
+  for (const w of todas) assert.ok(w.includes(dono), w.slice(0, 60));
+});
