@@ -44,7 +44,8 @@ async function pedirPareamento(corpo) {
 
 /**
  * Tenta parear. Devolve `{ ok }` e, quando não deu certo, o texto que a tela mostra.
- * Em caso de sucesso guarda o token e manda recarregar: a página volta como a de sempre.
+ * Em caso de sucesso guarda o token e chama `recarregar`: no boot sem app carregado, isso é
+ * recarregar a página; no meio do uso, o bootstrap passa `voltarDoPareamento`.
  */
 async function submeterPareamento({ codigo, rotulo }, deps = {}) {
   const pedir = deps.pedir || pedirPareamento;
@@ -58,6 +59,20 @@ async function submeterPareamento({ codigo, rotulo }, deps = {}) {
   esquecer();
   recarregar();
   return { ok: true, texto: '' };
+}
+
+/**
+ * A volta do pareamento no meio do uso (brief B2, item 2.1): o app ficou só escondido atrás
+ * desta tela, então basta mostrá-lo de novo e reconectar com a credencial nova. Recarregar
+ * jogaria fora o que estava sendo digitado nos campos do app.
+ */
+function voltarDoPareamento(raiz, reconectar, corpo = globalThis.document && globalThis.document.body) {
+  if (corpo && corpo.classList) corpo.classList.remove('parear');
+  if (raiz) {
+    raiz.hidden = true;
+    raiz.innerHTML = '';
+  }
+  reconectar();
 }
 
 // ordem importa: o Edge também diz "Chrome", e o Chrome também diz "Safari"
@@ -134,4 +149,4 @@ async function precisaParear(ler = get) {
   return !!status && status.exigida === true && status.autenticado !== true;
 }
 
-export { montarPareamento, precisaParear, submeterPareamento, rotuloSugerido, lerRascunho, gravarRascunho, limparRascunho };
+export { montarPareamento, precisaParear, submeterPareamento, rotuloSugerido, lerRascunho, gravarRascunho, limparRascunho, voltarDoPareamento };

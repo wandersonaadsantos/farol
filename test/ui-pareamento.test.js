@@ -135,3 +135,31 @@ test('o bootstrap troca a interface inteira, e o stream avisa quando a credencia
   const css = fs.readFileSync(path.join(RAIZ, 'ui', 'app.css'), 'utf8');
   assert.match(css, /^body\.parear > \*:not\(\.par-raiz\) \{ display: none !important; \}$/m, 'com a tela de pareamento, o resto do app não é mostrado');
 });
+
+// Brief B2, item 2.1: sessão expirada ou revogada no meio do uso volta ao pareamento "sem
+// perder o que o usuário estava digitando". O app fica só escondido enquanto a tela de
+// pareamento está na frente; recarregar a página jogaria fora o que estava nos campos. Por
+// isso, depois de parear, a volta mostra o app de novo e reconecta, sem recarregar.
+test('depois de parear, o app volta a aparecer e reconecta, sem recarregar a página', async () => {
+  const { voltarDoPareamento } = await import('../ui/telas/pareamento.js');
+  const corpo = { classList: new Set(['parear']) };
+  corpo.classList.remove = corpo.classList.delete;
+  corpo.classList.contains = corpo.classList.has;
+  const raiz = { hidden: false, innerHTML: '<form id="parForm"></form>' };
+  const campoDoChat = { value: 'o que eu estava escrevendo' };
+  let reconexoes = 0;
+  voltarDoPareamento(raiz, () => { reconexoes += 1; }, corpo);
+  assert.equal(corpo.classList.contains('parear'), false, 'o app volta a ser mostrado');
+  assert.equal(raiz.hidden, true);
+  assert.equal(raiz.innerHTML, '', 'a tela de pareamento sai do DOM, com o código digitado junto');
+  assert.equal(reconexoes, 1, 'o stream reconecta uma vez, já com a credencial nova');
+  assert.equal(campoDoChat.value, 'o que eu estava escrevendo', 'nada do app foi redesenhado');
+});
+
+test('o bootstrap usa a volta sem recarregar, e a reconexão fecha o stream anterior', () => {
+  const app = fs.readFileSync(path.join(RAIZ, 'ui', 'app.js'), 'utf8');
+  const troca = app.slice(app.indexOf('function trocarPeloPareamento('), app.indexOf('precisaParear().then'));
+  assert.match(troca, /recarregar: \(\) => voltarDoPareamento\(raiz, connect\)/, 'a troca manda voltar sem recarregar');
+  const conecta = app.slice(app.indexOf('function connect('), app.indexOf("es.addEventListener('state'"));
+  assert.match(conecta, /if \(streamAtual\) streamAtual\.close\(\);/, 'o stream da credencial antiga não fica duplicando eventos');
+});

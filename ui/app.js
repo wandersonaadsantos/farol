@@ -5,7 +5,7 @@ import {
 } from './pure.js';
 import { telasRegistradas, telaPorId } from './telas/registro.js';
 import { tokenLocal, FonteDeEventosAutenticada } from './transporte.js';
-import { montarPareamento, precisaParear } from './telas/pareamento.js';
+import { montarPareamento, precisaParear, voltarDoPareamento } from './telas/pareamento.js';
 import {
   estado, abaAtual, definirEstado, definirEscopo, definirAba,
   teamHighlightsEnabled, deliveriesEnabled,
@@ -290,9 +290,15 @@ initReviewersButton(switchTab);
 /* ---------- SSE ---------- */
 let TENTATIVAS_RECONEXAO = 0;
 
+// Um stream por vez: depois de parear de novo no meio do uso, o da credencial antiga não
+// pode continuar entregando os mesmos eventos em dobro.
+let streamAtual = null;
+
 function connect() {
+  if (streamAtual) streamAtual.close();
   // EventSource não aceita cabeçalho: com token, o stream é lido por fetch (A4)
   const es = tokenLocal() ? new FonteDeEventosAutenticada('/api/events') : new EventSource('/api/events');
+  streamAtual = es;
   es.addEventListener('state', (e) => {
     const d = safeJsonParse(e.data); if (!d) return; definirEstado(d);
     aplicaPlataforma(estado().app && estado().app.platform);   // engine manda; o userAgent era só o palpite inicial
@@ -394,7 +400,7 @@ function trocarPeloPareamento(aviso) {
   if (!raiz || document.body.classList.contains('parear')) return;
   document.body.classList.add('parear');
   raiz.hidden = false;
-  montarPareamento(raiz, aviso);
+  montarPareamento(raiz, aviso, { recarregar: () => voltarDoPareamento(raiz, connect) });
 }
 
 precisaParear().then((precisa) => {
