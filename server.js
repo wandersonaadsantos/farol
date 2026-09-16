@@ -65,7 +65,7 @@ import { detectarModoCelular } from './lib/local-auth/modo.js';
 import syncUsageMod from './lib/engine/sync-usage.js';
 import { EDITAVEIS, defaults as settingsDefaults, sanear, paraGravar } from './lib/settings.js';
 import { parseJiraSites, maskJiraSites } from './lib/jira/sites.js';
-import { parseSyncConfig, syncDefaults, comCompartilhamentoBloqueado } from './lib/sync/config.js';
+import { parseSyncConfig, syncDefaults, comCompartilhamentoBloqueado, comCompartilhamentoPedido } from './lib/sync/config.js';
 import acesso from './lib/local-auth/acesso.js';
 import credMod from './lib/jira/credentials.js';
 import jiraMod from './lib/engine/jira.js';
@@ -505,7 +505,17 @@ class Engine extends EventEmitter {
     // paraGravar tira as chaves que estão no padrão e são marcadas para não viajar
     // (hoje só localAuth, da A4): recurso não habilitado não escreve no config.json
     // de quem nunca o ligou (CT-COMPAT, item a). O que está em memória não muda.
-    writeJsonAtomic(CONFIG_FILE, paraGravar(this.config));
+    writeJsonAtomic(CONFIG_FILE, paraGravar(this.configParaDisco()));
+  }
+
+  // A guarda do celular desliga o EFEITO do compartilhamento, e a escolha de quem ligou tem
+  // que continuar no disco: gravar o valor forçado apagaria em silêncio o que a pessoa pediu,
+  // e nem quando a autenticação passasse a valer ele voltaria (achado da jornada integrada de
+  // 16/09/2026). O que roda continua sendo o `this.config`, desligado.
+  configParaDisco() {
+    const pedido = this.syncPedidoCompartilhamento;
+    if (!pedido || !this.syncBloqueioCompartilhamento) return this.config;
+    return { ...this.config, sync: comCompartilhamentoPedido(this.config.sync, pedido) };
   }
 
   // --- log: so falhas, sem ruido (mesmo contrato do tool antigo) ---
@@ -1785,8 +1795,12 @@ class Engine extends EventEmitter {
   // que o engine desligou.
   syncComGuardaDoCelular(cfgSync) {
     const liberado = acesso.compartilhamentoLiberado(this.config);
-    const pedido = !!(cfgSync && cfgSync.shared && cfgSync.shared.enabled);
-    this.syncBloqueioCompartilhamento = !liberado && pedido ? 'autenticacao-local' : '';
+    const pedido = {
+      shared: !!(cfgSync && cfgSync.shared && cfgSync.shared.enabled),
+      distribution: !!(cfgSync && cfgSync.distribution && cfgSync.distribution.enabled),
+    };
+    this.syncBloqueioCompartilhamento = !liberado && pedido.shared ? 'autenticacao-local' : '';
+    this.syncPedidoCompartilhamento = this.syncBloqueioCompartilhamento ? pedido : null;
     return liberado ? cfgSync : comCompartilhamentoBloqueado(cfgSync);
   }
 

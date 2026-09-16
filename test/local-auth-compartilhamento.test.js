@@ -44,3 +44,25 @@ test('com a autenticação exigida, o compartilhamento liga', () => {
   assert.equal(e.config.sync.shared.enabled, true);
   assert.equal(syncMod.statusForUi(e).bloqueioCompartilhamento, '');
 });
+
+// Achado da jornada integrada (16/09/2026, instância isolada em modo celular): a guarda
+// zerava `shared`/`distribution` e esse valor forçado ia parar NO DISCO no primeiro
+// salvamento. Efeito: o que a pessoa ligou some para sempre, sem aviso, e não volta nem
+// quando a autenticação passar a ser exigida. Pior, o motivo do bloqueio também some no boot
+// seguinte, porque não há mais pedido nenhum para bloquear.
+test('o pedido de compartilhamento sobrevive ao disco: o Farol desliga o efeito, não a escolha', () => {
+  const arquivo = path.join(process.env.FAROL_HOME, 'config.json');
+  fs.mkdirSync(process.env.FAROL_HOME, { recursive: true });
+  fs.writeFileSync(arquivo, JSON.stringify({ sync: ligado() }));
+  const e = new Engine();
+  e.pushState = () => { };
+  assert.equal(e.config.sync.shared.enabled, false, 'o efeito continua desligado aqui');
+  e.saveConfig();
+  const gravado = JSON.parse(fs.readFileSync(arquivo, 'utf8'));
+  assert.equal(gravado.sync.shared.enabled, true, 'o disco guarda o que foi pedido');
+  assert.equal(gravado.sync.distribution.enabled, true);
+  const outro = new Engine();
+  outro.pushState = () => { };
+  assert.equal(outro.config.sync.shared.enabled, false, 'no boot seguinte o efeito segue desligado');
+  assert.equal(outro.syncBloqueioCompartilhamento, 'autenticacao-local', 'e o motivo continua visível');
+});
