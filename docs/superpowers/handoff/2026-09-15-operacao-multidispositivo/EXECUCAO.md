@@ -13,6 +13,16 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 - **Worktree de referência da base:** `C:\Users\wanderson\Documents\farol-md-base` (detached em `8c043bc`, só leitura).
 - **Roteiro de contraprova:** mutação aplicada na cópia de trabalho, testes rodados, conteúdo restaurado e conferido byte a byte (script em scratchpad da sessão; o resultado de cada mutação fica na evidência da entrega).
 
+## INCIDENTE: dados de teste gravados na pasta real (15/09/2026, 22:29)
+
+**O que aconteceu.** Durante a C2a (tarefa 7), uma versão NÃO commitada de `test/sync-politicas.test.js` importava `lib/paths.js` estaticamente. Import estático é avaliado antes da linha que isola o `FAROL_HOME`, então o teste, rodado sozinho com `node --test` e depois pelas contraprovas, resolveu a pasta de dados para o `~/.farol` REAL. O teste gravou lá: a seção `sync` do `config.json` (chave, URL do dublê local `127.0.0.1:53033`, projeto `farol-local`, nome `Notebook`), um `sync-credentials.json` de emulador **por cima da credencial real do Firebase**, e criou `sync-key.json`, `sync-admin.json` e `sync-policy.json` de teste. O banco de teste era o dublê local: **nada foi escrito no Firebase real**. O efeito visível foi o Farol instalado esperando um banco que não existe.
+
+**Como foi achado.** Uma outra sessão (Fase 1b da reorganização) viu os arquivos e me avisou em 16/09. A trava estática (`test/test-isolation.test.js`) tinha pegado o import na suíte inteira, e o import foi corrigido antes do commit, mas a trava só roda na suíte, DEPOIS do estrago das execuções avulsas.
+
+**Correção de código (`4c9a1ca`).** `lib/paths.js`: sob o executor de testes (`NODE_TEST_CONTEXT`) e sem `FAROL_HOME`, a pasta de dados é um diretório temporário e sai um aviso em stderr. Vale em qualquer processo de teste, inclusive arquivo avulso. Teste novo `test/paths-home-sob-teste.test.js`, com contraprova. Suíte inteira rodada depois: a pasta real não foi tocada.
+
+**Correção dos dados (feita pela outra sessão, pela API do app).** Cópia do estado afetado em `~/.farol/quarentena-sync-2026-09-16/`. **Ação do dono:** conferir a sincronização em Sistema e, se a credencial real não voltou, entrar de novo com o e-mail e a senha do Firebase (a credencial real foi sobrescrita pelo teste e não tem cópia anterior). A chave do conjunto de teste (`sync-key.json`) não serve para o projeto real e não deve ser restaurada.
+
 ## Linha de base medida (15/09/2026, em `8c043bc`)
 
 | Gate | Resultado |
