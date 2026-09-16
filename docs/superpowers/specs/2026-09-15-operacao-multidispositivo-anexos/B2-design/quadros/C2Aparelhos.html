@@ -1,0 +1,96 @@
+@@TOPO:sistema@@
+<main>
+<div class="sys-layout">
+@@NAV:devices@@
+<div class="sys-content">
+  <div class="section-head first"><h2>Aparelhos</h2></div>
+  <p class="section-desc">Os aparelhos da sua conta de sincronização, quem administra o conjunto e o que cada um aceita receber. Aposentar não apaga nada e pode ser desfeito.</p>
+
+  <div class="card sync-card warn">
+    <div class="sync-topo"><span class="sync-titulo">Administração</span><span class="chip warn">admin sem sinal de vida</span><span class="espaco"></span><span class="faint" style="font-size: 12px;">geração 3</span></div>
+    <div style="padding: 14px 18px; display: flex; flex-direction: column; gap: 10px;">
+      <span class="set-desc">O admin vigente é o <b>Desktop antigo</b>, sem batimento há 18 minutos. Políticas e comandos dele não valem enquanto isso: cada aparelho segue a própria configuração, e nada fica mais permissivo por causa da queda.</span>
+      <div class="grade-2" style="align-items: end;">
+        <div class="campo"><label>Senha da sincronização</label><input class="input" type="password" value="••••••••••"></div>
+        <div class="row-actions"><span class="btn primary sm">Tornar este aparelho admin</span></div>
+      </div>
+      <span class="dica">Isso cria a geração 4. O Desktop antigo perde a autoridade quando voltar.</span>
+    </div>
+  </div>
+
+  <div class="card sync-card">
+    <div class="sync-topo"><span class="sync-titulo">Aparelhos da conta</span><span class="count ambient">3</span></div>
+    <div class="sync-lista">
+      <div class="linha cab" style="grid-template-columns: minmax(0, 1fr) 90px 110px 130px 150px;"><span>Aparelho</span><span>Sistema</span><span>Farol</span><span>Visto</span><span></span></div>
+      <div class="linha" style="grid-template-columns: minmax(0, 1fr) 90px 110px 130px 150px;">
+        <span class="nome">Notebook de teste <span class="chip info">este</span></span><span class="fraco">Windows</span><span>v2.60.0</span><span class="fraco">agora</span><span class="row-actions"><span class="btn sm ghost">Renomear</span></span>
+      </div>
+      <div class="linha" style="grid-template-columns: minmax(0, 1fr) 90px 110px 130px 150px;">
+        <span class="nome">Desktop antigo <span class="chip warn">admin</span><span class="chip bad">garantia não coberta</span></span><span class="fraco">Linux</span><span>v2.58.2</span><span class="fraco">há 18 min</span><span class="row-actions"><span class="btn sm ghost">Política</span><span class="btn sm ghost">Aposentar</span></span>
+      </div>
+      <div class="linha" style="grid-template-columns: minmax(0, 1fr) 90px 110px 130px 150px;">
+        <span class="nome">Celular de teste <span class="chip mute">aposentado</span></span><span class="fraco">Android</span><span>v2.59.5</span><span class="fraco">há 9 dias</span><span class="row-actions"><span class="btn sm ghost">Reativar</span></span>
+      </div>
+    </div>
+    <p class="sys-note" style="padding: 0 18px;">"Garantia não coberta": um aparelho em versão anterior à 2.60.0 não participa da arbitragem de postagem. Nas contas que ele também revisa (<b>acme-exemplo</b>), dois Farois podem postar no mesmo PR até ele ser atualizado. <a href="#">Como atualizar o Farol</a></p>
+  </div>
+
+  <div class="grade-2">
+    <div class="card set-list">
+      <div class="set-row"><span class="set-txt"><span class="set-title">Aceitar políticas e comandos do admin</span><span class="set-desc">Sem isto, este aparelho ignora pausa, teto, grupo e comandos vindos do admin. Retirar vale na hora.</span></span><span class="set-ctl"><span class="switch on"></span></span></div>
+    </div>
+    <div class="card" style="display: flex; flex-direction: column; gap: 8px;">
+      <span class="set-title">Pedido para ser admin</span>
+      <span class="set-desc">O Notebook de teste foi designado admin por comando. Ninguém vira admin sem a senha digitada aqui.</span>
+      <div class="row-actions"><span class="btn primary sm">Aceitar com a senha</span><span class="btn sm ghost">Recusar</span></div>
+    </div>
+  </div>
+
+  <div class="card" style="display: flex; flex-direction: column; gap: 12px;">
+    <div style="display: flex; align-items: center; gap: 10px;"><span class="sync-titulo">Política do Desktop antigo</span><span class="chip ok">aceita pelo aparelho</span><span class="espaco"></span><span class="faint" style="font-size: 12px;">versão 5</span></div>
+    <div class="grade-3" style="align-items: end;">
+      <div class="campo"><label>Pausado</label><div style="display: flex; gap: 8px; align-items: center;"><span class="switch"></span><span class="fraco">não</span></div></div>
+      <div class="campo"><label>Teto de paralelismo</label><span class="select">2 sessões</span></div>
+      <div class="campo"><label>Tipos permitidos</label><span>revisão, autoanálise</span></div>
+    </div>
+    <div class="row-actions"><span class="btn primary sm">Publicar política</span><span class="dica">Só restringe: nada que chega pelo banco amplia o que o aparelho já permite.</span></div>
+  </div>
+  <div class="grade-3">
+    <div><div class="estado-rot">Recusada pelo aparelho</div><div class="faixa"><span class="chip bad">recusada</span><span class="muted">assinatura não confere</span></div></div>
+    <div><div class="estado-rot">Sem consentimento</div><div class="faixa"><span class="chip mute">ignorada</span><span class="muted">o aparelho não aceita o admin</span></div></div>
+    <div><div class="estado-rot">Geração antiga</div><div class="faixa"><span class="chip bad">recusada</span><span class="muted">publicada por admin anterior</span></div></div>
+    <div><div class="estado-rot">Primeiro aparelho</div><div class="faixa"><span class="muted">Só este aparelho na conta. Nada é compartilhado até haver outro pronto.</span></div></div>
+    <div><div class="estado-rot">Este é o admin</div><div class="faixa"><span class="chip warn">admin</span><span class="muted">batimento em dia, geração 4</span></div></div>
+    <div><div class="estado-rot">Sem presença</div><div class="faixa"><span class="chip mute">sem presença</span><span class="muted">visto há 3 dias</span></div></div>
+  </div>
+
+  <div class="section-head"><h2>Navegadores pareados com este aparelho</h2><span class="section-sub">só quando a API local exige credencial</span></div>
+  <div class="card sync-card">
+    <div class="sync-lista">
+      <div class="linha" style="grid-template-columns: minmax(0, 1fr) 160px 160px 110px;"><span class="nome">Chrome do celular <span class="chip info">este navegador</span></span><span class="fraco">pareado ontem</span><span class="fraco">usado agora</span><span class="btn sm ghost">Revogar</span></div>
+      <div class="linha" style="grid-template-columns: minmax(0, 1fr) 160px 160px 110px;"><span class="nome">Firefox do tablet</span><span class="fraco">pareado há 6 dias</span><span class="fraco">usado há 2 dias</span><span class="btn sm ghost">Revogar</span></div>
+    </div>
+    <p class="sys-note" style="padding: 0 18px;">Revogar este navegador leva direto ao pareamento. Para revogar todos, no terminal: <code>node tools/farol-parear.js --revogar-todas</code>.</p>
+  </div>
+
+  <div class="section-head"><h2>Limpeza e revogação</h2></div>
+  <div class="grade-2">
+    <div class="card" style="display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 10px;"><span class="set-title">Chave de limpeza</span><span class="chip bad">bloqueada</span></div>
+      <span class="set-desc">O banco não confere senha recente, então a limpeza não é publicada. Apagar dados compartilhados fica no console do Firebase. <a href="#">Como limpar pelo console</a></span>
+      <span class="dica">Nunca apagados pelo app: chaveiro, posses e recibos.</span>
+    </div>
+    <div class="card" style="display: flex; flex-direction: column; gap: 8px;">
+      <span class="set-title">Revogar o conjunto</span>
+      <span class="set-desc">Corta todos os acessos anteriores a agora e retira o consentimento deste aparelho. Não cancela sessões em andamento em outro aparelho nem apaga o que eles já receberam.</span>
+      <div class="row-actions"><span class="btn sm danger">Revogar com a senha…</span></div>
+    </div>
+  </div>
+  <div class="grade-3">
+    <div><div class="estado-rot">Chave de limpeza desligada</div><div class="faixa"><span class="chip mute">desligada</span><span class="btn sm ghost">Ligar</span></div></div>
+    <div><div class="estado-rot">Chave de limpeza ligada</div><div class="faixa"><span class="chip warn">ligada</span><span class="btn sm danger">Limpar com a senha…</span></div></div>
+    <div><div class="estado-rot">Limpeza em andamento</div><div class="faixa"><span class="pill busy">limpando</span><span class="muted">trava de até 10 minutos</span></div></div>
+  </div>
+</div>
+</div>
+</main>

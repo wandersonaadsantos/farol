@@ -1,0 +1,73 @@
+@@TOPO:sistema@@
+<main>
+<div class="sys-layout">
+@@NAV:sync@@
+<div class="sys-content">
+  <div class="section-head first"><h2>Sincronização entre dispositivos</h2></div>
+  <p class="section-desc">Opcional. Evita que dois aparelhos seus revisem o mesmo PR, soma o consumo de todos e, se você ligar, compartilha a visão entre eles. Cada aparelho continua com o próprio histórico e funciona sem internet.</p>
+
+  <div class="card">
+    <div class="sync-sub-head" style="margin-top: 0;">O que ainda não está valendo</div>
+    <p class="sys-note">Existe no app e não está sendo aplicado neste aparelho. Enquanto estiver aqui, não conte com essa proteção.</p>
+    <ul class="cap-lista">
+      <li class="cap-item"><span class="cap-titulo">Visão compartilhada entre aparelhos</span><span class="cap-estado">bloqueado pelo Farol</span><span class="cap-motivo">está ligada na configuração e o Farol a mantém desligada aqui, porque a autenticação da API local não está sendo exigida neste aparelho</span><span class="cap-falta">Falta: exigir a autenticação local neste aparelho; a sua escolha fica guardada e volta a valer sozinha.</span></li>
+    </ul>
+  </div>
+
+  <div class="card sync-card warn">
+    <div class="sync-topo"><span class="sync-titulo">Conexão</span><span class="chip warn">degradada</span><span class="espaco"></span><span class="faint" style="font-size: 12px;">Notebook de teste</span></div>
+    <div class="banner warn" style="margin: 12px 18px;">O Firebase não respondeu no último ciclo. A automação espera; um clique seu continua, com confirmação, e o risco de duas sessões no mesmo PR é seu.</div>
+    <div class="sync-corpo">
+      <div class="campo"><label>Conta</label><span>[e-mail da conta de sincronização]</span></div>
+      <div class="campo"><label>Identificador</label><code class="mono">u-3f9…</code></div>
+      <div class="campo"><label>Fila de envio</label><span>2 itens esperando</span></div>
+    </div>
+    <div class="sync-rodape"><span class="btn sm">Testar conexão</span><span class="btn sm ghost">Sair deste aparelho</span><span class="faint" style="font-size: 11.5px;">Sair não apaga nada no banco.</span></div>
+  </div>
+
+  <div class="card sync-card bad">
+    <div class="sync-topo"><span class="sync-titulo">Chave do conjunto</span><span class="chip bad">bloqueada</span></div>
+    <div style="padding: 14px 18px; display: flex; flex-direction: column; gap: 10px;">
+      <span class="set-desc">O conteúdo compartilhado é cifrado com uma chave que só abre com a senha da conta de sincronização. Digite a senha para desbloquear neste aparelho.</span>
+      <div class="grade-2" style="align-items: end;">
+        <div class="campo"><label>Senha da sincronização</label><input class="input" type="password" value="••••••••••"></div>
+        <div class="row-actions"><span class="btn primary sm">Desbloquear</span></div>
+      </div>
+      <span class="dica">Redefinir a senha pelo e-mail do Firebase não abre a chave antiga. Se a senha se perdeu, a saída é gerar uma chave nova (abaixo).</span>
+    </div>
+  </div>
+
+  <div class="grade-3">
+    <div><div class="estado-rot">Chave pronta</div><div class="faixa"><span class="chip ok">pronta</span><span class="muted">Aberta neste aparelho.</span></div></div>
+    <div><div class="estado-rot">Senha não abre</div><div class="faixa"><span class="chip bad">senha não confere</span><span class="muted">Nada foi alterado.</span></div></div>
+    <div><div class="estado-rot">Chave perdida</div><div class="faixa" style="flex-direction: column; align-items: flex-start;"><span class="chip bad">perdida</span><span class="muted">O chaveiro sumiu do banco. O Farol não recria sozinho.</span><span class="btn sm danger">Gerar chave nova…</span></div></div>
+  </div>
+
+  <div class="card set-list">
+    <div class="set-row"><span class="set-txt"><span class="set-title">Sincronizar entre dispositivos</span><span class="set-desc">Chave geral. Desligada, este Farol não fala com o Firebase.</span></span><span class="set-ctl"><span class="switch on"></span></span></div>
+    <div class="set-row"><span class="set-txt"><span class="set-title">Evitar análises simultâneas</span><span class="set-desc">Antes de abrir uma sessão automática, confere se outro aparelho seu já cuidou daquele PR neste commit.</span></span><span class="set-ctl"><span class="switch on"></span></span></div>
+    <div class="set-row"><span class="set-txt"><span class="set-title">Consolidar histórico de consumo</span><span class="set-desc">Envia tokens, custo e desfecho de cada sessão, sem prompt, diff ou relatório.</span></span><span class="set-ctl"><span class="btn sm ghost">Enviar histórico agora</span><span class="switch on"></span></span></div>
+    <div class="set-row"><span class="set-txt"><span class="set-title">Compartilhar a visão entre aparelhos</span><span class="set-desc">Andamento, pendências, revisões, Panorama e Meus PRs aparecem em todos, cifrados. <span class="chip warn">pedido, não aplicado aqui</span></span></span><span class="set-ctl"><span class="switch on travado"></span></span></div>
+    <div class="set-row"><span class="set-txt"><span class="set-title">Distribuir a fila entre aparelhos</span><span class="set-desc">O aparelho admin escolhe onde cada revisão automática roda. Depende do compartilhamento. <span class="chip warn">pedido, não aplicado aqui</span></span></span><span class="set-ctl"><span class="switch on travado"></span></span></div>
+  </div>
+
+  <div class="section-head"><h2>O que sai deste aparelho</h2></div>
+  <div class="grade-3">
+    <div class="card"><span class="set-title">Fica só aqui</span><p class="set-desc" style="margin-top: 6px;">Prompts, diffs, sessões, credenciais, a configuração inteira, Destaques, Kudos e Time.</p></div>
+    <div class="card"><span class="set-title">Sobe cifrado</span><p class="set-desc" style="margin-top: 6px;">Títulos, autores e endereços de PR, relatórios, andamento, pendências, Panorama, Meus PRs, políticas, grupos e nome do aparelho. Título e autor de PR são dados de colegas.</p></div>
+    <div class="card"><span class="set-title">A coordenação expõe</span><p class="set-desc" style="margin-top: 6px;">Resumos sem chave de conta, PR e commit: quem já conhece o nome consegue conferir. Também o sistema, a versão do Farol e os horários de cada análise.</p></div>
+  </div>
+  <p class="sys-note">A cifra não protege contra quem sabe a sua senha ou controla o e-mail da conta, contra o Google (que recebe a senha no login) nem contra quem tem acesso a um aparelho seu. <a href="#">Como o Firebase guarda os dados</a></p>
+
+  <div class="sync-sub-head">Estados da conexão</div>
+  <div class="grade-3">
+    <div><div class="estado-rot">Desligada</div><div class="faixa"><span class="chip mute">desligada</span><span class="muted">Nenhuma conexão, nenhum envio.</span></div></div>
+    <div><div class="estado-rot">Conectando</div><div class="faixa"><span class="pill busy">conectando</span></div></div>
+    <div><div class="estado-rot">Conectada</div><div class="faixa"><span class="chip ok">conectada</span><span class="muted">Último ciclo às 10:02.</span></div></div>
+    <div><div class="estado-rot">Sem projeto configurado</div><div class="faixa"><span class="chip warn">falta o projeto</span><a href="#">Criar o projeto no Firebase</a></div></div>
+    <div><div class="estado-rot">Senha recusada</div><div class="faixa"><span class="chip bad">login recusado</span><span class="muted">Confira a senha; nada foi salvo.</span></div></div>
+    <div><div class="estado-rot">Regras antigas no banco</div><div class="faixa"><span class="chip bad">regras v1</span><a href="#">Publicar as regras novas</a></div></div>
+  </div>
+</div>
+</div>
+</main>

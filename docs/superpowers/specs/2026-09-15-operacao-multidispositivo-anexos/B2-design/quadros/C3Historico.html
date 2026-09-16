@@ -1,0 +1,41 @@
+@@TOPO:radar@@
+<main class="radar">
+  <div class="section-head"><h2>Revisões recentes <span class="count ambient">5</span></h2>
+    <div class="row-actions"><span class="btn sm ghost">Todos os aparelhos</span><span class="btn sm ghost">Só este</span></div>
+  </div>
+  <div class="card" style="padding: 0;">
+    <div class="sync-lista">
+      <div class="linha" style="grid-template-columns: 18px minmax(0, 1fr) auto auto auto;"><span class="avatar xs">AE</span><span><a href="#" style="color: inherit;">acme-exemplo/app-web#35</a> <span class="fraco">Ajusta rodapé</span></span><span class="chip ok">aprovado</span><span class="chip info">este</span><span class="btn sm ghost">Ver revisão</span></div>
+      <div class="linha" style="grid-template-columns: 18px minmax(0, 1fr) auto auto auto;"><span class="avatar xs">BT</span><span><a href="#" style="color: inherit;">acme-exemplo/api-pedidos#97</a> <span class="fraco">Remove campo legado</span></span><span class="chip bad">mudanças</span><span class="chip mute">Desktop antigo</span><span class="btn sm ghost">Ver revisão</span></div>
+      <div class="linha" style="grid-template-columns: 18px minmax(0, 1fr) auto auto auto;"><span class="avatar xs">AE</span><span><a href="#" style="color: inherit;">acme-exemplo/app-web#33</a> <span class="fraco">Atualiza ícones</span></span><span class="chip ok">aprovado</span><span class="chip mute">Celular de teste</span><span class="btn sm ghost">Ver revisão</span></div>
+    </div>
+  </div>
+  <div class="faixa" style="margin-top: 8px;"><span class="chip warn">1 revisão não abriu</span><span class="muted">O conteúdo veio de outro aparelho e não pôde ser verificado. Ficou de fora da lista inteira, nunca pela metade.</span></div>
+
+  <div class="grade-2" style="margin-top: 12px;">
+    <div><div class="estado-rot">Carregando o corpo</div><div class="faixa"><span class="pill busy">buscando a revisão no Desktop antigo</span></div></div>
+    <div><div class="estado-rot">Corpo indisponível</div><div class="faixa"><span class="chip bad">não deu para abrir</span><span class="muted">O resumo continua na lista.</span></div></div>
+  </div>
+
+  <div class="section-head"><h2>Enviar o histórico deste aparelho</h2></div>
+  <div class="card" style="display: flex; flex-direction: column; gap: 10px;">
+    <span class="set-desc">Só sobe o que aconteceu depois de a visão compartilhada ser ligada aqui. O histórico anterior sobe por este envio explícito, cifrado, em lotes, e pode ser interrompido e retomado.</span>
+    <div class="grade-3">
+      <div class="campo"><label>Revisões anteriores</label><span style="font-size: 18px; font-weight: 650;">1.240</span></div>
+      <div class="campo"><label>Tamanho cifrado</label><span style="font-size: 18px; font-weight: 650;">6,8 MB</span><span class="dica">medido cifrando de verdade</span></div>
+      <div class="campo"><label>Nunca sobe</label><span class="fraco">credenciais, a configuração inteira, histórico do Claude Code</span></div>
+    </div>
+    <div class="banner warn">É um volume grande. Envie com internet estável; o envio é retomável se cair.</div>
+    <div class="row-actions"><span class="btn primary sm">Enviar 1.240 revisões</span><span class="btn sm ghost">Medir de novo</span></div>
+  </div>
+
+  <div class="sync-sub-head">Estados do envio</div>
+  <div class="grade-2">
+    <div><div class="estado-rot">Medindo</div><div class="faixa"><span class="pill busy">medindo</span></div></div>
+    <div><div class="estado-rot">Enviando</div><div class="faixa"><span class="pill busy">enviando</span><span class="muted">lote 4 de 13</span></div></div>
+    <div><div class="estado-rot">Histórico mudou desde a medida</div><div class="faixa"><span class="chip warn">medir de novo</span><span class="muted">Nada foi enviado.</span></div></div>
+    <div><div class="estado-rot">Interrompido</div><div class="faixa"><span class="chip warn">parado no lote 6</span><span class="btn sm ghost">Continuar</span></div></div>
+    <div><div class="estado-rot">Concluído</div><div class="faixa"><span class="chip ok">enviado</span><span class="muted">sem duplicar o que já estava lá</span></div></div>
+    <div><div class="estado-rot">Nada a enviar</div><div class="faixa"><span class="muted">Todo o histórico deste aparelho já está compartilhado.</span></div></div>
+  </div>
+</main>

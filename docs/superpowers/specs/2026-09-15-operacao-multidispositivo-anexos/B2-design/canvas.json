@@ -1,0 +1,29 @@
+{
+  "pages": [
+    { "id": "computador", "name": "Computador" },
+    { "id": "celular", "name": "Celular" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "title": "Mapa das telas", "x": 0, "y": 0, "w": 1280, "h": 720, "page": "computador" },
+    { "file": "A4Pareamento.dc.html", "title": "Pareamento (A4)", "x": 1400, "y": 0, "w": 1280, "h": 1250, "page": "computador" },
+    { "file": "A2PlanoChaves.dc.html", "title": "Plano e chaves (A2)", "x": 0, "y": 880, "w": 1280, "h": 1660, "page": "computador" },
+    { "file": "A3Diagnostico.dc.html", "title": "Diagnóstico (A3)", "x": 1400, "y": 1410, "w": 1280, "h": 1810, "page": "computador" },
+    { "file": "C1Sincronizacao.dc.html", "title": "Sincronização (C0, C1)", "x": 0, "y": 2700, "w": 1280, "h": 2220, "page": "computador" },
+    { "file": "C2Aparelhos.dc.html", "title": "Aparelhos e administração (C2, C6, A4)", "x": 1400, "y": 3380, "w": 1280, "h": 1940, "page": "computador" },
+    { "file": "C4Grupos.dc.html", "title": "Grupos de consumo (C2b, C4b)", "x": 0, "y": 5080, "w": 1280, "h": 1360, "page": "computador" },
+    { "file": "C5RadarFila.dc.html", "title": "Radar: fila, distribuição e comandos", "x": 1400, "y": 5480, "w": 1280, "h": 1710, "page": "computador" },
+    { "file": "C3RadarCompartilhado.dc.html", "title": "Radar: visão compartilhada (C3)", "x": 0, "y": 6600, "w": 1280, "h": 1400, "page": "computador" },
+    { "file": "C8TransferenciaTomada.dc.html", "title": "Transferência e tomada (C7b, C8)", "x": 1400, "y": 7350, "w": 1280, "h": 980, "page": "computador" },
+    { "file": "C3Historico.dc.html", "title": "Histórico compartilhado (C3d, C3g)", "x": 0, "y": 8160, "w": 1280, "h": 1130, "page": "computador" },
+    { "file": "CelPareamento.dc.html", "title": "Celular: pareamento", "x": 0, "y": 0, "w": 390, "h": 770, "page": "celular" },
+    { "file": "CelRadar.dc.html", "title": "Celular: Radar", "x": 470, "y": 0, "w": 390, "h": 1240, "page": "celular" },
+    { "file": "CelAparelhos.dc.html", "title": "Celular: Aparelhos", "x": 940, "y": 0, "w": 390, "h": 1020, "page": "celular" },
+    { "file": "CelDiagnostico.dc.html", "title": "Celular: Diagnóstico", "x": 1410, "y": 0, "w": 390, "h": 860, "page": "celular" },
+    { "file": "CelTomada.dc.html", "title": "Celular: tomada", "x": 1880, "y": 0, "w": 390, "h": 890, "page": "celular" }
+  ],
+  "annotations": [
+    { "id": "nota-tamanhos", "x": 0, "y": -140, "w": 560, "text": "Computador em 1280 px. Cada quadro traz a tela e, embaixo, os estados que ela precisa mostrar.\nDados sintéticos: Ana Exemplo, Bruno Teste, acme-exemplo, Notebook de teste, Desktop antigo, Celular de teste." },
+    { "id": "nota-celular", "x": 0, "y": -140, "w": 560, "text": "Celular em 390 px, medido sem rolagem horizontal. Alvos de toque de 44 px nos botões.", "page": "celular" }
+  ],
+  "launch": { "view": "canvas", "page": "computador" }
+}

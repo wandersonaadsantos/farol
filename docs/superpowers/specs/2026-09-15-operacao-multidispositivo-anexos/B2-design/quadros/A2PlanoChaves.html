@@ -1,0 +1,85 @@
+@@TOPO:sistema@@
+<main>
+<div class="sys-layout">
+@@NAV:plans@@
+<div class="sys-content">
+  <div class="section-head first"><h2>Plano e chaves</h2><span class="btn sm">Novo perfil</span></div>
+  <p class="section-desc">Com qual credencial o Farol abre as sessões de IA: assinatura do Claude (pasta de configuração), chave de API, OpenRouter ou Codex. Cada informação diz de onde veio. O nome comercial do plano não aparece: nada do que o Claude Code informa permite saber qual é com certeza.</p>
+
+  <div class="banner">
+    O padrão do Farol aponta para o perfil "Trabalho antigo", que não existe mais. As sessões estão usando a assinatura legada desta máquina até você escolher outro perfil.
+    <div class="row-actions" style="margin-top: 8px;"><span class="btn sm">Escolher perfil padrão</span><span class="btn sm ghost">Ver no Diagnóstico</span></div>
+  </div>
+
+  <div class="card urgent" style="display: flex; flex-direction: column; gap: 10px;">
+    <span class="set-title">Este Farol usa uma pasta de configuração sem perfil</span>
+    <span class="set-desc">Hoje as sessões usam a pasta <code>D:\exemplo\claude-config</code> definida à parte. Transformar em perfil deixa a pasta visível aqui, com teste e selo. Nada é gravado sem a sua confirmação.</span>
+    <div class="grade-2" style="align-items: end;">
+      <div class="campo"><label>Nome do perfil</label><input class="input" value="Assinatura desta máquina"></div>
+      <div class="row-actions"><span class="btn primary sm">Criar perfil e usar como padrão</span><span class="btn sm ghost">Agora não</span></div>
+    </div>
+  </div>
+
+  <div class="card" style="display: flex; flex-direction: column; gap: 12px;">
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <span class="sync-titulo">Pessoal</span><span class="chip mute">assinatura</span><span class="chip ok">padrão do Farol</span>
+      <span class="espaco"></span>
+      <span class="btn sm">Testar perfil</span><span class="btn sm ghost">Abrir sessão de login</span>
+    </div>
+    <div class="pares">
+      <span class="k">Pasta de configuração</span><code class="mono">D:\exemplo\claude-pessoal</code><span class="origem">informado</span>
+      <span class="k">Login</span><span>ativo</span><span class="origem validado">validado</span>
+      <span class="k">Conta</span><span>[e-mail da conta Pessoal]</span><span class="origem validado">validado</span>
+      <span class="k">Tipo de autenticação</span><span>claude.ai</span><span class="origem validado">validado</span>
+      <span class="k">Plano</span><span class="faint">não detectável com confiança</span><span class="origem desconhecido">desconhecido</span>
+      <span class="k">Grupo de consumo</span><span>Grupo do time (controlado)</span><span class="btn sm ghost">Trocar</span>
+    </div>
+    <p class="sys-note">Testado agora. O teste não abre sessão de modelo e não altera a configuração.</p>
+  </div>
+
+  <div class="card" style="display: flex; flex-direction: column; gap: 12px;">
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <span class="sync-titulo">Notebook secundário</span><span class="chip mute">assinatura</span><span class="chip warn">sem teste</span>
+      <span class="espaco"></span>
+      <span class="btn sm">Testar perfil</span><span class="btn sm ghost">Abrir sessão de login</span>
+    </div>
+    <div class="pares">
+      <span class="k">Pasta de configuração</span><code class="mono">D:\exemplo\claude-secundario</code><span class="origem">informado</span>
+      <span class="k">Login</span><span>parece ativo</span><span class="origem inferido">inferido</span>
+      <span class="k">Conta</span><span>[e-mail da conta secundária]</span><span class="origem detectado">detectado</span>
+      <span class="k">Grupo de consumo</span><span class="faint">sem vínculo</span><span class="btn sm ghost">Vincular</span>
+    </div>
+    <div class="banner warn">O Claude Code não respondeu à verificação. O que aparece acima foi lido dos arquivos da pasta. <a href="#">Como instalar ou atualizar o Claude Code</a></div>
+  </div>
+
+  <div class="grade-2">
+    <div class="card" style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; align-items: center; gap: 10px;"><span class="sync-titulo">Chave de laboratório</span><span class="chip mute">chave de API</span></div>
+      <div class="pares" style="grid-template-columns: 110px minmax(0, 1fr) auto;">
+        <span class="k">Chave</span><span>preenchida</span><span class="origem">informado</span>
+        <span class="k">Validade</span><span class="faint">não testada</span><span class="origem desconhecido">desconhecido</span>
+      </div>
+      <p class="sys-note">Testar a chave exigiria uma chamada paga ao provedor, então o Farol não testa.</p>
+    </div>
+    <div class="card" style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; align-items: center; gap: 10px;"><span class="sync-titulo">Codex</span><span class="chip mute">Codex</span><span class="chip mute">não controlado</span></div>
+      <div class="pares" style="grid-template-columns: 110px minmax(0, 1fr) auto;">
+        <span class="k">Login ChatGPT</span><span>ativo</span><span class="origem inferido">inferido</span>
+        <span class="k">Custo por sessão</span><span class="faint">o Codex não informa</span><span class="origem desconhecido">desconhecido</span>
+      </div>
+      <p class="sys-note">Aparece nos grupos como não controlado, nunca como consumo zero.</p>
+    </div>
+  </div>
+
+  <div class="sync-sub-head">Estados do teste</div>
+  <div class="grade-3">
+    <div><div class="estado-rot">Testando</div><div class="faixa"><span class="pill busy">testando perfil</span><span class="muted">consultando o Claude Code</span></div></div>
+    <div><div class="estado-rot">Perfil sem login</div><div class="faixa"><span class="chip bad">sem login</span><span class="muted">Abra a sessão de login deste perfil.</span></div></div>
+    <div><div class="estado-rot">Perfil apagado</div><div class="faixa"><span class="chip bad">perfil inexistente</span><span class="muted">Nada foi testado.</span></div></div>
+    <div><div class="estado-rot">Perfil incompleto</div><div class="faixa"><span class="chip bad">incompleto</span><span class="muted">Falta a pasta ou a chave.</span></div></div>
+    <div><div class="estado-rot">Selo depois do login</div><div class="faixa"><span class="chip ok">login ativo</span><span class="muted">Atualizado quando a sessão de login fechou.</span></div></div>
+    <div><div class="estado-rot">Conta sem override</div><div class="faixa"><span class="muted">@ana-exemplo usa o padrão do Farol (Pessoal)</span></div></div>
+  </div>
+</div>
+</div>
+</main>

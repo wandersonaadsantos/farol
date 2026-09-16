@@ -1,0 +1,57 @@
+<div style="background: var(--bg); padding: 32px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; align-items: start;">
+  <section style="display: flex; flex-direction: column; gap: 10px;">
+    <div class="estado-rot">Transferir: escolha do destino</div>
+    <div class="modal-overlay" style="border-radius: 14px;">
+      <div class="modal-card">
+        <div class="modal-title">Transferir acme-exemplo/app-web#41</div>
+        <div class="modal-body">
+          <p>O Desktop antigo publica o que já verificou, encerra a sessão e devolve a revisão preferindo o destino por 10 minutos. Nenhuma sessão migra: o destino começa uma nova, com essa memória.</p>
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+            <div class="opcao escolhida"><span class="radio"></span><div><b>Notebook de teste</b><div class="faint" style="font-size: 12px;">com vaga, IA pronta, credencial da conta presente</div></div></div>
+            <div class="opcao inapta"><span class="radio"></span><div><b>Celular de teste</b><div style="font-size: 12px; color: var(--danger);">inapto: sem credencial desta conta</div></div></div>
+            <div class="opcao inapta"><span class="radio"></span><div><b>Desktop de casa</b><div style="font-size: 12px; color: var(--danger);">inapto: pausado pelo admin</div></div></div>
+          </div>
+        </div>
+        <div class="modal-actions"><span class="btn ghost">Cancelar</span><span class="btn primary">Transferir</span></div>
+      </div>
+    </div>
+    <div class="estado-rot" style="margin-top: 8px;">Depois de enviar</div>
+    <div class="faixa"><span class="pill busy">enviado</span><span class="muted">Esperando o recibo do Desktop antigo. Não está concluído até ele responder.</span></div>
+    <div class="faixa"><span class="chip ok">concluído</span><span class="muted">Transferido às 10:12. O Notebook de teste herdou a memória inteira.</span></div>
+    <div class="faixa"><span class="chip warn">herança parcial</span><span class="muted">2 entradas de memória não abriram e ficaram de fora.</span></div>
+    <div class="faixa"><span class="chip bad">recusado</span><span class="muted">o destino ficou sem vaga antes de receber</span></div>
+    <div class="faixa"><span class="chip mute">destinos indisponíveis</span><span class="muted">Nenhum aparelho apto agora. Motivos: sem resumo recente, pausado, sem IA, sem vaga ou sem credencial.</span></div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 10px;">
+    <div class="estado-rot">Tomar: aviso antes de confirmar</div>
+    <div class="modal-overlay" style="border-radius: 14px;">
+      <div class="modal-card warn">
+        <div class="modal-title">Tomar acme-exemplo/app-web#41 para este aparelho?</div>
+        <div class="modal-body">
+          <p>O <b>Desktop antigo</b> está com esta revisão e deu sinal há 40 segundos. <b>Duplicidade provável.</b></p>
+          <ul>
+            <li>O processo no Desktop antigo não é encerrado por aqui. Ele pode continuar até perceber que perdeu a posse.</li>
+            <li>A análise pode custar duas vezes.</li>
+            <li>Só este aparelho posta depois da tomada; o Desktop antigo fica impedido de postar.</li>
+          </ul>
+        </div>
+        <div class="modal-actions"><span class="btn ghost">Não tomar</span><span class="btn primary">Tomar mesmo assim</span></div>
+      </div>
+    </div>
+    <div class="estado-rot" style="margin-top: 8px;">Variações</div>
+    <div class="faixa"><span class="chip warn">duplicidade possível</span><span class="muted">último sinal há 7 minutos</span></div>
+    <div class="faixa"><span class="chip mute">nada a tomar</span><span class="muted">Ninguém está com este PR agora. Use Revisar aqui.</span></div>
+    <div class="faixa"><span class="chip bad">aviso indisponível</span><span class="muted">Não deu para ler quem está com o PR. A tomada fica desabilitada até a leitura voltar.</span></div>
+    <div class="estado-rot" style="margin-top: 8px;">Tomada sofrida (no aparelho que perdeu)</div>
+    <div class="card blocked" style="display: flex; flex-direction: column; gap: 4px;">
+      <div class="pr-ref"><a href="#">acme-exemplo/app-web#41</a><span class="chip bad">tomado pelo Notebook de teste</span></div>
+      <div class="pr-sub"><span>Às 10:15, geração 2. Nada desta revisão será postado por este aparelho. A sessão que estava rodando aqui foi encerrada ao perceber.</span></div>
+    </div>
+    <div class="estado-rot" style="margin-top: 8px;">Histórico de tomadas</div>
+    <div class="card" style="padding: 0;"><div class="sync-lista">
+      <div class="linha" style="grid-template-columns: minmax(0, 1fr) auto auto;"><span>app-web#41: Desktop antigo para Notebook de teste</span><span class="chip warn">provável</span><span class="fraco">10:15</span></div>
+      <div class="linha" style="grid-template-columns: minmax(0, 1fr) auto auto;"><span>api-pedidos#98: Celular de teste para este</span><span class="chip mute">possível</span><span class="fraco">ontem</span></div>
+    </div></div>
+  </section>
+</div>

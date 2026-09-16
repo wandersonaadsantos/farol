@@ -1,0 +1,61 @@
+@@TOPO:radar@@
+<main class="radar">
+  <div class="section-head"><h2>Precisa de você em todos os aparelhos <span class="count">2</span></h2><span class="section-sub">agir continua sendo no aparelho dono</span></div>
+  <div class="cards">
+    <div class="card pr-card urgent">
+      <span class="avatar">AE</span>
+      <div>
+        <div class="pr-ref"><a href="#">acme-exemplo/app-web#37</a><span class="chip mute">no Desktop antigo</span><span class="chip warn">nova</span></div>
+        <div class="pr-title">Troca a biblioteca de datas</div>
+        <div class="pr-sub"><span class="author">@ana-exemplo</span><span>veredito: pedir mudanças</span><span>2 pontos travam</span></div>
+      </div>
+      <div class="acoes"><span class="btn sm primary">Decidir no Desktop antigo…</span><span class="btn sm ghost">Marcar como visto</span></div>
+    </div>
+    <div class="card pr-card ambient">
+      <span class="avatar">BT</span>
+      <div>
+        <div class="pr-ref"><a href="#">acme-exemplo/api-pedidos#109</a><span class="chip mute">no Notebook de teste</span><span class="chip mute">visto</span></div>
+        <div class="pr-title">Separa filas de notificação</div>
+        <div class="pr-sub"><span class="author">@bruno-teste</span><span>veredito: aprovar com ressalvas</span></div>
+      </div>
+    </div>
+  </div>
+  <p class="sys-note" style="margin-top: 8px;">"Marcar como visto" cala o aviso nos outros aparelhos. "Decidir" manda um comando ao aparelho dono, que decide com os próprios gates.</p>
+
+  <div class="section-head"><h2>Em outros aparelhos</h2><span class="section-sub">atualiza a cada 10 segundos</span></div>
+  <div class="cards">
+    <div class="card working" style="display: flex; flex-direction: column; gap: 4px;">
+      <div class="pr-ref"><a href="#">acme-exemplo/app-web#41</a><span class="chip mute">Desktop antigo</span><span class="espaco"></span><span class="faint" style="font-size: 12px;">há 4 min · Opus</span></div>
+      <div class="etapas"><span class="etapa">lendo o diff</span><span class="etapa agora">verificando (2 subagentes)</span><span class="etapa">escrevendo</span></div>
+      <div class="row-actions" style="margin-top: 6px;"><span class="btn sm ghost">Cancelar…</span><span class="btn sm ghost">Transferir…</span><span class="btn sm ghost">Tomar para este aparelho…</span></div>
+    </div>
+    <div class="faixa"><span class="chip warn">leitura atrasada</span><span class="muted">A última leitura falhou. Mostrando o andamento de 10:01, que pode estar velho.</span></div>
+  </div>
+
+  <div class="section-head"><h2>Panorama <span class="count ambient">18</span></h2><span class="section-sub">deste aparelho e de 1 outro</span></div>
+  <div class="card" style="padding: 0;">
+    <div class="sync-lista">
+      <div class="linha" style="grid-template-columns: 18px minmax(0, 1fr) auto;"><span class="avatar xs">AE</span><span><a href="#" style="color: inherit;">acme-exemplo/app-web#38</a> <span class="fraco">Melhora o log de erro</span></span><span class="chip mute">Desktop antigo</span></div>
+      <div class="linha" style="grid-template-columns: 18px minmax(0, 1fr) auto;"><span class="avatar xs">BT</span><span><a href="#" style="color: inherit;">acme-exemplo/api-pedidos#101</a> <span class="fraco">Corrige arredondamento</span></span><span class="chip info">este</span></div>
+      <div class="linha" style="grid-template-columns: 18px minmax(0, 1fr) auto;"><span class="avatar xs">?</span><span class="fraco">1 item de outro aparelho não abriu e ficou de fora</span><span class="chip warn">não verificável</span></div>
+    </div>
+  </div>
+
+  <div class="section-head"><h2>Meus PRs <span class="count ambient">3</span></h2></div>
+  <div class="card mypr" style="display: flex; flex-direction: column; gap: 4px; border-left: 3px solid var(--border);">
+    <div class="pr-ref"><a href="#">acme-exemplo/app-web#36</a><span class="chip mute">do Desktop antigo, só leitura</span></div>
+    <div class="pr-title">Adiciona filtro por status</div>
+    <div class="pr-sub"><span>Merge desabilitado aqui: dado vindo de outro aparelho nunca habilita merge.</span></div>
+  </div>
+
+  <div class="section-head"><h2>O que é só deste aparelho</h2></div>
+  <p class="section-desc">Destaques, Kudos e Time continuam locais: não sobem nem descem, mesmo com a visão compartilhada ligada.</p>
+
+  <div class="sync-sub-head">Estados</div>
+  <div class="grade-2">
+    <div><div class="estado-rot">Sem outro aparelho pronto</div><div class="faixa"><span class="chip mute">nada sobe</span><span class="muted">Nenhum outro aparelho com a chave aberta visto nas últimas 24 h.</span></div></div>
+    <div><div class="estado-rot">Visão compartilhada desligada</div><div class="faixa"><span class="muted">Estas seções não aparecem; o Radar mostra só este aparelho.</span></div></div>
+    <div><div class="estado-rot">Bloqueada pelo Farol</div><div class="faixa"><span class="chip warn">bloqueada</span><span class="muted">autenticação local não exigida neste aparelho</span></div></div>
+    <div><div class="estado-rot">Nenhuma pendência</div><div class="faixa"><span class="muted">Nada precisa de você em nenhum aparelho.</span></div></div>
+  </div>
+</main>

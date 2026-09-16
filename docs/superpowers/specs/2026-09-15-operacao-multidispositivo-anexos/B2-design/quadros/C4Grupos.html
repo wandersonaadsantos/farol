@@ -1,0 +1,56 @@
+@@TOPO:sistema@@
+<main>
+<div class="sys-layout">
+@@NAV:groups@@
+<div class="sys-content">
+  <div class="section-head first"><h2>Grupos de consumo</h2><span class="btn sm">Novo grupo</span></div>
+  <p class="section-desc">Um grupo soma o gasto dos perfis vinculados em todos os aparelhos e pode ter um teto. Só o admin cria e ativa. Enquanto o teto não está ativo, quem segura sessão é o orçamento de cada perfil.</p>
+
+  <div class="card" style="display: flex; flex-direction: column; gap: 12px; border-left: 3px solid var(--border);">
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <span class="sync-titulo">Grupo do time</span><span class="chip warn">teto configurado, ainda não ativo</span>
+      <span class="espaco"></span><span class="faint" style="font-size: 12px;">período mensal · teto US$ 120,00</span>
+    </div>
+    <div class="grade-2">
+      <div class="campo"><label>Gasto no período</label><span style="font-size: 18px; font-weight: 650;">US$ 64,20</span><span class="dica">soma dos aparelhos; não segura nenhuma sessão ainda</span></div>
+      <div class="campo"><label>Para ativar falta</label>
+        <ul style="margin: 2px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--muted);"><li>medir o atraso real do consumo entre dois aparelhos</li></ul>
+      </div>
+    </div>
+    <div class="linha cab" style="grid-template-columns: minmax(0, 1fr) 140px;"><span>Perfis controlados</span><span>Gasto</span></div>
+    <div class="linha" style="grid-template-columns: minmax(0, 1fr) 140px;"><span class="nome">Pessoal</span><span>US$ 51,00</span></div>
+    <div class="linha" style="grid-template-columns: minmax(0, 1fr) 140px;"><span class="nome">Chave de laboratório</span><span>US$ 13,20 <span class="chip mute">parcialmente estimado</span></span></div>
+    <div class="linha cab" style="grid-template-columns: minmax(0, 1fr) 140px;"><span>Não controlados</span><span></span></div>
+    <div class="linha" style="grid-template-columns: minmax(0, 1fr) 140px;"><span class="nome">Codex</span><span class="fraco">o Codex não informa custo</span></div>
+    <div class="row-actions"><span class="btn sm" disabled>Ativar teto</span><span class="btn sm ghost">Editar</span><span class="btn sm ghost">Vincular perfil</span></div>
+  </div>
+
+  <div class="card blocked" style="display: flex; flex-direction: column; gap: 8px;">
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <span class="sync-titulo">Grupo do laboratório</span><span class="chip ok">ativo</span><span class="chip bad">não verificável</span>
+    </div>
+    <span class="set-desc">O Farol não consegue somar o gasto com segurança: o <b>Desktop antigo</b> não enviou dados de hoje. Enquanto isso, as revisões dos perfis deste grupo esperam, inclusive as de clique, sem estacionar. Voltam sozinhas quando a soma fechar.</span>
+    <div class="row-actions"><span class="btn sm ghost">Ver aparelhos</span></div>
+  </div>
+
+  <div class="card urgent" style="display: flex; flex-direction: column; gap: 8px;">
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <span class="sync-titulo">Grupo de estudos</span><span class="chip ok">ativo</span><span class="chip warn">teto atingido</span>
+      <span class="espaco"></span><span class="faint" style="font-size: 12px;">US$ 30,40 de US$ 30,00</span>
+    </div>
+    <span class="set-desc">O teto é macio: sessões já em andamento terminam, e a projeção das reservas pode passar um pouco do limite. Nenhuma sessão nova abre até o período virar ou o teto mudar.</span>
+    <span class="dica">Projeção com as reservas abertas: US$ 31,10 (projeção, não gasto).</span>
+  </div>
+
+  <div class="sync-sub-head">Estados</div>
+  <div class="grade-3">
+    <div><div class="estado-rot">Perfil sem vínculo</div><div class="faixa"><span class="chip mute">sem grupo</span><span class="muted">Notebook secundário</span><span class="btn sm ghost">Vincular</span></div></div>
+    <div><div class="estado-rot">Grupo sem teto</div><div class="faixa"><span class="chip mute">sem teto</span><span class="muted">só soma, nada segura</span></div></div>
+    <div><div class="estado-rot">Não identificado</div><div class="faixa"><span class="chip mute">não identificado</span><span class="muted">perfil sem id estável</span></div></div>
+    <div><div class="estado-rot">Ativo e verificável</div><div class="faixa"><span class="chip ok">verificado</span><span class="muted">soma fechada às 10:02</span></div></div>
+    <div><div class="estado-rot">Ativação recusada</div><div class="faixa"><span class="chip bad">não ativado</span><span class="muted">falta ligar o compartilhamento</span></div></div>
+    <div><div class="estado-rot">Não é o admin</div><div class="faixa"><span class="muted">Só o admin cria e ativa grupos. Este aparelho vê e vincula.</span></div></div>
+  </div>
+</div>
+</div>
+</main>

@@ -1,0 +1,78 @@
+@@TOPO:radar@@
+<main class="radar">
+  <div class="faixa" style="margin-top: 6px;">
+    <span class="chip warn">fila local</span>
+    <span>O distribuidor (Desktop antigo) está sem sinal há 18 minutos. Este aparelho voltou a cuidar da própria fila; os itens voltam aos poucos, os mais antigos primeiro.</span>
+    <span class="espaco"></span><a href="#">Aparelhos</a>
+  </div>
+
+  <div class="section-head"><h2>Sua fila <span class="count">4</span></h2><span class="section-sub">revisões pedidas a você</span></div>
+  <div class="cards">
+    <div class="card pr-card urgent">
+      <span class="avatar">AE</span>
+      <div>
+        <div class="pr-ref"><a href="#">acme-exemplo/app-web#42</a><span class="acct-chip">trabalho</span></div>
+        <div class="pr-title">Ajusta o cálculo de frete para pedidos com cupom</div>
+        <div class="pr-sub"><span class="author">@ana-exemplo</span><span>há 20 min</span></div>
+        <div class="pr-coord">Esperando distribuição há 3 min: nenhum aparelho apto agora (o Notebook de teste está sem vaga). Volta a ser oferecido a cada giro.</div>
+      </div>
+      <div class="acoes"><span class="btn sm primary">Revisar aqui</span><span class="btn sm ghost">Pular</span></div>
+    </div>
+
+    <div class="card pr-card working">
+      <span class="avatar">BT</span>
+      <div>
+        <div class="pr-ref"><a href="#">acme-exemplo/api-pedidos#118</a><span class="acct-chip">trabalho</span></div>
+        <div class="pr-title">Cria endpoint de estorno parcial</div>
+        <div class="pr-sub"><span class="author">@bruno-teste</span><span>há 1 h</span></div>
+        <div class="pr-coord">Comando enviado ao Desktop antigo: cancelar, às 10:04. Esperando o recibo; o aparelho está sem sinal e o comando vale até 10:34.</div>
+      </div>
+      <div class="acoes"><span class="btn sm ghost">Ver no aparelho</span></div>
+    </div>
+
+    <div class="card pr-card blocked">
+      <span class="avatar">AE</span>
+      <div>
+        <div class="pr-ref"><a href="#">acme-exemplo/app-web#40</a><span class="acct-chip">trabalho</span></div>
+        <div class="pr-title">Remove tela antiga de cadastro</div>
+        <div class="pr-sub"><span class="author">@ana-exemplo</span><span>ontem</span></div>
+        <div class="pr-coord bad">Recusado pelo Celular de teste: sem credencial desta conta. A revisão volta para a fila e espera 10 min antes de ser oferecida de novo.</div>
+      </div>
+      <div class="acoes"><span class="btn sm primary">Revisar aqui</span></div>
+    </div>
+
+    <div class="card pr-card urgent">
+      <span class="avatar">BT</span>
+      <div>
+        <div class="pr-ref"><a href="#">acme-exemplo/api-pedidos#115</a><span class="acct-chip">trabalho</span></div>
+        <div class="pr-title">Atualiza versão do cliente de pagamento</div>
+        <div class="pr-sub"><span class="author">@bruno-teste</span><span>há 2 h</span></div>
+        <div class="pr-coord warn">Postagem com resultado incerto: o envio ao GitHub não respondeu. O Farol está conferindo no PR se o review entrou e não tenta de novo antes disso.</div>
+      </div>
+      <div class="acoes"><span class="btn sm ghost">Abrir PR</span></div>
+    </div>
+  </div>
+
+  <div class="section-head"><h2>Analisando agora</h2></div>
+  <div class="card working" style="display: flex; flex-direction: column; gap: 4px;">
+    <div class="pr-ref"><a href="#">acme-exemplo/app-web#39</a><span class="chip info">retomada</span></div>
+    <div class="pr-sub"><span>Retomando a sessão interrompida às 09:58, mesmo commit, mesmo perfil.</span></div>
+    <div class="etapas"><span class="etapa">lendo o diff</span><span class="etapa agora">verificando</span><span class="etapa">escrevendo</span></div>
+  </div>
+
+  <div class="sync-sub-head">Estados da distribuição e dos comandos</div>
+  <div class="grade-2">
+    <div><div class="estado-rot">Modo distribuído</div><div class="faixa"><span class="chip ok">fila distribuída</span><span class="muted">O Desktop antigo escolhe onde cada revisão roda.</span></div></div>
+    <div><div class="estado-rot">Distribuidor sumiu há pouco</div><div class="faixa"><span class="chip warn">sem sinal do distribuidor</span><span class="muted">Até três giros sem ninguém enfileirar; depois volta ao modo local.</span></div></div>
+    <div><div class="estado-rot">Fila vazia</div><div class="faixa"><span class="muted">Nada esperando em nenhum aparelho.</span></div></div>
+    <div><div class="estado-rot">Sem executor apto</div><div class="faixa"><span class="chip bad">nenhum aparelho apto</span><span class="muted">todos pausados ou sem vaga</span></div></div>
+    <div><div class="estado-rot">Aparelho pausado</div><div class="faixa"><span class="chip mute">pausado pelo admin</span><span class="muted">clique continua, automático espera</span></div></div>
+    <div><div class="estado-rot">Memória desconhecida</div><div class="faixa"><span class="chip warn">não admite</span><span class="muted">sem medição de memória, o aparelho não pega trabalho</span></div></div>
+    <div><div class="estado-rot">Recusa por peso de PR</div><div class="faixa"><span class="chip mute">ainda não ativa</span><span class="muted">o peso só ordena a fila</span></div></div>
+    <div><div class="estado-rot">Comando aplicado</div><div class="faixa"><span class="chip ok">aplicado</span><span class="muted">recibo do Desktop antigo às 10:06</span></div></div>
+    <div><div class="estado-rot">Comando ignorado</div><div class="faixa"><span class="chip mute">ignorado</span><span class="muted">o aparelho não aceita o admin</span></div></div>
+    <div><div class="estado-rot">Comando vencido</div><div class="faixa"><span class="chip bad">vencido</span><span class="muted">sem recibo até 10:34</span></div></div>
+    <div><div class="estado-rot">Não enviada</div><div class="faixa"><span class="chip bad">não postada</span><span class="muted">a posse foi tomada por outro aparelho</span></div></div>
+    <div><div class="estado-rot">Retomada recusada</div><div class="faixa"><span class="chip info">sessão nova</span><span class="muted">o Claude Code recusou retomar</span></div></div>
+  </div>
+</main>
