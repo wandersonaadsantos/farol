@@ -5,22 +5,28 @@
       <div class="modal-card">
         <div class="modal-title">Transferir acme-exemplo/app-web#41</div>
         <div class="modal-body">
-          <p>O Desktop antigo publica o que já verificou, encerra a sessão e devolve a revisão preferindo o destino por 10 minutos. Nenhuma sessão migra: o destino começa uma nova, com essa memória.</p>
+          <p>O Desktop antigo publica o que já verificou, encerra a sessão e devolve a revisão preferindo o destino por um prazo curto. Nenhuma sessão migra: o destino começa uma nova, com essa memória.</p>
           <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
-            <div class="opcao escolhida"><span class="radio"></span><div><b>Notebook de teste</b><div class="faint" style="font-size: 12px;">com vaga, IA pronta, credencial da conta presente</div></div></div>
-            <div class="opcao inapta"><span class="radio"></span><div><b>Celular de teste</b><div style="font-size: 12px; color: var(--danger);">inapto: sem credencial desta conta</div></div></div>
-            <div class="opcao inapta"><span class="radio"></span><div><b>Desktop de casa</b><div style="font-size: 12px; color: var(--danger);">inapto: pausado pelo admin</div></div></div>
+            <div class="opcao escolhida"><div><b>Notebook de teste</b><div class="faint" style="font-size: 12px;">com vaga, IA pronta e credencial da conta</div></div></div>
+            <div class="opcao inapta"><div><b>Celular de teste</b><div style="font-size: 12px; color: var(--danger);">inapto: sem credencial desta conta</div></div></div>
+            <div class="opcao inapta"><div><b>Desktop de casa</b><div style="font-size: 12px; color: var(--danger);">inapto: pausado pelo admin</div></div></div>
+            <div class="opcao inapta"><div><b>Desktop antigo</b><div style="font-size: 12px; color: var(--danger);">inapto: é o aparelho que roda a análise agora</div></div></div>
           </div>
         </div>
-        <div class="modal-actions"><span class="btn ghost">Cancelar</span><span class="btn primary">Transferir</span></div>
+        <div class="modal-actions"><span class="btn ghost">Cancelar</span><span class="btn primary">Transferir para Notebook de teste</span></div>
       </div>
     </div>
     <div class="estado-rot" style="margin-top: 8px;">Depois de enviar</div>
     <div class="faixa"><span class="pill busy">enviado</span><span class="muted">Esperando o recibo do Desktop antigo. Não está concluído até ele responder.</span></div>
-    <div class="faixa"><span class="chip ok">concluído</span><span class="muted">Transferido às 10:12. O Notebook de teste herdou a memória inteira.</span></div>
-    <div class="faixa"><span class="chip warn">herança parcial</span><span class="muted">2 entradas de memória não abriram e ficaram de fora.</span></div>
-    <div class="faixa"><span class="chip bad">recusado</span><span class="muted">o destino ficou sem vaga antes de receber</span></div>
-    <div class="faixa"><span class="chip mute">destinos indisponíveis</span><span class="muted">Nenhum aparelho apto agora. Motivos: sem resumo recente, pausado, sem IA, sem vaga ou sem credencial.</span></div>
+    <div class="estado-rot" style="margin-top: 8px;">Confirmação depois da escolha</div>
+    <div class="faixa"><span class="muted">O comando vai ao <b>Desktop antigo</b>, que confere o destino de novo antes de largar a sessão. O resultado aparece quando ele responder com o recibo.</span></div>
+    <div class="faixa"><span class="chip ok">aplicado</span><span class="muted">Recibo do Desktop antigo às 10:12. No andamento, o Notebook de teste aparece com "herdou a memória inteira de outro aparelho".</span></div>
+    <div class="faixa"><span class="chip warn">herança parcial</span><span class="muted">No andamento do destino: "herdou parte da memória de outro aparelho".</span></div>
+    <div class="faixa"><span class="chip bad">recusado</span><span class="muted">destino inapto: ele ficou sem vaga ou deixou de aceitar comandos antes de receber</span></div>
+    <div class="faixa"><span class="chip bad">recusado</span><span class="muted">o head mudou desde o pedido</span></div>
+    <div class="faixa"><span class="chip mute">nenhum aparelho apto agora</span><span class="muted">Nenhum aparelho pode receber esta análise agora. A lista mostra o motivo de cada um.</span></div>
+    <div class="faixa"><span class="chip bad">transferência indisponível</span><span class="muted">O Desktop antigo não aceita comandos do admin, e é ele quem aplica a transferência.</span></div>
+    <div class="faixa"><span class="chip bad">destinos indisponíveis</span><span class="muted">Não deu para ler a capacidade dos aparelhos agora. A transferência fica indisponível até a leitura voltar.</span></div>
   </section>
 
   <section style="display: flex; flex-direction: column; gap: 10px;">
@@ -48,10 +54,10 @@
       <div class="pr-ref"><a href="#">acme-exemplo/app-web#41</a><span class="chip bad">tomado pelo Notebook de teste</span></div>
       <div class="pr-sub"><span>Às 10:15, geração 2. Nada desta revisão será postado por este aparelho. A sessão que estava rodando aqui foi encerrada ao perceber.</span></div>
     </div>
-    <div class="estado-rot" style="margin-top: 8px;">Histórico de tomadas</div>
+    <div class="estado-rot" style="margin-top: 8px;">Tomadas feitas por este aparelho</div>
     <div class="card" style="padding: 0;"><div class="sync-lista">
-      <div class="linha" style="grid-template-columns: minmax(0, 1fr) auto auto;"><span>app-web#41: Desktop antigo para Notebook de teste</span><span class="chip warn">provável</span><span class="fraco">10:15</span></div>
-      <div class="linha" style="grid-template-columns: minmax(0, 1fr) auto auto;"><span>api-pedidos#98: Celular de teste para este</span><span class="chip mute">possível</span><span class="fraco">ontem</span></div>
+      <div class="linha" style="grid-template-columns: minmax(0, 1fr) auto auto;"><span><a href="#">acme-exemplo/app-web#41</a>: Desktop antigo para este aparelho, geração 2</span><span class="chip warn">duplicidade provável</span><span class="fraco">10:15</span></div>
+      <div class="linha" style="grid-template-columns: minmax(0, 1fr) auto auto;"><span><a href="#">acme-exemplo/api-pedidos#98</a>: Celular de teste para este aparelho, geração 1</span><span class="chip mute">duplicidade possível</span><span class="fraco">09:40</span></div>
     </div></div>
   </section>
 </div>
