@@ -181,10 +181,10 @@ estimado; tipo não controlado (Codex) em seção própria, nunca como consumo z
 
 **Dados.**
 - capacidade e presença dos aparelhos (tabela de aparelhos);
-- **andamento remoto** (etapa, tempo, subagentes, modelo): existe no runtime,
-  **projeção para a tela a completar**;
-- **pendências remotas** ("precisa de você") e visto: runtime existe, **projeção a
-  completar**; marcar visto `POST /api/sync/seen`;
+- **andamento remoto** (etapa, tempo, subagentes, modelo): evento SSE próprio
+  `sync-live` (`{ operacoes }`), a cada giro do relógio, nunca pelo snapshot;
+- **pendências remotas** ("precisa de você") e visto: evento SSE `sync-pending`
+  (`{ pendencias, novas }`); marcar visto `POST /api/sync/seen`;
 - história de revisões de outros aparelhos: `POST /api/sync/reviews` (lista),
   `POST /api/sync/review-body` (corpo);
 - Panorama e Meus PRs de outros aparelhos (escopos) e memória de pushback;
@@ -278,14 +278,15 @@ compartilhado.
 7. Os textos seguem as regras (português, sem travessão, ação sugerida junto do
    diagnóstico, links de ajuda onde a ação é fora do app).
 
-## 5. Contrato a completar (implementado junto das telas, sem funcionalidade nova)
+## 5. Contrato a completar (implementado antes das telas, sem funcionalidade nova)
 
-| Tela | Contrato |
-|---|---|
-| 2.1 | revogação individual de sessão (a spec prevê a tela) |
-| 2.2 | teste do perfil com identidade detectada e origem de cada campo |
-| 2.5 | admin vigente e geração na projeção; rota de publicar política |
-| 2.7 | projeção de andamento remoto, pendências remotas e escopos remotos |
-| 2.8 | projeção do modo, dos itens esperando distribuição e da admissão local |
-| 2.9 | rota do desfecho de um comando; rota do aviso da tomada |
-| 2.10 | projeção do estado da chave de limpeza |
+| Tela | Contrato | Estado |
+|---|---|---|
+| 2.1 | sessões da A4: `POST /api/auth/sessions` (id público, rótulo, datas, `atual`) e `POST /api/auth/revoke` `{ id }` (`eraAtual` quando revoga a própria) | **feito** |
+| 2.2 | teste do perfil com identidade detectada e origem de cada campo | a fazer (A2) |
+| 2.4 | `sync.bloqueioCompartilhamento` (`autenticacao-local` no celular sem exigência) | **feito** |
+| 2.5 | `sync.admin` (`deviceId`, `generation`, `souEu`, `fresca`); `POST /api/sync/policy` `{ deviceId, politica }` | **feito** |
+| 2.7 | andamento e pendências remotas por SSE (`sync-live`, `sync-pending`) | já existia |
+| 2.8 | `sync.distribuicao` (`modo`, `esperando[{ key, desde }]`), `sync.admissao` (`ocupadas`, `porEstado`, `porTipo`, `teto`, `pausado`) | **feito** |
+| 2.9 | `sync.comandosEmitidos[{ cmdId, tipo, alvo, at }]`; `POST /api/sync/command-status` `{ cmdId }` → `recibo` ou `null`; `POST /api/sync/takeover-notice` `{ prKey, account }` → `podeTomar`, `dono`, `risco`, `aviso` | **feito** |
+| 2.10 | `POST /api/sync/cleanup-state` → `estado` (`compartilhamento-desligado`, `desligada`, `ligada`, `desligada-ou-nao-verificavel`) | **feito** |
