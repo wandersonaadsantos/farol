@@ -193,3 +193,10 @@ Os 5 pulos de `session-posix` por falta de `bash`, relatados nas rodadas anterio
 
 `npm test` no Windows, no mesmo commit: 4334 testes, 4306 aprovados, 0 falhas, 28 pulados,
 código de saída 0 (`posix-com-git-windows.txt`).
+
+A execução ANTERIOR a essa caiu com o arquivo inteiro `test/sync-rounds.test.js` reprovado e
+NENHUM caso reprovado dentro dele (`'test failed'`, sem asserção), que é a queda nativa do
+Node já registrada neste handoff. O arquivo rodado sozinho deu 19 de 19, e a suíte seguinte
+deu verde. A saída da rodada que falhou está preservada em
+`posix-com-git-windows-queda-nativa.txt`, para a queda não sumir do registro por ter passado
+depois.
