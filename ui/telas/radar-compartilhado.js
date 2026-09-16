@@ -12,10 +12,12 @@
    bloqueada, nunca como ligada. */
 
 import {
-  andamentoAtrasadoHtml, comandoPermitido, comandosEmitidosHtml, compartilhadoBloqueioHtml,
-  envioDepoisDoLote, envioHistoricoHtml, esc, modoDistribuicaoHtml, oQueELocalHtml,
-  operacoesRemotasHtml, pendenciasCompartilhadasHtml, reciboFinal, revisaoAbertaHtml,
-  revisoesCompartilhadasHtml, tomadaDialogo, visaoCompartilhada, acoesDaOperacao,
+  acoesDaRevisao, acoesDoCandidato, andamentoAtrasadoHtml, candidatosDoConjuntoHtml,
+  comandoPermitido, comandosEmitidosHtml, compartilhadoBloqueioHtml,
+  envioDepoisDoLote, envioHistoricoHtml, esc, inicioConfirmacao, inicioDialogo,
+  modoDistribuicaoHtml, nomeDoAparelho, oQueELocalHtml,
+  operacoesRemotasHtml, pendenciasCompartilhadasHtml, reciboFinal, repetirConfirmacao,
+  revisaoAbertaHtml, revisoesCompartilhadasHtml, tomadaDialogo, visaoCompartilhada, acoesDaOperacao,
   tomadasFeitasHtml, transferenciaConfirmacao, transferenciaDialogo,
 } from '../pure.js';
 import { estado } from './estado.js';
@@ -84,6 +86,17 @@ function pintarComandos(s) {
   $('#mdComandos').innerHTML = comandosEmitidosHtml(s.comandosEmitidos, RECIBOS.mapa, { devices: s.devices, deviceIdLocal: s.deviceId, falhas: RECIBOS.falhas });
 }
 
+// A fila do CONJUNTO: só o aparelho que agenda a conhece, e a seção some sem ela.
+function renderCandidatos(s) {
+  const permissao = comandoPermitido(s);
+  const html = candidatosDoConjuntoHtml((s.distribuicao || {}).candidatos, {
+    podeComandar: permissao.pode, motivoSemComando: permissao.motivo,
+    devices: s.devices, deviceIdLocal: s.deviceId,
+  });
+  $('#mdCandidatosWrap').hidden = !html;
+  $('#mdCandidatos').innerHTML = html;
+}
+
 function renderComandos(s) {
   const lista = Array.isArray(s.comandosEmitidos) ? s.comandosEmitidos : [];
   $('#mdComandosWrap').hidden = !lista.length;
@@ -98,8 +111,13 @@ function renderTomadas(s) {
   $('#mdTomadas').innerHTML = html;
 }
 
+function contextoDasRevisoes(s) {
+  const permissao = comandoPermitido(s);
+  return { ...REVISOES, deviceIdLocal: s.deviceId, podeComandar: permissao.pode, motivoSemComando: permissao.motivo };
+}
+
 function renderHistorico(s) {
-  $('#mdRevisoes').innerHTML = revisoesCompartilhadasHtml({ ...REVISOES, deviceIdLocal: s.deviceId });
+  $('#mdRevisoes').innerHTML = revisoesCompartilhadasHtml(contextoDasRevisoes(s));
   $('#mdEnvio').innerHTML = envioHistoricoHtml(ENVIO);
   $('#mdLocal').innerHTML = oQueELocalHtml();
   const velha = Date.now() - REVISOES.at > REVISOES_MIN_MS;
@@ -118,6 +136,7 @@ function renderCompartilhado() {
   if (!ligada) return;
   renderPendencias(s);
   renderOperacoes(s);
+  renderCandidatos(s);
   renderComandos(s);
   renderTomadas(s);
   renderHistorico(s);
@@ -174,7 +193,7 @@ async function buscarRevisoes() {
   const r = await api('/api/sync/reviews', { dev: REVISOES.escopo === 'este' ? s.deviceId : '' });
   REVISOES.estado = r && r.ok === true ? 'lista' : 'falha';
   REVISOES.revisoes = r && Array.isArray(r.revisoes) ? r.revisoes : [];
-  $('#mdRevisoes').innerHTML = revisoesCompartilhadasHtml({ ...REVISOES, deviceIdLocal: s.deviceId });
+  $('#mdRevisoes').innerHTML = revisoesCompartilhadasHtml(contextoDasRevisoes(s));
 }
 
 /* ---------- ações ---------- */
@@ -284,6 +303,59 @@ async function tomarOperacao(opId, perguntar = perguntarTomada) {
   return emitirComando({ alvo: s.deviceId, tipo: 'tomar', args: { prTag: op.prTag, matTag: op.matTag, confirmado: true } }, 'este aparelho');
 }
 
+/* ---------- repetir (revisão de qualquer aparelho) e iniciar (candidato na fila) ---------- */
+
+function nomeDoAparelhoNaTela(s, deviceId) {
+  if (deviceId && deviceId === s.deviceId) return 'este aparelho';
+  return nomeDoAparelho(s.devices, deviceId) || deviceId || 'outro aparelho';
+}
+
+function confirmarRepeticao(texto) {
+  return confirmModal({ title: texto.title, body: texto.body, confirmLabel: 'Repetir a análise', cancelLabel: 'Voltar' });
+}
+
+function revisaoPorId(reviewId) {
+  return REVISOES.revisoes.find((r) => r && r.reviewId === reviewId) || null;
+}
+
+// O comando vai ao aparelho DONO da revisão, com o commit que ele analisou. A tela não
+// manda o que ela já sabe que seria recusado: sem commit no índice, o botão nem existe.
+async function repetirRevisao(reviewId, confirmar = confirmarRepeticao) {
+  const s = syncAtual();
+  const item = revisaoPorId(reviewId);
+  const permissao = comandoPermitido(s);
+  if (!item || !acoesDaRevisao(item, { podeComandar: permissao.pode, motivoSemComando: permissao.motivo }).repetir.pode) return false;
+  const aparelho = nomeDoAparelhoNaTela(s, item.dev);
+  if (!await confirmar(repetirConfirmacao({ aparelho, pr: '' }))) return false;
+  return emitirComando({ alvo: item.dev, tipo: 'repetir', args: { prTag: item.prTag, matTag: item.matTag } }, aparelho);
+}
+
+function confirmarInicio(texto) {
+  return confirmModal({ title: texto.title, body: texto.body, confirmLabel: 'Começar agora', cancelLabel: 'Voltar' });
+}
+
+function candidatoPorItem(itemId) {
+  const lista = ((syncAtual().distribuicao || {}).candidatos) || [];
+  return lista.find((c) => c && c.itemId === itemId) || null;
+}
+
+// Executores lidos AGORA (a mesma rota dos destinos, com o item no lugar do dono), escolha
+// entre os aptos, confirmação, e o comando ao aparelho escolhido, que é quem o aplica.
+async function iniciarCandidato(itemId, escolher = perguntarDestino, confirmar = confirmarInicio) {
+  const s = syncAtual();
+  const c = candidatoPorItem(itemId);
+  const permissao = comandoPermitido(s);
+  const contexto = { podeComandar: permissao.pode, motivoSemComando: permissao.motivo, devices: s.devices, deviceIdLocal: s.deviceId };
+  if (!c || !acoesDoCandidato(c, contexto).iniciar.pode) return false;
+  const resposta = await api('/api/sync/transfer-targets', { itemId });
+  const dialogo = inicioDialogo(resposta, c);
+  const destino = await escolher(dialogo);
+  if (!dialogo.pode || !dialogo.aptos.includes(destino)) return false;
+  const nome = nomeDoDestinoEscolhido(resposta, destino, s);
+  if (!await confirmar(inicioConfirmacao({ destino: nome, pr: (c.pr && c.pr.key) || '' }))) return false;
+  return emitirComando({ alvo: destino, tipo: 'iniciar', args: { prTag: c.prTag, matTag: c.matTag } }, nome);
+}
+
 async function abrirRevisao(reviewId) {
   const r = await api('/api/sync/review-body', { reviewId });
   const aberta = revisaoAbertaHtml(r);
@@ -329,7 +401,9 @@ function aoClicarCompartilhado(e) {
   const transferir = e.target.closest('.md-transferir');
   if (transferir) { transferirOperacao(transferir.dataset.op); return; }
   const tomar = e.target.closest('.md-tomar');
-  if (tomar) tomarOperacao(tomar.dataset.op);
+  if (tomar) { tomarOperacao(tomar.dataset.op); return; }
+  const iniciar = e.target.closest('.md-iniciar');
+  if (iniciar) iniciarCandidato(iniciar.dataset.item);
 }
 
 function aoClicarHistorico(e) {
@@ -337,6 +411,8 @@ function aoClicarHistorico(e) {
   if (escopo) { REVISOES.escopo = escopo.dataset.escopo; buscarRevisoes(); return; }
   const ver = e.target.closest('.md-ver-revisao');
   if (ver) { abrirRevisao(ver.dataset.review); return; }
+  const repetir = e.target.closest('.md-repetir');
+  if (repetir) { repetirRevisao(repetir.dataset.review); return; }
   if (e.target.closest('.md-medir')) { medirHistorico(); return; }
   if (e.target.closest('.md-enviar')) enviarHistorico();
 }
@@ -358,5 +434,5 @@ function registrarTelaRadarCompartilhado() {
 export {
   registrarTelaRadarCompartilhado, renderCompartilhado, aoAndamentoRemoto, aoPendenciasRemotas,
   marcarVisto, decidirNoAparelho, cancelarOperacao, transferirOperacao, tomarOperacao, medirHistorico, enviarHistorico,
-  atualizarRecibos,
+  atualizarRecibos, repetirRevisao, iniciarCandidato, buscarRevisoes,
 };

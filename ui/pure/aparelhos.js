@@ -64,13 +64,60 @@ function chipsDoAparelho(d, opcoes) {
   return chips.join('');
 }
 
+// DESIGNAR OUTRO ADMIN (C6) não promove ninguém: o comando acende o pedido no aparelho de
+// destino, e quem promove é a senha digitada LÁ. Por isso a ação só existe para outro
+// aparelho, vivo e não aposentado, e o desfecho fica pendente até o recibo de lá.
+export function aparelhosDesignarAcao(d, ctx) {
+  const x = ctx || {};
+  const a = d || {};
+  if (a.euMesmo === true) return { pode: false, motivo: 'este aparelho já decide a própria autoridade em "Tornar este aparelho admin"' };
+  if (x.souAdmin !== true) return { pode: false, motivo: 'só o aparelho admin, com sinal fresco, designa outro admin' };
+  if (Number(a.retiredAt) > 0) return { pode: false, motivo: 'aparelho aposentado' };
+  if (a.semPresenca === true) return { pode: false, motivo: 'sem presença recente, e o pedido venceria antes de ele ler' };
+  if (a.contract !== 2 || a.keyReady !== true) return { pode: false, motivo: 'em versão antiga ou sem a chave do conjunto aberta' };
+  return { pode: true, motivo: '' };
+}
+
+// O texto que a pessoa lê ANTES de mandar: o que acontece, e o que não acontece.
+export function aparelhosDesignarConfirmacao(nome) {
+  return {
+    title: `Designar o ${nome} como admin?`,
+    body: `<p><b>Acontece:</b> um pedido acende no <b>${esc(nome)}</b>, e ele vira admin só quando alguém digitar a senha da sincronização lá. O desfecho aparece aqui quando ele responder: aceito ou recusado.</p>
+      <p><b>Não acontece:</b> nada muda no admin vigente agora, nenhuma geração nova é criada daqui, e nenhuma senha é pedida neste aparelho.</p>`,
+  };
+}
+
+// Enquanto o recibo não chega, o pedido é PENDENTE, e vencido não quer dizer recusado: o
+// aparelho pode ter lido e estar esperando a senha. A tela diz as duas possibilidades em
+// vez de escolher uma.
+export function aparelhosDesignacaoPendente(comandos, recibos, deviceId) {
+  const lista = (Array.isArray(comandos) ? comandos : []).filter((c) => c && c.tipo === 'designar-admin' && c.alvo === deviceId);
+  if (!lista.length) return '';
+  const cmd = lista[0];
+  const recibo = (recibos || {})[cmd.cmdId] || null;
+  if (recibo && recibo.estado === 'aplicado') return '';
+  if (recibo && recibo.estado === 'recusado') return chip('bad', 'recusou ser admin');
+  if (recibo && recibo.estado === 'ignorado') return chip('mute', 'ignorou a designação');
+  return chip('info', 'designação pendente');
+}
+
+// O admin vê o ato ou o motivo dele não caber: aparelho aposentado, sem presença ou em
+// versão antiga não vira admin, e o silêncio ali pareceria esquecimento da tela.
+function designarHtml(d, souAdmin) {
+  const acao = aparelhosDesignarAcao(d, { souAdmin });
+  if (acao.pode) return `<button class="btn sm ghost" data-apar-designar="${esc(String(d.deviceId || ''))}">Designar como admin</button>`;
+  if (!souAdmin || d.euMesmo === true) return '';
+  return `<span class="sync-fraco">designar: ${esc(acao.motivo)}</span>`;
+}
+
 function acoesDoAparelho(d, souAdmin) {
   const id = esc(String(d.deviceId || ''));
   const botoes = [`<button class="btn sm ghost" data-apar-renomear="${id}">Renomear</button>`];
   if (souAdmin) botoes.push(`<button class="btn sm ghost" data-apar-politica="${id}">Política</button>`);
   if (Number(d.retiredAt) > 0) botoes.push(`<button class="btn sm ghost" data-apar-reativar="${id}">Reativar</button>`);
   else botoes.push(`<button class="btn sm ghost" data-apar-aposentar="${id}">Aposentar</button>`);
-  return `<span class="row-actions">${botoes.join('')}</span>`;
+  botoes.push(designarHtml(d, souAdmin));
+  return `<span class="row-actions">${botoes.filter(Boolean).join('')}</span>`;
 }
 
 function linhaDoAparelho(d, opcoes) {
@@ -79,7 +126,8 @@ function linhaDoAparelho(d, opcoes) {
   // vazio pareceria um aparelho sem app
   const versao = d.farolVersion ? `v${d.farolVersion}` : 'desconhecida';
   const visto = Number(d.lastSeenAt) > 0 ? fmtWhenDay(d.lastSeenAt, o.agora) : 'nunca';
-  return `<div class="apar-linha"><span class="sync-nome">${esc(nomeDe(d))}${chipsDoAparelho(d, o)}</span><span class="sync-fraco">${esc(d.platform || 'sistema desconhecido')}</span><span class="sync-fraco">${esc(versao)}</span><span class="sync-fraco">${esc(visto)}</span>${acoesDoAparelho(d, o.souAdmin === true)}</div>`;
+  const pendente = aparelhosDesignacaoPendente(o.comandosEmitidos, o.recibos, String(d.deviceId || ''));
+  return `<div class="apar-linha"><span class="sync-nome">${esc(nomeDe(d))}${chipsDoAparelho(d, o)}${pendente}</span><span class="sync-fraco">${esc(d.platform || 'sistema desconhecido')}</span><span class="sync-fraco">${esc(versao)}</span><span class="sync-fraco">${esc(visto)}</span>${acoesDoAparelho(d, o.souAdmin === true)}</div>`;
 }
 
 // A versão mínima vem do snapshot (a MESMA constante que decide a cobertura); sem ela, a
@@ -254,7 +302,7 @@ export function aparelhosSecaoHtml(entrada) {
   return `${capacidadesDoEstreito(e.capacidades)}${aparelhosAdminHtml(admin, { devices: s.devices, agora: e.agora })}
     ${aparelhosDesignacaoHtml(s.designacaoAdmin, e.agora)}
     <div class="sync-sub-head">Aparelhos da conta</div>
-    ${aparelhosListaHtml(s.devices, { cobertura: s.coberturaPostagem, admin: admin || {}, agora: e.agora, souAdmin, versaoMinima: s.versaoPostagemCoordenada })}
+    ${aparelhosListaHtml(s.devices, { cobertura: s.coberturaPostagem, admin: admin || {}, agora: e.agora, souAdmin, versaoMinima: s.versaoPostagemCoordenada, comandosEmitidos: s.comandosEmitidos, recibos: e.recibos })}
     ${aparelhoPoliticaHtml(e.politicaDe, { recusa: e.politicaRecusa, leitura: e.politicaLeitura })}
     ${aparelhosConsentimentoHtml(cfg)}
     ${aparelhosNavegadoresHtml(e.auth, e.agora)}

@@ -8,7 +8,7 @@
 // hora de largar a sessão (lib/engine/sync-transferencia.js), e o executor da tomada
 // confere o head e a vaga. A tela só não oferece o que ela já sabe que seria recusado, e
 // diz por quê.
-import { esc, fmtClock } from './comum.js';
+import { esc, fmtClock, fmtDur } from './comum.js';
 import { prRefMention } from './mencoes.js';
 import { nomeDoAparelho } from './compartilhado.js';
 
@@ -26,6 +26,7 @@ const MOTIVO_DESTINO = {
   'sem-credencial': 'sem credencial desta conta',
   'memoria-desconhecida': 'sem medida de memória livre, e a admissão não admite assim',
   'memoria-baixa': 'com memória livre abaixo do piso da admissão',
+  'nao-publicou': 'não publicou este candidato, e só quem publicou consegue executá-lo',
 };
 
 function textoDoMotivo(motivo) {
@@ -86,6 +87,95 @@ export function transferenciaConfirmacao({ origem, destino }) {
     title: `Transferir para ${destino}?`,
     body: `<p>O comando vai ao <b>${esc(origem)}</b>, que confere o destino de novo antes de largar a sessão. O resultado aparece quando ele responder com o recibo.</p>`,
   };
+}
+
+/* ---------- 2.9: iniciar um candidato que espera colocação ---------- */
+
+// A escolha de ONDE forçar o início. Mesma lista de destinos da transferência, lida com o
+// item no lugar do dono: quem publicou o candidato é quem consegue executá-lo, e os outros
+// aparecem inaptos com o motivo. Aqui não existe origem: quem aplica é o próprio destino.
+export function inicioDialogo(resposta, candidato) {
+  const r = resposta || null;
+  if (!r || r.ok !== true || !Array.isArray(r.destinos)) {
+    return indisponivel('Aparelhos indisponíveis', '<p>Não deu para ler quem publicou este item e o que cada aparelho consegue fazer agora. Forçar o início fica indisponível até a leitura voltar.</p>');
+  }
+  const aptos = r.destinos.filter((d) => d && d.apto === true);
+  if (!aptos.length) {
+    return indisponivel('Nenhum aparelho apto agora', `<p>Nenhum aparelho pode começar esta análise agora. Os motivos de cada um:</p>${listaHtml(r.destinos)}`);
+  }
+  return {
+    pode: true,
+    titulo: `Começar ${rotuloDoCandidato(candidato)} agora`,
+    corpo: `<p>O comando vai ao aparelho escolhido, que reserva a vaga pela admissão dele e entra pelo caminho local de sempre. O commit é conferido lá: se ele mudou desde esta tela, o pedido é recusado.</p>${listaHtml(r.destinos)}`,
+    opcoes: aptos.map((d) => ({ valor: d.deviceId, rotulo: `Começar no ${rotuloDoDestino(d)}`, classe: 'primary' })),
+    aptos: aptos.map((d) => d.deviceId),
+  };
+}
+
+export function inicioConfirmacao({ destino, pr }) {
+  return {
+    title: `Começar no ${destino}?`,
+    body: `<p>${esc(pr || 'Esta análise')} sai da espera e vai para o <b>${esc(destino)}</b>, sem esperar a vez do rodízio. Ele confere a vaga e o commit antes de começar, e o resultado aparece quando ele responder com o recibo.</p>`,
+  };
+}
+
+function rotuloDoCandidato(c) {
+  const pr = (c && c.pr) || null;
+  if (pr && pr.key) return pr.key;
+  return c && c.owner ? `um PR de ${c.owner}` : 'esta análise';
+}
+
+function tituloDoCandidato(c) {
+  const pr = (c && c.pr) || null;
+  if (!pr || !pr.key) return `Um PR${c.owner ? ` de ${esc(c.owner)}` : ''}, sem nome nesta tela (o catálogo cifrado não abriu)`;
+  return `${prRefMention(pr.key)}${pr.title ? ` <span class="md-fraco">${esc(pr.title)}</span>` : ''}`;
+}
+
+// Oferecer o botão onde ele seria recusado é pior que não oferecer: cada motivo aqui é uma
+// recusa que o executor já faria (`nao_publiquei`), ou uma escolha que o distribuidor já
+// tomou (atribuição viva) e que duplicaria o trabalho.
+export function acoesDoCandidato(candidato, ctx) {
+  const c = candidato || {};
+  const x = ctx || {};
+  const semAdmin = x.podeComandar === true ? '' : (x.motivoSemComando || 'só o aparelho admin, com sinal fresco, emite comandos');
+  const publicadores = Array.isArray(c.publicadores) ? c.publicadores : [];
+  const atribuido = c.atribuido && c.atribuido.dev ? nomeNaLista(x.devices, x.deviceIdLocal, c.atribuido.dev) : '';
+  const falta = faltaParaIniciar({ c, publicadores, atribuido });
+  return { iniciar: { pode: !semAdmin && !falta, motivo: semAdmin || falta } };
+}
+
+function faltaParaIniciar({ c, publicadores, atribuido }) {
+  if (!c.prTag || !c.matTag) return 'o item não identifica o PR e o commit';
+  if (!publicadores.length) return 'nenhum aparelho publicou este candidato agora';
+  return atribuido ? `o distribuidor já escolheu o ${atribuido} e espera ele aceitar` : '';
+}
+
+function candidatoHtml(c, ctx) {
+  const acoes = acoesDoCandidato(c, ctx);
+  const espera = c.desde ? `esperando há ${esc(fmtDur(Math.max(0, (ctx.agora || Date.now()) - c.desde)))}` : 'esperando colocação';
+  const quantos = `${c.publicadores.length === 1 ? '1 aparelho pode executar' : `${c.publicadores.length} aparelhos podem executar`}`;
+  const botao = acoes.iniciar.pode
+    ? `<button class="btn sm ghost md-iniciar" data-item="${esc(c.itemId)}">Começar em um aparelho…</button>`
+    : `<span class="md-nota">Começar agora: indisponível, ${esc(acoes.iniciar.motivo)}</span>`;
+  return `<div class="card md-op">
+    <div class="md-linha"><span class="sync-chip mute">esperando distribuição</span><span class="md-espaco"></span><span class="md-fraco">${esc(espera)}</span></div>
+    <div class="md-titulo">${tituloDoCandidato(c)}</div>
+    <div class="md-sub">${esc(quantos)}</div>
+    <div class="md-acoes">${botao}</div>
+  </div>`;
+}
+
+// `sync.distribuicao.candidatos` só existe no aparelho que agenda (o admin). Vazio não
+// desenha nada: a seção some, e a fila vazia continua sendo fila vazia.
+export function candidatosDoConjuntoHtml(candidatos, ctx) {
+  const lista = (Array.isArray(candidatos) ? candidatos : []).filter((c) => c && c.itemId);
+  if (!lista.length) return '';
+  const x = ctx || {};
+  const contexto = {
+    podeComandar: x.podeComandar === true, motivoSemComando: x.motivoSemComando || '',
+    devices: x.devices, deviceIdLocal: x.deviceIdLocal || '', agora: x.agora || Date.now(),
+  };
+  return lista.map((c) => candidatoHtml({ ...c, publicadores: Array.isArray(c.publicadores) ? c.publicadores : [] }, contexto)).join('');
 }
 
 /* ---------- divergência 4: o comando no card do PR ---------- */

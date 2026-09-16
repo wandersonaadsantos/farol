@@ -16,7 +16,7 @@
    As ações recebem as dependências por parâmetro (`deps`), com o default real. É assim que
    os testes exercitam o fluxo sem rede e sem DOM de verdade. */
 
-import { esc, aparelhosSecaoHtml, aparelhosSouAdmin, aparelhosCampoSenhaModal, aparelhosResultadoDaLimpeza, aparelhoPoliticaParaPublicar, syncOlhoRotulo, syncOlhoDesenho, settingsIgnoradasTexto } from '../pure.js';
+import { esc, aparelhosSecaoHtml, aparelhosSouAdmin, aparelhosCampoSenhaModal, aparelhosDesignarAcao, aparelhosDesignarConfirmacao, aparelhosResultadoDaLimpeza, aparelhoPoliticaParaPublicar, reciboFinal, syncOlhoRotulo, syncOlhoDesenho, settingsIgnoradasTexto } from '../pure.js';
 import { estado } from './estado.js';
 import { $, api, get, toast, confirmModal } from './infra.js';
 
@@ -28,6 +28,10 @@ let limpando = false;
 let politicaAberta = '';
 let politicaLeitura = null;
 let politicaRecusa = '';
+// os recibos das designações enviadas daqui: leitura avulsa, uma por comando aberto, com
+// piso de tempo (sem ele, cada snapshot repetiria a consulta)
+const RECIBO_MIN_MS = 10000;
+const RECIBOS = { mapa: {}, emCurso: null, at: 0 };
 
 function syncDoEstado() {
   return (estado() && estado().sync) || {};
@@ -61,8 +65,61 @@ export function renderAparelhos() {
   const politicaDe = politicaAberta ? lista.find((d) => d && d.deviceId === politicaAberta) : null;
   box.innerHTML = aparelhosSecaoHtml({
     sync: s, cfg: cfgSync(), auth: navegadores, limpeza, limpando, politicaDe, politicaLeitura, politicaRecusa,
-    capacidades: estado() && estado().capacidades, agora: Date.now(),
+    capacidades: estado() && estado().capacidades, agora: Date.now(), recibos: RECIBOS.mapa,
   });
+  lerRecibosDaDesignacao();
+}
+
+/* ---------- designar outro aparelho como admin (C6) ---------- */
+
+function designacoesAbertas() {
+  const s = syncDoEstado();
+  return (Array.isArray(s.comandosEmitidos) ? s.comandosEmitidos : [])
+    .filter((c) => c && c.tipo === 'designar-admin' && c.cmdId && !reciboFinal(RECIBOS.mapa[c.cmdId]));
+}
+
+async function lerAbertas(d, abertos) {
+  let mudou = false;
+  for (const c of abertos) {
+    const r = await d.api('/api/sync/command-status', { cmdId: c.cmdId });
+    if (r && r.ok === true && r.recibo) { RECIBOS.mapa[c.cmdId] = r.recibo; mudou = true; }
+  }
+  return mudou;
+}
+
+// O desfecho de uma designação só existe com o recibo do aparelho de destino, e ele pode
+// demorar o tempo de alguém digitar a senha lá. A tela pergunta enquanto o recibo não for
+// final, uma consulta por vez: quem chega com outra em curso espera ela terminar (sem
+// isso, o pedido forçado logo depois de uma ação voltaria sem ler nada). Só repinta
+// quando algum recibo chegou.
+export async function lerRecibosDaDesignacao(d = DEPS, { forcar = false } = {}) {
+  if (RECIBOS.emCurso) await RECIBOS.emCurso;
+  const abertos = designacoesAbertas();
+  if (!abertos.length) return false;
+  if (!forcar && Date.now() - RECIBOS.at < RECIBO_MIN_MS) return false;
+  RECIBOS.at = Date.now();
+  RECIBOS.emCurso = lerAbertas(d, abertos);
+  let mudou = false;
+  try { mudou = await RECIBOS.emCurso; } finally { RECIBOS.emCurso = null; }
+  if (mudou) renderAparelhos();
+  return mudou;
+}
+
+// Designar NÃO promove ninguém daqui: manda o pedido, e quem promove é a senha digitada
+// no aparelho de destino. A guarda do ato fica aqui também, porque um snapshot novo pode
+// tirar a autoridade entre o desenho da linha e o clique.
+export async function designarAdmin(deviceId, d = DEPS) {
+  const s = syncDoEstado();
+  const alvo = (Array.isArray(s.devices) ? s.devices : []).find((x) => x && x.deviceId === deviceId);
+  if (!alvo || !aparelhosDesignarAcao(alvo, { souAdmin: aparelhosSouAdmin(s.admin) }).pode) return false;
+  const nome = String(alvo.name || deviceId);
+  const texto = aparelhosDesignarConfirmacao(nome);
+  const resp = await d.confirmarComCampo({ title: texto.title, confirmLabel: 'Enviar o pedido', body: texto.body }, '');
+  if (!resp.ok) return false;
+  const r = await d.api('/api/sync/command', { alvo: deviceId, tipo: 'designar-admin', args: {} });
+  if (r && r.ok === true) d.toast('info', `Pedido enviado ao ${nome}. Ele vira admin quando alguém digitar a senha lá.`, 6000);
+  else d.toast('error', `O pedido não saiu: ${motivoDe(r)}`, 7000);
+  return !!(r && r.ok === true);
 }
 
 /* ---------- leituras sob demanda ---------- */
@@ -357,6 +414,7 @@ function aoClicarNoAparelho(b) {
   if (ds.aparAposentar) { aposentarAparelho(ds.aparAposentar, true).then(renderAparelhos); return; }
   if (ds.aparReativar) { aposentarAparelho(ds.aparReativar, false).then(renderAparelhos); return; }
   if (ds.aparPolitica) { abrirPolitica(ds.aparPolitica); return; }
+  if (ds.aparDesignar) { designarAdmin(ds.aparDesignar).then(renderAparelhos); return; }
   if (ds.aparRevogarSessao) aoRevogarSessao(ds.aparRevogarSessao);
 }
 

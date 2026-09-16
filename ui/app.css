@@ -1877,3 +1877,20 @@ body.parear > *:not(.par-raiz) { display: none !important; }
   .md-destino { min-height: 44px; justify-content: center; }
   .pr-coord .md-goto { min-height: 44px; }
 }
+
+/* ---------- repetir, iniciar e designar admin pela tela (B2, itens 2.5 e 2.9) ----------
+   Os botões novos reaproveitam .md-acoes, .md-rev e a linha do aparelho, que já chegam a
+   44 px no estreito. Só as notas de "indisponível" são novas: na linha da revisão ela ocupa
+   a linha inteira em vez de espremer o chip, e na linha do aparelho ela quebra junto das
+   ações. */
+.md-rev .md-nota { flex-basis: 100%; margin: 0; }
+.apar-linha .row-actions .sync-fraco { flex-basis: 100%; text-align: right; }
+@media (max-width: 860px) {
+  .md-rev .md-nota { font-size: 11.5px; }
+}
+@media (max-width: 720px) {
+  .apar-linha .row-actions .sync-fraco { text-align: left; }
+}
+@media (max-width: 620px) {
+  .md-rev .md-nota { padding: 4px 0; }
+}
