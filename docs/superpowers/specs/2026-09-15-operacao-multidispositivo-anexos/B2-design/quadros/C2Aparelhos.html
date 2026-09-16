@@ -32,7 +32,7 @@
         <span class="nome">Celular de teste <span class="chip mute">aposentado</span></span><span class="fraco">Android</span><span>v2.59.5</span><span class="fraco">há 9 dias</span><span class="row-actions"><span class="btn sm ghost">Reativar</span></span>
       </div>
     </div>
-    <p class="sys-note" style="padding: 0 18px;">"Garantia não coberta": um aparelho em versão anterior à 2.60.0 não participa da arbitragem de postagem. Nas contas que ele também revisa (<b>acme-exemplo</b>), dois Farois podem postar no mesmo PR até ele ser atualizado. <a href="#">Como atualizar o Farol</a></p>
+    <p class="sys-note" style="padding: 0 18px;">"Garantia não coberta": um aparelho em versão anterior à 2.59.4 não participa da arbitragem de postagem. Nas contas que ele também revisa (<b>acme-exemplo</b>), dois Farois podem postar no mesmo PR até ele ser atualizado. <a href="#">Como atualizar o Farol</a></p>
   </div>
 
   <div class="grade-2">
@@ -47,18 +47,20 @@
   </div>
 
   <div class="card" style="display: flex; flex-direction: column; gap: 12px;">
-    <div style="display: flex; align-items: center; gap: 10px;"><span class="sync-titulo">Política do Desktop antigo</span><span class="chip ok">aceita pelo aparelho</span><span class="espaco"></span><span class="faint" style="font-size: 12px;">versão 5</span></div>
+    <div style="display: flex; align-items: center; gap: 10px;"><span class="sync-titulo">Política do Desktop antigo</span><span class="chip ok">publicada, versão 5</span></div>
+    <span class="set-desc">O formulário abre com a política vigente no banco. O aparelho aplica o que for publicado se aceitar o admin. Esse aceite acontece no aparelho de destino e não volta para esta tela.</span>
     <div class="grade-3" style="align-items: end;">
       <div class="campo"><label>Pausado</label><div style="display: flex; gap: 8px; align-items: center;"><span class="switch"></span><span class="fraco">não</span></div></div>
-      <div class="campo"><label>Teto de paralelismo</label><span class="select">2 sessões</span></div>
+      <div class="campo"><label>Teto de paralelismo</label><span class="select">2 sessões</span><span class="dica">ou "não definir (vale o do aparelho)"</span></div>
       <div class="campo"><label>Tipos permitidos</label><span>revisão, autoanálise</span></div>
     </div>
     <div class="row-actions"><span class="btn primary sm">Publicar política</span><span class="dica">Só restringe: nada que chega pelo banco amplia o que o aparelho já permite.</span></div>
   </div>
   <div class="grade-3">
-    <div><div class="estado-rot">Recusada pelo aparelho</div><div class="faixa"><span class="chip bad">recusada</span><span class="muted">assinatura não confere</span></div></div>
-    <div><div class="estado-rot">Sem consentimento</div><div class="faixa"><span class="chip mute">ignorada</span><span class="muted">o aparelho não aceita o admin</span></div></div>
-    <div><div class="estado-rot">Geração antiga</div><div class="faixa"><span class="chip bad">recusada</span><span class="muted">publicada por admin anterior</span></div></div>
+    <div><div class="estado-rot">Lendo a política</div><div class="faixa"><span class="pill busy">lendo</span><span class="muted">lendo a política vigente no banco…</span></div></div>
+    <div><div class="estado-rot">Sem política</div><div class="faixa"><span class="chip mute">sem política</span><span class="muted">Ainda não há nenhuma política publicada para este aparelho: ele vale pela própria configuração.</span></div></div>
+    <div><div class="estado-rot">Não se prova</div><div class="faixa"><span class="chip bad">não se prova</span><span class="muted">A política que está no banco não se prova como do admin vigente (outra geração ou assinatura que não confere), então não é mostrada. Publicar substitui a política inteira.</span></div></div>
+    <div><div class="estado-rot">Falha na leitura</div><div class="faixa"><span class="chip bad">falha na leitura</span><span class="muted">Não deu para ler a política atual: sem conexão. Publicar substitui a política inteira pelo que está abaixo.</span></div></div>
     <div><div class="estado-rot">Primeiro aparelho</div><div class="faixa"><span class="muted">Só este aparelho na conta. Nada é compartilhado até haver outro pronto.</span></div></div>
     <div><div class="estado-rot">Este é o admin</div><div class="faixa"><span class="chip warn">admin</span><span class="muted">batimento em dia, geração 4</span></div></div>
     <div><div class="estado-rot">Sem presença</div><div class="faixa"><span class="chip mute">sem presença</span><span class="muted">visto há 3 dias</span></div></div>
@@ -76,20 +78,22 @@
   <div class="section-head"><h2>Limpeza e revogação</h2></div>
   <div class="grade-2">
     <div class="card" style="display: flex; flex-direction: column; gap: 8px;">
-      <div style="display: flex; align-items: center; gap: 10px;"><span class="set-title">Chave de limpeza</span><span class="chip bad">bloqueada</span></div>
-      <span class="set-desc">O banco não confere senha recente, então a limpeza não é publicada. Apagar dados compartilhados fica no console do Firebase. <a href="#">Como limpar pelo console</a></span>
-      <span class="dica">Nunca apagados pelo app: chaveiro, posses e recibos.</span>
+      <div style="display: flex; align-items: center; gap: 10px;"><span class="set-title">Chave de limpeza</span><span class="chip bad">não confirmada</span></div>
+      <span class="set-desc">O banco não dá para confirmar a chave de limpeza agora (ela pode estar desligada, ou a autoridade do admin não está verificável). Enquanto isso a limpeza não é oferecida, e apagar dado compartilhado fica no console do Firebase.</span>
+      <span class="dica">Alcança: capacidade dos aparelhos, políticas dos aparelhos, grupos de consumo, catálogo de PRs, revisões recentes, corpos das revisões, Panorama, Meus PRs, contestações, fila compartilhada, atribuições, comandos, recibos de comando, checkpoints e consumo.</span>
+      <span class="dica">Nunca apagados pelo app: chaveiro, controle do conjunto, posses, recibos, rodadas do dia.</span>
     </div>
     <div class="card" style="display: flex; flex-direction: column; gap: 8px;">
       <span class="set-title">Revogar o conjunto</span>
-      <span class="set-desc">Corta todos os acessos anteriores a agora e retira o consentimento deste aparelho. Não cancela sessões em andamento em outro aparelho nem apaga o que eles já receberam.</span>
+      <span class="set-desc">Corta todos os acessos anteriores a agora e obriga cada aparelho a entrar de novo. Não cancela sessão em andamento em outro aparelho, não apaga o que eles já receberam e não depõe o admin.</span>
+      <span class="dica">Revogar não retira o consentimento deste aparelho: isso é o interruptor "Aceitar políticas e comandos do admin", acima, e vale só aqui.</span>
       <div class="row-actions"><span class="btn sm danger">Revogar com a senha…</span></div>
     </div>
   </div>
   <div class="grade-3">
     <div><div class="estado-rot">Chave de limpeza desligada</div><div class="faixa"><span class="chip mute">desligada</span><span class="btn sm ghost">Ligar</span></div></div>
     <div><div class="estado-rot">Chave de limpeza ligada</div><div class="faixa"><span class="chip warn">ligada</span><span class="btn sm danger">Limpar com a senha…</span></div></div>
-    <div><div class="estado-rot">Limpeza em andamento</div><div class="faixa"><span class="pill busy">limpando</span><span class="muted">trava de até 10 minutos</span></div></div>
+    <div><div class="estado-rot">Limpeza em andamento</div><div class="faixa"><span class="chip warn">limpando</span><span class="muted">Uma limpeza está em andamento, disparada pelo Desktop antigo. A trava vale até 10:12, e enquanto isso nenhuma outra é oferecida.</span></div></div>
   </div>
 </div>
 </div>
