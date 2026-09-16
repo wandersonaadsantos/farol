@@ -42,7 +42,8 @@ async function buscarListas() {
 
 function mesclar(locais, tipo, filtro) {
   const sync = syncAtual();
-  if (sync.shared === true && !sync.bloqueioCompartilhamento && !LISTAS.dados) buscarListas();
+  // quem decide se ainda falta a projeção é buscarListas, numa guarda só
+  if (sync.shared === true && !sync.bloqueioCompartilhamento) buscarListas();
   return mesclarListaRemota(locais, LISTAS.dados, tipo, { sync, filtro, agora: Date.now() });
 }
 
