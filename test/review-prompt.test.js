@@ -32,6 +32,11 @@ const LOTES = planLotes([
 ]);
 const METRICS = { changedFiles: 4, lines: 1450 };
 
+// Os `await` de topo vêm ANTES do primeiro caso: com `--test-force-exit`, o processo
+// encerra quando os casos já registrados terminam, e um `await` que só volta depois
+// disso deixa os casos seguintes CANCELADOS, numa rodada que ainda diz "0 falhas".
+const { checkpointPath } = await import('../lib/engine/verification-checkpoint.js');
+
 test('headlessPromptFor: sem lotes, o prompt não ganha o bloco de fan-out', () => {
   const prompt = new Engine().headlessPromptFor(URL_PR, 'alice');
   assert.equal(typeof prompt, 'string');
@@ -81,7 +86,6 @@ test('headlessPromptFor: o prompt com lotes é um superconjunto do sem lotes', (
    que varre as ~97 fachadas derivando a expectativa do próprio fonte. Aqui ficou só o
    comportamento: o bloco de fan-out realmente chega no prompt. */
 
-const { checkpointPath } = await import('../lib/engine/verification-checkpoint.js');
 
 test('headlessPromptFor: {{CHECKPOINT_PATH}} é substituído pelo caminho real do checkpoint', () => {
   const prompt = new Engine().headlessPromptFor(URL_PR, 'alice');

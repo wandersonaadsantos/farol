@@ -16,6 +16,11 @@ const run = (name, conclusion, over = {}) => ({
   name, conclusion, status: 'COMPLETED', startedAt: '2026-08-31T10:00:00Z', ...over,
 });
 
+// Os `await` de topo vêm ANTES do primeiro caso: com `--test-force-exit`, o processo
+// encerra quando os casos já registrados terminam, e um `await` que só volta depois
+// disso deixa os casos seguintes CANCELADOS, numa rodada que ainda diz "0 falhas".
+const skip = (await import('../lib/engine/skip-review.js')).default;
+
 test('todos os obrigatórios verdes libera', () => {
   const rollup = [run('lint', 'SUCCESS'), run('test', 'SUCCESS'), run('sonar', 'FAILURE')];
   const r = checksExigidosVerdes(rollup, ['lint', 'test']);
@@ -93,7 +98,6 @@ test('check de status legado (context em vez de name) é entendido', () => {
 });
 
 /* ---------- fiação: o gate entra na boca única do lançamento automático ---------- */
-const skip = (await import('../lib/engine/skip-review.js')).default;
 
 const LIVRE = { bloqueado: false, head: 'sha', quem: [], decisivos: [] };
 const PR = { key: 'o/r#1', repo: 'o/r', number: 1, url: 'https://github.com/o/r/pull/1' };

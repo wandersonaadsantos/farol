@@ -20,6 +20,12 @@ after(() => {
 // os casos já registrados terminam, e um `await` de topo depois deles pode nunca voltar.
 const { Engine } = await import('../server.js');
 
+// Os `await` de topo vêm ANTES do primeiro caso: com `--test-force-exit`, o processo
+// encerra quando os casos já registrados terminam, e um `await` que só volta depois
+// disso deixa os casos seguintes CANCELADOS, numa rodada que ainda diz "0 falhas".
+const { inlineFallbackPayload } = await import('../lib/engine/decision.js');
+const fanout = (await import('../lib/engine/fanout.js')).default;
+
 test('normalizeReviewPayload: commit_id sha válido é preservado', () => {
   const r = normalizeReviewPayload({ event: 'APPROVE', body: 'ok', comments: [], commit_id: 'a'.repeat(40) });
   assert.equal(r.ok, true);
@@ -101,7 +107,6 @@ test('decide(): pendência SEM headSha (gravada antes do campo) cai no head busc
   assert.equal(capturado.payload.commit_id, 'f'.repeat(40), 'sem head lido, âncora nenhuma é pior que a fresca');
 });
 
-const { inlineFallbackPayload } = await import('../lib/engine/decision.js');
 
 // O 422 do GitHub não distingue âncora de LINHA inválida de âncora de HEAD inválida. Se o
 // retry reenviasse o mesmo commit_id, um 422 causado pelo próprio sha falharia idêntico e o
@@ -136,7 +141,6 @@ test('fallback de inline: o payload normalizado do fallback sai sem âncora de h
 // (knownHead). Se o gh falhar no início da sessão, cair pro headSha vazio degradaria o
 // dedup pro comportamento antigo e o round 2 morreria como already_reviewed, com a
 // âncora do relançamento já gasta. O fallback também ancora o review postado.
-const fanout = (await import('../lib/engine/fanout.js')).default;
 const prMetricsOriginal = fanout.prMetrics;
 fanout.prMetrics = async () => null;
 after(() => { fanout.prMetrics = prMetricsOriginal; });

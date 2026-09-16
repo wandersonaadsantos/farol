@@ -65,6 +65,11 @@ function engineFalso(config = {}) {
   };
 }
 
+// Os `await` de topo vêm ANTES do primeiro caso: com `--test-force-exit`, o processo
+// encerra quando os casos já registrados terminam, e um `await` que só volta depois
+// disso deixa os casos seguintes CANCELADOS, numa rodada que ainda diz "0 falhas".
+const { pickLinuxTerminal, LINUX_TERMINALS } = await import('../lib/engine/session.js');
+
 test('spawn headless posix: /bin/sh -lc, detached e cwd no WORKSPACE', { skip: IS_WIN ? 'só roda em POSIX' : false }, async () => {
   let capturado = null;
   spawnImpl = (...args) => { capturado = args; return filhoFalso(); };
@@ -308,7 +313,6 @@ test('killTree posix: mata o grupo de processo inteiro, não só o líder', { sk
 
 /* ---------- Linux experimental (v2.45.0): escolha do terminal ---------- */
 
-const { pickLinuxTerminal, LINUX_TERMINALS } = await import('../lib/engine/session.js');
 
 test('pickLinuxTerminal: primeiro candidato existente vence, com os args dele', () => {
   const exists = c => c === 'konsole' || c === 'xterm';

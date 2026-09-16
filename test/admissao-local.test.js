@@ -37,6 +37,11 @@ function comMemoria(mb) {
   process.availableMemory = () => mb * 1024 * 1024;
 }
 
+// Os `await` de topo vêm ANTES do primeiro caso: com `--test-force-exit`, o processo
+// encerra quando os casos já registrados terminam, e um `await` que só volta depois
+// disso deixa os casos seguintes CANCELADOS, numa rodada que ainda diz "0 falhas".
+const reviewMod = (await import('../lib/engine/review.js')).default;
+
 test('ativa só com o compartilhamento ligado', () => {
   assert.equal(admissao.ativa(motor()), true);
   assert.equal(admissao.ativa({ config: { sync: { enabled: true, shared: { enabled: false } } } }), false);
@@ -143,7 +148,6 @@ test('cada reserva guarda a métrica e o piso que usou: é o ponto de coleta da 
 });
 
 // Fiação no escalonador: os critérios de aceite da C4 sobre a fila.
-const reviewMod = (await import('../lib/engine/review.js')).default;
 
 function engineFila(prs, extra = {}) {
   const e = motor(extra);
