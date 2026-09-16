@@ -3,8 +3,8 @@
 // só olhava a própria chave, e a rota nem devolvia a lista.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import { settingsIgnoradasTexto } from '../ui/pure.js';
+import { fonteDasTelas } from './helpers/fontes-ui.js';
 
 test('settingsIgnoradasTexto: vazio quando tudo entrou ou quando a resposta não diz nada', () => {
   assert.equal(settingsIgnoradasTexto({ ok: true, ignoradas: [] }), '');
@@ -22,7 +22,9 @@ test('settingsIgnoradasTexto: várias chaves, e item que não é texto fica de f
 });
 
 test('os três salvamentos da tela usam o texto das ignoradas, e nenhum filtra pela própria chave', () => {
-  const app = fs.readFileSync(new URL('../ui/app.js', import.meta.url), 'utf8');
+  // desde a Fase 1b os três handlers moram em ui/telas/ (acoes, sistema-jira, sistema-sync);
+  // a leitura cobre o bootstrap e todas as telas, então a contagem continua sendo da tela inteira
+  const app = fonteDasTelas();
   assert.equal((app.match(/settingsIgnoradasTexto\(r\)/g) || []).length, 3, 'saveJiraSites, saveSync e o laço do settingsMap');
   assert.equal(/r\.ignoradas\.includes\(/.test(app), false, 'filtrar pela própria chave escondia a recusa das outras');
 });

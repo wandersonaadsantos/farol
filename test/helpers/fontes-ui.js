@@ -38,4 +38,24 @@ function fonteDosPuros() {
   return arquivosDosPuros().map((a) => a.texto).join('\n');
 }
 
-export { arquivosDosPuros, fonteDosPuros };
+/**
+ * Os arquivos da tela com DOM (ui/app.js e ui/telas/*.js), bootstrap primeiro:
+ * `[{ nome, texto }]`. Mesmo motivo do `arquivosDosPuros`: teste preso a um arquivo fica
+ * cego quando o trecho que ele afirma muda de módulo, e cego passa verde.
+ */
+function arquivosDasTelas() {
+  const dir = path.join(RAIZ, 'ui', 'telas');
+  const modulos = fs.existsSync(dir)
+    ? fs.readdirSync(dir, { withFileTypes: true })
+      .filter((e) => e.isFile() && e.name.endsWith('.js'))
+      .map((e) => ({ nome: `telas/${e.name}`, texto: fs.readFileSync(path.join(dir, e.name), 'utf8') }))
+    : [];
+  return [{ nome: 'app.js', texto: fs.readFileSync(path.join(RAIZ, 'ui', 'app.js'), 'utf8') }, ...modulos];
+}
+
+/** Todo o código de tela com DOM concatenado, na ordem de leitura. */
+function fonteDasTelas() {
+  return arquivosDasTelas().map((a) => a.texto).join('\n');
+}
+
+export { arquivosDosPuros, fonteDosPuros, arquivosDasTelas, fonteDasTelas };

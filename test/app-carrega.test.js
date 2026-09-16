@@ -23,6 +23,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { instalarDom } from './helpers/dom-stub.js';
+import { arquivosDasTelas } from './helpers/fontes-ui.js';
+import { strip } from '../tools/quality/strip.js';
+import { telasRegistradas } from '../ui/telas/registro.js';
 
 // NOTA sobre o `--test-force-exit` no script de test: carregar o app.js liga os
 // timers dele (countdown, tick de elapsed, backoff de reconexão do SSE). O stub já
@@ -87,6 +90,22 @@ function semObjectObject(rotulo) {
 
 test('o app.js carrega e registra o handler de state do SSE', () => {
   assert.ok(listeners.has('state'), 'sem isto a tela nunca receberia estado nenhum');
+});
+
+test('a ordem REAL de registro das telas é entregas, destaques, time, sistema, consumo', () => {
+  // test/ui-telas-registro.test.js só prova a propriedade genérica (a ordem de
+  // registro é preservada); este aqui trava o valor de verdade. A ordem nasce do
+  // encadeamento de imports estáticos do ui/app.js (cada import estático roda por
+  // completo antes do próximo, na ordem em que aparece no arquivo) mais a chamada
+  // explícita de registrarTelaConsumo() no fim: um import novo em QUALQUER módulo
+  // de tela, se importar (direta ou indiretamente) um dos cinco antes da hora,
+  // pode reordenar isso em silêncio, e telasRegistradas() é a única fonte de
+  // verdade de quem desenha em cima de quem no rodapé de sistema.
+  assert.deepEqual(
+    telasRegistradas().map(t => t.id),
+    ['entregas', 'destaques', 'time', 'sistema', 'consumo'],
+    'ordem de registro mudou: um import novo em algum módulo de tela reordenou o encadeamento em silêncio'
+  );
 });
 
 test('toast trata conteúdo recebido como texto, nunca como HTML', () => {
@@ -188,22 +207,77 @@ test('aba Sistema ativa: doctor, contas e perfis desenham sem explodir', () => {
   document.querySelector('#tab-sistema').classList.remove('active');
 });
 
-/* Import morto: símbolo trazido do pure.js que ninguém mais usa depois de uma
+/* Import morto: símbolo trazido de outro módulo que ninguém mais usa depois de uma
    extração. Não quebra nada em runtime, então passa por `node --check`, pelo lint,
    pela suíte e pelo CI — e vai apodrecendo. Quando este teste nasceu havia 17 deles
    acumulados dos passos 2 a 5 da onda 5, todos meus.
 
-   Um cético do workflow de análise apontou o risco antes de eu cometer o próximo. */
+   Um cético do workflow de análise apontou o risco antes de eu cometer o próximo.
 
-test('nenhum símbolo importado do pure.js está morto no app.js', () => {
-  const src = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
-  const m = src.match(/import \{([\s\S]*?)\} from '\.\/pure\.js';/);
-  assert.ok(m, 'o app.js importa do pure.js');
-  const nomes = m[1].split(',').map(s => s.trim()).filter(Boolean);
-  assert.ok(nomes.length >= 40, `esperava o import cheio, achei ${nomes.length}`);
-  const corpo = src.slice(m.index + m[0].length);
-  const mortos = nomes.filter(n => !new RegExp(`\\b${n}\\b`).test(corpo));
-  assert.deepEqual(mortos, [], 'símbolo importado e não usado: sobrou de uma extração');
+   Nasceu olhando só o bloco de `./pure.js` dentro do `ui/app.js`, com um piso
+   numérico (`nomes.length >= 40`, depois 20) como sanity check de que a regex
+   pegou o import CHEIO, não um trecho no meio de um bloco multilinha. Os dois
+   defeitos que essa forma escondia: (1) um piso numérico é métrica que a própria
+   Fase 1b existe pra reduzir — ela move seções inteiras, com o import que cada
+   uma usava, pra fora do app.js tarefa após tarefa, então qualquer número vai
+   precisar descer nas próximas tarefas de novo; e (2) olhar só o bloco de
+   `pure.js` em `app.js` é cego a todo o resto: quando a Task 8 moveu Radar e
+   Meus PRs pra `ui/telas/`, `acctMark` sobrou como import morto no `app.js` (de
+   `telas/contas.js`) e este teste, de olho só em `pure.js`, não viu nada.
+   Generalizado pra varrer TODO bloco de import nomeado de TODO arquivo de tela
+   (`arquivosDasTelas()`), com duas afirmações ESTRUTURAIS no lugar do piso
+   numérico: o bloco capturado não engoliu outro import (sem `from`/`;` dentro),
+   e cada nome capturado parece um identificador de verdade. Esse par não
+   apodrece: continua válido não importa quantas seções a reorganização mova daqui
+   pra frente. `strip()` (o removedor léxico do `tools/quality/`) tira string,
+   comentário e regex antes de procurar uso, senão um símbolo só CITADO num
+   comentário (foi o caso de `pushbackControl`/`PB_OPTS`/`PB_SHORT`, achados
+   numa rodada de revisão desta mesma tarefa) passa por usado. */
+
+// escapa TODO metacaractere de regex, não só o `$`: o nome já passou pelo teste de
+// identificador logo abaixo (só letra, dígito, `_` e `$`), então nenhum dos outros
+// metacaracteres chegaria aqui de qualquer forma, mas a função não pode depender
+// dessa ordem pra ser segura (CodeQL js/incomplete-sanitization, achado no PR #95).
+function escaparParaRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+test('todo import nomeado de ui/telas é um bloco só, com nomes de identificador, sem símbolo morto', () => {
+  const identificador = /^[A-Za-z_$][\w$]*$/;
+  for (const { nome: arquivo, texto: src } of arquivosDasTelas()) {
+    const stripped = strip(src);
+    const re = /import\s*\{([\s\S]*?)\}\s*from\s*'([^']+)'/g;
+    let m;
+    while ((m = re.exec(src))) {
+      const bruto = m[1];
+      const de = m[2];
+      // bloco só: se sobrou "from" ou ";" dentro do que a regex capturou, ela
+      // não parou no `}` deste import, e o resto da checagem estaria olhando
+      // pro lugar errado.
+      assert.doesNotMatch(bruto, /\bfrom\b|;/,
+        `${arquivo}: import de '${de}' parece ter engolido outro bloco`);
+      const nomes = bruto.split(',').map(s => s.trim()).filter(Boolean).map(s => {
+        // "X as Y": o nome que existe no corpo do arquivo é o Y (o vínculo local)
+        const partes = s.split(/\s+as\s+/);
+        return partes.length > 1 ? partes[1].trim() : partes[0].trim();
+      });
+      for (const n of nomes) {
+        assert.match(n, identificador,
+          `${arquivo}: '${n}' não parece um identificador (import de '${de}')`);
+      }
+      const antes = stripped.slice(0, m.index);
+      const depois = stripped.slice(m.index + m[0].length);
+      const corpo = antes + depois;
+      // `\b` não serve pra símbolo com `$` (não é \w): usa lookaround com a
+      // classe de caractere de identificador JS de verdade.
+      const mortos = nomes.filter(n => {
+        const pattern = new RegExp(`(?<![\\w$])${escaparParaRegex(n)}(?![\\w$])`);
+        return !pattern.test(corpo);
+      });
+      assert.deepEqual(mortos, [],
+        `${arquivo}: símbolo importado de '${de}' e não usado: ${mortos.join(', ')}`);
+    }
+  }
 });
 
 test('shell Electron declara Farol como nome do processo', () => {

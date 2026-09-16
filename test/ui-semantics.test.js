@@ -14,9 +14,10 @@ import fs from 'node:fs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { fonteDasTelas } from './helpers/fontes-ui.js';
 
 const HTML = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'index.html'), 'utf8');
-const APPJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
+const APPJS = fonteDasTelas();
 
 const todos = (re, s = HTML) => [...s.matchAll(re)];
 const attr = (tagTrecho, nome) => (tagTrecho.match(new RegExp(nome + '="([^"]*)"')) || [])[1];

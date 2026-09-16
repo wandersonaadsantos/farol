@@ -123,11 +123,32 @@ quando a Fase 4 for planejada.
 > congelada por teste, e o `ui/pure.js` saiu da dívida de responsabilidade única
 > (`currentFindings` de 15 para 14). O que a execução corrigiu no plano está na seção
 > "Registro da execução" do próprio plano. Próximo: o plano da Fase 1b (`ui/app.js`).
+>
+> **Atualização de 15/09/2026, fim da noite: a Fase 1.5 foi executada** (branch
+> `docs/reorganizacao-fase-1-5`, plano
+> [`2026-09-15-reorganizacao-fase-1-5-guias.md`](2026-09-15-reorganizacao-fase-1-5-guias.md)),
+> depois do PR #90, que devolveu `tools/` ao Setup.exe. O `CLAUDE.md` virou sumário e o
+> conteúdo foi para `docs/REVIEW-GATES.md`, `docs/CONFIGURATION.md`, `docs/MACOS.md` e
+> `docs/RELEASE.md`, que viajam por allowlist nas seis rotas. As decisões D1 a D4 estão na
+> spec. Fica aberta a fase futura de documentação de sincronização distribuível.
+>
+> **Atualização de 15/09/2026, fim da noite: o plano da Fase 1b está escrito**
+> ([`2026-09-15-reorganizacao-fase-1b-app.md`](2026-09-15-reorganizacao-fase-1b-app.md)). A
+> medição dele achou o fato que decide a fase: dividir o `ui/app.js` por aba **não é
+> acíclico**. São sete pares mútuos, todos passando por `switchTab` e `connect()`, que chamam
+> as abas pelo nome enquanto as abas chamam de volta. Por isso o plano inverte essa aresta
+> (um registro de telas e um módulo de estado) ANTES de mover qualquer linha. A v2.59.4
+> publicou a Fase 1.5 e o limite de 5000 entregas.
+>
+> **Atualização de 16/09/2026: a Fase 1b foi executada** (branch `refactor/ui-app-fase-1b`).
+> O `ui/app.js` virou bootstrap (367 linhas: liga o SSE ao estado, comanda a troca de aba e
+> o `data-goto`, e inicializa as telas), o conteúdo mora em 30 módulos de `ui/telas/`, e o
+> `ui/app.js` saiu da dívida de responsabilidade única (`currentFindings` de 14 para 13). O
+> que a execução corrigiu no plano está na seção "Registro da execução" do próprio plano.
+> Próxima pendência: a Fase 1c (`ui/app.css`).
 
-1. **Decisão do Wanderson na Fase 1.5**, que não pode ser tomada por quem executa. A escolha é
-   entre fazer `docs/` viajar na distribuição (o pacote fica maior, e `docs/superpowers/`
-   precisaria de recorte) ou tirar o `CLAUDE.md` dela (a cópia instalada perde o guia, e o
-   README precisa parar de mandar o usuário de macOS abri-lo).
+1. ~~**Decisão do Wanderson na Fase 1.5**~~ tomada e executada em 15/09/2026: o `CLAUDE.md`
+   viaja como sumário e só os quatro guias de `docs/` viajam com ele.
 2. ~~**Executar a Fase 0**~~ feito em 15/09/2026, PR #87. Duas lições para as próximas: o
    código de teste que um plano traz pronto pode divergir da convenção do repositório, e pode
    repetir o que outro teste já decide; nos dois casos quem cobra é o `npm run eng`, não a

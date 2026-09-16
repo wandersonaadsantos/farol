@@ -41,7 +41,7 @@ falhou() {
 # o proprio git responde "Bypassed rule violations for refs/heads/main".
 #
 # A regra virou: NUNCA usar o bypass. E ela nao pode depender de disciplina, que
-# e a doutrina do repo (ver "Travas automaticas" no CLAUDE.md). Entao o gate
+# e a doutrina do repo (ver "Travas automaticas" em docs/RELEASE.md). Entao o gate
 # recusa aqui, antes de o bypass ser exercido.
 #
 # Custa pouco porque o ruleset pede ZERO aprovacoes: o fluxo e branch -> PR ->

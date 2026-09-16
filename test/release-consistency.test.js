@@ -1,5 +1,5 @@
 // Versionamento: as TRES fontes de versao do repo tem que concordar SEMPRE
-// (package.json, CHANGELOG.md e RELEASE_NOTES do ui/app.js). Historico real de
+// (package.json, CHANGELOG.md e RELEASE_NOTES do ui/telas/novidades.js). Historico real de
 // erro que motivou esta trava (pedido do Wanderson, 10/08/2026): fonte bumpado
 // sem publicar (v2.28.0 no fonte com v2.26.1 instalada), spec citando uma
 // versao e a release saindo com outra (releitura do Consumo: escrita como
@@ -7,7 +7,7 @@
 // numero. A referencia de SEQUENCIA e a ultima release publicada no GitHub
 // (checada pelo tools/publish-release.ps1, que recusa numero repetido ou
 // menor); aqui trava-se o que da pra travar OFFLINE: consistencia interna.
-// Ver CLAUDE.md, secao "Versionamento (regras firmes)".
+// Ver docs/RELEASE.md, secao "Versionamento (regras firmes)".
 import path from 'node:path';
 import fs from 'node:fs';
 import { test } from 'node:test';
@@ -16,13 +16,13 @@ import assert from 'node:assert/strict';
 const ROOT = path.join(import.meta.dirname, '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const changelog = fs.readFileSync(path.join(ROOT, 'CHANGELOG.md'), 'utf8');
-const appjs = fs.readFileSync(path.join(ROOT, 'ui', 'app.js'), 'utf8');
+const novidadesjs = fs.readFileSync(path.join(ROOT, 'ui', 'telas', 'novidades.js'), 'utf8');
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
 
 function releaseNotesVersions() {
-  const m = appjs.match(/const RELEASE_NOTES = \[([\s\S]*?)\n\];/);
-  assert.ok(m, 'RELEASE_NOTES existe no ui/app.js');
+  const m = novidadesjs.match(/const RELEASE_NOTES = \[([\s\S]*?)\n\];/);
+  assert.ok(m, 'RELEASE_NOTES existe no ui/telas/novidades.js');
   const versions = [];
   const re = /^\s*\['(\d+\.\d+\.\d+)',/gm;
   let x;
@@ -52,7 +52,7 @@ test('CHANGELOG.md tem a secao da versao do package.json, com corpo', () => {
   assert.ok(body.length > 40, `a secao v${pkg.version} do CHANGELOG esta vazia ou rala demais pra virar corpo de release`);
 });
 
-test('RELEASE_NOTES (ui/app.js) abre com a MESMA versao do package.json', () => {
+test('RELEASE_NOTES (ui/telas/novidades.js) abre com a MESMA versao do package.json', () => {
   const versions = releaseNotesVersions();
   assert.equal(versions[0], pkg.version,
     `RELEASE_NOTES[0] e ${versions[0]} mas package.json e ${pkg.version}: as Novidades da aba Sistema mentiriam a versao. Bump sempre atualiza os DOIS.`);

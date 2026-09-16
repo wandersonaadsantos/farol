@@ -18,6 +18,7 @@ process.env.FAROL_HOME = FAROL_HOME;
 
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { fonteDasTelas } from './helpers/fontes-ui.js';
 
 const io = (await import('../lib/io.js')).default;
 const runReal = io.run;
@@ -143,7 +144,7 @@ test('decisão que já nasce resolvida TAMBÉM supersede a pendência bloqueada 
 
 /* ---------- 3. a tela oferece a saída ---------- */
 
-const appJs = fs.readFileSync(new URL('../ui/app.js', import.meta.url), 'utf8');
+const appJs = fonteDasTelas();
 
 test('o card de pendência oferece Revisar agora, e SÓ no bloqueio por head velho', () => {
   const i = appJs.indexOf('<div class="dec-actions">');

@@ -40,7 +40,7 @@ Para desinstalar: `Desinstalar.cmd`. O estado é preservado por padrão (`uninst
 
 O instalador copia o app para `~/.farol/app` e cria o lançador `~/Applications/Farol.app`. Desinstalar: `bash Desinstalar.command` (estado preservado; `bash installer/uninstall.sh --remove-data` apaga tudo).
 
-**Importante**: o suporte a macOS foi construído sem um Mac de teste. Se algo falhar, abra o Claude Code na pasta do Farol e peça pra ele seguir a seção "macOS" do `CLAUDE.md`, que tem o checklist de validação e o mapa do que é específico de cada sistema.
+**Importante**: o suporte a macOS foi construído sem um Mac de teste. Se algo falhar, abra o Claude Code na pasta do Farol e peça pra ele seguir o [`docs/MACOS.md`](docs/MACOS.md), que tem o checklist de validação e o mapa do que é específico de cada sistema. O mesmo guia viaja com o app instalado, em `~/.farol/app/docs/MACOS.md`.
 
 ## Mapa do código
 
@@ -56,14 +56,16 @@ Por onde começar a ler, dependendo do que você quer mexer:
 | quero mexer em | comece por |
 |---|---|
 | o que o app decide (revisar, aprovar, esperar) | `lib/engine/` |
-| o que aparece na tela | `ui/pure.js` (funções puras, com teste) e `ui/app.js` |
+| o que aparece na tela | `ui/pure/` (funções puras, com teste), `ui/telas/` (as telas, uma por assunto, com o `ui/telas/README.md` como porta de entrada) e `ui/app.js` (o bootstrap) |
 | como o app fala com o GitHub | `lib/io.js` e `lib/engine/gh-queries.js` |
 | como o app é instalado e atualizado | `installer/` e `lib/engine/update.js` |
 | as regras de qualidade e o gate | `docs/QUALITY.md` e `tools/quality/` |
 
-O guia completo do mantenedor, com os invariantes que reprovam um PR, é o
-[`CLAUDE.md`](CLAUDE.md). Ele é grande de propósito: é a memória do projeto, e o índice
-no topo dele leva direto ao assunto.
+O guia do mantenedor começa no [`CLAUDE.md`](CLAUDE.md): um sumário com o mapa de arquivos
+e os invariantes que reprovam um PR. O detalhe mora em quatro guias, que também viajam com o
+app instalado: [`docs/REVIEW-GATES.md`](docs/REVIEW-GATES.md),
+[`docs/CONFIGURATION.md`](docs/CONFIGURATION.md), [`docs/MACOS.md`](docs/MACOS.md) e
+[`docs/RELEASE.md`](docs/RELEASE.md).
 
 ## Como funciona
 

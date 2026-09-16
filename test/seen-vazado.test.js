@@ -113,7 +113,7 @@ test('migração roda uma vez só', () => {
 /* A função certa não serve de nada se ninguém a chama. Medido por mutação: apagar a
    chamada de `reconciliarVistos` do ciclo deixava os 7 testes acima VERDES, porque
    todos exercitam a função direto. É a mesma classe do bug de fan-out da v2.28.0 que
-   o CLAUDE.md registra: a peça existe e o caminho até ela não. */
+   o docs/REVIEW-GATES.md registra: a peça existe e o caminho até ela não. */
 
 test('a reconciliação está LIGADA no ciclo, antes de montar a fila', () => {
   const src = fs.readFileSync(new URL('../server.js', import.meta.url), 'utf8');

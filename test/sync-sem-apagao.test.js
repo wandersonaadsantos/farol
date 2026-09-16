@@ -6,12 +6,16 @@ import path from 'node:path';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { arquivosDasTelas, fonteDasTelas } from './helpers/fontes-ui.js';
+
 const RAIZ = path.join(import.meta.dirname, '..');
 const ler = (rel) => fs.readFileSync(path.join(RAIZ, rel), 'utf8');
 
 test('nenhum arquivo de produção menciona o apagão remoto', () => {
-  for (const rel of ['lib/engine/sync.js', 'server.js', 'lib/http-server.js', 'ui/app.js', 'ui/pure/sync.js']) {
-    const fonte = ler(rel);
+  // a tela saiu do ui/app.js na Fase 1b: a varredura cobre o bootstrap e todas as telas
+  const fontes = ['lib/engine/sync.js', 'server.js', 'lib/http-server.js', 'ui/pure/sync.js'].map((rel) => ({ rel, fonte: ler(rel) }))
+    .concat(arquivosDasTelas().map((a) => ({ rel: `ui/${a.nome}`, fonte: a.texto })));
+  for (const { rel, fonte } of fontes) {
     assert.equal(/syncEraseRemote|erase-remote|syncApagarRemoto/.test(fonte), false, rel);
     assert.equal(/id="syncErase"/.test(fonte), false, rel);
   }
@@ -21,7 +25,7 @@ test('a saída e o desligar continuam de pé', () => {
   const engine = ler('lib/engine/sync.js');
   assert.ok(/function syncLogout/.test(engine));
   assert.ok(/function stopSync/.test(engine));
-  assert.ok(/syncLogout/.test(ler('ui/app.js')));
+  assert.ok(/syncLogout/.test(fonteDasTelas()));
 });
 
 test('a rota do apagão não existe mais no servidor', () => {

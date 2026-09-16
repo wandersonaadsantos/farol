@@ -241,6 +241,30 @@ Só depois disso vale quebrar em `docs/SYNC.md`, `docs/REVIEW-GATES.md`,
 `docs/MACOS.md` e `docs/RELEASE.md`, deixando o `CLAUDE.md` como sumário. O índice da
 Fase 0 e o teste de link morto são o que torna essa quebra conferível.
 
+**Executada em 15/09/2026** (plano
+`docs/superpowers/plans/2026-09-15-reorganizacao-fase-1-5-guias.md`). A decisão do dono foi a
+primeira saída com recorte: o `CLAUDE.md` continua viajando, agora como sumário, e `docs/`
+viaja só por allowlist de quatro guias. Revisada depois da medição:
+
+- **D1:** a allowlist e os testes cobrem as SEIS rotas de distribuição, não quatro: o Setup.exe
+  e o instalador offline do macOS também são distribuição real.
+- **D2:** o `firebase/README.md` NÃO virou `docs/SYNC.md`. Ele manda executar comandos a partir
+  de `firebase/` e cita arquivos dela, e essa pasta não viaja: o guia instalado seria
+  aparentemente útil e não executável.
+- **D3:** `docs/SYNC.md` foi substituído por `docs/CONFIGURATION.md` (assinatura, modelo e
+  esforço, Jira). O trecho de sincronização ficou onde estava.
+- **D4:** a falta de `tools/` no Setup.exe era defeito funcional anterior e foi corrigida em PR
+  próprio (#90) antes da fase.
+
+A conservação foi conferida contra o SHA fixo `c34b7c9`, e a subseção "Falhas de autenticação e
+conclusão da revisão" foi dividida pelo conteúdo entre `CONFIGURATION.md` e `REVIEW-GATES.md`.
+
+### Fase futura: documentação de sincronização distribuível
+
+Tornar a documentação e os artefatos de sincronização (`firebase/`) distribuíveis e
+realmente utilizáveis a partir da cópia instalada. Fica fora da Fase 1.5 pela razão da D2:
+distribuir o guia sem a pasta que ele manda usar entregaria instrução que não se executa.
+
 ### Fase 1: `ui/`, o maior ganho do repositório
 
 **Risco: alto.** É onde os testes de fonte mais batem, e não há bundler.
@@ -269,7 +293,11 @@ irrevisável):
    módulo por assunto sob `ui/pure/`, com o `ui/pure.js` virando só
    `export * from './pure/...'`. Plano:
    [`2026-09-15-reorganizacao-fase-1a-pure.md`](../plans/2026-09-15-reorganizacao-fase-1a-pure.md).
-2. **Fase 1b, quebrar `ui/app.js`** (4398 linhas), depois de 1a.
+2. **Fase 1b, quebrar `ui/app.js`** (4401 linhas na medição de 15/09), depois de 1a. Plano:
+   [`2026-09-15-reorganizacao-fase-1b-app.md`](../plans/2026-09-15-reorganizacao-fase-1b-app.md).
+   A medição do plano acrescentou o fato que decide a fase: a divisão por aba **não é
+   acíclica** (sete pares mútuos, todos por `switchTab` e `connect()`), então ela começa
+   invertendo essa dependência com um registro de telas, e só depois move código.
 3. **Fase 1c, fatiar `ui/app.css`** (1696 linhas) em parciais por seção, sem build.
 
 **O que a medição de 15/09/2026 acrescentou, e que muda o desenho das três:**
