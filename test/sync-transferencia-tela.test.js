@@ -96,10 +96,11 @@ function fresca() {
 
 function frota() {
   const agora = Date.now();
+  // o apto (ADMIN) não vem primeiro no registro: a ordem da lista tem que sair da ordenação
   return {
-    [ADMIN]: { name: 'Notebook de teste', contract: 2, keyReady: true, lastSeenAt: agora },
     [ORIGEM]: { name: 'Desktop antigo', contract: 2, keyReady: true, lastSeenAt: agora },
     [VELHO]: { name: 'Celular antigo', contract: 1, keyReady: true, lastSeenAt: agora },
+    [ADMIN]: { name: 'Notebook de teste', contract: 2, keyReady: true, lastSeenAt: agora },
     [SUMIDO]: { name: 'Tablet de teste', contract: 2, keyReady: true, lastSeenAt: agora },
   };
 }
@@ -166,7 +167,10 @@ beforeEach(async () => {
   admin = await motor(ADMIN);
   assert.equal((await admin.syncTornarAdmin({ password: SENHA })).ok, true);
   admin.sync.autoridade = fresca();
-  admin.sync.sinais = { ...(admin.sync.sinais || {}), admin: { dev: ADMIN, generation: 1 } };
+  admin.sync.sinais = {
+    conexaoEm: 0, lidos: new Set(), beat: null, modo: '', voltaPendente: false, voltando: false, ultimoBatimentoEm: 0,
+    ...(admin.sync.sinais || {}), admin: { dev: ADMIN, generation: 1 },
+  };
   await subirServidor(admin);
   origem = await motor(ORIGEM);
   origem.cancelados = [];
@@ -455,6 +459,20 @@ test('o head muda antes da tomada: o executor recusa com head_mudou, e nada é e
   assert.equal(await Tela.tomarOperacao(op.opId, async () => true), true);
   await comandos.cicloDosComandos(admin, admin.config.sync);
   assert.match(await lerReciboNaTela(), /o commit mudou desde o pedido/);
+  // head que não dá para perguntar é desconhecido, e desconhecido também recusa
+  admin.headSha = async () => { throw new Error('sem rede'); };
+  assert.equal(await Tela.tomarOperacao(op.opId, async () => true), true);
+  const ciclo = await comandos.cicloDosComandos(admin, admin.config.sync);
+  assert.deepEqual(ciclo.aplicados.map((a) => a.code), ['head_mudou']);
+});
+
+test('o relógio do admin entrega o andamento já com o PR resolvido', async () => {
+  await origemPublica();
+  const eventos = [];
+  admin.on('sync-live', (p) => eventos.push(p));
+  await andamentoEng.ciclo(admin, admin.config.sync);
+  assert.ok(eventos.length >= 1);
+  assert.deepEqual(eventos[0].operacoes.map((o) => o.pr && o.pr.key), [PR.key]);
 });
 
 test('escolha forjada fora da lista de aptos não sai, nem com confirmação', async () => {
