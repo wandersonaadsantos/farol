@@ -347,6 +347,49 @@ test('com a distribuição ligada, o item vira candidato e fica visível esperan
   assert.equal(Object.keys(no('live/queue')).length, 1);
 });
 
+// O PR do caminho automático chega aqui SEM head: o head só é lido dentro do
+// runHeadlessReview. Medido na bancada com engines reais (16/09/2026): a publicação
+// devolvia `forma`, o item voltava ao ramo local e a primeira revisão de um PR novo NUNCA
+// distribuía, com a distribuição ligada e a frota inteira apta.
+test('PR sem head conhecido distribui: o head é lido antes de publicar', async () => {
+  const e = motorFila(await motorDistribuidor());
+  let pedidos = 0;
+  e.headSha = async () => { pedidos += 1; return 'sha-lido-do-gh'; };
+  const r = reviewMod.enqueueHeadless(e, prDe(11, { headSha: undefined }));
+  assert.deepEqual(r, { ok: true, via: 'distribuicao' });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(pedidos, 1, 'o head é lido uma vez, no aparelho que publica');
+  assert.equal(e.headlessQueue.length, 0, 'não cai no ramo local');
+  assert.equal(Object.keys(no('live/queue')).length, 1);
+  const publicados = [...e.sync.candidatos.values()].map((c) => c.pr.headSha);
+  assert.deepEqual(publicados, ['sha-lido-do-gh'], 'o candidato viaja com o head lido');
+});
+
+// Head que não se lê não vira candidato sem material: sem ele o executor não teria contra o
+// que conferir o head atual, e a atribuição seria cega. O item volta ao ramo local.
+test('head que não se lê devolve o item ao ramo local, sem publicar', async () => {
+  const e = motorFila(await motorDistribuidor());
+  e.headSha = async () => '';
+  const r = reviewMod.enqueueHeadless(e, prDe(12, { headSha: undefined }));
+  assert.deepEqual(r, { ok: true, via: 'distribuicao' });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(e.headlessQueue.length, 1, 'o PR volta para o escalonador local');
+  assert.deepEqual(Object.keys(no('live/queue')), [], 'nada foi publicado');
+});
+
+// G8: o relançamento da re-revisão já decidiu o head. Reler agora publicaria um head mais
+// novo que o da rodada pedida, e o executor revisaria outro material.
+test('head do relançamento manda: knownHead viaja, e o gh não é consultado', async () => {
+  const e = motorFila(await motorDistribuidor());
+  let pedidos = 0;
+  e.headSha = async () => { pedidos += 1; return 'sha-mais-novo'; };
+  reviewMod.enqueueHeadless(e, prDe(13, { headSha: undefined, knownHead: 'sha-da-rerodada' }));
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(pedidos, 0, 'o head já conhecido dispensa a consulta');
+  const publicados = [...e.sync.candidatos.values()].map((c) => c.pr.headSha);
+  assert.deepEqual(publicados, ['sha-da-rerodada']);
+});
+
 // C5d: sem prontidão fresca do distribuidor o item fica no escalonador local, mesmo com
 // autoridade fresca e a distribuição ligada.
 test('sem prontidão fresca, o item fica local', async () => {
