@@ -148,6 +148,79 @@ Três vezes hoje, uma rodada de `npm test` disparada **logo depois de um merge**
 | `335c0c1`, `6e1830e`, `ace44cb`, `b4545ef`, `9c33a1f`, `6a8c6a9`, `4c4a775`, `ab9a072`, `8c1abdd`, `76ea423`, `ceb41cf`, `1d76d58` | `md/c2b` | C2b: caracterização do desligado, identidade do grupo, vínculo por intervalo, grupo no banco com a ordem de recusa comum, renomear e aposentar, chave da limpeza, ato de apagar, revogação, regras v2 dos nós novos, seis rotas e documentação |
 | `35f40f2`, `9e56a4f`, `56e0cb6`, `d119de0`, `e263a7e`, `020fcab`, `8f4e076` | `md/c3a` | C3a: caracterização do desligado, frota v2, presença com contrato e chave pronta, capacidade cifrada, catálogo cifrado, regras v2 e a correção do dono na concessão de remoção |
 
+
+## Deploy e notas de versão propostos (16/09/2026)
+
+Nada disto foi executado: publicar release, mexer no Firebase real e instalar no Farol em
+uso são atos do dono.
+
+### Versão
+
+**v2.60.0** (minor). É funcionalidade nova, compatível com quem não liga nada: com
+`sync.enabled` desligado o comportamento é o de sempre, e cada capacidade nova tem
+interruptor próprio.
+
+### Ordem do deploy
+
+1. **Publicar as regras do banco ANTES do app.** `firebase/database.rules.json` (gerado;
+   nunca editar à mão) no console do projeto pessoal, e depois o roteiro manual do
+   `firebase/README.md`, itens 1 a 42. As regras novas negam o que o app antigo não
+   escreve, então publicá-las antes é seguro; publicar o app antes delas faria os nós
+   novos serem recusados em silêncio.
+2. **Gate completo na máquina do dono:** `npm run check && npm run lint && npm test`, e
+   `npm run eng` antes do push (ele exige as avaliações escritas do diff, uma por regra de
+   julgamento acionada; sem elas o pre-push reprova).
+3. **Versão e pacote:** `npm version 2.60.0` (ou editar `package.json`), gerar o pacote
+   leve e o instalador (`tools/make-package.ps1`, `tools/make-installer.ps1`) e publicar
+   com `tools/publish-release.ps1`.
+4. **Instalar em UM aparelho primeiro** e conferir a aba Sistema: aparelhos com a versão
+   nova, coordenação e chave do conjunto.
+5. **Ligar os interruptores em ordem, um por vez, medindo entre eles:** coordenação →
+   compartilhamento cifrado → consolidação de consumo → distribuição. Cada um só faz
+   sentido com o anterior ligado, e a tela diz o que falta.
+
+### O que NÃO liga sozinho (proteções declaradas)
+
+- **Teto do grupo de consumo:** `ATIVACAO_TETO_GRUPO_C4B` nasce `false`. Só ligar depois
+  de medir o atraso do consumo entre dois aparelhos reais.
+- **Exigência de autenticação local no modo celular:** `ATIVACAO_AUTOMATICA_A4` nasce
+  `false` até existir a tela de pareamento e a validação num Termux real.
+- **Recusa por peso de PR (C4):** depende da medição de memória em execuções reais.
+- **Afinidade de colocação (C7):** depende da medição de troca de dono no mesmo head.
+
+### Notas de versão (rascunho para a release)
+
+**Farol v2.60.0, operação multidispositivo**
+
+- **Um conjunto de aparelhos, não vários Faróis soltos.** Presença, capacidade e catálogo
+  cifrados; cada aparelho enxerga o que os outros estão fazendo, sem o PR aparecer em
+  claro no banco.
+- **Revisão distribuída (opcional).** Com a distribuição ligada, o admin coloca cada
+  revisão no aparelho com vaga, respeitando o rodízio por organização. Quando o admin
+  some, cada aparelho volta sozinho ao modo local, com atraso próprio para a frota não
+  disparar junta.
+- **Nada é postado sem gate, como sempre.** O que chega pelo banco só restringe: comando
+  ou atribuição remota nunca vira clique manual nem revisão pedida a você.
+- **Teto de gasto do conjunto (desligado nesta versão).** Rollup diário por grupo, reservas
+  de todos os aparelhos e "não verificável" quando o conjunto não fecha, esperando sem
+  estacionar. A ativação espera uma medição.
+- **Comandos remotos com recibo.** Cancelar, repetir, decidir e postar, iniciar em outro
+  aparelho e designar admin (esta última exige a senha digitada no destino). Sucesso só
+  existe quando o aparelho alvo responde.
+- **Memória de verificação compartilhada.** O que uma sessão confirmou contra o código
+  viaja cifrado, e quem pega o PR depois não refaz o que já foi feito.
+- **Transferência voluntária e tomada forçada.** Transferir exige destino apto e com
+  credencial; tomar exige confirmação e explica o risco: o processo do outro aparelho não
+  é encerrado, e a análise pode custar duas vezes.
+- **Autenticação local no modo celular** e **retomada durável de sessão interrompida**.
+- **Consumo fiel:** custo desconhecido aparece como desconhecido, nunca como zero.
+- **Na tela de Sistema, cada aparelho mostra a versão do Farol que está rodando.**
+
+### Depois do deploy, o que fica pendente
+
+Telas das capacidades novas (Claude Design), as quatro medições acima e a reconciliação
+desta linha com a `main` (a base desta execução é `8c043bc`; a `main` está em `b0911b1`).
+
 ## Próxima ação concreta
 
 Todo o código da iniciativa está entregue (C0 a C8, mais A1, A4, A5 e as fiações T0, C2c e C3h). O que falta são as TELAS, que saem do Claude Design, e os itens que só o dono fecha: publicar as regras no Firebase (roteiro do `firebase/README.md`), as medições externas da seção 13 da spec e a reconciliação com a main.
