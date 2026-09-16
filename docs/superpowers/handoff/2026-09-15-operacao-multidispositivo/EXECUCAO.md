@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026 (iniciativa inteira, limites no plano mestre, seção 4).
-- **Entrega em curso:** nenhuma. Próxima é a C3 (plano a escrever). C1a, C0, A5, A1, A4, C0b, C1, C2a e C2b validadas localmente e **todas integradas** em `md/integracao`.
+- **Entrega em curso:** nenhuma. Próxima é a C3b (andamento ao vivo). C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b e C3a validadas localmente e **todas integradas** em `md/integracao`.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 - **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026.
@@ -22,13 +22,13 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 | `npm test` | 2841 testes, 2817 aprovados, 24 pulados, 0 falhas |
 | `npm run eng` | `not-run` na base sem entrega (reprova por construção, o esperado); com entrega exige `avaliacoes.jsonl` |
 
-## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1, A4, C0b, C1, C2a e C2b)
+## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b e C3a)
 
 | Gate | Resultado |
 |---|---|
-| `npm run check` | verde, 409 arquivos `.js` |
+| `npm run check` | verde, 418 arquivos `.js` |
 | `npm run lint` | verde, sem regressão |
-| `npm test` | 3430 testes, 3402 aprovados, 28 pulados, 0 falhas |
+| `npm test` | 3470 testes, 3442 aprovados, 28 pulados, 0 falhas |
 
 Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações escritas.
 
@@ -45,7 +45,8 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | 7 | C1 Contrato de dados v2 e cifragem | `md/c1` | validado localmente, integrado (`6540b5a`); regras não publicadas | `evidencias-execucao/c1.md` |
 | 8 | C2a Autoridade do admin, consentimento e políticas | `md/c2a` | validada localmente e **integrada** | `evidencias-execucao/c2a.md` |
 | 9 | C2b Grupo de consumo, aparelho, limpeza e revogação | `md/c2b` | validada localmente e **integrada** | `evidencias-execucao/c2b.md` |
-| seguintes | C3, C4, C4b, C5, C6, C7, C8, telas | | planos a escrever | |
+| 10 | C3a Presença v2, capacidade e catálogo cifrado | `md/c3a` | validada localmente e **integrada** | `evidencias-execucao/c3a.md` |
+| seguintes | C3b a C3g, C4, C4b, C5, C6, C7, C8, telas | | planos a escrever | |
 
 ## Bloqueios
 
@@ -70,6 +71,7 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | C2a | modo 0600 do cache de política | rodada POSIX (pula no Windows) |
 | C2b | comportamento no servidor dos nós de limpeza, revogação e grupo (chave sem senha, `rev` monotônico, janela de 10 min da trava, corte abaixo do `auth_time`, remoção pelo pai) | emulador e projeto real, itens 14 a 21 do `firebase/README.md` |
 | C2b | publicação das regras v2 já com os nós da C2b | console do Firebase, manual, pelo dono |
+| C3a | comportamento no servidor dos nós novos e a checagem de dono com um SEGUNDO usuário autenticado | emulador e projeto real, itens 22 a 25 do `firebase/README.md` |
 
 ## Decisões e ajustes técnicos
 
@@ -103,7 +105,10 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | `3ccbef2`, `56c5149`, `73e1545`, `bbe849a`, `06256a7`, `f423eec`, `2e28f7e`, `8be628a`, `cc8d4f1`, `d6f99cc`, `fa2a850`, `99189b8` | `md/c1` | C1: caracterização do desligado, interruptor, tags v2, KEK, chaveiro, cache, envelope, desbloqueio e remoção do apagão, sonda, regras v2 por macro, ciclo de recuperação, frase da tela e mapa |
 | `b13c46a`, `71be6a5`, `6300c38`, `85208d9`, `e408f47`, `dda3565`, `556604c`, `69f88e0`, `ec4833b`, `736b93f` | `md/c2a` | C2a: consentimento local, chave Ed25519 do admin, assinatura, tornar-se admin com senha, frescor por sequência, publicar e aceitar política, valor efetivo, regras v2 dos nós novos e documentação |
 | `335c0c1`, `6e1830e`, `ace44cb`, `b4545ef`, `9c33a1f`, `6a8c6a9`, `4c4a775`, `ab9a072`, `8c1abdd`, `76ea423`, `ceb41cf`, `1d76d58` | `md/c2b` | C2b: caracterização do desligado, identidade do grupo, vínculo por intervalo, grupo no banco com a ordem de recusa comum, renomear e aposentar, chave da limpeza, ato de apagar, revogação, regras v2 dos nós novos, seis rotas e documentação |
+| `35f40f2`, `9e56a4f`, `56e0cb6`, `d119de0`, `e263a7e`, `020fcab`, `8f4e076` | `md/c3a` | C3a: caracterização do desligado, frota v2, presença com contrato e chave pronta, capacidade cifrada, catálogo cifrado, regras v2 e a correção do dono na concessão de remoção |
 
 ## Próxima ação concreta
 
-Escrever o plano da C3 (visão compartilhada: andamento ao vivo, Panorama, Meus PRs, revisões recentes em história única, memória de pushback sincronizada e envio do histórico local) e executá-lo, cortando `md/c3` da ponta de `md/integracao`. A C3 é a primeira entrega que PUBLICA conteúdo cifrado, então cada nó novo dela entra junto com a regra de remoção correspondente, conforme a regra escrita em `lib/sync/limpeza.js`. Segue pendente, e só o dono fecha: publicar as regras v2 no console do Firebase, depois do roteiro manual do `firebase/README.md` (itens 1 a 21). Enquanto isso não acontece, o compartilhamento cifrado fica desligado e nada muda no comportamento de hoje.
+Escrever o plano da C3b (andamento ao vivo: `live/operations`, evento SSE dedicado, vocabulário único de etapa e TTL curto) e executá-lo, cortando `md/c3b` da ponta de `md/integracao`. A base já está de pé: o gate da frota (`lib/sync/frota.js`), a publicação condicionada (`lib/engine/sync-publicacao.js`) e o catálogo que nomeia o PR na tela do outro aparelho. Depois dela vêm C3c (pendências e visto), C3d (história de revisões), C3e (Panorama e Meus PRs), C3f (memória de pushback) e C3g (envio do histórico local).
+
+Segue pendente, e só o dono fecha: publicar as regras v2 no console do Firebase, depois do roteiro manual do `firebase/README.md` (itens 1 a 25). Enquanto isso não acontece, o compartilhamento cifrado fica desligado e nada muda no comportamento de hoje.
