@@ -46,12 +46,13 @@ test('o id da revisão amarra aparelho e decisão', () => {
   assert.notEqual(a, historico.reviewIdDe(K, 'dev2', 'd9'));
 });
 
-test('o corpo é a projeção da tela sem o login da conta e sem o relatório interno', () => {
-  const ui = { ...D, reportMarkdown: undefined, postRetry: { attempts: 2 } };
+test('o corpo é a projeção da tela, com o review humanizado e sem o login da conta', () => {
+  const ui = { ...D, reportMarkdown: 'review humanizado', postRetry: { attempts: 2 } };
   const c = historico.corpoDe(ui);
   assert.equal(c.account, undefined);
   assert.equal(c.postRetry, undefined, 'estado de retry é deste aparelho');
   assert.equal(c.pr.title, 'Titulo', 'a referência do PR na hora vai no corpo');
+  assert.equal(c.reportMarkdown, 'review humanizado', 'o review que se abre no outro aparelho');
   assert.equal(JSON.stringify(c).includes('conta1'), false);
 });
 
