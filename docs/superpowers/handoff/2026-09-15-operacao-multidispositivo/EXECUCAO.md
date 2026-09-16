@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026 (iniciativa inteira, limites no plano mestre, seção 4).
-- **Entrega em curso:** nenhuma. Próxima é a C3e (Panorama e Meus PRs). C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a, C3b, C3c e C3d validadas localmente e **todas integradas** em `md/integracao`.
+- **Entrega em curso:** nenhuma. Próxima é a C3f (memória de pushback). C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a, C3b, C3c, C3d e C3e validadas localmente e **todas integradas** em `md/integracao`.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 - **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026.
@@ -32,13 +32,13 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 | `npm test` | 2841 testes, 2817 aprovados, 24 pulados, 0 falhas |
 | `npm run eng` | `not-run` na base sem entrega (reprova por construção, o esperado); com entrega exige `avaliacoes.jsonl` |
 
-## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a, C3b, C3c e C3d)
+## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a, C3b, C3c, C3d e C3e)
 
 | Gate | Resultado |
 |---|---|
-| `npm run check` | verde, 430 arquivos `.js` |
+| `npm run check` | verde, 435 arquivos `.js` |
 | `npm run lint` | verde, sem regressão |
-| `npm test` | 3533 testes, 3505 aprovados, 28 pulados, 0 falhas |
+| `npm test` | 3554 testes, 3526 aprovados, 28 pulados, 0 falhas |
 
 Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações escritas.
 
@@ -59,7 +59,8 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | 11 | C3b Andamento ao vivo | `md/c3b` | validada localmente e **integrada** | `evidencias-execucao/c3b.md` |
 | 12 | C3c Pendências e visto | `md/c3c` | validada localmente e **integrada** | `evidencias-execucao/c3c.md` |
 | 13 | C3d História de revisões | `md/c3d` | validada localmente e **integrada** | `evidencias-execucao/c3d.md` |
-| seguintes | C3e a C3g, C4, C4b, C5, C6, C7, C8, telas | | planos a escrever | |
+| 14 | C3e Panorama e Meus PRs | `md/c3e` | validada localmente e **integrada** | `evidencias-execucao/c3e.md` |
+| seguintes | C3f e C3g, C4, C4b, C5, C6, C7, C8, telas | | planos a escrever | |
 
 ## Bloqueios
 
@@ -123,6 +124,6 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 
 ## Próxima ação concreta
 
-Executar a C3e (Panorama por conta e Meus PRs: `panorama/{scopeTag}_{prTag}`, `panoramaMeta` disputado por CAS com validade de 15 min, `myPrs`, tombstone de PR que sai, ponteiros `live/rev`). Depois C3f (memória de pushback) e C3g (envio do histórico local).
+Executar a C3f (memória de pushback sincronizada: só registros confirmados, correções e invalidações que se propagam, o mesmo registro recebido de novo não vira segunda evidência, conflito não resolvido não vira concordância, e marcadores locais de scan e retry não sincronizam). Depois a C3g (envio do histórico local existente, com tamanho medido antes da confirmação).
 
-Segue pendente, e só o dono fecha: publicar as regras v2 no console do Firebase, depois do roteiro manual do `firebase/README.md` (itens 1 a 31).
+Segue pendente, e só o dono fecha: publicar as regras v2 no console do Firebase, depois do roteiro manual do `firebase/README.md` (itens 1 a 33), e conferir a sincronização depois do incidente registrado acima.
