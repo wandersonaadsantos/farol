@@ -11,13 +11,31 @@ import { revisarUrls } from './consumo.js';
 import { kudosScopeKey, loadLog } from './ferramentas.js';
 
 /* decisão pendente: caminho ÚNICO de POST, usado pelo card (#decisions) e pela paleta
-   (ui/app.js). O achado A5: a paleta chamava um decide() que nunca existiu
+   (telas/paleta.js). O achado A5: a paleta chamava um decide() que nunca existiu
    (ReferenceError engolido). */
 function decide(id, action) {
   return api('/api/decide', { id, action }).then(r => {
     if (!r || !r.ok) toast('error', (r && r.error) || 'não consegui registrar a decisão');
     return r;
   });
+}
+
+/* decidir com confirmação: REQUEST_CHANGES ganha um modal antes, porque posta no
+   GitHub e bloqueia o PR pro autor. Fonte ÚNICA do texto da confirmação (achado da
+   correção 4 da Task 11a: o card e a paleta tinham duas cópias divergentes, uma com
+   o parágrafo do bloqueio e outra sem, apesar do comentário dizer "a MESMA
+   confirmação"). Usado pelo card (#decisions, abaixo) e pela paleta
+   (telas/paleta.js). */
+async function decideComConfirmacao(id, action, ref) {
+  if (action === 'request_changes') {
+    const ok = await confirmModal({
+      title: `Pedir mudanças em ${ref || 'este PR'}?`, danger: true, confirmLabel: 'Pedir mudanças', cancelLabel: 'Cancelar',
+      body: `<p>Isso <b>posta um REQUEST CHANGES no GitHub</b>, visível pra todo mundo do PR, com os pontos que a revisão levantou.</p>
+        <p>O PR fica <b>bloqueado</b> até o autor tratar e você reavaliar. Pra reverter, é só dispensar o seu review depois.</p>`
+    });
+    if (!ok) return { ok: false };
+  }
+  return decide(id, action);
 }
 
 /* ---------- ações ---------- */
@@ -125,17 +143,9 @@ $('#decisions').addEventListener('click', async (e) => {
   if (!btn) return;
   const id = btn.closest('.decision').dataset.id;
   const action = btn.dataset.action;
-  if (action === 'request_changes') {
-    const ref = (btn.closest('.decision').querySelector('.dec-ref')?.textContent || 'este PR').trim();
-    const ok = await confirmModal({
-      title: `Pedir mudanças em ${ref}?`, danger: true, confirmLabel: 'Pedir mudanças', cancelLabel: 'Cancelar',
-      body: `<p>Isso <b>posta um REQUEST CHANGES no GitHub</b>, visível pra todo mundo do PR, com os pontos que a revisão levantou.</p>
-        <p>O PR fica <b>bloqueado</b> até o autor tratar e você reavaliar. Pra reverter, é só dispensar o seu review depois.</p>`
-    });
-    if (!ok) return;
-  }
+  const ref = (btn.closest('.decision').querySelector('.dec-ref')?.textContent || 'este PR').trim();
   btn.disabled = true;
-  const r = await decide(id, action);
+  const r = await decideComConfirmacao(id, action, ref);
   if (!r?.ok) btn.disabled = false;
 });
 
@@ -180,4 +190,4 @@ for (const [sel, key, read] of settingsMap) {
   });
 }
 
-export { decide, initTweaks };
+export { decide, decideComConfirmacao, initTweaks };

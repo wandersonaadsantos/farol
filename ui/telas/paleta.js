@@ -5,30 +5,13 @@
    ligação do #btnCmdK e o listener de Ctrl+K moravam. */
 
 import { esc } from '../pure.js';
-import { estado } from './estado.js';
-import { $, confirmModal, toast } from './infra.js';
+import { estado, ehMac } from './estado.js';
+import { $, toast } from './infra.js';
 import { scopeVisible } from './contas.js';
-import { decide } from './acoes.js';
+import { decide, decideComConfirmacao } from './acoes.js';
 import { switchSistemaSection } from './sistema.js';
 import { openChat } from './chat.js';
 import { kbdHelp } from './atalhos.js';
-
-// decisão pendente: caminho ÚNICO de POST, usado pelo card (#decisions) e pela paleta
-// (ui/app.js). O achado A5: a paleta chamava um decide() que nunca existiu
-// (ReferenceError engolido). decide() mora em telas/acoes.js desde a Task 9: o card
-// foi pra lá, e o achado A5 é exatamente o motivo de continuar sendo a MESMA
-// função dos dois lados.
-// a paleta não tem o modal do card, então o REQUEST_CHANGES ganha a MESMA confirmação
-async function decideComConfirmacao(id, action, ref) {
-  if (action === 'request_changes') {
-    const ok = await confirmModal({
-      title: `Pedir mudanças em ${ref || 'este PR'}?`, danger: true, confirmLabel: 'Pedir mudanças', cancelLabel: 'Cancelar',
-      body: `<p>Isso <b>posta um REQUEST CHANGES no GitHub</b>, visível pra todo mundo do PR, com os pontos que a revisão levantou.</p>`
-    });
-    if (!ok) return { ok: false };
-  }
-  return decide(id, action);
-}
 
 /* ---------- paleta de comando (Ctrl+K / Cmd+K) ----------
    Os handlers moram no TOPO do módulo, na mesma profundidade que tinham
@@ -141,6 +124,18 @@ function onCtrlKKeydown(e) {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); cmdOpen(); }
 }
 
+// o botão da paleta é estático no HTML e misturava as duas convenções (⌘K com
+// tooltip Ctrl+K); aqui ele fica coerente com o SO real do engine. Chamada por
+// aplicaPlataforma (ui/app.js) sempre que a plataforma é reconciliada com o
+// snapshot do engine (fonte única do rótulo: quem pinta o botão é quem é dono
+// dele, a própria paleta).
+function rotularBtnCmdK() {
+  const cmdBtn = document.getElementById('btnCmdK');
+  if (!cmdBtn) return;
+  cmdBtn.textContent = ehMac() ? '⌘K' : 'Ctrl+K';
+  cmdBtn.title = `Paleta de comandos (${ehMac() ? 'Cmd' : 'Ctrl'}+K)`;
+}
+
 // registrada pelo bootstrap no mesmo ponto relativo em que o listener e a ligação
 // do botão moravam, pra não mudar a ordem dos handlers de click/keydown do
 // document. switchTab é a navegação que a paleta precisa pra levar às abas e
@@ -151,4 +146,4 @@ function initPaleta(switchTab) {
   document.addEventListener('keydown', onCtrlKKeydown);
 }
 
-export { initPaleta };
+export { initPaleta, rotularBtnCmdK };
