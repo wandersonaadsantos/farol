@@ -4,14 +4,15 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 
 ## Estado atual
 
-- **Fase:** execução autônoma autorizada pelo dono em 15/09/2026 (iniciativa inteira, limites no plano mestre, seção 4).
-- **Entrega em curso:** nenhuma. O que falta são as telas, que saem do Claude Design. C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g, C4 (código), C5a, C5b, C5c, C5d, C2c, C3h, C4b, T0, C6, C7a, C7b e C8 validadas localmente e **todas integradas** em `md/integracao`.
+- **Fase:** execução autônoma autorizada pelo dono em 15/09/2026, com o **adendo de 16/09/2026** (concluir as pendências, incluindo a experiência utilizável).
+- **Estado em uma frase:** **núcleo da trilha C integrado, experiência funcional parcial.** Os serviços, regras e contratos de C0 a C8 estão implementados e validados localmente, mas a interface só cobre o que já existia antes da iniciativa (login, teste, saída, refazer recibo, consumo consolidado, tabela de aparelhos com versão e os três interruptores da era C0). Não há, pela tela, desbloqueio da chave do conjunto, interruptor de compartilhamento ou de distribuição, administração, grupos, comandos, transferência, tomada, pareamento da A4, nem o Plano e chaves (A2) e o Diagnóstico unificado (A3).
+- **Frentes em curso (adendo):** acesso ao Claude Design (cadastrado, **aguardando o login do dono**), brief B2 (em escrita), A1b (medição real feita e correção integrada), reconciliação deste registro.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
-- **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026.
-- **Branch de integração:** `md/integracao`, worktree `C:\Users\wanderson\Documents\farol-md-exec`. Os commits de documentação da antiga `docs/handoff-operacao-multidispositivo` foram trazidos por cherry-pick; aquela branch fica como histórico.
+- **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026. A `main` remota está em `b0911b1`.
+- **Branch de integração:** `md/integracao`, worktree `C:\Users\wanderson\Documents\farol-md-exec`. SHA de referência desta reconciliação: `33f2a0e` (antes da A1b); o SHA atual fica na seção "Gate na linha de integração".
 - **Worktree de referência da base:** `C:\Users\wanderson\Documents\farol-md-base` (detached em `8c043bc`, só leitura).
-- **Roteiro de contraprova:** mutação aplicada na cópia de trabalho, testes rodados, conteúdo restaurado e conferido byte a byte (script em scratchpad da sessão; o resultado de cada mutação fica na evidência da entrega).
+- **Roteiro de contraprova:** mutação aplicada na cópia de trabalho, testes rodados com tempo limite de 4 min por mutação, conteúdo restaurado e conferido byte a byte (script em scratchpad da sessão; o resultado de cada mutação fica na evidência da entrega).
 
 ## INCIDENTE: dados de teste gravados na pasta real (15/09/2026, 22:29)
 
@@ -44,38 +45,41 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 
 ## Entregas
 
-| Ordem | Entrega | Branch | Estado | Evidência |
-|---|---|---|---|---|
-| 1 | C1a Allowlist de Host | `md/c1a` | validado localmente, integrado (`be95e67`) | `evidencias-execucao/c1a.md` |
-| 2 | C0 Correções da sincronização publicada | `md/c0` | validado localmente, integrado | `evidencias-execucao/c0.md` |
-| 3 | A5 Retomada durável | `md/a5` | validado localmente, integrado | `evidencias-execucao/a5.md` |
-| 4 | A1 Consumo fiel (sem o item 1) | `md/a1` | validado localmente, integrado (`225165a`), item 1 bloqueado | `evidencias-execucao/a1.md` |
-| 5 | C0b Arbitragem de postagem no funil | `md/c0b` | validado localmente, integrado (`355f6d8`) | `evidencias-execucao/c0b.md` |
-| 6 | A4 Autenticação local, núcleo | `md/a4` | validado localmente, integrado (`7387179`); ativação automática desligada | `evidencias-execucao/a4.md` |
-| 7 | C1 Contrato de dados v2 e cifragem | `md/c1` | validado localmente, integrado (`6540b5a`); regras não publicadas | `evidencias-execucao/c1.md` |
-| 8 | C2a Autoridade do admin, consentimento e políticas | `md/c2a` | validada localmente e **integrada** | `evidencias-execucao/c2a.md` |
-| 9 | C2b Grupo de consumo, aparelho, limpeza e revogação | `md/c2b` | validada localmente e **integrada** | `evidencias-execucao/c2b.md` |
-| 10 | C3a Presença v2, capacidade e catálogo cifrado | `md/c3a` | validada localmente e **integrada** | `evidencias-execucao/c3a.md` |
-| 11 | C3b Andamento ao vivo | `md/c3b` | validada localmente e **integrada** | `evidencias-execucao/c3b.md` |
-| 12 | C3c Pendências e visto | `md/c3c` | validada localmente e **integrada** | `evidencias-execucao/c3c.md` |
-| 13 | C3d História de revisões | `md/c3d` | validada localmente e **integrada** | `evidencias-execucao/c3d.md` |
-| 14 | C3e Panorama e Meus PRs | `md/c3e` | validada localmente e **integrada** | `evidencias-execucao/c3e.md` |
-| 15 | C3f Memória de pushback | `md/c3f` | validada localmente e **integrada** | `evidencias-execucao/c3f.md` |
-| 16 | C3g Envio do histórico local | `md/c3g` | validada localmente e **integrada** | `evidencias-execucao/c3g.md` |
-| 17 | C4 Admissão local (parte de código) | `md/c4` | validada localmente e **integrada**; medição pendente por natureza | `evidencias-execucao/c4.md` |
-| 18 | C5a Candidato e escolha (parte pura) | `md/c5a` | validada localmente e **integrada** | `evidencias-execucao/c5a.md` |
-| 19 | C5b Prontidão do distribuidor (parte pura) | `md/c5b` | validada localmente e **integrada** | `evidencias-execucao/c5b.md` |
-| 20 | C5c Distribuição entre aparelhos | `md/c5c` | validada localmente e **integrada** | `evidencias-execucao/c5c.md` |
-| 21 | C5d Degradação e volta ao modo local | `md/c5d` | validada localmente e **integrada** | `evidencias-execucao/c5d.md` |
-| 22 | C2c Fiação do aceite de política e grupo | `md/c2c` | validada localmente e **integrada** | `evidencias-execucao/c2c.md` |
-| 23 | C3h Fiação da capacidade e do catálogo | `md/c3h` | validada localmente e **integrada** | `evidencias-execucao/c3h.md` |
-| 24 | C4b Ativação do teto do grupo (ativação protegida pela medição) | `md/c4b` | validada localmente e **integrada** | `evidencias-execucao/c4b.md` |
-| 25 | T0 Estabilidade da suíte (caso cancelado em silêncio) | `md/t0` | validada localmente e **integrada** | `evidencias-execucao/t0.md` |
-| 26 | C6 Comandos remotos | `md/c6` | validada localmente e **integrada** | `evidencias-execucao/c6.md` |
-| 27 | C7a Checkpoint de verificação compartilhado | `md/c7a` | validada localmente e **integrada** | `evidencias-execucao/c7a.md` |
-| 28 | C7b Transferência voluntária | `md/c7b` | validada localmente e **integrada** | `evidencias-execucao/c7b.md` |
-| 29 | C8 Tomada forçada | `md/c8` | validada localmente e **integrada** | `evidencias-execucao/c8.md` |
-| seguintes | telas (Claude Design) | | plano a escrever | |
+Contagem: **30 entregas**, 30 evidências em `evidencias-execucao/` (29 da execução até a C8 e a A1b do adendo). "Núcleo" é serviço, regra e contrato; "interface" é a tela que configura, aciona ou mostra a capacidade; "validação local" é gate verde mais contraprovas.
+
+| Ordem | Entrega | Branch | Núcleo | Interface | Integração e validação local | Validação externa pendente | Condição de publicação e ativação | Evidência |
+|---|---|---|---|---|---|---|---|---|
+| 1 | C1a Allowlist de Host | `md/c1a` | sim | não se aplica | sim | `Origin` real do Chromium no Electron (CI) | ativa por padrão | `evidencias-execucao/c1a.md` |
+| 2 | C0 Correções da sincronização publicada | `md/c0` | sim | sim (card existente) | sim | não | segue os interruptores de hoje | `evidencias-execucao/c0.md` |
+| 3 | A5 Retomada durável | `md/a5` | sim | na (comportamento da fila) | sim | não | ativa por padrão | `evidencias-execucao/a5.md` |
+| 4 | A1 Consumo fiel (itens 2 a 8) | `md/a1` | sim | sim (aba Consumo mostra desconhecido e interrompida) | sim | ramo POSIX do teste de interrupção | ativa por padrão | `evidencias-execucao/a1.md` |
+| 5 | C0b Arbitragem de postagem no funil | `md/c0b` | sim | **não** (cobertura de postagem não aparece) | sim | ajustar `POSTAGEM_COORDENADA_DESDE` na release | com coordenação ligada | `evidencias-execucao/c0b.md` |
+| 6 | A4 Autenticação local (núcleo) | `md/a4` | sim | **não** (sem tela de pareamento nem estados de autenticação) | sim | detecção e loopback no Termux real | **exigência automática desligada** (`ATIVACAO_AUTOMATICA_A4`) | `evidencias-execucao/a4.md` |
+| 7 | C1 Contrato de dados v2 e cifragem | `md/c1` | sim | **não** (sem desbloqueio da chave nem interruptor de compartilhamento) | sim | regras no emulador e no projeto real; `scrypt` no Termux; 0600 em POSIX | regras publicadas pelo dono | `evidencias-execucao/c1.md` |
+| 8 | C2a Autoridade do admin, consentimento e políticas | `md/c2a` | sim | **não** | sim | nós novos no servidor (itens 9 a 13); 0600 do cache de política | regras publicadas | `evidencias-execucao/c2a.md` |
+| 9 | C2b Grupo, aparelho, limpeza e revogação | `md/c2b` | sim | **não** | sim | nós de limpeza, revogação e grupo (itens 14 a 21) | regras publicadas | `evidencias-execucao/c2b.md` |
+| 10 | C3a Presença v2, capacidade e catálogo | `md/c3a` | sim | parcial (só a tabela de aparelhos, agora com versão) | sim | nós novos e checagem de dono com segundo usuário (itens 22 a 25) | compartilhamento ligado | `evidencias-execucao/c3a.md` |
+| 11 | C3b Andamento ao vivo | `md/c3b` | sim | **não** | sim | `live/operations` no servidor (item 26); latência entre aparelhos | compartilhamento ligado | `evidencias-execucao/c3b.md` |
+| 12 | C3c Pendências e visto | `md/c3c` | sim | **não** | sim | regras (itens 27 e 28) | compartilhamento ligado | `evidencias-execucao/c3c.md` |
+| 13 | C3d História de revisões | `md/c3d` | sim | **não** | sim | regras (itens 29 e 30) | compartilhamento ligado | `evidencias-execucao/c3d.md` |
+| 14 | C3e Panorama e Meus PRs | `md/c3e` | sim | **não** | sim | regras (itens 31 a 33) | compartilhamento ligado | `evidencias-execucao/c3e.md` |
+| 15 | C3f Memória de pushback | `md/c3f` | sim | **não** | sim | regra (item 34) | compartilhamento ligado | `evidencias-execucao/c3f.md` |
+| 16 | C3g Envio do histórico local | `md/c3g` | sim | **não** | sim | não | ação explícita do dono | `evidencias-execucao/c3g.md` |
+| 17 | C4 Admissão local | `md/c4` | sim | **não** | sim | memória real por ambiente e peso do PR como preditor | compartilhamento ligado; **recusa por peso desligada** | `evidencias-execucao/c4.md` |
+| 18 | C5a Candidato e escolha | `md/c5a` | sim | na (puro) | sim | não | com a C5c | `evidencias-execucao/c5a.md` |
+| 19 | C5b Prontidão do distribuidor | `md/c5b` | sim | na (puro) | sim | não | com a C5c | `evidencias-execucao/c5b.md` |
+| 20 | C5c Distribuição entre aparelhos | `md/c5c` | sim | **não** (sem interruptor nem estado da fila) | sim | regras (itens 35 a 38); latência de publicação até sessão aberta | interruptor `distribution` e admin vivo | `evidencias-execucao/c5c.md` |
+| 21 | C5d Degradação e volta ao modo local | `md/c5d` | sim | **não** (a janela sem enfileiramento não aparece) | sim | não | com a C5c | `evidencias-execucao/c5d.md` |
+| 22 | C2c Fiação do aceite de política e grupo | `md/c2c` | sim | na (fiação) | sim | não | com a C2 | `evidencias-execucao/c2c.md` |
+| 23 | C3h Fiação da capacidade e do catálogo | `md/c3h` | sim | na (fiação) | sim | não | com a C3 | `evidencias-execucao/c3h.md` |
+| 24 | C4b Ativação do teto do grupo | `md/c4b` | sim | **não** | sim | regra `usageDaily` (item 39); atraso do consumo entre dois aparelhos | **ativação desligada** (`ATIVACAO_TETO_GRUPO_C4B`) | `evidencias-execucao/c4b.md` |
+| 25 | T0 Estabilidade da suíte | `md/t0` | não se aplica | não se aplica | sim | não | não se aplica | `evidencias-execucao/t0.md` |
+| 26 | C6 Comandos remotos | `md/c6` | sim | **não** (a rota existe; sem tela de emitir nem de recibo) | sim | regras (itens 40 e 41) | admin vivo e consentimento local | `evidencias-execucao/c6.md` |
+| 27 | C7a Checkpoint compartilhado | `md/c7a` | sim | **não** (o desfecho da herança só vai para o feed) | sim | regra (item 42) | compartilhamento ligado | `evidencias-execucao/c7a.md` |
+| 28 | C7b Transferência voluntária | `md/c7b` | sim | **não** | sim | não | comando do admin; **afinidade adiada** | `evidencias-execucao/c7b.md` |
+| 29 | C8 Tomada forçada | `md/c8` | sim | **não** (o aviso existe como texto; sem tela de confirmação) | sim | regra do lease sucessor no servidor | comando do admin com confirmação | `evidencias-execucao/c8.md` |
+| 30 | A1b Medição real e correção do acumulador (A1, item 1) | `md/a1b` | sim | não se aplica | sim | estimativa da saída de tentativa interrompida (sem prova) | ativa por padrão | `evidencias-execucao/a1b.md` |
+| seguintes | B2 (brief e desenho), A2, A3, telas de A4, C1 a C8 | | | | | | | |
 
 ## Observação de instabilidade na suíte (16/09/2026)
 
@@ -91,7 +95,7 @@ Três vezes hoje, uma rodada de `npm test` disparada **logo depois de um merge**
 
 | Entrega | Causa | Evidência | Tentado | Condição para continuar |
 |---|---|---|---|---|
-| A1, item 1 | exige sessões reais do CLI (assinatura do dono; autorização proíbe ampliar gastos) | spec 13 | não se aplica | autorização específica |
+| A1, item 1: estimativa da SAÍDA de tentativa interrompida | a medição (A1b, três sessões autorizadas, lote esgotado) provou a duplicação e a corrigiu, mas mostrou que o stream sem mensagens parciais não traz o total de saída antes do fim; validar `thinking_tokens` como estimativa exige mais sessões | `evidencias-execucao/a1b.md` | três sessões reais | nova autorização de sessões, se o dono quiser essa estimativa |
 | A4, exigência automática validada | Termux real | spec 7.A4 | não se aplica | aparelho |
 
 ## Validações externas pendentes
