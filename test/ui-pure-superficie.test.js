@@ -38,6 +38,8 @@ const CONGELADA = [
   "buildFixPrompt",
   "canMergeSelfAnalysis",
   "canonicalGithubPrUrl",
+  "capacidadesIndisponiveis",
+  "capacidadesIndisponiveisHtml",
   "chatBadge",
   "chipHtml",
   "claudeAuthBadge",

@@ -10,7 +10,7 @@ import { EventEmitter } from 'node:events';
 
 // Camada base: versão, plataforma e caminhos (compartilhada com os módulos de lib/).
 import {
-  executadoDireto, rodandoComoRoot,
+  executadoDireto, rodandoComoRoot, sinaisDoModoCelular,
   APP_VERSION, APP_NAME, DELIVERIES_LIMIT, IS_WIN, IS_MAC, IS_LINUX, APP_ROOT,
   HOME, WORKSPACE, STATE_DIR, CONFIG_FILE, LOG_FILE, SEEN_FILE, IGNORED_FILE, BASELINE_FILE,
   INFLIGHT_FILE, CHATS_FILE, SELF_FILE, HIDDEN_FILE, TEMPLATE_DIR, UI_DIR,
@@ -18,7 +18,7 @@ import {
 
 // Helpers puros e utilitários movidos pra lib/ (Onda 1 do refactor, ver docs/QUALITY.md).
 // A Engine abaixo compõe estes módulos; a decomposição por responsabilidade segue nas ondas 2+.
-import { DEFAULT_PORT, TEMPOS } from './lib/constants.js';
+import { DEFAULT_PORT, TEMPOS, ATIVACAO_AUTOMATICA_A4, ATIVACAO_TETO_GRUPO_C4B } from './lib/constants.js';
 import env from './lib/env.js';
 import { modelLabel, isPermanentBranch, logStamp } from './lib/format.js';
 import { ACCOUNT_PALETTE } from './lib/taxonomy.js'; // resto da taxonomia é usado nos colaboradores (review/pushback)
@@ -60,6 +60,8 @@ import syncMod from './lib/engine/sync.js';
 import consumoGrupoMod from './lib/engine/sync-consumo-grupo.js';
 import telasMod from './lib/engine/sync-telas.js';
 import diagnosticoMod from './lib/engine/diagnostico.js';
+import capacidadesMod from './lib/engine/capacidades.js';
+import { detectarModoCelular } from './lib/local-auth/modo.js';
 import syncUsageMod from './lib/engine/sync-usage.js';
 import { EDITAVEIS, defaults as settingsDefaults, sanear, paraGravar } from './lib/settings.js';
 import { parseJiraSites, maskJiraSites } from './lib/jira/sites.js';
@@ -1569,6 +1571,18 @@ class Engine extends EventEmitter {
   // diagnóstico unificado (A3): o MESMO markdown para a tela, para a cópia e para a IA
   diagnosticoMarkdown() { return diagnosticoMod.diagnosticoMarkdown(this); }
   // plano e chaves explícito (A2): testar é ato explícito e nunca grava; adotar só com confirmação
+  // capacidade implementada que ainda não está valendo (adendo, item 5): os sinais reais
+  // do aparelho, para a tela nunca anunciar proteção que o engine não está aplicando
+  estadoDasCapacidades() {
+    return capacidadesMod.estadoDasCapacidades({
+      modoCelular: detectarModoCelular(sinaisDoModoCelular()),
+      ativacaoA4: ATIVACAO_AUTOMATICA_A4,
+      ativacaoTetoGrupo: ATIVACAO_TETO_GRUPO_C4B,
+      config: this.config.sync || {},
+      bloqueio: this.syncBloqueioCompartilhamento || '',
+      grupoConfigurado: Object.keys((this.sync && this.sync.grupos) || {}).length > 0,
+    });
+  }
   claudeTestarPerfil(dados) { return perfilMod.testarPerfil(this, dados); }
   claudeAdotarLegado(dados) { return perfilMod.adotarLegado(this, dados); }
   saveToolRuns() { return toolsMod.saveToolRuns(this); }
@@ -1902,6 +1916,8 @@ class Engine extends EventEmitter {
       app: { name: APP_NAME, version: APP_VERSION, platform: process.platform },
       // perfil apontado que a cascata não usa (A2): a queda para o legado deixou de ser silenciosa
       claudePerfis: { problemas: perfilMod.problemasDePerfil(this.config) },
+      // capacidade implementada que NÃO está valendo: a tela não pode prometer o que o engine não aplica
+      capacidades: this.estadoDasCapacidades(),
       status: this.status,
       error: this.lastError,
       account: { user: this.primaryUser(), tokenOk: this.tokenOk },
