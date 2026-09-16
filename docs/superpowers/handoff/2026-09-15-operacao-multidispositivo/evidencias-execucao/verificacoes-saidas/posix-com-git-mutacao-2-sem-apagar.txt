@@ -1,0 +1,73 @@
+node v24.21.0, uid 1000
+✖ testar um perfil de pasta não altera NENHUM arquivo da pasta, e a credencial vem dela (32.249047ms)
+✔ a cópia efêmera nunca recebe a credencial, e leva o settings.json (27.103901ms)
+✔ a cópia efêmera é restringida (chmod 0700) antes de receber arquivo (24.249515ms)
+✔ falha ao copiar apaga a cópia parcial e não roda o CLI (1.715137ms)
+✖ o padrão da máquina (sem pasta) não altera o ~/.claude.json nem o ~/.claude (24.642711ms)
+✖ CLI que falha ainda apaga a cópia efêmera (1.850294ms)
+✔ cópias efêmeras esquecidas por execuções anteriores são varridas (24.34653ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 4
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 242.451348
+
+✖ failing tests:
+
+test at test/perfil-claude-sem-escrita.test.js:165:1
+✖ testar um perfil de pasta não altera NENHUM arquivo da pasta, e a credencial vem dela (32.249047ms)
+  AssertionError [ERR_ASSERTION]: a cópia efêmera foi apagada
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/work/test/perfil-claude-sem-escrita.test.js:179:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/perfil-claude-sem-escrita.test.js:254:1
+✖ o padrão da máquina (sem pasta) não altera o ~/.claude.json nem o ~/.claude (24.642711ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/work/test/perfil-claude-sem-escrita.test.js:268:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/perfil-claude-sem-escrita.test.js:273:1
+✖ CLI que falha ainda apaga a cópia efêmera (1.850294ms)
+  AssertionError [ERR_ASSERTION]: o finally apagou a cópia
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///tmp/work/test/perfil-claude-sem-escrita.test.js:289:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+rc=1
