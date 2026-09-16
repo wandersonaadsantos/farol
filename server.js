@@ -1841,6 +1841,7 @@ class Engine extends EventEmitter {
   syncPublicarGrupo(dados) { return syncMod.syncPublicarGrupo(this, dados); }
   syncAparelho(dados) { return syncMod.aparelho(this, dados); }
   syncChaveDeLimpeza(dados) { return syncMod.chaveDeLimpeza(this, dados); }
+  syncLimpar(dados) { return syncMod.limpar(this, dados); }
   syncLogout() { return syncMod.syncLogout(this); }
   syncTest() { return syncMod.syncTest(this); }
   syncStop() { return syncMod.stopSync(this); }
