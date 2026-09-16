@@ -1,15 +1,13 @@
-// Presença v2, capacidade e catálogo DESLIGADOS: o Farol se comporta como hoje
-// (CT-COMPAT, item 2: com o compartilhamento desligado a presença é byte a byte a de
-// hoje). Este arquivo nasce antes da mudança e continua verde depois.
+// A presença declara o contrato e se a chave está aberta (7.C3).
 //
-// A comparação da presença é por IGUALDADE DE OBJETO, não campo a campo, de propósito:
-// campo novo que vaze para o corpo da presença precisa reprovar aqui, e uma asserção que
-// só olha os campos conhecidos nunca reprovaria.
+// `keyReady` é uma afirmação sobre AGORA, não uma promessa: ele diz que o material da
+// chave está aberto nesta sessão. Anunciar chave pronta por otimismo faria outro aparelho
+// publicar conteúdo cifrado contando com um leitor que não consegue abrir nada.
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 
-const BASE = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-c3a-desligado-'));
+const BASE = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-c3a-presenca-'));
 const CASA = path.join(BASE, 'casa');
 fs.mkdirSync(CASA, { recursive: true });
 process.env.FAROL_HOME = path.join(BASE, 'farol');
@@ -24,7 +22,7 @@ import { SYNC } from '../lib/constants.js';
 
 const { Engine } = await import('../server.js');
 const syncMod = (await import('../lib/engine/sync.js')).default;
-const { STATE_DIR, APP_VERSION } = await import('../lib/paths.js');
+const { APP_VERSION } = await import('../lib/paths.js');
 
 const API_KEY = 'chave-web-de-teste';
 const EMAIL = 'a@b.com';
@@ -52,7 +50,7 @@ async function fetchDosDubles(url, init) {
 
 function syncCfg(extra = {}) {
   return {
-    enabled: true, coordination: { enabled: true }, consolidation: { enabled: false }, shared: { enabled: false },
+    enabled: true, coordination: { enabled: true }, consolidation: { enabled: false }, shared: { enabled: true },
     aceitarAdmin: false, deviceName: 'Notebook', apiKey: API_KEY, databaseUrl: fake.url, projectId: 'farol-local', ...extra,
   };
 }
@@ -68,39 +66,40 @@ async function motorLogado(cfg = syncCfg()) {
   return e;
 }
 
-function escritasDe(trecho) {
-  return fake.requests.filter((r) => String(r.path || r.url || '').includes(trecho));
+function meuNo(e) {
+  const t = fake.tree();
+  const devs = t && t.users && t.users.u1 ? t.users.u1.devices : null;
+  return (devs && devs[e.sync.deviceId]) || null;
 }
 
-test('com o compartilhamento desligado, o corpo da presença é exatamente o de hoje', async () => {
+test('com o compartilhamento ligado, a presença declara contrato 2 e chave não pronta', async () => {
   const e = await motorLogado();
   assert.deepEqual(syncMod.presencaDe(e.sync, e.config.sync), {
     name: e.sync.deviceName, platform: process.platform, farolVersion: APP_VERSION,
-    lastSeenAt: { '.sv': 'timestamp' },
-  }, 'campo novo no corpo da presença precisa reprovar aqui');
+    lastSeenAt: { '.sv': 'timestamp' }, contract: 2, keyReady: false,
+  });
+  await syncMod.touchPresence(e);
+  assert.equal(meuNo(e).contract, 2);
+  assert.equal(meuNo(e).keyReady, false);
 });
 
-test('desligado: nenhum ciclo escreve capacidade nem catálogo', async () => {
+test('a chave aberta vira keyReady no MESMO ciclo, sem esperar o próximo', async () => {
   const e = await motorLogado();
   await syncMod.touchPresence(e);
-  await syncMod.lerAparelhos(e);
-  assert.deepEqual(escritasDe('deviceStatus'), []);
-  assert.deepEqual(escritasDe('catalog'), []);
-});
-
-// O gate precisa existir ANTES de a publicação existir: sozinho, um aparelho não tem para
-// quem publicar, e escrever sem leitor é cota gasta e superfície de dado sem dono.
-test('ligado e sozinho: também não escreve capacidade nem catálogo', async () => {
-  const e = await motorLogado(syncCfg({ shared: { enabled: true } }));
+  assert.equal(meuNo(e).keyReady, false);
+  assert.equal((await e.syncUnlock({ password: SENHA })).ok, true);
+  e.sync.lastPresenceAt = 0;
   await syncMod.touchPresence(e);
-  await syncMod.lerAparelhos(e);
-  assert.deepEqual(escritasDe('deviceStatus'), []);
-  assert.deepEqual(escritasDe('catalog'), []);
+  assert.equal(meuNo(e).keyReady, true);
 });
 
-test('nada disso cria arquivo local novo', async () => {
-  await motorLogado();
-  for (const f of ['sync-catalogo.json', 'sync-capacidade.json', 'sync-frota.json']) {
-    assert.equal(fs.existsSync(path.join(STATE_DIR, f)), false, f);
-  }
+test('cada aparelho descreve só a si: a presença escreve no próprio nó', async () => {
+  const e = await motorLogado();
+  const arvore = fake.tree() || { users: { u1: {} } };
+  arvore.users.u1.devices = { ...(arvore.users.u1.devices || {}), dOutro: { name: 'Celular', contract: 1, keyReady: false, lastSeenAt: 1 } };
+  fake.setTree(arvore);
+  await syncMod.touchPresence(e);
+  const t = fake.tree();
+  assert.equal(t.users.u1.devices.dOutro.contract, 1, 'ninguém escreve contrato no nó do outro');
+  assert.equal(t.users.u1.devices[e.sync.deviceId].contract, 2);
 });
