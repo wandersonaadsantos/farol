@@ -5,8 +5,8 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026, com o **adendo de 16/09/2026** (concluir as pendências, incluindo a experiência utilizável).
-- **Estado em uma frase:** **núcleo da trilha C integrado, experiência funcional parcial.** Os serviços, regras e contratos de C0 a C8 estão implementados e validados localmente, mas a interface só cobre o que já existia antes da iniciativa (login, teste, saída, refazer recibo, consumo consolidado, tabela de aparelhos com versão e os três interruptores da era C0). Não há, pela tela, desbloqueio da chave do conjunto, interruptor de compartilhamento ou de distribuição, administração, grupos, comandos, transferência, tomada, pareamento da A4, nem o Plano e chaves (A2) e o Diagnóstico unificado (A3).
-- **Frentes em curso (adendo):** acesso ao Claude Design (cadastrado, **aguardando o login do dono**); brief B2 escrito e contrato das telas integrado; A1b e A4b integradas; linha de integração **reconciliada com a `main` `dde2ac1`** (Fase 1b da reorganização e v2.59.5) em 16/09/2026; **núcleos de A3 e A2 integrados** em 16/09/2026, os dois sem a tela, que depende do desenho.
+- **Estado em uma frase:** **trilhas A e C integradas, com a experiência funcional na tela.** Os serviços, regras e contratos de C0 a C8 seguem implementados e validados localmente, e agora existem pela tela: pareamento da API local (A4), Plano e chaves (A2), Diagnóstico unificado com as falhas registradas (A3), interruptores de compartilhar e distribuir com o cartão da chave do conjunto (C1), Aparelhos e administração (C2a), Grupos de consumo (C2b, C4b) e a visão compartilhada no Radar, com pendências, andamento, comandos, revisões de todos os aparelhos e envio do histórico (C3, C5, C6, C8). O que continua de fora está na tabela de pendências externas e na seção de capacidades desligadas, com o motivo de cada uma.
+- **Frentes em curso (adendo):** desenho B2 publicado no Claude Design (canvas em três versões, a terceira alinhada à implementação do pareamento); telas de A2, A3, A4, C1, C2 e C3 integradas em 16/09/2026; verificações A, B, C e D feitas; jornadas refeitas na versão integrada, em desktop e em 390 px (`evidencias-execucao/jornada-integrada-2.md`).
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 - **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026. Reconciliada em 16/09/2026 com a `main` local `dde2ac1` (Fase 1b: `ui/app.js` virou bootstrap e as telas moram em `ui/telas/`; v2.59.5; guias operacionais em `docs/`). Merge `3ec5d10` em `md/reconcilia-main`, integrado por `6eb2232`.
@@ -47,6 +47,38 @@ A primeira rodada desta última suíte teve UMA falha de arquivo inteiro sem nen
 Saída completa da suíte guardada fora do repositório (scratchpad da sessão, `suite-reconcilia2.txt`). Na primeira rodada depois do merge, `test/http-host-allowlist.test.js` terminou como falha de arquivo com os 28 casos aprovados; rodado sozinho três vezes, passou nas três (mesma família da falha nativa registrada em "Observação de instabilidade na suíte").
 
 Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações escritas.
+
+## Gate na linha de integração (16/09/2026 à noite, com as telas integradas)
+
+| Gate | Resultado |
+|---|---|
+| `npm run check` | verde, 551 arquivos `.js` |
+| `npm run lint` | verde, sem regressão (a baseline nunca subiu) |
+| `npm test` | 4098 testes, 4070 aprovados, 28 pulados, 0 falhas |
+| POSIX em contêiner Linux | 3959 testes, 9 falhas, todas por falta de `git` na imagem (`evidencias-execucao/validacao-posix.md`) |
+| `npm run eng` | ver "Verificação D" abaixo |
+
+Windows 11, Node v24.15.0. Nenhuma falha de arquivo inteiro nesta rodada.
+
+## Verificação D: diff, gates e eng-behaviour
+
+**Diff `443c91b..HEAD`:** 156 arquivos, 50.213 linhas acrescentadas e 295 removidas. Tirando
+`docs/`, são 72 arquivos, 5.574 acrescentadas e 273 removidas. O volume de documentação vem
+das evidências dos agentes, com as saídas de teste e de contraprova guardadas por inteiro.
+
+**As rodadas que falharam foram preservadas**, com saída e código de saída, em
+`evidencias-execucao/verificacoes-saidas/` (`tela-radar-test-2.txt`, `tela-radar-test-3.txt`,
+`tela-aparelhos-rodada1-test.txt`, `tela-aparelhos-rodada2-test.txt`) e em
+`suite-a2tela-rodada1-falhou.txt`. Duas causas, as duas medidas e fechadas:
+
+1. **Queda nativa do Node no Windows** (`0xC0000409`), registrada na seção de instabilidade.
+2. **Testes que dependiam da memória livre da máquina**, corrigido nesta linha: a admissão mede
+   pelo MENOR entre `process.availableMemory()` e `os.freemem()`, e os testes fingiam só uma
+   das duas. Com a máquina em 1031 MB livres, seis testes de quatro arquivos reprovavam e
+   passavam sozinhos. O ajudante `test/helpers/memoria-livre.js` finge as duas; quem prova o
+   comportamento SEM memória continua fixando na mão (`test/admissao-local.test.js`). Provado
+   com a memória forçada para baixo: antes, 6 reprovações; depois, 71 de 71 aprovados. A
+   contraprova (fingir só uma fonte) devolve 5 reprovações.
 
 ## Entregas
 
@@ -93,7 +125,14 @@ Contagem: **39 linhas** (a 34 é a reconciliação e a 39 não tem evidência pr
 | 37 | Estados de indisponibilidade na tela | `md/capacidades` | sim | sim (cartão na seção de sincronização) | sim, 18 contraprovas | nenhuma | nada é ligado por isto | `evidencias-execucao/capacidades-indisponiveis.md` |
 | 38 | Jornada integrada na aplicação real isolada | `md/jornada` | correção de dois defeitos | verificada em desktop e em 375 px | sim, 6 contraprovas | jornadas que dependem de tela e de segundo aparelho | junto com a iniciativa | `evidencias-execucao/jornada-integrada.md` |
 | 39 | Empacotamento com a auditoria corrigida | `md/empacotamento` | sim | não se aplica | sim, pacote gerado e conferido | nenhuma | pré-requisito de qualquer release | `evidencias-execucao/jornada-integrada.md`, seção 3, e o commit |
-| seguintes | desenho B2 no Claude Design e as telas de A2, A3, A4 e C1 a C8 | | | | | | | |
+| 40 | Desenho B2 no Claude Design (canvas de 16 quadros) | `md/desenho` | não se aplica | é o desenho das telas | conferência de aderência quadro a quadro | nenhuma | não se aplica | `specs/...-anexos/B2-design/README.md` |
+| 41 | A4 Tela de pareamento e vigília do stream | `md/a4-tela` | sim | sim (no lugar da interface inteira) | sim, 5 contraprovas, mais o defeito do stream aberto | Termux real | pareamento exigido continua desligado por padrão | `evidencias-execucao/a4-tela.md` |
+| 42 | Verificações A, B e C (perfil, diagnóstico, pacote) | `md/verificacoes` | sim | não se aplica | sim, um defeito real corrigido em cada | sessão real de modelo (A3) e login ativo (A2) | as três fecham buraco, não abrem capacidade | `evidencias-execucao/verificacoes-a-b-c.md` |
+| 43 | A3 e A2 na tela (falhas com ação, plano e chaves) | `md/a3-tela`, `md/a2-tela` | sim | sim | sim | as mesmas da A3 e da A2 | testar perfil nunca grava; diagnóstico é só leitura | `evidencias-execucao/a3.md`, `a2.md` |
+| 44 | C1 na tela: compartilhar, distribuir e a chave do conjunto | `md/sync-tela` | sim | sim | sim, 13 contraprovas | regras v2 publicadas no Firebase | distribuir trava sem compartilhar e sem coordenar | `evidencias-execucao/sync-tela.md` |
+| 45 | Aparelhos e Grupos de consumo na tela | `md/tela-aparelhos` | sim | sim | sim, 26 contraprovas na segunda rodada | mesmas de C2a, C2b e C4b | teto do grupo continua sem efeito | `evidencias-execucao/tela-aparelhos-grupos.md` |
+| 46 | Visão compartilhada no Radar (pendências, andamento, comandos, revisões, envio) | `md/tela-radar` | sim | sim | sim, 21 contraprovas na segunda rodada | regras v2 e segundo aparelho real | só aparece com a visão valendo; transferir segue indisponível | `evidencias-execucao/tela-radar-compartilhado.md` |
+| 47 | Jornada na versão integrada e memória livre fixa nos testes de admissão | `md/integracao` | sim (teste não hermético corrigido) | desktop e 390 px | sim, contraprova do ajudante de memória | jornadas com segundo aparelho e Termux | nenhuma capacidade ligada | `evidencias-execucao/jornada-integrada-2.md` |
 
 ## Capacidades desligadas: o que falta em cada uma (adendo, item 5)
 
@@ -218,6 +257,16 @@ pendente do dono; **(F)** ambiente físico indisponível (aparelho, segundo apar
 | `5173a35`, merge `3903e49` | `md/jornada` | jornada integrada: o bloqueio passa a provar o pedido, e a guarda do celular deixa de apagar a escolha no disco |
 | `5f04766`, merge `443c91b` | `md/empacotamento` | auditoria do pacote por forma de segredo, com teste que lê o padrão do próprio empacotador |
 | `3ec5d10`, merge `6eb2232` | `md/reconcilia-main` | reconciliação com a `main` `dde2ac1`: transporte da A4 em `ui/telas/infra.js`, textos da C0 nas telas, apagão remoto fora de `ui/telas/sistema-sync.js`, retomada durável portada para `docs/REVIEW-GATES.md`; três testes passaram a ler o bootstrap e todas as telas (`settings-ignoradas`, `sync-sem-apagao`, `ui-transporte-app`), com a mesma garantia |
+| `285bcad` | `md/integracao` | desenho B2: fonte dos 16 quadros e o canvas publicado no Claude Design |
+| `1457eb1`, `7b44b13`, `b2054ac`, `7333ca3`, merge `7bde756` | `md/verificacoes` | verificações A, B e C: cópia efêmera no teste de perfil, sessão de leitura sem hooks nem plugins, varredura de credencial em todo arquivo do pacote |
+| `223f28d`, `c4a3817`, merge `cf5cdac` | `md/a4-tela` | A4 na tela: pareamento no lugar da interface inteira, e o stream aberto que não sobrevive à própria credencial |
+| `f973465`, merge `285e8c6` | `md/a3-tela` | A3 na tela: falhas registradas com a ação sugerida, e um texto só para tela e sessão |
+| `62ce3f6`, merge `e9f8183` | `md/a2-tela` | A2 na tela: testar o perfil, origem de cada campo, aviso do perfil quebrado e varredura das cópias efêmeras |
+| `bb51db8`, merge `85bf7fc` | `md/sync-tela` | C1 na tela: compartilhar e distribuir, cartão da chave do conjunto, e o pedido que sobrevive à guarda do celular |
+| `a576729`, `0c6cc38` | `md/integracao` | medição da queda nativa da suíte e a tabela de pendências externas por tipo de impedimento |
+| `73eb777`, `89b4603`, `bc54fcc`, `2778e60`, `15ce282`, `51229f0`, merge `3cfe582` | `md/tela-radar` | visão compartilhada no Radar: prazo gravado no nó, puras, tela, reforço das contraprovas inertes e evidência |
+| `957a10b`, `eff62b4`, `c4438a3`, `b0f5592`, `2b50ed3`, merge `4158305` | `md/tela-aparelhos` | Aparelhos e Grupos de consumo: puras, seções no Sistema, reforço das travas inertes e evidência |
+| `d5021ab`, `984c60b` | `md/integracao` | memória livre fixa nos testes de admissão, e a jornada na versão integrada |
 
 
 ## Deploy e notas de versão propostos (16/09/2026)
