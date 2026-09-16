@@ -759,10 +759,10 @@
             <h2>Diagnóstico</h2>
             <div class="row-actions">
               <button id="btnHealth" class="btn sm">Diagnóstico com o Claude</button>
-              <button id="btnDiag" class="btn sm" title="Gera um relatório de diagnóstico (sem segredos) pra copiar e mandar pra quem mantém o Farol, útil pra corrigir problemas (ex.: no macOS)">Exportar diagnóstico</button>
+              <button id="btnDiag" class="btn sm" title="Copia o diagnóstico como texto: ambiente, falhas registradas e resumo do log, com segredos mascarados e menções desligadas">Copiar diagnóstico</button>
             </div>
           </div>
-          <p class="section-desc">Log de falhas e ferramentas pra investigar um problema, inclusive o relatório pronto pra mandar pra quem mantém o Farol.</p>
+          <p class="section-desc">Uma visão só: as falhas registradas com o que fazer, o log e o diagnóstico com o Claude. Ver e copiar não executam nada e não enviam o diagnóstico a ninguém; a cópia é texto, com segredos mascarados e menções desligadas.</p>
           <div class="card set-list">
             <label class="set-row" id="sys-row-spawns">
               <span class="set-txt">
@@ -774,13 +774,15 @@
           </div>
           <div id="diagPanel" class="card tool-panel" hidden>
             <div class="tool-head">
-              <h3 class="tool-title">Diagnóstico exportável</h3>
-              <span class="section-sub">sem tokens nem senhas: só ambiente, contas, config e o log de falhas</span>
+              <h3 class="tool-title">Diagnóstico desta máquina</h3>
+              <span class="section-sub">o mesmo texto que foi copiado: ambiente, falhas e resumo do log</span>
               <button id="btnDiagCopy" class="btn sm">Copiar</button>
               <button id="btnDiagClear" class="btn sm ghost">Fechar</button>
             </div>
-            <pre id="diagBox" class="logbox"></pre>
+            <div id="diagBox" class="report"></div>
           </div>
+          <div class="section-head" id="sys-row-falhas"><h2>Falhas registradas</h2><span class="section-sub">apagar o log não apaga estas</span></div>
+          <div id="diagFalhas"></div>
           <div id="healthPanel" class="card tool-panel" hidden>
             <div class="tool-head">
               <h3 class="tool-title">Diagnóstico</h3>

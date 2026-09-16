@@ -257,88 +257,11 @@ export function buildFixPrompt(args = {}) {
   return linhas.join('\n');
 }
 
-function contaLinhaDiag(a) {
-  const primaria = a.primary ? ' [primária]' : '';
-  const silenciada = a.muted ? ' · silenciada' : '';
-  const token = a.tokenOk ? 'ok' : 'NAO';
-  const orgs = (a.owners || []).join(',') || '-';
-  return `  @${a.user}${primaria} · rótulo=${a.label || '-'} · tipo=${a.kind || '-'} · orgs=${orgs} · token=${token}${silenciada}`;
-}
-
-function assinaturaLinhaDiag(p) {
-  const rotulo = p.label ? ' [' + p.label + ']' : '';
-  const onde = p.configDir ? 'dir próprio (' + p.configDir + ')' : 'padrão da máquina';
-  const conta = p.account ? ' · conta ' + p.account : '';
-  const semLogin = p.ready === false ? ' · SEM LOGIN (rode: claude login nesse dir)' : '';
-  return `  assinatura Claude${rotulo}: ${onde}${conta}${semLogin}`;
-}
-
-function atualizacaoLinhaDiag(u) {
-  if (!u) return '?';
-  const alvo = u.available ? 'v' + u.sourceVersion + ' DISPONÍVEL' : 'na mais recente';
-  const repo = u.repo ? ' ' + u.repo : '';
-  const nota = u.note ? ' · ' + u.note : '';
-  return `v${u.current} · ${alvo} (${u.channel}${repo})${nota}`;
-}
-
-export function diagnosticsText(ctx = {}) {
-  const s = ctx.s || {};
-  const log = ctx.log || [];
-  const grupos = ctx.grupos || [];
-  const tail = ctx.tail || 40;
-  const d = s.doctor || {};
-  const c = s.config || {};
-  const contas = s.accounts || [];
-  const accts = contas.map(contaLinhaDiag).join('\n');
-  const erroSuf = s.error ? ' · último erro: ' + s.error : '';
-  const ghAuth = d.ghAuth ? 'sim' : 'NAO';
-  const eventos = grupos.reduce((n, g) => n + g.count, 0);
-  // resumo primeiro, detalhe depois: quem lê o relatório precisa saber QUANTOS
-  // episódios distintos existem antes de encarar linha crua.
-  const resumo = grupos.length ? ['  Resumo:', ...logSummaryLines(grupos).map(l => '    ' + l), ''] : [];
-  const cabecalhoDetalhe = `  Detalhe (as ${Math.min(log.length, tail)} linhas mais recentes):`;
-  const detalhe = log.length ? [cabecalhoDetalhe, ...logTailLines(log, tail)] : ['  (sem falhas registradas)'];
-  return [
-    '=== Farol · diagnóstico ===',
-    `gerado: ${ctx.agora || '?'}`,
-    `versão: v${s.app?.version || '?'} · plataforma: ${s.app?.platform || '?'} · node: ${d.node || '?'}`,
-    `status: ${s.status || '?'}${erroSuf}`,
-    '',
-    'Ambiente (doctor):',
-    `  gh: ${d.gh || 'NAO ENCONTRADO'}`,
-    `  claude: ${d.claude || 'NAO ENCONTRADO'}`,
-    ...(d.claudeAuth || []).map(assinaturaLinhaDiag),
-    `  git bash: ${d.gitBash || '(n/a)'}`,
-    `  conta primária autenticada no gh: ${ghAuth}`,
-    `  workspace: ${d.workspace || s.paths?.workspace || '?'}`,
-    `  home: ${s.paths?.home || '?'}`,
-    // só aparece quando dói: uid 0 mata toda revisão autônoma no spawn, e o
-    // relatório é justamente o que a pessoa cola quando "não funciona e não sei por quê"
-    ...(d.root ? ['  ATENÇÃO: rodando como root (uid 0), o claude recusa --dangerously-skip-permissions e nenhuma revisão autônoma consegue abrir'] : []),
-    '',
-    `Contas (${contas.length}):`,
-    accts || '  (nenhuma)',
-    '',
-    'Config:',
-    `  intervalo: ${c.intervalSeconds}s · autoReview: ${!!c.autoReview} · autoApproveAll: ${c.autoApproveAll !== false} · autoApproveContested: ${c.autoApproveContested === true} · skipPermissions: ${!!c.skipPermissions}`,
-    `  autostart: ${!!c.autostart} · som: ${!!c.soundEnabled} · tema: ${c.theme || '-'}`,
-    `  updateRepo: ${c.updateRepo || '-'} · updateSource: ${c.updateSource || '(release)'}`,
-    `  mergeBlockedRepos: ${(c.mergeBlockedRepos || []).join(', ') || '-'}`,
-    '',
-    'Estado agora:',
-    `  fila: ${(s.queue || []).length} · panorama: ${(s.panorama || []).length} · meus PRs: ${(s.myPRs || []).length} · decisões pendentes: ${(s.decisions?.pending || []).length} · sessões ativas: ${(s.activeSessions || []).length}`,
-    `  atualização: ${atualizacaoLinhaDiag(s.update)}`,
-    '',
-    // evento = linha com timestamp; o total de LINHAS é maior porque mensagem de erro
-    // multilinha (gh, cmd.exe) ocupa mais de uma. Dizer só "159 linhas" e depois "146
-    // eventos" na linha de leitura confundia, então o cabeçalho traz os dois.
-    `Log de falhas (${eventos} evento(s) em ${grupos.length} grupo(s), ${log.length} linha(s)):`,
-    ...resumo,
-    ...detalhe,
-    '',
-    '(este relatório não contém tokens nem senhas)'
-  ].join('\n');
-}
+/* O export de diagnóstico montado na tela saiu na A3 (16/09/2026): o texto que a pessoa
+   copia passou a ser o Markdown único do engine (lib/engine/diagnostico.js, GET
+   /api/diagnostics), que já sai mascarado, inerte e sem e-mail nem caminho de máquina.
+   Eram três superfícies dizendo a mesma coisa de jeitos diferentes, e a que morava aqui
+   juntava contas e configuração no mesmo texto copiado. */
 
 // O que o servidor recusou num salvamento de preferências, em frase de toast. Vazio
 // quando tudo entrou. Um texto só para os três salvamentos da tela: cada handler olhando
