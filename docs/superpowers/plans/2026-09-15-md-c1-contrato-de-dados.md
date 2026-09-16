@@ -1592,9 +1592,15 @@ function falha(motivo) { return { ok: false, motivo }; }
 function b64(buf) { return Buffer.from(buf).toString('base64url'); }
 function debase64(t) { return Buffer.from(String(t || ''), 'base64url'); }
 
+// O mapeador sai para fora do aadDe porque dois `?` no mesmo statement contam como
+// ternário aninhado no gate de qualidade, e a baseline nunca sobe.
+function textoDoExtra(x) {
+  return String(x === null || x === undefined ? '' : x);
+}
+
 function aadDe({ uid, caminho, campo, kid, esquema, extras }) {
   const base = ['farol', PREFIXO, String(uid || ''), String(caminho || ''), String(campo || ''), String(kid || ''), String(esquema || '')];
-  const extra = Array.isArray(extras) ? extras.map((x) => String(x === null || x === undefined ? '' : x)) : [];
+  const extra = Array.isArray(extras) ? extras.map(textoDoExtra) : [];
   return [...base, ...extra].join('|');
 }
 
@@ -1672,11 +1678,10 @@ export { cifrar, decifrar, aadDe, cabeNoTeto, tamanhoDoClaro, TETOS };
 
 - [ ] **Passo 5:** rodar `node --test test/sync-envelope.test.js`. Esperado: 12 testes verdes. Rodar `npm run lint`: o `decifrar` acima tem profundidade 1 e nenhum ternário aninhado; se o gate reclamar de tamanho, extraia `pedacos`/`abrir` para o topo do arquivo (já estão), nunca suba a baseline.
 
-- [ ] **Passo 6 (contraprova):** três mutações, uma de cada vez:
-  (a) em `aadDe`, apague `String(caminho || ''),` da lista: reprova `AAD sem o caminho não existe`.
-  (b) em `cifrar` e `decifrar`, remova `{ authTagLength: TAG_BYTES }` das duas chamadas: reprova `leitura falha fechada` no caso da tag de 4 bytes (a tag curta passa a ser aceita).
+- [ ] **Passo 6 (contraprova):** três mutações, uma de cada vez (1 falha cada, medidas), restaurando depois de cada uma:
+  (a) em `aadDe`, apague `String(caminho || ''),` da lista: reprova `AAD sem o caminho não existe`;
+  (b) apague a linha `if (p.tag.length !== TAG_BYTES) return falha('tag');`: reprova `leitura falha fechada`, porque a tag curta passa a morrer no GCM e o item deixa de ser recusado pelo motivo certo. **Não** remova `{ authTagLength: TAG_BYTES }` para isso: a conferência explícita de tamanho acontece ANTES do `setAuthTag`, então tirar a opção não muda o resultado deste teste;
   (c) em `claroDe`, troque `const falta = ...` por `const falta = 0;`: reprova `preenchimento`.
-  Restaure depois de cada uma e rode de novo: verde.
 
 - [ ] **Passo 7:** commit.
 
