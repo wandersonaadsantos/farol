@@ -356,6 +356,22 @@ test('live/queue, live/assign e live/ack: forma, TTL com teto e rev monotônico'
   assert.ok(resposta.includes("newData.child('at').val() <= now + 60000"));
 });
 
+// O veredito da espera (divergência 5) é um CAMPO do nó do item, com regra própria: sem
+// ela o servidor recusaria a escrita, porque o nó pai exige a forma inteira da atribuição.
+// E a atribuição de verdade continua subindo por cima de um nó que só tem o veredito: sem
+// `rev` anterior, a comparação de rev não pode travar a primeira atribuição.
+test('live/assign/$item/espera: forma, prazo curto e envelope; a atribuição sobe por cima dele', () => {
+  const campo = regras.live.assign.$item.espera['.write'];
+  assert.ok(campo.startsWith('auth != null && auth.uid == $uid'), 'só a própria conta');
+  assert.ok(campo.includes("newData.hasChildren(['v', 'ttl', 'enc'])"));
+  assert.ok(campo.includes("newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 600000"));
+  assert.ok(campo.includes("newData.child('enc').val().length <= 2048"));
+  assert.ok(campo.includes('!newData.exists() ||'), 'o veredito sai junto com o nó');
+  const atribuicao = regras.live.assign.$item['.write'];
+  assert.ok(atribuicao.includes("(!data.exists() || !data.child('rev').exists() || newData.child('rev').val() > data.child('rev').val())"));
+  assert.deepEqual(Object.keys(regras.live.assign.$item).sort(), ['.write', 'espera']);
+});
+
 // A prontidão é o sinal do agendador: só o admin do momento escreve, a sequência só sobe
 // (valor repetido é reentrega, que por contrato não renova) e a janela é a mesma do beat.
 test('live/control/ready: dono do momento, sequência que só sobe e janela de 60 s', () => {
