@@ -29,6 +29,7 @@ childProcess.spawn = function mockableSpawn(...args) {
 };
 
 const { runClaudeStream, parseEnvelope, acumularParcial } = await import('../lib/engine/session.js');
+const medicao = (await import('../tools/medicao/contagem-dobrada.js')).default;
 
 after(() => {
   childProcess.spawn = realSpawn;
@@ -132,4 +133,75 @@ test('sessão que morre sem gastar nada não inventa registro', async () => {
   await p.catch(() => { });
 
   assert.equal(registros.length, 0, 'sem token gasto não há o que registrar');
+});
+
+// A1, item 1: MEDIDO em três sessões reais do CLI (16/09/2026, assinatura, sem chave de
+// API). Cada bloco de conteúdo de uma mensagem chega como evento `assistant` separado, com
+// o MESMO message.id e o MESMO uso: 7 repetições, nenhuma com uso diferente. Entrada e
+// cache deduplicados batem EXATAMENTE com o evento final; somados sem dedup, dobram. A
+// saída dos eventos intermediários é um piso (o total só vem no evento final), então a
+// linha parcial continua estimada, agora sem a duplicação.
+const FIXTURES = [1, 2, 3].map((n) => fs.readFileSync(new URL(`./fixtures/medicao/stream-real-${n}.jsonl`, import.meta.url), 'utf8'));
+const CAMPOS_EXATOS = ['input_tokens', 'cache_read_input_tokens', 'cache_creation_input_tokens'];
+
+function alimentar(texto) {
+  const acc = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
+  let final = null;
+  for (const linha of texto.split('\n').filter(Boolean)) {
+    const ev = JSON.parse(linha);
+    if (ev.type === 'result') final = ev.usage;
+    else acumularParcial(acc, ev.message.usage, ev.message.id);
+  }
+  return { acc, final };
+}
+
+test('o mesmo message.id conta uma vez, com o último uso visto', () => {
+  const acc = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
+  acumularParcial(acc, { output_tokens: 100 }, 'msg_1');
+  acumularParcial(acc, { output_tokens: 100 }, 'msg_1');
+  acumularParcial(acc, { output_tokens: 50 }, 'msg_2');
+  assert.equal(acc.output_tokens, 150);
+  acumularParcial(acc, { output_tokens: 120 }, 'msg_1');
+  assert.equal(acc.output_tokens, 170, 'uso novo do mesmo id substitui o anterior');
+  acumularParcial(acc, { output_tokens: 130 }, 'msg_1');
+  assert.equal(acc.output_tokens, 180, 'quem sai é o ÚLTIMO uso visto, não o primeiro');
+  assert.deepEqual(Object.keys(acc).sort(), ['cache_creation_input_tokens', 'cache_read_input_tokens', 'input_tokens', 'output_tokens'], 'o mapa por id não viaja no diário');
+});
+
+test('mensagem sem id continua somando: sem id não há como deduplicar', () => {
+  const acc = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
+  acumularParcial(acc, { output_tokens: 10 });
+  acumularParcial(acc, { output_tokens: 10 });
+  assert.equal(acc.output_tokens, 20);
+});
+
+test('stream real: entrada e cache deduplicados batem exatamente com o final', () => {
+  for (const [i, texto] of FIXTURES.entries()) {
+    const { acc, final } = alimentar(texto);
+    for (const campo of CAMPOS_EXATOS) assert.equal(acc[campo], final[campo], `sessão ${i + 1}, ${campo}`);
+  }
+});
+
+test('stream real: a saída parcial é piso, nunca passa do final', () => {
+  for (const [i, texto] of FIXTURES.entries()) {
+    const { acc, final } = alimentar(texto);
+    assert.ok(acc.output_tokens > 0 && acc.output_tokens < final.output_tokens, `sessão ${i + 1}`);
+    assert.equal(acc.output_tokens, medicao.medirContagem(texto).dedup.output_tokens);
+  }
+});
+
+test('stream real: as fixtures só carregam tipo, id sintético e os quatro números', () => {
+  for (const texto of FIXTURES) {
+    for (const linha of texto.split('\n').filter(Boolean)) {
+      const ev = JSON.parse(linha);
+      const uso = ev.type === 'result' ? ev.usage : ev.message.usage;
+      assert.deepEqual(Object.keys(uso).sort(), ['cache_creation_input_tokens', 'cache_read_input_tokens', 'input_tokens', 'output_tokens']);
+      if (ev.type === 'assistant') assert.match(ev.message.id, /^msg_\d+$/);
+    }
+  }
+});
+
+test('a sessão real passa o id da mensagem para o acumulador', () => {
+  const fonte = fs.readFileSync(new URL('../lib/engine/session.js', import.meta.url), 'utf8');
+  assert.match(fonte, /acumularParcial\(parcial, ev\.message\.usage, ev\.message\.id\)/);
 });
