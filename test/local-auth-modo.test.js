@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { detectarModoCelular, exigeAutenticacao } from '../lib/local-auth/modo.js';
+import modoMod, { detectarModoCelular, exigeAutenticacao } from '../lib/local-auth/modo.js';
 import { ATIVACAO_AUTOMATICA_A4, TEMPOS, LOCAL_AUTH } from '../lib/constants.js';
 
 const DESKTOP = { platform: 'linux', env: { TERMUX_VERSION: '', PREFIX: '' }, osrelease: '6.8.0-45-generic\n' };
@@ -77,4 +77,15 @@ test('a decisão do modo nunca lê User-Agent', () => {
   for (const nome of fs.readdirSync(dir).filter(n => n.endsWith('.js'))) {
     assert.doesNotMatch(fs.readFileSync(path.join(dir, nome), 'utf8'), /user-agent/i, `${nome} não pode olhar o User-Agent`);
   }
+});
+
+// Adendo de 16/09/2026: a visão compartilhada (C3) NÃO liga no modo celular enquanto a
+// autenticação exigida não estiver funcionando. Sem isso, qualquer página em outra porta
+// do mesmo aparelho leria o conteúdo compartilhado por uma API sem porteiro.
+test('compartilhamento no celular só com autenticação exigida', () => {
+  const { compartilhamentoPermitido } = modoMod;
+  assert.equal(compartilhamentoPermitido({ modoCelular: false, config: {}, ativacaoAutomatica: false }), true, 'desktop segue como hoje');
+  assert.equal(compartilhamentoPermitido({ modoCelular: true, config: {}, ativacaoAutomatica: false }), false, 'celular sem exigência não compartilha');
+  assert.equal(compartilhamentoPermitido({ modoCelular: true, config: { localAuth: 'exigir' }, ativacaoAutomatica: false }), true);
+  assert.equal(compartilhamentoPermitido({ modoCelular: true, config: {}, ativacaoAutomatica: true }), true);
 });

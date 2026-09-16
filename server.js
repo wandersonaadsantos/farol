@@ -75,7 +75,8 @@ import comandosMod from './lib/engine/sync-comandos.js';
 import syncUsageMod from './lib/engine/sync-usage.js';
 import { EDITAVEIS, defaults as settingsDefaults, sanear, paraGravar } from './lib/settings.js';
 import { parseJiraSites, maskJiraSites } from './lib/jira/sites.js';
-import { parseSyncConfig, syncDefaults } from './lib/sync/config.js';
+import { parseSyncConfig, syncDefaults, comCompartilhamentoBloqueado } from './lib/sync/config.js';
+import acesso from './lib/local-auth/acesso.js';
 import credMod from './lib/jira/credentials.js';
 import jiraMod from './lib/engine/jira.js';
 import { startServer } from './lib/http-server.js';
@@ -208,7 +209,7 @@ class Engine extends EventEmitter {
     // sincronização entre dispositivos: opt-in que segura revisão quando ligado, então
     // config.json editado à mão passa pelo mesmo saneador do caminho HTTP antes de
     // qualquer coisa ler `enabled`. Base nos defaults: no boot não há valor anterior.
-    this.config.sync = parseSyncConfig(this.config.sync, syncDefaults());
+    this.config.sync = this.syncComGuardaDoCelular(parseSyncConfig(this.config.sync, syncDefaults()));
     // runtime da sincronização (lib/engine/sync.js): montado a partir do config JÁ
     // saneado e sem rede nem arquivo novo; quem conecta é o primeiro tick do check()
     this.sync = syncMod.bootSync(this);
@@ -1769,6 +1770,16 @@ class Engine extends EventEmitter {
     return this.doctorInfo;
   }
 
+  // Adendo de 16/09/2026: no celular, a visão compartilhada só liga com a autenticação
+  // exigida valendo. O motivo fica visível para a tela, que não pode mostrar como ligado o
+  // que o engine desligou.
+  syncComGuardaDoCelular(cfgSync) {
+    const liberado = acesso.compartilhamentoLiberado(this.config);
+    const pedido = !!(cfgSync && cfgSync.shared && cfgSync.shared.enabled);
+    this.syncBloqueioCompartilhamento = !liberado && pedido ? 'autenticacao-local' : '';
+    return liberado ? cfgSync : comCompartilhamentoBloqueado(cfgSync);
+  }
+
   updateSettings(patch) {
     let intervalChanged = false, userChanged = false;
     // itera o PATCH, não a allowlist: é o que permite VER a chave que ninguém
@@ -1791,6 +1802,8 @@ class Engine extends EventEmitter {
       if (k === 'ghUser') userChanged = userChanged || v !== this.config.ghUser;
       this.config[k] = v;
     }
+    // a guarda do celular depende de localAuth, que pode ter mudado no mesmo patch
+    this.config.sync = this.syncComGuardaDoCelular(this.config.sync);
     env.setDebugSpawns(this.config.debugSpawns); // liga/desliga o logger na hora
     this.saveConfig();
     // a sincronização liga, desliga ou reconecta conforme o objeto novo; não espera a
