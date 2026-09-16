@@ -283,10 +283,22 @@ compartilhado.
 | Tela | Contrato | Estado |
 |---|---|---|
 | 2.1 | sessões da A4: `POST /api/auth/sessions` (id público, rótulo, datas, `atual`) e `POST /api/auth/revoke` `{ id }` (`eraAtual` quando revoga a própria) | **feito** |
-| 2.2 | teste do perfil com identidade detectada e origem de cada campo | a fazer (A2) |
+| 2.2 | teste do perfil com identidade detectada e origem de cada campo (`POST /api/claude/profile-test`, `POST /api/claude/profile-adopt`) | **feito** |
 | 2.4 | `sync.bloqueioCompartilhamento` (`autenticacao-local` no celular sem exigência) | **feito** |
 | 2.5 | `sync.admin` (`deviceId`, `generation`, `souEu`, `fresca`); `POST /api/sync/policy` `{ deviceId, politica }` | **feito** |
 | 2.7 | andamento e pendências remotas por SSE (`sync-live`, `sync-pending`) | já existia |
 | 2.8 | `sync.distribuicao` (`modo`, `esperando[{ key, desde }]`), `sync.admissao` (`ocupadas`, `porEstado`, `porTipo`, `teto`, `pausado`) | **feito** |
 | 2.9 | `sync.comandosEmitidos[{ cmdId, tipo, alvo, at }]`; `POST /api/sync/command-status` `{ cmdId }` → `recibo` ou `null`; `POST /api/sync/takeover-notice` `{ prKey, account }` → `podeTomar`, `dono`, `risco`, `aviso` | **feito** |
 | 2.10 | `POST /api/sync/cleanup-state` → `estado` (`compartilhamento-desligado`, `desligada`, `ligada`, `desligada-ou-nao-verificavel`) | **feito** |
+
+Acrescentado na rodada de fechamento das lacunas (16/09/2026 à noite), sempre projeção do
+que o engine já sabia, sem funcionalidade nova:
+
+| Tela | Contrato | Estado |
+|---|---|---|
+| 2.3 | `GET /api/diagnostics` → `{ ok, markdown, falhas }`, com a ação sugerida por classe | **feito** |
+| 2.5 | `POST /api/sync/policy-read` (política vigente no banco, para o formulário abrir com ela); `POST /api/sync/designation-decline` (recusar a designação, com recibo); `sync.admin.ultimoBatimentoEm`; `sync.versaoPostagemCoordenada`; `devices[].semPresenca`, `.contract` e `.keyReady` | **feito** |
+| 2.6 | `resumoParaTela` com `motivos`, `calculadoEm`, `tetoAtingido` e `projecaoUsd`; `POST /api/sync/link` devolve o `vinculo`; `sync.vinculosDePerfis` | **feito** |
+| 2.7 | `POST /api/sync/lists` e evento `sync-lists` (Panorama e Meus PRs de outros aparelhos, leitura incremental); `pr: { key, account, title, author } \| null` nas pendências, no andamento e nas revisões, resolvido pelo catálogo cifrado (`prDaTag`); `POST /api/sync/reviews` responde `naoAbriram` e falha como falha; medida e lote do envio levam `lote` e `lotes` | **feito** |
+| 2.9 | `POST /api/sync/transfer-targets` `{ dono, acctTag }` → destinos com `apto` e `motivo`; `sync-live.operacoes[].matTag`, `.heranca` e `.pr`; `sync.comandosEmitidos[].prTag|prKey|destino`; `sync.distribuicao.esperando[].motivo` | **feito** |
+| 2.10 | `cleanup-state` devolve a trava viva, as categorias alcançáveis e as nunca apagadas; `POST /api/sync/cleanup` devolve `apagadas`, `falharam` e `corteGravado` | **feito** |
