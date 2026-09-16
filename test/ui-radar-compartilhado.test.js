@@ -337,3 +337,13 @@ test('enviar com medida sem impressão não chama a rota', async () => {
   await Tela.enviarHistorico();
   assert.equal(pedidosPara('/api/sync/history-send').length, 0);
 });
+
+test('revisões: a contagem das que não abriram, vinda da rota, chega ao cartão', async () => {
+  emitir('state', estado({ sync: { admin: ADMIN } }));
+  RESPOSTAS['/api/sync/reviews'] = { ok: true, revisoes: [], naoAbriram: 1 };
+  await Tela.buscarRevisoes();
+  assert.match($('#mdRevisoes').innerHTML, /1 revisão não abriu/);
+  RESPOSTAS['/api/sync/reviews'] = { ok: true, revisoes: [] };
+  await Tela.buscarRevisoes();
+  assert.doesNotMatch($('#mdRevisoes').innerHTML, /não abriu/, 'sem contagem, nada a dizer');
+});

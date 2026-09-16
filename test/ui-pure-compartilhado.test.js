@@ -356,3 +356,12 @@ test('envioDepoisDoLote: progresso acumula, e parar é interrupção, não suces
   assert.equal(caiu.parcial.enviados, 100);
   assert.equal(P.envioDepoisDoLote(MEDIDA, null, null).parcial, null, 'sem progresso, falha simples');
 });
+
+test('revisoesCompartilhadasHtml: as que não abriram são contadas, com ou sem lista', () => {
+  const uma = P.revisoesCompartilhadasHtml({ estado: 'lista', revisoes: [], naoAbriram: 1 });
+  assert.match(uma, /1 revisão não abriu/);
+  assert.match(uma, /nunca pela metade/);
+  const duas = P.revisoesCompartilhadasHtml({ estado: 'lista', revisoes: [{ reviewId: 'a', t: 1, dev: 'x', aparelho: 'Desktop', veredito: 'approve' }], naoAbriram: 2 });
+  assert.match(duas, /2 revisões não abriram/);
+  assert.doesNotMatch(P.revisoesCompartilhadasHtml({ estado: 'lista', revisoes: [], naoAbriram: 0 }), /não abri/);
+});

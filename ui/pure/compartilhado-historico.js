@@ -55,6 +55,14 @@ function escopoBotoesHtml(escopo) {
 }
 
 // `estado` separa o que a lista vazia NÃO pode esconder: carregando, falha e vazio legítimo.
+// As linhas que não decifraram ficaram de fora; a contagem vem do engine.
+function naoAbriramHtml(quantas) {
+  const n = Number(quantas) || 0;
+  if (n <= 0) return '';
+  const rotulo = n === 1 ? '1 revisão não abriu' : `${n} revisões não abriram`;
+  return `<div class="md-linha md-nao-abriu"><span class="sync-chip warn">${esc(rotulo)}</span><span class="md-fraco">O conteúdo veio de outro aparelho e não pôde ser verificado. Ficou de fora da lista inteira, nunca pela metade.</span></div>`;
+}
+
 export function revisoesCompartilhadasHtml(entrada) {
   const e = entrada || {};
   const escopo = e.escopo === 'este' ? 'este' : 'todos';
@@ -62,9 +70,10 @@ export function revisoesCompartilhadasHtml(entrada) {
   if (e.estado === 'carregando') return `${topo}<p class="md-vazio">Buscando as revisões de todos os aparelhos…</p>`;
   if (e.estado === 'falha') return `${topo}<p class="md-vazio md-ruim">A busca das revisões falhou. A lista deste aparelho, acima, continua valendo.</p>`;
   const lista = Array.isArray(e.revisoes) ? e.revisoes : [];
-  if (!lista.length) return `${topo}<p class="md-vazio">Nenhuma revisão compartilhada ainda.</p>`;
+  const fora = naoAbriramHtml(e.naoAbriram);
+  if (!lista.length) return `${topo}${fora}<p class="md-vazio">Nenhuma revisão compartilhada ainda.</p>`;
   const ctx = { agora: e.agora || Date.now(), deviceIdLocal: e.deviceIdLocal || '' };
-  return `${topo}<div class="card md-lista">${lista.map((item) => revisaoLinhaHtml(item || {}, ctx)).join('')}</div>
+  return `${topo}${fora}<div class="card md-lista">${lista.map((item) => revisaoLinhaHtml(item || {}, ctx)).join('')}</div>
     <p class="md-nota">O endereço do PR não viaja no índice; ele aparece ao abrir a revisão, se o corpo trouxer. Revisão que não abriu fica de fora da lista inteira, nunca pela metade.</p>`;
 }
 

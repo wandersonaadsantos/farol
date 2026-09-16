@@ -205,7 +205,7 @@ test('as rotas da história existem e o envelope diz se achou', async () => {
   const e = await motorPronto();
   decisao(e, 'd1');
   const { escritas: [id] } = await hist.sincronizarHistorico(e, e.config.sync, { agora: AGORA });
-  assert.equal((await e.syncRecentes({})).length, 1);
+  assert.equal((await e.syncRecentes({})).revisoes.length, 1);
   assert.equal((await e.syncAbrirRevisao({ reviewId: id })).reviewId, id);
   const fonte = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'http-server.js'), 'utf8');
   assert.match(fonte, /p === '\/api\/sync\/reviews'/);
@@ -220,4 +220,24 @@ test('sem a projeção da tela, o relatório cru não sobe', async () => {
   const { escritas: [id] } = await hist.sincronizarHistorico(semProjecao, e.config.sync, { agora: AGORA });
   const aberta = await hist.abrirRevisao(outro(e), id);
   assert.equal(aberta.reportMarkdown, undefined);
+});
+
+// Quadro C3Historico: "1 revisão não abriu". A linha que não decifra continua fora da lista
+// (nunca pela metade), mas a tela precisa saber QUANTAS ficaram de fora, para não parecer
+// que a lista está completa.
+test('as recentes contam quantas não abriram, e a rota entrega a contagem', async () => {
+  const e = await motorPronto();
+  for (let i = 0; i < 2; i++) decisao(e, `d${i}`, { createdAt: AGORA + 1000 + i });
+  await hist.sincronizarHistorico(e, e.config.sync, { agora: AGORA });
+  const t = fake.tree();
+  const [, um] = Object.entries(t.users.u1.recentReviews)[0];
+  t.users.u1.recentReviews.zz = { ...um, d: 'dOutro' };
+  fake.setTree(t);
+  const contadas = await hist.lerRecentesContadas(outro(e));
+  assert.equal(contadas.revisoes.length, 2);
+  assert.equal(contadas.naoAbriram, 1);
+  assert.equal((await hist.lerRecentes(outro(e))).length, 2, 'a leitura antiga continua devolvendo a lista');
+  const pela = await e.syncRecentes({});
+  assert.equal(pela.revisoes.length, 2);
+  assert.equal(pela.naoAbriram, 1, 'o aparelho carimbado foi trocado: a linha não abre para ninguém');
 });

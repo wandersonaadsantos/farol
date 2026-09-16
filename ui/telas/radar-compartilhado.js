@@ -177,6 +177,7 @@ async function buscarRevisoes() {
   const r = await api('/api/sync/reviews', { dev: REVISOES.escopo === 'este' ? s.deviceId : '' });
   REVISOES.estado = r && r.ok === true ? 'lista' : 'falha';
   REVISOES.revisoes = r && Array.isArray(r.revisoes) ? r.revisoes : [];
+  REVISOES.naoAbriram = (r && Number(r.naoAbriram)) || 0;
   $('#mdRevisoes').innerHTML = revisoesCompartilhadasHtml({ ...REVISOES, deviceIdLocal: s.deviceId });
 }
 

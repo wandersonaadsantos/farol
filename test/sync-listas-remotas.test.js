@@ -468,7 +468,7 @@ async function comServidor(engine, fn) {
 
 test('a leitura das revisões que falha chega como falha, e a vazia como lista vazia', async () => {
   const { b } = await par();
-  assert.deepEqual(await b.syncRecentes({}), [], 'banco sem revisão é lista vazia');
+  assert.deepEqual(await b.syncRecentes({}), { revisoes: [], naoAbriram: 0 }, 'banco sem revisão é lista vazia');
   const real = b.sync.client;
   b.sync.client = { ...real, get: async () => ({ ok: false, code: 'indisponivel' }) };
   assert.equal(await b.syncRecentes({}), null, 'falha não vira lista vazia');
@@ -478,7 +478,7 @@ test('a leitura das revisões que falha chega como falha, e a vazia como lista v
     assert.equal(falha.code, 'indisponivel');
     assert.equal('revisoes' in falha, false);
     b.sync.client = real;
-    assert.deepEqual(await post('/api/sync/reviews', {}), { ok: true, revisoes: [] });
+    assert.deepEqual(await post('/api/sync/reviews', {}), { ok: true, revisoes: [], naoAbriram: 0 });
   });
   b.sync.client = real;
 });
