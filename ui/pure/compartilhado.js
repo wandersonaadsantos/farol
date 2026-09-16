@@ -10,9 +10,11 @@
 //   2. comando nunca aparece como concluído sem recibo do aparelho alvo. Sem recibo existem
 //      só dois estados honestos, "enviado" e "vencido";
 //   3. o que o engine não entrega, a tela não inventa. O andamento e a pendência de outro
-//      aparelho viajam com o PR como TAG (lib/sync/tags.js), nunca com o nome, então esta
-//      tela diz "um PR seu" e explica por quê, em vez de escrever um endereço que não tem.
+//      aparelho viajam com o PR como TAG (lib/sync/tags.js); o engine nomeia o PR pelo
+//      catálogo cifrado (campo `pr`), e quando o catálogo não está disponível esta tela diz
+//      "um PR seu" e explica por quê, em vez de escrever um endereço que não tem.
 import { esc, fmtClock, fmtDur, plural } from './comum.js';
+import { prIdentificado, prIdentificadoHtml } from './pr-compartilhado.js';
 
 // texto só quando a condição vale: evita ternário dentro de template
 function se(condicao, texto) {
@@ -135,9 +137,10 @@ export function comandoPermitido(sync) {
 const VEREDITO = { approve: 'aprovar', request_changes: 'pedir mudanças', comment: 'só comentar', skip: 'pular' };
 const BLOQUEIO_PEND = { stale_head: 'o PR ganhou commit novo depois da análise' };
 
-// O PR viaja como tag e não como endereço (D6), então o card diz o que sabe: de qual
-// aparelho veio, qual foi o veredito e quantos motivos travam. Menção navegável aqui seria
-// um link para lugar nenhum.
+// O PR viaja como tag e não como endereço (D6). Com o catálogo, o card nomeia o PR pela
+// menção navegável; sem ele, diz o que sabe: de qual aparelho veio, qual foi o veredito e
+// quantos motivos travam, sem link para lugar nenhum.
+const SEM_CATALOGO = 'o nome deste PR não abriu no catálogo cifrado deste aparelho';
 function pendenciaHtml(p, ctx) {
   const nova = ctx.novas.has(p.itemId);
   const onde = p.aparelho || 'outro aparelho';
@@ -157,10 +160,15 @@ function pendenciaHtml(p, ctx) {
   const visto = p.visto ? '' : `<button class="btn sm ghost md-visto" data-item="${esc(p.itemId)}">Marcar como visto</button>`;
   return `<div class="card md-pend ${classe}" data-item="${esc(p.itemId)}">
     <div class="md-linha">${chips}<span class="md-espaco"></span><span class="md-fraco">${esc(fmtClock(p.at))}</span></div>
-    <div class="md-titulo">Um PR seu, analisado no ${esc(onde)}, esperando decisão</div>
+    <div class="md-titulo">${tituloDaPendencia(p, onde)}</div>
     <div class="md-sub">veredito: ${esc(veredito)}${detalhe}</div>
     <div class="md-acoes">${acoes}${visto}</div>
   </div>`;
+}
+
+function tituloDaPendencia(p, onde) {
+  if (prIdentificado(p.pr)) return `${prIdentificadoHtml(p.pr)} <span class="md-fraco">analisado no ${esc(onde)}, esperando decisão</span>`;
+  return `${prIdentificadoHtml(null, `Um PR seu, analisado no ${onde}, esperando decisão`)} <span class="md-fraco">(${esc(SEM_CATALOGO)})</span>`;
 }
 
 export function pendenciasCompartilhadasHtml(pendencias, ctx) {
@@ -173,7 +181,7 @@ export function pendenciasCompartilhadasHtml(pendencias, ctx) {
   };
   if (!lista.length) return '<p class="md-vazio">Nada precisa de você em nenhum outro aparelho.</p>';
   return `${lista.map((p) => pendenciaHtml(p, contexto)).join('')}
-    <p class="md-nota">Marcar como visto cala o aviso nos outros aparelhos. Decidir manda um comando ao aparelho dono, que decide com os gates dele. O endereço do PR não viaja entre aparelhos, por isso ele não é nomeado aqui.</p>`;
+    <p class="md-nota">Marcar como visto cala o aviso nos outros aparelhos. Decidir manda um comando ao aparelho dono, que decide com os gates dele. O nome do PR vem do catálogo cifrado; quando ele não abre neste aparelho, o card diz só o que sabe.</p>`;
 }
 
 /* ---------- 2.7: em outros aparelhos (andamento ao vivo) ---------- */
@@ -227,6 +235,7 @@ function operacaoHtml(op, ctx) {
   const etapa = `${esc(ETAPA[op.etapa] || ETAPA.desconhecida)}${se(subagentes, `, ${plural(subagentes, 'subagente', 'subagentes')}`)}`;
   return `<div class="card working md-op">
     <div class="md-linha"><span class="sync-chip mute">${esc(op.aparelho || 'outro aparelho')}</span><span class="md-fraco">${esc(TIPO_OP[op.tipo] || 'revisão')}</span>${situacao}<span class="md-espaco"></span><span class="md-fraco">${tempo}</span></div>
+    <div class="md-titulo">${prIdentificadoHtml(op.pr, 'Um PR seu')}</div>
     <div class="md-sub">${etapa}</div>
     <div class="md-acoes">
       ${botaoOuNota('md-cancelar', 'Cancelar', acoes.cancelar, dados)}
@@ -253,7 +262,13 @@ export function andamentoAtrasado(lastAt, agora = Date.now()) {
   return { atrasada: true, texto: `Leitura atrasada: o último andamento chegou às ${fmtClock(at)} e o que está aqui pode estar velho.` };
 }
 
-export function andamentoAtrasadoHtml(lastAt, agora = Date.now()) {
+// `falhaEm` é a hora em que o engine DISSE que a leitura falhou (evento sync-live com a visão
+// anterior); com ela, a faixa afirma a falha, e não só a idade.
+export function andamentoAtrasadoHtml(lastAt, agora = Date.now(), falhaEm = 0) {
+  if (falhaEm) {
+    const desde = lastAt ? `Mostrando o andamento de ${fmtClock(lastAt)}, que pode estar velho.` : 'Nenhuma leitura anterior deu certo.';
+    return `<div class="md-faixa warn"><span class="sync-chip warn">leitura falhou</span><span>${esc(`A última leitura falhou às ${fmtClock(falhaEm)}. ${desde}`)}</span></div>`;
+  }
   const r = andamentoAtrasado(lastAt, agora);
   if (!r.atrasada) return '';
   return `<div class="md-faixa warn"><span class="sync-chip warn">leitura atrasada</span><span>${esc(r.texto)}</span></div>`;
