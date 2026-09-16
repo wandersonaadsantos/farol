@@ -350,6 +350,24 @@ interruptor próprio.
 Telas das capacidades novas (Claude Design), as quatro medições acima e a reconciliação
 desta linha com a `main` (a base desta execução é `8c043bc`; a `main` está em `b0911b1`).
 
+## Rodada de fechamento das lacunas (16/09/2026 à noite)
+
+Depois do relatório anterior, o dono apontou que "falta dado no snapshot" não é bloqueio
+externo, e mandou fechar as lacunas. O que já entrou em `md/integracao`:
+
+| Lacuna | Resultado |
+|---|---|
+| 18 divergências de Aparelhos e Grupos | resolvidas: 11 implementadas (duas rotas novas), 4 viraram ajuste de desenho com o texto exato, 3 eram apresentação. Nenhuma bloqueada (`tela-aparelhos-grupos.md`, seção 7) |
+| Transferir e tomar | utilizáveis pela tela, com destinos e motivo de inaptidão, comando amarrado ao PR e histórico de tomadas. Dois defeitos reais corrigidos: transferência e tomada reais sempre voltavam `head_mudou` (`tela-transferencia-tomada.md`) |
+| Panorama e Meus PRs de outros aparelhos | implementados sobre a leitura incremental que já existia, com origem, deduplicação, filtros, só leitura e os estados de indisponível e desatualizado (`tela-escopo-remoto.md`) |
+| Identificação dos PRs | pendências, andamento e revisões nomeiam o PR pelo catálogo cifrado, com rótulo genérico só quando o catálogo não abre |
+| Frota descartada na leitura | defeito achado na revisão: `projecaoDoAparelho` descartava `contract` e `keyReady`, e fora dos testes nenhum aparelho parecia pronto, então catálogo e capacidade nunca subiam (`13b0482`) |
+| Chave solta no `ui/app.css` | o bloco de 620 px fechava cedo (defeito vindo da `main`), e as regras de Entregas, Destaques, Time e do card do Radar valiam em qualquer largura. Corrigido, com teste que trava o equilíbrio das chaves |
+| Pareamento no meio do uso | parear de novo deixou de recarregar a página, que jogava fora o que estava digitado (requisito do brief, item 2.1) |
+| Revisões que não abriram | a lista diz quantas ficaram de fora, como o quadro do histórico promete |
+
+Desenho atualizado nos quadros C1, C2, C3, C4 e C8, com os textos que a implementação usa.
+
 ## Próxima ação concreta
 
 Código e telas da iniciativa estão integrados em `md/integracao`, com gate completo e
