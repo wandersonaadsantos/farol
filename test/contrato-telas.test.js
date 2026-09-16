@@ -121,6 +121,10 @@ test('emitir comando pela rota registra o emitido, e o desfecho só aparece com 
   const emitidos = syncMod.statusForUi(engine).comandosEmitidos;
   assert.equal(emitidos[0].cmdId, r.body.cmdId);
   assert.equal(emitidos[0].tipo, 'cancelar');
+  // o prazo que a tela mostra é o MESMO gravado no nó do comando, nunca um palpite dela
+  const no = await engine.sync.client.get(`/users/u1/live/commands/${r.body.cmdId}`);
+  assert.equal(emitidos[0].vence, no.data.ttl);
+  assert.ok(emitidos[0].vence > emitidos[0].at, 'o prazo fica depois da emissão');
   const antes = await pedir('/api/sync/command-status', { cmdId: r.body.cmdId });
   assert.deepEqual(antes.body, { ok: true, recibo: null }, 'sem recibo, sem desfecho');
   await engine.sync.client.put(`/users/u1/commandReceipts/${r.body.cmdId}`, { dev: 'dOutro', estado: 'recusado', code: 'nada_rodando', at: Date.now() }, {});
