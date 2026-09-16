@@ -9,8 +9,8 @@ import fs from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as P from '../ui/pure.js';
-import { fonteDosPuros } from './helpers/fontes-ui.js';
-const APPJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
+import { fonteDosPuros, fonteDasTelas } from './helpers/fontes-ui.js';
+const APPJS = fonteDasTelas();
 const HTML = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'index.html'), 'utf8');
 const CSS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.css'), 'utf8');
 
@@ -134,11 +134,14 @@ test('toggle nativo de details atualiza Pessoas e mostrar mais preserva o card a
 });
 
 test('atalho @pessoa abre explicitamente o grupo, sem mudar o default recolhido', () => {
-  const fn = APPJS.match(/function gotoDeliv\(kind, valor\) \{[\s\S]*?\n\}/);
+  // gotoDeliv mora em ui/telas/entregas.js (Fase 1b, Task 7) e recebe switchTab por
+  // parâmetro: é primitiva do shell (troca de aba, aciona aoEntrar de toda tela) e
+  // não pode ser importada de lá sem criar ciclo com o bootstrap.
+  const fn = APPJS.match(/function gotoDeliv\(kind, valor, switchTab\) \{[\s\S]*?\n\}/);
   assert.ok(fn, 'gotoDeliv existe');
   assert.match(fn[0], /if \(by === 'author'\) deliveriesOpen\.add\('author:' \+ valor\);\s*\n\s*renderDeliveries\(\)/,
     'clicar em @fulano na frente é intenção explícita de abrir aquele grupo');
-  assert.match(fn[0], /if \(CURRENT_TAB !== 'entregas'\) switchTab\('entregas'\)/,
+  assert.match(fn[0], /if \(abaAtual\(\) !== 'entregas'\) switchTab\('entregas'\)/,
     'atalho dentro da própria tela não inicia uma carga que substituiria o alvo recém-aberto');
 });
 
@@ -206,16 +209,19 @@ test('renderAccountBar consome a allowlist pura (B14)', () => {
   const fn = APPJS.match(/function renderAccountBar\([\s\S]*?\n\}/);
   assert.ok(fn, 'renderAccountBar existe');
   assert.match(fn[0], /accountBarVisible\(/);
-  assert.doesNotMatch(fn[0], /CURRENT_TAB === 'sistema'/, 'a denylist antiga saiu');
+  assert.doesNotMatch(fn[0], /abaAtual\(\) === 'sistema'/, 'a denylist antiga saiu');
 });
 
 /* ---------- atividade do chat e encerramento (B16) ---------- */
 
 test('chat-activity atualiza a pill via updateOp, nao atropela o container (B16)', () => {
-  const handler = APPJS.match(/addEventListener\('chat-activity'[\s\S]*?\n  \}\);/);
-  assert.ok(handler, 'o handler chat-activity existe');
-  assert.match(handler[0], /updateOp\(/, 'o texto vivo entra como step da operacao');
-  assert.doesNotMatch(handler[0], /\.textContent = text/,
+  // Correção 4 da Task 11a: o cálculo saiu do connect() (ui/app.js, que só
+  // entrega o evento) para handleChatActivity, em telas/chat.js, que já é
+  // dono de chatKeyAtual().
+  const fn = APPJS.match(/function handleChatActivity\([\s\S]*?\n\}/);
+  assert.ok(fn, 'handleChatActivity existe');
+  assert.match(fn[0], /updateOp\(/, 'o texto vivo entra como step da operacao');
+  assert.doesNotMatch(fn[0], /\.textContent = text/,
     'textContent no container destroi a pill que o renderChat criou dentro dele');
 });
 
@@ -340,15 +346,15 @@ test('o contador de Meus PRs conta o VISIVEL, nao o total', () => {
 
 test('renderMyPRs decide o oculto pelas funcoes puras, nao por logica solta', () => {
   const fn = APPJS.match(/function renderMyPRs\(\) \{[\s\S]*?\n\}/);
-  assert.match(fn[0], /splitHiddenPRs\(todos, effectiveHidden\(STATE\.hiddenPRs, hideOptimistic, unhideOptimistic\)\)/,
+  assert.match(fn[0], /splitHiddenPRs\(todos, effectiveHidden\(estado\(\)\.hiddenPRs, hideOptimistic, unhideOptimistic\)\)/,
     'o motor manda myPRs COMPLETO; quem separa e a UI, com a marca otimista por cima');
-  assert.match(fn[0], /myPRsEmptyMsg\(vs, \{ escopoTodas: SCOPE === 'all', ocultos: ocultos\.length \}\)/,
+  assert.match(fn[0], /myPRsEmptyMsg\(vs, \{ escopoTodas: escopo\(\) === 'all', ocultos: ocultos\.length \}\)/,
     'o vazio com tudo oculto tem que explicar, nao ficar em branco');
 });
 
 test('o estado de carregamento olha a lista COMPLETA, senao ocultar tudo viraria "verificando"', () => {
   const fn = APPJS.match(/function renderMyPRs\(\) \{[\s\S]*?\n\}/);
-  assert.match(fn[0], /listViewState\(\{ lastCheckAt: STATE\.lastCheckAt, status: STATE\.status, length: todos\.length \}\)/);
+  assert.match(fn[0], /listViewState\(\{ lastCheckAt: estado\(\)\.lastCheckAt, status: estado\(\)\.status, length: todos\.length \}\)/);
 });
 
 test('a marca otimista morre quando o motor confirma (nao sobrevive a estado novo)', () => {
@@ -443,7 +449,9 @@ test('navegação interna tem UM handler só, delegado, e entende os 3 tipos', (
     'aba: repassa o seletor (destino de ferramenta precisa dele)');
   assert.match(fn[0], /switchTab\('sistema'\);\s*\n\s*return sysGoTo\(alvo, seletor \|\| null\);/,
     'sys: troca a aba ANTES do sysGoTo (elemento em aba escondida não rola)');
-  assert.match(fn[0], /if \(tipo === 'deliv'\) return gotoDeliv\(alvo, seletor\);/);
+  // switchTab vai por parâmetro: gotoDeliv mora em ui/telas/entregas.js e não pode
+  // importar o bootstrap de volta (mesmo motivo do teste de gotoDeliv acima)
+  assert.match(fn[0], /if \(tipo === 'deliv'\) return gotoDeliv\(alvo, seletor, switchTab\);/);
   // mesma ordem do sysGoTo, pelo mesmo motivo, e sem piscar painel escondido
   assert.match(APPJS, /function gotoAba\(nome, at\) \{\s*\n\s*switchTab\(nome\);/,
     'gotoAba troca a aba ANTES de procurar o alvo');
@@ -509,12 +517,12 @@ test('o vazio da fila recebe as orgs da régua, não o campo legado config.owner
   assert.ok(chamada, 'a chamada de queueEmptyOkHtml sumiu do app.js');
   assert.match(chamada, /owners:\s*orgsMonitoradas\(/,
     'owners tem que vir de orgsMonitoradas (ui/pure.js), a régua do que é de fato buscado');
-  assert.doesNotMatch(chamada, /owners:\s*STATE\.config/,
+  assert.doesNotMatch(chamada, /owners:\s*estado\(\)\.config/,
     'config.owners é o campo legado que o engine descarta quando há contas cadastradas');
 });
 
 test('a régua do vazio recebe o escopo, senão volta a citar org de outra conta', () => {
-  const chamada = APPJS.match(/owners:\s*orgsMonitoradas\([^)]*\)/);
+  const chamada = APPJS.match(/owners:\s*orgsMonitoradas\((?:[^()]|\([^()]*\))*\)/);
   assert.ok(chamada, 'orgsMonitoradas não é chamada no app.js');
-  assert.match(chamada[0], /SCOPE/, 'sem o escopo, escolher uma conta segue citando as orgs das outras');
+  assert.match(chamada[0], /escopo\(\)/, 'sem o escopo, escolher uma conta segue citando as orgs das outras');
 });

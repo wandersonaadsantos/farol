@@ -56,7 +56,7 @@ Por onde começar a ler, dependendo do que você quer mexer:
 | quero mexer em | comece por |
 |---|---|
 | o que o app decide (revisar, aprovar, esperar) | `lib/engine/` |
-| o que aparece na tela | `ui/pure.js` (funções puras, com teste) e `ui/app.js` |
+| o que aparece na tela | `ui/pure/` (funções puras, com teste), `ui/telas/` (as telas, uma por assunto, com o `ui/telas/README.md` como porta de entrada) e `ui/app.js` (o bootstrap) |
 | como o app fala com o GitHub | `lib/io.js` e `lib/engine/gh-queries.js` |
 | como o app é instalado e atualizado | `installer/` e `lib/engine/update.js` |
 | as regras de qualidade e o gate | `docs/QUALITY.md` e `tools/quality/` |

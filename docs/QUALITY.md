@@ -343,7 +343,6 @@ A lista inicial saiu de uma avaliação arquivo a arquivo, pelas três perguntas
 
 | arquivo | confiança | condição de fechamento |
 |---|---|---|
-| `ui/app.js` | alta | fica só o bootstrap da página (SSE, estado global, troca de aba, `data-goto`); cada aba vira módulo ES importado por ele, e `RELEASE_NOTES` vira dado próprio |
 | `server.js` | alta | fica a carga de estado, as fachadas de uma linha e o ciclo de vida; os corpos com assunto próprio (workspace, PATH do boot, vistos, política por conta, identidade no GitHub, polling, auth do Claude, doctor, settings, orçamento e fila justa, snapshot) viram colaboradores |
 | `lib/engine/review.js` | alta | fica o ciclo de uma revisão (`runHeadlessReview`); escalonador, prompt, label de revisando, etapas, coordenação, re-revisão e estacionamento saem |
 | `lib/engine/selfpr.js` | alta | fica a sessão de autoanálise; elegibilidade de qualidade, ocultar PR, merge com mergeabilidade, reviewers e staleness dos meus reviews saem |
@@ -359,6 +358,8 @@ A lista inicial saiu de uma avaliação arquivo a arquivo, pelas três perguntas
 | `lib/taxonomy.js` | média | a paleta de cores por conta sai para perto da normalização de contas |
 
 **Resolvido:** `ui/pure.js` saiu da lista em 15/09/2026, na Fase 1a da reorganização. Ele só reexporta, e o conteúdo mora em 16 módulos de `ui/pure/`, um por assunto, em camadas sem ciclo (`comum`, depois `mencoes`, depois os de domínio). A condição de fechamento era exatamente essa, e `currentFindings` baixou de 15 para 14. O contrato do diretório está em `ui/pure/README.md`.
+
+**Resolvido:** `ui/app.js` saiu da lista em 16/09/2026, na Fase 1b da reorganização. Ele virou bootstrap (liga o SSE ao estado, comanda a troca de aba e o `data-goto`, e inicializa as telas), o que antes era cada aba vira módulo em `ui/telas/` (30 arquivos, um por assunto, cada um se registrando em `registro.js`), e `RELEASE_NOTES` virou dado próprio (`ui/telas/novidades.js`). A condição de fechamento era exatamente essa, e `currentFindings` baixou de 14 para 13. O contrato do diretório está em `ui/telas/README.md`.
 
 **Como manter o número honesto:**
 

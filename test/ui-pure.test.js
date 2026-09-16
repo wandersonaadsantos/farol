@@ -7,7 +7,6 @@
 //
 // A mais importante e o esc(): e a defesa contra injecao de HTML de ~240 interpolacoes
 // espalhadas pelo app, e nunca teve uma linha de teste.
-import path from 'node:path';
 
 // fmtClock formata no fuso do processo; sem fixar, o teste passa na minha maquina e
 // falha em outra. Tem que vir ANTES do require.
@@ -15,7 +14,7 @@ process.env.TZ = 'America/Sao_Paulo';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
+import { fonteDasTelas, arquivosDasTelas, arquivosDosPuros } from './helpers/fontes-ui.js';
 const P = await import('../ui/pure.js');
 
 /* ---------- esc: a defesa contra injecao ---------- */
@@ -578,10 +577,15 @@ test('INVARIANTE: toda menção de autor da UI passa pelo personMention (foto + 
   // o pedido do Wanderson (11/08/2026) foi de LÓGICA CENTRALIZADA: se um painel
   // voltar a escrever "@" + login na mão, a foto e o link somem só ali, que é
   // exatamente a assimetria que ele viu no Panorama. Este teste varre o fonte.
-  const raiz = path.join(import.meta.dirname, '..', 'ui');
+  //
+  // A leitura era `['app.js', 'pure.js']` com caminho fixo, e ficou cega assim que
+  // a Fase 1b passou a mover o markup de card de PR (onde a menção de autor mora)
+  // pra ui/telas/*.js: exatamente a origem histórica do defeito que criou este
+  // teste, repetida por um guarda que não acompanhou a reorganização. Por isso lê
+  // TODO arquivo de tela e TODO arquivo puro, via os helpers únicos de
+  // test/helpers/fontes-ui.js (já usados por ui-widgets, ui-contract e outros).
   const suspeitas = [];
-  for (const arquivo of ['app.js', 'pure.js']) {
-    const src = fs.readFileSync(path.join(raiz, arquivo), 'utf8');
+  for (const { nome: arquivo, texto: src } of [...arquivosDasTelas(), ...arquivosDosPuros()]) {
     src.split(/\r?\n/).forEach((linha, i) => {
       // "@${...author...}" ou "@${...user...}" escrito à mão dentro de template
       if (!/@\$\{(esc\()?[\w.]*\b(author|autor|login|user)\b/i.test(linha)) return;
@@ -1561,7 +1565,7 @@ test('os tres botoes de merge da UI usam mergeToastKind, nenhum ficou com toast 
   // os tres (normal, auto, admin) passam pela MESMA guarda do mergeSelfPR: se um
   // deles voltar a chamar toast('error', ...) direto, o clique duplo dele volta a
   // piscar vermelho e so este teste avisa
-  const APP = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
+  const APP = fonteDasTelas();
   const fixos = [...APP.matchAll(/toast\('error',\s*esc\(r\?\.error \|\| 'não consegui [^']*merge[^']*'\)\)/g)];
   assert.deepEqual(fixos.map(m => m[0]), [], 'toast de merge com cor fixa ignora a recusa benigna da guarda');
   assert.equal([...APP.matchAll(/mergeToastKind\(r\?\.error\)/g)].length, 3,
@@ -2162,10 +2166,10 @@ test('escAttrSelector: aceita não-string sem quebrar', () => {
 });
 
 test('nenhum seletor de atributo escapa só a aspa (a barra tem que vir junto)', () => {
-  // trava a volta do padrão antigo nos dois arquivos de UI
-  const fs2 = fs, path2 = path;
-  for (const arq of ['app.js', 'pure.js']) {
-    const src = fs2.readFileSync(path2.join(import.meta.dirname, '..', 'ui', arq), 'utf8');
+  // trava a volta do padrão antigo em TODO arquivo de UI. Era `['app.js', 'pure.js']`
+  // com caminho fixo, cego a qualquer trecho que a reorganização movesse pra um
+  // módulo novo de ui/telas ou ui/pure — mesmo defeito de origem do guarda acima.
+  for (const { nome: arq, texto: src } of [...arquivosDasTelas(), ...arquivosDosPuros()]) {
     const soAspa = [...src.matchAll(/\[data-[\w-]+="\$\{String\([^)]*\)\.replace\(\/"\/g/g)];
     assert.deepEqual(soAspa.map(m => m[0]), [],
       `${arq}: use escAttrSelector em vez de escapar só a aspa`);
@@ -2784,7 +2788,7 @@ test('jiraPrefixosProblema exige ao menos um prefixo de projeto', () => {
 });
 
 test('a tela do Jira valida no cadastro E na edição, e não deixa credencial órfã', () => {
-  const APP = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
+  const APP = fonteDasTelas();
   const add = APP.slice(APP.indexOf("t.id === 'btnJiraSiteAdd'"), APP.indexOf("t.classList.contains('js-site-remove')"));
   assert.match(add, /jiraBaseUrlProblema\(baseUrl\) \|\| jiraPrefixosProblema\(projectKeys\)/, 'cadastro valida antes de salvar');
   const edicao = APP.slice(APP.indexOf('function jiraEdicaoProblema'), APP.indexOf('function jiraCampoSalvo'));
@@ -2983,4 +2987,13 @@ test('sem perda e sem estimativa, a linha de auditoria some', () => {
   assert.equal(P.auditoriaLinhaHtml(limpo), '', 'dizer "0% perdido" seria ruido em cima de quem esta com tudo certo');
   assert.equal(P.auditoriaLinhaHtml(null), '');
   assert.equal(P.auditoriaLinhaHtml({ total: { sessions: 0, costUsd: 0 } }), '');
+});
+
+test('genId: formato determinístico com as duas fontes injetadas', () => {
+  assert.equal(P.genId(1755600000000, 0.123456), 'p' + (1755600000000).toString(36) + (0.123456).toString(36).slice(2, 6));
+});
+
+test('genId: id sempre começa com "p" e nunca é vazio depois do prefixo', () => {
+  const id = P.genId(0, 0);
+  assert.match(id, /^p[0-9a-z]*$/);
 });
