@@ -107,7 +107,7 @@
   },
   "ui/app.js": {
     "maxLines": 1,
-    "ternarioAninhado": 6,
+    "ternarioAninhado": 5,
     "profundidadeExcedida": 3
   },
   "ui/pure/consumo.js": {
@@ -123,6 +123,9 @@
     "ternarioAninhado": 1
   },
   "ui/pure/sobre.js": {
+    "ternarioAninhado": 1
+  },
+  "ui/telas/acoes.js": {
     "ternarioAninhado": 1
   },
   "ui/telas/consumo.js": {
