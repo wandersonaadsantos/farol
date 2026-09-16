@@ -48,6 +48,21 @@ Saída completa da suíte guardada fora do repositório (scratchpad da sessão, 
 
 Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações escritas.
 
+## Gate na linha de integração (16/09/2026, rodada final, em `15af774`)
+
+| Gate | Resultado |
+|---|---|
+| `npm run check` | verde, 573 arquivos `.js`, código 0 |
+| `npm run lint` | verde, sem regressão, código 0 |
+| `npm test` | 4323 testes, 4295 aprovados, 28 pulados, 0 falhas, código 0 |
+| `tools/make-package.ps1` | pacote limpo, 269 arquivos, 1.324 KB, auditado |
+| eng-behaviour 0.12.0 (versão commitada) | **passa**, código 0: 13 regras no escopo, 12 acionadas, 12 executadas, 8 achados conhecidos do baseline (`verificacoes-saidas/eng-final-15af774-v0.12.0.txt`) |
+| `npm run eng` com o clone ao lado | **não roda**, código 2: o clone `../eng-behaviour` está com a 0.13.0 em andamento, sem commit, de outra sessão, e ela recusa o baseline aberto na 0.12.0 até ele ser migrado (`verificacoes-saidas/eng-final-15af774-clone-0.13.0-em-andamento.txt`). O clone não foi tocado; a medição acima usou uma cópia da versão commitada, construída no scratchpad |
+
+Uma rodada intermediária da suíte teve a queda nativa já registrada (arquivo inteiro sem caso
+reprovado, `sync-publicacao-recibo`, verde três vezes sozinho); a saída está em
+`verificacoes-saidas/fechamento-suite-queda-nativa.txt`, e a rodada refeita deu 0 falhas.
+
 ## Gate na linha de integração (16/09/2026 à noite, com as telas integradas)
 
 | Gate | Resultado |
@@ -227,6 +242,7 @@ pendente do dono; **(F)** ambiente físico indisponível (aparelho, segundo apar
 | C0b | ajustar `POSTAGEM_COORDENADA_DESDE` para a versão publicada | PR de release | release | `EXECUCAO.md`, deploy | constante travada em teste | P |
 | Pacote | segredo quebrado em duas linhas, formatos fora do padrão, segredo em binário comprimido | não se aplica: limite conhecido do detector | nada; registrado | `verificacoes-a-b-c.md`, seção C | o pente cobre os seis formatos provados | limite |
 | Perfil (A2) | `chmod 0700` da cópia efêmera e a varredura em POSIX | contêiner com `claude` falso no PATH do sistema | nada no Windows (provado); POSIX pendente | `validacao-posix.md`, segunda rodada | cópia apagada no `finally`, varredura das velhas | C |
+| Gate eng-behaviour | migrar `tools/eng-behaviour/baselines.json` para o catálogo 0.13.0 quando essa versão for commitada, e reescrever as avaliações no HEAD | clone `../eng-behaviour` com a 0.13.0 publicada | o `npm run eng` oficial (e o pre-push); com a 0.12.0 commitada o gate passa | `docs/QUALITY.md`, roteiro do gate | o pre-push continua exigindo o gate | A (trabalho em andamento de outra sessão) |
 
 **Já provado localmente, fora desta lista:** modo 0600 dos caches e o ramo POSIX da A1
 (contêiner Linux, `validacao-posix.md`); o viewport estreito nunca vale como Android ou Termux.

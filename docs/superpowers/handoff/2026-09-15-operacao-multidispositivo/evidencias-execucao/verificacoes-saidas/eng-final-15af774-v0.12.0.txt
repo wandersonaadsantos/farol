@@ -1,0 +1,18 @@
+# eng-behaviour 0.12.0 (versao commitada, HEAD da935c0 do clone, construida numa copia isolada)
+# node dist/cli/main.js check --repo . -> eng-behaviour.rules.md em dia, codigo 0
+# node dist/cli/main.js audit --repo . --base origin/main --assessments avaliacoes.jsonl --baselines tools/eng-behaviour/baselines.json --repo-id farol
+core.abstraction.no-premature	judgment	pass	-
+core.convention.one-per-repository	judgment	pass	-
+core.duplication.business-rule	judgment	pass	-
+core.file.single-responsibility	judgment	pass	-
+core.imports.prefer-supported-aliases	judgment	pass	-
+core.javascript.modern-and-explicit	judgment	pass	-
+core.javascript.no-nested-ternary	hard	pass	341 arquivo(s) de codigo
+core.locality.promote-on-real-reuse	judgment	pass	-
+core.suppression.declared	hard	pass	341 arquivo(s) de codigo
+core.testing.behavior-proof	judgment	pass	-
+core.testing.coverage-under-mocked-strategy	judgment	pass	-
+core.testing.unit-mock-minimal	judgment	pass	-
+baseline: core.file.single-responsibility: 8 achado(s) conhecido(s), que nao reprovam
+13 regra(s) no escopo, 12 acionada(s) pela entrega, 12 executada(s). Veredito: pass.
+exit 0
