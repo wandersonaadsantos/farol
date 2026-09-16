@@ -43,3 +43,24 @@ reproduzir depois (0 em 17 com captura TAP). Fica registrado sem causa identific
 
 `roteiros/posix-container.sh <imagem-node-24> [arquivos]`, com o critério escrito no
 cabeçalho.
+
+---
+
+## Segunda rodada, 16/09/2026 à tarde (HEAD `a576729`)
+
+Mesma imagem local do Node 24 (`8510330d3eb7`, v24.14.1), sem rede, usuário `node` (uid 1000),
+sobre a árvore commitada, com o código da tela de pareamento, da vigília do stream, das
+verificações A, B e C, do Diagnóstico e de Plano e chaves.
+
+| Medida | Resultado |
+|---|---|
+| Suíte completa | 3959 testes, 3882 aprovados, 68 pulados, 9 falhas, `rc=1` |
+| As 9 falhas | todas de testes que chamam `git` (`eng-behaviour-gate`, 6; `protocolo-versionado`, 3), e a imagem não tem git: `spawnSync git ENOENT`. Mesmo critério da primeira rodada |
+| Testes de permissão pulados | nenhum |
+| `local-auth-stream-revogado`, `local-auth-tentativa`, pareamento, diagnóstico, capacidades | aprovados |
+| `perfil-claude-sem-escrita` | 1 aprovado ("CLI que falha ainda apaga a cópia efêmera"); **3 pulados de propósito**: o shell de login do Alpine reescreve o PATH, o `claude` falso deixa de ser o executado, e o teste se recusa a provar com outro binário |
+
+**O que continua sem prova em POSIX:** o `chmod 0700` da cópia efêmera do teste de perfil e a
+varredura das cópias velhas. Prová-los aqui exige um `claude` falso que o shell de login
+enxergue (instalar no PATH do sistema do contêiner), o que ficou fora desta rodada. No Windows
+os três casos passam.

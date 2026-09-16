@@ -152,27 +152,31 @@ dobra o tempo da suíte).
 
 ## Validações externas pendentes
 
-| Entrega | O que falta provar | Onde |
-|---|---|---|
-| C1a | `Origin` real do Chromium na janela do Electron | job `electron` do CI, na publicação |
-| A1 | `test/usage-interrompida-processo.test.js` no POSIX (o ramo `/bin/sh -lc` com grupo destacado só existe fora do Windows) | WSL ou CI |
-| C0b | ajustar `POSTAGEM_COORDENADA_DESDE` para a versão publicada | PR de release desta entrega |
-| C1 | comportamento das regras v2 (`auth_time`, `.length`, `matches`, `child()` dinâmico, cada escrita v1 literal, recusa do DELETE da raiz) | emulador e projeto real, pelo roteiro do `firebase/README.md` |
-| C1 | publicação das regras v2 no console do Firebase | manual, uma vez, pelo dono |
-| C1 | custo do `scrypt` no Termux (acima de 3 s cai para N=8192, r=8, p=10) | aparelho |
-| C1 | modo 0600 do cache de chave | rodada POSIX (pula no Windows) |
-| C2a | comportamento no servidor dos nós novos (geração +1, `REC` no nó do admin, janela de 60 s do batimento, teto do envelope da política) | emulador e projeto real, itens 9 a 13 do `firebase/README.md` |
-| C2a | publicação das regras v2 já com os nós da C2a | console do Firebase, manual, pelo dono |
-| C2a | modo 0600 do cache de política | rodada POSIX (pula no Windows) |
-| C2b | comportamento no servidor dos nós de limpeza, revogação e grupo (chave sem senha, `rev` monotônico, janela de 10 min da trava, corte abaixo do `auth_time`, remoção pelo pai) | emulador e projeto real, itens 14 a 21 do `firebase/README.md` |
-| C2b | publicação das regras v2 já com os nós da C2b | console do Firebase, manual, pelo dono |
-| C4 | medição do consumo real de memória por ambiente e teste do peso do PR como preditor; revalidar o piso de 1024 MB | execuções reais, por ambiente |
-| C3b | regras de `live/operations` no servidor e latência real entre aparelhos | item 26 do `firebase/README.md`; medição entre aparelhos |
-| C3a | comportamento no servidor dos nós novos e a checagem de dono com um SEGUNDO usuário autenticado | emulador e projeto real, itens 22 a 25 do `firebase/README.md` |
-| A3 | uma sessão real de diagnóstico no Claude, confirmando que só Read, Grep e Glob aparecem | sessão real (o lote de sessões do adendo foi gasto na A1b) |
-| A3 | uma sessão real de diagnóstico no Codex, confirmando que `--sandbox read-only` recusa escrita | máquina com o Codex CLI instalado |
-| A2 | um `claude auth status --json` com login ativo, para confirmar o nome do campo de e-mail | máquina com assinatura logada |
-| A4 | a tela de pareamento e a exigência automática num Termux real | aparelho, depois do desenho |
+Tipos de impedimento, sem misturar: **(A)** autorização esgotada ou ausente; **(C)** CLI ou
+ferramenta não instalada nesta máquina, e instalar exige autorização; **(L)** autenticação
+pendente do dono; **(F)** ambiente físico indisponível (aparelho, segundo aparelho real);
+**(P)** ação de produção não autorizada (publicar regras, projeto real, release).
+
+| Entrega | Evidência que falta | Ambiente ou acesso | O que isso bloqueia | Roteiro pronto | Guarda que impede uso prematuro | Tipo |
+|---|---|---|---|---|---|---|
+| C1, C2a, C2b, C3a, C3b | comportamento das regras v2 no servidor (itens 1 a 42) | emulador do Firebase (Java e `firebase-tools` ausentes; baixar imagem ou instalar não autorizado) e projeto real | publicar as regras v2 e ligar compartilhamento em produção | `firebase/README.md`, itens 1 a 42 | sonda de regras recusa conectar com regra v1; compartilhamento nasce desligado | C, P |
+| C1, C2a, C2b | publicação das regras v2 no console | console do Firebase, pelo dono | toda a trilha C em produção | `firebase/README.md` | idem | P |
+| C1 | custo do `scrypt` no Termux | aparelho Android com Termux | calibrar o custo da KEK no celular | `docs/superpowers/handoff/.../roteiros/` (medição manual) | custo cai para N=8192 acima de 3 s | F |
+| A4 | detecção do modo, navegador do aparelho e alcance do loopback num Termux real | aparelho | ligar `ATIVACAO_AUTOMATICA_A4` | tela de pareamento pronta; `node tools/farol-parear.js` | `ATIVACAO_AUTOMATICA_A4 = false`, travada em teste; C3 bloqueada no celular sem exigência | F |
+| C4 | memória real por ambiente e o peso do PR como preditor | execuções reais por ambiente | recusa por peso; revalidar o piso de 1024 MB | `evidencias-execucao/c4.md` | a admissão só usa o piso; peso só ordena | F |
+| C4b | atraso real do consumo entre dois aparelhos | dois aparelhos físicos e banco | ativar o teto do grupo | `evidencias-execucao/c4b.md` | `ATIVACAO_TETO_GRUPO_C4B = false`; admin recusa publicar `ativo` sem medição | F, P |
+| C3b | latência real do andamento entre aparelhos | dois aparelhos físicos | nenhuma ativação; qualidade da visão | `firebase/README.md`, item 26 | nenhuma necessária | F |
+| A1 | estimativa da saída de tentativa interrompida | novas sessões reais de modelo | a estimativa de saída (o resto da A1 está provado) | `evidencias-execucao/a1b.md` | a linha interrompida diz "custo desconhecido" | A |
+| A3 | sessão real de diagnóstico no Claude, confirmando só Read, Grep e Glob e nenhum hook ou plugin | nova sessão real de modelo | nada: a linha de comando está provada | `verificacoes-a-b-c.md`, seção B | as flags de leitura são fixas e testadas | A |
+| A3 | sessão real de diagnóstico no Codex, confirmando que `--sandbox read-only` recusa escrita | máquina com o Codex CLI | nada no Claude; o diagnóstico com Codex fica só com o argumento provado | idem | argumento emitido e testado | C, A |
+| A2 | `claude auth status --json` com login ativo, para conferir o campo de e-mail | assinatura logada numa pasta de teste | nada: sem e-mail no status, a tela cai para o e-mail do arquivo, marcado como detectado | `a2.md`, seção 5 | origem de cada campo na tela | L |
+| C1a | `Origin` real do Chromium na janela do Electron | CI com Electron, na publicação | release | job `electron` do CI | allowlist ativa por padrão | P |
+| C0b | ajustar `POSTAGEM_COORDENADA_DESDE` para a versão publicada | PR de release | release | `EXECUCAO.md`, deploy | constante travada em teste | P |
+| Pacote | segredo quebrado em duas linhas, formatos fora do padrão, segredo em binário comprimido | não se aplica: limite conhecido do detector | nada; registrado | `verificacoes-a-b-c.md`, seção C | o pente cobre os seis formatos provados | limite |
+| Perfil (A2) | `chmod 0700` da cópia efêmera e a varredura em POSIX | contêiner com `claude` falso no PATH do sistema | nada no Windows (provado); POSIX pendente | `validacao-posix.md`, segunda rodada | cópia apagada no `finally`, varredura das velhas | C |
+
+**Já provado localmente, fora desta lista:** modo 0600 dos caches e o ramo POSIX da A1
+(contêiner Linux, `validacao-posix.md`); o viewport estreito nunca vale como Android ou Termux.
 
 ## Decisões e ajustes técnicos
 
