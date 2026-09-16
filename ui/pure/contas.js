@@ -286,8 +286,10 @@ export function claudeProfilesHtml(ctx) {
         ${claudeAuthBadge(p.id, ctx)}
       </div>
       ${fields}
+      <div class="cp-teste" data-teste="${esc(p.id)}"></div>
     </div>
     <div class="a-actions">
+      <button class="btn sm cp-testar" data-id="${esc(p.id)}">Testar perfil</button>
       ${semLogin ? '' : `<button class="btn sm cp-login" data-id="${esc(p.id)}">Abrir sessão de login</button>`}
       <button class="btn sm danger-ghost cp-remove" data-id="${esc(p.id)}">Remover</button>
     </div>

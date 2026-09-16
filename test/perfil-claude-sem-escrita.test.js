@@ -249,3 +249,29 @@ test('CLI que falha ainda apaga a cópia efêmera', async () => {
   assert.ok(copia && path.resolve(copia) !== path.resolve(dir));
   assert.equal(fs.existsSync(copia), false, 'o finally apagou a cópia');
 });
+
+// A cópia efêmera carrega uma CÓPIA do .claude.json do perfil (conta e projetos). Se um
+// processo morrer no meio, ela fica no diretório temporário e ninguém a apaga: o teste
+// seguinte varre o que sobrou de antes. Achado ao conferir a pasta temporária depois da
+// jornada de 16/09/2026, onde 20 cópias de medições anteriores continuavam lá.
+test('cópias efêmeras esquecidas por execuções anteriores são varridas', async (t) => {
+  if (!await falsoResolve(t)) return;
+  const velha = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-teste-perfil-'));
+  fs.writeFileSync(path.join(velha, '.claude.json'), '{"oauthAccount":{"emailAddress":"nao-deve-ficar"}}');
+  const antiga = Date.now() - 2 * 60 * 60 * 1000;
+  fs.utimesSync(velha, new Date(antiga), new Date(antiga));
+  const recente = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-teste-perfil-'));
+
+  try {
+    const dir = path.join(BASE, 'perfil-varredura');
+    semear(dir, 'sintetico@exemplo.invalid');
+    const e = engineCom({ claudeProfiles: [{ id: 'p1', label: 'A', dir }], claudeProfileId: 'p1', accounts: [] });
+    await e.claudeTestarPerfil({ profileId: 'p1' });
+    assert.equal(fs.existsSync(velha), false, 'a cópia velha foi apagada');
+    assert.equal(fs.existsSync(recente), true, 'cópia recente de outra execução em andamento não é tocada');
+  } finally {
+    // o próprio teste não pode virar fonte de cópia esquecida quando falha
+    fs.rmSync(velha, { recursive: true, force: true });
+    fs.rmSync(recente, { recursive: true, force: true });
+  }
+});
