@@ -2175,6 +2175,12 @@ git commit -m "feat(sync): ciclo de recuperacao de senha e chaves, com reembrulh
 
 ## Tarefa 10: sonda de regras
 
+> **Defeito do próprio plano, corrigido na execução (15/09/2026).** O código escrito abaixo prova a versão da regra tentando `DELETE /users/{uid}` e tratando o sucesso como "regra velha". Isso é **destrutivo exatamente no caso que a sonda existe para detectar**: com as regras velhas o DELETE passa e apaga a árvore inteira do usuário. A spec nunca pediu isso.
+>
+> O que foi implementado, e o que vale: a sonda escreve num caminho que as regras v2 **negam** (`rulesProbe/v1/{aparelho}`, que não tem concessão no template) e trata o sucesso como prova de herança da raiz, isto é, de regra velha. Ela escreve e remove apenas os próprios nós, e nunca apaga dado de verdade. Ver `lib/sync/sonda-regras.js` e `test/sync-sonda-regras.test.js`, que são a fonte de verdade desta tarefa.
+>
+> **Fiação no ciclo adiada, com motivo.** O Passo 4 manda chamar a sonda depois da presença e guardar o resultado. Ela só serve para BARRAR escrita de nó v2, e esta entrega não escreve nenhum nó de conteúdo (ver "Limites declarados": quem começa a publicar é a C3). Ligar agora custaria duas escritas e duas remoções por conexão sem nada para proteger, então a fiação vai junto com a primeira entrega que publicar conteúdo cifrado. O módulo e o estado ficam prontos e testados aqui.
+
 **Arquivos:** criar `lib/sync/sonda-regras.js` e `test/sync-sonda-regras.test.js`; fiação em `lib/engine/sync.js`.
 
 **Interfaces:**
@@ -2545,6 +2551,12 @@ git commit -m "feat(sync): regras v2 geradas por macro, com a raiz sem concessao
 ---
 
 ## Tarefa 12: remoção do apagão remoto
+
+> **Ordem alterada na execução (medido em 15/09/2026):** esta tarefa foi feita **junto com a Tarefa 8**, e não depois da 11. O motivo é uma restrição real do ratchet: `lib/engine/sync.js` estava exatamente no teto de 400 linhas úteis, então qualquer adição da Tarefa 8 reprovava o `npm run lint`. A saída foi extrair a chave para `lib/engine/sync-chave.js` (que o plano não previa) e antecipar a remoção do apagão, que esta entrega faz de qualquer jeito. Registrado aqui porque muda a ordem dos commits, não o conteúdo.
+>
+> **Remoção de comportamento coberto por teste existente:** o caso `(e) erase-remote apaga /users/{uid} inteiro` de `test/sync-engine.test.js`, a linha da rota no caso `(i)` e a asserção do botão em `test/ui-pure-sync.test.js` saíram junto com o recurso. A da UI virou o contrário (`doesNotMatch`), para travar a ausência. É remoção mandada pela spec 7.C1, não conveniência de teste.
+>
+> **O inventário de rotas da A4 (`lib/local-auth/inventario.js`) precisa ser atualizado na mesma tarefa:** ele reprova rota servida sem classe e classe com rota morta. `/api/sync/erase-remote` sai de `destrutiva` e `/api/sync/unlock` entra em `recebe-segredo`, junto do `/api/sync/login`.
 
 **Arquivos:**
 - editar `lib/engine/sync.js` (apaga `syncEraseRemote` e os exports);
