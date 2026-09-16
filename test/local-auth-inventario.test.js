@@ -37,9 +37,11 @@ test('nenhuma rota aparece em duas classes', () => {
 // envio do histórico local (57 virou 59), e a C6 acrescentou /api/sync/command
 // (59 virou 60). O contrato das telas (B2) acrescentou desfecho de comando, publicar
 // política, aviso da tomada, estado da chave de limpeza e as sessões da A4 (60 virou 66). O diagnóstico unificado (A3) acrescentou /api/diagnostics (66 virou 67). O plano e chaves (A2) acrescentou testar perfil e adotar o legado (67 virou 69).
-test('as classes da spec cobrem os 69 caminhos, e as públicas são só as duas de autenticação', () => {
+// A transferência pela tela acrescentou /api/sync/transfer-targets, leitura sensível porque
+// lista os aparelhos com o que cada um consegue fazer (69 virou 70).
+test('as classes da spec cobrem os 70 caminhos, e as públicas são só as duas de autenticação', () => {
   const naoPublicas = Object.entries(CLASSES).filter(([c]) => c !== 'autenticacao-publica').flatMap(([, rotas]) => rotas);
-  assert.equal(naoPublicas.length, 69);
+  assert.equal(naoPublicas.length, 70);
   assert.deepEqual(CLASSES['autenticacao-publica'].slice().sort(), ['/api/auth/pair', '/api/auth/status']);
   assert.deepEqual(Object.keys(CLASSES).sort(), ['autenticacao-publica', 'demais', 'destrutiva', 'escreve-github', 'evento', 'leitura-baixo-risco', 'leitura-sensivel', 'recebe-segredo', 'sessao-paga']);
 });
