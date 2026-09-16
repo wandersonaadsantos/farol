@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026, com o **adendo de 16/09/2026** (concluir as pendências, incluindo a experiência utilizável).
-- **Estado em uma frase:** **trilhas A e C integradas, com a experiência funcional na tela.** Os serviços, regras e contratos de C0 a C8 seguem implementados e validados localmente, e agora existem pela tela: pareamento da API local (A4), Plano e chaves (A2), Diagnóstico unificado com as falhas registradas (A3), interruptores de compartilhar e distribuir com o cartão da chave do conjunto (C1), Aparelhos e administração (C2a), Grupos de consumo (C2b, C4b) e a visão compartilhada no Radar, com pendências, andamento, comandos, revisões de todos os aparelhos e envio do histórico (C3, C5, C6, C8). O que continua de fora está na tabela de pendências externas e na seção de capacidades desligadas, com o motivo de cada uma.
+- **Estado em uma frase:** **implementação e validação local concluídas na linha de integração;** o que falta depende de ação externa (tabela "Validações externas pendentes"). Todas as telas do brief B2 existem e foram percorridas na aplicação isolada, inclusive transferir, tomar, iniciar, repetir, decidir, cancelar e designar admin entre aparelhos numa bancada com banco e login de teste (`evidencias-execucao/jornada-bancada.md`). As capacidades que dependem de medição externa continuam desligadas, e a tela diz isso.
 - **Frentes em curso (adendo):** desenho B2 publicado no Claude Design (canvas em três versões, a terceira alinhada à implementação do pareamento); telas de A2, A3, A4, C1, C2 e C3 integradas em 16/09/2026; verificações A, B, C e D feitas; jornadas refeitas na versão integrada, em desktop e em 390 px (`evidencias-execucao/jornada-integrada-2.md`).
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
@@ -142,6 +142,11 @@ Contagem: **39 linhas** (a 34 é a reconciliação e a 39 não tem evidência pr
 | 45 | Aparelhos e Grupos de consumo na tela | `md/tela-aparelhos` | sim | sim | sim, 26 contraprovas na segunda rodada | mesmas de C2a, C2b e C4b | teto do grupo continua sem efeito | `evidencias-execucao/tela-aparelhos-grupos.md` |
 | 46 | Visão compartilhada no Radar (pendências, andamento, comandos, revisões, envio) | `md/tela-radar` | sim | sim | sim, 21 contraprovas na segunda rodada | regras v2 e segundo aparelho real | só aparece com a visão valendo; transferir segue indisponível | `evidencias-execucao/tela-radar-compartilhado.md` |
 | 47 | Jornada na versão integrada e memória livre fixa nos testes de admissão | `md/integracao` | sim (teste não hermético corrigido) | desktop e 390 px | sim, contraprova do ajudante de memória | jornadas com segundo aparelho e Termux | nenhuma capacidade ligada | `evidencias-execucao/jornada-integrada-2.md` |
+| 48 | Resolução das 18 divergências de Aparelhos e Grupos | `md/tela-divergencias` | sim | sim | sim, 49 mutações | as de C2a, C2b e C4b | teto do grupo segue sem efeito | `tela-aparelhos-grupos.md`, seção 7 |
+| 49 | Transferir e tomar pela tela | `md/tela-transferencia` | sim | sim | sim, 45 mutações | dois aparelhos reais | executor revalida tudo | `tela-transferencia-tomada.md` |
+| 50 | Panorama e Meus PRs remotos, nome dos PRs | `md/tela-escopo-remoto` | sim | sim | sim, 39 mutações | dois aparelhos reais | só leitura para linha remota | `tela-escopo-remoto.md` |
+| 51 | Repetir, iniciar, designar admin e motivo da espera | `md/tela-comandos` | sim | sim | sim, 59 mutações | regras v2 publicadas | comando só do admin com sinal fresco | `tela-comandos.md` |
+| 52 | Jornada na bancada e os oito defeitos que ela achou | `md/integracao` | sim | desktop e 390 px | sim, contraprova em cada correção | Termux e dois aparelhos físicos | nenhuma capacidade ligada | `jornada-bancada.md` |
 
 ## Capacidades desligadas: o que falta em cada uma (adendo, item 5)
 
@@ -276,6 +281,12 @@ pendente do dono; **(F)** ambiente físico indisponível (aparelho, segundo apar
 | `73eb777`, `89b4603`, `bc54fcc`, `2778e60`, `15ce282`, `51229f0`, merge `3cfe582` | `md/tela-radar` | visão compartilhada no Radar: prazo gravado no nó, puras, tela, reforço das contraprovas inertes e evidência |
 | `957a10b`, `eff62b4`, `c4438a3`, `b0f5592`, `2b50ed3`, merge `4158305` | `md/tela-aparelhos` | Aparelhos e Grupos de consumo: puras, seções no Sistema, reforço das travas inertes e evidência |
 | `d5021ab`, `984c60b` | `md/integracao` | memória livre fixa nos testes de admissão, e a jornada na versão integrada |
+| `878120c`, `0e1b95e`, `3b60f3a`, `e169923`, `b07eb29`, merge `d8eeb0b` | `md/tela-divergencias` | as 18 divergências de Aparelhos e Grupos |
+| `e0d08e5`, `e39f494`, `62851f3`, `6e98bcb`, `04f0f2a`, `25fcf1b`, merge `2238d5e` | `md/tela-transferencia` | transferir e tomar pela tela, com dois defeitos de head corrigidos |
+| merge `c070d86` | `md/tela-escopo-remoto` | Panorama e Meus PRs remotos, nome dos PRs, falha da leitura como falha, lote N de M |
+| merge `502f1b5` | `md/tela-comandos` | repetir, iniciar, designar admin e o motivo da espera |
+| `13b0482`, `b9c95f3`, `c441b7e`, `4a80a83`, `a7faa9d`, `6e32bbe`, `7217b83`, `a95d3c9`, `1457606`, `1be5807`, `e3132b2`, `24ee0fb`, `43adc9a` | `md/integracao` | correções achadas na revisão e na jornada da bancada (frota lida sem contrato, pareamento que recarregava, revisões sem contagem e sem nome, presença depois de abrir a chave, frota velha, tick sem GitHub, vírgula, recibo sem snapshot, risco sem acento, lista não lida publicada, catálogo sem revisões) |
+| `bcb61ac`, `a57af5c`, `9f72f6a`, `d39a98a`, `0b2d6d4`, `14f2f29` | `md/integracao` | desenho B2 e brief alinhados; canvas versão 4 |
 
 
 ## Deploy e notas de versão propostos (16/09/2026)
@@ -350,6 +361,25 @@ interruptor próprio.
 Telas das capacidades novas (Claude Design), as quatro medições acima e a reconciliação
 desta linha com a `main` (a base desta execução é `8c043bc`; a `main` está em `b0911b1`).
 
+## Critérios de aceite da rodada final e onde está a prova
+
+| Critério | Implementação | Prova |
+|---|---|---|
+| Transferir: caso elegível utilizável | destinos com `apto` e `motivo` (`POST /api/sync/transfer-targets`), diálogo com um botão por apto | `test/sync-transferencia-tela.test.js`; bancada, seção 2 |
+| Transferir: inelegível com o motivo certo | `motivoDoDestino` e `motivoDaOrigem` (`lib/sync/transferencia.js`) | mesmos testes; bancada: "sem credencial desta conta", "é o aparelho que roda a análise agora", "sem vaga" |
+| Transferir: pedido, processamento e desfecho | comando assinado, executor na origem, recibo lido pela tela | teste ponta a ponta entre dois engines; bancada: recibo `aplicado`, origem encerrou, destino começou |
+| Transferir: estado que muda entre escolha e execução | o executor revalida head, destino e consentimento | `head_mudou` e `destino_inapto` no teste ponta a ponta |
+| Tomar | `op.pr` pelo catálogo, head perguntado agora no executor, aviso antes, `confirmado: true` | `test/sync-transferencia-tela.test.js`; bancada: aviso real, recibo `aplicado`, lista de tomadas, só a sessão do stub aberta |
+| Panorama remoto | `lerEscopo` com leitura incremental, `POST /api/sync/lists` e evento `sync-lists`, bloco próprio na aba | `test/sync-listas-remotas.test.js`, `test/ui-pure-listas-remotas*`; bancada: "4 PRs: 1 deste aparelho e 3 de 1 outro" |
+| Meus PRs remoto | idem, com merge sempre desabilitado para linha remota | idem; bancada: "1 PR: 0 deste aparelho e 1 de 1 outro" |
+| Identificação dos PRs | `pr: { key, account, title, author } \| null` em pendências, andamento e revisões; catálogo com fila, pendências, sessões vivas e revisões recentes | `test/sync-historico-remoto.test.js`, `test/ui-pure-compartilhado*`; bancada: nomes nas três listas |
+| Rótulo genérico só sem catálogo | `prIdentificadoHtml` com o texto do motivo | testes de catálogo que não abre (chave de outra época, linha adulterada) |
+| Origem, atualização, deduplicação, filtros, indisponível e desatualizado | `mesclarListaRemota`, `estadoDasListas`, `estadoDoEscopo` | `tela-escopo-remoto.md` |
+| 18 divergências | 11 implementadas, 4 ajustes de desenho com o texto exato, 3 de apresentação, nenhuma bloqueada | `tela-aparelhos-grupos.md`, seção 7 |
+| Comandos restantes do brief 2.9 (repetir, iniciar, designar admin) | ações na tela com motivo, confirmação e recibo; `repetir` e `iniciar` perguntam o head agora | `tela-comandos.md`; bancada: os três desfechos de repetir, iniciar `aplicado`, designação pendente |
+| Motivo da espera na distribuição | veredito do agendador cifrado no nó de atribuição, motivo por aparelho | `tela-comandos.md` |
+| Desenho atualizado | quadros C1, C2, C3, C3Historico, C4, C5 e C8; canvas versão 4 | `B2-design/README.md`; https://claude.ai/artifact/TpikCGQajjhpN8JDZ2K2Q6 |
+
 ## Rodada de fechamento das lacunas (16/09/2026 à noite)
 
 Depois do relatório anterior, o dono apontou que "falta dado no snapshot" não é bloqueio
@@ -370,14 +400,14 @@ Desenho atualizado nos quadros C1, C2, C3, C4 e C8, com os textos que a implemen
 
 ## Próxima ação concreta
 
-Código e telas da iniciativa estão integrados em `md/integracao`, com gate completo e
-`npm run eng` verdes. Nada foi empurrado. O que falta está em "Validações externas
-pendentes", cada item com o tipo de impedimento, e depende do dono:
+Nada implementável ficou para trás com as ferramentas e permissões desta execução. O que falta
+é externo e está em "Validações externas pendentes", com o tipo de cada impedimento:
 
 1. decidir o push da branch e a abertura do PR (fora da autorização);
-2. publicar as regras v2 no console do Firebase, ou autorizar a instalação do emulador para
-   rodar os itens 1 a 42 do `firebase/README.md` localmente;
-3. autorizar as sessões reais de modelo que faltam (diagnóstico no Claude e no Codex, a
-   estimativa da saída interrompida da A1);
-4. rodar os roteiros de aparelho físico (Termux, dois aparelhos);
+2. publicar as regras v2 no console do Firebase (inclui o campo novo `espera` do nó de
+   atribuição), ou autorizar a instalação do emulador para rodar os itens do
+   `firebase/README.md` localmente;
+3. autorizar as sessões reais de modelo que faltam;
+4. rodar os roteiros de aparelho físico (Termux, dois aparelhos), agora com a bancada de
+   `evidencias-execucao/bancada/` como ensaio;
 5. reconfigurar a sincronização real depois do incidente registrado acima.
