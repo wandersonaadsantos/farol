@@ -256,3 +256,28 @@ test('a rota SSE repassa sync-live', () => {
   const fonte = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'http-server.js'), 'utf8');
   assert.match(fonte, /engine\.on\('sync-live', p => broadcast\('sync-live', p\)\)/);
 });
+
+// Aparelho que acabou de entrar no conjunto: a lista local só era relida no carimbo de
+// presença (5 minutos), e até lá o portão da frota recusava tudo, inclusive o batimento do
+// admin. Medido na bancada em 16/09/2026: o admin ficou "sem sinal" por cerca de 5 minutos
+// depois de outro aparelho abrir a chave. O relógio passa a reler a frota quando o portão
+// recusa, no máximo uma vez por minuto.
+test('frota velha na memória: o relógio relê a lista e publica no mesmo giro', async () => {
+  const e = await motorPronto({ comFrota: false });
+  sessaoViva(e);
+  const arvore = fake.tree();
+  arvore.users.u1.devices = { ...(arvore.users.u1.devices || {}), dNovo: { name: 'Novo', contract: 2, keyReady: true, lastSeenAt: Date.now() } };
+  fake.setTree(arvore);
+  const r = await andamentoEng.ciclo(e, e.config.sync, { agora: T + 1000 });
+  assert.equal(r.ok, true, 'o giro passou depois de reler');
+  assert.equal(r.escritas.length, 1);
+  assert.ok(e.sync.devices.dNovo, 'a lista local já tem o aparelho novo');
+  // na recusa seguinte, dentro do minuto, não relê de novo
+  arvore.users.u1.devices = { [e.sync.deviceId]: arvore.users.u1.devices[e.sync.deviceId] };
+  fake.setTree(arvore);
+  e.sync.devices = {};
+  fake.requests.length = 0;
+  const r2 = await andamentoEng.ciclo(e, e.config.sync, { agora: T + 2000 });
+  assert.equal(r2.code, 'sem-frota');
+  assert.equal(fake.requests.filter((q) => q.method === 'GET' && q.path === '/users/u1/devices.json').length, 0, 'uma releitura por minuto, não por giro');
+});

@@ -266,6 +266,11 @@ test('a conta que ESTE aparelho publica não aparece como remota', async () => {
 test('estados sem leitura: desligada, sem frota e sem chave são ditos, não viram lista vazia', async () => {
   const { a, b } = await par();
   b.sync.devices = { dA: { contract: 1, keyReady: false, lastSeenAt: Date.now() } };
+  // o relógio relê a frota quando o portão recusa: o banco também precisa estar sem frota,
+  // senão a releitura acha os dois aparelhos que o login registrou
+  const t = fake.tree();
+  t.users.u1.devices = { dA: { contract: 1, keyReady: false, lastSeenAt: Date.now() } };
+  fake.setTree(t);
   await andamento.ciclo(b, b.config.sync, { agora: Date.now() });
   assert.equal(b.syncListasRemotas().estado, 'sem-frota');
   const semChave = { sync: { ...a.sync, material: null }, config: a.config, emit: () => true, accountList: () => a.accountList() };

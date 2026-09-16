@@ -1881,6 +1881,8 @@ class Engine extends EventEmitter {
   syncUnlock(dados) { return syncMod.syncUnlock(this, dados); }
   // usado pela chave do conjunto: abrir a chave muda o que este aparelho anuncia
   syncPresenca() { return syncMod.anunciarPresenca(this); }
+  // o relógio da visão compartilhada relê a frota quando o portão dela recusa
+  syncFrota() { return syncMod.lerAparelhos(this); }
   syncGerarChaveNova(dados) { return syncMod.syncGerarChaveNova(this, dados); }
   syncTornarAdmin(dados) { return syncMod.syncTornarAdmin(this, dados); }
   syncPublicarPolitica(dados) { return syncMod.syncPublicarPolitica(this, dados); }
