@@ -1213,9 +1213,12 @@ function valor(extra = {}) {
   return { uid: 'u1', destino: DESTINO, keyringRev: 1, cur: 'g1', id: MATERIAL.id, enc: MATERIAL.enc, ...extra };
 }
 
-test('o cache mora em ~/.farol, fora do config.json e de state/', () => {
+test('o cache mora na pasta de dados do Farol, ao lado da credencial e fora de state/', () => {
   const p = cache.caminhoDoCache();
-  assert.equal(path.dirname(p), path.join(CASA, '.farol'));
+  // `HOME` de lib/paths.js é a pasta de DADOS do Farol (em produção ~/.farol, trocada
+  // pelo FAROL_HOME nos testes), não a home do sistema: a garantia é ficar ao lado do
+  // sync-credentials.json, fora do config.json e fora de state/
+  assert.equal(path.dirname(p), path.dirname(credentialsPath()));
   assert.equal(path.basename(p), 'sync-key.json');
   assert.equal(p.includes(`${path.sep}state${path.sep}`), false);
 });
@@ -1373,7 +1376,12 @@ export { caminhoDoCache, lerCache, gravarCache, apagarCache, cacheServe, cacheCo
 
 - [ ] **Passo 4:** rodar `node --test test/sync-cache-chave.test.js`. Esperado: verde, com o caso do modo 0600 pulado no Windows.
 
-- [ ] **Passo 5 (contraprova):** em `gravarCache`, apague a linha `restringir(ARQUIVO);`. Rode no POSIX (WSL): reprova `modo 0600 depois de CADA gravação`. No Windows o caso pula, e a contraprova fica registrada como dependente de POSIX. Restaure. Depois, em `cacheConfere`, troque `if (!cur || !cache.enc[cur]) return false;` por `if (!cur) return false;` e rode: reprova `geração corrente ausente no cache`. Restaure e rode: verde.
+- [ ] **Passo 5 (contraprova):** três mutações observáveis em qualquer sistema (1 falha cada, medidas), uma de cada vez:
+  (a) em `cacheConfere`, troque `if (!cur || !cache.enc[cur]) return false;` por `if (!cur) return false;`: reprova `geração corrente ausente`;
+  (b) em `cacheServe`, tire a comparação de destino: reprova `uid ou destino diferentes descartam o cache`;
+  (c) em `gravarCache`, troque a allowlist de campos por `...v`: reprova `a senha nunca entra no cache`.
+
+  A quarta (apagar `restringir(ARQUIVO);`, que prova o 0600) **só é observável no POSIX**: no Windows o caso pula, porque chmod não vale em NTFS. Ela fica declarada como contraprova dependente de POSIX, para rodar junto com o teste de encerramento abrupto na rodada WSL/CI.
 
 - [ ] **Passo 6:** commit.
 
