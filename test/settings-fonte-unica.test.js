@@ -18,8 +18,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { SETTINGS, EDITAVEIS, defaults, sanear } from '../lib/settings.js';
+import { fonteDasTelas } from './helpers/fontes-ui.js';
 
-const APPJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
+const APPJS = fonteDasTelas();
 
 // as duplas [seletor, chave] que a tela liga no change
 function togglesDaTela() {

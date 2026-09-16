@@ -18,10 +18,9 @@
 // ponte possível é textual, e é esta. Runner nativo, ZERO deps.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
+import { fonteDasTelas } from './helpers/fontes-ui.js';
 
-const APPJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
+const APPJS = fonteDasTelas();
 
 test('toda chamada de renderOrgBlock passa o ctx', () => {
   const chamadas = [...APPJS.matchAll(/renderOrgBlock\([^;\n]*/g)].map(m => m[0]);

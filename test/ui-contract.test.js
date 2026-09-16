@@ -10,9 +10,9 @@ import fs from 'node:fs';
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fonteDosPuros } from './helpers/fontes-ui.js';
+import { fonteDosPuros, fonteDasTelas } from './helpers/fontes-ui.js';
 
-const APPJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
+const APPJS = fonteDasTelas();
 const SERVERJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'http-server.js'), 'utf8');
 
 // chamadas da UI: api('/api/x'), get('/api/x?...'), EventSource e descriptors path: '/api/x'

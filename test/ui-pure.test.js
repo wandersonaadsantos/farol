@@ -16,6 +16,7 @@ process.env.TZ = 'America/Sao_Paulo';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { fonteDasTelas } from './helpers/fontes-ui.js';
 const P = await import('../ui/pure.js');
 
 /* ---------- esc: a defesa contra injecao ---------- */
@@ -1561,7 +1562,7 @@ test('os tres botoes de merge da UI usam mergeToastKind, nenhum ficou com toast 
   // os tres (normal, auto, admin) passam pela MESMA guarda do mergeSelfPR: se um
   // deles voltar a chamar toast('error', ...) direto, o clique duplo dele volta a
   // piscar vermelho e so este teste avisa
-  const APP = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
+  const APP = fonteDasTelas();
   const fixos = [...APP.matchAll(/toast\('error',\s*esc\(r\?\.error \|\| 'não consegui [^']*merge[^']*'\)\)/g)];
   assert.deepEqual(fixos.map(m => m[0]), [], 'toast de merge com cor fixa ignora a recusa benigna da guarda');
   assert.equal([...APP.matchAll(/mergeToastKind\(r\?\.error\)/g)].length, 3,
@@ -2784,7 +2785,7 @@ test('jiraPrefixosProblema exige ao menos um prefixo de projeto', () => {
 });
 
 test('a tela do Jira valida no cadastro E na edição, e não deixa credencial órfã', () => {
-  const APP = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
+  const APP = fonteDasTelas();
   const add = APP.slice(APP.indexOf("t.id === 'btnJiraSiteAdd'"), APP.indexOf("t.classList.contains('js-site-remove')"));
   assert.match(add, /jiraBaseUrlProblema\(baseUrl\) \|\| jiraPrefixosProblema\(projectKeys\)/, 'cadastro valida antes de salvar');
   const edicao = APP.slice(APP.indexOf('function jiraEdicaoProblema'), APP.indexOf('function jiraCampoSalvo'));

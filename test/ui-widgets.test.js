@@ -9,8 +9,8 @@ import fs from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as P from '../ui/pure.js';
-import { fonteDosPuros } from './helpers/fontes-ui.js';
-const APPJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
+import { fonteDosPuros, fonteDasTelas } from './helpers/fontes-ui.js';
+const APPJS = fonteDasTelas();
 const HTML = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'index.html'), 'utf8');
 const CSS = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.css'), 'utf8');
 
