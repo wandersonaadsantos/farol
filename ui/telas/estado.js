@@ -14,16 +14,25 @@
 let STATE = null;
 let SCOPE = 'all';
 let ABA = 'radar';
+// Palpite do primeiro paint (antes do primeiro estado chegar pelo SSE); o ui/app.js
+// reconcilia com app.platform assim que o snapshot chega, por definirPlataforma. Migrou
+// de variável de módulo do ui/app.js pra cá porque telas/sistema-contas.js (Task 10,
+// Fase 1b) também precisa perguntar "é Windows?" e não pode importar o bootstrap de
+// volta: mesma razão de STATE/SCOPE/ABA morarem aqui.
+let PLATAFORMA = typeof navigator !== 'undefined' && /Macintosh|Mac OS X/.test(navigator.userAgent) ? 'darwin' : 'win32';
 
 const estado = () => STATE;
 const escopo = () => SCOPE;
 const abaAtual = () => ABA;
+const ehMac = () => PLATAFORMA === 'darwin';
+const ehWin = () => PLATAFORMA === 'win32';
 
 // Escrita: só o ui/app.js chama. Não há setter parcial de propósito, para não existirem
 // dois donos do mesmo dado.
 function definirEstado(novo) { STATE = novo; }
 function definirEscopo(novo) { SCOPE = novo; }
 function definirAba(nome) { ABA = nome; }
+function definirPlataforma(p) { if (p) PLATAFORMA = p; }
 
 // Leituras derivadas do estado (não o snapshot cru, um predicado sobre ele). As duas
 // abas opcionais moram juntas aqui pela mesma razão do módulo inteiro: cada tela que
@@ -41,4 +50,5 @@ function peopleOf() { return (estado()?.config && estado().config.people) || {};
 export {
   estado, escopo, abaAtual, definirEstado, definirEscopo, definirAba,
   teamHighlightsEnabled, deliveriesEnabled, peopleOf,
+  ehMac, ehWin, definirPlataforma,
 };
