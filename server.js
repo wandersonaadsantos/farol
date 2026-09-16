@@ -1834,9 +1834,10 @@ class Engine extends EventEmitter {
   syncSeguraAutomacao(key) { return syncMod.seguraAutomacao(this, key); }
   syncRegistrarEspera(key, admissao) { return syncMod.registrarEspera(this, key, admissao); }
   syncLogin(credenciais, fetchImpl) { return syncMod.syncLogin(this, credenciais, fetchImpl); }
+  syncUnlock(dados) { return syncMod.syncUnlock(this, dados); }
+  syncGerarChaveNova(dados) { return syncMod.syncGerarChaveNova(this, dados); }
   syncLogout() { return syncMod.syncLogout(this); }
   syncTest() { return syncMod.syncTest(this); }
-  syncEraseRemote() { return syncMod.syncEraseRemote(this); }
   syncStop() { return syncMod.stopSync(this); }
   syncTick() { return syncMod.syncTick(this); }
   syncAplicarConfig() { return syncMod.aplicarConfig(this); }

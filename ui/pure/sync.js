@@ -179,6 +179,28 @@ export function syncEnvioHtml(sync) {
   return `<span class="sync-teste ok">histórico enviado ${esc(quando)}, nada pendente</span>`;
 }
 
+// Frase da tela com o compartilhamento ligado (spec, seção 11). Ela não promete mais do
+// que a cifra entrega: diz o que sobe cifrado, o que qualquer cópia do banco enxerga
+// mesmo assim, o que a coordenação expõe, contra quem a cifra NÃO protege, o que nunca
+// sai do aparelho, e que sincronização não é backup.
+//
+// Título e autor de PR são dados de colegas: só sobem cifrados, e a frase nomeia isso.
+const PRIVACIDADE = [
+  ['Sobe cifrado', 'títulos, endereços e autores de PR, relatórios e resumos, andamento, Panorama, Meus PRs, Precisa de você, políticas, grupos, nome do aparelho e memória de pushback confirmada. Título e autor de PR são dados de colegas.'],
+  ['Qualquer cópia do banco enxerga', 'horários, custos e tokens por sessão, quantidade e tamanho aproximado dos itens, qual aparelho fez cada coisa, e a correlação entre itens do mesmo PR e da mesma organização pelos identificadores.'],
+  ['A coordenação expõe', 'conta, PR e commit por resumo sem chave, descobríveis testando nomes conhecidos. Aparelho em versão antiga continua enviando o nome da máquina e o commit.'],
+  ['A cifra não protege contra', 'quem sabe a sua senha ou controla o e-mail da conta, o Google (que recebe a senha no login) e quem tem acesso a um aparelho seu.'],
+  ['Nunca sai do aparelho', 'logs, prompts, chats, saída de terminal, credenciais, caminhos de arquivo, Destaques, Kudos e Time.'],
+  ['Não é backup', 'a sincronização serve para os aparelhos combinarem trabalho, não para guardar cópia do que é seu.'],
+];
+
+export function syncPrivacidadeHtml(sync) {
+  const s = sync || {};
+  if (s.shared !== true) return '';
+  const itens = PRIVACIDADE.map(([titulo, texto]) => `<li><b>${esc(titulo)}:</b> ${esc(texto)}</li>`).join('');
+  return `<div class="callout sync-privacidade"><ul class="sync-privacidade-lista">${itens}</ul></div>`;
+}
+
 export function syncConexaoHtml(sync, cfg, rascunho) {
   const s = sync || {};
   const c = cfg || {};
@@ -196,13 +218,12 @@ export function syncConexaoHtml(sync, cfg, rascunho) {
     <div class="sync-topo"><span class="sync-titulo">Firebase pessoal</span><span class="sync-espaco"></span>${syncSeloHtml(estado)}</div>
     ${campos}
     ${degradada}
+    ${syncPrivacidadeHtml(s)}
     ${syncContaHtml(s, rascunho)}
     <div class="sync-rodape">
       <button class="btn sm" id="syncTest">Testar conexão</button>
       <span class="sync-teste" id="syncTestOut"></span>
       ${syncEnvioHtml(s)}
-      <span class="sync-espaco"></span>
-      <button class="btn sm danger-ghost" id="syncErase">Apagar dados sincronizados</button>
     </div>
   </div>`;
 }

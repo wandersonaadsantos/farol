@@ -165,6 +165,7 @@ const CONGELADA = [
   "syncCoordenacaoHtml",
   "syncEnvioHtml",
   "syncEstado",
+  "syncPrivacidadeHtml",
   "syncSecaoHtml",
   "syncSeloHtml",
   "syncTogglesHtml",

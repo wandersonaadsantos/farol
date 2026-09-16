@@ -98,6 +98,10 @@ export async function startFakeIdentity({ apiKey = 'key-1', users = { 'a@b.com':
     requests,
     tokens,
     revogar(refreshToken) { revogados.add(refreshToken); },
+    // troca a senha aceita para um e-mail, como o Firebase faz numa redefinição: a antiga
+    // passa a devolver INVALID_PASSWORD. É o que permite exercitar as três situações de
+    // recuperação de chave de CT-ENV.
+    setPassword(email, senha) { users[email] = { ...(users[email] || {}), password: senha }; },
     close() {
       return new Promise((resolve) => {
         server.closeAllConnections();

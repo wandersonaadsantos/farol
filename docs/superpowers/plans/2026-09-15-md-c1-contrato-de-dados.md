@@ -163,6 +163,7 @@ const SENHA = 'senha-de-teste';
 const AGORA = 1_800_000_000_000;
 const HEAD = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2';
 const PR_KEY = 'Org/Repo#7';
+const ORIGEM_EMULADOR_AUTH = new URL(SYNC.AUTH_EMULATOR_IDENTITY_URL).origin;
 let fake;
 let identity;
 
@@ -177,11 +178,36 @@ after(async () => {
 });
 beforeEach(() => { fake.setTree(null); fake.requests.length = 0; });
 
+// o banco do dublê é http em 127.0.0.1, então o login vai para o Auth do emulador; aqui
+// ele é desviado para o dublê de identidade, e nada sai da máquina
+async function fetchDosDubles(url, init) {
+  const alvo = String(url).replace(ORIGEM_EMULADOR_AUTH, identity.url);
+  if (!alvo.startsWith('http://127.0.0.1:')) throw new Error('o teste tentou sair da máquina');
+  return fetch(alvo, init);
+}
+
 function syncCfg(extra = {}) {
   return {
     enabled: true, coordination: { enabled: true }, consolidation: { enabled: false },
     deviceName: 'Notebook', apiKey: API_KEY, databaseUrl: fake.url, projectId: 'farol-local', ...extra,
   };
+}
+
+// `saveConfig()` do engine não recebe argumento: quem aplica configuração é o
+// updateSettings, e a conexão sobe de forma assíncrona (o mesmo helper dos testes de sync).
+async function salvarSync(engine, cfg) {
+  engine.updateSettings({ sync: cfg });
+  if (engine.sync.iniciando) await engine.sync.iniciando;
+}
+
+async function motorConectado(cfg = syncCfg()) {
+  const engine = new Engine();
+  engine.log = () => { };
+  engine.pushState = () => { };
+  engine.sync.fetchImpl = fetchDosDubles;
+  await salvarSync(engine, cfg);
+  assert.equal((await engine.syncLogin({ email: EMAIL, password: SENHA })).ok, true);
+  return engine;
 }
 
 // O corpo de cada escrita v1 sai das MESMAS funções puras que o engine usa. Se alguma
@@ -211,8 +237,8 @@ test('evento de consumo v1: hashes sem chave e campos em claro, como hoje', () =
 test('caminhos da coordenação continuam em SHA-256 sem sal', () => {
   assert.match(accountHash('fulano'), /^[0-9a-f]{64}$/);
   assert.match(prHash(PR_KEY), /^[0-9a-f]{64}$/);
-  assert.equal(operationFingerprint('review', HEAD), `review_${accountHash('x') ? '' : ''}${operationFingerprint('review', HEAD).slice(7)}`);
   assert.match(operationFingerprint('review', HEAD), /^review_[0-9a-f]{32}$/);
+  assert.equal(operationFingerprint('review', HEAD), operationFingerprint('review', HEAD), 'determinístico');
 });
 
 test('eventIdFor: vetor dourado sobre uma sessão literal', () => {
@@ -223,26 +249,21 @@ test('eventIdFor: vetor dourado sobre uma sessão literal', () => {
 });
 
 test('presença com o compartilhamento desligado: o PUT do aparelho é o de hoje', async () => {
-  const engine = new Engine();
-  engine.log = () => { };
-  engine.pushState = () => { };
-  await engine.saveConfig({ ...engine.config, sync: syncCfg() });
-  assert.equal((await engine.syncLogin({ email: EMAIL, password: SENHA })).ok, true);
+  const engine = await motorConectado();
   await engine.syncTick();
-  const dev = fake.requests.filter((r) => r.path.includes('/devices/') && r.method !== 'GET');
+  // o `createdAt` é escrito à parte, com o sentinela de timestamp como corpo inteiro: a
+  // presença é a outra escrita, e é ela que carrega os campos do aparelho
+  const dev = fake.requests.filter((r) => r.path.includes('/devices/') && r.method !== 'GET' && !r.path.includes('/createdAt'));
   assert.ok(dev.length >= 1, 'a presença sobe');
-  const corpo = dev.at(-1).body || {};
+  const corpo = JSON.parse(dev.at(-1).body || '{}');
+  assert.deepEqual(Object.keys(corpo).sort(), ['farolVersion', 'lastSeenAt', 'name', 'platform'], 'nenhum campo novo na presença');
   assert.equal(corpo.contract, undefined, 'sem campo de contrato v2');
   assert.equal(corpo.keyReady, undefined, 'sem prontidão de chave');
   assert.equal(typeof corpo.name, 'string', 'o nome do aparelho continua em claro');
 });
 
 test('nenhum nó novo do contrato v2 é escrito com o compartilhamento desligado', async () => {
-  const engine = new Engine();
-  engine.log = () => { };
-  engine.pushState = () => { };
-  await engine.saveConfig({ ...engine.config, sync: syncCfg() });
-  assert.equal((await engine.syncLogin({ email: EMAIL, password: SENHA })).ok, true);
+  const engine = await motorConectado();
   await engine.syncTick();
   const proibidos = ['/keyring', '/catalog', '/live/', '/rulesProbe'];
   const tocados = fake.requests.filter((r) => r.method !== 'GET' && proibidos.some((p) => r.path.includes(p)));
@@ -399,14 +420,20 @@ por
     enabled: cfg.enabled === true, coordination: coordinationActive(cfg), consolidation: consolidationActive(cfg), shared: sharedActive(cfg),
 ```
 
-- [ ] **Passo 5:** rodar `node --test test/sync-interruptor-compartilhamento.test.js test/sync-config.test.js test/sync-engine.test.js test/ui-pure-sync.test.js test/sync-compartilhamento-desligado.test.js`. Esperado: tudo verde.
+- [ ] **Passo 5:** a tabela de `lib/settings.js` (linha 31) tem uma **cópia** dos defaults de `sync`, e `test/sync-config.test.js` congela a forma deles. Medido na execução: sem os ajustes abaixo, dois testes existentes reprovam, e é exatamente para isso que eles existem (um deles compara `defaults().sync` com `syncDefaults()`, ou seja, pega a divergência entre as duas fontes).
+  - em `lib/settings.js`, acrescente `shared: { enabled: false },` ao `def` da chave `sync`, depois de `consolidation`;
+  - em `test/sync-config.test.js`, acrescente `shared: { enabled: true }` ao fixture `VALIDO` e `shared: { enabled: false }` ao literal do caso `syncDefaults: tudo desligado e vazio`.
 
-- [ ] **Passo 6 (contraprova):** em `parseSyncConfig`, troque `shared: interruptor(r.shared),` por `shared: { enabled: r.shared !== undefined },`. Rode o arquivo: reprova `só true explícito liga`. Restaure e rode: verde.
+  As duas garantias congeladas ali ficam **iguais**: o padrão continua com tudo desligado e objeto novo a cada chamada, e um objeto válido continua passando inteiro. É o caso previsto na autorização: teste ligado à forma antiga é ajustado preservando a garantia que ele verificava.
 
-- [ ] **Passo 7:** commit.
+- [ ] **Passo 6:** rodar `node --test test/sync-interruptor-compartilhamento.test.js test/sync-config.test.js test/settings.test.js test/sync-engine.test.js test/ui-pure-sync.test.js test/sync-compartilhamento-desligado.test.js`. Esperado: tudo verde.
+
+- [ ] **Passo 7 (contraprova):** em `parseSyncConfig`, troque `shared: interruptor(r.shared),` por `shared: { enabled: r.shared !== undefined },`. Rode o arquivo: reprova `só true explícito liga`. Restaure. Depois, em `sharedActive`, tire a exigência de `cfg.enabled === true` e rode: reprova `sharedActive exige a chave geral ligada também`. Restaure e rode: verde.
+
+- [ ] **Passo 8:** commit.
 
 ```bash
-git add lib/sync/config.js lib/engine/sync.js test/sync-interruptor-compartilhamento.test.js
+git add lib/sync/config.js lib/engine/sync.js lib/settings.js test/sync-interruptor-compartilhamento.test.js test/sync-config.test.js
 git commit -m "feat(sync): interruptor do compartilhamento cifrado, desligado por padrao"
 ```
 
@@ -465,9 +492,11 @@ test('o domínio separa espaços: mesmo valor em domínios diferentes dá tags d
   assert.notEqual(tags.tag(K, 'event', 'x'), tags.tag(K, 'review', 'x'));
 });
 
-test('o separador é NUL, então concatenação não colide', () => {
-  // sem o NUL, ('acct','bc') e ('acctb','c') cairiam na mesma pré-imagem
-  assert.notEqual(tags.tag(K, 'acct', 'bc'), tags.tag64(K, 'acct', 'bc').slice(0, 32) === '' ? '' : tags.tag(K, 'acct', 'b\u0000c'));
+test('o valor entra inteiro na pré-imagem: NUL dentro do valor não é engolido', () => {
+  // se o separador fosse ignorado ou o valor fosse saneado, estes dois cairiam na mesma
+  // pré-imagem, e dois PRs diferentes dividiriam identificador
+  assert.notEqual(tags.tag(K, 'acct', 'b\u0000c'), tags.tag(K, 'acct', 'bc'));
+  assert.notEqual(tags.tag(K, 'acct', 'a\u0000b'), tags.tag(K, 'acct', 'ab'));
 });
 
 test('domínio fora da lista lança, em vez de gravar num espaço inventado', () => {
@@ -490,10 +519,12 @@ test('toda tag passa no validador de chave do banco', () => {
   for (const d of tags.DOMINIOS) assert.equal(assertRtdbKey(tags.tag(K, d, 'valor')), tags.tag(K, d, 'valor'));
 });
 
-test('vetor dourado: a construção não pode mudar sem quebrar o histórico', () => {
-  // HMAC-SHA256(K, 'farol\0v2\0pr\0org/repo#7'), com K = 32 bytes de 0x07
-  assert.equal(tags.tag(K, 'pr', 'org/repo#7'), tags.tag64(K, 'pr', 'org/repo#7').slice(0, 32));
-  assert.equal(tags.tag64(K, 'pr', 'org/repo#7').length, 64);
+test('mesmaTag compara em tempo constante e não confunde tamanhos', () => {
+  const t = tags.tag(K, 'pr', 'org/repo#7');
+  assert.equal(tags.mesmaTag(t, t), true);
+  assert.equal(tags.mesmaTag(t, t.slice(0, 31)), false);
+  assert.equal(tags.mesmaTag('', ''), false);
+  assert.equal(tags.mesmaTag(t, tags.tag(K2, 'pr', 'org/repo#7')), false);
 });
 ```
 
@@ -575,7 +606,10 @@ export { DOMINIOS, tag, tag64, acctTag, prTag, matTag, mesmaTag };
 
 - [ ] **Passo 4:** rodar `node --test test/sync-tags.test.js test/sync-keys.test.js`. Esperado: verde.
 
-- [ ] **Passo 5 (contraprova):** em `tags.js`, troque `createHmac('sha256', chaveValida(kId))` por `createHash('sha256')` (ajustando o import). Rode `node --test test/sync-tags.test.js`: reprova `HMAC, não SHA-256` e `a tag muda com a chave`. Restaure e rode: verde. Depois troque o separador `NUL` por `'|'` e rode: reprova o caso do separador. Restaure e rode: verde.
+- [ ] **Passo 5 (contraprova):** três mutações, uma de cada vez, restaurando e rodando de novo depois de cada uma. **Não** troque `createHmac` por `createHash`: sem o import o arquivo quebra, e o teste reprovaria por erro de carga, não pela garantia.
+  (a) troque `createHmac('sha256', chaveValida(kId))` por `createHmac('sha256', Buffer.alloc(32, 1))` (chave fixa, que é o que transforma a tag num hash sem segredo): reprovam `HMAC, não SHA-256`, `chave que não tem 32 bytes lança` e `mesmaTag` (3 falhas medidas);
+  (b) apague a linha do `throw` de domínio desconhecido: reprova `domínio fora da lista lança` (1 falha);
+  (c) em `preImagem`, troque o valor por `String(...).split(NUL).join('')` (saneamento do valor): reprova `o valor entra inteiro na pré-imagem` (1 falha).
 
 - [ ] **Passo 6:** commit.
 
@@ -813,7 +847,12 @@ export { parametrosPadrao, novoMaterial, embrulhar, abrir, kcvDe, bufferDe };
 
 - [ ] **Passo 5:** rodar `node --test test/sync-kek.test.js test/sync-constants.test.js`. Esperado: verde.
 
-- [ ] **Passo 6 (contraprova):** em `embrulhar` e em `abrir`, apague as duas linhas `cipher.setAAD(...)` e `decipher.setAAD(...)`. Rode `node --test test/sync-kek.test.js`: reprova `a AAD amarra uid, rev e os parâmetros` (o embrulho passa a abrir com uid e rev de outro). Restaure e rode: verde. Depois troque `scrypt` por `scryptSync` (com o ajuste de chamada) e rode: reprova `o scrypt não bloqueia o event loop`. Restaure e rode: verde.
+- [ ] **Passo 6 (contraprova):** três mutações, uma de cada vez (1 falha cada, medidas):
+  (a) em `aad`, reduza a lista para `['farol', 'wrap', '1', 'pw', String(kdf.alg)]`: reprova `a AAD amarra uid, rev e os parâmetros`, que é o que impede o embrulho de abrir sob outro uid ou outro rev;
+  (b) em `kcvDe`, troque `createHmac('sha256', chave)` por `createHmac('sha256', Buffer.alloc(32))`: reprova `kcv`, porque o kcv deixa de provar qualquer coisa sobre a chave;
+  (c) em `novoMaterial`, faça `enc.g1` receber a mesma `id`: reprova `K_enc não deriva de K_id`, que é o que faz a rotação valer contra um cache vazado.
+
+  **Não** troque `scrypt` por `scryptSync`: o símbolo não está importado, o arquivo quebra e o teste reprovaria por erro de carga, não pela garantia. O caso `o scrypt não bloqueia o event loop` fica declarado como teste de propriedade sem mutação textual limpa: o que ele trava é qual API é usada, e trocá-la exige mexer no import.
 
 - [ ] **Passo 7:** commit.
 
@@ -1174,9 +1213,12 @@ function valor(extra = {}) {
   return { uid: 'u1', destino: DESTINO, keyringRev: 1, cur: 'g1', id: MATERIAL.id, enc: MATERIAL.enc, ...extra };
 }
 
-test('o cache mora em ~/.farol, fora do config.json e de state/', () => {
+test('o cache mora na pasta de dados do Farol, ao lado da credencial e fora de state/', () => {
   const p = cache.caminhoDoCache();
-  assert.equal(path.dirname(p), path.join(CASA, '.farol'));
+  // `HOME` de lib/paths.js é a pasta de DADOS do Farol (em produção ~/.farol, trocada
+  // pelo FAROL_HOME nos testes), não a home do sistema: a garantia é ficar ao lado do
+  // sync-credentials.json, fora do config.json e fora de state/
+  assert.equal(path.dirname(p), path.dirname(credentialsPath()));
   assert.equal(path.basename(p), 'sync-key.json');
   assert.equal(p.includes(`${path.sep}state${path.sep}`), false);
 });
@@ -1334,7 +1376,12 @@ export { caminhoDoCache, lerCache, gravarCache, apagarCache, cacheServe, cacheCo
 
 - [ ] **Passo 4:** rodar `node --test test/sync-cache-chave.test.js`. Esperado: verde, com o caso do modo 0600 pulado no Windows.
 
-- [ ] **Passo 5 (contraprova):** em `gravarCache`, apague a linha `restringir(ARQUIVO);`. Rode no POSIX (WSL): reprova `modo 0600 depois de CADA gravação`. No Windows o caso pula, e a contraprova fica registrada como dependente de POSIX. Restaure. Depois, em `cacheConfere`, troque `if (!cur || !cache.enc[cur]) return false;` por `if (!cur) return false;` e rode: reprova `geração corrente ausente no cache`. Restaure e rode: verde.
+- [ ] **Passo 5 (contraprova):** três mutações observáveis em qualquer sistema (1 falha cada, medidas), uma de cada vez:
+  (a) em `cacheConfere`, troque `if (!cur || !cache.enc[cur]) return false;` por `if (!cur) return false;`: reprova `geração corrente ausente`;
+  (b) em `cacheServe`, tire a comparação de destino: reprova `uid ou destino diferentes descartam o cache`;
+  (c) em `gravarCache`, troque a allowlist de campos por `...v`: reprova `a senha nunca entra no cache`.
+
+  A quarta (apagar `restringir(ARQUIVO);`, que prova o 0600) **só é observável no POSIX**: no Windows o caso pula, porque chmod não vale em NTFS. Ela fica declarada como contraprova dependente de POSIX, para rodar junto com o teste de encerramento abrupto na rodada WSL/CI.
 
 - [ ] **Passo 6:** commit.
 
@@ -1545,9 +1592,15 @@ function falha(motivo) { return { ok: false, motivo }; }
 function b64(buf) { return Buffer.from(buf).toString('base64url'); }
 function debase64(t) { return Buffer.from(String(t || ''), 'base64url'); }
 
+// O mapeador sai para fora do aadDe porque dois `?` no mesmo statement contam como
+// ternário aninhado no gate de qualidade, e a baseline nunca sobe.
+function textoDoExtra(x) {
+  return String(x === null || x === undefined ? '' : x);
+}
+
 function aadDe({ uid, caminho, campo, kid, esquema, extras }) {
   const base = ['farol', PREFIXO, String(uid || ''), String(caminho || ''), String(campo || ''), String(kid || ''), String(esquema || '')];
-  const extra = Array.isArray(extras) ? extras.map((x) => String(x === null || x === undefined ? '' : x)) : [];
+  const extra = Array.isArray(extras) ? extras.map(textoDoExtra) : [];
   return [...base, ...extra].join('|');
 }
 
@@ -1625,11 +1678,10 @@ export { cifrar, decifrar, aadDe, cabeNoTeto, tamanhoDoClaro, TETOS };
 
 - [ ] **Passo 5:** rodar `node --test test/sync-envelope.test.js`. Esperado: 12 testes verdes. Rodar `npm run lint`: o `decifrar` acima tem profundidade 1 e nenhum ternário aninhado; se o gate reclamar de tamanho, extraia `pedacos`/`abrir` para o topo do arquivo (já estão), nunca suba a baseline.
 
-- [ ] **Passo 6 (contraprova):** três mutações, uma de cada vez:
-  (a) em `aadDe`, apague `String(caminho || ''),` da lista: reprova `AAD sem o caminho não existe`.
-  (b) em `cifrar` e `decifrar`, remova `{ authTagLength: TAG_BYTES }` das duas chamadas: reprova `leitura falha fechada` no caso da tag de 4 bytes (a tag curta passa a ser aceita).
+- [ ] **Passo 6 (contraprova):** três mutações, uma de cada vez (1 falha cada, medidas), restaurando depois de cada uma:
+  (a) em `aadDe`, apague `String(caminho || ''),` da lista: reprova `AAD sem o caminho não existe`;
+  (b) apague a linha `if (p.tag.length !== TAG_BYTES) return falha('tag');`: reprova `leitura falha fechada`, porque a tag curta passa a morrer no GCM e o item deixa de ser recusado pelo motivo certo. **Não** remova `{ authTagLength: TAG_BYTES }` para isso: a conferência explícita de tamanho acontece ANTES do `setAuthTag`, então tirar a opção não muda o resultado deste teste;
   (c) em `claroDe`, troque `const falta = ...` por `const falta = 0;`: reprova `preenchimento`.
-  Restaure depois de cada uma e rode de novo: verde.
 
 - [ ] **Passo 7:** commit.
 
@@ -2123,6 +2175,12 @@ git commit -m "feat(sync): ciclo de recuperacao de senha e chaves, com reembrulh
 
 ## Tarefa 10: sonda de regras
 
+> **Defeito do próprio plano, corrigido na execução (15/09/2026).** O código escrito abaixo prova a versão da regra tentando `DELETE /users/{uid}` e tratando o sucesso como "regra velha". Isso é **destrutivo exatamente no caso que a sonda existe para detectar**: com as regras velhas o DELETE passa e apaga a árvore inteira do usuário. A spec nunca pediu isso.
+>
+> O que foi implementado, e o que vale: a sonda escreve num caminho que as regras v2 **negam** (`rulesProbe/v1/{aparelho}`, que não tem concessão no template) e trata o sucesso como prova de herança da raiz, isto é, de regra velha. Ela escreve e remove apenas os próprios nós, e nunca apaga dado de verdade. Ver `lib/sync/sonda-regras.js` e `test/sync-sonda-regras.test.js`, que são a fonte de verdade desta tarefa.
+>
+> **Fiação no ciclo adiada, com motivo.** O Passo 4 manda chamar a sonda depois da presença e guardar o resultado. Ela só serve para BARRAR escrita de nó v2, e esta entrega não escreve nenhum nó de conteúdo (ver "Limites declarados": quem começa a publicar é a C3). Ligar agora custaria duas escritas e duas remoções por conexão sem nada para proteger, então a fiação vai junto com a primeira entrega que publicar conteúdo cifrado. O módulo e o estado ficam prontos e testados aqui.
+
 **Arquivos:** criar `lib/sync/sonda-regras.js` e `test/sync-sonda-regras.test.js`; fiação em `lib/engine/sync.js`.
 
 **Interfaces:**
@@ -2493,6 +2551,12 @@ git commit -m "feat(sync): regras v2 geradas por macro, com a raiz sem concessao
 ---
 
 ## Tarefa 12: remoção do apagão remoto
+
+> **Ordem alterada na execução (medido em 15/09/2026):** esta tarefa foi feita **junto com a Tarefa 8**, e não depois da 11. O motivo é uma restrição real do ratchet: `lib/engine/sync.js` estava exatamente no teto de 400 linhas úteis, então qualquer adição da Tarefa 8 reprovava o `npm run lint`. A saída foi extrair a chave para `lib/engine/sync-chave.js` (que o plano não previa) e antecipar a remoção do apagão, que esta entrega faz de qualquer jeito. Registrado aqui porque muda a ordem dos commits, não o conteúdo.
+>
+> **Remoção de comportamento coberto por teste existente:** o caso `(e) erase-remote apaga /users/{uid} inteiro` de `test/sync-engine.test.js`, a linha da rota no caso `(i)` e a asserção do botão em `test/ui-pure-sync.test.js` saíram junto com o recurso. A da UI virou o contrário (`doesNotMatch`), para travar a ausência. É remoção mandada pela spec 7.C1, não conveniência de teste.
+>
+> **O inventário de rotas da A4 (`lib/local-auth/inventario.js`) precisa ser atualizado na mesma tarefa:** ele reprova rota servida sem classe e classe com rota morta. `/api/sync/erase-remote` sai de `destrutiva` e `/api/sync/unlock` entra em `recebe-segredo`, junto do `/api/sync/login`.
 
 **Arquivos:**
 - editar `lib/engine/sync.js` (apaga `syncEraseRemote` e os exports);

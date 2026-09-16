@@ -148,7 +148,9 @@ test('syncConexaoHtml: os campos vêm da config e a degradação diz o motivo do
   assert.match(html, /value="https:\/\/x-default-rtdb\.firebaseio\.com"/);
   assert.match(html, /value="Notebook"/);
   assert.match(html, /id="syncTest"/);
-  assert.match(html, /id="syncErase"/);
+  // o apagão saiu na C1: sob as regras v2 o DELETE de /users/{uid} é negado, então o botão
+  // que o chamava deixou de existir (spec 7.C1)
+  assert.doesNotMatch(html, /id="syncErase"/);
   assert.doesNotMatch(html, /sync-degradada/);
 
   const ruim = P.syncConexaoHtml(sync({ status: 'erro', lastError: { code: 'indisponivel', motivo: 'o Firebase está indisponível ou sem rede' } }), CFG);

@@ -22,13 +22,13 @@ after(() => { try { fs.rmSync(HOME, { recursive: true, force: true }); } catch {
 
 const DB = 'https://farol-abc-default-rtdb.firebaseio.com';
 const VALIDO = {
-  enabled: true, coordination: { enabled: true }, consolidation: { enabled: true },
+  enabled: true, coordination: { enabled: true }, consolidation: { enabled: true }, shared: { enabled: true },
   deviceName: 'Notebook', apiKey: 'AIzaSyA-1234567890_abc', databaseUrl: DB, projectId: 'farol-abc',
 };
 
 test('syncDefaults: tudo desligado e vazio, objeto novo a cada chamada', () => {
   assert.deepEqual(syncDefaults(), {
-    enabled: false, coordination: { enabled: false }, consolidation: { enabled: false },
+    enabled: false, coordination: { enabled: false }, consolidation: { enabled: false }, shared: { enabled: false },
     deviceName: '', apiKey: '', databaseUrl: '', projectId: '',
   });
   const a = syncDefaults();

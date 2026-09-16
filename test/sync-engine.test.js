@@ -200,29 +200,10 @@ test('(g) seguraAutomacao: desligada não segura; ligada segura sem conexão e c
   await salvarSync(syncCfg());
 });
 
-test('(e) erase-remote apaga /users/{uid} inteiro, só do próprio uid, e nada local', async () => {
-  // a árvore real tem mais que presença; e o dublê poda pai vazio, então sem estes nós
-  // apagar só /devices produziria a mesma árvore vazia e o teste não distinguiria
-  const arvore = rtdb.tree();
-  Object.assign(arvore.users.u1, {
-    leases: { a1: { p1: { leaseId: 'l1', deviceId: 'd1', operationKind: 'review', expiresAt: 1 } } },
-    receipts: { a1: { p1: { review_x: { operationKind: 'review', completedAt: 1 } } } },
-    usageEvents: { d1: { e1: { at: 1, kind: 'review', costUsd: 0 } } },
-  });
-  arvore.users.u2 = { devices: { outro: { name: 'Aparelho de outra pessoa' } } };
-  rtdb.setTree(arvore);
-
-  const r = await engine.syncEraseRemote();
-  assert.deepEqual(r, { ok: true });
-  const depois = rtdb.tree();
-  assert.equal(depois.users.u1, undefined, 'a árvore do usuário foi apagada inteira');
-  assert.deepEqual(depois.users.u2, { devices: { outro: { name: 'Aparelho de outra pessoa' } } }, 'o apagão respeita o uid');
-  assert.equal(engine.sync.status, 'conectado');
-  assert.ok(fs.existsSync(CRED_FILE), 'a credencial local fica');
-  assert.ok(fs.existsSync(DEVICE_FILE), 'a identidade local do aparelho fica');
-  const t = await engine.syncTest();
-  assert.deepEqual(t, { ok: true, uid: 'u1', devices: 0 });
-});
+// O caso (e), que provava o apagão de /users/{uid}, saiu junto com o recurso: a C1 remove
+// o `syncEraseRemote` porque as regras v2 negam o DELETE da raiz (spec 7.C1 e anexo C1,
+// "Estratégia de regras", princípio 1). O que ficou no lugar é test/sync-sem-apagao.test.js,
+// que trava a ausência do caminho.
 
 test('(f) desligar para tudo e volta a desligado sem apagar nada', async () => {
   engine.sync.lastPresenceAt -= SYNC.PRESENCE_TICK_MS;
@@ -288,7 +269,6 @@ test('(i) rotas /api/sync/*: a resposta é allowlist e nunca ecoa senha, e-mail 
     assert.equal(engine.sync.status, 'conectado');
 
     assert.deepEqual(JSON.parse(await post('/api/sync/test')), { ok: true, devices: 1 });
-    assert.deepEqual(JSON.parse(await post('/api/sync/erase-remote')), { ok: true });
     assert.deepEqual(JSON.parse(await post('/api/sync/logout')), { ok: true });
     assert.equal(engine.sync.status, 'sem-credencial');
   } finally {

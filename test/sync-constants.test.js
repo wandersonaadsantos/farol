@@ -71,7 +71,15 @@ test('regras do banco: dayPolicy das rodadas é SYNC.DAY_TZ', () => {
 test('regras do banco: leitura e escrita só do próprio uid', () => {
   const u = regras();
   assert.equal(u['.read'], 'auth != null && auth.uid == $uid');
-  assert.equal(u['.write'], 'auth != null && auth.uid == $uid');
+  // A C1 tirou o '.write' da RAIZ (era ele que permitia o apagão de /users/{uid}). A
+  // garantia continua a mesma e fica mais forte: a escrita passou a ser concedida nó a
+  // nó, e toda concessão exige o próprio uid.
+  assert.equal(u['.write'], undefined);
+  const comEscrita = Object.keys(u).filter((k) => u[k] && u[k]['.write']);
+  assert.ok(comEscrita.length > 0, 'algum nó precisa conceder escrita, senão nada sobe');
+  // o keyring exige mais que o dono (senha recente, rev monotônico), então o que vale
+  // para todos é conter a checagem do uid, nunca dispensá-la
+  for (const no of comEscrita) assert.ok(u[no]['.write'].startsWith('auth != null && auth.uid == $uid'), no);
 });
 
 test('firebase.json aponta as regras e fixa as portas do emulador', () => {
