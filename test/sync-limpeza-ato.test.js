@@ -67,6 +67,8 @@ function semearConteudo() {
   u.usageEvents = { d1: { e1: { at: 1, kind: 'review', costUsd: 1 } } };
   u.catalog = { ['a'.repeat(32)]: { v: 1, u: 1, enc: 'e1.g1.a.b.c' } };
   u.recentReviews = { ['b'.repeat(32)]: { v: 1, t: 1, d: 'd1', dt: 'd1|1', enc: 'e1.g1.a.b.c' } };
+  u.panorama = { a_b: { v: 1, su: 'a|1', u: 1, ctag: 'c', enc: 'e1.g1.a.b.c' } };
+  u.myPrsMeta = { a: { dev: 'd1', x: 1 } };
   u.reviewBodies = { ['b'.repeat(32)]: { 1: { v: 1, enc: 'e1.g1.a.b.c' } } };
   u.live.deviceStatus = { d1: { v: 1, u: 1, enc: 'e1.g1.a.b.c' } };
   u.live.groups = { g1: { v: 1, generation: 1, enc: 'e1.g1.a.b.c', sig: 'x' } };
@@ -103,6 +105,8 @@ test('caminho feliz: o alcançável some, o corte fica e a trava sai', async () 
   assert.equal(u.catalog, undefined, 'o catálogo é regenerável, e a limpeza o alcança');
   assert.equal(u.recentReviews, undefined);
   assert.equal(u.reviewBodies, undefined);
+  assert.equal(u.panorama, undefined);
+  assert.equal(u.myPrsMeta, undefined);
   assert.equal(u.live.deviceStatus, undefined);
   assert.ok(u.live.control.lastCleanup.at > 0, 'o corte da outbox fica gravado');
   assert.equal(u.live.control.cleanupLock, undefined, 'a trava sai no fim');

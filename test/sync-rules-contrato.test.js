@@ -56,7 +56,7 @@ test('keyring: exige senha recente e rev monotônico', () => {
 
 test('só os nós listados têm concessão de escrita: nó novo sem regra é negado por construção', () => {
   const comEscrita = Object.keys(regras).filter((k) => regras[k] && regras[k]['.write']);
-  assert.deepEqual(comEscrita.sort(), ['catalog', 'dailyRounds', 'devices', 'keyring', 'leases', 'receipts', 'recentReviews', 'reviewBodies', 'usageEvents']);
+  assert.deepEqual(comEscrita.sort(), ['catalog', 'dailyRounds', 'devices', 'keyring', 'leases', 'myPrs', 'myPrsMeta', 'panorama', 'panoramaMeta', 'receipts', 'recentReviews', 'reviewBodies', 'usageEvents']);
   assert.equal(regras.live['.write'], undefined, 'live não concede em bloco');
   assert.equal(regras.live.control['.write'], undefined, 'control também não');
   assert.deepEqual(Object.keys(regras.live.control).sort(), ['admin', 'beat', 'cleanup', 'cleanupLock', 'lastCleanup', 'revokedBefore']);
@@ -194,7 +194,7 @@ test('live/deviceStatus e catalog: forma, envelope de 2048 e remoção só pela 
 // sempre que a chave de limpeza dela estivesse ligada.
 test('toda concessão de escrita, inclusive a da limpeza, exige o próprio uid', () => {
   const dono = 'auth != null && auth.uid == $uid';
-  const nos = [regras.catalog, regras.live.deviceStatus, regras.live.devicePolicies, regras.live.groups, regras.recentReviews, regras.reviewBodies, regras.reviewBodies.$r];
+  const nos = [regras.catalog, regras.live.deviceStatus, regras.live.devicePolicies, regras.live.groups, regras.recentReviews, regras.reviewBodies, regras.reviewBodies.$r, regras.panorama, regras.panoramaMeta, regras.myPrs, regras.myPrsMeta];
   for (const no of nos) {
     assert.ok(no['.write'].startsWith(dono), `concessão sem dono: ${no['.write'].slice(0, 60)}`);
   }
@@ -255,4 +255,18 @@ test('live/rev: só número, só nos três tipos, e sem remoção', () => {
   const w = regras.live.rev.$tipo.$id['.write'];
   assert.ok(w.includes('$tipo.matches(/^(recentReviews|panorama|myPrs)$/)'));
   assert.ok(w.endsWith('newData.isNumber()'), 'número exige que o nó exista: remoção é negada');
+});
+
+// Panorama e Meus PRs: linha viva cifrada OU tombstone sem conteúdo; o tombstone só sai 24 h
+// depois; o meta vale no máximo 20 min à frente, para um publicador morto não prender a vez.
+test('panorama e myPrs: índice su, tombstone de 24 h e meta com teto', () => {
+  for (const [no, teto] of [['panorama', 2048], ['myPrs', 8192]]) {
+    assert.deepEqual(regras[no]['.indexOn'], ['su'], no);
+    const w = regras[no].$item['.write'];
+    assert.ok(w.includes("newData.hasChildren(['v', 'su', 'u', 'ctag'])"), no);
+    assert.ok(w.includes(`newData.child('enc').val().length <= ${teto}`), no);
+    assert.ok(w.includes("newData.child('del').val() == true ||"), no);
+    assert.ok(w.includes("(!newData.exists() && data.child('del').val() == true && data.child('u').val() + 86400000 < now)"), no);
+    assert.ok(regras[`${no}Meta`].$scope['.write'].includes("newData.child('x').val() <= now + 1200000"), no);
+  }
 });

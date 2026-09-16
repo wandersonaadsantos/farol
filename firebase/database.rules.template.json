@@ -73,6 +73,32 @@
             }
           }
         },
+        "panorama": {
+          ".write": "@U@ && @LIMPA@",
+          ".indexOn": ["su"],
+          "$item": {
+            ".write": "@U@ && ((@H(['v','su','u','ctag'])@ && newData.child('u').isNumber() && (newData.child('del').val() == true || @ENC(2048)@)) || (!newData.exists() && data.child('del').val() == true && data.child('u').val() + 86400000 < now) || @LIMPA@)"
+          }
+        },
+        "panoramaMeta": {
+          ".write": "@U@ && @LIMPA@",
+          "$scope": {
+            ".write": "@U@ && ((@H(['dev','x'])@ && newData.child('x').val() <= now + 1200000) || @LIMPA@)"
+          }
+        },
+        "myPrs": {
+          ".write": "@U@ && @LIMPA@",
+          ".indexOn": ["su"],
+          "$item": {
+            ".write": "@U@ && ((@H(['v','su','u','ctag'])@ && newData.child('u').isNumber() && (newData.child('del').val() == true || @ENC(8192)@)) || (!newData.exists() && data.child('del').val() == true && data.child('u').val() + 86400000 < now) || @LIMPA@)"
+          }
+        },
+        "myPrsMeta": {
+          ".write": "@U@ && @LIMPA@",
+          "$scope": {
+            ".write": "@U@ && ((@H(['dev','x'])@ && newData.child('x').val() <= now + 1200000) || @LIMPA@)"
+          }
+        },
         "usageEvents": {
           ".write": "@U@",
           "$device": {

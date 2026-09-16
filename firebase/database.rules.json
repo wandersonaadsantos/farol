@@ -73,6 +73,32 @@
             }
           }
         },
+        "panorama": {
+          ".write": "auth != null && auth.uid == $uid && !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
+          ".indexOn": ["su"],
+          "$item": {
+            ".write": "auth != null && auth.uid == $uid && ((newData.hasChildren(['v', 'su', 'u', 'ctag']) && newData.child('u').isNumber() && (newData.child('del').val() == true || newData.child('enc').isString() && newData.child('enc').val().matches(/^e1[.]g[0-9]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$/) && newData.child('enc').val().length <= 2048)) || (!newData.exists() && data.child('del').val() == true && data.child('u').val() + 86400000 < now) || !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists())"
+          }
+        },
+        "panoramaMeta": {
+          ".write": "auth != null && auth.uid == $uid && !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
+          "$scope": {
+            ".write": "auth != null && auth.uid == $uid && ((newData.hasChildren(['dev', 'x']) && newData.child('x').val() <= now + 1200000) || !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists())"
+          }
+        },
+        "myPrs": {
+          ".write": "auth != null && auth.uid == $uid && !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
+          ".indexOn": ["su"],
+          "$item": {
+            ".write": "auth != null && auth.uid == $uid && ((newData.hasChildren(['v', 'su', 'u', 'ctag']) && newData.child('u').isNumber() && (newData.child('del').val() == true || newData.child('enc').isString() && newData.child('enc').val().matches(/^e1[.]g[0-9]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$/) && newData.child('enc').val().length <= 8192)) || (!newData.exists() && data.child('del').val() == true && data.child('u').val() + 86400000 < now) || !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists())"
+          }
+        },
+        "myPrsMeta": {
+          ".write": "auth != null && auth.uid == $uid && !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
+          "$scope": {
+            ".write": "auth != null && auth.uid == $uid && ((newData.hasChildren(['dev', 'x']) && newData.child('x').val() <= now + 1200000) || !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists())"
+          }
+        },
         "usageEvents": {
           ".write": "auth != null && auth.uid == $uid",
           "$device": {

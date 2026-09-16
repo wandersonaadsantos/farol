@@ -332,3 +332,12 @@ do servidor. Quem protege esse nó é o cliente, pelas cinco condições do ato.
     **401**; versão não numérica, **401**; envelope acima de 48000, **401**.
 31. **`live/rev/{tipo}/{id}`:** número em `recentReviews`, **200**; tipo fora da lista,
     **401**; `DELETE`, **401**.
+
+## Validação manual das regras v2 (C3e, Panorama e Meus PRs)
+
+32. **`panorama/{item}` e `myPrs/{item}`:** linha com `{v, su, u, ctag, enc}` dentro do
+    teto (2048 e 8192), **200**; tombstone `{v, su, u, ctag, del: true}`, **200**;
+    `DELETE` de tombstone com menos de 24 h, **401**; com mais, **200**; `DELETE` de linha
+    viva fora da limpeza, **401**. Consulta `orderBy="su"` sem aviso de índice ausente.
+33. **`panoramaMeta/{scope}` e `myPrsMeta/{scope}`:** `x` até agora + 20 min, **200**;
+    além disso, **401**.
