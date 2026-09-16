@@ -508,7 +508,18 @@ test('designar pela tela: pedido enviado, pendente até a senha lá, e o recibo 
   assert.match(telaDeAparelhos(), /designação pendente/);
   // a senha é digitada no DESTINO, e só isso promove
   assert.equal((await exec.syncTornarAdmin({ password: SENHA })).ok, true);
-  assert.equal(await Aparelhos.lerRecibosDaDesignacao(d, { forcar: true }), true);
+  // uma consulta por vez: quem chega com outra em curso espera ela terminar, senão a
+  // consulta logo depois de uma ação voltaria sem ler nada
+  const ordem = [];
+  let liberar;
+  const presa = new Promise((resolve) => { liberar = resolve; });
+  const lenta = { ...d, api: async (rota, corpo) => { await presa; return apiDaTela(rota, corpo); } };
+  const primeira = Aparelhos.lerRecibosDaDesignacao(lenta, { forcar: true }).then((v) => { ordem.push('primeira'); return v; });
+  const segunda = Aparelhos.lerRecibosDaDesignacao(d, { forcar: true }).then((v) => { ordem.push('segunda'); return v; });
+  liberar();
+  assert.equal(await primeira, true);
+  assert.equal(await segunda, false, 'a segunda não acha mais nada aberto');
+  assert.deepEqual(ordem, ['primeira', 'segunda'], 'a segunda só responde depois da primeira');
   assert.doesNotMatch(telaDeAparelhos(), /designação pendente/);
   assert.match(await lerReciboNaTela(), /<b>designar admin<\/b> para Desktop de teste.*sync-chip ok">aplicado</s);
 });
@@ -536,6 +547,7 @@ test('designar indisponível: admin sem sinal fresco não vê o ato, aparelho ap
   assert.doesNotMatch(telaDeAparelhos(), /data-apar-designar/);
   assert.equal(await Aparelhos.designarAdmin(EXEC, depsDaTela()), false);
   admin.sync.autoridade = fresca();
+  telaDeAparelhos();
   assert.equal(await Aparelhos.designarAdmin(EXEC, depsDaTela(false)), false, 'sem confirmação, nada');
   assert.deepEqual(pedidosPara('/api/sync/command'), []);
 });
