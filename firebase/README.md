@@ -314,3 +314,11 @@ do servidor. Quem protege esse nó é o cliente, pelas cinco condições do ato.
     e id hexadecimal, **200**; `x` no passado ou além de 5 min, **401**; regravar com `dev`
     ou `t0` diferentes do gravado, **401**; `DELETE`, **200** sempre (a remoção é
     cooperativa e só afeta exibição).
+
+## Validação manual das regras v2 (C3c, pendências e visto)
+
+27. **`live/pending/{i}`:** com `{v, at, dev, enc}` e envelope até 4096, **200**; regravar
+    com `at` ou `dev` diferentes, **401**; `DELETE`, **200**.
+28. **`live/seen/{i}`:** a primeira gravação `{at, dev}`, **200**; a segunda sobre o mesmo
+    nó, **401**; `DELETE` com a pendência ainda existente e visto recente, **401**; com a
+    pendência já apagada, **200**.
