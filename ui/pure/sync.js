@@ -155,13 +155,26 @@ function syncCampo(id, rotulo, valor, dica) {
 
 /* O olho que alterna a senha entre oculta e visível. Estado no `aria-pressed`, que é a
    fonte única: quem alterna (ui/app.js) lê dali e troca o `type` do input, então a
-   leitura assistiva e o que se vê na tela nunca divergem. */
-function syncOlhoHtml(visivel) {
-  const rotulo = visivel ? 'Ocultar senha' : 'Mostrar senha';
-  const desenho = visivel
-    ? '<path d="M3 3l18 18M10.6 10.6a3 3 0 0 0 4.2 4.2M9.9 4.9A9.6 9.6 0 0 1 12 4.7c5 0 9 4.3 9 7.3a11 11 0 0 1-2.5 3.9M6.3 6.4A11.9 11.9 0 0 0 3 12c0 3 4 7.3 9 7.3a9.9 9.9 0 0 0 3.6-.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
-    : '<path d="M3 12c0-3 4-7.3 9-7.3s9 4.3 9 7.3-4 7.3-9 7.3S3 15 3 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/>';
-  return `<button type="button" class="sync-olho" id="syncSenhaOlho" aria-pressed="${visivel ? 'true' : 'false'}" aria-label="${rotulo}" title="${rotulo}"><svg aria-hidden="true" viewBox="0 0 24 24">${desenho}</svg></button>`;
+   leitura assistiva e o que se vê na tela nunca divergem.
+
+   Sem `alvo`, é o olho do login da Sincronização, com o id e o handler de sempre. Com
+   `alvo`, é o de outro campo de senha (Aparelhos): o id sai do campo e `data-olho-de` diz
+   qual input ele alterna, para um handler só servir a todos sem markup duplicado. */
+const OLHO_ABERTO = '<path d="M3 12c0-3 4-7.3 9-7.3s9 4.3 9 7.3-4 7.3-9 7.3S3 15 3 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/>';
+const OLHO_RISCADO = '<path d="M3 3l18 18M10.6 10.6a3 3 0 0 0 4.2 4.2M9.9 4.9A9.6 9.6 0 0 1 12 4.7c5 0 9 4.3 9 7.3a11 11 0 0 1-2.5 3.9M6.3 6.4A11.9 11.9 0 0 0 3 12c0 3 4 7.3 9 7.3a9.9 9.9 0 0 0 3.6-.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>';
+
+export function syncOlhoRotulo(visivel) {
+  return visivel ? 'Ocultar senha' : 'Mostrar senha';
+}
+
+export function syncOlhoDesenho(visivel) {
+  return `<svg aria-hidden="true" viewBox="0 0 24 24">${visivel ? OLHO_RISCADO : OLHO_ABERTO}</svg>`;
+}
+
+export function syncOlhoHtml(visivel, alvo) {
+  const rotulo = syncOlhoRotulo(visivel);
+  const quem = alvo ? `id="${esc(alvo)}Olho" data-olho-de="${esc(alvo)}"` : 'id="syncSenhaOlho"';
+  return `<button type="button" class="sync-olho" ${quem} aria-pressed="${visivel ? 'true' : 'false'}" aria-label="${rotulo}" title="${rotulo}">${syncOlhoDesenho(visivel)}</button>`;
 }
 
 /* O bloco de login. Conectado mostra quem é e o botão de sair; desconectado pede e-mail
@@ -341,6 +354,7 @@ export function syncSecaoHtml(sync, cfg, rascunho, capacidades, recusaDaChave) {
     ${syncConexaoHtml(s, cfg, rascunho)}
     <div class="sync-sub-head">Aparelhos</div>
     ${syncAparelhosHtml(s.devices)}
+    <div class="row-actions apar-atalho"><span class="btn sm ghost" data-goto="sys:devices" role="button" tabindex="0">Administrar em Aparelhos</span></div>
     ${syncCoordenacaoHtml(s)}`;
 }
 

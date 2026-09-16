@@ -104,7 +104,8 @@ function kId() { return kek.bufferDe(engine.sync.material.id); }
 test('o snapshot da sincronização leva admin, distribuição, admissão e comandos emitidos', () => {
   engine.sync.sinais = { ...(engine.sync.sinais || {}), admin: { dev: engine.sync.deviceId, generation: 1 }, modo: 'local' };
   const s = syncMod.statusForUi(engine);
-  assert.deepEqual(s.admin, { deviceId: engine.sync.deviceId, generation: 1, souEu: true, fresca: true });
+  // ultimoBatimentoEm entrou com a resolução das divergências de Aparelhos (item 4)
+  assert.deepEqual(s.admin, { deviceId: engine.sync.deviceId, generation: 1, souEu: true, fresca: true, ultimoBatimentoEm: engine.sync.autoridade.ultimaMudancaEm });
   assert.deepEqual(s.distribuicao, { modo: 'local', esperando: [] });
   assert.equal(s.admissao.teto >= 1, true);
   assert.equal(s.admissao.pausado, false);

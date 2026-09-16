@@ -1,0 +1,406 @@
+✖ item 4: o admin da tela leva o instante do último batimento fresco que ESTE aparelho observou (244.6187ms)
+✖ item 5: o snapshot leva a versão da postagem coordenada, da mesma constante que a cobertura usa (1.0179ms)
+✖ item 6: aparelho sem sinal dentro da janela da frota sai marcado sem presença; o próprio e o aposentado não (0.5691ms)
+✖ itens 1 e 2: publicar devolve a versão, e a leitura devolve a política vigente no banco, com o que a tela não edita (9.1758ms)
+✖ item 2: aparelho sem política publicada responde existe: false, e sem aparelho é recusa de forma (3.0431ms)
+✖ item 2: política de outra geração no banco é lida como inválida, sem abrir o conteúdo (3.126ms)
+✖ item 3: recusar a designação fecha o pedido com recibo de recusa, e sem pedido nada acontece (1.344ms)
+✖ item 12: vincular devolve o vínculo, e o snapshot conhece o vínculo mesmo sem o grupo ter chegado (17.3293ms)
+✖ item 13: publicar grupo devolve a versão publicada (3.9352ms)
+✖ item 11: não verificável leva o motivo e o aparelho, e a hora da soma (0.876ms)
+✖ item 11: retrato velho é não verificável na tela, como é no gate (0.408ms)
+✖ item 11: teto atingido e a projeção das reservas saem da MESMA conta do gate (0.3425ms)
+✖ item 11: sem retrato nada é afirmado (nem motivo, nem teto atingido, nem hora) (0.2993ms)
+✖ item 9: o estado da chave traz as categorias alcançáveis e as nunca apagadas, da lista do engine (2.8675ms)
+✖ item 8: trava viva no banco aparece como limpeza em andamento, com o prazo; trava vencida não (3.0363ms)
+✖ item 9: limpar devolve o que foi apagado e o que falhou, por categoria (25.309ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 0
+ℹ fail 16
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 509.1403
+
+✖ failing tests:
+
+test at test\sync-telas-divergencias.test.js:103:1
+✖ item 4: o admin da tela leva o instante do último batimento fresco que ESTE aparelho observou (244.6187ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 1789582823512
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/sync-telas-divergencias.test.js:108:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 1789582823512,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-telas-divergencias.test.js:117:1
+✖ item 5: o snapshot leva a versão da postagem coordenada, da mesma constante que a cobertura usa (1.0179ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - '2.59.4'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/sync-telas-divergencias.test.js:118:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: '2.59.4',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-telas-divergencias.test.js:123:1
+✖ item 6: aparelho sem sinal dentro da janela da frota sai marcado sem presença; o próprio e o aposentado não (0.5691ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - true
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/sync-telas-divergencias.test.js:133:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-telas-divergencias.test.js:143:1
+✖ itens 1 e 2: publicar devolve a versão, e a leitura devolve a política vigente no banco, com o que a tela não edita (9.1758ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  undefined !== 1
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/sync-telas-divergencias.test.js:147:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-telas-divergencias.test.js:158:1
+✖ item 2: aparelho sem política publicada responde existe: false, e sem aparelho é recusa de forma (3.0431ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   error: 'not found'
+  -   existe: false,
+  -   ok: true
+    }
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/sync-telas-divergencias.test.js:160:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { error: 'not found' },
+    expected: { ok: true, existe: false },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-telas-divergencias.test.js:166:1
+✖ item 2: política de outra geração no banco é lida como inválida, sem abrir o conteúdo (3.126ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - true
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/sync-telas-divergencias.test.js:170:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-telas-divergencias.test.js:179:1
+✖ item 3: recusar a designação fecha o pedido com recibo de recusa, e sem pedido nada acontece (1.344ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - true
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/sync-telas-divergencias.test.js:183:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-telas-divergencias.test.js:197:1
+✖ item 12: vincular devolve o vínculo, e o snapshot conhece o vínculo mesmo sem o grupo ter chegado (17.3293ms)
+  TypeError: Cannot read properties of undefined (reading 'grupo')
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/sync-telas-divergencias.test.js:200:31)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+
+test at test\sync-telas-divergencias.test.js:214:1
+✖ item 13: publicar grupo devolve a versão publicada (3.9352ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  undefined !== 1
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/sync-telas-divergencias.test.js:217:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-telas-divergencias.test.js:231:1
+✖ item 11: não verificável leva o motivo e o aparelho, e a hora da soma (0.876ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + undefined
+  - [
+  -   {
+  -     dev: 'dVelho',
+  -     motivo: 'sem-dados'
+  -   }
+  - ]
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/sync-telas-divergencias.test.js:237:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: [ { dev: 'dVelho', motivo: 'sem-dados' } ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-telas-divergencias.test.js:241:1
+✖ item 11: retrato velho é não verificável na tela, como é no gate (0.408ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/sync-telas-divergencias.test.js:245:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-telas-divergencias.test.js:249:1
+✖ item 11: teto atingido e a projeção das reservas saem da MESMA conta do gate (0.3425ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - true
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/sync-telas-divergencias.test.js:255:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-telas-divergencias.test.js:263:1
+✖ item 11: sem retrato nada é afirmado (nem motivo, nem teto atingido, nem hora) (0.2993ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  
+  undefined !== []
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/sync-telas-divergencias.test.js:268:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-telas-divergencias.test.js:278:1
+✖ item 9: o estado da chave traz as categorias alcançáveis e as nunca apagadas, da lista do engine (2.8675ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + undefined
+  - [
+  -   'live/deviceStatus',
+  -   'live/devicePolicies',
+  -   'live/groups',
+  -   'catalog',
+  -   'recentReviews',
+  -   'reviewBodies',
+  -   'panorama',
+  -   'panoramaMeta',
+  -   'myPrs',
+  -   'myPrsMeta',
+  -   'pushbacks',
+  -   'live/queue',
+  -   'live/assign',
+  -   'live/ack',
+  -   'live/commands',
+  -   'commandReceipts',
+  -   'checkpoints',
+  -   'usageEvents',
+  -   'usageDaily'
+  - ]
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/sync-telas-divergencias.test.js:281:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: [
+      'live/deviceStatus', 'live/devicePolicies',
+      'live/groups',       'catalog',
+      'recentReviews',     'reviewBodies',
+      'panorama',          'panoramaMeta',
+      'myPrs',             'myPrsMeta',
+      'pushbacks',         'live/queue',
+      'live/assign',       'live/ack',
+      'live/commands',     'commandReceipts',
+      'checkpoints',       'usageEvents',
+      'usageDaily'
+    ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-telas-divergencias.test.js:286:1
+✖ item 8: trava viva no banco aparece como limpeza em andamento, com o prazo; trava vencida não (3.0363ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + undefined
+  - {
+  -   ate: 1789584203559,
+  -   dev: 'dOutro'
+  - }
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/sync-telas-divergencias.test.js:290:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: { dev: 'dOutro', ate: 1789584203559 },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-telas-divergencias.test.js:296:1
+✖ item 9: limpar devolve o que foi apagado e o que falhou, por categoria (25.309ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + undefined
+  - [
+  -   'live/deviceStatus',
+  -   'live/devicePolicies',
+  -   'live/groups',
+  -   'catalog',
+  -   'recentReviews',
+  -   'reviewBodies',
+  -   'panorama',
+  -   'panoramaMeta',
+  -   'myPrs',
+  -   'myPrsMeta',
+  -   'pushbacks',
+  -   'live/queue',
+  -   'live/assign',
+  -   'live/ack',
+  -   'live/commands',
+  -   'commandReceipts',
+  -   'checkpoints',
+  -   'usageEvents',
+  -   'usageDaily'
+  - ]
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/sync-telas-divergencias.test.js:301:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: [
+      'live/deviceStatus', 'live/devicePolicies',
+      'live/groups',       'catalog',
+      'recentReviews',     'reviewBodies',
+      'panorama',          'panoramaMeta',
+      'myPrs',             'myPrsMeta',
+      'pushbacks',         'live/queue',
+      'live/assign',       'live/ack',
+      'live/commands',     'commandReceipts',
+      'checkpoints',       'usageEvents',
+      'usageDaily'
+    ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

@@ -1,0 +1,262 @@
+✖ item 2: abrir a política desenha "lendo", pede a leitura e redesenha com a versão publicada (3.6961ms)
+✖ item 2: leitura que falha vira falha com motivo, nunca "sem política" (0.208ms)
+✔ item 2: abrir sem ser o admin com batimento não lê nada (0.4009ms)
+✖ item 1: publicar avisa a versão publicada, sem prometer o aceite do destino (0.4524ms)
+✖ item 3: recusar a designação confirma, chama a rota e diz o desfecho (0.2137ms)
+✖ item 8: enquanto a limpeza pedida daqui corre, a seção diz "limpando" e não oferece outra (0.8137ms)
+✖ item 9: limpeza parcial avisa como erro, nomeando o que ficou (0.4282ms)
+✖ item 17: os modais de limpar e revogar levam o campo com o olho (0.4136ms)
+✖ item 17: o olho alterna o tipo do campo que ele nomeia, e o estado fica no aria-pressed (0.2263ms)
+✖ item 16: a seção Aparelhos recebe as capacidades do snapshot (0.6177ms)
+✖ item 13: salvar grupo anota o pendente com a versão, e a seção o mostra até ele chegar (0.5482ms)
+✔ item 12: a seção de grupos usa o vínculo do snapshot (0.4189ms)
+✖ item 18: no estreito a linha do navegador mostra pareado e usado, e o cartão do estreito só aparece lá (10.1777ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 2
+ℹ fail 11
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 213.6716
+
+✖ failing tests:
+
+test at test\ui-telas-divergencias.test.js:54:1
+✖ item 2: abrir a política desenha "lendo", pede a leitura e redesenha com a versão publicada (3.6961ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   {
+  -     corpo: {
+  -       deviceId: 'dX'
+  -     },
+  -     rota: '/api/sync/policy-read'
+  -   }
+  - ]
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-telas-divergencias.test.js:58:10)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ { rota: '/api/sync/policy-read', corpo: [Object] } ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\ui-telas-divergencias.test.js:66:1
+✖ item 2: leitura que falha vira falha com motivo, nunca "sem política" (0.208ms)
+  TypeError: AP.lerPoliticaAtual is not a function
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-telas-divergencias.test.js:67:29)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3)
+
+test at test\ui-telas-divergencias.test.js:83:1
+✖ item 1: publicar avisa a versão publicada, sem prometer o aceite do destino (0.4524ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /versão 6/. Input:
+  
+  '✓ Política publicada. O aparelho aplica no próximo ciclo, se aceitar admin.'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-telas-divergencias.test.js:86:10)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '✓ Política publicada. O aparelho aplica no próximo ciclo, se aceitar admin.',
+    expected: /versão 6/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-telas-divergencias.test.js:92:1
+✖ item 3: recusar a designação confirma, chama a rota e diz o desfecho (0.2137ms)
+  TypeError: AP.recusarDesignacao is not a function
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-telas-divergencias.test.js:94:25)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+
+test at test\ui-telas-divergencias.test.js:107:1
+✖ item 8: enquanto a limpeza pedida daqui corre, a seção diz "limpando" e não oferece outra (0.8137ms)
+  TypeError: AP.aoLimpar is not a function
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-telas-divergencias.test.js:110:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+
+test at test\ui-telas-divergencias.test.js:118:1
+✖ item 9: limpeza parcial avisa como erro, nomeando o que ficou (0.4282ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'ok' !== 'error'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-telas-divergencias.test.js:121:10)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'ok',
+    expected: 'error',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\ui-telas-divergencias.test.js:125:1
+✖ item 17: os modais de limpar e revogar levam o campo com o olho (0.4136ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /data-olho-de="aparModalSenha"/. Input:
+  
+  '<p><b>Acontece:</b> o conteúdo compartilhado de todas as categorias que a limpeza alcança é apagado do banco, para todos os aparelhos. Não tem volta.</p>\n' +
+    '      <p><b>Não acontece:</b> chaveiro, posses, recibos, rodadas do dia e o controle do conjunto ficam; o histórico local de cada aparelho fica; nada é apagado com operação em andamento.</p>\n' +
+    '      <input id="aparModalSenha" class="sync-input" type="password" placeholder="senha da sincronização" spellcheck="false" autocomplete="off">'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-telas-divergencias.test.js:131:34)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<p><b>Acontece:</b> o conteúdo compartilhado de todas as categorias que a limpeza alcança é apagado do banco, para todos os aparelhos. Não tem volta.</p>\n      <p><b>Não acontece:</b> chaveiro, posses, recibos, rodadas do dia e o controle do conjunto ficam; o histórico local de cada aparelho fica; nada é apagado com operação em andamento.</p>\n      <input id="aparModalSenha" class="sync-input" type="password" placeholder="senha da sincronização" spellcheck="false" autocomplete="off">',
+    expected: /data-olho-de="aparModalSenha"/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-telas-divergencias.test.js:145:1
+✖ item 17: o olho alterna o tipo do campo que ele nomeia, e o estado fica no aria-pressed (0.2263ms)
+  TypeError: AP.alternarOlho is not a function
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-telas-divergencias.test.js:149:19)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+
+test at test\ui-telas-divergencias.test.js:162:1
+✖ item 16: a seção Aparelhos recebe as capacidades do snapshot (0.6177ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /apar-so-estreito[\s\S]*Autenticação da API local/. Input:
+  
+  '<div class="card sync-card ">\n' +
+    '    <div class="sync-topo"><span class="sync-titulo">Administração</span><span class="sync-chip ok">este aparelho é o admin</span><span class="sync-espaco"></span><span class="sync-fraco">geração 1</span></div>\n' +
+    '    <div class="apar-corpo">\n' +
+    '      <span class="set-desc">Este aparelho é o admin da geração 1, com batimento em dia. Políticas, grupos e comandos publicados daqui valem nos aparelhos que aceitam admin.</span>\n' +
+    '      \n' +
+    '    </div>\n' +
+    '  </div>\n' +
+    '    \n' +
+    '    <div class="sync-sub-head">Aparelhos da conta</div>\n' +
+    '    <div class="card sync-lista">\n' +
+    '    <div class="apar-linha apar-head"><span>aparelho</span><span>sistema</span><span>versão</span><span>visto por último</span><span></span></div>\n' +
+    '    <div class="apar-linha"><span class="sync-nome">Notebook de teste<span class="sync-chip mute">este</span><span class="sync-chip warn">admin</span></span><span class="sync-fraco">sistema desconhecido</span><span class="sync-fraco">desconhecida</span><span class="sync-fraco">nunca</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dEu">Renomear</button><button class="btn sm ghost" data-apar-politica="dEu">Política</button><button class="btn sm ghost" data-apar-aposentar="dEu">Aposentar</button></span></div><div class="apar-linha"><span class="sync-nome">Desktop antigo</span><span class="sync-fraco">sistema desconhecido</span><span class="sync-fraco">desconhecida</span><span class="sync-fraco">nunca</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dX">Renomear</button><button class="btn sm ghost" data-apar-politica="dX">Política</button><button class="btn sm ghost" data-apar-aposentar="dX">Aposentar</button></span></div>\n' +
+    '    \n' +
+    '    \n' +
+    '  </div>\n' +
+    '    <div class="card apar-corpo">\n' +
+    '    <div class="apar-titulo"><span class="sync-titulo">Política do Desktop antigo</span><span class="sync-chip mute">lendo</span><span class="sync-espaco"></span><button class="btn sm ghost" id="aparFecharPolitica">Fechar</button></div>\n' +
+    '    <span class="set-desc">A política só RESTRINGE: nada do que chega pelo banco amplia o que o aparelho já permite. O aparelho de destino só aplica se ele aceitar admin, se a assinatura for da geração vigente e se o admin tiver batimento recente. Esse aceite acontece no aparelho de destino e não volta para esta tela.</span>\n' +
+    '    <span class="sync-dica">lendo a política vigente no banco…</span>\n' +
+    '    <div class="apar-grade">\n' +
+    '      <label class="apar-campo"><span>Pausado</span><span class="set-ctl"><input type="checkbox" id="aparPolPausado"><span class="switch"></span></span></label>\n' +
+    '      <label class="apar-campo" for="aparPolTeto"><span>Teto de paralelismo</span><select id="aparPolTeto" class="sync-input"><option value="" selected>não definir (vale o do aparelho)</option><option value="1">1 sessão(ões)</option><option value="2">2 sessão(ões)</option><option value="3">3 sessão(ões)</option><option value="4">4 sessão(ões)</option></select></label>\n' +
+    '      <div class="apar-campo"><span>Tipos permitidos</span><div class="apar-tipos"><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="review" checked> revisão</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="self" checked> autoanálise</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="pushback" checked> contestação</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="chat" checked> conversa</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="tool" checked> ferramenta</label></div></div>\n' +
+    '    </div>\n' +
+    '    \n' +
+    '    \n' +
+    '    <div class="row-actions"><button class="btn sm primary" id="aparPublicarPolitica">Publicar política</button></div>\n' +
+    '  </div>\n' +
+    '    <div class="card set-list">\n' +
+    '    <label class="set-row" id="sys-row-setSyncAceitarAdmin">\n' +
+    '      <span class="set-txt"><span class="set-title">Aceitar políticas e comandos do admin</span><span class="set-desc">Sem isto, este aparelho ignora pausa, teto de paralelismo, grupo de consumo e comandos vindos do admin. Retirar vale na hora, e a última política aceita é esquecida junto.</span></span>\n' +
+    '      <span class="set-ctl"><input type="checkbox" id="setSyncAceitarAdmin" checked><span class="switch"></span></span>\n' +
+    '    </label>\n' +
+    '  </div>\n' +
+    '    <div class="sync-sub-head">Navegadores pareados com este aparelho</div>\n' +
+    '  <div class="card sync-lista"><p class="sync-vago sync-vazio">carregando as sessões pareadas…</p>\n' +
+    '    <p class="apar-nota">Revogar o navegador que você está usando leva direto ao pareamento. Para revogar todos de uma vez, no terminal: <code>node tools/farol-parear.js --revogar-todas</code>.</p>\n' +
+    '  </div>\n' +
+    '    <div class="sync-sub-head">Limpeza e revogação</div>\n' +
+    '  <div class="apar-duo">\n' +
+    '    <div class="card apar-corpo">\n' +
+    '      <div class="apar-titulo"><span class="set-title">Chave de limpeza</span><span class="sync-chip mute">carregando</span></div>\n' +
+    '      <span class="set-desc">carregando o estado da chave de limpeza…</span>\n' +
+    '      \n' +
+    '      \n' +
+    '    </div>\n' +
+    '    <div class="card apar-corpo">\n' +
+    '      <span class="set-title">Revogar o conjunto</span>\n' +
+    '      <span class="set-desc">Corta todos os acessos anteriores a agora e obriga cada aparelho a entrar de novo. Não cancela sessão em andamento em outro aparelho, não apaga o que eles já receberam e não depõe o admin.</span>\n' +
+    '      <span class="sync-dica">Revogar não retira o consentimento deste aparelho: isso é o interruptor "Aceitar políticas e comandos do admin", acima, e vale só aqui.</span>\n' +
+    '      <div class="row-actions"><button class="btn sm danger-ghost" id="aparRevogar">Revogar com a senha…</button></div>\n' +
+    '    </div>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-telas-divergencias.test.js:166:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="card sync-card ">\n    <div class="sync-topo"><span class="sync-titulo">Administração</span><span class="sync-chip ok">este aparelho é o admin</span><span class="sync-espaco"></span><span class="sync-fraco">geração 1</span></div>\n    <div class="apar-corpo">\n      <span class="set-desc">Este aparelho é o admin da geração 1, com batimento em dia. Políticas, grupos e comandos publicados daqui valem nos aparelhos que aceitam admin.</span>\n      \n    </div>\n  </div>\n    \n    <div class="sync-sub-head">Aparelhos da conta</div>\n    <div class="card sync-lista">\n    <div class="apar-linha apar-head"><span>aparelho</span><span>sistema</span><span>versão</span><span>visto por último</span><span></span></div>\n    <div class="apar-linha"><span class="sync-nome">Notebook de teste<span class="sync-chip mute">este</span><span class="sync-chip warn">admin</span></span><span class="sync-fraco">sistema desconhecido</span><span class="sync-fraco">desconhecida</span><span class="sync-fraco">nunca</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dEu">Renomear</button><button class="btn sm ghost" data-apar-politica="dEu">Política</button><button class="btn sm ghost" data-apar-aposentar="dEu">Aposentar</button></span></div><div class="apar-linha"><span class="sync-nome">Desktop antigo</span><span class="sync-fraco">sistema desconhecido</span><span class="sync-fraco">desconhecida</span><span class="sync-fraco">nunca</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dX">Renomear</button><button class="btn sm ghost" data-apar-politica="dX">Política</button><button class="btn sm ghost" data-apar-aposentar="dX">Aposentar</button></span></div>\n    \n    \n  </div>\n    <div class="card apar-corpo">\n    <div class="apar-titulo"><span class="sync-titulo">Política do Desktop antigo</span><span class="sync-chip mute">lendo</span><span class="sync-espaco"></span><button class="btn sm ghost" id="aparFecharPolitica">Fechar</button></div>\n    <span class="set-desc">A política só RESTRINGE: nada do que chega pelo banco amplia o que o aparelho já permite. O aparelho de destino só aplica se ele aceitar admin, se a assinatura for da geração vigente e se o admin tiver batimento recente. Esse aceite acontece no aparelho de destino e não volta para esta tela.</span>\n    <span class="sync-dica">lendo a política vigente no banco…</span>\n    <div class="apar-grade">\n      <label class="apar-campo"><span>Pausado</span><span class="set-ctl"><input type="checkbox" id="aparPolPausado"><span class="switch"></span></span></label>\n      <label class="apar-campo" for="aparPolTeto"><span>Teto de paralelismo</span><select id="aparPolTeto" class="sync-input"><option value="" selected>não definir (vale o do aparelho)</option><option value="1">1 sessão(ões)</option><option value="2">2 sessão(ões)</option><option value="3">3 sessão(ões)</option><option value="4">4 sessão(ões)</option></select></label>\n      <div class="apar-campo"><span>Tipos permitidos</span><div class="apar-tipos"><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="review" checked> revisão</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="self" checked> autoanálise</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="pushback" checked> contestação</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="chat" checked> conversa</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="tool" checked> ferramenta</label></div></div>\n    </div>\n    \n    \n    <div class="row-actions"><button class="btn sm primary" id="aparPublicarPolitica">Publicar política</button></div>\n  </div>\n    <div class="card set-list">\n    <label class="set-row" id="sys-row-setSyncAceitarAdmin">\n      <span class="set-txt"><span class="set-title">Aceitar políticas e comandos do admin</span><span class="set-desc">Sem isto, este aparelho ignora pausa, teto de paralelismo, grupo de consumo e comandos vindos do admin. Retirar vale na hora, e a última política aceita é esquecida junto.</span></span>\n      <span class="set-ctl"><input type="checkbox" id="setSyncAceitarAdmin" checked><span class="switch"></span></span>\n    </label>\n  </div>\n    <div class="sync-sub-head">Navegadores pareados com este aparelho</div>\n  <div class="card sync-lista"><p class="sync-vago sync-vazio">carregando as sessões pareadas…</p>\n    <p class="apar-nota">Revogar o navegador que você está usando leva direto ao pareamento. Para revogar todos de uma vez, no terminal: <code>node tools/farol-parear.js --revogar-todas</code>.</p>\n  </div>\n    <div class="sync-sub-head">Limpeza e revogação</div>\n  <div class="apar-duo">\n    <div class="card apar-corpo">\n      <div class="apar-titulo"><span class="set-title">Chave de limpeza</span><span class="sync-chip mute">carregando</span></div>\n      <span class="set-desc">carregando o estado da chave de limpeza…</span>\n      \n      \n    </div>\n    <div class="card apar-corpo">\n      <span class="set-title">Revogar o conjunto</span>\n      <span class="set-desc">Corta todos os acessos anteriores a agora e obriga cada aparelho a entrar de novo. Não cancela sessão em andamento em outro aparelho, não apaga o que eles já receberam e não depõe o admin.</span>\n      <span class="sync-dica">Revogar não retira o consentimento deste aparelho: isso é o interruptor "Aceitar políticas e comandos do admin", acima, e vale só aqui.</span>\n      <div class="row-actions"><button class="btn sm danger-ghost" id="aparRevogar">Revogar com a senha…</button></div>\n    </div>\n  </div>',
+    expected: /apar-so-estreito[\s\S]*Autenticação da API local/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-telas-divergencias.test.js:171:1
+✖ item 13: salvar grupo anota o pendente com a versão, e a seção o mostra até ele chegar (0.5482ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   {
+  -     id: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  -     nome: 'Time',
+  -     versao: 2
+  -   }
+  - ]
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-telas-divergencias.test.js:174:10)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ { id: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', nome: 'Time', versao: 2 } ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\ui-telas-divergencias.test.js:207:1
+✖ item 18: no estreito a linha do navegador mostra pareado e usado, e o cartão do estreito só aparece lá (10.1777ms)
+  AssertionError [ERR_ASSERTION]: a regra nova vem DEPOIS da que esconde, para vencer na cascata
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-telas-divergencias.test.js:211:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

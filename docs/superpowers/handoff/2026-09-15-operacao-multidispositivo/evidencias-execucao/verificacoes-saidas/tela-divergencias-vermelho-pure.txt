@@ -1,0 +1,803 @@
+✖ item 4: admin sem batimento diz há quanto tempo, pelo instante que este aparelho observou (2.5745ms)
+✖ item 5: a nota da garantia nomeia a versão mínima e leva a "Verificar atualização" (0.7517ms)
+✖ item 6: aparelho sem presença ganha selo próprio, com o visto por último ao lado (0.3697ms)
+✖ item 6: só este aparelho ativo na conta vira o estado "primeiro aparelho" (0.1826ms)
+✖ item 3: o pedido de designação oferece aceitar com a senha e recusar (0.1665ms)
+✖ item 17: syncOlhoHtml sai pela fachada, e sem alvo mantém o botão da Sincronização como era (0.0942ms)
+✖ item 17: os campos de senha novos têm o olho, dentro da moldura do campo (0.2096ms)
+✖ item 2: o formulário abre com a política vigente no banco, e diz a versão publicada (0.2523ms)
+✖ item 2: campo que a política não opina abre como "vale o do aparelho", não como o mínimo (0.263ms)
+✖ item 2: carregando, sem política, inválida e falha são quatro saídas diferentes (0.3472ms)
+✖ item 1: o formulário diz que o aceite acontece no destino e não volta para cá (0.1852ms)
+✖ item 2: publicar preserva o que a tela não edita e omite o teto não definido (0.2433ms)
+✖ item 18: a linha do navegador tem classe própria, para o estreito mostrar pareado e usado (0.2993ms)
+✖ item 8: trava viva no banco é "limpando", com o prazo, e sem botão de limpar (0.3099ms)
+✖ item 9: as categorias e as nunca apagadas vêm do engine, com rótulo, e o desconhecido sai como está (0.2082ms)
+✖ item 9: o resultado da limpeza nomeia o que falhou, e falha parcial não é sucesso limpo (0.101ms)
+✖ item 10: o cartão de revogar separa o corte de acesso do consentimento deste aparelho (0.6476ms)
+✖ item 16: Aparelhos repete o cartão do que não está valendo, marcado para o estreito (0.3847ms)
+✖ item 15: a lista de aparelhos da Sincronização leva à seção que administra (0.7603ms)
+✖ item 11: não verificável diz o motivo com o nome do aparelho, e leva a Aparelhos (0.5271ms)
+✖ item 11: verificado mostra a hora em que a soma fechou (0.1485ms)
+✖ item 11: teto atingido ganha selo, texto de teto macio e a projeção separada do gasto (0.1801ms)
+✖ item 12: o vínculo vem do snapshot, inclusive para grupo que não chegou aqui (0.4511ms)
+✖ item 14: sem perfil salvo, a assinatura em uso é "não identificado", com o caminho para Plano e chaves (0.1692ms)
+✖ item 13: grupo publicado aqui aparece como esperando o aceite até chegar pelo snapshot (0.2666ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 0
+ℹ fail 25
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 124.4706
+
+✖ failing tests:
+
+test at test\ui-pure-divergencias.test.js:23:1
+✖ item 4: admin sem batimento diz há quanto tempo, pelo instante que este aparelho observou (2.5745ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /sem batimento há 18min/. Input:
+  
+  '<div class="card sync-card warn">\n' +
+    '    <div class="sync-topo"><span class="sync-titulo">Administração</span><span class="sync-chip warn">admin sem sinal de vida</span><span class="sync-espaco"></span><span class="sync-fraco">geração 3</span></div>\n' +
+    '    <div class="apar-corpo">\n' +
+    '      <span class="set-desc">O admin vigente é o Desktop antigo, sem batimento recente. Políticas e comandos dele não valem enquanto isso: cada aparelho segue a própria configuração, e nada fica mais permissivo por causa da queda.</span>\n' +
+    '      <div class="apar-acao">\n' +
+    '    <span class="sync-campo"><label for="aparSenhaAdmin">Senha da sincronização</label><input id="aparSenhaAdmin" class="sync-input" type="password" placeholder="senha da sincronização" spellcheck="false" autocomplete="off"></span>\n' +
+    '    <button class="btn sm primary" id="aparTornarAdmin">Tornar este aparelho admin</button>\n' +
+    '    <span class="sync-dica">Isso cria a geração 4. O admin anterior perde a autoridade, e a senha é usada só agora, sem ser guardada.</span>\n' +
+    '  </div>\n' +
+    '    </div>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:26:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.start (node:internal/test_runner/test:1096:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="card sync-card warn">\n    <div class="sync-topo"><span class="sync-titulo">Administração</span><span class="sync-chip warn">admin sem sinal de vida</span><span class="sync-espaco"></span><span class="sync-fraco">geração 3</span></div>\n    <div class="apar-corpo">\n      <span class="set-desc">O admin vigente é o Desktop antigo, sem batimento recente. Políticas e comandos dele não valem enquanto isso: cada aparelho segue a própria configuração, e nada fica mais permissivo por causa da queda.</span>\n      <div class="apar-acao">\n    <span class="sync-campo"><label for="aparSenhaAdmin">Senha da sincronização</label><input id="aparSenhaAdmin" class="sync-input" type="password" placeholder="senha da sincronização" spellcheck="false" autocomplete="off"></span>\n    <button class="btn sm primary" id="aparTornarAdmin">Tornar este aparelho admin</button>\n    <span class="sync-dica">Isso cria a geração 4. O admin anterior perde a autoridade, e a senha é usada só agora, sem ser guardada.</span>\n  </div>\n    </div>\n  </div>',
+    expected: /sem batimento há 18min/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:38:1
+✖ item 5: a nota da garantia nomeia a versão mínima e leva a "Verificar atualização" (0.7517ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /anterior à 2\.59\.4/. Input:
+  
+  '<div class="card sync-lista">\n' +
+    '    <div class="apar-linha apar-head"><span>aparelho</span><span>sistema</span><span>versão</span><span>visto por último</span><span></span></div>\n' +
+    '    <div class="apar-linha"><span class="sync-nome">Notebook de teste<span class="sync-chip mute">este</span></span><span class="sync-fraco">Windows</span><span class="sync-fraco">v2.60.0</span><span class="sync-fraco">hoje 12:00</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dEu">Renomear</button><button class="btn sm ghost" data-apar-aposentar="dEu">Aposentar</button></span></div><div class="apar-linha"><span class="sync-nome">Desktop antigo<span class="sync-chip bad">garantia não coberta</span></span><span class="sync-fraco">Linux</span><span class="sync-fraco">v2.58.2</span><span class="sync-fraco">hoje 12:00</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dVelho">Renomear</button><button class="btn sm ghost" data-apar-aposentar="dVelho">Aposentar</button></span></div>\n' +
+    '    <p class="apar-nota">"Garantia não coberta": um aparelho em versão anterior à da postagem coordenada não participa da arbitragem. Nas contas que ele também revisa (acme-exemplo), dois Farois podem postar no mesmo PR até ele ser atualizado.</p>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:41:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="card sync-lista">\n    <div class="apar-linha apar-head"><span>aparelho</span><span>sistema</span><span>versão</span><span>visto por último</span><span></span></div>\n    <div class="apar-linha"><span class="sync-nome">Notebook de teste<span class="sync-chip mute">este</span></span><span class="sync-fraco">Windows</span><span class="sync-fraco">v2.60.0</span><span class="sync-fraco">hoje 12:00</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dEu">Renomear</button><button class="btn sm ghost" data-apar-aposentar="dEu">Aposentar</button></span></div><div class="apar-linha"><span class="sync-nome">Desktop antigo<span class="sync-chip bad">garantia não coberta</span></span><span class="sync-fraco">Linux</span><span class="sync-fraco">v2.58.2</span><span class="sync-fraco">hoje 12:00</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dVelho">Renomear</button><button class="btn sm ghost" data-apar-aposentar="dVelho">Aposentar</button></span></div>\n    <p class="apar-nota">"Garantia não coberta": um aparelho em versão anterior à da postagem coordenada não participa da arbitragem. Nas contas que ele também revisa (acme-exemplo), dois Farois podem postar no mesmo PR até ele ser atualizado.</p>\n  </div>',
+    expected: /anterior à 2\.59\.4/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:51:1
+✖ item 6: aparelho sem presença ganha selo próprio, com o visto por último ao lado (0.3697ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Tablet<span class="sync-chip mute">sem presença<\/span>/. Input:
+  
+  '<div class="card sync-lista">\n' +
+    '    <div class="apar-linha apar-head"><span>aparelho</span><span>sistema</span><span>versão</span><span>visto por último</span><span></span></div>\n' +
+    '    <div class="apar-linha"><span class="sync-nome">Notebook de teste<span class="sync-chip mute">este</span></span><span class="sync-fraco">Windows</span><span class="sync-fraco">v2.60.0</span><span class="sync-fraco">hoje 12:00</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dEu">Renomear</button><button class="btn sm ghost" data-apar-aposentar="dEu">Aposentar</button></span></div><div class="apar-linha"><span class="sync-nome">Tablet</span><span class="sync-fraco">Windows</span><span class="sync-fraco">v2.60.0</span><span class="sync-fraco">13/09 12:00</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dSumido">Renomear</button><button class="btn sm ghost" data-apar-aposentar="dSumido">Aposentar</button></span></div>\n' +
+    '    \n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:54:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="card sync-lista">\n    <div class="apar-linha apar-head"><span>aparelho</span><span>sistema</span><span>versão</span><span>visto por último</span><span></span></div>\n    <div class="apar-linha"><span class="sync-nome">Notebook de teste<span class="sync-chip mute">este</span></span><span class="sync-fraco">Windows</span><span class="sync-fraco">v2.60.0</span><span class="sync-fraco">hoje 12:00</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dEu">Renomear</button><button class="btn sm ghost" data-apar-aposentar="dEu">Aposentar</button></span></div><div class="apar-linha"><span class="sync-nome">Tablet</span><span class="sync-fraco">Windows</span><span class="sync-fraco">v2.60.0</span><span class="sync-fraco">13/09 12:00</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dSumido">Renomear</button><button class="btn sm ghost" data-apar-aposentar="dSumido">Aposentar</button></span></div>\n    \n  </div>',
+    expected: /Tablet<span class="sync-chip mute">sem presença<\/span>/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:58:1
+✖ item 6: só este aparelho ativo na conta vira o estado "primeiro aparelho" (0.1826ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Só este aparelho na conta\. Nada é compartilhado até haver outro pronto\./. Input:
+  
+  '<div class="card sync-lista">\n' +
+    '    <div class="apar-linha apar-head"><span>aparelho</span><span>sistema</span><span>versão</span><span>visto por último</span><span></span></div>\n' +
+    '    <div class="apar-linha"><span class="sync-nome">Notebook de teste<span class="sync-chip mute">este</span></span><span class="sync-fraco">Windows</span><span class="sync-fraco">v2.60.0</span><span class="sync-fraco">hoje 12:00</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dEu">Renomear</button><button class="btn sm ghost" data-apar-aposentar="dEu">Aposentar</button></span></div>\n' +
+    '    \n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:59:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="card sync-lista">\n    <div class="apar-linha apar-head"><span>aparelho</span><span>sistema</span><span>versão</span><span>visto por último</span><span></span></div>\n    <div class="apar-linha"><span class="sync-nome">Notebook de teste<span class="sync-chip mute">este</span></span><span class="sync-fraco">Windows</span><span class="sync-fraco">v2.60.0</span><span class="sync-fraco">hoje 12:00</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dEu">Renomear</button><button class="btn sm ghost" data-apar-aposentar="dEu">Aposentar</button></span></div>\n    \n  </div>',
+    expected: /Só este aparelho na conta\. Nada é compartilhado até haver outro pronto\./,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:68:1
+✖ item 3: o pedido de designação oferece aceitar com a senha e recusar (0.1665ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /id="aparRecusarDesignacao"/. Input:
+  
+  '<div class="card apar-corpo">\n' +
+    '    <span class="set-title">Pedido para este aparelho ser o admin (pedido hoje 12:00)</span>\n' +
+    '    <span class="set-desc">Um comando designou este aparelho como admin. Ninguém vira admin sem a senha digitada aqui: aceitar publica uma geração nova e guarda a chave privada só neste aparelho.</span>\n' +
+    '    <span class="sync-campo"><label for="aparSenhaDesignacao">Senha da sincronização</label><input id="aparSenhaDesignacao" class="sync-input" type="password" placeholder="senha da sincronização" spellcheck="false" autocomplete="off"></span>\n' +
+    '    <div class="row-actions"><button class="btn sm primary" id="aparAceitarDesignacao">Aceitar com a senha</button></div>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:71:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="card apar-corpo">\n    <span class="set-title">Pedido para este aparelho ser o admin (pedido hoje 12:00)</span>\n    <span class="set-desc">Um comando designou este aparelho como admin. Ninguém vira admin sem a senha digitada aqui: aceitar publica uma geração nova e guarda a chave privada só neste aparelho.</span>\n    <span class="sync-campo"><label for="aparSenhaDesignacao">Senha da sincronização</label><input id="aparSenhaDesignacao" class="sync-input" type="password" placeholder="senha da sincronização" spellcheck="false" autocomplete="off"></span>\n    <div class="row-actions"><button class="btn sm primary" id="aparAceitarDesignacao">Aceitar com a senha</button></div>\n  </div>',
+    expected: /id="aparRecusarDesignacao"/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:76:1
+✖ item 17: syncOlhoHtml sai pela fachada, e sem alvo mantém o botão da Sincronização como era (0.0942ms)
+  TypeError: P.syncOlhoHtml is not a function
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:77:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+
+test at test\ui-pure-divergencias.test.js:86:1
+✖ item 17: os campos de senha novos têm o olho, dentro da moldura do campo (0.2096ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /<span class="sync-senha"><input id="aparSenhaAdmin"[^>]*type="password"[^>]*>[\s\S]*?data-olho-de="aparSenhaAdmin"/. Input:
+  
+  '<div class="card sync-card off">\n' +
+    '    <div class="sync-topo"><span class="sync-titulo">Administração</span><span class="sync-chip mute">sem admin</span><span class="sync-espaco"></span></div>\n' +
+    '    <div class="apar-corpo">\n' +
+    '      <span class="set-desc">Ninguém administra este conjunto ainda. Sem admin, cada aparelho vale pela própria configuração: nada é pausado, limitado ou agrupado de fora.</span>\n' +
+    '      <div class="apar-acao">\n' +
+    '    <span class="sync-campo"><label for="aparSenhaAdmin">Senha da sincronização</label><input id="aparSenhaAdmin" class="sync-input" type="password" placeholder="senha da sincronização" spellcheck="false" autocomplete="off"></span>\n' +
+    '    <button class="btn sm primary" id="aparTornarAdmin">Tornar este aparelho admin</button>\n' +
+    '    <span class="sync-dica">Isso cria a geração 1. O admin anterior perde a autoridade, e a senha é usada só agora, sem ser guardada.</span>\n' +
+    '  </div>\n' +
+    '    </div>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:88:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="card sync-card off">\n    <div class="sync-topo"><span class="sync-titulo">Administração</span><span class="sync-chip mute">sem admin</span><span class="sync-espaco"></span></div>\n    <div class="apar-corpo">\n      <span class="set-desc">Ninguém administra este conjunto ainda. Sem admin, cada aparelho vale pela própria configuração: nada é pausado, limitado ou agrupado de fora.</span>\n      <div class="apar-acao">\n    <span class="sync-campo"><label for="aparSenhaAdmin">Senha da sincronização</label><input id="aparSenhaAdmin" class="sync-input" type="password" placeholder="senha da sincronização" spellcheck="false" autocomplete="off"></span>\n    <button class="btn sm primary" id="aparTornarAdmin">Tornar este aparelho admin</button>\n    <span class="sync-dica">Isso cria a geração 1. O admin anterior perde a autoridade, e a senha é usada só agora, sem ser guardada.</span>\n  </div>\n    </div>\n  </div>',
+    expected: /<span class="sync-senha"><input id="aparSenhaAdmin"[^>]*type="password"[^>]*>[\s\S]*?data-olho-de="aparSenhaAdmin"/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:102:1
+✖ item 2: o formulário abre com a política vigente no banco, e diz a versão publicada (0.2523ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /publicada, versão 5/. Input:
+  
+  '<div class="card apar-corpo">\n' +
+    '    <div class="apar-titulo"><span class="sync-titulo">Política do Desktop antigo</span><span class="sync-espaco"></span><button class="btn sm ghost" id="aparFecharPolitica">Fechar</button></div>\n' +
+    '    <span class="set-desc">A política só RESTRINGE: nada do que chega pelo banco amplia o que o aparelho já permite. O aparelho de destino só aplica se ele aceitar admin, se a assinatura for da geração vigente e se o admin tiver batimento recente.</span>\n' +
+    '    <div class="apar-grade">\n' +
+    '      <label class="apar-campo"><span>Pausado</span><span class="set-ctl"><input type="checkbox" id="aparPolPausado"><span class="switch"></span></span></label>\n' +
+    '      <label class="apar-campo" for="aparPolTeto"><span>Teto de paralelismo</span><select id="aparPolTeto" class="sync-input"><option value="1">1 sessão(ões)</option><option value="2">2 sessão(ões)</option><option value="3">3 sessão(ões)</option><option value="4">4 sessão(ões)</option></select></label>\n' +
+    '      <div class="apar-campo"><span>Tipos permitidos</span><div class="apar-tipos"><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="review" checked> revisão</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="self" checked> autoanálise</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="pushback" checked> contestação</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="chat" checked> conversa</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="tool" checked> ferramenta</label></div></div>\n' +
+    '    </div>\n' +
+    '    \n' +
+    '    <div class="row-actions"><button class="btn sm primary" id="aparPublicarPolitica">Publicar política</button></div>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:104:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="card apar-corpo">\n    <div class="apar-titulo"><span class="sync-titulo">Política do Desktop antigo</span><span class="sync-espaco"></span><button class="btn sm ghost" id="aparFecharPolitica">Fechar</button></div>\n    <span class="set-desc">A política só RESTRINGE: nada do que chega pelo banco amplia o que o aparelho já permite. O aparelho de destino só aplica se ele aceitar admin, se a assinatura for da geração vigente e se o admin tiver batimento recente.</span>\n    <div class="apar-grade">\n      <label class="apar-campo"><span>Pausado</span><span class="set-ctl"><input type="checkbox" id="aparPolPausado"><span class="switch"></span></span></label>\n      <label class="apar-campo" for="aparPolTeto"><span>Teto de paralelismo</span><select id="aparPolTeto" class="sync-input"><option value="1">1 sessão(ões)</option><option value="2">2 sessão(ões)</option><option value="3">3 sessão(ões)</option><option value="4">4 sessão(ões)</option></select></label>\n      <div class="apar-campo"><span>Tipos permitidos</span><div class="apar-tipos"><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="review" checked> revisão</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="self" checked> autoanálise</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="pushback" checked> contestação</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="chat" checked> conversa</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="tool" checked> ferramenta</label></div></div>\n    </div>\n    \n    <div class="row-actions"><button class="btn sm primary" id="aparPublicarPolitica">Publicar política</button></div>\n  </div>',
+    expected: /publicada, versão 5/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:112:1
+✖ item 2: campo que a política não opina abre como "vale o do aparelho", não como o mínimo (0.263ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /<option value="" selected>não definir \(vale o do aparelho\)<\/option>/. Input:
+  
+  '<div class="card apar-corpo">\n' +
+    '    <div class="apar-titulo"><span class="sync-titulo">Política do Desktop antigo</span><span class="sync-espaco"></span><button class="btn sm ghost" id="aparFecharPolitica">Fechar</button></div>\n' +
+    '    <span class="set-desc">A política só RESTRINGE: nada do que chega pelo banco amplia o que o aparelho já permite. O aparelho de destino só aplica se ele aceitar admin, se a assinatura for da geração vigente e se o admin tiver batimento recente.</span>\n' +
+    '    <div class="apar-grade">\n' +
+    '      <label class="apar-campo"><span>Pausado</span><span class="set-ctl"><input type="checkbox" id="aparPolPausado"><span class="switch"></span></span></label>\n' +
+    '      <label class="apar-campo" for="aparPolTeto"><span>Teto de paralelismo</span><select id="aparPolTeto" class="sync-input"><option value="1">1 sessão(ões)</option><option value="2">2 sessão(ões)</option><option value="3">3 sessão(ões)</option><option value="4">4 sessão(ões)</option></select></label>\n' +
+    '      <div class="apar-campo"><span>Tipos permitidos</span><div class="apar-tipos"><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="review" checked> revisão</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="self" checked> autoanálise</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="pushback" checked> contestação</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="chat" checked> conversa</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="tool" checked> ferramenta</label></div></div>\n' +
+    '    </div>\n' +
+    '    \n' +
+    '    <div class="row-actions"><button class="btn sm primary" id="aparPublicarPolitica">Publicar política</button></div>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:114:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="card apar-corpo">\n    <div class="apar-titulo"><span class="sync-titulo">Política do Desktop antigo</span><span class="sync-espaco"></span><button class="btn sm ghost" id="aparFecharPolitica">Fechar</button></div>\n    <span class="set-desc">A política só RESTRINGE: nada do que chega pelo banco amplia o que o aparelho já permite. O aparelho de destino só aplica se ele aceitar admin, se a assinatura for da geração vigente e se o admin tiver batimento recente.</span>\n    <div class="apar-grade">\n      <label class="apar-campo"><span>Pausado</span><span class="set-ctl"><input type="checkbox" id="aparPolPausado"><span class="switch"></span></span></label>\n      <label class="apar-campo" for="aparPolTeto"><span>Teto de paralelismo</span><select id="aparPolTeto" class="sync-input"><option value="1">1 sessão(ões)</option><option value="2">2 sessão(ões)</option><option value="3">3 sessão(ões)</option><option value="4">4 sessão(ões)</option></select></label>\n      <div class="apar-campo"><span>Tipos permitidos</span><div class="apar-tipos"><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="review" checked> revisão</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="self" checked> autoanálise</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="pushback" checked> contestação</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="chat" checked> conversa</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="tool" checked> ferramenta</label></div></div>\n    </div>\n    \n    <div class="row-actions"><button class="btn sm primary" id="aparPublicarPolitica">Publicar política</button></div>\n  </div>',
+    expected: /<option value="" selected>não definir \(vale o do aparelho\)<\/option>/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:118:1
+✖ item 2: carregando, sem política, inválida e falha são quatro saídas diferentes (0.3472ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /lendo a política vigente/. Input:
+  
+  '<div class="card apar-corpo">\n' +
+    '    <div class="apar-titulo"><span class="sync-titulo">Política do Desktop antigo</span><span class="sync-espaco"></span><button class="btn sm ghost" id="aparFecharPolitica">Fechar</button></div>\n' +
+    '    <span class="set-desc">A política só RESTRINGE: nada do que chega pelo banco amplia o que o aparelho já permite. O aparelho de destino só aplica se ele aceitar admin, se a assinatura for da geração vigente e se o admin tiver batimento recente.</span>\n' +
+    '    <div class="apar-grade">\n' +
+    '      <label class="apar-campo"><span>Pausado</span><span class="set-ctl"><input type="checkbox" id="aparPolPausado"><span class="switch"></span></span></label>\n' +
+    '      <label class="apar-campo" for="aparPolTeto"><span>Teto de paralelismo</span><select id="aparPolTeto" class="sync-input"><option value="1">1 sessão(ões)</option><option value="2">2 sessão(ões)</option><option value="3">3 sessão(ões)</option><option value="4">4 sessão(ões)</option></select></label>\n' +
+    '      <div class="apar-campo"><span>Tipos permitidos</span><div class="apar-tipos"><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="review" checked> revisão</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="self" checked> autoanálise</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="pushback" checked> contestação</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="chat" checked> conversa</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="tool" checked> ferramenta</label></div></div>\n' +
+    '    </div>\n' +
+    '    \n' +
+    '    <div class="row-actions"><button class="btn sm primary" id="aparPublicarPolitica">Publicar política</button></div>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:119:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="card apar-corpo">\n    <div class="apar-titulo"><span class="sync-titulo">Política do Desktop antigo</span><span class="sync-espaco"></span><button class="btn sm ghost" id="aparFecharPolitica">Fechar</button></div>\n    <span class="set-desc">A política só RESTRINGE: nada do que chega pelo banco amplia o que o aparelho já permite. O aparelho de destino só aplica se ele aceitar admin, se a assinatura for da geração vigente e se o admin tiver batimento recente.</span>\n    <div class="apar-grade">\n      <label class="apar-campo"><span>Pausado</span><span class="set-ctl"><input type="checkbox" id="aparPolPausado"><span class="switch"></span></span></label>\n      <label class="apar-campo" for="aparPolTeto"><span>Teto de paralelismo</span><select id="aparPolTeto" class="sync-input"><option value="1">1 sessão(ões)</option><option value="2">2 sessão(ões)</option><option value="3">3 sessão(ões)</option><option value="4">4 sessão(ões)</option></select></label>\n      <div class="apar-campo"><span>Tipos permitidos</span><div class="apar-tipos"><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="review" checked> revisão</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="self" checked> autoanálise</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="pushback" checked> contestação</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="chat" checked> conversa</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="tool" checked> ferramenta</label></div></div>\n    </div>\n    \n    <div class="row-actions"><button class="btn sm primary" id="aparPublicarPolitica">Publicar política</button></div>\n  </div>',
+    expected: /lendo a política vigente/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:129:1
+✖ item 1: o formulário diz que o aceite acontece no destino e não volta para cá (0.1852ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /aceite acontece no aparelho de destino e não volta para esta tela/. Input:
+  
+  '<div class="card apar-corpo">\n' +
+    '    <div class="apar-titulo"><span class="sync-titulo">Política do Desktop antigo</span><span class="sync-espaco"></span><button class="btn sm ghost" id="aparFecharPolitica">Fechar</button></div>\n' +
+    '    <span class="set-desc">A política só RESTRINGE: nada do que chega pelo banco amplia o que o aparelho já permite. O aparelho de destino só aplica se ele aceitar admin, se a assinatura for da geração vigente e se o admin tiver batimento recente.</span>\n' +
+    '    <div class="apar-grade">\n' +
+    '      <label class="apar-campo"><span>Pausado</span><span class="set-ctl"><input type="checkbox" id="aparPolPausado"><span class="switch"></span></span></label>\n' +
+    '      <label class="apar-campo" for="aparPolTeto"><span>Teto de paralelismo</span><select id="aparPolTeto" class="sync-input"><option value="1">1 sessão(ões)</option><option value="2">2 sessão(ões)</option><option value="3">3 sessão(ões)</option><option value="4">4 sessão(ões)</option></select></label>\n' +
+    '      <div class="apar-campo"><span>Tipos permitidos</span><div class="apar-tipos"><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="review" checked> revisão</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="self" checked> autoanálise</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="pushback" checked> contestação</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="chat" checked> conversa</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="tool" checked> ferramenta</label></div></div>\n' +
+    '    </div>\n' +
+    '    \n' +
+    '    <div class="row-actions"><button class="btn sm primary" id="aparPublicarPolitica">Publicar política</button></div>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:131:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="card apar-corpo">\n    <div class="apar-titulo"><span class="sync-titulo">Política do Desktop antigo</span><span class="sync-espaco"></span><button class="btn sm ghost" id="aparFecharPolitica">Fechar</button></div>\n    <span class="set-desc">A política só RESTRINGE: nada do que chega pelo banco amplia o que o aparelho já permite. O aparelho de destino só aplica se ele aceitar admin, se a assinatura for da geração vigente e se o admin tiver batimento recente.</span>\n    <div class="apar-grade">\n      <label class="apar-campo"><span>Pausado</span><span class="set-ctl"><input type="checkbox" id="aparPolPausado"><span class="switch"></span></span></label>\n      <label class="apar-campo" for="aparPolTeto"><span>Teto de paralelismo</span><select id="aparPolTeto" class="sync-input"><option value="1">1 sessão(ões)</option><option value="2">2 sessão(ões)</option><option value="3">3 sessão(ões)</option><option value="4">4 sessão(ões)</option></select></label>\n      <div class="apar-campo"><span>Tipos permitidos</span><div class="apar-tipos"><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="review" checked> revisão</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="self" checked> autoanálise</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="pushback" checked> contestação</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="chat" checked> conversa</label><label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="tool" checked> ferramenta</label></div></div>\n    </div>\n    \n    <div class="row-actions"><button class="btn sm primary" id="aparPublicarPolitica">Publicar política</button></div>\n  </div>',
+    expected: /aceite acontece no aparelho de destino e não volta para esta tela/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:135:1
+✖ item 2: publicar preserva o que a tela não edita e omite o teto não definido (0.2433ms)
+  TypeError: P.aparelhoPoliticaParaPublicar is not a function
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:138:22)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+
+test at test\ui-pure-divergencias.test.js:148:1
+✖ item 18: a linha do navegador tem classe própria, para o estreito mostrar pareado e usado (0.2993ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /class="sync-linha apar-sessao"/. Input:
+  
+  '<div class="sync-sub-head">Navegadores pareados com este aparelho</div>\n' +
+    '  <div class="card sync-lista"><div class="sync-linha"><span class="sync-nome">Chrome</span><span class="sync-fraco">pareado hoje 12:00</span><span class="sync-fraco">usado hoje 12:00</span><button class="btn sm ghost" data-apar-revogar-sessao="abc">Revogar</button></div>\n' +
+    '    <p class="apar-nota">Revogar o navegador que você está usando leva direto ao pareamento. Para revogar todos de uma vez, no terminal: <code>node tools/farol-parear.js --revogar-todas</code>.</p>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:150:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="sync-sub-head">Navegadores pareados com este aparelho</div>\n  <div class="card sync-lista"><div class="sync-linha"><span class="sync-nome">Chrome</span><span class="sync-fraco">pareado hoje 12:00</span><span class="sync-fraco">usado hoje 12:00</span><button class="btn sm ghost" data-apar-revogar-sessao="abc">Revogar</button></div>\n    <p class="apar-nota">Revogar o navegador que você está usando leva direto ao pareamento. Para revogar todos de uma vez, no terminal: <code>node tools/farol-parear.js --revogar-todas</code>.</p>\n  </div>',
+    expected: /class="sync-linha apar-sessao"/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:157:1
+✖ item 8: trava viva no banco é "limpando", com o prazo, e sem botão de limpar (0.3099ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /sync-chip warn">limpando</. Input:
+  
+  '<div class="sync-sub-head">Limpeza e revogação</div>\n' +
+    '  <div class="apar-duo">\n' +
+    '    <div class="card apar-corpo">\n' +
+    '      <div class="apar-titulo"><span class="set-title">Chave de limpeza</span><span class="sync-chip warn">ligada</span></div>\n' +
+    '      <span class="set-desc">A limpeza está liberada. Ela apaga o conteúdo sincronizado das categorias alcançáveis, em todos os aparelhos, e não tem volta.</span>\n' +
+    '      <div class="row-actions"><button class="btn sm ghost" id="aparDesligarLimpeza">Desligar a chave</button><button class="btn sm danger-ghost" id="aparLimpar">Limpar com a senha…</button></div>\n' +
+    '      <span class="sync-dica">Nunca apagados pelo app: chaveiro, posses, recibos, rodadas do dia e o controle do conjunto.</span>\n' +
+    '    </div>\n' +
+    '    <div class="card apar-corpo">\n' +
+    '      <span class="set-title">Revogar o conjunto</span>\n' +
+    '      <span class="set-desc">Corta todos os acessos anteriores a agora e obriga cada aparelho a entrar de novo. Não cancela sessão em andamento em outro aparelho, não apaga o que eles já receberam e não depõe o admin.</span>\n' +
+    '      <div class="row-actions"><button class="btn sm danger-ghost" id="aparRevogar">Revogar com a senha…</button></div>\n' +
+    '    </div>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:160:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="sync-sub-head">Limpeza e revogação</div>\n  <div class="apar-duo">\n    <div class="card apar-corpo">\n      <div class="apar-titulo"><span class="set-title">Chave de limpeza</span><span class="sync-chip warn">ligada</span></div>\n      <span class="set-desc">A limpeza está liberada. Ela apaga o conteúdo sincronizado das categorias alcançáveis, em todos os aparelhos, e não tem volta.</span>\n      <div class="row-actions"><button class="btn sm ghost" id="aparDesligarLimpeza">Desligar a chave</button><button class="btn sm danger-ghost" id="aparLimpar">Limpar com a senha…</button></div>\n      <span class="sync-dica">Nunca apagados pelo app: chaveiro, posses, recibos, rodadas do dia e o controle do conjunto.</span>\n    </div>\n    <div class="card apar-corpo">\n      <span class="set-title">Revogar o conjunto</span>\n      <span class="set-desc">Corta todos os acessos anteriores a agora e obriga cada aparelho a entrar de novo. Não cancela sessão em andamento em outro aparelho, não apaga o que eles já receberam e não depõe o admin.</span>\n      <div class="row-actions"><button class="btn sm danger-ghost" id="aparRevogar">Revogar com a senha…</button></div>\n    </div>\n  </div>',
+    expected: /sync-chip warn">limpando</,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:169:1
+✖ item 9: as categorias e as nunca apagadas vêm do engine, com rótulo, e o desconhecido sai como está (0.2082ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Panorama/. Input:
+  
+  '<div class="sync-sub-head">Limpeza e revogação</div>\n' +
+    '  <div class="apar-duo">\n' +
+    '    <div class="card apar-corpo">\n' +
+    '      <div class="apar-titulo"><span class="set-title">Chave de limpeza</span><span class="sync-chip warn">ligada</span></div>\n' +
+    '      <span class="set-desc">A limpeza está liberada. Ela apaga o conteúdo sincronizado das categorias alcançáveis, em todos os aparelhos, e não tem volta.</span>\n' +
+    '      <div class="row-actions"><button class="btn sm ghost" id="aparDesligarLimpeza">Desligar a chave</button><button class="btn sm danger-ghost" id="aparLimpar">Limpar com a senha…</button></div>\n' +
+    '      <span class="sync-dica">Nunca apagados pelo app: chaveiro, posses, recibos, rodadas do dia e o controle do conjunto.</span>\n' +
+    '    </div>\n' +
+    '    <div class="card apar-corpo">\n' +
+    '      <span class="set-title">Revogar o conjunto</span>\n' +
+    '      <span class="set-desc">Corta todos os acessos anteriores a agora e obriga cada aparelho a entrar de novo. Não cancela sessão em andamento em outro aparelho, não apaga o que eles já receberam e não depõe o admin.</span>\n' +
+    '      <div class="row-actions"><button class="btn sm danger-ghost" id="aparRevogar">Revogar com a senha…</button></div>\n' +
+    '    </div>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:171:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="sync-sub-head">Limpeza e revogação</div>\n  <div class="apar-duo">\n    <div class="card apar-corpo">\n      <div class="apar-titulo"><span class="set-title">Chave de limpeza</span><span class="sync-chip warn">ligada</span></div>\n      <span class="set-desc">A limpeza está liberada. Ela apaga o conteúdo sincronizado das categorias alcançáveis, em todos os aparelhos, e não tem volta.</span>\n      <div class="row-actions"><button class="btn sm ghost" id="aparDesligarLimpeza">Desligar a chave</button><button class="btn sm danger-ghost" id="aparLimpar">Limpar com a senha…</button></div>\n      <span class="sync-dica">Nunca apagados pelo app: chaveiro, posses, recibos, rodadas do dia e o controle do conjunto.</span>\n    </div>\n    <div class="card apar-corpo">\n      <span class="set-title">Revogar o conjunto</span>\n      <span class="set-desc">Corta todos os acessos anteriores a agora e obriga cada aparelho a entrar de novo. Não cancela sessão em andamento em outro aparelho, não apaga o que eles já receberam e não depõe o admin.</span>\n      <div class="row-actions"><button class="btn sm danger-ghost" id="aparRevogar">Revogar com a senha…</button></div>\n    </div>\n  </div>',
+    expected: /Panorama/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:181:1
+✖ item 9: o resultado da limpeza nomeia o que falhou, e falha parcial não é sucesso limpo (0.101ms)
+  TypeError: P.aparelhosResultadoDaLimpeza is not a function
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:182:18)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+
+test at test\ui-pure-divergencias.test.js:198:1
+✖ item 10: o cartão de revogar separa o corte de acesso do consentimento deste aparelho (0.6476ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /não retira o consentimento deste aparelho/. Input:
+  
+  '<div class="sync-sub-head">Limpeza e revogação</div>\n' +
+    '  <div class="apar-duo">\n' +
+    '    <div class="card apar-corpo">\n' +
+    '      <div class="apar-titulo"><span class="set-title">Chave de limpeza</span><span class="sync-chip mute">desligada</span></div>\n' +
+    '      <span class="set-desc">A limpeza de dados sincronizados está desligada. Ligar é ato do admin, e a chave fica registrada no banco.</span>\n' +
+    '      \n' +
+    '      <span class="sync-dica">Nunca apagados pelo app: chaveiro, posses, recibos, rodadas do dia e o controle do conjunto.</span>\n' +
+    '    </div>\n' +
+    '    <div class="card apar-corpo">\n' +
+    '      <span class="set-title">Revogar o conjunto</span>\n' +
+    '      <span class="set-desc">Corta todos os acessos anteriores a agora e obriga cada aparelho a entrar de novo. Não cancela sessão em andamento em outro aparelho, não apaga o que eles já receberam e não depõe o admin.</span>\n' +
+    '      <div class="row-actions"><button class="btn sm danger-ghost" id="aparRevogar">Revogar com a senha…</button></div>\n' +
+    '    </div>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:200:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="sync-sub-head">Limpeza e revogação</div>\n  <div class="apar-duo">\n    <div class="card apar-corpo">\n      <div class="apar-titulo"><span class="set-title">Chave de limpeza</span><span class="sync-chip mute">desligada</span></div>\n      <span class="set-desc">A limpeza de dados sincronizados está desligada. Ligar é ato do admin, e a chave fica registrada no banco.</span>\n      \n      <span class="sync-dica">Nunca apagados pelo app: chaveiro, posses, recibos, rodadas do dia e o controle do conjunto.</span>\n    </div>\n    <div class="card apar-corpo">\n      <span class="set-title">Revogar o conjunto</span>\n      <span class="set-desc">Corta todos os acessos anteriores a agora e obriga cada aparelho a entrar de novo. Não cancela sessão em andamento em outro aparelho, não apaga o que eles já receberam e não depõe o admin.</span>\n      <div class="row-actions"><button class="btn sm danger-ghost" id="aparRevogar">Revogar com a senha…</button></div>\n    </div>\n  </div>',
+    expected: /não retira o consentimento deste aparelho/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:206:1
+✖ item 16: Aparelhos repete o cartão do que não está valendo, marcado para o estreito (0.3847ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /<div class="apar-so-estreito"><div class="card cap-card">/. Input:
+  
+  '<div class="card sync-card off">\n' +
+    '    <div class="sync-topo"><span class="sync-titulo">Administração</span><span class="sync-chip mute">sem admin</span><span class="sync-espaco"></span></div>\n' +
+    '    <div class="apar-corpo">\n' +
+    '      <span class="set-desc">Ninguém administra este conjunto ainda. Sem admin, cada aparelho vale pela própria configuração: nada é pausado, limitado ou agrupado de fora.</span>\n' +
+    '      <div class="apar-acao">\n' +
+    '    <span class="sync-campo"><label for="aparSenhaAdmin">Senha da sincronização</label><input id="aparSenhaAdmin" class="sync-input" type="password" placeholder="senha da sincronização" spellcheck="false" autocomplete="off"></span>\n' +
+    '    <button class="btn sm primary" id="aparTornarAdmin">Tornar este aparelho admin</button>\n' +
+    '    <span class="sync-dica">Isso cria a geração 1. O admin anterior perde a autoridade, e a senha é usada só agora, sem ser guardada.</span>\n' +
+    '  </div>\n' +
+    '    </div>\n' +
+    '  </div>\n' +
+    '    \n' +
+    '    <div class="sync-sub-head">Aparelhos da conta</div>\n' +
+    '    <div class="card sync-lista">\n' +
+    '    <div class="apar-linha apar-head"><span>aparelho</span><span>sistema</span><span>versão</span><span>visto por último</span><span></span></div>\n' +
+    '    <div class="apar-linha"><span class="sync-nome">Notebook de teste<span class="sync-chip mute">este</span></span><span class="sync-fraco">Windows</span><span class="sync-fraco">v2.60.0</span><span class="sync-fraco">hoje 12:00</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dEu">Renomear</button><button class="btn sm ghost" data-apar-aposentar="dEu">Aposentar</button></span></div>\n' +
+    '    \n' +
+    '  </div>\n' +
+    '    \n' +
+    '    <div class="card set-list">\n' +
+    '    <label class="set-row" id="sys-row-setSyncAceitarAdmin">\n' +
+    '      <span class="set-txt"><span class="set-title">Aceitar políticas e comandos do admin</span><span class="set-desc">Sem isto, este aparelho ignora pausa, teto de paralelismo, grupo de consumo e comandos vindos do admin. Retirar vale na hora, e a última política aceita é esquecida junto.</span></span>\n' +
+    '      <span class="set-ctl"><input type="checkbox" id="setSyncAceitarAdmin"><span class="switch"></span></span>\n' +
+    '    </label>\n' +
+    '  </div>\n' +
+    '    <div class="sync-sub-head">Navegadores pareados com este aparelho</div>\n' +
+    '  <div class="card sync-lista"><p class="sync-vago sync-vazio">A API local deste aparelho não exige credencial, então não há navegador pareado. A exigência é configurada fora desta tela.</p>\n' +
+    '    <p class="apar-nota">Revogar o navegador que você está usando leva direto ao pareamento. Para revogar todos de uma vez, no terminal: <code>node tools/farol-parear.js --revogar-todas</code>.</p>\n' +
+    '  </div>\n' +
+    '    <div class="sync-sub-head">Limpeza e revogação</div>\n' +
+    '  <div class="apar-duo">\n' +
+    '    <div class="card apar-corpo">\n' +
+    '      <div class="apar-titulo"><span class="set-title">Chave de limpeza</span><span class="sync-chip mute">desligada</span></div>\n' +
+    '      <span class="set-desc">A limpeza de dados sincronizados está desligada. Ligar é ato do admin, e a chave fica registrada no banco.</span>\n' +
+    '      \n' +
+    '      <span class="sync-dica">Nunca apagados pelo app: chaveiro, posses, recibos, rodadas do dia e o controle do conjunto.</span>\n' +
+    '    </div>\n' +
+    '    <div class="card apar-corpo">\n' +
+    '      <span class="set-title">Revogar o conjunto</span>\n' +
+    '      <span class="set-desc">Corta todos os acessos anteriores a agora e obriga cada aparelho a entrar de novo. Não cancela sessão em andamento em outro aparelho, não apaga o que eles já receberam e não depõe o admin.</span>\n' +
+    '      <div class="row-actions"><button class="btn sm danger-ghost" id="aparRevogar">Revogar com a senha…</button></div>\n' +
+    '    </div>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:209:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="card sync-card off">\n    <div class="sync-topo"><span class="sync-titulo">Administração</span><span class="sync-chip mute">sem admin</span><span class="sync-espaco"></span></div>\n    <div class="apar-corpo">\n      <span class="set-desc">Ninguém administra este conjunto ainda. Sem admin, cada aparelho vale pela própria configuração: nada é pausado, limitado ou agrupado de fora.</span>\n      <div class="apar-acao">\n    <span class="sync-campo"><label for="aparSenhaAdmin">Senha da sincronização</label><input id="aparSenhaAdmin" class="sync-input" type="password" placeholder="senha da sincronização" spellcheck="false" autocomplete="off"></span>\n    <button class="btn sm primary" id="aparTornarAdmin">Tornar este aparelho admin</button>\n    <span class="sync-dica">Isso cria a geração 1. O admin anterior perde a autoridade, e a senha é usada só agora, sem ser guardada.</span>\n  </div>\n    </div>\n  </div>\n    \n    <div class="sync-sub-head">Aparelhos da conta</div>\n    <div class="card sync-lista">\n    <div class="apar-linha apar-head"><span>aparelho</span><span>sistema</span><span>versão</span><span>visto por último</span><span></span></div>\n    <div class="apar-linha"><span class="sync-nome">Notebook de teste<span class="sync-chip mute">este</span></span><span class="sync-fraco">Windows</span><span class="sync-fraco">v2.60.0</span><span class="sync-fraco">hoje 12:00</span><span class="row-actions"><button class="btn sm ghost" data-apar-renomear="dEu">Renomear</button><button class="btn sm ghost" data-apar-aposentar="dEu">Aposentar</button></span></div>\n    \n  </div>\n    \n    <div class="card set-list">\n    <label class="set-row" id="sys-row-setSyncAceitarAdmin">\n      <span class="set-txt"><span class="set-title">Aceitar políticas e comandos do admin</span><span class="set-desc">Sem isto, este aparelho ignora pausa, teto de paralelismo, grupo de consumo e comandos vindos do admin. Retirar vale na hora, e a última política aceita é esquecida junto.</span></span>\n      <span class="set-ctl"><input type="checkbox" id="setSyncAceitarAdmin"><span class="switch"></span></span>\n    </label>\n  </div>\n    <div class="sync-sub-head">Navegadores pareados com este aparelho</div>\n  <div class="card sync-lista"><p class="sync-vago sync-vazio">A API local deste aparelho não exige credencial, então não há navegador pareado. A exigência é configurada fora desta tela.</p>\n    <p class="apar-nota">Revogar o navegador que você está usando leva direto ao pareamento. Para revogar todos de uma vez, no terminal: <code>node tools/farol-parear.js --revogar-todas</code>.</p>\n  </div>\n    <div class="sync-sub-head">Limpeza e revogação</div>\n  <div class="apar-duo">\n    <div class="card apar-corpo">\n      <div class="apar-titulo"><span class="set-title">Chave de limpeza</span><span class="sync-chip mute">desligada</span></div>\n      <span class="set-desc">A limpeza de dados sincronizados está desligada. Ligar é ato do admin, e a chave fica registrada no banco.</span>\n      \n      <span class="sync-dica">Nunca apagados pelo app: chaveiro, posses, recibos, rodadas do dia e o controle do conjunto.</span>\n    </div>\n    <div class="card apar-corpo">\n      <span class="set-title">Revogar o conjunto</span>\n      <span class="set-desc">Corta todos os acessos anteriores a agora e obriga cada aparelho a entrar de novo. Não cancela sessão em andamento em outro aparelho, não apaga o que eles já receberam e não depõe o admin.</span>\n      <div class="row-actions"><button class="btn sm danger-ghost" id="aparRevogar">Revogar com a senha…</button></div>\n    </div>\n  </div>',
+    expected: /<div class="apar-so-estreito"><div class="card cap-card">/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:217:1
+✖ item 15: a lista de aparelhos da Sincronização leva à seção que administra (0.7603ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /data-goto="sys:devices"[^>]*role="button"[^>]*tabindex="0"[^>]*>Administrar em Aparelhos</. Input:
+  
+  '<div class="card set-list">\n' +
+    '    <label class="set-row" id="sys-row-setSyncEnabled">\n' +
+    '      <span class="set-txt"><span class="set-title">Sincronizar entre dispositivos</span><span class="set-desc">Chave geral. Desligada, este Farol não fala com o Firebase: nenhuma conexão, nenhum envio, nenhuma consulta.</span></span>\n' +
+    '      <span class="set-ctl"><input type="checkbox" id="setSyncEnabled" checked><span class="switch"></span></span>\n' +
+    '    </label>\n' +
+    '    <label class="set-row" id="sys-row-setSyncCoordination">\n' +
+    '      <span class="set-txt"><span class="set-title">Evitar análises simultâneas</span><span class="set-desc">Antes de abrir uma revisão, autoanálise ou classificação de pushback automática, confere se outro aparelho seu já cuidou daquele PR neste commit. Se já cuidou, nenhuma sessão nasce aqui.</span></span>\n' +
+    '      <span class="set-ctl"><input type="checkbox" id="setSyncCoordination"><span class="switch"></span></span>\n' +
+    '    </label>\n' +
+    '    <label class="set-row" id="sys-row-setSyncConsolidation">\n' +
+    '      <span class="set-txt"><span class="set-title">Consolidar histórico de consumo</span><span class="set-desc">Envia tokens, custo e desfecho de cada sessão, sem prompt, diff ou relatório, pra aba Consumo mostrar todos os aparelhos juntos. O histórico deste aparelho continua aqui do jeito que está.</span></span>\n' +
+    '      <span class="set-ctl"><input type="checkbox" id="setSyncConsolidation"><span class="switch"></span></span>\n' +
+    '    </label>\n' +
+    '    <label class="set-row" id="sys-row-setSyncShared">\n' +
+    '      <span class="set-txt"><span class="set-title">Compartilhar a visão entre aparelhos</span><span class="set-desc">Andamento, pendências, revisões, Panorama e Meus PRs aparecem em todos os seus aparelhos, cifrados com a chave do conjunto.</span></span>\n' +
+    '      <span class="set-ctl"><input type="checkbox" id="setSyncShared"><span class="switch"></span></span>\n' +
+    '    </label>\n' +
+    '    <label class="set-row off" id="sys-row-setSyncDistribution">\n' +
+    '      <span class="set-txt"><span class="set-title">Distribuir a fila entre aparelhos</span><span class="set-desc">O aparelho admin escolhe onde cada revisão automática roda. Depende de compartilhar e de evitar análises simultâneas.</span></span>\n' +
+    '      <span class="set-ctl"><input type="checkbox" id="setSyncDistribution" disabled><span class="switch"></span></span>\n' +
+    '    </label>\n' +
+    '  </div>\n' +
+    '    \n' +
+    '    <div class="sync-sub-head">Conexão</div>\n' +
+    '    <div class="card sync-card off">\n' +
+    '    <div class="sync-topo"><span class="sync-titulo">Firebase pessoal</span><span class="sync-espaco"></span><span class="sync-chip mute">desligada</span></div>\n' +
+    '    <div class="sync-corpo">\n' +
+    '    <div class="sync-campo">\n' +
+    '    <label for="syncApiKey">Chave web do projeto</label>\n' +
+    '    <input id="syncApiKey" type="text" class="sync-input" value="" spellcheck="false" autocomplete="off">\n' +
+    '    <span class="sync-dica">em Configurações do projeto, no Firebase</span>\n' +
+    '  </div>\n' +
+    '    <div class="sync-campo">\n' +
+    '    <label for="syncDatabaseUrl">URL do banco</label>\n' +
+    '    <input id="syncDatabaseUrl" type="text" class="sync-input" value="" spellcheck="false" autocomplete="off">\n' +
+    '    <span class="sync-dica">Realtime Database</span>\n' +
+    '  </div>\n' +
+    '    <div class="sync-campo">\n' +
+    '    <label for="syncDeviceName">Nome deste aparelho</label>\n' +
+    '    <input id="syncDeviceName" type="text" class="sync-input" value="" spellcheck="false" autocomplete="off">\n' +
+    '    <span class="sync-dica">é como os outros aparelhos o chamam</span>\n' +
+    '  </div>\n' +
+    '  </div>\n' +
+    '    \n' +
+    '    \n' +
+    '    <div class="sync-conta">\n' +
+    '    <div class="sync-conta-topo warn"><span class="sync-conta-titulo">Login no Firebase</span><span class="sync-conta-onde">o mesmo usuário em todos os aparelhos</span></div>\n' +
+    '    <div class="sync-conta-corpo">\n' +
+    '      <span class="sync-campo"><label for="syncEmail">E-mail</label><input id="syncEmail" class="sync-input" type="email" value="" placeholder="voce@exemplo.com" spellcheck="false" autocomplete="off"></span>\n' +
+    '      <span class="sync-campo"><label for="syncSenha">Senha</label><span class="sync-senha"><input id="syncSenha" class="sync-input" type="password" value="" placeholder="senha do Firebase" spellcheck="false" autocomplete="off"><button type="button" class="sync-olho" id="syncSenhaOlho" aria-pressed="false" aria-label="Mostrar senha" title="Mostrar senha"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 12c0-3 4-7.3 9-7.3s9 4.3 9 7.3-4 7.3-9 7.3S3 15 3 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg></button></span></span>\n' +
+    '      <button class="btn sm primary" id="syncLogin">Entrar</button>\n' +
+    '    </div>\n' +
+    '    \n' +
+    '    <p class="sync-conta-nota">Crie o usuário uma vez no console do Firebase (Authentication, provedor e-mail e senha) e entre com ele em cada aparelho. A senha é usada só agora e não é gravada.</p>\n' +
+    '  </div>\n' +
+    '    <div class="sync-rodape">\n' +
+    '      <button class="btn sm" id="syncTest">Testar conexão</button>\n' +
+    '      <span class="sync-teste" id="syncTestOut"></span>\n' +
+    '      \n' +
+    '    </div>\n' +
+    '  </div>\n' +
+    '    <div class="sync-sub-head">Aparelhos</div>\n' +
+    '    <div class="card sync-lista">\n' +
+    '    <div class="sync-linha sync-head"><span>aparelho</span><span>versão</span><span>sistema</span><span>visto por último</span></div>\n' +
+    '    <div class="sync-linha"><span class="sync-nome">Notebook de teste <span class="sync-chip mute">este</span></span><span class="sync-fraco">v2.60.0</span><span class="sync-fraco">Windows</span><span class="sync-fraco">hoje 12:00</span></div>\n' +
+    '  </div>\n' +
+    '    '
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:219:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="card set-list">\n    <label class="set-row" id="sys-row-setSyncEnabled">\n      <span class="set-txt"><span class="set-title">Sincronizar entre dispositivos</span><span class="set-desc">Chave geral. Desligada, este Farol não fala com o Firebase: nenhuma conexão, nenhum envio, nenhuma consulta.</span></span>\n      <span class="set-ctl"><input type="checkbox" id="setSyncEnabled" checked><span class="switch"></span></span>\n    </label>\n    <label class="set-row" id="sys-row-setSyncCoordination">\n      <span class="set-txt"><span class="set-title">Evitar análises simultâneas</span><span class="set-desc">Antes de abrir uma revisão, autoanálise ou classificação de pushback automática, confere se outro aparelho seu já cuidou daquele PR neste commit. Se já cuidou, nenhuma sessão nasce aqui.</span></span>\n      <span class="set-ctl"><input type="checkbox" id="setSyncCoordination"><span class="switch"></span></span>\n    </label>\n    <label class="set-row" id="sys-row-setSyncConsolidation">\n      <span class="set-txt"><span class="set-title">Consolidar histórico de consumo</span><span class="set-desc">Envia tokens, custo e desfecho de cada sessão, sem prompt, diff ou relatório, pra aba Consumo mostrar todos os aparelhos juntos. O histórico deste aparelho continua aqui do jeito que está.</span></span>\n      <span class="set-ctl"><input type="checkbox" id="setSyncConsolidation"><span class="switch"></span></span>\n    </label>\n    <label class="set-row" id="sys-row-setSyncShared">\n      <span class="set-txt"><span class="set-title">Compartilhar a visão entre aparelhos</span><span class="set-desc">Andamento, pendências, revisões, Panorama e Meus PRs aparecem em todos os seus aparelhos, cifrados com a chave do conjunto.</span></span>\n      <span class="set-ctl"><input type="checkbox" id="setSyncShared"><span class="switch"></span></span>\n    </label>\n    <label class="set-row off" id="sys-row-setSyncDistribution">\n      <span class="set-txt"><span class="set-title">Distribuir a fila entre aparelhos</span><span class="set-desc">O aparelho admin escolhe onde cada revisão automática roda. Depende de compartilhar e de evitar análises simultâneas.</span></span>\n      <span class="set-ctl"><input type="checkbox" id="setSyncDistribution" disabled><span class="switch"></span></span>\n    </label>\n  </div>\n    \n    <div class="sync-sub-head">Conexão</div>\n    <div class="card sync-card off">\n    <div class="sync-topo"><span class="sync-titulo">Firebase pessoal</span><span class="sync-espaco"></span><span class="sync-chip mute">desligada</span></div>\n    <div class="sync-corpo">\n    <div class="sync-campo">\n    <label for="syncApiKey">Chave web do projeto</label>\n    <input id="syncApiKey" type="text" class="sync-input" value="" spellcheck="false" autocomplete="off">\n    <span class="sync-dica">em Configurações do projeto, no Firebase</span>\n  </div>\n    <div class="sync-campo">\n    <label for="syncDatabaseUrl">URL do banco</label>\n    <input id="syncDatabaseUrl" type="text" class="sync-input" value="" spellcheck="false" autocomplete="off">\n    <span class="sync-dica">Realtime Database</span>\n  </div>\n    <div class="sync-campo">\n    <label for="syncDeviceName">Nome deste aparelho</label>\n    <input id="syncDeviceName" type="text" class="sync-input" value="" spellcheck="false" autocomplete="off">\n    <span class="sync-dica">é como os outros aparelhos o chamam</span>\n  </div>\n  </div>\n    \n    \n    <div class="sync-conta">\n    <div class="sync-conta-topo warn"><span class="sync-conta-titulo">Login no Firebase</span><span class="sync-conta-onde">o mesmo usuário em todos os aparelhos</span></div>\n    <div class="sync-conta-corpo">\n      <span class="sync-campo"><label for="syncEmail">E-mail</label><input id="syncEmail" class="sync-input" type="email" value="" placeholder="voce@exemplo.com" spellcheck="false" autocomplete="off"></span>\n      <span class="sync-campo"><label for="syncSenha">Senha</label><span class="sync-senha"><input id="syncSenha" class="sync-input" type="password" value="" placeholder="senha do Firebase" spellcheck="false" autocomplete="off"><button type="button" class="sync-olho" id="syncSenhaOlho" aria-pressed="false" aria-label="Mostrar senha" title="Mostrar senha"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 12c0-3 4-7.3 9-7.3s9 4.3 9 7.3-4 7.3-9 7.3S3 15 3 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg></button></span></span>\n      <button class="btn sm primary" id="syncLogin">Entrar</button>\n    </div>\n    \n    <p class="sync-conta-nota">Crie o usuário uma vez no console do Firebase (Authentication, provedor e-mail e senha) e entre com ele em cada aparelho. A senha é usada só agora e não é gravada.</p>\n  </div>\n    <div class="sync-rodape">\n      <button class="btn sm" id="syncTest">Testar conexão</button>\n      <span class="sync-teste" id="syncTestOut"></span>\n      \n    </div>\n  </div>\n    <div class="sync-sub-head">Aparelhos</div>\n    <div class="card sync-lista">\n    <div class="sync-linha sync-head"><span>aparelho</span><span>versão</span><span>sistema</span><span>visto por último</span></div>\n    <div class="sync-linha"><span class="sync-nome">Notebook de teste <span class="sync-chip mute">este</span></span><span class="sync-fraco">v2.60.0</span><span class="sync-fraco">Windows</span><span class="sync-fraco">hoje 12:00</span></div>\n  </div>\n    ',
+    expected: /data-goto="sys:devices"[^>]*role="button"[^>]*tabindex="0"[^>]*>Administrar em Aparelhos</,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:231:1
+✖ item 11: não verificável diz o motivo com o nome do aparelho, e leva a Aparelhos (0.5271ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /o Desktop antigo não enviou dados do período/. Input:
+  
+  '<div class="card sync-card bad grupo-cartao">\n' +
+    '    <div class="sync-topo"><span class="sync-titulo">Grupo do laboratório</span><span class="sync-chip ok">ativo</span><span class="sync-chip bad">não verificável</span><span class="sync-espaco"></span><span class="sync-fraco">mensal</span></div>\n' +
+    '    <div class="apar-corpo">\n' +
+    '      <span class="set-desc">O Farol não consegue somar o gasto do grupo com segurança agora. Enquanto isso, as revisões dos perfis deste grupo esperam, inclusive as de clique, sem estacionar. Voltam sozinhas quando a soma fechar.</span>\n' +
+    '      <div class="grupo-linha"><span class="grupo-rotulo">Gasto no período</span><span class="grupo-gasto">US$ 12.00 de US$ 30.00</span></div>\n' +
+    '      \n' +
+    '      <div class="grupo-perfis"><span class="grupo-rotulo">Perfis controlados</span><ul><li class="grupo-vago">nenhum perfil controlado vinculado</li></ul></div>\n' +
+    '      \n' +
+    '    </div>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:235:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="card sync-card bad grupo-cartao">\n    <div class="sync-topo"><span class="sync-titulo">Grupo do laboratório</span><span class="sync-chip ok">ativo</span><span class="sync-chip bad">não verificável</span><span class="sync-espaco"></span><span class="sync-fraco">mensal</span></div>\n    <div class="apar-corpo">\n      <span class="set-desc">O Farol não consegue somar o gasto do grupo com segurança agora. Enquanto isso, as revisões dos perfis deste grupo esperam, inclusive as de clique, sem estacionar. Voltam sozinhas quando a soma fechar.</span>\n      <div class="grupo-linha"><span class="grupo-rotulo">Gasto no período</span><span class="grupo-gasto">US$ 12.00 de US$ 30.00</span></div>\n      \n      <div class="grupo-perfis"><span class="grupo-rotulo">Perfis controlados</span><ul><li class="grupo-vago">nenhum perfil controlado vinculado</li></ul></div>\n      \n    </div>\n  </div>',
+    expected: /o Desktop antigo não enviou dados do período/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:243:1
+✖ item 11: verificado mostra a hora em que a soma fechou (0.1485ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /soma fechada às 11:58/. Input:
+  
+  '<div class="card sync-card  grupo-cartao">\n' +
+    '    <div class="sync-topo"><span class="sync-titulo">Grupo do laboratório</span><span class="sync-chip ok">ativo</span><span class="sync-chip ok">verificado</span><span class="sync-espaco"></span><span class="sync-fraco">mensal</span></div>\n' +
+    '    <div class="apar-corpo">\n' +
+    '      <span class="set-desc">O teto vale nos perfis controlados deste grupo, em todos os aparelhos que aceitam admin.</span>\n' +
+    '      <div class="grupo-linha"><span class="grupo-rotulo">Gasto no período</span><span class="grupo-gasto">US$ 12.00 de US$ 30.00</span></div>\n' +
+    '      \n' +
+    '      <div class="grupo-perfis"><span class="grupo-rotulo">Perfis controlados</span><ul><li class="grupo-vago">nenhum perfil controlado vinculado</li></ul></div>\n' +
+    '      \n' +
+    '    </div>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:246:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="card sync-card  grupo-cartao">\n    <div class="sync-topo"><span class="sync-titulo">Grupo do laboratório</span><span class="sync-chip ok">ativo</span><span class="sync-chip ok">verificado</span><span class="sync-espaco"></span><span class="sync-fraco">mensal</span></div>\n    <div class="apar-corpo">\n      <span class="set-desc">O teto vale nos perfis controlados deste grupo, em todos os aparelhos que aceitam admin.</span>\n      <div class="grupo-linha"><span class="grupo-rotulo">Gasto no período</span><span class="grupo-gasto">US$ 12.00 de US$ 30.00</span></div>\n      \n      <div class="grupo-perfis"><span class="grupo-rotulo">Perfis controlados</span><ul><li class="grupo-vago">nenhum perfil controlado vinculado</li></ul></div>\n      \n    </div>\n  </div>',
+    expected: /soma fechada às 11:58/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:249:1
+✖ item 11: teto atingido ganha selo, texto de teto macio e a projeção separada do gasto (0.1801ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /sync-chip bad">teto atingido</. Input:
+  
+  '<div class="card sync-card  grupo-cartao">\n' +
+    '    <div class="sync-topo"><span class="sync-titulo">Grupo do laboratório</span><span class="sync-chip ok">ativo</span><span class="sync-chip ok">verificado</span><span class="sync-espaco"></span><span class="sync-fraco">mensal</span></div>\n' +
+    '    <div class="apar-corpo">\n' +
+    '      <span class="set-desc">O teto vale nos perfis controlados deste grupo, em todos os aparelhos que aceitam admin.</span>\n' +
+    '      <div class="grupo-linha"><span class="grupo-rotulo">Gasto no período</span><span class="grupo-gasto">US$ 30.40 de US$ 30.00</span></div>\n' +
+    '      \n' +
+    '      <div class="grupo-perfis"><span class="grupo-rotulo">Perfis controlados</span><ul><li class="grupo-vago">nenhum perfil controlado vinculado</li></ul></div>\n' +
+    '      \n' +
+    '    </div>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:251:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="card sync-card  grupo-cartao">\n    <div class="sync-topo"><span class="sync-titulo">Grupo do laboratório</span><span class="sync-chip ok">ativo</span><span class="sync-chip ok">verificado</span><span class="sync-espaco"></span><span class="sync-fraco">mensal</span></div>\n    <div class="apar-corpo">\n      <span class="set-desc">O teto vale nos perfis controlados deste grupo, em todos os aparelhos que aceitam admin.</span>\n      <div class="grupo-linha"><span class="grupo-rotulo">Gasto no período</span><span class="grupo-gasto">US$ 30.40 de US$ 30.00</span></div>\n      \n      <div class="grupo-perfis"><span class="grupo-rotulo">Perfis controlados</span><ul><li class="grupo-vago">nenhum perfil controlado vinculado</li></ul></div>\n      \n    </div>\n  </div>',
+    expected: /sync-chip bad">teto atingido</,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:270:1
+✖ item 12: o vínculo vem do snapshot, inclusive para grupo que não chegou aqui (0.4511ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Chave de laboratório[\s\S]*?no Grupo do laboratório[\s\S]*?data-grupo-desvincular="pLab"/. Input:
+  
+  '<div class="sync-sub-head">Perfis e vínculo</div>\n' +
+    '  <div class="card sync-lista"><div class="grupo-perfil"><span class="sync-nome">Chave de laboratório <span class="sync-fraco">api</span></span><span><span class="sync-chip mute">sem grupo conhecido</span></span><span class="grupo-vinc"><select class="sync-input grupo-vinc-sel" data-perfil="pLab" aria-label="Grupo para vincular"><option value="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">Grupo do laboratório</option></select><button class="btn sm" data-grupo-vincular="pLab">Vincular</button></span></div><div class="grupo-perfil"><span class="sync-nome">Pessoal <span class="sync-fraco">assinatura</span></span><span><span class="sync-chip mute">sem grupo conhecido</span></span><span class="grupo-vinc"><select class="sync-input grupo-vinc-sel" data-perfil="pPessoal" aria-label="Grupo para vincular"><option value="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">Grupo do laboratório</option></select><button class="btn sm" data-grupo-vincular="pPessoal">Vincular</button></span></div><div class="grupo-perfil"><span class="sync-nome">Outro <span class="sync-fraco">openrouter</span></span><span><span class="sync-chip mute">sem grupo conhecido</span></span><span class="grupo-vinc"><select class="sync-input grupo-vinc-sel" data-perfil="pOutro" aria-label="Grupo para vincular"><option value="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">Grupo do laboratório</option></select><button class="btn sm" data-grupo-vincular="pOutro">Vincular</button></span></div>\n' +
+    '    <p class="apar-nota">Vincular é local e explícito: não mexe no banco, não transfere credencial e não autoriza nada novo. O gasto já registrado fica no grupo em que foi feito.</p>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:273:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="sync-sub-head">Perfis e vínculo</div>\n  <div class="card sync-lista"><div class="grupo-perfil"><span class="sync-nome">Chave de laboratório <span class="sync-fraco">api</span></span><span><span class="sync-chip mute">sem grupo conhecido</span></span><span class="grupo-vinc"><select class="sync-input grupo-vinc-sel" data-perfil="pLab" aria-label="Grupo para vincular"><option value="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">Grupo do laboratório</option></select><button class="btn sm" data-grupo-vincular="pLab">Vincular</button></span></div><div class="grupo-perfil"><span class="sync-nome">Pessoal <span class="sync-fraco">assinatura</span></span><span><span class="sync-chip mute">sem grupo conhecido</span></span><span class="grupo-vinc"><select class="sync-input grupo-vinc-sel" data-perfil="pPessoal" aria-label="Grupo para vincular"><option value="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">Grupo do laboratório</option></select><button class="btn sm" data-grupo-vincular="pPessoal">Vincular</button></span></div><div class="grupo-perfil"><span class="sync-nome">Outro <span class="sync-fraco">openrouter</span></span><span><span class="sync-chip mute">sem grupo conhecido</span></span><span class="grupo-vinc"><select class="sync-input grupo-vinc-sel" data-perfil="pOutro" aria-label="Grupo para vincular"><option value="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">Grupo do laboratório</option></select><button class="btn sm" data-grupo-vincular="pOutro">Vincular</button></span></div>\n    <p class="apar-nota">Vincular é local e explícito: não mexe no banco, não transfere credencial e não autoriza nada novo. O gasto já registrado fica no grupo em que foi feito.</p>\n  </div>',
+    expected: /Chave de laboratório[\s\S]*?no Grupo do laboratório[\s\S]*?data-grupo-desvincular="pLab"/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:279:1
+✖ item 14: sem perfil salvo, a assinatura em uso é "não identificado", com o caminho para Plano e chaves (0.1692ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /não identificado/. Input:
+  
+  '<div class="sync-sub-head">Perfis e vínculo</div>\n' +
+    '  <div class="card sync-lista"><p class="sync-vago sync-vazio">Nenhum perfil salvo em Plano e chaves.</p>\n' +
+    '    <p class="apar-nota">Vincular é local e explícito: não mexe no banco, não transfere credencial e não autoriza nada novo. O gasto já registrado fica no grupo em que foi feito.</p>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:281:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="sync-sub-head">Perfis e vínculo</div>\n  <div class="card sync-lista"><p class="sync-vago sync-vazio">Nenhum perfil salvo em Plano e chaves.</p>\n    <p class="apar-nota">Vincular é local e explícito: não mexe no banco, não transfere credencial e não autoriza nada novo. O gasto já registrado fica no grupo em que foi feito.</p>\n  </div>',
+    expected: /não identificado/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\ui-pure-divergencias.test.js:288:1
+✖ item 13: grupo publicado aqui aparece como esperando o aceite até chegar pelo snapshot (0.2666ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Grupo novo[\s\S]*?publicado na versão 1/. Input:
+  
+  '<div class="row-actions"><button class="btn sm" id="grupoNovo">Novo grupo</button></div>\n' +
+    '    \n' +
+    '    <div class="card sync-card  grupo-cartao">\n' +
+    '    <div class="sync-topo"><span class="sync-titulo">Grupo do laboratório</span><span class="sync-chip ok">ativo</span><span class="sync-chip ok">verificado</span><span class="sync-espaco"></span><span class="sync-fraco">mensal</span></div>\n' +
+    '    <div class="apar-corpo">\n' +
+    '      <span class="set-desc">O teto vale nos perfis controlados deste grupo, em todos os aparelhos que aceitam admin.</span>\n' +
+    '      <div class="grupo-linha"><span class="grupo-rotulo">Gasto no período</span><span class="grupo-gasto">US$ 12.00 de US$ 30.00</span></div>\n' +
+    '      \n' +
+    '      <div class="grupo-perfis"><span class="grupo-rotulo">Perfis controlados</span><ul><li class="grupo-vago">nenhum perfil controlado vinculado</li></ul></div>\n' +
+    '      <div class="row-actions"><button class="btn sm ghost" data-grupo-editar="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">Editar</button><button class="btn sm ghost" data-grupo-desativar="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">Desativar teto</button></div>\n' +
+    '    </div>\n' +
+    '  </div>\n' +
+    '    <div class="sync-sub-head">Perfis e vínculo</div>\n' +
+    '  <div class="card sync-lista"><p class="sync-vago sync-vazio">Nenhum perfil salvo em Plano e chaves.</p>\n' +
+    '    <p class="apar-nota">Vincular é local e explícito: não mexe no banco, não transfere credencial e não autoriza nada novo. O gasto já registrado fica no grupo em que foi feito.</p>\n' +
+    '  </div>'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a65d4f8cdef87df33/test/ui-pure-divergencias.test.js:291:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="row-actions"><button class="btn sm" id="grupoNovo">Novo grupo</button></div>\n    \n    <div class="card sync-card  grupo-cartao">\n    <div class="sync-topo"><span class="sync-titulo">Grupo do laboratório</span><span class="sync-chip ok">ativo</span><span class="sync-chip ok">verificado</span><span class="sync-espaco"></span><span class="sync-fraco">mensal</span></div>\n    <div class="apar-corpo">\n      <span class="set-desc">O teto vale nos perfis controlados deste grupo, em todos os aparelhos que aceitam admin.</span>\n      <div class="grupo-linha"><span class="grupo-rotulo">Gasto no período</span><span class="grupo-gasto">US$ 12.00 de US$ 30.00</span></div>\n      \n      <div class="grupo-perfis"><span class="grupo-rotulo">Perfis controlados</span><ul><li class="grupo-vago">nenhum perfil controlado vinculado</li></ul></div>\n      <div class="row-actions"><button class="btn sm ghost" data-grupo-editar="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">Editar</button><button class="btn sm ghost" data-grupo-desativar="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">Desativar teto</button></div>\n    </div>\n  </div>\n    <div class="sync-sub-head">Perfis e vínculo</div>\n  <div class="card sync-lista"><p class="sync-vago sync-vazio">Nenhum perfil salvo em Plano e chaves.</p>\n    <p class="apar-nota">Vincular é local e explícito: não mexe no banco, não transfere credencial e não autoriza nada novo. O gasto já registrado fica no grupo em que foi feito.</p>\n  </div>',
+    expected: /Grupo novo[\s\S]*?publicado na versão 1/,
+    operator: 'match',
+    diff: 'simple'
+  }

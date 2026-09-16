@@ -167,7 +167,9 @@ test('aparelhosLimpezaHtml: chave desligada não oferece limpar, e só o admin l
 });
 
 test('aparelhosLimpezaHtml: ligada oferece limpar com a senha, e nomeia o que nunca é apagado', () => {
-  const html = P.aparelhosLimpezaHtml({ estado: 'ligada' }, { souAdmin: true });
+  // desde a resolução das divergências (item 9) a lista das nunca apagadas vem do engine,
+  // na leitura do estado da chave, e não de um texto fixo da tela
+  const html = P.aparelhosLimpezaHtml({ estado: 'ligada', nuncaApagadas: ['keyring', 'live/control', 'leases', 'receipts', 'dailyRounds'] }, { souAdmin: true });
   assert.match(html, /id="aparLimpar"/);
   assert.match(html, /chaveiro/);
   assert.match(html, /recibos/);

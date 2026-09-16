@@ -1889,6 +1889,8 @@ class Engine extends EventEmitter {
   // contrato das telas (B2): leituras avulsas que não cabem no snapshot
   syncAvisoDaTomada(dados) { return telasMod.avisoDaTomada(this, dados); }
   syncEstadoDaLimpeza() { return telasMod.estadoDaLimpeza(this); }
+  syncLerPolitica(dados) { return telasMod.lerPolitica(this, dados); }
+  syncRecusarDesignacao() { return telasMod.recusarDesignacao(this); }
   syncVincularPerfil(dados) { return syncMod.vincularPerfil(this, dados); }
   syncMedirEnvio() { return syncMod.medirEnvio(this); }
   syncEnviarHistorico(dados) { return syncMod.enviarHistorico(this, dados); }
