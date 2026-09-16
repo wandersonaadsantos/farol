@@ -70,6 +70,8 @@
   <!-- ============ RADAR ============ -->
   <section id="tab-radar" class="tabpane active" role="tabpanel" aria-labelledby="tabbtn-radar" tabindex="0">
     <div id="identityStrip" class="identity-strip" hidden></div>
+    <!-- visão compartilhada: modo da distribuição e compartilhamento bloqueado (telas/radar-compartilhado.js) -->
+    <div id="mdFaixa" class="md-host" role="status" aria-live="polite" hidden></div>
 
     <div class="meta-line">
       <span id="metaCheck">…</span>
@@ -114,10 +116,36 @@
     <p class="section-desc">PRs em que pediram a sua revisão e que ainda esperam uma decisão.</p>
     <div id="queue" class="cards"></div>
 
+    <div id="mdCompartilhado" hidden>
+      <div class="section-head">
+        <h2>Precisa de você em todos os aparelhos <span id="mdPendCount" class="count" hidden></span></h2>
+        <span class="section-sub">agir continua sendo no aparelho dono</span>
+      </div>
+      <div id="mdPendencias" class="cards"></div>
+      <div class="section-head">
+        <h2>Em outros aparelhos</h2>
+        <span class="section-sub">atualiza a cada 10 segundos</span>
+      </div>
+      <div id="mdOperacoes" class="cards"></div>
+      <div id="mdComandosWrap" hidden>
+        <div class="section-head"><h2>Comandos enviados</h2></div>
+        <div id="mdComandos"></div>
+      </div>
+    </div>
+
     <div id="resolvedWrap" hidden>
       <div class="section-head"><h2>Revisões recentes</h2></div>
       <p class="section-desc">O que o Farol já resolveu, com o veredito e os pontos de atenção que ficaram só aqui. É onde você confirma um pushback quando o autor contesta.</p>
       <div id="resolved" class="rows"></div>
+    </div>
+
+    <div id="mdHistorico" hidden>
+      <div class="section-head"><h2>Revisões de todos os aparelhos</h2></div>
+      <div id="mdRevisoes"></div>
+      <div class="section-head"><h2>Enviar o histórico deste aparelho</h2></div>
+      <div id="mdEnvio"></div>
+      <div class="section-head"><h2>O que é só deste aparelho</h2></div>
+      <div id="mdLocal"></div>
     </div>
     </div>
 

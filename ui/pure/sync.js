@@ -26,6 +26,7 @@
 import { esc, fmtClock, fmtTok, fmtWhenDay } from './comum.js';
 import { syncChaveHtml } from './sync-chave.js';
 import { capacidadesIndisponiveisHtml } from './capacidades.js';
+import { notaDistribuicaoHtml, notaTomadaSofridaHtml } from './compartilhado.js';
 
 const SYNC_SELOS = {
   desligada: { classe: 'mute', texto: 'desligada' },
@@ -412,8 +413,7 @@ const SYNC_ESPERA_FRASE = {
 
 const SYNC_ESPERA_CLASSE = { alheio: '', indisponivel: ' warn', esgotado: ' warn' };
 
-export function prCoordNoteHtml(key, sync) {
-  const s = sync || {};
+function notaDeEsperaHtml(key, s) {
   const espera = (s.espera || {})[key];
   const lease = (s.leasesVistos || {})[key];
   if (espera && SYNC_ESPERA_FRASE[espera.reason]) {
@@ -423,4 +423,11 @@ export function prCoordNoteHtml(key, sync) {
   // sem espera registrada, o stream ainda pode saber que outro aparelho está com ele
   if (lease) return `<div class="pr-coord">${SYNC_ESPERA_FRASE.alheio(esc(lease.deviceName || 'outro aparelho'))}</div>`;
   return '';
+}
+
+// A espera da coordenação vem primeiro, como sempre veio; a espera da distribuição e a
+// tomada sofrida (visão compartilhada, ui/pure/compartilhado.js) somam depois.
+export function prCoordNoteHtml(key, sync, agora = Date.now()) {
+  const s = sync || {};
+  return `${notaDeEsperaHtml(key, s)}${notaDistribuicaoHtml(key, s, agora)}${notaTomadaSofridaHtml(key, s)}`;
 }

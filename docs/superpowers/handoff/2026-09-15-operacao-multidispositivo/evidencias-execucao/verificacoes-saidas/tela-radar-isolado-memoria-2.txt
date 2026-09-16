@@ -1,0 +1,37 @@
+✔ a ativação nasce protegida: sem a medição, o grupo ativo não barra nada (251.2533ms)
+✔ o consumo de B no mesmo grupo barra a admissão em A (186.4886ms)
+✔ abaixo do teto, nada barra (198.0867ms)
+✔ reservas vivas de três aparelhos admitindo ao mesmo tempo são somadas (191.9971ms)
+✔ a reserva local também entra na conta (190.8718ms)
+✔ evento de valor desconhecido usa a reserva e marca parcialmente estimado (212.8598ms)
+✔ lacuna deixa o orçamento não verificável e segura o automático e o clique, sem estacionar (205.5924ms)
+✔ evento inválido também deixa não verificável (189.4959ms)
+✔ outra conta, sem teto de grupo que a segure, continua saindo (193.5339ms)
+✔ Codex aparece como não controlado (185.4144ms)
+✔ vínculo de tipo não controlado fica fora do teto, mesmo com perfil medido (198.7722ms)
+✔ rotação de credencial não zera a contagem (193.7651ms)
+✔ perfil sem vínculo não escapa do teto ativo (160.4208ms)
+✔ retrato velho não decide nada (158.6849ms)
+✔ reserva anunciada por aparelho que sumiu vira cobertura incompleta (174.2332ms)
+✔ o rollup local sobe uma vez por mudança, e a capacidade anuncia a mesma sequência (229.3738ms)
+✔ falha ao subir o rollup não avança: o próximo giro tenta de novo (263.9306ms)
+✔ boca da sessão: não verificável volta à fila sem estacionar e sem rodar (225.1552ms)
+✔ a capacidade publicada leva o consumo do grupo (217.1285ms)
+✔ o relógio roda o rollup e o retrato antes da capacidade (0.8295ms)
+✔ sem outro aparelho pronto, nenhuma escrita sai (210.7417ms)
+✔ com outro aparelho pronto, sobe {v, u, enc} cifrado (157.6287ms)
+✔ o login da conta e o nome da máquina não aparecem em claro no banco (179.4592ms)
+✔ a capacidade leva tag de conta, nunca o login (150.5346ms)
+✔ publicar duas vezes sem mudança escreve UMA vez (160.8762ms)
+✔ mudar o paralelismo faz a segunda escrita sair (173.7266ms)
+✔ sem a chave aberta não se publica capacidade nenhuma (189.5313ms)
+✔ a capacidade leva o resumo da admissão, sem referência de PR (174.8424ms)
+✔ a RAM viaja em faixa, e variação pequena não republica a capacidade (156.8611ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4013.8745
