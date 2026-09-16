@@ -29,22 +29,29 @@
       <div class="etapas"><span class="etapa">lendo o diff</span><span class="etapa agora">verificando (2 subagentes)</span><span class="etapa">escrevendo</span></div>
       <div class="row-actions" style="margin-top: 6px;"><span class="btn sm ghost">Cancelar…</span><span class="btn sm ghost">Transferir…</span><span class="btn sm ghost">Tomar para este aparelho…</span></div>
     </div>
-    <div class="faixa"><span class="chip warn">leitura atrasada</span><span class="muted">A última leitura falhou. Mostrando o andamento de 10:01, que pode estar velho.</span></div>
+    <div class="faixa"><span class="chip warn">leitura falhou</span><span class="muted">A última leitura falhou às 10:03. Mostrando o andamento de 10:01, que pode estar velho.</span></div>
+    <div class="faixa"><span class="chip warn">leitura atrasada</span><span class="muted">Leitura atrasada: o último andamento chegou às 10:01 e o que está aqui pode estar velho.</span></div>
   </div>
 
-  <div class="section-head"><h2>Panorama <span class="count ambient">18</span></h2><span class="section-sub">deste aparelho e de 1 outro</span></div>
+  <div class="section-head"><h2>Panorama <span class="count ambient">18</span></h2></div>
   <div class="card" style="padding: 0;">
     <div class="sync-lista">
-      <div class="linha" style="grid-template-columns: 18px minmax(0, 1fr) auto;"><span class="avatar xs">AE</span><span><a href="#" style="color: inherit;">acme-exemplo/app-web#38</a> <span class="fraco">Melhora o log de erro</span></span><span class="chip mute">Desktop antigo</span></div>
-      <div class="linha" style="grid-template-columns: 18px minmax(0, 1fr) auto;"><span class="avatar xs">BT</span><span><a href="#" style="color: inherit;">acme-exemplo/api-pedidos#101</a> <span class="fraco">Corrige arredondamento</span></span><span class="chip info">este</span></div>
-      <div class="linha" style="grid-template-columns: 18px minmax(0, 1fr) auto;"><span class="avatar xs">?</span><span class="fraco">1 item de outro aparelho não abriu e ficou de fora</span><span class="chip warn">não verificável</span></div>
+      <div class="linha" style="grid-template-columns: 18px minmax(0, 1fr);"><span class="avatar xs">BT</span><span><a href="#" style="color: inherit;">acme-exemplo/api-pedidos#101</a> <span class="fraco">Corrige arredondamento</span></span></div>
     </div>
   </div>
+  <div class="dica" style="margin-top: 10px; font-weight: 600;">18 PRs: 17 deste aparelho e 1 de 1 outro</div>
+  <div class="card" style="padding: 0;">
+    <div class="sync-lista">
+      <div class="linha" style="grid-template-columns: 18px minmax(0, 1fr) auto auto auto;"><span class="avatar xs">AE</span><span><a href="#" style="color: inherit;">acme-exemplo/app-web#38</a> <span class="fraco">Melhora o log de erro</span></span><span class="chip mute">Desktop antigo</span><span class="fraco">atualizado 10:02</span><span class="faint">só leitura</span></div>
+    </div>
+  </div>
+  <p class="sys-note"><span class="chip mute">não verificável</span> 1 item de outro aparelho não abriu e ficou de fora.</p>
 
   <div class="section-head"><h2>Meus PRs <span class="count ambient">3</span></h2></div>
   <div class="card mypr" style="display: flex; flex-direction: column; gap: 4px; border-left: 3px solid var(--border);">
-    <div class="pr-ref"><a href="#">acme-exemplo/app-web#36</a><span class="chip mute">do Desktop antigo, só leitura</span></div>
+    <div class="pr-ref"><a href="#">acme-exemplo/app-web#36</a><span class="chip mute">do Desktop antigo, só leitura</span><span class="espaco"></span><span class="chip mute">Desktop antigo</span><span class="faint" style="font-size: 12px;">atualizado 10:02</span></div>
     <div class="pr-title">Adiciona filtro por status</div>
+    <div class="pr-sub"><span>feature/filtro-status → main</span><span>estado de merge no Desktop antigo: MERGEABLE</span></div>
     <div class="pr-sub"><span>Merge desabilitado aqui: dado vindo de outro aparelho nunca habilita merge.</span></div>
   </div>
 
@@ -57,5 +64,9 @@
     <div><div class="estado-rot">Visão compartilhada desligada</div><div class="faixa"><span class="muted">Estas seções não aparecem; o Radar mostra só este aparelho.</span></div></div>
     <div><div class="estado-rot">Bloqueada pelo Farol</div><div class="faixa"><span class="chip warn">bloqueada</span><span class="muted">autenticação local não exigida neste aparelho</span></div></div>
     <div><div class="estado-rot">Nenhuma pendência</div><div class="faixa"><span class="muted">Nada precisa de você em nenhum aparelho.</span></div></div>
+    <div><div class="estado-rot">Nome do PR indisponível</div><div class="faixa"><span class="muted">Um PR seu, analisado no Desktop antigo, esperando decisão (o nome deste PR não abriu no catálogo cifrado deste aparelho)</span></div></div>
+    <div><div class="estado-rot">Lista desatualizada</div><div class="faixa"><span class="chip warn">desatualizada</span><span class="muted">Lista desatualizada: a última leitura da lista do Desktop antigo é de 09:40.</span></div></div>
+    <div><div class="estado-rot">Leitura da lista falhou</div><div class="faixa"><span class="chip warn">leitura falhou</span><span class="muted">A leitura da lista do Desktop antigo falhou às 10:03; mostrando a de 09:58, que pode estar velha.</span></div></div>
+    <div><div class="estado-rot">Chave fechada aqui</div><div class="faixa"><span class="chip mute">indisponível</span><span class="muted">A chave do conjunto não está aberta neste aparelho, então as listas dos outros não abrem aqui.</span></div></div>
   </div>
 </main>
