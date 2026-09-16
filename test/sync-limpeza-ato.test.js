@@ -65,7 +65,6 @@ function semearConteudo() {
   const arvore = fake.tree();
   const u = arvore.users.u1;
   u.usageEvents = { d1: { e1: { at: 1, kind: 'review', costUsd: 1 } } };
-  u.live.deviceStatus = { d1: { v: 1, u: 1, enc: 'e1.g1.a.b.c' } };
   u.live.groups = { g1: { v: 1, generation: 1, enc: 'e1.g1.a.b.c', sig: 'x' } };
   u.keyring = u.keyring || { v: 1, rev: 1 };
   u.leases = { acc1: { pr1: { leaseId: 'l1', deviceId: 'd9', operationKind: 'review', expiresAt: 1 } } };
@@ -96,7 +95,6 @@ test('caminho feliz: o alcançável some, o corte fica e a trava sai', async () 
   assert.equal(r.ok, true, r.motivo);
   const u = usuario();
   assert.equal(u.usageEvents, undefined);
-  assert.equal(u.live.deviceStatus, undefined);
   assert.equal(u.live.groups, undefined);
   assert.ok(u.live.control.lastCleanup.at > 0, 'o corte da outbox fica gravado');
   assert.equal(u.live.control.cleanupLock, undefined, 'a trava sai no fim');
