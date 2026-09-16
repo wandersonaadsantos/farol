@@ -202,3 +202,40 @@ test('mudança só de versão, com a mesma contagem, também vence a medição',
   const r = await envio.enviarHistorico(e, e.config.sync, { impressao: m.impressao });
   assert.equal(r.code, 'medida-vencida');
 });
+
+// "lote 4 de 13" (C3Historico): o número vem do engine, que conhece o tamanho do lote, o
+// total da impressão medida e o que já subiu; a tela não recalcula.
+test('a medida e cada lote dizem o número do lote e o total de lotes', async () => {
+  const e = await pronto(2 * envio.LOTE + 5);
+  const m = envio.medirEnvio(e, e.config.sync);
+  assert.deepEqual([m.lote, m.lotes], [1, 3], 'antes de enviar, o próximo é o primeiro de três');
+  const primeiro = await envio.enviarHistorico(e, e.config.sync, { impressao: m.impressao });
+  assert.deepEqual([primeiro.lote, primeiro.lotes], [1, 3]);
+  const retomada = envio.medirEnvio(e, e.config.sync);
+  assert.deepEqual([retomada.lote, retomada.lotes, retomada.pendentes], [2, 3, envio.LOTE + 5], 'a retomada continua a contagem');
+  const segundo = await envio.enviarHistorico(e, e.config.sync, { impressao: m.impressao });
+  assert.deepEqual([segundo.lote, segundo.lotes], [2, 3]);
+  const terceiro = await envio.enviarHistorico(e, e.config.sync, { impressao: m.impressao });
+  assert.deepEqual([terceiro.lote, terceiro.lotes, terceiro.concluido], [3, 3, true]);
+});
+
+test('as rotas de medir e enviar levam o lote até a tela', async () => {
+  const e = await pronto(envio.LOTE + 1);
+  const { startServer } = await import('../lib/http-server.js');
+  e.config.port = 0;
+  const server = await new Promise((resolve, reject) => {
+    const s = startServer(e, (url, err) => (err ? reject(err) : resolve(s)));
+  });
+  const post = async (rota, corpo) => (await fetch(`http://127.0.0.1:${server.address().port}${rota}`, {
+    method: 'POST', headers: { 'x-farol': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(corpo || {}),
+  })).json();
+  try {
+    const m = await post('/api/sync/history-measure');
+    assert.deepEqual([m.lote, m.lotes], [1, 2]);
+    const r = await post('/api/sync/history-send', { impressao: m.impressao });
+    assert.deepEqual([r.lote, r.lotes], [1, 2]);
+  } finally {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(() => resolve()));
+  }
+});

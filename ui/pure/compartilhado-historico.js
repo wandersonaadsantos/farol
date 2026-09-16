@@ -93,15 +93,24 @@ function numeros(medida) {
 // acima disto a tela recomenda conexão estável antes de enviar
 const ENVIO_GRANDE_BYTES = 5 * 1024 * 1024;
 
-function progresso(parcial) {
-  if (!parcial) return 'primeiro lote';
-  return `${fmtTok(parcial.enviados)} enviadas, ${fmtTok(parcial.restantes)} faltando`;
+// o número do lote é do engine; sem ele (resposta antiga), a tela não o calcula
+function qualLote(fonte) {
+  const n = Number(fonte && fonte.lote) || 0;
+  const total = Number(fonte && fonte.lotes) || 0;
+  return n > 0 && total > 0 ? `lote ${fmtTok(n)} de ${fmtTok(total)}` : '';
+}
+
+function progresso(parcial, medida) {
+  if (!parcial) return qualLote(medida) || 'primeiro lote';
+  const lote = qualLote(parcial);
+  const contas = `${fmtTok(parcial.enviados)} enviadas, ${fmtTok(parcial.restantes)} faltando`;
+  return lote ? `${lote} (${contas})` : contas;
 }
 
 const ENVIO_FASE = {
   inicial: () => ({ corpo: '', botoes: '<button class="btn sm md-medir">Medir o histórico</button>' }),
   medindo: () => ({ corpo: '<span class="pill busy">medindo</span>', botoes: '' }),
-  enviando: (e) => ({ corpo: `<span class="pill busy">enviando</span> <span class="md-fraco">${progresso(e.parcial)}</span>`, botoes: '' }),
+  enviando: (e) => ({ corpo: `<span class="pill busy">enviando</span> <span class="md-fraco">${progresso(e.parcial, e.medida)}</span>`, botoes: '' }),
   concluido: () => ({ corpo: '<span class="sync-chip ok">enviado</span> <span class="md-fraco">sem duplicar o que já estava lá</span>', botoes: '<button class="btn sm ghost md-medir">Medir de novo</button>' }),
   vencida: () => ({ corpo: '<span class="sync-chip warn">medir de novo</span> <span class="md-fraco">o histórico mudou desde a medida, e nada foi enviado</span>', botoes: '<button class="btn sm md-medir">Medir de novo</button>' }),
 };
@@ -153,6 +162,8 @@ export function envioDepoisDoLote(medida, resposta, anterior) {
   if (r.ok !== true) return { fase: 'falha', medida, parcial, erro: r };
   if (r.concluido === true) return { fase: 'concluido' };
   const agora = { enviados: feitos + (Number(r.enviados) || 0), restantes: Number(r.restantes) || 0 };
+  // o número do lote só entra quando o engine o manda
+  if (Number(r.lote) > 0 && Number(r.lotes) > 0) Object.assign(agora, { lote: Number(r.lote), lotes: Number(r.lotes) });
   if (!(Number(r.enviados) > 0)) return { fase: 'falha', medida, parcial: agora, erro: { motivo: 'nenhuma revisão subiu neste lote' } };
   return { fase: 'enviando', medida, parcial: agora };
 }

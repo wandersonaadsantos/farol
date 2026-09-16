@@ -209,3 +209,16 @@ test('a faixa do andamento diz a falha quando o engine a informa, e só a idade 
   assert.equal(andamentoAtrasadoHtml(AGORA - 5000, AGORA), '', 'leitura recente e sem falha não mostra faixa');
   assert.match(andamentoAtrasadoHtml(AGORA - 60000, AGORA), /leitura atrasada/);
 });
+
+test('o envio mostra "lote N de M" com o número do engine', async () => {
+  const { envioHistoricoHtml, envioDepoisDoLote } = await import('../ui/pure.js');
+  const medida = { ok: true, categorias: { revisoes: 650 }, pendentes: 650, bytes: 10, impressao: 'i', lote: 1, lotes: 13 };
+  assert.match(envioHistoricoHtml({ fase: 'enviando', medida, parcial: null }), /lote 1 de 13/);
+  const depois = envioDepoisDoLote(medida, { ok: true, enviados: 50, restantes: 450, concluido: false, lote: 4, lotes: 13 }, { enviados: 150, restantes: 500 });
+  assert.deepEqual([depois.parcial.lote, depois.parcial.lotes], [4, 13]);
+  assert.match(envioHistoricoHtml(depois), /lote 4 de 13/);
+  assert.match(envioHistoricoHtml(depois), /200 enviadas, 450 faltando/);
+  const semNumero = envioDepoisDoLote(medida, { ok: true, enviados: 50, restantes: 450, concluido: false }, null);
+  assert.doesNotMatch(envioHistoricoHtml(semNumero), /lote \d+ de/, 'sem o número do engine, a tela não inventa');
+  assert.doesNotMatch(envioHistoricoHtml({ fase: 'enviando', medida: { ...medida, lote: 0, lotes: 0 }, parcial: null }), /lote \d+ de/);
+});
