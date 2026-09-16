@@ -179,7 +179,7 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
    [`docs/REVIEW-GATES.md`](docs/REVIEW-GATES.md).
 5. **Toda diferença de SO passa por `IS_WIN`/`IS_MAC`/`IS_LINUX`** (fonte única em `lib/paths.js`), nunca por checagens soltas espalhadas. Doutrina desde a v2.45.0: o que é POSIX genuíno (runShell, spawn headless, killTree, PATH do boot) ramifica em `!IS_WIN` e vale pra mac E linux; o que é mac de verdade (`open`, `Farol.app`) usa `IS_MAC`; o ramo Linux (experimental) fica ao lado, ver [`docs/MACOS.md`](docs/MACOS.md#linux-experimental-v2450), que também traz os pontos com branch de plataforma.
 6. **Texto da UI e comentários em português, sem travessão.** Use vírgula, parênteses ou dois pontos.
-7. **O zip de distribuição é auditado** (`make-package.ps1` falha se detectar estado, config, token ou conta pessoal). Não enfraqueça a auditoria.
+7. **O zip de distribuição é auditado** (`make-package.ps1` falha se detectar estado, config, token ou conta pessoal). Não enfraqueça a auditoria. Desde 16/09/2026 a varredura de conteúdo lê TODO arquivo do pacote, sem lista de extensão (a lista anterior deixava `ui/favicon.svg` e `installer/farol.nsi` fora, medido no caminho real), e `test/pacote-auditoria.test.js` reprova quem reintroduzir o filtro.
 
 ## Como rodar e testar sem estragar nada
 

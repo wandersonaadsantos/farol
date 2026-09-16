@@ -18,7 +18,9 @@ const EMPACOTADOR = fs.readFileSync(path.join(RAIZ, 'tools', 'make-package.ps1')
 function padraoDoEmpacotador() {
   const m = /Select-String -Pattern '([^']+)'/.exec(EMPACOTADOR);
   assert.ok(m, 'o empacotador tem que continuar tendo UM padrão de auditoria');
-  return new RegExp(m[1]);
+  // o Select-String ignora caixa por padrão: o espelho aqui tem que ignorar também, senão
+  // este teste seria mais frouxo que o pente que ele descreve
+  return new RegExp(m[1], 'i');
 }
 
 // credenciais fabricadas para o teste, nunca válidas em lugar nenhum
@@ -38,6 +40,26 @@ const CODIGO = [
   'return token ? { ...cabecalhos, Authorization: `Bearer ${token}` } : { ...cabecalhos };',
   '// Authorization: Bearer com uma sessão válida, exceto POST /api/auth/pair',
   '/\\bgh[pousr]_[A-Za-z0-9]{20,}/g,',
+  // menção NUA do prefixo, sem valor: é sobre credencial, não é credencial
+  '// um token pessoal do GitHub começa com ghp_ e o Farol nunca o grava',
+  '// o token de app começa com github_pat_ e o de OAuth com gho_',
+];
+
+// A outra barreira do empacotador: nome de arquivo que não pode entrar no pacote.
+function proibidosDoEmpacotador() {
+  const m = /\$_ -match '([^']+)'\s*\n\}\s*\nif \(\$proibidos\)/.exec(EMPACOTADOR);
+  assert.ok(m, 'o empacotador tem que continuar tendo UM padrão de arquivo proibido');
+  return new RegExp(m[1], 'i');
+}
+
+const PROIBIDOS = [
+  'lib/config.json', 'lib/state/sintetico.json', 'ui/farol.log', 'node_modules/x/index.js',
+  'sessions/abc.json', 'state/seen', 'lib/baselined.json', 'workspace-template/highlights.md', 'authors/pessoa.md',
+];
+
+const LEGITIMOS = [
+  'lib/paths.js', 'ui/app.css', 'package.json', 'workspace-template/CLAUDE.md',
+  'installer/install.ps1', 'docs/RELEASE.md', 'assets/farol.ico', 'tools/jira-mcp.js',
 ];
 
 test('o pente do pacote pega toda credencial de verdade', () => {
@@ -50,9 +72,24 @@ test('o pente não reprova o código que fala sobre credencial', () => {
   for (const s of CODIGO) assert.equal(re.test(s), false, `falso positivo: ${s.slice(0, 40)}…`);
 });
 
+test('a barreira de nome barra estado, configuração e log, e deixa passar o que viaja', () => {
+  const re = proibidosDoEmpacotador();
+  for (const p of PROIBIDOS) assert.ok(re.test(p), `entraria no pacote: ${p}`);
+  for (const p of LEGITIMOS) assert.equal(re.test(p), false, `o pacote não sairia por causa de: ${p}`);
+});
+
+// Verificação C (16/09/2026): a varredura tinha lista de nove extensões, e texto que VIAJA
+// ficava fora dela. Medido no caminho real: segredo sintético em `ui/favicon.svg`, em
+// `installer/farol.nsi` e num `.txt` novo de `lib/` saiu no pacote sem uma linha de aviso.
+test('a varredura de conteúdo do empacotador não tem lista de extensão', () => {
+  const m = /\$hits = Get-ChildItem \$tmpDir([^|]*)\|/.exec(EMPACOTADOR);
+  assert.ok(m, 'a varredura continua saindo de um Get-ChildItem do diretório extraído');
+  assert.equal(/-Include|-Filter|-Exclude/.test(m[1]), false, `filtro de arquivo na varredura: ${m[1].trim()}`);
+  assert.match(m[1], /-Recurse -File/);
+});
+
 test('nada que viaja no pacote casa o pente hoje', () => {
   const re = padraoDoEmpacotador();
-  const extensoes = new Set(['.js', '.md', '.json', '.cmd', '.ps1', '.html', '.css', '.sh', '.command']);
   const ignorar = new Set(['node_modules', '.git', 'dist', 'test', 'docs', 'scratchpad']);
   const achados = [];
   const varrer = (dir) => {
@@ -60,8 +97,9 @@ test('nada que viaja no pacote casa o pente hoje', () => {
       if (ignorar.has(e.name)) continue;
       const alvo = path.join(dir, e.name);
       if (e.isDirectory()) { varrer(alvo); continue; }
-      if (!extensoes.has(path.extname(e.name)) || e.name === 'make-package.ps1') continue;
-      const linhas = fs.readFileSync(alvo, 'utf8').split(/\r?\n/);
+      // sem lista de extensão, como o empacotador: binário entra lido byte a byte
+      if (e.name === 'make-package.ps1') continue;
+      const linhas = fs.readFileSync(alvo, 'latin1').split(/\r?\n/);
       linhas.forEach((l, i) => { if (re.test(l)) achados.push(`${path.relative(RAIZ, alvo)}:${i + 1}`); });
     }
   };
