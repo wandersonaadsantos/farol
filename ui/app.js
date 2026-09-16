@@ -4,12 +4,12 @@ import {
   statusBannerHtml, queueEmptyOkHtml, automacaoPausadaPor, orgsMonitoradas, esc, safeJsonParse, fmtClock, sysNorm, ownerFromUrl, canonicalGithubPrUrl, prKeyFromUrl, repoShort, stripFence,
   hexToRgba, sameSet, usageMetricVal, usageStackLayers, usageHoverIndex, accountSaveArray,
   delivCappedMsg, fmtRel, usageDayKeysBack, aprovadosHoje, avatar, md, feedLine,
-  agentsTitle, stageFlowFrom, stageFlowHtml, analysisOpsPlan, selfSessionKey,
+  agentsTitle, stageFlowFrom, stageFlowHtml, selfSessionKey,
   sessionProgress, personMention, repoMention, prRefMention, parseGoto, reviewBoxHtml,
   operationChecks, runtimeChecks, delivFilterItems, delivStats, delivStatsCards, delivActivityCard,
   delivEmptyState, deliveriesByRepo, deliveriesByAuthor, pushbackControl, PB_OPTS,
   diagnosticsText, sessionCardHtml, PB_SHORT, fmtStamp, fmtWhenDay, resolvedRow,
-  logSummaryShort, opTransition, opDismissDelay, stageLabel, validScope, accountBarVisible,
+  logSummaryShort, stageLabel, validScope, accountBarVisible,
   expiredSessionMarks, listViewState, splitHiddenPRs, effectiveHidden, hiddenFootLabel,
   myPRsEmptyMsg, mergeToastKind, creditsHtml, buildFixPrompt, papelPicker, domainMatrix,
   chatBadge, fmtUsageMetric, usageColorsFor, usageTooltipHtml, usageKpisHtml,
@@ -22,8 +22,13 @@ import {
 } from './pure.js';
 import { registrarTela, telasRegistradas, telaPorId } from './telas/registro.js';
 import { estado, escopo, abaAtual, definirEstado, definirEscopo, definirAba } from './telas/estado.js';
+import {
+  $, api, get, toast, toastRich, confirmModal, showOp, updateOp, closeOp, ACTIVE_OPS,
+  DIMENSAO_DO_CONSUMO, syncAnalysisOps, selo, textoDaListaVazia, rotuloDoBotaoDeAnalise,
+  origemLocal, doUsuario, tituloDaNotificacao
+} from './telas/infra.js';
+export { toast } from './telas/infra.js';
 
-const $ = (s) => document.querySelector(s);
 const isElectron = navigator.userAgent.includes('Electron');
 if (isElectron) document.body.classList.add('electron');
 
@@ -52,302 +57,6 @@ function aplicaPlataforma(p) {
 aplicaPlataforma();
 
 let logTimer = null;
-
-/* ---------- helpers ---------- */
-function api(path, body) {
-  return fetch(path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-farol': '1' },
-    body: JSON.stringify(body || {})
-  }).then(r => r.json()).catch(() => null);
-}
-function get(path) { return fetch(path).then(r => r.json()).catch(() => null); }
-
-function toastBase(kind, ms) {
-  const el = document.createElement('div');
-  el.className = `toast ${kind}`;
-  $('#toasts').appendChild(el);
-  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 300); }, ms);
-  return el;
-}
-
-export function toast(kind, text, ms = 5000) {
-  const el = toastBase(kind, ms);
-  el.textContent = String(text ?? '');
-  return el;
-}
-
-// Só os dois avisos que realmente têm estrutura usam esta variante. O chamador
-// constrói nós DOM; nenhuma string volta a ser reinterpretada como HTML.
-function toastRich(kind, build, ms = 5000) {
-  const el = toastBase(kind, ms);
-  build(el);
-  return el;
-}
-
-/* ---------- modal de confirmação (ações destrutivas) ---------- */
-// Devolve uma Promise<boolean>. body aceita HTML (controlado por nós). Toda ação
-// que apaga/remove algo deve passar por aqui, deixando o IMPACTO claro.
-function confirmModal(opts) {
-  return new Promise(resolve => {
-    const ov = document.createElement('div');
-    ov.className = 'modal-overlay';
-    ov.innerHTML = `<div class="modal-card ${opts.danger ? 'danger' : ''}" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-      <div class="modal-title" id="modalTitle">${esc(opts.title || 'Confirmar')}</div>
-      <div class="modal-body">${opts.body || ''}</div>
-      <div class="modal-actions">
-        <button class="btn sm ghost modal-cancel">${esc(opts.cancelLabel || 'Cancelar')}</button>
-        <button class="btn sm ${opts.danger ? 'danger-solid' : 'primary'} modal-ok">${esc(opts.confirmLabel || 'Confirmar')}</button>
-      </div>
-    </div>`;
-    document.body.appendChild(ov);
-    const close = (v) => { ov.remove(); document.removeEventListener('keydown', onKey); resolve(v); };
-    const onKey = (e) => { if (e.key === 'Escape') close(false); };
-    ov.querySelector('.modal-cancel').onclick = () => close(false);
-    ov.querySelector('.modal-ok').onclick = () => close(true);
-    ov.onclick = (e) => { if (e.target === ov) close(false); };
-    document.addEventListener('keydown', onKey);
-    setTimeout(() => ov.querySelector('.modal-cancel').focus(), 30);
-  });
-}
-
-/* ---------- operation feedback system (async operations transparency) ---------- */
-/* UNIFIED FEEDBACK VISUAL SYSTEM
-
-   Goal: Users never unsure if app is frozen. Every async operation shows:
-   - Current step (e.g., "Lendo arquivos…")
-   - Progress % (0-100)
-   - Expected time remaining (ETA)
-   - Queue position (if applicable)
-   - Auto-dismiss on completion or error
-
-   API Functions:
-   - showOp(opId, opts) — start operation widget (inline: true for compact pill)
-   - updateOp(opId, {step, progress, eta, queuePos, status}) — update progress
-   - closeOp(opId, status, message) — mark done/error, auto-dismiss after 3s
-
-   Visual Patterns:
-   1. Operation Widget (.op-widget) — full card with icon, step, progress bar
-   2. Inline Pill (.op-inline-pill) — compact text badge for background ops
-   3. Auto-dismiss — fades out 3s after completion
-
-   Coverage (9 problem areas resolved):
-   - Polling: status checks with queue feedback
-   - Data Loading: spinners for Deliveries/Highlights/Team
-   - Review/Analysis: progress through Lendo → Analisando → Montando
-   - Merge: success toast on completion
-   - Chat: phase progression + streaming indicator
-   - Update: verification feedback badge
-   - Settings: success toast on save
-   - Tools: Kudos & Health execution feedback
-   - Session Startup: stage indicators (iniciando → processando)
-
-   Implementation: Pure JS, no frameworks. ACTIVE_OPS Map tracks all active operations.
-   Reusable across all async flows via showOp/updateOp/closeOp pattern.
-*/
-let ACTIVE_OPS = new Map();  // opId → {id, type, status, step, progress, eta, queuePos, startTime, cancellable, container, element}
-
-function showOp(opId, opts) {
-  opts = opts || {};
-  // reuso do mesmo opId nao pode orfanar a pill anterior no DOM (M22): a entrada
-  // do Map era substituida e o elemento velho ficava pra sempre sem referencia
-  const prev = ACTIVE_OPS.get(opId);
-  if (prev && prev.element) prev.element.remove();
-  const op = {
-    id: opId,
-    type: opts.type || 'generic',
-    title: opts.title || 'Operação…',
-    status: 'running',
-    step: '',
-    progress: 0,
-    startTime: Date.now(),
-    cancellable: opts.cancellable || false,
-    cancel: opts.cancel || null,   // { path, body }: o POST real que o botão Cancelar dispara
-    key: opts.key || '',           // key do PR (ops de autoanálise): liga o op ao snapshot
-    seen: false,                   // o key já apareceu num snapshot? (guarda da corrida SSE)
-    container: opts.container || document.body,
-    inline: opts.inline || false
-  };
-  ACTIVE_OPS.set(opId, op);
-  if (op.inline) {
-    op.element = document.createElement('span');
-    op.element.className = 'op-inline-pill';
-  } else {
-    op.element = document.createElement('div');
-    op.element.className = 'op-widget';
-    op.element.setAttribute('data-op-id', opId);
-  }
-  op.container.appendChild(op.element);
-  updateOpDisplay(opId);
-  return op.element;
-}
-
-function updateOp(opId, update) {
-  const op = ACTIVE_OPS.get(opId);
-  if (!op) return;
-  Object.assign(op, {
-    step: update.step !== undefined ? update.step : op.step,
-    progress: update.progress !== undefined ? update.progress : op.progress,
-    eta: update.eta,
-    queuePos: update.queuePos !== undefined ? update.queuePos : op.queuePos,
-    status: update.status || op.status
-  });
-  updateOpDisplay(opId);
-}
-
-function closeOp(opId, result = 'done', message = '') {
-  const op = ACTIVE_OPS.get(opId);
-  if (!op) return;
-  op.status = opTransition(op.status, result);  // running -> done | error | cancelled
-  op.message = message;
-  updateOpDisplay(opId);
-  const delay = opDismissDelay(op.status);
-  if (delay !== null) {
-    setTimeout(() => {
-      if (op.element) op.element.remove();
-      // so deleta se a entrada ainda for ESTA op: um showOp com o mesmo id pode
-      // ter recriado a operacao, e o timer velho nao pode apagar a nova
-      if (ACTIVE_OPS.get(opId) === op) ACTIVE_OPS.delete(opId);
-    }, delay);
-  }
-}
-
-// ---- auxiliares de rótulo e escolha, extraídos de cadeias de ternários ----
-
-const TEXTO_DA_LISTA_VAZIA = {
-  loading: () => 'Verificando os PRs abertos…',
-  error: () => 'Não foi possível confirmar ainda (a checagem falhou; veja o aviso no topo). Vou tentar de novo no próximo ciclo.',
-};
-function textoDaListaVazia(vs) {
-  const f = TEXTO_DA_LISTA_VAZIA[vs];
-  if (f) return f();
-  return `Nenhum PR aberto ${escopo() === 'all' ? 'nas organizações monitoradas' : 'nesta conta'}.`;
-}
-
-// a ordem é de precedência: rodando agora vence a fila, que vence "já analisei antes"
-function rotuloDoBotaoDeAnalise({ running, queued, qpos, analisado }) {
-  if (running) return 'Analisando…';
-  if (queued) return `Na fila (${qpos})`;
-  return analisado ? 'Reanalisar' : 'Analisar';
-}
-
-// a dimensão escolhe de qual mapa do envelope sair e onde estão os nomes das camadas
-const DIMENSAO_DO_CONSUMO = {
-  model: { key: 'byModel', campoDeNomes: 'modelNames' },
-  account: { key: 'byAccount', campoDeNomes: 'accountNames' },
-  kind: { key: 'byKind', campoDeNomes: 'kindNames' },
-};
-
-function origemLocal(u) {
-  return u.source ? `fonte em <code>${esc(u.source)}</code>` : '';
-}
-
-function tituloDaNotificacao(auto, n) {
-  if (auto) return n === 1 ? 'PR novo, revisando sozinho' : `${n} PRs novos, revisando sozinho`;
-  return n === 1 ? 'PR aguardando sua revisão' : `${n} PRs aguardando sua revisão`;
-}
-
-// conta silenciada mostra a pausa; as demais mostram a contagem, quando há o que contar
-function selo(a, showCounts, att) {
-  if (a.muted) return '<span class="seg-pause">⏸</span>';
-  return showCounts && att ? `<span class="seg-count">${att}</span>` : '';
-}
-
-// '__all__' passa tudo; usuário nomeado compara sem caixa; vazio pede entrada SEM dono
-function doUsuario(dono, user) {
-  if (user === '__all__') return true;
-  return user ? dono.toLowerCase() === user.toLowerCase() : !dono;
-}
-
-// três estados, e o que não é 'running' nem 'done' é erro: o ícone não inventa um
-// quarto estado para status desconhecido
-const ICONE_DA_OPERACAO = { running: 'spin', done: 'done' };
-function classeDoIcone(status) {
-  return ICONE_DA_OPERACAO[status] || 'error';
-}
-
-// a posição na fila manda quando existe (mesmo zero, que apaga o texto); sem ela, a
-// estimativa de tempo; sem as duas, nada
-function metaDaOperacao(op) {
-  if (op.queuePos !== undefined) return `<span>${op.queuePos > 0 ? `fila: ${op.queuePos}` : ''}</span>`;
-  if (op.eta) return `<span>~${formatDuration(op.eta)}</span>`;
-  return '';
-}
-
-function updateOpDisplay(opId) {
-  const op = ACTIVE_OPS.get(opId);
-  if (!op || !op.element) return;
-  const isInline = op.element.classList.contains('op-inline-pill');
-  if (isInline) {
-    op.element.className = `op-inline-pill ${op.status}`;
-    const iconHtml = `<span class="op-icon ${classeDoIcone(op.status)}"></span>`;
-    const text = esc(op.step || op.title);
-    op.element.innerHTML = `${iconHtml} ${text}`;
-  } else {
-    op.element.className = `op-widget ${op.status}`;
-    const iconHtml = `<span class="op-icon ${classeDoIcone(op.status)}"></span>`;
-    const metaHtml = metaDaOperacao(op);
-    const progressHtml = op.progress > 0 && op.progress < 100
-      ? `<div class="op-progress"><span>${op.progress}%</span><div class="op-bar"><div class="op-bar-fill" style="width: ${op.progress}%"></div></div></div>`
-      : '';
-    const cancelHtml = op.cancellable && op.status === 'running'
-      ? `<button class="op-cancel" data-op-id="${esc(opId)}">Cancelar</button>`
-      : '';
-    op.element.innerHTML = `
-      <div class="op-header"><span class="op-icon ${classeDoIcone(op.status)}"></span><span>${esc(op.title)}</span></div>
-      ${op.step ? `<div class="op-step">${esc(op.step)}</div>` : ''}
-      ${progressHtml}
-      ${metaHtml ? `<div class="op-meta">${metaHtml}</div>` : ''}
-      ${op.message && op.status !== 'running' ? `<div style="color: var(--muted); font-size: 12px; margin-top: 4px;">${esc(op.message)}</div>` : ''}
-      ${op.cancellable || cancelHtml ? `<div class="op-actions">${cancelHtml}</div>` : ''}
-    `;
-  }
-}
-
-function formatDuration(ms) {
-  if (ms < 60000) return `${Math.ceil(ms / 1000)}s`;
-  return `${Math.ceil(ms / 60000)}m`;
-}
-
-document.addEventListener('click', async (e) => {
-  if (e.target.classList && e.target.classList.contains('op-cancel')) {
-    const opId = e.target.dataset.opId;
-    const op = ACTIVE_OPS.get(opId);
-    // op sem pedido de cancelamento declarado: não há o que pedir ao servidor,
-    // fecha só o widget (feedback puramente visual)
-    if (!op || !op.cancel) { closeOp(opId, 'cancelled', 'Cancelado'); return; }
-    e.target.disabled = true;   // evita POST duplo durante o await
-    const r = await api(op.cancel.path, op.cancel.body);
-    if (r && r.ok) closeOp(opId, 'cancelled', 'Cancelado pelo usuário');
-    else {
-      // NUNCA afirmar "cancelado" sem o servidor confirmar (a mentira do achado M18)
-      closeOp(opId, 'error', (r && r.error) || 'não consegui cancelar');
-      toast('error', (r && r.error) || 'não consegui cancelar a autoanálise');
-    }
-  }
-});
-
-/* ciclo de vida dos widgets de autoanálise: o FIM vem do snapshot (SSE), não de um
-   response. Reanexa o elemento (o innerHTML de #myPRs destrói os filhos a cada
-   re-render) e fecha quando a análise some do estado (analysisOpsPlan, pura, testada). */
-function syncAnalysisOps() {
-  const ops = [...ACTIVE_OPS.values()].filter(o => o.type === 'analysis');
-  if (!ops.length) return;
-  for (const op of ops) {
-    if (op.element && !op.element.isConnected) {
-      const card = document.querySelector(`.mypr-card[data-key="${CSS.escape(op.key)}"]`);
-      if (card) card.appendChild(op.element);
-    }
-  }
-  const plan = analysisOpsPlan(ops.map(o => ({ id: o.id, key: o.key, seen: !!o.seen })), estado() || {});
-  for (const id of plan.markSeen) { const op = ACTIVE_OPS.get(id); if (op) op.seen = true; }
-  for (const id of plan.close) {
-    const op = ACTIVE_OPS.get(id);
-    if (!op) continue;
-    if (op.status === 'running') closeOp(id, 'done', 'Análise concluída');
-    else { if (op.element) op.element.remove(); ACTIVE_OPS.delete(id); }  // cancelado/erro: só limpa
-  }
-}
 
 /* ---------- camada de contas (separação por identidade) ---------- */
 definirEscopo(localStorage.getItem('farol-scope') || 'all');   // 'all' ou o login de uma conta
