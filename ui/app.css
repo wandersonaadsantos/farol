@@ -1837,3 +1837,21 @@ body.parear > *:not(.par-raiz) { display: none !important; }
   .apar-tipo { min-height: 44px; }
   .apar-acao .sync-campo { min-width: 0; width: 100%; }
 }
+/* ---------- divergências de Aparelhos e Grupos (resolução de 16/09/2026) ----------
+   O cartão do que não está valendo repete o da Sincronização só no estreito (é onde o
+   celular chega primeiro); a linha do navegador pareado volta a mostrar pareado e usado no
+   estreito, empilhados, porque a regra genérica da .sync-linha os esconde; e o olho da
+   senha ganha alvo de toque junto com o campo. */
+.apar-so-estreito { display: none; }
+.apar-atalho { margin: var(--sp-2) 2px 0; }
+.modal-body .sync-senha { margin-top: var(--sp-2); }
+@media (max-width: 720px) {
+  .apar-so-estreito { display: block; }
+  .sync-linha.apar-sessao { grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); }
+  .sync-linha.apar-sessao > :nth-child(2), .sync-linha.apar-sessao > :nth-child(3) { display: block; }
+  .sync-linha.apar-sessao > .btn { justify-self: start; }
+}
+@media (max-width: 620px) {
+  #devicesManager .sync-senha > .sync-input, .modal-body .sync-senha > .sync-input { padding-right: 48px; }
+  #devicesManager .sync-olho, .modal-body .sync-olho { width: 44px; height: 44px; right: 0; }
+}

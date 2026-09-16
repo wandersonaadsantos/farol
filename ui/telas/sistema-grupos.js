@@ -18,6 +18,13 @@ import { $, api, toast, confirmModal } from './infra.js';
 
 // o formulário aberto: `null` fechado, `{ grupo: null }` criando, `{ grupo }` editando
 let formulario = null;
+// grupos publicados daqui que ainda não chegaram pelo snapshot, por id (dono de escrita
+// único: anotarPendente). Saem sozinhos quando o grupo aparece na lista aceita.
+const pendentes = new Map();
+
+export function anotarPendente(p) {
+  if (p && p.id) pendentes.set(p.id, { id: p.id, nome: p.nome, versao: p.versao });
+}
 
 function syncDoEstado() {
   return (estado() && estado().sync) || {};
@@ -37,7 +44,11 @@ function idSorteado() {
   return grupoNovoId(crypto.getRandomValues(new Uint8Array(16)));
 }
 
-const DEPS = { api, toast, confirmModal, idSorteado };
+const DEPS = { api, toast, confirmModal, idSorteado, anotarPendente };
+
+function podarPendentes(grupos) {
+  for (const g of grupos) if (g && pendentes.has(g.id)) pendentes.delete(g.id);
+}
 
 export function renderGrupos() {
   const box = $('#groupsManager');
@@ -46,7 +57,8 @@ export function renderGrupos() {
   if (foco && box.contains(foco) && /INPUT|SELECT/.test(foco.tagName) && foco.type !== 'checkbox') return;
   const cfg = (estado() && estado().config && estado().config.sync) || {};
   const s = syncDoEstado();
-  box.innerHTML = gruposSecaoHtml({ sync: s, cfg, perfis: perfis(), form: formulario, souAdmin: aparelhosSouAdmin(s.admin) });
+  podarPendentes(Array.isArray(s.gruposDeConsumo) ? s.gruposDeConsumo : []);
+  box.innerHTML = gruposSecaoHtml({ sync: s, cfg, perfis: perfis(), form: formulario, souAdmin: aparelhosSouAdmin(s.admin), pendentes: [...pendentes.values()] });
 }
 
 function motivoDe(r) {
@@ -64,9 +76,10 @@ export async function salvarGrupo(form, atual, d = DEPS) {
   const corpo = grupoCorpoDaRota({ ...form, id, ativo });
   if (!corpo.nome || !corpo.periodo) { d.toast('error', 'Dê um nome e escolha o período do grupo.', 5000); return false; }
   const r = await d.api('/api/sync/group', { grupo: corpo });
-  if (r && r.ok) d.toast('ok', '✓ Grupo publicado. Ele aparece aqui quando o próximo ciclo o aceitar.', 5000);
-  else d.toast('error', `O grupo não foi publicado: ${motivoDe(r)}`, 9000);
-  return !!(r && r.ok);
+  if (!r || !r.ok) { d.toast('error', `O grupo não foi publicado: ${motivoDe(r)}`, 9000); return false; }
+  (d.anotarPendente || anotarPendente)({ id, nome: corpo.nome, versao: Number(r.versao) || 0 });
+  d.toast('ok', `✓ Grupo publicado na versão ${Number(r.versao) || 0}. Ele aparece aqui quando o próximo ciclo o aceitar.`, 5000);
+  return true;
 }
 
 export async function mudarAtivacao(grupo, ativo, d = DEPS) {
