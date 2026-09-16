@@ -72,6 +72,7 @@ import quotaMod from './lib/engine/quota.js';
 import syncMod from './lib/engine/sync.js';
 import consumoGrupoMod from './lib/engine/sync-consumo-grupo.js';
 import telasMod from './lib/engine/sync-telas.js';
+import diagnosticoMod from './lib/engine/diagnostico.js';
 import syncUsageMod from './lib/engine/sync-usage.js';
 import { EDITAVEIS, defaults as settingsDefaults, sanear, paraGravar } from './lib/settings.js';
 import { parseJiraSites, maskJiraSites } from './lib/jira/sites.js';
@@ -468,6 +469,9 @@ class Engine extends EventEmitter {
         path.join('.claude', 'agents', 'pr-reviewer.md'),
         path.join('.claude', 'agents', 'claim-verifier.md'),
         path.join('.claude', 'commands', 'pr-review.md'),
+        // o diagnóstico virou somente leitura (A3): a cópia semeada antes mandava editar
+        // o app, então este prompt precisa chegar nas instalações já existentes
+        path.join('.claude', 'commands', 'pr-health.md'),
       ];
       for (const rel of synced) {
         const src = path.join(TEMPLATE_DIR, rel), dst = path.join(WORKSPACE, rel);
@@ -1575,6 +1579,8 @@ class Engine extends EventEmitter {
   ownerFromUrl(url) { return toolsMod.ownerFromUrl(this, url); }
   highlightsForScope(scope) { return toolsMod.highlightsForScope(this, scope); }
   toolPrompt(name, opts) { return toolsMod.toolPrompt(this, name, opts); }
+  // diagnóstico unificado (A3): o MESMO markdown para a tela, para a cópia e para a IA
+  diagnosticoMarkdown() { return diagnosticoMod.diagnosticoMarkdown(this); }
   saveToolRuns() { return toolsMod.saveToolRuns(this); }
   toolRunGet(name, scope) { return toolsMod.toolRunGet(this, name, scope); }
   toolRunSet(name, scope, run) { return toolsMod.toolRunSet(this, name, scope, run); }
