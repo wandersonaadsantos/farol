@@ -234,6 +234,14 @@ test('aba Sistema ativa: doctor, contas e perfis desenham sem explodir', () => {
    comentário (foi o caso de `pushbackControl`/`PB_OPTS`/`PB_SHORT`, achados
    numa rodada de revisão desta mesma tarefa) passa por usado. */
 
+// escapa TODO metacaractere de regex, não só o `$`: o nome já passou pelo teste de
+// identificador logo abaixo (só letra, dígito, `_` e `$`), então nenhum dos outros
+// metacaracteres chegaria aqui de qualquer forma, mas a função não pode depender
+// dessa ordem pra ser segura (CodeQL js/incomplete-sanitization, achado no PR #95).
+function escaparParaRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 test('todo import nomeado de ui/telas é um bloco só, com nomes de identificador, sem símbolo morto', () => {
   const identificador = /^[A-Za-z_$][\w$]*$/;
   for (const { nome: arquivo, texto: src } of arquivosDasTelas()) {
@@ -263,7 +271,7 @@ test('todo import nomeado de ui/telas é um bloco só, com nomes de identificado
       // `\b` não serve pra símbolo com `$` (não é \w): usa lookaround com a
       // classe de caractere de identificador JS de verdade.
       const mortos = nomes.filter(n => {
-        const pattern = new RegExp(`(?<![\\w$])${n.replace(/[$]/g, '\\$&')}(?![\\w$])`);
+        const pattern = new RegExp(`(?<![\\w$])${escaparParaRegex(n)}(?![\\w$])`);
         return !pattern.test(corpo);
       });
       assert.deepEqual(mortos, [],
