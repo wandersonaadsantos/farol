@@ -169,6 +169,18 @@ test('syncEnvioHtml: sem outbox reconciliada não inventa número', () => {
 
 /* ---------- aparelhos ---------- */
 
+// A versão de CADA aparelho na tabela (pedido do Wanderson, 16/09/2026): saber quem já
+// está na versão nova é o que explica diferença de comportamento entre aparelhos.
+test('syncAparelhosHtml: mostra a versão de cada aparelho, e diz quando não sabe', () => {
+  const html = P.syncAparelhosHtml([
+    { deviceId: 'd1', name: 'Windows', platform: 'win32', farolVersion: '2.59.4', lastSeenAt: Date.now(), euMesmo: true },
+    { deviceId: 'd2', name: 'Android velho', platform: 'linux', lastSeenAt: Date.now(), euMesmo: false },
+  ]);
+  assert.match(html, /v2\.59\.4/);
+  assert.match(html, /desconhecida/, 'aparelho sem versão publicada não vira versão vazia');
+  assert.match(html, /<span>versão<\/span>/);
+});
+
 test('syncAparelhosHtml: marca ESTE aparelho e nunca mostra lista vazia muda', () => {
   const agora = Date.UTC(2026, 8, 11, 15, 0, 0);
   const html = P.syncAparelhosHtml([

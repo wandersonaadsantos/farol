@@ -70,6 +70,7 @@ import falhasMod from './lib/engine/falhas.js';
 import tentativasMod from './lib/engine/usage-tentativas.js';
 import quotaMod from './lib/engine/quota.js';
 import syncMod from './lib/engine/sync.js';
+import consumoGrupoMod from './lib/engine/sync-consumo-grupo.js';
 import syncUsageMod from './lib/engine/sync-usage.js';
 import { EDITAVEIS, defaults as settingsDefaults, sanear, paraGravar } from './lib/settings.js';
 import { parseJiraSites, maskJiraSites } from './lib/jira/sites.js';
@@ -1190,6 +1191,8 @@ class Engine extends EventEmitter {
         if (this.retryAfterNet.has(p.key)) return false;
         // coordenação entre aparelhos: conexão fora ou espera anotada segura (D11)
         if (this.syncSeguraAutomacao(p.key)) return false;
+        // teto do grupo que não dá para verificar (C4b): espera, sem estacionar
+        if (this.grupoSegura(acct)) return false;
         if (this.skipComentado[p.key]) { foraDeCena.push(p); return false; }
         if (this._registraPulo(p, pulados)) return false;
         const blockedProfile = this.budgetBlockedFor(acct);
@@ -1979,8 +1982,17 @@ class Engine extends EventEmitter {
   // de fatura, fala de ritmo, e era a metade que faltava da mesma feature.
   budgetBlockedFor(acct) {
     const profile = this.profileOfAccount(acct);
-    return (profile && this.profileBudgetStatus(profile).blocked) ? profile : null;
+    if (profile && this.profileBudgetStatus(profile).blocked) return profile;
+    // teto do grupo estourado (C4b) chega como perfil sintético `grupo:<id>`, e daí
+    // valem os mesmos fluxos do orçamento do perfil
+    return this.grupoBloqueia(acct);
   }
+
+  // teto do grupo de consumo (C4b): bloqueio por gasto, espera por não verificável e o
+  // grupo em que a execução desta conta vai gastar
+  grupoBloqueia(acct) { return consumoGrupoMod.bloqueioDoGrupo(this, acct); }
+  grupoSegura(acct) { return consumoGrupoMod.grupoSegura(this, acct); }
+  grupoDaConta(acct) { return consumoGrupoMod.grupoDaConta(this, acct); }
 
   // perfil Claude efetivo de uma conta GitHub. Legado (sem perfil configurado) devolve
   // null: não há a quem atribuir teto nem cota.
@@ -2130,6 +2142,7 @@ class Engine extends EventEmitter {
      do Set todo ciclo e o toast de cota repetiria sem parar, que é exatamente o barulho
      que este Set existe pra impedir. */
   _avisoDeOrcamentoAindaVale(chave) {
+    if (String(chave).startsWith('grupo:')) return consumoGrupoMod.grupoAindaBloqueia(this, String(chave));
     const corte = String(chave).indexOf('|');
     if (corte >= 0) return !!this.quotaBlockedFor(String(chave).slice(corte + 1));
     const profile = (this.config.claudeProfiles || []).find(p => p.id === chave);

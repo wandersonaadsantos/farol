@@ -185,11 +185,22 @@ export async function startFakeRtdb({ token = 'tok-ok', agora = () => Date.now()
   function consultar(atual, params) {
     if (!atual || typeof atual !== 'object') return atual;
     const campo = JSON.parse(params.get('orderBy'));
-    const valor = (v) => (v && typeof v === 'object' ? v[campo] : undefined);
-    let itens = Object.entries(atual).filter(([, v]) => valor(v) !== undefined);
-    itens.sort((a, b) => (valor(a[1]) < valor(b[1]) ? -1 : valor(a[1]) > valor(b[1]) ? 1 : 0));
-    if (params.has('startAt')) { const s = JSON.parse(params.get('startAt')); itens = itens.filter(([, v]) => valor(v) >= s); }
-    if (params.has('endAt')) { const e = JSON.parse(params.get('endAt')); itens = itens.filter(([, v]) => valor(v) <= e); }
+    // `$key` ordena pela própria chave do filho, como no banco real (o rollup diário do
+    // teto do grupo lê assim, a partir do início do período)
+    const porChave = campo === '$key';
+    const valor = (v, k) => {
+      if (porChave) return k;
+      return v && typeof v === 'object' ? v[campo] : undefined;
+    };
+    let itens = Object.entries(atual).filter(([k, v]) => valor(v, k) !== undefined);
+    itens.sort((a, b) => {
+      const va = valor(a[1], a[0]);
+      const vb = valor(b[1], b[0]);
+      if (va < vb) return -1;
+      return va > vb ? 1 : 0;
+    });
+    if (params.has('startAt')) { const s = JSON.parse(params.get('startAt')); itens = itens.filter(([k, v]) => valor(v, k) >= s); }
+    if (params.has('endAt')) { const e = JSON.parse(params.get('endAt')); itens = itens.filter(([k, v]) => valor(v, k) <= e); }
     if (params.has('limitToFirst')) itens = itens.slice(0, Number(params.get('limitToFirst')));
     if (params.has('limitToLast')) itens = itens.slice(-Number(params.get('limitToLast')));
     return Object.fromEntries(itens);
