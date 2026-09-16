@@ -6,11 +6,11 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026, com o **adendo de 16/09/2026** (concluir as pendências, incluindo a experiência utilizável).
 - **Estado em uma frase:** **núcleo da trilha C integrado, experiência funcional parcial.** Os serviços, regras e contratos de C0 a C8 estão implementados e validados localmente, mas a interface só cobre o que já existia antes da iniciativa (login, teste, saída, refazer recibo, consumo consolidado, tabela de aparelhos com versão e os três interruptores da era C0). Não há, pela tela, desbloqueio da chave do conjunto, interruptor de compartilhamento ou de distribuição, administração, grupos, comandos, transferência, tomada, pareamento da A4, nem o Plano e chaves (A2) e o Diagnóstico unificado (A3).
-- **Frentes em curso (adendo):** acesso ao Claude Design (cadastrado, **aguardando o login do dono**), brief B2 (em escrita), A1b (medição real feita e correção integrada), reconciliação deste registro.
+- **Frentes em curso (adendo):** acesso ao Claude Design (cadastrado, **aguardando o login do dono**); brief B2 escrito e contrato das telas integrado; A1b e A4b integradas; linha de integração **reconciliada com a `main` `dde2ac1`** (Fase 1b da reorganização e v2.59.5) em 16/09/2026; núcleos de A2 e A3 em seguida.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
-- **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026. A `main` remota está em `b0911b1`.
-- **Branch de integração:** `md/integracao`, worktree `C:\Users\wanderson\Documents\farol-md-exec`. SHA de referência desta reconciliação: `33f2a0e` (antes da A1b); o SHA atual fica na seção "Gate na linha de integração".
+- **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026. Reconciliada em 16/09/2026 com a `main` local `dde2ac1` (Fase 1b: `ui/app.js` virou bootstrap e as telas moram em `ui/telas/`; v2.59.5; guias operacionais em `docs/`). Merge `3ec5d10` em `md/reconcilia-main`, integrado por `6eb2232`.
+- **Branch de integração:** `md/integracao`, worktree `C:\Users\wanderson\Documents\farol-md-exec`. O SHA atual fica na seção "Gate na linha de integração".
 - **Worktree de referência da base:** `C:\Users\wanderson\Documents\farol-md-base` (detached em `8c043bc`, só leitura).
 - **Roteiro de contraprova:** mutação aplicada na cópia de trabalho, testes rodados com tempo limite de 4 min por mutação, conteúdo restaurado e conferido byte a byte (script em scratchpad da sessão; o resultado de cada mutação fica na evidência da entrega).
 
@@ -33,19 +33,21 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 | `npm test` | 2841 testes, 2817 aprovados, 24 pulados, 0 falhas |
 | `npm run eng` | `not-run` na base sem entrega (reprova por construção, o esperado); com entrega exige `avaliacoes.jsonl` |
 
-## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g, C4, C5a, C5b, C5c e C5d)
+## Gate na linha de integração (16/09/2026, em `6eb2232`, depois da reconciliação com a `main`)
 
 | Gate | Resultado |
 |---|---|
-| `npm run check` | verde, 455 arquivos `.js` |
+| `npm run check` | verde, 515 arquivos `.js` |
 | `npm run lint` | verde, sem regressão |
-| `npm test` | 3681 testes, 3653 aprovados, 28 pulados, 0 falhas |
+| `npm test` | 3857 testes, 3829 aprovados, 28 pulados, 0 falhas |
+
+Saída completa da suíte guardada fora do repositório (scratchpad da sessão, `suite-reconcilia2.txt`). Na primeira rodada depois do merge, `test/http-host-allowlist.test.js` terminou como falha de arquivo com os 28 casos aprovados; rodado sozinho três vezes, passou nas três (mesma família da falha nativa registrada em "Observação de instabilidade na suíte").
 
 Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações escritas.
 
 ## Entregas
 
-Contagem: **33 linhas**, 33 evidências em `evidencias-execucao/` (29 da execução até a C8; A1b, A4b e a validação POSIX do adendo). "Núcleo" é serviço, regra e contrato; "interface" é a tela que configura, aciona ou mostra a capacidade; "validação local" é gate verde mais contraprovas.
+Contagem: **34 linhas** (a 34 é a reconciliação, sem evidência própria), 33 evidências em `evidencias-execucao/` (29 da execução até a C8; A1b, A4b e a validação POSIX do adendo). "Núcleo" é serviço, regra e contrato; "interface" é a tela que configura, aciona ou mostra a capacidade; "validação local" é gate verde mais contraprovas.
 
 | Ordem | Entrega | Branch | Núcleo | Interface | Integração e validação local | Validação externa pendente | Condição de publicação e ativação | Evidência |
 |---|---|---|---|---|---|---|---|---|
@@ -82,7 +84,8 @@ Contagem: **33 linhas**, 33 evidências em `evidencias-execucao/` (29 da execuç
 | 31 | A4b Autenticação exigida exercitada e guarda do celular para a C3 | `md/a4b` | sim | **não** (sem tela de pareamento) | sim (servidor real isolado) | Termux real | exigência automática desligada; C3 presa a ela no celular | `evidencias-execucao/a4b.md` |
 | 33 | Contrato das telas (B2, seção 5) | `md/contrato-telas` | sim | **não** (é o que as telas vão chamar) | sim | não | não se aplica | `evidencias-execucao/contrato-telas.md` |
 | 32 | Validação POSIX em Linux isolado | `md/a4b` | não se aplica | não se aplica | sim (container Linux, uid 1000, sem rede) | Android/Termux continua sem prova | não se aplica | `evidencias-execucao/validacao-posix.md` |
-| seguintes | B2 (brief e desenho), A2, A3, telas de A4, C1 a C8 | | | | | | | |
+| 34 | Reconciliação com a `main` `dde2ac1` | `md/reconcilia-main` | não se aplica | transporte da A4 e textos da C0 portados para `ui/telas/` | sim, gate completo e quatro contraprovas nos testes ajustados | nenhuma | junto com a iniciativa | este registro, seção "Commits" |
+| seguintes | desenho B2 no Claude Design, A2, A3, telas de A4 e C1 a C8 | | | | | | | |
 
 ## Capacidades desligadas: o que falta em cada uma (adendo, item 5)
 
@@ -164,6 +167,8 @@ Três vezes hoje, uma rodada de `npm test` disparada **logo depois de um merge**
 | `b13c46a`, `71be6a5`, `6300c38`, `85208d9`, `e408f47`, `dda3565`, `556604c`, `69f88e0`, `ec4833b`, `736b93f` | `md/c2a` | C2a: consentimento local, chave Ed25519 do admin, assinatura, tornar-se admin com senha, frescor por sequência, publicar e aceitar política, valor efetivo, regras v2 dos nós novos e documentação |
 | `335c0c1`, `6e1830e`, `ace44cb`, `b4545ef`, `9c33a1f`, `6a8c6a9`, `4c4a775`, `ab9a072`, `8c1abdd`, `76ea423`, `ceb41cf`, `1d76d58` | `md/c2b` | C2b: caracterização do desligado, identidade do grupo, vínculo por intervalo, grupo no banco com a ordem de recusa comum, renomear e aposentar, chave da limpeza, ato de apagar, revogação, regras v2 dos nós novos, seis rotas e documentação |
 | `35f40f2`, `9e56a4f`, `56e0cb6`, `d119de0`, `e263a7e`, `020fcab`, `8f4e076` | `md/c3a` | C3a: caracterização do desligado, frota v2, presença com contrato e chave pronta, capacidade cifrada, catálogo cifrado, regras v2 e a correção do dono na concessão de remoção |
+| merges `ed125e7`, `17ac164`, `8c1773e`, `f9f00a0` | `md/integracao` | adendo: A1b, brief B2, A4b e contrato das telas |
+| `3ec5d10`, merge `6eb2232` | `md/reconcilia-main` | reconciliação com a `main` `dde2ac1`: transporte da A4 em `ui/telas/infra.js`, textos da C0 nas telas, apagão remoto fora de `ui/telas/sistema-sync.js`, retomada durável portada para `docs/REVIEW-GATES.md`; três testes passaram a ler o bootstrap e todas as telas (`settings-ignoradas`, `sync-sem-apagao`, `ui-transporte-app`), com a mesma garantia |
 
 
 ## Deploy e notas de versão propostos (16/09/2026)
@@ -240,6 +245,6 @@ desta linha com a `main` (a base desta execução é `8c043bc`; a `main` está e
 
 ## Próxima ação concreta
 
-Todo o código da iniciativa está entregue (C0 a C8, mais A1, A4, A5 e as fiações T0, C2c e C3h). O que falta são as TELAS, que saem do Claude Design, e os itens que só o dono fecha: publicar as regras no Firebase (roteiro do `firebase/README.md`), as medições externas da seção 13 da spec e a reconciliação com a main.
+Todo o código da iniciativa está entregue (C0 a C8, mais A1, A4, A5 e as fiações T0, C2c e C3h). O que falta são as TELAS, que saem do Claude Design, e os itens que só o dono fecha: publicar as regras no Firebase (roteiro do `firebase/README.md`), as medições externas da seção 13 da spec (a reconciliação com a `main` foi feita em 16/09/2026).
 
 Segue pendente, e só o dono fecha: publicar as regras v2 no console do Firebase (roteiro do `firebase/README.md`, itens 1 a 34), conferir a sincronização depois do incidente registrado acima, e a medição de memória da C4.
