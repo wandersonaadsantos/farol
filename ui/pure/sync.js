@@ -234,10 +234,13 @@ export function syncAparelhosHtml(devices, agora = Date.now()) {
   const linhas = lista.map((d) => {
     const eu = d.euMesmo ? ' <span class="sync-chip mute">este</span>' : '';
     const visto = d.lastSeenAt ? fmtWhenDay(d.lastSeenAt, agora) : 'nunca';
-    return `<div class="sync-linha"><span class="sync-nome">${esc(d.name || d.deviceId || 'aparelho')}${eu}</span><span class="sync-fraco">${esc(d.platform || '')}</span><span class="sync-fraco">${esc(visto)}</span></div>`;
+    // aparelho em versão antiga ainda não publica a versão: "desconhecida" é honesto, e
+    // zero ou vazio pareceria um aparelho sem app
+    const versao = d.farolVersion ? `v${d.farolVersion}` : 'desconhecida';
+    return `<div class="sync-linha"><span class="sync-nome">${esc(d.name || d.deviceId || 'aparelho')}${eu}</span><span class="sync-fraco">${esc(versao)}</span><span class="sync-fraco">${esc(d.platform || '')}</span><span class="sync-fraco">${esc(visto)}</span></div>`;
   }).join('');
   return `<div class="card sync-lista">
-    <div class="sync-linha sync-head"><span>aparelho</span><span>sistema</span><span>visto por último</span></div>
+    <div class="sync-linha sync-head"><span>aparelho</span><span>versão</span><span>sistema</span><span>visto por último</span></div>
     ${linhas}
   </div>`;
 }

@@ -1665,7 +1665,7 @@ body.electron .chat-head { padding-right: 150px; }
 .sync-teste.ok { color: var(--ok); }
 .sync-teste.ruim { color: var(--danger); }
 .sync-lista { padding: 2px var(--sp-4); }
-.sync-linha { display: grid; grid-template-columns: minmax(0, 1fr) 110px 150px; gap: var(--sp-3); align-items: center; padding: 10px 0; font-size: 12.5px; }
+.sync-linha { display: grid; grid-template-columns: minmax(0, 1fr) 90px 110px 150px; gap: var(--sp-3); align-items: center; padding: 10px 0; font-size: 12.5px; }
 .sync-linha + .sync-linha { border-top: 1px solid var(--border-soft); }
 .sync-linha.sync-head { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); padding-bottom: 6px; }
 .sync-nome { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; font-weight: 600; }
@@ -1692,5 +1692,5 @@ body.electron .chat-head { padding-right: 150px; }
 @media (max-width: 720px) {
   .sync-corpo { grid-template-columns: 1fr; }
   .sync-linha { grid-template-columns: minmax(0, 1fr) auto; }
-  .sync-linha > :nth-child(2) { display: none; }
+  .sync-linha > :nth-child(2), .sync-linha > :nth-child(3) { display: none; }
 }
