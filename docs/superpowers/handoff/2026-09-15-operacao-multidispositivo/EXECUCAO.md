@@ -115,6 +115,34 @@ Três vezes hoje, uma rodada de `npm test` disparada **logo depois de um merge**
 
 **Causa medida na C5d (16/09/2026).** O quarto episódio (`sync-device-status`, logo depois do merge da C5d) foi reproduzido rodando o arquivo 24 vezes em paralelo com o repórter TAP: uma das execuções saiu com `exitCode: 3221226505` (0xC0000409, encerramento nativo do processo Node no Windows) em cerca de 340 ms, antes de qualquer caso rodar. Outras 24 execuções paralelas do mesmo arquivo e 36 de três outros arquivos não repetiram. Não é asserção de teste nem estado vazando entre casos: é o processo filho morrendo na partida, sob carga, no Node v24.15.0. A suíte refeita em seguida deu 3681 testes e 0 falhas. Fica registrado como limite do ambiente, e o critério segue o mesmo: só vale como verde a rodada completa sem falha.
 
+### Instabilidade da suíte, 16/09/2026 à tarde (medição com código de saída)
+
+Rodadas completas guardadas no scratchpad da sessão (`suite-*.txt` e `instab/`), com o código
+de saída de cada uma. O que foi medido, sem repetir até dar verde:
+
+| Rodada | Concorrência | Resultado |
+|---|---|---|
+| gate da A2 (tela), 1ª | padrão (32) | `rc=1`: `sync-desbloqueio` inteiro falhou, nenhum caso reprovado |
+| TAP completa | padrão (32) | `rc=1`: `sync-pushback-remoto` inteiro falhou com `exitCode: 3221226505` (`0xC0000409`) aos 1057 ms |
+| `sync-desbloqueio` isolado | 1, oito vezes em série | 8 de 8 com `rc=0` |
+| `sync-desbloqueio` isolado | 16 processos em paralelo | 16 de 16 com `rc=0` |
+| só `test/sync-*.test.js` (91 arquivos) | padrão, quatro vezes | 4 de 4 com `rc=0`, nenhuma queda |
+| completa, TAP | 16, duas vezes | 2 de 2 com `rc=0`, nenhuma queda |
+| gate da A2 (tela), 2ª; gates das fatias seguintes | padrão (32) | `rc=0` |
+
+**Leitura:** o processo filho do Node é abortado pelo próprio runtime (`0xC0000409`, encerramento
+por falha rápida) em arquivos diferentes a cada vez, sem asserção envolvida, e só com a suíte
+inteira na concorrência padrão desta máquina (32). Isolado, em paralelo com ele mesmo, ou no
+subconjunto de sincronização, não reproduziu. Com concorrência 16, duas rodadas limpas: é indício
+de contenção, não prova. Não foi achado recurso local sem encerramento: os dois arquivos que
+caíram encerram servidor e duplos no `after`, e o arquivo cai antes de relatar qualquer caso.
+
+**Impacto:** uma rodada completa pode sair `rc=1` sem defeito de código. O critério continua o
+mesmo: a rodada que falhou fica guardada e é contada, o arquivo é rodado isolado, e a suíte é
+refeita uma vez; persistindo, é defeito e vira investigação própria. **Fica em aberto:** confirmar
+com mais rodadas se limitar a concorrência do `npm test` elimina a queda (decisão do dono, porque
+dobra o tempo da suíte).
+
 ## Bloqueios
 
 | Entrega | Causa | Evidência | Tentado | Condição para continuar |
