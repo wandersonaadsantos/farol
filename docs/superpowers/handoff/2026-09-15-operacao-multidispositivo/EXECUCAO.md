@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026 (iniciativa inteira, limites no plano mestre, seção 4).
-- **Entrega em curso:** C2a, na branch `md/c2a` (tarefas 1, 2, 3 e 6 concluídas e commitadas). C1a, C0, A5, A1, A4, C0b e C1 validadas localmente e **todas integradas** em `md/integracao`.
+- **Entrega em curso:** nenhuma. Próxima é a C2b (plano a escrever). C1a, C0, A5, A1, A4, C0b, C1 e C2a validadas localmente e **todas integradas** em `md/integracao`.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 - **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026.
@@ -22,13 +22,13 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 | `npm test` | 2841 testes, 2817 aprovados, 24 pulados, 0 falhas |
 | `npm run eng` | `not-run` na base sem entrega (reprova por construção, o esperado); com entrega exige `avaliacoes.jsonl` |
 
-## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1, A4, C0b e C1)
+## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1, A4, C0b, C1 e C2a)
 
 | Gate | Resultado |
 |---|---|
-| `npm run check` | verde, 375 arquivos `.js` |
+| `npm run check` | verde, 390 arquivos `.js` |
 | `npm run lint` | verde, sem regressão |
-| `npm test` | 3290 testes, 3263 aprovados, 27 pulados, 0 falhas |
+| `npm test` | 3351 testes, 3323 aprovados, 28 pulados, 0 falhas |
 
 Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações escritas.
 
@@ -43,7 +43,7 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | 5 | C0b Arbitragem de postagem no funil | `md/c0b` | validado localmente, integrado (`355f6d8`) | `evidencias-execucao/c0b.md` |
 | 6 | A4 Autenticação local, núcleo | `md/a4` | validado localmente, integrado (`7387179`); ativação automática desligada | `evidencias-execucao/a4.md` |
 | 7 | C1 Contrato de dados v2 e cifragem | `md/c1` | validado localmente, integrado (`6540b5a`); regras não publicadas | `evidencias-execucao/c1.md` |
-| 8 | C2a Autoridade do admin, consentimento e políticas | `md/c2a` | **em curso**: tarefas 1, 2, 3 e 6 concluídas (consentimento local, chave do admin, assinatura); faltam 4, 5, 7, 8, 9 e 10 | |
+| 8 | C2a Autoridade do admin, consentimento e políticas | `md/c2a` | validada localmente e **integrada** | `evidencias-execucao/c2a.md` |
 | 9 | C2b Grupo de consumo, aparelho, limpeza e revogação | `md/c2b` | plano a escrever | |
 | seguintes | C3, C4, C4b, C5, C6, C7, C8, telas | | planos a escrever | |
 
@@ -65,6 +65,9 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | C1 | publicação das regras v2 no console do Firebase | manual, uma vez, pelo dono |
 | C1 | custo do `scrypt` no Termux (acima de 3 s cai para N=8192, r=8, p=10) | aparelho |
 | C1 | modo 0600 do cache de chave | rodada POSIX (pula no Windows) |
+| C2a | comportamento no servidor dos nós novos (geração +1, `REC` no nó do admin, janela de 60 s do batimento, teto do envelope da política) | emulador e projeto real, itens 9 a 13 do `firebase/README.md` |
+| C2a | publicação das regras v2 já com os nós da C2a | console do Firebase, manual, pelo dono |
+| C2a | modo 0600 do cache de política | rodada POSIX (pula no Windows) |
 
 ## Decisões e ajustes técnicos
 
@@ -96,7 +99,8 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | `ed27d04`, `ce3c6a5`, `8e24193`, `7cc0c93`, `961666c`, `73b3743`, `df58c12`, `f0fab5e`, `fcf4714`, `7828a27` | `md/c0b` | C0b: caracterização do caminho desligado, posse com margem e recibo que preserva postagens, posse de postagem, registro durável, reconciliação, arbitragem no funil com as cinco vias, reconciliação no ciclo, co-assinatura coordenada, cobertura por versão, trava de fonte |
 | `bfa65b7` | `md/integracao` | plano da C1 |
 | `3ccbef2`, `56c5149`, `73e1545`, `bbe849a`, `06256a7`, `f423eec`, `2e28f7e`, `8be628a`, `cc8d4f1`, `d6f99cc`, `fa2a850`, `99189b8` | `md/c1` | C1: caracterização do desligado, interruptor, tags v2, KEK, chaveiro, cache, envelope, desbloqueio e remoção do apagão, sonda, regras v2 por macro, ciclo de recuperação, frase da tela e mapa |
+| `b13c46a`, `71be6a5`, `6300c38`, `85208d9`, `e408f47`, `dda3565`, `556604c`, `69f88e0`, `ec4833b`, `736b93f` | `md/c2a` | C2a: consentimento local, chave Ed25519 do admin, assinatura, tornar-se admin com senha, frescor por sequência, publicar e aceitar política, valor efetivo, regras v2 dos nós novos e documentação |
 
 ## Próxima ação concreta
 
-Seguir a C2a pela Tarefa 4 (tornar ESTE aparelho admin, com a senha real antes de qualquer gravação) e depois a 5 (batimento de autoridade com frescor por sequência), pelo plano `docs/superpowers/plans/2026-09-15-md-c2a-autoridade-e-politicas.md`. Já concluídas e commitadas em `md/c2a`: consentimento local `aceitarAdmin`, chave Ed25519 do admin e assinatura. A 7.C2 da spec foi dividida em duas entregas, porque cobre quatro assuntos independentes: a C2a traz autoridade do admin, consentimento local e políticas remotas; a C2b traz grupo de consumo configurado, gestão de aparelho, limpeza protegida e revogação, e depende da assinatura que nasce na C2a. A C1 deixou uma pendência que só o dono fecha: publicar as regras v2 no console do Firebase, depois do roteiro manual do `firebase/README.md`. Enquanto isso não acontece, o compartilhamento cifrado fica desligado e nada muda no comportamento de hoje.
+Escrever o plano da C2b (grupo de consumo configurado, gestão de aparelho, limpeza protegida e revogação) e executá-lo, cortando `md/c2b` da ponta de `md/integracao`. A 7.C2 da spec foi dividida em duas entregas porque cobre quatro assuntos independentes: a C2a, já integrada, traz autoridade do admin, consentimento local e políticas remotas; a C2b depende da assinatura que nasceu ali. A C1 deixou uma pendência que só o dono fecha, e a C2a acrescentou nós ao mesmo arquivo: publicar as regras v2 no console do Firebase, depois do roteiro manual do `firebase/README.md` (itens 1 a 13). Enquanto isso não acontece, o compartilhamento cifrado fica desligado e nada muda no comportamento de hoje.
