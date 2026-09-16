@@ -51,7 +51,7 @@ const MSG = {
 test('CLASSES: toda classe tem os cinco campos e um kind válido', () => {
   const KINDS = ['operacional', 'espera-reset', 'transitorio', 'permanente'];
   const GRUPOS = ['operacional', 'ambiente', 'credencial', 'rede', 'app'];
-  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 16, 'são 16 classes');
+  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 17, 'são 17 classes (rate-limit-github entrou na 7.C5)');
   for (const c of CLASSES) {
     assert.equal(typeof c.id, 'string');
     assert.ok(c.label, `${c.id} precisa de label humano`);
@@ -71,7 +71,7 @@ test('CLASSES: ids únicos', () => {
 test('CLASSES: a ordem é a documentada (primeira que casar vence)', () => {
   assert.deepEqual(CLASSES.map(c => c.id), [
     'restart-fila', 'console-fechado', 'limite-plano', 'assinatura-bloqueada',
-    'oauth-expirado', 'credencial-invalida', 'credito-insuficiente', 'resultado-invalido', 'coordenacao-indisponivel', 'rede', 'github-indisponivel',
+    'oauth-expirado', 'credencial-invalida', 'credito-insuficiente', 'resultado-invalido', 'coordenacao-indisponivel', 'rate-limit-github', 'rede', 'github-indisponivel',
     'provedor-indisponivel', 'token-gh', 'skip-permissions-root', 'tempo-esgotado', 'ferramenta'
   ]);
 });
@@ -681,4 +681,16 @@ test('coordenação entre dispositivos indisponível: transitória e vence rede 
   assert.equal(c2.kind, 'transitorio');
   assert.equal(c2.label, 'Sincronização entre dispositivos indisponível', 'o rótulo não pode nomear um recurso que ninguém ligou');
   assert.equal(classify('Sincronizacao entre dispositivos indisponivel: timeout').id, 'coordenacao-indisponivel', 'sem acento também');
+});
+
+// 7.C5: rate limit do GitHub é espera, não defeito.
+test('rate limit do GitHub é transitório', () => {
+  for (const msg of [
+    'gh: API rate limit exceeded for user ID 123.',
+    'HTTP 403: You have exceeded a secondary rate limit.',
+  ]) {
+    const c = classify(msg);
+    assert.equal(c.id, 'rate-limit-github', msg);
+    assert.equal(c.kind, 'transitorio', msg);
+  }
 });

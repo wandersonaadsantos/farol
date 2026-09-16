@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026 (iniciativa inteira, limites no plano mestre, seção 4).
-- **Entrega em curso:** nenhuma. Próxima é a C5d (degradação e volta ao modo local). C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g, C4 (código), C5a, C5b e C5c validadas localmente e **todas integradas** em `md/integracao`.
+- **Entrega em curso:** nenhuma. Próxima é a C4b (ativação do teto do grupo). C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g, C4 (código), C5a, C5b, C5c e C5d validadas localmente e **todas integradas** em `md/integracao`.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 - **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026.
@@ -32,13 +32,13 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 | `npm test` | 2841 testes, 2817 aprovados, 24 pulados, 0 falhas |
 | `npm run eng` | `not-run` na base sem entrega (reprova por construção, o esperado); com entrega exige `avaliacoes.jsonl` |
 
-## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g, C4, C5a, C5b e C5c)
+## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g, C4, C5a, C5b, C5c e C5d)
 
 | Gate | Resultado |
 |---|---|
-| `npm run check` | verde, 451 arquivos `.js` |
+| `npm run check` | verde, 455 arquivos `.js` |
 | `npm run lint` | verde, sem regressão |
-| `npm test` | 3663 testes, 3635 aprovados, 28 pulados, 0 falhas |
+| `npm test` | 3681 testes, 3653 aprovados, 28 pulados, 0 falhas |
 
 Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações escritas.
 
@@ -66,7 +66,8 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | 18 | C5a Candidato e escolha (parte pura) | `md/c5a` | validada localmente e **integrada** | `evidencias-execucao/c5a.md` |
 | 19 | C5b Prontidão do distribuidor (parte pura) | `md/c5b` | validada localmente e **integrada** | `evidencias-execucao/c5b.md` |
 | 20 | C5c Distribuição entre aparelhos | `md/c5c` | validada localmente e **integrada** | `evidencias-execucao/c5c.md` |
-| seguintes | C5d, C4b, C6, C7, C8, telas | | planos a escrever | |
+| 21 | C5d Degradação e volta ao modo local | `md/c5d` | validada localmente e **integrada** | `evidencias-execucao/c5d.md` |
+| seguintes | C4b, C6, C7, C8, telas | | planos a escrever | |
 
 ## Observação de instabilidade na suíte (16/09/2026)
 
@@ -137,6 +138,6 @@ Três vezes hoje, uma rodada de `npm test` disparada **logo depois de um merge**
 
 ## Próxima ação concreta
 
-Seguir a C5 pelas partes que faltam: C5b (prontidão do distribuidor, CT-PRONT), C5c (publicar, atribuir, aceitar e recusar, com a fiação no `enqueueHeadless` e as três correções obrigatórias do anexo S3) e C5d (degradação e volta ao modo local). A C5c é a que muda comportamento de verdade e merece o cuidado maior: ela mexe no caminho que hoje enfileira a revisão.
+A C5 está completa (C5a a C5d). Seguir pela C4b (ativação do teto do grupo), depois C6 (comandos remotos), C7, C8 e as telas, estas a partir do Claude Design.
 
 Segue pendente, e só o dono fecha: publicar as regras v2 no console do Firebase (roteiro do `firebase/README.md`, itens 1 a 34), conferir a sincronização depois do incidente registrado acima, e a medição de memória da C4.

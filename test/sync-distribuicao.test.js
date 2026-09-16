@@ -89,11 +89,20 @@ function cfgDist(extra = {}) {
   return { ...syncCfg(), coordination: { enabled: true }, distribution: { enabled: true }, aceitarAdmin: true, ...extra };
 }
 
+function prontidaoFresca(e, fresca = true) {
+  e.sync.sinais = {
+    conexaoEm: 0, lidos: new Set(), beat: null, modo: '', voltaPendente: false, voltando: false, ultimoBatimentoEm: 0,
+    ready: { sequenciaVista: 1, fresca, ultimaMudancaEm: Date.now() },
+  };
+}
+
 async function motorDistribuidor(opcoes = {}) {
   const e = await motorPronto(opcoes);
   e.updateSettings({ sync: cfgDist() });
   if (e.sync.iniciando) await e.sync.iniciando;
   e.sync.autoridade = { fresca: true, agora: T, ultimaMudancaEm: T, intervaloMs: SYNC.AUTORIDADE_INTERVALO_MS };
+  // C5d: desviar para a distribuição exige também a prontidão fresca observada
+  prontidaoFresca(e);
   e.doctorInfo = { claude: '1.0.0', ghAuth: true };
   e.sync.lastPresenceAt = Date.now();
   e.accountForPr = () => LOGIN;
@@ -295,6 +304,15 @@ test('com a distribuição ligada, o item vira candidato e fica visível esperan
   assert.ok(e.headlessDistribuindo.get('dono/repo#7'), 'o PR fica visível como esperando distribuição');
   await new Promise((resolve) => setTimeout(resolve, 50));
   assert.equal(Object.keys(no('live/queue')).length, 1);
+});
+
+// C5d: sem prontidão fresca do distribuidor o item fica no escalonador local, mesmo com
+// autoridade fresca e a distribuição ligada.
+test('sem prontidão fresca, o item fica local', async () => {
+  const e = motorFila(await motorDistribuidor());
+  prontidaoFresca(e, false);
+  assert.deepEqual(reviewMod.enqueueHeadless(e, prDe(9)), { ok: true, via: 'local' });
+  assert.equal(e.headlessQueue.length, 1);
 });
 
 // CT-RET: item com retomada fica no aparelho que consegue executá-la.
