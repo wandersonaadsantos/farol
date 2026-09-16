@@ -13,6 +13,7 @@ import { estado, escopo, peopleOf } from './estado.js';
 import { $, api, textoDaListaVazia, toast, copyToClipboard } from './infra.js';
 import { scopeVisible, acctMark } from './contas.js';
 import { revisarUrls } from './consumo.js';
+import { renderPanoramaRemoto } from './listas-remotas.js';
 
 // mini-navegação do Radar: só lista seções visíveis (hidden=false), com contagem
 // quando o número ajuda a decidir pra onde ir. Espelha o estado real do DOM em
@@ -196,8 +197,11 @@ function renderQueue() {
 
 function renderPanorama() {
   const list = (estado().panorama || []).filter(scopeVisible);
-  $('#panoCount').hidden = list.length === 0;
-  $('#panoCount').textContent = list.length;
+  // as linhas de outros aparelhos passam pelo MESMO filtro de conta, e a contagem soma só
+  // as que este aparelho não tem (telas/listas-remotas.js)
+  const total = list.length + renderPanoramaRemoto(list, scopeVisible);
+  $('#panoCount').hidden = total === 0;
+  $('#panoCount').textContent = total;
   $('#panoOwners').textContent = list.length ? 'PRs abertos, os seus destacados' : '';
   const box = $('#panorama');
   const vs = listViewState({ lastCheckAt: estado().lastCheckAt, status: estado().status, length: list.length });

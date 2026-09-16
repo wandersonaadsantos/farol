@@ -27,7 +27,7 @@ const ANDAMENTO_TIQUE_MS = 10000;
 const RECIBO_MIN_MS = 10000;
 const REVISOES_MIN_MS = 60000;
 
-const LIVE = { operacoes: [], at: 0 };
+const LIVE = { operacoes: [], at: 0, falhaEm: 0 };
 const PEND = { pendencias: [], novas: new Set() };
 const RECIBOS = { mapa: {}, falhas: new Set(), at: 0, buscando: false };
 const REVISOES = { escopo: 'todos', estado: 'inicial', revisoes: [], at: 0 };
@@ -76,7 +76,7 @@ function renderPendencias(s) {
 
 function renderOperacoes(s) {
   const permissao = comandoPermitido(s);
-  $('#mdOperacoes').innerHTML = `${andamentoAtrasadoHtml(LIVE.at)}${operacoesRemotasHtml(LIVE.operacoes, { podeComandar: permissao.pode, motivoSemComando: permissao.motivo })}`;
+  $('#mdOperacoes').innerHTML = `${andamentoAtrasadoHtml(LIVE.at, Date.now(), LIVE.falhaEm)}${operacoesRemotasHtml(LIVE.operacoes, { podeComandar: permissao.pode, motivoSemComando: permissao.motivo })}`;
 }
 
 function renderComandos(s) {
@@ -112,9 +112,12 @@ function renderCompartilhado() {
 
 /* ---------- eventos SSE próprios (entregues pelo bootstrap) ---------- */
 
+// Com `falhaEm`, o engine avisa que a leitura falhou e manda a visão anterior: a hora da
+// última leitura boa fica como estava, e a faixa diz a falha.
 function aoAndamentoRemoto(d) {
   LIVE.operacoes = Array.isArray(d && d.operacoes) ? d.operacoes : [];
-  LIVE.at = Date.now();
+  LIVE.falhaEm = Number(d && d.falhaEm) || 0;
+  if (!LIVE.falhaEm) LIVE.at = Date.now();
   if (visaoCompartilhada(syncAtual()) === 'ligada') renderOperacoes(syncAtual());
 }
 
@@ -308,4 +311,5 @@ function registrarTelaRadarCompartilhado() {
 export {
   registrarTelaRadarCompartilhado, renderCompartilhado, aoAndamentoRemoto, aoPendenciasRemotas,
   marcarVisto, decidirNoAparelho, cancelarOperacao, tomarOperacao, medirHistorico, enviarHistorico,
+  buscarRevisoes,
 };

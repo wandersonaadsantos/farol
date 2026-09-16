@@ -1837,3 +1837,28 @@ body.parear > *:not(.par-raiz) { display: none !important; }
   .apar-tipo { min-height: 44px; }
   .apar-acao .sync-campo { min-width: 0; width: 100%; }
 }
+
+/* ---------- Panorama e Meus PRs de outros aparelhos (telas/listas-remotas.js) ---------- */
+.md-remoto { margin-top: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
+.md-remoto-topo { font-size: 12px; font-weight: 600; color: var(--muted); text-wrap: pretty; }
+.md-remoto-linhas { margin: 0; }
+.prow.md-remota { background: var(--surface); }
+.md-remota-fim { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+.md-remota .settled { color: var(--faint); }
+.md-origem { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.md-meu-remoto { display: flex; flex-direction: column; gap: 6px; }
+.md-pr { display: inline-flex; align-items: baseline; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.md-pr-titulo { overflow-wrap: anywhere; }
+.md-pr-autor { font-size: 12px; color: var(--muted); }
+.md-pr-generico { color: var(--text); }
+@media (max-width: 860px) {
+  .md-origem { max-width: 140px; }
+}
+@media (max-width: 720px) {
+  .prow.md-remota { flex-wrap: wrap; }
+  .md-remota-fim { justify-content: flex-start; width: 100%; }
+}
+@media (max-width: 620px) {
+  .md-remoto .pr-ref-mention, .md-remoto .person-mention, .md-pend .pr-ref-mention, .md-op .pr-ref-mention { min-height: 44px; display: inline-flex; align-items: center; }
+  .md-origem { max-width: none; white-space: normal; }
+}
