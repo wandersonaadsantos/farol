@@ -71,6 +71,10 @@ test('o aviso explica o risco ANTES de confirmar, e não promete o que não pode
   assert.match(aviso, /não encerra o processo do outro aparelho/);
   assert.match(aviso, /não consegue mais postar/);
   assert.match(aviso, /custar duas vezes/);
+  // o risco sai em português, nunca o código interno sem acento (visto na jornada da bancada)
+  assert.match(aviso, /duplicidade provável/);
+  assert.doesNotMatch(aviso, /provavel|possivel/);
+  assert.match(tomada.avisoDaTomada(leaseVivo({ heartbeatAt: T - SYNC.LEASE_TTL_MS - 1 }), { nowMs: T }), /duplicidade possível/);
 });
 
 test('quem está uma geração atrás não publica', () => {
