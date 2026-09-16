@@ -16,7 +16,11 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { startFakeRtdb } from './helpers/fake-rtdb.js';
 import { startFakeIdentity } from './helpers/fake-identity.js';
+import { fixarMemoriaLivre, restaurarMemoriaLivre } from './helpers/memoria-livre.js';
 import { SYNC } from '../lib/constants.js';
+
+// a admissão recusa abaixo do piso de memória: sem fixar, a memória da máquina decide
+fixarMemoriaLivre();
 
 const { Engine } = await import('../server.js');
 const andamento = (await import('../lib/engine/sync-andamento.js')).default;
@@ -38,6 +42,7 @@ before(async () => {
   fake = await startFakeRtdb({ token: (t) => identity.tokens.idTokens.includes(t) });
 });
 after(async () => {
+  restaurarMemoriaLivre();
   await fake.close();
   await identity.close();
   try { fs.rmSync(BASE, { recursive: true, force: true }); } catch { /* limpeza best-effort do temporário */ }
