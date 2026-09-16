@@ -1,0 +1,23 @@
+M1 bloqueada vira ligada: REPROVOU (código 1, 4 caso(s) vermelhos em test/ui-pure-compartilhado.test.js, test/ui-radar-compartilhado.test.js); restaurado byte a byte: sim
+M2 sem recibo vira aplicado: REPROVOU (código 1, 3 caso(s) vermelhos em test/ui-pure-compartilhado.test.js); restaurado byte a byte: sim
+M3 vencido some: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-pure-compartilhado.test.js); restaurado byte a byte: sim
+M4 falha da lista vira vazio: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-pure-compartilhado.test.js); restaurado byte a byte: sim
+M5 tomar sem confirmação: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-radar-compartilhado.test.js); restaurado byte a byte: sim
+M6 tomar ignora o aviso: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-radar-compartilhado.test.js); restaurado byte a byte: sim
+M7 bootstrap não repassa sync-live: REPROVOU (código 1, 5 caso(s) vermelhos em test/ui-radar-compartilhado.test.js); restaurado byte a byte: sim
+M8 tela usa shared cru: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-radar-compartilhado.test.js); restaurado byte a byte: sim
+M9 lote vazio gira para sempre: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-pure-compartilhado.test.js); restaurado byte a byte: sim
+M10 tomar sem commit: REPROVOU (código 1, 3 caso(s) vermelhos em test/ui-pure-compartilhado.test.js, test/ui-radar-compartilhado.test.js); restaurado byte a byte: sim
+M11 admin sem sinal comanda: REPROVOU (código 1, 2 caso(s) vermelhos em test/ui-pure-compartilhado.test.js, test/ui-radar-compartilhado.test.js); restaurado byte a byte: sim
+M12 prazo do comando some: REPROVOU (código 1, 1 caso(s) vermelhos em test/contrato-telas.test.js); restaurado byte a byte: sim
+M13 faixa sem o interruptor: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-pure-compartilhado.test.js); restaurado byte a byte: sim
+M14 cancelar sem confirmação: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-radar-compartilhado.test.js); restaurado byte a byte: sim
+M15 tomada sofrida fora da nota: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-pure-compartilhado.test.js); restaurado byte a byte: sim
+M16 decidir aceita qualquer ação: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-radar-compartilhado.test.js); restaurado byte a byte: sim
+M17 enviar sem medida: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-radar-compartilhado.test.js); restaurado byte a byte: sim
+M18 leitura nunca atrasa: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-pure-compartilhado.test.js); restaurado byte a byte: sim
+M19 decidir sem permissão: REPROVOU (código 1, 2 caso(s) vermelhos em test/ui-pure-compartilhado.test.js, test/ui-radar-compartilhado.test.js); restaurado byte a byte: sim
+M20 bootstrap não repassa sync-pending: REPROVOU (código 1, 4 caso(s) vermelhos em test/ui-radar-compartilhado.test.js); restaurado byte a byte: sim
+M21 visto que falha finge marcar: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-radar-compartilhado.test.js); restaurado byte a byte: sim
+
+todas as mutações reprovaram e foram restauradas

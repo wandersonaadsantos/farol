@@ -1,0 +1,97 @@
+✔ a ativação nasce protegida: sem a medição, o grupo ativo não barra nada (316.2841ms)
+✔ o consumo de B no mesmo grupo barra a admissão em A (223.0593ms)
+✔ abaixo do teto, nada barra (238.9771ms)
+✔ reservas vivas de três aparelhos admitindo ao mesmo tempo são somadas (238.0748ms)
+✔ a reserva local também entra na conta (220.1018ms)
+✔ evento de valor desconhecido usa a reserva e marca parcialmente estimado (223.1884ms)
+✔ lacuna deixa o orçamento não verificável e segura o automático e o clique, sem estacionar (215.9339ms)
+✔ evento inválido também deixa não verificável (232.0458ms)
+✖ outra conta, sem teto de grupo que a segure, continua saindo (211.3779ms)
+✔ Codex aparece como não controlado (200.0152ms)
+✔ vínculo de tipo não controlado fica fora do teto, mesmo com perfil medido (194.3709ms)
+✔ rotação de credencial não zera a contagem (219.7973ms)
+✔ perfil sem vínculo não escapa do teto ativo (253.2431ms)
+✔ retrato velho não decide nada (283.3069ms)
+✔ reserva anunciada por aparelho que sumiu vira cobertura incompleta (278.701ms)
+✔ o rollup local sobe uma vez por mudança, e a capacidade anuncia a mesma sequência (273.5772ms)
+✔ falha ao subir o rollup não avança: o próximo giro tenta de novo (285.46ms)
+✔ boca da sessão: não verificável volta à fila sem estacionar e sem rodar (292.4335ms)
+✔ a capacidade publicada leva o consumo do grupo (297.4496ms)
+✔ o relógio roda o rollup e o retrato antes da capacidade (2.0536ms)
+✔ sem outro aparelho pronto, nenhuma escrita sai (260.3431ms)
+✔ com outro aparelho pronto, sobe {v, u, enc} cifrado (186.1044ms)
+✔ o login da conta e o nome da máquina não aparecem em claro no banco (199.1835ms)
+✔ a capacidade leva tag de conta, nunca o login (196.4358ms)
+✔ publicar duas vezes sem mudança escreve UMA vez (204.589ms)
+✔ mudar o paralelismo faz a segunda escrita sair (184.691ms)
+✔ sem a chave aberta não se publica capacidade nenhuma (192.2081ms)
+✖ a capacidade leva o resumo da admissão, sem referência de PR (186.0678ms)
+✖ a RAM viaja em faixa, e variação pequena não republica a capacidade (215.9202ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 26
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4973.1205
+
+✖ failing tests:
+
+test at test\sync-consumo-grupo-remoto.test.js:218:1
+✖ outra conta, sem teto de grupo que a segure, continua saindo (211.3779ms)
+  AssertionError [ERR_ASSERTION]: a conta segurada não trava a fila das outras
+  + actual - expected
+  
+  + []
+  - [
+  -   'outra/r#2'
+  - ]
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a85ce614d0dd514ce/test/sync-consumo-grupo-remoto.test.js:229:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 'outra/r#2' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-device-status.test.js:152:1
+✖ a capacidade leva o resumo da admissão, sem referência de PR (186.0678ms)
+  AssertionError [ERR_ASSERTION]: memoria-insuficiente
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a85ce614d0dd514ce/test/sync-device-status.test.js:160:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\sync-device-status.test.js:171:1
+✖ a RAM viaja em faixa, e variação pequena não republica a capacidade (215.9202ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'baixa' !== 'alta'
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a85ce614d0dd514ce/test/sync-device-status.test.js:180:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'baixa',
+    expected: 'alta',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
