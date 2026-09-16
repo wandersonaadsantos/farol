@@ -9,6 +9,19 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.59.6
+
+Correção de um caso em que a revisão automática nunca começava.
+
+**Correções**
+
+- O Farol espera os checks obrigatórios ficarem verdes antes de revisar sozinho, para não
+  gastar uma sessão num PR que ainda vai mudar. Só que, em repositório onde um bot de review
+  é check obrigatório, isso virava um laço: o check só fica verde quando alguém revisa, e o
+  Farol não revisava porque o check estava vermelho. Agora veredito de bot de review não conta
+  nessa espera, e o Farol revisa mesmo quando o bot reprovou, inclusive para discordar dele.
+  Check de esteira continua segurando como antes.
+
 ## v2.59.5
 
 Correção de um aviso que aparecia diferente em dois lugares, e a maior manutenção interna
