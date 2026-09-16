@@ -56,7 +56,7 @@ test('keyring: exige senha recente e rev monotônico', () => {
 
 test('só os nós listados têm concessão de escrita: nó novo sem regra é negado por construção', () => {
   const comEscrita = Object.keys(regras).filter((k) => regras[k] && regras[k]['.write']);
-  assert.deepEqual(comEscrita.sort(), ['catalog', 'dailyRounds', 'devices', 'keyring', 'leases', 'myPrs', 'myPrsMeta', 'panorama', 'panoramaMeta', 'pushbacks', 'receipts', 'recentReviews', 'reviewBodies', 'usageEvents']);
+  assert.deepEqual(comEscrita.sort(), ['catalog', 'dailyRounds', 'devices', 'keyring', 'leases', 'myPrs', 'myPrsMeta', 'panorama', 'panoramaMeta', 'pushbacks', 'receipts', 'recentReviews', 'reviewBodies', 'usageDaily', 'usageEvents']);
   assert.equal(regras.live['.write'], undefined, 'live não concede em bloco');
   assert.equal(regras.live.control['.write'], undefined, 'control também não');
   assert.deepEqual(Object.keys(regras.live.control).sort(), ['admin', 'beat', 'cleanup', 'cleanupLock', 'lastCleanup', 'ready', 'revokedBefore']);
@@ -194,12 +194,28 @@ test('live/deviceStatus e catalog: forma, envelope de 2048 e remoção só pela 
 // sempre que a chave de limpeza dela estivesse ligada.
 test('toda concessão de escrita, inclusive a da limpeza, exige o próprio uid', () => {
   const dono = 'auth != null && auth.uid == $uid';
-  const nos = [regras.catalog, regras.live.deviceStatus, regras.live.devicePolicies, regras.live.groups, regras.recentReviews, regras.reviewBodies, regras.reviewBodies.$r, regras.panorama, regras.panoramaMeta, regras.myPrs, regras.myPrsMeta, regras.pushbacks, regras.live.queue, regras.live.assign, regras.live.ack];
+  const nos = [regras.catalog, regras.live.deviceStatus, regras.live.devicePolicies, regras.live.groups, regras.recentReviews, regras.reviewBodies, regras.reviewBodies.$r, regras.panorama, regras.panoramaMeta, regras.myPrs, regras.myPrsMeta, regras.pushbacks, regras.live.queue, regras.live.assign, regras.live.ack, regras.usageDaily, regras.usageDaily.$dev, regras.usageDaily.$dev.$day];
   for (const no of nos) {
     assert.ok(no['.write'].startsWith(dono), `concessão sem dono: ${no['.write'].slice(0, 60)}`);
   }
   const todas = [...nos.map((n) => n['.write']), regras.live.control.cleanupLock['.write'], regras.live.control.lastCleanup['.write']];
   for (const w of todas) assert.ok(w.includes(dono), w.slice(0, 60));
+});
+
+// C4b: rollup diário do consumo por grupo. Números em claro (o contrato manda), chave do
+// dia com forma, grupo com a forma do id sorteado, e remoção só pela limpeza.
+test('usageDaily/$dev/$day: forma do rollup e remoção só pela limpeza', () => {
+  const limpa = "!newData.exists() && auth.token.firebase.sign_in_provider == 'password'";
+  assert.ok(regras.usageDaily['.write'].includes(limpa), 'o pai só concede remoção pela limpeza');
+  assert.ok(regras.usageDaily.$dev['.write'].includes(limpa));
+  const w = regras.usageDaily.$dev.$day['.write'];
+  assert.ok(w.includes('$day.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)'));
+  assert.ok(w.includes("newData.hasChildren(['v', 'u', 'seq', 'g'])"));
+  assert.ok(w.includes("newData.child('seq').isNumber()"));
+  assert.ok(w.includes(limpa), 'o dia também só some pela limpeza');
+  const g = regras.usageDaily.$dev.$day.g.$grupo['.validate'];
+  assert.ok(g.includes('$grupo.matches(/^[0-9a-f]{32}$/)'));
+  assert.ok(g.includes("newData.child('c').isNumber() && newData.child('s').isNumber() && newData.child('d').isNumber()"));
 });
 
 // Andamento: remoção livre (só afeta exibição), vida curta com teto de 5 minutos, e dono e

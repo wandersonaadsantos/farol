@@ -113,6 +113,20 @@
             }
           }
         },
+        "usageDaily": {
+          ".write": "auth != null && auth.uid == $uid && !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
+          "$dev": {
+            ".write": "auth != null && auth.uid == $uid && !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
+            "$day": {
+              ".write": "auth != null && auth.uid == $uid && ((newData.hasChildren(['v', 'u', 'seq', 'g']) && $day.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && newData.child('v').val() == 1 && newData.child('u').isNumber() && newData.child('seq').isNumber()) || !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists())",
+              "g": {
+                "$grupo": {
+                  ".validate": "$grupo.matches(/^[0-9a-f]{32}$/) && newData.child('c').isNumber() && newData.child('s').isNumber() && newData.child('d').isNumber()"
+                }
+              }
+            }
+          }
+        },
         "keyring": {
           ".write": "auth != null && auth.uid == $uid && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && newData.hasChildren(['v', 'rev', 'updatedAt', 'epochSince', 'cur', 'kids', 'kcv', 'slots']) && newData.child('rev').isNumber() && ((!data.exists() && newData.child('rev').val() == 1) || newData.child('rev').val() == data.child('rev').val() + 1) && newData.child('updatedAt').val() <= now + 60000 && newData.child('updatedAt').val() + 60000 > now",
           "slots": {

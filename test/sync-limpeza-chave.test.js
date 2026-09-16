@@ -90,6 +90,8 @@ test('a lista de alcance é positiva: proibido e inventado ficam fora', () => {
   assert.equal(limpeza.alcancavel(''), false);
   for (const cat of limpeza.CATEGORIAS) assert.equal(limpeza.alcancavel(cat), true, cat);
   assert.equal(limpeza.alcancavel('live/groups/abc'), true, 'filho de categoria entra junto');
+  // C4b: o rollup do consumo por grupo só some pela limpeza, e portanto ela o alcança
+  assert.equal(limpeza.alcancavel('usageDaily'), true);
 });
 
 test('pedido com categoria proibida não recusa o pacote: só o proibido some', () => {
