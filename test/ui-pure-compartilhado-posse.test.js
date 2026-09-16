@@ -61,7 +61,10 @@ test('operacoesRemotasHtml: o PR aparece pelo nome quando o catálogo abriu, e g
   const sem = P.operacoesRemotasHtml([{ ...OP, pr: null }], { podeComandar: true });
   assert.doesNotMatch(sem, /github\.com/);
   assert.match(sem, /Um PR seu, sem nome nesta tela/);
-  assert.doesNotMatch(P.operacoesRemotasHtml([{ ...OP, pr: { ...PR, title: '<img src=x>' } }], {}), /<img/);
+  // o autor sai com foto (menção navegável), então a prova do escape mira o título injetado
+  const injetado = P.operacoesRemotasHtml([{ ...OP, pr: { ...PR, title: '<img src=x>' } }], {});
+  assert.doesNotMatch(injetado, /<img src=x>/);
+  assert.match(injetado, /&lt;img src=x&gt;/);
 });
 
 test('operacoesRemotasHtml: a herança da memória aparece quando o executor a decidiu', () => {

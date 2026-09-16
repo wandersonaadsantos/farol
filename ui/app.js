@@ -42,6 +42,7 @@ import { initPaleta, rotularBtnCmdK } from './telas/paleta.js';
 import { initTema } from './telas/tema.js';
 import { initPerfilPessoa } from './telas/perfil-pessoa.js';
 import { registrarTelaRadarCompartilhado, aoAndamentoRemoto, aoPendenciasRemotas } from './telas/radar-compartilhado.js';
+import { initListasRemotas, aoListasRemotas } from './telas/listas-remotas.js';
 
 const isElectron = ehElectron();
 if (isElectron) document.body.classList.add('electron');
@@ -339,6 +340,11 @@ function connect() {
     const d = safeJsonParse(e.data); if (!d) return;
     aoPendenciasRemotas(d);
   });
+  // Panorama e Meus PRs de outros aparelhos: idem, quem entende é telas/listas-remotas.js
+  es.addEventListener('sync-lists', (e) => {
+    const d = safeJsonParse(e.data); if (!d) return;
+    aoListasRemotas(d);
+  });
   // credencial revogada ou vencida com a página aberta (A4)
   es.addEventListener('nao-autenticado', () => {
     es.close();
@@ -391,6 +397,9 @@ registrarTelaConsumo();
 // a visão compartilhada do Radar registra por último, pelo mesmo motivo: registrar no import
 // a poria antes de 'sistema' e mudaria a ordem garantida acima
 registrarTelaRadarCompartilhado();
+// Panorama e Meus PRs de outros aparelhos: quando chega projeção nova, as duas abas (e as
+// contagens das sub-abas) se redesenham pelas funções que o bootstrap já chama por snapshot
+initListasRemotas(() => { renderMyPRs(); renderPanorama(); renderRadarNav(); });
 
 /* A4: antes de qualquer coisa, a página pergunta se este navegador pode entrar. Com a
    exigência ligada e sem credencial, a interface inteira vira o pareamento: nada do estado,
