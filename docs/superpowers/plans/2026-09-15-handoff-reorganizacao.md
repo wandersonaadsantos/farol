@@ -139,6 +139,13 @@ quando a Fase 4 for planejada.
 > as abas pelo nome enquanto as abas chamam de volta. Por isso o plano inverte essa aresta
 > (um registro de telas e um módulo de estado) ANTES de mover qualquer linha. A v2.59.4
 > publicou a Fase 1.5 e o limite de 5000 entregas.
+>
+> **Atualização de 16/09/2026: a Fase 1b foi executada** (branch `refactor/ui-app-fase-1b`).
+> O `ui/app.js` virou bootstrap (367 linhas: liga o SSE ao estado, comanda a troca de aba e
+> o `data-goto`, e inicializa as telas), o conteúdo mora em 30 módulos de `ui/telas/`, e o
+> `ui/app.js` saiu da dívida de responsabilidade única (`currentFindings` de 14 para 13). O
+> que a execução corrigiu no plano está na seção "Registro da execução" do próprio plano.
+> Próxima pendência: a Fase 1c (`ui/app.css`).
 
 1. ~~**Decisão do Wanderson na Fase 1.5**~~ tomada e executada em 15/09/2026: o `CLAUDE.md`
    viaja como sumário e só os quatro guias de `docs/` viajam com ele.

@@ -787,3 +787,51 @@ Os números da linha de base saíram destes scripts, rodados em `5a59c50`:
 
 Rode-os de novo antes de começar: se a `main` andou, os números mudam, e é a medição da sua
 máquina que vale.
+
+## Registro da execução (16/09/2026)
+
+A fase foi executada tarefa a tarefa, com a suíte, o ratchet e a tela conferidos a cada
+passo. O `ui/app.js` fechou em 367 linhas de bootstrap, `ui/telas/` ganhou 30 módulos, a
+suíte foi a 2866 testes com `fail 0`, e nenhuma regra do ratchet mecânico subiu na fase
+inteira (`profundidadeExcedida` 81 para 80, `ternarioAninhado` 74 para 63, `maxLines` 6 para
+5). O que a execução corrigiu no plano:
+
+1. **A medição do plano errou um ciclo.** O plano anunciava sete pares mútuos; um deles,
+   `ferramentas <-> sse`, era falso positivo: o `connect` que `ping()` chama é o do Web Audio
+   (`o.connect(g).connect(audioCtx.destination)`), não o `connect()` do SSE. O script de
+   grafo casava identificador nu, sem distinguir de que objeto o método vinha. Eram seis.
+2. **A divisão real ficou maior que a planejada:** 19 módulos previstos, 30 entregues. Toda
+   vez que a frase de responsabilidade de um módulo previsto pediu um "e também", o arquivo
+   virou dois: contas e perfis de IA; ferramentas e avisos (som e notificação são reação a
+   evento, não ferramenta); e a aba Sistema, que virou cinco (sub-navegação e busca,
+   atualização, automação, ambiente, sobre). A mesma lição da Fase 1a se repetiu, agora em
+   escala maior.
+3. **A injeção de dependência resolveu o ciclo, mas criou dívida medida.** Embrulhar
+   listeners em `function iniciarX(deps) { ... }` acrescenta um nível de aninhamento e fez
+   `profundidadeExcedida` subir de 81 para 89 numa versão intermediária, com o `lint` verde
+   só porque o teto de arquivo novo foi subido à mão. A forma correta, que ficou: handler
+   nomeado no topo do módulo, dependências guardadas em variável de módulo (dono de escrita
+   único), e a função de inicialização só registra. É a forma documentada em
+   `ui/telas/README.md`.
+4. **O fecho exigiu uma extração a mais do que o plano previa.** Com as dez tarefas do plano
+   concluídas, o `ui/app.js` ainda tinha paleta, atalhos, caixa de revisão, tema, e gatilhos
+   de outras telas. Avaliar `core.file.single-responsibility` como `conforme` naquele ponto
+   teria sido falso: cada um desses blocos é um assunto que muda por motivo próprio.
+5. **Símbolo que entra na superfície congelada tem que nascer na forma final.**
+   `genProfileId` entrou chamando `Date.now()` e `Math.random()` inline e com nome que
+   mentia (gera id de site do Jira também, não só de perfil); virou `genId(agora, aleatorio)`
+   na mesma entrega, porque depois do congelamento renomear custa caro.
+6. **As travas novas pegaram defeito real.** O guarda de import morto, generalizado para todo
+   arquivo de tela, achou três imports mortos antigos (`repoMention`, `prRefMention`, `selo`).
+   O guarda de menção escrita à mão, que estava cego para o markup movido, voltou a cobrir os
+   cards de PR.
+7. **Uma mudança de comportamento declarada.** A confirmação de "Pedir mudanças" da paleta de
+   comando estava duplicada e divergente da do card, e passou a mostrar o parágrafo "o PR fica
+   bloqueado até o autor tratar" que faltava.
+8. **Defeito pré-existente reportado e não corrigido.** `orgToUser`, em
+   `renderReviewersEditor` (`ui/telas/reviewers.js`), é montado e nunca lido. Fora de escopo
+   desta fase (não é reorganização, é bug), fica registrado para tratar à parte.
+9. **Limitação do ambiente de prova.** O navegador embutido usado na conferência não executa
+   `scrollIntoView` com `behavior: 'smooth'`, então a busca do Sistema parece não rolar;
+   medido igual na `main`, com o corpo de `sysGoTo` byte a byte idêntico. Não é defeito do
+   app, é limitação do ambiente de teste manual.
