@@ -107,7 +107,7 @@
   },
   "ui/app.js": {
     "maxLines": 1,
-    "ternarioAninhado": 9,
+    "ternarioAninhado": 6,
     "profundidadeExcedida": 3
   },
   "ui/pure/consumo.js": {
@@ -134,6 +134,9 @@
   "ui/telas/entregas.js": {
     "jsonStringifyCru": 1,
     "ternarioAninhado": 1
+  },
+  "ui/telas/ferramentas.js": {
+    "ternarioAninhado": 3
   },
   "ui/telas/infra.js": {
     "jsonStringifyCru": 1,

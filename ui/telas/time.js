@@ -6,10 +6,8 @@ import { $, get, showOp, closeOp, confirmModal, api, toast, doUsuario } from './
 import {
   TWEAK, ACCT, OWNER2USER, multiAccount, acctUserFromUrl, scopeMemVisible, acctStyleFor, memGroupHead,
 } from './contas.js';
-// 'destaques' e 'time' ainda se registram no app.js nesta etapa: o 'destaques'
-// precisa de renderTools(), que só sai do app.js na Task 9, passo 2
-// (ui/telas/ferramentas.js). Autoregistrar aqui exigiria importar de volta o
-// app.js pra pegar renderTools, que é o ciclo que a Fase 1b existe pra evitar.
+import { registrarTela } from './registro.js';
+import { renderTools } from './ferramentas.js';
 
 /* ---------- render: destaques (separado por conta) ---------- */
 async function loadHighlights() {
@@ -152,5 +150,11 @@ $('#team').addEventListener('click', async (e) => {
   if (r && r.ok) { toast('ok', `@${login} removido do Time.`); loadTeam(); }
   else toast('error', `Não deu pra remover: ${(r && r.error) || 'falha na chamada'}.`);
 });
+
+// 'destaques' e 'time' registram aqui (import estático de app.js): a ordem em que
+// as duas linhas abaixo rodam é a ordem em que aparecem em telasRegistradas(), ver
+// o comentário sobre a ordem fixa no bootstrap (ui/app.js).
+registrarTela({ id: 'destaques', aoEntrar: () => { loadHighlights(); renderTools(); } });
+registrarTela({ id: 'time', aoEntrar: () => loadTeam() });
 
 export { loadHighlights, loadTeam };
