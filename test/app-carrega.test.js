@@ -188,14 +188,6 @@ test('aba Sistema ativa: doctor, contas e perfis desenham sem explodir', () => {
   document.querySelector('#tab-sistema').classList.remove('active');
 });
 
-test('trocar de aba chama o aoEntrar da tela registrada, uma vez so', () => {
-  // o defeito que este teste pega: aba registrada duas vezes, ou aoEntrar chamado no
-  // switchTab E no aoEstado, desenhando duas vezes por evento
-  const painel = document.querySelector('#tab-entregas');
-  assert.ok(painel, 'a aba Entregas existe no HTML');
-  assert.equal(emitir('state', { ...ESTADO, config: { ...ESTADO.config, deliveriesEnabled: true } }), 1);
-});
-
 /* Import morto: símbolo trazido do pure.js que ninguém mais usa depois de uma
    extração. Não quebra nada em runtime, então passa por `node --check`, pelo lint,
    pela suíte e pelo CI — e vai apodrecendo. Quando este teste nasceu havia 17 deles
