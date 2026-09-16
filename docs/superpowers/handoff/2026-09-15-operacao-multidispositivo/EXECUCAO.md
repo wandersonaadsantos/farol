@@ -42,7 +42,8 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | 4 | A1 Consumo fiel (sem o item 1) | `md/a1` | validado localmente, integrado (`225165a`), item 1 bloqueado | `evidencias-execucao/a1.md` |
 | 5 | C0b Arbitragem de postagem no funil | `md/c0b` | validado localmente, integrado (`355f6d8`) | `evidencias-execucao/c0b.md` |
 | 6 | A4 Autenticação local, núcleo | `md/a4` | validado localmente, integrado (`7387179`); ativação automática desligada | `evidencias-execucao/a4.md` |
-| seguintes | C1, C2, C3, C4, C4b, C5, C6, C7, C8, telas | | planos a escrever | |
+| 7 | C1 Contrato de dados v2 e cifragem | `md/c1` | plano pronto (`docs/superpowers/plans/2026-09-15-md-c1-contrato-de-dados.md`) | |
+| seguintes | C2, C3, C4, C4b, C5, C6, C7, C8, telas | | planos a escrever | |
 
 ## Bloqueios
 
@@ -86,4 +87,4 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 
 ## Próxima ação concreta
 
-Integrar `md/c0b` em `md/integracao`, rodar o gate na integração e seguir para a próxima entrega elegível do plano mestre (C1, contrato de dados), escrevendo o plano dela antes do código.
+Executar a C1 pelo plano `docs/superpowers/plans/2026-09-15-md-c1-contrato-de-dados.md`, na branch `md/c1` cortada da ponta de `md/integracao`, começando pela Tarefa 0 (gate de partida) e pela Tarefa 1 (caracterização do compartilhamento desligado, que nasce verde). Os critérios que só se provam em emulador ou projeto real ficam declarados como validação externa pendente, conforme o plano mestre autoriza.
