@@ -25,4 +25,14 @@ function definirEstado(novo) { STATE = novo; }
 function definirEscopo(novo) { SCOPE = novo; }
 function definirAba(nome) { ABA = nome; }
 
-export { estado, escopo, abaAtual, definirEstado, definirEscopo, definirAba };
+// Leituras derivadas do estado (não o snapshot cru, um predicado sobre ele). As duas
+// abas opcionais moram juntas aqui pela mesma razão do módulo inteiro: cada tela que
+// precisar perguntar "essa flag está ligada?" lê daqui, em vez de reimplementar a
+// mesma leitura de config ou importar a tela alheia só por causa do predicado.
+function teamHighlightsEnabled() { return estado()?.config?.teamHighlights === true; }
+function deliveriesEnabled() { return estado()?.config?.deliveriesEnabled === true; }
+
+export {
+  estado, escopo, abaAtual, definirEstado, definirEscopo, definirAba,
+  teamHighlightsEnabled, deliveriesEnabled,
+};

@@ -36,10 +36,6 @@ export function sysFlash(el) {
   ], { duration: 850, iterations: 2 });
 }
 
-// a aba Entregas só existe com a flag ligada (Sistema > Preferências). Usado pelo
-// switchTab (recusa a troca com a flag desligada) e pela própria tela de Entregas.
-export function deliveriesEnabled() { return estado()?.config?.deliveriesEnabled === true; }
-
 function toastBase(kind, ms) {
   const el = document.createElement('div');
   el.className = `toast ${kind}`;

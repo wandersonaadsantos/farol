@@ -19,11 +19,14 @@ import {
   syncSecaoHtml, syncCfgComGeral
 } from './pure.js';
 import { registrarTela, telasRegistradas, telaPorId } from './telas/registro.js';
-import { estado, escopo, abaAtual, definirEstado, definirEscopo, definirAba } from './telas/estado.js';
+import {
+  estado, escopo, abaAtual, definirEstado, definirEscopo, definirAba,
+  teamHighlightsEnabled, deliveriesEnabled,
+} from './telas/estado.js';
 import {
   $, api, get, toast, toastRich, confirmModal, showOp, updateOp, closeOp, ACTIVE_OPS,
   syncAnalysisOps, selo, textoDaListaVazia, rotuloDoBotaoDeAnalise,
-  origemLocal, doUsuario, tituloDaNotificacao, marcarSeg, sysFlash, deliveriesEnabled,
+  origemLocal, doUsuario, tituloDaNotificacao, marcarSeg, sysFlash,
 } from './telas/infra.js';
 export { toast } from './telas/infra.js';
 import {
@@ -69,7 +72,6 @@ definirEscopo(localStorage.getItem('farol-scope') || 'all');   // 'all' ou o log
 // espelha a aba no <body> pro CSS ajustar a largura útil (a aba Sistema tem sidebar e
 // precisa de mais). switchTab não roda no boot, então a aba inicial é marcada aqui.
 document.body.dataset.tab = abaAtual();
-function teamHighlightsEnabled() { return estado()?.config?.teamHighlights === true; }
 function syncOptionalTabsVisibility() {
   const features = [
     { tab: 'destaques', enabled: teamHighlightsEnabled() },

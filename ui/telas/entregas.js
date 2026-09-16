@@ -6,8 +6,8 @@ import {
   esc, delivCappedMsg, delivFilterItems, delivStats, delivStatsCards, delivActivityCard,
   delivEmptyState, deliveriesByRepo, deliveriesByAuthor,
 } from '../pure.js';
-import { estado, abaAtual } from './estado.js';
-import { $, get, showOp, closeOp, marcarSeg, deliveriesEnabled, sysFlash } from './infra.js';
+import { estado, abaAtual, deliveriesEnabled } from './estado.js';
+import { $, get, showOp, closeOp, marcarSeg, sysFlash } from './infra.js';
 import { multiAccount } from './contas.js';
 import { registrarTela } from './registro.js';
 
