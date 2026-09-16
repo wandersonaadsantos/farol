@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026 (iniciativa inteira, limites no plano mestre, seção 4).
-- **Entrega em curso:** nenhuma. C1a, C0, A5, A1, A4, C0b e C1 validadas localmente e **todas integradas** em `md/integracao`. Próxima: C2 (administração, políticas, grupo de consumo e limpeza protegida), com plano a escrever.
+- **Entrega em curso:** C2a, na branch `md/c2a` (tarefas 1, 2, 3 e 6 concluídas e commitadas). C1a, C0, A5, A1, A4, C0b e C1 validadas localmente e **todas integradas** em `md/integracao`.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 - **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026.
@@ -43,7 +43,7 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | 5 | C0b Arbitragem de postagem no funil | `md/c0b` | validado localmente, integrado (`355f6d8`) | `evidencias-execucao/c0b.md` |
 | 6 | A4 Autenticação local, núcleo | `md/a4` | validado localmente, integrado (`7387179`); ativação automática desligada | `evidencias-execucao/a4.md` |
 | 7 | C1 Contrato de dados v2 e cifragem | `md/c1` | validado localmente, integrado (`6540b5a`); regras não publicadas | `evidencias-execucao/c1.md` |
-| 8 | C2a Autoridade do admin, consentimento e políticas | `md/c2a` | plano pronto (`docs/superpowers/plans/2026-09-15-md-c2a-autoridade-e-politicas.md`) | |
+| 8 | C2a Autoridade do admin, consentimento e políticas | `md/c2a` | **em curso**: tarefas 1, 2, 3 e 6 concluídas (consentimento local, chave do admin, assinatura); faltam 4, 5, 7, 8, 9 e 10 | |
 | 9 | C2b Grupo de consumo, aparelho, limpeza e revogação | `md/c2b` | plano a escrever | |
 | seguintes | C3, C4, C4b, C5, C6, C7, C8, telas | | planos a escrever | |
 
@@ -99,4 +99,4 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 
 ## Próxima ação concreta
 
-Executar a C2a pelo plano `docs/superpowers/plans/2026-09-15-md-c2a-autoridade-e-politicas.md`, na branch `md/c2a` cortada da ponta de `md/integracao`. A 7.C2 da spec foi dividida em duas entregas, porque cobre quatro assuntos independentes: a C2a traz autoridade do admin, consentimento local e políticas remotas; a C2b traz grupo de consumo configurado, gestão de aparelho, limpeza protegida e revogação, e depende da assinatura que nasce na C2a. A C1 deixou uma pendência que só o dono fecha: publicar as regras v2 no console do Firebase, depois do roteiro manual do `firebase/README.md`. Enquanto isso não acontece, o compartilhamento cifrado fica desligado e nada muda no comportamento de hoje.
+Seguir a C2a pela Tarefa 4 (tornar ESTE aparelho admin, com a senha real antes de qualquer gravação) e depois a 5 (batimento de autoridade com frescor por sequência), pelo plano `docs/superpowers/plans/2026-09-15-md-c2a-autoridade-e-politicas.md`. Já concluídas e commitadas em `md/c2a`: consentimento local `aceitarAdmin`, chave Ed25519 do admin e assinatura. A 7.C2 da spec foi dividida em duas entregas, porque cobre quatro assuntos independentes: a C2a traz autoridade do admin, consentimento local e políticas remotas; a C2b traz grupo de consumo configurado, gestão de aparelho, limpeza protegida e revogação, e depende da assinatura que nasce na C2a. A C1 deixou uma pendência que só o dono fecha: publicar as regras v2 no console do Firebase, depois do roteiro manual do `firebase/README.md`. Enquanto isso não acontece, o compartilhamento cifrado fica desligado e nada muda no comportamento de hoje.

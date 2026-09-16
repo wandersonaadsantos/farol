@@ -14,6 +14,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`, seções 5 (CT-ADM-POL) e 7.C2. Detalhe normativo no anexo C1, seções "Admin e auth_time" e "Nós do banco", respeitando os blocos de trechos superados.
 
+> **Regra de execução aprendida na C2a:** o script de contraprova **muta o arquivo no disco**. Nunca rode `npm test` (nem outro `node --test`) em paralelo com ele: a suíte carrega o módulo mutado e reprova por um motivo que não existe. Rodar contraprova e suíte é sempre em série.
+
 ## Constraints globais
 
 - **Zero dependências novas.** Só `node:crypto`. Texto e comentários em português, sem travessão.
