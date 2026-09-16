@@ -259,3 +259,36 @@ servidor consegue barrar, e só isso.
 13. **`live/devicePolicies/{aparelho}`:** política com `{v, generation, enc, sig}` na
     geração vigente responde **200**; com geração diferente, **401**; com `enc` fora do
     formato `e1.gN.<iv>.<ct>.<tag>` ou acima de 2048 caracteres, **401**.
+
+## Validação manual das regras v2 (C2b, limpeza, revogação e grupo)
+
+Mesma advertência da seção anterior: **o banco não verifica assinatura**. O que estes itens
+provam é o que o servidor consegue barrar sozinho.
+
+14. **`live/control/cleanup` sem senha:** entre com senha, espere 6 minutos, renove o token
+    e grave a chave: precisa responder **200**. É a decisão D-b escrita como regra, e é o
+    único nó de controle que NÃO exige senha recente.
+15. **`rev` monotônico da chave:** gravar com o mesmo `rev`, ou com um menor, precisa
+    responder **401**; com `rev + 1`, **200**.
+16. **`live/control/cleanupLock`:** com a chave DESLIGADA, criar a trava precisa responder
+    **401**; com a chave ligada e senha recente, **200**. `x` acima de `now + 600000`
+    precisa responder **401**. **Apagar a trava precisa responder 200 sempre**, inclusive
+    com a chave desligada: trava que não sai deixaria o conjunto parado até vencer.
+17. **`live/control/lastCleanup`:** com senha recente, **200**; passados 6 minutos e com o
+    token renovado, **401**.
+18. **`live/control/revokedBefore`:** gravar um valor MAIOR ou igual ao `auth_time` do
+    token do ato precisa responder **401** (é o que impede quem revoga de se cortar fora);
+    um valor menor, **200**; e depois disso um valor ainda menor, **401**.
+19. **Remoção pela limpeza:** com chave ligada, senha recente e `live/operations` ausente,
+    `DELETE` em `live/groups` e em `live/devicePolicies` precisa responder **200**; com a
+    chave desligada, **401**; com `live/operations` existindo, **401**.
+20. **O que a limpeza não alcança:** `DELETE` em `keyring`, `leases`, `receipts`,
+    `dailyRounds` e em qualquer filho de `live/control` precisa responder **401**, mesmo
+    com a chave ligada e senha recente.
+21. **`live/groups/{grupo}`:** grupo com `{v, generation, enc, sig}` na geração vigente
+    responde **200**; com geração diferente, **401**; com `enc` acima de 2048 caracteres ou
+    fora do formato, **401**.
+
+**Limite declarado:** `usageEvents` continua com concessão de escrita ampla (`.write` do
+próprio dono), herdada do v1, então a remoção dele não depende da chave de limpeza no lado
+do servidor. Quem protege esse nó é o cliente, pelas cinco condições do ato.
