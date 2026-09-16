@@ -170,3 +170,24 @@ test('nome vazio não apaga o nome, e aparelho desconhecido recusa', async () =>
   const r = await e.syncAparelho({ deviceId: '', nome: 'X' });
   assert.equal(r.ok, false);
 });
+
+// A leitura da frota é o que o gate de publicação consulta (lib/sync/frota.js). Os outros
+// testes da trilha C montam `devices` à mão; este passa pela leitura de verdade. Sem ele, a
+// projeção descartava o contrato e a chave pronta, e fora dos testes nenhum aparelho parecia
+// pronto: catálogo e capacidade nunca eram publicados.
+test('a leitura da frota preserva contrato e chave pronta, e o gate de publicação enxerga o outro aparelho', async () => {
+  const frota = await import('../lib/sync/frota.js');
+  const e = await motorLogado();
+  const arvore = fake.tree();
+  arvore.users.u1.devices[OUTRO] = { name: 'Celular', platform: 'android', farolVersion: '2.60.0', lastSeenAt: Date.now(), createdAt: 1, contract: 2, keyReady: true };
+  fake.setTree(arvore);
+  await syncMod.lerAparelhos(e);
+  assert.equal(e.sync.devices[OUTRO].contract, 2);
+  assert.equal(e.sync.devices[OUTRO].keyReady, true);
+  assert.equal(frota.valePublicar(e.sync.devices, { meuId: e.sync.deviceId, agora: Date.now() }), true);
+  // e o que não é pronto continua não sendo: texto no lugar do número, chave não aberta
+  arvore.users.u1.devices[OUTRO] = { ...arvore.users.u1.devices[OUTRO], contract: '2', keyReady: 'true' };
+  fake.setTree(arvore);
+  await syncMod.lerAparelhos(e);
+  assert.equal(frota.valePublicar(e.sync.devices, { meuId: e.sync.deviceId, agora: Date.now() }), false);
+});
