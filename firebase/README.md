@@ -347,3 +347,14 @@ do servidor. Quem protege esse nó é o cliente, pelas cinco condições do ato.
 34. **`pushbacks/{prTag}`:** registro `{v, u, dev, enc}` até 1024, **200**; lápide
     `{v, u, dev, del: true}` sem `enc`, **200**; id fora do formato de tag, **401**;
     `DELETE` fora da limpeza, **401**.
+
+## Validação manual das regras v2 (C5c, distribuição)
+
+35. **`live/queue/{item}/{dev}`:** candidato com os oito campos e `ttl` até agora + 30 min,
+    **200**; id do item fora do formato `prTag_matTag`, **401**; `ttl` no passado, **401**.
+36. **`live/assign/{item}`:** atribuição assinada na geração vigente, **200**; com o mesmo
+    `rev`, ou menor, **401**; `ttl` além de 10 min, **401**.
+37. **`live/ack/{item}`:** resposta `{dev, estado, at}`, **200**; `at` além de agora + 60 s,
+    **401**.
+38. **`live/control/ready`:** gravado pelo admin do momento com sequência maior, **200**;
+    por outro aparelho, ou com a mesma sequência, **401**.
