@@ -14,7 +14,7 @@
           <span class="faint">Termux e bash</span><code class="mono" style="padding: 7px 10px;">node tools/farol-parear.js</code><span class="btn sm ghost">Copiar</span>
           <span class="faint">PowerShell</span><code class="mono" style="padding: 7px 10px;">node .\tools\farol-parear.js</code><span class="btn sm ghost">Copiar</span>
         </div>
-        <span class="dica">Rode dentro da pasta de instalação do Farol. <a href="#">Onde fica a pasta de instalação</a></span>
+        <span class="dica">Rode dentro da pasta onde o Farol está instalado.</span>
       </div>
       <div style="display: flex; flex-direction: column; gap: 10px;">
         <span class="set-title">2. Digite o código que apareceu</span>
@@ -39,28 +39,25 @@
       </div>
     </div>
     <div>
-      <div class="estado-rot">Código vencido</div>
-      <div class="banner warn">Este código passou dos 10 minutos. Gere outro no terminal e digite de novo.</div>
-    </div>
-    <div>
-      <div class="estado-rot">Código já usado</div>
-      <div class="banner warn">Este código já pareou outro navegador. Cada código vale uma vez: gere um novo.</div>
+      <div class="estado-rot">Nenhum código esperando (vencido, já usado ou inexistente)</div>
+      <div class="banner warn">Não há código válido esperando. Ele pode ter passado dos 10 minutos ou já ter sido usado. Gere outro no terminal.</div>
+      <p class="sys-note" style="margin-top: 6px;">Os três casos são um só: depois que o código sai do aparelho, nada distingue vencido de usado.</p>
     </div>
     <div>
       <div class="estado-rot">Bloqueado por tentativas</div>
-      <div class="banner">Cinco tentativas erradas. O pareamento está bloqueado até você gerar um código novo no terminal; o antigo não vale mais.</div>
+      <div class="banner">Cinco tentativas erradas. O código foi invalidado: gere outro no terminal deste aparelho.</div>
     </div>
     <div>
       <div class="estado-rot">Sessão expirou ou foi revogada durante o uso</div>
       <div class="card urgent" style="display: flex; flex-direction: column; gap: 8px;">
         <span class="set-title">Este navegador precisa ser pareado de novo</span>
-        <span class="set-desc">A credencial expirou ou foi revogada em outro navegador. O que você estava digitando (a mensagem do chat de acme-exemplo/app-web#42) foi guardado aqui e volta depois do pareamento.</span>
+        <span class="set-desc">A credencial expirou ou foi revogada. A tela volta para o pareamento em até meio minuto, mesmo sem nenhuma ação sua. O que estiver digitado no pareamento é mantido se a página recarregar.</span>
         <div class="row-actions"><span class="btn primary sm">Parear de novo</span></div>
       </div>
     </div>
     <div>
       <div class="estado-rot">Servidor não respondeu</div>
-      <div class="banner">Não deu para falar com o Farol deste aparelho. Confira se ele está aberto no Termux e tente de novo. O código não foi gasto.</div>
+      <div class="banner">Não deu para falar com o Farol deste aparelho. Confira se ele está aberto e tente de novo: o código não foi gasto.</div>
     </div>
     <div>
       <div class="estado-rot">Desktop sem exigência</div>

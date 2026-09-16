@@ -21,6 +21,23 @@ export function tokenLocal(armazenamento = globalThis.localStorage) {
   }
 }
 
+// Só entra token com a forma que o servidor emite: resposta torta não vira credencial
+// guardada, e a tela trata isso como recusa.
+export function salvarToken(token, armazenamento = globalThis.localStorage) {
+  const t = String(token || '');
+  if (!FORMATO_TOKEN.test(t)) return false;
+  try {
+    armazenamento.setItem(CHAVE_TOKEN, t);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function esquecerToken(armazenamento = globalThis.localStorage) {
+  try { armazenamento.removeItem(CHAVE_TOKEN); } catch { /* janela privada */ }
+}
+
 export function comAutorizacao(cabecalhos = {}, token = tokenLocal()) {
   return token ? { ...cabecalhos, Authorization: `Bearer ${token}` } : { ...cabecalhos };
 }
@@ -88,6 +105,9 @@ export class FonteDeEventosAutenticada {
   async ler() {
     const init = { headers: comAutorizacao({ Accept: 'text/event-stream' }, this.obterToken()), signal: this.controle.signal };
     const resposta = await this.fetchImpl(this.url, init);
+    // 401 é a credencial vencida ou revogada no meio do uso: quem ouve leva de volta ao
+    // pareamento. A reconexão continua, porque parear de novo faz o stream voltar sozinho.
+    if (resposta.status === 401) this.emitir('nao-autenticado', '');
     if (!resposta.ok || !resposta.body) return false;
     this.emitir('open', '');
     const leitor = resposta.body.getReader();

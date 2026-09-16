@@ -14,6 +14,7 @@ export * from './pure/entregas.js';
 export * from './pure/fila-justa.js';
 export * from './pure/jira.js';
 export * from './pure/mencoes.js';
+export * from './pure/pareamento.js';
 export * from './pure/meus-prs.js';
 export * from './pure/pessoas.js';
 export * from './pure/radar.js';
