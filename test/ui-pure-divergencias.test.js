@@ -118,8 +118,12 @@ test('item 2: campo que a política não opina abre como "vale o do aparelho", n
 test('item 2: carregando, sem política, inválida e falha são quatro saídas diferentes', () => {
   assert.match(P.aparelhoPoliticaHtml(VELHO, { leitura: { estado: 'carregando' } }), /lendo a política vigente/);
   assert.match(P.aparelhoPoliticaHtml(VELHO, { leitura: { estado: 'ok', existe: false } }), /nenhuma política publicada/);
-  const invalida = P.aparelhoPoliticaHtml(VELHO, { leitura: { estado: 'ok', existe: true, valida: false, code: 'geracao' } });
+  // reforço da contraprova D22: mesmo com um objeto de política ao lado, o que não se
+  // prova não preenche o formulário
+  const invalida = P.aparelhoPoliticaHtml(VELHO, { leitura: { estado: 'ok', existe: true, valida: false, code: 'geracao', politica: POL } });
   assert.match(invalida, /não se prova/);
+  assert.doesNotMatch(invalida, /id="aparPolPausado" checked/);
+  assert.doesNotMatch(invalida, /contas elegíveis/i);
   assert.doesNotMatch(invalida, /publicada, versão/);
   const falha = P.aparelhoPoliticaHtml(VELHO, { leitura: { estado: 'falha', motivo: 'não deu para ler a política agora' } });
   assert.match(falha, /não deu para ler a política agora/);
@@ -138,7 +142,7 @@ test('item 2: publicar preserva o que a tela não edita e omite o teto não defi
   assert.deepEqual(P.aparelhoPoliticaParaPublicar(lida, doForm), { pausado: false, tiposDeOperacao: ['review'], contasElegiveis: POL.contasElegiveis });
   const comTeto = P.aparelhoPoliticaParaPublicar(lida, { ...doForm, tetoParalelismo: 3 });
   assert.equal(comTeto.tetoParalelismo, 3);
-  const invalida = P.aparelhoPoliticaParaPublicar({ estado: 'ok', existe: true, valida: false }, doForm);
+  const invalida = P.aparelhoPoliticaParaPublicar({ estado: 'ok', existe: true, valida: false, politica: POL }, doForm);
   assert.deepEqual(invalida, { pausado: false, tiposDeOperacao: ['review'] }, 'conteúdo que não se prova não é reaproveitado');
   assert.deepEqual(P.aparelhoPoliticaParaPublicar(null, doForm), { pausado: false, tiposDeOperacao: ['review'] });
 });

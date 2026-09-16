@@ -71,6 +71,29 @@ test('item 2: leitura que falha vira falha com motivo, nunca "sem política"', a
   assert.deepEqual(vazia, { estado: 'ok', existe: false, valida: false, versao: 0, politica: null });
 });
 
+// reforço da contraprova D40: a leitura do primeiro aparelho chega DEPOIS de outro ter sido
+// aberto, e não pode desenhar a política do primeiro no formulário do segundo
+test('item 2: a leitura que chega atrasada, de um aparelho que já não está aberto, é descartada', async () => {
+  estadoCom({ admin: ADMIN_VIVO, devices: DEVICES.concat([{ deviceId: 'dY', name: 'Tablet', euMesmo: false }]) });
+  let soltarX;
+  const d = deps();
+  d.api = async (rota, corpo) => {
+    if (corpo.deviceId === 'dX') {
+      await new Promise((r) => { soltarX = r; });
+      return { ok: true, existe: true, valida: true, versao: 9, politica: { pausado: true } };
+    }
+    return { ok: true, existe: false };
+  };
+  const primeiro = AP.abrirPolitica('dX', d);
+  await AP.abrirPolitica('dY', d);
+  soltarX();
+  await primeiro;
+  const html = document.querySelector('#devicesManager').innerHTML;
+  assert.match(html, /Política do Tablet/);
+  assert.match(html, /nenhuma política publicada/);
+  assert.doesNotMatch(html, /versão 9/);
+});
+
 test('item 2: abrir sem ser o admin com batimento não lê nada', async () => {
   estadoCom({ admin: { ...ADMIN_VIVO, fresca: false }, devices: DEVICES });
   const d = deps();
@@ -182,6 +205,11 @@ test('item 13: salvar grupo anota o pendente com a versão, e a seção o mostra
   estadoCom({ admin: ADMIN_VIVO, gruposDeConsumo: [{ id: ID, nome: 'Time', estado: 'sem-teto', requisitos: [] }] });
   GR.renderGrupos();
   assert.doesNotMatch(document.querySelector('#groupsManager').innerHTML, /esperando o aceite/, 'chegou pelo snapshot, sai dos pendentes');
+  // reforço da contraprova D47: o grupo que chegou e depois saiu da lista aceita (por
+  // exemplo, consentimento retirado) não volta a parecer "publicado agora"
+  estadoCom({ admin: ADMIN_VIVO, gruposDeConsumo: [] });
+  GR.renderGrupos();
+  assert.doesNotMatch(document.querySelector('#groupsManager').innerHTML, /esperando o aceite/, 'o pendente foi podado quando o grupo chegou');
 });
 
 /* ---------- item 12: o vínculo do snapshot chega à seção ---------- */

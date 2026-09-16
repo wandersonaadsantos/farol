@@ -1,0 +1,108 @@
+// Contraprova por mutação das divergências resolvidas (seção 7 de tela-aparelhos-grupos.md):
+// aplica cada mutação, roda os testes relevantes (teto de 4 minutos), restaura o arquivo
+// byte a byte e confere o SHA-256. Uso: node script.mjs <raiz> [prefixo de nome]
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+
+const RAIZ = process.argv[2];
+const FILTRO = process.argv[3] || '';
+const TESTES = [
+  'test/sync-telas-divergencias.test.js', 'test/ui-pure-divergencias.test.js', 'test/ui-telas-divergencias.test.js',
+  'test/ui-pure-aparelhos.test.js', 'test/ui-pure-grupos.test.js', 'test/ui-telas-aparelhos-grupos.test.js',
+];
+const ST = 'lib/engine/sync-telas.js';
+const SC = 'lib/engine/sync-comandos.js';
+const SP = 'lib/engine/sync-politicas.js';
+const CG = 'lib/engine/sync-consumo-grupo.js';
+const PJ = 'lib/engine/sync-projecao.js';
+const HS = 'lib/http-server.js';
+const A = 'ui/pure/aparelhos.js';
+const AP = 'ui/pure/aparelhos-politica.js';
+const AL = 'ui/pure/aparelhos-limpeza.js';
+const G = 'ui/pure/grupos.js';
+const SY = 'ui/pure/sync.js';
+const TA = 'ui/telas/sistema-aparelhos.js';
+const TG = 'ui/telas/sistema-grupos.js';
+const CSS = 'ui/app.css';
+
+const MUTACOES = [
+  ['D1 batimento sem instante vira agora (item 4)', ST, 'ultimoBatimentoEm: Number(rt.autoridade && rt.autoridade.ultimaMudancaEm) || 0,', 'ultimoBatimentoEm: Number(rt.autoridade && rt.autoridade.ultimaMudancaEm) || Date.now(),'],
+  ['D2 versao minima fora do snapshot (item 5)', ST, '    versaoPostagemCoordenada: POSTAGEM_COORDENADA_DESDE,\n', ''],
+  ['D3 sem presenca ignora a janela (item 6)', PJ, '  return visto <= 0 || agora - visto > SYNC.FROTA_JANELA_MS;', '  return visto <= 0;'],
+  ['D4 aposentado marcado sem presenca (item 6)', PJ, '  if (euMesmo || Number(d.retiredAt) > 0) return false;', '  if (euMesmo) return false;'],
+  ['D5 leitura da politica abre conteudo invalido (item 2)', SP, '  if (!r.ok) return { ok: true, existe: true, valida: false, code: r.code };', '  if (!r.ok && r.code === \'nunca\') return { ok: true, existe: true, valida: false, code: r.code };'],
+  ['D6 publicar politica sem versao (item 1)', HS, "function syncPublicacaoResult(r) { return r && r.ok ? { ok: true, versao: Number(r.versao) || 0 } : syncFalha(r); }", "function syncPublicacaoResult(r) { return r && r.ok ? { ok: true } : syncFalha(r); }"],
+  ['D7 recusa sem recibo (item 3)', SC, "  const reciboEnviado = await responder(rt, pedido.cmdId, { estado: 'recusado', code: 'recusado_no_aparelho', agora });", '  const reciboEnviado = false;'],
+  ['D8 recusa nao fecha o pedido (item 3)', SC, "  rt.designacaoAdmin = null;\n  gravarFeito(pedido.cmdId, { estado: 'recusado'", "  gravarFeito(pedido.cmdId, { estado: 'recusado'"],
+  ['D9 vinculo fora da resposta (item 12)', HS, 'return r && r.ok ? { ok: true, vinculo: r.vinculo || null } : syncFalha(r);', 'return r && r.ok ? { ok: true } : syncFalha(r);'],
+  ['D10 retrato velho segue verificavel (item 11)', CG, "  if (agora - Number(retrato.calculadoEm) > SYNC.GRUPO_RETRATO_MAX_MS) return [{ dev: '', motivo: 'retrato-velho' }];\n", ''],
+  ['D11 teto atingido calculado so pelo gasto (item 11)', CG, '  return { ...base, tetoAtingido: v.bloqueado, projecaoUsd: v.projecaoUsd };', '  return { ...base, tetoAtingido: retrato.custo >= g.tetoUsd, projecaoUsd: 0 };'],
+  ['D12 trava vencida vira limpando (item 8)', ST, '  if (!limpezaLista.travaViva(trava, Date.now())) return null;', '  if (!trava) return null;'],
+  ['D13 limpar devolve so ok (item 9)', HS, "  return { ok: true, apagadas: r.apagadas || [], falharam: r.falharam || [], corteGravado: r.corteGravado === true };", '  return { ok: true };'],
+  ['D14 lista das nunca apagadas escrita pela tela (item 9)', ST, 'nuncaApagadas: [...limpezaLista.PROIBIDOS]', 'nuncaApagadas: []'],
+  ['D15 nota sem o numero da versao (item 5)', A, "  const versao = versaoMinima ? `anterior à ${esc(versaoMinima)}` : 'anterior à da postagem coordenada';", "  const versao = 'anterior à da postagem coordenada';"],
+  ['D16 primeiro aparelho conta o aposentado (item 6)', A, '  const ativos = devices.filter((d) => d && !(Number(d.retiredAt) > 0));', '  const ativos = devices.filter((d) => d);'],
+  ['D17 duracao inventada sem observacao (item 4)', A, "  if (visto <= 0) return 'nenhum batimento observado desde que este aparelho conectou';\n", ''],
+  ['D18 sem botao de recusar (item 3)', A, '<button class="btn sm ghost" id="aparRecusarDesignacao">Recusar</button>', ''],
+  ['D19 campo de senha sem olho (item 17)', A, '<input id="${esc(id)}" class="sync-input" type="password" placeholder="senha da sincronização" spellcheck="false" autocomplete="off">${syncOlhoHtml(false, id)}', '<input id="${esc(id)}" class="sync-input" type="password" placeholder="senha da sincronização" spellcheck="false" autocomplete="off">'],
+  ['D20 olho da sincronizacao ganha data-olho-de (item 17)', SY, "const quem = alvo ? `id=\"${esc(alvo)}Olho\" data-olho-de=\"${esc(alvo)}\"` : 'id=\"syncSenhaOlho\"';", "const quem = `id=\"${esc(alvo || 'syncSenha')}Olho\" data-olho-de=\"${esc(alvo || 'syncSenha')}\"`;"],
+  ['D21 politica abre com o minimo (item 2)', AP, "  return l.estado === 'ok' && l.existe === true && l.valida === true && objeto(l.politica) ? l.politica : null;", '  return null;'],
+  ['D22 politica invalida reaproveitada (item 2)', AP, "  return l.estado === 'ok' && l.existe === true && l.valida === true && objeto(l.politica) ? l.politica : null;", "  return l.estado === 'ok' && objeto(l.politica) ? l.politica : null;"],
+  ['D23 contas elegiveis descartadas (item 2)', AP, '  if (base && Array.isArray(base.contasElegiveis)) corpo.contasElegiveis = base.contasElegiveis;\n', ''],
+  ['D24 teto nao definido vira 1 (item 2)', AP, '  if (Number.isInteger(f.tetoParalelismo)) saida.tetoParalelismo = f.tetoParalelismo;', '  saida.tetoParalelismo = Number(f.tetoParalelismo) || 1;'],
+  ['D25 aceite prometido (item 1)', AP, 'Esse aceite acontece no aparelho de destino e não volta para esta tela.', ''],
+  ['D26 trava do banco ignorada (item 8)', AL, '  if (l.travada) {', '  if (false) {'],
+  ['D27 limpeza local nao segura o botao (item 8)', AL, '  const acoes = v.correndo ? \'\' : acoesDaLimpeza(l.estado, o.souAdmin === true);', '  const acoes = acoesDaLimpeza(l.estado, o.souAdmin === true);'],
+  ['D28 falha parcial vira sucesso (item 9)', AL, '  if (falharam.length) return { tipo: \'error\'', '  if (false) return { tipo: \'error\''],
+  ['D29 revogar promete retirar o consentimento (item 10)', AL, 'Revogar não retira o consentimento deste aparelho', 'Revogar e retira o consentimento deste aparelho'],
+  ['D30 cartao do estreito ausente (item 16)', A, '  return html ? `<div class="apar-so-estreito">${html}</div>` : \'\';', "  return '';"],
+  ['D31 motivo sem o nome do aparelho (item 11)', G, '    const quem = nomeDoAparelho(devices, m.dev);', "    const quem = 'aparelho';"],
+  ['D32 ver aparelhos sem aparelho a apontar (item 11)', G, "  const extra = motivos.some((m) => m.dev) ?", '  const extra = true ?'],
+  ['D33 teto atingido sem selo (item 11)', G, '  if (g.tetoAtingido === true) {', '  if (false) {'],
+  ['D34 projecao some (item 11)', G, "  if (!(typeof g.projecaoUsd === 'number' && g.projecaoUsd > 0)) return '';", "  return '';"],
+  ['D35 vinculo do snapshot ignorado (item 12)', G, '  const v = vinculos && Object.hasOwn(vinculos, perfilId) ? vinculos[perfilId] : null;', '  const v = null;'],
+  ['D36 perfil sem id vira lista vazia (item 14)', G, '  const corpo = lista.length ? lista.map((p) => linhaDoPerfil(p, comId, mapa)).join(\'\') : semPerfilHtml();', "  const corpo = lista.map((p) => linhaDoPerfil(p, comId, mapa)).join('');"],
+  ['D37 pendente duplicado depois de chegar (item 13)', G, '(p) => p && p.id && !chegaram.has(p.id)', '(p) => p && p.id'],
+  ['D38 pendente sem aviso de consentimento (item 13)', G, '  const quando = cfg.aceitarAdmin === true', '  const quando = true'],
+  ['D39 atalho da sincronizacao removido (item 15)', SY, '    <div class="row-actions apar-atalho"><span class="btn sm ghost" data-goto="sys:devices" role="button" tabindex="0">Administrar em Aparelhos</span></div>', ''],
+  ['D40 resposta atrasada de outro aparelho desenhada (item 2)', TA, '  if (politicaAberta !== id) return;\n  politicaLeitura = lida;', '  politicaLeitura = lida;'],
+  ['D41 leitura da politica nao pedida (item 2)', TA, '  const lida = await lerPoliticaAtual(id, d);', "  const lida = { estado: 'ok', existe: false };"],
+  ['D42 recusar sem confirmacao (item 3)', TA, "  }, '');\n  if (!resp.ok) return false;\n  const r = await d.api('/api/sync/designation-decline', {});", "  }, '');\n  const r = await d.api('/api/sync/designation-decline', {});"],
+  ['D43 limpando nunca ligado (item 8)', TA, '  limpando = true;\n  renderAparelhos();', '  renderAparelhos();'],
+  ['D44 olho nao alterna o tipo (item 17)', TA, "  campo.type = visivel ? 'text' : 'password';", "  campo.type = 'password';"],
+  ['D45 modal sem campo com olho (item 17)', TA, "      <p><b>Não acontece:</b> as categorias que o app nunca apaga ficam; o histórico local de cada aparelho fica; nada é apagado com operação em andamento.</p>\n      ${aparelhosCampoSenhaModal()}", "      <p><b>Não acontece:</b> as categorias que o app nunca apaga ficam; o histórico local de cada aparelho fica; nada é apagado com operação em andamento.</p>\n      <input id=\"aparModalSenha\" type=\"password\">"],
+  ['D46 grupo falho anotado como pendente (item 13)', TG, "  if (!r || !r.ok) { d.toast('error', `O grupo não foi publicado: ${motivoDe(r)}`, 9000); return false; }", "  if (!r || !r.ok) { d.toast('error', `O grupo não foi publicado: ${motivoDe(r)}`, 9000); (d.anotarPendente || anotarPendente)({ id, nome: corpo.nome, versao: 0 }); return false; }"],
+  ['D47 pendente nunca podado (item 13)', TG, '  podarPendentes(Array.isArray(s.gruposDeConsumo) ? s.gruposDeConsumo : []);\n', ''],
+  ['D48 CSS do estreito esconde datas de novo (item 18)', CSS, '  .sync-linha.apar-sessao > :nth-child(2), .sync-linha.apar-sessao > :nth-child(3) { display: block; }', '  .sync-linha.apar-sessao > :nth-child(2), .sync-linha.apar-sessao > :nth-child(3) { display: none; }'],
+  ['D49 cartao do estreito aparece no largo (item 16)', CSS, '.apar-so-estreito { display: none; }\n', ''],
+];
+
+function hash(buf) { return crypto.createHash('sha256').update(buf).digest('hex'); }
+
+const linhas = [];
+for (const [nome, rel, de, para] of MUTACOES) {
+  if (FILTRO && !nome.startsWith(FILTRO)) continue;
+  const arq = path.join(RAIZ, rel);
+  const original = fs.readFileSync(arq);
+  const texto = original.toString('utf8');
+  const n = texto.split(de).length - 1;
+  if (n !== 1) { linhas.push(`${nome}: ABORTADA (trecho casou ${n} vezes)`); console.log(linhas.at(-1)); continue; }
+  fs.writeFileSync(arq, texto.replace(de, para));
+  let r;
+  try {
+    r = spawnSync(process.execPath, ['--test', '--test-force-exit', ...TESTES], { cwd: RAIZ, encoding: 'utf8', timeout: 240000 });
+  } finally {
+    fs.writeFileSync(arq, original);
+  }
+  const restaurado = hash(fs.readFileSync(arq)) === hash(original);
+  const falhas = (String(r.stdout).match(/^ℹ fail (\d+)/m) || [])[1];
+  const resultado = r.status === 0 ? 'INERTE (testes passaram)' : `morta (${falhas} teste(s) falharam, código ${r.status})`;
+  linhas.push(`${nome} [${rel}]: ${resultado}; restaurado byte a byte: ${restaurado ? 'sim' : 'NAO'} (sha256 ${hash(original).slice(0, 12)})`);
+  console.log(linhas.at(-1));
+}
+const mortas = linhas.filter((l) => l.includes('morta')).length;
+const inertes = linhas.filter((l) => l.includes('INERTE')).length;
+const abortadas = linhas.filter((l) => l.includes('ABORTADA')).length;
+console.log(`\ntotal ${linhas.length}: ${mortas} mortas, ${inertes} inertes, ${abortadas} abortadas`);
