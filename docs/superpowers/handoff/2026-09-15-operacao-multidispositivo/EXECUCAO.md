@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026 (iniciativa inteira, limites no plano mestre, seção 4).
-- **Entrega em curso:** nenhuma. C1a, C0, A5, A1, A4, C0b e C1 validadas localmente; as seis primeiras integradas em `md/integracao`. Próxima: C2 (administração, políticas, grupo de consumo e limpeza protegida), com plano a escrever.
+- **Entrega em curso:** nenhuma. C1a, C0, A5, A1, A4, C0b e C1 validadas localmente e **todas integradas** em `md/integracao`. Próxima: C2 (administração, políticas, grupo de consumo e limpeza protegida), com plano a escrever.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 - **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026.
@@ -22,13 +22,13 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 | `npm test` | 2841 testes, 2817 aprovados, 24 pulados, 0 falhas |
 | `npm run eng` | `not-run` na base sem entrega (reprova por construção, o esperado); com entrega exige `avaliacoes.jsonl` |
 
-## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1, A4 e C0b)
+## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1, A4, C0b e C1)
 
 | Gate | Resultado |
 |---|---|
-| `npm run check` | verde, 353 arquivos `.js` |
+| `npm run check` | verde, 375 arquivos `.js` |
 | `npm run lint` | verde, sem regressão |
-| `npm test` | 3191 testes, 3165 aprovados, 26 pulados, 0 falhas |
+| `npm test` | 3290 testes, 3263 aprovados, 27 pulados, 0 falhas |
 
 Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações escritas.
 
@@ -42,7 +42,7 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | 4 | A1 Consumo fiel (sem o item 1) | `md/a1` | validado localmente, integrado (`225165a`), item 1 bloqueado | `evidencias-execucao/a1.md` |
 | 5 | C0b Arbitragem de postagem no funil | `md/c0b` | validado localmente, integrado (`355f6d8`) | `evidencias-execucao/c0b.md` |
 | 6 | A4 Autenticação local, núcleo | `md/a4` | validado localmente, integrado (`7387179`); ativação automática desligada | `evidencias-execucao/a4.md` |
-| 7 | C1 Contrato de dados v2 e cifragem | `md/c1` | validado localmente; regras não publicadas | `evidencias-execucao/c1.md` |
+| 7 | C1 Contrato de dados v2 e cifragem | `md/c1` | validado localmente, integrado (`6540b5a`); regras não publicadas | `evidencias-execucao/c1.md` |
 | seguintes | C2, C3, C4, C4b, C5, C6, C7, C8, telas | | planos a escrever | |
 
 ## Bloqueios
@@ -97,4 +97,4 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 
 ## Próxima ação concreta
 
-Integrar `md/c1` em `md/integracao`, rodar o gate na integração e seguir para a C2, escrevendo o plano dela antes do código. A C1 deixou uma pendência que só o dono fecha: publicar as regras v2 no console do Firebase, depois do roteiro manual do `firebase/README.md`. Enquanto isso não acontece, o compartilhamento cifrado fica desligado e nada muda no comportamento de hoje.
+Escrever o plano da C2 (administração, políticas, grupo de consumo e limpeza protegida) e executá-lo na branch `md/c2`, cortada da ponta de `md/integracao`. A C1 deixou uma pendência que só o dono fecha: publicar as regras v2 no console do Firebase, depois do roteiro manual do `firebase/README.md`. Enquanto isso não acontece, o compartilhamento cifrado fica desligado e nada muda no comportamento de hoje.
