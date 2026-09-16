@@ -102,6 +102,16 @@
               ".write": "@U@ && (!newData.exists() || (@H(['v','dev','t0','x','enc'])@ && $op.matches(/^[0-9a-f]+$/) && newData.child('x').isNumber() && newData.child('x').val() > now && newData.child('x').val() <= now + 300000 && @ENC(2048)@ && (!data.exists() || (newData.child('dev').val() == data.child('dev').val() && newData.child('t0').val() == data.child('t0').val()))))"
             }
           },
+          "pending": {
+            "$i": {
+              ".write": "@U@ && (!newData.exists() || (@H(['v','at','dev','enc'])@ && $i.matches(/^[0-9a-f]+$/) && @ENC(4096)@ && (!data.exists() || (newData.child('at').val() == data.child('at').val() && newData.child('dev').val() == data.child('dev').val()))))"
+            }
+          },
+          "seen": {
+            "$i": {
+              ".write": "@U@ && ((!data.exists() && @H(['at','dev'])@ && newData.child('at').isNumber() && newData.child('at').val() <= now + 60000) || (!newData.exists() && (!root.child('users').child($uid).child('live').child('pending').child($i).exists() || data.child('at').val() + 2592000000 < now)))"
+            }
+          },
           "deviceStatus": {
             ".write": "@U@ && @LIMPA@",
             "$dev": {

@@ -60,7 +60,7 @@ test('só os nós listados têm concessão de escrita: nó novo sem regra é neg
   assert.equal(regras.live['.write'], undefined, 'live não concede em bloco');
   assert.equal(regras.live.control['.write'], undefined, 'control também não');
   assert.deepEqual(Object.keys(regras.live.control).sort(), ['admin', 'beat', 'cleanup', 'cleanupLock', 'lastCleanup', 'revokedBefore']);
-  assert.deepEqual(Object.keys(regras.live).sort(), ['control', 'devicePolicies', 'deviceStatus', 'groups', 'operations']);
+  assert.deepEqual(Object.keys(regras.live).sort(), ['control', 'devicePolicies', 'deviceStatus', 'groups', 'operations', 'pending', 'seen']);
 });
 
 // A geração é o que impede um admin deposto de continuar mandando: ela só anda para cima,
@@ -213,4 +213,23 @@ test('live/operations/$op: remoção livre, x com teto, dev e t0 imutáveis', ()
   assert.ok(w.includes("newData.child('t0').val() == data.child('t0').val()"));
   assert.ok(w.includes('$op.matches(/^[0-9a-f]+$/)'));
   assert.equal(regras.live.operations['.write'], undefined, 'o pai não concede');
+});
+
+test('live/pending/$i: remoção cooperativa, envelope de 4096, at e dev imutáveis', () => {
+  const w = regras.live.pending.$i['.write'];
+  assert.ok(w.startsWith('auth != null && auth.uid == $uid && (!newData.exists() ||'));
+  assert.ok(w.includes("newData.hasChildren(['v', 'at', 'dev', 'enc'])"));
+  assert.ok(w.includes("newData.child('enc').val().length <= 4096"));
+  assert.ok(w.includes("newData.child('at').val() == data.child('at').val()"));
+  assert.ok(w.includes("newData.child('dev').val() == data.child('dev').val()"));
+});
+
+// O visto é gravado uma vez (`!data.exists()`), e só sai quando a pendência sumiu ou com
+// 30 dias: sem isso, apagar o visto faria a pendência voltar a tocar em todo aparelho.
+test('live/seen/$i: grava uma vez só, e sai só sem pendência ou com 30 dias', () => {
+  const w = regras.live.seen.$i['.write'];
+  assert.ok(w.includes("(!data.exists() && newData.hasChildren(['at', 'dev'])"));
+  assert.ok(w.includes("newData.child('at').val() <= now + 60000"));
+  assert.ok(w.includes(".child('live').child('pending').child($i).exists()"));
+  assert.ok(w.includes("data.child('at').val() + 2592000000 < now"));
 });

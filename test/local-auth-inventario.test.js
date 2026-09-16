@@ -32,10 +32,10 @@ test('nenhuma rota aparece em duas classes', () => {
 // rotas muda de propósito: a C1 tirou /api/sync/erase-remote e acrescentou /api/sync/unlock
 // e /api/sync/new-epoch (46 virou 47), a C2a acrescentou /api/sync/admin (47 virou 48) e a
 // C2b acrescentou grupo, vínculo, aparelho, chave de limpeza, limpeza e revogação
-// (48 virou 54).
-test('as classes da spec cobrem os 54 caminhos, e as públicas são só as duas de autenticação', () => {
+// (48 virou 54), e a C3c acrescentou /api/sync/seen (54 virou 55).
+test('as classes da spec cobrem os 55 caminhos, e as públicas são só as duas de autenticação', () => {
   const naoPublicas = Object.entries(CLASSES).filter(([c]) => c !== 'autenticacao-publica').flatMap(([, rotas]) => rotas);
-  assert.equal(naoPublicas.length, 54);
+  assert.equal(naoPublicas.length, 55);
   assert.deepEqual(CLASSES['autenticacao-publica'].slice().sort(), ['/api/auth/pair', '/api/auth/status']);
   assert.deepEqual(Object.keys(CLASSES).sort(), ['autenticacao-publica', 'demais', 'destrutiva', 'escreve-github', 'evento', 'leitura-baixo-risco', 'leitura-sensivel', 'recebe-segredo', 'sessao-paga']);
 });

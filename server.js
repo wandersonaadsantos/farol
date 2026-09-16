@@ -1840,6 +1840,7 @@ class Engine extends EventEmitter {
   syncPublicarPolitica(dados) { return syncMod.syncPublicarPolitica(this, dados); }
   syncPublicarGrupo(dados) { return syncMod.syncPublicarGrupo(this, dados); }
   syncVincularPerfil(dados) { return syncMod.vincularPerfil(this, dados); }
+  syncMarcarVisto(dados) { return syncMod.marcarVisto(this, dados); }
   syncAparelho(dados) { return syncMod.aparelho(this, dados); }
   syncChaveDeLimpeza(dados) { return syncMod.chaveDeLimpeza(this, dados); }
   syncLimpar(dados) { return syncMod.limpar(this, dados); }
