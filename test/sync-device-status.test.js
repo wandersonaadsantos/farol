@@ -147,3 +147,20 @@ test('sem a chave aberta não se publica capacidade nenhuma', async () => {
   assert.equal(r.code, 'sem-chave');
   assert.deepEqual(escritasDeStatus(), []);
 });
+
+// CT-ADM: a capacidade publica o resumo da admissão, e só a contagem.
+test('a capacidade leva o resumo da admissão, sem referência de PR', async () => {
+  const e = await motorPronto();
+  const admissao = (await import('../lib/engine/admissao.js')).default;
+  // o motor do teste não tem doctor nem presença: a reserva aqui é só para o resumo ter
+  // o que contar, então os requisitos duros são satisfeitos de propósito
+  e.doctorInfo = { claude: '1.0.0' };
+  e.sync.lastPresenceAt = Date.now();
+  const r = admissao.reservar(e, { tipo: 'review', ref: 'dono/repo#9' });
+  assert.equal(r.ok, true, r.motivo);
+  const c = publicacao.capacidadeDe(e, e.config.sync);
+  assert.equal(c.admissao.total, 1);
+  assert.equal(c.admissao.porTipo.review, 1);
+  assert.equal(JSON.stringify(c).includes('dono/repo#9'), false, 'a capacidade não diz o que está rodando');
+  assert.equal(c.admissao.refs, undefined);
+});
