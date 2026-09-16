@@ -832,10 +832,18 @@ class Engine extends EventEmitter {
   async refreshContributors() { return ghMod.refreshContributors(this); }
 
 
+  // falha da sincronização vira estado dela e WARN, nunca erro do ciclo
+  async _tickSeguro() {
+    try { await this.syncTick(); } catch (e) { this.log('WARN', `sincronização: ${e.message}`); }
+  }
+
   async check(reason = 'timer') {
     if (this.checking) return;
     this.checking = true;
     this.setStatus('checking');
+    // a sincronização não depende do GitHub: se a parte do GitHub lançar erro antes do tick,
+    // ele roda no finally, senão presença e relógio da visão compartilhada param junto
+    let sincronizou = false;
     try {
       // reconcilia budgetWarned com a realidade ATUAL dos perfis, independente da fila
       // ter PR nenhum pra oferecer a chance de "destravar": sem isso, um perfil que
@@ -905,7 +913,8 @@ class Engine extends EventEmitter {
       try { await this.refreshMergeStates(); } catch (e) { this.log('WARN', `refreshMergeStates: ${e.message}`); }
       // sincronização entre dispositivos: presença e reconexão. Desligada custa zero, e
       // falha dela vira estado da própria sincronização, nunca erro do ciclo.
-      try { await this.syncTick(); } catch (e) { this.log('WARN', `sincronização: ${e.message}`); }
+      sincronizou = true;
+      await this._tickSeguro();
       // stale: PRs que EU revisei e receberam commit novo depois (reativa o "Re-revisar")
       try { await this.refreshStaleStates(); } catch (e) { this.log('WARN', `refreshStaleStates: ${e.message}`); }
       // round 2 sozinho: PR onde EU pedi mudanças e o autor empurrou commit novo volta
@@ -944,6 +953,7 @@ class Engine extends EventEmitter {
       this.log('ERROR', `ciclo de monitoramento: ${err.message}`);
       this.setStatus('error');
     } finally {
+      if (!sincronizou) await this._tickSeguro();
       this.checking = false;
       this.schedule();
       this.pushState();
