@@ -1,10 +1,7 @@
 /* Farol · UI: consome o engine local via SSE + fetch. Sem frameworks. */
 
 import {
-  safeJsonParse,
-  feedLine, selfSessionKey,
-  sessionProgress, parseGoto,
-  reasonText,
+  safeJsonParse, parseGoto,
 } from './pure.js';
 import { telasRegistradas, telaPorId } from './telas/registro.js';
 import {
@@ -13,7 +10,7 @@ import {
   ehMac, ehElectron, definirPlataforma,
 } from './telas/estado.js';
 import {
-  $, toast, showOp, updateOp, ACTIVE_OPS,
+  $, toast,
   syncAnalysisOps,
   sysFlash,
 } from './telas/infra.js';
@@ -21,25 +18,25 @@ export { toast } from './telas/infra.js';
 import {
   rebuildAccounts,
   renderAccountBar, renderIdentity, renderSilenced,
-  initContasTriggers,
+  initContasTriggers, escopoGuardado,
 } from './telas/contas.js';
 import { gotoDeliv } from './telas/entregas.js';
 import { loadHighlights, loadTeam } from './telas/time.js';
 import { renderTools } from './telas/ferramentas.js';
-import { ping, notifyNewPRs } from './telas/avisos.js';
+import { ping, notifyNewPRs, notifyNeedsDecision } from './telas/avisos.js';
 import { initTweaks } from './telas/acoes.js';
-import { registrarTelaConsumo, renderUsage } from './telas/consumo.js';
-import { renderStatus, tickCountdown, updateStageFlow, updateSessionBar, renderActive } from './telas/sessoes.js';
-import { renderChat, chatKeyAtual, initChatTriggers } from './telas/chat.js';
+import { registrarTelaConsumo } from './telas/consumo.js';
+import { renderStatus, tickCountdown, renderActive, handleActivity } from './telas/sessoes.js';
+import { renderChat, chatKeyAtual, initChatTriggers, handleChatActivity } from './telas/chat.js';
 import {
   renderDecisions, renderQueue, renderPanorama, renderRadarNav, initResolvedTriggers,
 } from './telas/radar.js';
-import { renderMyPRs, initReviewersButton } from './telas/meus-prs.js';
+import { renderMyPRs, initReviewersButton, updateAnalysisProgress } from './telas/meus-prs.js';
 import { renderUpdate } from './telas/sistema-atualizacao.js';
 import { sysGoTo, renderSettings } from './telas/sistema.js';
 import { initCaixaRevisao } from './telas/caixa-revisao.js';
 import { initAtalhos } from './telas/atalhos.js';
-import { initPaleta } from './telas/paleta.js';
+import { initPaleta, rotularBtnCmdK } from './telas/paleta.js';
 import { initTema } from './telas/tema.js';
 import { initPerfilPessoa } from './telas/perfil-pessoa.js';
 
@@ -60,18 +57,12 @@ if (isElectron) document.body.classList.add('electron');
 function aplicaPlataforma(p) {
   definirPlataforma(p);
   document.body.classList.toggle('mac', ehMac());
-  // o botão da paleta é estático no HTML e misturava as duas convenções (⌘K com
-  // tooltip Ctrl+K); aqui ele fica coerente com o SO real do engine
-  const cmdBtn = document.getElementById('btnCmdK');
-  if (cmdBtn) {
-    cmdBtn.textContent = ehMac() ? '⌘K' : 'Ctrl+K';
-    cmdBtn.title = `Paleta de comandos (${ehMac() ? 'Cmd' : 'Ctrl'}+K)`;
-  }
+  rotularBtnCmdK();   // o botão é da paleta; quem sabe rotulá-lo é telas/paleta.js
 }
 aplicaPlataforma();
 
 /* ---------- camada de contas (separação por identidade) ---------- */
-definirEscopo(localStorage.getItem('farol-scope') || 'all');   // 'all' ou o login de uma conta
+definirEscopo(escopoGuardado());   // 'all' ou o login de uma conta; chave e default em telas/contas.js
 // espelha a aba no <body> pro CSS ajustar a largura útil (a aba Sistema tem sidebar e
 // precisa de mais). switchTab não roda no boot, então a aba inicial é marcada aqui.
 document.body.dataset.tab = abaAtual();
@@ -87,6 +78,19 @@ function syncOptionalTabsVisibility() {
   }
 }
 
+// fan-out de render das seções sensíveis a CONTA (escopo/identidade/fila/decisões):
+// o handler de 'state' do SSE e o rerenderScope (troca de escopo, sem esperar
+// estado novo) desenhavam essas nove chamadas, na MESMA ordem, em dois lugares.
+// Uma função só, usada pelos dois; o que cada um faz ANTES e DEPOIS continua
+// distinto (o handler de 'state' também troca o snapshot inteiro e cobre as
+// telas sem conta própria; rerenderScope só isso, mais destaques/time se
+// estiverem na aba ativa).
+function renderScopedSections() {
+  renderAccountBar(); renderIdentity();
+  renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSilenced();
+  renderRadarNav();
+}
+
 // re-render das seções sensíveis ao escopo (sem esperar novo state do engine). Morava em
 // telas/contas.js recebendo nove funções por parâmetro (a costura da Task 6, criada
 // enquanto elas ainda viviam no app.js). Com o Radar e Meus PRs virando módulo na Task
@@ -96,9 +100,7 @@ function syncOptionalTabsVisibility() {
 // conhecer todas as telas, a camada de identidade não pode.
 function rerenderScope() {
   if (!estado()) return;
-  renderAccountBar(); renderIdentity();
-  renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSilenced();
-  renderRadarNav();
+  renderScopedSections();
   if ($('#tab-destaques').classList.contains('active')) { loadHighlights(); renderTools(); }
   if ($('#tab-time').classList.contains('active')) loadTeam();
 }
@@ -140,14 +142,16 @@ function medirTopbar() {
 medirTopbar();
 if (window.ResizeObserver) new ResizeObserver(medirTopbar).observe(document.querySelector('.topbar'));
 
-/* Redesenho no resize: o gráfico do Consumo mede o container pra montar o viewBox, então
-   precisa ser refeito quando a largura muda. Debounce pra não redesenhar a cada pixel. */
+/* Redesenho no resize: quem precisa reagir (hoje só o Consumo, cujo gráfico mede o
+   container pra montar o viewBox) se registra com aoRedimensionar (telas/registro.js),
+   o mesmo gancho de aoEntrar/aoEstado. O bootstrap só percorre o registro, debounced
+   pra não redesenhar a cada pixel. */
 let resizeTimer = null;
 window.addEventListener('resize', () => {
   medirTopbar();
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
-    if ($('#tab-consumo').classList.contains('active')) renderUsage();
+    for (const tela of telasRegistradas()) if (tela.aoRedimensionar) tela.aoRedimensionar();
   }, 150);
 });
 
@@ -290,61 +294,30 @@ function connect() {
     aplicaPlataforma(estado().app && estado().app.platform);   // engine manda; o userAgent era só o palpite inicial
     syncOptionalTabsVisibility();
     rebuildAccounts();
-    renderStatus(); renderAccountBar(); renderIdentity();
-    renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSilenced();
-    renderRadarNav();
+    renderStatus();
+    renderScopedSections();
     syncAnalysisOps();
     renderSettings(); renderTools(); renderUpdate(); tickCountdown();
     for (const tela of telasRegistradas()) if (tela.aoEstado) tela.aoEstado();
   });
+  // o app.js só entrega o evento: quem calcula o que ele significa é quem é
+  // dono do assunto (telas/sessoes.js, o feed e a barra de progresso da sessão;
+  // telas/meus-prs.js, o progresso do op de autoanálise que ela própria cria).
   es.addEventListener('activity', (e) => {
     const d = safeJsonParse(e.data); if (!d) return; const { id, item } = d;
-    if (estado()?.activity) (estado().activity[id] = estado().activity[id] || []).push(item);
-    const feed = document.querySelector(`.activity-feed[data-id="${CSS.escape(id)}"]`);
-    if (feed) {
-      const stick = feed.scrollTop + feed.clientHeight >= feed.scrollHeight - 30;
-      feed.insertAdjacentHTML('beforeend', feedLine(item));
-      if (stick) feed.scrollTop = feed.scrollHeight;
-    }
-    // progresso honesto (régua única sessionProgress, ui/pure.js): a atividade
-    // real move a barra do card da sessão no "Analisando agora"...
-    updateSessionBar(id);
-    updateStageFlow(id);
-    // ...e, se for autoanálise, também o widget do card em Meus PRs
-    const selfKey = selfSessionKey(estado()?.activeSessions, id);
-    if (selfKey) {
-      const op = ACTIVE_OPS.get(`analysis-${selfKey}`);
-      if (op && op.status === 'running') {
-        const n = (estado()?.activity?.[id] || []).length;
-        updateOp(op.id, {
-          step: (item && item.text) || op.step,
-          progress: Math.max(op.progress || 0, sessionProgress(n))
-        });
-      }
-    }
+    handleActivity(id, item);
+    updateAnalysisProgress(id, item);
   });
   es.addEventListener('chat', (e) => {
     const c = safeJsonParse(e.data); if (!c) return;
     const chatKey = chatKeyAtual();
     if (chatKey && c.key === chatKey) renderChat(c);
   });
+  // idem: telas/chat.js já é dono de chatKeyAtual(), então é quem decide o que
+  // um evento de atividade do chat significa.
   es.addEventListener('chat-activity', (e) => {
     const d = safeJsonParse(e.data); if (!d) return; const { key, text } = d;
-    const chatKey = chatKeyAtual();
-    if (chatKey && key === chatKey) {
-      const el = $('#chatActivity');
-      el.hidden = false;
-      const opId = `chat-${key}`;
-      // o texto vivo vira o step da MESMA pill que o renderChat cria; escrever
-      // textContent no container destruia a pill e orfanava a op (B16). Se a
-      // atividade chegar antes do primeiro snapshot de chat, cria a op aqui.
-      if (!ACTIVE_OPS.has(opId)) showOp(opId, { type: 'chat', title: 'Claude respondendo', inline: true, container: el });
-      // o chat nao acumula feed em estado().activity; a contagem de eventos vive
-      // na propria op, e o percentual sai da MESMA regua dos outros fluxos
-      const op = ACTIVE_OPS.get(opId);
-      const n = (op.chatEvents = (op.chatEvents || 0) + 1);
-      updateOp(opId, { step: text, progress: Math.max(op.progress || 0, sessionProgress(n)) });
-    }
+    handleChatActivity(key, text);
   });
   es.addEventListener('toast', (e) => {
     const t = safeJsonParse(e.data); if (!t) return;
@@ -356,10 +329,9 @@ function connect() {
   es.addEventListener('needs-decision', (e) => {
     ping();
     const d = safeJsonParse(e.data); if (!d) return; const { pr, item } = d;
-    if (!isElectron && 'Notification' in window && Notification.permission === 'granted') {
-      const n = new Notification('Farol · precisa da sua atenção', { body: `${pr.key}: ${reasonText((item.reasons || [])[0]) || 'ver relatório'}` });
-      n.onclick = () => { window.focus(); focusPr(pr.url); };
-    }
+    // a política de quando notificar (Electron, permissão) é de telas/avisos.js;
+    // focusPr é navegação, e essa fica no bootstrap
+    notifyNeedsDecision(pr, item, () => focusPr(pr.url));
   });
   es.addEventListener('focus-pr', (e) => {
     const d = safeJsonParse(e.data); if (!d) return; const { url } = d;

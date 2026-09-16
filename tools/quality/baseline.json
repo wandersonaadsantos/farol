@@ -105,9 +105,6 @@
   "tools/quality/strip.js": {
     "profundidadeExcedida": 2
   },
-  "ui/app.js": {
-    "profundidadeExcedida": 1
-  },
   "ui/pure/consumo.js": {
     "ternarioAninhado": 1
   },
