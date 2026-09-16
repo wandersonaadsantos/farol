@@ -69,10 +69,29 @@
             },
             "beat": {
               ".write": "@U@ && @H(['dev','generation','sequencia','beatAt','sig'])@ && @GEN@ && newData.child('dev').val() == @C@.child('admin').child('deviceId').val() && newData.child('sequencia').isNumber() && newData.child('beatAt').isNumber() && newData.child('beatAt').val() + 60000 > now && newData.child('beatAt').val() < now + 60000"
+            },
+            "cleanup": {
+              ".write": "@U@ && @H(['enabled','generation','rev','sig'])@ && newData.child('enabled').isBoolean() && @GEN@ && newData.child('rev').isNumber() && (!data.exists() || newData.child('rev').val() > data.child('rev').val())"
+            },
+            "cleanupLock": {
+              ".write": "@U@ && (!newData.exists() || (@REC@ && @C@.child('cleanup').child('enabled').val() == true && @H(['dev','x'])@ && newData.child('x').val() <= now + 600000))"
+            },
+            "lastCleanup": {
+              ".write": "@U@ && @REC@ && @H(['at','dev','categorias'])@"
+            },
+            "revokedBefore": {
+              ".write": "@U@ && @REC@ && newData.isNumber() && newData.val() < auth.token.auth_time && (!data.exists() || newData.val() >= data.val())"
             }
           },
           "devicePolicies": {
+            ".write": "@LIMPA@",
             "$dev": {
+              ".write": "@U@ && @H(['v','generation','enc','sig'])@ && @GEN@ && @ENC(2048)@ && newData.child('v').isNumber()"
+            }
+          },
+          "groups": {
+            ".write": "@LIMPA@",
+            "$grupo": {
               ".write": "@U@ && @H(['v','generation','enc','sig'])@ && @GEN@ && @ENC(2048)@ && newData.child('v').isNumber()"
             }
           }

@@ -69,10 +69,29 @@
             },
             "beat": {
               ".write": "auth != null && auth.uid == $uid && newData.hasChildren(['dev', 'generation', 'sequencia', 'beatAt', 'sig']) && newData.child('generation').val() == root.child('users').child($uid).child('live').child('control').child('admin').child('generation').val() && newData.child('dev').val() == root.child('users').child($uid).child('live').child('control').child('admin').child('deviceId').val() && newData.child('sequencia').isNumber() && newData.child('beatAt').isNumber() && newData.child('beatAt').val() + 60000 > now && newData.child('beatAt').val() < now + 60000"
+            },
+            "cleanup": {
+              ".write": "auth != null && auth.uid == $uid && newData.hasChildren(['enabled', 'generation', 'rev', 'sig']) && newData.child('enabled').isBoolean() && newData.child('generation').val() == root.child('users').child($uid).child('live').child('control').child('admin').child('generation').val() && newData.child('rev').isNumber() && (!data.exists() || newData.child('rev').val() > data.child('rev').val())"
+            },
+            "cleanupLock": {
+              ".write": "auth != null && auth.uid == $uid && (!newData.exists() || (auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && newData.hasChildren(['dev', 'x']) && newData.child('x').val() <= now + 600000))"
+            },
+            "lastCleanup": {
+              ".write": "auth != null && auth.uid == $uid && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && newData.hasChildren(['at', 'dev', 'categorias'])"
+            },
+            "revokedBefore": {
+              ".write": "auth != null && auth.uid == $uid && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && newData.isNumber() && newData.val() < auth.token.auth_time && (!data.exists() || newData.val() >= data.val())"
             }
           },
           "devicePolicies": {
+            ".write": "!newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
             "$dev": {
+              ".write": "auth != null && auth.uid == $uid && newData.hasChildren(['v', 'generation', 'enc', 'sig']) && newData.child('generation').val() == root.child('users').child($uid).child('live').child('control').child('admin').child('generation').val() && newData.child('enc').isString() && newData.child('enc').val().matches(/^e1[.]g[0-9]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$/) && newData.child('enc').val().length <= 2048 && newData.child('v').isNumber()"
+            }
+          },
+          "groups": {
+            ".write": "!newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
+            "$grupo": {
               ".write": "auth != null && auth.uid == $uid && newData.hasChildren(['v', 'generation', 'enc', 'sig']) && newData.child('generation').val() == root.child('users').child($uid).child('live').child('control').child('admin').child('generation').val() && newData.child('enc').isString() && newData.child('enc').val().matches(/^e1[.]g[0-9]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$/) && newData.child('enc').val().length <= 2048 && newData.child('v').isNumber()"
             }
           }

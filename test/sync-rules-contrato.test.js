@@ -59,8 +59,8 @@ test('só os nós listados têm concessão de escrita: nó novo sem regra é neg
   assert.deepEqual(comEscrita.sort(), ['dailyRounds', 'devices', 'keyring', 'leases', 'receipts', 'usageEvents']);
   assert.equal(regras.live['.write'], undefined, 'live não concede em bloco');
   assert.equal(regras.live.control['.write'], undefined, 'control também não');
-  assert.deepEqual(Object.keys(regras.live.control).sort(), ['admin', 'beat']);
-  assert.deepEqual(Object.keys(regras.live).sort(), ['control', 'devicePolicies']);
+  assert.deepEqual(Object.keys(regras.live.control).sort(), ['admin', 'beat', 'cleanup', 'cleanupLock', 'lastCleanup', 'revokedBefore']);
+  assert.deepEqual(Object.keys(regras.live).sort(), ['control', 'devicePolicies', 'groups']);
 });
 
 // A geração é o que impede um admin deposto de continuar mandando: ela só anda para cima,
@@ -100,4 +100,68 @@ test('a sonda depende desta assimetria: rulesProbe concede em v2/{aparelho} e em
   assert.equal(regras.rulesProbe['.write'], undefined, 'o pai não pode conceder, senão a sonda nunca detecta regra velha');
   assert.equal(regras.rulesProbe.v2.$dev['.write'], 'auth != null && auth.uid == $uid');
   assert.equal(regras.rulesProbe.v1, undefined, 'v1 não existe no template: é o caminho que as regras novas negam');
+});
+
+// A chave da limpeza é assinada e tem `rev` monotônico: sem o monotônico, um valor antigo
+// reentregue faria "desligada" voltar a ser "ligada" sem ninguém ter ligado nada.
+test('live/control/cleanup: booleano, geração vigente e rev que só sobe', () => {
+  const w = regras.live.control.cleanup['.write'];
+  assert.ok(w.includes("newData.hasChildren(['enabled', 'generation', 'rev', 'sig'])"));
+  assert.ok(w.includes("newData.child('enabled').isBoolean()"));
+  assert.ok(w.includes(".child('admin').child('generation').val()"), 'presa à geração vigente');
+  assert.ok(w.includes("newData.child('rev').val() > data.child('rev').val()"));
+  assert.equal(w.includes("auth.token.firebase.sign_in_provider"), false, 'ligar a chave NÃO exige senha recente (D-b)');
+});
+
+// A trava só nasce com senha recente e com a chave ligada; sair dela é sempre permitido,
+// senão um ato interrompido deixaria o conjunto travado até o vencimento.
+test('live/control/cleanupLock: nasce com REC e chave ligada, e sai sem condição', () => {
+  const w = regras.live.control.cleanupLock['.write'];
+  assert.ok(w.includes('!newData.exists() ||'), 'apagar a trava não pode ter condição');
+  assert.ok(w.includes("auth.token.auth_time * 1000 + 300000 > now"));
+  assert.ok(w.includes(".child('cleanup').child('enabled').val() == true"));
+  assert.ok(w.includes("newData.child('x').val() <= now + 600000"), 'a trava não pode nascer valendo mais que dez minutos');
+});
+
+test('live/control/lastCleanup: só com senha recente, e com a forma do corte', () => {
+  const w = regras.live.control.lastCleanup['.write'];
+  assert.ok(w.includes("auth.token.auth_time * 1000 + 300000 > now"));
+  assert.ok(w.includes("newData.hasChildren(['at', 'dev', 'categorias'])"));
+});
+
+// Quem revoga não pode se cortar fora: o valor tem que ser MENOR que o auth_time do token
+// do próprio ato, e só cresce.
+test('live/control/revokedBefore: abaixo do auth_time do ato e sempre para cima', () => {
+  const w = regras.live.control.revokedBefore['.write'];
+  assert.ok(w.includes("auth.token.auth_time * 1000 + 300000 > now"), 'exige senha recente');
+  assert.ok(w.includes("newData.val() < auth.token.auth_time"));
+  assert.ok(w.includes("!data.exists() || newData.val() >= data.val()"));
+});
+
+test('live/groups/$grupo: mesma forma do nó de política, com envelope de 2048', () => {
+  const w = regras.live.groups.$grupo['.write'];
+  assert.ok(w.includes("newData.hasChildren(['v', 'generation', 'enc', 'sig'])"));
+  assert.ok(w.includes(".child('admin').child('generation').val()"));
+  assert.ok(w.includes("newData.child('enc').val().length <= 2048"));
+});
+
+// A remoção acontece no nó PAI da categoria, e é lá que a concessão precisa existir. Sem
+// ela, a limpeza prometeria apagar algo que o banco recusa.
+test('a limpeza remove pelo pai, e só sob as condições da limpeza', () => {
+  for (const no of ['devicePolicies', 'groups']) {
+    const w = regras.live[no]['.write'];
+    assert.ok(w.includes('!newData.exists()'), `${no}: a concessão do pai é só para remover`);
+    assert.ok(w.includes(".child('cleanup').child('enabled').val() == true"), `${no}: exige a chave ligada`);
+    assert.ok(w.includes("auth.token.auth_time * 1000 + 300000 > now"), `${no}: exige senha recente`);
+    assert.ok(w.includes(".child('live').child('operations').exists()"), `${no}: exige nenhuma operação viva`);
+  }
+});
+
+test('nenhum nó protegido ganhou saída pela limpeza', () => {
+  for (const no of ['keyring', 'leases', 'receipts', 'dailyRounds']) {
+    assert.equal(regras[no]['.write'].includes("child('cleanup')"), false, no);
+  }
+  for (const filho of ['admin', 'beat', 'cleanup', 'lastCleanup', 'revokedBefore']) {
+    assert.equal(regras.live.control[filho]['.write'].includes('!newData.exists()'), false, `live/control/${filho}`);
+  }
 });
