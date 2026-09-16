@@ -97,6 +97,11 @@
               ".write": "auth != null && auth.uid == $uid && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && newData.isNumber() && newData.val() < auth.token.auth_time && (!data.exists() || newData.val() >= data.val())"
             }
           },
+          "operations": {
+            "$op": {
+              ".write": "auth != null && auth.uid == $uid && (!newData.exists() || (newData.hasChildren(['v', 'dev', 't0', 'x', 'enc']) && $op.matches(/^[0-9a-f]+$/) && newData.child('x').isNumber() && newData.child('x').val() > now && newData.child('x').val() <= now + 300000 && newData.child('enc').isString() && newData.child('enc').val().matches(/^e1[.]g[0-9]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$/) && newData.child('enc').val().length <= 2048 && (!data.exists() || (newData.child('dev').val() == data.child('dev').val() && newData.child('t0').val() == data.child('t0').val()))))"
+            }
+          },
           "deviceStatus": {
             ".write": "auth != null && auth.uid == $uid && !newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
             "$dev": {

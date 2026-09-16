@@ -307,3 +307,10 @@ do servidor. Quem protege esse nó é o cliente, pelas cinco condições do ato.
     remoção em `users/{uid-do-primeiro}` precisa responder **401**, inclusive as de
     limpeza. Este item existe por causa de um defeito real encontrado na C3a: a concessão
     de remoção se apoiava só na senha recente, que não prova quem é o dono.
+
+## Validação manual das regras v2 (C3b, andamento ao vivo)
+
+26. **`live/operations/{op}`:** com `{v, dev, t0, x, enc}`, `x` entre agora e agora + 5 min
+    e id hexadecimal, **200**; `x` no passado ou além de 5 min, **401**; regravar com `dev`
+    ou `t0` diferentes do gravado, **401**; `DELETE`, **200** sempre (a remoção é
+    cooperativa e só afeta exibição).

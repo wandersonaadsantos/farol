@@ -60,7 +60,7 @@ test('só os nós listados têm concessão de escrita: nó novo sem regra é neg
   assert.equal(regras.live['.write'], undefined, 'live não concede em bloco');
   assert.equal(regras.live.control['.write'], undefined, 'control também não');
   assert.deepEqual(Object.keys(regras.live.control).sort(), ['admin', 'beat', 'cleanup', 'cleanupLock', 'lastCleanup', 'revokedBefore']);
-  assert.deepEqual(Object.keys(regras.live).sort(), ['control', 'devicePolicies', 'deviceStatus', 'groups']);
+  assert.deepEqual(Object.keys(regras.live).sort(), ['control', 'devicePolicies', 'deviceStatus', 'groups', 'operations']);
 });
 
 // A geração é o que impede um admin deposto de continuar mandando: ela só anda para cima,
@@ -200,4 +200,17 @@ test('toda concessão de escrita, inclusive a da limpeza, exige o próprio uid',
   }
   const todas = [...nos.map((n) => n['.write']), regras.live.control.cleanupLock['.write'], regras.live.control.lastCleanup['.write']];
   for (const w of todas) assert.ok(w.includes(dono), w.slice(0, 60));
+});
+
+// Andamento: remoção livre (só afeta exibição), vida curta com teto de 5 minutos, e dono e
+// início imutáveis, senão outro aparelho "adotaria" a operação de alguém.
+test('live/operations/$op: remoção livre, x com teto, dev e t0 imutáveis', () => {
+  const w = regras.live.operations.$op['.write'];
+  assert.ok(w.startsWith('auth != null && auth.uid == $uid && (!newData.exists() ||'));
+  assert.ok(w.includes("newData.hasChildren(['v', 'dev', 't0', 'x', 'enc'])"));
+  assert.ok(w.includes("newData.child('x').val() > now && newData.child('x').val() <= now + 300000"));
+  assert.ok(w.includes("newData.child('dev').val() == data.child('dev').val()"));
+  assert.ok(w.includes("newData.child('t0').val() == data.child('t0').val()"));
+  assert.ok(w.includes('$op.matches(/^[0-9a-f]+$/)'));
+  assert.equal(regras.live.operations['.write'], undefined, 'o pai não concede');
 });
