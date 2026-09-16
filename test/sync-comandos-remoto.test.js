@@ -85,6 +85,9 @@ async function motor() {
   assert.equal((await e.syncTornarAdmin({ password: SENHA })).ok, true);
   e.sync.autoridade = fresca();
   e.accountForPr = () => LOGIN;
+  // o executor pergunta o head ATUAL (repetir e iniciar): sem este dublê a pergunta iria ao
+  // gh de verdade. Ajuste declarado: antes o repetir lia pr.headSha do objeto da fila.
+  e.headSha = async () => PR.headSha;
   Object.assign(e, { queue: [PR], headlessQueue: [], headlessBusyAccounts: new Map(), writeInflight() { }, processHeadless() { } });
   return e;
 }
@@ -148,6 +151,44 @@ test('comando para head antigo é recusado', async () => {
   await comandos.cicloDosComandos(e, e.config.sync);
   assert.equal(recibo(cmdId).estado, 'recusado');
   assert.equal(recibo(cmdId).code, 'head_mudou');
+});
+
+// O PR da fila vem da busca do GitHub, que NÃO traz o head: o executor pergunta agora.
+test('repetir: PR da fila sem head pergunta o head atual e aplica quando ele bate', async () => {
+  const e = await motor();
+  const { headSha, ...semHead } = PR;
+  e.queue = [semHead];
+  const perguntas = [];
+  e.headSha = async (pr) => { perguntas.push(pr.key); return headSha; };
+  const enfileirados = [];
+  e.enqueueHeadless = (pr) => { enfileirados.push(pr.key); return { ok: true, via: 'local' }; };
+  const cmdId = await emitirPara(e, e.sync.deviceId, 'repetir', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), headSha) });
+  await comandos.cicloDosComandos(e, e.config.sync);
+  assert.deepEqual(perguntas, [PR.key]);
+  assert.deepEqual(enfileirados, [PR.key]);
+  assert.equal(recibo(cmdId).estado, 'aplicado');
+});
+
+test('repetir: head que não dá para perguntar é desconhecido, e desconhecido recusa', async () => {
+  const e = await motor();
+  const { headSha, ...semHead } = PR;
+  e.queue = [semHead];
+  e.enqueueHeadless = () => assert.fail('head desconhecido não enfileira');
+  for (const resposta of [async () => '', async () => { throw new Error('sem rede'); }]) {
+    e.headSha = resposta;
+    const cmdId = await emitirPara(e, e.sync.deviceId, 'repetir', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), headSha) });
+    await comandos.cicloDosComandos(e, e.config.sync);
+    assert.equal(recibo(cmdId).code, 'head_mudou');
+  }
+});
+
+test('repetir: o enfileiramento que recusa vira recibo com o código dele', async () => {
+  const e = await motor();
+  e.enqueueHeadless = () => ({ ok: false, code: 'duplicado' });
+  const cmdId = await emitirPara(e, e.sync.deviceId, 'repetir', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha) });
+  await comandos.cicloDosComandos(e, e.config.sync);
+  assert.equal(recibo(cmdId).estado, 'recusado');
+  assert.equal(recibo(cmdId).code, 'duplicado');
 });
 
 test('comando expirado não executa, e diz que venceu', async () => {
@@ -234,6 +275,44 @@ test('iniciar aqui: passa pela admissão e volta pelo ramo local', async () => {
   await comandos.cicloDosComandos(e, e.config.sync);
   assert.deepEqual(vindos, [[PR.key, true, true]], 'reserva vaga e entra pelo ramo local, sem virar manual');
   assert.equal(recibo(cmdId).estado, 'aplicado');
+});
+
+// O head guardado no candidato é o da publicação: comparar a tag com ele não confere
+// nada. O executor pergunta o head de agora, e commit novo recusa.
+test('iniciar aqui: o head de AGORA é conferido, não o que o candidato guardou', async () => {
+  const e = await motor();
+  const item = `${prTag(kId(e), PR.key)}_${matTag(kId(e), PR.headSha)}`;
+  e.sync.candidatos = new Map([[item, { pr: PR }]]);
+  const perguntados = [];
+  e.headSha = async (pr) => { perguntados.push(pr.headSha); return 'sha-commit-novo'; };
+  e.enfileirarDaDistribuicao = () => assert.fail('head novo não inicia o item antigo');
+  const cmdId = await emitirPara(e, e.sync.deviceId, 'iniciar', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha) });
+  await comandos.cicloDosComandos(e, e.config.sync);
+  assert.deepEqual(perguntados, [''], 'o head do objeto fica de fora da pergunta');
+  assert.equal(recibo(cmdId).code, 'head_mudou');
+  e.headSha = async () => '';
+  const outro = await emitirPara(e, e.sync.deviceId, 'iniciar', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha) });
+  await comandos.cicloDosComandos(e, e.config.sync);
+  assert.equal(recibo(outro).code, 'head_mudou', 'head desconhecido também recusa');
+});
+
+test('iniciar aqui: sem vaga é recusa com sem_vaga, e nada é enfileirado', async () => {
+  const e = await motor();
+  const item = `${prTag(kId(e), PR.key)}_${matTag(kId(e), PR.headSha)}`;
+  e.sync.candidatos = new Map([[item, { pr: PR }]]);
+  e.enfileirarDaDistribuicao = () => assert.fail('sem vaga não executa');
+  e.updateSettings({ parallelReviews: 1 });
+  const admissao = (await import('../lib/engine/admissao.js')).default;
+  const { fixarMemoriaLivre, restaurarMemoriaLivre } = await import('./helpers/memoria-livre.js');
+  fixarMemoriaLivre();
+  try {
+    assert.equal(admissao.reservar(e, { tipo: 'chat' }).ok, true);
+    const cmdId = await emitirPara(e, e.sync.deviceId, 'iniciar', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha) });
+    await comandos.cicloDosComandos(e, e.config.sync);
+    assert.equal(recibo(cmdId).code, 'sem_vaga');
+  } finally {
+    restaurarMemoriaLivre();
+  }
 });
 
 test('iniciar aqui: item que este aparelho não publicou é recusado', async () => {
