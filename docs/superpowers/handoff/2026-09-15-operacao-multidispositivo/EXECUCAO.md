@@ -45,7 +45,7 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 
 ## Entregas
 
-Contagem: **30 entregas**, 30 evidências em `evidencias-execucao/` (29 da execução até a C8 e a A1b do adendo). "Núcleo" é serviço, regra e contrato; "interface" é a tela que configura, aciona ou mostra a capacidade; "validação local" é gate verde mais contraprovas.
+Contagem: **32 linhas**, 32 evidências em `evidencias-execucao/` (29 da execução até a C8; A1b, A4b e a validação POSIX do adendo). "Núcleo" é serviço, regra e contrato; "interface" é a tela que configura, aciona ou mostra a capacidade; "validação local" é gate verde mais contraprovas.
 
 | Ordem | Entrega | Branch | Núcleo | Interface | Integração e validação local | Validação externa pendente | Condição de publicação e ativação | Evidência |
 |---|---|---|---|---|---|---|---|---|
@@ -79,7 +79,19 @@ Contagem: **30 entregas**, 30 evidências em `evidencias-execucao/` (29 da execu
 | 28 | C7b Transferência voluntária | `md/c7b` | sim | **não** | sim | não | comando do admin; **afinidade adiada** | `evidencias-execucao/c7b.md` |
 | 29 | C8 Tomada forçada | `md/c8` | sim | **não** (o aviso existe como texto; sem tela de confirmação) | sim | regra do lease sucessor no servidor | comando do admin com confirmação | `evidencias-execucao/c8.md` |
 | 30 | A1b Medição real e correção do acumulador (A1, item 1) | `md/a1b` | sim | não se aplica | sim | estimativa da saída de tentativa interrompida (sem prova) | ativa por padrão | `evidencias-execucao/a1b.md` |
+| 31 | A4b Autenticação exigida exercitada e guarda do celular para a C3 | `md/a4b` | sim | **não** (sem tela de pareamento) | sim (servidor real isolado) | Termux real | exigência automática desligada; C3 presa a ela no celular | `evidencias-execucao/a4b.md` |
+| 32 | Validação POSIX em Linux isolado | `md/a4b` | não se aplica | não se aplica | sim (container Linux, uid 1000, sem rede) | Android/Termux continua sem prova | não se aplica | `evidencias-execucao/validacao-posix.md` |
 | seguintes | B2 (brief e desenho), A2, A3, telas de A4, C1 a C8 | | | | | | | |
+
+## Capacidades desligadas: o que falta em cada uma (adendo, item 5)
+
+| Capacidade | Implementado | Já testado | Evidência que falta | O que ela impede | Guarda contra uso prematuro |
+|---|---|---|---|---|---|
+| **Autenticação exigida no celular (A4)** | motor, pareamento de uso único, sessões com expiração, porteiro por classe de rota, transporte com `Authorization`, inventário de rotas | testes por classe e, em 16/09, servidor real isolado com `localAuth: 'exigir'` (`evidencias-execucao/a4b.md`) | tela de pareamento e de estados de autenticação (Claude Design); detecção do modo e alcance do loopback num Termux real | **ativação**: ligar sem a tela trancaria o usuário fora; sem a detecção validada, o modo pode não ser reconhecido | `ATIVACAO_AUTOMATICA_A4 = false` (teste trava o valor); a C3 não liga no celular sem exigência (`bloqueioCompartilhamento`, `a4b`) |
+| **Teto do grupo de consumo (C4b)** | rollup por grupo, retrato no relógio, gate de estouro e de não verificável, admissão por grupo, requisitos da ativação | `sync-consumo-grupo*`, 24 contraprovas (`c4b.md`) | atraso real do consumo entre dois aparelhos físicos; regra `usageDaily` no servidor | **ativação**: com atraso grande, o teto macio passaria do limite sem ninguém ver | `ATIVACAO_TETO_GRUPO_C4B = false`; o admin recusa publicar `ativo` sem a medição; o consumidor confere de novo |
+| **Recusa por peso de PR (C4)** | admissão com piso de memória, métrica gravada em cada reserva (ponto de coleta) | `admissao-local` (`c4.md`) | memória real dos processos por ambiente (desktop e Termux) e teste do peso como preditor | **implementação da regra**: não se inventa correlação; sem dado, não existe regra a implementar | a admissão só usa o piso de memória; peso só ordena, nunca recusa |
+| **Afinidade de colocação (C7)** | preferência com prazo usada só pela transferência voluntária | `sync-transferencia` (`c7b.md`) | frequência real de troca de dono no mesmo head (operação real da C5 e da C6) | **implementação da heurística**: sem a frequência, qualquer prazo seria chute | a colocação só prefere um aparelho quando a transferência pede, por 10 minutos, e nunca segura o item para aparelho inelegível |
+
 
 ## Observação de instabilidade na suíte (16/09/2026)
 
