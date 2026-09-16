@@ -28,9 +28,12 @@ test('nenhuma rota aparece em duas classes', () => {
   assert.equal(new Set(todas).size, todas.length);
 });
 
-test('as classes da spec cobrem os 46 caminhos, e as públicas são só as duas de autenticação', () => {
+// O número é tripwire de rota nova entrando sem classe. Ele muda quando o conjunto de
+// rotas muda de propósito: a C1 tirou /api/sync/erase-remote e acrescentou /api/sync/unlock
+// e /api/sync/new-epoch, então 46 virou 47.
+test('as classes da spec cobrem os 47 caminhos, e as públicas são só as duas de autenticação', () => {
   const naoPublicas = Object.entries(CLASSES).filter(([c]) => c !== 'autenticacao-publica').flatMap(([, rotas]) => rotas);
-  assert.equal(naoPublicas.length, 46);
+  assert.equal(naoPublicas.length, 47);
   assert.deepEqual(CLASSES['autenticacao-publica'].slice().sort(), ['/api/auth/pair', '/api/auth/status']);
   assert.deepEqual(Object.keys(CLASSES).sort(), ['autenticacao-publica', 'demais', 'destrutiva', 'escreve-github', 'evento', 'leitura-baixo-risco', 'leitura-sensivel', 'recebe-segredo', 'sessao-paga']);
 });

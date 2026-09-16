@@ -1835,6 +1835,7 @@ class Engine extends EventEmitter {
   syncRegistrarEspera(key, admissao) { return syncMod.registrarEspera(this, key, admissao); }
   syncLogin(credenciais, fetchImpl) { return syncMod.syncLogin(this, credenciais, fetchImpl); }
   syncUnlock(dados) { return syncMod.syncUnlock(this, dados); }
+  syncGerarChaveNova(dados) { return syncMod.syncGerarChaveNova(this, dados); }
   syncLogout() { return syncMod.syncLogout(this); }
   syncTest() { return syncMod.syncTest(this); }
   syncStop() { return syncMod.stopSync(this); }
