@@ -411,7 +411,9 @@ test('iniciar indisponível: publicação vencida não conta como executor', asy
   emitir('state', estadoDaTela());
   await execGanhaVaga();
   const t = fake.tree();
-  t.users.u1.live.queue[itemId][EXEC].ttl = Date.now() - 1;
+  // vencida há um minuto: o engine corrige o relógio pelo desvio medido contra o banco, que
+  // sob carga fica alguns ms negativo, e um vencimento de 1 ms oscilava entre vivo e vencido
+  t.users.u1.live.queue[itemId][EXEC].ttl = Date.now() - 60 * 1000;
   fake.setTree(t);
   let dialogo = null;
   assert.equal(await Tela.iniciarCandidato(itemId, async (d) => { dialogo = d; return EXEC; }, async () => true), false);
