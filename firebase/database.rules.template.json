@@ -7,12 +7,12 @@
           ".write": "@U@",
           "$acct": {
             "$pr": {
-              ".validate": "newData.hasChildren(['leaseId', 'deviceId', 'operationKind', 'expiresAt']) && newData.child('expiresAt').isNumber() && newData.child('expiresAt').val() > now && newData.child('expiresAt').val() <= now + 300000 && (!data.exists() || data.child('expiresAt').val() <= now || (data.child('leaseId').val() == newData.child('leaseId').val() && data.child('deviceId').val() == newData.child('deviceId').val()))",
+              ".validate": "newData.hasChildren(['leaseId', 'deviceId', 'operationKind', 'expiresAt']) && newData.child('expiresAt').isNumber() && newData.child('expiresAt').val() > now && newData.child('expiresAt').val() <= now + 300000 && (!data.exists() || data.child('expiresAt').val() <= now || (data.child('leaseId').val() == newData.child('leaseId').val() && data.child('deviceId').val() == newData.child('deviceId').val()) || @TOMADA@)",
               "expiresAt": {
-                ".validate": "newData.isNumber() && newData.val() > now && newData.val() <= now + 300000 && (!data.parent().exists() || !data.parent().child('expiresAt').exists() || data.parent().child('expiresAt').val() <= now || (data.parent().child('leaseId').val() == newData.parent().child('leaseId').val() && data.parent().child('deviceId').val() == newData.parent().child('deviceId').val()))"
+                ".validate": "newData.isNumber() && newData.val() > now && newData.val() <= now + 300000 && (!data.parent().exists() || !data.parent().child('expiresAt').exists() || data.parent().child('expiresAt').val() <= now || (data.parent().child('leaseId').val() == newData.parent().child('leaseId').val() && data.parent().child('deviceId').val() == newData.parent().child('deviceId').val()) || @TOMADA_FILHO@)"
               },
               "leaseId": {
-                ".validate": "!data.parent().exists() || data.parent().child('expiresAt').val() <= now || data.parent().child('leaseId').val() == newData.val()"
+                ".validate": "!data.parent().exists() || data.parent().child('expiresAt').val() <= now || data.parent().child('leaseId').val() == newData.val() || @TOMADA_FILHO@"
               },
               "deviceId": {
                 ".validate": "!data.parent().exists() || data.parent().child('expiresAt').val() <= now || data.parent().child('deviceId').val() == newData.val()"

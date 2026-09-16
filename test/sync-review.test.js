@@ -118,7 +118,9 @@ test('runHeadlessReview manda operationKind review e o contexto da coordenação
   assert.equal(op.operationKind, 'review');
   assert.deepEqual(op.coordination, {
     prKey: 'o/r#1', account: 'eu', materialVersion: HEAD, headSha: HEAD, contaRodada: true, manual: true,
-    semCoordenacao: true, ignorarRecibo: false,
+    // C8: o contexto passou a carregar o pedido de tomada forçada, que nasce falso e só
+    // vira verdade com pedido explícito e confirmado
+    semCoordenacao: true, ignorarRecibo: false, tomar: false, confirmado: false,
     pr: { key: 'o/r#1', url: pr.url, repo: 'o/r', number: 1, author: 'dev', account: 'eu' },
   });
 });
