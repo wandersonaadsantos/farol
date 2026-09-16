@@ -356,5 +356,9 @@ do servidor. Quem protege esse nó é o cliente, pelas cinco condições do ato.
     `rev`, ou menor, **401**; `ttl` além de 10 min, **401**.
 37. **`live/ack/{item}`:** resposta `{dev, estado, at}`, **200**; `at` além de agora + 60 s,
     **401**.
+39. **`usageDaily/{dev}/{dia}`:** rollup `{v: 1, u, seq, g}` com dia `AAAA-MM-DD` e grupos
+    de 32 hex com `c`, `s` e `d` numéricos, **200**; dia fora da forma, `v` diferente de 1,
+    `seq` não numérico ou grupo com `c` em texto, **401**; remoção sem a chave de limpeza,
+    **401**; remoção com a chave ligada e senha recente, **200**.
 38. **`live/control/ready`:** gravado pelo admin do momento com sequência maior, **200**;
     por outro aparelho, ou com a mesma sequência, **401**.
