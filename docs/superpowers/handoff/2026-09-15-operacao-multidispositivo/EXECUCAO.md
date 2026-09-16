@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026 (iniciativa inteira, limites no plano mestre, seção 4).
-- **Entrega em curso:** nenhuma. Próxima é a C5b (prontidão do distribuidor). C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g, C4 (código) e C5a validadas localmente e **todas integradas** em `md/integracao`.
+- **Entrega em curso:** nenhuma. Próxima é a C5c (publicar, atribuir e aceitar). C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g, C4 (código), C5a e C5b validadas localmente e **todas integradas** em `md/integracao`.
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
 - **Base:** `origin/main` em `8c043bc` (v2.59.3, Fases 0 e 1a da reorganização), fixada em 15/09/2026.
@@ -32,13 +32,13 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 | `npm test` | 2841 testes, 2817 aprovados, 24 pulados, 0 falhas |
 | `npm run eng` | `not-run` na base sem entrega (reprova por construção, o esperado); com entrega exige `avaliacoes.jsonl` |
 
-## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g, C4 e C5a)
+## Gate na linha de integração (15/09/2026, com C1a, C0, A5, A1, A4, C0b, C1, C2a, C2b, C3a a C3g, C4, C5a e C5b)
 
 | Gate | Resultado |
 |---|---|
-| `npm run check` | verde, 447 arquivos `.js` |
+| `npm run check` | verde, 449 arquivos `.js` |
 | `npm run lint` | verde, sem regressão |
-| `npm test` | 3622 testes, 3594 aprovados, 28 pulados, 0 falhas |
+| `npm test` | 3632 testes, 3604 aprovados, 28 pulados, 0 falhas |
 
 Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações escritas.
 
@@ -64,11 +64,14 @@ Windows 11, Node v24.15.0. O `npm run eng` roda no pre-push, com as avaliações
 | 16 | C3g Envio do histórico local | `md/c3g` | validada localmente e **integrada** | `evidencias-execucao/c3g.md` |
 | 17 | C4 Admissão local (parte de código) | `md/c4` | validada localmente e **integrada**; medição pendente por natureza | `evidencias-execucao/c4.md` |
 | 18 | C5a Candidato e escolha (parte pura) | `md/c5a` | validada localmente e **integrada** | `evidencias-execucao/c5a.md` |
+| 19 | C5b Prontidão do distribuidor (parte pura) | `md/c5b` | validada localmente e **integrada** | `evidencias-execucao/c5b.md` |
 | seguintes | C4, C4b, C5, C6, C7, C8, telas | | planos a escrever | |
 
 ## Observação de instabilidade na suíte (16/09/2026)
 
-Duas vezes hoje, uma rodada de `npm test` disparada **logo depois de um merge**, com a máquina ainda ocupada, terminou com uma falha que não se repete: uma vez `sync-manual`, outra `sync-chaveiro` (o mais pesado, que faz `scrypt` de verdade). Rodando o arquivo sozinho e a suíte de novo, verde nas duas. A hipótese é contenção de CPU, e não regressão, mas **está registrado em vez de esquecido**: se voltar fora dessa condição, é defeito e precisa de investigação própria.
+Três vezes hoje, uma rodada de `npm test` disparada **logo depois de um merge**, com a máquina ainda ocupada, terminou com UMA falha que não se repete. O sintoma é sempre o mesmo: o arquivo inteiro aparece como `✖`, **sem nenhum caso reprovando dentro dele**, e a contagem total fica menor que a normal (um arquivo não terminou). Foram arquivos diferentes (`sync-manual`, `sync-chaveiro`), e rodando o arquivo sozinho e a suíte de novo dá verde. A leitura mais provável é contenção (o `npm test` roda os arquivos em paralelo, e `sync-chaveiro` faz `scrypt` de verdade), somada ao `--test-force-exit` do script.
+
+**Não está fechado**, e por isso fica escrito: se voltar FORA dessa condição (sem merge antes, máquina ociosa), é defeito e merece investigação própria. O primeiro passo barato seria rodar a suíte com `--test-concurrency=1` na hora em que acontecer: se sumir, é contenção; se ficar, é defeito de verdade.
 
 ## Bloqueios
 
