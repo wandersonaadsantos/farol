@@ -1,0 +1,57 @@
+== antes, pasta original:
+641bfd369ea9ec1c530fbc9fa97206dd1b7d4987417a83b75dda5f29878920d1 *./.claude.json
+6c3a2deed2a6fce6f9c9a38bd8b6f0d4fc5067d8e170ba2e07366bf3115e982d *./.credentials.json
+== 1) CLAUDE_CONFIG_DIR=original
+{
+  "loggedIn": true,
+  "authMethod": "claude.ai",
+  "apiProvider": "firstParty",
+  "analyticsDisabled": false,
+  "projectsDirectory": "C:\\Users\\WANDER~1\\AppData\\Local\\Temp\\tmp.1SIPPQs7hE\\original\\projects",
+  "configDirectory": "C:\\Users\\WANDER~1\\AppData\\Local\\Temp\\tmp.1SIPPQs7hE\\original",
+  "email": "sintetico@exemplo.invalid",
+  "orgId": null,
+  "orgName": null,
+  "subscriptionType": "sintetico"
+}
+codigo: 0
+   pasta original depois:
+efac1d569702fbb40aa079ec29db298032c7b031b8a94b6749c6185465d5a347 *./.claude.json
+6c3a2deed2a6fce6f9c9a38bd8b6f0d4fc5067d8e170ba2e07366bf3115e982d *./.credentials.json
+641bfd369ea9ec1c530fbc9fa97206dd1b7d4987417a83b75dda5f29878920d1 *./backups/.claude.json.backup.1789575726853
+== 2) CLAUDE_CONFIG_DIR=vazia (sem SECURESTORAGE)
+{
+  "loggedIn": false,
+  "authMethod": "none",
+  "apiProvider": "firstParty",
+  "analyticsDisabled": false,
+  "projectsDirectory": "C:\\Users\\WANDER~1\\AppData\\Local\\Temp\\tmp.1SIPPQs7hE\\vazia\\projects",
+  "configDirectory": "C:\\Users\\WANDER~1\\AppData\\Local\\Temp\\tmp.1SIPPQs7hE\\vazia"
+}
+codigo: 1
+== 3) CLAUDE_CONFIG_DIR=copia + CLAUDE_SECURESTORAGE_CONFIG_DIR=original
+   antes:
+641bfd369ea9ec1c530fbc9fa97206dd1b7d4987417a83b75dda5f29878920d1 *./.claude.json
+6c3a2deed2a6fce6f9c9a38bd8b6f0d4fc5067d8e170ba2e07366bf3115e982d *./.credentials.json
+{
+  "loggedIn": true,
+  "authMethod": "claude.ai",
+  "apiProvider": "firstParty",
+  "analyticsDisabled": false,
+  "projectsDirectory": "C:\\Users\\WANDER~1\\AppData\\Local\\Temp\\tmp.1SIPPQs7hE\\copia\\projects",
+  "configDirectory": "C:\\Users\\WANDER~1\\AppData\\Local\\Temp\\tmp.1SIPPQs7hE\\copia",
+  "email": "sintetico@exemplo.invalid",
+  "orgId": null,
+  "orgName": null,
+  "subscriptionType": "sintetico"
+}
+codigo: 0
+   pasta original depois:
+641bfd369ea9ec1c530fbc9fa97206dd1b7d4987417a83b75dda5f29878920d1 *./.claude.json
+6c3a2deed2a6fce6f9c9a38bd8b6f0d4fc5067d8e170ba2e07366bf3115e982d *./.credentials.json
+   copia depois:
+./.claude.json
+./backups/.claude.json.backup.1789575727832
+== home falso depois de tudo:
+.
+temporario removido: sim
