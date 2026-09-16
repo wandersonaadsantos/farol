@@ -1,0 +1,22 @@
+✔ Claude: sessão de leitura sai com as ferramentas de leitura e sem MCP (16.2767ms)
+✔ Claude: sessão comum não ganha restrição nenhuma (9.8817ms)
+✔ Codex: sessão de leitura sai com o sandbox de leitura (14.6433ms)
+✔ Codex: sessão comum não ganha sandbox explícito (19.0897ms)
+✔ a sessão de leitura executa o claude com a linha exata, no workspace, sem MCP nem customização (89.8516ms)
+✔ a sessão comum executa sem nenhuma das restrições (74.8336ms)
+✔ argumento extra de quem chama não substitui a restrição, vem depois dela (75.4825ms)
+✔ somente leitura restringe as ferramentas do Claude e não carrega MCP nenhum (0.8ms)
+✔ somente leitura põe o Codex em sandbox de leitura (0.3304ms)
+✔ a ferramenta de diagnóstico abre a sessão como somente leitura; kudos não muda (109.3442ms)
+✔ o prompt do diagnóstico carrega o Markdown do diagnóstico, delimitado (16.8051ms)
+✔ o prompt do workspace não manda mais editar o app, e viaja na lista ressincronizada (0.5773ms)
+✔ os dois botões Limpar dizem o efeito, e cada um diz um efeito diferente (0.4417ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 315.0272
+codigo de saida: 0

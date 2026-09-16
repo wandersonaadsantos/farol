@@ -1,0 +1,14 @@
+REPROVOU | B1 sem --safe-mode | codigo=1 pass=9 fail=4 | restaurado byte a byte: true
+REPROVOU | B2 sem --disable-slash-commands | codigo=1 pass=9 fail=4 | restaurado byte a byte: true
+REPROVOU | B3 sem --strict-mcp-config | codigo=1 pass=9 fail=4 | restaurado byte a byte: true
+REPROVOU | B4 Bash na lista de ferramentas | codigo=1 pass=9 fail=4 | restaurado byte a byte: true
+REPROVOU | B5 runProvedor ignora a restricao | codigo=1 pass=10 fail=3 | restaurado byte a byte: true
+REPROVOU | B6 extra antes da restricao | codigo=1 pass=12 fail=1 | restaurado byte a byte: true
+REPROVOU | B7 restricao sempre ligada | codigo=1 pass=10 fail=3 | restaurado byte a byte: true
+REPROVOU | B8 sessao fora do workspace (Windows) | codigo=1 pass=12 fail=1 | restaurado byte a byte: true
+REPROVOU | B9 skip-permissions trocado por modo plan | codigo=1 pass=10 fail=3 | restaurado byte a byte: true
+REPROVOU | B10 diagnostico sem somenteLeitura | codigo=1 pass=12 fail=1 | restaurado byte a byte: true
+REPROVOU | B11 kudos tambem somenteLeitura | codigo=1 pass=12 fail=1 | restaurado byte a byte: true
+REPROVOU | B12 Codex sem sandbox de leitura | codigo=1 pass=11 fail=2 | restaurado byte a byte: true
+REPROVOU | B13 Codex com sandbox de escrita | codigo=1 pass=11 fail=2 | restaurado byte a byte: true
+total: 13, reprovaram: 13, passaram inertes: 0

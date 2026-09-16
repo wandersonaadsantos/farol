@@ -66,12 +66,12 @@ async function linhaDe(kind, opts) {
 
 test('Claude: sessão de leitura sai com as ferramentas de leitura e sem MCP', async () => {
   const linha = await linhaDe('dir', { somenteLeitura: true });
-  assert.match(linha, /--tools Read,Grep,Glob --strict-mcp-config/);
+  assert.match(linha, /--tools Read,Grep,Glob --strict-mcp-config --safe-mode --disable-slash-commands/);
 });
 
 test('Claude: sessão comum não ganha restrição nenhuma', async () => {
   const linha = await linhaDe('dir', {});
-  assert.doesNotMatch(linha, /--tools|--strict-mcp-config/);
+  assert.doesNotMatch(linha, /--tools|--strict-mcp-config|--safe-mode|--disable-slash-commands/);
 });
 
 test('Codex: sessão de leitura sai com o sandbox de leitura', async () => {
