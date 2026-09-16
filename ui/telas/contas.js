@@ -13,6 +13,13 @@ function identGuardada() {
   if (v === 'Só ponto') return v;
   return 'Ponto + etiqueta';   // cobre o default, 'Barra + etiqueta' e o antigo 'Só barra'
 }
+// leitura do escopo persistido: chave e default num arquivo só, o mesmo que
+// ESCREVE a mesma chave (troca de conta na barra, e o saneamento de escopo
+// órfão em rebuildAccounts, abaixo). Mesmo padrão de farol-theme em
+// telas/tema.js. Chamada pelo boot do bootstrap (ui/app.js).
+export function escopoGuardado() {
+  return localStorage.getItem('farol-scope') || 'all';
+}
 export const TWEAK = {
   muted: localStorage.getItem('farol-muted-handling') || 'Recolher',   // Recolher | Esmaecer | Ocultar
   // 'Só barra' saiu quando a borda esquerda virou urgência: quem tinha essa opção ficaria
