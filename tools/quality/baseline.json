@@ -107,7 +107,7 @@
   },
   "ui/app.js": {
     "maxLines": 1,
-    "ternarioAninhado": 18,
+    "ternarioAninhado": 17,
     "profundidadeExcedida": 9
   },
   "ui/pure/consumo.js": {
@@ -125,18 +125,21 @@
   "ui/pure/sobre.js": {
     "ternarioAninhado": 1
   },
-  "ui/telas/infra.js": {
-    "jsonStringifyCru": 1,
-    "ternarioAninhado": 3
+  "ui/telas/consumo.js": {
+    "ternarioAninhado": 1
   },
   "ui/telas/contas.js": {
     "ternarioAninhado": 4
   },
-  "ui/telas/consumo.js": {
-    "ternarioAninhado": 1
-  },
   "ui/telas/entregas.js": {
     "jsonStringifyCru": 1,
+    "ternarioAninhado": 1
+  },
+  "ui/telas/infra.js": {
+    "jsonStringifyCru": 1,
+    "ternarioAninhado": 3
+  },
+  "ui/telas/radar.js": {
     "ternarioAninhado": 1
   }
 }

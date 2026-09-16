@@ -32,7 +32,13 @@ function definirAba(nome) { ABA = nome; }
 function teamHighlightsEnabled() { return estado()?.config?.teamHighlights === true; }
 function deliveriesEnabled() { return estado()?.config?.deliveriesEnabled === true; }
 
+// mapa de pessoas (perfil de review: papel e domínios) do config atual. Lido pelo
+// Radar (papelPicker de cada card) e pelo Time; junto das outras leituras derivadas
+// desta lista pela mesma razão: mais de uma tela precisa e nenhuma pode importar a
+// outra só por causa disto.
+function peopleOf() { return (estado()?.config && estado().config.people) || {}; }
+
 export {
   estado, escopo, abaAtual, definirEstado, definirEscopo, definirAba,
-  teamHighlightsEnabled, deliveriesEnabled,
+  teamHighlightsEnabled, deliveriesEnabled, peopleOf,
 };
