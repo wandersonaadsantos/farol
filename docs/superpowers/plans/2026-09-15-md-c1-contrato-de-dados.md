@@ -847,7 +847,12 @@ export { parametrosPadrao, novoMaterial, embrulhar, abrir, kcvDe, bufferDe };
 
 - [ ] **Passo 5:** rodar `node --test test/sync-kek.test.js test/sync-constants.test.js`. Esperado: verde.
 
-- [ ] **Passo 6 (contraprova):** em `embrulhar` e em `abrir`, apague as duas linhas `cipher.setAAD(...)` e `decipher.setAAD(...)`. Rode `node --test test/sync-kek.test.js`: reprova `a AAD amarra uid, rev e os parâmetros` (o embrulho passa a abrir com uid e rev de outro). Restaure e rode: verde. Depois troque `scrypt` por `scryptSync` (com o ajuste de chamada) e rode: reprova `o scrypt não bloqueia o event loop`. Restaure e rode: verde.
+- [ ] **Passo 6 (contraprova):** três mutações, uma de cada vez (1 falha cada, medidas):
+  (a) em `aad`, reduza a lista para `['farol', 'wrap', '1', 'pw', String(kdf.alg)]`: reprova `a AAD amarra uid, rev e os parâmetros`, que é o que impede o embrulho de abrir sob outro uid ou outro rev;
+  (b) em `kcvDe`, troque `createHmac('sha256', chave)` por `createHmac('sha256', Buffer.alloc(32))`: reprova `kcv`, porque o kcv deixa de provar qualquer coisa sobre a chave;
+  (c) em `novoMaterial`, faça `enc.g1` receber a mesma `id`: reprova `K_enc não deriva de K_id`, que é o que faz a rotação valer contra um cache vazado.
+
+  **Não** troque `scrypt` por `scryptSync`: o símbolo não está importado, o arquivo quebra e o teste reprovaria por erro de carga, não pela garantia. O caso `o scrypt não bloqueia o event loop` fica declarado como teste de propriedade sem mutação textual limpa: o que ele trava é qual API é usada, e trocá-la exige mexer no import.
 
 - [ ] **Passo 7:** commit.
 
