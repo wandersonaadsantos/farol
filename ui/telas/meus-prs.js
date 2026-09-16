@@ -14,11 +14,12 @@ import {
   effectiveHidden, hiddenFootLabel, myPRsEmptyMsg, mergeToastKind, buildFixPrompt,
   canMergeSelfAnalysis, qualityBlockTitle, selfAnalysisBadge, selfAnalysisToggle,
   selfAnalysisStale, listViewState, prKeyFromUrl, defaultFor, overrideFor, repoShort,
+  selfSessionKey, sessionProgress,
 } from '../pure.js';
 import { estado, escopo } from './estado.js';
 import {
   $, api, confirmModal, showOp, updateOp, closeOp, toast, rotuloDoBotaoDeAnalise,
-  copyToClipboard, sysFlash,
+  copyToClipboard, sysFlash, ACTIVE_OPS,
 } from './infra.js';
 import { scopeVisible, acctMark } from './contas.js';
 import { renderRadarNav } from './radar.js';
@@ -422,4 +423,23 @@ function initReviewersButton(switchTab) {
   $('#myPRs').addEventListener('click', onMyPRsReviewersClick);
 }
 
-export { renderMyPRs, renderMyPRsHiddenFoot, montaFixPrompt, initReviewersButton };
+/* ---------- progresso da autoanálise, a partir do evento 'activity' do SSE ----------
+   Chamado pelo connect() do ui/app.js pra cada evento de atividade de sessão: só
+   AGE se a sessão for uma autoanálise (selfSessionKey resolve pra uma chave de PR,
+   ver ui/pure.js), atualizando a MESMA régua sessionProgress que o card de sessão
+   usa. O op `analysis-<key>` é criado aqui no módulo (showOp, no fluxo de análise),
+   então é este módulo que sabe atualizar o progresso dele. */
+function updateAnalysisProgress(id, item) {
+  const selfKey = selfSessionKey(estado()?.activeSessions, id);
+  if (!selfKey) return;
+  const op = ACTIVE_OPS.get(`analysis-${selfKey}`);
+  if (op && op.status === 'running') {
+    const n = (estado()?.activity?.[id] || []).length;
+    updateOp(op.id, {
+      step: (item && item.text) || op.step,
+      progress: Math.max(op.progress || 0, sessionProgress(n))
+    });
+  }
+}
+
+export { renderMyPRs, renderMyPRsHiddenFoot, montaFixPrompt, initReviewersButton, updateAnalysisProgress };

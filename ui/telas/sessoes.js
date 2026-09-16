@@ -11,6 +11,25 @@ import { estado } from './estado.js';
 import { $, ACTIVE_OPS, showOp, closeOp } from './infra.js';
 import { prUser, scopeVisible } from './contas.js';
 
+/* ---------- evento 'activity' do SSE (feed ao vivo de uma sessão) ----------
+   Chamado pelo connect() do ui/app.js: aqui é quem sabe o que uma linha de
+   atividade FAZ com o estado e a tela de sessão (o app.js só entrega o
+   evento). Empilha no feed de estado().activity, escreve no DOM se o card
+   está aberto, e atualiza a barra de progresso e a esteira de etapas. */
+function handleActivity(id, item) {
+  if (estado()?.activity) (estado().activity[id] = estado().activity[id] || []).push(item);
+  const feed = document.querySelector(`.activity-feed[data-id="${CSS.escape(id)}"]`);
+  if (feed) {
+    const stick = feed.scrollTop + feed.clientHeight >= feed.scrollHeight - 30;
+    feed.insertAdjacentHTML('beforeend', feedLine(item));
+    if (stick) feed.scrollTop = feed.scrollHeight;
+  }
+  // progresso honesto (régua única sessionProgress, ui/pure.js): a atividade
+  // real move a barra do card da sessão no "Analisando agora"
+  updateSessionBar(id);
+  updateStageFlow(id);
+}
+
 /* ---------- render: topo/status ---------- */
 function renderStatus() {
   const s = estado();
@@ -179,4 +198,4 @@ function renderActive() {
   tickElapsed();
 }
 
-export { renderStatus, tickCountdown, updateStageFlow, updateSessionBar, renderActive };
+export { renderStatus, tickCountdown, updateStageFlow, updateSessionBar, renderActive, handleActivity };

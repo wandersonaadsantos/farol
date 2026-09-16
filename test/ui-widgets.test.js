@@ -215,10 +215,13 @@ test('renderAccountBar consome a allowlist pura (B14)', () => {
 /* ---------- atividade do chat e encerramento (B16) ---------- */
 
 test('chat-activity atualiza a pill via updateOp, nao atropela o container (B16)', () => {
-  const handler = APPJS.match(/addEventListener\('chat-activity'[\s\S]*?\n  \}\);/);
-  assert.ok(handler, 'o handler chat-activity existe');
-  assert.match(handler[0], /updateOp\(/, 'o texto vivo entra como step da operacao');
-  assert.doesNotMatch(handler[0], /\.textContent = text/,
+  // Correção 4 da Task 11a: o cálculo saiu do connect() (ui/app.js, que só
+  // entrega o evento) para handleChatActivity, em telas/chat.js, que já é
+  // dono de chatKeyAtual().
+  const fn = APPJS.match(/function handleChatActivity\([\s\S]*?\n\}/);
+  assert.ok(fn, 'handleChatActivity existe');
+  assert.match(fn[0], /updateOp\(/, 'o texto vivo entra como step da operacao');
+  assert.doesNotMatch(fn[0], /\.textContent = text/,
     'textContent no container destroi a pill que o renderChat criou dentro dele');
 });
 

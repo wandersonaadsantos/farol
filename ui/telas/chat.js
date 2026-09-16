@@ -1,10 +1,10 @@
 /* Farol · UI: chat com o Claude por PR (--resume da sessão, ver lib/engine/chat.js).
    Não é aba (não passa por registrarTela): abre por cima de qualquer uma, pelo
-   botão .act-chat ou pela busca de URL. O handler `chat`/`chat-activity` do SSE
-   continua no connect() do app.js, que chama renderChat e lê a chave atual por
-   chatKeyAtual() (o mesmo padrão de escopo()/definirEscopo()). */
+   botão .act-chat ou pela busca de URL. O connect() do ui/app.js só entrega os
+   eventos `chat`/`chat-activity`; quem decide o que fazer com eles é este módulo,
+   dono de chatKeyAtual() (o mesmo padrão de escopo()/definirEscopo()). */
 
-import { canonicalGithubPrUrl, esc, md, prKeyFromUrl } from '../pure.js';
+import { canonicalGithubPrUrl, esc, md, prKeyFromUrl, sessionProgress } from '../pure.js';
 import { $, api, get, toast, ACTIVE_OPS, showOp, updateOp, closeOp } from './infra.js';
 
 let chatKey = null, chatUrl = null;
@@ -107,4 +107,25 @@ function initChatTriggers() {
   });
 }
 
-export { openChat, closeChat, renderChat, chatKeyAtual, initChatTriggers };
+/* ---------- evento 'chat-activity' do SSE ----------
+   Chamado pelo connect() do ui/app.js: só o chat sabe se o evento é da conversa
+   ABERTA agora (chatKeyAtual). O texto vivo vira o step da MESMA pill que
+   renderChat cria; escrever textContent no container destruía a pill e
+   orfanava a op (B16). Se a atividade chegar antes do primeiro snapshot de
+   chat, cria a op aqui. O chat não acumula feed em estado().activity; a
+   contagem de eventos vive na própria op, e o percentual sai da MESMA régua
+   (sessionProgress) dos outros fluxos. */
+function handleChatActivity(key, text) {
+  const chatKey = chatKeyAtual();
+  if (chatKey && key === chatKey) {
+    const el = $('#chatActivity');
+    el.hidden = false;
+    const opId = `chat-${key}`;
+    if (!ACTIVE_OPS.has(opId)) showOp(opId, { type: 'chat', title: 'Claude respondendo', inline: true, container: el });
+    const op = ACTIVE_OPS.get(opId);
+    const n = (op.chatEvents = (op.chatEvents || 0) + 1);
+    updateOp(opId, { step: text, progress: Math.max(op.progress || 0, sessionProgress(n)) });
+  }
+}
+
+export { openChat, closeChat, renderChat, chatKeyAtual, initChatTriggers, handleChatActivity };
