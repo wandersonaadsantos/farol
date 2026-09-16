@@ -47,9 +47,13 @@ test('subir o engine não cria arquivo de vínculo, de grupo nem de limpeza', ()
 // ninguém, e um aparelho de férias voltaria aposentado.
 test('a presença não carimba aposentadoria: nada de retiredAt no caminho automático', () => {
   const fonte = fs.readFileSync(path.join(RAIZ, 'lib', 'engine', 'sync.js'), 'utf8');
-  const presenca = fonte.slice(fonte.indexOf('function presencaDe'), fonte.indexOf('async function lerAparelhos'));
+  const presenca = fonte.slice(fonte.indexOf('function presencaDe'), fonte.indexOf('function projecaoDoAparelho'));
   assert.ok(presenca.length > 0, 'o recorte precisa achar o trecho da presença');
-  assert.equal(/retired|aposent/i.test(presenca), false, 'o caminho automático não decide aposentadoria');
+  assert.equal(/retired|aposent/i.test(presenca), false, 'o que a presença escreve não inclui aposentadoria');
+  // ler `retiredAt` é legítimo (a tela precisa distinguir sumido de aposentado); ESCREVER
+  // no caminho automático não é, e é isso que o segundo laço guarda
+  const escritas = fonte.split('\n').filter((l) => l.includes('retiredAt') && /\.(patch|put|del)\(/.test(l));
+  assert.deepEqual(escritas, [], 'só lib/engine/sync-aparelho.js escreve retiredAt');
 });
 
 // A limpeza protegida nunca alcança estes nós. Hoje isso é verdade por ausência (não
