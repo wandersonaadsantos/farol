@@ -9,6 +9,23 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.59.7
+
+Correção na trava que impede uma release de sair com código que não estava no commit. Nada
+muda no uso do app.
+
+**Correções**
+
+- **A trava do empacotador conferia só parte do que vai no pacote.** Antes de montar o pacote
+  de atualização, o Farol confere se os arquivos que vão nele estão exatamente como no commit
+  da release. É isso que impede que uma mudança local, de outra sessão de trabalho, seja
+  publicada sem querer, como aconteceu na v2.42.2. A conferência usava uma lista própria de
+  arquivos, e essa lista ficou para trás: o README, os atalhos de instalação e desinstalação
+  do Windows e do macOS e quatro ferramentas de build iam para o pacote sem ser conferidos.
+  Agora a conferência usa a mesma lista que monta o pacote, então tudo o que vai nele é
+  conferido, inclusive o que for acrescentado depois. Um teste automático impede que as duas
+  listas voltem a se separar.
+
 ## v2.59.6
 
 Correção de um caso em que a revisão automática nunca começava.
