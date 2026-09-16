@@ -41,7 +41,21 @@
           }
         },
         "devices": {
-          ".write": "auth != null && auth.uid == $uid"
+          ".write": "auth != null && auth.uid == $uid",
+          "$device": {
+            "contract": {
+              ".validate": "newData.isNumber()"
+            },
+            "keyReady": {
+              ".validate": "newData.isBoolean()"
+            }
+          }
+        },
+        "catalog": {
+          ".write": "!newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
+          "$pr": {
+            ".write": "auth != null && auth.uid == $uid && newData.hasChildren(['v', 'u', 'enc']) && $pr.matches(/^[0-9a-f]+$/) && newData.child('enc').isString() && newData.child('enc').val().matches(/^e1[.]g[0-9]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$/) && newData.child('enc').val().length <= 2048"
+          }
         },
         "usageEvents": {
           ".write": "auth != null && auth.uid == $uid",
@@ -81,6 +95,12 @@
             },
             "revokedBefore": {
               ".write": "auth != null && auth.uid == $uid && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && newData.isNumber() && newData.val() < auth.token.auth_time && (!data.exists() || newData.val() >= data.val())"
+            }
+          },
+          "deviceStatus": {
+            ".write": "!newData.exists() && auth.token.firebase.sign_in_provider == 'password' && auth.token.auth_time * 1000 + 300000 > now && root.child('users').child($uid).child('live').child('control').child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
+            "$dev": {
+              ".write": "auth != null && auth.uid == $uid && newData.hasChildren(['v', 'u', 'enc']) && newData.child('enc').isString() && newData.child('enc').val().matches(/^e1[.]g[0-9]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+[.][A-Za-z0-9_-]+$/) && newData.child('enc').val().length <= 2048"
             }
           },
           "devicePolicies": {

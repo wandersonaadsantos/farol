@@ -49,7 +49,19 @@ test('cada nó que o v1 escreve tem concessão própria, agora que a raiz não c
   }
 });
 
-test('a presença do v1 continua gravável: devices não ganhou validação nova', () => {
-  assert.equal(regras.devices['.validate'], undefined, 'campo novo na presença quebraria aparelho antigo');
-  assert.deepEqual(Object.keys(regras.devices), ['.write']);
+// A C3a acrescentou `.validate` em DOIS campos novos da presença (contract e keyReady).
+// A garantia continua a mesma e é afirmada assim: nada valida o nó inteiro, nenhum campo
+// que o v1 escreve ganhou validação, e os campos novos só têm `.validate` (nunca `.write`,
+// que poderia restringir a escrita do nó). Aparelho antigo não escreve contract nem
+// keyReady, e `.validate` de filho ausente não roda.
+test('a presença do v1 continua gravável: nenhuma validação nova alcança o que ela escreve', () => {
+  assert.equal(regras.devices['.validate'], undefined, 'validação no nó inteiro quebraria aparelho antigo');
+  assert.deepEqual(Object.keys(regras.devices).sort(), ['$device', '.write'].sort());
+  assert.deepEqual(Object.keys(regras.devices.$device).sort(), ['contract', 'keyReady']);
+  for (const campo of ['contract', 'keyReady']) {
+    assert.deepEqual(Object.keys(regras.devices.$device[campo]), ['.validate'], `${campo} só pode validar`);
+  }
+  for (const campo of ['name', 'platform', 'farolVersion', 'lastSeenAt', 'createdAt']) {
+    assert.equal(regras.devices.$device[campo], undefined, `${campo} é do v1 e não pode ganhar regra`);
+  }
 });

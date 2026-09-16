@@ -41,7 +41,21 @@
           }
         },
         "devices": {
-          ".write": "@U@"
+          ".write": "@U@",
+          "$device": {
+            "contract": {
+              ".validate": "newData.isNumber()"
+            },
+            "keyReady": {
+              ".validate": "newData.isBoolean()"
+            }
+          }
+        },
+        "catalog": {
+          ".write": "@LIMPA@",
+          "$pr": {
+            ".write": "@U@ && @H(['v','u','enc'])@ && $pr.matches(/^[0-9a-f]+$/) && @ENC(2048)@"
+          }
         },
         "usageEvents": {
           ".write": "@U@",
@@ -81,6 +95,12 @@
             },
             "revokedBefore": {
               ".write": "@U@ && @REC@ && newData.isNumber() && newData.val() < auth.token.auth_time && (!data.exists() || newData.val() >= data.val())"
+            }
+          },
+          "deviceStatus": {
+            ".write": "@LIMPA@",
+            "$dev": {
+              ".write": "@U@ && @H(['v','u','enc'])@ && @ENC(2048)@"
             }
           },
           "devicePolicies": {

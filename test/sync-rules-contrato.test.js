@@ -56,11 +56,11 @@ test('keyring: exige senha recente e rev monotônico', () => {
 
 test('só os nós listados têm concessão de escrita: nó novo sem regra é negado por construção', () => {
   const comEscrita = Object.keys(regras).filter((k) => regras[k] && regras[k]['.write']);
-  assert.deepEqual(comEscrita.sort(), ['dailyRounds', 'devices', 'keyring', 'leases', 'receipts', 'usageEvents']);
+  assert.deepEqual(comEscrita.sort(), ['catalog', 'dailyRounds', 'devices', 'keyring', 'leases', 'receipts', 'usageEvents']);
   assert.equal(regras.live['.write'], undefined, 'live não concede em bloco');
   assert.equal(regras.live.control['.write'], undefined, 'control também não');
   assert.deepEqual(Object.keys(regras.live.control).sort(), ['admin', 'beat', 'cleanup', 'cleanupLock', 'lastCleanup', 'revokedBefore']);
-  assert.deepEqual(Object.keys(regras.live).sort(), ['control', 'devicePolicies', 'groups']);
+  assert.deepEqual(Object.keys(regras.live).sort(), ['control', 'devicePolicies', 'deviceStatus', 'groups']);
 });
 
 // A geração é o que impede um admin deposto de continuar mandando: ela só anda para cima,
@@ -164,4 +164,25 @@ test('nenhum nó protegido ganhou saída pela limpeza', () => {
   for (const filho of ['admin', 'beat', 'cleanup', 'lastCleanup', 'revokedBefore']) {
     assert.equal(regras.live.control[filho]['.write'].includes('!newData.exists()'), false, `live/control/${filho}`);
   }
+});
+
+// A presença é nó legado: a regra de ouro diz que as validações de hoje ficam intactas, e
+// os campos novos ganham a sua, sem tocar nos outros.
+test('devices: contract e keyReady ganham validação, e nada mais muda', () => {
+  assert.equal(regras.devices['.write'], 'auth != null && auth.uid == $uid');
+  assert.equal(regras.devices.$device.contract['.validate'], 'newData.isNumber()');
+  assert.equal(regras.devices.$device.keyReady['.validate'], 'newData.isBoolean()');
+  for (const campo of ['name', 'platform', 'farolVersion', 'lastSeenAt', 'createdAt']) {
+    assert.equal(regras.devices.$device[campo], undefined, `${campo} não pode ganhar validação`);
+  }
+});
+
+test('live/deviceStatus e catalog: forma, envelope de 2048 e remoção só pela limpeza', () => {
+  for (const [pai, filho] of [[regras.live.deviceStatus, regras.live.deviceStatus.$dev], [regras.catalog, regras.catalog.$pr]]) {
+    assert.ok(pai['.write'].includes('!newData.exists()'), 'a concessão do pai é só para remover');
+    assert.ok(pai['.write'].includes("child('cleanup').child('enabled').val() == true"));
+    assert.ok(filho['.write'].includes("newData.hasChildren(['v', 'u', 'enc'])"));
+    assert.ok(filho['.write'].includes("newData.child('enc').val().length <= 2048"));
+  }
+  assert.ok(regras.catalog.$pr['.write'].includes('$pr.matches(/^[0-9a-f]+$/)'), 'a chave do catálogo é tag, e a regra exige a forma');
 });
