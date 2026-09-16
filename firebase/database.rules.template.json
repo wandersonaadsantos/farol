@@ -62,6 +62,21 @@
             }
           }
         },
+        "live": {
+          "control": {
+            "admin": {
+              ".write": "@U@ && @REC@ && @H(['deviceId','generation','publicKey','setAt'])@ && newData.child('publicKey').isString() && ((!data.exists() && newData.child('generation').val() == 1) || newData.child('generation').val() == data.child('generation').val() + 1)"
+            },
+            "beat": {
+              ".write": "@U@ && @H(['dev','generation','sequencia','beatAt','sig'])@ && @GEN@ && newData.child('dev').val() == @C@.child('admin').child('deviceId').val() && newData.child('sequencia').isNumber() && newData.child('beatAt').isNumber() && newData.child('beatAt').val() + 60000 > now && newData.child('beatAt').val() < now + 60000"
+            }
+          },
+          "devicePolicies": {
+            "$dev": {
+              ".write": "@U@ && @H(['v','generation','enc','sig'])@ && @GEN@ && @ENC(2048)@ && newData.child('v').isNumber()"
+            }
+          }
+        },
         "rulesProbe": {
           "v2": {
             "$dev": {

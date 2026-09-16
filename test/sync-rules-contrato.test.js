@@ -57,6 +57,43 @@ test('keyring: exige senha recente e rev monotônico', () => {
 test('só os nós listados têm concessão de escrita: nó novo sem regra é negado por construção', () => {
   const comEscrita = Object.keys(regras).filter((k) => regras[k] && regras[k]['.write']);
   assert.deepEqual(comEscrita.sort(), ['dailyRounds', 'devices', 'keyring', 'leases', 'receipts', 'usageEvents']);
+  assert.equal(regras.live['.write'], undefined, 'live não concede em bloco');
+  assert.equal(regras.live.control['.write'], undefined, 'control também não');
+  assert.deepEqual(Object.keys(regras.live.control).sort(), ['admin', 'beat']);
+  assert.deepEqual(Object.keys(regras.live).sort(), ['control', 'devicePolicies']);
+});
+
+// A geração é o que impede um admin deposto de continuar mandando: ela só anda para cima,
+// uma de cada vez, e trocar de admin exige senha recente no MESMO ato (REC).
+test('live/control/admin: senha recente e geração +1, sem pulo e sem volta', () => {
+  const w = regras.live.control.admin['.write'];
+  assert.ok(w.includes("auth.token.firebase.sign_in_provider == 'password'"));
+  assert.ok(w.includes('auth.token.auth_time * 1000 + 300000 > now'));
+  assert.ok(w.includes("newData.hasChildren(['deviceId', 'generation', 'publicKey', 'setAt'])"));
+  assert.ok(w.includes("(!data.exists() && newData.child('generation').val() == 1)"));
+  assert.ok(w.includes("newData.child('generation').val() == data.child('generation').val() + 1"));
+});
+
+// O servidor não verifica assinatura: o que ele consegue conferir é que o batimento é da
+// geração vigente, veio do aparelho que é admin AGORA e tem carimbo dentro de 60 s. O
+// frescor de verdade (sequência maior, observada nesta conexão) é do cliente.
+test('live/control/beat: geração vigente, dono do momento e janela de 60 s', () => {
+  const w = regras.live.control.beat['.write'];
+  assert.ok(w.includes("newData.hasChildren(['dev', 'generation', 'sequencia', 'beatAt', 'sig'])"));
+  assert.ok(w.includes(".child('live').child('control').child('admin').child('generation').val()"), 'geração presa à vigente');
+  assert.ok(w.includes(".child('admin').child('deviceId').val()"), 'só o admin do momento bate');
+  assert.ok(w.includes("newData.child('sequencia').isNumber()"));
+  assert.ok(w.includes("newData.child('beatAt').val() + 60000 > now"));
+  assert.ok(w.includes("newData.child('beatAt').val() < now + 60000"));
+});
+
+test('live/devicePolicies/$dev: forma, geração vigente e envelope de no máximo 2048', () => {
+  const w = regras.live.devicePolicies.$dev['.write'];
+  assert.ok(w.includes("newData.hasChildren(['v', 'generation', 'enc', 'sig'])"));
+  assert.ok(w.includes(".child('admin').child('generation').val()"));
+  assert.ok(w.includes("newData.child('enc').val().length <= 2048"));
+  assert.ok(w.includes('/^e1[.]g[0-9]+[.]'), 'só entra o que tem forma de envelope');
+  assert.ok(w.includes("newData.child('v').isNumber()"));
 });
 
 test('a sonda depende desta assimetria: rulesProbe concede em v2/{aparelho} e em mais nada', () => {
