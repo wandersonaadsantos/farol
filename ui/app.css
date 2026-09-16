@@ -1733,3 +1733,14 @@ body.parear > *:not(.par-raiz) { display: none !important; }
   .par-cmd { grid-template-columns: minmax(0, 1fr) auto; }
   .par-onde { grid-column: 1 / -1; }
 }
+
+/* ---------- falhas registradas (A3) ---------- */
+.falha-cartao { display: flex; flex-direction: column; gap: 8px; }
+.falha-topo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.falha-titulo { font-size: 13.5px; font-weight: 650; }
+.falha-quando { margin-left: auto; font-size: 12px; color: var(--faint); }
+.falha-acao { margin: 0; font-size: 12.5px; color: var(--muted); text-wrap: pretty; }
+.falha-acao b { color: var(--text); font-weight: 650; }
+.falha-texto { margin-top: 0; max-height: 260px; }
+.falha-texto pre, #diagBox pre { margin: 8px 0; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 620px) { .falha-quando { margin-left: 0; width: 100%; } }

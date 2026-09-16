@@ -1580,6 +1580,7 @@ class Engine extends EventEmitter {
   toolPrompt(name, opts) { return toolsMod.toolPrompt(this, name, opts); }
   // diagnóstico unificado (A3): o MESMO markdown para a tela, para a cópia e para a IA
   diagnosticoMarkdown() { return diagnosticoMod.diagnosticoMarkdown(this); }
+  diagnosticoFalhas() { return diagnosticoMod.falhasParaTela(this); }
   // plano e chaves explícito (A2): testar é ato explícito e nunca grava; adotar só com confirmação
   // capacidade implementada que ainda não está valendo (adendo, item 5): os sinais reais
   // do aparelho, para a tela nunca anunciar proteção que o engine não está aplicando

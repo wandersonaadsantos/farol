@@ -55,4 +55,45 @@ function diagnosticoHtml(src) {
   return out.join('');
 }
 
-export { diagnosticoHtml };
+/* As falhas registradas na tela (A3), uma por cartão: o que é, o que fazer e o texto inerte
+   daquela falha, com o botão que copia só ela. Os estados ficam separados (brief B2: falha não
+   se disfarça de vazio): carregando, vazio legítimo e leitura que falhou, esta mostrando a
+   última lista boa e há quanto tempo ela é. */
+const CLASSE_DO_CARTAO = { permanente: 'blocked', 'espera-reset': 'urgent', transitorio: 'urgent', operacional: 'ambient' };
+const CHIP_DA_GRAVIDADE = {
+  permanente: '<span class="sync-chip bad">precisa de você</span>',
+  'espera-reset': '<span class="sync-chip warn">passa sozinho no horário</span>',
+  transitorio: '<span class="sync-chip warn">se resolve sozinho</span>',
+  operacional: '<span class="sync-chip mute">sem ação</span>',
+};
+
+function quandoLegivel(at) {
+  const n = Number(at) || 0;
+  if (!n) return 'sem data';
+  return new Date(n).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function falhaCartaoHtml(f) {
+  const classe = CLASSE_DO_CARTAO[f.gravidade] || 'ambient';
+  const chip = CHIP_DA_GRAVIDADE[f.gravidade] || '';
+  const sessao = f.sessionId ? ` · sessão <code>${esc(f.sessionId)}</code>` : '';
+  return `<div class="card ${classe} falha-cartao">
+    <div class="falha-topo"><span class="falha-titulo">${esc(f.rotulo)}</span>${chip}<span class="falha-quando">${esc(quandoLegivel(f.at))}${sessao}</span></div>
+    <p class="falha-acao"><b>O que fazer:</b> ${esc(f.acao)}</p>
+    <div class="report falha-texto">${diagnosticoHtml(f.markdown)}</div>
+    <div class="row-actions"><button class="btn sm" type="button" data-copiar-falha="${esc(f.id)}">Copiar esta falha</button></div>
+  </div>`;
+}
+
+function falhasSecaoHtml(dados = {}) {
+  const lista = Array.isArray(dados.falhas) ? dados.falhas : [];
+  if (dados.estado === 'carregando' && !lista.length) return '<p class="sys-note">Lendo as falhas registradas…</p>';
+  const daLeitura = lista.length ? ` Mostrando a última leitura, de ${esc(quandoLegivel(dados.lidoEm))}.` : '';
+  const aviso = dados.estado === 'erro'
+    ? `<div class="banner" role="status">Não deu para ler as falhas agora.${daLeitura}</div>`
+    : '';
+  if (!lista.length) return aviso || '<p class="sys-note">Nenhuma falha registrada. Bom sinal.</p>';
+  return `${aviso}<div class="cards">${lista.map(falhaCartaoHtml).join('')}</div>`;
+}
+
+export { diagnosticoHtml, falhasSecaoHtml };
