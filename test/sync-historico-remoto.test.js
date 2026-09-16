@@ -258,3 +258,18 @@ test('as recentes lidas pela tela trazem o PR resolvido pelo catálogo, ou nulo'
   assert.equal(porT[AGORA + 1001].pr.title, 'Titulo do um');
   assert.equal(porT[AGORA + 1002].pr, null, 'fora do catálogo, sem nome inventado');
 });
+
+// A lista de revisões de outros aparelhos traz quase sempre PRs que já saíram da fila: se o
+// catálogo só tivesse a fila e as sessões vivas, elas apareceriam sem nome. O catálogo leva
+// também os PRs das revisões recentes, as mesmas que a tela consegue ler.
+test('o catálogo inclui os PRs das revisões recentes, até o que a leitura alcança', async () => {
+  const andamentoEng = (await import('../lib/engine/sync-andamento.js')).default;
+  const e = await motorPronto();
+  decisao(e, 'd1', { key: 'dono/repo#21' });
+  const chaves = andamentoEng.prsDoCatalogo(e).map((p) => p.key);
+  assert.ok(chaves.includes('dono/repo#21'), 'a revisão concluída entra no catálogo');
+  for (let i = 0; i < hist.LIMITE_LEITURA + 5; i++) decisao(e, `x${i}`, { key: `dono/repo#${100 + i}` });
+  const muitas = andamentoEng.prsDoCatalogo(e).map((p) => p.key);
+  assert.equal(muitas.includes('dono/repo#21'), false, 'além do que a leitura alcança, não entra');
+  assert.ok(muitas.includes(`dono/repo#${100 + hist.LIMITE_LEITURA + 4}`), 'a mais recente entra');
+});
