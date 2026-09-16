@@ -101,6 +101,17 @@ test('texto com crase não fecha a cerca antes da hora', () => {
   assert.match(md, /titulo injetado/, 'o texto continua presente, dentro da cerca');
 });
 
+test('escapa o que muda o sentido, e só isso: data e mensagem continuam legíveis', () => {
+  const md = montarDiagnostico({
+    versao: '2.59.5', plataforma: 'win32', geradoEm: '2026-09-16T15:52:39.730Z',
+    ambiente: [{ label: 'GitHub CLI', ok: true, detalhe: 'gh version 2.92.0 (2026-04-28)' }, { label: 'Lista', ok: false, detalhe: '- item que fingia ser lista' }],
+    falhas: [], resumo: [],
+  });
+  assert.match(md, /Gerado em: 2026-09-16T15:52:39\.730Z/, 'a data não vem cheia de barras');
+  assert.ok(md.includes('gh version 2.92.0 \\(2026-04-28\\)'), 'parêntese continua escapado, hífen não');
+  assert.ok(md.includes('\\- item que fingia ser lista'), 'traço no início do texto continua escapado');
+});
+
 test('seções vazias dizem que estão vazias', () => {
   const md = montarDiagnostico({ versao: '1', plataforma: 'x', geradoEm: 'y', ambiente: [], falhas: [], resumo: [] });
   assert.match(md, /Nenhuma falha registrada\./);

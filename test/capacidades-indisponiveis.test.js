@@ -57,6 +57,19 @@ test('compartilhamento ligado na config e desligado pelo engine aparece como blo
   assert.match(alvo.motivo, /autenticação/i);
 });
 
+test('o caso real do celular: a config JÁ vem zerada pela guarda, e o bloqueio prova o pedido', () => {
+  // medido em 16/09/2026 numa instância isolada com TERMUX_VERSION: o engine zera shared e
+  // distribution no boot, então a configuração não serve como sinal de "foi pedido"
+  const e = estadoDasCapacidades({
+    ...DESKTOP, modoCelular: true,
+    config: { enabled: true, shared: { enabled: false }, distribution: { enabled: false } },
+    bloqueio: 'autenticacao-local',
+  });
+  assert.equal(e.compartilhamento.pedido, true);
+  assert.equal(e.compartilhamento.aplicado, false);
+  assert.equal(capacidadesIndisponiveis(e).some((i) => i.id === 'compartilhamento'), true);
+});
+
 test('teto do grupo configurado sem estar aplicado é "configurado, ainda não vale"', () => {
   const e = estadoDasCapacidades({ ...DESKTOP, config: { enabled: true }, grupoConfigurado: true });
   assert.equal(e.tetoGrupo.configurado, true);
