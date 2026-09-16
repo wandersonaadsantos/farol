@@ -103,10 +103,11 @@ Comando exato (Git Bash no Windows, caminhos do hospedeiro em `C:/...`):
 | Antes da correção (`1a46b7a`) | `git archive` (sem `.git`) | 4198 | 4168 | **3** | 27 | 1 |
 | Depois da correção (`e9a97fc`) | clone | 4297 | 4275 | **0** | 22 | 0 |
 | Repetição da mesma (`e9a97fc`) | clone | 4301 | 4279 | **0** | 22 | 0 |
+| SHA final do ramo (`7391f15`) | clone | 4260 | 4238 | **0** | 22 | 0 |
 
 Saídas brutas: `verificacoes-saidas/posix-com-git-1-antes.txt`,
 `posix-com-git-2-depois.txt`, `posix-com-git-3-repeticao.txt`,
-`posix-com-git-windows.txt`.
+`posix-com-git-4-sha-final.txt`, `posix-com-git-windows.txt`.
 
 **As 9 falhas da segunda rodada sumiram.** Elas eram `eng-behaviour-gate` (6) e
 `protocolo-versionado` (3), todas `spawnSync git ENOENT`. Com git na imagem, o gate do
@@ -117,8 +118,8 @@ entrega a árvore sem `.git`, e os três casos de `test/protocolo-versionado.tes
 o versionamento (`fatal: not a git repository`, na saída bruta). Trocado o transporte por um
 CLONE, os três rodam e passam. Nada foi afrouxado.
 
-**Oscilação da contagem TOTAL, sem oscilação do resultado.** Três execuções do MESMO commit
-deram 4275, 4297 e 4301 testes, sempre com `fail 0` e `skipped 22`. A diferença está em
+**Oscilação da contagem TOTAL, sem oscilação do resultado.** Quatro execuções pós-correção
+deram 4275, 4297, 4301 e 4260 testes, sempre com `fail 0` e `skipped 22`. A diferença está em
 quantas linhas o relator alcança emitir antes de o `--test-force-exit` (que é o `npm test` do
 projeto) encerrar o processo; sem a flag a suíte não termina no contêiner, que é a razão de
 ela existir. O que decide continua sendo o código de saída do runner, e ele foi 0 nas duas
