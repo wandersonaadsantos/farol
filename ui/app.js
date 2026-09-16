@@ -43,6 +43,7 @@ import { switchSistemaSection, sysSearchFilter, sysGoTo, renderSettings } from '
 import { initCaixaRevisao } from './telas/caixa-revisao.js';
 import { initAtalhos } from './telas/atalhos.js';
 import { initPaleta } from './telas/paleta.js';
+import { initTema } from './telas/tema.js';
 
 const isElectron = ehElectron();
 if (isElectron) document.body.classList.add('electron');
@@ -166,19 +167,9 @@ $('#resolved').addEventListener('click', async (e) => {
   }
 });
 
-/* ---------- tema ---------- */
-function applyTheme(theme) {
-  document.documentElement.dataset.theme = theme;
-  localStorage.setItem('farol-theme', theme);
-  $('#iconMoon').style.display = theme === 'dark' ? '' : 'none';
-  $('#iconSun').style.display = theme === 'dark' ? 'none' : '';
-}
-applyTheme(localStorage.getItem('farol-theme') || 'dark');
-$('#btnTheme').onclick = () => {
-  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-  applyTheme(next);
-  api('/api/settings', { theme: next });
-};
+/* Tema claro/escuro: mora em telas/tema.js. Chamada aqui, no mesmo ponto
+   relativo em que o bloco morava. */
+initTema();
 
 /* ---------- navegação ---------- */
 /* Altura REAL da topbar num custom property. Os dois elementos sticky do app (a
