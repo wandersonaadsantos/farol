@@ -7,6 +7,9 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.59.8', ['A autoanálise separa o que trava a aprovação por fora do PR: um critério do card que depende de outro card, um check obrigatório vermelho por configuração ou uma ação de outra pessoa aparece em Fora do PR, com quem resolve e o que falta. Antes tudo ia na mesma lista, e o prompt de correção mandava corrigir no código o que o código não corrige.',
+    'O prompt de correção traz as pendências do PR, as de fora dele e as melhorias em seções separadas, informa o commit analisado e não pede mais para mexer no código quando só há pendência de fora do PR.',
+    'As sugestões passam a dizer o comportamento certo, e não só a ação; item que só vale no commit analisado vem marcado; e a análise não oferece mais bypass de proteção como saída.']],
   ['2.59.7', ['A trava que impede uma release de sair com código fora do commit passou a conferir tudo o que vai no pacote de atualização. Antes ela usava uma lista própria, que tinha ficado para trás: o README, os atalhos de instalação e quatro ferramentas de build iam no pacote sem conferência. Nada muda no uso do app.']],
   ['2.59.6', ['A revisão automática deixa de esperar por bot de review. Em repositório onde um bot de revisão é check obrigatório, o Farol ficava parado: o check só fecha com revisão, e a revisão não vinha porque o check estava vermelho. Agora ele revisa nesses PRs, inclusive para discordar do bot. Check de esteira continua segurando a revisão como antes.']],
   ['2.59.5', ['A paleta de comandos (Ctrl+K) avisava menos que o card ao pedir mudanças: a confirmação não dizia que o PR fica bloqueado até o autor tratar e você reavaliar. Agora as duas telas mostram o mesmo texto.',
