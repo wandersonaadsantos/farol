@@ -206,6 +206,21 @@ test('createTokenSource: adotar a entrada nova vale na hora e manda na renovaç�
   assert.equal(new URLSearchParams(renovacao.body || '').get('refresh_token'), nova.refreshToken);
 });
 
+// quem toma 401 do banco precisa saber se o token era velho (renovar) ou recém-obtido
+// (regra recusando): é este relógio que separa os dois casos
+test('createTokenSource: obtidoHa conta do último token obtido', async () => {
+  const login = await entrar();
+  let relogio = AGORA;
+  const fonte = createTokenSource({ apiKey: 'key-1', refreshToken: login.refreshToken, tokenUrl, agora: () => relogio });
+  assert.equal(fonte.obtidoHa(), Infinity, 'sem token nenhum, não há o que datar');
+  assert.equal((await fonte.getIdToken()).ok, true);
+  assert.equal(fonte.obtidoHa(), 0);
+  relogio = AGORA + 5000;
+  assert.equal(fonte.obtidoHa(), 5000);
+  assert.equal(fonte.adotar(await entrar()), true);
+  assert.equal(fonte.obtidoHa(), 0, 'a entrada adotada também é token novo');
+});
+
 test('createTokenSource: entrada incompleta não é adotada', async () => {
   const login = await entrar();
   const fonte = createTokenSource({ apiKey: 'key-1', refreshToken: login.refreshToken, tokenUrl, agora });

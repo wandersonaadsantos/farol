@@ -133,6 +133,69 @@ test('(b) habilitar + login: conectado, credencial sem senha, aparelho persistid
   assert.ok(Math.abs(engine.sync.skewMs - (RELOGIO_SERVIDOR - Date.now())) < 60000, 'skew medido na presença');
 });
 
+// 7.C2: corte de sessões (`revokedBefore`) ou regra que passou a recusar este aparelho
+// chegam como 401 no banco. Com o token RECÉM-OBTIDO, 401 não é token velho: é o servidor
+// dizendo que este aparelho não entra mais, e insistir a cada tick só repete a recusa. O
+// contrato C1 já dizia que o v2 reconhece isso e pede a senha; ele tratava tudo como
+// transitório e ficava em laço (medido na bancada com engines reais, 17/09/2026).
+//
+// Os dois casos rodam em engine PRÓPRIO: eles derrubam a conexão de propósito, e o engine
+// do arquivo é compartilhado pelos outros casos.
+function motorQueRecusa(estado) {
+  const ctrl = { chamadas: 0, fora: false };
+  const e = new Engine();
+  e.log = () => { };
+  const base = fetchDosDubles(ctrl);
+  e.sync.fetchImpl = async (url, init) => {
+    estado.chamadas += 1;
+    if (estado.recusar && init && init.method === 'PATCH' && String(url).includes('/devices/')) {
+      return new Response('{"error":"Permission denied"}', { status: 401, headers: { 'content-type': 'application/json' } });
+    }
+    return base(url, init);
+  };
+  return e;
+}
+
+test('(c2) 401 do banco com token recém-obtido para de insistir e pede a senha', async () => {
+  const estado = { recusar: false, chamadas: 0 };
+  const e = motorQueRecusa(estado);
+  e.updateSettings({ sync: syncCfg() });
+  if (e.sync.iniciando) await e.sync.iniciando;
+  assert.equal((await e.syncLogin({ email: EMAIL, password: SENHA })).ok, true);
+  assert.equal(e.sync.status, 'conectado');
+  estado.recusar = true;
+  e.sync.lastPresenceAt = 0;
+  await e.syncTick();
+  assert.equal(e.sync.status, 'erro');
+  assert.equal(e.sync.lastError.code, 'nao_autorizado');
+  const chamadasAntes = estado.chamadas;
+  await e.syncTick();
+  assert.equal(estado.chamadas, chamadasAntes, 'nenhuma chamada nova para ouvir a mesma recusa');
+  estado.recusar = false;
+  assert.equal((await e.syncLogin({ email: EMAIL, password: SENHA })).ok, true, 'a senha digitada de novo traz o aparelho de volta');
+  assert.equal(e.sync.status, 'conectado');
+});
+
+// O outro lado: 401 com token VELHO continua transitório. Ele é o caso comum de token
+// vencido, e parar ali deixaria o aparelho fora do ar esperando uma senha que não é o
+// problema.
+test('(c3) 401 com token velho continua transitório: o tick tenta de novo', async () => {
+  const estado = { recusar: false, chamadas: 0 };
+  const e = motorQueRecusa(estado);
+  e.updateSettings({ sync: syncCfg() });
+  if (e.sync.iniciando) await e.sync.iniciando;
+  assert.equal((await e.syncLogin({ email: EMAIL, password: SENHA })).ok, true);
+  e.sync.tokenSource.obtidoHa = () => SYNC.TOKEN_RECEM_OBTIDO_MS + 1000;
+  estado.recusar = true;
+  e.sync.lastPresenceAt = 0;
+  await e.syncTick();
+  assert.equal(e.sync.status, 'erro');
+  assert.equal(e.sync.lastError.code, 'nao_autorizado');
+  const chamadasAntes = estado.chamadas;
+  await e.syncTick();
+  assert.ok(estado.chamadas > chamadasAntes, 'token velho: vale tentar de novo');
+});
+
 test('(c) syncTick respeita PRESENCE_TICK_MS', async () => {
   const antes = patchesDePresenca();
   await engine.syncTick();
