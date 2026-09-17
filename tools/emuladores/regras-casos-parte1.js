@@ -69,6 +69,37 @@ async function furosDeclarados(ctx, agora) {
   return [esticado, renovado, remocao];
 }
 
+// 7.C8, a TOMADA de lease: o sucessor carrega `takeoverSeq`, `tomadoDe` e outro aparelho,
+// e é a única forma de um lease VIVO trocar de dono. Medido na bancada com engines reais
+// (17/09/2026): a regra do nó permitia, a do CAMPO `deviceId` não, e a tomada era
+// impossível. Escrita direta no campo não roda a validação do pai; por isso ela é
+// replicada, e a réplica precisa carregar o mesmo ramo.
+function sucessor(agora, extra) {
+  return {
+    leaseId: 'lease-tomado', deviceId: OUTRO_APARELHO, operationKind: 'review',
+    expiresAt: agora + 2 * MINUTO_MS, acquiredAt: agora, heartbeatAt: agora,
+    takeoverSeq: 2, tomadoDe: APARELHO, tomadoEm: agora, ...extra,
+  };
+}
+
+async function tomadaDeLease(ctx, agora) {
+  await semear(ctx, `leases/${CONTA}/${PR}`, lease(agora));
+  const semSequencia = sucessor(agora, { takeoverSeq: null });
+  const sequenciaErrada = sucessor(agora, { takeoverSeq: 5 });
+  const semOrigem = sucessor(agora, { tomadoDe: null });
+  const origemErrada = sucessor(agora, { tomadoDe: 'aparelho-c' });
+  const eu = sucessor(agora, { deviceId: APARELHO });
+  return [
+    await medir(ctx, 'P1', 'tomada sem takeoverSeq é recusada', RECUSADO, 'PUT', caminhoLease(ctx), { corpo: semSequencia }),
+    await medir(ctx, 'P1', 'tomada com takeoverSeq fora da sequência é recusada', RECUSADO, 'PUT', caminhoLease(ctx), { corpo: sequenciaErrada }),
+    await medir(ctx, 'P1', 'tomada sem dizer de quem tomou é recusada', RECUSADO, 'PUT', caminhoLease(ctx), { corpo: semOrigem }),
+    await medir(ctx, 'P1', 'tomada apontando outro dono que não o atual é recusada', RECUSADO, 'PUT', caminhoLease(ctx), { corpo: origemErrada }),
+    await medir(ctx, 'P1', 'tomada de si mesmo é recusada', RECUSADO, 'PUT', caminhoLease(ctx), { corpo: eu }),
+    await medir(ctx, 'P1', 'TOMADA de lease vivo por outro aparelho, com a sequência e a origem certas, é aceita', OK, 'PUT', caminhoLease(ctx), { corpo: sucessor(agora) }),
+    await medir(ctx, 'P1', 'a tomada seguinte anda a sequência', OK, 'PUT', caminhoLease(ctx), { corpo: sucessor(agora, { deviceId: 'aparelho-c', tomadoDe: OUTRO_APARELHO, takeoverSeq: 3 }) }),
+  ];
+}
+
 export async function casos(ctx) {
   const agora = Date.now();
   const saida = [];
@@ -76,6 +107,7 @@ export async function casos(ctx) {
   saida.push(...await tetos(ctx, agora));
   saida.push(...await leaseVivo(ctx, agora));
   saida.push(...await leaseVencido(ctx, agora));
+  saida.push(...await tomadaDeLease(ctx, agora));
   saida.push(...await furosDeclarados(ctx, agora));
   return saida;
 }

@@ -15,7 +15,7 @@
                 ".validate": "!data.parent().exists() || data.parent().child('expiresAt').val() <= now || data.parent().child('leaseId').val() == newData.val() || @TOMADA_FILHO@"
               },
               "deviceId": {
-                ".validate": "!data.parent().exists() || data.parent().child('expiresAt').val() <= now || data.parent().child('deviceId').val() == newData.val()"
+                ".validate": "!data.parent().exists() || data.parent().child('expiresAt').val() <= now || data.parent().child('deviceId').val() == newData.val() || @TOMADA_FILHO@"
               }
             }
           }

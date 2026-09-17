@@ -31,8 +31,10 @@ const SIMPLES = {
   // mais um, nomeando de quem tomou e sendo outro aparelho. Escrita acidental por cima de
   // lease vivo continua recusada pelo servidor.
   TOMADA: "newData.child('takeoverSeq').isNumber() && newData.child('takeoverSeq').val() == (data.child('takeoverSeq').exists() ? data.child('takeoverSeq').val() + 1 : 2) && newData.child('tomadoDe').val() == data.child('deviceId').val() && newData.child('deviceId').val() != data.child('deviceId').val()",
-  // a mesma condição, vista de um FILHO do lease (as regras de expiresAt e leaseId olham
-  // o pai): sem isto o servidor recusaria o sucessor por causa da regra do filho
+  // a mesma condição, vista de um FILHO do lease (as regras de expiresAt, leaseId e
+  // deviceId olham o pai): sem isto o servidor recusaria o sucessor por causa da regra do
+  // filho, e foi o que aconteceu com `deviceId` até 17/09/2026, quando a bancada com
+  // engines reais mostrou que a tomada era impossível sob as regras publicadas
   TOMADA_FILHO: "newData.parent().child('takeoverSeq').isNumber() && newData.parent().child('takeoverSeq').val() == (data.parent().child('takeoverSeq').exists() ? data.parent().child('takeoverSeq').val() + 1 : 2) && newData.parent().child('tomadoDe').val() == data.parent().child('deviceId').val() && newData.parent().child('deviceId').val() != data.parent().child('deviceId').val()",
   LIMPA: "!newData.exists() && @REC@ && @C@.child('cleanup').child('enabled').val() == true && !root.child('users').child($uid).child('live').child('operations').exists()",
 };

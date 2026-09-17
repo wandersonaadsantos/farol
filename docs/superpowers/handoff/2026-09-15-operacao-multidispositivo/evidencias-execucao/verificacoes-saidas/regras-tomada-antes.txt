@@ -1,0 +1,17 @@
+Executor das regras contra os emuladores oficiais, ANTES da correção da regra do campo
+`deviceId` do lease (os casos da tomada são novos nesta rodada):
+
+ok     item P1   tomada sem takeoverSeq é recusada
+ok     item P1   tomada com takeoverSeq fora da sequência é recusada
+ok     item P1   tomada sem dizer de quem tomou é recusada
+ok     item P1   tomada apontando outro dono que não o atual é recusada
+ok     item P1   tomada de si mesmo é recusada
+FALHOU item P1   TOMADA de lease vivo por outro aparelho, com a sequência e a origem certas, é aceita  (esperava 200, veio 401)
+FALHOU item P1   a tomada seguinte anda a sequência  (esperava 200, veio 401)
+FALHOU item P1   15/17 casos
+
+188/190 casos conferem
+
+A regra do NÓ permitia a tomada (macro TOMADA), e a do CAMPO `deviceId` não tinha o ramo:
+escrita direta no campo não roda a validação do pai, e o PUT inteiro carrega o campo, então
+o servidor recusava o sucessor. A tomada (7.C8) era impossível sob as regras publicadas.

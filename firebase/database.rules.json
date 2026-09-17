@@ -15,7 +15,7 @@
                 ".validate": "!data.parent().exists() || data.parent().child('expiresAt').val() <= now || data.parent().child('leaseId').val() == newData.val() || newData.parent().child('takeoverSeq').isNumber() && newData.parent().child('takeoverSeq').val() == (data.parent().child('takeoverSeq').exists() ? data.parent().child('takeoverSeq').val() + 1 : 2) && newData.parent().child('tomadoDe').val() == data.parent().child('deviceId').val() && newData.parent().child('deviceId').val() != data.parent().child('deviceId').val()"
               },
               "deviceId": {
-                ".validate": "!data.parent().exists() || data.parent().child('expiresAt').val() <= now || data.parent().child('deviceId').val() == newData.val()"
+                ".validate": "!data.parent().exists() || data.parent().child('expiresAt').val() <= now || data.parent().child('deviceId').val() == newData.val() || newData.parent().child('takeoverSeq').isNumber() && newData.parent().child('takeoverSeq').val() == (data.parent().child('takeoverSeq').exists() ? data.parent().child('takeoverSeq').val() + 1 : 2) && newData.parent().child('tomadoDe').val() == data.parent().child('deviceId').val() && newData.parent().child('deviceId').val() != data.parent().child('deviceId').val()"
               }
             }
           }
