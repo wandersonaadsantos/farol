@@ -45,6 +45,8 @@ function responder(args) {
   if (a.startsWith('auth token')) return resposta('token-falso-da-bancada\n');
   if (a.startsWith('auth status')) return resposta('Logged in to github.com as alice\n');
   if (a.startsWith('search prs') && a.includes('--review-requested=@me')) return resposta(JSON.stringify(prsAgora()));
+  // PRs de autoria da pessoa (a aba Meus PRs), do mesmo arquivo: os marcados com `meu`
+  if (a.startsWith('search prs') && a.includes('--author @me')) return resposta(JSON.stringify(prsAgora().filter((p) => p.meu === true)));
   if (a.startsWith('search prs')) return resposta('[]');
   if (a.startsWith('pr view') && a.includes('headRefOid')) return resposta(`${HEAD}\n`);
   if (a.startsWith('pr view') && a.includes('state')) return resposta(JSON.stringify({ state: 'OPEN' }));

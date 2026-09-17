@@ -21,7 +21,15 @@ const SAIDA = path.join(RAIZ, 'firebase', 'database.rules.json');
 const MAX_PASSES = 5;
 
 const SIMPLES = {
-  U: "auth != null && auth.uid == $uid",
+  // dono da árvore, JÁ COM o corte de sessões (NR): `U` é o começo de toda leitura e de
+  // toda escrita, e é por isso que o corte mora aqui. Deixar `revokedBefore` fora do `U`
+  // fazia "encerrar as sessões dos outros aparelhos" gravar um número que regra nenhuma
+  // consultava (medido na bancada com engines reais, 17/09/2026).
+  U: "auth != null && auth.uid == $uid && @NR@",
+  // o corte do 7.C2: token com `auth_time` (em SEGUNDOS) anterior ao corte para de ler e
+  // de escrever. Quem revoga grava um corte MENOR que o próprio auth_time, então continua
+  // dentro; os aparelhos anteriores ao ato caem e voltam com login novo.
+  NR: "(!@C@.child('revokedBefore').exists() || auth.token.auth_time > @C@.child('revokedBefore').val())",
   C: "root.child('users').child($uid).child('live').child('control')",
   // senha recente: o auth_time vem em SEGUNDOS, e sem o *1000 a comparação com `now`
   // (milissegundos) daria sempre falso, negando até quem acabou de entrar

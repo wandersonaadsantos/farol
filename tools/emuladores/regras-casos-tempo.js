@@ -74,6 +74,23 @@ async function itemDezessete(ctx, vencido) {
   return [await medir(ctx, 17, 'último registro de limpeza com o auth_time VENCIDO é recusado', RECUSADO, 'PUT', base, { token: vencido, corpo })];
 }
 
+// 7.C2, "encerrar as sessões dos outros aparelhos": `live/control/revokedBefore` é o corte
+// que faz um token com `auth_time` anterior parar de LER e de ESCREVER. Medido na bancada
+// com engines reais (17/09/2026): o nó era gravado e nenhuma regra o consultava, então a
+// revogação não cortava nada. O corte fica no U, e por isso vale em toda leitura e escrita.
+async function revogacao(ctx, vencido) {
+  await renovarSenha(ctx, ctx.u1);
+  const corte = ctx.antiga.authTime + 1;
+  const base = `${raiz(ctx)}/live/control/revokedBefore`;
+  const gravado = await medir(ctx, 'REV', 'corte de sessões com senha recente é aceito', OK, 'PUT', base, { corpo: corte });
+  const leituraVelha = await medir(ctx, 'REV', 'token anterior ao corte NÃO lê mais nada', RECUSADO, 'GET', `${raiz(ctx)}/devices`, { token: vencido });
+  const escritaVelha = await medir(ctx, 'REV', 'token anterior ao corte NÃO escreve mais nada', RECUSADO, 'PUT', `${raiz(ctx)}/devices/depois-do-corte`, { token: vencido, corpo: { name: 'teste' } });
+  const leituraNova = await medir(ctx, 'REV', 'o token do login novo continua lendo', OK, 'GET', `${raiz(ctx)}/devices`);
+  const escritaNova = await medir(ctx, 'REV', 'o token do login novo continua escrevendo', OK, 'PUT', `${raiz(ctx)}/devices/depois-do-corte`, { corpo: { name: 'teste' } });
+  const paraTras = await medir(ctx, 'REV', 'o corte não anda para trás', RECUSADO, 'PUT', base, { corpo: corte - 10 });
+  return [gravado, leituraVelha, escritaVelha, leituraNova, escritaNova, paraTras];
+}
+
 export async function casos(ctx, aviso) {
   const vencido = await tokenVencido(ctx, aviso);
   const saida = [];
@@ -81,6 +98,8 @@ export async function casos(ctx, aviso) {
   saida.push(...await itemOnze(ctx, vencido));
   saida.push(...await itemQuatorze(ctx, vencido));
   saida.push(...await itemDezessete(ctx, vencido));
+  // por último: o corte vale para todo token anterior a ele, e os casos acima usam o antigo
+  saida.push(...await revogacao(ctx, vencido));
   return saida;
 }
 

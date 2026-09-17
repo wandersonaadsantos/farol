@@ -28,9 +28,31 @@ test('o template usa macro e o publicado não deixou nenhuma por expandir', () =
   assert.ok(fs.readFileSync(TEMPLATE, 'utf8').includes('@U@'), 'o template usa macro');
 });
 
+// 7.C2: o corte de sessões (`revokedBefore`) mora DENTRO do dono, e por isso vale em toda
+// leitura e em toda escrita. Antes de 17/09/2026 ele não aparecia em regra nenhuma, e
+// "encerrar as sessões dos outros aparelhos" gravava um número que ninguém lia.
+const CORTE = "(!root.child('users').child($uid).child('live').child('control').child('revokedBefore').exists() || auth.token.auth_time > root.child('users').child($uid).child('live').child('control').child('revokedBefore').val())";
+const DONO = `auth != null && auth.uid == $uid && ${CORTE}`;
+
 test('a raiz perdeu o .write: o apagão de /users/{uid} deixa de existir', () => {
   assert.equal(regras['.write'], undefined);
-  assert.equal(regras['.read'], 'auth != null && auth.uid == $uid');
+  assert.equal(regras['.read'], DONO);
+});
+
+test('o corte de sessões está em TODA leitura e em TODA escrita', () => {
+  const concessoes = [];
+  const varrer = (no) => {
+    if (!no || typeof no !== 'object') return;
+    for (const [chave, valor] of Object.entries(no)) {
+      if (chave === '.read' || chave === '.write') concessoes.push([chave, valor]);
+      else varrer(valor);
+    }
+  };
+  varrer(regras);
+  assert.ok(concessoes.length > 50, `varreu pouco: ${concessoes.length}`);
+  for (const [chave, valor] of concessoes) {
+    assert.ok(valor.includes(CORTE), `${chave} sem o corte de sessões: ${valor.slice(0, 70)}`);
+  }
 });
 
 test('as validações legadas continuam byte a byte as de hoje', () => {
@@ -46,7 +68,7 @@ test('as validações legadas continuam byte a byte as de hoje', () => {
 
 test('cada nó legado ganhou concessão própria, já que a raiz não concede mais', () => {
   for (const no of ['leases', 'receipts', 'dailyRounds', 'devices', 'usageEvents']) {
-    assert.equal(regras[no]['.write'], 'auth != null && auth.uid == $uid', no);
+    assert.equal(regras[no]['.write'], DONO, no);
   }
 });
 
@@ -102,7 +124,7 @@ test('live/devicePolicies/$dev: forma, geração vigente e envelope de no máxim
 
 test('a sonda depende desta assimetria: rulesProbe concede em v2/{aparelho} e em mais nada', () => {
   assert.equal(regras.rulesProbe['.write'], undefined, 'o pai não pode conceder, senão a sonda nunca detecta regra velha');
-  assert.equal(regras.rulesProbe.v2.$dev['.write'], 'auth != null && auth.uid == $uid');
+  assert.equal(regras.rulesProbe.v2.$dev['.write'], DONO);
   assert.equal(regras.rulesProbe.v1, undefined, 'v1 não existe no template: é o caminho que as regras novas negam');
 });
 
@@ -173,7 +195,7 @@ test('nenhum nó protegido ganhou saída pela limpeza', () => {
 // A presença é nó legado: a regra de ouro diz que as validações de hoje ficam intactas, e
 // os campos novos ganham a sua, sem tocar nos outros.
 test('devices: contract e keyReady ganham validação, e nada mais muda', () => {
-  assert.equal(regras.devices['.write'], 'auth != null && auth.uid == $uid');
+  assert.equal(regras.devices['.write'], DONO);
   assert.equal(regras.devices.$device.contract['.validate'], 'newData.isNumber()');
   assert.equal(regras.devices.$device.keyReady['.validate'], 'newData.isBoolean()');
   for (const campo of ['name', 'platform', 'farolVersion', 'lastSeenAt', 'createdAt']) {
@@ -197,7 +219,7 @@ test('live/deviceStatus e catalog: forma, envelope de 2048 e remoção só pela 
 // projeto apagaria o catálogo, a capacidade, as políticas e os grupos de outra pessoa
 // sempre que a chave de limpeza dela estivesse ligada.
 test('toda concessão de escrita, inclusive a da limpeza, exige o próprio uid', () => {
-  const dono = 'auth != null && auth.uid == $uid';
+  const dono = DONO;
   const nos = [regras.catalog, regras.live.deviceStatus, regras.live.devicePolicies, regras.live.groups, regras.recentReviews, regras.reviewBodies, regras.reviewBodies.$r, regras.panorama, regras.panoramaMeta, regras.myPrs, regras.myPrsMeta, regras.pushbacks, regras.live.queue, regras.live.assign, regras.live.ack, regras.live.commands, regras.live.commands.$cmd, regras.commandReceipts, regras.commandReceipts.$cmd, regras.checkpoints, regras.checkpoints.$loja, regras.checkpoints.$loja.$pr, regras.checkpoints.$loja.$pr.$id, regras.usageDaily, regras.usageDaily.$dev, regras.usageDaily.$dev.$day];
   for (const no of nos) {
     assert.ok(no['.write'].startsWith(dono), `concessão sem dono: ${no['.write'].slice(0, 60)}`);
@@ -266,7 +288,7 @@ test('usageDaily/$dev/$day: forma do rollup e remoção só pela limpeza', () =>
 // início imutáveis, senão outro aparelho "adotaria" a operação de alguém.
 test('live/operations/$op: remoção livre, x com teto, dev e t0 imutáveis', () => {
   const w = regras.live.operations.$op['.write'];
-  assert.ok(w.startsWith('auth != null && auth.uid == $uid && (!newData.exists() ||'));
+  assert.ok(w.startsWith(`${DONO} && (!newData.exists() ||`));
   assert.ok(w.includes("newData.hasChildren(['v', 'dev', 't0', 'x', 'enc'])"));
   assert.ok(w.includes("newData.child('x').val() > now && newData.child('x').val() <= now + 300000"));
   assert.ok(w.includes("newData.child('dev').val() == data.child('dev').val()"));
@@ -277,7 +299,7 @@ test('live/operations/$op: remoção livre, x com teto, dev e t0 imutáveis', ()
 
 test('live/pending/$i: remoção cooperativa, envelope de 4096, at e dev imutáveis', () => {
   const w = regras.live.pending.$i['.write'];
-  assert.ok(w.startsWith('auth != null && auth.uid == $uid && (!newData.exists() ||'));
+  assert.ok(w.startsWith(`${DONO} && (!newData.exists() ||`));
   assert.ok(w.includes("newData.hasChildren(['v', 'at', 'dev', 'enc'])"));
   assert.ok(w.includes("newData.child('enc').val().length <= 4096"));
   assert.ok(w.includes("newData.child('at').val() == data.child('at').val()"));
