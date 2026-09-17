@@ -173,6 +173,13 @@ Contagem: **39 linhas** (a 34 é a reconciliação e a 39 não tem evidência pr
 | **Afinidade de colocação (C7)** | preferência com prazo usada só pela transferência voluntária | `sync-transferencia` (`c7b.md`) | frequência real de troca de dono no mesmo head (operação real da C5 e da C6) | **implementação da heurística**: sem a frequência, qualquer prazo seria chute | a colocação só prefere um aparelho quando a transferência pede, por 10 minutos, e nunca segura o item para aparelho inelegível |
 
 
+**Depois da bancada com engines reais (17/09/2026), nenhuma destas quatro mudou de
+situação.** A bancada percorreu transferência e tomada com o código real e corrigiu quatro
+defeitos no caminho, mas a evidência que falta em cada linha continua a mesma: memória dos
+processos reais de IA, frequência real de troca de dono entre aparelhos físicos, consumo
+real de um grupo e o celular de verdade. "Implementada e agora também exercitada na
+bancada" não é "liberada", e as guardas contra uso prematuro seguem no lugar.
+
 ## Observação de instabilidade na suíte (16/09/2026)
 
 Três vezes hoje, uma rodada de `npm test` disparada **logo depois de um merge**, com a máquina ainda ocupada, terminou com UMA falha que não se repete. O sintoma é sempre o mesmo: o arquivo inteiro aparece como `✖`, **sem nenhum caso reprovando dentro dele**, e a contagem total fica menor que a normal (um arquivo não terminou). Foram arquivos diferentes (`sync-manual`, `sync-chaveiro`), e rodando o arquivo sozinho e a suíte de novo dá verde. A leitura mais provável é contenção (o `npm test` roda os arquivos em paralelo, e `sync-chaveiro` faz `scrypt` de verdade), somada ao `--test-force-exit` do script.
