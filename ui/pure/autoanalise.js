@@ -40,6 +40,31 @@ export function selfAnalysisBadge(analysis) {
     : { cls: 'rc', label: 'precisa de ajuste', title: '' };
 }
 
+// A ANÁLISE IMPECÁVEL: o parecer aprovável com NADA a dizer, nem no PR, nem fora dele, nem
+// como melhoria. É o que a tela comemora (pedido do Wanderson, 17/09/2026), e por isso a
+// regra é conservadora: lista ausente não conta como lista vazia (registro sem forma não
+// vira festa), veredito diferente não festeja, e análise desatualizada também não, pelo
+// mesmo motivo do selo: o parecer não fala do código de agora.
+export function analiseImpecavel(analysis) {
+  if (!analysis || analysis.approvable !== true || selfAnalysisStale(analysis)) return false;
+  return [analysis.blockers, analysis.externalBlockers, analysis.tips]
+    .every((lista) => Array.isArray(lista) && lista.filter(Boolean).length === 0);
+}
+
+// O QUE AINDA NÃO FESTEJOU. A tela recebe o mesmo snapshot a cada ciclo do SSE, então sem
+// memória a mesma análise viraria confete em toda pintura. A marca é o PR mais o instante
+// da análise: reanalisar o mesmo PR festeja de novo, repintar a tela não. Uma festa por
+// ciclo, mesmo com duas análises impecáveis chegando juntas: duas animações sobrepostas
+// não comemoram duas vezes, só piscam.
+export function festasPendentes(analises, jaFestejadas) {
+  const vistas = jaFestejadas instanceof Set ? jaFestejadas : new Set();
+  for (const [key, a] of Object.entries(analises || {})) {
+    const marca = `${key}|${Number(a && a.at) || 0}`;
+    if (analiseImpecavel(a) && !vistas.has(marca)) return [marca];
+  }
+  return [];
+}
+
 // Ocultar/mostrar a análise é PREFERÊNCIA DE LEITURA e nada mais: não apaga, não expira
 // e não encosta em gate nenhum. O par de rótulos mora aqui porque o botão é um só e
 // alterna, e um texto errado nesse botão foi exatamente o defeito de origem (ele dizia

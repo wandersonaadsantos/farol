@@ -39,9 +39,25 @@ function criaElemento(tag = 'div') {
     getAttribute(k) { return k in this.attributes ? this.attributes[k] : null; },
     removeAttribute(k) { delete this.attributes[k]; },
     hasAttribute(k) { return k in this.attributes; },
-    appendChild(c) { this.children.push(c); return c; },
+    appendChild(c) { c.parent = this; this.children.push(c); return c; },
     removeChild(c) { this.children = this.children.filter(x => x !== c); return c; },
-    remove() { },
+    // `remove()` era vazio, e nada que sai da tela sozinho (a festa da análise impecável,
+    // por exemplo) podia ser provado: agora ele solta o filho do pai de verdade
+    remove() { if (this.parent) this.parent.removeChild(this); this.parent = null; },
+    // canvas: um contexto 2d de mentira que só REGISTRA o que foi desenhado
+    getContext(tipo) {
+      if (tipo !== '2d') return null;
+      if (!this.ctx2d) {
+        const chamadas = [];
+        const anota = (nome) => (...args) => { chamadas.push([nome, ...args]); };
+        this.ctx2d = {
+          chamadas, globalAlpha: 1, fillStyle: '',
+          save: anota('save'), restore: anota('restore'), translate: anota('translate'),
+          rotate: anota('rotate'), fillRect: anota('fillRect'), clearRect: anota('clearRect'),
+        };
+      }
+      return this.ctx2d;
+    },
     insertBefore(c) { this.children.unshift(c); return c; },
     addEventListener() { }, removeEventListener() { }, dispatchEvent() { return true; },
     focus() { }, blur() { }, click() { }, scrollIntoView() { },

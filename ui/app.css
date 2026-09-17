@@ -1919,3 +1919,27 @@ body.parear > *:not(.par-raiz) { display: none !important; }
 @media (max-width: 620px) {
   .md-rev .md-nota { padding: 4px 0; }
 }
+
+/* Festa da análise impecável (17/09/2026). O canvas cobre a tela e NÃO recebe clique:
+   comemorar não pode atrapalhar quem está usando o app. O aviso discreto é o que sobra
+   quando o sistema pede movimento reduzido. */
+.confete {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+.confete-aviso {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translateX(-50%);
+  z-index: 61;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--card, #161b22);
+  border: 1px solid var(--ok, #2ea043);
+  color: var(--fg, #e6edf3);
+  font-size: 13px;
+  pointer-events: none;
+}

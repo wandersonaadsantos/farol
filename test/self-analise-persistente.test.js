@@ -21,7 +21,7 @@ import assert from 'node:assert/strict';
 
 const { evaluateQualityEligibility, qualityOf, setSelfAnalysisVisibility, projectSelfAnalyses } =
   await import('../lib/engine/selfpr.js');
-const { selfAnalysisBadge, selfAnalysisToggle, selfAnalysisStale, qualityReasonLabel } =
+const { selfAnalysisBadge, selfAnalysisToggle, selfAnalysisStale, qualityReasonLabel, analiseImpecavel, festasPendentes } =
   await import('../ui/pure.js');
 
 after(() => { try { fs.rmSync(FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
@@ -169,4 +169,70 @@ test('stale só conta como true explícito: ausência não vira satisfação nem
     assert.ok(!q.reasons.some(r => r.code === 'ANALYSIS_STALE'),
       `stale=${JSON.stringify(valor)} não é o booleano que o engine escreve`);
   }
+});
+
+/* ---------- análise impecável: a festa de 4 segundos (17/09/2026) ----------
+   Pedido do Wanderson: quando a autoanálise não acha NADA, a tela comemora. A
+   função é pura e conservadora: qualquer lista com item, veredito diferente ou
+   análise desatualizada não é impecável, porque festejar por engano é pior que
+   não festejar. */
+
+function impecavel(extra = {}) {
+  return { verdict: 'approvable', approvable: true, blockers: [], externalBlockers: [], tips: [], ...extra };
+}
+
+test('análise impecável: aprovável, sem pendência no PR, sem pendência de fora e sem dica', () => {
+  assert.equal(analiseImpecavel(impecavel()), true);
+});
+
+test('qualquer ponto derruba a festa: bloqueio, bloqueio de fora ou dica', () => {
+  assert.equal(analiseImpecavel(impecavel({ blockers: ['falta teste'] })), false);
+  assert.equal(analiseImpecavel(impecavel({ externalBlockers: ['depende de outro card'] })), false);
+  assert.equal(analiseImpecavel(impecavel({ tips: ['dá pra simplificar o nome'] })), false);
+});
+
+test('veredito que não é aprovável não festeja, nem com as listas vazias', () => {
+  assert.equal(analiseImpecavel(impecavel({ verdict: 'needs_work', approvable: false })), false);
+});
+
+test('análise desatualizada não festeja: o parecer não vale para o código de agora', () => {
+  assert.equal(analiseImpecavel(impecavel({ observed: { stale: true } })), false);
+});
+
+test('sem análise, ou com registro sem forma, não festeja', () => {
+  assert.equal(analiseImpecavel(null), false);
+  assert.equal(analiseImpecavel(undefined), false);
+  assert.equal(analiseImpecavel({}), false);
+  assert.equal(analiseImpecavel(impecavel({ blockers: null, tips: null, externalBlockers: null })), false);
+});
+
+/* ---------- uma festa por análise ----------
+   A tela recebe o mesmo snapshot a cada ciclo do SSE. Sem memória do que já
+   festejou, a mesma análise viraria confete em toda pintura da tela. A marca é
+   por PR MAIS o instante da análise: reanalisar o mesmo PR festeja de novo,
+   repintar a tela não. */
+
+test('festa nova só para análise impecável que ainda não festejou', () => {
+  const analises = { 'a/b#1': impecavel({ at: 10 }), 'a/b#2': impecavel({ at: 20, tips: ['algo'] }) };
+  assert.deepEqual(festasPendentes(analises, new Set()), ['a/b#1|10']);
+});
+
+test('a mesma análise não festeja duas vezes', () => {
+  const analises = { 'a/b#1': impecavel({ at: 10 }) };
+  assert.deepEqual(festasPendentes(analises, new Set(['a/b#1|10'])), []);
+});
+
+test('análise nova do mesmo PR festeja de novo', () => {
+  const analises = { 'a/b#1': impecavel({ at: 99 }) };
+  assert.deepEqual(festasPendentes(analises, new Set(['a/b#1|10'])), ['a/b#1|99']);
+});
+
+test('duas impecáveis no mesmo ciclo festejam uma vez só', () => {
+  const analises = { 'a/b#1': impecavel({ at: 10 }), 'a/b#2': impecavel({ at: 11 }) };
+  assert.equal(festasPendentes(analises, new Set()).length, 1);
+});
+
+test('sem análise nenhuma, nada a festejar', () => {
+  assert.deepEqual(festasPendentes(null, new Set()), []);
+  assert.deepEqual(festasPendentes({}, new Set()), []);
 });
