@@ -96,5 +96,118 @@
     },
     "updatedAt": "2026-09-17T00:11:17.968Z",
     "labels": []
+  },
+  {
+    "url": "https://github.com/acme-exemplo/app-web/pull/60",
+    "title": "PR de jornada 60",
+    "isDraft": false,
+    "author": {
+      "login": "ana-exemplo"
+    },
+    "number": 60,
+    "repository": {
+      "nameWithOwner": "acme-exemplo/app-web"
+    },
+    "updatedAt": "2026-09-17T02:06:49.360Z",
+    "labels": []
+  },
+  {
+    "url": "https://github.com/acme-exemplo/app-web/pull/61",
+    "title": "PR de jornada 61",
+    "isDraft": false,
+    "author": {
+      "login": "ana-exemplo"
+    },
+    "number": 61,
+    "repository": {
+      "nameWithOwner": "acme-exemplo/app-web"
+    },
+    "updatedAt": "2026-09-17T02:32:28.394Z",
+    "labels": []
+  },
+  {
+    "url": "https://github.com/acme-exemplo/app-web/pull/62",
+    "title": "PR de jornada 62",
+    "isDraft": false,
+    "author": {
+      "login": "ana-exemplo"
+    },
+    "number": 62,
+    "repository": {
+      "nameWithOwner": "acme-exemplo/app-web"
+    },
+    "updatedAt": "2026-09-17T03:12:20.452Z",
+    "labels": []
+  },
+  {
+    "url": "https://github.com/acme-exemplo/app-web/pull/63",
+    "title": "PR de jornada 63",
+    "isDraft": false,
+    "author": {
+      "login": "ana-exemplo"
+    },
+    "number": 63,
+    "repository": {
+      "nameWithOwner": "acme-exemplo/app-web"
+    },
+    "updatedAt": "2026-09-17T03:27:22.023Z",
+    "labels": []
+  },
+  {
+    "url": "https://github.com/acme-exemplo/app-web/pull/64",
+    "title": "PR de jornada 64",
+    "isDraft": false,
+    "author": {
+      "login": "ana-exemplo"
+    },
+    "number": 64,
+    "repository": {
+      "nameWithOwner": "acme-exemplo/app-web"
+    },
+    "updatedAt": "2026-09-17T03:53:21.077Z",
+    "labels": []
+  },
+  {
+    "url": "https://github.com/acme-exemplo/app-web/pull/65",
+    "title": "PR de jornada 65",
+    "isDraft": false,
+    "author": {
+      "login": "ana-exemplo"
+    },
+    "number": 65,
+    "repository": {
+      "nameWithOwner": "acme-exemplo/app-web"
+    },
+    "updatedAt": "2026-09-17T04:19:15.603Z",
+    "labels": []
+  },
+  {
+    "url": "https://github.com/acme-exemplo/app-web/pull/66",
+    "title": "PR de jornada 66",
+    "isDraft": false,
+    "author": {
+      "login": "ana-exemplo"
+    },
+    "number": 66,
+    "repository": {
+      "nameWithOwner": "acme-exemplo/app-web"
+    },
+    "updatedAt": "2026-09-17T04:47:30.999Z",
+    "labels": []
+  },
+  {
+    "url": "https://github.com/acme-exemplo/app-web/pull/70",
+    "title": "PR meu, de autoria da bancada",
+    "isDraft": false,
+    "author": {
+      "login": "alice"
+    },
+    "number": 70,
+    "repository": {
+      "nameWithOwner": "acme-exemplo/app-web"
+    },
+    "updatedAt": "2026-09-17T04:47:58.015Z",
+    "labels": [],
+    "meu": true
   }
 ]

@@ -19,3 +19,21 @@ dist.publicarCandidato = async (engine, cfg, pr, opts) => {
 };
 const distribuindo = dist.distribuindo;
 dist.distribuindo = (engine, cfg, o) => { const r = distribuindo(engine, cfg, o); return r; };
+
+// o enfileiramento da tomada e da atribuição: o que ele devolveu
+const reviewMod = (await import(pathToFileURL(path.join(raiz, 'lib', 'engine', 'review.js')).href)).default;
+const enfileirar = reviewMod.enfileirarDaDistribuicao;
+reviewMod.enfileirarDaDistribuicao = (engine, pr, id) => {
+  const r = enfileirar(engine, pr, id);
+  anota({ enfileirar: pr && pr.key, tomarLease: !!(pr && pr.tomarLease), resultado: r });
+  return r;
+};
+
+// a admissão da coordenação: o que ela respondeu para cada sessão
+const syncMod = (await import(pathToFileURL(path.join(raiz, 'lib', 'engine', 'sync.js')).href)).default;
+const admitReal = syncMod.admit;
+syncMod.admit = async (engine, ctx) => {
+  const r = await admitReal(engine, ctx);
+  anota({ admitir: ctx && ctx.prKey, tomar: !!(ctx && ctx.tomar), confirmado: !!(ctx && ctx.confirmado), resposta: { admitted: r && r.admitted, reason: r && r.reason, detail: r && r.detail } });
+  return r;
+};

@@ -17,7 +17,7 @@ subir() { # pasta porta
   local pasta=$1 porta=$2
   ( cd "$RAIZ" && FAROL_RAIZ="$RAIZ" FAROL_HOME="$SP/$pasta" FAROL_GH_LOG="$SP/gh-${pasta#real-}.jsonl" \
     FAROL_GH_PRS="$SP/prs.json" FAROL_DIAG_LOG="$SP/diag-${pasta#real-}.jsonl" \
-    FAROL_HEADLESS_CMD="node $SP/stub-sessao.cjs" \
+    FAROL_HEADLESS_CMD="node $SP/stub-sessao.cjs" FAROL_STUB_SEGUNDOS="${FAROL_STUB_SEGUNDOS:-90}" \
     nohup node --import "file:///$SP/gh-falso3.mjs" --import "file:///$SP/diag-dist.mjs" server.js \
     > "$SP/$pasta-saida.log" 2>&1 & )
   echo "$pasta em $porta"

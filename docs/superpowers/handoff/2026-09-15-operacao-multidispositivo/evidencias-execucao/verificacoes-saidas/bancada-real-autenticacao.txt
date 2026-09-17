@@ -1,0 +1,10 @@
+05:45:47 1. senha errada no login não conecta e não derruba o que já estava: {"ok":false,"code":"credencial_invalida","motivo":"o Firebase recusou o e-mail e a senha, ou o login expirou; entre de novo"}
+05:45:47    estado de D depois da recusa: "conectado" chave pronta
+05:45:47 2. senha errada no chaveiro: {"ok":false,"code":"credencial_invalida","motivo":"o Firebase recusou o e-mail e a senha, ou o login expirou; entre de novo"}
+05:45:47 3. e-mail desconhecido: {"ok":false,"code":"credencial_invalida","motivo":"o Firebase recusou o e-mail e a senha, ou o login expirou; entre de novo"}
+05:45:47 4. revogação a partir de A (senha certa): {"ok":true}
+05:45:47 5. corte gravado: 1789623946 | auth_time que o emulador dá a D ao renovar: 1789623947 | cortado? false
+05:45:47    (o emulador carimba auth_time por usuário: o corte nos outros aparelhos não é reproduzível aqui)
+05:45:47 6. login e chaveiro continuam funcionando com a senha certa: {"ok":true} {"ok":true}
+05:45:47 7. D conectado: {"status":"conectado","chave":"pronta"} 
+05:45:47 8. estado final: [["a","conectado","pronta"],["c","conectado","pronta"],["d","conectado","pronta"]]
