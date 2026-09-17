@@ -225,6 +225,111 @@ test('o executor aceita: reserva vaga e responde com o id da reserva', async () 
   assert.equal(admissao.resumo(e).total, 1);
 });
 
+// A atribuição fica VIVA no banco até o prazo dela, e o relógio passa por aqui a cada
+// poucos segundos. Medido na bancada com engines reais (16/09/2026): sem memória do que já
+// foi respondido, o mesmo aparelho reavaliava a mesma atribuição em todo giro, reescrevia a
+// resposta, empurrava a espera para frente (ela nunca vencia) e chegava a RECUSAR por falta
+// de vaga uma atribuição que ele mesmo tinha aceitado no giro anterior, porque a vaga
+// ocupada era a dela.
+test('atribuição viva é respondida uma vez: o giro seguinte não reescreve nem reserva de novo', async () => {
+  const e = motorFila(await motorDistribuidor());
+  const r = await dist.publicarCandidato(e, e.config.sync, prDe(41), { agora: T });
+  await publicacao.publicarCapacidade(e, e.config.sync);
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+  const primeira = await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T });
+  assert.equal(primeira.aceitas.length, 1);
+  const respondido = JSON.stringify(no('live/ack')[r.itemId]);
+  const segunda = await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T + 10000 });
+  assert.deepEqual(segunda, { aceitas: [], recusas: [] }, 'nada a responder: a atribuição é a mesma');
+  assert.equal(JSON.stringify(no('live/ack')[r.itemId]), respondido, 'a resposta não é reescrita');
+  assert.equal(admissao.resumo(e).total, 1, 'a vaga não é tomada duas vezes');
+});
+
+test('a espera da recusa não anda sozinha enquanto a atribuição é a mesma', async () => {
+  const e = motorFila(await motorDistribuidor());
+  const r = await dist.publicarCandidato(e, e.config.sync, prDe(42), { agora: T });
+  await publicacao.publicarCapacidade(e, e.config.sync);
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+  e.updateSettings({ parallelReviews: 1 });
+  admissao.reservar(e, { tipo: 'chat', agora: T });
+  await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T });
+  const espera = no('live/ack')[r.itemId].esperaAte;
+  assert.ok(espera > T, 'a recusa por falta de vaga marca até quando esperar');
+  await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T + 30000 });
+  assert.equal(no('live/ack')[r.itemId].esperaAte, espera, 'a espera continua a mesma: senão nunca vence');
+});
+
+test('atribuição NOVA do mesmo item é avaliada de novo', async () => {
+  const e = motorFila(await motorDistribuidor());
+  const r = await dist.publicarCandidato(e, e.config.sync, prDe(43), { agora: T });
+  await publicacao.publicarCapacidade(e, e.config.sync);
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+  await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T });
+  const nova = await dist.cicloDoAgendador(e, e.config.sync, { agora: T + SYNC.ATRIBUICAO_TTL_MS + 1 });
+  assert.ok(nova.atribuido, 'o agendador atribuiu de novo depois do prazo');
+  const resposta = await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T + SYNC.ATRIBUICAO_TTL_MS + 1 });
+  assert.equal(resposta.aceitas.length + resposta.recusas.length, 1, 'atribuição nova merece resposta nova');
+  assert.equal(no('live/ack')[r.itemId].at, T + SYNC.ATRIBUICAO_TTL_MS + 1);
+});
+
+// A revisão da atribuição recomeça do 1 quando o nó é recriado (a limpeza alcança
+// `live/assign`). Sem o prazo na identidade, a atribuição nova de um item já respondido
+// seria confundida com a antiga e ficaria sem resposta nenhuma.
+test('atribuição recriada com a mesma revisão e outro prazo volta a ser avaliada', async () => {
+  const e = motorFila(await motorDistribuidor());
+  const r = await dist.publicarCandidato(e, e.config.sync, prDe(45), { agora: T });
+  await publicacao.publicarCapacidade(e, e.config.sync);
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+  const arvore = no('live/assign');
+  await dist.aceitarAtribuicoes(e, e.config.sync, arvore, { agora: T });
+  arvore[r.itemId].ttl += 1000;
+  const segunda = await dist.aceitarAtribuicoes(e, e.config.sync, arvore, { agora: T + 10 });
+  assert.equal(segunda.aceitas.length + segunda.recusas.length, 1, 'outro prazo é outra atribuição');
+});
+
+// Recusa também é resposta: repetir a recusa da MESMA atribuição inválida a cada giro
+// reescrevia a resposta do mesmo jeito. Por isso a memória vem antes da validade.
+test('atribuição inválida é recusada uma vez só', async () => {
+  const e = motorFila(await motorDistribuidor());
+  const r = await dist.publicarCandidato(e, e.config.sync, prDe(47), { agora: T });
+  await publicacao.publicarCapacidade(e, e.config.sync);
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+  const arvore = no('live/assign');
+  arvore[r.itemId].sig = 'a'.repeat(86);
+  const primeira = await dist.aceitarAtribuicoes(e, e.config.sync, arvore, { agora: T });
+  assert.deepEqual(primeira.recusas.map((x) => x.problema), ['assinatura']);
+  const respondido = JSON.stringify(no('live/ack')[r.itemId]);
+  const segunda = await dist.aceitarAtribuicoes(e, e.config.sync, arvore, { agora: T + 5000 });
+  assert.deepEqual(segunda, { aceitas: [], recusas: [] });
+  assert.equal(JSON.stringify(no('live/ack')[r.itemId]), respondido);
+});
+
+test('memória das respostas não cresce sozinha: item que saiu da árvore sai dela', async () => {
+  const e = motorFila(await motorDistribuidor());
+  await dist.publicarCandidato(e, e.config.sync, prDe(46), { agora: T });
+  await publicacao.publicarCapacidade(e, e.config.sync);
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+  await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T });
+  assert.equal(e.sync.atribuicoesRespondidas.size, 1);
+  await dist.aceitarAtribuicoes(e, e.config.sync, {}, { agora: T + 1000 });
+  assert.equal(e.sync.atribuicoesRespondidas.size, 0, 'atribuição que saiu não volta');
+});
+
+test('resposta que não sai é tentada de novo no giro seguinte', async () => {
+  const e = motorFila(await motorDistribuidor());
+  const r = await dist.publicarCandidato(e, e.config.sync, prDe(44), { agora: T });
+  await publicacao.publicarCapacidade(e, e.config.sync);
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+  const put = e.sync.client.put.bind(e.sync.client);
+  e.sync.client.put = async (caminho, corpo, opcoes) => (
+    caminho.includes('live/ack') ? { ok: false, code: 'indisponivel' } : put(caminho, corpo, opcoes));
+  await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T });
+  e.sync.client.put = put;
+  const segunda = await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T + 1000 });
+  assert.equal(segunda.aceitas.length + segunda.recusas.length, 1, 'sem resposta gravada, o giro seguinte responde');
+  assert.ok(no('live/ack')[r.itemId], 'agora a resposta está no banco');
+});
+
 test('head mudou: recusa explícita com código, e nada é reservado', async () => {
   const e = await motorDistribuidor();
   const r = await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
