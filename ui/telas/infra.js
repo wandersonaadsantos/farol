@@ -296,7 +296,7 @@ function updateOpDisplay(opId) {
       : '';
     op.element.innerHTML = `
       <div class="op-header"><span class="op-icon ${classeDoIcone(op.status)}"></span><span>${esc(op.title)}</span></div>
-      ${op.step ? `<div class="op-step">${esc(op.step)}</div>` : ''}
+      ${op.step ? `<div class="op-step" title="${esc(op.step)}">${esc(op.step)}</div>` : ''}
       ${progressHtml}
       ${metaHtml ? `<div class="op-meta">${metaHtml}</div>` : ''}
       ${op.message && op.status !== 'running' ? `<div style="color: var(--muted); font-size: 12px; margin-top: 4px;">${esc(op.message)}</div>` : ''}

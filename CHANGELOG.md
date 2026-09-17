@@ -24,6 +24,14 @@ Quando a autoanálise não acha nada para ajustar, a tela comemora.
 - Com movimento reduzido ligado no sistema, não há partícula nenhuma: fica só o aviso, pelo
   mesmo tempo.
 
+**Correções**
+
+- **O card "Analisando agora" parou de vazar.** O passo da sessão pode ser uma linha enorme
+  sem espaço nenhum (a saída do checkpoint é um JSON inteiro numa linha), e ela escapava da
+  caixa e empurrava a barra e o botão. Agora o passo cabe em duas linhas, com reticências e
+  o texto completo ao passar o mouse, e o cartão ganhou respiro entre o título, o passo, a
+  barra e o botão.
+
 ## v2.60.0
 
 Operação com vários aparelhos: os Faróis da mesma pessoa passam a trabalhar como um conjunto,
