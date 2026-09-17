@@ -9,6 +9,28 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.61.0
+
+Duas proteções que estavam prontas mas desligadas passam a valer: o login no celular e o teto
+de consumo do grupo.
+
+**Novidades**
+
+- **O Farol no celular passa a pedir login sozinho.** Detectado o modo celular (Termux), a
+  API local exige pareamento, sem precisar configurar nada. Isso também destrava a visão
+  compartilhada nesse aparelho, que só valia com o login exigido. Se a detecção falhar e a
+  interface trancar, o desbloqueio é pelo terminal, com `node tools/farol-parear.js`.
+- **O teto de consumo do grupo passa a barrar.** Com um grupo configurado, com identidade e
+  teto, estourar o valor do dia segura revisões novas do grupo inteiro. Barrar é ESPERA: o PR
+  fica na fila, nada estaciona, e o card diz o motivo. Sem grupo configurado, nada muda.
+
+**O que ainda falta medir, e o risco aceito**
+
+As duas foram ligadas antes das medições que as seguravam, por decisão do dono. No celular, a
+detecção do modo nunca foi validada num Termux real. No teto, o atraso do consumo entre dois
+aparelhos nunca foi medido, então ele pode barrar por um número atrasado ou deixar passar um
+pouco além do limite. As duas voltam a desligar numa versão nova, se incomodarem.
+
 ## v2.60.1
 
 Quando a autoanálise não acha nada para ajustar, a tela comemora.

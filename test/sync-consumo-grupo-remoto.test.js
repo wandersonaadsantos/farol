@@ -122,17 +122,19 @@ async function capacidadeDe(e, dev, { seq = 1, reservas = 0, u = Date.now() } = 
   assert.equal(w.ok, true);
 }
 
-test('a ativação nasce protegida: sem a medição, o grupo ativo não barra nada', async () => {
-  assert.equal(ATIVACAO_TETO_GRUPO_C4B, false);
+// A ativação foi ligada em 17/09/2026 (decisão do dono, sem a medição do atraso). O que
+// segurava o teto passa a ser só o que sempre segurou: grupo com identidade, teto e o
+// compartilhamento ligado.
+test('com a ativação ligada, o teto do grupo barra de verdade', async () => {
+  assert.equal(ATIVACAO_TETO_GRUPO_C4B, true);
   const e = await motorComGrupo();
   await rollupDe(e, 'dB', { c: 50 });
   await capacidadeDe(e, 'dB');
-  e.ativacaoTetoGrupo = false;
   await cgEng.recalcular(e, e.config.sync);
-  assert.equal(cgEng.statusDoGrupo(e, LOGIN), null);
-  assert.equal(e.budgetBlockedFor(LOGIN), null);
+  assert.equal(cgEng.statusDoGrupo(e, LOGIN).bloqueado, true);
+  assert.equal(e.budgetBlockedFor(LOGIN).id, `grupo:${G}`);
   const tela = cgEng.resumoParaTela(e);
-  assert.deepEqual(tela[0].requisitos, ['medicao-pendente'], 'a tela sabe por que não oferece ativar');
+  assert.deepEqual(tela[0].requisitos, [], 'nada mais falta para o grupo valer');
 });
 
 test('o consumo de B no mesmo grupo barra a admissão em A', async () => {

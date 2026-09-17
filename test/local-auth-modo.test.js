@@ -10,9 +10,30 @@ import { ATIVACAO_AUTOMATICA_A4, TEMPOS, LOCAL_AUTH } from '../lib/constants.js'
 
 const DESKTOP = { platform: 'linux', env: { TERMUX_VERSION: '', PREFIX: '' }, osrelease: '6.8.0-45-generic\n' };
 
-test('ATIVACAO_AUTOMATICA_A4 nasce desligada', () => {
-  assert.equal(ATIVACAO_AUTOMATICA_A4, false,
-    'ATIVACAO_AUTOMATICA_A4 só pode virar true quando a tela de pareamento do Claude Design (D9) existir e a detecção for validada num Termux real (spec 7.A4, Condição de ativação, e seção 13). Ligada antes, o usuário do celular fica trancado fora da interface.');
+// Nasceu desligada esperando a validação num Termux real. LIGADA em 17/09/2026, por decisão
+// do dono, com a tela de pareamento pronta e o risco declarado: se a detecção errar no
+// Termux, a interface do celular tranca e o desbloqueio é pelo terminal (`node
+// tools/farol-parear.js`). O valor continua travado aqui: mudá-lo de novo é decisão, não
+// descuido.
+test('ATIVACAO_AUTOMATICA_A4 está ligada, e a decisão está registrada', () => {
+  assert.equal(ATIVACAO_AUTOMATICA_A4, true,
+    'ligada em 17/09/2026 por decisão do dono (spec 7.A4, Condição de ativação): com ela, o modo celular passa a exigir pareamento sozinho, e o desbloqueio de emergência é pelo terminal.');
+});
+
+test('o modo celular continua sendo o ÚNICO gatilho da exigência automática', () => {
+  const config = {};
+  assert.equal(exigeAutenticacao({ modoCelular: false, config, ativacaoAutomatica: true }), false, 'desktop não passa a exigir nada');
+  assert.equal(exigeAutenticacao({ modoCelular: true, config, ativacaoAutomatica: true }), true);
+});
+
+// A regra que o engine deixou de exercitar enquanto a ativação estiver ligada continua
+// provada aqui: com a ativação DESLIGADA, o celular sem autenticação exigida não
+// compartilha, e o desktop compartilha do mesmo jeito.
+test('com a ativação desligada, o celular sem autenticação exigida não compartilha', () => {
+  const { compartilhamentoPermitido } = modoMod;
+  assert.equal(compartilhamentoPermitido({ modoCelular: true, config: {}, ativacaoAutomatica: false }), false);
+  assert.equal(compartilhamentoPermitido({ modoCelular: true, config: { localAuth: 'exigir' }, ativacaoAutomatica: false }), true);
+  assert.equal(compartilhamentoPermitido({ modoCelular: false, config: {}, ativacaoAutomatica: false }), true);
 });
 
 test('os tempos e limites da A4 são os da spec', () => {

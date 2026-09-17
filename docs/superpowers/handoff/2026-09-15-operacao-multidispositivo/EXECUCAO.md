@@ -173,6 +173,12 @@ Contagem: **39 linhas** (a 34 é a reconciliação e a 39 não tem evidência pr
 | **Afinidade de colocação (C7)** | preferência com prazo usada só pela transferência voluntária | `sync-transferencia` (`c7b.md`) | frequência real de troca de dono no mesmo head (operação real da C5 e da C6) | **implementação da heurística**: sem a frequência, qualquer prazo seria chute | a colocação só prefere um aparelho quando a transferência pede, por 10 minutos, e nunca segura o item para aparelho inelegível |
 
 
+**Atualização de 17/09/2026 (v2.61.0):** o dono decidiu LIGAR duas delas antes das medições,
+com o risco declarado na hora: a exigência automática de login no celular (A4) e o teto do
+grupo (C4b). As constantes viraram `true`, os testes que travavam o valor passaram a travar a
+decisão, e as medições continuam nesta lista, agora como verificação do que já está ligado.
+As outras duas (recusa por tamanho do PR e afinidade de colocação) seguem sem implementação.
+
 **Três estados que não se confundem:** implementação concluída, validação externa e
 ativação. As quatro capacidades acima estão só no primeiro; a validação externa de cada uma
 segue em "Validações externas pendentes" e a ativação continua atrás das guardas da tabela.
