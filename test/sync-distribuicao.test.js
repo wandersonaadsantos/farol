@@ -701,6 +701,18 @@ test('item que já é meu não é publicado de novo a cada giro', async () => {
   assert.equal(fake.requests.filter((q) => q.method === 'PUT').length, 0);
 });
 
+// Medido na bancada (17/09/2026): a primeira adoção venceu no banco, a origem transferiu de
+// novo, e o destino não readotou porque ainda LEMBRAVA da adoção antiga. Sem registro vivo
+// o destino não é publicador, e o item voltou para a origem. Quem manda é o banco.
+test('registro meu vencido no banco não conta: o destino adota de novo', async () => {
+  const { e, itemId } = await preferidoPorOutro(58);
+  e.headSha = async () => 'sha58';
+  e.sync.candidatos.set(itemId, { pr: prDe(58), conta: LOGIN, publicadoEm: T - SYNC.CANDIDATO_TTL_MS });
+  const r = await dist.adotarPreferidos(e, e.config.sync, { agora: T + 1000 });
+  assert.deepEqual(r.adotados, [itemId]);
+  assert.ok(no('live/queue')[itemId][e.sync.deviceId], 'o registro do destino voltou para o banco');
+});
+
 test('o giro da distribuição adota antes de responder às atribuições', async () => {
   const { e, itemId } = await preferidoPorOutro(56);
   e.headSha = async () => 'sha56';
