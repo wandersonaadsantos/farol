@@ -631,6 +631,83 @@ test('enfileiramento que leva o item mantém a vaga com quem vai executar', asyn
   assert.equal(admissao.resumo(e).total, 1);
 });
 
+// Transferência voluntária (7.C7b) para um aparelho que NÃO publicou o candidato. Medido na
+// bancada com engines reais (17/09/2026): o comando voltava `aplicado`, o item subia com a
+// preferência, e o agendador a ignorava, porque só publicador executa. O destino nunca
+// recebia o PR. Agora o destino que conhece o PR e vê o mesmo head vira publicador.
+function candidatoDeOutro(e, itemId) {
+  const arvore = fake.tree();
+  const fila = arvore.users.u1.live.queue[itemId];
+  fila.dOutro = fila[e.sync.deviceId];
+  delete fila[e.sync.deviceId];
+  fake.setTree(arvore);
+  e.sync.candidatos.delete(itemId);
+}
+
+async function preferidoPorOutro(n, { preferencia = true } = {}) {
+  const e = motorFila(await motorDistribuidor());
+  const pr = prDe(n);
+  const opcoes = { agora: T, ...(preferencia ? { preferencia: { dev: e.sync.deviceId, ate: T + 60000 } } : {}) };
+  const r = await dist.publicarCandidato(e, e.config.sync, pr, opcoes);
+  candidatoDeOutro(e, r.itemId);
+  e.queue = [{ key: pr.key, account: LOGIN }];
+  return { e, itemId: r.itemId };
+}
+
+test('destino da transferência que conhece o PR vira publicador', async () => {
+  const { e, itemId } = await preferidoPorOutro(51);
+  e.headSha = async () => 'sha51';
+  const r = await dist.adotarPreferidos(e, e.config.sync, { agora: T + 1000 });
+  assert.deepEqual(r.adotados, [itemId]);
+  assert.deepEqual(Object.keys(no('live/queue')[itemId]).sort(), ['dOutro', e.sync.deviceId].sort());
+  assert.ok(e.sync.candidatos.get(itemId), 'o item passa a ser meu: a atribuição pode ser aceita');
+  assert.equal(no('live/queue')[itemId][e.sync.deviceId].prefDev, e.sync.deviceId, 'a preferência segue com o item');
+});
+
+test('sem preferência para mim, nada é adotado', async () => {
+  const { e } = await preferidoPorOutro(52, { preferencia: false });
+  e.headSha = async () => 'sha52';
+  assert.deepEqual((await dist.adotarPreferidos(e, e.config.sync, { agora: T + 1000 })).adotados, []);
+});
+
+test('preferência vencida não é adotada', async () => {
+  const { e } = await preferidoPorOutro(53);
+  e.headSha = async () => 'sha53';
+  assert.deepEqual((await dist.adotarPreferidos(e, e.config.sync, { agora: T + 61000 })).adotados, []);
+});
+
+test('head diferente do transferido não é adotado: seria outro material', async () => {
+  const { e, itemId } = await preferidoPorOutro(54);
+  e.headSha = async () => 'sha-novo';
+  assert.deepEqual((await dist.adotarPreferidos(e, e.config.sync, { agora: T + 1000 })).adotados, []);
+  assert.deepEqual(Object.keys(no('live/queue')), [itemId], 'nenhum item novo nasce do head diferente');
+});
+
+test('PR que este aparelho não conhece não é adotado', async () => {
+  const { e } = await preferidoPorOutro(55);
+  e.queue = [];
+  e.headSha = async () => 'sha55';
+  assert.deepEqual((await dist.adotarPreferidos(e, e.config.sync, { agora: T + 1000 })).adotados, []);
+});
+
+test('item que já é meu não é publicado de novo a cada giro', async () => {
+  const e = motorFila(await motorDistribuidor());
+  const pr = prDe(57);
+  await dist.publicarCandidato(e, e.config.sync, pr, { agora: T, preferencia: { dev: e.sync.deviceId, ate: T + 60000 } });
+  e.queue = [{ key: pr.key, account: LOGIN }];
+  e.headSha = async () => 'sha57';
+  fake.requests.length = 0;
+  assert.deepEqual((await dist.adotarPreferidos(e, e.config.sync, { agora: T + 1000 })).adotados, []);
+  assert.equal(fake.requests.filter((q) => q.method === 'PUT').length, 0);
+});
+
+test('o giro da distribuição adota antes de responder às atribuições', async () => {
+  const { e, itemId } = await preferidoPorOutro(56);
+  e.headSha = async () => 'sha56';
+  await dist.cicloDaDistribuicao(e, e.config.sync, { agora: T + 1000 });
+  assert.ok(e.sync.candidatos.get(itemId));
+});
+
 test('ciclo que não foi saudável não renova a prontidão', async () => {
   const e = motorFila(await motorDistribuidor());
   await dist.publicarCandidato(e, e.config.sync, prDe(4), { agora: T });
