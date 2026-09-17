@@ -55,6 +55,7 @@ export function selfAnalysisToggle(analysis) {
 // a tela nunca fica em branco e o usuário nunca lê CONSTANTE_EM_CAIXA_ALTA.
 const QUALITY_REASON_LABELS = {
   BLOCKER_PRESENT: 'A análise apontou bloqueios',
+  EXTERNAL_BLOCKER_PRESENT: 'Há bloqueio fora do PR (card, infra ou outra pessoa)',
   BLOCKERS_UNKNOWN: 'A análise não declarou os bloqueios',
   COVERAGE_UNKNOWN: 'Sem cobertura comprovada',
   COVERAGE_INCOMPLETE: 'Parte do PR ficou sem análise',

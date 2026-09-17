@@ -223,24 +223,48 @@ export function runtimeChecks(doctor, config = {}) {
 
 
 // Monta um prompt pronto pra colar no chat que está resolvendo o PR, a partir
-// dos pontos da autoanálise (blockers = travam a aprovação; tips = melhorias).
-// PURA: recebe os dados já coletados do STATE/DOM (o app.js faz essa coleta),
-// devolve só a string do prompt. Migrada do app.js na Task 12.
+// dos pontos da autoanálise. PURA: recebe os dados já coletados do STATE/DOM (o
+// app.js faz essa coleta), devolve só a string do prompt. Migrada do app.js na Task 12.
+//
+// Três listas, porque são três pedidos diferentes (17/09/2026, medido no
+// engine-ai#214): `blockers` é o que um commit no PR resolve; `externalBlockers` é o
+// que trava a aprovação mas mora fora do PR (card, infra, outra pessoa) e nunca se
+// resolve com commit; `tips` é melhoria. Com as duas primeiras numa lista só e o
+// fecho "implemente as correções no código", quem recebeu foi procurar no código o
+// que só o dono do card resolvia.
 export function buildFixPrompt(args = {}) {
-  const { key, url, title, card, summary, blockers: rawBlockers, tips: rawTips } = args;
-  const blockers = (rawBlockers || []).filter(Boolean);
-  const tips = (rawTips || []).filter(Boolean);
-  const abre = blockers.length
-    ? `Preciso que você corrija os pontos levantados na revisão do PR ${key}, começando pelo que trava a aprovação.`
-    : `Preciso que você aplique as melhorias sugeridas na revisão do PR ${key}.`;
+  const { key, url, title, card, summary, headSha } = args;
+  const blockers = (args.blockers || []).filter(Boolean);
+  const externos = (args.externalBlockers || []).filter(Boolean);
+  const tips = (args.tips || []).filter(Boolean);
+  const temCodigo = blockers.length > 0 || tips.length > 0;
+  const head = headSha ? String(headSha).slice(0, 7) : '';
+
+  let abre;
+  if (blockers.length) abre = `Preciso que você corrija os pontos levantados na revisão do PR ${key}, começando pelo que trava a aprovação.`;
+  else if (externos.length && !tips.length) abre = `Preciso da sua ajuda com a revisão do PR ${key}: o que trava a aprovação está fora do PR.`;
+  else if (externos.length) abre = `Preciso que você aplique as melhorias da revisão do PR ${key}. O que trava a aprovação está fora do PR.`;
+  else abre = `Preciso que você aplique as melhorias sugeridas na revisão do PR ${key}.`;
+
   const linhas = [abre, ''];
   if (url) linhas.push(`PR: ${url}`);
   if (title) linhas.push(`Título: ${title}`);
   if (card) linhas.push(`Card: ${card}`);
+  if (head) linhas.push(`Head analisado: ${head}`);
   if (summary) { linhas.push('', `Resumo da revisão: ${summary}`); }
-  if (blockers.length) { linhas.push('', 'Pendências que travam a aprovação (prioridade):', ...blockers.map(b => `- ${b}`)); }
+  if (blockers.length) { linhas.push('', 'Pendências no PR que travam a aprovação (prioridade):', ...blockers.map(b => `- ${b}`)); }
+  if (externos.length) {
+    linhas.push('', 'Pendências fora do PR que travam a aprovação (quem resolve e o que falta):', ...externos.map(b => `- ${b}`));
+  }
   if (tips.length) { linhas.push('', 'Melhorias sugeridas:', ...tips.map(t => `- ${t}`)); }
-  linhas.push('', 'Implemente as correções no código, rode os testes e o lint que fizerem sentido, e no final me diga o que mudou e por quê.');
+
+  const fecho = [];
+  if (temCodigo) fecho.push('Implemente no código as pendências do PR e as melhorias que procederem, rode os testes e o lint que fizerem sentido.');
+  if (externos.length) fecho.push('As pendências de fora do PR não se resolvem com commit, e nunca com bypass de proteção: diga o que falta, quem resolve e o texto que eu posso mandar.');
+  else fecho.push('Nenhuma pendência se resolve com bypass de proteção.');
+  if (head) fecho.push(`Itens marcados "Neste head" só valem se o PR ainda estiver em ${head}.`);
+  fecho.push(temCodigo ? 'No final, me diga o que mudou e por quê.' : 'No final, me diga o que você encaminhou.');
+  linhas.push('', fecho.join(' '));
   return linhas.join('\n');
 }
 
