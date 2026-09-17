@@ -103,15 +103,10 @@ test('publicar: o nó sobe cifrado e assinado, e o teto não aparece em claro', 
 
 // C4b: o admin não publica `ativo` sem os requisitos, e a liberação da medição não vem de
 // rota nem de config: é propriedade em memória do engine, só para teste.
-test('publicar ativo: recusado sem a medição, aceito com ela', async () => {
+test('publicar ativo: aceito com a ativação ligada, e desativar nunca é bloqueado', async () => {
   const e = await motorAdmin();
-  const r = await e.syncPublicarGrupo({ grupo: { ...GRUPO, ativo: true } });
-  assert.equal(r.ok, false);
-  assert.equal(r.code, 'ativacao-bloqueada');
-  assert.match(r.motivo, /medi/);
-  assert.equal(noPublicado(), null, 'nada subiu');
-  e.ativacaoTetoGrupo = true;
   assert.equal((await e.syncPublicarGrupo({ grupo: { ...GRUPO, ativo: true } })).ok, true);
+  assert.ok(noPublicado(), 'o grupo ativo subiu');
   assert.equal((await e.syncPublicarGrupo({ grupo: { ...GRUPO, id: 'e'.repeat(32), ativo: false } })).ok, true, 'desativar nunca é bloqueado');
 });
 
@@ -122,9 +117,12 @@ test('publicar ativo sem teto é recusado mesmo com a medição', async () => {
   assert.equal(r.code, 'ativacao-bloqueada');
 });
 
-test('a liberação da ativação nasce desligada', async () => {
+// Ligada em 17/09/2026 por decisão do dono, sem a medição do atraso do consumo entre dois
+// aparelhos reais, e com o risco declarado na hora. O valor segue travado aqui.
+test('a liberação da ativação está ligada, e a decisão está registrada', async () => {
   const { ATIVACAO_TETO_GRUPO_C4B } = await import('../lib/constants.js');
-  assert.equal(ATIVACAO_TETO_GRUPO_C4B, false);
+  assert.equal(ATIVACAO_TETO_GRUPO_C4B, true,
+    'ligada em 17/09/2026: o teto do grupo passa a barrar de verdade, e barrar continua sendo espera, nunca estacionamento');
 });
 
 test('publicar: quem não é admin da geração vigente não publica', async () => {

@@ -101,8 +101,10 @@ test('o snapshot do engine leva o estado das capacidades, com as ativações rea
   e.pushState = () => { };
   const s = e.snapshot();
   assert.equal(typeof s.capacidades, 'object');
-  assert.equal(s.capacidades.autenticacaoLocal.ativacaoAutomatica, false, 'a ativação da A4 continua desligada');
-  assert.equal(s.capacidades.tetoGrupo.aplicado, false, 'o teto do grupo continua sem efeito');
+  // as duas ativações foram ligadas em 17/09/2026, por decisão do dono
+  assert.equal(s.capacidades.autenticacaoLocal.ativacaoAutomatica, true, 'a A4 exige sozinha no modo celular');
+  assert.equal(s.capacidades.tetoGrupo.aplicado, true, 'o teto do grupo passa a valer quando houver grupo');
+  assert.equal(s.capacidades.tetoGrupo.configurado, false, 'esta máquina não tem grupo nenhum configurado');
   assert.equal(s.capacidades.autenticacaoLocal.modoCelular, false, 'esta máquina não é celular');
 });
 
