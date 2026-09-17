@@ -1,0 +1,43 @@
+node v24.21.0, uid 1000
+✔ testar um perfil de pasta não altera NENHUM arquivo da pasta, e a credencial vem dela (33.516647ms)
+✔ a cópia efêmera nunca recebe a credencial, e leva o settings.json (23.637253ms)
+✖ a cópia efêmera é restringida (chmod 0700) antes de receber arquivo (29.24625ms)
+✔ falha ao copiar apaga a cópia parcial e não roda o CLI (1.965549ms)
+✔ o padrão da máquina (sem pasta) não altera o ~/.claude.json nem o ~/.claude (25.959807ms)
+✔ CLI que falha ainda apaga a cópia efêmera (2.213684ms)
+✔ cópias efêmeras esquecidas por execuções anteriores são varridas (25.653385ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 6
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 244.191633
+
+✖ failing tests:
+
+test at test/perfil-claude-sem-escrita.test.js:209:1
+✖ a cópia efêmera é restringida (chmod 0700) antes de receber arquivo (29.24625ms)
+  AssertionError [ERR_ASSERTION]: o primeiro ato sobre a cópia é restringir
+  + actual - expected
+  
+    [
+  +   'copia',
+  -   'chmod',
+      '/tmp/farol-teste-perfil-i7snji',
+  -   448
+    ]
+  
+      at TestContext.<anonymous> (file:///tmp/work/test/perfil-claude-sem-escrita.test.js:227:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'copia', '/tmp/farol-teste-perfil-i7snji' ],
+    expected: [ 'chmod', '/tmp/farol-teste-perfil-i7snji', 448 ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+rc=1

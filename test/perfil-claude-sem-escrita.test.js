@@ -29,6 +29,8 @@ const BIN = path.join(BASE, 'bin');
 const REGISTRO = path.join(BASE, 'registro.jsonl');
 const HOME_FALSO = path.join(BASE, 'home');
 const ORIGINAIS = {};
+// O que o `claude` falso instalado deixou para trás, para o `after` desfazer.
+const INSTALADOS = [];
 
 const FALSO = `
 const fs = require('node:fs');
@@ -81,15 +83,45 @@ function registros() {
   return fs.readFileSync(REGISTRO, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
 }
 
+// O `io.runShell` do POSIX é `/bin/sh -lc`, e o shell de LOGIN reescreve o PATH (é o que
+// `/etc/profile` faz no Debian e no Alpine): o falso num diretório temporário deixa de ser o
+// executado, e todos os casos que provam o teste de perfil ficavam pulados em Linux. A saída
+// honesta é instalar o MESMO falso num diretório que o shell de login JÁ enxerga, quando um
+// deles for gravável e não tiver um `claude` de verdade. É preparação do ambiente de teste,
+// não mexe no produto, e o `after` desinstala.
+async function instalarOndeOLoginEnxerga() {
+  if (IS_WIN) return;
+  const r = await io.runShell('echo "$PATH"');
+  for (const dir of String(r.stdout || '').trim().split(path.delimiter)) {
+    if (!dir || !path.isAbsolute(dir)) continue;
+    const alvo = path.join(dir, 'claude');
+    // `claude` que já existe é de verdade (ou de outra execução): não é nosso para trocar,
+    // e o `falsoResolve` vai pular os casos com o motivo escrito
+    if (fs.existsSync(alvo)) return;
+    try {
+      // `wx`: criação exclusiva, nunca sobrescrita. Os arquivos de teste rodam em paralelo, e
+      // dois falsos disputando o mesmo nome fariam um arquivo executar o falso do outro
+      fs.writeFileSync(alvo, LANCADOR, { mode: 0o755, flag: 'wx' });
+      INSTALADOS.push(alvo);
+      return;
+    } catch { /* diretório do sistema sem permissão de escrita: tenta o próximo */ }
+  }
+}
+
+// Caminho ABSOLUTO do falso: o lançador é copiado para fora do BIN, onde `dirname $0` não
+// acharia o script.
+const LANCADOR = `#!/bin/sh\nexec "${process.execPath}" "${path.join(BIN, 'claude-falso.cjs')}" "$@"\n`;
+
 before(async () => {
   fs.mkdirSync(BIN, { recursive: true });
   fs.writeFileSync(path.join(BIN, 'claude-falso.cjs'), FALSO);
   if (IS_WIN) {
     fs.writeFileSync(path.join(BIN, 'claude.cmd'), `@"${process.execPath}" "%~dp0claude-falso.cjs" %*\r\n`);
   } else {
-    fs.writeFileSync(path.join(BIN, 'claude'), `#!/bin/sh\nexec "${process.execPath}" "$(dirname "$0")/claude-falso.cjs" "$@"\n`, { mode: 0o755 });
+    fs.writeFileSync(path.join(BIN, 'claude'), LANCADOR, { mode: 0o755 });
   }
   process.env.PATH = BIN + path.delimiter + process.env.PATH;
+  await instalarOndeOLoginEnxerga();
   process.env.FAROL_TESTE_REGISTRO = REGISTRO;
   ORIGINAIS.USERPROFILE = process.env.USERPROFILE;
   ORIGINAIS.HOME = process.env.HOME;
@@ -99,6 +131,9 @@ before(async () => {
 });
 
 after(() => {
+  for (const alvo of INSTALADOS) {
+    try { fs.rmSync(alvo, { force: true }); } catch { /* best-effort */ }
+  }
   for (const [k, v] of Object.entries(ORIGINAIS)) {
     if (v === undefined) delete process.env[k]; else process.env[k] = v;
   }
@@ -113,13 +148,17 @@ function engineCom(config) {
   return e;
 }
 
-// No macOS o `/bin/sh -l` passa pelo path_helper, que reordena o PATH: se um `claude` real
-// vier antes do falso, o caso não prova nada e é pulado com o motivo, nunca aprovado.
+// O shell de login reescreve o PATH (path_helper no macOS, /etc/profile no Linux). O caso só
+// vale se quem o shell resolve é UM DOS falsos deste arquivo: o do BIN temporário, quando o
+// PATH sobrevive, ou o instalado no diretório do PATH de login. Qualquer outro caminho não
+// prova nada e é pulado com o motivo, nunca aprovado.
 async function falsoResolve(t) {
   if (IS_WIN) return true;
   const r = await io.runShell('command -v claude', { env: { ...process.env } });
-  if (r.stdout.trim() === path.join(BIN, 'claude')) return true;
-  t.skip(`o shell de login resolve outro claude (${r.stdout.trim()}), o falso não seria o executado`);
+  const achado = r.stdout.trim();
+  const nossos = [path.join(BIN, 'claude'), ...INSTALADOS];
+  if (nossos.includes(achado)) return true;
+  t.skip(`o shell de login resolve outro claude (${achado}), o falso não seria o executado`);
   return false;
 }
 
