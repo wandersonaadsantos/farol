@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { arquivosDosPuros } from './helpers/fontes-ui.js';
 
 const CONGELADA = [
+  "analiseImpecavel",
   "DOMAIN_DEFS",
   "DOMLEVEL_OPTS",
   "FAROL_PRE_STAMP_LABEL",
@@ -104,6 +105,7 @@ const CONGELADA = [
   "fmtDur",
   "fmtLogStamp",
   "fmtMoney",
+  "festasPendentes",
   "fmtRel",
   "fmtSpan",
   "fmtStamp",

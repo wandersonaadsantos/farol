@@ -14,7 +14,7 @@ import {
   effectiveHidden, hiddenFootLabel, myPRsEmptyMsg, mergeToastKind, buildFixPrompt,
   canMergeSelfAnalysis, qualityBlockTitle, selfAnalysisBadge, selfAnalysisToggle,
   selfAnalysisStale, listViewState, prKeyFromUrl, defaultFor, overrideFor, repoShort,
-  selfSessionKey, sessionProgress,
+  selfSessionKey, sessionProgress, festasPendentes,
 } from '../pure.js';
 import { estado, escopo } from './estado.js';
 import {
@@ -26,6 +26,7 @@ import { renderRadarNav } from './radar.js';
 import { loadReviewerCands, renderReviewersEditor, revCtx } from './reviewers.js';
 import { switchSistemaSection, sysSearchFilter } from './sistema.js';
 import { renderMeusPrsRemoto } from './listas-remotas.js';
+import { festejar } from './confete.js';
 
 /* ---------- render: meus PRs (autoanálise) ---------- */
 // PRs cujo merge normal esbarrou na proteção de branch: mostram as saídas
@@ -54,6 +55,21 @@ const unhideOptimistic = new Set();
 const BARRA_DO_SELO = { approve: 'ok', rc: 'warn', stale: 'stale' };
 
 let hiddenOpen = false;
+// Análises que já viraram confete NESTA sessão da tela (PR mais o instante da análise).
+// Some com a página, de propósito: a festa é do momento em que a análise termina, e não um
+// estado que precise sobreviver a alguma coisa.
+const festejadas = new Set();
+
+// A festa da análise impecável (17/09/2026). Quem decide é a pura `festasPendentes`; aqui
+// só marca e anima. A marca entra ANTES da animação: animação que falhe não deixa o mesmo
+// resultado tentando festejar em todo ciclo do SSE.
+function festejarAnaliseImpecavel() {
+  for (const marca of festasPendentes(estado().selfAnalyses, festejadas)) {
+    festejadas.add(marca);
+    festejar();
+  }
+}
+
 function renderMyPRs() {
   // os marcadores de sessão valem até o PRÓXIMO refresh de mergeStates (que roda
   // no fim de cada check, junto do lastCheckAt novo): refresh mais novo que a
@@ -198,6 +214,7 @@ function renderMyPRs() {
       ${analysisPanel}
     </div>`;
   }).join('');
+  festejarAnaliseImpecavel();
 }
 // rodapé discreto da seção: "3 PRs ocultos · mostrar". A linha inteira é o controle
 // (um botão só), pra ser alcançável por teclado e leitor de tela sem inventar widget.

@@ -7,6 +7,9 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.60.1', ['Autoanálise sem nada a ajustar virou motivo de festa: quando o veredito é aprovável e não há pendência no PR, pendência de fora dele nem dica de melhoria, caem confetes por quatro segundos, com um aviso discreto. Qualquer ponto levantado, ou análise desatualizada por commit novo, não festeja, e a mesma análise só festeja uma vez.',
+    'Com movimento reduzido ligado no sistema, nada se mexe: fica só o aviso, pelo mesmo tempo.',
+    'O card "Analisando agora" parou de vazar: o passo da sessão cabe em duas linhas, com o texto completo ao passar o mouse, e os elementos do card ganharam espaço entre si.']],
   ['2.60.0', ['Vários aparelhos, um Farol só: em Sistema cada aparelho aparece com nome, versão e o que está fazendo, e tudo o que sobe para o banco vai cifrado com a chave do conjunto. Quem não liga a sincronização continua com o Farol de sempre.',
     'Revisão distribuída, opcional: o aparelho administrador coloca cada revisão em quem tem vaga, e se ele some cada aparelho volta sozinho a revisar localmente.',
     'Comandos entre aparelhos com recibo (cancelar, repetir, decidir, iniciar e designar administrador), e transferir ou tomar uma revisão em andamento, com o risco explicado antes de confirmar.',

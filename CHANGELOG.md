@@ -9,6 +9,29 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.60.1
+
+Quando a autoanálise não acha nada para ajustar, a tela comemora.
+
+**Novidades**
+
+- **Confete de 4 segundos na análise impecável.** Terminou uma autoanálise com veredito
+  aprovável, sem pendência no PR, sem pendência de fora dele e sem nenhuma dica de melhoria,
+  os confetes caem por quatro segundos, com um aviso discreto dizendo o que aconteceu. É
+  raro de propósito: qualquer ponto levantado, ou análise que ficou desatualizada por commit
+  novo, não festeja. A festa acontece uma vez por análise, então trocar de aba ou recarregar
+  não repete; reanalisar o PR pode festejar de novo.
+- Com movimento reduzido ligado no sistema, não há partícula nenhuma: fica só o aviso, pelo
+  mesmo tempo.
+
+**Correções**
+
+- **O card "Analisando agora" parou de vazar.** O passo da sessão pode ser uma linha enorme
+  sem espaço nenhum (a saída do checkpoint é um JSON inteiro numa linha), e ela escapava da
+  caixa e empurrava a barra e o botão. Agora o passo cabe em duas linhas, com reticências e
+  o texto completo ao passar o mouse, e o cartão ganhou respiro entre o título, o passo, a
+  barra e o botão.
+
 ## v2.60.0
 
 Operação com vários aparelhos: os Faróis da mesma pessoa passam a trabalhar como um conjunto,
