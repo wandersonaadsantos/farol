@@ -9,6 +9,57 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.60.0
+
+Operação com vários aparelhos: os Faróis da mesma pessoa passam a trabalhar como um conjunto,
+com tudo cifrado no banco e cada recurso atrás de um interruptor próprio. Quem não liga a
+sincronização continua com o Farol de sempre.
+
+**Antes de atualizar**
+
+- **Publique as regras novas do banco** (`firebase/database.rules.json`) no console do
+  Firebase antes de ligar qualquer recurso novo. Sem elas, os nós novos são recusados. As
+  escritas das versões anteriores continuam aceitas.
+
+**Novidades**
+
+- **Aparelhos que se enxergam.** Em Sistema, cada aparelho aparece com nome, versão do Farol,
+  capacidade e o que está fazendo agora. O que sobe para o banco vai cifrado com a chave do
+  conjunto, protegida pela sua senha: o PR não aparece em claro.
+- **Revisão distribuída (opcional).** Com a distribuição ligada, o aparelho administrador
+  coloca cada revisão em quem tem vaga, respeitando o rodízio por organização e o limite de
+  memória de cada aparelho. Se o administrador some, cada aparelho volta sozinho a revisar
+  localmente.
+- **Comandos entre aparelhos, com recibo.** Cancelar, repetir, decidir e postar, iniciar em
+  outro aparelho e designar outro administrador (este pede a senha no aparelho de destino). O
+  comando só aparece como feito quando o aparelho alvo responde.
+- **Transferir e tomar uma revisão.** Transferir leva a revisão em andamento para outro
+  aparelho apto, junto com o que já foi verificado. Tomar força a posse com confirmação e
+  avisa o risco: a sessão do outro aparelho é encerrada por ele, e a análise pode custar
+  duas vezes.
+- **Visão do conjunto.** Panorama e Meus PRs de outros aparelhos, pendências e andamento
+  com o nome de cada PR, e o motivo de cada revisão que está esperando.
+- **Memória de verificação compartilhada.** O que uma sessão confirmou contra o código
+  viaja cifrado, e quem continua o PR não refaz o trabalho.
+- **Encerrar as sessões dos outros aparelhos**, com a senha, para o caso de aparelho
+  perdido.
+- **Perfis do Claude por aparelho, diagnóstico unificado e retomada de sessão interrompida**
+  que sobrevive ao reinício do app.
+
+**Melhorias**
+
+- O consumo mostra custo desconhecido como desconhecido, nunca como zero.
+- Cada aparelho só aceita revisão nova com memória livre acima do piso, e diz por que
+  recusou.
+- Grupos de consumo com teto ficam prontos, mas **desligados**: a ativação espera medições
+  em aparelhos reais.
+
+**Ainda desligado nesta versão**
+
+- Exigir login local no celular, teto de consumo do grupo, recusa de revisão pelo tamanho do
+  PR e afinidade de colocação. Cada um tem a trava própria e só liga depois da medição em
+  aparelho real.
+
 ## v2.59.8
 
 A autoanálise passa a separar o que se resolve no PR do que trava a aprovação por fora dele, e o

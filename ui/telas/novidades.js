@@ -7,6 +7,11 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.60.0', ['Vários aparelhos, um Farol só: em Sistema cada aparelho aparece com nome, versão e o que está fazendo, e tudo o que sobe para o banco vai cifrado com a chave do conjunto. Quem não liga a sincronização continua com o Farol de sempre.',
+    'Revisão distribuída, opcional: o aparelho administrador coloca cada revisão em quem tem vaga, e se ele some cada aparelho volta sozinho a revisar localmente.',
+    'Comandos entre aparelhos com recibo (cancelar, repetir, decidir, iniciar e designar administrador), e transferir ou tomar uma revisão em andamento, com o risco explicado antes de confirmar.',
+    'Panorama e Meus PRs dos outros aparelhos, o motivo de cada revisão que espera, e a memória do que já foi verificado viajando junto com o PR.',
+    'Encerrar as sessões dos outros aparelhos com a senha, para aparelho perdido. Antes de ligar os recursos novos, publique as regras novas do banco no console do Firebase.']],
   ['2.59.8', ['A autoanálise separa o que trava a aprovação por fora do PR: um critério do card que depende de outro card, um check obrigatório vermelho por configuração ou uma ação de outra pessoa aparece em Fora do PR, com quem resolve e o que falta. Antes tudo ia na mesma lista, e o prompt de correção mandava corrigir no código o que o código não corrige.',
     'O prompt de correção traz as pendências do PR, as de fora dele e as melhorias em seções separadas, informa o commit analisado e não pede mais para mexer no código quando só há pendência de fora do PR.',
     'As sugestões passam a dizer o comportamento certo, e não só a ação; item que só vale no commit analisado vem marcado; e a análise não oferece mais bypass de proteção como saída.']],
