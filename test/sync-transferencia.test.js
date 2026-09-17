@@ -23,6 +23,7 @@ import { SYNC } from '../lib/constants.js';
 // a admissão recusa abaixo do piso de memória: sem fixar, a memória da máquina decide
 fixarMemoriaLivre();
 
+const fechamento = (await import('../lib/engine/sync-fechamento.js')).default;
 const { Engine } = await import('../server.js');
 const transferencia = (await import('../lib/sync/transferencia.js')).default;
 const transfEng = (await import('../lib/engine/sync-transferencia.js')).default;
@@ -146,7 +147,9 @@ async function motor() {
   e.sync.lastPresenceAt = Date.now();
   e.accountForPr = () => LOGIN;
   e.cancelados = [];
-  e.cancelSession = (id) => e.cancelados.push(id);
+  // a marca de transferência tem que existir ANTES do cancelamento: é ela que diz ao fim
+  // da sessão que isto não é desfecho daqui
+  e.cancelSession = (id) => e.cancelados.push(`${id}${fechamento.foiTransferida(e, PR.key) ? ':transferida' : ''}`);
   e.activeReviews = new Map([['s1', { pr: PR, keys: [PR.key], checkpoint: 'review', mode: 'auto' }]]);
   return e;
 }
@@ -181,11 +184,20 @@ test('transferir: manda a memória, encerra a sessão daqui e devolve o item pre
   await capacidadeDoDestino(e);
   const r = await transfEng.transferir(e, e.config.sync, argsDaTransferencia(e));
   assert.equal(r.ok, true, r.motivo);
-  assert.deepEqual(e.cancelados, ['s1'], 'a sessão de origem termina');
+  assert.deepEqual(e.cancelados, ['s1:transferida'], 'a sessão de origem termina, marcada como transferida');
   assert.ok(Object.keys(arvore().checkpoints.review).length, 'a memória subiu antes');
   const registro = arvore().live.queue[r.itemId][e.sync.deviceId];
   assert.equal(registro.prefDev, 'dB');
   assert.ok(registro.prefAte > Date.now());
+});
+
+test('sessão que já tinha terminado não deixa a marca de transferência para trás', async () => {
+  const e = await motor();
+  e.cancelSession = () => ({ ok: false, error: 'sessão não encontrada (já terminou?)' });
+  await capacidadeDoDestino(e);
+  const r = await transfEng.transferir(e, e.config.sync, argsDaTransferencia(e));
+  assert.equal(r.ok, true, r.motivo);
+  assert.equal(fechamento.foiTransferida(e, PR.key), false);
 });
 
 test('transferir para destino sem a credencial da conta é recusado, e a sessão continua', async () => {

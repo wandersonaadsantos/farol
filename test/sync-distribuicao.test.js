@@ -760,6 +760,32 @@ test('o fim da revisão distribuída fecha o item, mesmo sem concluir', async ()
   assert.equal(no('live/queue')[r.itemId], undefined, 'o mesmo head não fica para outra rodada');
 });
 
+// Medido na bancada (17/09/2026): a transferência encerra a sessão daqui e publica o item
+// com a preferência pelo destino; o fim da sessão encerrada fechava o item logo depois,
+// apagando justamente esse registro, e a origem estacionava o PR como "cancelada por
+// você". Sessão encerrada por transferência não é desfecho daqui.
+test('sessão encerrada pela transferência não fecha o item nem estaciona o PR', async () => {
+  const cancelada = Object.assign(new Error('sessão cancelada'), { cancelled: true });
+  const e = motorQueExecuta(motorFila(await motorDistribuidor()), async () => { throw cancelada; });
+  e.autoReviewParked = new Set();
+  const r = await dist.publicarCandidato(e, e.config.sync, prDe(71), { agora: T });
+  fechamento.marcarTransferida(e, prDe(71).key);
+  await reviewMod.runOneHeadless(e, { ...prDe(71), viaDistribuicao: true, itemIdDistribuido: r.itemId }, LOGIN);
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.ok(no('live/queue')[r.itemId], 'o registro com a preferência pelo destino fica');
+  assert.equal(e.autoReviewParked.has(prDe(71).key), false, 'transferir não é cancelar');
+  assert.equal(fechamento.foiTransferida(e, prDe(71).key), false, 'a marca é consumida');
+});
+
+test('cancelamento de verdade continua estacionando', async () => {
+  const cancelada = Object.assign(new Error('sessão cancelada'), { cancelled: true });
+  const e = motorQueExecuta(motorFila(await motorDistribuidor()), async () => { throw cancelada; });
+  e.autoReviewParked = new Set();
+  e.saveAutoReviewParked = () => { };
+  await reviewMod.runOneHeadless(e, prDe(72), LOGIN);
+  assert.equal(e.autoReviewParked.has(prDe(72).key), true);
+});
+
 test('a revisão local, fora da distribuição, não mexe no conjunto', async () => {
   const e = motorQueExecuta(motorFila(await motorDistribuidor()), async () => { });
   const r = await dist.publicarCandidato(e, e.config.sync, prDe(63), { agora: T });
