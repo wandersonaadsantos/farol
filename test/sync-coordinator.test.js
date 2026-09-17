@@ -470,6 +470,24 @@ test('heartbeat recusado (outro aparelho tomou o lease): lost, onLost, cancela a
   assert.deepEqual(e.cancelados, ['a-1'], 'o timer parou: nada é cancelado de novo');
 });
 
+// 7.C8: perder o lease para uma TOMADA tem tratamento próprio, e ele era inalcançável.
+// Medido na bancada com engines reais (17/09/2026): o aparelho tomado seguiu a sessão
+// inteira até o fim, sem registrar nada, porque o batimento só declarava perda quando o
+// motivo era `perdido`.
+test('heartbeat depois de uma TOMADA: registra a tomada sofrida e cancela a sessão', async (t) => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  const e = motor();
+  const a = await admit(e, ctxDe());
+  semearLease({ ...leaseDoOutro(), takeoverSeq: 2, tomadoDe: 'dEu', tomadoEm: AGORA });
+  t.mock.timers.tick(SYNC.HEARTBEAT_MS);
+  await ate(() => a.handle.lost);
+  assert.deepEqual(e.cancelados, ['a-1'], 'a sessão daqui é encerrada');
+  assert.equal((e.sync.tomadasSofridas || []).length, 1, 'a tomada sofrida fica registrada');
+  assert.deepEqual(e.sync.tomadasSofridas[0].para, 'dOutro');
+  assert.equal(e.sync.tomadasSofridas[0].geracao, 2);
+  assert.ok(e.logs.some(([nivel, msg]) => nivel === 'WARN' && /assumiu este PR/.test(msg)), 'o log diz o que houve');
+});
+
 test('heartbeat sem rede não perde o lease: espera a próxima batida', async (t) => {
   t.mock.timers.enable({ apis: ['setInterval'] });
   const e = motor();
