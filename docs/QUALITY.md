@@ -339,6 +339,8 @@ sobre AQUELE diff. A saída definitiva continua sendo o pacote imprimir o finger
 
 Até a v0.12.0, `core.file.single-responsibility` só tinha duas respostas para arquivo que já violava a regra antes da entrega: `violacao`, que reprovava a entrega que não causou a dívida, ou `conforme`. O Farol escolheu a segunda sete vezes sobre o `ui/app.js`, com a tensão escrita só na fundamentação, e foi essa medição que virou a ADR-0015 do eng-behaviour. Desde a v0.12.0 a dívida anterior de uma regra de julgamento mora num baseline finito, com contagem e condição de fechamento, e o gate passa `--baselines tools/eng-behaviour/baselines.json` e `--repo-id farol` (a identidade fixa é o que faz o baseline valer também dentro de uma worktree).
 
+Em 17/09/2026 o baseline foi migrado para o catálogo 0.13.0. A migração é só de versão: a 0.13.0 acrescentou três regras de `frontend`, e o escopo `core` que o Farol declara não mudou, então a lista e a contagem seguem as mesmas.
+
 A lista inicial saiu de uma avaliação arquivo a arquivo, pelas três perguntas da regra, em 14/09/2026. Nove arquivos saíram com confiança alta e seis com média. Os de confiança média entram assim mesmo, porque o custo de errar é assimétrico: um arquivo listado que na verdade é conforme sai da lista na primeira avaliação `conforme`, e um arquivo em violação que ficasse de fora exigiria reabrir o baseline.
 
 | arquivo | confiança | condição de fechamento |

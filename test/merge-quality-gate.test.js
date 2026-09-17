@@ -115,6 +115,29 @@ test('blocker com cobertura faltando acumula as duas razões e ineligible vence'
   assert.equal(r.reasons.find(x => x.code === 'BLOCKER_PRESENT').detail.count, 2);
 });
 
+/* ---------- bloqueio de fora do PR (17/09/2026) ----------
+   A autoanálise do engine-ai#214 misturou, numa lista só, o que um commit resolve e o
+   que só o dono do card resolve (o check do Acrity vermelho por critério do card). Quem
+   recebeu o texto foi mandado "corrigir no código" algo que código não corrige. O
+   bloqueio de fora do PR ganhou campo próprio, e ele segura o merge igual: o PR não fica
+   mergeável só porque o motivo mora em outro lugar. */
+
+test('bloqueio de fora do PR é evidência contra, com código próprio', () => {
+  const r = evaluateQualityEligibility(
+    parecer({ externalBlockers: ['Dono do card: tirar o corpus de HMG do Cenário 4'] }),
+    evidencia()
+  );
+  assert.equal(r.status, 'ineligible');
+  assert.deepEqual(codes(r), ['EXTERNAL_BLOCKER_PRESENT']);
+  assert.equal(r.reasons[0].detail.count, 1);
+});
+
+test('registro sem o campo de fora do PR (legado) não perde a elegibilidade', () => {
+  // antes do campo existir, tudo ia em `blockers`; ausência aqui não é dado faltando
+  assert.equal(evaluateQualityEligibility(parecer(), evidencia()).status, 'eligible');
+  assert.equal(evaluateQualityEligibility(parecer({ externalBlockers: [] }), evidencia()).status, 'eligible');
+});
+
 /* ---------- card e verificação: quatro valores, não três ---------- */
 
 test('card não atendido é ineligible; card desconhecido é inconclusivo', () => {
@@ -447,6 +470,16 @@ test('o parser não deixa a contradição virar dado válido', () => {
   assert.throws(() => parse({ verdict: 'approvable', approvable: false }), /contrato/i);
   assert.throws(() => parse({ verdict: 'needs_work', approvable: true }), /contrato/i);
   assert.throws(() => parse({ verdict: 'approvable', blockers: ['x'] }), /contrato/i);
+  assert.throws(() => parse({ verdict: 'approvable', externalBlockers: ['x'] }), /contrato/i);
+});
+
+test('externalBlockers é lista de texto quando vem, e ausente vira vazio', () => {
+  for (const ext of ['nenhum', null, 0, {}, [1]]) {
+    assert.throws(() => parse({ externalBlockers: ext }), /contrato/i, JSON.stringify(ext));
+  }
+  const d = parse({ externalBlockers: ['Dono do card: ajustar o critério'], verdict: 'needs_work', approvable: false });
+  assert.deepEqual(d.externalBlockers, ['Dono do card: ajustar o critério']);
+  assert.deepEqual(parse({}).externalBlockers, []);
 });
 
 /* ================= P0b: a restauração, e o que continua recusando ================= */

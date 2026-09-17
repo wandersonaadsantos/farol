@@ -222,28 +222,6 @@ export function runtimeChecks(doctor, config = {}) {
 }
 
 
-// Monta um prompt pronto pra colar no chat que está resolvendo o PR, a partir
-// dos pontos da autoanálise (blockers = travam a aprovação; tips = melhorias).
-// PURA: recebe os dados já coletados do STATE/DOM (o app.js faz essa coleta),
-// devolve só a string do prompt. Migrada do app.js na Task 12.
-export function buildFixPrompt(args = {}) {
-  const { key, url, title, card, summary, blockers: rawBlockers, tips: rawTips } = args;
-  const blockers = (rawBlockers || []).filter(Boolean);
-  const tips = (rawTips || []).filter(Boolean);
-  const abre = blockers.length
-    ? `Preciso que você corrija os pontos levantados na revisão do PR ${key}, começando pelo que trava a aprovação.`
-    : `Preciso que você aplique as melhorias sugeridas na revisão do PR ${key}.`;
-  const linhas = [abre, ''];
-  if (url) linhas.push(`PR: ${url}`);
-  if (title) linhas.push(`Título: ${title}`);
-  if (card) linhas.push(`Card: ${card}`);
-  if (summary) { linhas.push('', `Resumo da revisão: ${summary}`); }
-  if (blockers.length) { linhas.push('', 'Pendências que travam a aprovação (prioridade):', ...blockers.map(b => `- ${b}`)); }
-  if (tips.length) { linhas.push('', 'Melhorias sugeridas:', ...tips.map(t => `- ${t}`)); }
-  linhas.push('', 'Implemente as correções no código, rode os testes e o lint que fizerem sentido, e no final me diga o que mudou e por quê.');
-  return linhas.join('\n');
-}
-
 function contaLinhaDiag(a) {
   const primaria = a.primary ? ' [primária]' : '';
   const silenciada = a.muted ? ' · silenciada' : '';

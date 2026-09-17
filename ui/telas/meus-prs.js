@@ -152,8 +152,9 @@ function renderMyPRs() {
     const badge = sel ? `<span class="verdict ${sel.cls}"${sel.title ? ` title="${esc(sel.title)}"` : ''}>${esc(sel.label)}</span>` : '';
     const vis = selfAnalysisToggle(a);
     const desatualizada = selfAnalysisStale(a);
-    const hasBlockers = !!(a && (a.blockers || []).length);
-    const hasWork = !!(a && ((a.blockers || []).length || (a.tips || []).length));
+    const externos = (a && a.externalBlockers) || [];
+    const hasBlockers = !!(a && ((a.blockers || []).length || externos.length));
+    const hasWork = !!(a && ((a.blockers || []).length || externos.length || (a.tips || []).length));
     // OCULTA some com o painel, nunca com o registro: o botão ao lado traz de volta.
     // Sem essa distinção o "Ocultar" antigo prometia recolher e deletava do disco.
     const analysisPanel = a && !vis.hidden ? `
@@ -161,6 +162,7 @@ function renderMyPRs() {
         ${desatualizada ? '<div class="mypr-stale">Entrou commit novo depois desta análise. O que está escrito aqui continua valendo pro código que foi lido, mas o veredito não fala do código de agora: reanalise pra ter o veredito atual.</div>' : ''}
         ${a.summary ? `<div class="mypr-summary">${esc(a.summary)}</div>` : ''}
         ${(a.blockers || []).length ? `<div class="mypr-block"><b>Antes de pedir review</b><ul class="dec-reasons">${a.blockers.map(b => `<li>🔴 ${esc(b)}</li>`).join('')}</ul></div>` : ''}
+        ${externos.length ? `<div class="mypr-block"><b>Fora do PR</b> <span class="mypr-hint">não se resolve com commit</span><ul class="dec-reasons">${externos.map(b => `<li>🟠 ${esc(b)}</li>`).join('')}</ul></div>` : ''}
         ${(a.tips || []).length ? `<div class="mypr-tips"><b>Dá pra melhorar</b><ul class="dec-reasons">${a.tips.map(t => `<li>🟡 ${esc(t)}</li>`).join('')}</ul></div>` : ''}
         ${hasWork ? `<div class="mypr-fixrow"><button class="btn sm act-fix-copy" data-key="${esc(pr.key)}" title="Monta um prompt com os pontos da revisão pra você colar no chat que está resolvendo este PR">📋 ${hasBlockers ? 'Copiar prompt de correção' : 'Copiar prompt de melhoria'}</button></div>` : ''}
         ${a.reportMarkdown ? `<details class="dec-report"><summary>Ver relatório completo</summary><div class="report">${md(a.reportMarkdown)}</div></details>` : ''}
@@ -211,8 +213,8 @@ function montaFixPrompt(key) {
   const pr = (estado().myPRs || []).find(p => p.key === key) || {};
   if (!a) return '';
   return buildFixPrompt({
-    key, url: pr.url, title: pr.title, card: a.card, summary: a.summary,
-    blockers: a.blockers, tips: a.tips
+    key, url: pr.url, title: pr.title, card: a.card, summary: a.summary, headSha: a.headSha,
+    blockers: a.blockers, externalBlockers: a.externalBlockers, tips: a.tips
   });
 }
 
