@@ -466,16 +466,16 @@ As duas correções de regra exigem **republicar o arquivo no console** (registr
 Contêiner Debian 13 com Node 24 e git, sobre um clone do repositório: 0 falhas, e os 5 casos
 de `perfil-claude-sem-escrita` que pulavam passaram a rodar (`roteiros/posix-com-git.md`).
 
-### Gates no SHA integrado `877e881`
+### Gates no SHA integrado (`457c97b`, rodada de fechamento)
 
 | Gate | Resultado |
 |---|---|
-| `npm run check` | verde, 587 arquivos `.js` |
+| `npm run check` | verde, 589 arquivos `.js` |
 | `npm run lint` | verde, baseline intocada |
-| `npm test` | 4353 testes, 4325 aprovados, 28 pulados, 0 falhas |
-| `npm run eng` (caminho oficial) | **pass**, veredito do gate, com a CLI 0.12.0 conferida |
-| `tools/make-package.ps1` | pacote limpo, 270 arquivos, 1.326 KB, auditado |
-| regras no emulador | 183 de 183 |
+| `npm test` | 4380 testes, 4352 aprovados, 28 pulados, 0 falhas |
+| `npm run eng` (caminho oficial) | **pass**, 13 regras no escopo, 12 acionadas, 12 executadas, com a CLI 0.12.0 conferida (`verificacoes-saidas/eng-oficial-final.txt`) |
+| `tools/make-package.ps1` | pacote limpo, 272 arquivos, 1.330 KB, auditado |
+| regras no emulador | **196 de 196** (13 casos novos: sete da tomada, seis da revogação) |
 | suíte em Linux (contêiner) | 0 falhas |
 
 ### O que continua fora do alcance local
