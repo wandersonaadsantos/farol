@@ -1,0 +1,40 @@
+Amostragem do conjunto na bancada com engines reais, ANTES da correção da resposta única
+(node amostrar-espera.mjs, leitura administrativa do emulador só para observar).
+Cada linha: item -> aparelho atribuído, prazo da atribuição | resposta gravada em live/ack.
+
+2026-09-16T23:54:40.534Z
+    28d65d05 -> 15292345 ttl=1789602811719 | ack recusada inapto espera=1789603111986 por 15292345
+    d0028d46 -> 15292345 ttl=1789602183591 | ack recusada inapto espera=1789603111986 por 15292345
+    d2d6d4c2 -> 59fce5ea ttl=1789602821719 | ack recusada inapto espera=1789603111954 por 59fce5ea
+2026-09-16T23:54:55.550Z
+    28d65d05 -> 59fce5ea ttl=1789603131973 | ack aceita  espera=0 por 59fce5ea
+    d0028d46 -> 15292345 ttl=1789602183591 | ack recusada inapto espera=1789603132005 por 15292345
+    d2d6d4c2 -> 15292345 ttl=1789603121968 | ack recusada sem_vaga espera=1789603132005 por 15292345
+2026-09-16T23:55:10.569Z
+    28d65d05 -> 59fce5ea ttl=1789603131973 | ack recusada sem_vaga espera=1789603141982 por 59fce5ea
+    d0028d46 -> 15292345 ttl=1789602183591 | ack recusada inapto espera=1789603142012 por 15292345
+    d2d6d4c2 -> 15292345 ttl=1789603121968 | ack recusada sem_vaga espera=1789603142012 por 15292345
+2026-09-16T23:55:25.589Z
+    28d65d05 -> 59fce5ea ttl=1789603131973 | ack recusada sem_vaga espera=1789603161989 por 59fce5ea
+    d0028d46 -> 15292345 ttl=1789602183591 | ack recusada inapto espera=1789603162020 por 15292345
+    d2d6d4c2 -> 15292345 ttl=1789603121968 | ack recusada sem_vaga espera=1789603162020 por 15292345
+2026-09-16T23:56:25.632Z
+    28d65d05 -> 59fce5ea ttl=1789603131973 | ack recusada sem_vaga espera=1789603222024 por 59fce5ea
+    d0028d46 -> 15292345 ttl=1789602183591 | ack recusada inapto espera=1789603222053 por 15292345
+    d2d6d4c2 -> 15292345 ttl=1789603121968 | ack aceita  espera=0 por 15292345
+2026-09-16T23:56:40.643Z
+    28d65d05 -> 59fce5ea ttl=1789603131973 | ack aceita  espera=0 por 59fce5ea
+    d0028d46 -> 15292345 ttl=1789602183591 | ack recusada inapto espera=1789603232057 por 15292345
+    d2d6d4c2 -> 15292345 ttl=1789603121968 | ack recusada sem_vaga espera=1789603232057 por 15292345
+2026-09-16T23:56:55.660Z
+    28d65d05 -> 59fce5ea ttl=1789603131973 | ack recusada sem_vaga espera=1789603252028 por 59fce5ea
+    d0028d46 -> 15292345 ttl=1789602183591 | ack recusada inapto espera=1789603252074 por 15292345
+    d2d6d4c2 -> 15292345 ttl=1789603121968 | ack recusada sem_vaga espera=1789603252074 por 15292345
+2026-09-16T23:58:10.723Z
+    28d65d05 -> 59fce5ea ttl=1789603131973 | ack recusada sem_vaga espera=1789603322076 por 59fce5ea
+    d0028d46 -> 15292345 ttl=1789602183591 | ack recusada inapto espera=1789603322108 por 15292345
+    d2d6d4c2 -> 15292345 ttl=1789603121968 | ack aceita  espera=0 por 15292345
+
+Leitura: a MESMA atribuição (ttl parado) é respondida de novo a cada giro; o `espera` anda
+junto e nunca vence; e o item d2d6d4c2, aceito às 23:56:25, volta a ser recusado por falta
+de vaga às 23:56:40, porque a vaga ocupada era a dele.

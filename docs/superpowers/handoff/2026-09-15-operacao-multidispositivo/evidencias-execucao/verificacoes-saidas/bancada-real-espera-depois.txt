@@ -1,0 +1,24 @@
+Amostragem do conjunto na bancada com engines reais, DEPOIS da correção da resposta única.
+Mesmo comando, mesmos aparelhos. Dois PRs novos (47 e 48) foram revelados no começo.
+
+2026-09-17T00:14:33.249Z
+    28d65d05 -> 59fce5ea ttl=1789603131973 | ack recusada inapto espera=1789604098952 por 59fce5ea
+    537b3af5 -> 59fce5ea ttl=1789604158996 | ack aceita  espera=0 por 59fce5ea
+    737ade0c -> 15292345 ttl=1789604148986 | ack aceita  espera=0 por 15292345
+    d0028d46 -> 15292345 ttl=1789602183591 | ack recusada inapto espera=1789604098967 por 15292345
+    d2d6d4c2 -> 15292345 ttl=1789603121968 | ack recusada inapto espera=1789604098967 por 15292345
+2026-09-17T00:14:48.257Z  (linhas idênticas)
+2026-09-17T00:15:03.283Z  (linhas idênticas)
+2026-09-17T00:15:18.297Z  (linhas idênticas)
+2026-09-17T00:15:33.316Z  (linhas idênticas)
+2026-09-17T00:15:48.336Z  (linhas idênticas)
+2026-09-17T00:16:03.353Z
+    28d65d05 -> 59fce5ea ttl=1789603131973 | ack recusada inapto espera=1789604098952 por 59fce5ea
+    537b3af5 -> 59fce5ea ttl=1789604399206 | ack aceita  espera=0 por 59fce5ea
+    737ade0c -> 15292345 ttl=1789604389193 | ack aceita  espera=0 por 15292345
+    d0028d46 -> 15292345 ttl=1789602183591 | ack recusada inapto espera=1789604098967 por 15292345
+    d2d6d4c2 -> 15292345 ttl=1789603121968 | ack recusada inapto espera=1789604098967 por 15292345
+
+Leitura: cada atribuição tem UMA resposta, e ela para de ser reescrita; a espera fica
+parada, então ela vence; os dois PRs novos foram aceitos um por aparelho; e a renovação da
+atribuição (ttl novo às 00:16:03) é atribuição nova, que volta a ser avaliada.

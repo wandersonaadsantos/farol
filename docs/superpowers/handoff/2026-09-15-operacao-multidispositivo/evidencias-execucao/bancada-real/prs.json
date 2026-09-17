@@ -1,0 +1,100 @@
+[
+  {
+    "url": "https://github.com/acme-exemplo/app-web/pull/41",
+    "title": "Ajusta o rodape do relatorio",
+    "isDraft": false,
+    "author": {
+      "login": "bruno-exemplo"
+    },
+    "number": 41,
+    "repository": {
+      "nameWithOwner": "acme-exemplo/app-web"
+    },
+    "updatedAt": "2026-09-16T20:00:00Z",
+    "labels": []
+  },
+  {
+    "url": "https://github.com/acme-exemplo/app-web/pull/43",
+    "title": "Corrige o arredondamento do total",
+    "isDraft": false,
+    "author": {
+      "login": "ana-exemplo"
+    },
+    "number": 43,
+    "repository": {
+      "nameWithOwner": "acme-exemplo/app-web"
+    },
+    "updatedAt": "2026-09-16T23:20:11.564Z",
+    "labels": []
+  },
+  {
+    "url": "https://github.com/acme-exemplo/app-web/pull/44",
+    "title": "Revisa o calculo do frete",
+    "isDraft": false,
+    "author": {
+      "login": "ana-exemplo"
+    },
+    "number": 44,
+    "repository": {
+      "nameWithOwner": "acme-exemplo/app-web"
+    },
+    "updatedAt": "2026-09-16T23:30:13.879Z",
+    "labels": []
+  },
+  {
+    "url": "https://github.com/acme-exemplo/app-web/pull/45",
+    "title": "Ajusta o cabecalho do email",
+    "isDraft": false,
+    "author": {
+      "login": "ana-exemplo"
+    },
+    "number": 45,
+    "repository": {
+      "nameWithOwner": "acme-exemplo/app-web"
+    },
+    "updatedAt": "2026-09-16T23:48:32.817Z",
+    "labels": []
+  },
+  {
+    "url": "https://github.com/acme-exemplo/app-web/pull/46",
+    "title": "Renomeia o campo de status",
+    "isDraft": false,
+    "author": {
+      "login": "bruno-exemplo"
+    },
+    "number": 46,
+    "repository": {
+      "nameWithOwner": "acme-exemplo/app-web"
+    },
+    "updatedAt": "2026-09-16T23:48:32.817Z",
+    "labels": []
+  },
+  {
+    "url": "https://github.com/acme-exemplo/app-web/pull/47",
+    "title": "PR de bancada 47",
+    "isDraft": false,
+    "author": {
+      "login": "ana-exemplo"
+    },
+    "number": 47,
+    "repository": {
+      "nameWithOwner": "acme-exemplo/app-web"
+    },
+    "updatedAt": "2026-09-17T00:11:17.967Z",
+    "labels": []
+  },
+  {
+    "url": "https://github.com/acme-exemplo/app-web/pull/48",
+    "title": "PR de bancada 48",
+    "isDraft": false,
+    "author": {
+      "login": "ana-exemplo"
+    },
+    "number": 48,
+    "repository": {
+      "nameWithOwner": "acme-exemplo/app-web"
+    },
+    "updatedAt": "2026-09-17T00:11:17.968Z",
+    "labels": []
+  }
+]
