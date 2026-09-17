@@ -158,3 +158,48 @@ test('cada guia aprovado existe e o protocolo do workspace continua distribuido'
     assert.ok(pastas.includes('workspace-template'), `${arq} deixou de levar workspace-template (e o CLAUDE.md das sessoes)`);
   }
 });
+
+/* A guarda de árvore suja do empacotador (incidente de 15/08/2026) tinha lista PRÓPRIA de
+   caminhos e envelheceu: medido em 16/09/2026, README.md, os quatro atalhos de instalação e
+   quatro arquivos de tools/ viajavam no zip sem que mudança não commitada neles recusasse o
+   build. A guarda agora consulta o que os laços de cópia registraram em $doPacote, e este
+   teste trava as três peças: cada laço registra o que copia, a guarda não nomeia caminho à
+   mão, e ela roda depois de todas as cópias e antes do zip. */
+const REGISTRO_POR_LACO = { f: '$f', d: '$d', t: '"tools/$t"', doc: '"docs/$doc"' };
+
+function corpoDoLaco(texto, variavel) {
+  const inicio = texto.search(new RegExp(RE_PS[variavel].source));
+  assert.ok(inicio >= 0, `tools/make-package.ps1 sem o laco de $${variavel}`);
+  const abre = texto.indexOf('{', texto.indexOf('))', inicio));
+  let nivel = 0;
+  for (let i = abre; i < texto.length; i++) {
+    if (texto[i] === '{') nivel++;
+    if (texto[i] === '}' && --nivel === 0) return { corpo: texto.slice(abre, i + 1), fim: i };
+  }
+  throw new Error(`laco de $${variavel} sem fechamento`);
+}
+
+const GUARDA = 'git -C $Src status --porcelain -- @doPacote';
+
+test('cada laco de copia do pacote registra o que copia para a guarda de arvore suja', () => {
+  for (const [variavel, registro] of Object.entries(REGISTRO_POR_LACO)) {
+    const { corpo } = corpoDoLaco(pacote, variavel);
+    assert.ok(corpo.includes(`$doPacote += ${registro}`),
+      `o laco de $${variavel} copia sem registrar ${registro} em $doPacote: mudanca nao commitada ali nao recusaria o build`);
+  }
+});
+
+test('a guarda de arvore suja consulta so o que foi copiado, nunca uma lista escrita a mao', () => {
+  // o redirecionamento de stderr (2>$null) fica fora: o que se compara sao os caminhos
+  const consultas = (pacote.match(/status --porcelain[^\r\n]*/g) || []).map((c) => c.replace(/\s+\d?>.*$/, ''));
+  assert.deepEqual(consultas, [GUARDA.slice(GUARDA.indexOf('status'))],
+    'a guarda deve ser uma unica consulta git sobre @doPacote');
+});
+
+test('a guarda de arvore suja roda depois de todas as copias e antes do zip', () => {
+  const guarda = pacote.indexOf(GUARDA);
+  const ultimaCopia = Math.max(...Object.keys(REGISTRO_POR_LACO).map((v) => corpoDoLaco(pacote, v).fim));
+  const zip = pacote.indexOf('[IO.Compression.ZipFile]::Open(');
+  assert.ok(guarda > ultimaCopia, 'a guarda roda antes de alguma copia e deixaria de ver o que ela registra');
+  assert.ok(zip > guarda, 'a guarda roda depois do zip ser gravado');
+});

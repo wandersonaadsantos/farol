@@ -85,9 +85,20 @@ FAROL_CHECKPOINT: {"claim":"<a afirmação em 1 linha>","file":"<arquivo>","line
    aprovação, vira "não sei".
 
 6. **Traduza pro ponto de vista do autor.** O que o agente marcou como `issue (blocking)` é o que
-   **impediria a aprovação** (vai em `blockers`). O que é `suggestion`/`nitpick`/`question` vira
-   **dica de melhoria** (vai em `tips`), priorizada pelo ganho real. A pergunta que o autor precisa
-   responder é: "se eu pedisse review agora, isso passaria? o que eu ajustaria antes?".
+   **impediria a aprovação**. O que é `suggestion`/`nitpick`/`question` vira **dica de melhoria**
+   (vai em `tips`), priorizada pelo ganho real. A pergunta que o autor precisa responder é: "se eu
+   pedisse review agora, isso passaria? o que eu ajustaria antes?".
+
+7. **Separe o bloqueio pelo que o resolve.** Antes de escrever um bloqueio, pergunte: um commit
+   neste PR resolve isso?
+   - **Sim:** vai em `blockers`, que é só o que um commit no PR resolve.
+   - **Não:** vai em `externalBlockers`. É o que trava a aprovação mas mora fora do PR: critério do
+     card que depende de outro card, check obrigatório vermelho por configuração, infra,
+     aprovação ou ação de outra pessoa. Escreva no formato `Quem resolve: o que falta`, por
+     exemplo `Dono do card BT-123: tirar do Cenário 4 o corpus que depende do BT-456`.
+
+   O texto que você devolve vira o prompt que o autor cola no chat que resolve o PR. Bloqueio de
+   fora do PR misturado aos do PR manda esse chat procurar no código o que código não resolve.
 
 ## Saída
 
@@ -103,7 +114,8 @@ neste schema:
   "verdict": "approvable" | "needs_work",
   "approvable": true | false,
   "summary": "1-2 frases em pt-BR: o veredito e o porquê, ancorado no card e no risco",
-  "blockers": ["curto e claro: o que impede a aprovação hoje (lista vazia se não houver)"],
+  "blockers": ["o que impede a aprovação hoje e se resolve com commit no PR (lista vazia se não houver)"],
+  "externalBlockers": ["Quem resolve: o que falta — o que trava a aprovação e mora fora do PR (lista vazia se não houver)"],
   "coverageLimitations": ["caminho/do/arquivo que você abriu mas não conseguiu avaliar"],
   "tips": ["dica de melhoria acionável, ordenada por ganho; cada uma em 1 linha, com o porquê"],
   "reportMarkdown": "relatório completo pro autor, formato abaixo"
@@ -113,12 +125,12 @@ neste schema:
 ### Regras de forma (o app RECUSA o envelope que não cumprir)
 
 - `verdict` é exatamente `"approvable"` ou `"needs_work"`. Nada de português, nada de `"approve"`.
-- `blockers`, `tips` e `coverageLimitations` são **listas de texto**, sempre. Lista vazia quando
+- `blockers`, `externalBlockers`, `tips` e `coverageLimitations` são **listas de texto**, sempre. Lista vazia quando
   não há nada. `null`, ausente, `"nenhum"` ou objeto são recusados: ausência não é o mesmo que
   vazio, e o app não adivinha qual dos dois você quis dizer.
 - `cardMet` é `true`, `false` ou `null`. A string `"true"` e o número `1` são recusados.
-- `approvable` tem que concordar com `verdict`, e `verdict: "approvable"` com `blockers` não-vazio
-  é contradição recusada. Ele é só parecer: não autoriza nada.
+- `approvable` tem que concordar com `verdict`, e `verdict: "approvable"` com `blockers` ou
+  `externalBlockers` não-vazio é contradição recusada. Ele é só parecer: não autoriza nada.
 
 ### Regras de decisão
 
@@ -136,6 +148,20 @@ neste schema:
   bem, e não use o campo pra comentar: é caminho de arquivo, nada mais.
 - `tips` sempre traz o *porquê* em ~1 frase. Sem enrolação, sem repetir o que o diff já mostra.
 
+### Regras de clareza (o texto vira instrução pra outra sessão)
+
+- **Diga o comportamento esperado, não só a ação.** Quando o ponto é sobre comportamento, escreva
+  o que deve acontecer e o que acontece hoje: `` `O relatório me diz que…` deve reprovar por
+  `sem-proximo-passo`; hoje passa``. "Crie um teste que registre esse limite", sozinho, admite
+  duas leituras opostas (congelar o erro ou corrigir), e quem recebe escolhe no escuro.
+- **Marque o que só vale no commit analisado.** Rodar job de novo, esperar check, reler log de
+  uma execução: o item começa com `Neste head (<sha7>):`, usando os 7 primeiros caracteres do
+  `headRefOid`. Depois de um commit novo, esse item perde o sentido, e quem recebe precisa saber.
+- **Nunca sugira contornar proteção** como caminho para destravar: bypass de admin, merge com
+  `--admin`, `--no-verify`, dispensar check obrigatório, desligar regra. Se a única saída que
+  você enxerga é essa, o bloqueio é de fora do PR: descreva o que falta e quem resolve em
+  `externalBlockers`.
+
 ### Formato do `reportMarkdown` (voz de segunda pessoa, falando com o autor)
 
 ````markdown
@@ -151,9 +177,13 @@ neste schema:
 | **Escopo** | ✅ só o previsto · ⚠️ extra justificado · ❌ fora de escopo |
 | **Regressão** | ✅ sem risco · ⚠️ revisar · ❌ provável |
 | **CI** | ✅ verde · ❌ vermelho · ⏳ em andamento · — sem checks |
+| **Head analisado** | `<sha7>` |
 
-**Antes de pedir review** (só quando houver blocker)
+**Antes de pedir review** (só quando houver blocker no PR)
 - 🔴 <o que ajustar e por quê> · [`arquivo:linha`](URL-blob-headSha)
+
+**Fora do PR** (só quando houver; não se resolve com commit)
+- 🟠 <quem resolve>: <o que falta>
 
 **Dá pra melhorar** (não bloqueia)
 - 🟡 <dica acionável, com o princípio em 1 frase> · [`arquivo:linha`](URL)

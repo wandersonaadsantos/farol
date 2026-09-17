@@ -159,3 +159,32 @@ test('a lista do aviso é cortada, pra o toast não virar parede', () => {
   assert.match(t, /e mais 2/);
   assert.equal(textoDosChecks('o/r#1', []), '');
 });
+
+/* ---------- veredito de review não é sinal de pipe (16/09/2026) ---------- */
+// Medido no engine-ai#203: `acrity/review` é check OBRIGATÓRIO na `development` e fica
+// vermelho enquanto o bot não aprovar. Esperar por ele fecha um laço: o PR nunca é
+// revisado porque falta a revisão que o próprio Farol faria.
+
+test('veredito de review vermelho não segura, mesmo sendo obrigatório', () => {
+  const rollup = [run('lint', 'SUCCESS'), run('acrity/review', 'FAILURE')];
+  const r = checksExigidosVerdes(rollup, ['lint', 'acrity/review']);
+  assert.equal(r.pronto, true, 'o Farol tem que poder revisar um PR que o bot reprovou');
+  assert.deepEqual(r.faltando, []);
+});
+
+test('veredito de review ausente ou rodando também não segura', () => {
+  const rodando = [run('outro/review', null, { status: 'IN_PROGRESS', conclusion: null })];
+  assert.equal(checksExigidosVerdes(rodando, ['outro/review']).pronto, true);
+  assert.equal(checksExigidosVerdes([run('lint', 'SUCCESS')], ['lint', 'bot/review']).pronto, true);
+});
+
+test('job do Actions com barra continua segurando: a barra dele tem espaços', () => {
+  const r = checksExigidosVerdes([run('build / build', 'FAILURE')], ['build / build']);
+  assert.equal(r.pronto, false);
+  assert.deepEqual(r.faltando, [{ nome: 'build / build', estado: 'vermelho' }]);
+});
+
+test('check de pipe cujo nome termina em review sem namespace continua segurando', () => {
+  const r = checksExigidosVerdes([run('review', 'FAILURE')], ['review']);
+  assert.equal(r.pronto, false, 'sem namespace não é status de app de review');
+});

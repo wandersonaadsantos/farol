@@ -1749,7 +1749,7 @@ test('buildFixPrompt: PR com achados inclui url, título, card, resumo, bloqueio
   assert.match(p, /Título: Corrige X/);
   assert.match(p, /Card: card de exemplo/);
   assert.match(p, /Resumo da revisão: PR ok, mas com pendências\./);
-  assert.match(p, /Pendências que travam a aprovação \(prioridade\):\n- falta teste do caminho de erro/);
+  assert.match(p, /Pendências no PR que travam a aprovação \(prioridade\):\n- falta teste do caminho de erro/);
   assert.match(p, /Melhorias sugeridas:\n- extrair função duplicada/);
 });
 
@@ -1757,8 +1757,48 @@ test('buildFixPrompt: sem bloqueios muda a abertura pra "aplique as melhorias" e
   const p = P.buildFixPrompt({ key: 'o/r#2', blockers: [], tips: ['ajustar nome de variável'] });
   assert.match(p, /aplique as melhorias sugeridas na revisão do PR o\/r#2/);
   assert.doesNotMatch(p, /^PR: /m);
-  assert.doesNotMatch(p, /Pendências que travam/);
+  assert.doesNotMatch(p, /Pendências/);
   assert.match(p, /Melhorias sugeridas:\n- ajustar nome de variável/);
+});
+
+/* ---------- buildFixPrompt: o que é do PR e o que é de fora (17/09/2026) ----------
+   Medido no engine-ai#214: o check obrigatório do Acrity estava vermelho por critério do
+   card, e o prompt mandava "implemente as correções no código" com esse item no topo da
+   lista. Quem recebeu foi procurar no código o que só o dono do card resolve. */
+
+test('buildFixPrompt: pendência de fora do PR sai em seção própria, com quem resolve', () => {
+  const p = P.buildFixPrompt({
+    key: 'o/r#3', headSha: 'abcdef1234567890',
+    blockers: ['falta teste do caminho de erro'],
+    externalBlockers: ['Dono do card: tirar o corpus de HMG do Cenário 4'],
+    tips: []
+  });
+  assert.match(p, /Pendências no PR que travam a aprovação \(prioridade\):\n- falta teste do caminho de erro/);
+  assert.match(p, /Pendências fora do PR[^\n]*:\n- Dono do card: tirar o corpus de HMG do Cenário 4/);
+  assert.match(p, /não se resolvem com commit/);
+});
+
+test('buildFixPrompt: só pendência de fora do PR não manda corrigir código', () => {
+  const p = P.buildFixPrompt({
+    key: 'o/r#4', blockers: [], tips: [],
+    externalBlockers: ['Dono do card: ajustar o critério']
+  });
+  assert.doesNotMatch(p, /corrija os pontos/);
+  assert.doesNotMatch(p, /Implemente/);
+  assert.match(p, /o que trava a aprovação está fora do PR/);
+});
+
+test('buildFixPrompt: nunca oferece contornar proteção como saída', () => {
+  const p = P.buildFixPrompt({ key: 'o/r#5', blockers: ['x'], externalBlockers: ['y'], tips: ['z'] });
+  assert.match(p, /nunca com bypass/i);
+});
+
+test('buildFixPrompt: ancora no head analisado para o que só vale nele', () => {
+  const p = P.buildFixPrompt({ key: 'o/r#6', headSha: 'abcdef1234567890', blockers: [], tips: ['Neste head (abcdef1): rode o sonar de novo'] });
+  assert.match(p, /Head analisado: abcdef1\b/);
+  assert.match(p, /"Neste head" só valem se o PR ainda estiver em abcdef1/);
+  const semHead = P.buildFixPrompt({ key: 'o/r#7', blockers: [], tips: ['x'] });
+  assert.doesNotMatch(semHead, /Head analisado/);
 });
 
 /* ---------- resolvedRow: por que o PR veio pra mim (16/08/2026) ----------
@@ -2807,7 +2847,7 @@ test('qualityBlockTitle lidera com a frase principal e lista os detalhes', () =>
 });
 
 test('os códigos do P0b também têm frase; nenhum vaza cru na tela', () => {
-  const codigos = ['EVIDENCE_STALE', 'COVERAGE_LIMITS_MALFORMED', 'BLOCKERS_UNKNOWN'];
+  const codigos = ['EVIDENCE_STALE', 'COVERAGE_LIMITS_MALFORMED', 'BLOCKERS_UNKNOWN', 'EXTERNAL_BLOCKER_PRESENT'];
   for (const code of codigos) {
     const frase = P.qualityReasonLabel(code);
     assert.notEqual(frase, 'Requisito de qualidade não atendido', `${code} precisa de frase própria`);

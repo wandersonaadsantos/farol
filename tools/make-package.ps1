@@ -13,31 +13,18 @@ $staging = Join-Path $env:TEMP "farol-pkg-$([guid]::NewGuid().ToString('N').Subs
 Write-Host ''
 Write-Host "  Farol · empacotador v$version" -ForegroundColor Yellow
 
-# --- guarda de arvore suja (incidente de 15/08/2026) --------------------------
-# O pacote e construido dos ARQUIVOS EM DISCO, nao do commit. Duas sessoes
-# paralelas no mesmo repo fizeram um release empacotar codigo nao commitado de
-# outra sessao (a v2.42.2 saiu contaminada e precisou de republicacao). Arvore
-# suja nos arquivos empacotados agora RECUSA o build; o caminho certo e uma
-# worktree limpa no commit da release. FAROL_ALLOW_DIRTY=1 e a escotilha
-# consciente (dev local, teste), nunca o fluxo de publicacao.
-if ($env:FAROL_ALLOW_DIRTY -ne '1') {
-  $dirty = git -C $Src status --porcelain -- main.js server.js package.json CLAUDE.md lib ui assets workspace-template installer tools/jira-mcp.js tools/farol-parear.js docs/CONFIGURATION.md docs/REVIEW-GATES.md docs/MACOS.md docs/RELEASE.md 2>$null
-  if ($LASTEXITCODE -eq 0 -and $dirty) {
-    Write-Host '  ERRO: arvore com mudancas nao commitadas nos arquivos do pacote:' -ForegroundColor Red
-    $dirty | ForEach-Object { Write-Host "    $_" -ForegroundColor Red }
-    throw 'arvore suja: o pacote sairia diferente do commit. Commite, ou construa de uma worktree limpa (FAROL_ALLOW_DIRTY=1 so pra teste local).'
-  }
-}
-
 # --- whitelist: o que viaja no pacote -----------------------------------------
+$doPacote = @()
 New-Item -ItemType Directory -Force -Path $staging | Out-Null
 foreach ($f in @('main.js', 'server.js', 'package.json', 'README.md', 'CLAUDE.md',
     'Instalar.cmd', 'Desinstalar.cmd', 'Instalar.command', 'Desinstalar.command')) {
   Copy-Item (Join-Path $Src $f) (Join-Path $staging $f)
+  $doPacote += $f
 }
 foreach ($d in @('lib', 'ui', 'assets', 'workspace-template', 'installer')) {
   robocopy (Join-Path $Src $d) (Join-Path $staging $d) /E /NFL /NDL /NJH /NJS /NP | Out-Null
   if ($LASTEXITCODE -ge 8) { throw "robocopy falhou em $d" }
+  $doPacote += $d
 }
 # jira-mcp.js e codigo de RUNTIME (a sessao de revisao sobe ele como servidor MCP,
 # ver lib/engine/jira.js): sem ele no pacote, toda copia instalada mostra
@@ -48,12 +35,34 @@ foreach ($d in @('lib', 'ui', 'assets', 'workspace-template', 'installer')) {
 New-Item -ItemType Directory -Force -Path (Join-Path $staging 'tools') | Out-Null
 foreach ($t in @('jira-mcp.js', 'farol-parear.js', 'make-icons.ps1', 'pack-ico.js', 'make-package.ps1', 'make-icns.sh')) {
   Copy-Item (Join-Path (Join-Path $Src 'tools') $t) (Join-Path (Join-Path $staging 'tools') $t)
+  $doPacote += "tools/$t"
 }
 # Guias distribuídos: allowlist explícita (decisão de 15/09/2026). Só estes quatro de docs/
 # viajam; docs/superpowers, docs/evidencias, planos e specs ficam no repositório.
 New-Item -ItemType Directory -Force -Path (Join-Path $staging 'docs') | Out-Null
 foreach ($doc in @('CONFIGURATION.md', 'REVIEW-GATES.md', 'MACOS.md', 'RELEASE.md')) {
   Copy-Item (Join-Path (Join-Path $Src 'docs') $doc) (Join-Path (Join-Path $staging 'docs') $doc)
+  $doPacote += "docs/$doc"
+}
+
+# --- guarda de arvore suja (incidente de 15/08/2026) --------------------------
+# O pacote e construido dos ARQUIVOS EM DISCO, nao do commit. Duas sessoes
+# paralelas no mesmo repo fizeram um release empacotar codigo nao commitado de
+# outra sessao (a v2.42.2 saiu contaminada e precisou de republicacao). Arvore
+# suja nos arquivos empacotados agora RECUSA o build; o caminho certo e uma
+# worktree limpa no commit da release. FAROL_ALLOW_DIRTY=1 e a escotilha
+# consciente (dev local, teste), nunca o fluxo de publicacao.
+# A guarda consulta $doPacote, que cada laco de copia acima preenche: uma lista
+# propria aqui envelheceu e deixou README.md, os atalhos de instalacao e parte de
+# tools/ fora da guarda (medido em 16/09/2026, travado em test/distribuicao-listas.test.js).
+if ($env:FAROL_ALLOW_DIRTY -ne '1') {
+  $dirty = git -C $Src status --porcelain -- @doPacote 2>$null
+  if ($LASTEXITCODE -eq 0 -and $dirty) {
+    Remove-Item $staging -Recurse -Force
+    Write-Host '  ERRO: arvore com mudancas nao commitadas nos arquivos do pacote:' -ForegroundColor Red
+    $dirty | ForEach-Object { Write-Host "    $_" -ForegroundColor Red }
+    throw 'arvore suja: o pacote sairia diferente do commit. Commite, ou construa de uma worktree limpa (FAROL_ALLOW_DIRTY=1 so pra teste local).'
+  }
 }
 
 # --- zip ------------------------------------------------------------------------

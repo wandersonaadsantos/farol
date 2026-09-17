@@ -9,6 +9,63 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.59.8
+
+A autoanálise passa a separar o que se resolve no PR do que trava a aprovação por fora dele, e o
+prompt de correção deixa de mandar corrigir no código o que o código não corrige.
+
+**Melhorias**
+
+- **Bloqueio de fora do PR tem lugar próprio.** Quando o que trava a aprovação mora fora do PR
+  (um critério do card que depende de outro card, um check obrigatório vermelho por
+  configuração, uma ação de outra pessoa), a autoanálise agora lista isso em **Fora do PR**,
+  dizendo quem resolve e o que falta. Antes tudo ia na mesma lista de "Antes de pedir review",
+  e quem recebia o prompt de correção ia procurar no código o que só o dono do card resolvia.
+  O bloqueio de fora do PR continua segurando o Merge.
+- **O prompt de correção separa os três pedidos.** O texto do botão **Copiar prompt de
+  correção** traz as pendências do PR, as de fora do PR e as melhorias em seções diferentes,
+  informa o commit analisado e fecha dizendo o que fazer com cada uma. Quando só há pendência
+  de fora do PR, ele não pede mais para implementar nada no código.
+- **Sugestão diz o que é certo, e não só a ação.** Quando o ponto é sobre comportamento, a
+  análise passa a escrever o que deve acontecer e o que acontece hoje. Um pedido como "crie um
+  teste que registre esse limite" admitia duas leituras opostas.
+- **Item que só vale no commit analisado vem marcado.** Rodar um job de novo ou esperar um
+  check passa a aparecer como "Neste head (abc1234): …", e o relatório mostra o commit
+  analisado. Depois de um commit novo, fica claro que o item perdeu o sentido.
+- **Contornar proteção deixou de aparecer como saída.** A análise não sugere mais bypass de
+  admin, `--no-verify` ou dispensar check obrigatório para destravar um PR. Se essa parece a
+  única saída, o ponto vai para **Fora do PR**, com quem resolve.
+
+## v2.59.7
+
+Correção na trava que impede uma release de sair com código que não estava no commit. Nada
+muda no uso do app.
+
+**Correções**
+
+- **A trava do empacotador conferia só parte do que vai no pacote.** Antes de montar o pacote
+  de atualização, o Farol confere se os arquivos que vão nele estão exatamente como no commit
+  da release. É isso que impede que uma mudança local, de outra sessão de trabalho, seja
+  publicada sem querer, como aconteceu na v2.42.2. A conferência usava uma lista própria de
+  arquivos, e essa lista ficou para trás: o README, os atalhos de instalação e desinstalação
+  do Windows e do macOS e quatro ferramentas de build iam para o pacote sem ser conferidos.
+  Agora a conferência usa a mesma lista que monta o pacote, então tudo o que vai nele é
+  conferido, inclusive o que for acrescentado depois. Um teste automático impede que as duas
+  listas voltem a se separar.
+
+## v2.59.6
+
+Correção de um caso em que a revisão automática nunca começava.
+
+**Correções**
+
+- O Farol espera os checks obrigatórios ficarem verdes antes de revisar sozinho, para não
+  gastar uma sessão num PR que ainda vai mudar. Só que, em repositório onde um bot de review
+  é check obrigatório, isso virava um laço: o check só fica verde quando alguém revisa, e o
+  Farol não revisava porque o check estava vermelho. Agora veredito de bot de review não conta
+  nessa espera, e o Farol revisa mesmo quando o bot reprovou, inclusive para discordar dele.
+  Check de esteira continua segurando como antes.
+
 ## v2.59.5
 
 Correção de um aviso que aparecia diferente em dois lugares, e a maior manutenção interna

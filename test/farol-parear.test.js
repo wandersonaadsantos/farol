@@ -75,7 +75,10 @@ test('farol-parear.js viaja no pacote leve, no Setup.exe e no offline do macOS',
   const setup = fs.readFileSync(path.join(RAIZ, 'tools', 'make-installer.ps1'), 'utf8');
   const offline = fs.readFileSync(path.join(RAIZ, 'tools', 'make-offline-mac.sh'), 'utf8');
   assert.match(pacote, /foreach \(\$t in @\([^)]*'farol-parear\.js'/, 'whitelist do pacote leve');
-  assert.match(pacote, /tools\/farol-parear\.js/, 'o pacote recusa árvore suja também neste arquivo');
+  // a guarda de árvore suja passou a ler a MESMA lista que o empacotador copia (main,
+  // 1e260c6): o arquivo está nela porque o laço de tools/ o acrescenta
+  assert.match(pacote, /\$doPacote \+= "tools\/\$t"/, 'o laço de tools/ alimenta a lista da guarda');
+  assert.match(pacote, /status --porcelain -- @doPacote/, 'o pacote recusa árvore suja também neste arquivo');
   assert.match(setup, /foreach \(\$t in @\([^)]*'farol-parear\.js'/, 'whitelist do Setup.exe');
   assert.match(offline, /for t in [^;\n]*\bfarol-parear\.js\b/, 'whitelist do offline do macOS');
 });
