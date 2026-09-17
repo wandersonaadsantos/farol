@@ -265,7 +265,15 @@ test('decidir: pendência deste aparelho vai pelo caminho de sempre', async () =
   assert.equal(recibo(cmdId).estado, 'aplicado');
 });
 
-test('iniciar aqui: passa pela admissão e volta pelo ramo local', async () => {
+// A admissão recusa abaixo do piso de memória, e a máquina do teste decide sem isto: no
+// macOS do CI a memória livre medida fica abaixo do piso (medido no PR da v2.60.0).
+async function comMemoriaLivre(fn) {
+  const { fixarMemoriaLivre, restaurarMemoriaLivre } = await import('./helpers/memoria-livre.js');
+  fixarMemoriaLivre();
+  try { await fn(); } finally { restaurarMemoriaLivre(); }
+}
+
+test('iniciar aqui: passa pela admissão e volta pelo ramo local', () => comMemoriaLivre(async () => {
   const e = await motor();
   const item = `${prTag(kId(e), PR.key)}_${matTag(kId(e), PR.headSha)}`;
   e.sync.candidatos = new Map([[item, { pr: PR }]]);
@@ -276,9 +284,9 @@ test('iniciar aqui: passa pela admissão e volta pelo ramo local', async () => {
   // o item vai com a identidade dele: quem executa fecha o item no conjunto ao terminar
   assert.deepEqual(vindos, [[PR.key, true, true, item]], 'reserva vaga e entra pelo ramo local, sem virar manual');
   assert.equal(recibo(cmdId).estado, 'aplicado');
-});
+}));
 
-test('tomar aqui: o item vai com o pedido de tomada e com a identidade dele', async () => {
+test('tomar aqui: o item vai com o pedido de tomada e com a identidade dele', () => comMemoriaLivre(async () => {
   const e = await motor();
   const item = `${prTag(kId(e), PR.key)}_${matTag(kId(e), PR.headSha)}`;
   e.queue = [PR];
@@ -288,7 +296,7 @@ test('tomar aqui: o item vai com o pedido de tomada e com a identidade dele', as
   await comandos.cicloDosComandos(e, e.config.sync);
   assert.deepEqual(vindos, [[PR.key, true, true, item]]);
   assert.equal(recibo(cmdId).estado, 'aplicado');
-});
+}));
 
 // O head guardado no candidato é o da publicação: comparar a tag com ele não confere
 // nada. O executor pergunta o head de agora, e commit novo recusa.
