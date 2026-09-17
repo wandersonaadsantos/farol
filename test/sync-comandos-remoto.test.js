@@ -270,10 +270,23 @@ test('iniciar aqui: passa pela admissão e volta pelo ramo local', async () => {
   const item = `${prTag(kId(e), PR.key)}_${matTag(kId(e), PR.headSha)}`;
   e.sync.candidatos = new Map([[item, { pr: PR }]]);
   const vindos = [];
-  e.enfileirarDaDistribuicao = (pr, admissaoId) => vindos.push([pr.key, !!admissaoId, pr.viaComando]);
+  e.enfileirarDaDistribuicao = (pr, admissaoId) => vindos.push([pr.key, !!admissaoId, pr.viaComando, pr.itemIdDistribuido]);
   const cmdId = await emitirPara(e, e.sync.deviceId, 'iniciar', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha) });
   await comandos.cicloDosComandos(e, e.config.sync);
-  assert.deepEqual(vindos, [[PR.key, true, true]], 'reserva vaga e entra pelo ramo local, sem virar manual');
+  // o item vai com a identidade dele: quem executa fecha o item no conjunto ao terminar
+  assert.deepEqual(vindos, [[PR.key, true, true, item]], 'reserva vaga e entra pelo ramo local, sem virar manual');
+  assert.equal(recibo(cmdId).estado, 'aplicado');
+});
+
+test('tomar aqui: o item vai com o pedido de tomada e com a identidade dele', async () => {
+  const e = await motor();
+  const item = `${prTag(kId(e), PR.key)}_${matTag(kId(e), PR.headSha)}`;
+  e.queue = [PR];
+  const vindos = [];
+  e.enfileirarDaDistribuicao = (pr, admissaoId) => vindos.push([pr.key, !!admissaoId, pr.tomarLease, pr.itemIdDistribuido]);
+  const cmdId = await emitirPara(e, e.sync.deviceId, 'tomar', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha), confirmado: true });
+  await comandos.cicloDosComandos(e, e.config.sync);
+  assert.deepEqual(vindos, [[PR.key, true, true, item]]);
   assert.equal(recibo(cmdId).estado, 'aplicado');
 });
 

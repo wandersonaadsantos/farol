@@ -24,6 +24,7 @@ const { Engine } = await import('../server.js');
 const syncMod = (await import('../lib/engine/sync.js')).default;
 const publicacao = await import('../lib/engine/sync-publicacao.js');
 const dist = await import('../lib/engine/sync-distribuicao.js');
+const fechamento = (await import('../lib/engine/sync-fechamento.js')).default;
 const admissao = (await import('../lib/engine/admissao.js')).default;
 const prontidao = (await import('../lib/sync/prontidao.js')).default;
 
@@ -718,6 +719,122 @@ test('o giro da distribuição adota antes de responder às atribuições', asyn
   e.headSha = async () => 'sha56';
   await dist.cicloDaDistribuicao(e, e.config.sync, { agora: T + 1000 });
   assert.ok(e.sync.candidatos.get(itemId));
+});
+
+// Passo 9 do anexo S3, FECHAR E LIMPAR, que não existia: medido na bancada com engines
+// reais (17/09/2026), o item continuava vivo em `live/queue` depois que a sessão terminava,
+// o agendador atribuía de novo quando a atribuição vencia, e o MESMO head rodava outra vez.
+test('quem executou fecha o item: registros dos publicadores e atribuição saem do banco', async () => {
+  const e = motorFila(await motorDistribuidor());
+  const r = await dist.publicarCandidato(e, e.config.sync, prDe(61), { agora: T });
+  candidatoDeOutro(e, r.itemId);
+  await dist.publicarCandidato(e, e.config.sync, prDe(61), { agora: T });
+  await publicacao.publicarCapacidade(e, e.config.sync);
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+  assert.ok(no('live/assign')[r.itemId]);
+  const fechado = await fechamento.fecharItem(e, r.itemId);
+  assert.equal(fechado.ok, true);
+  assert.equal(no('live/queue')[r.itemId], undefined, 'nenhum publicador sobra');
+  assert.equal(no('live/assign')[r.itemId], undefined, 'a atribuição sai junto');
+  assert.equal(e.sync.candidatos.has(r.itemId), false);
+});
+
+function motorQueExecuta(e, revisao) {
+  Object.assign(e, {
+    freeHeadlessSlot: (acct, item) => reviewMod.freeHeadlessSlot(e, acct, item),
+    prState: async () => 'OPEN', runHeadlessReview: revisao, unsee: () => { }, queue: [],
+    budgetBlockedFor: () => null, grupoSegura: () => '', retryAfterNet: new Map(), emit: () => { },
+  });
+  return e;
+}
+
+async function esperarAte(teste) {
+  for (let i = 0; i < 40 && !teste(); i += 1) await new Promise((resolve) => setTimeout(resolve, 25));
+}
+
+test('o fim da revisão distribuída fecha o item, mesmo sem concluir', async () => {
+  const e = motorQueExecuta(motorFila(await motorDistribuidor()), async () => { throw new Error('revisão não concluída'); });
+  const r = await dist.publicarCandidato(e, e.config.sync, prDe(62), { agora: T });
+  await reviewMod.runOneHeadless(e, { ...prDe(62), viaDistribuicao: true, itemIdDistribuido: r.itemId }, LOGIN);
+  await esperarAte(() => !no('live/queue')[r.itemId]);
+  assert.equal(no('live/queue')[r.itemId], undefined, 'o mesmo head não fica para outra rodada');
+});
+
+test('a revisão local, fora da distribuição, não mexe no conjunto', async () => {
+  const e = motorQueExecuta(motorFila(await motorDistribuidor()), async () => { });
+  const r = await dist.publicarCandidato(e, e.config.sync, prDe(63), { agora: T });
+  await reviewMod.runOneHeadless(e, prDe(63), LOGIN);
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.ok(no('live/queue')[r.itemId], 'o candidato de outro caminho continua lá');
+});
+
+test('o aceite leva a identidade do item até quem executa', async () => {
+  const e = motorFila(await motorDistribuidor());
+  e.enfileirarDaDistribuicao = (pr, id) => reviewMod.enfileirarDaDistribuicao(e, pr, id);
+  const r = await dist.publicarCandidato(e, e.config.sync, prDe(64), { agora: T });
+  await publicacao.publicarCapacidade(e, e.config.sync);
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+  await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T });
+  assert.equal(e.headlessQueue[0].itemIdDistribuido, r.itemId);
+});
+
+test('quem publicou esquece o item que saiu do conjunto e deixa de esperar por ele', async () => {
+  const e = motorFila(await motorDistribuidor());
+  const pr = prDe(65);
+  e.headlessDistribuindo = new Map([[pr.key, { pr, desde: T }]]);
+  const r = await dist.publicarCandidato(e, e.config.sync, pr, { agora: T });
+  const esquecidos = fechamento.esquecerConcluidos(e, {}, { lidoEm: T + 1000 });
+  assert.deepEqual(esquecidos, [r.itemId]);
+  assert.equal(e.sync.candidatos.has(r.itemId), false);
+  assert.equal(e.headlessDistribuindo.has(pr.key), false, 'o PR volta a ser da coleta local');
+});
+
+test('publicação mais nova que a leitura não é esquecida', async () => {
+  const e = motorFila(await motorDistribuidor());
+  const r = await dist.publicarCandidato(e, e.config.sync, prDe(66), { agora: T + 5000 });
+  assert.deepEqual(fechamento.esquecerConcluidos(e, {}, { lidoEm: T }), []);
+  assert.ok(e.sync.candidatos.has(r.itemId));
+});
+
+test('item ainda no conjunto não é esquecido', async () => {
+  const e = motorFila(await motorDistribuidor());
+  const r = await dist.publicarCandidato(e, e.config.sync, prDe(67), { agora: T });
+  assert.deepEqual(fechamento.esquecerConcluidos(e, no('live/queue'), { lidoEm: T + 1000 }), []);
+  assert.ok(e.sync.candidatos.has(r.itemId));
+});
+
+test('o giro esquece o item fechado em outro aparelho', async () => {
+  const e = motorFila(await motorDistribuidor());
+  const pr = prDe(70);
+  e.headlessDistribuindo = new Map([[pr.key, { pr, desde: T }]]);
+  const r = await dist.publicarCandidato(e, e.config.sync, pr, { agora: T - 1000 });
+  const arvore = fake.tree();
+  delete arvore.users.u1.live.queue[r.itemId];
+  fake.setTree(arvore);
+  await dist.cicloDaDistribuicao(e, e.config.sync, { agora: T });
+  assert.equal(e.headlessDistribuindo.has(pr.key), false);
+});
+
+test('o agendador faz a faxina: registro vencido sai, e a atribuição de item sem publicador também', async () => {
+  const e = motorFila(await motorDistribuidor());
+  const r = await dist.publicarCandidato(e, e.config.sync, prDe(68), { agora: T });
+  await publicacao.publicarCapacidade(e, e.config.sync);
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+  assert.ok(no('live/assign')[r.itemId]);
+  const depois = T + SYNC.CANDIDATO_TTL_MS + 1;
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: depois });
+  assert.equal(no('live/queue')[r.itemId], undefined, 'o registro vencido foi apagado');
+  assert.equal(no('live/assign')[r.itemId], undefined, 'a atribuição do item sem publicador vivo foi apagada');
+});
+
+test('a faxina não apaga registro vivo nem a atribuição de item vivo', async () => {
+  const e = motorFila(await motorDistribuidor());
+  const r = await dist.publicarCandidato(e, e.config.sync, prDe(69), { agora: T });
+  await publicacao.publicarCapacidade(e, e.config.sync);
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T + 1000 });
+  assert.ok(no('live/queue')[r.itemId]);
+  assert.ok(no('live/assign')[r.itemId]);
 });
 
 test('ciclo que não foi saudável não renova a prontidão', async () => {
