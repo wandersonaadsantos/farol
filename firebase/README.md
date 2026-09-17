@@ -109,13 +109,88 @@ manual, feita uma vez por mudança relevante nas regras ou no protocolo.
 
 Pré-requisitos, instalados na sua máquina e fora do repositório: o `firebase-tools`
 (`npm install -g firebase-tools`) e o Java na versão que ele pedir ao subir os emuladores.
+O contêiner de `tools/emuladores/` traz os dois e evita instalar qualquer coisa na
+máquina; veja "Roteiro automático", logo abaixo.
+
+### O espaço de nomes: onde as regras VALEM no emulador
+
+**O emulador do banco serve DOIS bancos, e só um deles tem regra.** Ele carrega o
+`database.rules.json` no espaço de nomes `<projeto>-default-rtdb` e serve `<projeto>`
+como um banco **sem regra nenhuma**. Medido em 16/09/2026 (emulador do banco 4.11.2,
+firebase-tools 15.30.1), com `--project demo-farol`:
+
+| requisição | `ns=demo-farol` | `ns=demo-farol-default-rtdb` |
+|---|---|---|
+| `PUT users/qualquer/devices/x.json`, **sem token nenhum** | **200** | **401** |
+| `GET /.settings/rules.json` com token de dono | as regras carregadas | as regras carregadas |
+
+Quer dizer: um roteiro apontado para `ns=<projeto>` passa inteiro, verde, **sem medir
+uma única regra**. Foi o que este arquivo mandava fazer até aqui (`ns=farol-local`), e é
+o modo de falha mais caro que existe num roteiro de segurança: ele não falha, ele
+aprova. Toda requisição das seções abaixo usa `ns=<projeto>-default-rtdb`, e o executor
+automático deriva esse nome sozinho (trava em `test/emulador-espaco-de-nomes.test.js`).
+
+A mesma conta vale para o **Farol** apontado ao emulador: `lib/sync/rtdb.js` monta
+`?ns=` a partir do **ID do projeto** configurado na tela, então o campo "ID do projeto"
+precisa receber `<projeto>-default-rtdb` quando a URL do banco é a do emulador. Com o id
+cru, o Farol fala com o banco aberto e a validação de ponta a ponta não prova nada.
+
+### Roteiro automático (`tools/emuladores/regras-v2.js`)
+
+A Parte 1 e os itens 1 a 42 das seções "Validação manual das regras v2" **passaram a ser
+automáticos**. O roteiro escrito continua abaixo, e continua sendo a fonte do que cada
+item prova; o executor é quem o roda.
+
+1. Suba os emuladores num contêiner isolado, a partir da raiz do repositório (a imagem
+   é construída com `docker build -t farol-emuladores:15.30.1 tools/emuladores`):
+
+   ```
+   docker run -d --name farol-emuladores-regras \
+     -p 127.0.0.1:9010:9000 -p 127.0.0.1:9109:9099 \
+     -v "$PWD":/farol:ro -w /home/node farol-emuladores:15.30.1 \
+     sh -c 'mkdir -p /home/node/emu \
+       && cp /farol/tools/emuladores/firebase.json /home/node/emu/firebase.json \
+       && cp /farol/firebase/database.rules.json /home/node/emu/database.rules.json \
+       && cd /home/node/emu \
+       && firebase emulators:start --only database,auth --project demo-farol'
+   ```
+
+2. Rode o executor:
+
+   ```
+   node tools/emuladores/regras-v2.js --banco=http://127.0.0.1:9010 \
+     --auth=http://127.0.0.1:9109 --projeto=demo-farol
+   ```
+
+3. Encerre o contêiner: `docker rm -f farol-emuladores-regras`.
+
+O que cada saída significa:
+
+| linha | o que quer dizer |
+|---|---|
+| `regras carregadas no emulador conferem com firebase/database.rules.json` | o emulador está rodando as regras DESTE commit; sem esta linha o executor aborta, e nada abaixo dela seria prova |
+| `relógio do emulador: N ms de diferença` | `now` das regras é o relógio do servidor; acima de 30 s o executor aborta em vez de reprovar caso por tempo |
+| `ok    item N  <o que prova>` | aquele caso respondeu o código HTTP que o roteiro exige |
+| `FALHOU item N  ... (esperava X, veio Y)` | o servidor respondeu outra coisa; o processo termina com código 1 |
+| `LIMITE: ...` | caso que mede um furo DECLARADO do roteiro, de propósito: o esperado ali é o comportamento permissivo, e mudá-lo reprova |
+| `.. aguardando N s para o auth_time do login antigo vencer` | a espera dos seis minutos dos itens 1, 11, 14 e 17 é REAL; quando o resto da bateria já a consumiu, não sobra espera |
+
+O projeto tem que começar com `demo-` (o `firebase-tools` trata `demo-*` como projeto
+sem nuvem: nenhuma chamada sai para o Google). O executor **não sobe emulador nenhum** e
+falha dizendo o que falta quando as URLs não respondem. O token de dono do emulador, que
+ignora as regras, só aparece nas funções de PREPARAÇÃO; todo caso que prova permissão
+usa token de usuário.
+
+**O que o executor NÃO substitui:** a Parte 2 (dois Farols no mesmo usuário) continua
+manual, e a confirmação do `auth_time` **no projeto real** continua pendente, pelo motivo
+que o item 1 já dizia.
 
 ### Parte 1: as regras no emulador
 
 1. A partir desta pasta, suba os emuladores do banco e do Auth:
 
    ```
-   firebase emulators:start --only database,auth --project farol-local
+   firebase emulators:start --only database,auth --project demo-farol
    ```
 
 2. Crie o usuário de teste no emulador de Auth (qualquer chave serve no emulador):
@@ -128,8 +203,9 @@ Pré-requisitos, instalados na sua máquina e fora do repositório: o `firebase-
 
    Guarde o `idToken` e o `localId` (o uid) da resposta.
 
-3. Confira as regras com o banco do emulador (`ns=farol-local` escolhe o banco do
-   projeto local):
+3. Confira as regras com o banco do emulador. O `ns` tem que ser
+   `demo-farol-default-rtdb`: ver "O espaço de nomes", acima, sobre por que
+   `ns=demo-farol` aprova tudo sem medir nada.
    - escrita em `users/<uid>/devices/x` com `?auth=<idToken>` é aceita;
    - a mesma escrita em `users/<outro-uid>/devices/x` é recusada;
    - um lease com `expiresAt` acima de agora mais 300000 ms é recusado;
@@ -164,13 +240,19 @@ Pré-requisitos, instalados na sua máquina e fora do repositório: o `firebase-
    Nos dois casos o limite é o mesmo: as regras defendem a fronteira entre PESSOAS, e
    entre os aparelhos de uma mesma pessoa quem coordena é o cliente.
 
-   Estes três casos não têm teste automatizado: nenhuma suíte do repositório executa
-   as regras do banco. Rode-os à mão a cada mudança neste arquivo.
+   Estes casos passaram a ser AUTOMÁTICOS: `tools/emuladores/regras-v2.js` os roda
+   contra o emulador, inclusive os dois furos declarados acima, medidos de propósito
+   para que a descrição pare de valer no dia em que o comportamento mudar. O que o
+   executor mede do furo 2 é a validação REPLICADA: escrever direto em
+   `leases/{acct}/{pr}/expiresAt` além do teto de 5 min é recusado, e dentro do teto,
+   com o mesmo `leaseId` e `deviceId`, passa (é renovação, e é para passar mesmo).
+   A bateria do `npm test` continua sem executar regra: quem executa é o executor,
+   com o emulador de pé.
 
    Exemplo de escrita:
 
    ```
-   curl -s -X PUT "http://127.0.0.1:9000/users/<uid>/devices/x.json?ns=farol-local&auth=<idToken>" \
+   curl -s -X PUT "http://127.0.0.1:9000/users/<uid>/devices/x.json?ns=demo-farol-default-rtdb&auth=<idToken>" \
      -H "Content-Type: application/json" -d '{"name":"teste"}'
    ```
 
@@ -197,7 +279,8 @@ verdade.
    com estes valores e nomes de aparelho diferentes:
    - chave web: `chave-local` (o emulador aceita qualquer chave);
    - URL do banco: `http://127.0.0.1:9000`;
-   - ID do projeto: `farol-local`.
+   - ID do projeto: `demo-farol-default-rtdb` (o Farol monta o `?ns=` com este valor,
+     então o id cru falaria com o banco SEM regra do emulador).
 4. Faça login nas duas com o usuário criado no passo 2 da Parte 1 e confira:
    - as duas aparecem na lista de aparelhos uma da outra;
    - sair de uma apaga só a credencial e a chave local dela;
@@ -282,9 +365,18 @@ provam é o que o servidor consegue barrar sozinho.
 19. **Remoção pela limpeza:** com chave ligada, senha recente e `live/operations` ausente,
     `DELETE` em `live/groups` e em `live/devicePolicies` precisa responder **200**; com a
     chave desligada, **401**; com `live/operations` existindo, **401**.
-20. **O que a limpeza não alcança:** `DELETE` em `keyring`, `leases`, `receipts`,
-    `dailyRounds` e em qualquer filho de `live/control` precisa responder **401**, mesmo
-    com a chave ligada e senha recente.
+20. **O que a limpeza não alcança:** `DELETE` em `keyring` e em qualquer filho de
+    `live/control` precisa responder **401**, mesmo com a chave ligada e senha recente
+    (nesses nós a `.write` exige `hasChildren`, e remoção nunca tem filho).
+
+    **Correção do roteiro, medida em 16/09/2026.** Esta lista dizia também `leases`,
+    `receipts` e `dailyRounds`, e isso está errado: os três têm `".write": "@U@"`,
+    a concessão de dono herdada do v1, então o `DELETE` do próprio dono responde
+    **200**, com a chave de limpeza ligada ou desligada. Tem que ser assim: é o mesmo
+    caminho que o item 6 exige que funcione (`DELETE` de lease e de recibo, inclusive
+    a faxina e o Refazer). O que a chave de limpeza governa são os nós que a exigem
+    por `@LIMPA@`; nesses três, quem protege é o cliente. O executor mede os seis
+    casos, e os três de concessão entram marcados como `LIMITE`.
 21. **`live/groups/{grupo}`:** grupo com `{v, generation, enc, sig}` na geração vigente
     responde **200**; com geração diferente, **401**; com `enc` acima de 2048 caracteres ou
     fora do formato, **401**.
@@ -320,8 +412,8 @@ do servidor. Quem protege esse nó é o cliente, pelas cinco condições do ato.
 27. **`live/pending/{i}`:** com `{v, at, dev, enc}` e envelope até 4096, **200**; regravar
     com `at` ou `dev` diferentes, **401**; `DELETE`, **200**.
 28. **`live/seen/{i}`:** a primeira gravação `{at, dev}`, **200**; a segunda sobre o mesmo
-    nó, **401**; `DELETE` com a pendência ainda existente e visto recente, **401**; com a
-    pendência já apagada, **200**.
+    nó, **401**; `at` além de agora mais 60 s, **401**; `DELETE` com a pendência ainda
+    existente e visto recente, **401**; com a pendência já apagada, **200**.
 
 ## Validação manual das regras v2 (C3d, história de revisões)
 
@@ -354,6 +446,12 @@ do servidor. Quem protege esse nó é o cliente, pelas cinco condições do ato.
     **200**; id do item fora do formato `prTag_matTag`, **401**; `ttl` no passado, **401**.
 36. **`live/assign/{item}`:** atribuição assinada na geração vigente, **200**; com o mesmo
     `rev`, ou menor, **401**; `ttl` além de 10 min, **401**.
+36b. **`live/assign/{item}/espera`** (o veredito de por que o item ainda espera,
+    `lib/engine/sync-espera.js`, que nasceu depois desta lista): `{v, ttl, enc}` com
+    `ttl` até agora mais 10 min e envelope dentro de 2048, **200**; `ttl` além de
+    10 min, **401**; `enc` fora do formato `e1.gN.<iv>.<ct>.<tag>`, **401**; `DELETE`,
+    **200**. O campo é APRESENTAÇÃO e não é assinado de propósito, mas a regra dele
+    precisa valer: sem ela o nó da atribuição vira depósito de qualquer coisa.
 37. **`live/ack/{item}`:** resposta `{dev, estado, at}`, **200**; `at` além de agora + 60 s,
     **401**.
 42. **`checkpoints/{loja}/{prTag}/{id}`:** entrada `{v, u, dev, enc}` com loja `review` ou
@@ -365,7 +463,12 @@ do servidor. Quem protege esse nó é o cliente, pelas cinco condições do ato.
     `ttl` e sem a chave de limpeza, **401**.
 41. **`commandReceipts/{cmdId}`:** recibo `{dev, estado, code, at}` do aparelho ALVO,
     **200**; segundo recibo por cima do primeiro, **401**; recibo de aparelho que não é o
-    alvo, **401**; remoção com o comando ainda lá, **401**.
+    alvo, **401**; `at` fora da janela de 60 s (para frente ou para trás), **401**;
+    remoção com o comando ainda lá, **401**.
+
+    A janela de 60 s não estava escrita aqui, e a falta apareceu por mutação: apagar
+    esse teto da regra deixava o executor inteiro passar. Os três nós que repetem a
+    condição (`live/seen`, `live/ack` e este) têm caso agora.
 39. **`usageDaily/{dev}/{dia}`:** rollup `{v: 1, u, seq, g}` com dia `AAAA-MM-DD` e grupos
     de 32 hex com `c`, `s` e `d` numéricos, **200**; dia fora da forma, `v` diferente de 1,
     `seq` não numérico ou grupo com `c` em texto, **401**; remoção sem a chave de limpeza,
