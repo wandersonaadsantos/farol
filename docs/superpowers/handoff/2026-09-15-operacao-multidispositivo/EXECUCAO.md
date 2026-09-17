@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026, com o **adendo de 16/09/2026** (concluir as pendências, incluindo a experiência utilizável).
-- **Estado em uma frase:** **implementação e validação local concluídas na linha de integração;** o que falta depende de ação externa (tabela "Validações externas pendentes"). Todas as telas do brief B2 existem e foram percorridas na aplicação isolada, inclusive transferir, tomar, iniciar, repetir, decidir, cancelar e designar admin entre aparelhos numa bancada com banco e login de teste (`evidencias-execucao/jornada-bancada.md`). As capacidades que dependem de medição externa continuam desligadas, e a tela diz isso.
+- **Estado em uma frase (17/09/2026):** **implementação e validação local concluídas e agora também verificadas com engines reais sob as regras do Firebase nos emuladores;** ver "Fechamento da validação local". Antes disso: o que falta depende de ação externa (tabela "Validações externas pendentes"). Todas as telas do brief B2 existem e foram percorridas na aplicação isolada, inclusive transferir, tomar, iniciar, repetir, decidir, cancelar e designar admin entre aparelhos numa bancada com banco e login de teste (`evidencias-execucao/jornada-bancada.md`). As capacidades que dependem de medição externa continuam desligadas, e a tela diz isso.
 - **Frentes em curso (adendo):** desenho B2 publicado no Claude Design (canvas em três versões, a terceira alinhada à implementação do pareamento); telas de A2, A3, A4, C1, C2 e C3 integradas em 16/09/2026; verificações A, B, C e D feitas; jornadas refeitas na versão integrada, em desktop e em 390 px (`evidencias-execucao/jornada-integrada-2.md`).
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
@@ -395,6 +395,75 @@ desta linha com a `main` (a base desta execução é `8c043bc`; a `main` está e
 | Comandos restantes do brief 2.9 (repetir, iniciar, designar admin) | ações na tela com motivo, confirmação e recibo; `repetir` e `iniciar` perguntam o head agora | `tela-comandos.md`; bancada: os três desfechos de repetir, iniciar `aplicado`, designação pendente |
 | Motivo da espera na distribuição | veredito do agendador cifrado no nó de atribuição, motivo por aparelho | `tela-comandos.md` |
 | Desenho atualizado | quadros C1, C2, C3, C3Historico, C4, C5 e C8; canvas versão 4 | `B2-design/README.md`; https://claude.ai/artifact/TpikCGQajjhpN8JDZ2K2Q6 |
+
+## Fechamento da validação local (17/09/2026, madrugada)
+
+O dono não considerou a validação local encerrada por três motivos: `npm run eng` falhava, a
+bancada não aplicava as regras do Firebase, e parte dos executores era simulada. Os três
+foram fechados, e os fechamentos acharam defeito de produto.
+
+### 1. O gate oficial voltou a rodar, e é reproduzível
+
+`npm run eng` passa pelo caminho oficial, em `877e881`: veredito `pass`, 13 regras no
+escopo, 12 acionadas, 12 executadas, 8 achados conhecidos do baseline
+(`verificacoes-saidas/eng-oficial-877e881.txt`). A CLI é uma cópia isolada, montada do
+commit adotado em `tools/eng-behaviour/ferramenta.json` e conferida em quatro provas
+(versão, commit do checkout, árvore limpa e carimbo do `dist/`). O clone de desenvolvimento
+ao lado, que está com a 0.13.0 em andamento de outra sessão, continua intocado e continua
+sendo recusado pelo gate, com o motivo escrito.
+
+### 2. As regras do Firebase agora são medidas
+
+183 casos contra os emuladores oficiais, com o arquivo de regras do commit carregado,
+incluindo o campo novo `espera`: 183 de 183, executor versionado em `tools/emuladores/`.
+Descoberta que muda o roteiro: o emulador serve dois bancos, e as regras valem em
+`<projeto>-default-rtdb`; o `firebase/README.md` mandava usar o id cru, e a bateria inteira
+teria passado sem medir uma regra. Corrigido e travado em teste.
+
+### 3. A bancada passou a rodar o Farol de verdade
+
+Três instâncias reais (`node server.js`) contra os emuladores, cada uma com pasta, identidade
+e porta próprias, com o GitHub e a sessão de IA substituídos só na fronteira externa
+(`evidencias-execucao/jornada-bancada-real.md`). Ela achou **quatro defeitos que a suíte não
+via**, todos porque o teste construía o caso já resolvido:
+
+| defeito | efeito real | correção |
+|---|---|---|
+| candidato publicado sem head | **a primeira revisão de um PR novo nunca distribuía**: a publicação devolvia `forma` e o item caía no ramo local | `55f3944` |
+| vaga de admissão presa quando o enfileiramento não leva o item | com teto 1, o aparelho recusava toda atribuição seguinte por `sem_vaga`, sem nada rodando | `1d26570` |
+| re-autenticação que não valia no cliente vivo | **designar admin falhava sempre** minutos depois do login, porque as regras exigem senha recente, com a mensagem errada na tela | `28eb5e1` |
+| atribuição viva respondida a cada giro | a espera era empurrada para frente e nunca vencia, e um aparelho recusava por falta de vaga a atribuição que ele mesmo aceitara | `f1ced34` |
+
+O último é exatamente o caso das republicações repetidas (item B do adendo): **existia no
+produto**, não no simulador. As amostragens de antes e depois estão em
+`verificacoes-saidas/bancada-real-espera-antes.txt` e `-depois.txt`.
+
+A designação de admin (item A) foi percorrida inteira com usuário e senha de teste no
+emulador: geração 1 para 2, recibo `aplicado`, batimento do novo admin, e o admin anterior
+passando a receber `nao-e-admin`. Comando carimbado com a geração anterior é recusado pelas
+regras (401) e o da geração vigente entra (200), medido com credencial de usuário.
+
+### 4. A suíte POSIX roda com git, sem pulo por falta de shell
+
+Contêiner Debian 13 com Node 24 e git, sobre um clone do repositório: 0 falhas, e os 5 casos
+de `perfil-claude-sem-escrita` que pulavam passaram a rodar (`roteiros/posix-com-git.md`).
+
+### Gates no SHA integrado `877e881`
+
+| Gate | Resultado |
+|---|---|
+| `npm run check` | verde, 587 arquivos `.js` |
+| `npm run lint` | verde, baseline intocada |
+| `npm test` | 4353 testes, 4325 aprovados, 28 pulados, 0 falhas |
+| `npm run eng` (caminho oficial) | **pass**, veredito do gate, com a CLI 0.12.0 conferida |
+| `tools/make-package.ps1` | pacote limpo, 270 arquivos, 1.326 KB, auditado |
+| regras no emulador | 183 de 183 |
+| suíte em Linux (contêiner) | 0 falhas |
+
+### O que continua fora do alcance local
+
+Termux e latência entre aparelhos físicos, sessão real de modelo, projeto Firebase real
+(publicar as regras e conferir o `auth_time` lá), push, PR, merge e release.
 
 ## Rodada de fechamento das lacunas (16/09/2026 à noite)
 

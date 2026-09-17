@@ -1,0 +1,22 @@
+npm run eng pelo caminho oficial, no HEAD 877e8810013ca41af770792b716e6ae6a5277d94
+npm warn Unknown user config "always-auth". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> farol@2.59.5 eng
+> node tools/eng-behaviour/gate.js
+
+eng-behaviour 0.12.0 @ da935c0c1ba8b3517ee51c336ea71d8387b0e1ee (C:\Users\wanderson\Documents\eng-behaviour@0.12.0)
+eng-behaviour.rules.md em dia.
+core.abstraction.no-premature	judgment	pass	-
+core.convention.one-per-repository	judgment	pass	-
+core.duplication.business-rule	judgment	pass	-
+core.file.single-responsibility	judgment	pass	-
+core.imports.prefer-supported-aliases	judgment	pass	-
+core.javascript.modern-and-explicit	judgment	pass	-
+core.javascript.no-nested-ternary	hard	pass	367 arquivo(s) de codigo
+core.locality.promote-on-real-reuse	judgment	pass	-
+core.suppression.declared	hard	pass	367 arquivo(s) de codigo
+core.testing.behavior-proof	judgment	pass	-
+core.testing.coverage-under-mocked-strategy	judgment	pass	-
+core.testing.unit-mock-minimal	judgment	pass	-
+baseline: core.file.single-responsibility: 8 achado(s) conhecido(s), que nao reprovam
+13 regra(s) no escopo, 12 acionada(s) pela entrega, 12 executada(s). Veredito: pass.
