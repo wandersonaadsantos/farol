@@ -90,7 +90,9 @@ test('a sessão de leitura executa o claude com a linha exata, no workspace, sem
   const { res, reg } = await execucao({ somenteLeitura: true });
   assert.equal(res.text, 'ok', 'o resultado do processo real voltou');
   assert.deepEqual(reg.argv, ['-p', '--output-format', 'stream-json', '--verbose', '--dangerously-skip-permissions', ...RESTRICAO]);
-  assert.equal(path.resolve(reg.cwd), path.resolve(WORKSPACE));
+  // o cwd que o processo enxerga vem canônico: no macOS a pasta temporária mora em
+  // /var, que é link para /private/var (medido no CI em 17/09/2026)
+  assert.equal(fs.realpathSync(reg.cwd), fs.realpathSync(WORKSPACE));
   assert.ok(reg.prompt > 0, 'o prompt chegou pelo stdin, não pela linha');
   assert.equal(reg.argv.includes('--mcp-config'), false);
 });

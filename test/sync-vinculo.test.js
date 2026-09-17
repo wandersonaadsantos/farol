@@ -81,3 +81,12 @@ test('grupo ou tipo inválidos não criam vínculo: identidade indefinida não v
   assert.equal(vinculo.vincular('p1', { grupo: G1, tipo: 'inventado', agora: T0 }), false);
   assert.equal(vinculo.vinculoVigente('p1'), null);
 });
+
+// O id do perfil chega pela rota local (/api/sync/link). Um id como `__proto__` não pode
+// virar o protótipo do mapa de vínculos (apontado pela análise estática do PR da v2.60.0).
+test('id de perfil com nome reservado é um perfil comum, e não contamina nada', () => {
+  assert.equal(vinculo.vincular('__proto__', { grupo: G1, tipo: 'assinatura', agora: Date.now() }), true);
+  assert.equal(vinculo.vinculoVigente('__proto__').grupo, G1);
+  assert.equal(({}).grupo, undefined, 'o protótipo de Object continua limpo');
+  assert.equal(vinculo.vinculoVigente('outro-perfil'), null, 'os outros perfis não herdam o vínculo');
+});
