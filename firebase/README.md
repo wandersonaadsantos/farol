@@ -286,10 +286,11 @@ verdade.
    - sair de uma apaga só a credencial e a chave local dela;
    - desligar uma não apaga nada no banco.
 
-## Regras mudaram em 17/09/2026 (republicar)
+## Regras mudaram em 17/09/2026 (homologar antes de publicar)
 
-Duas correções vieram da bancada com engines reais contra os emuladores, e as duas exigem
-publicar o arquivo de novo no console:
+Duas correções vieram da bancada com engines reais contra os emuladores. Elas passam
+primeiro por um projeto Firebase real de TESTE, com usuário e sessões de teste, e só depois
+vão para o projeto em uso:
 
 1. **A tomada de lease (7.C8) era impossível.** A regra do nó permitia o sucessor, e a do
    campo `deviceId` não tinha o ramo da tomada; escrita direta em campo não roda a

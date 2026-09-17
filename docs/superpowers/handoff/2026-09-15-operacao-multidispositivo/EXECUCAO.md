@@ -5,7 +5,7 @@ Registro único e curto. Atualizado ao começar e terminar cada entrega, ao bloq
 ## Estado atual
 
 - **Fase:** execução autônoma autorizada pelo dono em 15/09/2026, com o **adendo de 16/09/2026** (concluir as pendências, incluindo a experiência utilizável).
-- **Estado em uma frase (17/09/2026):** **implementação e validação local concluídas e agora também verificadas com engines reais sob as regras do Firebase nos emuladores;** ver "Fechamento da validação local". Antes disso: o que falta depende de ação externa (tabela "Validações externas pendentes"). Todas as telas do brief B2 existem e foram percorridas na aplicação isolada, inclusive transferir, tomar, iniciar, repetir, decidir, cancelar e designar admin entre aparelhos numa bancada com banco e login de teste (`evidencias-execucao/jornada-bancada.md`). As capacidades que dependem de medição externa continuam desligadas, e a tela diz isso.
+- **Estado em uma frase (17/09/2026, aceito pelo dono):** **implementação integrada e validação local encerradas em `92e8650`, nos limites registrados; homologação externa e publicação pendentes.** Ver "Fechamento da validação local" e "Intervenções externas". Antes disso:
 - **Frentes em curso (adendo):** desenho B2 publicado no Claude Design (canvas em três versões, a terceira alinhada à implementação do pareamento); telas de A2, A3, A4, C1, C2 e C3 integradas em 16/09/2026; verificações A, B, C e D feitas; jornadas refeitas na versão integrada, em desktop e em 390 px (`evidencias-execucao/jornada-integrada-2.md`).
 - **Plano mestre:** `docs/superpowers/plans/2026-09-15-operacao-multidispositivo-mestre.md`
 - **Spec:** `docs/superpowers/specs/2026-09-15-operacao-multidispositivo-design.md`
@@ -173,6 +173,10 @@ Contagem: **39 linhas** (a 34 é a reconciliação e a 39 não tem evidência pr
 | **Afinidade de colocação (C7)** | preferência com prazo usada só pela transferência voluntária | `sync-transferencia` (`c7b.md`) | frequência real de troca de dono no mesmo head (operação real da C5 e da C6) | **implementação da heurística**: sem a frequência, qualquer prazo seria chute | a colocação só prefere um aparelho quando a transferência pede, por 10 minutos, e nunca segura o item para aparelho inelegível |
 
 
+**Três estados que não se confundem:** implementação concluída, validação externa e
+ativação. As quatro capacidades acima estão só no primeiro; a validação externa de cada uma
+segue em "Validações externas pendentes" e a ativação continua atrás das guardas da tabela.
+
 **Depois da bancada com engines reais (17/09/2026), nenhuma destas quatro mudou de
 situação.** A bancada percorreu transferência e tomada com o código real e corrigiu quatro
 defeitos no caminho, mas a evidência que falta em cada linha continua a mesma: memória dos
@@ -234,8 +238,8 @@ pendente do dono; **(F)** ambiente físico indisponível (aparelho, segundo apar
 
 | Entrega | Evidência que falta | Ambiente ou acesso | O que isso bloqueia | Roteiro pronto | Guarda que impede uso prematuro | Tipo |
 |---|---|---|---|---|---|---|
-| C1, C2a, C2b, C3a, C3b | comportamento das regras v2 no servidor (itens 1 a 42) | emulador do Firebase (Java e `firebase-tools` ausentes; baixar imagem ou instalar não autorizado) e projeto real | publicar as regras v2 e ligar compartilhamento em produção | `firebase/README.md`, itens 1 a 42 | sonda de regras recusa conectar com regra v1; compartilhamento nasce desligado | C, P |
-| C1, C2a, C2b | publicação das regras v2 no console | console do Firebase, pelo dono | toda a trilha C em produção | `firebase/README.md` | idem | P |
+| C1, C2a, C2b, C3a, C3b, C7b, C8, C2 (revogação) | regras v2 no servidor REAL: `auth_time` por sessão, o corte de sessões ponta a ponta e a tomada | projeto Firebase real **de teste**, com usuário e sessões de teste (no emulador: 196 de 196, com o limite de `auth_time` declarado) | publicar as regras no projeto em uso | `firebase/README.md`, `tools/emuladores/regras-v2.js`, `evidencias-execucao/bancada-real/` | o projeto em uso segue com as regras antigas até a homologação | A, P |
+| C1, C2a, C2b | publicação das regras v2 no projeto em uso | console do Firebase, pelo dono, **só depois** da homologação no projeto de teste | toda a trilha C em produção | `firebase/README.md` | idem | P |
 | C1 | custo do `scrypt` no Termux | aparelho Android com Termux | calibrar o custo da KEK no celular | `docs/superpowers/handoff/.../roteiros/` (medição manual) | custo cai para N=8192 acima de 3 s | F |
 | A4 | detecção do modo, navegador do aparelho e alcance do loopback num Termux real | aparelho | ligar `ATIVACAO_AUTOMATICA_A4` | tela de pareamento pronta; `node tools/farol-parear.js` | `ATIVACAO_AUTOMATICA_A4 = false`, travada em teste; C3 bloqueada no celular sem exigência | F |
 | C4 | memória real por ambiente e o peso do PR como preditor | execuções reais por ambiente | recusa por peso; revalidar o piso de 1024 MB | `evidencias-execucao/c4.md` | a admissão só usa o piso; peso só ordena | F |
@@ -473,7 +477,43 @@ As duas correções de regra exigem **republicar o arquivo no console** (registr
 Contêiner Debian 13 com Node 24 e git, sobre um clone do repositório: 0 falhas, e os 5 casos
 de `perfil-claude-sem-escrita` que pulavam passaram a rodar (`roteiros/posix-com-git.md`).
 
-### Gates no SHA integrado (`457c97b`, rodada de fechamento)
+### Alcance do que o §4 comprovou (ressalva)
+
+As jornadas locais foram demonstradas **nos cenários registrados** em
+`evidencias-execucao/jornada-bancada-real.md`. O §4 não está integralmente comprovado:
+
+- **Revogação:** os casos de regra foram exercitados no emulador (token mintado antes do
+  corte é recusado em leitura e escrita), e o app trata o 401 com token recém-obtido como
+  permanente. O **corte ponta a ponta entre sessões independentes continua pendente**, a
+  verificar no Firebase real.
+- **Por que não foi reproduzível:** o emulador de Auth do `firebase-tools` 15.30.1 (imagem de
+  `tools/emuladores/Dockerfile`: `node:24-trixie-slim`, OpenJDK 21) carimba `auth_time` por
+  USUÁRIO, e não por sessão; um aparelho que renova o token depois do login da revogação
+  herda a hora nova. Reprodução preservada: passos 4 e 5 de
+  `evidencias-execucao/bancada-real/jornada-autenticacao.mjs`, saída em
+  `verificacoes-saidas/bancada-real-autenticacao.txt`.
+- O contrato de `auth_time` (C1) e as regras **não foram alterados** para acomodar o limite.
+
+### Correspondência do fechamento
+
+| Item | Referência |
+|---|---|
+| SHA integrado | `92e8650` em `md/integracao` |
+| Arquivo de regras | `firebase/database.rules.json`, sha256 `4560a0f116cf1a30c040efa30249d219bb5614e464544853fb57476e72c646cf`, gerado de `database.rules.template.json` por `tools/sync-rules.js` |
+| Regras medidas | `tools/emuladores/regras-v2.js`, 196 de 196 (`verificacoes-saidas/regras-tomada-*.txt`, `regras-revogacao-*.txt`) |
+| Gate oficial | `npm run eng`, eng-behaviour 0.12.0 @ `da935c0` (`tools/eng-behaviour/ferramenta.json`), saída em `verificacoes-saidas/eng-oficial-final.txt` |
+| Pacote | `tools/make-package.ps1`, `farol-v2.59.5.zip`, 272 arquivos, sha256 `79315cff570395eb494f2afcd4b3090907204737df33b7d13f4de98e3e9dff6f`, auditado |
+| Jornadas | `evidencias-execucao/jornada-bancada-real.md` e `verificacoes-saidas/bancada-real-*.txt` |
+
+### Regressão deste subsistema
+
+Mudança em distribuição, transferência, tomada, comandos, lease ou regras do banco passa
+também pela bancada com engines reais e regras aplicadas, reusando o que já existe:
+`tools/emuladores/` (imagem e executor de regras) e `evidencias-execucao/bancada-real/`
+(`subir-bancada.sh`, `jornada-transferencia.mjs`, `jornada-autenticacao.mjs`,
+`amostrar-espera.mjs` e as sondas). Nada de infraestrutura nova.
+
+### Gates no SHA integrado (`457c97b`, rodada de fechamento; reconferidos em `92e8650`)
 
 | Gate | Resultado |
 |---|---|
@@ -512,6 +552,25 @@ externo, e mandou fechar as lacunas. O que já entrou em `md/integracao`:
 | Revisões que não abriram | a lista diz quantas ficaram de fora, como o quadro do histórico promete |
 
 Desenho atualizado nos quadros C1, C2, C3, C4 e C8, com os textos que a implementação usa.
+
+## Intervenções externas (a única lista que resta)
+
+Implementação integrada e validação local encerradas; nada abaixo é executado sem
+autorização específica.
+
+1. **Homologação das regras em projeto Firebase real de TESTE** (usuário e sessões de
+   teste): carregar `firebase/database.rules.json` de `92e8650`, rodar
+   `tools/emuladores/regras-v2.js` apontado para ele e a revogação com duas sessões
+   independentes (`bancada-real/jornada-autenticacao.mjs`). Ação mínima: autorizar o
+   projeto de teste. **Não republicar no projeto em uso antes disso.**
+2. **Publicação no projeto em uso**, só depois do item 1 (`firebase/README.md`).
+3. **Push, PR, merge na main, release, instalação e ativação nos aparelhos:** sem
+   autorização.
+4. **Medições que liberam capacidades:** Termux (`scrypt`, A4), dois aparelhos físicos
+   (latência C3b, consumo C4b, troca de dono C7), memória real por ambiente (C4), sessões
+   reais de modelo e Codex (A1, A3), `claude auth status` logado (A2). Roteiros na tabela
+   "Validações externas pendentes".
+5. **Reconfigurar a sincronização real** depois do incidente registrado acima.
 
 ## Próxima ação concreta
 
