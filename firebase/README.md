@@ -286,6 +286,22 @@ verdade.
    - sair de uma apaga só a credencial e a chave local dela;
    - desligar uma não apaga nada no banco.
 
+## Regras mudaram em 17/09/2026 (republicar)
+
+Duas correções vieram da bancada com engines reais contra os emuladores, e as duas exigem
+publicar o arquivo de novo no console:
+
+1. **A tomada de lease (7.C8) era impossível.** A regra do nó permitia o sucessor, e a do
+   campo `deviceId` não tinha o ramo da tomada; escrita direta em campo não roda a
+   validação do pai, e o PUT do sucessor leva o campo junto. O campo passou a usar a mesma
+   macro dos outros dois.
+2. **A revogação não cortava nada.** `live/control/revokedBefore` era gravado e nenhuma
+   regra o consultava. O corte (a cláusula NR do contrato C1) passou a morar dentro do
+   próprio dono, então vale em toda leitura e em toda escrita.
+
+Enquanto o console não receber o arquivo novo, tomar continua recusado pelo servidor e
+"encerrar as sessões dos outros aparelhos" continua sem efeito no projeto real.
+
 ## Validação manual das regras v2 (C1)
 
 As regras são **geradas**: `npm run sync:rules` expande

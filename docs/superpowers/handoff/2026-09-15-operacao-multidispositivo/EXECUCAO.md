@@ -443,6 +443,24 @@ emulador: geração 1 para 2, recibo `aplicado`, batimento do novo admin, e o ad
 passando a receber `nao-e-admin`. Comando carimbado com a geração anterior é recusado pelas
 regras (401) e o da geração vigente entra (200), medido com credencial de usuário.
 
+### 3b. As jornadas que faltavam, e mais seis defeitos
+
+Com a bancada de pé, as jornadas restantes do adendo foram percorridas: transferência,
+tomada, Panorama e Meus PRs de outro aparelho, e autenticação com recusa e recuperação.
+Cada uma achou defeito de produto:
+
+| defeito | efeito real | correção |
+|---|---|---|
+| passo 9 do anexo S3 (FECHAR E LIMPAR) não existia | o item seguia vivo depois da sessão e o **mesmo head rodava outra vez** a cada vencimento da atribuição, gastando uma sessão por rodada | `67686d2` |
+| transferência para quem não publicou | o comando voltava `aplicado` e **o PR nunca chegava ao destino**; depois, a sessão encerrada pela transferência fechava o item e a origem estacionava o PR como "cancelada por você" | `7d4e7e1`, `d411b31`, `7d8a8b3` |
+| regra do campo `deviceId` do lease | **a tomada era impossível** sob as regras publicadas, e o app dizia "Firebase indisponível" | `8d36289` |
+| batimento não tratava a tomada | o aparelho TOMADO seguia a sessão até o fim, gastando o provedor duas vezes | `0b4bce0` |
+| `revokedBefore` sem a cláusula NR | "encerrar as sessões dos outros aparelhos" **não cortava nada** | `379235d` |
+| 401 sempre transitório | o aparelho recusado ficava em laço, com a tela dizendo "conectado" | `0424ab8` |
+
+As duas correções de regra exigem **republicar o arquivo no console** (registrado em
+`firebase/README.md`, seção "Regras mudaram em 17/09/2026").
+
 ### 4. A suíte POSIX roda com git, sem pulo por falta de shell
 
 Contêiner Debian 13 com Node 24 e git, sobre um clone do repositório: 0 falhas, e os 5 casos
@@ -463,7 +481,12 @@ de `perfil-claude-sem-escrita` que pulavam passaram a rodar (`roteiros/posix-com
 ### O que continua fora do alcance local
 
 Termux e latência entre aparelhos físicos, sessão real de modelo, projeto Firebase real
-(publicar as regras e conferir o `auth_time` lá), push, PR, merge e release.
+(publicar as regras corrigidas e conferir o `auth_time` lá), push, PR, merge e release.
+
+**Limite medido e declarado:** o emulador de Auth carimba `auth_time` por USUÁRIO, não por
+sessão, então o corte de sessões não alcança os outros aparelhos ali. A regra foi provada
+no executor (token mintado antes do corte é recusado) e o comportamento do app diante do
+401 está em teste; o efeito ponta a ponta só se confirma no projeto real.
 
 ## Rodada de fechamento das lacunas (16/09/2026 à noite)
 
