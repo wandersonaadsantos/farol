@@ -448,3 +448,51 @@ test('trocar a conta do Firebase manda o histórico inteiro para o destino novo'
   await engine.syncTick();
   assert.equal(Object.keys(eventosRemotos('u2', deviceId)).length, noPrimeiro, 'o destino novo recebe tudo, não só o que vier depois');
 });
+
+test('reconcileCorrections: correção depois do cursor volta à fila com o mesmo eventId, uma vez', () => {
+  const s = sessao({ id: 'a-corr', at: 1000, status: 'erro', corrigidoEm: 5000 });
+  const ob = outbox.defaultOutbox();
+  ob.cursorAt = 9000;
+  assert.equal(outbox.reconcileFromSessions(ob, [s], DEV, VERSAO), 0, 'o cursor sozinho perde a correção');
+  assert.equal(outbox.reconcileCorrections(ob, [s], DEV, VERSAO), 1);
+  assert.equal(ob.pending[0].eventId, eventIdFor(s, DEV));
+  assert.equal(ob.pending[0].payload.status, 'erro');
+  assert.equal(ob.correcoesAt, 5000);
+  assert.equal(outbox.reconcileCorrections(ob, [s], DEV, VERSAO), 0, 'correção já enfileirada não volta');
+});
+
+test('reconcileCorrections sem deviceId não avança o cursor de correções', () => {
+  const ob = outbox.defaultOutbox();
+  assert.equal(outbox.reconcileCorrections(ob, [sessao({ id: 'a-x', at: 1, corrigidoEm: 7 })], '', VERSAO), 0);
+  assert.equal(ob.correcoesAt, 0);
+});
+
+test('correção feita com a consolidação desligada chega ao banco quando ela volta (A1, item 7)', async () => {
+  const engine = new Engine();
+  engine.sync.fetchImpl = fetchDosDubles;
+  await salvarSync(engine, syncCfg({ consolidation: { enabled: true } }));
+  // o caso anterior deste arquivo termina logado na CONTA 2, e a sessão do Firebase é
+  // gravada em disco: ela sobrevive ao engine novo. Sem sair e entrar de propósito em
+  // u1, este caso mediria a fila de u2 e as asserções cairiam em `undefined`. O login
+  // explícito também retarga a outbox, e é isso que devolve o cursor ao zero para a
+  // sessão criada abaixo subir.
+  engine.syncLogout();
+  assert.equal((await engine.syncLogin({ email: EMAIL, password: SENHA })).ok, true);
+  assert.equal(engine.sync.uid, 'u1');
+  const deviceId = engine.sync.deviceId;
+  engine.recordUsage('a-correcao-tardia', 'Fulano', RESULTADO, 'opus', 'perfil-9', 'Org/Repo#9');
+  const id = eventIdFor(engine.usageSessions.sessions.at(-1), deviceId);
+  await engine.syncTick();
+  assert.equal(eventosRemotos('u1', deviceId)[id].status, 'ok');
+
+  await salvarSync(engine, syncCfg({ consolidation: { enabled: false } }));
+  assert.equal(engine.marcarDesfecho('a-correcao-tardia', 'erro'), true);
+  assert.ok(engine.usageSessions.sessions.at(-1).corrigidoEm > 0, 'a pendência fica na própria linha');
+  await engine.syncTick();
+  assert.equal(eventosRemotos('u1', deviceId)[id].status, 'ok', 'desligada, nada sobe');
+
+  await salvarSync(engine, syncCfg({ consolidation: { enabled: true } }));
+  if (engine.sync.status !== 'conectado') assert.equal((await engine.syncLogin({ email: EMAIL, password: SENHA })).ok, true);
+  await engine.syncTick();
+  assert.equal(eventosRemotos('u1', deviceId)[id].status, 'erro', 'a correção posterior ao cursor chegou');
+});

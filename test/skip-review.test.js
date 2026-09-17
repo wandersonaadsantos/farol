@@ -30,6 +30,11 @@ const TTL = TEMPOS.SINAL_REVISAO_TTL_MS;
 
 /* ---------- leitura das labels (PURA) ---------- */
 
+// Os `await` de topo vêm ANTES do primeiro caso: com `--test-force-exit`, o processo
+// encerra quando os casos já registrados terminam, e um `await` que só volta depois
+// disso deixa os casos seguintes CANCELADOS, numa rodada que ainda diz "0 falhas".
+const { parseCodeowners } = await import('../lib/engine/codeowners.js');
+
 test('revisandoPorOutros: acha a label de outra pessoa', () => {
   assert.deepEqual(revisandoPorOutros(['thiagocarvalho-dev:revisando'], 'wandersonbiuder'), ['thiagocarvalho-dev']);
 });
@@ -292,7 +297,6 @@ test('quemAprovou: só considera quem eu saí de cena por causa', () => {
    porque isso gateia a co-assinatura ("nunca co-assino onde sou autoridade"). */
 
 const PR_AUT = { key: 'o/r#1', url: 'https://github.com/o/r/pull/1', repo: 'o/r', number: 1 };
-const { parseCodeowners } = await import('../lib/engine/codeowners.js');
 
 // semeia o cache do CODEOWNERS pra decisão sair sem rede nenhuma
 function engineComRegras(regrasTexto, extra = {}) {

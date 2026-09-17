@@ -1,0 +1,22 @@
+<div class="cel" style="background: var(--bg);">
+@@TOPO:sistema@@
+<main>
+<div class="sys-layout">
+@@NAV:diag@@
+<div class="sys-content">
+  <div class="section-head first"><h2>Diagnóstico</h2></div>
+  <div style="display: flex; flex-direction: column; gap: 8px;"><span class="btn" style="justify-content: center;">Copiar diagnóstico</span><span class="btn" style="justify-content: center;">Diagnóstico com o Claude</span></div>
+  <div class="check bad"><span class="led"></span><div><div class="label">Usuário do sistema</div><div class="detail">rodando como root: o Claude Code recusa abrir a sessão. Crie um usuário comum no proot e rode o Farol por ele.</div></div></div>
+  <div class="card blocked" style="display: flex; flex-direction: column; gap: 8px;">
+    <span class="set-title">Login do Claude vencido</span>
+    <span class="faint" style="font-size: 12px;">hoje, 09:42 · revisão</span>
+    <p class="set-desc">O que fazer: abra a sessão de login do perfil em Plano e chaves.</p>
+    <pre class="log">claude saiu com código 1: OAuth token has expired
+Authorization: Bearer [segredo mascarado]</pre>
+    <span class="btn ghost" style="justify-content: center;">Copiar esta falha</span>
+  </div>
+  <span class="btn danger" style="justify-content: center;">Apagar o log de falhas</span>
+</div>
+</div>
+</main>
+</div>

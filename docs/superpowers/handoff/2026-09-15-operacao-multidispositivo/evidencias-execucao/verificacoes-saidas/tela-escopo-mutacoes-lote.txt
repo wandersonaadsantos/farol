@@ -1,0 +1,8 @@
+M33 REPROVOU (saida 1, falhas 1) restaurado=sim sha=d72b755744a2 lib/engine/sync-envio-historico.js: a medida da retomada continua a contagem
+M34 REPROVOU (saida 1, falhas 1) restaurado=sim sha=d72b755744a2 lib/engine/sync-envio-historico.js: o lote enviado conta o que já subiu antes
+M35 REPROVOU (saida 1, falhas 2) restaurado=sim sha=d72b755744a2 lib/engine/sync-envio-historico.js: o total de lotes inclui o lote incompleto
+M36 REPROVOU (saida 1, falhas 1) restaurado=sim sha=27cd5c931f2f lib/http-server.js: a rota de medir deixa o lote passar
+M37 REPROVOU (saida 1, falhas 1) restaurado=sim sha=27cd5c931f2f lib/http-server.js: a rota de enviar deixa o lote passar
+M38 REPROVOU (saida 1, falhas 1) restaurado=sim sha=f82f0077ff1e ui/pure/compartilhado-historico.js: o primeiro lote diz 1 de M
+M39 REPROVOU (saida 1, falhas 1) restaurado=sim sha=f82f0077ff1e ui/pure/compartilhado-historico.js: sem número do engine a tela não inventa
+total 7, inertes 0

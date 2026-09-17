@@ -30,6 +30,12 @@ function engineBase() {
 }
 const prDe = (key, extra) => ({ key, url: `https://github.com/${key.replace('#', '/pull/')}`, ...extra });
 
+// Os `await` de topo vêm ANTES do primeiro caso: com `--test-force-exit`, o processo
+// encerra quando os casos já registrados terminam, e um `await` que só volta depois
+// disso deixa os casos seguintes CANCELADOS, numa rodada que ainda diz "0 falhas".
+const { Engine: EngineForPrune } = await import('../server.js');
+const { BASELINE_FILE: BASELINE_FILE_G15, STATE_DIR: STATE_DIR_G15 } = await import('../lib/paths.js');
+
 test('runOneHeadless guarda o PR junto das tentativas na falha transitória', async () => {
   const e = engineBase();
   e.runHeadlessReview = async () => { throw new Error('fetch failed'); };
@@ -234,7 +240,6 @@ test('runOneHeadless: falha transitória comum (rede) não ganha notBefore', asy
 // Estes testes exercitam a poda diretamente no server.js (check() simplificado),
 // usando o mesmo padrão de stub do engine.
 
-const { Engine: EngineForPrune } = await import('../server.js');
 
 function engineForPrune() {
   const e = new EngineForPrune();
@@ -465,7 +470,6 @@ test('autoReviewParked sobrevive a reinício da Engine (G15)', () => {
 // mexe na key cujo owner RESPONDEU neste ciclo (mesmo padrão do G5: falha de
 // busca não prova PR fechado). Harness no padrão do check-resilience.test.js:
 // check() inteiro, com todo colaborador de rede/side-effect stubado.
-const { BASELINE_FILE: BASELINE_FILE_G15, STATE_DIR: STATE_DIR_G15 } = await import('../lib/paths.js');
 
 function checkEngineG15() {
   const e = new Engine();
@@ -720,15 +724,15 @@ test('tempo esgotado é transitório e entra no retry com o sid', async () => {
   assert.equal(e.autoReviewParked.has('o/r#13'), false);
 });
 
-/* ---------- retomadaPendente não vaza: PR podado leva o sid do boot com ele ---------- */
-// O sid guardado na recuperação do boot só é consumido quando o PR reaparece na
-// fila. PR mergeado/fechado nunca reaparece, então sem esta poda o Map só cresce.
-test('_repescarRetry poda o retomadaPendente do PR mergeado', async () => {
+/* ---------- a referência de retomada não vaza: PR podado leva ela junto ---------- */
+// A referência só sai do Map por um desfecho. PR mergeado/fechado nunca volta a
+// rodar, então sem esta poda ela ficaria no inflight.json pra sempre.
+test('_repescarRetry consome a referência de retomada do PR mergeado', async () => {
   const e = engineForPrune();
   e.prState = async () => 'MERGED';
   e.retryAfterNet.set('o/r#21', { tries: 1, pr: prDe('o/r#21') });
-  e.retomadaPendente = new Map([['o/r#21', { sid: 'sid-21', head: 'head-21' }]]);
+  e.retomadas.set('o/r#21', { key: 'o/r#21', retomarSid: 'sid-000021', knownHead: 'head-21', provedor: 'dir', perfilId: '' });
   await e._repescarRetry([], new Set());
   assert.equal(e.retryAfterNet.has('o/r#21'), false);
-  assert.equal(e.retomadaPendente.has('o/r#21'), false, 'sid do boot morre junto do PR');
+  assert.equal(e.retomadas.has('o/r#21'), false, 'a referência morre junto do PR');
 });

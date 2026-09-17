@@ -1,0 +1,3 @@
+N41 tela sem confirmação: REPROVOU (código 1, 4 caso(s) vermelhos em test/ui-radar-compartilhado.test.js, test/sync-transferencia-tela.test.js); restaurado byte a byte: sim
+
+todas as mutações reprovaram e foram restauradas

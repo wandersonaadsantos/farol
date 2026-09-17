@@ -481,3 +481,16 @@ test('GET fora de ui/ continua recusado', async () => {
   const r = await get('/../package.json');
   assert.notEqual(r.status, 200, 'escapar de UI_DIR nao pode servir arquivo do repositorio');
 });
+
+/* C0, defeito 2: a rota descartava o retorno de updateSettings e mandava só
+   { ok, config }. Os três ramos de erro da tela (saveSync, settingsMap e sites do Jira)
+   liam r.ignoradas, que nunca chegava, e a tela dizia "salvo" para o que foi recusado. */
+test('POST /api/settings devolve as chaves ignoradas junto da config', async () => {
+  const r = await post('/api/settings', { chaveQueNaoExiste: 1 });
+  assert.equal(r.status, 200);
+  const j = JSON.parse(r.body);
+  assert.equal(j.ok, true);
+  assert.deepEqual(j.ignoradas, ['chaveQueNaoExiste']);
+  assert.ok(j.config && typeof j.config === 'object', 'a config continua vindo');
+  assert.equal('chaveQueNaoExiste' in j.config, false, 'o que foi ignorado não entra na config');
+});

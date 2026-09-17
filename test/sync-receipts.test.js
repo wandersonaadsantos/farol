@@ -37,7 +37,7 @@ function noBanco() {
 }
 
 test('exporta pelo default e pelos nomes', () => {
-  for (const nome of ['receiptPath', 'receiptsPath', 'buildReceipt', 'receiptBlocks', 'receiptOrphanState', 'readReceipt', 'writeReceipt', 'invalidateReceipt']) {
+  for (const nome of ['receiptPath', 'receiptsPath', 'buildReceipt', 'receiptBlocks', 'receiptOrphanState', 'readReceipt', 'writeReceipt', 'invalidateReceipt', 'atualizarPublicacaoDoRecibo']) {
     assert.equal(typeof receipts[nome], 'function', nome);
   }
 });

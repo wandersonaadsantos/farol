@@ -1,7 +1,7 @@
 {
   "name": "farol",
   "productName": "Farol",
-  "version": "2.59.8",
+  "version": "2.60.0",
   "description": "Radar de Pull Requests: monitora o GitHub e revisa com Claude Code ou Codex CLI.",
   "main": "main.js",
   "type": "module",
@@ -18,6 +18,7 @@
     "lint": "node tools/quality/gate.js && node tools/quality/higiene.js",
     "lint:update": "node tools/quality/gate.js --update",
     "eng": "node tools/eng-behaviour/gate.js",
+    "sync:rules": "node tools/sync-rules.js",
     "test": "node --test --test-force-exit",
     "hooks:install": "git config core.hooksPath tools/hooks"
   },

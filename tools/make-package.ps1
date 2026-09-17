@@ -30,8 +30,10 @@ foreach ($d in @('lib', 'ui', 'assets', 'workspace-template', 'installer')) {
 # ver lib/engine/jira.js): sem ele no pacote, toda copia instalada mostra
 # "Unable to find Electron app at ~/.farol/app/tools/jira-mcp.js" ao revisar PR
 # com site de Jira cadastrado (bug real no macOS do Guilherme, 25/08/2026).
+# farol-parear.js tambem e runtime: e o comando que gera o codigo de pareamento da API
+# local no proprio aparelho (A4). Sem ele na copia instalada nao ha como parear.
 New-Item -ItemType Directory -Force -Path (Join-Path $staging 'tools') | Out-Null
-foreach ($t in @('jira-mcp.js', 'make-icons.ps1', 'pack-ico.js', 'make-package.ps1', 'make-icns.sh')) {
+foreach ($t in @('jira-mcp.js', 'farol-parear.js', 'make-icons.ps1', 'pack-ico.js', 'make-package.ps1', 'make-icns.sh')) {
   Copy-Item (Join-Path (Join-Path $Src 'tools') $t) (Join-Path (Join-Path $staging 'tools') $t)
   $doPacote += "tools/$t"
 }
@@ -115,11 +117,19 @@ foreach ($e in $entries) { if ($e -match '\.(js|md|json|cmd|ps1|html|css)$') {
 } }
 # extrai e procura credenciais/contas pessoais nos textos
 Expand-Archive -Path $zip -DestinationPath $tmpDir -Force
-# *.sh e *.command entram na varredura: sao os artefatos de mac que o pacote
-# transporta, e ficavam fora do pente de credencial (achado da auditoria 16/08)
-$hits = Get-ChildItem $tmpDir -Recurse -File -Include *.js, *.md, *.json, *.cmd, *.ps1, *.html, *.css, *.sh, *.command |
+# TODO arquivo do pacote entra na varredura, sem lista de extensao (verificacao C,
+# 16/09/2026): a lista anterior tinha nove extensoes e deixava de fora texto que VIAJA,
+# medido no caminho real com segredo sintetico em ui/favicon.svg, installer/farol.nsi e um
+# .txt novo em lib/, os tres empacotados sem uma linha de aviso. Lista de extensao e uma
+# exceção que envelhece calada a cada arquivo novo; ler tudo nao envelhece.
+$hits = Get-ChildItem $tmpDir -Recurse -File |
   Where-Object { $_.Name -ne 'make-package.ps1' } |
-  Select-String -Pattern 'wandersonbiuder|ghp_|github_pat_|gho_|ATATT|Bearer ' -SimpleMatch:$false
+  # O padrao casa a FORMA de um segredo de verdade (prefixo + valor), nao a mencao do prefixo:
+  # desde a A1 e a A4 o proprio codigo carrega a mascara de segredo (lib/engine/falhas.js) e o
+  # formato do token de sessao (lib/local-auth/acesso.js), e o pente reprovava o pacote por
+  # causa deles. Continua igualmente severo com valor colado por engano: 20 caracteres a menos
+  # nao formam credencial utilizavel. Travado em test/pacote-auditoria.test.js.
+  Select-String -Pattern 'wandersonbiuder|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|gho_[A-Za-z0-9]{20,}|ATATT[A-Za-z0-9]{10,}|Bearer [A-Za-z0-9._~+/=-]{20,}' -SimpleMatch:$false
 Remove-Item $tmpDir -Recurse -Force
 if ($hits) {
   Write-Host '  x  POSSIVEL CREDENCIAL/CONTA PESSOAL NO PACOTE:' -ForegroundColor Red

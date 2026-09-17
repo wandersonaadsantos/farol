@@ -25,6 +25,7 @@ import { scopeVisible, acctMark } from './contas.js';
 import { renderRadarNav } from './radar.js';
 import { loadReviewerCands, renderReviewersEditor, revCtx } from './reviewers.js';
 import { switchSistemaSection, sysSearchFilter } from './sistema.js';
+import { renderMeusPrsRemoto } from './listas-remotas.js';
 
 /* ---------- render: meus PRs (autoanálise) ---------- */
 // PRs cujo merge normal esbarrou na proteção de branch: mostram as saídas
@@ -77,8 +78,13 @@ function renderMyPRs() {
   wrap.hidden = false;
   // o contador da sub-aba conta o que está VISÍVEL: com o total, a bolinha dizia 3 e a
   // lista mostrava 0
-  $('#myPRsCount').hidden = visiveis.length === 0;
-  $('#myPRsCount').textContent = visiveis.length;
+  // linhas de outros aparelhos: mesmo filtro de conta e mesmos ocultos; os PRs daqui (inclusive
+  // os ocultos) nunca voltam como remotos
+  const ocultosAgora = new Set(effectiveHidden(estado().hiddenPRs, hideOptimistic, unhideOptimistic));
+  const remotasVisiveis = renderMeusPrsRemoto(todos, pr => scopeVisible(pr) && !ocultosAgora.has(String(pr.key).toLowerCase()));
+  const contagem = visiveis.length + remotasVisiveis;
+  $('#myPRsCount').hidden = contagem === 0;
+  $('#myPRsCount').textContent = contagem;
   renderMyPRsHiddenFoot(ocultos.length);
   // o estado de carregamento é do MOTOR, então olha a lista completa: com tudo oculto o
   // ciclo terminou bem e o vazio é escolha da pessoa, não falta de resposta

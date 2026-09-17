@@ -6,6 +6,25 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { normalizeReviewPayload } from '../lib/engine/public-review.js';
+import os from 'node:os';
+import path from 'node:path';
+process.env.FAROL_HOME = process.env.FAROL_HOME || path.join(os.tmpdir(), 'farol-test-commitid-' + process.pid);
+
+// Apagado no fim. O caminho e derivado do pid e nao de `mkdtemp`, entao ele se
+// repete entre rodadas do mesmo processo, mas acumula uma pasta por processo:
+// medido em centenas na maquina.
+after(() => {
+  fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true });
+});
+// A importação vem ANTES de qualquer caso: com `--test-force-exit`, o processo sai quando
+// os casos já registrados terminam, e um `await` de topo depois deles pode nunca voltar.
+const { Engine } = await import('../server.js');
+
+// Os `await` de topo vêm ANTES do primeiro caso: com `--test-force-exit`, o processo
+// encerra quando os casos já registrados terminam, e um `await` que só volta depois
+// disso deixa os casos seguintes CANCELADOS, numa rodada que ainda diz "0 falhas".
+const { inlineFallbackPayload } = await import('../lib/engine/decision.js');
+const fanout = (await import('../lib/engine/fanout.js')).default;
 
 test('normalizeReviewPayload: commit_id sha válido é preservado', () => {
   const r = normalizeReviewPayload({ event: 'APPROVE', body: 'ok', comments: [], commit_id: 'a'.repeat(40) });
@@ -27,17 +46,6 @@ test('normalizeReviewPayload: commit_id que não é sha é DESCARTADO (nunca vir
   assert.equal('commit_id' in r.value, false);
 });
 
-import os from 'node:os';
-import path from 'node:path';
-process.env.FAROL_HOME = process.env.FAROL_HOME || path.join(os.tmpdir(), 'farol-test-commitid-' + process.pid);
-
-// Apagado no fim. O caminho e derivado do pid e nao de `mkdtemp`, entao ele se
-// repete entre rodadas do mesmo processo, mas acumula uma pasta por processo:
-// medido em centenas na maquina.
-after(() => {
-  fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true });
-});
-const { Engine } = await import('../server.js');
 
 // C2 da revisão final da onda 2: o clique posta o payload que a SESSÃO escreveu, e esse
 // texto descreve o código de item.headSha. Ancorar no head buscado na hora do clique faz
@@ -99,7 +107,6 @@ test('decide(): pendência SEM headSha (gravada antes do campo) cai no head busc
   assert.equal(capturado.payload.commit_id, 'f'.repeat(40), 'sem head lido, âncora nenhuma é pior que a fresca');
 });
 
-const { inlineFallbackPayload } = await import('../lib/engine/decision.js');
 
 // O 422 do GitHub não distingue âncora de LINHA inválida de âncora de HEAD inválida. Se o
 // retry reenviasse o mesmo commit_id, um 422 causado pelo próprio sha falharia idêntico e o
@@ -134,7 +141,6 @@ test('fallback de inline: o payload normalizado do fallback sai sem âncora de h
 // (knownHead). Se o gh falhar no início da sessão, cair pro headSha vazio degradaria o
 // dedup pro comportamento antigo e o round 2 morreria como already_reviewed, com a
 // âncora do relançamento já gasta. O fallback também ancora o review postado.
-const fanout = (await import('../lib/engine/fanout.js')).default;
 const prMetricsOriginal = fanout.prMetrics;
 fanout.prMetrics = async () => null;
 after(() => { fanout.prMetrics = prMetricsOriginal; });

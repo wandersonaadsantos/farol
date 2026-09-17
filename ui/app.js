@@ -4,6 +4,8 @@ import {
   safeJsonParse, parseGoto,
 } from './pure.js';
 import { telasRegistradas, telaPorId } from './telas/registro.js';
+import { tokenLocal, FonteDeEventosAutenticada } from './transporte.js';
+import { montarPareamento, precisaParear, voltarDoPareamento } from './telas/pareamento.js';
 import {
   estado, abaAtual, definirEstado, definirEscopo, definirAba,
   teamHighlightsEnabled, deliveriesEnabled,
@@ -39,6 +41,8 @@ import { initAtalhos } from './telas/atalhos.js';
 import { initPaleta, rotularBtnCmdK } from './telas/paleta.js';
 import { initTema } from './telas/tema.js';
 import { initPerfilPessoa } from './telas/perfil-pessoa.js';
+import { registrarTelaRadarCompartilhado, aoAndamentoRemoto, aoPendenciasRemotas } from './telas/radar-compartilhado.js';
+import { initListasRemotas, aoListasRemotas } from './telas/listas-remotas.js';
 
 const isElectron = ehElectron();
 if (isElectron) document.body.classList.add('electron');
@@ -287,8 +291,15 @@ initReviewersButton(switchTab);
 /* ---------- SSE ---------- */
 let TENTATIVAS_RECONEXAO = 0;
 
+// Um stream por vez: depois de parear de novo no meio do uso, o da credencial antiga não
+// pode continuar entregando os mesmos eventos em dobro.
+let streamAtual = null;
+
 function connect() {
-  const es = new EventSource('/api/events');
+  if (streamAtual) streamAtual.close();
+  // EventSource não aceita cabeçalho: com token, o stream é lido por fetch (A4)
+  const es = tokenLocal() ? new FonteDeEventosAutenticada('/api/events') : new EventSource('/api/events');
+  streamAtual = es;
   es.addEventListener('state', (e) => {
     const d = safeJsonParse(e.data); if (!d) return; definirEstado(d);
     aplicaPlataforma(estado().app && estado().app.platform);   // engine manda; o userAgent era só o palpite inicial
@@ -318,6 +329,26 @@ function connect() {
   es.addEventListener('chat-activity', (e) => {
     const d = safeJsonParse(e.data); if (!d) return; const { key, text } = d;
     handleChatActivity(key, text);
+  });
+  // visão compartilhada (andamento e pendências de outros aparelhos): delta próprio, nunca o
+  // estado inteiro. O bootstrap só entrega; quem entende é telas/radar-compartilhado.js.
+  es.addEventListener('sync-live', (e) => {
+    const d = safeJsonParse(e.data); if (!d) return;
+    aoAndamentoRemoto(d);
+  });
+  es.addEventListener('sync-pending', (e) => {
+    const d = safeJsonParse(e.data); if (!d) return;
+    aoPendenciasRemotas(d);
+  });
+  // Panorama e Meus PRs de outros aparelhos: idem, quem entende é telas/listas-remotas.js
+  es.addEventListener('sync-lists', (e) => {
+    const d = safeJsonParse(e.data); if (!d) return;
+    aoListasRemotas(d);
+  });
+  // credencial revogada ou vencida com a página aberta (A4)
+  es.addEventListener('nao-autenticado', () => {
+    es.close();
+    trocarPeloPareamento('A credencial deste navegador expirou ou foi revogada. Pareie de novo para voltar.');
   });
   es.addEventListener('toast', (e) => {
     const t = safeJsonParse(e.data); if (!t) return;
@@ -363,5 +394,25 @@ function connect() {
 // 'sistema' (telasRegistradas() devolve na ordem de registro, e precisa continuar
 // entregas, destaques, time, sistema, consumo).
 registrarTelaConsumo();
+// a visão compartilhada do Radar registra por último, pelo mesmo motivo: registrar no import
+// a poria antes de 'sistema' e mudaria a ordem garantida acima
+registrarTelaRadarCompartilhado();
+// Panorama e Meus PRs de outros aparelhos: quando chega projeção nova, as duas abas (e as
+// contagens das sub-abas) se redesenham pelas funções que o bootstrap já chama por snapshot
+initListasRemotas(() => { renderMyPRs(); renderPanorama(); renderRadarNav(); });
 
-connect();
+/* A4: antes de qualquer coisa, a página pergunta se este navegador pode entrar. Com a
+   exigência ligada e sem credencial, a interface inteira vira o pareamento: nada do estado,
+   do log, do chat ou dos eventos é pedido antes. Sem exigência, nada muda. */
+function trocarPeloPareamento(aviso) {
+  const raiz = document.getElementById('pareamento');
+  if (!raiz || document.body.classList.contains('parear')) return;
+  document.body.classList.add('parear');
+  raiz.hidden = false;
+  montarPareamento(raiz, aviso, { recarregar: () => voltarDoPareamento(raiz, connect) });
+}
+
+precisaParear().then((precisa) => {
+  if (precisa) return trocarPeloPareamento('');
+  connect();
+});

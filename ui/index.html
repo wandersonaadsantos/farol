@@ -9,6 +9,8 @@
 </head>
 <body>
 
+<!-- A4: a tela de pareamento ocupa a página inteira quando a API local exige credencial -->
+<div id="pareamento" class="par-raiz" hidden></div>
 <header class="topbar">
   <div class="topbar-main">
     <div class="brand">
@@ -68,6 +70,8 @@
   <!-- ============ RADAR ============ -->
   <section id="tab-radar" class="tabpane active" role="tabpanel" aria-labelledby="tabbtn-radar" tabindex="0">
     <div id="identityStrip" class="identity-strip" hidden></div>
+    <!-- visão compartilhada: modo da distribuição e compartilhamento bloqueado (telas/radar-compartilhado.js) -->
+    <div id="mdFaixa" class="md-host" role="status" aria-live="polite" hidden></div>
 
     <div class="meta-line">
       <span id="metaCheck">…</span>
@@ -112,10 +116,50 @@
     <p class="section-desc">PRs em que pediram a sua revisão e que ainda esperam uma decisão.</p>
     <div id="queue" class="cards"></div>
 
+    <div id="mdCompartilhado" hidden>
+      <div class="section-head">
+        <h2>Precisa de você em todos os aparelhos <span id="mdPendCount" class="count" hidden></span></h2>
+        <span class="section-sub">agir continua sendo no aparelho dono</span>
+      </div>
+      <div id="mdPendencias" class="cards"></div>
+      <div class="section-head">
+        <h2>Em outros aparelhos</h2>
+        <span class="section-sub">atualiza a cada 10 segundos</span>
+      </div>
+      <div id="mdOperacoes" class="cards"></div>
+      <div id="mdCandidatosWrap" hidden>
+        <div class="section-head">
+          <h2>Esperando colocação no conjunto</h2>
+          <span class="section-sub">só o aparelho que distribui enxerga esta fila</span>
+        </div>
+        <div id="mdCandidatos" class="cards"></div>
+      </div>
+      <div id="mdComandosWrap" hidden>
+        <div class="section-head"><h2>Comandos enviados</h2></div>
+        <div id="mdComandos"></div>
+      </div>
+      <div id="mdTomadasWrap" hidden>
+        <div class="section-head">
+          <h2>Tomadas feitas por este aparelho</h2>
+          <span class="section-sub">cada uma pode ter custado uma análise duplicada</span>
+        </div>
+        <div id="mdTomadas"></div>
+      </div>
+    </div>
+
     <div id="resolvedWrap" hidden>
       <div class="section-head"><h2>Revisões recentes</h2></div>
       <p class="section-desc">O que o Farol já resolveu, com o veredito e os pontos de atenção que ficaram só aqui. É onde você confirma um pushback quando o autor contesta.</p>
       <div id="resolved" class="rows"></div>
+    </div>
+
+    <div id="mdHistorico" hidden>
+      <div class="section-head"><h2>Revisões de todos os aparelhos</h2></div>
+      <div id="mdRevisoes"></div>
+      <div class="section-head"><h2>Enviar o histórico deste aparelho</h2></div>
+      <div id="mdEnvio"></div>
+      <div class="section-head"><h2>O que é só deste aparelho</h2></div>
+      <div id="mdLocal"></div>
     </div>
     </div>
 
@@ -126,6 +170,8 @@
       </div>
       <p class="section-desc">Autoanálise dos seus próprios PRs: veredito e dicas antes de pedir review. Só pra você, nada é postado. Os botões Reviewers e Merge são as únicas ações que escrevem no GitHub daqui.</p>
       <div id="myPRs" class="cards"></div>
+      <!-- Meus PRs de outros aparelhos, só leitura (telas/listas-remotas.js) -->
+      <div id="myPRsRemoto" class="md-remoto" hidden></div>
       <div id="myPRsHiddenFoot" class="mypr-hidden-foot" hidden></div>
     </div>
     </div>
@@ -141,6 +187,8 @@
       <span id="panoOwners" class="section-sub"></span>
     </div>
     <div id="panorama" class="rows"></div>
+    <!-- Panorama de outros aparelhos, só leitura (telas/listas-remotas.js) -->
+    <div id="panoramaRemoto" class="md-remoto" hidden></div>
 
     <div id="silenced" class="silenced" hidden></div>
     </div>
@@ -324,6 +372,14 @@
           <button class="sys-nav-item" id="sysbtn-sync" data-section="sync" role="tab" aria-selected="false" aria-controls="sys-sync">
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-7.5-4M3 12a9 9 0 0 1 9-9 9 9 0 0 1 7.5 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M19.5 3v4h-4M4.5 21v-4h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             Sincronização
+          </button>
+          <button class="sys-nav-item" id="sysbtn-devices" data-section="devices" role="tab" aria-selected="false" aria-controls="sys-devices">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="13" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 19h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="16.5" y="8.5" width="5" height="11" rx="1.2" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            Aparelhos
+          </button>
+          <button class="sys-nav-item" id="sysbtn-groups" data-section="groups" role="tab" aria-selected="false" aria-controls="sys-groups">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="8" cy="9" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16.5" cy="10" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 19c.6-3 2.6-4.5 5-4.5s4.4 1.5 5 4.5M13.5 18.5c.4-2.2 1.6-3.4 3-3.4s2.6 1.2 3 3.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Grupos de consumo
           </button>
           <button class="sys-nav-item" id="sysbtn-plans" data-section="plans" role="tab" aria-selected="false" aria-controls="sys-plans">
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78m.27-2.34L19.07 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M17 8l-1.5 1.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -658,9 +714,23 @@
           <p class="section-desc">Opcional. Evita que dois aparelhos seus revisem o mesmo PR e mostra o consumo de todos juntos. Cada aparelho continua com o próprio histórico e funciona sem internet.</p>
           <div class="callout info">
             <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><path d="M8 7.4v3.8M8 5.1v.6" stroke-linecap="round"/></svg>
-            <span><b>Nenhum prompt, diff ou relatório sai daqui.</b> Sobem hashes do PR, o aparelho que está com ele e os números de consumo. O nome do repositório e o título do PR nunca são enviados.</span>
+            <span><b>Nenhum prompt, diff, relatório ou título de PR sai daqui.</b> Sobem em claro o SHA do commit analisado (no lease e no recibo; ele pode levar direto ao repositório, quando o repositório é público), o nome do aparelho (vazio usa o nome da máquina), o sistema operacional, a versão do Farol e, no consumo, o modelo, o perfil, os tokens e o custo de cada sessão, além de identificadores e horários de cada análise. Conta do GitHub e PR sobem como resumo SHA-256 sem chave: quem já conhece o nome consegue conferir.</span>
           </div>
           <div id="syncManager"></div>
+        </div>
+
+        <!-- Aparelhos -->
+        <div class="sys-section" id="sys-devices" role="tabpanel" aria-labelledby="sysbtn-devices" tabindex="0">
+          <div class="section-head"><h2>Aparelhos</h2></div>
+          <p class="section-desc">Os aparelhos da sua conta de sincronização, quem administra o conjunto e o que cada um aceita receber. Aposentar não apaga nada e pode ser desfeito.</p>
+          <div id="devicesManager"></div>
+        </div>
+
+        <!-- Grupos de consumo -->
+        <div class="sys-section" id="sys-groups" role="tabpanel" aria-labelledby="sysbtn-groups" tabindex="0">
+          <div class="section-head"><h2>Grupos de consumo</h2></div>
+          <p class="section-desc">Um grupo soma o gasto dos perfis vinculados em todos os aparelhos e pode ter um teto. Só o admin cria e ativa. Enquanto o teto não está ativo, quem segura sessão é o orçamento de cada perfil.</p>
+          <div id="groupsManager"></div>
         </div>
 
         <!-- Plano e chaves -->
@@ -757,10 +827,10 @@
             <h2>Diagnóstico</h2>
             <div class="row-actions">
               <button id="btnHealth" class="btn sm">Diagnóstico com o Claude</button>
-              <button id="btnDiag" class="btn sm" title="Gera um relatório de diagnóstico (sem segredos) pra copiar e mandar pra quem mantém o Farol, útil pra corrigir problemas (ex.: no macOS)">Exportar diagnóstico</button>
+              <button id="btnDiag" class="btn sm" title="Copia o diagnóstico como texto: ambiente, falhas registradas e resumo do log, com segredos mascarados e menções desligadas">Copiar diagnóstico</button>
             </div>
           </div>
-          <p class="section-desc">Log de falhas e ferramentas pra investigar um problema, inclusive o relatório pronto pra mandar pra quem mantém o Farol.</p>
+          <p class="section-desc">Uma visão só: as falhas registradas com o que fazer, o log e o diagnóstico com o Claude. Ver e copiar não executam nada e não enviam o diagnóstico a ninguém; a cópia é texto, com segredos mascarados e menções desligadas.</p>
           <div class="card set-list">
             <label class="set-row" id="sys-row-spawns">
               <span class="set-txt">
@@ -772,18 +842,20 @@
           </div>
           <div id="diagPanel" class="card tool-panel" hidden>
             <div class="tool-head">
-              <h3 class="tool-title">Diagnóstico exportável</h3>
-              <span class="section-sub">sem tokens nem senhas: só ambiente, contas, config e o log de falhas</span>
+              <h3 class="tool-title">Diagnóstico desta máquina</h3>
+              <span class="section-sub">o mesmo texto que foi copiado: ambiente, falhas e resumo do log</span>
               <button id="btnDiagCopy" class="btn sm">Copiar</button>
               <button id="btnDiagClear" class="btn sm ghost">Fechar</button>
             </div>
-            <pre id="diagBox" class="logbox"></pre>
+            <div id="diagBox" class="report"></div>
           </div>
+          <div class="section-head" id="sys-row-falhas"><h2>Falhas registradas</h2><span class="section-sub">apagar o log não apaga estas</span></div>
+          <div id="diagFalhas"></div>
           <div id="healthPanel" class="card tool-panel" hidden>
             <div class="tool-head">
               <h3 class="tool-title">Diagnóstico</h3>
               <span id="healthMeta" class="section-sub"></span>
-              <button id="btnHealthClear" class="btn sm ghost" title="Fechar este relatório: use quando os pontos levantados já foram tratados">Limpar</button>
+              <button id="btnHealthClear" class="btn sm ghost" title="Fecha este relatório e descarta o texto; o log de falhas continua intacto">Descartar relatório</button>
             </div>
             <div id="healthOut" class="report"></div>
           </div>
@@ -791,10 +863,10 @@
             <h2>Log de falhas</h2>
             <div class="row-actions">
               <button id="btnLogRefresh" class="btn sm ghost">Atualizar</button>
-              <button id="btnLogClear" class="btn sm ghost" title="Zerar o log: use quando o episódio já foi diagnosticado e encerrado">Limpar log</button>
+              <button id="btnLogClear" class="btn sm ghost" title="Apaga o log de falhas do disco; não dá para desfazer">Apagar o log de falhas</button>
             </div>
           </div>
-          <p class="sys-note">Só falhas, sem ruído: é o que o <code>/pr-health</code> usa pra ajustar o próprio Farol.</p>
+          <p class="sys-note">Só falhas, sem ruído: é o que o diagnóstico com o Claude lê, em sessão somente leitura.</p>
           <p class="sys-note" id="logResumo" hidden></p>
           <pre id="logBox" class="logbox">…</pre>
         </div>

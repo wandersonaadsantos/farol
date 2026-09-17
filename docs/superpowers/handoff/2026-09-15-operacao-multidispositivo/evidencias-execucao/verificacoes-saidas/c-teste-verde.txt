@@ -1,0 +1,21 @@
+✔ os instaladores completos (Setup.exe e offline do mac) levam o mesmo que o instalador (1.3161ms)
+✔ os tres instaladores copiam os mesmos arquivos de raiz e as mesmas pastas (0.8066ms)
+✔ todo arquivo de raiz instalado viaja no pacote (0.3308ms)
+✔ toda pasta instalada viaja no pacote (0.1457ms)
+✔ tudo que as listas nomeiam existe no repositorio (1.2654ms)
+✔ as seis rotas levam exatamente os quatro guias aprovados (0.164ms)
+✔ docs/ nunca viaja como pasta inteira (0.7736ms)
+✔ cada guia aprovado existe e o protocolo do workspace continua distribuido (0.515ms)
+✔ o pente do pacote pega toda credencial de verdade (1.2969ms)
+✔ o pente não reprova o código que fala sobre credencial (0.2653ms)
+✔ a varredura de conteúdo do empacotador não tem lista de extensão (1.2697ms)
+✔ nada que viaja no pacote casa o pente hoje (29.9372ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 122.8671
+codigo de saida: 0

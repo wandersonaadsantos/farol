@@ -1,0 +1,17 @@
+{
+  "pacote": "eng-behaviour",
+  "versao": "0.13.0",
+  "commit": "94181042539bed158f56bb6524f9d8304745a97a",
+  "origem": "https://github.com/wandersonaadsantos/eng-behaviour.git",
+  "construcao": [
+    [
+      "pnpm",
+      "install",
+      "--frozen-lockfile"
+    ],
+    [
+      "pnpm",
+      "build"
+    ]
+  ]
+}

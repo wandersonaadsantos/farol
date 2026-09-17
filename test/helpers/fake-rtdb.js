@@ -180,8 +180,35 @@ export async function startFakeRtdb({ token = 'tok-ok', agora = () => Date.now()
     return enviar(res, 200, resultado, querEtag ? etagDe(resultado) : '');
   }
 
+  // Consulta ordenada como o RTDB: orderBy por filho, startAt/endAt inclusivos, limites.
+  // Devolve objeto (sem ordem garantida para quem lê), igual ao servidor real.
+  function consultar(atual, params) {
+    if (!atual || typeof atual !== 'object') return atual;
+    const campo = JSON.parse(params.get('orderBy'));
+    // `$key` ordena pela própria chave do filho, como no banco real (o rollup diário do
+    // teto do grupo lê assim, a partir do início do período)
+    const porChave = campo === '$key';
+    const valor = (v, k) => {
+      if (porChave) return k;
+      return v && typeof v === 'object' ? v[campo] : undefined;
+    };
+    let itens = Object.entries(atual).filter(([k, v]) => valor(v, k) !== undefined);
+    itens.sort((a, b) => {
+      const va = valor(a[1], a[0]);
+      const vb = valor(b[1], b[0]);
+      if (va < vb) return -1;
+      return va > vb ? 1 : 0;
+    });
+    if (params.has('startAt')) { const s = JSON.parse(params.get('startAt')); itens = itens.filter(([k, v]) => valor(v, k) >= s); }
+    if (params.has('endAt')) { const e = JSON.parse(params.get('endAt')); itens = itens.filter(([k, v]) => valor(v, k) <= e); }
+    if (params.has('limitToFirst')) itens = itens.slice(0, Number(params.get('limitToFirst')));
+    if (params.has('limitToLast')) itens = itens.slice(-Number(params.get('limitToLast')));
+    return Object.fromEntries(itens);
+  }
+
   function executar(metodo, segs, body, u, atual) {
     if (metodo === 'GET') {
+      if (u.searchParams.has('orderBy')) return consultar(atual, u.searchParams);
       if (u.searchParams.get('shallow') !== 'true' || !atual || typeof atual !== 'object') return atual;
       return Object.fromEntries(Object.keys(atual).map((k) => [k, true]));
     }

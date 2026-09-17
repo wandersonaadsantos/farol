@@ -12,9 +12,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { envGitLimpo } from './helpers/git-limpo.js';
-import { resolverCli, versaoDo, raizPrincipal, ajudaPara, rodar, baseDaEntrega } from '../tools/eng-behaviour/gate.js';
+import { resolverCli, versaoDo, raizPrincipal, ajudaPara, rodar, baseDaEntrega, conferirIdentidade, candidatosDeHome, ferramentaAdotada, CARIMBO_DO_BUILD } from '../tools/eng-behaviour/gate.js';
 
 /**
  * Ate quando esperar cada chamada de git da montagem antes de desistir.
@@ -454,4 +454,110 @@ test('sem base nenhuma o gate falha fechado, em vez de auditar arvore sem entreg
   try {
     assert.equal(baseDaEntrega(dir), null);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+/*
+ * Identidade da CLI (16/09/2026). O clone ao lado estava com a 0.13.0 em andamento, sem
+ * commit, e o `dist/` reconstruido dela: medir contra "o que estiver la" deixaria o gate
+ * aprovar ou reprovar por uma versao que o Farol nao adotou. A conferencia exige versao,
+ * commit, arvore limpa e o carimbo do build, e cada falha diz qual foi.
+ */
+const ADOTADA = { versao: '0.12.0', commit: '' };
+
+function pacoteDeProva({ versao = '0.12.0', carimbo = true } = {}) {
+  const home = temporario();
+  const env = envGitLimpo();
+  const git = (args) => execFileSync('git', [...ARGS_GIT_NEUTROS, ...args], { cwd: home, env, encoding: 'utf8', stdio: 'pipe', timeout: TETO_DO_GIT_NO_TESTE_MS }).trim();
+  fs.writeFileSync(path.join(home, 'package.json'), JSON.stringify({ name: 'eng-behaviour', version: versao }), 'utf8');
+  fs.writeFileSync(path.join(home, '.gitignore'), 'dist/\n', 'utf8');
+  git(['init', '-q', '-b', 'main']);
+  git(['config', 'user.email', 'teste@exemplo']);
+  git(['config', 'user.name', 'teste']);
+  git(['add', '-A']);
+  git(['commit', '-qm', 'inicial']);
+  const commit = git(['rev-parse', 'HEAD']);
+  fs.mkdirSync(path.join(home, 'dist', 'cli'), { recursive: true });
+  fs.writeFileSync(path.join(home, 'dist', 'cli', 'main.js'), '', 'utf8');
+  if (carimbo) fs.writeFileSync(path.join(home, CARIMBO_DO_BUILD), `${commit}\n`, 'utf8');
+  return { home, commit };
+}
+
+test('identidade: a copia construida do commit adotado passa, e diz versao e commit', { timeout: 30_000 }, () => {
+  const { home, commit } = pacoteDeProva();
+  const id = conferirIdentidade(home, { ...ADOTADA, commit });
+  assert.equal(id.erro, undefined);
+  assert.deepEqual(id, { versao: '0.12.0', commit });
+});
+
+test('identidade: versao diferente da adotada e recusada, mesmo com o resto certo', { timeout: 30_000 }, () => {
+  const { home, commit } = pacoteDeProva({ versao: '0.13.0' });
+  assert.match(conferirIdentidade(home, { ...ADOTADA, commit }).erro, /declara a versao 0\.13\.0, e o Farol adota a 0\.12\.0/);
+});
+
+test('identidade: outro commit e recusado', { timeout: 30_000 }, () => {
+  const { home } = pacoteDeProva();
+  assert.match(conferirIdentidade(home, { ...ADOTADA, commit: 'a'.repeat(40) }).erro, /o Farol adota o a{40}/);
+});
+
+test('identidade: alteracao local em arquivo versionado e recusada', { timeout: 30_000 }, () => {
+  const { home, commit } = pacoteDeProva();
+  fs.writeFileSync(path.join(home, '.gitignore'), 'dist/\nmudou\n', 'utf8');
+  assert.match(conferirIdentidade(home, { ...ADOTADA, commit }).erro, /alteracao local/);
+});
+
+test('identidade: dist sem o carimbo do commit e recusado', { timeout: 30_000 }, () => {
+  const { home, commit } = pacoteDeProva({ carimbo: false });
+  assert.match(conferirIdentidade(home, { ...ADOTADA, commit }).erro, /nao se prova construido dele/);
+  fs.writeFileSync(path.join(home, CARIMBO_DO_BUILD), 'b'.repeat(40), 'utf8');
+  assert.match(conferirIdentidade(home, { ...ADOTADA, commit }).erro, /nao se prova construido dele/);
+});
+
+test('identidade: diretorio que nao e checkout proprio e recusado', { timeout: 30_000 }, () => {
+  const home = temporario();
+  fs.writeFileSync(path.join(home, 'package.json'), JSON.stringify({ version: '0.12.0' }), 'utf8');
+  assert.match(conferirIdentidade(home, { ...ADOTADA, commit: 'c'.repeat(40) }).erro, /nao e um checkout git proprio/);
+});
+
+test('identidade: sem o arquivo da ferramenta adotada, nada e aceito', () => {
+  assert.match(conferirIdentidade(temporario(), null).erro, /ferramenta\.json ausente/);
+  assert.match(conferirIdentidade(temporario(), { versao: '0.12.0', commit: 'curto' }).erro, /commit completo/);
+});
+
+test('o arquivo versionado fixa a versao adotada e um commit completo', () => {
+  const f = ferramentaAdotada();
+  // a versao adotada acompanha a migracao do baseline (0.12.0 ate 17/09/2026, 0.13.0 depois)
+  assert.equal(f.versao, '0.13.0', 'a mesma versao do catalogVersion do baseline');
+  assert.match(f.commit, /^[0-9a-f]{40}$/);
+  assert.ok(Array.isArray(f.construcao) && f.construcao.length > 0, 'o comando de construcao fica registrado');
+  const baselines = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '..', 'tools', 'eng-behaviour', 'baselines.json'), 'utf8'));
+  assert.ok(baselines.every((b) => b.catalogVersion === f.versao), 'baseline e ferramenta falam da mesma versao');
+});
+
+test('candidatos: caminho explicito vale sozinho; sem ele, a copia fixada vem antes do clone', () => {
+  assert.deepEqual(candidatosDeHome({ explicito: 'C:/x/eng', principal: 'C:/p/farol', ferramenta: { versao: '0.12.0' } }), [path.resolve('C:/x/eng')]);
+  assert.deepEqual(candidatosDeHome({ explicito: '', principal: path.join('C:', 'p', 'farol'), ferramenta: { versao: '0.12.0' } }), [
+    path.join('C:', 'p', 'eng-behaviour@0.12.0'),
+    path.join('C:', 'p', 'eng-behaviour'),
+  ]);
+});
+
+test('identidade: pasta dentro de outro repositorio nao herda o commit dele', { timeout: 30_000 }, () => {
+  const { home, commit } = pacoteDeProva();
+  const dentro = path.join(home, 'subpasta');
+  fs.mkdirSync(dentro);
+  fs.writeFileSync(path.join(dentro, 'package.json'), JSON.stringify({ version: '0.12.0' }), 'utf8');
+  fs.mkdirSync(path.join(dentro, 'dist'));
+  fs.writeFileSync(path.join(dentro, CARIMBO_DO_BUILD), commit, 'utf8');
+  assert.match(conferirIdentidade(dentro, { ...ADOTADA, commit }).erro, /nao e um checkout git proprio/);
+});
+
+test('o gate, rodado de verdade, falha com codigo 2 quando a CLI apontada nao e a adotada', { timeout: 60_000 }, () => {
+  // uma versao DIFERENTE da adotada (0.13.0 desde a migracao do baseline, 17/09/2026)
+  const { home } = pacoteDeProva({ versao: '0.14.0' });
+  const r = spawnSync(process.execPath, [path.join(import.meta.dirname, '..', 'tools', 'eng-behaviour', 'gate.js')], {
+    env: { ...envGitLimpo(), FAROL_ENG_BEHAVIOUR_HOME: home }, encoding: 'utf8', timeout: 50_000,
+  });
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /declara a versao 0\.14\.0, e o Farol adota a 0\.13\.0/);
+  assert.doesNotMatch(r.stdout, /Veredito/, 'nem chega a rodar a CLI');
 });

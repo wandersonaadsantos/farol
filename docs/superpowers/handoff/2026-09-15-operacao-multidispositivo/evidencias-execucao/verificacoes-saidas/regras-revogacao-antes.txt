@@ -1,0 +1,17 @@
+Executor das regras contra os emuladores oficiais, ANTES de a cláusula NR existir (os casos
+de revogação são novos nesta rodada):
+
+ok     item REV  corte de sessões com senha recente é aceito
+FALHOU item REV  token anterior ao corte NÃO lê mais nada  (esperava 401, veio 200)
+FALHOU item REV  token anterior ao corte NÃO escreve mais nada  (esperava 401, veio 200)
+ok     item REV  o token do login novo continua lendo
+ok     item REV  o token do login novo continua escrevendo
+ok     item REV  o corte não anda para trás
+FALHOU item REV  4/6 casos
+
+194/196 casos conferem
+
+`live/control/revokedBefore` aparecia UMA vez no arquivo de regras: na própria regra de
+escrita dele. Nenhuma leitura ou escrita o consultava, então "encerrar as sessões dos
+outros aparelhos" gravava um número que não cortava nada. O contrato C1 já definia a
+cláusula NR; ela não tinha sido implementada.

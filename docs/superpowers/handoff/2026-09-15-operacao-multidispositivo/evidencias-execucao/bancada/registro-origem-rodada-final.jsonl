@@ -1,0 +1,4 @@
+{"at":"2026-09-16T21:43:25.917Z","evento":"sessao-recusada","id":"a-1","motivo":"alheio"}
+{"at":"2026-09-16T21:43:25.987Z","evento":"pronto","deviceId":"f2be7d48-4d31-4735-aa7f-c84103c7d3a9","nome":"Desktop da sala","papel":"origem","primeiro":true}
+{"at":"2026-09-16T21:49:46.496Z","evento":"enfileirou-local","key":"acme-exemplo/app-web#40"}
+{"at":"2026-09-16T21:50:26.563Z","evento":"decidiu","id":"p-1","acao":"approve"}

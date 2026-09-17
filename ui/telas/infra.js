@@ -3,18 +3,21 @@
 
 import { analysisOpsPlan, esc, opDismissDelay, opTransition } from '../pure.js';
 import { escopo, estado } from './estado.js';
+import { comAutorizacao } from '../transporte.js';
 
 export const $ = (s) => document.querySelector(s);
 
 /* ---------- helpers ---------- */
+// A4: com token de pareamento salvo, as chamadas levam Authorization (ui/transporte.js);
+// sem token, os cabeçalhos são exatamente os de sempre.
 export function api(path, body) {
   return fetch(path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-farol': '1' },
+    headers: comAutorizacao({ 'Content-Type': 'application/json', 'x-farol': '1' }),
     body: JSON.stringify(body || {})
   }).then(r => r.json()).catch(() => null);
 }
-export function get(path) { return fetch(path).then(r => r.json()).catch(() => null); }
+export function get(path) { return fetch(path, { headers: comAutorizacao() }).then(r => r.json()).catch(() => null); }
 
 // Copia texto com fallback: a Clipboard API exige contexto seguro e foco; quando
 // falha (ex.: janela sem foco), recai pro textarea + execCommand, que não depende

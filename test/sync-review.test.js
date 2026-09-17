@@ -27,6 +27,7 @@ const { Engine } = await import('../server.js');
 const reviewMod = (await import('../lib/engine/review.js')).default;
 const fanout = (await import('../lib/engine/fanout.js')).default;
 const io = (await import('../lib/io.js')).default;
+const retomada = await import('../lib/engine/retomada-duravel.js');
 
 // fan-out neutro (sem gh) e o gh da label de "revisando" gravado em vez de rodar
 const prMetricsOriginal = fanout.prMetrics;
@@ -117,7 +118,9 @@ test('runHeadlessReview manda operationKind review e o contexto da coordenação
   assert.equal(op.operationKind, 'review');
   assert.deepEqual(op.coordination, {
     prKey: 'o/r#1', account: 'eu', materialVersion: HEAD, headSha: HEAD, contaRodada: true, manual: true,
-    semCoordenacao: true, ignorarRecibo: false,
+    // C8: o contexto passou a carregar o pedido de tomada forçada, que nasce falso e só
+    // vira verdade com pedido explícito e confirmado
+    semCoordenacao: true, ignorarRecibo: false, tomar: false, confirmado: false,
     pr: { key: 'o/r#1', url: pr.url, repo: 'o/r', number: 1, author: 'dev', account: 'eu' },
   });
 });
@@ -467,6 +470,8 @@ test('retomada recusada que recomeça do zero não reserva outra rodada', async 
     },
   });
   const pr = prDe('o/r#20', { rodadaAutomatica: true, retomarSid: 'sessao-anterior-1', knownHead: HEAD });
+  // a referência mora no Map durável; contexto 'dir' sem perfil é o desta Engine
+  retomada.guardarRetomada(e, pr, { retomarSid: 'sessao-anterior-1', knownHead: HEAD, provedor: 'dir', perfilId: '' });
   await e.runHeadlessReview(pr);
   assert.equal(e.opts.length, 2);
   assert.equal(e.opts[0].coordination.contaRodada, true, 'a tentativa com --resume conta o round');
@@ -517,7 +522,9 @@ for (const [kind, preserva] of [['review', true], ['pushback', false], ['self', 
         throw new Error('No conversation found with session id');
       },
     });
-    await e.runHeadlessReview(prDe('o/r#23', { retomarSid: 'sessao-anterior-2', knownHead: HEAD }));
+    const pr = prDe('o/r#23', { retomarSid: 'sessao-anterior-2', knownHead: HEAD });
+    retomada.guardarRetomada(e, pr, { retomarSid: 'sessao-anterior-2', knownHead: HEAD, provedor: 'dir', perfilId: '' });
+    await e.runHeadlessReview(pr);
     assert.ok(ghCalls.some((c) => c.includes('--add-label')), 'a primeira tentativa pôs a label');
     assert.equal(ghCalls.some((c) => c.includes('--remove-label')), !preserva);
   });

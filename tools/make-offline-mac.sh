@@ -57,7 +57,7 @@ done
 # Mesma whitelist do pacote leve: Jira MCP e ferramentas de build permitidas.
 # Nao copiar tools/ inteiro: smoke e outras ferramentas de desenvolvimento ficam fora.
 mkdir -p "$STAGING/tools"
-for t in jira-mcp.js make-icons.ps1 pack-ico.js make-package.ps1 make-icns.sh; do
+for t in jira-mcp.js farol-parear.js make-icons.ps1 pack-ico.js make-package.ps1 make-icns.sh; do
   cp "$SRC/tools/$t" "$STAGING/tools/$t"
 done
 # Guias distribuídos: allowlist explícita (decisão de 15/09/2026); o install.sh recria a pasta

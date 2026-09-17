@@ -300,22 +300,11 @@ test('renderMyPRs, renderQueue e renderPanorama decidem o empty state pelo listV
    invariantes do CONSUMO: o app tem que ler a rota agrupada, montar resumo antes do
    detalhe e nao voltar a despejar o log inteiro. */
 
-/* A montagem do texto virou `diagnosticsText` no ui/pure.js na onda 5, e as assercoes
-   de ordem e de teto foram junto -- viraram teste de verdade em ui-pure.test.js, que
-   compara SAIDA em vez de casar regex contra o corpo da funcao. Aqui sobrou so o que e
-   invariante de CONSUMO e nao da pra ver de dentro do pure.js: de onde vem o dado. */
-test('buildDiagnostics le a rota agrupada do servidor, nao agrupa por conta propria', () => {
-  const fn = APPJS.match(/async function buildDiagnostics\(\)[\s\S]*?\n\}/);
-  assert.ok(fn, 'buildDiagnostics existe');
-  assert.match(fn[0], /get\('\/api\/log\/triage'\)/, 'o agrupamento vem do servidor (a UI nao pode require lib/)');
-  assert.match(fn[0], /get\('\/api\/log'\)/, 'o detalhe cru tambem vem do servidor');
-  assert.match(fn[0], /tail: DIAG_LOG_TAIL/, 'o teto do detalhe continua sendo aplicado');
-  assert.doesNotMatch(fn[0], /log\.join\('\n'\)/, 'o despejo das 159 linhas cruas saiu do relatorio');
-});
-
-test('o teto do detalhe do diagnostico e 40 linhas, declarado uma vez so', () => {
-  assert.match(APPJS, /const DIAG_LOG_TAIL = 40;/);
-});
+/* O texto do diagnóstico deixou de ser montado na tela na A3 (16/09/2026): quem monta é o
+   engine, e a tela só lê GET /api/diagnostics e mostra inerte. Os dois testes que ficavam
+   aqui (de onde vinha o dado e o teto de 40 linhas do despejo) sumiram com a função; o que
+   eles protegiam está em test/diagnostico-falhas-tela.test.js e em
+   test/diagnostico-unificado.test.js, que olham a saída do engine. */
 
 test('a aba Sistema mostra o resumo agrupado do log, sem mexer no botao de zerar', () => {
   const fn = APPJS.match(/async function loadLog\(\)[\s\S]*?\n\}/);
@@ -338,8 +327,10 @@ test('o contador de Meus PRs conta o VISIVEL, nao o total', () => {
   // com 3 PRs e os 3 ocultos, a bolinha dizia 3 e a lista mostrava 0
   const fn = APPJS.match(/function renderMyPRs\(\) \{[\s\S]*?\n\}/);
   assert.ok(fn, 'renderMyPRs existe');
-  assert.match(fn[0], /\$\('#myPRsCount'\)\.textContent = visiveis\.length;/);
-  assert.match(fn[0], /\$\('#myPRsCount'\)\.hidden = visiveis\.length === 0;/);
+  // as linhas de outros aparelhos entram só pelo que passou no MESMO filtro de ocultos
+  assert.match(fn[0], /const contagem = visiveis\.length \+ remotasVisiveis;/);
+  assert.match(fn[0], /\$\('#myPRsCount'\)\.textContent = contagem;/);
+  assert.match(fn[0], /\$\('#myPRsCount'\)\.hidden = contagem === 0;/);
   assert.doesNotMatch(fn[0], /\$\('#myPRsCount'\)\.textContent = list\.length;/,
     'o contador pelo total saiu');
 });

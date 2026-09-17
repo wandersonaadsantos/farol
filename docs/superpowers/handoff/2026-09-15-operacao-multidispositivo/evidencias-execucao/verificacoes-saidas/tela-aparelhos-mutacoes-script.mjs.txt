@@ -1,0 +1,62 @@
+// Contraprova por mutação: aplica cada mutação numa cópia de trabalho, roda os testes,
+// restaura o arquivo byte a byte e confere o hash. Uso: node mutacoes.mjs <raiz>
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+
+const RAIZ = process.argv[2];
+const TESTES = ['test/ui-pure-aparelhos.test.js', 'test/ui-pure-grupos.test.js', 'test/ui-telas-aparelhos-grupos.test.js'];
+const A = 'ui/pure/aparelhos.js';
+const G = 'ui/pure/grupos.js';
+const TA = 'ui/telas/sistema-aparelhos.js';
+const TG = 'ui/telas/sistema-grupos.js';
+const S = 'ui/telas/sistema.js';
+
+const MUTACOES = [
+  ['M1 souAdmin ignora o batimento', A, 'return !!(admin && admin.souEu === true && admin.fresca === true);', 'return !!(admin && admin.souEu === true);'],
+  ['M2 limpar oferecido sem chave confirmada', A, "  if (estado === 'ligada') return '<div", "  if (estado === 'ligada' || estado === 'desligada-ou-nao-verificavel') return '<div"],
+  ['M3 tornar admin oferecido a quem ja e admin', A, "  if (admin && admin.souEu === true && admin.fresca === true) return '';\n  const proxima", '  const proxima'],
+  ['M4 cobertura casada so pelo nome', A, "return String(o.name || o.deviceId || 'aparelho');", "return String(o.name || 'aparelho');"],
+  ['M5 falha dos navegadores vira vazio', A, "  if (a.estado === 'falha') return `<p class=\"apar-recusa\">", "  if (a.estado === 'falha-desligada') return `<p class=\"apar-recusa\">"],
+  ['M6 teto de paralelismo ate 5', A, 'const APARELHOS_TETOS = [1, 2, 3, 4];', 'const APARELHOS_TETOS = [1, 2, 3, 4, 5];'],
+  ['M7 aposentado recebe aposentar de novo', A, "  else botoes.push(`<button class=\"btn sm ghost\" data-apar-aposentar", "  botoes.push(`<button class=\"btn sm ghost\" data-apar-aposentar"],
+  ['M8 consentimento presumido sem config', A, "const marcado = cfg && cfg.aceitarAdmin === true ? ' checked' : '';", "const marcado = !(cfg && cfg.aceitarAdmin === false) ? ' checked' : '';"],
+  ['M9 admin sem batimento vale como admin em outro', A, "function adminDeOutro(admin, nome) {\n  if (admin.fresca) {", "function adminDeOutro(admin, nome) {\n  if (true) {"],
+  ['M10 ativo com requisito faltando vira protegido', G, '  if (faltam) {\n    return { borda: \'warn\'', '  if (false) {\n    return { borda: \'warn\''],
+  ['M11 soma ausente vira zero', G, "  if (typeof g.custoUsd !== 'number') return `<span class=\"grupo-gasto grupo-vago\">", "  if (false) return `<span class=\"grupo-gasto grupo-vago\">"],
+  ['M12 teto vazio vira zero', G, '  if (!t) return null;', '  if (!t) return 0;'],
+  ['M13 kind desconhecido vira assinatura', G, "return Object.hasOwn(TIPO_POR_KIND, kind) ? TIPO_POR_KIND[kind] : '';", "return Object.hasOwn(TIPO_POR_KIND, kind) ? TIPO_POR_KIND[kind] : 'assinatura';"],
+  ['M14 ativar sem conferir o que falta', G, "  else if (!faltam && g.estado === 'configurado') botoes.push", "  else if (g.estado === 'configurado') botoes.push"],
+  ['M15 sem consentimento parece vazio legitimo', G, "  if (cfg.aceitarAdmin !== true) return '<div class=\"callout warn apar-aviso\">", "  if (cfg.aceitarAdmin === 'nunca') return '<div class=\"callout warn apar-aviso\">"],
+  ['M16 revogar qualquer sessao recarrega', TA, '  if (r.eraAtual === true) { d.recarregar(); return true; }', '  if (r) { d.recarregar(); return true; }'],
+  ['M17 limpar sem senha chama a rota', TA, "  if (!resp.valor) { d.toast('error', 'A limpeza exige a senha da sincronização.', 5000); return false; }\n", ''],
+  ['M18 revogar conjunto sem confirmacao', TA, "  }, 'aparModalSenha');\n  if (!resp.ok) return false;\n  if (!resp.valor) { d.toast('error', 'A revogação", "  }, 'aparModalSenha');\n  if (!resp.valor) { d.toast('error', 'A revogação"],
+  ['M19 consentimento manda sync parcial', TA, 'const sync = { ...cfgSync(), aceitarAdmin: valor === true };', 'const sync = { aceitarAdmin: valor === true };'],
+  ['M20 falha da chave de limpeza vira desligada', TA, "  if (!r || !r.ok) return { estado: 'falha', motivo: (r && r.motivo) || 'o servidor não respondeu' };\n  return { estado: String(r.estado || '') };", "  if (!r || !r.ok) return { estado: 'desligada' };\n  return { estado: String(r.estado || '') };"],
+  ['M21 aposentar sem confirmacao', TA, "    }, '');\n    if (!resp.ok) return false;\n  }", "    }, '');\n  }"],
+  ['M22 editar grupo desativa o teto', TG, 'const ativo = atual && atual.ativo === true ? true : undefined;', 'const ativo = undefined;'],
+  ['M23 ativar teto sem confirmacao', TG, "    });\n    if (!ok) return false;\n  }\n  const r = await d.api('/api/sync/group', { grupo: grupoCorpoDoGrupo", "    });\n  }\n  const r = await d.api('/api/sync/group', { grupo: grupoCorpoDoGrupo"],
+  ['M24 leitura do banco a cada snapshot', S, 'renderSync(); renderAparelhos(); renderGrupos(); } },', 'renderSync(); carregarAparelhos(); renderGrupos(); } },'],
+  ['M25 abrir politica sem ser admin (fiacao de clique)', TA, '  if (!aparelhosSouAdmin(syncDoEstado().admin)) return;\n', ''],
+  ['M26 renomear ignora o cancelamento', TA, "  if (!resp.ok || !resp.valor.trim()) return false;", "  if (!resp.valor.trim()) return false;"],
+];
+
+function hash(buf) { return crypto.createHash('sha256').update(buf).digest('hex'); }
+
+const linhas = [];
+for (const [nome, rel, de, para] of MUTACOES) {
+  const arq = path.join(RAIZ, rel);
+  const original = fs.readFileSync(arq);
+  const texto = original.toString('utf8');
+  const n = texto.split(de).length - 1;
+  if (n !== 1) { linhas.push(`${nome}: ABORTADA (trecho casou ${n} vezes)`); continue; }
+  fs.writeFileSync(arq, texto.replace(de, para));
+  const r = spawnSync(process.execPath, ['--test', '--test-force-exit', ...TESTES], { cwd: RAIZ, encoding: 'utf8' });
+  fs.writeFileSync(arq, original);
+  const restaurado = hash(fs.readFileSync(arq)) === hash(original);
+  const falhas = (r.stdout.match(/^ℹ fail (\d+)/m) || [])[1];
+  const resultado = r.status === 0 ? 'INERTE (testes passaram)' : `morta (${falhas} teste(s) falharam)`;
+  linhas.push(`${nome} [${rel}]: ${resultado}; restaurado byte a byte: ${restaurado ? 'sim' : 'NAO'}`);
+}
+console.log(linhas.join('\n'));

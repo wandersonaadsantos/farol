@@ -130,7 +130,7 @@ export const USAGE_KIND_LABEL = { review: 'Revisão', self: 'Autoanálise', push
 // Desfecho da sessão. Status desconhecido (registro de uma versão futura, arquivo
 // editado à mão) cai em 'ok' na leitura, que é o comportamento que sempre valeu.
 export const USAGE_ST_LABEL = {
-  ok: 'ok', erro: 'erro', cancelada: 'cancelada', parcial: 'parcial', descartada: 'descartada',
+  ok: 'ok', erro: 'erro', cancelada: 'cancelada', parcial: 'parcial', descartada: 'descartada', interrompida: 'interrompida',
 };
 
 // o carimbo de versao por sessao (campo `farol`) nasceu na v2.42.0: sessao sem
@@ -151,7 +151,7 @@ export const FAROL_PRE_STAMP_LABEL = `< ${FAROL_STAMP_SINCE}`;
    baixo. Registro antigo não tem o campo e é lido como medido, que é o que ele era. */
 function custoDaSessao(s) {
   const valor = (s.costUsd || 0).toFixed(2);
-  if (s.costSource === 'sem-base') {
+  if (s.costSource === 'sem-base' || s.costSource === 'desconhecido') {
     return {
       costLabel: 'não medido',
       costTitle: 'a sessão morreu antes de reportar o custo e ainda não há sessão concluída deste tipo e modelo pra estimar a taxa',

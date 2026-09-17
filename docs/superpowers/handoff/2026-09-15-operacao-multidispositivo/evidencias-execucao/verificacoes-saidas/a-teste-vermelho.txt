@@ -1,0 +1,111 @@
+✖ testar um perfil de pasta não altera NENHUM arquivo da pasta, e a credencial vem dela (509.771ms)
+✖ a cópia efêmera nunca recebe a credencial, e leva o settings.json (397.7583ms)
+✖ o padrão da máquina (sem pasta) não altera o ~/.claude.json nem o ~/.claude (416.3513ms)
+✖ CLI que falha ainda apaga a cópia efêmera (24.7501ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 0
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1510.5621
+
+✖ failing tests:
+
+test at test\perfil-claude-sem-escrita.test.js:126:1
+✖ testar um perfil de pasta não altera NENHUM arquivo da pasta, e a credencial vem dela (509.771ms)
+  AssertionError [ERR_ASSERTION]: a pasta do perfil ficou byte a byte igual
+  + actual - expected
+  
+    {
+  +   '.claude.json': '53cc5d83252b1ea9793b114b463249d31a63b0a3dd6c9eb33d1cdba761622c8e',
+  -   '.claude.json': '641bfd369ea9ec1c530fbc9fa97206dd1b7d4987417a83b75dda5f29878920d1',
+      '.credentials.json': '15221554ccdeb14ce87dfd33388cb44c1f9180369f99234b4d3f638aa44b9964',
+  +   'backups\\': 'dir',
+  +   'backups\\.claude.json.backup.1789575786782': '641bfd369ea9ec1c530fbc9fa97206dd1b7d4987417a83b75dda5f29878920d1',
+      'settings.json': 'b773218ca95716f3e7b44f217d8c88eec6f675885913a4c93327712920277df1'
+    }
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-ace98a1f015ac9eb3/test/perfil-claude-sem-escrita.test.js:134:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: { '.claude.json': '53cc5d83252b1ea9793b114b463249d31a63b0a3dd6c9eb33d1cdba761622c8e', '.credentials.json': '15221554ccdeb14ce87dfd33388cb44c1f9180369f99234b4d3f638aa44b9964', 'backups\\': 'dir', 'backups\\.claude.json.backup.1789575786782': '641bfd369ea9ec1c530fbc9fa97206dd1b7d4987417a83b75dda5f29878920d1', 'settings.json': 'b773218ca95716f3e7b44f217d8c88eec6f675885913a4c93327712920277df1' },
+    expected: { '.claude.json': '641bfd369ea9ec1c530fbc9fa97206dd1b7d4987417a83b75dda5f29878920d1', '.credentials.json': '15221554ccdeb14ce87dfd33388cb44c1f9180369f99234b4d3f638aa44b9964', 'settings.json': 'b773218ca95716f3e7b44f217d8c88eec6f675885913a4c93327712920277df1' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\perfil-claude-sem-escrita.test.js:145:1
+✖ a cópia efêmera nunca recebe a credencial, e leva o settings.json (397.7583ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   '.credentials.json',
+      'settings.json'
+    ]
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-ace98a1f015ac9eb3/test/perfil-claude-sem-escrita.test.js:164:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ '.credentials.json', 'settings.json' ],
+    expected: [ 'settings.json' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\perfil-claude-sem-escrita.test.js:168:1
+✖ o padrão da máquina (sem pasta) não altera o ~/.claude.json nem o ~/.claude (416.3513ms)
+  AssertionError [ERR_ASSERTION]: o home ficou byte a byte igual
+  + actual - expected
+  
+    {
+  +   '.claude.json': '84f502ba8503c988b74ed9a9342138e721a2e4d4fb420a62f4f60a3d62aa858c',
+  +   '.claude.json.farol-bak': '6ae4cd0301c0f170afb837ea3ebb3d79d8c26567a59be36cba82f3306f54a321',
+  -   '.claude.json': '6ae4cd0301c0f170afb837ea3ebb3d79d8c26567a59be36cba82f3306f54a321',
+      '.claude\\': 'dir',
+      '.claude\\.credentials.json': '15221554ccdeb14ce87dfd33388cb44c1f9180369f99234b4d3f638aa44b9964',
+  +   '.claude\\backups\\': 'dir',
+  +   '.claude\\backups\\.claude.json.backup.1789575787611': '7b2b8bf95cda5edc3e7337f3c931616b352cff51a1b3c7bf2244f8996c498cb7',
+      '.claude\\settings.json': 'b773218ca95716f3e7b44f217d8c88eec6f675885913a4c93327712920277df1',
+      'AppData\\': 'dir',
+      'AppData\\Roaming\\': 'dir'
+    }
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-ace98a1f015ac9eb3/test/perfil-claude-sem-escrita.test.js:176:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: { '.claude\\': 'dir', '.claude\\.credentials.json': '15221554ccdeb14ce87dfd33388cb44c1f9180369f99234b4d3f638aa44b9964', '.claude\\backups\\': 'dir', '.claude\\backups\\.claude.json.backup.1789575787611': '7b2b8bf95cda5edc3e7337f3c931616b352cff51a1b3c7bf2244f8996c498cb7', '.claude\\settings.json': 'b773218ca95716f3e7b44f217d8c88eec6f675885913a4c93327712920277df1', '.claude.json': '84f502ba8503c988b74ed9a9342138e721a2e4d4fb420a62f4f60a3d62aa858c', '.claude.json.farol-bak': '6ae4cd0301c0f170afb837ea3ebb3d79d8c26567a59be36cba82f3306f54a321', 'AppData\\': 'dir', 'AppData\\Roaming\\': 'dir' },
+    expected: { '.claude\\': 'dir', '.claude\\.credentials.json': '15221554ccdeb14ce87dfd33388cb44c1f9180369f99234b4d3f638aa44b9964', '.claude\\settings.json': 'b773218ca95716f3e7b44f217d8c88eec6f675885913a4c93327712920277df1', '.claude.json': '6ae4cd0301c0f170afb837ea3ebb3d79d8c26567a59be36cba82f3306f54a321', 'AppData\\': 'dir', 'AppData\\Roaming\\': 'dir' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\perfil-claude-sem-escrita.test.js:185:1
+✖ CLI que falha ainda apaga a cópia efêmera (24.7501ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(copia && path.resolve(copia) !== path.resolve(dir))
+  
+      at TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-ace98a1f015ac9eb3/test/perfil-claude-sem-escrita.test.js:200:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+codigo de saida: 1

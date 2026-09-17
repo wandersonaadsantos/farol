@@ -21,39 +21,39 @@
     "tempoMagico": 3
   },
   "lib/engine/public-review.js": {
-    "ternarioAninhado": 2
+    "ternarioAninhado": 1
   },
   "lib/engine/pushback.js": {
     "emptyCatch": 1,
     "jsonParseCru": 2,
     "ternarioAninhado": 1,
-    "profundidadeExcedida": 4
+    "profundidadeExcedida": 1
   },
   "lib/engine/review.js": {
     "maxLines": 1,
     "emptyCatch": 1,
     "ternarioAninhado": 1,
-    "profundidadeExcedida": 15
+    "profundidadeExcedida": 13
   },
   "lib/engine/selfpr.js": {
     "maxLines": 1,
     "emptyCatch": 1,
     "jsonParseCru": 6,
-    "ternarioAninhado": 3,
+    "ternarioAninhado": 2,
     "tempoMagico": 2,
     "profundidadeExcedida": 5
   },
   "lib/engine/session.js": {
     "maxLines": 1,
-    "emptyCatch": 6,
+    "emptyCatch": 5,
     "jsonParseCru": 4,
     "processEnvDireto": 2,
     "ternarioAninhado": 1,
-    "profundidadeExcedida": 10
+    "profundidadeExcedida": 7
   },
   "lib/engine/tools.js": {
     "emptyCatch": 2,
-    "ternarioAninhado": 3
+    "ternarioAninhado": 2
   },
   "lib/engine/update.js": {
     "jsonParseCru": 2,
@@ -61,11 +61,11 @@
     "tempoMagico": 1
   },
   "lib/engine/usage.js": {
-    "ternarioAninhado": 4,
+    "ternarioAninhado": 2,
     "profundidadeExcedida": 1
   },
   "lib/format.js": {
-    "ternarioAninhado": 2
+    "ternarioAninhado": 1
   },
   "lib/http-server.js": {
     "emptyCatch": 1,
@@ -90,13 +90,13 @@
   },
   "server.js": {
     "maxLines": 1,
-    "emptyCatch": 2,
+    "emptyCatch": 1,
     "jsonParseCru": 1,
-    "jsonStringifyCru": 2,
+    "jsonStringifyCru": 1,
     "processEnvDireto": 5,
     "ternarioAninhado": 3,
     "tempoMagico": 1,
-    "profundidadeExcedida": 10
+    "profundidadeExcedida": 9
   },
   "tools/quality/gate.js": {
     "jsonParseCru": 1,

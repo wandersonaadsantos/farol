@@ -1,0 +1,89 @@
+@@TOPO:sistema@@
+<main>
+<div class="sys-layout">
+@@NAV:diag@@
+<div class="sys-content">
+  <div class="section-head first"><h2>Diagnóstico</h2>
+    <div class="row-actions"><span class="btn sm">Copiar diagnóstico</span><span class="btn sm">Diagnóstico com o Claude</span></div>
+  </div>
+  <p class="section-desc">Uma visão só: se o Farol consegue rodar, se vai achar PRs, se consegue abrir sessão, e as falhas registradas. Ver e copiar não executam nada e não enviam o diagnóstico a ninguém. A cópia é texto, com segredos mascarados e menções desligadas.</p>
+
+  <div class="grade-3">
+    <div><div class="estado-rot">Consegue rodar?</div>
+      <div class="cards">
+        <div class="check ok"><span class="led"></span><div><div class="label">GitHub CLI</div><div class="detail">instalado e autenticado</div></div></div>
+        <div class="check ok"><span class="led"></span><div><div class="label">Claude Code</div><div class="detail">instalado</div></div></div>
+      </div>
+    </div>
+    <div><div class="estado-rot">Vai achar PRs?</div>
+      <div class="cards">
+        <div class="check bad"><span class="led"></span><div><div class="label">Monitoramento de @bruno-teste</div><div class="detail">sem organização: nada será buscado para esta conta. <a href="#">Abrir Contas</a></div></div></div>
+      </div>
+    </div>
+    <div><div class="estado-rot">Consegue abrir a sessão?</div>
+      <div class="cards">
+        <div class="check bad"><span class="led"></span><div><div class="label">Perfil de assinatura</div><div class="detail">o padrão do Farol aponta para "Trabalho antigo", que não existe mais: as sessões usam a assinatura legada. <a href="#">Abrir Plano e chaves</a></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-head"><h2>Falhas registradas <span class="count ambient">3</span></h2><span class="section-sub">guardadas fora do log: apagar o log não apaga estas</span></div>
+  <div class="cards">
+    <div class="card blocked" style="display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <span class="set-title">Login do Claude vencido</span><span class="chip bad">precisa de você</span><span class="chip mute">revisão</span>
+        <span class="espaco"></span><span class="faint" style="font-size: 12px;">hoje, 09:42 · sessão <code>a-7f3c</code></span>
+      </div>
+      <p class="set-desc">O que fazer: abra a sessão de login do perfil Pessoal em Plano e chaves. As revisões estacionadas voltam sozinhas depois.</p>
+      <div class="report">
+        <h4>Referência: <code>acme-exemplo/app-web#42</code></h4>
+        <pre>claude saiu com código 1: OAuth token has expired
+Authorization: Bearer [segredo mascarado]
+pedido de revisão de `@bruno-teste` recebido às 09:40
+&lt;img src=x onerror=alert(1)&gt; [link](javascript:alert(2))</pre>
+        <p class="faint" style="font-size: 11.5px;">Conteúdo de terceiros aparece como texto: imagem, link e script não são carregados. Menção a pessoa não notifica ninguém.</p>
+      </div>
+      <div class="row-actions"><span class="btn sm">Copiar esta falha</span><span class="btn sm ghost">Abrir Plano e chaves</span><span class="btn sm ghost">Ver no Consumo</span></div>
+    </div>
+    <div class="card urgent" style="display: flex; flex-direction: column; gap: 6px;">
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <span class="set-title">Rede instável</span><span class="chip warn">se resolve sozinho</span><span class="chip mute">12 vezes</span>
+        <span class="espaco"></span><span class="faint" style="font-size: 12px;">de 08:10 a 09:05</span>
+      </div>
+      <p class="set-desc">O Farol tenta de novo sem gastar tentativa. Durou menos de duas horas, então não é regime: nada a fazer.</p>
+    </div>
+    <div class="card ambient" style="display: flex; flex-direction: column; gap: 6px;">
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <span class="set-title">Retomada recusada pelo Claude Code</span><span class="chip info">sessão nova aberta</span>
+        <span class="espaco"></span><span class="faint" style="font-size: 12px;">ontem, 18:20</span>
+      </div>
+      <p class="set-desc">A sessão interrompida não pôde ser retomada (o Claude Code recusou o identificador). A revisão seguiu numa sessão nova, sem o bloco "não releia".</p>
+    </div>
+  </div>
+
+  <div class="section-head"><h2>Diagnóstico com o Claude</h2><span class="btn sm ghost">Descartar relatório</span></div>
+  <div class="card" style="display: flex; flex-direction: column; gap: 8px;">
+    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;"><span class="chip info">somente leitura</span><span class="muted" style="font-size: 12.5px;">A sessão lê o app e este diagnóstico. Não edita arquivo, não roda comando que mude estado e não posta nada.</span></div>
+    <div class="report">
+      <h3>Resumo</h3>
+      <ul><li>1 falha precisa de você: login vencido no perfil Pessoal.</li><li>Rede instável entre 08:10 e 09:05, sem ação.</li></ul>
+      <h4>Recomendações (não aplicadas)</h4>
+      <ul><li>Abrir a sessão de login do perfil Pessoal. Risco: nenhum.</li></ul>
+    </div>
+  </div>
+
+  <div class="section-head"><h2>Log de falhas</h2><div class="row-actions"><span class="btn sm ghost">Atualizar</span><span class="btn sm danger">Apagar o log de falhas</span></div></div>
+  <p class="sys-note">Só falhas, sem ruído. Apagar o log não apaga as falhas registradas acima nem o relatório do Claude.</p>
+
+  <div class="sync-sub-head">Estados</div>
+  <div class="grade-3">
+    <div><div class="estado-rot">Sem falhas</div><div class="faixa"><span class="chip ok">nenhuma falha</span><span class="muted">Nada registrado nos últimos 30 dias.</span></div></div>
+    <div><div class="estado-rot">Carregando</div><div class="faixa"><span class="pill busy">lendo falhas</span></div></div>
+    <div><div class="estado-rot">Leitura falhou</div><div class="faixa"><span class="chip bad">não deu para ler</span><span class="muted">Mostrando a última leitura, de 09:10.</span></div></div>
+    <div><div class="estado-rot">Copiado</div><div class="faixa"><span class="chip ok">copiado como texto</span><span class="muted">Segredos mascarados.</span></div></div>
+    <div><div class="estado-rot">Diagnóstico rodando</div><div class="faixa"><span class="pill busy">diagnosticando</span><span class="muted">somente leitura</span></div></div>
+    <div><div class="estado-rot">Diagnóstico falhou</div><div class="faixa"><span class="chip bad">falhou</span><span class="muted">A falha foi registrada acima.</span></div></div>
+  </div>
+</div>
+</div>
+</main>

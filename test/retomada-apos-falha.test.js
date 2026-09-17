@@ -15,6 +15,7 @@ import fs from 'node:fs';
 const { Engine } = await import('../server.js');
 const fanout = (await import('../lib/engine/fanout.js')).default;
 const { retomadaAposFalhaBlock } = await import('../lib/engine/review.js');
+const retomada = await import('../lib/engine/retomada-duravel.js');
 
 const prMetricsOriginal = fanout.prMetrics;
 fanout.prMetrics = async () => null;
@@ -64,8 +65,16 @@ function engineCom({ reReviewResume = false } = {}) {
   return e;
 }
 
+// A referência de retomada mora no Map durável (lib/engine/retomada-duravel.js): o
+// pr.retomarSid sozinho não retoma mais. Contexto 'dir' sem perfil é o que a Engine
+// deste teste resolve (config sem claudeProfiles).
+function semear(e, sid, knownHead = HEAD) {
+  retomada.guardarRetomada(e, PR_BASE, { retomarSid: sid, knownHead, provedor: 'dir', perfilId: '' });
+}
+
 test('retomarSid válido entra como --resume mesmo com reReviewResume desligado', async () => {
   const e = engineCom({ reReviewResume: false });
+  semear(e, 'abc-12345');
   await e.runHeadlessReview({ ...PR_BASE, retomarSid: 'abc-12345' });
   assert.equal(e.chamadas.length, 1, 'uma sessão só');
   const args = e.chamadas[0].extraArgs;
@@ -76,6 +85,7 @@ test('retomarSid válido entra como --resume mesmo com reReviewResume desligado'
 
 test('retomada por falha injeta o bloco de continuidade no prompt e avisa na atividade', async () => {
   const e = engineCom({ reReviewResume: false });
+  semear(e, 'abc-12345');
   await e.runHeadlessReview({ ...PR_BASE, retomarSid: 'abc-12345' });
   assert.ok(e.chamadas[0].prompt.includes(retomadaAposFalhaBlock()), 'o prompt carrega o bloco de retomada');
   assert.ok(e.atividades.some(t => /Retomando a sessão interrompida por instabilidade/.test(t)),
@@ -102,6 +112,7 @@ test('sem retomarSid o comportamento é o de sempre (nada de --resume, nada de b
 
 test('retomarSid tem precedência sobre o resumeSid do round incremental', async () => {
   const e = engineCom({ reReviewResume: true });
+  semear(e, 'abc-12345');
   await e.runHeadlessReview({ ...PR_BASE, retomarSid: 'abc-12345', resumeSid: 'zzz-98765' });
   const args = e.chamadas[0].extraArgs;
   assert.equal(args[args.indexOf('--resume') + 1], 'abc-12345');
@@ -153,6 +164,7 @@ test('_repescarRetry relança o objeto guardado, preservando retomarSid e knownH
 
 test('head diferente do knownHead da queda derruba a retomada', async () => {
   const e = engineCom({ reReviewResume: false });
+  semear(e, 'abc-12345', 'aaaaaaaaaaaa');
   await e.runHeadlessReview({ ...PR_BASE, retomarSid: 'abc-12345', knownHead: 'aaaaaaaaaaaa' });
   const args = e.chamadas[0].extraArgs;
   assert.equal(args.indexOf('--resume'), -1, 'commit novo = sessão nova');
@@ -164,23 +176,30 @@ test('head diferente do knownHead da queda derruba a retomada', async () => {
 
 test('head igual ao knownHead da queda retoma normalmente', async () => {
   const e = engineCom({ reReviewResume: false });
+  semear(e, 'abc-12345');
   await e.runHeadlessReview({ ...PR_BASE, retomarSid: 'abc-12345', knownHead: HEAD });
   const args = e.chamadas[0].extraArgs;
   assert.equal(args[args.indexOf('--resume') + 1], 'abc-12345');
 });
 
-test('head desconhecido de um dos lados mantém a retomada', async () => {
-  // sem knownHead (queda antes de o head ser conhecido)
-  const semKnown = engineCom({ reReviewResume: false });
-  await semKnown.runHeadlessReview({ ...PR_BASE, retomarSid: 'abc-12345' });
-  const a1 = semKnown.chamadas[0].extraArgs;
-  assert.equal(a1[a1.indexOf('--resume') + 1], 'abc-12345', 'falta de dado nunca vira decisão nova');
-  // sem head atual (gh não respondeu agora); o knownHead é o único head conhecido
-  const semAtual = engineCom({ reReviewResume: false });
-  semAtual.headSha = async () => '';
-  await semAtual.runHeadlessReview({ ...PR_BASE, retomarSid: 'abc-12345', knownHead: 'aaaaaaaaaaaa' });
-  const a2 = semAtual.chamadas[0].extraArgs;
-  assert.equal(a2[a2.indexOf('--resume') + 1], 'abc-12345', 'sem head atual não há como afirmar que andou');
+test('sem head salvo a retomada é descartada e a revisão lê do zero', async () => {
+  const e = engineCom({ reReviewResume: false });
+  semear(e, 'abc-12345', '');
+  await e.runHeadlessReview({ ...PR_BASE, retomarSid: 'abc-12345' });
+  assert.equal(e.chamadas[0].extraArgs.includes('--resume'), false, 'sem prova de qual commit a sessão leu, não retoma');
+  assert.equal(e.chamadas[0].prompt.includes(retomadaAposFalhaBlock()), false);
+});
+
+test('head atual não confirmado: nenhuma sessão abre e a referência espera', async () => {
+  const e = engineCom({ reReviewResume: false });
+  semear(e, 'abc-12345', 'aaaaaaaaaaaa');
+  e.headSha = async () => '';
+  await assert.rejects(
+    e.runHeadlessReview({ ...PR_BASE, retomarSid: 'abc-12345', knownHead: 'aaaaaaaaaaaa' }),
+    (err) => err.aguardaRetomada === true
+  );
+  assert.equal(e.chamadas.length, 0, 'o head salvo não vale como confirmação do estado atual');
+  assert.equal(e.retomadas.has(PR_BASE.key), true);
 });
 
 /* ---------- a guarda de head vale sem ninguém injetar knownHead ---------- */
@@ -234,6 +253,7 @@ test('mesmo head depois da queda retoma normalmente (sem knownHead injetado)', a
 // --resume.
 test('resume recusado pelo CLI: a sessão nova roda sem o bloco e sem --resume', async () => {
   const e = engineCom();
+  semear(e, 'abc-12345');
   let n = 0;
   e.runClaudeStream = async (prompt, opts) => {
     n++;

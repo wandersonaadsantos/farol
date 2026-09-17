@@ -9,7 +9,7 @@
    estado: os dois campos são lidos direto do DOM na hora do clique e a chamada zera o
    formulário depois. */
 
-import { esc, jiraBaseUrlProblema, jiraPrefixosProblema, genId } from '../pure.js';
+import { esc, jiraBaseUrlProblema, jiraPrefixosProblema, genId, settingsIgnoradasTexto } from '../pure.js';
 import { estado } from './estado.js';
 import { $, api, toast } from './infra.js';
 
@@ -30,8 +30,9 @@ function saveJiraSites(sites) {
   estado().jiraSites = sites;
   renderJiraSites();
   api('/api/settings', { jiraSites: sites }).then(r => {
-    if (r && Array.isArray(r.ignoradas) && r.ignoradas.includes('jiraSites')) {
-      toast('error', '"jiraSites" não foi salvo: o servidor não reconhece essa preferência.', 6000);
+    const recusa = settingsIgnoradasTexto(r);
+    if (recusa) {
+      toast('error', recusa, 6000);
       return;
     }
     toast('ok', '✓ Configurações salvas', 2000);

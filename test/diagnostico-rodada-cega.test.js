@@ -14,10 +14,14 @@ const { semJsonText } = await import('../lib/format.js');
 
 const REVIEW = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'engine', 'review.js'), 'utf8');
 
+// Desde a A5 (retomada durável) a condição ganhou uma exceção: quando há referência de
+// retomada esperando o head ser confirmado, a rodada não segue cega, ela ESPERA (e o
+// runOneHeadless registra essa espera no log). A garantia é a mesma: rodada que segue
+// sem head deixa rastro, e esta checagem nunca cancela a revisão com `return`.
 test('rodada sem head confirmado vira linha no log, e continua rodando', () => {
-  assert.match(REVIEW, /if \(!headShaAtual\) \{\s*\n\s*engine\.log\('WARN'/,
+  assert.match(REVIEW, /if \(!headShaAtual(?: && validacaoRetomada\.acao !== 'aguardar')?\) \{\s*\n\s*engine\.log\('WARN'/,
     'a rodada cega precisa deixar rastro');
-  assert.equal(/if \(!headShaAtual\)[\s\S]{0,400}?return;/.test(REVIEW), false,
+  assert.equal(/if \(!headShaAtual[^)]*\)[\s\S]{0,400}?return;/.test(REVIEW), false,
     'e NÃO pode cancelar: falha de rede nunca derruba a revisão');
 });
 

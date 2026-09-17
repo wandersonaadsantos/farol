@@ -7,7 +7,7 @@
    único ponto de contato é cp-remove, que precisa limpar a referência ao perfil removido
    nas contas que a têm; por isso a única direção de import é DESTA tela PARA aquela. */
 
-import { accountSaveArray, claudeProfilesHtml, genId } from '../pure.js';
+import { accountSaveArray, claudeProfilesHtml, genId, perfilTesteHtml, perfilProblemasHtml } from '../pure.js';
 import { estado, ehWin } from './estado.js';
 import { $, api, toast } from './infra.js';
 import { rebuildAccounts } from './contas.js';
@@ -30,11 +30,25 @@ function saveClaudeProfiles(profiles, defaultId) {
   });
 }
 
+/* Resultado do último teste de cada perfil, por id. Fica na tela, nunca na configuração:
+   testar é um ato explícito e não grava nada (A2). Some quando o bloco é redesenhado por
+   outra mudança, e é isso mesmo: o teste vale para o estado daquele instante. */
+const testes = new Map();
+
+function renderTestes() {
+  for (const [id, dados] of testes) {
+    const alvo = document.querySelector(`.cp-teste[data-teste="${CSS.escape(id)}"]`);
+    if (alvo) alvo.innerHTML = perfilTesteHtml(dados);
+  }
+}
+
 export function renderClaudeProfiles() {
   const box = $('#claudeProfilesManager'); if (!box) return;
   // guarda de foco: não reconstrói enquanto você digita num campo deste bloco
   if (document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
-  box.innerHTML = claudeProfilesHtml({ config: estado().config, usage: estado().usage, doctor: estado().doctor, ehWin: ehWin() });
+  box.innerHTML = perfilProblemasHtml((estado().claudePerfis || {}).problemas)
+    + claudeProfilesHtml({ config: estado().config, usage: estado().usage, doctor: estado().doctor, ehWin: ehWin() });
+  renderTestes();
   // efeito de DOM, não de markup: o listener do seletor mostra de volta no modo Chave de API
   const hint = $('#cpAddHint'); if (hint) hint.hidden = true;
 }
@@ -203,20 +217,35 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
     api('/api/settings', patch);
     return;
   }
+  // A2: testar é explícito, roda o Claude Code naquele perfil e não altera nada
+  if (t.classList.contains('cp-testar')) {
+    const id = t.dataset.id || '';
+    testes.set(id, { estado: 'testando' });
+    renderTestes();
+    api('/api/claude/profile-test', { profileId: id }).then((r) => {
+      if (r && r.ok) testes.set(id, { estado: 'pronto', perfil: r.perfil, em: Date.now() });
+      else testes.set(id, { estado: 'erro', code: (r && r.code) || '', motivo: (r && r.motivo) || 'não deu para testar este perfil agora' });
+      renderTestes();
+    });
+    return;
+  }
   if (t.classList.contains('cp-login')) {
     const id = t.dataset.id || '';
     api('/api/claude-login', { profileId: id });
     toast('ok', 'Abrindo sessão de terminal pra login. Rode /login lá, se pedir, e pode fechar quando terminar.', 4500);
     return;
   }
+  // adoção do legado (A2): quem grava é o engine, e só com confirmação literal. A tela
+  // não monta o perfil por fora, senão seriam duas regras de "o que é o perfil legado".
   if (t.id === 'btnClaudeMigrate') {
     const label = ($('#claudeMigrateLabel').value || '').trim() || 'Perfil atual';
-    const newId = genId();
-    const profiles = [{ id: newId, label, dir: estado().config.claudeConfigDir }];
-    // o perfil migrado precisa virar o padrão global na hora: senão ele fica "novo" mas
-    // sem dono, e o legado (claudeConfigDir) continua vencendo por baixo dos panos, sem
-    // jeito de editar ou desativar (achado da revisão final).
-    saveClaudeProfiles(profiles, newId);
+    api('/api/claude/profile-adopt', { confirmar: true, label }).then((r) => {
+      if (r && r.escreveu) {
+        toast('ok', 'Perfil criado e escolhido como padrão do Farol.', 3500);
+        return;
+      }
+      toast('error', (r && r.code === 'ja-tem-perfis') ? 'Já existem perfis salvos.' : 'Não deu para criar o perfil agora.', 4000);
+    });
     return;
   }
 });

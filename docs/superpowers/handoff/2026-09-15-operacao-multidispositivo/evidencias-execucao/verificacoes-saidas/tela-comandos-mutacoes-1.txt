@@ -1,0 +1,61 @@
+M1 repetir volta a ler o head do objeto: REPROVOU (código 1, 2 caso(s) vermelhos em test/sync-comandos-remoto.test.js, test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M2 repetir aceita head desconhecido: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-comandos-remoto.test.js); restaurado byte a byte: sim
+M3 iniciar confia no head guardado: REPROVOU (código 1, 2 caso(s) vermelhos em test/sync-comandos-remoto.test.js, test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M4 repetir enfileira como clique: REPROVOU (código 1, 3 caso(s) vermelhos em test/sync-comandos-remoto.test.js, test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M5 índice sem o commit: REPROVOU (código 1, 4 caso(s) vermelhos em test/sync-historico.test.js, test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M6 fila do conjunto sem nome: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M7 fila do conjunto ignora a atribuição: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M8 executor com publicação vencida: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M9 atribuição recém-feita fora da fila: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M10 projeção sem a fila do conjunto: REPROVOU (código 1, 8 caso(s) vermelhos em test/sync-comandos-tela.test.js, test/contrato-telas.test.js); restaurado byte a byte: sim
+M11 projeção sem o motivo por aparelho: REPROVOU (código 1, 4 caso(s) vermelhos em test/sync-espera.test.js, test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M12 lista de destinos sem o item: REPROVOU (código 1, 6 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M13 rota sem o item: REPROVOU (código 1, 7 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M14 executores sem a conta do item: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M15 quem não publicou vira executor: REPROVOU (código 1, 4 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M16 não publicou deixa de ser motivo: REPROVOU (código 1, 4 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M17 escolha sem motivo por aparelho: REPROVOU (código 1, 5 caso(s) vermelhos em test/sync-candidato.test.js, test/sync-espera.test.js, test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M18 pausado vira sem sinal: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-espera.test.js); restaurado byte a byte: sim
+M19 sem vaga não é dito: REPROVOU (código 1, 4 caso(s) vermelhos em test/sync-espera.test.js, test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M20 recusa recente não é dita: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-espera.test.js); restaurado byte a byte: sim
+M21 admin não publica o veredito: REPROVOU (código 1, 5 caso(s) vermelhos em test/sync-espera.test.js, test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M22 veredito reescrito a cada giro: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-espera.test.js); restaurado byte a byte: sim
+M23 veredito vencido vale: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-espera.test.js); restaurado byte a byte: sim
+M24 veredito sem amarra do item (leitura): REPROVOU (código 1, 2 caso(s) vermelhos em test/sync-espera.test.js); restaurado byte a byte: sim
+M25 a fonte mais nova não vale: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-espera.test.js); restaurado byte a byte: sim
+M26 recusa vencida vale: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-espera.test.js); restaurado byte a byte: sim
+M27 lê recusas sem candidato próprio: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-espera.test.js); restaurado byte a byte: sim
+M28 atribuição viva sem o aparelho: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-espera.test.js); restaurado byte a byte: sim
+M29 quem publicou não lê o conjunto: REPROVOU (código 1, 3 caso(s) vermelhos em test/sync-espera.test.js, test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M30 detalhe da recusa sem allowlist: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-espera.test.js); restaurado byte a byte: sim
+M31 recusa local sem detalhe: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-espera.test.js); restaurado byte a byte: sim
+M32 regra do veredito some: REPROVOU (código 1, 2 caso(s) vermelhos em test/sync-rules-contrato.test.js); restaurado byte a byte: sim
+M33 regra volta a exigir rev anterior: REPROVOU (código 1, 2 caso(s) vermelhos em test/sync-rules-contrato.test.js); restaurado byte a byte: sim
+M34 repetir sem exigir o commit: REPROVOU (código 1, 3 caso(s) vermelhos em test/ui-pure-comandos-tela.test.js, test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M35 repetir sem exigir o admin: REPROVOU (código 1, 3 caso(s) vermelhos em test/ui-pure-comandos-tela.test.js, test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M36 revisão sem o botão repetir: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-pure-comandos-tela.test.js); restaurado byte a byte: sim
+M37 iniciar com atribuição viva: REPROVOU (código 1, 2 caso(s) vermelhos em test/ui-pure-comandos-tela.test.js, test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M38 iniciar sem publicador: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-pure-comandos-tela.test.js); restaurado byte a byte: sim
+M39 iniciar sem exigir o admin: REPROVOU (código 1, 3 caso(s) vermelhos em test/ui-pure-comandos-tela.test.js, test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M40 inaptos viram opção de início: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-pure-comandos-tela.test.js); restaurado byte a byte: sim
+M41 designar sem ser admin: REPROVOU (código 1, 3 caso(s) vermelhos em test/ui-pure-comandos-tela.test.js, test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M42 designar aparelho aposentado: REPROVOU (código 1, 3 caso(s) vermelhos em test/ui-pure-comandos-tela.test.js, test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M43 designar aparelho sem presença: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-pure-comandos-tela.test.js); restaurado byte a byte: sim
+M44 designar o próprio aparelho: REPROVOU (código 1, 3 caso(s) vermelhos em test/ui-pure-comandos-tela.test.js, test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M45 pedido pendente invisível: REPROVOU (código 1, 2 caso(s) vermelhos em test/ui-pure-comandos-tela.test.js, test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M46 recusa aparece como pendente: REPROVOU (código 1, 2 caso(s) vermelhos em test/ui-pure-comandos-tela.test.js, test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M47 nota da espera sem o detalhe: REPROVOU (código 1, 4 caso(s) vermelhos em test/sync-espera.test.js); restaurado byte a byte: sim
+M48 nota sem o aviso do peso: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-espera.test.js); restaurado byte a byte: sim
+M49 código novo sem texto: REPROVOU (código 1, 1 caso(s) vermelhos em test/ui-pure-comandos-tela.test.js); restaurado byte a byte: sim
+M50 repetir sem confirmação: REPROVOU (código 1, 2 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M51 repetir sem guarda: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M52 iniciar aceita escolha forjada: REPROVOU (código 1, 4 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M53 iniciar sem confirmação: REPROVOU (código 1, 2 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M54 iniciar sem guarda: REPROVOU (código 1, 2 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M55 fila do conjunto nunca desenhada: REPROVOU (código 1, 3 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M56 designar sem guarda: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M57 designar sem confirmação: INERTE (código 0, 0 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M58 recibo forçado desiste com leitura em curso: INERTE (código 0, 0 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+M59 recibo sem piso de tempo: REPROVOU (código 1, 3 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+
+2 problema(s)

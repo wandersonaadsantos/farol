@@ -1,0 +1,265 @@
+banco http://127.0.0.1:9000  auth http://127.0.0.1:9099  projeto demo-farol  ns demo-farol-default-rtdb
+relógio do emulador: -19 ms de diferença desta máquina
+regras carregadas no emulador conferem com firebase/database.rules.json
+
+-- Parte 1: dono, lease e os furos declarados
+ok     item P1   escrita na própria árvore é aceita
+ok     item P1   escrita na árvore de outro uid é recusada
+ok     item P1   lease com expiresAt acima de agora + 5 min é recusado
+ok     item P1   rodada com dayPolicy fora de America/Sao_Paulo é recusada
+ok     item P1   lease VIVO de outro dono é recusado (um Farol por PR, no servidor)
+ok     item P1   renovação com o mesmo leaseId e outro deviceId é recusada
+ok     item P1   o MESMO PUT passa depois que o lease vence
+ok     item P1   tomada sem takeoverSeq é recusada
+ok     item P1   tomada com takeoverSeq fora da sequência é recusada
+ok     item P1   tomada sem dizer de quem tomou é recusada
+ok     item P1   tomada apontando outro dono que não o atual é recusada
+ok     item P1   tomada de si mesmo é recusada
+ok     item P1   TOMADA de lease vivo por outro aparelho, com a sequência e a origem certas, é aceita
+ok     item P1   a tomada seguinte anda a sequência
+ok     item P1   escrita direta em leases/.../expiresAt além do teto é barrada pela validação REPLICADA
+ok     item P1   escrita direta em expiresAt dentro do teto, com o mesmo lease, é renovação e passa
+ok     item P1   LIMITE: .validate não roda em DELETE, então o lease VIVO some sem if-match
+
+-- C1: itens 2 a 8
+ok     item 2    envelope no teto de 2048 do nó é aceito
+ok     item 2    envelope um caractere acima do teto é recusado
+ok     item 3    envelope fora do formato e1.gN.<iv>.<ct>.<tag> é recusado
+ok     item 4    batimento na geração que root.child(admin) informa é aceito
+ok     item 4    batimento na geração anterior é recusado (a regra leu o nó de fora)
+ok     item 5    DELETE na raiz da árvore do usuário é recusado
+ok     item 6    PATCH de presença
+ok     item 6    PUT de presença
+ok     item 6    GET de devices
+ok     item 6    PUT de lease com if-match (escrita v1 literal)
+ok     item 6    DELETE de lease com if-match (escrita v1 literal)
+ok     item 6    PUT de recibo
+ok     item 6    DELETE de recibo (faxina e Refazer)
+ok     item 6    PUT de rodada do dia
+ok     item 6    PATCH de poda da rodada
+ok     item 6    PATCH de consumo
+ok     item 6    stream de leases (SSE) abre
+ok     item 7    keyring na primeira revisão é aceito
+ok     item 7    keyring com a MESMA revisão é recusado
+ok     item 7    keyring com revisão + 1 é aceito
+ok     item 8    sonda v1 (caminho sem concessão) é recusada
+ok     item 8    sonda v2 é aceita
+
+-- C2a: itens 9 a 13
+ok     item 9    primeira geração do admin, com o nó ausente, é aceita
+ok     item 9    geração 2 com o nó ausente é recusada
+ok     item 10   geração vigente + 1 é aceita
+ok     item 10   regravar a geração vigente é recusado (admin deposto não reescreve)
+ok     item 10   pular uma geração é recusado
+ok     item 11   troca de admin com senha RECENTE é aceita
+ok     item 12   batimento do admin do momento, na geração vigente, é aceito
+ok     item 12   batimento na geração anterior é recusado
+ok     item 12   batimento de aparelho que não é o admin é recusado
+ok     item 12   batimento com beatAt no passado, fora da janela de 60 s, é recusado
+ok     item 12   batimento com beatAt no futuro, fora da janela de 60 s, é recusado
+ok     item 13   política na geração vigente é aceita
+ok     item 13   política em geração diferente é recusada
+ok     item 13   política com envelope fora do formato é recusada
+ok     item 13   política com envelope acima de 2048 é recusada
+
+-- C2b: itens 15 a 21
+ok     item 15   chave de limpeza com a MESMA revisão é recusada
+ok     item 15   chave de limpeza com revisão MENOR é recusada
+ok     item 15   chave de limpeza com revisão + 1 é aceita
+ok     item 16   trava de limpeza com a chave DESLIGADA é recusada
+ok     item 16   trava de limpeza com a chave ligada e senha recente é aceita
+ok     item 16   trava com x acima de agora + 10 min é recusada
+ok     item 16   apagar a trava é aceito SEMPRE, inclusive com a chave desligada
+ok     item 17   último registro de limpeza com senha recente é aceito
+ok     item 18   revogar a partir do próprio auth_time é recusado (quem revoga não se corta fora)
+ok     item 18   revogar um instante anterior ao auth_time é aceito
+ok     item 18   recuar a marca de revogação é recusado
+ok     item 19   remoção de live/groups com a chave ligada é aceita
+ok     item 19   remoção de live/devicePolicies com a chave ligada é aceita
+ok     item 19   remoção com a chave DESLIGADA é recusada
+ok     item 19   remoção com operação VIVA é recusada
+ok     item 20   remoção de keyring é recusada mesmo com a chave ligada
+ok     item 20   remoção de a própria chave de limpeza é recusada mesmo com a chave ligada
+ok     item 20   remoção de a autoridade do momento é recusada mesmo com a chave ligada
+ok     item 20   LIMITE: leases tem concessão de dono do v1, então a remoção passa sem a chave
+ok     item 20   LIMITE: receipts tem concessão de dono do v1, então a remoção passa sem a chave
+ok     item 20   LIMITE: dailyRounds tem concessão de dono do v1, então a remoção passa sem a chave
+ok     item 21   grupo na geração vigente é aceito
+ok     item 21   grupo em geração diferente é recusado
+ok     item 21   grupo com envelope acima de 2048 é recusado
+ok     item 21   grupo com envelope fora do formato é recusado
+
+-- C3a: itens 22 a 25
+ok     item 22   contract em texto é recusado
+ok     item 22   keyReady em número é recusado
+ok     item 22   contract numérico e keyReady booleano são aceitos
+ok     item 22   presença de aparelho ANTIGO, sem os dois campos, continua aceita
+ok     item 23   estado do aparelho com {v, u, enc} dentro de 2048 é aceito
+ok     item 23   estado do aparelho sem o campo u é recusado
+ok     item 23   catálogo com {v, u, enc} dentro de 2048 é aceito
+ok     item 23   catálogo com envelope acima de 2048 é recusado
+ok     item 23   chave do catálogo fora do formato de tag é recusada
+ok     item 24   remoção do estado do aparelho com a chave ligada é aceita
+ok     item 24   remoção do catálogo com a chave ligada é aceita
+ok     item 24   remoção do estado do aparelho com a chave DESLIGADA é recusada
+ok     item 24   remoção do catálogo com a chave DESLIGADA é recusada
+ok     item 25   o SEGUNDO usuário não escreve na árvore do primeiro
+ok     item 25   o SEGUNDO usuário não lê a árvore do primeiro
+ok     item 25   o SEGUNDO usuário não remove pelo caminho da limpeza
+ok     item 25   o SEGUNDO usuário não remove o catálogo do primeiro
+
+-- C3b a C3f: itens 26 a 34
+ok     item 26   operação com x dentro de 5 min é aceita
+ok     item 26   operação com x no passado é recusada
+ok     item 26   operação com x além de 5 min é recusada
+ok     item 26   regravar a operação com outro aparelho é recusado
+ok     item 26   regravar a operação com outro t0 é recusado
+ok     item 26   remover a operação é aceito (remoção cooperativa)
+ok     item 27   pendência com envelope no teto de 4096 é aceita
+ok     item 27   regravar a pendência com outro at é recusado
+ok     item 27   regravar a pendência com outro aparelho é recusado
+ok     item 27   remover a pendência é aceito
+ok     item 28   visto com at além de agora + 60 s é recusado
+ok     item 28   primeiro visto é aceito
+ok     item 28   segundo visto por cima do primeiro é recusado
+ok     item 28   remover o visto com a pendência ainda lá é recusado
+ok     item 28   remover o visto depois de a pendência sumir é aceito
+ok     item 29   revisão recente com {v, t, d, dt, enc} é aceita
+ok     item 29   consulta orderBy="t" com limitToLast responde 200
+ok     item 29   consulta orderBy="dt" com limitToLast responde 200
+ok     item 29   regravar a revisão com outro t é recusado
+ok     item 30   primeiro corpo da revisão é aceito
+ok     item 30   segundo corpo na MESMA versão é recusado
+ok     item 30   versão não numérica é recusada
+ok     item 30   corpo acima de 48000 é recusado
+ok     item 31   revisão numérica em recentReviews é aceita
+ok     item 31   tipo fora da lista é recusado
+ok     item 31   remover a revisão é recusado
+ok     item 32   panorama: linha dentro do teto é aceita
+ok     item 32   panorama: lápide sem envelope é aceita
+ok     item 32   panorama: remover lápide com menos de 24 h é recusado
+ok     item 32   panorama: remover lápide com mais de 24 h é aceito
+ok     item 32   panorama: remover linha VIVA fora da limpeza é recusado
+ok     item 32   panorama: consulta orderBy="su" responde 200
+ok     item 32   myPrs: linha dentro do teto é aceita
+ok     item 32   myPrs: lápide sem envelope é aceita
+ok     item 32   myPrs: remover lápide com menos de 24 h é recusado
+ok     item 32   myPrs: remover lápide com mais de 24 h é aceito
+ok     item 32   myPrs: remover linha VIVA fora da limpeza é recusado
+ok     item 32   myPrs: consulta orderBy="su" responde 200
+ok     item 33   panoramaMeta: x até agora + 20 min é aceito
+ok     item 33   panoramaMeta: x além de agora + 20 min é recusado
+ok     item 33   myPrsMeta: x até agora + 20 min é aceito
+ok     item 33   myPrsMeta: x além de agora + 20 min é recusado
+ok     item 34   registro de contestação dentro de 1024 é aceito
+ok     item 34   lápide sem envelope é aceita
+ok     item 34   id fora do formato de tag é recusado
+ok     item 34   remover fora da limpeza é recusado
+
+-- C5c: itens 35 a 42, mais o campo espera
+ok     item 35   candidato com os oito campos e ttl dentro de 30 min é aceito
+ok     item 35   id do item fora do formato prTag_matTag é recusado
+ok     item 35   candidato com ttl no passado é recusado
+ok     item 35   candidato com ttl além de 30 min é recusado
+ok     item 36   atribuição na geração vigente é aceita
+ok     item 36   atribuição com a MESMA revisão é recusada
+ok     item 36   atribuição com revisão MENOR é recusada
+ok     item 36   atribuição com ttl além de 10 min é recusada
+ok     item 36b  veredito de espera com {v, ttl, enc} dentro de 10 min é aceito
+ok     item 36b  veredito de espera com ttl além de 10 min é recusado
+ok     item 36b  veredito de espera com envelope fora do formato é recusado
+ok     item 36b  remover o veredito de espera é aceito
+ok     item 37   resposta do executor com {dev, estado, at} é aceita
+ok     item 37   resposta com at além de agora + 60 s é recusada
+ok     item 38   pronto do admin do momento é aceito
+ok     item 38   pronto na MESMA sequência é recusado
+ok     item 38   pronto de aparelho que não é o admin é recusado
+ok     item 39   rollup do dia com grupos de 32 hex é aceito
+ok     item 39   dia fora da forma AAAA-MM-DD é recusado
+ok     item 39   versão diferente de 1 é recusada
+ok     item 39   seq não numérico é recusado
+ok     item 39   grupo com c em texto é recusado
+ok     item 39   remoção sem a chave de limpeza é recusada
+ok     item 39   remoção com a chave ligada e senha recente é aceita
+ok     item 40   comando na geração vigente e dentro de 1 h é aceito
+ok     item 40   comando com ttl além de 1 h é recusado
+ok     item 40   comando em geração antiga é recusado
+ok     item 40   chave de comando fora de 32 hex é recusada
+ok     item 40   remoção antes do ttl e sem a chave de limpeza é recusada
+ok     item 40   remoção depois do ttl é aceita
+ok     item 41   recibo do aparelho ALVO é aceito
+ok     item 41   segundo recibo por cima do primeiro é recusado
+ok     item 41   remover o recibo com o comando ainda lá é recusado
+ok     item 41   recibo de aparelho que não é o alvo é recusado
+ok     item 41   recibo com at além de agora + 60 s é recusado
+ok     item 41   recibo com at mais de 60 s no passado é recusado
+ok     item 42   entrada na loja review é aceita
+ok     item 42   entrada na loja self é aceita
+ok     item 42   loja inventada é recusada
+ok     item 42   id fora de 32 hex é recusado
+ok     item 42   segunda escrita no mesmo id é recusada
+ok     item 42   remoção sem a chave de limpeza é recusada
+
+-- Tempo real: itens 1, 11, 14 e 17
+   .. aguardando 330 s para o auth_time do login antigo vencer
+ok     item 1    keyring com senha RECENTE é aceito
+ok     item 1    keyring com o token renovado e o auth_time VENCIDO é recusado
+ok     item 1    keyring volta a ser aceito depois de refazer o login
+ok     item 11   troca de admin com o auth_time VENCIDO é recusada
+ok     item 14   a chave de limpeza é aceita SEM senha recente (decisão D-b)
+ok     item 17   último registro de limpeza com o auth_time VENCIDO é recusado
+ok     item REV  corte de sessões com senha recente é aceito
+ok     item REV  token anterior ao corte NÃO lê mais nada
+ok     item REV  token anterior ao corte NÃO escreve mais nada
+ok     item REV  o token do login novo continua lendo
+ok     item REV  o token do login novo continua escrevendo
+ok     item REV  o corte não anda para trás
+
+== resumo por item do roteiro ==
+ok     item P1   17/17 casos
+ok     item 2    2/2 casos
+ok     item 3    1/1 casos
+ok     item 4    2/2 casos
+ok     item 5    1/1 casos
+ok     item 6    11/11 casos
+ok     item 7    3/3 casos
+ok     item 8    2/2 casos
+ok     item 9    2/2 casos
+ok     item 10   3/3 casos
+ok     item 11   2/2 casos
+ok     item 12   5/5 casos
+ok     item 13   4/4 casos
+ok     item 15   3/3 casos
+ok     item 16   4/4 casos
+ok     item 17   2/2 casos
+ok     item 18   3/3 casos
+ok     item 19   4/4 casos
+ok     item 20   6/6 casos
+ok     item 21   4/4 casos
+ok     item 22   4/4 casos
+ok     item 23   5/5 casos
+ok     item 24   4/4 casos
+ok     item 25   4/4 casos
+ok     item 26   6/6 casos
+ok     item 27   4/4 casos
+ok     item 28   5/5 casos
+ok     item 29   4/4 casos
+ok     item 30   4/4 casos
+ok     item 31   3/3 casos
+ok     item 32   12/12 casos
+ok     item 33   4/4 casos
+ok     item 34   4/4 casos
+ok     item 35   4/4 casos
+ok     item 36   4/4 casos
+ok     item 36b  4/4 casos
+ok     item 37   2/2 casos
+ok     item 38   3/3 casos
+ok     item 39   7/7 casos
+ok     item 40   6/6 casos
+ok     item 41   6/6 casos
+ok     item 42   6/6 casos
+ok     item 1    3/3 casos
+ok     item 14   1/1 casos
+ok     item REV  6/6 casos
+
+196/196 casos conferem

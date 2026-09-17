@@ -25,6 +25,13 @@ const s = (account, costUsd, { profileId = 'p1', day = HOJE } = {}) => ({ accoun
 // conta candidata à cota: quem é, quanto pesa, e se tem PR esperando AGORA
 const conta = (user, { weight = 1, waiting = false } = {}) => ({ user, weight, waiting });
 
+// Os `await` de topo vêm ANTES do primeiro caso: com `--test-force-exit`, o processo
+// encerra quando os casos já registrados terminam, e um `await` que só volta depois
+// disso deixa os casos seguintes CANCELADOS, numa rodada que ainda diz "0 falhas".
+const { parseAccounts } = await import('../lib/parse.js');
+const { Engine } = await import('../server.js');
+const { accountSaveArray } = await import('../ui/pure.js');
+
 test('accountSpendInProfile soma só o gasto DAQUELA conta, naquele perfil, naquele dia', () => {
   const sessions = [
     s('biuder', 30), s('biuder', 10),
@@ -135,7 +142,6 @@ test('três contas: a estourada cede pras duas que ainda cabem, e diz o nome das
 
 // --- fiação no engine: peso persistido e disputa lida da fila VIVA ---
 
-const { parseAccounts } = await import('../lib/parse.js');
 
 test('parseAccounts guarda o peso e recusa peso que zeraria a cota', () => {
   const [a] = parseAccounts([{ user: 'biuder', owners: ['biudtech'], budgetWeight: 3 }]);
@@ -149,7 +155,6 @@ test('parseAccounts guarda o peso e recusa peso que zeraria a cota', () => {
 // contasDoPerfil é quem transforma a fila VIVA em "quem está esperando", e é essa
 // leitura que faz a cota morder só quando há disputa de verdade. Chamado no protótipo
 // pra não subir um Engine inteiro (o método não usa nada além do que o stub fornece).
-const { Engine } = await import('../server.js');
 
 function engineContas({ queue = [], contas = [], perfilDe = {} } = {}) {
   return {
@@ -198,7 +203,6 @@ test('contasDoPerfil só junta quem divide o MESMO perfil, e ignora silenciada e
 });
 
 // O peso viaja pela UI: accountSaveArray é quem monta o array salvo pelo painel Contas.
-const { accountSaveArray } = await import('../ui/pure.js');
 
 test('accountSaveArray decide se o peso VIAJA, e nunca o que é peso válido', () => {
   // a fronteira de persistência (parseAccounts) é a fonte de verdade sobre peso válido;

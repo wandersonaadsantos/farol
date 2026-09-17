@@ -1,0 +1,266 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "@U@",
+        "leases": {
+          ".write": "@U@",
+          "$acct": {
+            "$pr": {
+              ".validate": "newData.hasChildren(['leaseId', 'deviceId', 'operationKind', 'expiresAt']) && newData.child('expiresAt').isNumber() && newData.child('expiresAt').val() > now && newData.child('expiresAt').val() <= now + 300000 && (!data.exists() || data.child('expiresAt').val() <= now || (data.child('leaseId').val() == newData.child('leaseId').val() && data.child('deviceId').val() == newData.child('deviceId').val()) || @TOMADA@)",
+              "expiresAt": {
+                ".validate": "newData.isNumber() && newData.val() > now && newData.val() <= now + 300000 && (!data.parent().exists() || !data.parent().child('expiresAt').exists() || data.parent().child('expiresAt').val() <= now || (data.parent().child('leaseId').val() == newData.parent().child('leaseId').val() && data.parent().child('deviceId').val() == newData.parent().child('deviceId').val()) || @TOMADA_FILHO@)"
+              },
+              "leaseId": {
+                ".validate": "!data.parent().exists() || data.parent().child('expiresAt').val() <= now || data.parent().child('leaseId').val() == newData.val() || @TOMADA_FILHO@"
+              },
+              "deviceId": {
+                ".validate": "!data.parent().exists() || data.parent().child('expiresAt').val() <= now || data.parent().child('deviceId').val() == newData.val() || @TOMADA_FILHO@"
+              }
+            }
+          }
+        },
+        "receipts": {
+          ".write": "@U@",
+          "$acct": {
+            "$pr": {
+              "$fp": {
+                ".validate": "newData.hasChildren(['operationKind', 'materialVersion', 'deviceId', 'completedAt', 'outcome', 'publicationState']) && newData.child('completedAt').isNumber()"
+              }
+            }
+          }
+        },
+        "dailyRounds": {
+          ".write": "@U@",
+          "$acct": {
+            "$pr": {
+              "$day": {
+                ".validate": "$day.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && newData.child('dayPolicy').val() == 'America/Sao_Paulo'"
+              }
+            }
+          }
+        },
+        "devices": {
+          ".write": "@U@",
+          "$device": {
+            "contract": {
+              ".validate": "newData.isNumber()"
+            },
+            "keyReady": {
+              ".validate": "newData.isBoolean()"
+            }
+          }
+        },
+        "catalog": {
+          ".write": "@U@ && @LIMPA@",
+          "$pr": {
+            ".write": "@U@ && @H(['v','u','enc'])@ && $pr.matches(/^[0-9a-f]+$/) && @ENC(2048)@"
+          }
+        },
+        "recentReviews": {
+          ".write": "@U@ && @LIMPA@",
+          ".indexOn": ["t", "dt"],
+          "$r": {
+            ".write": "@U@ && ((@H(['v','t','d','dt','enc'])@ && $r.matches(/^[0-9a-f]+$/) && newData.child('t').isNumber() && @ENC(1024)@ && (!data.exists() || (newData.child('t').val() == data.child('t').val() && newData.child('d').val() == data.child('d').val() && newData.child('dt').val() == data.child('dt').val()))) || @LIMPA@)"
+          }
+        },
+        "reviewBodies": {
+          ".write": "@U@ && @LIMPA@",
+          "$r": {
+            ".write": "@U@ && @LIMPA@",
+            "$v": {
+              ".write": "@U@ && ((!data.exists() && @H(['v','enc'])@ && $v.matches(/^[0-9]+$/) && @ENC(48000)@) || @LIMPA@)"
+            }
+          }
+        },
+        "panorama": {
+          ".write": "@U@ && @LIMPA@",
+          ".indexOn": ["su"],
+          "$item": {
+            ".write": "@U@ && ((@H(['v','su','u','ctag'])@ && newData.child('u').isNumber() && (newData.child('del').val() == true || @ENC(2048)@)) || (!newData.exists() && data.child('del').val() == true && data.child('u').val() + 86400000 < now) || @LIMPA@)"
+          }
+        },
+        "panoramaMeta": {
+          ".write": "@U@ && @LIMPA@",
+          "$scope": {
+            ".write": "@U@ && ((@H(['dev','x'])@ && newData.child('x').val() <= now + 1200000) || @LIMPA@)"
+          }
+        },
+        "myPrs": {
+          ".write": "@U@ && @LIMPA@",
+          ".indexOn": ["su"],
+          "$item": {
+            ".write": "@U@ && ((@H(['v','su','u','ctag'])@ && newData.child('u').isNumber() && (newData.child('del').val() == true || @ENC(8192)@)) || (!newData.exists() && data.child('del').val() == true && data.child('u').val() + 86400000 < now) || @LIMPA@)"
+          }
+        },
+        "myPrsMeta": {
+          ".write": "@U@ && @LIMPA@",
+          "$scope": {
+            ".write": "@U@ && ((@H(['dev','x'])@ && newData.child('x').val() <= now + 1200000) || @LIMPA@)"
+          }
+        },
+        "pushbacks": {
+          ".write": "@U@ && @LIMPA@",
+          "$pr": {
+            ".write": "@U@ && ((@H(['v','u','dev'])@ && $pr.matches(/^[0-9a-f]+$/) && newData.child('u').isNumber() && (newData.child('del').val() == true || @ENC(1024)@)) || @LIMPA@)"
+          }
+        },
+        "usageEvents": {
+          ".write": "@U@",
+          "$device": {
+            "$event": {
+              ".validate": "newData.hasChildren(['at', 'kind', 'costUsd']) && newData.child('at').isNumber()"
+            }
+          }
+        },
+        "checkpoints": {
+          ".write": "@U@ && @LIMPA@",
+          "$loja": {
+            ".write": "@U@ && @LIMPA@",
+            "$pr": {
+              ".write": "@U@ && @LIMPA@",
+              "$id": {
+                ".write": "@U@ && ((!data.exists() && @H(['v','u','dev','enc'])@ && $loja.matches(/^(review|self)$/) && $pr.matches(/^[0-9a-f]+$/) && $id.matches(/^[0-9a-f]{32}$/) && newData.child('u').isNumber() && @ENC(2048)@) || @LIMPA@)"
+              }
+            }
+          }
+        },
+        "commandReceipts": {
+          ".write": "@U@ && @LIMPA@",
+          "$cmd": {
+            ".write": "@U@ && ((@H(['dev','estado','code','at'])@ && !data.exists() && newData.child('dev').val() == root.child('users').child($uid).child('live').child('commands').child($cmd).child('alvo').val() && newData.child('at').isNumber() && newData.child('at').val() <= now + 60000 && newData.child('at').val() + 60000 > now) || (!newData.exists() && !root.child('users').child($uid).child('live').child('commands').child($cmd).exists()) || @LIMPA@)"
+          }
+        },
+        "usageDaily": {
+          ".write": "@U@ && @LIMPA@",
+          "$dev": {
+            ".write": "@U@ && @LIMPA@",
+            "$day": {
+              ".write": "@U@ && ((@H(['v','u','seq','g'])@ && $day.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && newData.child('v').val() == 1 && newData.child('u').isNumber() && newData.child('seq').isNumber()) || @LIMPA@)",
+              "g": {
+                "$grupo": {
+                  ".validate": "$grupo.matches(/^[0-9a-f]{32}$/) && newData.child('c').isNumber() && newData.child('s').isNumber() && newData.child('d').isNumber()"
+                }
+              }
+            }
+          }
+        },
+        "keyring": {
+          ".write": "@U@ && @REC@ && @H(['v','rev','updatedAt','epochSince','cur','kids','kcv','slots'])@ && newData.child('rev').isNumber() && ((!data.exists() && newData.child('rev').val() == 1) || newData.child('rev').val() == data.child('rev').val() + 1) && newData.child('updatedAt').val() <= now + 60000 && newData.child('updatedAt').val() + 60000 > now",
+          "slots": {
+            "$s": {
+              ".validate": "$s.matches(/^(pw|pp)$/)",
+              "blob": {
+                ".validate": "newData.isString()"
+              }
+            }
+          }
+        },
+        "live": {
+          "control": {
+            "admin": {
+              ".write": "@U@ && @REC@ && @H(['deviceId','generation','publicKey','setAt'])@ && newData.child('publicKey').isString() && ((!data.exists() && newData.child('generation').val() == 1) || newData.child('generation').val() == data.child('generation').val() + 1)"
+            },
+            "beat": {
+              ".write": "@U@ && @H(['dev','generation','sequencia','beatAt','sig'])@ && @GEN@ && newData.child('dev').val() == @C@.child('admin').child('deviceId').val() && newData.child('sequencia').isNumber() && newData.child('beatAt').isNumber() && newData.child('beatAt').val() + 60000 > now && newData.child('beatAt').val() < now + 60000"
+            },
+            "cleanup": {
+              ".write": "@U@ && @H(['enabled','generation','rev','sig'])@ && newData.child('enabled').isBoolean() && @GEN@ && newData.child('rev').isNumber() && (!data.exists() || newData.child('rev').val() > data.child('rev').val())"
+            },
+            "cleanupLock": {
+              ".write": "@U@ && (!newData.exists() || (@REC@ && @C@.child('cleanup').child('enabled').val() == true && @H(['dev','x'])@ && newData.child('x').val() <= now + 600000))"
+            },
+            "lastCleanup": {
+              ".write": "@U@ && @REC@ && @H(['at','dev','categorias'])@"
+            },
+            "ready": {
+              ".write": "@U@ && @H(['dev','generation','sequencia','beatAt','sig'])@ && @GEN@ && newData.child('dev').val() == @C@.child('admin').child('deviceId').val() && newData.child('sequencia').isNumber() && (!data.exists() || newData.child('sequencia').val() > data.child('sequencia').val()) && newData.child('beatAt').isNumber() && newData.child('beatAt').val() + 60000 > now && newData.child('beatAt').val() < now + 60000"
+            },
+            "revokedBefore": {
+              ".write": "@U@ && @REC@ && newData.isNumber() && newData.val() < auth.token.auth_time && (!data.exists() || newData.val() >= data.val())"
+            }
+          },
+          "operations": {
+            "$op": {
+              ".write": "@U@ && (!newData.exists() || (@H(['v','dev','t0','x','enc'])@ && $op.matches(/^[0-9a-f]+$/) && newData.child('x').isNumber() && newData.child('x').val() > now && newData.child('x').val() <= now + 300000 && @ENC(2048)@ && (!data.exists() || (newData.child('dev').val() == data.child('dev').val() && newData.child('t0').val() == data.child('t0').val()))))"
+            }
+          },
+          "rev": {
+            "$tipo": {
+              "$id": {
+                ".write": "@U@ && $tipo.matches(/^(recentReviews|panorama|myPrs)$/) && newData.isNumber()"
+              }
+            }
+          },
+          "queue": {
+            ".write": "@U@ && @LIMPA@",
+            "$item": {
+              "$dev": {
+                ".write": "@U@ && (!newData.exists() || (@H(['itemId','prTag','matTag','acctTag','orgTag','publishedAt','ttl','enc'])@ && $item.matches(/^[0-9a-f]+_[0-9a-f]+$/) && newData.child('ttl').isNumber() && newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 1800000 && @ENC(2048)@))",
+                "prefDev": { ".validate": "newData.isString() && newData.val().length <= 64" },
+                "prefAte": { ".validate": "newData.isNumber() && newData.val() <= now + 1800000" }
+              }
+            }
+          },
+          "commands": {
+            ".write": "@U@ && @LIMPA@",
+            "$cmd": {
+              ".write": "@U@ && ((@H(['v','generation','alvo','ttl','enc','sig'])@ && @GEN@ && $cmd.matches(/^[0-9a-f]{32}$/) && newData.child('ttl').isNumber() && newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 3600000 && @ENC(2048)@) || (!newData.exists() && data.child('ttl').val() < now) || @LIMPA@)"
+            }
+          },
+          "assign": {
+            ".write": "@U@ && @LIMPA@",
+            "$item": {
+              ".write": "@U@ && (!newData.exists() || (@H(['itemId','dev','rev','generation','ttl','sig'])@ && @GEN@ && newData.child('ttl').isNumber() && newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 600000 && (!data.exists() || !data.child('rev').exists() || newData.child('rev').val() > data.child('rev').val())))",
+              "espera": {
+                ".write": "@U@ && (!newData.exists() || (@H(['v','ttl','enc'])@ && newData.child('ttl').isNumber() && newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 600000 && @ENC(2048)@))"
+              }
+            }
+          },
+          "ack": {
+            ".write": "@U@ && @LIMPA@",
+            "$item": {
+              ".write": "@U@ && (!newData.exists() || (@H(['dev','estado','at'])@ && newData.child('at').isNumber() && newData.child('at').val() <= now + 60000))"
+            }
+          },
+          "pending": {
+            "$i": {
+              ".write": "@U@ && (!newData.exists() || (@H(['v','at','dev','enc'])@ && $i.matches(/^[0-9a-f]+$/) && @ENC(4096)@ && (!data.exists() || (newData.child('at').val() == data.child('at').val() && newData.child('dev').val() == data.child('dev').val()))))"
+            }
+          },
+          "seen": {
+            "$i": {
+              ".write": "@U@ && ((!data.exists() && @H(['at','dev'])@ && newData.child('at').isNumber() && newData.child('at').val() <= now + 60000) || (!newData.exists() && (!root.child('users').child($uid).child('live').child('pending').child($i).exists() || data.child('at').val() + 2592000000 < now)))"
+            }
+          },
+          "deviceStatus": {
+            ".write": "@U@ && @LIMPA@",
+            "$dev": {
+              ".write": "@U@ && @H(['v','u','enc'])@ && @ENC(2048)@"
+            }
+          },
+          "devicePolicies": {
+            ".write": "@U@ && @LIMPA@",
+            "$dev": {
+              ".write": "@U@ && @H(['v','generation','enc','sig'])@ && @GEN@ && @ENC(2048)@ && newData.child('v').isNumber()"
+            }
+          },
+          "groups": {
+            ".write": "@U@ && @LIMPA@",
+            "$grupo": {
+              ".write": "@U@ && @H(['v','generation','enc','sig'])@ && @GEN@ && @ENC(2048)@ && newData.child('v').isNumber()"
+            }
+          }
+        },
+        "rulesProbe": {
+          "v2": {
+            "$dev": {
+              ".write": "@U@",
+              ".validate": "!newData.exists() || newData.hasChildren(['at', 'v'])"
+            }
+          }
+        }
+      }
+    }
+  }
+}

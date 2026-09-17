@@ -1,0 +1,25 @@
+M1 souAdmin ignora o batimento [ui/pure/aparelhos.js]: morta (2 teste(s) falharam); restaurado byte a byte: sim
+M2 limpar oferecido sem chave confirmada [ui/pure/aparelhos.js]: morta (1 teste(s) falharam); restaurado byte a byte: sim
+M3 tornar admin oferecido a quem ja e admin [ui/pure/aparelhos.js]: morta (1 teste(s) falharam); restaurado byte a byte: sim
+M4 cobertura casada so pelo nome [ui/pure/aparelhos.js]: morta (1 teste(s) falharam); restaurado byte a byte: sim
+M5 falha dos navegadores vira vazio [ui/pure/aparelhos.js]: morta (1 teste(s) falharam); restaurado byte a byte: sim
+M6 teto de paralelismo ate 5 [ui/pure/aparelhos.js]: morta (1 teste(s) falharam); restaurado byte a byte: sim
+M7 aposentado recebe aposentar de novo [ui/pure/aparelhos.js]: morta (1 teste(s) falharam); restaurado byte a byte: sim
+M8 consentimento presumido sem config [ui/pure/aparelhos.js]: morta (1 teste(s) falharam); restaurado byte a byte: sim
+M9 admin sem batimento vale como admin em outro [ui/pure/aparelhos.js]: morta (1 teste(s) falharam); restaurado byte a byte: sim
+M10 ativo com requisito faltando vira protegido [ui/pure/grupos.js]: morta (1 teste(s) falharam); restaurado byte a byte: sim
+M11 soma ausente vira zero [ui/pure/grupos.js]: morta (1 teste(s) falharam); restaurado byte a byte: sim
+M12 teto vazio vira zero [ui/pure/grupos.js]: morta (2 teste(s) falharam); restaurado byte a byte: sim
+M13 kind desconhecido vira assinatura [ui/pure/grupos.js]: morta (2 teste(s) falharam); restaurado byte a byte: sim
+M14 ativar sem conferir o que falta [ui/pure/grupos.js]: morta (1 teste(s) falharam); restaurado byte a byte: sim
+M15 sem consentimento parece vazio legitimo [ui/pure/grupos.js]: morta (1 teste(s) falharam); restaurado byte a byte: sim
+M16 revogar qualquer sessao recarrega [ui/telas/sistema-aparelhos.js]: morta (1 teste(s) falharam); restaurado byte a byte: sim
+M17 limpar sem senha chama a rota [ui/telas/sistema-aparelhos.js]: morta (1 teste(s) falharam); restaurado byte a byte: sim
+M18 revogar conjunto sem confirmacao [ui/telas/sistema-aparelhos.js]: INERTE (testes passaram); restaurado byte a byte: sim
+M19 consentimento manda sync parcial [ui/telas/sistema-aparelhos.js]: morta (1 teste(s) falharam); restaurado byte a byte: sim
+M20 falha da chave de limpeza vira desligada [ui/telas/sistema-aparelhos.js]: morta (1 teste(s) falharam); restaurado byte a byte: sim
+M21 aposentar sem confirmacao [ui/telas/sistema-aparelhos.js]: morta (1 teste(s) falharam); restaurado byte a byte: sim
+M22 editar grupo desativa o teto [ui/telas/sistema-grupos.js]: morta (1 teste(s) falharam); restaurado byte a byte: sim
+M23 ativar teto sem confirmacao [ui/telas/sistema-grupos.js]: morta (1 teste(s) falharam); restaurado byte a byte: sim
+M24 leitura do banco a cada snapshot [ui/telas/sistema.js]: morta (1 teste(s) falharam); restaurado byte a byte: sim
+M25 abrir politica sem ser admin (fiacao de clique) [ui/telas/sistema-aparelhos.js]: INERTE (testes passaram); restaurado byte a byte: sim

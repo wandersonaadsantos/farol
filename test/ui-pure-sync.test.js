@@ -53,7 +53,11 @@ test('syncTogglesHtml: a chave geral desabilita as outras duas', () => {
   const on = P.syncTogglesHtml(CFG);
   assert.match(on, /id="setSyncEnabled" checked/);
   assert.match(on, /id="setSyncCoordination" checked/);
-  assert.doesNotMatch(on, /disabled/);
+  // desde a trilha C há mais dois interruptores, e o de distribuir fica travado quando
+  // compartilhar está desligado (como neste CFG); a garantia deste caso é sobre os dois
+  // interruptores da coordenação e do consumo, que a chave geral ligada nunca trava
+  assert.doesNotMatch(on, /id="setSyncCoordination"[^>]*disabled/);
+  assert.doesNotMatch(on, /id="setSyncConsolidation"[^>]*disabled/);
 
   const off = P.syncTogglesHtml({ enabled: false, coordination: { enabled: true }, consolidation: { enabled: true } });
   assert.doesNotMatch(off, /id="setSyncEnabled" checked/);
@@ -148,7 +152,9 @@ test('syncConexaoHtml: os campos vêm da config e a degradação diz o motivo do
   assert.match(html, /value="https:\/\/x-default-rtdb\.firebaseio\.com"/);
   assert.match(html, /value="Notebook"/);
   assert.match(html, /id="syncTest"/);
-  assert.match(html, /id="syncErase"/);
+  // o apagão saiu na C1: sob as regras v2 o DELETE de /users/{uid} é negado, então o botão
+  // que o chamava deixou de existir (spec 7.C1)
+  assert.doesNotMatch(html, /id="syncErase"/);
   assert.doesNotMatch(html, /sync-degradada/);
 
   const ruim = P.syncConexaoHtml(sync({ status: 'erro', lastError: { code: 'indisponivel', motivo: 'o Firebase está indisponível ou sem rede' } }), CFG);
@@ -166,6 +172,18 @@ test('syncEnvioHtml: sem outbox reconciliada não inventa número', () => {
 });
 
 /* ---------- aparelhos ---------- */
+
+// A versão de CADA aparelho na tabela (pedido do Wanderson, 16/09/2026): saber quem já
+// está na versão nova é o que explica diferença de comportamento entre aparelhos.
+test('syncAparelhosHtml: mostra a versão de cada aparelho, e diz quando não sabe', () => {
+  const html = P.syncAparelhosHtml([
+    { deviceId: 'd1', name: 'Windows', platform: 'win32', farolVersion: '2.59.4', lastSeenAt: Date.now(), euMesmo: true },
+    { deviceId: 'd2', name: 'Android velho', platform: 'linux', lastSeenAt: Date.now(), euMesmo: false },
+  ]);
+  assert.match(html, /v2\.59\.4/);
+  assert.match(html, /desconhecida/, 'aparelho sem versão publicada não vira versão vazia');
+  assert.match(html, /<span>versão<\/span>/);
+});
 
 test('syncAparelhosHtml: marca ESTE aparelho e nunca mostra lista vazia muda', () => {
   const agora = Date.UTC(2026, 8, 11, 15, 0, 0);
@@ -207,6 +225,17 @@ test('syncCoordenacaoHtml: só o recibo ÓRFÃO ganha o botão de refazer', () =
 
   const desconhecido = P.syncCoordenacaoHtml(sync({ recibosVistos: { 'o/r#4': { deviceName: 'Celular', orfao: 'desconhecido' } } }));
   assert.doesNotMatch(desconhecido, /sync-redo/, 'falta de dado nunca libera o apagamento');
+});
+
+// C0, defeito 3: a linha dizia "pendente lá" para todo recibo, inclusive o já postado.
+test('syncCoordenacaoHtml: o chip do recibo diz o publicationState real', () => {
+  const linha = (publicationState) => P.syncCoordenacaoHtml(sync({ recibosVistos: { 'o/r#9': { deviceName: 'Celular', at: Date.now(), publicationState, orfao: 'ativo' } } }));
+  assert.match(linha('published'), /sync-chip ok">publicado lá/);
+  assert.doesNotMatch(linha('published'), /pendente lá/);
+  assert.match(linha('pending'), /sync-chip mute">pendente lá/);
+  assert.match(linha('failed'), /sync-chip bad">postagem falhou lá/);
+  assert.match(linha('not_applicable'), /sync-chip mute">concluído lá/);
+  assert.match(linha('constructor'), /concluído lá/, 'nome de protótipo não vira chip');
 });
 
 // D6: o nome do PR nunca sobe pro banco, então a tela só consegue CONTAR o que este

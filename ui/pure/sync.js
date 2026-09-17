@@ -24,6 +24,10 @@
 // que é falha de verdade. Estacionamento e coordenação juntos: o estacionamento VENCE,
 // porque ele é o que exige ação sua, e a espera se resolve sozinha.
 import { esc, fmtClock, fmtTok, fmtWhenDay } from './comum.js';
+import { syncChaveHtml } from './sync-chave.js';
+import { capacidadesIndisponiveisHtml } from './capacidades.js';
+import { notaDistribuicaoHtml, notaTomadaSofridaHtml } from './compartilhado.js';
+import { notaComandoHtml } from './compartilhado-posse.js';
 
 const SYNC_SELOS = {
   desligada: { classe: 'mute', texto: 'desligada' },
@@ -68,12 +72,14 @@ export function syncClasseCartao(estado) {
    efeito que não existe. */
 // o .switch tem que ser IRMÃO IMEDIATO do input, senão ele para de refletir o estado
 // sem erro nenhum (salva certo e parece desligado); ver o comentário em ui/app.css
-function syncSubToggle(id, ligada, on, titulo, desc) {
+// `aviso` é o chip de estado que diz o que o engine está fazendo com o pedido (C1):
+// o interruptor mostra a escolha, e o chip, que ela não está valendo aqui.
+function syncSubToggle(id, ligada, on, titulo, desc, aviso = '') {
   const classe = ligada ? '' : ' off';
   const marcado = on ? ' checked' : '';
   const travado = ligada ? '' : ' disabled';
   return `<label class="set-row${classe}" id="sys-row-${esc(id)}">
-      <span class="set-txt"><span class="set-title">${esc(titulo)}</span><span class="set-desc">${esc(desc)}</span></span>
+      <span class="set-txt"><span class="set-title">${esc(titulo)}</span><span class="set-desc">${esc(desc)}</span>${aviso}</span>
       <span class="set-ctl"><input type="checkbox" id="${esc(id)}"${marcado}${travado}><span class="switch"></span></span>
     </label>`;
 }
@@ -90,10 +96,41 @@ export function syncCfgComGeral(cfg, ligado) {
     enabled: false,
     coordination: { ...(c.coordination || {}), enabled: false },
     consolidation: { ...(c.consolidation || {}), enabled: false },
+    shared: { ...(c.shared || {}), enabled: false },
+    distribution: { ...(c.distribution || {}), enabled: false },
   };
 }
 
-export function syncTogglesHtml(cfg) {
+// Desligar compartilhar leva distribuir junto: sem conteúdo cifrado a distribuição nunca
+// valeria, e deixar a chave marcada guardaria um pedido que o engine ignora. Religar
+// compartilhar não religa a distribuição: quem religa escolhe.
+export function syncCfgSemCompartilhamento(cfg) {
+  const c = cfg || {};
+  return {
+    ...c,
+    shared: { ...(c.shared || {}), enabled: false },
+    distribution: { ...(c.distribution || {}), enabled: false },
+  };
+}
+
+// Compartilhar e distribuir (C1, C5). Distribuir depende de compartilhar (o candidato sobe
+// cifrado) e de coordenar (a posse é o lease); o engine exige os três juntos, e a tela
+// trava o interruptor quando falta um, em vez de aceitar um pedido que nunca valeria.
+const AVISO_BLOQUEIO = '<span class="sync-chip warn sync-pedido">pedido, não aplicado aqui</span>';
+
+function syncTogglesConjuntoHtml(c, sync) {
+  const geral = c.enabled === true;
+  const coord = !!(c.coordination && c.coordination.enabled === true);
+  const compartilhar = !!(c.shared && c.shared.enabled === true);
+  const distribuir = !!(c.distribution && c.distribution.enabled === true);
+  const bloqueado = !!(sync && sync.bloqueioCompartilhamento);
+  const avisoCompartilhar = (bloqueado && compartilhar) ? AVISO_BLOQUEIO : '';
+  const avisoDistribuir = (bloqueado && distribuir) ? AVISO_BLOQUEIO : '';
+  return `${syncSubToggle('setSyncShared', geral, geral && compartilhar, 'Compartilhar a visão entre aparelhos', 'Andamento, pendências, revisões, Panorama e Meus PRs aparecem em todos os seus aparelhos, cifrados com a chave do conjunto.', avisoCompartilhar)}
+    ${syncSubToggle('setSyncDistribution', geral && compartilhar && coord, geral && distribuir, 'Distribuir a fila entre aparelhos', 'O aparelho admin escolhe onde cada revisão automática roda. Depende de compartilhar e de evitar análises simultâneas.', avisoDistribuir)}`;
+}
+
+export function syncTogglesHtml(cfg, sync) {
   const c = cfg || {};
   const geral = c.enabled === true;
   const coord = geral && !!(c.coordination && c.coordination.enabled === true);
@@ -105,6 +142,7 @@ export function syncTogglesHtml(cfg) {
     </label>
     ${syncSubToggle('setSyncCoordination', geral, coord, 'Evitar análises simultâneas', 'Antes de abrir uma revisão, autoanálise ou classificação de pushback automática, confere se outro aparelho seu já cuidou daquele PR neste commit. Se já cuidou, nenhuma sessão nasce aqui.')}
     ${syncSubToggle('setSyncConsolidation', geral, cons, 'Consolidar histórico de consumo', 'Envia tokens, custo e desfecho de cada sessão, sem prompt, diff ou relatório, pra aba Consumo mostrar todos os aparelhos juntos. O histórico deste aparelho continua aqui do jeito que está.')}
+    ${syncTogglesConjuntoHtml(c, sync)}
   </div>`;
 }
 
@@ -118,13 +156,26 @@ function syncCampo(id, rotulo, valor, dica) {
 
 /* O olho que alterna a senha entre oculta e visível. Estado no `aria-pressed`, que é a
    fonte única: quem alterna (ui/app.js) lê dali e troca o `type` do input, então a
-   leitura assistiva e o que se vê na tela nunca divergem. */
-function syncOlhoHtml(visivel) {
-  const rotulo = visivel ? 'Ocultar senha' : 'Mostrar senha';
-  const desenho = visivel
-    ? '<path d="M3 3l18 18M10.6 10.6a3 3 0 0 0 4.2 4.2M9.9 4.9A9.6 9.6 0 0 1 12 4.7c5 0 9 4.3 9 7.3a11 11 0 0 1-2.5 3.9M6.3 6.4A11.9 11.9 0 0 0 3 12c0 3 4 7.3 9 7.3a9.9 9.9 0 0 0 3.6-.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
-    : '<path d="M3 12c0-3 4-7.3 9-7.3s9 4.3 9 7.3-4 7.3-9 7.3S3 15 3 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/>';
-  return `<button type="button" class="sync-olho" id="syncSenhaOlho" aria-pressed="${visivel ? 'true' : 'false'}" aria-label="${rotulo}" title="${rotulo}"><svg aria-hidden="true" viewBox="0 0 24 24">${desenho}</svg></button>`;
+   leitura assistiva e o que se vê na tela nunca divergem.
+
+   Sem `alvo`, é o olho do login da Sincronização, com o id e o handler de sempre. Com
+   `alvo`, é o de outro campo de senha (Aparelhos): o id sai do campo e `data-olho-de` diz
+   qual input ele alterna, para um handler só servir a todos sem markup duplicado. */
+const OLHO_ABERTO = '<path d="M3 12c0-3 4-7.3 9-7.3s9 4.3 9 7.3-4 7.3-9 7.3S3 15 3 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/>';
+const OLHO_RISCADO = '<path d="M3 3l18 18M10.6 10.6a3 3 0 0 0 4.2 4.2M9.9 4.9A9.6 9.6 0 0 1 12 4.7c5 0 9 4.3 9 7.3a11 11 0 0 1-2.5 3.9M6.3 6.4A11.9 11.9 0 0 0 3 12c0 3 4 7.3 9 7.3a9.9 9.9 0 0 0 3.6-.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>';
+
+export function syncOlhoRotulo(visivel) {
+  return visivel ? 'Ocultar senha' : 'Mostrar senha';
+}
+
+export function syncOlhoDesenho(visivel) {
+  return `<svg aria-hidden="true" viewBox="0 0 24 24">${visivel ? OLHO_RISCADO : OLHO_ABERTO}</svg>`;
+}
+
+export function syncOlhoHtml(visivel, alvo) {
+  const rotulo = syncOlhoRotulo(visivel);
+  const quem = alvo ? `id="${esc(alvo)}Olho" data-olho-de="${esc(alvo)}"` : 'id="syncSenhaOlho"';
+  return `<button type="button" class="sync-olho" ${quem} aria-pressed="${visivel ? 'true' : 'false'}" aria-label="${rotulo}" title="${rotulo}">${syncOlhoDesenho(visivel)}</button>`;
 }
 
 /* O bloco de login. Conectado mostra quem é e o botão de sair; desconectado pede e-mail
@@ -179,6 +230,28 @@ export function syncEnvioHtml(sync) {
   return `<span class="sync-teste ok">histórico enviado ${esc(quando)}, nada pendente</span>`;
 }
 
+// Frase da tela com o compartilhamento ligado (spec, seção 11). Ela não promete mais do
+// que a cifra entrega: diz o que sobe cifrado, o que qualquer cópia do banco enxerga
+// mesmo assim, o que a coordenação expõe, contra quem a cifra NÃO protege, o que nunca
+// sai do aparelho, e que sincronização não é backup.
+//
+// Título e autor de PR são dados de colegas: só sobem cifrados, e a frase nomeia isso.
+const PRIVACIDADE = [
+  ['Sobe cifrado', 'títulos, endereços e autores de PR, relatórios e resumos, andamento, Panorama, Meus PRs, Precisa de você, políticas, grupos, nome do aparelho e memória de pushback confirmada. Título e autor de PR são dados de colegas.'],
+  ['Qualquer cópia do banco enxerga', 'horários, custos e tokens por sessão, quantidade e tamanho aproximado dos itens, qual aparelho fez cada coisa, e a correlação entre itens do mesmo PR e da mesma organização pelos identificadores.'],
+  ['A coordenação expõe', 'conta, PR e commit por resumo sem chave, descobríveis testando nomes conhecidos. Aparelho em versão antiga continua enviando o nome da máquina e o commit.'],
+  ['A cifra não protege contra', 'quem sabe a sua senha ou controla o e-mail da conta, o Google (que recebe a senha no login) e quem tem acesso a um aparelho seu.'],
+  ['Nunca sai do aparelho', 'logs, prompts, chats, saída de terminal, credenciais, caminhos de arquivo, Destaques, Kudos e Time.'],
+  ['Não é backup', 'a sincronização serve para os aparelhos combinarem trabalho, não para guardar cópia do que é seu.'],
+];
+
+export function syncPrivacidadeHtml(sync) {
+  const s = sync || {};
+  if (s.shared !== true) return '';
+  const itens = PRIVACIDADE.map(([titulo, texto]) => `<li><b>${esc(titulo)}:</b> ${esc(texto)}</li>`).join('');
+  return `<div class="callout sync-privacidade"><ul class="sync-privacidade-lista">${itens}</ul></div>`;
+}
+
 export function syncConexaoHtml(sync, cfg, rascunho) {
   const s = sync || {};
   const c = cfg || {};
@@ -196,13 +269,12 @@ export function syncConexaoHtml(sync, cfg, rascunho) {
     <div class="sync-topo"><span class="sync-titulo">Firebase pessoal</span><span class="sync-espaco"></span>${syncSeloHtml(estado)}</div>
     ${campos}
     ${degradada}
+    ${syncPrivacidadeHtml(s)}
     ${syncContaHtml(s, rascunho)}
     <div class="sync-rodape">
       <button class="btn sm" id="syncTest">Testar conexão</button>
       <span class="sync-teste" id="syncTestOut"></span>
       ${syncEnvioHtml(s)}
-      <span class="sync-espaco"></span>
-      <button class="btn sm danger-ghost" id="syncErase">Apagar dados sincronizados</button>
     </div>
   </div>`;
 }
@@ -213,10 +285,13 @@ export function syncAparelhosHtml(devices, agora = Date.now()) {
   const linhas = lista.map((d) => {
     const eu = d.euMesmo ? ' <span class="sync-chip mute">este</span>' : '';
     const visto = d.lastSeenAt ? fmtWhenDay(d.lastSeenAt, agora) : 'nunca';
-    return `<div class="sync-linha"><span class="sync-nome">${esc(d.name || d.deviceId || 'aparelho')}${eu}</span><span class="sync-fraco">${esc(d.platform || '')}</span><span class="sync-fraco">${esc(visto)}</span></div>`;
+    // aparelho em versão antiga ainda não publica a versão: "desconhecida" é honesto, e
+    // zero ou vazio pareceria um aparelho sem app
+    const versao = d.farolVersion ? `v${d.farolVersion}` : 'desconhecida';
+    return `<div class="sync-linha"><span class="sync-nome">${esc(d.name || d.deviceId || 'aparelho')}${eu}</span><span class="sync-fraco">${esc(versao)}</span><span class="sync-fraco">${esc(d.platform || '')}</span><span class="sync-fraco">${esc(visto)}</span></div>`;
   }).join('');
   return `<div class="card sync-lista">
-    <div class="sync-linha sync-head"><span>aparelho</span><span>sistema</span><span>visto por último</span></div>
+    <div class="sync-linha sync-head"><span>aparelho</span><span>versão</span><span>sistema</span><span>visto por último</span></div>
     ${linhas}
   </div>`;
 }
@@ -230,13 +305,23 @@ function syncLinhaLease(key, v) {
   return `<div class="sync-coord"><span><span class="sync-ref">${esc(key)}</span><span class="sync-o-que">sendo analisado no ${esc(onde)}${desde}; este aparelho espera</span></span><span class="sync-chip info">em outro aparelho</span></div>`;
 }
 
+// O chip diz o estado REAL da publicação. Antes dizia "pendente lá" para todo recibo,
+// inclusive o já postado, e a linha mentia justamente no caso comum.
+const RECIBO_CHIP = {
+  published: '<span class="sync-chip ok">publicado lá</span>',
+  pending: '<span class="sync-chip mute">pendente lá</span>',
+  failed: '<span class="sync-chip bad">postagem falhou lá</span>',
+};
+const RECIBO_CHIP_SEM_PUBLICACAO = '<span class="sync-chip mute">concluído lá</span>';
+
 function syncLinhaRecibo(key, r) {
   const onde = r.deviceName || 'outro aparelho';
   const quando = r.at ? ` em ${esc(fmtWhenDay(r.at))}` : '';
   if (r.orfao === 'orfao') {
     return `<div class="sync-coord"><span><span class="sync-ref">${esc(key)}</span><span class="sync-o-que sync-orfao">pendente no ${esc(onde)}${quando}, sem atividade há dias; o resultado só existe lá</span></span><button class="btn sm sync-redo" data-key="${esc(key)}">Refazer neste aparelho</button></div>`;
   }
-  return `<div class="sync-coord"><span><span class="sync-ref">${esc(key)}</span><span class="sync-o-que">analisado no ${esc(onde)}${quando} neste commit</span></span><span class="sync-chip mute">pendente lá</span></div>`;
+  const chip = Object.hasOwn(RECIBO_CHIP, String(r.publicationState)) ? RECIBO_CHIP[r.publicationState] : RECIBO_CHIP_SEM_PUBLICACAO;
+  return `<div class="sync-coord"><span><span class="sync-ref">${esc(key)}</span><span class="sync-o-que">analisado no ${esc(onde)}${quando} neste commit</span></span>${chip}</div>`;
 }
 
 export function syncCoordenacaoHtml(sync) {
@@ -258,14 +343,19 @@ export function syncCoordenacaoHtml(sync) {
   return `<div class="sync-sub-head">Coordenação agora</div><div class="card sync-lista">${corpo}</div>`;
 }
 
-export function syncSecaoHtml(sync, cfg, rascunho) {
+export function syncSecaoHtml(sync, cfg, rascunho, capacidades, recusaDaChave) {
   const s = sync || {};
-  if (!(cfg && cfg.enabled === true)) return syncTogglesHtml(cfg);
-  return `${syncTogglesHtml(cfg)}
+  // o aviso do que NÃO está valendo vem antes dos interruptores, inclusive com a chave geral
+  // desligada: é onde a pessoa acredita estar lendo o estado da proteção
+  const indisponiveis = capacidadesIndisponiveisHtml(capacidades);
+  if (!(cfg && cfg.enabled === true)) return `${indisponiveis}${syncTogglesHtml(cfg, s)}`;
+  return `${indisponiveis}${syncTogglesHtml(cfg, s)}
+    ${syncChaveHtml(s, recusaDaChave)}
     <div class="sync-sub-head">Conexão</div>
     ${syncConexaoHtml(s, cfg, rascunho)}
     <div class="sync-sub-head">Aparelhos</div>
     ${syncAparelhosHtml(s.devices)}
+    <div class="row-actions apar-atalho"><span class="btn sm ghost" data-goto="sys:devices" role="button" tabindex="0">Administrar em Aparelhos</span></div>
     ${syncCoordenacaoHtml(s)}`;
 }
 
@@ -338,8 +428,7 @@ const SYNC_ESPERA_FRASE = {
 
 const SYNC_ESPERA_CLASSE = { alheio: '', indisponivel: ' warn', esgotado: ' warn' };
 
-export function prCoordNoteHtml(key, sync) {
-  const s = sync || {};
+function notaDeEsperaHtml(key, s) {
   const espera = (s.espera || {})[key];
   const lease = (s.leasesVistos || {})[key];
   if (espera && SYNC_ESPERA_FRASE[espera.reason]) {
@@ -349,4 +438,12 @@ export function prCoordNoteHtml(key, sync) {
   // sem espera registrada, o stream ainda pode saber que outro aparelho está com ele
   if (lease) return `<div class="pr-coord">${SYNC_ESPERA_FRASE.alheio(esc(lease.deviceName || 'outro aparelho'))}</div>`;
   return '';
+}
+
+// A espera da coordenação vem primeiro, como sempre veio; a espera da distribuição, a
+// tomada sofrida e o comando enviado sobre o PR (visão compartilhada, ui/pure/compartilhado.js
+// e ui/pure/compartilhado-posse.js) somam depois.
+export function prCoordNoteHtml(key, sync, agora = Date.now()) {
+  const s = sync || {};
+  return `${notaDeEsperaHtml(key, s)}${notaDistribuicaoHtml(key, s, agora)}${notaTomadaSofridaHtml(key, s)}${notaComandoHtml(key, s)}`;
 }

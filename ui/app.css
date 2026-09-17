@@ -1210,7 +1210,7 @@ body.electron .chat-head { padding-right: 150px; }
   main { padding: 12px 12px 40px; }
   .section-head { margin: 20px 0 10px; }
   .usage-controls { width: 100%; }
-}
+
   /* ENTREGAS: os controles (segmentados + busca) ficavam espremidos numa linha só.
      Em tela estreita eles quebram, e a grade de estatística vira 2 colunas. */
   .deliv-controls { width: 100%; }
@@ -1628,6 +1628,15 @@ body.electron .chat-head { padding-right: 150px; }
    Só tokens, nenhum hex novo. A cor da coordenação é deliberada: --info para espera e
    --accent para atenção, nunca o --danger do estacionamento, porque segurar não é falhar. */
 .sync-sub-head { font-size: 13px; font-weight: 650; margin: var(--sp-5) 0 var(--sp-2); color: var(--text); }
+
+/* capacidade que existe e não está valendo (adendo, item 5): cada item é um bloco, para o
+   estado nunca se confundir com o motivo numa linha corrida */
+.cap-card .sync-sub-head { margin-top: 0; }
+.cap-lista { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: grid; gap: var(--sp-3); }
+.cap-item { display: grid; gap: 2px; padding: var(--sp-3); border: 1px solid var(--border); border-radius: var(--radius); }
+.cap-titulo { font-weight: 650; }
+.cap-estado { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--warn, var(--muted)); }
+.cap-motivo, .cap-falta { font-size: 13px; color: var(--muted); }
 .sync-card { padding: 0; border-left: 3px solid var(--ok); }
 .sync-card.warn { border-left-color: var(--accent); }
 .sync-card.bad { border-left-color: var(--danger); }
@@ -1666,7 +1675,7 @@ body.electron .chat-head { padding-right: 150px; }
 .sync-teste.ok { color: var(--ok); }
 .sync-teste.ruim { color: var(--danger); }
 .sync-lista { padding: 2px var(--sp-4); }
-.sync-linha { display: grid; grid-template-columns: minmax(0, 1fr) 110px 150px; gap: var(--sp-3); align-items: center; padding: 10px 0; font-size: 12.5px; }
+.sync-linha { display: grid; grid-template-columns: minmax(0, 1fr) 90px 110px 150px; gap: var(--sp-3); align-items: center; padding: 10px 0; font-size: 12.5px; }
 .sync-linha + .sync-linha { border-top: 1px solid var(--border-soft); }
 .sync-linha.sync-head { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); padding-bottom: 6px; }
 .sync-nome { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; font-weight: 600; }
@@ -1693,5 +1702,220 @@ body.electron .chat-head { padding-right: 150px; }
 @media (max-width: 720px) {
   .sync-corpo { grid-template-columns: 1fr; }
   .sync-linha { grid-template-columns: minmax(0, 1fr) auto; }
-  .sync-linha > :nth-child(2) { display: none; }
+  .sync-linha > :nth-child(2), .sync-linha > :nth-child(3) { display: none; }
+}
+
+/* ---------- pareamento da API local (A4) ----------
+   Tela inteira, sem topo, sem abas e sem nada do estado: com a exigência ligada e sem
+   credencial, é tudo o que a página mostra. O `body.parear` esconde o resto em vez de
+   apagar, para a volta depois do pareamento ser um reload limpo. */
+body.parear > *:not(.par-raiz) { display: none !important; }
+.par-wrap { max-width: 560px; margin: 0 auto; padding: 48px 20px 60px; display: flex; flex-direction: column; gap: 16px; }
+.par-marca { display: flex; align-items: center; gap: 9px; }
+.par-card { display: flex; flex-direction: column; gap: 16px; padding: 22px 24px; }
+.par-titulo { font-size: 20px; font-weight: 700; margin: 0; }
+.par-desc { margin: 0; color: var(--muted); font-size: 13.5px; text-wrap: pretty; }
+.par-passo { display: flex; flex-direction: column; gap: 8px; }
+.par-cmd { display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 12.5px; }
+.par-onde { color: var(--faint); }
+.par-cmd code { padding: 7px 10px; overflow-wrap: anywhere; }
+.par-rot { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); margin-top: 4px; }
+.par-input { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font: inherit; font-size: 14px; min-height: 44px; width: 100%; }
+.par-input:focus { outline: none; border-color: var(--accent); }
+.par-codigo { font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; font-size: 18px; letter-spacing: .16em; }
+.par-erro { color: var(--danger); font-size: 12.5px; }
+.par-erro:not(:empty) ~ .par-rot { margin-top: 8px; }
+.par-acoes { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.par-acoes .btn { min-height: 44px; }
+.par-dica { font-size: 11.5px; color: var(--faint); text-wrap: pretty; }
+.par-rodape { margin: 0; font-size: 11.5px; color: var(--faint); text-wrap: pretty; }
+@media (max-width: 480px) {
+  .par-wrap { padding: 24px 16px 40px; }
+  .par-cmd { grid-template-columns: minmax(0, 1fr) auto; }
+  .par-onde { grid-column: 1 / -1; }
+}
+
+/* ---------- falhas registradas (A3) ---------- */
+.falha-cartao { display: flex; flex-direction: column; gap: 8px; }
+.falha-topo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.falha-titulo { font-size: 13.5px; font-weight: 650; }
+.falha-quando { margin-left: auto; font-size: 12px; color: var(--faint); }
+.falha-acao { margin: 0; font-size: 12.5px; color: var(--muted); text-wrap: pretty; }
+.falha-acao b { color: var(--text); font-weight: 650; }
+.falha-texto { margin-top: 0; max-height: 260px; }
+.falha-texto pre, #diagBox pre { margin: 8px 0; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 620px) { .falha-quando { margin-left: 0; width: 100%; } }
+
+/* ---------- visão compartilhada no Radar (B2, itens 2.7 a 2.9) ---------- */
+.pr-coord.bad { color: var(--danger); }
+.md-host { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 4px; }
+.md-faixa { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font-size: 12.5px; color: var(--text); text-wrap: pretty; }
+.md-faixa.warn { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.md-faixa.ok { border-color: color-mix(in srgb, var(--ok) 35%, var(--border)); }
+.md-espaco { flex: 1; }
+.md-goto { color: var(--info); cursor: pointer; }
+.md-goto:hover { text-decoration: underline; }
+.md-pend, .md-op { display: flex; flex-direction: column; gap: 6px; }
+.md-linha { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.md-titulo { font-size: 13.5px; font-weight: 650; overflow-wrap: anywhere; }
+.md-sub { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
+.md-fraco { font-size: 12px; color: var(--faint); overflow-wrap: anywhere; }
+.md-nota { margin: 6px 0 0; font-size: 12px; color: var(--muted); text-wrap: pretty; }
+.md-vazio { margin: 0; padding: 10px 2px; font-size: 12.5px; color: var(--muted); }
+.md-ruim { color: var(--danger); }
+.md-acoes { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.md-acoes .md-nota { margin: 0; }
+.md-lista { padding: 0; display: flex; flex-direction: column; }
+.md-cmd, .md-rev { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 9px 14px; border-top: 1px solid var(--border); font-size: 12.5px; min-width: 0; }
+.md-cmd:first-child, .md-rev:first-child { border-top: 0; }
+.md-rev-txt { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.md-rev-topo { margin-bottom: 8px; }
+.md-escopo.active { border-color: var(--accent); color: var(--accent); }
+.md-envio { display: flex; flex-direction: column; gap: 10px; }
+.md-numeros { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; }
+.md-modal-acoes { flex-wrap: wrap; }
+@media (max-width: 860px) {
+  .md-numeros { gap: 12px; }
+}
+@media (max-width: 720px) {
+  .md-cmd .md-espaco, .md-rev .md-espaco { display: none; }
+}
+@media (max-width: 620px) {
+  .md-acoes { flex-direction: column; align-items: stretch; }
+  .md-acoes .btn, .md-rev .btn, .md-rev-topo .btn, .md-envio .btn, .md-modal-acoes .btn { min-height: 44px; justify-content: center; }
+  .md-rev-topo .btn { flex: 1; }
+  .md-modal-acoes { flex-direction: column-reverse; align-items: stretch; }
+  .md-goto { min-height: 44px; display: inline-flex; align-items: center; }
+}
+/* ---------- Sistema > Aparelhos e Grupos de consumo (C2, C4b) ----------
+   Reaproveitam o cartão e a lista da Sincronização (.sync-card, .sync-lista, .sync-chip);
+   o prefixo apar-/grupo- fica só no que é novo. No estreito, a linha do aparelho vira
+   bloco, as ações vão para baixo e todo alvo de toque chega a 44 px. */
+.apar-corpo { display: flex; flex-direction: column; gap: 10px; padding: 14px var(--sp-4); }
+.card.apar-corpo { padding: 14px 18px; }
+.apar-titulo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.apar-acao { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.apar-acao .sync-campo { flex: 1; min-width: 200px; }
+.apar-linha { display: grid; grid-template-columns: minmax(0, 1fr) 90px 100px 130px auto; gap: var(--sp-3); align-items: center; padding: 10px 0; font-size: 12.5px; }
+.apar-linha + .apar-linha { border-top: 1px solid var(--border-soft); }
+.apar-linha.apar-head { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); padding-bottom: 6px; }
+.apar-linha .sync-nome { flex-wrap: wrap; }
+.apar-linha .row-actions { justify-content: flex-end; flex-wrap: wrap; }
+.apar-nota { margin: var(--sp-2) 2px var(--sp-3); font-size: 11.5px; color: var(--faint); text-wrap: pretty; }
+.apar-recusa { margin: 0; font-size: 12.5px; color: var(--danger); text-wrap: pretty; }
+.apar-grade { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); align-items: end; }
+.apar-campo { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.apar-campo > span:first-child { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); }
+.apar-tipos { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 12.5px; }
+.apar-tipo { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.apar-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
+.apar-aviso { margin-bottom: var(--sp-3); }
+.grupo-cartao { margin-bottom: var(--sp-3); }
+.grupo-rotulo { display: block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); }
+.grupo-linha { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.grupo-gasto { font-size: 16px; font-weight: 650; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.grupo-vago { color: var(--faint); font-size: 12px; font-weight: 400; }
+.grupo-falta ul, .grupo-perfis ul { margin: 4px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--muted); }
+.grupo-perfil { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--sp-3); align-items: center; padding: 10px 0; font-size: 12.5px; }
+.grupo-perfil + .grupo-perfil { border-top: 1px solid var(--border-soft); }
+.grupo-vinc { display: inline-flex; gap: 6px; align-items: center; }
+.grupo-vinc .sync-input { width: auto; max-width: 180px; }
+@media (max-width: 860px) {
+  .apar-grade { grid-template-columns: 1fr 1fr; }
+  .apar-linha { grid-template-columns: minmax(0, 1fr) 90px auto; }
+  .apar-linha > :nth-child(2), .apar-linha > :nth-child(4) { display: none; }
+}
+@media (max-width: 720px) {
+  .apar-duo, .apar-grade { grid-template-columns: 1fr; }
+  .apar-linha, .grupo-perfil { grid-template-columns: minmax(0, 1fr); }
+  .apar-linha.apar-head { display: none; }
+  .apar-linha > :nth-child(2), .apar-linha > :nth-child(4) { display: inline; }
+  .apar-linha .row-actions { justify-content: flex-start; }
+  .grupo-vinc { flex-wrap: wrap; }
+  .grupo-vinc .sync-input { max-width: none; flex: 1; }
+}
+@media (max-width: 620px) {
+  #devicesManager .btn, #groupsManager .btn, #devicesManager .sync-input, #groupsManager .sync-input { min-height: 44px; }
+  .apar-tipo { min-height: 44px; }
+  .apar-acao .sync-campo { min-width: 0; width: 100%; }
+}
+/* ---------- divergências de Aparelhos e Grupos (resolução de 16/09/2026) ----------
+   O cartão do que não está valendo repete o da Sincronização só no estreito (é onde o
+   celular chega primeiro); a linha do navegador pareado volta a mostrar pareado e usado no
+   estreito, empilhados, porque a regra genérica da .sync-linha os esconde; e o olho da
+   senha ganha alvo de toque junto com o campo. */
+.apar-so-estreito { display: none; }
+.apar-atalho { margin: var(--sp-2) 2px 0; }
+.modal-body .sync-senha { margin-top: var(--sp-2); }
+@media (max-width: 720px) {
+  .apar-so-estreito { display: block; }
+  .sync-linha.apar-sessao { grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); }
+  .sync-linha.apar-sessao > :nth-child(2), .sync-linha.apar-sessao > :nth-child(3) { display: block; }
+  .sync-linha.apar-sessao > .btn { justify-self: start; }
+}
+@media (max-width: 620px) {
+  #devicesManager .sync-senha > .sync-input, .modal-body .sync-senha > .sync-input { padding-right: 48px; }
+  #devicesManager .sync-olho, .modal-body .sync-olho { width: 44px; height: 44px; right: 0; }
+}
+
+/* ---------- transferência e tomada pela tela (B2, item 2.9, quadro C8) ----------
+   A lista de destinos mora dentro do diálogo: apto em destaque, inapto apagado e sem
+   ação, cada um com o motivo. As opções de envio são os botões do próprio diálogo
+   (.md-modal-acoes), que já chegam a 44 px no estreito. */
+.md-destinos { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 10px; }
+.md-destino { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 8px 12px; font-size: 12.5px; overflow-wrap: anywhere; }
+.md-destino + .md-destino { border-top: 1px solid var(--border-soft); }
+.md-destino.md-apto b { color: var(--ok); }
+.md-destino.md-inapto { color: var(--muted); }
+.md-destino.md-inapto b { font-weight: 600; }
+@media (max-width: 860px) {
+  .md-destinos { margin-top: 8px; }
+}
+@media (max-width: 720px) {
+  .md-destino { flex-direction: column; gap: 2px; }
+}
+@media (max-width: 620px) {
+  .md-destino { min-height: 44px; justify-content: center; }
+  .pr-coord .md-goto { min-height: 44px; }
+}
+
+/* ---------- Panorama e Meus PRs de outros aparelhos (telas/listas-remotas.js) ---------- */
+.md-remoto { margin-top: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
+.md-remoto-topo { font-size: 12px; font-weight: 600; color: var(--muted); text-wrap: pretty; }
+.md-remoto-linhas { margin: 0; }
+.prow.md-remota { background: var(--surface); }
+.md-remota-fim { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+.md-remota .settled { color: var(--faint); }
+.md-origem { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.md-meu-remoto { display: flex; flex-direction: column; gap: 6px; }
+.md-pr { display: inline-flex; align-items: baseline; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.md-pr-titulo { overflow-wrap: anywhere; }
+.md-pr-autor { font-size: 12px; color: var(--muted); }
+.md-pr-generico { color: var(--text); }
+@media (max-width: 860px) {
+  .md-origem { max-width: 140px; }
+}
+@media (max-width: 720px) {
+  .prow.md-remota { flex-wrap: wrap; }
+  .md-remota-fim { justify-content: flex-start; width: 100%; }
+}
+@media (max-width: 620px) {
+  .md-remoto .pr-ref-mention, .md-remoto .person-mention, .md-pend .pr-ref-mention, .md-op .pr-ref-mention { min-height: 44px; display: inline-flex; align-items: center; }
+  .md-origem { max-width: none; white-space: normal; }
+}
+/* ---------- repetir, iniciar e designar admin pela tela (B2, itens 2.5 e 2.9) ----------
+   Os botões novos reaproveitam .md-acoes, .md-rev e a linha do aparelho, que já chegam a
+   44 px no estreito. Só as notas de "indisponível" são novas: na linha da revisão ela ocupa
+   a linha inteira em vez de espremer o chip, e na linha do aparelho ela quebra junto das
+   ações. */
+.md-rev .md-nota { flex-basis: 100%; margin: 0; }
+.apar-linha .row-actions .sync-fraco { flex-basis: 100%; text-align: right; }
+@media (max-width: 860px) {
+  .md-rev .md-nota { font-size: 11.5px; }
+}
+@media (max-width: 720px) {
+  .apar-linha .row-actions .sync-fraco { text-align: left; }
+}
+@media (max-width: 620px) {
+  .md-rev .md-nota { padding: 4px 0; }
 }

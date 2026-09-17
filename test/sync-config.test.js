@@ -22,13 +22,20 @@ after(() => { try { fs.rmSync(HOME, { recursive: true, force: true }); } catch {
 
 const DB = 'https://farol-abc-default-rtdb.firebaseio.com';
 const VALIDO = {
-  enabled: true, coordination: { enabled: true }, consolidation: { enabled: true },
+  enabled: true, coordination: { enabled: true }, consolidation: { enabled: true }, shared: { enabled: true },
+  distribution: { enabled: true }, aceitarAdmin: true,
   deviceName: 'Notebook', apiKey: 'AIzaSyA-1234567890_abc', databaseUrl: DB, projectId: 'farol-abc',
 };
 
+// Os `await` de topo vêm ANTES do primeiro caso: com `--test-force-exit`, o processo
+// encerra quando os casos já registrados terminam, e um `await` que só volta depois
+// disso deixa os casos seguintes CANCELADOS, numa rodada que ainda diz "0 falhas".
+const { Engine } = await import('../server.js');
+
 test('syncDefaults: tudo desligado e vazio, objeto novo a cada chamada', () => {
   assert.deepEqual(syncDefaults(), {
-    enabled: false, coordination: { enabled: false }, consolidation: { enabled: false },
+    enabled: false, coordination: { enabled: false }, consolidation: { enabled: false }, shared: { enabled: false },
+    distribution: { enabled: false }, aceitarAdmin: false,
     deviceName: '', apiKey: '', databaseUrl: '', projectId: '',
   });
   const a = syncDefaults();
@@ -179,7 +186,6 @@ test('authUrlsFor: URL inválida ou http remoto nunca desvia o login', () => {
 
 /* ---------- boot da Engine ---------- */
 
-const { Engine } = await import('../server.js');
 const CONFIG = path.join(HOME, 'config.json');
 
 function comConfig(obj) {
@@ -215,4 +221,21 @@ test('updateSettings: sync passa pelo saneador e URL inválida mantém a anterio
   assert.deepEqual(r.ignoradas, []);
   assert.equal(engine.config.sync.databaseUrl, DB);
   assert.equal(engine.config.sync.apiKey, '');
+});
+
+// 7.C5: distribuir sem coordenação seria prometer arbitragem que não existe (o lease e o
+// recibo são o que impede dois aparelhos revisando o mesmo PR). O saneador zera.
+test('distribuição sem coordenação é zerada pelo saneador', () => {
+  const semCoord = parseSyncConfig({ ...VALIDO, coordination: { enabled: false } }, syncDefaults());
+  assert.equal(semCoord.distribution.enabled, false);
+  assert.equal(parseSyncConfig({ ...VALIDO, distribution: { enabled: 'sim' } }, syncDefaults()).distribution.enabled, false);
+  assert.equal(parseSyncConfig(VALIDO, syncDefaults()).distribution.enabled, true);
+});
+
+test('distributionActive exige chave geral, cifrado e coordenação', () => {
+  assert.equal(cfgMod.distributionActive(VALIDO), true);
+  assert.equal(cfgMod.distributionActive({ ...VALIDO, shared: { enabled: false } }), false);
+  assert.equal(cfgMod.distributionActive({ ...VALIDO, coordination: { enabled: false } }), false);
+  assert.equal(cfgMod.distributionActive({ ...VALIDO, enabled: false }), false);
+  assert.equal(cfgMod.distributionActive({ ...VALIDO, distribution: { enabled: false } }), false);
 });

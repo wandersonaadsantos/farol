@@ -1,0 +1,405 @@
+// As regras publicadas são GERADAS: o JSON no disco precisa ser byte a byte o que o
+// gerador produz a partir do template, e as validações legadas precisam continuar
+// idênticas às de hoje (anexo C1, "Estratégia de regras", regra de ouro dos nós legados).
+//
+// Estes casos são ESTÁTICOS: o dublê do banco não avalia regra (decisão 8 da spec), então
+// o que se prova aqui é o texto publicado. O comportamento no servidor fica no roteiro
+// manual do firebase/README.md.
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+const RAIZ = path.join(import.meta.dirname, '..');
+const REGRAS = path.join(RAIZ, 'firebase', 'database.rules.json');
+const TEMPLATE = path.join(RAIZ, 'firebase', 'database.rules.template.json');
+
+const texto = fs.readFileSync(REGRAS, 'utf8');
+const regras = JSON.parse(texto).rules.users.$uid;
+
+test('o arquivo publicado é exatamente o que o gerador produz', () => {
+  const gerado = execFileSync(process.execPath, [path.join(RAIZ, 'tools', 'sync-rules.js'), '--stdout'], { encoding: 'utf8' });
+  assert.equal(gerado, texto, 'rode `node tools/sync-rules.js` e comite o resultado');
+});
+
+test('o template usa macro e o publicado não deixou nenhuma por expandir', () => {
+  assert.equal(/@[A-Z]/.test(texto), false, 'sobrou macro no arquivo publicado');
+  assert.ok(fs.readFileSync(TEMPLATE, 'utf8').includes('@U@'), 'o template usa macro');
+});
+
+// 7.C2: o corte de sessões (`revokedBefore`) mora DENTRO do dono, e por isso vale em toda
+// leitura e em toda escrita. Antes de 17/09/2026 ele não aparecia em regra nenhuma, e
+// "encerrar as sessões dos outros aparelhos" gravava um número que ninguém lia.
+const CORTE = "(!root.child('users').child($uid).child('live').child('control').child('revokedBefore').exists() || auth.token.auth_time > root.child('users').child($uid).child('live').child('control').child('revokedBefore').val())";
+const DONO = `auth != null && auth.uid == $uid && ${CORTE}`;
+
+test('a raiz perdeu o .write: o apagão de /users/{uid} deixa de existir', () => {
+  assert.equal(regras['.write'], undefined);
+  assert.equal(regras['.read'], DONO);
+});
+
+test('o corte de sessões está em TODA leitura e em TODA escrita', () => {
+  const concessoes = [];
+  const varrer = (no) => {
+    if (!no || typeof no !== 'object') return;
+    for (const [chave, valor] of Object.entries(no)) {
+      if (chave === '.read' || chave === '.write') concessoes.push([chave, valor]);
+      else varrer(valor);
+    }
+  };
+  varrer(regras);
+  assert.ok(concessoes.length > 50, `varreu pouco: ${concessoes.length}`);
+  for (const [chave, valor] of concessoes) {
+    assert.ok(valor.includes(CORTE), `${chave} sem o corte de sessões: ${valor.slice(0, 70)}`);
+  }
+});
+
+test('as validações legadas continuam byte a byte as de hoje', () => {
+  // C8: a regra do lease ganhou UMA saída a mais, a tomada forçada. O começo dela continua
+  // byte a byte o de sempre, e o acréscimo é conferido no caso próprio da tomada: escrita
+  // acidental por cima de lease vivo continua recusada.
+  const LEASE_LEGADO = "newData.hasChildren(['leaseId', 'deviceId', 'operationKind', 'expiresAt']) && newData.child('expiresAt').isNumber() && newData.child('expiresAt').val() > now && newData.child('expiresAt').val() <= now + 300000 && (!data.exists() || data.child('expiresAt').val() <= now || (data.child('leaseId').val() == newData.child('leaseId').val() && data.child('deviceId').val() == newData.child('deviceId').val())";
+  assert.ok(regras.leases.$acct.$pr['.validate'].startsWith(LEASE_LEGADO), 'o começo da regra do lease não muda');
+  assert.equal(regras.receipts.$acct.$pr.$fp['.validate'], "newData.hasChildren(['operationKind', 'materialVersion', 'deviceId', 'completedAt', 'outcome', 'publicationState']) && newData.child('completedAt').isNumber()");
+  assert.equal(regras.usageEvents.$device.$event['.validate'], "newData.hasChildren(['at', 'kind', 'costUsd']) && newData.child('at').isNumber()");
+  assert.equal(regras.dailyRounds.$acct.$pr.$day['.validate'], "$day.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && newData.child('dayPolicy').val() == 'America/Sao_Paulo'");
+});
+
+test('cada nó legado ganhou concessão própria, já que a raiz não concede mais', () => {
+  for (const no of ['leases', 'receipts', 'dailyRounds', 'devices', 'usageEvents']) {
+    assert.equal(regras[no]['.write'], DONO, no);
+  }
+});
+
+test('keyring: exige senha recente e rev monotônico', () => {
+  const w = regras.keyring['.write'];
+  assert.ok(w.includes("auth.token.firebase.sign_in_provider == 'password'"));
+  assert.ok(w.includes('auth.token.auth_time * 1000 + 300000 > now'), 'o *1000 é o que faz o caso positivo passar');
+  assert.ok(w.includes("newData.child('rev').val() == data.child('rev').val() + 1"));
+  assert.equal(regras.keyring.slots.$s['.validate'], "$s.matches(/^(pw|pp)$/)");
+});
+
+test('só os nós listados têm concessão de escrita: nó novo sem regra é negado por construção', () => {
+  const comEscrita = Object.keys(regras).filter((k) => regras[k] && regras[k]['.write']);
+  assert.deepEqual(comEscrita.sort(), ['catalog', 'checkpoints', 'commandReceipts', 'dailyRounds', 'devices', 'keyring', 'leases', 'myPrs', 'myPrsMeta', 'panorama', 'panoramaMeta', 'pushbacks', 'receipts', 'recentReviews', 'reviewBodies', 'usageDaily', 'usageEvents']);
+  assert.equal(regras.live['.write'], undefined, 'live não concede em bloco');
+  assert.equal(regras.live.control['.write'], undefined, 'control também não');
+  assert.deepEqual(Object.keys(regras.live.control).sort(), ['admin', 'beat', 'cleanup', 'cleanupLock', 'lastCleanup', 'ready', 'revokedBefore']);
+  assert.deepEqual(Object.keys(regras.live).sort(), ['ack', 'assign', 'commands', 'control', 'devicePolicies', 'deviceStatus', 'groups', 'operations', 'pending', 'queue', 'rev', 'seen']);
+});
+
+// A geração é o que impede um admin deposto de continuar mandando: ela só anda para cima,
+// uma de cada vez, e trocar de admin exige senha recente no MESMO ato (REC).
+test('live/control/admin: senha recente e geração +1, sem pulo e sem volta', () => {
+  const w = regras.live.control.admin['.write'];
+  assert.ok(w.includes("auth.token.firebase.sign_in_provider == 'password'"));
+  assert.ok(w.includes('auth.token.auth_time * 1000 + 300000 > now'));
+  assert.ok(w.includes("newData.hasChildren(['deviceId', 'generation', 'publicKey', 'setAt'])"));
+  assert.ok(w.includes("(!data.exists() && newData.child('generation').val() == 1)"));
+  assert.ok(w.includes("newData.child('generation').val() == data.child('generation').val() + 1"));
+});
+
+// O servidor não verifica assinatura: o que ele consegue conferir é que o batimento é da
+// geração vigente, veio do aparelho que é admin AGORA e tem carimbo dentro de 60 s. O
+// frescor de verdade (sequência maior, observada nesta conexão) é do cliente.
+test('live/control/beat: geração vigente, dono do momento e janela de 60 s', () => {
+  const w = regras.live.control.beat['.write'];
+  assert.ok(w.includes("newData.hasChildren(['dev', 'generation', 'sequencia', 'beatAt', 'sig'])"));
+  assert.ok(w.includes(".child('live').child('control').child('admin').child('generation').val()"), 'geração presa à vigente');
+  assert.ok(w.includes(".child('admin').child('deviceId').val()"), 'só o admin do momento bate');
+  assert.ok(w.includes("newData.child('sequencia').isNumber()"));
+  assert.ok(w.includes("newData.child('beatAt').val() + 60000 > now"));
+  assert.ok(w.includes("newData.child('beatAt').val() < now + 60000"));
+});
+
+test('live/devicePolicies/$dev: forma, geração vigente e envelope de no máximo 2048', () => {
+  const w = regras.live.devicePolicies.$dev['.write'];
+  assert.ok(w.includes("newData.hasChildren(['v', 'generation', 'enc', 'sig'])"));
+  assert.ok(w.includes(".child('admin').child('generation').val()"));
+  assert.ok(w.includes("newData.child('enc').val().length <= 2048"));
+  assert.ok(w.includes('/^e1[.]g[0-9]+[.]'), 'só entra o que tem forma de envelope');
+  assert.ok(w.includes("newData.child('v').isNumber()"));
+});
+
+test('a sonda depende desta assimetria: rulesProbe concede em v2/{aparelho} e em mais nada', () => {
+  assert.equal(regras.rulesProbe['.write'], undefined, 'o pai não pode conceder, senão a sonda nunca detecta regra velha');
+  assert.equal(regras.rulesProbe.v2.$dev['.write'], DONO);
+  assert.equal(regras.rulesProbe.v1, undefined, 'v1 não existe no template: é o caminho que as regras novas negam');
+});
+
+// A chave da limpeza é assinada e tem `rev` monotônico: sem o monotônico, um valor antigo
+// reentregue faria "desligada" voltar a ser "ligada" sem ninguém ter ligado nada.
+test('live/control/cleanup: booleano, geração vigente e rev que só sobe', () => {
+  const w = regras.live.control.cleanup['.write'];
+  assert.ok(w.includes("newData.hasChildren(['enabled', 'generation', 'rev', 'sig'])"));
+  assert.ok(w.includes("newData.child('enabled').isBoolean()"));
+  assert.ok(w.includes(".child('admin').child('generation').val()"), 'presa à geração vigente');
+  assert.ok(w.includes("newData.child('rev').val() > data.child('rev').val()"));
+  assert.equal(w.includes("auth.token.firebase.sign_in_provider"), false, 'ligar a chave NÃO exige senha recente (D-b)');
+});
+
+// A trava só nasce com senha recente e com a chave ligada; sair dela é sempre permitido,
+// senão um ato interrompido deixaria o conjunto travado até o vencimento.
+test('live/control/cleanupLock: nasce com REC e chave ligada, e sai sem condição', () => {
+  const w = regras.live.control.cleanupLock['.write'];
+  assert.ok(w.includes('!newData.exists() ||'), 'apagar a trava não pode ter condição');
+  assert.ok(w.includes("auth.token.auth_time * 1000 + 300000 > now"));
+  assert.ok(w.includes(".child('cleanup').child('enabled').val() == true"));
+  assert.ok(w.includes("newData.child('x').val() <= now + 600000"), 'a trava não pode nascer valendo mais que dez minutos');
+});
+
+test('live/control/lastCleanup: só com senha recente, e com a forma do corte', () => {
+  const w = regras.live.control.lastCleanup['.write'];
+  assert.ok(w.includes("auth.token.auth_time * 1000 + 300000 > now"));
+  assert.ok(w.includes("newData.hasChildren(['at', 'dev', 'categorias'])"));
+});
+
+// Quem revoga não pode se cortar fora: o valor tem que ser MENOR que o auth_time do token
+// do próprio ato, e só cresce.
+test('live/control/revokedBefore: abaixo do auth_time do ato e sempre para cima', () => {
+  const w = regras.live.control.revokedBefore['.write'];
+  assert.ok(w.includes("auth.token.auth_time * 1000 + 300000 > now"), 'exige senha recente');
+  assert.ok(w.includes("newData.val() < auth.token.auth_time"));
+  assert.ok(w.includes("!data.exists() || newData.val() >= data.val()"));
+});
+
+test('live/groups/$grupo: mesma forma do nó de política, com envelope de 2048', () => {
+  const w = regras.live.groups.$grupo['.write'];
+  assert.ok(w.includes("newData.hasChildren(['v', 'generation', 'enc', 'sig'])"));
+  assert.ok(w.includes(".child('admin').child('generation').val()"));
+  assert.ok(w.includes("newData.child('enc').val().length <= 2048"));
+});
+
+// A remoção acontece no nó PAI da categoria, e é lá que a concessão precisa existir. Sem
+// ela, a limpeza prometeria apagar algo que o banco recusa.
+test('a limpeza remove pelo pai, e só sob as condições da limpeza', () => {
+  for (const no of ['devicePolicies', 'groups']) {
+    const w = regras.live[no]['.write'];
+    assert.ok(w.includes('!newData.exists()'), `${no}: a concessão do pai é só para remover`);
+    assert.ok(w.includes(".child('cleanup').child('enabled').val() == true"), `${no}: exige a chave ligada`);
+    assert.ok(w.includes("auth.token.auth_time * 1000 + 300000 > now"), `${no}: exige senha recente`);
+    assert.ok(w.includes(".child('live').child('operations').exists()"), `${no}: exige nenhuma operação viva`);
+  }
+});
+
+test('nenhum nó protegido ganhou saída pela limpeza', () => {
+  for (const no of ['keyring', 'leases', 'receipts', 'dailyRounds']) {
+    assert.equal(regras[no]['.write'].includes("child('cleanup')"), false, no);
+  }
+  for (const filho of ['admin', 'beat', 'cleanup', 'lastCleanup', 'revokedBefore']) {
+    assert.equal(regras.live.control[filho]['.write'].includes('!newData.exists()'), false, `live/control/${filho}`);
+  }
+});
+
+// A presença é nó legado: a regra de ouro diz que as validações de hoje ficam intactas, e
+// os campos novos ganham a sua, sem tocar nos outros.
+test('devices: contract e keyReady ganham validação, e nada mais muda', () => {
+  assert.equal(regras.devices['.write'], DONO);
+  assert.equal(regras.devices.$device.contract['.validate'], 'newData.isNumber()');
+  assert.equal(regras.devices.$device.keyReady['.validate'], 'newData.isBoolean()');
+  for (const campo of ['name', 'platform', 'farolVersion', 'lastSeenAt', 'createdAt']) {
+    assert.equal(regras.devices.$device[campo], undefined, `${campo} não pode ganhar validação`);
+  }
+});
+
+test('live/deviceStatus e catalog: forma, envelope de 2048 e remoção só pela limpeza', () => {
+  for (const [pai, filho] of [[regras.live.deviceStatus, regras.live.deviceStatus.$dev], [regras.catalog, regras.catalog.$pr]]) {
+    assert.ok(pai['.write'].includes('!newData.exists()'), 'a concessão do pai é só para remover');
+    assert.ok(pai['.write'].includes("child('cleanup').child('enabled').val() == true"));
+    assert.ok(filho['.write'].includes("newData.hasChildren(['v', 'u', 'enc'])"));
+    assert.ok(filho['.write'].includes("newData.child('enc').val().length <= 2048"));
+  }
+  assert.ok(regras.catalog.$pr['.write'].includes('$pr.matches(/^[0-9a-f]+$/)'), 'a chave do catálogo é tag, e a regra exige a forma');
+});
+
+// Achado da C3a, corrigido na hora: a concessão de REMOÇÃO pela limpeza não pode se apoiar
+// só na senha recente. `REC` prova que o token é de login por senha e é novo; ele NÃO prova
+// que quem escreve é o dono desta conta. Sem `U`, um segundo usuário autenticado no mesmo
+// projeto apagaria o catálogo, a capacidade, as políticas e os grupos de outra pessoa
+// sempre que a chave de limpeza dela estivesse ligada.
+test('toda concessão de escrita, inclusive a da limpeza, exige o próprio uid', () => {
+  const dono = DONO;
+  const nos = [regras.catalog, regras.live.deviceStatus, regras.live.devicePolicies, regras.live.groups, regras.recentReviews, regras.reviewBodies, regras.reviewBodies.$r, regras.panorama, regras.panoramaMeta, regras.myPrs, regras.myPrsMeta, regras.pushbacks, regras.live.queue, regras.live.assign, regras.live.ack, regras.live.commands, regras.live.commands.$cmd, regras.commandReceipts, regras.commandReceipts.$cmd, regras.checkpoints, regras.checkpoints.$loja, regras.checkpoints.$loja.$pr, regras.checkpoints.$loja.$pr.$id, regras.usageDaily, regras.usageDaily.$dev, regras.usageDaily.$dev.$day];
+  for (const no of nos) {
+    assert.ok(no['.write'].startsWith(dono), `concessão sem dono: ${no['.write'].slice(0, 60)}`);
+  }
+  const todas = [...nos.map((n) => n['.write']), regras.live.control.cleanupLock['.write'], regras.live.control.lastCleanup['.write']];
+  for (const w of todas) assert.ok(w.includes(dono), w.slice(0, 60));
+});
+
+// C8: tomada forçada. O sucessor sobe por cima de lease VIVO só com a geração anterior
+// mais um, nomeando de quem tomou e sendo outro aparelho; as regras dos FILHOS conhecem a
+// mesma saída, senão o servidor recusaria o sucessor por elas.
+test('leases: a tomada é a única saída nova, e ela é deliberada', () => {
+  const clausula = "newData.child('takeoverSeq').val() == (data.child('takeoverSeq').exists() ? data.child('takeoverSeq').val() + 1 : 2)";
+  const w = regras.leases.$acct.$pr['.validate'];
+  assert.ok(w.includes(clausula), 'geração do sucessor é a anterior mais um');
+  assert.ok(w.includes("newData.child('tomadoDe').val() == data.child('deviceId').val()"), 'o sucessor nomeia de quem tomou');
+  assert.ok(w.includes("newData.child('deviceId').val() != data.child('deviceId').val()"), 'ninguém toma de si mesmo');
+  for (const filho of ['expiresAt', 'leaseId']) {
+    assert.ok(regras.leases.$acct.$pr[filho]['.validate'].includes("newData.parent().child('tomadoDe').val() == data.parent().child('deviceId').val()"), filho);
+  }
+});
+
+// C7: checkpoint compartilhado. Loja no caminho (review e self nunca se misturam),
+// entrada de escrita única e envelope pequeno.
+test('checkpoints/$loja/$pr/$id: loja fechada, escrita única e envelope', () => {
+  const w = regras.checkpoints.$loja.$pr.$id['.write'];
+  assert.ok(w.includes("$loja.matches(/^(review|self)$/)"), 'loja é vocabulário fechado na própria regra');
+  assert.ok(w.includes('!data.exists()'), 'entrada de checkpoint não se reescreve');
+  assert.ok(w.includes("$id.matches(/^[0-9a-f]{32}$/)"));
+  assert.ok(w.includes("newData.child('enc').val().length <= 2048"));
+});
+
+// C6: comando remoto e recibo. O comando vale por no máximo uma hora, some sozinho depois
+// do prazo e é assinado na geração vigente; o recibo é do ALVO, é escrito uma vez só e não
+// pode ser reescrito por quem quiser mudar o desfecho depois.
+test('live/commands/$cmd e commandReceipts/$cmd: prazo, geração e recibo de escrita única', () => {
+  const w = regras.live.commands.$cmd['.write'];
+  assert.ok(w.includes("newData.hasChildren(['v', 'generation', 'alvo', 'ttl', 'enc', 'sig'])"));
+  assert.ok(w.includes("newData.child('generation').val() == root.child('users').child($uid).child('live').child('control').child('admin').child('generation').val()"));
+  assert.ok(w.includes("newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 3600000"));
+  assert.ok(w.includes("$cmd.matches(/^[0-9a-f]{32}$/)"));
+  assert.ok(w.includes("!newData.exists() && data.child('ttl').val() < now"), 'comando vencido some sem depender da limpeza');
+  const r = regras.commandReceipts.$cmd['.write'];
+  assert.ok(r.includes("!data.exists()"), 'recibo é escrita única: o desfecho não é reescrito depois');
+  assert.ok(r.includes("newData.child('dev').val() == root.child('users').child($uid).child('live').child('commands').child($cmd).child('alvo').val()"), 'só o alvo responde');
+  assert.ok(r.includes("newData.child('at').val() + 60000 > now"), 'recibo com carimbo antigo não entra');
+});
+
+// C4b: rollup diário do consumo por grupo. Números em claro (o contrato manda), chave do
+// dia com forma, grupo com a forma do id sorteado, e remoção só pela limpeza.
+test('usageDaily/$dev/$day: forma do rollup e remoção só pela limpeza', () => {
+  const limpa = "!newData.exists() && auth.token.firebase.sign_in_provider == 'password'";
+  assert.ok(regras.usageDaily['.write'].includes(limpa), 'o pai só concede remoção pela limpeza');
+  assert.ok(regras.usageDaily.$dev['.write'].includes(limpa));
+  const w = regras.usageDaily.$dev.$day['.write'];
+  assert.ok(w.includes('$day.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)'));
+  assert.ok(w.includes("newData.hasChildren(['v', 'u', 'seq', 'g'])"));
+  assert.ok(w.includes("newData.child('seq').isNumber()"));
+  assert.ok(w.includes(limpa), 'o dia também só some pela limpeza');
+  const g = regras.usageDaily.$dev.$day.g.$grupo['.validate'];
+  assert.ok(g.includes('$grupo.matches(/^[0-9a-f]{32}$/)'));
+  assert.ok(g.includes("newData.child('c').isNumber() && newData.child('s').isNumber() && newData.child('d').isNumber()"));
+});
+
+// Andamento: remoção livre (só afeta exibição), vida curta com teto de 5 minutos, e dono e
+// início imutáveis, senão outro aparelho "adotaria" a operação de alguém.
+test('live/operations/$op: remoção livre, x com teto, dev e t0 imutáveis', () => {
+  const w = regras.live.operations.$op['.write'];
+  assert.ok(w.startsWith(`${DONO} && (!newData.exists() ||`));
+  assert.ok(w.includes("newData.hasChildren(['v', 'dev', 't0', 'x', 'enc'])"));
+  assert.ok(w.includes("newData.child('x').val() > now && newData.child('x').val() <= now + 300000"));
+  assert.ok(w.includes("newData.child('dev').val() == data.child('dev').val()"));
+  assert.ok(w.includes("newData.child('t0').val() == data.child('t0').val()"));
+  assert.ok(w.includes('$op.matches(/^[0-9a-f]+$/)'));
+  assert.equal(regras.live.operations['.write'], undefined, 'o pai não concede');
+});
+
+test('live/pending/$i: remoção cooperativa, envelope de 4096, at e dev imutáveis', () => {
+  const w = regras.live.pending.$i['.write'];
+  assert.ok(w.startsWith(`${DONO} && (!newData.exists() ||`));
+  assert.ok(w.includes("newData.hasChildren(['v', 'at', 'dev', 'enc'])"));
+  assert.ok(w.includes("newData.child('enc').val().length <= 4096"));
+  assert.ok(w.includes("newData.child('at').val() == data.child('at').val()"));
+  assert.ok(w.includes("newData.child('dev').val() == data.child('dev').val()"));
+});
+
+// O visto é gravado uma vez (`!data.exists()`), e só sai quando a pendência sumiu ou com
+// 30 dias: sem isso, apagar o visto faria a pendência voltar a tocar em todo aparelho.
+test('live/seen/$i: grava uma vez só, e sai só sem pendência ou com 30 dias', () => {
+  const w = regras.live.seen.$i['.write'];
+  assert.ok(w.includes("(!data.exists() && newData.hasChildren(['at', 'dev'])"));
+  assert.ok(w.includes("newData.child('at').val() <= now + 60000"));
+  assert.ok(w.includes(".child('live').child('pending').child($i).exists()"));
+  assert.ok(w.includes("data.child('at').val() + 2592000000 < now"));
+});
+
+// O índice é ordenável pelo banco (t e dt), e t, d e dt não mudam: é o que faz "as 30 mais
+// recentes" e "as deste aparelho" serem consultas, e não download da lista inteira.
+test('recentReviews: índice em t e dt, envelope de 1024, e t, d, dt imutáveis', () => {
+  assert.deepEqual(regras.recentReviews['.indexOn'], ['t', 'dt']);
+  const w = regras.recentReviews.$r['.write'];
+  assert.ok(w.includes("newData.hasChildren(['v', 't', 'd', 'dt', 'enc'])"));
+  assert.ok(w.includes("newData.child('enc').val().length <= 1024"));
+  for (const c of ['t', 'd', 'dt']) assert.ok(w.includes(`newData.child('${c}').val() == data.child('${c}').val()`), c);
+});
+
+test('reviewBodies: versão write-once, numérica, envelope de 48000', () => {
+  const w = regras.reviewBodies.$r.$v['.write'];
+  assert.ok(w.includes("(!data.exists() && newData.hasChildren(['v', 'enc'])"));
+  assert.ok(w.includes('$v.matches(/^[0-9]+$/)'));
+  assert.ok(w.includes("newData.child('enc').val().length <= 48000"));
+});
+
+test('live/rev: só número, só nos três tipos, e sem remoção', () => {
+  const w = regras.live.rev.$tipo.$id['.write'];
+  assert.ok(w.includes('$tipo.matches(/^(recentReviews|panorama|myPrs)$/)'));
+  assert.ok(w.endsWith('newData.isNumber()'), 'número exige que o nó exista: remoção é negada');
+});
+
+// Panorama e Meus PRs: linha viva cifrada OU tombstone sem conteúdo; o tombstone só sai 24 h
+// depois; o meta vale no máximo 20 min à frente, para um publicador morto não prender a vez.
+test('panorama e myPrs: índice su, tombstone de 24 h e meta com teto', () => {
+  for (const [no, teto] of [['panorama', 2048], ['myPrs', 8192]]) {
+    assert.deepEqual(regras[no]['.indexOn'], ['su'], no);
+    const w = regras[no].$item['.write'];
+    assert.ok(w.includes("newData.hasChildren(['v', 'su', 'u', 'ctag'])"), no);
+    assert.ok(w.includes(`newData.child('enc').val().length <= ${teto}`), no);
+    assert.ok(w.includes("newData.child('del').val() == true ||"), no);
+    assert.ok(w.includes("(!newData.exists() && data.child('del').val() == true && data.child('u').val() + 86400000 < now)"), no);
+    assert.ok(regras[`${no}Meta`].$scope['.write'].includes("newData.child('x').val() <= now + 1200000"), no);
+  }
+});
+
+test('pushbacks: forma, envelope de 1024 e lápide sem conteúdo', () => {
+  const w = regras.pushbacks.$pr['.write'];
+  assert.ok(w.includes("newData.hasChildren(['v', 'u', 'dev'])"));
+  assert.ok(w.includes("newData.child('del').val() == true ||"), 'a lápide não carrega envelope');
+  assert.ok(w.includes("newData.child('enc').val().length <= 1024"));
+  assert.ok(w.includes('$pr.matches(/^[0-9a-f]+$/)'));
+});
+
+// A fila de candidatos, a atribuição e a resposta: TTL com teto, id com forma de item, e
+// `rev` que só sobe na atribuição (resposta atrasada não reativa decisão antiga).
+test('live/queue, live/assign e live/ack: forma, TTL com teto e rev monotônico', () => {
+  const fila = regras.live.queue.$item.$dev['.write'];
+  assert.ok(fila.includes("newData.hasChildren(['itemId', 'prTag', 'matTag', 'acctTag', 'orgTag', 'publishedAt', 'ttl', 'enc'])"));
+  assert.ok(fila.includes('$item.matches(/^[0-9a-f]+_[0-9a-f]+$/)'), 'o id do item é PR + versão material');
+  assert.ok(fila.includes("newData.child('ttl').val() <= now + 1800000"));
+  const atribuicao = regras.live.assign.$item['.write'];
+  assert.ok(atribuicao.includes("newData.hasChildren(['itemId', 'dev', 'rev', 'generation', 'ttl', 'sig'])"));
+  assert.ok(atribuicao.includes(".child('admin').child('generation').val()"), 'presa à geração vigente');
+  assert.ok(atribuicao.includes("newData.child('rev').val() > data.child('rev').val()"));
+  assert.ok(atribuicao.includes("newData.child('ttl').val() <= now + 600000"));
+  const resposta = regras.live.ack.$item['.write'];
+  assert.ok(resposta.includes("newData.hasChildren(['dev', 'estado', 'at'])"));
+  assert.ok(resposta.includes("newData.child('at').val() <= now + 60000"));
+});
+
+// O veredito da espera (divergência 5) é um CAMPO do nó do item, com regra própria: sem
+// ela o servidor recusaria a escrita, porque o nó pai exige a forma inteira da atribuição.
+// E a atribuição de verdade continua subindo por cima de um nó que só tem o veredito: sem
+// `rev` anterior, a comparação de rev não pode travar a primeira atribuição.
+test('live/assign/$item/espera: forma, prazo curto e envelope; a atribuição sobe por cima dele', () => {
+  const campo = regras.live.assign.$item.espera['.write'];
+  assert.ok(campo.startsWith('auth != null && auth.uid == $uid'), 'só a própria conta');
+  assert.ok(campo.includes("newData.hasChildren(['v', 'ttl', 'enc'])"));
+  assert.ok(campo.includes("newData.child('ttl').val() > now && newData.child('ttl').val() <= now + 600000"));
+  assert.ok(campo.includes("newData.child('enc').val().length <= 2048"));
+  assert.ok(campo.includes('!newData.exists() ||'), 'o veredito sai junto com o nó');
+  const atribuicao = regras.live.assign.$item['.write'];
+  assert.ok(atribuicao.includes("(!data.exists() || !data.child('rev').exists() || newData.child('rev').val() > data.child('rev').val())"));
+  assert.deepEqual(Object.keys(regras.live.assign.$item).sort(), ['.write', 'espera']);
+});
+
+// A prontidão é o sinal do agendador: só o admin do momento escreve, a sequência só sobe
+// (valor repetido é reentrega, que por contrato não renova) e a janela é a mesma do beat.
+test('live/control/ready: dono do momento, sequência que só sobe e janela de 60 s', () => {
+  const w = regras.live.control.ready['.write'];
+  assert.ok(w.includes("newData.hasChildren(['dev', 'generation', 'sequencia', 'beatAt', 'sig'])"));
+  assert.ok(w.includes(".child('admin').child('deviceId').val()"));
+  assert.ok(w.includes("newData.child('sequencia').val() > data.child('sequencia').val()"));
+  assert.ok(w.includes("newData.child('beatAt').val() + 60000 > now"));
+});

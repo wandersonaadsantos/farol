@@ -1,0 +1,33 @@
+M1 REPROVOU (saida 1, falhas 1) restaurado=sim sha=88b620036724 lib/engine/sync-listas.js: escopo publicado aqui não vira remoto
+M2 REPROVOU (saida 1, falhas 1) restaurado=sim sha=88b620036724 lib/engine/sync-listas.js: ponteiro parado não relê as linhas
+M3 REPROVOU (saida 1, falhas 1) restaurado=sim sha=88b620036724 lib/engine/sync-listas.js: leitura incremental a partir do maior u
+M4 REPROVOU (saida 1, falhas 1) restaurado=sim sha=88b620036724 lib/engine/sync-listas.js: leitura que falha é falha e mantém a visão
+M5 REPROVOU (saida 1, falhas 2) restaurado=sim sha=88b620036724 lib/engine/sync-listas.js: PR que saiu some
+M6 REPROVOU (saida 1, falhas 1) restaurado=sim sha=88b620036724 lib/engine/sync-listas.js: falha do ponteiro marca os escopos
+M7 REPROVOU (saida 1, falhas 1) restaurado=sim sha=88b620036724 lib/engine/sync-listas.js: evento sem mudança não se repete
+M8 REPROVOU (saida 1, falhas 1) restaurado=sim sha=0b292dedfe53 lib/engine/sync-escopo.js: lerEscopo diz que falhou
+M9 REPROVOU (saida 1, falhas 1) restaurado=sim sha=0b292dedfe53 lib/engine/sync-escopo.js: linha que não abre é contada
+M10 REPROVOU (saida 1, falhas 1) restaurado=sim sha=9cac07273508 lib/engine/sync-identificacao.js: nunca o nome de outro PR
+M11 REPROVOU (saida 1, falhas 1) restaurado=sim sha=919c9dc5a5fe lib/engine/sync-andamento.js: o relógio entrega a pendência nomeada
+M12 REPROVOU (saida 1, falhas 4) restaurado=sim sha=919c9dc5a5fe lib/engine/sync-andamento.js: o catálogo inclui o PR das pendências
+M13 REPROVOU (saida 1, falhas 1) restaurado=sim sha=919c9dc5a5fe lib/engine/sync-andamento.js: leitura do andamento com ok:false não vira vazio
+M14 REPROVOU (saida 1, falhas 1) restaurado=sim sha=919c9dc5a5fe lib/engine/sync-andamento.js: a falha do andamento chega à tela
+M15 REPROVOU (saida 1, falhas 1) restaurado=sim sha=d8d8107edfb2 lib/engine/sync-historico.js: revisões: falha não vira lista vazia
+M16 REPROVOU (saida 1, falhas 1) restaurado=sim sha=f0fbfa2b3757 lib/http-server.js: rota das revisões diz a falha
+M17 REPROVOU (saida 1, falhas 2) restaurado=sim sha=13e724d9f99f lib/local-auth/inventario.js: a rota nova tem classe na A4
+M18 REPROVOU (saida 1, falhas 1) restaurado=sim sha=f0fbfa2b3757 lib/http-server.js: o servidor repassa sync-lists
+M19 REPROVOU (saida 1, falhas 3) restaurado=sim sha=1224fef32f92 ui/pure/listas-remotas.js: o PR daqui não conta dobrado
+M20 REPROVOU (saida 1, falhas 1) restaurado=sim sha=1224fef32f92 ui/pure/listas-remotas.js: o filtro da aba vale para as remotas
+M21 REPROVOU (saida 1, falhas 3) restaurado=sim sha=1224fef32f92 ui/pure/listas-remotas.js: visão desligada não mostra linha guardada
+M22 REPROVOU (saida 1, falhas 3) restaurado=sim sha=1224fef32f92 ui/pure/listas-remotas.js: leitura velha é desatualizada
+M23 REPROVOU (saida 1, falhas 1) restaurado=sim sha=0cd232cb6bf3 ui/pure/pr-compartilhado.js: objeto sem chave válida é genérico
+M24 REPROVOU (saida 1, falhas 1) restaurado=sim sha=521463e7c34a ui/pure/compartilhado.js: a operação mostra o nome do PR
+M25 REPROVOU (saida 1, falhas 2) restaurado=sim sha=521463e7c34a ui/pure/compartilhado.js: a faixa afirma a falha do andamento
+M26 REPROVOU (saida 1, falhas 1) restaurado=sim sha=1224fef32f92 ui/pure/listas-remotas.js: o merge diz por que está desabilitado
+M27 INERTE (saida 0, falhas 0) restaurado=sim sha=9052ec4c04f0 ui/telas/listas-remotas.js: a busca inicial é uma só
+M28 REPROVOU (saida 1, falhas 1) restaurado=sim sha=2402b58e9b7b ui/telas/meus-prs.js: o PR oculto some da linha remota
+M29 REPROVOU (saida 1, falhas 1) restaurado=sim sha=25c77817aea2 ui/telas/radar.js: o escopo de conta filtra as remotas
+M30 INERTE (saida 0, falhas 0) restaurado=sim sha=6fdef63e22b7 ui/telas/radar-compartilhado.js: a falha não passa por leitura boa
+M31 REPROVOU (saida 1, falhas 3) restaurado=sim sha=9636f4d5486c ui/app.js: o bootstrap repassa sync-lists
+M32 INERTE (saida 0, falhas 0) restaurado=sim sha=885509070322 lib/engine/sync-pendencias.js: o nome nunca vem de dentro da pendência
+total 32, inertes 3

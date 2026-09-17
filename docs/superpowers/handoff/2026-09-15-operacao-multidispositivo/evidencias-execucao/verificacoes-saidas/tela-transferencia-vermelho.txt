@@ -1,0 +1,560 @@
+TAP version 13
+# Subtest: o andamento lido pelo admin traz o commit, as tags e o PR resolvido pelo catálogo
+not ok 1 - o andamento lido pelo admin traz o commit, as tags e o PR resolvido pelo catálogo
+  ---
+  duration_ms: 406.1188
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\sync-transferencia-tela.test.js:242:1'
+  failureType: 'testCodeFailure'
+  error: 'andamentoEng.prsDoCatalogo is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    origemPublica (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:191:79)
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:243:3)
+    async Test.run (node:internal/test_runner/test:1208:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3)
+  ...
+# Subtest: sem a linha do catálogo, o PR vem nulo e o resto do andamento continua
+not ok 2 - sem a linha do catálogo, o PR vem nulo e o resto do andamento continua
+  ---
+  duration_ms: 330.6963
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\sync-transferencia-tela.test.js:256:1'
+  failureType: 'testCodeFailure'
+  error: 'andamentoEng.lerEAplicar is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    adminLe (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:200:22)
+    TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:258:31)
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async Test.run (node:internal/test_runner/test:1208:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: linha do catálogo de OUTRO PR no lugar desta tag não vira nome
+not ok 3 - linha do catálogo de OUTRO PR no lugar desta tag não vira nome
+  ---
+  duration_ms: 340.331
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\sync-transferencia-tela.test.js:264:1'
+  failureType: 'testCodeFailure'
+  error: 'andamentoEng.prsDoCatalogo is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    origemPublica (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:191:79)
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:265:3)
+    async Test.run (node:internal/test_runner/test:1208:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: o catálogo publicado pela origem inclui o PR da sessão viva, sem repetir o da fila
+not ok 4 - o catálogo publicado pela origem inclui o PR da sessão viva, sem repetir o da fila
+  ---
+  duration_ms: 328.399
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\sync-transferencia-tela.test.js:276:1'
+  failureType: 'testCodeFailure'
+  error: 'andamentoEng.prsDoCatalogo is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:278:30)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1201:25)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: a rota de destinos lista quem pode receber, e cada inapto com o motivo certo
+not ok 5 - a rota de destinos lista quem pode receber, e cada inapto com o motivo certo
+  ---
+  duration_ms: 343.6885
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\sync-transferencia-tela.test.js:286:1'
+  failureType: 'testCodeFailure'
+  error: 'andamentoEng.prsDoCatalogo is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    origemPublica (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:191:79)
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:287:3)
+    async Test.run (node:internal/test_runner/test:1208:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: destino sem consentimento, pausado, sem credencial ou com memória desconhecida é inapto
+not ok 6 - destino sem consentimento, pausado, sem credencial ou com memória desconhecida é inapto
+  ---
+  duration_ms: 332.3984
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\sync-transferencia-tela.test.js:302:1'
+  failureType: 'testCodeFailure'
+  error: 'andamentoEng.prsDoCatalogo is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    origemPublica (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:191:79)
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:303:3)
+    async Test.run (node:internal/test_runner/test:1208:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: a origem que não aceita comandos aparece como tal, e a tela não oferece o envio
+not ok 7 - a origem que não aceita comandos aparece como tal, e a tela não oferece o envio
+  ---
+  duration_ms: 333.7087
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\sync-transferencia-tela.test.js:338:1'
+  failureType: 'testCodeFailure'
+  error: 'andamentoEng.prsDoCatalogo is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    origemPublica (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:191:79)
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async telaComAndamento (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:223:3)
+    async TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:344:14)
+    async Test.run (node:internal/test_runner/test:1208:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: transferir pela tela: botão habilitado, corpo exato, a origem aplica e a tela lê o recibo
+not ok 8 - transferir pela tela: botão habilitado, corpo exato, a origem aplica e a tela lê o recibo
+  ---
+  duration_ms: 329.5526
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\sync-transferencia-tela.test.js:355:1'
+  failureType: 'testCodeFailure'
+  error: 'andamentoEng.prsDoCatalogo is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    origemPublica (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:191:79)
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async telaComAndamento (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:223:3)
+    async TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:356:14)
+    async Test.run (node:internal/test_runner/test:1208:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: tomar pela tela: aviso lido do lease real, confirmação, o admin aplica e registra o recibo
+not ok 9 - tomar pela tela: aviso lido do lease real, confirmação, o admin aplica e registra o recibo
+  ---
+  duration_ms: 324.6509
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\sync-transferencia-tela.test.js:390:1'
+  failureType: 'testCodeFailure'
+  error: 'andamentoEng.prsDoCatalogo is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    origemPublica (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:191:79)
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async telaComAndamento (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:223:3)
+    async TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:391:14)
+    async Test.run (node:internal/test_runner/test:1208:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: o head muda depois da seleção: a origem recusa com head_mudou, e a tela mostra a recusa
+not ok 10 - o head muda depois da seleção: a origem recusa com head_mudou, e a tela mostra a recusa
+  ---
+  duration_ms: 325.604
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\sync-transferencia-tela.test.js:414:1'
+  failureType: 'testCodeFailure'
+  error: 'andamentoEng.prsDoCatalogo is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    origemPublica (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:191:79)
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async telaComAndamento (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:223:3)
+    async TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:415:14)
+    async Test.run (node:internal/test_runner/test:1208:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: o destino perde o consentimento depois da seleção: a origem recusa com destino_inapto
+not ok 11 - o destino perde o consentimento depois da seleção: a origem recusa com destino_inapto
+  ---
+  duration_ms: 334.6133
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\sync-transferencia-tela.test.js:426:1'
+  failureType: 'testCodeFailure'
+  error: 'andamentoEng.prsDoCatalogo is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    origemPublica (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:191:79)
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async telaComAndamento (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:223:3)
+    async TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:427:14)
+    async Test.run (node:internal/test_runner/test:1208:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: o head muda antes da tomada: o executor recusa com head_mudou, e nada é enfileirado
+not ok 12 - o head muda antes da tomada: o executor recusa com head_mudou, e nada é enfileirado
+  ---
+  duration_ms: 339.8607
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\sync-transferencia-tela.test.js:442:1'
+  failureType: 'testCodeFailure'
+  error: 'andamentoEng.prsDoCatalogo is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    origemPublica (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:191:79)
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async telaComAndamento (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:223:3)
+    async TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:443:14)
+    async Test.run (node:internal/test_runner/test:1208:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: escolha forjada fora da lista de aptos não sai, nem com confirmação
+not ok 13 - escolha forjada fora da lista de aptos não sai, nem com confirmação
+  ---
+  duration_ms: 315.1191
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\sync-transferencia-tela.test.js:456:1'
+  failureType: 'testCodeFailure'
+  error: 'andamentoEng.prsDoCatalogo is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    origemPublica (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:191:79)
+    process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    async telaComAndamento (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:223:3)
+    async TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/sync-transferencia-tela.test.js:457:14)
+    async Test.run (node:internal/test_runner/test:1208:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: acoesDaOperacao: com commit, tag e PR do catálogo, transferir e tomar ficam utilizáveis
+not ok 14 - acoesDaOperacao: com commit, tag e PR do catálogo, transferir e tomar ficam utilizáveis
+  ---
+  duration_ms: 2.6395
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\ui-pure-compartilhado-posse.test.js:31:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+      {
+    +   motivo: 'o andamento de outro aparelho não traz o PR em claro, que a leitura do aviso exige',
+    +   pode: false
+    -   motivo: '',
+    -   pode: true
+      }
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    pode: true
+    motivo: ''
+  actual:
+    pode: false
+    motivo: 'o andamento de outro aparelho não traz o PR em claro, que a leitura do aviso exige'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/ui-pure-compartilhado-posse.test.js:33:10)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1201:25)
+    Test.start (node:internal/test_runner/test:1096:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17)
+  ...
+# Subtest: acoesDaOperacao: transferir exige o commit, e tomar exige o commit e o PR em claro
+not ok 15 - acoesDaOperacao: transferir exige o commit, e tomar exige o commit e o PR em claro
+  ---
+  duration_ms: 0.3153
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\ui-pure-compartilhado-posse.test.js:40:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    transferir anda só com tags: o PR em claro não é exigido
+    
+    false !== true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/ui-pure-compartilhado-posse.test.js:46:10)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1201:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+    Test.postRun (node:internal/test_runner/test:1330:19)
+    Test.run (node:internal/test_runner/test:1258:12)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3)
+  ...
+# Subtest: operacoesRemotasHtml: o PR aparece pelo nome quando o catálogo abriu, e genérico quando não
+not ok 16 - operacoesRemotasHtml: o PR aparece pelo nome quando o catálogo abriu, e genérico quando não
+  ---
+  duration_ms: 0.6712
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\ui-pure-compartilhado-posse.test.js:57:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /href="https:\/\/github\.com\/acme-exemplo\/app-web\/pull\/41"/. Input:
+    
+    '<div class="card working md-op">\n' +
+      '    <div class="md-linha"><span class="sync-chip mute">Desktop antigo</span><span class="md-fraco">revisão</span><span class="md-espaco"></span><span class="md-fraco">1m, opus</span></div>\n' +
+      '    <div class="md-sub">lendo o diff</div>\n' +
+      '    <div class="md-acoes">\n' +
+      '      <button class="btn sm ghost md-cancelar" data-op="op1" data-dev="dOutro" data-prtag="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">Cancelar</button>\n' +
+      '      <span class="md-nota">Transferir: indisponível, o andamento de outro aparelho não traz o PR em claro, que a leitura do aviso exige</span>\n' +
+      '      <span class="md-nota">Tomar para este aparelho: indisponível, o andamento de outro aparelho não traz o PR em claro, que a leitura do aviso exige</span>\n' +
+      '    </div>\n' +
+      '  </div>'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    <div class="card working md-op">
+        <div class="md-linha"><span class="sync-chip mute">Desktop antigo</span><span class="md-fraco">revisão</span><span class="md-espaco"></span><span class="md-fraco">1m, opus</span></div>
+        <div class="md-sub">lendo o diff</div>
+        <div class="md-acoes">
+          <button class="btn sm ghost md-cancelar" data-op="op1" data-dev="dOutro" data-prtag="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa">Cancelar</button>
+          <span class="md-nota">Transferir: indisponível, o andamento de outro aparelho não traz o PR em claro, que a leitura do aviso exige</span>
+          <span class="md-nota">Tomar para este aparelho: indisponível, o andamento de outro aparelho não traz o PR em claro, que a leitura do aviso exige</span>
+        </div>
+      </div>
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/ui-pure-compartilhado-posse.test.js:59:10)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1201:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+    Test.postRun (node:internal/test_runner/test:1330:19)
+    Test.run (node:internal/test_runner/test:1258:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: operacoesRemotasHtml: a herança da memória aparece quando o executor a decidiu
+not ok 17 - operacoesRemotasHtml: a herança da memória aparece quando o executor a decidiu
+  ---
+  duration_ms: 0.3069
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\ui-pure-compartilhado-posse.test.js:67:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /herdou a memória inteira/. Input:
+    
+    '<div class="card working md-op">\n' +
+      '    <div class="md-linha"><span class="sync-chip mute">Desktop antigo</span><span class="md-fraco">revisão</span><span class="md-espaco"></span><span class="md-fraco">1m, opus</span></div>\n' +
+      '    <div class="md-sub">lendo o diff</div>\n' +
+      '    <div class="md-acoes">\n' +
+      '      <span class="md-nota">Cancelar: indisponível, só o aparelho admin, com sinal fresco, emite comandos</span>\n' +
+      '      <span class="md-nota">Transferir: indisponível, só o aparelho admin, com sinal fresco, emite comandos</span>\n' +
+      '      <span class="md-nota">Tomar para este aparelho: indisponível, só o aparelho admin, com sinal fresco, emite comandos</span>\n' +
+      '    </div>\n' +
+      '  </div>'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    <div class="card working md-op">
+        <div class="md-linha"><span class="sync-chip mute">Desktop antigo</span><span class="md-fraco">revisão</span><span class="md-espaco"></span><span class="md-fraco">1m, opus</span></div>
+        <div class="md-sub">lendo o diff</div>
+        <div class="md-acoes">
+          <span class="md-nota">Cancelar: indisponível, só o aparelho admin, com sinal fresco, emite comandos</span>
+          <span class="md-nota">Transferir: indisponível, só o aparelho admin, com sinal fresco, emite comandos</span>
+          <span class="md-nota">Tomar para este aparelho: indisponível, só o aparelho admin, com sinal fresco, emite comandos</span>
+        </div>
+      </div>
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/ui-pure-compartilhado-posse.test.js:68:10)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1201:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+    Test.postRun (node:internal/test_runner/test:1330:19)
+    Test.run (node:internal/test_runner/test:1258:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: transferenciaDialogo: só os aptos viram opção, e os inaptos aparecem desabilitados com o motivo
+not ok 18 - transferenciaDialogo: só os aptos viram opção, e os inaptos aparecem desabilitados com o motivo
+  ---
+  duration_ms: 0.1826
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\ui-pure-compartilhado-posse.test.js:89:1'
+  failureType: 'testCodeFailure'
+  error: 'P.transferenciaDialogo is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/ui-pure-compartilhado-posse.test.js:90:15)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1201:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+    Test.postRun (node:internal/test_runner/test:1330:19)
+    Test.run (node:internal/test_runner/test:1258:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: transferenciaDialogo: sem apto, sem leitura ou com a origem inapta, nada é oferecido
+not ok 19 - transferenciaDialogo: sem apto, sem leitura ou com a origem inapta, nada é oferecido
+  ---
+  duration_ms: 0.2211
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\ui-pure-compartilhado-posse.test.js:103:1'
+  failureType: 'testCodeFailure'
+  error: 'P.transferenciaDialogo is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/ui-pure-compartilhado-posse.test.js:104:20)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1201:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+    Test.postRun (node:internal/test_runner/test:1330:19)
+    Test.run (node:internal/test_runner/test:1258:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: transferenciaDialogo: nome vindo de fora é escapado
+not ok 20 - transferenciaDialogo: nome vindo de fora é escapado
+  ---
+  duration_ms: 0.1568
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\ui-pure-compartilhado-posse.test.js:120:1'
+  failureType: 'testCodeFailure'
+  error: 'P.transferenciaDialogo is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/ui-pure-compartilhado-posse.test.js:121:15)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1201:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+    Test.postRun (node:internal/test_runner/test:1330:19)
+    Test.run (node:internal/test_runner/test:1258:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: transferenciaConfirmacao: nomeia origem e destino e diz que o desfecho vem do recibo
+not ok 21 - transferenciaConfirmacao: nomeia origem e destino e diz que o desfecho vem do recibo
+  ---
+  duration_ms: 0.3987
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\ui-pure-compartilhado-posse.test.js:125:1'
+  failureType: 'testCodeFailure'
+  error: 'P.transferenciaConfirmacao is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/ui-pure-compartilhado-posse.test.js:126:15)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1201:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+    Test.postRun (node:internal/test_runner/test:1330:19)
+    Test.run (node:internal/test_runner/test:1258:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: notaComandoHtml: comando amarrado ao PR aparece no card dele, e só nele
+not ok 22 - notaComandoHtml: comando amarrado ao PR aparece no card dele, e só nele
+  ---
+  duration_ms: 0.7387
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\ui-pure-compartilhado-posse.test.js:134:1'
+  failureType: 'testCodeFailure'
+  error: 'P.notaComandoHtml is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/ui-pure-compartilhado-posse.test.js:137:18)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1201:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+    Test.postRun (node:internal/test_runner/test:1330:19)
+    Test.run (node:internal/test_runner/test:1258:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: notaDistribuicaoHtml: o motivo da espera aparece quando o engine o conhece
+not ok 23 - notaDistribuicaoHtml: o motivo da espera aparece quando o engine o conhece
+  ---
+  duration_ms: 0.7439
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\ui-pure-compartilhado-posse.test.js:148:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /nenhum aparelho apto agora/. Input:
+    
+    '<div class="pr-coord">Esperando distribuição há 1m: nenhum aparelho recebeu este PR ainda. Ele volta a ser oferecido a cada giro, e o motivo da espera não chega a esta tela.</div>'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: '<div class="pr-coord">Esperando distribuição há 1m: nenhum aparelho recebeu este PR ainda. Ele volta a ser oferecido a cada giro, e o motivo da espera não chega a esta tela.</div>'
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/ui-pure-compartilhado-posse.test.js:150:10)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1201:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+    Test.postRun (node:internal/test_runner/test:1330:19)
+    Test.run (node:internal/test_runner/test:1258:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: tomadasFeitasHtml: de quem, para quem, risco e quando; vazio não desenha
+not ok 24 - tomadasFeitasHtml: de quem, para quem, risco e quando; vazio não desenha
+  ---
+  duration_ms: 0.1297
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\ui-pure-compartilhado-posse.test.js:160:1'
+  failureType: 'testCodeFailure'
+  error: 'P.tomadasFeitasHtml is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/ui-pure-compartilhado-posse.test.js:161:18)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1201:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+    Test.postRun (node:internal/test_runner/test:1330:19)
+    Test.run (node:internal/test_runner/test:1258:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+# Subtest: comandosEmitidosHtml: transferir nomeia o destino, e o PR aparece quando resolvido
+not ok 25 - comandosEmitidosHtml: transferir nomeia o destino, e o PR aparece quando resolvido
+  ---
+  duration_ms: 13.2723
+  type: 'test'
+  location: 'C:\\Users\\wanderson\\Documents\\farol\\.claude\\worktrees\\agent-a50ea4e78cf839210\\test\\ui-pure-compartilhado-posse.test.js:178:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /<b>transferir<\/b> para Desktop antigo, destino Celular de teste/. Input:
+    
+    '<div class="card md-lista"><div class="md-cmd" data-cmd="22222222222222222222222222222222">\n' +
+      '    <span><b>transferir</b> para Desktop antigo, às 10:00</span>\n' +
+      '    <span class="md-espaco"></span>\n' +
+      '    <span class="sync-chip info">enviado</span>\n' +
+      '    <span class="md-fraco">esperando o recibo do aparelho alvo, e vale até 10:01</span>\n' +
+      '  </div></div>'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    <div class="card md-lista"><div class="md-cmd" data-cmd="22222222222222222222222222222222">
+        <span><b>transferir</b> para Desktop antigo, às 10:00</span>
+        <span class="md-espaco"></span>
+        <span class="sync-chip info">enviado</span>
+        <span class="md-fraco">esperando o recibo do aparelho alvo, e vale até 10:01</span>
+      </div></div>
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (file:///C:/Users/wanderson/Documents/farol/.claude/worktrees/agent-a50ea4e78cf839210/test/ui-pure-compartilhado-posse.test.js:181:10)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1201:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+    Test.postRun (node:internal/test_runner/test:1330:19)
+    Test.run (node:internal/test_runner/test:1258:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+1..25
+# tests 25
+# suites 0
+# pass 0
+# fail 25
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 4615.1656

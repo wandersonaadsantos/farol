@@ -1,0 +1,4 @@
+CONFERE | C0 arvore limpa, sem escotilha | codigo=0 esperado=0 | marca "pacote limpo": true | restaurado: true | dist: ["farol-v2.59.5.zip"]
+      ok  pacote limpo: C:\Users\wanderson\Documents\farol\.claude\worktrees\agent-ace98a1f015ac9eb3\dist\farol-v2.59.5.zip (1.226 KB, 249 arquivos)
+          auditado: sem estado, sem config, sem tokens, sem conta pessoal.
+git status --porcelain ao fim: ""

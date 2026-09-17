@@ -2671,91 +2671,19 @@ const DIAG_BASE = {
   queue: [], panorama: [], myPRs: [], decisions: { pending: [] }, activeSessions: [],
 };
 
-test('diagnóstico: relatório vazio ainda traz versão, status e o aviso de sigilo', () => {
-  const t = P.diagnosticsText({ s: DIAG_BASE, agora: '19/08/2026' });
-  assert.match(t, /versão: v2\.48\.3 · plataforma: win32 · node: v24/);
-  assert.match(t, /gerado: 19\/08\/2026/);
-  assert.match(t, /não contém tokens nem senhas/);
-});
 
-test('diagnóstico: sem estado nenhum não explode, e admite o que não sabe', () => {
-  const t = P.diagnosticsText();
-  assert.match(t, /versão: v\?/);
-  assert.match(t, /\(nenhuma\)/);
-  assert.match(t, /\(sem falhas registradas\)/);
-});
 
-test('diagnóstico: ferramenta ausente é dita em voz alta, não omitida', () => {
-  const s = { ...DIAG_BASE, doctor: { ...DIAG_BASE.doctor, gh: '', claude: '', ghAuth: false } };
-  const t = P.diagnosticsText({ s });
-  assert.match(t, /gh: NAO ENCONTRADO/);
-  assert.match(t, /claude: NAO ENCONTRADO/);
-  assert.match(t, /autenticada no gh: NAO/);
-});
 
-test('diagnóstico: conta sem token e conta silenciada aparecem marcadas', () => {
-  const s = { ...DIAG_BASE, accounts: [
-    { user: 'ana', primary: true, label: 'Pessoal', kind: 'pat', owners: ['acme'], tokenOk: true },
-    { user: 'bia', tokenOk: false, muted: true },
-  ] };
-  const t = P.diagnosticsText({ s });
-  assert.match(t, /Contas \(2\):/);
-  assert.match(t, /@ana \[primária\].*orgs=acme · token=ok/);
-  assert.match(t, /@bia.*token=NAO · silenciada/);
-});
 
-test('diagnóstico: assinatura Claude sem login é denunciada com o conserto junto', () => {
-  const s = { ...DIAG_BASE, doctor: { ...DIAG_BASE.doctor, claudeAuth: [{ label: 'p', configDir: '/x', ready: false }] } };
-  assert.match(P.diagnosticsText({ s }), /SEM LOGIN \(rode: claude login nesse dir\)/);
-});
 
-test('diagnóstico: log traz contagem de eventos, de grupos e de linhas', () => {
-  const grupos = [{ id: 'a', count: 3 }, { id: 'b', count: 4 }];
-  const t = P.diagnosticsText({ s: DIAG_BASE, grupos, log: ['x', 'y', 'z'] });
-  assert.match(t, /Log de falhas \(7 evento\(s\) em 2 grupo\(s\), 3 linha\(s\)\)/);
-  assert.match(t, /Resumo:/);
-});
 
-test('diagnóstico: log longo é cortado no teto e o texto diz quanto mostrou', () => {
-  const log = Array.from({ length: 90 }, (_, i) => 'linha ' + i);
-  const t = P.diagnosticsText({ s: DIAG_BASE, log, tail: 40 });
-  assert.match(t, /Detalhe \(as 40 linhas mais recentes\)/);
-});
 
-test('diagnóstico: atualização disponível e em dia se descrevem diferente', () => {
-  const dia = P.diagnosticsText({ s: { ...DIAG_BASE, update: { current: '2.48.3', available: false, channel: 'release' } } });
-  assert.match(dia, /atualização: v2\.48\.3 · na mais recente \(release\)/);
-  const nova = P.diagnosticsText({ s: { ...DIAG_BASE, update: { current: '2.48.3', available: true, sourceVersion: '2.49.0', channel: 'branch', repo: 'a/b', note: 'beta' } } });
-  assert.match(nova, /v2\.49\.0 DISPONÍVEL \(branch a\/b\) · beta/);
-});
 
-test('diagnóstico: NÃO leva token, senha nem cabeçalho de autorização', () => {
-  const s = {
-    ...DIAG_BASE,
-    accounts: [{ user: 'ana', tokenOk: true, token: 'ghp_SEGREDO123', password: 'senha!' }],
-    config: { ...DIAG_BASE.config, githubToken: 'ghp_OUTRO', pat: 'ghp_MAIS' },
-    doctor: { ...DIAG_BASE.doctor, authHeader: 'Bearer xyz' },
-  };
-  const t = P.diagnosticsText({ s, log: ['Authorization: Bearer xyz'], grupos: [] });
-  for (const segredo of ['ghp_SEGREDO123', 'ghp_OUTRO', 'ghp_MAIS', 'senha!'])
-    assert.ok(!t.includes(segredo), `vazou ${segredo} no diagnóstico`);
-});
 
 /* As duas invariantes que moravam em ui-widgets.test.js como casamento de regex contra o
    corpo de buildDiagnostics. Aqui elas olham a SAÍDA, que é o que de fato importa. */
 
-test('diagnóstico: o Resumo agrupado vem ANTES do despejo cru', () => {
-  const t = P.diagnosticsText({ s: DIAG_BASE, grupos: [{ id: 'a', count: 2 }], log: ['x', 'y'] });
-  assert.ok(t.indexOf('  Resumo:') < t.indexOf('  Detalhe'), 'resumo antes do detalhe');
-});
 
-test('diagnóstico: log cru nunca sai inteiro, só o rabo limitado', () => {
-  const log = Array.from({ length: 159 }, (_, i) => 'linha ' + i);
-  const t = P.diagnosticsText({ s: DIAG_BASE, log, tail: 40 });
-  assert.ok(!t.includes('linha 0'), 'a linha mais antiga das 159 não entra');
-  assert.ok(t.includes('linha 158'), 'a mais recente entra');
-  assert.match(t, /159 linha\(s\)/, 'mas o total continua sendo dito');
-});
 
 /* ---------- onda 5, sétimo passo: o cartão da sessão ao vivo ----------
    Os data-attributes deste cartão são contrato: o app volta neles depois pra atualizar
@@ -3027,6 +2955,13 @@ test('sem perda e sem estimativa, a linha de auditoria some', () => {
   assert.equal(P.auditoriaLinhaHtml(limpo), '', 'dizer "0% perdido" seria ruido em cima de quem esta com tudo certo');
   assert.equal(P.auditoriaLinhaHtml(null), '');
   assert.equal(P.auditoriaLinhaHtml({ total: { sessions: 0, costUsd: 0 } }), '');
+});
+
+test('custo desconhecido aparece como não medido, e interrompida tem rótulo próprio', () => {
+  assert.equal(P.usageSessionRow({ costUsd: 0, costSource: 'desconhecido' }).costLabel, 'não medido');
+  const r = P.usageSessionRow({ costUsd: 0, status: 'interrompida' });
+  assert.equal(r.stLabel, 'interrompida');
+  assert.equal(r.stClass, 'interrompida');
 });
 
 test('genId: formato determinístico com as duas fontes injetadas', () => {

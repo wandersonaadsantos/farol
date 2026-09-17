@@ -192,19 +192,31 @@ export function queueCardHtml(pr, ctx) {
     </div>`;
 }
 
+const KIND_DO_GH = { APPROVED: 'approve', CHANGES_REQUESTED: 'request_changes' };
+
+// Qual revisão MINHA vale neste PR, nesta ordem: pendência na mesa deste aparelho, último
+// estado decisivo meu no GitHub, histórico local, e por fim 'revisado' sem estado
+// conhecido. O GitHub vem antes do histórico porque um CHANGES_REQUESTED postado por
+// outro aparelho não existe no histórico local, e o reviewedByMe sozinho virava
+// "aprovado" aqui. Sem estado conhecido o PR não finge aprovação.
+function kindDaRevisao(pr, actions, estadosGh) {
+  const ra = (actions || {})[pr.key];
+  if (ra && ra.kind === 'pending') return 'pending';
+  const gh = String((estadosGh || {})[pr.key]);
+  if (Object.hasOwn(KIND_DO_GH, gh)) return KIND_DO_GH[gh];
+  if (ra) return ra.kind;
+  return pr.reviewedByMe ? 'revisado' : null;
+}
+
 export function panoramaRowHtml(pr, ctx) {
-  const chip = reviewChip(pr, ctx.actions);
+  const chip = reviewChip(pr, ctx.actions, ctx.reviewStatesGh);
   const m = ctx.mark;
-    // estado da SUA revisão: aprovado/mudanças pedidas = resolvido (sem botão de
-    // re-revisar); pendente = já na fila de decisão; senão, dá pra revisar.
-  const ra = (ctx.actions || {})[pr.key];
-  // sem registro nosso, "revisado por mim no GitHub" conta como approve
-  let kind = null;
-  if (ra) kind = ra.kind;
-  else if (pr.reviewedByMe) kind = 'approve';
+  // estado da SUA revisão: aprovado/mudanças pedidas/revisado = resolvido (sem botão de
+  // re-revisar); pendente = já na fila de decisão; senão, dá pra revisar.
+  const kind = kindDaRevisao(pr, ctx.actions, ctx.reviewStatesGh);
     // re-request (o autor pediu sua revisão DE NOVO): não é mais "resolvido/aguardando o
     // autor", voltou a ser acionável (a review antiga foi dismissed no GitHub).
-    const reviewed = (kind === 'approve' || kind === 'request_changes') && !pr.reRequested;
+    const reviewed = (kind === 'approve' || kind === 'request_changes' || kind === 'revisado') && !pr.reRequested;
     const isPending = kind === 'pending';
     // stale = você revisou e entrou commit novo depois: o "Re-revisar" volta a valer
   const stale = reviewed && !!(ctx.staleStates || {})[pr.key];
@@ -219,6 +231,7 @@ export function panoramaRowHtml(pr, ctx) {
   let settledLabel = '';
   if (kind === 'request_changes') settledLabel = 'aguardando o autor';
   else if (isPending) settledLabel = 'aguardando você';
+  else if (kind === 'revisado') settledLabel = 'revisado por você';
   else if (reviewed) settledLabel = 'nada a fazer';
   // mesma regra do settledLabel: a ordem de precedencia (rodando > na fila >
   // botao > estado final) agora esta na sequencia dos if, nao aninhada num ternario.

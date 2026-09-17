@@ -68,6 +68,12 @@ const codes = (r) => (r.reasons || []).map(x => x.code).sort();
    Sem este teste a suíte inteira passaria com uma função que sempre recusa, e aí ela
    provaria contenção sem provar gate. É o caso que separa "fechado" de "quebrado". */
 
+// Os `await` de topo vêm ANTES do primeiro caso: com `--test-force-exit`, o processo
+// encerra quando os casos já registrados terminam, e um `await` que só volta depois
+// disso deixa os casos seguintes CANCELADOS, numa rodada que ainda diz "0 falhas".
+const { parseSelfResult } = await import('../lib/engine/selfpr.js');
+const { cardEvidence } = await import('../lib/engine/selfpr.js');
+
 test('evidência completa e sem blocker é elegível', () => {
   const r = evaluateQualityEligibility(parecer(), evidencia());
   assert.equal(r.status, 'eligible');
@@ -414,7 +420,6 @@ test('limitação ausente ou lista vazia é o caso normal e não penaliza', () =
 
 /* ================= parser estrito (dependência do primeiro eligible) ================= */
 
-const { parseSelfResult } = await import('../lib/engine/selfpr.js');
 const envelopeOk = {
   verdict: 'approvable', approvable: true, cardMet: true,
   blockers: [], tips: [], coverageLimitations: [], reportMarkdown: '# ok', summary: 's'
@@ -625,7 +630,6 @@ test('evidência de card ausente ou inválida falha fechada, nunca dispensa', ()
    dispensa passou verde na primeira versão destes testes: dispensa de requisito por
    falha de credencial é exatamente o furo que a decisão de produto NÃO autoriza. */
 
-const { cardEvidence } = await import('../lib/engine/selfpr.js');
 
 test('só os três códigos silenciosos dispensam o card; qualquer outro é ilegível', () => {
   for (const code of ['desligado', 'site_nao_configurado', 'sem_chave']) {

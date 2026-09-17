@@ -1,0 +1,12 @@
+04:48:16 destinos oferecidos: {"ok":true,"destinos":[{"deviceId":"13d111c5-c1a6-4707-8f18-52996e6d4e9f","nome":"Notebook do escritorio","apto":true,"motivo":"","souEu":false},{"deviceId":"59fce5ea-2f09-431e-9bac-3f8d64568ea0","nome":"Desktop da sala","apto":false,"motivo":"sem-vaga","souEu":true},{"deviceId":"15292345-70d8-4c92-b1e0-26332c3fea7c","nome":"Notebook de viagem","apto":false,"motivo":"dono-atual","souEu":false}],"origem":{"deviceId":"15292345-70d8-4c92-b1e0-26332c3fea7c","motivo":""}}
+04:48:16 destino escolhido A
+04:48:16 transferir {"ok":true,"cmdId":"540dbbd99c8bc548a3729f263fb2222f","estado":"enviado"}
+04:48:26 recibo da transferência {"dev":"15292345-70d8-4c92-b1e0-26332c3fea7c","estado":"aplicado","code":"","at":1789620501920}
+04:52:16 TRANSFERÊNCIA CONCLUÍDA: agora executa em A e a origem parou
+04:52:16 tomar {"ok":true,"cmdId":"2a8b41410c22a5d7b19d2c3b32d0cca4","estado":"enviado"}
+04:52:26 recibo da tomada {"dev":"15292345-70d8-4c92-b1e0-26332c3fea7c","estado":"aplicado","code":"","at":1789620742120}
+04:52:46 TOMADA CONCLUÍDA: executa em D
+04:52:46 tomadas sofridas no destino anterior: [{"prKey":"acme-exemplo/app-web#66","para":"15292345-70d8-4c92-b1e0-26332c3fea7c","geracao":2,"risco":"provavel","at":1789620762108}]
+04:52:46 tomadas registradas no tomador: [{"prKey":"acme-exemplo/app-web#66","de":"13d111c5-c1a6-4707-8f18-52996e6d4e9f","para":"15292345-70d8-4c92-b1e0-26332c3fea7c","geracao":2,"risco":"provavel","at":1789620742144}]
+
+[exited with code 0]

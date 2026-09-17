@@ -1,0 +1,6 @@
+M57 designar sem confirmação: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+
+todas as mutações reprovaram e foram restauradas
+M58 recibo forçado desiste com leitura em curso: REPROVOU (código 1, 1 caso(s) vermelhos em test/sync-comandos-tela.test.js); restaurado byte a byte: sim
+
+todas as mutações reprovaram e foram restauradas

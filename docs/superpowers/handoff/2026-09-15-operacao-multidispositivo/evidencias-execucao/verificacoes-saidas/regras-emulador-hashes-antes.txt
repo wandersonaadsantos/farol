@@ -1,0 +1,2 @@
+0b3028ba31912a70168473a35236484e88856c15880d40f0209e543c4b495eef *firebase/database.rules.json
+f1be58b018416f58a4935e81644c721e8323bd0497945b72170d44caa65ec1d2 *firebase/database.rules.template.json

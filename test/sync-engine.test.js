@@ -133,6 +133,69 @@ test('(b) habilitar + login: conectado, credencial sem senha, aparelho persistid
   assert.ok(Math.abs(engine.sync.skewMs - (RELOGIO_SERVIDOR - Date.now())) < 60000, 'skew medido na presença');
 });
 
+// 7.C2: corte de sessões (`revokedBefore`) ou regra que passou a recusar este aparelho
+// chegam como 401 no banco. Com o token RECÉM-OBTIDO, 401 não é token velho: é o servidor
+// dizendo que este aparelho não entra mais, e insistir a cada tick só repete a recusa. O
+// contrato C1 já dizia que o v2 reconhece isso e pede a senha; ele tratava tudo como
+// transitório e ficava em laço (medido na bancada com engines reais, 17/09/2026).
+//
+// Os dois casos rodam em engine PRÓPRIO: eles derrubam a conexão de propósito, e o engine
+// do arquivo é compartilhado pelos outros casos.
+function motorQueRecusa(estado) {
+  const ctrl = { chamadas: 0, fora: false };
+  const e = new Engine();
+  e.log = () => { };
+  const base = fetchDosDubles(ctrl);
+  e.sync.fetchImpl = async (url, init) => {
+    estado.chamadas += 1;
+    if (estado.recusar && init && init.method === 'PATCH' && String(url).includes('/devices/')) {
+      return new Response('{"error":"Permission denied"}', { status: 401, headers: { 'content-type': 'application/json' } });
+    }
+    return base(url, init);
+  };
+  return e;
+}
+
+test('(c2) 401 do banco com token recém-obtido para de insistir e pede a senha', async () => {
+  const estado = { recusar: false, chamadas: 0 };
+  const e = motorQueRecusa(estado);
+  e.updateSettings({ sync: syncCfg() });
+  if (e.sync.iniciando) await e.sync.iniciando;
+  assert.equal((await e.syncLogin({ email: EMAIL, password: SENHA })).ok, true);
+  assert.equal(e.sync.status, 'conectado');
+  estado.recusar = true;
+  e.sync.lastPresenceAt = 0;
+  await e.syncTick();
+  assert.equal(e.sync.status, 'erro');
+  assert.equal(e.sync.lastError.code, 'nao_autorizado');
+  const chamadasAntes = estado.chamadas;
+  await e.syncTick();
+  assert.equal(estado.chamadas, chamadasAntes, 'nenhuma chamada nova para ouvir a mesma recusa');
+  estado.recusar = false;
+  assert.equal((await e.syncLogin({ email: EMAIL, password: SENHA })).ok, true, 'a senha digitada de novo traz o aparelho de volta');
+  assert.equal(e.sync.status, 'conectado');
+});
+
+// O outro lado: 401 com token VELHO continua transitório. Ele é o caso comum de token
+// vencido, e parar ali deixaria o aparelho fora do ar esperando uma senha que não é o
+// problema.
+test('(c3) 401 com token velho continua transitório: o tick tenta de novo', async () => {
+  const estado = { recusar: false, chamadas: 0 };
+  const e = motorQueRecusa(estado);
+  e.updateSettings({ sync: syncCfg() });
+  if (e.sync.iniciando) await e.sync.iniciando;
+  assert.equal((await e.syncLogin({ email: EMAIL, password: SENHA })).ok, true);
+  e.sync.tokenSource.obtidoHa = () => SYNC.TOKEN_RECEM_OBTIDO_MS + 1000;
+  estado.recusar = true;
+  e.sync.lastPresenceAt = 0;
+  await e.syncTick();
+  assert.equal(e.sync.status, 'erro');
+  assert.equal(e.sync.lastError.code, 'nao_autorizado');
+  const chamadasAntes = estado.chamadas;
+  await e.syncTick();
+  assert.ok(estado.chamadas > chamadasAntes, 'token velho: vale tentar de novo');
+});
+
 test('(c) syncTick respeita PRESENCE_TICK_MS', async () => {
   const antes = patchesDePresenca();
   await engine.syncTick();
@@ -200,29 +263,10 @@ test('(g) seguraAutomacao: desligada não segura; ligada segura sem conexão e c
   await salvarSync(syncCfg());
 });
 
-test('(e) erase-remote apaga /users/{uid} inteiro, só do próprio uid, e nada local', async () => {
-  // a árvore real tem mais que presença; e o dublê poda pai vazio, então sem estes nós
-  // apagar só /devices produziria a mesma árvore vazia e o teste não distinguiria
-  const arvore = rtdb.tree();
-  Object.assign(arvore.users.u1, {
-    leases: { a1: { p1: { leaseId: 'l1', deviceId: 'd1', operationKind: 'review', expiresAt: 1 } } },
-    receipts: { a1: { p1: { review_x: { operationKind: 'review', completedAt: 1 } } } },
-    usageEvents: { d1: { e1: { at: 1, kind: 'review', costUsd: 0 } } },
-  });
-  arvore.users.u2 = { devices: { outro: { name: 'Aparelho de outra pessoa' } } };
-  rtdb.setTree(arvore);
-
-  const r = await engine.syncEraseRemote();
-  assert.deepEqual(r, { ok: true });
-  const depois = rtdb.tree();
-  assert.equal(depois.users.u1, undefined, 'a árvore do usuário foi apagada inteira');
-  assert.deepEqual(depois.users.u2, { devices: { outro: { name: 'Aparelho de outra pessoa' } } }, 'o apagão respeita o uid');
-  assert.equal(engine.sync.status, 'conectado');
-  assert.ok(fs.existsSync(CRED_FILE), 'a credencial local fica');
-  assert.ok(fs.existsSync(DEVICE_FILE), 'a identidade local do aparelho fica');
-  const t = await engine.syncTest();
-  assert.deepEqual(t, { ok: true, uid: 'u1', devices: 0 });
-});
+// O caso (e), que provava o apagão de /users/{uid}, saiu junto com o recurso: a C1 remove
+// o `syncEraseRemote` porque as regras v2 negam o DELETE da raiz (spec 7.C1 e anexo C1,
+// "Estratégia de regras", princípio 1). O que ficou no lugar é test/sync-sem-apagao.test.js,
+// que trava a ausência do caminho.
 
 test('(f) desligar para tudo e volta a desligado sem apagar nada', async () => {
   engine.sync.lastPresenceAt -= SYNC.PRESENCE_TICK_MS;
@@ -288,7 +332,6 @@ test('(i) rotas /api/sync/*: a resposta é allowlist e nunca ecoa senha, e-mail 
     assert.equal(engine.sync.status, 'conectado');
 
     assert.deepEqual(JSON.parse(await post('/api/sync/test')), { ok: true, devices: 1 });
-    assert.deepEqual(JSON.parse(await post('/api/sync/erase-remote')), { ok: true });
     assert.deepEqual(JSON.parse(await post('/api/sync/logout')), { ok: true });
     assert.equal(engine.sync.status, 'sem-credencial');
   } finally {

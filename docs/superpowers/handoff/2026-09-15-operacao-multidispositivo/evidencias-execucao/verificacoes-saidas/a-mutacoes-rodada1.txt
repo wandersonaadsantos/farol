@@ -1,0 +1,13 @@
+REPROVOU | M1 status roda na pasta original (sem trocar CLAUDE_CONFIG_DIR) | codigo=1 pass=20 fail=5 | restaurado byte a byte: true
+REPROVOU | M2 sem CLAUDE_SECURESTORAGE_CONFIG_DIR | codigo=1 pass=22 fail=3 | restaurado byte a byte: true
+REPROVOU | M3 credencial lida da copia | codigo=1 pass=22 fail=3 | restaurado byte a byte: true
+REPROVOU | M4 padrao da maquina sem SECURESTORAGE | codigo=1 pass=24 fail=1 | restaurado byte a byte: true
+REPROVOU | M5 copia nao e apagada | codigo=1 pass=22 fail=3 | restaurado byte a byte: true
+REPROVOU | M6 copia leva a credencial | codigo=1 pass=24 fail=1 | restaurado byte a byte: true
+REPROVOU | M7 copia sem settings.json | codigo=1 pass=24 fail=1 | restaurado byte a byte: true
+REPROVOU | M8 copia sem .claude.json | codigo=1 pass=23 fail=2 | restaurado byte a byte: true
+REPROVOU | M9 padrao da maquina le conta de ~/.claude/.claude.json | codigo=1 pass=24 fail=1 | restaurado byte a byte: true
+PASSOU (inerte) | M10 copia sem chmod 0700 | codigo=0 pass=25 fail=0 | restaurado byte a byte: true
+PASSOU (inerte) | M11 falha na copia nao limpa | codigo=0 pass=25 fail=0 | restaurado byte a byte: true
+PASSOU (inerte) | M12 copia criada fora do tmp, dentro da pasta do perfil | codigo=0 pass=25 fail=0 | restaurado byte a byte: true
+total: 12, reprovaram: 9, passaram inertes: 3

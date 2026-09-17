@@ -1,0 +1,4 @@
+powershell sozinho (Write-Output): ["AppData","AppData\\Roaming"]
+claude.exe direto, sem powershell: ["conf","conf\\.claude.json","conf\\backups","conf\\backups\\.claude.json.backup.1789575985068"]
+powershell -> claude: ["AppData","AppData\\Roaming","conf","conf\\.claude.json","conf\\backups","conf\\backups\\.claude.json.backup.1789575985715"]
+codigo de saida: 0

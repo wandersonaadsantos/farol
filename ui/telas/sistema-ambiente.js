@@ -27,7 +27,7 @@ function renderDoctor() {
     ...operationChecks(estado().accounts),
     // nem que vai conseguir ABRIR a sessão: rodar como root faz toda revisão
     // autônoma morrer no spawn, com o resto da tela verde
-    ...runtimeChecks(estado().doctor, estado().config)
+    ...runtimeChecks(estado().doctor, estado().config, estado().claudePerfis)
   ];
   box.innerHTML = checks.map(c => `
     <div class="check ${c.ok ? 'ok' : 'bad'}${c.goto ? ' is-goto' : ''}"${c.goto ? ` data-goto="${esc(c.goto)}" role="button" tabindex="0" title="Abrir a configuração deste item"` : ''}>

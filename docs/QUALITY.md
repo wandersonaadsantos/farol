@@ -335,6 +335,33 @@ reprova) e só então `npm run eng`. Commit novo muda o `head` e, se o material 
 avaliações se escrevem no head final, depois das revisões, porque cada uma precisa de fundamentação própria
 sobre AQUELE diff. A saída definitiva continua sendo o pacote imprimir o fingerprint no próprio `audit`.
 
+### Qual eng-behaviour o gate usa (16/09/2026)
+
+O gate mede contra a versão que o Farol **adota**, e não contra "o que estiver" no clone ao
+lado. A identidade adotada fica em `tools/eng-behaviour/ferramenta.json`: pacote, versão
+(0.13.0 desde 17/09/2026, a mesma do `catalogVersion` do baseline), commit completo, origem e o comando de
+construção. O caso que motivou: o clone `../eng-behaviour`, onde o pacote é desenvolvido,
+estava com a 0.13.0 em andamento e sem commit, com o `dist/` reconstruído a partir dela.
+
+A CLI é procurada, nesta ordem, em `FAROL_ENG_BEHAVIOUR_HOME` (quando definida, vale
+sozinha), em `../eng-behaviour@<versão>` e em `../eng-behaviour`. Qualquer que seja o caminho,
+o gate só roda se as quatro provas passarem. Com qualquer falha, sai 2 e diz qual foi:
+- a versão do `package.json` é a adotada;
+- o checkout é um repositório git próprio, no commit adotado;
+- não há alteração local em arquivo versionado;
+- `dist/.farol-construido-de` traz o mesmo commit, porque `dist/` não é versionado.
+
+A cópia fixada se monta com:
+
+```
+node tools/eng-behaviour/preparar-copia.js [--origem <url ou caminho>] [--destino <caminho>]
+```
+
+Ela clona (lendo, sem tocar no clone de desenvolvimento), faz checkout do commit, roda os
+passos de `construcao` e grava o carimbo. Nunca apaga nada, e um destino que já existe só é
+aceito se já for a cópia certa. A troca de versão continua sendo a entrega que regenera o
+recorte e migra o baseline; ela passa a incluir também este arquivo.
+
 ### Dívida registrada de responsabilidade única (v0.12.0 do pacote, 15/09/2026)
 
 Até a v0.12.0, `core.file.single-responsibility` só tinha duas respostas para arquivo que já violava a regra antes da entrega: `violacao`, que reprovava a entrega que não causou a dívida, ou `conforme`. O Farol escolheu a segunda sete vezes sobre o `ui/app.js`, com a tensão escrita só na fundamentação, e foi essa medição que virou a ADR-0015 do eng-behaviour. Desde a v0.12.0 a dívida anterior de uma regra de julgamento mora num baseline finito, com contagem e condição de fechamento, e o gate passa `--baselines tools/eng-behaviour/baselines.json` e `--repo-id farol` (a identidade fixa é o que faz o baseline valer também dentro de uma worktree).

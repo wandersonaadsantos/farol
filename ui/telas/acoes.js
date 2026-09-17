@@ -2,6 +2,7 @@
    diagnóstico, doctor, atualização), os cliques de Panorama/Sessões ativas/Fila/
    Decisões pendentes, e o laço que liga settingsMap aos toggles de Sistema. */
 
+import { settingsIgnoradasTexto } from '../pure.js';
 import { estado } from './estado.js';
 import {
   $, api, get, toast, toastRich, confirmModal, showOp, closeOp, copyToClipboard,
@@ -182,8 +183,9 @@ for (const [sel, key, read] of settingsMap) {
     const r = await api('/api/settings', { [key]: read(e.target) });
     // o servidor devolve o que NÃO aceitou. Dizer "salva" sem olhar isso foi o que
     // fez preferência sumir em silêncio: a tela confirmava, o config não guardava.
-    if (r && Array.isArray(r.ignoradas) && r.ignoradas.includes(key)) {
-      toast('error', `"${key}" não foi salva: o servidor não reconhece essa preferência.`, 6000);
+    const recusa = settingsIgnoradasTexto(r);
+    if (recusa) {
+      toast('error', recusa, 6000);
       return;
     }
     toast('ok', 'Configuração salva.', 2500);
