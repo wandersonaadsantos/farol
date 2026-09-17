@@ -406,7 +406,7 @@ foram fechados, e os fechamentos acharam defeito de produto.
 
 `npm run eng` passa pelo caminho oficial, em `877e881`: veredito `pass`, 13 regras no
 escopo, 12 acionadas, 12 executadas, 8 achados conhecidos do baseline
-(`verificacoes-saidas/eng-oficial-877e881.txt`). A CLI é uma cópia isolada, montada do
+(`verificacoes-saidas/eng-oficial-final.txt`). A CLI é uma cópia isolada, montada do
 commit adotado em `tools/eng-behaviour/ferramenta.json` e conferida em quatro provas
 (versão, commit do checkout, árvore limpa e carimbo do `dist/`). O clone de desenvolvimento
 ao lado, que está com a 0.13.0 em andamento de outra sessão, continua intocado e continua
