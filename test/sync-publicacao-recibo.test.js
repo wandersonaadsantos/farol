@@ -75,6 +75,17 @@ test('atualizarPublicacaoDoRecibo: pending vira published, lastVerifiedAt novo e
   assert.ok(put.headers['if-match'] && put.headers['if-match'] !== 'null_etag', 'escrita condicionada ao etag lido');
 });
 
+// Medido em 18/09/2026 ("recibo não marcado como publicado: Permission denied" no log a cada
+// postagem automática): a intenção de postar nasce ANTES do recibo, e o nó com só `postagens`
+// era lido como recibo. Gravar publicationState nele vira recibo pela metade, que a regra recusa.
+test('atualizarPublicacaoDoRecibo: nó só com o registro de postagem não é recibo, e nada é escrito', async () => {
+  const w = await cliente().put(`/users/u1/receipts/${IDS.accountHash}/${IDS.prHash}/${FP}/postagens/APPROVE`, { estado: 'confirmada', tentativaId: 't1', intencaoEm: Date.now() }, {});
+  assert.equal(w.ok, true, 'a premissa: a intenção está no banco sem recibo');
+  fake.requests.length = 0;
+  assert.deepEqual(await atualizarPublicacaoDoRecibo(cliente(), IDS, { ...PUBLICAR, nowMs: Date.now() }), { ok: false, motivo: 'sem-recibo' });
+  assert.equal(puts(), 0);
+});
+
 test('atualizarPublicacaoDoRecibo: sem recibo não cria um, e estado já igual não escreve', async () => {
   assert.deepEqual(await atualizarPublicacaoDoRecibo(cliente(), IDS, { ...PUBLICAR, nowMs: Date.now() }), { ok: false, motivo: 'sem-recibo' });
   assert.equal(puts(), 0, 'recibo sem análise deste aparelho seria afirmação falsa');

@@ -30,6 +30,8 @@ const { Engine } = await import('../server.js');
 const andamento = (await import('../lib/engine/sync-andamento.js')).default;
 const syncTelas = (await import('../lib/engine/sync-telas.js')).default;
 const ak = await import('../lib/sync/admin-chave.js');
+// a maior sequência vista do batimento é persistida; cada caso começa num banco novo
+const autoridade = (await import('../lib/sync/autoridade.js')).default;
 
 const API_KEY = 'chave-web-de-teste';
 const EMAIL = 'a@b.com';
@@ -48,7 +50,7 @@ after(async () => {
   await identity.close();
   try { fs.rmSync(BASE, { recursive: true, force: true }); } catch { /* limpeza best-effort do temporário */ }
 });
-beforeEach(() => { fake.setTree(null); ak.apagarChaveDeAdmin(); });
+beforeEach(() => { fake.setTree(null); ak.apagarChaveDeAdmin(); autoridade.apagarSequenciaVista(); });
 
 async function fetchDosDubles(url, init) {
   const alvo = String(url).replace(ORIGEM_EMULADOR_AUTH, identity.url);
@@ -118,4 +120,36 @@ test('logo depois de virar admin a tela já sabe, sem esperar o próximo giro do
   assert.ok(admin, 'o toast diz "agora é o admin"; a tela não pode dizer "sem admin" no mesmo segundo');
   assert.equal(admin.souEu, true);
   assert.equal(admin.fresca, false, 'anotar quem é o admin não inventa batimento');
+});
+
+// Caso real de 18/09/2026: a chave do conjunto trancou no reinício do auto-update, e o ciclo
+// parava em `sem-chave`, um portão diferente do `sem-frota`.
+test('chave do conjunto trancada: a tela ainda vê o admin', async () => {
+  const e = await motorSozinho();
+  assert.equal((await e.syncTornarAdmin({ password: SENHA })).ok, true);
+  e.sync.material = null;
+  const T = Date.now();
+  const pub = await andamento.ciclo(e, e.config.sync, { agora: T });
+  assert.equal(pub.code, 'sem-chave', 'a premissa do caso');
+  await andamento.ciclo(e, e.config.sync, { agora: T + SYNC.AUTORIDADE_INTERVALO_MS });
+  const admin = syncTelas.projecaoDasTelas(e).admin;
+  assert.ok(admin);
+  assert.equal(admin.fresca, true);
+});
+
+// Caso real (medido no banco em 18/09/2026): a chave destrancou às 16:20:41, o batimento
+// da geração 7 saiu e foi lido como retrato (primeira leitura não prova vida), e às
+// 16:20:46 um segundo clique criou a geração 8. O próximo batimento esperava o intervalo
+// inteiro (120 s) contado do anterior, e a tela ficava em "admin sem sinal de vida".
+test('virar admin de novo logo depois do primeiro batimento: sinal de vida no giro seguinte', async () => {
+  const e = await motorSozinho();
+  assert.equal((await e.syncTornarAdmin({ password: SENHA })).ok, true);
+  const T = Date.now();
+  await andamento.ciclo(e, e.config.sync, { agora: T });
+  assert.equal(syncTelas.projecaoDasTelas(e).admin.fresca, false, 'a premissa: o primeiro batimento é retrato');
+  assert.equal((await e.syncTornarAdmin({ password: SENHA })).ok, true);
+  await andamento.ciclo(e, e.config.sync, { agora: T + 10 * 1000 });
+  const admin = syncTelas.projecaoDasTelas(e).admin;
+  assert.equal(admin.generation, 2);
+  assert.equal(admin.fresca, true, 'sem esperar o intervalo contado do batimento anterior');
 });

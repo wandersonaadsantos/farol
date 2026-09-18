@@ -7,6 +7,9 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.61.1', ['A chave do conjunto reabre sozinha depois de reiniciar, inclusive depois da atualização automática: você não precisa mais digitar a senha da sincronização a cada reinício. Ela só reabre quando a cópia guardada neste computador confere com a do banco.',
+    '"Tornar este aparelho admin" aparece na tela mesmo com a chave trancada, e o sinal de vida do admin chega em segundos, não em minutos.',
+    'Sumiu o aviso "recibo não marcado como publicado" que aparecia a cada aprovação automática sem efeito real.']],
   ['2.61.0', ['O Farol no celular passa a pedir login sozinho: detectado o modo celular, a API local exige pareamento sem precisar configurar nada, e isso destrava a visão compartilhada nesse aparelho. Se a interface trancar, o desbloqueio é pelo terminal, com node tools/farol-parear.js.',
     'O teto de consumo do grupo passa a barrar de verdade: com grupo configurado, com identidade e teto, estourar o valor do dia segura revisões novas do grupo. Barrar é espera, não estacionamento, e sem grupo configurado nada muda.',
     'As duas foram ligadas antes das medições que as seguravam (Termux real e atraso do consumo entre dois aparelhos), por decisão sua, e voltam a desligar numa versão nova se incomodarem.',

@@ -9,6 +9,28 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.61.1
+
+O Farol deixa de trancar a sincronização a cada reinício, e virar admin passa a aparecer na
+tela em segundos.
+
+**Correções**
+
+- **A chave do conjunto reabre sozinha depois de reiniciar.** A cada reinício, inclusive o
+  da atualização automática, a chave voltava a "bloqueada" e o compartilhamento entre
+  aparelhos parava até você digitar a senha de novo. Agora ela reabre pela cópia guardada
+  neste computador, e só quando essa cópia confere com a do banco; se não conferir, a senha
+  continua sendo o caminho, como antes.
+- **"Tornar este aparelho admin" aparece mesmo com a chave trancada.** Virar admin não
+  depende da chave do conjunto, e a tela seguia dizendo "sem admin" enquanto ela estava
+  bloqueada.
+- **O sinal de vida do admin chega em segundos.** Logo depois de virar admin, a tela podia
+  passar até quatro minutos dizendo "admin sem sinal de vida". O primeiro sinal da geração
+  nova sai no giro seguinte.
+- **Sumiu o aviso "recibo não marcado como publicado: Permission denied".** Ele aparecia a
+  cada aprovação automática, sem efeito real: a postagem já tinha saído, e o recibo que vem
+  depois já registra a publicação.
+
 ## v2.61.0
 
 Duas proteções que estavam prontas mas desligadas passam a valer (o login no celular e o teto
