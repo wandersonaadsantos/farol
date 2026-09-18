@@ -250,13 +250,16 @@ function balloon(title, content) {
   try { tray && tray.displayBalloon({ title, content, icon: trayIcon() }); } catch { }
 }
 
+function tituloDePrsNovos(n, auto) {
+  if (auto) return n === 1 ? 'PR novo, revisando sozinho' : `${n} PRs novos, revisando sozinho`;
+  return n === 1 ? 'PR aguardando sua revisão' : `${n} PRs aguardando sua revisão`;
+}
+
 function wireEngine() {
   if (!engine) return;
   engine.on('new-prs', ({ items, total, auto }) => {
     const n = items.length;
-    const title = auto
-      ? (n === 1 ? 'PR novo, revisando sozinho' : `${n} PRs novos, revisando sozinho`)
-      : (n === 1 ? 'PR aguardando sua revisão' : `${n} PRs aguardando sua revisão`);
+    const title = tituloDePrsNovos(n, auto);
     const body = n === 1 ? `${items[0].key}: ${items[0].title}` : items.map(i => i.key).join('  ·  ');
     notify(`Farol · ${title}`, body, n === 1 ? items[0].url : null);
   });
