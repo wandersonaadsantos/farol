@@ -76,3 +76,8 @@ test('regravar com o mesmo conteúdo não toca o arquivo', () => {
     assert.equal(fs.statSync(alvo).mtimeMs, antes);
   } finally { limpar(casa); }
 });
+
+test('o desinstalador apaga o mesmo agente que o app grava', () => {
+  const desinstalador = fs.readFileSync(path.join(import.meta.dirname, '..', 'installer', 'uninstall.sh'), 'utf8');
+  assert.ok(desinstalador.includes(`Library/LaunchAgents/${am.ROTULO}.plist`), 'nome divergente deixaria o agente abrindo um lançador apagado');
+});

@@ -150,3 +150,17 @@ test('falhaPassageira: só recusa que não chegou à rede e cuja causa passa soz
   assert.equal(arbitragem.falhaPassageira(OK), false);
   assert.equal(arbitragem.falhaPassageira(null), false);
 });
+
+test('lease que vence entre as tentativas encerra como perda de coordenação, sem postar de novo', async () => {
+  esperas.length = 0;
+  const h = handleFalso();
+  const e = motor(REGISTRO, h, 'approve');
+  const postar = e.postReview;
+  e.postReview = async (...args) => {
+    const r = await postar(...args);
+    h.valido = () => false; // venceu durante a espera de 2 s
+    return r;
+  };
+  await assert.rejects(e.runHeadlessReview(prDe('o/r#15')), (err) => err.coordenacao === 'perdido');
+  assert.equal(e.chamadas.length, 1, 'sem lease, a segunda tentativa não sai');
+});
