@@ -2,7 +2,7 @@
    configurações (renderSettings) e o registro da tela. */
 
 import { esc, sysNorm } from '../pure.js';
-import { estado, ehWin, ehElectron } from './estado.js';
+import { estado, ehWin, ehMac, ehElectron } from './estado.js';
 import { $, sysFlash } from './infra.js';
 import { registrarTela } from './registro.js';
 import { loadLog } from './ferramentas.js';
@@ -69,7 +69,7 @@ const SYS_INDEX = [
   { sec: 'prefs', at: '#sys-row-sound', title: 'Som ao chegar PR novo', hint: 'som, aviso, notificação' },
   { sec: 'prefs', at: '#sys-row-teamhighlights', title: 'Destaques do time', hint: 'destaques, kudos, elogios, memória, time, equipe' },
   { sec: 'prefs', at: '#sys-row-deliveries', title: 'Entregas', hint: 'entregas, merges, prs mergeados, github, atividade' },
-  { sec: 'prefs', at: '#rowAutostart', title: 'Iniciar com o Windows', hint: 'autostart, inicialização, segundo plano' },
+  { sec: 'prefs', at: '#rowAutostart', title: 'Iniciar com o sistema', hint: 'autostart, inicialização, segundo plano, iniciar com o Windows, iniciar com o macOS, login' },
   { sec: 'news', at: '#relNotes', title: 'Novidades por versão', hint: 'changelog, release notes, o que mudou' },
   { sec: 'diag', at: '#sys-row-spawns', title: 'Registrar processos (diagnóstico)', hint: 'spawns, terminal piscando, debug' },
   { sec: 'diag', at: '#sys-row-log', title: 'Log de falhas', hint: 'log, erro, falha, pr-health' },
@@ -161,12 +161,13 @@ function renderSettings() {
   $('#setTeamHighlights').checked = c.teamHighlights === true;
   $('#setDeliveriesEnabled').checked = c.deliveriesEnabled === true;
   $('#setAutostart').checked = !!c.autostart;
-  // autostart só existe de verdade no Windows (setLoginItemSettings é no-op no Linux e
-  // desabilitado por decisão no mac; ver applyAutostart em main.js), e só faz sentido
-  // dentro do Electron (fora dele não há app pra logar no login do SO). ehWin() é a
+  // autostart existe no Windows (login item) e no mac (LaunchAgent; ver applyAutostart
+  // em main.js); no Linux setLoginItemSettings é no-op. Só faz sentido dentro do
+  // Electron (fora dele não há app pra logar no login do SO). ehWin()/ehMac() são a
   // PLATAFORMA reconciliada com o engine; ehElectron() é do PRÓPRIO processo desta
-  // página, lido do userAgent (as duas leituras moram em telas/estado.js).
-  $('#rowAutostart').style.display = ehElectron() && ehWin() ? '' : 'none';
+  // página, lido do userAgent (as leituras moram em telas/estado.js).
+  $('#rowAutostart').style.display = ehElectron() && (ehWin() || ehMac()) ? '' : 'none';
+  $('#rowAutostart .set-title').textContent = ehMac() ? 'Iniciar com o macOS' : 'Iniciar com o Windows';
 }
 
 // Import estático roda ANTES do corpo do app.js: assim como telas/time.js registra

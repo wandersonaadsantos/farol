@@ -10,6 +10,7 @@ import { consumirReaberturaSilenciosa } from './lib/engine/update.js';
 
 // fonte única do branch de plataforma (lib/paths.js), como no resto do app
 import { IS_MAC } from './lib/paths.js';
+import { aplicarAutostartMac } from './lib/autostart-mac.js';
 // motivo viaja como { text, kind } desde a v2.48.0; interpolar o objeto cru
 // escreve "[object Object]" na notificação (achado do Wanderson em 20/08/2026)
 import { reasonText } from './lib/format.js';
@@ -297,9 +298,13 @@ function wireEngine() {
 function applyAutostart() {
   if (!engine) return;
   // macOS: setLoginItemSettings ignora "args", entao o login item abriria o
-  // Electron pelado (sem o app). Ate existir um empacotamento proprio, o
-  // autostart fica indisponivel la (a UI ja esconde a opcao).
-  if (IS_MAC) return;
+  // Electron pelado (sem o app). La o autostart e um LaunchAgent que abre o
+  // lancador ~/Applications/Farol.app (lib/autostart-mac.js).
+  if (IS_MAC) {
+    const r = aplicarAutostartMac({ ligado: !!engine.config.autostart });
+    if (!r.ok) engine.log('WARN', `iniciar com o macOS: ${r.motivo}`);
+    return;
+  }
   try {
     app.setLoginItemSettings({
       openAtLogin: !!engine.config.autostart,

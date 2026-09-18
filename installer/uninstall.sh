@@ -14,6 +14,8 @@ sleep 1
 
 rm -rf "$ROOT/app"
 rm -rf "$HOME/Applications/Farol.app"
+# o agente do "Iniciar com o macOS" (lib/autostart-mac.js) abriria um lancador que nao existe mais
+rm -f "$HOME/Library/LaunchAgents/com.biud.farol.autostart.plist"
 
 if [ "${1:-}" = "--remove-data" ]; then
   rm -rf "$ROOT"

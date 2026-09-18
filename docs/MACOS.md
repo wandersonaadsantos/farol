@@ -28,8 +28,8 @@ Todos em `server.js`, salvo indicação:
 | `detectGitBash` | procura o Git Bash | retorna `null` (não se aplica) |
 | `main.js`: janela | `titleBarStyle: hidden` + `titleBarOverlay` | `hiddenInset` (semáforo nativo à esquerda) |
 | `main.js`: bandeja | `tray.png` direto | resize pra 18px (barra de menu) |
-| `main.js`: autostart | `setLoginItemSettings` com args | desabilitado (login item ignoraria os args; a UI esconde a opção) |
-| `ui/app.js` | check do Git Bash no doctor | esconde Git Bash e autostart; classe `mac` no body (padding do semáforo) |
+| `main.js`: autostart | `setLoginItemSettings` com args | LaunchAgent `~/Library/LaunchAgents/com.biud.farol.autostart.plist` que abre `~/Applications/Farol.app` pelo `open` (`lib/autostart-mac.js`; o login item ignoraria os args e abriria o Electron pelado) |
+| `ui/app.js` | check do Git Bash no doctor | esconde Git Bash; o autostart aparece como "Iniciar com o macOS"; classe `mac` no body (padding do semáforo) |
 
 **Fonte de verdade da plataforma na UI (v2.28.0):** é o ENGINE (`snapshot.app.platform`), nunca o `navigator.userAgent`. `ui/app.js` mantém `PLATAFORMA` + `ehMac()`/`ehWin()` e `aplicaPlataforma(p)`, chamada na primeira linha do handler `state` do SSE. O userAgent segue sendo lido UMA vez, só como palpite do primeiro paint (sem ele o padding do semáforo do macOS piscaria antes do primeiro estado chegar). Antes eram duas fontes de verdade no mesmo arquivo (userAgent no cromo, `app.platform` no doctor), que divergem de verdade ao abrir a UI de um Mac contra um engine Windows. `ehMac`/`ehWin` são FUNÇÕES de propósito: uma referência esquecida ao antigo `isMac` vira `ReferenceError` alto, em vez de um `if (isMac)` sempre verdadeiro (função é truthy) falhando calado.
 
@@ -51,7 +51,7 @@ Todos em `server.js`, salvo indicação:
 
 Pendências conhecidas do port (decisões conscientes, não bugs):
 
-- **Autostart não existe no macOS** (login item com Electron + args não é confiável). Se for implementar, o caminho é um LaunchAgent em `~/Library/LaunchAgents`.
+- **Autostart por LaunchAgent (18/09/2026), escrito no Windows e PENDENTE de Mac real.** O login item do Electron registra o `Electron.app` de dentro de `node_modules` e ignora `args`, então abriria o Electron pelado. Ligar "Iniciar com o macOS" grava `~/Library/LaunchAgents/com.biud.farol.autostart.plist` (`/usr/bin/open -a ~/Applications/Farol.app`, `RunAtLoad`, SEM `KeepAlive` para fechar pela bandeja não reabrir); desligar remove. Sem `launchctl load`: vale do próximo login em diante, e carregar na hora abriria uma segunda instância. Sem o lançador instalado (rodando da fonte), recusa e loga em vez de gravar agente que abriria nada. O `uninstall.sh` apaga o plist. Validar num Mac: ligar, conferir o arquivo, sair e entrar na sessão, e ver se o Farol abre UMA vez; o macOS 13+ mostra o aviso "item de segundo plano adicionado", que é esperado.
 - **`.command` aberto por duplo clique pode pedir permissão** na primeira vez (Gatekeeper em arquivos baixados). `bash Instalar.command` contorna.
 - **Notificações**: `displayBalloon` é Windows; no macOS o `Notification` do Electron cobre, mas a primeira notificação pede permissão do sistema.
 
@@ -172,8 +172,9 @@ escapou.
   falha não gera toast, log nem diálogo. A remoção antecipada de `node_modules` no
   Linux foi corrigida no fluxo de preparação do Electron 44: primeiro valida o
   runtime instalado ou prepara o substituto em uma pasta temporária.
-- Segue valendo o de sempre: **autostart** não existe no macOS, o **nome no Dock** é
-  "Electron", e o `.app` vai pra `~/Applications`, não pra `/Applications`.
+- Segue valendo o de sempre: o **nome no Dock** é "Electron", e o `.app` vai pra
+  `~/Applications`, não pra `/Applications`. (O autostart deixou de faltar em 18/09/2026, por
+  LaunchAgent; ver "Pendências conhecidas do port".)
 
 Quando validar (ou corrigir) qualquer item acima, **atualize esta seção**: risque o que passou, documente o que mudou e por quê. Este arquivo é a memória do port.
 
@@ -229,6 +230,6 @@ O que existe:
 - **Sessão de terminal**: os scripts bash do mac servem sem mudança; o que muda é o lançador. `pickLinuxTerminal(candidates, exists)` (pura, testada) escolhe na cadeia `x-terminal-emulator` (alternatives do Debian) → `gnome-terminal` → `konsole` → `xterm`; nenhum achado = toast alto com instrução, nunca silêncio. `spawnConsolePosix`/`spawnLoginConsolePosix` são o núcleo compartilhado mac/linux (o mac vira wrapper com `open -a Terminal`); o contrato M5 (exit != 0 = janela nunca abriu, limpa e devolve keys) vale igual nos dois.
 - **Update**: `buildUpdateScriptLinux` (pura, mesmo escaping do mac) roda `install-linux.sh` e reabre via `setsid ~/.farol/bin/farol`; `posixInstallerName(isMac)` escolhe o instalador do ramo posix.
 - **Instalação**: `installer/install-linux.sh` + `uninstall-linux.sh`. App em `~/.farol/app`, lançador `~/.farol/bin/farol` (exec no binário NATIVO `node_modules/electron/dist/electron`, mesma lição do mac), `.desktop` em `~/.local/share/applications` com ícone PNG. `FAROL_INSTALL_ROOT` permite instalar num root de teste sem tocar a instalação real (a lacuna A5 que o mac ainda tem). O Electron instalado só é preservado se atender ao manifesto; caso contrário, o substituto é preparado e validado em pasta temporária antes de alterar o app.
-- **UI**: exemplos de caminho decidem por `ehWin()` (Linux vê `~/`); autostart só aparece no Windows (`setLoginItemSettings` é no-op no Linux).
+- **UI**: exemplos de caminho decidem por `ehWin()` (Linux vê `~/`); autostart aparece no Windows e no macOS, nunca no Linux (`setLoginItemSettings` é no-op lá).
 
 Validação real (WSL Ubuntu-24.04, 16/08/2026, bancada oficial do ramo): `npm test` VERDE no Linux (1110 pass, incluindo os posix reais: killTree de grupo, quoting em bash, prefixo de auth); `install-linux.sh` rodou de ponta a ponta a partir de clone limpo com `FAROL_INSTALL_ROOT` (npm pulou o postinstall do electron e o fallback pro `install.js` cobriu, ver comentário no script); o app instalado ABRIU no WSLg pelo lançador e o engine respondeu HTTP 200 na 47170. NÃO validados (limite do WSLg, não do código): tray, notificações, sessão de terminal com emulador real (o WSL não tem terminal gráfico instalado; o caminho do "nenhum terminal" avisa alto por construção).
