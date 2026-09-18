@@ -32,10 +32,12 @@ versões do aplicativo e do Electron, carregamento da UI, bandeja, notificação
 autostart aplicável. No Linux, Xvfb, D-Bus, gerenciador de janelas, bandeja e daemon
 de notificações fornecem um desktop real para o processo.
 
-Autostart está disponível no produto apenas no Windows. O probe usa uma entrada
-de registro com nome aleatório e a remove ao final, sem alterar a entrada Farol.
-macOS e Linux não são tratados como aprovações de um recurso que o app não oferece.
-O roundtrip verifica o registro nativo, sem simular reinício ou login do usuário.
+Autostart está disponível no produto no Windows e no macOS. No Windows, o probe usa
+uma entrada de registro com nome aleatório e a remove ao final, sem alterar a entrada
+Farol. No macOS (desde 18/09/2026), o roundtrip grava e apaga o LaunchAgent dentro do
+HOME isolado do smoke, com o lançador semeado ali, e confere que a opção aparece na tela.
+Linux não é tratado como aprovação de um recurso que o app não oferece. Os roundtrips
+verificam o registro, sem simular reinício ou login do usuário.
 A notificação verifica a aceitação pela API nativa e reprova falha ou timeout;
 isso não comprova exibição visual nem interação do usuário.
 
