@@ -78,8 +78,13 @@ function motor(post, handle, tipo) {
   e.writeMemory = () => { };
   e.myReviewsWithTime = async () => [];
   e.chamadas = [];
-  const fila = Array.isArray(post) ? [...post] : null;
-  e.postReview = async (pr, payload, opcoes) => { e.chamadas.push({ payload, opcoes }); return fila ? (fila.length > 1 ? fila.shift() : fila[0]) : post; };
+  // lista = uma resposta por chamada, e a última se repete; objeto = sempre a mesma
+  const fila = Array.isArray(post) ? [...post] : [post];
+  e.postReview = async (pr, payload, opcoes) => {
+    e.chamadas.push({ payload, opcoes });
+    if (fila.length > 1) return fila.shift();
+    return fila[0];
+  };
   e.runClaudeStream = async (prompt, opts) => {
     if (typeof opts.onAdmitted === 'function') await opts.onAdmitted(null);
     return { text: JSON.stringify({ result: JSON.stringify(envelope(tipo)) }), sessionId: 's1', coordination: handle };
