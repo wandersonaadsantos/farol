@@ -525,8 +525,8 @@ test('identidade: sem o arquivo da ferramenta adotada, nada e aceito', () => {
 
 test('o arquivo versionado fixa a versao adotada e um commit completo', () => {
   const f = ferramentaAdotada();
-  // a versao adotada acompanha a migracao do baseline (0.12.0 ate 17/09/2026, 0.13.0 depois)
-  assert.equal(f.versao, '0.13.0', 'a mesma versao do catalogVersion do baseline');
+  // a versao adotada acompanha a migracao do baseline (0.12.0 ate 17/09/2026, 0.13.0 ate 18/09/2026, 0.15.0 depois)
+  assert.equal(f.versao, '0.15.0', 'a mesma versao do catalogVersion do baseline');
   assert.match(f.commit, /^[0-9a-f]{40}$/);
   assert.ok(Array.isArray(f.construcao) && f.construcao.length > 0, 'o comando de construcao fica registrado');
   const baselines = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '..', 'tools', 'eng-behaviour', 'baselines.json'), 'utf8'));
@@ -552,12 +552,12 @@ test('identidade: pasta dentro de outro repositorio nao herda o commit dele', { 
 });
 
 test('o gate, rodado de verdade, falha com codigo 2 quando a CLI apontada nao e a adotada', { timeout: 60_000 }, () => {
-  // uma versao DIFERENTE da adotada (0.13.0 desde a migracao do baseline, 17/09/2026)
+  // uma versao DIFERENTE da adotada (0.15.0 desde 18/09/2026)
   const { home } = pacoteDeProva({ versao: '0.14.0' });
   const r = spawnSync(process.execPath, [path.join(import.meta.dirname, '..', 'tools', 'eng-behaviour', 'gate.js')], {
     env: { ...envGitLimpo(), FAROL_ENG_BEHAVIOUR_HOME: home }, encoding: 'utf8', timeout: 50_000,
   });
   assert.equal(r.status, 2);
-  assert.match(r.stderr, /declara a versao 0\.14\.0, e o Farol adota a 0\.13\.0/);
+  assert.match(r.stderr, /declara a versao 0\.14\.0, e o Farol adota a 0\.15\.0/);
   assert.doesNotMatch(r.stdout, /Veredito/, 'nem chega a rodar a CLI');
 });
