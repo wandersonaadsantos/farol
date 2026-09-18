@@ -1,7 +1,7 @@
 [
   {
     "repositoryId": "farol",
-    "catalogVersion": "0.13.0",
+    "catalogVersion": "0.15.0",
     "rule": "core.file.single-responsibility",
     "openedAt": "2026-09-15",
     "initialFindings": 15,

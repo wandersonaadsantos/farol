@@ -85,7 +85,7 @@
   },
   "main.js": {
     "emptyCatch": 3,
-    "ternarioAninhado": 2,
+    "ternarioAninhado": 1,
     "profundidadeExcedida": 2
   },
   "server.js": {

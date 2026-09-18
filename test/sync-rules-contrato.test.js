@@ -61,9 +61,21 @@ test('as validações legadas continuam byte a byte as de hoje', () => {
   // acidental por cima de lease vivo continua recusada.
   const LEASE_LEGADO = "newData.hasChildren(['leaseId', 'deviceId', 'operationKind', 'expiresAt']) && newData.child('expiresAt').isNumber() && newData.child('expiresAt').val() > now && newData.child('expiresAt').val() <= now + 300000 && (!data.exists() || data.child('expiresAt').val() <= now || (data.child('leaseId').val() == newData.child('leaseId').val() && data.child('deviceId').val() == newData.child('deviceId').val())";
   assert.ok(regras.leases.$acct.$pr['.validate'].startsWith(LEASE_LEGADO), 'o começo da regra do lease não muda');
-  assert.equal(regras.receipts.$acct.$pr.$fp['.validate'], "newData.hasChildren(['operationKind', 'materialVersion', 'deviceId', 'completedAt', 'outcome', 'publicationState']) && newData.child('completedAt').isNumber()");
+  // CT-POST: a regra do recibo ganhou UMA saída a mais, o nó só com o registro de postagem
+  // (a intenção é gravada ANTES do recibo existir). O começo continua byte a byte o de sempre.
+  const RECIBO_LEGADO = "newData.hasChildren(['operationKind', 'materialVersion', 'deviceId', 'completedAt', 'outcome', 'publicationState']) && newData.child('completedAt').isNumber()";
+  assert.ok(regras.receipts.$acct.$pr.$fp['.validate'].startsWith(`${RECIBO_LEGADO} || `), 'o começo da regra do recibo não muda');
   assert.equal(regras.usageEvents.$device.$event['.validate'], "newData.hasChildren(['at', 'kind', 'costUsd']) && newData.child('at').isNumber()");
   assert.equal(regras.dailyRounds.$acct.$pr.$day['.validate'], "$day.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && newData.child('dayPolicy').val() == 'America/Sao_Paulo'");
+});
+
+// Medido em 18/09/2026: a revisão automática grava `receipts/.../$fp/postagens/EVENTO` antes
+// de o recibo do head existir, e a `.validate` de `$fp` vale para toda escrita abaixo dele.
+// Sem esta saída o banco recusava a intenção, e o PR caía em "falha técnica ao postar".
+test('recibo: o nó só com o registro de postagem é aceito, e recibo pela metade não', () => {
+  const regra = regras.receipts.$acct.$pr.$fp['.validate'];
+  const saida = regra.slice(regra.indexOf(' || ') + 4);
+  assert.equal(saida, "newData.hasChild('postagens') && !newData.hasChild('operationKind') && !newData.hasChild('completedAt') && !newData.hasChild('outcome') && !newData.hasChild('publicationState')");
 });
 
 test('cada nó legado ganhou concessão própria, já que a raiz não concede mais', () => {

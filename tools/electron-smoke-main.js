@@ -2,6 +2,7 @@
 // Tray e servidor HTTP reais. Só o monitor externo fica desativado; seu contrato
 // (gh, autenticação, revisões e update) pertence a outras verificações.
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import childProcess from 'node:child_process';
@@ -10,7 +11,8 @@ import { app, Notification, session } from 'electron';
 import { localRequest, validateWindowEvidence, validateLoginItem, createIsolatedLoginSetter, loopbackOrigin } from './electron-smoke-lib.js';
 import { readJson, writeJsonAtomic } from '../lib/io.js';
 import { semAsVariaveis } from '../lib/env.js';
-import { IS_WIN, IS_LINUX } from '../lib/paths.js';
+import { IS_WIN, IS_LINUX, IS_MAC } from '../lib/paths.js';
+import { caminhoDoAgente } from '../lib/autostart-mac.js';
 
 if (!process.versions.electron) throw new Error('Este bootstrap exige o runtime Electron real.');
 const config = readJson(semAsVariaveis([]).FAROL_ELECTRON_SMOKE_CONFIG, null);
@@ -200,9 +202,31 @@ async function checkNotification() {
   assert.equal(outcome.event, 'show', `API nativa não confirmou a notificação: ${outcome.error || outcome.event}`);
 }
 
+// No macOS o autostart é um LaunchAgent (lib/autostart-mac.js). O smoke já roda com HOME
+// isolado (smokeEnv), então o ida e volta grava e apaga o plist só dentro do sandbox, e o
+// lançador que o instalador criaria é semeado ali para o agente ter o que abrir.
+function checkAutostartMac() {
+  assert.equal(report.checks.window.dom.autostartHidden, false, 'no macOS a opção de iniciar com o sistema aparece');
+  const casa = os.homedir();
+  assert.equal(casa, config.dirs.home, 'o probe só grava no HOME isolado');
+  fs.mkdirSync(path.join(casa, 'Applications', 'Farol.app'), { recursive: true });
+  const agente = caminhoDoAgente(casa);
+  main.engine.config.autostart = true;
+  main.applyAutostart();
+  assert.ok(fs.existsSync(agente), 'ligar grava o LaunchAgent');
+  main.engine.config.autostart = false;
+  main.applyAutostart();
+  assert.equal(fs.existsSync(agente), false, 'desligar remove o LaunchAgent');
+  report.checks.autostart = { status: 'passed', roundtrip: 'disabled -> enabled -> disabled', mechanism: 'LaunchAgent no HOME isolado' };
+}
+
 function checkAutostart() {
+  if (IS_MAC) {
+    checkAutostartMac();
+    return;
+  }
   if (!IS_WIN) {
-    report.checks.autostart = { status: 'not-applicable', reason: 'Farol só oferece autostart no Windows.' };
+    report.checks.autostart = { status: 'not-applicable', reason: 'Farol oferece autostart no Windows e no macOS, não no Linux.' };
     assert.equal(report.checks.window.dom.autostartHidden, true);
     return;
   }

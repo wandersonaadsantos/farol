@@ -75,9 +75,18 @@ async function itemSeisRegistros(ctx, agora) {
   const recibo = `${raiz(ctx)}/receipts/${CONTA}/${PR}/impressao-1`;
   const rodada = `${raiz(ctx)}/dailyRounds/${CONTA}/${PR}`;
   const consumo = `${raiz(ctx)}/usageEvents/${APARELHO}`;
+  // CT-POST: a intenção de postar nasce antes do recibo do head
+  const intencao = { estado: 'enviando', tentativaId: 't1', intencaoEm: agora };
+  const postagens = { APPROVE: intencao };
+  const reciboComPostagens = { ...RECIBO, completedAt: agora, postagens };
+  const reciboPelaMetade = { outcome: 'completed', postagens };
   return [
     await medir(ctx, 6, 'PUT de recibo', OK, 'PUT', recibo, { corpo: { ...RECIBO, completedAt: agora } }),
     await medir(ctx, 6, 'DELETE de recibo (faxina e Refazer)', OK, 'DELETE', recibo),
+    await medir(ctx, 6, 'PUT da intenção de postar antes do recibo existir', OK, 'PUT', `${recibo}/postagens/APPROVE`, { corpo: intencao }),
+    await medir(ctx, 6, 'PUT de recibo por cima da intenção, carregando postagens', OK, 'PUT', recibo, { corpo: reciboComPostagens }),
+    await medir(ctx, 6, 'DELETE do recibo com postagens', OK, 'DELETE', recibo),
+    await medir(ctx, 6, 'recibo pela metade junto de postagens é recusado', RECUSADO, 'PUT', recibo, { corpo: reciboPelaMetade }),
     await medir(ctx, 6, 'PUT de rodada do dia', OK, 'PUT', `${rodada}/${DIA}`, { corpo: { dayPolicy: 'America/Sao_Paulo' } }),
     await medir(ctx, 6, 'PATCH de poda da rodada', OK, 'PATCH', rodada, { corpo: { [DIA]: null } }),
     await medir(ctx, 6, 'PATCH de consumo', OK, 'PATCH', consumo, { corpo: { ev1: { at: agora, kind: 'review', costUsd: 0 } } }),

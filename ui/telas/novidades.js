@@ -9,7 +9,10 @@ import { $ } from './infra.js';
 const RELEASE_NOTES = [
   ['2.61.0', ['O Farol no celular passa a pedir login sozinho: detectado o modo celular, a API local exige pareamento sem precisar configurar nada, e isso destrava a visão compartilhada nesse aparelho. Se a interface trancar, o desbloqueio é pelo terminal, com node tools/farol-parear.js.',
     'O teto de consumo do grupo passa a barrar de verdade: com grupo configurado, com identidade e teto, estourar o valor do dia segura revisões novas do grupo. Barrar é espera, não estacionamento, e sem grupo configurado nada muda.',
-    'As duas foram ligadas antes das medições que as seguravam (Termux real e atraso do consumo entre dois aparelhos), por decisão sua, e voltam a desligar numa versão nova se incomodarem.']],
+    'As duas foram ligadas antes das medições que as seguravam (Termux real e atraso do consumo entre dois aparelhos), por decisão sua, e voltam a desligar numa versão nova se incomodarem.',
+    'A revisão automática parou de cair em "falha técnica ao postar" com a coordenação entre aparelhos ligada: o Farol tenta de novo até 3 vezes, com 2 segundos entre elas, e se ainda não sair reenvia sozinho nos ciclos seguintes. Só repete quando nada chegou ao GitHub.',
+    '"Tornar este aparelho admin" passa a aparecer na tela na hora, mesmo quando os outros aparelhos da conta estão em versão antiga.',
+    'No Mac, o Farol pode abrir junto com o sistema: Sistema > Preferências > Iniciar com o macOS. Vale a partir do próximo login.']],
   ['2.60.1', ['Autoanálise sem nada a ajustar virou motivo de festa: quando o veredito é aprovável e não há pendência no PR, pendência de fora dele nem dica de melhoria, caem confetes por quatro segundos, com um aviso discreto. Qualquer ponto levantado, ou análise desatualizada por commit novo, não festeja, e a mesma análise só festeja uma vez.',
     'Com movimento reduzido ligado no sistema, nada se mexe: fica só o aviso, pelo mesmo tempo.',
     'O card "Analisando agora" parou de vazar: o passo da sessão cabe em duas linhas, com o texto completo ao passar o mouse, e os elementos do card ganharam espaço entre si.']],
