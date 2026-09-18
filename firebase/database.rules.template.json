@@ -25,7 +25,7 @@
           "$acct": {
             "$pr": {
               "$fp": {
-                ".validate": "newData.hasChildren(['operationKind', 'materialVersion', 'deviceId', 'completedAt', 'outcome', 'publicationState']) && newData.child('completedAt').isNumber()"
+                ".validate": "newData.hasChildren(['operationKind', 'materialVersion', 'deviceId', 'completedAt', 'outcome', 'publicationState']) && newData.child('completedAt').isNumber() || newData.hasChild('postagens') && !newData.hasChild('operationKind') && !newData.hasChild('completedAt') && !newData.hasChild('outcome') && !newData.hasChild('publicationState')"
               }
             }
           }

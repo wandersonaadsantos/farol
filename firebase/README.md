@@ -303,6 +303,18 @@ vão para o projeto em uso:
 Enquanto o console não receber o arquivo novo, tomar continua recusado pelo servidor e
 "encerrar as sessões dos outros aparelhos" continua sem efeito no projeto real.
 
+## Regras mudaram em 18/09/2026 (intenção de postar antes do recibo)
+
+A revisão automática grava a intenção de postar em `receipts/$acct/$pr/$fp/postagens/EVENTO`
+antes de o recibo do head existir, e a `.validate` de `$fp`, que exige os campos do recibo,
+vale para toda escrita abaixo dele. O banco recusava a intenção, e o PR caía em "falha
+técnica ao postar"; o clique depois passava porque o recibo já estava lá. A regra ganhou
+uma saída: o nó só com `postagens`, sem nenhum campo do recibo. Recibo pela metade continua
+recusado, e o começo da regra segue byte a byte o legado. Os casos novos estão no item 6
+do executor (`tools/emuladores/regras-casos-c1.js`). Enquanto o console não receber o
+arquivo novo, o app contorna: tenta de novo até 3 vezes e arma o reenvio dos ciclos, que
+passa depois que o recibo é gravado.
+
 ## Validação manual das regras v2 (C1)
 
 As regras são **geradas**: `npm run sync:rules` expande
