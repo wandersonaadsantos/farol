@@ -10,7 +10,8 @@ const ler = (rel) => fs.readFileSync(path.join(RAIZ, rel), 'utf8');
 
 test('revisão automática: as duas postagens passam via revisao com o handle e lançam perda de coordenação', () => {
   const fonte = ler('lib/engine/review.js');
-  assert.equal((fonte.match(/\{ via: 'revisao', handle: coord \}\);\n\s+lancarSePossePerdida\(post\);/g) || []).length, 2);
+  // as retentativas passageiras (postarComRetentativas) reconferem o lease antes de cada nova tentativa
+  assert.equal((fonte.match(/\{ via: 'revisao', handle: coord \}\),\n\s+\{ antes: \(\) => pararSeLeasePerdido\(coord\) \}\);\n\s+lancarSePossePerdida\(post\);/g) || []).length, 2);
 });
 
 test('reenvio, clique e sessão se identificam', () => {
