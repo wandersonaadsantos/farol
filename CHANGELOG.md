@@ -11,8 +11,9 @@ e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
 ## v2.61.0
 
-Duas proteções que estavam prontas mas desligadas passam a valer: o login no celular e o teto
-de consumo do grupo.
+Duas proteções que estavam prontas mas desligadas passam a valer (o login no celular e o teto
+de consumo do grupo), a revisão automática para de cair em "falha técnica ao postar" com a
+coordenação ligada, e o Mac ganha o "Iniciar com o sistema".
 
 **Novidades**
 
@@ -23,10 +24,28 @@ de consumo do grupo.
 - **O teto de consumo do grupo passa a barrar.** Com um grupo configurado, com identidade e
   teto, estourar o valor do dia segura revisões novas do grupo inteiro. Barrar é ESPERA: o PR
   fica na fila, nada estaciona, e o card diz o motivo. Sem grupo configurado, nada muda.
+- **Iniciar com o macOS.** A opção de abrir o Farol junto com o sistema, que só existia no
+  Windows, passa a existir no Mac, em Sistema > Preferências. Ela registra o Farol para abrir
+  no login e, fechado pela bandeja, ele não volta sozinho. Vale a partir do próximo login.
+  Foi escrita sem um Mac à mão: se não abrir no login, avise.
+
+**Correções**
+
+- **A revisão automática parou de cair em "falha técnica ao postar".** Com a coordenação
+  entre aparelhos ligada, a postagem automática era recusada pelo banco compartilhado e o PR
+  ia para a sua mesa ("não deu para gravar a intenção de postar"), embora o clique depois
+  funcionasse. Agora o Farol tenta de novo até 3 vezes, com 2 segundos entre elas, e se ainda
+  assim não sair, reenvia sozinho nos ciclos seguintes, sem gastar sessão nova. Só repete
+  quando nada chegou ao GitHub: PR com outro aparelho, commit novo ou postagem que pode ter
+  saído nunca repetem. A causa no banco foi corrigida nas regras do Firebase, que o dono do
+  projeto publica no console; até lá, o reenvio cobre.
+- **"Tornar este aparelho admin" agora aparece na tela.** Quando os outros aparelhos da conta
+  estavam em versão antiga, este virava admin no banco, o aviso confirmava, e a tela seguia
+  dizendo "sem admin". Agora ela mostra o admin na hora, e o sinal de vida em seguida.
 
 **O que ainda falta medir, e o risco aceito**
 
-As duas foram ligadas antes das medições que as seguravam, por decisão do dono. No celular, a
+O login no celular e o teto do grupo foram ligadas antes das medições que as seguravam, por decisão do dono. No celular, a
 detecção do modo nunca foi validada num Termux real. No teto, o atraso do consumo entre dois
 aparelhos nunca foi medido, então ele pode barrar por um número atrasado ou deixar passar um
 pouco além do limite. As duas voltam a desligar numa versão nova, se incomodarem.
