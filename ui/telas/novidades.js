@@ -7,6 +7,9 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.62.0', ['Sistema > Contas confere as contas logadas no gh deste computador com as que o Farol monitora, e avisa o que não bate, cada caso com o botão que resolve: conta logada que o Farol não monitora (Monitorar), conta do Farol sem login no gh (Remover), a mesma org em duas contas (Tirar da outra) e org que a conta revisa mas não está nas orgs dela (Adicionar).',
+    'Conta sem login no gh deixou de encher o log: uma linha quando o login some, não duas a cada ciclo.',
+    'Com mais de uma conta, PR de org que nenhuma conta cobre não é postado com a conta primária por falta de opção: a postagem recusa e diz o motivo.']],
   ['2.61.1', ['A chave do conjunto reabre sozinha depois de reiniciar, inclusive depois da atualização automática: você não precisa mais digitar a senha da sincronização a cada reinício. Ela só reabre quando a cópia guardada neste computador confere com a do banco.',
     '"Tornar este aparelho admin" aparece na tela mesmo com a chave trancada, e o sinal de vida do admin chega em segundos, não em minutos.',
     'Sumiu o aviso "recibo não marcado como publicado" que aparecia a cada aprovação automática sem efeito real.']],
