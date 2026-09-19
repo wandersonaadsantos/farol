@@ -1548,6 +1548,12 @@ body.electron .chat-head { padding-right: 150px; }
 .callout.warn { border-color: color-mix(in srgb, var(--accent) 35%, transparent); background: var(--accent-soft); }
 .callout.warn svg { color: var(--accent); }
 
+/* ---------- divergência entre o gh da máquina e as contas do Farol (v2.62.0) ---------- */
+.contas-gh { max-width: 860px; }
+.contas-gh-lista { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 6px; }
+.contas-gh-item { line-height: 1.45; }
+.contas-gh-acao { white-space: nowrap; }
+
 /* ---------- site do Jira ---------- */
 /* O cartao era uma pilha de inputs sem rotulo, com a credencial na mesma fileira dos
    outros campos e o mapeamento org -> site espalhado em dois campos de texto. Aqui ele
