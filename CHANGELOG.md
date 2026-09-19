@@ -9,6 +9,23 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.1
+
+Com a sincronização entre aparelhos ligada e o Firebase fora do ar, o que você pede para
+postar volta a ser postado.
+
+**Correções**
+
+- **Aprovar, pedir mudanças e revisar sem coordenação funcionam com o Firebase fora do ar.**
+  Sem conexão com o Firebase (rede, login vencido, credencial ausente), o Farol recusava
+  qualquer postagem, até o clique. Pior: a revisão disparada com "sem coordenação" rodava,
+  gastava a sessão de IA e morria na hora de postar. Agora o que é ação sua (clique, sessão
+  de terminal, revisão sem coordenação) posta normalmente, e o Farol confere no GitHub antes
+  para não repetir um veredito que já está lá. O que é automático continua esperando o
+  Firebase voltar, que é onde dois aparelhos poderiam postar juntos.
+- **Menos chamadas ao GitHub com o Firebase fora do ar.** O reenvio automático de postagens
+  para enquanto não há conexão, em vez de consultar o GitHub a cada ciclo sem poder postar.
+
 ## v2.62.0
 
 O Farol passa a conferir as contas do GitHub desta máquina contra as contas que ele
