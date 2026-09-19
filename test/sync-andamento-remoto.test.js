@@ -211,6 +211,8 @@ function agendadorFalso() {
 
 test('o relógio liga uma vez só e desliga limpando a visão', async () => {
   const e = await motorPronto();
+  // desde a v2.62.2 conectar já liga o relógio de verdade; aqui o assunto é o agendador falso
+  andamentoEng.desligarRelogio(e.sync);
   const ag = agendadorFalso();
   assert.equal(andamentoEng.ligarRelogio(e, (x) => x.config.sync, ag), true);
   assert.equal(andamentoEng.ligarRelogio(e, (x) => x.config.sync, ag), false, 'nunca dois relógios');
