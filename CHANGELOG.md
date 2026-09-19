@@ -9,6 +9,39 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.0
+
+O Farol passa a conferir as contas do GitHub desta máquina contra as contas que ele
+monitora, e diz o que está fora do lugar, com o botão que resolve.
+
+**Novidades**
+
+- **Contas do GitHub conferidas em Sistema > Contas.** O Farol lê todas as contas logadas
+  no `gh` deste computador e compara com as que ele monitora. Quando algo não bate, aparece
+  um aviso no topo da tela, cada caso com o seu botão:
+  - conta logada no `gh` que o Farol não monitora: **Monitorar**;
+  - conta no Farol sem login no `gh` (nada dela é buscado nem postado): **Remover do Farol**,
+    ou `gh auth login` com ela;
+  - a mesma org em duas contas (vale a primeira da lista): **Tirar** da outra;
+  - org que a conta revisa mas não está nas orgs dela no Farol: **Adicionar**. A sugestão
+    vem das orgs de que a conta é membro e dos PRs em que ela foi pedida como revisora, que
+    acham também as orgs onde ela é só colaboradora.
+  Sem nada fora do lugar, o aviso não aparece.
+
+**Correções**
+
+- **Conta sem login no `gh` deixa de encher o log.** Eram duas linhas a cada ciclo, para
+  sempre (167 num dia, medido). Agora é uma linha quando o login some, e outra só se ele
+  voltar e sumir de novo.
+- **Com mais de uma conta, o Farol não posta com a conta errada.** Um PR de org que nenhuma
+  conta cobre, e que não chegou por busca nenhuma, recusa a postagem com o motivo, em vez de
+  sair com a conta primária por falta de opção. Com uma conta só, nada muda.
+
+**Manutenção**
+
+- Constituição de engenharia (eng-behaviour) na versão 0.16.0. A regra nova é de
+  componentes React, que o Farol não tem.
+
 ## v2.61.1
 
 O Farol deixa de trancar a sincronização a cada reinício, e virar admin passa a aparecer na

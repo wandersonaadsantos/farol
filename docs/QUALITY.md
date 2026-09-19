@@ -339,7 +339,7 @@ sobre AQUELE diff. A saída definitiva continua sendo o pacote imprimir o finger
 
 O gate mede contra a versão que o Farol **adota**, e não contra "o que estiver" no clone ao
 lado. A identidade adotada fica em `tools/eng-behaviour/ferramenta.json`: pacote, versão
-(0.15.0 desde 18/09/2026, a mesma do `catalogVersion` do baseline), commit completo, origem e o comando de
+(0.16.0 desde a noite de 18/09/2026, a mesma do `catalogVersion` do baseline), commit completo, origem e o comando de
 construção. O caso que motivou: o clone `../eng-behaviour`, onde o pacote é desenvolvido,
 estava com a 0.13.0 em andamento e sem commit, com o `dist/` reconstruído a partir dela.
 
@@ -368,7 +368,7 @@ Até a v0.12.0, `core.file.single-responsibility` só tinha duas respostas para 
 
 Em 17/09/2026 o baseline foi migrado para o catálogo 0.13.0. A migração é só de versão: a 0.13.0 acrescentou três regras de `frontend`, e o escopo `core` que o Farol declara não mudou, então a lista e a contagem seguem as mesmas.
 
-Em 18/09/2026 o baseline foi migrado para o catálogo 0.15.0, de novo só de versão. A 0.14.0 trocou `frontend.design-system.one-component-per-file` por `frontend.component.one-component-per-file` e acrescentou `frontend.design-system.storybook-single-subject`; a 0.15.0 acrescentou `frontend.component.named-structural-branches`. As três são de `frontend`, nenhuma regra de `core` mudou, e o `check` confirmou o recorte versionado byte a byte sem regenerar. O baseline não tinha entrada do id removido, então não houve assinatura a migrar.
+Em 18/09/2026 o baseline foi migrado para o catálogo 0.15.0, de novo só de versão. A 0.14.0 trocou `frontend.design-system.one-component-per-file` por `frontend.component.one-component-per-file` e acrescentou `frontend.design-system.storybook-single-subject`; a 0.15.0 acrescentou `frontend.component.named-structural-branches`. As três são de `frontend`, nenhuma regra de `core` mudou, e o `check` confirmou o recorte versionado byte a byte sem regenerar. O baseline não tinha entrada do id removido, então não houve assinatura a migrar. Na mesma noite ele foi para o 0.16.0, que acrescenta só `frontend.component.scalable-units` (pixel escalável em componente React), também de `frontend`: de novo nada muda no escopo `core` que o Farol declara.
 
 A lista inicial saiu de uma avaliação arquivo a arquivo, pelas três perguntas da regra, em 14/09/2026. Nove arquivos saíram com confiança alta e seis com média. Os de confiança média entram assim mesmo, porque o custo de errar é assimétrico: um arquivo listado que na verdade é conforme sai da lista na primeira avaliação `conforme`, e um arquivo em violação que ficasse de fora exigiria reabrir o baseline.
 

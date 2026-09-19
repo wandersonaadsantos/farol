@@ -1,6 +1,6 @@
 /* Farol · UI: gerenciador de contas do GitHub (Sistema). */
 
-import { esc, accountSaveArray, accountsManagerHtml } from '../pure.js';
+import { esc, accountSaveArray, accountsManagerHtml, contasGhHtml } from '../pure.js';
 import { estado, escopo, definirEscopo } from './estado.js';
 import { $, api, toast, confirmModal } from './infra.js';
 import { ACCT, rebuildAccounts, renderAccountBar, renderIdentity, guardarEscopo } from './contas.js';
@@ -24,7 +24,14 @@ function addAccount(user, owners, label) {
   renderAccountsManager(); renderAccountBar();
   api('/api/settings', { accounts: accountSaveArray(list) });
 }
+// divergência entre o gh desta máquina e as contas do Farol (lib/engine/contas-gh.js)
+function renderContasGh() {
+  const box = $('#contasGh'); if (!box) return;
+  box.innerHTML = contasGhHtml(estado().contasGh);
+}
+
 export function renderAccountsManager() {
+  renderContasGh();
   const box = $('#accountsManager'); if (!box) return;
   if (document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
   box.innerHTML = accountsManagerHtml({ accounts: estado().accounts, config: estado().config, acct: ACCT, doctor: estado().doctor, usage: estado().usage });
@@ -48,6 +55,65 @@ $('#accountsManager').addEventListener('change', (e) => {
   // nao guarda campo nenhum (accountSaveArray so persiste peso positivo).
   if (t.classList.contains('acct-budgetweight')) return editAccount(user, { budgetWeight: Number(t.value) || undefined });
 });
+/* remover conta, com a confirmação que diz o que muda (gerenciador e bloco do gh) */
+function pedirRemocao(user) {
+  if ((estado().accounts || []).length <= 1) { toast('error', 'Precisa de ao menos uma conta configurada.'); return; }
+  const a = (estado().accounts || []).find(x => x.user === user) || {};
+  const orgs = (a.owners || []).length ? ` (orgs: ${esc(a.owners.join(', '))})` : '';
+  confirmModal({
+    title: `Remover a conta @${user} do Farol?`,
+    danger: true, confirmLabel: 'Remover conta', cancelLabel: 'Manter',
+    body: `<p>Isso mexe <b>só aqui no Farol</b>, não toca no seu GitHub nem apaga nada lá.</p>
+      <p><b>O que muda:</b></p>
+      <ul>
+        <li>O Farol <b>para de monitorar</b> os PRs, a fila e os avisos dessa conta${orgs}.</li>
+        <li>Some a <b>identidade</b> dela do painel: rótulo, cor e tipo que você configurou.</li>
+        ${a.primary ? '<li>Ela é a conta <b>primária</b> hoje; a próxima da lista assume como primária.</li>' : ''}
+        <li>A <b>memória de reviews</b> (Destaques e Time) e o histórico <b>não são apagados</b>.</li>
+      </ul>
+      <p>Dá pra <b>adicionar de volta</b> a qualquer momento (o rótulo, a cor e o tipo você reconfigura).</p>`
+  }).then(ok => {
+    if (!ok) return;
+    if (String(escopo()).toLowerCase() === user.toLowerCase()) { definirEscopo('all'); guardarEscopo('all'); }
+    removeAccount(user);
+    toast('info', `Conta @${user} removida do Farol.`, 3000);
+  });
+}
+
+/* bloco de divergência com o gh: monitorar login, tirar org repetida, adicionar org sugerida.
+   "Remover do Farol" reusa o .acct-remove do gerenciador, com a mesma confirmação. */
+function donosDe(user) {
+  return ((estado().accounts || []).find((a) => a.user === user) || {}).owners || [];
+}
+$('#contasGh').addEventListener('click', (e) => {
+  const mon = e.target.closest('[data-gh-monitorar]');
+  if (mon) {
+    const login = mon.dataset.ghMonitorar;
+    if ((estado().accounts || []).some((a) => a.user.toLowerCase() === login.toLowerCase())) return;
+    addAccount(login, [], login);
+    toast('ok', `Conta @${login} monitorada. As orgs que ela revisa vão aparecer aqui como sugestão no próximo ciclo.`, 5000);
+    return;
+  }
+  const tirar = e.target.closest('[data-gh-tirar-org]');
+  if (tirar) {
+    const { ghTirarOrg: owner, user } = tirar.dataset;
+    editAccount(user, { owners: donosDe(user).filter((o) => o.toLowerCase() !== owner.toLowerCase()) });
+    toast('info', `${owner} saiu de @${user}.`, 3000);
+    return;
+  }
+  const add = e.target.closest('[data-gh-add-org]');
+  if (add) {
+    const { ghAddOrg: owner, user } = add.dataset;
+    const atuais = donosDe(user);
+    if (atuais.some((o) => o.toLowerCase() === owner.toLowerCase())) return;
+    editAccount(user, { owners: [...atuais, owner] });
+    toast('ok', `${owner} agora está em @${user}.`, 3000);
+    return;
+  }
+  const rem = e.target.closest('.acct-remove');
+  if (rem) pedirRemocao(rem.dataset.user);
+});
+
 /* editor de contas: silenciar/reativar, remover, adicionar */
 $('#accountsManager').addEventListener('click', (e) => {
   const mute = e.target.closest('.act-mute');
@@ -60,31 +126,7 @@ $('#accountsManager').addEventListener('click', (e) => {
     return;
   }
   const rem = e.target.closest('.acct-remove');
-  if (rem) {
-    const user = rem.dataset.user;
-    if ((estado().accounts || []).length <= 1) { toast('error', 'Precisa de ao menos uma conta configurada.'); return; }
-    const a = (estado().accounts || []).find(x => x.user === user) || {};
-    const orgs = (a.owners || []).length ? ` (orgs: ${esc(a.owners.join(', '))})` : '';
-    confirmModal({
-      title: `Remover a conta @${user} do Farol?`,
-      danger: true, confirmLabel: 'Remover conta', cancelLabel: 'Manter',
-      body: `<p>Isso mexe <b>só aqui no Farol</b>, não toca no seu GitHub nem apaga nada lá.</p>
-        <p><b>O que muda:</b></p>
-        <ul>
-          <li>O Farol <b>para de monitorar</b> os PRs, a fila e os avisos dessa conta${orgs}.</li>
-          <li>Some a <b>identidade</b> dela do painel: rótulo, cor e tipo que você configurou.</li>
-          ${a.primary ? '<li>Ela é a conta <b>primária</b> hoje; a próxima da lista assume como primária.</li>' : ''}
-          <li>A <b>memória de reviews</b> (Destaques e Time) e o histórico <b>não são apagados</b>.</li>
-        </ul>
-        <p>Dá pra <b>adicionar de volta</b> a qualquer momento (o rótulo, a cor e o tipo você reconfigura).</p>`
-    }).then(ok => {
-      if (!ok) return;
-      if (String(escopo()).toLowerCase() === user.toLowerCase()) { definirEscopo('all'); guardarEscopo('all'); }
-      removeAccount(user);
-      toast('info', `Conta @${user} removida do Farol.`, 3000);
-    });
-    return;
-  }
+  if (rem) { pedirRemocao(rem.dataset.user); return; }
   if (e.target.closest('#btnAcctAdd')) {
     const u = ($('#acctAddUser').value || '').trim().replace(/^@/, '');
     const owners = ($('#acctAddOwners').value || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);

@@ -37,6 +37,7 @@ import pushbackMod from './lib/engine/pushback.js';
 import decisionMod from './lib/engine/decision.js';
 import arbitragemMod from './lib/engine/postagem-arbitragem.js';
 import ghMod from './lib/engine/gh-queries.js';
+import contasGh from './lib/engine/contas-gh.js';
 import sessionMod from './lib/engine/session.js';
 import selfMod from './lib/engine/selfpr.js';
 import scopeMod from './lib/engine/pr-scope.js';
@@ -732,6 +733,9 @@ class Engine extends EventEmitter {
   }
 
   // conta a usar num PR: a que ele ja veio marcada, senao pela org do repo
+  // por que o PR ficou com essa conta (busca, org ou reserva); ver lib/engine/contas-gh.js
+  atribuicaoDoPr(pr) { return contasGh.atribuicaoDoPr(this, pr); }
+
   accountForPr(pr) {
     if (pr && pr.account) return pr.account;
     const repo = (pr && (pr.repo || (pr.key || '').split('#')[0])) || '';
@@ -776,7 +780,9 @@ class Engine extends EventEmitter {
       const r = await io.run('gh', ['auth', 'token', '--user', acc.user]);
       const tok = r.ok ? r.stdout.trim() : null;
       if (tok) this.tokens[acc.user] = tok; else delete this.tokens[acc.user];
-      if (!tok) this.log('ERROR', `gh auth token --user ${acc.user} falhou: ${r.stderr.trim() || 'sem saida'}`);
+      // sem token é estado: uma linha quando começa, não uma por ciclo (contas-gh.js)
+      if (tok) contasGh.tokenVoltou(this, acc.user);
+      else contasGh.avisarSemToken(this, acc.user, `gh auth token --user ${acc.user} falhou: ${r.stderr.trim() || 'sem saida'} (conta sem token no gh)`);
       if (acc.user === primary) { this.token = tok; primaryOk = !!tok; }
     }
     this.tokenOk = primaryOk;
@@ -967,6 +973,7 @@ class Engine extends EventEmitter {
   async _coletarPanorama() {
       await this.resolveAccount();
       await this.refreshTokens();
+      await contasGh.atualizarContasGh(this);
       const accounts = this.accountList();
 
       // painel: todos os PRs abertos das orgs monitoradas (sem alerta). Cada conta
@@ -1021,6 +1028,7 @@ class Engine extends EventEmitter {
         }
       }
       if (mineAnyOk) mine = [...mineMap.values()];
+      if (mine) contasGh.registrarPedidos(this, mine);
       if (mine === null && !anyOk) throw new Error('todas as buscas gh falharam (veja o log)');
 
       // indicador no panorama: PRs que EU ja revisei (qualquer conta, inclusive fora
@@ -1966,6 +1974,9 @@ class Engine extends EventEmitter {
         autoReview: a.autoReview, onClean: a.onClean, onCaveats: a.onCaveats, onReject: a.onReject,
         claudeProfileId: a.claudeProfileId
       })),
+      // contas do gh x contas do Farol: login não monitorado, conta sem login, org em duas
+      // contas e org sugerida (lib/engine/contas-gh.js)
+      contasGh: contasGh.diagnosticoDoEngine(this),
       pushbacks: this.pushbacks,
       // a tela recebe o que foi PEDIDO: ela devolve o objeto inteiro ao salvar, e a config
       // já zerada pela guarda do celular apagaria o pedido a cada salvamento. O efeito segue
