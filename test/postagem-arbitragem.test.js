@@ -202,16 +202,28 @@ test('myReviewStates indisponível: não enviada por estado desconhecido', async
   assert.equal(gh.posts.length, 0);
 });
 
-test('coordenação ligada e banco recusando: nenhuma via posta, nem com handle', async () => {
+test('conectado e banco recusando: nenhuma via posta, nem com handle, nem o clique', async () => {
   const a = aparelho('dA');
   const handle = await revisaoAdmitida(a);
   a.sync.client = createRtdbClient({ databaseUrl: fake.url, getIdToken: async () => ({ ok: true, idToken: 'tok-errado' }) });
   const comHandle = await a.postReview(PR, { ...APPROVE, commit_id: HEAD }, { via: 'revisao', handle });
   assert.equal(comHandle.estado, 'nao_enviada');
-  a.sync.status = 'erro';
-  const semHandle = await a.postReview(PR, { ...APPROVE, commit_id: HEAD }, { via: 'clique' });
-  assert.equal(semHandle.motivo, 'coordenacao-indisponivel');
+  const clique = await a.postReview(PR, { ...APPROVE, commit_id: HEAD }, { via: 'clique' });
+  assert.equal(clique.ok, false, 'conectado, a arbitragem manda: banco recusando não é banco fora do ar');
   assert.equal(gh.posts.length, 0);
+});
+
+// Decisão de 18/09/2026 (v2.62.1, ver docs/REVIEW-GATES.md): até aqui o clique com a conexão
+// em erro era recusado com `coordenacao-indisponivel`, e o Farol ficava sem saída nenhuma.
+test('fora do ar: o clique posta pelo caminho sem Firebase, e o automático segue esperando', async () => {
+  const a = aparelho('dA');
+  a.sync.status = 'erro';
+  const reenvio = await a.postReview(PR, { ...APPROVE, commit_id: HEAD }, { via: 'reenvio' });
+  assert.equal(reenvio.motivo, 'coordenacao-indisponivel');
+  assert.equal(gh.posts.length, 0);
+  const clique = await a.postReview(PR, { ...APPROVE, commit_id: HEAD }, { via: 'clique' });
+  assert.equal(clique.ok, true, JSON.stringify(clique));
+  assert.equal(gh.posts.length, 1);
 });
 
 test('COMMENT não passa pela arbitragem, mesmo com a coordenação ligada', async () => {
