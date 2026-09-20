@@ -89,8 +89,10 @@ test('aparelhosListaHtml: escapa o nome do aparelho', () => {
 
 /* ---------- administração ---------- */
 
-test('aparelhosAdminHtml: sem admin conhecido não promete autoridade nenhuma', () => {
-  const html = P.aparelhosAdminHtml(null, { devices: [aparelho()] });
+// `adminLido` é o carimbo da última leitura bem-sucedida do nó do admin: sem ele, campo
+// ausente significava as duas coisas ao mesmo tempo (ver ui-estados-desconhecidos.test.js).
+test('aparelhosAdminHtml: com a leitura feita e sem admin, não promete autoridade nenhuma', () => {
+  const html = P.aparelhosAdminHtml(null, { devices: [aparelho()], adminLido: Date.now() });
   assert.match(html, /Ninguém administra/);
   assert.match(html, /id="aparSenhaAdmin"/);
   assert.ok(!html.includes('sem sinal de vida'));

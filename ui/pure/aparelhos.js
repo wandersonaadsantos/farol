@@ -28,6 +28,7 @@
 import { esc, fmtWhenDay, fmtSpan } from './comum.js';
 import { capacidadesIndisponiveisHtml } from './capacidades.js';
 import { syncOlhoHtml } from './sync.js';
+import { comandoPermitido } from './compartilhado.js';
 import { aparelhoPoliticaHtml } from './aparelhos-politica.js';
 import { aparelhosNavegadoresHtml, aparelhosLimpezaHtml } from './aparelhos-limpeza.js';
 
@@ -243,8 +244,31 @@ function semBatimento(admin, agora) {
 
 function adminSemAdmin() {
   return {
-    classe: 'off', selo: chip('mute', 'sem admin'),
+    classe: 'off', selo: chip('mute', 'sem admin'), sabe: true,
     texto: 'Ninguém administra este conjunto ainda. Sem admin, cada aparelho vale pela própria configuração: nada é pausado, limitado ou agrupado de fora.',
+  };
+}
+
+// AUSÊNCIA DE LEITURA NÃO É AUSÊNCIA DE ADMIN. O engine OMITE o campo `admin` de propósito
+// enquanto não sabe quem administra (lib/engine/sync-telas.js: "a tela não pode ler promessa
+// de autoridade num objeto vazio"), e a tela lia essa ausência como negação. A diferença é
+// cara: quem lê "ninguém administra" conclui que pode virar admin sem depor ninguém, e
+// virar admin cria uma geração nova que invalida tudo o que o anterior assinou.
+//
+// Quem separa os dois é `adminLido`, o instante em que o nó do admin foi lido COM SUCESSO
+// nesta conexão (0 = nunca). Com `status`, a tela ainda diz POR QUÊ não leu.
+const STATUS_SEM_LEITURA = {
+  desligado: 'a sincronização está desligada neste aparelho',
+  'sem-credencial': 'este aparelho não está conectado',
+  conectando: 'a conexão ainda está subindo',
+  erro: 'a conexão está com falha',
+};
+
+function adminNaoSei(status) {
+  const porque = STATUS_SEM_LEITURA[String(status || '')] || 'a primeira leitura ainda não voltou';
+  return {
+    classe: 'off', selo: chip('mute', 'não se sabe'), sabe: false,
+    texto: `Este aparelho ainda não deu para ler quem administra o conjunto, porque ${porque}. Isso NÃO quer dizer que ninguém administra: enquanto a leitura não volta, cada aparelho segue a própria configuração.`,
   };
 }
 
@@ -262,33 +286,45 @@ function adminDeOutro(admin, nome, agora) {
   return { classe: 'warn', selo: chip('warn', 'admin sem sinal de vida'), texto: `O admin vigente é o ${nome}, ${semBatimento(admin, agora)}. Políticas e comandos dele não valem enquanto isso: cada aparelho segue a própria configuração, e nada fica mais permissivo por causa da queda.` };
 }
 
-function visaoDoAdmin(admin, devices, agora) {
-  if (!admin || !admin.deviceId) return adminSemAdmin();
-  if (admin.souEu === true) return adminComigo(admin, agora);
-  return adminDeOutro(admin, nomeDoDevice(devices, admin.deviceId), agora);
+function visaoDoAdmin(admin, devices, agora, o) {
+  if (admin && admin.deviceId) {
+    if (admin.souEu === true) return { ...adminComigo(admin, agora), sabe: true };
+    return { ...adminDeOutro(admin, nomeDoDevice(devices, admin.deviceId), agora), sabe: true };
+  }
+  return Number(o.adminLido) > 0 ? adminSemAdmin() : adminNaoSei(o.status);
+}
+
+// O QUE O ATO FAZ, dito para o caso de quem lê. São três, e o do meio é o que faltava: o
+// admin conhecido pode ser ESTE aparelho, sem batimento, e "o admin anterior perde a
+// autoridade" falava dele mesmo em terceira pessoa. E sem leitura nenhuma não dá para
+// prometer que alguém será deposto: pode não haver ninguém.
+function textoDaPromocao(admin, proxima, sabe) {
+  if (!sabe) return `Isso cria a geração ${proxima}. Enquanto não se sabe quem administra, não dá para dizer quem perde a autoridade com isso. A senha é usada só agora, sem ser guardada.`;
+  if (admin && admin.souEu === true) return `Isso cria a geração ${proxima}: a autoridade deste aparelho recomeça na geração ${proxima}, e a chave da anterior deixa de valer. Nenhum outro aparelho é deposto, porque o admin atual já é este. A senha é usada só agora, sem ser guardada.`;
+  return `Isso cria a geração ${proxima}. O admin anterior perde a autoridade, e a senha é usada só agora, sem ser guardada.`;
 }
 
 // Quem já é o admin da geração vigente não vira admin de novo: o ato existe para TROCAR a
 // autoridade, e oferecê-lo aqui geraria uma geração nova sem nada mudar.
-function tornarAdminHtml(admin) {
+function tornarAdminHtml(admin, sabe) {
   if (admin && admin.souEu === true && admin.fresca === true) return '';
   const proxima = (Number(admin && admin.generation) || 0) + 1;
   return `<div class="apar-acao">
     ${campoDeSenha('aparSenhaAdmin', 'Senha da sincronização')}
     <button class="btn sm primary" id="aparTornarAdmin">Tornar este aparelho admin</button>
-    <span class="sync-dica">Isso cria a geração ${proxima}. O admin anterior perde a autoridade, e a senha é usada só agora, sem ser guardada.</span>
+    <span class="sync-dica">${esc(textoDaPromocao(admin, proxima, sabe))}</span>
   </div>`;
 }
 
 export function aparelhosAdminHtml(admin, opcoes) {
   const o = opcoes || {};
-  const v = visaoDoAdmin(admin, o.devices, o.agora === undefined ? Date.now() : o.agora);
+  const v = visaoDoAdmin(admin, o.devices, o.agora === undefined ? Date.now() : o.agora, o);
   const geracao = admin && admin.deviceId ? `<span class="sync-fraco">geração ${Number(admin.generation) || 0}</span>` : '';
   return `<div class="card sync-card ${v.classe}">
     <div class="sync-topo"><span class="sync-titulo">Administração</span>${v.selo}<span class="sync-espaco"></span>${geracao}</div>
     <div class="apar-corpo">
       <span class="set-desc">${esc(v.texto)}</span>
-      ${tornarAdminHtml(admin)}
+      ${tornarAdminHtml(admin, v.sabe)}
     </div>
   </div>`;
 }
@@ -326,8 +362,17 @@ export function aparelhosConsentimentoHtml(cfg) {
 // "Sou o admin" para OFERECER ato de admin exige as duas coisas que o engine exige para o
 // ato valer: ser o dono da geração vigente E ter batimento recente. Admin sem sinal de vida
 // publica política que ninguém aplica, e oferecer o botão ali seria prometer efeito.
+//
+// UMA DERIVAÇÃO SÓ (20/09/2026): esta regra vivia escrita duas vezes, aqui e em
+// `comandoPermitido` (compartilhado.js), com a mesma condição e formatos de resposta
+// diferentes. Elas não podiam divergir hoje, porque leem o mesmo snapshot, mas duas cópias
+// da mesma regra viram duas regras na primeira correção, e este arquivo cobra isso de
+// outros ("uma derivação só, para selo, borda e texto nunca divergirem", grupos.js).
+//
+// A que ficou é a de lá, porque ela já devolve o MOTIVO de cada recusa, e motivo é o que a
+// tela precisa mostrar. Aqui fica o recorte booleano.
 export function aparelhosSouAdmin(admin) {
-  return !!(admin && admin.souEu === true && admin.fresca === true);
+  return comandoPermitido({ admin: admin || null }).pode;
 }
 
 function desligadaHtml() {
@@ -352,7 +397,7 @@ export function aparelhosSecaoHtml(entrada) {
   const s = e.sync || {};
   const admin = s.admin || null;
   const souAdmin = aparelhosSouAdmin(admin);
-  return `${capacidadesDoEstreito(e.capacidades)}${aparelhosAdminHtml(admin, { devices: s.devices, agora: e.agora })}
+  return `${capacidadesDoEstreito(e.capacidades)}${aparelhosAdminHtml(admin, { devices: s.devices, agora: e.agora, adminLido: s.adminLido, status: s.status })}
     ${aparelhosDesignacaoHtml(s.designacaoAdmin, e.agora)}
     <div class="sync-sub-head">Aparelhos da conta</div>
     ${aparelhosListaHtml(s.devices, { cobertura: s.coberturaPostagem, admin: admin || {}, agora: e.agora, souAdmin, versaoMinima: s.versaoPostagemCoordenada, comandosEmitidos: s.comandosEmitidos, recibos: e.recibos })}

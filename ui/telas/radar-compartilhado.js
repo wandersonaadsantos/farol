@@ -30,8 +30,11 @@ const ANDAMENTO_TIQUE_MS = 10000;
 const RECIBO_MIN_MS = 10000;
 const REVISOES_MIN_MS = 60000;
 
-const LIVE = { operacoes: [], at: 0, falhaEm: 0 };
-const PEND = { pendencias: [], novas: new Set() };
+// `estado` separa "ainda não li" de "li e está vazio". Os dois acumuladores nascem vazios e
+// são pintados assim que o compartilhamento fica ligado, ANTES do primeiro evento SSE: sem
+// isto a tela afirmava zero antes de o Farol ter lido qualquer coisa. `REVISOES` já tinha.
+const LIVE = { operacoes: [], at: 0, falhaEm: 0, estado: 'inicial' };
+const PEND = { pendencias: [], novas: new Set(), estado: 'inicial' };
 const RECIBOS = { mapa: {}, conferencias: {}, falhas: new Set(), at: 0, emCurso: null };
 const REVISOES = { escopo: 'todos', estado: 'inicial', revisoes: [], at: 0 };
 let ENVIO = { fase: 'inicial' };
@@ -71,7 +74,7 @@ function escolherModal({ titulo, corpo, opcoes = [], fechar = 'Cancelar', largo 
 function renderPendencias(s) {
   const permissao = comandoPermitido(s);
   const alvo = $('#mdPendencias');
-  alvo.innerHTML = pendenciasCompartilhadasHtml(PEND.pendencias, { novas: PEND.novas, podeComandar: permissao.pode, motivoSemComando: permissao.motivo });
+  alvo.innerHTML = pendenciasCompartilhadasHtml(PEND.pendencias, { novas: PEND.novas, estado: PEND.estado, podeComandar: permissao.pode, motivoSemComando: permissao.motivo });
   const abertas = PEND.pendencias.filter((p) => !p.visto).length;
   $('#mdPendCount').textContent = abertas;
   $('#mdPendCount').hidden = !abertas;
@@ -79,7 +82,7 @@ function renderPendencias(s) {
 
 function renderOperacoes(s) {
   const permissao = comandoPermitido(s);
-  $('#mdOperacoes').innerHTML = `${andamentoAtrasadoHtml(LIVE.at, Date.now(), LIVE.falhaEm)}${operacoesRemotasHtml(LIVE.operacoes, { podeComandar: permissao.pode, motivoSemComando: permissao.motivo })}`;
+  $('#mdOperacoes').innerHTML = `${andamentoAtrasadoHtml(LIVE.at, Date.now(), LIVE.falhaEm, { estado: LIVE.estado })}${operacoesRemotasHtml(LIVE.operacoes, { estado: LIVE.estado, podeComandar: permissao.pode, motivoSemComando: permissao.motivo })}`;
 }
 
 function pintarComandos(s) {
@@ -149,12 +152,15 @@ function renderCompartilhado() {
 function aoAndamentoRemoto(d) {
   LIVE.operacoes = Array.isArray(d && d.operacoes) ? d.operacoes : [];
   LIVE.falhaEm = Number(d && d.falhaEm) || 0;
-  if (!LIVE.falhaEm) LIVE.at = Date.now();
+  // leitura que FALHOU não conclui a primeira leitura: ela continua sendo 'inicial', e a
+  // faixa de falha (que vence a idade) é quem explica
+  if (!LIVE.falhaEm) { LIVE.at = Date.now(); LIVE.estado = 'lido'; }
   if (visaoCompartilhada(syncAtual()) === 'ligada') renderOperacoes(syncAtual());
 }
 
 function aoPendenciasRemotas(d) {
   PEND.pendencias = Array.isArray(d && d.pendencias) ? d.pendencias : [];
+  PEND.estado = 'lido';
   const novas = Array.isArray(d && d.novas) ? d.novas : [];
   for (const id of novas) PEND.novas.add(id);
   if (visaoCompartilhada(syncAtual()) !== 'ligada') return;

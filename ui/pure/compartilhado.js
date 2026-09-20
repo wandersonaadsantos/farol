@@ -261,6 +261,14 @@ function tituloDaPendencia(p, onde) {
   return `${prIdentificadoHtml(null, `Um PR seu, analisado no ${onde}, esperando decisão`)} <span class="md-fraco">(${esc(SEM_CATALOGO)})</span>`;
 }
 
+// AUSÊNCIA DE LEITURA NÃO É AUSÊNCIA DE DADO. `REVISOES` já tinha `estado: 'inicial'` e o
+// comentário de compartilhado-historico.js nomeia o risco ("`estado` separa o que a lista
+// vazia NÃO pode esconder"); pendências e operações não tinham, e por isso afirmavam zero
+// antes do primeiro evento SSE. `estado` ausente mantém o comportamento antigo, para quem
+// chama sem informar.
+const AINDA_NAO_LI_PENDENCIAS = '<p class="md-vazio">O Farol ainda não leu as pendências dos outros aparelhos nesta conexão. Isto não quer dizer que nada precisa de você lá.</p>';
+const AINDA_NAO_LI_OPERACOES = '<p class="md-vazio">O Farol ainda não leu o andamento dos outros aparelhos nesta conexão. Isto não quer dizer que nada está rodando lá.</p>';
+
 export function pendenciasCompartilhadasHtml(pendencias, ctx) {
   const lista = Array.isArray(pendencias) ? pendencias : [];
   const c = ctx || {};
@@ -269,7 +277,9 @@ export function pendenciasCompartilhadasHtml(pendencias, ctx) {
     podeComandar: c.podeComandar === true,
     motivoSemComando: c.motivoSemComando || 'só o aparelho admin, com sinal fresco, emite comandos',
   };
-  if (!lista.length) return '<p class="md-vazio">Nada precisa de você em nenhum outro aparelho.</p>';
+  // lista vazia só significa ausência DEPOIS da primeira leitura. Antes dela o acumulador
+  // nasce vazio e a tela pintava "nada precisa de você" sem o Farol ter lido nada
+  if (!lista.length) return c.estado === 'inicial' ? AINDA_NAO_LI_PENDENCIAS : '<p class="md-vazio">Nada precisa de você em nenhum outro aparelho.</p>';
   return `${lista.map((p) => pendenciaHtml(p, contexto)).join('')}
     <p class="md-nota">Marcar como visto cala o aviso nos outros aparelhos. Decidir manda um comando ao aparelho dono, que decide com os gates dele. O nome do PR vem do catálogo cifrado; quando ele não abre neste aparelho, o card diz só o que sabe.</p>`;
 }
@@ -351,8 +361,9 @@ function operacaoHtml(op, ctx) {
 
 export function operacoesRemotasHtml(operacoes, ctx) {
   const lista = Array.isArray(operacoes) ? operacoes : [];
-  if (!lista.length) return '<p class="md-vazio">Nenhuma análise rodando em outro aparelho agora.</p>';
-  return lista.map((op) => operacaoHtml(op || {}, ctx || {})).join('');
+  const c = ctx || {};
+  if (!lista.length) return c.estado === 'inicial' ? AINDA_NAO_LI_OPERACOES : '<p class="md-vazio">Nenhuma análise rodando em outro aparelho agora.</p>';
+  return lista.map((op) => operacaoHtml(op || {}, c)).join('');
 }
 
 // A leitura do andamento gira a cada 10 segundos, e a leitura que falha NÃO apaga a visão
@@ -360,20 +371,26 @@ export function operacoesRemotasHtml(operacoes, ctx) {
 // está na tela, e é isso que ela diz, sem chamar de falha o que pode ser silêncio.
 const ANDAMENTO_FRESCO_MS = 45000;
 
-export function andamentoAtrasado(lastAt, agora = Date.now()) {
+export function andamentoAtrasado(lastAt, agora = Date.now(), ctx = {}) {
   const at = Number(lastAt) || 0;
-  if (!at || agora - at <= ANDAMENTO_FRESCO_MS) return { atrasada: false, texto: '' };
+  // `at === 0` NUNCA foi "em dia": era "nunca li". A faixa se calava justamente no caso em
+  // que ela mais precisa falar, e a lista vazia embaixo afirmava que nada estava rodando.
+  if (!at) {
+    if (ctx.estado !== 'inicial') return { atrasada: false, texto: '' };
+    return { atrasada: true, texto: 'O Farol ainda não leu o andamento dos outros aparelhos nesta conexão: o que aparece abaixo é o que ele sabe até agora, que é nada.' };
+  }
+  if (agora - at <= ANDAMENTO_FRESCO_MS) return { atrasada: false, texto: '' };
   return { atrasada: true, texto: `Leitura atrasada: o último andamento chegou às ${fmtClock(at)} e o que está aqui pode estar velho.` };
 }
 
 // `falhaEm` é a hora em que o engine DISSE que a leitura falhou (evento sync-live com a visão
 // anterior); com ela, a faixa afirma a falha, e não só a idade.
-export function andamentoAtrasadoHtml(lastAt, agora = Date.now(), falhaEm = 0) {
+export function andamentoAtrasadoHtml(lastAt, agora = Date.now(), falhaEm = 0, ctx = {}) {
   if (falhaEm) {
     const desde = lastAt ? `Mostrando o andamento de ${fmtClock(lastAt)}, que pode estar velho.` : 'Nenhuma leitura anterior deu certo.';
     return `<div class="md-faixa warn"><span class="sync-chip warn">leitura falhou</span><span>${esc(`A última leitura falhou às ${fmtClock(falhaEm)}. ${desde}`)}</span></div>`;
   }
-  const r = andamentoAtrasado(lastAt, agora);
+  const r = andamentoAtrasado(lastAt, agora, ctx);
   if (!r.atrasada) return '';
   return `<div class="md-faixa warn"><span class="sync-chip warn">leitura atrasada</span><span>${esc(r.texto)}</span></div>`;
 }
