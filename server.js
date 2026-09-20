@@ -484,11 +484,14 @@ class Engine extends EventEmitter {
       const file = path.join(os.homedir(), '.claude.json');
       let data = {};
       if (fs.existsSync(file)) {
-        // parse falhou = arquivo ilegivel: ABORTA, jamais sobrescrever a config do Claude
-        try { data = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {
-          this.log('WARN', '~/.claude.json ilegivel; nao vou pre-confiar o workspace (primeira sessao pode pedir confianca)');
+        // parse falhou nas tres tentativas = arquivo ilegivel de verdade (nao foi a corrida
+        // com a escrita do proprio Claude Code): ABORTA, jamais sobrescrever a config dele
+        const lido = io.lerJsonTeimoso(file);
+        if (!lido.ok) {
+          this.log('WARN', `~/.claude.json ilegivel em ${lido.tentativas} tentativas; nao vou pre-confiar o workspace (primeira sessao pode pedir confianca)`);
           return;
         }
+        data = lido.data;
       }
       // a decisao (o que muda, e se muda) mora em lib/parse.js, testada sem disco
       const { data: atualizado, changed } = workspaceTrust(data, WORKSPACE);
