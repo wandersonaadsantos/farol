@@ -9,6 +9,52 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.5
+
+A sincronização entre aparelhos parou de atribuir ao aparelho errado o que outro fez, e de
+afirmar na tela coisas que o Farol ainda não tinha lido.
+
+**Correções**
+
+- **O aviso deixou de falar do seu aparelho em terceira pessoa.** "Este commit já foi analisado
+  por o aparelho Windows Predator i9 4070", lido NO Windows Predator i9 4070, virava a busca por
+  um aparelho fantasma que não existe. Agora a frase é "analisado neste aparelho" quando o
+  trabalho foi feito aqui, e "pelo aparelho X" quando foi em outro. O bloqueio em si continua
+  certo: não havia o que refazer.
+- **O recibo de um comando passou a pertencer ao aparelho a quem o comando foi enviado.** Um
+  terceiro aparelho podia responder por ele, e quem mandou lia isso como recusa do destinatário.
+  Agora comando de outro endereço é descartado antes de qualquer efeito, e o desfecho na tela só
+  aparece quando o recibo é mesmo do alvo; recibo de outro aparelho vira uma ressalva, não um
+  veredito.
+- **Aposentar e reativar aparelho passaram a exigir o aparelho admin**, como a tela sempre
+  disse, e o aviso agora diz QUAL aparelho será aposentado, no título, no corpo e no resultado.
+  Antes ele dizia "este aparelho" para qualquer linha da lista, e quem clicasse na linha errada
+  não tinha como perceber. Renomear a si mesmo continua sendo de qualquer aparelho.
+- **Aposentar um aparelho deixou de travar o teto do grupo de consumo para sempre.** O aparelho
+  aposentado parava de publicar, e o grupo ficava permanentemente "não verificável", segurando
+  toda conta controlada. Agora aposentar encerra a exigência de dado novo, e o gasto que ele já
+  tinha feito continua contando. Aparelho apenas desligado continua sendo exigido: sumir não é
+  aposentar.
+- **O aparelho que não aceita comandos do admin parou de receber trabalho que ia recusar.** O
+  distribuidor atribuía, ouvia a recusa e repetia a cada poucos minutos, sem fim, inclusive
+  consigo mesmo. E a recusa agora chega com o motivo, em vez de só "não estava apto".
+- **A lista de aparelhos voltou a ter os valores embaixo dos cabeçalhos certos.** Quanto mais
+  botões a linha tinha, mais o nome do aparelho era espremido, a ponto de sumir e transbordar
+  por cima da coluna do sistema. No celular, cada valor passou a dizer o que é, e a tabela de
+  consumo por aparelho parou de perder as colunas de sessões e custo.
+- **O cartão "medido x estimado" parou de mostrar 100% havendo estimativa.** 99,90% agora
+  aparece como 99,9%, e 100% só sai quando não há nada estimado.
+- **A tela parou de afirmar o que ainda não leu.** "Ninguém administra este conjunto" só aparece
+  depois de o Farol conseguir ler quem administra; antes disso ele diz que ainda não sabe, e por
+  quê. O mesmo vale para "nada precisa de você em nenhum outro aparelho" e "nenhuma análise
+  rodando em outro aparelho", que apareciam antes da primeira leitura.
+- **Textos de escopo que enganavam:** "Gasto no período" agora diz que é de todos os aparelhos,
+  "Comandos enviados" diz que são os deste aparelho, e o aparelho sem nome passou a ter o mesmo
+  apelido em todas as telas, em vez de quatro nomes diferentes.
+- **A política dirigida ao próprio aparelho parou de negar o que a tela sabe.** Com o
+  consentimento desligado aqui, ela diz que este aparelho vai ignorar, em vez de dizer que o
+  resultado "não volta para esta tela".
+
 ## v2.62.4
 
 O Diagnóstico parou de encher de cartão repetido quando o limite do plano Claude estoura.

@@ -7,6 +7,13 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.62.5', ['O aviso de análise já feita parou de falar do seu próprio aparelho em terceira pessoa: quando o trabalho foi feito aqui, ele diz "neste aparelho" em vez de nomear a máquina em que você está lendo.',
+    'O recibo de um comando passou a pertencer ao aparelho a quem ele foi enviado: um terceiro não responde mais por ele, e o desfecho na tela só aparece quando o recibo é mesmo do alvo.',
+    'Aposentar e reativar aparelho exigem o aparelho admin, e o aviso diz QUAL aparelho vai ser aposentado. Antes dizia "este aparelho" para qualquer linha da lista.',
+    'Aposentar um aparelho deixou de travar o teto do grupo de consumo para sempre; o gasto que ele já tinha feito continua contando. Aparelho apenas desligado continua sendo exigido.',
+    'O aparelho que não aceita comandos do admin parou de receber trabalho que ia recusar, num laço sem fim, e a recusa agora chega com o motivo.',
+    'A lista de aparelhos voltou a ter os valores embaixo dos cabeçalhos certos, e no celular cada valor diz o que é. A tabela de consumo por aparelho parou de perder sessões e custo no estreito.',
+    'O cartão "medido x estimado" parou de mostrar 100% havendo estimativa, e a tela parou de afirmar "ninguém administra" ou "nada precisa de você" antes de ter lido qualquer coisa.']],
   ['2.62.4', ['O Diagnóstico parou de encher de cartão repetido com o limite do plano Claude. A verificação de contestação do autor gastava uma sessão por ciclo mesmo com o limite estourado, e cada tentativa virava uma falha nova: agora ela espera a hora do reset que vem na mensagem, ou meia hora quando a mensagem não cita hora.',
     'Falha que se resolve sozinha, repetida no mesmo PR e com a mesma mensagem, fica num cartão só, com a contagem e desde quando repete. Falha que precisa de você continua com uma linha por acontecimento.']],
   ['2.62.3', ['A preparação do Claude Code no boot deixou de falhar por uma corrida de leitura: o Farol tenta ler o ~/.claude.json três vezes antes de desistir, porque o Claude reescreve esse arquivo o tempo todo. Sem isso, a primeira sessão podia parar no diálogo de confiar na pasta.']],
