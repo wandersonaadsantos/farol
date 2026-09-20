@@ -32,7 +32,7 @@ const REVISOES_MIN_MS = 60000;
 
 const LIVE = { operacoes: [], at: 0, falhaEm: 0 };
 const PEND = { pendencias: [], novas: new Set() };
-const RECIBOS = { mapa: {}, falhas: new Set(), at: 0, emCurso: null };
+const RECIBOS = { mapa: {}, conferencias: {}, falhas: new Set(), at: 0, emCurso: null };
 const REVISOES = { escopo: 'todos', estado: 'inicial', revisoes: [], at: 0 };
 let ENVIO = { fase: 'inicial' };
 
@@ -83,7 +83,7 @@ function renderOperacoes(s) {
 }
 
 function pintarComandos(s) {
-  $('#mdComandos').innerHTML = comandosEmitidosHtml(s.comandosEmitidos, RECIBOS.mapa, { devices: s.devices, deviceIdLocal: s.deviceId, falhas: RECIBOS.falhas });
+  $('#mdComandos').innerHTML = comandosEmitidosHtml(s.comandosEmitidos, RECIBOS.mapa, { devices: s.devices, deviceIdLocal: s.deviceId, falhas: RECIBOS.falhas, conferencias: RECIBOS.conferencias });
 }
 
 // A fila do CONJUNTO: só o aparelho que agenda a conhece, e a seção some sem ela.
@@ -182,10 +182,14 @@ async function atualizarRecibos(lista, { forcar = false } = {}) {
   pintarComandos(syncAtual());
 }
 
+// O engine só devolve `recibo` quando ele é do ALVO; nos outros casos devolve a `conferencia`
+// dizendo por que não é desfecho. O mapa guarda desfecho, a conferência guarda a ressalva, e
+// as duas coisas nunca se misturam: sem isso, recibo de terceiro voltaria a virar desfecho.
 async function lerRecibo(cmdId) {
   const r = await api('/api/sync/command-status', { cmdId });
   if (!r || r.ok !== true) { RECIBOS.falhas.add(cmdId); return; }
   RECIBOS.falhas.delete(cmdId);
+  RECIBOS.conferencias[cmdId] = String(r.conferencia || '');
   if (r.recibo) RECIBOS.mapa[cmdId] = r.recibo;
 }
 

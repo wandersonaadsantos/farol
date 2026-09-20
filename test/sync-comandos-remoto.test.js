@@ -394,3 +394,122 @@ test('nenhum caminho de comando escreve manual ou requested', () => {
     }
   }
 });
+
+/* ---------- 7.C6: o recibo pertence ao ALVO, e só a ele ----------
+   O buraco medido em 20/09/2026: `podeAplicar` testava o consentimento ANTES do alvo,
+   e o ciclo percorria a árvore inteira. Um aparelho com `aceitarAdmin: false` (o padrão)
+   gravava `commandReceipts/{cmdId}` de um comando endereçado a OUTRO, carimbado com o
+   próprio deviceId — e o emissor lia isso como recusa do alvo.
+
+   O terceiro aparelho é simulado trocando `rt.deviceId`: é o único dado que separa os
+   dois papéis neste caminho, e o resto do runtime (credencial, material, chave) é o
+   mesmo de qualquer aparelho da conta. */
+
+async function comoOutroAparelho(e, deviceId, fn) {
+  const meu = e.sync.deviceId;
+  e.sync.deviceId = deviceId;
+  // o await tem que estar DENTRO do try: restaurar o id antes de a promessa resolver
+  // devolveria o aparelho ao papel de alvo no meio do ciclo, e o teste mediria outra coisa
+  try { return await fn(); } finally { e.sync.deviceId = meu; }
+}
+
+test('aparelho que não é o alvo não responde, mesmo sem aceitar admin', async () => {
+  const e = await motor();
+  const alvo = e.sync.deviceId;
+  const cmdId = await emitirPara(e, alvo, 'cancelar', { prTag: prTag(kId(e), PR.key) });
+  // dTerceiro lê a árvore inteira com o consentimento DESLIGADO, que é o padrão do Farol
+  const r = await comoOutroAparelho(e, 'dTerceiro', () => comandos.cicloDosComandos(e, { ...e.config.sync, aceitarAdmin: false }));
+  assert.deepEqual(r.aplicados, [], 'comando de outro alvo não entra no resultado');
+  assert.equal(recibo(cmdId), undefined, 'responder pelo alvo dos outros seria mentir');
+  assert.equal(Object.hasOwn(comandos.lerFeitos(), cmdId), false, 'nem queima o id de um comando alheio');
+});
+
+test('o terceiro não responde antes do alvo: quem responde é o alvo, e o desfecho é dele', async () => {
+  const e = await motor();
+  const alvo = e.sync.deviceId;
+  e.activeReviews = new Map([['s1', { keys: [PR.key], mode: 'auto' }]]);
+  e.cancelSession = () => { };
+  const cmdId = await emitirPara(e, alvo, 'cancelar', { prTag: prTag(kId(e), PR.key) });
+  await comoOutroAparelho(e, 'dTerceiro', () => comandos.cicloDosComandos(e, { ...e.config.sync, aceitarAdmin: false }));
+  assert.equal(recibo(cmdId), undefined, 'o terceiro passou antes e não deixou rastro');
+  await comandos.cicloDosComandos(e, e.config.sync);
+  assert.equal(recibo(cmdId).dev, alvo);
+  assert.equal(recibo(cmdId).estado, 'aplicado');
+});
+
+test('a recusa legítima do alvo continua representável, e sai carimbada com o alvo', async () => {
+  const e = await motor();
+  const alvo = e.sync.deviceId;
+  const cmdId = await emitirPara(e, alvo, 'repetir', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha) });
+  await comandos.cicloDosComandos(e, { ...e.config.sync, aceitarAdmin: false });
+  assert.equal(recibo(cmdId).estado, 'ignorado');
+  assert.equal(recibo(cmdId).code, 'nao-aceita-admin');
+  assert.equal(recibo(cmdId).dev, alvo);
+});
+
+test('reinício não faz o terceiro responder: sem registro local, ele continua sem escrever', async () => {
+  const e = await motor();
+  const alvo = e.sync.deviceId;
+  const cmdId = await emitirPara(e, alvo, 'cancelar', { prTag: prTag(kId(e), PR.key) });
+  for (let volta = 0; volta < 3; volta += 1) {
+    fs.rmSync(comandos.caminhoDosFeitos(), { force: true });
+    await comoOutroAparelho(e, 'dTerceiro', () => comandos.cicloDosComandos(e, { ...e.config.sync, aceitarAdmin: false }));
+  }
+  assert.equal(recibo(cmdId), undefined);
+});
+
+test('recibo de terceiro não é desfecho do alvo: nem sucesso, nem recusa provada', async () => {
+  const e = await motor();
+  const alvo = e.sync.deviceId;
+  const cmdId = await emitirPara(e, alvo, 'cancelar', { prTag: prTag(kId(e), PR.key) });
+  // um aparelho em versão antiga (ou fora do cliente oficial) grava o recibo do comando alheio
+  await e.sync.client.put(`/users/u1/${comandos.NO_RECIBO}/${cmdId}`, { dev: 'dTerceiro', estado: 'ignorado', code: 'nao-aceita-admin', at: Date.now() }, {});
+  const r = await e.syncDesfechoDoComando({ cmdId });
+  assert.equal(r.ok, true);
+  assert.equal(r.recibo, null, 'recibo de quem não é o alvo não vira desfecho');
+  assert.equal(r.conferencia, 'de-outro');
+});
+
+test('recibo preexistente de terceiro não impede o alvo de registrar o desfecho verdadeiro', async () => {
+  const e = await motor();
+  const alvo = e.sync.deviceId;
+  e.activeReviews = new Map([['s1', { keys: [PR.key], mode: 'auto' }]]);
+  e.cancelSession = () => { };
+  const cmdId = await emitirPara(e, alvo, 'cancelar', { prTag: prTag(kId(e), PR.key) });
+  await e.sync.client.put(`/users/u1/${comandos.NO_RECIBO}/${cmdId}`, { dev: 'dTerceiro', estado: 'ignorado', code: 'nao-aceita-admin', at: Date.now() }, {});
+  await comandos.cicloDosComandos(e, e.config.sync);
+  const r = await e.syncDesfechoDoComando({ cmdId });
+  assert.equal(r.conferencia, 'do-alvo');
+  assert.equal(r.recibo.estado, 'aplicado');
+  assert.equal(r.recibo.dev, alvo);
+});
+
+test('sem recibo nenhum o desfecho é ausência, não sucesso', async () => {
+  const e = await motor();
+  const cmdId = await emitirPara(e, e.sync.deviceId, 'cancelar', { prTag: prTag(kId(e), PR.key) });
+  const r = await e.syncDesfechoDoComando({ cmdId });
+  assert.equal(r.recibo, null);
+  assert.equal(r.conferencia, 'ausente');
+});
+
+test('recibo sem forma conhecida não vira desfecho do alvo', async () => {
+  const e = await motor();
+  const cmdId = await emitirPara(e, e.sync.deviceId, 'cancelar', { prTag: prTag(kId(e), PR.key) });
+  await e.sync.client.put(`/users/u1/${comandos.NO_RECIBO}/${cmdId}`, { estado: 'aplicado' }, {});
+  const r = await e.syncDesfechoDoComando({ cmdId });
+  assert.equal(r.recibo, null);
+  assert.equal(r.conferencia, 'de-outro', 'recibo sem dev não prova ter vindo do alvo');
+});
+
+test('o alvo é conferido contra o nó do comando, não só contra a memória da sessão', async () => {
+  const e = await motor();
+  const alvo = e.sync.deviceId;
+  e.activeReviews = new Map([['s1', { keys: [PR.key], mode: 'auto' }]]);
+  e.cancelSession = () => { };
+  const cmdId = await emitirPara(e, alvo, 'cancelar', { prTag: prTag(kId(e), PR.key) });
+  await comandos.cicloDosComandos(e, e.config.sync);
+  e.sync.comandosEmitidos = []; // reinício do emissor: o registro local da emissão se perdeu
+  const r = await e.syncDesfechoDoComando({ cmdId });
+  assert.equal(r.conferencia, 'do-alvo');
+  assert.equal(r.recibo.estado, 'aplicado');
+});

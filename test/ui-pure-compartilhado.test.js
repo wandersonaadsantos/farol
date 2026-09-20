@@ -380,3 +380,30 @@ test('operacoesRemotasHtml: operação recém-começada não mostra vírgula sol
   assert.match(html, /Opus 5/);
   assert.doesNotMatch(html, />, Opus 5/, 'sem tempo, o modelo vem sozinho');
 });
+
+/* ---------- 7.C6: recibo que não é do alvo não vira desfecho na tela ---------- */
+
+test('reciboEstado: recibo de terceiro não aparece como recusa do alvo', () => {
+  const r = P.reciboEstado(CMD, null, AGORA, false, 'de-outro');
+  assert.equal(r.estado, 'de-outro');
+  assert.equal(r.classe, 'warn');
+  assert.match(r.detalhe, /não é do aparelho alvo/);
+});
+
+test('reciboEstado: alvo desconhecido não vira esperando nem sucesso', () => {
+  const r = P.reciboEstado(CMD, null, AGORA, false, 'alvo-desconhecido');
+  assert.equal(r.estado, 'alvo-desconhecido');
+  assert.match(r.detalhe, /não deu para conferir de quem ele é/);
+});
+
+test('reciboEstado: ausência continua sendo espera, e a conferência não muda isso', () => {
+  const r = P.reciboEstado(CMD, null, AGORA, false, 'ausente');
+  assert.equal(r.estado, 'enviado');
+  assert.match(r.detalhe, /esperando o recibo/);
+});
+
+test('reciboEstado: com recibo do alvo, a conferência não atrapalha o desfecho', () => {
+  const r = P.reciboEstado(CMD, { dev: 'dA', estado: 'aplicado', code: '', at: AGORA }, AGORA, false, 'do-alvo');
+  assert.equal(r.estado, 'aplicado');
+  assert.equal(r.classe, 'ok');
+});

@@ -392,12 +392,29 @@ export function reciboFinal(recibo) {
   return !!recibo && ['aplicado', 'recusado', 'ignorado'].includes(recibo.estado);
 }
 
-// SUCESSO SÓ EXISTE COM RECIBO. Sem ele há dois estados, e nenhum deles é concluído.
-// `leituraFalhou` diz que a última consulta do recibo não chegou: isso aparece, porque
-// "sem recibo" e "não deu para perguntar" são coisas diferentes.
-export function reciboEstado(cmd, recibo, agora = Date.now(), leituraFalhou = false) {
+// O que o engine respondeu sobre a PROCEDÊNCIA do recibo. `do-alvo` e `ausente` são os dois
+// casos normais; os outros dois existem porque um recibo que não veio do alvo não é desfecho
+// nenhum, e dizer "esperando" ali esconderia que há um recibo errado no lugar.
+const CONFERENCIA = {
+  'de-outro': {
+    classe: 'warn', rotulo: 'sem desfecho do alvo',
+    detalhe: 'há um recibo neste comando, mas ele não é do aparelho alvo; o desfecho do alvo não chegou',
+  },
+  'alvo-desconhecido': {
+    classe: 'mute', rotulo: 'desfecho não conferível',
+    detalhe: 'há um recibo, e não deu para conferir de quem ele é (o comando já saiu do banco)',
+  },
+};
+
+// SUCESSO SÓ EXISTE COM RECIBO, E SÓ COM O RECIBO DO ALVO. Sem ele há dois estados, e nenhum
+// deles é concluído. `leituraFalhou` diz que a última consulta do recibo não chegou: isso
+// aparece, porque "sem recibo" e "não deu para perguntar" são coisas diferentes. `conferencia`
+// acrescenta a terceira: "veio recibo, mas não do alvo", que antes passava por recusa dele.
+export function reciboEstado(cmd, recibo, agora = Date.now(), leituraFalhou = false, conferencia = '') {
   const c = cmd || {};
   const r = recibo || null;
+  const suspeita = !r && CONFERENCIA[conferencia];
+  if (suspeita) return { estado: conferencia, ...suspeita };
   const modelo = r && RECIBO[r.estado];
   if (modelo) {
     const quando = r.at ? `, às ${fmtClock(r.at)}` : '';
@@ -424,8 +441,15 @@ function nomeDoAparelhoOuEste(ctx, deviceId) {
   return nomeDoAparelho(ctx.devices, deviceId) || deviceId;
 }
 
+// mapa ausente vira mapa vazio: a linha continua lendo "sem conferência informada", que é o
+// mesmo comportamento de antes desta checagem existir
+function mapaDeConferencias(bruto) {
+  if (!bruto || typeof bruto !== 'object') return {};
+  return bruto;
+}
+
 function comandoLinhaHtml(cmd, recibos, ctx) {
-  const r = reciboEstado(cmd, recibos[cmd.cmdId], ctx.agora, ctx.falhas.has(cmd.cmdId));
+  const r = reciboEstado(cmd, recibos[cmd.cmdId], ctx.agora, ctx.falhas.has(cmd.cmdId), ctx.conferencias[cmd.cmdId] || '');
   const onde = nomeDoAparelhoOuEste(ctx, cmd.alvo);
   return `<div class="md-cmd" data-cmd="${esc(cmd.cmdId)}">
     <span><b>${esc(TIPO_CMD[cmd.tipo] || cmd.tipo)}</b> para ${esc(onde)}${detalheDoComando(cmd, ctx)}, às ${esc(fmtClock(cmd.at))}</span>
@@ -439,7 +463,11 @@ export function comandosEmitidosHtml(comandos, recibos, ctx) {
   const lista = Array.isArray(comandos) ? comandos : [];
   if (!lista.length) return '';
   const c = ctx || {};
-  const contexto = { devices: c.devices, deviceIdLocal: c.deviceIdLocal || '', agora: c.agora || Date.now(), falhas: c.falhas instanceof Set ? c.falhas : new Set() };
+  const contexto = {
+    devices: c.devices, deviceIdLocal: c.deviceIdLocal || '', agora: c.agora || Date.now(),
+    falhas: c.falhas instanceof Set ? c.falhas : new Set(),
+    conferencias: mapaDeConferencias(c.conferencias),
+  };
   const mapa = recibos || {};
   return `<div class="card md-lista">${lista.map((cmd) => comandoLinhaHtml(cmd, mapa, contexto)).join('')}</div>`;
 }
