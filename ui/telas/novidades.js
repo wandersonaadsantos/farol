@@ -7,6 +7,7 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.62.2', ['Depois de abrir o Farol, a tela passa a dizer quem administra o conjunto em segundos: o relógio que observa os aparelhos começa ao conectar, e não no primeiro ciclo de busca de PRs.']],
   ['2.62.1', ['Com a sincronização ligada e o Firebase fora do ar, o que é ação sua volta a postar: aprovar, pedir mudanças e a revisão sem coordenação. O Farol confere no GitHub antes para não repetir um veredito que já está lá; o que é automático continua esperando o Firebase voltar.',
     'Com o Firebase fora do ar, o reenvio automático de postagens espera a conexão em vez de consultar o GitHub a cada ciclo.']],
   ['2.62.0', ['Sistema > Contas confere as contas logadas no gh deste computador com as que o Farol monitora, e avisa o que não bate, cada caso com o botão que resolve: conta logada que o Farol não monitora (Monitorar), conta do Farol sem login no gh (Remover), a mesma org em duas contas (Tirar da outra) e org que a conta revisa mas não está nas orgs dela (Adicionar).',

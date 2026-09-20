@@ -9,6 +9,17 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.2
+
+Abrir o Farol deixa de ter aquela espera até a tela saber quem administra o conjunto.
+
+**Correções**
+
+- **O admin aparece em segundos depois de abrir o app.** O relógio que observa os sinais
+  entre aparelhos só começava no primeiro ciclo de busca de PRs, então Sistema > Aparelhos
+  passava minutos dizendo "sem admin" (3 min e meio, medido aqui). Agora ele começa assim que
+  a sincronização conecta. Sem o compartilhamento ligado, nada muda.
+
 ## v2.62.1
 
 Com a sincronização entre aparelhos ligada e o Firebase fora do ar, o que você pede para
