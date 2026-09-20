@@ -28,6 +28,7 @@
 import { esc, fmtWhenDay, fmtSpan } from './comum.js';
 import { capacidadesIndisponiveisHtml } from './capacidades.js';
 import { syncOlhoHtml } from './sync.js';
+import { comandoPermitido } from './compartilhado.js';
 import { aparelhoPoliticaHtml } from './aparelhos-politica.js';
 import { aparelhosNavegadoresHtml, aparelhosLimpezaHtml } from './aparelhos-limpeza.js';
 
@@ -110,14 +111,60 @@ function designarHtml(d, souAdmin) {
   return `<span class="sync-fraco">designar: ${esc(acao.motivo)}</span>`;
 }
 
+// Aposentar e reativar são de quem administra (lib/engine/sync-aparelho.js), e renomear
+// OUTRO aparelho também: os dois escrevem no registro alheio. Renomear a SI MESMO fica com
+// todo mundo, porque é o mesmo ato do campo "Nome deste aparelho" em Sincronização.
+//
+// A tela não é a barreira, o engine é. Esconder o botão aqui evita oferecer um ato que vai
+// ser recusado; e o clique reconfere a autoridade, porque um snapshot novo pode tirá-la
+// entre o desenho da linha e o clique.
+function aposentarHtml(d, souAdmin) {
+  if (!souAdmin) return '';
+  const id = esc(String(d.deviceId || ''));
+  if (Number(d.retiredAt) > 0) return `<button class="btn sm ghost" data-apar-reativar="${id}">Reativar</button>`;
+  return `<button class="btn sm ghost" data-apar-aposentar="${id}">Aposentar</button>`;
+}
+
+function renomearHtml(d, souAdmin) {
+  if (!souAdmin && d.euMesmo !== true) return '';
+  return `<button class="btn sm ghost" data-apar-renomear="${esc(String(d.deviceId || ''))}">Renomear</button>`;
+}
+
 function acoesDoAparelho(d, souAdmin) {
   const id = esc(String(d.deviceId || ''));
-  const botoes = [`<button class="btn sm ghost" data-apar-renomear="${id}">Renomear</button>`];
+  const botoes = [renomearHtml(d, souAdmin)];
   if (souAdmin) botoes.push(`<button class="btn sm ghost" data-apar-politica="${id}">Política</button>`);
-  if (Number(d.retiredAt) > 0) botoes.push(`<button class="btn sm ghost" data-apar-reativar="${id}">Reativar</button>`);
-  else botoes.push(`<button class="btn sm ghost" data-apar-aposentar="${id}">Aposentar</button>`);
+  botoes.push(aposentarHtml(d, souAdmin));
   botoes.push(designarHtml(d, souAdmin));
   return `<span class="row-actions">${botoes.filter(Boolean).join('')}</span>`;
+}
+
+// O que a pessoa lê ANTES de aposentar. O NOME está no título, no corpo e no aviso: o botão
+// vive na linha de cada aparelho da lista, e o modal antigo dizia "este aparelho" para
+// qualquer um deles. Quem clicava na linha errada aposentava o aparelho errado e não tinha
+// como perceber, porque o toast também não dizia qual.
+export function aparelhosAposentarConfirmacao(nome, opcoes) {
+  const o = opcoes || {};
+  const quem = o.euMesmo === true ? `<b>${esc(nome)}</b> (este aparelho)` : `<b>${esc(nome)}</b>`;
+  return {
+    title: `Aposentar o ${nome}?`,
+    body: `<p><b>Acontece:</b> o ${quem} deixa de contar como ativo no conjunto.</p>
+      <p><b>Não acontece:</b> nenhum dado é apagado, nenhuma chave é retirada, o admin não é deposto e nenhuma sessão é encerrada. Dá para reativar depois.</p>`,
+  };
+}
+
+// Renomear a si mesmo e renomear outro são atos diferentes, e o texto precisa dizer qual é:
+// "é o nome que os outros aparelhos mostram" só faz sentido quando o alvo é este aparelho.
+export function aparelhosRenomearDialogo(nome, atual, opcoes) {
+  const o = opcoes || {};
+  const explicacao = o.euMesmo === true
+    ? 'É o nome que os outros aparelhos mostram para este. Nome vazio mantém o atual.'
+    : `É o nome com que <b>${esc(nome)}</b> aparece em todos os aparelhos, inclusive neste. Nome vazio mantém o atual.`;
+  return {
+    title: o.euMesmo === true ? 'Renomear este aparelho' : `Renomear o ${nome}`,
+    body: `<p>${explicacao}</p>
+      <input id="aparModalNome" class="sync-input" type="text" maxlength="40" spellcheck="false" autocomplete="off" value="${esc(atual || '')}">`,
+  };
 }
 
 function linhaDoAparelho(d, opcoes) {
@@ -127,7 +174,10 @@ function linhaDoAparelho(d, opcoes) {
   const versao = d.farolVersion ? `v${d.farolVersion}` : 'desconhecida';
   const visto = Number(d.lastSeenAt) > 0 ? fmtWhenDay(d.lastSeenAt, o.agora) : 'nunca';
   const pendente = aparelhosDesignacaoPendente(o.comandosEmitidos, o.recibos, String(d.deviceId || ''));
-  return `<div class="apar-linha"><span class="sync-nome">${esc(nomeDe(d))}${chipsDoAparelho(d, o)}${pendente}</span><span class="sync-fraco">${esc(d.platform || 'sistema desconhecido')}</span><span class="sync-fraco">${esc(versao)}</span><span class="sync-fraco">${esc(visto)}</span>${acoesDoAparelho(d, o.souAdmin === true)}</div>`;
+  // data-rot é o rótulo que o CSS mostra no estreito, onde o cabeçalho da lista some: sem
+  // ele a linha vira uma pilha de valores crus (win32, v2.62.4, hoje 13:28) sem dizer o que
+  // é cada um. No largo o cabeçalho manda, e o rótulo fica escondido.
+  return `<div class="apar-linha"><span class="sync-nome">${esc(nomeDe(d))}${chipsDoAparelho(d, o)}${pendente}</span><span class="sync-fraco" data-rot="sistema">${esc(d.platform || 'sistema desconhecido')}</span><span class="sync-fraco" data-rot="versão">${esc(versao)}</span><span class="sync-fraco" data-rot="visto">${esc(visto)}</span>${acoesDoAparelho(d, o.souAdmin === true)}</div>`;
 }
 
 // A versão mínima vem do snapshot (a MESMA constante que decide a cobertura); sem ela, a
@@ -154,7 +204,11 @@ export function aparelhosListaHtml(devices, opcoes) {
   const o = opcoes || {};
   if (!lista.length) return '<div class="card sync-lista"><p class="sync-vago sync-vazio">Nenhum aparelho registrado ainda. O primeiro aparece assim que a conexão sobe.</p></div>';
   const linhas = lista.map((d) => linhaDoAparelho(d || {}, o)).join('');
-  return `<div class="card sync-lista">
+  // apar-lista é QUEM TEM as colunas: cada .apar-linha herda a grade dela (subgrid). Com a
+  // grade em cada linha, a coluna de ações (`auto`) media 0 px no cabeçalho e centenas nas
+  // linhas, e o nome era espremido na proporção do número de botões, ou seja, do papel do
+  // aparelho: quanto mais poder a linha oferecia, menos nome cabia.
+  return `<div class="card sync-lista apar-lista">
     <div class="apar-linha apar-head"><span>aparelho</span><span>sistema</span><span>versão</span><span>visto por último</span><span></span></div>
     ${linhas}
     ${notaDoPrimeiro(lista)}
@@ -190,8 +244,31 @@ function semBatimento(admin, agora) {
 
 function adminSemAdmin() {
   return {
-    classe: 'off', selo: chip('mute', 'sem admin'),
+    classe: 'off', selo: chip('mute', 'sem admin'), sabe: true,
     texto: 'Ninguém administra este conjunto ainda. Sem admin, cada aparelho vale pela própria configuração: nada é pausado, limitado ou agrupado de fora.',
+  };
+}
+
+// AUSÊNCIA DE LEITURA NÃO É AUSÊNCIA DE ADMIN. O engine OMITE o campo `admin` de propósito
+// enquanto não sabe quem administra (lib/engine/sync-telas.js: "a tela não pode ler promessa
+// de autoridade num objeto vazio"), e a tela lia essa ausência como negação. A diferença é
+// cara: quem lê "ninguém administra" conclui que pode virar admin sem depor ninguém, e
+// virar admin cria uma geração nova que invalida tudo o que o anterior assinou.
+//
+// Quem separa os dois é `adminLido`, o instante em que o nó do admin foi lido COM SUCESSO
+// nesta conexão (0 = nunca). Com `status`, a tela ainda diz POR QUÊ não leu.
+const STATUS_SEM_LEITURA = {
+  desligado: 'a sincronização está desligada neste aparelho',
+  'sem-credencial': 'este aparelho não está conectado',
+  conectando: 'a conexão ainda está subindo',
+  erro: 'a conexão está com falha',
+};
+
+function adminNaoSei(status) {
+  const porque = STATUS_SEM_LEITURA[String(status || '')] || 'a primeira leitura ainda não voltou';
+  return {
+    classe: 'off', selo: chip('mute', 'não se sabe'), sabe: false,
+    texto: `Este aparelho ainda não deu para ler quem administra o conjunto, porque ${porque}. Isso NÃO quer dizer que ninguém administra: enquanto a leitura não volta, cada aparelho segue a própria configuração.`,
   };
 }
 
@@ -209,33 +286,45 @@ function adminDeOutro(admin, nome, agora) {
   return { classe: 'warn', selo: chip('warn', 'admin sem sinal de vida'), texto: `O admin vigente é o ${nome}, ${semBatimento(admin, agora)}. Políticas e comandos dele não valem enquanto isso: cada aparelho segue a própria configuração, e nada fica mais permissivo por causa da queda.` };
 }
 
-function visaoDoAdmin(admin, devices, agora) {
-  if (!admin || !admin.deviceId) return adminSemAdmin();
-  if (admin.souEu === true) return adminComigo(admin, agora);
-  return adminDeOutro(admin, nomeDoDevice(devices, admin.deviceId), agora);
+function visaoDoAdmin(admin, devices, agora, o) {
+  if (admin && admin.deviceId) {
+    if (admin.souEu === true) return { ...adminComigo(admin, agora), sabe: true };
+    return { ...adminDeOutro(admin, nomeDoDevice(devices, admin.deviceId), agora), sabe: true };
+  }
+  return Number(o.adminLido) > 0 ? adminSemAdmin() : adminNaoSei(o.status);
+}
+
+// O QUE O ATO FAZ, dito para o caso de quem lê. São três, e o do meio é o que faltava: o
+// admin conhecido pode ser ESTE aparelho, sem batimento, e "o admin anterior perde a
+// autoridade" falava dele mesmo em terceira pessoa. E sem leitura nenhuma não dá para
+// prometer que alguém será deposto: pode não haver ninguém.
+function textoDaPromocao(admin, proxima, sabe) {
+  if (!sabe) return `Isso cria a geração ${proxima}. Enquanto não se sabe quem administra, não dá para dizer quem perde a autoridade com isso. A senha é usada só agora, sem ser guardada.`;
+  if (admin && admin.souEu === true) return `Isso cria a geração ${proxima}: a autoridade deste aparelho recomeça na geração ${proxima}, e a chave da anterior deixa de valer. Nenhum outro aparelho é deposto, porque o admin atual já é este. A senha é usada só agora, sem ser guardada.`;
+  return `Isso cria a geração ${proxima}. O admin anterior perde a autoridade, e a senha é usada só agora, sem ser guardada.`;
 }
 
 // Quem já é o admin da geração vigente não vira admin de novo: o ato existe para TROCAR a
 // autoridade, e oferecê-lo aqui geraria uma geração nova sem nada mudar.
-function tornarAdminHtml(admin) {
+function tornarAdminHtml(admin, sabe) {
   if (admin && admin.souEu === true && admin.fresca === true) return '';
   const proxima = (Number(admin && admin.generation) || 0) + 1;
   return `<div class="apar-acao">
     ${campoDeSenha('aparSenhaAdmin', 'Senha da sincronização')}
     <button class="btn sm primary" id="aparTornarAdmin">Tornar este aparelho admin</button>
-    <span class="sync-dica">Isso cria a geração ${proxima}. O admin anterior perde a autoridade, e a senha é usada só agora, sem ser guardada.</span>
+    <span class="sync-dica">${esc(textoDaPromocao(admin, proxima, sabe))}</span>
   </div>`;
 }
 
 export function aparelhosAdminHtml(admin, opcoes) {
   const o = opcoes || {};
-  const v = visaoDoAdmin(admin, o.devices, o.agora === undefined ? Date.now() : o.agora);
+  const v = visaoDoAdmin(admin, o.devices, o.agora === undefined ? Date.now() : o.agora, o);
   const geracao = admin && admin.deviceId ? `<span class="sync-fraco">geração ${Number(admin.generation) || 0}</span>` : '';
   return `<div class="card sync-card ${v.classe}">
     <div class="sync-topo"><span class="sync-titulo">Administração</span>${v.selo}<span class="sync-espaco"></span>${geracao}</div>
     <div class="apar-corpo">
       <span class="set-desc">${esc(v.texto)}</span>
-      ${tornarAdminHtml(admin)}
+      ${tornarAdminHtml(admin, v.sabe)}
     </div>
   </div>`;
 }
@@ -273,8 +362,17 @@ export function aparelhosConsentimentoHtml(cfg) {
 // "Sou o admin" para OFERECER ato de admin exige as duas coisas que o engine exige para o
 // ato valer: ser o dono da geração vigente E ter batimento recente. Admin sem sinal de vida
 // publica política que ninguém aplica, e oferecer o botão ali seria prometer efeito.
+//
+// UMA DERIVAÇÃO SÓ (20/09/2026): esta regra vivia escrita duas vezes, aqui e em
+// `comandoPermitido` (compartilhado.js), com a mesma condição e formatos de resposta
+// diferentes. Elas não podiam divergir hoje, porque leem o mesmo snapshot, mas duas cópias
+// da mesma regra viram duas regras na primeira correção, e este arquivo cobra isso de
+// outros ("uma derivação só, para selo, borda e texto nunca divergirem", grupos.js).
+//
+// A que ficou é a de lá, porque ela já devolve o MOTIVO de cada recusa, e motivo é o que a
+// tela precisa mostrar. Aqui fica o recorte booleano.
 export function aparelhosSouAdmin(admin) {
-  return !!(admin && admin.souEu === true && admin.fresca === true);
+  return comandoPermitido({ admin: admin || null }).pode;
 }
 
 function desligadaHtml() {
@@ -299,11 +397,11 @@ export function aparelhosSecaoHtml(entrada) {
   const s = e.sync || {};
   const admin = s.admin || null;
   const souAdmin = aparelhosSouAdmin(admin);
-  return `${capacidadesDoEstreito(e.capacidades)}${aparelhosAdminHtml(admin, { devices: s.devices, agora: e.agora })}
+  return `${capacidadesDoEstreito(e.capacidades)}${aparelhosAdminHtml(admin, { devices: s.devices, agora: e.agora, adminLido: s.adminLido, status: s.status })}
     ${aparelhosDesignacaoHtml(s.designacaoAdmin, e.agora)}
     <div class="sync-sub-head">Aparelhos da conta</div>
     ${aparelhosListaHtml(s.devices, { cobertura: s.coberturaPostagem, admin: admin || {}, agora: e.agora, souAdmin, versaoMinima: s.versaoPostagemCoordenada, comandosEmitidos: s.comandosEmitidos, recibos: e.recibos })}
-    ${aparelhoPoliticaHtml(e.politicaDe, { recusa: e.politicaRecusa, leitura: e.politicaLeitura })}
+    ${aparelhoPoliticaHtml(e.politicaDe, { recusa: e.politicaRecusa, leitura: e.politicaLeitura, aceitaAdmin: cfg.aceitarAdmin })}
     ${aparelhosConsentimentoHtml(cfg)}
     ${aparelhosNavegadoresHtml(e.auth, e.agora)}
     ${aparelhosLimpezaHtml(e.limpeza, { souAdmin, devices: s.devices, agora: e.agora, limpando: e.limpando === true })}`;

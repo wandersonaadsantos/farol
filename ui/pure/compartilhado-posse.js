@@ -8,7 +8,7 @@
 // hora de largar a sessão (lib/engine/sync-transferencia.js), e o executor da tomada
 // confere o head e a vaga. A tela só não oferece o que ela já sabe que seria recusado, e
 // diz por quê.
-import { esc, fmtClock, fmtDur } from './comum.js';
+import { esc, fmtClock, fmtDur, identidadeDeAparelho } from './comum.js';
 import { prRefMention } from './mencoes.js';
 import { nomeDoAparelho } from './compartilhado.js';
 
@@ -147,7 +147,9 @@ export function acoesDoCandidato(candidato, ctx) {
 function faltaParaIniciar({ c, publicadores, atribuido }) {
   if (!c.prTag || !c.matTag) return 'o item não identifica o PR e o commit';
   if (!publicadores.length) return 'nenhum aparelho publicou este candidato agora';
-  return atribuido ? `o distribuidor já escolheu o ${atribuido} e espera ele aceitar` : '';
+  // sem o artigo: `nomeNaLista` devolve "este aparelho" para o local, e "o " na frente
+  // produzia "o este aparelho" — que estava na tela
+  return atribuido ? `o distribuidor já escolheu ${atribuido} e espera ele aceitar` : '';
 }
 
 function candidatoHtml(c, ctx) {
@@ -183,8 +185,7 @@ export function candidatosDoConjuntoHtml(candidatos, ctx) {
 const TIPO_NA_NOTA = { cancelar: 'cancelar', repetir: 'repetir', transferir: 'transferir', tomar: 'tomar', iniciar: 'iniciar' };
 
 function nomeNaNota(sync, deviceId) {
-  if (deviceId && deviceId === sync.deviceId) return 'este aparelho';
-  return nomeDoAparelho(sync.devices, deviceId) || deviceId || 'outro aparelho';
+  return identidadeDeAparelho(deviceId, { nome: nomeDoAparelho(sync.devices, deviceId), local: !!deviceId && deviceId === sync.deviceId });
 }
 
 // Só o comando cujo PR o engine resolveu (`prKey`) é amarrado a um card: sem isso, seria
@@ -203,8 +204,7 @@ export function notaComandoHtml(key, sync) {
 const RISCO = { provavel: { classe: 'warn', rotulo: 'duplicidade provável' }, possivel: { classe: 'mute', rotulo: 'duplicidade possível' } };
 
 function nomeNaLista(devices, deviceIdLocal, deviceId) {
-  if (deviceId && deviceId === deviceIdLocal) return 'este aparelho';
-  return nomeDoAparelho(devices, deviceId) || deviceId || 'outro aparelho';
+  return identidadeDeAparelho(deviceId, { nome: nomeDoAparelho(devices, deviceId), local: !!deviceId && deviceId === deviceIdLocal });
 }
 
 function tomadaHtml(t, devices, deviceIdLocal) {

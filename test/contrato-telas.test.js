@@ -128,11 +128,20 @@ test('emitir comando pela rota registra o emitido, e o desfecho só aparece com 
   assert.equal(emitidos[0].vence, no.data.ttl);
   assert.ok(emitidos[0].vence > emitidos[0].at, 'o prazo fica depois da emissão');
   const antes = await pedir('/api/sync/command-status', { cmdId: r.body.cmdId });
-  assert.deepEqual(antes.body, { ok: true, recibo: null }, 'sem recibo, sem desfecho');
+  assert.deepEqual(antes.body, { ok: true, conferencia: 'ausente', recibo: null }, 'sem recibo, sem desfecho');
   await engine.sync.client.put(`/users/u1/commandReceipts/${r.body.cmdId}`, { dev: 'dOutro', estado: 'recusado', code: 'nada_rodando', at: Date.now() }, {});
   const depois = await pedir('/api/sync/command-status', { cmdId: r.body.cmdId });
+  assert.equal(depois.body.conferencia, 'do-alvo', 'o recibo é do alvo a que o comando foi endereçado');
   assert.equal(depois.body.recibo.estado, 'recusado');
   assert.equal(depois.body.recibo.code, 'nada_rodando');
+});
+
+test('pela rota, recibo de quem não é o alvo não vira desfecho do alvo', async () => {
+  const r = await pedir('/api/sync/command', { alvo: 'dOutro', tipo: 'cancelar', args: { prTag: prTag(kId(), 'acme-exemplo/app#1') } });
+  assert.equal(r.body.ok, true, r.body.motivo);
+  await engine.sync.client.put(`/users/u1/commandReceipts/${r.body.cmdId}`, { dev: 'dTerceiro', estado: 'ignorado', code: 'nao-aceita-admin', at: Date.now() }, {});
+  const lido = await pedir('/api/sync/command-status', { cmdId: r.body.cmdId });
+  assert.deepEqual(lido.body, { ok: true, conferencia: 'de-outro', recibo: null });
 });
 
 test('desfecho de comando com identificador torto é recusado com motivo', async () => {

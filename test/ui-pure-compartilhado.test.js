@@ -380,3 +380,106 @@ test('operacoesRemotasHtml: operação recém-começada não mostra vírgula sol
   assert.match(html, /Opus 5/);
   assert.doesNotMatch(html, />, Opus 5/, 'sem tempo, o modelo vem sozinho');
 });
+
+/* ---------- 7.C6: recibo que não é do alvo não vira desfecho na tela ---------- */
+
+test('reciboEstado: recibo de terceiro não aparece como recusa do alvo', () => {
+  const r = P.reciboEstado(CMD, null, AGORA, false, 'de-outro');
+  assert.equal(r.estado, 'de-outro');
+  assert.equal(r.classe, 'warn');
+  assert.match(r.detalhe, /não é do aparelho alvo/);
+});
+
+test('reciboEstado: alvo desconhecido não vira esperando nem sucesso', () => {
+  const r = P.reciboEstado(CMD, null, AGORA, false, 'alvo-desconhecido');
+  assert.equal(r.estado, 'alvo-desconhecido');
+  assert.match(r.detalhe, /não deu para conferir de quem ele é/);
+});
+
+test('reciboEstado: ausência continua sendo espera, e a conferência não muda isso', () => {
+  const r = P.reciboEstado(CMD, null, AGORA, false, 'ausente');
+  assert.equal(r.estado, 'enviado');
+  assert.match(r.detalhe, /esperando o recibo/);
+});
+
+test('reciboEstado: com recibo do alvo, a conferência não atrapalha o desfecho', () => {
+  const r = P.reciboEstado(CMD, { dev: 'dA', estado: 'aplicado', code: '', at: AGORA }, AGORA, false, 'do-alvo');
+  assert.equal(r.estado, 'aplicado');
+  assert.equal(r.classe, 'ok');
+});
+
+/* ---------- a nota da espera nomeia o sujeito certo ---------- */
+
+function syncComEspera(item) {
+  return {
+    shared: true, deviceId: 'dEu',
+    devices: [{ deviceId: 'dEu', name: 'Notebook' }, { deviceId: 'dB', name: 'Celular' }],
+    distribuicao: { modo: 'distribuido', esperando: [{ key: 'o/r#1', desde: AGORA - 1000, aparelhos: [], ...item }] },
+  };
+}
+
+test('notaDistribuicaoHtml: papel escolhido nomeia quem o distribuidor escolheu', () => {
+  const html = P.notaDistribuicaoHtml('o/r#1', syncComEspera({ motivo: 'atribuicao-viva', dev: 'dB', papel: 'escolhido' }), AGORA);
+  assert.match(html, /O distribuidor escolheu Celular e espera ele aceitar/);
+});
+
+test('notaDistribuicaoHtml: papel escolhido apontando para o local não vira "o este aparelho"', () => {
+  const html = P.notaDistribuicaoHtml('o/r#1', syncComEspera({ motivo: 'atribuicao-viva', dev: 'dEu', papel: 'escolhido' }), AGORA);
+  assert.match(html, /O distribuidor escolheu este aparelho e espera ele aceitar/);
+  assert.equal(html.includes('o este aparelho'), false);
+});
+
+test('notaDistribuicaoHtml: quem RECUSOU não é apresentado como escolhido', () => {
+  const html = P.notaDistribuicaoHtml('o/r#1', syncComEspera({
+    motivo: 'head_mudou', dev: 'dB', papel: 'recusou', aparelhos: [{ deviceId: 'dB', motivo: 'head_mudou' }],
+  }), AGORA);
+  assert.equal(html.includes('escolheu'), false, 'o dev aqui é o recusante');
+  assert.match(html, /Por aparelho: Celular/);
+});
+
+test('notaDistribuicaoHtml: snapshot antigo sem papel ainda lê a atribuição viva', () => {
+  const html = P.notaDistribuicaoHtml('o/r#1', syncComEspera({ motivo: 'atribuicao-viva', dev: 'dB' }), AGORA);
+  assert.match(html, /O distribuidor escolheu Celular/);
+});
+
+test('notaDistribuicaoHtml: consentimento retirado tem motivo próprio, não "sem sinal"', () => {
+  const html = P.notaDistribuicaoHtml('o/r#1', syncComEspera({
+    motivo: 'sem-aparelho-apto', dev: '', papel: '', aparelhos: [{ deviceId: 'dB', motivo: 'sem-consentimento' }],
+  }), AGORA);
+  assert.match(html, /Celular, não aceita comandos do admin/);
+  assert.equal(html.includes('sem sinal recente'), false);
+});
+
+/* ---------- identidade de aparelho: um nome só, em toda tela ----------
+   O mesmo aparelho sem nome tinha QUATRO nomes: 'aparelho', 'outro aparelho', 'um aparelho
+   sem nome nesta tela' e o deviceId cru. Ele era "outro aparelho" no Radar e `a1b2c3…` em
+   Aparelhos, e não havia como casar as duas telas. */
+
+test('identidadeDeAparelho: local vence tudo, e a comparação é por ID', () => {
+  assert.equal(P.identidadeDeAparelho('dEu', { nome: 'Notebook', local: true }), 'este aparelho');
+});
+
+test('identidadeDeAparelho: com nome, é o nome', () => {
+  assert.equal(P.identidadeDeAparelho('dB', { nome: 'Celular' }), 'Celular');
+  assert.equal(P.identidadeDeAparelho('dB', { nome: '  Celular  ' }), 'Celular');
+});
+
+test('identidadeDeAparelho: sem nome, o id curto é o MESMO em qualquer chamada', () => {
+  const id = 'a1b2c3d4e5f6a7b8';
+  assert.equal(P.identidadeDeAparelho(id, {}), 'aparelho a1b2c3d4');
+  assert.equal(P.identidadeDeAparelho(id, { nome: '' }), P.identidadeDeAparelho(id));
+});
+
+test('identidadeDeAparelho: sem id nenhum não inventa um terceiro conhecido', () => {
+  assert.equal(P.identidadeDeAparelho('', { nome: '' }), 'outro aparelho');
+  assert.equal(P.identidadeDeAparelho(undefined), 'outro aparelho');
+});
+
+test('a nota da espera e a nota do comando dão o MESMO nome ao aparelho sem nome', () => {
+  const sync = { deviceId: 'dEu', devices: [{ deviceId: 'dSemNome' }] };
+  const naEspera = P.notaDistribuicaoHtml('o/r#1', {
+    ...sync, distribuicao: { esperando: [{ key: 'o/r#1', desde: AGORA - 1000, motivo: 'atribuicao-viva', dev: 'dSemNome', papel: 'escolhido', aparelhos: [] }] },
+  }, AGORA);
+  assert.match(naEspera, /aparelho dSemNome/, 'o id curto aparece, e é o mesmo em toda tela');
+  assert.equal(naEspera.includes('um aparelho sem nome nesta tela'), false);
+});

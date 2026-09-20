@@ -21,6 +21,7 @@ import { motivoDe } from '../lib/sync/errors.js';
 
 const { createRtdbClient } = await import('../lib/sync/rtdb.js');
 const coordinator = await import('../lib/sync/coordinator.js');
+const { textoBloqueio } = await import('../lib/format.js');
 const { admit, createHandle, noopHandle, preflightManual, registrarRecibo } = coordinator;
 
 const TOKEN = 'tok-ok';
@@ -188,6 +189,7 @@ test('recibo válido de outro aparelho: recusa com o nome dele, marca o PR como 
   assert.equal(a.admitted, false);
   assert.equal(a.reason, 'recibo');
   assert.equal(a.detail.deviceName, 'Desktop');
+  assert.equal(a.detail.local, false, 'o Desktop não é este aparelho');
   assert.equal(a.detail.receipt.deviceId, 'dOutro');
   assert.ok(e.seen.has(PR_KEY), 'review com recibo vira visto: o PR não volta a disparar');
   assert.deepEqual(e.sync.recibosVistos[PR_KEY], {
@@ -279,7 +281,7 @@ test('preflight do GitHub não roda fora da revisão', async () => {
 test('lease vivo de outro aparelho: alheio com o nome do aparelho, desde quando e o tipo da operação dele', async () => {
   semearLease(leaseDoOutro());
   const a = await admit(motor(), ctxDe());
-  assert.deepEqual(a, { admitted: false, reason: 'alheio', detail: { deviceId: 'dOutro', deviceName: 'Desktop', since: AGORA - 5000, operationKind: 'review' } });
+  assert.deepEqual(a, { admitted: false, reason: 'alheio', detail: { deviceId: 'dOutro', deviceName: 'Desktop', local: false, since: AGORA - 5000, operationKind: 'review' } });
   assert.equal(leaseNoBanco().leaseId, 'LO', 'o lease do outro fica intacto');
 });
 
@@ -600,7 +602,7 @@ test('preflightManual: recibo existente é recibo, sem escrever e sem marcar see
 test('preflightManual: lease vivo de outro aparelho é alheio, sem adquirir', async () => {
   semearLease(leaseDoOutro());
   const r = await preflightManual(motor(), PR);
-  assert.deepEqual(r, { ok: false, reason: 'alheio', detail: { deviceId: 'dOutro', deviceName: 'Desktop', since: AGORA - 5000, operationKind: 'review' } });
+  assert.deepEqual(r, { ok: false, reason: 'alheio', detail: { deviceId: 'dOutro', deviceName: 'Desktop', local: false, since: AGORA - 5000, operationKind: 'review' } });
   assert.ok(soLeituras());
 });
 
@@ -665,4 +667,30 @@ test('fachadas da Engine: syncAdmit e syncPreflightManual delegam ao coordenador
   assert.equal(a.admitted, true, 'recurso desligado por padrão: admite');
   assert.equal(a.handle.noop, true);
   assert.deepEqual(await engine.syncPreflightManual(PR), { ok: true });
+});
+
+/* ---------- 20/09/2026: o aviso não descreve em terceira pessoa a máquina de quem lê ----
+   A queixa, com print: "este commit já foi analisado por o aparelho Windows Predator i9
+   4070", lido NO Windows Predator i9 4070. `nomeDoDispositivo` devolvia o nome do próprio
+   aparelho sem dizer que era o próprio, e o texto embrulhava esse nome como terceiro.
+   `alheioDeVerdade` já protegia o motivo `alheio`; o `recibo` nunca teve guarda. */
+
+test('recibo DESTE aparelho: a recusa diz que é local, e o aviso fala em primeira pessoa', async () => {
+  semearRecibo(reciboDe({ deviceId: 'dEu' }));
+  const e = motor();
+  const a = await admit(e, ctxDe());
+  assert.equal(a.reason, 'recibo');
+  assert.equal(a.detail.local, true, 'o recibo é deste aparelho, e o aviso precisa saber disso');
+  assert.equal(a.detail.deviceName, 'Notebook', 'o nome continua vindo, para quem quiser mostrá-lo');
+  const texto = textoBloqueio(PR_KEY, a);
+  assert.match(texto, /analisado neste aparelho/);
+  assert.equal(texto.includes('Notebook'), false, 'a máquina em que a tela está aberta não é "o aparelho Notebook"');
+  assert.equal(texto.includes('por o aparelho'), false);
+});
+
+test('recibo de outro aparelho: o aviso nomeia, com a crase certa', async () => {
+  semearRecibo(reciboDe());
+  const e = motor();
+  const a = await admit(e, ctxDe());
+  assert.match(textoBloqueio(PR_KEY, a), /analisado pelo aparelho Desktop/);
 });

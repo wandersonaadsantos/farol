@@ -89,8 +89,10 @@ test('aparelhosListaHtml: escapa o nome do aparelho', () => {
 
 /* ---------- administração ---------- */
 
-test('aparelhosAdminHtml: sem admin conhecido não promete autoridade nenhuma', () => {
-  const html = P.aparelhosAdminHtml(null, { devices: [aparelho()] });
+// `adminLido` é o carimbo da última leitura bem-sucedida do nó do admin: sem ele, campo
+// ausente significava as duas coisas ao mesmo tempo (ver ui-estados-desconhecidos.test.js).
+test('aparelhosAdminHtml: com a leitura feita e sem admin, não promete autoridade nenhuma', () => {
+  const html = P.aparelhosAdminHtml(null, { devices: [aparelho()], adminLido: Date.now() });
   assert.match(html, /Ninguém administra/);
   assert.match(html, /id="aparSenhaAdmin"/);
   assert.ok(!html.includes('sem sinal de vida'));
@@ -238,4 +240,121 @@ test('aparelhosSecaoHtml: ligada monta lista, administração, consentimento, na
   assert.match(html, /setSyncAceitarAdmin/);
   assert.match(html, /Nenhum navegador/);
   assert.match(html, /id="aparLimpar"/);
+});
+
+/* ---------- 20/09/2026: aposentar é de quem administra, e o alvo é nomeado ---------- */
+
+const ADMIN_FRESCO = { deviceId: 'dEu', souEu: true, fresca: true, generation: 4 };
+
+function linhaDe(devices, admin) {
+  return P.aparelhosListaHtml(devices, { admin: admin || {}, souAdmin: P.aparelhosSouAdmin(admin || {}), agora: Date.now() });
+}
+
+test('aparelho comum não ganha botão de aposentar nem de reativar', () => {
+  const html = linhaDe([{ deviceId: 'dX', name: 'Celular' }, { deviceId: 'dY', name: 'Velho', retiredAt: 1 }], { deviceId: 'dOutro', souEu: false, fresca: true });
+  assert.equal(html.includes('data-apar-aposentar'), false);
+  assert.equal(html.includes('data-apar-reativar'), false);
+});
+
+test('admin sem sinal fresco também não ganha o botão de aposentar', () => {
+  const html = linhaDe([{ deviceId: 'dX', name: 'Celular' }], { deviceId: 'dEu', souEu: true, fresca: false });
+  assert.equal(html.includes('data-apar-aposentar'), false);
+});
+
+test('admin com sinal fresco ganha aposentar em todas as linhas, e reativar na aposentada', () => {
+  const html = linhaDe([{ deviceId: 'dX', name: 'Celular' }, { deviceId: 'dY', name: 'Velho', retiredAt: 1 }], ADMIN_FRESCO);
+  assert.ok(html.includes('data-apar-aposentar="dX"'));
+  assert.ok(html.includes('data-apar-reativar="dY"'));
+  assert.equal(html.includes('data-apar-aposentar="dY"'), false, 'aposentado não ganha o botão de novo');
+});
+
+test('renomear: aparelho comum só renomeia a própria linha', () => {
+  const html = linhaDe([{ deviceId: 'dEu', name: 'Meu', euMesmo: true }, { deviceId: 'dX', name: 'Celular' }], { deviceId: 'dOutro', souEu: false, fresca: true });
+  assert.ok(html.includes('data-apar-renomear="dEu"'), 'dizer o próprio nome é de todo aparelho');
+  assert.equal(html.includes('data-apar-renomear="dX"'), false, 'renomear o vizinho é administração');
+});
+
+test('renomear: o admin renomeia qualquer linha', () => {
+  const html = linhaDe([{ deviceId: 'dEu', name: 'Meu', euMesmo: true }, { deviceId: 'dX', name: 'Celular' }], ADMIN_FRESCO);
+  assert.ok(html.includes('data-apar-renomear="dEu"'));
+  assert.ok(html.includes('data-apar-renomear="dX"'));
+});
+
+test('aparelhosAposentarConfirmacao: nomeia o alvo no título e no corpo', () => {
+  const t = P.aparelhosAposentarConfirmacao('Celular da sala', { euMesmo: false });
+  assert.equal(t.title, 'Aposentar o Celular da sala?');
+  assert.match(t.body, /<b>Celular da sala<\/b>/);
+  assert.equal(/este aparelho/.test(t.body), false, 'aparelho remoto não é "este aparelho"');
+});
+
+test('aparelhosAposentarConfirmacao: quando o alvo é o local, diz as duas coisas', () => {
+  const t = P.aparelhosAposentarConfirmacao('Notebook', { euMesmo: true });
+  assert.match(t.body, /Notebook<\/b> \(este aparelho\)/);
+});
+
+test('aparelhosAposentarConfirmacao: o que NÃO acontece continua escrito', () => {
+  const t = P.aparelhosAposentarConfirmacao('Celular', {});
+  assert.match(t.body, /nenhum dado é apagado/);
+  assert.match(t.body, /o admin não é deposto/);
+  assert.match(t.body, /reativar depois/);
+});
+
+test('aparelhosAposentarConfirmacao: nome com HTML não escapa para o corpo', () => {
+  const t = P.aparelhosAposentarConfirmacao('<img onerror=x>', { euMesmo: false });
+  assert.equal(t.body.includes('<img'), false);
+  assert.match(t.body, /&lt;img/);
+});
+
+test('aparelhosRenomearDialogo: o texto muda quando o alvo é outro aparelho', () => {
+  const meu = P.aparelhosRenomearDialogo('Notebook', 'Notebook', { euMesmo: true });
+  assert.equal(meu.title, 'Renomear este aparelho');
+  assert.match(meu.body, /os outros aparelhos mostram para este/);
+  const outro = P.aparelhosRenomearDialogo('Celular', 'Celular', { euMesmo: false });
+  assert.equal(outro.title, 'Renomear o Celular');
+  assert.match(outro.body, /inclusive neste/);
+  assert.match(outro.body, /value="Celular"/);
+});
+
+/* ---------- política dirigida ao PRÓPRIO aparelho ----------
+   O texto antigo juntava quatro coisas numa frase: consentimento local, recebimento,
+   aplicação e resultado. Com o destino sendo ESTE aparelho, ele dizia "esse aceite
+   acontece no aparelho de destino e não volta para esta tela" — e o aceite está três
+   cartões abaixo, no interruptor "Aceitar políticas e comandos do admin". A tela tinha a
+   resposta e afirmava não ter. */
+
+function politica(aparelho, opcoes) {
+  return P.aparelhoPoliticaHtml(aparelho, opcoes || {});
+}
+
+test('política de OUTRO aparelho: o texto continua o de sempre', () => {
+  const html = politica({ deviceId: 'dX', name: 'Celular' }, { aceitaAdmin: false });
+  assert.match(html, /Política do Celular/);
+  assert.match(html, /não volta para esta tela/);
+});
+
+test('política do PRÓPRIO aparelho com consentimento DESLIGADO: diz que vai ignorar', () => {
+  const html = politica({ deviceId: 'dEu', name: 'Notebook', euMesmo: true }, { aceitaAdmin: false });
+  assert.match(html, /Política deste aparelho \(Notebook\)/);
+  assert.match(html, /este aparelho vai ignorar/);
+  assert.equal(html.includes('não volta para esta tela'), false, 'a resposta está nesta tela, três cartões abaixo');
+});
+
+test('política do PRÓPRIO aparelho com consentimento LIGADO: não promete aplicação', () => {
+  const html = politica({ deviceId: 'dEu', name: 'Notebook', euMesmo: true }, { aceitaAdmin: true });
+  assert.match(html, /o consentimento está ligado aqui/);
+  assert.match(html, /Falta ainda a assinatura da geração vigente e o batimento recente/);
+  assert.equal(html.includes('vai ignorar'), false);
+});
+
+test('política do PRÓPRIO aparelho sem saber o consentimento: não afirma nenhum dos dois', () => {
+  const html = politica({ deviceId: 'dEu', name: 'Notebook', euMesmo: true }, {});
+  assert.match(html, /O consentimento local não chegou a esta tela agora/);
+  assert.equal(html.includes('vai ignorar'), false);
+  assert.equal(html.includes('está ligado aqui'), false);
+});
+
+test('a política só restringe: a frase permanece em todos os casos', () => {
+  for (const o of [{ aceitaAdmin: true }, { aceitaAdmin: false }, {}]) {
+    assert.match(politica({ deviceId: 'dEu', euMesmo: true }, o), /só RESTRINGE/);
+  }
 });

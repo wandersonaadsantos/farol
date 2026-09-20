@@ -8,7 +8,7 @@
 // do engine (lib/sync/limpeza.js) e chegam na leitura do estado da chave; aqui só existe o
 // RÓTULO de cada id. Id sem rótulo sai como está: esconder uma categoria que a tela não
 // conhece faria a lista parecer mais curta do que a remoção.
-import { esc, fmtWhenDay, plural } from './comum.js';
+import { esc, fmtWhenDay, plural, identidadeDeAparelho } from './comum.js';
 
 function chip(classe, texto) {
   return `<span class="sync-chip ${classe}">${esc(texto)}</span>`;
@@ -97,7 +97,7 @@ const LIMPEZA = {
 
 function nomeDoAparelho(devices, id) {
   const achado = (Array.isArray(devices) ? devices : []).find((d) => d && String(d.deviceId || '') === String(id || ''));
-  return achado && achado.name ? String(achado.name) : String(id || 'outro aparelho');
+  return identidadeDeAparelho(id, { nome: achado ? achado.name : '' });
 }
 
 // A trava do banco ou o clique ainda esperando a rota: nos dois casos há limpeza correndo,

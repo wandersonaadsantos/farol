@@ -878,3 +878,125 @@ test('ciclo que não foi saudável não renova a prontidão', async () => {
   assert.equal(giro.saudavel.ok, false);
   assert.equal(no('live/control')['ready'].sequencia, 1, 'a sequência não anda numa falha');
 });
+
+/* ---------- 20/09/2026: consentimento entra na ELEGIBILIDADE ----------
+   Medido: o executor sempre conferiu `aceitarAdmin` ao RECEBER (`atribuicaoValida`), e o
+   agendador não olhava. Como `aceitarAdmin` nasce false, o admin atribuía a aparelhos que
+   recusam por princípio, lia a recusa e repetia a cada ATRIBUICAO_TTL_MS, para sempre — e
+   o admin que também executa caía nisso consigo mesmo. A recusa ainda chegava sem motivo,
+   porque nenhum código de autoridade estava em DETALHES.
+
+   O que NÃO pode acontecer junto: elegibilidade no agendador não é permissão de executar.
+   A validação no executor continua onde estava. */
+
+async function comConsentimento(e, aceita) {
+  e.updateSettings({ sync: { ...e.config.sync, aceitarAdmin: aceita } });
+  await publicacao.publicarCapacidade(e, e.config.sync, { agora: T });
+}
+
+test('consentimento negado não recebe atribuição nova, e o motivo diz o que é', async () => {
+  const e = await motorDistribuidor();
+  await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  await comConsentimento(e, false);
+  const ciclo = await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+  assert.equal(ciclo.atribuido, null, 'atribuir a quem recusa por princípio é laço garantido');
+  assert.deepEqual(ciclo.relatorio.avaliados.map((a) => a.desfecho), ['sem-aparelho-apto']);
+  const [item] = ciclo.relatorio.avaliados;
+  assert.deepEqual(item.aparelhos.map((a) => a.motivo), ['sem-consentimento'], 'não é "sem-sinal": ele está ali, respondendo, e dizendo não');
+});
+
+test('o admin que também executa não ganha consentimento implícito por ser admin', async () => {
+  const e = await motorDistribuidor();
+  assert.equal(e.sync.deviceId && true, true);
+  await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  await comConsentimento(e, false);
+  const ciclo = await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+  assert.equal(ciclo.atribuido, null, 'o único publicador é ele mesmo, e ele não consente');
+});
+
+test('mais de um giro: o laço de atribuir-e-recusar não se repete a cada TTL', async () => {
+  const e = await motorDistribuidor();
+  await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  await comConsentimento(e, false);
+  for (const quando of [T, T + SYNC.ATRIBUICAO_TTL_MS + 1, T + 2 * SYNC.ATRIBUICAO_TTL_MS + 2]) {
+    const ciclo = await dist.cicloDoAgendador(e, e.config.sync, { agora: quando });
+    assert.equal(ciclo.atribuido, null, `giro em ${quando}`);
+  }
+  // o nó do item existe (o agendador publica ali o veredito da espera), mas nenhuma
+  // ATRIBUIÇÃO foi escrita: atribuição é o registro com `dev`
+  const comDev = Object.values(no('live/assign')).filter((a) => a && a.dev);
+  assert.deepEqual(comDev, [], 'nenhuma atribuição foi escrita em três TTLs');
+});
+
+test('voltar a consentir volta a eleger, sem reinício: basta a capacidade nova', async () => {
+  const e = await motorDistribuidor();
+  await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  await comConsentimento(e, false);
+  assert.equal((await dist.cicloDoAgendador(e, e.config.sync, { agora: T })).atribuido, null);
+  await comConsentimento(e, true);
+  const ciclo = await dist.cicloDoAgendador(e, e.config.sync, { agora: T + 1 });
+  assert.ok(ciclo.atribuido, 'a mudança válida para aceite reabre a elegibilidade no giro seguinte');
+});
+
+test('capacidade de versão antiga, sem o campo, continua elegível: ausente não é falso', async () => {
+  const e = await motorDistribuidor();
+  await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  await publicacao.publicarCapacidade(e, e.config.sync, { agora: T });
+  // o resumo é lido do deviceStatus cifrado; aqui vale a leitura pura, que é onde a regra
+  // mora: `false` barra, `true` e AUSENTE não
+  const semCampo = dist.semConsentimento({ teto: 2, pausado: false });
+  const negado = dist.semConsentimento({ teto: 2, pausado: false, aceitarAdmin: false });
+  const aceito = dist.semConsentimento({ teto: 2, pausado: false, aceitarAdmin: true });
+  assert.equal(semCampo, false, 'frota antiga não pode ficar sem trabalho nenhum');
+  assert.equal(negado, true);
+  assert.equal(aceito, false);
+});
+
+test('o executor continua conferindo o consentimento ao receber: elegibilidade não é permissão', async () => {
+  const e = await motorDistribuidor();
+  await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  await comConsentimento(e, true);
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+  // o consentimento cai DEPOIS da atribuição já publicada: o executor recusa, e agora com motivo
+  const rr = await dist.aceitarAtribuicoes(e, { ...e.config.sync, aceitarAdmin: false }, no('live/assign'), { agora: T + 1 });
+  assert.deepEqual(rr.aceitas, []);
+  assert.equal(rr.recusas[0].problema, 'nao-aceita-admin');
+  const ack = Object.values(no('live/ack'))[0];
+  assert.equal(ack.estado, 'recusada');
+  assert.equal(ack.detalhe, 'nao-aceita-admin', 'a recusa chega ao publicador COM o motivo');
+});
+
+/* ---------- o sujeito do `dev` da espera ----------
+   O mesmo campo carregava três pessoas: o aparelho ESCOLHIDO (atribuição viva), o que
+   RECUSOU (resposta do executor) e ninguém (veredito do agendador). `sync-telas.js`
+   declarava que era "quem o distribuidor escolheu" — verdade em uma das três fontes. */
+
+function esperaNaTela(e) {
+  return telas.distribuicaoParaTela(e).esperando[0];
+}
+
+test('a espera diz de QUEM ela fala: escolhido, recusou, ou ninguém', async () => {
+  const e = await motorDistribuidor();
+  const pr = prDe(1);
+  e.headlessDistribuindo = new Map([[pr.key, { pr, desde: T }]]);
+  const r = await dist.publicarCandidato(e, e.config.sync, pr, { agora: T });
+
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+  const semNinguem = esperaNaTela(e);
+  assert.equal(semNinguem.motivo, 'sem-aparelho-apto');
+  assert.equal(semNinguem.papel, '', 'veredito do agendador não fala de um aparelho só');
+  assert.equal(semNinguem.dev, '');
+
+  await publicacao.publicarCapacidade(e, e.config.sync, { agora: T });
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T + 1 });
+  const escolhido = esperaNaTela(e);
+  assert.equal(escolhido.papel, 'escolhido');
+  assert.equal(escolhido.dev, e.sync.deviceId);
+
+  e.sync.candidatos.get(r.itemId).pr.headSha = 'sha-novo';
+  await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T + 2 });
+  const recusou = esperaNaTela(e);
+  assert.equal(recusou.motivo, 'head_mudou');
+  assert.equal(recusou.papel, 'recusou', 'quem recusou não pode sair no campo de "escolhido"');
+  assert.equal(recusou.dev, e.sync.deviceId);
+});

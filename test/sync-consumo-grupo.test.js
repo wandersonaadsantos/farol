@@ -137,3 +137,67 @@ test('perfil sintético: dia usa o teto diário, semana e mês usam o total desd
   assert.equal(mes.profile.budgetSince, '2026-09-01');
   assert.equal(mes.store.byProfileDay[`grupo:${G}|2026-09-01`].costUsd, 7);
 });
+
+/* ---------- aposentado: encerra a exigência, não a contabilidade (20/09/2026) ----------
+   A matriz que interessa, uma linha por caso:
+     ativo com informação válida      -> soma, verificável
+     ativo offline / retrato velho    -> NÃO verificável (sumir não é aposentar)
+     aposentado com gasto na janela   -> soma, verificável, reservas zeradas pelo TTL
+     aposentado sem dado suficiente   -> continua NÃO verificável se o dado não foi lido
+     aposentado com rollup torto      -> continua inválido */
+
+test('aposentado sem retrato: o gasto publicado continua somando, e o grupo fica verificável', () => {
+  const r = somar([remoto({ aposentado: true, status: null })]);
+  assert.equal(r.verificavel, true);
+  assert.equal(r.custo, 4, 'o 1 local mais os 3 que ele publicou');
+  assert.deepEqual(r.motivos, []);
+});
+
+test('ATIVO sem retrato continua não verificável: a exigência só cai com o ato explícito', () => {
+  const r = somar([remoto({ status: null })]);
+  assert.equal(r.verificavel, false);
+  assert.deepEqual(r.motivos, [{ dev: 'dB', motivo: 'sem-dados' }]);
+});
+
+test('aposentado com reserva vencida zera a reserva em vez de travar o grupo para sempre', () => {
+  const velho = { u: T - SYNC.RESERVA_GRUPO_TTL_MS - 1, consumo: { seq: 4, dia: '2026-09-16', grupos: { [G]: 5 } } };
+  const ativo = somar([remoto({ status: velho })]);
+  assert.equal(ativo.verificavel, false, 'no ativo, reserva vencida continua sendo cobertura incompleta');
+  assert.equal(ativo.motivos[0].motivo, 'reserva-vencida');
+  const fora = somar([remoto({ aposentado: true, status: velho })]);
+  assert.equal(fora.verificavel, true);
+  assert.equal(fora.reservas, 0, 'a reserva dele venceu pelo TTL que já existia');
+  assert.equal(fora.custo, 4, 'e o gasto dele continua contando');
+});
+
+test('aposentado com retrato FRESCO vale inteiro: reserva viva ainda projeta', () => {
+  const vivo = { u: T, consumo: { seq: 4, dia: '2026-09-16', grupos: { [G]: 3 } } };
+  const r = somar([remoto({ aposentado: true, status: vivo })]);
+  assert.equal(r.verificavel, true);
+  assert.equal(r.reservas, 3);
+});
+
+test('aposentado não perdoa leitura que falhou nem rollup torto', () => {
+  const semLeitura = somar([remoto({ aposentado: true, rollups: null, status: null })]);
+  assert.equal(semLeitura.motivos[0].motivo, 'sem-dados', 'não ler é diferente de não haver');
+  const torto = somar([remoto({ aposentado: true, status: null, rollups: { '2026-09-16': { v: 9 } } })]);
+  assert.equal(torto.motivos[0].motivo, 'invalido');
+});
+
+test('aposentado com lacuna conhecida continua não verificável: gasto não publicado é gasto que não se sabe', () => {
+  const comLacuna = { u: T, consumo: { seq: 9, dia: '2026-09-16', grupos: {} } };
+  const r = somar([remoto({ aposentado: true, status: comLacuna })]);
+  assert.equal(r.verificavel, false);
+  assert.equal(r.motivos[0].motivo, 'lacuna');
+});
+
+test('janela seguinte: o gasto do aposentado fica na janela em que foi feito', () => {
+  const amanha = Date.UTC(2026, 8, 17, 15, 0, 0);
+  const r = cg.somarGrupo({
+    grupoId: G, periodo: 'dia', agora: amanha, tipicoPadrao: 9,
+    local: { custo: 0, desconhecidas: 0, reservas: 0, tipico: 2 },
+    remotos: [remoto({ aposentado: true, status: null })],
+  });
+  assert.equal(r.verificavel, true);
+  assert.equal(r.custo, 0, 'o rollup de ontem não atravessa para a janela de hoje');
+});

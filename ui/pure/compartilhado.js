@@ -13,7 +13,7 @@
 //      aparelho viajam com o PR como TAG (lib/sync/tags.js); o engine nomeia o PR pelo
 //      catálogo cifrado (campo `pr`), e quando o catálogo não está disponível esta tela diz
 //      "um PR seu" e explica por quê, em vez de escrever um endereço que não tem.
-import { esc, fmtClock, fmtDur, plural } from './comum.js';
+import { esc, fmtClock, fmtDur, plural, identidadeDeAparelho } from './comum.js';
 import { prRefMention } from './mencoes.js';
 import { prIdentificado, prIdentificadoHtml } from './pr-compartilhado.js';
 
@@ -109,7 +109,7 @@ export function modoDistribuicaoHtml(sync, cfgSync) {
 // não é "sem motivo": é "não se sabe daqui", e a nota diz isso. As recusas nomeiam "o
 // aparelho escolhido" porque quem recusou pode ser outro, e o detalhe diz qual.
 const MOTIVO_ESPERA = {
-  'sem-aparelho-apto': 'nenhum aparelho apto agora (sem vaga, pausado, sem sinal, ou que já recusou este commit)',
+  'sem-aparelho-apto': 'nenhum aparelho apto agora (sem vaga, pausado, sem sinal, sem consentimento, ou que já recusou este commit)',
   'atribuicao-viva': 'o distribuidor já escolheu um aparelho e espera ele aceitar',
   sem_vaga: 'o aparelho escolhido recusou a atribuição por estar sem vaga',
   head_mudou: 'o commit mudou antes de a análise começar',
@@ -124,6 +124,8 @@ const MOTIVO_ESPERA = {
 const MOTIVO_APARELHO = {
   'sem-sinal': 'sem sinal recente',
   pausado: 'pausado pelo admin',
+  // mesmo texto do destino da transferência (compartilhado-posse.js): é o mesmo fato
+  'sem-consentimento': 'não aceita comandos do admin',
   'sem-vaga': 'sem vaga',
   recusou: 'recusou este commit há pouco, e a espera da recusa ainda vale',
   'memoria-desconhecida': 'sem medida de memória livre, e a admissão não admite assim',
@@ -133,6 +135,12 @@ const MOTIVO_APARELHO = {
   root: 'rodando como root, que o Claude Code recusa',
   'grupo-nao-verificavel': 'com o teto do grupo de consumo não verificável agora',
   'nao-publiquei': 'sem este item publicado lá',
+  // detalhes de AUTORIDADE, que o executor passou a devolver junto da recusa: sem eles o
+  // publicador lia só "não estava apto" e não tinha como saber o que houve
+  'nao-aceita-admin': 'com o consentimento de admin desligado quando a atribuição chegou',
+  vencida: 'com a atribuição já vencida quando ela foi lida lá',
+  geracao: 'com a atribuição de outra geração de admin',
+  assinatura: 'com a assinatura da atribuição que não fechou lá',
   'tipo-desconhecido': 'sem permissão para este tipo de análise',
 };
 
@@ -141,15 +149,22 @@ function textoDoAparelho(motivo) {
 }
 
 function nomeNaNotaDeEspera(sync, deviceId) {
-  if (deviceId && deviceId === sync.deviceId) return 'este aparelho';
-  return nomeDoAparelho(sync.devices, deviceId) || 'um aparelho sem nome nesta tela';
+  return identidadeDeAparelho(deviceId, { nome: nomeDoAparelho(sync.devices, deviceId), local: !!deviceId && deviceId === sync.deviceId });
 }
 
 // "O Notebook está sem vaga": o detalhe que faltava na divergência 5. Sem detalhe, a nota
 // fica no motivo geral, que já é verdadeiro.
+// De quem a espera fala. `papel` vem do engine desde 20/09/2026 e diz o sujeito do `dev`;
+// snapshot de versão anterior não o traz, e aí vale a única fonte que existia com `dev`
+// não vazio e motivo próprio: a atribuição viva.
+function papelDaEspera(item) {
+  if (item.papel) return String(item.papel);
+  return item.motivo === 'atribuicao-viva' ? 'escolhido' : '';
+}
+
 function detalheDaEspera(item, sync) {
-  if (item.motivo === 'atribuicao-viva' && item.dev) {
-    return ` O distribuidor escolheu o ${esc(nomeNaNotaDeEspera(sync, item.dev))} e espera ele aceitar.`;
+  if (papelDaEspera(item) === 'escolhido' && item.dev) {
+    return ` O distribuidor escolheu ${esc(nomeNaNotaDeEspera(sync, item.dev))} e espera ele aceitar.`;
   }
   const aparelhos = (Array.isArray(item.aparelhos) ? item.aparelhos : []).filter((a) => a && a.deviceId && a.motivo);
   if (!aparelhos.length) return '';
@@ -161,11 +176,20 @@ function detalheDaEspera(item, sync) {
 // A nota diz isso onde a pergunta aparece, que é quando ninguém pôde receber o item.
 const PESO_NAO_ATIVO = ' O tamanho do PR ainda não entra na escolha: a recusa por peso não está ativa.';
 
+// Com o aparelho NOMEADO, o motivo genérico vira eco: "o distribuidor já escolheu um
+// aparelho" seguido de "o distribuidor escolheu Celular" é a mesma frase duas vezes, e a
+// segunda é a que diz alguma coisa.
+function motivoGeralDaEspera(item) {
+  if (papelDaEspera(item) === 'escolhido' && item.dev) return '';
+  return `Motivo: ${esc(MOTIVO_ESPERA[item.motivo] || `motivo registrado: ${item.motivo}`)}.`;
+}
+
 function textoDaEspera(item, sync) {
   const motivo = item.motivo;
   if (!motivo) return 'Ele volta a ser oferecido a cada giro, e o motivo da espera não chega a esta tela.';
   const peso = motivo === 'sem-aparelho-apto' || motivo === 'sem_vaga' ? PESO_NAO_ATIVO : '';
-  return `Motivo: ${esc(MOTIVO_ESPERA[motivo] || `motivo registrado: ${motivo}`)}.${detalheDaEspera(item, sync)}${peso} Ele volta a ser oferecido a cada giro.`;
+  const partes = [motivoGeralDaEspera(item), detalheDaEspera(item, sync), peso, 'Ele volta a ser oferecido a cada giro.'];
+  return partes.map((x) => x.trim()).filter(Boolean).join(' ');
 }
 
 export function notaDistribuicaoHtml(key, sync, agora = Date.now()) {
@@ -237,6 +261,14 @@ function tituloDaPendencia(p, onde) {
   return `${prIdentificadoHtml(null, `Um PR seu, analisado no ${onde}, esperando decisão`)} <span class="md-fraco">(${esc(SEM_CATALOGO)})</span>`;
 }
 
+// AUSÊNCIA DE LEITURA NÃO É AUSÊNCIA DE DADO. `REVISOES` já tinha `estado: 'inicial'` e o
+// comentário de compartilhado-historico.js nomeia o risco ("`estado` separa o que a lista
+// vazia NÃO pode esconder"); pendências e operações não tinham, e por isso afirmavam zero
+// antes do primeiro evento SSE. `estado` ausente mantém o comportamento antigo, para quem
+// chama sem informar.
+const AINDA_NAO_LI_PENDENCIAS = '<p class="md-vazio">O Farol ainda não leu as pendências dos outros aparelhos nesta conexão. Isto não quer dizer que nada precisa de você lá.</p>';
+const AINDA_NAO_LI_OPERACOES = '<p class="md-vazio">O Farol ainda não leu o andamento dos outros aparelhos nesta conexão. Isto não quer dizer que nada está rodando lá.</p>';
+
 export function pendenciasCompartilhadasHtml(pendencias, ctx) {
   const lista = Array.isArray(pendencias) ? pendencias : [];
   const c = ctx || {};
@@ -245,7 +277,9 @@ export function pendenciasCompartilhadasHtml(pendencias, ctx) {
     podeComandar: c.podeComandar === true,
     motivoSemComando: c.motivoSemComando || 'só o aparelho admin, com sinal fresco, emite comandos',
   };
-  if (!lista.length) return '<p class="md-vazio">Nada precisa de você em nenhum outro aparelho.</p>';
+  // lista vazia só significa ausência DEPOIS da primeira leitura. Antes dela o acumulador
+  // nasce vazio e a tela pintava "nada precisa de você" sem o Farol ter lido nada
+  if (!lista.length) return c.estado === 'inicial' ? AINDA_NAO_LI_PENDENCIAS : '<p class="md-vazio">Nada precisa de você em nenhum outro aparelho.</p>';
   return `${lista.map((p) => pendenciaHtml(p, contexto)).join('')}
     <p class="md-nota">Marcar como visto cala o aviso nos outros aparelhos. Decidir manda um comando ao aparelho dono, que decide com os gates dele. O nome do PR vem do catálogo cifrado; quando ele não abre neste aparelho, o card diz só o que sabe.</p>`;
 }
@@ -327,8 +361,9 @@ function operacaoHtml(op, ctx) {
 
 export function operacoesRemotasHtml(operacoes, ctx) {
   const lista = Array.isArray(operacoes) ? operacoes : [];
-  if (!lista.length) return '<p class="md-vazio">Nenhuma análise rodando em outro aparelho agora.</p>';
-  return lista.map((op) => operacaoHtml(op || {}, ctx || {})).join('');
+  const c = ctx || {};
+  if (!lista.length) return c.estado === 'inicial' ? AINDA_NAO_LI_OPERACOES : '<p class="md-vazio">Nenhuma análise rodando em outro aparelho agora.</p>';
+  return lista.map((op) => operacaoHtml(op || {}, c)).join('');
 }
 
 // A leitura do andamento gira a cada 10 segundos, e a leitura que falha NÃO apaga a visão
@@ -336,20 +371,26 @@ export function operacoesRemotasHtml(operacoes, ctx) {
 // está na tela, e é isso que ela diz, sem chamar de falha o que pode ser silêncio.
 const ANDAMENTO_FRESCO_MS = 45000;
 
-export function andamentoAtrasado(lastAt, agora = Date.now()) {
+export function andamentoAtrasado(lastAt, agora = Date.now(), ctx = {}) {
   const at = Number(lastAt) || 0;
-  if (!at || agora - at <= ANDAMENTO_FRESCO_MS) return { atrasada: false, texto: '' };
+  // `at === 0` NUNCA foi "em dia": era "nunca li". A faixa se calava justamente no caso em
+  // que ela mais precisa falar, e a lista vazia embaixo afirmava que nada estava rodando.
+  if (!at) {
+    if (ctx.estado !== 'inicial') return { atrasada: false, texto: '' };
+    return { atrasada: true, texto: 'O Farol ainda não leu o andamento dos outros aparelhos nesta conexão: o que aparece abaixo é o que ele sabe até agora, que é nada.' };
+  }
+  if (agora - at <= ANDAMENTO_FRESCO_MS) return { atrasada: false, texto: '' };
   return { atrasada: true, texto: `Leitura atrasada: o último andamento chegou às ${fmtClock(at)} e o que está aqui pode estar velho.` };
 }
 
 // `falhaEm` é a hora em que o engine DISSE que a leitura falhou (evento sync-live com a visão
 // anterior); com ela, a faixa afirma a falha, e não só a idade.
-export function andamentoAtrasadoHtml(lastAt, agora = Date.now(), falhaEm = 0) {
+export function andamentoAtrasadoHtml(lastAt, agora = Date.now(), falhaEm = 0, ctx = {}) {
   if (falhaEm) {
     const desde = lastAt ? `Mostrando o andamento de ${fmtClock(lastAt)}, que pode estar velho.` : 'Nenhuma leitura anterior deu certo.';
     return `<div class="md-faixa warn"><span class="sync-chip warn">leitura falhou</span><span>${esc(`A última leitura falhou às ${fmtClock(falhaEm)}. ${desde}`)}</span></div>`;
   }
-  const r = andamentoAtrasado(lastAt, agora);
+  const r = andamentoAtrasado(lastAt, agora, ctx);
   if (!r.atrasada) return '';
   return `<div class="md-faixa warn"><span class="sync-chip warn">leitura atrasada</span><span>${esc(r.texto)}</span></div>`;
 }
@@ -392,12 +433,29 @@ export function reciboFinal(recibo) {
   return !!recibo && ['aplicado', 'recusado', 'ignorado'].includes(recibo.estado);
 }
 
-// SUCESSO SÓ EXISTE COM RECIBO. Sem ele há dois estados, e nenhum deles é concluído.
-// `leituraFalhou` diz que a última consulta do recibo não chegou: isso aparece, porque
-// "sem recibo" e "não deu para perguntar" são coisas diferentes.
-export function reciboEstado(cmd, recibo, agora = Date.now(), leituraFalhou = false) {
+// O que o engine respondeu sobre a PROCEDÊNCIA do recibo. `do-alvo` e `ausente` são os dois
+// casos normais; os outros dois existem porque um recibo que não veio do alvo não é desfecho
+// nenhum, e dizer "esperando" ali esconderia que há um recibo errado no lugar.
+const CONFERENCIA = {
+  'de-outro': {
+    classe: 'warn', rotulo: 'sem desfecho do alvo',
+    detalhe: 'há um recibo neste comando, mas ele não é do aparelho alvo; o desfecho do alvo não chegou',
+  },
+  'alvo-desconhecido': {
+    classe: 'mute', rotulo: 'desfecho não conferível',
+    detalhe: 'há um recibo, e não deu para conferir de quem ele é (o comando já saiu do banco)',
+  },
+};
+
+// SUCESSO SÓ EXISTE COM RECIBO, E SÓ COM O RECIBO DO ALVO. Sem ele há dois estados, e nenhum
+// deles é concluído. `leituraFalhou` diz que a última consulta do recibo não chegou: isso
+// aparece, porque "sem recibo" e "não deu para perguntar" são coisas diferentes. `conferencia`
+// acrescenta a terceira: "veio recibo, mas não do alvo", que antes passava por recusa dele.
+export function reciboEstado(cmd, recibo, agora = Date.now(), leituraFalhou = false, conferencia = '') {
   const c = cmd || {};
   const r = recibo || null;
+  const suspeita = !r && CONFERENCIA[conferencia];
+  if (suspeita) return { estado: conferencia, ...suspeita };
   const modelo = r && RECIBO[r.estado];
   if (modelo) {
     const quando = r.at ? `, às ${fmtClock(r.at)}` : '';
@@ -424,8 +482,15 @@ function nomeDoAparelhoOuEste(ctx, deviceId) {
   return nomeDoAparelho(ctx.devices, deviceId) || deviceId;
 }
 
+// mapa ausente vira mapa vazio: a linha continua lendo "sem conferência informada", que é o
+// mesmo comportamento de antes desta checagem existir
+function mapaDeConferencias(bruto) {
+  if (!bruto || typeof bruto !== 'object') return {};
+  return bruto;
+}
+
 function comandoLinhaHtml(cmd, recibos, ctx) {
-  const r = reciboEstado(cmd, recibos[cmd.cmdId], ctx.agora, ctx.falhas.has(cmd.cmdId));
+  const r = reciboEstado(cmd, recibos[cmd.cmdId], ctx.agora, ctx.falhas.has(cmd.cmdId), ctx.conferencias[cmd.cmdId] || '');
   const onde = nomeDoAparelhoOuEste(ctx, cmd.alvo);
   return `<div class="md-cmd" data-cmd="${esc(cmd.cmdId)}">
     <span><b>${esc(TIPO_CMD[cmd.tipo] || cmd.tipo)}</b> para ${esc(onde)}${detalheDoComando(cmd, ctx)}, às ${esc(fmtClock(cmd.at))}</span>
@@ -439,7 +504,11 @@ export function comandosEmitidosHtml(comandos, recibos, ctx) {
   const lista = Array.isArray(comandos) ? comandos : [];
   if (!lista.length) return '';
   const c = ctx || {};
-  const contexto = { devices: c.devices, deviceIdLocal: c.deviceIdLocal || '', agora: c.agora || Date.now(), falhas: c.falhas instanceof Set ? c.falhas : new Set() };
+  const contexto = {
+    devices: c.devices, deviceIdLocal: c.deviceIdLocal || '', agora: c.agora || Date.now(),
+    falhas: c.falhas instanceof Set ? c.falhas : new Set(),
+    conferencias: mapaDeConferencias(c.conferencias),
+  };
   const mapa = recibos || {};
   return `<div class="card md-lista">${lista.map((cmd) => comandoLinhaHtml(cmd, mapa, contexto)).join('')}</div>`;
 }

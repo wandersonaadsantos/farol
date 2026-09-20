@@ -187,3 +187,42 @@ test('comandosEmitidosHtml: transferir nomeia o destino, e o PR aparece quando r
   assert.match(recusado, /sync-chip bad">recusado</);
   assert.match(recusado, /o destino não estava apto/);
 });
+
+/* ---------- 20/09/2026: "o este aparelho" ----------
+   `nomeNaLista` devolve a frase pronta "este aparelho" para o aparelho local, e o único
+   chamador que punha "o " na frente montava "o distribuidor já escolheu o este aparelho e
+   espera ele aceitar". Os outros chamadores (o histórico de tomadas) usam a mesma função
+   sem artigo, e ficavam corretos. */
+
+const AGORA_POSSE = Date.UTC(2026, 8, 20, 16, 0, 0);
+
+function candidato(atribuido) {
+  return {
+    itemId: 'i1', prTag: 'a'.repeat(32), matTag: 'b'.repeat(32), desde: AGORA_POSSE - 11000,
+    publicadores: ['dEu'], pr: { key: 'acme/app#53' }, atribuido,
+  };
+}
+
+function ctxPosse() {
+  return {
+    podeComandar: true, devices: [{ deviceId: 'dEu', name: 'Notebook' }, { deviceId: 'dB', name: 'Celular' }],
+    deviceIdLocal: 'dEu', agora: AGORA_POSSE,
+  };
+}
+
+test('o aparelho LOCAL escolhido não vira "o este aparelho"', () => {
+  const html = P.candidatosDoConjuntoHtml([candidato({ dev: 'dEu', ttl: AGORA_POSSE + 60000 })], ctxPosse());
+  assert.match(html, /o distribuidor já escolheu este aparelho e espera ele aceitar/);
+  assert.equal(html.includes('o este aparelho'), false);
+});
+
+test('o aparelho REMOTO escolhido é nomeado, e a frase segue legível', () => {
+  const html = P.candidatosDoConjuntoHtml([candidato({ dev: 'dB', ttl: AGORA_POSSE + 60000 })], ctxPosse());
+  assert.match(html, /o distribuidor já escolheu Celular e espera ele aceitar/);
+});
+
+test('aparelho escolhido sem nome recebe o id curto, o mesmo das outras telas', () => {
+  const ctx = { ...ctxPosse(), devices: [{ deviceId: 'dEu', name: 'Notebook' }] };
+  const html = P.candidatosDoConjuntoHtml([candidato({ dev: 'a1b2c3d4e5f6', ttl: AGORA_POSSE + 60000 })], ctx);
+  assert.match(html, /escolheu aparelho a1b2c3d4 e espera/);
+});

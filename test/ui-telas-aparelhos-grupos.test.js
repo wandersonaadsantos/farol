@@ -27,14 +27,17 @@ const ID = 'b'.repeat(32);
 function deps({ respostas = {}, confirma = true, valor = '', status = null } = {}) {
   const chamadas = [];
   const avisos = [];
+  // o TEXTO do modal e do toast faz parte do contrato: um aviso que não nomeia o alvo
+  // deixa quem clicou na linha errada sem como perceber
+  const modais = [];
   const d = {
-    chamadas, avisos, recarregou: false, confirmacoes: 0,
+    chamadas, avisos, modais, recarregou: false, confirmacoes: 0,
     api: async (rota, corpo) => { chamadas.push({ rota, corpo }); return Object.hasOwn(respostas, rota) ? respostas[rota] : { ok: true }; },
     get: async (rota) => { chamadas.push({ rota }); return status; },
     toast: (tipo, texto) => avisos.push({ tipo, texto }),
     // o valor volta mesmo na desistência: quem digitou a senha e cancelou não pode ver a
     // rota chamada, e é a guarda do `ok` (não a do campo vazio) que precisa impedir isso
-    confirmarComCampo: async () => { d.confirmacoes++; return { ok: confirma, valor }; },
+    confirmarComCampo: async (opcoes) => { d.confirmacoes++; modais.push(opcoes || {}); return { ok: confirma, valor }; },
     confirmModal: async () => { d.confirmacoes++; return confirma; },
     recarregar: () => { d.recarregou = true; },
     idSorteado: () => ID,
@@ -134,7 +137,16 @@ test('mudarChaveDeLimpeza: o corpo é o booleano literal', async () => {
 
 /* ---------- aparelhos, admin, consentimento, política ---------- */
 
+// Aposentar e reativar são de quem administra, e o alvo tem que estar no snapshot: o ato
+// é sobre um aparelho nomeado, nunca sobre "este aparelho" genérico.
+const ADMIN_AQUI = { deviceId: 'dEu', souEu: true, fresca: true, generation: 3 };
+
+function estadoComAdmin(devices) {
+  estadoCom({ admin: ADMIN_AQUI, devices });
+}
+
 test('aposentarAparelho: aposentar confirma; reativar não precisa', async () => {
+  estadoComAdmin([{ deviceId: 'dX', name: 'Celular' }]);
   const negado = deps({ confirma: false });
   assert.equal(await AP.aposentarAparelho('dX', true, negado), false);
   assert.equal(negado.chamadas.length, 0);
@@ -146,8 +158,56 @@ test('aposentarAparelho: aposentar confirma; reativar não precisa', async () =>
   assert.deepEqual(r.chamadas, [{ rota: '/api/sync/device', corpo: { deviceId: 'dX', aposentar: false } }], 'reativar tem volta e não pede confirmação');
 });
 
+test('aposentarAparelho: o alvo é nomeado no aviso e no desfecho, nunca "este aparelho"', async () => {
+  estadoComAdmin([{ deviceId: 'dX', name: 'Celular da sala' }]);
+  const d = deps();
+  await AP.aposentarAparelho('dX', true, d);
+  const titulo = String(d.modais.at(-1).title);
+  const corpo = String(d.modais.at(-1).body);
+  assert.match(titulo, /Celular da sala/);
+  assert.equal(/este aparelho\?/.test(titulo), false, 'o título não pode chamar um aparelho remoto de "este"');
+  assert.match(corpo, /Celular da sala/);
+  assert.match(String(d.avisos.at(-1).texto), /Celular da sala/);
+});
+
+test('aposentarAparelho: aparelho comum não aposenta ninguém, e a tela diz por quê', async () => {
+  estadoCom({ admin: { deviceId: 'dOutro', souEu: false, fresca: true }, devices: [{ deviceId: 'dX', name: 'Celular' }] });
+  const d = deps();
+  assert.equal(await AP.aposentarAparelho('dX', true, d), false);
+  assert.equal(d.chamadas.length, 0, 'nem chega a chamar a rota');
+  assert.equal(d.modais.length, 0, 'nem abre o aviso de um ato que não vai acontecer');
+  assert.match(String(d.avisos.at(-1).texto), /admin/);
+});
+
+test('aposentarAparelho: admin sem sinal fresco também não aposenta', async () => {
+  estadoCom({ admin: { deviceId: 'dEu', souEu: true, fresca: false }, devices: [{ deviceId: 'dX', name: 'Celular' }] });
+  const d = deps();
+  assert.equal(await AP.aposentarAparelho('dX', true, d), false);
+  assert.equal(d.chamadas.length, 0);
+});
+
+test('aposentarAparelho: alvo que não está no snapshot não vira ato', async () => {
+  estadoComAdmin([{ deviceId: 'dX', name: 'Celular' }]);
+  const d = deps();
+  assert.equal(await AP.aposentarAparelho('dSumiu', true, d), false);
+  assert.equal(d.chamadas.length, 0);
+});
+
+test('renomearAparelho: aparelho comum renomeia a si mesmo, e não o vizinho', async () => {
+  estadoCom({
+    admin: { deviceId: 'dOutro', souEu: false, fresca: true },
+    devices: [{ deviceId: 'dEu', name: 'Meu', euMesmo: true }, { deviceId: 'dX', name: 'Celular' }],
+  });
+  const vizinho = deps({ valor: 'Invadido' });
+  assert.equal(await AP.renomearAparelho('dX', vizinho), false);
+  assert.equal(vizinho.chamadas.length, 0);
+  const meu = deps({ valor: 'Meu canto' });
+  assert.equal(await AP.renomearAparelho('dEu', meu), true);
+  assert.deepEqual(meu.chamadas, [{ rota: '/api/sync/device', corpo: { deviceId: 'dEu', nome: 'Meu canto' } }]);
+});
+
 test('renomearAparelho: nome vazio não chama a rota', async () => {
-  estadoCom({ devices: [{ deviceId: 'dX', name: 'Antigo' }] });
+  estadoComAdmin([{ deviceId: 'dX', name: 'Antigo' }]);
   const cancelado = deps({ confirma: false, valor: 'Nome digitado e cancelado' });
   assert.equal(await AP.renomearAparelho('dX', cancelado), false);
   assert.equal(cancelado.chamadas.length, 0, 'cancelar o modal não renomeia');
