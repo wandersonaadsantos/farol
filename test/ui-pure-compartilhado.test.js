@@ -407,3 +407,45 @@ test('reciboEstado: com recibo do alvo, a conferência não atrapalha o desfecho
   assert.equal(r.estado, 'aplicado');
   assert.equal(r.classe, 'ok');
 });
+
+/* ---------- a nota da espera nomeia o sujeito certo ---------- */
+
+function syncComEspera(item) {
+  return {
+    shared: true, deviceId: 'dEu',
+    devices: [{ deviceId: 'dEu', name: 'Notebook' }, { deviceId: 'dB', name: 'Celular' }],
+    distribuicao: { modo: 'distribuido', esperando: [{ key: 'o/r#1', desde: AGORA - 1000, aparelhos: [], ...item }] },
+  };
+}
+
+test('notaDistribuicaoHtml: papel escolhido nomeia quem o distribuidor escolheu', () => {
+  const html = P.notaDistribuicaoHtml('o/r#1', syncComEspera({ motivo: 'atribuicao-viva', dev: 'dB', papel: 'escolhido' }), AGORA);
+  assert.match(html, /O distribuidor escolheu Celular e espera ele aceitar/);
+});
+
+test('notaDistribuicaoHtml: papel escolhido apontando para o local não vira "o este aparelho"', () => {
+  const html = P.notaDistribuicaoHtml('o/r#1', syncComEspera({ motivo: 'atribuicao-viva', dev: 'dEu', papel: 'escolhido' }), AGORA);
+  assert.match(html, /O distribuidor escolheu este aparelho e espera ele aceitar/);
+  assert.equal(html.includes('o este aparelho'), false);
+});
+
+test('notaDistribuicaoHtml: quem RECUSOU não é apresentado como escolhido', () => {
+  const html = P.notaDistribuicaoHtml('o/r#1', syncComEspera({
+    motivo: 'head_mudou', dev: 'dB', papel: 'recusou', aparelhos: [{ deviceId: 'dB', motivo: 'head_mudou' }],
+  }), AGORA);
+  assert.equal(html.includes('escolheu'), false, 'o dev aqui é o recusante');
+  assert.match(html, /Por aparelho: Celular/);
+});
+
+test('notaDistribuicaoHtml: snapshot antigo sem papel ainda lê a atribuição viva', () => {
+  const html = P.notaDistribuicaoHtml('o/r#1', syncComEspera({ motivo: 'atribuicao-viva', dev: 'dB' }), AGORA);
+  assert.match(html, /O distribuidor escolheu Celular/);
+});
+
+test('notaDistribuicaoHtml: consentimento retirado tem motivo próprio, não "sem sinal"', () => {
+  const html = P.notaDistribuicaoHtml('o/r#1', syncComEspera({
+    motivo: 'sem-aparelho-apto', dev: '', papel: '', aparelhos: [{ deviceId: 'dB', motivo: 'sem-consentimento' }],
+  }), AGORA);
+  assert.match(html, /Celular, não aceita comandos do admin/);
+  assert.equal(html.includes('sem sinal recente'), false);
+});

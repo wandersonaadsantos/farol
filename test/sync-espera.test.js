@@ -237,7 +237,8 @@ test('a atribuição viva nomeia o aparelho escolhido', async () => {
     deviceId: 'dNotebook', devices: [{ deviceId: 'dOutro', name: 'Desktop antigo' }],
     distribuicao: { esperando: [{ key: PR.key, desde: T, motivo: 'atribuicao-viva', dev: 'dOutro', aparelhos: [] }] },
   }, T);
-  assert.match(nota, /escolheu o Desktop antigo e espera ele aceitar/);
+  assert.match(nota, /O distribuidor escolheu Desktop antigo e espera ele aceitar/);
+  assert.equal(nota.includes('escolheu um aparelho'), false, 'com o nome na frase, o motivo genérico vira eco');
 });
 
 /* ---------- a recusa do executor chega com o detalhe da admissão ---------- */

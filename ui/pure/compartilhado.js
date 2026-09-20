@@ -109,7 +109,7 @@ export function modoDistribuicaoHtml(sync, cfgSync) {
 // não é "sem motivo": é "não se sabe daqui", e a nota diz isso. As recusas nomeiam "o
 // aparelho escolhido" porque quem recusou pode ser outro, e o detalhe diz qual.
 const MOTIVO_ESPERA = {
-  'sem-aparelho-apto': 'nenhum aparelho apto agora (sem vaga, pausado, sem sinal, ou que já recusou este commit)',
+  'sem-aparelho-apto': 'nenhum aparelho apto agora (sem vaga, pausado, sem sinal, sem consentimento, ou que já recusou este commit)',
   'atribuicao-viva': 'o distribuidor já escolheu um aparelho e espera ele aceitar',
   sem_vaga: 'o aparelho escolhido recusou a atribuição por estar sem vaga',
   head_mudou: 'o commit mudou antes de a análise começar',
@@ -124,6 +124,8 @@ const MOTIVO_ESPERA = {
 const MOTIVO_APARELHO = {
   'sem-sinal': 'sem sinal recente',
   pausado: 'pausado pelo admin',
+  // mesmo texto do destino da transferência (compartilhado-posse.js): é o mesmo fato
+  'sem-consentimento': 'não aceita comandos do admin',
   'sem-vaga': 'sem vaga',
   recusou: 'recusou este commit há pouco, e a espera da recusa ainda vale',
   'memoria-desconhecida': 'sem medida de memória livre, e a admissão não admite assim',
@@ -133,6 +135,12 @@ const MOTIVO_APARELHO = {
   root: 'rodando como root, que o Claude Code recusa',
   'grupo-nao-verificavel': 'com o teto do grupo de consumo não verificável agora',
   'nao-publiquei': 'sem este item publicado lá',
+  // detalhes de AUTORIDADE, que o executor passou a devolver junto da recusa: sem eles o
+  // publicador lia só "não estava apto" e não tinha como saber o que houve
+  'nao-aceita-admin': 'com o consentimento de admin desligado quando a atribuição chegou',
+  vencida: 'com a atribuição já vencida quando ela foi lida lá',
+  geracao: 'com a atribuição de outra geração de admin',
+  assinatura: 'com a assinatura da atribuição que não fechou lá',
   'tipo-desconhecido': 'sem permissão para este tipo de análise',
 };
 
@@ -147,9 +155,17 @@ function nomeNaNotaDeEspera(sync, deviceId) {
 
 // "O Notebook está sem vaga": o detalhe que faltava na divergência 5. Sem detalhe, a nota
 // fica no motivo geral, que já é verdadeiro.
+// De quem a espera fala. `papel` vem do engine desde 20/09/2026 e diz o sujeito do `dev`;
+// snapshot de versão anterior não o traz, e aí vale a única fonte que existia com `dev`
+// não vazio e motivo próprio: a atribuição viva.
+function papelDaEspera(item) {
+  if (item.papel) return String(item.papel);
+  return item.motivo === 'atribuicao-viva' ? 'escolhido' : '';
+}
+
 function detalheDaEspera(item, sync) {
-  if (item.motivo === 'atribuicao-viva' && item.dev) {
-    return ` O distribuidor escolheu o ${esc(nomeNaNotaDeEspera(sync, item.dev))} e espera ele aceitar.`;
+  if (papelDaEspera(item) === 'escolhido' && item.dev) {
+    return ` O distribuidor escolheu ${esc(nomeNaNotaDeEspera(sync, item.dev))} e espera ele aceitar.`;
   }
   const aparelhos = (Array.isArray(item.aparelhos) ? item.aparelhos : []).filter((a) => a && a.deviceId && a.motivo);
   if (!aparelhos.length) return '';
@@ -161,11 +177,20 @@ function detalheDaEspera(item, sync) {
 // A nota diz isso onde a pergunta aparece, que é quando ninguém pôde receber o item.
 const PESO_NAO_ATIVO = ' O tamanho do PR ainda não entra na escolha: a recusa por peso não está ativa.';
 
+// Com o aparelho NOMEADO, o motivo genérico vira eco: "o distribuidor já escolheu um
+// aparelho" seguido de "o distribuidor escolheu Celular" é a mesma frase duas vezes, e a
+// segunda é a que diz alguma coisa.
+function motivoGeralDaEspera(item) {
+  if (papelDaEspera(item) === 'escolhido' && item.dev) return '';
+  return `Motivo: ${esc(MOTIVO_ESPERA[item.motivo] || `motivo registrado: ${item.motivo}`)}.`;
+}
+
 function textoDaEspera(item, sync) {
   const motivo = item.motivo;
   if (!motivo) return 'Ele volta a ser oferecido a cada giro, e o motivo da espera não chega a esta tela.';
   const peso = motivo === 'sem-aparelho-apto' || motivo === 'sem_vaga' ? PESO_NAO_ATIVO : '';
-  return `Motivo: ${esc(MOTIVO_ESPERA[motivo] || `motivo registrado: ${motivo}`)}.${detalheDaEspera(item, sync)}${peso} Ele volta a ser oferecido a cada giro.`;
+  const partes = [motivoGeralDaEspera(item), detalheDaEspera(item, sync), peso, 'Ele volta a ser oferecido a cada giro.'];
+  return partes.map((x) => x.trim()).filter(Boolean).join(' ');
 }
 
 export function notaDistribuicaoHtml(key, sync, agora = Date.now()) {
