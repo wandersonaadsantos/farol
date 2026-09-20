@@ -9,6 +9,20 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.3
+
+O Farol parou de desistir de preparar o Claude Code por causa de uma corrida de leitura.
+
+**Correções**
+
+- **A confiança do workspace volta a ser semeada no boot.** O Claude Code reescreve o
+  `~/.claude.json` o tempo todo, e o Farol às vezes lia esse arquivo no meio da escrita, via
+  um JSON pela metade e desistia, com um aviso no log a cada abertura (visto aqui em dois dias
+  seguidos). Sem essa preparação, a primeira sessão pode parar no diálogo "confiar nesta
+  pasta?", que trava a revisão automática. Agora o Farol tenta ler três vezes antes de
+  desistir, e só desiste quando o arquivo está ilegível de verdade. Ele continua sem nunca
+  reescrever nem copiar o arquivo do Claude, que é de outro dono.
+
 ## v2.62.2
 
 Abrir o Farol deixa de ter aquela espera até a tela saber quem administra o conjunto.
