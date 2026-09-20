@@ -9,6 +9,22 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.4
+
+O Diagnóstico parou de encher de cartão repetido quando o limite do plano Claude estoura.
+
+**Correções**
+
+- **Limite do plano deixa de virar um cartão por minuto.** A verificação de contestação do
+  autor (pushback) gastava uma sessão por ciclo mesmo com o limite do plano estourado, e cada
+  tentativa escrevia uma falha nova em Sistema > Diagnóstico: em 17/09/2026 foram quatro
+  cartões idênticos em cinco minutos, no mesmo PR. Agora ela para até a hora do reset que vem
+  escrita na própria mensagem do Claude, ou por meia hora quando a mensagem não cita hora.
+- **Falha que se resolve sozinha, repetida, vira contagem.** A mesma falha no mesmo PR, com a
+  mesma mensagem, fica num cartão só, com "4× desde 17/09 17:52" e a data da última vez.
+  Falha que precisa de você continua com uma linha por acontecimento, porque cada uma tem
+  sessão própria para investigar.
+
 ## v2.62.3
 
 O Farol parou de desistir de preparar o Claude Code por causa de uma corrida de leitura.
