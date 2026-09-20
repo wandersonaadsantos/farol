@@ -208,8 +208,12 @@ export function aparelhosListaHtml(devices, opcoes) {
   // grade em cada linha, a coluna de ações (`auto`) media 0 px no cabeçalho e centenas nas
   // linhas, e o nome era espremido na proporção do número de botões, ou seja, do papel do
   // aparelho: quanto mais poder a linha oferecia, menos nome cabia.
+  //
+  // O cabeçalho tem QUATRO células, uma por coluna. As ações não são coluna desde 21/09/2026:
+  // elas descem para uma faixa de largura inteira dentro da própria linha (ver .row-actions
+  // no app.css), porque na largura real da seção não cabem nome, dados e botões lado a lado.
   return `<div class="card sync-lista apar-lista">
-    <div class="apar-linha apar-head"><span>aparelho</span><span>sistema</span><span>versão</span><span>visto por último</span><span></span></div>
+    <div class="apar-linha apar-head"><span>aparelho</span><span>sistema</span><span>versão</span><span>visto por último</span></div>
     ${linhas}
     ${notaDoPrimeiro(lista)}
     ${notaDaCobertura(lista, o.cobertura, o.versaoMinima)}
