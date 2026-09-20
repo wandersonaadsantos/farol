@@ -16,7 +16,7 @@
    As ações recebem as dependências por parâmetro (`deps`), com o default real. É assim que
    os testes exercitam o fluxo sem rede e sem DOM de verdade. */
 
-import { esc, aparelhosSecaoHtml, aparelhosSouAdmin, aparelhosCampoSenhaModal, aparelhosDesignarAcao, aparelhosDesignarConfirmacao, aparelhosResultadoDaLimpeza, aparelhoPoliticaParaPublicar, reciboFinal, syncOlhoRotulo, syncOlhoDesenho, settingsIgnoradasTexto } from '../pure.js';
+import { aparelhosSecaoHtml, aparelhosSouAdmin, aparelhosCampoSenhaModal, aparelhosDesignarAcao, aparelhosDesignarConfirmacao, aparelhosAposentarConfirmacao, aparelhosRenomearDialogo, aparelhosResultadoDaLimpeza, aparelhoPoliticaParaPublicar, reciboFinal, syncOlhoRotulo, syncOlhoDesenho, settingsIgnoradasTexto } from '../pure.js';
 import { estado } from './estado.js';
 import { $, api, get, toast, confirmModal } from './infra.js';
 
@@ -169,34 +169,52 @@ export async function carregarAparelhos(d = DEPS) {
 
 /* ---------- aparelhos ---------- */
 
+// O aparelho alvo, resolvido do snapshot no MOMENTO do clique. O `deviceId` do botão é a
+// verdade do alvo, e ele não muda durante a confirmação: repintar ou reordenar a lista
+// no meio do diálogo não pode trocar o destinatário do ato.
+function alvoDoAto(deviceId) {
+  const lista = syncDoEstado().devices;
+  const d = (Array.isArray(lista) ? lista : []).find((x) => x && x.deviceId === deviceId) || null;
+  return { alvo: d, nome: String((d && d.name) || deviceId), euMesmo: !!(d && d.euMesmo === true) };
+}
+
+// Renomear OUTRO aparelho é administração; renomear a si mesmo é de todo mundo. A guarda
+// está aqui também, e não só no desenho da linha, porque um snapshot novo pode tirar a
+// autoridade entre um e outro. Quem recusa de verdade é o engine.
 export async function renomearAparelho(deviceId, d = DEPS) {
-  const atual = (syncDoEstado().devices || []).find((x) => x && x.deviceId === deviceId) || {};
-  const resp = await d.confirmarComCampo({
-    title: 'Renomear aparelho',
-    confirmLabel: 'Renomear',
-    body: `<p>É o nome que os outros aparelhos mostram. Nome vazio mantém o atual.</p>
-      <input id="aparModalNome" class="sync-input" type="text" maxlength="40" spellcheck="false" autocomplete="off" value="${esc(atual.name || '')}">`,
-  }, 'aparModalNome');
+  const { alvo, nome, euMesmo } = alvoDoAto(deviceId);
+  if (!alvo) return false;
+  if (!euMesmo && !aparelhosSouAdmin(syncDoEstado().admin)) {
+    d.toast('error', `Só o aparelho admin renomeia o ${nome}.`, 6000);
+    return false;
+  }
+  const texto = aparelhosRenomearDialogo(nome, alvo.name || '', { euMesmo });
+  const resp = await d.confirmarComCampo({ title: texto.title, confirmLabel: 'Renomear', body: texto.body }, 'aparModalNome');
   if (!resp.ok || !resp.valor.trim()) return false;
   const r = await d.api('/api/sync/device', { deviceId, nome: resp.valor.trim() });
-  if (r && r.ok) d.toast('ok', '✓ Aparelho renomeado', 2500);
-  else d.toast('error', `Não deu para renomear: ${motivoDe(r)}`, 7000);
+  if (r && r.ok) d.toast('ok', `✓ ${nome} agora se chama ${resp.valor.trim()}`, 3500);
+  else d.toast('error', `Não deu para renomear o ${nome}: ${motivoDe(r)}`, 7000);
   return !!(r && r.ok);
 }
 
+// Aposentar e reativar são de quem administra, e o alvo é NOMEADO no aviso e no desfecho.
+// O modal antigo dizia "este aparelho" para qualquer linha da lista, e o toast dizia só
+// "Aparelho aposentado": quem clicasse na linha errada não tinha como perceber.
 export async function aposentarAparelho(deviceId, aposentar, d = DEPS) {
+  const { alvo, nome, euMesmo } = alvoDoAto(deviceId);
+  if (!alvo) return false;
+  if (!aparelhosSouAdmin(syncDoEstado().admin)) {
+    d.toast('error', `Só o aparelho admin, com sinal fresco, aposenta ou reativa o ${nome}.`, 6000);
+    return false;
+  }
   if (aposentar) {
-    const resp = await d.confirmarComCampo({
-      title: 'Aposentar este aparelho?',
-      confirmLabel: 'Aposentar',
-      body: `<p>O aparelho deixa de contar como ativo no conjunto.</p>
-        <p><b>Não acontece:</b> nenhum dado é apagado, nenhuma chave é retirada, o admin não é deposto e nenhuma sessão é encerrada. Dá para reativar depois.</p>`,
-    }, '');
+    const texto = aparelhosAposentarConfirmacao(nome, { euMesmo });
+    const resp = await d.confirmarComCampo({ title: texto.title, confirmLabel: `Aposentar o ${nome}`, body: texto.body }, '');
     if (!resp.ok) return false;
   }
   const r = await d.api('/api/sync/device', { deviceId, aposentar: aposentar === true });
-  if (r && r.ok) d.toast('ok', aposentar ? '✓ Aparelho aposentado' : '✓ Aparelho reativado', 2500);
-  else d.toast('error', `Não deu para mudar o aparelho: ${motivoDe(r)}`, 7000);
+  if (r && r.ok) d.toast('ok', aposentar ? `✓ ${nome} aposentado` : `✓ ${nome} reativado`, 3000);
+  else d.toast('error', `Não deu para mudar o ${nome}: ${motivoDe(r)}`, 7000);
   return !!(r && r.ok);
 }
 

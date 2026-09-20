@@ -73,6 +73,24 @@ async function motorLogado() {
   return e;
 }
 
+// Um aparelho que nunca foi admin. O FAROL_HOME é o mesmo para todos os motores deste
+// processo, e a chave privada de admin mora nele: sem apagá-la, um motor "comum" herdaria a
+// autoridade de um caso anterior e o gate pareceria não existir.
+async function motorComum() {
+  const e = await motorLogado();
+  (await import('../lib/sync/admin-chave.js')).default.apagarChaveDeAdmin();
+  return e;
+}
+
+// Aposentar, reativar e renomear OUTRO aparelho exigem o admin da geração vigente. Quase
+// todos os casos deste arquivo falam de outro aparelho, então este é o motor padrão deles.
+async function motorAdmin() {
+  const e = await motorLogado();
+  assert.equal((await e.syncUnlock({ password: SENHA })).ok, true);
+  assert.equal((await e.syncTornarAdmin({ password: SENHA })).ok, true);
+  return e;
+}
+
 function noDoAparelho(id) {
   const t = fake.tree();
   const devs = t && t.users && t.users.u1 ? t.users.u1.devices : null;
@@ -86,7 +104,7 @@ function semearOutro({ lastSeenAt }) {
 }
 
 test('renomear outro aparelho grava o nome e não toca em presença nem em criação', async () => {
-  const e = await motorLogado();
+  const e = await motorAdmin();
   semearOutro({ lastSeenAt: Date.now() });
   const antes = noDoAparelho(OUTRO);
   const r = await e.syncAparelho({ deviceId: OUTRO, nome: 'Celular da sala' });
@@ -98,7 +116,7 @@ test('renomear outro aparelho grava o nome e não toca em presença nem em cria�
 });
 
 test('renomear OUTRO aparelho não muda o nome deste', async () => {
-  const e = await motorLogado();
+  const e = await motorAdmin();
   semearOutro({ lastSeenAt: Date.now() });
   await e.syncAparelho({ deviceId: OUTRO, nome: 'Celular da sala' });
   assert.equal(e.config.sync.deviceName, 'Notebook');
@@ -114,7 +132,7 @@ test('renomear ESTE aparelho também troca o nome local', async () => {
 });
 
 test('aposentar é explícito, sai dos ativos e continua no histórico', async () => {
-  const e = await motorLogado();
+  const e = await motorAdmin();
   semearOutro({ lastSeenAt: Date.now() });
   const r = await e.syncAparelho({ deviceId: OUTRO, aposentar: true });
   assert.equal(r.ok, true, r.motivo);
@@ -127,7 +145,7 @@ test('aposentar é explícito, sai dos ativos e continua no histórico', async (
 });
 
 test('desaposentar tem volta: aposentar por engano não é definitivo', async () => {
-  const e = await motorLogado();
+  const e = await motorAdmin();
   semearOutro({ lastSeenAt: Date.now() });
   await e.syncAparelho({ deviceId: OUTRO, aposentar: true });
   await e.syncAparelho({ deviceId: OUTRO, aposentar: false });
@@ -149,7 +167,7 @@ test('ausência NÃO aposenta: presença velha atravessa ciclos sem ser carimbad
 });
 
 test('aposentar não apaga dado, não tira chave e não encerra sessão', async () => {
-  const e = await motorLogado();
+  const e = await motorAdmin();
   semearOutro({ lastSeenAt: Date.now() });
   const arvore = fake.tree();
   arvore.users.u1.keyring = { v: 1, rev: 1 };
@@ -163,7 +181,7 @@ test('aposentar não apaga dado, não tira chave e não encerra sessão', async 
 });
 
 test('nome vazio não apaga o nome, e aparelho desconhecido recusa', async () => {
-  const e = await motorLogado();
+  const e = await motorAdmin();
   semearOutro({ lastSeenAt: Date.now() });
   await e.syncAparelho({ deviceId: OUTRO, nome: '   ' });
   assert.equal(noDoAparelho(OUTRO).name, 'Celular');
@@ -203,4 +221,96 @@ test('abrir a chave reescreve a presença na hora, com a chave pronta anunciada'
   assert.equal((await e.syncUnlock({ password: SENHA })).ok, true);
   assert.equal(noDoAparelho(e.sync.deviceId).keyReady, true, 'depois de abrir, o conjunto vê na hora');
   assert.equal(e.sync.devices[e.sync.deviceId].keyReady, true, 'e a lista deste aparelho também, que é a que a tela e os destinos leem');
+});
+
+/* ---------- quem pode: aposentar é administração, e o engine é a barreira ----------
+   Medido em 20/09/2026: o cabeçalho deste módulo sempre disse que aposentar é decisão de
+   quem administra, e não existia código exigindo isso. A UI escondia "Política" e
+   "Designar" de quem não é admin, mas "Renomear" e "Aposentar" iam para todo mundo, e a
+   rota /api/sync/device aceitava de qualquer aparelho conectado. */
+
+test('aparelho comum não aposenta ninguém, nem pela rota', async () => {
+  const e = await motorComum();
+  semearOutro({ lastSeenAt: Date.now() });
+  const r = await e.syncAparelho({ deviceId: OUTRO, aposentar: true });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'nao-e-admin');
+  assert.equal(noDoAparelho(OUTRO).retiredAt, undefined, 'nada foi escrito');
+});
+
+test('aparelho comum não reativa ninguém: desaposentar é o mesmo ato', async () => {
+  const e = await motorAdmin();
+  semearOutro({ lastSeenAt: Date.now() });
+  assert.equal((await e.syncAparelho({ deviceId: OUTRO, aposentar: true })).ok, true);
+  // a chave privada de admin é o que faz o papel, e ela mora no disco deste FAROL_HOME:
+  // apagá-la é o mesmo que estar num aparelho que nunca foi admin
+  (await import('../lib/sync/admin-chave.js')).default.apagarChaveDeAdmin();
+  const r = await e.syncAparelho({ deviceId: OUTRO, aposentar: false });
+  assert.equal(r.code, 'nao-e-admin');
+  assert.ok(noDoAparelho(OUTRO).retiredAt > 0, 'continua aposentado');
+});
+
+test('aparelho comum não aposenta nem a si mesmo: quem conta como ativo é da administração', async () => {
+  const e = await motorComum();
+  const r = await e.syncAparelho({ deviceId: e.sync.deviceId, aposentar: true });
+  assert.equal(r.code, 'nao-e-admin');
+  assert.equal(noDoAparelho(e.sync.deviceId).retiredAt, undefined);
+});
+
+test('aparelho comum não renomeia OUTRO aparelho', async () => {
+  const e = await motorComum();
+  semearOutro({ lastSeenAt: Date.now() });
+  const r = await e.syncAparelho({ deviceId: OUTRO, nome: 'Invadido' });
+  assert.equal(r.code, 'nao-e-admin');
+  assert.equal(noDoAparelho(OUTRO).name, 'Celular');
+});
+
+// A contraprova do gate: ele não pode engolir o ato local que todo aparelho tem.
+test('aparelho comum renomeia a si mesmo: é o mesmo ato do campo "Nome deste aparelho"', async () => {
+  const e = await motorComum();
+  const r = await e.syncAparelho({ deviceId: e.sync.deviceId, nome: 'Meu canto' });
+  assert.equal(r.ok, true, r.motivo);
+  assert.equal(noDoAparelho(e.sync.deviceId).name, 'Meu canto');
+  assert.equal(e.config.sync.deviceName, 'Meu canto');
+});
+
+test('admin que perdeu a autoridade para uma geração nova não aposenta mais', async () => {
+  const e = await motorAdmin();
+  semearOutro({ lastSeenAt: Date.now() });
+  // outro aparelho virou admin: a geração andou, e a chave guardada aqui é da anterior
+  const arvore = fake.tree();
+  const vigente = arvore.users.u1.live.control.admin;
+  arvore.users.u1.live.control.admin = { ...vigente, deviceId: OUTRO, generation: Number(vigente.generation) + 1 };
+  fake.setTree(arvore);
+  const r = await e.syncAparelho({ deviceId: OUTRO, aposentar: true });
+  assert.equal(r.code, 'nao-e-admin', 'a geração é lida do banco agora, não a guardada');
+  assert.equal(noDoAparelho(OUTRO).retiredAt, undefined);
+});
+
+// Sem admin nenhum o ato tambem nao acontece, e a recusa diz POR QUE: "ninguem administra"
+// e "nao sei quem administra" sao coisas diferentes, e nenhuma das duas da autoridade.
+test('conjunto sem admin: o ato e recusado por nao-e-admin, nao por indisponivel', async () => {
+  const e = await motorAdmin();
+  semearOutro({ lastSeenAt: Date.now() });
+  const arvore = fake.tree();
+  delete arvore.users.u1.live.control.admin;
+  fake.setTree(arvore);
+  const r = await e.syncAparelho({ deviceId: OUTRO, aposentar: true });
+  assert.equal(r.code, 'nao-e-admin');
+  assert.match(r.motivo, /ninguem administra|ninguém administra/);
+  assert.equal(noDoAparelho(OUTRO).retiredAt, undefined);
+});
+
+test('leitura do admin indisponivel recusa por indisponivel, e nada e escrito', async () => {
+  const e = await motorAdmin();
+  semearOutro({ lastSeenAt: Date.now() });
+  const get = e.sync.client.get.bind(e.sync.client);
+  e.sync.client.get = async (caminho, opcoes) => {
+    if (String(caminho).endsWith('live/control/admin')) throw new Error('rede fora');
+    return get(caminho, opcoes);
+  };
+  const r = await e.syncAparelho({ deviceId: OUTRO, aposentar: true });
+  e.sync.client.get = get;
+  assert.equal(r.code, 'indisponivel');
+  assert.equal(noDoAparelho(OUTRO).retiredAt, undefined);
 });

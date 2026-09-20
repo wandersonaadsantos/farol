@@ -110,14 +110,60 @@ function designarHtml(d, souAdmin) {
   return `<span class="sync-fraco">designar: ${esc(acao.motivo)}</span>`;
 }
 
+// Aposentar e reativar são de quem administra (lib/engine/sync-aparelho.js), e renomear
+// OUTRO aparelho também: os dois escrevem no registro alheio. Renomear a SI MESMO fica com
+// todo mundo, porque é o mesmo ato do campo "Nome deste aparelho" em Sincronização.
+//
+// A tela não é a barreira, o engine é. Esconder o botão aqui evita oferecer um ato que vai
+// ser recusado; e o clique reconfere a autoridade, porque um snapshot novo pode tirá-la
+// entre o desenho da linha e o clique.
+function aposentarHtml(d, souAdmin) {
+  if (!souAdmin) return '';
+  const id = esc(String(d.deviceId || ''));
+  if (Number(d.retiredAt) > 0) return `<button class="btn sm ghost" data-apar-reativar="${id}">Reativar</button>`;
+  return `<button class="btn sm ghost" data-apar-aposentar="${id}">Aposentar</button>`;
+}
+
+function renomearHtml(d, souAdmin) {
+  if (!souAdmin && d.euMesmo !== true) return '';
+  return `<button class="btn sm ghost" data-apar-renomear="${esc(String(d.deviceId || ''))}">Renomear</button>`;
+}
+
 function acoesDoAparelho(d, souAdmin) {
   const id = esc(String(d.deviceId || ''));
-  const botoes = [`<button class="btn sm ghost" data-apar-renomear="${id}">Renomear</button>`];
+  const botoes = [renomearHtml(d, souAdmin)];
   if (souAdmin) botoes.push(`<button class="btn sm ghost" data-apar-politica="${id}">Política</button>`);
-  if (Number(d.retiredAt) > 0) botoes.push(`<button class="btn sm ghost" data-apar-reativar="${id}">Reativar</button>`);
-  else botoes.push(`<button class="btn sm ghost" data-apar-aposentar="${id}">Aposentar</button>`);
+  botoes.push(aposentarHtml(d, souAdmin));
   botoes.push(designarHtml(d, souAdmin));
   return `<span class="row-actions">${botoes.filter(Boolean).join('')}</span>`;
+}
+
+// O que a pessoa lê ANTES de aposentar. O NOME está no título, no corpo e no aviso: o botão
+// vive na linha de cada aparelho da lista, e o modal antigo dizia "este aparelho" para
+// qualquer um deles. Quem clicava na linha errada aposentava o aparelho errado e não tinha
+// como perceber, porque o toast também não dizia qual.
+export function aparelhosAposentarConfirmacao(nome, opcoes) {
+  const o = opcoes || {};
+  const quem = o.euMesmo === true ? `<b>${esc(nome)}</b> (este aparelho)` : `<b>${esc(nome)}</b>`;
+  return {
+    title: `Aposentar o ${nome}?`,
+    body: `<p><b>Acontece:</b> o ${quem} deixa de contar como ativo no conjunto.</p>
+      <p><b>Não acontece:</b> nenhum dado é apagado, nenhuma chave é retirada, o admin não é deposto e nenhuma sessão é encerrada. Dá para reativar depois.</p>`,
+  };
+}
+
+// Renomear a si mesmo e renomear outro são atos diferentes, e o texto precisa dizer qual é:
+// "é o nome que os outros aparelhos mostram" só faz sentido quando o alvo é este aparelho.
+export function aparelhosRenomearDialogo(nome, atual, opcoes) {
+  const o = opcoes || {};
+  const explicacao = o.euMesmo === true
+    ? 'É o nome que os outros aparelhos mostram para este. Nome vazio mantém o atual.'
+    : `É o nome com que <b>${esc(nome)}</b> aparece em todos os aparelhos, inclusive neste. Nome vazio mantém o atual.`;
+  return {
+    title: o.euMesmo === true ? 'Renomear este aparelho' : `Renomear o ${nome}`,
+    body: `<p>${explicacao}</p>
+      <input id="aparModalNome" class="sync-input" type="text" maxlength="40" spellcheck="false" autocomplete="off" value="${esc(atual || '')}">`,
+  };
 }
 
 function linhaDoAparelho(d, opcoes) {

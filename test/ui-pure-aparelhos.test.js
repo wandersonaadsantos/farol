@@ -239,3 +239,76 @@ test('aparelhosSecaoHtml: ligada monta lista, administração, consentimento, na
   assert.match(html, /Nenhum navegador/);
   assert.match(html, /id="aparLimpar"/);
 });
+
+/* ---------- 20/09/2026: aposentar é de quem administra, e o alvo é nomeado ---------- */
+
+const ADMIN_FRESCO = { deviceId: 'dEu', souEu: true, fresca: true, generation: 4 };
+
+function linhaDe(devices, admin) {
+  return P.aparelhosListaHtml(devices, { admin: admin || {}, souAdmin: P.aparelhosSouAdmin(admin || {}), agora: Date.now() });
+}
+
+test('aparelho comum não ganha botão de aposentar nem de reativar', () => {
+  const html = linhaDe([{ deviceId: 'dX', name: 'Celular' }, { deviceId: 'dY', name: 'Velho', retiredAt: 1 }], { deviceId: 'dOutro', souEu: false, fresca: true });
+  assert.equal(html.includes('data-apar-aposentar'), false);
+  assert.equal(html.includes('data-apar-reativar'), false);
+});
+
+test('admin sem sinal fresco também não ganha o botão de aposentar', () => {
+  const html = linhaDe([{ deviceId: 'dX', name: 'Celular' }], { deviceId: 'dEu', souEu: true, fresca: false });
+  assert.equal(html.includes('data-apar-aposentar'), false);
+});
+
+test('admin com sinal fresco ganha aposentar em todas as linhas, e reativar na aposentada', () => {
+  const html = linhaDe([{ deviceId: 'dX', name: 'Celular' }, { deviceId: 'dY', name: 'Velho', retiredAt: 1 }], ADMIN_FRESCO);
+  assert.ok(html.includes('data-apar-aposentar="dX"'));
+  assert.ok(html.includes('data-apar-reativar="dY"'));
+  assert.equal(html.includes('data-apar-aposentar="dY"'), false, 'aposentado não ganha o botão de novo');
+});
+
+test('renomear: aparelho comum só renomeia a própria linha', () => {
+  const html = linhaDe([{ deviceId: 'dEu', name: 'Meu', euMesmo: true }, { deviceId: 'dX', name: 'Celular' }], { deviceId: 'dOutro', souEu: false, fresca: true });
+  assert.ok(html.includes('data-apar-renomear="dEu"'), 'dizer o próprio nome é de todo aparelho');
+  assert.equal(html.includes('data-apar-renomear="dX"'), false, 'renomear o vizinho é administração');
+});
+
+test('renomear: o admin renomeia qualquer linha', () => {
+  const html = linhaDe([{ deviceId: 'dEu', name: 'Meu', euMesmo: true }, { deviceId: 'dX', name: 'Celular' }], ADMIN_FRESCO);
+  assert.ok(html.includes('data-apar-renomear="dEu"'));
+  assert.ok(html.includes('data-apar-renomear="dX"'));
+});
+
+test('aparelhosAposentarConfirmacao: nomeia o alvo no título e no corpo', () => {
+  const t = P.aparelhosAposentarConfirmacao('Celular da sala', { euMesmo: false });
+  assert.equal(t.title, 'Aposentar o Celular da sala?');
+  assert.match(t.body, /<b>Celular da sala<\/b>/);
+  assert.equal(/este aparelho/.test(t.body), false, 'aparelho remoto não é "este aparelho"');
+});
+
+test('aparelhosAposentarConfirmacao: quando o alvo é o local, diz as duas coisas', () => {
+  const t = P.aparelhosAposentarConfirmacao('Notebook', { euMesmo: true });
+  assert.match(t.body, /Notebook<\/b> \(este aparelho\)/);
+});
+
+test('aparelhosAposentarConfirmacao: o que NÃO acontece continua escrito', () => {
+  const t = P.aparelhosAposentarConfirmacao('Celular', {});
+  assert.match(t.body, /nenhum dado é apagado/);
+  assert.match(t.body, /o admin não é deposto/);
+  assert.match(t.body, /reativar depois/);
+});
+
+test('aparelhosAposentarConfirmacao: nome com HTML não escapa para o corpo', () => {
+  const t = P.aparelhosAposentarConfirmacao('<img onerror=x>', { euMesmo: false });
+  assert.equal(t.body.includes('<img'), false);
+  assert.match(t.body, /&lt;img/);
+});
+
+test('aparelhosRenomearDialogo: o texto muda quando o alvo é outro aparelho', () => {
+  const meu = P.aparelhosRenomearDialogo('Notebook', 'Notebook', { euMesmo: true });
+  assert.equal(meu.title, 'Renomear este aparelho');
+  assert.match(meu.body, /os outros aparelhos mostram para este/);
+  const outro = P.aparelhosRenomearDialogo('Celular', 'Celular', { euMesmo: false });
+  assert.equal(outro.title, 'Renomear o Celular');
+  assert.match(outro.body, /inclusive neste/);
+  assert.match(outro.body, /value="Celular"/);
+});
