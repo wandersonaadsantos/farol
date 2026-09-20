@@ -110,3 +110,31 @@ test('falhasPorSessao resume só as sessões pedidas', () => {
   assert.deepEqual(Object.keys(r), ['a-resumo']);
   assert.equal(r['a-resumo'].motivo.length, 200);
 });
+
+test('falha que se resolve sozinha repetida vira contagem, não cartão novo', () => {
+  const e = new Engine();
+  e.falhasSessao = [];
+  const msg = "sessão retornou erro: You've hit your weekly limit · resets 2am (America/Sao_Paulo)";
+  const primeira = e.registrarFalha({ sessionId: 'a-lim1', kind: 'pushback', ref: 'o/r#1050', motivo: msg });
+  for (const sid of ['a-lim2', 'a-lim3']) e.registrarFalha({ sessionId: sid, kind: 'pushback', ref: 'o/r#1050', motivo: msg });
+  const lista = e.falhasRecentes({ limite: 50 });
+  assert.equal(lista.length, 1, 'um registro só');
+  assert.equal(lista[0].id, primeira.id, 'o cartão não troca de identidade no meio da espera');
+  assert.equal(lista[0].ocorrencias, 3);
+  assert.equal(lista[0].primeiraAt, primeira.at);
+  assert.equal(lista[0].sessionId, 'a-lim3', 'a última sessão é a que fica');
+  // outro PR (ou outro motivo) é outra falha, e continua com cartão próprio
+  e.registrarFalha({ sessionId: 'a-lim4', kind: 'pushback', ref: 'o/r#2', motivo: msg });
+  assert.equal(e.falhasRecentes({ limite: 50 }).length, 2);
+});
+
+test('falha permanente repetida continua uma linha por acontecimento', () => {
+  const e = new Engine();
+  e.falhasSessao = [];
+  const msg = 'OAuth access token has expired';
+  e.registrarFalha({ sessionId: 'a-perm1', kind: 'review', ref: 'o/r#9', motivo: msg });
+  e.registrarFalha({ sessionId: 'a-perm2', kind: 'review', ref: 'o/r#9', motivo: msg });
+  assert.equal(e.falhasRecentes({ limite: 50 }).length, 2);
+  assert.ok(e.falhaDaSessao('a-perm1'), 'a sessão antiga segue encontrável pelo card estacionado');
+});
+

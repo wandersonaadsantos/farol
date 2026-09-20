@@ -77,8 +77,12 @@ function falhaCartaoHtml(f) {
   const classe = CLASSE_DO_CARTAO[f.gravidade] || 'ambient';
   const chip = CHIP_DA_GRAVIDADE[f.gravidade] || '';
   const sessao = f.sessionId ? ` · sessão <code>${esc(f.sessionId)}</code>` : '';
+  // falha que repete enquanto a condição dura sai UMA vez, com a contagem (ver lib/engine/falhas.js)
+  const vezes = Number(f.ocorrencias) > 1
+    ? `<span class="falha-vezes">${Number(f.ocorrencias)}× desde ${esc(quandoLegivel(f.primeiraAt))}</span>`
+    : '';
   return `<div class="card ${classe} falha-cartao">
-    <div class="falha-topo"><span class="falha-titulo">${esc(f.rotulo)}</span>${chip}<span class="falha-quando">${esc(quandoLegivel(f.at))}${sessao}</span></div>
+    <div class="falha-topo"><span class="falha-titulo">${esc(f.rotulo)}</span>${chip}${vezes}<span class="falha-quando">${esc(quandoLegivel(f.at))}${sessao}</span></div>
     <p class="falha-acao"><b>O que fazer:</b> ${esc(f.acao)}</p>
     <div class="report falha-texto">${diagnosticoHtml(f.markdown)}</div>
     <div class="row-actions"><button class="btn sm" type="button" data-copiar-falha="${esc(f.id)}">Copiar esta falha</button></div>

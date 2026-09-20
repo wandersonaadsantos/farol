@@ -1759,6 +1759,7 @@ body.parear > *:not(.par-raiz) { display: none !important; }
 .falha-cartao { display: flex; flex-direction: column; gap: 8px; }
 .falha-topo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .falha-titulo { font-size: 13.5px; font-weight: 650; }
+.falha-vezes { font-size: 11.5px; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }
 .falha-quando { margin-left: auto; font-size: 12px; color: var(--faint); }
 .falha-acao { margin: 0; font-size: 12.5px; color: var(--muted); text-wrap: pretty; }
 .falha-acao b { color: var(--text); font-weight: 650; }
