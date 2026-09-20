@@ -9,6 +9,20 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.6
+
+Os botoes de cada aparelho voltaram a caber numa linha so, sem desalinhar as colunas.
+
+**Correcoes**
+
+- **As acoes de cada aparelho ganharam faixa propria.** Na v2.62.5 as colunas passaram a
+  ficar alinhadas com os cabecalhos, e o preco foi os botoes quebrarem em duas linhas: na
+  largura que a secao Sistema tem de verdade (862 px, porque o menu lateral fica com o
+  resto) sobravam 247 px para as acoes, e a linha com "Designar como admin" precisa de 429.
+  Reservar os 429 deixaria 65 px para o nome do aparelho, que era o problema anterior de
+  volta. Agora os botoes descem para uma faixa de largura inteira, logo abaixo dos dados:
+  os quatro valores seguem alinhados sob os cabecalhos, e as acoes cabem numa linha so.
+
 ## v2.62.5
 
 A sincronização entre aparelhos parou de atribuir ao aparelho errado o que outro fez, e de

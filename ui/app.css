@@ -1842,18 +1842,25 @@ body.parear > *:not(.par-raiz) { display: none !important; }
    .apar-linha era um grid próprio com a mesma receita, e coluna dimensionada por conteúdo
    (`auto`, a das ações) não pode ser igual em grids diferentes: no cabeçalho ela valia 0 px
    (span vazio) e nas linhas, a largura dos botões, que depende do PAPEL do aparelho.
-   Medido a 1500 px em 20/09/2026: nome de 1077 px no cabeçalho contra 444, 666 e 827 px nas
-   linhas, e a 860 px a linha com mais ações ficava com a coluna do nome em 0 px, o nome
-   transbordando por cima da coluna do sistema. Quanto mais poder a linha oferecia, menos
-   nome cabia. Com subgrid a coluna de ações é dimensionada UMA vez, pela linha mais larga,
-   e o cabeçalho cai exatamente sobre os valores. */
-.apar-lista { display: grid; grid-template-columns: minmax(0, 1fr) 90px 100px 130px fit-content(30%); column-gap: var(--sp-3); }
+   Medido a 1500 px em 20/09/2026: nome de 448 px no cabeçalho contra 0, 37 e 198 px nas
+   linhas, com o nome transbordando por cima da coluna do sistema. Quanto mais poder a linha
+   oferecia, menos nome cabia.
+
+   AS AÇÕES SAEM DA GRADE (21/09/2026). Com elas como quinta coluna, a largura real da
+   seção Sistema não comporta tudo numa linha: medido no app, a lista tem 862 px (o menu
+   lateral fica com o resto), a coluna de ações cabia em 247 px e a linha com "Designar como
+   admin" precisava de 429 px. Reservar os 429 deixaria 65 px para o nome, que é o bug de
+   novo. Então os botões descem para uma FAIXA própria, com a largura inteira: os quatro
+   valores continuam alinhados sob os cabeçalhos, e as ações cabem numa linha só. */
+.apar-lista { display: grid; grid-template-columns: minmax(0, 1fr) 90px 100px 130px; column-gap: var(--sp-3); }
 .apar-lista > * { grid-column: 1 / -1; }
-.apar-linha { display: grid; grid-template-columns: subgrid; gap: var(--sp-3); align-items: center; padding: 10px 0; font-size: 12.5px; }
+.apar-linha { display: grid; grid-template-columns: subgrid; gap: var(--sp-1) var(--sp-3); align-items: center; padding: 10px 0; font-size: 12.5px; }
 .apar-linha + .apar-linha { border-top: 1px solid var(--border-soft); }
 .apar-linha.apar-head { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); padding-bottom: 6px; }
 .apar-linha .sync-nome { flex-wrap: wrap; }
-.apar-linha .row-actions { justify-content: flex-end; flex-wrap: wrap; }
+/* a faixa das ações: linha própria, largura inteira, alinhada à esquerda como o nome que
+   ela acompanha. `1 / -1` vale em qualquer uma das três grades (4, 3 ou 1 coluna). */
+.apar-linha .row-actions { grid-column: 1 / -1; justify-content: flex-start; flex-wrap: wrap; margin-top: 2px; }
 .apar-nota { margin: var(--sp-2) 2px var(--sp-3); font-size: 11.5px; color: var(--faint); text-wrap: pretty; }
 .apar-recusa { margin: 0; font-size: 12.5px; color: var(--danger); text-wrap: pretty; }
 .apar-grade { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); align-items: end; }
@@ -1876,7 +1883,7 @@ body.parear > *:not(.par-raiz) { display: none !important; }
 @media (max-width: 860px) {
   .apar-grade { grid-template-columns: 1fr 1fr; }
   /* quem troca de grade é sempre o container: a linha só herda (ver .apar-lista) */
-  .apar-lista { grid-template-columns: minmax(0, 1fr) 90px fit-content(40%); }
+  .apar-lista { grid-template-columns: minmax(0, 1fr) 90px; }
   .apar-linha > :nth-child(2), .apar-linha > :nth-child(4) { display: none; }
 }
 @media (max-width: 720px) {
@@ -1885,7 +1892,6 @@ body.parear > *:not(.par-raiz) { display: none !important; }
   .grupo-perfil { grid-template-columns: minmax(0, 1fr); }
   .apar-linha.apar-head { display: none; }
   .apar-linha > :nth-child(2), .apar-linha > :nth-child(4) { display: inline; }
-  .apar-linha .row-actions { justify-content: flex-start; }
   /* Com o cabeçalho escondido, cada valor diz o que é: sem isto a linha vira uma pilha de
      valores crus (win32, v2.62.4, hoje 13:28) que só quem já conhece a tela decifra. O
      rótulo vem do data-rot do próprio valor, então tela e rótulo nunca divergem. */
@@ -1970,12 +1976,11 @@ body.parear > *:not(.par-raiz) { display: none !important; }
    a linha inteira em vez de espremer o chip, e na linha do aparelho ela quebra junto das
    ações. */
 .md-rev .md-nota { flex-basis: 100%; margin: 0; }
-.apar-linha .row-actions .sync-fraco { flex-basis: 100%; text-align: right; }
+/* a nota de "designar: ..." mora na faixa das ações, e acompanha o alinhamento dela: com a
+   faixa à esquerda, empurrar a nota para a direita a deixava órfã do outro lado da tela */
+.apar-linha .row-actions .sync-fraco { flex-basis: 100%; text-align: left; }
 @media (max-width: 860px) {
   .md-rev .md-nota { font-size: 11.5px; }
-}
-@media (max-width: 720px) {
-  .apar-linha .row-actions .sync-fraco { text-align: left; }
 }
 @media (max-width: 620px) {
   .md-rev .md-nota { padding: 4px 0; }

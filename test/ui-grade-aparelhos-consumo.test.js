@@ -162,3 +162,40 @@ test('7.4: sem consolidação a aba continua dizendo que o escopo é este aparel
   assert.match(telas, /consolidação[^\n]*desligada/i, 'o marcador diz o MOTIVO, para não ser lido como falha de carregamento');
   assert.match(CSS, /\.usage-escopo\s*\{/, 'o marcador tem estilo próprio');
 });
+
+/* ---------- 21/09/2026: as ações saem da grade e viram faixa ----------
+   Medido no app real, na largura que a seção Sistema tem de verdade (862 px, porque o menu
+   lateral fica com o resto): com as ações como quinta coluna, elas cabiam em 247 px e a
+   linha com "Designar como admin" precisava de 429. Reservar os 429 deixaria 65 px para o
+   nome, que é o bug do cabeçalho desalinhado de volta. Toda linha quebrava os botões em
+   duas, e a altura foi de 58 para 92 px (138 na linha que ainda tem a nota do designar).
+
+   A faixa resolve os dois: os quatro valores seguem alinhados sob os cabeçalhos, e os
+   botões ocupam a largura inteira, numa linha só. Medido depois: 792 px para as ações a
+   862 px de lista, 1 linha de botões em todas, e altura de 77 px. */
+
+test('as ações não são coluna: o cabeçalho tem uma célula por coluna de DADO', () => {
+  const html = P.aparelhosListaHtml(TRES, { admin: { deviceId: 'dWin' }, agora: AGORA, souAdmin: true });
+  const cabecalho = html.slice(html.indexOf('apar-head'), html.indexOf('</div>', html.indexOf('apar-head')));
+  const celulas = (cabecalho.match(/<span/g) || []).length;
+  assert.equal(celulas, 4, 'aparelho, sistema, versão e visto por último; a quinta célula vazia era a das ações');
+  assert.match(CSS, /\.apar-lista\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+90px\s+100px\s+130px\s*;/, 'a grade tem QUATRO colunas, todas de dado');
+});
+
+test('a faixa das ações ocupa a largura inteira da linha, em qualquer grade', () => {
+  assert.match(CSS, /\.apar-linha\s+\.row-actions\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/, '1 / -1 vale para a grade de 4, de 2 e de 1 coluna');
+  assert.match(CSS, /\.apar-linha\s+\.row-actions\s*\{[^}]*justify-content:\s*flex-start/, 'a faixa acompanha o nome, à esquerda');
+});
+
+test('nenhuma largura devolve às ações o papel de coluna', () => {
+  for (const largura of [860, 720]) {
+    const bloco = blocoDaMedia(largura);
+    assert.doesNotMatch(bloco, /\.apar-lista\s*\{[^}]*fit-content/, `a ${largura}px as ações voltaram a ser coluna dimensionada`);
+  }
+});
+
+test('a nota do designar acompanha a faixa, e não fica órfã do outro lado', () => {
+  assert.match(CSS, /\.apar-linha\s+\.row-actions\s+\.sync-fraco\s*\{[^}]*text-align:\s*left/);
+  const html = P.aparelhosListaHtml(TRES, { admin: { deviceId: 'dWin' }, agora: AGORA, souAdmin: true });
+  assert.match(html, /designar: sem presença recente/, 'o motivo continua na tela, dentro da faixa');
+});
