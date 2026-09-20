@@ -77,3 +77,36 @@ test('a contagem sobrevive a um engine novo', async () => {
   delete outro.pushbackFalhas;
   assert.equal(pb.pushbackNoTeto(outro, 'o/r#2', '2026-08-01T09:00:00Z'), true);
 });
+
+// 17/09/2026: o limite semanal do plano fez o scan gastar uma sessão por ciclo no mesmo PR
+// e escrever um cartão de falha por minuto no Diagnóstico. Limite de plano tem hora pra
+// voltar; até lá o scan inteiro para, e o registro conta as repetições em vez de crescer.
+test('limite do plano para o scan até o reset e não empilha cartão', async () => {
+  const msg = "sessão retornou erro: You've hit your weekly limit · resets 2am (America/Sao_Paulo)";
+  assert.equal(classify(msg).kind, 'espera-reset', 'premissa da taxonomia');
+  const e = engineAlvo();
+  e.falhasSessao = [];
+  let chamadas = 0;
+  e.classifyPushback = async () => { chamadas++; throw new Error(msg); };
+  for (let i = 0; i < 5; i++) await e.scanPushbacks();
+  assert.equal(chamadas, 1, 'uma sessão só: as outras quatro esperariam o mesmo reset');
+  assert.ok(pb.esperandoResetDePlano(e), 'o scan fica esperando o reset');
+  assert.equal(pb.pushbackTargets(e, e.reviewActions()).length, 0, 'ninguém entra no scan durante a espera');
+  const doPlano = e.falhasRecentes({ limite: 50 }).filter((f) => f.classe === 'limite-plano');
+  assert.equal(doPlano.length, 1, 'um cartão só');
+  // passado o reset, o scan volta sozinho
+  e.pushbackEsperaAte = Date.now() - 1000;
+  await e.scanPushbacks();
+  assert.equal(chamadas, 2);
+});
+
+test('mensagem de limite sem hora citada espera meia hora', () => {
+  const e = new Engine();
+  e.log = () => { };
+  const agora = Date.UTC(2026, 8, 17, 12, 0, 0);
+  const ate = pb.esperarResetDePlano(e, 'sessão retornou erro: hit your usage limit', agora);
+  assert.equal(ate - agora, 30 * 60 * 1000);
+  assert.equal(pb.esperandoResetDePlano(e, agora), true);
+  assert.equal(pb.esperandoResetDePlano(e, ate + 1), false);
+});
+
