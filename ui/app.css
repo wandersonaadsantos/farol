@@ -1093,6 +1093,16 @@ body.electron .chat-head { padding-right: 150px; }
 .usage-kpi b { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.25; }
 .usage-kpi-sub { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .usage-kpi-spark { width: 100%; height: 26px; display: block; margin-top: 6px; }
+/* Marca de escopo quando o segmentado "Este aparelho | Todos os aparelhos" não existe (a
+   consolidação está desligada). Sem ela a aba mostrava números sem escopo nenhum,
+   visualmente idênticos à visão consolidada. Tom neutro de propósito: é uma escolha de
+   configuração, não uma falha de carregamento, e falha tem o callout de aviso. */
+.usage-escopo { display: inline-flex; align-items: baseline; gap: 8px; min-width: 0; }
+.usage-escopo b { font-size: 12.5px; font-weight: 650; color: var(--text); }
+.usage-escopo span { font-size: 11.5px; color: var(--faint); }
+@media (max-width: 620px) {
+  .usage-escopo { flex-direction: column; align-items: flex-start; gap: 1px; }
+}
 
 .usage-chart-card { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
 .usage-chart-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
@@ -1698,6 +1708,12 @@ body.electron .chat-head { padding-right: 150px; }
 .sync-linha { display: grid; grid-template-columns: minmax(0, 1fr) 90px 110px 150px; gap: var(--sp-3); align-items: center; padding: 10px 0; font-size: 12.5px; }
 .sync-linha + .sync-linha { border-top: 1px solid var(--border-soft); }
 .sync-linha.sync-head { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); padding-bottom: 6px; }
+/* A linha do Consumo consolidado tem TRÊS colunas (aparelho, sessões, custo · última), e a
+   .sync-linha genérica tem quatro, com um media query que esconde os filhos 2 e 3 no
+   estreito. Ali eles são justamente sessões e custo: a ≤720 px a tabela "Todos os
+   aparelhos" virava uma lista de nomes e mais nada (medido em 20/09/2026). A exceção é do
+   componente, como a da .apar-sessao, para não regredir os outros usos da .sync-linha. */
+.sync-linha.usage-dev { grid-template-columns: minmax(0, 1fr) 90px minmax(0, 190px); }
 .sync-nome { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; font-weight: 600; }
 .sync-fraco { color: var(--muted); }
 .sync-coord { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-3); align-items: center; padding: 11px 0; font-size: 12.5px; }
@@ -1723,6 +1739,11 @@ body.electron .chat-head { padding-right: 150px; }
   .sync-corpo { grid-template-columns: 1fr; }
   .sync-linha { grid-template-columns: minmax(0, 1fr) auto; }
   .sync-linha > :nth-child(2), .sync-linha > :nth-child(3) { display: none; }
+  /* o consolidado preserva sessões e custo: empilhados e com o rótulo do data-rot, porque
+     o cabeçalho da tabela também some aqui */
+  .sync-linha.usage-dev { grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); }
+  .sync-linha.usage-dev > :nth-child(2), .sync-linha.usage-dev > :nth-child(3) { display: block; }
+  .sync-linha.usage-dev.sync-head { display: none; }
 }
 
 /* ---------- pareamento da API local (A4) ----------
@@ -1817,7 +1838,18 @@ body.parear > *:not(.par-raiz) { display: none !important; }
 .apar-titulo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .apar-acao { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
 .apar-acao .sync-campo { flex: 1; min-width: 200px; }
-.apar-linha { display: grid; grid-template-columns: minmax(0, 1fr) 90px 100px 130px auto; gap: var(--sp-3); align-items: center; padding: 10px 0; font-size: 12.5px; }
+/* A GRADE mora na lista, e cada linha herda as colunas dela (subgrid). Antes cada
+   .apar-linha era um grid próprio com a mesma receita, e coluna dimensionada por conteúdo
+   (`auto`, a das ações) não pode ser igual em grids diferentes: no cabeçalho ela valia 0 px
+   (span vazio) e nas linhas, a largura dos botões, que depende do PAPEL do aparelho.
+   Medido a 1500 px em 20/09/2026: nome de 1077 px no cabeçalho contra 444, 666 e 827 px nas
+   linhas, e a 860 px a linha com mais ações ficava com a coluna do nome em 0 px, o nome
+   transbordando por cima da coluna do sistema. Quanto mais poder a linha oferecia, menos
+   nome cabia. Com subgrid a coluna de ações é dimensionada UMA vez, pela linha mais larga,
+   e o cabeçalho cai exatamente sobre os valores. */
+.apar-lista { display: grid; grid-template-columns: minmax(0, 1fr) 90px 100px 130px fit-content(30%); column-gap: var(--sp-3); }
+.apar-lista > * { grid-column: 1 / -1; }
+.apar-linha { display: grid; grid-template-columns: subgrid; gap: var(--sp-3); align-items: center; padding: 10px 0; font-size: 12.5px; }
 .apar-linha + .apar-linha { border-top: 1px solid var(--border-soft); }
 .apar-linha.apar-head { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); padding-bottom: 6px; }
 .apar-linha .sync-nome { flex-wrap: wrap; }
@@ -1843,15 +1875,23 @@ body.parear > *:not(.par-raiz) { display: none !important; }
 .grupo-vinc .sync-input { width: auto; max-width: 180px; }
 @media (max-width: 860px) {
   .apar-grade { grid-template-columns: 1fr 1fr; }
-  .apar-linha { grid-template-columns: minmax(0, 1fr) 90px auto; }
+  /* quem troca de grade é sempre o container: a linha só herda (ver .apar-lista) */
+  .apar-lista { grid-template-columns: minmax(0, 1fr) 90px fit-content(40%); }
   .apar-linha > :nth-child(2), .apar-linha > :nth-child(4) { display: none; }
 }
 @media (max-width: 720px) {
   .apar-duo, .apar-grade { grid-template-columns: 1fr; }
-  .apar-linha, .grupo-perfil { grid-template-columns: minmax(0, 1fr); }
+  .apar-lista { grid-template-columns: minmax(0, 1fr); }
+  .grupo-perfil { grid-template-columns: minmax(0, 1fr); }
   .apar-linha.apar-head { display: none; }
   .apar-linha > :nth-child(2), .apar-linha > :nth-child(4) { display: inline; }
   .apar-linha .row-actions { justify-content: flex-start; }
+  /* Com o cabeçalho escondido, cada valor diz o que é: sem isto a linha vira uma pilha de
+     valores crus (win32, v2.62.4, hoje 13:28) que só quem já conhece a tela decifra. O
+     rótulo vem do data-rot do próprio valor, então tela e rótulo nunca divergem. */
+  .apar-linha > [data-rot]::before, .sync-linha.usage-dev > [data-rot]::before {
+    content: attr(data-rot) ": "; color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+  }
   .grupo-vinc { flex-wrap: wrap; }
   .grupo-vinc .sync-input { max-width: none; flex: 1; }
 }

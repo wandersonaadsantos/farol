@@ -439,29 +439,51 @@ export function auditoriaLinhaHtml(a) {
   return `<div class="usage-sessions-foot audit"><span>Auditoria do registro inteiro: ${partes.join('; ')}.</span></div>`;
 }
 
+/* "100% medido" é uma afirmação forte, e a tela só pode fazê-la quando ela é verdade.
+   Medido em 20/09/2026 na rota /api/sync/consolidated?days=30: medido 3232.79, estimado
+   3.19, total 3235.98, ou seja 99,90% medido; o arredondamento mostrava 100%, e quem lesse
+   concluiria que nada ali é estimativa. Duas regras, portanto:
+
+   1. Havendo parcela estimada positiva, a fração é TRUNCADA (nunca arredondada para cima),
+      então 99,90% mostra 99.9% e nunca 100%.
+   2. 100% exato só com estimativa zero E total disponível e positivo. Total zero ou
+      indisponível não divide: mostra travessão e diz que não houve gasto, porque 0/0 seria
+      precisão inventada sobre dado que não existe.
+
+   Isto é APRESENTAÇÃO: nenhum valor contabilizado muda aqui. PURA. */
+function usageMedidoKpi(medido, estimado) {
+  const total = medido + estimado;
+  if (!Number.isFinite(total) || total <= 0) return { valor: '&mdash;', sub: 'sem gasto registrado na janela' };
+  if (estimado <= 0) return { valor: '100%', sub: 'nada estimado' };
+  const pct = Math.floor((medido / total) * 1000) / 10;
+  return { valor: `${pct.toFixed(1)}%`, sub: `${fjMoeda(estimado)} estimado` };
+}
+
 export function usageConsolidatedHtml(resumo) {
   const r = resumo || {};
   const devices = Array.isArray(r.devices) ? r.devices : [];
   const t = r.totals || { sessions: 0, costUsd: 0, medido: { costUsd: 0 }, estimado: { costUsd: 0 } };
   const medido = Number((t.medido || {}).costUsd) || 0;
   const estimado = Number((t.estimado || {}).costUsd) || 0;
-  const total = medido + estimado;
-  const pct = total > 0 ? Math.round((medido / total) * 100) : 100;
+  const kpiMedido = usageMedidoKpi(medido, estimado);
   // cada nome ja sai escapado daqui; quem interpola NAO pode escapar de novo, senao
   // 'Note & PC' vira 'Note &amp; PC' na tela
   const porAparelho = (campo) => devices.filter(d => d[campo]).map(d => `${esc(d.name || d.deviceId)}: ${campo === 'costUsd' ? fjMoeda(d[campo]) : fmtTok(d[campo])}`).join(', ');
   const linhas = devices.map(d => {
     const eu = d.euMesmo ? ' <span class="sync-chip mute">este</span>' : '';
     const visto = d.lastAt ? fmtWhenDay(d.lastAt) : 'sem sessão na janela';
-    return `<div class="sync-linha"><span class="sync-nome">${esc(d.name || d.deviceId || 'aparelho')}${eu}</span><span class="sync-fraco">${fmtTok(d.sessions)}</span><span class="sync-fraco">${fjMoeda(d.costUsd)} · ${esc(visto)}</span></div>`;
+    // usage-dev: esta linha tem TRÊS colunas, e a .sync-linha genérica tem quatro, com um
+    // media query que esconde os filhos 2 e 3 no estreito, que aqui são justamente sessões
+    // e custo. Sem a classe, a ≤720 px a tabela virava uma lista de nomes e mais nada.
+    return `<div class="sync-linha usage-dev"><span class="sync-nome">${esc(d.name || d.deviceId || 'aparelho')}${eu}</span><span class="sync-fraco" data-rot="sessões">${fmtTok(d.sessions)}</span><span class="sync-fraco" data-rot="custo">${fjMoeda(d.costUsd)} · ${esc(visto)}</span></div>`;
   }).join('');
   return `<div class="usage-kpis">
       <div class="usage-kpi"><span class="usage-kpi-label">custo, todos os aparelhos</span><b>${fjMoeda(t.costUsd)}</b><span class="usage-kpi-sub">${porAparelho('costUsd') || 'nenhum gasto na janela'}</span></div>
       <div class="usage-kpi"><span class="usage-kpi-label">sessões</span><b>${fmtTok(t.sessions)}</b><span class="usage-kpi-sub">${porAparelho('sessions') || 'nenhuma sessão na janela'}</span></div>
-      <div class="usage-kpi"><span class="usage-kpi-label">medido x estimado</span><b>${pct}%</b><span class="usage-kpi-sub">${fjMoeda(estimado)} estimado</span></div>
+      <div class="usage-kpi"><span class="usage-kpi-label">medido x estimado</span><b>${kpiMedido.valor}</b><span class="usage-kpi-sub">${kpiMedido.sub}</span></div>
     </div>
     <div class="card sync-lista">
-      <div class="sync-linha sync-head"><span>aparelho</span><span>sessões</span><span>custo · última sessão</span></div>
+      <div class="sync-linha usage-dev sync-head"><span>aparelho</span><span>sessões</span><span>custo · última sessão</span></div>
       ${linhas || '<p class="sync-vago sync-vazio">Nenhum aparelho enviou consumo ainda.</p>'}
     </div>`;
 }

@@ -173,7 +173,10 @@ function linhaDoAparelho(d, opcoes) {
   const versao = d.farolVersion ? `v${d.farolVersion}` : 'desconhecida';
   const visto = Number(d.lastSeenAt) > 0 ? fmtWhenDay(d.lastSeenAt, o.agora) : 'nunca';
   const pendente = aparelhosDesignacaoPendente(o.comandosEmitidos, o.recibos, String(d.deviceId || ''));
-  return `<div class="apar-linha"><span class="sync-nome">${esc(nomeDe(d))}${chipsDoAparelho(d, o)}${pendente}</span><span class="sync-fraco">${esc(d.platform || 'sistema desconhecido')}</span><span class="sync-fraco">${esc(versao)}</span><span class="sync-fraco">${esc(visto)}</span>${acoesDoAparelho(d, o.souAdmin === true)}</div>`;
+  // data-rot é o rótulo que o CSS mostra no estreito, onde o cabeçalho da lista some: sem
+  // ele a linha vira uma pilha de valores crus (win32, v2.62.4, hoje 13:28) sem dizer o que
+  // é cada um. No largo o cabeçalho manda, e o rótulo fica escondido.
+  return `<div class="apar-linha"><span class="sync-nome">${esc(nomeDe(d))}${chipsDoAparelho(d, o)}${pendente}</span><span class="sync-fraco" data-rot="sistema">${esc(d.platform || 'sistema desconhecido')}</span><span class="sync-fraco" data-rot="versão">${esc(versao)}</span><span class="sync-fraco" data-rot="visto">${esc(visto)}</span>${acoesDoAparelho(d, o.souAdmin === true)}</div>`;
 }
 
 // A versão mínima vem do snapshot (a MESMA constante que decide a cobertura); sem ela, a
@@ -200,7 +203,11 @@ export function aparelhosListaHtml(devices, opcoes) {
   const o = opcoes || {};
   if (!lista.length) return '<div class="card sync-lista"><p class="sync-vago sync-vazio">Nenhum aparelho registrado ainda. O primeiro aparece assim que a conexão sobe.</p></div>';
   const linhas = lista.map((d) => linhaDoAparelho(d || {}, o)).join('');
-  return `<div class="card sync-lista">
+  // apar-lista é QUEM TEM as colunas: cada .apar-linha herda a grade dela (subgrid). Com a
+  // grade em cada linha, a coluna de ações (`auto`) media 0 px no cabeçalho e centenas nas
+  // linhas, e o nome era espremido na proporção do número de botões, ou seja, do papel do
+  // aparelho: quanto mais poder a linha oferecia, menos nome cabia.
+  return `<div class="card sync-lista apar-lista">
     <div class="apar-linha apar-head"><span>aparelho</span><span>sistema</span><span>versão</span><span>visto por último</span><span></span></div>
     ${linhas}
     ${notaDoPrimeiro(lista)}

@@ -214,10 +214,33 @@ function usageConsolidadoVisivel() {
   return !!(estado() && estado().sync && estado().sync.consolidation);
 }
 
+/* O marcador de escopo que fica no lugar do segmentado quando não há consolidação.
+   Medido em 20/09/2026 na instância isolada: com a consolidação desligada o #usageDevice
+   inteiro ficava display:none, e com ele sumia o rótulo "Este aparelho": a aba passava a
+   mostrar números sem marca de escopo, visualmente idênticos à visão consolidada.
+   O texto diz o MOTIVO (desligada, uma escolha de configuração) para não ser lido como
+   falha ao carregar o consolidado, que tem aviso próprio (usageConsolidadoEnvelopeHtml).
+   Criado aqui, e não no index.html, porque é o mesmo lugar que decide quando mostrá-lo. */
+function escopoLocalBox() {
+  const existente = $('#usageEscopoLocal');
+  if (existente) return existente;
+  const seg = $('#usageDevice');
+  if (!seg || !seg.parentNode) return null;
+  const el = document.createElement('div');
+  el.id = 'usageEscopoLocal';
+  el.className = 'usage-escopo';
+  el.title = 'A consolidação de todos os aparelhos está desligada em Sistema > Sincronização. Não é falha ao carregar.';
+  el.innerHTML = '<b>Este aparelho</b><span>consolidação entre aparelhos desligada</span>';
+  seg.parentNode.insertBefore(el, seg);
+  return el;
+}
+
 function renderUsageDeviceSeg() {
   const box = $('#usageDevice');
   if (!box) return;
   box.hidden = !usageConsolidadoVisivel();
+  const marcador = escopoLocalBox();
+  if (marcador) marcador.hidden = !box.hidden;
   // consolidação desligada no meio do caminho: a visão volta pra deste aparelho, senão
   // a tela ficaria presa numa aba que não pode mais buscar nada
   if (box.hidden && usageDeviceState.escopo !== 'este') usageDeviceState.escopo = 'este';
