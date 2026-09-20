@@ -58,6 +58,9 @@ function syncCfg(extra = {}) {
 
 async function motor(cfg = syncCfg()) {
   const e = new Engine();
+  // o relógio acompanha o app MONITORANDO: aqui o polling é simulado pelo timer
+  e.timer = setTimeout(() => { }, 60_000);
+  if (e.timer.unref) e.timer.unref();
   e.log = () => { };
   e.pushState = () => { };
   e.sync.fetchImpl = fetchDosDubles;
@@ -83,6 +86,17 @@ test('conectar já liga o relógio dos sinais, sem esperar o ciclo de polling', 
   const e = await motorLogado();
   assert.ok(e.sync.relogioAndamento, 'sem isto a tela espera o primeiro tique para saber do admin');
   assert.equal(syncMod.statusForUi(e).coordination, true);
+});
+
+test('sem o app monitorando (sem polling) o relógio não é criado', async () => {
+  const e = new Engine();
+  e.log = () => { };
+  e.pushState = () => { };
+  e.sync.fetchImpl = fetchDosDubles;
+  e.updateSettings({ sync: syncCfg() });
+  if (e.sync.iniciando) await e.sync.iniciando;
+  assert.equal((await e.syncLogin({ email: EMAIL, password: SENHA })).ok, true);
+  assert.ok(!e.sync.relogioAndamento);
 });
 
 test('compartilhamento desligado não liga relógio nenhum', async () => {
