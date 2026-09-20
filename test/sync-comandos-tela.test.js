@@ -426,7 +426,9 @@ test('iniciar indisponível: o distribuidor já escolheu o executor, e a fila di
   const ciclo = await dist.cicloDoAgendador(admin, admin.config.sync, { agora: Date.now() });
   assert.equal(ciclo.atribuido.dev, EXEC);
   emitir('state', estadoDaTela());
-  assert.match($('#mdCandidatos').innerHTML, /Começar agora: indisponível, o distribuidor já escolheu o Desktop de teste e espera ele aceitar/);
+  // sem o artigo: `nomeNaLista` devolve "este aparelho" para o local, e "o " na frente
+  // produzia "o este aparelho", que estava na tela (20/09/2026)
+  assert.match($('#mdCandidatos').innerHTML, /Começar agora: indisponível, o distribuidor já escolheu Desktop de teste e espera ele aceitar/);
   assert.equal(await Tela.iniciarCandidato(itemId, async () => EXEC, async () => true), false);
   assert.deepEqual(pedidosPara('/api/sync/command'), []);
 });

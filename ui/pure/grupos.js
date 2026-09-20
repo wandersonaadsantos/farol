@@ -15,7 +15,7 @@
 // entrega, e por isso a tela não mostra: o gasto de cada perfil somado entre aparelhos,
 // porque o rollup publicado por aparelho é por grupo, não por perfil (ver a evidência
 // tela-aparelhos-grupos.md, seção 7).
-import { esc, fmtMoney, fmtClock } from './comum.js';
+import { esc, fmtMoney, fmtClock, identidadeDeAparelho } from './comum.js';
 
 // O tipo do vínculo vem do `kind` do perfil. O perfil de pasta não carrega `kind` de
 // propósito (lib/parse.js) e é assinatura; kind desconhecido NÃO vira tipo, porque o
@@ -65,9 +65,11 @@ const MOTIVOS = {
   'periodo-desconhecido': () => 'o período do grupo não é conhecido',
 };
 
+// o MESMO formatador das outras telas: aparelho sem nome vira "aparelho <id curto>" em
+// todas elas, e dá para casar o que o Radar diz com o que Aparelhos mostra
 function nomeDoAparelho(devices, id) {
   const achado = (Array.isArray(devices) ? devices : []).find((d) => d && String(d.deviceId || '') === String(id || ''));
-  return achado && achado.name ? String(achado.name) : String(id || 'aparelho');
+  return identidadeDeAparelho(id, { nome: achado ? achado.name : '' });
 }
 
 function frasesDosMotivos(motivos, devices) {
@@ -164,7 +166,7 @@ export function grupoCartaoHtml(grupo, opcoes) {
     <div class="apar-corpo">
       <span class="set-desc">${esc(v.texto)}</span>
       ${v.extra || ''}
-      <div class="grupo-linha"><span class="grupo-rotulo">Gasto no período</span>${gastoHtml(g)}</div>
+      <div class="grupo-linha"><span class="grupo-rotulo">Gasto no período, todos os aparelhos</span>${gastoHtml(g)}</div>
       ${projecaoHtml(g)}
       ${requisitosHtml(Array.isArray(g.requisitos) ? g.requisitos : [])}
       ${perfisDoGrupoHtml(g, o.perfis)}

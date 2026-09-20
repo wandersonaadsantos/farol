@@ -312,3 +312,47 @@ test('aparelhosRenomearDialogo: o texto muda quando o alvo é outro aparelho', (
   assert.match(outro.body, /inclusive neste/);
   assert.match(outro.body, /value="Celular"/);
 });
+
+/* ---------- política dirigida ao PRÓPRIO aparelho ----------
+   O texto antigo juntava quatro coisas numa frase: consentimento local, recebimento,
+   aplicação e resultado. Com o destino sendo ESTE aparelho, ele dizia "esse aceite
+   acontece no aparelho de destino e não volta para esta tela" — e o aceite está três
+   cartões abaixo, no interruptor "Aceitar políticas e comandos do admin". A tela tinha a
+   resposta e afirmava não ter. */
+
+function politica(aparelho, opcoes) {
+  return P.aparelhoPoliticaHtml(aparelho, opcoes || {});
+}
+
+test('política de OUTRO aparelho: o texto continua o de sempre', () => {
+  const html = politica({ deviceId: 'dX', name: 'Celular' }, { aceitaAdmin: false });
+  assert.match(html, /Política do Celular/);
+  assert.match(html, /não volta para esta tela/);
+});
+
+test('política do PRÓPRIO aparelho com consentimento DESLIGADO: diz que vai ignorar', () => {
+  const html = politica({ deviceId: 'dEu', name: 'Notebook', euMesmo: true }, { aceitaAdmin: false });
+  assert.match(html, /Política deste aparelho \(Notebook\)/);
+  assert.match(html, /este aparelho vai ignorar/);
+  assert.equal(html.includes('não volta para esta tela'), false, 'a resposta está nesta tela, três cartões abaixo');
+});
+
+test('política do PRÓPRIO aparelho com consentimento LIGADO: não promete aplicação', () => {
+  const html = politica({ deviceId: 'dEu', name: 'Notebook', euMesmo: true }, { aceitaAdmin: true });
+  assert.match(html, /o consentimento está ligado aqui/);
+  assert.match(html, /Falta ainda a assinatura da geração vigente e o batimento recente/);
+  assert.equal(html.includes('vai ignorar'), false);
+});
+
+test('política do PRÓPRIO aparelho sem saber o consentimento: não afirma nenhum dos dois', () => {
+  const html = politica({ deviceId: 'dEu', name: 'Notebook', euMesmo: true }, {});
+  assert.match(html, /O consentimento local não chegou a esta tela agora/);
+  assert.equal(html.includes('vai ignorar'), false);
+  assert.equal(html.includes('está ligado aqui'), false);
+});
+
+test('a política só restringe: a frase permanece em todos os casos', () => {
+  for (const o of [{ aceitaAdmin: true }, { aceitaAdmin: false }, {}]) {
+    assert.match(politica({ deviceId: 'dEu', euMesmo: true }, o), /só RESTRINGE/);
+  }
+});

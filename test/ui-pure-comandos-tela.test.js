@@ -66,7 +66,7 @@ test('iniciar: sem admin, sem tags, sem publicador ou com atribuição viva não
   assert.match(acoesDoCandidato({ ...CAND, matTag: '' }, { podeComandar: true }).iniciar.motivo, /não identifica o PR e o commit/);
   assert.match(acoesDoCandidato({ ...CAND, publicadores: [] }, { podeComandar: true }).iniciar.motivo, /nenhum aparelho publicou/);
   const viva = acoesDoCandidato({ ...CAND, atribuido: { dev: 'dOutro', ate: 9 } }, { podeComandar: true, devices: DEVICES }).iniciar;
-  assert.deepEqual(viva, { pode: false, motivo: 'o distribuidor já escolheu o Desktop antigo e espera ele aceitar' });
+  assert.deepEqual(viva, { pode: false, motivo: 'o distribuidor já escolheu Desktop antigo e espera ele aceitar' });
 });
 
 test('iniciar: a lista do conjunto nomeia o PR pelo catálogo, ou o owner sem inventar endereço', () => {

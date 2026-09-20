@@ -127,6 +127,7 @@ const CONGELADA = [
   "gruposSecaoHtml",
   "hexToRgba",
   "hiddenFootLabel",
+  "identidadeDeAparelho",
   "inicioConfirmacao",
   "inicioDialogo",
   "jiraBaseUrlProblema",

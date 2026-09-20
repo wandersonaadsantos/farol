@@ -356,7 +356,7 @@ export function aparelhosSecaoHtml(entrada) {
     ${aparelhosDesignacaoHtml(s.designacaoAdmin, e.agora)}
     <div class="sync-sub-head">Aparelhos da conta</div>
     ${aparelhosListaHtml(s.devices, { cobertura: s.coberturaPostagem, admin: admin || {}, agora: e.agora, souAdmin, versaoMinima: s.versaoPostagemCoordenada, comandosEmitidos: s.comandosEmitidos, recibos: e.recibos })}
-    ${aparelhoPoliticaHtml(e.politicaDe, { recusa: e.politicaRecusa, leitura: e.politicaLeitura })}
+    ${aparelhoPoliticaHtml(e.politicaDe, { recusa: e.politicaRecusa, leitura: e.politicaLeitura, aceitaAdmin: cfg.aceitarAdmin })}
     ${aparelhosConsentimentoHtml(cfg)}
     ${aparelhosNavegadoresHtml(e.auth, e.agora)}
     ${aparelhosLimpezaHtml(e.limpeza, { souAdmin, devices: s.devices, agora: e.agora, limpando: e.limpando === true })}`;

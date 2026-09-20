@@ -13,7 +13,7 @@
 //      aparelho viajam com o PR como TAG (lib/sync/tags.js); o engine nomeia o PR pelo
 //      catálogo cifrado (campo `pr`), e quando o catálogo não está disponível esta tela diz
 //      "um PR seu" e explica por quê, em vez de escrever um endereço que não tem.
-import { esc, fmtClock, fmtDur, plural } from './comum.js';
+import { esc, fmtClock, fmtDur, plural, identidadeDeAparelho } from './comum.js';
 import { prRefMention } from './mencoes.js';
 import { prIdentificado, prIdentificadoHtml } from './pr-compartilhado.js';
 
@@ -149,8 +149,7 @@ function textoDoAparelho(motivo) {
 }
 
 function nomeNaNotaDeEspera(sync, deviceId) {
-  if (deviceId && deviceId === sync.deviceId) return 'este aparelho';
-  return nomeDoAparelho(sync.devices, deviceId) || 'um aparelho sem nome nesta tela';
+  return identidadeDeAparelho(deviceId, { nome: nomeDoAparelho(sync.devices, deviceId), local: !!deviceId && deviceId === sync.deviceId });
 }
 
 // "O Notebook está sem vaga": o detalhe que faltava na divergência 5. Sem detalhe, a nota

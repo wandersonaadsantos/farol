@@ -267,3 +267,28 @@ export function fmtMoney(v) { return 'US$ ' + (Number(v) || 0).toFixed(2); }
 export function genId(agora = Date.now(), aleatorio = Math.random()) {
   return 'p' + agora.toString(36) + aleatorio.toString(36).slice(2, 6);
 }
+
+/* COMO UM APARELHO É CHAMADO, em toda tela. Formatador único desde 20/09/2026, porque o
+   mesmo aparelho tinha QUATRO nomes: `'aparelho'`, `'outro aparelho'`, `'um aparelho sem
+   nome nesta tela'` e o deviceId cru. Na prática ele era "outro aparelho" no Radar e
+   `a1b2c3…` em Aparelhos, e não havia como casar as duas telas.
+
+   As quatro saídas, e o porquê de cada uma:
+     local             -> "este aparelho". A comparação é por ID, nunca por nome: dois
+                          aparelhos podem se chamar igual;
+     com nome          -> o nome, como ele foi dado;
+     sem nome, com id  -> "aparelho <id curto>", IGUAL em toda tela. É o que deixa
+                          reconhecer o mesmo aparelho em dois lugares antes de ele ganhar
+                          nome;
+     sem id            -> "outro aparelho". Identidade ausente não pode ser apresentada
+                          como um terceiro conhecido, e um id inventado aqui seria isso.
+
+   PURO e sem escape: quem interpola em HTML escapa, como faz com qualquer nome. */
+export function identidadeDeAparelho(deviceId, { nome = '', local = false } = {}) {
+  if (local === true) return 'este aparelho';
+  const limpo = String(nome || '').trim();
+  if (limpo) return limpo;
+  const id = String(deviceId || '').trim();
+  if (!id) return 'outro aparelho';
+  return `aparelho ${id.slice(0, 8)}`;
+}

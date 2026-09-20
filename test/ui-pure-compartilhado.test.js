@@ -449,3 +449,37 @@ test('notaDistribuicaoHtml: consentimento retirado tem motivo próprio, não "se
   assert.match(html, /Celular, não aceita comandos do admin/);
   assert.equal(html.includes('sem sinal recente'), false);
 });
+
+/* ---------- identidade de aparelho: um nome só, em toda tela ----------
+   O mesmo aparelho sem nome tinha QUATRO nomes: 'aparelho', 'outro aparelho', 'um aparelho
+   sem nome nesta tela' e o deviceId cru. Ele era "outro aparelho" no Radar e `a1b2c3…` em
+   Aparelhos, e não havia como casar as duas telas. */
+
+test('identidadeDeAparelho: local vence tudo, e a comparação é por ID', () => {
+  assert.equal(P.identidadeDeAparelho('dEu', { nome: 'Notebook', local: true }), 'este aparelho');
+});
+
+test('identidadeDeAparelho: com nome, é o nome', () => {
+  assert.equal(P.identidadeDeAparelho('dB', { nome: 'Celular' }), 'Celular');
+  assert.equal(P.identidadeDeAparelho('dB', { nome: '  Celular  ' }), 'Celular');
+});
+
+test('identidadeDeAparelho: sem nome, o id curto é o MESMO em qualquer chamada', () => {
+  const id = 'a1b2c3d4e5f6a7b8';
+  assert.equal(P.identidadeDeAparelho(id, {}), 'aparelho a1b2c3d4');
+  assert.equal(P.identidadeDeAparelho(id, { nome: '' }), P.identidadeDeAparelho(id));
+});
+
+test('identidadeDeAparelho: sem id nenhum não inventa um terceiro conhecido', () => {
+  assert.equal(P.identidadeDeAparelho('', { nome: '' }), 'outro aparelho');
+  assert.equal(P.identidadeDeAparelho(undefined), 'outro aparelho');
+});
+
+test('a nota da espera e a nota do comando dão o MESMO nome ao aparelho sem nome', () => {
+  const sync = { deviceId: 'dEu', devices: [{ deviceId: 'dSemNome' }] };
+  const naEspera = P.notaDistribuicaoHtml('o/r#1', {
+    ...sync, distribuicao: { esperando: [{ key: 'o/r#1', desde: AGORA - 1000, motivo: 'atribuicao-viva', dev: 'dSemNome', papel: 'escolhido', aparelhos: [] }] },
+  }, AGORA);
+  assert.match(naEspera, /aparelho dSemNome/, 'o id curto aparece, e é o mesmo em toda tela');
+  assert.equal(naEspera.includes('um aparelho sem nome nesta tela'), false);
+});
