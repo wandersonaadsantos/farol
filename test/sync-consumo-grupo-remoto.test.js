@@ -355,3 +355,87 @@ test('o relógio roda o rollup e o retrato antes da capacidade', async () => {
   assert.ok(i > 0);
   assert.ok(i < fonte.indexOf('publicacao.publicarCapacidade(engine, cfg)'));
 });
+
+/* ---------- 20/09/2026: aposentar encerra a EXIGÊNCIA, não a contabilidade ----------
+   Medido: `participantes` filtrava só por `contract === 2 && keyReady === true`, sem olhar
+   `retiredAt`. Um aparelho aposentado e desligado continuava sendo exigido, nunca publicava
+   retrato novo, devolvia `sem-dados`, e o grupo ficava PERMANENTEMENTE não verificável —
+   `grupoSegura` segurando toda conta controlada, para sempre.
+
+   O conserto separa três perguntas que estavam numa só:
+     - de quem eu EXIJO dado fresco: aparelho ativo (aposentar tira dessa lista);
+     - que gasto entra na janela: o que já foi publicado, aposentado ou não;
+     - que reserva ainda vale: a que tem retrato fresco, pelo TTL que já existia.
+   Aparelho apenas OFFLINE continua sendo exigido: sumir não é aposentar. */
+
+function aposentar(e, dev) {
+  e.sync.devices = { ...e.sync.devices, [dev]: { ...(e.sync.devices[dev] || {}), retiredAt: Date.now() } };
+}
+
+test('aposentado sem retrato não trava o grupo, e o gasto que ele publicou continua contando', async () => {
+  const e = await motorComGrupo({ tetoUsd: 10 });
+  await rollupDe(e, 'dB', { c: 4 });
+  // nenhuma capacidade publicada por dB: ele foi aposentado e desligado
+  aposentar(e, 'dB');
+  await cgEng.recalcular(e, e.config.sync);
+  const st = cgEng.statusDoGrupo(e, LOGIN);
+  assert.equal(st.naoVerificavel, false, 'aposentar encerra a exigência de retrato novo');
+  assert.equal(st.bloqueado, false);
+  const tela = cgEng.resumoParaTela(e);
+  assert.equal(tela[0].custoUsd, 4, 'o gasto dele na janela não some com a aposentadoria');
+});
+
+test('aposentado não libera orçamento: o gasto dele continua estourando o teto', async () => {
+  const e = await motorComGrupo({ tetoUsd: 10 });
+  await rollupDe(e, 'dB', { c: 50 });
+  aposentar(e, 'dB');
+  await cgEng.recalcular(e, e.config.sync);
+  const st = cgEng.statusDoGrupo(e, LOGIN);
+  assert.equal(st.naoVerificavel, false);
+  assert.equal(st.bloqueado, true, 'apagar a exigência não apaga o dinheiro');
+  assert.equal(e.budgetBlockedFor(LOGIN).id, `grupo:${G}`);
+});
+
+test('aparelho apenas OFFLINE continua exigido: sumir não é aposentar', async () => {
+  const e = await motorComGrupo({ tetoUsd: 10 });
+  await rollupDe(e, 'dB', { c: 4 });
+  // sem capacidade publicada e SEM aposentadoria: é o caso que tem de continuar travando
+  e.sync.devices = { dB: { contract: 2, keyReady: true, lastSeenAt: Date.now() - 30 * 24 * 3600 * 1000 } };
+  await cgEng.recalcular(e, e.config.sync);
+  assert.equal(cgEng.statusDoGrupo(e, LOGIN).naoVerificavel, true);
+});
+
+test('aposentado com retrato FRESCO continua valendo inteiro, reservas incluídas', async () => {
+  const e = await motorComGrupo({ tetoUsd: 10 });
+  await rollupDe(e, 'dB', { c: 1 });
+  await capacidadeDe(e, 'dB', { reservas: 3 });
+  aposentar(e, 'dB');
+  await cgEng.recalcular(e, e.config.sync);
+  const tela = cgEng.resumoParaTela(e);
+  assert.equal(tela[0].custoUsd, 1);
+  assert.ok(tela[0].projecaoUsd > tela[0].custoUsd, 'a reserva viva dele ainda projeta gasto');
+});
+
+test('aposentado com rollup inválido continua não verificável: aposentar não perdoa dado torto', async () => {
+  const e = await motorComGrupo({ tetoUsd: 10 });
+  const w = await e.sync.client.put(`/users/u1/usageDaily/dB/${HOJE()}`, { v: 9, nada: true }, {});
+  assert.equal(w.ok, true);
+  aposentar(e, 'dB');
+  await cgEng.recalcular(e, e.config.sync);
+  assert.equal(cgEng.statusDoGrupo(e, LOGIN).naoVerificavel, true);
+});
+
+test('o próprio aparelho no mapa remoto não é contado duas vezes', async () => {
+  const e = await motorComGrupo({ tetoUsd: 100 });
+  const eu = e.sync.deviceId;
+  // o mapa de aparelhos SEMPRE tem o próprio: os fixtures anteriores o deixavam de fora, e
+  // por isso a linha que protege contra a dupla contagem nunca era exercitada
+  e.sync.devices = { ...e.sync.devices, [eu]: { contract: 2, keyReady: true, lastSeenAt: Date.now() } };
+  await rollupDe(e, eu, { c: 7 });
+  await capacidadeDe(e, eu, { reservas: 2 });
+  await rollupDe(e, 'dB', { c: 1 });
+  await capacidadeDe(e, 'dB');
+  await cgEng.recalcular(e, e.config.sync);
+  const tela = cgEng.resumoParaTela(e);
+  assert.equal(tela[0].custoUsd, 1, 'o gasto local vem do disco, nunca do rollup que ele mesmo publicou');
+});
