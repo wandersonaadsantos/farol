@@ -11,6 +11,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { arquivosQueViajam } from './helpers/listas-do-pacote.js';
 
 const RAIZ = path.join(import.meta.dirname, '..');
 const EMPACOTADOR = fs.readFileSync(path.join(RAIZ, 'tools', 'make-package.ps1'), 'utf8');
@@ -44,6 +45,14 @@ const CODIGO = [
   '// um token pessoal do GitHub começa com ghp_ e o Farol nunca o grava',
   '// o token de app começa com github_pat_ e o de OAuth com gho_',
 ];
+
+// O empacotador dispensa UM arquivo da varredura: ele mesmo, que carrega o pente escrito e
+// casaria consigo. Lido de lá, e não repetido aqui, pelo mesmo motivo do padrão.
+function foraDaVarredura() {
+  const m = /\$_\.Name -ne '([^']+)'/.exec(EMPACOTADOR);
+  assert.ok(m, 'o empacotador tem que continuar dispensando o proprio arquivo da varredura');
+  return m[1];
+}
 
 // A outra barreira do empacotador: nome de arquivo que não pode entrar no pacote.
 function proibidosDoEmpacotador() {
@@ -88,21 +97,41 @@ test('a varredura de conteúdo do empacotador não tem lista de extensão', () =
   assert.match(m[1], /-Recurse -File/);
 });
 
+// O ESCOPO da varredura é derivado do próprio empacotador, nunca escrito aqui. Até
+// 20/09/2026 este teste andava a raiz do repositório com uma lista própria de pastas a
+// ignorar, e as duas respostas para "o que viaja?" discordavam nas duas pontas: entrava em
+// `scratchpad_test/` (rascunho fora do git, que não viaja) e reprovava o `npm test` local por
+// um achado que jamais chegaria ao pacote, e não entrava nos quatro guias de `docs/`, que
+// VIAJAM e nunca foram penteados aqui. Quem deriva as listas é test/helpers/listas-do-pacote.js.
 test('nada que viaja no pacote casa o pente hoje', () => {
   const re = padraoDoEmpacotador();
-  const ignorar = new Set(['node_modules', '.git', 'dist', 'test', 'docs', 'scratchpad']);
   const achados = [];
-  const varrer = (dir) => {
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (ignorar.has(e.name)) continue;
-      const alvo = path.join(dir, e.name);
-      if (e.isDirectory()) { varrer(alvo); continue; }
-      // sem lista de extensão, como o empacotador: binário entra lido byte a byte
-      if (e.name === 'make-package.ps1') continue;
-      const linhas = fs.readFileSync(alvo, 'latin1').split(/\r?\n/);
-      linhas.forEach((l, i) => { if (re.test(l)) achados.push(`${path.relative(RAIZ, alvo)}:${i + 1}`); });
-    }
-  };
-  varrer(RAIZ);
+  for (const rel of arquivosQueViajam(RAIZ)) {
+    if (path.basename(rel) === foraDaVarredura()) continue;
+    // sem lista de extensão, como o empacotador: binário entra lido byte a byte
+    const linhas = fs.readFileSync(path.join(RAIZ, rel), 'latin1').split(/\r?\n/);
+    linhas.forEach((l, i) => { if (re.test(l)) achados.push(`${rel}:${i + 1}`); });
+  }
   assert.deepEqual(achados, [], 'linha com forma de credencial no que viaja');
+});
+
+test('a varredura pentea os quatro guias que viajam em docs/', () => {
+  const viajam = arquivosQueViajam(RAIZ);
+  const guias = viajam.filter((f) => f.startsWith('docs/'));
+  assert.equal(guias.length, 4, `docs/ que viajam: ${guias.join(', ')}`);
+  for (const g of guias) assert.ok(fs.existsSync(path.join(RAIZ, g)), `${g} está na lista e não existe`);
+});
+
+test('a varredura não entra em nada que o empacotador não copia', () => {
+  const viajam = new Set(arquivosQueViajam(RAIZ));
+  for (const fora of ['test/pacote-auditoria.test.js', 'docs/superpowers', 'scratchpad_test', '.github']) {
+    assert.equal([...viajam].some((f) => f === fora || f.startsWith(`${fora}/`)), false,
+      `${fora} não viaja no pacote e não pode entrar na varredura`);
+  }
+});
+
+test('o unico arquivo fora da varredura e o mesmo que o empacotador dispensa', () => {
+  assert.equal(foraDaVarredura(), 'make-package.ps1');
+  assert.equal((EMPACOTADOR.match(/\$_\.Name -ne '[^']+'/g) || []).length, 1,
+    'o empacotador tem que continuar dispensando UM arquivo só da varredura');
 });

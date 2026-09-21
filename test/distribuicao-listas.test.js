@@ -7,6 +7,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { RE_PS, listaPowershell } from './helpers/listas-do-pacote.js';
 
 const RAIZ = path.join(import.meta.dirname, '..');
 const ler = (rel) => fs.readFileSync(path.join(RAIZ, rel), 'utf8');
@@ -14,25 +15,12 @@ const ler = (rel) => fs.readFileSync(path.join(RAIZ, rel), 'utf8');
 // outros laços do mesmo script (o install.sh tem um `for d in /opt/homebrew/bin ...`)
 const NOME_SIMPLES = /^[A-Za-z][\w.-]*$/;
 
-const RE_PS = {
-  f: /foreach \(\$f in @\(([\s\S]*?)\)\)/g,
-  d: /foreach \(\$d in @\(([\s\S]*?)\)\)/g,
-  t: /foreach \(\$t in @\(([\s\S]*?)\)\)/g,
-  doc: /foreach \(\$doc in @\(([\s\S]*?)\)\)/g,
-};
 const RE_SH = {
   f: /^for f in (.+); do$/gm,
   d: /^for d in (.+); do$/gm,
   t: /^for t in (.+); do$/gm,
   doc: /^for doc in (.+); do$/gm,
 };
-
-function listaPowershell(texto, variavel, arquivo) {
-  const re = new RegExp(RE_PS[variavel].source, 'g');
-  const achadas = [...texto.matchAll(re)].map((m) => (m[1].match(/'([^']+)'/g) || []).map((s) => s.slice(1, -1)));
-  assert.equal(achadas.length, 1, `${arquivo}: esperava UMA lista de $${variavel}, achei ${achadas.length}`);
-  return achadas[0];
-}
 
 function listaBash(texto, variavel, arquivo) {
   const re = new RegExp(RE_SH[variavel].source, 'gm');
