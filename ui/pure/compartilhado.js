@@ -109,7 +109,7 @@ export function modoDistribuicaoHtml(sync, cfgSync) {
 // não é "sem motivo": é "não se sabe daqui", e a nota diz isso. As recusas nomeiam "o
 // aparelho escolhido" porque quem recusou pode ser outro, e o detalhe diz qual.
 const MOTIVO_ESPERA = {
-  'sem-aparelho-apto': 'nenhum aparelho apto agora (sem vaga, pausado, sem sinal, sem consentimento, ou que já recusou este commit)',
+  'sem-aparelho-apto': 'nenhum aparelho apto agora (sem vaga, pausado, sem sinal, sem aceitar comandos do admin, ou que já recusou este commit)',
   'atribuicao-viva': 'o distribuidor já escolheu um aparelho e espera ele aceitar',
   sem_vaga: 'o aparelho escolhido recusou a atribuição por estar sem vaga',
   head_mudou: 'o commit mudou antes de a análise começar',
@@ -137,7 +137,7 @@ const MOTIVO_APARELHO = {
   'nao-publiquei': 'sem este item publicado lá',
   // detalhes de AUTORIDADE, que o executor passou a devolver junto da recusa: sem eles o
   // publicador lia só "não estava apto" e não tinha como saber o que houve
-  'nao-aceita-admin': 'com o consentimento de admin desligado quando a atribuição chegou',
+  'nao-aceita-admin': 'com a aceitação de comandos do admin desligada quando a atribuição chegou',
   vencida: 'com a atribuição já vencida quando ela foi lida lá',
   geracao: 'com a atribuição de outra geração de admin',
   assinatura: 'com a assinatura da atribuição que não fechou lá',
@@ -438,11 +438,11 @@ export function reciboFinal(recibo) {
 // nenhum, e dizer "esperando" ali esconderia que há um recibo errado no lugar.
 const CONFERENCIA = {
   'de-outro': {
-    classe: 'warn', rotulo: 'sem desfecho do alvo',
+    classe: 'warn', rotulo: 'recibo de outro aparelho',
     detalhe: 'há um recibo neste comando, mas ele não é do aparelho alvo; o desfecho do alvo não chegou',
   },
   'alvo-desconhecido': {
-    classe: 'mute', rotulo: 'desfecho não conferível',
+    classe: 'mute', rotulo: 'recibo não conferido',
     detalhe: 'há um recibo, e não deu para conferir de quem ele é (o comando já saiu do banco)',
   },
 };

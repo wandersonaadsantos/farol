@@ -245,6 +245,23 @@ test('reciboEstado: consulta que falhou aparece, sem virar recibo', () => {
   assert.match(r.detalhe, /consulta do recibo falhou/);
 });
 
+// Os dois estados de recibo que nao e do alvo sao FATOS diferentes: num deles sabemos que o
+// recibo e de outro aparelho, no outro nao deu nem para conferir de quem e. Os rotulos antigos
+// ("sem desfecho do alvo" e "desfecho nao conferivel") diziam os dois pela ausencia do desfecho
+// e se pareciam na leitura rapida; agora cada um diz o seu fato.
+test('reciboEstado: o recibo de outro aparelho e o não conferido não se parecem', () => {
+  const deOutro = P.reciboEstado(CMD, null, AGORA, false, 'de-outro');
+  const naoConferido = P.reciboEstado(CMD, null, AGORA, false, 'alvo-desconhecido');
+  assert.equal(deOutro.rotulo, 'recibo de outro aparelho');
+  assert.equal(naoConferido.rotulo, 'recibo não conferido');
+  assert.notEqual(deOutro.rotulo, naoConferido.rotulo);
+  assert.notEqual(deOutro.classe, naoConferido.classe, 'fatos diferentes, cores diferentes');
+  assert.match(deOutro.detalhe, /não é do aparelho alvo/);
+  assert.match(naoConferido.detalhe, /não deu para conferir de quem ele é/);
+  // nenhum dos dois pode ser lido como desfecho
+  for (const r of [deOutro, naoConferido]) assert.doesNotMatch(r.rotulo, /aplicado|recusado|ignorado/);
+});
+
 test('reciboFinal: só aplicado, recusado e ignorado encerram a consulta', () => {
   assert.equal(P.reciboFinal(null), false);
   assert.equal(P.reciboFinal({ estado: 'pendente' }), false);
@@ -417,6 +434,26 @@ function syncComEspera(item) {
     distribuicao: { modo: 'distribuido', esperando: [{ key: 'o/r#1', desde: AGORA - 1000, aparelhos: [], ...item }] },
   };
 }
+
+// "consentimento" nao e palavra de nenhum controle da interface: o interruptor se chama
+// "Aceitar politicas e comandos do admin", e e ele que a pessoa vai procurar depois de ler o
+// motivo. O texto do motivo passa a usar o vocabulario do interruptor, nos dois caminhos em
+// que ele aparecia com jargao (o motivo por aparelho e o detalhe de autoridade).
+test('o motivo de não aceitar admin usa a palavra do interruptor, nunca "consentimento"', () => {
+  const comMotivo = (motivo) => P.notaDistribuicaoHtml('o/r#1', syncComEspera({
+    motivo: 'sem-aparelho-apto', aparelhos: [{ deviceId: 'dB', motivo }],
+  }), AGORA);
+  for (const motivo of ['sem-consentimento', 'nao-aceita-admin']) {
+    const html = comMotivo(motivo);
+    assert.doesNotMatch(html, /consentimento/, `${motivo} ainda fala em consentimento`);
+    assert.match(html, /Celular, /);
+    assert.match(html, /admin/);
+  }
+  // o motivo geral listava "sem consentimento" entre os casos possíveis
+  const geral = comMotivo('sem-vaga');
+  assert.doesNotMatch(geral, /sem consentimento/);
+  assert.match(geral, /sem aceitar comandos do admin/);
+});
 
 test('notaDistribuicaoHtml: papel escolhido nomeia quem o distribuidor escolheu', () => {
   const html = P.notaDistribuicaoHtml('o/r#1', syncComEspera({ motivo: 'atribuicao-viva', dev: 'dB', papel: 'escolhido' }), AGORA);

@@ -32,7 +32,20 @@ function admin(opcoes) {
 test('sem ter lido o admin, a tela NÃO afirma que ninguém administra', () => {
   const html = admin({ adminLido: 0, status: 'conectado' });
   assert.equal(html.includes('Ninguém administra'), false, 'ausência de leitura não é ausência de admin');
-  assert.match(html, /ainda não deu para ler quem administra/);
+  assert.match(html, /ainda não conseguiu ler quem administra/);
+});
+
+// Os dois estados sao opostos e o selo era o MESMO cinza para os dois: "nao se sabe" (nao li)
+// e "sem admin" (li, e nao ha admin). Quem le rapido so tem o selo, entao ele tem de separar.
+test('o selo de ainda não ter lido não se confunde com o de não haver admin', () => {
+  const semLeitura = admin({ adminLido: 0, status: 'conectado' });
+  const lido = admin({ adminLido: AGORA - 5000, status: 'conectado' });
+  assert.match(semLeitura, /ainda não li/, 'o selo de ausência de leitura usa o vocabulário das outras telas');
+  assert.equal(semLeitura.includes('sem admin'), false, 'ausência de leitura não pode usar o selo de não haver admin');
+  assert.match(lido, /sem admin/);
+  assert.equal(lido.includes('ainda não li'), false);
+  const selo = (h) => (/<span class="sync-chip ([a-z]+)">/.exec(h) || [])[1];
+  assert.notEqual(selo(semLeitura), selo(lido), 'os dois estados não podem ter a mesma cor de selo');
 });
 
 test('desconectado, a tela diz que não sabe, e diz por quê', () => {

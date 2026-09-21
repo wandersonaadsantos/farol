@@ -271,8 +271,8 @@ const STATUS_SEM_LEITURA = {
 function adminNaoSei(status) {
   const porque = STATUS_SEM_LEITURA[String(status || '')] || 'a primeira leitura ainda não voltou';
   return {
-    classe: 'off', selo: chip('mute', 'não se sabe'), sabe: false,
-    texto: `Este aparelho ainda não deu para ler quem administra o conjunto, porque ${porque}. Isso NÃO quer dizer que ninguém administra: enquanto a leitura não volta, cada aparelho segue a própria configuração.`,
+    classe: 'off', selo: chip('info', 'ainda não li'), sabe: false,
+    texto: `Este aparelho ainda não conseguiu ler quem administra o conjunto, porque ${porque}. Isso NÃO quer dizer que ninguém administra: enquanto a leitura não volta, cada aparelho segue a própria configuração.`,
   };
 }
 

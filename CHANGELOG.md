@@ -9,6 +9,25 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.8
+
+Tres textos da sincronizacao de aparelhos passaram a dizer melhor o que dizem.
+
+**Melhorias**
+
+- **O motivo de um aparelho nao aceitar o admin aponta para o interruptor.** "Consentimento"
+  nao e palavra de controle nenhum da interface: o interruptor se chama "Aceitar politicas e
+  comandos do admin". O motivo por aparelho e o detalhe de autoridade passaram a usar esse
+  vocabulario, entao quem le o motivo sabe o que procurar.
+- **Recibo que nao e do aparelho alvo: dois estados, dois rotulos.** "Sem desfecho do alvo" e
+  "desfecho nao conferivel" contavam os dois pela ausencia do desfecho e se pareciam na
+  leitura rapida. Agora um diz "recibo de outro aparelho" (sabemos de quem NAO e) e o outro
+  diz "recibo nao conferido" (nao deu nem para conferir), com cores diferentes.
+- **Ainda nao ter lido quem administra deixou de parecer "nao ha admin".** Os dois estados
+  usavam o mesmo selo cinza para fatos opostos. O de ausencia de leitura passou a usar o
+  vocabulario que as outras telas ja usam ("ainda nao li") e um selo proprio; "sem admin"
+  continua sendo a afirmacao de que ninguem administra, so depois da leitura.
+
 ## v2.62.7
 
 "Ver relatorio completo" parou de fechar sozinho enquanto voce le.
