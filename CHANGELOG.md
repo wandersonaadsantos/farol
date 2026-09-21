@@ -9,6 +9,32 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.9
+
+Com a conta do Claude no limite, o Farol parou de relancar revisao a cada ciclo e de mexer na label do PR sem parar.
+
+**Correcoes**
+
+- **Limite do Claude espera o reset em vez de relancar a cada ciclo.** O Farol so reconhecia
+  tres das frases de limite que o Claude Code emite. As outras (entre elas "You've hit your
+  limit", a de conta com creditos de uso) chegavam como "claude saiu com codigo 1" e eram
+  tratadas como falha passageira: o PR era relancado no ciclo seguinte, a sessao morria em
+  segundos, e a label `<conta>:revisando` entrava e saia do PR varias vezes por hora, a vista
+  do time todo. Agora toda a familia de frases de limite e reconhecida, e o PR volta sozinho
+  so depois do horario de reset que a propria mensagem informa.
+- **Limite semanal com data.** "resets Sep 24 at 5am" nao era lido, e o limite semanal era
+  relancado 12 vezes seguidas. A data passou a ser lida.
+- **Teto da organizacao estaciona com a acao certa.** Orcamento do time, gasto mensal e
+  credito zerado pelo admin nao passam sozinhos numa hora conhecida. Em vez de relancar, o PR
+  estaciona dizendo que alguem com acesso de admin no Claude precisa subir o teto.
+- **O resultado de "Testar perfil" voltou a ser legivel.** Em Sistema > Plano e chaves, o
+  bloco saia como uma frase emendada ("Testado as 15:58o teste...", "Conta fulano
+  detectado"). Cada informacao agora aparece em sua linha, com o selo de onde ela veio
+  (validado, informado, detectado, inferido, desconhecido) em cor propria, e cabe tambem em
+  tela estreita.
+- **Linhas que nao eram pintadas.** O bloco Orcamento do perfil e a tela do Jira pediam cores
+  que o app nunca definiu, e divisorias e bordas simplesmente sumiam.
+
 ## v2.62.8
 
 Tres textos da sincronizacao de aparelhos passaram a dizer melhor o que dizem.

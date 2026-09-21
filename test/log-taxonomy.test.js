@@ -51,7 +51,7 @@ const MSG = {
 test('CLASSES: toda classe tem os cinco campos e um kind válido', () => {
   const KINDS = ['operacional', 'espera-reset', 'transitorio', 'permanente'];
   const GRUPOS = ['operacional', 'ambiente', 'credencial', 'rede', 'app'];
-  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 17, 'são 17 classes (rate-limit-github entrou na 7.C5)');
+  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 18, 'são 18 classes (limite-da-organizacao entrou em 21/09/2026)');
   for (const c of CLASSES) {
     assert.equal(typeof c.id, 'string');
     assert.ok(c.label, `${c.id} precisa de label humano`);
@@ -70,7 +70,9 @@ test('CLASSES: ids únicos', () => {
 
 test('CLASSES: a ordem é a documentada (primeira que casar vence)', () => {
   assert.deepEqual(CLASSES.map(c => c.id), [
-    'restart-fila', 'console-fechado', 'limite-plano', 'assinatura-bloqueada',
+    // limite-da-organizacao ANTES de limite-plano: várias frases de teto da organização
+    // contêm "usage limit" e seriam lidas como limite de janela (test/limite-do-claude.test.js)
+    'restart-fila', 'console-fechado', 'limite-da-organizacao', 'limite-plano', 'assinatura-bloqueada',
     'oauth-expirado', 'credencial-invalida', 'credito-insuficiente', 'resultado-invalido', 'coordenacao-indisponivel', 'rate-limit-github', 'rede', 'github-indisponivel',
     'provedor-indisponivel', 'token-gh', 'skip-permissions-root', 'tempo-esgotado', 'ferramenta'
   ]);
