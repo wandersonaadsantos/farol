@@ -232,7 +232,10 @@ export const PB_OPTS = [['', 'sem pushback'], ['author_right', 'o autor tinha ra
 
 export const PB_SHORT = { author_right: 'autor tinha razão', we_right: 'nós tínhamos razão', mixed: 'meio-termo' };
 
-export function pushbackControl(r, pushbacks) {
+// `disclosure`: a chave com que a tela lembra este controle e se a pessoa o deixou aberto
+// (ver resolvedRow). O pendente abre sozinho, como sempre: é o Farol pedindo confirmação.
+export function pushbackControl(r, pushbacks, disclosure = {}) {
+  const { chave = '', aberto = false } = disclosure;
   const author = (r.pr && r.pr.author) || r.author || '';
   if (!author) return '';
   const pb = (pushbacks || {})[r.key] || null;
@@ -240,7 +243,8 @@ export function pushbackControl(r, pushbacks) {
   const sum = resumoDoPushback(pending, pb);
   const title = pending ? 'O Farol suspeita de pushback aqui; confirme ou corrija o desfecho'
     : 'Marque se o autor contestou este review, pra calibrar os reviews futuros dele';
-  return `<details class="pushback"${pb ? ' data-set="1"' : ''}${pending ? ' data-pending="1" open' : ''}>
+  const abre = chave ? ` data-abre="${esc(chave)}"` : '';
+  return `<details class="pushback"${abre}${pb ? ' data-set="1"' : ''}${pending ? ' data-pending="1"' : ''}${pending || aberto ? ' open' : ''}>
     <summary title="${title}">${sum}</summary>
     <div class="pb-body">
       ${pending ? `<span class="pb-hint">O Farol detectou possível pushback${pb.note ? ` (${esc(pb.note)})` : ''}. Confirme o desfecho:</span>` : ''}
@@ -336,6 +340,21 @@ export function resolvedRow(r, ctx) {
       + (vcConflicts ? ` · ⚠ ${vcConflicts} divergência(s) entre passadas` : '')
     : '';
   const stLine = stagesLine(r.stages);
+  // O que a pessoa abriu sobrevive ao redesenho, na mesma convenção de Entregas
+  // (openKeys em ui/pure/entregas.js): a tela guarda as chaves num Set, um listener de
+  // `toggle` o mantém em dia, e o HTML sai com `open`. Sem isso, com uma revisão em
+  // andamento a lista se redesenha a cada poucos segundos e "Ver relatório completo"
+  // fechava no meio da leitura (relato de 21/09/2026). O resolvedAt entra na chave
+  // porque o mesmo PR pode ter duas revisões na lista.
+  const linha = `${r.key}@${r.resolvedAt || ''}`;
+  const abertas = ctx.openKeys instanceof Set ? ctx.openKeys : new Set();
+  const disclosure = (parte) => {
+    const chave = `${linha}|${parte}`;
+    return { chave, attrs: ` data-abre="${esc(chave)}"${abertas.has(chave) ? ' open' : ''}` };
+  };
+  const motivos = disclosure('motivos');
+  const relatorio = disclosure('relatorio');
+  const pushback = disclosure('pushback');
   return `<div class="rrow${attn.length ? ' has-attn' : ''}">
     <span class="rr-icon" aria-hidden="true">${icon}</span>
     <div class="rr-main">
@@ -350,9 +369,9 @@ export function resolvedRow(r, ctx) {
       <div class="rr-disc">
         ${vcLine ? `<div class="rr-verification">${esc(vcLine)}</div>` : ''}
         ${stLine ? `<div class="rr-stages">${esc(stLine)}</div>` : ''}
-        ${attn.length ? `<details class="resolved-attn"><summary>⚠ ${attn.length} ${attnLabel}</summary>${reasonGroupsHtml(attn, r.postRetry)}</details>` : ''}
-        ${r.reportMarkdown ? `<details class="dec-report"><summary>Ver relatório completo</summary><div class="report">${md(r.reportMarkdown)}</div></details>` : ''}
-        ${pushbackControl(r, ctx.pushbacks)}
+        ${attn.length ? `<details class="resolved-attn"${motivos.attrs}><summary>⚠ ${attn.length} ${attnLabel}</summary>${reasonGroupsHtml(attn, r.postRetry)}</details>` : ''}
+        ${r.reportMarkdown ? `<details class="dec-report"${relatorio.attrs}><summary>Ver relatório completo</summary><div class="report">${md(r.reportMarkdown)}</div></details>` : ''}
+        ${pushbackControl(r, ctx.pushbacks, { chave: pushback.chave, aberto: abertas.has(pushback.chave) })}
       </div>
     </div>
     <div class="rr-side">
