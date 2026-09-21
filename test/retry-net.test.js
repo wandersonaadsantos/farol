@@ -736,3 +736,37 @@ test('_repescarRetry consome a referência de retomada do PR mergeado', async ()
   assert.equal(e.retryAfterNet.has('o/r#21'), false);
   assert.equal(e.retomadas.has('o/r#21'), false, 'a referência morre junto do PR');
 });
+
+/* ---------- a label que entrava e saía (relato de 21/09/2026) ---------- */
+
+// A frase EXATA que o Claude Code 2.1.268 monta quando a conta tem créditos de uso e a
+// janela de 5h estoura, do jeito que o Farol a recebe (session.js, erroDeSessao). Antes ela
+// caía em `ferramenta` (transitória, sem notBefore): relançava no ciclo seguinte, a sessão
+// morria de novo em segundos, e a label <conta>:revisando entrava e saía no PR várias vezes
+// por hora. Medido no GitHub nas contas de quem estava com a sessão em 100%.
+const MSG_LIMITE_DO_RELATO = "claude saiu com código 1: You've hit your limit · resets 5:50pm";
+
+test('runOneHeadless: o limite do relato espera o reset em vez de relançar no próximo ciclo', async () => {
+  const e = engineBase();
+  e.prState = async () => 'OPEN';
+  e.runHeadlessReview = async () => { throw new Error(MSG_LIMITE_DO_RELATO); };
+  await e.runOneHeadless(prDe('o/r#30'), 'eu');
+  const guardado = e.retryAfterNet.get('o/r#30');
+  assert.ok(guardado, 'limite de janela é transitório: o PR fica guardado para depois do reset');
+  assert.equal(typeof guardado.notBefore, 'number', 'sem hora marcada ele voltava no ciclo seguinte');
+  assert.ok(guardado.notBefore > Date.now());
+  assert.deepEqual(e.retryTargets(new Set(), new Set(), guardado.notBefore - 1).map(p => p.key), [],
+    'antes do reset nada é relançado, então a label não entra de novo no PR');
+  assert.equal(e.autoReviewParked.has('o/r#30'), false, 'limite de janela não estaciona: volta sozinho');
+});
+
+test('runOneHeadless: teto da organização estaciona na hora, sem ciclo de relançamento', async () => {
+  const e = engineBase();
+  e.prState = async () => 'OPEN';
+  e.runHeadlessReview = async () => {
+    throw new Error("claude saiu com código 1: You've hit your team's shared budget · ask your admin to raise it at claude.ai/admin-settings/usage");
+  };
+  await e.runOneHeadless(prDe('o/r#31'), 'eu');
+  assert.equal(e.retryAfterNet.has('o/r#31'), false, 'relançar não sobe o teto de ninguém');
+  assert.equal(e.autoReviewParked.has('o/r#31'), true, 'estaciona com a ação de quem resolve (o admin)');
+});
