@@ -51,6 +51,20 @@ export function marcarSeg(botoes, ehAtivo) {
   botoes.forEach(b => { const a = ehAtivo(b); b.classList.toggle('active', a); b.setAttribute('aria-pressed', a ? 'true' : 'false'); });
 }
 
+// Mantém `abertos` em dia com os <details data-abre> de uma lista que se redesenha por
+// innerHTML. É a convenção de Entregas (o listener de #deliveries em entregas.js): a
+// tela guarda as chaves, o HTML sai com `open` a partir delas, e o redesenho a cada estado
+// do SSE deixa de fechar o que a pessoa abriu. `toggle` não borbulha, daí a captura.
+export function lembrarAbertos(box, abertos) {
+  if (!box) return;
+  box.addEventListener('toggle', (e) => {
+    const d = e.target;
+    const chave = d && d.dataset && d.dataset.abre;
+    if (!chave) return;
+    if (d.open) abertos.add(chave); else abertos.delete(chave);
+  }, true);
+}
+
 // pisca o alvo depois de navegar, pra achar a linha no meio da seção. Usado pelo
 // roteador de navegação interna (sysGoTo, gotoAba, gotoDeliv) e por quem abre um
 // editor específico fora dele; mora aqui pelo mesmo motivo do marcarSeg acima.

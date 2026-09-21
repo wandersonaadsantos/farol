@@ -7,6 +7,7 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.62.7', ['"Ver relatório completo" parou de fechar sozinho enquanto você lê. Com uma revisão em andamento, as listas do Radar e de Meus PRs se redesenham a cada poucos segundos, e cada redesenho fechava o relatório aberto (e também os motivos e o pushback). Agora o que você abriu continua aberto e no mesmo lugar da tela, mesmo quando uma revisão nova entra no topo da lista.']],
   ['2.62.6', ['Os botões de cada aparelho, em Sistema > Aparelhos, ganharam uma faixa própria logo abaixo dos dados: eles voltam a caber numa linha só, e as quatro colunas continuam alinhadas sob os cabeçalhos. Na versão anterior o alinhamento veio ao custo de os botões quebrarem em duas linhas.']],
   ['2.62.5', ['O aviso de análise já feita parou de falar do seu próprio aparelho em terceira pessoa: quando o trabalho foi feito aqui, ele diz "neste aparelho" em vez de nomear a máquina em que você está lendo.',
     'O recibo de um comando passou a pertencer ao aparelho a quem ele foi enviado: um terceiro não responde mais por ele, e o desfecho na tela só aparece quando o recibo é mesmo do alvo.',

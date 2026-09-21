@@ -19,7 +19,7 @@ import {
 import { estado, escopo } from './estado.js';
 import {
   $, api, confirmModal, showOp, updateOp, closeOp, toast, rotuloDoBotaoDeAnalise,
-  copyToClipboard, sysFlash, ACTIVE_OPS,
+  copyToClipboard, sysFlash, ACTIVE_OPS, lembrarAbertos,
 } from './infra.js';
 import { scopeVisible, acctMark } from './contas.js';
 import { renderRadarNav } from './radar.js';
@@ -55,6 +55,10 @@ const unhideOptimistic = new Set();
 const BARRA_DO_SELO = { approve: 'ok', rc: 'warn', stale: 'stale' };
 
 let hiddenOpen = false;
+// O relatório de cada análise que a pessoa abriu. A lista se redesenha a cada estado do
+// SSE (inclusive o de uma autoanálise em andamento); é daqui que o `open` volta.
+const meusAbertos = new Set();
+lembrarAbertos($('#myPRs'), meusAbertos);
 // Análises que já viraram confete NESTA sessão da tela (PR mais o instante da análise).
 // Some com a página, de propósito: a festa é do momento em que a análise termina, e não um
 // estado que precise sobreviver a alguma coisa.
@@ -187,7 +191,7 @@ function renderMyPRs() {
         ${externos.length ? `<div class="mypr-block"><b>Fora do PR</b> <span class="mypr-hint">não se resolve com commit</span><ul class="dec-reasons">${externos.map(b => `<li>🟠 ${esc(b)}</li>`).join('')}</ul></div>` : ''}
         ${(a.tips || []).length ? `<div class="mypr-tips"><b>Dá pra melhorar</b><ul class="dec-reasons">${a.tips.map(t => `<li>🟡 ${esc(t)}</li>`).join('')}</ul></div>` : ''}
         ${hasWork ? `<div class="mypr-fixrow"><button class="btn sm act-fix-copy" data-key="${esc(pr.key)}" title="Monta um prompt com os pontos da revisão pra você colar no chat que está resolvendo este PR">📋 ${hasBlockers ? 'Copiar prompt de correção' : 'Copiar prompt de melhoria'}</button></div>` : ''}
-        ${a.reportMarkdown ? `<details class="dec-report"><summary>Ver relatório completo</summary><div class="report">${md(a.reportMarkdown)}</div></details>` : ''}
+        ${a.reportMarkdown ? `<details class="dec-report" data-abre="${esc(`${pr.key}|relatorio`)}"${meusAbertos.has(`${pr.key}|relatorio`) ? ' open' : ''}><summary>Ver relatório completo</summary><div class="report">${md(a.reportMarkdown)}</div></details>` : ''}
         <div class="mypr-when">analisado ${fmtRel(new Date(a.at).toISOString())}${a.card ? ` · ${esc(a.card)}` : ''}</div>
       </div>` : '';
     return `

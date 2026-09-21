@@ -10,7 +10,7 @@ import {
   automacaoPausadaPor, queueCardHtml, panoramaRowHtml, staleCardMeta,
 } from '../pure.js';
 import { estado, escopo, peopleOf } from './estado.js';
-import { $, api, textoDaListaVazia, toast, copyToClipboard } from './infra.js';
+import { $, api, textoDaListaVazia, toast, copyToClipboard, lembrarAbertos } from './infra.js';
 import { scopeVisible, acctMark } from './contas.js';
 import { revisarUrls } from './consumo.js';
 import { renderPanoramaRemoto } from './listas-remotas.js';
@@ -22,6 +22,12 @@ import { renderPanoramaRemoto } from './listas-remotas.js';
    (.radar-nav), que em janela estreita rolava horizontalmente e escondia metade dos
    destinos sem avisar que existiam. */
 let RADAR_SUB = 'mim';
+
+// Os <details> que a pessoa abriu nas decisões pendentes e em Revisões recentes. As duas
+// listas se redesenham a cada estado do SSE; é daqui que o `open` volta (lembrarAbertos).
+const radarAbertos = new Set();
+lembrarAbertos($('#decisions'), radarAbertos);
+lembrarAbertos($('#resolved'), radarAbertos);
 
 function switchRadarSub(nome) {
   if (nome) RADAR_SUB = nome;
@@ -105,7 +111,7 @@ function renderDecisions() {
       ${author ? `<div class="dec-author">PR de ${personMention(author, 'xs')} ${papelPicker(author, people)}</div>` : ''}
       ${meta.reasons.length ? reasonGroupsHtml(meta.reasons, d.postRetry) : ''}
       ${meta.statusHtml}
-      <details class="dec-report"><summary>Ver relatório completo</summary><div class="report">${md(d.reportMarkdown)}</div></details>
+      <details class="dec-report" data-abre="${esc(`${d.id}|relatorio`)}"${radarAbertos.has(`${d.id}|relatorio`) ? ' open' : ''}><summary>Ver relatório completo</summary><div class="report">${md(d.reportMarkdown)}</div></details>
       <div class="dec-actions">
         ${(meta.reviewBtn === 'primary' || meta.reviewBtn === 'secondary') && d.pr?.url
           ? `<button class="btn${meta.reviewBtn === 'primary' ? ' primary' : ''} sm act-review" data-url="${esc(d.pr.url)}" title="Revisa de novo agora, no commit atual do PR">Revisar agora</button>`
@@ -150,6 +156,7 @@ function renderResolved() {
   const pushbacks = estado().pushbacks || {};
   $('#resolved').innerHTML = resolved.map(r => resolvedRow(r, {
     pushbacks,
+    openKeys: radarAbertos,
     chip: acctMark(r).chip,
     chatBadge: chatBadge(r.key, estado()?.chats)
   })).join('');

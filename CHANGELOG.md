@@ -9,6 +9,21 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.7
+
+"Ver relatorio completo" parou de fechar sozinho enquanto voce le.
+
+**Correcoes**
+
+- **O relatorio aberto continua aberto enquanto outra revisao roda.** As listas do Radar
+  (Revisoes recentes e as decisoes pendentes) e de Meus PRs se redesenham a cada estado
+  novo, e com uma revisao em andamento o estado chega a cada poucos segundos. Cada
+  redesenho recriava a lista inteira, e todo "Ver relatorio completo" aberto voltava
+  fechado no meio da leitura; o mesmo acontecia com os motivos de ter vindo para voce e com
+  o pushback. Agora o que voce abriu atravessa o redesenho: o relatorio fica aberto e no
+  mesmo lugar da tela, mesmo quando uma revisao nova entra no topo da lista. Os botoes que
+  se desabilitam no clique continuam voltando no redesenho seguinte, como antes.
+
 ## v2.62.6
 
 Os botoes de cada aparelho voltaram a caber numa linha so, sem desalinhar as colunas.
