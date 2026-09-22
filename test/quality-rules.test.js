@@ -4,6 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { scanFile } from '../tools/quality/rules.js';
+import { comparar } from '../tools/quality/gate.js';
 
 test('emptyCatch: pega catch {} e catch (e) {}, ignora catch com corpo', () => {
   const r = scanFile('try{a()}catch{}\ntry{b()}catch(e){}\ntry{c()}catch(e){log(e)}', 'x.js');
@@ -49,10 +50,28 @@ test('portaLiteral: 47170 fora de lib/constants.js conta', () => {
   assert.equal(scanFile('const p = 47170;', 'lib/constants.js').portaLiteral, 0);
 });
 
-test('maxLines: 1 quando o arquivo passa de 400 linhas nao vazias', () => {
-  const grande = Array.from({ length: 401 }, (_, i) => `x${i}();`).join('\n');
-  assert.equal(scanFile(grande, 'x.js').maxLines, 1);
+// maxLines conta as linhas uteis ACIMA do teto, nao 0/1. Binario, arquivo que ja estava
+// na baseline crescia sem o ratchet ver: o server.js foi de 2144 para 2326 linhas entre
+// 15 e 22/09/2026 com o gate verde em todos os commits.
+const linhas = (n) => Array.from({ length: n }, (_, i) => `x${i}();`).join('\n');
+
+test('maxLines: zero ate 400 linhas nao vazias', () => {
+  assert.equal(scanFile(linhas(400), 'x.js').maxLines, 0);
   assert.equal(scanFile('a();\nb();', 'x.js').maxLines, 0);
+});
+
+test('maxLines: conta as linhas nao vazias acima de 400', () => {
+  assert.equal(scanFile(linhas(401), 'x.js').maxLines, 1);
+  assert.equal(scanFile(linhas(650), 'x.js').maxLines, 250);
+  assert.equal(scanFile(linhas(650) + '\n\n\n', 'x.js').maxLines, 250);
+});
+
+test('maxLines: arquivo acima do teto que cresce reprova no ratchet', () => {
+  const base = { 'x.js': scanFile(linhas(650), 'x.js') };
+  const cresceu = { 'x.js': scanFile(linhas(651), 'x.js') };
+  const encolheu = { 'x.js': scanFile(linhas(600), 'x.js') };
+  assert.deepEqual(comparar(cresceu, base).regressoes, ['x.js: maxLines subiu de 250 pra 251']);
+  assert.deepEqual(comparar(encolheu, base).regressoes, []);
 });
 
 test('profundidadeExcedida: chaves aninhadas alem de 3 dentro de funcao', () => {
