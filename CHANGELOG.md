@@ -9,6 +9,26 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.10
+
+O limite do plano do Claude passou a valer para a conta inteira, e nao PR por PR.
+
+**Correcoes**
+
+- **Um PR descobre o limite, e os outros ja sabem.** Na v2.62.9 cada PR passou a esperar o
+  reset depois de bater no limite, mas a espera era guardada por PR. Com a fila cheia, o
+  primeiro descobria o limite e os outros tinham de bater nele um a um: medido logo depois
+  da v2.62.9, um aparelho abriu revisao em 12 PRs em 34 segundos, cada uma morrendo em
+  segundos e pondo e tirando a label `<conta>:revisando`. Agora o limite vale para a
+  assinatura do Claude inteira (duas contas do GitHub no mesmo perfil dividem a mesma cota),
+  e o PR que chega na vez durante o limite nem abre sessao: espera o reset na fila.
+- **Reiniciar o Farol durante o limite nao dispara a fila de novo.** A espera morava so na
+  memoria, e o proprio reinicio para instalar a correcao a apagava. Ela agora fica em disco.
+- **A varredura de pushback e as revisoes dividem o mesmo limite.** O limite descoberto por
+  uma revisao para tambem a varredura daquela conta, e o contrario.
+- O clique manual continua passando, e uma revisao que da certo libera a conta: a cota pode
+  ter voltado antes, ou voce comprou uso extra.
+
 ## v2.62.9
 
 Com a conta do Claude no limite, o Farol parou de relancar revisao a cada ciclo e de mexer na label do PR sem parar.
