@@ -13,10 +13,14 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const { Engine } = await import('../server.js');
+const { LIMITE_PLANO_FILE: LIMITE_PLANO_FILE_RN } = await import('../lib/paths.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
 
 function engineBase() {
+  // o limite do plano agora fica em disco, por assinatura (lib/engine/limite-plano.js): um
+  // caso que provoca o limite de propósito não pode barrar os casos seguintes da mesma conta
+  try { fs.rmSync(LIMITE_PLANO_FILE_RN, { force: true }); } catch { }
   const e = new Engine();
   e.accountForPr = (pr) => pr.account || 'eu';
   e.isMuted = (u) => u === 'silenciada';

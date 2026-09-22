@@ -34,6 +34,7 @@ import updateMod from './lib/engine/update.js';
 import chatMod from './lib/engine/chat.js';
 import toolsMod from './lib/engine/tools.js';
 import pushbackMod from './lib/engine/pushback.js';
+import { carregarLimites, limiteAte } from './lib/engine/limite-plano.js';
 import decisionMod from './lib/engine/decision.js';
 import arbitragemMod from './lib/engine/postagem-arbitragem.js';
 import ghMod from './lib/engine/gh-queries.js';
@@ -242,6 +243,8 @@ class Engine extends EventEmitter {
     // Nao filtra myPRs (quem esconde e a UI); o updatedAt guardado e o que permite o
     // retorno automatico quando o PR recebe atividade nova (reconcileHiddenPRs).
     this.hiddenPRs = readJson(HIDDEN_FILE, {}, warn);
+    // assinatura do Claude -> { ate, em }: até quando ela está no limite do plano
+    carregarLimites(this);
     this.mergeStates = {};            // key do PR -> mergeabilidade real (só p/ aprovaveis)
     this.staleStates = {};            // key do PR -> true quando entrou commit apos a minha review
     this.staleInfo = {};              // key do PR -> { stale, head, lastState } (gate da re-revisao automatica; interno, fora do snapshot)
@@ -1225,6 +1228,9 @@ class Engine extends EventEmitter {
         if (this.syncSeguraAutomacao(p.key)) return false;
         // teto do grupo que não dá para verificar (C4b): espera, sem estacionar
         if (this.grupoSegura(acct)) return false;
+        // assinatura do Claude no limite do plano: nem entra na fila até o reset, senão
+        // cada PR abria sessão, punha a label e morria em segundos (21/09/2026)
+        if (this.limiteDoPlanoAte(acct)) return false;
         if (this.skipComentado[p.key]) { foraDeCena.push(p); return false; }
         if (this._registraPulo(p, pulados)) return false;
         const blockedProfile = this.budgetBlockedFor(acct);
@@ -2070,6 +2076,10 @@ class Engine extends EventEmitter {
   // pushback), pra nenhum deles vazar gasto quando um perfil já estourou.
   // Desde a v2.48.4 vale pros DOIS tipos de perfil: o teto de assinatura não fala
   // de fatura, fala de ritmo, e era a metade que faltava da mesma feature.
+  // Até quando a assinatura do Claude desta conta está no limite do plano (0 = livre).
+  // Fachada de lib/engine/limite-plano.js, consultada nos mesmos pontos do orçamento.
+  limiteDoPlanoAte(acct) { return limiteAte(this, acct); }
+
   budgetBlockedFor(acct) {
     const profile = this.profileOfAccount(acct);
     if (profile && this.profileBudgetStatus(profile).blocked) return profile;

@@ -17,6 +17,8 @@ const pb = await import('../lib/engine/pushback.js');
 after(() => { try { fs.rmSync(FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 
 function engineAlvo(marcador = '2026-08-01T09:00:00Z') {
+  // o limite do plano fica em disco por assinatura: um caso não pode herdar o do anterior
+  try { fs.rmSync(path.join(FAROL_HOME, 'state', 'limite-plano.json'), { force: true }); } catch { /* ausente */ }
   const e = new Engine();
   e.decisions = { resolved: [{ key: 'o/r#2', status: 'auto_approved', action: 'approve', reasons: ['confira X'], cardMet: true, resolvedAt: 1 }], pending: [] };
   e.panorama = [{ key: 'o/r#2', updatedAt: '2026-08-01T10:00:00Z' }];
@@ -90,12 +92,14 @@ test('limite do plano para o scan até o reset e não empilha cartão', async ()
   e.classifyPushback = async () => { chamadas++; throw new Error(msg); };
   for (let i = 0; i < 5; i++) await e.scanPushbacks();
   assert.equal(chamadas, 1, 'uma sessão só: as outras quatro esperariam o mesmo reset');
-  assert.ok(pb.esperandoResetDePlano(e), 'o scan fica esperando o reset');
+  // com hora citada, a espera mora no registro da assinatura (lib/engine/limite-plano.js),
+  // o mesmo que as revisões consultam, e não mais num campo só do pushback
+  assert.ok(e.limiteDoPlanoAte('eu') > Date.now(), 'a assinatura fica esperando o reset');
   assert.equal(pb.pushbackTargets(e, e.reviewActions()).length, 0, 'ninguém entra no scan durante a espera');
   const doPlano = e.falhasRecentes({ limite: 50 }).filter((f) => f.classe === 'limite-plano');
   assert.equal(doPlano.length, 1, 'um cartão só');
-  // passado o reset, o scan volta sozinho
-  e.pushbackEsperaAte = Date.now() - 1000;
+  // passado o reset, o scan volta sozinho (o registro descarta o que venceu)
+  for (const v of e.limitesDePlano.values()) v.ate = Date.now() - 1000;
   await e.scanPushbacks();
   assert.equal(chamadas, 2);
 });
