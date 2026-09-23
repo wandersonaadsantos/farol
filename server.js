@@ -58,6 +58,7 @@ import usageMod from './lib/engine/usage.js';
 import falhasMod from './lib/engine/falhas.js';
 import tentativasMod from './lib/engine/usage-tentativas.js';
 import quotaMod from './lib/engine/quota.js';
+import limiteGh from './lib/engine/limite-gh.js';
 import syncMod from './lib/engine/sync.js';
 import consumoGrupoMod from './lib/engine/sync-consumo-grupo.js';
 import telasMod from './lib/engine/sync-telas.js';
@@ -837,7 +838,7 @@ class Engine extends EventEmitter {
   }
 
   // Consultas ao GitHub (leitura, zero IA): colaborador lib/engine/gh-queries.js (Onda 2).
-  async searchPRs(extraArgs, user) { return ghMod.searchPRs(this, extraArgs, user); }
+  async searchPRs(extraArgs, user, agora = Date.now()) { return ghMod.searchPRs(this, extraArgs, user, agora); }
   async myAuthoredPRs(user) { return ghMod.myAuthoredPRs(this, user); }
   async prState(pr) { return ghMod.prState(this, pr); }
   async headSha(pr) { return ghMod.headSha(this, pr); }
@@ -1979,6 +1980,8 @@ class Engine extends EventEmitter {
       account: { user: this.primaryUser(), tokenOk: this.tokenOk },
       accounts: this.accountList().map((a, i) => ({
         user: a.user, owners: a.owners, tokenOk: !!(this.tokens && this.tokens[a.user]),
+        // ate quando as buscas desta conta estao paradas pelo limite do GitHub (0 = livre)
+        limiteGhAte: limiteGh.limiteAte(this, a.user),
         label: a.label, color: a.color, kind: a.kind, muted: !!a.muted, primary: i === 0,
         autoReview: a.autoReview, onClean: a.onClean, onCaveats: a.onCaveats, onReject: a.onReject,
         claudeProfileId: a.claudeProfileId
