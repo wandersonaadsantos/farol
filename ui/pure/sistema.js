@@ -26,7 +26,7 @@
 // ja grava em horario LOCAL, entao passar por new Date() so criaria chance de mover a
 // hora que a pessoa le no arquivo. Carimbo que nao casa volta como veio, nunca vira
 // "Invalid Date" na tela.
-import { escAttrSelector, fmtSpan, plural } from './comum.js';
+import { escAttrSelector, fmtClock, fmtSpan, plural } from './comum.js';
 
 export function fmtLogStamp(ts) {
   const m = String(ts ?? '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
@@ -166,6 +166,14 @@ export function operationChecks(accounts) {
     if (!a.tokenOk) {
       return { ok: false, label: `Monitoramento de @${a.user}`, goto: alvo(a.user),
         detail: `sem token no gh: as buscas de ${orgs.join(', ')} são puladas (rode gh auth login para esta conta)` };
+    }
+    // conta que estourou o limite de requisições do GitHub: o ambiente está verde, a
+    // conta tem token e orgs, e mesmo assim nada é buscado por ela até o limite
+    // renovar. Sem esta linha o painel fica parado sem dizer por quê, que é o defeito
+    // de origem desta dimensão. Mesmo rótulo, porque é o mesmo assunto: o monitoramento.
+    if (Number(a.limiteGhAte) > 0) {
+      return { ok: false, label: `Monitoramento de @${a.user}`, goto: alvo(a.user),
+        detail: `no limite de requisições do GitHub: as buscas desta conta voltam às ${fmtClock(Number(a.limiteGhAte))}` };
     }
     return { ok: true, label: `Monitoramento de @${a.user}`, goto: alvo(a.user),
       detail: `vigiando ${orgs.join(', ')}${a.muted ? ' (silenciada: não aparece no painel)' : ''}` };
