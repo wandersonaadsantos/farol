@@ -31,7 +31,6 @@
   },
   "lib/engine/review.js": {
     "maxLines": 1,
-    "emptyCatch": 1,
     "ternarioAninhado": 1,
     "profundidadeExcedida": 13
   },
@@ -91,12 +90,11 @@
   "server.js": {
     "maxLines": 1,
     "emptyCatch": 1,
-    "jsonParseCru": 1,
     "jsonStringifyCru": 1,
     "processEnvDireto": 5,
     "ternarioAninhado": 3,
     "tempoMagico": 1,
-    "profundidadeExcedida": 9
+    "profundidadeExcedida": 8
   },
   "tools/quality/gate.js": {
     "jsonParseCru": 1,

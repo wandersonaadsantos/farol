@@ -8,11 +8,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 test('runHeadlessReview é a ÚNICA função que chama headlessPromptFor', () => {
-  const src = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'engine', 'review.js'), 'utf8');
-  const chamadas = src.match(/headlessPromptFor\(/g) || [];
-  // 1 na definição da função (`function headlessPromptFor(`) + 1 na chamada dentro de
-  // runHeadlessReview = 2 ocorrências do token no arquivo inteiro
-  assert.equal(chamadas.length, 2, 'headlessPromptFor só é definida e chamada uma vez; nenhum caminho paralelo de prompt');
+  // A montagem do prompt saiu do review.js em 23/09/2026 (lib/engine/review-prompt.js).
+  // O invariante não mudou, o endereço sim: antes este caso contava 2 ocorrências no
+  // review.js (definição mais chamada), e agora pergunta o mesmo em dois arquivos.
+  const leia = (...p) => fs.readFileSync(path.join(import.meta.dirname, '..', ...p), 'utf8');
+  const chamadas = (leia('lib', 'engine', 'review.js').match(/headlessPromptFor\(/g) || []).length;
+  assert.equal(chamadas, 1, 'uma chamada só, dentro do runHeadlessReview: nenhum caminho paralelo de prompt');
+  const def = (leia('lib', 'engine', 'review-prompt.js').match(/function headlessPromptFor\(/g) || []).length;
+  assert.equal(def, 1, 'e uma definição só, no módulo do prompt');
 });
 
 test('retryTargets só filtra e devolve PRs, nunca monta prompt nem chama runClaudeStream', () => {
