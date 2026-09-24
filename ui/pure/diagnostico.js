@@ -76,16 +76,23 @@ function quandoLegivel(at) {
 function falhaCartaoHtml(f) {
   const classe = CLASSE_DO_CARTAO[f.gravidade] || 'ambient';
   const chip = CHIP_DA_GRAVIDADE[f.gravidade] || '';
-  const sessao = f.sessionId ? ` · sessão <code>${esc(f.sessionId)}</code>` : '';
   // falha que repete enquanto a condição dura sai UMA vez, com a contagem (ver lib/engine/falhas.js)
   const vezes = Number(f.ocorrencias) > 1
     ? `<span class="falha-vezes">${Number(f.ocorrencias)}× desde ${esc(quandoLegivel(f.primeiraAt))}</span>`
     : '';
+  const onde = f.ref ? `<span class="falha-ref">${esc(f.ref)}</span>` : '';
+  // Nasce FECHADA, menos a que precisa de você: 19 falhas abertas enterravam justamente as
+  // duas que pediam ação (Diagnóstico do aparelho do Wanderson, 23/09/2026). O resumo tem o
+  // que faz escolher qual abrir: quando, o que é, sobre qual PR e se repetiu. O identificador
+  // de sessão fica no corpo, porque 36 caracteres de id não ajudam nessa escolha.
+  const aberta = f.precisaDeVoce ? ' open' : '';
   return `<div class="card ${classe} falha-cartao">
-    <div class="falha-topo"><span class="falha-titulo">${esc(f.rotulo)}</span>${chip}${vezes}<span class="falha-quando">${esc(quandoLegivel(f.at))}${sessao}</span></div>
-    <p class="falha-acao"><b>O que fazer:</b> ${esc(f.acao)}</p>
-    <div class="report falha-texto">${diagnosticoHtml(f.markdown)}</div>
-    <div class="row-actions"><button class="btn sm" type="button" data-copiar-falha="${esc(f.id)}">Copiar esta falha</button></div>
+    <details${aberta}>
+      <summary class="falha-topo"><span class="falha-quando">${esc(quandoLegivel(f.at))}</span><span class="falha-titulo">${esc(f.rotulo)}</span>${chip}${onde}${vezes}</summary>
+      <p class="falha-acao"><b>O que fazer:</b> ${esc(f.acao)}</p>
+      <div class="report falha-texto">${diagnosticoHtml(f.markdown)}</div>
+      <div class="row-actions"><button class="btn sm" type="button" data-copiar-falha="${esc(f.id)}">Copiar esta falha</button></div>
+    </details>
   </div>`;
 }
 

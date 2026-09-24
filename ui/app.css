@@ -1805,15 +1805,24 @@ body.parear > *:not(.par-raiz) { display: none !important; }
 
 /* ---------- falhas registradas (A3) ---------- */
 .falha-cartao { display: flex; flex-direction: column; gap: 8px; }
+/* o cartao nasce fechado (menos o que pede acao): o resumo e a linha que faz escolher qual
+   abrir, entao ele e clicavel inteiro e nao quebra em varias alturas */
+.falha-cartao details > *:not(summary) { margin-top: 8px; }
+.falha-cartao summary { cursor: pointer; list-style: none; }
+.falha-cartao summary::-webkit-details-marker { display: none; }
+.falha-cartao summary::before { content: "\25B8"; color: var(--faint); font-size: 11px; transition: transform .12s ease; display: inline-block; }
+.falha-cartao details[open] > summary::before { transform: rotate(90deg); }
+.falha-cartao summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 .falha-topo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .falha-titulo { font-size: 13.5px; font-weight: 650; }
 .falha-vezes { font-size: 11.5px; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }
-.falha-quando { margin-left: auto; font-size: 12px; color: var(--faint); }
+.falha-ref { font-size: 11.5px; color: var(--muted); font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; }
+.falha-quando { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
 .falha-acao { margin: 0; font-size: 12.5px; color: var(--muted); text-wrap: pretty; }
 .falha-acao b { color: var(--text); font-weight: 650; }
 .falha-texto { margin-top: 0; max-height: 260px; }
 .falha-texto pre, #diagBox pre { margin: 8px 0; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
-@media (max-width: 620px) { .falha-quando { margin-left: 0; width: 100%; } }
+@media (max-width: 620px) { .falha-ref { width: 100%; } }
 
 /* ---------- visão compartilhada no Radar (B2, itens 2.7 a 2.9) ---------- */
 .pr-coord.bad { color: var(--danger); }
