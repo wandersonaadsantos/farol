@@ -9,6 +9,32 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.13
+
+O Farol passou a rodar o modelo mais novo de cada família, e a escolha de modelo virou uma
+definição só.
+
+**Correções**
+
+- **O Opus do Farol estava preso no Opus 5.** O Farol pede o modelo pelo apelido (`opus`,
+  `sonnet`, `haiku`, `fable`) e quem decide para qual modelo cada apelido aponta é o Claude
+  Code instalado. Com o CLI parado numa versão antiga, `opus` seguia sendo o Opus 5 mesmo
+  depois do lançamento do Opus 5.5. Nada no Farol avisava.
+- **Check novo em Sistema > Visão geral: "Versão do Claude Code".** Fica vermelho quando o
+  CLI está mais de três dias atrás da última versão estável publicada, e diz o comando que
+  resolve (`claude update`). A consulta ao registro do npm acontece no máximo a cada seis
+  horas; sem rede, o check some em vez de inventar um estado.
+- **Haiku fixado pelo nome completo recebia `--effort`**, que o Haiku não aceita. A regra
+  comparava só o apelido `haiku`; agora vale pela família, qualquer que seja o nome.
+
+**Melhorias**
+
+- **A seleção de modelo mora num lugar só.** A lista que a configuração aceita, as opções do
+  seletor em Automação, o que o modo Auto usa em cada tamanho de PR, o texto que descreve o
+  Auto e quem aceita esforço estavam escritos em quatro lugares, e trocar um exigia achar os
+  outros. Agora todos leem do mesmo catálogo: mudar o modelo de uma faixa do Auto muda o
+  texto da tela junto.
+
 ## v2.62.12
 
 Re-pedir revisão no mesmo commit parou de custar uma revisão inteira.

@@ -7,6 +7,11 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.62.13', [
+    "O Farol passou a rodar o modelo mais novo de cada família. Ele pede o modelo pelo apelido (Opus, Sonnet, Haiku, Fable) e quem decide qual modelo é esse é o Claude Code instalado: com o Claude Code desatualizado, o Opus seguia sendo o Opus 5 mesmo depois do Opus 5.5. Sistema > Visão geral ganhou o check \"Versão do Claude Code\", que fica vermelho quando ele está mais de três dias atrás e diz o comando que resolve.",
+    "A escolha de modelo virou uma definição só: o seletor de Automação, o que o modo Auto usa em cada tamanho de PR e o texto que descreve o Auto saem do mesmo lugar, então nunca mais dizem coisas diferentes.",
+    "Haiku fixado pelo nome completo deixou de receber uma configuração de esforço que ele não aceita.",
+  ]],
   ['2.62.12', [
     "Re-pedir revisão no MESMO commit parou de custar uma revisão inteira. Antes, pedir revisão de novo sem enviar código novo fazia o Farol abrir uma sessão completa que terminava concluindo \"isto já está revisado\", sem postar nada (num caso medido, doze minutos, e depois outra sessão). A pergunta passou a ser feita antes de começar. O clique manual continua sempre revisando, e quando não dá para confirmar a revisão acontece normalmente.",
     "Comentar num PR deixou de ser confundido com revisar: um recado de \"vou olhar\" podia encerrar a revisão que estava lendo o código. Agora só aprovar e pedir mudanças contam como revisão feita.",
