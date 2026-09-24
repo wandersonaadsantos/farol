@@ -34,3 +34,8 @@ scratchpad_test/
 # onde mora o registro de avaliacao"). Nenhuma foi escolhida; esta aqui e o
 # arranjo vigente, nao a decisao tomada.
 avaliacoes.jsonl
+
+# Cache do PowerShell criado DENTRO do repositorio quando o shell roda sem LOCALAPPDATA
+# no ambiente (acontece com PowerShell disparado de dentro do Git Bash). Nao e do projeto,
+# e binario, e ja entrou em dois commits por causa de `git add -A`.
+Microsoft/
