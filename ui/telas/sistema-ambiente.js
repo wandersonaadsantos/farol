@@ -1,6 +1,6 @@
 /* Farol · UI: saúde do ambiente (Sistema > Visão geral). */
 
-import { esc, escAttrSelector, operationChecks, runtimeChecks } from '../pure.js';
+import { esc, escAttrSelector, operationChecks, runtimeChecks, versaoClaudeCheck } from '../pure.js';
 import { estado, ehWin } from './estado.js';
 import { $ } from './infra.js';
 
@@ -19,6 +19,9 @@ function renderDoctor() {
       goto: estado().config.ghUser ? `sys:accounts:.acct-label[data-user="${escAttrSelector(estado().config.ghUser)}"]` : 'sys:accounts:#accountsManager'
     },
     { ok: !!d.claude, label: 'Claude Code', detail: d.claude || 'claude não encontrado no PATH', goto: 'sys:plans:#claudeProfilesManager' },
+    // o check acima diz se o CLI EXISTE; este diz se ele está em dia, porque é o CLI
+    // que decide para qual modelo o apelido (opus, sonnet, haiku) aponta
+    ...versaoClaudeCheck((estado().modelos || {}).cli),
     // Git Bash é pré-requisito só no Windows (CLAUDE_CODE_GIT_BASH_PATH)
     ...(ehWin() ? [{ ok: !!d.gitBash, label: 'Git Bash', detail: d.gitBash || 'não encontrado: sessões do Claude podem travar' }] : []),
     { ok: true, label: 'Pasta de trabalho', detail: d.workspace },

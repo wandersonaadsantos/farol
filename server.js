@@ -39,6 +39,9 @@ import decisionMod from './lib/engine/decision.js';
 import arbitragemMod from './lib/engine/postagem-arbitragem.js';
 import ghMod from './lib/engine/gh-queries.js';
 import contasGh from './lib/engine/contas-gh.js';
+import versaoClaude from './lib/engine/versao-claude.js';
+import codexAuth from './lib/codex/auth.js';
+import { catalogoParaTela as catalogoDeModelos } from './lib/modelos.js';
 import sessionMod from './lib/engine/session.js';
 import selfMod from './lib/engine/selfpr.js';
 import scopeMod from './lib/engine/pr-scope.js';
@@ -963,6 +966,9 @@ class Engine extends EventEmitter {
       // créditos do Sistema > Sobre (contribuidores do repo): TTL de 24h interno,
       // então na prática só roda 1x por dia; fire-and-forget como o pushback
       this.refreshContributors().catch(e => this.log('WARN', `créditos: ${e.message}`));
+      // versao do Claude Code contra o registro do npm (lib/engine/versao-claude.js):
+      // intervalo proprio de 6 h e nunca lanca, entao o ciclo so dispara e segue
+      versaoClaude.atualizarVersaoClaude(this);
       this.setStatus('idle');
     } catch (err) {
       this.lastError = err.message;
@@ -1792,20 +1798,15 @@ class Engine extends EventEmitter {
       // identidade. ghEnv() sem user nunca lanca (o contrato legado do doctor).
       io.run('gh', tokenArgs, { env: this.ghEnv() })
     ]);
-    let codexLoginDetail = '';
-    if (codexLogin.stdout || codexLogin.stderr) {
-      codexLoginDetail = `${codexLogin.stdout}\n${codexLogin.stderr}`.trim().split(/\r?\n/)[0];
-    } else if (!codexLogin.ok) {
-      codexLoginDetail = 'codex login status falhou';
-      if (codexLogin.code) codexLoginDetail += ` (código ${codexLogin.code})`;
-    }
+    // a leitura do `codex login status` mora em lib/codex/auth.js, junto da regra do plano
+    const loginCodex = codexAuth.leituraDoLogin(codexLogin);
     this.doctorInfo = {
       node: process.version,
       gh: gh.ok ? gh.stdout.split('\n')[0].trim() : null,
       claude: claude.ok ? claude.stdout.trim().split('\n')[0] : null,
       codex: codex.ok ? codex.stdout.trim().split('\n')[0] : null,
-      codexChatGPT: codexLogin.ok && /logged in using chatgpt/i.test(`${codexLogin.stdout}\n${codexLogin.stderr}`),
-      codexLoginDetail,
+      codexChatGPT: loginCodex.chatGPT,
+      codexLoginDetail: loginCodex.detalhe,
       ghAuth: auth.ok && !!auth.stdout.trim(),
       gitBash: this.gitBash,
       // rodar como root quebra a revisão autônoma INTEIRA, e não é opção de
@@ -1969,7 +1970,10 @@ class Engine extends EventEmitter {
 
   snapshot() {
     return {
+      // `app` é a IDENTIDADE do app, e o smoke do Electron confere o objeto inteiro: o
+      // catálogo de seleções (lib/modelos.js), de onde a tela monta os seletores, é outra coisa
       app: { name: APP_NAME, version: APP_VERSION, platform: process.platform },
+      modelos: catalogoDeModelos(this.claudeVersao || null),
       // perfil apontado que a cascata não usa (A2): a queda para o legado deixou de ser silenciosa
       claudePerfis: { problemas: perfilMod.problemasDePerfil(this.config) },
       // capacidade implementada que NÃO está valendo: a tela não pode prometer o que o engine não aplica

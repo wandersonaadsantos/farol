@@ -520,23 +520,10 @@
                 <p class="set-desc" id="reviewModelHint"></p>
               </div>
               <div class="set-ctl">
-                <select id="setReviewModel" aria-label="Modelo do Claude Code">
-                  <option value="">Padrão do Claude (herda a tua assinatura)</option>
-                  <option value="auto">Auto (custo-benefício: Haiku/Sonnet pelo tamanho do PR)</option>
-                  <option value="best">Melhor disponível (o Claude escolhe o topo da conta)</option>
-                  <option value="opus">Opus (qualidade máxima, gasta mais do limite)</option>
-                  <option value="sonnet">Sonnet (equilíbrio: bom e bem mais leve)</option>
-                  <option value="haiku">Haiku (o mais leve, pra economizar)</option>
-                  <option value="fable">Fable (raciocínio longo, sessão mais demorada)</option>
-                </select>
-                <select id="setCodexReviewModel" aria-label="Modelo do Codex" hidden>
-                  <option value="">Padrão do Codex (recomendado)</option>
-                  <option value="gpt-5.6-sol">GPT-5.6 Sol (máxima capacidade)</option>
-                  <option value="gpt-5.6-terra">GPT-5.6 Terra (equilíbrio)</option>
-                  <option value="gpt-5.6-luna">GPT-5.6 Luna (mais rápido e econômico)</option>
-                  <option value="gpt-5.5">GPT-5.5 (compatibilidade)</option>
-                  <option value="gpt-5.4">GPT-5.4 (compatibilidade)</option>
-                </select>
+                <!-- as opções vêm do catálogo do engine (lib/modelos.js), preenchidas pela tela
+                     de Automação: uma lista fixa aqui seria uma segunda lista das seleções -->
+                <select id="setReviewModel" aria-label="Modelo do Claude Code"></select>
+                <select id="setCodexReviewModel" aria-label="Modelo do Codex" hidden></select>
               </div>
             </div>
             <div class="set-row" id="sys-row-paralelas">

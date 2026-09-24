@@ -26,7 +26,7 @@
 // ja grava em horario LOCAL, entao passar por new Date() so criaria chance de mover a
 // hora que a pessoa le no arquivo. Carimbo que nao casa volta como veio, nunca vira
 // "Invalid Date" na tela.
-import { escAttrSelector, fmtClock, fmtSpan, plural } from './comum.js';
+import { esc, escAttrSelector, fmtClock, fmtSpan, fmtWhenDay, plural } from './comum.js';
 
 export function fmtLogStamp(ts) {
   const m = String(ts ?? '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
@@ -185,6 +185,48 @@ export function operationChecks(accounts) {
       detail: 'todas as contas estão silenciadas: nada aparece no painel, mesmo com PR esperando' });
   }
   return checks;
+}
+
+/* As opções dos seletores de modelo (24/09/2026). Elas moravam fixas no ui/index.html,
+   uma segunda lista das seleções que o engine aceita, com textos próprios; hoje vêm do
+   catálogo do engine (lib/modelos.js) pelo snapshot, em estado().modelos. Sem catálogo
+   nenhuma opção é inventada. */
+export function opcoesDeModeloHtml(lista) {
+  if (!Array.isArray(lista)) return '';
+  return lista.map((s) => `<option value="${esc(s.valor)}">${esc(s.rotulo)}</option>`).join('');
+}
+
+/* A seleção aceita nível de esforço? A resposta é a do catálogo (o Haiku não aceita, o
+   Auto escolhe o esforço sozinho). Valor fora do catálogo, fixado à mão no config.json,
+   aceita: quem tem a palavra final é o engine, que reconhece a família pelo nome. */
+export function selecaoAceitaEsforco(lista, valor) {
+  const s = Array.isArray(lista) ? lista.find((x) => x.valor === valor) : null;
+  return s ? s.aceitaEsforco !== false : true;
+}
+
+/* Versão do Claude Code (24/09/2026). O Farol pede o modelo por APELIDO (`opus`,
+   `sonnet`, `haiku`), e quem decide para onde o apelido aponta é o CLI, versão a versão.
+   Com o CLI parado na 2.1.268, o `opus` seguia num modelo que a página oficial já lista
+   como legado, e o check "Claude Code" continuava verde, porque ele só pergunta se o CLI
+   EXISTE. Este pergunta se ele está em dia, e por isso tem rótulo próprio: dois checks
+   chamados "Claude Code" leriam como linha duplicada.
+
+   Sem leitura (registro fora do ar, CLI ausente), o check não aparece: um verde que
+   ninguém conferiu é pior que nenhum. Sem `goto`, porque nenhuma tela do app atualiza o
+   CLI: o que resolve é um comando no terminal, e o texto diz qual. */
+export function versaoClaudeCheck(v) {
+  if (!v || !v.instalada) return [];
+  const label = 'Versão do Claude Code';
+  if (v.atualizada) return [{ ok: true, label, detail: `${v.instalada}, a mais recente` }];
+  if (!v.atrasada) {
+    return [{ ok: true, label, detail: `${v.instalada}; a ${v.maisRecente} saiu há pouco, atualize quando puder (claude update)` }];
+  }
+  return [{
+    ok: false, label,
+    detail: `${v.instalada}, atrás desde ${fmtWhenDay(v.atrasadaDesde)} (a mais recente é a ${v.maisRecente}). `
+      + 'O modelo das revisões acompanha o CLI: com ele atrasado, o apelido do modelo pode estar '
+      + 'num modelo antigo. Atualize com: claude update',
+  }];
 }
 
 /* Terceira pergunta do Diagnóstico, irmã de operationChecks: o Farol consegue

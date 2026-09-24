@@ -1,5 +1,6 @@
 /* Farol · UI: automação (Sistema > Automação): provedor, modelo e esforço. */
 
+import { opcoesDeModeloHtml, selecaoAceitaEsforco } from '../pure.js';
 import { estado } from './estado.js';
 import { $, marcarSeg } from './infra.js';
 
@@ -9,6 +10,16 @@ function providerInicial(c) {
   const profiles = Array.isArray(c.claudeProfiles) ? c.claudeProfiles : [];
   const padrao = profiles.find(p => p.id === c.claudeProfileId);
   return padrao && padrao.kind === 'codex' ? 'codex' : 'claude';
+}
+
+// Redesenha as opções só quando o catálogo muda: o snapshot chega a cada poucos segundos,
+// e recriar o <select> a cada push fecharia a lista aberta na mão de quem está escolhendo.
+function preencherSeletor(select, lista) {
+  if (!select) return;
+  const html = opcoesDeModeloHtml(lista);
+  if (select.dataset.catalogo === html) return;
+  select.innerHTML = html;
+  select.dataset.catalogo = html;
 }
 
 function addCustomOption(select, value) {
@@ -40,6 +51,10 @@ function renderAutomationSettings(c) {
 
   const claudeModel = String(c.reviewModel || '');
   const codexModel = String(c.codexReviewModel || '');
+  // as seleções vêm do catálogo do engine (lib/modelos.js), não de uma lista fixa no HTML
+  const modelos = estado().modelos || {};
+  preencherSeletor($('#setReviewModel'), modelos.claude);
+  preencherSeletor($('#setCodexReviewModel'), modelos.codex);
   addCustomOption($('#setReviewModel'), claudeModel);
   addCustomOption($('#setCodexReviewModel'), codexModel);
   $('#setReviewModel').value = claudeModel;
@@ -47,18 +62,21 @@ function renderAutomationSettings(c) {
   renderEffortBox($('#setReviewEffort'), String(c.reviewEffort || ''));
   renderEffortBox($('#setCodexReviewEffort'), String(c.codexReviewEffort || ''));
 
-  const semEsforco = claudeModel === 'haiku' || claudeModel === 'auto';
+  // quem aceita esforço é o catálogo que diz, a mesma resposta que o engine usa na flag
+  const selecao = (modelos.claude || []).find(s => s.valor === claudeModel) || null;
+  const semEsforco = !selecaoAceitaEsforco(modelos.claude, claudeModel);
   $('#setReviewEffort').classList.toggle('disabled', semEsforco);
   if (codex) {
     $('#reviewModelHint').textContent = 'Modelo usado pelo Codex nas revisões, pushback, autoanálise e ferramentas. O padrão acompanha a seleção do CLI e costuma ser a opção mais compatível com o teu plano.';
     $('#effortHint').textContent = 'Quanto o Codex raciocina nas sessões autônomas. O CLI aceita minimal, low, medium, high e xhigh; o último depende do modelo.';
   } else {
-    $('#reviewModelHint').textContent = 'Modelo usado pelo Claude nas revisões, pushback, autoanálise e ferramentas. O padrão herda a tua assinatura; Auto (custo-benefício) escolhe Haiku ou Sonnet pelo tamanho do PR só na revisão headless; Sonnet e Haiku poupam o limite do plano.';
+    // sem nome de modelo escrito aqui: cada opção já diz o que é, e o Auto diz quais usa
+    $('#reviewModelHint').textContent = 'Modelo usado pelo Claude nas revisões, pushback, autoanálise e ferramentas. O padrão herda a tua assinatura; o Auto escolhe entre as seleções abaixo pelo tamanho do PR, só na revisão headless. Cada opção aponta sempre para a versão mais nova daquela família que o teu Claude Code conhece.';
     let effortHint = 'Quanto o Claude pensa nas sessões autônomas. Mais esforço aumenta profundidade e consumo do limite.';
-    if (claudeModel === 'haiku') {
-      effortHint = 'O Haiku não aceita nível de esforço, então o Farol não passa a flag enquanto ele estiver escolhido.';
-    } else if (claudeModel === 'auto') {
+    if (selecao && selecao.auto) {
       effortHint = 'No modo Auto o Farol escolhe modelo e esforço pelo tamanho do PR; o nível fixo desta seção não entra.';
+    } else if (semEsforco) {
+      effortHint = `O ${(selecao && selecao.nome) || 'modelo escolhido'} não aceita nível de esforço, então o Farol não passa a flag enquanto ele estiver escolhido.`;
     }
     $('#effortHint').textContent = effortHint;
   }
