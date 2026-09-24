@@ -106,6 +106,28 @@ test('a tela sabe se a seleção aceita esforço pelo catálogo, e valor fora de
   assert.equal(P.selecaoAceitaEsforco(lista, 'claude-opus-5-5'), true, 'fixado à mão: o engine é quem tem a palavra final');
 });
 
+/* ---------- o snapshot: chave própria, e o `app` continua sendo só identidade ---------- */
+
+test('o snapshot leva o catálogo e a versão do CLI em `modelos`, e deixa `app` intacto', async () => {
+  // a primeira versão desta entrega pendurou o catálogo dentro de `app`, e o smoke do
+  // Electron (tools/electron-smoke-lib.js) reprovou nos três sistemas: ele confere `app`
+  // inteiro contra { name, version, platform }, porque `app` é a IDENTIDADE do app. O
+  // smoke só roda no CI, com desktop; este caso pega a mesma quebra aqui, sem Electron.
+  const { Engine } = await import('../server.js');
+  const e = new Engine();
+  e.claudeVersao = { instalada: '2.1.282', maisRecente: '2.1.282', atualizada: true, atrasadaDesde: 0, atrasada: false };
+  const snap = e.snapshot();
+  assert.deepEqual(Object.keys(snap.app).sort(), ['name', 'platform', 'version'], '`app` é identidade, e o smoke confere o objeto inteiro');
+  assert.deepEqual(snap.modelos.claude.map((s) => s.valor), M.SELECOES_CLAUDE.map((s) => s.valor));
+  assert.equal(snap.modelos.cli.instalada, '2.1.282', 'a versão do CLI viaja junto do catálogo que ela resolve');
+});
+
+test('sem leitura do CLI, `cli` vai nulo, e o check da tela simplesmente não aparece', () => {
+  const c = M.catalogoParaTela(null);
+  assert.equal(c.cli, null);
+  assert.deepEqual(P.versaoClaudeCheck(c.cli), []);
+});
+
 /* ---------- a trava: a dispersão não volta ---------- */
 
 const RAIZ = path.join(import.meta.dirname, '..');
@@ -119,8 +141,18 @@ function arquivos(dir, fora = []) {
   }
   return out;
 }
-// tira comentário de linha e de bloco antes de procurar: história no comentário é permitida
-const semComentario = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1').replace(/<!--[\s\S]*?-->/g, '');
+// tira comentário de linha e de bloco antes de procurar: história no comentário é permitida.
+// A remoção repete até estabilizar: uma passada só deixaria `<!<!---->--` virar `<!--` (o
+// CodeQL acusou isso na primeira versão), e o mesmo vale para os comentários de bloco.
+function semComentario(src) {
+  let antes;
+  let s = src;
+  do {
+    antes = s;
+    s = s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/<!--[\s\S]*?-->/g, '');
+  } while (s !== antes);
+  return s.replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
 
 test('nenhum modelo é escrito à mão fora do catálogo', () => {
   const alvos = [...arquivos('lib', ['lib/modelos.js']), ...arquivos('ui'), 'server.js'];

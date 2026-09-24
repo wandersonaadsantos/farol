@@ -52,7 +52,7 @@ function renderAutomationSettings(c) {
   const claudeModel = String(c.reviewModel || '');
   const codexModel = String(c.codexReviewModel || '');
   // as seleções vêm do catálogo do engine (lib/modelos.js), não de uma lista fixa no HTML
-  const modelos = (estado().app && estado().app.modelos) || {};
+  const modelos = estado().modelos || {};
   preencherSeletor($('#setReviewModel'), modelos.claude);
   preencherSeletor($('#setCodexReviewModel'), modelos.codex);
   addCustomOption($('#setReviewModel'), claudeModel);

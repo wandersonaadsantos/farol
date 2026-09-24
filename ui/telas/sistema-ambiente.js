@@ -21,7 +21,7 @@ function renderDoctor() {
     { ok: !!d.claude, label: 'Claude Code', detail: d.claude || 'claude não encontrado no PATH', goto: 'sys:plans:#claudeProfilesManager' },
     // o check acima diz se o CLI EXISTE; este diz se ele está em dia, porque é o CLI
     // que decide para qual modelo o apelido (opus, sonnet, haiku) aponta
-    ...versaoClaudeCheck(estado().claudeVersao),
+    ...versaoClaudeCheck((estado().modelos || {}).cli),
     // Git Bash é pré-requisito só no Windows (CLAUDE_CODE_GIT_BASH_PATH)
     ...(ehWin() ? [{ ok: !!d.gitBash, label: 'Git Bash', detail: d.gitBash || 'não encontrado: sessões do Claude podem travar' }] : []),
     { ok: true, label: 'Pasta de trabalho', detail: d.workspace },

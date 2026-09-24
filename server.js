@@ -1970,8 +1970,10 @@ class Engine extends EventEmitter {
 
   snapshot() {
     return {
-      // `modelos`: o catálogo de seleções (lib/modelos.js), de onde a tela monta os seletores
-      app: { name: APP_NAME, version: APP_VERSION, platform: process.platform, modelos: catalogoDeModelos() },
+      // `app` é a IDENTIDADE do app, e o smoke do Electron confere o objeto inteiro: o
+      // catálogo de seleções (lib/modelos.js), de onde a tela monta os seletores, é outra coisa
+      app: { name: APP_NAME, version: APP_VERSION, platform: process.platform },
+      modelos: catalogoDeModelos(this.claudeVersao || null),
       // perfil apontado que a cascata não usa (A2): a queda para o legado deixou de ser silenciosa
       claudePerfis: { problemas: perfilMod.problemasDePerfil(this.config) },
       // capacidade implementada que NÃO está valendo: a tela não pode prometer o que o engine não aplica
@@ -2037,7 +2039,6 @@ class Engine extends EventEmitter {
       usage: this.usageSummary(),
       credits: this.credits,
       doctor: this.doctorInfo,
-      claudeVersao: this.claudeVersao || null,
       update: this.update || null,
       paths: { home: HOME, workspace: WORKSPACE }
     };

@@ -189,7 +189,7 @@ export function operationChecks(accounts) {
 
 /* As opções dos seletores de modelo (24/09/2026). Elas moravam fixas no ui/index.html,
    uma segunda lista das seleções que o engine aceita, com textos próprios; hoje vêm do
-   catálogo do engine (lib/modelos.js) pelo snapshot, em estado().app.modelos. Sem catálogo
+   catálogo do engine (lib/modelos.js) pelo snapshot, em estado().modelos. Sem catálogo
    nenhuma opção é inventada. */
 export function opcoesDeModeloHtml(lista) {
   if (!Array.isArray(lista)) return '';
