@@ -41,6 +41,7 @@ import ghMod from './lib/engine/gh-queries.js';
 import contasGh from './lib/engine/contas-gh.js';
 import versaoClaude from './lib/engine/versao-claude.js';
 import codexAuth from './lib/codex/auth.js';
+import { catalogoParaTela as catalogoDeModelos } from './lib/modelos.js';
 import sessionMod from './lib/engine/session.js';
 import selfMod from './lib/engine/selfpr.js';
 import scopeMod from './lib/engine/pr-scope.js';
@@ -1969,7 +1970,8 @@ class Engine extends EventEmitter {
 
   snapshot() {
     return {
-      app: { name: APP_NAME, version: APP_VERSION, platform: process.platform },
+      // `modelos`: o catálogo de seleções (lib/modelos.js), de onde a tela monta os seletores
+      app: { name: APP_NAME, version: APP_VERSION, platform: process.platform, modelos: catalogoDeModelos() },
       // perfil apontado que a cascata não usa (A2): a queda para o legado deixou de ser silenciosa
       claudePerfis: { problemas: perfilMod.problemasDePerfil(this.config) },
       // capacidade implementada que NÃO está valendo: a tela não pode prometer o que o engine não aplica

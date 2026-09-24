@@ -26,7 +26,7 @@
 // ja grava em horario LOCAL, entao passar por new Date() so criaria chance de mover a
 // hora que a pessoa le no arquivo. Carimbo que nao casa volta como veio, nunca vira
 // "Invalid Date" na tela.
-import { escAttrSelector, fmtClock, fmtSpan, fmtWhenDay, plural } from './comum.js';
+import { esc, escAttrSelector, fmtClock, fmtSpan, fmtWhenDay, plural } from './comum.js';
 
 export function fmtLogStamp(ts) {
   const m = String(ts ?? '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
@@ -185,6 +185,23 @@ export function operationChecks(accounts) {
       detail: 'todas as contas estão silenciadas: nada aparece no painel, mesmo com PR esperando' });
   }
   return checks;
+}
+
+/* As opções dos seletores de modelo (24/09/2026). Elas moravam fixas no ui/index.html,
+   uma segunda lista das seleções que o engine aceita, com textos próprios; hoje vêm do
+   catálogo do engine (lib/modelos.js) pelo snapshot, em estado().app.modelos. Sem catálogo
+   nenhuma opção é inventada. */
+export function opcoesDeModeloHtml(lista) {
+  if (!Array.isArray(lista)) return '';
+  return lista.map((s) => `<option value="${esc(s.valor)}">${esc(s.rotulo)}</option>`).join('');
+}
+
+/* A seleção aceita nível de esforço? A resposta é a do catálogo (o Haiku não aceita, o
+   Auto escolhe o esforço sozinho). Valor fora do catálogo, fixado à mão no config.json,
+   aceita: quem tem a palavra final é o engine, que reconhece a família pelo nome. */
+export function selecaoAceitaEsforco(lista, valor) {
+  const s = Array.isArray(lista) ? lista.find((x) => x.valor === valor) : null;
+  return s ? s.aceitaEsforco !== false : true;
 }
 
 /* Versão do Claude Code (24/09/2026). O Farol pede o modelo por APELIDO (`opus`,
