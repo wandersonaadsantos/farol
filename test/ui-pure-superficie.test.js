@@ -266,6 +266,7 @@ const CONGELADA = [
   "usageStackLayers",
   "usageTooltipHtml",
   "validScope",
+  "versaoClaudeCheck",
   "visaoCompartilhada",
   "contasGhHtml",
   "contasGhVazio",
