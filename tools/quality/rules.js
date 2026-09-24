@@ -25,7 +25,9 @@ function scanFile(source, relPath) {
   const r = {};
 
   const uteis = linhas.filter((l) => l.trim() !== '').length;
-  r.maxLines = uteis > LIMITES.maxLines ? 1 : 0;
+  // linhas ACIMA do teto, nao 0/1: binario, arquivo ja na baseline crescia sem o
+  // ratchet ver (server.js, +182 linhas entre 15 e 22/09/2026 com o gate verde)
+  r.maxLines = Math.max(0, uteis - LIMITES.maxLines);
 
   // catch vazio: casa no CRU (comentário dentro do corpo salva) E no limpo
   // (pra não casar "catch {}" dentro de string)
