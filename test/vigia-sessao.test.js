@@ -38,6 +38,17 @@ test('revisão minha no head em curso manda abandonar', () => {
   assert.equal(vigia.decidir({ headInicial: HEAD, headAgora: HEAD, meusEstados: ['APPROVED'] }).motivo, 'ja-revisado');
 });
 
+test('COMENTAR não é revisar: um COMMENTED meu no head não abandona a sessão', () => {
+  // `myReviewStates` devolve COMMENTED junto, e a primeira versão deste vigia (23/09/2026)
+  // tratava qualquer estado como revisão feita: um recado de "vou olhar" no PR mataria a
+  // sessão que estava lendo o código. A tabela do que DECIDE mora no decision.js.
+  assert.equal(vigia.decidir({ headInicial: HEAD, headAgora: HEAD, meusEstados: ['COMMENTED'] }).abandonar, false);
+  assert.equal(vigia.decidir({ headInicial: HEAD, headAgora: HEAD, meusEstados: ['DISMISSED'] }).abandonar, false,
+    'review derrubado deixou de valer');
+  assert.equal(vigia.decidir({ headInicial: HEAD, headAgora: HEAD, meusEstados: ['COMMENTED', 'APPROVED'] }).motivo, 'ja-revisado',
+    'mas o que decide continua decidindo, mesmo acompanhado');
+});
+
 test('nada mudou: a sessão segue', () => {
   assert.equal(vigia.decidir({ headInicial: HEAD, headAgora: HEAD, meusEstados: [] }).abandonar, false);
 });
