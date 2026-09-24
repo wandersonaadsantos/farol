@@ -30,7 +30,7 @@
     "profundidadeExcedida": 1
   },
   "lib/engine/review.js": {
-    "maxLines": 894,
+    "maxLines": 891,
     "ternarioAninhado": 1,
     "profundidadeExcedida": 13
   },
@@ -76,7 +76,6 @@
     "processEnvDireto": 3
   },
   "lib/parse.js": {
-    "ternarioAninhado": 2,
     "profundidadeExcedida": 2
   },
   "lib/paths.js": {
@@ -88,7 +87,7 @@
     "profundidadeExcedida": 2
   },
   "server.js": {
-    "maxLines": 983,
+    "maxLines": 982,
     "emptyCatch": 1,
     "jsonStringifyCru": 1,
     "processEnvDireto": 5,
