@@ -200,10 +200,10 @@ O débito original era o `server.js`: uma classe `Engine` de 3122 linhas fazendo
 
 | Arquivo | Linhas | Testes |
 |---|---|---|
-| `ui/app.js` | ~3446 | nenhum que o execute (os 5 que o tocam leem o arquivo como texto) |
-| `ui/pure.js` e `ui/pure/` | fachada de 20 linhas; 16 módulos, o maior (`consumo.js`) com ~335 linhas úteis | `ui-pure.test.js` e `ui-pure-superficie.test.js` (atualizado em 15/09/2026, Fase 1a) |
-| `server.js` | ~1483 | via `boot`, `facades`, e os testes de comportamento |
-| maior módulo de `lib/` (`decision.js`) | ~869 | `decision-envelope.test.js`, `decision-history.test.js` |
+| `ui/app.js` | 418 (bootstrap, depois da Fase 1b) | nenhum que o execute (os 5 que o tocam leem o arquivo como texto) |
+| `ui/pure.js` e `ui/pure/` | fachada de 37 linhas; 31 módulos, o maior (`compartilhado.js`) com 385 linhas úteis | `ui-pure.test.js` e `ui-pure-superficie.test.js` (atualizado em 15/09/2026, Fase 1a) |
+| `server.js` | 2326 no arquivo, **1388 úteis** | via `boot`, `facades`, e os testes de comportamento |
+| maior módulo de `lib/` (`review.js`) | 2343 no arquivo, **1330 úteis** | `review-*.test.js` e os testes de gate |
 | suíte | | 1415 testes (1408 passando, 7 pulados fora do macOS) |
 
 Os cinco que leem o `ui/app.js` do disco: `ui-widgets` (fixa 22 corpos de função por
@@ -211,9 +211,11 @@ regex), `ui-contract` (extrai as rotas `/api/*` e cruza com o `http-server.js`),
 `ui-semantics` (varre texto proibido), `ui-pure` (compara `app.js` com `pure.js`) e
 `release-consistency`, que é o único que não olha código: lê só o banner `RELEASE_NOTES`.
 
-Medidos em 17/08/2026, na v2.48.0, depois do primeiro passo da onda 5. O `ui/app.js` só
-agora começou a encolher; a onda 5 segue aberta e o grosso dela (render x estado) não foi
-tocado.
+Medidos em 22/09/2026, na v2.62.10 (os anteriores eram de 17/08/2026, v2.48.0). O
+`ui/app.js` encolheu de verdade na Fase 1b, mas o `server.js` fez o caminho contrário: a
+Onda 2 o tinha deixado em ~905 linhas e ele voltou a 2326, o que é a dívida aberta de
+decomposição, agora travada contra novo crescimento pelo `maxLines` (ver
+"Por que o `maxLines` conta linhas, e não arquivos").
 
 Quem mexer aqui e deixar esses números defasados repete o problema que esta seção teve: o documento afirmava "~2600 linhas com ~120 métodos" muito depois de o `server.js` ter caído para mil.
 
@@ -415,9 +417,11 @@ As regras abaixo se dividem em três grupos em relação ao catálogo, e vale sa
 - **Eixos que o catálogo não cobre**: `emptyCatch`, `varUse`, `ternarioAninhado`, `profundidadeExcedida`.
 - **Uma divergência declarada**: `maxLines` (400) mede tamanho de arquivo, e `core.file.single-responsibility` **rejeita esse eixo por princípio**. O contador fica como ratchet sobre dívida já medida, não como afirmação de que tamanho é o critério certo. Tirá-lo é decisão do dono; deixá-lo sem dizer isto seria a divergência ficar escondida.
 
+**Por que o `maxLines` conta linhas, e não arquivos** (22/09/2026). Até aqui ele valia 1 para o arquivo acima do teto e 0 para o resto, e isso abria um buraco no ratchet: arquivo que JÁ estava na baseline podia crescer à vontade, porque a contagem continuava 1. Medido no `server.js`, que a Onda 2 tinha levado a ~905 linhas: ele voltou a 2144 linhas em 15/09/2026, quando o baseline de responsabilidade única foi aberto, e chegou a 2326 em 22/09/2026, com o gate verde em cada um dos 51 commits do caminho. O mesmo vale para o baseline do eng-behaviour, que conta UM achado por arquivo: arquivo já listado como `violacao` continua listado, cresça quanto crescer. Hoje `maxLines` é **quantas linhas úteis o arquivo tem acima de 400**, então o ratchet que já existia passa a reprovar o crescimento sem mecanismo novo, e a promessa de que "a contagem só desce" vale também por dentro dos arquivos da dívida.
+
 Regras medidas (chaves do `rules.js`):
 
-1. `maxLines` — arquivo não pode exceder 400 linhas de código útil.
+1. `maxLines` — arquivo não pode exceder 400 linhas de código útil. A contagem é o EXCESSO (linhas úteis menos 400, zero quando está dentro do teto), então crescer um arquivo que já está acima reprova.
 2. `emptyCatch` — blocos `catch` vazios sem comentário de intenção reprovam.
 3. `varUse` — uso de `var` é reprovado; use `const`/`let`.
 4. `jsonParseCru` — chamadas diretas a `JSON.parse` fora de `lib/io.js` reprovam.
@@ -440,4 +444,4 @@ Itens julgados no review final da v2.45.1 como "não bloqueia, fica pra depois".
 2. **Sombreamento de nome em `lib/engine/session.js`** (~linha 522): o módulo importa `env` (lib/env.js) e o `runClaudeStream` declara um local `const env = engine.ghEnv(...)`. Funciona, mas confunde; renomear o local pra `childEnv`.
 3. **Trava estrutural nos módulos de patch**: a garantia de que `run`/`runShell` (io.js) e `prMetrics` (fanout.js) só existem no default mutável é hoje uma omissão da lista de named exports. Uma checagem no `tools/quality/higiene.js` proibindo esses nomes em `export {}` desses dois arquivos transformaria a doutrina em gate.
 4. **`realpath` no guard de execução direta** (`server.js`, comparação `import.meta.url` vs `process.argv[1]`): com symlink/junction no caminho, o modo `node server.js` não sobe e não avisa. Teórico na instalação atual (o installer copia arquivos); `fs.realpathSync` nos dois lados fecha.
-5. **Ondas futuras do ratchet**: `maxLines` segue com 7 arquivos acima do teto (ui/app.js é a Onda 4 prevista) e `jsonStringifyCru` com 10 pontos. O gate impede crescer; a redução é trabalho de decomposição planejada, não de correção pontual.
+5. **Ondas futuras do ratchet**: `maxLines` segue com 5 arquivos acima do teto (22/09/2026: `server.js` com 1388 linhas úteis, `review.js` 1330, `session.js` 880, `selfpr.js` 763 e `decision.js` 739). O gate impede crescer; a redução é trabalho de decomposição planejada, não de correção pontual.
