@@ -9,6 +9,24 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.12
+
+Re-pedir revisão no mesmo commit parou de custar uma revisão inteira.
+
+**Correções**
+
+- **Re-pedido de revisão no MESMO commit não abre revisão nova.** Medido em
+  `biudtech/engine-ai#273`: a conta aprovou o commit às 12:32, o autor re-pediu revisão às
+  12:59 sem enviar código novo, e o Farol abriu uma sessão inteira de doze minutos que não
+  postou nada, e depois abriu outra. A pergunta "eu já revisei este commit?" era feita com a
+  revisão já rodando e de novo no fim, quando ela já tinha custado; o re-pedido caía no meio
+  das duas. Agora ela é feita antes de começar. O clique manual continua sempre revisando, e
+  quando não dá para confirmar (rede, token) a revisão acontece, como sempre.
+- **Comentar num PR deixou de ser confundido com revisar.** A guarda que encerra a revisão
+  quando ela já existe contava qualquer resposta sua no PR, inclusive um comentário simples:
+  um recado de "vou olhar" podia encerrar a revisão que estava lendo o código. Agora só
+  contam aprovar e pedir mudanças, que é a mesma regra que o resto do app já usava.
+
 ## v2.62.11
 
 O Farol parou de perder sessão paga e de escrever como se não fosse você que assina.

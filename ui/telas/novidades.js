@@ -7,6 +7,10 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.62.12', [
+    "Re-pedir revisão no MESMO commit parou de custar uma revisão inteira. Antes, pedir revisão de novo sem enviar código novo fazia o Farol abrir uma sessão completa que terminava concluindo \"isto já está revisado\", sem postar nada (num caso medido, doze minutos, e depois outra sessão). A pergunta passou a ser feita antes de começar. O clique manual continua sempre revisando, e quando não dá para confirmar a revisão acontece normalmente.",
+    "Comentar num PR deixou de ser confundido com revisar: um recado de \"vou olhar\" podia encerrar a revisão que estava lendo o código. Agora só aprovar e pedir mudanças contam como revisão feita.",
+  ]],
   ['2.62.11', [
     "A conta no limite de buscas do GitHub parou de insistir. Cada ciclo saía com sete buscas novas que batiam no limite já estourado, e cada tentativa ainda consome cota: o Farol prolongava o próprio bloqueio e o painel ficava vazio sem explicar nada. Agora as buscas daquela conta esperam, com a hora que o próprio GitHub informa, e \"Monitoramento de @conta\" fica vermelho dizendo até que horas elas voltam.",
     "Sessão que trabalhou e não entregou o resultado ganha uma segunda chance. Duas revisões medidas rodaram 10 e 15 minutos, passaram por todas as etapas e terminaram devolvendo um parágrafo de texto em vez do resultado, e o trabalho inteiro ia pro lixo. Agora o Farol pede o resultado de novo, na mesma conversa e uma vez só, sem refazer verificação nenhuma.",
