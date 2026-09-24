@@ -837,7 +837,7 @@ class Engine extends EventEmitter {
   }
 
   // Consultas ao GitHub (leitura, zero IA): colaborador lib/engine/gh-queries.js (Onda 2).
-  async searchPRs(extraArgs, user) { return ghMod.searchPRs(this, extraArgs, user); }
+  async searchPRs(extraArgs, user, agora = Date.now()) { return ghMod.searchPRs(this, extraArgs, user, agora); }
   async myAuthoredPRs(user) { return ghMod.myAuthoredPRs(this, user); }
   async prState(pr) { return ghMod.prState(this, pr); }
   async headSha(pr) { return ghMod.headSha(this, pr); }
@@ -1977,12 +1977,9 @@ class Engine extends EventEmitter {
       status: this.status,
       error: this.lastError,
       account: { user: this.primaryUser(), tokenOk: this.tokenOk },
-      accounts: this.accountList().map((a, i) => ({
-        user: a.user, owners: a.owners, tokenOk: !!(this.tokens && this.tokens[a.user]),
-        label: a.label, color: a.color, kind: a.kind, muted: !!a.muted, primary: i === 0,
-        autoReview: a.autoReview, onClean: a.onClean, onCaveats: a.onCaveats, onReject: a.onReject,
-        claudeProfileId: a.claudeProfileId
-      })),
+      // a projecao de cada conta pra tela mora em lib/engine/contas-gh.js, junto do resto
+      // do que este app sabe sobre conta: o snapshot aqui so junta as pecas
+      accounts: contasGh.projecaoDasContas(this),
       // contas do gh x contas do Farol: login não monitorado, conta sem login, org em duas
       // contas e org sugerida (lib/engine/contas-gh.js)
       contasGh: contasGh.diagnosticoDoEngine(this),
