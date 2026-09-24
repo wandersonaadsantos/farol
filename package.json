@@ -19,7 +19,7 @@
     "lint:update": "node tools/quality/gate.js --update",
     "eng": "node tools/eng-behaviour/gate.js",
     "sync:rules": "node tools/sync-rules.js",
-    "test": "node --test --test-force-exit",
+    "test": "node --test --test-force-exit --test-timeout=120000",
     "hooks:install": "git config core.hooksPath tools/hooks"
   },
   "dependencies": {
