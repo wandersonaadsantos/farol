@@ -9,6 +9,61 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.11
+
+O Farol parou de perder sessão paga e de escrever como se não fosse você que assina.
+
+**Correções**
+
+- **A conta no limite do GitHub parou de insistir.** Quando a conta estoura o limite de
+  buscas do GitHub, cada ciclo saía com sete buscas novas, todas batendo no limite já
+  estourado, e cada tentativa ainda consome cota: o Farol prolongava o próprio bloqueio e
+  o painel ficava vazio sem explicar nada (312 linhas disso num único aparelho, 297 delas
+  no mesmo dia). Agora as buscas daquela conta esperam, com a hora que o próprio GitHub
+  informa, e "Monitoramento de @conta" fica vermelho dizendo até que horas elas voltam.
+- **Sessão que trabalhou e não entregou o resultado ganha uma segunda chance.** Duas
+  revisões medidas rodaram 10 e 15 minutos, passaram por todas as etapas e terminaram
+  devolvendo um parágrafo de texto em vez do resultado. O trabalho inteiro ia pro lixo e o
+  PR ficava parado esperando clique. Agora o Farol pede o resultado de novo, na mesma
+  conversa e uma vez só, sem refazer verificação nenhuma. Se ainda assim não vier, o PR
+  estaciona como antes.
+- **Revisão que virou trabalho perdido é encerrada na hora.** Se chega commit novo durante
+  a revisão, ou se a revisão daquele commit já existe, a sessão é encerrada em vez de
+  seguir até o fim por um resultado que já nasceu velho. Head novo volta pra fila, e o que
+  já está revisado sai de cena. Falha de rede na conferência nunca encerra nada.
+- **O Farol parou de falar de si em terceira pessoa.** Rodando numa conta, ele escreveu um
+  comentário citando essa mesma conta com arroba, como se a aprovação anterior fosse de
+  outra pessoa. Ninguém se cita no próprio comentário: é o que denuncia na hora que não foi
+  gente que escreveu. Agora a sessão sabe qual conta assina, fala das próprias revisões na
+  primeira pessoa, e o texto que citar a própria conta nem chega a ser postado.
+- **E parou de receber o nome de outra pessoa como voz.** O protocolo mandava escrever "como
+  o Wanderson escreveria" e conversar "com o Wanderson", em qualquer instalação. Numa
+  máquina que não é a dele, isso é ordem de escrever com a voz de quem não assina o review.
+  O texto passou a falar na segunda pessoa, e o estilo da casa continua valendo sem dono.
+- **A lista de falhas parou de enterrar o que pede ação.** Cada falha ocupava um cartão
+  inteiro e aberto, e repetição antiga da mesma falha contava um cartão cada: num aparelho
+  real, 19 cartões para 5 assuntos, com os dois que pediam ação no fim da página. Agora a
+  repetição some numa linha só com a contagem, e o cartão nasce fechado, mostrando quando,
+  o que é e sobre qual PR. A falha que precisa de você continua nascendo aberta.
+- **A lição aprendida passou a valer para o repositório.** Quando o autor de um PR contesta
+  uma revisão e tem razão, isso já voltava para as revisões seguintes DAQUELA pessoa. Agora
+  vale para o repositório inteiro, então o mesmo engano não se repete com outro autor na
+  mesma base.
+- **Fato de fora do diff é reconferido antes de virar bloqueio.** Uma revisão reprovou um PR
+  dizendo que outro PR do qual ele dependia seguia aberto, e ele tinha sido mesclado quatro
+  minutos antes: o dado envelheceu durante a sessão. Agora esse tipo de fato é conferido de
+  novo imediatamente antes de o bloqueio ser escrito, e sem poder conferir ele vira ressalva,
+  não bloqueio.
+
+**Para quem mantém o Farol**
+
+- O contador de tamanho de arquivo passou a medir o EXCESSO de linhas em vez de responder
+  sim ou não, então arquivo que já estava na dívida parou de crescer sem o gate ver. A
+  montagem do prompt saiu do `review.js` para um arquivo próprio, pagando a dívida que a
+  medição nova cobrou.
+- Travamento na suíte de testes passou a ter nome: o teto por teste transforma a trava numa
+  falha com o nome do caso, em vez de um job cancelado quinze minutos depois sem culpado.
+
 ## v2.62.10
 
 O limite do plano do Claude passou a valer para a conta inteira, e nao PR por PR.
