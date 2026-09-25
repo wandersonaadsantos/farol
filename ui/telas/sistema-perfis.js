@@ -7,7 +7,7 @@
    único ponto de contato é cp-remove, que precisa limpar a referência ao perfil removido
    nas contas que a têm; por isso a única direção de import é DESTA tela PARA aquela. */
 
-import { accountSaveArray, claudeProfilesHtml, genId, perfilTesteHtml, perfilProblemasHtml } from '../pure.js';
+import { claudeProfilesHtml, genId, perfilTesteHtml, perfilProblemasHtml } from '../pure.js';
 import { estado, ehWin } from './estado.js';
 import { $, api, toast } from './infra.js';
 import { rebuildAccounts } from './contas.js';
@@ -195,23 +195,22 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
   if (t.classList.contains('cp-remove')) {
     const id = t.dataset.id;
     const profiles = (estado().config.claudeProfiles || []).filter(p => p.id !== id);
-    // combina TUDO num único PATCH (claudeProfiles + claudeProfileId + accounts), em vez de
-    // N requests separados: com 2+ contas referenciando o perfil removido, PATCHes
-    // concorrentes e fire-and-forget não garantiam ordem de chegada no servidor, e o último
-    // a processar sobrescrevia o array accounts inteiro, podendo restaurar a referência
-    // órfã que os PATCHes anteriores já tinham limpado (achado de auditoria adversarial).
+    // UM PATCH só (claudeProfiles + claudeProfileId). As contas não viajam: PATCHes
+    // concorrentes não garantiam ordem de chegada, e o array accounts inteiro chegando por
+    // último restaurava a referência órfã (achado de auditoria adversarial). Desde
+    // 25/09/2026 quem limpa a conta órfã é o servidor, na mesma gravação dos perfis.
     const patch = { claudeProfiles: profiles };
     estado().config.claudeProfiles = profiles;
     if (estado().config.claudeProfileId === id) {
       estado().config.claudeProfileId = '';
       patch.claudeProfileId = '';
     }
+    // a conta que apontava para o perfil apagado volta ao padrão: o SERVIDOR limpa, sobre a
+    // config atual (lib/engine/contas-config.js); aqui só o reflexo imediato na tela
     const accounts = (estado().accounts || []);
-    const affected = accounts.some(a => a.claudeProfileId === id);
-    if (affected) {
-      const updated = accounts.map(a => a.claudeProfileId === id ? { ...a, claudeProfileId: undefined } : a);
-      estado().accounts = updated; rebuildAccounts();
-      patch.accounts = accountSaveArray(updated);
+    if (accounts.some(a => a.claudeProfileId === id)) {
+      estado().accounts = accounts.map(a => a.claudeProfileId === id ? { ...a, claudeProfileId: undefined } : a);
+      rebuildAccounts();
     }
     renderClaudeProfiles(); renderAccountsManager();
     api('/api/settings', patch);

@@ -26,7 +26,7 @@ const CONGELADA = [
   "USAGE_PALETTE",
   "USAGE_ST_LABEL",
   "accountBarVisible",
-  "accountSaveArray",
+  "camposDaEdicao",
   "accountsManagerHtml",
   "acoesDaOperacao",
   "acoesDaRevisao",

@@ -327,42 +327,6 @@ test('diffVs com lista vazia dos dois lados', () => {
   assert.deepEqual(P.diffVs(null, null), { added: [], removed: [] });
 });
 
-/* ---------- contas: o serializador do config ---------- */
-
-test('accountSaveArray guarda os campos de identidade', () => {
-  // é o que vai pro config.json via /api/settings: campo esquecido aqui é
-  // configuração de conta perdida em silêncio
-  const [o] = P.accountSaveArray([{ user: 'alice', owners: ['acme'], label: 'Trabalho', color: '#fff', kind: 'work', muted: true }]);
-  assert.equal(o.user, 'alice');
-  assert.deepEqual(o.owners, ['acme']);
-  assert.equal(o.label, 'Trabalho');
-  assert.equal(o.muted, true);
-});
-
-test('accountSaveArray só grava política quando ela foi escolhida', () => {
-  // ausente = herda o global; gravar um valor inventado mudaria o comportamento
-  const [herda] = P.accountSaveArray([{ user: 'a', owners: [] }]);
-  for (const k of ['autoReview', 'onClean', 'onCaveats', 'onReject', 'claudeProfileId']) {
-    assert.equal(k in herda, false, `${k} não pode aparecer quando não foi escolhido`);
-  }
-  const [escolheu] = P.accountSaveArray([{ user: 'a', owners: [], autoReview: false, onClean: 'wait', onCaveats: 'approve', onReject: 'request_changes', claudeProfileId: 'p1' }]);
-  assert.equal(escolheu.autoReview, false, 'false é escolha, não ausência');
-  assert.equal(escolheu.onClean, 'wait');
-  assert.equal(escolheu.onReject, 'request_changes');
-  assert.equal(escolheu.claudeProfileId, 'p1');
-});
-
-test('accountSaveArray descarta valor de política inválido', () => {
-  const [o] = P.accountSaveArray([{ user: 'a', owners: [], onClean: 'talvez', onReject: 'merge' }]);
-  assert.equal('onClean' in o, false);
-  assert.equal('onReject' in o, false);
-});
-
-test('accountSaveArray aceita lista vazia ou ausente', () => {
-  assert.deepEqual(P.accountSaveArray([]), []);
-  assert.deepEqual(P.accountSaveArray(null), []);
-});
-
 /* ---------- agrupamento e ordenação (aba Entregas) ---------- */
 
 test('groupBy preserva a ordem de primeira aparição', () => {
