@@ -34,21 +34,11 @@ export function accountBarVisible(nContas, tab) {
   return nContas >= 2 && (tab === 'radar' || tab === 'destaques' || tab === 'time');
 }
 
-export function accountSaveArray(list) {
-  return (list || []).map(a => {
-    const o = { user: a.user, owners: a.owners || [], label: a.label, color: a.color, kind: a.kind || '', muted: !!a.muted };
-    if (a.autoReview === true || a.autoReview === false) o.autoReview = a.autoReview;
-    if (a.onClean === 'approve' || a.onClean === 'wait') o.onClean = a.onClean;
-    if (a.onCaveats === 'approve' || a.onCaveats === 'wait') o.onCaveats = a.onCaveats;
-    if (a.onReject === 'request_changes' || a.onReject === 'wait') o.onReject = a.onReject;
-    if (a.claudeProfileId) o.claudeProfileId = a.claudeProfileId;
-    // peso da conta no rateio da cota do perfil (Politica 2). O serializador so decide
-    // se o campo VIAJA (ausente = padrao, e ausente nao vira `undefined` no JSON); o que
-    // conta como peso valido e decidido num lugar so, o parseAccounts do server, que e a
-    // fronteira de persistencia. Repetir a regra aqui seria uma terceira copia dela.
-    if (a.budgetWeight != null && a.budgetWeight !== '') o.budgetWeight = a.budgetWeight;
-    return o;
-  });
+// Os campos de uma edição de conta como viajam para POST /api/accounts/edit. `undefined`
+// some do JSON, e "voltar a herdar" chegaria ao servidor como "não mexer": vai null, que o
+// servidor lê como remover o campo (lib/engine/contas-config.js).
+export function camposDaEdicao(patch) {
+  return Object.fromEntries(Object.entries(patch || {}).map(([k, v]) => [k, v === undefined ? null : v]));
 }
 
 export function statusBannerHtml(s = {}) {

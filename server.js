@@ -39,6 +39,7 @@ import decisionMod from './lib/engine/decision.js';
 import arbitragemMod from './lib/engine/postagem-arbitragem.js';
 import ghMod from './lib/engine/gh-queries.js';
 import contasGh from './lib/engine/contas-gh.js';
+import contasConfig from './lib/engine/contas-config.js';
 import versaoClaude from './lib/engine/versao-claude.js';
 import codexAuth from './lib/codex/auth.js';
 import { catalogoParaTela as catalogoDeModelos } from './lib/modelos.js';
@@ -662,7 +663,10 @@ class Engine extends EventEmitter {
         onCaveats: (a && (a.onCaveats === 'approve' || a.onCaveats === 'wait')) ? a.onCaveats : undefined,
         onReject: (a && (a.onReject === 'request_changes' || a.onReject === 'wait')) ? a.onReject : undefined,
         // perfil de assinatura Claude desta conta (undefined = herda o global/legado)
-        claudeProfileId: (a && a.claudeProfileId != null && String(a.claudeProfileId).trim()) ? String(a.claudeProfileId).trim() : undefined
+        claudeProfileId: (a && a.claudeProfileId != null && String(a.claudeProfileId).trim()) ? String(a.claudeProfileId).trim() : undefined,
+        // peso na cota do perfil: a regra de peso válido é do parseAccounts, que saneia toda
+        // gravação; sem esta linha o rateio da cota lia sempre `undefined` (25/09/2026)
+        budgetWeight: (a && a.budgetWeight) || undefined
       }))
       .filter(a => a.user);
     if (!base.length) base = [{ user: (this.config.ghUser || '').trim(), owners: this.config.owners || [], label: '', color: '', kind: '', muted: false }];
@@ -681,29 +685,13 @@ class Engine extends EventEmitter {
     return this.accountList().some(a => a.user.toLowerCase() === u && a.muted);
   }
 
-  // política de automação POR CONTA (undefined na conta = herda o global).
-  acctPolicy(user) {
-    const u = String(user || '').toLowerCase();
-    return this.accountList().find(a => a.user.toLowerCase() === u) || {};
-  }
+  // política de automação POR CONTA (undefined na conta = herda o global). A regra de
+  // cada pergunta mora em lib/engine/contas-config.js, junto da edição e do rastro.
+  acctPolicy(user) { return contasConfig.politicaDaConta(this, user); }
   // ao chegar PR nesta conta: revisar sozinho (headless) ou só colocar na fila?
-  autoReviewFor(user) {
-    const a = this.acctPolicy(user);
-    if (a.autoReview === true || a.autoReview === false) return a.autoReview;
-    return this.config.autoReview !== false;
-  }
-  // quando aprovável, a ação: 'approve' (postar sozinho) ou 'wait' (aguardar você).
-  // clean = sem ressalvas; senão usa a política de "com ressalvas".
-  approvePolicyFor(user, clean) {
-    const a = this.acctPolicy(user);
-    const cleanPolicy = a.onClean || 'approve';
-    if (clean) return cleanPolicy;
-    if (a.onCaveats) return a.onCaveats; // valor explícito da conta vale
-    // com ressalvas, sem valor próprio: herda o global, MAS nunca mais permissivo que o
-    // limpo (um PR com ressalva não pode auto-aprovar se o impecável foi posto pra aguardar)
-    const globalCaveats = this.config.autoApproveAll !== false ? 'approve' : 'wait';
-    return cleanPolicy === 'wait' ? 'wait' : globalCaveats;
-  }
+  autoReviewFor(user) { return contasConfig.revisaSozinho(this, user); }
+  // quando aprovável: 'approve' (postar sozinho) ou 'wait' (aguardar você). clean = sem ressalvas
+  approvePolicyFor(user, clean) { return contasConfig.acaoAoAprovar(this, user, clean); }
   // discordância registrada contra review de terceiro: 'wait' (default) manda o PR
   // pra sua mesa antes de qualquer APPROVE sair, porque aprovar por cima de outro
   // revisor é tomar posição pública. 'approve' (opt-in em Sistema > Automação) tira
@@ -716,13 +704,8 @@ class Engine extends EventEmitter {
   contestedPolicy() {
     return this.config.autoApproveContested === true ? 'approve' : 'wait';
   }
-  // quando a revisão pede mudanças (tem bloqueios), a ação da conta:
-  // 'request_changes' (reprovar sozinho) ou 'wait' (aguardar você). DEFAULT wait
-  // sempre (opt-in por conta; não existe reprovação automática global).
-  rejectPolicyFor(user) {
-    const a = this.acctPolicy(user);
-    return a.onReject === 'request_changes' ? 'request_changes' : 'wait';
-  }
+  // quando a revisão pede mudanças: 'request_changes' (reprovar sozinho, opt-in por conta) ou 'wait'
+  rejectPolicyFor(user) { return contasConfig.acaoAoReprovar(this, user); }
 
   // login da conta primaria (identidade default; chamadas gh nao ligadas a um PR)
   primaryUser() { return (this.accountList()[0] || {}).user || this.config.ghUser || ''; }
@@ -1839,8 +1822,9 @@ class Engine extends EventEmitter {
     return liberado ? cfgSync : comCompartilhamentoBloqueado(cfgSync);
   }
 
-  updateSettings(patch) {
+  updateSettings(patch, origem) {
     let intervalChanged = false, userChanged = false;
+    const politicaAntes = contasConfig.retratoDaPolitica(this.config);
     // itera o PATCH, não a allowlist: é o que permite VER a chave que ninguém
     // reconhece e devolvê-la em `ignoradas`, em vez de deixar a tela dizer
     // "Configuração salva." pra algo que nunca foi salvo.
@@ -1861,6 +1845,7 @@ class Engine extends EventEmitter {
       if (k === 'ghUser') userChanged = userChanged || v !== this.config.ghUser;
       this.config[k] = v;
     }
+    contasConfig.depoisDeAplicar(this, politicaAntes, patch, origem);
     // a guarda do celular depende de localAuth, que pode ter mudado no mesmo patch
     this.config.sync = this.syncComGuardaDoCelular(this.config.sync);
     env.setDebugSpawns(this.config.debugSpawns); // liga/desliga o logger na hora
@@ -1889,6 +1874,12 @@ class Engine extends EventEmitter {
     // é recusado (URL fora da allowlist de host), e sem devolver o que de fato ficou a
     // tela não tem como distinguir "salvou" de "recusou em silêncio"
     return { ok: true, ignoradas, sync: this.config.sync };
+  }
+  origemDe(userAgent) { return contasConfig.origemDaRequisicao(userAgent); }
+  // conta editada por OPERAÇÃO sobre a config atual, nunca pela lista que a tela tinha
+  editarConta(op, origem) {
+    const r = contasConfig.aplicarEdicao(this.config.accounts, op);
+    return r.ok ? { ...this.updateSettings({ accounts: r.contas }, origem), ignorados: r.ignorados } : r;
   }
 
   // Credencial do Jira: colaborador lib/jira/credentials.js, único lugar que lê ou

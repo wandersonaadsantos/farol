@@ -1,28 +1,34 @@
 /* Farol · UI: gerenciador de contas do GitHub (Sistema). */
 
-import { esc, accountSaveArray, accountsManagerHtml, contasGhHtml } from '../pure.js';
+import { esc, accountsManagerHtml, contasGhHtml, camposDaEdicao } from '../pure.js';
 import { estado, escopo, definirEscopo } from './estado.js';
 import { $, api, toast, confirmModal } from './infra.js';
 import { ACCT, rebuildAccounts, renderAccountBar, renderIdentity, guardarEscopo } from './contas.js';
 
-/* ---------- gerenciador/editor de contas (Sistema) ---------- */
+/* ---------- gerenciador/editor de contas (Sistema) ----------
+   A tela manda a OPERAÇÃO (este campo desta conta), e o servidor aplica sobre a config
+   atual (lib/engine/contas-config.js). Mandar a lista inteira, como antes, gravava por cima
+   tudo o que esta tela tinha velho ou não conhecia, em todas as contas (25/09/2026). */
+function salvarConta(op) {
+  api('/api/accounts/edit', op).then((r) => { if (r && r.ok === false) toast('error', r.erro || 'A conta não foi salva.'); });
+}
 function editAccount(user, patch) {
   const list = (estado().accounts || []).map(a => a.user === user ? { ...a, ...patch } : a);
   estado().accounts = list; rebuildAccounts();
   renderAccountsManager(); renderAccountBar(); renderIdentity();
-  api('/api/settings', { accounts: accountSaveArray(list) });
+  salvarConta({ tipo: 'editar', user, campos: camposDaEdicao(patch) });
 }
 function removeAccount(user) {
   const list = (estado().accounts || []).filter(a => a.user !== user);
   estado().accounts = list; rebuildAccounts();
   renderAccountsManager(); renderAccountBar(); renderIdentity();
-  api('/api/settings', { accounts: accountSaveArray(list) });
+  salvarConta({ tipo: 'remover', user });
 }
 function addAccount(user, owners, label) {
   const list = [...(estado().accounts || []), { user, owners, label: label || user, color: '', kind: '', muted: false, tokenOk: false, primary: false }];
   estado().accounts = list; rebuildAccounts();
   renderAccountsManager(); renderAccountBar();
-  api('/api/settings', { accounts: accountSaveArray(list) });
+  salvarConta({ tipo: 'adicionar', user, owners, label: label || user });
 }
 // divergência entre o gh desta máquina e as contas do Farol (lib/engine/contas-gh.js)
 function renderContasGh() {
@@ -52,7 +58,7 @@ $('#accountsManager').addEventListener('change', (e) => {
   if (t.classList.contains('acct-onreject')) return editAccount(user, { onReject: t.value === 'request_changes' ? 'request_changes' : undefined });
   if (t.classList.contains('acct-claudeprofile')) return editAccount(user, { claudeProfileId: t.value || undefined });
   // peso na cota do perfil (Politica 2): vazio = igual as outras, que e o padrao e
-  // nao guarda campo nenhum (accountSaveArray so persiste peso positivo).
+  // nao guarda campo nenhum (o parseAccounts do servidor so persiste peso positivo).
   if (t.classList.contains('acct-budgetweight')) return editAccount(user, { budgetWeight: Number(t.value) || undefined });
 });
 /* remover conta, com a confirmação que diz o que muda (gerenciador e bloco do gh) */
