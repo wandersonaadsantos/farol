@@ -521,12 +521,13 @@ test('a régua do vazio recebe o escopo, senão volta a citar org de outra conta
 /* ---------- anatomia do card da fila (Claude Design, B2-design/comum.css) ---------- */
 
 // Filhos diretos de um elemento, contados por profundidade de tag. O card é HTML gerado
-// por nós, sem tag autofechada fora de <img>, então a contagem é exata sem DOM.
+// por nós, sem tag autofechada fora de <img>, então a contagem é exata sem DOM. Comentário
+// HTML (`<!--`) não casa com o padrão, que exige letra depois do `<`.
 function filhosDiretos(html) {
   const corpo = html.slice(html.indexOf('>') + 1, html.lastIndexOf('</div>'));
   const filhos = [];
   let nivel = 0;
-  for (const m of corpo.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<(\/?)([a-z]+)([^>]*)>/g)) {
+  for (const m of corpo.matchAll(/<(\/?)([a-z]+)([^>]*)>/g)) {
     if (m[2] === 'img') continue;
     if (m[1]) { nivel -= 1; continue; }
     const classe = (m[3].match(/class="([^"]*)"/) || [, ''])[1].split(' ')[0];
