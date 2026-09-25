@@ -517,3 +517,37 @@ test('a régua do vazio recebe o escopo, senão volta a citar org de outra conta
   assert.ok(chamada, 'orgsMonitoradas não é chamada no app.js');
   assert.match(chamada[0], /escopo\(\)/, 'sem o escopo, escolher uma conta segue citando as orgs das outras');
 });
+
+/* ---------- anatomia do card da fila (Claude Design, B2-design/comum.css) ---------- */
+
+// Filhos diretos de um elemento, contados por profundidade de tag. O card é HTML gerado
+// por nós, sem tag autofechada fora de <img>, então a contagem é exata sem DOM. Comentário
+// HTML (`<!--`) não casa com o padrão, que exige letra depois do `<`.
+function filhosDiretos(html) {
+  const corpo = html.slice(html.indexOf('>') + 1, html.lastIndexOf('</div>'));
+  const filhos = [];
+  let nivel = 0;
+  for (const m of corpo.matchAll(/<(\/?)([a-z]+)([^>]*)>/g)) {
+    if (m[2] === 'img') continue;
+    if (m[1]) { nivel -= 1; continue; }
+    const classe = (m[3].match(/class="([^"]*)"/) || [, ''])[1].split(' ')[0];
+    if (nivel === 0) filhos.push(classe ? `${m[2]}.${classe}` : m[2]);
+    nivel += 1;
+  }
+  return filhos;
+}
+
+// 25/09/2026: na visão Todas com duas contas ou mais, o ponto da conta entrava como
+// quarto filho de uma grade de três colunas. O avatar caía na coluna elástica, o texto ia
+// para a direita e as ações quebravam para baixo. No desenho, o card tem avatar, conteúdo
+// e ações; a conta mora na linha do PR, junto da etiqueta.
+test('card da fila: o ponto da conta fica na linha do PR, e a grade tem só avatar, conteúdo e ações', () => {
+  const mark = { style: '', varStyle: '', dim: '', chip: '<span class="acct-chip">trabalho</span>', dot: '<span class="acct-dot"></span>', acct: { label: 'trabalho' } };
+  const pr = { key: 'acme/api#7', url: 'https://github.com/acme/api/pull/7', title: 'Corrige o gate', author: 'alice', updatedAt: '2026-09-03T16:00:00Z' };
+  const html = P.queueCardHtml(pr, { people: {}, mark }).trim();
+  const filhos = filhosDiretos(html).filter((f) => f !== 'div.pr-menu');
+  assert.deepEqual(filhos, ['span.avatar', 'div.info', 'div.pr-actions']);
+  const colunasLargas = CSS.match(/@media \(min-width: 820px\) \{\s*\.pr-card \{ grid-template-columns: ([^;]+);/)[1].trim().split(/\s+(?![^(]*\))/);
+  assert.equal(colunasLargas.length, filhos.length, 'cada filho do card precisa da própria coluna na janela larga');
+  assert.match(html, /<div class="pr-ref"><span class="acct-dot"><\/span><a /, 'o ponto abre a linha do PR');
+});

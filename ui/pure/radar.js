@@ -164,11 +164,14 @@ export function queueCardHtml(pr, ctx) {
   // e a mais urgente perderia.
   const parked = parkedNoteHtml((ctx.parked || {})[pr.key]);
   const coord = parked ? '' : prCoordNoteHtml(pr.key, ctx.sync);
+  // O ponto da conta abre a linha do PR, e não é filho do card: a grade tem uma coluna
+  // por filho (avatar, conteúdo, ações, na anatomia do Claude Design), e um quarto filho
+  // jogava o avatar na coluna elástica e as ações para baixo (visão Todas, 25/09/2026).
   return `
     <div class="card pr-card urgent" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" style="${m.style}">
-      ${m.dot}${avatar(pr.author)}
+      ${avatar(pr.author)}
       <div class="info">
-        <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}${seloRascunho}${seloRepedida}</div>
+        <div class="pr-ref">${m.dot}<a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}${seloRascunho}${seloRepedida}</div>
         <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
         <div class="pr-sub">${personMention(pr.author, 'xs')} · atualizado ${fmtRel(pr.updatedAt)}${papel}</div>
         ${parked}${coord}
