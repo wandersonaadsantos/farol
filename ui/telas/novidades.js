@@ -7,6 +7,9 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.62.18', [
+    "'Precisa de você em todos os aparelhos' deixa de mostrar PR que já foi decidido no aparelho dono. Um item resolvido com a sincronização fora do ar, seguido de um reinício, ficava aparecendo nos outros aparelhos para sempre; agora ele sai sozinho, inclusive os que já estão lá.",
+  ]],
   ['2.62.17', [
     "Conta que bate num bloqueio curto do GitHub volta a buscar em 2 minutos. Antes, qualquer recusa parava as buscas até o fim da janela de uma hora da cota, mesmo com a cota sobrando, e Sistema > Visão geral mostrava a conta 'no limite de requisições' por quase uma hora.",
   ]],

@@ -9,6 +9,20 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.18
+
+PR já decidido deixa de aparecer como pendente nos outros aparelhos.
+
+**Correções**
+
+- **"Precisa de você em todos os aparelhos" deixa de mostrar PR já decidido.** Quando um
+  aparelho resolvia uma pendência com o Firebase fora do ar e reiniciava em seguida (por
+  exemplo, no auto-update), o item ficava publicado para sempre, e os outros aparelhos
+  continuavam dizendo que ele precisava de você. Medido: três itens do computador aparecendo
+  no celular, o mais velho de 18/09, todos já postados ou pulados. Agora cada aparelho
+  confere o banco a cada 10 segundos e apaga o que publicou e já não está aberto; as
+  sobras que existem hoje saem sozinhas depois do update.
+
 ## v2.62.17
 
 Conta travada por um bloqueio curto do GitHub volta a buscar em minutos, não em até uma hora.
