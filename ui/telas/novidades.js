@@ -7,6 +7,9 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.62.16', [
+    "Revisão interrompida de um PR que foi mergeado ou fechado antes de ser retomada deixa de ficar pendente para sempre. O Farol confere no GitHub, no máximo uma vez por hora por PR, e só descarta depois de confirmar que o PR fechou.",
+  ]],
   ['2.62.15', [
     "Quando há uma versão nova e o Farol ainda não se atualizou, Sistema > Visão geral passa a dizer o que está segurando e desde quando (por exemplo, \"Esperando: 1 revisão em andamento, desde 11:10\"). O Farol continua se atualizando sozinho assim que fica ocioso; a diferença é que a espera deixou de parecer defeito.",
   ]],

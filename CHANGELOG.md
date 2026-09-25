@@ -9,6 +9,19 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.16
+
+Revisão interrompida de PR que foi mergeado ou fechado deixa de ficar pendente para sempre.
+
+**Correções**
+
+- **A referência de retomada de um PR que já foi mergeado ou fechado sai sozinha.** Quando
+  uma revisão é interrompida (queda de rede, reinício), o Farol guarda a sessão para
+  retomá-la depois. Se o PR fosse mergeado antes da retomada e o Farol reiniciasse no meio,
+  essa referência ficava no estado para sempre: `biudtech/engine-ai#224` seguia "pendente"
+  uma semana depois do merge. Agora o ciclo pergunta ao GitHub, no máximo uma vez por hora
+  por PR, e só descarta com a confirmação de que ele foi mergeado ou fechado.
+
 ## v2.62.15
 
 O update que espera diz o que está segurando e desde quando.
