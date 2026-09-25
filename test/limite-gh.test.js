@@ -114,14 +114,45 @@ test('vencido o prazo a conta volta a buscar, e o registro sai sozinho', async (
   assert.equal(limiteGh.limiteAte(e, 'eu', ate + 1), 0, 'e o registro vencido nao fica no caminho');
 });
 
-test('o prazo vem do reset REAL do gh quando ele responde', async () => {
+test('cota esgotada: o prazo vem do reset REAL do gh', async () => {
   const e = engine();
   const resetSeg = Math.floor(Date.now() / 1000) + 900;
   respostaBusca = { ok: false, code: 1, stdout: '', stderr: LIMITE };
-  respostaReset = { ok: true, code: 0, stdout: `${resetSeg}\n`, stderr: '' };
+  respostaReset = { ok: true, code: 0, stdout: `0 ${resetSeg}\n`, stderr: '' };
   await e.searchPRs(['--owner', 'acme'], 'eu');
   assert.equal(limiteGh.limiteAte(e, 'eu'), resetSeg * 1000, 'o prazo e a hora que o GitHub informou');
   assert.ok(chamadas.some(c => /^api rate_limit/.test(c)), 'consulta o endpoint de cota, que nao consome cota');
+});
+
+// 25/09/2026: uma conta ficou parada das 14:40 as 15:25 com 8 de 5000 usados. A
+// recusa foi de rajada, e o prazo era o fim da janela de uma hora, que nao tem relacao.
+test('cota com saldo: foi rajada, e a espera e curta, nao o reset da janela', async () => {
+  const e = engine();
+  const agora = Date.now();
+  const resetSeg = Math.floor(agora / 1000) + 2700;
+  respostaBusca = { ok: false, code: 1, stdout: '', stderr: 'You have exceeded a secondary rate limit.' };
+  respostaReset = { ok: true, code: 0, stdout: `4992 ${resetSeg}\n`, stderr: '' };
+  await e.searchPRs(['--owner', 'acme'], 'eu', agora);
+  assert.equal(limiteGh.limiteAte(e, 'eu', agora), agora + TEMPOS.LIMITE_GH_ESPERA_RAJADA_MS);
+  assert.ok(TEMPOS.LIMITE_GH_ESPERA_RAJADA_MS < 10 * 60 * 1000, 'rajada nao pode cegar a conta por um ciclo inteiro');
+});
+
+test('o prazo pela cota, sem rede', () => {
+  const agora = 1_000_000;
+  assert.equal(limiteGh.prazoPelaCota(null, agora), agora + TEMPOS.LIMITE_GH_ESPERA_SEM_HORA_MS,
+    'gh sem resposta: nao sabemos, espera padrao');
+  assert.equal(limiteGh.prazoPelaCota({ restante: 8, resetMs: agora + 3_000_000 }, agora),
+    agora + TEMPOS.LIMITE_GH_ESPERA_RAJADA_MS);
+  assert.equal(limiteGh.prazoPelaCota({ restante: 0, resetMs: agora + 60_000 }, agora), agora + 60_000);
+});
+
+test('a linha do log leva o que o gh disse, para separar rajada de cota esgotada', async () => {
+  const e = engine();
+  respostaBusca = { ok: false, code: 1, stdout: '', stderr: `${LIMITE}\nsegunda linha` };
+  await e.searchPRs(['--owner', 'acme'], 'eu');
+  const linha = e.logs.find(l => /limite de requisi/i.test(l.msg)).msg;
+  assert.ok(linha.includes(`O gh disse: ${LIMITE}`));
+  assert.ok(!linha.includes('segunda linha'), 'so a primeira linha, para nao entupir o log');
 });
 
 test('o Diagnostico mostra a conta parada no limite, com hora', () => {
