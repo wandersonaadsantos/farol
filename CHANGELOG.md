@@ -9,6 +9,18 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.19
+
+O card da fila volta ao desenho quando há mais de uma conta.
+
+**Correções**
+
+- **O card de "Sua fila" deixa de quebrar na visão Todas.** Com duas contas ou mais, o ponto
+  colorido da conta entrava como um quarto item numa grade de três colunas: o avatar ficava
+  solto no meio do card, o texto encostava à direita e os botões desciam para baixo. O ponto
+  passou para a linha do PR, ao lado da etiqueta da conta, e o card volta ao desenho: avatar,
+  conteúdo e ações.
+
 ## v2.62.18
 
 PR já decidido deixa de aparecer como pendente nos outros aparelhos.

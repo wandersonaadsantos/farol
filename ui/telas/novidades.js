@@ -7,6 +7,9 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.62.19', [
+    "O card de 'Sua fila' volta ao lugar na visão Todas com mais de uma conta: avatar, texto e botões na mesma linha, com o ponto da conta ao lado do nome do PR. Antes o avatar ficava solto no meio do card e os botões caíam para baixo.",
+  ]],
   ['2.62.18', [
     "'Precisa de você em todos os aparelhos' deixa de mostrar PR que já foi decidido no aparelho dono. Um item resolvido com a sincronização fora do ar, seguido de um reinício, ficava aparecendo nos outros aparelhos para sempre; agora ele sai sozinho, inclusive os que já estão lá.",
   ]],
