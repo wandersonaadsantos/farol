@@ -87,7 +87,7 @@
     "profundidadeExcedida": 2
   },
   "server.js": {
-    "maxLines": 974,
+    "maxLines": 973,
     "emptyCatch": 1,
     "jsonStringifyCru": 1,
     "processEnvDireto": 5,
