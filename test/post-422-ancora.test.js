@@ -147,7 +147,8 @@ test('422 num review SEM inline recua a âncora e reposta uma vez', async () => 
 test('422 sem âncora e sem inline NÃO retenta (não existe degrau pra recuar)', async () => {
   const e = enginePostador();
   let n = 0;
-  runImpl = async () => { n++; return recusa422('alguma outra coisa'); };
+  // conta só os ENVIOS: a consulta de estado do PR antes do envio não é tentativa
+  runImpl = async (_cmd, args) => { if ((args || []).includes('--input')) n++; return recusa422('alguma outra coisa'); };
   const r = await e.postReview(PR, APPROVE);
   assert.equal(r.ok, false);
   assert.equal(n, 1, 'insistir no mesmo payload só duplicaria a recusa');
@@ -156,7 +157,7 @@ test('422 sem âncora e sem inline NÃO retenta (não existe degrau pra recuar)'
 test('erro que não é 422 nunca vira retentativa', async () => {
   const e = enginePostador();
   let n = 0;
-  runImpl = async () => { n++; return { ok: false, code: 1, stdout: '', stderr: 'gh: Not Found (HTTP 404)' }; };
+  runImpl = async (_cmd, args) => { if ((args || []).includes('--input')) n++; return { ok: false, code: 1, stdout: '', stderr: 'gh: Not Found (HTTP 404)' }; };
   const r = await e.postReview(PR, { ...APPROVE, commit_id: HEAD_LIDO });
   assert.equal(r.ok, false);
   assert.equal(n, 1);
