@@ -9,6 +9,39 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.20
+
+O modo Auto passa a usar o Opus quando o PR pede, a revisão aprende com a auditoria de qualidade, e o Farol deixa de postar review em PR já mergeado.
+
+**Novidades**
+
+- **O modo Auto sobe para o Opus pelo contexto do PR.** Antes ele olhava só o tamanho do
+  diff (Haiku, Sonnet, Sonnet com esforço alto). Agora, antes do tamanho, três gatilhos
+  levam a revisão para o Opus com esforço médio: repositório crítico, caminho sensível
+  (infraestrutura, autenticação, banco, pagamento, com padrões no estilo do CODEOWNERS) e
+  PR muito grande (1000 linhas ou 20 arquivos). A atividade da revisão diz qual gatilho
+  valeu e por quê. Por enquanto as listas se ajustam pelo `config.json` (`autoOpus`); a
+  tela de configuração vem do desenho do Claude Design.
+- **A revisão incorpora os erros medidos na auditoria de qualidade de 25/09.** A auditoria
+  conferiu 73 revisões contra o diff real: os bloqueios se sustentaram (28 de 28 reais),
+  mas dois defeitos passaram em aprovações e algumas afirmações eram imprecisas. Cada
+  padrão virou regra com o caso real: conferir o mock contra o colaborador real, ler a
+  função chamada e quem consome o resultado, conferir premissas de biblioteca na versão do
+  projeto, provar ausência de teste antes de afirmar, separar regra escrita de preferência,
+  dar receita de correção só com código verificado, citar só o que existe no PR, manter o
+  mesmo veredito para a mesma mudança, reler o diff na re-revisão e nunca narrar no
+  relatório a ação que o app vai tomar.
+
+**Correções**
+
+- **Review decisivo não sai em PR que já foi mergeado ou fechado.** A revisão conferia o
+  estado do PR só antes de começar, e a sessão dura minutos: a auditoria de qualidade de
+  25/09 achou pedidos de mudança postados até 2 minutos depois do merge. Agora o estado é
+  conferido logo antes do envio, em toda via; comentário continua saindo, e quando o GitHub
+  não responde o Farol segue como antes.
+- **Testes de sincronização mais estáveis sob carga.** Os servidores de teste deixaram de
+  fechar conexão ociosa, que derrubava login e desbloqueio com a máquina sobrecarregada.
+
 ## v2.62.19
 
 O card da fila volta ao desenho quando há mais de uma conta.
