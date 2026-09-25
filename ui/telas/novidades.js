@@ -7,6 +7,9 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.62.15', [
+    "Quando há uma versão nova e o Farol ainda não se atualizou, Sistema > Visão geral passa a dizer o que está segurando e desde quando (por exemplo, \"Esperando: 1 revisão em andamento, desde 11:10\"). O Farol continua se atualizando sozinho assim que fica ocioso; a diferença é que a espera deixou de parecer defeito.",
+  ]],
   ['2.62.14', [
     "Editar uma conta em Sistema > Contas passou a mudar só aquele campo daquela conta. Antes a tela regravava todas as contas com o que tinha na memória, e uma tela desatualizada podia apagar ou trazer de volta configurações que você não mexeu.",
     "O peso na cota do perfil passou a valer: ele era gravado, mas nunca chegava ao cálculo da cota, e a tela mostrava sempre \"igual as outras\".",
