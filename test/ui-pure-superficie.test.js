@@ -252,6 +252,7 @@ const CONGELADA = [
   "toolRefGoto",
   "transferenciaConfirmacao",
   "transferenciaDialogo",
+  "updateAdiadoHtml",
   "usageBudgetHtml",
   "usageColorsFor",
   "usageConsolidadoEnvelopeHtml",

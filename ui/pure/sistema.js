@@ -301,3 +301,12 @@ export function settingsIgnoradasTexto(r) {
   if (lista.length === 1) return `${nomes} não foi salva: o servidor não reconhece essa preferência.`;
   return `${nomes} não foram salvas: o servidor não reconhece essas preferências.`;
 }
+
+// A linha do status do update que diz por que o Farol ainda não aplicou a versão nova: o
+// que está segurando e desde quando (lib/engine/update.js, marcarAdiado). Sem ela, um
+// update detectado e não aplicado parecia defeito (25/09/2026).
+export function updateAdiadoHtml(u) {
+  const a = u && u.adiado;
+  if (!a || !a.motivo) return '';
+  return ` <b>Esperando:</b> ${esc(a.motivo)} (desde ${fmtClock(a.desde)}). Aplica sozinho assim que ficar livre.`;
+}

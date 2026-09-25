@@ -1,6 +1,6 @@
 /* Farol · UI: versão e atualização (Sistema > Visão geral). */
 
-import { esc, fmtClock } from '../pure.js';
+import { esc, fmtClock, updateAdiadoHtml } from '../pure.js';
 import { estado } from './estado.js';
 import { $, api, toast, confirmModal, origemLocal } from './infra.js';
 
@@ -28,7 +28,7 @@ function renderUpdate() {
     const queuedLine = u.queued ? ' <b>Agendado:</b> aplica sozinho assim que as sessões em andamento terminarem.' : '';
     box.innerHTML = `
       <span class="up-ver">v${esc(u.current)} → v${esc(u.sourceVersion)}</span>
-      <span class="up-note">${noteAuto}${queuedLine}</span>
+      <span class="up-note">${noteAuto}${queuedLine}${updateAdiadoHtml(u)}</span>
       <button id="btnUpdateNow" class="btn primary sm">Atualizar agora</button>`;
     $('#btnUpdateNow').onclick = async () => {
       // confirm() nativo era o último popup fora da identidade do app neste fluxo
