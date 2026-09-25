@@ -7,6 +7,9 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.62.17', [
+    "Conta que bate num bloqueio curto do GitHub volta a buscar em 2 minutos. Antes, qualquer recusa parava as buscas até o fim da janela de uma hora da cota, mesmo com a cota sobrando, e Sistema > Visão geral mostrava a conta 'no limite de requisições' por quase uma hora.",
+  ]],
   ['2.62.16', [
     "Revisão interrompida de um PR que foi mergeado ou fechado antes de ser retomada deixa de ficar pendente para sempre. O Farol confere no GitHub, no máximo uma vez por hora por PR, e só descarta depois de confirmar que o PR fechou.",
   ]],

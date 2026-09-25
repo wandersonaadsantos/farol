@@ -9,6 +9,20 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.17
+
+Conta travada por um bloqueio curto do GitHub volta a buscar em minutos, não em até uma hora.
+
+**Correções**
+
+- **Recusa de rajada do GitHub espera 2 minutos, não o fim da janela da cota.** Quando o
+  GitHub recusava uma busca, o Farol parava a conta até o reset da janela de uma hora da
+  cota, qualquer que fosse a recusa. Num bloqueio de rajada, que passa em cerca de um
+  minuto, isso deixava a conta sem buscar PR por até uma hora com a cota sobrando (medido:
+  parada das 14:40 às 15:25 com 8 de 5000 requisições usadas). Agora o Farol olha o saldo:
+  cota zerada espera o reset, cota com saldo espera 2 minutos. O aviso no log passa a
+  trazer a mensagem do GitHub, para separar os dois casos.
+
 ## v2.62.16
 
 Revisão interrompida de PR que foi mergeado ou fechado deixa de ficar pendente para sempre.
