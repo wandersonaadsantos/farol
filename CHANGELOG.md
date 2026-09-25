@@ -11,7 +11,7 @@ e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
 ## v2.62.20
 
-O modo Auto passa a usar o Opus quando o PR pede, e o Farol deixa de postar review em PR já mergeado.
+O modo Auto passa a usar o Opus quando o PR pede, a revisão aprende com a auditoria de qualidade, e o Farol deixa de postar review em PR já mergeado.
 
 **Novidades**
 
@@ -22,6 +22,15 @@ O modo Auto passa a usar o Opus quando o PR pede, e o Farol deixa de postar revi
   PR muito grande (1000 linhas ou 20 arquivos). A atividade da revisão diz qual gatilho
   valeu e por quê. Por enquanto as listas se ajustam pelo `config.json` (`autoOpus`); a
   tela de configuração vem do desenho do Claude Design.
+- **A revisão incorpora os erros medidos na auditoria de qualidade de 25/09.** A auditoria
+  conferiu 73 revisões contra o diff real: os bloqueios se sustentaram (28 de 28 reais),
+  mas dois defeitos passaram em aprovações e algumas afirmações eram imprecisas. Cada
+  padrão virou regra com o caso real: conferir o mock contra o colaborador real, ler a
+  função chamada e quem consome o resultado, conferir premissas de biblioteca na versão do
+  projeto, provar ausência de teste antes de afirmar, separar regra escrita de preferência,
+  dar receita de correção só com código verificado, citar só o que existe no PR, manter o
+  mesmo veredito para a mesma mudança, reler o diff na re-revisão e nunca narrar no
+  relatório a ação que o app vai tomar.
 
 **Correções**
 
