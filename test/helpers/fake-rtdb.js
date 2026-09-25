@@ -237,6 +237,14 @@ export async function startFakeRtdb({ token = 'tok-ok', agora = () => Date.now()
     requests.push({ method: req.method, path: u.pathname, query: Object.fromEntries(u.searchParams), headers: req.headers, body });
     tratar(req, res, u, body);
   });
+  // Conexão ociosa nunca é fechada por aqui (25/09/2026). O padrão do Node fecha em 5 s,
+  // e o fetch do cliente reaproveita a conexão: sob carga (pre-push com o Farol rodando,
+  // duas suítes juntas) o intervalo entre duas chamadas de um teste passa de 5 s, o
+  // servidor fecha no instante em que o cliente reusa, e o login ou o unlock voltam
+  // 'indisponivel' por um read ECONNRESET. Medido com duas suítes em paralelo: 46 resets
+  // numa rodada, contra no máximo 8 depois desta linha. O close() encerra tudo com
+  // closeAllConnections, então nenhuma conexão sobra depois do teste.
+  server.keepAliveTimeout = 0;
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 
   return {

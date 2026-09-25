@@ -82,8 +82,12 @@ async function motor() {
   e.sync.fetchImpl = fetchDosDubles;
   e.updateSettings({ sync: cfg(), accounts: [{ user: LOGIN, owners: ['acme-exemplo'] }], parallelReviews: 2 });
   if (e.sync.iniciando) await e.sync.iniciando;
-  assert.equal((await e.syncLogin({ email: EMAIL, password: SENHA })).ok, true);
-  assert.equal((await e.syncUnlock({ password: SENHA })).ok, true);
+  const t0 = Date.now();
+  const login = await e.syncLogin({ email: EMAIL, password: SENHA });
+  assert.equal(login.ok, true, JSON.stringify({ login, ms: Date.now() - t0 }));
+  const t1 = Date.now();
+  const unlock = await e.syncUnlock({ password: SENHA });
+  assert.equal(unlock.ok, true, JSON.stringify({ unlock, ms: Date.now() - t1 }));
   e.sync.deviceId = 'dNotebook';
   e.sync.devices = { dNotebook: { name: 'Notebook de teste', contract: 2, keyReady: true, lastSeenAt: Date.now() }, dOutro: { name: 'Desktop antigo', contract: 2, keyReady: true, lastSeenAt: Date.now() } };
   e.sync.autoridade = { fresca: true, agora: T, ultimaMudancaEm: T, intervaloMs: SYNC.AUTORIDADE_INTERVALO_MS };
