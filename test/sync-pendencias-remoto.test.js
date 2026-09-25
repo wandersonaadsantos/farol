@@ -121,6 +121,46 @@ test('republicar sem mudança não escreve; a pendência resolvida é apagada', 
   assert.equal(no('pending')[id], undefined);
 });
 
+// 25/09/2026: três nós do admin ficaram no banco com zero pendências locais, o mais velho
+// de 18/09. Resolvidas com o Firebase fora do ar e seguidas de um reinício, que zera o mapa
+// do que esta sessão publicou: o apagar de sincronizarPendencias nunca mais as alcançava.
+test('pendência resolvida antes de um reinício sai do banco pela conferência contra ele', async () => {
+  const e = await motorPronto();
+  pendenciaLocal(e, 'resolvida');
+  pendenciaLocal(e, 'aberta');
+  const { escritas } = await pend.sincronizarPendencias(e, e.config.sync);
+  assert.equal(escritas.length, 2);
+  // o reinício: memória nova, e a pendência foi resolvida enquanto ninguém apagava
+  e.sync.pendenciasPublicadas = new Map();
+  e.decisions.pending = e.decisions.pending.filter((p) => p.id === 'aberta');
+  assert.deepEqual((await pend.sincronizarPendencias(e, e.config.sync)).apagadas, [], 'a memória sozinha não alcança a sobra');
+  assert.equal(Object.keys(no('pending')).length, 2);
+  const apagadas = await pend.apagarOrfas(e, e.config.sync, no('pending'));
+  assert.equal(apagadas.length, 1);
+  const restam = Object.keys(no('pending'));
+  assert.equal(restam.length, 1, 'a pendência ainda aberta continua publicada');
+  assert.equal(pend.aplicarPendencias(outroAparelho(e), no('pending'), {}).lista.length, 1,
+    'o outro aparelho deixa de ver a resolvida');
+});
+
+test('a conferência nunca apaga o nó de outro aparelho', async () => {
+  const e = await motorPronto();
+  const alheio = { v: 1, at: 1_800_000_000_000, dev: 'dOutro', enc: 'e1.g1.aaaa.bbbb.cccc' };
+  fake.setTree({ users: { u1: { live: { pending: { abc123: alheio } } } } });
+  assert.deepEqual(await pend.apagarOrfas(e, e.config.sync, no('pending')), []);
+  assert.deepEqual(no('pending').abc123, alheio);
+});
+
+test('sem frota a conferência não apaga nada', async () => {
+  const e = await motorPronto();
+  pendenciaLocal(e);
+  await pend.sincronizarPendencias(e, e.config.sync);
+  e.decisions.pending.length = 0;
+  e.sync.devices = { dOutro: { contract: 1, keyReady: false, lastSeenAt: Date.now() } };
+  assert.deepEqual(await pend.apagarOrfas(e, e.config.sync, no('pending')), []);
+  assert.equal(Object.keys(no('pending')).length, 1);
+});
+
 test('o outro aparelho lê, é avisado uma vez, e o próprio não aparece para si', async () => {
   const e = await motorPronto();
   pendenciaLocal(e);
@@ -201,4 +241,15 @@ test('o ciclo do relógio publica e lê pendências, e a rota do visto existe', 
   const fonte = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'http-server.js'), 'utf8');
   assert.match(fonte, /p === '\/api\/sync\/seen'/);
   assert.match(fonte, /engine\.on\('sync-pending', p => broadcast\('sync-pending', p\)\)/);
+});
+
+test('o ciclo do relógio apaga a sobra de uma sessão anterior', async () => {
+  const e = await motorPronto();
+  pendenciaLocal(e);
+  await pend.sincronizarPendencias(e, e.config.sync);
+  e.sync.pendenciasPublicadas = new Map();
+  e.decisions.pending.length = 0;
+  const andamentoEng = await import('../lib/engine/sync-andamento.js');
+  await andamentoEng.ciclo(e, e.config.sync, { agora: Date.now() });
+  assert.deepEqual(no('pending'), {}, 'sem a fiação no relógio a função existiria e nunca rodaria');
 });
