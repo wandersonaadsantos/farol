@@ -48,6 +48,7 @@ import selfMod from './lib/engine/selfpr.js';
 import scopeMod from './lib/engine/pr-scope.js';
 import reviewMod from './lib/engine/review.js';
 import retomadaMod from './lib/engine/retomada-duravel.js';
+import retomadaVarredura from './lib/engine/retomada-varredura.js';
 
 // Resolve o shape de auth a partir de um perfil já escolhido (sem cascata de conta). Mora em
 // lib/engine/perfil-claude.js desde a A2: o aviso de perfil quebrado lê a MESMA regra.
@@ -908,6 +909,7 @@ class Engine extends EventEmitter {
       try { await this.destravarPorEstadoNovo(); } catch (e) { this.log('WARN', `destrave por estado novo: ${e.message}`); }
 
       await this._dispararAutomacoes(fresh);
+      await retomadaVarredura.varrerFechadas(this);
 
       // branch origem->destino de cada PR meu (o card mostra de/para)
       try { await this.enrichMyPRBranches(); } catch (e) { this.log('WARN', `enrichMyPRBranches: ${e.message}`); }
@@ -1877,10 +1879,7 @@ class Engine extends EventEmitter {
   }
   origemDe(userAgent) { return contasConfig.origemDaRequisicao(userAgent); }
   // conta editada por OPERAÇÃO sobre a config atual, nunca pela lista que a tela tinha
-  editarConta(op, origem) {
-    const r = contasConfig.aplicarEdicao(this.config.accounts, op);
-    return r.ok ? { ...this.updateSettings({ accounts: r.contas }, origem), ignorados: r.ignorados } : r;
-  }
+  editarConta(op, origem) { return contasConfig.editarConta(this, op, origem); }
 
   // Credencial do Jira: colaborador lib/jira/credentials.js, único lugar que lê ou
   // escreve o arquivo separado (o token nunca entra no config.json, que trafega
