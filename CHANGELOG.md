@@ -9,6 +9,20 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.15
+
+O update que espera diz o que está segurando e desde quando.
+
+**Melhorias**
+
+- **Sistema > Visão geral explica por que a versão nova ainda não foi aplicada.** O Farol só
+  se atualiza sozinho quando está ocioso, e até aqui o adiamento não deixava rastro: a
+  v2.62.14 foi detectada às 11:07 e aplicada às 11:14, e quando alguém foi olhar, o que tinha
+  segurado já tinha acabado. Agora o status do update mostra, por exemplo, "Esperando: 1
+  revisão em andamento (desde 11:10)", e também quando a espera é porque a tentativa anterior
+  falhou, com a hora da próxima. Nada disso vai para o log de falhas, porque esperar uma
+  revisão terminar é o comportamento certo.
+
 ## v2.62.14
 
 As configurações de conta passaram a ser respeitadas, e toda mudança nelas deixa rastro.
