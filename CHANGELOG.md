@@ -9,6 +9,30 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.20
+
+O modo Auto passa a usar o Opus quando o PR pede, e o Farol deixa de postar review em PR já mergeado.
+
+**Novidades**
+
+- **O modo Auto sobe para o Opus pelo contexto do PR.** Antes ele olhava só o tamanho do
+  diff (Haiku, Sonnet, Sonnet com esforço alto). Agora, antes do tamanho, três gatilhos
+  levam a revisão para o Opus com esforço médio: repositório crítico, caminho sensível
+  (infraestrutura, autenticação, banco, pagamento, com padrões no estilo do CODEOWNERS) e
+  PR muito grande (1000 linhas ou 20 arquivos). A atividade da revisão diz qual gatilho
+  valeu e por quê. Por enquanto as listas se ajustam pelo `config.json` (`autoOpus`); a
+  tela de configuração vem do desenho do Claude Design.
+
+**Correções**
+
+- **Review decisivo não sai em PR que já foi mergeado ou fechado.** A revisão conferia o
+  estado do PR só antes de começar, e a sessão dura minutos: a auditoria de qualidade de
+  25/09 achou pedidos de mudança postados até 2 minutos depois do merge. Agora o estado é
+  conferido logo antes do envio, em toda via; comentário continua saindo, e quando o GitHub
+  não responde o Farol segue como antes.
+- **Testes de sincronização mais estáveis sob carga.** Os servidores de teste deixaram de
+  fechar conexão ociosa, que derrubava login e desbloqueio com a máquina sobrecarregada.
+
 ## v2.62.19
 
 O card da fila volta ao desenho quando há mais de uma conta.

@@ -7,6 +7,10 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.62.20', [
+    "No modo Auto, a revisão sobe para o Opus quando o PR pede: repositório crítico, caminho sensível (infraestrutura, autenticação, banco, pagamento) ou PR muito grande. Fora disso, continua escolhendo pelo tamanho. A atividade da revisão diz qual motivo valeu.",
+    "O Farol deixa de postar aprovação ou pedido de mudanças em PR que foi mergeado ou fechado enquanto a revisão rodava.",
+  ]],
   ['2.62.19', [
     "O card de 'Sua fila' volta ao lugar na visão Todas com mais de uma conta: avatar, texto e botões na mesma linha, com o ponto da conta ao lado do nome do PR. Antes o avatar ficava solto no meio do card e os botões caíam para baixo.",
   ]],
