@@ -35,25 +35,27 @@ test('a config aceita exatamente as seleções do catálogo', () => {
 
 /* ---------- o Auto usa as seleções, não modelos próprios ---------- */
 
-test('cada faixa do Auto aponta para uma seleção que existe', () => {
-  for (const [faixa, f] of Object.entries(M.AUTO_POR_FAIXA)) {
+test('cada faixa do Auto, e o contexto, apontam para uma seleção que existe', () => {
+  for (const [faixa, f] of Object.entries({ ...M.AUTO_POR_FAIXA, contexto: M.AUTO_POR_CONTEXTO })) {
     assert.ok(M.selecaoClaude(f.selecao), `faixa ${faixa} aponta para "${f.selecao}", que não é seleção`);
   }
 });
 
-test('o roteador devolve o modelo DA SELEÇÃO de cada faixa', () => {
-  const cfg = { reviewModel: 'auto' };
+test('o roteador devolve o modelo DA SELEÇÃO de cada faixa, e do contexto', () => {
+  // gatilhos desligados: aqui se prova a tabela de tamanho; o contexto tem a linha dele
+  const cfg = { reviewModel: 'auto', autoOpus: { reposCriticos: [], caminhosSensiveis: [], prMuitoGrande: false } };
   assert.equal(escolheModelo(PEQUENO, cfg).model, M.selecaoClaude(M.AUTO_POR_FAIXA.pequeno.selecao).modelo);
   assert.equal(escolheModelo(MEDIO, cfg).model, M.selecaoClaude(M.AUTO_POR_FAIXA.medio.selecao).modelo);
   assert.equal(escolheModelo(GRANDE, cfg).model, M.selecaoClaude(M.AUTO_POR_FAIXA.grande.selecao).modelo);
   assert.equal(escolheModelo(null, cfg).model, M.selecaoClaude(M.AUTO_POR_FAIXA.semMetrica.selecao).modelo);
+  assert.equal(escolheModelo(GRANDE, { reviewModel: 'auto' }).model, M.selecaoClaude(M.AUTO_POR_CONTEXTO.selecao).modelo, 'PR muito grande, no padrão');
 });
 
 test('o rótulo do Auto nomeia os modelos que o Auto usa de fato', () => {
-  const usados = new Set(Object.values(M.AUTO_POR_FAIXA).map((f) => M.selecaoClaude(f.selecao).nome));
+  const usados = new Set([M.AUTO_POR_CONTEXTO, ...Object.values(M.AUTO_POR_FAIXA)].map((f) => M.selecaoClaude(f.selecao).nome));
   const rotulo = M.rotuloDoAuto();
   for (const nome of usados) assert.match(rotulo, new RegExp(nome), `o Auto usa ${nome} e o rótulo não diz`);
-  assert.equal(rotulo, 'Auto (custo-benefício: Haiku/Sonnet pelo tamanho do PR)', 'o texto de hoje segue igual');
+  assert.equal(rotulo, 'Auto (custo-benefício: Haiku/Sonnet/Opus pelo contexto e o tamanho do PR)', 'o texto dos três modelos e das duas etapas (25/09/2026)');
 });
 
 /* ---------- o esforço, numa regra só ---------- */
