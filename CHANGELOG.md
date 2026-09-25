@@ -9,6 +9,30 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.14
+
+As configurações de conta passaram a ser respeitadas, e toda mudança nelas deixa rastro.
+
+**Correções**
+
+- **Editar uma conta muda só aquele campo daquela conta.** A tela de Contas regravava a
+  lista inteira de contas a cada edição, com o que ela tinha na memória, e o servidor aceitava
+  a lista como vinha. Uma tela desatualizada podia apagar ou trazer de volta configurações de
+  todas as contas por causa de uma mudança de cor. Agora a tela diz qual campo mudou, e o
+  servidor aplica sobre a configuração atual.
+- **O peso na cota do perfil passou a valer.** Ele era gravado, mas nunca chegava ao cálculo
+  da cota nem à tela: o rateio lia vazio, a tela mostrava sempre "igual as outras", e editar
+  qualquer outra coisa apagava o peso salvo.
+
+**Melhorias**
+
+- **Toda mudança na política de automação fica registrada**, com data e origem (janela do
+  Farol ou navegador), venha de Sistema > Contas ou de Sistema > Automação. Quando um PR
+  aprovável espera por causa da política, o card diz quando e de onde veio a configuração que
+  o segurou, e o Diagnóstico lista as mudanças recentes. Motivou a mudança: em 24/09, quatro
+  PRs aprováveis sem ressalva esperaram clique numa conta que estava em "aprova sozinho", e
+  não havia como saber de onde veio o "aguardar".
+
 ## v2.62.13
 
 O Farol passou a rodar o modelo mais novo de cada família, e a escolha de modelo virou uma

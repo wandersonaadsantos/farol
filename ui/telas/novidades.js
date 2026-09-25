@@ -7,6 +7,11 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.62.14', [
+    "Editar uma conta em Sistema > Contas passou a mudar só aquele campo daquela conta. Antes a tela regravava todas as contas com o que tinha na memória, e uma tela desatualizada podia apagar ou trazer de volta configurações que você não mexeu.",
+    "O peso na cota do perfil passou a valer: ele era gravado, mas nunca chegava ao cálculo da cota, e a tela mostrava sempre \"igual as outras\".",
+    "Toda mudança na política de automação fica registrada com data e origem. Quando um PR espera por causa da política, o card diz quando e de onde veio a configuração, e o Diagnóstico lista as mudanças recentes.",
+  ]],
   ['2.62.13', [
     "O Farol passou a rodar o modelo mais novo de cada família. Ele pede o modelo pelo apelido (Opus, Sonnet, Haiku, Fable) e quem decide qual modelo é esse é o Claude Code instalado: com o Claude Code desatualizado, o Opus seguia sendo o Opus 5 mesmo depois do Opus 5.5. Sistema > Visão geral ganhou o check \"Versão do Claude Code\", que fica vermelho quando ele está mais de três dias atrás e diz o comando que resolve.",
     "A escolha de modelo virou uma definição só: o seletor de Automação, o que o modo Auto usa em cada tamanho de PR e o texto que descreve o Auto saem do mesmo lugar, então nunca mais dizem coisas diferentes.",
