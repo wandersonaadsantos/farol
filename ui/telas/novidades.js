@@ -7,6 +7,10 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.62.21', [
+    "No celular, 'Abrir sessão de login' copia um comando para colar no Termux: ele abre o Claude já na pasta certa do perfil, então o login novo passa a valer para as revisões.",
+    "Um Claude Code instalado ou atualizado depois de o Farol abrir passa a ser usado sem precisar reiniciar o Farol.",
+  ]],
   ['2.62.20', [
     "No modo Auto, a revisão sobe para o Opus quando o PR pede: repositório crítico, caminho sensível (infraestrutura, autenticação, banco, pagamento) ou PR muito grande. Fora disso, continua escolhendo pelo tamanho. A atividade da revisão diz qual motivo valeu.",
     "O Farol deixa de postar aprovação ou pedido de mudanças em PR que foi mergeado ou fechado enquanto a revisão rodava.",
