@@ -39,3 +39,6 @@ avaliacoes.jsonl
 # no ambiente (acontece com PowerShell disparado de dentro do Git Bash). Nao e do projeto,
 # e binario, e ja entrou em dois commits por causa de `git add -A`.
 Microsoft/
+
+# anexos temporarios de sessao (Claude Design); nunca versionar
+.claude-anexos/
