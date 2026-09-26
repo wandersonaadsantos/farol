@@ -54,6 +54,15 @@ test('cada sinal sozinho basta para o modo celular', () => {
   assert.equal(detectarModoCelular({ ...DESKTOP, osrelease: '4.19.157-Android-perf\n' }), true, 'caixa do kernel não importa');
 });
 
+// 26/09/2026: no aparelho do dono o Farol roda no proot-distro, que não repassa TERMUX_VERSION
+// nem PREFIX e troca a versão do kernel por uma falsa, sem "android". Com os três sinais
+// antigos o modo celular dava "não", e a exigência automática da A4 ficava desligada sem aviso.
+test('proot-distro também é celular: kernel falso do proot ou /system do Android montado', () => {
+  assert.equal(detectarModoCelular({ ...DESKTOP, osrelease: '6.2.1-PRoot-Distro\n' }), true, 'kernel falso do proot-distro');
+  assert.equal(detectarModoCelular({ ...DESKTOP, sistemaAndroid: true }), true, '/system/build.prop montado');
+  assert.equal(detectarModoCelular({ ...DESKTOP, sistemaAndroid: false }), false, 'sem /system continua desktop');
+});
+
 test('fora do celular nenhum sinal liga o modo', () => {
   assert.equal(detectarModoCelular({ platform: 'win32', env: {}, osrelease: '' }), false, 'Windows');
   assert.equal(detectarModoCelular({ platform: 'darwin', env: {}, osrelease: '' }), false, 'macOS');

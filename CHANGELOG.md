@@ -9,6 +9,19 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.23
+
+A proteção da API local passa a valer no celular que roda o Farol pelo proot-distro.
+
+**Correções**
+
+- **A autenticação da API local (A4) liga no celular com proot-distro.** A exigência
+  automática existe para o celular desde a v2.61.0, mas o Farol não se reconhecia como
+  celular dentro do proot-distro, que esconde as variáveis do Termux e mostra uma versão de
+  kernel falsa. A API local ficava sem porteiro, sem aviso. Agora o kernel do proot e o
+  `/system` do Android contam como sinal. Depois do update, a tela do celular pede
+  pareamento: gere o código com `node ~/.farol/app/tools/farol-parear.js`, dentro do proot.
+
 ## v2.62.22
 
 O login pelo celular passa a funcionar de verdade, e o Claude Code novo passa a valer mesmo com um antigo instalado.
