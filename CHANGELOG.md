@@ -9,6 +9,22 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.21
+
+O login do Claude passa a funcionar no celular, e um Claude Code instalado depois de o Farol subir passa a valer.
+
+**Correções**
+
+- **"Abrir sessão de login" funciona no celular.** No Android o Farol roda dentro do proot,
+  sem terminal para abrir, e o botão só pedia para instalar um emulador. Um login feito à
+  mão acabava gravando a credencial em `/root/.claude`, enquanto o perfil lia outra pasta,
+  e as revisões seguiam falhando com a sessão OAuth expirada. Agora o botão copia um
+  comando para colar no Termux: ele entra no proot e abre o Claude já com a pasta do
+  perfil, o mesmo `HOME` do Farol e o mesmo binário das revisões.
+- **Claude Code instalado depois do boot passa a valer sem reiniciar.** A pasta do
+  instalador oficial (`~/.local/bin`) só entrava no caminho de busca se já existisse
+  quando o Farol subia; instalado depois, as revisões continuavam no binário antigo.
+
 ## v2.62.20
 
 O modo Auto passa a usar o Opus quando o PR pede, a revisão aprende com a auditoria de qualidade, e o Farol deixa de postar review em PR já mergeado.
