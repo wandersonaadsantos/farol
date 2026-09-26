@@ -11,18 +11,31 @@ e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
 ## v2.62.25
 
-O Farol passa a exportar a conversa do chat inteira, com metadados e horário de Brasília; o botão chega com a nova tela do chat.
+O chat do PR fica legível no celular, e dá para copiar o id da sessão e exportar a conversa inteira, com metadados e horário de Brasília.
 
 **Novidades**
 
-- **Exportação da conversa do chat, pelo motor.** A conversa inteira que o Farol guarda de
-  um PR (até 200 mensagens, e não só as 100 que a tela mostra) sai em Markdown e em JSON,
-  com PR, link, id da sessão do Claude, início da conversa, horário da exportação, versão
-  do Farol e o carimbo de cada mensagem no horário de Brasília, com o fuso explícito. Todo
-  texto passa pela máscara de segredo antes de sair, então um token colado na conversa não
-  vai junto. A rota é protegida pela autenticação da API local como as outras leituras
-  sensíveis. **Ainda não há botão**: o botão de exportar e o de copiar o id da sessão
-  entram com a nova tela do chat, que está sendo desenhada no Claude Design.
+- **Exportar a conversa do chat.** O menu Exportar, na faixa da sessão sob o cabeçalho do
+  chat, baixa a conversa inteira que o Farol guarda do PR (até 200 mensagens, e não só as
+  100 que a tela mostra) em Markdown ou em JSON, ou copia o Markdown. O arquivo leva o PR, o
+  link, o id da sessão do Claude, o início da conversa, a hora da exportação, a versão do
+  Farol e o carimbo de cada mensagem no horário de Brasília, com o fuso explícito. Todo texto
+  passa pela máscara de segredo antes de sair, então um token colado na conversa não vai
+  junto, e a rota é protegida pela autenticação da API local.
+- **Copiar o id da sessão do Claude**, na mesma faixa. Se o navegador recusar a cópia, o id
+  fica selecionado para copiar à mão.
+
+**Melhorias**
+
+- **A conversa rola inteira, como uma coisa só.** Cada resposta herdava a altura máxima do
+  estilo de relatório e ganhava uma rolagem própria, o que quebrava a leitura. Agora só o
+  bloco de código e a tabela rolam para o lado, dentro deles mesmos.
+- **Chat legível no celular.** A resposta do Claude ocupa a largura toda, em 15 px, com o
+  autor e a hora de Brasília em cada mensagem. No celular, o id e a exportação ficam atrás de
+  "Id e exportar" e não ocupam altura enquanto fechados, os alvos de toque têm 44 px e o campo
+  fica na mesma linha do Enviar. O desenho saiu do Claude Design.
+- **Bloco de código e lista numerada aparecem formatados** nas respostas do Claude, em vez de
+  virarem parágrafos soltos.
 
 ## v2.62.24
 

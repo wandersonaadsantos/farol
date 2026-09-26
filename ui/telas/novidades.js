@@ -8,7 +8,8 @@ import { $ } from './infra.js';
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
   ['2.62.25', [
-    "O Farol já sabe exportar a conversa do chat inteira, com o id da sessão e cada mensagem no horário de Brasília, e sem levar senha ou token colado na conversa. O botão de exportar entra com a nova tela do chat, que está sendo desenhada.",
+    "No chat do PR, o menu Exportar baixa a conversa inteira em Markdown ou JSON, com o id da sessão e cada mensagem no horário de Brasília, sem levar senha ou token colado na conversa. Ao lado, Copiar id copia o id da sessão do Claude.",
+    "O chat fica legível no celular: a conversa rola inteira, sem a quebra dentro de cada resposta, e a resposta do Claude ocupa a largura toda. Bloco de código e lista numerada aparecem formatados.",
   ]],
   ['2.62.24', [
     "O modo Auto revisa todo PR com o Opus, e usa um raciocínio mais longo em repositório crítico, caminho sensível ou PR muito grande. Uma auditoria mostrou o Haiku e o Sonnet aprovando o que o Opus reprovaria.",
