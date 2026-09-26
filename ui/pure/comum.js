@@ -207,7 +207,17 @@ export function md(src) {
       .replace(/^\[!(NOTE|WARNING|IMPORTANT)\]\s*/i, '');
     return s.replace(/\uE000(\d+)\uE001/g, (m, i) => codes[i]);
   };
+  // bloco de código cercado (```): o conteúdo sai como está, já escapado, e é o único
+  // lugar do texto que pode rolar para o lado na tela (26/09/2026; antes cada linha de
+  // código virava um parágrafo e a indentação se perdia)
+  let codigo = null;
   for (const raw of lines) {
+    if (/^\s*```/.test(raw)) {
+      if (codigo) { out.push(`<pre><code>${codigo.join('\n')}</code></pre>`); codigo = null; }
+      else { closeAll(); codigo = []; }
+      continue;
+    }
+    if (codigo) { codigo.push(raw); continue; }
     const l = raw.trimEnd();
     const h = l.match(/^(#{1,4})\s+(.*)$/);
     if (h) { closeAll(); out.push(`<h${h[1].length + 2}>${inline(h[2])}</h${h[1].length + 2}>`); continue; }
@@ -226,9 +236,16 @@ export function md(src) {
       out.push(`<li>${inline(li[1].replace(/^\[([ x])\]\s*/i, (m, c) => c.toLowerCase() === 'x' ? '☑ ' : '☐ '))}</li>`);
       continue;
     }
+    const oli = l.match(/^\s*\d+[.)]\s+(.*)$/);
+    if (oli) {
+      if (list !== 'ol') { closeAll(); out.push('<ol>'); list = 'ol'; }
+      out.push(`<li>${inline(oli[1])}</li>`);
+      continue;
+    }
     closeAll();
     if (l.trim()) out.push(`<p>${inline(l)}</p>`);
   }
+  if (codigo) out.push(`<pre><code>${codigo.join('\n')}</code></pre>`);
   closeAll();
   return out.join('\n');
 }
