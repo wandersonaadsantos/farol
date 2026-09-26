@@ -44,7 +44,7 @@ const PR = {
 
 function envelopeReject() {
   return {
-    analysisStatus: 'complete', verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
+    analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
     reasons: ['Open redirect ainda ativo no head novo'],
     reportMarkdown: 'relatório',
     payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'o redirect não fechou' } }
@@ -53,7 +53,7 @@ function envelopeReject() {
 
 function envelopeApprove() {
   return {
-    analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+    analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     reportMarkdown: 'relatório',
     payloads: { approve: { event: 'APPROVE', body: 'ok' } }
   };

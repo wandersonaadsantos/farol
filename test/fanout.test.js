@@ -159,11 +159,55 @@ test('rede de segurança: revisou menos que o total conta como lacuna mesmo com 
   assert.equal(e.shouldAutoApprove(PR, r).ok, false);
 });
 
-test('envelope sem coverage (PR pequeno, passe único) não muda nada', () => {
+// Até 26/09/2026 este caso travava o contrário ("envelope sem coverage não muda nada").
+// O prompt exige o campo desde o PR pequeno, então ausência é envelope quebrado, e ele
+// aprovava sozinho sem nenhuma declaração de leitura (revisão do gate de qualidade, P0).
+test('envelope sem coverage é lacuna: aprovação e reprovação automáticas ficam com você', () => {
   const e = engineLiberado();
   const r = aprovavel();
+  assert.deepEqual(e.coverageGap(r), ['a revisão não declarou a cobertura da leitura']);
+  assert.equal(e.shouldAutoApprove(PR, r).ok, false);
+  assert.equal(e.shouldAutoApprove(PR, r).motivo, 'cobertura');
+  const rej = { analysisStatus: 'complete', verdict: 'request_changes', decision: 'needs_decision', reasons: ['blocker'], payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'x' } } };
+  assert.equal(e.shouldAutoReject(PR, rej), false);
+});
+
+/* ---------- cobertura conferida contra o diff MEDIDO pelo engine (26/09/2026) ---------- */
+
+test('com o diff medido, arquivo do diff fora da cobertura é lacuna mesmo com a conta declarada fechando', () => {
+  const e = engineLiberado();
+  // o modelo diz total 2 e revisou 2, mas o diff medido tem 3: a conta declarada fecharia
+  const r = aprovavel({ coverage: { total: 2, reviewed: ['a.ts', 'b.ts'], missing: [] }, diffMedido: ['a.ts', 'b.ts', 'c.ts'] });
+  assert.deepEqual(e.coverageGap(r), ['c.ts']);
+  assert.equal(e.shouldAutoApprove(PR, r).ok, false);
+});
+
+test('com o diff medido, caminho declarado que não está no diff é lacuna (leitura inventada)', () => {
+  const e = engineLiberado();
+  const r = aprovavel({ coverage: { total: 2, reviewed: ['a.ts', 'inventado.ts'], missing: [] }, diffMedido: ['a.ts'] });
+  const gap = e.coverageGap(r);
+  assert.equal(gap.length, 1);
+  assert.equal(gap[0], '1 caminho(s) declarado(s) como revisado(s) que não estão no diff medido (inventado.ts)');
+  assert.equal(e.shouldAutoApprove(PR, r).ok, false);
+});
+
+test('com o diff medido, cobertura igual ao diff aprova, e duplicata ou ./ no caminho não confundem', () => {
+  const e = engineLiberado();
+  const r = aprovavel({ coverage: { total: 3, reviewed: ['./a.ts', 'b.ts', 'b.ts'], missing: [] }, diffMedido: ['a.ts', 'b.ts'] });
   assert.deepEqual(e.coverageGap(r), []);
-  assert.equal(e.shouldAutoApprove(PR, r).ok, true, 'regime de hoje intacto');
+  assert.equal(e.shouldAutoApprove(PR, r).ok, true);
+});
+
+test('arquivo herdado de leitura anterior (reviewed já reconciliado) conta como coberto contra o diff medido', () => {
+  const e = engineLiberado();
+  const r = aprovavel({ coverage: { total: 2, reviewed: ['a.ts', 'b.ts'], inherited: ['b.ts'], missing: [] }, diffMedido: ['a.ts', 'b.ts'] });
+  assert.deepEqual(e.coverageGap(r), []);
+});
+
+test('sem diff medido (a leitura dos arquivos falhou), vale a conta declarada como antes', () => {
+  const e = engineLiberado();
+  assert.deepEqual(e.coverageGap(aprovavel({ coverage: { total: 2, reviewed: ['a.ts', 'b.ts'], missing: [] } })), []);
+  assert.deepEqual(e.coverageGap(aprovavel({ coverage: { total: 2, reviewed: ['a.ts', 'b.ts'], missing: [] }, diffMedido: [] })), []);
 });
 
 test('ressalva NÃO entra na conta de cobertura: ressalva aprova, lacuna de leitura não', () => {
@@ -211,7 +255,7 @@ test('a lacuna aparece nos pontos de atenção, com amostra dos arquivos', () =>
   const e = engineLiberado();
   const r = aprovavel({ coverage: { total: 9, reviewed: [], missing: ['a.ts', 'b.ts', 'c.ts', 'd.ts', 'e.ts', 'f.ts'] } });
   const pts = e.attentionPoints(r);
-  assert.match(pts[0].text, /não cobriu 6 arquivo/, 'diz quantos');
+  assert.match(pts[0].text, /não cobriu o diff inteiro \(6 pendência\(s\)\)/, 'diz quantos');
   assert.match(pts[0].text, /a\.ts/, 'mostra amostra');
   assert.equal(pts[0].kind, 'gate', 'lacuna de leitura é gate, não ressalva de conteúdo');
 });

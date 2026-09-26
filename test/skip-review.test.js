@@ -389,13 +389,17 @@ test('saiDeCena: sem ninguém revisando não registra saída nenhuma', async (t)
   assert.equal(engine.rodou.length, 0);
 });
 
-test('coAssinar: posta APPROVE em meu nome e marca a âncora', async (t) => {
+test('coAssinar: posta APPROVE em meu nome, ancorado no head endossado, e marca a âncora', async (t) => {
   const postados = [];
   const engine = engineFalso({ postados });
-  t.after(espiaGh(engine));
+  // o endosso é relido no mesmo sha antes de postar (26/09/2026)
+  const original = io.run;
+  io.run = (cmd, args) => { engine.rodou.push(args); return Promise.resolve({ ok: true, stdout: '[{"quem":"ana","tipo":"User","state":"APPROVED","commit_id":"sha1"}]', stderr: '' }); };
+  t.after(() => { io.run = original; });
   engine.skipComentado['o/r#1'] = { head: 'sha1', quem: ['ana'] };
   assert.equal(await skip.coAssinar(engine, PR, 'ana', 'sha1'), true);
   assert.equal(postados[0].event, 'APPROVE');
+  assert.equal(postados[0].commit_id, 'sha1');
   assert.match(postados[0].body, /@ana/);
   assert.equal(engine.skipComentado['o/r#1'].coAssinado, true);
 });

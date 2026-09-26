@@ -49,7 +49,7 @@ const prDe = (key, extra = {}) => ({ key, repo: key.split('#')[0], number: Numbe
 
 function envelopeApprove() {
   return {
-    analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+    analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     reportMarkdown: 'relatório', payloads: { approve: { event: 'APPROVE', body: 'Leitura atenta, tudo certo por aqui.' } },
   };
 }
@@ -413,7 +413,7 @@ for (const [nome, marcar] of [['antes de o resultado chegar ao gate', (h) => { h
 test('handle perdido depois de o provedor resolver também segura o REQUEST_CHANGES', async () => {
   const h = handleFalso();
   const env = {
-    analysisStatus: 'complete', verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
+    analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
     reasons: ['bloqueio real'], reportMarkdown: 'relatório',
     payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'Tem um problema na validação do redirect.' } },
   };
@@ -482,7 +482,7 @@ test('retomada recusada que recomeça do zero não reserva outra rodada', async 
 // do recibo. Na ordem inversa, um aparelho que assumisse o head novo no intervalo teria a
 // label dele (mesma conta, mesmo nome) apagada pela remoção atrasada do finally.
 const ENV_REJEITA = {
-  analysisStatus: 'complete', verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
+  analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
   reasons: ['bloqueio real'], reportMarkdown: 'relatório',
   payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'Tem um problema na validação do redirect.' } },
 };

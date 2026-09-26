@@ -39,7 +39,7 @@ const PROSA = 'Concluí a análise do PR. O diff está correto e não encontrei 
 
 function envelope() {
   return {
-    analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+    analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     reportMarkdown: 'relatório', payloads: { approve: { event: 'APPROVE', body: 'ok' } }
   };
 }
