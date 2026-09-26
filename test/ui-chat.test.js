@@ -84,11 +84,12 @@ test('texto do usuário é escapado', () => {
 });
 
 test('mais de 100 mensagens avisa que a tela mostra as últimas; no teto de 200 avisa que as anteriores saíram', () => {
-  assert.equal(chatAvisoDaJanela(100), '');
-  assert.match(chatAvisoDaJanela(137), /Mostrando as últimas 100 de 137 mensagens\. <b>A exportação traz todas\.<\/b>/);
-  assert.doesNotMatch(chatAvisoDaJanela(137), /guarda as 200/);
-  assert.match(chatAvisoDaJanela(200), /O Farol guarda as 200 mensagens mais recentes desta conversa\./);
-  assert.match(chatMensagensHtml(conversa({ total: 150 }), T0), /^<div class="chat-window-note">Mostrando as últimas 100 de 150/);
+  assert.equal(chatAvisoDaJanela(100, 100, 200), '');
+  assert.match(chatAvisoDaJanela(137, 100, 200), /Mostrando as últimas 100 de 137 mensagens\. <b>A exportação traz todas\.<\/b>/);
+  assert.doesNotMatch(chatAvisoDaJanela(137, 100, 200), /guarda as 200/);
+  assert.match(chatAvisoDaJanela(200, 100, 200), /O Farol guarda as 200 mensagens mais recentes desta conversa\./);
+  assert.equal(chatAvisoDaJanela(500), '', 'sem os limites do engine a tela não inventa número');
+  assert.match(chatMensagensHtml(conversa({ total: 150, janela: 100, teto: 200 }), T0), /^<div class="chat-window-note">Mostrando as últimas 100 de 150/);
 });
 
 test('conversa vazia é o convite, e carregando nunca é o convite', () => {

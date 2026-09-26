@@ -8,9 +8,6 @@
 import { esc, md } from './comum.js';
 
 const FUSO = 'America/Sao_Paulo';
-// A tela recebe as últimas 100 (lib/engine/chat.js, chatPublic) e o engine guarda até 200.
-const JANELA_DA_TELA = 100;
-const TETO_GUARDADO = 200;
 
 const fmtHm = new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO, hour: '2-digit', minute: '2-digit', hour12: false });
 const fmtDm = new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO, day: '2-digit', month: '2-digit' });
@@ -83,13 +80,14 @@ function mensagemHtml(m, agora) {
   return `<div class="msg-wrap bot"><div class="msg-meta">${meta}</div><div class="msg bot">${corpo}</div></div>`;
 }
 
-// Avisos do topo da lista: a janela de 100 e o teto de 200 (quadros D11/D12).
-export function chatAvisoDaJanela(total) {
-  const t = Number(total) || 0;
-  if (t <= JANELA_DA_TELA) return '';
-  let html = `<div class="chat-window-note">Mostrando as últimas ${JANELA_DA_TELA} de ${t} mensagens. <b>A exportação traz todas.</b></div>`;
-  if (t >= TETO_GUARDADO) {
-    html += `<div class="chat-window-note plain">O Farol guarda as ${TETO_GUARDADO} mensagens mais recentes desta conversa. As anteriores já foram descartadas e não entram no arquivo, que também avisa isso.</div>`;
+// Avisos do topo da lista (quadros D11/D12). A janela da tela e o teto guardado vêm do
+// engine junto da conversa (/api/chat), que é o dono dos dois números.
+export function chatAvisoDaJanela(total, janela, teto) {
+  const t = Number(total) || 0, j = Number(janela) || 0, max = Number(teto) || 0;
+  if (!j || t <= j) return '';
+  let html = `<div class="chat-window-note">Mostrando as últimas ${j} de ${t} mensagens. <b>A exportação traz todas.</b></div>`;
+  if (max && t >= max) {
+    html += `<div class="chat-window-note plain">O Farol guarda as ${max} mensagens mais recentes desta conversa. As anteriores já foram descartadas e não entram no arquivo, que também avisa isso.</div>`;
   }
   return html;
 }
@@ -107,7 +105,7 @@ export function chatMensagensHtml(c, agora = Date.now()) {
   const esperando = c.status === 'running' && ultima && ultima.role === 'user'
     ? `<div class="msg-wrap bot"><div class="msg-meta">Claude · escrevendo</div><div class="msg streaming">${PONTOS}</div></div>`
     : '';
-  return chatAvisoDaJanela(total) + corpo + esperando;
+  return chatAvisoDaJanela(total, c.janela, c.teto) + corpo + esperando;
 }
 
 export function chatCarregandoHtml() {

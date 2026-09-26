@@ -110,6 +110,7 @@ test('chatExport lê a conversa guardada inteira, e chatPublic leva o id da sess
   const pub = chatPublic(engine, c.key);
   assert.equal(pub.messages.length, 100);
   assert.equal(pub.total, 150, 'a tela sabe quantas existem para dizer que mostra as últimas 100');
+  assert.deepEqual({ janela: pub.janela, teto: pub.teto }, { janela: 100, teto: 200 }, 'os dois limites vêm do engine');
   assert.equal(pub.sessionId, '0c5d0945-0d49-4567-895b-4d50408b418d');
   assert.equal(pub.createdAt, T0);
   const r = chatExport(engine, ` ${c.key} `);
