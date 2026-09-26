@@ -1,5 +1,7 @@
 # Modo Auto com Opus pelo contexto do PR
 
+> **Atualização de 26/09/2026:** o Auto passou a ser "qualidade primeiro". Toda faixa de tamanho usa o Opus no esforço herdado, e o contexto descrito aqui sobe o raciocínio para `xhigh` (antes baixava o Opus para o esforço médio). Os gatilhos, a lista de caminhos sensíveis e a tela continuam valendo; a lista inicial ganhou os caminhos do kustomize. O motivo está no comentário de `AUTO_POR_FAIXA`, em `lib/modelos.js`.
+
 **Pedido do dono (25/09/2026):** "O modo auto precisa ser capaz de usar o opus tb dependendo do
 contexto do PR."
 
