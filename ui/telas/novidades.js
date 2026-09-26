@@ -7,6 +7,13 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.63.0', [
+    "O chat do PR exporta a conversa completa em Markdown ou JSON, ou copia o Markdown, com o id da sessão e a hora de cada mensagem no horário de Brasília. Token colado na conversa sai mascarado.",
+    "O id da sessão do Claude aparece no chat, com o botão Copiar id.",
+    "A conversa rola como uma coisa só: as respostas aparecem inteiras, sem a barra de rolagem dentro de cada uma.",
+    "No celular, o chat ficou legível: resposta na largura toda, o id e a exportação atrás de \"Id e exportar\", e o campo e o Enviar na mesma linha.",
+    "Blocos de código e listas numeradas das respostas do Claude aparecem formatados.",
+  ]],
   ['2.62.24', [
     "O modo Auto revisa todo PR com o Opus, e usa um raciocínio mais longo em repositório crítico, caminho sensível ou PR muito grande. Uma auditoria mostrou o Haiku e o Sonnet aprovando o que o Opus reprovaria.",
     "Revisão que não declara o que leu, ou que deixou um arquivo do PR de fora, não aprova sozinha: a decisão volta para você.",
