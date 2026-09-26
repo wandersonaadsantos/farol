@@ -25,7 +25,7 @@ function motor() {
 
 test('no celular: o script fixa HOME e PATH antes da pasta do perfil, e o comando é o do Termux', () => {
   const e = motor();
-  const r = lc.semTerminal(e, '/home/farol/.claude', buildLoginScriptMac, { celular: true, distro: 'ubuntu', home: '/home/farol', sessionsDir: BASE });
+  const r = lc.semTerminal(e, '/home/farol/.claude', buildLoginScriptMac, { sinais: { celular: true }, distro: 'ubuntu', home: '/home/farol', sessionsDir: BASE });
   assert.equal(r.code, 'copiar-comando');
   const m = r.comando.match(/^proot-distro login ubuntu -- bash '(.+)'$/);
   assert.ok(m, r.comando);
@@ -40,18 +40,34 @@ test('no celular: o script fixa HOME e PATH antes da pasta do perfil, e o comand
 });
 
 test('perfil "Padrão da máquina" (sem pasta própria) depende do HOME, que vai fixado', () => {
-  const r = lc.semTerminal(motor(), '', buildLoginScriptMac, { celular: true, distro: 'debian', home: '/home/farol', sessionsDir: BASE });
+  const r = lc.semTerminal(motor(), '', buildLoginScriptMac, { sinais: { celular: true }, distro: 'debian', home: '/home/farol', sessionsDir: BASE });
   const script = fs.readFileSync(r.comando.match(/bash '(.+)'$/)[1], 'utf8');
   assert.match(script, /export HOME='\/home\/farol'/);
   assert.doesNotMatch(script, /CLAUDE_CONFIG_DIR='/, 'sem pasta própria, a credencial fica no $HOME/.claude do Farol');
 });
 
-test('fora do celular, sem terminal, o aviso de sempre continua', () => {
+test('sem sinal de proot, o comando é o bash direto, e nunca mais o erro de terminal', () => {
   const e = motor();
-  const r = lc.semTerminal(e, '/x', buildLoginScriptMac, { celular: false });
-  assert.equal(r.code, 'sem-terminal');
-  assert.equal(r.comando, undefined);
-  assert.match(e.toasts[0].text, /Nenhum emulador de terminal/);
+  const r = lc.semTerminal(e, '/x', buildLoginScriptMac, { sinais: { celular: false, sistemaAndroid: false, osrelease: '6.8.0-generic' }, home: '/home/eu', sessionsDir: BASE });
+  assert.equal(r.code, 'copiar-comando');
+  assert.equal(r.onde, 'terminal');
+  assert.match(r.comando, /^bash '.+.command'$/);
+  assert.deepEqual(e.toasts, [], 'o aviso de instalar gnome-terminal não volta');
+});
+
+// 26/09/2026: a v2.62.21 só montava o comando no modo celular, e a detecção dele respondeu
+// "não" no aparelho do dono: o proot-distro esconde TERMUX_VERSION e PREFIX e troca a versão do
+// kernel por uma falsa. O login entrega o comando do Termux com qualquer um dos sinais de proot.
+test('proot se reconhece pelo kernel falso, pelo /system do Android ou pelo modo celular', () => {
+  assert.equal(lc.dentroDoProot({ osrelease: '6.2.1-PRoot-Distro' }), true);
+  assert.equal(lc.dentroDoProot({ sistemaAndroid: true }), true);
+  assert.equal(lc.dentroDoProot({ celular: true }), true);
+  assert.equal(lc.dentroDoProot({ osrelease: '5.10.198-android12-9-g1234' }), true);
+  assert.equal(lc.dentroDoProot({ osrelease: '6.8.0-45-generic' }), false);
+  assert.equal(lc.dentroDoProot(), false);
+  const r = lc.semTerminal(motor(), '/home/farol/.claude', buildLoginScriptMac, { sinais: { osrelease: '6.2.1-PRoot-Distro' }, distro: 'ubuntu', home: '/home/farol', sessionsDir: BASE });
+  assert.equal(r.onde, 'termux');
+  assert.match(r.comando, /^proot-distro login ubuntu -- bash '/);
 });
 
 test('distribuição e caminho estranhos não quebram o comando', () => {

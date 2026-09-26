@@ -13,7 +13,7 @@ process.env.FAROL_HOME = FAROL_HOME;
 
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-const { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, prependPathDirs } = await import('../lib/io.js');
+const { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, prependPathDirs, priorizarNoPath } = await import('../lib/io.js');
 const { run, runShell } = (await import('../lib/io.js')).default;
 const { IS_WIN } = await import('../lib/paths.js');
 const tax = (await import('../lib/taxonomy.js')).default;
@@ -292,4 +292,20 @@ test('prependPathDirs: PATH vazio não vira ":dir" nem quebra', () => {
 test('prependPathDirs: respeita ponto-e-virgula de PATH Windows', () => {
   const out = prependPathDirs('C:\\A;C:\\B', ['C:\\Novo'], p => p === 'C:\\Novo');
   assert.equal(out, 'C:\\Novo;C:\\A;C:\\B');
+});
+
+/* ---------- priorizarNoPath: o ~/.local/bin do instalador do claude na frente ---------- */
+// 26/09/2026: no celular o ~/.local/bin (Claude Code 2.1.283) já estava no PATH, mas atrás de
+// uma pasta com um claude antigo (2.1.246), e o prependPathDirs, que só acrescenta o que
+// falta, deixava a ordem como estava. As revisões rodavam no binário antigo.
+
+test('priorizarNoPath: pasta que já estava atrás vai para a frente, sem duplicar', () => {
+  assert.equal(priorizarNoPath('/usr/local/bin:/usr/bin:/home/eu/.local/bin', ['/home/eu/.local/bin']), '/home/eu/.local/bin:/usr/local/bin:/usr/bin');
+});
+
+test('priorizarNoPath: pasta ausente entra na frente, e sem dirs o PATH volta igual', () => {
+  assert.equal(priorizarNoPath('/usr/bin:/bin', ['/home/eu/.local/bin']), '/home/eu/.local/bin:/usr/bin:/bin');
+  assert.equal(priorizarNoPath('C:/x;C:/y', []), 'C:/x;C:/y', 'Windows sem dirs: intocado');
+  assert.equal(priorizarNoPath('C:/x;C:/y', ['C:/y']), 'C:/y;C:/x', 'separador do Windows respeitado');
+  assert.equal(priorizarNoPath('', ['/a']), '/a');
 });
