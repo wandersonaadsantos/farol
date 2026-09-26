@@ -55,7 +55,7 @@ test('o rótulo do Auto nomeia os modelos que o Auto usa de fato', () => {
   const usados = new Set([M.AUTO_POR_CONTEXTO, ...Object.values(M.AUTO_POR_FAIXA)].map((f) => M.selecaoClaude(f.selecao).nome));
   const rotulo = M.rotuloDoAuto();
   for (const nome of usados) assert.match(rotulo, new RegExp(nome), `o Auto usa ${nome} e o rótulo não diz`);
-  assert.equal(rotulo, 'Auto (custo-benefício: Haiku/Sonnet/Opus pelo contexto e o tamanho do PR)', 'o texto dos três modelos e das duas etapas (25/09/2026)');
+  assert.equal(rotulo, 'Auto (qualidade primeiro: Opus em todo PR, com raciocínio extra quando o contexto pede)', 'qualidade primeiro (26/09/2026)');
 });
 
 /* ---------- o esforço, numa regra só ---------- */

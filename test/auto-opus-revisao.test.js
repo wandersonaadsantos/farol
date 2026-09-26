@@ -1,4 +1,4 @@
-// O Auto sobe para o Opus pelo contexto do PR, na revisão de verdade (25/09/2026).
+// O Auto pelo contexto do PR, na revisão de verdade (25/09/2026; qualidade primeiro desde 26/09/2026).
 //
 // O roteador é puro e tem os próprios testes (model-router.test.js). Aqui se prova a
 // FIAÇÃO: o repositório do PR da fila chega ao roteador, o modelo escolhido é o que vai
@@ -62,12 +62,12 @@ function pr(n, repo = 'acme/app') {
   return { key: `${repo}#${n}`, repo, number: n, url: `https://github.com/${repo}/pull/${n}`, title: 'PR', author: 'dev', requested: true };
 }
 
-test('repositório crítico: a sessão roda no Opus médio e a atividade diz por quê', async () => {
+test('repositório crítico: a sessão roda no Opus com raciocínio xhigh e a atividade diz por quê', async () => {
   arquivos = ['src/a.js'];
   const e = motor({ reposCriticos: ['acme/infra'] });
   await e.runHeadlessReview(pr(1, 'acme/infra'));
-  assert.deepEqual(e.sessoes[0], { model: 'opus', effort: 'medium', fast: false });
-  assert.ok(e.atividades.some((t) => t.includes('auto: repositório crítico acme/infra, opus')), e.atividades.join(' | '));
+  assert.deepEqual(e.sessoes[0], { model: 'opus', effort: 'xhigh', fast: false });
+  assert.ok(e.atividades.some((t) => t.includes('auto: repositório crítico acme/infra, opus com esforço xhigh')), e.atividades.join(' | '));
 });
 
 test('caminho sensível da lista inicial, sem config: Opus, com o arquivo citado', async () => {
@@ -78,9 +78,9 @@ test('caminho sensível da lista inicial, sem config: Opus, com o arquivo citado
   assert.ok(e.atividades.some((t) => t.includes('auto: caminho sensível k8s/deploy.yaml, opus')), e.atividades.join(' | '));
 });
 
-test('sem gatilho, o PR médio segue no Sonnet', async () => {
+test('sem gatilho, o PR médio fica no Opus fixo: nunca abaixo dele (26/09/2026)', async () => {
   arquivos = ['src/a.js', 'src/b.js'];
   const e = motor({ reposCriticos: ['acme/infra'] });
   await e.runHeadlessReview(pr(3));
-  assert.notEqual(e.sessoes[0].model, 'opus');
+  assert.deepEqual(e.sessoes[0], { model: 'opus', effort: '', fast: false });
 });
