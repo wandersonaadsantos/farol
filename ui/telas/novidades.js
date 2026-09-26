@@ -7,6 +7,9 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.62.23', [
+    "No celular com proot-distro, a interface passa a pedir pareamento, como já devia desde a v2.61.0: o Farol não se reconhecia como celular ali e a API local ficava aberta. Gere o código com node ~/.farol/app/tools/farol-parear.js, dentro do proot.",
+  ]],
   ['2.62.22', [
     "'Abrir sessão de login' passa a copiar o comando de login em qualquer aparelho sem terminal, inclusive no celular, onde a versão anterior ainda pedia para instalar um emulador.",
     "O Claude Code instalado pelo instalador oficial passa a ser usado mesmo quando existe uma versão antiga em outra pasta.",
