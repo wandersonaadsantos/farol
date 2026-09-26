@@ -29,7 +29,7 @@ import {
   sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort,
   sanitizeParallelReviews, sanitizeGlobalParallelReviews
 } from './lib/parse.js';
-import io, { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, prependPathDirs } from './lib/io.js';
+import io, { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, prependPathDirs, priorizarNoPath } from './lib/io.js';
 import updateMod from './lib/engine/update.js';
 import chatMod from './lib/engine/chat.js';
 import toolsMod from './lib/engine/tools.js';
@@ -90,12 +90,12 @@ function codexWindowsPathDirs() {
 }
 
 function aplicarPathDoBoot(extras, sempre = []) {
-  const next = prependPathDirs(process.env.PATH, extras, (d) => sempre.includes(d) || fs.existsSync(d));
-  if (next) process.env.PATH = next;
+  const atual = process.env.PATH;
+  process.env.PATH = priorizarNoPath(prependPathDirs(atual, extras, fs.existsSync) || atual, sempre);
 }
 
 // App aberto pelo Finder/Dock ou atalho herda PATH reduzido (gh/claude/codex somem). O ~/.local/bin do instalador
-// do claude entra MESMO sem existir: instalado depois do boot, o Farol seguia no binário velho (celular, 26/09/2026).
+// do claude vai SEMPRE na frente, exista ou não, para nenhum claude antigo ganhar dele (celular, 26/09/2026).
 if (IS_WIN) {
   aplicarPathDoBoot(codexWindowsPathDirs());
 } else {
