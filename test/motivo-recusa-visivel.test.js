@@ -29,7 +29,7 @@ test('todo motivo de recusa tem tradução no runHeadlessReview', () => {
     // Substring, e não regex montada com o motivo interpolado: a comparação é literal
     // por natureza, e montar padrão obrigaria a escapar metacaractere a cada leitura.
     const tratado = REVIEW.includes(`autoDec.motivo === '${motivo}'`)
-      || REVIEW.includes('pr.requested === false');   // o motivo `clique` é dito por este outro caminho
+      || REVIEW.includes('pr.requested !== true');   // o motivo `clique` é dito por este outro caminho
     assert.ok(tratado, `o motivo ${motivo} não vira razão nenhuma na tela`);
   }
 });

@@ -161,7 +161,7 @@ test('runHeadlessReview usa knownHead quando o fetch do headSha falha', async ()
   e.runClaudeStream = async () => ({
     text: JSON.stringify({
       result: JSON.stringify({
-        analysisStatus: 'complete', verdict: 'request_changes', decision: 'needs_decision',
+        analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, verdict: 'request_changes', decision: 'needs_decision',
         cardMet: true, reasons: ['o redirect não fechou'], reportMarkdown: 'relatório',
         payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'o redirect não fechou' } }
       })
@@ -199,7 +199,7 @@ test('runHeadlessReview usa knownHead quando o headSha devolve vazio (o caminho 
   e.runClaudeStream = async () => ({
     text: JSON.stringify({
       result: JSON.stringify({
-        analysisStatus: 'complete', verdict: 'request_changes', decision: 'needs_decision',
+        analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, verdict: 'request_changes', decision: 'needs_decision',
         cardMet: true, reasons: ['o redirect não fechou'], reportMarkdown: 'relatório',
         payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'o redirect não fechou' } }
       })
