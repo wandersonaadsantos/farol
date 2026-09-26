@@ -43,6 +43,7 @@ test('json traz os mesmos dados, com o instante em ISO e em Brasília', () => {
   assert.equal(r.json.sessionId, '0c5d0945-0d49-4567-895b-4d50408b418d');
   assert.equal(r.json.fuso, 'America/Sao_Paulo');
   assert.equal(r.json.mensagens.length, 3);
+  assert.deepEqual(JSON.parse(r.jsonTexto), r.json, 'o texto do arquivo .json é o mesmo dado');
   assert.deepEqual(r.json.mensagens[0], {
     papel: 'voce', texto: 'refaça o review com opus', em: '2026-09-26T16:06:12.000Z', emBrasilia: '2026-09-26 13:06:12 -03:00',
   });
@@ -108,6 +109,7 @@ test('chatExport lê a conversa guardada inteira, e chatPublic leva o id da sess
   const engine = { chats: { [c.key]: c } };
   const pub = chatPublic(engine, c.key);
   assert.equal(pub.messages.length, 100);
+  assert.equal(pub.total, 150, 'a tela sabe quantas existem para dizer que mostra as últimas 100');
   assert.equal(pub.sessionId, '0c5d0945-0d49-4567-895b-4d50408b418d');
   assert.equal(pub.createdAt, T0);
   const r = chatExport(engine, ` ${c.key} `);

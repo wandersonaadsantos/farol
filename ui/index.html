@@ -2,7 +2,7 @@
 <html lang="pt-BR" data-theme="dark">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
 <title>Farol</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="app.css">
@@ -886,23 +886,67 @@
   </section>
 </main>
 
-<aside id="chatPanel" class="chat-panel" hidden>
-  <div class="chat-head">
+<!-- Chat do PR. Desenho do Claude Design (26/09/2026), handoff em
+     docs/superpowers/specs/2026-09-26-chat-responsivo-anexos/HANDOFF-claude-design.md.
+     Acima de 720 px a faixa da sessão fica fixa sob o cabeçalho e Exportar abre um menu;
+     até 720 px ela vira gaveta atrás de "Id e exportar". -->
+<aside id="chatPanel" class="chat-panel" role="dialog" aria-modal="false" aria-labelledby="chatKey" hidden>
+  <header class="chat-head">
     <div class="chat-title">
       <b id="chatKey"></b>
-      <a id="chatLink" href="#" target="_blank" rel="noreferrer" hidden>abrir PR ↗</a>
+      <a id="chatLink" href="#" target="_blank" rel="noreferrer" hidden><span class="only-desk">abrir PR ↗</span><span class="only-mob">abrir PR no GitHub ↗</span></a>
     </div>
-    <button id="btnChatClose" class="btn icon ghost" title="Fechar conversa" aria-label="Fechar conversa">
+    <button id="btnChatTools" class="btn chat-tools-btn" type="button" aria-expanded="false" aria-controls="chatSession" hidden>Id e exportar <span class="chev" aria-hidden="true"></span></button>
+    <button id="btnChatClose" class="btn icon chat-close" type="button" title="Fechar conversa" aria-label="Fechar conversa">
       <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     </button>
-  </div>
-  <div id="chatMsgs" class="chat-msgs"></div>
+  </header>
+
+  <section id="chatSession" class="chat-session" aria-label="Sessão e exportação">
+    <div class="chat-sess-block">
+      <div class="chat-sess-top">
+        <div id="chatSessionLabel" class="chat-sess-label"><b>Sessão do Claude</b> · o id que o <code>claude --resume</code> usa</div>
+        <button id="btnChatExport" class="btn chat-export-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="chatExportMenu" hidden>Exportar <span class="chev" aria-hidden="true"></span></button>
+      </div>
+      <div class="chat-sess-row" data-part="id" hidden>
+        <span id="chatSessionId" class="chat-sess-id"></span>
+        <button id="btnChatCopyId" class="btn chat-copy-id" type="button">Copiar id</button>
+      </div>
+      <div class="chat-sess-empty" data-part="none" hidden></div>
+      <div class="chat-skel chat-skel-id" data-part="skel"></div>
+    </div>
+
+    <div class="chat-export-block" data-part="export" hidden>
+      <div class="chat-sess-label only-mob"><b>Exportar a conversa completa</b> · <span data-bind="count"></span> · horários de Brasília</div>
+      <div id="chatExportMenu" class="chat-export-menu" role="menu" aria-labelledby="btnChatExport">
+        <div class="chat-note warn" data-part="streaming-warn" hidden></div>
+        <button id="btnExportMd" class="chat-exp-item" role="menuitem" type="button">
+          <span class="t"><span class="only-desk">Baixar Markdown (.md)</span><span class="only-mob">Baixar .md</span></span>
+          <span class="d mono only-desk" data-bind="filename"></span>
+        </button>
+        <button id="btnExportJson" class="chat-exp-item" role="menuitem" type="button">
+          <span class="t"><span class="only-desk">Baixar JSON (.json)</span><span class="only-mob">Baixar .json</span></span>
+          <span class="d only-desk">Mesmo conteúdo, com horários também em ISO</span>
+        </button>
+        <button id="btnExportCopy" class="chat-exp-item primary-mob" role="menuitem" type="button">
+          <span class="t"><span class="only-desk">Copiar Markdown</span><span class="only-mob">Copiar .md</span></span>
+          <span class="d only-desk">Para colar onde não dá para baixar arquivo</span>
+        </button>
+        <div class="chat-exp-foot only-desk"><span data-bind="count"></span> · horários de Brasília (-03:00) · segredos saem mascarados</div>
+      </div>
+      <div class="chat-exp-hint only-mob">Copiar .md é o caminho quando o navegador do celular não baixa arquivo. Segredos saem mascarados.</div>
+    </div>
+
+    <div id="chatNotice" class="chat-notice" role="status" aria-live="polite"></div>
+  </section>
+
+  <div id="chatMsgs" class="chat-msgs" aria-live="polite"></div>
   <div id="chatActivity" class="chat-activity" hidden></div>
   <form id="chatForm" class="chat-form">
-    <textarea id="chatInput" rows="2" aria-label="Mensagem pro Claude sobre este PR" placeholder="Pergunte ou peça algo sobre este PR… (Enter envia · Shift+Enter quebra linha)"></textarea>
+    <textarea id="chatInput" rows="2" aria-label="Mensagem pro Claude sobre este PR" placeholder="Pergunte ou peça algo sobre este PR... (Enter envia · Shift+Enter quebra linha)" data-placeholder-mob="Pergunte sobre este PR"></textarea>
     <div class="chat-form-actions">
-      <button id="btnChatStop" class="btn sm danger-ghost" type="button" hidden>Parar geração</button>
-      <button id="btnChatSend" class="btn primary sm" type="submit">Enviar</button>
+      <button id="btnChatStop" class="btn" type="button" hidden>Parar</button>
+      <button id="btnChatSend" class="btn primary" type="submit">Enviar</button>
     </div>
   </form>
 </aside>

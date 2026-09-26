@@ -11,6 +11,18 @@ import assert from 'node:assert/strict';
 import { arquivosDosPuros } from './helpers/fontes-ui.js';
 
 const CONGELADA = [
+  "CHAT_TEXTOS",
+  "chatAvisoDaJanela",
+  "chatAvisoExportado",
+  "chatAvisoFalhaExport",
+  "chatCarregandoHtml",
+  "chatContagem",
+  "chatEnvolverTabelas",
+  "chatEstadoDaSessao",
+  "chatHora",
+  "chatHoraCompleta",
+  "chatHoraIso",
+  "chatMensagensHtml",
   "analiseImpecavel",
   "DOMAIN_DEFS",
   "DOMLEVEL_OPTS",
