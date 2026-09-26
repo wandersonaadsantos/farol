@@ -7,6 +7,12 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.62.24', [
+    "O modo Auto revisa todo PR com o Opus, e usa um raciocínio mais longo em repositório crítico, caminho sensível ou PR muito grande. Uma auditoria mostrou o Haiku e o Sonnet aprovando o que o Opus reprovaria.",
+    "Revisão que não declara o que leu, ou que deixou um arquivo do PR de fora, não aprova sozinha: a decisão volta para você.",
+    "Só revisão pedida a você posta sozinha, também nos comandos vindos de outro aparelho.",
+    "A co-assinatura passa a conferir o commit que a outra pessoa aprovou antes de aprovar em seu nome.",
+  ]],
   ['2.62.23', [
     "No celular com proot-distro, a interface passa a pedir pareamento, como já devia desde a v2.61.0: o Farol não se reconhecia como celular ali e a API local ficava aberta. Gere o código com node ~/.farol/app/tools/farol-parear.js, dentro do proot.",
   ]],

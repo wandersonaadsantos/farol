@@ -9,6 +9,32 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.24
+
+A revisão automática fica com qualidade em primeiro lugar: o modo Auto nunca revisa abaixo do Opus, e o gate de postagem fecha três brechas.
+
+**Melhorias**
+
+- **O modo Auto revisa todo PR com o Opus.** Uma auditoria re-revisou com o Opus, no mesmo
+  commit, 14 aprovações que o Auto tinha dado com o Haiku e o Sonnet. Uma delas deveria ter
+  pedido mudanças: o problema já estava mergeado. Agora o Auto usa o Opus no mesmo raciocínio
+  do Opus fixo em todo PR, sem modo rápido. Em repositório crítico, caminho sensível ou PR muito
+  grande, ele usa um raciocínio ainda mais longo (xhigh). Arquivos de kustomize (`overlays/`,
+  `kustomization.yaml`, configmaps) passam a contar como caminho sensível.
+
+**Correções**
+
+- **Revisão sem declarar o que leu não aprova sozinha.** Um resultado sem a cobertura da
+  leitura passava pelo gate como se estivesse completo. E a cobertura declarada passa a ser
+  conferida arquivo por arquivo com o diff que o Farol mediu no commit: arquivo que ficou de
+  fora, ou caminho que não existe no PR, fazem a decisão voltar para você.
+- **Só revisão pedida a você posta sozinha.** Os comandos remotos (repetir, tomar, transferir)
+  chegavam sem essa informação, e ela contava como pedido. Um PR do Panorama podia ser
+  aprovado sozinho. Agora esses casos viram decisão sua.
+- **A co-assinatura confere o commit.** Sem a sincronização entre aparelhos, ela aprovava sem
+  ancorar no commit que a outra pessoa aprovou. Um commit novo no meio do caminho saía aprovado
+  sem leitura.
+
 ## v2.62.23
 
 A proteção da API local passa a valer no celular que roda o Farol pelo proot-distro.

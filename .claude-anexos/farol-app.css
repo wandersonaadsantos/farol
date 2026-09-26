@@ -1,0 +1,2047 @@
+/* Farol v2 · separação de contas · tema escuro por padrão, claro como alternativa */
+:root {
+  --bg: #0b0e14;
+  --surface: #121722;
+  --surface-2: #1a2130;
+  --border: #232c3d;
+  /* divisória INTERNA (dentro de um card já emoldurado): mais leve que --border, pra
+     separar sem parecer que virou outro card. Era usada em 10 regras sem estar
+     definida, então essas bordas simplesmente não eram pintadas. */
+  --border-soft: rgba(35, 44, 61, .6);
+  --text: #e7ecf5;
+  --muted: #8b97ab;
+  --faint: #5c687d;
+  --accent: #ffb454;
+  --accent-soft: rgba(255, 180, 84, .14);
+  --accent-ink: #201302;
+  --ok: #4cc38a;
+  --ok-soft: rgba(76, 195, 138, .14);
+  --danger: #f2707a;
+  --danger-soft: rgba(242, 112, 122, .12);
+  --info: #6ca8f2;
+  --info-soft: rgba(108, 168, 242, .12);
+  --logo-tower: #e7ecf5;
+  --shadow: 0 8px 24px rgba(0, 0, 0, .35);
+  --radius: 12px;
+  /* Cores por SIGNIFICADO, não por componente (delta 2e do documento de design).
+     São apelidos das que já existem: nenhuma cor nova entra no app. Servem pra a barra
+     esquerda do card dizer o ESTADO em vez da conta. */
+  --urgent: var(--accent);    /* precisa de você */
+  --working: var(--info);     /* o Farol está rodando */
+  --settled: var(--ok);       /* resolvido, arquivo */
+  --blocked: var(--danger);   /* trava a aprovação */
+  --ambient: var(--border);   /* contexto, sem ação */
+  /* escala de espaçamento. Usada só pelas regras da aba Sistema (.sys-* e .set-*);
+     o resto do arquivo segue com os literais que já tinha, pra não virar refatoração
+     de 750 linhas. Os seis valores são os que a referência de design repete. */
+  /* altura real da topbar, medida por ResizeObserver (ver medirTopbar em app.js).
+     O fallback vale o tempo entre o parse do CSS e o primeiro medir. */
+  --topbar-h: 54px;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 14px;
+  --sp-4: 18px;
+  --sp-5: 22px;
+  --sp-6: 28px;
+  /* cor da conta ativa/card (default = âmbar; o JS sobrescreve por conta) */
+  --ac: #ffb454;
+  --ac-soft: rgba(255, 180, 84, .14);
+  --ac-ink: #201302;
+  /* seta do select, desenhada por nos (ver a secao "select com a seta da casa") */
+  --seta-select: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none' stroke='%238b97ab' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1 1 4 4 4-4'/%3E%3C/svg%3E");
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --surface-2: #eef1f6;
+  --border: #dfe5ee;
+  --border-soft: rgba(223, 229, 238, .7);
+  --text: #1c2536;
+  --muted: #5e6c82;
+  --faint: #93a0b5;
+  --accent: #e08700;
+  --accent-soft: rgba(224, 135, 0, .12);
+  --accent-ink: #ffffff;
+  --ok: #1f9d63;
+  --ok-soft: rgba(31, 157, 99, .12);
+  --danger: #d64550;
+  --danger-soft: rgba(214, 69, 80, .1);
+  --info: #2f6fd6;
+  --info-soft: rgba(47, 111, 214, .1);
+  --logo-tower: #33415c;
+  --shadow: 0 8px 24px rgba(23, 34, 56, .1);
+  --seta-select: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none' stroke='%235e6c82' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1 1 4 4 4-4'/%3E%3C/svg%3E");
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 14px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background .25s ease, color .25s ease;
+}
+code { font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; font-size: .92em; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; }
+a { color: var(--info); text-decoration: none; }
+a:hover { text-decoration: underline; }
+button { font: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+::selection { background: rgba(255, 180, 84, .28); }
+
+/* ---------- topo ---------- */
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(12px); border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag; user-select: none;
+}
+.topbar-main { display: flex; align-items: center; gap: 20px; padding: 10px 22px; }
+/* display:contents no desktop: o wrapper some do layout e a nav e o ⌘K voltam a ser
+   filhos diretos da topbar, como eram. Em janela estreita (media query lá embaixo) ele
+   vira a linha própria das abas. Tem que ficar ANTES da media query, senão vence por ordem. */
+.tabs-row { display: contents; }
+body.electron .topbar-main { padding-right: 150px; }
+body.electron.mac .topbar-main { padding-right: 22px; padding-left: 84px; }
+.topbar button, .topbar nav, .topbar .account-bar { -webkit-app-region: no-drag; }
+.brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.logo { width: 24px; height: 24px; flex: none; }
+.logo .beam { fill: var(--accent); }
+.logo .tower { fill: var(--logo-tower); }
+.logo .stripe { fill: var(--bg); }
+/* é o <h1> do documento (o nome do app): zera a margem e o tamanho padrão do h1 */
+.brand-name { margin: 0; font-size: 16px; font-weight: 650; letter-spacing: .2px; }
+.ver { color: var(--muted); font-size: 11px; font-weight: 600; margin: 4px 6px 0 -3px; }
+
+.pill {
+  font-size: 11.5px; font-weight: 600; letter-spacing: .2px;
+  padding: 3px 10px; border-radius: 99px;
+  background: var(--surface-2); color: var(--muted);
+  border: 1px solid var(--border); white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.pill.ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.pill.ok::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse 2s infinite; }
+.pill.busy { background: var(--info-soft); color: var(--info); border-color: transparent; }
+.pill.err { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.pill.session { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+@keyframes pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+
+.tabs { display: flex; gap: 4px; margin: 0 auto; }
+.nav-item {
+  border: 0; background: transparent; color: var(--muted);
+  padding: 7px 14px; border-radius: 9px; cursor: pointer;
+  font-weight: 550; transition: all .15s ease;
+}
+.nav-item:hover { color: var(--text); background: var(--surface-2); }
+.nav-item.active { color: var(--text); background: var(--surface-2); box-shadow: inset 0 -2px 0 var(--accent); }
+
+.top-actions { display: flex; align-items: center; gap: 8px; }
+
+/* ---------- barra de contas ---------- */
+.account-bar { display: flex; align-items: center; gap: 6px; padding: 0 22px 10px; flex-wrap: wrap; }
+.acct-seg {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 1px solid transparent; background: transparent; color: var(--muted);
+  padding: 5px 12px; border-radius: 99px; cursor: pointer; font-weight: 600; font-size: 12.5px;
+  transition: all .15s ease; white-space: nowrap;
+}
+.acct-seg:hover { background: var(--surface-2); color: var(--text); }
+.acct-seg .seg-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ac); flex: none; }
+.acct-seg.active { color: var(--seg-fg, var(--text)); background: var(--seg-bg, var(--surface-2)); }
+.acct-seg.active .seg-dot { box-shadow: 0 0 6px var(--ac); }
+.acct-seg.muted { opacity: .62; }
+.acct-seg .seg-count { font-size: 10.5px; font-weight: 700; border-radius: 99px; padding: 0 7px; min-width: 18px; text-align: center; background: var(--seg-badge-bg, var(--border)); color: var(--seg-badge-fg, var(--muted)); }
+.acct-seg .seg-pause { font-size: 11px; opacity: .8; }
+
+/* ---------- faixa de identidade ---------- */
+.identity-strip {
+  display: flex; align-items: center; gap: 11px;
+  padding: 11px 15px; margin: 4px 0 2px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface);
+}
+.identity-strip.one { border-left: 3px solid var(--ac); }
+.identity-strip .id-avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 13px; background: var(--ac); color: var(--ac-ink);
+}
+.identity-strip .id-body { min-width: 0; flex: 1; }
+.identity-strip .id-line { font-size: 13.5px; }
+.identity-strip .id-handle { font-weight: 700; color: var(--ac); }
+.identity-strip .id-org { color: var(--muted); font-size: 12px; }
+.identity-strip .id-summary { font-size: 13px; color: var(--muted); }
+.identity-strip .id-tag { font-size: 10.5px; font-weight: 700; color: var(--ac); background: var(--ac-soft); border-radius: 99px; padding: 2px 9px; flex: none; }
+
+/* ---------- layout ---------- */
+main { max-width: 1000px; margin: 0 auto; padding: 16px 24px 60px; }
+/* a aba Sistema é a única com sidebar: os 212px dela sairiam do espaço do conteúdo,
+   então ela ganha largura própria. As outras 5 abas seguem em 1000px. */
+body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
+.tabpane { display: none; }
+.tabpane.active { display: block; animation: fadein .18s ease; }
+@keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+
+.meta-line { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12.5px; margin: 8px 0 2px; flex-wrap: wrap; }
+
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 26px 0 10px; }
+.section-head h2 { font-size: 15px; font-weight: 650; margin: 0; display: flex; align-items: center; gap: 8px; }
+.section-sub { color: var(--muted); font-size: 12.5px; }
+/* descrição da seção: uma classe só pro app inteiro. Largura de leitura (640px) e
+   text-wrap:pretty (sem linha órfã no fim) valiam só na aba Sistema. */
+.section-desc { margin: -2px 0 var(--sp-3); max-width: 640px; color: var(--muted); font-size: 13px; text-wrap: pretty; }
+/* âmbar = precisa de você. Se toda contagem é âmbar, nenhuma é urgente: as seções de
+   contexto (Panorama, Recentes, Entregas...) usam a variante neutra. */
+.count { font-size: 11.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 99px; padding: 2px 9px; }
+.count.ambient { color: var(--muted); background: var(--surface-2); border: 1px solid var(--border); }
+.row-actions { display: flex; gap: 8px; }
+
+/* ---------- botões ---------- */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 1px solid var(--border); border-radius: 9px;
+  background: var(--surface); color: var(--text);
+  padding: 7px 13px; cursor: pointer; font-weight: 550;
+  transition: all .15s ease; white-space: nowrap;
+}
+.btn:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); background: var(--surface-2); }
+.btn:active { transform: translateY(1px); }
+.btn svg { width: 15px; height: 15px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.ghost { background: transparent; }
+.btn.ok { background: var(--ok-soft); border-color: transparent; color: var(--ok); font-weight: 700; }
+.btn.ok:hover { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 18%, transparent); }
+.btn.sm { padding: 5px 11px; font-size: 13px; border-radius: 8px; }
+.btn.icon { padding: 7px; }
+.btn.icon svg { width: 17px; height: 17px; }
+.btn.danger-ghost { background: transparent; color: var(--muted); }
+.btn.danger-ghost:hover { color: var(--danger); border-color: var(--danger); }
+.btn:disabled { opacity: .5; cursor: default; }
+
+/* ---------- banner ---------- */
+.banner {
+  max-width: 1000px; margin: 14px auto 0; padding: 10px 16px;
+  border-radius: var(--radius); font-size: 13.5px;
+  background: var(--danger-soft); color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+  margin-left: 24px; margin-right: 24px;
+}
+@media (min-width: 1050px) { .banner { margin-left: auto; margin-right: auto; } }
+
+/* ---------- cards ---------- */
+.cards { display: flex; flex-direction: column; gap: 10px; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px;
+  transition: border-color .15s ease;
+}
+/* grid, não flex: com flex-wrap as ações quebram no MEIO (um botão sobe, outro desce).
+   No grid elas caem inteiras pra própria linha. Volta a linha única a partir de 820px. */
+.pr-card { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 11px; align-items: start; }
+.pr-card .pr-actions { grid-column: 1 / -1; margin-top: 10px; }
+.pr-card:hover { border-color: color-mix(in srgb, var(--ac) 45%, var(--border)); }
+.pr-card .info { flex: 1; min-width: 0; }
+.pr-ref { font-weight: 650; font-size: 13px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pr-ref a { color: var(--ac); }
+/* sem ellipsis: o título é a informação que faz você decidir se vai revisar, e cortá-lo
+   custa mais que a linha extra (delta 2e) */
+.pr-title { margin-top: 2px; font-size: 14px; text-wrap: pretty; }
+.pr-sub { color: var(--muted); font-size: 12px; margin-top: 3px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.pr-sub .author { color: var(--text); font-weight: 600; }
+.pr-actions { display: flex; gap: 7px; flex: none; align-items: center; }
+/* menu inline do card: empurra o conteúdo em vez de flutuar por cima. Num card estreito
+   um dropdown flutuante sai da tela ou cobre o card de baixo. */
+.pr-menu { grid-column: 1 / -1; margin-top: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); overflow: hidden; }
+.pr-menu > button, .pr-menu > a { display: block; width: 100%; border: 0; background: transparent; color: var(--text); padding: 9px 12px; text-align: left; font: inherit; font-size: 13px; cursor: pointer; text-decoration: none; }
+.pr-menu > * + * { border-top: 1px solid var(--border); }
+.pr-menu > *:hover { background: var(--border); }
+/* a ação destrutiva só fica vermelha no hover: sinaliza sem gritar na lista */
+.pr-menu > .danger { color: var(--muted); }
+.pr-menu > .danger:hover { background: var(--border); color: var(--danger); }
+.act-more { font-weight: 700; letter-spacing: 1px; line-height: 1; }
+
+/* marcador de conta no card */
+.acct-chip { font-size: 10.5px; font-weight: 700; color: var(--ac); background: var(--ac-soft); border-radius: 99px; padding: 2px 9px; white-space: nowrap; }
+.acct-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ac); flex: none; }
+
+.avatar {
+  position: relative; width: 38px; height: 38px; border-radius: 50%;
+  background: var(--surface-2); color: var(--muted);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px; flex: none; overflow: hidden;
+  border: 1px solid var(--border);
+}
+.avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.avatar.sm { width: 26px; height: 26px; font-size: 11px; }
+/* xs: a foto dentro de linha de texto (Panorama, fila, decisões), do tamanho da letra */
+.avatar.xs { width: 18px; height: 18px; font-size: 9px; border-radius: 50%; }
+
+/* ---- menções navegáveis (ui/pure.js: personMention/repoMention/prRefMention
+   e o data-goto do app.js). O clique é a regra do app, então o affordance é
+   uniforme: herda a cor do contexto e só acende no hover/foco, pra não virar
+   um mar de azul dentro de cards que já têm hierarquia própria. ---- */
+.person-mention { display: inline-flex; align-items: center; gap: 5px; color: inherit; text-decoration: none; vertical-align: middle; max-width: 100%; }
+.person-mention .pm-login { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.person-mention:hover .pm-login, .person-mention:focus-visible .pm-login { color: var(--accent); text-decoration: underline; }
+.person-mention.vazio { color: var(--faint); }
+.repo-mention, .pr-ref-mention { color: inherit; text-decoration: none; }
+.repo-mention:hover, .repo-mention:focus-visible,
+.pr-ref-mention:hover, .pr-ref-mention:focus-visible { color: var(--accent); text-decoration: underline; }
+.is-goto { cursor: pointer; text-decoration: underline dotted var(--faint); text-underline-offset: 2px; }
+.is-goto:hover, .is-goto:focus-visible { color: var(--accent); text-decoration-color: var(--accent); }
+.check.is-goto { text-decoration: none; }
+.check.is-goto:hover { border-color: var(--accent); }
+
+/* ---------- meus PRs ---------- */
+.mypr-card { display: block; border-left: 3px solid var(--ambient); }
+.mypr-card.ok { border-left-color: var(--ok); }
+.mypr-card.warn { border-left-color: var(--danger); }
+/* vencida: nem verde nem vermelha. O veredito nao vale mais, entao a barra para de
+   afirmar aprovacao ou reprovacao e passa a pedir atencao. */
+.mypr-card.stale { border-left-color: var(--accent); }
+.mypr-top { display: flex; align-items: center; gap: 14px; }
+.mypr-top .info { flex: 1; min-width: 0; }
+.mypr-card .badge { font-size: 10.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 99px; padding: 1px 8px; }
+.pr-card .badge { font-size: 10.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 99px; padding: 1px 8px; margin-left: 6px; }
+/* revisão automática parada (estacionamento): é a diferença entre "nunca revisou" e
+   "revisou, caiu e espera clique", que até a v2.57.4 a tela não mostrava */
+.pr-card .pr-parked { margin-top: 4px; font-size: 11.5px; line-height: 1.35; color: var(--danger); overflow-wrap: anywhere; }
+.pr-card .pr-parked span { text-decoration: underline dotted; }
+.mypr-analysis { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.mypr-summary { font-size: 13.5px; margin-bottom: 8px; }
+/* analise DESATUALIZADA: o PR andou depois dela. O painel continua legivel (o texto
+   segue valendo pro codigo que foi lido), so perde o destaque, porque o veredito nao
+   fala mais do codigo atual. Esmaecer o proprio texto esconderia o que ainda serve. */
+.mypr-analysis.desatualizada { border-top-color: var(--accent-soft); }
+.mypr-stale {
+  font-size: 12.5px; line-height: 1.45; margin-bottom: 10px; padding: 8px 10px;
+  border-radius: 8px; border-left: 3px solid var(--accent);
+  background: var(--accent-soft); color: var(--text);
+}
+.mypr-block, .mypr-tips { margin-top: 8px; font-size: 13px; }
+.mypr-block > b, .mypr-tips > b { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.mypr-block .dec-reasons li::marker, .mypr-tips .dec-reasons li::marker { color: transparent; }
+.mypr-block .mypr-hint { font-size: 12px; color: var(--muted); }
+.pr-branches { font-size: 11.5px; margin: 3px 0 1px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pr-branches code { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; color: var(--muted); font-size: 11px; }
+.pr-branches .arrow { color: var(--ac); font-weight: 700; }
+.mypr-fixrow { margin-top: 12px; }
+.mypr-when { color: var(--muted); font-size: 12px; margin-top: 10px; }
+/* PR oculto à mostra: esmaecido, pra ler como "está fora da lista" sem sumir de vez.
+   Classe NOVA no card em vez de mexer na .mypr-card, que já carrega a barra de estado. */
+.mypr-card.oculto { opacity: .55; }
+.mypr-card.oculto:hover, .mypr-card.oculto:focus-within { opacity: .9; }
+/* rodapé discreto da seção: a linha inteira é o botão que alterna os ocultos */
+.mypr-hidden-foot { margin-top: 10px; }
+.mypr-hidden-toggle { background: none; border: 0; padding: 4px 2px; color: var(--muted); font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.mypr-hidden-toggle:hover { color: var(--info); text-decoration: underline; }
+.relnote { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.relnote:last-child { border-bottom: 0; }
+.relnote-ver { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+.relnote-ver .badge { font-size: 10.5px; font-weight: 700; color: var(--ok); background: var(--ok-soft); border-radius: 99px; padding: 1px 8px; margin-left: 6px; }
+.relnote .dec-reasons { margin: 0; }
+#relNotesMore { display: block; margin: 14px auto 0; }
+
+/* ---------- Sistema > Sobre (privacidade, licença, créditos) ---------- */
+.about-card { margin-bottom: 14px; }
+.about-card p { margin: 0 0 8px; font-size: 13px; color: var(--muted); line-height: 1.55; }
+.about-card p:last-child { margin-bottom: 0; }
+.about-title { margin: 0 0 8px; font-size: 14px; font-weight: 700; }
+.credits-founder { display: flex; align-items: center; gap: 10px; padding: 4px 0 10px; }
+.credits-founder .person-mention .pm-login { font-weight: 700; font-size: 14px; }
+.credits-role { color: var(--muted); font-size: 12px; }
+.credits-name { font-weight: 600; color: var(--text); }
+.credits-sub { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); margin: 8px 0 6px; }
+.credits-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 14px; }
+.credits-item { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 3px 0; }
+.credits-meta { color: var(--faint); font-size: 11.5px; white-space: nowrap; }
+.credits-foot { margin-top: 12px; font-size: 11.5px; color: var(--faint); }
+.credits-wait { color: var(--faint); font-size: 12.5px; }
+.about-origem { font-size: 12.5px; color: var(--muted); line-height: 1.55; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--border-soft); }
+.origem-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); margin-right: 6px; }
+
+/* ---------- panorama / linhas ---------- */
+.rows { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.rows:empty { display: none; }
+.row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 3px 10px; align-items: baseline;
+  padding: 11px 13px; background: var(--surface);
+  border-bottom: 1px solid var(--border); font-size: 13px;
+}
+/* o ponto ocupa as duas linhas, à esquerda de tudo */
+.row .status-dot { grid-row: 1 / 3; align-self: center; }
+/* linha 1: referência (col 2) e horário (col 3, encostado à direita) */
+.row .ref { grid-column: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .when { grid-column: 3; grid-row: 1; }
+/* linha 2: título e o resto (badges, autor, botão), ocupando a largura toda */
+.row .title { grid-column: 2 / -1; }
+.row .who, .row .badge, .row .settled, .row .rev-chip, .row .btn { grid-column: 2 / -1; justify-self: start; }
+.row:last-child { border-bottom: 0; }
+.row:hover { background: var(--surface-2); }
+.row .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); flex: none; }
+.row.mine .status-dot { background: var(--ac); box-shadow: 0 0 6px var(--ac); }
+.row.reviewed .status-dot { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.row .ref { font-weight: 600; flex: none; }
+.row .ref a { color: var(--text); }
+.row.mine .ref a { color: var(--ac); }
+.row .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.row .who { color: var(--muted); font-size: 12px; flex: none; }
+.row .when { color: var(--faint); font-size: 12px; flex: none; min-width: 48px; text-align: right; }
+.row .badge { font-size: 10.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 99px; padding: 1px 8px; flex: none; }
+.row .badge.rev-ok { color: var(--ok); background: var(--ok-soft); }
+.row .badge.rev-rc { color: var(--danger); background: var(--danger-soft); }
+.row .badge.rev-cm, .row .badge.rev-pend { color: var(--accent); background: var(--accent-soft); }
+.row .settled { color: var(--faint); font-size: 12px; flex: none; }
+.row.has-attn { align-items: flex-start; }
+.row.has-attn .title { white-space: normal; }
+.resolved-attn { margin-top: 5px; }
+.resolved-attn summary { cursor: pointer; color: var(--accent); font-size: 12px; font-weight: 600; user-select: none; }
+.resolved-attn summary:hover { text-decoration: underline; }
+.resolved-attn ul { margin: 6px 0 2px; padding-left: 18px; font-size: 12.5px; color: var(--text); }
+.resolved-attn li { margin: 2px 0; }
+.resolved-attn li::marker { color: var(--accent); }
+
+/* ---------- Revisões recentes: linha PRÓPRIA ----------
+   Não reusa .row de propósito: .row é do Panorama, Entregas e Destaques, e ali a
+   coluna 3 é só o relógio, então tudo empilhava na coluna do meio e a metade direita
+   da linha ficava em branco. Aqui a coluna 3 ancora o quando E as ações.
+   Sem barra esquerda colorida: barra significa urgência (ver acctMark no app.js) e
+   esta seção é histórico resolvido. A cor do desfecho vive no selo .rr-verdict. */
+.rrow {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 10px;
+  padding: 11px 13px; background: var(--surface);
+  border-bottom: 1px solid var(--border); font-size: 13px;
+}
+.rrow:last-child { border-bottom: 0; }
+.rrow:hover { background: var(--surface-2); }
+.rr-icon { grid-column: 1; grid-row: 1; width: 17px; text-align: center; }
+.rr-main { grid-column: 2; min-width: 0; }
+/* alinhado ao topo: numa linha que expandiu o relatório, o carimbo tem que ficar
+   junto do cabeçalho, não flutuando no meio do texto */
+.rr-side { grid-column: 3; grid-row: 1 / -1; align-self: start; display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
+.rr-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.rr-ref { font-weight: 600; color: var(--text); }
+.rr-verdict { font-size: 11px; font-weight: 700; letter-spacing: .2px; padding: 1px 8px; border-radius: 99px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.rr-verdict.rev-ok { background: var(--ok-soft); color: var(--ok); }
+.rr-verdict.rev-rc { background: var(--danger-soft); color: var(--danger); }
+.rr-verdict.rev-cm { background: var(--accent-soft); color: var(--accent); }
+.rr-title { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+/* autor em linha própria (fora do .rr-title, que trunca): foto pequena (mesmo
+   avatar sm de destaques) + login com o mesmo peso/cor de .hl-head .author e
+   .pr-sub .author, pra não ficar apagado quanto o resto da linha */
+.rr-person { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.rr-author { color: var(--text); font-weight: 650; }
+/* as três divulgações (atenção, relatório, pushback) dividem UMA linha em repouso, em
+   vez de uma linha cada: numa lista de 30 revisões, três linhas por item empurrava o
+   resto da tela pra fora. A que você abre passa a ocupar a linha inteira. */
+.rr-disc { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 16px; }
+.rr-disc > details[open] { flex: 1 0 100%; }
+/* .resolved-attn e .dec-report trazem margem de quando eram blocos empilhados; numa
+   linha compartilhada ela desalinha os summaries entre si */
+.rr-disc > details { margin-top: 0; }
+/* as três nasceram em lugares diferentes e traziam 11,5 / 12 / 12,5px; dividindo uma
+   faixa só, tamanhos diferentes leem como três controles avulsos, não como um grupo */
+.rr-disc > details > summary { font-size: 12px; }
+/* --muted, não --faint: o carimbo agora carrega o DIA e existe pra ser lido. Com
+   --faint o contraste no tema claro dava 2,65:1, abaixo do mínimo pra texto pequeno,
+   o que anularia a razão da mudança. Escopado nesta classe, sem mexer no token. */
+.rr-when { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.rr-acts { display: flex; gap: 4px; }
+/* botões compactos: são 4 numa coluna estreita, o padding do .btn.icon é largo demais */
+.rr-acts .btn { padding: 4px 7px; font-size: 12px; gap: 3px; border-radius: 7px; }
+.rr-acts .btn:hover { color: var(--accent); }
+@media (max-width: 720px) {
+  /* na janela estreita o cluster desce pra debaixo do conteúdo em vez de esmagar a
+     coluna do meio (a mesma razão pela qual .row quebra em vez de cortar) */
+  .rrow { grid-template-columns: auto minmax(0, 1fr); }
+  .rr-side { grid-column: 1 / -1; grid-row: auto; flex-direction: row; align-items: center; justify-content: space-between; margin-top: 6px; }
+}
+
+/* ---------- Panorama: linha própria (mesmo motivo do .rrow acima: .row só tem o
+   horário na coluna 3, então título/autor/botão empilhavam na coluna do meio e a
+   direita ficava em branco). Sem os expansíveis de relatório/pushback, que aqui
+   não existem; ganha em troca ações que o Panorama nunca teve na própria linha
+   (conversar, copiar URL), hoje só alcançáveis pelo formulário de busca por URL. */
+.prow {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 10px; align-items: start;
+  padding: 11px 13px; background: var(--surface);
+  border-bottom: 1px solid var(--border); font-size: 13px;
+}
+.prow:last-child { border-bottom: 0; }
+.prow:hover { background: var(--surface-2); }
+.prow .status-dot { grid-column: 1; grid-row: 1; align-self: center; width: 7px; height: 7px; border-radius: 50%; background: var(--border); flex: none; }
+.prow.mine .status-dot { background: var(--ac); box-shadow: 0 0 6px var(--ac); }
+.prow.reviewed .status-dot { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.pw-main { grid-column: 2; min-width: 0; }
+.pw-side { grid-column: 3; grid-row: 1 / -1; align-self: start; display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
+.pw-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pw-ref { font-weight: 600; color: var(--text); }
+.prow.mine .pw-ref { color: var(--ac); }
+.pw-head .badge { font-size: 10.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 99px; padding: 1px 8px; flex: none; }
+.pw-head .badge.rev-ok { color: var(--ok); background: var(--ok-soft); }
+.pw-head .badge.rev-rc { color: var(--danger); background: var(--danger-soft); }
+.pw-head .badge.rev-cm, .pw-head .badge.rev-pend { color: var(--accent); background: var(--accent-soft); }
+/* quem trunca é o TEXTO do título, nunca a linha inteira: com o autor dentro da
+   caixa que corta, título comprido empurrava a foto e o @login pra fora (mesmo
+   defeito corrigido em Revisões recentes na v2.39.0, reencontrado no Panorama) */
+.pw-title { color: var(--muted); display: flex; align-items: center; gap: 0; min-width: 0; margin-top: 1px; }
+.pw-title-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.pw-author { color: var(--muted); font-size: 12px; margin-left: 6px; }
+/* Panorama: a foto do autor entra na linha do título, com o separador antes */
+.pw-title .person-mention { color: var(--muted); font-size: 12px; margin-left: 4px; flex: none; }
+.pw-sep { color: var(--faint); margin-left: 6px; flex: none; }
+.pw-when { color: var(--faint); font-size: 12px; white-space: nowrap; }
+.pw-acts { display: flex; align-items: center; gap: 4px; }
+.pw-acts .btn { padding: 4px 7px; font-size: 12px; gap: 3px; border-radius: 7px; }
+.pw-acts .btn:hover { color: var(--accent); }
+.pw-acts .settled { color: var(--faint); font-size: 12px; white-space: nowrap; }
+@media (max-width: 720px) {
+  .prow { grid-template-columns: auto minmax(0, 1fr); }
+  .pw-side { grid-column: 1 / -1; grid-row: auto; flex-direction: row; align-items: center; justify-content: space-between; margin-top: 6px; }
+}
+@media (max-width: 420px) {
+  .pw-title { white-space: normal; overflow: visible; }
+}
+
+/* consulta de um PR por URL (abre a conversa salva); discreta, não compete com o resto */
+.lookup-bar { display: flex; gap: 8px; margin-top: 16px; opacity: .7; transition: opacity .15s; }
+.lookup-bar:focus-within, .lookup-bar:hover { opacity: 1; }
+.lookup-bar input { flex: 1; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 7px 11px; font-size: 12.5px; }
+.lookup-bar input:focus { outline: none; border-color: var(--accent); }
+/* pushback: contestação do autor a um review meu, registrada na linha */
+.pushback { font-size: 11.5px; }
+.pushback > summary { cursor: pointer; color: var(--muted); user-select: none; white-space: nowrap; list-style: none; }
+.pushback > summary::-webkit-details-marker { display: none; }
+.pushback > summary:hover { color: var(--accent); }
+.pushback[data-set] > summary { color: var(--accent); font-weight: 600; }
+.pushback[data-pending] > summary { color: var(--warn, #f59e0b); font-weight: 700; }
+.pushback .pb-hint { flex-basis: 100%; font-size: 11px; color: var(--warn, #f59e0b); }
+.pushback .pb-body { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
+.pushback .pb-outcome, .pushback .pb-note { font-size: 11.5px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 3px 7px; }
+.pushback .pb-outcome:focus, .pushback .pb-note:focus { outline: none; border-color: var(--ac, var(--accent)); }
+.pushback .pb-note { min-width: 160px; flex: 1; }
+
+/* ---------- vazio ---------- */
+.empty {
+  border: 1px dashed var(--border); border-radius: var(--radius);
+  padding: 26px; text-align: center; color: var(--muted); font-size: 13.5px;
+  background: color-mix(in srgb, var(--surface) 50%, transparent);
+}
+.empty .big { font-size: 22px; display: block; margin-bottom: 6px; }
+
+/* ---------- decisões ---------- */
+/* A barra esquerda diz o ESTADO, não a conta (ver acctMark em app.js).
+   Camada 1 (agir) é âmbar; blocker é vermelho; o que está rodando é azul; o resolvido
+   e o aprovável são verdes. Contexto não leva barra nenhuma. */
+.card.urgent { border-left: 3px solid var(--urgent); }
+.card.blocked { border-left: 3px solid var(--blocked); }
+.card.working { border-left: 3px solid var(--working); }
+.card.settled { border-left: 3px solid var(--settled); }
+.decision { border-left: 3px solid var(--urgent); }
+.decision-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dec-ref { font-weight: 650; color: var(--ac) !important; }
+.dec-when { color: var(--faint); font-size: 12px; margin-left: auto; }
+.dec-title { margin-top: 6px; font-size: 13.5px; }
+.dec-author { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.dec-author b { color: var(--text); }
+.dec-reasons { margin: 8px 0 0; padding-left: 18px; font-size: 13px; }
+.dec-reasons li { margin: 3px 0; }
+.dec-reasons li::marker { color: var(--ac); }
+/* motivos agrupados por eixo (falha técnica / regra do app / o que a revisão
+   achou): a cor do cabeçalho é o que deixa varrer de olho sem ler tudo. */
+.reason-groups { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.reason-group-head { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 650; color: var(--muted); }
+.reason-group .dec-reasons { margin-top: 4px; }
+.rg-infra .reason-group-head { color: var(--danger); }
+.rg-infra .dec-reasons li::marker { color: var(--danger); }
+.rg-gate .reason-group-head { color: var(--info); }
+.rg-gate .dec-reasons li::marker { color: var(--info); }
+.reason-note { font-weight: 500; color: var(--faint); font-style: italic; }
+.dec-blocked { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--danger) 10%, transparent); font-size: 12.5px; color: var(--text); }
+.dec-blocked b { color: var(--danger); }
+/* card de commit novo (v2.59.3): mesma caixa do aviso de bloqueio, no tom de quem está com a bola.
+   info = o Farol vai agir sozinho; accent = precisa de você. */
+.dec-status { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--info) 35%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--info) 10%, transparent); font-size: 12.5px; color: var(--text); }
+.dec-status b { color: var(--info); }
+.dec-status.accent { border-color: color-mix(in srgb, var(--accent) 35%, transparent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.dec-status.accent b { color: var(--accent); }
+.dec-status-icon { display: flex; flex: none; margin-top: 2px; color: var(--info); }
+.dec-status.accent .dec-status-icon { color: var(--accent); }
+.dec-status-icon svg { width: 16px; height: 16px; }
+.dec-status-spin { animation: dec-girar 1s linear infinite; }
+@keyframes dec-girar { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .dec-status-spin { animation: none; } }
+.dec-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.dec-rc:hover { color: var(--danger); border-color: var(--danger); }
+.dec-report { margin-top: 10px; }
+.dec-report summary { cursor: pointer; color: var(--info); font-size: 13px; user-select: none; }
+.dec-report summary:hover { text-decoration: underline; }
+.verdict { font-size: 10.5px; font-weight: 700; border-radius: 99px; padding: 2px 9px; }
+.verdict.approve { color: var(--ok); background: var(--ok-soft); }
+.verdict.rc { color: var(--danger); background: var(--danger-soft); }
+.verdict.stale { color: var(--accent); background: var(--accent-soft); }
+
+/* ---------- relatórios ---------- */
+.report { margin-top: 10px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); font-size: 13px; max-height: 480px; overflow: auto; }
+.report h3, .report h4, .report h5, .report h6 { margin: 12px 0 6px; font-size: 13.5px; }
+.report h3 { font-size: 15px; }
+.report p { margin: 6px 0; }
+.report ul { margin: 6px 0; padding-left: 20px; }
+.report li { margin: 3px 0; }
+.report blockquote { border-left: 3px solid var(--accent); margin: 8px 0; padding: 2px 12px; color: var(--muted); }
+.report table { border-collapse: collapse; margin: 8px 0; width: 100%; }
+.report td { border: 1px solid var(--border); padding: 5px 10px; }
+.report hr { border: 0; border-top: 1px solid var(--border); margin: 12px 0; }
+.report code { background: var(--surface); }
+.report a { color: var(--info); }
+
+/* ---------- ferramentas ---------- */
+.tool-panel { margin-bottom: 14px; border-left: 3px solid var(--info); }
+.tool-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+/* título do painel: era um <b> solto, virou <h3>; zera os defaults do heading */
+.tool-title { margin: 0; font-size: 13.5px; font-weight: 700; }
+.tool-head .section-sub { flex: 1; }
+.spin { display: inline-block; width: 13px; height: 13px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- destaques ---------- */
+.hl-card { display: flex; gap: 12px; align-items: flex-start; border-left: 3px solid var(--ac); }
+.hl-card .body { flex: 1; min-width: 0; }
+.hl-head { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
+.hl-head .author { font-weight: 650; color: var(--text); }
+.hl-text { margin-top: 5px; font-size: 13.5px; }
+.group-head { display: flex; align-items: center; gap: 8px; margin: 20px 0 8px; font-size: 12.5px; font-weight: 700; color: var(--ac); }
+.group-head .g-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ac); }
+.group-head .g-sub { color: var(--muted); font-weight: 500; }
+
+/* ---------- time ---------- */
+.member-card { border-left: 3px solid var(--ac); }
+.member-head { display: flex; align-items: center; gap: 12px; }
+.member-head .names { flex: 1; }
+.member-head .name { font-weight: 650; }
+.member-head .login { color: var(--muted); font-size: 12px; }
+.papel-level, .dom-level { font-size: 12px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 7px; padding: 4px 8px; cursor: pointer; }
+/* remover do Time: discreto em repouso (ação rara), vermelho só no hover pra
+   avisar que é destrutivo; o clique abre modal de confirmação, nunca age direto */
+.member-remove { color: var(--faint); flex: none; }
+.member-remove:hover, .member-remove:focus-visible { color: var(--danger); border-color: var(--danger); }
+.papel-level:hover, .dom-level:hover { border-color: var(--ac); }
+.papel-level:focus, .dom-level:focus { outline: none; border-color: var(--ac); }
+/* nos cards do PR o seletor de papel é mais discreto e inline com o texto do autor */
+.dec-author .papel-level, .pr-sub .papel-level { font-size: 11px; padding: 1px 5px; border-radius: 6px; vertical-align: middle; }
+.pr-sub .papel-level { margin-left: 2px; }
+/* perfil na aba Time: matriz de competência por domínio */
+.member-profile { margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--border-soft); }
+.member-profile .mp-label { font-size: 10.5px; color: var(--faint); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+.dom-matrix { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 6px; }
+.dom-cell { display: flex; flex-direction: column; gap: 3px; }
+.dom-cell .dom-name { font-size: 10.5px; color: var(--faint); font-weight: 600; }
+/* a matriz de domínios usa o mesmo tamanho do seletor de papel da aba Time: eram três
+   tamanhos pro mesmo controle (4/8 aqui, 3/7 na matriz, 1/5 nos cards de PR). Sobraram
+   dois, e os dois têm motivo: o normal e o compacto de dentro do card. */
+.member-entries { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.entry { border-left: 2px solid var(--border); padding: 2px 0 2px 12px; }
+.entry .entry-head { font-size: 12px; color: var(--muted); font-weight: 600; }
+.entry ul { margin: 4px 0 0; padding-left: 16px; color: var(--muted); font-size: 12.5px; }
+.entry li { margin: 2px 0; }
+.entry li::marker { color: var(--accent); }
+
+/* ---------- sistema: layout sidebar ---------- */
+/* grid em vez de flex: a separação entre a sidebar e o conteúdo é o gap (espaço em
+   branco), não uma borda vertical. Era a borda encostada no conteúdo que fazia a
+   coluna parecer colada. */
+.sys-layout { display: grid; grid-template-columns: 212px minmax(0, 1fr); gap: var(--sp-6); align-items: start; min-height: 60vh; }
+.sys-sidebar { position: sticky; top: calc(var(--topbar-h) + 12px); display: flex; flex-direction: column; gap: var(--sp-3); max-height: calc(100vh - 84px); overflow-y: auto; }
+.sys-search-wrap { position: relative; }
+.sys-search-wrap .sys-search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--faint); pointer-events: none; }
+.sys-search-wrap input { width: 100%; padding: 6px 10px 6px 32px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 9px; font: inherit; font-size: 12.5px; transition: border-color .15s ease; }
+.sys-search-wrap input::placeholder { color: var(--faint); }
+.sys-search-wrap input:focus { outline: none; border-color: var(--accent); }
+.sys-nav { display: flex; flex-direction: column; gap: 2px; }
+.sys-nav-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 11px; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13.5px; font-weight: 550; border-radius: 9px; cursor: pointer; text-align: left; white-space: nowrap; transition: background .15s ease, color .15s ease; }
+.sys-nav-item svg { width: 17px; height: 17px; flex: none; }
+.sys-nav-item:hover { background: var(--surface-2); color: var(--text); }
+/* ativo igual ao das abas do topo (barra do acento), no lugar do fundo âmbar cheio */
+.sys-nav-item.active { background: var(--surface-2); color: var(--text); font-weight: 650; box-shadow: inset 2px 0 0 var(--accent); }
+.sys-nav-item.match { background: color-mix(in srgb, var(--info) 12%, transparent); color: var(--text); }
+.sys-foot { padding: 2px 11px 0; font-size: 11px; line-height: 1.7; color: var(--faint); }
+.sys-content { min-width: 0; }
+.sys-section { display: none; }
+.sys-section.active { display: block; }
+/* aqui o cabeçalho da seção É o topo da tela: não repete a margem de 26px que ele
+   tem no resto do app, senão a primeira seção começa abaixo da sidebar. */
+.sys-section > .section-head:first-child { margin-top: 0; margin-bottom: 4px; }
+.sys-section > .section-head:first-child h2 { font-size: 18px; }
+.sys-note { margin: -4px 0 10px; font-size: 11.5px; color: var(--faint); }
+.sys-stack { display: flex; flex-direction: column; gap: var(--sp-3); }
+.sys-stack.lg { gap: var(--sp-5); }
+
+/* ---------- sistema: linhas de configuração ---------- */
+/* uma configuração por linha: texto à esquerda, controle à direita, divisória de 1px
+   entre linhas. Antes era um flex com gap:16px e nada separando, que é o que deixava
+   tudo colado. */
+.set-list { padding: var(--sp-1) var(--sp-4); }
+/* SEM flex-wrap de propósito: a quebra do flex usa a largura HIPOTÉTICA do item (aqui
+   o max-width de 580px do texto), não a encolhida, então `wrap` joga o controle pra
+   segunda linha mesmo sobrando espaço. Sem wrap, o texto encolhe e o controle fica
+   ancorado à direita, que é o desenho destas telas. */
+.set-row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-4); padding: 15px 0; }
+/* border-top no irmão, e não border-bottom + :last-child: linha escondida por JS
+   (#rowAutostart no macOS) não deixa divisória órfã pendurada. */
+.set-row + .set-row { border-top: 1px solid var(--border-soft); }
+.card.set-row { padding: 14px 16px; }
+label.set-row { cursor: pointer; }
+.set-txt { min-width: 0; max-width: 580px; }
+.set-title { display: block; font-size: 13.5px; font-weight: 600; }
+.set-desc { display: block; margin-top: 2px; font-size: 12.5px; color: var(--muted); font-weight: 400; text-wrap: pretty; }
+.set-ctl { flex: none; display: flex; align-items: flex-start; gap: var(--sp-2); }
+.set-ctl select { max-width: 290px; padding: 6px 10px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; font: inherit; font-size: 12.5px; cursor: pointer; transition: border-color .15s ease; }
+.set-ctl select:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.set-ctl select:focus { outline: none; border-color: var(--accent); }
+.set-ctl input[type="text"] { width: 280px; padding: 6px 10px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; font: inherit; font-size: 12.5px; }
+.set-ctl input[type="text"]:focus { outline: none; border-color: var(--accent); }
+@media (max-width: 620px) { .set-ctl input[type="text"] { width: 100%; } }
+/* o checkbox real fica invisível; quem se vê é o .switch IRMÃO IMEDIATO dele */
+.set-row input[type="checkbox"] { position: absolute; opacity: 0; }
+.set-ctl .switch { margin-top: 2px; }
+
+/* ---------- sistema: esforço de raciocínio ---------- */
+/* cartões e não select: cada nível precisa de descrição própria (o que muda, e o que
+   custa), e isso não cabe numa <option>. */
+.set-row-block { display: block; }
+.set-txt.wide { max-width: none; }
+.effort-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-top: 10px; }
+.effort-card { position: relative; display: flex; flex-direction: column; gap: 3px; padding: 13px 15px; border-radius: var(--radius); cursor: pointer; background: var(--surface-2); border: 1px solid var(--border); transition: border-color .15s ease, background .15s ease; }
+.effort-card input { position: absolute; opacity: 0; pointer-events: none; }
+.effort-card:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.effort-card:has(input:checked) { background: var(--accent-soft); border-color: var(--accent); }
+.effort-card:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ec-name { font-size: 13.5px; font-weight: 700; }
+.ec-value { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.ec-cap { font-size: 12px; color: var(--muted); }
+.ec-note { font-size: 11.5px; color: var(--faint); text-wrap: pretty; }
+.effort-cards.disabled { opacity: .5; pointer-events: none; }
+
+/* ---------- sistema: resultados da busca ---------- */
+.sys-results { display: flex; flex-direction: column; gap: 6px; }
+.sys-hit { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; text-align: left; padding: 11px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font: inherit; font-size: 13.5px; cursor: pointer; transition: border-color .15s ease; }
+.sys-hit:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.sys-hit .sys-hit-txt { min-width: 0; }
+.sys-hit .sys-hit-sub { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); }
+.sys-hit .sys-hit-sec { flex: none; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+
+@media (max-width: 860px) {
+  .sys-layout { grid-template-columns: 1fr; gap: var(--sp-3); }
+  .sys-sidebar { position: static; max-height: none; }
+  .sys-foot { display: none; }
+  .sys-nav { flex-direction: row; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 4px; }
+  .sys-nav::-webkit-scrollbar { display: none; }
+  .sys-nav-item { width: auto; padding: 6px 10px; font-size: 12.5px; }
+  /* com a nav deitada, a barra do ativo vai pra baixo, igual às abas do topo */
+  .sys-nav-item.active { box-shadow: inset 0 -2px 0 var(--accent); }
+}
+@media (max-width: 620px) {
+  .set-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .set-ctl select { max-width: none; width: 100%; }
+}
+
+/* ---------- sistema: contas ---------- */
+.acct-card { display: flex; align-items: flex-start; gap: 13px; border-left: 3px solid var(--ac); }
+.acct-card .acct-color { width: 30px; height: 30px; flex: none; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: none; cursor: pointer; margin-top: 2px; }
+.acct-card .acct-color::-webkit-color-swatch-wrapper { padding: 2px; }
+.acct-card .acct-color::-webkit-color-swatch { border: 0; border-radius: 6px; }
+.acct-card .a-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.acct-card .a-editrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.acct-card .a-editrow.orgs { gap: 6px; }
+.acct-card .a-fieldlabel { font-size: 11px; color: var(--faint); font-weight: 600; }
+.acct-card .acct-label { font-weight: 650; font-size: 13.5px; width: 150px; max-width: 45%; background: var(--surface-2); color: var(--text); border: 1px solid transparent; border-radius: 7px; padding: 4px 8px; }
+.acct-card .acct-kind { font-size: 12px; width: 130px; background: var(--surface-2); color: var(--muted); border: 1px solid transparent; border-radius: 7px; padding: 4px 8px; }
+.acct-card .acct-owners { flex: 1; min-width: 140px; font-size: 12.5px; background: var(--surface-2); color: var(--text); border: 1px solid transparent; border-radius: 7px; padding: 4px 8px; }
+.acct-card .acct-label:hover, .acct-card .acct-kind:hover, .acct-card .acct-owners:hover { border-color: var(--border); }
+.acct-card .acct-label:focus, .acct-card .acct-kind:focus, .acct-card .acct-owners:focus { outline: none; border-color: var(--ac); background: var(--surface); }
+.acct-card .a-tag { font-size: 10.5px; font-weight: 700; color: var(--muted); background: var(--surface-2); border: 1px solid var(--border); border-radius: 99px; padding: 1px 8px; }
+.acct-card .a-sub { color: var(--muted); font-size: 12px; }
+.acct-card .a-auth { color: var(--muted); }
+.acct-card .a-auth.ok { color: var(--ok); }
+.acct-card .a-actions { display: flex; flex-direction: column; gap: 6px; flex: none; align-items: stretch; }
+.acct-card.muted { opacity: .72; }
+.acct-add { display: block; }
+.acct-add .a-add-title { font-weight: 650; font-size: 13px; margin-bottom: 10px; }
+.acct-add .a-editrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+/* o seletor de tipo (perfil de chave de API) e a linha de campos abaixo dele são dois
+   .a-editrow empilhados sem gap entre si (herdado de quando só existia uma linha) - sem
+   isso a linha de tipo cola direto nos campos, virando uma faixa só e ilegível. */
+.acct-add .a-editrow + .a-editrow { margin-top: 10px; }
+.acct-add input { flex: 1; min-width: 130px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 13px; }
+.acct-add input:focus { outline: none; border-color: var(--accent); }
+.acct-add .a-hint { color: var(--muted); font-size: 11.5px; margin-top: 9px; }
+.acct-card .a-pol-note { font-size: 11.5px; color: var(--faint); margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--border-soft); }
+.acct-card .a-pol-note + .a-policy { margin-top: 6px; padding-top: 0; border-top: 0; }
+.acct-card .a-policy { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 4px; padding-top: 9px; border-top: 1px solid var(--border-soft); }
+.acct-card .a-pol-item { display: flex; flex-direction: column; gap: 3px; }
+.acct-card .a-pol-item .a-fieldlabel { font-size: 10.5px; color: var(--faint); font-weight: 600; }
+.acct-card .a-pol-item select { font-size: 12px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 7px; padding: 4px 8px; cursor: pointer; }
+.acct-card .a-pol-item select:hover { border-color: var(--ac); }
+.acct-card .a-pol-item select:focus { outline: none; border-color: var(--ac); }
+
+/* nome e diretório de um perfil de assinatura. Herdavam o estilo de `.field input`
+   por acidente, de um `.field` que envolvia o manager inteiro; esse mesmo `.field`
+   aplicava width:100% no select da linha "Perfil padrão" e esmagava o texto dela.
+   Tirado o `.field`, o estilo dos dois inputs passa a ser declarado aqui. */
+.cp-label, .cp-dir {
+  width: 100%; max-width: 420px;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 11px; font: inherit;
+}
+.cp-label:focus, .cp-dir:focus { outline: none; border-color: var(--accent); }
+/* texto de apoio no PÉ de uma seção (o .section-desc padrão fica no topo, e por isso
+   tem margem negativa em cima e espaço embaixo). NÃO confundir com `.sys-foot`, que é
+   o rodapé da barra lateral do Sistema. */
+.section-note { margin: var(--sp-3) 0 0; }
+
+/* selo da assinatura do Claude em uso (emitido por claudeAuthBadge): aparece em
+   Plano e chaves, num perfil, e em Contas, no override por conta. Estava sendo
+   emitido pelo JS sem nenhuma regra aqui, então saía como texto solto. */
+.a-claude { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; border-radius: 99px; padding: 2px 8px; color: var(--muted); background: var(--surface-2); border: 1px solid var(--border); }
+.a-claude.ok { color: var(--ok); background: var(--ok-soft); border-color: transparent; }
+.a-claude.bad { color: var(--danger); background: var(--danger-soft); border-color: transparent; }
+
+/* reviewers agrupados */
+.rev-group-head { display: flex; align-items: center; gap: 8px; margin: 14px 0 6px; font-size: 12px; font-weight: 700; color: var(--ac); }
+.rev-group-head .g-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ac); }
+
+/* ---------- doctor ---------- */
+.doctor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.check { display: flex; gap: 10px; align-items: flex-start; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+.check .led { width: 9px; height: 9px; border-radius: 50%; margin-top: 5px; flex: none; background: var(--border); }
+.check.ok .led { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.check.bad .led { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+.check.muted .led { background: var(--faint); }
+.check .label { font-weight: 600; font-size: 13px; }
+.check .detail { color: var(--muted); font-size: 12px; margin-top: 1px; word-break: break-all; }
+
+/* ---------- settings ---------- */
+.settings { display: flex; flex-direction: column; gap: var(--sp-4); padding: 16px var(--sp-4); }
+/* Conexões e Plano e chaves usam o mesmo padrão de Contas/Automação/Preferências
+   (linha cheia, texto à esquerda, controle à direita), sem .settings nem .field em
+   volta. Reviewers segue com .settings, porque os chips precisam da largura toda. */
+.field label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 5px; }
+/* o <small> herdava display:inline e escorria pro lado do input de 420px, espremido
+   nos ~240px que sobravam. Como bloco, ele cai abaixo do campo, que é o lugar dele. */
+.field small { display: block; margin-top: 5px; max-width: 560px; font-size: 12px; color: var(--muted); font-weight: 400; text-wrap: pretty; }
+.field input, .field select, .field textarea {
+  width: 100%; max-width: 420px;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 11px; font: inherit;
+}
+.field textarea { resize: vertical; min-height: 56px; line-height: 1.5; }
+.field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--accent); }
+.rev-editor { display: flex; flex-direction: column; gap: var(--sp-2); }
+.rev-row { border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; background: var(--surface-2); }
+.rev-repohead { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+.rev-repohead code { font-size: 12px; font-weight: 700; margin-right: auto; }
+.rev-copy, .rev-delrepo { background: none; border: 0; color: var(--muted); font-size: 12px; cursor: pointer; }
+.rev-copy:hover { color: var(--accent); }
+.rev-delrepo:hover { color: var(--danger); }
+.rev-copyform { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.rev-copyform input { flex: 1; min-width: 0; max-width: 320px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 13px; }
+.rev-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.rev-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 3px 6px 3px 9px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); }
+.rev-chip.team { background: var(--info-soft); color: var(--info); }
+.rev-chip.bad { background: var(--danger-soft); color: var(--danger); }
+.rev-chip .rev-x { background: none; border: 0; color: inherit; cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; opacity: .7; }
+.rev-chip .rev-x:hover { opacity: 1; }
+.rev-add { font: inherit; font-size: 12px; padding: 4px 8px; border-radius: 8px; background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+.rev-empty { color: var(--muted); font-size: 12.5px; }
+.rev-addrepo { display: flex; gap: 8px; align-items: center; }
+.rev-addrepo input { flex: 1; min-width: 0; max-width: 280px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 13px; }
+
+/* editor de reviewers v2: padrão por org + exceções */
+.rev-org { border: 1px solid var(--border-soft); border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
+.rev-default { padding: 13px 15px; border-left: 3px solid var(--ac); background: linear-gradient(90deg, color-mix(in srgb, var(--ac) 9%, transparent), transparent 55%); }
+.rev-default.empty { background: var(--surface-2); border-left-color: var(--border); }
+.rev-default-top { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; }
+.rev-default-top .t { font-weight: 700; font-size: 13px; }
+.rev-default-top .scope { color: var(--muted); font-size: 11px; font-weight: 600; background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 99px; padding: 1px 8px; }
+.rev-hint { color: var(--muted); font-size: 11.5px; margin-top: 8px; }
+.rev-chip.ghost { background: var(--surface-2); color: var(--muted); border: 1px dashed var(--border); font-weight: 500; }
+.rev-make-default { margin-top: 10px; }
+.rev-chip .rev-def-x, .rev-chip .rev-exc-x { background: none; border: 0; color: inherit; cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; opacity: .7; }
+.rev-chip .rev-def-x:hover, .rev-chip .rev-exc-x:hover { opacity: 1; }
+.rev-sec-title { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); padding: 12px 15px 4px; }
+.rev-exc { display: flex; align-items: center; gap: 11px; padding: 9px 15px; border-top: 1px solid var(--border-soft); font-size: 13px; }
+.rev-exc:hover { background: var(--surface-2); }
+.rev-exc > code { font-size: 12px; font-weight: 700; flex: none; min-width: 140px; }
+.rev-diff { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; flex: 1; min-width: 0; }
+.rev-pill { font-size: 10.5px; font-weight: 600; border-radius: 99px; padding: 1px 8px; }
+.rev-pill.base { color: var(--muted); background: var(--surface-2); border: 1px solid var(--border-soft); }
+.rev-pill.add { color: var(--ok); background: var(--ok-soft); }
+.rev-pill.rem { color: var(--danger); background: var(--danger-soft); }
+.rev-exc-toggle { background: none; border: 0; color: var(--info); font-size: 12px; cursor: pointer; flex: none; }
+.rev-exc-toggle:hover { text-decoration: underline; }
+.rev-exc.open { display: block; background: var(--surface-2); }
+.rev-exc.open:hover { background: var(--surface-2); }
+.rev-exc-head { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+.rev-exc-head code { font-size: 12px; font-weight: 700; margin-right: auto; }
+.rev-exc-reset { background: none; border: 0; color: var(--muted); font-size: 12px; cursor: pointer; }
+.rev-exc-reset:hover { color: var(--danger); }
+.rev-folded { display: flex; align-items: center; gap: 10px; padding: 10px 15px; border-top: 1px solid var(--border-soft); color: var(--muted); font-size: 12.5px; }
+.rev-folded .count { color: var(--ac); font-weight: 700; }
+.rev-fold-toggle { margin-left: auto; background: none; border: 0; color: var(--info); font-size: 12.5px; cursor: pointer; }
+.rev-fold-toggle:hover { text-decoration: underline; }
+.rev-folded-list { padding: 0 15px 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+.rev-repo-mini { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--muted); background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 7px; padding: 2px 4px 2px 8px; }
+.rev-mk-exc { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 13px; line-height: 1; padding: 0 3px; opacity: .7; }
+.rev-mk-exc:hover { opacity: 1; color: var(--ok); }
+.rev-newexc { display: flex; gap: 8px; align-items: center; padding: 11px 15px; border-top: 1px solid var(--border-soft); }
+.rev-newexc-input { flex: 1; min-width: 0; max-width: 260px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 13px; }
+
+/* o .switch tem que ser IRMÃO IMEDIATO do input: não meta nada entre os dois, senão
+   ele para de refletir o estado sem erro nenhum (salva certo e parece desligado). */
+.switch { flex: none; width: 36px; height: 20px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--border); position: relative; transition: background .15s ease; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); transition: all .15s ease; }
+.set-row input:checked + .switch { background: var(--accent); border-color: var(--accent); }
+.set-row input:checked + .switch::after { left: 18px; background: var(--accent-ink); }
+.set-row input:focus-visible + .switch { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.update-box { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 13.5px; }
+.update-box .up-ver { font-weight: 650; }
+.update-box .up-note { color: var(--muted); font-size: 12.5px; flex: 1; min-width: 200px; }
+.update-box.avail { border-left: 3px solid var(--accent); }
+.update-box.ok-state { border-left: 3px solid var(--ok); }
+
+.logbox { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; font: 12px/1.6 "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; color: var(--muted); max-height: 300px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+.about { margin-top: 28px; color: var(--muted); font-size: 12px; line-height: 1.8; }
+
+/* ---------- silenciadas (resumo recolhido) ---------- */
+.silenced { margin-top: 16px; border: 1px dashed var(--border); border-radius: var(--radius); background: color-mix(in srgb, var(--surface) 40%, transparent); }
+.sil-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; font-size: 12.5px; color: var(--muted); }
+.sil-head .sil-icon { opacity: .8; }
+.sil-head .sil-toggle { margin-left: auto; background: none; border: 0; color: var(--info); font-size: 12.5px; cursor: pointer; font-weight: 600; }
+.sil-head .sil-toggle:hover { text-decoration: underline; }
+.sil-items { padding: 0 14px 12px; display: flex; flex-direction: column; gap: 8px; }
+
+/* ---------- analisando agora ---------- */
+.session-card { border-left: 3px solid var(--info); }
+.session-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.session-head b { font-size: 13.5px; }
+.session-head a { font-size: 12.5px; flex: none; }
+.session-model { font-size: 10.5px; font-weight: 700; flex: none; color: var(--info); background: var(--info-soft); border-radius: 99px; padding: 1px 8px; letter-spacing: .02em; }
+/* subagentes trabalhando na revisão (vivos/total); o title lista quem faz o quê */
+.session-agents { font-size: 10.5px; font-weight: 700; flex: none; color: var(--info); background: var(--info-soft); border-radius: 99px; padding: 1px 8px; font-variant-numeric: tabular-nums; cursor: default; }
+/* dono do PR em revisão: menção navegável (foto + @login) no cabeçalho do card */
+.session-author { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; flex: none; max-width: 40%; }
+.session-author .person-mention { color: var(--muted); min-width: 0; }
+.session-elapsed { color: var(--muted); font-size: 12px; margin-left: auto; font-variant-numeric: tabular-nums; }
+.spin.accent { display: inline-block; width: 13px; height: 13px; flex: none; border: 2px solid var(--info); border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
+.activity-feed { margin-top: 10px; max-height: 210px; overflow-y: auto; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; font: 12px/1.7 "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; }
+.feed-line { display: flex; gap: 8px; align-items: baseline; }
+.feed-t { color: var(--faint); font-size: 10.5px; flex: none; }
+.feed-i { flex: none; width: 14px; text-align: center; }
+.feed-x { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.feed-line.k-tool .feed-x { color: var(--info); }
+/* linha vinda de um subagente: etiqueta 👤 com o rótulo dele antes do texto */
+.feed-agent { flex: none; color: var(--info); font-size: 10.5px; font-weight: 700; white-space: nowrap; }
+
+/* esteira de etapas da revisão (estilo n8n): nós ligados, o ativo pulsa, o feito
+   fica marcado, o pendente apagado; o tempo acumulado acompanha cada nó */
+.stage-flow { display: flex; align-items: center; flex-wrap: wrap; row-gap: 4px; margin: 6px 0 4px; }
+.sf-node { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border: 1px solid var(--border); border-radius: 99px; font-size: 10.5px; color: var(--faint); background: transparent; flex: none; }
+.sf-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); flex: none; }
+.sf-node.sf-done { color: var(--muted); }
+.sf-node.sf-done .sf-dot { background: var(--info); }
+.sf-node.sf-active { color: var(--info); border-color: var(--info); font-weight: 700; }
+.sf-node.sf-active .sf-dot { background: var(--info); animation: sfpulse 1.1s ease-in-out infinite; }
+.sf-ms { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 400; }
+.sf-link { width: 12px; height: 1px; background: var(--border); flex: none; }
+@keyframes sfpulse { 50% { opacity: .25; } }
+.feed-line.k-warn .feed-x { color: var(--accent); }
+.feed-line.k-info .feed-x { color: var(--muted); }
+
+/* ---------- chat ---------- */
+.chat-panel { position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 92vw); background: var(--surface); border-left: 1px solid var(--border); box-shadow: var(--shadow); z-index: 40; display: flex; flex-direction: column; animation: chat-in .18s ease; }
+body.electron .chat-panel { top: 0; }
+body.electron .chat-head { padding-right: 150px; }
+@keyframes chat-in { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+.chat-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+/* Abaixo de 720px o painel lateral não cabe: vira sheet que sobe de baixo.
+   O padding-right de 150px do cabeçalho é reserva pros controles da janela do Electron,
+   e não faz sentido dentro de um painel que não os cobre, então só vale acima disso. */
+@media (max-width: 720px) {
+  .chat-panel { inset: auto 0 0 0; width: auto; height: 86%; border-left: 0; border-top: 1px solid var(--border); border-radius: 16px 16px 0 0; animation: sheet-in .2s ease; }
+  body.electron .chat-head { padding-right: 14px; }
+  /* alça, pra dizer que dá pra fechar arrastando/tocando fora */
+  .chat-panel::before { content: ; position: absolute; top: 7px; left: 50%; margin-left: -18px; width: 36px; height: 4px; border-radius: 99px; background: var(--border); }
+  .chat-head { padding-top: 18px; }
+}
+@keyframes sheet-in { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+.chat-title { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 10px; }
+.chat-title b { font-size: 13.5px; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-msgs { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.chat-hint { color: var(--muted); font-size: 13px; border: 1px dashed var(--border); border-radius: 10px; padding: 14px; }
+.msg { max-width: 92%; border-radius: 12px; padding: 9px 12px; font-size: 13px; }
+.msg.user { align-self: flex-end; white-space: pre-wrap; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+.msg.bot { align-self: flex-start; background: var(--surface-2); border: 1px solid var(--border); max-height: none; }
+.msg.bot > :first-child { margin-top: 0; }
+.msg.bot > :last-child { margin-bottom: 0; }
+.msg.sys { align-self: center; color: var(--muted); font-size: 12px; }
+.chat-activity { padding: 6px 14px; color: var(--info); font-size: 12px; font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; border-top: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-form { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--border); }
+.chat-form textarea { width: 100%; resize: vertical; min-height: 44px; max-height: 180px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; font: inherit; }
+.chat-form textarea:focus { outline: none; border-color: var(--accent); }
+.chat-form-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ---------- toasts ---------- */
+/* o left garante que o toast nunca fique mais largo que a tela (o max-width de 380px
+   sozinho já estourava numa viewport de 360) */
+.toasts { position: fixed; right: 18px; left: 18px; bottom: 18px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; z-index: 50; pointer-events: none; }
+.toasts > * { pointer-events: auto; }
+.toast { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 11px 15px; font-size: 13px; max-width: 380px; display: flex; gap: 9px; align-items: center; animation: toast-in .2s ease; }
+.toast.ok { border-left: 3px solid var(--ok); }
+.toast.error { border-left: 3px solid var(--danger); }
+.toast.info { border-left: 3px solid var(--info); }
+.toast .undo { color: var(--accent); cursor: pointer; font-weight: 650; background: none; border: 0; padding: 0; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; } }
+.toast.out { opacity: 0; transform: translateY(8px); transition: all .25s ease; }
+
+/* ---------- modal de confirmação ---------- */
+.modal-overlay { position: fixed; inset: 0; z-index: 80; background: rgba(0, 0, 0, .5); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; padding: 20px; animation: fadein .15s ease; }
+.modal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); max-width: 470px; width: 100%; padding: 20px 22px; }
+.modal-card.danger { border-top: 3px solid var(--danger); }
+/* leitura, não confirmação: o relatório de uma revisão é longo, então a caixa é
+   larga e o corpo rola sozinho, sem empurrar o botão de fechar pra fora da tela */
+.modal-card.wide { max-width: 760px; }
+.modal-body.scroll { max-height: 62vh; overflow-y: auto; }
+.review-box-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.modal-title { font-size: 15.5px; font-weight: 700; margin-bottom: 12px; }
+.modal-body { font-size: 13.5px; }
+.modal-body p { margin: 8px 0; color: var(--muted); }
+.modal-body ul { margin: 8px 0; padding-left: 20px; color: var(--muted); }
+.modal-body li { margin: 4px 0; }
+.modal-body b { color: var(--text); font-weight: 650; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; }
+.btn.danger-solid { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 650; }
+.btn.danger-solid:hover { filter: brightness(1.08); background: var(--danger); border-color: var(--danger); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------- entregas v2 ---------- */
+.section-head #delivOrg { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 12.5px; font-weight: 650; }
+.deliv-controls { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; flex-wrap: wrap; }
+.deliv-search { flex: 1; min-width: 180px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 11px; font: inherit; font-size: 12.5px; }
+.deliv-search:focus { outline: none; border-color: var(--accent); }
+.deliv-note { color: var(--danger); }
+
+/* cartões de estatística do topo */
+.deliv-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 0 0 10px; }
+.deliv-stat { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ds-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); }
+.deliv-stat b { font-size: 18px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1.2; }
+.ds-sub { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* gráfico "atividade no período" */
+.deliv-chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin: 0 0 10px; }
+.deliv-chart-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.deliv-chart-head h3 { margin: 0; font-size: 13.5px; font-weight: 650; }
+.deliv-chart-note { color: var(--faint); font-size: 11.5px; }
+.deliv-bars { display: flex; align-items: flex-end; gap: 3px; margin-top: 12px; }
+.deliv-bar { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.deliv-bar-track { height: 64px; display: flex; align-items: flex-end; }
+.deliv-bar-fill { width: 100%; background: var(--accent); border-radius: 3px 3px 0 0; min-height: 2px; }
+/* 'zero', nao 'empty': a classe generica .empty (estado vazio do app, padding 26px
+   + borda tracejada) casava com o fill e inflava dia sem merge pra 54px de altura */
+.deliv-bar-fill.zero { background: var(--border); }
+.deliv-bar-label { text-align: center; font-size: 10px; color: var(--faint); white-space: nowrap; overflow: hidden; }
+
+/* cartão de grupo (por repo ou por pessoa) */
+.deliv-card { padding: 0; overflow: hidden; }
+.deliv-card details > summary { list-style: none; cursor: pointer; }
+.deliv-card details > summary::-webkit-details-marker { display: none; }
+.deliv-sum { display: flex; align-items: center; gap: 10px; padding: 13px 16px; }
+.deliv-sum:hover { background: var(--surface-2); }
+.deliv-sum::after { content: '▸'; color: var(--muted); margin-left: auto; transition: transform .15s ease; }
+.deliv-card details[open] > summary.deliv-sum::after { transform: rotate(90deg); }
+.deliv-sum .avatar { flex: none; }
+.deliv-rank { color: var(--faint); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.deliv-name { font-weight: 650; }
+.deliv-sum .count { margin-left: 2px; }
+.deliv-meta { color: var(--muted); font-size: 12px; }
+.deliv-progress { width: 90px; height: 6px; background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 99px; overflow: hidden; flex: none; }
+.deliv-progress-fill { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+.deliv-card .rows { border-top: 1px solid var(--border-soft); padding: 6px 16px 12px; }
+.deliv-caption { padding: 8px 0 2px; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
+.deliv-caption:not(:first-child) { border-top: 1px solid var(--border-soft); margin-top: 4px; }
+.deliv-mais { display: block; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--border-soft); color: var(--info); font: inherit; font-size: 12.5px; font-weight: 600; padding: 8px 16px; cursor: pointer; }
+.deliv-mais:hover { text-decoration: underline; }
+
+.deliv-empty-actions { display: flex; gap: 7px; justify-content: center; margin-top: 13px; flex-wrap: wrap; }
+
+/* --- Consumo de tokens (tela própria) --- */
+.usage-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.usage-kpi { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px 10px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.usage-kpi-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.usage-kpi-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); font-weight: 600; }
+.usage-kpi-delta { font-size: 10.5px; font-weight: 700; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 99px; padding: 1px 8px; white-space: nowrap; }
+.usage-kpi b { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.25; }
+.usage-kpi-sub { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.usage-kpi-spark { width: 100%; height: 26px; display: block; margin-top: 6px; }
+/* Marca de escopo quando o segmentado "Este aparelho | Todos os aparelhos" não existe (a
+   consolidação está desligada). Sem ela a aba mostrava números sem escopo nenhum,
+   visualmente idênticos à visão consolidada. Tom neutro de propósito: é uma escolha de
+   configuração, não uma falha de carregamento, e falha tem o callout de aviso. */
+.usage-escopo { display: inline-flex; align-items: baseline; gap: 8px; min-width: 0; }
+.usage-escopo b { font-size: 12.5px; font-weight: 650; color: var(--text); }
+.usage-escopo span { font-size: 11.5px; color: var(--faint); }
+@media (max-width: 620px) {
+  .usage-escopo { flex-direction: column; align-items: flex-start; gap: 1px; }
+}
+
+.usage-chart-card { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.usage-chart-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+.usage-chart-head h3 { margin: 0; font-size: 14px; font-weight: 650; }
+.usage-caption { font-size: 11.5px; color: var(--faint); }
+.usage-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 2px; gap: 2px; }
+.seg-btn { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 11.5px; padding: 4px 10px; border-radius: 6px; cursor: pointer; transition: background .12s, color .12s; }
+.seg-btn:hover { color: var(--text); }
+.seg-btn.active { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.usage-chart { width: 100%; position: relative; }
+.usage-empty { color: var(--faint); font-size: 13px; padding: 22px 4px; text-align: center; }
+.usage-legend { display: flex; gap: 4px 16px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--muted); }
+.usage-legend .dot { width: 8px; height: 8px; border-radius: 2.5px; display: inline-block; margin-right: 6px; }
+.usage-legend b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; margin-left: 4px; }
+
+.usvg { width: 100%; height: auto; display: block; }
+.ugrid { stroke: var(--border); stroke-width: 1; opacity: .6; }
+.upeak-dot { fill: var(--text); stroke: var(--surface); stroke-width: 1.5; }
+.uaxis { fill: var(--faint); font-size: 10px; }
+.uaxis-x { text-anchor: middle; }
+.uaxis-y { text-anchor: end; }
+.usage-tooltip { position: absolute; top: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 8px 11px; box-shadow: var(--shadow); pointer-events: none; min-width: 150px; z-index: 5; }
+.usage-tooltip .ut-head { font-weight: 700; font-size: 11.5px; margin-bottom: 4px; }
+.usage-tooltip .ut-row { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--muted); padding: 1px 0; }
+.usage-tooltip .ut-row b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; margin-left: auto; }
+
+.usage-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+
+.usage-matrix-wrap { overflow-x: auto; }
+.usage-matrix { min-width: 320px; display: flex; flex-direction: column; }
+.usage-matrix-row { display: grid; align-items: center; gap: 8px; padding: 5px 0; }
+.usage-matrix-row.head { padding-bottom: 7px; border-bottom: 1px solid var(--border); }
+.usage-matrix-row.foot { padding-top: 7px; border-top: 1px solid var(--border); }
+.usage-matrix-row:not(.head):not(.foot) { border-bottom: 1px solid var(--border-soft); }
+.usage-matrix-hcell { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); font-weight: 600; text-align: right; }
+.usage-matrix-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.usage-matrix-cell { font-size: 12px; color: var(--text); text-align: right; font-variant-numeric: tabular-nums; border-radius: 5px; padding: 3px 7px; }
+.usage-matrix-total { font-size: 12px; color: var(--text); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.usage-matrix-grand { font-size: 12px; color: var(--accent); font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+
+.usage-budget { display: flex; flex-direction: column; gap: 10px; }
+.usage-budget-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; display: flex; flex-direction: column; gap: 8px; }
+.usage-budget-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.usage-budget-name { font-size: 13px; font-weight: 650; }
+.usage-budget-kind { font-size: 10.5px; font-weight: 700; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 99px; padding: 1px 8px; }
+.usage-budget-status { font-size: 10.5px; font-weight: 700; border-radius: 99px; padding: 1px 8px; margin-left: auto; white-space: nowrap; }
+.usage-budget-status.ok { color: var(--ok); background: var(--ok-soft); }
+.usage-budget-status.bad { color: var(--danger); background: var(--danger-soft); }
+.usage-meter { display: flex; flex-direction: column; gap: 3px; }
+.usage-meter-row { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.usage-meter-track { display: block; height: 6px; background: var(--surface); border-radius: 99px; overflow: hidden; }
+.usage-meter-fill { display: block; height: 100%; border-radius: 99px; background: var(--accent); }
+.usage-meter-fill.over { background: var(--danger); }
+.usage-budget-note { font-size: 11px; color: var(--faint); }
+
+.usage-sessions-wrap { overflow-x: auto; }
+.usage-sessions { min-width: 700px; max-height: 380px; overflow-y: auto; }
+.usage-sessions-row { display: grid; grid-template-columns: 86px 110px minmax(0,1fr) 84px 64px 64px 70px 56px; gap: 10px; align-items: center; padding: 7px 2px; border-bottom: 1px solid var(--border-soft); font-size: 12.5px; }
+.usage-sessions-row.head { border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+.usage-sessions-row:hover:not(.head) { background: var(--surface-2); }
+.usage-sessions-hcell { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); font-weight: 600; }
+.usage-sessions-hcell.right { text-align: right; }
+.usage-sessions-when { color: var(--faint); font-size: 12px; white-space: nowrap; }
+.usage-sessions-kind { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; }
+/* dois destinos, dois elementos: o texto (que trunca) e o botão da caixa de
+   revisão (que nunca encolhe, senão o alvo de clique some em nome comprido) */
+.usage-ref-cell { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.usage-sessions-ref { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usage-review-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--faint); cursor: pointer; }
+.usage-review-btn svg { width: 13px; height: 13px; }
+.usage-review-btn:hover, .usage-review-btn:focus-visible { color: var(--accent); background: var(--surface-2); }
+.usage-sessions-model { color: var(--muted); white-space: nowrap; }
+.usage-sessions-farol { color: var(--faint); white-space: nowrap; }
+.usage-sessions-num { text-align: right; font-variant-numeric: tabular-nums; }
+.usage-sessions-st { font-size: 10.5px; font-weight: 700; border-radius: 99px; padding: 1px 8px; }
+.usage-sessions-st.ok { color: var(--ok); background: var(--ok-soft); }
+.usage-sessions-st.erro { color: var(--danger); background: var(--danger-soft); }
+/* cancelada: desfecho neutro (nem sucesso nem falha), apagado de propósito */
+.usage-sessions-st.cancelada { color: var(--muted); background: color-mix(in srgb, var(--muted) 14%, transparent); }
+.usage-sessions-foot { display: flex; justify-content: space-between; gap: 10px; padding: 8px 2px 0; font-size: 11.5px; color: var(--faint); }
+
+/* ---------- responsividade ---------- */
+/* as abas encolhem e rolam quando nao cabem (escala com mais features, sem estourar o topo) */
+.tabs { min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -ms-overflow-style: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.nav-item { flex: none; }
+.top-actions { flex: none; }
+.brand { flex-shrink: 1; }
+/* linhas de lista e barras de acao quebram em vez de cortar botao/meta (so quebram quando nao cabem) */
+.row { flex-wrap: wrap; row-gap: 4px; }
+.section-head, .row-actions, .deliv-controls, .mypr-top, .decision-head, .dec-actions, .pr-card, .pr-actions { flex-wrap: wrap; }
+
+@media (max-width: 720px) {
+  /* marca + ações em cima, abas em linha própria de largura total */
+  .topbar-main { flex-wrap: wrap; row-gap: 8px; }
+  .topbar-main .brand { flex: 1 1 auto; min-width: 0; }
+  .topbar-main .top-actions { flex: none; order: 2; }
+  .tabs-row { display: flex; align-items: center; gap: 6px; flex: 1 0 100%; order: 3; min-width: 0; }
+  .topbar-main .tabs { flex: 1; min-width: 0; margin: 0; }
+}
+@media (max-width: 860px) {
+  .topbar-main { gap: 12px; padding: 10px 16px; }
+  body.electron .topbar-main { padding-right: 146px; }
+  main { padding: 14px 18px 48px; }
+}
+@media (max-width: 620px) {
+  .topbar-main { gap: 8px; padding: 8px 12px; }
+  .tabs { margin: 0; }                 /* alinha e rola a partir da esquerda */
+  .nav-item { padding: 6px 10px; }
+  #btnCheck span { display: none; }     /* Verificar agora vira so o icone */
+  #btnCheck { padding: 7px 9px; gap: 0; }
+  .ver { display: none; }
+  .brand-name { font-size: 15px; }
+  main { padding: 12px 12px 40px; }
+  .section-head { margin: 20px 0 10px; }
+  .usage-controls { width: 100%; }
+
+  /* ENTREGAS: os controles (segmentados + busca) ficavam espremidos numa linha só.
+     Em tela estreita eles quebram, e a grade de estatística vira 2 colunas. */
+  .deliv-controls { width: 100%; }
+  .deliv-stats { grid-template-columns: 1fr 1fr; }
+  .deliv-sum { padding: 11px 13px; }
+  .deliv-card .rows { padding-left: 10px; padding-right: 10px; }
+
+  /* DESTAQUES e TIME: cartões com avatar + texto viram coluna, senão o texto fica
+     com uma faixa de ~200px e quebra em toda palavra. */
+  .hl-card { gap: 10px; }
+  .member-head { flex-wrap: wrap; row-gap: 8px; }
+  .member-head .names { min-width: 0; flex: 1 1 100%; order: -1; }
+  .dom-matrix { grid-template-columns: 1fr 1fr; }
+
+  /* RADAR: card de PR com 4 botões numa linha só. O texto fica em cima, as ações
+     embaixo, ocupando a largura. */
+  .pr-card > .info, .mypr-top > .info { flex: 1 1 100%; min-width: 0; }
+  .pr-actions { width: 100%; }
+  .pr-actions .btn { flex: 1; justify-content: center; }
+  .pr-actions .btn.icon { flex: 0 0 auto; }
+}
+/* ---------- escada de breakpoints (documento de design, 2a) ----------
+   O alvo é JANELA ESTREITA DE DESKTOP (Electron a partir de ~380px), não celular:
+   as 6 abas e os nomes delas continuam, roláveis no topo, e não existe barra inferior. */
+
+/* 820px: acima disso as ações cabem na mesma linha do título sem apertar, então o card
+   volta ao layout de linha única (avatar · info · ações à direita). */
+@media (min-width: 820px) {
+  .pr-card { grid-template-columns: auto minmax(0, 1fr) auto; gap: 0 14px; align-items: center; }
+  .pr-card .pr-actions { grid-column: auto; margin-top: 0; }
+}
+
+@media (max-width: 420px) {
+  #sessionsPill { display: none; }
+  /* título de PR podia perder tudo pro ellipsis; em tela pequena vale mais ler o
+     título em duas linhas do que ver "feat: adicion…" */
+  .pr-title { white-space: normal; overflow: visible; }
+  .dom-matrix { grid-template-columns: 1fr; }
+  /* 380px é o piso utilizável. Encolhe o avatar e o título, mas nada abaixo de 11.5px,
+     e a ação primária ocupa a linha inteira (as secundárias descem). */
+  .avatar { width: 28px; height: 28px; font-size: 11.5px; }
+  .pr-title { font-size: 13.5px; }
+  .pr-card, .mypr-card, .decision { padding: 11px 12px; }
+  .pr-actions { width: 100%; flex-wrap: wrap; }
+  .pr-actions .btn.primary { flex: 1 0 100%; justify-content: center; }
+  .section-head h2 { font-size: 15px; }
+  .row { padding: 10px 11px; }
+}
+
+/* deep-link de alerta: pulso de destaque no card alvo */
+.pulse-focus { animation: pulse-focus 1.3s ease 2; }
+@keyframes pulse-focus {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 1.5px var(--accent); }
+}
+
+/* selecao por teclado (J/K) nas decisoes pendentes */
+.decision.kbd-sel { outline: 2px solid var(--info); outline-offset: 2px; }
+
+/* tabela do dialogo de atalhos (?) */
+.kbd-table { border-collapse: collapse; }
+.kbd-table td { padding: 4px 12px 4px 0; font-size: 13px; }
+.kbd-table kbd { background: var(--accent-soft); border: 1px solid var(--border); border-radius: 5px; padding: 1px 7px; font-family: inherit; font-size: 12px; }
+
+/* mini-navegacao do Radar: ancoras + contagem, sticky logo abaixo da topbar */
+/* Estado vazio POSITIVO: o `.empty` tracejado com "Tudo em dia" só dizia que não tem
+   nada. Aqui ele confirma o que o Farol fez enquanto você não olhava. */
+.empty-ok { border: 1px solid color-mix(in srgb, var(--ok) 28%, transparent); border-radius: var(--radius); background: color-mix(in srgb, var(--ok) 6%, transparent); padding: 22px 18px; text-align: center; }
+.eo-check { width: 34px; height: 34px; margin: 0 auto 11px; border-radius: 50%; background: var(--ok-soft); color: var(--ok); display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; }
+.eo-title { font-size: 14.5px; font-weight: 650; }
+.eo-sub { margin: 6px auto 0; max-width: 460px; color: var(--muted); font-size: 12.5px; text-wrap: pretty; }
+.eo-acts { display: flex; gap: 7px; justify-content: center; margin-top: 13px; flex-wrap: wrap; }
+/* o ponto apagado na cor da conta já diz que aquilo está dormindo, e casa com o resto
+   do sistema de cor (o emoji 🔕 não casava com nada) */
+.sil-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--info); opacity: .5; flex: none; }
+
+.conn-lost { display: flex; align-items: center; gap: 9px; margin-bottom: 11px; padding: 9px 12px; border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--danger) 10%, transparent); font-size: 12.5px; }
+.conn-lost .cl-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); flex: none; animation: pulse-soft 1.4s infinite; }
+.conn-lost .cl-txt { flex: 1; min-width: 0; text-wrap: pretty; }
+.conn-lost .cl-sub { color: var(--muted); }
+.conn-lost .cl-try { color: var(--faint); font-size: 11px; flex: none; }
+@keyframes pulse-soft { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+
+/* o ⌘K só existe em janela estreita: acima disso as 6 abas cabem e o atalho basta */
+.cmd-open { display: none; font-weight: 700; letter-spacing: .5px; flex: none; }
+@media (max-width: 720px) { .cmd-open { display: inline-flex; } }
+
+/* ---------- Radar: 3 sub-abas ---------- */
+/* Substituem a antiga .radar-nav (faixa de âncoras rolável, que escondia metade dos
+   destinos sem avisar). Três alvos iguais, grudados no topo abaixo da topbar. */
+.radar-subs {
+  position: sticky; top: var(--topbar-h); z-index: 15;
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 3px; margin: 4px 0 14px;
+}
+.rsub {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  border: 0; border-radius: 8px; background: transparent; color: var(--muted);
+  font: inherit; font-size: 12.5px; font-weight: 550; padding: 7px 4px;
+  cursor: pointer; white-space: nowrap; transition: background .15s ease, color .15s ease;
+}
+.rsub:hover { color: var(--text); }
+.rsub.active { background: var(--surface-2); color: var(--text); font-weight: 650; }
+.rpane { display: none; }
+.rpane.active { display: block; }
+/* o primeiro cabeçalho de cada painel não repete a margem de 26px: aqui ele é o topo */
+.rpane > *:first-child.section-head, .rpane > div:first-child > .section-head { margin-top: 0; }
+
+/* Acima de 900px as sub-abas param de esticar: 3 botões de 33% viram alvos de 300px,
+   que é absurdo pra um alvo de clique. */
+@media (min-width: 900px) {
+  .radar-subs { display: flex; gap: 4px; width: max-content; }
+  .rsub { padding: 7px 15px; font-size: 13px; }
+}
+/* Em 380px o rótulo NÃO encolhe (as 3 palavras continuam), só a fonte. */
+@media (max-width: 420px) {
+  .rsub { font-size: 11.5px; gap: 5px; padding: 7px 2px; }
+}
+
+/* paleta de comando (Ctrl+K) */
+.cmd-overlay { align-items: flex-start; padding-top: 12vh; }
+.cmd-box { width: min(560px, 92vw); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+.cmd-input { width: 100%; box-sizing: border-box; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); font-size: 15px; padding: 14px 16px; outline: none; }
+.cmd-list { max-height: 50vh; overflow-y: auto; padding: 6px; }
+.cmd-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; cursor: pointer; font-size: 13.5px; }
+.cmd-item:hover, .cmd-item.sel { background: var(--surface-2); }
+.cmd-hint { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
+.cmd-empty { padding: 16px; color: var(--muted); font-size: 13px; }
+
+/* ---------- operation feedback widgets ---------- */
+/* Unified feedback visual system for async operations: showing current step, progress, and status */
+
+/* Full operation widget: focused operations with progress and steps */
+.op-widget {
+  display: flex; flex-direction: column; gap: 12px;
+  border-left: 3px solid var(--info);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 9px; padding: 14px 16px;
+  font-size: 13px; max-width: 340px; transition: all .2s ease;
+  /* a caixa mora dentro do card do PR: sem isto o conteúdo largo a estica para fora */
+  min-width: 0;
+}
+.op-widget.done {
+  border-left-color: var(--ok);
+  opacity: .7; animation: opFadeOut 3s ease forwards;
+}
+.op-widget.error {
+  border-left-color: var(--danger);
+}
+
+/* Header with icon and title */
+.op-header {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 600; color: var(--text);
+  /* nome de PR é longo e tem barra e tracinho: quebra dentro da caixa, nunca fora dela */
+  overflow-wrap: anywhere;
+}
+.op-icon {
+  width: 16px; height: 16px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.op-icon.spin {
+  width: 13px; height: 13px; border: 2px solid var(--info);
+  border-top-color: transparent; animation: opSpin .8s linear infinite;
+}
+.op-icon.done::after {
+  content: "✓"; color: var(--ok); font-weight: 700; font-size: 14px;
+}
+.op-icon.error::after {
+  content: "✕"; color: var(--danger); font-weight: 700; font-size: 14px;
+}
+
+/* Step text and metadata */
+/* O passo pode ser uma linha ENORME sem espaço nenhum (o FAROL_CHECKPOINT é um JSON
+   inteiro numa linha): ele cabe em duas linhas, corta com reticências e quebra a palavra
+   que não couber. O texto completo fica no `title`, então nada se perde. */
+.op-step {
+  color: var(--muted); font-size: 12.5px; margin: 0;
+  line-height: 1.45;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden; overflow-wrap: anywhere;
+}
+.op-meta {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--muted); font-size: 11.5px;
+}
+.op-progress {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 11px; color: var(--faint);
+}
+/* a porcentagem com largura fixa alinha a barra de todos os cards na mesma coluna */
+.op-progress > span { min-width: 30px; text-align: right; }
+.op-bar {
+  flex: 1; height: 4px; background: var(--border);
+  border-radius: 2px; overflow: hidden;
+}
+.op-bar-fill {
+  height: 100%; background: var(--info);
+  transition: width .3s ease;
+}
+/* barra do card de sessão no "Analisando agora" (régua única sessionProgress) */
+.sess-progress { margin: 2px 0 6px; }
+.sess-progress .sess-pct { min-width: 30px; text-align: right; }
+
+/* Action buttons */
+.op-actions {
+  display: flex; gap: 8px; margin-top: 6px;
+}
+.op-cancel {
+  flex: 1; padding: 6px 10px; font-size: 12px;
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 6px; color: var(--muted); cursor: pointer;
+  transition: all .15s ease; font-weight: 550;
+}
+.op-cancel:hover { border-color: var(--danger); color: var(--danger); }
+
+/* Inline pill: compact feedback for background operations */
+.op-inline-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 99px;
+  font-size: 11px; font-weight: 600;
+  background: var(--info-soft); color: var(--info);
+  border: 1px solid transparent; white-space: nowrap;
+}
+.op-inline-pill.done {
+  background: var(--ok-soft); color: var(--ok);
+}
+.op-inline-pill.error {
+  background: var(--danger-soft); color: var(--danger);
+}
+.op-inline-pill .op-icon {
+  width: 11px; height: 11px;
+}
+.op-inline-pill .op-icon.spin {
+  width: 10px; height: 10px; border-width: 1.5px;
+}
+
+/* Spinner animation (reuses existing pattern) */
+@keyframes opSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Fade out animation for completed operations */
+@keyframes opFadeOut {
+  0% { opacity: .7; }
+  90% { opacity: .7; }
+  100% { opacity: 0; }
+}
+
+/* Streaming chat indicator (Claude typing) */
+.msg.streaming {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 14px; color: var(--muted);
+}
+.typing-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--muted); opacity: .6;
+  animation: chatTyping .6s infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: .1s; }
+.typing-dot:nth-child(3) { animation-delay: .2s; }
+@keyframes chatTyping {
+  0%, 60%, 100% { opacity: .3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-6px); }
+}
+
+/* ---------- editor de orçamento por perfil (v2.50.0) ----------
+   Vale igual pros dois tipos de perfil (assinatura e chave de API). O bloco fica
+   separado por uma linha de cima porque é um assunto próprio dentro do card, e
+   não mais dois inputs perdidos entre a chave e o diretório. */
+.cp-budget { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-soft); }
+.cp-budget-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.cp-budget-head strong { font-size: 12.5px; }
+.cp-budget .a-editrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.cp-budget input[type="number"] { width: 190px; }
+.cp-budget-mais > summary { cursor: pointer; font-size: 12px; color: var(--muted); padding: 4px 0; user-select: none; }
+.cp-budget-mais > summary:hover { color: var(--text); }
+.cp-budget-mais[open] > summary { margin-bottom: 8px; }
+
+/* ---------- Plano e chaves: o resultado de "Testar perfil" (ui/pure/perfil.js) ----------
+   Estas classes nasceram sem regra nenhuma, e os <span> do bloco se emendavam numa frase
+   só: "Testado às 15:58o teste não abre sessão...", "Conta fulano@x detectado", "Tipo de
+   autenticação não sabemos desconhecido" (print de 21/09/2026). Cada linha é rótulo, valor,
+   o selo de ORIGEM do dado e o motivo; a cor do selo diz o quanto dá para confiar no valor. */
+.cp-teste-box { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-soft); display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
+.cp-teste-topo { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 2px; }
+.cp-teste-quando { font-weight: 600; }
+.cp-teste-nota { color: var(--faint); font-size: 11.5px; }
+.cp-linha { display: grid; grid-template-columns: 170px minmax(0, 1fr) auto; gap: 2px 10px; align-items: baseline; }
+.cp-chave { color: var(--muted); }
+.cp-valor { min-width: 0; overflow-wrap: anywhere; }
+.cp-valor.cp-vazio { color: var(--faint); font-style: italic; }
+.cp-motivo { grid-column: 2 / -1; color: var(--faint); font-size: 11.5px; }
+.cp-teste-aviso { margin-top: 4px; padding: 8px 10px; border-radius: 8px; background: var(--accent-soft); font-size: 12px; text-wrap: pretty; }
+.cp-teste-erro { color: var(--danger); }
+.origem { justify-self: end; font-size: 10.5px; font-weight: 700; border-radius: 99px; padding: 2px 9px; white-space: nowrap; color: var(--muted); background: var(--surface-2); }
+.origem.validado { color: var(--ok); background: var(--ok-soft); }
+.origem.informado, .origem.detectado { color: var(--info); background: var(--info-soft); }
+.origem.inferido { color: var(--accent); background: var(--accent-soft); }
+@media (max-width: 620px) {
+  .cp-linha { grid-template-columns: minmax(0, 1fr) auto; }
+  /* com duas colunas, a coluna 2 é a do selo: o motivo que ficasse nela esticava o selo e
+     espremia o valor até zero, e "não sabemos" saía uma letra por linha (medido a 373 px) */
+  .cp-chave, .cp-motivo { grid-column: 1 / -1; }
+}
+.cp-atalhos { gap: 6px; }
+/* sete colunas fixas: a semana inteira cabe numa linha só e a leitura é de
+   calendário, não de formulário. Abaixo de 560px vira duas linhas sozinho. */
+.cp-dows { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin-bottom: 6px; }
+.cp-dow { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--muted); }
+.cp-dow input { width: 100%; min-width: 0; font-size: 12px; padding: 5px 6px; }
+.cp-datas { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.cp-datas li { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.cp-data-dia { font-variant-numeric: tabular-nums; }
+.cp-data-valor { color: var(--muted); font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) {
+  .cp-dows { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .cp-budget input[type="number"] { width: 100%; }
+}
+
+
+/* ---------- select com a seta da casa ---------- */
+/* A caixa do select ja era estilizada em cinco lugares e a SETA continuava a nativa
+   do sistema: e ela que denuncia a tela que nao passou por desenho. Uma regra por
+   lugar (a especificidade de cada um ja vence uma regra generica em `select`), e a
+   cor da seta troca junto com o tema pelo token --seta-select. */
+.set-ctl select,
+.acct-card .a-pol-item select,
+.field select,
+.papel-level, .dom-level,
+.rev-add,
+.jira-site select {
+  appearance: none; -webkit-appearance: none;
+  padding-right: 28px;
+  background-image: var(--seta-select);
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+/* O papel dentro do cartao de decisao e do PR e um controle MIUDO, inline no meio de
+   uma frase: ali a seta desenhada nao cabe e a regra acima seria pior que a nativa. */
+.dec-author .papel-level, .pr-sub .papel-level {
+  appearance: auto; -webkit-appearance: auto;
+  padding: 1px 5px;
+  background-image: none;
+}
+
+/* ---------- aviso emoldurado (callout) ---------- */
+/* Pra o fato que MUDA O COMPORTAMENTO da maquina de quem clica em salvar. Em prosa,
+   dentro do paragrafo de descricao, ele passava batido: era o caso do escopo dos MCPs
+   na tela do Jira. */
+.callout {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 11px 14px; margin: 0 0 16px;
+  border-radius: 10px; font-size: 12.5px; max-width: 860px; text-wrap: pretty;
+  border: 1px solid color-mix(in srgb, var(--info) 35%, transparent);
+  background: var(--info-soft); color: var(--muted);
+}
+.callout svg { width: 16px; height: 16px; flex: none; margin-top: 1px; color: var(--info); }
+.callout b { color: var(--text); }
+.callout.warn { border-color: color-mix(in srgb, var(--accent) 35%, transparent); background: var(--accent-soft); }
+.callout.warn svg { color: var(--accent); }
+
+/* ---------- divergência entre o gh da máquina e as contas do Farol (v2.62.0) ---------- */
+.contas-gh { max-width: 860px; }
+.contas-gh-lista { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 6px; }
+.contas-gh-item { line-height: 1.45; }
+.contas-gh-acao { white-space: nowrap; }
+
+/* ---------- site do Jira ---------- */
+/* O cartao era uma pilha de inputs sem rotulo, com a credencial na mesma fileira dos
+   outros campos e o mapeamento org -> site espalhado em dois campos de texto. Aqui ele
+   ganha tres blocos com papel proprio: identidade (topo), configuracao (corpo) e
+   credencial (bloco separado, que e o que decide se o recurso funciona). */
+.jira-site { padding: 0; border-left: 3px solid var(--ok); }
+.jira-site.sem-cred { border-left-color: var(--accent); }
+
+.jira-topo { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--border-soft); }
+.jira-nome { font-size: 14px; font-weight: 650; background: var(--surface-2); color: var(--text); border: 1px solid transparent; border-radius: 7px; padding: 3px 9px; width: 190px; max-width: 40%; }
+.jira-nome:hover { border-color: var(--border); }
+.jira-nome:focus { outline: none; border-color: var(--ac); background: var(--surface); }
+/* o mapeamento e o coracao do recurso: a org do GitHub leva ao site do Jira. Ele
+   deixa de estar implicito em dois campos e passa a se ler como uma frase. */
+.jira-mapa { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); background: var(--surface-2); border: 1px solid var(--border); border-radius: 99px; padding: 3px 11px; min-width: 0; }
+.jira-mapa code { background: none; padding: 0; color: var(--text); font-size: 11.5px; }
+.jira-mapa .seta { color: var(--ac); font-weight: 700; }
+.jira-mapa .vago { color: var(--faint); font-style: italic; }
+.jira-espaco { flex: 1; }
+.jira-chip { font-size: 10.5px; font-weight: 700; border-radius: 99px; padding: 2px 9px; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; color: var(--ok); background: var(--ok-soft); }
+.jira-chip.falta { color: var(--accent); background: var(--accent-soft); }
+.jira-chip svg { width: 11px; height: 11px; }
+
+.jira-corpo { padding: 14px 16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.jira-campo { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.jira-campo > label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); }
+.jira-campo input { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 12.5px; width: 100%; }
+.jira-campo input:focus { outline: none; border-color: var(--accent); }
+.jira-campo .dica { font-size: 11px; color: var(--faint); }
+
+.jira-cred { margin: 0 16px 14px; border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+.jira-cred-topo { display: flex; align-items: center; gap: 9px; padding: 9px 13px; border-bottom: 1px solid var(--border-soft); }
+.jira-cred-topo svg { width: 14px; height: 14px; flex: none; color: var(--ok); }
+.jira-site.sem-cred .jira-cred-topo svg { color: var(--accent); }
+.jira-cred-titulo { font-size: 12.5px; font-weight: 650; }
+.jira-cred-onde { font-size: 11.5px; color: var(--faint); margin-left: auto; font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; }
+.jira-cred-corpo { padding: 12px 13px; display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.jira-cred-corpo .jira-campo { flex: 1; min-width: 190px; }
+.jira-cred-nota { padding: 0 13px 11px; margin: 0; font-size: 11.5px; color: var(--faint); text-wrap: pretty; }
+.jira-cred-guardada { padding: 12px 13px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.jira-cred-guardada .quem { color: var(--text); font-weight: 600; }
+.jira-cred-guardada .espaco { flex: 1; }
+
+.jira-rodape { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 0 16px 13px; }
+.jira-rodape .espaco { flex: 1; }
+.jira-teste { font-size: 11.5px; color: var(--faint); }
+.jira-teste.ok { color: var(--ok); }
+.jira-teste.ruim { color: var(--danger); }
+
+.jira-add { padding: 14px 16px; border-style: dashed; background: color-mix(in srgb, var(--surface) 50%, transparent); }
+.jira-add-titulo { font-size: 13px; font-weight: 650; margin-bottom: 10px; }
+.jira-add-grade { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 12px; align-items: end; }
+.jira-add-hint { margin: 10px 0 0; font-size: 11.5px; color: var(--faint); text-wrap: pretty; }
+
+@media (max-width: 900px) {
+  .jira-corpo { grid-template-columns: 1fr; }
+  .jira-add-grade { grid-template-columns: 1fr; }
+}
+
+/* --- Justiça de fila (spec 2026-09-10-justica-de-fila-entre-orgs) --- */
+.fj-card { margin-bottom: 16px; }
+.fj-head h3 { margin: 0 0 4px; }
+.fj-head .section-desc { margin: 0 0 12px; }
+.fj-bloco { margin-top: 16px; }
+.fj-bloco:first-child { margin-top: 0; }
+.fj-bloco h4 { margin: 0 0 4px; font-size: 13px; }
+.fj-nota { margin: 0 0 10px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+.fj-tab { width: 100%; border-collapse: collapse; font-size: 13px; }
+.fj-tab th { text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--muted); padding: 0 8px 6px 0; }
+.fj-tab td { padding: 6px 8px 6px 0; border-top: 1px solid var(--border-soft); }
+.fj-tab .fj-num { text-align: right; padding-right: 0; }
+.fj-org { font-weight: 600; }
+.fj-conta { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
+.fj-conta.is-cedendo { border-color: var(--urgent); background: var(--accent-soft); }
+.fj-conta-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.fj-user { font-weight: 600; font-size: 13px; }
+.fj-peso, .fj-tag { font-size: 11px; color: var(--muted); }
+.fj-tag { padding: 1px 7px; border: 1px solid var(--border); border-radius: 999px; }
+.fj-tag-cede { border-color: var(--urgent); color: var(--urgent); }
+/* barra da cota: o gasto contra a fatia da conta, não contra o teto do perfil */
+.fj-barra { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+/* usa os tokens SEMANTICOS do app, nao duas cores parecidas: --working (azul, "o
+   Farol esta rodando") pra quem esta consumindo dentro da cota, e --urgent (ambar,
+   "precisa de voce") pra quem estourou e cedeu a vez. Com --accent nos dois, as duas
+   barras saiam identicas na tela e a distincao que o painel existe pra mostrar sumia. */
+.fj-barra > span { display: block; height: 100%; background: var(--working); }
+.fj-conta.is-cedendo .fj-barra > span { background: var(--urgent); }
+.fj-conta-num { margin-top: 6px; font-size: 12px; color: var(--muted); }
+
+/* ---------- Sistema > Sincronização entre dispositivos ----------
+   Só tokens, nenhum hex novo. A cor da coordenação é deliberada: --info para espera e
+   --accent para atenção, nunca o --danger do estacionamento, porque segurar não é falhar. */
+.sync-sub-head { font-size: 13px; font-weight: 650; margin: var(--sp-5) 0 var(--sp-2); color: var(--text); }
+
+/* capacidade que existe e não está valendo (adendo, item 5): cada item é um bloco, para o
+   estado nunca se confundir com o motivo numa linha corrida */
+.cap-card .sync-sub-head { margin-top: 0; }
+.cap-lista { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: grid; gap: var(--sp-3); }
+.cap-item { display: grid; gap: 2px; padding: var(--sp-3); border: 1px solid var(--border); border-radius: var(--radius); }
+.cap-titulo { font-weight: 650; }
+.cap-estado { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--warn, var(--muted)); }
+.cap-motivo, .cap-falta { font-size: 13px; color: var(--muted); }
+.sync-card { padding: 0; border-left: 3px solid var(--ok); }
+.sync-card.warn { border-left-color: var(--accent); }
+.sync-card.bad { border-left-color: var(--danger); }
+.sync-card.off { border-left-color: var(--border); }
+.sync-topo { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; padding: 12px var(--sp-4); border-bottom: 1px solid var(--border-soft); }
+.sync-titulo { font-size: 14px; font-weight: 650; }
+.sync-espaco { flex: 1; }
+.sync-corpo { padding: var(--sp-3) var(--sp-4); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); }
+.sync-campo { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.sync-campo > label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); }
+.sync-input { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 12.5px; min-height: 31px; width: 100%; }
+.sync-input:focus { outline: none; border-color: var(--accent); }
+/* o olho fica DENTRO da moldura do campo: o input já tem largura total, então o botão
+   flutua sobre ele e o padding à direita reserva o espaço pro texto não passar por baixo */
+.sync-senha { position: relative; display: block; width: 100%; }
+.sync-senha > .sync-input { padding-right: 34px; }
+.sync-olho { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; background: none; border: 0; border-radius: 6px; color: var(--faint); cursor: pointer; }
+.sync-olho:hover { color: var(--text); background: var(--surface-3, var(--surface-2)); }
+.sync-olho:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sync-olho > svg { width: 15px; height: 15px; }
+.sync-dica { font-size: 11px; color: var(--faint); }
+.sync-vago { color: var(--faint); }
+.sync-vazio { margin: var(--sp-3) 2px; font-size: 12.5px; }
+.sync-conta { margin: 0 var(--sp-4) var(--sp-3); border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+.sync-conta-topo { display: flex; align-items: center; gap: 9px; padding: 9px 13px; border-bottom: 1px solid var(--border-soft); }
+.sync-conta-titulo { font-size: 12.5px; font-weight: 650; }
+.sync-conta-onde { font-size: 11.5px; color: var(--faint); margin-left: auto; font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; }
+.sync-conta-corpo { padding: 12px 13px; display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.sync-conta-corpo .sync-campo { flex: 1; min-width: 190px; }
+.sync-quem { color: var(--text); font-weight: 600; }
+.sync-conta-nota { padding: 0 13px 11px; margin: 0; font-size: 11.5px; color: var(--faint); text-wrap: pretty; }
+.sync-conta-nota-ruim { color: var(--danger); padding-top: 0; }
+.sync-degradada { margin: var(--sp-3) var(--sp-4); }
+.sync-rodape { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 0 var(--sp-4) 13px; }
+.sync-teste { font-size: 11.5px; color: var(--faint); }
+.sync-teste.ok { color: var(--ok); }
+.sync-teste.ruim { color: var(--danger); }
+.sync-lista { padding: 2px var(--sp-4); }
+.sync-linha { display: grid; grid-template-columns: minmax(0, 1fr) 90px 110px 150px; gap: var(--sp-3); align-items: center; padding: 10px 0; font-size: 12.5px; }
+.sync-linha + .sync-linha { border-top: 1px solid var(--border-soft); }
+.sync-linha.sync-head { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); padding-bottom: 6px; }
+/* A linha do Consumo consolidado tem TRÊS colunas (aparelho, sessões, custo · última), e a
+   .sync-linha genérica tem quatro, com um media query que esconde os filhos 2 e 3 no
+   estreito. Ali eles são justamente sessões e custo: a ≤720 px a tabela "Todos os
+   aparelhos" virava uma lista de nomes e mais nada (medido em 20/09/2026). A exceção é do
+   componente, como a da .apar-sessao, para não regredir os outros usos da .sync-linha. */
+.sync-linha.usage-dev { grid-template-columns: minmax(0, 1fr) 90px minmax(0, 190px); }
+.sync-nome { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; font-weight: 600; }
+.sync-fraco { color: var(--muted); }
+.sync-coord { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-3); align-items: center; padding: 11px 0; font-size: 12.5px; }
+.sync-coord + .sync-coord { border-top: 1px solid var(--border-soft); }
+.sync-ref { color: var(--accent); font-weight: 600; }
+.sync-o-que { display: block; color: var(--muted); margin-top: 1px; }
+.sync-o-que.sync-orfao { color: var(--accent); }
+.sync-legenda { font-size: 11.5px; color: var(--faint); margin: var(--sp-2) 2px 0; }
+.sync-chip { font-size: 10.5px; font-weight: 700; border-radius: 99px; padding: 2px 9px; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.sync-chip.ok { color: var(--ok); background: var(--ok-soft); }
+.sync-chip.warn { color: var(--accent); background: var(--accent-soft); }
+.sync-chip.bad { color: var(--danger); background: var(--danger-soft); }
+.sync-chip.info { color: var(--info); background: var(--info-soft); }
+.sync-chip.mute { color: var(--muted); background: var(--surface-2); }
+/* Anotação de coordenação no card da fila. Azul é espera (o PR está com outro aparelho),
+   âmbar é atenção (indisponível, teto de rodadas). O vermelho fica reservado ao
+   estacionamento, que é falha de verdade. */
+.pr-coord { margin-top: var(--sp-1); font-size: 11.5px; line-height: 1.35; color: var(--info); }
+.pr-coord.warn { color: var(--accent); }
+/* Telas estreitas (o Farol aberto no navegador do celular, via Termux): os três campos
+   viram um por linha e a lista de aparelhos perde a coluna do sistema. */
+@media (max-width: 720px) {
+  .sync-corpo { grid-template-columns: 1fr; }
+  .sync-linha { grid-template-columns: minmax(0, 1fr) auto; }
+  .sync-linha > :nth-child(2), .sync-linha > :nth-child(3) { display: none; }
+  /* o consolidado preserva sessões e custo: empilhados e com o rótulo do data-rot, porque
+     o cabeçalho da tabela também some aqui */
+  .sync-linha.usage-dev { grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); }
+  .sync-linha.usage-dev > :nth-child(2), .sync-linha.usage-dev > :nth-child(3) { display: block; }
+  .sync-linha.usage-dev.sync-head { display: none; }
+}
+
+/* ---------- pareamento da API local (A4) ----------
+   Tela inteira, sem topo, sem abas e sem nada do estado: com a exigência ligada e sem
+   credencial, é tudo o que a página mostra. O `body.parear` esconde o resto em vez de
+   apagar, para a volta depois do pareamento ser um reload limpo. */
+body.parear > *:not(.par-raiz) { display: none !important; }
+.par-wrap { max-width: 560px; margin: 0 auto; padding: 48px 20px 60px; display: flex; flex-direction: column; gap: 16px; }
+.par-marca { display: flex; align-items: center; gap: 9px; }
+.par-card { display: flex; flex-direction: column; gap: 16px; padding: 22px 24px; }
+.par-titulo { font-size: 20px; font-weight: 700; margin: 0; }
+.par-desc { margin: 0; color: var(--muted); font-size: 13.5px; text-wrap: pretty; }
+.par-passo { display: flex; flex-direction: column; gap: 8px; }
+.par-cmd { display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 12.5px; }
+.par-onde { color: var(--faint); }
+.par-cmd code { padding: 7px 10px; overflow-wrap: anywhere; }
+.par-rot { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); margin-top: 4px; }
+.par-input { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font: inherit; font-size: 14px; min-height: 44px; width: 100%; }
+.par-input:focus { outline: none; border-color: var(--accent); }
+.par-codigo { font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; font-size: 18px; letter-spacing: .16em; }
+.par-erro { color: var(--danger); font-size: 12.5px; }
+.par-erro:not(:empty) ~ .par-rot { margin-top: 8px; }
+.par-acoes { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.par-acoes .btn { min-height: 44px; }
+.par-dica { font-size: 11.5px; color: var(--faint); text-wrap: pretty; }
+.par-rodape { margin: 0; font-size: 11.5px; color: var(--faint); text-wrap: pretty; }
+@media (max-width: 480px) {
+  .par-wrap { padding: 24px 16px 40px; }
+  .par-cmd { grid-template-columns: minmax(0, 1fr) auto; }
+  .par-onde { grid-column: 1 / -1; }
+}
+
+/* ---------- falhas registradas (A3) ---------- */
+.falha-cartao { display: flex; flex-direction: column; gap: 8px; }
+/* o cartao nasce fechado (menos o que pede acao): o resumo e a linha que faz escolher qual
+   abrir, entao ele e clicavel inteiro e nao quebra em varias alturas */
+.falha-cartao details > *:not(summary) { margin-top: 8px; }
+.falha-cartao summary { cursor: pointer; list-style: none; }
+.falha-cartao summary::-webkit-details-marker { display: none; }
+.falha-cartao summary::before { content: "\25B8"; color: var(--faint); font-size: 11px; transition: transform .12s ease; display: inline-block; }
+.falha-cartao details[open] > summary::before { transform: rotate(90deg); }
+.falha-cartao summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.falha-topo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.falha-titulo { font-size: 13.5px; font-weight: 650; }
+.falha-vezes { font-size: 11.5px; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }
+.falha-ref { font-size: 11.5px; color: var(--muted); font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; }
+.falha-quando { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.falha-acao { margin: 0; font-size: 12.5px; color: var(--muted); text-wrap: pretty; }
+.falha-acao b { color: var(--text); font-weight: 650; }
+.falha-texto { margin-top: 0; max-height: 260px; }
+.falha-texto pre, #diagBox pre { margin: 8px 0; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 620px) { .falha-ref { width: 100%; } }
+
+/* ---------- visão compartilhada no Radar (B2, itens 2.7 a 2.9) ---------- */
+.pr-coord.bad { color: var(--danger); }
+.md-host { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 4px; }
+.md-faixa { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font-size: 12.5px; color: var(--text); text-wrap: pretty; }
+.md-faixa.warn { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.md-faixa.ok { border-color: color-mix(in srgb, var(--ok) 35%, var(--border)); }
+.md-espaco { flex: 1; }
+.md-goto { color: var(--info); cursor: pointer; }
+.md-goto:hover { text-decoration: underline; }
+.md-pend, .md-op { display: flex; flex-direction: column; gap: 6px; }
+.md-linha { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.md-titulo { font-size: 13.5px; font-weight: 650; overflow-wrap: anywhere; }
+.md-sub { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
+.md-fraco { font-size: 12px; color: var(--faint); overflow-wrap: anywhere; }
+.md-nota { margin: 6px 0 0; font-size: 12px; color: var(--muted); text-wrap: pretty; }
+.md-vazio { margin: 0; padding: 10px 2px; font-size: 12.5px; color: var(--muted); }
+.md-ruim { color: var(--danger); }
+.md-acoes { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.md-acoes .md-nota { margin: 0; }
+.md-lista { padding: 0; display: flex; flex-direction: column; }
+.md-cmd, .md-rev { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 9px 14px; border-top: 1px solid var(--border); font-size: 12.5px; min-width: 0; }
+.md-cmd:first-child, .md-rev:first-child { border-top: 0; }
+.md-rev-txt { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.md-rev-topo { margin-bottom: 8px; }
+.md-escopo.active { border-color: var(--accent); color: var(--accent); }
+.md-envio { display: flex; flex-direction: column; gap: 10px; }
+.md-numeros { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; }
+.md-modal-acoes { flex-wrap: wrap; }
+@media (max-width: 860px) {
+  .md-numeros { gap: 12px; }
+}
+@media (max-width: 720px) {
+  .md-cmd .md-espaco, .md-rev .md-espaco { display: none; }
+}
+@media (max-width: 620px) {
+  .md-acoes { flex-direction: column; align-items: stretch; }
+  .md-acoes .btn, .md-rev .btn, .md-rev-topo .btn, .md-envio .btn, .md-modal-acoes .btn { min-height: 44px; justify-content: center; }
+  .md-rev-topo .btn { flex: 1; }
+  .md-modal-acoes { flex-direction: column-reverse; align-items: stretch; }
+  .md-goto { min-height: 44px; display: inline-flex; align-items: center; }
+}
+/* ---------- Sistema > Aparelhos e Grupos de consumo (C2, C4b) ----------
+   Reaproveitam o cartão e a lista da Sincronização (.sync-card, .sync-lista, .sync-chip);
+   o prefixo apar-/grupo- fica só no que é novo. No estreito, a linha do aparelho vira
+   bloco, as ações vão para baixo e todo alvo de toque chega a 44 px. */
+.apar-corpo { display: flex; flex-direction: column; gap: 10px; padding: 14px var(--sp-4); }
+.card.apar-corpo { padding: 14px 18px; }
+.apar-titulo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.apar-acao { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.apar-acao .sync-campo { flex: 1; min-width: 200px; }
+/* A GRADE mora na lista, e cada linha herda as colunas dela (subgrid). Antes cada
+   .apar-linha era um grid próprio com a mesma receita, e coluna dimensionada por conteúdo
+   (`auto`, a das ações) não pode ser igual em grids diferentes: no cabeçalho ela valia 0 px
+   (span vazio) e nas linhas, a largura dos botões, que depende do PAPEL do aparelho.
+   Medido a 1500 px em 20/09/2026: nome de 448 px no cabeçalho contra 0, 37 e 198 px nas
+   linhas, com o nome transbordando por cima da coluna do sistema. Quanto mais poder a linha
+   oferecia, menos nome cabia.
+
+   AS AÇÕES SAEM DA GRADE (21/09/2026). Com elas como quinta coluna, a largura real da
+   seção Sistema não comporta tudo numa linha: medido no app, a lista tem 862 px (o menu
+   lateral fica com o resto), a coluna de ações cabia em 247 px e a linha com "Designar como
+   admin" precisava de 429 px. Reservar os 429 deixaria 65 px para o nome, que é o bug de
+   novo. Então os botões descem para uma FAIXA própria, com a largura inteira: os quatro
+   valores continuam alinhados sob os cabeçalhos, e as ações cabem numa linha só. */
+.apar-lista { display: grid; grid-template-columns: minmax(0, 1fr) 90px 100px 130px; column-gap: var(--sp-3); }
+.apar-lista > * { grid-column: 1 / -1; }
+.apar-linha { display: grid; grid-template-columns: subgrid; gap: var(--sp-1) var(--sp-3); align-items: center; padding: 10px 0; font-size: 12.5px; }
+.apar-linha + .apar-linha { border-top: 1px solid var(--border-soft); }
+.apar-linha.apar-head { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); padding-bottom: 6px; }
+.apar-linha .sync-nome { flex-wrap: wrap; }
+/* a faixa das ações: linha própria, largura inteira, alinhada à esquerda como o nome que
+   ela acompanha. `1 / -1` vale em qualquer uma das três grades (4, 3 ou 1 coluna). */
+.apar-linha .row-actions { grid-column: 1 / -1; justify-content: flex-start; flex-wrap: wrap; margin-top: 2px; }
+.apar-nota { margin: var(--sp-2) 2px var(--sp-3); font-size: 11.5px; color: var(--faint); text-wrap: pretty; }
+.apar-recusa { margin: 0; font-size: 12.5px; color: var(--danger); text-wrap: pretty; }
+.apar-grade { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); align-items: end; }
+.apar-campo { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.apar-campo > span:first-child { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); }
+.apar-tipos { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 12.5px; }
+.apar-tipo { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.apar-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
+.apar-aviso { margin-bottom: var(--sp-3); }
+.grupo-cartao { margin-bottom: var(--sp-3); }
+.grupo-rotulo { display: block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); }
+.grupo-linha { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.grupo-gasto { font-size: 16px; font-weight: 650; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.grupo-vago { color: var(--faint); font-size: 12px; font-weight: 400; }
+.grupo-falta ul, .grupo-perfis ul { margin: 4px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--muted); }
+.grupo-perfil { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--sp-3); align-items: center; padding: 10px 0; font-size: 12.5px; }
+.grupo-perfil + .grupo-perfil { border-top: 1px solid var(--border-soft); }
+.grupo-vinc { display: inline-flex; gap: 6px; align-items: center; }
+.grupo-vinc .sync-input { width: auto; max-width: 180px; }
+@media (max-width: 860px) {
+  .apar-grade { grid-template-columns: 1fr 1fr; }
+  /* quem troca de grade é sempre o container: a linha só herda (ver .apar-lista) */
+  .apar-lista { grid-template-columns: minmax(0, 1fr) 90px; }
+  .apar-linha > :nth-child(2), .apar-linha > :nth-child(4) { display: none; }
+}
+@media (max-width: 720px) {
+  .apar-duo, .apar-grade { grid-template-columns: 1fr; }
+  .apar-lista { grid-template-columns: minmax(0, 1fr); }
+  .grupo-perfil { grid-template-columns: minmax(0, 1fr); }
+  .apar-linha.apar-head { display: none; }
+  .apar-linha > :nth-child(2), .apar-linha > :nth-child(4) { display: inline; }
+  /* Com o cabeçalho escondido, cada valor diz o que é: sem isto a linha vira uma pilha de
+     valores crus (win32, v2.62.4, hoje 13:28) que só quem já conhece a tela decifra. O
+     rótulo vem do data-rot do próprio valor, então tela e rótulo nunca divergem. */
+  .apar-linha > [data-rot]::before, .sync-linha.usage-dev > [data-rot]::before {
+    content: attr(data-rot) ": "; color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+  }
+  .grupo-vinc { flex-wrap: wrap; }
+  .grupo-vinc .sync-input { max-width: none; flex: 1; }
+}
+@media (max-width: 620px) {
+  #devicesManager .btn, #groupsManager .btn, #devicesManager .sync-input, #groupsManager .sync-input { min-height: 44px; }
+  .apar-tipo { min-height: 44px; }
+  .apar-acao .sync-campo { min-width: 0; width: 100%; }
+}
+/* ---------- divergências de Aparelhos e Grupos (resolução de 16/09/2026) ----------
+   O cartão do que não está valendo repete o da Sincronização só no estreito (é onde o
+   celular chega primeiro); a linha do navegador pareado volta a mostrar pareado e usado no
+   estreito, empilhados, porque a regra genérica da .sync-linha os esconde; e o olho da
+   senha ganha alvo de toque junto com o campo. */
+.apar-so-estreito { display: none; }
+.apar-atalho { margin: var(--sp-2) 2px 0; }
+.modal-body .sync-senha { margin-top: var(--sp-2); }
+@media (max-width: 720px) {
+  .apar-so-estreito { display: block; }
+  .sync-linha.apar-sessao { grid-template-columns: minmax(0, 1fr); gap: var(--sp-1); }
+  .sync-linha.apar-sessao > :nth-child(2), .sync-linha.apar-sessao > :nth-child(3) { display: block; }
+  .sync-linha.apar-sessao > .btn { justify-self: start; }
+}
+@media (max-width: 620px) {
+  #devicesManager .sync-senha > .sync-input, .modal-body .sync-senha > .sync-input { padding-right: 48px; }
+  #devicesManager .sync-olho, .modal-body .sync-olho { width: 44px; height: 44px; right: 0; }
+}
+
+/* ---------- transferência e tomada pela tela (B2, item 2.9, quadro C8) ----------
+   A lista de destinos mora dentro do diálogo: apto em destaque, inapto apagado e sem
+   ação, cada um com o motivo. As opções de envio são os botões do próprio diálogo
+   (.md-modal-acoes), que já chegam a 44 px no estreito. */
+.md-destinos { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 10px; }
+.md-destino { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 8px 12px; font-size: 12.5px; overflow-wrap: anywhere; }
+.md-destino + .md-destino { border-top: 1px solid var(--border-soft); }
+.md-destino.md-apto b { color: var(--ok); }
+.md-destino.md-inapto { color: var(--muted); }
+.md-destino.md-inapto b { font-weight: 600; }
+@media (max-width: 860px) {
+  .md-destinos { margin-top: 8px; }
+}
+@media (max-width: 720px) {
+  .md-destino { flex-direction: column; gap: 2px; }
+}
+@media (max-width: 620px) {
+  .md-destino { min-height: 44px; justify-content: center; }
+  .pr-coord .md-goto { min-height: 44px; }
+}
+
+/* ---------- Panorama e Meus PRs de outros aparelhos (telas/listas-remotas.js) ---------- */
+.md-remoto { margin-top: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
+.md-remoto-topo { font-size: 12px; font-weight: 600; color: var(--muted); text-wrap: pretty; }
+.md-remoto-linhas { margin: 0; }
+.prow.md-remota { background: var(--surface); }
+.md-remota-fim { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+.md-remota .settled { color: var(--faint); }
+.md-origem { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.md-meu-remoto { display: flex; flex-direction: column; gap: 6px; }
+.md-pr { display: inline-flex; align-items: baseline; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.md-pr-titulo { overflow-wrap: anywhere; }
+.md-pr-autor { font-size: 12px; color: var(--muted); }
+.md-pr-generico { color: var(--text); }
+@media (max-width: 860px) {
+  .md-origem { max-width: 140px; }
+}
+@media (max-width: 720px) {
+  .prow.md-remota { flex-wrap: wrap; }
+  .md-remota-fim { justify-content: flex-start; width: 100%; }
+}
+@media (max-width: 620px) {
+  .md-remoto .pr-ref-mention, .md-remoto .person-mention, .md-pend .pr-ref-mention, .md-op .pr-ref-mention { min-height: 44px; display: inline-flex; align-items: center; }
+  .md-origem { max-width: none; white-space: normal; }
+}
+/* ---------- repetir, iniciar e designar admin pela tela (B2, itens 2.5 e 2.9) ----------
+   Os botões novos reaproveitam .md-acoes, .md-rev e a linha do aparelho, que já chegam a
+   44 px no estreito. Só as notas de "indisponível" são novas: na linha da revisão ela ocupa
+   a linha inteira em vez de espremer o chip, e na linha do aparelho ela quebra junto das
+   ações. */
+.md-rev .md-nota { flex-basis: 100%; margin: 0; }
+/* a nota de "designar: ..." mora na faixa das ações, e acompanha o alinhamento dela: com a
+   faixa à esquerda, empurrar a nota para a direita a deixava órfã do outro lado da tela */
+.apar-linha .row-actions .sync-fraco { flex-basis: 100%; text-align: left; }
+@media (max-width: 860px) {
+  .md-rev .md-nota { font-size: 11.5px; }
+}
+@media (max-width: 620px) {
+  .md-rev .md-nota { padding: 4px 0; }
+}
+
+/* Festa da análise impecável (17/09/2026). O canvas cobre a tela e NÃO recebe clique:
+   comemorar não pode atrapalhar quem está usando o app. O aviso discreto é o que sobra
+   quando o sistema pede movimento reduzido. */
+.confete {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+.confete-aviso {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translateX(-50%);
+  z-index: 61;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--card, #161b22);
+  border: 1px solid var(--ok, #2ea043);
+  color: var(--fg, #e6edf3);
+  font-size: 13px;
+  pointer-events: none;
+}
