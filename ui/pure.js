@@ -9,6 +9,7 @@ export * from './pure/aparelhos-limpeza.js';
 export * from './pure/aparelhos-politica.js';
 export * from './pure/autoanalise.js';
 export * from './pure/capacidades.js';
+export * from './pure/chat.js';
 export * from './pure/comum.js';
 export * from './pure/compartilhado.js';
 export * from './pure/compartilhado-historico.js';

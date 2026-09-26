@@ -18,6 +18,29 @@ export function api(path, body) {
   }).then(r => r.json()).catch(() => null);
 }
 export function get(path) { return fetch(path, { headers: comAutorizacao() }).then(r => r.json()).catch(() => null); }
+// GET que devolve também o código HTTP, para a tela que precisa dizer "a rota respondeu 502"
+// em vez de "falhou" (a exportação do chat). Rede fora é status 0; corpo que não é JSON
+// é corpo null. Nunca lança.
+export async function getComStatus(path) {
+  try {
+    const r = await fetch(path, { headers: comAutorizacao() });
+    const corpo = await r.json().catch(() => null);
+    return { status: r.status, corpo };
+  } catch { return { status: 0, corpo: null }; }
+}
+
+// Entrega um arquivo gerado na tela para a pessoa salvar (a exportação do chat). Devolve
+// false quando o navegador não oferece download, para a tela sugerir o caminho de copiar.
+export function baixarArquivo(nome, conteudo, tipo) {
+  try {
+    const url = URL.createObjectURL(new Blob([conteudo], { type: tipo }));
+    const a = document.createElement('a');
+    a.href = url; a.download = nome; a.style.display = 'none';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return true;
+  } catch { return false; }
+}
 
 // Copia texto com fallback: a Clipboard API exige contexto seguro e foco; quando
 // falha (ex.: janela sem foco), recai pro textarea + execCommand, que não depende
