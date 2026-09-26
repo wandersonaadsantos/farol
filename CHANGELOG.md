@@ -9,6 +9,22 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.22
+
+O login pelo celular passa a funcionar de verdade, e o Claude Code novo passa a valer mesmo com um antigo instalado.
+
+**Correções**
+
+- **"Abrir sessão de login" entrega o comando em qualquer aparelho sem terminal.** A
+  v2.62.21 só montava o comando quando o Farol se reconhecia como celular, e dentro do
+  proot-distro essa detecção falhava: o botão seguia pedindo para instalar um emulador de
+  terminal. Agora ele sempre copia um comando: no celular, o do Termux, que entra no proot e
+  abre o Claude na pasta do perfil; fora dele, um comando para rodar num terminal do mesmo
+  sistema.
+- **O Claude Code do instalador oficial vence o antigo.** A pasta `~/.local/bin` já estava no
+  caminho de busca, mas atrás de outra com uma versão antiga, e as revisões seguiam na
+  antiga. Agora ela vai sempre na frente.
+
 ## v2.62.21
 
 O login do Claude passa a funcionar no celular, e um Claude Code instalado depois de o Farol subir passa a valer.

@@ -7,6 +7,10 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.62.22', [
+    "'Abrir sessão de login' passa a copiar o comando de login em qualquer aparelho sem terminal, inclusive no celular, onde a versão anterior ainda pedia para instalar um emulador.",
+    "O Claude Code instalado pelo instalador oficial passa a ser usado mesmo quando existe uma versão antiga em outra pasta.",
+  ]],
   ['2.62.21', [
     "No celular, 'Abrir sessão de login' copia um comando para colar no Termux: ele abre o Claude já na pasta certa do perfil, então o login novo passa a valer para as revisões.",
     "Um Claude Code instalado ou atualizado depois de o Farol abrir passa a ser usado sem precisar reiniciar o Farol.",
