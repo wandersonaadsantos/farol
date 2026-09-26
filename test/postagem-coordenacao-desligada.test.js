@@ -138,21 +138,32 @@ test('postReviewFromSession: POST direto, sem consulta ao GitHub antes', async (
   assert.deepEqual(chamadas, [{ cmd: 'gh', args: POST, conteudo: arquivo({ event: 'APPROVE', body: CORPO, comments: [] }) }]);
 });
 
-test('coAssinar: dedup e POST sem commit_id, como hoje', async () => {
+// Desde 26/09/2026 a co-assinatura sem coordenação usa a régua do modo coordenado: relê o
+// endosso NO MESMO SHA e posta ancorada nele. Antes o POST saía sem commit_id, e um commit
+// novo entre a checagem e o POST saía aprovado em meu nome sem ninguém ter lido.
+test('coAssinar: relê o endosso no mesmo sha, dedup, e POST ancorado no head', async () => {
   const e = motor();
   e.skipComentado[PR.key] = { head: HEAD, quem: ['ana'] };
-  respostas = [VAZIO, OK_POST];
+  respostas = [{ ok: true, code: 0, stdout: `[{"quem":"ana","tipo":"User","state":"APPROVED","commit_id":"${HEAD}"}]`, stderr: '' }, VAZIO, OK_POST];
   assert.equal(await skip.coAssinar(e, PR, 'ana', HEAD), true);
   assert.deepEqual(chamadas, [
+    { cmd: 'gh', args: OUTROS, conteudo: null },
     { cmd: 'gh', args: MEUS, conteudo: null },
-    { cmd: 'gh', args: POST, conteudo: arquivo({ event: 'APPROVE', body: skip.textoDaCoassinatura('ana').trim(), comments: [] }) },
+    { cmd: 'gh', args: POST, conteudo: arquivo({ event: 'APPROVE', body: skip.textoDaCoassinatura('ana').trim(), comments: [], commit_id: HEAD }) },
   ]);
 });
 
-test('seguirForaDeCena com head vazio: desligada segue aceitando a aprovação sem commit_id', async () => {
+test('coAssinar: aprovação de quem pegou em OUTRO sha não endossa o head atual', async () => {
+  const e = motor();
+  respostas = [{ ok: true, code: 0, stdout: '[{"quem":"ana","tipo":"User","state":"APPROVED","commit_id":"0000000000000000000000000000000000000000"}]', stderr: '' }];
+  assert.equal(await skip.coAssinar(e, PR, 'ana', HEAD), false);
+  assert.deepEqual(chamadas.map((c) => c.args), [OUTROS], 'nada foi postado');
+});
+
+test('seguirForaDeCena com head vazio: sem head não há o que endossar, então não co-assina', async () => {
   const e = motor();
   e.config.coAssinarReview = true;
   respostas = [{ ok: true, code: 0, stdout: '[{"quem":"ana","tipo":"User","state":"APPROVED"}]', stderr: '' }, VAZIO, OK_POST];
-  assert.equal(await skip.seguirForaDeCena(e, { ...PR, labels: [] }, { head: '', quem: ['ana'] }, ''), true);
-  assert.deepEqual(chamadas.map((c) => c.args), [OUTROS, MEUS, POST]);
+  assert.equal(await skip.seguirForaDeCena(e, { ...PR, labels: [] }, { head: '', quem: ['ana'] }, ''), true, 'continua fora de cena');
+  assert.deepEqual(chamadas.map((c) => c.args), [OUTROS], 'leu os reviews e não postou nada');
 });

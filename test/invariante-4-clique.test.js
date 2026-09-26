@@ -30,12 +30,12 @@ const PR = { key: 'acme/api#1', repo: 'acme/api', number: 1, url: 'u', author: '
 // envelope APROVÁVEL: veredito + payload no formato que o gate exige, análise
 // completa, card comprovado e nada que trave (sem contestação, sem lacuna).
 const aprovavel = () => ({
-  analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true,
+  analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, verdict: 'approve', decision: 'auto_approve', cardMet: true,
   payloads: { approve: { event: 'APPROVE', body: 'ok' } },
 });
 // envelope REPROVÁVEL: mesma régua, do outro lado.
 const reprovavel = () => ({
-  analysisStatus: 'complete', verdict: 'request_changes', cardMet: true,
+  analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, verdict: 'request_changes', cardMet: true,
   payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'tem um blocker aqui' } },
 });
 
@@ -77,13 +77,19 @@ test('a trava vale pros dois lados na MESMA execução', () => {
   assert.equal(e.shouldAutoReject(clique, reprovavel()), false);
 });
 
-test('requested ausente (undefined) não é tratado como clique', () => {
-  // a trava é `=== false` de propósito: PR vindo de caminho que não carimba o campo
-  // não pode ser rebaixado por acidente. Trava o contrato pra quem mexer no gate.
+// Até 26/09/2026 este caso travava o contrário (`=== false`, "campo ausente não é
+// rebaixado"). O inventário dos caminhos de postagem mostrou quem chega sem o campo: os
+// comandos remotos (repetir, tomar, transferir; prDoComando o remove) e o executor da
+// distribuição sem o PR na fila dele. Todo caminho automático legítimo carimba `true`
+// (a fila em resolverPr e a rodada nova em launchReReviews), então ausência é "não sei se
+// foi pedido a mim", e o invariante 4 exige saber.
+test('requested ausente (undefined) não posta sozinho: o invariante 4 exige requested === true', () => {
   const e = enginePermissivo();
   const semCampo = { ...PR };
-  assert.equal(e.shouldAutoApprove(semCampo, aprovavel()).ok, true);
-  assert.equal(e.shouldAutoReject(semCampo, reprovavel()), true);
+  delete semCampo.requested;
+  assert.deepEqual(e.shouldAutoApprove(semCampo, aprovavel()), { ok: false, motivo: 'clique' });
+  assert.equal(e.shouldAutoReject(semCampo, reprovavel()), false);
+  assert.equal(e.shouldAutoApprove({ ...PR, requested: true }, aprovavel()).ok, true, 'pedido a mim segue aprovando');
 });
 
 /* ---------- APPROVE em branco não sai sozinho (31/08/2026) ----------
