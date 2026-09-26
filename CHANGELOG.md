@@ -9,6 +9,21 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.62.25
+
+O Farol passa a exportar a conversa do chat inteira, com metadados e horário de Brasília; o botão chega com a nova tela do chat.
+
+**Novidades**
+
+- **Exportação da conversa do chat, pelo motor.** A conversa inteira que o Farol guarda de
+  um PR (até 200 mensagens, e não só as 100 que a tela mostra) sai em Markdown e em JSON,
+  com PR, link, id da sessão do Claude, início da conversa, horário da exportação, versão
+  do Farol e o carimbo de cada mensagem no horário de Brasília, com o fuso explícito. Todo
+  texto passa pela máscara de segredo antes de sair, então um token colado na conversa não
+  vai junto. A rota é protegida pela autenticação da API local como as outras leituras
+  sensíveis. **Ainda não há botão**: o botão de exportar e o de copiar o id da sessão
+  entram com a nova tela do chat, que está sendo desenhada no Claude Design.
+
 ## v2.62.24
 
 A revisão automática fica com qualidade em primeiro lugar: o modo Auto nunca revisa abaixo do Opus, e o gate de postagem fecha três brechas.
