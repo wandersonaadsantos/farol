@@ -39,9 +39,10 @@ test('nenhuma rota aparece em duas classes', () => {
 // política, aviso da tomada, estado da chave de limpeza e as sessões da A4 (60 virou 66). O diagnóstico unificado (A3) acrescentou /api/diagnostics (66 virou 67). O plano e chaves (A2) acrescentou testar perfil e adotar o legado (67 virou 69). As divergências de Aparelhos acrescentaram a leitura da política publicada e a recusa da designação (69 virou 71). A transferência pela tela acrescentou /api/sync/transfer-targets, leitura sensível porque lista os aparelhos com o que cada um consegue fazer (71 virou 72).
 // As listas remotas (Panorama e Meus PRs de outros aparelhos) acrescentaram /api/sync/lists (72 virou 73).
 // A edição de conta por operação acrescentou /api/accounts/edit, na mesma classe de /api/settings (73 virou 74).
-test('as classes da spec cobrem os 74 caminhos, e as públicas são só as duas de autenticação', () => {
+// A exportação do chat acrescentou /api/chat/export, leitura sensível como /api/chat: leva a conversa inteira (74 virou 75).
+test('as classes da spec cobrem os 75 caminhos, e as públicas são só as duas de autenticação', () => {
   const naoPublicas = Object.entries(CLASSES).filter(([c]) => c !== 'autenticacao-publica').flatMap(([, rotas]) => rotas);
-  assert.equal(naoPublicas.length, 74);
+  assert.equal(naoPublicas.length, 75);
   assert.deepEqual(CLASSES['autenticacao-publica'].slice().sort(), ['/api/auth/pair', '/api/auth/status']);
   assert.deepEqual(Object.keys(CLASSES).sort(), ['autenticacao-publica', 'demais', 'destrutiva', 'escreve-github', 'evento', 'leitura-baixo-risco', 'leitura-sensivel', 'recebe-segredo', 'sessao-paga']);
 });
