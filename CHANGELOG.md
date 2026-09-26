@@ -9,6 +9,33 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.63.0
+
+O chat do PR fica legível no celular, mostra a conversa inteira, e passa a copiar o id da sessão e exportar a conversa completa.
+
+**Novidades**
+
+- **Exportar a conversa do chat.** O menu Exportar baixa a conversa completa em Markdown ou
+  JSON, ou copia o Markdown para colar onde não dá para baixar arquivo. O arquivo leva o PR, o
+  link, o id da sessão do Claude, quando a conversa começou e foi exportada, e a hora de cada
+  mensagem no horário de Brasília, com o fuso escrito. Sai a conversa guardada inteira, não só o
+  que a tela mostra. Token ou chave colada na conversa sai mascarada.
+- **Copiar o id da sessão do Claude.** Ele fica visível sob o cabeçalho do chat. É o mesmo id que
+  o `claude --resume` usa. Se o navegador não liberar a área de transferência, o id fica
+  selecionado para copiar à mão.
+
+**Melhorias**
+
+- **A conversa rola como uma coisa só.** Cada resposta aparecia cortada, com uma barra de
+  rolagem própria. Agora ela aparece inteira. Só o bloco de código e a tabela rolam para o lado,
+  dentro deles mesmos.
+- **Chat legível no celular.** A resposta ocupa a largura toda, com letra maior. O id e a
+  exportação ficam atrás do botão "Id e exportar", sem roubar altura. O campo de texto e o Enviar
+  ficam na mesma linha, e o teclado não esconde os dois.
+- **Cada mensagem mostra quem falou e a hora de Brasília.**
+- **Bloco de código e lista numerada aparecem formatados** nas respostas do Claude. Antes, cada
+  linha de código virava um parágrafo solto.
+
 ## v2.62.24
 
 A revisão automática fica com qualidade em primeiro lugar: o modo Auto nunca revisa abaixo do Opus, e o gate de postagem fecha três brechas.
