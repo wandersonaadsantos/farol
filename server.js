@@ -89,19 +89,19 @@ function codexWindowsPathDirs() {
   return dirs;
 }
 
-function aplicarPathDoBoot(extras) {
-  const next = prependPathDirs(process.env.PATH, extras, fs.existsSync);
+function aplicarPathDoBoot(extras, sempre = []) {
+  const next = prependPathDirs(process.env.PATH, extras, (d) => sempre.includes(d) || fs.existsSync(d));
   if (next) process.env.PATH = next;
 }
 
-// App aberto pelo Finder/Dock ou pelo atalho do Windows herda um PATH reduzido:
-// gh/claude/codex podem sumir mesmo existindo no terminal interativo.
+// App aberto pelo Finder/Dock ou atalho herda PATH reduzido (gh/claude/codex somem). O ~/.local/bin do instalador
+// do claude entra MESMO sem existir: instalado depois do boot, o Farol seguia no binário velho (celular, 26/09/2026).
 if (IS_WIN) {
   aplicarPathDoBoot(codexWindowsPathDirs());
 } else {
   const extras = ['/opt/homebrew/bin', '/usr/local/bin',
     path.join(os.homedir(), '.local', 'bin'), path.join(os.homedir(), 'bin')];
-  aplicarPathDoBoot(extras);
+  aplicarPathDoBoot(extras, [path.join(os.homedir(), '.local', 'bin')]);
 }
 
 // Windows e macOS são suportados; Linux é EXPERIMENTAL desde a v2.45.0 (ramo

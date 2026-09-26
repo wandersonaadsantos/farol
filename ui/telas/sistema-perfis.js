@@ -9,9 +9,20 @@
 
 import { claudeProfilesHtml, genId, perfilTesteHtml, perfilProblemasHtml } from '../pure.js';
 import { estado, ehWin } from './estado.js';
-import { $, api, toast } from './infra.js';
+import { $, api, toast, copyToClipboard } from './infra.js';
 import { rebuildAccounts } from './contas.js';
 import { renderAccountsManager } from './sistema-contas.js';
+
+// No celular o login não abre terminal: o Farol roda dentro do proot, e o comando que ele
+// devolve entra no proot pelo Termux, com HOME, PATH e a pasta do perfil já certos
+// (lib/engine/login-celular.js). Copiado, basta colar no Termux; sem a cópia, o comando
+// vai no próprio aviso, para dar pra copiar à mão.
+async function copiarComandoDeLogin(comando) {
+  const copiou = await copyToClipboard(comando);
+  const onde = 'Abra o Termux (fora do Ubuntu), cole e rode; o Claude abre direto na pasta deste perfil. Depois clique em Revisar nos PRs parados.';
+  const texto = copiou ? `Comando de login copiado. ${onde}` : `Rode no Termux (fora do Ubuntu): ${comando}`;
+  toast('ok', texto, 12000);
+}
 
 // Gerenciador de perfis de assinatura Claude (Sistema): cada perfil é {id,label,dir}
 // (login por assinatura) ou {id,label,kind:'apikey',apiKey,baseUrl} (chave de API).
@@ -230,8 +241,11 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
   }
   if (t.classList.contains('cp-login')) {
     const id = t.dataset.id || '';
-    api('/api/claude-login', { profileId: id });
-    toast('ok', 'Abrindo sessão de terminal pra login. Rode /login lá, se pedir, e pode fechar quando terminar.', 4500);
+    api('/api/claude-login', { profileId: id }).then((r) => {
+      // no celular não há terminal para abrir: o engine devolve o comando para o Termux
+      if (r && r.comando) { copiarComandoDeLogin(r.comando); return; }
+      toast('ok', 'Abrindo sessão de terminal pra login. Rode /login lá, se pedir, e pode fechar quando terminar.', 4500);
+    });
     return;
   }
   // adoção do legado (A2): quem grava é o engine, e só com confirmação literal. A tela
