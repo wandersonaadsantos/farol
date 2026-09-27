@@ -134,10 +134,18 @@ function engineLiberado() {
   e.accountForPr = () => 'alguem';
   return e;
 }
+// alcance válido para todo arquivo que o caso cita: estes testes medem a cobertura do DIFF, e o
+// uso fora do diff tem os próprios testes (test/alcance.test.js)
+function alcanceSintetico(extra = {}) {
+  const c = extra.coverage || {};
+  const lista = (v) => (Array.isArray(v) ? v : []);
+  const caminhos = [...lista(c.reviewed), ...lista(c.missing), ...lista(extra.diffMedido)].map((p) => String(p).replace(/^\.?\/+/, ''));
+  return [...new Set(caminhos)].map((alterado) => ({ alterado, chamadores: [], semChamador: 'fixture sintética sem consumidor' }));
+}
 function aprovavel(extra) {
   return {
     analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
-    payloads: { approve: { event: 'APPROVE', body: 'ok' } }, ...extra
+    payloads: { approve: { event: 'APPROVE', body: 'ok' } }, alcance: alcanceSintetico(extra), ...extra
   };
 }
 
@@ -255,7 +263,7 @@ test('a lacuna aparece nos pontos de atenção, com amostra dos arquivos', () =>
   const e = engineLiberado();
   const r = aprovavel({ coverage: { total: 9, reviewed: [], missing: ['a.ts', 'b.ts', 'c.ts', 'd.ts', 'e.ts', 'f.ts'] } });
   const pts = e.attentionPoints(r);
-  assert.match(pts[0].text, /não cobriu o diff inteiro \(6 pendência\(s\)\)/, 'diz quantos');
+  assert.match(pts[0].text, /A cobertura da leitura tem 6 pendência\(s\)/, 'diz quantos');
   assert.match(pts[0].text, /a\.ts/, 'mostra amostra');
   assert.equal(pts[0].kind, 'gate', 'lacuna de leitura é gate, não ressalva de conteúdo');
 });

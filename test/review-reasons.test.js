@@ -38,7 +38,7 @@ const textos = rs => (rs || []).map(texto);
 
 function envelope(extra) {
   return {
-    analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+    analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     reportMarkdown: 'relatório', payloads: { approve: { event: 'APPROVE', body: 'ok' } },
     ...extra
   };
@@ -86,7 +86,7 @@ test('recusa por cobertura incompleta NÃO é atribuída à política da conta (
   await e.runHeadlessReview(PR);
   const item = e.decisions.pending[0];
   assert.ok(item, 'lacuna de leitura sempre cai na sua mesa');
-  assert.match(texto(item.reasons[0]), /não cobriu/, 'o motivo que lidera é a cobertura');
+  assert.match(texto(item.reasons[0]), /cobertura da leitura/, 'o motivo que lidera é a cobertura');
   assert.equal(item.reasons[0].kind, 'gate', 'cobertura incompleta é gate, não ressalva de conteúdo');
   for (const r of textos(item.reasons)) assert.doesNotMatch(r, /política da conta/, 'nenhuma reason culpa a política');
 });
@@ -97,7 +97,7 @@ test('lacuna de cobertura entra UMA vez nas reasons, com a amostra dos arquivos 
   }), { policy: 'approve' });
   await e.runHeadlessReview(PR);
   const item = e.decisions.pending[0];
-  const deCobertura = textos(item.reasons).filter(r => /não cobriu/.test(r));
+  const deCobertura = textos(item.reasons).filter(r => /cobertura da leitura/.test(r));
   assert.equal(deCobertura.length, 1, `cobertura virou ${deCobertura.length} motivo(s): ${deCobertura.join(' | ')}`);
   assert.match(deCobertura[0], /b\.ts/, 'a redação que fica é a que mostra a amostra');
   assert.match(deCobertura[0], /não posto sozinho/, 'e a que explica a consequência');

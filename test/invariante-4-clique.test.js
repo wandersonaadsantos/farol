@@ -30,12 +30,12 @@ const PR = { key: 'acme/api#1', repo: 'acme/api', number: 1, url: 'u', author: '
 // envelope APROVÁVEL: veredito + payload no formato que o gate exige, análise
 // completa, card comprovado e nada que trave (sem contestação, sem lacuna).
 const aprovavel = () => ({
-  analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, verdict: 'approve', decision: 'auto_approve', cardMet: true,
+  analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true,
   payloads: { approve: { event: 'APPROVE', body: 'ok' } },
 });
 // envelope REPROVÁVEL: mesma régua, do outro lado.
 const reprovavel = () => ({
-  analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, verdict: 'request_changes', cardMet: true,
+  analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', cardMet: true,
   payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'tem um blocker aqui' } },
 });
 
