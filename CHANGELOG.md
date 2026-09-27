@@ -9,6 +9,20 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.63.2
+
+A revisão automática passa a provar que olhou onde o código alterado é usado, fora do que mudou.
+
+**Melhorias**
+
+- **A revisão declara onde o código alterado é usado fora do PR, e o Farol confere.** Duas
+  auditorias mostraram que os problemas que escapavam estavam sempre fora do diff: quem chama a
+  função alterada, o estado que chega de outra tela, o script que a documentação cita. Agora,
+  para cada arquivo de código alterado, a revisão diz onde ele é usado (arquivo, linha e o nome
+  que aparece ali), e o Farol abre esses arquivos no commit revisado para conferir. Se a
+  declaração faltar, não bater com o código ou não puder ser conferida, a aprovação automática
+  não sai e a decisão fica com você, com o motivo.
+
 ## v2.63.1
 
 A aprovação automática passa a esperar você quando a pipe ainda está rodando ou quando o PR depende de algo ainda em aberto.

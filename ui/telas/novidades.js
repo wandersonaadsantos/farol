@@ -7,6 +7,9 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.63.2', [
+    "A revisão automática declara onde o código alterado é usado fora do PR, e o Farol abre esses arquivos no commit revisado para conferir. Sem essa prova, a aprovação automática não sai e a decisão fica com você.",
+  ]],
   ['2.63.1', [
     "A aprovação automática espera você quando um check obrigatório ainda está rodando: a revisão fica na mesa com o nome do check, e você aprova quando a pipe fechar.",
     "A aprovação automática também espera quando a revisão confere que o PR depende de outro PR, deploy ou aplicação ainda em aberto. O card diz qual.",
