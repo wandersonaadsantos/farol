@@ -7,6 +7,9 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.63.3', [
+    "Revisar de novo, por clique, um PR que você já revisou vai até o fim: antes a sessão era encerrada no meio, sem resultado.",
+  ]],
   ['2.63.2', [
     "A revisão automática declara onde o código alterado é usado fora do PR, e o Farol abre esses arquivos no commit revisado para conferir. Sem essa prova, a aprovação automática não sai e a decisão fica com você.",
   ]],
