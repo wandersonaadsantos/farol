@@ -9,6 +9,18 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.63.3
+
+Revisar de novo um PR que você já revisou passa a funcionar até o fim.
+
+**Correções**
+
+- **O Revisar num PR que você já revisou não é mais interrompido no meio.** O Farol encerrava a
+  sessão quando percebia que você já tinha aprovado ou reprovado aquele commit. Isso evita pagar
+  duas vezes no automático, mas quando o pedido é seu (o "refaça o review"), a revisão morria
+  depois de alguns minutos, sem resultado. Agora ela vai até o fim. Commit novo no PR continua
+  encerrando a sessão, porque aí o que estava sendo revisado já passou.
+
 ## v2.63.2
 
 A revisão automática passa a provar que olhou onde o código alterado é usado, fora do que mudou.
