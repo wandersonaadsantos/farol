@@ -80,6 +80,23 @@ test('a rodada cancela a sessão e carimba o motivo', async () => {
   assert.equal(vigia.abandonoDe(e, PR.key), 'head-novo');
 });
 
+// Revisão pedida por CLIQUE num head que eu já revisei é o "refaça o review" de propósito
+// (27/09/2026: uma dessas morreu depois de ~3 minutos pagos, sem decisão nem aviso claro).
+// O gate de ANTES de abrir já deixava o clique passar (pr.manual); o vigia, com a sessão
+// aberta, não deixava. Commit novo continua encerrando: aí o head revisado já passou.
+test('clique: já ter revisado este head não encerra a sessão; commit novo ainda encerra', async () => {
+  const clique = { ...PR, manual: true };
+  const revisado = engineVigiado({ head: HEAD, estados: ['APPROVED'] });
+  const d = await vigia.conferir(revisado, clique, 'sess-c1', HEAD);
+  assert.equal(d.abandonar, false);
+  assert.deepEqual(revisado.cancelados, []);
+  assert.equal(vigia.abandonoDe(revisado, PR.key), '');
+  const novo = engineVigiado({ head: HEAD_NOVO, estados: ['APPROVED'] });
+  assert.equal((await vigia.conferir(novo, clique, 'sess-c2', HEAD)).motivo, 'head-novo');
+  const automatico = engineVigiado({ head: HEAD, estados: ['APPROVED'] });
+  assert.equal((await vigia.conferir(automatico, PR, 'sess-c3', HEAD)).motivo, 'ja-revisado', 'no automático segue valendo');
+});
+
 test('gh que falha na conferida não cancela nada', async () => {
   const e = engineVigiado({ head: HEAD, estados: [] });
   e.headSha = async () => { throw new Error('fetch failed'); };
