@@ -9,6 +9,23 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.63.1
+
+A aprovação automática passa a esperar você quando a pipe ainda está rodando ou quando o PR depende de algo ainda em aberto.
+
+**Correções**
+
+- **Aprovação com a pipe ainda rodando não sai mais sozinha.** Até aqui, só um check obrigatório
+  vermelho segurava a aprovação automática. Com um check ainda rodando, ou que nem tinha
+  começado, a política "aprova e destaca as ressalvas" aprovava assim mesmo, com o próprio
+  relatório pedindo para esperar. Agora a revisão fica na mesa com o nome do check, e você aprova
+  quando a pipe fechar.
+- **Aprovação que depende de algo ainda em aberto não sai mais sozinha.** Quando a revisão confere
+  que o PR depende de outro PR, deploy ou aplicação que ainda está aberto, ela registra isso e a
+  aprovação espera você. O card diz de que o PR depende.
+
+Aprovar pelo clique continua funcionando nos dois casos.
+
 ## v2.63.0
 
 O chat do PR fica legível no celular, mostra a conversa inteira, e passa a copiar o id da sessão e exportar a conversa completa.

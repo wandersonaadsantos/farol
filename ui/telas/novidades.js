@@ -7,6 +7,10 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.63.1', [
+    "A aprovação automática espera você quando um check obrigatório ainda está rodando: a revisão fica na mesa com o nome do check, e você aprova quando a pipe fechar.",
+    "A aprovação automática também espera quando a revisão confere que o PR depende de outro PR, deploy ou aplicação ainda em aberto. O card diz qual.",
+  ]],
   ['2.63.0', [
     "O chat do PR exporta a conversa completa em Markdown ou JSON, ou copia o Markdown, com o id da sessão e a hora de cada mensagem no horário de Brasília. Token colado na conversa sai mascarado.",
     "O id da sessão do Claude aparece no chat, com o botão Copiar id.",
