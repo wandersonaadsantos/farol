@@ -52,6 +52,7 @@ function motor(diffMedido, coverage) {
   e.runClaudeStream = async () => ({
     text: JSON.stringify({
       analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [], coverage,
+      alcance: diffMedido.map((alterado) => ({ alterado, chamadores: [], semChamador: 'fixture sintética sem consumidor' })),
       payloads: { approve: { event: 'APPROVE', body: 'Li o diff e o comportamento fecha com o card.' } }, reportMarkdown: '# ok',
     }),
     sessionId: '12345678-abcd-1234-abcd-123456789012',
@@ -70,7 +71,7 @@ test('a sessão diz que leu tudo, mas o diff medido tem um arquivo a mais: não 
   const d = decisaoDe(e);
   assert.ok(d, 'a decisão ficou registrada');
   const motivos = (d.reasons || []).map((r) => (typeof r === 'string' ? r : r.text)).join(' | ');
-  assert.match(motivos, /não cobriu o diff inteiro/, motivos);
+  assert.match(motivos, /cobertura da leitura tem/, motivos);
   assert.match(motivos, /src\/b\.js/, motivos);
 });
 
@@ -79,5 +80,5 @@ test('a cobertura bate com o diff medido: o gate de cobertura não segura', asyn
   await e.runHeadlessReview({ ...PR });
   const d = decisaoDe(e);
   const motivos = ((d && d.reasons) || []).map((r) => (typeof r === 'string' ? r : r.text)).join(' | ');
-  assert.doesNotMatch(motivos, /não cobriu o diff inteiro/, motivos);
+  assert.doesNotMatch(motivos, /cobertura da leitura tem/, motivos);
 });

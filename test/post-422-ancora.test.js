@@ -183,7 +183,7 @@ function engineDeRevisao({ heads, policyApprove = 'approve' }) {
   e.runClaudeStream = async () => ({
     text: JSON.stringify({
       result: JSON.stringify({
-        analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+        analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
         reportMarkdown: 'relatório',
         payloads: { approve: { event: 'APPROVE', body: 'A matriz de permissões fecha.' } }
       })
