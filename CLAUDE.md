@@ -179,7 +179,8 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
 4. **Nada é postado no GitHub sem gate.** Auto-approve exige revisão pedida a mim
    (`requested === true`), veredito `approve` e payload `APPROVE`, com default estrito por
    conta; reprovar sozinho e co-assinar são opt-in; clique manual nunca é bloqueado pelos
-   gates automáticos; e check obrigatório vermelho nunca sai como APPROVE sozinho. O desenho
+   gates automáticos; e check obrigatório vermelho ou ainda sem resultado, e dependência em aberto,
+   nunca saem como APPROVE sozinho (`lib/engine/gate-espera.js`). O desenho
    completo, com o porquê de cada gate e os incidentes que os criaram, está em
    [`docs/REVIEW-GATES.md`](docs/REVIEW-GATES.md).
 5. **Toda diferença de SO passa por `IS_WIN`/`IS_MAC`/`IS_LINUX`** (fonte única em `lib/paths.js`), nunca por checagens soltas espalhadas. Doutrina desde a v2.45.0: o que é POSIX genuíno (runShell, spawn headless, killTree, PATH do boot) ramifica em `!IS_WIN` e vale pra mac E linux; o que é mac de verdade (`open`, `Farol.app`) usa `IS_MAC`; o ramo Linux (experimental) fica ao lado, ver [`docs/MACOS.md`](docs/MACOS.md#linux-experimental-v2450), que também traz os pontos com branch de plataforma.
