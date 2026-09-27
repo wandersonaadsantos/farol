@@ -63,10 +63,34 @@ test('obrigatório vermelho segura também o PR limpo (decision auto_approve, se
   assert.deepEqual(e.shouldAutoApprove(PR, r), { ok: false, motivo: 'ci_vermelho' });
 });
 
-test('check ainda rodando ou ausente não segura: aprovar com pipe em andamento é decisão de revisor', () => {
+// 27/09/2026, decisão do dono sobre a auditoria de qualidade: CI ainda rodando (ou que nem
+// começou) e dependência em aberto passavam como ressalva, e o APPROVE saía assinado por
+// ele enquanto o próprio relatório pedia espera (biud-frontend#1187 com CI em andamento,
+// engine-ai#266 com infra-k8s#189 ainda aberto). Até aqui este teste afirmava o contrário.
+test('check ainda rodando ou que nem começou segura a aprovação automática: a decisão volta para você', () => {
   const e = engineWithPolicy('approve');
-  const r = approvableResult({ checksObrigatorios: [{ nome: 'test', estado: 'rodando' }, { nome: 'e2e', estado: 'ausente' }] });
-  assert.equal(e.shouldAutoApprove(PR, r).ok, true);
+  const rodando = approvableResult({ checksObrigatorios: [{ nome: 'test', estado: 'rodando' }] });
+  assert.deepEqual(e.shouldAutoApprove(PR, rodando), { ok: false, motivo: 'ci_em_andamento' });
+  const ausente = approvableResult({ checksObrigatorios: [{ nome: 'e2e', estado: 'ausente' }] });
+  assert.deepEqual(e.shouldAutoApprove(PR, ausente), { ok: false, motivo: 'ci_em_andamento' });
+  const misto = approvableResult({ checksObrigatorios: [{ nome: 'audit', estado: 'vermelho' }, { nome: 'test', estado: 'rodando' }] });
+  assert.deepEqual(e.shouldAutoApprove(PR, misto), { ok: false, motivo: 'ci_vermelho' }, 'vermelho é o motivo mais forte');
+});
+
+test('dependência em aberto declarada pela revisão segura a aprovação automática', () => {
+  const e = engineWithPolicy('approve');
+  const r = approvableResult({ dependenciasAbertas: ['biudtech/infra-k8s#189 ainda aberto'] });
+  assert.deepEqual(e.shouldAutoApprove(PR, r), { ok: false, motivo: 'dependencia' });
+  assert.equal(e.shouldAutoApprove(PR, approvableResult({ dependenciasAbertas: [] })).ok, true, 'lista vazia não segura');
+  assert.equal(e.shouldAutoApprove(PR, approvableResult({ dependenciasAbertas: ['', '   ', 7] })).ok, true, 'item vazio ou torto não conta');
+});
+
+test('o card diz por que esperou, com o nome do check ou da dependência', async () => {
+  const { textoDaEspera } = await import('../lib/engine/gate-espera.js');
+  assert.match(textoDaEspera('ci_em_andamento', { checksObrigatorios: [{ nome: 'test', estado: 'rodando' }, { nome: 'e2e', estado: 'ausente' }] }), /test.*e2e.*quando a pipe fechar/);
+  assert.match(textoDaEspera('dependencia', { dependenciasAbertas: ['biudtech/infra-k8s#189 ainda aberto'] }), /biudtech\/infra-k8s#189 ainda aberto/);
+  assert.match(textoDaEspera('ci_vermelho', { checksObrigatorios: [{ nome: 'audit', estado: 'vermelho' }] }), /check obrigatório vermelho no head \(audit\)/);
+  assert.equal(textoDaEspera('politica', {}), '', 'motivo que não é de espera não tem texto aqui');
 });
 
 test('campo ausente (leitura que falhou, repo sem exigência) não inventa CI vermelho', () => {
