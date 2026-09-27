@@ -1,0 +1,414 @@
+{
+  "prs": [
+    {
+      "pr": "biudtech/biud-docs#93",
+      "classificacao": "ok",
+      "meuVeredito": "APPROVE",
+      "resumo": "PR só de documentação (+15/-0) que acrescenta três regras à emenda de 22/09 do ADR-0054 e uma linha em structure.md:109. Conferi cada afirmação contra o código dos PRs de origem. O payload `previous_document`/`document`/`origin`/`actor` e o `DOCUMENTO_NORMALIZADO_PATTERN = /^[0-9]{14}$/` (portanto \"14 dígitos\") batem com contracts/events/company-lifecycle.ts:74-156 do tenant-company#113. O `legacy_disabled_at` gravado só com linhagem e em quarentena, limpo na reabilitação, com desfecho `desabilitada_no_legado`, bate com o #114. A recusa de `blocked`/`merged` no ponto único de emissão e no `vincular` antes da credencial bate com o #116. Não achei nada relevante que o Farol não tenha visto; os pontos editoriais (NOVO que vira HOJE depois do merge, BT-2282 sem link) ele já registrou.",
+      "achados": [
+        {
+          "severidade": "menor",
+          "onde": "02-architecture-and-data/contracts-api-events/structure.md:109",
+          "oQue": "O status NOVO fica desatualizado quando o tenant-company#113 mescla (ele mesclou 14 min depois deste PR): pela legenda, o certo seria HOJE (contrato escrito).",
+          "farolViu": true
+        },
+        {
+          "severidade": "menor",
+          "onde": "07-knowledge-and-governance/adr/0054-sync-incremental-legado-para-zona-na-convivencia.md:96",
+          "oQue": "BT-2282 aparece como texto puro, enquanto os outros cards do ADR têm link.",
+          "farolViu": true
+        }
+      ]
+    },
+    {
+      "pr": "biudtech/biud-esg#209",
+      "classificacao": "ok",
+      "meuVeredito": "APPROVE",
+      "resumo": "A correção está certa: `normalizeCnpj` (telemetry-aggregation.ts:203-206) passa a aceitar `/^[A-Z0-9]{12}\\d{2}$/`, que é o mesmo shape do cadastro (create-company.dto.ts:24). O SQL do lookup (sustainability-report-telemetry.service.ts:467) preserva as letras dos dois lados, e o DTO valida pela mesma função, então nenhuma regex antiga ficou barrando letra. No head aprovado a341e26 o diff também trazia `.docker/nginx/certs/thiago/localhost+2-key.pem` e `.pem`: chave e certificado mkcert pessoais, só para localhost, sem relação com o card. O Farol viu isso e pediu remoção no corpo do review, e o autor removeu e ajustou o .gitignore no commit seguinte (2263211). O Farol também viu o `@ApiProperty` desatualizado e a duplicação com `sanitizeCnpj`. Nada relevante ficou de fora.",
+      "achados": [
+        {
+          "severidade": "menor",
+          "onde": ".docker/nginx/certs/thiago/localhost+2-key.pem",
+          "oQue": "Chave privada e certificado mkcert pessoais (SAN só localhost, CA local do autor) versionados sem relação com o escopo. O risco de segurança é baixo e existe precedente na raiz de certs/, mas é resíduo do ambiente local; foi removido no commit seguinte.",
+          "farolViu": true
+        },
+        {
+          "severidade": "menor",
+          "onde": "apps/esg/src/sustainability-reports/dtos/admin-sustainability-report-telemetry.dto.ts:146",
+          "oQue": "O @ApiProperty ainda diz \"Normalizado para 14 dígitos\" (o mesmo em :373), então o Swagger descreve a regra antiga.",
+          "farolViu": true
+        },
+        {
+          "severidade": "menor",
+          "onde": "apps/esg/src/sustainability-reports/helpers/telemetry-aggregation.ts:203",
+          "oQue": "`normalizeCnpj` duplica o `sanitizeCnpj`/`ALPHANUMERIC_CNPJ_REGEX` que já existem em common/validators, o que abre risco de divergência futura.",
+          "farolViu": true
+        }
+      ]
+    },
+    {
+      "pr": "Edicoes-CNBB/biblioteca-cnbb-api#33",
+      "classificacao": "ok",
+      "meuVeredito": "APPROVE",
+      "resumo": "Li o diff inteiro no head 276951f e o entorno (ingestion-dispatch.service, migrações do registro, proxy.controller:700-765, ingestion-preview.service.register). A consulta por revisão fica presa aos dois IDs, a janela de EXECUTION_PENDING é estreita (CONVERSION_NOT_FOUND, DISPATCHED, primeira página, menos de 60s), o envelope do despacho sempre traz format (ingestion-dispatch.service.ts:97), e a coluna result de ingestion_revision_events é varchar(24) sem CHECK, então o outcome 'waiting' grava sem erro. O único defeito real que achei foi o corte UTF-16 em src/ingestion/revision-presentation.ts:19: arquivo com caractere fora do BMP na posição 600 (ou 300) gera surrogate solto, o JSON.stringify emite \\ud83d, o cast para jsonb recusa e o READY cai em PREVIEW_FAILED toda vez que aquele arquivo é reenviado. O Farol viu e descreveu exatamente isso como ressalva não bloqueante, com a correção. Concordo com a severidade (raro, determinístico por arquivo, não bloqueia). Não consegui rodar um Postgres (Docker parado), então a recusa do jsonb vem do conhecimento do lexer do PG, não de execução.",
+      "achados": [
+        {
+          "severidade": "importante",
+          "onde": "src/ingestion/revision-presentation.ts:19 (text() com slice UTF-16)",
+          "oQue": "Corte em unidade UTF-16 deixa surrogate solto; o JSON.stringify grava \\udXXX, o Postgres recusa no $3::jsonb do INSERT do READY (ingestion-registry.service.ts:193), a transação cai e o proxy.controller marca PREVIEW_FAILED. É determinístico para o arquivo afetado.",
+          "farolViu": true
+        },
+        {
+          "severidade": "menor",
+          "onde": "src/ingestion/conversion.service.ts:124",
+          "oQue": "Primeira página com executions vazio sempre ganha waiting:'EXECUTION_PENDING' e outcome 'waiting' na auditoria e na métrica, sem o limite de 60s que vale para o 404. Um despacho aceito há muito tempo e sem execução aparece como espera indefinida em vez de anomalia.",
+          "farolViu": false
+        }
+      ]
+    },
+    {
+      "pr": "biudtech/crm-clients#4",
+      "classificacao": "ok",
+      "meuVeredito": "APPROVE",
+      "resumo": "Li o interceptor inteiro no head c931cd7, os specs novos, o package.json/lock e o registro global em apps/crm-clientes/src/main.ts:24-25. O Nest aplica o @Header antes de rodar a cadeia de interceptors, então o getHeader('Content-Type') lido no intercept enxerga o text/plain do MetricsController (metrics.controller.ts:17 e :32). O teste de integração que reproduz o useGlobalInterceptors comprova isso e afirma o início do corpo. Nenhuma outra rota do repo define Content-Type de resposta (grep de @Header/setHeader), então não há regressão no envelope. A bump do multer 2.2.0 para 2.4.0 remove concat-stream/typedarray sem outro efeito no lock. Não achei nada relevante que o Farol não tenha visto; o único ponto novo é cosmético.",
+      "achados": [
+        {
+          "severidade": "menor",
+          "onde": "package.json:117 (pnpm.overrides multer)",
+          "oQue": "Override '>=2.3.0' sem teto de major: uma regeneração do lock pode puxar um multer 3.x incompatível com o @nestjs/platform-express. Um '^2.3.0' fecharia o mesmo aviso do audit sem abrir a major.",
+          "farolViu": false
+        },
+        {
+          "severidade": "menor",
+          "onde": "common/interceptors/response-transform.interceptor.ts:76",
+          "oQue": "O cast as Observable<Response<T>> afirma um tipo que não vale nesse ramo, porque o valor sai cru. É limitação da assinatura do NestInterceptor.",
+          "farolViu": true
+        }
+      ]
+    },
+    {
+      "pr": "biudtech/biud-esg#222",
+      "classificacao": "lacuna importante",
+      "meuVeredito": "APPROVE",
+      "resumo": "O script .ci/check-migration-timestamps.sh funciona: rodei no head ecd6bb8, ele sai com 0 e tolera só 1779780000000. O problema é outro. O caminho certo que a entrega manda seguir não existe. Tanto a seção [Mandatory] do ARCHITECTURE.md quanto a mensagem de erro do script (linhas ~70 a 72) mandam rodar `npm run migration:create -- common/database/migrations/NomeDaMigration`, mas o package.json no head só tem `typeorm`, `migration:run` e `migration:revert`. Quem seguir a regra vai receber `Missing script: migration:create`, e o repositório usa pnpm, não npm. Com isso, o desenvolvedor barrado pelo gate volta a inventar o timestamp à mão, que é justamente a causa que o PR quer eliminar. O Farol não viu esse ponto. Ele viu e registrou a allowlist amarrada ao timestamp (um terceiro arquivo com o mesmo número passa), o step rodando depois do install e a mensagem 'Nenhuma colisão' que confunde.",
+      "achados": [
+        {
+          "severidade": "importante",
+          "onde": "ARCHITECTURE.md (seção Migration file names) e .ci/check-migration-timestamps.sh (mensagem de erro, ~l.70)",
+          "oQue": "A regra obrigatória e a mensagem do gate mandam usar `npm run migration:create`, script que não existe no package.json (só existem typeorm, migration:run e migration:revert). O caminho correto documentado falha, e o dev volta a reservar o número à mão.",
+          "farolViu": false
+        },
+        {
+          "severidade": "menor",
+          "onde": ".ci/check-migration-timestamps.sh:is_allowed / migration-timestamp-allowlist.txt",
+          "oQue": "A allowlist casa pelo timestamp e não pelo par de arquivos, então um terceiro arquivo 1779780000000-*.ts passa só com aviso.",
+          "farolViu": true
+        },
+        {
+          "severidade": "menor",
+          "onde": ".github/workflows/lint.yml",
+          "oQue": "O step roda depois do pnpm install, ao contrário do que diz o corpo do PR ('não depende de instalação').",
+          "farolViu": true
+        },
+        {
+          "severidade": "menor",
+          "onde": ".ci/check-migration-timestamps.sh:81",
+          "oQue": "Quando há colisão tolerada, o log imprime 'Nenhuma colisão' logo depois do AVISO.",
+          "farolViu": true
+        }
+      ]
+    },
+    {
+      "pr": "biudtech/tenant-company#134",
+      "classificacao": "lacuna importante",
+      "meuVeredito": "APPROVE",
+      "resumo": "A trava de escopo, os schemas e o envelope estão corretos e batem com o interceptor real. A lacuna é que o contract test do veredito não prende a forma que o produtor emite de verdade. Em test/contracts/internal-v1-access-verdict.spec.ts:38 e :71, o VereditoService é substituído por jest.fn().mockResolvedValue(VEREDITO), e VEREDITO é um literal sem tipo. O VereditoController (veredito.controller.ts:~52) só repassa o retorno de this.veredito.montar, e nada liga a interface Veredito (veredito.service.ts:36) ao vereditoDeAcessoSchema. Cenário: alguém renomeia roleCodes para roles na interface e no serviço; tsc passa, o spec de contrato continua verde porque mede o mock, e a quebra chega ao consumidor da outra zona. Esse é justamente o exemplo que o PR cita como motivo de existir. O mesmo vale em parte para resolve-legacy, cujo controller repassa o array do serviço. O Farol não viu. Ele viu o alcance só de apps/ e a degradação do regex de decorador.",
+      "achados": [
+        {
+          "severidade": "importante",
+          "onde": "test/contracts/internal-v1-access-verdict.spec.ts:38,71 e apps/tenant-company/src/autorizacao/veredito.service.ts:36",
+          "oQue": "A fixture do serviço é um literal sem tipo dentro de um jest.fn() mockado, e não há ligação de tipo (satisfies Veredito ou asserção z.infer x Veredito) entre o produtor e o schema. Renomear um campo no serviço/interface (roleCodes para roles) mantém o contract test verde. É a quebra que o contrato promete pegar; vale também para resolve-legacy (ParResolvido).",
+          "farolViu": false
+        },
+        {
+          "severidade": "menor",
+          "onde": "test/contracts/rotas-de-borda.helper.ts:41-44",
+          "oQue": "Os regexes só reconhecem path literal com aspas simples. @Controller(CONST), objeto ou crase viram prefixo vazio e o controller sai do escopo sem reprovar (o repositório já usa @Get(JWKS_ROUTE)).",
+          "farolViu": true
+        },
+        {
+          "severidade": "menor",
+          "onde": "test/contracts/rotas-de-borda.helper.ts:102",
+          "oQue": "A varredura olha só apps/, e existem controllers em common/.",
+          "farolViu": true
+        },
+        {
+          "severidade": "menor",
+          "onde": "test/contracts/internal-v1-portfolio-scope.spec.ts (setup)",
+          "oQue": "O spec registra só o ResponseTransformInterceptor e deixa de fora o SecurityHeadersInterceptor e o helmet do main.ts. Hoje isso não muda nada, porque as rotas são POST e o no-store do interceptor vale só para GET; mas 'o socket real' não é inteiro.",
+          "farolViu": false
+        }
+      ]
+    },
+    {
+      "pr": "biudtech/biud-frontend#970",
+      "classificacao": "ok",
+      "meuVeredito": "APPROVE",
+      "resumo": "Sync de linhagem homologation para development: o merge 0757dc5 só traz os commits do #945 (e o merge do #965), e o .github/workflows/check.yml da head tem o mesmo blob da homologation (0d6710cef). Na development os ativos detectados existem (script verify:mia-v2 no package.json e .github/scripts/next-hmg-tag.test.sh), então os jobs continuam executando de verdade. O branch-origin mede pelo head.sha com fetch-depth 0, e todo caminho de falha termina em exit 0 com aviso. Não achei defeito, e o Farol viu o único ponto relevante: a cobertura restrita a task-*.",
+      "achados": [
+        {
+          "severidade": "menor",
+          "onde": ".github/workflows/check.yml (job branch-origin, case task-*)",
+          "oQue": "Só branches task-* são avaliadas. As de card com prefixo fix/BT-* ou docs/BT-* saem sem avaliação, então o cenário 11 tem cobertura baixa. A limitação está documentada no próprio job.",
+          "farolViu": true
+        }
+      ]
+    },
+    {
+      "pr": "biudtech/biud-frontend#807",
+      "classificacao": "lacuna importante",
+      "meuVeredito": "APPROVE",
+      "resumo": "A promoção dos 12 cherry-picks do BT-1546 está coerente e é compatível com o backend biud-esg v2.4.0: o DTO aceita editSource, o beacon aceita questionId opcional (UUID) e a rota /telemetry-events tem allowlist de metadata. Não há defeito bloqueante: toda a telemetria é fire-and-forget. Ficou de fora um ponto importante. Na head, VIEW_COMPANY_SIZE só é emitido em src/app/(private)/main/trilhas/page.tsx:71-78, atrás de reportDisabled, ou seja, só para empresa NÃO elegível. A OnboardScreen, onde a empresa elegível vê o cartão de porte, não emite nada, então no caso normal o evento nunca sai. O Farol deu o cenário 6 como atendido; o QA reprovou exatamente isso em 04/09 (commit 7bbcfab17 na development). A dedup do beacon por reportId, que subconta por pergunta, o Farol apontou.",
+      "achados": [
+        {
+          "severidade": "importante",
+          "onde": "src/app/(private)/main/trilhas/page.tsx:71 e src/features/reports/components/templates/OnboardScreen/OnboardScreen.tsx",
+          "oQue": "VIEW_COMPANY_SIZE só dispara no cartão 'Porte identificado' do estado indisponível (empresa não elegível). A empresa elegível que entra no Relatório nunca registra o evento, porque a OnboardScreen não emite. A métrica do cenário 6 fica praticamente vazia. Não consegui ler o card no Jira (sem permissão para o site); o critério foi confirmado pelo código e pelo commit de correção 7bbcfab17, que registra a reprovação do QA.",
+          "farolViu": false
+        },
+        {
+          "severidade": "importante",
+          "onde": "src/features/reports/services/sustainabilityReportsBeacon.ts:39",
+          "oQue": "openSelectionCycles segue chaveado só por reportId, mas o corpo agora leva questionId. Com um ciclo aberto, a seleção numa segunda pergunta não gera POST, o que subconta a métrica por pergunta. O QA reprovou o cenário 1 por isso, e a correção veio em e8a7c2dc3.",
+          "farolViu": true
+        },
+        {
+          "severidade": "menor",
+          "onde": "src/app/(private)/main/trilhas/page.tsx:74",
+          "oQue": "Um refetch da elegibilidade que faça isLoading ciclar reemite VIEW_COMPANY_SIZE com o mesmo porte.",
+          "farolViu": true
+        }
+      ]
+    },
+    {
+      "pr": "Edicoes-CNBB/biblioteca-cnbb-ai-engine#15",
+      "classificacao": "ok",
+      "meuVeredito": "APPROVE",
+      "resumo": "Li o diff inteiro no head 0d03603 (pdf.py, diagnostics.py, runner.py, converters.py, source.py e o doc), mais o worker e o runner ao redor. Não achei defeito bloqueante verificado. O gate do runner (`VALID` só sem diagnóstico, pdf.py com gap e bloqueante) está coerente. O teto de 1000 diagnósticos em safe_diagnostics comporta o pior caso de 5 por página vezes 200 páginas. O pior ponto de desenho (OCR da página inteira quando existe qualquer XObject de imagem, com linha nativa que não casa sendo anexada no fim da página e virando duplicata) já tinha sido apontado pelo Farol na rodada anterior. O que ele não disse, e fica só como suspeita porque não medi o tempo de OCR, é a combinação disso com a supervisão global de 120 s (worker.py:88 e runner.py `supervised(timeout=120)`): um livro digital com ornamento ou logotipo por página pode estourar CONVERSION_TIMEOUT três vezes seguidas sem gerar candidato nenhum, apesar de o limite anunciado ser de 200 páginas.",
+      "achados": [
+        {
+          "severidade": "suspeita",
+          "onde": "app/conversion/pdf.py:141 (has_images dispara _ocr) + app/conversion/worker.py:88 (timeout 120 s global)",
+          "oQue": "Qualquer imagem na página força render e OCR da página inteira, com teto de 25 s mais 25 s por página e 120 s para o documento todo. Um livro nativo com imagem recorrente em cada página provavelmente estoura CONVERSION_TIMEOUT de forma determinística, e a falha se repete a cada retry. Não medi, então fica como suspeita.",
+          "farolViu": false
+        },
+        {
+          "severidade": "menor",
+          "onde": "app/conversion/pdf.py:66-85 (_has_images)",
+          "oQue": "Só detecta XObject /Image. Imagem inline (BI/ID/EI no content stream) numa página que também tem texto nativo não gera figure nem PDF_IMAGE_REGION_UNCERTAIN, e a imagem some sem diagnóstico.",
+          "farolViu": false
+        },
+        {
+          "severidade": "menor",
+          "onde": "app/conversion/pdf.py:146-155",
+          "oQue": "Na página híbrida, a reconciliação exige igualdade exata entre a linha do pypdf e a do Tesseract. Toda linha com diferença de OCR aparece duas vezes (a do OCR na posição e a nativa no fim da página). Isso está documentado e tem diagnóstico próprio, e o Farol tinha apontado no review anterior.",
+          "farolViu": true
+        },
+        {
+          "severidade": "menor",
+          "onde": "app/conversion/pdf.py:69",
+          "oQue": "Um /Resources explícito como null chega como NullObject e leva o documento inteiro para PDF_INVALID.",
+          "farolViu": true
+        }
+      ]
+    },
+    {
+      "pr": "biudtech/tenant-company#136",
+      "classificacao": "lacuna importante",
+      "meuVeredito": "APPROVE",
+      "resumo": "Os catorze valores conferem com o código, e rodei o extrator fora do Jest no head e2 e45ef49: 110 nomes lidos, 110 declarados, só npm_package_version como exceção. Aprovar estava certo. Ficou de fora um erro factual no próprio inventário que o PR existe para tornar confiável. O cabeçalho da seção nova em .env.example (em torno da linha 456) diz que as variáveis do sync são só do Job e que nenhum caminho de requisição as lê. Só que LEGACY_DATABASE_URL e LEGACY_DATABASE_SCHEMA são lidas dentro do processo da API por ConexaoDoLegadoNaZona (apps/tenant-company/src/sincronizacao-legada/conexao-do-legado.ts:25-26), que atende a troca de renovação legada durante a requisição, a contagem de pendentes e o shadow-read do plano. Quem monta o manifesto seguindo esse comentário pode entregar a URL só ao CronJob. Aí o re-chaveamento com a janela aberta não acha nada e recusa em silêncio, com o mesmo desfecho da janela fechada. O risco diminui se o ExternalSecret for o mesmo para os dois workloads.",
+      "achados": [
+        {
+          "severidade": "importante",
+          "onde": ".env.example, cabeçalho da seção 'Sync incremental do legado -> zona' (em torno da linha 456) x conexao-do-legado.ts:8-26",
+          "oQue": "O comentário afirma que nenhum caminho de requisição lê as variáveis da seção, mas LEGACY_DATABASE_URL e LEGACY_DATABASE_SCHEMA são lidas pela API (ConexaoDoLegadoNaZona) no re-chaveamento de renovação e nos laços da zona. O inventário induz a configurar a URL só no Job.",
+          "farolViu": false
+        },
+        {
+          "severidade": "menor",
+          "onde": "test/config/inventario-de-env.spec.ts:20-27",
+          "oQue": "O docblock diz que a guarda 'NASCE REPROVANDO' e que as ausentes ficam vermelhas até existirem entradas. No head as entradas já existem e a guarda nasce verde, como o próprio PR declara. A documentação está desatualizada.",
+          "farolViu": false
+        },
+        {
+          "severidade": "menor",
+          "onde": "test/config/inventario-de-env.spec.ts:33",
+          "oQue": "O docblock diz que as quatro formas de leitura estão em uso, mas só duas estão.",
+          "farolViu": true
+        },
+        {
+          "severidade": "menor",
+          "onde": "test/config/inventario-de-env.spec.ts:47 e :176",
+          "oQue": "DIRETORIOS_DE_CODIGO é um literal que nada amarra, a guarda só olha numa direção, e `in` atravessa o protótipo.",
+          "farolViu": true
+        }
+      ]
+    },
+    {
+      "pr": "biudtech/biud-esg#207",
+      "classificacao": "ok",
+      "meuVeredito": "APPROVE",
+      "resumo": "Li o diff inteiro de 39ac635 a d91cb42 no código de produção. Conferi a allowlist de ações no CHECK da migration 1779770000000 contra o enum, o filtro In(...) do getReportHistory (a lista de histórico é igual ao conjunto de ações de relatório que já existia), o SectionMinimumBlockException registrado depois do rollback, a telemetria best-effort e a propagação do contexto. Não achei defeito bloqueante. Os dois pontos relevantes que encontrei o Farol também viu: o guard de rate limit e o IP da auditoria confiam no primeiro item do X-Forwarded-For, o que permite burlar o teto se o ingress repassar o cabeçalho do cliente (não deu para verificar porque a infra fica em outro repositório); e resolveUserCompanyId pega o primeiro vínculo ativo. O Farol tratou os dois e ainda a dependência de common para apps, corrigida depois no 7f8b384.",
+      "achados": [
+        {
+          "severidade": "suspeita",
+          "onde": "apps/esg/src/sustainability-reports/helpers/audit-request-context.ts:139 e guards/public-verification-rate-limit.guard.ts:44",
+          "oQue": "A chave do rate limit da rota pública de verificação é o primeiro item do X-Forwarded-For, que o cliente controla. Se o ingress não sobrescrever o cabeçalho, um X-Forwarded-For aleatório por requisição anula o teto, e com mais de 10 mil chaves o hits.clear() zera o contador de todo mundo. Depende da configuração do ingress, que não verifiquei.",
+          "farolViu": true
+        },
+        {
+          "severidade": "menor",
+          "onde": "apps/esg/src/sustainability-reports/services/sustainability-reports.service.ts (resolveUserCompanyId)",
+          "oQue": "Sinal sem reportId é atribuído ao vínculo ativo de menor id. Um usuário com várias empresas grava telemetria na empresa errada.",
+          "farolViu": true
+        },
+        {
+          "severidade": "menor",
+          "onde": "common/database/esg/sustainability-report-audit-event.entity.ts:3",
+          "oQue": "No head auditado, a entity importa o enum de dispositivo de apps/, contra a regra common não importa apps. A dependência já existia no arquivo e foi corrigida no commit seguinte, 7f8b384.",
+          "farolViu": true
+        }
+      ]
+    },
+    {
+      "pr": "biudtech/biud-esg#233",
+      "classificacao": "ok",
+      "meuVeredito": "APPROVE",
+      "resumo": "É PR de promoção de develop para release_2.2.0 (61 arquivos). Concentrei a leitura nas áreas de maior risco: o confinamento de credencial de serviço no JwtAuthGuard (recusarRotaSemEscopo, e as 20 rotas com @RequiredScopes, todas com ServiceScopeGuard), o bypass de serviço do RoleAnalystGuard e do rollout guard (seguro, porque o JwtAuthGuard recusa serviço em rota sem escopo), o cursor do receiver (receiver.service.ts:285-327), a busca admin parametrizada e a neutralização de fórmula no CSV. Não achei defeito bloqueante. O ponto mais sério que verifiquei é a estagnação permanente do cursor quando o lote vem no teto do Limit (padrão 20): toda instalação com last_nfe_sync nulo e histórico de 20 notas ou mais repete o mesmo lote para sempre. É uma troca deliberada e alarmada, e o Farol a registrou explicitamente. Também viu o cursorAvancou incorreto no log (:327) e vários outros pontos.",
+      "achados": [
+        {
+          "severidade": "importante",
+          "onde": "apps/receiver/src/receiver/services/receiver.service.ts:285-287",
+          "oQue": "Com loteTruncado = notes.length >= limit (padrão 20), o cursor nunca avança numa instalação cuja janela tenha 20 notas ou mais. Como a migration não fez backfill, toda instalação com histórico grande repete o mesmo lote indefinidamente até alguém definir a paginação. É deliberado, documentado e alarmado com SyncNfeCursorBlocked.",
+          "farolViu": true
+        },
+        {
+          "severidade": "menor",
+          "onde": "apps/receiver/src/receiver/services/receiver.service.ts:327",
+          "oQue": "cursorAvancou continua com notesFailed === 0 e ignora loteTruncado. No lote truncado sem falhas o log diz que o cursor avançou quando ele ficou parado.",
+          "farolViu": true
+        },
+        {
+          "severidade": "menor",
+          "onde": "apps/esg/src/survey/controller/survey-admin.controller.ts:212 e attempts/:companyId/*",
+          "oQue": "Essas rotas seguem abertas a qualquer usuário autenticado, sem guard de papel nem de rollout. O comportamento já existia antes, e o PR só as abriu para máquina com escopo.",
+          "farolViu": true
+        }
+      ]
+    },
+    {
+      "pr": "biudtech/biud-frontend#817",
+      "classificacao": "ok",
+      "meuVeredito": "APPROVE",
+      "resumo": "É um cherry-pick fiel: o diff dos commits 93390c2a e b9f2711c tem as mesmas linhas +/- que 589d52046 e 72a1ab5bf da homologation (conferi linha a linha). Encaminhar utmSource/utmMedium/utmCampaign não quebra o resgate: o ValidationPipe do biud-core (common/platform/bootstrap.ts:94) usa whitelist true e forbidNonWhitelisted false em development, homologation e production. Hoje isso não tem efeito, porque o core#287 foi FECHADO sem merge e nenhum backend guarda a origem. O único ponto relevante é o espelho utm_attribution_v1 (src/lib/utils/index.ts:302). Ele não tem expiração e não é limpo em produção, porque removeUtms não tem chamador, então uma empresa onboardada depois no mesmo navegador herda a origem antiga. O Farol viu e registrou isso como ressalva. Observação de processo: o dossiê marca auto_approved, mas o relatório interno diz que o cardMet ficou null e que test e e2e ainda rodavam, o que deveria ter travado a aprovação automática.",
+      "achados": [
+        {
+          "severidade": "menor",
+          "onde": "src/lib/utils/index.ts:302 (persistAttributionSnapshot) e :586 (removeUtms sem chamador)",
+          "oQue": "O espelho de atribuição não tem timestamp nem limpeza efetiva: um resgate posterior no mesmo navegador, até de outra empresa ou de outro usuário, herda a origem antiga. Hoje não afeta nada, porque o core descarta o campo.",
+          "farolViu": true
+        },
+        {
+          "severidade": "menor",
+          "onde": "src/app/api/campaigns/activate/route.ts:57",
+          "oQue": "O saneamento compara a chave exata. Variações como utmsource seguem pelo spread cru, sem efeito enquanto o core aplica whitelist.",
+          "farolViu": true
+        }
+      ]
+    },
+    {
+      "pr": "biudtech/biud-frontend#886",
+      "classificacao": "lacuna importante",
+      "meuVeredito": "APPROVE",
+      "resumo": "A troca Clientes para Feedbacks e o gate por role estão corretos e espelham o menu web (menuSchema.tsx:135 x 190). Ficou de fora uma regressão de navegação entre 640 e 1023 px. O SettingsScreen.tsx trata como desktop tudo a partir de 640 px (useClientMediaQuery com min-width 640px) e mostra o grid sem o card Clientes. Nessa mesma faixa a sidebar fica escondida (MenuRoot/layout2.scss:25 esconde abaixo de 1025px) e a nav inferior aparece (MobileMenu lg:hidden, Tailwind 4 com lg em 1024), agora sem o item Clientes. Resultado: em tablet ou celular em paisagem, quem tem GENERAL.CLIENTS não chega mais a /main/customers pelo menu nem por Configurações; sobra só o atalho da Home (CustomersSection). O Farol considerou o critério de responsividade atendido e não percebeu. Em segundo plano, o useClientMediaQuery devolve false até montar, então no desktop o primeiro render mostra os clusters mobile com o card Clientes e depois troca, um flash visual.",
+      "achados": [
+        {
+          "severidade": "importante",
+          "onde": "src/features/settings/contents/SettingsScreen/SettingsScreen.tsx:44 (isDesktop em 640px) combinado com src/components/organisms/Menu/menuSchema.tsx:201 (item CUSTOMERS removido) e MenuRoot/layout2.scss:25",
+          "oQue": "Entre 640 e 1023 px a nav inferior não tem mais Clientes, a sidebar está escondida e Configurações usa o layout desktop sem o card Clientes. O acesso a Clientes some do menu e de Configurações nessa faixa, contrariando o objetivo do card de levar Clientes para Configurações no layout que usa a nav inferior.",
+          "farolViu": false
+        },
+        {
+          "severidade": "menor",
+          "onde": "src/features/settings/contents/SettingsScreen/SettingsScreen.tsx:44 e src/hooks/useClientMediaQuery.ts",
+          "oQue": "O hook devolve false antes de montar, então no desktop o primeiro render mostra os clusters mobile, com o card Clientes, e depois troca para o grid: um flash de layout.",
+          "farolViu": false
+        },
+        {
+          "severidade": "menor",
+          "onde": "src/lib/helpers/proxy/permissions.ts",
+          "oQue": "O gate de Feedbacks é só de menu: /main/feedback não tem entrada no ROUTE_CONFIG e fica acessível por URL a qualquer perfil (tela ainda sobre mock).",
+          "farolViu": true
+        }
+      ]
+    },
+    {
+      "pr": "biudtech/biud-frontend#871",
+      "classificacao": "erro",
+      "meuVeredito": "REQUEST_CHANGES",
+      "resumo": "O PR parte da premissa de que no onboarding a empresa ainda não existe, mas no fluxo de adicionar empresa (MiaV2CompaniesPage.tsx:19, que leva a cnpj?de=empresas, e MiaV2CnpjPage.tsx:34 deixa seguir com cookie presente) o cookie COMPANY_INFO continua com a empresa JÁ selecionada. Com isso, MiaV2ConnectionsPage.tsx:13-16/27-38 liga o modo ao vivo com o companyId da empresa ANTIGA. O onboarding da empresa nova mostra as integrações reais da antiga como conectadas e registra essas integrações como canais da nova no Continuar (registrarCanais). O pior efeito: com permiteDesconectar ligado, a pessoa pode chamar disconnectIntegration de verdade na integração da outra empresa, e o OAuth, quando a env estiver habilitada, ficaria vinculado à empresa errada. Antes do PR essa tela era só intenção, sem nenhum efeito real. O Farol não viu isso. Ele viu o apagamento da sessão sem companyId, mas não o mesmo apagamento quando a carga do GET /integrations falha.",
+      "achados": [
+        {
+          "severidade": "bloqueante",
+          "onde": "src/features/mia-v2/components/pages/MiaV2ConnectionsPage/MiaV2ConnectionsPage.tsx:13-38",
+          "oQue": "companyIdDaSessao lê o cookie da empresa já selecionada. No fluxo Empresas > Adicionar (cnpj?de=empresas, sem limpar o cookie), a tela de conexões do onboarding da empresa nova vira ao vivo com o id da empresa antiga: mostra as conexões dela, conta essas conexões no Continuar e permite desconectar de verdade (disconnectIntegration) a integração da outra empresa, depois do diálogo de confirmação.",
+          "farolViu": false
+        },
+        {
+          "severidade": "importante",
+          "onde": "src/features/mia-v2/hooks/useConexoesDeCanal.ts:~104-117 + MiaV2KnowledgePage.tsx:~46-52",
+          "oQue": "Se o listIntegrations inicial falha, o catch só corrige canal em 'conectando'. O estado fica todo desconectado e carregando vira false, então a tela de contexto afirma 'nenhuma fonte' e o efeito grava registrarCanais([]) no sessionStorage compartilhado (biud:canais). Feedbacks e Marketing passam a ver 'sem canal'. É o mesmo defeito que o Farol apontou para companyId nulo, mas por outro caminho, e a guarda que ele sugeriu não o cobre.",
+          "farolViu": false
+        },
+        {
+          "severidade": "importante",
+          "onde": "src/features/mia-v2/components/pages/MiaV2KnowledgePage/MiaV2KnowledgePage.tsx:52",
+          "oQue": "Sem companyId válido, o hook nasce com carregando=false e o efeito apaga a lista de canais da sessão.",
+          "farolViu": true
+        },
+        {
+          "severidade": "menor",
+          "onde": "src/features/mia-v2/hooks/useConexoesDeCanal.ts:95 / ConnectionsTemplate.tsx:44",
+          "oQue": "Um canal em ERROR conta como conectado para o Continuar, enquanto a tela de contexto o trata como não conectado.",
+          "farolViu": true
+        },
+        {
+          "severidade": "menor",
+          "onde": "src/features/mia-v2/hooks/useConexoesDeCanal.ts:~200",
+          "oQue": "Quando a desconexão falha, o canal vai para 'indisponível' e o chip só oferece 'Tentar de novo', que tenta conectar. A pessoa fica sem caminho para desconectar.",
+          "farolViu": true
+        }
+      ]
+    },
+    {
+      "pr": "biudtech/biud-docs#97",
+      "classificacao": "ok",
+      "meuVeredito": "APPROVE",
+      "resumo": "É um PR só de documentação e conferi o desenho contra a implementação real (tenant-company#135, commit 16183f32 e head 2270cab3). Batem com o código a tabela de classificação do §6 (incluindo as três escolhas e o default 'decisao'), os baldes autenticacao_decisao/autenticacao_convergencia, a classe 'indeterminada' com authentication_dual_run_failures_total{zona}, o AUTHENTICATION_DUAL_RUN_ENABLED, o resolveZoneLabel sobre APP_NAME, a linhagem em ::text na mesma leitura do desfechoSeInelegivel, o observador opcional com try/catch e o provedor restrito a biud-core. Não sobrou prescrição viva da comparação de senha, e in-review é valor válido do schema. A ambiguidade do denominador que o Farol levantou procede: no código, 'indeterminada' conta comparação nos dois baldes sem divergir. Fora isso, único detalhe: o #135 foi mergeado 21 minutos depois do APPROVE e o documento ficou dizendo 'em revisão', o que é só acompanhamento e não defeito no head aprovado.",
+      "achados": [
+        {
+          "severidade": "menor",
+          "onde": "02-architecture-and-data/data-modeling/tenant-company/desenho-dual-run-autenticacao.md:305",
+          "oQue": "O texto não diz que uma comparação 'indeterminada' também incrementa shadow_read_comparisons_total nos dois baldes. O código confirma que incrementa.",
+          "farolViu": true
+        },
+        {
+          "severidade": "menor",
+          "onde": "02-architecture-and-data/data-modeling/tenant-company/desenho-dual-run-autenticacao.md:7,40-41",
+          "oQue": "O tenant-company#135 entrou na main às 12:58, depois do APPROVE (12:37) e antes do merge do doc (13:20). O status in-review e o 'em revisão' ficaram desatualizados no merge e pedem a promoção a stable como acompanhamento.",
+          "farolViu": false
+        }
+      ]
+    }
+  ]
+}
