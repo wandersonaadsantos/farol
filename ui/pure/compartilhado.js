@@ -418,6 +418,7 @@ const CODIGO = {
   nao_enfileirou: 'a análise não entrou na fila de lá',
   duplicado: 'já havia uma análise deste PR na fila ou rodando lá',
   'saida-de-cena': 'outra pessoa já pegou este PR, e lá o Farol saiu de cena',
+  'pr-proprio': 'o PR é da conta daquele aparelho, e revisão não abre em PR próprio',
   recusado_no_aparelho: 'recusado por quem está naquele aparelho',
 };
 
