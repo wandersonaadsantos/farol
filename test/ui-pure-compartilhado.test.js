@@ -294,26 +294,8 @@ test('comandosEmitidosHtml: nomeia o aparelho alvo e mostra o estado do recibo',
   assert.match(com, /sync-chip ok">aplicado</);
 });
 
-/* ---------- tomada ---------- */
-
-test('tomadaDialogo: aviso do engine, risco declarado, e só então pode', () => {
-  const d = P.tomadaDialogo({ ok: true, podeTomar: true, dono: 'dOutro', risco: 'provavel', aviso: 'Este PR está sendo analisado em Desktop antigo.' });
-  assert.equal(d.pode, true);
-  assert.match(d.corpo, /analisado em Desktop antigo/);
-  assert.match(d.corpo, /Duplicidade provável/);
-  assert.match(d.corpo, /não é encerrado/);
-  assert.match(P.tomadaDialogo({ ok: true, podeTomar: true, risco: 'possivel', aviso: '' }).corpo, /Duplicidade possível/);
-});
-
-test('tomadaDialogo: sem leitura ou sem posse alheia, nada a tomar', () => {
-  const falha = P.tomadaDialogo(null);
-  assert.equal(falha.pode, false);
-  assert.match(falha.corpo, /Não deu para ler/);
-  assert.equal(P.tomadaDialogo({ ok: false, code: 'indisponivel' }).pode, false);
-  const semLease = P.tomadaDialogo({ ok: true, podeTomar: false, motivo: 'sem-lease' });
-  assert.equal(semLease.pode, false);
-  assert.match(semLease.corpo, /Ninguém está com este PR/);
-});
+// 28/09/2026 (fix round 1): `tomadaDialogo` saiu de vez. Sem "Tomar para este aparelho",
+// não existe mais leitura de aviso de posse alheia pra desenhar: era a única chamadora.
 
 test('oQueELocalHtml: nomeia Destaques, Kudos e Time como locais', () => {
   assert.match(P.oQueELocalHtml(), /Destaques, Kudos e Time continuam locais/);

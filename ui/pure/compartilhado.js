@@ -525,32 +525,6 @@ export function comandosEmitidosHtml(comandos, recibos, ctx) {
   return `<div class="card md-lista">${lista.map((cmd) => comandoLinhaHtml(cmd, mapa, contexto)).join('')}</div>`;
 }
 
-/* ---------- 2.9: o aviso antes de tomar ---------- */
-
-const SEM_TOMADA = {
-  'sem-lease': 'Ninguém está com este PR agora, então não há o que tomar.',
-  'ja-e-meu': 'Este PR já está com este aparelho.',
-  vencido: 'A posse do outro aparelho já venceu, então o caminho normal vale: não é tomada.',
-};
-
-// A leitura do lease acontece ANTES de confirmar (POST /api/sync/takeover-notice), e o
-// texto do aviso vem pronto do engine (lib/sync/tomada.js). A tela não reescreve o risco.
-export function tomadaDialogo(resposta) {
-  const r = resposta || null;
-  if (!r || r.ok !== true) {
-    return { pode: false, titulo: 'Aviso da tomada indisponível', corpo: '<p>Não deu para ler quem está com este PR agora. A tomada fica indisponível até a leitura voltar.</p>' };
-  }
-  if (r.podeTomar !== true) {
-    return { pode: false, titulo: 'Nada a tomar', corpo: `<p>${esc(SEM_TOMADA[r.motivo] || 'A tomada não se aplica a este PR agora.')}</p>` };
-  }
-  const risco = r.risco === 'provavel' ? 'Duplicidade provável.' : 'Duplicidade possível.';
-  return {
-    pode: true,
-    titulo: 'Tomar este PR para este aparelho?',
-    corpo: `<p>${esc(r.aviso || '')}</p><p><b>${esc(risco)}</b></p><ul><li>O processo do outro aparelho não é encerrado daqui.</li><li>A análise pode custar duas vezes.</li><li>Depois da tomada, só este aparelho consegue postar o review deste PR.</li></ul>`,
-  };
-}
-
 /* ---------- 2.7: o que é só deste aparelho ---------- */
 
 export function oQueELocalHtml() {

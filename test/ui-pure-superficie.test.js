@@ -260,7 +260,6 @@ const CONGELADA = [
   "syncTogglesHtml",
   "sysNorm",
   "textoDaRecusa",
-  "tomadaDialogo",
   "tomadasFeitasHtml",
   "toolRefGoto",
   "transferenciaConfirmacao",
