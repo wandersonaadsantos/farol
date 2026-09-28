@@ -161,6 +161,9 @@ export function quemCuidaLinhaHtml(pr, info) {
   const aparelho = esc(String(info.aparelho || ''));
   if (info.situacao === 'revisando') return `<div class="pr-quem-cuida">revisando no ${aparelho}</div>`;
   if (info.situacao === 'cuida') return `<div class="pr-quem-cuida">o ${aparelho} cuida desta revisão</div>`;
+  // AUSÊNCIA DE LEITURA NÃO É AUSÊNCIA DE DADO (ui/pure/compartilhado.js): sem retrato
+  // fresco da frota, "sem aparelho" seria uma afirmação que ninguém verificou ainda.
+  if (info.situacao === 'nao-lido') return '<div class="pr-quem-cuida">o admin ainda não leu os aparelhos do conjunto; quem cuida desta revisão aparece em instantes</div>';
   const conta = esc(String((pr && pr.account) || ''));
   return `<div class="pr-quem-cuida">sem aparelho com a conta ${conta}: ela não é revisada sozinha</div>`;
 }
