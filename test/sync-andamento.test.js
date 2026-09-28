@@ -2,7 +2,7 @@
 //
 // O caso central é a AUSÊNCIA de prosa. O feed da sessão tem texto do modelo, caminho de
 // arquivo, comando e trecho de código de terceiros; nada disso pode subir, nem cifrado.
-// Andamento é "em que etapa, há quanto tempo, com quem", e só isso.
+// Andamento é "em que etapa, há quanto tempo, com quem", mais as linhas de sistema.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
@@ -56,16 +56,15 @@ test('o commit da sessão sobe como tag, e a herança só no vocabulário fechad
   assert.equal(JSON.stringify(p).includes('shaSecreto123'), false, 'o SHA nunca sobe em claro');
 });
 
-// O feed (Fase 3.1) é a ÚNICA exceção de propósito: ele carrega a mesma prosa que o
-// aparelho dono já mostra na própria tela. Todo o resto da projeção continua sem ela: o
-// título do PR, o dono do repositório, o login da conta e o SHA nunca aparecem em claro,
-// nem dentro do feed (nenhuma linha do FEED de teste os menciona).
-test('só o feed leva prosa; título, dono do PR, login e SHA nunca aparecem em claro', () => {
-  const cru = JSON.stringify(andamento.projetar(sessao({ headSha: 'shaSecreto123' }), FEED, { kId: K, agora: T0 + 20000 }));
-  for (const proibido of ['Titulo', 'dono/repo', 'alguem', 'conta1', 'shaSecreto123']) {
+// O feed (Fase 3.1, revisão final de 28/09/2026) leva só linha de SISTEMA (info, warn,
+// error) e, de ferramenta, só o NOME. Texto do modelo, comando, caminho e padrão nunca
+// sobem, nem cifrados; título do PR, dono do repositório, login e SHA também não.
+test('nada de prosa do modelo nem argumento de ferramenta; título, dono, login e SHA nunca em claro', () => {
+  const p = andamento.projetar(sessao({ headSha: 'shaSecreto123' }), FEED, { kId: K, agora: T0 + 20000 });
+  const cru = JSON.stringify(p);
+  for (const proibido of ['Titulo', 'dono/repo', 'alguem', 'conta1', 'shaSecreto123', 'segredo', 'rm -rf', 'texto do modelo']) {
     assert.equal(cru.includes(proibido), false, proibido);
   }
-  assert.ok(cru.includes('segredo'), 'o feed carrega a mesma prosa que a tela do dono mostra');
 });
 
 test('etapa fora do vocabulário vira desconhecida, e autoanálise sem feed também', () => {

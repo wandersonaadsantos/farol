@@ -103,3 +103,51 @@ test('escrever: cifrar que falha por teto tenta de novo sem o feed, e o nó sobe
   assert.deepEqual(aberto.valor.p.feed, [], 'o feed foi sacrificado, o resto da projeção não');
   assert.equal(aberto.valor.p.etapa, 'verificacao', 'etapa, tempo e o resto sobrevivem ao fallback');
 });
+
+/* ---------- revisão final (28/09/2026): o feed ao vivo não leva texto do modelo nem
+   argumento de ferramenta. A spec diz "nada de código nem de texto do modelo"; o feed
+   passa só linha de sistema (info, warn, error) e, de ferramenta, só o nome. ---------- */
+
+const TOKEN_FALSO = 'ghp_FAKEfakeFAKEfake0123456789abcdefABCD';
+
+test('linha de texto do modelo nunca entra no feed projetado', () => {
+  const feed = [
+    { t: 2, k: 'text', text: 'o modelo pensou em voz alta sobre src/segredo.js' },
+    { t: 3, k: 'info', text: 'sessão do Claude iniciada' },
+  ];
+  const p = andamento.projetar(sessao, feed, { kId, agora: 10 });
+  assert.deepEqual(p.feed, ['sessão do Claude iniciada']);
+});
+
+test('linha de ferramenta sobe só com o nome, nunca com o comando', () => {
+  const feed = [
+    { t: 2, k: 'tool', text: `Bash · curl -H "Authorization: token ${TOKEN_FALSO}" https://api.example.com` },
+    { t: 3, k: 'tool', text: 'Read · C:/Users/fulano/projeto/src/segredo.js' },
+    { t: 4, k: 'tool', text: 'TodoWrite' },
+  ];
+  const p = andamento.projetar(sessao, feed, { kId, agora: 10 });
+  assert.deepEqual(p.feed, ['ferramenta: Bash', 'ferramenta: Read', 'ferramenta: TodoWrite']);
+  const cru = JSON.stringify(p);
+  for (const proibido of [TOKEN_FALSO, 'curl', 'segredo', 'example.com']) assert.equal(cru.includes(proibido), false, proibido);
+});
+
+test('linha de ferramenta sem nome reconhecível (comando cru do Codex) é descartada', () => {
+  const feed = [
+    { t: 2, k: 'tool', text: `git push https://x:${TOKEN_FALSO}@github.com/a/b` },
+    { t: 3, k: 'tool', text: TOKEN_FALSO },
+  ];
+  const p = andamento.projetar(sessao, feed, { kId, agora: 10 });
+  assert.deepEqual(p.feed, []);
+});
+
+test('info, warn e error passam com o texto; tipo desconhecido não', () => {
+  const feed = [
+    { t: 2, k: 'info', text: 'Card lido' },
+    { t: 3, k: 'warn', text: 'instabilidade na conexão' },
+    { t: 4, k: 'error', text: 'falhou' },
+    { t: 5, k: 'ok', text: 'outra coisa' },
+    { t: 6, text: 'sem tipo' },
+  ];
+  const p = andamento.projetar(sessao, feed, { kId, agora: 10 });
+  assert.deepEqual(p.feed, ['Card lido', 'instabilidade na conexão', 'falhou']);
+});
