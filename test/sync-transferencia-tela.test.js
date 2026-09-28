@@ -45,6 +45,7 @@ const publicacao = (await import('../lib/engine/sync-publicacao.js')).default;
 const comandos = (await import('../lib/engine/sync-comandos.js')).default;
 const kek = (await import('../lib/sync/kek.js')).default;
 const { prTag, acctTag, matTag } = await import('../lib/sync/tags.js');
+const candidato = (await import('../lib/sync/candidato.js')).default;
 const { accountHash, prHash } = await import('../lib/sync/keys.js');
 const { checkpointPath } = await import('../lib/engine/verification-checkpoint.js');
 
@@ -387,7 +388,7 @@ test('transferir pela tela: botão habilitado, corpo exato, a origem aplica e a 
   assert.deepEqual(ciclo.aplicados.map((a) => [a.estado, a.code || '']), [['aplicado', '']]);
   assert.deepEqual(origem.cancelados, ['a-1']);
   const fila = arvore().live.queue;
-  const itemId = `${prTag(kId(admin), PR.key)}_${matTag(kId(admin), HEAD)}`;
+  const itemId = `${prTag(kId(admin), PR.key)}_${candidato.matContaTag(kId(admin), HEAD, LOGIN)}`;
   assert.equal(fila[itemId][ORIGEM].prefDev, ADMIN);
 
   const html = await lerReciboNaTela();

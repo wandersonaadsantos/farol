@@ -47,6 +47,7 @@ const admissao = (await import('../lib/engine/admissao.js')).default;
 const adminChave = (await import('../lib/sync/admin-chave.js')).default;
 const kek = (await import('../lib/sync/kek.js')).default;
 const { prTag, matTag } = await import('../lib/sync/tags.js');
+const candidato = (await import('../lib/sync/candidato.js')).default;
 const { STATE_DIR } = await import('../lib/paths.js');
 const { notaDistribuicaoHtml } = await import('../ui/pure.js');
 
@@ -376,7 +377,7 @@ test('iniciar pela tela: a fila do conjunto, os executores pela rota, o corpo ex
   assert.match(dialogo.corpo, /este aparelho \(Notebook de teste\).*não publicou este candidato/s);
   assert.match(dialogo.corpo, /Celular antigo.*versão antiga/s);
   assert.equal(confirmacao.title, 'Começar no Desktop de teste?');
-  assert.deepEqual(pedidosPara('/api/sync/command'), [{ alvo: EXEC, tipo: 'iniciar', args: { prTag: prTag(kId(admin), PR.key), matTag: matTag(kId(admin), HEAD) } }]);
+  assert.deepEqual(pedidosPara('/api/sync/command'), [{ alvo: EXEC, tipo: 'iniciar', args: { prTag: prTag(kId(admin), PR.key), matTag: candidato.matContaTag(kId(admin), HEAD, LOGIN) } }]);
   assert.doesNotMatch(await lerReciboNaTela(), />aplicado</);
   assert.deepEqual(await cicloDoExecutor(), [['aplicado', '']]);
   assert.deepEqual(exec.iniciados, [{ key: PR.key, vaga: true, manual: false }]);

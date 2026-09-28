@@ -420,6 +420,7 @@ const CODIGO = {
   'saida-de-cena': 'outra pessoa já pegou este PR, e lá o Farol saiu de cena',
   'pr-proprio': 'o PR é da conta daquele aparelho, e revisão não abre em PR próprio',
   recusado_no_aparelho: 'recusado por quem está naquele aparelho',
+  conta_diferente: 'a conta daquele aparelho não é a desta revisão',
 };
 
 const TIPO_CMD = { cancelar: 'cancelar', repetir: 'repetir', decidir: 'decidir', iniciar: 'iniciar', transferir: 'transferir', tomar: 'tomar', 'designar-admin': 'designar admin' };

@@ -26,6 +26,7 @@ const comando = (await import('../lib/sync/comando.js')).default;
 const kek = (await import('../lib/sync/kek.js')).default;
 const { prTag, matTag } = await import('../lib/sync/tags.js');
 const { itemIdDe } = await import('../lib/sync/pendencia.js');
+const candidato = (await import('../lib/sync/candidato.js')).default;
 
 const API_KEY = 'chave-web-de-teste';
 const EMAIL = 'a@b.com';
@@ -275,11 +276,11 @@ async function comMemoriaLivre(fn) {
 
 test('iniciar aqui: passa pela admissão e volta pelo ramo local', () => comMemoriaLivre(async () => {
   const e = await motor();
-  const item = `${prTag(kId(e), PR.key)}_${matTag(kId(e), PR.headSha)}`;
-  e.sync.candidatos = new Map([[item, { pr: PR }]]);
+  const item = `${prTag(kId(e), PR.key)}_${candidato.matContaTag(kId(e), PR.headSha, LOGIN)}`;
+  e.sync.candidatos = new Map([[item, { pr: PR, conta: LOGIN }]]);
   const vindos = [];
   e.enfileirarDaDistribuicao = (pr, admissaoId) => vindos.push([pr.key, !!admissaoId, pr.viaComando, pr.itemIdDistribuido]);
-  const cmdId = await emitirPara(e, e.sync.deviceId, 'iniciar', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha) });
+  const cmdId = await emitirPara(e, e.sync.deviceId, 'iniciar', { prTag: prTag(kId(e), PR.key), matTag: candidato.matContaTag(kId(e), PR.headSha, LOGIN) });
   await comandos.cicloDosComandos(e, e.config.sync);
   // o item vai com a identidade dele: quem executa fecha o item no conjunto ao terminar
   assert.deepEqual(vindos, [[PR.key, true, true, item]], 'reserva vaga e entra pelo ramo local, sem virar manual');
@@ -319,8 +320,8 @@ test('iniciar aqui: o head de AGORA é conferido, não o que o candidato guardou
 
 test('iniciar aqui: sem vaga é recusa com sem_vaga, e nada é enfileirado', async () => {
   const e = await motor();
-  const item = `${prTag(kId(e), PR.key)}_${matTag(kId(e), PR.headSha)}`;
-  e.sync.candidatos = new Map([[item, { pr: PR }]]);
+  const item = `${prTag(kId(e), PR.key)}_${candidato.matContaTag(kId(e), PR.headSha, LOGIN)}`;
+  e.sync.candidatos = new Map([[item, { pr: PR, conta: LOGIN }]]);
   e.enfileirarDaDistribuicao = () => assert.fail('sem vaga não executa');
   e.updateSettings({ parallelReviews: 1 });
   const admissao = (await import('../lib/engine/admissao.js')).default;
@@ -328,7 +329,7 @@ test('iniciar aqui: sem vaga é recusa com sem_vaga, e nada é enfileirado', asy
   fixarMemoriaLivre();
   try {
     assert.equal(admissao.reservar(e, { tipo: 'chat' }).ok, true);
-    const cmdId = await emitirPara(e, e.sync.deviceId, 'iniciar', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha) });
+    const cmdId = await emitirPara(e, e.sync.deviceId, 'iniciar', { prTag: prTag(kId(e), PR.key), matTag: candidato.matContaTag(kId(e), PR.headSha, LOGIN) });
     await comandos.cicloDosComandos(e, e.config.sync);
     assert.equal(recibo(cmdId).code, 'sem_vaga');
   } finally {
@@ -347,11 +348,11 @@ test('iniciar aqui: item que este aparelho não publicou é recusado', async () 
 
 test('iniciar aqui: admissão que recusa vira recibo com motivo, e nada roda', async () => {
   const e = await motor();
-  const item = `${prTag(kId(e), PR.key)}_${matTag(kId(e), PR.headSha)}`;
-  e.sync.candidatos = new Map([[item, { pr: PR }]]);
+  const item = `${prTag(kId(e), PR.key)}_${candidato.matContaTag(kId(e), PR.headSha, LOGIN)}`;
+  e.sync.candidatos = new Map([[item, { pr: PR, conta: LOGIN }]]);
   e.enfileirarDaDistribuicao = () => assert.fail('sem vaga não executa');
   e.sync.lastPresenceAt = 0; // presença vencida: requisito duro da admissão local
-  const cmdId = await emitirPara(e, e.sync.deviceId, 'iniciar', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha) });
+  const cmdId = await emitirPara(e, e.sync.deviceId, 'iniciar', { prTag: prTag(kId(e), PR.key), matTag: candidato.matContaTag(kId(e), PR.headSha, LOGIN) });
   await comandos.cicloDosComandos(e, e.config.sync);
   assert.equal(recibo(cmdId).estado, 'recusado');
   assert.equal(recibo(cmdId).code, 'inapto');
