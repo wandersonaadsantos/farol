@@ -198,3 +198,83 @@ test('atribuição da distribuição no admin: recusa com o detalhe observador, 
   const deNovo = await dist.aceitarAtribuicoes(e, cfg, arvore, { agora: AGORA + 1 });
   assert.deepEqual(deNovo.recusas, [], 'a recusa sai uma vez por atribuição, não a cada giro');
 });
+
+/* ---------- fix 1: os dois relançamentos automáticos do ciclo ----------
+   A re-revisão pós-push (launchReReviews) e a repescagem do retry pós-transitório
+   (_repescarRetry) faziam os efeitos ANTES de chegar ao enqueueHeadless, que recusava em
+   silêncio: no admin saía "revisando de novo" falso, a âncora do round era queimada (e o
+   round morria se o aparelho deixasse de ser admin), e o PR do retry sumia da fila. */
+
+const H1 = 'a'.repeat(40);
+const H2 = 'b'.repeat(40);
+const { diaLocal } = await import('../lib/engine/review.js');
+const { TEMPOS } = await import('../lib/constants.js');
+
+function engineReRevisao({ adminDev = 'd1' } = {}) {
+  const e = engineDe('eu', { adminDev });
+  const pr = { key: 'biudtech/engine-ai#314', repo: 'biudtech/engine-ai', number: 314, url: URL_314, isDraft: false };
+  e.panorama = [pr];
+  e.staleInfo = { [pr.key]: { stale: true, head: H2, lastState: 'CHANGES_REQUESTED' } };
+  e.headQuietoDesde = { [pr.key]: { head: H2, at: Date.now() - TEMPOS.HEAD_QUIETO_MS - 1000 } };
+  e.reReviewLaunched = { [pr.key]: { head: H1, dia: diaLocal(Date.now()), rodadas: 1 } };
+  e.saveReReviewLaunched = () => { };
+  e.fetchPrFiles = async () => { throw new Error('sem prova'); };
+  let gh = 0;
+  e.bloqueiaAutomatico = async () => { gh += 1; return false; };
+  e.bloqueadoPorHistorico = async () => { gh += 1; return { bloqueado: false, head: '', quem: [], decisivos: [] }; };
+  e.bloqueadoPorChecks = async () => { gh += 1; return { bloqueado: false, faltando: [] }; };
+  const enfileirados = [];
+  e.enqueueHeadless = (p) => { enfileirados.push(p); return { ok: true }; };
+  const toasts = [];
+  e.on('toast', (t) => toasts.push(t.text));
+  return { e, pr, enfileirados, toasts, gh: () => gh };
+}
+
+test('re-revisão pós-push no admin: nenhuma consulta, âncora intacta, sem aviso e nada enfileirado', async () => {
+  const { e, pr, enfileirados, toasts, gh } = engineReRevisao();
+  const antes = JSON.stringify(e.reReviewLaunched[pr.key]);
+  await e.launchReReviews();
+  assert.equal(gh(), 0, 'o admin não vai ao gh por um round que não vai rodar');
+  assert.equal(JSON.stringify(e.reReviewLaunched[pr.key]), antes, 'a âncora do round não é queimada');
+  assert.deepEqual(toasts, [], 'nenhum "revisando de novo" falso');
+  assert.equal(enfileirados.length, 0);
+});
+
+test('re-revisão pós-push fora do admin segue relançando (contraprova da bancada)', async () => {
+  const { e, pr, enfileirados } = engineReRevisao({ adminDev: 'd2' });
+  await e.launchReReviews();
+  assert.equal(enfileirados.length, 1);
+  assert.equal(e.reReviewLaunched[pr.key].head, H2);
+});
+
+function engineRetry({ adminDev = 'd1' } = {}) {
+  const e = engineDe('eu', { adminDev });
+  const pr = { ...prDo('bob') };
+  e.saveSeen = () => { };
+  e.prState = async () => 'OPEN';
+  e.retryAfterNet.set(pr.key, { tries: 1, pr: { ...pr } });
+  e.retryTargets = () => [{ ...pr }];
+  e.queue = [{ ...pr }];
+  const enfileirados = [];
+  e.enqueueHeadless = (p) => { enfileirados.push(p); return { ok: true }; };
+  const toasts = [];
+  e.on('toast', (t) => toasts.push(t.text));
+  return { e, pr, enfileirados, toasts };
+}
+
+test('retry pós-transitório no admin: o PR fica na fila, não é marcado visto e nada relança', async () => {
+  const { e, pr, enfileirados, toasts } = engineRetry();
+  await e._repescarRetry([], new Set());
+  assert.equal(enfileirados.length, 0);
+  assert.deepEqual(e.queue.map((p) => p.key), [pr.key], 'o card continua na fila do admin');
+  assert.equal(e.seen.has(pr.key), false, 'nem marcado como visto');
+  assert.deepEqual(toasts, [], 'nenhum "relançando" falso');
+  assert.equal(e.retryAfterNet.has(pr.key), true, 'a promessa do retry não é consumida pelo admin');
+});
+
+test('retry pós-transitório fora do admin relança como sempre (contraprova)', async () => {
+  const { e, enfileirados } = engineRetry({ adminDev: 'd2' });
+  await e._repescarRetry([], new Set());
+  assert.equal(enfileirados.length, 1);
+  assert.deepEqual(e.queue, []);
+});

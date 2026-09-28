@@ -1268,7 +1268,8 @@ class Engine extends EventEmitter {
   // gate de consciência entrou no caminho, pra manter a profundidade no teto do
   // gate de qualidade). O comportamento é o de sempre, mais o gate novo no meio.
   async _repescarRetry(fresh, inflight) {
-    if (!this.retryAfterNet.size) return;
+    // o admin não relança: o PR fica na fila e a promessa do retry segue para quem executa
+    if (!this.retryAfterNet.size || this.souObservador()) return;
     const retry = this.retryTargets(new Set(fresh.map(f => f.key)), inflight);
     if (!retry.length) return;
     // poda PRs que foram mergeados/fechados enquanto esperavam no retry,
