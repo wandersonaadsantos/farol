@@ -32,6 +32,8 @@ const comandos = await import('../lib/engine/sync-comandos.js');
 const envelope = (await import('../lib/sync/envelope.js')).default;
 const kek = (await import('../lib/sync/kek.js')).default;
 const { STATE_DIR } = await import('../lib/paths.js');
+const { diaLocal } = await import('../lib/engine/review.js');
+const { TEMPOS } = await import('../lib/constants.js');
 fs.mkdirSync(STATE_DIR, { recursive: true });
 
 after(() => {
@@ -207,8 +209,6 @@ test('atribuição da distribuição no admin: recusa com o detalhe observador, 
 
 const H1 = 'a'.repeat(40);
 const H2 = 'b'.repeat(40);
-const { diaLocal } = await import('../lib/engine/review.js');
-const { TEMPOS } = await import('../lib/constants.js');
 
 function engineReRevisao({ adminDev = 'd1' } = {}) {
   const e = engineDe('eu', { adminDev });
