@@ -210,3 +210,60 @@ test('corte total: sem payloads no corpo, a revisão aberta avisa que o texto n�
   assert.doesNotMatch(parcial, /não coube no envio cifrado/);
   assert.equal(P.payloadsDaRevisaoHtml({ reportMarkdown: 'r' }), '', 'sem corte e sem payloads, nada muda');
 });
+
+/* ---------- 5. revisão final (28/09/2026): a decisão remota fica registrada no executor ---------- */
+
+const decisionMod = (await import('../lib/engine/decision.js')).default;
+const { decisionForUi } = await import('../lib/engine/public-review.js');
+
+function executorReal() {
+  const toasts = [];
+  const engine = {
+    sync: { material: MATERIAL, deviceId: DEV },
+    decisions: { pending: [{ ...ITEM, status: 'pending' }], resolved: [] },
+    resolveIntoHistory(i) { decisionMod.resolveIntoHistory(this, i); },
+    saveDecisions() { },
+    log() { },
+    emit(ev, p) { if (ev === 'toast') toasts.push(p.text); },
+    decide(id, acao, opcoes) { return decisionMod.decide(this, id, acao, opcoes); },
+  };
+  return { engine, toasts, itemId: pendencia.itemIdDe(kek.bufferDe(MATERIAL.id), DEV, ITEM.id) };
+}
+
+test('pular pelo admin: um aviso só, que diz que foi o admin, e o histórico registra', async () => {
+  const { engine, toasts, itemId } = executorReal();
+  const r = await comandos.executar(engine, {}, 'c1', { tipo: 'decidir', args: { itemId, acao: 'skip' } }, 1);
+  assert.equal(r.estado, 'aplicado');
+  assert.equal(toasts.length, 1, toasts.join(' | '));
+  assert.match(toasts[0], /O admin decidiu pular em acme-exemplo\/app-web#41/);
+  assert.match(toasts[0], /nada foi postado/);
+  assert.equal(engine.decisions.resolved[0].status, 'skipped');
+  assert.equal(engine.decisions.resolved[0].viaAdmin, true);
+  assert.equal(decisionForUi(engine.decisions.resolved[0]).viaAdmin, true, 'a tela do executor recebe a marca');
+});
+
+test('pular pelo próprio dono continua com o aviso de sempre, sem marca de admin', async () => {
+  const { engine, toasts } = executorReal();
+  assert.equal((await engine.decide(ITEM.id, 'skip')).ok, true);
+  assert.deepEqual(toasts, [`${ITEM.key} pulado, nada foi postado.`]);
+  assert.equal(engine.decisions.resolved[0].viaAdmin, undefined);
+});
+
+test('postar pelo admin também fica registrado no histórico do executor', async () => {
+  const { engine, itemId } = executorReal();
+  engine.decide = async (id, acao) => {
+    const i = engine.decisions.pending.findIndex((d) => d.id === id);
+    const [item] = engine.decisions.pending.splice(i, 1);
+    engine.resolveIntoHistory({ ...item, status: 'posted', action: acao });
+    return { ok: true };
+  };
+  await comandos.executar(engine, {}, 'c1', { tipo: 'decidir', args: { itemId, acao: 'approve' } }, 1);
+  assert.equal(engine.decisions.resolved[0].viaAdmin, true);
+});
+
+test('a linha do histórico diz que a decisão veio do admin', () => {
+  const base = { id: 'i1', key: ITEM.key, status: 'posted', action: 'approve', resolvedAt: 1_700_000_000_000, pr: { url: 'https://github.com/acme-exemplo/app-web/pull/41', title: 't' } };
+  const ctx = { pushbacks: {}, chip: '', chatBadge: '', agora: 1_700_000_000_000 };
+  assert.match(P.resolvedRow({ ...base, viaAdmin: true }, ctx), /decidido pelo admin/);
+  assert.doesNotMatch(P.resolvedRow(base, ctx), /decidido pelo admin/);
+});

@@ -1584,7 +1584,7 @@ class Engine extends EventEmitter {
   revokeReviewPostCapabilitiesByOwner(ownerId) { return decisionMod.revokeReviewPostCapabilitiesByOwner(this, ownerId); }
   writeMemory(result, actionLabel) { return decisionMod.writeMemory(this, result, actionLabel); }
   removeTeamMember(login) { return decisionMod.removeTeamMember(this, login); }
-  async decide(id, action) { return decisionMod.decide(this, id, action); }
+  async decide(id, action, opcoes) { return decisionMod.decide(this, id, action, opcoes); }
 
   // --- chat com o Claude por PR ------------------------------------------------
   // Cada PR tem uma conversa persistente. Quando existe uma revisão headless
