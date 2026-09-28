@@ -134,7 +134,7 @@ test('limite sem hora de reset não trava a assinatura: sem hora não dá para s
 
 test('a fila automática não enfileira PR de assinatura no limite (mesmo lugar do gate de orçamento)', () => {
   const fonte = fs.readFileSync(path.join(import.meta.dirname, '..', 'server.js'), 'utf8');
-  const i = fonte.indexOf('const toReview = this.queue.filter(');
+  const i = fonte.indexOf('const toReview = ');
   assert.ok(i >= 0);
   const filtro = fonte.slice(i, fonte.indexOf('});', i));
   assert.match(filtro, /this\.limiteDoPlanoAte\(acct\)/, 'sem este filtro a fila enfileiraria e só o gate da boca seguraria');

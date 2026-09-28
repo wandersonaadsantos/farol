@@ -126,6 +126,7 @@ const MOTIVO_APARELHO = {
   pausado: 'pausado pelo admin',
   // mesmo texto do destino da transferência (compartilhado-posse.js): é o mesmo fato
   'sem-consentimento': 'não aceita comandos do admin',
+  observador: 'é o admin, que assiste e não executa revisões',
   'sem-vaga': 'sem vaga',
   recusou: 'recusou este commit há pouco, e a espera da recusa ainda vale',
   'memoria-desconhecida': 'sem medida de memória livre, e a admissão não admite assim',
@@ -421,6 +422,7 @@ const CODIGO = {
   'pr-proprio': 'o PR é da conta daquele aparelho, e revisão não abre em PR próprio',
   recusado_no_aparelho: 'recusado por quem está naquele aparelho',
   conta_diferente: 'a conta daquele aparelho não é a desta revisão',
+  observador: 'aquele aparelho é o admin, que não executa revisões',
 };
 
 const TIPO_CMD = { cancelar: 'cancelar', repetir: 'repetir', decidir: 'decidir', iniciar: 'iniciar', transferir: 'transferir', tomar: 'tomar', 'designar-admin': 'designar admin' };

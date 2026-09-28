@@ -26,6 +26,7 @@ import { test, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { startFakeRtdb } from './helpers/fake-rtdb.js';
 import { startFakeIdentity } from './helpers/fake-identity.js';
+import { comoExecutor } from './helpers/papel.js';
 import { fixarMemoriaLivre, restaurarMemoriaLivre } from './helpers/memoria-livre.js';
 import { instalarDom } from './helpers/dom-stub.js';
 import { SYNC } from '../lib/constants.js';
@@ -217,6 +218,7 @@ async function lerReciboNaTela() {
 // O desfecho de cada comando como o executor o gravou no RECIBO (estado e código): é o que
 // a tela lê, e é o mesmo para as recusas de contrato, que o ciclo devolve só com o código.
 async function cicloDoExecutor() {
+  comoExecutor(exec, ADMIN);
   const r = await comandos.cicloDosComandos(exec, exec.config.sync);
   assert.equal(r.ok, true, r.code);
   const recibos = arvore().commandReceipts || {};
@@ -324,6 +326,7 @@ async function candidatoEsperando() {
   const reserva = admissao.reservar(exec, { tipo: 'chat' });
   assert.equal(reserva.ok, true, reserva.motivo);
   reservaDoExec = reserva.id;
+  comoExecutor(exec, ADMIN);
   assert.equal((await publicacao.publicarCapacidade(exec, exec.config.sync)).ok, true);
   assert.equal((await publicacao.publicarCapacidade(admin, admin.config.sync)).ok, true);
   const ciclo = await dist.cicloDoAgendador(admin, admin.config.sync, { agora: Date.now() });

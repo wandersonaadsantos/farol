@@ -25,6 +25,7 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { startFakeRtdb } from './helpers/fake-rtdb.js';
 import { startFakeIdentity } from './helpers/fake-identity.js';
+import { comoExecutor } from './helpers/papel.js';
 import { fixarMemoriaLivre, restaurarMemoriaLivre } from './helpers/memoria-livre.js';
 import { SYNC } from '../lib/constants.js';
 
@@ -184,6 +185,7 @@ test('quem publicou e não agenda lê o veredito, com o motivo de cada aparelho,
   await comCandidatoEsperando(e);
   e.updateSettings({ parallelReviews: 1 });
   assert.equal(admissao.reservar(e, { tipo: 'chat', agora: T }).ok, true);
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   const giro = await giroDeQuemPublicou(e, T + 5);
@@ -250,6 +252,7 @@ test('a atribuição viva nomeia o aparelho escolhido', async () => {
 test('a recusa por memória desconhecida chega com o detalhe, e é a mais nova que vale', async () => {
   const e = await motor();
   const itemId = await comCandidatoEsperando(e);
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   const ciclo = await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   assert.equal(ciclo.atribuido.itemId, itemId);
@@ -289,6 +292,7 @@ test('a atribuição de verdade substitui o veredito inteiro, e o executor a ace
   const itemId = await comCandidatoEsperando(e);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   assert.ok(no(`live/assign/${itemId}/espera`));
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   const ciclo = await dist.cicloDoAgendador(e, e.config.sync, { agora: T + 1 });
   assert.equal(ciclo.atribuido.itemId, itemId, 'o nó só com o veredito não conta como atribuição viva');
