@@ -7,6 +7,9 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.63.4', [
+    "PR seu não abre mais revisão, nem pelo clique, nem por comando de outro aparelho: a marca de revisando com o seu nome no seu próprio PR acabou. O caminho para olhar o próprio PR é a autoanálise, em Meus PRs.",
+  ]],
   ['2.63.3', [
     "Revisar de novo, por clique, um PR que você já revisou vai até o fim: antes a sessão era encerrada no meio, sem resultado.",
   ]],
