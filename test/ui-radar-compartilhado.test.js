@@ -110,11 +110,36 @@ test('sync-pending chega à tela, conta as abertas e oferece decidir ao admin', 
   assert.equal($('#mdPendCount').hidden, false);
 });
 
-test('sem ser admin, a pendência explica em vez de oferecer o comando', () => {
+// Task 9 (28/09/2026), fix round 1: antes, quem não era admin ainda via a pendência em modo
+// leitura ("este não é o admin"). Agora a seção inteira da frota some, e nada dela toca a
+// tela de quem não decide por ela: nem card, nem contador, nem toast.
+test('sem ser admin, sync-pending não pinta nada e não soa o aviso da frota', () => {
   emitir('state', estado({ sync: { admin: { ...ADMIN, souEu: false } } }));
-  emitir('sync-pending', { pendencias: [PEND], novas: [] });
-  assert.doesNotMatch($('#mdPendencias').innerHTML, /md-decidir/);
-  assert.match($('#mdPendencias').innerHTML, /este não é o admin/);
+  assert.equal($('#mdCompartilhado').hidden, true);
+  const antesDosToasts = $('#toasts').children.length;
+  emitir('sync-pending', { pendencias: [PEND], novas: ['ab12'] });
+  assert.equal($('#mdCompartilhado').hidden, true, 'a seção segue escondida');
+  assert.equal($('#toasts').children.length, antesDosToasts, 'sem admin, sem aviso');
+});
+
+test('sendo admin, sync-pending com pendência nova soa o aviso da frota', () => {
+  emitir('state', estado({ sync: { admin: ADMIN } }));
+  const antesDosToasts = $('#toasts').children.length;
+  emitir('sync-pending', { pendencias: [PEND], novas: ['ab12'] });
+  assert.equal($('#mdCompartilhado').hidden, false);
+  assert.equal($('#toasts').children.length, antesDosToasts + 1, 'admin recebe o aviso');
+  const ultimo = $('#toasts').children[$('#toasts').children.length - 1];
+  assert.match(ultimo.textContent, /Uma decisão espera por você em outro aparelho\./);
+});
+
+// aoAndamentoRemoto (sync-live) segue a mesma regra: sem ser admin, a seção que mostraria o
+// andamento dos outros aparelhos segue escondida mesmo depois do evento chegar (o conteúdo
+// de uma sessão admin anterior, se houver, fica preso atrás da seção escondida, nunca à
+// mostra).
+test('sem ser admin, sync-live não reabre a seção do andamento remoto', () => {
+  emitir('state', estado({ sync: { admin: { ...ADMIN, souEu: false } } }));
+  emitir('sync-live', { operacoes: [OP] });
+  assert.equal($('#mdCompartilhado').hidden, true);
 });
 
 test('o bootstrap só repassa: connect() entrega sync-live e sync-pending à tela', () => {

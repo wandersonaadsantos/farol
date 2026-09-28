@@ -149,13 +149,18 @@ function renderCompartilhado() {
 
 // Com `falhaEm`, o engine avisa que a leitura falhou e manda a visão anterior: a hora da
 // última leitura boa fica como estava, e a faixa diz a falha.
+//
+// Task 9 (28/09/2026): os dois SSE trazem o andamento e as pendências de OUTROS aparelhos,
+// a frota. Quem não é admin agora não pinta nem avisa nada disso: o dado chega (a tela pode
+// virar admin no próximo snapshot), mas fica só no acumulador, nunca no DOM nem no toast.
 function aoAndamentoRemoto(d) {
   LIVE.operacoes = Array.isArray(d && d.operacoes) ? d.operacoes : [];
   LIVE.falhaEm = Number(d && d.falhaEm) || 0;
   // leitura que FALHOU não conclui a primeira leitura: ela continua sendo 'inicial', e a
   // faixa de falha (que vence a idade) é quem explica
   if (!LIVE.falhaEm) { LIVE.at = Date.now(); LIVE.estado = 'lido'; }
-  if (visaoCompartilhada(syncAtual()) === 'ligada') renderOperacoes(syncAtual());
+  const s = syncAtual();
+  if (visaoCompartilhada(s) === 'ligada' && secoesDaFrota(s)) renderOperacoes(s);
 }
 
 function aoPendenciasRemotas(d) {
@@ -163,8 +168,9 @@ function aoPendenciasRemotas(d) {
   PEND.estado = 'lido';
   const novas = Array.isArray(d && d.novas) ? d.novas : [];
   for (const id of novas) PEND.novas.add(id);
-  if (visaoCompartilhada(syncAtual()) !== 'ligada') return;
-  renderPendencias(syncAtual());
+  const s = syncAtual();
+  if (visaoCompartilhada(s) !== 'ligada' || !secoesDaFrota(s)) return;
+  renderPendencias(s);
   // todos os aparelhos avisam o que ninguém viu; o primeiro visto cala os outros (D3)
   if (novas.length) toast('info', novas.length === 1 ? 'Uma decisão espera por você em outro aparelho.' : `${novas.length} decisões esperam por você em outros aparelhos.`);
 }

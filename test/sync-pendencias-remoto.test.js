@@ -83,12 +83,18 @@ function no(nome) {
   return (t && t.users && t.users.u1 && t.users.u1.live && t.users.u1.live[nome]) || {};
 }
 
-// um segundo "aparelho" com a mesma chave, para ler o que o primeiro publicou
-function outroAparelho(e) {
-  const rt = { ...e.sync, deviceId: 'dOutro', pendenciasPublicadas: new Map(), pendenciasNotificadas: new Set() };
+// um segundo "aparelho" com a mesma chave, para ler o que o primeiro publicou. Task 9
+// (28/09/2026): o AVISO da frota (o `emit('sync-pending', ...)`) só sai pro admin, então por
+// padrão este segundo aparelho nasce admin de si mesmo (`admin: false` monta um executor
+// comum, que lê e marca visto por dentro mas não recebe o evento pra própria tela).
+function outroAparelho(e, { admin = true } = {}) {
+  const rt = {
+    ...e.sync, deviceId: 'dOutro', pendenciasPublicadas: new Map(), pendenciasNotificadas: new Set(),
+    sinais: { admin: { dev: admin ? 'dOutro' : e.sync.deviceId } },
+  };
   rt.devices = { [e.sync.deviceId]: { contract: 2, keyReady: true, lastSeenAt: Date.now(), name: 'Notebook' } };
   const eventos = [];
-  return { sync: rt, decisions: { pending: [] }, emit: (n, p) => eventos.push([n, p]), eventos };
+  return { config: e.config, sync: rt, decisions: { pending: [] }, emit: (n, p) => eventos.push([n, p]), eventos };
 }
 
 test('sem frota nada sobe', async () => {
@@ -177,6 +183,22 @@ test('o outro aparelho lê, é avisado uma vez, e o próprio não aparece para s
   assert.equal(b.eventos[0][0], 'sync-pending');
 });
 
+// Task 9 (28/09/2026): o aviso da frota é só do admin. Quem não é admin lê e marca como
+// notificado por dentro (a lista e o "avisa uma vez" continuam certos), mas o evento pra
+// própria tela nunca sai: nada da frota chega à interface de quem não decide por ela.
+test('quem não é admin lê e marca como notificado, mas não recebe o evento pra própria tela', async () => {
+  const e = await motorPronto();
+  pendenciaLocal(e);
+  await pend.sincronizarPendencias(e, e.config.sync);
+  const b = outroAparelho(e, { admin: false });
+  const primeira = pend.aplicarPendencias(b, no('pending'), {});
+  assert.equal(primeira.lista.length, 1, 'a leitura e a marcação continuam acontecendo');
+  assert.equal(primeira.novas.length, 1);
+  assert.deepEqual(b.eventos, [], 'sem admin, sem sync-pending pra própria tela');
+  assert.equal(pend.aplicarPendencias(b, no('pending'), {}).novas.length, 0, 'o "avisa uma vez" vale por dentro mesmo sem emitir');
+  assert.deepEqual(b.eventos, [], 'continua sem evento no ciclo seguinte');
+});
+
 test('visto em um aparelho cala o aviso no outro (D3)', async () => {
   const e = await motorPronto();
   pendenciaLocal(e);
@@ -232,6 +254,11 @@ test('aplicar não chama pushState', async () => {
 test('o ciclo do relógio publica e lê pendências, e a rota do visto existe', async () => {
   const e = await motorPronto();
   pendenciaLocal(e);
+  // Task 9: o evento pra própria tela só sai do admin; este teste prova a fiação do SSE e
+  // da rota do visto, então o aparelho precisa ser o admin de si mesmo para exercê-la, do
+  // jeito de verdade (chave gravada no banco), senão o giro de sinais do próprio ciclo
+  // desfaz um `sinais.admin` montado à mão.
+  assert.equal((await e.syncTornarAdmin({ password: SENHA })).ok, true);
   const eventos = [];
   e.on('sync-pending', (p) => eventos.push(p));
   const andamentoEng = await import('../lib/engine/sync-andamento.js');

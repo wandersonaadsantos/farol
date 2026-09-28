@@ -43,7 +43,10 @@ function estado({ sync = {}, panorama = [], myPRs = [] } = {}) {
     activeSessions: [], headlessWaiting: [], chats: {}, reviewActions: {}, staleStates: {},
     usage: {}, usageSessions: [], toolRuns: {}, pushbacks: {}, team: [], highlights: [], update: { state: 'idle' },
     paths: { home: '/tmp/.farol', workspace: '/tmp/.farol/workspace' },
-    sync: { enabled: true, shared: true, bloqueioCompartilhamento: '', deviceId: 'dB', devices: [], distribuicao: { modo: '', esperando: [] }, comandosEmitidos: [], tomadasSofridas: [], ...sync },
+    // Task 9 (28/09/2026): as seções da frota (o andamento remoto, aqui) só pintam pro
+    // admin. Este arquivo testa a FORMATAÇÃO do andamento, não o controle de acesso (que é
+    // de ui-radar-compartilhado.test.js), então o padrão nasce admin de si mesmo.
+    sync: { enabled: true, shared: true, bloqueioCompartilhamento: '', deviceId: 'dB', devices: [], distribuicao: { modo: '', esperando: [] }, comandosEmitidos: [], tomadasSofridas: [], admin: { deviceId: 'dB', generation: 1, souEu: true, fresca: true }, ...sync },
   };
 }
 
