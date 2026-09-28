@@ -12,6 +12,7 @@
 import { esc, fmtTok, fmtWhenDay, md } from './comum.js';
 import { prRefMention } from './mencoes.js';
 import { prIdentificadoHtml } from './pr-compartilhado.js';
+import { payloadsDaRevisaoHtml } from './compartilhado-decisao.js';
 
 const VEREDITO_CHIP = {
   approve: { classe: 'ok', rotulo: 'aprovar' },
@@ -123,7 +124,7 @@ export function revisaoAbertaHtml(resposta) {
   const r = resposta.revisao;
   const titulo = (r.pr && r.pr.title) || '';
   const ref = r.key ? `<p>${prRefMention(r.key)} ${esc(titulo)}</p>` : '';
-  return { ok: true, titulo: 'Revisão de outro aparelho', corpo: `${ref}<div class="report">${md(r.reportMarkdown || '')}</div>` };
+  return { ok: true, titulo: 'Revisão de outro aparelho', corpo: `${ref}<div class="report">${md(r.reportMarkdown || '')}</div>${payloadsDaRevisaoHtml(r)}` };
 }
 
 /* ---------- envio do histórico local ---------- */

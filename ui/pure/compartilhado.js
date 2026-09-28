@@ -16,6 +16,7 @@
 import { esc, fmtClock, fmtDur, plural, identidadeDeAparelho } from './comum.js';
 import { prRefMention } from './mencoes.js';
 import { prIdentificado, prIdentificadoHtml } from './pr-compartilhado.js';
+import { botaoDoReviewHtml, motivosDaPendenciaHtml } from './compartilhado-decisao.js';
 
 // texto só quando a condição vale: evita ternário dentro de template
 function se(condicao, texto) {
@@ -252,8 +253,8 @@ function pendenciaHtml(p, ctx) {
   return `<div class="card md-pend ${classe}" data-item="${esc(p.itemId)}">
     <div class="md-linha">${chips}<span class="md-espaco"></span><span class="md-fraco">${esc(fmtClock(p.at))}</span></div>
     <div class="md-titulo">${tituloDaPendencia(p, onde)}</div>
-    <div class="md-sub">veredito: ${esc(veredito)}${detalhe}</div>
-    <div class="md-acoes">${acoes}${visto}</div>
+    <div class="md-sub">veredito: ${esc(veredito)}${detalhe}</div>${motivosDaPendenciaHtml(p)}
+    <div class="md-acoes">${acoes}${botaoDoReviewHtml(p)}${visto}</div>
   </div>`;
 }
 

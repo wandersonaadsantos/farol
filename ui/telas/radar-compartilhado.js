@@ -15,7 +15,7 @@ import {
   acoesDaRevisao, acoesDoCandidato, andamentoAtrasadoHtml, candidatosDoConjuntoHtml,
   comandoPermitido, comandosEmitidosHtml, compartilhadoBloqueioHtml,
   envioDepoisDoLote, envioHistoricoHtml, esc, inicioConfirmacao, inicioDialogo,
-  modoDistribuicaoHtml, nomeDoAparelho, oQueELocalHtml,
+  modoDistribuicaoHtml, nomeDoAparelho, oQueELocalHtml, opcoesDaDecisao,
   operacoesRemotasHtml, pendenciasCompartilhadasHtml, reciboFinal, repetirConfirmacao,
   revisaoAbertaHtml, revisoesCompartilhadasHtml, visaoCompartilhada, acoesDaOperacao,
   tomadasFeitasHtml, transferenciaConfirmacao, transferenciaDialogo,
@@ -236,17 +236,25 @@ async function marcarVisto(itemId) {
   return true;
 }
 
-function perguntarDecisao(aparelho) {
+// Só as ações que a pendência declara (`acoes`); a que não tem payload nem aparece.
+function perguntarDecisao(aparelho, acoes) {
   return escolherModal({
     titulo: `Decidir no ${aparelho}`,
     corpo: `<p>A decisão vai como comando ao <b>${esc(aparelho)}</b>, que é o dono desta pendência. Ele confere os próprios gates antes de postar, e o resultado aparece quando ele responder.</p>`,
-    opcoes: [{ valor: 'reject', rotulo: 'Pedir mudanças' }, { valor: 'approve', rotulo: 'Aprovar', classe: 'primary' }],
+    opcoes: opcoesDaDecisao(acoes),
   });
 }
 
-async function decidirNoAparelho({ itemId, dev, aparelho }, perguntar = perguntarDecisao) {
-  const acao = await perguntar(aparelho);
-  if (acao !== 'approve' && acao !== 'reject') return false;
+// `undefined` quando a pendência veio de versão anterior: o diálogo oferece as duas de antes
+function acoesDaPendencia(itemId) {
+  const p = PEND.pendencias.find((x) => x && x.itemId === itemId);
+  return p ? p.acoes : undefined;
+}
+
+// Escolha fora das opções oferecidas não sai, venha de onde vier.
+async function decidirNoAparelho({ itemId, dev, aparelho, acoes }, perguntar = perguntarDecisao) {
+  const acao = await perguntar(aparelho, acoes);
+  if (!opcoesDaDecisao(acoes).some((o) => o.valor === acao)) return false;
   return emitirComando({ alvo: dev, tipo: 'decidir', args: { itemId, acao } }, aparelho);
 }
 
@@ -392,7 +400,9 @@ function aoClicarCompartilhado(e) {
   const visto = e.target.closest('.md-visto');
   if (visto) { visto.disabled = true; marcarVisto(visto.dataset.item); return; }
   const decidir = e.target.closest('.md-decidir');
-  if (decidir) { decidirNoAparelho({ itemId: decidir.dataset.item, dev: decidir.dataset.dev, aparelho: decidir.dataset.aparelho }); return; }
+  if (decidir) { decidirNoAparelho({ itemId: decidir.dataset.item, dev: decidir.dataset.dev, aparelho: decidir.dataset.aparelho, acoes: acoesDaPendencia(decidir.dataset.item) }); return; }
+  const review = e.target.closest('.md-review-completo');
+  if (review) { abrirRevisao(review.dataset.review); return; }
   const cancelar = e.target.closest('.md-cancelar');
   if (cancelar) { cancelarOperacao(cancelar.dataset.op); return; }
   const transferir = e.target.closest('.md-transferir');

@@ -159,6 +159,18 @@ test('decidir com valor fora do contrato não sai', async () => {
   assert.equal(PEDIDOS.length, 0);
 });
 
+// Task 8: as opções são as `acoes` da pendência; a que não foi oferecida não sai
+test('decidir: só sai a ação que a pendência oferece, e o diálogo recebe as ações', async () => {
+  const alvo = { itemId: 'ab12', dev: 'dOutro', aparelho: 'Desktop antigo', acoes: ['comment', 'skip'] };
+  const vistas = [];
+  assert.equal(await Tela.decidirNoAparelho(alvo, async (_ap, acoes) => { vistas.push(acoes); return 'approve'; }), false);
+  assert.deepEqual(vistas, [['comment', 'skip']]);
+  assert.equal(PEDIDOS.length, 0);
+  RESPOSTAS['/api/sync/command'] = { ok: true, cmdId: '3'.repeat(32), estado: 'enviado' };
+  assert.equal(await Tela.decidirNoAparelho(alvo, async () => 'comment'), true);
+  assert.deepEqual(pedidosPara('/api/sync/command').map((p) => p.corpo), [{ alvo: 'dOutro', tipo: 'decidir', args: { itemId: 'ab12', acao: 'comment' } }]);
+});
+
 test('cancelar: pede confirmação antes, e manda só o prTag ao aparelho da operação', async () => {
   emitir('state', estado({ sync: { admin: ADMIN } }));
   emitir('sync-live', { operacoes: [OP] });

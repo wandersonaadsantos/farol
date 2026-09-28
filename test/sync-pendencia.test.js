@@ -16,9 +16,12 @@ const ITEM = {
   reportMarkdown: 'RELATORIO INTERNO', reviewMarkdown: 'CORPO DO REVIEW', blockedKind: 'stale_head', blockedHead: 'abc123',
 };
 
-test('a projeção leva tags, veredito, motivos e bloqueio, e nada mais', () => {
+// `acoes` e `reviewId` entraram com a decisão remota (Task 8): o review viaja no corpo do
+// histórico, e a pendência só aponta para ele
+test('a projeção leva tags, veredito, motivos, bloqueio, ações e o id do corpo, e nada mais', () => {
   const p = pendencia.projetarPendencia(ITEM, { kId: K });
-  assert.deepEqual(Object.keys(p).sort(), ['acctTag', 'bloqueio', 'motivos', 'prTag', 'veredito']);
+  assert.deepEqual(Object.keys(p).sort(), ['acctTag', 'acoes', 'bloqueio', 'motivos', 'prTag', 'reviewId', 'veredito']);
+  assert.deepEqual(p.acoes, ['skip'], 'sem payload, só pular');
   assert.match(p.prTag, /^[0-9a-f]{32}$/);
   assert.match(p.acctTag, /^[0-9a-f]{32}$/);
   assert.equal(p.veredito, 'approve');
