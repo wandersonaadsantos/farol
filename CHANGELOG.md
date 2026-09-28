@@ -9,6 +9,20 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.63.4
+
+O Farol não abre mais revisão num PR que é seu.
+
+**Correções**
+
+- **PR seu não vira revisão automática, por caminho nenhum.** Um aparelho do seu grupo abriu
+  revisão num PR de sua autoria, com a sua conta, e o time viu a marca de "revisando" com o seu
+  nome no seu próprio PR por alguns minutos. A fila automática nunca trazia PR seu, mas o clique
+  no panorama, o link colado, a re-revisão e os comandos vindos de outro aparelho não conferiam
+  quem era o autor. Agora os quatro recusam, com um aviso apontando a autoanálise (em Meus PRs),
+  que é o lugar de olhar o próprio PR: ela não marca nada no GitHub e não posta nada. O comando
+  vindo de outro aparelho volta recusado com o motivo, em vez de "aplicado".
+
 ## v2.63.3
 
 Revisar de novo um PR que você já revisou passa a funcionar até o fim.
