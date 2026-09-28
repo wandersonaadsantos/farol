@@ -120,6 +120,9 @@ async function motor(deviceId) {
   e.sync.autoridade = fresca();
   e.doctorInfo = { claude: '1.0.0', ghAuth: true };
   e.sync.lastPresenceAt = Date.now();
+  // a aptidão de destino agora lê o token POR CONTA (Task 2, 28/09/2026), não mais o
+  // `gh auth` global da máquina
+  e.tokens = { [LOGIN]: 'tok-teste' };
   return e;
 }
 

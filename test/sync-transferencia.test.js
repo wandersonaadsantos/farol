@@ -62,7 +62,7 @@ beforeEach(() => {
 // --- parte pura -----------------------------------------------------------------------
 
 function resumo(extra = {}) {
-  return { frescoAte: T + 1000, pausado: false, iaPronta: true, token: true, contas: ['tagDaConta'], teto: 2, ocupadas: 0, ...extra };
+  return { frescoAte: T + 1000, pausado: false, iaPronta: true, token: true, contas: ['tagDaConta'], contasComToken: ['tagDaConta'], teto: 2, ocupadas: 0, ...extra };
 }
 
 test('destino apto exige resumo fresco, sem pausa, com IA, com vaga e com credencial', () => {
@@ -72,8 +72,7 @@ test('destino apto exige resumo fresco, sem pausa, com IA, com vaga e com creden
   assert.equal(transferencia.destinoApto(resumo({ pausado: true }), { agora: T }).motivo, 'pausado');
   assert.equal(transferencia.destinoApto(resumo({ iaPronta: false }), { agora: T }).motivo, 'sem-ia');
   assert.equal(transferencia.destinoApto(resumo({ ocupadas: 2 }), { agora: T }).motivo, 'sem-vaga');
-  assert.equal(transferencia.destinoApto(resumo({ contas: [] }), { acctTag: 'tagDaConta', agora: T }).motivo, 'sem-credencial');
-  assert.equal(transferencia.destinoApto(resumo({ token: false }), { acctTag: 'tagDaConta', agora: T }).motivo, 'sem-credencial');
+  assert.equal(transferencia.destinoApto(resumo({ contasComToken: [] }), { acctTag: 'tagDaConta', agora: T }).motivo, 'sem-credencial');
 });
 
 test('a preferência vale enquanto não vence, e vencida não existe', () => {
@@ -161,7 +160,7 @@ function arvore() { const t = fake.tree(); return (t && t.users && t.users.u1) |
 async function capacidadeDoDestino(e, extra = {}) {
   const envelope = (await import('../lib/sync/envelope.js')).default;
   const c = {
-    nome: 'Celular', contas: [acctTag(kId(e), LOGIN)], token: true, iaPronta: true, paralelismo: 2,
+    nome: 'Celular', contas: [acctTag(kId(e), LOGIN)], contasComToken: [acctTag(kId(e), LOGIN)], token: true, iaPronta: true, paralelismo: 2,
     ramLivre: 'alta', aceitarAdmin: true, keyReady: true, pausado: false,
     admissao: { total: 0, porEstado: { reserva: 0, execucao: 0 }, porTipo: {} }, ...extra,
   };
@@ -202,7 +201,7 @@ test('sessão que já tinha terminado não deixa a marca de transferência para 
 
 test('transferir para destino sem a credencial da conta é recusado, e a sessão continua', async () => {
   const e = await motor();
-  await capacidadeDoDestino(e, { contas: [] });
+  await capacidadeDoDestino(e, { contasComToken: [] });
   const r = await transfEng.transferir(e, e.config.sync, argsDaTransferencia(e));
   assert.equal(r.ok, false);
   assert.equal(r.code, 'destino_inapto');
@@ -242,7 +241,7 @@ test('a memória vai ANTES de encerrar a sessão', () => {
 test('a capacidade publicada leva o que a aptidão do destino precisa ler', async () => {
   const e = await motor();
   const cap = publicacao.capacidadeDe(e, e.config.sync);
-  for (const campo of ['contas', 'token', 'iaPronta', 'paralelismo', 'pausado', 'admissao']) {
+  for (const campo of ['contas', 'contasComToken', 'token', 'iaPronta', 'paralelismo', 'pausado', 'admissao']) {
     assert.ok(campo in cap, `a aptidão do destino lê ${campo}`);
   }
 });

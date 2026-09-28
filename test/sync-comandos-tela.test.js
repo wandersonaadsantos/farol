@@ -123,6 +123,9 @@ async function motor(deviceId) {
   e.doctorInfo = { claude: '1.0.0', ghAuth: true };
   e.sync.lastPresenceAt = Date.now();
   e.accountForPr = () => LOGIN;
+  // a aptidão de destino agora lê o token POR CONTA (Task 2, 28/09/2026), não mais o
+  // `gh auth` global da máquina
+  e.tokens = { [LOGIN]: 'tok-teste' };
   return e;
 }
 
@@ -399,7 +402,9 @@ test('iniciar indisponível: sem vaga em quem publicou, a escolha diz por quê e
 test('iniciar indisponível: quem publicou sem credencial da conta do item aparece com esse motivo', async () => {
   const itemId = await candidatoEsperando();
   emitir('state', estadoDaTela());
-  exec.doctorInfo = { claude: '1.0.0', ghAuth: false };
+  // a aptidão de destino lê o token POR CONTA (Task 2, 28/09/2026): sem token para a
+  // conta do item, não importa mais o `ghAuth` global
+  exec.tokens = {};
   await execGanhaVaga();
   let dialogo = null;
   assert.equal(await Tela.iniciarCandidato(itemId, async (d) => { dialogo = d; return EXEC; }, async () => true), false);
