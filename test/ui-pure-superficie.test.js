@@ -217,6 +217,7 @@ const CONGELADA = [
   "revisaoAbertaHtml",
   "opcoesDaDecisao",
   "motivosDaPendenciaHtml",
+  "motivosOmitidosDe",
   "botaoDoReviewHtml",
   "payloadsDaRevisaoHtml",
   "revisoesCompartilhadasHtml",

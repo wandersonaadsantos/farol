@@ -6,7 +6,7 @@
 // postaria. As opções do diálogo são SÓ as ações que a pendência declara (`acoes`, que o
 // dono monta a partir dos payloads que tem): oferecer uma ação sem payload seria oferecer
 // um comando que o dono sempre recusaria.
-import { esc, md } from './comum.js';
+import { esc, md, plural } from './comum.js';
 
 const ROTULO_DA_ACAO = { approve: 'Aprovar', request_changes: 'Pedir mudanças', comment: 'Só comentar', skip: 'Pular' };
 // ordem dos botões no diálogo: o mais leve primeiro, e aprovar (o primário) por último
@@ -21,11 +21,21 @@ export function opcoesDaDecisao(acoes) {
   }));
 }
 
-// Motivos por extenso, e o botão que abre o corpo no histórico quando o dono o publicou.
+// Motivos por extenso, e o botão que abre o corpo no histórico quando o dono o publicou. O
+// que o orçamento do envio cortou é contado pelo dono (`motivosOmitidos`) e aparece aqui:
+// a lista parcial nunca parece completa.
+// quantos motivos o dono contou e não couberam; qualquer coisa fora de inteiro positivo é 0
+export function motivosOmitidosDe(p) {
+  const n = Number(p && p.motivosOmitidos);
+  return Number.isInteger(n) && n > 0 ? n : 0;
+}
+
 export function motivosDaPendenciaHtml(p) {
   const motivos = Array.isArray(p && p.motivos) ? p.motivos.filter((m) => m && m.text) : [];
-  if (!motivos.length) return '';
-  return `<ul class="md-motivos">${motivos.map((m) => `<li>${esc(m.text)}</li>`).join('')}</ul>`;
+  const omitidos = motivosOmitidosDe(p);
+  if (!motivos.length && !omitidos) return '';
+  const mais = omitidos ? `<li class="md-fraco">+${plural(omitidos, 'motivo', 'motivos')} no review completo</li>` : '';
+  return `<ul class="md-motivos">${motivos.map((m) => `<li>${esc(m.text)}</li>`).join('')}${mais}</ul>`;
 }
 
 export function botaoDoReviewHtml(p) {

@@ -56,8 +56,10 @@ test('projetarPendencia leva o reviewId do corpo e as ações que têm payload, 
   assert.equal(semDev.reviewId, '', 'sem aparelho não existe reviewId de verdade');
 });
 
-test('a pendência cifrada cabe no nó mesmo com 10 motivos de 300 caracteres acentuados', () => {
-  for (const ch of ['x', 'ç']) {
+// Revisão final (28/09/2026): o pior caso é o ESCAPADO. Aspas e barras pesam dois bytes no
+// JSON do envelope, e caractere de controle pesa seis (\u0001).
+test('a pendência cifrada cabe no nó mesmo com 10 motivos de 300 caracteres acentuados ou escapados', () => {
+  for (const ch of ['x', 'ç', '"', '\\', '\u0001', '"ç\\']) {
     const reasons = Array.from({ length: 10 }, () => ({ text: ch.repeat(300), kind: 'content' }));
     const p = pendencia.projetarPendencia({ ...ITEM, blockedKind: 'stale_head', reasons }, { kId: K, dev: DEV });
     assert.ok(p.motivos.length >= 1);
@@ -65,7 +67,8 @@ test('a pendência cifrada cabe no nó mesmo com 10 motivos de 300 caracteres ac
       uid: UID, caminho: `live/pending/${'f'.repeat(32)}`, campo: 'pendencia', no: 'live/pending', esquema: 'pend1',
       cur: 'g1', material: MATERIAL, r: 1, extras: [1_700_000_000_000, DEV], dados: { p },
     });
-    assert.equal(r.ok, true, `motivos de "${ch}" estouram o teto: ${r.motivo}`);
+    assert.equal(r.ok, true, `motivos de ${JSON.stringify(ch)} estouram o teto: ${r.motivo}`);
+    assert.equal(p.motivos.length + p.motivosOmitidos, 10, 'o que não coube é contado');
   }
 });
 
@@ -168,6 +171,17 @@ test('pendência mostra os motivos por extenso e o botão Ver review completo', 
   assert.match(html, /Ver review completo/);
   assert.match(html, new RegExp(`data-review="${'c'.repeat(32)}"`));
   assert.doesNotMatch(P.pendenciasCompartilhadasHtml([{ ...p, reviewId: '' }], {}), /Ver review completo/);
+});
+
+test('motivos omitidos aparecem no card: a lista parcial nunca parece completa', () => {
+  const p = { itemId: 'ab12', dev: 'dOutro', veredito: 'request_changes', motivos: [{ text: 'falta teste', kind: 'content' }], acoes: ['skip'] };
+  assert.match(P.pendenciasCompartilhadasHtml([{ ...p, motivosOmitidos: 3 }], {}), /\+3 motivos no review completo/);
+  assert.match(P.pendenciasCompartilhadasHtml([{ ...p, motivosOmitidos: 3 }], {}), /4 motivos registrados/, 'a contagem do card soma os omitidos');
+  assert.match(P.pendenciasCompartilhadasHtml([{ ...p, motivosOmitidos: 1 }], {}), /\+1 motivo no review completo/);
+  assert.match(P.pendenciasCompartilhadasHtml([{ ...p, motivos: [], motivosOmitidos: 2 }], {}), /\+2 motivos no review completo/, 'mesmo sem nenhum motivo que coube');
+  for (const nada of [0, undefined, -4, 'x', '<b>']) {
+    assert.doesNotMatch(P.pendenciasCompartilhadasHtml([{ ...p, motivosOmitidos: nada }], {}), /no review completo/, String(nada));
+  }
 });
 
 test('as opções da decisão são só as ações que a pendência oferece', () => {

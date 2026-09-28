@@ -16,7 +16,7 @@
 import { esc, fmtClock, fmtDur, plural, identidadeDeAparelho } from './comum.js';
 import { prRefMention } from './mencoes.js';
 import { prIdentificado, prIdentificadoHtml } from './pr-compartilhado.js';
-import { botaoDoReviewHtml, motivosDaPendenciaHtml } from './compartilhado-decisao.js';
+import { botaoDoReviewHtml, motivosDaPendenciaHtml, motivosOmitidosDe } from './compartilhado-decisao.js';
 
 // texto só quando a condição vale: evita ternário dentro de template
 function se(condicao, texto) {
@@ -247,7 +247,7 @@ function pendenciaHtml(p, ctx) {
   const nova = ctx.novas.has(p.itemId);
   const onde = p.aparelho || 'outro aparelho';
   const veredito = VEREDITO[p.veredito] || 'sem veredito';
-  const motivos = Array.isArray(p.motivos) ? p.motivos.length : 0;
+  const motivos = (Array.isArray(p.motivos) ? p.motivos.length : 0) + motivosOmitidosDe(p);
   const bloqueio = BLOQUEIO_PEND[p.bloqueio] || '';
   const chips = [
     `<span class="sync-chip mute">no ${esc(onde)}</span>`,
