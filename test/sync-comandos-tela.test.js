@@ -320,13 +320,14 @@ let reservaDoExec = '';
 // O executor publica o candidato estando SEM VAGA (teto 1 e um chat ocupando), então o
 // agendador do admin não o atribui, e o item fica esperando com o motivo.
 async function candidatoEsperando() {
+  // o executor não enxerga a chave de admin do STATE_DIR dividido: só ele publica candidato
+  comoExecutor(exec, ADMIN);
   const r = await dist.publicarCandidato(exec, exec.config.sync, { ...PR, headSha: HEAD }, { agora: Date.now() });
   assert.equal(r.ok, true, r.code);
   exec.headlessDistribuindo = new Map([[PR.key, { pr: PR, desde: Date.now() }]]);
   const reserva = admissao.reservar(exec, { tipo: 'chat' });
   assert.equal(reserva.ok, true, reserva.motivo);
   reservaDoExec = reserva.id;
-  comoExecutor(exec, ADMIN);
   assert.equal((await publicacao.publicarCapacidade(exec, exec.config.sync)).ok, true);
   assert.equal((await publicacao.publicarCapacidade(admin, admin.config.sync)).ok, true);
   const ciclo = await dist.cicloDoAgendador(admin, admin.config.sync, { agora: Date.now() });

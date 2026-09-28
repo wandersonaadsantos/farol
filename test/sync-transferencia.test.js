@@ -75,6 +75,18 @@ test('destino apto exige resumo fresco, sem pausa, com IA, com vaga e com creden
   assert.equal(transferencia.destinoApto(resumo({ contasComToken: [] }), { acctTag: 'tagDaConta', agora: T }).motivo, 'sem-credencial');
 });
 
+// Revisão final (28/09/2026): o admin assiste e nunca executa, então nunca é destino. O
+// motivo `observador` vem antes de tudo o que ele poderia "consertar" (consentimento,
+// pausa, credencial), porque nenhum ajuste dele o torna apto.
+test('o admin (observador) nunca é destino apto, e o motivo diz por quê', () => {
+  assert.deepEqual(transferencia.destinoApto(resumo({ observador: true }), { acctTag: 'tagDaConta', agora: T }), { apto: false, motivo: 'observador' });
+  assert.equal(transferencia.destinoApto(resumo({ observador: true, aceitarAdmin: false, pausado: true }), { agora: T }).motivo, 'observador');
+  assert.equal(transferencia.destinoApto(resumo({ observador: true, frescoAte: T - 1 }), { agora: T }).motivo, 'sem-resumo', 'sem resumo fresco não se sabe nem o papel');
+  const aparelho = { contract: 2, keyReady: true, lastSeenAt: T };
+  assert.equal(transferencia.motivoDoDestino({ id: 'dAdmin', aparelho, resumo: resumo({ observador: true }), acctTag: 'tagDaConta', agora: T }), 'observador');
+  assert.ok(transferencia.MOTIVOS.includes('observador'));
+});
+
 test('a preferência vale enquanto não vence, e vencida não existe', () => {
   assert.equal(transferencia.preferenciaValida({ dev: 'dB', ate: T + 1 }, { agora: T }), 'dB');
   assert.equal(transferencia.preferenciaValida({ dev: 'dB', ate: T }, { agora: T }), '');

@@ -97,6 +97,16 @@ test('transferenciaDialogo: só os aptos viram opção, e os inaptos aparecem de
   assert.match(d.corpo, /Nenhuma sessão migra/);
 });
 
+// Revisão final (28/09/2026): o admin aparece na lista como inapto com o motivo em
+// português, nunca como "motivo registrado: observador".
+test('transferenciaDialogo: o admin aparece inapto, dizendo que só assiste', () => {
+  const comAdmin = { ...DESTINOS, destinos: [...DESTINOS.destinos, { deviceId: 'dAdm', nome: 'Admin de teste', apto: false, motivo: 'observador', souEu: false }] };
+  const d = P.transferenciaDialogo(comAdmin, OP);
+  assert.deepEqual(d.aptos, ['dEu']);
+  assert.match(d.corpo, /Admin de teste.*é o admin, que assiste e não executa revisões/s);
+  assert.doesNotMatch(d.corpo, /motivo registrado: observador/);
+});
+
 test('transferenciaDialogo: sem apto, sem leitura ou com a origem inapta, nada é oferecido', () => {
   const nenhum = P.transferenciaDialogo({ ...DESTINOS, destinos: DESTINOS.destinos.filter((x) => !x.apto) }, OP);
   assert.equal(nenhum.pode, false);
