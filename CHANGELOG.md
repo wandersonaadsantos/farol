@@ -9,6 +9,27 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.64.0
+
+O aparelho admin vira a mesa de controle do conjunto: assiste tudo ao vivo e decide pelos outros aparelhos, sem executar nada. Toda revisão passa a rodar só no aparelho que tem a conta dela.
+
+**Novidades**
+
+- **O admin assiste às revisões ao vivo.** Cada revisão rodando em outro aparelho aparece no admin com etapa, tempo, modelo, subagentes e as últimas linhas de atividade, como na tela do próprio aparelho. Texto do modelo e argumento de comando não saem do aparelho.
+- **O admin decide com o review completo na tela.** O botão Ver review completo abre corpo, comentários por arquivo, veredito e motivos. A decisão pode ser aprovar, pedir mudanças, só comentar ou pular, e quem posta continua sendo o aparelho dono, com a conta e as travas dele. Review grande demais para o envio cifrado chega cortado, com aviso, e motivos que não couberam aparecem contados.
+- **A fila do admin diz quem cuida de cada PR:** revisando no aparelho X, o aparelho X cuida desta revisão, ou nenhum aparelho com aquela conta.
+
+**Melhorias**
+
+- **O admin não executa revisão por caminho nenhum.** Nem clique, nem terminal, nem ciclo automático, nem comando, nem transferência. Quem executa são os aparelhos que têm a conta.
+- **Quem não é admin vê só o próprio trabalho.** As seções dos outros aparelhos e os avisos sobre eles ficam só no admin. Quando o admin decide uma pendência de um aparelho, ele registra "decidido pelo admin" no histórico.
+
+**Correções**
+
+- **Revisão nunca roda com a conta errada.** A conta passou a fazer parte da identidade de cada revisão distribuída, e a transferência só vai para aparelho que tem o token daquela conta. Antes, tomar uma revisão podia revisá-la com outra identidade, e um PR que pedia revisão a duas contas do conjunto perdia uma delas.
+- **Pedir mudanças pelo admin funciona.** O comando falhava sempre no aparelho dono.
+- **Pendência com muitos motivos chega ao admin.** Motivos cheios de aspas ou barras estouravam o tamanho do envio, e a pendência nunca subia.
+
 ## v2.63.4
 
 O Farol não abre mais revisão num PR que é seu.
