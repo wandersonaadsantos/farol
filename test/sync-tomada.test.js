@@ -127,12 +127,17 @@ test('tomar de si mesmo ou de lease vencido não é tomada', async () => {
   assert.equal(meu.reason, 'ja-e-meu');
 });
 
-test('o comando tomar exige confirmação explícita', () => {
+test('o comando tomar exige confirmação explícita e a conta (Task 3, 28/09/2026)', () => {
   const PR = 'a'.repeat(32);
   const MAT = 'b'.repeat(32);
-  assert.equal(comando.sanearComando({ tipo: 'tomar', args: { prTag: PR, matTag: MAT } }), null);
-  assert.equal(comando.sanearComando({ tipo: 'tomar', args: { prTag: PR, matTag: MAT, confirmado: 'sim' } }), null);
-  assert.deepEqual(comando.sanearComando({ tipo: 'tomar', args: { prTag: PR, matTag: MAT, confirmado: true } }), { tipo: 'tomar', args: { prTag: PR, matTag: MAT, confirmado: true } });
+  const ACCT = 'c'.repeat(32);
+  assert.equal(comando.sanearComando({ tipo: 'tomar', args: { prTag: PR, matTag: MAT, acctTag: ACCT } }), null);
+  assert.equal(comando.sanearComando({ tipo: 'tomar', args: { prTag: PR, matTag: MAT, acctTag: ACCT, confirmado: 'sim' } }), null);
+  assert.equal(comando.sanearComando({ tipo: 'tomar', args: { prTag: PR, matTag: MAT, confirmado: true } }), null, 'sem acctTag não é comando');
+  assert.deepEqual(
+    comando.sanearComando({ tipo: 'tomar', args: { prTag: PR, matTag: MAT, acctTag: ACCT, confirmado: true } }),
+    { tipo: 'tomar', args: { prTag: PR, matTag: MAT, acctTag: ACCT, confirmado: true } },
+  );
 });
 
 test('o funil pergunta pela geração antes de enviar, e leitura indisponível não autoriza', () => {

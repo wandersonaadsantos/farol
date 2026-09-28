@@ -24,7 +24,7 @@ const { Engine } = await import('../server.js');
 const comandos = (await import('../lib/engine/sync-comandos.js')).default;
 const comando = (await import('../lib/sync/comando.js')).default;
 const kek = (await import('../lib/sync/kek.js')).default;
-const { prTag, matTag } = await import('../lib/sync/tags.js');
+const { prTag, matTag, acctTag } = await import('../lib/sync/tags.js');
 const { itemIdDe } = await import('../lib/sync/pendencia.js');
 const candidato = (await import('../lib/sync/candidato.js')).default;
 
@@ -293,7 +293,7 @@ test('tomar aqui: o item vai com o pedido de tomada e com a identidade dele', ()
   e.queue = [PR];
   const vindos = [];
   e.enfileirarDaDistribuicao = (pr, admissaoId) => vindos.push([pr.key, !!admissaoId, pr.tomarLease, pr.itemIdDistribuido]);
-  const cmdId = await emitirPara(e, e.sync.deviceId, 'tomar', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha), confirmado: true });
+  const cmdId = await emitirPara(e, e.sync.deviceId, 'tomar', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha), acctTag: acctTag(kId(e), LOGIN), confirmado: true });
   await comandos.cicloDosComandos(e, e.config.sync);
   assert.deepEqual(vindos, [[PR.key, true, true, item]]);
   assert.equal(recibo(cmdId).estado, 'aplicado');
