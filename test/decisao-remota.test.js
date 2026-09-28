@@ -194,3 +194,19 @@ test('a revisão aberta mostra cada ação com o corpo e os inlines por arquivo'
   assert.match(corpo, /linha 9/);
   assert.match(corpo, /cortad/);
 });
+
+// Fix round 1: o último degrau do corte tira os payloads inteiros. O corpo chega com
+// `cortado: true` e sem `payloads`, e a tela tem de avisar mesmo assim: review cortado nunca
+// pode parecer completo.
+test('corte total: sem payloads no corpo, a revisão aberta avisa que o texto não coube', () => {
+  const corpo = historico.corpoDe({ id: 'i1', key: ITEM.key, reportMarkdown: 'x'.repeat(33950) }, { approve: payload('APPROVE', 'Pode seguir.') });
+  assert.equal(corpo.cortado, true);
+  assert.equal(corpo.payloads, undefined, 'o último degrau do corte tirou os payloads');
+  const { corpo: html } = P.revisaoAbertaHtml({ found: true, revisao: corpo });
+  assert.match(html, /O texto do review não coube no envio cifrado/);
+  assert.match(html, /decida no aparelho dono/);
+  const parcial = P.payloadsDaRevisaoHtml({ cortado: true, payloads: { approve: { event: 'APPROVE', body: 'ok', comments: [] } } });
+  assert.match(parcial, /chegou cortado aqui/, 'corte parcial mantém a frase dele');
+  assert.doesNotMatch(parcial, /não coube no envio cifrado/);
+  assert.equal(P.payloadsDaRevisaoHtml({ reportMarkdown: 'r' }), '', 'sem corte e sem payloads, nada muda');
+});

@@ -45,14 +45,19 @@ function inlinesPorArquivo(comments) {
     ${lista.map((c) => `<div class="md-inline"><span class="md-fraco">${Number(c.line) > 0 ? `linha ${esc(c.line)}` : 'arquivo'}</span><div class="report">${md(c.body)}</div></div>`).join('')}</div>`).join('');
 }
 
+const AVISO_CORTE_PARCIAL = '<p class="md-nota md-ruim">O review era grande demais para o compartilhamento e chegou cortado aqui. O aparelho dono posta o review inteiro.</p>';
+const AVISO_CORTE_TOTAL = '<p class="md-nota md-ruim">O texto do review não coube no envio cifrado; abra o PR no GitHub ou decida no aparelho dono.</p>';
+
 // Uma seção por ação, na ordem em que o diálogo as oferece, com o corpo e os inlines.
+// O aviso de corte sai ANTES de olhar os payloads: no último degrau do corte
+// (lib/sync/historico.js) eles somem inteiros, e review cortado nunca parece completo.
 export function payloadsDaRevisaoHtml(revisao) {
-  const payloads = revisao && revisao.payloads && typeof revisao.payloads === 'object' ? revisao.payloads : null;
-  if (!payloads) return '';
+  const r = revisao || {};
+  const payloads = r.payloads && typeof r.payloads === 'object' ? r.payloads : null;
+  if (!payloads) return r.cortado === true ? AVISO_CORTE_TOTAL : '';
   const secoes = [...ORDEM_DAS_OPCOES].reverse().filter((a) => payloads[a]).map((a) => `<section class="md-payload">
     <div class="md-titulo">${esc(ROTULO_DA_ACAO[a])}</div>
     <div class="report">${md(payloads[a].body || '')}</div>${inlinesPorArquivo(payloads[a].comments)}
   </section>`).join('');
-  const aviso = revisao.cortado === true ? '<p class="md-nota">O review era grande demais para o compartilhamento e chegou cortado aqui. O aparelho dono posta o review inteiro.</p>' : '';
-  return `${aviso}${secoes}`;
+  return `${r.cortado === true ? AVISO_CORTE_PARCIAL : ''}${secoes}`;
 }
