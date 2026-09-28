@@ -28,9 +28,9 @@ const FEED = [
   { t: T0 + 12000, k: 'text', text: SEGREDO, s: 'raciocinio' },
 ];
 
-test('a projeção leva etapa, tempos, subagentes, modelo, tags e tipo, e nada mais', () => {
+test('a projeção leva etapa, tempos, subagentes, feed, modelo, tags e tipo, e nada mais', () => {
   const p = andamento.projetar(sessao(), FEED, { kId: K, agora: T0 + 20000 });
-  assert.deepEqual(Object.keys(p).sort(), ['acctTag', 'etapa', 'heranca', 'matTag', 'modelo', 'msPorEtapa', 'prTag', 'subagentes', 'tipo']);
+  assert.deepEqual(Object.keys(p).sort(), ['acctTag', 'etapa', 'feed', 'heranca', 'matTag', 'modelo', 'msPorEtapa', 'prTag', 'subagentes', 'tipo']);
   assert.equal(p.matTag, '', 'sessão sem head não inventa versão material');
   assert.equal(p.heranca, '', 'herança não decidida sai vazia');
   assert.equal(p.etapa, 'raciocinio');
@@ -56,11 +56,16 @@ test('o commit da sessão sobe como tag, e a herança só no vocabulário fechad
   assert.equal(JSON.stringify(p).includes('shaSecreto123'), false, 'o SHA nunca sobe em claro');
 });
 
-test('nenhuma prosa, caminho, comando, título ou login sobe', () => {
+// O feed (Fase 3.1) é a ÚNICA exceção de propósito: ele carrega a mesma prosa que o
+// aparelho dono já mostra na própria tela. Todo o resto da projeção continua sem ela: o
+// título do PR, o dono do repositório, o login da conta e o SHA nunca aparecem em claro,
+// nem dentro do feed (nenhuma linha do FEED de teste os menciona).
+test('só o feed leva prosa; título, dono do PR, login e SHA nunca aparecem em claro', () => {
   const cru = JSON.stringify(andamento.projetar(sessao({ headSha: 'shaSecreto123' }), FEED, { kId: K, agora: T0 + 20000 }));
-  for (const proibido of ['segredo', 'rm -rf', 'Users', 'Titulo', 'dono/repo', 'alguem', 'conta1', 'shaSecreto123']) {
+  for (const proibido of ['Titulo', 'dono/repo', 'alguem', 'conta1', 'shaSecreto123']) {
     assert.equal(cru.includes(proibido), false, proibido);
   }
+  assert.ok(cru.includes('segredo'), 'o feed carrega a mesma prosa que a tela do dono mostra');
 });
 
 test('etapa fora do vocabulário vira desconhecida, e autoanálise sem feed também', () => {

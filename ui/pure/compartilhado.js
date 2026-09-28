@@ -299,25 +299,19 @@ function tempoDaOperacao(op) {
   return Object.values(ms).reduce((total, v) => total + (Number(v) || 0), 0);
 }
 
-// Os comandos de posse exigem dados diferentes, e a tela diz qual falta em vez de oferecer
+// O comando de posse exige dados diferentes, e a tela diz o que falta em vez de oferecer
 // um botão que sempre recusaria. Transferir anda só com tags (PR e commit): a lista de
-// destinos vem de uma rota própria, e o aparelho de origem confere tudo de novo. Tomar
-// precisa também do PR em claro, porque o aviso lê a posse pela chave e pela conta.
+// destinos vem de uma rota própria, e o aparelho de origem confere tudo de novo.
 function faltaParaTransferir(op) {
   if (!op.prTag) return 'o andamento não identifica o PR';
   return op.matTag ? '' : 'o andamento não traz o commit, que a transferência exige';
-}
-
-function faltaParaTomar(op) {
-  if (!op.matTag) return 'o andamento não traz o commit, que a tomada exige';
-  const pr = op.pr || {};
-  return pr.key && pr.account ? '' : 'o nome do PR não abriu no catálogo, e o aviso da tomada precisa dele';
 }
 
 function acao(semAdmin, falta) {
   return { pode: !semAdmin && !falta, motivo: semAdmin || falta };
 }
 
+// "Tomar para este aparelho" não existe mais: o admin assiste, e nunca executa (28/09/2026).
 export function acoesDaOperacao(op, ctx) {
   const o = op || {};
   const c = ctx || {};
@@ -325,7 +319,6 @@ export function acoesDaOperacao(op, ctx) {
   return {
     cancelar: acao(semAdmin, o.prTag ? '' : 'o andamento não identifica o PR'),
     transferir: acao(semAdmin, faltaParaTransferir(o)),
-    tomar: acao(semAdmin, faltaParaTomar(o)),
   };
 }
 
@@ -340,22 +333,37 @@ function botaoOuNota(classe, rotulo, acao, dados) {
   return `<span class="md-nota">${esc(rotulo)}: indisponível, ${esc(acao.motivo)}</span>`;
 }
 
+// Feed ao vivo (Fase 3.2): as mesmas linhas que o aparelho dono mostra na tela dele, mais
+// antiga primeiro. Só as 6 últimas ficam visíveis de cara; o resto mora num <details>, pra
+// não empurrar o card inteiro quando a operação já rodou muitas linhas.
+const FEED_VISIVEIS = 6;
+
+function feedHtml(feed) {
+  const linhas = Array.isArray(feed) ? feed : [];
+  if (!linhas.length) return '';
+  const item = (l) => `<li>${esc(l)}</li>`;
+  const visiveis = linhas.slice(-FEED_VISIVEIS);
+  const resto = linhas.slice(0, -FEED_VISIVEIS);
+  const antigas = resto.length ? `<details><summary>${plural(resto.length, 'linha anterior', 'linhas anteriores')}</summary><ol class="md-feed">${resto.map(item).join('')}</ol></details>` : '';
+  return `${antigas}<ol class="md-feed">${visiveis.map(item).join('')}</ol>`;
+}
+
 function operacaoHtml(op, ctx) {
   const acoes = acoesDaOperacao(op, ctx);
   const dados = `data-op="${esc(op.opId)}" data-dev="${esc(op.dev)}" data-prtag="${esc(op.prTag || '')}"`;
-  const subagentes = Array.isArray(op.subagentes) ? op.subagentes.length : 0;
+  const subagentes = Array.isArray(op.subagentes) ? op.subagentes : [];
   const situacao = se(op.situacao === 'interrompida', '<span class="sync-chip warn">sem renovar</span>');
   const tempo = [fmtDur(tempoDaOperacao(op)), op.modelo].filter(Boolean).map((x) => esc(x)).join(', ');
   const heranca = HERANCA[op.heranca] || '';
-  const etapa = `${esc(ETAPA[op.etapa] || ETAPA.desconhecida)}${se(subagentes, `, ${plural(subagentes, 'subagente', 'subagentes')}`)}${se(heranca, `, ${esc(heranca)}`)}`;
+  const etapa = `${esc(ETAPA[op.etapa] || ETAPA.desconhecida)}${se(subagentes.length, `, ${esc(subagentes.join(', '))}`)}${se(heranca, `, ${esc(heranca)}`)}`;
   return `<div class="card working md-op">
     <div class="md-linha"><span class="sync-chip mute">${esc(op.aparelho || 'outro aparelho')}</span><span class="md-fraco">${esc(TIPO_OP[op.tipo] || 'revisão')}</span>${situacao}<span class="md-espaco"></span><span class="md-fraco">${tempo}</span></div>
     <div class="md-titulo">${prIdentificadoHtml(op.pr, 'Um PR seu, sem nome nesta tela (o catálogo cifrado não abriu)')}</div>
     <div class="md-sub">${etapa}</div>
+    ${feedHtml(op.feed)}
     <div class="md-acoes">
       ${botaoOuNota('md-cancelar', 'Cancelar', acoes.cancelar, dados)}
       ${botaoOuNota('md-transferir', 'Transferir', acoes.transferir, dados)}
-      ${botaoOuNota('md-tomar', 'Tomar para este aparelho', acoes.tomar, dados)}
     </div>
   </div>`;
 }

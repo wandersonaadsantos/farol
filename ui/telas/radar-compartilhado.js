@@ -17,7 +17,7 @@ import {
   envioDepoisDoLote, envioHistoricoHtml, esc, inicioConfirmacao, inicioDialogo,
   modoDistribuicaoHtml, nomeDoAparelho, oQueELocalHtml,
   operacoesRemotasHtml, pendenciasCompartilhadasHtml, reciboFinal, repetirConfirmacao,
-  revisaoAbertaHtml, revisoesCompartilhadasHtml, tomadaDialogo, visaoCompartilhada, acoesDaOperacao,
+  revisaoAbertaHtml, revisoesCompartilhadasHtml, visaoCompartilhada, acoesDaOperacao,
   tomadasFeitasHtml, transferenciaConfirmacao, transferenciaDialogo,
 } from '../pure.js';
 import { estado } from './estado.js';
@@ -300,23 +300,6 @@ async function transferirOperacao(opId, escolher = perguntarDestino, confirmar =
   return emitirComando({ alvo: op.dev, tipo: 'transferir', args: { prTag: op.prTag, matTag: op.matTag, destino } }, origem);
 }
 
-async function perguntarTomada(dialogo) {
-  const opcoes = dialogo.pode ? [{ valor: 'tomar', rotulo: 'Tomar mesmo assim', classe: 'primary' }] : [];
-  const escolha = await escolherModal({ titulo: dialogo.titulo, corpo: dialogo.corpo, opcoes, fechar: dialogo.pode ? 'Não tomar' : 'Fechar' });
-  return escolha === 'tomar';
-}
-
-// O aviso vem ANTES de qualquer comando, e só a confirmação manda `confirmado: true`.
-async function tomarOperacao(opId, perguntar = perguntarTomada) {
-  const s = syncAtual();
-  const op = operacaoPorId(opId);
-  if (!op || !acoesDaOperacao(op, { podeComandar: comandoPermitido(s).pode }).tomar.pode) return false;
-  const aviso = await api('/api/sync/takeover-notice', { prKey: op.pr.key, account: op.pr.account });
-  const dialogo = tomadaDialogo(aviso);
-  if (!await perguntar(dialogo) || !dialogo.pode) return false;
-  return emitirComando({ alvo: s.deviceId, tipo: 'tomar', args: { prTag: op.prTag, matTag: op.matTag, confirmado: true } }, 'este aparelho');
-}
-
 /* ---------- repetir (revisão de qualquer aparelho) e iniciar (candidato na fila) ---------- */
 
 function nomeDoAparelhoNaTela(s, deviceId) {
@@ -414,8 +397,6 @@ function aoClicarCompartilhado(e) {
   if (cancelar) { cancelarOperacao(cancelar.dataset.op); return; }
   const transferir = e.target.closest('.md-transferir');
   if (transferir) { transferirOperacao(transferir.dataset.op); return; }
-  const tomar = e.target.closest('.md-tomar');
-  if (tomar) { tomarOperacao(tomar.dataset.op); return; }
   const iniciar = e.target.closest('.md-iniciar');
   if (iniciar) iniciarCandidato(iniciar.dataset.item);
 }
@@ -452,6 +433,6 @@ function registrarTelaRadarCompartilhado() {
 
 export {
   registrarTelaRadarCompartilhado, renderCompartilhado, aoAndamentoRemoto, aoPendenciasRemotas, tiqueDoAndamento,
-  marcarVisto, decidirNoAparelho, cancelarOperacao, transferirOperacao, tomarOperacao, medirHistorico, enviarHistorico,
+  marcarVisto, decidirNoAparelho, cancelarOperacao, transferirOperacao, medirHistorico, enviarHistorico,
   atualizarRecibos, repetirRevisao, iniciarCandidato, buscarRevisoes,
 };

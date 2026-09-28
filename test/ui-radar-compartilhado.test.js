@@ -176,40 +176,8 @@ test('cancelar sem ser admin não sai, nem com confirmação', async () => {
   assert.equal(PEDIDOS.length, 0);
 });
 
-test('tomar: sem commit no andamento, nem o aviso é pedido', async () => {
-  emitir('state', estado({ sync: { admin: ADMIN } }));
-  emitir('sync-live', { operacoes: [OP] });
-  assert.equal(await Tela.tomarOperacao('op1', async () => true), false);
-  assert.equal(PEDIDOS.length, 0);
-});
-
-test('tomar: o aviso vem primeiro, e sem confirmação o comando não sai', async () => {
-  emitir('state', estado({ sync: { admin: ADMIN } }));
-  emitir('sync-live', { operacoes: [OP_COMPLETA] });
-  RESPOSTAS['/api/sync/takeover-notice'] = { ok: true, podeTomar: true, dono: 'dOutro', risco: 'provavel', aviso: 'Este PR está sendo analisado em Desktop antigo.' };
-  let visto = null;
-  assert.equal(await Tela.tomarOperacao('op2', async (d) => { visto = d; return false; }), false);
-  assert.deepEqual(pedidosPara('/api/sync/takeover-notice').map((p) => p.corpo), [{ prKey: OP_COMPLETA.pr.key, account: 'alice' }]);
-  assert.equal(pedidosPara('/api/sync/command').length, 0, 'sem confirmação, nenhum comando');
-  assert.match(visto.corpo, /Duplicidade provável/, 'quem confirma viu o risco');
-});
-
-test('tomar: confirmado, o comando leva confirmado true para ESTE aparelho', async () => {
-  emitir('state', estado({ sync: { admin: ADMIN } }));
-  emitir('sync-live', { operacoes: [OP_COMPLETA] });
-  RESPOSTAS['/api/sync/takeover-notice'] = { ok: true, podeTomar: true, risco: 'possivel', aviso: 'x' };
-  RESPOSTAS['/api/sync/command'] = { ok: true, cmdId: '3'.repeat(32) };
-  assert.equal(await Tela.tomarOperacao('op2', async () => true), true);
-  assert.deepEqual(pedidosPara('/api/sync/command').map((p) => p.corpo), [{ alvo: 'dEu', tipo: 'tomar', args: { prTag: OP_COMPLETA.prTag, matTag: OP_COMPLETA.matTag, confirmado: true } }]);
-});
-
-test('tomar: aviso que diz nada a tomar não vira comando, mesmo com confirmação', async () => {
-  emitir('state', estado({ sync: { admin: ADMIN } }));
-  emitir('sync-live', { operacoes: [OP_COMPLETA] });
-  RESPOSTAS['/api/sync/takeover-notice'] = { ok: true, podeTomar: false, motivo: 'sem-lease' };
-  assert.equal(await Tela.tomarOperacao('op2', async () => true), false);
-  assert.equal(pedidosPara('/api/sync/command').length, 0);
-});
+// 28/09/2026: "Tomar para este aparelho" saiu da tela do admin. `Tela.tomarOperacao` não
+// existe mais, e o card não oferece o botão (coberto em ui-pure-compartilhado.test.js).
 
 /* ---------- transferir ---------- */
 

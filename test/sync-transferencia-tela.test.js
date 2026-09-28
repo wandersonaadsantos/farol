@@ -46,7 +46,6 @@ const comandos = (await import('../lib/engine/sync-comandos.js')).default;
 const kek = (await import('../lib/sync/kek.js')).default;
 const { prTag, acctTag, matTag } = await import('../lib/sync/tags.js');
 const candidato = (await import('../lib/sync/candidato.js')).default;
-const { accountHash, prHash } = await import('../lib/sync/keys.js');
 const { checkpointPath } = await import('../lib/engine/verification-checkpoint.js');
 
 const API_KEY = 'chave-web-de-teste';
@@ -399,31 +398,6 @@ test('transferir pela tela: botão habilitado, corpo exato, a origem aplica e a 
   assert.match(html, /sync-chip ok">aplicado</);
 });
 
-// `tomar` passou a exigir `acctTag` (Task 3, 28/09/2026), e `tomarOperacao` (tela) ainda
-// não manda essa conta: um task futuro remove o botão "Tomar" da tela do admin, então
-// mudar `radar-compartilhado.js` para um caminho que vai morrer é trabalho morto. Até lá,
-// o clique manda o comando de sempre e o engine recusa por `forma`, sem recibo.
-test('tomar pela tela: sem acctTag no comando, o engine recusa por forma (botão sai numa etapa futura)', async () => {
-  const op = await telaComAndamento();
-  const agora = Date.now();
-  await admin.sync.client.put(`/users/u1/leases/${accountHash(LOGIN)}/${prHash(PR.key)}`, {
-    leaseId: 'L1', deviceId: ORIGEM, operationKind: 'review', headSha: '', acquiredAt: agora, heartbeatAt: agora, expiresAt: agora + SYNC.LEASE_TTL_MS,
-  }, {});
-  assert.match($('#mdOperacoes').innerHTML, new RegExp(`md-tomar" data-op="${op.opId}"`));
-  // a fila real não traz headSha: o executor pergunta o head ATUAL
-  admin.queue = [{ key: PR.key, url: PR.url, title: PR.title, author: PR.author, repo: PR.repo, number: PR.number }];
-  admin.headSha = async () => HEAD;
-  const vindos = [];
-  admin.enfileirarDaDistribuicao = (item, vaga) => vindos.push({ key: item.key, tomar: item.tomarLease, vaga: !!vaga, manual: 'manual' in item });
-  let visto = null;
-  assert.equal(await Tela.tomarOperacao(op.opId, async (d) => { visto = d; return true; }), false);
-  assert.deepEqual(pedidosPara('/api/sync/takeover-notice'), [{ prKey: PR.key, account: LOGIN }]);
-  assert.match(visto.corpo, /Desktop antigo/);
-  assert.deepEqual(pedidosPara('/api/sync/command'), [{ alvo: ADMIN, tipo: 'tomar', args: { prTag: prTag(kId(admin), PR.key), matTag: matTag(kId(admin), HEAD), confirmado: true } }]);
-  await comandos.cicloDosComandos(admin, admin.config.sync);
-  assert.deepEqual(vindos, [], 'sem acctTag o comando nem chega a virar nó: nada foi enfileirado');
-});
-
 /* ---------- 4. o estado muda entre a seleção e a execução ---------- */
 
 test('o head muda depois da seleção: a origem recusa com head_mudou, e a tela mostra a recusa', async () => {
@@ -452,24 +426,6 @@ test('o destino perde o consentimento depois da seleção: a origem recusa com d
   if (admin.sync.iniciando) await admin.sync.iniciando;
   const html = await lerReciboNaTela();
   assert.match(html, /o destino não estava apto/);
-});
-
-// Igual à observação do teste anterior: `tomarOperacao` ainda não manda `acctTag`
-// (botão sai numa etapa futura), então o comando nem chega a existir como nó, e o
-// caminho de "head mudou" fica coberto pelo teste puro do executor (`tomar aqui`, em
-// test/sync-comandos-remoto.test.js) em vez do caminho pela tela.
-test('o head muda antes da tomada: sem acctTag no comando, o engine recusa por forma, e nada é enfileirado', async () => {
-  const op = await telaComAndamento();
-  const agora = Date.now();
-  await admin.sync.client.put(`/users/u1/leases/${accountHash(LOGIN)}/${prHash(PR.key)}`, {
-    leaseId: 'L1', deviceId: ORIGEM, operationKind: 'review', headSha: '', acquiredAt: agora, heartbeatAt: agora, expiresAt: agora + SYNC.LEASE_TTL_MS,
-  }, {});
-  admin.queue = [{ key: PR.key, repo: PR.repo, number: PR.number }];
-  admin.headSha = async () => 'sha42bbbb';
-  admin.enfileirarDaDistribuicao = () => assert.fail('head velho não enfileira');
-  assert.equal(await Tela.tomarOperacao(op.opId, async () => true), false);
-  const ciclo = await comandos.cicloDosComandos(admin, admin.config.sync);
-  assert.deepEqual(ciclo.aplicados, []);
 });
 
 test('o relógio do admin entrega o andamento já com o PR resolvido', async () => {
