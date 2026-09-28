@@ -1116,6 +1116,9 @@ test('cicloDoAgendador guarda a frota com contas, observador e lidoEm, para a te
   assert.equal(meu.nome, 'PC Admin');
   assert.equal(meu.observador, true, 'este motor é o admin: ele se declara observador');
   assert.deepEqual(meu.contasComToken, [acctTag(kId, LOGIN)]);
+  // quem cuida exige executor que VAI executar: pausa e aceite do admin viajam no retrato
+  assert.equal(meu.pausado, false);
+  assert.equal(meu.aceitarAdmin, e.config.sync.aceitarAdmin === true);
 
   const restaurar = comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync, { agora: T + 1 });

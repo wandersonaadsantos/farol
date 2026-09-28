@@ -22,6 +22,16 @@ test('executor com a conta cuida', () => {
 test('só o admin tem a conta: sem aparelho', () => {
   assert.deepEqual(quemCuida({ acctTag: 'c2', prTag: 'p', aparelhos, operacoes: [], ...LIDO }), { situacao: 'sem-aparelho', aparelho: '' });
 });
+// Revisão final (28/09/2026): cuidar é VAI EXECUTAR. Pausado ou sem aceitar comandos do
+// admin, o aparelho tem a conta mas não recebe o PR, e "cuida" seria promessa falsa.
+test('aparelho pausado ou sem aceitar o admin não cuida, mesmo com a conta', () => {
+  const pausado = [{ dev: 'cel', nome: 'Celular', contasComToken: ['c1'], pausado: true }];
+  assert.deepEqual(quemCuida({ acctTag: 'c1', prTag: 'p', aparelhos: pausado, operacoes: [], ...LIDO }), { situacao: 'sem-aparelho', aparelho: '' });
+  const semAceite = [{ dev: 'cel', nome: 'Celular', contasComToken: ['c1'], aceitarAdmin: false }];
+  assert.deepEqual(quemCuida({ acctTag: 'c1', prTag: 'p', aparelhos: semAceite, operacoes: [], ...LIDO }), { situacao: 'sem-aparelho', aparelho: '' });
+  const misto = [...pausado, { dev: 'nb', nome: 'Notebook', contasComToken: ['c1'], pausado: false, aceitarAdmin: true }];
+  assert.deepEqual(quemCuida({ acctTag: 'c1', prTag: 'p', aparelhos: misto, operacoes: [], ...LIDO }), { situacao: 'cuida', aparelho: 'Notebook' });
+});
 test('sem argumentos: nunca lido, não quebra', () => {
   assert.deepEqual(quemCuida(), { situacao: 'nao-lido', aparelho: '' });
 });
