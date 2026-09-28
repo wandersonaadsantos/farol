@@ -152,6 +152,19 @@ export function parkedNoteHtml(info) {
   return `<div class="pr-parked">Revisão automática parada${quando}: ${esc(frase)}. Ela não relança sozinha; o botão Revisar tenta de novo.</div>`;
 }
 
+// Quem cuida da revisão deste PR (spec 2.3), só quando a fila é a do admin: ele nunca
+// executa (papel-do-aparelho.js), então o botão Revisar não serve e vira esta linha.
+// `info` ausente é fila de quem executa (o botão de sempre continua); a conta some da
+// mensagem quando o catálogo ainda não abriu o nome dela.
+export function quemCuidaLinhaHtml(pr, info) {
+  if (!info || typeof info !== 'object') return '';
+  const aparelho = esc(String(info.aparelho || ''));
+  if (info.situacao === 'revisando') return `<div class="pr-quem-cuida">revisando no ${aparelho}</div>`;
+  if (info.situacao === 'cuida') return `<div class="pr-quem-cuida">o ${aparelho} cuida desta revisão</div>`;
+  const conta = esc(String((pr && pr.account) || ''));
+  return `<div class="pr-quem-cuida">sem aparelho com a conta ${conta}: ela não é revisada sozinha</div>`;
+}
+
 export function queueCardHtml(pr, ctx) {
   const m = ctx.mark;
   // os selos inline saem do template: dentro dele o gate conta todos os ternarios
@@ -164,6 +177,10 @@ export function queueCardHtml(pr, ctx) {
   // e a mais urgente perderia.
   const parked = parkedNoteHtml((ctx.parked || {})[pr.key]);
   const coord = parked ? '' : prCoordNoteHtml(pr.key, ctx.sync);
+  const quemCuida = (ctx.sync && ctx.sync.quemCuida) ? ctx.sync.quemCuida[pr.key] : null;
+  const acaoRevisar = quemCuida
+    ? quemCuidaLinhaHtml(pr, quemCuida)
+    : `<button class="btn primary sm act-review" data-url="${esc(pr.url)}">Revisar</button>`;
   // O ponto da conta abre a linha do PR, e não é filho do card: a grade tem uma coluna
   // por filho (avatar, conteúdo, ações, na anatomia do Claude Design), e um quarto filho
   // jogava o avatar na coluna elástica e as ações para baixo (visão Todas, 25/09/2026).
@@ -177,7 +194,7 @@ export function queueCardHtml(pr, ctx) {
         ${parked}${coord}
       </div>
       <div class="pr-actions">
-        <button class="btn primary sm act-review" data-url="${esc(pr.url)}">Revisar</button>
+        ${acaoRevisar}
         <button class="btn icon sm ghost act-chat" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" title="Conversar com o Claude sobre este PR" aria-label="Conversar com o Claude sobre este PR">
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2.5-2.7A8 8 0 1 1 21 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
         </button>

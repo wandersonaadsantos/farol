@@ -28,6 +28,8 @@ const dist = await import('../lib/engine/sync-distribuicao.js');
 const fechamento = (await import('../lib/engine/sync-fechamento.js')).default;
 const admissao = (await import('../lib/engine/admissao.js')).default;
 const prontidao = (await import('../lib/sync/prontidao.js')).default;
+const kek = (await import('../lib/sync/kek.js')).default;
+const { acctTag } = await import('../lib/sync/tags.js');
 
 const API_KEY = 'chave-web-de-teste';
 const EMAIL = 'a@b.com';
@@ -1056,4 +1058,31 @@ test('a espera diz de QUEM ela fala: escolhido, recusou, ou ninguém', async () 
   assert.equal(recusou.motivo, 'head_mudou');
   assert.equal(recusou.papel, 'recusou', 'quem recusou não pode sair no campo de "escolhido"');
   assert.equal(recusou.dev, e.sync.deviceId);
+});
+
+/* ---------- 28/09/2026: retrato da frota para a fila do admin dizer quem cuida ----------
+   O ciclo do agendador já lê `live/deviceStatus` para escolher quem executa; a fila do
+   admin (lib/sync/quem-cuida.js) precisa de `contasComToken`, `observador` e o nome do
+   MESMO retrato, sem ler a rede de novo (sync-telas.js, PROJEÇÃO NÃO É FONTE). */
+
+test('cicloDoAgendador guarda a frota com contas e observador, para a tela do admin', async () => {
+  const e = await motorDistribuidor();
+  e.sync.devices[e.sync.deviceId] = { name: 'PC Admin', contract: 2, keyReady: true, lastSeenAt: T };
+  e.tokenFor = (login) => (login === LOGIN ? 'tok' : '');
+  await publicacao.publicarCapacidade(e, e.config.sync, { agora: T });
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+
+  const kId = kek.bufferDe(e.sync.material.id);
+  const meu = (e.sync.aparelhosDaFrota || []).find((a) => a.dev === e.sync.deviceId);
+  assert.ok(meu, 'o próprio publicador entra no retrato');
+  assert.equal(meu.nome, 'PC Admin');
+  assert.equal(meu.observador, true, 'este motor é o admin: ele se declara observador');
+  assert.deepEqual(meu.contasComToken, [acctTag(kId, LOGIN)]);
+
+  const restaurar = comoExecutor(e);
+  await publicacao.publicarCapacidade(e, e.config.sync, { agora: T + 1 });
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T + 1 });
+  const comoExec = (e.sync.aparelhosDaFrota || []).find((a) => a.dev === e.sync.deviceId);
+  assert.equal(comoExec.observador, false, 'sob outro admin no sinal, este motor publica como executor');
+  restaurar();
 });
