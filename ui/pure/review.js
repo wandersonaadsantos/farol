@@ -362,7 +362,7 @@ export function resolvedRow(r, ctx) {
         <a class="rr-ref" href="${esc(url || '#')}" target="_blank" rel="noreferrer">${esc(r.key)}</a>
         ${ctx.chip || ''}
         ${r.card ? `<span class="pill">${esc(r.card)}</span>` : ''}
-        <span class="rr-verdict${vcls ? ` ${vcls}` : ''}">${label}${act}</span>
+        <span class="rr-verdict${vcls ? ` ${vcls}` : ''}">${label}${act}${r.viaAdmin ? ' · decidido pelo admin' : ''}</span>
       </div>
       ${title ? `<div class="rr-title" title="${esc(title)}">${esc(title)}</div>` : ''}
       ${author ? `<div class="rr-person">${personMention(author, 'sm')}</div>` : ''}

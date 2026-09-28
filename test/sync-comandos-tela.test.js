@@ -26,6 +26,7 @@ import { test, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { startFakeRtdb } from './helpers/fake-rtdb.js';
 import { startFakeIdentity } from './helpers/fake-identity.js';
+import { comoExecutor } from './helpers/papel.js';
 import { fixarMemoriaLivre, restaurarMemoriaLivre } from './helpers/memoria-livre.js';
 import { instalarDom } from './helpers/dom-stub.js';
 import { SYNC } from '../lib/constants.js';
@@ -47,6 +48,7 @@ const admissao = (await import('../lib/engine/admissao.js')).default;
 const adminChave = (await import('../lib/sync/admin-chave.js')).default;
 const kek = (await import('../lib/sync/kek.js')).default;
 const { prTag, matTag } = await import('../lib/sync/tags.js');
+const candidato = (await import('../lib/sync/candidato.js')).default;
 const { STATE_DIR } = await import('../lib/paths.js');
 const { notaDistribuicaoHtml } = await import('../ui/pure.js');
 
@@ -122,6 +124,9 @@ async function motor(deviceId) {
   e.doctorInfo = { claude: '1.0.0', ghAuth: true };
   e.sync.lastPresenceAt = Date.now();
   e.accountForPr = () => LOGIN;
+  // a aptidão de destino agora lê o token POR CONTA (Task 2, 28/09/2026), não mais o
+  // `gh auth` global da máquina
+  e.tokens = { [LOGIN]: 'tok-teste' };
   return e;
 }
 
@@ -213,6 +218,7 @@ async function lerReciboNaTela() {
 // O desfecho de cada comando como o executor o gravou no RECIBO (estado e código): é o que
 // a tela lê, e é o mesmo para as recusas de contrato, que o ciclo devolve só com o código.
 async function cicloDoExecutor() {
+  comoExecutor(exec, ADMIN);
   const r = await comandos.cicloDosComandos(exec, exec.config.sync);
   assert.equal(r.ok, true, r.code);
   const recibos = arvore().commandReceipts || {};
@@ -314,6 +320,8 @@ let reservaDoExec = '';
 // O executor publica o candidato estando SEM VAGA (teto 1 e um chat ocupando), então o
 // agendador do admin não o atribui, e o item fica esperando com o motivo.
 async function candidatoEsperando() {
+  // o executor não enxerga a chave de admin do STATE_DIR dividido: só ele publica candidato
+  comoExecutor(exec, ADMIN);
   const r = await dist.publicarCandidato(exec, exec.config.sync, { ...PR, headSha: HEAD }, { agora: Date.now() });
   assert.equal(r.ok, true, r.code);
   exec.headlessDistribuindo = new Map([[PR.key, { pr: PR, desde: Date.now() }]]);
@@ -376,7 +384,7 @@ test('iniciar pela tela: a fila do conjunto, os executores pela rota, o corpo ex
   assert.match(dialogo.corpo, /este aparelho \(Notebook de teste\).*não publicou este candidato/s);
   assert.match(dialogo.corpo, /Celular antigo.*versão antiga/s);
   assert.equal(confirmacao.title, 'Começar no Desktop de teste?');
-  assert.deepEqual(pedidosPara('/api/sync/command'), [{ alvo: EXEC, tipo: 'iniciar', args: { prTag: prTag(kId(admin), PR.key), matTag: matTag(kId(admin), HEAD) } }]);
+  assert.deepEqual(pedidosPara('/api/sync/command'), [{ alvo: EXEC, tipo: 'iniciar', args: { prTag: prTag(kId(admin), PR.key), matTag: candidato.matContaTag(kId(admin), HEAD, LOGIN) } }]);
   assert.doesNotMatch(await lerReciboNaTela(), />aplicado</);
   assert.deepEqual(await cicloDoExecutor(), [['aplicado', '']]);
   assert.deepEqual(exec.iniciados, [{ key: PR.key, vaga: true, manual: false }]);
@@ -398,7 +406,9 @@ test('iniciar indisponível: sem vaga em quem publicou, a escolha diz por quê e
 test('iniciar indisponível: quem publicou sem credencial da conta do item aparece com esse motivo', async () => {
   const itemId = await candidatoEsperando();
   emitir('state', estadoDaTela());
-  exec.doctorInfo = { claude: '1.0.0', ghAuth: false };
+  // a aptidão de destino lê o token POR CONTA (Task 2, 28/09/2026): sem token para a
+  // conta do item, não importa mais o `ghAuth` global
+  exec.tokens = {};
   await execGanhaVaga();
   let dialogo = null;
   assert.equal(await Tela.iniciarCandidato(itemId, async (d) => { dialogo = d; return EXEC; }, async () => true), false);

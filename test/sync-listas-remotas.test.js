@@ -340,6 +340,9 @@ async function arvoreDasPendencias() {
 
 test('a pendência de A chega a B com o PR nomeado pelo catálogo', async () => {
   const { a, b } = await par();
+  // Task 9 (28/09/2026): o evento sync-pending pra própria tela só sai do admin; B precisa
+  // ser admin de si mesmo pra este teste exercer o aviso.
+  assert.equal((await b.syncTornarAdmin({ password: SENHA })).ok, true);
   pendenciaEm(a);
   await andamento.ciclo(a, a.config.sync, { agora: Date.now() });
   const r = await pendencias.aplicarPendenciasIdentificadas(b, b.config.sync, await arvoreDasPendencias(), {});
@@ -355,6 +358,8 @@ test('a pendência de A chega a B com o PR nomeado pelo catálogo', async () => 
 
 test('o ciclo de B lê as pendências já identificadas', async () => {
   const { a, b } = await par();
+  // Task 9 (28/09/2026): idem, B precisa ser admin pra receber o evento pra própria tela.
+  assert.equal((await b.syncTornarAdmin({ password: SENHA })).ok, true);
   pendenciaEm(a);
   await andamento.ciclo(a, a.config.sync, { agora: Date.now() });
   await andamento.ciclo(b, b.config.sync, { agora: Date.now() });

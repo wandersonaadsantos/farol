@@ -163,10 +163,10 @@ test('pendenciasCompartilhadasHtml: texto vindo de fora é escapado', () => {
 
 const OP = { opId: 'op1', dev: 'dOutro', aparelho: 'Desktop antigo', t0: AGORA, situacao: 'viva', etapa: 'verificacao', msPorEtapa: { leitura: 60000, verificacao: 180000 }, subagentes: ['a', 'b'], modelo: 'opus', prTag: 'a'.repeat(32), acctTag: 'b'.repeat(32), tipo: 'review' };
 
-test('operacoesRemotasHtml: etapa, tempo, subagentes e modelo', () => {
+test('operacoesRemotasHtml: etapa, tempo, subagentes pelo nome e modelo', () => {
   const html = P.operacoesRemotasHtml([OP], { podeComandar: true });
   assert.match(html, /sync-chip mute">Desktop antigo</);
-  assert.match(html, /verificando, 2 subagentes/);
+  assert.match(html, /verificando, a, b/);
   assert.match(html, /4m, opus/);
   assert.match(html, /class="btn sm ghost md-cancelar" data-op="op1" data-dev="dOutro"/);
   assert.match(P.operacoesRemotasHtml([], {}), /Nenhuma análise rodando/);
@@ -176,16 +176,35 @@ test('operacoesRemotasHtml: nó vencido aparece como sem renovar, nunca como em 
   assert.match(P.operacoesRemotasHtml([{ ...OP, situacao: 'interrompida' }], {}), /sync-chip warn">sem renovar</);
 });
 
-test('acoesDaOperacao: transferir e tomar ficam indisponíveis com o motivo do contrato', () => {
+// 28/09/2026: o admin assiste o feed ao vivo de cada revisão, "como TV" (Fase 3.2). O
+// botão "Tomar para este aparelho" saiu de vez: o admin nunca executa.
+test('operacoesRemotasHtml: o feed aparece escapado, mais antiga primeiro, e não há Tomar', () => {
+  const comFeed = { ...OP, feed: ['abriu o diff', 'leu o card <script>'] };
+  const html = P.operacoesRemotasHtml([comFeed], { podeComandar: true });
+  assert.match(html, /<ol class="md-feed"><li>abriu o diff<\/li><li>leu o card &lt;script&gt;<\/li><\/ol>/);
+  assert.doesNotMatch(html, /Tomar/);
+  assert.equal(P.operacoesRemotasHtml([{ ...OP, feed: [] }], {}).includes('md-feed'), false, 'sem linhas, sem a lista');
+});
+
+test('operacoesRemotasHtml: feed longo mostra só as 6 últimas visíveis, o resto num details', () => {
+  const linhas = Array.from({ length: 9 }, (_, i) => `linha ${i}`);
+  const html = P.operacoesRemotasHtml([{ ...OP, feed: linhas }], {});
+  assert.match(html, /<summary>3 linhas anteriores<\/summary>/);
+  const visivel = html.slice(html.lastIndexOf('<ol class="md-feed">'));
+  assert.match(visivel, /<li>linha 8<\/li>/, 'a mais recente sempre visível');
+  assert.doesNotMatch(visivel, /linha 0</, 'a mais antiga foi para o details');
+});
+
+test('acoesDaOperacao: transferir fica indisponível com o motivo do contrato, e não há tomar', () => {
   const a = P.acoesDaOperacao(OP, { podeComandar: true });
   assert.equal(a.cancelar.pode, true);
   assert.equal(a.transferir.pode, false);
   assert.match(a.transferir.motivo, /não traz o commit/);
-  assert.equal(a.tomar.pode, false);
-  assert.match(a.tomar.motivo, /não traz o commit/);
+  assert.equal('tomar' in a, false, '"Tomar para este aparelho" não existe mais');
   const html = P.operacoesRemotasHtml([OP], { podeComandar: true });
   assert.doesNotMatch(html, /md-transferir"/, 'botão que sempre recusaria não é oferecido');
   assert.doesNotMatch(html, /md-tomar"/);
+  assert.doesNotMatch(html, /Tomar/);
   assert.match(html, /Transferir: indisponível/);
 });
 
@@ -193,11 +212,9 @@ test('acoesDaOperacao: transferir e tomar ficam indisponíveis com o motivo do c
 // transferência pela tela; antes o teste o punha solto em `prKey`/`account`, que o engine
 // nunca mandou. E transferir deixou de ser sempre indisponível: a lista de destinos vem da
 // rota própria (test/ui-pure-compartilhado-posse.test.js).
-test('acoesDaOperacao: tomar só com commit E PR em claro, e nunca sem permissão', () => {
+test('acoesDaOperacao: transferir exige o commit, e nunca sem permissão', () => {
   const completa = { ...OP, matTag: 'c'.repeat(32), pr: { key: 'a/b#1', account: 'conta', title: '', author: '' } };
-  assert.equal(P.acoesDaOperacao(completa, { podeComandar: true }).tomar.pode, true);
-  assert.equal(P.acoesDaOperacao({ ...completa, pr: { ...completa.pr, account: '' } }, { podeComandar: true }).tomar.pode, false);
-  assert.equal(P.acoesDaOperacao(completa, { podeComandar: false }).tomar.pode, false);
+  assert.equal(P.acoesDaOperacao(completa, { podeComandar: true }).transferir.pode, true);
   assert.equal(P.acoesDaOperacao(completa, { podeComandar: false }).transferir.pode, false, 'sem permissão, nunca');
   assert.equal(P.acoesDaOperacao({ ...OP, prTag: '' }, { podeComandar: true }).cancelar.pode, false);
   assert.equal(P.acoesDaOperacao(OP, {}).cancelar.pode, false);
@@ -277,26 +294,8 @@ test('comandosEmitidosHtml: nomeia o aparelho alvo e mostra o estado do recibo',
   assert.match(com, /sync-chip ok">aplicado</);
 });
 
-/* ---------- tomada ---------- */
-
-test('tomadaDialogo: aviso do engine, risco declarado, e só então pode', () => {
-  const d = P.tomadaDialogo({ ok: true, podeTomar: true, dono: 'dOutro', risco: 'provavel', aviso: 'Este PR está sendo analisado em Desktop antigo.' });
-  assert.equal(d.pode, true);
-  assert.match(d.corpo, /analisado em Desktop antigo/);
-  assert.match(d.corpo, /Duplicidade provável/);
-  assert.match(d.corpo, /não é encerrado/);
-  assert.match(P.tomadaDialogo({ ok: true, podeTomar: true, risco: 'possivel', aviso: '' }).corpo, /Duplicidade possível/);
-});
-
-test('tomadaDialogo: sem leitura ou sem posse alheia, nada a tomar', () => {
-  const falha = P.tomadaDialogo(null);
-  assert.equal(falha.pode, false);
-  assert.match(falha.corpo, /Não deu para ler/);
-  assert.equal(P.tomadaDialogo({ ok: false, code: 'indisponivel' }).pode, false);
-  const semLease = P.tomadaDialogo({ ok: true, podeTomar: false, motivo: 'sem-lease' });
-  assert.equal(semLease.pode, false);
-  assert.match(semLease.corpo, /Ninguém está com este PR/);
-});
+// 28/09/2026 (fix round 1): `tomadaDialogo` saiu de vez. Sem "Tomar para este aparelho",
+// não existe mais leitura de aviso de posse alheia pra desenhar: era a única chamadora.
 
 test('oQueELocalHtml: nomeia Destaques, Kudos e Time como locais', () => {
   assert.match(P.oQueELocalHtml(), /Destaques, Kudos e Time continuam locais/);
@@ -472,6 +471,16 @@ test('notaDistribuicaoHtml: quem RECUSOU não é apresentado como escolhido', ()
   }), AGORA);
   assert.equal(html.includes('escolheu'), false, 'o dev aqui é o recusante');
   assert.match(html, /Por aparelho: Celular/);
+});
+
+// Revisão final (28/09/2026): a conta trocada no executor tem rótulo próprio, e o motivo
+// não cai no "motivo registrado" genérico.
+test('notaDistribuicaoHtml: conta diferente no aparelho escolhido tem texto próprio', () => {
+  const html = P.notaDistribuicaoHtml('o/r#1', syncComEspera({
+    motivo: 'conta_diferente', dev: 'dB', papel: 'recusou', aparelhos: [{ deviceId: 'dB', motivo: 'conta_diferente' }],
+  }), AGORA);
+  assert.match(html, /a conta deste PR no aparelho escolhido não é a mesma de quando ele foi publicado/);
+  assert.equal(html.includes('motivo registrado'), false);
 });
 
 test('notaDistribuicaoHtml: snapshot antigo sem papel ainda lê a atribuição viva', () => {

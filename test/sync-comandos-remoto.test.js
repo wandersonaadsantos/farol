@@ -18,14 +18,16 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { startFakeRtdb } from './helpers/fake-rtdb.js';
 import { startFakeIdentity } from './helpers/fake-identity.js';
+import { comoExecutor } from './helpers/papel.js';
 import { SYNC } from '../lib/constants.js';
 
 const { Engine } = await import('../server.js');
 const comandos = (await import('../lib/engine/sync-comandos.js')).default;
 const comando = (await import('../lib/sync/comando.js')).default;
 const kek = (await import('../lib/sync/kek.js')).default;
-const { prTag, matTag } = await import('../lib/sync/tags.js');
+const { prTag, matTag, acctTag } = await import('../lib/sync/tags.js');
 const { itemIdDe } = await import('../lib/sync/pendencia.js');
+const candidato = (await import('../lib/sync/candidato.js')).default;
 
 const API_KEY = 'chave-web-de-teste';
 const EMAIL = 'a@b.com';
@@ -124,6 +126,7 @@ test('repetir: enfileira sem virar clique manual, e o recibo é o desfecho', asy
   const enfileirados = [];
   e.enqueueHeadless = (pr) => { enfileirados.push(pr); return { ok: true, via: 'local' }; };
   const cmdId = await emitirPara(e, e.sync.deviceId, 'repetir', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha) });
+  comoExecutor(e);
   const r = await comandos.cicloDosComandos(e, e.config.sync);
   assert.deepEqual(r.aplicados.map((a) => a.estado), ['aplicado']);
   assert.equal(enfileirados.length, 1);
@@ -139,6 +142,7 @@ test('comando duplicado produz UM efeito', async () => {
   const enfileirados = [];
   e.enqueueHeadless = (pr) => { enfileirados.push(pr); return { ok: true, via: 'local' }; };
   await emitirPara(e, e.sync.deviceId, 'repetir', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha) });
+  comoExecutor(e);
   await comandos.cicloDosComandos(e, e.config.sync);
   await comandos.cicloDosComandos(e, e.config.sync);
   assert.equal(enfileirados.length, 1, 'o segundo giro lê o mesmo comando e não repete');
@@ -148,6 +152,7 @@ test('comando para head antigo é recusado', async () => {
   const e = await motor();
   e.enqueueHeadless = () => assert.fail('não pode enfileirar com head antigo');
   const cmdId = await emitirPara(e, e.sync.deviceId, 'repetir', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), 'sha-velho') });
+  comoExecutor(e);
   await comandos.cicloDosComandos(e, e.config.sync);
   assert.equal(recibo(cmdId).estado, 'recusado');
   assert.equal(recibo(cmdId).code, 'head_mudou');
@@ -163,6 +168,7 @@ test('repetir: PR da fila sem head pergunta o head atual e aplica quando ele bat
   const enfileirados = [];
   e.enqueueHeadless = (pr) => { enfileirados.push(pr.key); return { ok: true, via: 'local' }; };
   const cmdId = await emitirPara(e, e.sync.deviceId, 'repetir', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), headSha) });
+  comoExecutor(e);
   await comandos.cicloDosComandos(e, e.config.sync);
   assert.deepEqual(perguntas, [PR.key]);
   assert.deepEqual(enfileirados, [PR.key]);
@@ -177,6 +183,7 @@ test('repetir: head que não dá para perguntar é desconhecido, e desconhecido 
   for (const resposta of [async () => '', async () => { throw new Error('sem rede'); }]) {
     e.headSha = resposta;
     const cmdId = await emitirPara(e, e.sync.deviceId, 'repetir', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), headSha) });
+    comoExecutor(e);
     await comandos.cicloDosComandos(e, e.config.sync);
     assert.equal(recibo(cmdId).code, 'head_mudou');
   }
@@ -186,6 +193,7 @@ test('repetir: o enfileiramento que recusa vira recibo com o código dele', asyn
   const e = await motor();
   e.enqueueHeadless = () => ({ ok: false, code: 'duplicado' });
   const cmdId = await emitirPara(e, e.sync.deviceId, 'repetir', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha) });
+  comoExecutor(e);
   await comandos.cicloDosComandos(e, e.config.sync);
   assert.equal(recibo(cmdId).estado, 'recusado');
   assert.equal(recibo(cmdId).code, 'duplicado');
@@ -275,11 +283,12 @@ async function comMemoriaLivre(fn) {
 
 test('iniciar aqui: passa pela admissão e volta pelo ramo local', () => comMemoriaLivre(async () => {
   const e = await motor();
-  const item = `${prTag(kId(e), PR.key)}_${matTag(kId(e), PR.headSha)}`;
-  e.sync.candidatos = new Map([[item, { pr: PR }]]);
+  const item = `${prTag(kId(e), PR.key)}_${candidato.matContaTag(kId(e), PR.headSha, LOGIN)}`;
+  e.sync.candidatos = new Map([[item, { pr: PR, conta: LOGIN }]]);
   const vindos = [];
   e.enfileirarDaDistribuicao = (pr, admissaoId) => vindos.push([pr.key, !!admissaoId, pr.viaComando, pr.itemIdDistribuido]);
-  const cmdId = await emitirPara(e, e.sync.deviceId, 'iniciar', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha) });
+  const cmdId = await emitirPara(e, e.sync.deviceId, 'iniciar', { prTag: prTag(kId(e), PR.key), matTag: candidato.matContaTag(kId(e), PR.headSha, LOGIN) });
+  comoExecutor(e);
   await comandos.cicloDosComandos(e, e.config.sync);
   // o item vai com a identidade dele: quem executa fecha o item no conjunto ao terminar
   assert.deepEqual(vindos, [[PR.key, true, true, item]], 'reserva vaga e entra pelo ramo local, sem virar manual');
@@ -292,7 +301,8 @@ test('tomar aqui: o item vai com o pedido de tomada e com a identidade dele', ()
   e.queue = [PR];
   const vindos = [];
   e.enfileirarDaDistribuicao = (pr, admissaoId) => vindos.push([pr.key, !!admissaoId, pr.tomarLease, pr.itemIdDistribuido]);
-  const cmdId = await emitirPara(e, e.sync.deviceId, 'tomar', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha), confirmado: true });
+  const cmdId = await emitirPara(e, e.sync.deviceId, 'tomar', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha), acctTag: acctTag(kId(e), LOGIN), confirmado: true });
+  comoExecutor(e);
   await comandos.cicloDosComandos(e, e.config.sync);
   assert.deepEqual(vindos, [[PR.key, true, true, item]]);
   assert.equal(recibo(cmdId).estado, 'aplicado');
@@ -308,6 +318,7 @@ test('iniciar aqui: o head de AGORA é conferido, não o que o candidato guardou
   e.headSha = async (pr) => { perguntados.push(pr.headSha); return 'sha-commit-novo'; };
   e.enfileirarDaDistribuicao = () => assert.fail('head novo não inicia o item antigo');
   const cmdId = await emitirPara(e, e.sync.deviceId, 'iniciar', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha) });
+  comoExecutor(e);
   await comandos.cicloDosComandos(e, e.config.sync);
   assert.deepEqual(perguntados, [''], 'o head do objeto fica de fora da pergunta');
   assert.equal(recibo(cmdId).code, 'head_mudou');
@@ -319,8 +330,8 @@ test('iniciar aqui: o head de AGORA é conferido, não o que o candidato guardou
 
 test('iniciar aqui: sem vaga é recusa com sem_vaga, e nada é enfileirado', async () => {
   const e = await motor();
-  const item = `${prTag(kId(e), PR.key)}_${matTag(kId(e), PR.headSha)}`;
-  e.sync.candidatos = new Map([[item, { pr: PR }]]);
+  const item = `${prTag(kId(e), PR.key)}_${candidato.matContaTag(kId(e), PR.headSha, LOGIN)}`;
+  e.sync.candidatos = new Map([[item, { pr: PR, conta: LOGIN }]]);
   e.enfileirarDaDistribuicao = () => assert.fail('sem vaga não executa');
   e.updateSettings({ parallelReviews: 1 });
   const admissao = (await import('../lib/engine/admissao.js')).default;
@@ -328,7 +339,8 @@ test('iniciar aqui: sem vaga é recusa com sem_vaga, e nada é enfileirado', asy
   fixarMemoriaLivre();
   try {
     assert.equal(admissao.reservar(e, { tipo: 'chat' }).ok, true);
-    const cmdId = await emitirPara(e, e.sync.deviceId, 'iniciar', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha) });
+    const cmdId = await emitirPara(e, e.sync.deviceId, 'iniciar', { prTag: prTag(kId(e), PR.key), matTag: candidato.matContaTag(kId(e), PR.headSha, LOGIN) });
+    comoExecutor(e);
     await comandos.cicloDosComandos(e, e.config.sync);
     assert.equal(recibo(cmdId).code, 'sem_vaga');
   } finally {
@@ -341,17 +353,19 @@ test('iniciar aqui: item que este aparelho não publicou é recusado', async () 
   e.sync.candidatos = new Map();
   e.enfileirarDaDistribuicao = () => assert.fail('não publiquei este item');
   const cmdId = await emitirPara(e, e.sync.deviceId, 'iniciar', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha) });
+  comoExecutor(e);
   await comandos.cicloDosComandos(e, e.config.sync);
   assert.equal(recibo(cmdId).code, 'nao_publiquei');
 });
 
 test('iniciar aqui: admissão que recusa vira recibo com motivo, e nada roda', async () => {
   const e = await motor();
-  const item = `${prTag(kId(e), PR.key)}_${matTag(kId(e), PR.headSha)}`;
-  e.sync.candidatos = new Map([[item, { pr: PR }]]);
+  const item = `${prTag(kId(e), PR.key)}_${candidato.matContaTag(kId(e), PR.headSha, LOGIN)}`;
+  e.sync.candidatos = new Map([[item, { pr: PR, conta: LOGIN }]]);
   e.enfileirarDaDistribuicao = () => assert.fail('sem vaga não executa');
   e.sync.lastPresenceAt = 0; // presença vencida: requisito duro da admissão local
-  const cmdId = await emitirPara(e, e.sync.deviceId, 'iniciar', { prTag: prTag(kId(e), PR.key), matTag: matTag(kId(e), PR.headSha) });
+  const cmdId = await emitirPara(e, e.sync.deviceId, 'iniciar', { prTag: prTag(kId(e), PR.key), matTag: candidato.matContaTag(kId(e), PR.headSha, LOGIN) });
+  comoExecutor(e);
   await comandos.cicloDosComandos(e, e.config.sync);
   assert.equal(recibo(cmdId).estado, 'recusado');
   assert.equal(recibo(cmdId).code, 'inapto');

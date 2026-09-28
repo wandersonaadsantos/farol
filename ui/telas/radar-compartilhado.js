@@ -15,9 +15,9 @@ import {
   acoesDaRevisao, acoesDoCandidato, andamentoAtrasadoHtml, candidatosDoConjuntoHtml,
   comandoPermitido, comandosEmitidosHtml, compartilhadoBloqueioHtml,
   envioDepoisDoLote, envioHistoricoHtml, esc, inicioConfirmacao, inicioDialogo,
-  modoDistribuicaoHtml, nomeDoAparelho, oQueELocalHtml,
+  modoDistribuicaoHtml, nomeDoAparelho, oQueELocalHtml, opcoesDaDecisao,
   operacoesRemotasHtml, pendenciasCompartilhadasHtml, reciboFinal, repetirConfirmacao,
-  revisaoAbertaHtml, revisoesCompartilhadasHtml, tomadaDialogo, visaoCompartilhada, acoesDaOperacao,
+  revisaoAbertaHtml, revisoesCompartilhadasHtml, secoesDaFrota, visaoCompartilhada, acoesDaOperacao,
   tomadasFeitasHtml, transferenciaConfirmacao, transferenciaDialogo,
 } from '../pure.js';
 import { estado } from './estado.js';
@@ -133,7 +133,7 @@ function renderCompartilhado() {
   const topo = `${compartilhadoBloqueioHtml(s)}${modoDistribuicaoHtml(s, cfgSyncAtual())}`;
   faixa.innerHTML = topo;
   faixa.hidden = !topo;
-  const ligada = visaoCompartilhada(s) === 'ligada';
+  const ligada = visaoCompartilhada(s) === 'ligada' && secoesDaFrota(s);
   $('#mdCompartilhado').hidden = !ligada;
   $('#mdHistorico').hidden = !ligada;
   if (!ligada) return;
@@ -149,13 +149,18 @@ function renderCompartilhado() {
 
 // Com `falhaEm`, o engine avisa que a leitura falhou e manda a visão anterior: a hora da
 // última leitura boa fica como estava, e a faixa diz a falha.
+//
+// Task 9 (28/09/2026): os dois SSE trazem o andamento e as pendências de OUTROS aparelhos,
+// a frota. Quem não é admin agora não pinta nem avisa nada disso: o dado chega (a tela pode
+// virar admin no próximo snapshot), mas fica só no acumulador, nunca no DOM nem no toast.
 function aoAndamentoRemoto(d) {
   LIVE.operacoes = Array.isArray(d && d.operacoes) ? d.operacoes : [];
   LIVE.falhaEm = Number(d && d.falhaEm) || 0;
   // leitura que FALHOU não conclui a primeira leitura: ela continua sendo 'inicial', e a
   // faixa de falha (que vence a idade) é quem explica
   if (!LIVE.falhaEm) { LIVE.at = Date.now(); LIVE.estado = 'lido'; }
-  if (visaoCompartilhada(syncAtual()) === 'ligada') renderOperacoes(syncAtual());
+  const s = syncAtual();
+  if (visaoCompartilhada(s) === 'ligada' && secoesDaFrota(s)) renderOperacoes(s);
 }
 
 function aoPendenciasRemotas(d) {
@@ -163,8 +168,9 @@ function aoPendenciasRemotas(d) {
   PEND.estado = 'lido';
   const novas = Array.isArray(d && d.novas) ? d.novas : [];
   for (const id of novas) PEND.novas.add(id);
-  if (visaoCompartilhada(syncAtual()) !== 'ligada') return;
-  renderPendencias(syncAtual());
+  const s = syncAtual();
+  if (visaoCompartilhada(s) !== 'ligada' || !secoesDaFrota(s)) return;
+  renderPendencias(s);
   // todos os aparelhos avisam o que ninguém viu; o primeiro visto cala os outros (D3)
   if (novas.length) toast('info', novas.length === 1 ? 'Uma decisão espera por você em outro aparelho.' : `${novas.length} decisões esperam por você em outros aparelhos.`);
 }
@@ -236,17 +242,25 @@ async function marcarVisto(itemId) {
   return true;
 }
 
-function perguntarDecisao(aparelho) {
+// Só as ações que a pendência declara (`acoes`); a que não tem payload nem aparece.
+function perguntarDecisao(aparelho, acoes) {
   return escolherModal({
     titulo: `Decidir no ${aparelho}`,
     corpo: `<p>A decisão vai como comando ao <b>${esc(aparelho)}</b>, que é o dono desta pendência. Ele confere os próprios gates antes de postar, e o resultado aparece quando ele responder.</p>`,
-    opcoes: [{ valor: 'reject', rotulo: 'Pedir mudanças' }, { valor: 'approve', rotulo: 'Aprovar', classe: 'primary' }],
+    opcoes: opcoesDaDecisao(acoes),
   });
 }
 
-async function decidirNoAparelho({ itemId, dev, aparelho }, perguntar = perguntarDecisao) {
-  const acao = await perguntar(aparelho);
-  if (acao !== 'approve' && acao !== 'reject') return false;
+// `undefined` quando a pendência veio de versão anterior: o diálogo oferece as duas de antes
+function acoesDaPendencia(itemId) {
+  const p = PEND.pendencias.find((x) => x && x.itemId === itemId);
+  return p ? p.acoes : undefined;
+}
+
+// Escolha fora das opções oferecidas não sai, venha de onde vier.
+async function decidirNoAparelho({ itemId, dev, aparelho, acoes }, perguntar = perguntarDecisao) {
+  const acao = await perguntar(aparelho, acoes);
+  if (!opcoesDaDecisao(acoes).some((o) => o.valor === acao)) return false;
   return emitirComando({ alvo: dev, tipo: 'decidir', args: { itemId, acao } }, aparelho);
 }
 
@@ -298,23 +312,6 @@ async function transferirOperacao(opId, escolher = perguntarDestino, confirmar =
   const origem = op.aparelho || 'outro aparelho';
   if (!await confirmar(transferenciaConfirmacao({ origem, destino: nomeDoDestinoEscolhido(resposta, destino, s) }))) return false;
   return emitirComando({ alvo: op.dev, tipo: 'transferir', args: { prTag: op.prTag, matTag: op.matTag, destino } }, origem);
-}
-
-async function perguntarTomada(dialogo) {
-  const opcoes = dialogo.pode ? [{ valor: 'tomar', rotulo: 'Tomar mesmo assim', classe: 'primary' }] : [];
-  const escolha = await escolherModal({ titulo: dialogo.titulo, corpo: dialogo.corpo, opcoes, fechar: dialogo.pode ? 'Não tomar' : 'Fechar' });
-  return escolha === 'tomar';
-}
-
-// O aviso vem ANTES de qualquer comando, e só a confirmação manda `confirmado: true`.
-async function tomarOperacao(opId, perguntar = perguntarTomada) {
-  const s = syncAtual();
-  const op = operacaoPorId(opId);
-  if (!op || !acoesDaOperacao(op, { podeComandar: comandoPermitido(s).pode }).tomar.pode) return false;
-  const aviso = await api('/api/sync/takeover-notice', { prKey: op.pr.key, account: op.pr.account });
-  const dialogo = tomadaDialogo(aviso);
-  if (!await perguntar(dialogo) || !dialogo.pode) return false;
-  return emitirComando({ alvo: s.deviceId, tipo: 'tomar', args: { prTag: op.prTag, matTag: op.matTag, confirmado: true } }, 'este aparelho');
 }
 
 /* ---------- repetir (revisão de qualquer aparelho) e iniciar (candidato na fila) ---------- */
@@ -409,13 +406,13 @@ function aoClicarCompartilhado(e) {
   const visto = e.target.closest('.md-visto');
   if (visto) { visto.disabled = true; marcarVisto(visto.dataset.item); return; }
   const decidir = e.target.closest('.md-decidir');
-  if (decidir) { decidirNoAparelho({ itemId: decidir.dataset.item, dev: decidir.dataset.dev, aparelho: decidir.dataset.aparelho }); return; }
+  if (decidir) { decidirNoAparelho({ itemId: decidir.dataset.item, dev: decidir.dataset.dev, aparelho: decidir.dataset.aparelho, acoes: acoesDaPendencia(decidir.dataset.item) }); return; }
+  const review = e.target.closest('.md-review-completo');
+  if (review) { abrirRevisao(review.dataset.review); return; }
   const cancelar = e.target.closest('.md-cancelar');
   if (cancelar) { cancelarOperacao(cancelar.dataset.op); return; }
   const transferir = e.target.closest('.md-transferir');
   if (transferir) { transferirOperacao(transferir.dataset.op); return; }
-  const tomar = e.target.closest('.md-tomar');
-  if (tomar) { tomarOperacao(tomar.dataset.op); return; }
   const iniciar = e.target.closest('.md-iniciar');
   if (iniciar) iniciarCandidato(iniciar.dataset.item);
 }
@@ -452,6 +449,6 @@ function registrarTelaRadarCompartilhado() {
 
 export {
   registrarTelaRadarCompartilhado, renderCompartilhado, aoAndamentoRemoto, aoPendenciasRemotas, tiqueDoAndamento,
-  marcarVisto, decidirNoAparelho, cancelarOperacao, transferirOperacao, tomarOperacao, medirHistorico, enviarHistorico,
+  marcarVisto, decidirNoAparelho, cancelarOperacao, transferirOperacao, medirHistorico, enviarHistorico,
   atualizarRecibos, repetirRevisao, iniciarCandidato, buscarRevisoes,
 };

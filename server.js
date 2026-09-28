@@ -47,6 +47,7 @@ import sessionMod from './lib/engine/session.js';
 import selfMod from './lib/engine/selfpr.js';
 import scopeMod from './lib/engine/pr-scope.js';
 import reviewMod from './lib/engine/review.js';
+import papel from './lib/engine/papel-do-aparelho.js';
 import retomadaMod from './lib/engine/retomada-duravel.js';
 import retomadaVarredura from './lib/engine/retomada-varredura.js';
 
@@ -1207,11 +1208,10 @@ class Engine extends EventEmitter {
       // lib/engine/skip-review.js).
       const pulados = [];
       const foraDeCena = [];
-      const toReview = this.queue.filter(p => {
+      // o aparelho admin só observa: nada da fila vira revisão automática nele
+      const toReview = this.souObservador() ? [] : this.queue.filter(p => {
         const acct = this.accountForPr(p);
-        if (this.isMuted(acct)) return false;
-        if (!this.autoReviewFor(acct)) return false;
-        if (!this.tokenFor(acct)) return false;
+        if (this.isMuted(acct) || !this.autoReviewFor(acct) || !this.tokenFor(acct)) return false;
         if (inflight.has(p.key)) return false;
         if (this.autoReviewParked.has(p.key)) return false;
         if (this.retryAfterNet.has(p.key)) return false;
@@ -1268,7 +1268,8 @@ class Engine extends EventEmitter {
   // gate de consciência entrou no caminho, pra manter a profundidade no teto do
   // gate de qualidade). O comportamento é o de sempre, mais o gate novo no meio.
   async _repescarRetry(fresh, inflight) {
-    if (!this.retryAfterNet.size) return;
+    // o admin não relança: o PR fica na fila e a promessa do retry segue para quem executa
+    if (!this.retryAfterNet.size || this.souObservador()) return;
     const retry = this.retryTargets(new Set(fresh.map(f => f.key)), inflight);
     if (!retry.length) return;
     // poda PRs que foram mergeados/fechados enquanto esperavam no retry,
@@ -1395,6 +1396,8 @@ class Engine extends EventEmitter {
 
   // Pipeline de revisão headless: colaborador lib/engine/review.js (gate intacto, Onda 2).
   prFromUrl(url) { return reviewMod.prFromUrl(this, url); }
+  // o papel deste aparelho no conjunto: o admin observa e nunca executa (lib/engine/papel-do-aparelho.js)
+  souObservador() { return papel.souObservador(this); }
   async launchReview(urls, mode = 'auto', origem = 'auto', extras = {}) { return reviewMod.launchReview(this, urls, mode, origem, extras); }
   enqueueHeadless(pr) { return reviewMod.enqueueHeadless(this, pr); }
   headlessAcct(pr) { return reviewMod.headlessAcct(this, pr); }
@@ -1581,7 +1584,7 @@ class Engine extends EventEmitter {
   revokeReviewPostCapabilitiesByOwner(ownerId) { return decisionMod.revokeReviewPostCapabilitiesByOwner(this, ownerId); }
   writeMemory(result, actionLabel) { return decisionMod.writeMemory(this, result, actionLabel); }
   removeTeamMember(login) { return decisionMod.removeTeamMember(this, login); }
-  async decide(id, action) { return decisionMod.decide(this, id, action); }
+  async decide(id, action, ...opcoes) { return decisionMod.decide(this, id, action, ...opcoes); }
 
   // --- chat com o Claude por PR ------------------------------------------------
   // Cada PR tem uma conversa persistente. Quando existe uma revisão headless

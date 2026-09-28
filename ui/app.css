@@ -253,6 +253,8 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 .pr-sub { color: var(--muted); font-size: 12px; margin-top: 3px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 .pr-sub .author { color: var(--text); font-weight: 600; }
 .pr-actions { display: flex; gap: 7px; flex: none; align-items: center; }
+/* A fila do admin diz quem cuida em vez do botão Revisar (spec 2.3): ele nunca executa. */
+.pr-quem-cuida { color: var(--muted); font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
 /* menu inline do card: empurra o conteúdo em vez de flutuar por cima. Num card estreito
    um dropdown flutuante sai da tela ou cobre o card de baixo. */
 .pr-menu { grid-column: 1 / -1; margin-top: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); overflow: hidden; }
@@ -1965,6 +1967,13 @@ body.parear > *:not(.par-raiz) { display: none !important; }
 .md-titulo { font-size: 13.5px; font-weight: 650; overflow-wrap: anywhere; }
 .md-sub { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
 .md-fraco { font-size: 12px; color: var(--faint); overflow-wrap: anywhere; }
+.md-feed { margin: 0; padding-left: 18px; font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; font-size: 11px; color: var(--faint); max-height: 140px; overflow-y: auto; }
+.md-feed li { overflow-wrap: anywhere; }
+.md-motivos { margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--text); }
+.md-motivos li { overflow-wrap: anywhere; }
+.md-payload { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.md-inline-arquivo { display: flex; flex-direction: column; gap: 4px; padding-left: 10px; border-left: 2px solid var(--border); }
+.md-inline { overflow-wrap: anywhere; }
 .md-nota { margin: 6px 0 0; font-size: 12px; color: var(--muted); text-wrap: pretty; }
 .md-vazio { margin: 0; padding: 10px 2px; font-size: 12.5px; color: var(--muted); }
 .md-ruim { color: var(--danger); }

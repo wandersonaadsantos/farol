@@ -17,6 +17,7 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { startFakeRtdb } from './helpers/fake-rtdb.js';
 import { startFakeIdentity } from './helpers/fake-identity.js';
+import { comoExecutor } from './helpers/papel.js';
 import { fixarMemoriaLivre, restaurarMemoriaLivre } from './helpers/memoria-livre.js';
 import { SYNC, ATIVACAO_TETO_GRUPO_C4B } from '../lib/constants.js';
 
@@ -232,6 +233,7 @@ test('outra conta, sem teto de grupo que a segure, continua saindo', async () =>
   e.accountForPr = (pr) => (pr.key.startsWith('outra') ? 'outra-conta' : LOGIN);
   e.profileOfAccount = (acct) => (acct === LOGIN ? PERFIL : { id: 'codex1', kind: 'codex' });
   e.runOneHeadless = (pr) => iniciadas.push(pr.key);
+  comoExecutor(e);
   reviewMod.processHeadless(e);
   assert.deepEqual(iniciadas, ['outra/r#2'], 'a conta segurada não trava a fila das outras');
 });

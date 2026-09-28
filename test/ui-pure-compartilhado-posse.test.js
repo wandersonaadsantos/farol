@@ -28,29 +28,23 @@ function sync(extra = {}) {
 
 /* ---------- ações da operação com o dado real ---------- */
 
-test('acoesDaOperacao: com commit, tag e PR do catálogo, transferir e tomar ficam utilizáveis', () => {
+test('acoesDaOperacao: com commit e tag, transferir fica utilizável, e não há tomar', () => {
   const a = P.acoesDaOperacao(OP, { podeComandar: true });
   assert.deepEqual(a.transferir, { pode: true, motivo: '' });
-  assert.deepEqual(a.tomar, { pode: true, motivo: '' });
+  assert.equal('tomar' in a, false, '"Tomar para este aparelho" não existe mais');
   const html = P.operacoesRemotasHtml([OP], { podeComandar: true });
   assert.match(html, /class="btn sm ghost md-transferir" data-op="op1" data-dev="dOutro"/);
-  assert.match(html, /class="btn sm ghost md-tomar" data-op="op1" data-dev="dOutro"/);
+  assert.doesNotMatch(html, /md-tomar"/);
 });
 
-test('acoesDaOperacao: transferir exige o commit, e tomar exige o commit e o PR em claro', () => {
+test('acoesDaOperacao: transferir exige o commit', () => {
   const semCommit = P.acoesDaOperacao({ ...OP, matTag: '' }, { podeComandar: true });
   assert.equal(semCommit.transferir.pode, false);
   assert.match(semCommit.transferir.motivo, /commit/);
-  assert.equal(semCommit.tomar.pode, false);
   const semPr = P.acoesDaOperacao({ ...OP, pr: null }, { podeComandar: true });
   assert.equal(semPr.transferir.pode, true, 'transferir anda só com tags: o PR em claro não é exigido');
-  assert.equal(semPr.tomar.pode, false);
-  assert.match(semPr.tomar.motivo, /catálogo/);
-  const semConta = P.acoesDaOperacao({ ...OP, pr: { ...PR, account: '' } }, { podeComandar: true });
-  assert.equal(semConta.tomar.pode, false, 'o aviso da tomada precisa da conta');
   const semAdmin = P.acoesDaOperacao(OP, { podeComandar: false, motivoSemComando: 'este não é o admin' });
   assert.equal(semAdmin.transferir.pode, false);
-  assert.equal(semAdmin.tomar.pode, false);
   assert.equal(semAdmin.transferir.motivo, 'este não é o admin');
 });
 
@@ -101,6 +95,16 @@ test('transferenciaDialogo: só os aptos viram opção, e os inaptos aparecem de
   assert.match(d.corpo, /Laptop.*motivo registrado: motivo-novo/s);
   assert.match(d.corpo, /encerra a sessão/);
   assert.match(d.corpo, /Nenhuma sessão migra/);
+});
+
+// Revisão final (28/09/2026): o admin aparece na lista como inapto com o motivo em
+// português, nunca como "motivo registrado: observador".
+test('transferenciaDialogo: o admin aparece inapto, dizendo que só assiste', () => {
+  const comAdmin = { ...DESTINOS, destinos: [...DESTINOS.destinos, { deviceId: 'dAdm', nome: 'Admin de teste', apto: false, motivo: 'observador', souEu: false }] };
+  const d = P.transferenciaDialogo(comAdmin, OP);
+  assert.deepEqual(d.aptos, ['dEu']);
+  assert.match(d.corpo, /Admin de teste.*é o admin, que assiste e não executa revisões/s);
+  assert.doesNotMatch(d.corpo, /motivo registrado: observador/);
 });
 
 test('transferenciaDialogo: sem apto, sem leitura ou com a origem inapta, nada é oferecido', () => {

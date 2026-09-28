@@ -16,9 +16,13 @@ const ITEM = {
   reportMarkdown: 'RELATORIO INTERNO', reviewMarkdown: 'CORPO DO REVIEW', blockedKind: 'stale_head', blockedHead: 'abc123',
 };
 
-test('a projeção leva tags, veredito, motivos e bloqueio, e nada mais', () => {
+// `acoes` e `reviewId` entraram com a decisão remota (Task 8): o review viaja no corpo do
+// histórico, e a pendência só aponta para ele
+test('a projeção leva tags, veredito, motivos, bloqueio, ações e o id do corpo, e nada mais', () => {
   const p = pendencia.projetarPendencia(ITEM, { kId: K });
-  assert.deepEqual(Object.keys(p).sort(), ['acctTag', 'bloqueio', 'motivos', 'prTag', 'veredito']);
+  assert.deepEqual(Object.keys(p).sort(), ['acctTag', 'acoes', 'bloqueio', 'motivos', 'motivosOmitidos', 'prTag', 'reviewId', 'veredito']);
+  assert.equal(p.motivosOmitidos, 0, 'nada caiu');
+  assert.deepEqual(p.acoes, ['skip'], 'sem payload, só pular');
   assert.match(p.prTag, /^[0-9a-f]{32}$/);
   assert.match(p.acctTag, /^[0-9a-f]{32}$/);
   assert.equal(p.veredito, 'approve');
@@ -48,6 +52,28 @@ test('muitos motivos são cortados, e o id do item amarra aparelho e decisão', 
   assert.equal(a, pendencia.itemIdDe(K, 'dev1', 'd17'));
   assert.notEqual(a, pendencia.itemIdDe(K, 'dev2', 'd17'));
   assert.match(a, /^[0-9a-f]{32}$/);
+});
+
+// Revisão final (28/09/2026): o admin aprova com base nesta lista, então o que o orçamento
+// corta é CONTADO, e a tela diz que há mais no review completo.
+test('motivos que não cabem são contados em motivosOmitidos, nunca somem em silêncio', () => {
+  const muitos = { ...ITEM, reasons: Array.from({ length: 30 }, (_, i) => ({ text: `m${i}`, kind: 'gate' })) };
+  const p = pendencia.projetarPendencia(muitos, { kId: K });
+  assert.equal(p.motivos.length + p.motivosOmitidos, 30);
+  assert.equal(p.motivosOmitidos, 30 - pendencia.MAX_MOTIVOS);
+  const pesados = { ...ITEM, reasons: Array.from({ length: 10 }, () => ({ text: '"'.repeat(300), kind: 'content' })) };
+  const q = pendencia.projetarPendencia(pesados, { kId: K });
+  assert.ok(q.motivosOmitidos > 0, 'aspas pesam o dobro no JSON, e o orçamento conta isso');
+  assert.equal(q.motivos.length + q.motivosOmitidos, 10);
+});
+
+test('o orçamento mede o JSON escapado dos motivos, não os bytes crus', () => {
+  for (const ch of ['"', '\\', '\u0001', 'ç', 'x']) {
+    const reasons = Array.from({ length: 10 }, () => ({ text: ch.repeat(300), kind: 'content' }));
+    const p = pendencia.projetarPendencia({ ...ITEM, reasons }, { kId: K });
+    const escapado = p.motivos.reduce((n, m) => n + Buffer.byteLength(JSON.stringify(m.text), 'utf8') - 2, 0);
+    assert.ok(escapado <= pendencia.ORCAMENTO_MOTIVOS, `${JSON.stringify(ch)}: ${escapado}`);
+  }
 });
 
 // D3: todos notificam o que ainda não foi visto em lugar nenhum; um visto cala os outros.

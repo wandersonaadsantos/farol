@@ -14,6 +14,7 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { startFakeRtdb } from './helpers/fake-rtdb.js';
 import { startFakeIdentity } from './helpers/fake-identity.js';
+import { comoExecutor } from './helpers/papel.js';
 import { fixarMemoriaLivre, restaurarMemoriaLivre } from './helpers/memoria-livre.js';
 import { SYNC } from '../lib/constants.js';
 
@@ -27,6 +28,8 @@ const dist = await import('../lib/engine/sync-distribuicao.js');
 const fechamento = (await import('../lib/engine/sync-fechamento.js')).default;
 const admissao = (await import('../lib/engine/admissao.js')).default;
 const prontidao = (await import('../lib/sync/prontidao.js')).default;
+const kek = (await import('../lib/sync/kek.js')).default;
+const { acctTag } = await import('../lib/sync/tags.js');
 
 const API_KEY = 'chave-web-de-teste';
 const EMAIL = 'a@b.com';
@@ -80,6 +83,18 @@ async function motorPronto({ comFrota = true } = {}) {
 
 const T = Date.now();
 
+// O admin nunca publica candidato (revisão final, 28/09/2026). A bancada de um motor só faz
+// os dois papéis alternando: publicar é o trecho em que ele é o EXECUTOR que conhece o PR,
+// e depois ele volta a ser o admin que agenda (test/helpers/papel.js).
+async function publicarComoExecutor(e, pr, opcoes) {
+  const restaurar = comoExecutor(e);
+  try {
+    return await dist.publicarCandidato(e, e.config.sync, pr, opcoes);
+  } finally {
+    restaurar();
+  }
+}
+
 function prDe(n, extra = {}) {
   return { key: `dono/repo#${n}`, headSha: `sha${n}`, title: 'Titulo secreto', author: 'alguem', requested: true, ...extra };
 }
@@ -125,7 +140,7 @@ const telas = (await import('../lib/engine/sync-telas.js')).default;
 test('com a distribuição desligada, nada é publicado', async () => {
   const e = await motorPronto();
   e.sync.autoridade = { fresca: true, agora: T, ultimaMudancaEm: T };
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(1), { agora: T });
   assert.equal(r.code, 'distribuicao-desligada');
   assert.deepEqual(no('live/queue'), {});
 });
@@ -133,12 +148,12 @@ test('com a distribuição desligada, nada é publicado', async () => {
 test('sem autoridade fresca também não publica: distribuir exige admin vivo', async () => {
   const e = await motorDistribuidor();
   e.sync.autoridade = { fresca: false };
-  assert.equal((await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T })).code, 'distribuicao-desligada');
+  assert.equal((await publicarComoExecutor(e, prDe(1), { agora: T })).code, 'distribuicao-desligada');
 });
 
 test('o candidato sobe como ponteiro, e o PR não aparece em claro', async () => {
   const e = await motorDistribuidor();
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(1), { agora: T });
   assert.equal(r.ok, true, r.code);
   const registro = no(`live/queue/${r.itemId}`)[e.sync.deviceId];
   assert.deepEqual(Object.keys(registro).sort(), ['acctTag', 'enc', 'isDraft', 'itemId', 'matTag', 'orgTag', 'prTag', 'publishedAt', 'rodadaAutomatica', 'ttl']);
@@ -148,10 +163,21 @@ test('o candidato sobe como ponteiro, e o PR não aparece em claro', async () =>
   }
 });
 
+// Revisão final (28/09/2026): o admin nunca publica candidato, porque publicar é se oferecer
+// para executar, e ele só assiste.
+test('o admin não publica candidato: publicar é se oferecer para executar', async () => {
+  const e = await motorDistribuidor();
+  fake.requests.length = 0;
+  const r = await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  assert.deepEqual(r, { ok: false, code: 'observador' });
+  assert.deepEqual(no('live/queue'), {});
+  assert.equal(fake.requests.filter((q) => q.method === 'PUT').length, 0);
+});
+
 test('o nome do owner só abre no lugar dele: transplantado de outro candidato não vale', async () => {
   const e = await motorDistribuidor();
-  const a = await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
-  const b = await dist.publicarCandidato(e, e.config.sync, prDe(2), { agora: T });
+  const a = await publicarComoExecutor(e, prDe(1), { agora: T });
+  const b = await publicarComoExecutor(e, prDe(2), { agora: T });
   const fila = no('live/queue');
   assert.equal(dist.fundirFila(e, fila, { agora: T }).itens.find((i) => i.itemId === a.itemId).owner, 'dono');
   const trocado = { [a.itemId]: { [e.sync.deviceId]: { ...fila[a.itemId][e.sync.deviceId], enc: fila[b.itemId][e.sync.deviceId].enc } } };
@@ -162,7 +188,7 @@ test('o nome do owner só abre no lugar dele: transplantado de outro candidato n
 
 test('registro fora do contrato é isolado, e o registro válido do outro aparelho segue', async () => {
   const e = await motorDistribuidor();
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(1), { agora: T });
   const bom = no('live/queue')[r.itemId][e.sync.deviceId];
   const arvore = { [r.itemId]: { [e.sync.deviceId]: bom, dQuebrado: { itemId: r.itemId, prTag: '' } } };
   const { itens, defeituosos } = dist.fundirFila(e, arvore, { agora: T });
@@ -173,7 +199,8 @@ test('registro fora do contrato é isolado, e o registro válido do outro aparel
 
 test('o ciclo do agendador atribui, e o relatório diz que foi saudável', async () => {
   const e = await motorDistribuidor();
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(1), { agora: T });
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   const ciclo = await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   assert.equal(ciclo.ok, true, ciclo.code);
@@ -195,7 +222,7 @@ test('fila vazia é ciclo saudável e não atribui nada', async () => {
 
 test('aparelho sem resumo publicado é inapto: o item fica com motivo, e o ciclo é saudável', async () => {
   const e = await motorDistribuidor();
-  await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  await publicarComoExecutor(e, prDe(1), { agora: T });
   const ciclo = await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   assert.equal(ciclo.atribuido, null);
   assert.deepEqual(ciclo.relatorio.avaliados.map((a) => a.desfecho), ['sem-aparelho-apto']);
@@ -204,7 +231,8 @@ test('aparelho sem resumo publicado é inapto: o item fica com motivo, e o ciclo
 
 test('item já atribuído e vivo não é reatribuído', async () => {
   const e = await motorDistribuidor();
-  await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  await publicarComoExecutor(e, prDe(1), { agora: T });
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   const segundo = await dist.cicloDoAgendador(e, e.config.sync, { agora: T + 1000 });
@@ -214,7 +242,8 @@ test('item já atribuído e vivo não é reatribuído', async () => {
 
 test('o executor aceita: reserva vaga e responde com o id da reserva', async () => {
   const e = await motorDistribuidor();
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(1), { agora: T });
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   const resposta = await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T });
@@ -226,6 +255,24 @@ test('o executor aceita: reserva vaga e responde com o id da reserva', async () 
   assert.equal(admissao.resumo(e).total, 1);
 });
 
+// 28/09/2026: a conta entra na identidade do candidato. Publicado com uma conta, aceito com
+// outra (a conta LOCAL do executor mudou entre a publicação e o aceite): o material não bate
+// (é feito de head + conta), e a recusa explica por quê: a conta é conferida ANTES do
+// head (revisão final, 28/09/2026), senão a conta trocada saía como `head_mudou`, que manda
+// procurar um commit novo que não existe. Nunca aceite silencioso com a credencial errada.
+test('conta local diferente da publicada não é aceita', async () => {
+  const e = await motorDistribuidor();
+  const r = await publicarComoExecutor(e, prDe(1), { agora: T });
+  comoExecutor(e);
+  await publicacao.publicarCapacidade(e, e.config.sync);
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+  e.accountForPr = () => 'outra-conta';
+  const resposta = await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T });
+  assert.deepEqual(resposta.aceitas, []);
+  assert.equal(resposta.recusas[0].code, 'conta_diferente');
+  assert.equal(admissao.resumo(e).total, 0, 'nada é reservado com a conta errada');
+});
+
 // A atribuição fica VIVA no banco até o prazo dela, e o relógio passa por aqui a cada
 // poucos segundos. Medido na bancada com engines reais (16/09/2026): sem memória do que já
 // foi respondido, o mesmo aparelho reavaliava a mesma atribuição em todo giro, reescrevia a
@@ -234,7 +281,8 @@ test('o executor aceita: reserva vaga e responde com o id da reserva', async () 
 // ocupada era a dela.
 test('atribuição viva é respondida uma vez: o giro seguinte não reescreve nem reserva de novo', async () => {
   const e = motorFila(await motorDistribuidor());
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(41), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(41), { agora: T });
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   const primeira = await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T });
@@ -248,7 +296,8 @@ test('atribuição viva é respondida uma vez: o giro seguinte não reescreve ne
 
 test('a espera da recusa não anda sozinha enquanto a atribuição é a mesma', async () => {
   const e = motorFila(await motorDistribuidor());
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(42), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(42), { agora: T });
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   e.updateSettings({ parallelReviews: 1 });
@@ -262,7 +311,8 @@ test('a espera da recusa não anda sozinha enquanto a atribuição é a mesma', 
 
 test('atribuição NOVA do mesmo item é avaliada de novo', async () => {
   const e = motorFila(await motorDistribuidor());
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(43), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(43), { agora: T });
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T });
@@ -278,7 +328,8 @@ test('atribuição NOVA do mesmo item é avaliada de novo', async () => {
 // seria confundida com a antiga e ficaria sem resposta nenhuma.
 test('atribuição recriada com a mesma revisão e outro prazo volta a ser avaliada', async () => {
   const e = motorFila(await motorDistribuidor());
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(45), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(45), { agora: T });
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   const arvore = no('live/assign');
@@ -292,7 +343,8 @@ test('atribuição recriada com a mesma revisão e outro prazo volta a ser avali
 // reescrevia a resposta do mesmo jeito. Por isso a memória vem antes da validade.
 test('atribuição inválida é recusada uma vez só', async () => {
   const e = motorFila(await motorDistribuidor());
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(47), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(47), { agora: T });
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   const arvore = no('live/assign');
@@ -307,7 +359,8 @@ test('atribuição inválida é recusada uma vez só', async () => {
 
 test('memória das respostas não cresce sozinha: item que saiu da árvore sai dela', async () => {
   const e = motorFila(await motorDistribuidor());
-  await dist.publicarCandidato(e, e.config.sync, prDe(46), { agora: T });
+  await publicarComoExecutor(e, prDe(46), { agora: T });
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T });
@@ -318,7 +371,8 @@ test('memória das respostas não cresce sozinha: item que saiu da árvore sai d
 
 test('resposta que não sai é tentada de novo no giro seguinte', async () => {
   const e = motorFila(await motorDistribuidor());
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(44), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(44), { agora: T });
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   const put = e.sync.client.put.bind(e.sync.client);
@@ -333,7 +387,8 @@ test('resposta que não sai é tentada de novo no giro seguinte', async () => {
 
 test('head mudou: recusa explícita com código, e nada é reservado', async () => {
   const e = await motorDistribuidor();
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(1), { agora: T });
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   e.sync.candidatos.get(r.itemId).pr.headSha = 'sha-novo';
@@ -346,7 +401,8 @@ test('head mudou: recusa explícita com código, e nada é reservado', async () 
 
 test('sem vaga: recusa com o código e com a espera, e o agendador respeita', async () => {
   const e = await motorDistribuidor();
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(1), { agora: T });
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   // teto do aparelho em 1, e a vaga tomada por um chat: a atribuição chega sem vaga
@@ -360,7 +416,8 @@ test('sem vaga: recusa com o código e com a espera, e o agendador respeita', as
 
 test('atribuição de outro aparelho, ou com assinatura trocada, não é aceita', async () => {
   const e = await motorDistribuidor();
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(1), { agora: T });
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   const boa = no('live/assign')[r.itemId];
@@ -374,7 +431,8 @@ test('atribuição de outro aparelho, ou com assinatura trocada, não é aceita'
 
 test('sem consentimento local, a atribuição não é aceita', async () => {
   const e = await motorDistribuidor();
-  await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  await publicarComoExecutor(e, prDe(1), { agora: T });
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   const semConsentimento = { ...e.config.sync, aceitarAdmin: false };
@@ -385,7 +443,8 @@ test('sem consentimento local, a atribuição não é aceita', async () => {
 
 test('atribuição vencida não é aceita', async () => {
   const e = await motorDistribuidor();
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(1), { agora: T });
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   const rr = await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T + SYNC.ATRIBUICAO_TTL_MS + 1 });
@@ -404,10 +463,11 @@ test('o motivo da espera chega à tela: ninguém apto, atribuição viva e recus
   const e = await motorDistribuidor();
   const pr = prDe(1);
   e.headlessDistribuindo = new Map([[pr.key, { pr, desde: T }]]);
-  const r = await dist.publicarCandidato(e, e.config.sync, pr, { agora: T });
+  const r = await publicarComoExecutor(e, pr, { agora: T });
   assert.deepEqual(esperandoNaTela(e), [[pr.key, '']], 'antes de qualquer giro, o motivo é desconhecido');
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   assert.deepEqual(esperandoNaTela(e), [[pr.key, 'sem-aparelho-apto']]);
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T + 1 });
   assert.deepEqual(esperandoNaTela(e), [[pr.key, 'atribuicao-viva']]);
@@ -419,7 +479,7 @@ test('o motivo da espera chega à tela: ninguém apto, atribuição viva e recus
 test('o motivo da espera de item que este aparelho não publicou não é anotado', async () => {
   const e = await motorDistribuidor();
   await publicacao.publicarCapacidade(e, e.config.sync);
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(1), { agora: T });
   e.sync.candidatos.delete(r.itemId);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   assert.equal(e.sync.motivosDaEspera instanceof Map ? e.sync.motivosDaEspera.size : 0, 0);
@@ -437,6 +497,7 @@ function motorFila(e) {
 test('enqueueHeadless devolve desfecho: saída de cena e duplicado deixam de ser silêncio', async () => {
   const e = motorFila(await motorPronto());
   e.skipComentado = { 'dono/repo#1': true };
+  comoExecutor(e);
   assert.deepEqual(reviewMod.enqueueHeadless(e, prDe(1)), { ok: false, code: 'saida-de-cena' });
   e.skipComentado = {};
   assert.deepEqual(reviewMod.enqueueHeadless(e, prDe(2)), { ok: true, via: 'local' });
@@ -445,6 +506,7 @@ test('enqueueHeadless devolve desfecho: saída de cena e duplicado deixam de ser
 
 test('com a distribuição ligada, o item vira candidato e fica visível esperando', async () => {
   const e = motorFila(await motorDistribuidor());
+  comoExecutor(e);
   const r = reviewMod.enqueueHeadless(e, prDe(7));
   assert.deepEqual(r, { ok: true, via: 'distribuicao' });
   assert.equal(e.headlessQueue.length, 0, 'não entra na fila local');
@@ -461,6 +523,7 @@ test('PR sem head conhecido distribui: o head é lido antes de publicar', async 
   const e = motorFila(await motorDistribuidor());
   let pedidos = 0;
   e.headSha = async () => { pedidos += 1; return 'sha-lido-do-gh'; };
+  comoExecutor(e);
   const r = reviewMod.enqueueHeadless(e, prDe(11, { headSha: undefined }));
   assert.deepEqual(r, { ok: true, via: 'distribuicao' });
   await new Promise((resolve) => setTimeout(resolve, 50));
@@ -476,6 +539,7 @@ test('PR sem head conhecido distribui: o head é lido antes de publicar', async 
 test('head que não se lê devolve o item ao ramo local, sem publicar', async () => {
   const e = motorFila(await motorDistribuidor());
   e.headSha = async () => '';
+  comoExecutor(e);
   const r = reviewMod.enqueueHeadless(e, prDe(12, { headSha: undefined }));
   assert.deepEqual(r, { ok: true, via: 'distribuicao' });
   await new Promise((resolve) => setTimeout(resolve, 50));
@@ -489,6 +553,7 @@ test('head do relançamento manda: knownHead viaja, e o gh não é consultado', 
   const e = motorFila(await motorDistribuidor());
   let pedidos = 0;
   e.headSha = async () => { pedidos += 1; return 'sha-mais-novo'; };
+  comoExecutor(e);
   reviewMod.enqueueHeadless(e, prDe(13, { headSha: undefined, knownHead: 'sha-da-rerodada' }));
   await new Promise((resolve) => setTimeout(resolve, 50));
   assert.equal(pedidos, 0, 'o head já conhecido dispensa a consulta');
@@ -501,6 +566,7 @@ test('head do relançamento manda: knownHead viaja, e o gh não é consultado', 
 test('sem prontidão fresca, o item fica local', async () => {
   const e = motorFila(await motorDistribuidor());
   prontidaoFresca(e, false);
+  comoExecutor(e);
   assert.deepEqual(reviewMod.enqueueHeadless(e, prDe(9)), { ok: true, via: 'local' });
   assert.equal(e.headlessQueue.length, 1);
 });
@@ -510,6 +576,7 @@ test('item com retomada NÃO é distribuído, e a retomada não é consumida par
   const e = motorFila(await motorDistribuidor());
   const retomada = (await import('../lib/engine/retomada-duravel.js')).default;
   retomada.guardarRetomada(e, prDe(8), { retomarSid: 'a'.repeat(36), knownHead: 'sha8' });
+  comoExecutor(e);
   const r = reviewMod.enqueueHeadless(e, prDe(8));
   assert.deepEqual(r, { ok: true, via: 'local' });
   assert.equal(e.headlessQueue.length, 1);
@@ -518,6 +585,7 @@ test('item com retomada NÃO é distribuído, e a retomada não é consumida par
 
 test('clique manual não distribui: quem mandou revisar está na frente deste aparelho', async () => {
   const e = motorFila(await motorDistribuidor());
+  comoExecutor(e);
   const r = reviewMod.enqueueHeadless(e, prDe(9, { manual: true }));
   assert.deepEqual(r, { ok: true, via: 'local' });
   assert.equal(e.headlessQueue.length, 1);
@@ -527,7 +595,7 @@ test('clique manual não distribui: quem mandou revisar está na frente deste ap
 
 test('leitura que não conclui NÃO é ciclo saudável, e não vira fila vazia', async () => {
   const e = await motorDistribuidor();
-  await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  await publicarComoExecutor(e, prDe(1), { agora: T });
   const get = e.sync.client.get.bind(e.sync.client);
   e.sync.client.get = async (caminho, opcoes) => {
     if (caminho.endsWith('live/deviceStatus')) return { ok: false, code: 'indisponivel' };
@@ -542,7 +610,7 @@ test('leitura que não conclui NÃO é ciclo saudável, e não vira fila vazia',
 
 test('resumo VELHO deixa o aparelho inapto: existir não basta, tem que ser fresco', async () => {
   const e = await motorDistribuidor();
-  await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  await publicarComoExecutor(e, prDe(1), { agora: T });
   await publicacao.publicarCapacidade(e, e.config.sync);
   const arvore = fake.tree();
   const status = arvore.users.u1.live.deviceStatus;
@@ -555,7 +623,7 @@ test('resumo VELHO deixa o aparelho inapto: existir não basta, tem que ser fres
 
 test('atribuição VÁLIDA de outro aparelho não é minha: nem aceita, nem respondida', async () => {
   const e = await motorDistribuidor();
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(1), { agora: T });
   const ak = await import('../lib/sync/admin-chave.js');
   const assinatura = (await import('../lib/sync/assinatura.js')).default;
   const minha = ak.lerChaveDeAdmin();
@@ -572,7 +640,7 @@ test('atribuição VÁLIDA de outro aparelho não é minha: nem aceita, nem resp
 
 test('registro quebrado de um publicador não apaga o registro bom do outro', async () => {
   const e = await motorDistribuidor();
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(1), { agora: T });
   const bom = no('live/queue')[r.itemId][e.sync.deviceId];
   // o quebrado vem PRIMEIRO na ordem das chaves: se ele derrubasse o item, o bom que vem
   // depois não salvaria, e é justamente essa ordem que o caso precisa exercitar
@@ -588,7 +656,8 @@ test('registro quebrado de um publicador não apaga o registro bom do outro', as
 test('um giro completo atribui, aceita, enfileira no ramo local e renova a prontidão', async () => {
   const e = motorFila(await motorDistribuidor());
   e.enfileirarDaDistribuicao = (pr, admissaoId) => reviewMod.enfileirarDaDistribuicao(e, pr, admissaoId);
-  await dist.publicarCandidato(e, e.config.sync, prDe(3), { agora: T });
+  await publicarComoExecutor(e, prDe(3), { agora: T });
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   const giro = await dist.cicloDaDistribuicao(e, e.config.sync, { agora: T });
   assert.equal(giro.ok, true);
@@ -601,7 +670,7 @@ test('um giro completo atribui, aceita, enfileira no ramo local e renova a pront
   assert.ok(pronto.sig);
   // a sequência ANDA a cada renovação: é ela que prova frescor no outro aparelho, e um
   // valor repetido seria reentrega, que por contrato não renova nada
-  await dist.publicarCandidato(e, e.config.sync, prDe(31), { agora: T + 10 });
+  await publicarComoExecutor(e, prDe(31), { agora: T + 10 });
   await dist.cicloDaDistribuicao(e, e.config.sync, { agora: T + 10 });
   assert.equal(no('live/control')['ready'].sequencia, 2);
 });
@@ -625,6 +694,7 @@ test('enfileiramento que não leva o item devolve a vaga', async () => {
 test('enfileiramento que leva o item mantém a vaga com quem vai executar', async () => {
   const e = motorFila(await motorDistribuidor());
   const pr = prDe(22);
+  comoExecutor(e);
   const vaga = admissao.reservar(e, { tipo: 'review', ref: pr.key, agora: T });
   const r = reviewMod.enfileirarDaDistribuicao(e, pr, vaga.id);
   assert.deepEqual(r, { ok: true, via: 'local' });
@@ -647,12 +717,14 @@ function candidatoDeOutro(e, itemId) {
 
 async function preferidoPorOutro(n, { preferencia = true } = {}) {
   const e = motorFila(await motorDistribuidor());
+  // o motor faz o papel do destino, que é um executor: o admin nunca publica nem adota
+  const restaurar = comoExecutor(e);
   const pr = prDe(n);
   const opcoes = { agora: T, ...(preferencia ? { preferencia: { dev: e.sync.deviceId, ate: T + 60000 } } : {}) };
-  const r = await dist.publicarCandidato(e, e.config.sync, pr, opcoes);
+  const r = await publicarComoExecutor(e, pr, opcoes);
   candidatoDeOutro(e, r.itemId);
   e.queue = [{ key: pr.key, account: LOGIN }];
-  return { e, itemId: r.itemId };
+  return { e, itemId: r.itemId, restaurar };
 }
 
 test('destino da transferência que conhece o PR vira publicador', async () => {
@@ -663,6 +735,15 @@ test('destino da transferência que conhece o PR vira publicador', async () => {
   assert.deepEqual(Object.keys(no('live/queue')[itemId]).sort(), ['dOutro', e.sync.deviceId].sort());
   assert.ok(e.sync.candidatos.get(itemId), 'o item passa a ser meu: a atribuição pode ser aceita');
   assert.equal(no('live/queue')[itemId][e.sync.deviceId].prefDev, e.sync.deviceId, 'a preferência segue com o item');
+});
+
+test('o admin não adota a preferência de uma transferência: ele nunca é destino', async () => {
+  const { e, restaurar } = await preferidoPorOutro(59);
+  e.headSha = async () => 'sha59';
+  restaurar();
+  fake.requests.length = 0;
+  assert.deepEqual((await dist.adotarPreferidos(e, e.config.sync, { agora: T + 1000 })).adotados, []);
+  assert.equal(fake.requests.filter((q) => q.method === 'PUT').length, 0);
 });
 
 test('sem preferência para mim, nada é adotado', async () => {
@@ -694,7 +775,7 @@ test('PR que este aparelho não conhece não é adotado', async () => {
 test('item que já é meu não é publicado de novo a cada giro', async () => {
   const e = motorFila(await motorDistribuidor());
   const pr = prDe(57);
-  await dist.publicarCandidato(e, e.config.sync, pr, { agora: T, preferencia: { dev: e.sync.deviceId, ate: T + 60000 } });
+  await publicarComoExecutor(e, pr, { agora: T, preferencia: { dev: e.sync.deviceId, ate: T + 60000 } });
   e.queue = [{ key: pr.key, account: LOGIN }];
   e.headSha = async () => 'sha57';
   fake.requests.length = 0;
@@ -726,9 +807,9 @@ test('o giro da distribuição adota antes de responder às atribuições', asyn
 // o agendador atribuía de novo quando a atribuição vencia, e o MESMO head rodava outra vez.
 test('quem executou fecha o item: registros dos publicadores e atribuição saem do banco', async () => {
   const e = motorFila(await motorDistribuidor());
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(61), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(61), { agora: T });
   candidatoDeOutro(e, r.itemId);
-  await dist.publicarCandidato(e, e.config.sync, prDe(61), { agora: T });
+  await publicarComoExecutor(e, prDe(61), { agora: T });
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   assert.ok(no('live/assign')[r.itemId]);
@@ -754,7 +835,7 @@ async function esperarAte(teste) {
 
 test('o fim da revisão distribuída fecha o item, mesmo sem concluir', async () => {
   const e = motorQueExecuta(motorFila(await motorDistribuidor()), async () => { throw new Error('revisão não concluída'); });
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(62), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(62), { agora: T });
   await reviewMod.runOneHeadless(e, { ...prDe(62), viaDistribuicao: true, itemIdDistribuido: r.itemId }, LOGIN);
   await esperarAte(() => !no('live/queue')[r.itemId]);
   assert.equal(no('live/queue')[r.itemId], undefined, 'o mesmo head não fica para outra rodada');
@@ -768,7 +849,7 @@ test('sessão encerrada pela transferência não fecha o item nem estaciona o PR
   const cancelada = Object.assign(new Error('sessão cancelada'), { cancelled: true });
   const e = motorQueExecuta(motorFila(await motorDistribuidor()), async () => { throw cancelada; });
   e.autoReviewParked = new Set();
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(71), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(71), { agora: T });
   fechamento.marcarTransferida(e, prDe(71).key);
   await reviewMod.runOneHeadless(e, { ...prDe(71), viaDistribuicao: true, itemIdDistribuido: r.itemId }, LOGIN);
   await new Promise((resolve) => setTimeout(resolve, 100));
@@ -788,7 +869,7 @@ test('cancelamento de verdade continua estacionando', async () => {
 
 test('a revisão local, fora da distribuição, não mexe no conjunto', async () => {
   const e = motorQueExecuta(motorFila(await motorDistribuidor()), async () => { });
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(63), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(63), { agora: T });
   await reviewMod.runOneHeadless(e, prDe(63), LOGIN);
   await new Promise((resolve) => setTimeout(resolve, 100));
   assert.ok(no('live/queue')[r.itemId], 'o candidato de outro caminho continua lá');
@@ -797,7 +878,8 @@ test('a revisão local, fora da distribuição, não mexe no conjunto', async ()
 test('o aceite leva a identidade do item até quem executa', async () => {
   const e = motorFila(await motorDistribuidor());
   e.enfileirarDaDistribuicao = (pr, id) => reviewMod.enfileirarDaDistribuicao(e, pr, id);
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(64), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(64), { agora: T });
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T });
@@ -808,7 +890,7 @@ test('quem publicou esquece o item que saiu do conjunto e deixa de esperar por e
   const e = motorFila(await motorDistribuidor());
   const pr = prDe(65);
   e.headlessDistribuindo = new Map([[pr.key, { pr, desde: T }]]);
-  const r = await dist.publicarCandidato(e, e.config.sync, pr, { agora: T });
+  const r = await publicarComoExecutor(e, pr, { agora: T });
   const esquecidos = fechamento.esquecerConcluidos(e, {}, { lidoEm: T + 1000 });
   assert.deepEqual(esquecidos, [r.itemId]);
   assert.equal(e.sync.candidatos.has(r.itemId), false);
@@ -817,14 +899,14 @@ test('quem publicou esquece o item que saiu do conjunto e deixa de esperar por e
 
 test('publicação mais nova que a leitura não é esquecida', async () => {
   const e = motorFila(await motorDistribuidor());
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(66), { agora: T + 5000 });
+  const r = await publicarComoExecutor(e, prDe(66), { agora: T + 5000 });
   assert.deepEqual(fechamento.esquecerConcluidos(e, {}, { lidoEm: T }), []);
   assert.ok(e.sync.candidatos.has(r.itemId));
 });
 
 test('item ainda no conjunto não é esquecido', async () => {
   const e = motorFila(await motorDistribuidor());
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(67), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(67), { agora: T });
   assert.deepEqual(fechamento.esquecerConcluidos(e, no('live/queue'), { lidoEm: T + 1000 }), []);
   assert.ok(e.sync.candidatos.has(r.itemId));
 });
@@ -833,6 +915,8 @@ test('o giro esquece o item fechado em outro aparelho', async () => {
   const e = motorFila(await motorDistribuidor());
   const pr = prDe(70);
   e.headlessDistribuindo = new Map([[pr.key, { pr, desde: T }]]);
+  // quem esquece é quem publicou, e quem publica é executor: o admin nunca tem o que esquecer
+  comoExecutor(e);
   const r = await dist.publicarCandidato(e, e.config.sync, pr, { agora: T - 1000 });
   const arvore = fake.tree();
   delete arvore.users.u1.live.queue[r.itemId];
@@ -843,7 +927,7 @@ test('o giro esquece o item fechado em outro aparelho', async () => {
 
 test('o agendador faz a faxina: registro vencido sai, e a atribuição de item sem publicador também', async () => {
   const e = motorFila(await motorDistribuidor());
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(68), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(68), { agora: T });
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   assert.ok(no('live/assign')[r.itemId]);
@@ -855,7 +939,7 @@ test('o agendador faz a faxina: registro vencido sai, e a atribuição de item s
 
 test('a faxina não apaga registro vivo nem a atribuição de item vivo', async () => {
   const e = motorFila(await motorDistribuidor());
-  const r = await dist.publicarCandidato(e, e.config.sync, prDe(69), { agora: T });
+  const r = await publicarComoExecutor(e, prDe(69), { agora: T });
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T + 1000 });
@@ -865,7 +949,7 @@ test('a faxina não apaga registro vivo nem a atribuição de item vivo', async 
 
 test('ciclo que não foi saudável não renova a prontidão', async () => {
   const e = motorFila(await motorDistribuidor());
-  await dist.publicarCandidato(e, e.config.sync, prDe(4), { agora: T });
+  await publicarComoExecutor(e, prDe(4), { agora: T });
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDaDistribuicao(e, e.config.sync, { agora: T });
   const get = e.sync.client.get.bind(e.sync.client);
@@ -883,7 +967,8 @@ test('ciclo que não foi saudável não renova a prontidão', async () => {
    Medido: o executor sempre conferiu `aceitarAdmin` ao RECEBER (`atribuicaoValida`), e o
    agendador não olhava. Como `aceitarAdmin` nasce false, o admin atribuía a aparelhos que
    recusam por princípio, lia a recusa e repetia a cada ATRIBUICAO_TTL_MS, para sempre — e
-   o admin que também executa caía nisso consigo mesmo. A recusa ainda chegava sem motivo,
+   o admin que também executa caía nisso consigo mesmo (até 28/09/2026: desde então o admin
+   não executa). A recusa ainda chegava sem motivo,
    porque nenhum código de autoridade estava em DETALHES.
 
    O que NÃO pode acontecer junto: elegibilidade no agendador não é permissão de executar.
@@ -896,7 +981,8 @@ async function comConsentimento(e, aceita) {
 
 test('consentimento negado não recebe atribuição nova, e o motivo diz o que é', async () => {
   const e = await motorDistribuidor();
-  await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  await publicarComoExecutor(e, prDe(1), { agora: T });
+  comoExecutor(e);
   await comConsentimento(e, false);
   const ciclo = await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   assert.equal(ciclo.atribuido, null, 'atribuir a quem recusa por princípio é laço garantido');
@@ -905,18 +991,23 @@ test('consentimento negado não recebe atribuição nova, e o motivo diz o que �
   assert.deepEqual(item.aparelhos.map((a) => a.motivo), ['sem-consentimento'], 'não é "sem-sinal": ele está ali, respondendo, e dizendo não');
 });
 
-test('o admin que também executa não ganha consentimento implícito por ser admin', async () => {
+// 28/09/2026: o admin deixou de executar (lib/engine/papel-do-aparelho.js). Antes este caso
+// provava que o admin executor não ganhava consentimento implícito; agora nem consentindo
+// ele é eleito, e o motivo diz por quê.
+test('o admin não é eleito nem consentindo: ele observa, e o motivo diz observador', async () => {
   const e = await motorDistribuidor();
   assert.equal(e.sync.deviceId && true, true);
-  await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
-  await comConsentimento(e, false);
+  await publicarComoExecutor(e, prDe(1), { agora: T });
+  await comConsentimento(e, true);
   const ciclo = await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
-  assert.equal(ciclo.atribuido, null, 'o único publicador é ele mesmo, e ele não consente');
+  assert.equal(ciclo.atribuido, null, 'o único publicador é o próprio admin, que não executa');
+  const [item] = ciclo.relatorio.avaliados;
+  assert.deepEqual(item.aparelhos.map((a) => a.motivo), ['observador']);
 });
 
 test('mais de um giro: o laço de atribuir-e-recusar não se repete a cada TTL', async () => {
   const e = await motorDistribuidor();
-  await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  await publicarComoExecutor(e, prDe(1), { agora: T });
   await comConsentimento(e, false);
   for (const quando of [T, T + SYNC.ATRIBUICAO_TTL_MS + 1, T + 2 * SYNC.ATRIBUICAO_TTL_MS + 2]) {
     const ciclo = await dist.cicloDoAgendador(e, e.config.sync, { agora: quando });
@@ -930,7 +1021,8 @@ test('mais de um giro: o laço de atribuir-e-recusar não se repete a cada TTL',
 
 test('voltar a consentir volta a eleger, sem reinício: basta a capacidade nova', async () => {
   const e = await motorDistribuidor();
-  await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  await publicarComoExecutor(e, prDe(1), { agora: T });
+  comoExecutor(e);
   await comConsentimento(e, false);
   assert.equal((await dist.cicloDoAgendador(e, e.config.sync, { agora: T })).atribuido, null);
   await comConsentimento(e, true);
@@ -940,7 +1032,7 @@ test('voltar a consentir volta a eleger, sem reinício: basta a capacidade nova'
 
 test('capacidade de versão antiga, sem o campo, continua elegível: ausente não é falso', async () => {
   const e = await motorDistribuidor();
-  await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  await publicarComoExecutor(e, prDe(1), { agora: T });
   await publicacao.publicarCapacidade(e, e.config.sync, { agora: T });
   // o resumo é lido do deviceStatus cifrado; aqui vale a leitura pura, que é onde a regra
   // mora: `false` barra, `true` e AUSENTE não
@@ -954,7 +1046,8 @@ test('capacidade de versão antiga, sem o campo, continua elegível: ausente nã
 
 test('o executor continua conferindo o consentimento ao receber: elegibilidade não é permissão', async () => {
   const e = await motorDistribuidor();
-  await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
+  await publicarComoExecutor(e, prDe(1), { agora: T });
+  comoExecutor(e);
   await comConsentimento(e, true);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   // o consentimento cai DEPOIS da atribuição já publicada: o executor recusa, e agora com motivo
@@ -979,7 +1072,7 @@ test('a espera diz de QUEM ela fala: escolhido, recusou, ou ninguém', async () 
   const e = await motorDistribuidor();
   const pr = prDe(1);
   e.headlessDistribuindo = new Map([[pr.key, { pr, desde: T }]]);
-  const r = await dist.publicarCandidato(e, e.config.sync, pr, { agora: T });
+  const r = await publicarComoExecutor(e, pr, { agora: T });
 
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   const semNinguem = esperaNaTela(e);
@@ -987,6 +1080,7 @@ test('a espera diz de QUEM ela fala: escolhido, recusou, ou ninguém', async () 
   assert.equal(semNinguem.papel, '', 'veredito do agendador não fala de um aparelho só');
   assert.equal(semNinguem.dev, '');
 
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync, { agora: T });
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T + 1 });
   const escolhido = esperaNaTela(e);
@@ -999,4 +1093,38 @@ test('a espera diz de QUEM ela fala: escolhido, recusou, ou ninguém', async () 
   assert.equal(recusou.motivo, 'head_mudou');
   assert.equal(recusou.papel, 'recusou', 'quem recusou não pode sair no campo de "escolhido"');
   assert.equal(recusou.dev, e.sync.deviceId);
+});
+
+/* ---------- 28/09/2026: retrato da frota para a fila do admin dizer quem cuida ----------
+   O ciclo do agendador já lê `live/deviceStatus` para escolher quem executa; a fila do
+   admin (lib/sync/quem-cuida.js) precisa de `contasComToken`, `observador` e o nome do
+   MESMO retrato, sem ler a rede de novo (sync-telas.js, PROJEÇÃO NÃO É FONTE). Desde o fix
+   round 1 (29/09/2026), o retrato carrega `lidoEm`: ausência de leitura não é ausência de
+   aparelho (ui/pure/compartilhado.js), e quem lê precisa saber QUANDO o retrato foi tirado. */
+
+test('cicloDoAgendador guarda a frota com contas, observador e lidoEm, para a tela do admin', async () => {
+  const e = await motorDistribuidor();
+  e.sync.devices[e.sync.deviceId] = { name: 'PC Admin', contract: 2, keyReady: true, lastSeenAt: T };
+  e.tokenFor = (login) => (login === LOGIN ? 'tok' : '');
+  await publicacao.publicarCapacidade(e, e.config.sync, { agora: T });
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+
+  const kId = kek.bufferDe(e.sync.material.id);
+  assert.equal(e.sync.aparelhosDaFrota.lidoEm, T, 'o instante do giro viaja com o retrato');
+  const meu = (e.sync.aparelhosDaFrota.lista || []).find((a) => a.dev === e.sync.deviceId);
+  assert.ok(meu, 'o próprio publicador entra no retrato');
+  assert.equal(meu.nome, 'PC Admin');
+  assert.equal(meu.observador, true, 'este motor é o admin: ele se declara observador');
+  assert.deepEqual(meu.contasComToken, [acctTag(kId, LOGIN)]);
+  // quem cuida exige executor que VAI executar: pausa e aceite do admin viajam no retrato
+  assert.equal(meu.pausado, false);
+  assert.equal(meu.aceitarAdmin, e.config.sync.aceitarAdmin === true);
+
+  const restaurar = comoExecutor(e);
+  await publicacao.publicarCapacidade(e, e.config.sync, { agora: T + 1 });
+  await dist.cicloDoAgendador(e, e.config.sync, { agora: T + 1 });
+  assert.equal(e.sync.aparelhosDaFrota.lidoEm, T + 1, 'giro seguinte atualiza o instante');
+  const comoExec = (e.sync.aparelhosDaFrota.lista || []).find((a) => a.dev === e.sync.deviceId);
+  assert.equal(comoExec.observador, false, 'sob outro admin no sinal, este motor publica como executor');
+  restaurar();
 });

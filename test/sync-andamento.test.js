@@ -2,7 +2,7 @@
 //
 // O caso central é a AUSÊNCIA de prosa. O feed da sessão tem texto do modelo, caminho de
 // arquivo, comando e trecho de código de terceiros; nada disso pode subir, nem cifrado.
-// Andamento é "em que etapa, há quanto tempo, com quem", e só isso.
+// Andamento é "em que etapa, há quanto tempo, com quem", mais as linhas de sistema.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
@@ -28,9 +28,9 @@ const FEED = [
   { t: T0 + 12000, k: 'text', text: SEGREDO, s: 'raciocinio' },
 ];
 
-test('a projeção leva etapa, tempos, subagentes, modelo, tags e tipo, e nada mais', () => {
+test('a projeção leva etapa, tempos, subagentes, feed, modelo, tags e tipo, e nada mais', () => {
   const p = andamento.projetar(sessao(), FEED, { kId: K, agora: T0 + 20000 });
-  assert.deepEqual(Object.keys(p).sort(), ['acctTag', 'etapa', 'heranca', 'matTag', 'modelo', 'msPorEtapa', 'prTag', 'subagentes', 'tipo']);
+  assert.deepEqual(Object.keys(p).sort(), ['acctTag', 'etapa', 'feed', 'heranca', 'matTag', 'modelo', 'msPorEtapa', 'prTag', 'subagentes', 'tipo']);
   assert.equal(p.matTag, '', 'sessão sem head não inventa versão material');
   assert.equal(p.heranca, '', 'herança não decidida sai vazia');
   assert.equal(p.etapa, 'raciocinio');
@@ -56,9 +56,13 @@ test('o commit da sessão sobe como tag, e a herança só no vocabulário fechad
   assert.equal(JSON.stringify(p).includes('shaSecreto123'), false, 'o SHA nunca sobe em claro');
 });
 
-test('nenhuma prosa, caminho, comando, título ou login sobe', () => {
-  const cru = JSON.stringify(andamento.projetar(sessao({ headSha: 'shaSecreto123' }), FEED, { kId: K, agora: T0 + 20000 }));
-  for (const proibido of ['segredo', 'rm -rf', 'Users', 'Titulo', 'dono/repo', 'alguem', 'conta1', 'shaSecreto123']) {
+// O feed (Fase 3.1, revisão final de 28/09/2026) leva só linha de SISTEMA (info, warn,
+// error) e, de ferramenta, só o NOME. Texto do modelo, comando, caminho e padrão nunca
+// sobem, nem cifrados; título do PR, dono do repositório, login e SHA também não.
+test('nada de prosa do modelo nem argumento de ferramenta; título, dono, login e SHA nunca em claro', () => {
+  const p = andamento.projetar(sessao({ headSha: 'shaSecreto123' }), FEED, { kId: K, agora: T0 + 20000 });
+  const cru = JSON.stringify(p);
+  for (const proibido of ['Titulo', 'dono/repo', 'alguem', 'conta1', 'shaSecreto123', 'segredo', 'rm -rf', 'texto do modelo']) {
     assert.equal(cru.includes(proibido), false, proibido);
   }
 });

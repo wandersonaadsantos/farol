@@ -19,6 +19,7 @@ const MOTIVO_DESTINO = {
   'versao-antiga': 'em versão antiga, sem o contrato atual da sincronização',
   'sem-chave': 'sem a chave do conjunto aberta',
   'sem-sinal': 'sem sinal recente',
+  observador: 'é o admin, que assiste e não executa revisões',
   'sem-consentimento': 'não aceita comandos do admin',
   pausado: 'pausado pelo admin',
   'sem-ia': 'sem IA pronta',

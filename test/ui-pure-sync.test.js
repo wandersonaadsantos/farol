@@ -353,6 +353,35 @@ test('queueCardHtml: estacionamento vence a nota de coordenação', () => {
   assert.doesNotMatch(com, /pr-coord/, 'uma nota só, e a que exige ação sua');
 });
 
+// A fila do admin diz quem cuida (spec 2.3): ele nunca executa, então o botão Revisar
+// vira a linha, nos quatro casos que a projeção pode trazer.
+test('quemCuidaLinhaHtml: as quatro situações da fila do admin', () => {
+  const pr = { key: 'o/r#1', account: 'conta-do-admin' };
+  assert.equal(P.quemCuidaLinhaHtml(pr, { situacao: 'revisando', aparelho: 'Celular' }), '<div class="pr-quem-cuida">revisando no Celular</div>');
+  assert.equal(P.quemCuidaLinhaHtml(pr, { situacao: 'cuida', aparelho: 'Celular' }), '<div class="pr-quem-cuida">o Celular cuida desta revisão</div>');
+  assert.equal(P.quemCuidaLinhaHtml(pr, { situacao: 'sem-aparelho', aparelho: '' }), '<div class="pr-quem-cuida">sem aparelho com a conta conta-do-admin: ela não é revisada sozinha</div>');
+  // fix round 1 (29/09/2026): ausência de leitura não é ausência de aparelho
+  // (ui/pure/compartilhado.js) — antes do primeiro giro, ou com o retrato velho, a fila
+  // não pode afirmar "sem aparelho".
+  assert.equal(P.quemCuidaLinhaHtml(pr, { situacao: 'nao-lido', aparelho: '' }), '<div class="pr-quem-cuida">o admin ainda não leu os aparelhos do conjunto; quem cuida desta revisão aparece em instantes</div>');
+  assert.equal(P.quemCuidaLinhaHtml(pr, null), '', 'sem projeção, string vazia: o card decide o padrão');
+});
+
+test('queueCardHtml: com quemCuida na projeção, o botão Revisar vira a linha', () => {
+  const pr = { key: 'o/r#1', url: 'https://github.com/o/r/pull/1', title: 'T', author: 'a', account: 'conta-do-admin', updatedAt: new Date().toISOString() };
+  const ctx = { people: {}, mark: { style: '', dot: '', chip: '' }, sync: { quemCuida: { 'o/r#1': { situacao: 'cuida', aparelho: 'Celular' } } } };
+  const html = P.queueCardHtml(pr, ctx);
+  assert.match(html, /pr-quem-cuida/);
+  assert.doesNotMatch(html, /act-review/, 'o botão Revisar some quando a fila diz quem cuida');
+
+  const semProjecao = P.queueCardHtml(pr, { ...ctx, sync: {} });
+  assert.match(semProjecao, /act-review/, 'sem quemCuida (quem executa), o botão de sempre continua');
+
+  const naoLido = P.queueCardHtml(pr, { ...ctx, sync: { quemCuida: { 'o/r#1': { situacao: 'nao-lido', aparelho: '' } } } });
+  assert.match(naoLido, /ainda não leu os aparelhos/);
+  assert.doesNotMatch(naoLido, /act-review/, 'nao-lido também não é o botão: o admin não executa nem antes da leitura');
+});
+
 /* ---------- U4: consumo de todos os aparelhos ---------- */
 
 const RESUMO = {

@@ -25,6 +25,7 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { startFakeRtdb } from './helpers/fake-rtdb.js';
 import { startFakeIdentity } from './helpers/fake-identity.js';
+import { comoExecutor } from './helpers/papel.js';
 import { fixarMemoriaLivre, restaurarMemoriaLivre } from './helpers/memoria-livre.js';
 import { SYNC } from '../lib/constants.js';
 
@@ -123,9 +124,20 @@ function esperandoDe(e) {
   return telas.distribuicaoParaTela(e).esperando[0];
 }
 
+// O admin nunca publica candidato (revisão final, 28/09/2026): publicar é o trecho em que o
+// motor faz o papel do executor, e depois ele volta a ser o admin (test/helpers/papel.js).
+async function publicarComoExecutor(e, pr) {
+  const restaurar = comoExecutor(e);
+  try {
+    return await dist.publicarCandidato(e, e.config.sync, pr, { agora: T });
+  } finally {
+    restaurar();
+  }
+}
+
 async function comCandidatoEsperando(e) {
   e.headlessDistribuindo = new Map([[PR.key, { pr: PR, desde: T }]]);
-  const r = await dist.publicarCandidato(e, e.config.sync, PR, { agora: T });
+  const r = await publicarComoExecutor(e, PR);
   assert.equal(r.ok, true);
   return r.itemId;
 }
@@ -184,6 +196,7 @@ test('quem publicou e não agenda lê o veredito, com o motivo de cada aparelho,
   await comCandidatoEsperando(e);
   e.updateSettings({ parallelReviews: 1 });
   assert.equal(admissao.reservar(e, { tipo: 'chat', agora: T }).ok, true);
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   const giro = await giroDeQuemPublicou(e, T + 5);
@@ -224,7 +237,7 @@ test('veredito transplantado para outro item não abre', async () => {
   const itemId = await comCandidatoEsperando(e);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   const campo = no(`live/assign/${itemId}/espera`);
-  const outro = await dist.publicarCandidato(e, e.config.sync, { ...PR, key: 'acme-exemplo/app-web#62', number: 62 }, { agora: T });
+  const outro = await publicarComoExecutor(e, { ...PR, key: 'acme-exemplo/app-web#62', number: 62 });
   const arvore = { [outro.itemId]: { espera: campo } };
   const lidas = await espera.lerEsperas(e, { atribuicoes: arvore, agora: T + 1 });
   assert.equal(lidas.has(outro.itemId), false);
@@ -250,6 +263,7 @@ test('a atribuição viva nomeia o aparelho escolhido', async () => {
 test('a recusa por memória desconhecida chega com o detalhe, e é a mais nova que vale', async () => {
   const e = await motor();
   const itemId = await comCandidatoEsperando(e);
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   const ciclo = await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   assert.equal(ciclo.atribuido.itemId, itemId);
@@ -289,6 +303,7 @@ test('a atribuição de verdade substitui o veredito inteiro, e o executor a ace
   const itemId = await comCandidatoEsperando(e);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   assert.ok(no(`live/assign/${itemId}/espera`));
+  comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   const ciclo = await dist.cicloDoAgendador(e, e.config.sync, { agora: T + 1 });
   assert.equal(ciclo.atribuido.itemId, itemId, 'o nó só com o veredito não conta como atribuição viva');

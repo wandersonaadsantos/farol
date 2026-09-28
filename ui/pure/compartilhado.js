@@ -16,6 +16,7 @@
 import { esc, fmtClock, fmtDur, plural, identidadeDeAparelho } from './comum.js';
 import { prRefMention } from './mencoes.js';
 import { prIdentificado, prIdentificadoHtml } from './pr-compartilhado.js';
+import { botaoDoReviewHtml, motivosDaPendenciaHtml, motivosOmitidosDe } from './compartilhado-decisao.js';
 
 // texto só quando a condição vale: evita ternário dentro de template
 function se(condicao, texto) {
@@ -30,6 +31,15 @@ export function visaoCompartilhada(sync) {
   const s = sync || {};
   if (s.bloqueioCompartilhamento) return 'bloqueada';
   return s.shared === true ? 'ligada' : 'desligada';
+}
+
+// Task 9 (28/09/2026): as seções da FROTA (o que acontece nos OUTROS aparelhos) só
+// existem em quem é o admin agora. Quem não é admin vê só o próprio trabalho; a faixa do
+// topo (bloqueio, modo da distribuição) continua para todos, porque fala do próprio
+// aparelho, não da frota.
+export function secoesDaFrota(sync) {
+  const s = sync || {};
+  return !!(s.admin && s.admin.souEu === true);
 }
 
 const BLOQUEIO_MOTIVO = {
@@ -117,6 +127,7 @@ const MOTIVO_ESPERA = {
   inapto: 'o aparelho escolhido não estava apto quando a atribuição chegou',
   saida_de_cena: 'outra pessoa já pegou este PR',
   sem_token: 'faltou a credencial da conta no aparelho escolhido',
+  conta_diferente: 'a conta deste PR no aparelho escolhido não é a mesma de quando ele foi publicado',
 };
 
 // O motivo POR APARELHO: o veredito do agendador (lib/engine/escolha.js,
@@ -126,6 +137,7 @@ const MOTIVO_APARELHO = {
   pausado: 'pausado pelo admin',
   // mesmo texto do destino da transferência (compartilhado-posse.js): é o mesmo fato
   'sem-consentimento': 'não aceita comandos do admin',
+  observador: 'é o admin, que assiste e não executa revisões',
   'sem-vaga': 'sem vaga',
   recusou: 'recusou este commit há pouco, e a espera da recusa ainda vale',
   'memoria-desconhecida': 'sem medida de memória livre, e a admissão não admite assim',
@@ -235,7 +247,7 @@ function pendenciaHtml(p, ctx) {
   const nova = ctx.novas.has(p.itemId);
   const onde = p.aparelho || 'outro aparelho';
   const veredito = VEREDITO[p.veredito] || 'sem veredito';
-  const motivos = Array.isArray(p.motivos) ? p.motivos.length : 0;
+  const motivos = (Array.isArray(p.motivos) ? p.motivos.length : 0) + motivosOmitidosDe(p);
   const bloqueio = BLOQUEIO_PEND[p.bloqueio] || '';
   const chips = [
     `<span class="sync-chip mute">no ${esc(onde)}</span>`,
@@ -251,8 +263,8 @@ function pendenciaHtml(p, ctx) {
   return `<div class="card md-pend ${classe}" data-item="${esc(p.itemId)}">
     <div class="md-linha">${chips}<span class="md-espaco"></span><span class="md-fraco">${esc(fmtClock(p.at))}</span></div>
     <div class="md-titulo">${tituloDaPendencia(p, onde)}</div>
-    <div class="md-sub">veredito: ${esc(veredito)}${detalhe}</div>
-    <div class="md-acoes">${acoes}${visto}</div>
+    <div class="md-sub">veredito: ${esc(veredito)}${detalhe}</div>${motivosDaPendenciaHtml(p)}
+    <div class="md-acoes">${acoes}${botaoDoReviewHtml(p)}${visto}</div>
   </div>`;
 }
 
@@ -298,25 +310,19 @@ function tempoDaOperacao(op) {
   return Object.values(ms).reduce((total, v) => total + (Number(v) || 0), 0);
 }
 
-// Os comandos de posse exigem dados diferentes, e a tela diz qual falta em vez de oferecer
+// O comando de posse exige dados diferentes, e a tela diz o que falta em vez de oferecer
 // um botão que sempre recusaria. Transferir anda só com tags (PR e commit): a lista de
-// destinos vem de uma rota própria, e o aparelho de origem confere tudo de novo. Tomar
-// precisa também do PR em claro, porque o aviso lê a posse pela chave e pela conta.
+// destinos vem de uma rota própria, e o aparelho de origem confere tudo de novo.
 function faltaParaTransferir(op) {
   if (!op.prTag) return 'o andamento não identifica o PR';
   return op.matTag ? '' : 'o andamento não traz o commit, que a transferência exige';
-}
-
-function faltaParaTomar(op) {
-  if (!op.matTag) return 'o andamento não traz o commit, que a tomada exige';
-  const pr = op.pr || {};
-  return pr.key && pr.account ? '' : 'o nome do PR não abriu no catálogo, e o aviso da tomada precisa dele';
 }
 
 function acao(semAdmin, falta) {
   return { pode: !semAdmin && !falta, motivo: semAdmin || falta };
 }
 
+// "Tomar para este aparelho" não existe mais: o admin assiste, e nunca executa (28/09/2026).
 export function acoesDaOperacao(op, ctx) {
   const o = op || {};
   const c = ctx || {};
@@ -324,7 +330,6 @@ export function acoesDaOperacao(op, ctx) {
   return {
     cancelar: acao(semAdmin, o.prTag ? '' : 'o andamento não identifica o PR'),
     transferir: acao(semAdmin, faltaParaTransferir(o)),
-    tomar: acao(semAdmin, faltaParaTomar(o)),
   };
 }
 
@@ -339,22 +344,37 @@ function botaoOuNota(classe, rotulo, acao, dados) {
   return `<span class="md-nota">${esc(rotulo)}: indisponível, ${esc(acao.motivo)}</span>`;
 }
 
+// Feed ao vivo (Fase 3.2): as mesmas linhas que o aparelho dono mostra na tela dele, mais
+// antiga primeiro. Só as 6 últimas ficam visíveis de cara; o resto mora num <details>, pra
+// não empurrar o card inteiro quando a operação já rodou muitas linhas.
+const FEED_VISIVEIS = 6;
+
+function feedHtml(feed) {
+  const linhas = Array.isArray(feed) ? feed : [];
+  if (!linhas.length) return '';
+  const item = (l) => `<li>${esc(l)}</li>`;
+  const visiveis = linhas.slice(-FEED_VISIVEIS);
+  const resto = linhas.slice(0, -FEED_VISIVEIS);
+  const antigas = resto.length ? `<details><summary>${plural(resto.length, 'linha anterior', 'linhas anteriores')}</summary><ol class="md-feed">${resto.map(item).join('')}</ol></details>` : '';
+  return `${antigas}<ol class="md-feed">${visiveis.map(item).join('')}</ol>`;
+}
+
 function operacaoHtml(op, ctx) {
   const acoes = acoesDaOperacao(op, ctx);
   const dados = `data-op="${esc(op.opId)}" data-dev="${esc(op.dev)}" data-prtag="${esc(op.prTag || '')}"`;
-  const subagentes = Array.isArray(op.subagentes) ? op.subagentes.length : 0;
+  const subagentes = Array.isArray(op.subagentes) ? op.subagentes : [];
   const situacao = se(op.situacao === 'interrompida', '<span class="sync-chip warn">sem renovar</span>');
   const tempo = [fmtDur(tempoDaOperacao(op)), op.modelo].filter(Boolean).map((x) => esc(x)).join(', ');
   const heranca = HERANCA[op.heranca] || '';
-  const etapa = `${esc(ETAPA[op.etapa] || ETAPA.desconhecida)}${se(subagentes, `, ${plural(subagentes, 'subagente', 'subagentes')}`)}${se(heranca, `, ${esc(heranca)}`)}`;
+  const etapa = `${esc(ETAPA[op.etapa] || ETAPA.desconhecida)}${se(subagentes.length, `, ${esc(subagentes.join(', '))}`)}${se(heranca, `, ${esc(heranca)}`)}`;
   return `<div class="card working md-op">
     <div class="md-linha"><span class="sync-chip mute">${esc(op.aparelho || 'outro aparelho')}</span><span class="md-fraco">${esc(TIPO_OP[op.tipo] || 'revisão')}</span>${situacao}<span class="md-espaco"></span><span class="md-fraco">${tempo}</span></div>
     <div class="md-titulo">${prIdentificadoHtml(op.pr, 'Um PR seu, sem nome nesta tela (o catálogo cifrado não abriu)')}</div>
     <div class="md-sub">${etapa}</div>
+    ${feedHtml(op.feed)}
     <div class="md-acoes">
       ${botaoOuNota('md-cancelar', 'Cancelar', acoes.cancelar, dados)}
       ${botaoOuNota('md-transferir', 'Transferir', acoes.transferir, dados)}
-      ${botaoOuNota('md-tomar', 'Tomar para este aparelho', acoes.tomar, dados)}
     </div>
   </div>`;
 }
@@ -420,6 +440,8 @@ const CODIGO = {
   'saida-de-cena': 'outra pessoa já pegou este PR, e lá o Farol saiu de cena',
   'pr-proprio': 'o PR é da conta daquele aparelho, e revisão não abre em PR próprio',
   recusado_no_aparelho: 'recusado por quem está naquele aparelho',
+  conta_diferente: 'a conta daquele aparelho não é a desta revisão',
+  observador: 'aquele aparelho é o admin, que não executa revisões',
 };
 
 const TIPO_CMD = { cancelar: 'cancelar', repetir: 'repetir', decidir: 'decidir', iniciar: 'iniciar', transferir: 'transferir', tomar: 'tomar', 'designar-admin': 'designar admin' };
@@ -512,32 +534,6 @@ export function comandosEmitidosHtml(comandos, recibos, ctx) {
   };
   const mapa = recibos || {};
   return `<div class="card md-lista">${lista.map((cmd) => comandoLinhaHtml(cmd, mapa, contexto)).join('')}</div>`;
-}
-
-/* ---------- 2.9: o aviso antes de tomar ---------- */
-
-const SEM_TOMADA = {
-  'sem-lease': 'Ninguém está com este PR agora, então não há o que tomar.',
-  'ja-e-meu': 'Este PR já está com este aparelho.',
-  vencido: 'A posse do outro aparelho já venceu, então o caminho normal vale: não é tomada.',
-};
-
-// A leitura do lease acontece ANTES de confirmar (POST /api/sync/takeover-notice), e o
-// texto do aviso vem pronto do engine (lib/sync/tomada.js). A tela não reescreve o risco.
-export function tomadaDialogo(resposta) {
-  const r = resposta || null;
-  if (!r || r.ok !== true) {
-    return { pode: false, titulo: 'Aviso da tomada indisponível', corpo: '<p>Não deu para ler quem está com este PR agora. A tomada fica indisponível até a leitura voltar.</p>' };
-  }
-  if (r.podeTomar !== true) {
-    return { pode: false, titulo: 'Nada a tomar', corpo: `<p>${esc(SEM_TOMADA[r.motivo] || 'A tomada não se aplica a este PR agora.')}</p>` };
-  }
-  const risco = r.risco === 'provavel' ? 'Duplicidade provável.' : 'Duplicidade possível.';
-  return {
-    pode: true,
-    titulo: 'Tomar este PR para este aparelho?',
-    corpo: `<p>${esc(r.aviso || '')}</p><p><b>${esc(risco)}</b></p><ul><li>O processo do outro aparelho não é encerrado daqui.</li><li>A análise pode custar duas vezes.</li><li>Depois da tomada, só este aparelho consegue postar o review deste PR.</li></ul>`,
-  };
 }
 
 /* ---------- 2.7: o que é só deste aparelho ---------- */

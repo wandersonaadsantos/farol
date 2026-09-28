@@ -1,13 +1,14 @@
 // Transferência e tomada PELA TELA, ponta a ponta entre dois engines no mesmo processo.
 //
-// Dois aparelhos sobre o banco e a identidade falsos: o ADMIN (a tela, e destino da
-// transferência) e a ORIGEM (quem roda a análise). A tela de verdade (ui/app.js) é
+// Três aparelhos sobre o banco e a identidade falsos: o ADMIN (a tela, que só assiste e
+// nunca é destino), a ORIGEM (quem roda a análise) e o DESTINO (um executor que recebe a
+// transferência). A tela de verdade (ui/app.js) é
 // carregada contra o DOM de mentira, e o `fetch` dela vai ao servidor HTTP real do admin.
 // Assim o caminho inteiro passa por código de produção: andamento publicado pela origem,
 // lido e enriquecido pelo admin, botão habilitado na tela, lista de destinos pela rota,
 // comando emitido, aplicado pela origem, recibo lido de volta pela tela.
 //
-// Os dois engines dividem o STATE_DIR (resolvido uma vez no import de lib/paths.js), e é
+// Os engines dividem o STATE_DIR (resolvido uma vez no import de lib/paths.js), e é
 // por isso que o id de cada aparelho é fixado à mão depois do desbloqueio, como faz
 // test/sync-coordinator.test.js.
 import os from 'node:os';
@@ -29,6 +30,7 @@ import { startFakeIdentity } from './helpers/fake-identity.js';
 import { fixarMemoriaLivre, restaurarMemoriaLivre } from './helpers/memoria-livre.js';
 import { instalarDom } from './helpers/dom-stub.js';
 import { SYNC } from '../lib/constants.js';
+import { comoExecutor } from './helpers/papel.js';
 
 // a admissão recusa abaixo do piso de memória: sem fixar, a memória da máquina decide
 fixarMemoriaLivre();
@@ -45,7 +47,7 @@ const publicacao = (await import('../lib/engine/sync-publicacao.js')).default;
 const comandos = (await import('../lib/engine/sync-comandos.js')).default;
 const kek = (await import('../lib/sync/kek.js')).default;
 const { prTag, acctTag, matTag } = await import('../lib/sync/tags.js');
-const { accountHash, prHash } = await import('../lib/sync/keys.js');
+const candidato = (await import('../lib/sync/candidato.js')).default;
 const { checkpointPath } = await import('../lib/engine/verification-checkpoint.js');
 
 const API_KEY = 'chave-web-de-teste';
@@ -55,6 +57,7 @@ const LOGIN = 'conta-sintetica';
 const ORIGEM_EMULADOR_AUTH = new URL(SYNC.AUTH_EMULATOR_IDENTITY_URL).origin;
 const ADMIN = 'dAdminTeste01';
 const ORIGEM = 'dOrigemTeste01';
+const DESTINO = 'dDestinoTeste01';
 const VELHO = 'dVelhoTeste01';
 const SUMIDO = 'dSumidoTeste01';
 const HEAD = 'sha41aaaa';
@@ -64,6 +67,7 @@ let fake;
 let identity;
 let admin;
 let origem;
+let destino;
 let server;
 let base;
 const PEDIDOS = [];
@@ -96,11 +100,12 @@ function fresca() {
 
 function frota() {
   const agora = Date.now();
-  // o apto (ADMIN) não vem primeiro no registro: a ordem da lista tem que sair da ordenação
+  // o apto (DESTINO) não vem primeiro no registro: a ordem da lista tem que sair da ordenação
   return {
     [ORIGEM]: { name: 'Desktop antigo', contract: 2, keyReady: true, lastSeenAt: agora },
     [VELHO]: { name: 'Celular antigo', contract: 1, keyReady: true, lastSeenAt: agora },
-    [ADMIN]: { name: 'Notebook de teste', contract: 2, keyReady: true, lastSeenAt: agora },
+    [ADMIN]: { name: 'Admin de teste', contract: 2, keyReady: true, lastSeenAt: agora },
+    [DESTINO]: { name: 'Notebook de teste', contract: 2, keyReady: true, lastSeenAt: agora },
     [SUMIDO]: { name: 'Tablet de teste', contract: 2, keyReady: true, lastSeenAt: agora },
   };
 }
@@ -119,6 +124,9 @@ async function motor(deviceId) {
   e.sync.autoridade = fresca();
   e.doctorInfo = { claude: '1.0.0', ghAuth: true };
   e.sync.lastPresenceAt = Date.now();
+  // a aptidão de destino agora lê o token POR CONTA (Task 2, 28/09/2026), não mais o
+  // `gh auth` global da máquina
+  e.tokens = { [LOGIN]: 'tok-teste' };
   return e;
 }
 
@@ -183,7 +191,24 @@ beforeEach(async () => {
     pr: { key: PR.key, url: PR.url, title: PR.title, author: PR.author }, headSha: HEAD,
   }]]);
   origem.activity = new Map([['a-1', [{ t: Date.now(), k: 'tool', s: 'leitura' }]]]);
+  // o destino é um executor, e o STATE_DIR dividido tem a chave do admin, então o sinal do
+  // banco é fixado apontando o admin, como na frota de verdade (test/helpers/papel.js)
+  destino = await motor(DESTINO);
+  comoExecutor(destino, ADMIN);
+  // a origem também é executor: é ela quem devolve o item ao conjunto na transferência
+  comoExecutor(origem, ADMIN);
 });
+
+// O destino (executor) republica a capacidade, opcionalmente com outra configuração.
+async function destinoRepublica(extra) {
+  destino.sync.publicado = {};
+  if (extra) {
+    destino.updateSettings({ sync: syncCfg(extra) });
+    if (destino.sync.iniciando) await destino.sync.iniciando;
+    comoExecutor(destino, ADMIN);
+  }
+  assert.equal((await publicacao.publicarCapacidade(destino, destino.config.sync)).ok, true);
+}
 
 // A origem publica o que a tela do admin precisa: andamento, capacidade e catálogo.
 async function origemPublica() {
@@ -194,6 +219,7 @@ async function origemPublica() {
   assert.equal((await publicacao.publicarCapacidade(origem, cfg)).ok, true);
   assert.equal((await publicacao.publicarNoCatalogo(origem, cfg, andamentoEng.prsDoCatalogo(origem))).ok, true);
   assert.equal((await publicacao.publicarCapacidade(admin, admin.config.sync)).ok, true);
+  await destinoRepublica();
 }
 
 // O admin lê o andamento como o relógio lê, e a tela recebe o mesmo evento.
@@ -299,32 +325,29 @@ test('a rota de destinos lista quem pode receber, e cada inapto com o motivo cer
   })).json();
   assert.equal(r.ok, true, r.motivo);
   const motivos = Object.fromEntries(r.destinos.map((d) => [d.deviceId, d.motivo]));
-  assert.deepEqual(motivos, { [ADMIN]: '', [ORIGEM]: 'dono-atual', [VELHO]: 'versao-antiga', [SUMIDO]: 'sem-sinal' });
-  assert.equal(r.destinos[0].deviceId, ADMIN, 'os aptos vêm primeiro');
+  // o admin assiste e nunca executa: aparece na lista, inapto, com o motivo `observador`
+  assert.deepEqual(motivos, { [DESTINO]: '', [ADMIN]: 'observador', [ORIGEM]: 'dono-atual', [VELHO]: 'versao-antiga', [SUMIDO]: 'sem-sinal' });
+  assert.equal(r.destinos[0].deviceId, DESTINO, 'os aptos vêm primeiro');
   assert.equal(r.destinos[0].apto, true);
-  assert.equal(r.destinos[0].souEu, true);
+  assert.equal(r.destinos[0].souEu, false);
   assert.equal(r.destinos[0].nome, 'Notebook de teste');
+  assert.equal(r.destinos.find((d) => d.deviceId === ADMIN).souEu, true);
   assert.deepEqual(r.origem, { deviceId: ORIGEM, motivo: '' });
 });
 
 test('destino sem consentimento, pausado, sem credencial ou com memória desconhecida é inapto', async () => {
   await origemPublica();
   const dest = (await import('../lib/engine/sync-transferencia.js')).default;
-  const motivoDoAdmin = async () => (await dest.destinosDaTransferencia(admin, admin.config.sync, { dono: ORIGEM, acctTag: acctTag(kId(admin), LOGIN) })).destinos.find((d) => d.deviceId === ADMIN).motivo;
-  const republicar = async (extra) => {
-    admin.sync.publicado = {};
-    admin.updateSettings({ sync: syncCfg(extra) });
-    if (admin.sync.iniciando) await admin.sync.iniciando;
-    assert.equal((await publicacao.publicarCapacidade(admin, admin.config.sync)).ok, true);
-  };
+  const motivoDoDestino = async () => (await dest.destinosDaTransferencia(admin, admin.config.sync, { dono: ORIGEM, acctTag: acctTag(kId(admin), LOGIN) })).destinos.find((d) => d.deviceId === DESTINO).motivo;
+  const republicar = (extra) => destinoRepublica(extra);
   await republicar({ aceitarAdmin: false });
-  assert.equal(await motivoDoAdmin(), 'sem-consentimento');
+  assert.equal(await motivoDoDestino(), 'sem-consentimento');
   await republicar({});
-  assert.equal((await dest.destinosDaTransferencia(admin, admin.config.sync, { dono: ORIGEM, acctTag: 'f'.repeat(32) })).destinos.find((d) => d.deviceId === ADMIN).motivo, 'sem-credencial');
-  admin.doctorInfo = { claude: '', ghAuth: true };
+  assert.equal((await dest.destinosDaTransferencia(admin, admin.config.sync, { dono: ORIGEM, acctTag: 'f'.repeat(32) })).destinos.find((d) => d.deviceId === DESTINO).motivo, 'sem-credencial');
+  destino.doctorInfo = { claude: '', ghAuth: true };
   await republicar({});
-  assert.equal(await motivoDoAdmin(), 'sem-ia');
-  admin.doctorInfo = { claude: '1.0.0', ghAuth: true };
+  assert.equal(await motivoDoDestino(), 'sem-ia');
+  destino.doctorInfo = { claude: '1.0.0', ghAuth: true };
   restaurarMemoriaLivre();
   const os2 = (await import('node:os')).default;
   const livre = os2.freemem;
@@ -333,14 +356,14 @@ test('destino sem consentimento, pausado, sem credencial ou com memória desconh
   process.availableMemory = () => 0;
   try {
     await republicar({});
-    assert.equal(await motivoDoAdmin(), 'memoria-desconhecida');
+    assert.equal(await motivoDoDestino(), 'memoria-desconhecida');
   } finally {
     os2.freemem = livre;
     process.availableMemory = disponivel;
     fixarMemoriaLivre();
   }
   await republicar({});
-  assert.equal(await motivoDoAdmin(), '');
+  assert.equal(await motivoDoDestino(), '');
 });
 
 test('a origem que não aceita comandos aparece como tal, e a tela não oferece o envio', async () => {
@@ -366,20 +389,21 @@ test('transferir pela tela: botão habilitado, corpo exato, a origem aplica e a 
   assert.match($('#mdOperacoes').innerHTML, /Ajusta o rodapé/, 'o PR aparece pelo nome');
   let dialogo = null;
   let confirmacao = null;
-  const enviado = await Tela.transferirOperacao(op.opId, async (d) => { dialogo = d; return ADMIN; }, async (c) => { confirmacao = c; return true; });
+  const enviado = await Tela.transferirOperacao(op.opId, async (d) => { dialogo = d; return DESTINO; }, async (c) => { confirmacao = c; return true; });
   assert.equal(enviado, true);
   assert.deepEqual(pedidosPara('/api/sync/transfer-targets'), [{ dono: ORIGEM, acctTag: acctTag(kId(admin), LOGIN) }]);
-  assert.deepEqual(dialogo.aptos, [ADMIN]);
+  assert.deepEqual(dialogo.aptos, [DESTINO], 'o admin nunca é oferecido como destino');
   assert.match(dialogo.corpo, /Celular antigo.*versão antiga/s);
-  assert.match(confirmacao.title, /Transferir para este aparelho/);
+  assert.match(dialogo.corpo, /Admin de teste.*é o admin, que assiste e não executa revisões/s, 'o admin aparece com o motivo');
+  assert.match(confirmacao.title, /Transferir para Notebook de teste/);
   assert.deepEqual(pedidosPara('/api/sync/command'), [{
-    alvo: ORIGEM, tipo: 'transferir', args: { prTag: prTag(kId(admin), PR.key), matTag: matTag(kId(admin), HEAD), destino: ADMIN },
+    alvo: ORIGEM, tipo: 'transferir', args: { prTag: prTag(kId(admin), PR.key), matTag: matTag(kId(admin), HEAD), destino: DESTINO },
   }]);
   // o registro do emitido amarra o comando ao PR (divergência 4)
   const emitido = syncMod.statusForUi(admin).comandosEmitidos[0];
   assert.equal(emitido.prTag, prTag(kId(admin), PR.key));
   assert.equal(emitido.prKey, PR.key);
-  assert.equal(emitido.destino, ADMIN);
+  assert.equal(emitido.destino, DESTINO);
   assert.doesNotMatch(await lerReciboNaTela(), />aplicado</, 'sem recibo, nunca concluído');
 
   // a ORIGEM aplica: memória, encerramento e item de volta preferindo o destino
@@ -387,41 +411,19 @@ test('transferir pela tela: botão habilitado, corpo exato, a origem aplica e a 
   assert.deepEqual(ciclo.aplicados.map((a) => [a.estado, a.code || '']), [['aplicado', '']]);
   assert.deepEqual(origem.cancelados, ['a-1']);
   const fila = arvore().live.queue;
-  const itemId = `${prTag(kId(admin), PR.key)}_${matTag(kId(admin), HEAD)}`;
-  assert.equal(fila[itemId][ORIGEM].prefDev, ADMIN);
+  const itemId = `${prTag(kId(admin), PR.key)}_${candidato.matContaTag(kId(admin), HEAD, LOGIN)}`;
+  assert.equal(fila[itemId][ORIGEM].prefDev, DESTINO);
 
   const html = await lerReciboNaTela();
-  assert.match(html, /<b>transferir<\/b> para Desktop antigo, destino este aparelho/);
+  assert.match(html, /<b>transferir<\/b> para Desktop antigo, destino Notebook de teste/);
   assert.match(html, /sync-chip ok">aplicado</);
-});
-
-test('tomar pela tela: aviso lido do lease real, confirmação, o admin aplica e registra o recibo', async () => {
-  const op = await telaComAndamento();
-  const agora = Date.now();
-  await admin.sync.client.put(`/users/u1/leases/${accountHash(LOGIN)}/${prHash(PR.key)}`, {
-    leaseId: 'L1', deviceId: ORIGEM, operationKind: 'review', headSha: '', acquiredAt: agora, heartbeatAt: agora, expiresAt: agora + SYNC.LEASE_TTL_MS,
-  }, {});
-  assert.match($('#mdOperacoes').innerHTML, new RegExp(`md-tomar" data-op="${op.opId}"`));
-  // a fila real não traz headSha: o executor pergunta o head ATUAL
-  admin.queue = [{ key: PR.key, url: PR.url, title: PR.title, author: PR.author, repo: PR.repo, number: PR.number }];
-  admin.headSha = async () => HEAD;
-  const vindos = [];
-  admin.enfileirarDaDistribuicao = (item, vaga) => vindos.push({ key: item.key, tomar: item.tomarLease, vaga: !!vaga, manual: 'manual' in item });
-  let visto = null;
-  assert.equal(await Tela.tomarOperacao(op.opId, async (d) => { visto = d; return true; }), true);
-  assert.deepEqual(pedidosPara('/api/sync/takeover-notice'), [{ prKey: PR.key, account: LOGIN }]);
-  assert.match(visto.corpo, /Desktop antigo/);
-  assert.deepEqual(pedidosPara('/api/sync/command'), [{ alvo: ADMIN, tipo: 'tomar', args: { prTag: prTag(kId(admin), PR.key), matTag: matTag(kId(admin), HEAD), confirmado: true } }]);
-  await comandos.cicloDosComandos(admin, admin.config.sync);
-  assert.deepEqual(vindos, [{ key: PR.key, tomar: true, vaga: true, manual: false }]);
-  assert.match(await lerReciboNaTela(), /sync-chip ok">aplicado</);
 });
 
 /* ---------- 4. o estado muda entre a seleção e a execução ---------- */
 
 test('o head muda depois da seleção: a origem recusa com head_mudou, e a tela mostra a recusa', async () => {
   const op = await telaComAndamento();
-  assert.equal(await Tela.transferirOperacao(op.opId, async () => ADMIN, async () => true), true);
+  assert.equal(await Tela.transferirOperacao(op.opId, async () => DESTINO, async () => true), true);
   origem.activeReviews.get('a-1').headSha = 'sha42bbbb';
   const ciclo = await comandos.cicloDosComandos(origem, origem.config.sync);
   assert.deepEqual(ciclo.aplicados.map((a) => a.code), ['head_mudou']);
@@ -433,37 +435,13 @@ test('o head muda depois da seleção: a origem recusa com head_mudou, e a tela 
 
 test('o destino perde o consentimento depois da seleção: a origem recusa com destino_inapto', async () => {
   const op = await telaComAndamento();
-  assert.equal(await Tela.transferirOperacao(op.opId, async () => ADMIN, async () => true), true);
-  admin.sync.publicado = {};
-  admin.updateSettings({ sync: syncCfg({ aceitarAdmin: false }) });
-  if (admin.sync.iniciando) await admin.sync.iniciando;
-  assert.equal((await publicacao.publicarCapacidade(admin, admin.config.sync)).ok, true);
+  assert.equal(await Tela.transferirOperacao(op.opId, async () => DESTINO, async () => true), true);
+  await destinoRepublica({ aceitarAdmin: false });
   const ciclo = await comandos.cicloDosComandos(origem, origem.config.sync);
   assert.deepEqual(ciclo.aplicados.map((a) => a.code), ['destino_inapto']);
   assert.deepEqual(origem.cancelados, []);
-  admin.updateSettings({ sync: syncCfg() });
-  if (admin.sync.iniciando) await admin.sync.iniciando;
   const html = await lerReciboNaTela();
   assert.match(html, /o destino não estava apto/);
-});
-
-test('o head muda antes da tomada: o executor recusa com head_mudou, e nada é enfileirado', async () => {
-  const op = await telaComAndamento();
-  const agora = Date.now();
-  await admin.sync.client.put(`/users/u1/leases/${accountHash(LOGIN)}/${prHash(PR.key)}`, {
-    leaseId: 'L1', deviceId: ORIGEM, operationKind: 'review', headSha: '', acquiredAt: agora, heartbeatAt: agora, expiresAt: agora + SYNC.LEASE_TTL_MS,
-  }, {});
-  admin.queue = [{ key: PR.key, repo: PR.repo, number: PR.number }];
-  admin.headSha = async () => 'sha42bbbb';
-  admin.enfileirarDaDistribuicao = () => assert.fail('head velho não enfileira');
-  assert.equal(await Tela.tomarOperacao(op.opId, async () => true), true);
-  await comandos.cicloDosComandos(admin, admin.config.sync);
-  assert.match(await lerReciboNaTela(), /o commit mudou desde o pedido/);
-  // head que não dá para perguntar é desconhecido, e desconhecido também recusa
-  admin.headSha = async () => { throw new Error('sem rede'); };
-  assert.equal(await Tela.tomarOperacao(op.opId, async () => true), true);
-  const ciclo = await comandos.cicloDosComandos(admin, admin.config.sync);
-  assert.deepEqual(ciclo.aplicados.map((a) => a.code), ['head_mudou']);
 });
 
 test('o relógio do admin entrega o andamento já com o PR resolvido', async () => {
@@ -478,6 +456,7 @@ test('o relógio do admin entrega o andamento já com o PR resolvido', async () 
 test('escolha forjada fora da lista de aptos não sai, nem com confirmação', async () => {
   const op = await telaComAndamento();
   assert.equal(await Tela.transferirOperacao(op.opId, async () => VELHO, async () => true), false);
-  assert.equal(await Tela.transferirOperacao(op.opId, async () => ADMIN, async () => false), false, 'sem confirmação, nada');
+  assert.equal(await Tela.transferirOperacao(op.opId, async () => ADMIN, async () => true), false, 'o admin nunca é destino, nem forjado');
+  assert.equal(await Tela.transferirOperacao(op.opId, async () => DESTINO, async () => false), false, 'sem confirmação, nada');
   assert.deepEqual(pedidosPara('/api/sync/command'), []);
 });

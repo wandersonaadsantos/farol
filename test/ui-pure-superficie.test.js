@@ -197,6 +197,7 @@ const CONGELADA = [
   "qualityReasonLabel",
   "queueCardHtml",
   "queueEmptyOkHtml",
+  "quemCuidaLinhaHtml",
   "reRoundBoxHtml",
   "reRoundStatus",
   "reasonGroups",
@@ -214,6 +215,11 @@ const CONGELADA = [
   "reviewChip",
   "reviewerLabel",
   "revisaoAbertaHtml",
+  "opcoesDaDecisao",
+  "motivosDaPendenciaHtml",
+  "motivosOmitidosDe",
+  "botaoDoReviewHtml",
+  "payloadsDaRevisaoHtml",
   "revisoesCompartilhadasHtml",
   "runtimeChecks",
   "safeJsonParse",
@@ -259,7 +265,6 @@ const CONGELADA = [
   "syncTogglesHtml",
   "sysNorm",
   "textoDaRecusa",
-  "tomadaDialogo",
   "tomadasFeitasHtml",
   "toolRefGoto",
   "transferenciaConfirmacao",
@@ -285,6 +290,7 @@ const CONGELADA = [
   "visaoCompartilhada",
   "contasGhHtml",
   "contasGhVazio",
+  "secoesDaFrota",
 ];
 
 test('o ui/pure.js exporta exatamente a superficie congelada', async () => {

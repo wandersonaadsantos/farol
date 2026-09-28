@@ -110,11 +110,36 @@ test('sync-pending chega à tela, conta as abertas e oferece decidir ao admin', 
   assert.equal($('#mdPendCount').hidden, false);
 });
 
-test('sem ser admin, a pendência explica em vez de oferecer o comando', () => {
+// Task 9 (28/09/2026), fix round 1: antes, quem não era admin ainda via a pendência em modo
+// leitura ("este não é o admin"). Agora a seção inteira da frota some, e nada dela toca a
+// tela de quem não decide por ela: nem card, nem contador, nem toast.
+test('sem ser admin, sync-pending não pinta nada e não soa o aviso da frota', () => {
   emitir('state', estado({ sync: { admin: { ...ADMIN, souEu: false } } }));
-  emitir('sync-pending', { pendencias: [PEND], novas: [] });
-  assert.doesNotMatch($('#mdPendencias').innerHTML, /md-decidir/);
-  assert.match($('#mdPendencias').innerHTML, /este não é o admin/);
+  assert.equal($('#mdCompartilhado').hidden, true);
+  const antesDosToasts = $('#toasts').children.length;
+  emitir('sync-pending', { pendencias: [PEND], novas: ['ab12'] });
+  assert.equal($('#mdCompartilhado').hidden, true, 'a seção segue escondida');
+  assert.equal($('#toasts').children.length, antesDosToasts, 'sem admin, sem aviso');
+});
+
+test('sendo admin, sync-pending com pendência nova soa o aviso da frota', () => {
+  emitir('state', estado({ sync: { admin: ADMIN } }));
+  const antesDosToasts = $('#toasts').children.length;
+  emitir('sync-pending', { pendencias: [PEND], novas: ['ab12'] });
+  assert.equal($('#mdCompartilhado').hidden, false);
+  assert.equal($('#toasts').children.length, antesDosToasts + 1, 'admin recebe o aviso');
+  const ultimo = $('#toasts').children[$('#toasts').children.length - 1];
+  assert.match(ultimo.textContent, /Uma decisão espera por você em outro aparelho\./);
+});
+
+// aoAndamentoRemoto (sync-live) segue a mesma regra: sem ser admin, a seção que mostraria o
+// andamento dos outros aparelhos segue escondida mesmo depois do evento chegar (o conteúdo
+// de uma sessão admin anterior, se houver, fica preso atrás da seção escondida, nunca à
+// mostra).
+test('sem ser admin, sync-live não reabre a seção do andamento remoto', () => {
+  emitir('state', estado({ sync: { admin: { ...ADMIN, souEu: false } } }));
+  emitir('sync-live', { operacoes: [OP] });
+  assert.equal($('#mdCompartilhado').hidden, true);
 });
 
 test('o bootstrap só repassa: connect() entrega sync-live e sync-pending à tela', () => {
@@ -159,6 +184,18 @@ test('decidir com valor fora do contrato não sai', async () => {
   assert.equal(PEDIDOS.length, 0);
 });
 
+// Task 8: as opções são as `acoes` da pendência; a que não foi oferecida não sai
+test('decidir: só sai a ação que a pendência oferece, e o diálogo recebe as ações', async () => {
+  const alvo = { itemId: 'ab12', dev: 'dOutro', aparelho: 'Desktop antigo', acoes: ['comment', 'skip'] };
+  const vistas = [];
+  assert.equal(await Tela.decidirNoAparelho(alvo, async (_ap, acoes) => { vistas.push(acoes); return 'approve'; }), false);
+  assert.deepEqual(vistas, [['comment', 'skip']]);
+  assert.equal(PEDIDOS.length, 0);
+  RESPOSTAS['/api/sync/command'] = { ok: true, cmdId: '3'.repeat(32), estado: 'enviado' };
+  assert.equal(await Tela.decidirNoAparelho(alvo, async () => 'comment'), true);
+  assert.deepEqual(pedidosPara('/api/sync/command').map((p) => p.corpo), [{ alvo: 'dOutro', tipo: 'decidir', args: { itemId: 'ab12', acao: 'comment' } }]);
+});
+
 test('cancelar: pede confirmação antes, e manda só o prTag ao aparelho da operação', async () => {
   emitir('state', estado({ sync: { admin: ADMIN } }));
   emitir('sync-live', { operacoes: [OP] });
@@ -176,40 +213,8 @@ test('cancelar sem ser admin não sai, nem com confirmação', async () => {
   assert.equal(PEDIDOS.length, 0);
 });
 
-test('tomar: sem commit no andamento, nem o aviso é pedido', async () => {
-  emitir('state', estado({ sync: { admin: ADMIN } }));
-  emitir('sync-live', { operacoes: [OP] });
-  assert.equal(await Tela.tomarOperacao('op1', async () => true), false);
-  assert.equal(PEDIDOS.length, 0);
-});
-
-test('tomar: o aviso vem primeiro, e sem confirmação o comando não sai', async () => {
-  emitir('state', estado({ sync: { admin: ADMIN } }));
-  emitir('sync-live', { operacoes: [OP_COMPLETA] });
-  RESPOSTAS['/api/sync/takeover-notice'] = { ok: true, podeTomar: true, dono: 'dOutro', risco: 'provavel', aviso: 'Este PR está sendo analisado em Desktop antigo.' };
-  let visto = null;
-  assert.equal(await Tela.tomarOperacao('op2', async (d) => { visto = d; return false; }), false);
-  assert.deepEqual(pedidosPara('/api/sync/takeover-notice').map((p) => p.corpo), [{ prKey: OP_COMPLETA.pr.key, account: 'alice' }]);
-  assert.equal(pedidosPara('/api/sync/command').length, 0, 'sem confirmação, nenhum comando');
-  assert.match(visto.corpo, /Duplicidade provável/, 'quem confirma viu o risco');
-});
-
-test('tomar: confirmado, o comando leva confirmado true para ESTE aparelho', async () => {
-  emitir('state', estado({ sync: { admin: ADMIN } }));
-  emitir('sync-live', { operacoes: [OP_COMPLETA] });
-  RESPOSTAS['/api/sync/takeover-notice'] = { ok: true, podeTomar: true, risco: 'possivel', aviso: 'x' };
-  RESPOSTAS['/api/sync/command'] = { ok: true, cmdId: '3'.repeat(32) };
-  assert.equal(await Tela.tomarOperacao('op2', async () => true), true);
-  assert.deepEqual(pedidosPara('/api/sync/command').map((p) => p.corpo), [{ alvo: 'dEu', tipo: 'tomar', args: { prTag: OP_COMPLETA.prTag, matTag: OP_COMPLETA.matTag, confirmado: true } }]);
-});
-
-test('tomar: aviso que diz nada a tomar não vira comando, mesmo com confirmação', async () => {
-  emitir('state', estado({ sync: { admin: ADMIN } }));
-  emitir('sync-live', { operacoes: [OP_COMPLETA] });
-  RESPOSTAS['/api/sync/takeover-notice'] = { ok: true, podeTomar: false, motivo: 'sem-lease' };
-  assert.equal(await Tela.tomarOperacao('op2', async () => true), false);
-  assert.equal(pedidosPara('/api/sync/command').length, 0);
-});
+// 28/09/2026: "Tomar para este aparelho" saiu da tela do admin. `Tela.tomarOperacao` não
+// existe mais, e o card não oferece o botão (coberto em ui-pure-compartilhado.test.js).
 
 /* ---------- transferir ---------- */
 

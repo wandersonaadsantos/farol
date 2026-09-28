@@ -27,6 +27,7 @@ io.run = function runEspiao(cmd, args, opts) {
 
 const { Engine } = await import('../server.js');
 const { ehPrProprio, ehMeu } = await import('../lib/engine/pr-proprio.js');
+const porta = (await import('../lib/engine/porta-de-execucao.js')).default;
 const { STATE_DIR } = await import('../lib/paths.js');
 fs.mkdirSync(STATE_DIR, { recursive: true });
 
@@ -105,6 +106,8 @@ test('enqueueHeadless: re-revisão, comando e distribuição também não entram
   const r = e.enqueueHeadless({ ...prDo('wandersonbiuder'), viaComando: true });
   assert.deepEqual(r, { ok: false, code: 'pr-proprio' });
   assert.equal(e.headlessQueue.length, 0);
+  assert.equal(porta.motivoParaNaoExecutar(e, prDo('wandersonbiuder')), 'pr-proprio', 'a regra mora na porta de execução');
+  assert.deepEqual(porta.executaveis(e, [prDo('wandersonbiuder')]), []);
 });
 
 test('ehMeu: autor de outra pessoa nunca é trocado pela lista Meus PRs', () => {

@@ -218,9 +218,11 @@ test('o relógio liga uma vez só e desliga limpando a visão', async () => {
   assert.equal(andamentoEng.ligarRelogio(e, (x) => x.config.sync, ag), false, 'nunca dois relógios');
   assert.equal(ag.ligados, 1);
   e.sync.andamentoRemoto = [{ opId: 'x' }];
+  e.sync.aparelhosDaFrota = { lidoEm: Date.now(), lista: [{ dev: 'cel' }] };
   assert.equal(andamentoEng.desligarRelogio(e.sync), true);
   assert.equal(ag.desligados, 1);
   assert.deepEqual(e.sync.andamentoRemoto, [], 'desligado não mostra andamento velho');
+  assert.equal(e.sync.aparelhosDaFrota, null, 'desligado não deixa a fila do admin afirmar dados de uma conexão que já acabou');
 });
 
 test('parar a sincronização para o relógio', async () => {
