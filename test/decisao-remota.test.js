@@ -22,6 +22,8 @@ const envelope = (await import('../lib/sync/envelope.js')).default;
 const kek = (await import('../lib/sync/kek.js')).default;
 const comandos = (await import('../lib/engine/sync-comandos.js')).default;
 const P = await import('../ui/pure.js');
+const decisionMod = (await import('../lib/engine/decision.js')).default;
+const { decisionForUi } = await import('../lib/engine/public-review.js');
 
 const K = randomBytes(32);
 const MATERIAL = kek.novoMaterial();
@@ -226,9 +228,6 @@ test('corte total: sem payloads no corpo, a revisão aberta avisa que o texto n�
 });
 
 /* ---------- 5. revisão final (28/09/2026): a decisão remota fica registrada no executor ---------- */
-
-const decisionMod = (await import('../lib/engine/decision.js')).default;
-const { decisionForUi } = await import('../lib/engine/public-review.js');
 
 function executorReal() {
   const toasts = [];
