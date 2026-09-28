@@ -473,6 +473,16 @@ test('notaDistribuicaoHtml: quem RECUSOU não é apresentado como escolhido', ()
   assert.match(html, /Por aparelho: Celular/);
 });
 
+// Revisão final (28/09/2026): a conta trocada no executor tem rótulo próprio, e o motivo
+// não cai no "motivo registrado" genérico.
+test('notaDistribuicaoHtml: conta diferente no aparelho escolhido tem texto próprio', () => {
+  const html = P.notaDistribuicaoHtml('o/r#1', syncComEspera({
+    motivo: 'conta_diferente', dev: 'dB', papel: 'recusou', aparelhos: [{ deviceId: 'dB', motivo: 'conta_diferente' }],
+  }), AGORA);
+  assert.match(html, /a conta deste PR no aparelho escolhido não é a mesma de quando ele foi publicado/);
+  assert.equal(html.includes('motivo registrado'), false);
+});
+
 test('notaDistribuicaoHtml: snapshot antigo sem papel ainda lê a atribuição viva', () => {
   const html = P.notaDistribuicaoHtml('o/r#1', syncComEspera({ motivo: 'atribuicao-viva', dev: 'dB' }), AGORA);
   assert.match(html, /O distribuidor escolheu Celular/);

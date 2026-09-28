@@ -257,10 +257,9 @@ test('o executor aceita: reserva vaga e responde com o id da reserva', async () 
 
 // 28/09/2026: a conta entra na identidade do candidato. Publicado com uma conta, aceito com
 // outra (a conta LOCAL do executor mudou entre a publicação e o aceite): o material não bate
-// (é feito de head + conta), e a recusa explica por quê. O código pode sair como
-// `head_mudou` (o `headBate` já recalcula com a conta local) ou `conta_diferente` (a segunda
-// trava, para quando algum dia o material parar de levar a conta): os dois são recusa
-// honesta, nunca aceite silencioso com a credencial errada.
+// (é feito de head + conta), e a recusa explica por quê: a conta é conferida ANTES do
+// head (revisão final, 28/09/2026), senão a conta trocada saía como `head_mudou`, que manda
+// procurar um commit novo que não existe. Nunca aceite silencioso com a credencial errada.
 test('conta local diferente da publicada não é aceita', async () => {
   const e = await motorDistribuidor();
   const r = await publicarComoExecutor(e, prDe(1), { agora: T });
@@ -270,7 +269,7 @@ test('conta local diferente da publicada não é aceita', async () => {
   e.accountForPr = () => 'outra-conta';
   const resposta = await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T });
   assert.deepEqual(resposta.aceitas, []);
-  assert.ok(['head_mudou', 'conta_diferente'].includes(resposta.recusas[0].code), resposta.recusas[0].code);
+  assert.equal(resposta.recusas[0].code, 'conta_diferente');
   assert.equal(admissao.resumo(e).total, 0, 'nada é reservado com a conta errada');
 });
 

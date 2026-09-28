@@ -127,6 +127,7 @@ const MOTIVO_ESPERA = {
   inapto: 'o aparelho escolhido não estava apto quando a atribuição chegou',
   saida_de_cena: 'outra pessoa já pegou este PR',
   sem_token: 'faltou a credencial da conta no aparelho escolhido',
+  conta_diferente: 'a conta deste PR no aparelho escolhido não é a mesma de quando ele foi publicado',
 };
 
 // O motivo POR APARELHO: o veredito do agendador (lib/engine/escolha.js,
