@@ -289,6 +289,7 @@ const CONGELADA = [
   "visaoCompartilhada",
   "contasGhHtml",
   "contasGhVazio",
+  "secoesDaFrota",
 ];
 
 test('o ui/pure.js exporta exatamente a superficie congelada', async () => {

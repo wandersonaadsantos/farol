@@ -33,6 +33,15 @@ export function visaoCompartilhada(sync) {
   return s.shared === true ? 'ligada' : 'desligada';
 }
 
+// Task 9 (28/09/2026): as seções da FROTA (o que acontece nos OUTROS aparelhos) só
+// existem em quem é o admin agora. Quem não é admin vê só o próprio trabalho; a faixa do
+// topo (bloqueio, modo da distribuição) continua para todos, porque fala do próprio
+// aparelho, não da frota.
+export function secoesDaFrota(sync) {
+  const s = sync || {};
+  return !!(s.admin && s.admin.souEu === true);
+}
+
 const BLOQUEIO_MOTIVO = {
   'autenticacao-local': 'a autenticação local não está exigida neste aparelho',
 };

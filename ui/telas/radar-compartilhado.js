@@ -17,7 +17,7 @@ import {
   envioDepoisDoLote, envioHistoricoHtml, esc, inicioConfirmacao, inicioDialogo,
   modoDistribuicaoHtml, nomeDoAparelho, oQueELocalHtml, opcoesDaDecisao,
   operacoesRemotasHtml, pendenciasCompartilhadasHtml, reciboFinal, repetirConfirmacao,
-  revisaoAbertaHtml, revisoesCompartilhadasHtml, visaoCompartilhada, acoesDaOperacao,
+  revisaoAbertaHtml, revisoesCompartilhadasHtml, secoesDaFrota, visaoCompartilhada, acoesDaOperacao,
   tomadasFeitasHtml, transferenciaConfirmacao, transferenciaDialogo,
 } from '../pure.js';
 import { estado } from './estado.js';
@@ -133,7 +133,7 @@ function renderCompartilhado() {
   const topo = `${compartilhadoBloqueioHtml(s)}${modoDistribuicaoHtml(s, cfgSyncAtual())}`;
   faixa.innerHTML = topo;
   faixa.hidden = !topo;
-  const ligada = visaoCompartilhada(s) === 'ligada';
+  const ligada = visaoCompartilhada(s) === 'ligada' && secoesDaFrota(s);
   $('#mdCompartilhado').hidden = !ligada;
   $('#mdHistorico').hidden = !ligada;
   if (!ligada) return;
