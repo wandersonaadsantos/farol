@@ -84,7 +84,8 @@ function renderPagina(s) {
     semSinal: situacaoDoAparelho(ap, agora) === 'sem-sinal', executores: executores.length,
     retornoDe: (tag) => r.doPr(tag).html, pendenteDe: (tag) => r.doPr(tag).pendente,
   };
-  const situacao = situacaoDaFila(ap.deviceId, f.listas, { antigo: versaoAntiga(ap.versao) });
+  const fontesLidas = conjunto.estadoPendencias === 'lido' && conjunto.estadoOperacoes === 'lido';
+  const situacao = situacaoDaFila(ap.deviceId, f.listas, { antigo: versaoAntiga(ap.versao), fontesLidas });
   alvo.innerHTML = `${faixaDeAparelhosHtml(executores, ap.deviceId, contagens, agora)}
     ${painelDoAparelhoHtml(ap, { agora, desligado, prKeyDaTag: prKeyDaTag(itens) })}
     ${avisoDoAparelhoHtml(ap, { agora })}

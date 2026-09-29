@@ -10,6 +10,9 @@
 // miolos diferentes, com texto e cor próprios.
 import { esc, fmtClock, fmtWhenDay, plural } from './comum.js';
 import { avatar, personMention, prRefMention } from './mencoes.js';
+import { prIdentificado } from './pr-compartilhado.js';
+import { feedDaOperacaoHtml, resumoDaOperacao, textoDoBloqueio, textoDoVeredito } from './compartilhado.js';
+import { botaoDoReviewHtml, motivosDaPendenciaHtml, motivosOmitidosDe } from './compartilhado-decisao.js';
 
 // grupos fixos, nesta ordem (HANDOFF, seção 1)
 const GRUPOS = [
@@ -41,11 +44,8 @@ const PARADO = {
   falha: 'parou: a revisão falhou', orcamento: 'parou: o orçamento estourou',
   autenticacao: 'parou: a credencial da revisão expirou', legado: 'parou antes desta versão',
 };
-const VEREDITO = { approve: 'aprovar', request_changes: 'pedir mudanças', comment: 'comentar' };
-const ETAPA = {
-  preparo: 'preparando', leitura: 'lendo o diff', card: 'conferindo o card', verificacao: 'verificando',
-  raciocinio: 'raciocinando', fechamento: 'fechando',
-};
+// PR que o catálogo cifrado não nomeou: a tela diz o que sabe, nunca um palpite
+const SEM_NOME = 'Um PR seu, sem nome nesta tela (o catálogo cifrado não abriu)';
 
 function objeto(v) {
   return !!v && typeof v === 'object' && !Array.isArray(v);
@@ -104,28 +104,33 @@ export function contagemDaFila(itens) {
 
 // O miolo da fila: `lista`, ou um dos quatro estados sem lista. Sem escopo publicado por
 // este aparelho, a pergunta é POR QUÊ: versão antiga, ainda não li ou li e está vazio.
-export function situacaoDaFila(dev, listas, { antigo = false } = {}) {
+// `fontesLidas`: pendências e andamento do conjunto já tiveram a primeira leitura nesta
+// conexão. Antes disso a fila vazia não é vazio: pode haver decisão esperando lá.
+export function situacaoDaFila(dev, listas, { antigo = false, fontesLidas = true } = {}) {
   const l = listas || {};
   const escopos = lista(l.escopos).filter((e) => e && e.tipo === 'panorama' && e.dev === dev);
   if (antigo) return { miolo: 'antiga', lidoEm: 0 };
   const falhou = escopos.find((e) => e.estado === 'falhou');
   if (falhou) return { miolo: 'falhou', lidoEm: 0, falhaEm: Number(falhou.falhaEm) || 0 };
   const lidoEm = Math.max(0, ...escopos.map((e) => Number(e.lidoEm) || 0));
-  if (!escopos.length && (!l.estado || l.estado === 'aguardando' || l.estado === 'inicial')) return { miolo: 'carregando', lidoEm: 0 };
+  const listaNaoLida = !escopos.length && (!l.estado || l.estado === 'aguardando' || l.estado === 'inicial');
+  if (listaNaoLida || !fontesLidas) return { miolo: 'carregando', lidoEm };
   return { miolo: 'lista', lidoEm };
+}
+
+// A contagem soma os motivos que o dono não conseguiu mandar (`motivosOmitidos`), para a
+// lista parcial nunca parecer completa; o bloqueio por commit novo vai junto.
+function fraseDaPendencia(p) {
+  const n = lista(p.motivos).length + motivosOmitidosDe(p);
+  const bloqueio = textoDoBloqueio(p.bloqueio);
+  const partes = [`revisado: ${textoDoVeredito(p.veredito)}`, n ? plural(n, 'motivo registrado', 'motivos registrados') : '', bloqueio];
+  return partes.filter(Boolean).join(', ');
 }
 
 function fraseDoItem(item, agora) {
   const f = item.fila || {};
-  if (f.estado === 'decidir' && item.pend) {
-    const n = lista(item.pend.motivos).length + (Number(item.pend.motivosOmitidos) || 0);
-    return `revisado: ${VEREDITO[item.pend.veredito] || 'sem veredito'}${n ? `, ${plural(n, 'motivo', 'motivos')}` : ''}`;
-  }
-  if (f.estado === 'revisando' && item.op) {
-    const ms = Object.values(item.op.msPorEtapa || {}).reduce((t, v) => t + (Number(v) || 0), 0);
-    const min = Math.max(1, Math.round(ms / 60000));
-    return `revisando agora, ${min} min, ${ETAPA[item.op.etapa] || 'sem etapa conhecida'}${item.op.modelo ? ` · ${item.op.modelo}` : ''}`;
-  }
+  if (f.estado === 'decidir' && item.pend) return fraseDaPendencia(item.pend);
+  if (f.estado === 'revisando' && item.op) return `revisando agora: ${resumoDaOperacao(item.op)}`;
   return FRASE[f.estado] ? FRASE[f.estado](item, f, agora) : '';
 }
 
@@ -183,8 +188,7 @@ function botao(classe, rotulo, attrs, desligado, item, primario = false) {
 function acoesDaPendencia(item, ctx) {
   const p = item.pend;
   const decidir = botao('md-decidir', 'Decidir', ` data-item="${esc(p.itemId)}" data-dev="${esc(p.dev)}" data-aparelho="${esc(p.aparelho || ctx.nome)}"`, ctx.desligadoBase, item, true);
-  const review = p.reviewId ? botao('md-review-completo', 'Ver review completo', ` data-review="${esc(p.reviewId)}"`, '', item) : '';
-  return `${decidir}${review}`;
+  return `${decidir}${botaoDoReviewHtml(p)}`;
 }
 
 // Transferir exige o commit no andamento: a origem confere a tag dele. Os destinos aptos
@@ -211,16 +215,24 @@ function acoesDoItem(item, ctx) {
   return lista(ACOES[f.estado]).map(([tipo, rotulo, prim]) => botao('ap-cmd', rotulo, ` data-tipo="${tipo}" data-tag="${esc(item.prTag)}" data-acct="${esc(item.acctTag)}"`, desligado, item, prim)).join('');
 }
 
+// o mesmo feed que o aparelho dono mostra: as 6 últimas linhas e o resto recolhido
 function aoVivoHtml(item, aberto) {
-  const linhas = lista(item.op && item.op.feed).slice(-6);
-  if (!aberto || !linhas.length) return '';
-  return `<ol class="fila-ao-vivo">${linhas.map((l) => `<li>${esc(l)}</li>`).join('')}</ol>`;
+  if (!aberto || !item.op) return '';
+  const feed = feedDaOperacaoHtml(item.op.feed);
+  return feed ? `<div class="fila-ao-vivo">${feed}</div>` : '';
+}
+
+// o que só existe no item de pendência ou de sessão: os motivos por extenso e o nó vencido
+function detalheDoItem(item) {
+  const motivos = item.pend ? motivosDaPendenciaHtml(item.pend) : '';
+  const vencido = item.op && item.op.situacao === 'interrompida' ? '<span class="sync-chip warn">sem renovar</span>' : '';
+  return `${vencido}${motivos}`;
 }
 
 function itemHtml(item, ctx) {
   const f = item.fila || {};
   const [classe, rotulo] = CHIP[f.estado] || ['mute', f.estado || 'sem estado'];
-  const pr = item.key ? prRefMention(item.key, 'pr-ref-mention') : '<span class="md-fraco">PR sem nome no catálogo</span>';
+  const pr = prIdentificado(item) ? prRefMention(item.key, 'pr-ref-mention') : `<span class="md-pr-generico">${esc(SEM_NOME)}</span>`;
   const conta = item.account ? `<span class="acct-chip">${esc(item.account)}</span>` : '';
   const autor = item.author ? `${personMention(item.author, 'xs')}` : '';
   const retorno = ctx.retornoDe ? ctx.retornoDe(item.prTag) : '';
@@ -235,7 +247,7 @@ function itemHtml(item, ctx) {
       <div class="pr-ref">${pr}${conta}</div>
       ${titulo}${sub}
       <div class="fila-estado"><span class="sync-chip ${classe}">${esc(rotulo)}</span><span>${esc(frase)}</span></div>
-      ${aoVivoHtml(item, ctx.aoVivo && ctx.aoVivo.has(item.prTag))}${retorno}
+      ${detalheDoItem(item)}${aoVivoHtml(item, ctx.aoVivo && ctx.aoVivo.has(item.prTag))}${retorno}
     </div>
     <div class="pr-actions">${acoesDoItem(item, ctx)}</div>
   </article>`;
@@ -272,7 +284,7 @@ export function filaDoAparelhoHtml(itens, situacao, ctx) {
   // Pendências e sessões ao vivo chegam por outro caminho que a fila: com elas na mão, o
   // aviso (versão antiga, leitura que falhou) fica em cima e os itens continuam visíveis.
   const aviso = MIOLO[s.miolo] ? MIOLO[s.miolo](nome, s, c.versao) : '';
-  if (aviso && (!todos.length || s.miolo === 'carregando')) return `${cab}${aviso}`;
+  if (aviso && !todos.length) return `${cab}${aviso}`;
   if (!todos.length) return `${cab}<div class="fila-vazia"><b>Nada na fila do ${esc(nome)}</b><p>Nenhum PR pedido às contas dele espera revisão.${s.lidoEm ? ` Leitura das ${esc(fmtClock(s.lidoEm))}.` : ''}</p></div>`;
   const filtro = c.filtro || 'tudo';
   const ctxItem = { ...c, nome };
@@ -283,5 +295,7 @@ export function filaDoAparelhoHtml(itens, situacao, ctx) {
     return `<div class="fila-grupo"><div class="fila-grupo-head"><h3>${esc(g.titulo)}</h3><span class="sync-chip ${chip}">${doGrupo.length}</span><span class="section-sub">${esc(g.sub)}</span></div>
       <div class="cards">${doGrupo.map((it) => itemHtml(it, ctxItem)).join('')}</div></div>`;
   }).join('');
-  return `${cab}${aviso}${filtrosHtml(cont, filtro)}${grupos}`;
+  // com itens na mão, "carregando" não esconde nada; versão antiga e falha continuam avisando
+  const avisoComItens = s.miolo === 'carregando' ? '' : aviso;
+  return `${cab}${avisoComItens}${filtrosHtml(cont, filtro)}${grupos}`;
 }

@@ -86,30 +86,33 @@ test('admin de OUTRO aparelho sem batimento: o texto da promoção continua o de
 
 /* ---------- 2 e 3: antes da primeira leitura, nada de zero afirmado ---------- */
 
-test('pendências: antes da primeira leitura a tela diz que ainda não leu', () => {
-  const html = P.pendenciasCompartilhadasHtml([], { estado: 'inicial' });
-  assert.equal(html.includes('Nada precisa de você em nenhum outro aparelho'), false);
-  assert.match(html, /ainda não leu/);
+// Desde a v2.65.0 pendências e sessões de outro aparelho moram na fila dele
+// (ui/pure/aparelhos-fila.js), e a garantia muda de lugar: a fila só afirma vazio depois da
+// primeira leitura da lista, das pendências e do andamento.
+const LISTA_VAZIA = { estado: 'ligada', escopos: [{ tipo: 'panorama', dev: 'dCel', estado: 'lido', lidoEm: AGORA, linhas: [] }] };
+
+test('fila do aparelho: sem a primeira leitura de pendências e andamento, não afirma vazio', () => {
+  const s = P.situacaoDaFila('dCel', LISTA_VAZIA, { fontesLidas: false });
+  const html = P.filaDoAparelhoHtml([], s, { nome: 'Celular' });
+  assert.equal(html.includes('Nada na fila'), false);
+  assert.match(html, /aria-busy="true"/);
 });
 
-test('pendências: leitura concluída e vazia é ausência de verdade', () => {
-  const html = P.pendenciasCompartilhadasHtml([], { estado: 'lido' });
-  assert.match(html, /Nada precisa de você em nenhum outro aparelho/);
+test('fila do aparelho: sem a primeira leitura da lista, não afirma vazio', () => {
+  const html = P.filaDoAparelhoHtml([], P.situacaoDaFila('dCel', { estado: 'aguardando', escopos: [] }), { nome: 'Celular' });
+  assert.equal(html.includes('Nada na fila'), false);
 });
 
-test('operações: antes da primeira leitura a tela não afirma que nada roda', () => {
-  const html = P.operacoesRemotasHtml([], { estado: 'inicial' });
-  assert.equal(html.includes('Nenhuma análise rodando em outro aparelho agora'), false);
-  assert.match(html, /ainda não leu/);
+test('fila do aparelho: as três leituras feitas e nada nelas é vazio de verdade', () => {
+  const html = P.filaDoAparelhoHtml([], P.situacaoDaFila('dCel', LISTA_VAZIA, { fontesLidas: true }), { nome: 'Celular' });
+  assert.match(html, /Nada na fila do Celular/);
 });
 
-test('operações: leitura concluída e vazia é ausência de verdade', () => {
-  assert.match(P.operacoesRemotasHtml([], { estado: 'lido' }), /Nenhuma análise rodando em outro aparelho agora/);
-});
-
-test('sem estado informado, o comportamento antigo vale: lista vazia é vazio', () => {
-  assert.match(P.operacoesRemotasHtml([], {}), /Nenhuma análise rodando em outro aparelho agora/);
-  assert.match(P.pendenciasCompartilhadasHtml([], {}), /Nada precisa de você em nenhum outro aparelho/);
+test('fila do aparelho: carregando não esconde a sessão que já chegou', () => {
+  const itens = [{ prTag: 'a'.repeat(32), key: 'acme-exemplo/app#1', fila: { estado: 'revisando' }, op: { opId: 'o1', msPorEtapa: {} } }];
+  const html = P.filaDoAparelhoHtml(itens, { miolo: 'carregando' }, { nome: 'Celular' });
+  assert.match(html, /md-cancelar" data-op="o1"/);
+  assert.equal(html.includes('aria-busy'), false);
 });
 
 /* ---------- at === 0 não é informação atualizada ---------- */

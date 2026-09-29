@@ -12,6 +12,12 @@ import { arquivosDosPuros } from './helpers/fontes-ui.js';
 
 const CONGELADA = [
   // controle do celular (28/09/2026): ui/pure/aparelhos-fila.js e ui/pure/aparelhos-painel.js
+  // limpeza da v2.65.0: a fila do aparelho usa estes rotulos de compartilhado.js; sairam
+  // operacoesRemotasHtml e pendenciasCompartilhadasHtml, que ficaram sem chamador
+  "feedDaOperacaoHtml",
+  "resumoDaOperacao",
+  "textoDoBloqueio",
+  "textoDoVeredito",
   "VERSAO_DO_CONTROLE",
   "VIVO_MS",
   "avisoDoAparelhoHtml",
@@ -191,7 +197,6 @@ const CONGELADA = [
   "opDismissDelay",
   "opTransition",
   "opcoesDeModeloHtml",
-  "operacoesRemotasHtml",
   "operationChecks",
   "orgsMonitoradas",
   "overrideFor",
@@ -203,7 +208,6 @@ const CONGELADA = [
   "parkedNoteHtml",
   "pareamentoHtml",
   "parseGoto",
-  "pendenciasCompartilhadasHtml",
   "perfilProblemasHtml",
   "perfilTesteHtml",
   "personMention",

@@ -6,8 +6,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   estadoDasListas, estadoDoEscopo, mesclarListaRemota, panoramaRemotoHtml, meusPrsRemotoHtml,
-  prIdentificadoHtml, pendenciasCompartilhadasHtml, operacoesRemotasHtml,
+  prIdentificadoHtml, itensDaFila, filaDoAparelhoHtml,
 } from '../ui/pure.js';
+
+// pendência e sessão de outro aparelho aparecem na fila dele desde a v2.65.0
+function filaDe(dev, fontes) {
+  return filaDoAparelhoHtml(itensDaFila(dev, fontes), { miolo: 'lista', lidoEm: 1 }, { nome: 'Notebook' });
+}
 
 const AGORA = Date.UTC(2026, 8, 16, 13, 0, 0);
 const LIMITE = 180000;
@@ -181,12 +186,12 @@ test('PR identificado vira menção, título e autor; sem identificação, rótu
 });
 
 test('a pendência mostra o PR quando vem identificado, e o genérico quando não', () => {
-  const base = { itemId: 'ab', dev: 'dA', aparelho: 'Notebook', at: AGORA, visto: false, veredito: 'request_changes', motivos: [], bloqueio: '' };
-  const com = pendenciasCompartilhadasHtml([{ ...base, pr: PR }], {});
+  const base = { itemId: 'ab', dev: 'dA', aparelho: 'Notebook', at: AGORA, visto: false, veredito: 'request_changes', motivos: [], bloqueio: '', prTag: 'a'.repeat(32) };
+  const com = filaDe('dA', { pendencias: [{ ...base, pr: PR }] });
   assert.match(com, /pr-ref-mention[^>]*>acme\/app#37</);
-  assert.match(com, /no Notebook/);
+  assert.match(com, /data-aparelho="Notebook"/);
   assert.doesNotMatch(com, /Um PR seu/);
-  const sem = pendenciasCompartilhadasHtml([{ ...base, pr: null }, { ...base, itemId: 'cd' }], {});
+  const sem = filaDe('dA', { pendencias: [{ ...base, pr: null }, { ...base, itemId: 'cd', prTag: 'b'.repeat(32) }] });
   assert.equal((sem.match(/Um PR seu/g) || []).length, 2, 'null e ausente caem no mesmo rótulo');
   assert.doesNotMatch(sem, /pr-ref-mention/);
   assert.match(sem, /catálogo/, 'o genérico explica por que não há nome');
@@ -194,8 +199,8 @@ test('a pendência mostra o PR quando vem identificado, e o genérico quando nã
 
 test('a operação remota mostra o PR quando vem identificado, e o genérico quando não', () => {
   const op = { opId: 'o1', dev: 'dA', aparelho: 'Notebook', etapa: 'leitura', msPorEtapa: {}, subagentes: [], tipo: 'review', prTag: 'a'.repeat(32) };
-  assert.match(operacoesRemotasHtml([{ ...op, pr: PR }], {}), /pr-ref-mention[^>]*>acme\/app#37</);
-  const sem = operacoesRemotasHtml([{ ...op, pr: null }, op], {});
+  assert.match(filaDe('dA', { operacoes: [{ ...op, pr: PR }] }), /pr-ref-mention[^>]*>acme\/app#37</);
+  const sem = filaDe('dA', { operacoes: [{ ...op, pr: null }, { ...op, opId: 'o2', prTag: 'b'.repeat(32) }] });
   assert.equal((sem.match(/um PR seu/gi) || []).length, 2);
   assert.doesNotMatch(sem, /pr-ref-mention/);
 });
