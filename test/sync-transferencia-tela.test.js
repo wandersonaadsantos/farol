@@ -44,6 +44,7 @@ const { startServer } = await import('../lib/http-server.js');
 const syncMod = (await import('../lib/engine/sync.js')).default;
 const andamentoEng = (await import('../lib/engine/sync-andamento.js')).default;
 const publicacao = (await import('../lib/engine/sync-publicacao.js')).default;
+const painel = (await import('../lib/engine/sync-painel.js')).default;
 const comandos = (await import('../lib/engine/sync-comandos.js')).default;
 const kek = (await import('../lib/sync/kek.js')).default;
 const { prTag, acctTag, matTag } = await import('../lib/sync/tags.js');
@@ -163,6 +164,7 @@ afterEach(async () => {
 // Os `await` de topo vêm ANTES do primeiro caso (ver test/sync-distribuicao.test.js).
 await import('../ui/app.js');
 const Tela = await import('../ui/telas/radar-compartilhado.js');
+const Apar = await import('../ui/telas/radar-aparelhos.js');
 const $ = (s) => document.querySelector(s);
 
 // Cada caso começa do banco vazio, com um admin novo (e o servidor dele) e a origem rodando
@@ -252,8 +254,12 @@ function estadoDaTela() {
 async function telaComAndamento() {
   await origemPublica();
   const live = await adminLe();
+  // a aba Aparelhos só mostra quem aceitou o controle, e isso vem do painel (29/09/2026)
+  assert.equal((await painel.lerPaineis(admin, admin.config.sync, { forcar: true })).ok, true);
   emitir('state', estadoDaTela());
   emitir('sync-live', JSON.parse(JSON.stringify(live)));
+  // a aba lembra o aparelho escolhido entre os testes; aqui a página é a da origem
+  Apar.abrirAparelho(ORIGEM);
   return live.operacoes[0];
 }
 

@@ -46,7 +46,7 @@ function estado({ sync = {}, panorama = [], myPRs = [] } = {}) {
     // Task 9 (28/09/2026): as seções da frota (o andamento remoto, aqui) só pintam pro
     // admin. Este arquivo testa a FORMATAÇÃO do andamento, não o controle de acesso (que é
     // de ui-radar-compartilhado.test.js), então o padrão nasce admin de si mesmo.
-    sync: { enabled: true, shared: true, bloqueioCompartilhamento: '', deviceId: 'dB', devices: [], distribuicao: { modo: '', esperando: [] }, comandosEmitidos: [], tomadasSofridas: [], admin: { deviceId: 'dB', generation: 1, souEu: true, fresca: true }, ...sync },
+    sync: { enabled: true, shared: true, bloqueioCompartilhamento: '', deviceId: 'dB', devices: [{ deviceId: 'dA', name: 'Notebook' }], paineis: { aparelhos: [{ deviceId: 'dA', abriu: true, aceitarAdmin: true, contas: [] }] }, distribuicao: { modo: '', esperando: [] }, comandosEmitidos: [], tomadasSofridas: [], admin: { deviceId: 'dB', generation: 1, souEu: true, fresca: true }, ...sync },
   };
 }
 

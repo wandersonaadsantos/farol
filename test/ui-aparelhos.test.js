@@ -94,12 +94,6 @@ test('decidir e cancelar não dependem da versão: só os comandos novos pedem a
   assert.equal(P.motivoSemAcao(antigo, { podeComandar: true, agora: AGORA, novos: false }), '');
 });
 
-test('consentimento: só o "não aceita" explícito desliga; o desconhecido deixa o recibo responder', () => {
-  assert.match(P.motivoSemAcao({ ...AP, aceitarAdmin: false }, { podeComandar: true, agora: AGORA }), /não aceita comandos do admin/);
-  assert.equal(P.motivoSemAcao({ ...AP, aceitarAdmin: null }, { podeComandar: true, agora: AGORA }), '');
-  assert.match(P.avisoDoAparelhoHtml({ ...AP, aceitarAdmin: false }, { agora: AGORA }), /Aceitar políticas e comandos do admin/);
-  assert.equal(P.avisoDoAparelhoHtml({ ...AP, aceitarAdmin: null }, { agora: AGORA }), '');
-});
 
 test('sem sinal: o motivo diz há quanto tempo, e a fila vira a última conhecida', () => {
   const velho = { ...AP, vistoEm: AGORA - 2 * 3600 * 1000 };
@@ -117,17 +111,27 @@ test('versaoAntiga compara por número, não por texto', () => {
 
 /* ---------- executores ---------- */
 
-test('executores: sem este aparelho e sem aposentado, e quem só apareceu no andamento entra', () => {
+// 29/09/2026: o dono respeita aparelho de terceiro no mesmo conjunto; só entra na aba quem
+// ligou, nele mesmo, "Aceitar políticas e comandos do admin", e publicou isso no painel.
+test('executores: só quem aceitou explicitamente; não aceitou, desconhecido, aposentado e este ficam de fora', () => {
   const sync = {
     deviceId: 'dPc',
-    devices: [{ deviceId: 'dPc', name: 'PC' }, { deviceId: DEV, name: 'Celular da Ana', farolVersion: '2.65.0' }, { deviceId: 'dVelho', name: 'Velho', retiredAt: 1 }],
-    paineis: { aparelhos: [{ deviceId: DEV, abriu: true, aceitarAdmin: true, paralelismo: 2, contas: [] }] },
+    devices: [
+      { deviceId: 'dPc', name: 'PC' }, { deviceId: DEV, name: 'Celular da Ana', farolVersion: '2.65.0' },
+      { deviceId: 'dTerceiro', name: 'Notebook do colega' }, { deviceId: 'dSemPainel', name: 'Tablet' },
+      { deviceId: 'dVelho', name: 'Velho', retiredAt: 1 },
+    ],
+    paineis: { aparelhos: [
+      { deviceId: DEV, abriu: true, aceitarAdmin: true, paralelismo: 2, contas: [] },
+      { deviceId: 'dTerceiro', abriu: true, aceitarAdmin: false, contas: [] },
+      { deviceId: 'dVelho', abriu: true, aceitarAdmin: true, contas: [] },
+      { deviceId: 'dPc', abriu: true, aceitarAdmin: true, contas: [] },
+    ] },
   };
-  const lista = P.executoresDoConjunto(sync, [{ dev: 'dNovo', aparelho: 'Notebook' }, { dev: 'dPc' }]);
-  assert.deepEqual(lista.map((a) => a.deviceId), [DEV, 'dNovo']);
-  assert.equal(lista[0].aceitarAdmin, true);
-  assert.equal(lista[1].aceitarAdmin, null, 'sem painel, consentimento desconhecido');
-  assert.equal(lista[1].nome, 'Notebook');
+  assert.deepEqual(P.executoresDoConjunto(sync).map((a) => a.deviceId), [DEV]);
+  assert.deepEqual([...P.aparelhosQueAceitam(sync)].sort(), [DEV, 'dPc', 'dVelho'].sort(), 'o conjunto de quem aceitou vem só do painel');
+  assert.match(P.nenhumExecutorHtml(), /Nenhum aparelho aceitou o controle deste computador/);
+  assert.match(P.nenhumExecutorHtml(), /Aceitar políticas e comandos do admin/);
 });
 
 /* ---------- contas e confirmação ---------- */

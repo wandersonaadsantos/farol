@@ -122,6 +122,13 @@ versão e visto por último.
 
 ### 4. Consentimento
 
+> **Revisto em 29/09/2026 (v2.65.2), por decisão do dono:** a aba Aparelhos mostra **só** os
+> aparelhos que aceitaram explicitamente o controle (`aceitarAdmin === true` publicado no
+> painel). Aparelho de terceiro no mesmo conjunto, que recusou ou ainda não publicou o
+> consentimento, não aparece na aba, na faixa, no resumo "Seus aparelhos" nem no aviso de
+> decisão pendente. O texto abaixo sobre desabilitar as ações de quem não aceita ficou sem
+> uso: esse aparelho simplesmente não entra.
+
 Continua obrigatório e continua só local. O admin mostra, por aparelho, se ele aceita comandos.
 Quando não aceita, a tela diz onde ligar no celular (Sistema > Aparelhos > "Aceitar políticas e
 comandos do admin") e desabilita as ações remotas, dizendo por quê.

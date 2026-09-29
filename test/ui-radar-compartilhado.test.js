@@ -44,7 +44,8 @@ function estado({ sync = {}, cfgSync = {} } = {}) {
     activeSessions: [], headlessWaiting: [], chats: {}, reviewActions: {}, staleStates: {},
     usage: {}, usageSessions: [], toolRuns: {}, pushbacks: {}, team: [], highlights: [], update: { state: 'idle' },
     paths: { home: '/tmp/.farol', workspace: '/tmp/.farol/workspace' },
-    sync: { enabled: true, shared: true, bloqueioCompartilhamento: '', deviceId: 'dEu', devices: DEVICES, distribuicao: { modo: 'distribuido', esperando: [] }, comandosEmitidos: [], tomadasSofridas: [], ...sync },
+    // o aparelho de teste aceitou o controle: só assim ele aparece na aba Aparelhos (29/09/2026)
+    sync: { enabled: true, shared: true, bloqueioCompartilhamento: '', deviceId: 'dEu', devices: DEVICES, distribuicao: { modo: 'distribuido', esperando: [] }, comandosEmitidos: [], tomadasSofridas: [], paineis: { aparelhos: [{ deviceId: 'dOutro', abriu: true, aceitarAdmin: true, contas: [] }] }, ...sync },
   };
 }
 
@@ -394,4 +395,16 @@ test('configurar a conta à distância manda só conta, campo e valor ao aparelh
   // revisar sozinho não posta nada no GitHub: sai sem pedir confirmação
   assert.equal(await Apar.configConta('f'.repeat(32), 'autoReview', true, 'ana-exemplo'), true);
   assert.deepEqual(pedidosPara('/api/sync/command').map((p) => p.corpo), [{ alvo: 'dOutro', tipo: 'config-conta', args: { acctTag: 'f'.repeat(32), campo: 'autoReview', valor: true } }]);
+});
+
+test('aparelho que não aceitou o controle não aparece na aba nem soa o aviso de decisão', () => {
+  const semConsentimento = { aparelhos: [{ deviceId: 'dOutro', abriu: true, aceitarAdmin: false, contas: [] }] };
+  emitir('state', estado({ sync: { admin: ADMIN, paineis: semConsentimento } }));
+  const antesDosToasts = $('#toasts').children.length;
+  emitir('sync-pending', { pendencias: [{ ...PEND, itemId: 'zz99' }], novas: ['zz99'] });
+  emitir('sync-live', { operacoes: [OP] });
+  assert.doesNotMatch($('#aparPagina').innerHTML, /md-decidir|md-cancelar|Desktop antigo/, 'nada do aparelho de terceiro');
+  assert.match($('#aparPagina').innerHTML, /Nenhum aparelho aceitou o controle deste computador/);
+  assert.equal($('#toasts').children.length, antesDosToasts, 'a decisão dele não soa aqui');
+  assert.equal($('#mdSeusAparelhos').innerHTML, '');
 });
