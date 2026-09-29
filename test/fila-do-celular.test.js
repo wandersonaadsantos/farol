@@ -131,7 +131,7 @@ function engineFalso(extra = {}) {
     retryAfterNet: new Map([['o/r#6', { tries: 1 }]]),
     skipComentado: { 'o/r#7': { at: T } },
     seen: new Set(['o/r#3', 'o/r#4', 'o/r#5', 'o/r#8']),
-    accountForPr: (pr) => (pr.key === 'o/r#20' ? 'muda' : pr.key === 'o/r#21' ? 'manual' : 'eu'),
+    accountForPr: (pr) => ({ 'o/r#20': 'muda', 'o/r#21': 'manual' })[pr.key] || 'eu',
     isMuted: (c) => c === 'muda',
     autoReviewFor: (c) => c !== 'manual',
     limiteDoPlanoAte: () => 0,
