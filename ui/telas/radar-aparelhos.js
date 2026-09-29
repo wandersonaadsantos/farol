@@ -39,6 +39,14 @@ function fontes() {
   return { listas: dadosDasListas(), pendencias: c.pendencias, operacoes: c.operacoes };
 }
 
+// Aparelho com operação na última leitura BOA do andamento está vivo naquele instante: o
+// andamento renova a cada 60 s, bem mais que a presença (5 min).
+function sinaisAoVivo() {
+  const c = dadosDoConjunto();
+  if (c.andamentoFalhaEm || !c.andamentoEm) return {};
+  return Object.fromEntries((c.operacoes || []).filter((o) => o && o.dev).map((o) => [o.dev, c.andamentoEm]));
+}
+
 function selecionado(executores) {
   if (!executores.some((a) => a.deviceId === APAR.selecionado)) APAR.selecionado = executores.length ? executores[0].deviceId : '';
   return executores.find((a) => a.deviceId === APAR.selecionado) || null;
@@ -60,7 +68,7 @@ function prKeyDaTag(itens) {
 
 function renderPagina(s) {
   const alvo = $('#aparPagina');
-  const executores = executoresDoConjunto(s);
+  const executores = executoresDoConjunto(s, { aoVivo: sinaisAoVivo() });
   const ap = selecionado(executores);
   if (!ap) { alvo.innerHTML = nenhumExecutorHtml(); return; }
   const agora = Date.now();
@@ -95,7 +103,7 @@ function renderPagina(s) {
 }
 
 function renderSeusAparelhos(s) {
-  const executores = executoresDoConjunto(s);
+  const executores = executoresDoConjunto(s, { aoVivo: sinaisAoVivo() });
   const f = fontes();
   const porAparelho = Object.fromEntries(executores.map((x) => [x.deviceId, itensDaFila(x.deviceId, f)]));
   const html = seusAparelhosHtml(executores, porAparelho);
@@ -123,7 +131,7 @@ function desligadoNoClique(el) {
 }
 
 function nomeDoSelecionado() {
-  const ap = executoresDoConjunto(syncAtual()).find((a) => a.deviceId === APAR.selecionado);
+  const ap = executoresDoConjunto(syncAtual(), { aoVivo: sinaisAoVivo() }).find((a) => a.deviceId === APAR.selecionado);
   return ap ? ap.nome : 'aparelho';
 }
 
