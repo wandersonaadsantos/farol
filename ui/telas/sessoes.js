@@ -163,7 +163,8 @@ function updateSessionBar(id) {
 }
 function renderActive() {
   const sessions = (estado().activeSessions || []).filter(s => (s.mode === 'auto' || s.mode === 'self') && sessionVisible(s));
-  const waiting = (estado().headlessWaiting || []).filter(k => scopeVisible({ key: k }));
+  const contas = estado().headlessWaitingContas || {};
+  const waiting = (estado().headlessWaiting || []).filter(k => scopeVisible({ key: k, account: contas[k] }));
   const wrap = $('#activeWrap');
   wrap.hidden = sessions.length === 0 && waiting.length === 0;
   $('#activeCount').textContent = sessions.length || '';
