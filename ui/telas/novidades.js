@@ -7,6 +7,9 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.64.1', [
+    "O Ver review completo de uma pendência de outro aparelho cabe na tela: o texto rola por dentro, e o que cada decisão postaria fica em seções fechadas em vez de repetido quatro vezes.",
+  ]],
   ['2.64.0', [
     "O aparelho admin virou a mesa de controle: assiste ao vivo às revisões dos outros aparelhos e decide por eles com o review completo na tela, sem executar nada.",
     "Toda revisão roda só no aparelho que tem a conta dela, e quem não é admin vê só o próprio trabalho.",
