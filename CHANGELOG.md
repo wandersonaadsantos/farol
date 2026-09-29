@@ -9,6 +9,18 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.65.3
+
+O comando do admin volta a chegar ao celular, e a configuração das contas passa a dizer exatamente o que cada botão faz.
+
+**Correções**
+
+- **O celular vivo não aparece mais como "sem sinal".** A aba Aparelhos olhava só a presença, que é gravada a cada 5 minutos, e bloqueava os comandos dizendo que venceriam antes de chegar. Agora vale o sinal mais recente do aparelho: presença, painel ou andamento ao vivo.
+- **As chaves gerais da Automação dizem quantas contas alcançam.** "Revisar automaticamente" e "Aprovar com ressalvas" mostram para quantas contas valem e quais têm configuração própria em Contas.
+- **"Aprovável sem ressalvas" não promete herdar uma chave geral que não existe:** agora diz "padrão: aprova sozinho".
+- **"Perfil de IA" virou "login do Claude (plano)"**, porque escolhe o login; o modelo vem de Sistema > Automação.
+- **Aprovar junto com quem pegou o PR respeita a conta:** conta que espera você aprovar não aprova em seu nome.
+
 ## v2.65.2
 
 Radar > Aparelhos mostra só os aparelhos que aceitaram o controle deste computador.
