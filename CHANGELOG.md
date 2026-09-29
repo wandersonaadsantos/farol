@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.65.1
+
+A fila de cada aparelho em Radar > Aparelhos volta a mostrar tudo o que os cards antigos mostravam, e não afirma mais vazio antes de ler.
+
+**Correções**
+
+- **O item que pede decisão lista os motivos por extenso**, conta os que não couberam no envio e avisa quando o PR ganhou commit novo depois da análise.
+- **O item que está revisando mostra os subagentes, a herança da memória e o tempo**, marca "sem renovar" quando o aparelho parou de atualizar, e o feed ao vivo recolhe as linhas antigas.
+- **A fila não diz "Nada na fila" antes de ler as pendências e o andamento do aparelho.** Antes dessas leituras ela diz que está lendo, e o que já chegou continua aparecendo.
+
 ## v2.65.0
 
 O computador vira a mesa de controle do celular: pelo aparelho admin você vê a fila de cada aparelho, decide, mexe na fila e muda a configuração da conta dele, sem tocar no celular.
