@@ -12,7 +12,7 @@
    bloqueada, nunca como ligada. */
 
 import {
-  acoesDaRevisao, acoesDoCandidato, candidatosDoConjuntoHtml,
+  acoesDaRevisao, acoesDoCandidato, aparelhosQueAceitam, candidatosDoConjuntoHtml,
   comandoPermitido, comandosEmitidosHtml, compartilhadoBloqueioHtml,
   envioDepoisDoLote, envioHistoricoHtml, esc, inicioConfirmacao, inicioDialogo,
   modoDistribuicaoHtml, nomeDoAparelho, oQueELocalHtml, opcoesDaDecisao,
@@ -175,8 +175,11 @@ function aoPendenciasRemotas(d) {
   const s = syncAtual();
   if (visaoCompartilhada(s) !== 'ligada' || !secoesDaFrota(s)) return;
   avisarMudanca();
-  // todos os aparelhos avisam o que ninguém viu; o primeiro visto cala os outros (D3)
-  if (novas.length) toast('info', novas.length === 1 ? 'Uma decisão espera por você em outro aparelho.' : `${novas.length} decisões esperam por você em outros aparelhos.`);
+  // todos os aparelhos avisam o que ninguém viu; o primeiro visto cala os outros (D3). Só
+  // conta pendência de aparelho que aceitou o controle deste computador (aparelhos-painel.js)
+  const aceitam = aparelhosQueAceitam(s);
+  const minhas = novas.filter((id) => { const p = PEND.pendencias.find((x) => x && x.itemId === id); return p && aceitam.has(p.dev); });
+  if (minhas.length) toast('info', minhas.length === 1 ? 'Uma decisão espera por você em outro aparelho.' : `${minhas.length} decisões esperam por você em outros aparelhos.`);
 }
 
 /* ---------- leituras avulsas ---------- */

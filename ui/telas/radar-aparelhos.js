@@ -39,11 +39,6 @@ function fontes() {
   return { listas: dadosDasListas(), pendencias: c.pendencias, operacoes: c.operacoes };
 }
 
-function extrasDoConjunto() {
-  const c = dadosDoConjunto();
-  return [...(c.operacoes || []), ...(c.pendencias || [])];
-}
-
 function selecionado(executores) {
   if (!executores.some((a) => a.deviceId === APAR.selecionado)) APAR.selecionado = executores.length ? executores[0].deviceId : '';
   return executores.find((a) => a.deviceId === APAR.selecionado) || null;
@@ -65,7 +60,7 @@ function prKeyDaTag(itens) {
 
 function renderPagina(s) {
   const alvo = $('#aparPagina');
-  const executores = executoresDoConjunto(s, extrasDoConjunto());
+  const executores = executoresDoConjunto(s);
   const ap = selecionado(executores);
   if (!ap) { alvo.innerHTML = nenhumExecutorHtml(); return; }
   const agora = Date.now();
@@ -100,7 +95,7 @@ function renderPagina(s) {
 }
 
 function renderSeusAparelhos(s) {
-  const executores = executoresDoConjunto(s, extrasDoConjunto());
+  const executores = executoresDoConjunto(s);
   const f = fontes();
   const porAparelho = Object.fromEntries(executores.map((x) => [x.deviceId, itensDaFila(x.deviceId, f)]));
   const html = seusAparelhosHtml(executores, porAparelho);
@@ -128,7 +123,7 @@ function desligadoNoClique(el) {
 }
 
 function nomeDoSelecionado() {
-  const ap = executoresDoConjunto(syncAtual(), extrasDoConjunto()).find((a) => a.deviceId === APAR.selecionado);
+  const ap = executoresDoConjunto(syncAtual()).find((a) => a.deviceId === APAR.selecionado);
   return ap ? ap.nome : 'aparelho';
 }
 

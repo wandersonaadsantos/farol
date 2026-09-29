@@ -25,11 +25,6 @@ function lista(v) {
   return Array.isArray(v) ? v : [];
 }
 
-// `true`, `false` e desconhecido (sem painel publicado) são três coisas: só o `false` explícito
-// desliga as ações, e o desconhecido deixa o aparelho responder pelo recibo
-function consentimentoDe(v) {
-  return v === true || v === false ? v : null;
-}
 
 function partesDaVersao(v) {
   return String(v || '').split('.').map((n) => Number.parseInt(n, 10) || 0);
@@ -51,32 +46,31 @@ function haQuanto(ms) {
   return `${Math.round(min / 60)} h`;
 }
 
-// Aparelho que aparece no andamento ou nas pendências e ainda não está na lista do snapshot
-// (a lista de aparelhos chega por outro caminho): sem isto, a sessão dele sumia da tela.
-function aparelhosSoNasFontes(s, extras) {
-  const conhecidos = new Set(lista(s.devices).map((d) => d && d.deviceId));
-  const vistos = new Map();
-  for (const x of lista(extras)) {
-    if (x && x.dev && x.dev !== s.deviceId && !conhecidos.has(x.dev) && !vistos.has(x.dev)) vistos.set(x.dev, { deviceId: x.dev, name: x.aparelho || '' });
-  }
-  return [...vistos.values()];
+// SÓ APARECE QUEM ACEITOU O CONTROLE, E ACEITOU EXPLICITAMENTE (decisão do dono, 29/09/2026).
+// Aparelho de terceiro no mesmo conjunto não é da conta do admin controlar: sem o
+// "Aceitar políticas e comandos do admin" ligado nele e publicado no painel, ele não entra
+// na aba Aparelhos, nem na faixa, nem no resumo, nem no aviso de decisão pendente.
+// Consentimento desconhecido (painel ainda não publicado, versão antiga) também fica de fora.
+export function aparelhosQueAceitam(sync) {
+  const s = sync || {};
+  return new Set(lista(s.paineis && s.paineis.aparelhos).filter((p) => p && p.aceitarAdmin === true).map((p) => p.deviceId));
 }
 
-// Os executores do conjunto: todo aparelho que não é este e não está aposentado, com o
-// painel publicado quando existe. A lista vem do snapshot (`sync.devices`), mais quem só
-// apareceu nas `extras` (operações e pendências, com `dev` e `aparelho`).
-export function executoresDoConjunto(sync, extras = []) {
+// Os executores que aceitaram o controle: aparelho que não é este, não está aposentado e
+// publicou o consentimento no painel. A lista vem do snapshot (`sync.devices`).
+export function executoresDoConjunto(sync) {
   const s = sync || {};
   const paineis = new Map(lista(s.paineis && s.paineis.aparelhos).map((p) => [p.deviceId, p]));
-  return [...lista(s.devices), ...aparelhosSoNasFontes(s, extras)]
-    .filter((d) => d && d.deviceId && d.deviceId !== s.deviceId && !d.euMesmo && !(Number(d.retiredAt) > 0))
+  const aceitam = aparelhosQueAceitam(s);
+  return lista(s.devices)
+    .filter((d) => d && d.deviceId && d.deviceId !== s.deviceId && !d.euMesmo && !(Number(d.retiredAt) > 0) && aceitam.has(d.deviceId))
     .map((d) => {
       const p = paineis.get(d.deviceId) || {};
       return {
         deviceId: d.deviceId, nome: String(d.name || p.nome || 'Aparelho sem nome'), platform: String(d.platform || ''),
         versao: String(d.farolVersion || p.versao || ''), vistoEm: Number(d.lastSeenAt || p.vistoEm) || 0,
         abriu: p.abriu === true, pausado: p.pausado === true, paralelismo: Number(p.paralelismo) || 1,
-        ocupadas: Number(p.ocupadas) || 0, iaPronta: p.iaPronta === true, aceitarAdmin: consentimentoDe(p.aceitarAdmin),
+        ocupadas: Number(p.ocupadas) || 0, iaPronta: p.iaPronta === true, aceitarAdmin: true,
         contas: lista(p.contas), falhas: lista(p.falhas), publicadoEm: Number(p.publicadoEm) || 0,
       };
     });
@@ -97,7 +91,6 @@ export function motivoSemAcao(ap, { podeComandar = false, motivoSemComando = '',
   const sit = situacaoDoAparelho(ap, agora);
   if (novos && sit === 'antigo') return 'Atualize o Farol no aparelho para mandar estes comandos.';
   if (!podeComandar) return motivoSemComando || 'Só o aparelho admin, com sinal fresco, manda comandos.';
-  if (ap.aceitarAdmin === false) return 'Este aparelho não aceita comandos do admin. Ligue no próprio aparelho, em Sistema > Aparelhos.';
   if (sit === 'sem-sinal') return `Sem sinal há ${haQuanto(agora - ap.vistoEm)}: o comando venceria antes de chegar.`;
   return '';
 }
@@ -129,11 +122,6 @@ function fato(rot, valor, sub, classe = '') {
   return `<div class="apar-fato"><span class="rot">${esc(rot)}</span><b${classe ? ` class="${classe}"` : ''}>${esc(valor)}</b><small>${esc(sub)}</small></div>`;
 }
 
-const FATO_CONSENTIMENTO = {
-  true: fato('Comandos do admin', 'Aceita', 'ligado no próprio aparelho', 'ok'),
-  false: fato('Comandos do admin', 'Não aceita', 'só se liga no próprio aparelho', 'bad'),
-  null: fato('Comandos do admin', 'Sem leitura', 'o aparelho ainda não publicou o estado'),
-};
 
 function fatosHtml(ap, agora) {
   const sit = situacaoDoAparelho(ap, agora);
@@ -144,7 +132,7 @@ function fatosHtml(ap, agora) {
   if (ap.pausado) agoraTxt = fato('Agora', 'Pausado pelo admin', 'termina o que começou e não pega PR novo', 'warn');
   if (sit === 'sem-sinal') agoraTxt = fato('Agora', 'Sem sinal', ap.vistoEm ? `às ${fmtClock(ap.vistoEm)} revisava ${ap.ocupadas} de ${ap.paralelismo}` : 'nunca publicou o estado');
   const ia = ap.iaPronta ? fato('IA', 'Pronta', 'Claude Code instalado e logado', 'ok') : fato('IA', 'Não está pronta', 'instale e faça login no Claude Code no aparelho', 'bad');
-  const cmd = FATO_CONSENTIMENTO[String(ap.aceitarAdmin)];
+  const cmd = fato('Comandos do admin', 'Aceita', 'ligado no próprio aparelho', 'ok');
   return `${agoraTxt}${ia}${cmd}${fato('Versão', `Farol ${ap.versao}`, 'em dia')}`;
 }
 
@@ -220,9 +208,6 @@ export function avisoDoAparelhoHtml(ap, { agora = Date.now() } = {}) {
   if (sit === 'sem-sinal') {
     const visto = ap.vistoEm ? `O aparelho foi visto pela última vez às ${fmtClock(ap.vistoEm)}. ` : '';
     return `<div class="apar-aviso bad" role="status"><b>Sem sinal${ap.vistoEm ? ` há ${esc(haQuanto(agora - ap.vistoEm))}` : ''}</b><p>${esc(visto)}A fila abaixo é a última que ele publicou e pode ter mudado desde então. As ações voltam quando ele der sinal.</p></div>`;
-  }
-  if (ap.aceitarAdmin === false) {
-    return `<div class="apar-aviso warn" role="status"><b>Este aparelho não aceita comandos do admin</b><p>Tudo continua visível aqui, mas as ações ficam desligadas até você ligar isso no próprio aparelho:</p><p><code>Sistema &gt; Aparelhos &gt; Aceitar políticas e comandos do admin</code> Só precisa fazer uma vez.</p></div>`;
   }
   return '';
 }
@@ -360,5 +345,5 @@ export function comandosDoAparelhoHtml(comandos, recibos, dev, { agora = Date.no
 }
 
 export function nenhumExecutorHtml() {
-  return '<div class="fila-vazia"><b>Só este computador no conjunto</b><p>Nenhum outro aparelho está ligado à sua sincronização. Quando você abrir o Farol num celular ou notebook com a mesma sincronização, ele aparece aqui com a fila, o estado e as contas dele.</p><button class="btn sm" data-goto="sys:devices">Adicionar aparelho em Sistema</button></div>';
+  return '<div class="fila-vazia"><b>Nenhum aparelho aceitou o controle deste computador</b><p>Aqui aparecem só os aparelhos que ligaram, neles mesmos, a chave abaixo. Aparelho de outra pessoa no mesmo conjunto não aparece.</p><p><code>Sistema &gt; Aparelhos &gt; Aceitar políticas e comandos do admin</code> No seu celular, é só ligar uma vez; ele aparece aqui no próximo ciclo.</p></div>';
 }
