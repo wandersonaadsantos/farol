@@ -386,8 +386,8 @@ test('a origem que não aceita comandos aparece como tal, e a tela não oferece 
 
 test('transferir pela tela: botão habilitado, corpo exato, a origem aplica e a tela lê o recibo', async () => {
   const op = await telaComAndamento();
-  assert.match($('#mdOperacoes').innerHTML, new RegExp(`md-transferir" data-op="${op.opId}"`), 'o botão está habilitado');
-  assert.match($('#mdOperacoes').innerHTML, /Ajusta o rodapé/, 'o PR aparece pelo nome');
+  assert.match($('#aparPagina').innerHTML, new RegExp(`md-transferir" data-op="${op.opId}"`), 'o botão está habilitado');
+  assert.match($('#aparPagina').innerHTML, /Ajusta o rodapé/, 'o PR aparece pelo nome');
   let dialogo = null;
   let confirmacao = null;
   const enviado = await Tela.transferirOperacao(op.opId, async (d) => { dialogo = d; return DESTINO; }, async (c) => { confirmacao = c; return true; });

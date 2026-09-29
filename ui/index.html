@@ -81,6 +81,7 @@
          faixa de âncoras rolável e escondia metade dos destinos sem avisar. -->
     <div class="radar-subs" id="radarSubs" role="tablist" aria-label="Seções do Radar">
       <button class="rsub active" id="rsub-mim" data-sub="mim" role="tab" aria-selected="true" aria-controls="rpane-mim">Pra mim <span class="count" id="rcMim" hidden></span></button>
+      <button class="rsub" id="rsub-apar" data-sub="apar" role="tab" aria-selected="false" aria-controls="rpane-apar" hidden>Aparelhos <span class="count" id="rcApar" hidden></span></button>
       <button class="rsub" id="rsub-meus" data-sub="meus" role="tab" aria-selected="false" aria-controls="rpane-meus">Meus PRs <span class="count ambient" id="rcMeus" hidden></span></button>
       <button class="rsub" id="rsub-pano" data-sub="pano" role="tab" aria-selected="false" aria-controls="rpane-pano">Panorama <span class="count ambient" id="rcPano" hidden></span></button>
     </div>
@@ -116,17 +117,11 @@
     <p class="section-desc">PRs em que pediram a sua revisão e que ainda esperam uma decisão.</p>
     <div id="queue" class="cards"></div>
 
+    <!-- Seus aparelhos: o resumo de cada executor; a página dele é Radar > Aparelhos
+         (telas/radar-aparelhos.js) -->
+    <div id="mdSeusAparelhos" hidden></div>
+
     <div id="mdCompartilhado" hidden>
-      <div class="section-head">
-        <h2>Precisa de você em todos os aparelhos <span id="mdPendCount" class="count" hidden></span></h2>
-        <span class="section-sub">agir continua sendo no aparelho dono</span>
-      </div>
-      <div id="mdPendencias" class="cards"></div>
-      <div class="section-head">
-        <h2>Em outros aparelhos</h2>
-        <span class="section-sub">atualiza a cada 10 segundos</span>
-      </div>
-      <div id="mdOperacoes" class="cards"></div>
       <div id="mdCandidatosWrap" hidden>
         <div class="section-head">
           <h2>Esperando colocação no conjunto</h2>
@@ -164,6 +159,10 @@
       <div class="section-head"><h2>O que é só deste aparelho</h2></div>
       <div id="mdLocal"></div>
     </div>
+    </div>
+
+    <div class="rpane" id="rpane-apar" role="tabpanel" aria-labelledby="rsub-apar" tabindex="0">
+      <div id="aparPagina"></div>
     </div>
 
     <div class="rpane" id="rpane-meus" role="tabpanel" aria-labelledby="rsub-meus" tabindex="0">

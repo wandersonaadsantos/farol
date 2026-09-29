@@ -440,9 +440,19 @@ const CODIGO = {
   'pr-proprio': 'o PR é da conta daquele aparelho, e revisão não abre em PR próprio',
   recusado_no_aparelho: 'recusado por quem está naquele aparelho',
   conta_diferente: 'a conta daquele aparelho não é a desta revisão',
+  outros_revisando: 'outra pessoa está revisando este PR, e lá o Farol não entra',
+  sem_token: 'a conta deste PR está sem token no gh daquele aparelho',
+  bloqueado_historico: 'o PR já tem review decisivo de outra pessoa neste commit',
+  checks_pendentes: 'os checks obrigatórios ainda não estão verdes',
+  nao_ocultou: 'o PR não foi ocultado lá',
+  conta_desconhecida: 'aquele aparelho não tem esta conta',
+  nao_editou: 'a configuração da conta não foi gravada lá',
 };
 
-const TIPO_CMD = { cancelar: 'cancelar', repetir: 'repetir', decidir: 'decidir', iniciar: 'iniciar', transferir: 'transferir', tomar: 'tomar', 'designar-admin': 'designar admin' };
+const TIPO_CMD = {
+  cancelar: 'cancelar', repetir: 'repetir', decidir: 'decidir', iniciar: 'iniciar', transferir: 'transferir', tomar: 'tomar', 'designar-admin': 'designar admin',
+  revisar: 'revisar agora', ignorar: 'ignorar', restaurar: 'restaurar', ocultar: 'ocultar', mostrar: 'mostrar', 'config-conta': 'configurar a conta',
+};
 
 function detalheDoCodigo(code) {
   if (!code) return '';
