@@ -303,6 +303,20 @@ test('buildUpdateScriptLinux: mesmo escaping do mac, reabre pelo lançador com s
   assert.ok(s.includes('rm -f -- "$0"'));
 });
 
+// 29/09/2026: no Termux o Farol roda sob um laço que o religa, e o setsid do update subia
+// um segundo Farol que tomava a porta; o laço batia em EADDRINUSE para sempre.
+test('buildUpdateScriptLinux: com a porta, espera o supervisor religar e só reabre se ninguém subiu', () => {
+  const s = update.buildUpdateScriptLinux('/i/install-linux.sh', '/l', 123, 51234);
+  const espera = s.indexOf('/dev/tcp/127.0.0.1/51234');
+  const reabre = s.indexOf('setsid "$HOME/.farol/bin/farol"');
+  assert.ok(espera > 0, 'pergunta na porta do Farol');
+  assert.ok(espera < reabre, 'a pergunta vem antes de reabrir');
+  assert.match(s, /seq 1 30/, 'espera até 30 s, mais que os 10 s do laço do Termux');
+  assert.ok(s.includes('&& { rm -f -- "$0"; exit 0; }'), 'alguém subiu: sai sem reabrir outro');
+  const sem = update.buildUpdateScriptLinux('/i/install-linux.sh', '/l');
+  assert.ok(sem.includes('sleep 1') && !sem.includes('/dev/tcp'), 'sem porta, reabre como antes');
+});
+
 test('posixInstallerName: mac usa install.sh, linux usa install-linux.sh', () => {
   assert.equal(update.posixInstallerName(true), 'install.sh');
   assert.equal(update.posixInstallerName(false), 'install-linux.sh');
