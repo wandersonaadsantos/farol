@@ -12,8 +12,11 @@ import { personMention, prRefMention } from './mencoes.js';
 import { reciboEstado } from './compartilhado.js';
 import { contagemDaFila } from './aparelhos-fila.js';
 
-// "vivo": visto nos últimos 3 minutos (o relógio da presença bate bem antes disso)
-export const VIVO_MS = 180000;
+// "vivo": algum sinal nos últimos 12 minutos (29/09/2026). A presença (`lastSeenAt`) é
+// carimbada no MÁXIMO a cada 5 min (SYNC.PRESENCE_TICK_MS), então a janela antiga de 3 min
+// dava "sem sinal" com o aparelho vivo e bloqueava os comandos à toa. Doze minutos cobrem
+// dois carimbos perdidos e ficam abaixo dos 15 min de validade do comando.
+export const VIVO_MS = 720000;
 // a primeira versão que publica a fila e aceita os comandos do controle do celular
 export const VERSAO_DO_CONTROLE = '2.65.0';
 
@@ -58,7 +61,14 @@ export function aparelhosQueAceitam(sync) {
 
 // Os executores que aceitaram o controle: aparelho que não é este, não está aposentado e
 // publicou o consentimento no painel. A lista vem do snapshot (`sync.devices`).
-export function executoresDoConjunto(sync) {
+// O sinal mais recente do aparelho: presença, painel publicado ou andamento ao vivo dele
+// (`aoVivo`: { deviceId: instante da leitura que trouxe operação dele }). Qualquer um prova
+// que ele está respondendo; olhar só a presença era o que fazia o vivo parecer sumido.
+function ultimoSinal(d, p, aoVivo) {
+  return Math.max(Number(d.lastSeenAt || p.vistoEm) || 0, Number(p.publicadoEm) || 0, Number(aoVivo && aoVivo[d.deviceId]) || 0);
+}
+
+export function executoresDoConjunto(sync, { aoVivo = {} } = {}) {
   const s = sync || {};
   const paineis = new Map(lista(s.paineis && s.paineis.aparelhos).map((p) => [p.deviceId, p]));
   const aceitam = aparelhosQueAceitam(s);
@@ -68,7 +78,7 @@ export function executoresDoConjunto(sync) {
       const p = paineis.get(d.deviceId) || {};
       return {
         deviceId: d.deviceId, nome: String(d.name || p.nome || 'Aparelho sem nome'), platform: String(d.platform || ''),
-        versao: String(d.farolVersion || p.versao || ''), vistoEm: Number(d.lastSeenAt || p.vistoEm) || 0,
+        versao: String(d.farolVersion || p.versao || ''), vistoEm: ultimoSinal(d, p, aoVivo),
         abriu: p.abriu === true, pausado: p.pausado === true, paralelismo: Number(p.paralelismo) || 1,
         ocupadas: Number(p.ocupadas) || 0, iaPronta: p.iaPronta === true, aceitarAdmin: true,
         contas: lista(p.contas), falhas: lista(p.falhas), publicadoEm: Number(p.publicadoEm) || 0,

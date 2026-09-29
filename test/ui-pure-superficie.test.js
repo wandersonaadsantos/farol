@@ -20,6 +20,8 @@ const CONGELADA = [
   "textoDoVeredito",
   // só aparelho que aceitou o controle explicitamente entra na aba Aparelhos (29/09/2026)
   "aparelhosQueAceitam",
+  // revisão das configurações das contas (29/09/2026)
+  "alcanceDaChaveGeral",
   "VERSAO_DO_CONTROLE",
   "VIVO_MS",
   "avisoDoAparelhoHtml",

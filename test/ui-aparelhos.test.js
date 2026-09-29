@@ -170,3 +170,20 @@ test('retorno: enviado sem recibo, aplicado e recusado com o motivo do aparelho'
   assert.match(recusado.html, /outra pessoa já pegou este PR/);
   assert.equal(P.retornoDoComando([], {}, filtro).html, '');
 });
+
+// 29/09/2026: com o aparelho vivo, a tela dizia "sem sinal há 6 min" e bloqueava os
+// comandos, porque só olhava a presença (carimbada a cada 5 min) numa janela de 3 min.
+test('vivo pelo sinal mais recente: presença, painel publicado ou andamento ao vivo', () => {
+  const base = { deviceId: 'dPc', devices: [{ deviceId: 'dPc' }, { deviceId: DEV, name: 'Celular', farolVersion: '2.65.2', lastSeenAt: AGORA - 6 * 60000 }] };
+  const painel = (extra) => ({ ...base, paineis: { aparelhos: [{ deviceId: DEV, aceitarAdmin: true, contas: [], ...extra }] } });
+  const presenca6min = P.executoresDoConjunto(painel({}))[0];
+  assert.equal(P.situacaoDoAparelho(presenca6min, AGORA), 'vivo', 'presença de 6 min está dentro do ritmo de 5 min dela');
+  assert.equal(P.motivoSemAcao(presenca6min, { podeComandar: true, agora: AGORA }), '');
+  const velho = { ...base, devices: [{ deviceId: 'dPc' }, { deviceId: DEV, farolVersion: '2.65.2', lastSeenAt: AGORA - 40 * 60000 }] };
+  const comPainel = P.executoresDoConjunto({ ...velho, paineis: { aparelhos: [{ deviceId: DEV, aceitarAdmin: true, contas: [], publicadoEm: AGORA - 60000 }] } })[0];
+  assert.equal(P.situacaoDoAparelho(comPainel, AGORA), 'vivo', 'painel de 1 min atrás prova sinal');
+  const soAndamento = P.executoresDoConjunto({ ...velho, paineis: { aparelhos: [{ deviceId: DEV, aceitarAdmin: true, contas: [] }] } }, { aoVivo: { [DEV]: AGORA - 10000 } })[0];
+  assert.equal(P.situacaoDoAparelho(soAndamento, AGORA), 'vivo', 'andamento lido há 10 s prova sinal');
+  const semNada = P.executoresDoConjunto({ ...velho, paineis: { aparelhos: [{ deviceId: DEV, aceitarAdmin: true, contas: [] }] } })[0];
+  assert.equal(P.situacaoDoAparelho(semNada, AGORA), 'sem-sinal', 'sem sinal nenhum há 40 min continua sem sinal');
+});
