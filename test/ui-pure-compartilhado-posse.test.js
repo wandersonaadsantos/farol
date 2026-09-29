@@ -22,6 +22,12 @@ const OP = {
   matTag: 'c'.repeat(32), heranca: '', tipo: 'review', pr: PR,
 };
 
+// a sessão de outro aparelho é desenhada pela fila dele desde a v2.65.0 (ui/pure/aparelhos-fila.js)
+function filaCom(op) {
+  const itens = P.itensDaFila(op.dev, { operacoes: [op] });
+  return P.filaDoAparelhoHtml(itens, { miolo: 'lista', lidoEm: AGORA }, { nome: 'Desktop antigo', agora: AGORA });
+}
+
 function sync(extra = {}) {
   return { shared: true, deviceId: 'dEu', devices: DEVICES, distribuicao: { modo: 'distribuido', esperando: [] }, comandosEmitidos: [], ...extra };
 }
@@ -32,8 +38,8 @@ test('acoesDaOperacao: com commit e tag, transferir fica utilizável, e não há
   const a = P.acoesDaOperacao(OP, { podeComandar: true });
   assert.deepEqual(a.transferir, { pode: true, motivo: '' });
   assert.equal('tomar' in a, false, '"Tomar para este aparelho" não existe mais');
-  const html = P.operacoesRemotasHtml([OP], { podeComandar: true });
-  assert.match(html, /class="btn sm ghost md-transferir" data-op="op1" data-dev="dOutro"/);
+  const html = filaCom(OP);
+  assert.match(html, /md-transferir" data-op="op1" aria-label/, 'com o commit, o botão sai habilitado');
   assert.doesNotMatch(html, /md-tomar"/);
 });
 
@@ -48,25 +54,25 @@ test('acoesDaOperacao: transferir exige o commit', () => {
   assert.equal(semAdmin.transferir.motivo, 'este não é o admin');
 });
 
-test('operacoesRemotasHtml: o PR aparece pelo nome quando o catálogo abriu, e genérico quando não', () => {
-  const com = P.operacoesRemotasHtml([OP], { podeComandar: true });
+test('sessão na fila: o PR aparece pelo nome quando o catálogo abriu, e genérico quando não', () => {
+  const com = filaCom(OP);
   assert.match(com, /href="https:\/\/github\.com\/acme-exemplo\/app-web\/pull\/41"/);
   assert.match(com, /Ajusta o rodapé/);
-  const sem = P.operacoesRemotasHtml([{ ...OP, pr: null }], { podeComandar: true });
+  const sem = filaCom({ ...OP, pr: null });
   assert.doesNotMatch(sem, /github\.com/);
   assert.match(sem, /Um PR seu, sem nome nesta tela/);
   // o autor sai com foto (menção navegável), então a prova do escape mira o título injetado
-  const injetado = P.operacoesRemotasHtml([{ ...OP, pr: { ...PR, title: '<img src=x>' } }], {});
+  const injetado = filaCom({ ...OP, pr: { ...PR, title: '<img src=x>' } });
   assert.doesNotMatch(injetado, /<img src=x>/);
   assert.match(injetado, /&lt;img src=x&gt;/);
 });
 
-test('operacoesRemotasHtml: a herança da memória aparece quando o executor a decidiu', () => {
-  assert.match(P.operacoesRemotasHtml([{ ...OP, heranca: 'integral' }], {}), /herdou a memória inteira/);
-  assert.match(P.operacoesRemotasHtml([{ ...OP, heranca: 'parcial' }], {}), /herdou parte da memória/);
-  assert.match(P.operacoesRemotasHtml([{ ...OP, heranca: 'reinicio' }], {}), /começou do zero/);
-  assert.doesNotMatch(P.operacoesRemotasHtml([{ ...OP, heranca: '' }], {}), /herdou|começou do zero/);
-  assert.doesNotMatch(P.operacoesRemotasHtml([{ ...OP, heranca: 'inventada' }], {}), /inventada/);
+test('sessão na fila: a herança da memória aparece quando o executor a decidiu', () => {
+  assert.match(filaCom({ ...OP, heranca: 'integral' }), /herdou a memória inteira/);
+  assert.match(filaCom({ ...OP, heranca: 'parcial' }), /herdou parte da memória/);
+  assert.match(filaCom({ ...OP, heranca: 'reinicio' }), /começou do zero/);
+  assert.doesNotMatch(filaCom({ ...OP, heranca: '' }), /herdou|começou do zero/);
+  assert.doesNotMatch(filaCom({ ...OP, heranca: 'inventada' }), /inventada/);
 });
 
 /* ---------- destinos da transferência ---------- */

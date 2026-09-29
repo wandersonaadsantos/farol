@@ -15,8 +15,6 @@
 //      "um PR seu" e explica por quê, em vez de escrever um endereço que não tem.
 import { esc, fmtClock, fmtDur, plural, identidadeDeAparelho } from './comum.js';
 import { prRefMention } from './mencoes.js';
-import { prIdentificado, prIdentificadoHtml } from './pr-compartilhado.js';
-import { botaoDoReviewHtml, motivosDaPendenciaHtml, motivosOmitidosDe } from './compartilhado-decisao.js';
 
 // texto só quando a condição vale: evita ternário dentro de template
 function se(condicao, texto) {
@@ -233,66 +231,20 @@ export function comandoPermitido(sync) {
   return { pode: true, motivo: '' };
 }
 
-/* ---------- 2.7: precisa de você em todos os aparelhos ---------- */
+/* ---------- 2.7: pendências e andamento de outros aparelhos ----------
+   Desde o controle do celular (v2.65.0) quem desenha pendência e sessão de outro aparelho é
+   a fila dele (ui/pure/aparelhos-fila.js). Os rótulos moram aqui, num lugar só, e a fila os
+   usa: veredito, bloqueio, etapa, herança da memória, tempo e o feed ao vivo. */
 
 const VEREDITO = { approve: 'aprovar', request_changes: 'pedir mudanças', comment: 'só comentar', skip: 'pular' };
 const BLOQUEIO_PEND = { stale_head: 'o PR ganhou commit novo depois da análise' };
 
-// O PR viaja como tag e não como endereço (D6). Com o catálogo, o card nomeia o PR pela
-// menção navegável; sem ele, diz o que sabe: de qual aparelho veio, qual foi o veredito e
-// quantos motivos travam, sem link para lugar nenhum.
-const SEM_CATALOGO = 'o nome deste PR não abriu no catálogo cifrado deste aparelho';
-function pendenciaHtml(p, ctx) {
-  const nova = ctx.novas.has(p.itemId);
-  const onde = p.aparelho || 'outro aparelho';
-  const veredito = VEREDITO[p.veredito] || 'sem veredito';
-  const motivos = (Array.isArray(p.motivos) ? p.motivos.length : 0) + motivosOmitidosDe(p);
-  const bloqueio = BLOQUEIO_PEND[p.bloqueio] || '';
-  const chips = [
-    `<span class="sync-chip mute">no ${esc(onde)}</span>`,
-    se(p.visto, '<span class="sync-chip mute">visto</span>'),
-    se(nova && !p.visto, '<span class="sync-chip warn">nova</span>'),
-  ].join('');
-  const detalhe = `${se(motivos, `, ${plural(motivos, 'motivo registrado', 'motivos registrados')}`)}${se(bloqueio, `, ${esc(bloqueio)}`)}`;
-  const classe = p.visto ? 'settled' : 'urgent';
-  const acoes = ctx.podeComandar
-    ? `<button class="btn sm primary md-decidir" data-item="${esc(p.itemId)}" data-dev="${esc(p.dev)}" data-aparelho="${esc(onde)}">Decidir no ${esc(onde)}…</button>`
-    : `<span class="md-nota">${esc(ctx.motivoSemComando)}</span>`;
-  const visto = p.visto ? '' : `<button class="btn sm ghost md-visto" data-item="${esc(p.itemId)}">Marcar como visto</button>`;
-  return `<div class="card md-pend ${classe}" data-item="${esc(p.itemId)}">
-    <div class="md-linha">${chips}<span class="md-espaco"></span><span class="md-fraco">${esc(fmtClock(p.at))}</span></div>
-    <div class="md-titulo">${tituloDaPendencia(p, onde)}</div>
-    <div class="md-sub">veredito: ${esc(veredito)}${detalhe}</div>${motivosDaPendenciaHtml(p)}
-    <div class="md-acoes">${acoes}${botaoDoReviewHtml(p)}${visto}</div>
-  </div>`;
+export function textoDoVeredito(v) {
+  return VEREDITO[v] || 'sem veredito';
 }
 
-function tituloDaPendencia(p, onde) {
-  if (prIdentificado(p.pr)) return `${prIdentificadoHtml(p.pr)} <span class="md-fraco">analisado no ${esc(onde)}, esperando decisão</span>`;
-  return `${prIdentificadoHtml(null, `Um PR seu, analisado no ${onde}, esperando decisão`)} <span class="md-fraco">(${esc(SEM_CATALOGO)})</span>`;
-}
-
-// AUSÊNCIA DE LEITURA NÃO É AUSÊNCIA DE DADO. `REVISOES` já tinha `estado: 'inicial'` e o
-// comentário de compartilhado-historico.js nomeia o risco ("`estado` separa o que a lista
-// vazia NÃO pode esconder"); pendências e operações não tinham, e por isso afirmavam zero
-// antes do primeiro evento SSE. `estado` ausente mantém o comportamento antigo, para quem
-// chama sem informar.
-const AINDA_NAO_LI_PENDENCIAS = '<p class="md-vazio">O Farol ainda não leu as pendências dos outros aparelhos nesta conexão. Isto não quer dizer que nada precisa de você lá.</p>';
-const AINDA_NAO_LI_OPERACOES = '<p class="md-vazio">O Farol ainda não leu o andamento dos outros aparelhos nesta conexão. Isto não quer dizer que nada está rodando lá.</p>';
-
-export function pendenciasCompartilhadasHtml(pendencias, ctx) {
-  const lista = Array.isArray(pendencias) ? pendencias : [];
-  const c = ctx || {};
-  const contexto = {
-    novas: c.novas instanceof Set ? c.novas : new Set(),
-    podeComandar: c.podeComandar === true,
-    motivoSemComando: c.motivoSemComando || 'só o aparelho admin, com sinal fresco, emite comandos',
-  };
-  // lista vazia só significa ausência DEPOIS da primeira leitura. Antes dela o acumulador
-  // nasce vazio e a tela pintava "nada precisa de você" sem o Farol ter lido nada
-  if (!lista.length) return c.estado === 'inicial' ? AINDA_NAO_LI_PENDENCIAS : '<p class="md-vazio">Nada precisa de você em nenhum outro aparelho.</p>';
-  return `${lista.map((p) => pendenciaHtml(p, contexto)).join('')}
-    <p class="md-nota">Marcar como visto cala o aviso nos outros aparelhos. Decidir manda um comando ao aparelho dono, que decide com os gates dele. O nome do PR vem do catálogo cifrado; quando ele não abre neste aparelho, o card diz só o que sabe.</p>`;
+export function textoDoBloqueio(b) {
+  return BLOQUEIO_PEND[b] || '';
 }
 
 /* ---------- 2.7: em outros aparelhos (andamento ao vivo) ---------- */
@@ -302,8 +254,6 @@ const ETAPA = {
   verificacao: 'verificando', raciocinio: 'raciocinando', fechamento: 'fechando',
   desconhecida: 'sem etapa conhecida',
 };
-const TIPO_OP = { review: 'revisão', self: 'autoanálise', pushback: 'contestação' };
-
 function tempoDaOperacao(op) {
   const ms = (op && op.msPorEtapa) || {};
   return Object.values(ms).reduce((total, v) => total + (Number(v) || 0), 0);
@@ -338,17 +288,12 @@ const HERANCA = {
   reinicio: 'começou do zero, sem memória herdada',
 };
 
-function botaoOuNota(classe, rotulo, acao, dados) {
-  if (acao.pode) return `<button class="btn sm ghost ${classe}" ${dados}>${esc(rotulo)}</button>`;
-  return `<span class="md-nota">${esc(rotulo)}: indisponível, ${esc(acao.motivo)}</span>`;
-}
-
 // Feed ao vivo (Fase 3.2): as mesmas linhas que o aparelho dono mostra na tela dele, mais
 // antiga primeiro. Só as 6 últimas ficam visíveis de cara; o resto mora num <details>, pra
 // não empurrar o card inteiro quando a operação já rodou muitas linhas.
 const FEED_VISIVEIS = 6;
 
-function feedHtml(feed) {
+export function feedDaOperacaoHtml(feed) {
   const linhas = Array.isArray(feed) ? feed : [];
   if (!linhas.length) return '';
   const item = (l) => `<li>${esc(l)}</li>`;
@@ -358,31 +303,14 @@ function feedHtml(feed) {
   return `${antigas}<ol class="md-feed">${visiveis.map(item).join('')}</ol>`;
 }
 
-function operacaoHtml(op, ctx) {
-  const acoes = acoesDaOperacao(op, ctx);
-  const dados = `data-op="${esc(op.opId)}" data-dev="${esc(op.dev)}" data-prtag="${esc(op.prTag || '')}"`;
-  const subagentes = Array.isArray(op.subagentes) ? op.subagentes : [];
-  const situacao = se(op.situacao === 'interrompida', '<span class="sync-chip warn">sem renovar</span>');
-  const tempo = [fmtDur(tempoDaOperacao(op)), op.modelo].filter(Boolean).map((x) => esc(x)).join(', ');
-  const heranca = HERANCA[op.heranca] || '';
-  const etapa = `${esc(ETAPA[op.etapa] || ETAPA.desconhecida)}${se(subagentes.length, `, ${esc(subagentes.join(', '))}`)}${se(heranca, `, ${esc(heranca)}`)}`;
-  return `<div class="card working md-op">
-    <div class="md-linha"><span class="sync-chip mute">${esc(op.aparelho || 'outro aparelho')}</span><span class="md-fraco">${esc(TIPO_OP[op.tipo] || 'revisão')}</span>${situacao}<span class="md-espaco"></span><span class="md-fraco">${tempo}</span></div>
-    <div class="md-titulo">${prIdentificadoHtml(op.pr, 'Um PR seu, sem nome nesta tela (o catálogo cifrado não abriu)')}</div>
-    <div class="md-sub">${etapa}</div>
-    ${feedHtml(op.feed)}
-    <div class="md-acoes">
-      ${botaoOuNota('md-cancelar', 'Cancelar', acoes.cancelar, dados)}
-      ${botaoOuNota('md-transferir', 'Transferir', acoes.transferir, dados)}
-    </div>
-  </div>`;
-}
-
-export function operacoesRemotasHtml(operacoes, ctx) {
-  const lista = Array.isArray(operacoes) ? operacoes : [];
-  const c = ctx || {};
-  if (!lista.length) return c.estado === 'inicial' ? AINDA_NAO_LI_OPERACOES : '<p class="md-vazio">Nenhuma análise rodando em outro aparelho agora.</p>';
-  return lista.map((op) => operacaoHtml(op || {}, c)).join('');
+// Etapa, subagentes pelo nome, herança da memória, tempo e modelo, na ordem em que o card
+// sempre mostrou. Herança fora do vocabulário não aparece (o texto não vem de fora).
+export function resumoDaOperacao(op) {
+  const o = op || {};
+  const subagentes = Array.isArray(o.subagentes) ? o.subagentes : [];
+  const partes = [ETAPA[o.etapa] || ETAPA.desconhecida, ...subagentes, HERANCA[o.heranca] || ''].filter(Boolean);
+  const tempo = [fmtDur(tempoDaOperacao(o)), o.modelo].filter(Boolean).join(', ');
+  return tempo ? `${partes.join(', ')} · ${tempo}` : partes.join(', ');
 }
 
 // A leitura do andamento gira a cada 10 segundos, e a leitura que falha NÃO apaga a visão

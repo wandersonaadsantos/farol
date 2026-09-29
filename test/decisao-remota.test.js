@@ -162,27 +162,34 @@ test('o corte tira primeiro os inlines de comentar, depois os de pedir mudanças
 
 /* ---------- 5. a tela ---------- */
 
+// Desde a v2.65.0 a pendência de outro aparelho é desenhada pela fila dele
+// (ui/pure/aparelhos-fila.js); o que a tela promete sobre ela se prova ali.
+function filaDasPendencias(P, pendencias, dev) {
+  return P.filaDoAparelhoHtml(P.itensDaFila(dev, { pendencias }), { miolo: 'lista', lidoEm: 1 }, { nome: 'aparelho' });
+}
+
+
 test('pendência mostra os motivos por extenso e o botão Ver review completo', () => {
   const p = {
     itemId: 'ab12', dev: 'dOutro', aparelho: 'Desktop antigo', at: 1, visto: false, veredito: 'request_changes',
-    motivos: [{ text: 'falta <teste>', kind: 'content' }], bloqueio: '', reviewId: 'c'.repeat(32), acoes: ['approve', 'comment', 'skip'],
+    motivos: [{ text: 'falta <teste>', kind: 'content' }], bloqueio: '', reviewId: 'c'.repeat(32), acoes: ['approve', 'comment', 'skip'], prTag: 'd'.repeat(32),
   };
-  const html = P.pendenciasCompartilhadasHtml([p], { podeComandar: true });
+  const html = filaDasPendencias(P, [p], 'dOutro');
   assert.match(html, /<ul class="md-motivos">/);
   assert.match(html, /falta &lt;teste&gt;/);
   assert.match(html, /Ver review completo/);
   assert.match(html, new RegExp(`data-review="${'c'.repeat(32)}"`));
-  assert.doesNotMatch(P.pendenciasCompartilhadasHtml([{ ...p, reviewId: '' }], {}), /Ver review completo/);
+  assert.doesNotMatch(filaDasPendencias(P, [{ ...p, reviewId: '' }], 'dOutro'), /Ver review completo/);
 });
 
 test('motivos omitidos aparecem no card: a lista parcial nunca parece completa', () => {
-  const p = { itemId: 'ab12', dev: 'dOutro', veredito: 'request_changes', motivos: [{ text: 'falta teste', kind: 'content' }], acoes: ['skip'] };
-  assert.match(P.pendenciasCompartilhadasHtml([{ ...p, motivosOmitidos: 3 }], {}), /\+3 motivos no review completo/);
-  assert.match(P.pendenciasCompartilhadasHtml([{ ...p, motivosOmitidos: 3 }], {}), /4 motivos registrados/, 'a contagem do card soma os omitidos');
-  assert.match(P.pendenciasCompartilhadasHtml([{ ...p, motivosOmitidos: 1 }], {}), /\+1 motivo no review completo/);
-  assert.match(P.pendenciasCompartilhadasHtml([{ ...p, motivos: [], motivosOmitidos: 2 }], {}), /\+2 motivos no review completo/, 'mesmo sem nenhum motivo que coube');
+  const p = { itemId: 'ab12', dev: 'dOutro', veredito: 'request_changes', motivos: [{ text: 'falta teste', kind: 'content' }], acoes: ['skip'], prTag: 'd'.repeat(32) };
+  assert.match(filaDasPendencias(P, [{ ...p, motivosOmitidos: 3 }], 'dOutro'), /\+3 motivos no review completo/);
+  assert.match(filaDasPendencias(P, [{ ...p, motivosOmitidos: 3 }], 'dOutro'), /4 motivos registrados/, 'a contagem do card soma os omitidos');
+  assert.match(filaDasPendencias(P, [{ ...p, motivosOmitidos: 1 }], 'dOutro'), /\+1 motivo no review completo/);
+  assert.match(filaDasPendencias(P, [{ ...p, motivos: [], motivosOmitidos: 2 }], 'dOutro'), /\+2 motivos no review completo/, 'mesmo sem nenhum motivo que coube');
   for (const nada of [0, undefined, -4, 'x', '<b>']) {
-    assert.doesNotMatch(P.pendenciasCompartilhadasHtml([{ ...p, motivosOmitidos: nada }], {}), /no review completo/, String(nada));
+    assert.doesNotMatch(filaDasPendencias(P, [{ ...p, motivosOmitidos: nada }], 'dOutro'), /no review completo/, String(nada));
   }
 });
 

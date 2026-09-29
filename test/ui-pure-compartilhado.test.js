@@ -115,80 +115,70 @@ test('comandoPermitido: só o admin com sinal fresco', () => {
   assert.deepEqual(P.comandoPermitido(sync({ admin: { souEu: true, fresca: true } })), { pode: true, motivo: '' });
 });
 
-/* ---------- precisa de você em todos os aparelhos ---------- */
+/* ---------- pendências e sessões de outro aparelho, na fila dele ----------
+   Desde a v2.65.0 (controle do celular) quem desenha pendência e sessão de outro aparelho é
+   a fila do aparelho dono (ui/pure/aparelhos-fila.js). As garantias que valiam para os
+   cards antigos valem aqui: veredito e motivos contados, PR sem nome nunca nomeado, texto de
+   fora escapado, feed com as seis últimas linhas, nó vencido e transferir sem commit. */
 
-const PEND = { itemId: 'ab12', dev: 'dOutro', aparelho: 'Desktop antigo', at: AGORA, visto: false, veredito: 'request_changes', motivos: [{ text: 'x', kind: 'gate' }, { text: 'y', kind: 'content' }], bloqueio: '' };
-
-test('pendenciasCompartilhadasHtml: vazio legítimo tem frase própria', () => {
-  assert.match(P.pendenciasCompartilhadasHtml([], {}), /Nada precisa de você/);
-});
-
-test('pendenciasCompartilhadasHtml: nova, veredito, motivos e as duas ações para o admin', () => {
-  const html = P.pendenciasCompartilhadasHtml([PEND], { novas: new Set(['ab12']), podeComandar: true });
-  assert.match(html, /sync-chip mute">no Desktop antigo</);
-  assert.match(html, /sync-chip warn">nova</);
-  assert.match(html, /veredito: pedir mudanças, 2 motivos registrados/);
-  assert.match(html, /class="btn sm primary md-decidir" data-item="ab12" data-dev="dOutro"/);
-  assert.match(html, /class="btn sm ghost md-visto" data-item="ab12"/);
-  assert.doesNotMatch(html, /\[object Object\]/);
-});
-
-test('pendenciasCompartilhadasHtml: sem permissão, a decisão vira explicação, e o visto continua', () => {
-  const html = P.pendenciasCompartilhadasHtml([PEND], { podeComandar: false, motivoSemComando: 'só o admin emite' });
-  assert.doesNotMatch(html, /md-decidir/);
-  assert.match(html, /só o admin emite/);
-  assert.match(html, /md-visto/);
-});
-
-test('pendenciasCompartilhadasHtml: vista perde o botão e o selo de nova', () => {
-  const html = P.pendenciasCompartilhadasHtml([{ ...PEND, visto: true }], { novas: new Set(['ab12']) });
-  assert.match(html, /sync-chip mute">visto</);
-  assert.doesNotMatch(html, /md-visto/);
-  assert.doesNotMatch(html, />nova</);
-});
-
-test('pendenciasCompartilhadasHtml: sem o nome do catálogo, o PR não é nomeado', () => {
-  const html = P.pendenciasCompartilhadasHtml([{ ...PEND, prTag: 'f'.repeat(32) }], {});
-  assert.doesNotMatch(html, /f{32}/, 'a tag não é nome e não aparece como se fosse');
-  assert.doesNotMatch(html, /github\.com/);
-  assert.match(html, /não abriu no catálogo cifrado/);
-});
-
-test('pendenciasCompartilhadasHtml: texto vindo de fora é escapado', () => {
-  const html = P.pendenciasCompartilhadasHtml([{ ...PEND, aparelho: '<img src=x>' }], {});
-  assert.doesNotMatch(html, /<img/);
-});
-
-/* ---------- em outros aparelhos ---------- */
-
+const PEND = { itemId: 'ab12', dev: 'dOutro', aparelho: 'Desktop antigo', at: AGORA, visto: false, veredito: 'request_changes', motivos: [{ text: 'x', kind: 'gate' }, { text: 'y', kind: 'content' }], bloqueio: '', prTag: 'c'.repeat(32) };
 const OP = { opId: 'op1', dev: 'dOutro', aparelho: 'Desktop antigo', t0: AGORA, situacao: 'viva', etapa: 'verificacao', msPorEtapa: { leitura: 60000, verificacao: 180000 }, subagentes: ['a', 'b'], modelo: 'opus', prTag: 'a'.repeat(32), acctTag: 'b'.repeat(32), tipo: 'review' };
 
-test('operacoesRemotasHtml: etapa, tempo, subagentes pelo nome e modelo', () => {
-  const html = P.operacoesRemotasHtml([OP], { podeComandar: true });
-  assert.match(html, /sync-chip mute">Desktop antigo</);
-  assert.match(html, /verificando, a, b/);
-  assert.match(html, /4m, opus/);
-  assert.match(html, /class="btn sm ghost md-cancelar" data-op="op1" data-dev="dOutro"/);
-  assert.match(P.operacoesRemotasHtml([], {}), /Nenhuma análise rodando/);
+function filaDe({ pendencias = [], operacoes = [], ctx = {} } = {}) {
+  const itens = P.itensDaFila('dOutro', { pendencias, operacoes });
+  return P.filaDoAparelhoHtml(itens, { miolo: 'lista', lidoEm: AGORA }, { nome: 'Desktop antigo', agora: AGORA, aoVivo: new Set(['a'.repeat(32)]), ...ctx });
+}
+
+test('pendência na fila: veredito, motivos contados e por extenso, e decidir para o admin', () => {
+  const html = filaDe({ pendencias: [PEND] });
+  assert.match(html, /revisado: pedir mudanças, 2 motivos registrados/);
+  assert.match(html, /<ul class="md-motivos"><li>x<\/li><li>y<\/li><\/ul>/, 'os motivos por extenso continuam no card');
+  assert.match(html, /md-decidir" data-item="ab12" data-dev="dOutro"/);
+  assert.doesNotMatch(html, /\[object Object\]/);
+  assert.match(filaDe({ pendencias: [{ ...PEND, bloqueio: 'stale_head' }] }), /o PR ganhou commit novo depois da análise/);
 });
 
-test('operacoesRemotasHtml: nó vencido aparece como sem renovar, nunca como em andamento puro', () => {
-  assert.match(P.operacoesRemotasHtml([{ ...OP, situacao: 'interrompida' }], {}), /sync-chip warn">sem renovar</);
+test('pendência na fila: sem permissão, decidir fica desligado dizendo por quê', () => {
+  const html = filaDe({ pendencias: [PEND], ctx: { desligadoBase: 'só o admin emite' } });
+  assert.match(html, /md-decidir"[^>]*aria-disabled="true" title="só o admin emite"/);
 });
 
-// 28/09/2026: o admin assiste o feed ao vivo de cada revisão, "como TV" (Fase 3.2). O
-// botão "Tomar para este aparelho" saiu de vez: o admin nunca executa.
-test('operacoesRemotasHtml: o feed aparece escapado, mais antiga primeiro, e não há Tomar', () => {
-  const comFeed = { ...OP, feed: ['abriu o diff', 'leu o card <script>'] };
-  const html = P.operacoesRemotasHtml([comFeed], { podeComandar: true });
+test('pendência vista sai da fila do aparelho', () => {
+  assert.doesNotMatch(filaDe({ pendencias: [{ ...PEND, visto: true }] }), /md-decidir/);
+});
+
+test('sem o nome do catálogo, o PR não é nomeado', () => {
+  const html = filaDe({ pendencias: [{ ...PEND, prTag: 'f'.repeat(32), pr: null }] });
+  assert.doesNotMatch(html, />f{32}</, 'a tag não é nome e não aparece como se fosse');
+  assert.doesNotMatch(html, /github\.com/);
+  assert.match(html, /o catálogo cifrado não abriu/);
+});
+
+test('texto vindo de fora é escapado na fila', () => {
+  const html = filaDe({ pendencias: [{ ...PEND, aparelho: '<img src=x>', pr: { key: 'acme-exemplo/app#1', title: '<script>x</script>' } }] });
+  assert.doesNotMatch(html, /<img|<script/);
+});
+
+test('sessão na fila: etapa, subagentes pelo nome, tempo, modelo e cancelar', () => {
+  const html = filaDe({ operacoes: [OP] });
+  assert.match(html, /revisando agora: verificando, a, b · 4m, opus/);
+  assert.match(html, /md-cancelar" data-op="op1"/);
+});
+
+test('sessão na fila: nó vencido aparece como sem renovar', () => {
+  assert.match(filaDe({ operacoes: [{ ...OP, situacao: 'interrompida' }] }), /sync-chip warn">sem renovar</);
+});
+
+test('sessão na fila: o feed aparece escapado, mais antiga primeiro, e não há Tomar', () => {
+  const html = filaDe({ operacoes: [{ ...OP, feed: ['abriu o diff', 'leu o card <script>'] }] });
   assert.match(html, /<ol class="md-feed"><li>abriu o diff<\/li><li>leu o card &lt;script&gt;<\/li><\/ol>/);
   assert.doesNotMatch(html, /Tomar/);
-  assert.equal(P.operacoesRemotasHtml([{ ...OP, feed: [] }], {}).includes('md-feed'), false, 'sem linhas, sem a lista');
+  assert.equal(filaDe({ operacoes: [{ ...OP, feed: [] }] }).includes('md-feed'), false, 'sem linhas, sem a lista');
 });
 
-test('operacoesRemotasHtml: feed longo mostra só as 6 últimas visíveis, o resto num details', () => {
+test('sessão na fila: feed longo mostra só as 6 últimas visíveis, o resto num details', () => {
   const linhas = Array.from({ length: 9 }, (_, i) => `linha ${i}`);
-  const html = P.operacoesRemotasHtml([{ ...OP, feed: linhas }], {});
+  const html = filaDe({ operacoes: [{ ...OP, feed: linhas }] });
   assert.match(html, /<summary>3 linhas anteriores<\/summary>/);
   const visivel = html.slice(html.lastIndexOf('<ol class="md-feed">'));
   assert.match(visivel, /<li>linha 8<\/li>/, 'a mais recente sempre visível');
@@ -201,11 +191,9 @@ test('acoesDaOperacao: transferir fica indisponível com o motivo do contrato, e
   assert.equal(a.transferir.pode, false);
   assert.match(a.transferir.motivo, /não traz o commit/);
   assert.equal('tomar' in a, false, '"Tomar para este aparelho" não existe mais');
-  const html = P.operacoesRemotasHtml([OP], { podeComandar: true });
-  assert.doesNotMatch(html, /md-transferir"/, 'botão que sempre recusaria não é oferecido');
+  const html = filaDe({ operacoes: [OP] });
+  assert.match(html, /md-transferir"[^>]*aria-disabled="true" title="o andamento não traz o commit/, 'o botão diz por que não transfere');
   assert.doesNotMatch(html, /md-tomar"/);
-  assert.doesNotMatch(html, /Tomar/);
-  assert.match(html, /Transferir: indisponível/);
 });
 
 // O PR em claro chega em `op.pr` (resolvido pelo catálogo no engine) desde a entrega da
@@ -390,11 +378,9 @@ test('revisoesCompartilhadasHtml: o PR aparece pelo nome quando o catálogo abri
   assert.match(html, /PR sem nome neste aparelho/);
 });
 
-test('operacoesRemotasHtml: operação recém-começada não mostra vírgula solta antes do modelo', () => {
-  const op = { opId: 'o9', dev: 'x', aparelho: 'Notebook', situacao: 'viva', etapa: 'leitura', msPorEtapa: {}, subagentes: [], modelo: 'Opus 5', prTag: 'a'.repeat(32), tipo: 'review' };
-  const html = P.operacoesRemotasHtml([op], {});
-  assert.match(html, /Opus 5/);
-  assert.doesNotMatch(html, />, Opus 5/, 'sem tempo, o modelo vem sozinho');
+test('sessão recém-começada não mostra vírgula solta antes do modelo', () => {
+  const op = { opId: 'o9', dev: 'dOutro', aparelho: 'Notebook', situacao: 'viva', etapa: 'leitura', msPorEtapa: {}, subagentes: [], modelo: 'Opus 5', prTag: 'a'.repeat(32), tipo: 'review' };
+  assert.equal(P.resumoDaOperacao(op), 'lendo o diff · Opus 5', 'sem tempo, o modelo vem sozinho');
 });
 
 /* ---------- 7.C6: recibo que não é do alvo não vira desfecho na tela ---------- */

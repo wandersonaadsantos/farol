@@ -338,6 +338,12 @@ async function arvoreDasPendencias() {
   return (t && t.users.u1.live && t.users.u1.live.pending) || {};
 }
 
+// Desde a v2.65.0 a pendência de outro aparelho é desenhada pela fila dele
+// (ui/pure/aparelhos-fila.js); o que a tela promete sobre ela se prova ali.
+function filaDasPendencias(pendencias, dev = pendencias[0] && pendencias[0].dev) {
+  return pure.filaDoAparelhoHtml(pure.itensDaFila(dev, { pendencias }), { miolo: 'lista', lidoEm: 1 }, { nome: 'aparelho' });
+}
+
 test('a pendência de A chega a B com o PR nomeado pelo catálogo', async () => {
   const { a, b } = await par();
   // Task 9 (28/09/2026): o evento sync-pending pra própria tela só sai do admin; B precisa
@@ -350,7 +356,7 @@ test('a pendência de A chega a B com o PR nomeado pelo catálogo', async () => 
   assert.deepEqual(r.lista[0].pr, { key: 'acme/app#12', account: LOGIN, title: 'Troca a biblioteca de datas', author: 'ana' });
   const [, evento] = b.eventos.find(([n]) => n === 'sync-pending');
   assert.equal(evento.pendencias[0].pr.key, 'acme/app#12', 'o nome chega à tela pelo evento');
-  const html = pure.pendenciasCompartilhadasHtml(evento.pendencias, {});
+  const html = filaDasPendencias(evento.pendencias);
   assert.match(html, /pr-ref-mention[^>]*>acme\/app#12</);
   assert.match(html, /Troca a biblioteca de datas/);
   assert.match(html, /person-mention[^>]*href="https:\/\/github\.com\/ana"/);
@@ -384,7 +390,7 @@ test('catálogo adulterado cai no rótulo genérico, nunca em nome de outro PR',
   await catalogoTrocado(a, (cat, tag, kId) => { cat[tag] = cat[prTag(kId, 'acme/app#77')]; });
   const r = await pendencias.aplicarPendenciasIdentificadas(b, b.config.sync, await arvoreDasPendencias(), {});
   assert.equal(r.lista[0].pr, null);
-  const html = pure.pendenciasCompartilhadasHtml(r.lista, {});
+  const html = filaDasPendencias(r.lista);
   assert.doesNotMatch(html, /acme\/app#77|Outro PR qualquer/);
   assert.match(html, /Um PR seu/);
 });
