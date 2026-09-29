@@ -688,7 +688,6 @@ class Engine extends EventEmitter {
 
   // política de automação POR CONTA (undefined na conta = herda o global). A regra de
   // cada pergunta mora em lib/engine/contas-config.js, junto da edição e do rastro.
-  acctPolicy(user) { return contasConfig.politicaDaConta(this, user); }
   // ao chegar PR nesta conta: revisar sozinho (headless) ou só colocar na fila?
   autoReviewFor(user) { return contasConfig.revisaSozinho(this, user); }
   // quando aprovável: 'approve' (postar sozinho) ou 'wait' (aguardar você). clean = sem ressalvas
@@ -1975,6 +1974,8 @@ class Engine extends EventEmitter {
       // contas do gh x contas do Farol: login não monitorado, conta sem login, org em duas
       // contas e org sugerida (lib/engine/contas-gh.js)
       contasGh: contasGh.diagnosticoDoEngine(this),
+      // quantas contas cada chave geral da Automação alcança (lib/engine/contas-config.js)
+      alcanceDasChavesGerais: contasConfig.alcanceDasChavesGerais(this),
       pushbacks: this.pushbacks,
       // a tela recebe o que foi PEDIDO: ela devolve o objeto inteiro ao salvar, e a config
       // já zerada pela guarda do celular apagaria o pedido a cada salvamento. O efeito segue

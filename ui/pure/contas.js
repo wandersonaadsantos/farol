@@ -311,23 +311,19 @@ export function claudeProfilesHtml(ctx) {
 
 // Quantas contas uma chave GERAL da Automação alcança de fato (29/09/2026): a conta com
 // valor próprio em Contas ignora a chave, e sem isto a tela deixava ligar um botão que não
-// valia para ninguém. Conta silenciada fica fora da conta (ela não revisa sozinha).
-// `aprovarComRessalvas` também não alcança a conta cujo aprovável SEM ressalvas espera você:
-// o com ressalvas nunca fica mais permissivo que ele (lib/engine/contas-config.js).
-const SEGUE_A_CHAVE = {
-  autoReview: (a) => a.autoReview !== true && a.autoReview !== false,
-  autoApproveAll: (a) => !a.onCaveats && a.onClean !== 'wait',
-};
-
-export function alcanceDaChaveGeral(accounts, chave) {
-  const segue = SEGUE_A_CHAVE[chave];
-  const ativas = (Array.isArray(accounts) ? accounts : []).filter((a) => a && a.user && !a.muted);
-  if (!segue || !ativas.length) return '';
-  const fora = ativas.filter((a) => !segue(a)).map((a) => `@${a.user}`);
-  if (!fora.length) return `Vale para ${ativas.length === 1 ? 'a conta ativa' : `as ${ativas.length} contas ativas`}.`;
-  if (fora.length === ativas.length) return 'Não vale para nenhuma conta agora: todas têm configuração própria em Contas.';
+// valia para ninguém. Quem segue e quem não segue vem PRONTO do engine
+// (`alcanceDasChavesGerais`, lib/engine/contas-config.js), que decide com os mesmos
+// predicados da revisão e da aprovação; aqui só vira frase.
+export function alcanceDaChaveGeral(alcance) {
+  const a = alcance && typeof alcance === 'object' ? alcance : {};
+  const segue = Array.isArray(a.segue) ? a.segue : [];
+  const fora = (Array.isArray(a.proprias) ? a.proprias : []).map((u) => `@${u}`);
+  const total = segue.length + fora.length;
+  if (!total) return '';
+  if (!fora.length) return `Vale para ${total === 1 ? 'a conta ativa' : `as ${total} contas ativas`}.`;
+  if (!segue.length) return 'Não vale para nenhuma conta agora: todas têm configuração própria em Contas.';
   const quem = fora.length === 1 ? `${fora[0]} tem configuração própria` : `${fora.join(', ')} têm configuração própria`;
-  return `Vale para ${ativas.length - fora.length} de ${ativas.length} contas ativas; ${quem} em Contas.`;
+  return `Vale para ${segue.length} de ${total} contas ativas; ${quem} em Contas.`;
 }
 
 export function accountsManagerHtml(ctx) {

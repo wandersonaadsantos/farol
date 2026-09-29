@@ -13,20 +13,42 @@ const HTML = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'index.h
 const BIUDER = { user: 'biuder', onReject: 'request_changes' };
 const PESSOAL = { user: 'pessoal', autoReview: true, onClean: 'approve', onCaveats: 'approve' };
 const MUDA = { user: 'antiga', muted: true };
+const contasConfig = (await import('../lib/engine/contas-config.js')).default;
 
-test('alcance: diz quantas contas ativas a chave geral alcança e quem tem valor próprio', () => {
-  assert.equal(P.alcanceDaChaveGeral([BIUDER, PESSOAL, MUDA], 'autoReview'), 'Vale para 1 de 2 contas ativas; @pessoal tem configuração própria em Contas.');
-  assert.equal(P.alcanceDaChaveGeral([BIUDER, MUDA], 'autoReview'), 'Vale para a conta ativa.', 'silenciada não conta');
-  assert.equal(P.alcanceDaChaveGeral([BIUDER, { user: 'b2' }], 'autoReview'), 'Vale para as 2 contas ativas.');
-  assert.equal(P.alcanceDaChaveGeral([PESSOAL], 'autoReview'), 'Não vale para nenhuma conta agora: todas têm configuração própria em Contas.');
-  assert.equal(P.alcanceDaChaveGeral([], 'autoReview'), '');
-  assert.equal(P.alcanceDaChaveGeral([BIUDER], 'inventada'), '');
+function engineCom(contas, geral = {}) {
+  return { config: { autoReview: true, autoApproveAll: true, ...geral }, accountList: () => contas };
+}
+
+test('alcance vem do engine: ativas que seguem a chave e as que têm valor próprio', () => {
+  const alc = contasConfig.alcanceDasChavesGerais(engineCom([BIUDER, PESSOAL, MUDA]));
+  assert.deepEqual(alc.autoReview, { segue: ['biuder'], proprias: ['pessoal'] }, 'silenciada fica fora');
+  const espera = { user: 'cautelosa', onClean: 'wait' };
+  assert.deepEqual(contasConfig.alcanceDasChavesGerais(engineCom([BIUDER, espera])).autoApproveAll, { segue: ['biuder'], proprias: ['cautelosa'] }, 'o limpo esperando você tira a conta da chave das ressalvas');
 });
 
-test('alcance das ressalvas: a conta cujo sem ressalvas espera você não segue a chave geral', () => {
+// a prova de que os predicados são OS MESMOS que decidem: mexer na chave geral muda a
+// decisão exatamente das contas que o alcance diz que seguem, e de nenhuma outra
+test('o alcance bate com o que a revisão e a aprovação decidem de verdade', () => {
   const espera = { user: 'cautelosa', onClean: 'wait' };
-  assert.equal(P.alcanceDaChaveGeral([BIUDER, espera], 'autoApproveAll'), 'Vale para 1 de 2 contas ativas; @cautelosa tem configuração própria em Contas.');
-  assert.equal(P.alcanceDaChaveGeral([BIUDER, PESSOAL], 'autoApproveAll'), 'Vale para 1 de 2 contas ativas; @pessoal tem configuração própria em Contas.');
+  const contas = [BIUDER, PESSOAL, espera];
+  const ligado = engineCom(contas, { autoReview: true, autoApproveAll: true });
+  const desligado = engineCom(contas, { autoReview: false, autoApproveAll: false });
+  const alc = contasConfig.alcanceDasChavesGerais(ligado);
+  for (const u of ['biuder', 'pessoal', 'cautelosa']) {
+    const mudaRevisao = contasConfig.revisaSozinho(ligado, u) !== contasConfig.revisaSozinho(desligado, u);
+    assert.equal(mudaRevisao, alc.autoReview.segue.includes(u), `revisão de ${u}`);
+    const mudaRessalva = contasConfig.acaoAoAprovar(ligado, u, false) !== contasConfig.acaoAoAprovar(desligado, u, false);
+    assert.equal(mudaRessalva, alc.autoApproveAll.segue.includes(u), `ressalvas de ${u}`);
+  }
+});
+
+test('a frase do alcance: quantas contas e quem tem valor próprio', () => {
+  assert.equal(P.alcanceDaChaveGeral({ segue: ['biuder'], proprias: ['pessoal'] }), 'Vale para 1 de 2 contas ativas; @pessoal tem configuração própria em Contas.');
+  assert.equal(P.alcanceDaChaveGeral({ segue: ['biuder'], proprias: [] }), 'Vale para a conta ativa.');
+  assert.equal(P.alcanceDaChaveGeral({ segue: ['a', 'b'], proprias: [] }), 'Vale para as 2 contas ativas.');
+  assert.equal(P.alcanceDaChaveGeral({ segue: [], proprias: ['pessoal'] }), 'Não vale para nenhuma conta agora: todas têm configuração própria em Contas.');
+  assert.equal(P.alcanceDaChaveGeral({ segue: ['a'], proprias: ['b', 'c'] }), 'Vale para 1 de 3 contas ativas; @b, @c têm configuração própria em Contas.');
+  assert.equal(P.alcanceDaChaveGeral(undefined), '');
 });
 
 test('as duas chaves gerais têm onde dizer o alcance, ao lado da descrição', () => {
