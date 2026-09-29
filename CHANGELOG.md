@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.65.4
+
+A revisão pedida pela conta silenciada aparece na conta certa.
+
+**Correções**
+
+- **A sessão mostra a conta que revisa.** Uma revisão pedida por uma conta que não monitora nenhuma organização (por exemplo, a silenciada que você usa para revisões escolhidas a dedo) saía da fila dela e aparecia "em execução" na conta dona da organização. Isso também acontecia no andamento ao vivo que o computador mostra do celular. A revisão em si já usava a conta certa; agora a tela também usa.
+- **A fila de espera também usa a conta certa**, pelo mesmo motivo.
+
 ## v2.65.3
 
 O comando do admin volta a chegar ao celular, e a configuração das contas passa a dizer exatamente o que cada botão faz.
