@@ -7,6 +7,10 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.65.0', [
+    "Radar > Aparelhos: pelo computador você vê a fila de cada aparelho, decide, revisa agora, destrava, ignora e restaura, sem tocar no celular.",
+    "A configuração da conta do celular também muda daqui, com confirmação antes de ligar qualquer coisa que poste sozinha no GitHub.",
+  ]],
   ['2.64.2', [
     "O aparelho admin volta a revisar a própria fila, pelo botão e sozinho, e continua acompanhando e decidindo pelos outros aparelhos.",
   ]],

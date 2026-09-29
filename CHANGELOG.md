@@ -9,6 +9,24 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.65.0
+
+O computador vira a mesa de controle do celular: pelo aparelho admin você vê a fila de cada aparelho, decide, mexe na fila e muda a configuração da conta dele, sem tocar no celular.
+
+**Novidades**
+
+- **Radar > Aparelhos.** Uma página por aparelho do conjunto, com o painel dele (vivo, pausado, sem sinal ou versão antiga; o que está revisando; IA pronta; se aceita comandos; contas; falhas recentes), a fila inteira agrupada em Pedem você, Revisando agora, Na fila, Parados e Revisados, e os comandos enviados com a resposta do aparelho.
+- **Mexer na fila à distância.** Revisar agora, destravar o que parou, ignorar, restaurar, decidir, ver o review completo, acompanhar ao vivo, transferir e cancelar, tudo pelo computador. Quando o aparelho recusa, a tela diz por quê.
+- **Configurar a conta do celular à distância.** Revisar sozinho, silenciar e o que fazer ao aprovar ou reprovar. Ligar uma opção que posta no GitHub sozinha pede confirmação antes.
+- **Pausar e teto pelo painel.** O mesmo comando da política do aparelho, direto na página dele.
+- **Pra mim ganhou "Seus aparelhos"**, um resumo de cada aparelho com o que espera por você.
+
+**Correções**
+
+- **O update no Termux não deixa mais dois Farois brigando pela porta.** O script de atualização agora espera o supervisor religar o Farol antes de abrir outro. Vale a partir desta versão: a atualização para ela ainda usa o script antigo.
+
+Para os comandos funcionarem, o celular precisa estar nesta versão e ter ligado, uma vez, "Aceitar políticas e comandos do admin" em Sistema > Aparelhos.
+
 ## v2.64.2
 
 O aparelho admin volta a revisar a própria fila, e continua vendo os outros aparelhos e decidindo por eles.
