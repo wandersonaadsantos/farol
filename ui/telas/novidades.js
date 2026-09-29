@@ -7,6 +7,10 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.65.3', [
+    "O comando do admin volta a chegar ao celular: aparelho vivo não aparece mais como sem sinal.",
+    "A configuração das contas diz o que cada botão faz: as chaves gerais mostram quantas contas alcançam, e aprovar junto com quem pegou o PR respeita a conta.",
+  ]],
   ['2.65.2', [
     "Radar > Aparelhos mostra só os aparelhos que aceitaram o controle deste computador: aparelho de outra pessoa no mesmo conjunto não aparece.",
   ]],
