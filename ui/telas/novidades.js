@@ -7,6 +7,9 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.65.4', [
+    "A revisão pedida pela conta silenciada aparece na conta certa: não surge mais em execução na conta dona da organização.",
+  ]],
   ['2.65.3', [
     "O comando do admin volta a chegar ao celular: aparelho vivo não aparece mais como sem sinal.",
     "A configuração das contas diz o que cada botão faz: as chaves gerais mostram quantas contas alcançam, e aprovar junto com quem pegou o PR respeita a conta.",
