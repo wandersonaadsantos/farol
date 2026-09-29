@@ -1,0 +1,364 @@
+// O aparelho executor visto do admin (controle do celular, 28/09/2026). PURA.
+// Desenho: docs/superpowers/specs/2026-09-28-controle-do-celular-anexos/HANDOFF-claude-design.md.
+//
+// Painel (vivo, pausado, IA, versão, consentimento, contas, falhas), a faixa que troca de
+// aparelho, o resumo "Seus aparelhos" de Pra mim, as contas editáveis à distância, a
+// confirmação antes de ligar uma opção automática e os comandos enviados a ele.
+//
+// O retorno de cada comando vem do registro local de emissão mais o recibo do alvo
+// (`reciboEstado`, ui/pure/compartilhado.js): sucesso só existe com o recibo.
+import { esc, fmtClock, fmtWhenDay, plural } from './comum.js';
+import { personMention, prRefMention } from './mencoes.js';
+import { reciboEstado } from './compartilhado.js';
+import { contagemDaFila } from './aparelhos-fila.js';
+
+// "vivo": visto nos últimos 3 minutos (o relógio da presença bate bem antes disso)
+export const VIVO_MS = 180000;
+// a primeira versão que publica a fila e aceita os comandos do controle do celular
+export const VERSAO_DO_CONTROLE = '2.65.0';
+
+function objeto(v) {
+  return !!v && typeof v === 'object' && !Array.isArray(v);
+}
+
+function lista(v) {
+  return Array.isArray(v) ? v : [];
+}
+
+// `true`, `false` e desconhecido (sem painel publicado) são três coisas: só o `false` explícito
+// desliga as ações, e o desconhecido deixa o aparelho responder pelo recibo
+function consentimentoDe(v) {
+  return v === true || v === false ? v : null;
+}
+
+function partesDaVersao(v) {
+  return String(v || '').split('.').map((n) => Number.parseInt(n, 10) || 0);
+}
+
+export function versaoAntiga(versao, minima = VERSAO_DO_CONTROLE) {
+  if (!versao) return true;
+  const a = partesDaVersao(versao);
+  const b = partesDaVersao(minima);
+  for (let i = 0; i < 3; i += 1) {
+    if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) < (b[i] || 0);
+  }
+  return false;
+}
+
+function haQuanto(ms) {
+  const min = Math.round(ms / 60000);
+  if (min < 60) return `${Math.max(1, min)} min`;
+  return `${Math.round(min / 60)} h`;
+}
+
+// Aparelho que aparece no andamento ou nas pendências e ainda não está na lista do snapshot
+// (a lista de aparelhos chega por outro caminho): sem isto, a sessão dele sumia da tela.
+function aparelhosSoNasFontes(s, extras) {
+  const conhecidos = new Set(lista(s.devices).map((d) => d && d.deviceId));
+  const vistos = new Map();
+  for (const x of lista(extras)) {
+    if (x && x.dev && x.dev !== s.deviceId && !conhecidos.has(x.dev) && !vistos.has(x.dev)) vistos.set(x.dev, { deviceId: x.dev, name: x.aparelho || '' });
+  }
+  return [...vistos.values()];
+}
+
+// Os executores do conjunto: todo aparelho que não é este e não está aposentado, com o
+// painel publicado quando existe. A lista vem do snapshot (`sync.devices`), mais quem só
+// apareceu nas `extras` (operações e pendências, com `dev` e `aparelho`).
+export function executoresDoConjunto(sync, extras = []) {
+  const s = sync || {};
+  const paineis = new Map(lista(s.paineis && s.paineis.aparelhos).map((p) => [p.deviceId, p]));
+  return [...lista(s.devices), ...aparelhosSoNasFontes(s, extras)]
+    .filter((d) => d && d.deviceId && d.deviceId !== s.deviceId && !d.euMesmo && !(Number(d.retiredAt) > 0))
+    .map((d) => {
+      const p = paineis.get(d.deviceId) || {};
+      return {
+        deviceId: d.deviceId, nome: String(d.name || p.nome || 'Aparelho sem nome'), platform: String(d.platform || ''),
+        versao: String(d.farolVersion || p.versao || ''), vistoEm: Number(d.lastSeenAt || p.vistoEm) || 0,
+        abriu: p.abriu === true, pausado: p.pausado === true, paralelismo: Number(p.paralelismo) || 1,
+        ocupadas: Number(p.ocupadas) || 0, iaPronta: p.iaPronta === true, aceitarAdmin: consentimentoDe(p.aceitarAdmin),
+        contas: lista(p.contas), falhas: lista(p.falhas), publicadoEm: Number(p.publicadoEm) || 0,
+      };
+    });
+}
+
+// vivo, pausado, sem-sinal ou antigo, nessa ordem de gravidade para a tela
+export function situacaoDoAparelho(ap, agora = Date.now()) {
+  if (versaoAntiga(ap.versao)) return 'antigo';
+  if (!ap.vistoEm || agora - ap.vistoEm > VIVO_MS) return 'sem-sinal';
+  if (ap.pausado) return 'pausado';
+  return 'vivo';
+}
+
+// Por que as ações remotas estão desligadas neste aparelho; vazio quando podem sair. `novos`
+// são os comandos do controle do celular (fila e contas), que a versão antiga não entende;
+// decidir, cancelar e transferir existem desde antes e não dependem da versão.
+export function motivoSemAcao(ap, { podeComandar = false, motivoSemComando = '', agora = Date.now(), novos = true } = {}) {
+  const sit = situacaoDoAparelho(ap, agora);
+  if (novos && sit === 'antigo') return 'Atualize o Farol no aparelho para mandar estes comandos.';
+  if (!podeComandar) return motivoSemComando || 'Só o aparelho admin, com sinal fresco, manda comandos.';
+  if (ap.aceitarAdmin === false) return 'Este aparelho não aceita comandos do admin. Ligue no próprio aparelho, em Sistema > Aparelhos.';
+  if (sit === 'sem-sinal') return `Sem sinal há ${haQuanto(agora - ap.vistoEm)}: o comando venceria antes de chegar.`;
+  return '';
+}
+
+const PILL = {
+  vivo: ['ok', 'vivo'], pausado: ['warn', 'pausado pelo admin'], antigo: ['warn', 'versão antiga'],
+};
+
+function pillHtml(ap, agora) {
+  const sit = situacaoDoAparelho(ap, agora);
+  if (sit === 'sem-sinal') return `<span class="pill err">${ap.vistoEm ? `sem sinal há ${esc(haQuanto(agora - ap.vistoEm))}` : 'sem sinal'}</span>`;
+  const [classe, rotulo] = PILL[sit];
+  return `<span class="pill ${classe}">${esc(rotulo)}</span>`;
+}
+
+function vistoTxt(ap, agora) {
+  if (!ap.vistoEm) return 'nunca visto';
+  const ms = agora - ap.vistoEm;
+  if (ms > VIVO_MS) return `visto às ${fmtClock(ap.vistoEm)}, há ${haQuanto(ms)}`;
+  return `visto há ${Math.max(1, Math.round(ms / 1000))} s`;
+}
+
+function linhaDoAparelho(ap, agora) {
+  const partes = [ap.platform, ap.versao ? `Farol ${ap.versao}` : ''].filter(Boolean);
+  return [...partes, vistoTxt(ap, agora)].join(' · ');
+}
+
+function fato(rot, valor, sub, classe = '') {
+  return `<div class="apar-fato"><span class="rot">${esc(rot)}</span><b${classe ? ` class="${classe}"` : ''}>${esc(valor)}</b><small>${esc(sub)}</small></div>`;
+}
+
+const FATO_CONSENTIMENTO = {
+  true: fato('Comandos do admin', 'Aceita', 'ligado no próprio aparelho', 'ok'),
+  false: fato('Comandos do admin', 'Não aceita', 'só se liga no próprio aparelho', 'bad'),
+  null: fato('Comandos do admin', 'Sem leitura', 'o aparelho ainda não publicou o estado'),
+};
+
+function fatosHtml(ap, agora) {
+  const sit = situacaoDoAparelho(ap, agora);
+  if (sit === 'antigo') {
+    return `${fato('Versão', `Farol ${ap.versao || 'antigo'}`, `precisa da ${VERSAO_DO_CONTROLE} ou mais nova`, 'warn')}${fato('Comandos do admin', 'Indisponíveis', 'esta versão não recebe os comandos novos')}${fato('Fila', 'Não publicada', 'aparece depois de atualizar')}`;
+  }
+  let agoraTxt = fato('Agora', ap.ocupadas ? `Revisando ${ap.ocupadas} de ${ap.paralelismo}` : 'Parado', `teto de ${ap.paralelismo} ao mesmo tempo`);
+  if (ap.pausado) agoraTxt = fato('Agora', 'Pausado pelo admin', 'termina o que começou e não pega PR novo', 'warn');
+  if (sit === 'sem-sinal') agoraTxt = fato('Agora', 'Sem sinal', ap.vistoEm ? `às ${fmtClock(ap.vistoEm)} revisava ${ap.ocupadas} de ${ap.paralelismo}` : 'nunca publicou o estado');
+  const ia = ap.iaPronta ? fato('IA', 'Pronta', 'Claude Code instalado e logado', 'ok') : fato('IA', 'Não está pronta', 'instale e faça login no Claude Code no aparelho', 'bad');
+  const cmd = FATO_CONSENTIMENTO[String(ap.aceitarAdmin)];
+  return `${agoraTxt}${ia}${cmd}${fato('Versão', `Farol ${ap.versao}`, 'em dia')}`;
+}
+
+const FALHA = {
+  'limite-plano': 'limite do plano', autenticacao: 'credencial expirada', 'skip-permissions-root': 'rodando como root',
+};
+
+function falhasHtml(ap, prKeyDaTag) {
+  if (!ap.falhas.length) return '<div>Nenhuma registrada.</div>';
+  return ap.falhas.map((f) => {
+    const key = prKeyDaTag ? prKeyDaTag(f.prTag) : '';
+    const onde = key ? ` em ${prRefMention(key, 'pr-ref-mention')}` : '';
+    return `<div><span class="sync-chip bad">${esc(FALHA[f.classe] || f.classe.replace(/-/g, ' '))}</span> ${esc(fmtWhenDay(f.at))}${onde}</div>`;
+  }).join('');
+}
+
+// conta cujo nome nenhuma linha trouxe aparece pela tag curta, sem link: não é um login
+function nomeDaContaHtml(c) {
+  if (c.nomeConhecido === false) return `<code>${esc(c.nome)}</code>`;
+  return personMention(c.nome, 'xs');
+}
+
+function chipDoToken(c) {
+  return c.temToken ? '<span class="sync-chip ok">token válido</span>' : '<span class="sync-chip bad">sem token</span>';
+}
+
+function contasDoPainelHtml(ap) {
+  if (!ap.contas.length) return '<div class="md-fraco">nenhuma publicada</div>';
+  return ap.contas.map((c) => `<div>${nomeDaContaHtml(c)} ${chipDoToken(c)}</div>`).join('');
+}
+
+function opcaoDoTeto(n, atual) {
+  const sel = n === atual ? ' selected' : '';
+  return `<option value="${n}"${sel}>${n}</option>`;
+}
+
+function controlesHtml(ap, desligado) {
+  const dis = desligado ? ` aria-disabled="true" title="${esc(desligado)}"` : '';
+  const rotulo = ap.pausado ? 'Retomar' : 'Pausar';
+  const opcoes = [1, 2, 3, 4].map((n) => opcaoDoTeto(n, ap.paralelismo)).join('');
+  return `<div class="row-actions">
+      <label class="apar-teto">Ao mesmo tempo <select class="ap-teto" data-dev="${esc(ap.deviceId)}"${dis}>${opcoes}</select></label>
+      <button class="btn ap-pausa" data-dev="${esc(ap.deviceId)}" data-pausar="${String(!ap.pausado)}"${dis}>${rotulo}</button>
+    </div>`;
+}
+
+// `ctx`: { agora, desligado, prKeyDaTag(tag)->key }
+export function painelDoAparelhoHtml(ap, ctx) {
+  const c = ctx || {};
+  const agora = c.agora || Date.now();
+  const sit = situacaoDoAparelho(ap, agora);
+  const controles = sit === 'antigo' ? '' : controlesHtml(ap, c.desligado);
+  return `<section class="card apar-painel" aria-label="Painel do aparelho">
+    <div class="apar-topo">
+      <div>
+        <div class="apar-nome"><h2>${esc(ap.nome)}</h2>${pillHtml(ap, agora)}</div>
+        <div class="apar-linha">${esc(linhaDoAparelho(ap, agora))}</div>
+      </div>${controles}
+    </div>
+    <div class="apar-fatos">${fatosHtml(ap, agora)}</div>
+    <div class="apar-extra">
+      <div><span class="rot">Contas do GitHub nele</span>${contasDoPainelHtml(ap)}</div>
+      <div><span class="rot">Falhas recentes</span>${falhasHtml(ap, c.prKeyDaTag)}</div>
+    </div>
+  </section>`;
+}
+
+// O aviso que explica POR QUE as ações estão desligadas, quando há um motivo que a pessoa
+// pode resolver (consentimento) ou precisa saber (sem sinal).
+export function avisoDoAparelhoHtml(ap, { agora = Date.now() } = {}) {
+  const sit = situacaoDoAparelho(ap, agora);
+  if (sit === 'antigo') return '';
+  if (sit === 'sem-sinal') {
+    const visto = ap.vistoEm ? `O aparelho foi visto pela última vez às ${fmtClock(ap.vistoEm)}. ` : '';
+    return `<div class="apar-aviso bad" role="status"><b>Sem sinal${ap.vistoEm ? ` há ${esc(haQuanto(agora - ap.vistoEm))}` : ''}</b><p>${esc(visto)}A fila abaixo é a última que ele publicou e pode ter mudado desde então. As ações voltam quando ele der sinal.</p></div>`;
+  }
+  if (ap.aceitarAdmin === false) {
+    return `<div class="apar-aviso warn" role="status"><b>Este aparelho não aceita comandos do admin</b><p>Tudo continua visível aqui, mas as ações ficam desligadas até você ligar isso no próprio aparelho:</p><p><code>Sistema &gt; Aparelhos &gt; Aceitar políticas e comandos do admin</code> Só precisa fazer uma vez.</p></div>`;
+  }
+  return '';
+}
+
+function itemDaFaixa(ap, selecionado, contagens, agora) {
+  const ativo = ap.deviceId === selecionado;
+  const n = (contagens && contagens[ap.deviceId] && contagens[ap.deviceId].pedem) || 0;
+  const pedem = n ? plural(n, 'pede você', 'pedem você') : 'nada pede você';
+  const classe = ativo ? 'apar-troca-item active' : 'apar-troca-item';
+  return `<button role="tab" aria-selected="${String(ativo)}" class="${classe}" data-dev="${esc(ap.deviceId)}"><span class="apar-dot ${situacaoDoAparelho(ap, agora)}"></span><span><b>${esc(ap.nome)}</b><small>${esc(ap.platform || 'aparelho')} · ${pedem}</small></span></button>`;
+}
+
+// A faixa que troca de aparelho: só com dois ou mais executores.
+export function faixaDeAparelhosHtml(executores, selecionado, contagens, agora = Date.now()) {
+  const lista0 = lista(executores);
+  if (lista0.length < 2) return '';
+  return `<div class="apar-troca" role="tablist" aria-label="Aparelhos">${lista0.map((ap) => itemDaFaixa(ap, selecionado, contagens, agora)).join('')}</div>`;
+}
+
+// Pra mim > Seus aparelhos: uma linha por executor, e some sem executor.
+export function seusAparelhosHtml(executores, itensPorAparelho, agora = Date.now()) {
+  const lista0 = lista(executores);
+  if (!lista0.length) return '';
+  const linhas = lista0.map((ap) => {
+    const cont = contagemDaFila((itensPorAparelho || {})[ap.deviceId]);
+    const sit = situacaoDoAparelho(ap, agora);
+    const estado = { vivo: 'vivo', pausado: 'pausado', antigo: 'versão antiga', 'sem-sinal': 'sem sinal' }[sit];
+    const resumo = [`revisando ${ap.ocupadas} de ${ap.paralelismo}`, `${cont.fila} na fila`, `${cont.parados} ${cont.parados === 1 ? 'parado' : 'parados'}`].join(' · ');
+    const chip = cont.pedem ? `<span class="sync-chip warn">${plural(cont.pedem, 'pede você', 'pedem você')}</span>` : '';
+    return `<div class="card md-seu-aparelho"><div class="info"><div><b>${esc(ap.nome)}</b> <span class="md-fraco">${esc([ap.platform, estado].filter(Boolean).join(' · '))}</span></div><div class="md-sub">${esc(resumo)}</div></div>${chip}<button class="btn sm ap-abrir" data-dev="${esc(ap.deviceId)}">Abrir o aparelho</button></div>`;
+  }).join('');
+  return `<div class="section-head"><h2>Seus aparelhos</h2><span class="section-sub">atualiza a cada 10 s</span></div>
+    <p class="section-desc">O que cada executor está fazendo e o que espera por você. Decidir, mexer na fila e configurar ficam na página de cada um.</p>
+    <div class="cards">${linhas}</div>`;
+}
+
+/* ---------- contas à distância ---------- */
+
+const CAMPOS_CONTA = [
+  { campo: 'autoReview', rotulo: 'Revisar sozinho', tipo: 'seg' },
+  { campo: 'muted', rotulo: 'Silenciada', tipo: 'seg' },
+  { campo: 'onClean', rotulo: 'Aprovável sem ressalvas', opcoes: [['wait', 'espera você aprovar'], ['approve', 'aprova sozinho']], auto: 'approve', aviso: 'o aparelho posta a aprovação sozinho no GitHub' },
+  { campo: 'onCaveats', rotulo: 'Aprovável com ressalvas', opcoes: [['wait', 'espera você aprovar'], ['approve', 'aprova e destaca as ressalvas']], auto: 'approve', aviso: 'o aparelho posta a aprovação sozinho no GitHub' },
+  { campo: 'onReject', rotulo: 'Com blocker', opcoes: [['wait', 'espera você (padrão)'], ['request_changes', 'reprova sozinho (posta pedir mudanças)']], auto: 'request_changes', aviso: 'o aparelho posta pedir mudanças sozinho no GitHub' },
+];
+
+// Liga uma opção que faz o aparelho POSTAR sozinho: esta pede confirmação antes do comando.
+export function ligaAutomatico(campo, valor) {
+  const def = CAMPOS_CONTA.find((c) => c.campo === campo);
+  return !!(def && def.auto && def.auto === valor);
+}
+
+function campoHtml(def, conta, ctx) {
+  const pol = objeto(conta.politica) ? conta.politica : {};
+  const atual = pol[def.campo];
+  const dis = ctx.desligado ? ` aria-disabled="true" title="${esc(ctx.desligado)}"` : '';
+  const dados = `data-dev="${esc(ctx.dev)}" data-acct="${esc(conta.acctTag)}" data-campo="${def.campo}" data-conta="${esc(conta.nome)}"`;
+  const retorno = ctx.retornoConta ? ctx.retornoConta(conta.acctTag, def.campo) : '';
+  let controle;
+  if (def.tipo === 'seg') {
+    controle = `<div class="seg" role="radiogroup" aria-label="${esc(def.rotulo)}">${[[true, 'Sim'], [false, 'Não']].map(([v, r]) => `<button role="radio" aria-checked="${String(atual === v)}" class="ap-conta${atual === v ? ' active' : ''}" ${dados} data-valor="${String(v)}"${dis}>${r}</button>`).join('')}</div>`;
+  } else {
+    controle = `<select class="ap-conta-sel" aria-label="${esc(def.rotulo)}" ${dados}${dis}>${def.opcoes.map(([v, r]) => `<option value="${v}"${atual === v ? ' selected' : ''}>${esc(r)}</option>`).join('')}</select>`;
+  }
+  const aviso = def.aviso && atual === def.auto ? `<div class="conta-aviso">${esc(def.aviso)}</div>` : '';
+  return `<div class="conta-campo"><div><div>${esc(def.rotulo)}</div>${aviso}</div>${controle}${retorno}</div>`;
+}
+
+// `ctx`: { dev, desligado, publicadoEm, retornoConta(acctTag, campo)->html }
+export function contasDoAparelhoHtml(ap, ctx) {
+  const c = { ...(ctx || {}), dev: ap.deviceId };
+  const contas = lista(ap.contas).filter((x) => objeto(x.politica));
+  if (!contas.length) return '';
+  const cards = contas.map((conta) => `<div class="card conta-remota">
+    <div class="conta-remota-head">${nomeDaContaHtml(conta)}</div>
+    ${CAMPOS_CONTA.map((def) => campoHtml(def, conta, c)).join('')}
+  </div>`).join('');
+  return `<div class="section-head"><h2>Contas neste aparelho</h2><span class="section-sub">${ap.publicadoEm ? `publicado às ${esc(fmtClock(ap.publicadoEm))}` : ''}</span></div>
+    <p class="section-desc">O valor marcado é o que o aparelho publicou. Trocar aqui manda um comando, e ele aplica no próximo ciclo, em até 10 s.</p>${cards}`;
+}
+
+// Texto da confirmação antes de ligar uma opção que posta sozinha (HANDOFF, "Confirmação").
+export function confirmacaoAutomatica(aparelho, conta, campo) {
+  const alvo = `@${conta}`;
+  const textos = {
+    onClean: [`Deixar o ${aparelho} aprovar sozinho?`, `Quando a revisão de um PR pedido a ${alvo} terminar sem ressalvas, o ${aparelho} vai postar a aprovação no GitHub sozinho, sem passar por você.`, 'Ligar a aprovação automática'],
+    onCaveats: [`Deixar o ${aparelho} aprovar com ressalvas sozinho?`, `Quando a revisão de um PR pedido a ${alvo} terminar com ressalvas, o ${aparelho} vai aprovar no GitHub e destacar as ressalvas no comentário, sem passar por você.`, 'Ligar a aprovação com ressalvas'],
+    onReject: [`Deixar o ${aparelho} reprovar sozinho?`, `Quando a revisão de um PR pedido a ${alvo} encontrar um blocker, o ${aparelho} vai postar pedir mudanças no GitHub sozinho, sem passar por você.`, 'Ligar a reprovação automática'],
+  };
+  const [titulo, texto, confirmar] = textos[campo] || textos.onClean;
+  return {
+    titulo, confirmar, cancelar: 'Manter esperando você',
+    corpo: `<p>${esc(texto)}</p><ul><li>Vale a partir da próxima revisão. As que já pedem decisão continuam esperando você.</li><li>${esc(`A revisão sai no GitHub com o nome de ${alvo}.`)}</li><li>Para desligar, volte aqui e escolha a opção que espera você.</li></ul>`,
+  };
+}
+
+/* ---------- comandos enviados a um aparelho ---------- */
+
+const ROTULO_CMD = {
+  revisar: 'Revisar agora', ignorar: 'Ignorar', restaurar: 'Restaurar', ocultar: 'Ocultar', mostrar: 'Mostrar',
+  decidir: 'Decidir', cancelar: 'Cancelar', transferir: 'Transferir', iniciar: 'Começar', repetir: 'Repetir', tomar: 'Tomar',
+};
+const ROTULO_CAMPO = { autoReview: 'Revisar sozinho', muted: 'Silenciada', onClean: 'Aprovável sem ressalvas', onCaveats: 'Aprovável com ressalvas', onReject: 'Com blocker' };
+
+const VALOR_SIM_NAO = { true: 'sim', false: 'não' };
+
+function rotuloDoComando(cmd) {
+  if (cmd.tipo === 'config-conta') return `${ROTULO_CAMPO[cmd.campo] || 'Conta'}: ${VALOR_SIM_NAO[String(cmd.valor)] || String(cmd.valor)}`;
+  return ROTULO_CMD[cmd.tipo] || cmd.tipo;
+}
+
+// O estado do comando mais recente que casa `filtro`, como chip mais frase; vazio sem comando.
+export function retornoDoComando(comandos, recibos, filtro, { agora = Date.now() } = {}) {
+  const cmd = lista(comandos).find(filtro);
+  if (!cmd) return { html: '', pendente: false };
+  const r = reciboEstado(cmd, (recibos || {})[cmd.cmdId], agora);
+  const frase = r.estado === 'enviado'
+    ? `${rotuloDoComando(cmd)}, enviado às ${fmtClock(cmd.at)}. O aparelho aplica no próximo ciclo, em até 10 s.`
+    : `${rotuloDoComando(cmd)}: ${r.detalhe}.`;
+  return {
+    pendente: r.estado === 'enviado',
+    html: `<div class="cmd-retorno" role="status"><span class="sync-chip ${r.classe}">${r.estado === 'enviado' ? '<i class="cmd-dot"></i>' : ''}${esc(r.rotulo)}</span><span>${esc(frase)}</span></div>`,
+  };
+}
+
+export function comandosDoAparelhoHtml(comandos, recibos, dev, { agora = Date.now() } = {}) {
+  const deste = lista(comandos).filter((c) => c && c.alvo === dev);
+  if (!deste.length) return '';
+  const linhas = deste.map((cmd) => {
+    const r = reciboEstado(cmd, (recibos || {})[cmd.cmdId], agora);
+    const pr = cmd.prKey ? ` ${prRefMention(cmd.prKey, 'pr-ref-mention')}` : '';
+    return `<div class="cmd-linha"><span class="cmd-hora">${esc(fmtClock(cmd.at))}</span><span><b>${esc(rotuloDoComando(cmd))}</b>${pr}</span><span><span class="sync-chip ${r.classe}">${esc(r.rotulo)}</span> ${esc(r.detalhe)}</span></div>`;
+  }).join('');
+  return `<div class="section-head"><h2>Comandos enviados</h2><span class="section-sub">desta sessão · o resultado é o recibo do aparelho</span></div><div class="card cmd-lista">${linhas}</div>`;
+}
+
+export function nenhumExecutorHtml() {
+  return '<div class="fila-vazia"><b>Só este computador no conjunto</b><p>Nenhum outro aparelho está ligado à sua sincronização. Quando você abrir o Farol num celular ou notebook com a mesma sincronização, ele aparece aqui com a fila, o estado e as contas dele.</p><button class="btn sm" data-goto="sys:devices">Adicionar aparelho em Sistema</button></div>';
+}

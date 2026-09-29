@@ -12,11 +12,11 @@
    bloqueada, nunca como ligada. */
 
 import {
-  acoesDaRevisao, acoesDoCandidato, andamentoAtrasadoHtml, candidatosDoConjuntoHtml,
+  acoesDaRevisao, acoesDoCandidato, candidatosDoConjuntoHtml,
   comandoPermitido, comandosEmitidosHtml, compartilhadoBloqueioHtml,
   envioDepoisDoLote, envioHistoricoHtml, esc, inicioConfirmacao, inicioDialogo,
   modoDistribuicaoHtml, nomeDoAparelho, oQueELocalHtml, opcoesDaDecisao,
-  operacoesRemotasHtml, pendenciasCompartilhadasHtml, reciboFinal, repetirConfirmacao,
+  reciboFinal, repetirConfirmacao,
   revisaoAbertaHtml, revisoesCompartilhadasHtml, secoesDaFrota, visaoCompartilhada, acoesDaOperacao,
   tomadasFeitasHtml, transferenciaConfirmacao, transferenciaDialogo,
 } from '../pure.js';
@@ -38,6 +38,26 @@ const PEND = { pendencias: [], novas: new Set(), estado: 'inicial' };
 const RECIBOS = { mapa: {}, conferencias: {}, falhas: new Set(), at: 0, emCurso: null };
 const REVISOES = { escopo: 'todos', estado: 'inicial', revisoes: [], at: 0 };
 let ENVIO = { fase: 'inicial' };
+
+// Desde o controle do celular (28/09/2026), pendências e sessões de outros aparelhos moram
+// na página de cada aparelho (telas/radar-aparelhos.js), que lê daqui e é avisada por este
+// gancho quando algo muda: sem import de volta, que seria ciclo.
+const OUVINTES = [];
+
+function aoMudarConjunto(fn) {
+  if (typeof fn === 'function') OUVINTES.push(fn);
+}
+
+function avisarMudanca() {
+  for (const fn of OUVINTES) fn();
+}
+
+function dadosDoConjunto() {
+  return {
+    pendencias: PEND.pendencias, operacoes: LIVE.operacoes, recibos: RECIBOS.mapa,
+    estadoPendencias: PEND.estado, estadoOperacoes: LIVE.estado, andamentoEm: LIVE.at, andamentoFalhaEm: LIVE.falhaEm,
+  };
+}
 
 function syncAtual() { return (estado() && estado().sync) || {}; }
 function cfgSyncAtual() { return (estado() && estado().config && estado().config.sync) || {}; }
@@ -71,20 +91,6 @@ function escolherModal({ titulo, corpo, opcoes = [], fechar = 'Cancelar', largo 
 }
 
 /* ---------- render ---------- */
-
-function renderPendencias(s) {
-  const permissao = comandoPermitido(s);
-  const alvo = $('#mdPendencias');
-  alvo.innerHTML = pendenciasCompartilhadasHtml(PEND.pendencias, { novas: PEND.novas, estado: PEND.estado, podeComandar: permissao.pode, motivoSemComando: permissao.motivo });
-  const abertas = PEND.pendencias.filter((p) => !p.visto).length;
-  $('#mdPendCount').textContent = abertas;
-  $('#mdPendCount').hidden = !abertas;
-}
-
-function renderOperacoes(s) {
-  const permissao = comandoPermitido(s);
-  $('#mdOperacoes').innerHTML = `${andamentoAtrasadoHtml(LIVE.at, Date.now(), LIVE.falhaEm, { estado: LIVE.estado })}${operacoesRemotasHtml(LIVE.operacoes, { estado: LIVE.estado, podeComandar: permissao.pode, motivoSemComando: permissao.motivo })}`;
-}
 
 function pintarComandos(s) {
   $('#mdComandos').innerHTML = comandosEmitidosHtml(s.comandosEmitidos, RECIBOS.mapa, { devices: s.devices, deviceIdLocal: s.deviceId, falhas: RECIBOS.falhas, conferencias: RECIBOS.conferencias });
@@ -138,8 +144,6 @@ function renderCompartilhado() {
   $('#mdCompartilhado').hidden = !ligada;
   $('#mdHistorico').hidden = !ligada;
   if (!ligada) return;
-  renderPendencias(s);
-  renderOperacoes(s);
   renderCandidatos(s);
   renderComandos(s);
   renderTomadas(s);
@@ -160,8 +164,7 @@ function aoAndamentoRemoto(d) {
   // leitura que FALHOU não conclui a primeira leitura: ela continua sendo 'inicial', e a
   // faixa de falha (que vence a idade) é quem explica
   if (!LIVE.falhaEm) { LIVE.at = Date.now(); LIVE.estado = 'lido'; }
-  const s = syncAtual();
-  if (visaoCompartilhada(s) === 'ligada' && secoesDaFrota(s)) renderOperacoes(s);
+  avisarMudanca();
 }
 
 function aoPendenciasRemotas(d) {
@@ -171,7 +174,7 @@ function aoPendenciasRemotas(d) {
   for (const id of novas) PEND.novas.add(id);
   const s = syncAtual();
   if (visaoCompartilhada(s) !== 'ligada' || !secoesDaFrota(s)) return;
-  renderPendencias(s);
+  avisarMudanca();
   // todos os aparelhos avisam o que ninguém viu; o primeiro visto cala os outros (D3)
   if (novas.length) toast('info', novas.length === 1 ? 'Uma decisão espera por você em outro aparelho.' : `${novas.length} decisões esperam por você em outros aparelhos.`);
 }
@@ -193,6 +196,7 @@ async function atualizarRecibos(lista, { forcar = false } = {}) {
   try { await RECIBOS.emCurso; } finally { RECIBOS.emCurso = null; }
   RECIBOS.at = Date.now();
   pintarComandos(syncAtual());
+  avisarMudanca();
 }
 
 // O engine só devolve `recibo` quando ele é do ALVO; nos outros casos devolve a `conferencia`
@@ -239,7 +243,7 @@ async function marcarVisto(itemId) {
   }
   const item = PEND.pendencias.find((p) => p.itemId === itemId);
   if (item) item.visto = true;
-  renderPendencias(syncAtual());
+  avisarMudanca();
   return true;
 }
 
@@ -434,7 +438,7 @@ function aoClicarHistorico(e) {
 function tiqueDoAndamento() {
   const s = syncAtual();
   if (visaoCompartilhada(s) !== 'ligada') return Promise.resolve();
-  renderOperacoes(s);
+  avisarMudanca();
   return atualizarRecibos(Array.isArray(s.comandosEmitidos) ? s.comandosEmitidos : []);
 }
 
@@ -452,4 +456,5 @@ export {
   registrarTelaRadarCompartilhado, renderCompartilhado, aoAndamentoRemoto, aoPendenciasRemotas, tiqueDoAndamento,
   marcarVisto, decidirNoAparelho, cancelarOperacao, transferirOperacao, medirHistorico, enviarHistorico,
   atualizarRecibos, repetirRevisao, iniciarCandidato, buscarRevisoes,
+  dadosDoConjunto, emitirComando, aoMudarConjunto, aoClicarCompartilhado, abrirRevisao,
 };

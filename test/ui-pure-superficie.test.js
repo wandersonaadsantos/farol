@@ -11,6 +11,28 @@ import assert from 'node:assert/strict';
 import { arquivosDosPuros } from './helpers/fontes-ui.js';
 
 const CONGELADA = [
+  // controle do celular (28/09/2026): ui/pure/aparelhos-fila.js e ui/pure/aparelhos-painel.js
+  "VERSAO_DO_CONTROLE",
+  "VIVO_MS",
+  "avisoDoAparelhoHtml",
+  "comandosDoAparelhoHtml",
+  "confirmacaoAutomatica",
+  "contagemDaFila",
+  "contasDoAparelhoHtml",
+  "executoresDoConjunto",
+  "faixaDeAparelhosHtml",
+  "filaDoAparelhoHtml",
+  "grupoDoItem",
+  "itensDaFila",
+  "ligaAutomatico",
+  "motivoSemAcao",
+  "nenhumExecutorHtml",
+  "painelDoAparelhoHtml",
+  "retornoDoComando",
+  "seusAparelhosHtml",
+  "situacaoDaFila",
+  "situacaoDoAparelho",
+  "versaoAntiga",
   "CHAT_TEXTOS",
   "chatAvisoDaJanela",
   "chatAvisoExportado",

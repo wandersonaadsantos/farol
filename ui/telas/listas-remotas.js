@@ -69,4 +69,9 @@ function initListasRemotas(redesenhar) {
   _redesenhar = redesenhar;
 }
 
-export { initListasRemotas, aoListasRemotas, renderPanoramaRemoto, renderMeusPrsRemoto };
+// a fila de cada aparelho (telas/radar-aparelhos.js) lê a mesma projeção
+function dadosDasListas() {
+  return LISTAS.dados;
+}
+
+export { initListasRemotas, aoListasRemotas, renderPanoramaRemoto, renderMeusPrsRemoto, dadosDasListas };

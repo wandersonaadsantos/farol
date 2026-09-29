@@ -28,6 +28,7 @@ globalThis.fetch = async (url, init = {}) => {
 
 await import('../ui/app.js');
 const Tela = await import('../ui/telas/radar-compartilhado.js');
+const Apar = await import('../ui/telas/radar-aparelhos.js');
 const $ = (s) => document.querySelector(s);
 
 const DEVICES = [{ deviceId: 'dEu', name: 'Notebook de teste', euMesmo: true }, { deviceId: 'dOutro', name: 'Desktop antigo' }];
@@ -52,7 +53,8 @@ const OP = { opId: 'op1', dev: 'dOutro', aparelho: 'Desktop antigo', t0: 1, situ
 // o PR em claro chega em `pr`, resolvido pelo catálogo no engine (antes o teste o punha em
 // `prKey`/`account`, campos que o engine nunca mandou)
 const OP_COMPLETA = { ...OP, opId: 'op2', matTag: 'c'.repeat(32), pr: { key: 'acme-exemplo/app-web#41', account: 'alice', title: 'Ajusta o rodapé', author: 'bruno-exemplo' } };
-const PEND = { itemId: 'ab12', dev: 'dOutro', aparelho: 'Desktop antigo', at: 1, visto: false, veredito: 'approve', motivos: [], bloqueio: '' };
+// `prTag` é do contrato da pendência (lib/sync/pendencia.js): é por ela que a página do aparelho a liga à fila
+const PEND = { itemId: 'ab12', dev: 'dOutro', aparelho: 'Desktop antigo', at: 1, visto: false, veredito: 'approve', motivos: [], bloqueio: '', prTag: 'e'.repeat(32) };
 
 beforeEach(() => {
   PEDIDOS.length = 0;
@@ -98,16 +100,18 @@ test('desligada ou sem projeção de sync: nada aparece e nada explode', () => {
 test('sync-live chega à tela pelo bootstrap e desenha o andamento', () => {
   emitir('state', estado({ sync: { admin: ADMIN } }));
   assert.equal(emitir('sync-live', { operacoes: [OP] }), 1, 'o bootstrap escuta sync-live');
-  assert.match($('#mdOperacoes').innerHTML, /md-cancelar" data-op="op1"/);
-  assert.doesNotMatch($('#mdOperacoes').innerHTML, /leitura atrasada/, 'leitura recém-chegada não é atrasada');
+  // desde o controle do celular (28/09/2026) a sessão aparece na página do aparelho dono
+  assert.match($('#aparPagina').innerHTML, /md-cancelar" data-op="op1"/);
+  assert.doesNotMatch($('#aparPagina').innerHTML, /leitura atrasada/, 'leitura recém-chegada não é atrasada');
 });
 
 test('sync-pending chega à tela, conta as abertas e oferece decidir ao admin', () => {
   emitir('state', estado({ sync: { admin: ADMIN } }));
   assert.equal(emitir('sync-pending', { pendencias: [PEND], novas: ['ab12'] }), 1, 'o bootstrap escuta sync-pending');
-  assert.match($('#mdPendencias').innerHTML, /md-decidir" data-item="ab12"/);
-  assert.match($('#mdPendencias').innerHTML, />nova</);
-  assert.equal($('#mdPendCount').hidden, false);
+  // a pendência mora no grupo "Pedem você" do aparelho dono, e conta na sub-aba Aparelhos
+  assert.match($('#aparPagina').innerHTML, /md-decidir" data-item="ab12"/);
+  assert.equal($('#rcApar').hidden, false);
+  assert.equal($('#rcApar').textContent, '1');
 });
 
 // Task 9 (28/09/2026), fix round 1: antes, quem não era admin ainda via a pendência em modo
@@ -160,14 +164,14 @@ test('marcar visto manda só o itemId', async () => {
   RESPOSTAS['/api/sync/seen'] = { ok: true };
   assert.equal(await Tela.marcarVisto('ab12'), true);
   assert.deepEqual(pedidosPara('/api/sync/seen').map((p) => p.corpo), [{ itemId: 'ab12' }]);
-  assert.match($('#mdPendencias').innerHTML, />visto</);
+  assert.doesNotMatch($('#aparPagina').innerHTML, /md-decidir" data-item="ab12"/, 'vista, a pendência sai de Pedem você');
 });
 
 test('marcar visto que falha não finge ter marcado', async () => {
   emitir('sync-pending', { pendencias: [PEND], novas: [] });
   RESPOSTAS['/api/sync/seen'] = { ok: false, code: 'indisponivel', motivo: 'não deu' };
   assert.equal(await Tela.marcarVisto('ab12'), false);
-  assert.doesNotMatch($('#mdPendencias').innerHTML, />visto</);
+  assert.match($('#aparPagina').innerHTML, /md-decidir" data-item="ab12"/, 'o visto que falhou não tira a pendência');
 });
 
 test('decidir: sem escolha nada sai; com escolha vai o comando decidir ao dono', async () => {
@@ -228,11 +232,11 @@ const DESTINOS = {
 
 test('transferir: com o commit no andamento o botão aparece, e sem ele o motivo', () => {
   emitir('state', estado({ sync: { admin: ADMIN } }));
-  emitir('sync-live', { operacoes: [OP, OP_COMPLETA] });
-  const html = $('#mdOperacoes').innerHTML;
-  assert.match(html, /md-transferir" data-op="op2"/);
-  assert.doesNotMatch(html, /md-transferir" data-op="op1"/);
-  assert.match(html, /Transferir: indisponível, o andamento não traz o commit/);
+  // dois PRs diferentes: um com o commit no andamento, outro sem
+  emitir('sync-live', { operacoes: [OP, { ...OP_COMPLETA, prTag: 'd'.repeat(32) }] });
+  const html = $('#aparPagina').innerHTML;
+  assert.match(html, /md-transferir" data-op="op2" aria-label/, 'com o commit, o botão sai habilitado');
+  assert.match(html, /md-transferir" data-op="op1" aria-disabled="true" title="o andamento não traz o commit, que a transferência exige"/);
 });
 
 test('transferir: lista lida primeiro, escolha entre os aptos, confirmação, e o corpo exato', async () => {
@@ -367,4 +371,27 @@ test('o tique da tela consulta os recibos abertos, sem esperar um snapshot novo'
   Date.now = () => agoraReal() + 11000;
   try { await Tela.tiqueDoAndamento(); } finally { Date.now = agoraReal; }
   assert.match($('#mdComandos').innerHTML, /sync-chip ok">aplicado</);
+});
+
+/* ---------- Radar > Aparelhos (controle do celular, 28/09/2026) ---------- */
+
+const PAINEL = { deviceId: 'dOutro', abriu: true, pausado: false, paralelismo: 2, ocupadas: 0, iaPronta: true, aceitarAdmin: true, contasComToken: [], falhas: [], contas: [{ acctTag: 'f'.repeat(32), nome: 'ana-exemplo', nomeConhecido: true, temToken: true, politica: { autoReview: false, muted: false, onClean: 'wait', onCaveats: 'wait', onReject: 'wait' } }] };
+const DEVICES_NOVOS = [{ deviceId: 'dEu', name: 'Notebook de teste', euMesmo: true }, { deviceId: 'dOutro', name: 'Desktop antigo', farolVersion: '2.65.0', lastSeenAt: Date.now() }];
+
+test('a página do aparelho mostra o painel e as contas publicadas, e Pra mim ganha o resumo', () => {
+  emitir('state', estado({ sync: { admin: ADMIN, devices: DEVICES_NOVOS, paineis: { aparelhos: [PAINEL] } } }));
+  const pagina = $('#aparPagina').innerHTML;
+  assert.match(pagina, /Painel do aparelho/);
+  assert.match(pagina, /Desktop antigo/);
+  assert.match(pagina, /Contas neste aparelho/);
+  assert.equal($('#rsub-apar').hidden, false);
+  assert.match($('#mdSeusAparelhos').innerHTML, /Abrir o aparelho/);
+});
+
+test('configurar a conta à distância manda só conta, campo e valor ao aparelho', async () => {
+  emitir('state', estado({ sync: { admin: ADMIN, devices: DEVICES_NOVOS, paineis: { aparelhos: [PAINEL] } } }));
+  RESPOSTAS['/api/sync/command'] = { ok: true, cmdId: '7'.repeat(32) };
+  // revisar sozinho não posta nada no GitHub: sai sem pedir confirmação
+  assert.equal(await Apar.configConta('f'.repeat(32), 'autoReview', true, 'ana-exemplo'), true);
+  assert.deepEqual(pedidosPara('/api/sync/command').map((p) => p.corpo), [{ alvo: 'dOutro', tipo: 'config-conta', args: { acctTag: 'f'.repeat(32), campo: 'autoReview', valor: true } }]);
 });

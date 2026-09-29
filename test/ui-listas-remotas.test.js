@@ -144,12 +144,12 @@ test('sync-live com falha diz que a leitura falhou e mantém o andamento', () =>
   emitir('state', estado());
   const op = { opId: 'op1', dev: 'dA', aparelho: 'Notebook', etapa: 'leitura', msPorEtapa: {}, subagentes: [], tipo: 'review', prTag: 'a'.repeat(32) };
   emitir('sync-live', { operacoes: [op] });
-  assert.doesNotMatch($('#mdOperacoes').innerHTML, /falhou/);
+  assert.doesNotMatch($('#aparPagina').innerHTML, /falhou/);
   emitir('sync-live', { operacoes: [op], falhaEm: Date.now() });
-  assert.match($('#mdOperacoes').innerHTML, /A última leitura falhou/);
-  assert.match($('#mdOperacoes').innerHTML, /md-op/, 'o andamento anterior continua');
+  assert.match($('#aparPagina').innerHTML, /A última leitura falhou/);
+  assert.match($('#aparPagina').innerHTML, /fila-item/, 'o andamento anterior continua');
   emitir('sync-live', { operacoes: [op] });
-  assert.doesNotMatch($('#mdOperacoes').innerHTML, /A última leitura falhou/, 'leitura boa limpa o aviso');
+  assert.doesNotMatch($('#aparPagina').innerHTML, /A última leitura falhou/, 'leitura boa limpa o aviso');
 });
 
 test('lista de revisões que falhou no banco aparece como falha, com o motivo', async () => {
@@ -187,7 +187,7 @@ test('a falha do andamento mostra a hora da última leitura BOA, não a da falha
   const op = { opId: 'op9', dev: 'dA', aparelho: 'Notebook', etapa: 'leitura', msPorEtapa: {}, subagentes: [], tipo: 'review', prTag: 'a'.repeat(32) };
   comRelogio(T0, () => { emitir('state', estado()); emitir('sync-live', { operacoes: [op] }); });
   comRelogio(T0 + 5 * 60000, () => emitir('sync-live', { operacoes: [op], falhaEm: T0 + 5 * 60000 }));
-  const html = $('#mdOperacoes').innerHTML;
+  const html = $('#aparPagina').innerHTML;
   assert.match(html, /falhou às 10:05/);
   assert.match(html, /Mostrando o andamento de 10:00/);
 });
