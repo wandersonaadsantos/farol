@@ -7,6 +7,9 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.65.2', [
+    "Radar > Aparelhos mostra só os aparelhos que aceitaram o controle deste computador: aparelho de outra pessoa no mesmo conjunto não aparece.",
+  ]],
   ['2.65.1', [
     "Radar > Aparelhos: o item que pede decisão lista os motivos por extenso, o que está revisando mostra subagentes e memória herdada, e a fila não diz vazia antes de ler.",
   ]],

@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.65.2
+
+Radar > Aparelhos mostra só os aparelhos que aceitaram o controle deste computador.
+
+**Correções**
+
+- **Aparelho de outra pessoa no mesmo conjunto não aparece mais.** A aba Aparelhos, o resumo "Seus aparelhos" e o aviso de decisão pendente consideram só quem ligou, no próprio aparelho, "Aceitar políticas e comandos do admin". Sem nenhum, a aba explica onde ligar.
+
 ## v2.65.1
 
 A fila de cada aparelho em Radar > Aparelhos volta a mostrar tudo o que os cards antigos mostravam, e não afirma mais vazio antes de ler.
