@@ -2,6 +2,16 @@
 
 Data: 28/09/2026. Decisões do dono tomadas nesta data, em conversa.
 
+> **Revisto em 28/09/2026 à noite (v2.64.2), por decisão do dono.** O admin é o aparelho
+> mais capaz do conjunto e o que o dono usa todo dia, então ele **volta a revisar a
+> própria fila**, por todos os caminhos: clique, ciclo automático, re-revisão, retry,
+> autoanálise, pushback, distribuição e comandos. Caiu tudo o que a fase 2 barrava com o
+> código `observador`, e caiu a linha "quem cuida" da fila do admin (seção 2.3), que só
+> existia porque ele não executava. Continua valendo: a fase 1 (execução amarrada à
+> conta), a fase 3 (feed ao vivo e decisão com o review completo) e a fase 4 (só o admin
+> vê a frota e decide pelos outros). O objetivo declarado é o celular ficar no canto,
+> revisando a conta dele, e tudo ser acompanhado e decidido pelo computador.
+
 ## O problema, medido
 
 Em 28/09/2026 o `Farol-Android-Velho` revisou PRs da própria conta (`engine-ai#314`, `biud-frontend#1211`) e o time viu o autor "revisando" o próprio trabalho. A v2.63.4 fechou a porta do PR próprio. O mapeamento que veio depois mostrou um problema maior, de papel:

@@ -163,15 +163,12 @@ test('o candidato sobe como ponteiro, e o PR não aparece em claro', async () =>
   }
 });
 
-// Revisão final (28/09/2026): o admin nunca publica candidato, porque publicar é se oferecer
-// para executar, e ele só assiste.
-test('o admin não publica candidato: publicar é se oferecer para executar', async () => {
+// 28/09/2026 à noite: o admin revisa a própria fila, e publicar candidato volta a valer nele.
+test('o admin publica candidato como qualquer aparelho', async () => {
   const e = await motorDistribuidor();
-  fake.requests.length = 0;
   const r = await dist.publicarCandidato(e, e.config.sync, prDe(1), { agora: T });
-  assert.deepEqual(r, { ok: false, code: 'observador' });
-  assert.deepEqual(no('live/queue'), {});
-  assert.equal(fake.requests.filter((q) => q.method === 'PUT').length, 0);
+  assert.equal(r.ok, true, r.code);
+  assert.notDeepEqual(no('live/queue'), {});
 });
 
 test('o nome do owner só abre no lugar dele: transplantado de outro candidato não vale', async () => {
@@ -737,13 +734,11 @@ test('destino da transferência que conhece o PR vira publicador', async () => {
   assert.equal(no('live/queue')[itemId][e.sync.deviceId].prefDev, e.sync.deviceId, 'a preferência segue com o item');
 });
 
-test('o admin não adota a preferência de uma transferência: ele nunca é destino', async () => {
+test('o admin adota a preferência de uma transferência feita para ele', async () => {
   const { e, restaurar } = await preferidoPorOutro(59);
   e.headSha = async () => 'sha59';
   restaurar();
-  fake.requests.length = 0;
-  assert.deepEqual((await dist.adotarPreferidos(e, e.config.sync, { agora: T + 1000 })).adotados, []);
-  assert.equal(fake.requests.filter((q) => q.method === 'PUT').length, 0);
+  assert.equal((await dist.adotarPreferidos(e, e.config.sync, { agora: T + 1000 })).adotados.length, 1);
 });
 
 test('sem preferência para mim, nada é adotado', async () => {
@@ -991,18 +986,14 @@ test('consentimento negado não recebe atribuição nova, e o motivo diz o que �
   assert.deepEqual(item.aparelhos.map((a) => a.motivo), ['sem-consentimento'], 'não é "sem-sinal": ele está ali, respondendo, e dizendo não');
 });
 
-// 28/09/2026: o admin deixou de executar (lib/engine/papel-do-aparelho.js). Antes este caso
-// provava que o admin executor não ganhava consentimento implícito; agora nem consentindo
-// ele é eleito, e o motivo diz por quê.
-test('o admin não é eleito nem consentindo: ele observa, e o motivo diz observador', async () => {
+// 28/09/2026 à noite: o admin volta a executar, e consentindo ele é eleito para o que publicou.
+test('o admin consentindo é eleito para o que ele mesmo publicou', async () => {
   const e = await motorDistribuidor();
   assert.equal(e.sync.deviceId && true, true);
   await publicarComoExecutor(e, prDe(1), { agora: T });
   await comConsentimento(e, true);
   const ciclo = await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
-  assert.equal(ciclo.atribuido, null, 'o único publicador é o próprio admin, que não executa');
-  const [item] = ciclo.relatorio.avaliados;
-  assert.deepEqual(item.aparelhos.map((a) => a.motivo), ['observador']);
+  assert.notEqual(ciclo.atribuido, null, 'o único publicador é o próprio admin, e ele executa');
 });
 
 test('mais de um giro: o laço de atribuir-e-recusar não se repete a cada TTL', async () => {
@@ -1095,36 +1086,3 @@ test('a espera diz de QUEM ela fala: escolhido, recusou, ou ninguém', async () 
   assert.equal(recusou.dev, e.sync.deviceId);
 });
 
-/* ---------- 28/09/2026: retrato da frota para a fila do admin dizer quem cuida ----------
-   O ciclo do agendador já lê `live/deviceStatus` para escolher quem executa; a fila do
-   admin (lib/sync/quem-cuida.js) precisa de `contasComToken`, `observador` e o nome do
-   MESMO retrato, sem ler a rede de novo (sync-telas.js, PROJEÇÃO NÃO É FONTE). Desde o fix
-   round 1 (29/09/2026), o retrato carrega `lidoEm`: ausência de leitura não é ausência de
-   aparelho (ui/pure/compartilhado.js), e quem lê precisa saber QUANDO o retrato foi tirado. */
-
-test('cicloDoAgendador guarda a frota com contas, observador e lidoEm, para a tela do admin', async () => {
-  const e = await motorDistribuidor();
-  e.sync.devices[e.sync.deviceId] = { name: 'PC Admin', contract: 2, keyReady: true, lastSeenAt: T };
-  e.tokenFor = (login) => (login === LOGIN ? 'tok' : '');
-  await publicacao.publicarCapacidade(e, e.config.sync, { agora: T });
-  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
-
-  const kId = kek.bufferDe(e.sync.material.id);
-  assert.equal(e.sync.aparelhosDaFrota.lidoEm, T, 'o instante do giro viaja com o retrato');
-  const meu = (e.sync.aparelhosDaFrota.lista || []).find((a) => a.dev === e.sync.deviceId);
-  assert.ok(meu, 'o próprio publicador entra no retrato');
-  assert.equal(meu.nome, 'PC Admin');
-  assert.equal(meu.observador, true, 'este motor é o admin: ele se declara observador');
-  assert.deepEqual(meu.contasComToken, [acctTag(kId, LOGIN)]);
-  // quem cuida exige executor que VAI executar: pausa e aceite do admin viajam no retrato
-  assert.equal(meu.pausado, false);
-  assert.equal(meu.aceitarAdmin, e.config.sync.aceitarAdmin === true);
-
-  const restaurar = comoExecutor(e);
-  await publicacao.publicarCapacidade(e, e.config.sync, { agora: T + 1 });
-  await dist.cicloDoAgendador(e, e.config.sync, { agora: T + 1 });
-  assert.equal(e.sync.aparelhosDaFrota.lidoEm, T + 1, 'giro seguinte atualiza o instante');
-  const comoExec = (e.sync.aparelhosDaFrota.lista || []).find((a) => a.dev === e.sync.deviceId);
-  assert.equal(comoExec.observador, false, 'sob outro admin no sinal, este motor publica como executor');
-  restaurar();
-});
