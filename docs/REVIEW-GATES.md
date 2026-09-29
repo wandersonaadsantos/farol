@@ -297,7 +297,10 @@ Três peças que a decisão exige, e nenhuma é opcional:
    invariante 4) e a chave nunca nasce ligada: quem liga assume que endossa
    revisão alheia sem saber o rigor nem o modelo que a produziu (objeção do
    próprio Wanderson na conversa, e ela não tem solução técnica: o Farol não tem
-   como descobrir o modelo que rodou na máquina do colega).
+   como descobrir o modelo que rodou na máquina do colega). **Desde 29/09/2026
+   ela segue a política da conta dona do PR:** conta com "aprovável sem
+   ressalvas: espera você aprovar" não co-assina, porque co-assinar é aprovar em
+   seu nome. Antes a chave geral passava por cima da conta.
 2. **`standDownCaducou`** (PURA). Se a label do colega sumiu e ele NÃO deixou
    review naquele head, a sessão dele morreu no meio: a saída de cena caduca e o
    Farol assume de volta. Sem isso, um crash na máquina alheia deixaria o PR órfão

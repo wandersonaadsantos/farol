@@ -309,6 +309,27 @@ export function claudeProfilesHtml(ctx) {
   return migrateCard + defaultRow + rows + addForm;
 }
 
+// Quantas contas uma chave GERAL da Automação alcança de fato (29/09/2026): a conta com
+// valor próprio em Contas ignora a chave, e sem isto a tela deixava ligar um botão que não
+// valia para ninguém. Conta silenciada fica fora da conta (ela não revisa sozinha).
+// `aprovarComRessalvas` também não alcança a conta cujo aprovável SEM ressalvas espera você:
+// o com ressalvas nunca fica mais permissivo que ele (lib/engine/contas-config.js).
+const SEGUE_A_CHAVE = {
+  autoReview: (a) => a.autoReview !== true && a.autoReview !== false,
+  autoApproveAll: (a) => !a.onCaveats && a.onClean !== 'wait',
+};
+
+export function alcanceDaChaveGeral(accounts, chave) {
+  const segue = SEGUE_A_CHAVE[chave];
+  const ativas = (Array.isArray(accounts) ? accounts : []).filter((a) => a && a.user && !a.muted);
+  if (!segue || !ativas.length) return '';
+  const fora = ativas.filter((a) => !segue(a)).map((a) => `@${a.user}`);
+  if (!fora.length) return `Vale para ${ativas.length === 1 ? 'a conta ativa' : `as ${ativas.length} contas ativas`}.`;
+  if (fora.length === ativas.length) return 'Não vale para nenhuma conta agora: todas têm configuração própria em Contas.';
+  const quem = fora.length === 1 ? `${fora[0]} tem configuração própria` : `${fora.join(', ')} têm configuração própria`;
+  return `Vale para ${ativas.length - fora.length} de ${ativas.length} contas ativas; ${quem} em Contas.`;
+}
+
 export function accountsManagerHtml(ctx) {
   // não re-renderiza enquanto você edita um campo (senão apaga o que está digitando)
   const accounts = (ctx.accounts || []);
@@ -358,7 +379,7 @@ export function accountsManagerHtml(ctx) {
             </select></div>
           <div class="a-pol-item"><span class="a-fieldlabel">quando fica aprovável sem ressalvas</span>
             <select class="acct-onclean" data-user="${esc(a.user)}" title="PR aprovável e sem nenhum ponto de atenção">
-              <option value="">herda o geral: aprova sozinho</option>
+              <option value="">padrão: aprova sozinho</option>
               <option value="approve"${sel(a.onClean === 'approve')}>aprova sozinho</option>
               <option value="wait"${sel(a.onClean === 'wait')}>espera você aprovar</option>
             </select></div>
@@ -373,8 +394,8 @@ export function accountsManagerHtml(ctx) {
               <option value=""${sel(!a.onReject || a.onReject === 'wait')}>espera você (padrão)</option>
               <option value="request_changes"${sel(a.onReject === 'request_changes')}>reprova sozinho (posta pedir mudanças)</option>
             </select></div>
-          <div class="a-pol-item"><span class="a-fieldlabel">perfil de IA</span>
-            <select class="acct-claudeprofile" data-user="${esc(a.user)}" title="Perfil de IA usado nas sessões desta conta">
+          <div class="a-pol-item"><span class="a-fieldlabel">login do Claude (plano)</span>
+            <select class="acct-claudeprofile" data-user="${esc(a.user)}" title="Qual login do Claude (e o plano dele) roda as sessões desta conta. O modelo e o raciocínio vêm de Sistema > Automação, iguais para todas as contas">
               <option value="">usa o perfil padrão do Farol</option>
               ${(ctx.config.claudeProfiles || []).map(p => `<option value="${esc(p.id)}"${sel(a.claudeProfileId === p.id)}>${esc(p.label)}</option>`).join('')}
             </select>

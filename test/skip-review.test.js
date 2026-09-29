@@ -404,6 +404,25 @@ test('coAssinar: posta APPROVE em meu nome, ancorado no head endossado, e marca 
   assert.equal(engine.skipComentado['o/r#1'].coAssinado, true);
 });
 
+// 29/09/2026: co-assinar é aprovar em seu nome, e a conta que manda esperar você não
+// aprova por ninguém. A chave geral deixou de passar por cima da política da conta.
+test('coAssinar: conta que espera você aprovar não co-assina, e nenhum gh roda', async (t) => {
+  const postados = [];
+  const politicas = [];
+  const engine = engineFalso({ postados, approvePolicyFor: (conta, limpo) => { politicas.push([conta, limpo]); return 'wait'; } });
+  t.after(espiaGh(engine));
+  engine.skipComentado['o/r#1'] = { head: 'sha1', quem: ['ana'] };
+  assert.equal(await skip.coAssinar(engine, PR, 'ana', 'sha1'), false);
+  assert.equal(postados.length, 0);
+  assert.equal(engine.rodou.length, 0, 'sai antes de consultar o GitHub');
+  assert.deepEqual(politicas, [['eu', true]], 'pergunta a política de aprovável sem ressalvas da conta dona');
+  engine.approvePolicyFor = () => 'approve';
+  const original = io.run;
+  io.run = () => Promise.resolve({ ok: true, stdout: '[{"quem":"ana","tipo":"User","state":"APPROVED","commit_id":"sha1"}]', stderr: '' });
+  t.after(() => { io.run = original; });
+  assert.equal(await skip.coAssinar(engine, PR, 'ana', 'sha1'), true, 'com a conta aprovando sozinha, co-assina como antes');
+});
+
 // postar review não é idempotente: sem confirmar o que já existe, não posta
 test('coAssinar: não posta quando eu já aprovei este head', async (t) => {
   const postados = [];
