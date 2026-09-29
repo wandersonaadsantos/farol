@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.64.2
+
+O aparelho admin volta a revisar a própria fila, e continua vendo os outros aparelhos e decidindo por eles.
+
+**Correções**
+
+- **O admin revisa a própria fila.** Na v2.64.0 o admin só assistia, e PR de uma conta que só ele tinha ficava parado com "sem aparelho com a conta". Agora ele revisa como qualquer aparelho: pelo botão Revisar, sozinho no ciclo automático, de novo depois de commit novo, e também pela distribuição do conjunto e por transferência.
+- **O que continua só no admin:** acompanhar ao vivo as revisões dos outros aparelhos e decidir por eles com o review completo na tela.
+
 ## v2.64.1
 
 O Ver review completo de uma pendência de outro aparelho volta a caber na tela.
