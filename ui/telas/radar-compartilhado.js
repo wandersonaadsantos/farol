@@ -45,7 +45,8 @@ function cfgSyncAtual() { return (estado() && estado().config && estado().config
 /* ---------- diálogo com opções (anatomia de .modal-card, ui/app.css) ---------- */
 
 // confirmModal só tem confirmar e cancelar; decidir precisa de duas ações e a leitura de uma
-// revisão precisa só de fechar. `opcoes` vazio é um diálogo de leitura.
+// revisão precisa só de fechar. `opcoes` vazio é um diálogo de leitura. O corpo rola por dentro:
+// sem isso um review longo empurrava título e Fechar para fora da tela, e o overlay não rola.
 function escolherModal({ titulo, corpo, opcoes = [], fechar = 'Cancelar', largo = false }) {
   return new Promise((resolve) => {
     const ov = document.createElement('div');
@@ -53,7 +54,7 @@ function escolherModal({ titulo, corpo, opcoes = [], fechar = 'Cancelar', largo 
     const botoes = opcoes.map((o) => `<button class="btn sm ${esc(o.classe || '')} md-opcao" data-valor="${esc(o.valor)}">${esc(o.rotulo)}</button>`).join('');
     ov.innerHTML = `<div class="modal-card${largo ? ' wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="mdModalTitulo">
       <div class="modal-title" id="mdModalTitulo">${esc(titulo)}</div>
-      <div class="modal-body">${corpo}</div>
+      <div class="modal-body scroll">${corpo}</div>
       <div class="modal-actions md-modal-acoes"><button class="btn sm ghost md-fechar">${esc(fechar)}</button>${botoes}</div>
     </div>`;
     document.body.appendChild(ov);
