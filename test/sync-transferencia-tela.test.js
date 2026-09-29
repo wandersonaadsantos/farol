@@ -325,12 +325,13 @@ test('a rota de destinos lista quem pode receber, e cada inapto com o motivo cer
   })).json();
   assert.equal(r.ok, true, r.motivo);
   const motivos = Object.fromEntries(r.destinos.map((d) => [d.deviceId, d.motivo]));
-  // o admin assiste e nunca executa: aparece na lista, inapto, com o motivo `observador`
-  assert.deepEqual(motivos, { [DESTINO]: '', [ADMIN]: 'observador', [ORIGEM]: 'dono-atual', [VELHO]: 'versao-antiga', [SUMIDO]: 'sem-sinal' });
-  assert.equal(r.destinos[0].deviceId, DESTINO, 'os aptos vêm primeiro');
-  assert.equal(r.destinos[0].apto, true);
-  assert.equal(r.destinos[0].souEu, false);
-  assert.equal(r.destinos[0].nome, 'Notebook de teste');
+  // o admin executa desde 28/09/2026 à noite: com a conta e vaga, é destino como os outros
+  assert.deepEqual(motivos, { [DESTINO]: '', [ADMIN]: '', [ORIGEM]: 'dono-atual', [VELHO]: 'versao-antiga', [SUMIDO]: 'sem-sinal' });
+  const destino = r.destinos.find((d) => d.deviceId === DESTINO);
+  assert.equal(destino.apto, true);
+  assert.equal(destino.souEu, false);
+  assert.equal(destino.nome, 'Notebook de teste');
+  assert.deepEqual(r.destinos.slice(0, 2).map((d) => d.apto), [true, true], 'os aptos vêm primeiro');
   assert.equal(r.destinos.find((d) => d.deviceId === ADMIN).souEu, true);
   assert.deepEqual(r.origem, { deviceId: ORIGEM, motivo: '' });
 });
@@ -392,9 +393,8 @@ test('transferir pela tela: botão habilitado, corpo exato, a origem aplica e a 
   const enviado = await Tela.transferirOperacao(op.opId, async (d) => { dialogo = d; return DESTINO; }, async (c) => { confirmacao = c; return true; });
   assert.equal(enviado, true);
   assert.deepEqual(pedidosPara('/api/sync/transfer-targets'), [{ dono: ORIGEM, acctTag: acctTag(kId(admin), LOGIN) }]);
-  assert.deepEqual(dialogo.aptos, [DESTINO], 'o admin nunca é oferecido como destino');
+  assert.deepEqual([...dialogo.aptos].sort(), [ADMIN, DESTINO].sort(), 'o admin também é oferecido como destino');
   assert.match(dialogo.corpo, /Celular antigo.*versão antiga/s);
-  assert.match(dialogo.corpo, /Admin de teste.*é o admin, que assiste e não executa revisões/s, 'o admin aparece com o motivo');
   assert.match(confirmacao.title, /Transferir para Notebook de teste/);
   assert.deepEqual(pedidosPara('/api/sync/command'), [{
     alvo: ORIGEM, tipo: 'transferir', args: { prTag: prTag(kId(admin), PR.key), matTag: matTag(kId(admin), HEAD), destino: DESTINO },
@@ -456,7 +456,6 @@ test('o relógio do admin entrega o andamento já com o PR resolvido', async () 
 test('escolha forjada fora da lista de aptos não sai, nem com confirmação', async () => {
   const op = await telaComAndamento();
   assert.equal(await Tela.transferirOperacao(op.opId, async () => VELHO, async () => true), false);
-  assert.equal(await Tela.transferirOperacao(op.opId, async () => ADMIN, async () => true), false, 'o admin nunca é destino, nem forjado');
   assert.equal(await Tela.transferirOperacao(op.opId, async () => DESTINO, async () => false), false, 'sem confirmação, nada');
   assert.deepEqual(pedidosPara('/api/sync/command'), []);
 });

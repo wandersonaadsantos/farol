@@ -254,7 +254,6 @@ body[data-tab="sistema"] main { max-width: 1150px; padding-top: var(--sp-5); }
 .pr-sub .author { color: var(--text); font-weight: 600; }
 .pr-actions { display: flex; gap: 7px; flex: none; align-items: center; }
 /* A fila do admin diz quem cuida em vez do botão Revisar (spec 2.3): ele nunca executa. */
-.pr-quem-cuida { color: var(--muted); font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
 /* menu inline do card: empurra o conteúdo em vez de flutuar por cima. Num card estreito
    um dropdown flutuante sai da tela ou cobre o card de baixo. */
 .pr-menu { grid-column: 1 / -1; margin-top: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); overflow: hidden; }
