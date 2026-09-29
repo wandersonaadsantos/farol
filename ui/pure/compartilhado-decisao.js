@@ -59,15 +59,24 @@ const AVISO_CORTE_PARCIAL = '<p class="md-nota md-ruim">O review era grande dema
 const AVISO_CORTE_TOTAL = '<p class="md-nota md-ruim">O texto do review não coube no envio cifrado; abra o PR no GitHub ou decida no aparelho dono.</p>';
 
 // Uma seção por ação, na ordem em que o diálogo as oferece, com o corpo e os inlines.
+// Fechadas: o relatório acima já é o review, e os corpos das ações repetem quase o mesmo
+// texto; abertas de uma vez, o modal virava quatro cópias seguidas sem dizer qual é qual.
 // O aviso de corte sai ANTES de olhar os payloads: no último degrau do corte
 // (lib/sync/historico.js) eles somem inteiros, e review cortado nunca parece completo.
+function resumoDoPayload(p) {
+  const n = (Array.isArray(p.comments) ? p.comments : []).filter((c) => c && c.body).length;
+  return n ? ` <span class="md-fraco">(${plural(n, 'comentário', 'comentários')} em arquivo)</span>` : '';
+}
+
 export function payloadsDaRevisaoHtml(revisao) {
   const r = revisao || {};
   const payloads = r.payloads && typeof r.payloads === 'object' ? r.payloads : null;
   if (!payloads) return r.cortado === true ? AVISO_CORTE_TOTAL : '';
-  const secoes = [...ORDEM_DAS_OPCOES].reverse().filter((a) => payloads[a]).map((a) => `<section class="md-payload">
-    <div class="md-titulo">${esc(ROTULO_DA_ACAO[a])}</div>
+  const acoes = [...ORDEM_DAS_OPCOES].reverse().filter((a) => payloads[a]);
+  const secoes = acoes.map((a) => `<details class="md-payload">
+    <summary class="md-titulo">${esc(ROTULO_DA_ACAO[a])}${resumoDoPayload(payloads[a])}</summary>
     <div class="report">${md(payloads[a].body || '')}</div>${inlinesPorArquivo(payloads[a].comments)}
-  </section>`).join('');
-  return `${r.cortado === true ? AVISO_CORTE_PARCIAL : ''}${secoes}`;
+  </details>`).join('');
+  const nota = acoes.length ? '<p class="md-nota">O que cada decisão postaria no PR. Abra uma para ver o texto exato e os comentários por arquivo.</p>' : '';
+  return `${r.cortado === true ? AVISO_CORTE_PARCIAL : ''}${nota}${secoes}`;
 }

@@ -211,6 +211,22 @@ test('a revisão aberta mostra cada ação com o corpo e os inlines por arquivo'
   assert.match(corpo, /cortad/);
 });
 
+// 28/09/2026: o modal abria o relatório e mais uma cópia aberta por ação, quase o mesmo texto
+// quatro vezes, e o corpo sem rolagem própria empurrava título e Fechar para fora da tela.
+test('a revisão aberta mostra as ações fechadas, com a contagem de inlines, e o modal rola por dentro', () => {
+  const html = P.payloadsDaRevisaoHtml({ payloads: {
+    approve: { event: 'APPROVE', body: 'Pode seguir.', comments: [] },
+    comment: { event: 'COMMENT', body: 'Nota.', comments: [{ path: 'src/a.js', line: 1, body: 'x' }, { path: 'src/b.js', line: 2, body: 'y' }] },
+  } });
+  assert.equal((html.match(/<details class="md-payload">/g) || []).length, 2, 'uma seção por ação, todas fechadas');
+  assert.doesNotMatch(html, /<details[^>]*open/);
+  assert.match(html, /Só comentar <span class="md-fraco">\(2 comentários em arquivo\)/);
+  assert.doesNotMatch(html, /Aprovar <span/, 'sem inline, sem contagem');
+  assert.match(html, /O que cada decisão postaria/);
+  const tela = fs.readFileSync(new URL('../ui/telas/radar-compartilhado.js', import.meta.url), 'utf8');
+  assert.match(tela, /<div class="modal-body scroll">\$\{corpo\}<\/div>/);
+});
+
 // Fix round 1: o último degrau do corte tira os payloads inteiros. O corpo chega com
 // `cortado: true` e sem `payloads`, e a tela tem de avisar mesmo assim: review cortado nunca
 // pode parecer completo.
