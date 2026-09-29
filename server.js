@@ -2011,7 +2011,7 @@ class Engine extends EventEmitter {
       // contagem/lista compacta de subagentes que a UI mostra no card da sessão
       activeSessions: sessionMod.projectSessions([...this.activeReviews.values()]),
       activity: Object.fromEntries(this.activity),
-      headlessWaiting: this.headlessQueue.map(p => p.key),
+      ...reviewMod.esperaParaTela(this),
       // Justiça de fila (spec 2026-09-10): leitura PURA do estado que as três
       // políticas já produzem, sem coleta nova. É o que torna o rodízio visível: uma
       // automação que cede a vez, vista de fora, é idêntica a uma automação quebrada.

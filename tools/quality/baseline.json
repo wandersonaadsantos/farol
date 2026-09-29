@@ -30,7 +30,7 @@
     "profundidadeExcedida": 1
   },
   "lib/engine/review.js": {
-    "maxLines": 884,
+    "maxLines": 883,
     "ternarioAninhado": 1,
     "profundidadeExcedida": 13
   },
