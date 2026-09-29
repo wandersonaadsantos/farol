@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.64.1
+
+O Ver review completo de uma pendência de outro aparelho volta a caber na tela.
+
+**Correções**
+
+- **O Ver review completo cabe na tela.** Um review longo empurrava o título e o botão Fechar para fora da janela. Agora o texto rola por dentro, e o título e o Fechar ficam sempre visíveis.
+- **O texto do review aparece uma vez só.** O que cada decisão postaria (aprovar, pedir mudanças, só comentar) fica em seções fechadas, que abrem com um clique e dizem quantos comentários por arquivo cada uma leva. Antes o mesmo texto aparecia quatro vezes seguidas.
+
 ## v2.64.0
 
 O aparelho admin vira a mesa de controle do conjunto: assiste tudo ao vivo e decide pelos outros aparelhos, sem executar nada. Toda revisão passa a rodar só no aparelho que tem a conta dela.
