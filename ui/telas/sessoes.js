@@ -5,7 +5,7 @@
 
 import {
   statusBannerHtml, fmtClock, feedLine, agentsTitle, stageFlowFrom, stageFlowHtml,
-  sessionProgress, sessionCardHtml, stageLabel,
+  sessionCardHtml, situacaoDaSessao, etapaAtiva,
 } from '../pure.js';
 import { estado } from './estado.js';
 import { $, ACTIVE_OPS, showOp, closeOp } from './infra.js';
@@ -24,8 +24,8 @@ function handleActivity(id, item) {
     feed.insertAdjacentHTML('beforeend', feedLine(item));
     if (stick) feed.scrollTop = feed.scrollHeight;
   }
-  // progresso honesto (régua única sessionProgress, ui/pure.js): a atividade
-  // real move a barra do card da sessão no "Analisando agora"
+  // linha nova é sinal de vida: a situação do card (fase, silêncio do stream,
+  // arquivos lidos) é recalculada a cada evento, não só no snapshot
   updateSessionBar(id);
   updateStageFlow(id);
 }
@@ -87,7 +87,10 @@ function tickCountdown() {
   if (!estado()) return;
   const el = $('#metaCheck');
   const last = estado().lastCheckAt ? `Última checagem ${fmtClock(estado().lastCheckAt)}` : 'Primeira checagem em andamento';
-  if (estado().status === 'checking') { el.textContent = `${last} · verificando…`; }
+  // Engine fora do ar: contar para a próxima checagem seria prometer uma coisa que não
+  // vai acontecer. A contagem some e fica só quando foi a última vez que soubemos algo.
+  if (document.body.classList.contains('sem-engine')) { el.textContent = `${last} · sem conexão com o engine`; }
+  else if (estado().status === 'checking') { el.textContent = `${last} · verificando…`; }
   else if (!estado().nextCheckAt) { el.textContent = last; }
   else {
     const rem = Math.max(0, Math.round((estado().nextCheckAt - Date.now()) / 1000));
@@ -110,11 +113,18 @@ function tickElapsed() {
   document.querySelectorAll('.stage-flow[data-id]').forEach(el => updateStageFlow(el.dataset.id));
   // o estagio (iniciando/processando) envelhece junto: o card so re-renderiza em
   // snapshot SSE, entao sem este ticker o rotulo congelava no primeiro paint (B13)
-  document.querySelectorAll('.session-stage').forEach(el => {
-    const started = parseInt(el.dataset.started, 10);
-    if (!started) return;
-    el.textContent = stageLabel(Math.max(0, Math.round((Date.now() - started) / 1000)));
+  // a etapa do cabecalho e a etapa REAL da esteira (item.s do engine), nao mais um
+  // rotulo por idade que virava string vazia aos 15 s
+  document.querySelectorAll('.session-stage[data-id]').forEach(el => {
+    const id = el.dataset.id;
+    const sess = (estado().activeSessions || []).find(x => x.id === id);
+    if (!sess) return;
+    const flow = stageFlowFrom(estado().activity && estado().activity[id], sess.startedAt);
+    const etapa = sess.fase === 'fechando' ? 'fechando' : etapaAtiva(flow);
+    el.textContent = etapa ? `(${etapa})` : '(iniciando…)';
   });
+  // a situacao (sem sinal ha Xs) tambem envelhece sozinha entre eventos
+  document.querySelectorAll('.sess-progress[data-id]').forEach(el => updateSessionBar(el.dataset.id));
 }
 
 /* ---------- render: análises em andamento (feed ao vivo) ---------- */
@@ -151,15 +161,22 @@ function sessionVisible(s) {
   const u = s && s.pr ? prUser(s.pr) : '';
   return !u || scopeVisible({ account: u });
 }
-/* barra de progresso do card de sessão (revisão automática E autoanálise no
-   "Analisando agora"): percentual pela régua única sessionProgress sobre a
-   contagem de eventos reais do feed. Chamada no render e a cada evento SSE. */
+/* Situação do card de sessão. NÃO é mais percentual: o que havia aqui era a contagem de
+   linhas do feed passada por uma exponencial, saturando em 90% e parando lá, tivesse a
+   revisão 3 minutos ou 30, sem nenhuma relação com trabalho restante. O app não sabe
+   quanto falta, então ele para de fingir que sabe e diz o que sabe: a fase, o silêncio do
+   stream e os arquivos do PR já lidos (situacaoDaSessao, ui/pure/sessao.js). */
 function updateSessionBar(id) {
   const wrap = document.querySelector(`.sess-progress[data-id="${CSS.escape(id)}"]`);
   if (!wrap) return;
-  const pct = sessionProgress((estado()?.activity?.[id] || []).length);
-  wrap.querySelector('.op-bar-fill').style.width = pct + '%';
-  wrap.querySelector('.sess-pct').textContent = pct + '%';
+  const sess = (estado().activeSessions || []).find(x => x.id === id) || {};
+  const sit = situacaoDaSessao(sess);
+  wrap.querySelector('.sess-pct').textContent = sit.texto;
+  wrap.classList.toggle('sess-muda', sit.estado === 'muda');
+  wrap.classList.toggle('sess-fechando', sit.estado === 'fechando');
+  // barra indeterminada: ela mostra que ALGO está correndo, que é tudo o que se pode
+  // afirmar enquanto o modelo trabalha; parada quando o stream está mudo
+  wrap.classList.toggle('indeterminada', sit.estado !== 'muda');
 }
 function renderActive() {
   const sessions = (estado().activeSessions || []).filter(s => (s.mode === 'auto' || s.mode === 'self') && sessionVisible(s));
@@ -175,10 +192,7 @@ function renderActive() {
   const have = [...box.querySelectorAll('.session-card')].map(el => el.dataset.id).join(',');
   const want = sessions.map(s => s.id).join(',');
   if (have !== want) {
-    box.innerHTML = sessions.map(s => {
-      const uptime = Math.round((Date.now() - (s.startedAt || Date.now())) / 1000);
-      return sessionCardHtml(s, stageLabel(uptime));
-    }).join('');
+    box.innerHTML = sessions.map(s => sessionCardHtml(s, '(iniciando…)')).join('');
   }
   for (const s of sessions) {
     const feed = box.querySelector(`.activity-feed[data-id="${CSS.escape(s.id)}"]`);

@@ -65,6 +65,13 @@ const CONGELADA = [
   "PB_OPTS",
   "PB_SHORT",
   "STAGE_FLOW_ORDER",
+  // acompanhamento honesto da revisao (30/09/2026): entraram situacaoDaSessao, etapaAtiva
+  // e SEM_SINAL_MS, e SAIU stageLabel, que rotulava a sessao pela idade ("(processando…)"
+  // ate 15 s, string vazia depois) e ficou sem chamador quando o cabecalho do cartao
+  // passou a mostrar a etapa real estampada pelo engine
+  "SEM_SINAL_MS",
+  "etapaAtiva",
+  "situacaoDaSessao",
   "USAGE_KIND_COLOR",
   "USAGE_KIND_LABEL",
   "USAGE_PALETTE",
@@ -267,7 +274,6 @@ const CONGELADA = [
   "splitHiddenPRs",
   "stageFlowFrom",
   "stageFlowHtml",
-  "stageLabel",
   "stagesLine",
   "staleCardMeta",
   "statusBannerHtml",

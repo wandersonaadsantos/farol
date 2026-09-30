@@ -35,15 +35,6 @@ export function fmtCompact(n) {
   return String(Math.round(n));
 }
 
-// rotulo de estagio de uma sessao headless pelo tempo de vida em segundos. O card
-// nao re-renderiza a cada segundo, entao quem chama e o ticker do app (tickElapsed),
-// no mesmo padrao data-started do .session-elapsed (B13: congelava no 1o paint).
-export function stageLabel(s) {
-  if (s < 5) return '(iniciando…)';
-  if (s < 15) return '(processando…)';
-  return '';
-}
-
 // decide o que uma lista vinda do motor (myPRs/queue/panorama) deve mostrar quando
 // esta vazia: 'loading' (nenhum ciclo terminou ainda desde o boot), 'error' (o
 // PRIMEIRO ciclo da vida falhou sem nunca ter confirmado nada) ou 'empty' (pelo

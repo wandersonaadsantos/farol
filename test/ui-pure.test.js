@@ -913,7 +913,7 @@ test('stageFlowFrom: acumula por estampa, herda etapa em linha sem estampa e mar
   assert.equal(porId.verificacao.ms, 60_000, '30s até a linha + 30s correndo até agora');
   assert.equal(porId.verificacao.state, 'active', 'a etapa do último item é a ativa');
   assert.equal(porId.leitura.state, 'done');
-  assert.equal(porId.redacao.state, 'pending');
+  assert.equal(porId.fechamento.state, 'pending');
 });
 
 test('stageFlowFrom/Html: sem traço não desenha nada', () => {
@@ -927,7 +927,7 @@ test('stageFlowHtml: nós na ordem canônica com estado e duração, ligados por
     { t: 2_000, s: 'leitura' },
   ], 1_000, 62_000));
   assert.match(html, /sf-node sf-active[^>]*title="leitura · 1m01s"/, 'ativa com tempo acumulando');
-  assert.match(html, /sf-node sf-pending[^>]*title="redação"/);
+  assert.match(html, /sf-node sf-pending[^>]*title="fechamento"/);
   assert.match(html, /<span class="sf-link">/);
   assert.ok(html.indexOf('leitura') < html.indexOf('verificação'), 'ordem canônica preservada');
 });
@@ -2658,10 +2658,11 @@ test('cartão de sessão: os ganchos de atualização existem todos', () => {
   const html = P.sessionCardHtml({ id: 'abc', label: 'acme#12', startedAt: 1755600000000 }, 'preparo');
   for (const cls of ['session-card', 'session-stage', 'session-model', 'session-agents', 'session-elapsed', 'sess-progress', 'stage-flow', 'activity-feed'])
     assert.match(html, new RegExp(`class="[^"]*${cls}`), `sumiu o gancho .${cls}`);
-  assert.equal((html.match(/data-id="abc"/g) || []).length, 6, 'todo gancho carrega o id da sessão');
-  // metade do guarda de B13 (o rótulo de estágio congelava no primeiro paint): sem o
-  // data-started aqui, o tickElapsed do app.js não tem de onde recalcular a idade.
-  assert.match(html, /class="session-stage" data-started="1755600000000"/);
+  assert.equal((html.match(/data-id="abc"/g) || []).length, 7, 'todo gancho carrega o id da sessão');
+  // o cabeçalho passou a mostrar a ETAPA real (estampada pelo engine), então o gancho é o
+  // id da sessão, e não mais o data-started da idade dela: quem recalcula é o tickElapsed,
+  // lendo a esteira daquela sessão.
+  assert.match(html, /class="session-stage" data-id="abc"/);
   assert.match(html, /class="session-elapsed" data-started="1755600000000"/);
 });
 

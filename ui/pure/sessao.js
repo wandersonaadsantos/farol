@@ -66,10 +66,38 @@ export function stagesLine(st) {
   return `Tempo por etapa: ${partes.join(' · ')}${total ? ` (total ${total})` : ''}`;
 }
 
+// Os ids TÊM que ser os que o engine estampa em item.s (STAGE_ORDER, review.js). O nó
+// final era 'redacao' aqui e 'fechamento' lá: o nó nunca acendia, e o tempo da última
+// etapa (o silêncio entre a última linha e o fim, que costuma ser a parte mais longa)
+// não aparecia em lugar nenhum da esteira ao vivo.
 export const STAGE_FLOW_ORDER = [
   ['preparo', 'preparo'], ['leitura', 'leitura'], ['card', 'card'],
-  ['verificacao', 'verificação'], ['raciocinio', 'raciocínio'], ['redacao', 'redação'],
+  ['verificacao', 'verificação'], ['raciocinio', 'raciocínio'], ['fechamento', 'fechamento'],
 ];
+
+// Sem linha nova no feed por isto, a sessão está MUDA. Não é morte: o stream pode estar
+// num bloco longo. Mas dizer "analisando" com o relógio subindo e nada acontecendo é o
+// que faz o acompanhamento parecer inventado, então a tela passa a dizer o que sabe.
+export const SEM_SINAL_MS = 45000;
+
+// O que o cartão mostra no lugar do percentual inventado. Três situações honestas, todas
+// derivadas de fato: a fase vem do engine (marcarFase), o silêncio vem do carimbo da
+// última linha do feed, e a leitura é a contagem de arquivos do PR que a sessão abriu.
+export function situacaoDaSessao(s = {}, agora = Date.now()) {
+  if (s.fase === 'fechando') return { estado: 'fechando', texto: 'modelo concluiu · decidindo e postando' };
+  const mudoHa = s.ultimoSinalEm ? agora - s.ultimoSinalEm : 0;
+  if (mudoHa > SEM_SINAL_MS) return { estado: 'muda', texto: `sem sinal há ${fmtDur(mudoHa)}` };
+  if (s.lidos) return { estado: 'ativa', texto: `${s.lidos} arquivo(s) do PR lidos` };
+  return { estado: 'ativa', texto: 'em andamento' };
+}
+
+// Rótulo da etapa ATIVA da esteira, que é a etapa de verdade (item.s do engine). Substitui
+// o stageLabel(uptime), que só dizia "(iniciando…)"/"(processando…)" e virava string vazia
+// aos 15 s, deixando o cabeçalho do cartão mudo pelo resto da revisão.
+export function etapaAtiva(flow) {
+  const no = (flow || []).find(x => x && x.state === 'active');
+  return no ? no.label : '';
+}
 
 export function stageFlowFrom(items, startedAt, agora = Date.now()) {
   const linhas = (items || []).filter(i => i && i.t);
@@ -156,7 +184,7 @@ export function sessionCardHtml(s = {}, stages = '') {
       <div class="card session-card" data-id="${id}">
         <div class="session-head">
           <span class="spin accent"></span>
-          <b>${esc(s.label)}</b> <span class="session-stage" data-started="${s.startedAt || ''}">${stages}</span>
+          <b>${esc(s.label)}</b> <span class="session-stage" data-id="${id}">${stages}</span>
           <span class="session-model" data-id="${id}" hidden></span>
           <span class="session-agents" data-id="${id}" hidden></span>
           ${quemPR}

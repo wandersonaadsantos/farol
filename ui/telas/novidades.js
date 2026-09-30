@@ -7,6 +7,11 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.66.0', [
+    "O painel recebe só o que mudou, e não o estado inteiro a cada atualização: 84% menos tráfego na medição desta máquina.",
+    "A tela avisa quando perde o engine, em qualquer aba, e para de contar o tempo para a próxima checagem enquanto está sem conexão.",
+    "O cartão da revisão mostra a etapa real, os arquivos do PR já lidos e quando o modelo terminou e o Farol está decidindo e postando; sessão sem sinal há mais de 45 segundos é avisada.",
+  ]],
   ['2.65.4', [
     "A revisão pedida pela conta silenciada aparece na conta certa: não surge mais em execução na conta dona da organização.",
   ]],

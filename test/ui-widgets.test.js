@@ -154,13 +154,12 @@ test('seta do accordion acompanha o atributo open no próprio summary', () => {
 
 /* ---------- estagio da sessao ativa (B13) ---------- */
 
-test('stageLabel muda com o tempo de vida da sessao', () => {
-  assert.equal(P.stageLabel(0), '(iniciando…)');
-  assert.equal(P.stageLabel(4), '(iniciando…)');
-  assert.equal(P.stageLabel(5), '(processando…)');
-  assert.equal(P.stageLabel(14), '(processando…)');
-  assert.equal(P.stageLabel(15), '');
-  assert.equal(P.stageLabel(600), '');
+test('o cabecalho da sessao mostra a etapa REAL, nao a idade da sessao', () => {
+  const t0 = 1000;
+  const flow = P.stageFlowFrom([{ t: t0 + 400, s: 'leitura' }], t0, t0 + 900);
+  assert.equal(P.etapaAtiva(flow), 'leitura');
+  // sessao recem-nascida ainda nao tem etapa, e o cartao nasce com "(iniciando…)"
+  assert.equal(P.etapaAtiva(P.stageFlowFrom([], t0, t0 + 10)), '');
 });
 
 /* B13 tem duas metades: a marcacao precisa carregar o data-started, e o ticker precisa
@@ -171,7 +170,7 @@ test('o rotulo de estagio tem ticker proprio e nao congela no primeiro paint (B1
   const fn = APPJS.match(/function tickElapsed\([\s\S]*?\n\}/);
   assert.ok(fn, 'tickElapsed existe');
   assert.match(fn[0], /session-stage/, 'o ticker de 1s envelhece o estagio, como ja faz com o elapsed');
-  assert.match(fn[0], /stageLabel\(/, 'o texto vem da funcao pura');
+  assert.match(fn[0], /etapaAtiva\(/, 'o texto vem da funcao pura, com a etapa estampada pelo engine');
 });
 
 /* ---------- escopo persistido orfao (B15) ---------- */
