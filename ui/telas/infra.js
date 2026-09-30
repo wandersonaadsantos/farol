@@ -281,7 +281,7 @@ export function origemLocal(u) {
 }
 
 export function tituloDaNotificacao(auto, n) {
-  if (auto) return n === 1 ? 'PR novo, revisando sozinho' : `${n} PRs novos, revisando sozinho`;
+  if (auto) return n === 1 ? 'PR novo, na fila da revisão automática' : `${n} PRs novos, na fila da revisão automática`;
   return n === 1 ? 'PR aguardando sua revisão' : `${n} PRs aguardando sua revisão`;
 }
 

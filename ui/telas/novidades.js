@@ -7,6 +7,14 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.66.2', [
+    "Contas e Automação pararam de prometer autonomia que o Farol não tem. O \"com ressalvas\" herdado de cada conta agora diz o que acontece de verdade: numa conta cujo \"sem ressalvas\" espera você, ele também espera.",
+    "A co-assinatura deixou de dar como exemplo justamente o caso em que ela nunca age: código do qual você é dono pelo CODEOWNERS. E o texto diz que só é detectado quem revisa com o Farol.",
+    "\"Aprovável sem ressalvas\" diz o que exige: com o Jira ligado, card lido e atendido. O APPROVE sai com o texto da revisão, e as ressalvas ficam no app.",
+    "\"Revisar sozinho\" lista o que segura a revisão automática, o modo rápido avisa que não vale no Auto, e a dica do Auto diz que ele usa sempre o Opus.",
+    "A notificação de PR novo diz \"na fila da revisão automática\", e só quando é o próprio PR novo que entrou nela; antes anunciava \"revisando sozinho\" por causa de qualquer PR da fila.",
+    "A tabela de Justiça de fila segue a ordem real do escalonador, e os textos de paralelismo, pausa e política do aparelho passaram a dizer o que de fato vale."
+  ]],
   ['2.66.1', [
     "As buscas do ciclo saem espaçadas e o Farol para de tomar bloqueio do GitHub por rajada.",
     "Enquanto as buscas de uma conta estão bloqueadas, o painel avisa qual conta, até quando, e que o que está na tela é o último retrato.",

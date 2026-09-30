@@ -450,7 +450,7 @@
             <label class="set-row" id="sys-row-autoreview">
               <span class="set-txt">
                 <span class="set-title">Revisar automaticamente quando chegar PR</span>
-                <span class="set-desc">Padrão pra todas as contas: ao chegar um PR, o Farol roda o review internamente. Dá pra sobrescrever por conta no painel <b>Contas</b> (revisar sozinho, ou só pôr na fila). Contas silenciadas ficam de fora.</span>
+                <span class="set-desc">Padrão pra todas as contas: ao chegar um PR, o Farol o põe na fila da revisão automática. Não é na hora: a revisão só abre com os checks obrigatórios verdes, sem outra pessoa revisando, sem reprovação humana nem duas aprovações humanas no head, e dentro do limite do plano e do orçamento. Só roda com o Farol aberto, e na primeira execução os PRs que já estavam pendentes não entram. Dá pra sobrescrever por conta no painel <b>Contas</b> (revisar sozinho, ou só pôr na fila). Contas silenciadas ficam de fora.</span>
                 <span class="set-desc" id="alcanceAutoReview"></span>
               </span>
               <span class="set-ctl"><input id="setAutoReview" type="checkbox"><span class="switch"></span></span>
@@ -458,7 +458,7 @@
             <label class="set-row" id="sys-row-autoapprove">
               <span class="set-txt">
                 <span class="set-title">Aprovar sozinho também os aprováveis com ressalvas</span>
-                <span class="set-desc">Padrão pra todas as contas: quando o PR é aprovável mas tem ressalvas, ligado o Farol posta o APPROVE destacando as ressalvas; desligado (padrão), aguarda você. Os aprováveis <b>sem</b> ressalva seguem o campo "aprovável sem ressalvas" de cada conta (padrão: aprova sozinho). Sobrescreva por conta no painel <b>Contas</b>.</span>
+                <span class="set-desc">Padrão pra todas as contas: quando o PR é aprovável mas tem ressalvas, ligado o Farol posta o APPROVE com o texto da revisão, e as ressalvas ficam aqui no app, não no PR; desligado (padrão), aguarda você. Só vale em PR com a revisão pedida a você, CI obrigatório verde, nenhuma dependência aberta e o head parado durante a revisão. Não alcança conta cujo "aprovável sem ressalvas" espera você. Os aprováveis <b>sem</b> ressalva seguem o campo "aprovável sem ressalvas" de cada conta (padrão: aprova sozinho); sem ressalva quer dizer nenhum ponto de atenção e, com o Jira ligado, o card do PR lido e atendido, então PR sem card cai aqui, nas ressalvas. Sobrescreva por conta no painel <b>Contas</b>.</span>
                 <span class="set-desc" id="alcanceAutoApproveAll"></span>
               </span>
               <span class="set-ctl"><input id="setAutoApproveAll" type="checkbox"><span class="switch"></span></span>
@@ -473,35 +473,35 @@
             <label class="set-row" id="sys-row-coassinar">
               <span class="set-txt">
                 <span class="set-title">Aprovar junto com quem pegou o PR</span>
-                <span class="set-desc">Quando outra pessoa do time já está revisando um PR, o Farol sai de cena e avisa aqui no app, sem postar nada no PR (um Farol por PR, pra não empilhar revisão em cima da mesma coisa). A conta cujo aprovável sem ressalvas espera você também não co-assina. Com esta chave ligada, ele ainda aprova <b>em seu nome</b> quando essa pessoa aprova, sem abrir sessão nem gastar do seu limite, o que mantém a sua aprovação chegando quando ela é exigida (código do qual você é dono, por exemplo). O preço é explícito: você endossa uma revisão que não fez e não tem como saber com que rigor ou com que modelo ela foi feita. Desligado (padrão), o PR simplesmente espera você, e o botão Revisar continua funcionando normalmente.</span>
+                <span class="set-desc">Quando outra pessoa do time já está revisando um PR com o Farol, o Farol sai de cena e avisa aqui no app, sem postar nada no PR (um Farol por PR, pra não empilhar revisão em cima da mesma coisa). O sinal é a label <code>&lt;conta&gt;:revisando</code> que o Farol dela põe no PR: quem revisa sem o Farol não é detectado. Com esta chave ligada, ele ainda aprova <b>em seu nome</b> quando essa pessoa aprova o mesmo head, sem abrir sessão nem gastar do seu limite. Só vale em conta que revisa sozinha, e a conta cujo aprovável sem ressalvas espera você também não co-assina. <b>Nunca co-assina onde você é dono do código pelo CODEOWNERS</b>, nem quando o CODEOWNERS não pode ser lido: ali a sua aprovação precisa vir de revisão de verdade. O preço é explícito: você endossa uma revisão que não fez e não tem como saber com que rigor ou com que modelo ela foi feita. Desligado (padrão), o PR simplesmente espera você, e o botão Revisar continua funcionando normalmente.</span>
               </span>
               <span class="set-ctl"><input id="setCoAssinarReview" type="checkbox"><span class="switch"></span></span>
             </label>
             <label class="set-row" id="sys-row-reviewfast">
               <span class="set-txt">
                 <span class="set-title">Modo rápido da revisão</span>
-                <span class="set-desc">Corta o tempo da revisão automática: leitura orientada ao diff (abre o arquivo inteiro só quando o trecho não se explica sozinho), verificação empírica só do que muda a decisão, e o esforço de raciocínio da sessão cai pra <b>medium</b> (minimal ou low explícito continua valendo). Verificação que exigiria experimento longo vira decisão sua, com o motivo registrado. Nenhum gate afrouxa: a troca é velocidade por profundidade e autonomia, então mais PRs podem cair na sua mesa. A cobertura da leitura continua completa. Só vale pra revisão; chat, autoanálise e ferramentas seguem no esforço configurado.</span>
+                <span class="set-desc">Corta o tempo da revisão automática: leitura orientada ao diff (abre o arquivo inteiro só quando o trecho não se explica sozinho), verificação empírica só do que muda a decisão, e o esforço de raciocínio da sessão cai pra <b>medium</b> (minimal ou low explícito continua valendo). Verificação que exigiria experimento longo vira decisão sua, com o motivo registrado. Nenhum gate afrouxa: a troca é velocidade por profundidade e autonomia, então mais PRs podem cair na sua mesa. A cobertura da leitura continua completa. Só vale pra revisão; chat, autoanálise e ferramentas seguem no esforço configurado. <b>Não vale no modelo Auto</b>, que fixa modelo e esforço sozinho.</span>
               </span>
               <span class="set-ctl"><input id="setReviewFast" type="checkbox"><span class="switch"></span></span>
             </label>
             <label class="set-row" id="sys-row-rereviewresume">
               <span class="set-txt">
                 <span class="set-title">Retomar a sessão no round 2</span>
-                <span class="set-desc">Quando o autor corrige depois de um pedido de mudanças seu, a re-revisão automática continua a mesma conversa da revisão anterior (a sessão já leu o PR, então retomar poupa a releitura). Desligado (padrão), cada round parte do zero, sem carregar o contexto do anterior. Se a sessão antiga não existir mais, o app recomeça do zero sozinho.</span>
+                <span class="set-desc">Quando o autor corrige depois de um pedido de mudanças seu, a re-revisão automática continua a mesma conversa da revisão anterior (a sessão já leu o PR, então retomar poupa a releitura). Desligado (padrão), cada round parte do zero, sem carregar o contexto do anterior. Se a sessão antiga não existir mais, o app recomeça do zero sozinho. Só vale no Claude Code: conta com perfil Codex sempre recomeça do zero.</span>
               </span>
               <span class="set-ctl"><input id="setReReviewResume" type="checkbox"><span class="switch"></span></span>
             </label>
             <label class="set-row" id="sys-row-autoupdate">
               <span class="set-txt">
                 <span class="set-title">Atualizar sozinho</span>
-                <span class="set-desc">Aplica a atualização baixada das releases assim que nenhuma análise, chat ou sessão de terminal estiver rodando. O app fecha e reabre sozinho.</span>
+                <span class="set-desc">Aplica a atualização baixada das releases assim que nenhuma análise, chat ou sessão de terminal estiver rodando e a fila de revisão estiver vazia. O app fecha e reabre sozinho.</span>
               </span>
               <span class="set-ctl"><input id="setAutoUpdate" type="checkbox"><span class="switch"></span></span>
             </label>
             <label class="set-row" id="sys-row-pushback">
               <span class="set-txt">
                 <span class="set-title">Detectar pushback automaticamente</span>
-                <span class="set-desc">Roda 1 sessão do provedor de IA associado à conta por PR que o autor contestar, pra classificar o desfecho. Vem <b>ligado</b>; desligue se um dia quiser poupar o teu limite. A marcação manual (em Revisões recentes) funciona sempre.</span>
+                <span class="set-desc">Roda 1 sessão do provedor de IA associado à conta por PR em que o autor respondeu depois do seu pedido de mudanças ou aprovação com ressalva, pra classificar se foi contestação e como terminou (no máximo 2 por ciclo; com confiança baixa, fica pra você confirmar). Vem <b>ligado</b>; desligue se um dia quiser poupar o teu limite. A marcação manual (em Revisões recentes) funciona sempre.</span>
               </span>
               <span class="set-ctl"><input id="setAutoPushback" type="checkbox"><span class="switch"></span></span>
             </label>
@@ -532,7 +532,7 @@
             <div class="set-row" id="sys-row-paralelas">
               <div class="set-txt">
                 <label class="set-title" for="setParallelReviews">Revisões paralelas por conta</label>
-                <p class="set-desc">Quantas revisões automáticas a mesma conta roda ao mesmo tempo. O padrão (1) revisa em série; subir acelera fila cheia, mas gasta o limite do plano mais rápido e pesa mais na máquina. Contas diferentes já revisam em paralelo entre si.</p>
+                <p class="set-desc">Quantas revisões automáticas a mesma conta roda ao mesmo tempo. O padrão (1) revisa em série; subir acelera fila cheia, mas gasta o limite do plano mais rápido e pesa mais na máquina. Contas diferentes já revisam em paralelo entre si. Com o compartilhamento entre aparelhos ligado, este número passa a ser o total do aparelho, somando todas as contas.</p>
               </div>
               <div class="set-ctl">
                 <select id="setParallelReviews">
@@ -546,7 +546,7 @@
             <div class="set-row" id="sys-row-teto-global">
               <div class="set-txt">
                 <label class="set-title" for="setGlobalParallelReviews">Teto global de revisões simultâneas</label>
-                <p class="set-desc">Limite do TOTAL de revisões automáticas rodando ao mesmo tempo, somando todas as contas. Desligado (padrão) o único teto é o por conta, como sempre foi. Ligue se a máquina ou a API sentirem o volume: a vaga que liberar vai para a org que está esperando há mais tempo, não para a primeira da fila.</p>
+                <p class="set-desc">Limite do TOTAL de revisões automáticas rodando ao mesmo tempo, somando todas as contas. Desligado (padrão) vale só o teto por conta (ou o do aparelho, com o compartilhamento ligado). Ligue se a máquina ou a API sentirem o volume: a vaga que liberar vai para a org atendida há mais tempo, não para a primeira da fila.</p>
               </div>
               <div class="set-ctl">
                 <select id="setGlobalParallelReviews">

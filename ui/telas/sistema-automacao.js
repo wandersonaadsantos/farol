@@ -84,10 +84,10 @@ function renderAutomationSettings(c) {
     $('#effortHint').textContent = 'Quanto o Codex raciocina nas sessões autônomas. O CLI aceita minimal, low, medium, high e xhigh; o último depende do modelo.';
   } else {
     // sem nome de modelo escrito aqui: cada opção já diz o que é, e o Auto diz quais usa
-    $('#reviewModelHint').textContent = 'Modelo usado pelo Claude nas revisões, pushback, autoanálise e ferramentas. O padrão herda a tua assinatura; o Auto escolhe entre as seleções abaixo pelo contexto e pelo tamanho do PR, só na revisão headless. Cada opção aponta sempre para a versão mais nova daquela família que o teu Claude Code conhece.';
+    $('#reviewModelHint').textContent = 'Modelo usado pelo Claude nas revisões, pushback, autoanálise e ferramentas. O padrão herda a tua assinatura; o Auto revisa todo PR com o Opus e só sobe o raciocínio para xhigh em repositório crítico, caminho sensível ou PR muito grande, só na revisão headless. Cada opção aponta sempre para a versão mais nova daquela família que o teu Claude Code conhece.';
     let effortHint = 'Quanto o Claude pensa nas sessões autônomas. Mais esforço aumenta profundidade e consumo do limite.';
     if (selecao && selecao.auto) {
-      effortHint = 'No modo Auto o Farol escolhe modelo e esforço pelo contexto e pelo tamanho do PR; o nível fixo desta seção não entra.';
+      effortHint = 'No modo Auto a revisão usa o Opus no raciocínio padrão dele e sobe para xhigh quando o contexto do PR pede; o nível fixo desta seção e o modo rápido não entram.';
     } else if (semEsforco) {
       effortHint = `O ${(selecao && selecao.nome) || 'modelo escolhido'} não aceita nível de esforço, então o Farol não passa a flag enquanto ele estiver escolhido.`;
     }

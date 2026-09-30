@@ -345,7 +345,8 @@ export function accountsManagerHtml(ctx) {
   const multi = accounts.length > 1;
   const c = ctx.config || {};
   const globalAR = c.autoReview !== false;      // padrão herdado: revisar automaticamente
-  const globalCav = c.autoApproveAll !== false; // padrão herdado: aprovar com ressalvas
+  const globalCav = c.autoApproveAll !== false; // a mesma leitura do engine; a chave geral vem desligada
+  const esperaHerdada = new Set((ctx.alcance && ctx.alcance.ressalvaHerdadaEspera) || []);
   const rows = accounts.map(a => {
     const meta = ctx.acct[a.user.toLowerCase()] || {};
     // três estados, um por linha: silenciada ganha de tudo, senão o token decide
@@ -357,8 +358,10 @@ export function accountsManagerHtml(ctx) {
     // de logica. Nomeados, da pra ler a linha sem desembaralhar ternario.
     const selo = a.primary ? '<span class="a-tag">primária</span>' : '';
     const classeAuth = (a.tokenOk && !a.muted) ? 'ok' : '';
-    const padraoRevisao = globalAR ? 'revisa na hora' : 'só põe na fila';
-    const padraoRessalva = globalCav ? 'aprova e destaca as ressalvas' : 'espera você';
+    const padraoRevisao = globalAR ? 'revisa sozinho' : 'só põe na fila';
+    // quem diz se o herdado espera é o engine (ressalvaHerdadaEspera, contas-config.js):
+    // copiar a regra aqui foi o que fez a tela prometer aprovação que não acontecia
+    const padraoRessalva = (globalCav && !esperaHerdada.has(a.user)) ? 'aprova (as ressalvas ficam no app)' : 'espera você';
     const classeMute = a.muted ? 'ok' : 'ghost';
     const rotuloMute = a.muted ? 'Reativar' : 'Silenciar';
     // a barra de acoes sai pra um nome: e o maior condicional do template e
@@ -381,21 +384,21 @@ export function accountsManagerHtml(ctx) {
         <div class="a-pol-note">O que o Farol faz sozinho nos PRs desta conta (o que não escolher, segue o padrão geral):</div>
         <div class="a-policy">
           <div class="a-pol-item"><span class="a-fieldlabel">quando chega um PR pra você</span>
-            <select class="acct-autoreview" data-user="${esc(a.user)}" title="Revisar na hora ou só listar e esperar você mandar revisar">
+            <select class="acct-autoreview" data-user="${esc(a.user)}" title="Revisar sozinho ou só listar e esperar você mandar revisar. Revisar sozinho não é na hora: espera os checks obrigatórios ficarem verdes, sai de cena se outra pessoa estiver revisando, segura com reprovação humana ou duas aprovações humanas no head, respeita o limite do plano e o orçamento, e só roda com o Farol aberto">
               <option value="">herda o geral: ${padraoRevisao}</option>
-              <option value="on"${sel(a.autoReview === true)}>revisa na hora</option>
-              <option value="off"${sel(a.autoReview === false)}>só põe na fila (você manda revisar)</option>
+              <option value="on"${sel(a.autoReview === true)}>revisa sozinho</option>
+              <option value="off"${sel(a.autoReview === false)}>só põe na fila (você manda revisar; o resultado segue as regras abaixo)</option>
             </select></div>
           <div class="a-pol-item"><span class="a-fieldlabel">quando fica aprovável sem ressalvas</span>
-            <select class="acct-onclean" data-user="${esc(a.user)}" title="PR aprovável e sem nenhum ponto de atenção">
+            <select class="acct-onclean" data-user="${esc(a.user)}" title="PR aprovável, sem nenhum ponto de atenção e com a revisão decidindo aprovar. Com o Jira ligado, isso exige o card do PR lido e atendido: PR sem card cai na regra com ressalvas">
               <option value="">padrão: aprova sozinho</option>
               <option value="approve"${sel(a.onClean === 'approve')}>aprova sozinho</option>
               <option value="wait"${sel(a.onClean === 'wait')}>espera você aprovar</option>
             </select></div>
           <div class="a-pol-item"><span class="a-fieldlabel">quando fica aprovável com ressalvas</span>
-            <select class="acct-oncaveats" data-user="${esc(a.user)}" title="PR aprovável, mas com pontos de atenção anotados">
+            <select class="acct-oncaveats" data-user="${esc(a.user)}" title="PR aprovável, mas com pontos de atenção anotados (inclui PR sem card do Jira, quando o Jira está ligado). O APPROVE sai com o texto da revisão; as ressalvas ficam aqui no app, não no PR">
               <option value="">herda o geral: ${padraoRessalva}</option>
-              <option value="approve"${sel(a.onCaveats === 'approve')}>aprova e destaca as ressalvas</option>
+              <option value="approve"${sel(a.onCaveats === 'approve')}>aprova (as ressalvas ficam no app)</option>
               <option value="wait"${sel(a.onCaveats === 'wait')}>espera você aprovar</option>
             </select></div>
           <div class="a-pol-item"><span class="a-fieldlabel">quando tem bloqueios</span>
