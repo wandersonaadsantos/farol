@@ -243,7 +243,7 @@ test('salvarConsentimento: manda o objeto de sync inteiro, e a chave ignorada vi
 });
 
 test('publicarPolitica: devolve o motivo da recusa, e vazio no sucesso', async () => {
-  const pol = { pausado: true, tetoParalelismo: 2, tiposDeOperacao: ['review'] };
+  const pol = { pausado: true, tetoParalelismo: 2 };
   const d = deps();
   assert.equal(await AP.publicarPolitica('dX', pol, d), '');
   assert.deepEqual(d.chamadas, [{ rota: '/api/sync/policy', corpo: { deviceId: 'dX', politica: pol } }]);

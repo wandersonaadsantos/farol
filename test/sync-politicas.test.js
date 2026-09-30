@@ -100,10 +100,11 @@ test('allowlist: teto fora de 1 a 4 é clampado, não recusado', () => {
   assert.equal('tetoParalelismo' in sanearPolitica({ tetoParalelismo: 'muito' }), false, 'lixo não vira teto');
 });
 
-test('allowlist: tipos fora da lista somem, contas precisam ter forma de tag', () => {
-  const p = sanearPolitica({ tiposDeOperacao: ['review', 'merge', 'chat'], contasElegiveis: [TAG_A, 'wanderson', TAG_A] });
-  assert.deepEqual(p.tiposDeOperacao, ['review', 'chat']);
-  assert.deepEqual(p.contasElegiveis, [TAG_A], 'login em claro nunca entra, e repetida não duplica');
+// v2.66.2: contas elegíveis e tipos de operação saíram da allowlist porque nada os aplicava.
+// Admin antigo que ainda os publique perde só essas chaves; o resto da política vale.
+test('allowlist: contas e tipos, que nada aplica, são descartados sem recusar o resto', () => {
+  const p = sanearPolitica({ pausado: true, tetoParalelismo: 2, tiposDeOperacao: ['review'], contasElegiveis: [TAG_A] });
+  assert.deepEqual(p, { pausado: true, tetoParalelismo: 2 });
 });
 
 test('allowlist: campo ausente não vira campo falso', () => {
@@ -113,7 +114,7 @@ test('allowlist: campo ausente não vira campo falso', () => {
 
 test('publicar: o nó sobe cifrado e assinado, e a política não aparece em claro', async () => {
   const e = await motorAdmin();
-  const r = await e.syncPublicarPolitica({ deviceId: e.sync.deviceId, politica: { pausado: true, tetoParalelismo: 2, contasElegiveis: [TAG_A] } });
+  const r = await e.syncPublicarPolitica({ deviceId: e.sync.deviceId, politica: { pausado: true, tetoParalelismo: 2 } });
   assert.equal(r.ok, true, r.motivo);
   const no = noPublicado(e);
   assert.deepEqual(Object.keys(no).sort(), ['enc', 'generation', 'sig', 'v']);
@@ -122,7 +123,6 @@ test('publicar: o nó sobe cifrado e assinado, e a política não aparece em cla
   assert.match(no.enc, /^e1\.g1\./);
   const cru = JSON.stringify(no);
   assert.equal(cru.includes('tetoParalelismo'), false, 'nome de campo em claro no banco');
-  assert.equal(cru.includes(TAG_A), false, 'tag da conta em claro no banco');
 });
 
 test('publicar: quem não é admin da geração vigente não publica', async () => {

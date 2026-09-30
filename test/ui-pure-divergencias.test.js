@@ -93,26 +93,22 @@ test('item 17: os campos de senha novos têm o olho, dentro da moldura do campo'
 
 /* ---------- itens 1 e 2: a política aberta com o valor vigente ---------- */
 
-const POL = { pausado: true, tetoParalelismo: 2, tiposDeOperacao: ['review', 'self'], contasElegiveis: ['f'.repeat(32)] };
-
-function marcado(html, valor) {
-  return new RegExp(`class="apar-tipo-check" value="${valor}" checked`).test(html);
-}
+const POL = { pausado: true, tetoParalelismo: 2 };
 
 test('item 2: o formulário abre com a política vigente no banco, e diz a versão publicada', () => {
   const html = P.aparelhoPoliticaHtml(VELHO, { leitura: { estado: 'ok', existe: true, valida: true, versao: 5, politica: POL } });
   assert.match(html, /publicada, versão 5/);
   assert.match(html, /id="aparPolPausado" checked/);
   assert.match(html, /<option value="2" selected>/);
-  assert.ok(marcado(html, 'review') && marcado(html, 'self'));
-  assert.ok(!marcado(html, 'chat') && !marcado(html, 'tool') && !marcado(html, 'pushback'), 'tipo fora da política não vem marcado');
-  assert.match(html, /contas elegíveis/i, 'o que a tela não edita é dito, e preservado');
+  // v2.66.2: a tela oferecia tipos de operação e citava contas elegíveis, que nada aplicava
+  assert.doesNotMatch(html, /apar-tipo|Tipos permitidos|contas elegíveis/i);
+  assert.match(html, /Pausa e teto valem só para a revisão/);
 });
 
 test('item 2: campo que a política não opina abre como "vale o do aparelho", não como o mínimo', () => {
   const html = P.aparelhoPoliticaHtml(VELHO, { leitura: { estado: 'ok', existe: true, valida: true, versao: 1, politica: { pausado: false } } });
   assert.match(html, /<option value="" selected>não definir \(vale o do aparelho, em Sistema → Automação\)<\/option>/);
-  for (const t of ['review', 'self', 'pushback', 'chat', 'tool']) assert.ok(marcado(html, t), `${t} sem opinião remota abre marcado`);
+  assert.doesNotMatch(html, /id="aparPolPausado" checked/);
 });
 
 test('item 2: carregando, sem política, inválida e falha são quatro saídas diferentes', () => {
@@ -123,7 +119,6 @@ test('item 2: carregando, sem política, inválida e falha são quatro saídas d
   const invalida = P.aparelhoPoliticaHtml(VELHO, { leitura: { estado: 'ok', existe: true, valida: false, code: 'geracao', politica: POL } });
   assert.match(invalida, /não se prova/);
   assert.doesNotMatch(invalida, /id="aparPolPausado" checked/);
-  assert.doesNotMatch(invalida, /contas elegíveis/i);
   assert.doesNotMatch(invalida, /publicada, versão/);
   const falha = P.aparelhoPoliticaHtml(VELHO, { leitura: { estado: 'falha', motivo: 'não deu para ler a política agora' } });
   assert.match(falha, /não deu para ler a política agora/);
@@ -136,15 +131,12 @@ test('item 1: o formulário diz que o aceite acontece no destino e não volta pa
   assert.doesNotMatch(html, /aceita pelo aparelho/);
 });
 
-test('item 2: publicar preserva o que a tela não edita e omite o teto não definido', () => {
-  const lida = { estado: 'ok', existe: true, valida: true, versao: 3, politica: POL };
-  const doForm = { pausado: false, tetoParalelismo: null, tiposDeOperacao: ['review'] };
-  assert.deepEqual(P.aparelhoPoliticaParaPublicar(lida, doForm), { pausado: false, tiposDeOperacao: ['review'], contasElegiveis: POL.contasElegiveis });
-  const comTeto = P.aparelhoPoliticaParaPublicar(lida, { ...doForm, tetoParalelismo: 3 });
-  assert.equal(comTeto.tetoParalelismo, 3);
-  const invalida = P.aparelhoPoliticaParaPublicar({ estado: 'ok', existe: true, valida: false, politica: POL }, doForm);
-  assert.deepEqual(invalida, { pausado: false, tiposDeOperacao: ['review'] }, 'conteúdo que não se prova não é reaproveitado');
-  assert.deepEqual(P.aparelhoPoliticaParaPublicar(null, doForm), { pausado: false, tiposDeOperacao: ['review'] });
+test('item 2: publicar leva pausa e teto, e omite o teto não definido', () => {
+  const doForm = { pausado: false, tetoParalelismo: null };
+  assert.deepEqual(P.aparelhoPoliticaParaPublicar(doForm), { pausado: false });
+  assert.deepEqual(P.aparelhoPoliticaParaPublicar({ pausado: true, tetoParalelismo: 3 }), { pausado: true, tetoParalelismo: 3 });
+  assert.deepEqual(P.aparelhoPoliticaParaPublicar({ ...doForm, tiposDeOperacao: ['review'] }), { pausado: false }, 'campo que a política não tem não sai no corpo');
+  assert.deepEqual(P.aparelhoPoliticaParaPublicar(null), { pausado: false });
 });
 
 /* ---------- item 18: datas dos navegadores ---------- */

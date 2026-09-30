@@ -13,7 +13,8 @@ const RELEASE_NOTES = [
     "\"Aprovável sem ressalvas\" diz o que exige: com o Jira ligado, card lido e atendido. O APPROVE sai com o texto da revisão, e as ressalvas ficam no app.",
     "\"Revisar sozinho\" lista o que segura a revisão automática, o modo rápido avisa que não vale no Auto, e a dica do Auto diz que ele usa sempre o Opus.",
     "A notificação de PR novo diz \"na fila da revisão automática\", e só quando é o próprio PR novo que entrou nela; antes anunciava \"revisando sozinho\" por causa de qualquer PR da fila.",
-    "A tabela de Justiça de fila segue a ordem real do escalonador, e os textos de paralelismo, pausa e política do aparelho passaram a dizer o que de fato vale."
+    "A tabela de Justiça de fila segue a ordem real do escalonador, e os textos de paralelismo e pausa do aparelho passaram a dizer o que de fato vale.",
+    "A política do aparelho ficou só com pausa e teto. Os tipos permitidos e as contas elegíveis eram gravados e mostrados, mas nada no Farol os aplicava; admin em versão antiga que ainda os publique não quebra nada."
   ]],
   ['2.66.1', [
     "As buscas do ciclo saem espaçadas e o Farol para de tomar bloqueio do GitHub por rajada.",

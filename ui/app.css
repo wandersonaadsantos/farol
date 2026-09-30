@@ -2046,8 +2046,6 @@ body.parear > *:not(.par-raiz) { display: none !important; }
 .apar-grade { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-3); align-items: end; }
 .apar-campo { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
 .apar-campo > span:first-child { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); }
-.apar-tipos { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 12.5px; }
-.apar-tipo { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
 .apar-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
 .apar-aviso { margin-bottom: var(--sp-3); }
 .grupo-cartao { margin-bottom: var(--sp-3); }
@@ -2083,7 +2081,6 @@ body.parear > *:not(.par-raiz) { display: none !important; }
 }
 @media (max-width: 620px) {
   #devicesManager .btn, #groupsManager .btn, #devicesManager .sync-input, #groupsManager .sync-input { min-height: 44px; }
-  .apar-tipo { min-height: 44px; }
   .apar-acao .sync-campo { min-width: 0; width: 100%; }
 }
 /* ---------- divergências de Aparelhos e Grupos (resolução de 16/09/2026) ----------

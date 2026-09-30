@@ -161,8 +161,7 @@ async function mudarPolitica(dev, mudanca) {
   if (leitura.estado !== 'ok') { toast('error', `Não deu para ler a política atual: ${leitura.motivo || 'o engine não respondeu'}.`); return false; }
   const base = leitura.politica || {};
   const teto = Number.isInteger(base.tetoParalelismo) ? base.tetoParalelismo : null;
-  const tipos = Array.isArray(base.tiposDeOperacao) ? base.tiposDeOperacao : [];
-  const corpo = aparelhoPoliticaParaPublicar(leitura, { pausado: base.pausado === true, tetoParalelismo: teto, tiposDeOperacao: tipos, ...mudanca });
+  const corpo = aparelhoPoliticaParaPublicar({ pausado: base.pausado === true, tetoParalelismo: teto, ...mudanca });
   const erro = await publicarPolitica(dev, corpo);
   if (erro) toast('error', `A política não saiu: ${erro}.`);
   return !erro;
