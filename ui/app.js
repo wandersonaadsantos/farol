@@ -4,7 +4,7 @@ import {
   safeJsonParse, parseGoto,
 } from './pure.js';
 import { telasRegistradas, telaPorId } from './telas/registro.js';
-import { tokenLocal, FonteDeEventosAutenticada } from './transporte.js';
+import { tokenLocal, FonteDeEventosAutenticada, OCIOSO_MS } from './transporte.js';
 import { montarPareamento, precisaParear, voltarDoPareamento } from './telas/pareamento.js';
 import {
   estado, abaAtual, definirEstado, definirEscopo, definirAba,
@@ -296,21 +296,69 @@ let TENTATIVAS_RECONEXAO = 0;
 // pode continuar entregando os mesmos eventos em dobro.
 let streamAtual = null;
 
+// A repintura por estado novo, num lugar só: o `state` inteiro e o `state-patch`
+// terminam no MESMO caminho, senão a tela que recebe diferença renderizaria menos
+// coisa do que a que recebe o snapshot, e o defeito só apareceria em uma das duas.
+function repintarPorEstado() {
+  aplicaPlataforma(estado().app && estado().app.platform);   // engine manda; o userAgent era só o palpite inicial
+  syncOptionalTabsVisibility();
+  rebuildAccounts();
+  renderStatus();
+  renderScopedSections();
+  syncAnalysisOps();
+  renderSettings(); renderTools(); renderUpdate(); tickCountdown();
+  for (const tela of telasRegistradas()) if (tela.aoEstado) tela.aoEstado();
+}
+
+// Prova de vida do stream. O engine manda um evento `ping` a cada 25 s; enquanto ele
+// chega, a conexão está de pé mesmo sem nada acontecendo. Sem ele o socket pode estar
+// morto com a aba achando que está conectada (proxy/antivírus que bufferiza), e antes
+// disto a tela simplesmente congelava mostrando dado velho, sem avisar ninguém.
+let ULTIMO_SINAL = 0;
+let VIGIA_CONEXAO = null;
+
+function marcarSinalDoEngine() { ULTIMO_SINAL = Date.now(); }
+
+function vigiarConexao(es) {
+  if (VIGIA_CONEXAO) clearInterval(VIGIA_CONEXAO);
+  marcarSinalDoEngine();
+  VIGIA_CONEXAO = setInterval(() => {
+    if (Date.now() - ULTIMO_SINAL < OCIOSO_MS) return;
+    // derruba de propósito: fechar e reabrir é o que faz o onerror acender o aviso e o
+    // stream voltar; esperar o socket morto perceber sozinho pode nunca acontecer
+    clearInterval(VIGIA_CONEXAO); VIGIA_CONEXAO = null;
+    try { es.close(); } catch { /* já caiu */ }
+    if (es.onerror) es.onerror();
+    connect();
+  }, Math.round(OCIOSO_MS / 6));
+}
+
 function connect() {
   if (streamAtual) streamAtual.close();
   // EventSource não aceita cabeçalho: com token, o stream é lido por fetch (A4)
   const es = tokenLocal() ? new FonteDeEventosAutenticada('/api/events') : new EventSource('/api/events');
   streamAtual = es;
+  vigiarConexao(es);
+  es.addEventListener('ping', marcarSinalDoEngine);
   es.addEventListener('state', (e) => {
-    const d = safeJsonParse(e.data); if (!d) return; definirEstado(d);
-    aplicaPlataforma(estado().app && estado().app.platform);   // engine manda; o userAgent era só o palpite inicial
-    syncOptionalTabsVisibility();
-    rebuildAccounts();
-    renderStatus();
-    renderScopedSections();
-    syncAnalysisOps();
-    renderSettings(); renderTools(); renderUpdate(); tickCountdown();
-    for (const tela of telasRegistradas()) if (tela.aoEstado) tela.aoEstado();
+    marcarSinalDoEngine();
+    const d = safeJsonParse(e.data); if (!d) return;
+    definirEstado(d);
+    repintarPorEstado();
+  });
+  // Estado por DIFERENÇA (lib/estado-delta.js): o engine manda só os campos de topo
+  // que mudaram, e a tela mescla no que já tem. O `state` inteiro continua existindo
+  // e é o que abre o stream; patch sem estado anterior seria mesclar no vazio, então
+  // ele é ignorado e o próximo `state` recompõe tudo.
+  es.addEventListener('state-patch', (e) => {
+    marcarSinalDoEngine();
+    const d = safeJsonParse(e.data); if (!d || !d.campos) return;
+    const atual = estado();
+    if (!atual || !Object.keys(atual).length) return;
+    const novo = { ...atual, ...d.campos };
+    for (const chave of d.removidos || []) delete novo[chave];
+    definirEstado(novo);
+    repintarPorEstado();
   });
   // o app.js só entrega o evento: quem calcula o que ele significa é quem é
   // dono do assunto (telas/sessoes.js, o feed e a barra de progresso da sessão;
@@ -376,6 +424,9 @@ function connect() {
     $('#statusPill').className = 'pill err';
     $('#statusPill').textContent = 'reconectando…';
     TENTATIVAS_RECONEXAO++;
+    // a tela inteira passa a dizer que está velha: sem isto ela continua exibindo o
+    // panorama e a contagem regressiva como se estivessem vivos
+    document.body.classList.add('sem-engine');
     const f = $('#connLost');
     if (f) {
       f.hidden = false;
@@ -383,7 +434,11 @@ function connect() {
       if (t) t.textContent = TENTATIVAS_RECONEXAO > 1 ? `tent. ${TENTATIVAS_RECONEXAO}` : '';
     }
   };
-  es.addEventListener('open', () => { TENTATIVAS_RECONEXAO = 0; const f = $('#connLost'); if (f) f.hidden = true; });
+  es.addEventListener('open', () => {
+    TENTATIVAS_RECONEXAO = 0; marcarSinalDoEngine();
+    const f = $('#connLost'); if (f) f.hidden = true;
+    document.body.classList.remove('sem-engine');
+  });
 }
 
 // 'entregas', 'destaques', 'time' e 'sistema' já se registraram sozinhas ao serem

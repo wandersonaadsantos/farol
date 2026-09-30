@@ -37,7 +37,7 @@ test('nenhuma requisição leva o token na URL', () => {
 });
 
 test('api() e get() passam pelos cabeçalhos com autorização', () => {
-  assert.match(APPJS, /import \{ tokenLocal, FonteDeEventosAutenticada \} from '\.\/transporte\.js';/);
+  assert.match(APPJS, /import \{ tokenLocal, FonteDeEventosAutenticada, OCIOSO_MS \} from '\.\/transporte\.js';/);
   assert.match(INFRA, /import \{ comAutorizacao \} from '\.\.\/transporte\.js';/);
   assert.match(INFRA, /headers: comAutorizacao\(\{ 'Content-Type': 'application\/json', 'x-farol': '1' \}\)/);
   assert.match(INFRA, /function get\(path\) \{ return fetch\(path, \{ headers: comAutorizacao\(\) \}\)/);

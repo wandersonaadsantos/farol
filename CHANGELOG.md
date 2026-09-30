@@ -9,6 +9,26 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.66.0
+
+O tempo real deixa de ser pesado e o acompanhamento da revisão deixa de inventar progresso.
+
+**Novidades**
+
+- **O cartão da revisão diz o que está acontecendo de verdade.** No lugar do percentual, que só contava linhas do feed e empacava em 90%, o cartão mostra a etapa real, quantos arquivos do PR a sessão já abriu e, quando o modelo termina, que a revisão está decidindo e postando. Enquanto o Claude trabalha, a barra é indeterminada de propósito: o Farol não sabe quanto falta e parou de fingir que sabe.
+- **Sessão muda é avisada.** Se o Claude para de dar sinal por mais de 45 segundos, o cartão diz há quanto tempo e a barra congela. Antes, uma sessão travada era indistinguível de uma trabalhando, e ficava "analisando" até o teto de 30 minutos.
+- **Aviso de queda de conexão em qualquer aba.** A faixa "sem conexão com o engine" morava dentro do painel "Preciso de você"; em qualquer outra aba o app só parecia ter parado de atualizar. Agora, enquanto a conexão está caída, a tela inteira esmaece e a contagem para a próxima checagem some, em vez de continuar correndo como se estivesse viva.
+
+**Melhorias**
+
+- **A tela recebe só o que mudou.** Medido nesta máquina, o painel recebia 4,16 MB por minuto durante uma revisão, o estado inteiro a cada empurrão, e repintava tudo. Agora vai a diferença: 84% menos tráfego na mesma medição, e empurrão que não muda nada não gera evento nenhum.
+- **A conexão percebe quando morre sem avisar.** O engine passou a mandar um batimento visível, e a tela reabre o stream se ficar 90 segundos sem sinal. O caso clássico é um proxy ou antivírus que segura o stream: a conexão parecia aberta e a tela congelava sem nunca avisar.
+- **Reconexão com recuo.** A tentativa a cada 3 segundos, para sempre, virou espera que dobra até 30 segundos e volta ao início assim que a conexão é restabelecida.
+
+**Correções**
+
+- **A última etapa da revisão aparece na esteira.** O nó final se chamava "redação" na tela e "fechamento" no motor, então ele nunca acendia e o tempo dessa etapa, que costuma ser a mais longa, não aparecia em lugar nenhum.
+
 ## v2.65.4
 
 A revisão pedida pela conta silenciada aparece na conta certa.

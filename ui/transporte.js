@@ -9,6 +9,14 @@ const CHAVE_TOKEN = 'farol-auth-token';
 const FORMATO_TOKEN = /^[A-Za-z0-9_-]{43}$/;
 // a mesma espera de reconexão que os navegadores usam por padrão no EventSource
 const RECONEXAO_MS = 3000;
+// Teto do recuo. A espera fixa de 3 s martelava um engine morto a 1 requisição por 3
+// segundos para sempre; dobrando até aqui, o engine que voltou é reencontrado rápido e
+// o que não voltou não é perseguido.
+const RECONEXAO_MAX_MS = 30000;
+// Sem nada vindo do engine por isto, nem o batimento de 25 s, a conexão está morta sem
+// ter avisado (proxy ou antivírus que bufferiza o stream). Mesmo critério do
+// TEMPOS.SSE_OCIOSO_MS do lado do engine; quem observa aqui é o ui/app.js.
+export const OCIOSO_MS = 90 * 1000;
 
 // localStorage pode lançar (janela privada, dados do site bloqueados). Sem token legível
 // a página segue no caminho de sempre.
@@ -75,6 +83,7 @@ export class FonteDeEventosAutenticada {
     this.onerror = null;
     this.fechada = false;
     this.controle = null;
+    this.espera = RECONEXAO_MS;
     this.agendar(() => this.abrir(), 0);
   }
 
@@ -99,7 +108,9 @@ export class FonteDeEventosAutenticada {
     await this.ler().catch(() => false);
     if (this.fechada) return;
     if (this.onerror) this.onerror();
-    this.agendar(() => this.abrir(), RECONEXAO_MS);
+    const espera = this.espera;
+    this.espera = Math.min(this.espera * 2, RECONEXAO_MAX_MS);
+    this.agendar(() => this.abrir(), espera);
   }
 
   async ler() {
@@ -109,6 +120,9 @@ export class FonteDeEventosAutenticada {
     // pareamento. A reconexão continua, porque parear de novo faz o stream voltar sozinho.
     if (resposta.status === 401) this.emitir('nao-autenticado', '');
     if (!resposta.ok || !resposta.body) return false;
+    // conexão de pé: o recuo volta ao início, senão uma queda longa deixaria a próxima
+    // reconexão lenta pelo resto da sessão
+    this.espera = RECONEXAO_MS;
     this.emitir('open', '');
     const leitor = resposta.body.getReader();
     const decodificador = new TextDecoder();

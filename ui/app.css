@@ -1447,6 +1447,14 @@ body.electron .chat-head { padding-right: 150px; }
 .conn-lost .cl-txt { flex: 1; min-width: 0; text-wrap: pretty; }
 .conn-lost .cl-sub { color: var(--muted); }
 .conn-lost .cl-try { color: var(--faint); font-size: 11px; flex: none; }
+/* a faixa mora fora das abas (ui/index.html), então ela precisa da margem lateral do
+   conteúdo para não colar na borda da janela */
+main > .conn-lost { margin: 0 var(--pad, 16px) 11px; }
+/* Engine fora do ar: o que está na tela é retrato velho, e precisa PARECER velho. Sem
+   isto o painel seguia opaco e a contagem regressiva seguia andando, o que é a tela
+   afirmando que está atualizada enquanto não está. */
+body.sem-engine main { opacity: .62; filter: saturate(.75); }
+body.sem-engine #statusPill { animation: pulse-soft 1.4s infinite; }
 @keyframes pulse-soft { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
 
 /* o ⌘K só existe em janela estreita: acima disso as 6 abas cabem e o atalho basta */
@@ -2261,3 +2269,14 @@ body.parear > *:not(.par-raiz) { display: none !important; }
   .fila-item .pr-actions { flex-basis: 100%; }
   .fila-filtro, .seg button, .apar-troca-item, .fila-item .btn, .conta-campo select { min-height: 44px; }
 }
+
+/* Cartão de sessão: a barra é INDETERMINADA de propósito. O app não sabe quanto falta
+   de uma revisão, e o percentual que existia aqui era contagem de linhas do feed
+   saturando em 90%. A barra diz "algo está correndo"; o texto ao lado diz o que é. */
+.sess-progress.indeterminada .op-bar-fill { width: 35%; animation: sess-corre 1.6s ease-in-out infinite; }
+@keyframes sess-corre { 0% { margin-left: 0; } 50% { margin-left: 65%; } 100% { margin-left: 0; } }
+.sess-progress .sess-pct { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
+/* stream mudo: a barra PARA, senão a animação continuaria prometendo trabalho */
+.sess-progress.sess-muda .op-bar-fill { width: 100%; background: color-mix(in srgb, var(--warn, #d98324) 55%, transparent); animation: none; margin-left: 0; }
+.sess-progress.sess-muda .sess-pct { color: var(--warn, #d98324); }
+.sess-progress.sess-fechando .op-bar-fill { width: 100%; animation: none; margin-left: 0; }
