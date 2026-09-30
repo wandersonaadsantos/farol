@@ -11,9 +11,11 @@ e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
 ## v2.66.2
 
-As telas de Contas e de Automação param de prometer autonomia que o Farol não tem.
+A revisão deixa de morrer esperando o CI, e as telas de Contas e de Automação param de prometer autonomia que o Farol não tem.
 
 **Correções**
+
+- **A revisão não morre mais esperando o CI terminar.** Quando o PR ainda estava com checks rodando, a sessão do Claude punha a espera em segundo plano, encerrava dizendo "aguardo o resultado" e terminava ali, sem entregar a revisão. Três revisões se perderam assim em dois dias, cada uma caindo como "a sessão não devolveu JSON". Agora a sessão não tem como mandar nada para o segundo plano, e as instruções da revisão e da autoanálise dizem que o CI não se espera: a sessão registra o estado dos checks como está e o Farol segura a aprovação sozinho enquanto um check obrigatório estiver rodando.
 
 - **O "com ressalvas" herdado de cada conta diz o que acontece de verdade.** O cartão da conta mostrava "herda o geral: aprova e destaca as ressalvas" olhando só a chave geral. Numa conta cujo "sem ressalvas" espera você, o Farol aguarda, e a tela prometia aprovar. Agora o rótulo segue a mesma regra que decide.
 - **A co-assinatura não promete mais o que nunca faz.** O texto dava como exemplo "código do qual você é dono", e é justamente onde o Farol nunca co-assina: com você dono pelo CODEOWNERS (ou com o CODEOWNERS ilegível), a sua aprovação precisa vir de revisão de verdade. O texto agora diz isso, e diz também que só é detectado quem revisa com o Farol.

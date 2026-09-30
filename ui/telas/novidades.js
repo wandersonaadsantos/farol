@@ -8,6 +8,7 @@ import { $ } from './infra.js';
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
   ['2.66.2', [
+    "A revisão não morre mais esperando o CI terminar. A sessão punha a espera em segundo plano e acabava sem entregar a revisão (\"a sessão não devolveu JSON\"); agora ela registra os checks como estão, e o Farol segura a aprovação enquanto um obrigatório roda.",
     "Contas e Automação pararam de prometer autonomia que o Farol não tem. O \"com ressalvas\" herdado de cada conta agora diz o que acontece de verdade: numa conta cujo \"sem ressalvas\" espera você, ele também espera.",
     "A co-assinatura deixou de dar como exemplo justamente o caso em que ela nunca age: código do qual você é dono pelo CODEOWNERS. E o texto diz que só é detectado quem revisa com o Farol.",
     "\"Aprovável sem ressalvas\" diz o que exige: com o Jira ligado, card lido e atendido. O APPROVE sai com o texto da revisão, e as ressalvas ficam no app.",
