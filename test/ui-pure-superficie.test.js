@@ -209,6 +209,7 @@ const CONGELADA = [
   "opTransition",
   "opcoesDeModeloHtml",
   "operationChecks",
+  "ordemDoEscalonador",
   "orgsMonitoradas",
   "overrideFor",
   "ownerFromUrl",

@@ -9,6 +9,33 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.66.2
+
+As telas de Contas e de Automação param de prometer autonomia que o Farol não tem.
+
+**Correções**
+
+- **O "com ressalvas" herdado de cada conta diz o que acontece de verdade.** O cartão da conta mostrava "herda o geral: aprova e destaca as ressalvas" olhando só a chave geral. Numa conta cujo "sem ressalvas" espera você, o Farol aguarda, e a tela prometia aprovar. Agora o rótulo segue a mesma regra que decide.
+- **A co-assinatura não promete mais o que nunca faz.** O texto dava como exemplo "código do qual você é dono", e é justamente onde o Farol nunca co-assina: com você dono pelo CODEOWNERS (ou com o CODEOWNERS ilegível), a sua aprovação precisa vir de revisão de verdade. O texto agora diz isso, e diz também que só é detectado quem revisa com o Farol.
+- **"Aprovável sem ressalvas" diz o que exige.** Com o Jira ligado, sem ressalvas quer dizer card do PR lido e atendido; PR sem card cai na regra das ressalvas, que por padrão espera você. E o APPROVE sai com o texto da revisão: as ressalvas ficam no app, não "destacadas" no PR.
+- **"Revisar sozinho" não é mais "na hora".** A descrição lista o que segura a revisão automática: checks obrigatórios, outra pessoa revisando, reprovação ou duas aprovações humanas no head, limite do plano, orçamento e o Farol aberto.
+- **"Só põe na fila" avisa que o clique não é neutro.** A revisão que você dispara num PR da fila segue as mesmas regras de aprovar e reprovar da conta.
+- **O modo rápido e a dica do Auto contam a verdade.** O modo rápido não vale no Auto, e o Auto revisa sempre com o Opus, subindo o raciocínio para xhigh só quando o contexto do PR pede. A dica dizia que ele escolhia entre os modelos pelo tamanho.
+- **A notificação de PR novo não anuncia revisão que não vai rodar.** Dizia "revisando sozinho" sempre que qualquer PR da fila entrava na revisão automática, inclusive um antigo, e antes dos gates. Agora diz "na fila da revisão automática" e só quando é o próprio PR novo que entrou.
+- **Justiça de fila na ordem real.** A tabela "Por org" ordenava por quem espera há mais tempo, e o escalonador atende a org atendida há mais tempo. O texto do teto global dizia o mesmo erro. Os dois foram alinhados ao escalonador.
+- **Paralelismo e aparelhos.** "Revisões paralelas por conta" avisa que, com o compartilhamento entre aparelhos ligado, o número vira o total do aparelho. A pausa do aparelho diz que segura só a revisão (pushback e co-assinatura seguem), e a política diz que os tipos permitidos e as contas elegíveis ficam gravados, mas o aparelho ainda não os aplica.
+- **Detalhes menores:** "Retomar a sessão no round 2" avisa que não vale para conta Codex, "Atualizar sozinho" diz que também espera a fila de revisão esvaziar, e "Detectar pushback" diz quando a sessão roda e o limite de duas por ciclo.
+
+## v2.66.1
+
+O Farol para de tomar bloqueio do GitHub por disparar as buscas todas juntas.
+
+**Correções**
+
+- **As buscas do ciclo saem espaçadas, e não em rajada.** O limite de busca do GitHub é por minuto, e o Farol pedia todas as buscas do ciclo quase ao mesmo tempo: na configuração deste computador são 14 quase simultâneas, 7 delas numa conta só. Foram 38 bloqueios em poucos dias, cada um parando as buscas daquela conta por alguns minutos com a tela exibindo o panorama velho. Agora cada conta tem um orçamento próprio e as buscas esperam a vez: as 7 de uma conta levam cerca de 21 segundos dentro de um ciclo de 3 minutos, o que não muda nada para quem olha a tela.
+- **A espera depois de um bloqueio passou a ser calculada pela cota certa.** O Farol perguntava ao GitHub quanto restava de uma cota que as buscas não usam, então a resposta vinha sempre sobrando e a espera era dimensionada errado.
+- **O bloqueio aparece na tela.** Enquanto as buscas de uma conta estão paradas, o painel diz qual conta, até quando, e que o que está na tela é o último retrato. Antes isso só existia no log, e o painel seguia mostrando dado velho sem avisar.
+
 ## v2.66.0
 
 O tempo real deixa de ser pesado e o acompanhamento da revisão deixa de inventar progresso.

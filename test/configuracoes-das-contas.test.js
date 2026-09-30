@@ -75,3 +75,30 @@ test('Automação: a co-assinatura avisa no app, não no PR, e respeita a conta'
   assert.match(desc, /sem postar nada no PR/);
   assert.match(desc, /espera você também não co-assina/);
 });
+
+// 30/09/2026: o "com ressalvas" herdado dizia "aprova e destaca as ressalvas" olhando só a
+// chave geral, e o engine manda esperar quando o limpo da conta espera você. A tela tem de
+// dizer, para cada conta, o que acontece de verdade: o mesmo que acaoAoAprovar devolve.
+test('Contas: o com ressalvas herdado diz o que o engine faz, conta a conta', () => {
+  const espera = { user: 'cautelosa', onClean: 'wait' };
+  const segue = { user: 'segue' };
+  const ligado = { claudeProfiles: [], autoApproveAll: true };
+  const eng = engineCom([espera, segue], { autoApproveAll: true });
+  const bloco = (html, u) => html.slice(html.indexOf(`class="acct-oncaveats" data-user="${u}"`)).split('</select>')[0];
+  const alcance = contasConfig.alcanceDasChavesGerais(eng);
+  assert.deepEqual(alcance.ressalvaHerdadaEspera, ['cautelosa'], 'a lista vem do mesmo predicado que decide');
+  const html = P.accountsManagerHtml({ accounts: [espera, segue], acct: {}, config: ligado, alcance });
+  assert.equal(contasConfig.acaoAoAprovar(eng, 'cautelosa', false), 'wait');
+  assert.match(bloco(html, 'cautelosa'), /<option value="">herda o geral: espera você<\/option>/);
+  assert.equal(contasConfig.acaoAoAprovar(eng, 'segue', false), 'approve');
+  assert.match(bloco(html, 'segue'), /<option value="">herda o geral: aprova \(as ressalvas ficam no app\)<\/option>/);
+  assert.doesNotMatch(html, /destaca as ressalvas/, 'o APPROVE não destaca ressalva nenhuma no PR');
+});
+
+test('Automação: nenhuma chave promete o que o engine não faz', () => {
+  assert.doesNotMatch(HTML, /código do qual você é dono, por exemplo/, 'a co-assinatura nunca vale onde você é dono');
+  assert.match(HTML, /Nunca co-assina onde você é dono do código pelo CODEOWNERS/);
+  assert.match(HTML, /Não vale no modelo Auto/, 'o Auto fixa fast:false em toda faixa');
+  assert.doesNotMatch(HTML, /org que está esperando há mais tempo/, 'o escalonador escolhe a org atendida há mais tempo');
+  assert.doesNotMatch(HTML, /APPROVE destacando as ressalvas/);
+});

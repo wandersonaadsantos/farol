@@ -32,9 +32,19 @@ export function fjMoeda(v) {
   return Number.isFinite(n) ? `US$ ${n.toFixed(2)}` : '—';
 }
 
+// A ordem em que o escalonador atende (proximoHeadless, lib/engine/review.js): primeiro as
+// orgs com PR esperando; entre elas, a nunca atendida e depois a atendida HÁ MAIS TEMPO.
+// Até 30/09/2026 o painel ordenava por quem espera há mais tempo e prometia, no cabeçalho,
+// "quem é atendido primeiro": a tabela mostrava uma ordem que a fila não segue.
+export function ordemDoEscalonador(porOrg) {
+  const haMaisTempo = (o) => (o.ultimaVezMs == null ? Infinity : o.ultimaVezMs);
+  return [...porOrg].sort((a, b) => (b.esperando > 0) - (a.esperando > 0)
+    || haMaisTempo(b) - haMaisTempo(a) || (b.esperaMaisAntigaMs || 0) - (a.esperaMaisAntigaMs || 0));
+}
+
 function fjOrgsHtml(porOrg) {
   if (!porOrg || !porOrg.length) return '';
-  const linhas = porOrg.map(o => {
+  const linhas = ordemDoEscalonador(porOrg).map(o => {
     const espera = o.esperando > 0 ? `${o.esperando} esperando` : 'fila vazia';
     const maisAntigo = o.esperando > 0 && o.esperaMaisAntigaMs ? ` · mais antigo ${fjQuando(o.esperaMaisAntigaMs)}` : '';
     return `<tr>
