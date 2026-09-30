@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.66.1
+
+O Farol para de tomar bloqueio do GitHub por disparar as buscas todas juntas.
+
+**Correções**
+
+- **As buscas do ciclo saem espaçadas, e não em rajada.** O limite de busca do GitHub é por minuto, e o Farol pedia todas as buscas do ciclo quase ao mesmo tempo: na configuração deste computador são 14 quase simultâneas, 7 delas numa conta só. Foram 38 bloqueios em poucos dias, cada um parando as buscas daquela conta por alguns minutos com a tela exibindo o panorama velho. Agora cada conta tem um orçamento próprio e as buscas esperam a vez: as 7 de uma conta levam cerca de 21 segundos dentro de um ciclo de 3 minutos, o que não muda nada para quem olha a tela.
+- **A espera depois de um bloqueio passou a ser calculada pela cota certa.** O Farol perguntava ao GitHub quanto restava de uma cota que as buscas não usam, então a resposta vinha sempre sobrando e a espera era dimensionada errado.
+- **O bloqueio aparece na tela.** Enquanto as buscas de uma conta estão paradas, o painel diz qual conta, até quando, e que o que está na tela é o último retrato. Antes isso só existia no log, e o painel seguia mostrando dado velho sem avisar.
+
 ## v2.66.0
 
 O tempo real deixa de ser pesado e o acompanhamento da revisão deixa de inventar progresso.

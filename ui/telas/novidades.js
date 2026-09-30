@@ -7,6 +7,10 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.66.1', [
+    "As buscas do ciclo saem espaçadas e o Farol para de tomar bloqueio do GitHub por rajada.",
+    "Enquanto as buscas de uma conta estão bloqueadas, o painel avisa qual conta, até quando, e que o que está na tela é o último retrato.",
+  ]],
   ['2.66.0', [
     "O painel recebe só o que mudou, e não o estado inteiro a cada atualização: 84% menos tráfego na medição desta máquina.",
     "A tela avisa quando perde o engine, em qualquer aba, e para de contar o tempo para a próxima checagem enquanto está sem conexão.",
