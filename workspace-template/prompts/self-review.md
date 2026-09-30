@@ -102,6 +102,11 @@ FAROL_CHECKPOINT: {"claim":"<a afirmação em 1 linha>","file":"<arquivo>","line
 
 ## Saída
 
+Nesta sessão não existe "depois": quando o seu turno acaba, o processo acaba. **O CI do PR você não
+espera:** leia o estado dos checks uma vez e registre como está (inclusive `pending`). Nunca rode
+comando em segundo plano (`run_in_background`), nunca faça laço de espera (`until`/`sleep`/`watch`
+sobre `gh pr checks` ou `check-runs`) e nunca encerre com frase do tipo "aguardo o resultado".
+
 Sua saída final deve ser **apenas um bloco JSON** (sem texto antes ou depois, sem cerca de código),
 neste schema:
 
