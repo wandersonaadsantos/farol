@@ -61,7 +61,7 @@ function situacaoDa(leitura) {
 }
 
 function opcoesDoTeto(teto) {
-  const naoDefinido = `<option value=""${teto === undefined ? ' selected' : ''}>não definir (vale o do aparelho)</option>`;
+  const naoDefinido = `<option value=""${teto === undefined ? ' selected' : ''}>não definir (vale o do aparelho, em Sistema → Automação)</option>`;
   return naoDefinido + APARELHOS_TETOS.map((n) => `<option value="${n}"${teto === n ? ' selected' : ''}>${n} sessão(ões)</option>`).join('');
 }
 
@@ -77,7 +77,7 @@ function caixasDosTipos(tipos) {
 function notaDasContas(pol) {
   const contas = pol && Array.isArray(pol.contasElegiveis) ? pol.contasElegiveis.length : 0;
   if (!contas) return '';
-  return `<span class="sync-dica">A política também restringe as contas elegíveis (${contas}); esta tela não edita essa lista, e publicar a mantém como está.</span>`;
+  return `<span class="sync-dica">A política também grava uma lista de contas elegíveis (${contas}); esta tela não edita essa lista, e publicar a mantém como está. O aparelho ainda não aplica essa lista.</span>`;
 }
 
 // QUATRO coisas diferentes, e o texto antigo juntava todas numa frase só: o CONSENTIMENTO
@@ -123,6 +123,7 @@ export function aparelhoPoliticaHtml(aparelho, opcoes) {
       <label class="apar-campo" for="aparPolTeto"><span>Teto de paralelismo</span><select id="aparPolTeto" class="sync-input">${opcoesDoTeto(pol.tetoParalelismo)}</select></label>
       <div class="apar-campo"><span>Tipos permitidos</span><div class="apar-tipos">${caixasDosTipos(pol.tiposDeOperacao)}</div></div>
     </div>
+    <span class="sync-dica">Hoje só a pausa e o teto mudam o que o aparelho faz, e só na revisão: os tipos permitidos ficam gravados na política, mas o aparelho ainda não os aplica.</span>
     ${notaDasContas(pol)}
     ${recusa}
     <div class="row-actions"><button class="btn sm primary" id="aparPublicarPolitica">Publicar política</button></div>

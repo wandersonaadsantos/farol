@@ -4,7 +4,7 @@
 // estacionamento visível (v2.57.4) e do rastro durável do gate de orçamento.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-const { filaJustaHtml, fjQuando, fjMoeda } = await import('../ui/pure.js');
+const { filaJustaHtml, fjQuando, fjMoeda, ordemDoEscalonador } = await import('../ui/pure.js');
 
 test('fjQuando: nunca atendida, agora, e intervalo humano', () => {
   assert.equal(fjQuando(null), 'nunca');
@@ -126,4 +126,20 @@ test('INVARIANTE: nenhum fonte carrega caractere de controle invisível', async 
     if (m) sujos.push(`${rel}: ${m.length} ocorrência(s), primeira 0x${m[0].charCodeAt(0).toString(16)}`);
   }
   assert.deepEqual(sujos, [], 'caractere de controle no fonte: quase sempre uma sequência de escape que virou o byte de verdade');
+});
+
+// 30/09/2026: a tabela ordenava por quem espera há mais tempo, e o escalonador escolhe a org
+// ATENDIDA há mais tempo. Com o cabeçalho prometendo "quem é atendido primeiro", a ordem
+// da tabela tem de ser a de proximoHeadless.
+test('Por org: a tabela segue a ordem do escalonador, não a da espera', () => {
+  const porOrg = [
+    { org: 'espera-muito', esperando: 1, esperaMaisAntigaMs: 9e6, ultimaVezMs: 60000 },
+    { org: 'vazia', esperando: 0, esperaMaisAntigaMs: 0, ultimaVezMs: null },
+    { org: 'nunca', esperando: 1, esperaMaisAntigaMs: 1000, ultimaVezMs: null },
+    { org: 'faz-tempo', esperando: 2, esperaMaisAntigaMs: 5000, ultimaVezMs: 3600000 },
+  ];
+  assert.deepEqual(ordemDoEscalonador(porOrg).map(o => o.org), ['nunca', 'faz-tempo', 'espera-muito', 'vazia']);
+  const html = filaJustaHtml({ porOrg, porPerfil: [], emCurso: 1, tetoGlobal: 0 });
+  const pos = (o) => html.indexOf(`>${o}<`);
+  assert.ok(pos('nunca') < pos('faz-tempo') && pos('faz-tempo') < pos('espera-muito') && pos('espera-muito') < pos('vazia'));
 });

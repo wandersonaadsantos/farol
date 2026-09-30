@@ -40,7 +40,7 @@ export function renderAccountsManager() {
   renderContasGh();
   const box = $('#accountsManager'); if (!box) return;
   if (document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
-  box.innerHTML = accountsManagerHtml({ accounts: estado().accounts, config: estado().config, acct: ACCT, doctor: estado().doctor, usage: estado().usage });
+  box.innerHTML = accountsManagerHtml({ accounts: estado().accounts, config: estado().config, alcance: estado().alcanceDasChavesGerais, acct: ACCT, doctor: estado().doctor, usage: estado().usage });
 }
 
 /* editor de contas: mudar cor / rótulo / tipo / orgs */

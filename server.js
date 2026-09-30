@@ -1228,7 +1228,8 @@ class Engine extends EventEmitter {
         return true;
       });
       if (freshActive.length > 0) {
-        this.emit('new-prs', { items: freshActive, total: this.queue.filter(p => !this.isMuted(this.accountForPr(p))).length, auto: toReview.length > 0 });
+        // `auto` fala dos PRs que ACABARAM de chegar, não de qualquer PR da fila automática
+        this.emit('new-prs', { items: freshActive, total: this.queue.filter(p => !this.isMuted(this.accountForPr(p))).length, auto: freshActive.some(p => toReview.some(t => t.key === p.key)) });
       }
       if (toReview.length) this.launchReview(toReview.map(p => p.url), 'auto');
       // fire-and-forget, no padrão do scanPushbacks: sair de cena e co-assinar são
@@ -2150,9 +2151,8 @@ class Engine extends EventEmitter {
       o.ultimaVezMs = agora - v.at;
       orgs.set(org, o);
     }
-    // a org que espera há mais tempo primeiro: é a ordem em que o escalonador vai
-    // atender, então a tela mostra a fila na mesma ordem em que ela vai andar
-    const porOrg = [...orgs.values()].sort((a, b) => b.esperaMaisAntigaMs - a.esperaMaisAntigaMs);
+    // sem ordem aqui: a tela ordena como o escalonador atende (ordemDoEscalonador, fila-justa.js)
+    const porOrg = [...orgs.values()];
 
     const sessions = (this.usageSessions && this.usageSessions.sessions) || [];
     const tipico = usageMod.custoTipicoDoEngine(this);
