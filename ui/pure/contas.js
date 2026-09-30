@@ -18,7 +18,7 @@
 // escopo salvo no navegador validado contra as contas atuais: conta removida ou
 // renomeada deixava um escopo orfao que esvaziava o Radar pra sempre (B15).
 // Compara sem caixa e preserva o valor original quando ele e valido.
-import { esc, fmtMoney } from './comum.js';
+import { esc, fmtMoney, fmtClock } from './comum.js';
 
 export function validScope(scope, users) {
   if (!scope || scope === 'all') return 'all';
@@ -41,7 +41,20 @@ export function camposDaEdicao(patch) {
   return Object.fromEntries(Object.entries(patch || {}).map(([k, v]) => [k, v === undefined ? null : v]));
 }
 
+// Buscas paradas por limite do GitHub. Vem ANTES dos outros avisos porque, enquanto ela
+// vale, o que a tela mostra do GitHub é retrato velho, e isso muda como ler todo o resto.
+// Medido em 30/09/2026: 38 bloqueios em poucos dias, e nenhum deles aparecia na tela.
+function avisoDeBuscasPausadas(lista) {
+  const paradas = (lista || []).filter(x => x && x.ate);
+  if (!paradas.length) return '';
+  const quais = paradas.map(x => `<b>@${esc(x.conta)}</b> até ${esc(fmtClock(x.ate))}`).join(' · ');
+  return `Buscas pausadas pelo limite de requisições do GitHub: ${quais}. `
+    + 'O que está na tela é o último retrato; insistir só prolongaria o bloqueio.';
+}
+
 export function statusBannerHtml(s = {}) {
+  const pausadas = avisoDeBuscasPausadas(s.buscasPausadas);
+  if (pausadas) return pausadas;
   const partindo = s.status === 'starting';
   if (!s.account.user && !partindo) {
     return 'Bem-vindo ao Farol! Nenhuma conta do GitHub foi detectada. Rode <code>gh auth login</code> no terminal (conta de trabalho) e clique em Verificar agora.';

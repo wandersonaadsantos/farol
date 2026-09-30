@@ -38,6 +38,8 @@ import { carregarLimites, limiteAte } from './lib/engine/limite-plano.js';
 import decisionMod from './lib/engine/decision.js';
 import arbitragemMod from './lib/engine/postagem-arbitragem.js';
 import ghMod from './lib/engine/gh-queries.js';
+import limiteGhMod from './lib/engine/limite-gh.js';
+import { chavesEstacionadas, ancoraAposReinicio } from './lib/engine/estado-do-boot.js';
 import contasGh from './lib/engine/contas-gh.js';
 import contasConfig from './lib/engine/contas-config.js';
 import versaoClaude from './lib/engine/versao-claude.js';
@@ -153,26 +155,6 @@ const SELF_PRUNE_STRIKES = 2;
 // Leitura mais provável das 7 linhas ERROR do biud-esg#268 em 83 minutos (03/09/2026),
 // sem commit novo: o índice piscou, a key saiu, a sessão relançou e estacionou de novo.
 const PARKED_PRUNE_STRIKES = 2;
-// keys do arquivo de estacionamento, nos dois formatos que ele já teve (lista crua até
-// a v2.57.3; `{ keys, motivos }` desde a v2.57.4). Qualquer outra forma é vazio.
-function chavesEstacionadas(salvo) {
-  let lista = [];
-  if (Array.isArray(salvo)) lista = salvo;
-  else if (salvo && Array.isArray(salvo.keys)) lista = salvo.keys;
-  return lista.filter(k => typeof k === 'string');
-}
-
-// FIX 3 (v2.53.1): a metade que o recoverInflight aplica na âncora de re-revisão
-// de um PR que estava inflight no reinício. Âncora OBJETO ({head,dia,rodadas})
-// só libera o head (fica ''), preservando dia/rodadas, pra o teto diário não
-// zerar por causa de um reinício; âncora STRING legada devolve undefined (não
-// há contador a preservar, então o chamador apaga como sempre). Função pura,
-// extraída pra manter a profundidade de chaves do método baixa.
-function ancoraAposReinicio(v) {
-  if (v && typeof v === 'object') return { ...v, head: '' };
-  return undefined;
-}
-
 // --- Engine -----------------------------------------------------------------
 class Engine extends EventEmitter {
   constructor() {
@@ -1989,6 +1971,9 @@ class Engine extends EventEmitter {
       sync: syncMod.statusForUi(this),
       lastCheckAt: this.lastCheckAt,
       nextCheckAt: this.nextCheckAt,
+      // contas com as buscas paradas por limite do GitHub, e ate quando: sem isto a tela
+      // exibe panorama velho sem dizer que ele esta velho (lib/engine/limite-gh.js)
+      buscasPausadas: limiteGhMod.buscasPausadas(this),
       queue: this.queue,
       // PRs da fila que estacionaram (falha, cancelamento, orçamento): o card mostra
       // quando e por quê, senão "nunca revisou" e "revisou e caiu" são idênticos na tela
