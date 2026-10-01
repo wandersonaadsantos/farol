@@ -150,6 +150,7 @@ function renderSettings() {
   renderAutomationSettings(c);
   $('#setReviewFast').checked = c.reviewFast === true;
   $('#setCoAssinarReview').checked = c.coAssinarReview === true;
+  $('#setAguardarCi').checked = c.aguardarCiParaRevisar === true;
   $('#setReReviewResume').checked = c.reReviewResume === true;
   $('#setAutoPushback').checked = !!c.autoPushback;
   $('#setAutoUpdate').checked = c.autoUpdate !== false;

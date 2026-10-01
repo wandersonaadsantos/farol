@@ -214,7 +214,7 @@ test('revisar: o gate de consciência segura, e o recibo diz qual; o estacioname
 
 test('revisar: checks obrigatórios, saída de cena, outra pessoa revisando e PR desconhecido seguram com o próprio código', async () => {
   const casos = [
-    ['checks_pendentes', (e) => { e.bloqueadoPorChecks = async () => ({ bloqueado: true, faltando: ['ci'] }); }],
+    ['checks_pendentes', (e) => { e.config.aguardarCiParaRevisar = true; e.bloqueadoPorChecks = async () => ({ bloqueado: true, faltando: ['ci'] }); }],
     ['saida-de-cena', (e) => { e.skipComentado = { [PR.key]: { at: 1 } }; }],
     ['outros_revisando', (e) => { e.outrosRevisando = () => ['colega']; }],
     ['sem_token', (e) => { e.tokenFor = () => null; }],

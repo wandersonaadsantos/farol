@@ -104,6 +104,8 @@ const PR = { key: 'o/r#1', repo: 'o/r', number: 1, url: 'https://github.com/o/r/
 
 function engineFalso(extra = {}) {
   return {
+    // o gate de entrada é opt-in desde 01/10/2026: estes casos testam o gate LIGADO
+    config: { aguardarCiParaRevisar: true },
     toasts: [],
     emit(_, p) { this.toasts.push(p); },
     bloqueadoPorHistorico: async () => LIVRE,
@@ -118,6 +120,25 @@ test('obrigatório faltando segura o automático e avisa que o botão vale', asy
   assert.match(e.toasts[0].text, /esperando os checks obrigatórios/);
   assert.match(e.toasts[0].text, /test \(ainda rodando\)/);
   assert.match(e.toasts[0].text, /botão Revisar continua valendo/);
+});
+
+test('desligado (padrão), o automático nem consulta os checks e revisa na hora', async () => {
+  for (const config of [{}, { aguardarCiParaRevisar: false }, { aguardarCiParaRevisar: 'true' }]) {
+    const e = engineFalso({
+      config,
+      bloqueadoPorChecks: async () => { throw new Error('sem a chave ligada o gate de entrada não consulta checks'); },
+    });
+    assert.equal(await skip.bloqueiaAutomatico(e, { ...PR }), false, JSON.stringify(config));
+    assert.equal(e.toasts.length, 0);
+  }
+});
+
+test('o padrão da preferência é desligado e só o booleano verdadeiro liga', async () => {
+  const { SETTINGS, EDITAVEIS, sanear } = await import('../lib/settings.js');
+  assert.equal(SETTINGS.find(x => x.key === 'aguardarCiParaRevisar').def, false);
+  assert.ok(EDITAVEIS.has('aguardarCiParaRevisar'));
+  assert.equal(sanear('aguardarCiParaRevisar', true), true);
+  for (const v of [false, 'true', 1, null, undefined]) assert.equal(sanear('aguardarCiParaRevisar', v), false, String(v));
 });
 
 test('clique manual atravessa sem consultar nada: é a saída de quem tem pressa', async () => {
