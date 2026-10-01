@@ -291,3 +291,58 @@ test('teto total local e remoto: vale o menor, e cada um vale sozinho quando o o
     cachePolitica.apagarPolitica();
   }
 });
+
+/* ---------- atualizar nunca faz uma instalação existente trabalhar MAIS ---------- */
+
+// Quantas sessões abrem com a fila cheia (cinco PRs por conta), e o máximo numa conta só.
+function vazao(config, nContas) {
+  const prs = [];
+  for (let c = 1; c <= nContas; c++) for (let i = 1; i <= 5; i++) prs.push({ key: `o${c}/r#${i}`, acct: `c${c}` });
+  const e = engineFila(prs, { config });
+  reviewMod.processHeadless(e);
+  const porConta = {};
+  for (const r of e.ran) { const conta = r.split('@')[1]; porConta[conta] = (porConta[conta] || 0) + 1; }
+  return { total: e.ran.length, maiorConta: Math.max(0, ...Object.values(porConta)) };
+}
+
+// O que o engine fazia até 30/09/2026, escrito como estava em admissao.js e review.js: com
+// a admissão ativa o total era o menor entre `parallelReviews` e o teto global, e o limite
+// por conta era 4 fixo; sem ela, limite por conta `parallelReviews` e só o teto global.
+function vazaoAntiga({ porConta, global, ligado }, nContas) {
+  const tetoGlobal = global > 0 ? global : Infinity;
+  const total = ligado ? Math.min(porConta, tetoGlobal) : tetoGlobal;
+  const limiteDaConta = ligado ? 4 : porConta;
+  return { total: Math.min(total, limiteDaConta * nContas), maiorConta: Math.min(limiteDaConta, total) };
+}
+
+test('tabela: o total do aparelho e o limite por conta são os mesmos antes e depois da migração', async () => {
+  const M = (await import('../lib/engine/contas-migracao.js')).default;
+  comMemoria(8192);
+  let linhas = 0;
+  for (const porConta of [1, 2, 3, 4]) for (const nContas of [1, 2, 3]) for (const ligado of [true, false]) for (const global of [0, 1, 2, 6]) {
+    const sync = ligado ? { enabled: true, shared: { enabled: true }, aceitarAdmin: false } : { enabled: false };
+    const antiga = { parallelReviews: porConta, globalParallelReviews: global, sync };
+    const r = M.migrarParalelismo(antiga);
+    const migrada = { ...antiga, esquemaConfig: r.esquemaConfig };
+    if ('globalParallelReviews' in r) migrada.globalParallelReviews = r.globalParallelReviews;
+    const rotulo = `por conta ${porConta}, ${nContas} conta(s), compartilhamento ${ligado}, teto global ${global}`;
+    const antes = vazaoAntiga({ porConta, global, ligado }, nContas);
+    const depois = vazao(migrada, nContas);
+    assert.equal(depois.total, antes.total, `${rotulo}: total do aparelho`);
+    // o limite por conta: o que UMA conta sozinha, com a fila cheia, consegue abrir
+    assert.equal(vazao(migrada, 1).total, vazaoAntiga({ porConta, global, ligado }, 1).total, `${rotulo}: limite por conta`);
+    assert.ok(depois.maiorConta <= antes.maiorConta, `${rotulo}: nenhuma conta abre mais do que abria`);
+    if (!ligado) assert.equal('globalParallelReviews' in r, false, `${rotulo}: sem compartilhamento, intocada`);
+    // idempotente: a config migrada não muda de novo
+    assert.deepEqual(M.migrarParalelismo(migrada), { mudou: false, mudancas: [] }, rotulo);
+    linhas++;
+  }
+  assert.equal(linhas, 96);
+});
+
+test('sem a migração, a mesma instalação abriria mais: é isto que ela impede', () => {
+  comMemoria(8192);
+  const sync = { enabled: true, shared: { enabled: true }, aceitarAdmin: false };
+  assert.equal(vazaoAntiga({ porConta: 2, global: 0, ligado: true }, 3).total, 2);
+  assert.equal(vazao({ parallelReviews: 2, globalParallelReviews: 0, sync }, 3).total, 6, 'quem tira o teto de propósito tem contas vezes o limite por conta');
+});
