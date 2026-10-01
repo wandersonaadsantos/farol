@@ -59,7 +59,7 @@ test('contestação com prova é ressalva: aprova quando a conta aprova com ress
     'sem contestação o mesmo resultado é limpo');
 });
 
-test('contestação também bloqueia o auto-reject (opt-in de reprovar sozinho)', () => {
+test('contestação NÃO segura mais o auto-reject (01/10/2026)', () => {
   const e = engineWithPolicy('approve');
   const rej = {
     analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', reasons: ['blocker'],
@@ -68,7 +68,7 @@ test('contestação também bloqueia o auto-reject (opt-in de reprovar sozinho)'
   assert.equal(e.shouldAutoReject(PR, rej), true, 'sem contestação, a conta opt-in reprova sozinha');
 
   rej.contested = [{ source: 'Sonar', claim: 'y', label: 'pre_existente', evidence: 'diff vazio em services/' }];
-  assert.equal(e.shouldAutoReject(PR, rej), false, 'com contestação, passa pelo humano');
+  assert.equal(e.shouldAutoReject(PR, rej), true, 'com contestação, o bloqueio escrito segue valendo');
 });
 
 test('contestação SEM prova é descartada (não vale como contestação, não bloqueia)', () => {
@@ -198,12 +198,13 @@ test('a chave autoApproveContested não existe mais: nem preferência, nem méto
   assert.deepEqual(r.ignoradas, ['autoApproveContested'], 'a tela antiga que mandar a chave é avisada, não obedecida');
 });
 
-test('reprovar sozinho por cima de uma discordância continua passando por você', () => {
+test('reprovar sozinho por cima de uma discordância posta, e o card registra a discordância', () => {
   const e = engineWithPolicy('approve');
   const rej = {
     analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', reasons: ['blocker'],
     contested: [{ source: 'Sonar', claim: 'y', label: 'pre_existente', evidence: 'diff vazio' }],
     payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'x' } }
   };
-  assert.equal(e.shouldAutoReject(PR, rej), false);
+  assert.equal(e.shouldAutoReject(PR, rej), true);
+  assert.equal(e.contestations(rej).length, 1);
 });

@@ -7,6 +7,7 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.69.0', ["Conta nova aprova e reprova sozinha por padrão (aprova com ou sem ressalvas e pede mudanças sozinha). Quem prefere revisar escolhe \"espera você\" nos seletores do cartão da conta, em Sistema > Contas.", "Reprovar sozinho não para mais por cobertura incompleta, divergência entre passadas ou contestação do autor: o bloqueio escrito vale por si, e o card registra o que a leitura não cobriu. Nada disso vai para o texto do PR.", "Contas que já existem não mudam: cada uma continua fazendo o que tinha gravado. Valor torto numa edição de conta é recusado em vez de virar ação automática."]],
   ['2.68.0', [
     "Nova chave em Sistema > Automação, \"Esperar o CI antes de revisar\", desligada por padrão. Ligada, a revisão automática só começa com todos os checks obrigatórios do PR verdes (o comportamento de antes); desligada, o Farol revisa assim que o PR chega.",
     "A aprovação continua esperando o CI nos dois casos: nunca aprova com check obrigatório vermelho ou rodando, e posta sozinho quando a pipe fecha verde no mesmo commit. O botão Revisar nunca esperou.",

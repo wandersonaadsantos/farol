@@ -354,8 +354,8 @@ export function politicaDaContaNaTela(a) {
   const c = a || {};
   const onClean = c.onClean === 'wait' ? 'wait' : 'approve';
   // o com ressalvas nunca é mais permissivo que o limpo
-  const onCaveats = onClean === 'approve' && c.onCaveats === 'approve' ? 'approve' : 'wait';
-  const onReject = c.onReject === 'request_changes' ? 'request_changes' : 'wait';
+  const onCaveats = onClean === 'approve' && c.onCaveats !== 'wait' ? 'approve' : 'wait';
+  const onReject = c.onReject === 'wait' ? 'wait' : 'request_changes';
   return { autoReview: c.autoReview !== false, onClean, onCaveats, onReject };
 }
 

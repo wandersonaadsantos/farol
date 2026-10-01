@@ -196,7 +196,7 @@ O tráfego de rede que existe é todo em seu nome, com as suas credenciais:
 - **Anthropic**, quando o perfil usa Claude Code (assinatura ou chave de API suas);
 - **OpenAI**, quando o perfil usa Codex CLI autenticado pelo seu plano ChatGPT.
 
-Sobre responsabilidade: os reviews que o Farol posta saem **na sua conta do GitHub**, e as sessões de análise consomem **o plano ou os créditos do provedor configurado**. As automações de postagem (auto-approve pra todo PR, reprovação automática) são opt-in, e quem as liga responde pelo que é postado. O software é distribuído "no estado em que se encontra", sem garantia, nos termos da licença MIT (arquivo `LICENSE`).
+Sobre responsabilidade: os reviews que o Farol posta saem **na sua conta do GitHub**, e as sessões de análise consomem **o plano ou os créditos do provedor configurado**. As automações de postagem (auto-approve e reprovação automática) vêm ligadas na conta nova e podem ser desligadas por conta, e quem as deixa ligadas responde pelo que é postado. O software é distribuído "no estado em que se encontra", sem garantia, nos termos da licença MIT (arquivo `LICENSE`).
 
 Nunca compartilhe a sua pasta `~/.farol`: ela contém o seu estado, as suas configurações e a sua memória de reviews. Pra distribuir o app, use sempre o pacote auditado de `tools\make-package.ps1`.
 

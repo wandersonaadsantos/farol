@@ -100,3 +100,30 @@ test('postagem incerta: vira pendência com o motivo, sem lançar', async () => 
   assert.ok(item);
   assert.ok((item.reasons || []).some((r) => r.kind === 'infra' && /pode ter chegado ao GitHub/.test(r.text)));
 });
+
+// Desde 01/10/2026 lacuna de cobertura e contestação não seguram a reprovação automática: o
+// bloqueio é postado e o card registra o que a leitura não cobriu (nada disso vai ao PR).
+test('request_changes com lacuna de cobertura e contestação: posta, e o card registra as duas', async () => {
+  const e = motor({ ok: true, estado: 'confirmada' }, handleFalso(), 'request_changes');
+  const base = envelope('request_changes');
+  const comLacuna = {
+    ...base,
+    coverage: { total: 3, reviewed: ['a.ts'], missing: ['b.ts', 'c.ts'] },
+    contested: [{ source: 'Sonar', claim: 'y', label: 'pre_existente', evidence: 'diff vazio em services/' }],
+  };
+  e.runClaudeStream = async (prompt, opts) => {
+    if (typeof opts.onAdmitted === 'function') await opts.onAdmitted(null);
+    return { text: JSON.stringify({ result: JSON.stringify(comLacuna) }), sessionId: 's1', coordination: handleFalso() };
+  };
+  await e.runHeadlessReview(prDe('o/r#7'));
+  assert.equal(e.chamadas.length, 1, 'o REQUEST_CHANGES foi postado');
+  assert.equal(e.chamadas[0].payload.event, 'REQUEST_CHANGES');
+  assert.equal(e.decisions.pending.some((d) => d.key === 'o/r#7'), false, 'não foi para a mesa');
+  const item = e.decisions.resolved.find((d) => d.key === 'o/r#7');
+  assert.equal(item.status, 'auto_rejected');
+  const textos = (item.reasons || []).map((r) => r.text).join(' | ');
+  assert.match(textos, /a reprovação sai com a cobertura da leitura incompleta/);
+  assert.match(textos, /a reprovação sai com 1 contestação/);
+  assert.ok(!/então não posto sozinho/.test(textos), 'não diz que deixou de postar o que postou');
+  assert.ok(!/cobertura/.test(e.chamadas[0].payload.body), 'a lacuna não vai para o corpo público');
+});
