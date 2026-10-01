@@ -78,7 +78,7 @@ test('contestação com a conta esperando nas ressalvas: a recusa é da polític
   await e.runHeadlessReview(PR);
   const item = e.decisions.pending[0];
   assert.ok(item, 'a conta mandou esperar nas ressalvas');
-  assert.match(texto(item.reasons[0]), /aprovável com ressalvas, e o padrão geral é aguardar você/, 'quem segurou foi a política de ressalvas');
+  assert.match(texto(item.reasons[0]), /aprovável com ressalvas, e a política da conta .+ é aguardar você/, 'quem segurou foi a política de ressalvas');
   const discordancia = item.reasons.filter(r => /Discordância de outro review \(falso positivo\)/.test(texto(r)));
   assert.equal(discordancia.length, 1, 'a ressalva aparece uma vez, com rótulo e prova');
   assert.equal(discordancia[0].kind, 'gate');
@@ -109,7 +109,7 @@ test('lacuna de cobertura entra UMA vez nas reasons, como ressalva, com a amostr
   }), { policy: 'approve', ressalvas: 'wait' });
   await e.runHeadlessReview(PR);
   const item = e.decisions.pending[0];
-  assert.match(texto(item.reasons[0]), /aprovável com ressalvas, e o padrão geral é aguardar você/, 'quem segurou foi a política de ressalvas');
+  assert.match(texto(item.reasons[0]), /aprovável com ressalvas, e a política da conta .+ é aguardar você/, 'quem segurou foi a política de ressalvas');
   const deCobertura = textos(item.reasons).filter(r => /cobertura da leitura/.test(r));
   assert.equal(deCobertura.length, 1, `cobertura virou ${deCobertura.length} motivo(s): ${deCobertura.join(' | ')}`);
   assert.match(deCobertura[0], /b\.ts/, 'a redação que fica é a que mostra a amostra');

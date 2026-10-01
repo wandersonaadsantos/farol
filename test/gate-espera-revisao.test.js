@@ -241,7 +241,7 @@ test('conta que manda esperar você: vai para a mesa pela POLÍTICA, não entra 
   const e = await emEspera(8, { politica: ['approve', 'wait'], extra: { reasons: ['ressalva da revisão'] } });
   const d = pendente(e, 8);
   assert.equal(d.esperaCi, undefined);
-  assert.match(textos(d)[0], /aprovável com ressalvas, e o padrão geral é aguardar você/);
+  assert.match(textos(d)[0], /aprovável com ressalvas, e a política da conta .+ é aguardar você/);
   assert.ok(textos(d).includes('check obrigatório ainda sem resultado no head (test)'), 'quem vai clicar fica sabendo da pipe');
   assert.ok(textos(d).includes('ressalva da revisão'));
   assert.deepEqual(e.eventos, [['needs-decision', 'acme/app#8']]);

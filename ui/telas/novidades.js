@@ -7,6 +7,14 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.67.0', [
+    "CI obrigatório vermelho ou rodando virou espera automática: o Farol guarda a aprovação e aprova sozinho quando a pipe fecha verde no mesmo commit. Esses PRs têm seção própria, \"Esperando o CI (aprova sozinho)\", e saíram do \"Precisa de você\".",
+    "A política de revisar e aprovar mora só na conta. As chaves gerais saíram de Sistema > Automação, e cada conta recebeu por extenso o que já fazia.",
+    "\"Aprova sozinho\" tem só duas classes, sem ressalvas e com ressalvas. Discordância de outro review, leitura incompleta e dependência em aberto viraram ressalvas visíveis, e quem decide é o \"com ressalvas\" da conta.",
+    "O card sempre diz por que um PR é \"com ressalvas\", inclusive quando falta o card do Jira.",
+    "\"Revisões paralelas por conta\" é sempre por conta, e o total do aparelho é o \"Teto total deste aparelho\". Quem já compartilhava entre aparelhos mantém o total que tinha.",
+    "PR que não pediu a sua revisão continua sem postar nada sozinho, e o Farol continua saindo de cena quando outra pessoa está revisando."
+  ]],
   ['2.66.3', [
     "A política do aparelho ficou só com pausa e teto. Os tipos permitidos e as contas elegíveis eram gravados e mostrados, mas nada no Farol os aplicava: desmarcar a conversa não a impedia de rodar.",
     "Admin em versão antiga que ainda publique esses campos não quebra nada: eles são descartados na chegada, e a pausa e o teto continuam valendo."
