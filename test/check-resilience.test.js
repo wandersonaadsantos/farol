@@ -57,10 +57,13 @@ function checkEngine() {
   // idem pro gate de checks obrigatorios: sem o stub, o prototype real iria ao gh
   e.bloqueadoPorChecks = async () => ({ bloqueado: false, faltando: [] });
   e.scenario = { panorama: [], mine: [], reviewed: [] };
+  const cenarioDaBusca = (primeiro) => {
+    if (primeiro === '--owner') return e.scenario.panorama;
+    if (primeiro === '--review-requested=@me') return e.scenario.mine;
+    return e.scenario.reviewed;
+  };
   e.searchPRs = async (extraArgs) => {
-    const lista = extraArgs[0] === '--owner' ? e.scenario.panorama
-      : extraArgs[0] === '--review-requested=@me' ? e.scenario.mine
-        : e.scenario.reviewed;
+    const lista = cenarioDaBusca(extraArgs[0]);
     return lista === null ? null : lista.map(p => ({ ...p })); // check() muta os PRs
   };
   // baseline já existente: a 1ª checagem da vida não pode engolir a fila do teste
