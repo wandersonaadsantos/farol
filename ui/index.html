@@ -437,7 +437,7 @@
         <!-- Contas -->
         <div class="sys-section" id="sys-accounts" role="tabpanel" aria-labelledby="sysbtn-accounts" tabindex="0">
           <div class="section-head"><h2>Contas</h2></div>
-          <p class="section-desc">Cada conta com identidade e cor próprias. A política de automação é por conta: o que você não escolher aqui herda o padrão geral, definido em <span class="is-goto" data-goto="sys:automation:#sys-row-autoreview" role="button" tabindex="0" title="Abrir Sistema → Automação">Automação</span>. Contas silenciadas somem do painel.</p>
+          <p class="section-desc">Cada conta com identidade e cor próprias. A política de automação é por conta: cada uma diz, nos próprios seletores, se revisa sozinha e o que faz com cada resultado. Contas silenciadas somem do painel.</p>
           <div id="contasGh"></div>
           <div id="accountsManager" class="cards"></div>
         </div>
@@ -445,24 +445,8 @@
         <!-- Automação -->
         <div class="sys-section" id="sys-automation" role="tabpanel" aria-labelledby="sysbtn-automation" tabindex="0">
           <div class="section-head"><h2>Automação</h2></div>
-          <p class="section-desc">O que o Farol faz sozinho nos PRs, com qual modelo, e de quanto em quanto tempo ele consulta o GitHub.</p>
+          <p class="section-desc">Como o Farol trabalha sozinho: com qual modelo, quantas revisões ao mesmo tempo e de quanto em quanto tempo ele consulta o GitHub. Se uma conta revisa e aprova sozinha é decidido só em <span class="is-goto" data-goto="sys:accounts:#accountsManager" role="button" tabindex="0" title="Abrir Sistema → Contas">Contas</span>, conta a conta.</p>
           <div class="card set-list">
-            <label class="set-row" id="sys-row-autoreview">
-              <span class="set-txt">
-                <span class="set-title">Revisar automaticamente quando chegar PR</span>
-                <span class="set-desc">Padrão pra todas as contas: ao chegar um PR, o Farol o põe na fila da revisão automática. Não é na hora: a revisão só abre com os checks obrigatórios verdes, sem outra pessoa revisando, sem reprovação humana nem duas aprovações humanas no head, e dentro do limite do plano e do orçamento. Só roda com o Farol aberto, e na primeira execução os PRs que já estavam pendentes não entram. Dá pra sobrescrever por conta no painel <b>Contas</b> (revisar sozinho, ou só pôr na fila). Contas silenciadas ficam de fora.</span>
-                <span class="set-desc" id="alcanceAutoReview"></span>
-              </span>
-              <span class="set-ctl"><input id="setAutoReview" type="checkbox"><span class="switch"></span></span>
-            </label>
-            <label class="set-row" id="sys-row-autoapprove">
-              <span class="set-txt">
-                <span class="set-title">Aprovar sozinho também os aprováveis com ressalvas</span>
-                <span class="set-desc">Padrão pra todas as contas: quando o PR é aprovável mas tem ressalvas, ligado o Farol posta o APPROVE com o texto da revisão, e as ressalvas ficam aqui no app, não no PR; desligado (padrão), aguarda você. Só vale em PR com a revisão pedida a você, CI obrigatório verde, nenhuma dependência aberta e o head parado durante a revisão. Não alcança conta cujo "aprovável sem ressalvas" espera você. Os aprováveis <b>sem</b> ressalva seguem o campo "aprovável sem ressalvas" de cada conta (padrão: aprova sozinho); sem ressalva quer dizer nenhum ponto de atenção e, com o Jira ligado, o card do PR lido e atendido, então PR sem card cai aqui, nas ressalvas. Sobrescreva por conta no painel <b>Contas</b>.</span>
-                <span class="set-desc" id="alcanceAutoApproveAll"></span>
-              </span>
-              <span class="set-ctl"><input id="setAutoApproveAll" type="checkbox"><span class="switch"></span></span>
-            </label>
             <label class="set-row" id="sys-row-autocontested">
               <span class="set-txt">
                 <span class="set-title">Aprovar sozinho mesmo discordando de outro review</span>
@@ -532,7 +516,7 @@
             <div class="set-row" id="sys-row-paralelas">
               <div class="set-txt">
                 <label class="set-title" for="setParallelReviews">Revisões paralelas por conta</label>
-                <p class="set-desc">Quantas revisões automáticas a mesma conta roda ao mesmo tempo. O padrão (1) revisa em série; subir acelera fila cheia, mas gasta o limite do plano mais rápido e pesa mais na máquina. Contas diferentes já revisam em paralelo entre si. Com o compartilhamento entre aparelhos ligado, este número passa a ser o total do aparelho, somando todas as contas.</p>
+                <p class="set-desc">Quantas revisões automáticas a mesma conta roda ao mesmo tempo. O padrão (1) revisa em série; subir acelera fila cheia, mas gasta o limite do plano mais rápido e pesa mais na máquina. Contas diferentes já revisam em paralelo entre si. É sempre por conta, com ou sem o compartilhamento entre aparelhos: o total do aparelho é a linha de baixo.</p>
               </div>
               <div class="set-ctl">
                 <select id="setParallelReviews">
@@ -545,12 +529,12 @@
             </div>
             <div class="set-row" id="sys-row-teto-global">
               <div class="set-txt">
-                <label class="set-title" for="setGlobalParallelReviews">Teto global de revisões simultâneas</label>
-                <p class="set-desc">Limite do TOTAL de revisões automáticas rodando ao mesmo tempo, somando todas as contas. Desligado (padrão) vale só o teto por conta (ou o do aparelho, com o compartilhamento ligado). Ligue se a máquina ou a API sentirem o volume: a vaga que liberar vai para a org atendida há mais tempo, não para a primeira da fila.</p>
+                <label class="set-title" for="setGlobalParallelReviews">Teto total deste aparelho</label>
+                <p class="set-desc">Limite do TOTAL de revisões automáticas rodando ao mesmo tempo neste aparelho, somando todas as contas. Sem teto (padrão), vale só o limite por conta da linha de cima. Ligue se a máquina ou a API sentirem o volume: a vaga que liberar vai para a org atendida há mais tempo, não para a primeira da fila. Com o compartilhamento entre aparelhos, o admin pode definir este mesmo número à distância ("Teto total do aparelho", em Sistema → Aparelhos e em Radar → Aparelhos): vale o menor dos dois.</p>
               </div>
               <div class="set-ctl">
                 <select id="setGlobalParallelReviews">
-                  <option value="0">Desligado (padrão)</option>
+                  <option value="0">Sem teto total (padrão)</option>
                   <option value="1">1 no total</option>
                   <option value="2">2 no total</option>
                   <option value="3">3 no total</option>

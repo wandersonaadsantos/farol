@@ -7,11 +7,49 @@ invariantes continuam lá.
 
 ## Índice
 
+- [Uma decisão, uma configuração (30/09/2026)](#uma-decisão-uma-configuração-30092026)
 - [Modelo e esforço das sessões autônomas](#modelo-e-esforço-das-sessões-autônomas)
 - [Assinatura do Claude (qual conta/plano o Farol usa, e como alternar)](#assinatura-do-claude-qual-contaplano-o-farol-usa-e-como-alternar)
 - [Jira multi-tenant (v2.52.0)](#jira-multi-tenant-v2520)
 
 <!-- indice:fim -->
+
+## Uma decisão, uma configuração (30/09/2026)
+
+Pedido do dono: "Preciso que não exista mais sobreposição de configurações". Duas decisões tinham dois endereços, e para saber o que o Farol faria era preciso ler duas telas e lembrar de uma regra implícita. Agora cada uma tem um.
+
+### Revisar e aprovar sozinho: só na conta
+
+A política mora em `accounts[]`, em quatro campos sempre escritos por extenso, e é editada no cartão da conta (Sistema → Contas) ou, à distância, em Radar → Aparelhos, com as mesmas palavras nas duas telas (`POLITICA_DA_CONTA_TEXTOS`, `ui/pure/contas.js`).
+
+| campo | valores | conta nova |
+|---|---|---|
+| `autoReview` | `true` (revisa sozinho), `false` (só põe na fila) | `true` |
+| `onClean` | `approve`, `wait` | `approve` |
+| `onCaveats` | `approve`, `wait` | `wait` |
+| `onReject` | `request_changes`, `wait` | `wait` |
+
+**O com ressalvas nunca é mais permissivo que o limpo**, sem exceção: com `onClean: wait`, `acaoAoAprovar(…, false)` devolve `wait`, a gravação força `onCaveats: wait`, pedir `approve` nas ressalvas é recusado, e as duas telas mostram o seletor desligado com "espera você (o sem ressalvas espera)".
+
+As chaves gerais `autoReview` e `autoApproveAll` (Sistema → Automação) **deixaram de existir como preferência**: saíram de `lib/settings.js`, da tela e do `POST /api/settings` (que as devolve em `ignoradas`). `lib/engine/contas-migracao.js` (puro, idempotente) é o único lugar que ainda as conhece: na carga da config ele escreve em cada conta o que ela já fazia (valor da conta; senão o que ela herdava da chave geral) e apaga as duas chaves do `config.json`. O que mudou fica em `state/politica-historico.json` com origem `migração`.
+
+Três consequências que valem saber:
+
+- **O modo simples virou conta.** Config sem `accounts` valia pela conta única `ghUser` + `owners`, que não tinha onde guardar política e que a tela de Contas não conseguia editar. A migração escreve essa conta na lista, com o mesmo login e as mesmas orgs. Com UMA conta na lista, os campos de Conexões (conta e organizações) continuam editando essa conta.
+- **As chaves antigas no arquivo são entrada da migração, sempre.** `{"port": 47180, "autoReview": false}` numa instância de teste continua valendo: enquanto não existe conta, as chaves esperam; quando o login do `gh` é detectado, a conta nasce com `autoReview: false`. Para deixar explícito, escreva a conta: `{"accounts": [{"user": "login", "owners": [], "autoReview": false}]}`.
+- **A única diferença de comportamento, e ela só restringe:** conta com `onClean: wait` e `onCaveats: approve` por escolha própria aprovava sozinha o PR com ressalvas e segurava o limpo. Agora ela espera você nos dois, e a migração grava `onCaveats: wait` nela.
+
+### Paralelismo: cada número diz uma coisa só
+
+| número | onde | o que é |
+|---|---|---|
+| `parallelReviews` (1 a 4) | Automação, "Revisões paralelas por conta" | limite POR CONTA, sempre, com ou sem o compartilhamento entre aparelhos |
+| `globalParallelReviews` (0 a 8) | Automação, "Teto total deste aparelho" | total do aparelho somando todas as contas; 0 = sem teto total |
+| `tetoParalelismo` da política (1 a 4) | Sistema → Aparelhos e Radar → Aparelhos, "Teto total do aparelho" | o mesmo total, definido pelo admin à distância |
+
+O total que vale é o MENOR entre o do aparelho e o do admin (`politica-efetiva.js`, o remoto só restringe). Sem um deles, vale o outro; sem nenhum, não há teto total e o que limita é o limite por conta. Até 30/09/2026, com o compartilhamento ligado, `parallelReviews` virava calado o total do aparelho e o limite por conta passava a ser 4 fixo: o mesmo número queria dizer duas coisas conforme uma chave em outra tela.
+
+O que o aparelho publica como capacidade (`paralelismo`, em `live/deviceStatus`) continua sendo um número, com o mesmo nome de campo, para o agendador do admin e para a frota em versão antiga: o teto total que está valendo, ou, sem teto total, a soma dos limites por conta (`parallelReviews` vezes o número de contas, `admissao.totalDoAparelho`).
 
 ## Modelo e esforço das sessões autônomas
 

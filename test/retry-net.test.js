@@ -477,8 +477,8 @@ test('autoReviewParked sobrevive a reinício da Engine (G15)', () => {
 
 function checkEngineG15() {
   const e = new Engine();
-  e.config.accounts = [{ user: 'me', owners: ['acme', 'globex'] }];
-  e.config.autoReview = false; // nunca dispara revisão headless em teste
+  // a revisão automática é da conta (30/09/2026): nenhuma conta desta suíte revisa sozinha
+  e.config.accounts = [{ user: 'me', owners: ['acme', 'globex'], autoReview: false }];
   e.seen = new Set();
   e.reReviewedKeys = new Set();
   e.decisions = { pending: [], resolved: [] };

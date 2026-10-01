@@ -313,6 +313,31 @@ test('config-conta libera: ligar a revisão automática remotamente vale no apar
   assert.equal(e.autoReviewFor(LOGIN), true);
 });
 
+// O com ressalvas nunca é mais permissivo que o limpo, também pelo caminho remoto
+// (30/09/2026): o comando do admin passa pela mesma edição por operação da tela de Contas.
+test('config-conta: pôr o sem ressalvas em espera à distância põe o com ressalvas junto', async () => {
+  const e = await motor();
+  e.updateSettings({ accounts: [{ user: LOGIN, owners: ['acme'], autoReview: false, onClean: 'approve', onCaveats: 'approve' }] });
+  assert.equal(e.approvePolicyFor(LOGIN, false), 'approve');
+  const cmdId = await emitirPara(e, 'config-conta', { acctTag: acctTag(kId(e), LOGIN), campo: 'onClean', valor: 'wait' });
+  await aplicar(e);
+  assert.equal(recibo(cmdId).estado, 'aplicado');
+  const conta = e.config.accounts.find((a) => a.user === LOGIN);
+  assert.deepEqual([conta.onClean, conta.onCaveats], ['wait', 'wait']);
+  assert.equal(e.approvePolicyFor(LOGIN, false), 'wait');
+});
+
+test('config-conta: pedir aprovação com ressalvas em conta cujo limpo espera é recusa, e nada muda', async () => {
+  const e = await motor();
+  e.updateSettings({ accounts: [{ user: LOGIN, owners: ['acme'], autoReview: false, onClean: 'wait' }] });
+  const antes = JSON.stringify(e.config.accounts);
+  const cmdId = await emitirPara(e, 'config-conta', { acctTag: acctTag(kId(e), LOGIN), campo: 'onCaveats', valor: 'approve' });
+  await aplicar(e);
+  assert.deepEqual([recibo(cmdId).estado, recibo(cmdId).code], ['recusado', 'nao_editou']);
+  assert.equal(JSON.stringify(e.config.accounts), antes);
+  assert.equal(e.approvePolicyFor(LOGIN, false), 'wait');
+});
+
 /* ---------- CT-FIO e a tela ---------- */
 
 test('nenhum caminho dos comandos novos escreve manual ou requested', () => {

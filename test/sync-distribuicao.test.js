@@ -297,7 +297,7 @@ test('a espera da recusa não anda sozinha enquanto a atribuição é a mesma', 
   comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
-  e.updateSettings({ parallelReviews: 1 });
+  e.updateSettings({ globalParallelReviews: 1 });
   admissao.reservar(e, { tipo: 'chat', agora: T });
   await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T });
   const espera = no('live/ack')[r.itemId].esperaAte;
@@ -402,8 +402,8 @@ test('sem vaga: recusa com o código e com a espera, e o agendador respeita', as
   comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
   await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
-  // teto do aparelho em 1, e a vaga tomada por um chat: a atribuição chega sem vaga
-  e.updateSettings({ parallelReviews: 1 });
+  // teto total do aparelho em 1, e a vaga tomada por um chat: a atribuição chega sem vaga
+  e.updateSettings({ globalParallelReviews: 1 });
   admissao.reservar(e, { tipo: 'chat', agora: T });
   const resposta = await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T });
   assert.equal(resposta.recusas[0].code, 'sem_vaga');

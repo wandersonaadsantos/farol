@@ -51,36 +51,42 @@ test('o peso na cota gravado na config chega ao cálculo da cota e à tela', () 
 
 /* ---------- o que a tela de Contas mostra é o que o engine faz ---------- */
 
-// Cada linha é uma combinação dos seletores de Sistema > Contas e de Automação, e o que o
-// Farol precisa fazer com ela. É a matriz das telas do relato: conta que herda tudo, com o
-// geral aprovando também com ressalvas, aprova sozinha nos dois casos.
+// Cada linha é uma combinação dos seletores de Sistema > Contas e o que o Farol precisa fazer
+// com ela. Desde 30/09/2026 a conta é o ÚNICO endereço: as chaves gerais de Automação
+// deixaram de existir, e o que está na config em memória com esses nomes não muda nada
+// (as duas colunas do meio são essa prova: o resultado é o mesmo com elas em qualquer valor).
 const MATRIZ = [
-  // conta,                                      geral (autoApproveAll), limpo, com ressalvas
-  [{}, true, 'approve', 'approve'],
-  [{}, false, 'approve', 'wait'],
-  [{ onClean: 'approve', onCaveats: 'approve' }, false, 'approve', 'approve'],
-  [{ onClean: 'wait' }, true, 'wait', 'wait'],
-  [{ onCaveats: 'wait' }, true, 'approve', 'wait'],
-  [{ onClean: 'wait', onCaveats: 'approve' }, true, 'wait', 'approve'],
+  // conta,                                      limpo, com ressalvas
+  [{}, 'approve', 'wait'],
+  [{ onClean: 'approve', onCaveats: 'approve' }, 'approve', 'approve'],
+  [{ onClean: 'approve', onCaveats: 'wait' }, 'approve', 'wait'],
+  [{ onClean: 'wait' }, 'wait', 'wait'],
+  [{ onClean: 'wait', onCaveats: 'wait' }, 'wait', 'wait'],
+  // até 30/09/2026 esta linha aprovava com ressalvas: a escolha própria passava por cima do
+  // limpo. Agora o com ressalvas nunca é mais permissivo que o limpo, sem exceção.
+  [{ onClean: 'wait', onCaveats: 'approve' }, 'wait', 'wait'],
 ];
 
-test('a política efetiva de aprovação segue a matriz das telas, e ressalva nunca é mais permissiva que o limpo sem escolha própria', () => {
-  for (const [conta, geral, limpo, ressalva] of MATRIZ) {
-    const e = { config: { autoApproveAll: geral, autoReview: true }, accountList: () => [{ user: 'x', owners: [], ...conta }] };
-    const rotulo = `${JSON.stringify(conta)} com geral ${geral}`;
-    assert.equal(C.acaoAoAprovar(e, 'X', true), limpo, `${rotulo}, sem ressalvas`);
-    assert.equal(C.acaoAoAprovar(e, 'X', false), ressalva, `${rotulo}, com ressalvas`);
+test('a política de aprovação vem só da conta, e o com ressalvas nunca é mais permissivo que o limpo', () => {
+  for (const [conta, limpo, ressalva] of MATRIZ) {
+    for (const geral of [true, false, undefined]) {
+      const e = { config: { autoApproveAll: geral, autoReview: geral }, accountList: () => [{ user: 'x', owners: [], ...conta }] };
+      const rotulo = `${JSON.stringify(conta)} com a chave geral antiga em ${geral}`;
+      assert.equal(C.acaoAoAprovar(e, 'X', true), limpo, `${rotulo}, sem ressalvas`);
+      assert.equal(C.acaoAoAprovar(e, 'X', false), ressalva, `${rotulo}, com ressalvas`);
+    }
   }
 });
 
-test('revisar sozinho e reprovar sozinho seguem a conta, e herdam o geral quando ela não escolhe', () => {
+test('revisar sozinho e reprovar sozinho vêm só da conta, e nenhuma chave geral os alcança', () => {
   const e = (conta, autoReview) => ({ config: { autoReview }, accountList: () => [{ user: 'x', owners: [], ...conta }] });
-  assert.equal(C.revisaSozinho(e({}, true), 'x'), true);
-  assert.equal(C.revisaSozinho(e({}, false), 'x'), false);
-  assert.equal(C.revisaSozinho(e({ autoReview: false }, true), 'x'), false, 'false da conta é escolha');
+  assert.equal(C.revisaSozinho(e({ autoReview: true }, false), 'x'), true, 'a chave geral antiga em false não desliga a conta');
+  assert.equal(C.revisaSozinho(e({ autoReview: false }, true), 'x'), false, 'nem em true a liga');
+  assert.equal(C.revisaSozinho(e({}, false), 'x'), true, 'campo ausente vale o padrão da conta nova, não a chave geral');
   assert.equal(C.acaoAoReprovar(e({ onReject: 'request_changes' }, true), 'x'), 'request_changes');
-  assert.equal(C.acaoAoReprovar(e({}, true), 'x'), 'wait', 'reprovar sozinho não tem padrão geral');
-  assert.equal(C.acaoAoAprovar(e({}, true), 'conta-que-nao-existe', true), 'approve', 'conta desconhecida herda');
+  assert.equal(C.acaoAoReprovar(e({}, true), 'x'), 'wait');
+  assert.equal(C.acaoAoAprovar(e({}, true), 'conta-que-nao-existe', true), 'approve', 'conta desconhecida vale o padrão da conta nova');
+  assert.equal(C.acaoAoAprovar(e({}, true), 'conta-que-nao-existe', false), 'wait');
 });
 
 /* ---------- editar é por campo, e o servidor mescla ---------- */
@@ -101,7 +107,7 @@ test('tela com estado velho não apaga nem ressuscita campo que ela não editou'
   assert.equal(r.contas[0].onReject, 'request_changes');
 });
 
-test('valor vazio volta a herdar o padrão geral, removendo o campo', () => {
+test('valor vazio remove o campo; nos da política, a gravação o reescreve com o padrão', () => {
   const r = C.aplicarEdicao(BASE, { tipo: 'editar', user: 'pessoal', campos: { onClean: '' } });
   assert.equal('onClean' in r.contas[1], false);
   const r2 = C.aplicarEdicao(BASE, { tipo: 'editar', user: 'trabalho', campos: { budgetWeight: null } });
@@ -139,16 +145,19 @@ test('perfil de IA apagado deixa de ser apontado pelas contas, no servidor', () 
 
 /* ---------- o rastro: toda mudança de política tem data e origem ---------- */
 
-test('a diferença de política considera conta e padrão geral, e ignora o que não é política', () => {
-  const antes = C.retratoDaPolitica({ autoApproveAll: true, accounts: BASE });
+test('a diferença de política considera conta e chave geral, e ignora o que não é política', () => {
+  const antes = C.retratoDaPolitica({ coAssinarReview: false, accounts: BASE });
   const depois = C.retratoDaPolitica({
-    autoApproveAll: false,
+    coAssinarReview: true,
     accounts: [{ ...BASE[0], color: '#fff', onClean: 'wait' }, BASE[1]],
   });
   assert.deepEqual(C.mudancasDePolitica(antes, depois), [
-    { conta: null, campo: 'autoApproveAll', de: true, para: false },
+    { conta: null, campo: 'coAssinarReview', de: false, para: true },
     { conta: 'trabalho', campo: 'onClean', de: null, para: 'wait' },
   ]);
+  // as chaves gerais que saíram em 30/09/2026 não são mais política geral
+  const semChave = C.mudancasDePolitica(C.retratoDaPolitica({ autoReview: true, autoApproveAll: true, accounts: [] }), C.retratoDaPolitica({ autoReview: false, autoApproveAll: false, accounts: [] }));
+  assert.deepEqual(semChave, []);
 });
 
 test('a origem da mudança diz se veio da janela do Farol ou de um navegador', () => {
@@ -166,12 +175,16 @@ test('editar pelo engine grava a config, registra o rastro e o motivo do gate di
   assert.equal(conta.onClean, 'wait');
   assert.equal(conta.budgetWeight, 2, 'a edição não apagou o peso');
   const hist = JSON.parse(fs.readFileSync(POLITICA_HISTORICO_FILE, 'utf8'));
-  const ultima = hist[hist.length - 1];
+  const ultima = hist.filter((h) => h.campo === 'onClean').pop();
   assert.equal(ultima.conta, 'trabalho');
   assert.equal(ultima.campo, 'onClean');
   assert.equal(ultima.para, 'wait');
   assert.equal(ultima.origem, 'navegador');
   assert.ok(Number(ultima.at) > 0);
+  // pôr o limpo em espera põe o com ressalvas junto, e isso também fica no rastro
+  assert.equal(conta.onCaveats, 'wait');
+  const ressalva = hist.filter((h) => h.campo === 'onCaveats' && h.conta === 'trabalho').pop();
+  assert.deepEqual([ressalva.de, ressalva.para, ressalva.origem], ['approve', 'wait', 'navegador']);
   assert.equal(hist.filter((h) => h.campo === 'color').length, 0, 'cor não é política');
   const motivo = C.motivoDaPolitica(e, 'trabalho', true);
   assert.match(motivo, /manda aguardar/);
@@ -185,15 +198,15 @@ test('o servidor é quem decide o que é valor válido: escolha fica, valor tort
   e.editarConta({ tipo: 'editar', user: 'pessoal', campos: { autoReview: false, onReject: 'merge' } }, 'navegador');
   const conta = e.config.accounts.find((a) => a.user === 'pessoal');
   assert.equal(conta.autoReview, false, 'false é escolha, não ausência');
-  assert.equal('onReject' in conta, false, 'valor fora do domínio não é gravado');
+  assert.equal(conta.onReject, 'wait', 'valor fora do domínio não é gravado: fica o padrão por extenso');
 });
 
-test('o padrão geral mudado pela tela de Automação também entra no rastro', () => {
+test('chave geral de Automação que continua sendo política também entra no rastro', () => {
   const e = new Engine();
-  e.updateSettings({ autoApproveAll: false }, 'janela do Farol');
+  e.updateSettings({ coAssinarReview: true }, 'janela do Farol');
   const hist = JSON.parse(fs.readFileSync(POLITICA_HISTORICO_FILE, 'utf8'));
   const ultima = hist[hist.length - 1];
-  assert.deepEqual([ultima.conta, ultima.campo, ultima.de, ultima.para, ultima.origem], [null, 'autoApproveAll', true, false, 'janela do Farol']);
+  assert.deepEqual([ultima.conta, ultima.campo, ultima.de, ultima.para, ultima.origem], [null, 'coAssinarReview', false, true, 'janela do Farol']);
 });
 
 test('o Diagnóstico mostra as mudanças recentes de política', () => {
@@ -216,7 +229,7 @@ test('apagar um perfil de IA limpa, no servidor, a conta que apontava para ele',
 
 /* ---------- a tela não salva mais a lista inteira ---------- */
 
-test('voltar a herdar viaja como null, porque undefined some do JSON', () => {
+test('tirar o valor de um campo viaja como null, porque undefined some do JSON', () => {
   const campos = P.camposDaEdicao({ onClean: undefined, color: '#fff' });
   assert.deepEqual(JSON.parse(JSON.stringify(campos)), { onClean: null, color: '#fff' });
   assert.deepEqual(P.camposDaEdicao(null), {});

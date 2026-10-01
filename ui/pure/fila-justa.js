@@ -95,7 +95,7 @@ function fjPerfisHtml(porPerfil) {
 export function filaJustaHtml(fj) {
   if (!fj) return '';
   const global = fj.tetoGlobal > 0
-    ? `<div class="fj-bloco"><h4>Teto global</h4><p class="fj-nota">${esc(fj.emCurso)} de ${esc(fj.tetoGlobal)} revisões simultâneas em curso, somando todas as contas.</p></div>`
+    ? `<div class="fj-bloco"><h4>Teto total deste aparelho</h4><p class="fj-nota">${esc(fj.emCurso)} de ${esc(fj.tetoGlobal)} revisões simultâneas em curso, somando todas as contas.</p></div>`
     : '';
   const corpo = fjOrgsHtml(fj.porOrg) + fjPerfisHtml(fj.porPerfil) + global;
   // Sem nada a mostrar, o painel some inteiro em vez de exibir tabela vazia: uma org só

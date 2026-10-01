@@ -40,7 +40,7 @@ export function renderAccountsManager() {
   renderContasGh();
   const box = $('#accountsManager'); if (!box) return;
   if (document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
-  box.innerHTML = accountsManagerHtml({ accounts: estado().accounts, config: estado().config, alcance: estado().alcanceDasChavesGerais, acct: ACCT, doctor: estado().doctor, usage: estado().usage });
+  box.innerHTML = accountsManagerHtml({ accounts: estado().accounts, config: estado().config, acct: ACCT, doctor: estado().doctor, usage: estado().usage });
 }
 
 /* editor de contas: mudar cor / rótulo / tipo / orgs */
@@ -51,11 +51,11 @@ $('#accountsManager').addEventListener('change', (e) => {
   if (t.classList.contains('acct-label')) return editAccount(user, { label: (t.value || '').trim() || user });
   if (t.classList.contains('acct-kind')) return editAccount(user, { kind: (t.value || '').trim() });
   if (t.classList.contains('acct-owners')) return editAccount(user, { owners: (t.value || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean) });
-  // política de automação por conta ('' = herda o global)
-  if (t.classList.contains('acct-autoreview')) return editAccount(user, { autoReview: t.value === '' ? undefined : t.value === 'on' });
-  if (t.classList.contains('acct-onclean')) return editAccount(user, { onClean: t.value || undefined });
-  if (t.classList.contains('acct-oncaveats')) return editAccount(user, { onCaveats: t.value || undefined });
-  if (t.classList.contains('acct-onreject')) return editAccount(user, { onReject: t.value === 'request_changes' ? 'request_changes' : undefined });
+  // política de automação da conta: cada seletor grava o valor por extenso, sem herança
+  if (t.classList.contains('acct-autoreview')) return editAccount(user, { autoReview: t.value === 'true' });
+  if (t.classList.contains('acct-onclean')) return editAccount(user, { onClean: t.value === 'wait' ? 'wait' : 'approve' });
+  if (t.classList.contains('acct-oncaveats')) return editAccount(user, { onCaveats: t.value === 'approve' ? 'approve' : 'wait' });
+  if (t.classList.contains('acct-onreject')) return editAccount(user, { onReject: t.value === 'request_changes' ? 'request_changes' : 'wait' });
   if (t.classList.contains('acct-claudeprofile')) return editAccount(user, { claudeProfileId: t.value || undefined });
   // peso na cota do perfil (Politica 2): vazio = igual as outras, que e o padrao e
   // nao guarda campo nenhum (o parseAccounts do servidor so persiste peso positivo).

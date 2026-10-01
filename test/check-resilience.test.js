@@ -33,8 +33,8 @@ const PR_B = {
 // (e.scenario) diz o que cada busca devolve no ciclo corrente; null = busca falhou.
 function checkEngine() {
   const e = new Engine();
-  e.config.accounts = [{ user: 'me', owners: ['acme'] }];
-  e.config.autoReview = false; // nunca dispara revisão headless em teste
+  // a revisão automática é da conta (30/09/2026): nenhuma conta desta suíte revisa sozinha
+  e.config.accounts = [{ user: 'me', owners: ['acme'], autoReview: false }];
   e.seen = new Set();
   e.reReviewedKeys = new Set();
   e.decisions = { pending: [], resolved: [] };
@@ -75,7 +75,7 @@ function checkEngine() {
 // (e.autorais[user]; null = a busca daquela conta falhou neste ciclo).
 function duasContas() {
   const e = checkEngine();
-  e.config.accounts = [{ user: 'me', owners: ['acme'] }, { user: 'voce', owners: ['globex'] }];
+  e.config.accounts = [{ user: 'me', owners: ['acme'], autoReview: false }, { user: 'voce', owners: ['globex'], autoReview: false }];
   e.selfAnalyses = {};
   e.hiddenPRs = {};
   e.autorais = { me: [PR], voce: [PR_B] };
@@ -202,7 +202,7 @@ test('PR ignorado não ressuscita depois de um ciclo com busca falha', async () 
 // desta suíte, que já monta um Engine real com todo colaborador de rede stubado.
 test('check(): perfil apikey com orçamento estourado NÃO dispara auto-revisão', async () => {
   const e = checkEngine();
-  e.config.autoReview = true; // aqui, ao contrário do default da suíte, queremos que dispare
+  e.config.accounts[0].autoReview = true; // aqui, ao contrário do default da suíte, queremos que dispare
   e.tokens = { me: 'tok-me' };
   e.config.claudeProfiles = [{ id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', baseUrl: '', budgetDaily: 1 }];
   e.config.claudeProfileId = 'p1';
@@ -217,7 +217,7 @@ test('check(): perfil apikey com orçamento estourado NÃO dispara auto-revisão
 
 test('check(): perfil apikey dentro do orçamento dispara auto-revisão normalmente', async () => {
   const e = checkEngine();
-  e.config.autoReview = true;
+  e.config.accounts[0].autoReview = true;
   e.tokens = { me: 'tok-me' };
   e.config.claudeProfiles = [{ id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', baseUrl: '', budgetDaily: 100 }];
   e.config.claudeProfileId = 'p1';
@@ -301,7 +301,7 @@ test('check(): PR relançado pelo retry sai da fila visível e volta a visto (ca
 // real fica silencioso.
 test('budgetWarned: toast do orçamento não repete enquanto seguir estourado, mas volta após destravar e travar de novo', async () => {
   const e = checkEngine();
-  e.config.autoReview = true;
+  e.config.accounts[0].autoReview = true;
   e.tokens = { me: 'tok-me' };
   const profile = { id: 'p1', label: 'P1', kind: 'apikey', apiKey: 'sk-1', baseUrl: '', budgetDaily: 1 };
   e.config.claudeProfiles = [profile];
@@ -350,8 +350,8 @@ test('budgetWarned: toast do orçamento não repete enquanto seguir estourado, m
 test('G18: no mesmo PR achado por duas contas, a capaz vence a incapaz no dedup do mineMap', async () => {
   const e = checkEngine();
   e.config.accounts = [
-    { user: 'muted-acc', owners: [], muted: true },
-    { user: 'voce', owners: [] },
+    { user: 'muted-acc', owners: [], muted: true, autoReview: false },
+    { user: 'voce', owners: [], autoReview: false },
   ];
   e.tokens = { 'muted-acc': 'tok-muted', voce: 'tok-voce' };
   // as duas contas acham o MESMO PR (mesma key); cada uma carimba a própria
@@ -374,8 +374,8 @@ test('G18: no mesmo PR achado por duas contas, a capaz vence a incapaz no dedup 
 test('G18: duas contas CAPAZES acham o mesmo PR, a primeira não é destronada (empate mantém a primeira)', async () => {
   const e = checkEngine();
   e.config.accounts = [
-    { user: 'primeira', owners: [] },
-    { user: 'segunda', owners: [] },
+    { user: 'primeira', owners: [], autoReview: false },
+    { user: 'segunda', owners: [], autoReview: false },
   ];
   e.tokens = { primeira: 'tok-primeira', segunda: 'tok-segunda' };
   e.searchPRs = async (extraArgs, user) => {
@@ -396,8 +396,8 @@ test('G18: duas contas CAPAZES acham o mesmo PR, a primeira não é destronada (
 test('G18: primeira conta sem token perde pra segunda capaz no dedup do mineMap', async () => {
   const e = checkEngine();
   e.config.accounts = [
-    { user: 'sem-token', owners: [] },
-    { user: 'voce', owners: [] },
+    { user: 'sem-token', owners: [], autoReview: false },
+    { user: 'voce', owners: [], autoReview: false },
   ];
   e.tokens = { voce: 'tok-voce' }; // 'sem-token' fica de fora: tokenFor devolve null
   e.searchPRs = async (extraArgs, user) => {

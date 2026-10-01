@@ -18,8 +18,11 @@
 // diz isso em vez de mostrar um "aceita" que ninguém mediu.
 import { esc } from './comum.js';
 
-// O teto de paralelismo é 1 a 4, o mesmo clamp de lib/sync/politica.js. Escrever 5 aqui
-// faria a tela prometer um valor que o engine reduz em silêncio.
+// O teto total do aparelho, definido à distância, é 1 a 4, o mesmo clamp de
+// lib/sync/politica.js. Escrever 5 aqui faria a tela prometer um valor que o engine reduz
+// em silêncio. É o MESMO número de "Teto total deste aparelho" (Sistema → Automação, no
+// próprio aparelho) e do seletor de Radar → Aparelhos: vale o menor dos dois, e o nome é
+// um só nas três telas (30/09/2026).
 const APARELHOS_TETOS = [1, 2, 3, 4];
 
 function chip(classe, texto) {
@@ -53,7 +56,7 @@ function situacaoDa(leitura) {
 }
 
 function opcoesDoTeto(teto) {
-  const naoDefinido = `<option value=""${teto === undefined ? ' selected' : ''}>não definir (vale o do aparelho, em Sistema → Automação)</option>`;
+  const naoDefinido = `<option value=""${teto === undefined ? ' selected' : ''}>não definir (vale o teto total do próprio aparelho, em Sistema → Automação)</option>`;
   return naoDefinido + APARELHOS_TETOS.map((n) => `<option value="${n}"${teto === n ? ' selected' : ''}>${n} sessão(ões)</option>`).join('');
 }
 
@@ -98,9 +101,9 @@ export function aparelhoPoliticaHtml(aparelho, opcoes) {
     ${aviso}
     <div class="apar-grade">
       <label class="apar-campo"><span>Pausado</span><span class="set-ctl"><input type="checkbox" id="aparPolPausado"${pausado}><span class="switch"></span></span></label>
-      <label class="apar-campo" for="aparPolTeto"><span>Teto de paralelismo</span><select id="aparPolTeto" class="sync-input">${opcoesDoTeto(pol.tetoParalelismo)}</select></label>
+      <label class="apar-campo" for="aparPolTeto"><span>Teto total do aparelho</span><select id="aparPolTeto" class="sync-input">${opcoesDoTeto(pol.tetoParalelismo)}</select></label>
     </div>
-    <span class="sync-dica">Pausa e teto valem só para a revisão: pushback, co-assinatura, chat, autoanálise e ferramentas seguem sem passar por eles.</span>
+    <span class="sync-dica">O teto total soma todas as contas do aparelho; o limite por conta é dele, em Sistema → Automação. Se o aparelho também tiver um teto total próprio, vale o menor dos dois. Pausa e teto valem só para a revisão: pushback, co-assinatura, chat, autoanálise e ferramentas seguem sem passar por eles.</span>
     ${recusa}
     <div class="row-actions"><button class="btn sm primary" id="aparPublicarPolitica">Publicar política</button></div>
   </div>`;
