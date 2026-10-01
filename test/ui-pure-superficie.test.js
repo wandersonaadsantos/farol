@@ -145,6 +145,7 @@ const CONGELADA = [
   "envioHistoricoHtml",
   "esc",
   "escAttrSelector",
+  "esperaCiCardMeta",
   "estadoDasListas",
   "estadoDoEscopo",
   "expiredSessionMarks",

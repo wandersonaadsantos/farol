@@ -168,7 +168,6 @@ const settingsMap = [
   ['#setDebugSpawns', 'debugSpawns', el => el.checked],
   ['#setAutoReview', 'autoReview', el => el.checked],
   ['#setAutoApproveAll', 'autoApproveAll', el => el.checked],
-  ['#setAutoApproveContested', 'autoApproveContested', el => el.checked],
   ['#setReviewFast', 'reviewFast', el => el.checked],
   ['#setCoAssinarReview', 'coAssinarReview', el => el.checked],
   ['#setReReviewResume', 'reReviewResume', el => el.checked],

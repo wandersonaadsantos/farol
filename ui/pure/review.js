@@ -153,12 +153,29 @@ export function reRoundBoxHtml(st) {
     + `<span><b>${esc(st.lead)}</b> ${esc(st.texto)}</span></div>`;
 }
 
+// Card da aprovação que espera o CI obrigatório (30/09/2026): não é "precisa de você", o
+// Farol aprova sozinho quando o CI fechar verde neste commit. Os botões continuam, porque
+// aprovar na mão sem esperar segue sendo direito seu. O motivo com os checks já vem em
+// `reasons`; a caixa só diz o que acontece agora.
+export function esperaCiCardMeta(d) {
+  const st = {
+    tom: 'info', icone: 'hourglass',
+    lead: 'Esperando o CI obrigatório.',
+    texto: 'Aprovo sozinho quando ele fechar verde neste commit; com CI vermelho não aprovo. Se chegar commit novo, reviso de novo. Você não precisa fazer nada, e o botão Aprovar continua valendo se não quiser esperar.',
+  };
+  return {
+    stale: false, cardClass: 'working', verdictHtml: '<span class="verdict approve">ESPERANDO O CI</span>',
+    reasons: Array.isArray(d.reasons) ? d.reasons : [], statusHtml: reRoundBoxHtml(st), reviewBtn: '',
+  };
+}
+
 // Tudo que muda no card de decisão quando ele é de commit novo, num lugar só e testável.
 // reviewBtn: 'primary' (você precisa agir), 'secondary' (atalho: o Farol já vai agir),
 // 'none' (revisão nova já rodando) ou '' (card comum, sem o botão).
 export function staleCardMeta(d, r) {
   const reasons = Array.isArray(d && d.reasons) ? d.reasons : [];
   const stale = !!(d && d.blockedKind === 'stale_head');
+  if (!stale && d && d.esperaCi) return esperaCiCardMeta(d);
   const legado = d && d.blockedReason ? `<div class="dec-blocked">🚫 <span><b>Bloqueado:</b> ${esc(d.blockedReason)}</span></div>` : '';
   const verdictComum = d && d.verdict === 'approve' ? '<span class="verdict approve">APROVÁVEL</span>' : '<span class="verdict rc">COM BLOCKER</span>';
   if (!stale) {
@@ -185,6 +202,7 @@ export function reviewBoxHtml(d) {
   const cls = d.verdict === 'approve' ? 'approve' : 'rc';
   const autor = (d.pr && d.pr.author) || d.author || '';
   const razoes = Array.isArray(d.reasons) ? d.reasons : [];
+  const titulo = d.esperaCi ? 'Esperando o CI para aprovar sozinho' : 'Por que precisa de você';
   return `<div class="review-box">
     <div class="review-box-head">
       <span class="verdict ${cls}">${esc(v)}</span>
@@ -194,7 +212,7 @@ export function reviewBoxHtml(d) {
     ${d.pr && d.pr.title ? `<div class="dec-title">${esc(d.pr.title)}</div>` : ''}
     ${autor ? `<div class="dec-author">PR de ${personMention(autor, 'xs')}</div>` : ''}
     ${d.status === 'pending' && razoes.length
-      ? `<div class="review-box-context"><strong>Por que precisa de você</strong>${reasonGroupsHtml(razoes, d.postRetry)}</div>`
+      ? `<div class="review-box-context"><strong>${titulo}</strong>${reasonGroupsHtml(razoes, d.postRetry)}</div>`
       : ''}
     ${d.reportMarkdown
       ? `<div class="report">${md(d.reportMarkdown)}</div>`

@@ -81,3 +81,43 @@ test('staleCardMeta: sem projeção do engine (snapshot antigo) cai no aviso de 
   assert.equal(comum.reasons.length, 1);
   assert.equal(comum.statusHtml, '');
 });
+
+/* ---------- espera do CI (30/09/2026) ----------
+   Aprovável com check obrigatório vermelho ou rodando deixou de pedir o clique: o Farol espera
+   e aprova sozinho quando o CI fecha verde no mesmo commit. O card tem de DIZER isso, senão a
+   pessoa lê "aprovável" numa lista chamada "Precisa de você" e aprova na mão do mesmo jeito. */
+const esperando = (extra = {}) => ({
+  key: 'acme/app#7', verdict: 'approve', status: 'pending', headSha: H1, reportMarkdown: 'ok',
+  esperaCi: { desde: AS_1947, checks: [{ nome: 'test', estado: 'rodando' }] },
+  reasons: [{ text: 'check obrigatório ainda sem resultado no head (test): a aprovação está esperando o CI e sai sozinha quando a pipe fechar verde neste commit', kind: 'gate' }, { text: 'vale olhar a validação do upload', kind: 'content' }],
+  ...extra,
+});
+
+test('staleCardMeta: card em espera do CI diz que aprova sozinho, mantém os motivos e os botões', () => {
+  const m = P.staleCardMeta(esperando(), undefined);
+  assert.equal(m.stale, false, 'não é card de commit novo: os botões de decisão continuam');
+  assert.equal(m.cardClass, 'working', 'barra de "o Farol está cuidando", não de urgente');
+  assert.match(m.verdictHtml, /ESPERANDO O CI/);
+  assert.match(m.statusHtml, /dec-status info/);
+  assert.match(m.statusHtml, /Esperando o CI obrigatório\./);
+  assert.match(m.statusHtml, /Aprovo sozinho quando ele fechar verde neste commit; com CI vermelho não aprovo/);
+  assert.match(m.statusHtml, /Você não precisa fazer nada/);
+  assert.equal(m.reasons.length, 2, 'o motivo com os checks e a ressalva continuam visíveis');
+  assert.equal(m.reviewBtn, '');
+  semTravessao(m.statusHtml);
+});
+
+test('staleCardMeta: commit novo vence a espera do CI, e card sem espera não muda', () => {
+  const comCommit = P.staleCardMeta({ ...stale(), esperaCi: { desde: 1, checks: [] } }, { estado: 'aguardando', aPartirDe: AS_1947 });
+  assert.match(comCommit.verdictHtml, /COMMIT NOVO/);
+  const comum = P.staleCardMeta(esperando({ esperaCi: null }), undefined);
+  assert.equal(comum.cardClass, 'urgent');
+  assert.match(comum.verdictHtml, /APROVÁVEL/);
+});
+
+test('reviewBoxHtml: a caixa da revisão em espera do CI não diz "precisa de você"', () => {
+  const html = P.reviewBoxHtml(esperando());
+  assert.match(html, /Esperando o CI para aprovar sozinho/);
+  assert.doesNotMatch(html, /Por que precisa de você/);
+  assert.match(P.reviewBoxHtml(esperando({ esperaCi: null })), /Por que precisa de você/);
+});

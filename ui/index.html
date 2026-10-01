@@ -458,17 +458,10 @@
             <label class="set-row" id="sys-row-autoapprove">
               <span class="set-txt">
                 <span class="set-title">Aprovar sozinho também os aprováveis com ressalvas</span>
-                <span class="set-desc">Padrão pra todas as contas: quando o PR é aprovável mas tem ressalvas, ligado o Farol posta o APPROVE com o texto da revisão, e as ressalvas ficam aqui no app, não no PR; desligado (padrão), aguarda você. Só vale em PR com a revisão pedida a você, CI obrigatório verde, nenhuma dependência aberta e o head parado durante a revisão. Não alcança conta cujo "aprovável sem ressalvas" espera você. Os aprováveis <b>sem</b> ressalva seguem o campo "aprovável sem ressalvas" de cada conta (padrão: aprova sozinho); sem ressalva quer dizer nenhum ponto de atenção e, com o Jira ligado, o card do PR lido e atendido, então PR sem card cai aqui, nas ressalvas. Sobrescreva por conta no painel <b>Contas</b>.</span>
+                <span class="set-desc">Padrão pra todas as contas: quando o PR é aprovável mas tem ressalvas, ligado o Farol posta o APPROVE com o texto da revisão, e as ressalvas ficam aqui no app, não no PR; desligado (padrão), aguarda você. Só vale em PR com a revisão pedida a você e com o head parado durante a revisão. Ressalva é todo ponto de atenção que aparece no card: o que a revisão levantou, card do Jira não comprovado (com o Jira ligado, PR sem card cai aqui), leitura que não cobriu o diff inteiro, dependência ainda em aberto e discordância de outro review (Acrity, Sonar, uma pessoa), que nunca é escrita no PR. Nenhuma outra regra manda um aprovável pra sua mesa: quem decide é só esta chave e o que está em Contas. <b>CI obrigatório vermelho ou ainda rodando não é ressalva nem pede você</b>: o Farol espera e aprova sozinho quando os checks obrigatórios fecharem verdes no mesmo commit; com CI vermelho ele nunca aprova, e se chegar commit novo revisa de novo. Não alcança conta cujo "aprovável sem ressalvas" espera você. Os aprováveis <b>sem</b> ressalva (nenhum ponto de atenção) seguem o campo "aprovável sem ressalvas" de cada conta (padrão: aprova sozinho). Sobrescreva por conta no painel <b>Contas</b>.</span>
                 <span class="set-desc" id="alcanceAutoApproveAll"></span>
               </span>
               <span class="set-ctl"><input id="setAutoApproveAll" type="checkbox"><span class="switch"></span></span>
-            </label>
-            <label class="set-row" id="sys-row-autocontested">
-              <span class="set-txt">
-                <span class="set-title">Aprovar sozinho mesmo discordando de outro review</span>
-                <span class="set-desc">Quando a revisão discorda de um apontamento de outro revisor (Acrity, Sonar, uma pessoa) e prova a discordância, desligado (padrão) o PR vai pra sua mesa, porque aprovar por cima de outro revisor é tomar posição pública. Ligado, a discordância deixa de travar e vira só ponto de atenção: quem decide passa a ser a regra de ressalvas acima. A discordância nunca é escrita no PR, fica só aqui. Reprovar sozinho continua sempre passando por você.</span>
-              </span>
-              <span class="set-ctl"><input id="setAutoApproveContested" type="checkbox"><span class="switch"></span></span>
             </label>
             <label class="set-row" id="sys-row-coassinar">
               <span class="set-txt">

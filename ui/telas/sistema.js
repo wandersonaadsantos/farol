@@ -149,7 +149,6 @@ function renderSettings() {
   renderAutomationSettings(c);
   $('#setAutoReview').checked = !!c.autoReview;
   $('#setAutoApproveAll').checked = c.autoApproveAll !== false;
-  $('#setAutoApproveContested').checked = c.autoApproveContested === true;
   $('#setReviewFast').checked = c.reviewFast === true;
   $('#setCoAssinarReview').checked = c.coAssinarReview === true;
   $('#setReReviewResume').checked = c.reReviewResume === true;

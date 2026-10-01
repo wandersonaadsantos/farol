@@ -60,6 +60,7 @@ import wsTmpMod from './lib/engine/workspace-tmp.js';
 import skipMod from './lib/engine/skip-review.js';
 import destravaMod from './lib/engine/destrava.js';
 import checksMod from './lib/engine/checks-exigidos.js';
+import esperaCiMod from './lib/engine/espera-ci.js';
 import signalMod from './lib/engine/review-signal.js';
 import usageMod from './lib/engine/usage.js';
 import falhasMod from './lib/engine/falhas.js';
@@ -674,18 +675,6 @@ class Engine extends EventEmitter {
   autoReviewFor(user) { return contasConfig.revisaSozinho(this, user); }
   // quando aprovável: 'approve' (postar sozinho) ou 'wait' (aguardar você). clean = sem ressalvas
   approvePolicyFor(user, clean) { return contasConfig.acaoAoAprovar(this, user, clean); }
-  // discordância registrada contra review de terceiro: 'wait' (default) manda o PR
-  // pra sua mesa antes de qualquer APPROVE sair, porque aprovar por cima de outro
-  // revisor é tomar posição pública. 'approve' (opt-in em Sistema > Automação) tira
-  // a trava: a discordância vira só ponto de atenção e quem decide passa a ser a
-  // política de ressalvas da conta (aprovável com ressalva nunca é "limpo"), então
-  // ligar isto sozinho nunca aprova nada que `onCaveats: wait` já mandaria esperar.
-  // Global, sem sobrescrita por conta: é confiança no julgamento da revisão, não
-  // risco de repositório. Só vale pro approve; reprovar sozinho por cima de uma
-  // discordância continua sempre passando por você (ver shouldAutoReject).
-  contestedPolicy() {
-    return this.config.autoApproveContested === true ? 'approve' : 'wait';
-  }
   // quando a revisão pede mudanças: 'request_changes' (reprovar sozinho, opt-in por conta) ou 'wait'
   rejectPolicyFor(user) { return contasConfig.acaoAoReprovar(this, user); }
 
@@ -918,6 +907,9 @@ class Engine extends EventEmitter {
       // do ar) tentam de novo sozinhos aqui, reusando o payload já decidido: roda DEPOIS
       // do reconcilePending de propósito, pra nunca reenviar em cima de uma pendência que
       // já foi atendida por fora nesse mesmo ciclo.
+      // aprovação que esperava o CI obrigatório sai sozinha quando ele fecha verde no mesmo
+      // head (lib/engine/espera-ci.js): antes do reenvio, que assume a postagem que falhar aqui
+      try { await this.aprovarQuandoOCiFechar(); } catch (e) { this.log('WARN', `espera do CI: ${e.message}`); }
       try { await this.retryFailedPosts(); } catch (e) { this.log('WARN', `retryFailedPosts: ${e.message}`); }
       // pushback automático: contestação do autor a um review meu (fire-and-forget:
       // roda em background pra não segurar a checagem, com guarda anti-concorrência)
@@ -1544,6 +1536,7 @@ class Engine extends EventEmitter {
   async myReviewStates(pr, headSha) { return decisionMod.myReviewStates(this, pr, headSha); }
   async reconcilePending(keys) { return decisionMod.reconcilePending(this, keys); }
   async retryFailedPosts() { return decisionMod.retryFailedPosts(this); }
+  async aprovarQuandoOCiFechar() { return esperaCiMod.aprovarQuandoOCiFechar(this); }
   shouldAutoApprove(pr, result) { return decisionMod.shouldAutoApprove(this, pr, result); }
   shouldAutoReject(pr, result) { return decisionMod.shouldAutoReject(this, pr, result); }
   rejectBodyWithMark(body) { return decisionMod.rejectBodyWithMark(this, body); }

@@ -19,6 +19,13 @@ test('reenvio, clique e sessão se identificam', () => {
   for (const via of ['reenvio', 'clique', 'sessao']) assert.ok(fonte.includes(`{ via: '${via}' }`), `via ${via}`);
 });
 
+// 30/09/2026: sexta via. A aprovação que esperava o CI posta quando ele fecha verde, sem
+// handle de lease (como o reenvio) e ancorada no head que a sessão leu.
+test('espera do CI se identifica e ancora no head lido', () => {
+  const fonte = ler('lib/engine/espera-ci.js');
+  assert.ok(fonte.includes("{ ...item.payloads.approve, commit_id: item.headSha }, { via: 'espera-ci' }"));
+});
+
 test('co-assinatura coordenada: âncora obrigatória e recuo proibido', () => {
   const fonte = ler('lib/engine/coassinatura-coordenada.js');
   assert.ok(fonte.includes("{ via: 'coassinatura', handle, commitIdObrigatorio: head, recuoPermitido: false }"));
@@ -27,6 +34,7 @@ test('co-assinatura coordenada: âncora obrigatória e recuo proibido', () => {
 test('nenhuma outra chamada a postReview em lib/ fora das vias conhecidas', () => {
   const conhecidas = new Map([
     ['lib/engine/review.js', 2], ['lib/engine/decision.js', 3], ['lib/engine/skip-review.js', 1], ['lib/engine/coassinatura-coordenada.js', 1],
+    ['lib/engine/espera-ci.js', 1],
   ]);
   const dir = path.join(RAIZ, 'lib', 'engine');
   for (const nome of fs.readdirSync(dir).filter((f) => f.endsWith('.js'))) {

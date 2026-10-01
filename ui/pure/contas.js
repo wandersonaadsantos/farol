@@ -390,13 +390,13 @@ export function accountsManagerHtml(ctx) {
               <option value="off"${sel(a.autoReview === false)}>só põe na fila (você manda revisar; o resultado segue as regras abaixo)</option>
             </select></div>
           <div class="a-pol-item"><span class="a-fieldlabel">quando fica aprovável sem ressalvas</span>
-            <select class="acct-onclean" data-user="${esc(a.user)}" title="PR aprovável, sem nenhum ponto de atenção e com a revisão decidindo aprovar. Com o Jira ligado, isso exige o card do PR lido e atendido: PR sem card cai na regra com ressalvas">
+            <select class="acct-onclean" data-user="${esc(a.user)}" title="PR aprovável e sem nenhum ponto de atenção. Com o Jira ligado, isso exige o card do PR lido e atendido: PR sem card cai na regra com ressalvas. CI obrigatório vermelho ou rodando só adia: o Farol espera e aprova sozinho quando fechar verde no mesmo commit">
               <option value="">padrão: aprova sozinho</option>
               <option value="approve"${sel(a.onClean === 'approve')}>aprova sozinho</option>
               <option value="wait"${sel(a.onClean === 'wait')}>espera você aprovar</option>
             </select></div>
           <div class="a-pol-item"><span class="a-fieldlabel">quando fica aprovável com ressalvas</span>
-            <select class="acct-oncaveats" data-user="${esc(a.user)}" title="PR aprovável, mas com pontos de atenção anotados (inclui PR sem card do Jira, quando o Jira está ligado). O APPROVE sai com o texto da revisão; as ressalvas ficam aqui no app, não no PR">
+            <select class="acct-oncaveats" data-user="${esc(a.user)}" title="PR aprovável, mas com pontos de atenção anotados: o que a revisão levantou, PR sem card do Jira (quando o Jira está ligado), leitura que não cobriu o diff inteiro, dependência em aberto ou discordância de outro review. O APPROVE sai com o texto da revisão; as ressalvas ficam aqui no app, não no PR. CI obrigatório vermelho ou rodando só adia: o Farol espera e aprova sozinho quando fechar verde no mesmo commit">
               <option value="">herda o geral: ${padraoRessalva}</option>
               <option value="approve"${sel(a.onCaveats === 'approve')}>aprova (as ressalvas ficam no app)</option>
               <option value="wait"${sel(a.onCaveats === 'wait')}>espera você aprovar</option>

@@ -33,6 +33,14 @@ function engineWithPolicy(policy) {
   return e;
 }
 
+// 30/09/2026: a política da conta é a ÚNICA coisa que decide entre postar e esperar você, e
+// ela responde por CLASSE (limpo = nenhum ponto de atenção; com ressalvas = um ou mais).
+function enginePorClasse(limpo, comRessalvas) {
+  const e = engineWithPolicy('approve');
+  e.approvePolicyFor = (_conta, semPontos) => (semPontos ? limpo : comRessalvas);
+  return e;
+}
+
 test('checkpointGap: sem verificationCheckpoint no result, não bloqueia', () => {
   const e = engineWithPolicy('approve');
   assert.equal(e.shouldAutoApprove(PR, approvableResult()).ok, true);
@@ -44,21 +52,31 @@ test('checkpointGap: verificationCheckpoint limpo (sem conflito), não bloqueia'
   assert.equal(e.shouldAutoApprove(PR, r).ok, true);
 });
 
-test('checkpointGap: verificationCheckpoint com conflito bloqueia o auto-approve', () => {
-  const e = engineWithPolicy('approve');
+// Até 30/09/2026 os dois casos abaixo devolviam { ok: false, motivo: 'checkpoint' } em
+// qualquer política. Agora o problema do checkpoint é RESSALVA: a conta que aprova com
+// ressalvas aprova, a que espera espera, e o card mostra o que divergiu.
+function ehRessalvaDoCheckpoint(r, trecho) {
+  assert.deepEqual(enginePorClasse('approve', 'approve').shouldAutoApprove(PR, r), { ok: true, motivo: null });
+  assert.deepEqual(enginePorClasse('approve', 'wait').shouldAutoApprove(PR, r), { ok: false, motivo: 'politica' });
+  const pts = enginePorClasse('approve', 'wait').attentionPoints(r);
+  assert.equal(pts.length, 1);
+  assert.match(pts[0].text, trecho);
+  assert.equal(pts[0].kind, 'gate');
+}
+
+test('checkpointGap: verificationCheckpoint com conflito é ressalva visível, e a política decide', () => {
   const r = approvableResult({
     verificationCheckpoint: {
       total: 2, confirmedCount: 1,
       conflicts: [{ entries: [{ claim: 'a', verdict: 'confirmado' }, { claim: 'a', verdict: 'refutado' }] }],
     }
   });
-  assert.deepEqual(e.shouldAutoApprove(PR, r), { ok: false, motivo: 'checkpoint' });
+  ehRessalvaDoCheckpoint(r, /verificação de afirmações ficou com problema: divergência de veredito/);
 });
 
-test('checkpointGap: verificationCheckpoint malformado bloqueia', () => {
-  const e = engineWithPolicy('approve');
+test('checkpointGap: verificationCheckpoint malformado é ressalva visível, e a política decide', () => {
   const r = approvableResult({ verificationCheckpoint: { malformed: true } });
-  assert.deepEqual(e.shouldAutoApprove(PR, r), { ok: false, motivo: 'checkpoint' });
+  ehRessalvaDoCheckpoint(r, /checkpoint de verificação malformado/);
 });
 
 function rejectableResult(extra) {

@@ -34,13 +34,15 @@ after(() => {
 
 const PR = { key: 'acme/app#7', repo: 'acme/app', number: 7, url: 'https://github.com/acme/app/pull/7', title: 'PR', author: 'dev', requested: true };
 
-function motor(diffMedido, coverage) {
+// `ressalvas` é o que a conta faz com aprovável COM ressalvas (30/09/2026: a lacuna de
+// cobertura é ressalva, e só a política decide entre postar e esperar você)
+function motor(diffMedido, coverage, ressalvas = 'wait') {
   const e = new Engine();
   e.token = 'token-falso';
   e.tokens = { eu: 'token-falso' };
   e.config.accounts = [{ user: 'eu', owners: ['acme'] }];
   e.config.autoApproveAll = true;
-  e.approvePolicyFor = () => 'approve';
+  e.approvePolicyFor = (_conta, limpo) => (limpo ? 'approve' : ressalvas);
   e.saveDecisions = () => { };
   e.pushState = () => { };
   e.refreshTokens = async () => { };
@@ -64,15 +66,30 @@ function decisaoDe(e) {
   return [...e.decisions.pending, ...e.decisions.resolved].find((d) => d.key === PR.key);
 }
 
-test('a sessão diz que leu tudo, mas o diff medido tem um arquivo a mais: não aprova sozinho e diz qual', async () => {
+test('a sessão diz que leu tudo, mas o diff medido tem um arquivo a mais: conta que espera nas ressalvas espera, e o card diz qual', async () => {
   const e = motor(['src/a.js', 'src/b.js'], { total: 1, reviewed: ['src/a.js'], missing: [] });
   await e.runHeadlessReview({ ...PR });
   assert.equal(e.postados.length, 0, 'nada foi postado');
   const d = decisaoDe(e);
   assert.ok(d, 'a decisão ficou registrada');
+  assert.equal(d.status, 'pending');
   const motivos = (d.reasons || []).map((r) => (typeof r === 'string' ? r : r.text)).join(' | ');
+  assert.match(motivos, /aprovável com ressalvas/, motivos);
   assert.match(motivos, /cobertura da leitura tem/, motivos);
   assert.match(motivos, /src\/b\.js/, motivos);
+});
+
+test('a mesma lacuna, em conta que aprova com ressalvas: aprova sozinho e a lacuna fica visível como ressalva', async () => {
+  const e = motor(['src/a.js', 'src/b.js'], { total: 1, reviewed: ['src/a.js'], missing: [] }, 'approve');
+  await e.runHeadlessReview({ ...PR });
+  assert.equal(e.postados.length, 1, 'o APPROVE saiu');
+  assert.equal(e.postados[0].event, 'APPROVE');
+  assert.doesNotMatch(String(e.postados[0].body), /cobertura/, 'a ressalva não vai para o texto do PR');
+  const d = decisaoDe(e);
+  assert.equal(d.status, 'auto_approved');
+  const ressalvas = (d.attention || []).map((r) => r.text).join(' | ');
+  assert.match(ressalvas, /cobertura da leitura tem/, ressalvas);
+  assert.match(ressalvas, /src\/b\.js/, ressalvas);
 });
 
 test('a cobertura bate com o diff medido: o gate de cobertura não segura', async () => {
