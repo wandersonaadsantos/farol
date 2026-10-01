@@ -45,7 +45,7 @@ io.run = async (_cmd, args) => {
     return { ok: true, code: 0, stdout: JSON.stringify(gh.reviewsAlheios), stderr: '' };
   }
   if (/pulls\/\d+\/reviews/.test(sub) && sub.includes('--jq')) return { ok: true, code: 0, stdout: JSON.stringify(gh.meusReviews), stderr: '' };
-  if (sub.includes('--json state,headRefOid,baseRefName,statusCheckRollup,reviewRequests')) {
+  if (sub.includes('--json state,headRefOid,baseRefName,statusCheckRollup')) {
     leiturasDoCi++;
     if (gh.leituraFalha) return { ok: false, code: 1, stdout: '', stderr: 'HTTP 502' };
     return {
@@ -265,19 +265,16 @@ test('a política mudou para "esperar você" durante a espera: larga a espera e 
   assert.equal(leiturasDoCi, 0, 'a política é conferida antes de gastar a leitura');
 });
 
-test('a revisão deixou de estar pedida a mim: nada sai sozinho; pedido a TIME é inconclusivo e segue esperando', async () => {
+// O GitHub tira a conta de reviewRequests quando ela posta um review. No round 2 (pedi
+// mudanças, o autor corrigiu, o CI está rodando) a lista chega sem mim, e conferir "ainda
+// pedido a mim" por ela mandava para a mesa justamente a aprovação que a conta mandou sair.
+test('round 2: a conta não está mais em reviewRequests e a aprovação sai do mesmo jeito', async () => {
   const e = await emEspera(10);
-  gh.pedidos = [{ __typename: 'Team', name: 'Revisores', slug: 'revisores' }];
-  assert.equal(await e.aprovarQuandoOCiFechar(), 0);
-  assert.ok(pendente(e, 10).esperaCi, 'pedido a time não derruba a espera');
-  gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
   gh.pedidos = [{ __typename: 'User', login: 'outra-pessoa' }];
-  assert.equal(await e.aprovarQuandoOCiFechar(), 0);
-  assert.deepEqual(envios, []);
-  const d = pendente(e, 10);
-  assert.equal(d.esperaCi, null);
-  assert.match(textos(d)[0], /deixou de estar pedida a você enquanto a aprovação esperava o CI/);
-  assert.deepEqual(e.eventos, [['needs-decision', 'acme/app#10']]);
+  gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
+  assert.equal(await e.aprovarQuandoOCiFechar(), 1);
+  assert.equal(envios.length, 1, 'o APPROVE saiu');
+  assert.equal(pendente(e, 10), undefined);
 });
 
 test('PR fechado ou mergeado na espera: não posta (quem tira a pendência é o reconcilePending)', async () => {
