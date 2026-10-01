@@ -14,15 +14,25 @@ import { prIdentificado } from './pr-compartilhado.js';
 import { feedDaOperacaoHtml, resumoDaOperacao, textoDoBloqueio, textoDoVeredito } from './compartilhado.js';
 import { botaoDoReviewHtml, motivosDaPendenciaHtml, motivosOmitidosDe } from './compartilhado-decisao.js';
 
-// grupos fixos, nesta ordem (HANDOFF, seção 1)
+// A pendência que espera o CI (01/10/2026): o aparelho dono aprova sozinho quando o CI
+// obrigatório fechar verde, então ela NÃO pede você. Chega por dois caminhos, e os dois dão
+// no mesmo motivo: a linha do Panorama (`fila.motivo`, lib/sync/fila.js) e a pendência
+// (`espera`, lib/sync/pendencia.js). Aparelho em versão anterior não manda nenhum dos dois,
+// e o item dele continua em "Pedem você", como era.
+const ESPERA_CI = 'espera-ci';
+const CHIP_ESPERA_CI = ['info', 'esperando o CI'];
+const FRASE_ESPERA_CI = 'aprovável, esperando o CI obrigatório: o aparelho aprova sozinho quando ele fechar verde';
+
+// grupos fixos, nesta ordem (HANDOFF, seção 1); "Esperando o CI" entrou em 01/10/2026
 const GRUPOS = [
   { id: 'pedem', titulo: 'Pedem você', sub: 'O aparelho revisou e espera sua decisão.' },
+  { id: 'ci', titulo: 'Esperando o CI (aprova sozinho)', sub: 'Não precisam de você: o aparelho aprova quando o CI fechar verde.' },
   { id: 'revisando', titulo: 'Revisando agora', sub: 'Ao vivo, atualiza a cada 10 s.' },
   { id: 'fila', titulo: 'Na fila', sub: 'Ainda não começaram.' },
   { id: 'parados', titulo: 'Parados', sub: 'Não andam sozinhos. Cada um diz o porquê.' },
   { id: 'feitos', titulo: 'Revisados e ignorados', sub: 'Saíram da fila.' },
 ];
-const FILTROS = [['tudo', 'Tudo'], ['pedem', 'Pedem você'], ['revisando', 'Revisando'], ['fila', 'Na fila'], ['parados', 'Parados'], ['feitos', 'Feitos']];
+const FILTROS = [['tudo', 'Tudo'], ['pedem', 'Pedem você'], ['ci', 'Esperando o CI'], ['revisando', 'Revisando'], ['fila', 'Na fila'], ['parados', 'Parados'], ['feitos', 'Feitos']];
 
 const GRUPO_DO_ESTADO = {
   decidir: 'pedem', revisando: 'revisando',
@@ -76,28 +86,42 @@ function linhasDoAparelho(listas, dev) {
   return escopos.flatMap((e) => lista(e.linhas).filter((l) => l && l.fila && l.prTag).map((l) => itemDaLinha(l, e)));
 }
 
-// Pendência e sessão viva vencem o estado da linha: são mais novas que o Panorama.
-function sobrepor(porTag, fonte, campo, estado) {
+// Pendência e sessão viva vencem o estado da linha: são mais novas que o Panorama. O motivo
+// vai junto, senão o da linha (mais velho) sobreviveria: espera largada continuaria "esperando
+// o CI" até o próximo ciclo de polling do dono, e ali ela já pede você.
+function sobrepor(porTag, fonte, campo, estado, motivo = '') {
   const it = porTag.get(fonte.prTag) || itemDoPr(fonte.pr, fonte.prTag);
-  const fila = { ...(it.fila || {}), estado };
+  const fila = { ...(it.fila || {}), estado, motivo };
   porTag.set(fonte.prTag, { ...it, [campo]: fonte, fila });
+}
+
+// só o valor do vocabulário vira espera; ausente (versão anterior) ou lixo é pendência comum
+function motivoDaPendencia(p) {
+  return p.espera === 'ci' ? ESPERA_CI : '';
 }
 
 export function itensDaFila(dev, { listas, pendencias, operacoes } = {}) {
   const porTag = new Map(linhasDoAparelho(listas, dev).map((it) => [it.prTag, it]));
   const pends = lista(pendencias).filter((p) => p && p.dev === dev && p.prTag && !p.visto);
   const ops = lista(operacoes).filter((o) => o && o.dev === dev && o.prTag && o.tipo !== 'self');
-  for (const p of pends) sobrepor(porTag, p, 'pend', 'decidir');
+  for (const p of pends) sobrepor(porTag, p, 'pend', 'decidir', motivoDaPendencia(p));
   for (const o of ops) sobrepor(porTag, o, 'op', 'revisando');
   return [...porTag.values()];
 }
 
-export function grupoDoItem(item) {
-  return GRUPO_DO_ESTADO[item && item.fila && item.fila.estado] || 'fila';
+function esperaOCi(f) {
+  return !!f && f.estado === 'decidir' && f.motivo === ESPERA_CI;
 }
 
+export function grupoDoItem(item) {
+  const f = item && item.fila;
+  if (esperaOCi(f)) return 'ci';
+  return GRUPO_DO_ESTADO[f && f.estado] || 'fila';
+}
+
+// `pedem` é o número que vira selo e contador ("N pedem você"): quem espera o CI fica fora
 export function contagemDaFila(itens) {
-  const c = { tudo: 0, pedem: 0, revisando: 0, fila: 0, parados: 0, feitos: 0 };
+  const c = { tudo: 0, pedem: 0, ci: 0, revisando: 0, fila: 0, parados: 0, feitos: 0 };
   for (const it of lista(itens)) { c.tudo += 1; c[grupoDoItem(it)] += 1; }
   return c;
 }
@@ -120,16 +144,21 @@ export function situacaoDaFila(dev, listas, { antigo = false, fontesLidas = true
 
 // A contagem soma os motivos que o dono não conseguiu mandar (`motivosOmitidos`), para a
 // lista parcial nunca parecer completa; o bloqueio por commit novo vai junto.
-function fraseDaPendencia(p) {
+function aberturaDaPendencia(p, f) {
+  if (esperaOCi(f)) return FRASE_ESPERA_CI;
+  return `revisado: ${textoDoVeredito(p.veredito)}`;
+}
+
+function fraseDaPendencia(p, f) {
   const n = lista(p.motivos).length + motivosOmitidosDe(p);
   const bloqueio = textoDoBloqueio(p.bloqueio);
-  const partes = [`revisado: ${textoDoVeredito(p.veredito)}`, n ? plural(n, 'motivo registrado', 'motivos registrados') : '', bloqueio];
+  const partes = [aberturaDaPendencia(p, f), n ? plural(n, 'motivo registrado', 'motivos registrados') : '', bloqueio];
   return partes.filter(Boolean).join(', ');
 }
 
 function fraseDoItem(item, agora) {
   const f = item.fila || {};
-  if (f.estado === 'decidir' && item.pend) return fraseDaPendencia(item.pend);
+  if (f.estado === 'decidir' && item.pend) return fraseDaPendencia(item.pend, f);
   if (f.estado === 'revisando' && item.op) return `revisando agora: ${resumoDaOperacao(item.op)}`;
   return FRASE[f.estado] ? FRASE[f.estado](item, f, agora) : '';
 }
@@ -144,9 +173,14 @@ function fraseLimite(it, f) {
   return `assinatura no limite até ${fmtClock(f.ate)}`;
 }
 
+function fraseDecidir(it, f) {
+  if (esperaOCi(f)) return FRASE_ESPERA_CI;
+  return 'revisado, esperando sua decisão';
+}
+
 const FRASE = {
   revisando: () => 'revisando agora',
-  decidir: () => 'revisado, esperando sua decisão',
+  decidir: fraseDecidir,
   esperando: () => 'na fila, a revisão automática vai pegar',
   'sem-automatica': fraseSemAutomatica,
   retry: () => 'esperando nova tentativa depois de falha de rede',
@@ -185,9 +219,11 @@ function botao(classe, rotulo, attrs, desligado, item, primario = false) {
   return `<button class="btn sm${primario ? ' primary' : ''} ${classe}"${attrs}${dis} aria-label="${esc(`${rotulo}: ${ref(item)}`)}">${esc(rotulo)}</button>`;
 }
 
+// Quem espera o CI segue com o Decidir (aprovar na mão sem esperar é direito seu, como no
+// card local), só que sem o destaque de ação principal: ali o esperado é não fazer nada.
 function acoesDaPendencia(item, ctx) {
   const p = item.pend;
-  const decidir = botao('md-decidir', 'Decidir', ` data-item="${esc(p.itemId)}" data-dev="${esc(p.dev)}" data-aparelho="${esc(p.aparelho || ctx.nome)}"`, ctx.desligadoBase, item, true);
+  const decidir = botao('md-decidir', 'Decidir', ` data-item="${esc(p.itemId)}" data-dev="${esc(p.dev)}" data-aparelho="${esc(p.aparelho || ctx.nome)}"`, ctx.desligadoBase, item, !esperaOCi(item.fila));
   return `${decidir}${botaoDoReviewHtml(p)}`;
 }
 
@@ -229,9 +265,14 @@ function detalheDoItem(item) {
   return `${vencido}${motivos}`;
 }
 
+function chipDe(f) {
+  if (esperaOCi(f)) return CHIP_ESPERA_CI;
+  return CHIP[f.estado] || ['mute', f.estado || 'sem estado'];
+}
+
 function itemHtml(item, ctx) {
   const f = item.fila || {};
-  const [classe, rotulo] = CHIP[f.estado] || ['mute', f.estado || 'sem estado'];
+  const [classe, rotulo] = chipDe(f);
   const pr = prIdentificado(item) ? prRefMention(item.key, 'pr-ref-mention') : `<span class="md-pr-generico">${esc(SEM_NOME)}</span>`;
   const conta = item.account ? `<span class="acct-chip">${esc(item.account)}</span>` : '';
   const autor = item.author ? `${personMention(item.author, 'xs')}` : '';

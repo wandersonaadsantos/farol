@@ -35,9 +35,70 @@ test('itensDaFila: linha, pendência e sessão do MESMO aparelho, e pendência/s
   assert.equal(itens.find((i) => i.prTag === TAG('3')).key, 'acme-exemplo/loja-api#3', 'sessão sem linha usa o PR do catálogo');
 });
 
-test('contagemDaFila agrupa pelos cinco grupos do desenho', () => {
+// os cinco grupos do desenho, mais "Esperando o CI" (01/10/2026), que nenhum estado sozinho preenche
+test('contagemDaFila agrupa pelos grupos do desenho', () => {
   const itens = ['decidir', 'revisando', 'esperando', 'sem-automatica', 'retry', 'estacionado', 'limite-plano', 'visto', 'ignorado'].map((e, i) => ({ prTag: String(i), fila: { estado: e } }));
-  assert.deepEqual(P.contagemDaFila(itens), { tudo: 9, pedem: 1, revisando: 1, fila: 3, parados: 2, feitos: 2 });
+  assert.deepEqual(P.contagemDaFila(itens), { tudo: 9, pedem: 1, ci: 0, revisando: 1, fila: 3, parados: 2, feitos: 2 });
+});
+
+/* ---------- a pendência que espera o CI (01/10/2026) ---------- */
+
+// O aparelho dono aprova sozinho quando o CI fechar verde: na tela do admin o item não pode
+// contar nem aparecer como "pede você". O fato chega pela pendência (`espera`) e pela linha
+// (`fila.motivo`); aparelho em versão anterior não manda nenhum dos dois.
+const PEND_CI = { itemId: 'p1', dev: DEV, aparelho: 'Celular da Ana', prTag: TAG('2'), veredito: 'approve', espera: 'ci', motivos: [{ text: 'aprovável, esperando o CI obrigatório', kind: 'gate' }], acoes: ['approve', 'skip'], pr: null };
+
+test('espera do CI pela pendência: grupo próprio, fora de "pedem você", com o Decidir disponível', () => {
+  const itens = P.itensDaFila(DEV, { listas: listas([linha('acme-exemplo/loja-web#2', 'esperando')]), pendencias: [PEND_CI], operacoes: [] });
+  assert.deepEqual(itens[0].fila, { estado: 'decidir', motivo: 'espera-ci', desde: 0, ate: 0 });
+  assert.equal(P.grupoDoItem(itens[0]), 'ci');
+  const cont = P.contagemDaFila(itens);
+  assert.equal(cont.pedem, 0, 'o selo e o contador de "pedem você" não contam a espera');
+  assert.equal(cont.ci, 1);
+  const html = P.filaDoAparelhoHtml(itens, { miolo: 'lista', lidoEm: AGORA }, { nome: 'Celular da Ana', agora: AGORA });
+  assert.match(html, /<h3>Esperando o CI \(aprova sozinho\)<\/h3>/);
+  assert.equal(html.includes('<h3>Pedem você</h3>'), false, 'o grupo que pede gente nem aparece');
+  assert.match(html, /sync-chip info">esperando o CI</);
+  assert.match(html, /aprova sozinho quando ele fechar verde/);
+  assert.match(html, /class="btn sm md-decidir"[^>]*data-item="p1"/, 'aprovar na mão continua possível, sem destaque de ação principal');
+  assert.match(html, /data-filtro="pedem"[^>]*>Pedem você <span>0<\/span>/, 'sem o destaque de urgência');
+  assert.match(html, /data-filtro="ci"[^>]*>Esperando o CI <span>1<\/span>/);
+  const faixa = P.faixaDeAparelhosHtml([AP, { ...AP, deviceId: 'dTablet', nome: 'Tablet' }], AP.deviceId, { [AP.deviceId]: cont }, AGORA);
+  assert.match(faixa, /Celular da Ana<\/b><small>Android · nada pede você/, 'a faixa que troca de aparelho também não conta a espera');
+});
+
+test('espera do CI só pela linha (pendência ainda não lida): mesmo grupo, sem botão de comando', () => {
+  const itens = P.itensDaFila(DEV, { listas: listas([linha('acme-exemplo/loja-web#2', 'decidir', { motivo: 'espera-ci' })]), pendencias: [], operacoes: [] });
+  assert.equal(P.grupoDoItem(itens[0]), 'ci');
+  assert.equal(P.contagemDaFila(itens).pedem, 0);
+  const html = P.filaDoAparelhoHtml(itens, { miolo: 'lista', lidoEm: AGORA }, { nome: 'Celular da Ana', agora: AGORA });
+  assert.match(html, /esperando o CI obrigatório/);
+  assert.equal(html.includes('ap-cmd'), false);
+});
+
+test('aparelho em versão anterior (sem motivo na linha e sem espera na pendência) segue em "pedem você"', () => {
+  const antiga = { ...PEND_CI };
+  delete antiga.espera;
+  const itens = P.itensDaFila(DEV, { listas: listas([linha('acme-exemplo/loja-web#2', 'decidir')]), pendencias: [antiga], operacoes: [] });
+  assert.equal(P.grupoDoItem(itens[0]), 'pedem');
+  assert.deepEqual(P.contagemDaFila(itens), { tudo: 1, pedem: 1, ci: 0, revisando: 0, fila: 0, parados: 0, feitos: 0 });
+  const html = P.filaDoAparelhoHtml(itens, { miolo: 'lista', lidoEm: AGORA }, { nome: 'Celular da Ana', agora: AGORA });
+  assert.match(html, /<h3>Pedem você<\/h3>/);
+  assert.match(html, /sync-chip warn">decidir</);
+  assert.match(html, /class="btn sm primary md-decidir"/);
+  assert.equal(html.includes('<h3>Esperando o CI'), false);
+});
+
+test('a pendência é mais nova que a linha: espera largada sai de "esperando o CI" na hora, e lixo no campo não vira espera', () => {
+  const linhaVelha = linha('acme-exemplo/loja-web#2', 'decidir', { motivo: 'espera-ci' });
+  for (const espera of ['', undefined, true, 'CI', { ci: 1 }]) {
+    const itens = P.itensDaFila(DEV, { listas: listas([linhaVelha]), pendencias: [{ ...PEND_CI, espera }], operacoes: [] });
+    assert.equal(P.grupoDoItem(itens[0]), 'pedem', JSON.stringify(espera));
+    assert.equal(itens[0].fila.motivo, '');
+  }
+  const sessao = P.itensDaFila(DEV, { listas: listas([linhaVelha]), pendencias: [], operacoes: [{ opId: 'o2', dev: DEV, prTag: TAG('2'), tipo: 'review', pr: null }] });
+  assert.equal(P.grupoDoItem(sessao[0]), 'revisando', 'sessão viva vence, e o motivo velho não sobrevive nela');
+  assert.equal(sessao[0].fila.motivo, '');
 });
 
 /* ---------- falha não se disfarça de vazio ---------- */

@@ -155,8 +155,9 @@ export function reRoundBoxHtml(st) {
 
 // Pendência que espera o CI NÃO precisa de você (30/09/2026): o Farol aprova sozinho quando
 // a pipe fechar. Tudo que conta ou lista "Precisa de você" na tela passa por aqui, para o
-// número e o rótulo dizerem a mesma coisa que o engine faz. O que vai para OUTROS aparelhos
-// não muda (o protocolo de sincronização publica a pendência como sempre).
+// número e o rótulo dizerem a mesma coisa que o engine faz. Para os OUTROS aparelhos o fato
+// viaja desde 01/10/2026 (motivo `espera-ci` na fila e `espera` na pendência), e a tela deles
+// separa do mesmo jeito em ui/pure/aparelhos-fila.js.
 export function separarPendentes(pending) {
   const lista = Array.isArray(pending) ? pending.filter(Boolean) : [];
   return { precisam: lista.filter(d => !d.esperaCi), esperandoCi: lista.filter(d => !!d.esperaCi) };

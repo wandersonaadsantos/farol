@@ -17,6 +17,7 @@ Cada decisão passa a ter uma configuração só, e "aprova sozinho" passa a apr
 
 - **CI vermelho ou rodando vira espera automática.** Antes, um PR aprovável com check obrigatório reprovando ou ainda rodando ia para a sua mesa, mesmo com a conta mandando aprovar sozinho. Agora o Farol guarda a aprovação, confere a pipe a cada ciclo e aprova sozinho quando ela fecha verde no mesmo commit. Continua sem aprovar por cima de CI vermelho. Se o commit mudar, a revisão refaz; se uma pessoa pedir mudanças nesse meio tempo, a aprovação não sai.
 - **Seção "Esperando o CI (aprova sozinho)".** Esses PRs saíram do "Precisa de você", do contador e do selo da bandeja, porque não precisam de você. O botão Aprovar continua lá para quem quiser adiantar.
+- **Os outros aparelhos também sabem da espera.** Em Radar > Aparelhos, o PR que espera o CI no celular ou em outro computador aparece em "Esperando o CI (aprova sozinho)", fora do "pedem você", e não gera aviso de decisão pendente; o Decidir continua disponível. Vale entre aparelhos na 2.67.0: um aparelho ainda na versão anterior continua mostrando esse PR como pendência comum até ser atualizado.
 
 **Melhorias**
 

@@ -19,6 +19,7 @@ import { SYNC } from '../lib/constants.js';
 const { Engine } = await import('../server.js');
 const syncMod = (await import('../lib/engine/sync.js')).default;
 const pend = await import('../lib/engine/sync-pendencias.js');
+const envelope = (await import('../lib/sync/envelope.js')).default;
 
 const API_KEY = 'chave-web-de-teste';
 const EMAIL = 'a@b.com';
@@ -279,4 +280,68 @@ test('o ciclo do relógio apaga a sobra de uma sessão anterior', async () => {
   const andamentoEng = await import('../lib/engine/sync-andamento.js');
   await andamentoEng.ciclo(e, e.config.sync, { agora: Date.now() });
   assert.deepEqual(no('pending'), {}, 'sem a fiação no relógio a função existiria e nunca rodaria');
+});
+
+/* ---------- a pendência que espera o CI (01/10/2026) ---------- */
+
+// O aparelho dono aprova sozinho quando o CI fechar verde. O outro aparelho tem de saber
+// disso para não mostrar "precisa de você" nem avisar (D3) algo que não precisa de ninguém.
+const ESPERA_CI = { desde: 1_800_000_000_000, checks: [{ nome: 'ci / build-secreto', estado: 'rodando' }], pontos: [] };
+const MOTIVO_DA_ESPERA = { text: 'aprovável, esperando o CI obrigatório', kind: 'gate', espera: true };
+
+test('espera do CI: sobe só o fato, o outro aparelho lê como espera e NÃO avisa', async () => {
+  const e = await motorPronto();
+  pendenciaLocal(e, 'd1', { esperaCi: ESPERA_CI, reasons: [MOTIVO_DA_ESPERA] });
+  const r = await pend.sincronizarPendencias(e, e.config.sync);
+  assert.equal(r.escritas.length, 1, 'continua sendo publicada: o admin ainda pode aprovar na mão');
+  assert.equal(JSON.stringify(fake.tree()).includes('build-secreto'), false);
+  const b = outroAparelho(e);
+  const lido = pend.aplicarPendencias(b, no('pending'), {});
+  assert.equal(lido.lista.length, 1, 'está na lista, para a tela mostrar como espera');
+  assert.equal(lido.lista[0].espera, 'ci');
+  assert.equal(lido.lista[0].motivos[0].text, 'aprovável, esperando o CI obrigatório', 'o texto da espera já viaja como motivo');
+  assert.deepEqual(Object.keys(lido.lista[0].motivos[0]).sort(), ['kind', 'text']);
+  assert.deepEqual(lido.novas, [], 'nada a avisar: ninguém precisa fazer nada');
+  assert.deepEqual(b.eventos.map(([n, p]) => [n, p.novas]), [['sync-pending', []]], 'a lista chega à tela, sem novidade que peça gente');
+  assert.equal(pend.aplicarPendencias(b, no('pending'), {}).novas.length, 0);
+});
+
+test('espera largada: a mesma pendência passa a pedir gente e avisa nessa hora, uma vez', async () => {
+  const e = await motorPronto();
+  pendenciaLocal(e, 'd1', { esperaCi: ESPERA_CI, reasons: [MOTIVO_DA_ESPERA] });
+  const { escritas: [id] } = await pend.sincronizarPendencias(e, e.config.sync);
+  const b = outroAparelho(e);
+  assert.deepEqual(pend.aplicarPendencias(b, no('pending'), {}).novas, []);
+  // o que o largar() do espera-ci.js faz: tira a marca e põe o motivo da mesa
+  Object.assign(e.decisions.pending[0], { esperaCi: null, reasons: [{ text: 'a política manda aguardar você', kind: 'gate' }] });
+  assert.deepEqual((await pend.sincronizarPendencias(e, e.config.sync)).escritas, [id], 'a mudança sobe no mesmo nó');
+  const depois = pend.aplicarPendencias(b, no('pending'), {});
+  assert.equal(depois.lista[0].espera, '');
+  assert.deepEqual(depois.novas.map((p) => p.itemId), [id], 'agora precisa de alguém, e o aviso sai');
+  assert.equal(pend.aplicarPendencias(b, no('pending'), {}).novas.length, 0, 'uma vez só');
+});
+
+// O que um aparelho na 2.66.3 publica: a projeção SEM o campo. E o que não deveria chegar
+// nunca: o campo com lixo. Os dois nós são cifrados como o motor cifra (mesmo nó e esquema).
+function noDeOutroAparelho(e, itemId, projecao) {
+  const no = { v: 1, at: 1_800_000_000_000, dev: 'dCelular' };
+  const cifrado = envelope.cifrar({
+    uid: e.sync.uid, caminho: `live/pending/${itemId}`, campo: 'pendencia', no: 'live/pending', esquema: 'pend1',
+    cur: e.sync.cur, material: e.sync.material, r: 1, extras: [no.at, no.dev], dados: { p: projecao },
+  });
+  assert.equal(cifrado.ok, true, cifrado.motivo);
+  return { ...no, enc: cifrado.enc };
+}
+
+test('nó de versão anterior (sem o campo) e nó com lixo no campo leem como pendência comum, e avisam', async () => {
+  const e = await motorPronto();
+  const antiga = { prTag: 'a'.repeat(32), acctTag: 'b'.repeat(32), veredito: 'approve', motivos: [{ text: 'aguarda', kind: 'gate' }], motivosOmitidos: 0, bloqueio: '', reviewId: '', acoes: ['approve', 'skip'] };
+  const arvore = { aa01: noDeOutroAparelho(e, 'aa01', antiga) };
+  const lixos = [true, 1, 'CI', 'qualquer', { ci: true }, ['ci'], null];
+  lixos.forEach((lixo, i) => { arvore[`bb0${i}`] = noDeOutroAparelho(e, `bb0${i}`, { ...antiga, espera: lixo }); });
+  const lido = pend.aplicarPendencias(e, arvore, {});
+  assert.equal(lido.lista.length, 1 + lixos.length, 'nenhum nó é descartado');
+  for (const p of lido.lista) assert.equal(p.espera, '', p.itemId);
+  assert.equal(lido.novas.length, 1 + lixos.length, 'todos pedem gente, como antes desta versão');
+  assert.equal(lido.lista.find((p) => p.itemId === 'aa01').veredito, 'approve', 'o resto da projeção segue intacto');
 });
