@@ -12,7 +12,8 @@ const RELEASE_NOTES = [
     "Os outros aparelhos também sabem da espera: em Radar > Aparelhos o PR aparece em \"Esperando o CI (aprova sozinho)\", fora do \"pedem você\" e sem aviso de decisão pendente. Aparelho ainda na versão anterior continua mostrando como pendência comum até ser atualizado.",
     "A política de revisar e aprovar mora só na conta. As chaves gerais saíram de Sistema > Automação, e cada conta recebeu por extenso o que já fazia.",
     "\"Aprova sozinho\" tem só duas classes, sem ressalvas e com ressalvas. Discordância de outro review, leitura incompleta e dependência em aberto viraram ressalvas visíveis, e quem decide é o \"com ressalvas\" da conta.",
-    "O card sempre diz por que um PR é \"com ressalvas\", inclusive quando falta o card do Jira.",
+    "O card sempre diz por que um PR é \"com ressalvas\", inclusive quando falta o card do Jira, e diz qual conta mandou esperar, quando e de onde veio a configuração.",
+    "Aparelho pausado pelo admin para de verdade: além da revisão, não classifica pushback nem aprova junto com quem pegou o PR.",
     "\"Revisões paralelas por conta\" é sempre por conta, e o total do aparelho é o \"Teto total deste aparelho\". Quem já compartilhava entre aparelhos mantém o total que tinha.",
     "PR que não pediu a sua revisão continua sem postar nada sozinho, e o Farol continua saindo de cena quando outra pessoa está revisando."
   ]],
