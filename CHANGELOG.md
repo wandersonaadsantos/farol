@@ -9,11 +9,23 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.66.2
+## v2.66.3
 
-As telas de Contas e de Automação param de prometer autonomia que o Farol não tem.
+A política do aparelho fica só com o que o aparelho de fato aplica: pausa e teto.
 
 **Correções**
+
+- **Saíram os dois campos que nada aplicava.** "Tipos permitidos" e as contas elegíveis eram gravados, combinados e mostrados no formulário da política, mas nenhum ponto do Farol os consultava: o admin desmarcava a conversa e ela continuava rodando. A v2.66.2 já avisava disso na tela; agora os campos saíram da tela e da política.
+- **Admin em versão antiga não quebra nada.** Se um aparelho ainda publicar as duas chaves, elas são descartadas na chegada, e a pausa e o teto do mesmo pacote continuam valendo.
+- **A dica do formulário diz o alcance.** Pausa e teto valem só para a revisão; pushback, co-assinatura, chat, autoanálise e ferramentas seguem sem passar por eles.
+
+## v2.66.2
+
+A revisão deixa de morrer esperando o CI, e as telas de Contas e de Automação param de prometer autonomia que o Farol não tem.
+
+**Correções**
+
+- **A revisão não morre mais esperando o CI terminar.** Quando o PR ainda estava com checks rodando, a sessão do Claude punha a espera em segundo plano, encerrava dizendo "aguardo o resultado" e terminava ali, sem entregar a revisão. Três revisões se perderam assim em dois dias, cada uma caindo como "a sessão não devolveu JSON". Agora a sessão não tem como mandar nada para o segundo plano, e as instruções da revisão e da autoanálise dizem que o CI não se espera: a sessão registra o estado dos checks como está e o Farol segura a aprovação sozinho enquanto um check obrigatório estiver rodando.
 
 - **O "com ressalvas" herdado de cada conta diz o que acontece de verdade.** O cartão da conta mostrava "herda o geral: aprova e destaca as ressalvas" olhando só a chave geral. Numa conta cujo "sem ressalvas" espera você, o Farol aguarda, e a tela prometia aprovar. Agora o rótulo segue a mesma regra que decide.
 - **A co-assinatura não promete mais o que nunca faz.** O texto dava como exemplo "código do qual você é dono", e é justamente onde o Farol nunca co-assina: com você dono pelo CODEOWNERS (ou com o CODEOWNERS ilegível), a sua aprovação precisa vir de revisão de verdade. O texto agora diz isso, e diz também que só é detectado quem revisa com o Farol.
@@ -23,8 +35,7 @@ As telas de Contas e de Automação param de prometer autonomia que o Farol não
 - **O modo rápido e a dica do Auto contam a verdade.** O modo rápido não vale no Auto, e o Auto revisa sempre com o Opus, subindo o raciocínio para xhigh só quando o contexto do PR pede. A dica dizia que ele escolhia entre os modelos pelo tamanho.
 - **A notificação de PR novo não anuncia revisão que não vai rodar.** Dizia "revisando sozinho" sempre que qualquer PR da fila entrava na revisão automática, inclusive um antigo, e antes dos gates. Agora diz "na fila da revisão automática" e só quando é o próprio PR novo que entrou.
 - **Justiça de fila na ordem real.** A tabela "Por org" ordenava por quem espera há mais tempo, e o escalonador atende a org atendida há mais tempo. O texto do teto global dizia o mesmo erro. Os dois foram alinhados ao escalonador.
-- **Paralelismo e aparelhos.** "Revisões paralelas por conta" avisa que, com o compartilhamento entre aparelhos ligado, o número vira o total do aparelho. A pausa do aparelho diz que segura só a revisão (pushback e co-assinatura seguem).
-- **A política do aparelho perdeu os dois campos que nada aplicava.** "Tipos permitidos" e as contas elegíveis eram gravados, combinados e mostrados, mas nenhum ponto do Farol os consultava: o admin desmarcava a conversa e ela continuava rodando. Saíram da tela e da política, que fica com pausa e teto. Um admin em versão antiga que ainda os publique não quebra nada: as duas chaves são descartadas na chegada, e a pausa e o teto continuam valendo.
+- **Paralelismo e aparelhos.** "Revisões paralelas por conta" avisa que, com o compartilhamento entre aparelhos ligado, o número vira o total do aparelho. A pausa do aparelho diz que segura só a revisão (pushback e co-assinatura seguem), e a política diz que os tipos permitidos e as contas elegíveis ficam gravados, mas o aparelho ainda não os aplica.
 - **Detalhes menores:** "Retomar a sessão no round 2" avisa que não vale para conta Codex, "Atualizar sozinho" diz que também espera a fila de revisão esvaziar, e "Detectar pushback" diz quando a sessão roda e o limite de duas por ciclo.
 
 ## v2.66.1

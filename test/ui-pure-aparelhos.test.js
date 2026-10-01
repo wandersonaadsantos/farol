@@ -135,7 +135,7 @@ test('aparelhoPoliticaHtml: teto só de 1 a 4, sem tipos de operação e recusa 
   assert.match(html, /Desktop antigo/);
   for (const n of ['1', '2', '3', '4']) assert.match(html, new RegExp(`value="${n}"`));
   assert.ok(!html.includes('value="5"'), 'o teto de paralelismo vai só até 4');
-  for (const t of ['review', 'self', 'pushback', 'chat', 'tool']) assert.doesNotMatch(html, new RegExp(`value="${t}"`), 'tipo de operação saiu da política na v2.66.2');
+  for (const t of ['review', 'self', 'pushback', 'chat', 'tool']) assert.doesNotMatch(html, new RegExp(`value="${t}"`), 'tipo de operação saiu da política na v2.66.3');
   assert.match(html, /a política não foi assinada pelo admin vigente/);
   assert.match(html, /id="aparPublicarPolitica"/);
 });

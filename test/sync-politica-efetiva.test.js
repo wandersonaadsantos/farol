@@ -25,7 +25,7 @@ test('teto: o menor dos dois, e o remoto maior nunca amplia', () => {
   assert.equal(politicaEfetiva(LOCAL, { tetoParalelismo: 4 }, { autoridade: true }).tetoParalelismo, 3, 'o remoto maior não amplia');
 });
 
-// v2.66.2: contas elegíveis e tipos de operação saíram da política, porque nada no engine
+// v2.66.3: contas elegíveis e tipos de operação saíram da política, porque nada no engine
 // os aplicava. Um admin antigo que ainda os publique não pode fazê-los reaparecer aqui.
 test('campo fora da política não entra no valor efetivo, venha de que lado vier', () => {
   const e = politicaEfetiva({ ...LOCAL, tiposDeOperacao: ['review'] }, { contasElegiveis: ['a'.repeat(32)], tiposDeOperacao: ['chat'] }, { autoridade: true });

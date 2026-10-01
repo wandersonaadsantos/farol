@@ -100,7 +100,7 @@ test('allowlist: teto fora de 1 a 4 é clampado, não recusado', () => {
   assert.equal('tetoParalelismo' in sanearPolitica({ tetoParalelismo: 'muito' }), false, 'lixo não vira teto');
 });
 
-// v2.66.2: contas elegíveis e tipos de operação saíram da allowlist porque nada os aplicava.
+// v2.66.3: contas elegíveis e tipos de operação saíram da allowlist porque nada os aplicava.
 // Admin antigo que ainda os publique perde só essas chaves; o resto da política vale.
 test('allowlist: contas e tipos, que nada aplica, são descartados sem recusar o resto', () => {
   const p = sanearPolitica({ pausado: true, tetoParalelismo: 2, tiposDeOperacao: ['review'], contasElegiveis: [TAG_A] });

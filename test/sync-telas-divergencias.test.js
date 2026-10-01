@@ -152,7 +152,7 @@ test('itens 1 e 2: publicar devolve a versão, e a leitura devolve a política v
   assert.equal(lida.body.existe, true);
   assert.equal(lida.body.valida, true);
   assert.equal(lida.body.versao, 2);
-  // contas e tipos, que um admin antigo ainda publica, não voltam na leitura (v2.66.2)
+  // contas e tipos, que um admin antigo ainda publica, não voltam na leitura (v2.66.3)
   assert.deepEqual(lida.body.politica, { pausado: false, tetoParalelismo: 3 });
 });
 
