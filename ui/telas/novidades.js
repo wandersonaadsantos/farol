@@ -7,6 +7,11 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.68.0', [
+    "Nova chave em Sistema > Automação, \"Esperar o CI antes de revisar\", desligada por padrão. Ligada, a revisão automática só começa com todos os checks obrigatórios do PR verdes (o comportamento de antes); desligada, o Farol revisa assim que o PR chega.",
+    "A aprovação continua esperando o CI nos dois casos: nunca aprova com check obrigatório vermelho ou rodando, e posta sozinho quando a pipe fecha verde no mesmo commit. O botão Revisar nunca esperou.",
+    "Quem contava com a espera de antes precisa ligar a chave depois de atualizar."
+  ]],
   ['2.67.0', [
     "CI obrigatório vermelho ou rodando virou espera automática: o Farol guarda a aprovação e aprova sozinho quando a pipe fecha verde no mesmo commit. Esses PRs têm seção própria, \"Esperando o CI (aprova sozinho)\", e saíram do \"Precisa de você\".",
     "Os outros aparelhos também sabem da espera: em Radar > Aparelhos o PR aparece em \"Esperando o CI (aprova sozinho)\", fora do \"pedem você\" e sem aviso de decisão pendente. Aparelho ainda na versão anterior continua mostrando como pendência comum até ser atualizado.",

@@ -462,6 +462,13 @@
               </span>
               <span class="set-ctl"><input id="setCoAssinarReview" type="checkbox"><span class="switch"></span></span>
             </label>
+            <label class="set-row" id="sys-row-aguardarci">
+              <span class="set-txt">
+                <span class="set-title">Esperar o CI antes de revisar</span>
+                <span class="set-desc">Com a chave ligada, a revisão automática só começa quando todos os checks <b>obrigatórios</b> do PR estão verdes, para não gastar uma sessão num commit que ainda vai mudar. Desligado (padrão), o Farol começa a revisar assim que o PR chega, e a aprovação continua esperando o CI sozinha: ele nunca aprova com check obrigatório vermelho ou rodando, e posta quando a pipe fecha verde no mesmo commit. O botão Revisar nunca espera.</span>
+              </span>
+              <span class="set-ctl"><input id="setAguardarCi" type="checkbox"><span class="switch"></span></span>
+            </label>
             <label class="set-row" id="sys-row-reviewfast">
               <span class="set-txt">
                 <span class="set-title">Modo rápido da revisão</span>

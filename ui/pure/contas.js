@@ -409,7 +409,7 @@ export function accountsManagerHtml(ctx) {
         <div class="a-pol-note">O que o Farol faz sozinho nos PRs desta conta:</div>
         <div class="a-policy">
           <div class="a-pol-item"><span class="a-fieldlabel">${T.autoReview.rotulo}</span>
-            <select class="acct-autoreview" data-user="${esc(a.user)}" title="Revisar sozinho ou só listar e esperar você mandar revisar. Revisar sozinho não é na hora: espera os checks obrigatórios ficarem verdes, sai de cena se outra pessoa estiver revisando, segura com reprovação humana ou duas aprovações humanas no head, respeita o limite do plano e o orçamento, e só roda com o Farol aberto">
+            <select class="acct-autoreview" data-user="${esc(a.user)}" title="Revisar sozinho ou só listar e esperar você mandar revisar. Revisar sozinho não é na hora: espera os checks obrigatórios ficarem verdes (só se você ligou Esperar o CI antes de revisar em Automação), sai de cena se outra pessoa estiver revisando, segura com reprovação humana ou duas aprovações humanas no head, respeita o limite do plano e o orçamento, e só roda com o Farol aberto">
               ${opcoesDaPolitica('autoReview', pol.autoReview)}
             </select></div>
           <div class="a-pol-item"><span class="a-fieldlabel">${T.onClean.rotulo}</span>

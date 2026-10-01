@@ -379,6 +379,14 @@ coisa irrelevante ao trabalho revisado). Estado final (v2.54.0):
   pushTrivial) e `_repescarRetry` (server.js; retry bloqueado também sai do
   `retryAfterNet`, senão reconsultaria o mesmo head pra sempre). Clique manual
   (`pr.manual`) atravessa sem nenhuma chamada.
+  **A metade "checks obrigatórios verdes antes de começar" é opt-in desde 01/10/2026**
+  (`config.aguardarCiParaRevisar`, padrão `false`, Sistema > Automação): sem a chave, o
+  `bloqueiaAutomatico` e a trava `checks_pendentes` do comando `revisar` vindo de outro aparelho
+  nem consultam os checks, e a revisão começa na hora. A chave só liga o gate de ENTRADA
+  (`aguardaChecksParaRevisar` em `lib/engine/checks-exigidos.js`). O gate de SAÍDA não depende
+  dela: `anexarChecksObrigatorios` continua lendo o CI no head antes de postar, e check
+  obrigatório vermelho ou rodando segue sendo espera automática (`lib/engine/espera-ci.js`),
+  nunca APPROVE. Quem mexer nisto: a chave nunca pode afrouxar o gate de saída.
 - **Regra plana na saída de cena**: ver alguém revisando SEMPRE segura o
   automático. Caiu a exceção da v2.51.0 (`cobreMinhaExigencia`, removida de
   `codeowners.js`): PR cuja exigência de codeowner é minha agora ESPERA meu

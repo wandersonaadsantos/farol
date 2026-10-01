@@ -9,6 +9,23 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.68.0
+
+Esperar o CI antes de começar a revisar agora é uma escolha sua, e vem desligada.
+
+**Novidades**
+
+- **"Esperar o CI antes de revisar" (Sistema > Automação).** Ligada, a revisão automática só começa quando todos os checks obrigatórios do PR estão verdes, como o Farol sempre fez. Desligada, que é o padrão, o Farol começa a revisar assim que o PR chega. Quem quer a espera liga a chave; quem prefere ganhar tempo não precisa fazer nada.
+
+**O que não mudou**
+
+- Com a chave desligada, a aprovação continua esperando o CI: o Farol nunca aprova com check obrigatório vermelho ou ainda rodando, e posta sozinho quando a pipe fecha verde no mesmo commit.
+- O botão Revisar nunca esperou e continua não esperando. O pedido de revisão enviado de outro aparelho segue a mesma chave.
+
+**Atenção ao atualizar**
+
+- Quem contava com a espera de antes precisa ligar a chave: sem ela, o Farol passa a abrir a revisão com a pipe ainda rodando, e se entrar commit novo a sessão é refeita.
+
 ## v2.67.0
 
 Cada decisão passa a ter uma configuração só, e "aprova sozinho" passa a aprovar de fato.
