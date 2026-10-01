@@ -153,6 +153,15 @@ export function reRoundBoxHtml(st) {
     + `<span><b>${esc(st.lead)}</b> ${esc(st.texto)}</span></div>`;
 }
 
+// Pendência que espera o CI NÃO precisa de você (30/09/2026): o Farol aprova sozinho quando
+// a pipe fechar. Tudo que conta ou lista "Precisa de você" na tela passa por aqui, para o
+// número e o rótulo dizerem a mesma coisa que o engine faz. O que vai para OUTROS aparelhos
+// não muda (o protocolo de sincronização publica a pendência como sempre).
+export function separarPendentes(pending) {
+  const lista = Array.isArray(pending) ? pending.filter(Boolean) : [];
+  return { precisam: lista.filter(d => !d.esperaCi), esperandoCi: lista.filter(d => !!d.esperaCi) };
+}
+
 // Card da aprovação que espera o CI obrigatório (30/09/2026): não é "precisa de você", o
 // Farol aprova sozinho quando o CI fechar verde neste commit. Os botões continuam, porque
 // aprovar na mão sem esperar segue sendo direito seu. O motivo com os checks já vem em
@@ -229,6 +238,7 @@ const CHIP_DO_GH = {
 
 export function reviewChip(pr, actions, estadosGh) {
   const a = (actions || {})[pr.key];
+  if (a && a.kind === 'pending' && a.esperaCi) return '<span class="badge rev-ok" title="Aprovável. O Farol espera o CI obrigatório e aprova sozinho quando ele fechar verde neste commit">⏳ esperando o CI</span>';
   if (a && a.kind === 'pending') return '<span class="badge rev-pend" title="A análise terminou e está esperando a sua decisão em Precisa de você">🟡 aguardando você</span>';
   const gh = String((estadosGh || {})[pr.key]);
   if (Object.hasOwn(CHIP_DO_GH, gh)) return CHIP_DO_GH[gh];

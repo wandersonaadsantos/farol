@@ -29,6 +29,7 @@ const runReal = io.run;
 let envios = [];
 let leiturasDoCi = 0;
 let chamadas = 0;
+let leiturasDeReviewsAlheios = 0;
 let gh;
 io.run = async (_cmd, args) => {
   chamadas++;
@@ -37,6 +38,11 @@ io.run = async (_cmd, args) => {
     if (gh.postFalha) return { ok: false, code: 1, stdout: '', stderr: gh.postFalha };
     envios.push(JSON.parse(fs.readFileSync(args[args.indexOf('--input') + 1], 'utf8')));
     return { ok: true, code: 0, stdout: '{"id":1}', stderr: '' };
+  }
+  // reviews dos OUTROS (gate de consciência): o jq filtra por login diferente do meu
+  if (/pulls\/\d+\/reviews/.test(sub) && sub.includes('!= "eu"')) {
+    leiturasDeReviewsAlheios++;
+    return { ok: true, code: 0, stdout: JSON.stringify(gh.reviewsAlheios), stderr: '' };
   }
   if (/pulls\/\d+\/reviews/.test(sub) && sub.includes('--jq')) return { ok: true, code: 0, stdout: JSON.stringify(gh.meusReviews), stderr: '' };
   if (sub.includes('--json state,headRefOid,baseRefName,statusCheckRollup,reviewRequests')) {
@@ -60,9 +66,9 @@ after(() => {
   try { fs.rmSync(FAROL_HOME, { recursive: true, force: true }); } catch { /* limpeza best-effort do temporário */ }
 });
 beforeEach(() => {
-  envios = []; leiturasDoCi = 0; chamadas = 0;
+  envios = []; leiturasDoCi = 0; chamadas = 0; leiturasDeReviewsAlheios = 0;
   gh = {
-    state: 'OPEN', head: HEAD, exigidos: ['test', 'audit'], meusReviews: [], postFalha: '', leituraFalha: false,
+    state: 'OPEN', head: HEAD, exigidos: ['test', 'audit'], meusReviews: [], reviewsAlheios: [], postFalha: '', leituraFalha: false,
     rollup: [check('test', '', 'IN_PROGRESS'), check('audit', 'SUCCESS')],
     pedidos: [{ __typename: 'User', login: 'eu' }],
   };
@@ -132,6 +138,7 @@ test('check obrigatório ainda rodando: nada é postado, e o resultado fica ESPE
   const tela = e.decisionForUi(d);
   assert.deepEqual(tela.esperaCi.checks, [{ nome: 'test', estado: 'rodando' }], 'a tela recebe os checks que faltam');
   assert.equal(tela.esperaCi.pontos, undefined, 'e só isso: as ressalvas guardadas não vão cruas');
+  assert.equal(e.reviewActions()['acme/app#1'].esperaCi, true, 'o Panorama sabe que esta pendência não espera você');
 });
 
 test('CI fecha verde no mesmo head: a aprovação sai sozinha, ancorada no head lido, sem clique', async () => {
@@ -337,6 +344,73 @@ test('a postagem falhou depois do CI verde: passageira vai para o reenvio de sem
   assert.equal(p.postRetry, null);
   assert.match(textos(p)[0], /falha ao postar o APPROVE/);
   assert.deepEqual(f.eventos, [['needs-decision', 'acme/app#16']]);
+});
+
+/* ---------- gate de consciência na hora do post atrasado (30/09/2026) ----------
+   A regra de bloqueadoPorHistorico (skip-review.js) só era consultada ao LANÇAR a revisão
+   automática. Com a espera do CI passam minutos ou horas entre a revisão e o post, e uma
+   pessoa pode ter pedido mudanças naquele commit: a aprovação sairia por cima. A mesma
+   função é consultada de novo, só no instante do post (CI verde, head igual). */
+const VERDE = () => [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
+const review = (quem, state, extra = {}) => ({ quem, tipo: 'User', state, commit_id: HEAD, ...extra });
+
+test('uma pessoa pediu mudanças no mesmo commit durante a espera: NÃO aprova por cima, vai para a mesa dizendo isso', async () => {
+  const e = await emEspera(20);
+  gh.reviewsAlheios = [review('ana', 'CHANGES_REQUESTED')];
+  for (let ciclo = 0; ciclo < 3; ciclo++) assert.equal(await e.aprovarQuandoOCiFechar(), 0);
+  assert.equal(leiturasDeReviewsAlheios, 0, 'com a pipe ainda rodando, nenhuma leitura de reviews: o custo é só na hora do post');
+  gh.rollup = VERDE();
+  assert.equal(await e.aprovarQuandoOCiFechar(), 0);
+  assert.deepEqual(envios, [], 'nenhum APPROVE por cima do pedido de mudanças');
+  assert.equal(leiturasDeReviewsAlheios, 1);
+  const d = pendente(e, 20);
+  assert.equal(d.esperaCi, null, 'a espera foi largada, de forma durável');
+  assert.match(textos(d)[0], /uma pessoa pediu mudanças neste commit enquanto eu esperava o CI \(@ana\)/);
+  assert.equal(d.reasons[0].kind, 'gate');
+  assert.equal(textos(d).some((t) => /esperando o CI e sai sozinha/.test(t)), false, 'o motivo da espera saiu do card');
+  assert.match(e.decisionForUi(d).reasons[0].text, /uma pessoa pediu mudanças neste commit enquanto eu esperava o CI/, 'o texto chega à tela como foi escrito');
+  assert.deepEqual(e.eventos, [['needs-decision', 'acme/app#20']]);
+  assert.equal(e.toasts.filter((t) => /acme\/app#20 precisa da sua atenção/.test(t)).length, 1, 'um toast só');
+  assert.equal(await e.aprovarQuandoOCiFechar(), 0, 'e não volta a tentar');
+  assert.deepEqual(envios, []);
+  assert.equal(leiturasDeReviewsAlheios, 1);
+});
+
+test('review de ferramenta (acrity) durante a espera não é pessoa: a aprovação sai', async () => {
+  const e = await emEspera(21);
+  gh.rollup = VERDE();
+  gh.reviewsAlheios = [review('acrity', 'CHANGES_REQUESTED'), review('acrity-review-bot', 'CHANGES_REQUESTED', { tipo: 'Bot' })];
+  assert.equal(await e.aprovarQuandoOCiFechar(), 1);
+  assert.equal(envios.length, 1);
+  assert.equal(resolvida(e, 21).status, 'auto_approved');
+});
+
+test('uma aprovação de pessoa não segura (a automática vale como a segunda); duas seguram', async () => {
+  const e = await emEspera(22);
+  gh.rollup = VERDE();
+  gh.reviewsAlheios = [review('ana', 'APPROVED')];
+  assert.equal(await e.aprovarQuandoOCiFechar(), 1);
+  assert.equal(envios.length, 1);
+
+  const f = await emEspera(23);
+  gh.reviewsAlheios = [review('ana', 'APPROVED'), review('bia', 'APPROVED')];
+  assert.equal(await f.aprovarQuandoOCiFechar(), 0);
+  assert.equal(envios.length, 1, 'nada novo postado');
+  assert.match(textos(pendente(f, 23))[0], /o PR já tem duas aprovações de pessoas neste commit \(@ana, @bia\)/);
+});
+
+test('pedido de mudanças em commit ANTERIOR não segura, e quem pediu e depois aprovou conta como aprovação', async () => {
+  const e = await emEspera(24);
+  gh.rollup = VERDE();
+  gh.reviewsAlheios = [review('ana', 'CHANGES_REQUESTED', { commit_id: HEAD_NOVO }), review('bia', 'CHANGES_REQUESTED'), review('bia', 'APPROVED')];
+  assert.equal(await e.aprovarQuandoOCiFechar(), 1);
+  assert.equal(envios.length, 1);
+});
+
+test('a regra é a de skip-review.js, sem cópia: o espera-ci só chama bloqueadoPorHistorico', () => {
+  const fonte = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'engine', 'espera-ci.js'), 'utf8');
+  assert.match(fonte, /await engine\.bloqueadoPorHistorico\(pr\)/);
+  assert.doesNotMatch(fonte, /ehFerramenta|APROVACOES_QUE_SEGURAM|reviewsDeOutros\(/, 'nenhuma segunda versão da regra');
 });
 
 test('dependência em aberto declarada pela revisão é ressalva: a conta que espera nas ressalvas não posta, e o card nomeia a dependência', async () => {

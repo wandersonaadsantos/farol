@@ -277,6 +277,7 @@ const CONGELADA = [
   "stageFlowFrom",
   "stageFlowHtml",
   "stagesLine",
+  "separarPendentes",
   "staleCardMeta",
   "statusBannerHtml",
   "stripFence",
