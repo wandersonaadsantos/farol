@@ -20,7 +20,8 @@ const ITEM = {
 // histórico, e a pendência só aponta para ele
 test('a projeção leva tags, veredito, motivos, bloqueio, ações e o id do corpo, e nada mais', () => {
   const p = pendencia.projetarPendencia(ITEM, { kId: K });
-  assert.deepEqual(Object.keys(p).sort(), ['acctTag', 'acoes', 'bloqueio', 'motivos', 'motivosOmitidos', 'prTag', 'reviewId', 'veredito']);
+  assert.deepEqual(Object.keys(p).sort(), ['acctTag', 'acoes', 'bloqueio', 'espera', 'motivos', 'motivosOmitidos', 'prTag', 'reviewId', 'veredito']);
+  assert.equal(p.espera, '', 'pendência comum não espera nada');
   assert.equal(p.motivosOmitidos, 0, 'nada caiu');
   assert.deepEqual(p.acoes, ['skip'], 'sem payload, só pular');
   assert.match(p.prTag, /^[0-9a-f]{32}$/);
@@ -91,4 +92,38 @@ test('o visto tem forma fixa, e só pode ser apagado quando a pendência sumiu o
   assert.equal(pendencia.vistoApagavel({ at: T }, { pendenciaExiste: true, agora: T + 1000 }), false);
   assert.equal(pendencia.vistoApagavel({ at: T }, { pendenciaExiste: false, agora: T + 1000 }), true);
   assert.equal(pendencia.vistoApagavel({ at: T }, { pendenciaExiste: true, agora: T + pendencia.VISTO_MAX_MS + 1 }), true);
+});
+
+/* ---------- a pendência que espera o CI (01/10/2026) ---------- */
+
+const ESPERA = { desde: 1_800_000_000_000, checks: [{ nome: 'ci / build-secreto', estado: 'rodando' }], pontos: [{ text: 'RESSALVA GUARDADA', kind: 'content' }] };
+
+test('pendência com a marca esperaCi sobe com espera ci, e só o fato: nem check nem ressalva guardada', () => {
+  const p = pendencia.projetarPendencia({ ...ITEM, esperaCi: ESPERA }, { kId: K });
+  assert.equal(p.espera, 'ci');
+  const cru = JSON.stringify(p);
+  for (const proibido of ['build-secreto', 'rodando', 'RESSALVA GUARDADA', 'pontos', 'checks', 'desde']) assert.equal(cru.includes(proibido), false, proibido);
+  assert.deepEqual(p.motivos, pendencia.projetarPendencia(ITEM, { kId: K }).motivos, 'os motivos seguem os da tela, no orçamento de sempre');
+});
+
+test('marca ausente, nula ou malformada é pendência comum', () => {
+  for (const marca of [undefined, null, false, true, 'ci', 1, []]) {
+    assert.equal(pendencia.projetarPendencia({ ...ITEM, esperaCi: marca }, { kId: K }).espera, '', JSON.stringify(marca));
+  }
+});
+
+test('o leitor aceita só o vocabulário: campo ausente (versão anterior) ou lixo é pendência comum', () => {
+  assert.equal(pendencia.esperaLida('ci'), 'ci');
+  for (const lixo of [undefined, null, '', 'CI', 'ci ', 'outro', true, 1, 0, ['ci'], { ci: true }, { toString: () => 'ci' }]) {
+    assert.equal(pendencia.esperaLida(lixo), '', JSON.stringify(lixo));
+  }
+});
+
+test('quem espera o CI não avisa; pendência comum e campo com lixo avisam como sempre', () => {
+  const base = { notificadas: new Set(), vistos: {} };
+  assert.equal(pendencia.deveNotificar('a1', { ...base, espera: 'ci' }), false);
+  assert.equal(pendencia.deveNotificar('a1', { ...base, espera: '' }), true);
+  assert.equal(pendencia.deveNotificar('a1', base), true, 'sem o campo, o contrato de antes');
+  assert.equal(pendencia.deveNotificar('a1', { ...base, espera: 'qualquer' }), true, 'lixo não cala o aviso');
+  assert.equal(pendencia.deveNotificar('a1', { ...base, espera: true }), true);
 });

@@ -9,6 +9,33 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.67.0
+
+Cada decisão passa a ter uma configuração só, e "aprova sozinho" passa a aprovar de fato.
+
+**Novidades**
+
+- **CI vermelho ou rodando vira espera automática.** Antes, um PR aprovável com check obrigatório reprovando ou ainda rodando ia para a sua mesa, mesmo com a conta mandando aprovar sozinho. Agora o Farol guarda a aprovação, confere a pipe a cada ciclo e aprova sozinho quando ela fecha verde no mesmo commit. Continua sem aprovar por cima de CI vermelho. Se o commit mudar, a revisão refaz; se uma pessoa pedir mudanças nesse meio tempo, a aprovação não sai.
+- **Seção "Esperando o CI (aprova sozinho)".** Esses PRs saíram do "Precisa de você", do contador e do selo da bandeja, porque não precisam de você. O botão Aprovar continua lá para quem quiser adiantar.
+- **Os outros aparelhos também sabem da espera.** Em Radar > Aparelhos, o PR que espera o CI no celular ou em outro computador aparece em "Esperando o CI (aprova sozinho)", fora do "pedem você", e não gera aviso de decisão pendente; o Decidir continua disponível. Vale entre aparelhos na 2.67.0: um aparelho ainda na versão anterior continua mostrando esse PR como pendência comum até ser atualizado.
+
+**Melhorias**
+
+- **A política de revisar e aprovar mora só na conta.** As chaves gerais "Revisar automaticamente" e "Aprovar sozinho também os aprováveis com ressalvas" saíram de Sistema > Automação. Cada conta diz, nos quatro seletores do próprio cartão, se revisa sozinha e o que faz com o aprovável sem ressalvas, com ressalvas e com bloqueios, sem opção de "herdar". Na atualização, cada conta recebe por extenso exatamente o que já fazia.
+- **"Aprova sozinho" tem só duas classes: sem ressalvas e com ressalvas.** Discordância de outro review, leitura que não cobriu o diff inteiro, divergência entre passadas e dependência em aberto deixaram de mandar o PR para a sua mesa por fora da configuração: viraram ressalvas visíveis no card, e quem decide é o "com ressalvas" da conta. A chave "Aprovar sozinho mesmo discordando de outro review" deixou de existir.
+- **O card diz qual conta mandou esperar, quando e de onde veio a configuração.** Esse motivo era escrito pelo Farol e trocado na tela por "Esta revisão precisa da sua confirmação.", porque passava pelo mesmo filtro do texto da revisão. O texto do Farol agora chega inteiro; o da revisão continua filtrado.
+- **Aparelho pausado para de verdade.** A pausa do admin só segurava a revisão: o aparelho seguia classificando pushback e aprovando junto com quem pegou o PR. Agora ela segura tudo o que o aparelho começa sozinho. Chat, autoanálise e ferramentas, que alguém dispara na hora, seguem.
+- **O card sempre diz por que é "com ressalvas".** Um PR sem card do Jira, ou que a revisão não marcou como limpo, caía nas ressalvas sem nenhuma ressalva na tela. Agora o motivo aparece.
+- **O "com ressalvas" nunca é mais permissivo que o "sem ressalvas".** Com o "sem ressalvas" em "espera você", o seletor de ressalvas fica travado em espera, na tela e na gravação, também pelo Radar.
+- **Cada número de paralelismo diz uma coisa só.** "Revisões paralelas por conta" é sempre por conta. O total do aparelho é o "Teto total deste aparelho", que o admin também pode definir à distância com o mesmo nome; vale o menor. Antes, ligar o compartilhamento entre aparelhos fazia o número por conta virar o total em silêncio.
+- **Atualizar não faz nenhuma instalação trabalhar mais.** Quem já compartilhava entre aparelhos recebe no teto total o que o aparelho já praticava. A única conta que muda é a que tinha "sem ressalvas: espera" com "com ressalvas: aprova" por escolha própria: ela passa a esperar nos dois.
+- **Instalação de conta única ganhou cartão em Contas.** O modo simples não tinha onde guardar a política; a conta passa a aparecer na lista, com o mesmo login e as mesmas organizações.
+
+**O que não mudou**
+
+- PR que não pediu a sua revisão (clique no panorama) continua sem postar nada sozinho, e revisão que não concluiu não vira aprovação.
+- Sair de cena quando outra pessoa está revisando, e segurar a revisão automática com reprovação humana ou duas aprovações humanas no commit.
+
 ## v2.66.3
 
 A política do aparelho fica só com o que o aparelho de fato aplica: pausa e teto.

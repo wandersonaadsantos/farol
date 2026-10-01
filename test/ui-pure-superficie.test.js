@@ -20,8 +20,11 @@ const CONGELADA = [
   "textoDoVeredito",
   // só aparelho que aceitou o controle explicitamente entra na aba Aparelhos (29/09/2026)
   "aparelhosQueAceitam",
-  // revisão das configurações das contas (29/09/2026)
-  "alcanceDaChaveGeral",
+  // a política mora só na conta (30/09/2026): saiu `alcanceDaChaveGeral`, que dizia quantas
+  // contas cada chave geral da Automação alcançava (as chaves gerais deixaram de existir), e
+  // entraram as palavras únicas da política e a leitura por extenso dela
+  "POLITICA_DA_CONTA_TEXTOS",
+  "politicaDaContaNaTela",
   "VERSAO_DO_CONTROLE",
   "VIVO_MS",
   "avisoDoAparelhoHtml",
@@ -145,6 +148,7 @@ const CONGELADA = [
   "envioHistoricoHtml",
   "esc",
   "escAttrSelector",
+  "esperaCiCardMeta",
   "estadoDasListas",
   "estadoDoEscopo",
   "expiredSessionMarks",
@@ -276,6 +280,7 @@ const CONGELADA = [
   "stageFlowFrom",
   "stageFlowHtml",
   "stagesLine",
+  "separarPendentes",
   "staleCardMeta",
   "statusBannerHtml",
   "stripFence",

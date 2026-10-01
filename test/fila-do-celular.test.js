@@ -69,6 +69,52 @@ test('vocabulário fechado: estado, motivo e ate fora da tabela não viajam', ()
   assert.deepEqual(Object.keys(fila.filaSaneada({ estado: 'visto', texto: 'x', relatorio: 'y' })).sort(), ['ate', 'desde', 'estado', 'motivo']);
 });
 
+/* ---------- a pendência que espera o CI (01/10/2026) ---------- */
+
+// O aparelho dono aprova sozinho quando o CI fechar verde: nos outros aparelhos o item não
+// pode aparecer como "precisa de você". O fato viaja como MOTIVO do estado `decidir`.
+test('pendência que espera o CI: o estado segue decidir e o motivo diz espera-ci', () => {
+  const fatos = com({ pendentes: new Map([[K, T]]), esperandoCi: new Set([K]) });
+  assert.deepEqual(fila.estadoDaFila(K, fatos), { estado: 'decidir', motivo: 'espera-ci', desde: T, ate: 0 });
+  assert.equal(fila.estadoDaFila(K, com({ pendentes: new Map([[K, T]]), esperandoCi: new Set(['outro/pr#1']) })).motivo, '', 'a espera é do PR, não do aparelho');
+  assert.equal(fila.estadoDaFila(K, com({ esperandoCi: new Set([K]) })).estado, 'esperando', 'sem pendência não há o que esperar');
+  assert.equal(fila.estadoDaFila(K, { ...fatos, emCurso: new Set([K]) }).motivo, '', 'sessão viva vence, e revisando não leva motivo');
+});
+
+test('espera-ci só vale em decidir, e lixo no motivo de decidir é pendência comum', () => {
+  assert.equal(fila.filaSaneada({ estado: 'decidir', motivo: 'espera-ci' }).motivo, 'espera-ci');
+  for (const lixo of ['ci', 'ESPERA-CI', 'espera-ci ', true, 1, { a: 1 }, ['espera-ci'], null]) {
+    assert.deepEqual(fila.filaSaneada({ estado: 'decidir', motivo: lixo, desde: T }), { estado: 'decidir', motivo: '', desde: T, ate: 0 }, JSON.stringify(lixo));
+  }
+  assert.equal(fila.filaSaneada({ estado: 'esperando', motivo: 'espera-ci' }).motivo, '');
+  assert.equal(fila.filaSaneada({ estado: 'estacionado', motivo: 'espera-ci' }).motivo, '');
+});
+
+// A allowlist de cada leitor é a DELE. Esta é a da 2.66.3 (lib/sync/fila.js na origin/main
+// em 01/10/2026, linhas 16 a 48), congelada aqui porque é ela que decide a codificação: o
+// que um aparelho ainda não atualizado faz com a linha que a 2.67.0 publica.
+function leitorDa2663(bruto) {
+  const ESTADOS = ['esperando', 'sem-automatica', 'revisando', 'decidir', 'estacionado', 'retry', 'saiu-de-cena', 'limite-plano', 'espera-grupo', 'visto', 'ignorado'];
+  const MOTIVOS = { 'sem-automatica': ['conta', 'silenciada'], estacionado: ['cancelado', 'esgotado', 'falha', 'orcamento', 'autenticacao', 'legado'] };
+  if (!bruto || typeof bruto !== 'object' || !ESTADOS.includes(bruto.estado)) return null;
+  const permitidos = MOTIVOS[bruto.estado] || [];
+  const motivo = permitidos.includes(bruto.motivo) ? bruto.motivo : '';
+  return { estado: bruto.estado, motivo, desde: Math.floor(Number(bruto.desde) || 0), ate: 0 };
+}
+
+test('leitor da 2.66.3: a espera do CI chega como a pendência comum de antes, nunca some', () => {
+  const publicado = fila.estadoDaFila(K, com({ pendentes: new Map([[K, T]]), esperandoCi: new Set([K]) }));
+  assert.deepEqual(leitorDa2663(publicado), { estado: 'decidir', motivo: '', desde: T, ate: 0 });
+  assert.deepEqual(leitorDa2663(publicado), fila.estadoDaFila(K, com({ pendentes: new Map([[K, T]]) })), 'idêntico ao que ele lia antes desta versão');
+  assert.equal(leitorDa2663({ estado: 'esperando-ci', desde: T }), null, 'a contraprova: estado novo faria a linha perder a fila no leitor antigo');
+  assert.deepEqual([...fila.ESTADOS], ['esperando', 'sem-automatica', 'revisando', 'decidir', 'estacionado', 'retry', 'saiu-de-cena', 'limite-plano', 'espera-grupo', 'visto', 'ignorado'], 'por isso o vocabulário de estados não cresceu');
+});
+
+test('linha publicada por versão anterior (decidir sem motivo) segue sendo pendência comum', () => {
+  assert.deepEqual(fila.filaSaneada({ estado: 'decidir', desde: T }), { estado: 'decidir', motivo: '', desde: T, ate: 0 });
+  assert.deepEqual(fila.filaSaneada({ estado: 'decidir', motivo: '', desde: T, ate: 0 }), { estado: 'decidir', motivo: '', desde: T, ate: 0 });
+});
+
 /* ---------- a linha do Panorama ---------- */
 
 const PR = { key: K, url: 'u', title: 'Titulo', author: 'alguem', repo: 'dono/repo', number: 5, isDraft: false, updatedAt: 'x' };
@@ -164,4 +210,24 @@ test('a fiação pergunta o limite do plano e o teto do grupo pela conta dona', 
   assert.deepEqual(f, { estado: 'limite-plano', motivo: '', desde: 0, ate: T + 99 });
   const g = engineFalso({ grupoSegura: (c) => c === 'eu' });
   assert.equal(filaEng.filaDoPr(g, filaEng.fatosDaFila(g), { key: 'o/r#30', mine: true }).estado, 'espera-grupo');
+});
+
+// 01/10/2026: a marca `esperaCi` da pendência (lib/engine/espera-ci.js) vira o motivo da fila.
+test('a fiação marca a espera pela MESMA pendência que dá o instante, e a linha a carrega', () => {
+  const e = engineFalso({ decisions: { pending: [
+    { key: 'o/r#3', createdAt: T, esperaCi: { desde: T, checks: [{ nome: 'ci / build', estado: 'rodando' }], pontos: [] } },
+    { key: 'o/r#40', createdAt: T + 1, esperaCi: null },
+    { key: 'o/r#41', createdAt: T + 2 }, { key: 'o/r#41', createdAt: T + 3, esperaCi: { desde: T, checks: [], pontos: [] } },
+  ] } });
+  const fatos = filaEng.fatosDaFila(e);
+  const daEspera = filaEng.filaDoPr(e, fatos, { key: 'o/r#3', mine: true });
+  assert.deepEqual(daEspera, { estado: 'decidir', motivo: 'espera-ci', desde: T, ate: 0 });
+  assert.equal(filaEng.filaDoPr(e, fatos, { key: 'o/r#40', mine: true }).motivo, '', 'espera largada volta a pedir decisão');
+  assert.deepEqual(filaEng.filaDoPr(e, fatos, { key: 'o/r#41', mine: true }), { estado: 'decidir', motivo: '', desde: T + 2, ate: 0 }, 'a primeira pendência da chave decide as duas coisas');
+  const linha = escopo.linhaDe('panorama', { ...PR, key: 'o/r#3', mine: true }, { fila: daEspera });
+  assert.deepEqual(linha.fila, { estado: 'decidir', motivo: 'espera-ci', desde: T, ate: 0 });
+  assert.equal(JSON.stringify(linha).includes('ci / build'), false, 'o nome do check não viaja');
+  const comum = escopo.linhaDe('panorama', { ...PR, key: 'o/r#3', mine: true }, { fila: { estado: 'decidir', motivo: '', desde: T, ate: 0 } });
+  const kId = kek.bufferDe(kek.novoMaterial().id);
+  assert.notEqual(escopo.ctagDe(kId, linha), escopo.ctagDe(kId, comum), 'armar ou largar a espera muda o ctag, e a linha sobe de novo');
 });

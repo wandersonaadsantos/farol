@@ -62,7 +62,7 @@ fila: { estado, motivo, desde, ate }
 | `esperando` | na fila, e a revisão automática vai pegar | |
 | `sem-automatica` | na fila, mas a conta não revisa sozinha (ou está silenciada) | `motivo`: `conta` ou `silenciada` |
 | `revisando` | sessão viva ou na fila de execução | |
-| `decidir` | revisão pronta, esperando decisão (a pendência já existe) | |
+| `decidir` | revisão pronta, esperando decisão (a pendência já existe) | `motivo`: `espera-ci` quando ela espera o CI e o aparelho aprova sozinho (01/10/2026); vazio quando pede você |
 | `estacionado` | a automática parou e não relança sozinha | `motivo`: o `tipo` do estacionamento |
 | `retry` | esperando nova tentativa depois de falha transitória | |
 | `saiu-de-cena` | outra pessoa pegou o PR | |
@@ -70,6 +70,10 @@ fila: { estado, motivo, desde, ate }
 | `espera-grupo` | o teto do grupo de consumo segura | |
 | `visto` | já revisado ou marcado visto, fora da fila | |
 | `ignorado` | marcado para não voltar | |
+
+`espera-ci` é motivo, e não um décimo segundo estado, por compatibilidade: o leitor da 2.66.3 descarta a fila
+inteira da linha quando o estado é desconhecido, e só zera o motivo quando o desconhecido é ele. A pendência
+(`live/pending`) leva o mesmo fato no campo `espera` (`ci` ou vazio), que o leitor antigo ignora.
 
 Não sobe nada além disso: nada de relatório, motivo livre ou texto do modelo. O `ctag` muda
 quando o estado muda, e a linha sobe pelo caminho que já existe.

@@ -11,6 +11,7 @@ import { esc, fmtClock, fmtWhenDay, plural } from './comum.js';
 import { personMention, prRefMention } from './mencoes.js';
 import { reciboEstado } from './compartilhado.js';
 import { contagemDaFila } from './aparelhos-fila.js';
+import { POLITICA_DA_CONTA_TEXTOS } from './contas.js';
 
 // "vivo": algum sinal nos últimos 12 minutos (29/09/2026). A presença (`lastSeenAt`) é
 // carimbada no MÁXIMO a cada 5 min (SYNC.PRESENCE_TICK_MS), então a janela antiga de 3 min
@@ -138,8 +139,8 @@ function fatosHtml(ap, agora) {
   if (sit === 'antigo') {
     return `${fato('Versão', `Farol ${ap.versao || 'antigo'}`, `precisa da ${VERSAO_DO_CONTROLE} ou mais nova`, 'warn')}${fato('Comandos do admin', 'Indisponíveis', 'esta versão não recebe os comandos novos')}${fato('Fila', 'Não publicada', 'aparece depois de atualizar')}`;
   }
-  let agoraTxt = fato('Agora', ap.ocupadas ? `Revisando ${ap.ocupadas} de ${ap.paralelismo}` : 'Parado', `teto de ${ap.paralelismo} ao mesmo tempo`);
-  if (ap.pausado) agoraTxt = fato('Agora', 'Pausado pelo admin', 'termina o que começou e não abre revisão nova; pushback e co-assinatura seguem', 'warn');
+  let agoraTxt = fato('Agora', ap.ocupadas ? `Revisando ${ap.ocupadas} de ${ap.paralelismo}` : 'Parado', `teto total do aparelho: ${ap.paralelismo}`);
+  if (ap.pausado) agoraTxt = fato('Agora', 'Pausado pelo admin', 'termina o que começou e não começa nada sozinho: revisão, pushback e co-assinatura esperam', 'warn');
   if (sit === 'sem-sinal') agoraTxt = fato('Agora', 'Sem sinal', ap.vistoEm ? `às ${fmtClock(ap.vistoEm)} revisava ${ap.ocupadas} de ${ap.paralelismo}` : 'nunca publicou o estado');
   const ia = ap.iaPronta ? fato('IA', 'Pronta', 'Claude Code instalado e logado', 'ok') : fato('IA', 'Não está pronta', 'instale e faça login no Claude Code no aparelho', 'bad');
   const cmd = fato('Comandos do admin', 'Aceita', 'ligado no próprio aparelho', 'ok');
@@ -179,12 +180,19 @@ function opcaoDoTeto(n, atual) {
   return `<option value="${n}"${sel}>${n}</option>`;
 }
 
+// O seletor é o "Teto total do aparelho" da política (o mesmo nome de Sistema > Aparelhos).
+// O que o aparelho publica é o total que ESTÁ valendo: o menor entre o teto dele e o do
+// admin, ou a soma dos limites por conta quando ninguém definiu teto. Só dá para marcar uma
+// opção quando esse total é um dos valores que o admin pode definir; fora disso o seletor
+// abre em "não definir", que é também o jeito de tirar o teto do admin (30/09/2026).
 function controlesHtml(ap, desligado) {
   const dis = desligado ? ` aria-disabled="true" title="${esc(desligado)}"` : '';
   const rotulo = ap.pausado ? 'Retomar' : 'Pausar';
-  const opcoes = [1, 2, 3, 4].map((n) => opcaoDoTeto(n, ap.paralelismo)).join('');
+  const definivel = [1, 2, 3, 4].includes(ap.paralelismo);
+  const semTeto = `<option value=""${definivel ? '' : ' selected'}>não definir (vale o teto total do próprio aparelho)</option>`;
+  const opcoes = semTeto + [1, 2, 3, 4].map((n) => opcaoDoTeto(n, ap.paralelismo)).join('');
   return `<div class="row-actions">
-      <label class="apar-teto">Ao mesmo tempo <select class="ap-teto" data-dev="${esc(ap.deviceId)}"${dis}>${opcoes}</select></label>
+      <label class="apar-teto">Teto total do aparelho <select class="ap-teto" data-dev="${esc(ap.deviceId)}"${dis}>${opcoes}</select></label>
       <button class="btn ap-pausa" data-dev="${esc(ap.deviceId)}" data-pausar="${String(!ap.pausado)}"${dis}>${rotulo}</button>
     </div>`;
 }
@@ -256,12 +264,19 @@ export function seusAparelhosHtml(executores, itensPorAparelho, agora = Date.now
 
 /* ---------- contas à distância ---------- */
 
+// Os quatro campos da política são os MESMOS do cartão de Sistema > Contas, com as mesmas
+// palavras (POLITICA_DA_CONTA_TEXTOS, ui/pure/contas.js). Até 30/09/2026 esta tela tinha
+// rótulos próprios ("Com blocker", "aprova e destaca as ressalvas") para o mesmo campo.
+const T = POLITICA_DA_CONTA_TEXTOS;
+const SIM_NAO = [[true, 'Sim'], [false, 'Não']];
+// no seletor de dois botões cabe só o começo da opção; o texto inteiro vai na dica
+const curta = ([v, texto]) => [v, texto.split(' (')[0], texto];
 const CAMPOS_CONTA = [
-  { campo: 'autoReview', rotulo: 'Revisar sozinho', tipo: 'seg' },
-  { campo: 'muted', rotulo: 'Silenciada', tipo: 'seg' },
-  { campo: 'onClean', rotulo: 'Aprovável sem ressalvas', opcoes: [['wait', 'espera você aprovar'], ['approve', 'aprova sozinho']], auto: 'approve', aviso: 'o aparelho posta a aprovação sozinho no GitHub' },
-  { campo: 'onCaveats', rotulo: 'Aprovável com ressalvas', opcoes: [['wait', 'espera você aprovar'], ['approve', 'aprova e destaca as ressalvas']], auto: 'approve', aviso: 'o aparelho posta a aprovação sozinho no GitHub' },
-  { campo: 'onReject', rotulo: 'Com blocker', opcoes: [['wait', 'espera você (padrão)'], ['request_changes', 'reprova sozinho (posta pedir mudanças)']], auto: 'request_changes', aviso: 'o aparelho posta pedir mudanças sozinho no GitHub' },
+  { campo: 'autoReview', rotulo: T.autoReview.rotulo, tipo: 'seg', opcoes: T.autoReview.opcoes.map(curta) },
+  { campo: 'muted', rotulo: 'Silenciada', tipo: 'seg', opcoes: SIM_NAO },
+  { campo: 'onClean', rotulo: T.onClean.rotulo, opcoes: T.onClean.opcoes, auto: 'approve', aviso: 'o aparelho posta a aprovação sozinho no GitHub' },
+  { campo: 'onCaveats', rotulo: T.onCaveats.rotulo, opcoes: T.onCaveats.opcoes, auto: 'approve', aviso: 'o aparelho posta a aprovação sozinho no GitHub' },
+  { campo: 'onReject', rotulo: T.onReject.rotulo, opcoes: T.onReject.opcoes, auto: 'request_changes', aviso: 'o aparelho posta pedir mudanças sozinho no GitHub' },
 ];
 
 // Liga uma opção que faz o aparelho POSTAR sozinho: esta pede confirmação antes do comando.
@@ -278,7 +293,11 @@ function campoHtml(def, conta, ctx) {
   const retorno = ctx.retornoConta ? ctx.retornoConta(conta.acctTag, def.campo) : '';
   let controle;
   if (def.tipo === 'seg') {
-    controle = `<div class="seg" role="radiogroup" aria-label="${esc(def.rotulo)}">${[[true, 'Sim'], [false, 'Não']].map(([v, r]) => `<button role="radio" aria-checked="${String(atual === v)}" class="ap-conta${atual === v ? ' active' : ''}" ${dados} data-valor="${String(v)}"${dis}>${r}</button>`).join('')}</div>`;
+    const dica = (t) => (t && !ctx.desligado ? ` title="${esc(t)}"` : '');
+    controle = `<div class="seg" role="radiogroup" aria-label="${esc(def.rotulo)}">${def.opcoes.map(([v, r, t]) => `<button role="radio" aria-checked="${String(atual === v)}" class="ap-conta${atual === v ? ' active' : ''}" ${dados} data-valor="${String(v)}"${dis}${dica(t)}>${esc(r)}</button>`).join('')}</div>`;
+  } else if (def.campo === 'onCaveats' && pol.onClean === 'wait') {
+    // a mesma regra do cartão de Contas: com o sem ressalvas esperando, não há o que escolher
+    controle = `<select class="ap-conta-sel" aria-label="${esc(def.rotulo)}" ${dados} disabled><option value="wait" selected>${esc(T.onCaveats.presoAoLimpo)}</option></select>`;
   } else {
     controle = `<select class="ap-conta-sel" aria-label="${esc(def.rotulo)}" ${dados}${dis}>${def.opcoes.map(([v, r]) => `<option value="${v}"${atual === v ? ' selected' : ''}>${esc(r)}</option>`).join('')}</select>`;
   }
@@ -304,8 +323,8 @@ export function confirmacaoAutomatica(aparelho, conta, campo) {
   const alvo = `@${conta}`;
   const textos = {
     onClean: [`Deixar o ${aparelho} aprovar sozinho?`, `Quando a revisão de um PR pedido a ${alvo} terminar sem ressalvas, o ${aparelho} vai postar a aprovação no GitHub sozinho, sem passar por você.`, 'Ligar a aprovação automática'],
-    onCaveats: [`Deixar o ${aparelho} aprovar com ressalvas sozinho?`, `Quando a revisão de um PR pedido a ${alvo} terminar com ressalvas, o ${aparelho} vai aprovar no GitHub e destacar as ressalvas no comentário, sem passar por você.`, 'Ligar a aprovação com ressalvas'],
-    onReject: [`Deixar o ${aparelho} reprovar sozinho?`, `Quando a revisão de um PR pedido a ${alvo} encontrar um blocker, o ${aparelho} vai postar pedir mudanças no GitHub sozinho, sem passar por você.`, 'Ligar a reprovação automática'],
+    onCaveats: [`Deixar o ${aparelho} aprovar com ressalvas sozinho?`, `Quando a revisão de um PR pedido a ${alvo} terminar com ressalvas, o ${aparelho} vai postar a aprovação no GitHub com o texto da revisão, sem passar por você. As ressalvas ficam no app, não no PR.`, 'Ligar a aprovação com ressalvas'],
+    onReject: [`Deixar o ${aparelho} reprovar sozinho?`, `Quando a revisão de um PR pedido a ${alvo} encontrar bloqueios, o ${aparelho} vai postar pedir mudanças no GitHub sozinho, sem passar por você.`, 'Ligar a reprovação automática'],
   };
   const [titulo, texto, confirmar] = textos[campo] || textos.onClean;
   return {
@@ -320,13 +339,13 @@ const ROTULO_CMD = {
   revisar: 'Revisar agora', ignorar: 'Ignorar', restaurar: 'Restaurar', ocultar: 'Ocultar', mostrar: 'Mostrar',
   decidir: 'Decidir', cancelar: 'Cancelar', transferir: 'Transferir', iniciar: 'Começar', repetir: 'Repetir', tomar: 'Tomar',
 };
-const ROTULO_CAMPO = { autoReview: 'Revisar sozinho', muted: 'Silenciada', onClean: 'Aprovável sem ressalvas', onCaveats: 'Aprovável com ressalvas', onReject: 'Com blocker' };
-
-const VALOR_SIM_NAO = { true: 'sim', false: 'não' };
-
+// o comando enviado se descreve com o rótulo e a opção que a pessoa viu ao escolher
 function rotuloDoComando(cmd) {
-  if (cmd.tipo === 'config-conta') return `${ROTULO_CAMPO[cmd.campo] || 'Conta'}: ${VALOR_SIM_NAO[String(cmd.valor)] || String(cmd.valor)}`;
-  return ROTULO_CMD[cmd.tipo] || cmd.tipo;
+  if (cmd.tipo !== 'config-conta') return ROTULO_CMD[cmd.tipo] || cmd.tipo;
+  const def = CAMPOS_CONTA.find((c) => c.campo === cmd.campo);
+  if (!def) return `Conta: ${String(cmd.valor)}`;
+  const opcao = def.opcoes.find(([v]) => v === cmd.valor);
+  return `${def.rotulo}: ${opcao ? opcao[1].toLowerCase() : String(cmd.valor)}`;
 }
 
 // O estado do comando mais recente que casa `filtro`, como chip mais frase; vazio sem comando.

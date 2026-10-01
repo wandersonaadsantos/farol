@@ -35,8 +35,8 @@ export function accountBarVisible(nContas, tab) {
 }
 
 // Os campos de uma edição de conta como viajam para POST /api/accounts/edit. `undefined`
-// some do JSON, e "voltar a herdar" chegaria ao servidor como "não mexer": vai null, que o
-// servidor lê como remover o campo (lib/engine/contas-config.js).
+// some do JSON, e "tirar o valor" (perfil, peso na cota) chegaria ao servidor como "não
+// mexer": vai null, que o servidor lê como remover o campo (lib/engine/contas-config.js).
 export function camposDaEdicao(patch) {
   return Object.fromEntries(Object.entries(patch || {}).map(([k, v]) => [k, v === undefined ? null : v]));
 }
@@ -322,31 +322,53 @@ export function claudeProfilesHtml(ctx) {
   return migrateCard + defaultRow + rows + addForm;
 }
 
-// Quantas contas uma chave GERAL da Automação alcança de fato (29/09/2026): a conta com
-// valor próprio em Contas ignora a chave, e sem isto a tela deixava ligar um botão que não
-// valia para ninguém. Quem segue e quem não segue vem PRONTO do engine
-// (`alcanceDasChavesGerais`, lib/engine/contas-config.js), que decide com os mesmos
-// predicados da revisão e da aprovação; aqui só vira frase.
-export function alcanceDaChaveGeral(alcance) {
-  const a = alcance && typeof alcance === 'object' ? alcance : {};
-  const segue = Array.isArray(a.segue) ? a.segue : [];
-  const fora = (Array.isArray(a.proprias) ? a.proprias : []).map((u) => `@${u}`);
-  const total = segue.length + fora.length;
-  if (!total) return '';
-  if (!fora.length) return `Vale para ${total === 1 ? 'a conta ativa' : `as ${total} contas ativas`}.`;
-  if (!segue.length) return 'Não vale para nenhuma conta agora: todas têm configuração própria em Contas.';
-  const quem = fora.length === 1 ? `${fora[0]} tem configuração própria` : `${fora.join(', ')} têm configuração própria`;
-  return `Vale para ${segue.length} de ${total} contas ativas; ${quem} em Contas.`;
+// As palavras da política da conta, um lugar só (30/09/2026): o cartão de Sistema > Contas e
+// os controles à distância de Radar > Aparelhos (ui/pure/aparelhos-painel.js) editam os
+// MESMOS quatro campos, e com cada tela escrevendo o seu texto o mesmo campo tinha dois
+// nomes. Cada opção é [valor gravado, texto].
+export const POLITICA_DA_CONTA_TEXTOS = Object.freeze({
+  autoReview: {
+    rotulo: 'quando chega um PR pra você',
+    opcoes: [[true, 'revisa sozinho'], [false, 'só põe na fila (você manda revisar; o resultado segue as regras abaixo)']],
+  },
+  onClean: {
+    rotulo: 'quando fica aprovável sem ressalvas',
+    opcoes: [['approve', 'aprova sozinho'], ['wait', 'espera você aprovar']],
+  },
+  onCaveats: {
+    rotulo: 'quando fica aprovável com ressalvas',
+    opcoes: [['approve', 'aprova (as ressalvas ficam no app)'], ['wait', 'espera você aprovar']],
+    // o com ressalvas nunca é mais permissivo que o limpo: com o limpo esperando, não há escolha
+    presoAoLimpo: 'espera você (o sem ressalvas espera)',
+  },
+  onReject: {
+    rotulo: 'quando tem bloqueios',
+    opcoes: [['wait', 'espera você'], ['request_changes', 'reprova sozinho (posta pedir mudanças)']],
+  },
+});
+
+// O valor que a conta tem em cada campo, por extenso. O servidor grava os quatro em toda
+// conta (lib/engine/contas-migracao.js); a leitura tolerante é para o retrato otimista da
+// tela entre o clique e a resposta, e ela devolve o mesmo padrão da conta nova.
+export function politicaDaContaNaTela(a) {
+  const c = a || {};
+  const onClean = c.onClean === 'wait' ? 'wait' : 'approve';
+  // o com ressalvas nunca é mais permissivo que o limpo
+  const onCaveats = onClean === 'approve' && c.onCaveats === 'approve' ? 'approve' : 'wait';
+  const onReject = c.onReject === 'request_changes' ? 'request_changes' : 'wait';
+  return { autoReview: c.autoReview !== false, onClean, onCaveats, onReject };
+}
+
+function opcoesDaPolitica(campo, atual) {
+  return POLITICA_DA_CONTA_TEXTOS[campo].opcoes
+    .map(([v, texto]) => `<option value="${esc(String(v))}"${sel(v === atual)}>${esc(texto)}</option>`).join('');
 }
 
 export function accountsManagerHtml(ctx) {
   // não re-renderiza enquanto você edita um campo (senão apaga o que está digitando)
   const accounts = (ctx.accounts || []);
   const multi = accounts.length > 1;
-  const c = ctx.config || {};
-  const globalAR = c.autoReview !== false;      // padrão herdado: revisar automaticamente
-  const globalCav = c.autoApproveAll !== false; // a mesma leitura do engine; a chave geral vem desligada
-  const esperaHerdada = new Set((ctx.alcance && ctx.alcance.ressalvaHerdadaEspera) || []);
+  const T = POLITICA_DA_CONTA_TEXTOS;
   const rows = accounts.map(a => {
     const meta = ctx.acct[a.user.toLowerCase()] || {};
     // três estados, um por linha: silenciada ganha de tudo, senão o token decide
@@ -358,10 +380,13 @@ export function accountsManagerHtml(ctx) {
     // de logica. Nomeados, da pra ler a linha sem desembaralhar ternario.
     const selo = a.primary ? '<span class="a-tag">primária</span>' : '';
     const classeAuth = (a.tokenOk && !a.muted) ? 'ok' : '';
-    const padraoRevisao = globalAR ? 'revisa sozinho' : 'só põe na fila';
-    // quem diz se o herdado espera é o engine (ressalvaHerdadaEspera, contas-config.js):
-    // copiar a regra aqui foi o que fez a tela prometer aprovação que não acontecia
-    const padraoRessalva = (globalCav && !esperaHerdada.has(a.user)) ? 'aprova (as ressalvas ficam no app)' : 'espera você';
+    // os quatro seletores mostram o valor da conta, sem opção de herdar (30/09/2026). Com o
+    // "sem ressalvas" esperando você, o "com ressalvas" não tem escolha: fica desligado e diz por quê
+    const pol = politicaDaContaNaTela(a);
+    const ressalvaPresa = pol.onClean === 'wait';
+    let opcoesRessalva = opcoesDaPolitica('onCaveats', pol.onCaveats);
+    if (ressalvaPresa) opcoesRessalva = `<option value="wait" selected>${esc(T.onCaveats.presoAoLimpo)}</option>`;
+    const travaRessalva = ressalvaPresa ? ' disabled' : '';
     const classeMute = a.muted ? 'ok' : 'ghost';
     const rotuloMute = a.muted ? 'Reativar' : 'Silenciar';
     // a barra de acoes sai pra um nome: e o maior condicional do template e
@@ -381,30 +406,23 @@ export function accountsManagerHtml(ctx) {
         <div class="a-sub"><a class="a-auth ${classeAuth}" href="https://github.com/${encodeURIComponent(a.user)}" target="_blank" rel="noreferrer" title="Abrir @${esc(a.user)} no GitHub">@${esc(a.user)}</a> · ${esc(auth)}</div>
         <div class="a-editrow orgs"><span class="a-fieldlabel">orgs</span>
           <input class="acct-owners" data-user="${esc(a.user)}" value="${esc((a.owners || []).join(', '))}" placeholder="org1, org2" spellcheck="false" title="organizações monitoradas por esta conta"></div>
-        <div class="a-pol-note">O que o Farol faz sozinho nos PRs desta conta (o que não escolher, segue o padrão geral):</div>
+        <div class="a-pol-note">O que o Farol faz sozinho nos PRs desta conta:</div>
         <div class="a-policy">
-          <div class="a-pol-item"><span class="a-fieldlabel">quando chega um PR pra você</span>
+          <div class="a-pol-item"><span class="a-fieldlabel">${T.autoReview.rotulo}</span>
             <select class="acct-autoreview" data-user="${esc(a.user)}" title="Revisar sozinho ou só listar e esperar você mandar revisar. Revisar sozinho não é na hora: espera os checks obrigatórios ficarem verdes, sai de cena se outra pessoa estiver revisando, segura com reprovação humana ou duas aprovações humanas no head, respeita o limite do plano e o orçamento, e só roda com o Farol aberto">
-              <option value="">herda o geral: ${padraoRevisao}</option>
-              <option value="on"${sel(a.autoReview === true)}>revisa sozinho</option>
-              <option value="off"${sel(a.autoReview === false)}>só põe na fila (você manda revisar; o resultado segue as regras abaixo)</option>
+              ${opcoesDaPolitica('autoReview', pol.autoReview)}
             </select></div>
-          <div class="a-pol-item"><span class="a-fieldlabel">quando fica aprovável sem ressalvas</span>
-            <select class="acct-onclean" data-user="${esc(a.user)}" title="PR aprovável, sem nenhum ponto de atenção e com a revisão decidindo aprovar. Com o Jira ligado, isso exige o card do PR lido e atendido: PR sem card cai na regra com ressalvas">
-              <option value="">padrão: aprova sozinho</option>
-              <option value="approve"${sel(a.onClean === 'approve')}>aprova sozinho</option>
-              <option value="wait"${sel(a.onClean === 'wait')}>espera você aprovar</option>
+          <div class="a-pol-item"><span class="a-fieldlabel">${T.onClean.rotulo}</span>
+            <select class="acct-onclean" data-user="${esc(a.user)}" title="PR aprovável e sem nenhum ponto de atenção. Com o Jira ligado, isso exige o card do PR lido e atendido: PR sem card cai na regra com ressalvas. CI obrigatório vermelho ou rodando só adia: o Farol espera e aprova sozinho quando fechar verde no mesmo commit">
+              ${opcoesDaPolitica('onClean', pol.onClean)}
             </select></div>
-          <div class="a-pol-item"><span class="a-fieldlabel">quando fica aprovável com ressalvas</span>
-            <select class="acct-oncaveats" data-user="${esc(a.user)}" title="PR aprovável, mas com pontos de atenção anotados (inclui PR sem card do Jira, quando o Jira está ligado). O APPROVE sai com o texto da revisão; as ressalvas ficam aqui no app, não no PR">
-              <option value="">herda o geral: ${padraoRessalva}</option>
-              <option value="approve"${sel(a.onCaveats === 'approve')}>aprova (as ressalvas ficam no app)</option>
-              <option value="wait"${sel(a.onCaveats === 'wait')}>espera você aprovar</option>
+          <div class="a-pol-item"><span class="a-fieldlabel">${T.onCaveats.rotulo}</span>
+            <select class="acct-oncaveats" data-user="${esc(a.user)}"${travaRessalva} title="PR aprovável, mas com pontos de atenção anotados: o que a revisão levantou, PR sem card do Jira (quando o Jira está ligado), leitura que não cobriu o diff inteiro, dependência em aberto ou discordância de outro review. O APPROVE sai com o texto da revisão; as ressalvas ficam aqui no app, não no PR. CI obrigatório vermelho ou rodando só adia: o Farol espera e aprova sozinho quando fechar verde no mesmo commit">
+              ${opcoesRessalva}
             </select></div>
-          <div class="a-pol-item"><span class="a-fieldlabel">quando tem bloqueios</span>
+          <div class="a-pol-item"><span class="a-fieldlabel">${T.onReject.rotulo}</span>
             <select class="acct-onreject" data-user="${esc(a.user)}" title="PR com bloqueios reais (a revisão pediu mudanças)">
-              <option value=""${sel(!a.onReject || a.onReject === 'wait')}>espera você (padrão)</option>
-              <option value="request_changes"${sel(a.onReject === 'request_changes')}>reprova sozinho (posta pedir mudanças)</option>
+              ${opcoesDaPolitica('onReject', pol.onReject)}
             </select></div>
           <div class="a-pol-item"><span class="a-fieldlabel">login do Claude (plano)</span>
             <select class="acct-claudeprofile" data-user="${esc(a.user)}" title="Qual login do Claude (e o plano dele) roda as sessões desta conta. O modelo e o raciocínio vêm de Sistema > Automação, iguais para todas as contas">

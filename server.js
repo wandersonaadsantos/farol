@@ -60,6 +60,7 @@ import wsTmpMod from './lib/engine/workspace-tmp.js';
 import skipMod from './lib/engine/skip-review.js';
 import destravaMod from './lib/engine/destrava.js';
 import checksMod from './lib/engine/checks-exigidos.js';
+import esperaCiMod from './lib/engine/espera-ci.js';
 import signalMod from './lib/engine/review-signal.js';
 import usageMod from './lib/engine/usage.js';
 import falhasMod from './lib/engine/falhas.js';
@@ -202,8 +203,8 @@ class Engine extends EventEmitter {
     // paralelismo por conta: mesmo tratamento (boot engole config.json editado à mão);
     // o escalonador clampa de novo por defesa em profundidade (parallelLimit em review.js)
     this.config.parallelReviews = sanitizeParallelReviews(this.config.parallelReviews) ?? DEFAULTS.parallelReviews;
-    // teto GLOBAL de revisoes simultaneas (Politica 3): mesmo tratamento de boot, e o
-    // escalonador clampa de novo (globalParallelLimit em review.js). 0 = desligado.
+    // teto TOTAL deste aparelho (Politica 3): mesmo tratamento de boot, e o escalonador
+    // clampa de novo (globalParallelLimit em review.js). 0 = sem teto total.
     this.config.globalParallelReviews = sanitizeGlobalParallelReviews(this.config.globalParallelReviews) ?? DEFAULTS.globalParallelReviews;
     // perfil de review por pessoa (papel + matriz por domínio); migra a senioridade plana antiga pro campo `papel`
     this.config.people = migrateSeniorityToPeople(this.config.seniority, parsePeople(this.config.people));
@@ -245,7 +246,7 @@ class Engine extends EventEmitter {
     this.reviewPostCaps = new Map(); // capabilities efêmeras de escrita de terminal/chat (nunca persistidas nem expostas)
     this.sessionSeq = 0;
     this.headlessQueue = [];
-    this.headlessBusyAccounts = new Map(); // conta -> nº de revisões headless rodando (teto = config.parallelReviews, default 1)
+    this.headlessBusyAccounts = new Map(); // conta -> nº de revisões headless rodando (teto por conta = config.parallelReviews, default 1)
     /* Rodizio por org (Politica 1 da spec 2026-09-10-justica-de-fila-entre-orgs):
        org (owner, minusculo) -> { seq, at } da ultima revisao headless INICIADA dela.
        O escalonador da a proxima vaga pra org de menor `seq`, e org ausente do Map
@@ -462,7 +463,9 @@ class Engine extends EventEmitter {
         if (fs.existsSync(src)) { ensureDir(path.dirname(dst)); fs.copyFileSync(src, dst); }
       }
     } catch { /* sincronizar o protocolo nunca derruba o boot */ }
-    if (!fs.existsSync(CONFIG_FILE)) this.saveConfig();
+    // a política mora só na conta (30/09/2026): a migração escreve em cada conta o que ela
+    // já fazia e descarta as chaves gerais antigas (lib/engine/contas-migracao.js)
+    if (contasConfig.aplicarMigracao(this) || !fs.existsSync(CONFIG_FILE)) this.saveConfig();
     this.ensureWorkspaceTrusted();
   }
 
@@ -640,7 +643,7 @@ class Engine extends EventEmitter {
         color: (a && a.color != null) ? String(a.color).trim() : '',
         kind: (a && a.kind != null) ? String(a.kind).trim() : '',
         muted: !!(a && a.muted),
-        // política de automação por conta (undefined = herda o global)
+        // política de automação da conta: a gravação escreve os quatro por extenso
         autoReview: (a && (a.autoReview === true || a.autoReview === false)) ? a.autoReview : undefined,
         onClean: (a && (a.onClean === 'approve' || a.onClean === 'wait')) ? a.onClean : undefined,
         onCaveats: (a && (a.onCaveats === 'approve' || a.onCaveats === 'wait')) ? a.onCaveats : undefined,
@@ -668,24 +671,12 @@ class Engine extends EventEmitter {
     return this.accountList().some(a => a.user.toLowerCase() === u && a.muted);
   }
 
-  // política de automação POR CONTA (undefined na conta = herda o global). A regra de
-  // cada pergunta mora em lib/engine/contas-config.js, junto da edição e do rastro.
+  // política de automação POR CONTA, lida só da conta. A regra de cada pergunta mora em
+  // lib/engine/contas-config.js, junto da edição e do rastro.
   // ao chegar PR nesta conta: revisar sozinho (headless) ou só colocar na fila?
   autoReviewFor(user) { return contasConfig.revisaSozinho(this, user); }
   // quando aprovável: 'approve' (postar sozinho) ou 'wait' (aguardar você). clean = sem ressalvas
   approvePolicyFor(user, clean) { return contasConfig.acaoAoAprovar(this, user, clean); }
-  // discordância registrada contra review de terceiro: 'wait' (default) manda o PR
-  // pra sua mesa antes de qualquer APPROVE sair, porque aprovar por cima de outro
-  // revisor é tomar posição pública. 'approve' (opt-in em Sistema > Automação) tira
-  // a trava: a discordância vira só ponto de atenção e quem decide passa a ser a
-  // política de ressalvas da conta (aprovável com ressalva nunca é "limpo"), então
-  // ligar isto sozinho nunca aprova nada que `onCaveats: wait` já mandaria esperar.
-  // Global, sem sobrescrita por conta: é confiança no julgamento da revisão, não
-  // risco de repositório. Só vale pro approve; reprovar sozinho por cima de uma
-  // discordância continua sempre passando por você (ver shouldAutoReject).
-  contestedPolicy() {
-    return this.config.autoApproveContested === true ? 'approve' : 'wait';
-  }
   // quando a revisão pede mudanças: 'request_changes' (reprovar sozinho, opt-in por conta) ou 'wait'
   rejectPolicyFor(user) { return contasConfig.acaoAoReprovar(this, user); }
 
@@ -738,6 +729,7 @@ class Engine extends EventEmitter {
     const login = r.ok ? r.stdout.trim() : '';
     if (login) {
       this.config.ghUser = login;
+      contasConfig.aplicarMigracao(this); // a conta detectada nasce com a política por extenso
       this.saveConfig();
       this.emit('toast', { kind: 'info', text: `Conta do GitHub detectada: @${login}. Ajuste em Sistema se usar outra.` });
     }
@@ -918,6 +910,9 @@ class Engine extends EventEmitter {
       // do ar) tentam de novo sozinhos aqui, reusando o payload já decidido: roda DEPOIS
       // do reconcilePending de propósito, pra nunca reenviar em cima de uma pendência que
       // já foi atendida por fora nesse mesmo ciclo.
+      // aprovação que esperava o CI obrigatório sai sozinha quando ele fecha verde no mesmo
+      // head (lib/engine/espera-ci.js): antes do reenvio, que assume a postagem que falhar aqui
+      try { await this.aprovarQuandoOCiFechar(); } catch (e) { this.log('WARN', `espera do CI: ${e.message}`); }
       try { await this.retryFailedPosts(); } catch (e) { this.log('WARN', `retryFailedPosts: ${e.message}`); }
       // pushback automático: contestação do autor a um review meu (fire-and-forget:
       // roda em background pra não segurar a checagem, com guarda anti-concorrência)
@@ -1544,6 +1539,7 @@ class Engine extends EventEmitter {
   async myReviewStates(pr, headSha) { return decisionMod.myReviewStates(this, pr, headSha); }
   async reconcilePending(keys) { return decisionMod.reconcilePending(this, keys); }
   async retryFailedPosts() { return decisionMod.retryFailedPosts(this); }
+  async aprovarQuandoOCiFechar() { return esperaCiMod.aprovarQuandoOCiFechar(this); }
   shouldAutoApprove(pr, result) { return decisionMod.shouldAutoApprove(this, pr, result); }
   shouldAutoReject(pr, result) { return decisionMod.shouldAutoReject(this, pr, result); }
   rejectBodyWithMark(body) { return decisionMod.rejectBodyWithMark(this, body); }
@@ -1957,8 +1953,6 @@ class Engine extends EventEmitter {
       // contas do gh x contas do Farol: login não monitorado, conta sem login, org em duas
       // contas e org sugerida (lib/engine/contas-gh.js)
       contasGh: contasGh.diagnosticoDoEngine(this),
-      // quantas contas cada chave geral da Automação alcança (lib/engine/contas-config.js)
-      alcanceDasChavesGerais: contasConfig.alcanceDasChavesGerais(this),
       pushbacks: this.pushbacks,
       // a tela recebe o que foi PEDIDO: ela devolve o objeto inteiro ao salvar, e a config
       // já zerada pela guarda do celular apagaria o pedido a cada salvamento. O efeito segue

@@ -846,3 +846,22 @@ test('decisionForUi preserva a conta já projetada no topo (decisões antigas se
   const d = publicReview.decisionForUi({ key: 'acme/app#13', account: 'alice', pr: { repo: 'acme/app', account: 'bob' } });
   assert.equal(d.account, 'alice', 'o campo do topo é o que a UI sempre leu; a conta aninhada só preenche a lacuna');
 });
+
+// 01/10/2026: o card trocava todo motivo com "política da conta" por uma frase genérica, e o
+// motivo que o app escreve (qual conta mandou esperar, quando e de onde veio a configuração)
+// nunca chegava à tela. O filtro é para o texto da SESSÃO; o texto do APP passa inteiro.
+test('motivo do app (gate) chega inteiro ao card; o mesmo texto vindo da sessão continua filtrado', () => {
+  const texto = 'aprovável com ressalvas, e a política da conta Trabalho é aguardar você (definido em 30/09 21:10, pela janela do Farol) (mude pra "aprova (as ressalvas ficam no app)" em Sistema > Contas se quiser que aprove sozinho)';
+  const doApp = publicReview.decisionForUi({ id: 'd1', key: 'acme/app#1', reasons: [{ text: texto, kind: 'gate' }] });
+  assert.equal(doApp.reasons[0].text, texto);
+  assert.equal(doApp.reasons[0].kind, 'gate');
+  const daSessao = publicReview.decisionForUi({ id: 'd2', key: 'acme/app#2', reasons: [{ text: texto, kind: 'content' }, texto] });
+  assert.deepEqual(daSessao.reasons.map((r) => r.text), ['Esta revisão precisa da sua confirmação.']);
+});
+
+test('a sessão não consegue se dar a etiqueta de motivo do app', async () => {
+  const { asReason } = await import('../lib/engine/review.js');
+  assert.deepEqual(asReason({ text: 'política da conta manda aprovar', kind: 'gate' }), { text: 'política da conta manda aprovar', kind: 'content' });
+  assert.deepEqual(asReason({ text: 'x', kind: 'infra', extra: 1 }), { text: 'x', kind: 'content' });
+  assert.deepEqual(asReason('solto'), { text: 'solto', kind: 'content' });
+});

@@ -50,12 +50,13 @@ const SYS_INDEX = [
   { sec: 'devices', at: '#devicesManager', title: 'Aparelhos e administração', hint: 'aparelho, admin, aposentar, renomear, política, pausar, navegador pareado, limpeza, revogar, garantia' },
   { sec: 'groups', at: '#groupsManager', title: 'Grupos de consumo', hint: 'grupo, teto, orçamento, vincular perfil, codex, custo somado' },
   { sec: 'accounts', at: '#accountsManager', title: 'Contas do GitHub', hint: 'conta, identidade, cor, silenciar, política, token' },
-  { sec: 'automation', at: '#sys-row-autoreview', title: 'Revisar automaticamente quando chegar PR', hint: 'auto review, revisão na hora, fila' },
-  { sec: 'automation', at: '#sys-row-autoapprove', title: 'Aprovar sozinho os aprováveis com ressalvas', hint: 'auto approve, ressalva, aprovação' },
+  // revisar e aprovar sozinho são da conta desde 30/09/2026: a busca leva ao cartão dela
+  { sec: 'accounts', at: '#accountsManager', title: 'Revisar e aprovar sozinho (por conta)', hint: 'auto review, revisão na hora, fila, auto approve, ressalva, aprovação, reprovar' },
   { sec: 'automation', at: '#sys-row-pushback', title: 'Detectar pushback automaticamente', hint: 'contestação, autor, desfecho' },
   { sec: 'automation', at: '#sys-row-provedor', title: 'Configuração do provedor', hint: 'claude, codex, openrouter, perfil, conta, provedor' },
   { sec: 'automation', at: '#sys-row-modelo', title: 'Modelo das sessões autônomas', hint: 'opus, sonnet, haiku, fable, auto, best, codex, gpt, sol, terra, luna, modelo, limite do plano, openrouter' },
   { sec: 'automation', at: '#sys-row-paralelas', title: 'Revisões paralelas por conta', hint: 'paralelo, simultâneo, série, fila, velocidade' },
+  { sec: 'automation', at: '#sys-row-teto-global', title: 'Teto total deste aparelho', hint: 'teto, total, global, paralelismo, simultâneo, aparelho' },
   { sec: 'automation', at: '#sys-row-esforco', title: 'Esforço de raciocínio', hint: 'effort, pensar, raciocínio, alto, baixo, xhigh' },
   { sec: 'automation', at: '#sys-row-intervalo', title: 'Intervalo de checagem', hint: 'polling, minutos, frequência' },
   { sec: 'automation', at: '#sys-row-skipperms', title: 'Sessão no terminal sem pedir permissões', hint: 'dangerously skip permissions, prompts' },
@@ -144,12 +145,9 @@ function renderSettings() {
   renderSync();
   $('#setInterval').value = String(c.intervalSeconds);
   $('#setParallelReviews').value = String(c.parallelReviews || 1);
-  // teto global: 0 = desligado, e o `|| 0` do default cai certo nele de propósito
+  // teto total do aparelho: 0 = sem teto, e o `|| 0` do default cai certo nele de propósito
   $('#setGlobalParallelReviews').value = String(c.globalParallelReviews || 0);
   renderAutomationSettings(c);
-  $('#setAutoReview').checked = !!c.autoReview;
-  $('#setAutoApproveAll').checked = c.autoApproveAll !== false;
-  $('#setAutoApproveContested').checked = c.autoApproveContested === true;
   $('#setReviewFast').checked = c.reviewFast === true;
   $('#setCoAssinarReview').checked = c.coAssinarReview === true;
   $('#setReReviewResume').checked = c.reReviewResume === true;

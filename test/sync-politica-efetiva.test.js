@@ -68,3 +68,17 @@ test('sem configuração local, a remota vale sozinha e o teto ausente não vira
   assert.equal(e.tetoParalelismo, 2);
   assert.equal(politicaEfetiva(null, {}, { autoridade: true }).tetoParalelismo, null);
 });
+
+// 30/09/2026: o lado local passou a poder não ter teto total (`null`), e Number(null) é 0.
+// Lido como número, "sem teto" virava o teto mais restritivo de todos.
+test('lado sem teto (null) é "não opina", nunca zero', () => {
+  const semLocal = politicaEfetiva({ pausado: false, tetoParalelismo: null }, { tetoParalelismo: 3 }, { autoridade: true });
+  assert.equal(semLocal.tetoParalelismo, 3);
+  assert.equal(semLocal.origem.tetoParalelismo, 'remoto');
+  const semRemoto = politicaEfetiva({ pausado: false, tetoParalelismo: 6 }, { tetoParalelismo: null }, { autoridade: true });
+  assert.equal(semRemoto.tetoParalelismo, 6);
+  assert.equal(semRemoto.origem.tetoParalelismo, 'local');
+  const semNenhum = politicaEfetiva({ pausado: false, tetoParalelismo: null }, { pausado: false }, { autoridade: true });
+  assert.equal(semNenhum.tetoParalelismo, null);
+  assert.equal(semNenhum.origem.tetoParalelismo, 'local');
+});

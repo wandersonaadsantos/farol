@@ -113,11 +113,12 @@ export function memGroupHead(user) {
   return `<div class="group-head" style="--ac:${color}"><span class="g-dot"></span>${esc(label)}${sub ? `<span class="g-sub">· ${esc(sub)}</span>` : ''}</div>`;
 }
 
-// PRs que pedem sua atenção numa conta (fila + decisões pendentes)
+// PRs que pedem sua atenção numa conta (fila + decisões pendentes). A pendência que espera
+// o CI fica de fora: o Farol aprova sozinho, ela não pede você (30/09/2026).
 export function attentionCount(user) {
   const u = String(user).toLowerCase();
   const q = (estado().queue || []).filter(p => String(prUser(p)).toLowerCase() === u).length;
-  const d = (estado().decisions?.pending || []).filter(p => String(prUser(p)).toLowerCase() === u).length;
+  const d = (estado().decisions?.pending || []).filter(p => !p.esperaCi && String(prUser(p)).toLowerCase() === u).length;
   return q + d;
 }
 

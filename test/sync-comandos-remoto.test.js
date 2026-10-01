@@ -273,6 +273,35 @@ test('decidir: pendência deste aparelho vai pelo caminho de sempre', async () =
   assert.equal(recibo(cmdId).estado, 'aplicado');
 });
 
+// 01/10/2026: a pendência que espera o CI (marca `esperaCi`) aparece nos outros aparelhos
+// como "esperando o CI", não como "precisa de você". O Decidir continua lá, e o comando
+// continua valendo: aprovar na mão sem esperar é direito de quem decide, como no card local.
+const ESPERA_CI = { desde: 1_800_000_000_000, checks: [{ nome: 'test', estado: 'rodando' }], pontos: [] };
+
+test('decidir numa pendência que espera o CI: o comando chega ao decide de sempre', async () => {
+  const e = await motor();
+  e.decisions.pending.unshift({ id: 'd1', key: PR.key, pr: { repo: 'dono/repo', number: 7 }, createdAt: Date.now(), esperaCi: ESPERA_CI, payloads: { approve: { event: 'APPROVE', body: 'ok', comments: [] } } });
+  const decididos = [];
+  e.decide = async (id, acao, opts) => { decididos.push([id, acao, opts]); return { ok: true }; };
+  const cmdId = await emitirPara(e, e.sync.deviceId, 'decidir', { itemId: itemIdDe(kId(e), e.sync.deviceId, 'd1'), acao: 'approve' });
+  await comandos.cicloDosComandos(e, e.config.sync);
+  assert.deepEqual(decididos, [['d1', 'approve', { viaAdmin: true }]]);
+  assert.equal(recibo(cmdId).estado, 'aplicado');
+});
+
+test('decidir numa pendência que espera o CI, com o decide de verdade: a pendência é resolvida e fica marcada como do admin', async () => {
+  const e = await motor();
+  e.decisions.pending.length = 0;
+  e.decisions.pending.unshift({ id: 'd1', key: PR.key, pr: { repo: 'dono/repo', number: 7 }, createdAt: Date.now(), esperaCi: ESPERA_CI, headSha: PR.headSha, payloads: { approve: { event: 'APPROVE', body: 'ok', comments: [] } } });
+  const cmdId = await emitirPara(e, e.sync.deviceId, 'decidir', { itemId: itemIdDe(kId(e), e.sync.deviceId, 'd1'), acao: 'skip' });
+  await comandos.cicloDosComandos(e, e.config.sync);
+  assert.equal(recibo(cmdId).estado, 'aplicado');
+  assert.deepEqual(e.decisions.pending.filter((d) => d.id === 'd1'), [], 'a pendência foi resolvida pelo admin');
+  const feita = e.decisions.resolved.find((d) => d.id === 'd1');
+  assert.equal(feita.status, 'skipped');
+  assert.equal(feita.viaAdmin, true);
+});
+
 // A admissão recusa abaixo do piso de memória, e a máquina do teste decide sem isto: no
 // macOS do CI a memória livre medida fica abaixo do piso (medido no PR da v2.60.0).
 async function comMemoriaLivre(fn) {
@@ -333,7 +362,7 @@ test('iniciar aqui: sem vaga é recusa com sem_vaga, e nada é enfileirado', asy
   const item = `${prTag(kId(e), PR.key)}_${candidato.matContaTag(kId(e), PR.headSha, LOGIN)}`;
   e.sync.candidatos = new Map([[item, { pr: PR, conta: LOGIN }]]);
   e.enfileirarDaDistribuicao = () => assert.fail('sem vaga não executa');
-  e.updateSettings({ parallelReviews: 1 });
+  e.updateSettings({ globalParallelReviews: 1 }); // o teto TOTAL do aparelho, não o limite por conta
   const admissao = (await import('../lib/engine/admissao.js')).default;
   const { fixarMemoriaLivre, restaurarMemoriaLivre } = await import('./helpers/memoria-livre.js');
   fixarMemoriaLivre();

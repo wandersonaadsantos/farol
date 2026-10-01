@@ -252,7 +252,7 @@ document.addEventListener('keydown', (e) => {
 function focusPr(url, tentativa = 0) {
   if (!url) return;
   switchTab('radar');
-  const sel = ['#decisions .decision', '#queue .pr-card', '#myPRs .mypr-card', '#panorama [data-url]', '#resolved [data-url]']
+  const sel = ['#decisions .decision', '#esperaCi .decision', '#queue .pr-card', '#myPRs .mypr-card', '#panorama [data-url]', '#resolved [data-url]']
     .map(s => `${s}[data-url="${CSS.escape(url)}"]`).join(', ');
   const card = document.querySelector(sel);
   if (!card) {

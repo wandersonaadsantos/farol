@@ -157,8 +157,12 @@ test('o card de pendência oferece Revisar agora, e SÓ no bloqueio por head vel
 });
 
 test('o clique em Revisar de novo é escutado pela seção de decisões', () => {
-  const i = appJs.indexOf("$('#decisions').addEventListener('click'");
+  // desde 30/09/2026 o handler tem nome, porque o mesmo card aparece em duas seções
+  // (Precisa de você e Esperando o CI) e as duas escutam o mesmo clique
+  const i = appJs.indexOf('const cliqueNoCardDeDecisao = async (e) => {');
   assert.ok(i > 0, 'a seção precisa ter listener próprio');
+  assert.ok(appJs.includes("$('#decisions').addEventListener('click', cliqueNoCardDeDecisao);"), 'ligado em Precisa de você');
+  assert.ok(appJs.includes("$('#esperaCi').addEventListener('click', cliqueNoCardDeDecisao);"), 'e em Esperando o CI');
   const listener = appJs.slice(i, i + 900);
   assert.match(listener, /act-review/, 'o .act-review não tem listener global: cada seção escuta o seu');
   // desde a seção de sincronização, TODO clique passa pela boca única `revisarUrls`,

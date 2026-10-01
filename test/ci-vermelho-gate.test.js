@@ -6,6 +6,11 @@
 // `audit` vermelho. O gate mora em shouldAutoApprove, no mesmo padrão de coverageGap e
 // checkpointGap: PURO, só olha `result.checksObrigatorios`, que runHeadlessReview
 // preenche com o `faltando` do bloqueadoPorChecks antes de chamar o gate.
+//
+// 30/09/2026: o gate continua NÃO aprovando com CI vermelho ou em andamento, mas o motivo
+// deixou de mandar o card para a mesa. É espera automática (lib/engine/espera-ci.js, com a
+// volta sozinha travada em test/espera-ci.test.js). A política da conta vem ANTES: conta que
+// manda esperar você não espera CI nenhum. E dependência em aberto saiu daqui: é ressalva.
 import os from 'node:os';
 import path from 'node:path';
 process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-ci-vermelho-' + process.pid);
@@ -38,6 +43,14 @@ function engineWithPolicy(policy) {
   return e;
 }
 
+// 30/09/2026: a política da conta é a ÚNICA coisa que decide entre postar e esperar você, e
+// ela responde por CLASSE (limpo = nenhum ponto de atenção; com ressalvas = um ou mais).
+function enginePorClasse(limpo, comRessalvas) {
+  const e = engineWithPolicy('approve');
+  e.approvePolicyFor = (_conta, semPontos) => (semPontos ? limpo : comRessalvas);
+  return e;
+}
+
 test('checksVermelhos: só o estado vermelho conta; rodando e ausente não provam reprovação', () => {
   assert.deepEqual(checksVermelhos({}), []);
   assert.deepEqual(checksVermelhos({ checksObrigatorios: null }), []);
@@ -67,7 +80,7 @@ test('obrigatório vermelho segura também o PR limpo (decision auto_approve, se
 // começou) e dependência em aberto passavam como ressalva, e o APPROVE saía assinado por
 // ele enquanto o próprio relatório pedia espera (biud-frontend#1187 com CI em andamento,
 // engine-ai#266 com infra-k8s#189 ainda aberto). Até aqui este teste afirmava o contrário.
-test('check ainda rodando ou que nem começou segura a aprovação automática: a decisão volta para você', () => {
+test('check ainda rodando ou que nem começou segura a aprovação automática, com motivo de ESPERA (não de mesa)', () => {
   const e = engineWithPolicy('approve');
   const rodando = approvableResult({ checksObrigatorios: [{ nome: 'test', estado: 'rodando' }] });
   assert.deepEqual(e.shouldAutoApprove(PR, rodando), { ok: false, motivo: 'ci_em_andamento' });
@@ -77,20 +90,33 @@ test('check ainda rodando ou que nem começou segura a aprovação automática: 
   assert.deepEqual(e.shouldAutoApprove(PR, misto), { ok: false, motivo: 'ci_vermelho' }, 'vermelho é o motivo mais forte');
 });
 
-test('dependência em aberto declarada pela revisão segura a aprovação automática', () => {
-  const e = engineWithPolicy('approve');
+// De 27 a 30/09/2026 a dependência em aberto devolvia { ok: false, motivo: 'dependencia' } em
+// qualquer política. Agora é ressalva com o texto da dependência, e a política decide.
+test('dependência em aberto declarada pela revisão é ressalva: a política da conta decide', () => {
   const r = approvableResult({ dependenciasAbertas: ['biudtech/infra-k8s#189 ainda aberto'] });
-  assert.deepEqual(e.shouldAutoApprove(PR, r), { ok: false, motivo: 'dependencia' });
-  assert.equal(e.shouldAutoApprove(PR, approvableResult({ dependenciasAbertas: [] })).ok, true, 'lista vazia não segura');
+  assert.deepEqual(enginePorClasse('approve', 'approve').shouldAutoApprove(PR, r), { ok: true, motivo: null });
+  assert.deepEqual(enginePorClasse('approve', 'wait').shouldAutoApprove(PR, r), { ok: false, motivo: 'politica' });
+  const pts = enginePorClasse('approve', 'wait').attentionPoints(r);
+  assert.equal(pts.length, 1);
+  assert.match(pts[0].text, /depende de algo que estava em aberto na leitura: biudtech\/infra-k8s#189 ainda aberto/);
+  const e = enginePorClasse('approve', 'wait');
+  assert.equal(e.shouldAutoApprove(PR, approvableResult({ dependenciasAbertas: [] })).ok, true, 'lista vazia é limpo');
   assert.equal(e.shouldAutoApprove(PR, approvableResult({ dependenciasAbertas: ['', '   ', 7] })).ok, true, 'item vazio ou torto não conta');
 });
 
-test('o card diz por que esperou, com o nome do check ou da dependência', async () => {
-  const { textoDaEspera } = await import('../lib/engine/gate-espera.js');
-  assert.match(textoDaEspera('ci_em_andamento', { checksObrigatorios: [{ nome: 'test', estado: 'rodando' }, { nome: 'e2e', estado: 'ausente' }] }), /test.*e2e.*quando a pipe fechar/);
-  assert.match(textoDaEspera('dependencia', { dependenciasAbertas: ['biudtech/infra-k8s#189 ainda aberto'] }), /biudtech\/infra-k8s#189 ainda aberto/);
-  assert.match(textoDaEspera('ci_vermelho', { checksObrigatorios: [{ nome: 'audit', estado: 'vermelho' }] }), /check obrigatório vermelho no head \(audit\)/);
+test('o card diz que está esperando o CI e que a aprovação sai sozinha, com o nome do check', async () => {
+  const { textoDaEspera, motivoDeEspera, avisoDoCi } = await import('../lib/engine/gate-espera.js');
+  const andando = textoDaEspera('ci_em_andamento', { checksObrigatorios: [{ nome: 'test', estado: 'rodando' }, { nome: 'e2e', estado: 'ausente' }] });
+  assert.match(andando, /test.*e2e.*esperando o CI e sai sozinha quando a pipe fechar verde neste commit/);
+  const vermelho = textoDaEspera('ci_vermelho', { checksObrigatorios: [{ nome: 'audit', estado: 'vermelho' }] });
+  assert.match(vermelho, /check obrigatório vermelho no head \(audit\)/);
+  assert.match(vermelho, /sai sozinha quando ele ficar verde neste commit; com CI reprovando ela nunca sai/);
+  for (const t of [andando, vermelho]) assert.doesNotMatch(t, /aprove quando|não sai sozinha/, 'o texto não pede mais o clique');
   assert.equal(textoDaEspera('politica', {}), '', 'motivo que não é de espera não tem texto aqui');
+  assert.equal(textoDaEspera('dependencia', { dependenciasAbertas: ['x'] }), '', 'dependência deixou de ser espera');
+  assert.equal(motivoDeEspera({ dependenciasAbertas: ['x'] }), null);
+  assert.deepEqual(avisoDoCi({ checksObrigatorios: [] }), []);
+  assert.deepEqual(avisoDoCi({ checksObrigatorios: [{ nome: 'audit', estado: 'vermelho' }] }), [{ text: 'check obrigatório vermelho no head (audit)', kind: 'gate' }]);
 });
 
 test('campo ausente (leitura que falhou, repo sem exigência) não inventa CI vermelho', () => {
@@ -99,10 +125,23 @@ test('campo ausente (leitura que falhou, repo sem exigência) não inventa CI ve
   assert.equal(e.shouldAutoApprove(PR, approvableResult({ checksObrigatorios: [] })).ok, true);
 });
 
-test('o gate vem antes da política: conta em wait continua em wait, e o motivo é o CI', () => {
+// Até 30/09/2026 o CI vinha ANTES da política e este caso devolvia ci_vermelho. Agora a
+// política vem primeiro: conta que manda esperar você vai para a mesa com o motivo da
+// política (e o aviso do CI no card), sem espera automática que não daria em aprovação.
+test('a política vem antes do CI: conta em wait vai para a mesa pela política, não entra em espera do CI', () => {
   const e = engineWithPolicy('wait');
   const r = approvableResult({ checksObrigatorios: [{ nome: 'audit', estado: 'vermelho' }] });
-  assert.deepEqual(e.shouldAutoApprove(PR, r), { ok: false, motivo: 'ci_vermelho' });
+  assert.deepEqual(e.shouldAutoApprove(PR, r), { ok: false, motivo: 'politica' });
+});
+
+test('CI vermelho nunca vira ok, em nenhuma combinação de política e classe', () => {
+  const vermelho = [{ nome: 'audit', estado: 'vermelho' }];
+  const casos = [approvableResult({ checksObrigatorios: vermelho }), approvableResult({ checksObrigatorios: vermelho, reasons: ['ressalva'] })];
+  for (const r of casos) {
+    for (const [limpo, ressalvas] of [['approve', 'approve'], ['approve', 'wait'], ['wait', 'approve'], ['wait', 'wait']]) {
+      assert.equal(enginePorClasse(limpo, ressalvas).shouldAutoApprove(PR, r).ok, false);
+    }
+  }
 });
 
 test('reprovar sozinho não é afetado: CI vermelho não impede REQUEST_CHANGES', () => {

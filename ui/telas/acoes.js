@@ -134,7 +134,8 @@ $('#queue').addEventListener('click', (e) => {
   }
 });
 
-$('#decisions').addEventListener('click', async (e) => {
+// o mesmo card aparece em duas seções: Precisa de você e Esperando o CI (30/09/2026)
+const cliqueNoCardDeDecisao = async (e) => {
   // revisar de novo: mesma rota do Revisar da fila. O .act-review NÃO tem listener
   // global (cada seção escuta o seu, ver #resolved), e o card bloqueado por head
   // velho é o único caso em que ele aparece aqui: o round novo substitui este card.
@@ -148,7 +149,9 @@ $('#decisions').addEventListener('click', async (e) => {
   btn.disabled = true;
   const r = await decideComConfirmacao(id, action, ref);
   if (!r?.ok) btn.disabled = false;
-});
+};
+$('#decisions').addEventListener('click', cliqueNoCardDeDecisao);
+$('#esperaCi').addEventListener('click', cliqueNoCardDeDecisao);
 
 /* configurações: aplica na mudança */
 const settingsMap = [
@@ -166,9 +169,6 @@ const settingsMap = [
   ['#setAutoPushback', 'autoPushback', el => el.checked],
   ['#setAutoUpdate', 'autoUpdate', el => el.checked],
   ['#setDebugSpawns', 'debugSpawns', el => el.checked],
-  ['#setAutoReview', 'autoReview', el => el.checked],
-  ['#setAutoApproveAll', 'autoApproveAll', el => el.checked],
-  ['#setAutoApproveContested', 'autoApproveContested', el => el.checked],
   ['#setReviewFast', 'reviewFast', el => el.checked],
   ['#setCoAssinarReview', 'coAssinarReview', el => el.checked],
   ['#setReReviewResume', 'reReviewResume', el => el.checked],

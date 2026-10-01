@@ -45,7 +45,7 @@ const ESTADO = {
   accounts: [{ user: 'alice', owners: ['acme'], label: 'Pessoal', color: '#f80' }],
   config: {
     ghUser: 'alice', owners: ['acme'], accounts: [{ user: 'alice', owners: ['acme'] }],
-    intervalSeconds: 300, autoReview: true, autoApproveAll: false, autoApproveContested: false,
+    intervalSeconds: 300, autoReview: true, autoApproveAll: false,
     parallelReviews: 1, theme: 'dark', autoUpdate: true, autoPushback: true,
     reviewModel: '', reviewEffort: '', codexReviewModel: '', codexReviewEffort: '',
     mergeBlockedRepos: [], soundEnabled: true,

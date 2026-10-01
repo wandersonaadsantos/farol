@@ -43,11 +43,10 @@ const reprovavel = () => ({
 // do clique, que é o que se quer provar.
 function enginePermissivo() {
   const e = new Engine();
-  e.config = { ...e.config, autoApproveAll: true, autoApproveContested: true };
+  e.config = { ...e.config, autoApproveAll: true };
   e.accountForPr = () => 'conta';
   e.approvePolicyFor = () => 'approve';
   e.rejectPolicyFor = () => 'request_changes';
-  e.contestedPolicy = () => 'approve';
   return e;
 }
 

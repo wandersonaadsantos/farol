@@ -44,8 +44,7 @@ function novoEngine(estadoInicial) {
 // no ciclo corrente; null = a busca falhou (em todas as contas).
 function checkEngine(estadoInicial) {
   const e = novoEngine(estadoInicial);
-  e.config.accounts = [{ user: 'eu', owners: ['acme'] }];
-  e.config.autoReview = false;
+  e.config.accounts = [{ user: 'eu', owners: ['acme'], autoReview: false }];
   e.seen = new Set();
   e.queue = [];
   e.decisions = { pending: [], resolved: [] };
@@ -179,7 +178,7 @@ const PR_B_KEY = 'globex/api#7';
 
 function duasContasHidden(estadoInicial) {
   const e = novoEngine(estadoInicial);
-  e.config.accounts = [{ user: 'eu', owners: ['acme'] }, { user: 'outra', owners: ['globex'] }];
+  e.config.accounts = [{ user: 'eu', owners: ['acme'], autoReview: false }, { user: 'outra', owners: ['globex'], autoReview: false }];
   return e;
 }
 

@@ -142,6 +142,18 @@ function alcanceSintetico(extra = {}) {
   const caminhos = [...lista(c.reviewed), ...lista(c.missing), ...lista(extra.diffMedido)].map((p) => String(p).replace(/^\.?\/+/, ''));
   return [...new Set(caminhos)].map((alterado) => ({ alterado, chamadores: [], semChamador: 'fixture sintética sem consumidor' }));
 }
+// 30/09/2026: lacuna de cobertura deixou de ser gate e virou RESSALVA. Até ali cada caso
+// abaixo afirmava `shouldAutoApprove(...).ok === false` com a política toda liberada, ou seja,
+// um aprovável ia para a mesa sem a conta ser consultada. Agora a prova é a de ressalva: a
+// conta que aprova com ressalvas aprova, a que espera espera (motivo: política), e a lacuna
+// aparece no card com o texto concreto.
+function ehRessalvaDeCobertura(r) {
+  assert.deepEqual(engineLiberado().shouldAutoApprove(PR, r), { ok: true, motivo: null }, 'conta que aprova com ressalvas aprova');
+  const espera = engineLiberado();
+  espera.approvePolicyFor = (_conta, limpo) => (limpo ? 'approve' : 'wait');
+  assert.deepEqual(espera.shouldAutoApprove(PR, r), { ok: false, motivo: 'politica' }, 'conta que espera nas ressalvas espera');
+  assert.ok(espera.attentionPoints(r).some((p) => /A cobertura da leitura tem \d+ pendência/.test(p.text) && p.kind === 'gate'), 'a lacuna é ressalva visível');
+}
 function aprovavel(extra) {
   return {
     analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
@@ -149,13 +161,13 @@ function aprovavel(extra) {
   };
 }
 
-test('cobertura completa aprova sozinho; lacuna declarada segura a postagem', () => {
+test('cobertura completa é limpo; lacuna declarada é ressalva e a política decide', () => {
   const e = engineLiberado();
   const completa = aprovavel({ coverage: { total: 2, reviewed: ['a.ts', 'b.ts'], missing: [] } });
   assert.equal(e.shouldAutoApprove(PR, completa).ok, true, 'leu tudo e está limpo: aprova');
 
   const comLacuna = aprovavel({ coverage: { total: 3, reviewed: ['a.ts'], missing: ['b.ts', 'c.ts'] } });
-  assert.equal(e.shouldAutoApprove(PR, comLacuna).ok, false, 'ficou arquivo sem revisar: passa pelo humano');
+  ehRessalvaDeCobertura(comLacuna);
   assert.deepEqual(e.coverageGap(comLacuna), ['b.ts', 'c.ts']);
 });
 
@@ -164,18 +176,17 @@ test('rede de segurança: revisou menos que o total conta como lacuna mesmo com 
   const r = aprovavel({ coverage: { total: 10, reviewed: ['a.ts', 'b.ts'], missing: [] } });
   assert.equal(e.coverageGap(r).length, 1, 'a conta não fecha, então é lacuna');
   assert.match(e.coverageGap(r)[0], /8 arquivo\(s\)/, 'diz quantos faltaram');
-  assert.equal(e.shouldAutoApprove(PR, r).ok, false);
+  ehRessalvaDeCobertura(r);
 });
 
 // Até 26/09/2026 este caso travava o contrário ("envelope sem coverage não muda nada").
 // O prompt exige o campo desde o PR pequeno, então ausência é envelope quebrado, e ele
 // aprovava sozinho sem nenhuma declaração de leitura (revisão do gate de qualidade, P0).
-test('envelope sem coverage é lacuna: aprovação e reprovação automáticas ficam com você', () => {
+test('envelope sem coverage é lacuna: a aprovação vira ressalva e a reprovação automática fica com você', () => {
   const e = engineLiberado();
   const r = aprovavel();
   assert.deepEqual(e.coverageGap(r), ['a revisão não declarou a cobertura da leitura']);
-  assert.equal(e.shouldAutoApprove(PR, r).ok, false);
-  assert.equal(e.shouldAutoApprove(PR, r).motivo, 'cobertura');
+  ehRessalvaDeCobertura(r);
   const rej = { analysisStatus: 'complete', verdict: 'request_changes', decision: 'needs_decision', reasons: ['blocker'], payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'x' } } };
   assert.equal(e.shouldAutoReject(PR, rej), false);
 });
@@ -187,7 +198,7 @@ test('com o diff medido, arquivo do diff fora da cobertura é lacuna mesmo com a
   // o modelo diz total 2 e revisou 2, mas o diff medido tem 3: a conta declarada fecharia
   const r = aprovavel({ coverage: { total: 2, reviewed: ['a.ts', 'b.ts'], missing: [] }, diffMedido: ['a.ts', 'b.ts', 'c.ts'] });
   assert.deepEqual(e.coverageGap(r), ['c.ts']);
-  assert.equal(e.shouldAutoApprove(PR, r).ok, false);
+  ehRessalvaDeCobertura(r);
 });
 
 test('com o diff medido, caminho declarado que não está no diff é lacuna (leitura inventada)', () => {
@@ -196,7 +207,7 @@ test('com o diff medido, caminho declarado que não está no diff é lacuna (lei
   const gap = e.coverageGap(r);
   assert.equal(gap.length, 1);
   assert.equal(gap[0], '1 caminho(s) declarado(s) como revisado(s) que não estão no diff medido (inventado.ts)');
-  assert.equal(e.shouldAutoApprove(PR, r).ok, false);
+  ehRessalvaDeCobertura(r);
 });
 
 test('com o diff medido, cobertura igual ao diff aprova, e duplicata ou ./ no caminho não confundem', () => {
@@ -218,7 +229,7 @@ test('sem diff medido (a leitura dos arquivos falhou), vale a conta declarada co
   assert.deepEqual(e.coverageGap(aprovavel({ coverage: { total: 2, reviewed: ['a.ts', 'b.ts'], missing: [] }, diffMedido: [] })), []);
 });
 
-test('ressalva NÃO entra na conta de cobertura: ressalva aprova, lacuna de leitura não', () => {
+test('ressalva de conteúdo não entra na conta de cobertura', () => {
   const e = engineLiberado();
   const comRessalva = aprovavel({
     reasons: ['vale olhar a validação de tipo no upload quando passar por ali'],
@@ -243,14 +254,14 @@ test('coverage adversarial: total declarado sem nenhum arquivo revisado é lacun
   const vazio = aprovavel({ coverage: { total: 30, reviewed: [], missing: [] } });
   assert.equal(e.coverageGap(vazio).length, 1, 'total 30 com leitura zero declarada é lacuna');
   assert.match(e.coverageGap(vazio)[0], /30 arquivo\(s\)/, 'diz quantos ficaram sem revisão');
-  assert.equal(e.shouldAutoApprove(PR, vazio).ok, false, 'reabre o caso do PR gigante: sem leitura, sem auto-approve');
+  ehRessalvaDeCobertura(vazio);
 });
 
 test('coverage adversarial: reviewed que não é lista não prova leitura nenhuma', () => {
   const e = engineLiberado();
   const malformado = aprovavel({ coverage: { total: 12, reviewed: 'todos', missing: [] } });
   assert.equal(e.coverageGap(malformado).length, 1, 'reviewed fora do contrato conta como zero lido');
-  assert.equal(e.shouldAutoApprove(PR, malformado).ok, false);
+  ehRessalvaDeCobertura(malformado);
   const rej = {
     verdict: 'request_changes', decision: 'needs_decision', reasons: ['blocker'],
     payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'x' } },

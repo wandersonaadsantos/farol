@@ -235,7 +235,8 @@ function overlayDot() {
   return nativeImage.createFromBitmap(buf, { width: S, height: S });
 }
 function updateBadge(snapshot) {
-  const count = ((snapshot.decisions || {}).pending || []).length;
+  // pendência que espera o CI não é "esperando você": o Farol aprova sozinho (30/09/2026)
+  const count = ((snapshot.decisions || {}).pending || []).filter(d => d && !d.esperaCi).length;
   if (count === lastBadgeCount) return;
   lastBadgeCount = count;
   const label = count === 1 ? '1 decisão esperando você' : `${count} decisões esperando você`;

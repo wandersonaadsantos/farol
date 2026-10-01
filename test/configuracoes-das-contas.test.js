@@ -1,65 +1,186 @@
 // Revisão das configurações das contas (29/09/2026, pedido do dono: "não quero de maneira
-// nenhuma habilitar um botão à toa"). A chave geral da Automação diz quantas contas ela
-// alcança, o campo sem chave geral para de prometer que herda uma, e o nome do perfil diz
-// que ele escolhe o login do Claude, não o modelo.
+// nenhuma habilitar um botão à toa"), e a consequência dela em 30/09/2026: "Preciso que não
+// exista mais sobreposição de configurações". As chaves gerais de revisar e de aprovar com
+// ressalvas saíram da Automação, a política mora só na conta, cada seletor mostra o valor
+// da conta sem opção de herdar, e o nome do perfil diz que ele escolhe o login do Claude,
+// não o modelo.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
 const P = await import('../ui/pure.js');
-const HTML = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'index.html'), 'utf8');
+const RAIZ = path.join(import.meta.dirname, '..');
+const HTML = fs.readFileSync(path.join(RAIZ, 'ui', 'index.html'), 'utf8');
+const ler = (...partes) => fs.readFileSync(path.join(RAIZ, ...partes), 'utf8');
 
-const BIUDER = { user: 'biuder', onReject: 'request_changes' };
-const PESSOAL = { user: 'pessoal', autoReview: true, onClean: 'approve', onCaveats: 'approve' };
-const MUDA = { user: 'antiga', muted: true };
+const BIUDER = { user: 'biuder', autoReview: true, onClean: 'approve', onCaveats: 'wait', onReject: 'request_changes' };
 const contasConfig = (await import('../lib/engine/contas-config.js')).default;
 
-function engineCom(contas, geral = {}) {
-  return { config: { autoReview: true, autoApproveAll: true, ...geral }, accountList: () => contas };
+function engineCom(contas) {
+  return { config: {}, accountList: () => contas };
 }
 
-test('alcance vem do engine: ativas que seguem a chave e as que têm valor próprio', () => {
-  const alc = contasConfig.alcanceDasChavesGerais(engineCom([BIUDER, PESSOAL, MUDA]));
-  assert.deepEqual(alc.autoReview, { segue: ['biuder'], proprias: ['pessoal'] }, 'silenciada fica fora');
-  const espera = { user: 'cautelosa', onClean: 'wait' };
-  assert.deepEqual(contasConfig.alcanceDasChavesGerais(engineCom([BIUDER, espera])).autoApproveAll, { segue: ['biuder'], proprias: ['cautelosa'] }, 'o limpo esperando você tira a conta da chave das ressalvas');
+const seletor = (html, classe, u) => html.slice(html.indexOf(`class="${classe}" data-user="${u}"`)).split('</select>')[0];
+const cartao = (contas) => P.accountsManagerHtml({ accounts: contas, acct: {}, config: { claudeProfiles: [] } });
+
+/* ---------- uma decisão, uma configuração: a política mora só na conta ---------- */
+
+test('Automação: as chaves gerais de revisar e de aprovar com ressalvas não existem mais', () => {
+  for (const id of ['sys-row-autoreview', 'sys-row-autoapprove', 'setAutoReview', 'setAutoApproveAll', 'alcanceAutoReview', 'alcanceAutoApproveAll']) {
+    assert.doesNotMatch(HTML, new RegExp(`id="${id}"`), id);
+  }
+  assert.doesNotMatch(ler('ui', 'telas', 'acoes.js'), /autoReview|autoApproveAll/, 'a tela não manda mais essas chaves');
+  assert.doesNotMatch(ler('ui', 'telas', 'sistema.js'), /setAutoReview|setAutoApproveAll|sys-row-autoreview|sys-row-autoapprove/);
+  assert.doesNotMatch(ler('ui', 'telas', 'sistema-automacao.js'), /alcance/);
+  assert.equal(P.alcanceDaChaveGeral, undefined, 'a frase do alcance explicava uma herança que acabou');
 });
 
-// a prova de que os predicados são OS MESMOS que decidem: mexer na chave geral muda a
-// decisão exatamente das contas que o alcance diz que seguem, e de nenhuma outra
-test('o alcance bate com o que a revisão e a aprovação decidem de verdade', () => {
-  const espera = { user: 'cautelosa', onClean: 'wait' };
-  const contas = [BIUDER, PESSOAL, espera];
-  const ligado = engineCom(contas, { autoReview: true, autoApproveAll: true });
-  const desligado = engineCom(contas, { autoReview: false, autoApproveAll: false });
-  const alc = contasConfig.alcanceDasChavesGerais(ligado);
-  for (const u of ['biuder', 'pessoal', 'cautelosa']) {
-    const mudaRevisao = contasConfig.revisaSozinho(ligado, u) !== contasConfig.revisaSozinho(desligado, u);
-    assert.equal(mudaRevisao, alc.autoReview.segue.includes(u), `revisão de ${u}`);
-    const mudaRessalva = contasConfig.acaoAoAprovar(ligado, u, false) !== contasConfig.acaoAoAprovar(desligado, u, false);
-    assert.equal(mudaRessalva, alc.autoApproveAll.segue.includes(u), `ressalvas de ${u}`);
+test('Automação e Contas dizem onde a decisão mora, e nenhuma fala em herdar', () => {
+  const automacao = HTML.slice(HTML.indexOf('id="sys-automation"'), HTML.indexOf('id="sys-row-autocontested"'));
+  assert.match(automacao, /Se uma conta revisa e aprova sozinha é decidido só em <span class="is-goto" data-goto="sys:accounts:#accountsManager"/);
+  const contas = HTML.slice(HTML.indexOf('id="sys-accounts"'), HTML.indexOf('id="sys-automation"'));
+  assert.doesNotMatch(contas, /herda|padrão geral/);
+  assert.match(contas, /A política de automação é por conta/);
+});
+
+test('Contas: os quatro seletores mostram o valor da conta, sem opção de herdar', () => {
+  const html = cartao([BIUDER]);
+  assert.doesNotMatch(html, /herda o geral|padrão: aprova sozinho|segue o padrão geral/);
+  for (const classe of ['acct-autoreview', 'acct-onclean', 'acct-oncaveats', 'acct-onreject']) {
+    const bloco = seletor(html, classe, 'biuder');
+    assert.doesNotMatch(bloco, /<option value="">/, `${classe} não tem opção vazia`);
+    assert.equal((bloco.match(/ selected/g) || []).length, 1, `${classe} marca exatamente o valor da conta`);
+  }
+  assert.match(seletor(html, 'acct-autoreview', 'biuder'), /<option value="true" selected>revisa sozinho<\/option>/);
+  assert.match(seletor(html, 'acct-onclean', 'biuder'), /<option value="approve" selected>aprova sozinho<\/option>/);
+  assert.match(seletor(html, 'acct-oncaveats', 'biuder'), /<option value="wait" selected>espera você aprovar<\/option>/);
+  assert.match(seletor(html, 'acct-onreject', 'biuder'), /<option value="request_changes" selected>reprova sozinho \(posta pedir mudanças\)<\/option>/);
+});
+
+test('Contas: os textos honestos continuam no cartão', () => {
+  const html = cartao([BIUDER]);
+  assert.match(html, /aprova \(as ressalvas ficam no app\)/);
+  assert.match(html, /só põe na fila \(você manda revisar; o resultado segue as regras abaixo\)/);
+  assert.match(html, /Revisar sozinho não é na hora: espera os checks obrigatórios ficarem verdes/);
+  assert.match(html, /Com o Jira ligado, isso exige o card do PR lido e atendido/);
+  assert.doesNotMatch(html, /destaca as ressalvas/, 'o APPROVE não destaca ressalva nenhuma no PR');
+});
+
+// O com ressalvas nunca é mais permissivo que o limpo, e a tela diz isso em vez de oferecer
+// uma escolha que o engine não cumpriria. O que o cartão mostra é o que acaoAoAprovar devolve.
+test('Contas: com o sem ressalvas esperando você, o com ressalvas fica desligado e diz por quê', () => {
+  const espera = { ...BIUDER, user: 'cautelosa', onClean: 'wait', onCaveats: 'wait' };
+  const aprova = { ...BIUDER, user: 'solta', onCaveats: 'approve' };
+  const html = cartao([espera, aprova]);
+  const preso = seletor(html, 'acct-oncaveats', 'cautelosa');
+  assert.match(html, /class="acct-oncaveats" data-user="cautelosa" disabled/);
+  assert.match(preso, /<option value="wait" selected>espera você \(o sem ressalvas espera\)<\/option>/);
+  assert.equal((preso.match(/<option/g) || []).length, 1, 'sem escolha a oferecer');
+  assert.equal(contasConfig.acaoAoAprovar(engineCom([espera, aprova]), 'cautelosa', false), 'wait');
+  const livre = seletor(html, 'acct-oncaveats', 'solta');
+  assert.doesNotMatch(html, /class="acct-oncaveats" data-user="solta" disabled/);
+  assert.match(livre, /<option value="approve" selected>aprova \(as ressalvas ficam no app\)<\/option>/);
+  assert.equal(contasConfig.acaoAoAprovar(engineCom([espera, aprova]), 'solta', false), 'approve');
+  // par proibido gravado à mão: a tela mostra o que o engine faz, não o que está no arquivo
+  const torta = { ...BIUDER, user: 'torta', onClean: 'wait', onCaveats: 'approve' };
+  assert.match(seletor(cartao([torta]), 'acct-oncaveats', 'torta'), /espera você \(o sem ressalvas espera\)/);
+  assert.equal(contasConfig.acaoAoAprovar(engineCom([torta]), 'torta', false), 'wait');
+});
+
+test('a leitura da tela e a do engine dão o mesmo valor para toda combinação de conta', () => {
+  const eixo = { autoReview: [undefined, true, false], onClean: [undefined, 'approve', 'wait'], onCaveats: [undefined, 'approve', 'wait'], onReject: [undefined, 'wait', 'request_changes'] };
+  for (const autoReview of eixo.autoReview) for (const onClean of eixo.onClean) for (const onCaveats of eixo.onCaveats) for (const onReject of eixo.onReject) {
+    const conta = { user: 'x', autoReview, onClean, onCaveats, onReject };
+    const e = engineCom([conta]);
+    assert.deepEqual(P.politicaDaContaNaTela(conta), {
+      autoReview: contasConfig.revisaSozinho(e, 'x'), onClean: contasConfig.acaoAoAprovar(e, 'x', true),
+      onCaveats: contasConfig.acaoAoAprovar(e, 'x', false), onReject: contasConfig.acaoAoReprovar(e, 'x'),
+    }, JSON.stringify(conta));
   }
 });
 
-test('a frase do alcance: quantas contas e quem tem valor próprio', () => {
-  assert.equal(P.alcanceDaChaveGeral({ segue: ['biuder'], proprias: ['pessoal'] }), 'Vale para 1 de 2 contas ativas; @pessoal tem configuração própria em Contas.');
-  assert.equal(P.alcanceDaChaveGeral({ segue: ['biuder'], proprias: [] }), 'Vale para a conta ativa.');
-  assert.equal(P.alcanceDaChaveGeral({ segue: ['a', 'b'], proprias: [] }), 'Vale para as 2 contas ativas.');
-  assert.equal(P.alcanceDaChaveGeral({ segue: [], proprias: ['pessoal'] }), 'Não vale para nenhuma conta agora: todas têm configuração própria em Contas.');
-  assert.equal(P.alcanceDaChaveGeral({ segue: ['a'], proprias: ['b', 'c'] }), 'Vale para 1 de 3 contas ativas; @b, @c têm configuração própria em Contas.');
-  assert.equal(P.alcanceDaChaveGeral(undefined), '');
+test('a tela de Contas grava o valor por extenso em cada seletor', () => {
+  const fonte = ler('ui', 'telas', 'sistema-contas.js');
+  assert.match(fonte, /autoReview: t\.value === 'true'/);
+  assert.match(fonte, /onReject: t\.value === 'request_changes' \? 'request_changes' : 'wait'/);
+  assert.doesNotMatch(fonte, /herda o global|alcanceDasChavesGerais/);
 });
 
-test('as duas chaves gerais têm onde dizer o alcance, ao lado da descrição', () => {
-  assert.match(HTML, /id="sys-row-autoreview"[\s\S]*?id="alcanceAutoReview"[\s\S]*?id="setAutoReview"/);
-  assert.match(HTML, /id="sys-row-autoapprove"[\s\S]*?id="alcanceAutoApproveAll"[\s\S]*?id="setAutoApproveAll"/);
+/* ---------- Radar > Aparelhos: os mesmos campos, com as mesmas palavras ---------- */
+
+const TAG = 'f'.repeat(32);
+const remoto = (politica) => P.contasDoAparelhoHtml({ deviceId: 'dCel', contas: [{ acctTag: TAG, nome: 'ana-exemplo', politica }] }, {});
+
+test('Radar > Aparelhos usa os rótulos e as opções do cartão de Contas, campo a campo', () => {
+  const T = P.POLITICA_DA_CONTA_TEXTOS;
+  const local = cartao([BIUDER]);
+  const longe = remoto({ autoReview: true, muted: false, onClean: 'approve', onCaveats: 'approve', onReject: 'wait' });
+  for (const campo of ['autoReview', 'onClean', 'onCaveats', 'onReject']) {
+    assert.ok(local.includes(`<span class="a-fieldlabel">${T[campo].rotulo}</span>`), `cartão: ${campo}`);
+    assert.ok(longe.includes(`<div>${T[campo].rotulo}</div>`), `aparelho: ${campo}`);
+  }
+  for (const campo of ['onClean', 'onCaveats', 'onReject']) {
+    for (const [valor, texto] of T[campo].opcoes) {
+      // comparação de texto, sem regex: montar expressão a partir do rótulo pedia escape completo
+      const temOpcao = (html) => ['', ' selected'].some((marca) => html.includes(`<option value="${valor}"${marca}>${texto}</option>`));
+      assert.ok(temOpcao(local), `cartão: ${campo}=${valor}`);
+      assert.ok(temOpcao(longe), `aparelho: ${campo}=${valor}`);
+    }
+  }
+  // o seletor de dois botões leva o começo da mesma opção, e o texto inteiro na dica
+  assert.match(longe, /data-campo="autoReview"[^>]*data-valor="true"[^>]*>revisa sozinho<\/button>/);
+  assert.match(longe, /data-campo="autoReview"[^>]*data-valor="false"[^>]*title="só põe na fila \(você manda revisar; o resultado segue as regras abaixo\)">só põe na fila<\/button>/);
+  assert.doesNotMatch(longe, /Com blocker|destaca as ressalvas|Revisar sozinho/, 'os rótulos próprios desta tela saíram');
 });
 
-test('Contas: o sem ressalvas não promete herdar uma chave geral que não existe', () => {
-  const html = P.accountsManagerHtml({ accounts: [BIUDER], acct: {}, config: { claudeProfiles: [] } });
-  assert.match(html, /<option value="">padrão: aprova sozinho<\/option>/);
-  assert.doesNotMatch(html, /herda o geral: aprova sozinho/);
+test('Radar > Aparelhos: com o sem ressalvas esperando, o com ressalvas fica desligado, como no cartão', () => {
+  const longe = remoto({ autoReview: true, muted: false, onClean: 'wait', onCaveats: 'wait', onReject: 'wait' });
+  const sel = longe.slice(longe.indexOf('data-campo="onCaveats"') - 200).split('</select>')[0];
+  assert.match(sel, /data-campo="onCaveats"[^>]* disabled><option value="wait" selected>espera você \(o sem ressalvas espera\)<\/option>/);
+  assert.doesNotMatch(sel, /aprova \(as ressalvas ficam no app\)/);
+});
+
+test('o comando à distância se descreve com as palavras da opção escolhida', () => {
+  const cmd = { cmdId: 'c1', alvo: 'dCel', tipo: 'config-conta', campo: 'onCaveats', valor: 'approve', at: 1 };
+  const r = P.retornoDoComando([cmd], {}, () => true, { agora: 2 });
+  assert.match(r.html, /quando fica aprovável com ressalvas: aprova \(as ressalvas ficam no app\)/);
+});
+
+/* ---------- paralelismo: cada número diz uma coisa só ---------- */
+
+test('Automação: "por conta" é sempre por conta, e o total do aparelho tem um nome só', () => {
+  const porConta = HTML.slice(HTML.indexOf('id="sys-row-paralelas"'), HTML.indexOf('id="sys-row-teto-global"'));
+  assert.match(porConta, /É sempre por conta, com ou sem o compartilhamento entre aparelhos/);
+  assert.doesNotMatch(porConta, /passa a ser o total do aparelho/);
+  const total = HTML.slice(HTML.indexOf('id="sys-row-teto-global"'), HTML.indexOf('id="sys-row-esforco"'));
+  assert.match(total, /<label class="set-title" for="setGlobalParallelReviews">Teto total deste aparelho<\/label>/);
+  assert.match(total, /"Teto total do aparelho", em Sistema → Aparelhos e em Radar → Aparelhos\): vale o menor dos dois/);
+  assert.match(total, /<option value="0">Sem teto total \(padrão\)<\/option>/);
+  assert.doesNotMatch(HTML, /Teto global/);
+});
+
+test('Sistema > Aparelhos e Radar > Aparelhos chamam o teto do admin pelo mesmo nome', () => {
+  const politica = P.aparelhoPoliticaHtml({ deviceId: 'd1', name: 'Celular' }, { leitura: { estado: 'ok', existe: true, valida: true, versao: 1, politica: { pausado: false } } });
+  assert.match(politica, /<span>Teto total do aparelho<\/span>/);
+  assert.match(politica, /não definir \(vale o teto total do próprio aparelho, em Sistema → Automação\)/);
+  assert.doesNotMatch(politica, /Teto de paralelismo/);
+  const ap = { deviceId: 'd1', nome: 'Celular', platform: 'android', versao: P.VERSAO_DO_CONTROLE, vistoEm: Date.now(), abriu: true, pausado: false, paralelismo: 2, ocupadas: 1, iaPronta: true, aceitarAdmin: true, contas: [], falhas: [], publicadoEm: Date.now() };
+  const painel = P.painelDoAparelhoHtml(ap, {});
+  assert.match(painel, /Teto total do aparelho <select class="ap-teto"/);
+  assert.match(painel, /teto total do aparelho: 2/);
+  assert.match(painel, /<option value="">não definir \(vale o teto total do próprio aparelho\)<\/option>/);
+  assert.match(painel, /<option value="2" selected>2<\/option>/);
+  assert.doesNotMatch(painel, /Ao mesmo tempo/);
+  // total que o admin não pode definir (soma dos limites por conta): o seletor abre em "não definir"
+  const semTeto = P.painelDoAparelhoHtml({ ...ap, paralelismo: 6 }, {});
+  assert.match(semTeto, /<option value="" selected>não definir \(vale o teto total do próprio aparelho\)<\/option>/);
+  assert.match(semTeto, /teto total do aparelho: 6/);
+});
+
+test('a Justiça de fila usa o nome novo do teto total', () => {
+  const html = P.filaJustaHtml({ porOrg: [], porPerfil: [], emCurso: 1, tetoGlobal: 3 });
+  assert.match(html, /<h4>Teto total deste aparelho<\/h4>/);
 });
 
 test('Contas: o perfil diz que escolhe o login do Claude, e que o modelo vem da Automação', () => {
@@ -74,25 +195,6 @@ test('Automação: a co-assinatura avisa no app, não no PR, e respeita a conta'
   assert.doesNotMatch(desc, /avisa no PR/);
   assert.match(desc, /sem postar nada no PR/);
   assert.match(desc, /espera você também não co-assina/);
-});
-
-// 30/09/2026: o "com ressalvas" herdado dizia "aprova e destaca as ressalvas" olhando só a
-// chave geral, e o engine manda esperar quando o limpo da conta espera você. A tela tem de
-// dizer, para cada conta, o que acontece de verdade: o mesmo que acaoAoAprovar devolve.
-test('Contas: o com ressalvas herdado diz o que o engine faz, conta a conta', () => {
-  const espera = { user: 'cautelosa', onClean: 'wait' };
-  const segue = { user: 'segue' };
-  const ligado = { claudeProfiles: [], autoApproveAll: true };
-  const eng = engineCom([espera, segue], { autoApproveAll: true });
-  const bloco = (html, u) => html.slice(html.indexOf(`class="acct-oncaveats" data-user="${u}"`)).split('</select>')[0];
-  const alcance = contasConfig.alcanceDasChavesGerais(eng);
-  assert.deepEqual(alcance.ressalvaHerdadaEspera, ['cautelosa'], 'a lista vem do mesmo predicado que decide');
-  const html = P.accountsManagerHtml({ accounts: [espera, segue], acct: {}, config: ligado, alcance });
-  assert.equal(contasConfig.acaoAoAprovar(eng, 'cautelosa', false), 'wait');
-  assert.match(bloco(html, 'cautelosa'), /<option value="">herda o geral: espera você<\/option>/);
-  assert.equal(contasConfig.acaoAoAprovar(eng, 'segue', false), 'approve');
-  assert.match(bloco(html, 'segue'), /<option value="">herda o geral: aprova \(as ressalvas ficam no app\)<\/option>/);
-  assert.doesNotMatch(html, /destaca as ressalvas/, 'o APPROVE não destaca ressalva nenhuma no PR');
 });
 
 test('Automação: nenhuma chave promete o que o engine não faz', () => {

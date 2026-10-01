@@ -30,8 +30,7 @@ after(() => {
 // `normal` é dona da org acme; `calado` está silenciada e não monitora org nenhuma
 function engineComSilenciada() {
   const e = new Engine();
-  e.config.accounts = [{ user: 'normal', owners: ['acme'] }, { user: 'calado', owners: [], muted: true }];
-  e.config.autoReview = false;
+  e.config.accounts = [{ user: 'normal', owners: ['acme'], autoReview: false }, { user: 'calado', owners: [], muted: true, autoReview: false }];
   e.token = 'tok';
   e.tokens = { normal: 'tok', calado: 'tok2' };
   e.tokenOk = true;
