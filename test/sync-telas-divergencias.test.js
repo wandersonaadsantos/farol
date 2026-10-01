@@ -140,7 +140,7 @@ test('item 6: aparelho sem sinal dentro da janela da frota sai marcado sem prese
 
 /* ---------- itens 1 e 2: política publicada e lida de volta ---------- */
 
-test('itens 1 e 2: publicar devolve a versão, e a leitura devolve a política vigente no banco, com o que a tela não edita', async () => {
+test('itens 1 e 2: publicar devolve a versão, e a leitura devolve a política vigente no banco, só com os campos que existem', async () => {
   const tag = 'f'.repeat(32);
   const r1 = await pedir('/api/sync/policy', { deviceId: 'dOutro', politica: { pausado: true, tetoParalelismo: 2, contasElegiveis: [tag] } });
   assert.equal(r1.body.ok, true, r1.body.motivo);
@@ -152,7 +152,8 @@ test('itens 1 e 2: publicar devolve a versão, e a leitura devolve a política v
   assert.equal(lida.body.existe, true);
   assert.equal(lida.body.valida, true);
   assert.equal(lida.body.versao, 2);
-  assert.deepEqual(lida.body.politica, { pausado: false, tetoParalelismo: 3, contasElegiveis: [tag], tiposDeOperacao: ['review'] });
+  // contas e tipos, que um admin antigo ainda publica, não voltam na leitura (v2.66.3)
+  assert.deepEqual(lida.body.politica, { pausado: false, tetoParalelismo: 3 });
 });
 
 test('item 2: aparelho sem política publicada responde existe: false, e sem aparelho é recusa de forma', async () => {

@@ -6,25 +6,17 @@
 //
 // ABRIR COM O QUE ESTÁ VALENDO, NÃO COM O MÍNIMO. Publicar substitui a política inteira;
 // um formulário que abrisse com valores mínimos apagaria em silêncio o que o admin publicou
-// antes, inclusive o que a tela nem edita (as contas elegíveis). Por isso a leitura vem
-// primeiro, o que a tela não edita é preservado no corpo, e o campo sobre o qual a política
-// não opina abre como "vale o do aparelho", nunca como o valor mais restritivo.
+// antes. Por isso a leitura vem primeiro, e o campo sobre o qual a política não opina abre
+// como "vale o do aparelho", nunca como o valor mais restritivo.
+//
+// A política tem DOIS campos, pausa e teto, porque são os dois que o aparelho aplica. Tipos
+// de operação e contas elegíveis existiram na tela e no banco até a v2.66.2 sem nenhum
+// consumidor no engine: o admin marcava, publicava, e nada mudava (30/09/2026).
 //
 // O QUE ESTA TELA NÃO SABE: se o aparelho de destino aceitou. O aceite (consentimento,
 // assinatura, geração, frescor) acontece lá, e o resultado não volta para o admin. A tela
 // diz isso em vez de mostrar um "aceita" que ninguém mediu.
 import { esc } from './comum.js';
-
-// Os tipos de operação da política (a allowlist é do engine, em lib/sync/politica.js; aqui
-// mora só o rótulo de cada um). Tipo que o engine não conhece é descartado lá, e por isso
-// nunca é oferecido aqui.
-const APARELHOS_TIPOS = [
-  ['review', 'revisão'],
-  ['self', 'autoanálise'],
-  ['pushback', 'contestação'],
-  ['chat', 'conversa'],
-  ['tool', 'ferramenta'],
-];
 
 // O teto de paralelismo é 1 a 4, o mesmo clamp de lib/sync/politica.js. Escrever 5 aqui
 // faria a tela prometer um valor que o engine reduz em silêncio.
@@ -65,20 +57,6 @@ function opcoesDoTeto(teto) {
   return naoDefinido + APARELHOS_TETOS.map((n) => `<option value="${n}"${teto === n ? ' selected' : ''}>${n} sessão(ões)</option>`).join('');
 }
 
-// Sem opinião remota sobre os tipos, todos abrem marcados: é o que o aparelho já permite.
-function caixasDosTipos(tipos) {
-  const lista = Array.isArray(tipos) ? tipos : null;
-  return APARELHOS_TIPOS.map(([id, rotulo]) => {
-    const marcado = !lista || lista.includes(id) ? ' checked' : '';
-    return `<label class="apar-tipo"><input type="checkbox" class="apar-tipo-check" value="${esc(id)}"${marcado}> ${esc(rotulo)}</label>`;
-  }).join('');
-}
-
-function notaDasContas(pol) {
-  const contas = pol && Array.isArray(pol.contasElegiveis) ? pol.contasElegiveis.length : 0;
-  if (!contas) return '';
-  return `<span class="sync-dica">A política também grava uma lista de contas elegíveis (${contas}); esta tela não edita essa lista, e publicar a mantém como está. O aparelho ainda não aplica essa lista.</span>`;
-}
 
 // QUATRO coisas diferentes, e o texto antigo juntava todas numa frase só: o CONSENTIMENTO
 // local do destino, o RECEBIMENTO do nó, a APLICAÇÃO lá e o RESULTADO de volta.
@@ -121,25 +99,19 @@ export function aparelhoPoliticaHtml(aparelho, opcoes) {
     <div class="apar-grade">
       <label class="apar-campo"><span>Pausado</span><span class="set-ctl"><input type="checkbox" id="aparPolPausado"${pausado}><span class="switch"></span></span></label>
       <label class="apar-campo" for="aparPolTeto"><span>Teto de paralelismo</span><select id="aparPolTeto" class="sync-input">${opcoesDoTeto(pol.tetoParalelismo)}</select></label>
-      <div class="apar-campo"><span>Tipos permitidos</span><div class="apar-tipos">${caixasDosTipos(pol.tiposDeOperacao)}</div></div>
     </div>
-    <span class="sync-dica">Hoje só a pausa e o teto mudam o que o aparelho faz, e só na revisão: os tipos permitidos ficam gravados na política, mas o aparelho ainda não os aplica.</span>
-    ${notaDasContas(pol)}
+    <span class="sync-dica">Pausa e teto valem só para a revisão: pushback, co-assinatura, chat, autoanálise e ferramentas seguem sem passar por eles.</span>
     ${recusa}
     <div class="row-actions"><button class="btn sm primary" id="aparPublicarPolitica">Publicar política</button></div>
   </div>`;
 }
 
-// O corpo da publicação: o que o formulário edita, por cima do que a política vigente já
-// tinha e a tela não edita. Teto "não definido" (null) sai do corpo: a política não opina,
-// e o aparelho vale pelo próprio número.
-export function aparelhoPoliticaParaPublicar(leitura, doFormulario) {
-  const base = politicaLida(leitura);
+// O corpo da publicação é o formulário inteiro, porque a tela edita os dois campos que a
+// política tem. Teto "não definido" (null) sai do corpo: a política não opina, e o aparelho
+// vale pelo próprio número.
+export function aparelhoPoliticaParaPublicar(doFormulario) {
   const f = doFormulario || {};
-  const corpo = {};
-  if (base && Array.isArray(base.contasElegiveis)) corpo.contasElegiveis = base.contasElegiveis;
   const saida = { pausado: f.pausado === true };
   if (Number.isInteger(f.tetoParalelismo)) saida.tetoParalelismo = f.tetoParalelismo;
-  saida.tiposDeOperacao = Array.isArray(f.tiposDeOperacao) ? f.tiposDeOperacao : [];
-  return { ...saida, ...corpo };
+  return saida;
 }

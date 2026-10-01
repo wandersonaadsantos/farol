@@ -7,6 +7,10 @@ import { $ } from './infra.js';
 // Novidades por versão (mostradas na aba Sistema; a versão atual vem marcada).
 // Ao cortar uma release, some uma linha aqui no topo.
 const RELEASE_NOTES = [
+  ['2.66.3', [
+    "A política do aparelho ficou só com pausa e teto. Os tipos permitidos e as contas elegíveis eram gravados e mostrados, mas nada no Farol os aplicava: desmarcar a conversa não a impedia de rodar.",
+    "Admin em versão antiga que ainda publique esses campos não quebra nada: eles são descartados na chegada, e a pausa e o teto continuam valendo."
+  ]],
   ['2.66.2', [
     "A revisão não morre mais esperando o CI terminar. A sessão punha a espera em segundo plano e acabava sem entregar a revisão (\"a sessão não devolveu JSON\"); agora ela registra os checks como estão, e o Farol segura a aprovação enquanto um obrigatório roda.",
     "Contas e Automação pararam de prometer autonomia que o Farol não tem. O \"com ressalvas\" herdado de cada conta agora diz o que acontece de verdade: numa conta cujo \"sem ressalvas\" espera você, ele também espera.",

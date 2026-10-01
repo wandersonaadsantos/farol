@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.66.3
+
+A política do aparelho fica só com o que o aparelho de fato aplica: pausa e teto.
+
+**Correções**
+
+- **Saíram os dois campos que nada aplicava.** "Tipos permitidos" e as contas elegíveis eram gravados, combinados e mostrados no formulário da política, mas nenhum ponto do Farol os consultava: o admin desmarcava a conversa e ela continuava rodando. A v2.66.2 já avisava disso na tela; agora os campos saíram da tela e da política.
+- **Admin em versão antiga não quebra nada.** Se um aparelho ainda publicar as duas chaves, elas são descartadas na chegada, e a pausa e o teto do mesmo pacote continuam valendo.
+- **A dica do formulário diz o alcance.** Pausa e teto valem só para a revisão; pushback, co-assinatura, chat, autoanálise e ferramentas seguem sem passar por eles.
+
 ## v2.66.2
 
 A revisão deixa de morrer esperando o CI, e as telas de Contas e de Automação param de prometer autonomia que o Farol não tem.

@@ -258,12 +258,10 @@ export async function salvarConsentimento(valor, d = DEPS) {
 
 // Teto vazio é "não definir": o corpo não leva o campo, e o aparelho vale pelo próprio.
 function politicaDoDom() {
-  const tipos = [...document.querySelectorAll('.apar-tipo-check')].filter((c) => c.checked).map((c) => c.value);
   const teto = String(($('#aparPolTeto') || {}).value || '');
   return {
     pausado: !!($('#aparPolPausado') || {}).checked,
     tetoParalelismo: teto ? Number(teto) : null,
-    tiposDeOperacao: tipos,
   };
 }
 
@@ -392,7 +390,7 @@ export async function aoLimpar(d = DEPS) {
 async function aoPublicarPolitica() {
   const alvo = politicaAberta;
   if (!alvo) return;
-  politicaRecusa = await publicarPolitica(alvo, aparelhoPoliticaParaPublicar(politicaLeitura, politicaDoDom()));
+  politicaRecusa = await publicarPolitica(alvo, aparelhoPoliticaParaPublicar(politicaDoDom()));
   if (!politicaRecusa) { politicaAberta = ''; politicaLeitura = null; }
   renderAparelhos();
 }

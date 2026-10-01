@@ -105,7 +105,7 @@ test('item 2: abrir sem ser o admin com batimento não lê nada', async () => {
 
 test('item 1: publicar avisa a versão publicada, sem prometer o aceite do destino', async () => {
   const d = deps({ respostas: { '/api/sync/policy': { ok: true, versao: 6 } } });
-  assert.equal(await AP.publicarPolitica('dX', { pausado: false, tiposDeOperacao: [] }, d), '');
+  assert.equal(await AP.publicarPolitica('dX', { pausado: false }, d), '');
   assert.match(d.avisos.at(-1).texto, /versão 6/);
   assert.match(d.avisos.at(-1).texto, /se aceitar admin/);
 });
