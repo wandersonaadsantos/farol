@@ -70,9 +70,10 @@ test('a capacidade leva a política de cada conta, na ordem das contas', () => {
   assert.deepEqual(porConta[acctTag(kId, 'conta-um')], [true, false, 'approve', 'approve', 'request_changes']);
   assert.deepEqual(porConta[acctTag(kId, 'conta-dois')], [false, true, 'wait', 'wait', 'wait']);
   // a política mora só na conta (30/09/2026): o que sai é o que a conta tem gravado, e a
-  // conta que chegou sem um campo o recebeu por extenso na gravação
-  assert.deepEqual(porConta[acctTag(kId, 'c'.repeat(39))], [true, false, 'approve', 'wait', 'wait']);
-  assert.deepEqual(porConta[acctTag(kId, 'd'.repeat(39))], [true, false, 'approve', 'approve', 'wait']);
+  // conta que chegou sem um campo o recebeu por extenso na gravação, com o padrão da conta nova
+  // (desde 01/10/2026 o ausente em "reprovar" vale reprovar sozinho)
+  assert.deepEqual(porConta[acctTag(kId, 'c'.repeat(39))], [true, false, 'approve', 'wait', 'request_changes']);
+  assert.deepEqual(porConta[acctTag(kId, 'd'.repeat(39))], [true, false, 'approve', 'approve', 'request_changes']);
 });
 
 // O campo `paralelismo` não mudou de nome (o agendador do admin e a frota em versão antiga o

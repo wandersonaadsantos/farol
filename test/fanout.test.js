@@ -182,13 +182,13 @@ test('rede de segurança: revisou menos que o total conta como lacuna mesmo com 
 // Até 26/09/2026 este caso travava o contrário ("envelope sem coverage não muda nada").
 // O prompt exige o campo desde o PR pequeno, então ausência é envelope quebrado, e ele
 // aprovava sozinho sem nenhuma declaração de leitura (revisão do gate de qualidade, P0).
-test('envelope sem coverage é lacuna: a aprovação vira ressalva e a reprovação automática fica com você', () => {
+test('envelope sem coverage é lacuna: a aprovação vira ressalva e a reprovação automática segue valendo', () => {
   const e = engineLiberado();
   const r = aprovavel();
   assert.deepEqual(e.coverageGap(r), ['a revisão não declarou a cobertura da leitura']);
   ehRessalvaDeCobertura(r);
   const rej = { analysisStatus: 'complete', verdict: 'request_changes', decision: 'needs_decision', reasons: ['blocker'], payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'x' } } };
-  assert.equal(e.shouldAutoReject(PR, rej), false);
+  assert.equal(e.shouldAutoReject(PR, rej), true);
 });
 
 /* ---------- cobertura conferida contra o diff MEDIDO pelo engine (26/09/2026) ---------- */
@@ -239,14 +239,14 @@ test('ressalva de conteúdo não entra na conta de cobertura', () => {
   assert.equal(e.attentionPoints(comRessalva).length, 1, 'mas continua visível como ponto de atenção');
 });
 
-test('lacuna de cobertura também segura o reprovar sozinho', () => {
+test('lacuna de cobertura NÃO segura mais o reprovar sozinho (01/10/2026)', () => {
   const e = engineLiberado();
   const rej = {
-    verdict: 'request_changes', decision: 'needs_decision', reasons: ['blocker'],
+    analysisStatus: 'complete', verdict: 'request_changes', decision: 'needs_decision', reasons: ['blocker'],
     payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'x' } },
     coverage: { total: 5, reviewed: ['a.ts'], missing: ['b.ts'] }
   };
-  assert.equal(e.shouldAutoReject(PR, rej), false, 'reprovar com leitura parcial é pior ainda');
+  assert.equal(e.shouldAutoReject(PR, rej), true, 'o bloqueio escrito vale por si; a lacuna fica registrada no card');
 });
 
 test('coverage adversarial: total declarado sem nenhum arquivo revisado é lacuna, não passe livre', () => {
@@ -263,11 +263,11 @@ test('coverage adversarial: reviewed que não é lista não prova leitura nenhum
   assert.equal(e.coverageGap(malformado).length, 1, 'reviewed fora do contrato conta como zero lido');
   ehRessalvaDeCobertura(malformado);
   const rej = {
-    verdict: 'request_changes', decision: 'needs_decision', reasons: ['blocker'],
+    analysisStatus: 'complete', verdict: 'request_changes', decision: 'needs_decision', reasons: ['blocker'],
     payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'x' } },
     coverage: { total: 12, reviewed: null, missing: [] }
   };
-  assert.equal(e.shouldAutoReject(PR, rej), false, 'reprovar sem leitura declarada também não');
+  assert.equal(e.shouldAutoReject(PR, rej), true, 'sem leitura declarada o bloqueio também vale; a lacuna fica registrada no card');
 });
 
 test('a lacuna aparece nos pontos de atenção, com amostra dos arquivos', () => {

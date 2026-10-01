@@ -26,8 +26,10 @@ A política mora em `accounts[]`, em quatro campos sempre escritos por extenso, 
 |---|---|---|
 | `autoReview` | `true` (revisa sozinho), `false` (só põe na fila) | `true` |
 | `onClean` | `approve`, `wait` | `approve` |
-| `onCaveats` | `approve`, `wait` | `wait` |
-| `onReject` | `request_changes`, `wait` | `wait` |
+| `onCaveats` | `approve`, `wait` | `approve` |
+| `onReject` | `request_changes`, `wait` | `request_changes` |
+
+O padrão da conta nova é **aprovar sozinho (com ou sem ressalvas) e reprovar sozinho** desde 01/10/2026; quem prefere revisar escolhe `wait` no seletor. Conta que já existia **não muda**: ela tem os quatro campos gravados, e a config de antes da primeira migração (sem `esquemaConfig`) recebe o que as chaves antigas diziam, porque atualizar nunca faz o Farol passar a postar no GitHub sem a pessoa ter escolhido. Valor fora do domínio numa edição é recusado e devolvido em `ignorados`, em vez de virar o padrão. Reprovar sozinho não é mais barrado por lacuna de cobertura, checkpoint divergente ou contestação: o card registra o que a leitura não cobriu.
 
 **O com ressalvas nunca é mais permissivo que o limpo**, sem exceção: com `onClean: wait`, `acaoAoAprovar(…, false)` devolve `wait`, a gravação força `onCaveats: wait`, pedir `approve` nas ressalvas é recusado, e as duas telas mostram o seletor desligado com "espera você (o sem ressalvas espera)".
 

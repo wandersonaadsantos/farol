@@ -9,6 +9,24 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.69.0
+
+O Farol passa a aprovar e reprovar sozinho por padrão, e a reprovação automática deixa de parar por lacuna.
+
+**Novidades**
+
+- **Conta nova aprova e reprova sozinha.** O padrão de uma conta que entra no Farol agora é aprovar sozinho com ou sem ressalvas e reprovar sozinho (pedir mudanças). Quem prefere revisar escolhe "espera você" nos seletores do cartão da conta, em Sistema > Contas.
+- **Reprovar sozinho não para mais por lacuna.** Como a aprovação já fazia desde a v2.67.0, a reprovação automática deixou de ir para a sua mesa por cobertura incompleta da leitura, divergência entre passadas ou contestação do autor. O bloqueio que a revisão escreveu vale por si, e o card registra o que a leitura não cobriu. Nada disso vai para o texto do PR.
+
+**Melhorias**
+
+- **Valor torto numa edição de conta não vira ação automática.** Um valor fora do domínio de um seletor é recusado e devolvido como ignorado, em vez de cair no padrão novo.
+
+**Atenção ao atualizar**
+
+- **Contas que já existem não mudam.** Elas têm os quatro seletores gravados, e o que cada uma fazia continua igual. Só conta nova, e conta sem seletor gravado numa instalação já migrada, recebe o padrão novo.
+- Para quem tem a reprovação automática ligada: pedidos de mudança passam a sair também quando a leitura ficou incompleta, e a lacuna aparece só no card.
+
 ## v2.68.0
 
 Esperar o CI antes de começar a revisar agora é uma escolha sua, e vem desligada.

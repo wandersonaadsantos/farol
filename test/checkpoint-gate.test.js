@@ -94,25 +94,29 @@ function rejectableResult(extra) {
    inteira passava (1265 verdes), enquanto a mesma remoção no approve reprovava 8.
    Mesma assimetria da trava do clique, achada no mesmo dia e pelo mesmo método. */
 
-test('shouldAutoReject: cobertura incompleta também bloqueia o auto-reject', () => {
+// Desde 01/10/2026 lacuna de cobertura, checkpoint divergente e contestação NÃO seguram mais a
+// reprovação automática (como no approve desde 30/09/2026): o bloqueio vale por si, e o card
+// registra o que a leitura não cobriu (review.js). Os casos abaixo travam a nova régua.
+test('shouldAutoReject: cobertura incompleta NÃO segura mais o auto-reject', () => {
   const e = engineWithPolicy('approve');
   e.rejectPolicyFor = () => 'request_changes';
   const r = rejectableResult({ coverage: { total: 3, reviewed: ['a.ts'], missing: ['b.ts', 'c.ts'] } });
-  assert.equal(e.shouldAutoReject(PR, r), false,
-    'sem ter lido o diff inteiro não se pede mudanças sozinho: o blocker pode estar no que não foi lido');
-  // controle: com a cobertura completa, a mesma revisão passa
+  assert.equal(e.shouldAutoReject(PR, r), true,
+    'o bloqueio escrito vale por si, mesmo sem ter lido o diff inteiro');
+  assert.ok(e.coverageGap(r).length > 0, 'a lacuna continua medida: é ela que o card registra');
   assert.equal(e.shouldAutoReject(PR, rejectableResult()), true);
 });
 
-test('shouldAutoReject: a rede de segurança de cobertura vale igual (reviewed < total)', () => {
+test('shouldAutoReject: reviewed < total também não segura, mas segue sendo lacuna medida', () => {
   // mesmo caso do approve: missing vazio não prova cobertura completa
   const e = engineWithPolicy('approve');
   e.rejectPolicyFor = () => 'request_changes';
   const r = rejectableResult({ coverage: { total: 5, reviewed: ['a.ts'], missing: [] } });
-  assert.equal(e.shouldAutoReject(PR, r), false);
+  assert.equal(e.shouldAutoReject(PR, r), true);
+  assert.equal(e.coverageGap(r).length, 1);
 });
 
-test('shouldAutoReject: checkpoint com conflito também bloqueia o auto-reject', () => {
+test('shouldAutoReject: checkpoint com conflito NÃO segura mais o auto-reject', () => {
   const e = engineWithPolicy('approve');
   e.rejectPolicyFor = () => 'request_changes';
   const r = rejectableResult({
@@ -121,7 +125,8 @@ test('shouldAutoReject: checkpoint com conflito também bloqueia o auto-reject',
       conflicts: [{ entries: [{ claim: 'a', verdict: 'confirmado' }, { claim: 'a', verdict: 'refutado' }] }],
     }
   });
-  assert.equal(e.shouldAutoReject(PR, r), false, 'divergência entre passadas bloqueia o reject automático também');
+  assert.equal(e.shouldAutoReject(PR, r), true, 'divergência entre passadas não segura a reprovação');
+  assert.ok(e.checkpointGap(r).length > 0, 'a divergência continua medida: é ela que o card registra');
 });
 
 test('shouldAutoReject: checkpoint limpo ou ausente não bloqueia (comportamento de hoje preservado)', () => {

@@ -136,10 +136,22 @@ test('cada conta sai com os quatro campos por extenso, e as chaves gerais são d
   ]);
 });
 
-test('conta nova, sem chave geral nenhuma, nasce com o padrão estrito', () => {
-  const r = M.migrarPolitica({ accounts: [{ user: 'nova', owners: [] }] });
-  assert.deepEqual(r.contas[0], { user: 'nova', owners: [], autoReview: true, onClean: 'approve', onCaveats: 'wait', onReject: 'wait' });
-  assert.deepEqual(M.PADRAO, { autoReview: true, onClean: 'approve', onCaveats: 'wait', onReject: 'wait' });
+test('conta nova nasce aprovando e reprovando sozinha (padrão de 01/10/2026)', () => {
+  const r = M.migrarPolitica({ esquemaConfig: 1, accounts: [{ user: 'nova', owners: [] }] });
+  assert.deepEqual(r.contas[0], { user: 'nova', owners: [], autoReview: true, onClean: 'approve', onCaveats: 'approve', onReject: 'request_changes' });
+  assert.deepEqual(M.PADRAO, { autoReview: true, onClean: 'approve', onCaveats: 'approve', onReject: 'request_changes' });
+});
+
+test('atualizar nunca faz uma conta antiga passar a postar: antes da primeira migração, o ausente vale o que valia', () => {
+  // sem esquemaConfig a config é de antes da v2.67.0: campo ausente era "espera você" nas ressalvas e nos bloqueios
+  const r = M.migrarPolitica({ accounts: [{ user: 'antiga', owners: [] }] });
+  assert.deepEqual(r.contas[0], { user: 'antiga', owners: [], autoReview: true, onClean: 'approve', onCaveats: 'wait', onReject: 'wait' });
+});
+
+test('escolha explícita da conta nunca é trocada pelo padrão novo', () => {
+  const r = M.migrarPolitica({ esquemaConfig: 1, accounts: [{ user: 'revisa', owners: [], onCaveats: 'wait', onReject: 'wait' }, { user: 'cauta', owners: [], onClean: 'wait' }] });
+  assert.deepEqual([r.contas[0].onClean, r.contas[0].onCaveats, r.contas[0].onReject], ['approve', 'wait', 'wait']);
+  assert.deepEqual([r.contas[1].onClean, r.contas[1].onCaveats, r.contas[1].onReject], ['wait', 'wait', 'request_changes']);
 });
 
 test('idempotente: config já migrada sai idêntica e diz que não mudou', () => {
@@ -252,7 +264,7 @@ test('conta adicionada depois nasce com a política por extenso, e o rastro leva
   const r = e.editarConta({ tipo: 'adicionar', user: 'recente', owners: ['org9'] }, 'janela do Farol');
   assert.equal(r.ok, true);
   const conta = lerJson(CONFIG).accounts.find((a) => a.user === 'recente');
-  assert.deepEqual([conta.autoReview, conta.onClean, conta.onCaveats, conta.onReject], [true, 'approve', 'wait', 'wait']);
+  assert.deepEqual([conta.autoReview, conta.onClean, conta.onCaveats, conta.onReject], [true, 'approve', 'approve', 'request_changes']);
   const hist = lerJson(POLITICA_HISTORICO_FILE).filter((h) => h.conta === 'recente');
   assert.ok(hist.length > 0);
   assert.ok(hist.every((h) => h.origem === 'janela do Farol'));
@@ -264,7 +276,7 @@ test('lista de contas gravada por outro caminho também sai com a política por 
   const atuais = e.config.accounts;
   e.updateSettings({ accounts: [...atuais, { user: 'crua', owners: [] }] }, 'navegador');
   const crua = e.config.accounts.find((a) => a.user === 'crua');
-  assert.deepEqual([crua.autoReview, crua.onClean, crua.onCaveats, crua.onReject], [true, 'approve', 'wait', 'wait']);
+  assert.deepEqual([crua.autoReview, crua.onClean, crua.onCaveats, crua.onReject], [true, 'approve', 'approve', 'request_changes']);
   e.updateSettings({ accounts: atuais }, 'navegador');
 });
 

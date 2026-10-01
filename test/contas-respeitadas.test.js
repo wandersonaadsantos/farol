@@ -57,7 +57,7 @@ test('o peso na cota gravado na config chega ao cálculo da cota e à tela', () 
 // (as duas colunas do meio são essa prova: o resultado é o mesmo com elas em qualquer valor).
 const MATRIZ = [
   // conta,                                      limpo, com ressalvas
-  [{}, 'approve', 'wait'],
+  [{}, 'approve', 'approve'],   // conta sem campo vale o padrão da conta nova (01/10/2026)
   [{ onClean: 'approve', onCaveats: 'approve' }, 'approve', 'approve'],
   [{ onClean: 'approve', onCaveats: 'wait' }, 'approve', 'wait'],
   [{ onClean: 'wait' }, 'wait', 'wait'],
@@ -84,9 +84,10 @@ test('revisar sozinho e reprovar sozinho vêm só da conta, e nenhuma chave gera
   assert.equal(C.revisaSozinho(e({ autoReview: false }, true), 'x'), false, 'nem em true a liga');
   assert.equal(C.revisaSozinho(e({}, false), 'x'), true, 'campo ausente vale o padrão da conta nova, não a chave geral');
   assert.equal(C.acaoAoReprovar(e({ onReject: 'request_changes' }, true), 'x'), 'request_changes');
-  assert.equal(C.acaoAoReprovar(e({}, true), 'x'), 'wait');
+  assert.equal(C.acaoAoReprovar(e({ onReject: 'wait' }, true), 'x'), 'wait', 'escolha da conta vale');
+  assert.equal(C.acaoAoReprovar(e({}, true), 'x'), 'request_changes', 'campo ausente vale o padrão da conta nova');
   assert.equal(C.acaoAoAprovar(e({}, true), 'conta-que-nao-existe', true), 'approve', 'conta desconhecida vale o padrão da conta nova');
-  assert.equal(C.acaoAoAprovar(e({}, true), 'conta-que-nao-existe', false), 'wait');
+  assert.equal(C.acaoAoAprovar(e({}, true), 'conta-que-nao-existe', false), 'approve');
 });
 
 /* ---------- editar é por campo, e o servidor mescla ---------- */
@@ -198,7 +199,13 @@ test('o servidor é quem decide o que é valor válido: escolha fica, valor tort
   e.editarConta({ tipo: 'editar', user: 'pessoal', campos: { autoReview: false, onReject: 'merge' } }, 'navegador');
   const conta = e.config.accounts.find((a) => a.user === 'pessoal');
   assert.equal(conta.autoReview, false, 'false é escolha, não ausência');
-  assert.equal(conta.onReject, 'wait', 'valor fora do domínio não é gravado: fica o padrão por extenso');
+  // a config deste arquivo é de antes da primeira migração: o que ela já praticava ficou por extenso
+  assert.equal(conta.onReject, 'wait', 'valor fora do domínio não é gravado: fica o que a conta já tinha por extenso');
+  // conta que escolheu esperar não vira "reprova sozinho" por um valor torto
+  e.editarConta({ tipo: 'editar', user: 'pessoal', campos: { onReject: 'wait' } }, 'navegador');
+  const r = e.editarConta({ tipo: 'editar', user: 'pessoal', campos: { onReject: 'merge' } }, 'navegador');
+  assert.deepEqual(r.ignorados, ['onReject']);
+  assert.equal(e.config.accounts.find((a) => a.user === 'pessoal').onReject, 'wait');
 });
 
 test('chave geral de Automação que continua sendo política também entra no rastro', () => {

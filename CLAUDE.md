@@ -187,8 +187,8 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
 2. **Dados em `~/.farol`, nunca em AppData/Library.** No Windows o motivo é o MSIX virtualizar `%LOCALAPPDATA%`; no macOS mantemos o mesmo caminho por simetria (o estado migra entre máquinas copiando uma pasta só).
 3. **Log só de falhas.** `farol.log` não recebe ruído operacional; o Diagnóstico usa esse log como fonte. **A classificação dessas falhas mora só em `lib/log-taxonomy.js`** (desde a v2.37.0): quem decide retry (`runOneHeadless`) e quem monta o Diagnóstico leem a MESMA tabela. Duplicar a regra foi o que deixou o painel mostrando 159 linhas cruas de 4 episódios enquanto o motor achava que entendia o erro.
 4. **Nada é postado no GitHub sem gate.** Auto-approve exige revisão pedida a mim
-   (`requested === true`), veredito `approve` e payload `APPROVE`, com default estrito por
-   conta; reprovar sozinho e co-assinar são opt-in; clique manual nunca é bloqueado pelos
+   (`requested === true`), veredito `approve` e payload `APPROVE`, com a política por conta (o padrão da conta nova, desde 01/10/2026, aprova e
+   reprova sozinho; quem prefere revisar desliga no cartão da conta); co-assinar é opt-in; clique manual nunca é bloqueado pelos
    gates automáticos. **A configuração de aprovar sozinho cumpre o que promete (30/09/2026)**:
    um resultado aprovável é limpo (nenhum ponto de atenção) ou com ressalvas, e SÓ a política
    da conta decide entre postar e esperar você; discordância de outro review, lacuna de
