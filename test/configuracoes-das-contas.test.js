@@ -122,9 +122,10 @@ test('Radar > Aparelhos usa os rótulos e as opções do cartão de Contas, camp
   }
   for (const campo of ['onClean', 'onCaveats', 'onReject']) {
     for (const [valor, texto] of T[campo].opcoes) {
-      const opcao = new RegExp(`<option value="${valor}"( selected)?>${texto.replace(/[()]/g, '\\$&')}</option>`);
-      assert.match(local, opcao, `cartão: ${campo}=${valor}`);
-      assert.match(longe, opcao, `aparelho: ${campo}=${valor}`);
+      // comparação de texto, sem regex: montar expressão a partir do rótulo pedia escape completo
+      const temOpcao = (html) => ['', ' selected'].some((marca) => html.includes(`<option value="${valor}"${marca}>${texto}</option>`));
+      assert.ok(temOpcao(local), `cartão: ${campo}=${valor}`);
+      assert.ok(temOpcao(longe), `aparelho: ${campo}=${valor}`);
     }
   }
   // o seletor de dois botões leva o começo da mesma opção, e o texto inteiro na dica

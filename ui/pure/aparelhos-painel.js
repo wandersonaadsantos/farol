@@ -140,7 +140,7 @@ function fatosHtml(ap, agora) {
     return `${fato('Versão', `Farol ${ap.versao || 'antigo'}`, `precisa da ${VERSAO_DO_CONTROLE} ou mais nova`, 'warn')}${fato('Comandos do admin', 'Indisponíveis', 'esta versão não recebe os comandos novos')}${fato('Fila', 'Não publicada', 'aparece depois de atualizar')}`;
   }
   let agoraTxt = fato('Agora', ap.ocupadas ? `Revisando ${ap.ocupadas} de ${ap.paralelismo}` : 'Parado', `teto total do aparelho: ${ap.paralelismo}`);
-  if (ap.pausado) agoraTxt = fato('Agora', 'Pausado pelo admin', 'termina o que começou e não abre revisão nova; pushback e co-assinatura seguem', 'warn');
+  if (ap.pausado) agoraTxt = fato('Agora', 'Pausado pelo admin', 'termina o que começou e não começa nada sozinho: revisão, pushback e co-assinatura esperam', 'warn');
   if (sit === 'sem-sinal') agoraTxt = fato('Agora', 'Sem sinal', ap.vistoEm ? `às ${fmtClock(ap.vistoEm)} revisava ${ap.ocupadas} de ${ap.paralelismo}` : 'nunca publicou o estado');
   const ia = ap.iaPronta ? fato('IA', 'Pronta', 'Claude Code instalado e logado', 'ok') : fato('IA', 'Não está pronta', 'instale e faça login no Claude Code no aparelho', 'bad');
   const cmd = fato('Comandos do admin', 'Aceita', 'ligado no próprio aparelho', 'ok');

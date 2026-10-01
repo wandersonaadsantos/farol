@@ -346,3 +346,48 @@ test('sem a migração, a mesma instalação abriria mais: é isto que ela imped
   assert.equal(vazaoAntiga({ porConta: 2, global: 0, ligado: true }, 3).total, 2);
   assert.equal(vazao({ parallelReviews: 2, globalParallelReviews: 0, sync }, 3).total, 6, 'quem tira o teto de propósito tem contas vezes o limite por conta');
 });
+
+// 01/10/2026: a pausa só segurava a revisão (pela reserva de vaga). O pushback abria sessão e
+// a co-assinatura postava APPROVE num aparelho que o painel dizia estar pausado.
+test('pausado: só com o compartilhamento ligado, o admin aceito e a política pausando', async () => {
+  const cachePolitica = (await import('../lib/sync/cache-politica.js')).default;
+  const sync = (aceitarAdmin, ligado = true) => ({ enabled: ligado, shared: { enabled: ligado }, aceitarAdmin });
+  try {
+    cachePolitica.gravarPolitica({ uid: 'u1', dev: 'd1', generation: 1, versao: 1, politica: { pausado: true } });
+    assert.equal(admissao.pausado(motor({ config: { sync: sync(true) } })), true);
+    assert.equal(admissao.pausado(motor({ config: { sync: sync(false) } })), false, 'sem aceitar o admin, a política dele não pausa');
+    assert.equal(admissao.pausado(motor({ config: { sync: sync(true, false) } })), false, 'sem compartilhamento não há política de aparelho');
+    cachePolitica.gravarPolitica({ uid: 'u1', dev: 'd1', generation: 1, versao: 2, politica: { pausado: false } });
+    assert.equal(admissao.pausado(motor({ config: { sync: sync(true) } })), false);
+  } finally {
+    cachePolitica.apagarPolitica();
+  }
+});
+
+test('aparelho pausado não varre pushback nem co-assina; sem a pausa, os dois seguem', async () => {
+  const cachePolitica = (await import('../lib/sync/cache-politica.js')).default;
+  const pushbackMod = (await import('../lib/engine/pushback.js')).default;
+  const skipMod = (await import('../lib/engine/skip-review.js')).default;
+  const aceitando = { enabled: true, shared: { enabled: true }, aceitarAdmin: true };
+  const chamadas = [];
+  const engine = () => motor({
+    config: { autoPushback: true, coAssinarReview: true, sync: aceitando },
+    reviewActions: () => { chamadas.push('pushback'); return []; },
+    approvePolicyFor: () => 'approve',
+    accountForPr: () => { chamadas.push('coassinar'); return 'eu'; },
+    panorama: [], log: () => {}, emit: () => {},
+  });
+  const pr = { key: 'acme/app#1', url: 'https://github.com/acme/app/pull/1' };
+  try {
+    cachePolitica.gravarPolitica({ uid: 'u1', dev: 'd1', generation: 1, versao: 1, politica: { pausado: true } });
+    await pushbackMod.scanPushbacks(engine());
+    assert.deepEqual(chamadas, [], 'pausado, a varredura de pushback nem lista os alvos');
+    assert.equal(await skipMod.coAssinar(engine(), pr, 'ana', 'abc1234'), false);
+    assert.deepEqual(chamadas, ['coassinar'], 'pausado, a co-assinatura para antes de qualquer gh');
+    cachePolitica.gravarPolitica({ uid: 'u1', dev: 'd1', generation: 1, versao: 2, politica: { pausado: false } });
+    await pushbackMod.scanPushbacks(engine());
+    assert.ok(chamadas.includes('pushback'), 'sem a pausa, a varredura roda');
+  } finally {
+    cachePolitica.apagarPolitica();
+  }
+});

@@ -102,7 +102,7 @@ test('item 2: o formulário abre com a política vigente no banco, e diz a vers�
   assert.match(html, /<option value="2" selected>/);
   // v2.66.3: a tela oferecia tipos de operação e citava contas elegíveis, que nada aplicava
   assert.doesNotMatch(html, /apar-tipo|Tipos permitidos|contas elegíveis/i);
-  assert.match(html, /Pausa e teto valem só para a revisão/);
+  assert.match(html, /A pausa segura a revisão e tudo o que o aparelho começa sozinho/);
 });
 
 test('item 2: campo que a política não opina abre como "vale o teto total do próprio aparelho", não como o mínimo', () => {

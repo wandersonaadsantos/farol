@@ -103,7 +103,7 @@ export function aparelhoPoliticaHtml(aparelho, opcoes) {
       <label class="apar-campo"><span>Pausado</span><span class="set-ctl"><input type="checkbox" id="aparPolPausado"${pausado}><span class="switch"></span></span></label>
       <label class="apar-campo" for="aparPolTeto"><span>Teto total do aparelho</span><select id="aparPolTeto" class="sync-input">${opcoesDoTeto(pol.tetoParalelismo)}</select></label>
     </div>
-    <span class="sync-dica">O teto total soma todas as contas do aparelho; o limite por conta é dele, em Sistema → Automação. Se o aparelho também tiver um teto total próprio, vale o menor dos dois. Pausa e teto valem só para a revisão: pushback, co-assinatura, chat, autoanálise e ferramentas seguem sem passar por eles.</span>
+    <span class="sync-dica">O teto total soma todas as contas do aparelho; o limite por conta é dele, em Sistema → Automação. Se o aparelho também tiver um teto total próprio, vale o menor dos dois. A pausa segura a revisão e tudo o que o aparelho começa sozinho (pushback e co-assinatura); chat, autoanálise e ferramentas, que alguém dispara na hora, seguem. O teto conta só as revisões.</span>
     ${recusa}
     <div class="row-actions"><button class="btn sm primary" id="aparPublicarPolitica">Publicar política</button></div>
   </div>`;
