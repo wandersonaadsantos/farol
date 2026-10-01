@@ -169,7 +169,7 @@ enfileiramento sem NUNCA ter tido uma revisão. Pior, o toast falava do perfil, 
 dava pra ver quem consumiu.
 
 A cota é o teto do dia rateado por peso (`accounts[].budgetWeight`, default 1) entre as
-contas ATIVAS (não silenciadas, com `autoReview` ligado) daquele perfil. **A cláusula
+contas ATIVAS (não silenciadas, que revisam sozinhas: `accounts[].autoReview`) daquele perfil. **A cláusula
 que faz a feature ser o que é: a cota só barra quando existe OUTRA conta do mesmo perfil
 esperando na fila E que ainda cabe na cota dela.** Sem disputa, quem chegou é atendido
 até o teto duro, como sempre. Ceder pra quem também estourou não devolveria a vez a
@@ -189,9 +189,11 @@ laço; tratar a chave composta como id de perfil não acharia perfil nenhum, o a
 do Set todo ciclo e o toast repetiria sem parar, que é o barulho que o Set existe pra
 impedir.
 
-**Política 3, teto global** (`globalParallelLimit`, `config.globalParallelReviews`).
-Limita o TOTAL somando todas as contas. **Default 0 = desligado**, o comportamento de
-sempre. Clampa 1..8 no consumidor além do saneamento (defesa em profundidade, padrão do
+**Política 3, teto total do aparelho** (`globalParallelLimit`, `config.globalParallelReviews`;
+na tela, "Teto total deste aparelho"). Limita o TOTAL somando todas as contas, e desde
+30/09/2026 é também o lado local do teto da admissão (antes era `parallelReviews`, ver
+"Uma decisão, uma configuração" em [`CONFIGURATION.md`](CONFIGURATION.md#uma-decisão-uma-configuração-30092026)).
+**Default 0 = sem teto total**, o comportamento de sempre. Clampa 1..8 no consumidor além do saneamento (defesa em profundidade, padrão do
 `parallelLimit`), e negativo vira 0 e não 1: config torta não pode LIGAR uma trava que
 ninguém pediu. **Só é seguro porque a Política 1 existe:** teto global sozinho concentra,
 porque quem tem mais PR na fila ocupa o teto inteiro; com o rodízio decidindo quem ocupa

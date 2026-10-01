@@ -105,9 +105,9 @@ test('item 2: o formulário abre com a política vigente no banco, e diz a vers�
   assert.match(html, /Pausa e teto valem só para a revisão/);
 });
 
-test('item 2: campo que a política não opina abre como "vale o do aparelho", não como o mínimo', () => {
+test('item 2: campo que a política não opina abre como "vale o teto total do próprio aparelho", não como o mínimo', () => {
   const html = P.aparelhoPoliticaHtml(VELHO, { leitura: { estado: 'ok', existe: true, valida: true, versao: 1, politica: { pausado: false } } });
-  assert.match(html, /<option value="" selected>não definir \(vale o do aparelho, em Sistema → Automação\)<\/option>/);
+  assert.match(html, /<option value="" selected>não definir \(vale o teto total do próprio aparelho, em Sistema → Automação\)<\/option>/);
   assert.doesNotMatch(html, /id="aparPolPausado" checked/);
 });
 

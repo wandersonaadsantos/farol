@@ -184,7 +184,8 @@ function aoClicar(e) {
 function aoMudar(e) {
   const sel = e.target.closest('.ap-conta-sel, .ap-teto');
   if (!sel || desligadoNoClique(sel)) { renderAparelhos(); return; }
-  if (sel.classList.contains('ap-teto')) { mudarPolitica(sel.dataset.dev, { tetoParalelismo: Number(sel.value) }); return; }
+  // vazio = "não definir": a política deixa de opinar e o aparelho vale pelo próprio teto total
+  if (sel.classList.contains('ap-teto')) { mudarPolitica(sel.dataset.dev, { tetoParalelismo: sel.value ? Number(sel.value) : null }); return; }
   configConta(sel.dataset.acct, sel.dataset.campo, sel.value, sel.dataset.conta);
 }
 

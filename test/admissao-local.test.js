@@ -23,9 +23,12 @@ afterEach(() => {
   else delete process.availableMemory;
 });
 
+// O teto da admissão é o TOTAL do aparelho (`globalParallelReviews`), não o limite por conta
+// (`parallelReviews`): até 30/09/2026 o segundo virava o primeiro com o compartilhamento
+// ligado. O motor padrão desta suíte tem teto total 1.
 function motor(extra = {}) {
   return {
-    config: { parallelReviews: 1, sync: { enabled: true, shared: { enabled: true }, aceitarAdmin: false }, ...extra.config },
+    config: { parallelReviews: 1, globalParallelReviews: 1, sync: { enabled: true, shared: { enabled: true }, aceitarAdmin: false }, ...extra.config },
     doctorInfo: { claude: '1.0.0' },
     sync: { lastPresenceAt: AGORA, autoridade: null },
     ...extra,
@@ -81,7 +84,7 @@ test('o teto é do APARELHO: três operações de contas diferentes cabem uma', 
 
 test('teto maior cabe mais, e a política remota pode restringir', () => {
   comMemoria(4096);
-  const e = motor({ config: { parallelReviews: 3, sync: { enabled: true, shared: { enabled: true }, aceitarAdmin: false } } });
+  const e = motor({ config: { parallelReviews: 1, globalParallelReviews: 3, sync: { enabled: true, shared: { enabled: true }, aceitarAdmin: false } } });
   assert.deepEqual([1, 2, 3, 4].map(() => admissao.reservar(e, { agora: AGORA }).ok), [true, true, true, false]);
 });
 
@@ -127,7 +130,7 @@ test('requisitos duros: presença vencida, provedor não pronto e tipo desconhec
 
 test('o resumo conta por estado e por tipo, e nunca leva conteúdo', () => {
   comMemoria(4096);
-  const e = motor({ config: { parallelReviews: 4, sync: { enabled: true, shared: { enabled: true } } } });
+  const e = motor({ config: { globalParallelReviews: 4, sync: { enabled: true, shared: { enabled: true } } } });
   const a = admissao.reservar(e, { tipo: 'review', agora: AGORA, ref: 'dono/repo#1' });
   admissao.reservar(e, { tipo: 'chat', agora: AGORA });
   admissao.iniciar(e, a.id);
@@ -196,7 +199,150 @@ test('sem memória medida, a fila não anda e nada é estacionado', () => {
 
 test('teto do aparelho maior deixa várias contas rodarem juntas', () => {
   comMemoria(4096);
-  const e = engineFila(tres, { config: { parallelReviews: 3, sync: { enabled: true, shared: { enabled: true } } } });
+  const e = engineFila(tres, { config: { parallelReviews: 1, globalParallelReviews: 3, sync: { enabled: true, shared: { enabled: true } } } });
   reviewMod.processHeadless(e);
   assert.equal(e.ran.length, 3);
+});
+
+/* ---------- cada número diz uma coisa só (30/09/2026) ---------- */
+
+const COMPARTILHADO = { enabled: true, shared: { enabled: true }, aceitarAdmin: false };
+const daMesmaConta = [{ key: 'a/x#1', acct: 'c1' }, { key: 'a/x#2', acct: 'c1' }, { key: 'a/x#3', acct: 'c1' }];
+
+// Era o defeito: com a admissão ativa o limite por conta virava 4 fixo, e `parallelReviews`
+// passava a ser o total do aparelho. Uma conta com limite 1 abria três sessões juntas.
+test('o limite por conta vale igual com a admissão ativa: três PRs da mesma conta e limite 1 abrem UMA', () => {
+  comMemoria(4096);
+  const e = engineFila(daMesmaConta, { config: { parallelReviews: 1, globalParallelReviews: 0, sync: COMPARTILHADO } });
+  reviewMod.processHeadless(e);
+  assert.deepEqual(e.ran, ['a/x#1@c1']);
+  assert.equal(e.headlessQueue.length, 2);
+});
+
+test('o limite por conta é o mesmo número com e sem a admissão', () => {
+  comMemoria(4096);
+  for (const limite of [1, 2, 3, 4]) {
+    const com = engineFila([...daMesmaConta, { key: 'a/x#4', acct: 'c1' }, { key: 'a/x#5', acct: 'c1' }], { config: { parallelReviews: limite, sync: COMPARTILHADO } });
+    const sem = engineFila([...daMesmaConta, { key: 'a/x#4', acct: 'c1' }, { key: 'a/x#5', acct: 'c1' }], { config: { parallelReviews: limite, sync: { enabled: false } } });
+    reviewMod.processHeadless(com);
+    reviewMod.processHeadless(sem);
+    assert.equal(com.ran.length, limite, `com a admissão, limite ${limite}`);
+    assert.equal(sem.ran.length, limite, `sem a admissão, limite ${limite}`);
+  }
+});
+
+test('sem teto total, a admissão não nega vaga: quem limita é o limite por conta', () => {
+  comMemoria(4096);
+  const e = motor({ config: { parallelReviews: 1, globalParallelReviews: 0, sync: COMPARTILHADO } });
+  assert.equal(admissao.politicaDoAparelho(e).tetoParalelismo, null, 'nenhum dos dois lados opinou');
+  // `Math.max(1, Number(teto) || 1)` transformava "sem teto" em teto 1
+  assert.deepEqual([1, 2, 3, 4, 5, 6].map(() => admissao.reservar(e, { agora: AGORA }).ok), [true, true, true, true, true, true]);
+  // e no escalonador: três contas, limite 1 por conta, sem teto total = três sessões
+  const fila = engineFila(tres, { config: { parallelReviews: 1, globalParallelReviews: 0, sync: COMPARTILHADO } });
+  reviewMod.processHeadless(fila);
+  assert.equal(fila.ran.length, 3);
+});
+
+test('o teto total local é o globalParallelReviews, e o parallelReviews não entra nele', () => {
+  const com = (config) => admissao.politicaDoAparelho(motor({ config: { sync: COMPARTILHADO, ...config } })).tetoParalelismo;
+  assert.equal(com({ parallelReviews: 4, globalParallelReviews: 2 }), 2);
+  assert.equal(com({ parallelReviews: 1, globalParallelReviews: 6 }), 6);
+  assert.equal(com({ parallelReviews: 4, globalParallelReviews: 0 }), null, '0 = sem teto total');
+  assert.equal(com({ parallelReviews: 4 }), null, 'ausente = sem teto total');
+  assert.equal(com({ parallelReviews: 4, globalParallelReviews: 'x' }), null, 'torto não liga teto que ninguém pediu');
+  assert.equal(com({ parallelReviews: 4, globalParallelReviews: 99 }), 8, 'o mesmo clamp do escalonador');
+});
+
+// O que o aparelho publica e a tela mostra é sempre um número: o agendador do admin e a
+// frota em versão antiga leem `paralelismo` como total, e "sem teto" não é um número.
+test('o total do aparelho como número: o teto total, ou a soma dos limites por conta', () => {
+  const contas = [{ user: 'a' }, { user: 'b' }, { user: 'c' }];
+  const com = (config) => admissao.totalDoAparelho({ ...motor({ config: { sync: COMPARTILHADO, ...config } }), accountList: () => contas });
+  assert.equal(com({ parallelReviews: 2, globalParallelReviews: 5 }), 5);
+  assert.equal(com({ parallelReviews: 2, globalParallelReviews: 0 }), 6, 'três contas, duas por conta');
+  assert.equal(com({ parallelReviews: 1, globalParallelReviews: 0 }), 3);
+  assert.equal(admissao.totalDoAparelho(motor({ config: { parallelReviews: 3, globalParallelReviews: 0, sync: COMPARTILHADO } })), 3, 'sem lista de contas, conta uma');
+});
+
+// O total que vale é o MENOR entre o teto total deste aparelho e o que o admin definiu à
+// distância; sem um deles, vale o outro; o remoto nunca amplia.
+test('teto total local e remoto: vale o menor, e cada um vale sozinho quando o outro não opina', async () => {
+  const cachePolitica = (await import('../lib/sync/cache-politica.js')).default;
+  const aceitando = { enabled: true, shared: { enabled: true }, aceitarAdmin: true };
+  const tetoCom = (local, remoto) => {
+    if (remoto === null) cachePolitica.apagarPolitica();
+    else cachePolitica.gravarPolitica({ uid: 'u1', dev: 'd1', generation: 1, versao: 1, politica: { pausado: false, tetoParalelismo: remoto } });
+    return admissao.politicaDoAparelho(motor({ config: { parallelReviews: 4, globalParallelReviews: local, sync: aceitando } }));
+  };
+  try {
+    assert.equal(tetoCom(6, 3).tetoParalelismo, 3, 'o remoto restringe');
+    assert.equal(tetoCom(6, 3).origem.tetoParalelismo, 'restricao-mantida', 'sem autoridade fresca, o remoto continua restringindo');
+    assert.equal(tetoCom(2, 4).tetoParalelismo, 2, 'o remoto maior não amplia');
+    assert.equal(tetoCom(2, 4).origem.tetoParalelismo, 'local');
+    assert.equal(tetoCom(0, 3).tetoParalelismo, 3, 'sem teto local, o remoto vale sozinho');
+    assert.equal(tetoCom(5, null).tetoParalelismo, 5, 'sem política remota, o local vale sozinho');
+    assert.equal(tetoCom(0, null).tetoParalelismo, null, 'sem nenhum dos dois, não há teto total');
+    // sem teto local e com o remoto em 2: a terceira reserva é negada pelo teto do admin
+    comMemoria(4096);
+    cachePolitica.gravarPolitica({ uid: 'u1', dev: 'd1', generation: 1, versao: 1, politica: { pausado: false, tetoParalelismo: 2 } });
+    const e = motor({ config: { parallelReviews: 4, globalParallelReviews: 0, sync: aceitando } });
+    assert.deepEqual([1, 2, 3].map(() => admissao.reservar(e, { agora: AGORA }).ok), [true, true, false]);
+  } finally {
+    cachePolitica.apagarPolitica();
+  }
+});
+
+/* ---------- atualizar nunca faz uma instalação existente trabalhar MAIS ---------- */
+
+// Quantas sessões abrem com a fila cheia (cinco PRs por conta), e o máximo numa conta só.
+function vazao(config, nContas) {
+  const prs = [];
+  for (let c = 1; c <= nContas; c++) for (let i = 1; i <= 5; i++) prs.push({ key: `o${c}/r#${i}`, acct: `c${c}` });
+  const e = engineFila(prs, { config });
+  reviewMod.processHeadless(e);
+  const porConta = {};
+  for (const r of e.ran) { const conta = r.split('@')[1]; porConta[conta] = (porConta[conta] || 0) + 1; }
+  return { total: e.ran.length, maiorConta: Math.max(0, ...Object.values(porConta)) };
+}
+
+// O que o engine fazia até 30/09/2026, escrito como estava em admissao.js e review.js: com
+// a admissão ativa o total era o menor entre `parallelReviews` e o teto global, e o limite
+// por conta era 4 fixo; sem ela, limite por conta `parallelReviews` e só o teto global.
+function vazaoAntiga({ porConta, global, ligado }, nContas) {
+  const tetoGlobal = global > 0 ? global : Infinity;
+  const total = ligado ? Math.min(porConta, tetoGlobal) : tetoGlobal;
+  const limiteDaConta = ligado ? 4 : porConta;
+  return { total: Math.min(total, limiteDaConta * nContas), maiorConta: Math.min(limiteDaConta, total) };
+}
+
+test('tabela: o total do aparelho e o limite por conta são os mesmos antes e depois da migração', async () => {
+  const M = (await import('../lib/engine/contas-migracao.js')).default;
+  comMemoria(8192);
+  let linhas = 0;
+  for (const porConta of [1, 2, 3, 4]) for (const nContas of [1, 2, 3]) for (const ligado of [true, false]) for (const global of [0, 1, 2, 6]) {
+    const sync = ligado ? { enabled: true, shared: { enabled: true }, aceitarAdmin: false } : { enabled: false };
+    const antiga = { parallelReviews: porConta, globalParallelReviews: global, sync };
+    const r = M.migrarParalelismo(antiga);
+    const migrada = { ...antiga, esquemaConfig: r.esquemaConfig };
+    if ('globalParallelReviews' in r) migrada.globalParallelReviews = r.globalParallelReviews;
+    const rotulo = `por conta ${porConta}, ${nContas} conta(s), compartilhamento ${ligado}, teto global ${global}`;
+    const antes = vazaoAntiga({ porConta, global, ligado }, nContas);
+    const depois = vazao(migrada, nContas);
+    assert.equal(depois.total, antes.total, `${rotulo}: total do aparelho`);
+    // o limite por conta: o que UMA conta sozinha, com a fila cheia, consegue abrir
+    assert.equal(vazao(migrada, 1).total, vazaoAntiga({ porConta, global, ligado }, 1).total, `${rotulo}: limite por conta`);
+    assert.ok(depois.maiorConta <= antes.maiorConta, `${rotulo}: nenhuma conta abre mais do que abria`);
+    if (!ligado) assert.equal('globalParallelReviews' in r, false, `${rotulo}: sem compartilhamento, intocada`);
+    // idempotente: a config migrada não muda de novo
+    assert.deepEqual(M.migrarParalelismo(migrada), { mudou: false, mudancas: [] }, rotulo);
+    linhas++;
+  }
+  assert.equal(linhas, 96);
+});
+
+test('sem a migração, a mesma instalação abriria mais: é isto que ela impede', () => {
+  comMemoria(8192);
+  const sync = { enabled: true, shared: { enabled: true }, aceitarAdmin: false };
+  assert.equal(vazaoAntiga({ porConta: 2, global: 0, ligado: true }, 3).total, 2);
+  assert.equal(vazao({ parallelReviews: 2, globalParallelReviews: 0, sync }, 3).total, 6, 'quem tira o teto de propósito tem contas vezes o limite por conta');
 });

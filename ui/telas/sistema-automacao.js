@@ -1,6 +1,6 @@
 /* Farol · UI: automação (Sistema > Automação): provedor, modelo e esforço. */
 
-import { alcanceDaChaveGeral, opcoesDeModeloHtml, selecaoAceitaEsforco } from '../pure.js';
+import { opcoesDeModeloHtml, selecaoAceitaEsforco } from '../pure.js';
 import { estado } from './estado.js';
 import { $, marcarSeg } from './infra.js';
 
@@ -39,20 +39,7 @@ function renderEffortBox(box, eff) {
   if (alvo) alvo.checked = true;
 }
 
-// quantas contas cada chave geral alcança, dito ao lado da própria chave (29/09/2026)
-function renderAlcance() {
-  const alcance = estado().alcanceDasChavesGerais || {};
-  for (const [id, chave] of [['#alcanceAutoReview', 'autoReview'], ['#alcanceAutoApproveAll', 'autoApproveAll']]) {
-    const alvo = $(id);
-    if (!alvo) continue;
-    const texto = alcanceDaChaveGeral(alcance[chave]);
-    alvo.textContent = texto;
-    alvo.hidden = !texto;
-  }
-}
-
 function renderAutomationSettings(c) {
-  renderAlcance();
   if (!AUTOMATION_PROVIDER) AUTOMATION_PROVIDER = providerInicial(c);
   const codex = AUTOMATION_PROVIDER === 'codex';
   const botoes = [...document.querySelectorAll('#setAutomationProvider .seg-btn')];

@@ -333,7 +333,7 @@ test('iniciar aqui: sem vaga é recusa com sem_vaga, e nada é enfileirado', asy
   const item = `${prTag(kId(e), PR.key)}_${candidato.matContaTag(kId(e), PR.headSha, LOGIN)}`;
   e.sync.candidatos = new Map([[item, { pr: PR, conta: LOGIN }]]);
   e.enfileirarDaDistribuicao = () => assert.fail('sem vaga não executa');
-  e.updateSettings({ parallelReviews: 1 });
+  e.updateSettings({ globalParallelReviews: 1 }); // o teto TOTAL do aparelho, não o limite por conta
   const admissao = (await import('../lib/engine/admissao.js')).default;
   const { fixarMemoriaLivre, restaurarMemoriaLivre } = await import('./helpers/memoria-livre.js');
   fixarMemoriaLivre();

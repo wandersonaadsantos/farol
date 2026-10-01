@@ -110,7 +110,7 @@ async function motor(deviceId) {
   e.log = () => { };
   e.pushState = () => { };
   e.sync.fetchImpl = fetchDosDubles;
-  e.updateSettings({ sync: syncCfg(), accounts: [{ user: LOGIN, owners: ['acme-exemplo'] }], parallelReviews: 1 });
+  e.updateSettings({ sync: syncCfg(), accounts: [{ user: LOGIN, owners: ['acme-exemplo'] }], parallelReviews: 1, globalParallelReviews: 1 });
   if (e.sync.iniciando) await e.sync.iniciando;
   assert.equal((await e.syncLogin({ email: EMAIL, password: SENHA })).ok, true);
   assert.equal((await e.syncUnlock({ password: SENHA })).ok, true);

@@ -29,14 +29,14 @@ const CONTAS = [
   { user: 'conta-um', owners: ['a'], autoReview: true, onClean: 'approve', onCaveats: 'approve', onReject: 'request_changes' },
   { user: 'conta-dois', owners: ['b'], autoReview: false, muted: true, onClean: 'wait', onReject: 'wait' },
   { user: 'c'.repeat(39), owners: ['c'], onCaveats: 'wait' },
-  { user: 'd'.repeat(39), owners: ['d'] },
+  { user: 'd'.repeat(39), owners: ['d'], onCaveats: 'approve' },
 ];
 
 function motor() {
   const e = new Engine();
   e.log = () => { };
   e.pushState = () => { };
-  e.updateSettings({ accounts: CONTAS, autoApproveAll: true });
+  e.updateSettings({ accounts: CONTAS });
   e.sync.material = kek.novoMaterial();
   e.sync.cur = 'g1';
   e.sync.uid = 'u1';
@@ -61,7 +61,7 @@ function cifrar(e, c) {
   });
 }
 
-test('a capacidade leva a política EFETIVA de cada conta, na ordem das contas', () => {
+test('a capacidade leva a política de cada conta, na ordem das contas', () => {
   const e = motor();
   const c = publicacao.capacidadeDe(e, { aceitarAdmin: true });
   assert.equal(c.politicas.length, c.contas.length);
@@ -69,9 +69,27 @@ test('a capacidade leva a política EFETIVA de cada conta, na ordem das contas',
   const porConta = Object.fromEntries(c.contas.map((tag, i) => [tag, c.politicas[i]]));
   assert.deepEqual(porConta[acctTag(kId, 'conta-um')], [true, false, 'approve', 'approve', 'request_changes']);
   assert.deepEqual(porConta[acctTag(kId, 'conta-dois')], [false, true, 'wait', 'wait', 'wait']);
-  // campo ausente herda o geral: é o que o aparelho faz, e é o que a tela mostra como atual
+  // a política mora só na conta (30/09/2026): o que sai é o que a conta tem gravado, e a
+  // conta que chegou sem um campo o recebeu por extenso na gravação
   assert.deepEqual(porConta[acctTag(kId, 'c'.repeat(39))], [true, false, 'approve', 'wait', 'wait']);
   assert.deepEqual(porConta[acctTag(kId, 'd'.repeat(39))], [true, false, 'approve', 'approve', 'wait']);
+});
+
+// O campo `paralelismo` não mudou de nome (o agendador do admin e a frota em versão antiga o
+// leem como o total do aparelho); desde 30/09/2026 o valor vem do teto TOTAL, e não mais do
+// limite por conta, que virava total quando o compartilhamento ligava.
+test('a capacidade publica o TOTAL do aparelho: o teto total, ou a soma dos limites por conta', () => {
+  const e = motor();
+  e.updateSettings({ parallelReviews: 1, globalParallelReviews: 0 });
+  assert.equal(publicacao.capacidadeDe(e, { aceitarAdmin: true }).paralelismo, 4, 'sem teto total: quatro contas, uma por conta');
+  e.updateSettings({ parallelReviews: 2 });
+  assert.equal(publicacao.capacidadeDe(e, { aceitarAdmin: true }).paralelismo, 8);
+  e.updateSettings({ globalParallelReviews: 3 });
+  assert.equal(publicacao.capacidadeDe(e, { aceitarAdmin: true }).paralelismo, 3, 'com teto total, é ele, e o limite por conta não entra');
+  e.updateSettings({ parallelReviews: 4 });
+  assert.equal(publicacao.capacidadeDe(e, { aceitarAdmin: true }).paralelismo, 3);
+  // leitor de versão antiga: o painel continua recebendo um número de 1 para cima
+  assert.equal(capacidade.painelDaCapacidade(publicacao.capacidadeDe(e, { aceitarAdmin: true })).paralelismo, 3);
 });
 
 test('a capacidade leva só as 3 falhas mais recentes, com classe, instante e o PR como tag, sem texto livre', () => {
