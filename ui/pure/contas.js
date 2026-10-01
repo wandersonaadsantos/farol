@@ -413,11 +413,11 @@ export function accountsManagerHtml(ctx) {
               ${opcoesDaPolitica('autoReview', pol.autoReview)}
             </select></div>
           <div class="a-pol-item"><span class="a-fieldlabel">${T.onClean.rotulo}</span>
-            <select class="acct-onclean" data-user="${esc(a.user)}" title="PR aprovável, sem nenhum ponto de atenção e com a revisão decidindo aprovar. Com o Jira ligado, isso exige o card do PR lido e atendido: PR sem card cai na regra com ressalvas">
+            <select class="acct-onclean" data-user="${esc(a.user)}" title="PR aprovável e sem nenhum ponto de atenção. Com o Jira ligado, isso exige o card do PR lido e atendido: PR sem card cai na regra com ressalvas. CI obrigatório vermelho ou rodando só adia: o Farol espera e aprova sozinho quando fechar verde no mesmo commit">
               ${opcoesDaPolitica('onClean', pol.onClean)}
             </select></div>
           <div class="a-pol-item"><span class="a-fieldlabel">${T.onCaveats.rotulo}</span>
-            <select class="acct-oncaveats" data-user="${esc(a.user)}"${travaRessalva} title="PR aprovável, mas com pontos de atenção anotados (inclui PR sem card do Jira, quando o Jira está ligado). O APPROVE sai com o texto da revisão; as ressalvas ficam aqui no app, não no PR. Com o sem ressalvas esperando você, este também espera: o com ressalvas nunca é mais permissivo que o limpo">
+            <select class="acct-oncaveats" data-user="${esc(a.user)}"${travaRessalva} title="PR aprovável, mas com pontos de atenção anotados: o que a revisão levantou, PR sem card do Jira (quando o Jira está ligado), leitura que não cobriu o diff inteiro, dependência em aberto ou discordância de outro review. O APPROVE sai com o texto da revisão; as ressalvas ficam aqui no app, não no PR. CI obrigatório vermelho ou rodando só adia: o Farol espera e aprova sozinho quando fechar verde no mesmo commit">
               ${opcoesRessalva}
             </select></div>
           <div class="a-pol-item"><span class="a-fieldlabel">${T.onReject.rotulo}</span>

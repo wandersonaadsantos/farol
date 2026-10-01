@@ -148,7 +148,6 @@ function renderSettings() {
   // teto total do aparelho: 0 = sem teto, e o `|| 0` do default cai certo nele de propósito
   $('#setGlobalParallelReviews').value = String(c.globalParallelReviews || 0);
   renderAutomationSettings(c);
-  $('#setAutoApproveContested').checked = c.autoApproveContested === true;
   $('#setReviewFast').checked = c.reviewFast === true;
   $('#setCoAssinarReview').checked = c.coAssinarReview === true;
   $('#setReReviewResume').checked = c.reReviewResume === true;

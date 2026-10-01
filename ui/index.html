@@ -112,6 +112,14 @@
       <div id="decisions" class="cards"></div>
     </div>
 
+    <div id="esperaCiWrap" hidden>
+      <div class="section-head">
+        <h2>Esperando o CI (aprova sozinho) <span id="esperaCiCount" class="count ambient"></span></h2>
+      </div>
+      <p class="section-desc">Revisão pronta e aprovável. O Farol espera os checks obrigatórios e aprova sozinho quando fecharem verdes no mesmo commit; com CI vermelho não aprova, e se chegar commit novo revisa de novo. Você não precisa fazer nada: o botão Aprovar está aqui só para quem não quiser esperar.</p>
+      <div id="esperaCi" class="cards"></div>
+    </div>
+
     <div id="queueSection" class="section-head">
       <h2>Sua fila <span id="queueCount" class="count" hidden></span></h2>
       <button id="btnReviewAll" class="btn primary sm" hidden>Revisar tudo</button>
@@ -447,13 +455,6 @@
           <div class="section-head"><h2>Automação</h2></div>
           <p class="section-desc">Como o Farol trabalha sozinho: com qual modelo, quantas revisões ao mesmo tempo e de quanto em quanto tempo ele consulta o GitHub. Se uma conta revisa e aprova sozinha é decidido só em <span class="is-goto" data-goto="sys:accounts:#accountsManager" role="button" tabindex="0" title="Abrir Sistema → Contas">Contas</span>, conta a conta.</p>
           <div class="card set-list">
-            <label class="set-row" id="sys-row-autocontested">
-              <span class="set-txt">
-                <span class="set-title">Aprovar sozinho mesmo discordando de outro review</span>
-                <span class="set-desc">Quando a revisão discorda de um apontamento de outro revisor (Acrity, Sonar, uma pessoa) e prova a discordância, desligado (padrão) o PR vai pra sua mesa, porque aprovar por cima de outro revisor é tomar posição pública. Ligado, a discordância deixa de travar e vira só ponto de atenção: quem decide passa a ser a regra de ressalvas acima. A discordância nunca é escrita no PR, fica só aqui. Reprovar sozinho continua sempre passando por você.</span>
-              </span>
-              <span class="set-ctl"><input id="setAutoApproveContested" type="checkbox"><span class="switch"></span></span>
-            </label>
             <label class="set-row" id="sys-row-coassinar">
               <span class="set-txt">
                 <span class="set-title">Aprovar junto com quem pegou o PR</span>

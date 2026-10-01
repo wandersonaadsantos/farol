@@ -123,7 +123,7 @@ function motor(alcance) {
   e.tokens = { eu: 'token-falso' };
   e.config.accounts = [{ user: 'eu', owners: ['acme'] }];
   e.config.autoApproveAll = true;
-  e.approvePolicyFor = () => 'approve';
+  e.approvePolicyFor = (_conta, limpo) => (limpo ? 'approve' : 'wait');
   e.saveDecisions = () => { };
   e.pushState = () => { };
   e.refreshTokens = async () => { };
@@ -146,11 +146,14 @@ function motor(alcance) {
 const motivos = (e) => [...e.decisions.pending, ...e.decisions.resolved].find((d) => d.key === PR.key).reasons
   .map((r) => (typeof r === 'string' ? r : r.text)).join(' | ');
 
-test('revisão real: chamador inventado não aprova sozinho e o motivo cita o arquivo', async () => {
+// 30/09/2026: a lacuna de alcance é ressalva. Aqui a conta espera nas ressalvas (o motor
+// acima), então nada é postado, e o motivo é a política com a lacuna visível ao lado.
+test('revisão real: chamador inventado é ressalva, a conta que espera nas ressalvas não posta e o card cita o arquivo', async () => {
   noHead = { 'src/rota.ts': CHAMADOR };
   const e = motor([{ alterado: 'src/veredito.ts', chamadores: [{ arquivo: 'src/rota.ts', linha: 4, simbolo: 'naoExiste' }] }]);
   await e.runHeadlessReview({ ...PR });
   assert.equal(e.postados.length, 0, 'nada foi postado');
+  assert.match(motivos(e), /aprovável com ressalvas/);
   assert.match(motivos(e), /cobertura da leitura/);
   assert.match(motivos(e), /src\/rota\.ts:4 não cita naoExiste no head/);
 });

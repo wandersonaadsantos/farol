@@ -39,7 +39,9 @@ function cmdStatic() { return [
   // o lote respeita o ESCOPO: aprova só o que o filtro de conta mostra, nunca a
   // fila inteira (agravante do achado A5, regra R13 do plano mestre)
   ...(() => {
-    const visiveis = (estado()?.decisions?.pending || []).filter(scopeVisible);
+    // e deixa de fora o que espera o CI: aprovar em lote por cima de pipe vermelha ou
+    // rodando não é o que "as pendentes" promete (um a um continua valendo)
+    const visiveis = (estado()?.decisions?.pending || []).filter(d => !d.esperaCi).filter(scopeVisible);
     return visiveis.length > 1
       ? [{ kind: 'lote', label: `Aprovar as ${visiveis.length} pendentes`, hint: 'lote',
           run: async () => { for (const d of visiveis) await decide(d.id, 'approve'); } }]

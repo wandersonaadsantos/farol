@@ -64,8 +64,10 @@ test('o lote "Aprovar as N pendentes" só alcança as decisões visíveis no esc
   // agravante do A5 (regra R13 do plano mestre): aprovar em lote não pode alcançar
   // decisões que o filtro de conta esconde; o lote itera a lista passada por
   // scopeVisible, nunca estado().decisions.pending inteiro
-  assert.match(APPJS, /const visiveis = \(estado\(\)\?\.decisions\?\.pending \|\| \[\]\)\.filter\(scopeVisible\);/,
-    'o lote nasce da lista filtrada por scopeVisible');
+  // desde 30/09/2026 o lote também deixa de fora o que espera o CI: aprovar em lote por cima
+  // de pipe vermelha ou rodando não é o que "as pendentes" promete
+  assert.match(APPJS, /const visiveis = \(estado\(\)\?\.decisions\?\.pending \|\| \[\]\)\.filter\(d => !d\.esperaCi\)\.filter\(scopeVisible\);/,
+    'o lote nasce da lista filtrada por scopeVisible, sem a espera do CI');
   assert.match(APPJS, /for \(const d of visiveis\) await decide\(d\.id, 'approve'\);/,
     'a iteração do lote é sobre as visíveis');
   assert.doesNotMatch(APPJS, /for \(const d of \[\.\.\.estado\(\)\.decisions\.pending\]\)/,

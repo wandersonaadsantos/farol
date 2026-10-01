@@ -19,9 +19,28 @@ const DECISION = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'en
 const MOTIVOS = [...DECISION.matchAll(/motivo: '([a-z_]+)'/g)].map(m => m[1]);
 
 test('o gate devolve os motivos que este teste conhece', () => {
-  for (const esperado of ['analise_incompleta', 'nao_aprovavel', 'clique', 'contestacao', 'cobertura', 'checkpoint', 'politica']) {
+  for (const esperado of ['analise_incompleta', 'nao_aprovavel', 'sem_texto', 'clique', 'politica']) {
     assert.ok(MOTIVOS.includes(esperado), `motivo ${esperado} sumiu do gate`);
   }
+});
+
+// 30/09/2026: discordância, cobertura, checkpoint e dependência eram motivos de recusa que
+// mandavam um resultado aprovável para a mesa sem consultar a política da conta. Viraram
+// ressalva (lib/engine/ressalvas.js). Se um deles voltar a ser motivo do gate, a
+// configuração "aprova sozinho" volta a não cumprir o que promete.
+test('o gate não tem mais motivo que mande um aprovável para a mesa por fora da política', () => {
+  for (const morto of ['contestacao', 'cobertura', 'checkpoint', 'dependencia']) {
+    assert.equal(MOTIVOS.includes(morto), false, `motivo ${morto} voltou ao gate`);
+    assert.equal(REVIEW.includes(`autoDec.motivo === '${morto}'`), false, `review.js ainda trata ${morto}`);
+  }
+  const corpo = DECISION.slice(DECISION.indexOf('function shouldAutoApprove'), DECISION.indexOf('function shouldAutoReject'));
+  assert.doesNotMatch(corpo, /coverageGap|checkpointGap|contestations|result\.decision/, 'a classe depende só dos pontos de atenção');
+});
+
+test('os dois motivos do CI são espera automática, tratada pelo espera-ci.js', () => {
+  assert.match(REVIEW, /esperaCi\.armar\(autoDec\.motivo, result, pontos\)/);
+  const ESPERA = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'engine', 'espera-ci.js'), 'utf8');
+  assert.match(ESPERA, /MOTIVOS_DE_ESPERA = \['ci_vermelho', 'ci_em_andamento'\]/);
 });
 
 test('todo motivo de recusa tem tradução no runHeadlessReview', () => {

@@ -7,7 +7,7 @@
 import {
   esc, fmtStamp, fmtWhenDay, personMention, papelPicker, reasonGroupsHtml, chatBadge, md,
   resolvedRow, listViewState, queueEmptyOkHtml, aprovadosHoje, orgsMonitoradas,
-  automacaoPausadaPor, queueCardHtml, panoramaRowHtml, staleCardMeta,
+  automacaoPausadaPor, queueCardHtml, panoramaRowHtml, staleCardMeta, separarPendentes,
 } from '../pure.js';
 import { estado, escopo, peopleOf } from './estado.js';
 import { $, api, textoDaListaVazia, toast, copyToClipboard, lembrarAbertos } from './infra.js';
@@ -27,6 +27,7 @@ let RADAR_SUB = 'mim';
 // listas se redesenham a cada estado do SSE; é daqui que o `open` volta (lembrarAbertos).
 const radarAbertos = new Set();
 lembrarAbertos($('#decisions'), radarAbertos);
+lembrarAbertos($('#esperaCi'), radarAbertos);
 lembrarAbertos($('#resolved'), radarAbertos);
 
 function switchRadarSub(nome) {
@@ -82,18 +83,19 @@ $('#radarSubs').addEventListener('click', (e) => {
 function renderDecisions() {
   // guarda de foco: não reconstrói os cards enquanto você mexe no seletor de papel
   // (ou em outro input) de um card; ainda assim atualiza Revisões recentes
-  const dbox = $('#decisions');
-  if (document.activeElement && dbox.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) { renderResolved(); return; }
-  const pending = (estado().decisions?.pending || []).filter(scopeVisible);
+  const mexendo = (box) => document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName);
+  if (mexendo($('#decisions')) || mexendo($('#esperaCi'))) { renderResolved(); return; }
+  // quem espera o CI não precisa de você: sai do contador e ganha seção própria (30/09/2026)
+  const { precisam: pending, esperandoCi } = separarPendentes((estado().decisions?.pending || []).filter(scopeVisible));
   // uma leitura só pra toda a renderização: os cards desta passada têm que
   // enxergar o MESMO mapa de pessoas, senão um SSE no meio do map faria dois
   // cards da mesma tela discordarem sobre o papel de alguém
   const people = peopleOf();
-  const wrap = $('#decisionsWrap');
-  wrap.hidden = pending.length === 0;
+  $('#decisionsWrap').hidden = pending.length === 0;
   $('#decisionsCount').textContent = pending.length;
-  if (!pending.length) { $('#decisions').innerHTML = ''; renderResolved(); return; }
-  $('#decisions').innerHTML = pending.map(d => {
+  $('#esperaCiWrap').hidden = esperandoCi.length === 0;
+  $('#esperaCiCount').textContent = esperandoCi.length;
+  const card = d => {
     const m = acctMark(d);
     const author = (d.pr && d.pr.author) || d.author || '';
     // card de commit novo (v2.59.3): barra, veredito, motivos, aviso e botões saem daqui
@@ -123,7 +125,9 @@ function renderDecisions() {
         <button class="btn sm ghost dec-act" data-action="skip">Pular</button>
       </div>
     </div>`;
-  }).join('');
+  };
+  $('#decisions').innerHTML = pending.map(card).join('');
+  $('#esperaCi').innerHTML = esperandoCi.map(card).join('');
   renderResolved();
 }
 
