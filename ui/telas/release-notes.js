@@ -7,6 +7,10 @@
 // mesmo número de versão no topo (test/release-consistency.test.js amarra os três).
 
 export const RELEASE_NOTES = [
+  ['2.70.0', [
+    "Nova chave em Sistema > Automação, \"Esperar o CI para aprovar\", desligada por padrão. Desligada, a aprovação automática sai assim que a revisão termina, mesmo com check obrigatório vermelho ou rodando, e o estado do CI fica como ressalva no card, nunca no PR. Ligada, o Farol espera a pipe fechar verde no mesmo commit, como antes.",
+    "Aprovações que já estavam esperando o CI saem sozinhas depois de atualizar, conferindo de novo política, commit e reviews de pessoas. Quem quer manter a espera precisa ligar a chave.",
+  ]],
   ['2.69.1', [
     "Pedir a revisão de novo volta a produzir revisão, mesmo sem commit novo: antes o Farol não revisava, não recusava e não avisava.",
   ]],
