@@ -9,6 +9,19 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.71.0
+
+A fila passa a dizer quem já está revisando o PR e quando a revisão automática está esperando o limite do plano do Claude.
+
+**Novidades**
+
+- **Quem está revisando, no card.** Quando outra pessoa está com a label de revisando num PR pedido a você, o card de Pra mim mostra quem é e o botão vira "Revisar junto". O Panorama e o card da sessão em andamento também mostram. Se a pessoa já revisou e saiu, o card diz isso e deixa claro que a decisão é sua.
+- **Nova chave "Revisar sozinho mesmo com outra pessoa revisando"**, em Sistema > Automação, desligada por padrão. Desligada, o Farol continua sem revisar sozinho quando alguém já pegou o PR. Ligada, ele revisa mesmo assim; nesse caso a co-assinatura de "Aprovar junto com quem pegou o PR" não acontece, porque a sua aprovação vem da sua revisão.
+
+**Correções**
+
+- **O card explica quando a revisão automática espera o limite do plano.** Quando a assinatura do Claude bate no limite, o Farol espera o reset antes de abrir sessão nova, mas o card ficava igual ao de qualquer outro PR e parecia que a automação tinha parado sem motivo. Agora ele diz "recomeço sozinho às 21:00", e com vários PRs na mesma espera aparece um aviso único no topo da fila. O botão Revisar continua tentando na hora.
+
 ## v2.70.0
 
 A aprovação automática deixa de esperar o CI por padrão.

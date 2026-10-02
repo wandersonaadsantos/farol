@@ -7,6 +7,11 @@
 // mesmo número de versão no topo (test/release-consistency.test.js amarra os três).
 
 export const RELEASE_NOTES = [
+  ['2.71.0', [
+    "O card da fila mostra quem já está revisando o PR, e o botão vira \"Revisar junto\". Panorama e sessão em andamento também mostram. Se a pessoa já revisou, o card diz que a decisão é sua.",
+    "Nova chave em Sistema > Automação, \"Revisar sozinho mesmo com outra pessoa revisando\", desligada por padrão. Ligada, o Farol revisa mesmo assim e não co-assina.",
+    "Quando a assinatura do Claude bate no limite do plano, o card diz que a revisão automática recomeça sozinha no reset, em vez de ficar parado sem explicação.",
+  ]],
   ['2.70.0', [
     "Nova chave em Sistema > Automação, \"Esperar o CI para aprovar\", desligada por padrão. Desligada, a aprovação automática sai assim que a revisão termina, mesmo com check obrigatório vermelho ou rodando, e o estado do CI fica como ressalva no card, nunca no PR. Ligada, o Farol espera a pipe fechar verde no mesmo commit, como antes.",
     "Aprovações que já estavam esperando o CI saem sozinhas depois de atualizar, conferindo de novo política, commit e reviews de pessoas. Quem quer manter a espera precisa ligar a chave.",
