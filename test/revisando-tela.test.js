@@ -13,8 +13,22 @@ const AGORA = new Date(2026, 9, 2, 16, 12).getTime();
 const AS_21 = new Date(2026, 9, 2, 21, 0).getTime();
 const PR = { key: 'o/r#1', url: 'https://github.com/o/r/pull/1', title: 'Troca o frete', author: 'rafa', updatedAt: new Date(AGORA).toISOString() };
 const MARK = { style: '', dot: '', chip: '' };
-// o avatar do personMention traz a inicial como fallback da foto: fora do texto lido
-const texto = (html) => html.replace(/<span class="avatar[^"]*">.*?<\/span>/g, '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+// O texto que a pessoa lê, sem as tags e sem a inicial que o avatar do personMention traz
+// como fallback da foto. Leitor de tags caractere a caractere, e não regex de "tirar tag":
+// o CodeQL marca essa regex como sanitização incompleta, mesmo num teste.
+function texto(html) {
+  let out = '';
+  let dentroDoAvatar = false;
+  for (let i = 0; i < html.length; i++) {
+    if (html[i] !== '<') { if (!dentroDoAvatar) out += html[i]; continue; }
+    const fim = html.indexOf('>', i);
+    const tag = html.slice(i, fim + 1);
+    if (tag.startsWith('<span class="avatar')) dentroDoAvatar = true;
+    else if (dentroDoAvatar && tag === '</span>') dentroDoAvatar = false;
+    i = fim;
+  }
+  return out.split(/\s+/).filter(Boolean).join(' ');
+}
 
 test('horaDoReset: hoje, amanhã e outro dia, nas duas formas', () => {
   assert.deepEqual(horaDoReset(AS_21, AGORA), { as: 'às 21:00', curta: '21:00' });
