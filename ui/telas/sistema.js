@@ -150,6 +150,12 @@ function renderSettings() {
   renderAutomationSettings(c);
   $('#setReviewFast').checked = c.reviewFast === true;
   $('#setCoAssinarReview').checked = c.coAssinarReview === true;
+  // revisar junto ligado tira o efeito de "Aprovar junto": não há saída de cena para co-assinar.
+  // O valor salvo de "Aprovar junto" fica como está; só a linha avisa e o switch esmaece.
+  const revisarJunto = c.revisarComOutrosRevisando === true;
+  $('#setRevisarJunto').checked = revisarJunto;
+  $('#notaAprovarJuntoSemEfeito').hidden = !revisarJunto;
+  $('#sys-row-coassinar').classList.toggle('sem-efeito', revisarJunto);
   $('#setAguardarCi').checked = c.aguardarCiParaRevisar === true;
   $('#setAguardarCiAprovar').checked = c.aguardarCiParaAprovar === true;
   $('#setReReviewResume').checked = c.reReviewResume === true;

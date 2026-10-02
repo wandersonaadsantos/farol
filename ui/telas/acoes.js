@@ -171,6 +171,7 @@ const settingsMap = [
   ['#setDebugSpawns', 'debugSpawns', el => el.checked],
   ['#setReviewFast', 'reviewFast', el => el.checked],
   ['#setCoAssinarReview', 'coAssinarReview', el => el.checked],
+  ['#setRevisarJunto', 'revisarComOutrosRevisando', el => el.checked],
   ['#setAguardarCi', 'aguardarCiParaRevisar', el => el.checked],
   ['#setAguardarCiAprovar', 'aguardarCiParaAprovar', el => el.checked],
   ['#setReReviewResume', 'reReviewResume', el => el.checked],

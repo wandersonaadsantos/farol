@@ -17,6 +17,7 @@ import { avatar, personMention } from './mencoes.js';
 import { papelPicker } from './pessoas.js';
 import { chatBadge, reviewChip } from './review.js';
 import { prCoordNoteHtml } from './sync.js';
+import { avisosDoCard, limitNoteHtml, othersLineHtml, pwOthersHtml } from './revisando.js';
 
 /* A automação está pausada por teto de gasto? PURA.
 
@@ -145,11 +146,11 @@ const PARKED_FRASE = {
 // Existe porque o estacionamento era invisível: o toast morria em cinco segundos e o
 // card voltava idêntico ao de um PR nunca revisado (biud-core#317, 03/09/2026: duas
 // horas parado no Farol de um colega enquanto ele revisava os vizinhos). '' sem info.
-export function parkedNoteHtml(info) {
+export function parkedNoteHtml(info, rotulo = 'Revisar') {
   if (!info || typeof info !== 'object') return '';
   const frase = (PARKED_FRASE[info.tipo] || PARKED_FRASE.falha)(String(info.motivo || '').trim());
   const quando = info.at ? ` <span title="${esc(fmtStamp(info.at))}">${esc(fmtWhenDay(info.at))}</span>` : '';
-  return `<div class="pr-parked">Revisão automática parada${quando}: ${esc(frase)}. Ela não relança sozinha; o botão Revisar tenta de novo.</div>`;
+  return `<div class="pr-parked">Revisão automática parada${quando}: ${esc(frase)}. Ela não relança sozinha; o botão ${esc(rotulo)} tenta de novo.</div>`;
 }
 
 export function queueCardHtml(pr, ctx) {
@@ -159,12 +160,17 @@ export function queueCardHtml(pr, ctx) {
   const seloRascunho = pr.isDraft ? '<span class="badge">rascunho</span>' : '';
   const seloRepedida = pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : '';
   const papel = pr.author ? ` ${papelPicker(pr.author, ctx.people)}` : '';
-  // estacionamento VENCE a coordenação quando os dois valem: ele é falha e exige ação
-  // sua, a espera se resolve sozinha. Duas notas no mesmo card competiriam por atenção
-  // e a mais urgente perderia.
-  const parked = parkedNoteHtml((ctx.parked || {})[pr.key]);
-  const coord = parked ? '' : prCoordNoteHtml(pr.key, ctx.sync);
-  const acaoRevisar = `<button class="btn primary sm act-review" data-url="${esc(pr.url)}">Revisar</button>`;
+  // Uma nota de revisão automática por card, na precedência do Claude Design (02/10/2026,
+  // ui/pure/revisando.js): parada, depois limite do plano, depois coordenação. Com alguém
+  // revisando e a chave de revisar junto desligada, limite e coordenação somem, porque
+  // falam de uma revisão automática que não vai acontecer.
+  const parkedInfo = (ctx.parked || {})[pr.key];
+  const av = avisosDoCard(pr, { temParada: !!parkedInfo, limiteAtivo: Number(ctx.limiteAte) > Date.now(), limiteNoTopo: !!ctx.limiteNoTopo, revisarJunto: !!ctx.revisarJunto });
+  const parked = parkedNoteHtml(parkedInfo, av.rotulo);
+  const pessoas = av.forma ? othersLineHtml(av.logins, av.forma) : '';
+  const limite = av.nota === 'limite' ? limitNoteHtml(ctx.limiteAte, av.formaLimite, av.rotulo) : '';
+  const coord = av.nota === 'coordenacao' ? prCoordNoteHtml(pr.key, ctx.sync) : '';
+  const acaoRevisar = `<button class="btn primary sm act-review" data-url="${esc(pr.url)}">${av.rotulo}</button>`;
   // O ponto da conta abre a linha do PR, e não é filho do card: a grade tem uma coluna
   // por filho (avatar, conteúdo, ações, na anatomia do Claude Design), e um quarto filho
   // jogava o avatar na coluna elástica e as ações para baixo (visão Todas, 25/09/2026).
@@ -175,7 +181,7 @@ export function queueCardHtml(pr, ctx) {
         <div class="pr-ref">${m.dot}<a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}${seloRascunho}${seloRepedida}</div>
         <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
         <div class="pr-sub">${personMention(pr.author, 'xs')} · atualizado ${fmtRel(pr.updatedAt)}${papel}</div>
-        ${parked}${coord}
+        ${parked}${pessoas}${limite}${coord}
       </div>
       <div class="pr-actions">
         ${acaoRevisar}
@@ -272,6 +278,7 @@ export function panoramaRowHtml(pr, ctx) {
           ${seloRascunhoP}
           ${seloRepedidaP}
           ${chip}
+          ${pwOthersHtml(pr.outrosRevisando)}
         </div>
         <div class="pw-title">
           <span class="pw-title-txt" title="${esc(pr.title)}">${esc(pr.title)}</span>

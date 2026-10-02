@@ -91,9 +91,12 @@ test('cada PR leva a lista de quem mais está revisando, com a chave ligada ou n
     e.outrosRevisando = (pr) => (pr.key === 'o/r#1' ? ['ana', 'bia'] : []);
     const um = { key: 'o/r#1' };
     const dois = { key: 'o/r#2' };
+    e.skipComentado = { 'o/r#2': { quem: ['carla'], at: 5, head: 'abc', autoridade: true } };
     skip.anotarOutrosRevisando(e, [um, dois, um, null]);
     assert.deepEqual(um.outrosRevisando, ['ana', 'bia']);
+    assert.equal(um.foraDeCena, null);
     assert.deepEqual(dois.outrosRevisando, []);
+    assert.deepEqual(dois.foraDeCena, { quem: ['carla'], desde: 5, coAssinado: false }, 'só o que a tela usa: nem head nem autoridade');
   }
 });
 
