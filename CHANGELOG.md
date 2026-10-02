@@ -9,6 +9,20 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.70.0
+
+A aprovação automática deixa de esperar o CI por padrão.
+
+**Novidades**
+
+- **Nova chave "Esperar o CI para aprovar"**, em Sistema > Automação, desligada por padrão. Desligada, a aprovação automática sai assim que a revisão termina, mesmo com check obrigatório vermelho ou ainda rodando, e o estado do CI fica registrado como ressalva no card, aqui no app. Nada disso vai para o texto do PR. Ligada, volta o comportamento da v2.67.0: o card fica em "Esperando o CI (aprova sozinho)" e o Farol aprova quando a pipe fecha verde no mesmo commit.
+
+**Atenção ao atualizar**
+
+- **Aprovações que já estavam esperando o CI saem sozinhas** no primeiro ciclo depois da atualização. Antes de postar, o Farol confere de novo a política da conta, se o commit ainda é o que foi revisado, se alguém do time pediu mudanças nele e se você já tinha aprovado.
+- Quem quer manter a espera precisa ligar a chave depois de atualizar.
+- Conta que manda esperar você não muda: o PR vai para a sua mesa, com o aviso do CI no card.
+
 ## v2.69.1
 
 Pedir a revisão de novo volta a produzir revisão, mesmo sem commit novo.

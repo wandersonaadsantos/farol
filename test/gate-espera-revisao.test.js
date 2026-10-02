@@ -80,6 +80,8 @@ function motor(checks, politica = ['approve', 'approve']) {
   e.token = 'token-falso';
   e.tokens = { eu: 'token-falso' };
   e.config.accounts = [{ user: 'eu', owners: ['acme'] }];
+  // a espera do CI é opt-in desde 02/10/2026: estes casos testam a chave LIGADA
+  e.config.aguardarCiParaAprovar = true;
   e.politica = politica;
   e.approvePolicyFor = (_conta, limpo) => (limpo ? e.politica[0] : e.politica[1]);
   e.decisions = { pending: [], resolved: [] };
@@ -444,4 +446,80 @@ test('check() roda a espera do CI depois do reconcilePending e antes do retryFai
   const espera = fonte.indexOf('await this.aprovarQuandoOCiFechar();');
   const retry = fonte.indexOf('await this.retryFailedPosts();');
   assert.ok(pend > 0 && pend < espera && espera < retry);
+});
+
+/* ---------- a espera do CI é opt-in desde 02/10/2026 ---------- */
+// Pedido do dono: "deixar essa espera do CI desabilitada por padrão". Desligada, a aprovação
+// sai na hora, com o estado da pipe guardado como ressalva no app, e nada dele vai ao PR.
+
+function motorPadrao(checks, politica) {
+  const e = motor(checks, politica);
+  delete e.config.aguardarCiParaAprovar;
+  return e;
+}
+
+test('padrão (chave ausente): check obrigatório rodando não segura, a aprovação sai na hora com o CI como ressalva', async () => {
+  const e = motorPadrao([{ nome: 'test', estado: 'rodando' }]);
+  sessao(e);
+  await e.runHeadlessReview(PR(30));
+  assert.equal(envios.length, 1, 'um APPROVE, sem esperar a pipe');
+  assert.equal(envios[0].commit_id, HEAD);
+  assert.doesNotMatch(JSON.stringify(envios[0]), /check obrigatório/, 'o estado do CI não entra no texto do PR');
+  assert.equal(pendente(e, 30), undefined, 'nada fica esperando o CI');
+  const r = resolvida(e, 30);
+  assert.equal(r.status, 'auto_approved');
+  assert.match(r.attention.map((p) => p.text).join(' | '), /check obrigatório ainda sem resultado no head \(test\)/);
+  assert.equal(e.toasts.some((t) => /esperando o CI/.test(t)), false);
+});
+
+test('padrão: CI VERMELHO também não segura, e a ressalva nomeia o check', async () => {
+  const e = motorPadrao([{ nome: 'audit', estado: 'vermelho' }]);
+  sessao(e);
+  await e.runHeadlessReview(PR(31));
+  assert.equal(envios.length, 1);
+  assert.match(resolvida(e, 31).attention.map((p) => p.text).join(' | '), /check obrigatório vermelho no head \(audit\)/);
+});
+
+test('padrão: conta que manda esperar você continua indo para a mesa pela política, com o aviso do CI', async () => {
+  const e = motorPadrao([{ nome: 'test', estado: 'rodando' }], ['wait', 'wait']);
+  sessao(e);
+  await e.runHeadlessReview(PR(32));
+  assert.deepEqual(envios, []);
+  const d = pendente(e, 32);
+  assert.equal(d.esperaCi, undefined, 'pela política, não pela espera');
+  assert.ok(textos(d).some((t) => /check obrigatório ainda sem resultado/.test(t)));
+});
+
+test('espera armada e depois desligada: o próximo ciclo posta no mesmo head sem olhar o CI', async () => {
+  const e = await emEspera(33, { checks: [{ nome: 'audit', estado: 'vermelho' }] });
+  gh.rollup = [check('test', 'SUCCESS'), check('audit', 'FAILURE')];
+  assert.equal(await e.aprovarQuandoOCiFechar(), 0, 'ligada: CI vermelho segura');
+  e.config.aguardarCiParaAprovar = false;
+  assert.equal(await e.aprovarQuandoOCiFechar(), 1, 'desligada: sai');
+  assert.equal(envios.length, 1);
+  assert.equal(envios[0].commit_id, HEAD);
+  const r = resolvida(e, 33);
+  assert.equal(r.status, 'auto_approved');
+  assert.match(r.attention.map((p) => p.text).join(' | '), /vermelho no head \(audit\)/);
+  assert.ok(e.toasts.some((t) => /a espera do CI está desligada, então a aprovação que esperava saiu sozinha/.test(t)), e.toasts.join(' | '));
+});
+
+test('espera desligada não afrouxa o head: commit novo na espera continua largando, sem postar', async () => {
+  const e = await emEspera(34);
+  e.config.aguardarCiParaAprovar = false;
+  gh.head = HEAD_NOVO;
+  assert.equal(await e.aprovarQuandoOCiFechar(), 0);
+  assert.deepEqual(envios, []);
+  assert.equal(pendente(e, 34).blockedKind, 'stale_head');
+});
+
+test('o padrão da preferência é desligado e só o booleano verdadeiro liga', async () => {
+  const { SETTINGS, EDITAVEIS, sanear } = await import('../lib/settings.js');
+  const { aguardaCiParaAprovar } = await import('../lib/engine/gate-espera.js');
+  assert.equal(SETTINGS.find((x) => x.key === 'aguardarCiParaAprovar').def, false);
+  assert.ok(EDITAVEIS.has('aguardarCiParaAprovar'));
+  assert.equal(sanear('aguardarCiParaAprovar', true), true);
+  for (const v of [false, 'true', 1, null, undefined]) assert.equal(sanear('aguardarCiParaAprovar', v), false, String(v));
+  for (const c of [{}, null, { aguardarCiParaAprovar: 'true' }, { aguardarCiParaAprovar: 1 }]) assert.equal(aguardaCiParaAprovar(c), false, JSON.stringify(c));
+  assert.equal(aguardaCiParaAprovar({ aguardarCiParaAprovar: true }), true);
 });
