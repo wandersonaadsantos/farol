@@ -16,13 +16,15 @@ import assert from 'node:assert/strict';
 const ROOT = path.join(import.meta.dirname, '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const changelog = fs.readFileSync(path.join(ROOT, 'CHANGELOG.md'), 'utf8');
-const novidadesjs = fs.readFileSync(path.join(ROOT, 'ui', 'telas', 'novidades.js'), 'utf8');
+// a lista saiu da tela e virou dado proprio em 02/10/2026 (ui/telas/release-notes.js):
+// a tela cresceria sem limite com uma entrada por release
+const novidadesjs = fs.readFileSync(path.join(ROOT, 'ui', 'telas', 'release-notes.js'), 'utf8');
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
 
 function releaseNotesVersions() {
   const m = novidadesjs.match(/const RELEASE_NOTES = \[([\s\S]*?)\n\];/);
-  assert.ok(m, 'RELEASE_NOTES existe no ui/telas/novidades.js');
+  assert.ok(m, 'RELEASE_NOTES existe no ui/telas/release-notes.js');
   const versions = [];
   const re = /^\s*\['(\d+\.\d+\.\d+)',/gm;
   let x;
@@ -52,7 +54,7 @@ test('CHANGELOG.md tem a secao da versao do package.json, com corpo', () => {
   assert.ok(body.length > 40, `a secao v${pkg.version} do CHANGELOG esta vazia ou rala demais pra virar corpo de release`);
 });
 
-test('RELEASE_NOTES (ui/telas/novidades.js) abre com a MESMA versao do package.json', () => {
+test('RELEASE_NOTES (ui/telas/release-notes.js) abre com a MESMA versao do package.json', () => {
   const versions = releaseNotesVersions();
   assert.equal(versions[0], pkg.version,
     `RELEASE_NOTES[0] e ${versions[0]} mas package.json e ${pkg.version}: as Novidades da aba Sistema mentiriam a versao. Bump sempre atualiza os DOIS.`);
