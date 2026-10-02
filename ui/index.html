@@ -465,9 +465,16 @@
             <label class="set-row" id="sys-row-aguardarci">
               <span class="set-txt">
                 <span class="set-title">Esperar o CI antes de revisar</span>
-                <span class="set-desc">Com a chave ligada, a revisão automática só começa quando todos os checks <b>obrigatórios</b> do PR estão verdes, para não gastar uma sessão num commit que ainda vai mudar. Desligado (padrão), o Farol começa a revisar assim que o PR chega, e a aprovação continua esperando o CI sozinha: ele nunca aprova com check obrigatório vermelho ou rodando, e posta quando a pipe fecha verde no mesmo commit. O botão Revisar nunca espera.</span>
+                <span class="set-desc">Com a chave ligada, a revisão automática só começa quando todos os checks <b>obrigatórios</b> do PR estão verdes, para não gastar uma sessão num commit que ainda vai mudar. Desligado (padrão), o Farol começa a revisar assim que o PR chega. O botão Revisar nunca espera.</span>
               </span>
               <span class="set-ctl"><input id="setAguardarCi" type="checkbox"><span class="switch"></span></span>
+            </label>
+            <label class="set-row" id="sys-row-aguardarciaprovar">
+              <span class="set-txt">
+                <span class="set-title">Esperar o CI para aprovar</span>
+                <span class="set-desc">Com a chave ligada, a aprovação automática não sai enquanto algum check <b>obrigatório</b> do PR estiver vermelho ou rodando: o card fica em "Esperando o CI (aprova sozinho)" e o Farol posta quando a pipe fecha verde no mesmo commit. Desligado (padrão), a aprovação sai assim que a revisão termina, e o estado do CI fica registrado como ressalva aqui no app, nunca no PR. O botão Aprovar nunca espera.</span>
+              </span>
+              <span class="set-ctl"><input id="setAguardarCiAprovar" type="checkbox"><span class="switch"></span></span>
             </label>
             <label class="set-row" id="sys-row-reviewfast">
               <span class="set-txt">
