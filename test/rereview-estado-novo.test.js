@@ -311,7 +311,9 @@ test('destravarPorEstadoNovo amarra candidato, sinal e ação, e poda marcador d
   const depois = new Date(AGORA - 5 * MIN).toISOString();
   await destrava.destravarPorEstadoNovo(e, timeline([`review_requested\t${depois}\trevisora\t`]).run);
   assert.equal(e.seen.has(KEY), false);
-  assert.equal(e.destravados[KEY], AGORA - 5 * MIN);
+  // o marcador virou { at, tipo } em 02/10/2026: o tipo do sinal é o que o dedup de
+  // postagem consulta para afrouxar SÓ no caso de pedido de revisão novo
+  assert.deepEqual(e.destravados[KEY], { at: AGORA - 5 * MIN, tipo: 'pedido' });
   assert.equal('sumiu/r#9' in e.destravados, false);
 });
 
