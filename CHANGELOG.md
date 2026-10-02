@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.69.1
+
+Pedir a revisão de novo volta a produzir revisão, mesmo sem commit novo.
+
+**Correções**
+
+- **Pedido de revisão novo no mesmo commit volta a ser atendido.** Quando alguém removia e pedia a sua revisão de novo pelo botão do GitHub, sem subir código novo, o Farol não fazia nada: não revisava, não recusava e não avisava. Eram duas travas somadas. O PR já contava como revisado e saía da fila, e o jeito antigo de reconhecer um pedido novo só funcionava uma vez por rodada de pedido, porque remover e pedir no mesmo instante nunca é percebido entre duas checagens. E, mesmo que a revisão rodasse, ela terminava sem postar nada, por achar a sua aprovação anterior naquele mesmo commit. Agora pedido de revisão feito depois do seu último review é tratado como novidade do PR, igual a um commit novo, e a revisão sai.
+- **A proteção contra review duplicado continua igual onde importa.** O review anterior só deixa de contar quando houve um pedido novo depois dele; em qualquer outra situação, inclusive em commit novo, nada muda.
+
 ## v2.69.0
 
 O Farol passa a aprovar e reprovar sozinho por padrão, e a reprovação automática deixa de parar por lacuna.
