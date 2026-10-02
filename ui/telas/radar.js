@@ -8,10 +8,11 @@ import {
   esc, fmtStamp, fmtWhenDay, personMention, papelPicker, reasonGroupsHtml, chatBadge, md,
   resolvedRow, listViewState, queueEmptyOkHtml, aprovadosHoje, orgsMonitoradas,
   automacaoPausadaPor, queueCardHtml, panoramaRowHtml, staleCardMeta, separarPendentes,
+  contasNoLimiteDaFila, queueLimitHtml,
 } from '../pure.js';
 import { estado, escopo, peopleOf } from './estado.js';
 import { $, api, textoDaListaVazia, toast, copyToClipboard, lembrarAbertos } from './infra.js';
-import { scopeVisible, acctMark } from './contas.js';
+import { scopeVisible, acctMark, acctOf } from './contas.js';
 import { revisarUrls } from './consumo.js';
 import { renderPanoramaRemoto } from './listas-remotas.js';
 
@@ -203,7 +204,18 @@ function renderQueue() {
     return;
   }
   const parked = estado().parked || {};
-  box.innerHTML = q.map(pr => queueCardHtml(pr, { people, mark: acctMark(pr), parked, sync: estado().sync })).join('');
+  // limite do plano e quem mais está revisando (02/10/2026, ui/pure/revisando.js): conta com
+  // 2 ou mais cards na mesma espera ganha um aviso só no topo, e os cards a forma curta
+  const revisarJunto = estado().config?.revisarComOutrosRevisando === true;
+  const contaDe = (pr) => (acctOf(pr) || {}).user || '';
+  const limiteDe = (pr) => (acctOf(pr) || {}).limitePlanoAte || 0;
+  const noTopo = contasNoLimiteDaFila(q, { contaDe, limiteDe, parked, revisarJunto });
+  const varias = Object.keys(noTopo).length > 1;
+  const avisos = Object.entries(noTopo).map(([conta, v]) => queueLimitHtml(acctOf({ account: conta }), v.ate, v.n, varias)).join('');
+  box.innerHTML = avisos + q.map(pr => queueCardHtml(pr, {
+    people, mark: acctMark(pr), parked, sync: estado().sync,
+    revisarJunto, limiteAte: limiteDe(pr), limiteNoTopo: !!noTopo[contaDe(pr)],
+  })).join('');
 }
 
 function renderPanorama() {

@@ -11,6 +11,14 @@ import assert from 'node:assert/strict';
 import { arquivosDosPuros } from './helpers/fontes-ui.js';
 
 const CONGELADA = [
+  // outra pessoa revisando e limite do plano no card da fila (02/10/2026): ui/pure/revisando.js
+  "avisosDoCard",
+  "contasNoLimiteDaFila",
+  "horaDoReset",
+  "limitNoteHtml",
+  "othersLineHtml",
+  "pwOthersHtml",
+  "queueLimitHtml",
   // controle do celular (28/09/2026): ui/pure/aparelhos-fila.js e ui/pure/aparelhos-painel.js
   // limpeza da v2.65.0: a fila do aparelho usa estes rotulos de compartilhado.js; sairam
   // operacoesRemotasHtml e pendenciasCompartilhadasHtml, que ficaram sem chamador

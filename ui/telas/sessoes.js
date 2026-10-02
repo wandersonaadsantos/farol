@@ -192,7 +192,9 @@ function renderActive() {
   const have = [...box.querySelectorAll('.session-card')].map(el => el.dataset.id).join(',');
   const want = sessions.map(s => s.id).join(',');
   if (have !== want) {
-    box.innerHTML = sessions.map(s => sessionCardHtml(s, '(iniciando…)')).join('');
+    // quem mais está revisando o PR da sessão vem do panorama, que o motor anota a cada ciclo
+    const outrosDe = (s) => ((estado().panorama || []).find((p) => p.key === (s.keys || [])[0]) || {}).outrosRevisando || [];
+    box.innerHTML = sessions.map(s => sessionCardHtml(s, '(iniciando…)', outrosDe(s))).join('');
   }
   for (const s of sessions) {
     const feed = box.querySelector(`.activity-feed[data-id="${CSS.escape(s.id)}"]`);

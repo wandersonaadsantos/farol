@@ -389,6 +389,22 @@ coisa irrelevante ao trabalho revisado). Estado final (v2.54.0):
   dela: `anexarChecksObrigatorios` continua lendo o CI no head antes de postar. Se o CI
   segura a aprovação é a OUTRA chave, `aguardarCiParaAprovar` (ver "A espera do CI na
   aprovação é opt-in", logo abaixo do parágrafo das duas classes).
+- **Revisar junto (opt-in, 02/10/2026)**: pedido do dono, "se caso tiver alguém já com a
+  label de revisando no GitHub, precisamos indicar pra quem vê a fila que já tem alguém
+  revisando". Duas partes. (1) O card de Pra mim, a linha do Panorama e o card de sessão dizem
+  quem está revisando (`outrosRevisando`, a MESMA leitura do gate, anotada em cada PR por
+  `lerSinaisDoCiclo` em `lib/engine/skip-review.js`), e o botão vira "Revisar junto"; com a
+  label já sumida e o registro de saída de cena vivo, o card diz que a pessoa revisou e que a
+  decisão é sua. (2) A chave `config.revisarComOutrosRevisando` (padrão desligado, Sistema >
+  Automação): ligada, os gates (`_registraPulo`, a trava do round em `review.js` e o comando
+  remoto `revisar`) leem `outrosQueSeguram`, que devolve vazio, então não há saída de cena e,
+  por decisão do dono, nem co-assinatura; as saídas de cena gravadas antes caem no ciclo, menos
+  as co-assinadas. Desligada, vale a regra plana abaixo. No mesmo dia o card passou a dizer
+  quando a revisão automática espera o **limite do plano do Claude** (`limitePlanoAte` em cada
+  conta do snapshot): o PR que motivou entrou na fila com a assinatura no limite até 21:00 e o
+  card ficou idêntico a qualquer outro. Precedência das notas e textos no handoff do Claude
+  Design (`docs/superpowers/specs/2026-10-02-revisando-junto-anexos/HANDOFF.md`); travado em
+  `test/revisar-junto.test.js` e `test/revisando-tela.test.js`.
 - **Regra plana na saída de cena**: ver alguém revisando SEMPRE segura o
   automático. Caiu a exceção da v2.51.0 (`cobreMinhaExigencia`, removida de
   `codeowners.js`): PR cuja exigência de codeowner é minha agora ESPERA meu

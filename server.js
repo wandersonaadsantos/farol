@@ -1113,9 +1113,8 @@ class Engine extends EventEmitter {
       const fresh = queue.filter(p => !prevQueue.has(p.key));
 
       this.panorama = panorama;
-      // relógio das labels alheias: carimba antes de qualquer gate consultar
-      // outrosRevisando neste ciclo (o gate é síncrono e só lê o que já está aqui)
-      skipMod.marcarLabelsVistas(this, panorama);
+      // sinais de outras pessoas revisando, ANTES de qualquer gate síncrono ler (skip-review.js)
+      skipMod.lerSinaisDoCiclo(this, panorama, queue);
       this.queue = queue;
       this.lastCheckAt = Date.now();
       this.lastError = null;
@@ -1175,12 +1174,11 @@ class Engine extends EventEmitter {
         ...this.headlessQueue.map(p => p.key),
         ...[...this.activeReviews.values()].flatMap(s => s.keys || [])
       ]);
-      // UM Farol por PR: quem já saiu de cena naquele head fica fora, e quem vê o
-      // sinal de outra pessoa (label legada ou ref) sai agora. Os dois são
-      // coletados aqui e resolvidos depois do filtro, porque consultar review e
-      // CODEOWNERS é IO e este filtro é síncrono de propósito. Ferramenta não
-      // conta como pessoa, e clique manual nunca passa por aqui (ver
-      // lib/engine/skip-review.js).
+      // UM Farol por PR (desligável por revisarComOutrosRevisando): quem já saiu de cena
+      // naquele head fica fora, e quem vê o sinal de outra pessoa sai agora. Os dois são
+      // coletados aqui e resolvidos depois do filtro, porque consultar review e CODEOWNERS
+      // é IO e este filtro é síncrono. Ferramenta não conta como pessoa, e clique manual
+      // nunca passa por aqui (lib/engine/skip-review.js).
       const pulados = [];
       const foraDeCena = [];
       const toReview = this.queue.filter(p => {
@@ -2018,7 +2016,7 @@ class Engine extends EventEmitter {
   // dele já era um if por trava, e mais um bloco estourava a profundidade do gate
   // de qualidade. Ver lib/engine/skip-review.js.
   _registraPulo(pr, pulados) {
-    const outros = this.outrosRevisando(pr);
+    const outros = skipMod.outrosQueSeguram(this, pr);
     if (!outros.length) return false;
     pulados.push({ pr, outros });
     return true;

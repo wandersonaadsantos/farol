@@ -42,6 +42,7 @@
 // cria outra operacao). O DOM do app.js so consome estas duas decisoes.
 import { esc, fmtClock, fmtDur } from './comum.js';
 import { personMention } from './mencoes.js';
+import { othersLineHtml } from './revisando.js';
 
 export function opTransition(atual, proximo) {
   if (atual === 'running' && (proximo === 'done' || proximo === 'error' || proximo === 'cancelled')) return proximo;
@@ -171,7 +172,9 @@ export function sessionProgress(count) {
   return Math.min(90, 5 + Math.round(85 * (1 - Math.exp(-n / 18))));
 }
 
-export function sessionCardHtml(s = {}, stages = '') {
+// `outros`: quem MAIS está revisando o PR desta sessão (estado 5 do desenho de 02/10/2026,
+// ui/pure/revisando.js), só a linha curta e sem botão.
+export function sessionCardHtml(s = {}, stages = '', outros = []) {
   const id = esc(s.id);
   const linkPR = s.pr?.url ? `<a href="${esc(s.pr.url)}" target="_blank" rel="noreferrer">abrir PR</a>` : '';
   // dono do PR que está sendo revisto AGORA: mesma menção navegável (foto + link)
@@ -193,6 +196,7 @@ export function sessionCardHtml(s = {}, stages = '') {
           ${cancelar}
         </div>
         <div class="op-progress sess-progress" data-id="${id}"><span class="sess-pct"></span><div class="op-bar"><div class="op-bar-fill"></div></div></div>
+        ${othersLineHtml(outros, 'sessao')}
         <div class="stage-flow" data-id="${id}" hidden></div>
         <div class="activity-feed" data-id="${id}"></div>
       </div>`;

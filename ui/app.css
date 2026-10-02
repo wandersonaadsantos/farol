@@ -1896,6 +1896,39 @@ body.sem-engine #statusPill { animation: pulse-soft 1.4s infinite; }
    estacionamento, que é falha de verdade. */
 .pr-coord { margin-top: var(--sp-1); font-size: 11.5px; line-height: 1.35; color: var(--info); }
 .pr-coord.warn { color: var(--accent); }
+
+/* ---------- outra pessoa revisando e limite do plano (Claude Design, 02/10/2026) ----------
+   Handoff em docs/superpowers/specs/2026-10-02-revisando-junto-anexos/HANDOFF.md. O login sai
+   pelo personMention (foto + link), em vez das fotos agrupadas do quadro.
+   --accent-text: âmbar para TEXTO pequeno. No escuro é o próprio --accent; no claro o
+   âmbar dava 2,6:1 sobre --surface, e #9a5900 dá 5,5:1. Só .pr-limit, .queue-limit e
+   .set-nota usam; .pr-coord.warn continua com --accent. */
+:root { --accent-text: var(--accent); }
+:root[data-theme="light"] { --accent-text: #9a5900; }
+.pr-others { margin-top: 6px; font-size: 12px; line-height: 1.4; color: var(--muted); text-wrap: pretty; overflow-wrap: anywhere; }
+.pr-others .po-lead { color: var(--text); }
+.pr-others .person-mention { color: var(--text); font-weight: 600; }
+.pr-others .is-goto { color: inherit; }
+.session-card .pr-others { margin: 4px 0 2px; }
+.pr-limit { margin-top: var(--sp-1); font-size: 11.5px; line-height: 1.35; color: var(--accent-text); overflow-wrap: anywhere; }
+.pr-limit span[title], .queue-limit span[title] { text-decoration: underline dotted; }
+.queue-limit {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 14px; margin: 0 0 10px; border-radius: var(--radius);
+  background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  font-size: 13px; line-height: 1.45; color: var(--text); text-wrap: pretty;
+}
+.queue-limit .acct-dot { margin-top: 6px; }
+.queue-limit + .queue-limit { margin-top: -4px; }
+.pw-others { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.set-nota { display: block; margin-top: 6px; font-size: 12px; line-height: 1.4; color: var(--accent-text); font-weight: 400; text-wrap: pretty; }
+.set-row.sem-efeito .switch { opacity: .5; }
+@media (max-width: 620px) {
+  .queue-limit { padding: 10px 12px; }
+}
+@media (max-width: 420px) {
+  .pw-others { white-space: normal; }
+}
 /* Telas estreitas (o Farol aberto no navegador do celular, via Termux): os três campos
    viram um por linha e a lista de aparelhos perde a coluna do sistema. */
 @media (max-width: 720px) {

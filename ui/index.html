@@ -459,8 +459,16 @@
               <span class="set-txt">
                 <span class="set-title">Aprovar junto com quem pegou o PR</span>
                 <span class="set-desc">Quando outra pessoa do time já está revisando um PR com o Farol, o Farol sai de cena e avisa aqui no app, sem postar nada no PR (um Farol por PR, pra não empilhar revisão em cima da mesma coisa). O sinal é a label <code>&lt;conta&gt;:revisando</code> que o Farol dela põe no PR: quem revisa sem o Farol não é detectado. Com esta chave ligada, ele ainda aprova <b>em seu nome</b> quando essa pessoa aprova o mesmo head, sem abrir sessão nem gastar do seu limite. Só vale em conta que revisa sozinha, e a conta cujo aprovável sem ressalvas espera você também não co-assina. <b>Nunca co-assina onde você é dono do código pelo CODEOWNERS</b>, nem quando o CODEOWNERS não pode ser lido: ali a sua aprovação precisa vir de revisão de verdade. O preço é explícito: você endossa uma revisão que não fez e não tem como saber com que rigor ou com que modelo ela foi feita. Desligado (padrão), o PR simplesmente espera você, e o botão Revisar continua funcionando normalmente.</span>
+                <span class="set-nota" id="notaAprovarJuntoSemEfeito" hidden>Sem efeito agora: com “Revisar sozinho mesmo com outra pessoa revisando” ligada, o Farol não sai de cena e não há quem co-assinar.</span>
               </span>
               <span class="set-ctl"><input id="setCoAssinarReview" type="checkbox"><span class="switch"></span></span>
+            </label>
+            <label class="set-row" id="sys-row-revisarjunto">
+              <span class="set-txt">
+                <span class="set-title">Revisar sozinho mesmo com outra pessoa revisando</span>
+                <span class="set-desc">Quando outra pessoa tem a label de revisando num PR pedido a você, a revisão automática roda mesmo assim e o card só informa quem está lá. Desligada (padrão), o Farol não revisa sozinho naquele commit e o botão Revisar junto continua valendo. Ligada, a co-assinatura de “Aprovar junto com quem pegou o PR” não acontece: sua aprovação vem da sua revisão.</span>
+              </span>
+              <span class="set-ctl"><input id="setRevisarJunto" type="checkbox"><span class="switch"></span></span>
             </label>
             <label class="set-row" id="sys-row-aguardarci">
               <span class="set-txt">

@@ -50,7 +50,8 @@ export function rebuildAccounts() {
     ACCT[String(a.user).toLowerCase()] = {
       user: a.user, label: a.label || a.user, org: (a.owners || [])[0] || '',
       kind: a.kind || '', color, soft: hexToRgba(color, .16), ink: '#0b0e14',
-      muted: !!a.muted, primary: !!a.primary, tokenOk: !!a.tokenOk, owners: a.owners || [], idx: i
+      muted: !!a.muted, primary: !!a.primary, tokenOk: !!a.tokenOk, owners: a.owners || [], idx: i,
+      limitePlanoAte: Number(a.limitePlanoAte) || 0
     };
     (a.owners || []).forEach(o => { OWNER2USER[String(o).toLowerCase()] = a.user; });
   });
