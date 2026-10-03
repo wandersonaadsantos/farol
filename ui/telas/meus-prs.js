@@ -15,6 +15,7 @@ import {
   canMergeSelfAnalysis, qualityBlockTitle, selfAnalysisBadge, selfAnalysisToggle,
   selfAnalysisStale, listViewState, prKeyFromUrl, defaultFor, overrideFor, repoShort,
   selfSessionKey, sessionProgress, festasPendentes,
+  tituloDoMergeBloqueado, notaDoMergeBloqueadoHtml,
 } from '../pure.js';
 import { estado, escopo } from './estado.js';
 import {
@@ -141,7 +142,8 @@ function renderMyPRs() {
     // a decisao mora em ui/pure.js (testada); aqui so consome. NUNCA volte a ler
     // `a.approvable`: ele e parecer, e quem autoriza e o `quality` que o engine calcula.
     const canMerge = canMergeSelfAnalysis(a);
-    const repoBlocked = blockedRepos.has(String(pr.key.split('#')[0]).toLowerCase());
+    const repo = String(pr.key.split('#')[0]);
+    const repoBlocked = blockedRepos.has(repo.toLowerCase());
     const ms = (estado().mergeStates || {})[pr.key];
     const dataAttrs = `data-url="${esc(pr.url)}" data-key="${esc(pr.key)}"`;
     // auto-merge indisponível: repo sem "Allow auto-merge" (autoAllowed===false) ou
@@ -158,12 +160,16 @@ function renderMyPRs() {
       return auto + (admin ? '\n         ' + admin : '');
     };
     let mergeBtns = '';
-    if (!canMerge && a && a.quality && a.quality.status !== 'eligible') {
+    // repo bloqueado é o PRIMEIRO teste desde 03/10/2026 (Claude Design): nesses repos o
+    // Farol nem lê a mergeabilidade, e o bloqueio vale com qualquer análise, então o card
+    // sempre diz por que não há Merge e leva à lista (ui/pure/merge-bloqueado.js)
+    if (repoBlocked) {
+      mergeBtns = btnMerge(true, tituloDoMergeBloqueado(repo));
+    } else if (!canMerge && a && a.quality && a.quality.status !== 'eligible') {
       // fail-closed explicado: sem isto o botao sumia e o usuario nao sabia por que
       mergeBtns = btnMerge(true, qualityBlockTitle(a.quality));
     } else if (canMerge) {
       if (running || queued) mergeBtns = btnMerge(true, 'Aguarde a análise terminar');
-      else if (repoBlocked) mergeBtns = btnMerge(true, 'Merge bloqueado para este repo (edite a lista na aba Sistema)');
       else if (mergeBlockedByPolicy.has(pr.key)) mergeBtns = btnOptions();
       else if (!ms) mergeBtns = btnMerge(true, 'Verificando se dá pra mergear…');
       else if (ms.isDraft || ms.status === 'DRAFT') mergeBtns = btnMerge(true, 'O PR está como rascunho, marque como ready antes');
@@ -215,6 +221,7 @@ function renderMyPRs() {
         : `<button class="btn sm ghost act-pr-hide" data-key="${esc(pr.key)}" title="Some com este PR de Meus PRs. Ele volta sozinho se receber commit novo">Ocultar</button>`}
         </div>
       </div>
+      ${repoBlocked ? notaDoMergeBloqueadoHtml() : ''}
       ${analysisPanel}
     </div>`;
   }).join('');

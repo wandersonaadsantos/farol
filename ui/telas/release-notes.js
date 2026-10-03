@@ -7,6 +7,7 @@
 // mesmo número de versão no topo (test/release-consistency.test.js amarra os três).
 
 export const RELEASE_NOTES = [
+  ['2.71.2', ["Sistema > Conexões saiu: a conta e as organizações que estavam lá não tinham efeito. As organizações de cada conta continuam em Sistema > Contas.", "Repos bloqueados pra merge agora ficam em Sistema > Automação, num bloco próprio: um repo por linha, campo que aceita owner/repo ou URL, e Desfazer.", "Em Meus PRs, o card de um repo bloqueado diz por que não há Merge e leva direto à lista."]],
   ['2.71.1', [
     "Aprovação dispensada pelo push agora também dispara a re-revisão: antes o PR que perdia a sua aprovação ficava sem revisão nova.",
     "Resultado esperando você que ganha commit novo é revisado de novo sozinho, depois que o PR fica alguns minutos sem push. Antes só o seu clique destravava.",

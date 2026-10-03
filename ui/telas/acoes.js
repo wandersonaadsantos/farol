@@ -155,9 +155,6 @@ $('#esperaCi').addEventListener('click', cliqueNoCardDeDecisao);
 
 /* configurações: aplica na mudança */
 const settingsMap = [
-  ['#setUser', 'ghUser', el => el.value],
-  ['#setOwners', 'owners', el => el.value],
-  ['#setMergeBlocked', 'mergeBlockedRepos', el => el.value],
   ['#setInterval', 'intervalSeconds', el => parseInt(el.value, 10)],
   ['#setReviewModel', 'reviewModel', el => el.value],
   ['#setCodexReviewModel', 'codexReviewModel', el => el.value],
