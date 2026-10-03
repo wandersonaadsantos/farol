@@ -21,11 +21,13 @@ test('settingsIgnoradasTexto: várias chaves, e item que não é texto fica de f
   assert.equal(settingsIgnoradasTexto({ ignoradas: ['a', 7, 'b'] }), '"a", "b" não foram salvas: o servidor não reconhece essas preferências.');
 });
 
-test('os quatro salvamentos da tela usam o texto das ignoradas, e nenhum filtra pela própria chave', () => {
+test('os cinco salvamentos da tela usam o texto das ignoradas, e nenhum filtra pela própria chave', () => {
   // desde a Fase 1b os handlers moram em ui/telas/ (acoes, sistema-jira, sistema-sync e, com a
   // seção Aparelhos, sistema-aparelhos); a leitura cobre o bootstrap e todas as telas, então a
   // contagem continua sendo da tela inteira
   const app = fonteDasTelas();
-  assert.equal((app.match(/settingsIgnoradasTexto\(r\)/g) || []).length, 4, 'saveJiraSites, saveSync, o laço do settingsMap e o consentimento de Aparelhos');
+  // o quinto é a lista de repos bloqueados pra merge, que saiu do laço do settingsMap para
+  // a própria tela em 03/10/2026 (ui/telas/merge-bloqueado.js)
+  assert.equal((app.match(/settingsIgnoradasTexto\(r\)/g) || []).length, 5, 'saveJiraSites, saveSync, o laço do settingsMap, o consentimento de Aparelhos e os repos bloqueados pra merge');
   assert.equal(/r\.ignoradas\.includes\(/.test(app), false, 'filtrar pela própria chave escondia a recusa das outras');
 });

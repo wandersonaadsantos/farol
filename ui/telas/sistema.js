@@ -11,6 +11,7 @@ import { renderReleaseNotes } from './novidades.js';
 import { renderAccountsManager } from './sistema-contas.js';
 import { renderClaudeProfiles } from './sistema-perfis.js';
 import { renderJiraSites } from './sistema-jira.js';
+import { renderReposBloqueados } from './merge-bloqueado.js';
 import { renderSync } from './sistema-sync.js';
 import { renderAparelhos, carregarAparelhos } from './sistema-aparelhos.js';
 import { renderGrupos } from './sistema-grupos.js';
@@ -49,7 +50,9 @@ const SYS_INDEX = [
   { sec: 'sync', at: '#syncManager', title: 'Sincronização entre aparelhos', hint: 'sync, firebase, aparelho, dispositivo, coordenação, lease, consolidação, consumo, um farol por pr' },
   { sec: 'devices', at: '#devicesManager', title: 'Aparelhos e administração', hint: 'aparelho, admin, aposentar, renomear, política, pausar, navegador pareado, limpeza, revogar, garantia' },
   { sec: 'groups', at: '#groupsManager', title: 'Grupos de consumo', hint: 'grupo, teto, orçamento, vincular perfil, codex, custo somado' },
-  { sec: 'accounts', at: '#accountsManager', title: 'Contas do GitHub', hint: 'conta, identidade, cor, silenciar, política, token' },
+  { sec: 'accounts', at: '#accountsManager', title: 'Contas do GitHub', hint: 'conta, identidade, cor, silenciar, política, token, usuário, login, gh' },
+  // as organizações monitoradas são da conta (a seção Conexões, que as repetia sem efeito, saiu em 03/10/2026)
+  { sec: 'accounts', at: '#accountsManager', title: 'Organizações monitoradas (por conta)', hint: 'org, organização, owners, panorama, repositórios' },
   // revisar e aprovar sozinho são da conta desde 30/09/2026: a busca leva ao cartão dela
   { sec: 'accounts', at: '#accountsManager', title: 'Revisar e aprovar sozinho (por conta)', hint: 'auto review, revisão na hora, fila, auto approve, ressalva, aprovação, reprovar' },
   { sec: 'automation', at: '#sys-row-pushback', title: 'Detectar pushback automaticamente', hint: 'contestação, autor, desfecho' },
@@ -60,9 +63,8 @@ const SYS_INDEX = [
   { sec: 'automation', at: '#sys-row-esforco', title: 'Esforço de raciocínio', hint: 'effort, pensar, raciocínio, alto, baixo, xhigh' },
   { sec: 'automation', at: '#sys-row-intervalo', title: 'Intervalo de checagem', hint: 'polling, minutos, frequência' },
   { sec: 'automation', at: '#sys-row-skipperms', title: 'Sessão no terminal sem pedir permissões', hint: 'dangerously skip permissions, prompts' },
-  { sec: 'connections', at: '#sys-row-ghuser', title: 'Conta do GitHub (trabalho)', hint: 'usuário, login, gh, conta primária' },
-  { sec: 'connections', at: '#sys-row-orgs', title: 'Organizações monitoradas', hint: 'org, owners, panorama, repositórios' },
-  { sec: 'connections', at: '#sys-row-mergeblocked', title: 'Repos bloqueados pra merge', hint: 'merge, bloqueio, repo, self merge' },
+  // saiu de Sistema > Conexões em 03/10/2026, com a seção (merge-bloqueado.js)
+  { sec: 'automation', at: '#sys-row-mergeblocked', title: 'Repos bloqueados pra merge', hint: 'merge, mergear, bloqueio, bloqueado, bloquear, repo, repos, repositório, self merge, desativa o botão Merge de Meus PRs' },
   { sec: 'plans', at: '#claudeProfilesManager', title: 'Perfis de IA e chaves', hint: 'claude, codex, chatgpt, plano, assinatura, config dir, login, chave' },
   { sec: 'reviewers', at: '#reviewersEditor', title: 'Reviewers por projeto', hint: 'revisor, time, padrão da org, exceção, repo' },
   { sec: 'prefs', at: '#sys-row-identity', title: 'Identidade nos cards', hint: 'barra, etiqueta, ponto, marcador' },
@@ -135,10 +137,7 @@ function renderSettings() {
   renderReleaseNotes();
   renderAbout();
   const c = estado().config;
-  const setIf = (el, val) => { if (document.activeElement !== el) el.value = val; };
-  setIf($('#setUser'), c.ghUser);
-  setIf($('#setOwners'), (c.owners || []).join(', '));
-  setIf($('#setMergeBlocked'), (c.mergeBlockedRepos || []).join(', '));
+  renderReposBloqueados();
   renderReviewersEditor();
   renderClaudeProfiles();
   renderJiraSites();

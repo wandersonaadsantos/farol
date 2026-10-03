@@ -373,10 +373,6 @@
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
             Automação
           </button>
-          <button class="sys-nav-item" id="sysbtn-connections" data-section="connections" role="tab" aria-selected="false" aria-controls="sys-connections">
-            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            Conexões
-          </button>
           <button class="sys-nav-item" id="sysbtn-jira" data-section="jira" role="tab" aria-selected="false" aria-controls="sys-jira">
             <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 9.5h18M8 14h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             Jira
@@ -667,33 +663,21 @@
               <span class="set-ctl"><input id="setSkipPerms" type="checkbox"><span class="switch"></span></span>
             </label>
           </div>
-        </div>
-
-        <!-- Conexões -->
-        <div class="sys-section" id="sys-connections" role="tabpanel" aria-labelledby="sysbtn-connections" tabindex="0">
-          <div class="section-head"><h2>Conexões</h2></div>
-          <p class="section-desc">Conta do GitHub, organizações monitoradas e onde o botão Merge fica bloqueado.</p>
-          <div class="card set-list">
-            <div class="set-row" id="sys-row-ghuser">
+          <div class="section-head"><h2>Merge em Meus PRs</h2></div>
+          <div class="card set-list" id="sys-mergeblocked">
+            <div class="set-row set-row-block" id="sys-row-mergeblocked">
               <div class="set-txt">
-                <label class="set-title" for="setUser">Conta do GitHub (trabalho)</label>
-                <span class="set-desc" id="setUserHint">Conta primária (modo simples, uma conta), usada pra buscar e postar reviews via <code>gh auth token</code>. Pra monitorar mais de uma conta, use o painel <b>Contas</b>.</span>
+                <label class="set-title mb-title" for="mbAdd">Repos bloqueados pra merge<span class="count ambient" id="mbCount" hidden></span></label>
+                <span class="set-desc">Nesses repos o botão Merge de Meus PRs fica desativado, para respeitar a regra de review do time, e o Farol deixa de consultar no GitHub se os PRs deles dão para mergear. Vale para todas as contas e não muda nada no GitHub.</span>
               </div>
-              <div class="set-ctl"><input id="setUser" type="text" spellcheck="false"></div>
-            </div>
-            <div class="set-row" id="sys-row-orgs">
-              <div class="set-txt">
-                <label class="set-title" for="setOwners">Organizações monitoradas</label>
-                <span class="set-desc">O panorama mostra todos os PRs abertos delas; o alerta é só onde você é revisor.</span>
+              <div class="mb-empty" id="mbEmpty">Nenhum repo bloqueado. O Merge aparece em todos os seus PRs quando a autoanálise diz aprovável e o GitHub deixa mergear.</div>
+              <ul class="mb-list" id="mbList" hidden></ul>
+              <div class="mb-add">
+                <input id="mbAdd" class="mb-input" type="text" spellcheck="false" autocomplete="off" placeholder="owner/repo ou URL do repo" aria-describedby="mbErro">
+                <button class="btn sm" id="mbAddBtn" type="button">Bloquear</button>
               </div>
-              <div class="set-ctl"><input id="setOwners" type="text" spellcheck="false" placeholder="biudtech, outra-org"></div>
-            </div>
-            <div class="set-row" id="sys-row-mergeblocked">
-              <div class="set-txt">
-                <label class="set-title" for="setMergeBlocked">Repos bloqueados pra merge</label>
-                <span class="set-desc">Nesses repos o botão Merge (em Meus PRs) fica desativado, respeitando as regras de review do time. Separe por vírgula.</span>
-              </div>
-              <div class="set-ctl"><input id="setMergeBlocked" type="text" spellcheck="false" placeholder="biudtech/biud-frontend"></div>
+              <span class="mb-erro" id="mbErro" role="alert" hidden></span>
+              <div class="mb-sug" id="mbSug" hidden></div>
             </div>
           </div>
         </div>

@@ -11,6 +11,16 @@ import assert from 'node:assert/strict';
 import { arquivosDosPuros } from './helpers/fontes-ui.js';
 
 const CONGELADA = [
+  // repos bloqueados pra merge saíram de Sistema > Conexões para Automação (03/10/2026)
+  "incluirRepo",
+  "normalizarRepo",
+  "notaDoMergeBloqueadoHtml",
+  "prsDoRepo",
+  "reposBloqueadosHtml",
+  "textoDoMergeBloqueado",
+  "textoDoMergeDesbloqueado",
+  "tirarRepo",
+  "tituloDoMergeBloqueado",
   // outra pessoa revisando e limite do plano no card da fila (02/10/2026): ui/pure/revisando.js
   "avisosDoCard",
   "contasNoLimiteDaFila",

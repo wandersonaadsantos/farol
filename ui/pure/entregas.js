@@ -263,11 +263,12 @@ export function deliveriesByAuthor(items, opts = {}) {
 export function delivEmptyState(opts = {}) {
   const query = opts.query || '';
   const titulo = query ? `Nada com “${query}” neste período.` : 'Nenhum PR mergeado neste período.';
-  // "organizações monitoradas em Sistema" leva ATÉ a linha das orgs (regra das
-  // menções: citou um lugar do app, clicou, chegou lá)
+  // "organizações monitoradas em Sistema > Contas" leva ATÉ as contas, que é onde as orgs
+  // moram desde 30/09/2026 (regra das menções: citou um lugar do app, clicou, chegou lá).
+  // Até 03/10/2026 levava à seção Conexões, cujo campo de orgs não tinha efeito.
   const sub = query
     ? 'Tente outro termo ou amplie o período.'
-    : `Amplie o período ou confira as <span class="is-goto" data-goto="sys:connections:#sys-row-orgs" role="button" tabindex="0">organizações monitoradas em Sistema</span>.`;
+    : `Amplie o período ou confira as organizações de cada conta em <span class="is-goto" data-goto="sys:accounts:#accountsManager" role="button" tabindex="0" title="Abrir Sistema → Contas">Sistema → Contas</span>.`;
   const subHtml = query ? esc(sub) : sub;
   const botoes = [];
   if (opts.canExpand) botoes.push(`<button type="button" class="btn sm" data-deliv-action="ver30">Ver 30 dias</button>`);

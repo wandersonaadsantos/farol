@@ -27,6 +27,7 @@ export * from './pure/grupos.js';
 export * from './pure/jira.js';
 export * from './pure/listas-remotas.js';
 export * from './pure/mencoes.js';
+export * from './pure/merge-bloqueado.js';
 export * from './pure/pareamento.js';
 export * from './pure/perfil.js';
 export * from './pure/meus-prs.js';

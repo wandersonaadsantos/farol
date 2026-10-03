@@ -2310,3 +2310,52 @@ body.parear > *:not(.par-raiz) { display: none !important; }
 .sess-progress.sess-muda .op-bar-fill { width: 100%; background: color-mix(in srgb, var(--warn, #d98324) 55%, transparent); animation: none; margin-left: 0; }
 .sess-progress.sess-muda .sess-pct { color: var(--warn, #d98324); }
 .sess-progress.sess-fechando .op-bar-fill { width: 100%; animation: none; margin-left: 0; }
+
+/* ---------- sistema > automação: repos bloqueados pra merge (Claude Design, 03/10/2026) ----------
+   Handoff em docs/superpowers/specs/2026-10-03-tela-conexoes-anexos/HANDOFF.md. Só tokens. */
+.set-row-block#sys-row-mergeblocked { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+.mb-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mb-title .count { font-weight: 700; }
+.mb-empty {
+  border: 1px dashed var(--border); border-radius: 10px;
+  padding: 12px 14px; font-size: 13px; color: var(--muted); text-wrap: pretty;
+}
+/* o gap de 1px sobre o fundo --border-soft desenha as divisórias: linha removida não deixa
+   borda órfã */
+.mb-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 1px;
+  background: var(--border-soft); border: 1px solid var(--border-soft);
+  border-radius: 10px; overflow: hidden;
+}
+.mb-item { display: flex; align-items: center; gap: 12px; padding: 7px 7px 7px 12px; background: var(--surface); }
+.mb-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.mb-repo { background: none; padding: 0; font-size: 12.5px; font-weight: 650; color: var(--text); overflow-wrap: anywhere; }
+/* --muted e não --faint: no claro o --faint fica abaixo de 4,5:1 sobre --surface */
+.mb-meta { font-size: 12px; color: var(--muted); }
+.mb-x { flex: none; }
+.mb-add { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.mb-input {
+  flex: 1 1 220px; max-width: 340px; min-width: 0;
+  padding: 6px 10px; background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px; font: inherit; font-size: 12.5px;
+}
+.mb-input::placeholder { color: var(--faint); }
+.mb-input:focus { outline: none; border-color: var(--accent); }
+.mb-input[aria-invalid="true"] { border-color: var(--danger); }
+.mb-erro { margin-top: -6px; font-size: 12px; color: var(--danger); }
+.mb-sug { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
+.mb-sug-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  font: inherit; font-size: 11.5px; color: var(--muted);
+  background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 7px;
+  padding: 2px 8px; cursor: pointer;
+}
+.mb-sug-btn:hover { color: var(--text); border-color: var(--border); }
+.mypr-merge-nota { margin: 8px 0 0; font-size: 12px; line-height: 1.45; color: var(--muted); text-wrap: pretty; }
+@media (max-width: 620px) {
+  .mb-input { max-width: none; }
+  .mb-input, .mb-add .btn, .mb-x, .mb-sug-btn { min-height: 44px; }
+  .mb-x { min-width: 64px; justify-content: center; }
+  .mypr-merge-nota .is-goto { display: inline-flex; align-items: center; min-height: 44px; }
+}

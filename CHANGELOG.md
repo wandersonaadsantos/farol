@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.71.2
+
+A seção Sistema > Conexões saiu, e a lista de repos bloqueados pra merge foi para Sistema > Automação.
+
+**Correções**
+
+- **Sistema > Conexões saiu.** Dois dos três campos dela não faziam nada: a conta e as organizações do modo simples só valiam quando não havia conta nenhuma cadastrada, o que não acontece desde que as contas passaram a morar em Sistema > Contas. Editar ali não mudava o que o Farol monitorava. As organizações de cada conta continuam em Sistema > Contas, e a busca de configurações leva até lá.
+- **Repos bloqueados pra merge, em Sistema > Automação.** A lista ganhou um bloco próprio, "Merge em Meus PRs": um repo por linha, com quantos PRs seus abertos ele tem, botão para tirar, campo que aceita `owner/repo`, a URL do repo ou a URL de um PR, e atalhos para os repos dos seus PRs abertos. Incluir e tirar gravam na hora, com Desfazer.
+- **O card de Meus PRs explica o Merge bloqueado.** Num repo da lista, o botão Merge aparece desativado com o motivo, mesmo sem análise, e o card leva direto à lista em Sistema > Automação. Antes o motivo dizia só "aba Sistema".
+
 ## v2.71.1
 
 O Farol volta a revisar sozinho os PRs que ganham código novo depois do seu review, em três casos em que antes só o seu clique destravava.
