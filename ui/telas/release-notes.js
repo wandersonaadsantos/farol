@@ -7,21 +7,11 @@
 // mesmo número de versão no topo (test/release-consistency.test.js amarra os três).
 
 export const RELEASE_NOTES = [
+  ['2.71.3', ["Quando a revisão encontra algo que só uma pessoa decide (segurança, produto, escopo além do card), isso agora vai no texto da aprovação, para quem faz o merge ver. Antes ficava só no app.", "Cada decisão guarda o que a sustentou (cobertura da leitura, checks, se o revisor detalhado rodou), para dar para auditar depois.", "A revisão parou de contar com travas que a configuração pode ter desligado, como a espera do CI."]],
   ['2.71.2', ["Sistema > Conexões saiu: a conta e as organizações que estavam lá não tinham efeito. As organizações de cada conta continuam em Sistema > Contas.", "Repos bloqueados pra merge agora ficam em Sistema > Automação, num bloco próprio: um repo por linha, campo que aceita owner/repo ou URL, e Desfazer.", "Em Meus PRs, o card de um repo bloqueado diz por que não há Merge e leva direto à lista."]],
-  ['2.71.1', [
-    "Aprovação dispensada pelo push agora também dispara a re-revisão: antes o PR que perdia a sua aprovação ficava sem revisão nova.",
-    "Resultado esperando você que ganha commit novo é revisado de novo sozinho, depois que o PR fica alguns minutos sem push. Antes só o seu clique destravava.",
-    "A saída de cena vale só para o commit em que nasceu: commit novo traz o Farol de volta, a menos que a outra pessoa continue revisando.",
-  ]],
-  ['2.71.0', [
-    "O card da fila mostra quem já está revisando o PR, e o botão vira \"Revisar junto\". Panorama e sessão em andamento também mostram. Se a pessoa já revisou, o card diz que a decisão é sua.",
-    "Nova chave em Sistema > Automação, \"Revisar sozinho mesmo com outra pessoa revisando\", desligada por padrão. Ligada, o Farol revisa mesmo assim e não co-assina.",
-    "Quando a assinatura do Claude bate no limite do plano, o card diz que a revisão automática recomeça sozinha no reset, em vez de ficar parado sem explicação.",
-  ]],
-  ['2.70.0', [
-    "Nova chave em Sistema > Automação, \"Esperar o CI para aprovar\", desligada por padrão. Desligada, a aprovação automática sai assim que a revisão termina, mesmo com check obrigatório vermelho ou rodando, e o estado do CI fica como ressalva no card, nunca no PR. Ligada, o Farol espera a pipe fechar verde no mesmo commit, como antes.",
-    "Aprovações que já estavam esperando o CI saem sozinhas depois de atualizar, conferindo de novo política, commit e reviews de pessoas. Quem quer manter a espera precisa ligar a chave.",
-  ]],
+  ['2.71.1', ["Aprovação dispensada pelo push agora também dispara a re-revisão: antes o PR que perdia a sua aprovação ficava sem revisão nova.", "Resultado esperando você que ganha commit novo é revisado de novo sozinho, depois que o PR fica alguns minutos sem push. Antes só o seu clique destravava.", "A saída de cena vale só para o commit em que nasceu: commit novo traz o Farol de volta, a menos que a outra pessoa continue revisando."]],
+  ['2.71.0', ["O card da fila mostra quem já está revisando o PR, e o botão vira \"Revisar junto\". Panorama e sessão em andamento também mostram. Se a pessoa já revisou, o card diz que a decisão é sua.", "Nova chave em Sistema > Automação, \"Revisar sozinho mesmo com outra pessoa revisando\", desligada por padrão. Ligada, o Farol revisa mesmo assim e não co-assina.", "Quando a assinatura do Claude bate no limite do plano, o card diz que a revisão automática recomeça sozinha no reset, em vez de ficar parado sem explicação."]],
+  ['2.70.0', ["Nova chave em Sistema > Automação, \"Esperar o CI para aprovar\", desligada por padrão. Desligada, a aprovação automática sai assim que a revisão termina, mesmo com check obrigatório vermelho ou rodando, e o estado do CI fica como ressalva no card, nunca no PR. Ligada, o Farol espera a pipe fechar verde no mesmo commit, como antes.", "Aprovações que já estavam esperando o CI saem sozinhas depois de atualizar, conferindo de novo política, commit e reviews de pessoas. Quem quer manter a espera precisa ligar a chave."]],
   ['2.69.1', [
     "Pedir a revisão de novo volta a produzir revisão, mesmo sem commit novo: antes o Farol não revisava, não recusava e não avisava.",
   ]],
