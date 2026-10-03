@@ -389,6 +389,18 @@ coisa irrelevante ao trabalho revisado). Estado final (v2.54.0):
   dela: `anexarChecksObrigatorios` continua lendo o CI no head antes de postar. Se o CI
   segura a aprovação é a OUTRA chave, `aguardarCiParaAprovar` (ver "A espera do CI na
   aprovação é opt-in", logo abaixo do parágrafo das duas classes).
+- **Texto público e registro auditável (03/10/2026)**: resposta a uma análise externa que
+  apontou dois problemas confirmados nos dados. (1) Num PR de infraestrutura, a revisão escreveu
+  "é uma decisão de segurança e produto" só no relatório interno; o APPROVE público dizia que
+  nenhum ponto segurava o merge, e o PR foi mergeado dois minutos depois. O envelope ganhou
+  `paraQuemMergeia` e o engine anexa a lista ao corpo do APPROVE (`lib/engine/para-quem-mergeia.js`,
+  via `conferirEnvelope` em `lib/engine/envelope-revisao.js`), sem dizer que é automático e
+  pelo firewall de linguagem; a política da conta segue decidindo. (2) O `recordDecision`
+  descartava `decision`, cobertura, alcance e checks (0 de 60 aprovações automáticas desde 30/09
+  tinham esses campos); agora grava `provas` (`lib/engine/provas-da-decisao.js`), com o
+  `protocolo.prReviewer` declarado pela sessão. O prompt deixou de prometer três travas que a
+  configuração pode ter desligado (espera do CI, APPROVE com obrigatório vermelho e cobertura
+  incompleta indo para decisão humana). Travado em `test/revisao-auditavel.test.js`.
 - **Reanalisar sem clique (02/10/2026)**: pedido do dono depois de notar "uma deficiência
   muito grande em reanalisar PRs necessários". Medição de uma semana (123 PRs de colegas com
   review meu) achou três buracos, todos fechados sem afrouxar gate nenhum. (1) **Aprovação

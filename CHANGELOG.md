@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.71.3
+
+O texto da aprovação passa a levar o que só uma pessoa decide, e cada decisão guarda o que a sustentou.
+
+**Correções**
+
+- **O que só uma pessoa decide chega a quem faz o merge.** Quando a revisão encontra um ponto que não é de código (uma decisão de segurança, de produto ou um escopo além do card), ele agora entra no texto da aprovação, além de aparecer como ressalva no app. Antes esse ponto podia ficar só no relatório interno, e quem mergeava lia uma aprovação que dizia que nada segurava o merge.
+- **Cada decisão guarda o que a sustentou.** A decisão registra, de forma resumida, o que a revisão concluiu, a cobertura da leitura (quantos arquivos, quantos lidos, quais lacunas), o uso fora do diff, os checks obrigatórios que não estavam verdes e se o revisor detalhado rodou ou foi dispensado, com o motivo. Antes nada disso ficava guardado, e não dava para auditar uma aprovação depois.
+- **A revisão parou de contar com travas que podem estar desligadas.** As instruções da revisão diziam que o app segurava a aprovação com o CI rodando ou vermelho e com leitura incompleta, o que deixou de ser verdade quando essas travas viraram configuração. Agora elas dizem a verdade, e a revisão escreve no texto o que a pipe e a leitura incompleta significam para o merge.
+
 ## v2.71.2
 
 A seção Sistema > Conexões saiu, e a lista de repos bloqueados pra merge foi para Sistema > Automação.
