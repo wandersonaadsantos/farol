@@ -7,6 +7,11 @@
 // mesmo número de versão no topo (test/release-consistency.test.js amarra os três).
 
 export const RELEASE_NOTES = [
+  ['2.71.1', [
+    "Aprovação dispensada pelo push agora também dispara a re-revisão: antes o PR que perdia a sua aprovação ficava sem revisão nova.",
+    "Resultado esperando você que ganha commit novo é revisado de novo sozinho, depois que o PR fica alguns minutos sem push. Antes só o seu clique destravava.",
+    "A saída de cena vale só para o commit em que nasceu: commit novo traz o Farol de volta, a menos que a outra pessoa continue revisando.",
+  ]],
   ['2.71.0', [
     "O card da fila mostra quem já está revisando o PR, e o botão vira \"Revisar junto\". Panorama e sessão em andamento também mostram. Se a pessoa já revisou, o card diz que a decisão é sua.",
     "Nova chave em Sistema > Automação, \"Revisar sozinho mesmo com outra pessoa revisando\", desligada por padrão. Ligada, o Farol revisa mesmo assim e não co-assina.",

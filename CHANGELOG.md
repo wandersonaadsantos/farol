@@ -9,6 +9,18 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.71.1
+
+O Farol volta a revisar sozinho os PRs que ganham código novo depois do seu review, em três casos em que antes só o seu clique destravava.
+
+**Correções**
+
+- **Aprovação dispensada pelo push.** Em repositório que dispensa a aprovação quando chega commit novo, a sua aprovação virava "dispensada" e o Farol deixava de enxergar que o PR tinha mudado. Justo o PR que tinha perdido a sua aprovação ficava sem revisão nova. Agora o commit novo depois de uma aprovação dispensada também dispara a re-revisão.
+- **Resultado esperando você e commit novo.** Quando um resultado estava em "Precisa de você" e o autor empurrava código, nada acontecia até você clicar. Agora o Farol percebe o commit novo, avisa no card e revisa de novo sozinho depois que o PR fica alguns minutos sem push.
+- **Saída de cena vale só para o commit em que nasceu.** Quando outra pessoa estava revisando, o Farol saía de cena no PR inteiro, e um commit novo ou um pedido de revisão novo não o traziam de volta. Agora commit novo libera; se a pessoa continuar revisando o commit novo, o Farol continua fora.
+
+Os gates de postagem não mudam: política da conta, gate de consciência e a conferência de que você já revisou aquele commit valem como sempre.
+
 ## v2.71.0
 
 A fila passa a dizer quem já está revisando o PR e quando a revisão automática está esperando o limite do plano do Claude.

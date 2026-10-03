@@ -389,6 +389,23 @@ coisa irrelevante ao trabalho revisado). Estado final (v2.54.0):
   dela: `anexarChecksObrigatorios` continua lendo o CI no head antes de postar. Se o CI
   segura a aprovação é a OUTRA chave, `aguardarCiParaAprovar` (ver "A espera do CI na
   aprovação é opt-in", logo abaixo do parágrafo das duas classes).
+- **Reanalisar sem clique (02/10/2026)**: pedido do dono depois de notar "uma deficiência
+  muito grande em reanalisar PRs necessários". Medição de uma semana (123 PRs de colegas com
+  review meu) achou três buracos, todos fechados sem afrouxar gate nenhum. (1) **Aprovação
+  dispensada pelo push**: em repositório que dispensa aprovação velha, a minha vira
+  `DISMISSED` no commit seguinte, e o `staleForReview` (`selfpr.js`) só lia `APPROVED` e
+  `CHANGES_REQUESTED`: caía em indeterminado e o gatilho A nunca armava, justamente no PR que
+  tinha perdido a minha aprovação (cinco PRs na semana, um deles mergeado com o pedido de
+  revisão aberto). Agora `DISMISSED` entra no filtro e no `explicaReRound`; dispensada sem
+  commit novo (mesmo head) continua sem relançar. (2) **Pendência na mesa + commit novo**:
+  `marcarCommitNovo` (`lib/engine/pendencia-commit-novo.js`, no fim do `reconcilePending`)
+  faz o que só o clique fazia, marcando `stale_head`, e o gatilho B relança depois do PR
+  quieto. (3) **Saída de cena por commit**: `largarSeHeadMudou` (`lib/engine/head-novo.js`)
+  libera o registro quando o head muda; se a pessoa continuar revisando, a label dela volta
+  a segurar no ciclo seguinte. Corrida de merge (PR mergeado poucos minutos depois do push) e
+  limite do plano ficaram de fora de propósito: o primeiro é o debounce que evita revisar
+  commit que ainda vai mudar, o segundo já tem aviso no card. Travado em
+  `test/rerevisao-sem-clique.test.js`, com cada correção provada por mutação.
 - **Revisar junto (opt-in, 02/10/2026)**: pedido do dono, "se caso tiver alguém já com a
   label de revisando no GitHub, precisamos indicar pra quem vê a fila que já tem alguém
   revisando". Duas partes. (1) O card de Pra mim, a linha do Panorama e o card de sessão dizem
