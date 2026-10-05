@@ -21,6 +21,7 @@ import {
 import { DEFAULT_PORT, TEMPOS, ATIVACAO_AUTOMATICA_A4, ATIVACAO_TETO_GRUPO_C4B } from './lib/constants.js';
 import env from './lib/env.js';
 import { modelLabel, isPermanentBranch, logStamp, semControle } from './lib/format.js';
+import { gravarLinhaDeLog } from './lib/log-arquivo.js';
 import { ACCOUNT_PALETTE } from './lib/taxonomy.js'; // resto da taxonomia é usado nos colaboradores (review/pushback)
 import {
   parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople,
@@ -523,13 +524,10 @@ class Engine extends EventEmitter {
   // --- log: so falhas, sem ruido (mesmo contrato do tool antigo) ---
   log(level, msg) {
     try {
-      if (fs.existsSync(LOG_FILE) && fs.statSync(LOG_FILE).size > TEMPOS.LOG_ROTACAO_BYTES) {
-        fs.renameSync(LOG_FILE, LOG_FILE + '.1');
-      }
       // Brasília com offset explícito na linha (logStamp), nunca UTC cru: o log em
       // UTC deslocava a linha do tempo em 3h contra o resto do app e enganava a
       // reconstrução de incidentes. Linhas antigas em UTC seguem parseáveis.
-      fs.appendFileSync(LOG_FILE, `[${logStamp()}] [${level}] ${semControle(msg)}\n`);
+      gravarLinhaDeLog(LOG_FILE, `[${logStamp()}] [${level}] ${semControle(msg)}\n`, TEMPOS.LOG_ROTACAO_BYTES);
     } catch { /* log nunca derruba o app */ }
   }
 

@@ -47,6 +47,17 @@ test('arquivo zerado como o de 04/10: volta o padrão e o original fica preserva
   assert.equal(avisos.length, 1);
 });
 
+test('a rotação do log mede o arquivo aberto: passou do teto, vira .1 e a linha vai no novo', async () => {
+  const { gravarLinhaDeLog } = await import('../lib/log-arquivo.js');
+  const arq = path.join(DIR, 'rotacao.log');
+  gravarLinhaDeLog(arq, 'a\n', 4);
+  gravarLinhaDeLog(arq, 'b\n', 4);
+  assert.equal(fs.readFileSync(arq, 'utf8'), 'a\nb\n', 'até o teto, anexa no mesmo arquivo');
+  gravarLinhaDeLog(arq, 'c\n', 3);
+  assert.equal(fs.readFileSync(arq + '.1', 'utf8'), 'a\nb\n', 'o anterior vira .1 inteiro');
+  assert.equal(fs.readFileSync(arq, 'utf8'), 'c\n');
+});
+
 test('o log escapa byte de controle e mantém quebra de linha e tabulação', () => {
   assert.equal(semControle('a\u0000\u0000b'), 'a\\u0000\\u0000b');
   assert.equal(semControle('x\ty\nz\r'), 'x\ty\nz\r');
