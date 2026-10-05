@@ -9,6 +9,20 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.71.5
+
+Manutenção: menos chamadas ao GitHub, revisões que deixam de se perder por um caractere e PR revisado fora do Farol que para de voltar à fila.
+
+**Correções**
+
+- **PR que você já revisou fora do Farol parou de voltar à fila a cada ciclo.** O Farol tirava o PR da fila, achava de novo o pedido de revisão, devolvia o PR e repetia o aviso, consultando o GitHub a cada volta. Agora a revisão que você fez naquele commit fica registrada, e o PR só volta com commit novo ou com um pedido de revisão novo feito por outra pessoa.
+- **Revisão longa que terminava com um caractere a mais no resultado deixou de ser descartada.** Quando o resultado da sessão vinha com um erro de sintaxe, a revisão inteira ia para o lixo e o PR parava. Agora a mesma sessão recebe um único pedido para reenviar o resultado corrigido, sem revisar de novo e sem mudar o veredito. Se voltar quebrado outra vez, o PR para como antes, sem postar nada, e a falha aponta para a sessão que a produziu.
+- **Menos chamadas ao GitHub.** Os ramos e o commit dos seus PRs, o commit dos PRs da fila e os comentários de contestação passaram a ser relidos só quando o PR muda no GitHub, em vez de a cada ciclo. Num teste com 5 PRs parados, 10 ciclos faziam 50 leituras de ramos e agora fazem 5. A busca de atualização do Farol também passou a sair no máximo a cada 15 minutos.
+- **O limite do GitHub espera a cota certa.** Quando o GitHub recusava por limite, o Farol olhava só a cota de busca e podia voltar em dois minutos para bater de novo no limite de outra cota. Agora ele lê as três cotas, espera a que acabou e diz qual foi no Diagnóstico.
+- **A aprovação não sai sobre um commit que ninguém leu.** Se o GitHub recusava a primeira postagem e chegava um commit novo antes da segunda tentativa, o review podia sair carimbado no commit novo. Agora o Farol confere o commit antes da segunda tentativa e, se mudou, não posta e diz por quê.
+- **Estado gravado de forma mais segura.** Os arquivos de estado vão para o disco antes de substituir os anteriores, para um desligamento inesperado não deixar um arquivo zerado no lugar. O log também deixou de gravar caracteres de controle crus.
+- **O chat recusa conversa sem PR.** Um pedido com chave que não é de PR deixou de criar ou alterar qualquer coisa no engine.
+
 ## v2.71.4
 
 A autoanálise que recebe uma resposta quebrada da sessão passa a ter nome no Diagnóstico.
