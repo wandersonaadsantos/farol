@@ -433,6 +433,18 @@ test('envelope válido passa e mantém os campos estruturados', () => {
   assert.deepEqual(d.coverageLimitations, []);
 });
 
+// Medido em 28/09/2026 (biudtech/backoffice#48): o JSON.parse cru deixava escapar a
+// mensagem do V8 ("Expected ',' or '}' after property value in JSON at position 3451"),
+// que nenhuma classe da taxonomia reconhece. A revisão já devolvia "JSON da sessão
+// inválido" nesse caso (session.js, jsonDaSessao); a autoanálise tem que devolver a dela.
+test('JSON quebrado vira falha de contrato nomeada, nunca a mensagem crua do parser', () => {
+  const quebrado = '{"verdict": "approvable", "blockers": [] "reportMarkdown": "# ok"}';
+  assert.throws(
+    () => parseSelfResult({ parseEnvelope: (t) => t }, quebrado),
+    (err) => err instanceof SyntaxError && err.message === 'JSON da autoanálise inválido',
+  );
+});
+
 test('verdict fora do enum é recusado, inclusive o legado em português', () => {
   for (const verdict of ['aprovável', 'approve', '', null, 42, 'APPROVABLE']) {
     assert.throws(() => parse({ verdict }), /contrato/i, `verdict=${JSON.stringify(verdict)}`);

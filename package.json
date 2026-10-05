@@ -1,7 +1,7 @@
 {
   "name": "farol",
   "productName": "Farol",
-  "version": "2.71.3",
+  "version": "2.71.4",
   "description": "Radar de Pull Requests: monitora o GitHub e revisa com Claude Code ou Codex CLI.",
   "main": "main.js",
   "type": "module",
@@ -23,6 +23,6 @@
     "hooks:install": "git config core.hooksPath tools/hooks"
   },
   "dependencies": {
-    "electron": "^44.5.1"
+    "electron": "^44.1.0"
   }
 }

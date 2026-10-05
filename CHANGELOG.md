@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.71.4
+
+A autoanálise que recebe uma resposta quebrada da sessão passa a ter nome no Diagnóstico.
+
+**Correções**
+
+- **A falha da autoanálise com resposta quebrada deixou de aparecer como "falha não classificada".** Quando a sessão da autoanálise devolvia um JSON com erro de sintaxe, o Diagnóstico mostrava a mensagem crua do interpretador e mandava copiar a falha para quem mantém o Farol. Agora ela aparece como "Sessão sem resultado estruturado válido", a mesma classe da revisão. O mesmo vale para as outras recusas de formato da autoanálise, como um veredito fora da lista. O comportamento não muda: a análise continua parando e esperando você, sem tentar de novo sozinha.
+
 ## v2.71.3
 
 O texto da aprovação passa a levar o que só uma pessoa decide, e cada decisão guarda o que a sustentou.

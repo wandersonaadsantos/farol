@@ -96,6 +96,21 @@ test('resultado ausente ou inválido tem diagnóstico próprio e não provoca re
   assert.notEqual(classify('ESLint: 10 erros prettier/prettier no PR').id, 'resultado-invalido');
 });
 
+// A autoanálise fala "autoanálise" onde a revisão fala "sessão" (lib/engine/selfpr.js). Sem
+// casar as duas, o contrato quebrado dela caía em 'desconhecido' e o Diagnóstico mandava
+// "copie esta falha e mande para quem mantém o Farol" para um defeito que tem nome.
+test('o resultado inválido da autoanálise é a mesma classe que o da revisão', () => {
+  for (const message of [
+    'JSON da autoanálise inválido',
+    'JSON da autoanálise fora do contrato: verdict tem que ser approvable ou needs_work',
+    'JSON da autoanálise fora do contrato: reportMarkdown ausente',
+  ]) {
+    const c = classify(message);
+    assert.equal(c.id, 'resultado-invalido', message);
+    assert.equal(c.kind, 'permanente', message);
+  }
+});
+
 const CASOS = [
   ['limite-plano', MSG.limite],
   ['assinatura-bloqueada', MSG.assinatura],
