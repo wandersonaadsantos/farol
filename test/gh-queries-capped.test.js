@@ -6,7 +6,7 @@
 // precisa vir ANTES do require do server (o runner isola cada arquivo num processo).
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-ghcap-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-ghcap-'));
 
 const io = (await import('../lib/io.js')).default;
 let ghStdout = '[]';

@@ -8,7 +8,7 @@
 // que é só de falhas; esperar uma revisão terminar é o comportamento certo, não uma falha.
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-update-adiado-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-update-adiado-'));
 
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';

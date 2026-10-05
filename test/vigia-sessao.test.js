@@ -6,7 +6,7 @@
 // no FIM, depois de pagar a sessao inteira. O vigia pergunta durante a sessao.
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-vigia-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-vigia-'));
 
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';

@@ -7,7 +7,7 @@
 // (test/test-isolation.test.js), e o patch de io.run antes do server.
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-entregas-fatias-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-entregas-fatias-'));
 
 const io = (await import('../lib/io.js')).default;
 const chamadas = [];

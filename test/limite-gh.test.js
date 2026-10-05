@@ -14,7 +14,7 @@
 //     bloqueio e entupia o log que o Diagnostico le.
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-limitegh-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-limitegh-'));
 
 const io = (await import('../lib/io.js')).default;
 const LIMITE = 'GraphQL: API rate limit already exceeded for user ID 95881233.';

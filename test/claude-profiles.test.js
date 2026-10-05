@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 
-const HOME = path.join(os.tmpdir(), 'farol-test-claude-profiles-' + process.pid);
+const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-claude-profiles-'));
 process.env.FAROL_HOME = HOME;
 
 import { test, after } from 'node:test';
@@ -538,7 +538,7 @@ test('boot com config.json malformado (claudeProfiles string, claudeProfileId n�
   // processo próprio (não o deste arquivo de teste): CONFIG_FILE/HOME são consts de
   // módulo lidas no require, então só um processo novo prova o boot real com o
   // config.json malformado já em disco ANTES do require('../server.js').
-  const badHome = path.join(os.tmpdir(), 'farol-test-malformed-boot-' + process.pid + '-' + Date.now());
+  const badHome = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-malformed-boot-'));
   fsMod.mkdirSync(badHome, { recursive: true });
   fsMod.writeFileSync(path.join(badHome, 'config.json'), JSON.stringify({
     claudeProfiles: 'abc', // string, não array: .find/.map lançariam TypeError sem o fix

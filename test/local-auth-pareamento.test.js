@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 
-const HOME = path.join(os.tmpdir(), 'farol-test-local-auth-pareamento-' + process.pid);
+const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-local-auth-pareamento-'));
 process.env.FAROL_HOME = HOME;
 
 import { test, beforeEach, after } from 'node:test';

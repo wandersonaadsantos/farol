@@ -6,7 +6,7 @@
 // teste trava a mesma defesa no decide().
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-decide-conc-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-decide-conc-'));
 
 // Apagado no fim. O caminho e derivado do pid e nao de `mkdtemp`, entao ele se
 // repete entre rodadas do mesmo processo, mas acumula uma pasta por processo:

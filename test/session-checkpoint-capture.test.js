@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 
-const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-session-checkpoint-' + process.pid);
+const FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-session-checkpoint-'));
 process.env.FAROL_HOME = FAROL_HOME;
 
 import { test, after } from 'node:test';

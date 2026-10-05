@@ -8,7 +8,8 @@
 // do Wanderson: com fila, divide; sem fila, o que chegar é atendido.
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = process.env.FAROL_HOME || path.join(os.tmpdir(), 'farol-test-justica-' + process.pid);
+import fs from 'node:fs';
+process.env.FAROL_HOME = process.env.FAROL_HOME || fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-justica-'));
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

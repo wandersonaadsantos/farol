@@ -15,7 +15,7 @@ import path from 'node:path';
 // (achado em 20/08/2026, com lixo de teste no ~/.farol de verdade). É a mesma
 // lição do spawnlog.test.js documentada no docs/MACOS.md, com outra roupa: lá o
 // problema era o import hasteado, aqui era não ter env nenhuma.
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-skip-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-skip-'));
 
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';

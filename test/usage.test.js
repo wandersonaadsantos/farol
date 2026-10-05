@@ -2,10 +2,11 @@
 // extractUsage, applyUsage) + o resumo. Sem fs, sem sessão real. Runner nativo, ZERO deps.
 import os from 'node:os';
 import path from 'node:path';
+import fs from 'node:fs';
 // o corte de dia é LOCAL (regra do projeto: horário de Brasília, nunca UTC cru);
 // sem fixar o fuso o teste passaria numa máquina e falharia noutra
 process.env.TZ = 'America/Sao_Paulo';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-usage-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-usage-'));
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

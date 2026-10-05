@@ -6,7 +6,7 @@
 // (3) idempotente: remover quem não tem nada devolve ok sem inventar erro.
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-teamrm-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-teamrm-'));
 
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';

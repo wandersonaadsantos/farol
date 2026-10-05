@@ -21,7 +21,7 @@ import fs from 'node:fs';
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 
-const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-result-missing-' + process.pid);
+const FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-result-missing-'));
 process.env.FAROL_HOME = FAROL_HOME;
 const { Engine } = await import('../server.js');
 const fanout = (await import('../lib/engine/fanout.js')).default;

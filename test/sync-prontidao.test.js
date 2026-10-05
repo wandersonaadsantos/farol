@@ -6,7 +6,8 @@
 // legítimo, que renova.
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = process.env.FAROL_HOME || path.join(os.tmpdir(), 'farol-test-prontidao-' + process.pid);
+import fs from 'node:fs';
+process.env.FAROL_HOME = process.env.FAROL_HOME || fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-prontidao-'));
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

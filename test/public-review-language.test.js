@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import { test, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
-const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-public-review-' + process.pid);
+const FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-public-review-'));
 process.env.FAROL_HOME = FAROL_HOME;
 
 const publicReview = (await import('../lib/engine/public-review.js')).default;

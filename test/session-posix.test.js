@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 
-const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-posix-' + process.pid);
+const FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-posix-'));
 process.env.FAROL_HOME = FAROL_HOME;
 
 import { test, after } from 'node:test';
@@ -280,15 +280,17 @@ test('prefixo posix: apikey remove OAuth do profile sem apagar a chave/base do p
 });
 
 test('prefixo posix: aspa simples no dir não injeta comando (execução real com bash)', { skip: bashDisponivel ? false : 'bash não encontrado no PATH' }, () => {
-  const proofFile = path.join(os.tmpdir(), 'PROOF_PREFIXO_' + process.pid).replace(/\\/g, '/');
-  try { fs.unlinkSync(proofFile); } catch { /* já não existe */ }
+  // arquivo de prova dentro de pasta de nome aleatório: com nome previsível no tmp
+  // compartilhado, outro usuário poderia criá-lo antes e confundir a prova
+  const pasta = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-prefixo-'));
+  const proofFile = path.join(pasta, 'PROOF_PREFIXO').replace(/\\/g, '/');
   try {
     const dir = `/tmp/x' ; touch ${proofFile} #`;
     const saida = rodaComProfileSujo(claudeAuthPosixPrefix({ kind: 'dir', dir }));
     assert.equal(fs.existsSync(proofFile), false, 'comando injetado NÃO deve ter rodado');
     assert.equal(saida, `[|||${dir}|]`, 'valor preservado como string literal única');
   } finally {
-    try { fs.unlinkSync(proofFile); } catch { /* limpeza, caso o teste falhe e o comando tenha rodado */ }
+    try { fs.rmSync(pasta, { recursive: true, force: true }); } catch { /* limpeza, caso o teste falhe e o comando tenha rodado */ }
   }
 });
 

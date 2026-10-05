@@ -28,13 +28,19 @@
 //    sem ter relacao nenhuma com o que o teste afirma.
 import os from 'node:os';
 import path from 'node:path';
+import fs from 'node:fs';
 import { envSemRepositorioHerdado } from '../../tools/git-env.js';
 
 // Caminho que nao existe, em vez de arquivo vazio de verdade: git le config
-// ausente como config vazio (medido) e nao cria nada, entao nao ha temporario
-// para vazar. `/dev/null` nao serve porque o dispositivo nulo tem outro nome no
-// Windows, e esta suite roda nos tres sistemas.
-const CONFIG_NEUTRO = path.join(os.tmpdir(), 'farol-teste-gitconfig-inexistente');
+// ausente como config vazio (medido) e nao cria nada. `/dev/null` nao serve porque o
+// dispositivo nulo tem outro nome no Windows, e esta suite roda nos tres sistemas.
+// O caminho fica DENTRO de uma pasta de nome aleatorio (05/10/2026): com nome fixo no tmp
+// compartilhado do Linux, outro usuario podia criar o arquivo antes e o git o leria como
+// config global, com core.fsmonitor ou core.hooksPath executando comando no teste. A
+// pasta vazia sai quando o processo termina.
+const PASTA_NEUTRA = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-teste-gitconfig-'));
+process.on('exit', () => { try { fs.rmSync(PASTA_NEUTRA, { recursive: true, force: true }); } catch { /* pasta vazia, best-effort */ } });
+const CONFIG_NEUTRO = path.join(PASTA_NEUTRA, 'inexistente');
 
 /**
  * `process.env` sem o que faria o git falar com outro repositorio, nem com o
