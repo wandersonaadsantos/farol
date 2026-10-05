@@ -20,7 +20,7 @@ import {
 // A Engine abaixo compõe estes módulos; a decomposição por responsabilidade segue nas ondas 2+.
 import { DEFAULT_PORT, TEMPOS, ATIVACAO_AUTOMATICA_A4, ATIVACAO_TETO_GRUPO_C4B } from './lib/constants.js';
 import env from './lib/env.js';
-import { modelLabel, isPermanentBranch, logStamp } from './lib/format.js';
+import { modelLabel, isPermanentBranch, logStamp, semControle } from './lib/format.js';
 import { ACCOUNT_PALETTE } from './lib/taxonomy.js'; // resto da taxonomia é usado nos colaboradores (review/pushback)
 import {
   parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople,
@@ -529,7 +529,7 @@ class Engine extends EventEmitter {
       // Brasília com offset explícito na linha (logStamp), nunca UTC cru: o log em
       // UTC deslocava a linha do tempo em 3h contra o resto do app e enganava a
       // reconstrução de incidentes. Linhas antigas em UTC seguem parseáveis.
-      fs.appendFileSync(LOG_FILE, `[${logStamp()}] [${level}] ${msg}\n`);
+      fs.appendFileSync(LOG_FILE, `[${logStamp()}] [${level}] ${semControle(msg)}\n`);
     } catch { /* log nunca derruba o app */ }
   }
 
