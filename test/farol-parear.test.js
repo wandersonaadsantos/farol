@@ -6,7 +6,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
-const HOME = path.join(os.tmpdir(), 'farol-test-farol-parear-' + process.pid);
+const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-farol-parear-'));
 process.env.FAROL_HOME = HOME;
 
 import { test, beforeEach, after } from 'node:test';

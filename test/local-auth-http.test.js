@@ -11,7 +11,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import http from 'node:http';
 
-const HOME = path.join(os.tmpdir(), 'farol-test-local-auth-http-' + process.pid);
+const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-local-auth-http-'));
 process.env.FAROL_HOME = HOME;
 process.env.HOME = HOME;
 process.env.USERPROFILE = HOME;

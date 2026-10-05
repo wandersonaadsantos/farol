@@ -4,7 +4,8 @@
 // home garante que nenhum teste esbarre no ~/.farol real).
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-pure-' + process.pid);
+import fs from 'node:fs';
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-pure-'));
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

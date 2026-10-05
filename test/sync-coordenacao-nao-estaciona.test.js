@@ -5,7 +5,7 @@
 // mora no próprio runOneHeadless, que reconhece a classe antes de decidir retry.
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-sync-coord-nao-estaciona-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-sync-coord-nao-estaciona-'));
 
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';

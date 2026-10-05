@@ -17,7 +17,7 @@
 //   verdade nos pontos que o teste existe pra provar.
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-consciencia-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-consciencia-'));
 
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';

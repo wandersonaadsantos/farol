@@ -16,7 +16,8 @@
 // por si mesmo". Aquela guarda cobre o motivo `alheio`; o motivo `recibo` ficou de fora.
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = process.env.FAROL_HOME || path.join(os.tmpdir(), 'farol-test-bloqueio-' + process.pid);
+import fs from 'node:fs';
+process.env.FAROL_HOME = process.env.FAROL_HOME || fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-bloqueio-'));
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

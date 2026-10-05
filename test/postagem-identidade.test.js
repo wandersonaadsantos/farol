@@ -14,7 +14,7 @@
 // Runner nativo, ZERO deps.
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-post-ident-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-post-ident-'));
 
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';

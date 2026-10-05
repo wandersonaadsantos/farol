@@ -6,7 +6,8 @@
 // teto de 2048 do `panorama/$item` com o maior título e todos os campos.
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = process.env.FAROL_HOME || path.join(os.tmpdir(), 'farol-test-fila-celular-' + process.pid);
+import fs from 'node:fs';
+process.env.FAROL_HOME = process.env.FAROL_HOME || fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-fila-celular-'));
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -8,7 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 
-const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-io-tax-' + process.pid);
+const FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-io-tax-'));
 process.env.FAROL_HOME = FAROL_HOME;
 
 import { test, after } from 'node:test';
@@ -18,7 +18,7 @@ const { run, runShell } = (await import('../lib/io.js')).default;
 const { IS_WIN } = await import('../lib/paths.js');
 const tax = (await import('../lib/taxonomy.js')).default;
 
-const TMP = path.join(os.tmpdir(), 'farol-test-io-' + process.pid);
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-io-'));
 after(() => {
   for (const d of [TMP, FAROL_HOME]) { try { fs.rmSync(d, { recursive: true, force: true }); } catch { /* best-effort */ } }
 });

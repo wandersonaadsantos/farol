@@ -6,8 +6,9 @@
 // de SSE, a cada ciclo de polling), então o alcance vem de uma busca por chave
 // no histórico completo, não de inflar o que trafega a cada ciclo.
 import path from 'node:path';
+import fs from 'node:fs';
 import os from 'node:os';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-dechist-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-dechist-'));
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

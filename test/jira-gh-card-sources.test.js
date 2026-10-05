@@ -8,7 +8,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-jira-ghsrc-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-jira-ghsrc-'));
 
 const io = (await import('../lib/io.js')).default;
 let resposta = { ok: true, code: 0, stdout: '{"title":"t","headRefName":"feat/xx-1","body":"corpo"}', stderr: '' };

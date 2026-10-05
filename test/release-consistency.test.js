@@ -1,5 +1,5 @@
 // Versionamento: as TRES fontes de versao do repo tem que concordar SEMPRE
-// (package.json, CHANGELOG.md e RELEASE_NOTES do ui/telas/novidades.js). Historico real de
+// (package.json, CHANGELOG.md e RELEASE_NOTES do ui/telas/release-notes.js). Historico real de
 // erro que motivou esta trava (pedido do Wanderson, 10/08/2026): fonte bumpado
 // sem publicar (v2.28.0 no fonte com v2.26.1 instalada), spec citando uma
 // versao e a release saindo com outra (releitura do Consumo: escrita como
@@ -16,21 +16,17 @@ import assert from 'node:assert/strict';
 const ROOT = path.join(import.meta.dirname, '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const changelog = fs.readFileSync(path.join(ROOT, 'CHANGELOG.md'), 'utf8');
-// a lista saiu da tela e virou dado proprio em 02/10/2026 (ui/telas/release-notes.js):
-// a tela cresceria sem limite com uma entrada por release
-const novidadesjs = fs.readFileSync(path.join(ROOT, 'ui', 'telas', 'release-notes.js'), 'utf8');
+// a lista saiu da tela e virou dado proprio em 02/10/2026 (ui/telas/release-notes.js), e em
+// 05/10/2026 as notas ate a 2.59 foram para um arquivo fechado: a lista lida aqui e a que a
+// tela recebe, montada pelo modulo, e nao um recorte do texto de um arquivo so
+const { RELEASE_NOTES } = await import('../ui/telas/release-notes.js');
+const { NOTAS_ATE_2_59 } = await import('../ui/telas/release-notes-ate-2.59.js');
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
 
 function releaseNotesVersions() {
-  const m = novidadesjs.match(/const RELEASE_NOTES = \[([\s\S]*?)\n\];/);
-  assert.ok(m, 'RELEASE_NOTES existe no ui/telas/release-notes.js');
-  const versions = [];
-  const re = /^\s*\['(\d+\.\d+\.\d+)',/gm;
-  let x;
-  while ((x = re.exec(m[1]))) versions.push(x[1]);
-  assert.ok(versions.length > 0, 'RELEASE_NOTES tem ao menos uma entrada');
-  return versions;
+  assert.ok(Array.isArray(RELEASE_NOTES) && RELEASE_NOTES.length > 0, 'RELEASE_NOTES tem ao menos uma entrada');
+  return RELEASE_NOTES.map(([v]) => v);
 }
 
 const cmp = (a, b) => {
@@ -77,4 +73,11 @@ test('CHANGELOG nao tem versao DEPOIS da atual (secao fantasma acima do bump)', 
       `CHANGELOG tem secao v${v} MAIOR que o package.json (${pkg.version}): ou faltou bump, ou a secao e de uma versao que nao existe`);
   }
   assert.equal(all[0], pkg.version, 'a secao mais recente do CHANGELOG e a versao atual');
+});
+
+test('as notas ate a 2.59 continuam na lista da tela, inteiras e no fim', () => {
+  assert.equal(NOTAS_ATE_2_59[0][0], '2.59.8');
+  assert.equal(NOTAS_ATE_2_59.at(-1)[0], '1.7.0');
+  assert.deepEqual(RELEASE_NOTES.slice(-NOTAS_ATE_2_59.length), NOTAS_ATE_2_59);
+  for (const [v, notas] of RELEASE_NOTES) assert.ok(Array.isArray(notas) && notas.length > 0, `${v} sem nota`);
 });

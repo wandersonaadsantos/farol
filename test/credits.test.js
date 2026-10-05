@@ -7,7 +7,7 @@
 // destrutura io.run no LOAD, então o patch precisa vir ANTES do require do server.
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-credits-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-credits-'));
 
 const io = (await import('../lib/io.js')).default;
 let calls = [];

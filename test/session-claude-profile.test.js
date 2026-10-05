@@ -10,7 +10,7 @@ import fsMod from 'node:fs';
 // lib/paths.js (const de nível de módulo, lida uma única vez no load), senão o teste
 // escreve dentro do ~/.farol real da máquina (mesmo padrão de test/boot.test.js e
 // test/session-unsee-on-exit.test.js).
-const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-sessprofile-' + process.pid);
+const FAROL_HOME = fsMod.mkdtempSync(path.join(os.tmpdir(), 'farol-test-sessprofile-'));
 process.env.FAROL_HOME = FAROL_HOME;
 
 import { test, after } from 'node:test';
@@ -308,16 +308,19 @@ test(
   'buildSessionScriptMac: aspa simples no dir é escapada, não quebra a string bash (execução real)',
   { skip: bashDisponivel ? false : 'bash não encontrado no PATH' },
   () => {
-    const proofFile = path.join(os.tmpdir(), 'PROOF_INJECTION_' + process.pid).replace(/\\/g, '/');
+    // pasta de nome aleatório (mkdtemp): o script é EXECUTADO logo abaixo, e um nome previsível
+    // no tmp compartilhado deixaria outro usuário trocá-lo antes (alerta de CodeQL, 05/10/2026)
+    const pasta = fsMod.mkdtempSync(path.join(os.tmpdir(), 'farol-test-escape-'));
+    const proofFile = path.join(pasta, 'PROOF_INJECTION').replace(/\\/g, '/');
     const maliciousDir = `/tmp/x' ; touch ${proofFile} #`;
     const engine = fakeEngine({ bob: maliciousDir });
     const script = buildSessionScriptMac(engine, '/pr-review x', 'id1', 'bob');
     const exportLine = script.split('\n').find(l => l.startsWith('export CLAUDE_CONFIG_DIR'));
     assert.ok(exportLine, 'linha do export existe no script gerado');
 
-    const tmpScript = path.join(os.tmpdir(), 'farol-test-escape-' + process.pid + '.sh');
+    const tmpScript = path.join(pasta, 'escape.sh');
     try { fsMod.unlinkSync(proofFile); } catch { /* já não existe */ }
-    fsMod.writeFileSync(tmpScript, `#!/bin/bash\n${exportLine}\necho "va-$CLAUDE_CONFIG_DIR-lor"\n`);
+    fsMod.writeFileSync(tmpScript, `#!/bin/bash\n${exportLine}\necho "va-$CLAUDE_CONFIG_DIR-lor"\n`, { flag: 'wx', mode: 0o700 });
     let out;
     try {
       try {
@@ -330,7 +333,7 @@ test(
     } finally {
       // garantido mesmo se alguma asserção acima falhar - senão o arquivo de prova
       // fica no /tmp pra sempre.
-      try { fsMod.unlinkSync(proofFile); } catch { /* limpeza, caso o teste falhe e o comando tenha rodado */ }
+      try { fsMod.rmSync(pasta, { recursive: true, force: true }); } catch { /* limpeza, caso o teste falhe e o comando tenha rodado */ }
     }
   }
 );

@@ -13,7 +13,7 @@
 //      conta, do mesmo jeito que ja recusa vocabulario de proveniencia.
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-quem-sou-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-quem-sou-'));
 
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';

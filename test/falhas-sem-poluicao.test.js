@@ -13,7 +13,7 @@
 //      falha que precisa de voce: essa e a que pede acao, e esconder seria o defeito.
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-falhas-poluicao-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-falhas-poluicao-'));
 
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';

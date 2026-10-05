@@ -13,7 +13,7 @@
 // mantem o Farol, nao o modelo que vai escrever um review.
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-sem-dono-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-sem-dono-'));
 
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';

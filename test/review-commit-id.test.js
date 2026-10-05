@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import { normalizeReviewPayload } from '../lib/engine/public-review.js';
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = process.env.FAROL_HOME || path.join(os.tmpdir(), 'farol-test-commitid-' + process.pid);
+process.env.FAROL_HOME = process.env.FAROL_HOME || fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-commitid-'));
 
 // Apagado no fim. O caminho e derivado do pid e nao de `mkdtemp`, entao ele se
 // repete entre rodadas do mesmo processo, mas acumula uma pasta por processo:

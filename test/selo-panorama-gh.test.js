@@ -48,6 +48,10 @@ test('CHANGES_REQUESTED postado por outro aparelho aparece como "aguardando o au
   assert.doesNotMatch(html1, /act-review/, 'mudanças pedidas e parado: não oferece revisão paga');
 
   estado = 'APPROVED';
+  // review novo no GitHub muda o updatedAt do PR (medido em 05/10/2026: em PRs cujo último
+  // evento é um review, o updatedAt é a hora dele), e é ele que faz o ciclo reler o estado
+  // (leitura-por-mudanca.js); sem mudança no PR, o ciclo não relê
+  e.panorama = [prDe({ updatedAt: '2026-09-15T11:00:00Z' })];
   await e.refreshStaleStates();
   const s2 = e.snapshot();
   assert.deepEqual(s2.reviewStatesGh, { [KEY]: 'APPROVED' });

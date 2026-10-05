@@ -12,7 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 
-const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-unsee-' + process.pid);
+const FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-unsee-'));
 process.env.FAROL_HOME = FAROL_HOME;
 // spawnConsole usa WORKSPACE (HOME/workspace) como cwd do processo filho - sem essa
 // pasta existir, o spawn do powershell.exe falha na hora com ENOENT (cwd inválido),

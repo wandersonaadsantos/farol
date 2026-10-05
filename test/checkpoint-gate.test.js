@@ -3,7 +3,7 @@
 // acontece uma vez só, em runHeadlessReview (Task 7), antes do gate rodar.
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-checkpoint-gate-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-checkpoint-gate-'));
 
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';

@@ -3,7 +3,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-update-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-update-'));
 
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,7 +13,7 @@ const { TEMPOS } = await import('../lib/constants.js');
 const { Engine } = await import('../server.js');
 const decision = (await import('../lib/engine/decision.js')).default;
 
-const scratch = path.join(os.tmpdir(), 'farol-test-update-src-' + process.pid);
+const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-update-src-'));
 after(() => {
   try { fs.rmSync(scratch, { recursive: true, force: true }); } catch { /* best-effort */ }
   try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ }

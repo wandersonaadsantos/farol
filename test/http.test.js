@@ -6,7 +6,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import http from 'node:http';
 
-const HOME = path.join(os.tmpdir(), 'farol-test-http-' + process.pid);
+const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-http-'));
 process.env.FAROL_HOME = HOME;
 
 import { test, before, after } from 'node:test';

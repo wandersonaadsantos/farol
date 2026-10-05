@@ -10,7 +10,7 @@
 // chamador. Gate em chamador é gate que o próximo caminho esquece.
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-estrang-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-estrang-'));
 
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';

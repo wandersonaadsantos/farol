@@ -20,7 +20,8 @@ import {
 // A Engine abaixo compõe estes módulos; a decomposição por responsabilidade segue nas ondas 2+.
 import { DEFAULT_PORT, TEMPOS, ATIVACAO_AUTOMATICA_A4, ATIVACAO_TETO_GRUPO_C4B } from './lib/constants.js';
 import env from './lib/env.js';
-import { modelLabel, isPermanentBranch, logStamp } from './lib/format.js';
+import { modelLabel, isPermanentBranch, logStamp, semControle } from './lib/format.js';
+import { gravarLinhaDeLog } from './lib/log-arquivo.js';
 import { ACCOUNT_PALETTE } from './lib/taxonomy.js'; // resto da taxonomia é usado nos colaboradores (review/pushback)
 import {
   parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople,
@@ -59,6 +60,7 @@ import fileProofMod from './lib/engine/file-proof.js';
 import wsTmpMod from './lib/engine/workspace-tmp.js';
 import skipMod from './lib/engine/skip-review.js';
 import destravaMod from './lib/engine/destrava.js';
+import vistosMod from './lib/engine/vistos-reconciliacao.js';
 import checksMod from './lib/engine/checks-exigidos.js';
 import esperaCiMod from './lib/engine/espera-ci.js';
 import signalMod from './lib/engine/review-signal.js';
@@ -522,13 +524,10 @@ class Engine extends EventEmitter {
   // --- log: so falhas, sem ruido (mesmo contrato do tool antigo) ---
   log(level, msg) {
     try {
-      if (fs.existsSync(LOG_FILE) && fs.statSync(LOG_FILE).size > TEMPOS.LOG_ROTACAO_BYTES) {
-        fs.renameSync(LOG_FILE, LOG_FILE + '.1');
-      }
       // Brasília com offset explícito na linha (logStamp), nunca UTC cru: o log em
       // UTC deslocava a linha do tempo em 3h contra o resto do app e enganava a
       // reconstrução de incidentes. Linhas antigas em UTC seguem parseáveis.
-      fs.appendFileSync(LOG_FILE, `[${logStamp()}] [${level}] ${msg}\n`);
+      gravarLinhaDeLog(LOG_FILE, `[${logStamp()}] [${level}] ${semControle(msg)}\n`, TEMPOS.LOG_ROTACAO_BYTES);
     } catch { /* log nunca derruba o app */ }
   }
 
@@ -572,27 +571,8 @@ class Engine extends EventEmitter {
   // de propósito, no que tem decisão, no que outro aparelho já analisou (visto por
   // recibo), nem no que está em andamento, estacionado ou aguardando retry, que são
   // estados legítimos.
-  reconciliarVistos(mineList) {
-    if (!this.ignorados) return 0;
-    const comDecisao = new Set([
-      ...(this.decisions?.pending || []).map(d => d.key),
-      ...(this.decisions?.resolved || []).map(d => d.key),
-    ]);
-    const emCurso = new Set();
-    for (const s of this.activeReviews.values()) for (const k of (s.keys || [])) emCurso.add(k);
-    for (const pr of this.headlessQueue) emCurso.add(pr.key);
-    let devolvidos = 0;
-    for (const pr of mineList) {
-      const k = pr.key;
-      if (!this.seen.has(k)) continue;
-      if (this.ignorados.has(k) || comDecisao.has(k) || this.vistosPorRecibo?.has(k)) continue;
-      if (emCurso.has(k) || this.autoReviewParked.has(k) || this.retryAfterNet.has(k)) continue;
-      this.unsee(k);
-      devolvidos++;
-    }
-    if (devolvidos) this.log('WARN', `${devolvidos} PR(s) voltaram à fila: marcados como vistos por revisão que não chegou a decidir`);
-    return devolvidos;
-  }
+  // PR visto sem decisão: volta à fila, salvo se já está resolvido neste head (vistos-reconciliacao.js)
+  reconciliarVistos(mineList) { return vistosMod.reconciliarVistos(this, mineList); }
 
   loadIgnorados() {
     try {
@@ -1622,7 +1602,7 @@ class Engine extends EventEmitter {
   // metodos sao fachadas finas que delegam passando o engine como contexto (Onda 2).
   resolveUpdateSource() { return updateMod.resolveUpdateSource(this); }
   cmpVersion(a, b) { return updateMod.cmpVersion(a, b); }
-  async checkUpdate() { return updateMod.checkUpdate(this); }
+  async checkUpdate(opcoes) { return updateMod.checkUpdate(this, opcoes); }
   async checkUpdateRemote(repo) { return updateMod.checkUpdateRemote(this, repo); }
   async downloadRemoteUpdate() { return updateMod.downloadRemoteUpdate(this); }
   async applyUpdate() { return updateMod.applyUpdate(this); }
@@ -1779,7 +1759,7 @@ class Engine extends EventEmitter {
       claudeAuth: this.allClaudeAuthInfo(), // status de cada perfil de assinatura Claude salvo
       checkedAt: Date.now()
     };
-    this.checkUpdate().catch(() => {});
+    this.checkUpdate({ forcar: true }).catch(() => {}); // o Diagnóstico pergunta na hora
     this.pushState();
     return this.doctorInfo;
   }

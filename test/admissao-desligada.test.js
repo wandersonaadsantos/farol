@@ -3,7 +3,8 @@
 // com o critério da C4 ("três contas com teto 1 abrem UMA sessão"), que só vale ligado.
 import os from 'node:os';
 import path from 'node:path';
-process.env.FAROL_HOME = process.env.FAROL_HOME || path.join(os.tmpdir(), 'farol-test-admissao-off-' + process.pid);
+import fs from 'node:fs';
+process.env.FAROL_HOME = process.env.FAROL_HOME || fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-admissao-off-'));
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

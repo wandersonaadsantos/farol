@@ -8,7 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 
-const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-auto-opus-' + process.pid);
+const FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-auto-opus-'));
 process.env.FAROL_HOME = FAROL_HOME;
 
 import { test, after } from 'node:test';

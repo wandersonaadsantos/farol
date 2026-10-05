@@ -21,7 +21,7 @@ import fs from 'node:fs';
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 
-const FAROL_HOME = path.join(os.tmpdir(), 'farol-test-result-missing-' + process.pid);
+const FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-result-missing-'));
 process.env.FAROL_HOME = FAROL_HOME;
 const { Engine } = await import('../server.js');
 const fanout = (await import('../lib/engine/fanout.js')).default;
@@ -143,7 +143,9 @@ test('JSON malformado, ambíguo ou fora do contrato não é convertido em result
       assert.doesNotMatch(err.message, /^revisão não concluída:/);
       return true;
     });
-    assert.equal(e.chamadas.length, 1);
+    // erro de SINTAXE ganha uma rodada de reparo na mesma sessão desde 05/10/2026
+    // (reparo-envelope.js); ambíguo e fora do contrato não ganham nenhuma
+    assert.equal(e.chamadas.length, text === '{"decision":' ? 2 : 1, text.slice(0, 30));
     assert.equal(e.postados.length, 0);
   }
 });

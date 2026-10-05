@@ -10,7 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 
-process.env.FAROL_HOME = path.join(os.tmpdir(), 'farol-test-pr-proprio-' + process.pid);
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-pr-proprio-'));
 
 import { test, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
