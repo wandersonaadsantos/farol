@@ -103,11 +103,56 @@ test('sem sessionId não há o que retomar: nem tenta', async () => {
   assert.equal(e.autoReviewParked.has(PR.key), true);
 });
 
-test('JSON quebrado ou fora do contrato NÃO ganha reparo (reparar seria fabricar veredito)', async () => {
-  const e = engineCom([{ texto: '{"verdict": "approve"', sid: 's1' }]);
+// 05/10/2026: duas revisões de 12 e 14 minutos devolveram o envelope inteiro com UM
+// caractere a mais no fim da lista `alcance` e foram descartadas. Erro de SINTAXE agora
+// ganha a mesma rodada única de reparo, na mesma sessão; o Farol não conserta texto.
+
+test('envelope com erro de sintaxe (as duas quebras reais de 05/10) ganha UM reparo e a revisão é salva', async () => {
+  for (const sobra of ['"', ']']) {
+    const texto = JSON.stringify(envelope()).replace('"semChamador":"fixture sintética sem consumidor"}]', `"semChamador":"fixture sintética sem consumidor"}]${sobra}`);
+    assert.throws(() => JSON.parse(texto), SyntaxError, 'a fixture reproduz a quebra');
+    // PR próprio: os testes deste arquivo dividem a pasta de estado, e o PR padrão já estacionou acima
+    const pr = { ...PR, key: `o/r#${sobra === '"' ? 2001 : 2002}`, number: sobra === '"' ? 2001 : 2002, url: `https://github.com/o/r/pull/${sobra === '"' ? 2001 : 2002}` };
+    const e = engineCom([{ texto, sid: 's1' }, {}]);
+    await e.runOneHeadless(pr, 'trabalho');
+    assert.equal(e.chamadas.length, 2, sobra);
+    assert.deepEqual(e.chamadas[1].args.slice(-2), ['--resume', 's1'], 'na MESMA sessão, nunca uma revisão nova');
+    assert.match(e.chamadas[1].prompt, /erro de sintaxe/);
+    assert.match(e.chamadas[1].prompt, /O leitor parou aqui: .*position/, 'a sessão sabe onde quebrou');
+    assert.match(e.chamadas[1].prompt, /Não mude veredito/);
+    assert.equal(e.autoReviewParked.has(pr.key), false, 'o trabalho da sessão não foi jogado fora: ' + JSON.stringify(e.parkedMotivos[pr.key]));
+    assert.ok([...e.decisions.pending, ...e.decisions.resolved].some((d) => d.key === pr.key));
+  }
+});
+
+test('reparo de sintaxe que volta quebrado de novo estaciona, e nada é postado', async () => {
+  const texto = '{"verdict": "approve"';
+  const e = engineCom([{ texto, sid: 's1' }, { texto, sid: 's1' }]);
+  let postados = 0;
+  e.postReview = async () => { postados++; return { ok: true }; };
   await e.runOneHeadless(PR, 'trabalho');
-  assert.equal(e.chamadas.length, 1, 'só a ausência total de envelope é reparável');
+  assert.equal(e.chamadas.length, 2, 'uma rodada, nunca laço');
   assert.equal(e.autoReviewParked.has(PR.key), true);
+  assert.equal(postados, 0);
+});
+
+test('JSON ambíguo ou fora do contrato NÃO ganha reparo (ali o Farol teria de escolher)', async () => {
+  const dois = '```json\n' + JSON.stringify(envelope()) + '\n```\n```json\n' + JSON.stringify(envelope()) + '\n```';
+  for (const texto of [dois, JSON.stringify({ ...envelope(), analysisStatus: 'parcial' }), '{"decision":"needs_decision"}']) {
+    const e = engineCom([{ texto, sid: 's1' }]);
+    await e.runOneHeadless(PR, 'trabalho');
+    assert.equal(e.chamadas.length, 1, texto.slice(0, 40));
+    assert.equal(e.autoReviewParked.has(PR.key), true);
+  }
+});
+
+test('a falha de JSON inválido aponta para a sessão que a produziu', async () => {
+  const e = engineCom([{ texto: '{"verdict": "approve"', sid: 's-quebrada' }, { texto: '{"verdict": "approve"', sid: 's-quebrada' }]);
+  await assert.rejects(e.runHeadlessReview({ ...PR }), (err) => {
+    assert.equal(err.sessionId, 's-quebrada');
+    assert.match(err.message, /JSON da sessão inválido/);
+    return true;
+  });
 });
 
 test('reparo que morre não apaga a falha original: o PR estaciona pelo motivo certo', async () => {
