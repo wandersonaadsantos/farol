@@ -72,7 +72,7 @@ v2.31.0/export do pure.js). Estas regras existem pra nenhum desses se repetir:
    usa `--no-verify` e fica registrada.
 6. **Travas automáticas (não confiar em disciplina):**
    - `test/release-consistency.test.js` (roda no `npm test`): package.json,
-     `## vX.Y.Z` do CHANGELOG e `RELEASE_NOTES[0]` do ui/telas/novidades.js têm que
+     `## vX.Y.Z` do CHANGELOG e `RELEASE_NOTES[0]` do ui/telas/release-notes.js têm que
      concordar, RELEASE_NOTES estritamente decrescente, CHANGELOG sem seção
      acima da versão atual. Bump incompleto = suíte vermelha.
    - `tools/publish-release.ps1`: recusa publicar versão MENOR ou IGUAL à última
@@ -88,7 +88,7 @@ Toda release segue estes passos na ordem. Não pule nenhum.
 - [ ] Ler a **última release publicada** (`gh release view --repo wandersonaadsantos/farol --json tagName --jq .tagName`) e decidir o bump pela tabela da seção "Versionamento" acima.
 - [ ] Bump de `version` no `package.json`.
 - [ ] Atualizar `CHANGELOG.md`: criar seção `## vX.Y.Z` com novidades e correções. Se houver versões intermediárias não publicadas, consolidar tudo numa seção só.
-- [ ] Atualizar `RELEASE_NOTES` no `ui/telas/novidades.js` (saiu do `ui/app.js` na v2.59.5, quando cada aba virou módulo): adicionar entrada `['X.Y.Z', ['item 1', 'item 2']]` no topo do array. Se consolidou versões, uma entrada só. Verificar que a versão anterior publicada também tem entrada (corrigir se faltar).
+- [ ] Atualizar `RELEASE_NOTES_RECENTES` no `ui/telas/release-notes.js` (a lista saiu da tela `ui/telas/novidades.js` em 02/10/2026, e as notas até a 2.59 foram para `ui/telas/release-notes-ate-2.59.js`, fechado, em 05/10/2026): adicionar entrada `['X.Y.Z', ['item 1', 'item 2']]` no topo do array. Se consolidou versões, uma entrada só. Verificar que a versão anterior publicada também tem entrada (corrigir se faltar). Se o arquivo se aproximar do teto de 400 linhas úteis, a série mais antiga dele vai inteira para um arquivo fechado do mesmo jeito; o teto não sobe.
 - [ ] Os três acima andam JUNTOS: `test/release-consistency.test.js` falha se qualquer um ficar pra trás.
 
 ### 2. Gate de qualidade
