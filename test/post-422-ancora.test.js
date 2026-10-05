@@ -131,6 +131,8 @@ test('422 num review SEM inline recua a âncora e reposta uma vez', async () => 
   const e = enginePostador();
   const enviados = [];
   runImpl = async (cmd, args) => {
+    // a conferência do head antes do recuo (05/10/2026): o PR continua no commit lido
+    if (args.includes('headRefOid')) return { ok: true, code: 0, stdout: HEAD_LIDO + '\n', stderr: '' };
     enviados.push(payloadEntregue(args));
     return enviados.length === 1
       ? recusa422('Variable commitOID of type GitObjectID was provided invalid value')
@@ -161,6 +163,45 @@ test('erro que não é 422 nunca vira retentativa', async () => {
   const r = await e.postReview(PR, { ...APPROVE, commit_id: HEAD_LIDO });
   assert.equal(r.ok, false);
   assert.equal(n, 1);
+});
+
+// 05/10/2026: os dois recuos largam a âncora, e sem ela o GitHub carimba o head do momento do
+// segundo POST. Um push entre a conferência de head (anterior ao primeiro POST) e o recuo fazia
+// o texto revisado no commit antigo sair carimbado no commit novo, que ninguém leu.
+function corrida(headNoRecuo) {
+  const enviados = [];
+  runImpl = async (cmd, args) => {
+    if (args.includes('headRefOid')) return headNoRecuo === null
+      ? { ok: false, code: 1, stdout: '', stderr: 'gh: rede' }
+      : { ok: true, code: 0, stdout: headNoRecuo + '\n', stderr: '' };
+    if (!args.includes('--input')) return { ok: true, code: 0, stdout: '', stderr: '' };
+    enviados.push(payloadEntregue(args));
+    return recusa422('Variable commitOID of type GitObjectID was provided invalid value');
+  };
+  return enviados;
+}
+
+test('push entre o 422 e o recuo: nada é repostado sem âncora, e o motivo diz isso', async () => {
+  for (const payload of [{ ...APPROVE, commit_id: HEAD_LIDO },
+    { ...APPROVE, commit_id: HEAD_LIDO, comments: [{ path: 'a.ts', line: 3, side: 'RIGHT', body: 'Este ponto precisa de ajuste.' }] }]) {
+    const e = enginePostador();
+    const enviados = corrida(HEAD_NOVO);
+    const r = await e.postReview(PR, payload);
+    assert.equal(r.ok, false);
+    assert.equal(r.blocked, 'head_mudou', r.error);
+    assert.equal(enviados.length, 1, 'só a tentativa ancorada saiu: o recuo carimbaria o commit novo');
+    assert.match(r.error, /commit novo/);
+    assert.match(r.error, /commitOID/, 'a recusa original do GitHub continua no motivo');
+  }
+});
+
+test('head que não deu para ler antes do recuo também segura', async () => {
+  const e = enginePostador();
+  const enviados = corrida(null);
+  const r = await e.postReview(PR, { ...APPROVE, commit_id: HEAD_LIDO });
+  assert.equal(r.ok, false);
+  assert.equal(r.blocked, 'head_desconhecido');
+  assert.equal(enviados.length, 1);
 });
 
 /* ---------- 3. head que andou durante a sessão: os dois caminhos recusam ---------- */
