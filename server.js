@@ -59,6 +59,7 @@ import fileProofMod from './lib/engine/file-proof.js';
 import wsTmpMod from './lib/engine/workspace-tmp.js';
 import skipMod from './lib/engine/skip-review.js';
 import destravaMod from './lib/engine/destrava.js';
+import vistosMod from './lib/engine/vistos-reconciliacao.js';
 import checksMod from './lib/engine/checks-exigidos.js';
 import esperaCiMod from './lib/engine/espera-ci.js';
 import signalMod from './lib/engine/review-signal.js';
@@ -572,27 +573,8 @@ class Engine extends EventEmitter {
   // de propósito, no que tem decisão, no que outro aparelho já analisou (visto por
   // recibo), nem no que está em andamento, estacionado ou aguardando retry, que são
   // estados legítimos.
-  reconciliarVistos(mineList) {
-    if (!this.ignorados) return 0;
-    const comDecisao = new Set([
-      ...(this.decisions?.pending || []).map(d => d.key),
-      ...(this.decisions?.resolved || []).map(d => d.key),
-    ]);
-    const emCurso = new Set();
-    for (const s of this.activeReviews.values()) for (const k of (s.keys || [])) emCurso.add(k);
-    for (const pr of this.headlessQueue) emCurso.add(pr.key);
-    let devolvidos = 0;
-    for (const pr of mineList) {
-      const k = pr.key;
-      if (!this.seen.has(k)) continue;
-      if (this.ignorados.has(k) || comDecisao.has(k) || this.vistosPorRecibo?.has(k)) continue;
-      if (emCurso.has(k) || this.autoReviewParked.has(k) || this.retryAfterNet.has(k)) continue;
-      this.unsee(k);
-      devolvidos++;
-    }
-    if (devolvidos) this.log('WARN', `${devolvidos} PR(s) voltaram à fila: marcados como vistos por revisão que não chegou a decidir`);
-    return devolvidos;
-  }
+  // PR visto sem decisão: volta à fila, salvo se já está resolvido neste head (vistos-reconciliacao.js)
+  reconciliarVistos(mineList) { return vistosMod.reconciliarVistos(this, mineList); }
 
   loadIgnorados() {
     try {
