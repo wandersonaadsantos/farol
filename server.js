@@ -1604,7 +1604,7 @@ class Engine extends EventEmitter {
   // metodos sao fachadas finas que delegam passando o engine como contexto (Onda 2).
   resolveUpdateSource() { return updateMod.resolveUpdateSource(this); }
   cmpVersion(a, b) { return updateMod.cmpVersion(a, b); }
-  async checkUpdate() { return updateMod.checkUpdate(this); }
+  async checkUpdate(opcoes) { return updateMod.checkUpdate(this, opcoes); }
   async checkUpdateRemote(repo) { return updateMod.checkUpdateRemote(this, repo); }
   async downloadRemoteUpdate() { return updateMod.downloadRemoteUpdate(this); }
   async applyUpdate() { return updateMod.applyUpdate(this); }
@@ -1761,7 +1761,7 @@ class Engine extends EventEmitter {
       claudeAuth: this.allClaudeAuthInfo(), // status de cada perfil de assinatura Claude salvo
       checkedAt: Date.now()
     };
-    this.checkUpdate().catch(() => {});
+    this.checkUpdate({ forcar: true }).catch(() => {}); // o Diagnóstico pergunta na hora
     this.pushState();
     return this.doctorInfo;
   }

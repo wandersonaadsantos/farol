@@ -118,7 +118,7 @@ test('cota esgotada: o prazo vem do reset REAL do gh', async () => {
   const e = engine();
   const resetSeg = Math.floor(Date.now() / 1000) + 900;
   respostaBusca = { ok: false, code: 1, stdout: '', stderr: LIMITE };
-  respostaReset = { ok: true, code: 0, stdout: `0 ${resetSeg}\n`, stderr: '' };
+  respostaReset = { ok: true, code: 0, stdout: `core 4800 ${resetSeg + 2000}\nsearch 0 ${resetSeg}\ngraphql 4000 ${resetSeg + 2000}\n`, stderr: '' };
   await e.searchPRs(['--owner', 'acme'], 'eu');
   assert.equal(limiteGh.limiteAte(e, 'eu'), resetSeg * 1000, 'o prazo e a hora que o GitHub informou');
   assert.ok(chamadas.some(c => /^api rate_limit/.test(c)), 'consulta o endpoint de cota, que nao consome cota');
@@ -131,7 +131,7 @@ test('cota com saldo: foi rajada, e a espera e curta, nao o reset da janela', as
   const agora = Date.now();
   const resetSeg = Math.floor(agora / 1000) + 2700;
   respostaBusca = { ok: false, code: 1, stdout: '', stderr: 'You have exceeded a secondary rate limit.' };
-  respostaReset = { ok: true, code: 0, stdout: `4992 ${resetSeg}\n`, stderr: '' };
+  respostaReset = { ok: true, code: 0, stdout: `core 4992 ${resetSeg}\nsearch 28 ${resetSeg}\ngraphql 4990 ${resetSeg}\n`, stderr: '' };
   await e.searchPRs(['--owner', 'acme'], 'eu', agora);
   assert.equal(limiteGh.limiteAte(e, 'eu', agora), agora + TEMPOS.LIMITE_GH_ESPERA_RAJADA_MS);
   assert.ok(TEMPOS.LIMITE_GH_ESPERA_RAJADA_MS < 10 * 60 * 1000, 'rajada nao pode cegar a conta por um ciclo inteiro');
@@ -141,9 +141,26 @@ test('o prazo pela cota, sem rede', () => {
   const agora = 1_000_000;
   assert.equal(limiteGh.prazoPelaCota(null, agora), agora + TEMPOS.LIMITE_GH_ESPERA_SEM_HORA_MS,
     'gh sem resposta: nao sabemos, espera padrao');
-  assert.equal(limiteGh.prazoPelaCota({ restante: 8, resetMs: agora + 3_000_000 }, agora),
-    agora + TEMPOS.LIMITE_GH_ESPERA_RAJADA_MS);
-  assert.equal(limiteGh.prazoPelaCota({ restante: 0, resetMs: agora + 60_000 }, agora), agora + 60_000);
+  const b = (nome, restante, resetMs) => ({ nome, restante, resetMs });
+  assert.equal(limiteGh.prazoPelaCota({ baldes: [b('core', 8, agora + 3_000_000), b('search', 20, agora + 60_000)] }, agora),
+    agora + TEMPOS.LIMITE_GH_ESPERA_RAJADA_MS, 'nenhuma esgotada: rajada');
+  assert.equal(limiteGh.prazoPelaCota({ baldes: [b('core', 900, agora + 3_000_000), b('search', 0, agora + 60_000)] }, agora), agora + 60_000);
+  assert.equal(limiteGh.prazoPelaCota({ baldes: [b('core', 0, agora + 3_000_000), b('search', 0, agora + 60_000)] }, agora),
+    agora + 3_000_000, 'duas esgotadas: espera a que volta por último');
+});
+
+// 05/10/2026: "API rate limit exceeded for user ID" com a busca ainda com saldo. So a cota de
+// busca era lida, entao o prazo saia de dois minutos e a conta voltava a bater no limite;
+// a que tinha acabado era outra.
+test('limite primario com a busca com saldo: espera o reset da cota que acabou, e o log diz qual', async () => {
+  const e = engine();
+  const agora = Date.now();
+  const resetCore = Math.floor(agora / 1000) + 2400;
+  respostaBusca = { ok: false, code: 1, stdout: '', stderr: LIMITE };
+  respostaReset = { ok: true, code: 0, stdout: `core 0 ${resetCore}\nsearch 30 ${Math.floor(agora / 1000) + 40}\ngraphql 4100 ${resetCore}\n`, stderr: '' };
+  await e.searchPRs(['--owner', 'acme'], 'eu', agora);
+  assert.equal(limiteGh.limiteAte(e, 'eu', agora), resetCore * 1000, 'nao e rajada de dois minutos');
+  assert.ok(e.logs.some((l) => /cota esgotada: core/.test(l.msg)), e.logs.map((l) => l.msg).join(' | '));
 });
 
 test('a linha do log leva o que o gh disse, para separar rajada de cota esgotada', async () => {
