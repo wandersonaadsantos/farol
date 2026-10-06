@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.71.7
+
+Manutenção: os testes do Farol deixam de gravar na configuração do Claude Code da máquina. Nada muda no uso do app.
+
+**Correções**
+
+- **Os testes não mexem mais no `~/.claude.json`.** Ao subir o Farol, ele marca a pasta de trabalho como confiável no `~/.claude.json`, para a primeira revisão não parar na pergunta de confiança. Os testes automáticos do Farol faziam isso no arquivo real da máquina, o mesmo que o Claude Code usa. Numa máquina de desenvolvimento, o arquivo tinha acumulado mais de mil pastas temporárias de teste, e numa dessas gravações ficou inválido. Agora, sob os testes, o Farol usa um arquivo isolado. Para quem só usa o app, a gravação continua a mesma de antes.
+
 ## v2.71.6
 
 O instalador do Windows deixa de misturar arquivos de duas versões do Electron ao instalar por cima de uma versão anterior.
