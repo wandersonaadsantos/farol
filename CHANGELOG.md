@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.71.6
+
+O instalador do Windows deixa de misturar arquivos de duas versões do Electron ao instalar por cima de uma versão anterior.
+
+**Correções**
+
+- **A troca do Electron no Windows ficou inteira.** Ao instalar o Setup por cima de uma instalação existente, alguns arquivos do Electron com o mesmo tamanho da versão anterior não eram substituídos. Na troca do 44.3.0 pelo 44.5.1, o executável saía novo e bibliotecas como `ffmpeg.dll` e `vk_swiftshader.dll` ficavam antigas. Agora o Electron é copiado para uma pasta nova e só substitui o anterior no fim, com todos os arquivos da versão nova. Se a cópia falhar, a instalação anterior continua como estava.
+- **Quem instalou o Setup da v2.71.5 por cima de uma versão anterior** pode estar com essa mistura. Instalar o Setup desta versão corrige. A atualização automática traz o código do Farol, mas não troca o Electron.
+
 ## v2.71.5
 
 Manutenção: menos chamadas ao GitHub, revisões que deixam de se perder por um caractere e PR revisado fora do Farol que para de voltar à fila.
