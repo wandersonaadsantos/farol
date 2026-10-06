@@ -18,6 +18,17 @@ const { Engine } = await import('../server.js');
 
 after(() => { try { fs.rmSync(HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 
+// O config.json que outro caso do arquivo deixou, para restaurar no fim. Lê direto, sem
+// perguntar antes se existe: checar e depois usar o mesmo caminho é corrida (alerta de CodeQL
+// js/file-system-race), e a resposta do readFileSync já diz se o arquivo estava lá.
+function lerConfigAnterior(arq) {
+  try { return fs.readFileSync(arq, 'utf8'); } catch { return null; }
+}
+function restaurarConfig(arq, antes) {
+  if (antes === null) fs.rmSync(arq, { force: true });
+  else fs.writeFileSync(arq, antes);
+}
+
 test('Engine constrói contra FAROL_HOME temporário sem lançar', () => {
   const engine = new Engine();
   assert.ok(engine, 'engine instanciada');
@@ -47,37 +58,35 @@ test('config.json com reviewModel/reviewEffort inválido é saneado no BOOT', ()
   // caminho HTTP validava, então um config.json editado à mão passava cru até o spawn.
   fs.mkdirSync(HOME, { recursive: true });
   const arq = path.join(HOME, 'config.json');
-  const antes = fs.existsSync(arq) ? fs.readFileSync(arq, 'utf8') : null;
+  const antes = lerConfigAnterior(arq);
   fs.writeFileSync(arq, JSON.stringify({ reviewModel: 'opus && calc.exe', reviewEffort: 'ultracode' }));
   try {
     const { config } = new Engine();
     assert.equal(config.reviewModel, '', 'modelo com metacaractere de shell vira o padrão');
     assert.equal(config.reviewEffort, '', 'nível session-only vira o padrão');
   } finally {
-    if (antes === null) { try { fs.unlinkSync(arq); } catch { /* best-effort */ } }
-    else fs.writeFileSync(arq, antes);
+    restaurarConfig(arq, antes);
   }
 });
 
 test('config.json com reviewModel/reviewEffort válido é preservado no boot', () => {
   fs.mkdirSync(HOME, { recursive: true });
   const arq = path.join(HOME, 'config.json');
-  const antes = fs.existsSync(arq) ? fs.readFileSync(arq, 'utf8') : null;
+  const antes = lerConfigAnterior(arq);
   fs.writeFileSync(arq, JSON.stringify({ reviewModel: 'fable', reviewEffort: 'xhigh' }));
   try {
     const { config } = new Engine();
     assert.equal(config.reviewModel, 'fable');
     assert.equal(config.reviewEffort, 'xhigh');
   } finally {
-    if (antes === null) { try { fs.unlinkSync(arq); } catch { /* best-effort */ } }
-    else fs.writeFileSync(arq, antes);
+    restaurarConfig(arq, antes);
   }
 });
 
 test('boot migra configuração GPT compartilhada pras chaves próprias do Codex', () => {
   fs.mkdirSync(HOME, { recursive: true });
   const arq = path.join(HOME, 'config.json');
-  const antes = fs.existsSync(arq) ? fs.readFileSync(arq, 'utf8') : null;
+  const antes = lerConfigAnterior(arq);
   fs.writeFileSync(arq, JSON.stringify({ reviewModel: 'gpt-5.5', reviewEffort: 'high' }));
   try {
     const { config } = new Engine();
@@ -86,15 +95,14 @@ test('boot migra configuração GPT compartilhada pras chaves próprias do Codex
     assert.equal(config.codexReviewModel, 'gpt-5.5');
     assert.equal(config.codexReviewEffort, 'high');
   } finally {
-    if (antes === null) { try { fs.unlinkSync(arq); } catch { /* best-effort */ } }
-    else fs.writeFileSync(arq, antes);
+    restaurarConfig(arq, antes);
   }
 });
 
 test('boot preserva configurações independentes de Claude e Codex', () => {
   fs.mkdirSync(HOME, { recursive: true });
   const arq = path.join(HOME, 'config.json');
-  const antes = fs.existsSync(arq) ? fs.readFileSync(arq, 'utf8') : null;
+  const antes = lerConfigAnterior(arq);
   fs.writeFileSync(arq, JSON.stringify({
     reviewModel: 'sonnet', reviewEffort: 'low',
     codexReviewModel: 'gpt-5.6-terra', codexReviewEffort: 'minimal',
@@ -106,8 +114,7 @@ test('boot preserva configurações independentes de Claude e Codex', () => {
     assert.equal(config.codexReviewModel, 'gpt-5.6-terra');
     assert.equal(config.codexReviewEffort, 'minimal');
   } finally {
-    if (antes === null) { try { fs.unlinkSync(arq); } catch { /* best-effort */ } }
-    else fs.writeFileSync(arq, antes);
+    restaurarConfig(arq, antes);
   }
 });
 
@@ -117,7 +124,7 @@ test('config.json com intervalSeconds inválido é clampado no BOOT (updateSetti
   // caminho HTTP (updateSettings), pras duas portas de entrada serem idênticas.
   fs.mkdirSync(HOME, { recursive: true });
   const arq = path.join(HOME, 'config.json');
-  const antes = fs.existsSync(arq) ? fs.readFileSync(arq, 'utf8') : null;
+  const antes = lerConfigAnterior(arq);
   try {
     fs.writeFileSync(arq, JSON.stringify({ intervalSeconds: 'trezentos' }));
     assert.equal(new Engine().config.intervalSeconds, 300, 'não numérico cai no default');
@@ -134,8 +141,7 @@ test('config.json com intervalSeconds inválido é clampado no BOOT (updateSetti
     fs.writeFileSync(arq, JSON.stringify({ intervalSeconds: 600 }));
     assert.equal(new Engine().config.intervalSeconds, 600, 'valor válido é preservado');
   } finally {
-    if (antes === null) { try { fs.unlinkSync(arq); } catch { /* best-effort */ } }
-    else fs.writeFileSync(arq, antes);
+    restaurarConfig(arq, antes);
   }
 });
 
