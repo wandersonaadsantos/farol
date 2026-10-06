@@ -69,7 +69,10 @@ foreach ($f in @('main.js', 'server.js', 'package.json', 'README.md', 'CLAUDE.md
 foreach ($d in @('lib', 'ui', 'assets', 'workspace-template', 'installer', 'tools')) {
   $srcDir = Join-Path $Src $d
   if (-not (Test-Path $srcDir)) { continue }
-  robocopy $srcDir (Join-Path $App $d) /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
+  # /IS /IT: copia tambem o que o robocopy julga igual ou ajustado (mesmo tamanho e data).
+  # Estas pastas vem do zip com a data da release, entao o caso e raro aqui; no Electron,
+  # onde a data e fixa, a copia e para pasta vazia (Copy-ElectronRuntime).
+  robocopy $srcDir (Join-Path $App $d) /MIR /IS /IT /NFL /NDL /NJH /NJS /NP | Out-Null
   if ($LASTEXITCODE -ge 8) { Die "Falha ao copiar a pasta '$d' (robocopy $LASTEXITCODE)." }
 }
 if (Test-Path (Join-Path $Src 'Desinstalar.cmd')) { Copy-Item (Join-Path $Src 'Desinstalar.cmd') (Join-Path $App 'Desinstalar.cmd') -Force }
@@ -88,8 +91,10 @@ foreach ($doc in @('CONFIGURATION.md', 'REVIEW-GATES.md', 'MACOS.md', 'RELEASE.m
 $electronExe = Join-Path $App 'node_modules\electron\dist\electron.exe'
 if ($Runtime.Source -ne (Join-Path $App 'node_modules')) {
   Step 'Copiando o Electron validado'
-  robocopy $Runtime.Source (Join-Path $App 'node_modules') /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
-  if ($LASTEXITCODE -ge 8) { Die 'Falha ao copiar node_modules.' }
+  # Copia para pasta nova e troca o nome (Copy-ElectronRuntime): espelhar por cima deixava
+  # arquivo do Electron antigo misturado ao novo (ver o comentario da funcao).
+  try { Copy-ElectronRuntime $Runtime.Source $App }
+  catch { Die ("Falha ao copiar node_modules: " + $_.Exception.Message) }
 }
 if (-not (Test-Path $electronExe)) { Die 'Electron nao instalado (node_modules\electron ausente). Rode npm install em ' + $App }
 
