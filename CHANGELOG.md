@@ -9,7 +9,7 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## Não lançado
+## v2.71.8
 
 Conta silenciada volta a ser só monitorada: ela nunca mais é a identidade que age no GitHub.
 
