@@ -80,13 +80,27 @@ test('autoanálise: a sessão ativa leva a conta também', async () => {
   assert.equal(vistos[0].pr.account, 'calado');
 });
 
+// Desde 06/10/2026 a conta silenciada não lança revisão nem pelo clique (conta-que-age.js,
+// test/conta-silenciada-nao-age.test.js). O defeito que este caso trava continua o mesmo com
+// uma conta ATIVA sem organização: a tela tem de receber a conta do item, não a dona da org.
 test('lista de espera: a tela recebe a conta de cada PR, na ordem da fila', async () => {
   const e = engineComSilenciada();
+  e.config.accounts.push({ user: 'avulsa', owners: [], autoReview: false });
+  e.tokens.avulsa = 'tok3';
   e.processHeadless = () => { };
-  e.queue = [{ ...PR }];
+  e.queue = [{ ...PR, account: 'avulsa' }];
   const r = await e.launchReview([PR.url], 'auto', 'clique');
   assert.equal(r.ok, true);
   const snap = e.snapshot();
   assert.deepEqual(snap.headlessWaiting, ['acme/app#7']);
-  assert.deepEqual(snap.headlessWaitingContas, { 'acme/app#7': 'calado' });
+  assert.deepEqual(snap.headlessWaitingContas, { 'acme/app#7': 'avulsa' });
+});
+
+test('lista de espera: a conta silenciada não entra nela nem pelo clique', async () => {
+  const e = engineComSilenciada();
+  e.processHeadless = () => { };
+  e.queue = [{ ...PR }];
+  const r = await e.launchReview([PR.url], 'auto', 'clique');
+  assert.equal(r.ok, false);
+  assert.deepEqual(e.snapshot().headlessWaiting, []);
 });

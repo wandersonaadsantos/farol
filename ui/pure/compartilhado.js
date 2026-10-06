@@ -370,6 +370,7 @@ const CODIGO = {
   conta_diferente: 'a conta daquele aparelho não é a desta revisão',
   outros_revisando: 'outra pessoa está revisando este PR, e lá o Farol não entra',
   sem_token: 'a conta deste PR está sem token no gh daquele aparelho',
+  conta_silenciada: 'a conta deste PR está silenciada naquele aparelho, e conta silenciada não age',
   bloqueado_historico: 'o PR já tem review decisivo de outra pessoa neste commit',
   checks_pendentes: 'os checks obrigatórios ainda não estão verdes',
   nao_ocultou: 'o PR não foi ocultado lá',

@@ -145,7 +145,7 @@ A caixa fica âmbar e diz o motivo. As saídas:
 | o card diz | o que fazer |
 |---|---|
 | a revisão automática está desligada na conta | ligue em Sistema > Contas, ou use Revisar agora |
-| a conta está silenciada | tire o silêncio, ou use Revisar agora |
+| a conta está silenciada | tire o silêncio: conta silenciada é só monitorada e não age, nem pelo Revisar agora |
 | a conta está sem login no gh | rode `gh auth login` com essa conta |
 | o orçamento do perfil desta conta estourou | espere liberar ou ajuste o teto em Consumo |
 | o PR está como rascunho | o Farol volta a revisar quando o PR sair de rascunho |

@@ -922,6 +922,10 @@ vira ação**, e poda errada não pode custar sessão paga.
   quando você está nos dois times; a conta capaz de agir (não silenciada e com token)
   vence a incapaz, empate mantém a primeira. Antes, a primeira vencia sempre e o PR
   ficava mudo, preso numa identidade que nunca dispara aviso nem auto-revisão.
+  Desde 06/10/2026 o mesmo critério vale no dedup do panorama e na conta de uma org
+  (`accountForOwner`, `atribuicaoDoPr`), e a conta silenciada não age nem pelo clique:
+  revisão, terminal, chat, postagem, reviewers e merge recusam com o motivo na tela
+  (`lib/engine/conta-que-age.js`, travado em `test/conta-silenciada-nao-age.test.js`).
 - **Guarda `mergeInFlight`** (G19, `lib/engine/selfpr.js`): Set por key, segunda
   chamada devolve `{ ok: false, error: 'merge já em andamento' }` sem tocar no `gh`.
   Vale pros três botões (normal, auto, admin), que passam pela mesma função. Na UI,

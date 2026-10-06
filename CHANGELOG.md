@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## Não lançado
+
+Conta silenciada volta a ser só monitorada: ela nunca mais é a identidade que age no GitHub.
+
+**Correções**
+
+- **Com duas contas na mesma organização, o Farol age com a conta ativa, não com a silenciada.** Quando uma conta silenciada aparecia antes da ativa na lista, o Farol escolhia a silenciada para agir em PRs daquela organização: revisão aberta por link, chat do PR e o painel de PRs da organização saíam com a identidade dela. Num caso real, reviews foram pedidos de novo e um review foi dispensado em nome da conta silenciada. Agora a organização fica com a primeira conta ativa e com login no `gh`, e a silenciada só aparece quando nenhuma outra cobre a organização.
+- **As ações do Farol não escrevem no GitHub com uma conta silenciada, nem pelo clique.** Revisar, postar uma decisão, conversar no chat do PR, abrir a revisão no terminal, pedir reviewers e mergear em Meus PRs recusam quando a conta do PR está silenciada, com o aviso "conta X está silenciada e não age; reative a conta ou use outra". A conta continua monitorada como antes: os PRs dela seguem aparecendo.
+
 ## v2.71.7
 
 Manutenção: os testes do Farol deixam de gravar na configuração do Claude Code da máquina. Nada muda no uso do app.

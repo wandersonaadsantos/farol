@@ -43,6 +43,7 @@ import limiteGhMod from './lib/engine/limite-gh.js';
 import { chavesEstacionadas, ancoraAposReinicio } from './lib/engine/estado-do-boot.js';
 import contasGh from './lib/engine/contas-gh.js';
 import contasConfig from './lib/engine/contas-config.js';
+import contaQueAge from './lib/engine/conta-que-age.js';
 import versaoClaude from './lib/engine/versao-claude.js';
 import codexAuth from './lib/codex/auth.js';
 import { catalogoParaTela as catalogoDeModelos } from './lib/modelos.js';
@@ -670,11 +671,12 @@ class Engine extends EventEmitter {
     return [...set];
   }
 
-  // conta monitorada dona de um owner (org); fallback = primaria
+  // conta monitorada dona de um owner (org); fallback = primaria. Com duas contas na org,
+  // a que AGE vence: ativa com token, depois ativa, e a silenciada só quando ninguém mais
+  // cobre (06/10/2026, lib/engine/conta-que-age.js)
   accountForOwner(owner) {
-    const o = String(owner || '').toLowerCase();
-    const hit = this.accountList().find(a => a.owners.some(x => String(x).toLowerCase() === o));
-    return (hit && hit.user) || this.primaryUser();
+    const dona = contaQueAge.contaDaOrg(this, owner);
+    return (dona && dona.user) || this.primaryUser();
   }
 
   // conta a usar num PR: a que ele ja veio marcada, senao pela org do repo
@@ -930,9 +932,10 @@ class Engine extends EventEmitter {
       const accounts = this.accountList();
 
       // painel: todos os PRs abertos das orgs monitoradas (sem alerta). Cada conta
-      // busca nas SUAS orgs com o proprio token; dedup por chave (1a conta vence).
-      const seenKeys = new Set();
-      const panorama = [];
+      // busca nas SUAS orgs com o proprio token; dedup por chave pelo G18 (a conta capaz
+      // vence a silenciada ou sem token; empate, a 1a), igual ao da fila logo abaixo:
+      // 1a conta vencendo, um PR de terceiro na org ficava com a silenciada (06/10/2026)
+      const panoramaMap = new Map();
       let anyOk = false;
       // G15: owners cuja busca RESPONDEU neste ciclo (list !== null). A poda do
       // estacionamento mais abaixo só pode agir sobre a key de um owner que está
@@ -952,13 +955,10 @@ class Engine extends EventEmitter {
           anyOk = true;
           ownersOk.add(String(owner).toLowerCase());
           this.ownersJaLidos.add(String(owner).toLowerCase());
-          for (const pr of list) {
-            if (seenKeys.has(pr.key)) continue;
-            seenKeys.add(pr.key);
-            panorama.push(pr);
-          }
+          for (const pr of list) contaQueAge.guardarPelaCapaz(this, panoramaMap, pr, acc.user);
         }
       }
+      const panorama = [...panoramaMap.values()];
 
       // alerta + fila: PRs onde sou o revisor pedido, em QUALQUER conta (o @me
       // resolve por token, entao cada conta acha os seus). Dedup por chave.
@@ -968,17 +968,10 @@ class Engine extends EventEmitter {
         const part = await this.searchPRs(['--review-requested=@me'], acc.user);
         if (part === null) continue;
         mineAnyOk = true;
-        for (const pr of part) {
-          const prev = mineMap.get(pr.key);
-          if (!prev) { mineMap.set(pr.key, pr); continue; }
-          // G18: o mesmo PR pode chegar por duas contas (time com as duas). A
-          // conta CAPAZ de agir (não silenciada, com token) vence a incapaz;
-          // empate mantém a primeira, o comportamento de sempre.
-          const prevAcc = this.accountForPr(prev);
-          const prevIncapaz = this.isMuted(prevAcc) || !this.tokenFor(prevAcc);
-          const curCapaz = !this.isMuted(acc.user) && !!this.tokenFor(acc.user);
-          if (prevIncapaz && curCapaz) mineMap.set(pr.key, pr);
-        }
+        // G18: o mesmo PR pode chegar por duas contas (time com as duas). A
+        // conta CAPAZ de agir (não silenciada, com token) vence a incapaz;
+        // empate mantém a primeira, o comportamento de sempre.
+        for (const pr of part) contaQueAge.guardarPelaCapaz(this, mineMap, pr, acc.user);
       }
       if (mineAnyOk) mine = [...mineMap.values()];
       if (mine) contasGh.registrarPedidos(this, mine);
@@ -1067,7 +1060,7 @@ class Engine extends EventEmitter {
       if (!mineFailed) this.mineKeys = mineKeys;
       for (const pr of panorama) pr.mine = mineKeys.has(pr.key);
       for (const pr of mineList) {
-        if (!seenKeys.has(pr.key)) { pr.mine = true; panorama.push(pr); }
+        if (!panoramaMap.has(pr.key)) { pr.mine = true; panorama.push(pr); }
       }
       // re-request de review: fui pedido de novo (mine) num PR que EU já revisei
       // (reviewedByMe). No fluxo normal, revisar te tira dos pedidos; voltar aos pedidos
