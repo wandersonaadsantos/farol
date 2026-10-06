@@ -11,6 +11,35 @@ function Clear-ElectronRuntimeStage([string]$Stage) {
   if (Test-Path -LiteralPath $full) { Remove-Item -LiteralPath $full -Recurse -Force }
 }
 
+# Copia o node_modules validado para a pasta do app SEM espelhar por cima (05/10/2026).
+# O npm grava todo arquivo do pacote com a data fixa de 1979, e o robocopy pula arquivo de
+# mesmo tamanho e mesma data; o /IS /IT nao cobre a classe "modificado" (outra data de
+# alteracao no NTFS), que pede /IM, opcao que robocopy antigo nao conhece. Medido na troca
+# 44.3.0 -> 44.5.1: ffmpeg.dll, vk_swiftshader.dll e dist\version ficaram da versao antiga
+# ao lado do electron.exe novo. Aqui a copia vai para uma pasta VAZIA (copia tudo), e so
+# depois os nomes sao trocados; se algo falhar antes da troca, o node_modules atual fica.
+function Copy-ElectronRuntime([string]$Source, [string]$App) {
+  $atual = Join-Path $App 'node_modules'
+  $novo = Join-Path $App 'node_modules.novo'
+  $antigo = Join-Path $App 'node_modules.antigo'
+  foreach ($p in @($novo, $antigo)) {
+    if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Recurse -Force }
+  }
+  robocopy $Source $novo /E /NFL /NDL /NJH /NJS /NP | Out-Null
+  if ($LASTEXITCODE -ge 8) {
+    Remove-Item -LiteralPath $novo -Recurse -Force -ErrorAction SilentlyContinue
+    throw "robocopy $LASTEXITCODE"
+  }
+  $tinha = Test-Path -LiteralPath $atual
+  if ($tinha) { Rename-Item -LiteralPath $atual -NewName 'node_modules.antigo' }
+  try { Rename-Item -LiteralPath $novo -NewName 'node_modules' }
+  catch {
+    if ($tinha) { Rename-Item -LiteralPath $antigo -NewName 'node_modules' }
+    throw
+  }
+  if ($tinha) { Remove-Item -LiteralPath $antigo -Recurse -Force -ErrorAction SilentlyContinue }
+}
+
 function Test-ElectronRuntime([string]$Candidate) {
   if (-not (Test-Path -LiteralPath $Candidate)) { return $false }
   $previous = $env:ELECTRON_RUN_AS_NODE
