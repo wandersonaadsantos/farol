@@ -13,7 +13,7 @@ import {
   executadoDireto, rodandoComoRoot, sinaisDoModoCelular,
   APP_VERSION, APP_NAME, DELIVERIES_LIMIT, IS_WIN, IS_MAC, IS_LINUX, APP_ROOT,
   HOME, WORKSPACE, STATE_DIR, CONFIG_FILE, LOG_FILE, SEEN_FILE, IGNORED_FILE, BASELINE_FILE,
-  INFLIGHT_FILE, CHATS_FILE, SELF_FILE, HIDDEN_FILE, TEMPLATE_DIR, UI_DIR,
+  INFLIGHT_FILE, CHATS_FILE, SELF_FILE, HIDDEN_FILE, TEMPLATE_DIR, UI_DIR, CLAUDE_JSON_DA_CONFIANCA,
 } from './lib/paths.js';
 
 // Helpers puros e utilitários movidos pra lib/ (Onda 1 do refactor, ver docs/QUALITY.md).
@@ -476,7 +476,7 @@ class Engine extends EventEmitter {
   // autonomia quebra. Escreve so o que falta e preserva o resto do arquivo.
   ensureWorkspaceTrusted() {
     try {
-      const file = path.join(os.homedir(), '.claude.json');
+      const file = CLAUDE_JSON_DA_CONFIANCA;
       let data = {};
       if (fs.existsSync(file)) {
         // parse falhou nas tres tentativas = arquivo ilegivel de verdade (nao foi a corrida
