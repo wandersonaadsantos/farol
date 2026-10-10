@@ -49,6 +49,8 @@ import codexAuth from './lib/codex/auth.js';
 import { catalogoParaTela as catalogoDeModelos } from './lib/modelos.js';
 import sessionMod from './lib/engine/session.js';
 import selfMod from './lib/engine/selfpr.js';
+import meusPrsBase from './lib/engine/meus-prs-base.js';
+import labelsATirar from './lib/engine/labels-a-tirar.js';
 import scopeMod from './lib/engine/pr-scope.js';
 import reviewMod from './lib/engine/review.js';
 import retomadaMod from './lib/engine/retomada-duravel.js';
@@ -870,6 +872,10 @@ class Engine extends EventEmitter {
       try { await this.enrichMyPRBranches(); } catch (e) { this.log('WARN', `enrichMyPRBranches: ${e.message}`); }
       // mergeabilidade real dos PRs aprovaveis (gate honesto do botao Merge)
       try { await this.refreshMergeStates(); } catch (e) { this.log('WARN', `refreshMergeStates: ${e.message}`); }
+      // conflito e PR superado pela base, de TODO PR meu (meus-prs-base.js), sem esperar clique
+      try { await meusPrsBase.refreshBaseDosMeusPRs(this); } catch (e) { this.log('WARN', `base dos meus PRs: ${e.message}`); }
+      // label :revisando cuja remoção falhou no fim da revisão (labels-a-tirar.js)
+      try { await labelsATirar.tirarPendentes(this); } catch (e) { this.log('WARN', `labels a tirar: ${e.message}`); }
       // sincronização entre dispositivos: presença e reconexão. Desligada custa zero, e
       // falha dela vira estado da própria sincronização, nunca erro do ciclo.
       sincronizou = true;
@@ -1956,6 +1962,7 @@ class Engine extends EventEmitter {
       // a UI pode usar pra decidir merge. Ver projectSelfAnalyses em selfpr.js.
       selfAnalyses: selfMod.projectSelfAnalyses(this.selfAnalyses),
       mergeStates: this.mergeStates,
+      baseDosMeusPRs: this.baseDosMeusPRs || {},
       staleStates: this.staleStates,
       reviewStatesGh: this.reviewStatesGhParaUi(),
       // projeção pura: tira o interno (fileBlobs, mapa cru de agents) e entrega a
