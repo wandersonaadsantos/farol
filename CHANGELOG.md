@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.71.9
+
+A barra de progresso das revisões em andamento volta a ter porcentagem, agora calculada sobre o que o Farol mede, e sem parar em 90%.
+
+**Melhorias**
+
+- **A porcentagem da revisão acompanha o tempo de verdade.** Ela é calculada pelo tempo que as revisões de PR de tamanho parecido costumam levar no seu Farol, e o cartão mostra quanto falta ("~3 min restantes") e de onde vem a estimativa. Antes a barra contava linhas do feed, parava em 90% e pulava para 100% no fim, tivesse a revisão 2 ou 20 minutos. Quando a revisão passa do tempo de costume, a barra continua subindo devagar e o cartão avisa que passou do tempo típico. Numa instalação nova, sem histórico, a barra anda, mas o cartão não promete prazo.
+- **Na autoanálise dos seus PRs, a barra segue os arquivos lidos** ("12 de 20 arquivos lidos"), no cartão e no aviso de Meus PRs.
+- **Um sinal de vida discreto no lugar da barra que ia e voltava.** Um ponto ao lado da porcentagem pisca a cada ação da sessão e fica âmbar, com a barra parada, quando ela passa 45 segundos sem sinal. A esteira de etapas parou de pulsar e o círculo girando do cabeçalho saiu. Quando a revisão termina, o cartão fica verde em 100% por um instante antes de sair.
+
 ## v2.71.8
 
 Conta silenciada volta a ser só monitorada: ela nunca mais é a identidade que age no GitHub.
