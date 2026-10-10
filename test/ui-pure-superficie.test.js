@@ -90,9 +90,17 @@ const CONGELADA = [
   // e SEM_SINAL_MS, e SAIU stageLabel, que rotulava a sessao pela idade ("(processando…)"
   // ate 15 s, string vazia depois) e ficou sem chamador quando o cabecalho do cartao
   // passou a mostrar a etapa real estampada pelo engine
+  // progresso da sessao com porcentagem sobre dado real (09/10/2026): entraram
+  // progressoDaSessao, conclusaoDaSessao e as tres constantes da regua, e SAIU
+  // situacaoDaSessao, que o progressoDaSessao absorveu (a fase, o silencio e os arquivos
+  // lidos agora vem junto com a porcentagem, nos textos do desenho)
+  "PCT_FECHANDO",
+  "PISO_VERIFICACAO",
+  "TIPICO_PADRAO_MS",
+  "conclusaoDaSessao",
+  "progressoDaSessao",
   "SEM_SINAL_MS",
   "etapaAtiva",
-  "situacaoDaSessao",
   "USAGE_KIND_COLOR",
   "USAGE_KIND_LABEL",
   "USAGE_PALETTE",
