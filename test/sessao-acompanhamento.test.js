@@ -1,10 +1,10 @@
-// O que o cartão de "Analisando agora" afirma tem que ser fato. Estes casos travam as
-// três mentiras que o acompanhamento contava: etapa final que nunca acendia, percentual
-// inventado, e "analisando" enquanto o modelo já tinha terminado ou o stream estava mudo.
+// O que o cartão de "Analisando agora" afirma tem que ser fato. Estes casos travam a
+// esteira (etapa final que nunca acendia) e a volta da régua por contagem de linhas; a
+// porcentagem, o silêncio do stream e o fechamento estão em progresso-da-sessao.test.js.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  STAGE_FLOW_ORDER, stageFlowFrom, situacaoDaSessao, etapaAtiva, SEM_SINAL_MS,
+  STAGE_FLOW_ORDER, stageFlowFrom, etapaAtiva,
 } from '../ui/pure/sessao.js';
 
 // A esteira da tela e as etapas do engine são a MESMA lista de ids. Enquanto a tela
@@ -38,44 +38,9 @@ test('etapaAtiva devolve o rótulo do nó ativo, e vazio quando não há nenhum'
   assert.equal(etapaAtiva(null), '');
 });
 
-test('situação: sessão trabalhando mostra os arquivos do PR já lidos', () => {
-  const agora = 100000;
-  const s = { fase: 'modelo', ultimoSinalEm: agora - 1000, lidos: 12 };
-  assert.deepEqual(situacaoDaSessao(s, agora), { estado: 'ativa', texto: '12 arquivo(s) do PR lidos' });
-});
-
-test('situação: sem leitura registrada não inventa número', () => {
-  const agora = 100000;
-  const sit = situacaoDaSessao({ fase: 'modelo', ultimoSinalEm: agora - 1000 }, agora);
-  assert.equal(sit.estado, 'ativa');
-  assert.equal(sit.texto, 'em andamento');
-  assert.doesNotMatch(sit.texto, /%/);
-});
-
-// O caso que fazia o cartão mentir por mais tempo: o modelo terminou e a revisão segue
-// em gate e postagem, às vezes por minutos, com o feed parado.
-test('situação: depois que o modelo termina, o cartão diz que está fechando', () => {
-  const agora = 100000;
-  const sit = situacaoDaSessao({ fase: 'fechando', ultimoSinalEm: agora - 120000 }, agora);
-  assert.equal(sit.estado, 'fechando');
-  assert.match(sit.texto, /decidindo e postando/);
-});
-
-test('situação: stream mudo vira aviso, não silêncio', () => {
-  const agora = 100000;
-  const sit = situacaoDaSessao({ fase: 'modelo', ultimoSinalEm: agora - (SEM_SINAL_MS + 15000) }, agora);
-  assert.equal(sit.estado, 'muda');
-  assert.match(sit.texto, /sem sinal há/);
-});
-
-test('situação: silêncio curto ainda é trabalho, não alarme', () => {
-  const agora = 100000;
-  const sit = situacaoDaSessao({ fase: 'modelo', ultimoSinalEm: agora - (SEM_SINAL_MS - 1000) }, agora);
-  assert.equal(sit.estado, 'ativa');
-});
-
-// Trava de regressão: o percentual saía do cartão de sessão. Se alguém trouxer de volta
-// a régua por contagem de linhas, este caso avisa.
+// Trava de regressão: a régua por contagem de linhas (que parava em 90%) não volta ao
+// cartão de sessão. A porcentagem de hoje é a do progressoDaSessao, travada em
+// test/progresso-da-sessao.test.js.
 test('o cartão de sessão não usa mais a régua de percentual por contagem de linhas', async () => {
   const { default: fs } = await import('node:fs');
   const tela = fs.readFileSync(new URL('../ui/telas/sessoes.js', import.meta.url), 'utf8');

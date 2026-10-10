@@ -81,15 +81,96 @@ export const STAGE_FLOW_ORDER = [
 // que faz o acompanhamento parecer inventado, então a tela passa a dizer o que sabe.
 export const SEM_SINAL_MS = 45000;
 
-// O que o cartão mostra no lugar do percentual inventado. Três situações honestas, todas
-// derivadas de fato: a fase vem do engine (marcarFase), o silêncio vem do carimbo da
-// última linha do feed, e a leitura é a contagem de arquivos do PR que a sessão abriu.
-export function situacaoDaSessao(s = {}, agora = Date.now()) {
-  if (s.fase === 'fechando') return { estado: 'fechando', texto: 'modelo concluiu · decidindo e postando' };
+// Progresso da sessão (09/10/2026): porcentagem sobre dado REAL, que nunca estaciona.
+// Desenho e textos do Claude Design, handoff em
+// docs/superpowers/specs/2026-10-09-progresso-da-sessao-anexos/HANDOFF.md.
+//
+// Revisão: tempo decorrido sobre o tempo TÍPICO de revisões parecidas, que o engine mede
+// no histórico de decisões e manda em `s.estimativa` (lib/engine/estimativa-sessao.js).
+// Até o tempo típico a barra anda em linha reta de 2% a 92%; depois dele ela segue
+// subindo, cada vez mais devagar, rumo a 95%, e o texto diz que passou do típico em vez
+// de a barra fingir que sabe. Autoanálise: os arquivos do PR já lidos sobre o total que
+// o engine materializou (`lidos`/`totalArquivos`). Etapa real é piso: chegou na
+// verificação, pelo menos 55%; modelo concluiu, 97%. 100% é só o fim de verdade, e quem
+// garante que a barra nunca volta é a tela (ela guarda o maior valor já mostrado).
+//
+// Sem histórico (instalação nova) a barra anda pelo tempo típico PADRÃO, mas o texto não
+// promete prazo nenhum: estimativa que o app não tem não vira "faltam 3 min".
+export const TIPICO_PADRAO_MS = 6 * 60000;
+export const PISO_VERIFICACAO = 55;
+export const PCT_FECHANDO = 97;
+const TETO_PASSOU = 95;
+
+const minutosArredondados = (ms) => Math.max(1, Math.round(ms / 60000));
+const minutosDecimais = (ms) => (ms / 60000).toFixed(1).replace('.', ',');
+
+// "45s", "1min 10s": o formato do desenho (o fmtDur do app escreve "1m10s")
+function duracaoCurta(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s / 60)}min ${s % 60}s`;
+}
+function duracaoFalada(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  const seg = (n) => `${n} segundo${n === 1 ? '' : 's'}`;
+  if (s < 60) return seg(s);
+  const m = Math.floor(s / 60);
+  return `${m} minuto${m === 1 ? '' : 's'} e ${seg(s % 60)}`;
+}
+
+function baseDaEstimativa(est) {
+  if (est.base === 'tamanho') return `típico: ${minutosDecimais(est.tipicoMs)} min em PR deste tamanho (${est.amostras} revisões)`;
+  return `típico: ${minutosDecimais(est.tipicoMs)} min (mediana geral)`;
+}
+
+function pctDaSessao(s, flow, agora, tipico) {
+  const r = s.startedAt ? Math.max(0, agora - s.startedAt) / tipico : 0;
+  let pct = r <= 1 ? 2 + 90 * r : 92 + (TETO_PASSOU - 92) * (1 - Math.exp(-(r - 1)));
+  const total = Number(s.totalArquivos) || 0;
+  if (total) pct = Math.max(pct, 2 + 83 * (Math.min(total, Number(s.lidos) || 0) / total));
+  const verificando = (flow || []).some(n => n && n.id === 'verificacao' && n.state !== 'pending');
+  if (verificando) pct = Math.max(pct, PISO_VERIFICACAO);
+  // uma casa decimal: a largura da barra anda de forma contínua mesmo quando o número
+  // inteiro mostrado demora a mudar (depois do tempo típico, a subida é lenta)
+  return { pct: Math.min(TETO_PASSOU, Math.floor(pct * 10) / 10), r };
+}
+
+// { pct, estado: 'viva' | 'muda', texto, base, aria }, com `pct` em uma casa decimal (a
+// tela mostra o inteiro e usa o decimal na largura). Os textos são os do desenho, um
+// por estado; `aria` é o aria-valuetext da barra.
+export function progressoDaSessao(s = {}, flow = [], agora = Date.now()) {
+  if (s.fase === 'fechando') {
+    return { pct: PCT_FECHANDO, estado: 'viva', texto: 'modelo concluiu · decidindo e postando', base: '', aria: `${PCT_FECHANDO}%, modelo concluiu, decidindo e postando` };
+  }
+  const est = s.estimativa && s.estimativa.tipicoMs > 0 ? s.estimativa : null;
+  const { pct, r } = pctDaSessao(s, flow, agora, est ? est.tipicoMs : TIPICO_PADRAO_MS);
   const mudoHa = s.ultimoSinalEm ? agora - s.ultimoSinalEm : 0;
-  if (mudoHa > SEM_SINAL_MS) return { estado: 'muda', texto: `sem sinal há ${fmtDur(mudoHa)}` };
-  if (s.lidos) return { estado: 'ativa', texto: `${s.lidos} arquivo(s) do PR lidos` };
-  return { estado: 'ativa', texto: 'em andamento' };
+  if (mudoHa > SEM_SINAL_MS) {
+    return { pct, estado: 'muda', texto: `sem sinal há ${duracaoCurta(mudoHa)}`, base: 'a barra volta a andar quando chegar evento', aria: `${Math.floor(pct)}%, parado, sem sinal há ${duracaoFalada(mudoHa)}` };
+  }
+  const total = Number(s.totalArquivos) || 0;
+  const viva = (texto, base, falado) => ({ pct, estado: 'viva', texto, base, aria: `${Math.floor(pct)}%, ${falado || texto}` });
+  if (!s.ultimoSinalEm && !s.lidos) return viva('preparando', 'aguardando o primeiro evento');
+  if (total) {
+    const lidos = Math.min(total, Number(s.lidos) || 0);
+    return viva(`${lidos} de ${total} arquivos lidos`, '');
+  }
+  if (!est) return viva('em andamento', 'ainda sem histórico para estimar o tempo', 'em andamento, sem estimativa de tempo');
+  if (r > 1) {
+    const m = minutosArredondados(est.tipicoMs);
+    return viva(`passou do tempo típico (~${m} min)`, 'ainda trabalhando', `passou do tempo típico de cerca de ${m} minutos, ainda trabalhando`);
+  }
+  const falta = est.tipicoMs - (agora - s.startedAt);
+  if (falta < 60000) return viva('menos de 1 min', baseDaEstimativa(est), 'menos de 1 minuto restante');
+  const m = minutosArredondados(falta);
+  const falado = m === 1 ? 'cerca de 1 minuto restante' : `cerca de ${m} minutos restantes`;
+  return viva(`~${m} min restantes`, baseDaEstimativa(est), falado);
+}
+
+// estado 8: o fim real. O cartão fica assim por um instante antes de sair.
+export function conclusaoDaSessao(s = {}, agora = Date.now()) {
+  const dur = s.startedAt ? `em ${duracaoCurta(agora - s.startedAt)}` : '';
+  return { pct: 100, estado: 'concluida', texto: 'concluída', base: dur, aria: '100%, concluída' };
 }
 
 // Rótulo da etapa ATIVA da esteira, que é a etapa de verdade (item.s do engine). Substitui
@@ -186,7 +267,6 @@ export function sessionCardHtml(s = {}, stages = '', outros = []) {
   return `
       <div class="card session-card" data-id="${id}">
         <div class="session-head">
-          <span class="spin accent"></span>
           <b>${esc(s.label)}</b> <span class="session-stage" data-id="${id}">${stages}</span>
           <span class="session-model" data-id="${id}" hidden></span>
           <span class="session-agents" data-id="${id}" hidden></span>
@@ -195,7 +275,13 @@ export function sessionCardHtml(s = {}, stages = '', outros = []) {
           <span class="session-elapsed" data-started="${s.startedAt}"></span>
           ${cancelar}
         </div>
-        <div class="op-progress sess-progress" data-id="${id}"><span class="sess-pct"></span><div class="op-bar"><div class="op-bar-fill"></div></div></div>
+        <div class="op-progress sess-progress" data-id="${id}" data-estado="viva" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <span class="sess-pct">0%</span>
+          <div class="op-bar"><div class="op-bar-fill" style="width:0%"></div></div>
+          <span class="sess-sinal" aria-hidden="true"></span>
+          <div class="sess-txt"><span class="sess-estado"></span><span class="sess-base"></span></div>
+          <span class="sess-aviso" aria-live="polite"></span>
+        </div>
         ${othersLineHtml(outros, 'sessao')}
         <div class="stage-flow" data-id="${id}" hidden></div>
         <div class="activity-feed" data-id="${id}"></div>

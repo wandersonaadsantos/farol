@@ -5,7 +5,7 @@
 
 import {
   statusBannerHtml, fmtClock, feedLine, agentsTitle, stageFlowFrom, stageFlowHtml,
-  sessionCardHtml, situacaoDaSessao, etapaAtiva,
+  sessionCardHtml, progressoDaSessao, conclusaoDaSessao, etapaAtiva,
 } from '../pure.js';
 import { estado } from './estado.js';
 import { $, ACTIVE_OPS, showOp, closeOp } from './infra.js';
@@ -24,8 +24,11 @@ function handleActivity(id, item) {
     feed.insertAdjacentHTML('beforeend', feedLine(item));
     if (stick) feed.scrollTop = feed.scrollHeight;
   }
-  // linha nova é sinal de vida: a situação do card (fase, silêncio do stream,
-  // arquivos lidos) é recalculada a cada evento, não só no snapshot
+  // linha nova é sinal de vida: o carimbo vale já (o snapshot só chega no ciclo), o
+  // ponto da barra pisca e o progresso é recalculado a cada evento
+  const sess = (estado()?.activeSessions || []).find(x => x.id === id);
+  if (sess && item && item.t) sess.ultimoSinalEm = item.t;
+  piscar(id);
   updateSessionBar(id);
   updateStageFlow(id);
 }
@@ -161,42 +164,125 @@ function sessionVisible(s) {
   const u = s && s.pr ? prUser(s.pr) : '';
   return !u || scopeVisible({ account: u });
 }
-/* Situação do card de sessão. NÃO é mais percentual: o que havia aqui era a contagem de
-   linhas do feed passada por uma exponencial, saturando em 90% e parando lá, tivesse a
-   revisão 3 minutos ou 30, sem nenhuma relação com trabalho restante. O app não sabe
-   quanto falta, então ele para de fingir que sabe e diz o que sabe: a fase, o silêncio do
-   stream e os arquivos do PR já lidos (situacaoDaSessao, ui/pure/sessao.js). */
+/* Progresso do card de sessão (09/10/2026, desenho do Claude Design em
+   docs/superpowers/specs/2026-10-09-progresso-da-sessao-anexos/HANDOFF.md). A conta é
+   do progressoDaSessao (ui/pure/sessao.js), sobre o tempo típico que o engine mede e os
+   arquivos lidos; aqui mora o que é de TELA: a barra nunca volta (maior valor já
+   mostrado), para no lugar quando o stream fica mudo, o ponto pisca a cada evento, e o
+   aria-valuetext só muda quando o texto muda ou a cada 10 pontos. */
+const PCT_MOSTRADO = new Map();
+const ARIA_MOSTRADO = new Map();
+const ULTIMA_PISCADA = new Map();
+// última versão de cada sessão vista no snapshot, e as que estão no estado 8 (concluída)
+const ULTIMA_VISTA = new Map();
+const SAINDO = new Map();
+const MOSTRA_CONCLUIDA_MS = 1500;
+const SAIDA_MS = 300;
+
+function piscar(id) {
+  const agora = Date.now();
+  if (agora - (ULTIMA_PISCADA.get(id) || 0) < 250) return;
+  ULTIMA_PISCADA.set(id, agora);
+  const el = document.querySelector(`.sess-progress[data-id="${CSS.escape(id)}"] .sess-sinal`);
+  if (!el) return;
+  el.classList.remove('pisca');
+  void el.offsetWidth; // reinicia a animação
+  el.classList.add('pisca');
+}
+
+function pintarBarra(wrap, id, p) {
+  wrap.dataset.estado = p.estado;
+  // a borda do cartão acompanha o estado (classe no cartão: ver o comentário no app.css)
+  const card = wrap.closest('.session-card');
+  if (card) {
+    card.classList.toggle('sess-muda', p.estado === 'muda');
+    card.classList.toggle('sess-concluida', p.estado === 'concluida');
+  }
+  const inteiro = Math.floor(p.pct);
+  wrap.querySelector('.sess-pct').textContent = `${inteiro}%`;
+  wrap.querySelector('.op-bar-fill').style.width = `${p.pct}%`;
+  wrap.querySelector('.sess-estado').textContent = p.texto;
+  const base = wrap.querySelector('.sess-base');
+  base.textContent = p.base;
+  base.hidden = !p.base;
+  wrap.setAttribute('aria-valuenow', String(inteiro));
+  // no estado mudo o contador anda a cada segundo: a chave ignora o número
+  const chave = p.estado === 'muda' ? 'muda' : p.texto;
+  const ant = ARIA_MOSTRADO.get(id);
+  if (!ant || ant.chave !== chave || Math.abs(p.pct - ant.pct) >= 10) {
+    wrap.setAttribute('aria-valuetext', p.aria);
+    ARIA_MOSTRADO.set(id, { chave, pct: p.pct });
+  }
+  // o silêncio é anunciado UMA vez, ao entrar no estado
+  const aviso = wrap.querySelector('.sess-aviso');
+  if (p.estado === 'muda' && !aviso.textContent) aviso.textContent = p.texto;
+  if (p.estado !== 'muda' && aviso.textContent) aviso.textContent = '';
+}
+
 function updateSessionBar(id) {
   const wrap = document.querySelector(`.sess-progress[data-id="${CSS.escape(id)}"]`);
   if (!wrap) return;
+  const saindo = SAINDO.get(id);
+  if (saindo) return pintarBarra(wrap, id, conclusaoDaSessao(saindo.sess, saindo.fim));
   const sess = (estado().activeSessions || []).find(x => x.id === id) || {};
-  const sit = situacaoDaSessao(sess);
-  wrap.querySelector('.sess-pct').textContent = sit.texto;
-  wrap.classList.toggle('sess-muda', sit.estado === 'muda');
-  wrap.classList.toggle('sess-fechando', sit.estado === 'fechando');
-  // barra indeterminada: ela mostra que ALGO está correndo, que é tudo o que se pode
-  // afirmar enquanto o modelo trabalha; parada quando o stream está mudo
-  wrap.classList.toggle('indeterminada', sit.estado !== 'muda');
+  const p = progressoDaSessao(sess, stageFlowFrom(estado().activity && estado().activity[id], sess.startedAt));
+  const antes = PCT_MOSTRADO.get(id) || 0;
+  const pct = p.estado === 'muda' ? antes : Math.max(antes, p.pct);
+  PCT_MOSTRADO.set(id, pct);
+  pintarBarra(wrap, id, { ...p, pct, aria: p.aria.replace(/^d+%/, `${Math.floor(pct)}%`) });
+}
+
+// Estado 8: a sessão que saiu do snapshot DEPOIS que o modelo concluiu fica em 100% por
+// um instante e sai. Saída antes disso (cancelamento, falha) não é conclusão, e o cartão
+// some na hora, como sempre.
+function marcarConcluidas(box, vivas) {
+  const ids = new Set(vivas.map(s => s.id));
+  for (const el of box.querySelectorAll('.session-card')) {
+    const id = el.dataset.id;
+    const ult = ULTIMA_VISTA.get(id);
+    if (ids.has(id) || SAINDO.has(id) || !ult || ult.fase !== 'fechando') continue;
+    SAINDO.set(id, { sess: ult, fim: Date.now() });
+    const cancelar = el.querySelector('.act-cancel');
+    if (cancelar) cancelar.remove();
+    updateSessionBar(id);
+    setTimeout(() => sair(id), MOSTRA_CONCLUIDA_MS);
+  }
+  for (const id of [...ULTIMA_VISTA.keys()]) if (!ids.has(id) && !SAINDO.has(id)) esquecer(id);
+  for (const s of vivas) ULTIMA_VISTA.set(s.id, s);
+}
+function esquecer(id) {
+  for (const m of [PCT_MOSTRADO, ARIA_MOSTRADO, ULTIMA_PISCADA, ULTIMA_VISTA, SAINDO]) m.delete(id);
+}
+function sair(id) {
+  const el = document.querySelector(`.session-card[data-id="${CSS.escape(id)}"]`);
+  if (el) el.classList.add('saindo');
+  const reduzido = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  setTimeout(() => { esquecer(id); renderActive(); }, reduzido ? 0 : SAIDA_MS);
 }
 function renderActive() {
-  const sessions = (estado().activeSessions || []).filter(s => (s.mode === 'auto' || s.mode === 'self') && sessionVisible(s));
+  const vivas = (estado().activeSessions || []).filter(s => (s.mode === 'auto' || s.mode === 'self') && sessionVisible(s));
+  const box = $('#activeSessions');
+  marcarConcluidas(box, vivas);
+  const concluidas = [...SAINDO.values()].map(x => x.sess).filter(s => !vivas.some(v => v.id === s.id));
+  const sessions = [...vivas, ...concluidas];
   const contas = estado().headlessWaitingContas || {};
   const waiting = (estado().headlessWaiting || []).filter(k => scopeVisible({ key: k, account: contas[k] }));
   const wrap = $('#activeWrap');
   wrap.hidden = sessions.length === 0 && waiting.length === 0;
-  $('#activeCount').textContent = sessions.length || '';
+  $('#activeCount').textContent = vivas.length || '';
   $('#activeWaiting').textContent = waiting.length
     ? `na fila (${waiting.length}): ${waiting.join(' · ')}`
     : '';
-  const box = $('#activeSessions');
-  const have = [...box.querySelectorAll('.session-card')].map(el => el.dataset.id).join(',');
-  const want = sessions.map(s => s.id).join(',');
-  if (have !== want) {
-    // quem mais está revisando o PR da sessão vem do panorama, que o motor anota a cada ciclo
-    const outrosDe = (s) => ((estado().panorama || []).find((p) => p.key === (s.keys || [])[0]) || {}).outrosRevisando || [];
-    box.innerHTML = sessions.map(s => sessionCardHtml(s, '(iniciando…)', outrosDe(s))).join('');
-  }
+  // cartão a cartão, e não innerHTML da caixa inteira: refazer tudo zerava o feed do
+  // cartão que está no estado de concluída
+  const want = new Set(sessions.map(s => s.id));
+  for (const el of box.querySelectorAll('.session-card')) if (!want.has(el.dataset.id)) el.remove();
+  // quem mais está revisando o PR da sessão vem do panorama, que o motor anota a cada ciclo
+  const outrosDe = (s) => ((estado().panorama || []).find((p) => p.key === (s.keys || [])[0]) || {}).outrosRevisando || [];
   for (const s of sessions) {
+    if (!box.querySelector(`.session-card[data-id="${CSS.escape(s.id)}"]`)) box.insertAdjacentHTML('beforeend', sessionCardHtml(s, '(iniciando…)', outrosDe(s)));
+  }
+  for (const s of vivas) {
     const feed = box.querySelector(`.activity-feed[data-id="${CSS.escape(s.id)}"]`);
     if (feed) fillFeed(feed, estado().activity && estado().activity[s.id]);
     updateSessionBar(s.id);
