@@ -288,6 +288,10 @@ function wireEngine() {
     notify('Farol · precisa da sua atenção 🟡', `${pr.key}: ${motivo}${extra}`, pr.url);
     if (win) win.flashFrame(true);
   });
+  // PR meu em conflito ou já absorvido pela base (lib/engine/meus-prs-base.js), uma vez por head
+  engine.on('meu-pr-base', ({ pr, estado, texto }) => {
+    notify(estado === 'superado' ? 'Farol · PR superado pela base' : 'Farol · PR em conflito', texto, pr.url);
+  });
   engine.on('state', updateBadge);
   engine.on('settings-changed', (cfg) => {
     applyAutostart();

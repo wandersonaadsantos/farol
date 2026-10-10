@@ -12,8 +12,18 @@
 // O caminho com gh de verdade é best-effort por construção e não tem teste de
 // rede, como fetchPrFiles e afins. O repoDoPr usado pela criação vem de
 // review-signal.js e o teste dele mora em test/review-signal.test.js (não duplique).
-import { test } from 'node:test';
+// FAROL_HOME isolado ANTES de importar o engine (10/10/2026): a remoção que falha passou a
+// anotar a label em state/labels-a-tirar.json, e sem isto o caso de falha gravaria na pasta real.
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
+
+process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-review-label-'));
+
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
+
+after(() => fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }));
 
 const { inProgressLabelFor, addInProgressLabel, removeInProgressLabel } = await import('../lib/engine/review.js');
 

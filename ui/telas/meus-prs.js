@@ -15,7 +15,7 @@ import {
   canMergeSelfAnalysis, qualityBlockTitle, selfAnalysisBadge, selfAnalysisToggle,
   selfAnalysisStale, listViewState, prKeyFromUrl, defaultFor, overrideFor, repoShort,
   selfSessionKey, progressoDaSessao, festasPendentes,
-  tituloDoMergeBloqueado, notaDoMergeBloqueadoHtml,
+  tituloDoMergeBloqueado, notaDoMergeBloqueadoHtml, notaDaBaseHtml,
 } from '../pure.js';
 import { estado, escopo } from './estado.js';
 import {
@@ -222,6 +222,7 @@ function renderMyPRs() {
         </div>
       </div>
       ${repoBlocked ? notaDoMergeBloqueadoHtml() : ''}
+      ${notaDaBaseHtml((estado().baseDosMeusPRs || {})[pr.key])}
       ${analysisPanel}
     </div>`;
   }).join('');

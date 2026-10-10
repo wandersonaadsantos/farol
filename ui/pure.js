@@ -31,6 +31,7 @@ export * from './pure/merge-bloqueado.js';
 export * from './pure/pareamento.js';
 export * from './pure/perfil.js';
 export * from './pure/meus-prs.js';
+export * from './pure/meus-prs-base.js';
 export * from './pure/pessoas.js';
 export * from './pure/pr-compartilhado.js';
 export * from './pure/radar.js';
