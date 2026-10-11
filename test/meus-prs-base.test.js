@@ -322,7 +322,8 @@ test('leitura que falhou: o último aviso fica, com a idade e o motivo', () => {
   const at = agora - 20 * 60 * 1000;
   const sem = avisoDaBaseNoCard({ base: 'main', conflito: true, at, falha: { motivo: 'sem-token', conta: 'ana-exemplo' } }, PR, agora);
   assert.match(sem.html, /Visto há 20 min\. A leitura de agora falhou: .*ana-exemplo.* está sem token\./);
-  assert.match(sem.html, /github\.com\/ana-exemplo/, 'a conta é menção navegável');
+  // comparação exata do href, não regex: o que se prova é o destino inteiro do link
+  assert.ok(sem.html.includes('href="https://github.com/ana-exemplo"'), 'a conta é menção navegável');
   const gh = avisoDaBaseNoCard({ base: 'main', conflito: true, at, falha: { motivo: 'gh' } }, PR, agora);
   assert.match(gh.html, /Visto há 20 min\. A leitura de agora falhou no GitHub\./);
 });
