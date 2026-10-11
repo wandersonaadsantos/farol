@@ -9,6 +9,21 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.71.11
+
+O aviso de PR em conflito ou superado pela base, em Meus PRs, ganha o desenho próprio: dá para ver de longe qual PR precisa de você e o que fazer com ele.
+
+**Melhorias**
+
+- **O card do PR que precisa de você por causa da base fica marcado de longe.** A barra do card fica âmbar e aparece um selo ao lado da chave: "Em conflito" ou "Superado pela base". No conflito, uma linha diz com qual base e o que fazer, e quantos arquivos do PR já estão iguais lá. No superado, um bloco mostra a conclusão, como o Farol conferiu ("dos 7 arquivos que ele muda, 5 estão idênticos e 2 têm todas as linhas dele"), a lista dos arquivos e o botão "Fechar no GitHub", que abre o PR para você fechar lá. No celular, o aviso aparece antes dos botões.
+- **Quando a leitura do GitHub falha, o último aviso continua no card**, com "Visto há 20 min" e o motivo (conta sem token no `gh` ou erro do GitHub), em vez de sumir.
+- **O aviso no app diz o que fazer e leva até o card.** Ele traz o PR como link e o botão "Ver em Meus PRs", e não some enquanto o ponteiro está em cima. Quando vários PRs precisam de você ao abrir o app, sai um aviso só com todos.
+- **A notificação do sistema não repete mais "Farol" no título**, porque o Windows e o macOS já mostram o nome do app.
+
+**Correções**
+
+- **Clicar na notificação de um PR seu agora leva ao card dele em Meus PRs.** Antes o clique abria o Radar e parava ali, porque o card não era encontrado na sub-aba Meus PRs.
+
 ## v2.71.10
 
 Meus PRs avisa quando um PR seu entra em conflito ou quando a base já tem tudo o que ele muda, e a etiqueta de revisão em andamento não fica mais presa no PR quando a remoção falha.
