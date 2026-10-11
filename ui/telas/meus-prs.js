@@ -15,7 +15,7 @@ import {
   canMergeSelfAnalysis, qualityBlockTitle, selfAnalysisBadge, selfAnalysisToggle,
   selfAnalysisStale, listViewState, prKeyFromUrl, defaultFor, overrideFor, repoShort,
   selfSessionKey, progressoDaSessao, festasPendentes,
-  tituloDoMergeBloqueado, notaDoMergeBloqueadoHtml, notaDaBaseHtml,
+  tituloDoMergeBloqueado, notaDoMergeBloqueadoHtml, avisoDaBaseNoCard,
 } from '../pure.js';
 import { estado, escopo } from './estado.js';
 import {
@@ -145,6 +145,8 @@ function renderMyPRs() {
     const repo = String(pr.key.split('#')[0]);
     const repoBlocked = blockedRepos.has(repo.toLowerCase());
     const ms = (estado().mergeStates || {})[pr.key];
+    // conflito e PR superado pela base (Claude Design, 10/10/2026): barra, selo e aviso
+    const daBase = avisoDaBaseNoCard((estado().baseDosMeusPRs || {})[pr.key], pr);
     const dataAttrs = `data-url="${esc(pr.url)}" data-key="${esc(pr.key)}"`;
     // auto-merge indisponível: repo sem "Allow auto-merge" (autoAllowed===false) ou
     // já recusou numa tentativa nesta sessão. Nesse caso só admin resolve.
@@ -152,7 +154,9 @@ function renderMyPRs() {
     // admin indisponível: a base usa ruleset que o --admin não fura (ms.adminBlocked)
     // ou já recusou por isso nesta sessão. Nesse caso o botão Merge (admin) some.
     const adminOff = (ms && ms.adminBlocked === true) || adminUnavailableKeys.has(pr.key);
-    const btnMerge = (dis, title) => `<button class="btn ok sm act-self-merge" ${dataAttrs} ${dis ? 'disabled' : ''} title="${esc(title)}">Merge</button>`;
+    // o Merge desabilitado por conflito aponta para o aviso da base, que diz o motivo na tela
+    const descritoPelo = (id) => (id ? ` aria-describedby="${esc(id)}"` : '');
+    const btnMerge = (dis, title, descritoPor = '') => `<button class="btn ok sm act-self-merge" ${dataAttrs} ${dis ? 'disabled' : ''} title="${esc(title)}"${descritoPelo(descritoPor)}>Merge</button>`;
     const btnOptions = () => {
       if (autoOff && adminOff) return `<button class="btn sm act-self-merge" ${dataAttrs} disabled title="A proteção deste repo exige aprovação (ruleset), e nem auto-merge nem admin resolvem. Consiga uma aprovação.">Precisa de aprovação</button>`;
       const auto = `<button class="btn ok sm act-merge-auto" ${dataAttrs} ${autoOff ? 'disabled' : ''} title="${esc(autoOff ? "Este repo não tem 'Allow auto-merge' ligado (Settings do repo)." : 'Ativa o auto-merge: o GitHub mergeia sozinho quando aprovação e checks passarem (não burla a proteção)')}">⏳ Auto-merge</button>`;
@@ -173,7 +177,7 @@ function renderMyPRs() {
       else if (mergeBlockedByPolicy.has(pr.key)) mergeBtns = btnOptions();
       else if (!ms) mergeBtns = btnMerge(true, 'Verificando se dá pra mergear…');
       else if (ms.isDraft || ms.status === 'DRAFT') mergeBtns = btnMerge(true, 'O PR está como rascunho, marque como ready antes');
-      else if (ms.mergeable === 'CONFLICTING' || ms.status === 'DIRTY') mergeBtns = btnMerge(true, 'O PR tem conflito com a branch de destino, resolva antes');
+      else if (ms.mergeable === 'CONFLICTING' || ms.status === 'DIRTY') mergeBtns = btnMerge(true, 'O PR tem conflito com a branch de destino', daBase.id);
       else if (ms.status === 'BEHIND') mergeBtns = btnMerge(true, 'A branch está atrás da base, atualize antes de mergear');
       else if (ms.status === 'BLOCKED') mergeBtns = btnOptions();
       else if (ms.status === 'CLEAN' || ms.status === 'UNSTABLE' || ms.status === 'HAS_HOOKS' || ms.mergeable === 'MERGEABLE')
@@ -201,12 +205,12 @@ function renderMyPRs() {
         <div class="mypr-when">analisado ${fmtRel(new Date(a.at).toISOString())}${a.card ? ` · ${esc(a.card)}` : ''}</div>
       </div>` : '';
     return `
-    <div class="card mypr-card ${sel ? BARRA_DO_SELO[sel.cls] : ''}${escondido ? ' oculto' : ''}" data-key="${esc(pr.key)}" style="${m.style}">
+    <div class="card mypr-card ${sel ? BARRA_DO_SELO[sel.cls] : ''}${daBase.alerta ? ' base-alerta' : ''}${escondido ? ' oculto' : ''}" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" style="${m.style}">
       <div class="mypr-top">
         ${m.dot}${avatar(pr.author)}
         <div class="info">
           <div class="pr-ref"><a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>
-            ${pr.isDraft ? '<span class="badge">rascunho</span>' : ''}${badge}${m.chip}</div>
+            ${pr.isDraft ? '<span class="badge">rascunho</span>' : ''}${badge}${daBase.selo}${m.chip}</div>
           <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
           ${pr.head && pr.base ? `<div class="pr-branches"><code>${esc(pr.head)}</code> <span class="arrow">→</span> <code>${esc(pr.base)}</code></div>` : ''}
           <div class="pr-sub">${m.acct ? `por você · ${personMention(m.acct.user, 'xs', true)} · ` : ''}atualizado ${fmtRel(pr.updatedAt)}</div>
@@ -221,8 +225,8 @@ function renderMyPRs() {
         : `<button class="btn sm ghost act-pr-hide" data-key="${esc(pr.key)}" title="Some com este PR de Meus PRs. Ele volta sozinho se receber commit novo">Ocultar</button>`}
         </div>
       </div>
+      ${daBase.html}
       ${repoBlocked ? notaDoMergeBloqueadoHtml() : ''}
-      ${notaDaBaseHtml((estado().baseDosMeusPRs || {})[pr.key])}
       ${analysisPanel}
     </div>`;
   }).join('');

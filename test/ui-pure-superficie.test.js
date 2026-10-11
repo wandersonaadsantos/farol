@@ -11,8 +11,10 @@ import assert from 'node:assert/strict';
 import { arquivosDosPuros } from './helpers/fontes-ui.js';
 
 const CONGELADA = [
-  // conflito e PR superado pela base, no card de Meus PRs (10/10/2026)
-  "notaDaBaseHtml",
+  // conflito e PR superado pela base, no card de Meus PRs: a nota provisória da v2.71.10
+  // (notaDaBaseHtml) saiu com o desenho do Claude Design de 10/10/2026
+  "avisoDaBaseNoCard",
+  "idadeDoAviso",
   // repos bloqueados pra merge saíram de Sistema > Conexões para Automação (03/10/2026)
   "incluirRepo",
   "normalizarRepo",

@@ -289,8 +289,10 @@ function wireEngine() {
     if (win) win.flashFrame(true);
   });
   // PR meu em conflito ou já absorvido pela base (lib/engine/meus-prs-base.js), uma vez por head
-  engine.on('meu-pr-base', ({ pr, estado, texto }) => {
-    notify(estado === 'superado' ? 'Farol · PR superado pela base' : 'Farol · PR em conflito', texto, pr.url);
+  // o título não repete "Farol": o sistema já mostra o nome do app no cabeçalho. No aviso
+  // agrupado o clique leva ao card do primeiro PR, que fica em Meus PRs.
+  engine.on('meu-pr-base', (a) => {
+    notify(a.tituloSistema, a.corpo, a.url || ((a.itens || [])[0] || {}).url);
   });
   engine.on('state', updateBadge);
   engine.on('settings-changed', (cfg) => {
