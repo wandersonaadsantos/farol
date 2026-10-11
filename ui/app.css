@@ -2409,3 +2409,79 @@ body.parear > *:not(.par-raiz) { display: none !important; }
   .mb-x { min-width: 64px; justify-content: center; }
   .mypr-merge-nota .is-goto { display: inline-flex; align-items: center; min-height: 44px; }
 }
+
+/* ---------- meus PRs: aviso da base (Claude Design, 10/10/2026) ---------- */
+/* âmbar cheio no claro: #e08700 com texto branco dá 2,6:1. Com #201302 dá 7:1. Só o selo
+   superado e o botão Fechar usam; o .btn.primary do resto do app não muda. */
+:root { --accent-fill-ink: var(--accent-ink); }
+:root[data-theme="light"] { --accent-fill-ink: #201302; }
+
+.mypr-card.base-alerta { border-left-color: var(--urgent); }
+
+.verdict.base-conflito { color: var(--accent-text); background: var(--accent-soft); }
+.verdict.base-superado { color: var(--accent-fill-ink); background: var(--accent); }
+
+.mypr-base {
+  margin-top: 10px; display: flex; gap: 9px; align-items: baseline;
+  font-size: 12.5px; line-height: 1.45; color: var(--text);
+}
+.mypr-base .mb-marca {
+  width: 7px; height: 7px; flex: none; background: var(--accent);
+  transform: rotate(45deg); position: relative; top: -1px;
+}
+.mypr-base .mb-corpo { min-width: 0; text-wrap: pretty; overflow-wrap: anywhere; }
+.mypr-base b { font-weight: 650; }
+.mypr-base code { font-size: 11.5px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: 0 5px; font-weight: 500; }
+.mypr-base .mb-link { color: var(--info); font-weight: 600; }
+.mypr-base .mb-extra { margin-top: 2px; font-size: 12px; color: var(--muted); }
+.mypr-base .mb-extra code { background: none; border: 0; padding: 0; font-size: 11px; }
+/* nota de merge logo depois do aviso: alinha com o texto, não com o marcador */
+.mypr-base + .mypr-merge-nota { margin-top: 6px; padding-left: 16px; }
+
+.mypr-superado {
+  margin-top: 12px; padding: 12px 14px; border-radius: 10px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.mypr-superado code { background: var(--surface); border: 1px solid var(--border); border-radius: 5px; padding: 0 5px; }
+.ms-titulo { font-size: 13.5px; font-weight: 650; line-height: 1.4; text-wrap: pretty; }
+.ms-titulo code { font-size: 12px; font-weight: 500; }
+.ms-prova { font-size: 12.5px; line-height: 1.5; text-wrap: pretty; }
+.ms-prova code { background: none; border: 0; padding: 0; font-size: 11.5px; }
+.ms-arquivos { font-size: 12.5px; }
+.ms-arquivos summary {
+  width: fit-content; cursor: pointer; font-weight: 600; color: var(--text);
+  text-decoration: underline dotted var(--faint); text-underline-offset: 3px;
+}
+.ms-grupos { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 24px; margin-top: 8px; }
+.ms-grupos b { font-size: 11.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.ms-grupos ul { list-style: none; margin: 4px 0 0; padding: 0; font-family: "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; font-size: 11.5px; overflow-wrap: anywhere; }
+.ms-saida { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-top: 8px; border-top: 1px solid var(--border); }
+.ms-saida > span { font-size: 12px; color: var(--muted); text-wrap: pretty; }
+/* .btn.primary.ms-fechar, e não só .ms-fechar: o .btn.primary pinta o texto com --accent-ink
+   (branco no claro) e venceria pela especificidade, voltando aos 2,6:1 */
+.btn.primary.ms-fechar { color: var(--accent-fill-ink); text-decoration: none; }
+
+.toast.base { border-left: 3px solid var(--accent); }
+.toast.base .t-titulo { font-weight: 650; }
+.toast.base .t-pr { color: var(--text); font-weight: 600; text-decoration: underline dotted var(--faint); text-underline-offset: 2px; }
+.toast.base .t-acao { color: var(--accent-text); font-weight: 650; background: none; border: 0; padding: 0; cursor: pointer; }
+
+@media (max-width: 720px) {
+  /* o aviso sobe para antes das ações: selo, título e aviso juntos no alto do card */
+  .mypr-card .mypr-top { display: contents; }
+  .mypr-card { display: flex; flex-wrap: wrap; column-gap: 14px; }
+  .mypr-card .info { flex: 1 1 0; }
+  .mypr-card .mypr-base, .mypr-card .mypr-superado, .mypr-card .mypr-merge-nota { order: 2; flex: 1 1 100%; }
+  .mypr-card .pr-actions { order: 3; flex: 1 1 100%; margin-top: 12px; }
+  .mypr-card .mypr-analysis { order: 4; flex: 1 1 100%; }
+  .mypr-base .mb-link, .ms-arquivos summary { display: inline-flex; align-items: center; min-height: 44px; }
+  .ms-fechar { flex: 1 1 100%; justify-content: center; min-height: 44px; }
+  .toast.base .t-acao, .toast.base .t-fechar { min-height: 44px; min-width: 44px; }
+}
+/* complementos da implementação (11/10/2026): a linha "Visto há" também cabe no bloco do
+   superado, e o toast da base empilha título, linhas e ação */
+.mypr-superado .mb-extra { font-size: 12px; color: var(--muted); }
+.toast.base { align-items: flex-start; }
+.toast.base .t-corpo { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; min-width: 0; }
+.toast.base .t-fechar { font-size: 16px; line-height: 1; }

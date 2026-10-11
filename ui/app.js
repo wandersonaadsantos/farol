@@ -25,7 +25,7 @@ import {
 import { gotoDeliv } from './telas/entregas.js';
 import { loadHighlights, loadTeam } from './telas/time.js';
 import { renderTools } from './telas/ferramentas.js';
-import { ping, notifyNewPRs, notifyNeedsDecision } from './telas/avisos.js';
+import { ping, notifyNewPRs, notifyNeedsDecision, avisoDaBase } from './telas/avisos.js';
 import { initTweaks } from './telas/acoes.js';
 import { registrarTelaConsumo } from './telas/consumo.js';
 import { renderStatus, tickCountdown, renderActive, handleActivity } from './telas/sessoes.js';
@@ -260,6 +260,13 @@ function focusPr(url, tentativa = 0) {
     if (tentativa < 2) setTimeout(() => focusPr(url, tentativa + 1), 700);
     return;
   }
+  // card numa sub-aba do Radar que não está à mostra (Meus PRs): troca antes de rolar,
+  // senão o scroll num painel escondido não faz nada e o clique morre calado
+  const painel = card.closest('.rpane');
+  if (painel && !painel.classList.contains('active')) {
+    const sub = document.querySelector(`.rsub[data-sub="${CSS.escape(painel.id.replace(/^rpane-/, ''))}"]`);
+    if (sub) sub.click();
+  }
   card.scrollIntoView({ behavior: 'smooth', block: 'center' });
   card.classList.add('pulse-focus');
   setTimeout(() => card.classList.remove('pulse-focus'), 2600);
@@ -404,6 +411,8 @@ function connect() {
     toast(t.kind || 'info', t.text);
   });
   es.addEventListener('new-prs', (e) => { const d = safeJsonParse(e.data); if (d) notifyNewPRs(d); });
+  // PR meu em conflito ou superado pela base: o toast é de telas/avisos.js, a navegação é daqui
+  es.addEventListener('meu-pr-base', (e) => { const d = safeJsonParse(e.data); if (d) avisoDaBase(d, (url) => focusPr(url)); });
   es.addEventListener('auto-approved', () => ping());
   es.addEventListener('auto-rejected', () => ping());
   es.addEventListener('needs-decision', (e) => {
