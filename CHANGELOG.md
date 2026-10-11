@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.71.10
+
+Meus PRs avisa quando um PR seu entra em conflito ou quando a base já tem tudo o que ele muda, e a etiqueta de revisão em andamento não fica mais presa no PR quando a remoção falha.
+
+**Correções**
+
+- **Meus PRs diz quando um PR seu está em conflito ou já foi superado pela base, sem esperar você clicar.** Antes o Farol só conferia isso nos PRs com autoanálise aprovável, e a autoanálise só roda pelo clique. Um PR cujo conteúdo outro PR já tinha levado para a base ficava aberto e calado até alguém olhar. Agora todo PR seu aberto é conferido a cada ciclo, sem gastar IA. O card ganha uma linha ("Em conflito com main: atualize a branch antes do merge", ou "Tudo o que este PR muda já está em main: dá para fechar sem merge"), e o aviso sai uma vez por PR e commit, no app e como notificação do sistema. O Farol só diz que o PR foi superado quando confere no código que a base tem o mesmo conteúdo, ou as mesmas linhas, de tudo o que o PR muda. Na dúvida, não afirma nada.
+- **A etiqueta `<conta>:revisando` sai do PR mesmo quando a remoção falha no fim da revisão.** Se o GitHub não respondia nessa hora (rede caída, por exemplo), a etiqueta ficava no PR até a próxima revisão dele, e o time e o Farol das outras pessoas achavam que havia alguém revisando. Agora a remoção que falha é anotada e o Farol tenta de novo a cada ciclo, inclusive depois de reiniciar.
+
 ## v2.71.9
 
 A barra de progresso das revisões em andamento volta a ter porcentagem, agora calculada sobre o que o Farol mede, e sem parar em 90%.
