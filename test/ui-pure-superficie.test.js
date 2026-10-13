@@ -269,6 +269,7 @@ const CONGELADA = [
   "qualityReasonLabel",
   "queueCardHtml",
   "queueEmptyOkHtml",
+  "queueWaitingCardHtml",
   "reRoundBoxHtml",
   "reRoundStatus",
   "reasonGroups",

@@ -8,7 +8,7 @@ import {
   esc, fmtStamp, fmtWhenDay, personMention, papelPicker, reasonGroupsHtml, chatBadge, md,
   resolvedRow, listViewState, queueEmptyOkHtml, aprovadosHoje, orgsMonitoradas,
   automacaoPausadaPor, queueCardHtml, panoramaRowHtml, staleCardMeta, separarPendentes,
-  contasNoLimiteDaFila, queueLimitHtml,
+  contasNoLimiteDaFila, queueLimitHtml, queueWaitingCardHtml,
 } from '../pure.js';
 import { estado, escopo, peopleOf } from './estado.js';
 import { $, api, textoDaListaVazia, toast, copyToClipboard, lembrarAbertos } from './infra.js';
@@ -41,7 +41,7 @@ function switchRadarSub(nome) {
   document.querySelectorAll('.rpane').forEach(p => p.classList.toggle('active', p.id === 'rpane-' + RADAR_SUB));
 }
 
-// Contagem das sub-abas. 'Pra mim' soma o que espera decisão sua (camada 1, âmbar);
+// Contagem das sub-abas. 'Pra mim' soma a fila visível e o que espera decisão sua;
 // as outras duas são contexto e usam a contagem neutra.
 function renderRadarNav() {
   const num = sel => { const e = $(sel); return (!e || e.hidden) ? 0 : (parseInt(e.textContent, 10) || 0); };
@@ -173,22 +173,30 @@ function renderQueue() {
   const qbox = $('#queue');
   if (document.activeElement && qbox.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
   const q = (estado().queue || []).filter(scopeVisible);
+  const ativos = new Set((estado().activeSessions || []).flatMap(s => s.keys || []));
+  const decisoes = new Set((estado().decisions?.pending || []).map(d => d.key));
+  const acionaveis = new Set(q.map(pr => pr.key));
+  const distribuindo = new Set(estado().headlessDistributing || []);
+  const esperando = new Set([...(estado().headlessWaiting || []), ...distribuindo]);
+  const aguardando = (estado().panorama || []).filter(pr => pr.mine && scopeVisible(pr)
+    && esperando.has(pr.key) && !acionaveis.has(pr.key) && !ativos.has(pr.key) && !decisoes.has(pr.key));
+  const total = q.length + aguardando.length;
   const people = peopleOf();   // idem renderDecisions: um mapa só pra toda a passada
-  $('#queueCount').hidden = q.length === 0;
-  $('#queueCount').textContent = q.length;
+  $('#queueCount').hidden = total === 0;
+  $('#queueCount').textContent = total;
   const btnAll = $('#btnReviewAll');
   btnAll.hidden = q.length < 2;
   btnAll.textContent = `Revisar tudo (${q.length})`;
 
   const box = $('#queue');
-  const vs = listViewState({ lastCheckAt: estado().lastCheckAt, status: estado().status, length: q.length });
+  const vs = listViewState({ lastCheckAt: estado().lastCheckAt, status: estado().status, length: total });
   if (vs === 'loading' || vs === 'error') {
     box.innerHTML = `<div class="empty" style="border:0">${vs === 'loading'
       ? 'Verificando se há algo esperando por você…'
       : 'Não foi possível confirmar ainda (a checagem falhou; veja o aviso no topo). Vou tentar de novo no próximo ciclo.'}</div>`;
     return;
   }
-  if (!q.length) {
+  if (!total) {
     // aprovadosHoje compara o dia em fuso LOCAL e vive no pure.js (testada la)
     box.innerHTML = queueEmptyOkHtml({
       aprovados: aprovadosHoje(estado().decisions?.resolved),
@@ -215,6 +223,8 @@ function renderQueue() {
   box.innerHTML = avisos + q.map(pr => queueCardHtml(pr, {
     people, mark: acctMark(pr), parked, sync: estado().sync,
     revisarJunto, limiteAte: limiteDe(pr), limiteNoTopo: !!noTopo[contaDe(pr)],
+  })).join('') + aguardando.map(pr => queueWaitingCardHtml(pr, {
+    mark: acctMark(pr), sync: estado().sync, distribuindo: distribuindo.has(pr.key),
   })).join('');
 }
 

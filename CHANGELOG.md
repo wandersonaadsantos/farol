@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.71.12
+
+PRs que pediram sua revisão continuam visíveis no Radar enquanto aguardam distribuição ou uma vaga de execução.
+
+**Correções**
+
+- **Pedidos de revisão à espera de outro aparelho deixam de sumir da fila.** O card informa se o Farol está distribuindo a revisão ou aguardando execução, mesmo quando ainda não há aparelho apto. Ele mostra o estado sem oferecer um segundo disparo da revisão.
+
 ## v2.71.11
 
 O aviso de PR em conflito ou superado pela base, em Meus PRs, ganha o desenho próprio: dá para ver de longe qual PR precisa de você e o que fazer com ele.

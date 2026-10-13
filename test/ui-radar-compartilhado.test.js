@@ -96,6 +96,40 @@ test('desligada ou sem projeção de sync: nada aparece e nada explode', () => {
   assert.equal($('#mdCompartilhado').hidden, true);
 });
 
+test('PR solicitado continua na fila visível enquanto a distribuição espera aparelho apto', () => {
+  const pr = { key: 'acme-exemplo/engine-ai#454', url: 'https://github.com/acme-exemplo/engine-ai/pull/454',
+    title: 'Corrige a entrega', author: 'bruno-exemplo', account: 'alice', mine: true, updatedAt: new Date().toISOString() };
+  const snap = estado();
+  snap.panorama = [pr];
+  snap.headlessDistributing = [pr.key];
+  emitir('state', snap);
+  assert.equal($('#queueCount').textContent, '1');
+  assert.match($('#queue').innerHTML, /acme-exemplo\/engine-ai#454/);
+  assert.match($('#queue').innerHTML, /Esperando distribuição/);
+  assert.doesNotMatch($('#queue').innerHTML, /act-review|act-ignore/, 'espera não oferece um segundo disparo');
+
+  snap.activeSessions = [{ id: 's1', mode: 'auto', keys: [pr.key], pr }];
+  emitir('state', snap);
+  assert.equal($('#queueCount').textContent, '0', 'a sessão ativa assume o PR sem card duplicado na fila');
+});
+
+test('fila local em espera aparece uma vez e não duplica um item acionável', () => {
+  const pr = { key: 'acme-exemplo/backoffice#140', url: 'https://github.com/acme-exemplo/backoffice/pull/140',
+    title: 'Ajusta formulário', author: 'bruno-exemplo', account: 'alice', mine: true, updatedAt: new Date().toISOString() };
+  const snap = estado();
+  snap.panorama = [pr];
+  snap.headlessWaiting = [pr.key];
+  emitir('state', snap);
+  assert.match($('#queue').innerHTML, /Na fila de execução/);
+  assert.doesNotMatch($('#queue').innerHTML, /act-review/);
+
+  snap.queue = [pr];
+  emitir('state', snap);
+  assert.equal($('#queueCount').textContent, '1');
+  assert.equal(($('#queue').innerHTML.match(/<div class="card pr-card[^"]*" data-key="acme-exemplo\/backoffice#140"/g) || []).length, 1);
+  assert.match($('#queue').innerHTML, /act-review/, 'o item acionável mantém seu botão');
+});
+
 /* ---------- eventos SSE próprios ---------- */
 
 test('sync-live chega à tela pelo bootstrap e desenha o andamento', () => {

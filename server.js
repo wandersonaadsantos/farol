@@ -1947,6 +1947,9 @@ class Engine extends EventEmitter {
       // exibe panorama velho sem dizer que ele esta velho (lib/engine/limite-gh.js)
       buscasPausadas: limiteGhMod.buscasPausadas(this),
       queue: this.queue,
+      // A fila de espera ja sai em esperaParaTela abaixo. Expor tambem a distribuicao
+      // evita que um pedido sem aparelho apto pareca visto.
+      headlessDistributing: this.headlessDistribuindo instanceof Map ? [...this.headlessDistribuindo.keys()] : [],
       // PRs da fila que estacionaram (falha, cancelamento, orçamento): o card mostra
       // quando e por quê, senão "nunca revisou" e "revisou e caiu" são idênticos na tela
       parked: this.parkedParaUi(),
