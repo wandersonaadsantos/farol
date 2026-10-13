@@ -202,6 +202,26 @@ export function queueCardHtml(pr, ctx) {
     </div>`;
 }
 
+// Pedido ja retirado da fila acionavel, mas ainda sem sessao ou decisao. Nao oferece
+// Revisar/Ignorar: a distribuicao ou o executor local ainda podem pega-lo, e um
+// segundo disparo aqui criaria duas revisoes para o mesmo commit.
+export function queueWaitingCardHtml(pr, ctx) {
+  const m = ctx.mark;
+  const distribuindo = ctx.distribuindo === true;
+  const estado = distribuindo ? 'Esperando distribuição' : 'Na fila de execução';
+  const detalhe = distribuindo ? prCoordNoteHtml(pr.key, ctx.sync) : '';
+  return `<div class="card pr-card" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" style="${m.style}">
+    ${avatar(pr.author)}
+    <div class="info">
+      <div class="pr-ref">${m.dot}<a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}</div>
+      <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
+      <div class="pr-sub">${personMention(pr.author, 'xs')} · atualizado ${fmtRel(pr.updatedAt)}</div>
+      <div class="pr-coord">${estado}. Ainda não há resultado desta execução.</div>${detalhe}
+    </div>
+    <div class="pr-actions"><a class="btn sm ghost" href="${esc(pr.url)}" target="_blank" rel="noreferrer">Abrir PR ↗</a></div>
+  </div>`;
+}
+
 const KIND_DO_GH = { APPROVED: 'approve', CHANGES_REQUESTED: 'request_changes' };
 
 // Qual revisão MINHA vale neste PR, nesta ordem: pendência na mesa deste aparelho, último

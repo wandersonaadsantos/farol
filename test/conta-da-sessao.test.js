@@ -96,6 +96,12 @@ test('lista de espera: a tela recebe a conta de cada PR, na ordem da fila', asyn
   assert.deepEqual(snap.headlessWaitingContas, { 'acme/app#7': 'avulsa' });
 });
 
+test('snapshot expõe as chaves em distribuição além da fila de execução', () => {
+  const e = engineComSilenciada();
+  e.headlessDistribuindo = new Map([[PR.key, { pr: PR, desde: Date.now() }]]);
+  assert.deepEqual(e.snapshot().headlessDistributing, [PR.key]);
+});
+
 test('lista de espera: a conta silenciada não entra nela nem pelo clique', async () => {
   const e = engineComSilenciada();
   e.processHeadless = () => { };
