@@ -35,6 +35,32 @@ test('sectionsFrom aguenta descrição vazia ou ausente', () => {
   assert.deepEqual(sectionsFrom(null), { criteria: [], scope: [], outOfScope: [] });
 });
 
+test('sectionsFrom reconhece critérios de conclusão em Markdown, wiki e texto sem acento', () => {
+  for (const heading of ['## Critérios de conclusão', 'h2. Critérios de conclusão', 'Criterios de conclusao']) {
+    assert.deepEqual(sectionsFrom(`${heading}\n- critério demonstrado`).criteria, ['critério demonstrado']);
+  }
+});
+
+test('seção desconhecida encerra critérios sem absorver lista de entrega', () => {
+  for (const heading of ['## Entrega integrada', 'h2. Entrega integrada']) {
+    const description = `## Critérios de aceite\n- comportamento esperado\n${heading}\n- arquivo entregue\n## Escopo técnico\n- módulo da mudança`;
+    assert.deepEqual(sectionsFrom(description), { criteria: ['comportamento esperado'], scope: ['módulo da mudança'], outOfScope: [] });
+  }
+});
+
+test('normalizeIssue preserva sete critérios de conclusão e a descrição original', () => {
+  const criteria = Array.from({ length: 7 }, (_, i) => `comportamento verificável ${i + 1}`);
+  const description = `## Critérios de conclusão\n${criteria.map(item => `- ${item}`).join('\n')}\n## Entrega integrada\n- componente publicado`;
+  const card = normalizeIssue({ key: 'TEST-1', fields: { summary: 'Fixture sintética', description } });
+  assert.deepEqual(card.criteria, criteria);
+  assert.equal(card.description, description);
+});
+
+test('prosa longa que menciona critérios de conclusão não abre seção', () => {
+  const description = `Uma explicação extensa descreve como os critérios de conclusão serão avaliados durante a revisão de toda a entrega, sem representar um cabeçalho.\n- item de contexto`;
+  assert.deepEqual(sectionsFrom(description), { criteria: [], scope: [], outOfScope: [] });
+});
+
 test('sectionsFrom aceita checkbox como item de lista', () => {
   const s = sectionsFrom('Critérios de aceite\n- [ ] item aberto\n- [x] item fechado');
   assert.deepEqual(s.criteria, ['item aberto', 'item fechado']);

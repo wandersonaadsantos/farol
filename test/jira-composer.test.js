@@ -80,6 +80,21 @@ test('falha do Jira sai com o código do cliente', async () => {
   assert.equal(r.code, JIRA_CODES.SEM_PERMISSAO);
 });
 
+test('cache anterior recupera critérios pela descrição sem rede nem regravação', async () => {
+  cred.setCredential('s1', { email: 'a@b.com', token: 'tok' });
+  const key = 'XX-166';
+  const namespace = '2-s1-a.atlassian.net';
+  const criteria = Array.from({ length: 7 }, (_, i) => `critério sintético ${i + 1}`);
+  const description = `## Critérios de conclusão\n${criteria.map(item => `- ${item}`).join('\n')}\n## Entrega integrada\n- arquivo`;
+  cache.writeCachedCard(namespace, key, { key, summary: 'Fixture', status: 'Validação', description, criteria: [], scope: [], outOfScope: [] }, 2000);
+  const before = fs.readFileSync(cache.cardCachePath(namespace, key));
+  const result = await jira.cardForPr(engineCom([SITE]), { ...PR, title: `feat (${key})` }, 2001, async () => { assert.fail('não deve chamar a rede'); });
+  assert.equal(result.fromCache, true);
+  assert.deepEqual(result.card.criteria, criteria);
+  assert.equal(result.card.description, description);
+  assert.deepEqual(fs.readFileSync(cache.cardCachePath(namespace, key)), before);
+});
+
 test('200 com envelope de erro do Jira não vira card', async () => {
   cred.setCredential('s1', { email: 'a@b.com', token: 'tok' });
   const fetchImpl = async () => ({ ok: true, status: 200, text: async () => '{"errorMessages":["Issue does not exist"],"errors":{}}' });
