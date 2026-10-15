@@ -294,9 +294,34 @@ test('sem nenhuma busca bem-sucedida da conta, o relógio não publica as listas
   assert.deepEqual(escritas, [], 'lista que ninguém leu não vira publicação');
   a.ownersJaLidos.add('acme');
   await andamento.ciclo(a, a.config.sync, { agora: Date.now() });
+  const soOwners = fake.requests.filter((r) => r.method === 'PUT' && /\/users\/u1\/panorama\//.test(r.path));
+  assert.deepEqual(soOwners, [], 'sem a busca dos pedidos, o PR pedido fora das orgs levaria lápide');
+  a.contasPedidosLidas.add(LOGIN.toLowerCase());
+  await andamento.ciclo(a, a.config.sync, { agora: Date.now() });
   const depois = fake.requests.filter((r) => r.method === 'PUT' && /\/users\/u1\/panorama\//.test(r.path));
-  assert.ok(depois.length > 0, 'depois da primeira busca boa dos owners da conta, o Panorama sobe');
+  assert.ok(depois.length > 0, 'depois da primeira busca boa dos owners e dos pedidos da conta, o Panorama sobe');
   assert.equal(fake.requests.filter((r) => r.method === 'PUT' && /\/users\/u1\/myPrs\//.test(r.path)).length, 0, 'Meus PRs espera a busca própria');
+});
+
+// Conta que só recebe pedido de revisão (colaboradora numa org, sem org monitorada): o PR
+// pedido a ela chega ao Panorama pela busca dos pedidos, e o admin precisa ver a linha com a
+// fila para mandar Revisar agora. Antes, sem org, a conta nunca publicava (15/10/2026).
+test('conta sem org publica o Panorama com o PR pedido a ela, e a fila chega ao outro aparelho', async () => {
+  const { a, b } = await par();
+  a.updateSettings({ accounts: [{ user: LOGIN, owners: [] }] });
+  const pedido = { key: 'cnbb/web#90', url: 'https://github.com/cnbb/web/pull/90', title: 'Contraste', author: 'wan', repo: 'cnbb/web', number: 90, updatedAt: 'z', mine: true, account: LOGIN };
+  a.panorama = [pedido];
+  fake.requests.length = 0;
+  await andamento.ciclo(a, a.config.sync, { agora: Date.now() });
+  assert.equal(fake.requests.filter((r) => r.method === 'PUT' && /\/users\/u1\/panorama\//.test(r.path)).length, 0, 'antes da busca dos pedidos responder, nada sobe');
+  a.contasPedidosLidas.add(LOGIN.toLowerCase());
+  await andamento.ciclo(a, a.config.sync, { agora: Date.now() });
+  await andamento.ciclo(b, b.config.sync, { agora: Date.now() });
+  const pano = escopoDe(b.syncListasRemotas(), 'panorama');
+  assert.ok(pano, 'o outro aparelho enxerga o Panorama da conta sem org');
+  const linha = pano.linhas.find((l) => l.key === 'cnbb/web#90');
+  assert.ok(linha, 'o PR pedido está na linha');
+  assert.ok(linha.fila && linha.fila.estado, 'com a fila do aparelho, que dá o botão Revisar agora');
 });
 
 test('o ciclo do relógio lê as listas depois de publicar', async () => {
@@ -305,6 +330,7 @@ test('o ciclo do relógio lê as listas depois de publicar', async () => {
   a.myPRs = MEUS;
   // as listas acima fazem o papel da busca: ela precisa constar como feita
   a.ownersJaLidos.add('acme');
+  a.contasPedidosLidas.add(LOGIN.toLowerCase());
   a.contasMeusPrsLidas.add(LOGIN.toLowerCase());
   await andamento.ciclo(a, a.config.sync, { agora: Date.now() });
   await andamento.ciclo(b, b.config.sync, { agora: Date.now() });

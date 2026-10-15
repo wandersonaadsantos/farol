@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.71.14
+
+O admin passa a ver, e a mandar revisar, os PRs pedidos a uma conta que não monitora nenhuma organização no aparelho dela.
+
+**Correções**
+
+- **Conta que só recebe pedido de revisão aparece no controle do aparelho.** Quando um aparelho tem uma conta sem organização monitorada (por exemplo, de quem é colaborador numa organização e não membro), os PRs pedidos a ela ficavam fora do Panorama compartilhado. O admin não via esses PRs na fila do aparelho e não tinha o botão Revisar agora. Agora o Panorama da conta sobe assim que a busca dos pedidos responde.
+- **PR pedido fora das organizações monitoradas não some do Panorama compartilhado no arranque.** O aparelho espera também a primeira resposta da busca dos pedidos antes de publicar, para não apagar dos outros aparelhos um PR que ele ainda não leu.
+
 ## v2.71.13
 
 Cancelar uma revisão em andamento passa a pedir confirmação e funciona também na preparação e nas verificações finais, antes do envio ao GitHub.

@@ -14,6 +14,7 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.71.14', ["Os PRs pedidos a uma conta que não monitora nenhuma organização no aparelho dela passam a aparecer no controle do aparelho, com o botão Revisar agora. Antes o admin não via esses PRs na fila do outro aparelho."]],
   ['2.71.13', ["Cancelar uma revisão agora pede confirmação e funciona também na preparação e nas verificações finais, antes do envio ao GitHub. Confirmar devolve o PR à fila sem relançar sozinho; Continuar sessão ou Escape mantém a análise.", "Falhas no cancelamento aparecem na tela e permitem tentar novamente. Quando o envio do review já começou, o botão fica indisponível e pedidos atrasados são recusados."]],
   ['2.71.12', ["PRs que pediram sua revisão continuam visíveis no Radar enquanto aguardam distribuição ou uma vaga de execução. O card mostra esse estado sem oferecer um segundo disparo da revisão."]],
   ['2.71.11', ["O aviso de PR em conflito ou superado pela base ganhou desenho próprio em Meus PRs: barra âmbar e selo no card, uma linha com o que fazer no conflito e, no superado, como o Farol conferiu, a lista de arquivos e o botão Fechar no GitHub.", "Quando a leitura do GitHub falha, o último aviso fica no card com há quanto tempo ele foi visto e o motivo.", "O aviso no app leva até o card pelo botão Ver em Meus PRs, e vários PRs ao abrir o app saem num aviso só.", "Clicar na notificação de um PR seu agora leva ao card dele em Meus PRs."]],

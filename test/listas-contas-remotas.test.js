@@ -159,6 +159,7 @@ test('o relógio do celular publica a fila real do engine na linha do Panorama',
   const { cel, pc } = await par();
   cel.panorama = PAN.map((p) => ({ ...p }));
   cel.ownersJaLidos.add('acme');
+  cel.contasPedidosLidas.add(CONTA_CEL.toLowerCase());
   cel.autoReviewParked.add('acme/app#1');
   cel.parkedMotivos = { 'acme/app#1': { at: new Date(T).toISOString(), tipo: 'cancelado', motivo: 'cancelado por você' } };
   cel.seen.add('acme/app#1');
