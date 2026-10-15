@@ -232,6 +232,7 @@ class Engine extends EventEmitter {
     // de leitura, e a visão compartilhada não pode publicá-la (lib/engine/sync-andamento.js)
     this.ownersJaLidos = new Set();
     this.contasMeusPrsLidas = new Set();
+    this.contasPedidosLidas = new Set();
     // key do PR -> { at, updatedAt } dos PRs meus que o usuario mandou sumir da aba.
     // Nao filtra myPRs (quem esconde e a UI); o updatedAt guardado e o que permite o
     // retorno automatico quando o PR recebe atividade nova (reconcileHiddenPRs).
@@ -974,6 +975,7 @@ class Engine extends EventEmitter {
         const part = await this.searchPRs(['--review-requested=@me'], acc.user);
         if (part === null) continue;
         mineAnyOk = true;
+        this.contasPedidosLidas.add(String(acc.user).toLowerCase());
         // G18: o mesmo PR pode chegar por duas contas (time com as duas). A
         // conta CAPAZ de agir (não silenciada, com token) vence a incapaz;
         // empate mantém a primeira, o comportamento de sempre.
