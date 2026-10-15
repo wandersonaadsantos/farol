@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.71.13
+
+Cancelar uma revisão em andamento passa a pedir confirmação e funciona também na preparação e nas verificações finais, antes do envio ao GitHub.
+
+**Correções**
+
+- **O botão Cancelar respeita o pedido durante a revisão inteira.** Ao confirmar, o Farol interrompe a análise e devolve o PR à fila, sem relançar a revisão sozinho. Continuar sessão ou Escape fecha a confirmação e mantém a análise em andamento.
+- **A tela informa quando o cancelamento falha e permite tentar novamente.** Quando o envio do review ao GitHub já começou, o botão fica indisponível e pedidos atrasados são recusados, porque a postagem não pode ser desfeita pelo cancelamento.
+
 ## v2.71.12
 
 PRs que pediram sua revisão continuam visíveis no Radar enquanto aguardam distribuição ou uma vaga de execução.
