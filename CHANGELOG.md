@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.71.15
+
+O Farol que roda só o motor, sem a janela (no celular pelo Termux ou num servidor), passa a se atualizar sozinho.
+
+**Correções**
+
+- **O motor sem a janela se atualiza sozinho.** Antes, o update exigia o runtime da janela do Farol e era recusado em toda tentativa, então o celular e o servidor ficavam na versão antiga até alguém instalar à mão. Agora o Farol troca os próprios arquivos na pasta onde roda, preservando o que não vem no pacote, e reinicia. Se houver um laço ou agendador que o religue, é ele quem sobe a versão nova; sem nenhum, o Farol volta sozinho em até 30 segundos.
+- **O painel do aparelho deixou de dizer "em dia" para versão atrasada.** A versão de cada aparelho agora é comparada com a última release conhecida, e o painel avisa quando já existe uma mais nova.
+- **Rodando de um clone git, o update automático recusa e pede git pull,** em vez de sobrescrever código de desenvolvimento.
+
 ## v2.71.14
 
 O admin passa a ver, e a mandar revisar, os PRs pedidos a uma conta que não monitora nenhuma organização no aparelho dela.
