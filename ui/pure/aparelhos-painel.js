@@ -134,7 +134,16 @@ function fato(rot, valor, sub, classe = '') {
 }
 
 
-function fatosHtml(ap, agora) {
+// "em dia" só com a última release em mãos para comparar (15/10/2026): o texto era fixo e
+// dizia "em dia" para um celular duas horas atrás da release publicada.
+function fatoDaVersao(ap, ultima) {
+  const atual = `Farol ${ap.versao}`;
+  if (!ultima) return fato('Versão', atual, 'sem a última release para comparar');
+  if (versaoAntiga(ap.versao, ultima)) return fato('Versão', atual, `a ${ultima} já saiu: o aparelho atualiza sozinho quando estiver parado`, 'warn');
+  return fato('Versão', atual, 'em dia');
+}
+
+function fatosHtml(ap, agora, ultima) {
   const sit = situacaoDoAparelho(ap, agora);
   if (sit === 'antigo') {
     return `${fato('Versão', `Farol ${ap.versao || 'antigo'}`, `precisa da ${VERSAO_DO_CONTROLE} ou mais nova`, 'warn')}${fato('Comandos do admin', 'Indisponíveis', 'esta versão não recebe os comandos novos')}${fato('Fila', 'Não publicada', 'aparece depois de atualizar')}`;
@@ -144,7 +153,7 @@ function fatosHtml(ap, agora) {
   if (sit === 'sem-sinal') agoraTxt = fato('Agora', 'Sem sinal', ap.vistoEm ? `às ${fmtClock(ap.vistoEm)} revisava ${ap.ocupadas} de ${ap.paralelismo}` : 'nunca publicou o estado');
   const ia = ap.iaPronta ? fato('IA', 'Pronta', 'Claude Code instalado e logado', 'ok') : fato('IA', 'Não está pronta', 'instale e faça login no Claude Code no aparelho', 'bad');
   const cmd = fato('Comandos do admin', 'Aceita', 'ligado no próprio aparelho', 'ok');
-  return `${agoraTxt}${ia}${cmd}${fato('Versão', `Farol ${ap.versao}`, 'em dia')}`;
+  return `${agoraTxt}${ia}${cmd}${fatoDaVersao(ap, ultima)}`;
 }
 
 const FALHA = {
@@ -197,7 +206,7 @@ function controlesHtml(ap, desligado) {
     </div>`;
 }
 
-// `ctx`: { agora, desligado, prKeyDaTag(tag)->key }
+// `ctx`: { agora, desligado, prKeyDaTag(tag)->key, ultimaVersao }
 export function painelDoAparelhoHtml(ap, ctx) {
   const c = ctx || {};
   const agora = c.agora || Date.now();
@@ -210,7 +219,7 @@ export function painelDoAparelhoHtml(ap, ctx) {
         <div class="apar-linha">${esc(linhaDoAparelho(ap, agora))}</div>
       </div>${controles}
     </div>
-    <div class="apar-fatos">${fatosHtml(ap, agora)}</div>
+    <div class="apar-fatos">${fatosHtml(ap, agora, c.ultimaVersao)}</div>
     <div class="apar-extra">
       <div><span class="rot">Contas do GitHub nele</span>${contasDoPainelHtml(ap)}</div>
       <div><span class="rot">Falhas recentes</span>${falhasHtml(ap, c.prKeyDaTag)}</div>

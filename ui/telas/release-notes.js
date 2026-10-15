@@ -14,6 +14,7 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.71.15', ["O Farol que roda só o motor, sem a janela (no celular pelo Termux ou num servidor), passa a se atualizar sozinho: troca os próprios arquivos e reinicia, sem instalação à mão.", "O painel do aparelho compara a versão dele com a última release e avisa quando ele está atrasado, em vez de dizer sempre que está em dia."]],
   ['2.71.14', ["Os PRs pedidos a uma conta que não monitora nenhuma organização no aparelho dela passam a aparecer no controle do aparelho, com o botão Revisar agora. Antes o admin não via esses PRs na fila do outro aparelho."]],
   ['2.71.13', ["Cancelar uma revisão agora pede confirmação e funciona também na preparação e nas verificações finais, antes do envio ao GitHub. Confirmar devolve o PR à fila sem relançar sozinho; Continuar sessão ou Escape mantém a análise.", "Falhas no cancelamento aparecem na tela e permitem tentar novamente. Quando o envio do review já começou, o botão fica indisponível e pedidos atrasados são recusados."]],
   ['2.71.12', ["PRs que pediram sua revisão continuam visíveis no Radar enquanto aguardam distribuição ou uma vaga de execução. O card mostra esse estado sem oferecer um segundo disparo da revisão."]],
