@@ -1,7 +1,7 @@
 {
   "validation": "Cancelamento de review no Farol Electron",
   "date": "2026-10-14",
-  "environment": "Windows, Electron 44.1.0, código local v2.71.12 com a correção não publicada",
+  "environment": "Windows, Electron do checkout local, código v2.71.12 com a correção não publicada",
   "isolation": "FAROL_HOME temporário; sem polling; sem credenciais; provedor local controlado",
   "interface": "UI real, servidor HTTP/SSE real e worker real; ações por cliques nativos",
   "scenarios": [
