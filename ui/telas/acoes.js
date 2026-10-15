@@ -10,6 +10,7 @@ import {
 import { TWEAK, scopeVisible, guardarMutedHandling, guardarIdentityStyle } from './contas.js';
 import { revisarUrls } from './consumo.js';
 import { kudosScopeKey, loadLog } from './ferramentas.js';
+import { cancelarSessao } from './sessao-cancelar.js';
 
 /* decisão pendente: caminho ÚNICO de POST, usado pelo card (#decisions) e pela paleta
    (telas/paleta.js). O achado A5: a paleta chamava um decide() que nunca existiu
@@ -107,8 +108,7 @@ $('#panorama').addEventListener('click', async (e) => {
 $('#activeSessions').addEventListener('click', (e) => {
   const btn = e.target.closest('.act-cancel');
   if (!btn) return;
-  btn.disabled = true;
-  api('/api/cancel', { id: btn.dataset.id });
+  return cancelarSessao(btn);
 });
 
 $('#queue').addEventListener('click', (e) => {

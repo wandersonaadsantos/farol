@@ -263,7 +263,9 @@ export function sessionCardHtml(s = {}, stages = '', outros = []) {
   // autor desconhecido não inventam linha: a menção só existe quando há alguém.
   const autor = String(s.pr?.author || '').trim();
   const quemPR = autor ? `<span class="session-author">PR de ${personMention(autor, 'xs')}</span>` : '';
-  const cancelar = s.cancellable ? `<button class="btn sm danger-ghost act-cancel" data-id="${id}">Cancelar</button>` : '';
+  const cancelamentoDisabled = s.cancelled ? ' disabled' : '';
+  const cancelamentoTexto = s.cancelled ? 'Cancelando…' : 'Cancelar';
+  const cancelar = s.cancellable ? `<button class="btn sm danger-ghost act-cancel" data-id="${id}"${cancelamentoDisabled}>${cancelamentoTexto}</button>` : '';
   return `
       <div class="card session-card" data-id="${id}">
         <div class="session-head">

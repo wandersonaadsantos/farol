@@ -10,6 +10,7 @@ import {
 import { estado } from './estado.js';
 import { $, ACTIVE_OPS, showOp, closeOp } from './infra.js';
 import { prUser, scopeVisible } from './contas.js';
+import { atualizarCancelamento } from './sessao-cancelar.js';
 
 /* ---------- evento 'activity' do SSE (feed ao vivo de uma sessão) ----------
    Chamado pelo connect() do ui/app.js: aqui é quem sabe o que uma linha de
@@ -283,6 +284,7 @@ function renderActive() {
     if (!box.querySelector(`.session-card[data-id="${CSS.escape(s.id)}"]`)) box.insertAdjacentHTML('beforeend', sessionCardHtml(s, '(iniciando…)', outrosDe(s)));
   }
   for (const s of vivas) {
+    atualizarCancelamento(s, box);
     const feed = box.querySelector(`.activity-feed[data-id="${CSS.escape(s.id)}"]`);
     if (feed) fillFeed(feed, estado().activity && estado().activity[s.id]);
     updateSessionBar(s.id);

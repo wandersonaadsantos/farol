@@ -1,0 +1,57 @@
+{
+  "validation": "Cancelamento de review no Farol Electron",
+  "date": "2026-10-14",
+  "environment": "Windows, Electron 44.1.0, código local v2.71.12 com a correção não publicada",
+  "isolation": "FAROL_HOME temporário; sem polling; sem credenciais; provedor local controlado",
+  "interface": "UI real, servidor HTTP/SSE real e worker real; ações por cliques nativos",
+  "scenarios": [
+    "Modal aberta por Cancelar, com ações Continuar sessão e Cancelar sessão",
+    "Continuar sessão fecha a modal: zero pedidos de cancelamento e processo permanece vivo",
+    "Escape fecha a modal: zero pedidos de cancelamento e processo permanece vivo",
+    "Cancelar sessão mostra Cancelando e encerra processo",
+    "PR retorna à fila com motivo cancelada por você"
+  ],
+  "providerAliveAtEnd": false,
+  "cancellationRequests": 1,
+  "rendererErrors": [],
+  "events": [
+    {
+      "at": "2026-10-14T20:30:55.635Z",
+      "type": "cancel-response",
+      "data": {
+        "id": "a-0b8985e7-dc94-40f2-88f4-185ab1228617",
+        "result": {
+          "ok": true
+        }
+      }
+    },
+    {
+      "at": "2026-10-14T20:30:56.159Z",
+      "type": "toast",
+      "data": {
+        "kind": "info",
+        "text": "Revisão de qa-local/review-cancelamento#1 cancelada. O PR voltou pra sua fila."
+      }
+    },
+    {
+      "at": "2026-10-14T20:30:56.169Z",
+      "type": "worker-ended",
+      "data": {
+        "running": 0,
+        "active": 0,
+        "parked": {
+          "at": "2026-10-14T20:30:56.157Z",
+          "motivo": "cancelada por você",
+          "tipo": "cancelado",
+          "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    }
+  ],
+  "limits": [
+    "Provedor de IA e leituras do GitHub substituídos por dados locais controlados; UI, HTTP/SSE, worker, processo filho e cancelamento reais.",
+    "Sem publicação no GitHub, alterações no Farol instalado ou cancelamento de reviews reais.",
+    "Capturas foram inspecionadas durante o teste; imagens não foram preservadas neste artefato.",
+    "A atualização incremental do botão entre snapshots recebeu teste automatizado adicional após a validação visual."
+  ]
+}
