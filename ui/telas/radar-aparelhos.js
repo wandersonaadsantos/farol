@@ -89,7 +89,7 @@ function renderPagina(s) {
   const conjunto = dadosDoConjunto();
   const ctxFila = {
     nome: ap.nome, filtro: APAR.filtro, desligado, desligadoBase, agora, versao: ap.versao, aoVivo: APAR.aoVivo,
-    semSinal: situacaoDoAparelho(ap, agora) === 'sem-sinal', executores: executores.length,
+    semSinal: situacaoDoAparelho(ap, agora) === 'sem-sinal', pausado: ap.pausado === true, executores: executores.length,
     retornoDe: (tag) => r.doPr(tag).html, pendenteDe: (tag) => r.doPr(tag).pendente,
   };
   const fontesLidas = conjunto.estadoPendencias === 'lido' && conjunto.estadoOperacoes === 'lido';

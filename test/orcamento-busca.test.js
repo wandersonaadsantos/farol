@@ -85,3 +85,44 @@ test('o registro não acumula carimbo velho', () => {
   registrarBusca(reg, 'ana', 1000 + JANELA_MS + 5000);
   assert.equal(reg.get('ana').length, 1);
 });
+
+// O limite do GitHub é por CONTA: com a mesma conta em vários aparelhos, cada um fica com a
+// sua parte (16/10/2026, `wandersonbiuder` em três aparelhos e "limite de rajada" no admin).
+test('com a conta em três aparelhos, o teto se divide e o espaçamento se multiplica', async () => {
+  const o = (await import('../lib/engine/orcamento-busca.js')).default;
+  assert.deepEqual(o.parteDoAparelho(1), { teto: o.TETO_POR_JANELA, espaco: o.ESPACO_MIN_MS });
+  assert.deepEqual(o.parteDoAparelho(3), { teto: Math.floor(o.TETO_POR_JANELA / 3), espaco: o.ESPACO_MIN_MS * 3 });
+  const reg = new Map();
+  const t0 = 1_000_000;
+  o.registrarBusca(reg, 'conta', t0);
+  assert.equal(o.esperaAntesDaBusca(reg, 'conta', t0 + 1000, 1), o.ESPACO_MIN_MS - 1000);
+  assert.equal(o.esperaAntesDaBusca(reg, 'conta', t0 + 1000, 3), o.ESPACO_MIN_MS * 3 - 1000);
+  const cheio = new Map();
+  const teto3 = Math.floor(o.TETO_POR_JANELA / 3);
+  for (let i = 0; i < teto3; i += 1) o.registrarBusca(cheio, 'conta', t0 + i * o.ESPACO_MIN_MS * 3);
+  const agora = t0 + teto3 * o.ESPACO_MIN_MS * 3;
+  assert.ok(o.esperaAntesDaBusca(cheio, 'conta', agora, 3) > 0, 'a parte de um terço já foi gasta na janela');
+  assert.equal(o.esperaAntesDaBusca(cheio, 'conta', agora, 1), 0, 'sozinho, ainda haveria vaga');
+});
+
+test('conta entre aparelhos: conta só os outros vivos, não aposentados, que têm a conta com token', async () => {
+  const { contarAparelhos, VIVO_MS } = (await import('../lib/engine/conta-entre-aparelhos.js')).default;
+  const agora = 10_000_000;
+  const paineis = {
+    eu: { painel: { contasComToken: ['T'] } },
+    celular: { painel: { contasComToken: ['T', 'U'] } },
+    windows: { painel: { contasComToken: ['T'] } },
+    aposentado: { painel: { contasComToken: ['T'] } },
+    calado: { painel: { contasComToken: ['T'] } },
+    outraConta: { painel: { contasComToken: ['U'] } },
+    semPainel: { painel: null },
+  };
+  const devices = {
+    celular: { lastSeenAt: agora - 1000 }, windows: { lastSeenAt: agora - 1000 },
+    aposentado: { lastSeenAt: agora, retiredAt: 5 }, calado: { lastSeenAt: agora - VIVO_MS - 1 },
+    outraConta: { lastSeenAt: agora }, semPainel: { lastSeenAt: agora },
+  };
+  assert.equal(contarAparelhos({ paineis, devices, tag: 'T', eu: 'eu', agora }), 3, 'eu, o celular e o Windows');
+  assert.equal(contarAparelhos({ paineis, devices, tag: 'X', eu: 'eu', agora }), 1, 'conta só daqui');
+  assert.equal(contarAparelhos({ paineis: null, devices: null, tag: 'T', eu: 'eu', agora }), 1, 'sem painel lido, o comportamento de antes');
+});

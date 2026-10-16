@@ -9,6 +9,18 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.71.17
+
+Cinco correções levantadas no diagnóstico de 16/10: o controle do aparelho pausado, a leitura das falhas, o aviso falso em servidor, o limite de busca do GitHub com a mesma conta em vários aparelhos e a leitura de PR de outro repositório durante a revisão.
+
+**Correções**
+
+- **Aparelho pausado não aceita mais "Revisar agora" calado.** Com o aparelho pausado pelo admin, o botão ficava ativo, o pedido era aceito e o PR parava na fila dele sem nenhum aviso. Agora o botão fica desligado e explica que é preciso Retomar antes. Ignorar e configurar a conta continuam disponíveis.
+- **O Diagnóstico não mistura mais falhas diferentes.** A recusa do update automático e a busca do GitHub que falha sem mensagem caíam juntas em "falha não classificada", e o painel parecia dizer que o update ainda falhava. Cada uma tem agora a própria classe, com o que fazer.
+- **Git Bash só aparece no Diagnóstico do Windows.** Em servidor e celular, "Git Bash não encontrado" era um aviso falso.
+- **A mesma conta em vários aparelhos não estoura mais o limite de busca do GitHub.** O limite é por conta, e cada aparelho gastava como se estivesse sozinho. Agora cada um fica com a sua parte, pelo número de aparelhos vivos que usam a mesma conta.
+- **A revisão lê corretamente PR de outro repositório.** O protocolo passou a ensinar a forma que funciona (`gh pr view 439 -R dono/repo`); a forma `dono/repo#N` falhava e a dependência ficava sem leitura.
+
 ## v2.71.16
 
 Uma organização que a conta não consegue buscar deixa de esconder do admin os PRs pedidos a essa conta.
