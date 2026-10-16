@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.71.18
+
+Rodar os testes do Farol deixa de abrir terminais vazios no Windows.
+
+**Correções**
+
+- **A suíte de testes não abre mais um terminal visível para verificar o encerramento de uma sessão.** O teste abria uma janela real apenas para executar `exit 0`, deixando sessões vazias acumuladas no Windows Terminal a cada rodada. A abertura do processo agora é substituída no teste, mantendo a verificação do retorno dos PRs à fila e da remoção da sessão e do script temporário, tanto na saída normal quanto na falha de abertura. Os terminais abertos pelo usuário no aplicativo continuam com o mesmo comportamento.
+
 ## v2.71.17
 
 Cinco correções levantadas no diagnóstico de 16/10: o controle do aparelho pausado, a leitura das falhas, o aviso falso em servidor, o limite de busca do GitHub com a mesma conta em vários aparelhos e a leitura de PR de outro repositório durante a revisão.
