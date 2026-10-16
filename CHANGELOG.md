@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.72.1
+
+O acompanhamento remoto abre pela rota correta e deixa de transmitir quando a janela e fechada.
+
+**Correcoes**
+
+- Corrige o erro 500 ao abrir o espelho pelo navegador, preservando a protecao de acesso e o uso de POST.
+- Mantem o limite do feed depois de ocultar credenciais, incluindo chaves em JSON, AWS, GitLab e Slack. Uma linha longa deixa de invalidar a captura inteira.
+- Retira o pedido de observacao no proximo ciclo de sincronizacao e repete a retirada quando a rede falha, sem esperar o prazo de expiracao.
+
 ## v2.72.0
 
 A revisão passa a considerar os padrões que o seu time combinou e as regras que o próprio repositório declara.

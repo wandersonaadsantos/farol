@@ -71,3 +71,35 @@ test('credenciais são ocultadas, mas descrições comuns não somem',()=>{
   assert.ok(!v.feed[0].text.includes('abc.def.123'));assert.ok(!v.feed[0].text.includes('ghp_123'));
   assert.match(v.feed[0].text,/Conferir contrato/);
 });
+
+
+test('redacao de segredo respeita limite de 400 caracteres e recompoe', () => {
+  const text = 'x'.repeat(391) + ' token=ab';
+  const v = snapshotEspelho({}, [{ t:T, k:'text', text }], T);
+  assert.equal(v.feed[0].text.length, 400);
+  const f = fragmentar(v);
+  assert.deepEqual(recompor({ ...f, partes:f.partes.length }, f.partes), v);
+  const credenciais = ['"access_token": "valor-json"', 'AWS_SECRET_ACCESS_KEY=valor-aws', 'glpat-valorGitlab123', 'xoxb-123-456-abcdef'];
+  const safe = snapshotEspelho({}, credenciais.map(text => ({ t:T, k:'text', text })), T);
+  for (const segredo of ['valor-json','valor-aws','valorGitlab123','123-456-abcdef']) assert.ok(!JSON.stringify(safe).includes(segredo));
+});
+
+test('fechar observacao retira pedido e fragmentos antes do TTL, com repeticao de falha transitoria', async () => {
+  const { origem, leitor, arvore } = motores();
+  assistir(leitor, {opId:OP}, T);
+  await cicloEspelho(leitor, arvore, T);
+  await cicloEspelho(origem, arvore, T+1);
+  assert.ok(Object.keys(arvore).length > 1);
+  const pedido = leitor.sync.espelho.assistir.get(OP).id;
+  assistir(leitor, {opId:OP, aberto:false}, T+2);
+  const del = leitor.sync.client.del;
+  leitor.sync.client.del = async () => ({ok:false});
+  await cicloEspelho(leitor, arvore, T+3);
+  assert.ok(leitor.sync.espelho.retirar.has(pedido));
+  leitor.sync.client.del = del;
+  await cicloEspelho(leitor, arvore, T+4);
+  await cicloEspelho(origem, arvore, T+5);
+  assert.equal(Object.keys(arvore).length, 0);
+  assert.equal(leitor.sync.espelho.retirar.size, 0);
+  assert.equal(origem.activeReviews.size, 1, 'nao depende de encerrar a revisao');
+});

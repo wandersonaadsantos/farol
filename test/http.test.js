@@ -494,3 +494,20 @@ test('POST /api/settings devolve as chaves ignoradas junto da config', async () 
   assert.ok(j.config && typeof j.config === 'object', 'a config continua vindo');
   assert.equal('chaveQueNaoExiste' in j.config, false, 'o que foi ignorado não entra na config');
 });
+
+
+test('espelho HTTP le o corpo no POST e mantem metodo e protecao de origem', async () => {
+  const anterior = engine.sync;
+  const opId = 'a'.repeat(32);
+  engine.sync = { uid: 'teste', material: { id: Buffer.alloc(32).toString('base64') }, andamentoRemoto: [{ opId, situacao: 'viva' }] };
+  try {
+    assert.equal((await get('/api/sync/mirror')).status, 405);
+    assert.equal((await postSemHeader('/api/sync/mirror', { opId })).status, 403);
+    const r = await post('/api/sync/mirror', { opId });
+    assert.equal(r.status, 200);
+    assert.deepEqual(JSON.parse(r.body), { ok: true });
+    assert.ok(engine.sync.espelho.assistir.has(opId), 'o corpo abriu a sessao pedida');
+    assert.deepEqual(JSON.parse((await post('/api/sync/mirror', { opId, aberto: false })).body), { ok: true });
+    assert.equal(engine.sync.espelho.assistir.size, 0);
+  } finally { engine.sync = anterior; }
+});

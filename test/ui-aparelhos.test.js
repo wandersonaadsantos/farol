@@ -297,3 +297,13 @@ test('espelho inclui autoanálise e preserva duas sessões do mesmo PR por opera
   assert.equal((html.match(/Aguardando o espelho completo/g)||[]).length, 1);
   assert.equal((html.match(/md-cancelar/g)||[]).length, 1, 'autoanálise não oferece comando ambíguo por PR');
 });
+
+
+test('aparelho pausado impede Revisar agora, preservando Ignorar', () => {
+  const itens = P.itensDaFila(DEV, { listas: listas([linha('acme/app#1', 'esperando')]) });
+  const html = P.filaDoAparelhoHtml(itens, { miolo: 'lista' }, { nome:'Windows', agora:AGORA, pausado:true });
+  assert.match(html, /aparelho est.*pausado pelo admin/);
+  const botoes = [...html.matchAll(/<button[^>]*>[^<]*<\/button>/g)].map(m => m[0]);
+  assert.ok(botoes.some(b => b.includes('data-tipo="revisar"') && b.includes('disabled')));
+  assert.ok(botoes.some(b => b.includes('data-tipo="ignorar"') && !b.includes('disabled')));
+});

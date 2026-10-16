@@ -346,7 +346,7 @@ const MIOLO = {
   antiga: (nome, s, versao) => `<div class="fila-antiga"><b>Atualize o Farol no ${esc(nome)}</b><p>Este aparelho está na versão ${esc(versao || 'antiga')}, que ainda não publica a fila nem aceita os comandos novos do admin. Por isso não há fila para mostrar aqui, e não é que ela esteja vazia. Atualize no próprio aparelho; depois disso a fila aparece sozinha.</p></div>`,
 };
 
-// `ctx`: { nome, filtro, desligado, semSinal, executores, agora, versao, aoVivo:Set,
+// `ctx`: { nome, filtro, desligado, pausado, semSinal, executores, agora, versao, aoVivo:Set,
 // retornoDe(prTag)->html, pendenteDe(prTag)->bool }
 export function filaDoAparelhoHtml(itens, situacao, ctx) {
   const c = ctx || {};
