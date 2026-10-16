@@ -11,13 +11,13 @@ e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
 ## v2.72.1
 
-O acompanhamento remoto abre pela rota correta e deixa de transmitir quando a janela e fechada.
+O acompanhamento remoto abre pela rota correta e deixa de transmitir quando a janela é fechada.
 
-**Correcoes**
+**Correções**
 
-- Corrige o erro 500 ao abrir o espelho pelo navegador, preservando a protecao de acesso e o uso de POST.
-- Mantem o limite do feed depois de ocultar credenciais, incluindo chaves em JSON, AWS, GitLab e Slack. Uma linha longa deixa de invalidar a captura inteira.
-- Retira o pedido de observacao no proximo ciclo de sincronizacao e repete a retirada quando a rede falha, sem esperar o prazo de expiracao.
+- Corrige o erro 500 ao abrir o espelho pelo navegador, preservando a proteção de acesso e o uso de POST.
+- Mantém o limite do feed depois de ocultar credenciais, incluindo chaves em JSON, AWS, GitLab e Slack. Uma linha longa deixa de invalidar a captura inteira.
+- Retira o pedido de observação no próximo ciclo de sincronização e repete a retirada quando a rede falha, sem esperar o prazo de expiração.
 
 ## v2.72.0
 
