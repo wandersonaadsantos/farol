@@ -197,3 +197,12 @@ test('agente claim-verifier: template existe, é só leitura e entra no sync do 
   const serverSrc = fs.readFileSync(new URL('../server.js', import.meta.url), 'utf8');
   assert.match(serverSrc, /claim-verifier\.md/, 'agente listado no synced do prepareHome');
 });
+
+// A sessão de revisão rodou `gh pr view biudtech/biud-core#439` para ler uma dependência, a
+// forma `dono/repo#N` não existe no gh e a dependência ficou sem leitura (backoffice#153,
+// 16/10/2026). O protocolo ensina a forma que funciona fora de um clone.
+test('protocolo: PR de outro repositório é lido com -R ou URL, nunca com dono/repo#N', () => {
+  const protocolo = fs.readFileSync(path.join(TEMPLATE_DIR, 'CLAUDE.md'), 'utf8');
+  assert.match(protocolo, /gh pr view 439 -R biudtech\/biud-core/);
+  assert.match(protocolo, /A forma `dono\/repo#N` \*\*não existe\*\* no `gh pr view`/);
+});

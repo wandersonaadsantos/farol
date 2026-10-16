@@ -248,3 +248,14 @@ test('vivo pelo sinal mais recente: presença, painel publicado ou andamento ao 
   const semNada = P.executoresDoConjunto({ ...velho, paineis: { aparelhos: [{ deviceId: DEV, aceitarAdmin: true, contas: [] }] } })[0];
   assert.equal(P.situacaoDoAparelho(semNada, AGORA), 'sem-sinal', 'sem sinal nenhum há 40 min continua sem sinal');
 });
+
+// Aparelho pausado pelo admin não começa revisão, nem a pedida pelo admin: o botão ficava
+// ativo, o comando era aceito e o PR parava na fila dele sem aviso (16/10/2026, celular).
+test('aparelho pausado: Revisar agora desligado com o motivo, e Ignorar segue valendo', () => {
+  const itens = P.itensDaFila(DEV, { listas: listas([linha('acme-exemplo/loja-web#3', 'sem-automatica', { motivo: 'conta' })]), pendencias: [], operacoes: [] });
+  const pausado = P.filaDoAparelhoHtml(itens, { miolo: 'lista', lidoEm: AGORA }, { nome: 'Celular da Ana', agora: AGORA, pausado: true });
+  assert.match(pausado, /data-tipo="revisar"[^>]*aria-disabled="true" title="O aparelho está pausado pelo admin: clique em Retomar antes de mandar revisar\."/);
+  assert.doesNotMatch(pausado, /data-tipo="ignorar"[^>]*aria-disabled/, 'ignorar não abre sessão e continua disponível');
+  const vivo = P.filaDoAparelhoHtml(itens, { miolo: 'lista', lidoEm: AGORA }, { nome: 'Celular da Ana', agora: AGORA });
+  assert.doesNotMatch(vivo, /data-tipo="revisar"[^>]*aria-disabled/, 'fora da pausa o botão segue ativo');
+});
