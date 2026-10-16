@@ -241,6 +241,11 @@ function acoesDaSessao(item, ctx) {
   return `${vivo}${transferir}${botao('md-cancelar', 'Cancelar', ` data-op="${esc(o.opId)}"`, ctx.desligadoBase, item)}`;
 }
 
+// Aparelho pausado pelo admin não começa revisão, nem a pedida pelo admin: o comando chegava,
+// o PR entrava na fila dele e ficava parado sem nenhum aviso (16/10/2026). Ignorar, restaurar
+// e configurar a conta seguem valendo, porque não abrem sessão.
+const PAUSADO_SEM_REVISAR = 'O aparelho está pausado pelo admin: clique em Retomar antes de mandar revisar.';
+
 function acoesDoItem(item, ctx) {
   const f = item.fila || {};
   const deste = ctx.pendenteDe ? ctx.pendenteDe(item.prTag) : false;
@@ -248,7 +253,10 @@ function acoesDoItem(item, ctx) {
   if (f.estado === 'decidir' && item.pend) return acoesDaPendencia(item, ctx);
   if (f.estado === 'revisando' && item.op) return acoesDaSessao(item, ctx);
   if (SEM_ACAO[f.estado]) return `<span class="fila-sem-acao">${esc(SEM_ACAO[f.estado](f))}</span>`;
-  return lista(ACOES[f.estado]).map(([tipo, rotulo, prim]) => botao('ap-cmd', rotulo, ` data-tipo="${tipo}" data-tag="${esc(item.prTag)}" data-acct="${esc(item.acctTag)}"`, desligado, item, prim)).join('');
+  return lista(ACOES[f.estado]).map(([tipo, rotulo, prim]) => {
+    const motivo = desligado || (tipo === 'revisar' && ctx.pausado ? PAUSADO_SEM_REVISAR : '');
+    return botao('ap-cmd', rotulo, ` data-tipo="${tipo}" data-tag="${esc(item.prTag)}" data-acct="${esc(item.acctTag)}"`, motivo, item, prim);
+  }).join('');
 }
 
 // o mesmo feed que o aparelho dono mostra: as 6 últimas linhas e o resto recolhido
@@ -308,7 +316,7 @@ const MIOLO = {
   antiga: (nome, s, versao) => `<div class="fila-antiga"><b>Atualize o Farol no ${esc(nome)}</b><p>Este aparelho está na versão ${esc(versao || 'antiga')}, que ainda não publica a fila nem aceita os comandos novos do admin. Por isso não há fila para mostrar aqui, e não é que ela esteja vazia. Atualize no próprio aparelho; depois disso a fila aparece sozinha.</p></div>`,
 };
 
-// `ctx`: { nome, filtro, desligado, semSinal, executores, agora, versao, aoVivo:Set,
+// `ctx`: { nome, filtro, desligado, semSinal, pausado, executores, agora, versao, aoVivo:Set,
 // retornoDe(prTag)->html, pendenteDe(prTag)->bool }
 export function filaDoAparelhoHtml(itens, situacao, ctx) {
   const c = ctx || {};
