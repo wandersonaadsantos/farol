@@ -636,7 +636,10 @@ class Engine extends EventEmitter {
         claudeProfileId: (a && a.claudeProfileId != null && String(a.claudeProfileId).trim()) ? String(a.claudeProfileId).trim() : undefined,
         // peso na cota do perfil: a regra de peso válido é do parseAccounts, que saneia toda
         // gravação; sem esta linha o rateio da cota lia sempre `undefined` (25/09/2026)
-        budgetWeight: (a && a.budgetWeight) || undefined
+        budgetWeight: (a && a.budgetWeight) || undefined,
+        // padrões do time que a revisão considera (lib/engine/padroes-do-time.js); a tela
+        // de Contas e o prompt leem daqui, e o saneamento é o do parseAccounts
+        padroesRevisao: (a && typeof a.padroesRevisao === 'string' && a.padroesRevisao) || undefined
       }))
       .filter(a => a.user);
     if (!base.length) base = [{ user: (this.config.ghUser || '').trim(), owners: this.config.owners || [], label: '', color: '', kind: '', muted: false }];

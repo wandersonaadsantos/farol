@@ -39,7 +39,7 @@ function renderContasGh() {
 export function renderAccountsManager() {
   renderContasGh();
   const box = $('#accountsManager'); if (!box) return;
-  if (document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
+  if (document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
   box.innerHTML = accountsManagerHtml({ accounts: estado().accounts, config: estado().config, acct: ACCT, doctor: estado().doctor, usage: estado().usage });
 }
 
@@ -60,6 +60,8 @@ $('#accountsManager').addEventListener('change', (e) => {
   // peso na cota do perfil (Politica 2): vazio = igual as outras, que e o padrao e
   // nao guarda campo nenhum (o parseAccounts do servidor so persiste peso positivo).
   if (t.classList.contains('acct-budgetweight')) return editAccount(user, { budgetWeight: Number(t.value) || undefined });
+  // padrões do time que a revisão desta conta considera; vazio tira o campo
+  if (t.classList.contains('acct-padroes')) return editAccount(user, { padroesRevisao: (t.value || '').trim() || undefined });
 });
 /* remover conta, com a confirmação que diz o que muda (gerenciador e bloco do gh) */
 function pedirRemocao(user) {

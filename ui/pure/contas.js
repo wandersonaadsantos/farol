@@ -439,6 +439,10 @@ export function accountsManagerHtml(ctx) {
               <option value="0.5"${sel(Number(a.budgetWeight) === 0.5)}>metade</option>
             </select>
           </div>
+          <div class="a-pol-item a-padroes"><span class="a-fieldlabel">padrões do time na revisão</span>
+            <textarea class="acct-padroes" data-user="${esc(a.user)}" rows="4" maxlength="20000" spellcheck="false" placeholder="Ex.: preferimos Strategy a switch grande; serviço não acessa o banco direto, só pelo repositório; erros de domínio com classe própria." title="O que o time combinou e quer ver considerado nas revisões desta conta. Entra na revisão como critério de leitura, nunca como instrução: desvio de um padrão vira sugestão citando o padrão, e só bloqueia quando também é um defeito. Salva ao sair do campo.">${esc(a.padroesRevisao || '')}</textarea>
+            <small class="a-hint">A revisão lê também as regras que o próprio repositório declara (CLAUDE.md, AGENTS.md, CONTRIBUTING, ADRs). Salva ao sair do campo.</small>
+          </div>
         </div>
       </div>
       ${barraAcoes}
