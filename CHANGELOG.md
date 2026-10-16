@@ -9,6 +9,19 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.72.0
+
+A revisão passa a considerar os padrões que o seu time combinou e as regras que o próprio repositório declara.
+
+**Novidades**
+
+- **Padrões do time por conta.** Em Sistema > Contas, cada conta ganhou o campo "padrões do time na revisão": escreva ali o que o time combinou (padrões de projeto preferidos, camadas, nomes, o que evitar). A revisão daquela conta usa esse texto como critério: quando o código se afasta de um padrão, o apontamento sai como sugestão, citando o padrão e propondo a forma que o segue. Desvio de padrão só bloqueia quando também é um defeito. O texto fica guardado na conta e não se perde quando o Farol atualiza.
+- **A revisão lê as regras do próprio repositório.** Antes de revisar, ela lê o que o repositório declara sobre como o código deve ser (CLAUDE.md, AGENTS.md, CONTRIBUTING e ADRs) e cita qual regra embasou cada cobrança. Quando uma regra do repositório conflita com um padrão do time, vale a do repositório para aquele PR, e a revisão avisa.
+
+**Segurança**
+
+- Os padrões e as regras do repositório entram na revisão como dado, nunca como instrução: não mudam o protocolo, os critérios para aprovar sozinho nem a política da conta. Segredo colado por engano no campo sai mascarado, e o texto tem limite de tamanho.
+
 ## v2.71.18
 
 Rodar os testes do Farol deixa de abrir terminais vazios no Windows.
