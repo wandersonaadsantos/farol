@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes, createECDH } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { snapshotEspelho, fragmentar, recompor } from '../lib/sync/espelho.js';
 import { assistir, cicloEspelho, anexarEspelhos } from '../lib/engine/sync-espelho.js';
 import { espelhoDaSessaoHtml } from '../ui/pure/espelho.js';
@@ -102,4 +103,29 @@ test('fechar observacao retira pedido e fragmentos antes do TTL, com repeticao d
   assert.equal(Object.keys(arvore).length, 0);
   assert.equal(leitor.sync.espelho.retirar.size, 0);
   assert.equal(origem.activeReviews.size, 1, 'nao depende de encerrar a revisao');
+});
+
+test('fragmentos cuja retirada falha continuam pendentes no executor', async () => {
+  const { origem, leitor, arvore } = motores();
+  assistir(leitor, {opId:OP}, T);
+  await cicloEspelho(leitor, arvore, T);
+  await cicloEspelho(origem, arvore, T+1);
+  assistir(leitor, {opId:OP, aberto:false}, T+2);
+  await cicloEspelho(leitor, arvore, T+2);
+  const del = origem.sync.client.del;
+  origem.sync.client.del = async () => ({ok:false});
+  await cicloEspelho(origem, arvore, T+3);
+  assert.ok(origem.sync.espelho.retirar.size > 0);
+  assert.ok(Object.keys(arvore).length > 0);
+  origem.sync.client.del = del;
+  await cicloEspelho(origem, arvore, T+4);
+  assert.equal(origem.sync.espelho.retirar.size, 0);
+  assert.equal(Object.keys(arvore).length, 0);
+});
+
+test('texto longo sem credencial nao bloqueia o processo do espelho', () => {
+  const modulo = new URL('../lib/sync/espelho.js', import.meta.url).href;
+  const code = `import {snapshotEspelho} from ${JSON.stringify(modulo)}; const s=snapshotEspelho({},[{t:1,k:'text',text:'a-'.repeat(100000)}],1); if(s.feed[0].text.length!==400) process.exit(1);`;
+  const r = spawnSync(process.execPath, ['--input-type=module','-e',code], {timeout:5000, windowsHide:true, encoding:'utf8'});
+  assert.equal(r.status, 0, r.error?.message || r.stderr);
 });
