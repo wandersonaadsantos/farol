@@ -11,6 +11,7 @@ invariantes continuam lá.
 - [Modelo e esforço das sessões autônomas](#modelo-e-esforço-das-sessões-autônomas)
 - [Assinatura do Claude (qual conta/plano o Farol usa, e como alternar)](#assinatura-do-claude-qual-contaplano-o-farol-usa-e-como-alternar)
 - [Jira multi-tenant (v2.52.0)](#jira-multi-tenant-v2520)
+- [Padrões do time na revisão (v2.72.0)](#padrões-do-time-na-revisão-v2720)
 
 <!-- indice:fim -->
 
@@ -245,3 +246,11 @@ fetch chega como `indisponivel`, não `falha_interna`: quem normaliza é o clien
 - **Fora de escopo por decisão:** a sessão de **chat** do PR continua sem MCP
   escopado (`lib/engine/chat.js` sobrescreve `extraArgs` inteiro por
   `['--resume', sid]`); chat não produz veredito. A autoanálise, essa sim, entra.
+
+## Padrões do time na revisão (v2.72.0)
+
+Cada conta, em **Sistema > Contas**, tem o campo **padrões do time na revisão**. O que se escreve ali entra na revisão daquela conta como critério de leitura: padrões de projeto preferidos, camadas, nomes, o que evitar. Quando o código se afasta de um deles, o apontamento sai como sugestão, citando o padrão e propondo a forma que o segue; desvio de padrão só bloqueia quando também é um defeito pelo protocolo.
+
+- **Onde fica:** no campo `padroesRevisao` da conta, no `config.json`. Não fica no workspace porque o protocolo do workspace é regravado a cada boot.
+- **Como entra:** delimitado e rotulado como dado, no mesmo molde do card do Jira. Não muda o protocolo, os critérios para aprovar sozinho nem a política da conta. Segredo colado por engano sai mascarado; o prompt leva até 6.000 caracteres (o resto é cortado com aviso) e a conta guarda até 20.000.
+- **Regras do repositório:** além dos padrões da conta, a revisão lê o que o repositório revisado declara (`CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING`, ADRs) e cita qual regra embasou cada cobrança. Se uma regra do repositório conflita com um padrão do time, vale a do repositório para aquele PR.

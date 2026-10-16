@@ -788,6 +788,9 @@ label.set-row { cursor: pointer; }
 .acct-card .a-pol-item select { font-size: 12px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 7px; padding: 4px 8px; cursor: pointer; }
 .acct-card .a-pol-item select:hover { border-color: var(--ac); }
 .acct-card .a-pol-item select:focus { outline: none; border-color: var(--ac); }
+.acct-card .a-pol-item.a-padroes { flex: 1 1 100%; }
+.acct-card .a-pol-item textarea { font: inherit; font-size: 12px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 7px; padding: 6px 8px; resize: vertical; min-height: 64px; width: 100%; box-sizing: border-box; }
+.acct-card .a-pol-item textarea:focus { outline: none; border-color: var(--ac); }
 
 /* nome e diretório de um perfil de assinatura. Herdavam o estilo de `.field input`
    por acidente, de um `.field` que envolvia o manager inteiro; esse mesmo `.field`
