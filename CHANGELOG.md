@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.71.16
+
+Uma organização que a conta não consegue buscar deixa de esconder do admin os PRs pedidos a essa conta.
+
+**Correções**
+
+- **Organização sem acesso não trava mais o Panorama da conta.** Quando uma das organizações monitoradas não tem nenhum repositório visível para a conta, o GitHub recusa a busca, e o Farol esperava essa organização responder antes de compartilhar o Panorama da conta. Ela nunca respondia, então os PRs pedidos à conta nunca chegavam ao admin nem ganhavam o botão Revisar agora. Agora essa organização é deixada de lado. Uma organização que só não respondeu ainda, por rede, continua sendo esperada.
+- **O aviso de organização sem acesso sai uma vez, e não a cada ciclo.** Antes, a mesma linha de falha entrava no log a cada poucos minutos. O aviso diz qual conta e qual organização, e sugere tirar a organização da conta se ela não for mais usada.
+
 ## v2.71.15
 
 O Farol que roda só o motor, sem a janela (no celular pelo Termux ou num servidor), passa a se atualizar sozinho.

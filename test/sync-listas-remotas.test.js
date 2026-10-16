@@ -31,6 +31,7 @@ const publicacao = (await import('../lib/engine/sync-publicacao.js')).default;
 const envelope = (await import('../lib/sync/envelope.js')).default;
 const kek = (await import('../lib/sync/kek.js')).default;
 const { prTag } = await import('../lib/sync/tags.js');
+const orgSemAcesso = (await import('../lib/engine/org-sem-acesso.js')).default;
 const pure = await import('../ui/pure.js');
 
 const API_KEY = 'chave-web-de-teste';
@@ -322,6 +323,26 @@ test('conta sem org publica o Panorama com o PR pedido a ela, e a fila chega ao 
   const linha = pano.linhas.find((l) => l.key === 'cnbb/web#90');
   assert.ok(linha, 'o PR pedido está na linha');
   assert.ok(linha.fila && linha.fila.estado, 'com a fila do aparelho, que dá o botão Revisar agora');
+});
+
+// Uma org que a conta não consegue buscar (`Invalid search query`) não pode travar o
+// Panorama da conta; uma org cuja busca ainda não respondeu por outra causa continua
+// segurando, porque ali pode haver PR que só não chegou (15/10/2026, conta do Alex).
+test('org sem acesso não trava o Panorama da conta, e org ainda não lida continua segurando', async () => {
+  const { a, b } = await par();
+  a.updateSettings({ accounts: [{ user: LOGIN, owners: ['acme', 'sem-acesso', 'lenta'] }] });
+  a.panorama = PAN.map((p) => ({ ...p, account: LOGIN }));
+  a.ownersJaLidos.add('acme');
+  a.contasPedidosLidas.add(LOGIN.toLowerCase());
+  orgSemAcesso.registrarFalha(a, LOGIN, ['--owner', 'sem-acesso'], 'Invalid search query "user:sem-acesso"');
+  fake.requests.length = 0;
+  await andamento.ciclo(a, a.config.sync, { agora: Date.now() });
+  assert.equal(fake.requests.filter((r) => r.method === 'PUT' && /\/users\/u1\/panorama\//.test(r.path)).length, 0, 'a org lenta ainda segura');
+  a.ownersJaLidos.add('lenta');
+  await andamento.ciclo(a, a.config.sync, { agora: Date.now() });
+  await andamento.ciclo(b, b.config.sync, { agora: Date.now() });
+  const pano = escopoDe(b.syncListasRemotas(), 'panorama');
+  assert.ok(pano && pano.linhas.length === 2, 'com a lenta lida, a org sem acesso não impede a publicação');
 });
 
 test('o ciclo do relógio lê as listas depois de publicar', async () => {
