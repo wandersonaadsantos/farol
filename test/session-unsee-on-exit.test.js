@@ -3,7 +3,7 @@
 // lista de pendentes), e sem isso um PR fica escondido da fila pra sempre se a sessão
 // fechar sem o /pr-review ter rodado até o fim (achado de bug real, ver o comentário em
 // lib/engine/session.js).
-// IMPORTANTE: o teste de spawnConsole real (Windows, mais abaixo) grava um script .cmd
+// IMPORTANTE: o teste de spawnConsole (Windows, mais abaixo) grava um script .cmd
 // de verdade dentro de HOME/sessions - fixar FAROL_HOME num diretório temporário ANTES
 // de qualquer require que carregue lib/paths.js (const de nível de módulo, lida uma
 // única vez no load), senão o teste escreve dentro do ~/.farol real da máquina (mesmo
@@ -14,23 +14,17 @@ import fs from 'node:fs';
 
 const FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-unsee-'));
 process.env.FAROL_HOME = FAROL_HOME;
-// spawnConsole usa WORKSPACE (HOME/workspace) como cwd do processo filho - sem essa
-// pasta existir, o spawn do powershell.exe falha na hora com ENOENT (cwd inválido),
-// o que cairia no handler 'error' em vez do 'exit' que o teste real quer exercitar.
-// Fora daqui isso normalmente é semeado pelo boot da Engine; como este teste chama
-// spawnConsole direto (sem subir a Engine inteira), semeamos manualmente.
 fs.mkdirSync(path.join(FAROL_HOME, 'workspace'), { recursive: true });
 
-// mock de child_process.spawn pros testes de spawnConsoleMac (M5): lib/engine/session.js
-// captura `spawn` no load, então a troca precisa vir ANTES do require abaixo (mesmo
-// padrão de test/session-claude-profile.test.js). Sem spawnImpl setado, delega pro
-// spawn real (o teste de spawnConsole real do Windows, mais abaixo, depende disso).
+// Só a abertura de processo é substituída: abrir um terminal visível, mesmo com
+// `exit 0`, deixa janelas residuais do Windows Terminal em rodadas repetidas.
+// Os scripts e o ciclo de vida da sessão continuam sendo exercitados de verdade.
 import childProcess from 'node:child_process';
 const realSpawn = childProcess.spawn;
 let spawnImpl = null;
 childProcess.spawn = function mockableSpawn(...args) {
-  if (spawnImpl) return spawnImpl(...args);
-  return realSpawn(...args);
+  assert.ok(spawnImpl, 'teste de sessão não pode abrir um terminal real');
+  return spawnImpl(...args);
 };
 import { EventEmitter } from 'node:events';
 
@@ -122,37 +116,51 @@ test('handleSessionExit: código de saída != 0 loga WARN', () => {
   assert.ok(warned && /saiu com codigo 1/.test(warned));
 });
 
-// spawnConsole real (Windows): roda um script trivial (`exit 0` direto, sem claude/pause)
-// e espera o evento `exit` de verdade disparar, confirmando que o handler real (não só a
-// função extraída) chama unsee. Curto e não deixa nada pendurado.
-test('spawnConsole (Windows): ao sair de verdade, desfaz o visto de TODAS as keys da sessão', { skip: process.platform !== 'win32' ? 'teste especifico do caminho Windows (spawnConsole)' : false }, async () => {
-  const engine = fakeEngine({
-    buildSessionScript() { return '@echo off\r\nexit 0\r\n'; },
-  });
-  spawnConsole(engine, '/pr-review x', 'Revisão de teste', ['org/repo#1', 'org/repo#2'], 'default-user');
-
-  // spawnConsole guarda a sessão em activeReviews antes de qualquer coisa; usamos isso
-  // pra pegar o child real (via o id gerado) e tratar o evento 'error' também - se o
-  // spawn do powershell.exe falhar por qualquer motivo neste ambiente (sandbox, política
-  // de execução, etc.), o teste falha rápido com mensagem clara em vez de estourar o
-  // timeout de 15s esperando por um 'exit' que nunca vem.
+test('spawnConsole (Windows): exit desfaz o visto de TODAS as keys e limpa a sessão sem abrir terminal real', { skip: process.platform !== 'win32' ? 'teste especifico do caminho Windows (spawnConsole)' : false }, () => {
+  const engine = fakeEngine();
+  const fakeChild = new EventEmitter();
+  let command;
+  spawnImpl = (cmd) => { command = cmd; return fakeChild; };
+  try {
+    spawnConsole(engine, '/pr-review x', 'Revisão de teste', ['org/repo#1', 'org/repo#2'], 'default-user');
+  } finally {
+    spawnImpl = null;
+  }
   const id = Array.from(engine.activeReviews.keys())[0];
+  const sessionsDir = path.join(FAROL_HOME, 'sessions');
+  const [scriptName] = fs.readdirSync(sessionsDir);
+  const script = path.join(sessionsDir, scriptName);
+  assert.equal(command, 'powershell.exe');
+  assert.equal(fs.readFileSync(script, 'utf8'), '@echo off\r\nexit 0\r\n');
+  assert.deepEqual(engine._unseen, [], 'o visto só sai quando o processo termina');
 
-  await new Promise((resolve, reject) => {
-    const start = Date.now();
-    const iv = setInterval(() => {
-      if (engine._unseen.length > 0) { clearInterval(iv); resolve(); return; }
-      if (!engine.activeReviews.has(id) && engine._unseen.length === 0 && engine._toasts.some(t => t.kind === 'error')) {
-        clearInterval(iv);
-        const toast = engine._toasts.find(t => t.kind === 'error');
-        reject(new Error(`spawn do powershell.exe falhou neste ambiente: ${toast.payload.text}`));
-        return;
-      }
-      if (Date.now() - start > 15000) { clearInterval(iv); reject(new Error('timeout esperando exit do processo real')); }
-    }, 100);
-  });
+  fakeChild.emit('exit', 0);
 
   assert.deepEqual(engine._unseen.sort(), ['org/repo#1', 'org/repo#2']);
+  assert.equal(engine.activeReviews.has(id), false);
+  assert.equal(engine.checkedNow, true);
+  assert.equal(fs.existsSync(script), false, 'o script temporário precisa ser apagado');
+});
+
+test('spawnConsole (Windows): falha de abertura remove sessão e script sem desfazer visto', { skip: process.platform !== 'win32' ? 'teste especifico do caminho Windows (spawnConsole)' : false }, () => {
+  const engine = fakeEngine();
+  const fakeChild = new EventEmitter();
+  spawnImpl = () => fakeChild;
+  try {
+    spawnConsole(engine, '/pr-review x', 'Revisão de teste', ['org/repo#1'], 'default-user');
+  } finally {
+    spawnImpl = null;
+  }
+  const sessionsDir = path.join(FAROL_HOME, 'sessions');
+  assert.equal(fs.readdirSync(sessionsDir).length, 1);
+
+  fakeChild.emit('error', new Error('abertura recusada'));
+
+  assert.equal(engine.activeReviews.size, 0);
+  assert.deepEqual(fs.readdirSync(sessionsDir), []);
+  assert.deepEqual(engine._unseen, []);
+  assert.equal(engine.checkedNow, undefined);
+  assert.ok(engine._toasts.some(t => t.kind === 'toast' && t.payload.kind === 'error' && /abertura recusada/.test(t.payload.text)));
 });
 
 // M5: `open -a Terminal` retorna na hora; exit 0 = Terminal lançado (o fim REAL da
