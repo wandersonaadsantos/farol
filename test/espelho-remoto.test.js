@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes, createECDH } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { snapshotEspelho, fragmentar, recompor } from '../lib/sync/espelho.js';
 import { assistir, cicloEspelho, anexarEspelhos } from '../lib/engine/sync-espelho.js';
 import { espelhoDaSessaoHtml } from '../ui/pure/espelho.js';
@@ -70,4 +71,61 @@ test('credenciais são ocultadas, mas descrições comuns não somem',()=>{
   const v=snapshotEspelho({},[{text:'Bearer abc.def.123 token=senha ghp_1234567890abcdef Bash · Conferir contrato',k:'tool'}],T);
   assert.ok(!v.feed[0].text.includes('abc.def.123'));assert.ok(!v.feed[0].text.includes('ghp_123'));
   assert.match(v.feed[0].text,/Conferir contrato/);
+});
+
+
+test('redacao de segredo respeita limite de 400 caracteres e recompoe', () => {
+  const text = 'x'.repeat(391) + ' token=ab';
+  const v = snapshotEspelho({}, [{ t:T, k:'text', text }], T);
+  assert.equal(v.feed[0].text.length, 400);
+  const f = fragmentar(v);
+  assert.deepEqual(recompor({ ...f, partes:f.partes.length }, f.partes), v);
+  const credenciais = ['"access_token": "valor-json"', 'AWS_SECRET_ACCESS_KEY=valor-aws', 'glpat-valorGitlab123', 'xoxb-123-456-abcdef'];
+  const safe = snapshotEspelho({}, credenciais.map(text => ({ t:T, k:'text', text })), T);
+  for (const segredo of ['valor-json','valor-aws','valorGitlab123','123-456-abcdef']) assert.ok(!JSON.stringify(safe).includes(segredo));
+});
+
+test('fechar observacao retira pedido e fragmentos antes do TTL, com repeticao de falha transitoria', async () => {
+  const { origem, leitor, arvore } = motores();
+  assistir(leitor, {opId:OP}, T);
+  await cicloEspelho(leitor, arvore, T);
+  await cicloEspelho(origem, arvore, T+1);
+  assert.ok(Object.keys(arvore).length > 1);
+  const pedido = leitor.sync.espelho.assistir.get(OP).id;
+  assistir(leitor, {opId:OP, aberto:false}, T+2);
+  const del = leitor.sync.client.del;
+  leitor.sync.client.del = async () => ({ok:false});
+  await cicloEspelho(leitor, arvore, T+3);
+  assert.ok(leitor.sync.espelho.retirar.has(pedido));
+  leitor.sync.client.del = del;
+  await cicloEspelho(leitor, arvore, T+4);
+  await cicloEspelho(origem, arvore, T+5);
+  assert.equal(Object.keys(arvore).length, 0);
+  assert.equal(leitor.sync.espelho.retirar.size, 0);
+  assert.equal(origem.activeReviews.size, 1, 'nao depende de encerrar a revisao');
+});
+
+test('fragmentos cuja retirada falha continuam pendentes no executor', async () => {
+  const { origem, leitor, arvore } = motores();
+  assistir(leitor, {opId:OP}, T);
+  await cicloEspelho(leitor, arvore, T);
+  await cicloEspelho(origem, arvore, T+1);
+  assistir(leitor, {opId:OP, aberto:false}, T+2);
+  await cicloEspelho(leitor, arvore, T+2);
+  const del = origem.sync.client.del;
+  origem.sync.client.del = async () => ({ok:false});
+  await cicloEspelho(origem, arvore, T+3);
+  assert.ok(origem.sync.espelho.retirar.size > 0);
+  assert.ok(Object.keys(arvore).length > 0);
+  origem.sync.client.del = del;
+  await cicloEspelho(origem, arvore, T+4);
+  assert.equal(origem.sync.espelho.retirar.size, 0);
+  assert.equal(Object.keys(arvore).length, 0);
+});
+
+test('texto longo sem credencial nao bloqueia o processo do espelho', () => {
+  const modulo = new URL('../lib/sync/espelho.js', import.meta.url).href;
+  const code = `import {snapshotEspelho} from ${JSON.stringify(modulo)}; const s=snapshotEspelho({},[{t:1,k:'text',text:'a-'.repeat(100000)}],1); if(s.feed[0].text.length!==400) process.exit(1);`;
+  const r = spawnSync(process.execPath, ['--input-type=module','-e',code], {timeout:5000, windowsHide:true, encoding:'utf8'});
+  assert.equal(r.status, 0, r.error?.message || r.stderr);
 });
