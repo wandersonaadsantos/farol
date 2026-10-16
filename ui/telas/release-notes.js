@@ -14,6 +14,7 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.71.17', ["Rodar os testes do Farol deixa de abrir terminais vazios no Windows. O teste de encerramento de sessão verifica a limpeza e o retorno dos PRs à fila sem abrir uma janela real."]],
   ['2.71.16', ["Uma organização que a conta não consegue buscar deixa de esconder do admin os PRs pedidos a essa conta: eles voltam a aparecer na fila do aparelho, com o botão Revisar agora.", "O aviso de organização sem acesso sai uma vez no log, e não mais a cada ciclo."]],
   ['2.71.15', ["O Farol que roda só o motor, sem a janela (no celular pelo Termux ou num servidor), passa a se atualizar sozinho: troca os próprios arquivos e reinicia, sem instalação à mão.", "O painel do aparelho compara a versão dele com a última release e avisa quando ele está atrasado, em vez de dizer sempre que está em dia."]],
   ['2.71.14', ["Os PRs pedidos a uma conta que não monitora nenhuma organização no aparelho dela passam a aparecer no controle do aparelho, com o botão Revisar agora. Antes o admin não via esses PRs na fila do outro aparelho."]],
