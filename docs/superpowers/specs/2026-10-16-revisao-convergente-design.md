@@ -51,14 +51,14 @@ PR pedido à conta
         └─ revisão B: provedor da 2ª opinião ┘  mesmo prompt, sem ver a outra
                  │
         consolidação determinística (app, sem modelo)
-          ├─ achado nos dois ............ concordante: vale sem verificar
-          ├─ achado só num, bloqueante .. vai ao verificador
-          └─ achado só num, não bloq. ... entra como sugestão marcada "uma das leituras"
+          ├─ mesmo defeito e mesmo peso nos dois ... concordante: vale sem verificar
+          ├─ bloqueante de um lado só .............. vai ao verificador
+          └─ não bloqueante de um lado só .......... sugestão marcada "uma das leituras"
                  │
-        verificação (claim-verifier, uma chamada por achado exclusivo bloqueante)
-          ├─ confirmado ...... vira bloqueante consolidado
-          ├─ refutado ........ sai do review, fica registrado no app
-          └─ inconclusivo .... vira ressalva (não bloqueia, não some)
+        verificação (claim-verifier, uma chamada por bloqueante de um lado só)
+          ├─ confirmado .............. vira bloqueante consolidado
+          ├─ refutado ................ sai do review, fica registrado no app
+          └─ parcial ou falha ........ inconclusivo: vira ressalva (não bloqueia, não some)
                  │
         UM envelope consolidado ──> gates de sempre ──> política da conta
 ```
@@ -94,6 +94,12 @@ Falha de B (limite do plano, rede, envelope inválido) nunca segura A: a revisã
 simples, com a ressalva "a segunda opinião não concluiu: <motivo>". Falha de A segue a regra de
 sempre (retry, estacionamento).
 
+**Prazo de B.** B não tem o teto de 30 minutos da sessão como único limite: B ganha um prazo
+relativo a A. Quando A termina, B tem no máximo mais 10 minutos (configurável, com teto) para
+devolver o envelope, e o tempo esperando vaga conta dentro desse prazo. Estourou, o app cancela
+B e segue com A e a ressalva "a segunda opinião não terminou a tempo". B travado, esperando vaga
+ou com o provedor pendurado, nunca segura a publicação de A.
+
 ### 3. Contrato novo no envelope: `achados`
 
 A consolidação precisa de achado estruturado, e o envelope de hoje não tem (há `reasons`, os
@@ -106,6 +112,7 @@ provedores:
     "id": "a1",
     "arquivo": "lib/x.js",
     "linha": 42,
+    "lado": "RIGHT | LEFT",
     "severidade": "bloqueante | sugestao | pergunta | detalhe",
     "categoria": "bug | seguranca | regressao | card | padrao | teste | desempenho | outro",
     "afirmacao": "uma linha verificável: o que está errado e em que condição",
@@ -115,22 +122,44 @@ provedores:
 ]
 ```
 
-Regras: `afirmacao` e `comoVerificar` são obrigatórios em `bloqueante`; achado sem `arquivo`
-(ex.: card não atendido) usa `arquivo: null` e não entra na deduplicação por posição. O campo
-existe também na revisão simples, e os comentários inline passam a ser gerados dele, para a
-consolidação e a revisão de sempre falarem a mesma língua.
+Regras:
+
+- `afirmacao` e `comoVerificar` são obrigatórios em `bloqueante`;
+- achado sem `arquivo` (ex.: card não atendido) usa `arquivo: null` e não entra na
+  deduplicação por posição;
+- `lado` diz a qual lado do diff a `linha` pertence, como o `side` que o contrato de comentário
+  inline já exige (`pr-review-auto.md`): `RIGHT` para a versão nova, `LEFT` para linha removida
+  ou substituída. Achado sem `lado` válido, ou com linha fora do diff, não vira comentário inline:
+  vai para o corpo do review, citando arquivo e linha.
+
+**Transição sem perder achado.** O campo é aditivo, e um envelope válido ainda pode vir sem ele
+(atualização no meio, retentativa, sessão retomada). Por isso:
+
+- **revisão simples:** com `achados` presente e válido, os comentários inline são gerados dele;
+  com `achados` ausente, valem os `payloads.*.comments` de sempre, como hoje. Nunca se descartam
+  os comentários do payload só porque o campo novo existe no contrato;
+- **revisão convergente:** exige `achados` válido nos dois envelopes. Envelope de B sem `achados`
+  é falha de B (a revisão segue simples, com a ressalva); envelope de A sem `achados` desliga a
+  convergência daquele PR, e A segue como revisão simples, com os comentários do payload.
 
 ### 4. Consolidação (no app, sem modelo)
 
 Função PURA (`consolidarAchados(a, b, diff)`), testável sem rede:
 
-- **mesmo achado** quando: mesmo arquivo, linhas a no máximo 3 de distância (ou o mesmo hunk do
-  diff), e mesma categoria. Empate de categoria diferente na mesma linha conta como dois achados;
-- a severidade consolidada é a MAIOR das duas quando concordam no achado;
-- **concordante** (nos dois): vale sem verificação, porque dois modelos independentes chegaram
-  ao mesmo ponto;
-- **exclusivo bloqueante**: vai à verificação (passo 5);
-- **exclusivo não bloqueante**: entra como sugestão, com a marca interna "visto por uma das
+- **posição não é concordância.** Dois achados próximos (mesmo arquivo, linhas a no máximo 3 de
+  distância, mesma categoria) são só **candidatos** a concordar: um erro de referência nula e uma
+  falha de autorização na mesma linha são dois defeitos, mesmo na mesma categoria. Eles só viram
+  o mesmo achado quando as `afirmacao` coincidem por uma regra determinística (texto normalizado
+  em minúsculas, sem pontuação nem números de linha, e similaridade de termos de pelo menos 0,8).
+  Candidatos que não passam nessa régua continuam como dois achados;
+- **concordante** (mesma posição, mesma categoria, mesma afirmação e **mesma severidade** nos
+  dois): vale sem verificação, porque dois modelos independentes chegaram ao mesmo defeito com o
+  mesmo peso;
+- **bloqueante de um lado só** vai à verificação (passo 5). Isso inclui o achado exclusivo e
+  também o concordante em que só um dos revisores o marcou como bloqueante: o fato pode estar
+  corroborado, mas o peso de bloquear o merge veio de uma leitura só. A severidade nunca é
+  promovida pela maior das duas sem verificar;
+- **não bloqueante de um lado só** entra como sugestão, com a marca interna "visto por uma das
   leituras" (a marca fica no app; o texto público não cita modelo nenhum);
 - **vereditos divergentes** (A aprova, B pede mudanças, ou o contrário): o veredito consolidado
   vem dos achados que sobraram depois da verificação, nunca de voto; e a divergência em si vira
@@ -138,14 +167,16 @@ Função PURA (`consolidarAchados(a, b, diff)`), testável sem rede:
 
 ### 5. Verificação dos exclusivos bloqueantes
 
-Uma sessão curta, só leitura, que chama o `claim-verifier` uma vez por achado exclusivo
-bloqueante, todas na mesma mensagem, passando `afirmacao`, `arquivo:linha`, repositório e o head
-fixado. Ela devolve, por achado, `confirmado`, `refutado` ou `inconclusivo`, com a evidência.
+Uma sessão curta, só leitura, que chama o `claim-verifier` uma vez por bloqueante de um lado só
+(passo 4), todas na mesma mensagem, passando `afirmacao`, `arquivo:linha`, repositório e o head
+fixado. O verificador já devolve um vocabulário fechado, `confirmado`, `refutado` ou `parcial`,
+e esse contrato não muda; a consolidação lê assim:
 
 - `confirmado`: o achado vira bloqueante consolidado;
 - `refutado`: sai do review publicado; fica no relatório interno e no app, com a evidência,
   para medir quem errou (insumo da métrica do fim);
-- `inconclusivo`: vira ressalva com o texto do achado. Não bloqueia e não some.
+- `parcial`, falha da chamada ou resposta fora do vocabulário: o desfecho é **inconclusivo**, e
+  o achado vira ressalva com o texto dele. Não bloqueia e não some.
 
 Teto de achados verificados por PR (sugestão: 8). Acima disso, os excedentes ficam como
 inconclusivos, e o card diz que o teto foi atingido.
@@ -153,23 +184,49 @@ inconclusivos, e o card diz que o teto foi atingido.
 ### 6. O envelope consolidado e a postagem
 
 O app monta UM envelope com: o veredito derivado dos achados consolidados, os comentários
-inline gerados dos achados, o corpo da revisão A (a da conta) acrescido dos achados novos que
-vieram de B e sobreviveram, e as ressalvas de divergência e de inconclusivos. Esse envelope
-passa pelo firewall de linguagem de sempre (`public-review.js`), pelos gates de sempre e pela
-política da conta. Nada aqui contorna `shouldAutoApprove`: com ressalvas é com ressalvas, e a
-conta decide se posta.
+inline gerados dos achados, o corpo público e as ressalvas de divergência e de inconclusivos.
+
+**O corpo público é montado do zero, nunca reaproveitado.** Hoje o bloqueio aparece em três
+lugares do envelope de A (`payloads.request_changes.body`, os comentários do payload e o
+`reviewMarkdown`); filtrar só os `achados` deixaria um bloqueio refutado no texto. Por isso, na
+revisão convergente, o corpo é composto pelo app a partir de duas partes:
+
+- um campo novo do envelope, `resumoPublico`, que a sessão escreve sem citar achado nenhum:
+  contexto do PR, aderência ao card e ao que o repositório declara, em poucas linhas;
+- o `corpo` de cada achado que sobreviveu à consolidação e à verificação, agrupado por
+  severidade.
+
+Achado refutado não tem como reaparecer, porque nenhum texto livre de A ou de B vai direto ao
+PR. Sem `resumoPublico` válido, o corpo sai só com os achados. O resultado passa pelo firewall de
+linguagem de sempre (`public-review.js`), pelos gates de sempre e pela política da conta. Nada
+aqui contorna `shouldAutoApprove`: com ressalvas é com ressalvas, e a conta decide se posta.
 
 ## Interações com o que já existe
 
 - **Fan-out:** lotes decididos uma vez, valem para A e B. Dentro de cada revisão, a
   consolidação por lote continua como hoje; a convergente consolida depois, entre A e B.
-- **Checkpoint de verificação:** B não herda o de A (princípio 2). Os dois gravam, cada um na
-  sua loja, e a consolidação não lê checkpoint.
-- **Admissão e vagas:** uma revisão convergente ocupa duas vagas no aparelho. Sem duas vagas, B
-  espera a vaga sem estacionar A.
-- **Distribuição entre aparelhos:** o item convergente executa inteiro num aparelho, e o
-  aparelho precisa ter os dois provedores prontos (a capacidade publicada passa a dizer quais
-  provedores estão logados). Sem aparelho apto, a revisão roda simples, com a ressalva.
+- **Checkpoint de verificação:** hoje existe uma loja só para a revisão oficial
+  (`checkpointPath(prKey, 'review')`, o caminho que o `headlessPromptFor` injeta no prompt), e a
+  sincronização só aceita as lojas `review` e `self` (`LOJAS` em `lib/sync/checkpoint.js`). Se A e
+  B usassem `review`, B leria a evidência de A e da frota, quebrando o princípio 2. A decisão:
+  - A continua na loja `review`, com herança e publicação na frota como hoje;
+  - B usa uma loja local própria, `segunda` (`checkpointPath(prKey, 'segunda')`, que já cai em
+    `state/verification/segunda/`), e o `headlessPromptFor` passa a receber a loja para injetar o
+    caminho certo;
+  - a loja `segunda` **não** entra no `LOJAS` da sincronização: B nem herda da frota nem publica
+    nela, e o teste de independência prova as duas coisas;
+  - a consolidação não lê checkpoint.
+- **Admissão e vagas:** uma revisão convergente ocupa duas vagas no aparelho. Sem a segunda vaga,
+  B espera, sem estacionar A, e essa espera conta dentro do prazo de B (passo 2).
+- **Distribuição entre aparelhos:** o item convergente executa inteiro num aparelho, e esse
+  aparelho precisa resolver **o perfil exato** da segunda opinião, não só "ter Codex". Perfis são
+  configuração local de cada aparelho, e a resolução de hoje cai na assinatura padrão quando o id
+  não existe ali: o aparelho errado cobraria a assinatura errada ou falharia depois de aceitar o
+  trabalho. Por isso a capacidade publicada passa a trazer, por conta, a tag opaca (HMAC da chave
+  do conjunto, como as tags de conta) de cada perfil utilizável e o provedor dele, e o agendador
+  só atribui o item convergente a aparelho que tenha a tag do `perfilSegundaOpiniao` configurado.
+  O executor confere a tag de novo antes de reservar a vaga. Sem aparelho apto, a revisão roda
+  simples, com a ressalva.
 - **Cancelamento:** cancelar a revisão cancela A, B e a verificação.
 - **Limite do plano e orçamento:** cada sessão consulta o próprio perfil. Estouro em B segue a
   regra de falha de B.
@@ -195,31 +252,46 @@ conta decide se posta.
 
 ## Testes que provariam o comportamento
 
-1. Consolidação pura: concordante, exclusivo bloqueante, exclusivo não bloqueante, mesma linha
-   com categorias diferentes, distância de linha no limite, achado sem arquivo.
-2. Vereditos divergentes não decidem por voto: o veredito sai dos achados que sobraram.
-3. Verificação: confirmado vira bloqueante, refutado sai do público e fica registrado,
-   inconclusivo vira ressalva; teto de verificação respeitado e dito no card.
-4. Falha de B não segura A e vira ressalva com o motivo.
-5. B não recebe o checkpoint de A (independência), e os lotes de A e B são os mesmos.
-6. Um envelope só chega aos gates, e a política da conta continua decidindo a postagem
+1. Consolidação pura: concordante, bloqueante de um lado só, não bloqueante de um lado só, mesma
+   linha com categorias diferentes, distância de linha no limite, achado sem arquivo.
+2. Posição não é concordância: dois defeitos diferentes da mesma categoria na mesma linha ficam
+   como dois achados; o mesmo defeito com severidades diferentes vai à verificação, e a
+   severidade nunca é promovida sem verificar.
+3. Vereditos divergentes não decidem por voto: o veredito sai dos achados que sobraram.
+4. Verificação: confirmado vira bloqueante, refutado sai do público e fica registrado, `parcial`
+   e falha viram inconclusivo e ressalva; teto de verificação respeitado e dito no card.
+5. O corpo público é montado do `resumoPublico` e dos achados sobreviventes: um bloqueio refutado
+   de A não aparece em lugar nenhum do que é postado.
+6. Achado com `lado` válido vira comentário inline no lado certo; sem `lado`, ou fora do diff,
+   vai para o corpo. Envelope sem `achados` na revisão simples mantém os comentários do payload.
+7. Falha de B e B que estoura o prazo não seguram A, e viram ressalva com o motivo; a espera por
+   vaga conta no prazo.
+8. Independência: B grava na loja `segunda`, não herda nem publica na frota, e os lotes de A e B
+   são os mesmos.
+9. Um envelope só chega aos gates, e a política da conta continua decidindo a postagem
    (invariante 4); com ressalvas nunca vira limpo.
-7. Gatilho: `nunca` não lança B; `criticos` só com gatilho do roteador; perfil de segunda opinião
-   ausente ou do mesmo provedor não liga, e a tela diz por quê.
-8. Cancelamento derruba A, B e a verificação.
+10. Gatilho: `nunca` não lança B; `criticos` só com gatilho do roteador; perfil de segunda
+    opinião ausente ou do mesmo provedor não liga, e a tela diz por quê.
+11. Distribuição: item convergente só vai a aparelho que publica a tag do perfil configurado, e o
+    executor confere de novo antes de reservar.
+12. Cancelamento derruba A, B e a verificação.
 
 ## Fatias de implementação (cada uma vira uma issue)
 
-1. **Contrato `achados` no envelope** (aditivo, nos dois provedores), com parser, validação e
-   os comentários inline gerados dele na revisão simples. Não muda comportamento de postagem.
-2. **Consolidação pura** (`consolidarAchados`) com os testes 1 e 2. Sem orquestração.
+1. **Contrato `achados` no envelope** (aditivo, nos dois provedores, com `lado`) e o
+   `resumoPublico`, com parser e validação; na revisão simples, inline gerado dos achados quando
+   eles vêm, e os comentários do payload mantidos quando não vêm (teste 6). Não muda a postagem.
+2. **Consolidação pura** (`consolidarAchados`), com a régua de afirmação e a regra de severidade
+   de um lado só (testes 1 a 3). Sem orquestração.
 3. **Configuração e gatilho por conta** (`revisaoConvergente`, `perfilSegundaOpiniao`), tela de
-   Contas e o rótulo no card. Sem lançar B ainda.
-4. **Orquestração de A e B** (head fixado, lotes compartilhados, independência do checkpoint,
-   admissão de duas vagas, cancelamento, falha de B), com os testes 4, 5 e 8.
-5. **Verificação dos exclusivos bloqueantes** pelo `claim-verifier`, com teto e ressalvas, e o
-   envelope consolidado chegando aos gates (testes 3 e 6).
-6. **Capacidade por provedor na frota** (o aparelho diz quais provedores estão logados) e a
-   regra de distribuição do item convergente.
+   Contas e o rótulo no card (teste 10). Sem lançar B ainda.
+4. **Orquestração de A e B** (head fixado, lotes compartilhados, loja `segunda` fora da
+   sincronização, admissão de duas vagas, prazo de B, cancelamento, falha de B), com os testes 7,
+   8 e 12.
+5. **Verificação e envelope consolidado**: `claim-verifier` para os bloqueantes de um lado só,
+   `parcial` como inconclusivo, teto, e o corpo público montado do `resumoPublico` e dos achados
+   sobreviventes (testes 4, 5 e 9).
+6. **Perfil utilizável na frota**: a capacidade publica a tag opaca de cada perfil utilizável, e
+   a distribuição do item convergente exige a tag do perfil configurado (teste 11).
 7. **Medição:** registrar, por PR convergente, quantos achados foram concordantes, exclusivos
    confirmados e refutados, por provedor, para decidir com dado se a convergência paga o custo.
