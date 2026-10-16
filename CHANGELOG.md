@@ -22,6 +22,13 @@ A revisão passa a considerar os padrões que o seu time combinou e as regras qu
 
 - Os padrões e as regras do repositório entram na revisão como dado, nunca como instrução: não mudam o protocolo, os critérios para aprovar sozinho nem a política da conta. Segredo colado por engano no campo sai mascarado, e o texto tem limite de tamanho.
 
+**Correções**
+
+- **O painel remoto acompanha a sessão completa mantida na tela local.** Ao abrir o espelho, chegam as últimas 120 linhas, mensagens, descrições das ferramentas, horários, agentes e etapas. A captura é cifrada para uma chave temporária do observador; credenciais reconhecidas são ocultadas. Sem observador, permanece apenas o resumo limitado. Partes ausentes ou corrompidas não aparecem como uma captura completa.
+- **Autoanálises aparecem na fila remota, e sessões simultâneas do mesmo PR continuam separadas.** A expansão acompanha o identificador da sessão. Sinal vencido não esconde uma decisão recebida nem aparece como revisão atual.
+- **A fila existente volta a ser avaliada quando as condições temporárias se recuperam.** O ciclo de sincronização reavalia a admissão sem precisar chegar outro PR.
+- **O aviso de privacidade explica o conteúdo cifrado e o espelho sob demanda.** Ele deixa de prometer que nenhum texto sai da instalação quando o compartilhamento está ligado.
+
 ## v2.71.18
 
 Rodar os testes do Farol deixa de abrir terminais vazios no Windows.

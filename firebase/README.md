@@ -41,10 +41,19 @@ escrita condicionada por ETag), mas são elas que impedem outro usuário de ler 
 Conta do GitHub e PR (dono, repositório e número). Sem chave quer dizer que quem já
 conhece o nome consegue calcular o mesmo resumo e conferir.
 
-### Nunca sai do aparelho
+### Conteúdo cifrado entre seus aparelhos
 
-Prompts, diffs, relatórios, título do PR, nome do repositório em texto, texto de revisão,
-logs e credenciais.
+Com o compartilhamento ligado, catálogo e resultados podem incluir título do PR, nome
+do repositório e relatório de revisão, dentro dos envelopes cifrados. Ao abrir **Ver ao vivo**,
+o executor envia a mesma janela de até **120 linhas** da atividade local, incluindo mensagens,
+descrições das ferramentas, horários, etapas e agentes. Trechos de prompt ou diff que
+apareçam nessas mensagens também podem entrar na captura. Credenciais reconhecidas são
+ocultadas antes do envio; isso não substitui o cuidado ao imprimir dados sensíveis.
+
+O espelho exige um pedido renovado pelo observador e usa chave temporária ECDH exclusiva
+dele. O resumo limitado continua sendo publicado sem observador. Fragmentos incompletos
+ou com hash divergente não são apresentados como captura completa; sinal vencido fica
+identificado. Consulte [o contrato do espelho](../docs/ESPELHO-REMOTO.md).
 
 ## Configurar (uma vez, no console do Firebase)
 

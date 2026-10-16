@@ -35,7 +35,7 @@ const TECNICOS = [
   'leaseId', 'deviceId', 'operationKind', 'acquiredAt', 'heartbeatAt', 'expiresAt', 'completedAt', 'lastVerifiedAt',
   'outcome', 'publicationState', 'reviewId', 'lastSeenAt', 'at', 'day', 'kind', 'costSource', 'status', 'localId',
 ];
-const NUNCA = [/prompt/i, /diff/i, /relatório/i, /título/i];
+const CONTEUDOS = [/prompt/i, /diff/i, /relatório/i, /título/i];
 
 function camposReais() {
   const lease = buildLease({ leaseId: 'L', deviceId: 'd', operationKind: 'review', headSha: 'abc', nowMs: 1, farolVersion: '1' });
@@ -67,11 +67,13 @@ test('todo campo que sobe tem categoria: em claro, resumo sem chave ou identific
 });
 
 for (const [rotulo, ler] of [['tela', fraseDaTela], ['firebase/README.md', fraseDoReadme]]) {
-  test(`a frase da ${rotulo} nomeia o que sobe em claro, o que sobe como resumo e o que nunca sai`, () => {
+  test(`a frase da ${rotulo} nomeia o que sobe em claro, o que sobe como resumo e o conteúdo cifrado sob demanda`, () => {
     const texto = ler();
     for (const [campo, re] of Object.entries({ ...CLARO, ...RESUMO })) assert.match(texto, re, `${campo} precisa ser nomeado`);
     assert.match(texto, /nome da máquina/i, 'o nome do aparelho é o hostname quando vazio');
     assert.match(texto, /identificadores e horários/i);
-    for (const re of NUNCA) assert.match(texto, re);
+    for (const re of CONTEUDOS) assert.match(texto, re);
+    assert.match(texto, /Ver ao vivo/i);assert.match(texto, /120 linhas/);assert.match(texto, /chave temporária/);
+    assert.doesNotMatch(texto, /Nenhum prompt, diff, relatório ou título de PR sai daqui/);
   });
 }
