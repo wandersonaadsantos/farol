@@ -20,13 +20,26 @@ import {
   aparelhoPoliticaParaPublicar, andamentoAtrasadoHtml,
 } from '../pure.js';
 import { estado } from './estado.js';
-import { $, confirmModal, toast } from './infra.js';
+import { $, api, confirmModal, toast } from './infra.js';
 import { registrarTela } from './registro.js';
 import { dadosDasListas } from './listas-remotas.js';
 import { dadosDoConjunto, emitirComando, aoMudarConjunto, aoClicarCompartilhado } from './radar-compartilhado.js';
 import { lerPoliticaAtual, publicarPolitica } from './sistema-aparelhos.js';
 
 const APAR = { selecionado: '', filtro: 'tudo', aoVivo: new Set() };
+
+async function alternarEspelho(opId) {
+  const aberto = !APAR.aoVivo.has(opId);
+  if (aberto) APAR.aoVivo.add(opId); else APAR.aoVivo.delete(opId);
+  renderAparelhos();
+  const r = await api('/api/sync/mirror', { opId, aberto });
+  if (aberto && !r?.ok) {
+    APAR.aoVivo.delete(opId);
+    toast('Não foi possível abrir o espelho. Confira se a sessão e a conexão continuam ativas.', 'error');
+    renderAparelhos();
+  }
+}
+
 
 function syncAtual() { return (estado() && estado().sync) || {}; }
 // a última release que ESTE Farol conhece (a do GitHub, ou a dele mesmo sem nada mais novo)
@@ -178,7 +191,7 @@ function aoClicar(e) {
   const filtro = e.target.closest('.fila-filtro');
   if (filtro) { APAR.filtro = filtro.dataset.filtro; renderAparelhos(); return; }
   const vivo = e.target.closest('.ap-ao-vivo');
-  if (vivo) { const t = vivo.dataset.tag; if (APAR.aoVivo.has(t)) APAR.aoVivo.delete(t); else APAR.aoVivo.add(t); renderAparelhos(); return; }
+  if (vivo) { alternarEspelho(vivo.dataset.op); return; }
   const alvo = e.target.closest('.ap-cmd, .ap-conta, .ap-pausa');
   if (!alvo || desligadoNoClique(alvo)) return;
   if (alvo.classList.contains('ap-cmd')) { comandoDaFila(alvo); return; }
@@ -211,6 +224,13 @@ function registrarTelaRadarAparelhos() {
     const b = e.target.closest('.ap-abrir');
     if (b) abrirAparelho(b.dataset.dev);
   });
+  const espelhoTick = setInterval(() => {
+    if (document.hidden || $('#tab-radar')?.hidden || !$('#rpane-apar') || $('#rpane-apar').hidden) return;
+    for (const op of dadosDoConjunto().operacoes) {
+      if (op.dev === APAR.selecionado && APAR.aoVivo.has(op.opId)) api('/api/sync/mirror', { opId: op.opId, aberto: true });
+    }
+  }, 10000);
+  if (typeof espelhoTick.unref === 'function') espelhoTick.unref();
   aoMudarConjunto(renderAparelhos);
 }
 
