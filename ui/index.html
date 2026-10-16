@@ -699,7 +699,7 @@
           <p class="section-desc">Opcional. Evita que dois aparelhos seus revisem o mesmo PR e mostra o consumo de todos juntos. Cada aparelho continua com o próprio histórico e funciona sem internet.</p>
           <div class="callout info">
             <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><path d="M8 7.4v3.8M8 5.1v.6" stroke-linecap="round"/></svg>
-            <span><b>Nenhum prompt, diff, relatório ou título de PR sai daqui.</b> Sobem em claro o SHA do commit analisado (no lease e no recibo; ele pode levar direto ao repositório, quando o repositório é público), o nome do aparelho (vazio usa o nome da máquina), o sistema operacional, a versão do Farol e, no consumo, o modelo, o perfil, os tokens e o custo de cada sessão, além de identificadores e horários de cada análise. Conta do GitHub e PR sobem como resumo SHA-256 sem chave: quem já conhece o nome consegue conferir.</span>
+            <span><b>O conteúdo compartilhado entre seus aparelhos é cifrado.</b> Catálogo e resultados podem incluir títulos de PR e relatórios. Ao abrir “Ver ao vivo”, as últimas 120 linhas de atividade, inclusive mensagens e descrições de ferramentas, são enviadas cifradas para uma chave temporária do observador. Trechos de prompt ou diff presentes nessa atividade também podem entrar na captura; credenciais reconhecidas são ocultadas. Sobem em claro o SHA do commit analisado (no lease e no recibo; ele pode levar direto ao repositório, quando o repositório é público), o nome do aparelho (vazio usa o nome da máquina), o sistema operacional, a versão do Farol e, no consumo, o modelo, o perfil, os tokens e o custo de cada sessão, além de identificadores e horários de cada análise. Conta do GitHub e PR sobem como resumo SHA-256 sem chave: quem já conhece o nome consegue conferir.</span>
           </div>
           <div id="syncManager"></div>
         </div>
@@ -862,7 +862,7 @@
           <p class="section-desc">O compromisso de privacidade, a licença e quem constrói o projeto.</p>
           <div class="card about-card" id="aboutPrivacy">
             <h3 class="about-title">Privacidade</h3>
-            <p>O Farol não coleta nem envia nenhum dado a quem o mantém. Não existe telemetria nem servidor do projeto: tudo o que o app registra fica na sua máquina, em <code>~/.farol</code> (log de falhas, consumo, decisões de review, configurações).</p>
+            <p>O Farol não coleta nem envia nenhum dado a quem o mantém. Não existe telemetria nem servidor do projeto: os registros ficam na sua instalação, em <code>~/.farol</code> (log de falhas, consumo, decisões de review, configurações). A sincronização opcional compartilha dados com seus outros aparelhos pelo Firebase que você configurou; o conteúdo compartilhado e o espelho sob demanda são cifrados, conforme a seção Sincronização.</p>
             <p>O tráfego de rede é todo em seu nome, com as suas credenciais: GitHub pelo seu <code>gh</code> e o provedor de IA pelo Claude Code ou Codex CLI configurado. As automações que postam review são opt-in, e quem as liga responde pelo que é postado.</p>
           </div>
           <div class="card about-card" id="aboutLicense">

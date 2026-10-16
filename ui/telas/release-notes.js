@@ -14,6 +14,7 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.71.19', ["Ver ao vivo acompanha as últimas 120 linhas da sessão local, incluindo mensagens, ferramentas, horários, etapas e agentes, com cifra exclusiva do observador e aviso de sinal vencido.", "A fila remota inclui autoanálises e preserva sessões simultâneas do mesmo PR. A admissão volta a avaliar a fila após restrições temporárias.", "O aviso de privacidade explica o conteúdo cifrado compartilhado e o espelho sob demanda."]],
   ['2.71.18', ["Rodar os testes do Farol deixa de abrir terminais vazios no Windows. O teste de encerramento de sessão verifica a limpeza e o retorno dos PRs à fila sem abrir uma janela real."]],
   ['2.71.17', ["Com o aparelho pausado pelo admin, o Revisar agora fica desligado e diz que é preciso Retomar antes, em vez de aceitar o pedido e parar calado.", "O Diagnóstico separa a recusa do update automático da busca sem resposta, e não mostra mais o aviso de Git Bash fora do Windows.", "Com a mesma conta em vários aparelhos, cada um fica com a sua parte do limite de busca do GitHub, sem estourar o limite de rajada.", "A revisão passa a ler corretamente um PR de outro repositório citado como dependência."]],
   ['2.71.16', ["Uma organização que a conta não consegue buscar deixa de esconder do admin os PRs pedidos a essa conta: eles voltam a aparecer na fila do aparelho, com o botão Revisar agora.", "O aviso de organização sem acesso sai uma vez no log, e não mais a cada ciclo."]],
