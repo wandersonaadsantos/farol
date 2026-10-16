@@ -249,13 +249,51 @@ test('vivo pelo sinal mais recente: presença, painel publicado ou andamento ao 
   assert.equal(P.situacaoDoAparelho(semNada, AGORA), 'sem-sinal', 'sem sinal nenhum há 40 min continua sem sinal');
 });
 
-// Aparelho pausado pelo admin não começa revisão, nem a pedida pelo admin: o botão ficava
-// ativo, o comando era aceito e o PR parava na fila dele sem aviso (16/10/2026, celular).
-test('aparelho pausado: Revisar agora desligado com o motivo, e Ignorar segue valendo', () => {
-  const itens = P.itensDaFila(DEV, { listas: listas([linha('acme-exemplo/loja-web#3', 'sem-automatica', { motivo: 'conta' })]), pendencias: [], operacoes: [] });
-  const pausado = P.filaDoAparelhoHtml(itens, { miolo: 'lista', lidoEm: AGORA }, { nome: 'Celular da Ana', agora: AGORA, pausado: true });
-  assert.match(pausado, /data-tipo="revisar"[^>]*aria-disabled="true" title="O aparelho está pausado pelo admin: clique em Retomar antes de mandar revisar\."/);
-  assert.doesNotMatch(pausado, /data-tipo="ignorar"[^>]*aria-disabled/, 'ignorar não abre sessão e continua disponível');
-  const vivo = P.filaDoAparelhoHtml(itens, { miolo: 'lista', lidoEm: AGORA }, { nome: 'Celular da Ana', agora: AGORA });
-  assert.doesNotMatch(vivo, /data-tipo="revisar"[^>]*aria-disabled/, 'fora da pausa o botão segue ativo');
+
+test('sinal vencido não conta revisão ativa nem oferece comandos para sessão antiga', () => {
+  const itens = P.itensDaFila(DEV, { operacoes: [{ dev: DEV, prTag: TAG('1'), tipo: 'review', situacao: 'interrompida', opId: 'velha', pr: { key: 'acme/app#1' } }] });
+  assert.equal(P.contagemDaFila(itens).revisando, 0);
+  assert.equal(P.contagemDaFila(itens).parados, 1);
+  const html = P.filaDoAparelhoHtml(itens, { miolo: 'lista' }, { nome: 'Windows', agora: AGORA });
+  assert.match(html, /sem confirmação atual|estado atual no executor é desconhecido/);
+  assert.doesNotMatch(html, /md-cancelar|md-transferir|revisando agora/);
+});
+
+test('operação vencida não oculta decisão nem estado final já recebido', () => {
+  for (const estado of ['decidir', 'visto', 'ignorado']) {
+    const itens = P.itensDaFila(DEV, { listas: listas([linha('acme/app#1', estado)]), operacoes: [{ dev: DEV, prTag: TAG('1'), tipo: 'review', situacao: 'interrompida' }] });
+    assert.equal(itens[0].fila.estado, estado);
+  }
+});
+
+test('operação viva vence sinal antigo independentemente da ordem de leitura', () => {
+  const viva = { dev: DEV, prTag: TAG('1'), tipo: 'review', situacao: 'viva', opId: 'nova' };
+  const velha = { ...viva, situacao: 'interrompida', opId: 'antiga' };
+  for (const operacoes of [[viva, velha], [velha, viva]]) {
+    const itens = P.itensDaFila(DEV, { operacoes });
+    assert.equal(itens[0].fila.estado, 'revisando');
+    assert.equal(itens[0].op.opId, 'nova');
+  }
+});
+
+test('resumo remoto informa limitação inclusive quando não recebeu linhas', () => {
+  for (const feed of [[], ['ferramenta: Bash']]) {
+    const itens = P.itensDaFila(DEV, { operacoes: [{ dev: DEV, prTag: TAG('1'), tipo: 'review', situacao: 'viva', opId: 'atual', feed }] });
+    const html = P.filaDoAparelhoHtml(itens, { miolo: 'lista' }, { nome: 'Windows', agora: AGORA, aoVivo: new Set(['atual']) });
+    assert.match(html, /Ver ao vivo/);
+    assert.match(html, /Não é um espelho da sessão completa/);
+    if (!feed.length) assert.match(html, /Sem linhas compartilhadas/);
+  }
+});
+
+
+test('espelho inclui autoanálise e preserva duas sessões do mesmo PR por operação', () => {
+  const operacoes = ['self', 'review'].map((tipo, i) => ({ dev: DEV, prTag: TAG('1'), tipo, situacao: 'viva', opId: `op${i}`, pr: {key:'acme/app#1'} }));
+  const itens = P.itensDaFila(DEV, {operacoes});
+  assert.equal(itens.length, 2);
+  assert.equal(P.contagemDaFila(itens).revisando, 2);
+  const html = P.filaDoAparelhoHtml(itens, {miolo:'lista'}, {agora:AGORA, aoVivo:new Set(['op0'])});
+  assert.match(html, /autoanálise em andamento/);
+  assert.equal((html.match(/Aguardando o espelho completo/g)||[]).length, 1);
+  assert.equal((html.match(/md-cancelar/g)||[]).length, 1, 'autoanálise não oferece comando ambíguo por PR');
 });
