@@ -126,7 +126,7 @@ const OP = { opId: 'op1', dev: 'dOutro', aparelho: 'Desktop antigo', t0: AGORA, 
 
 function filaDe({ pendencias = [], operacoes = [], ctx = {} } = {}) {
   const itens = P.itensDaFila('dOutro', { pendencias, operacoes });
-  return P.filaDoAparelhoHtml(itens, { miolo: 'lista', lidoEm: AGORA }, { nome: 'Desktop antigo', agora: AGORA, aoVivo: new Set(['a'.repeat(32)]), ...ctx });
+  return P.filaDoAparelhoHtml(itens, { miolo: 'lista', lidoEm: AGORA }, { nome: 'Desktop antigo', agora: AGORA, aoVivo: new Set(['op1']), ...ctx });
 }
 
 test('pendência na fila: veredito, motivos contados e por extenso, e decidir para o admin', () => {

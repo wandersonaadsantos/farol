@@ -1,3 +1,4 @@
+import { espelhoDaSessaoHtml } from './espelho.js';
 // A fila de um aparelho executor, vista do admin (controle do celular, 28/09/2026). PURA.
 // Desenho: docs/superpowers/specs/2026-09-28-controle-do-celular-anexos/HANDOFF-claude-design.md.
 //
@@ -27,9 +28,9 @@ const FRASE_ESPERA_CI = 'aprovável, esperando o CI obrigatório: o aparelho apr
 const GRUPOS = [
   { id: 'pedem', titulo: 'Pedem você', sub: 'O aparelho revisou e espera sua decisão.' },
   { id: 'ci', titulo: 'Esperando o CI (aprova sozinho)', sub: 'Não precisam de você: o aparelho aprova quando o CI fechar verde.' },
-  { id: 'revisando', titulo: 'Revisando agora', sub: 'Ao vivo, atualiza a cada 10 s.' },
+  { id: 'revisando', titulo: 'Revisando agora', sub: 'Sessões do executor, sincronizadas a cada 10 s.' },
   { id: 'fila', titulo: 'Na fila', sub: 'Ainda não começaram.' },
-  { id: 'parados', titulo: 'Parados', sub: 'Não andam sozinhos. Cada um diz o porquê.' },
+  { id: 'parados', titulo: 'Parados', sub: 'Bloqueados ou sem confirmação atual. Cada um diz o porquê.' },
   { id: 'feitos', titulo: 'Revisados e ignorados', sub: 'Saíram da fila.' },
 ];
 const FILTROS = [['tudo', 'Tudo'], ['pedem', 'Pedem você'], ['ci', 'Esperando o CI'], ['revisando', 'Revisando'], ['fila', 'Na fila'], ['parados', 'Parados'], ['feitos', 'Feitos']];
@@ -37,12 +38,12 @@ const FILTROS = [['tudo', 'Tudo'], ['pedem', 'Pedem você'], ['ci', 'Esperando o
 const GRUPO_DO_ESTADO = {
   decidir: 'pedem', revisando: 'revisando',
   esperando: 'fila', 'sem-automatica': 'fila', retry: 'fila',
-  estacionado: 'parados', 'saiu-de-cena': 'parados', 'limite-plano': 'parados', 'espera-grupo': 'parados',
+  'sem-confirmacao': 'parados', estacionado: 'parados', 'saiu-de-cena': 'parados', 'limite-plano': 'parados', 'espera-grupo': 'parados',
   visto: 'feitos', ignorado: 'feitos',
 };
 
 const CHIP = {
-  decidir: ['warn', 'decidir'], revisando: ['info', 'revisando'], esperando: ['mute', 'esperando'],
+  'sem-confirmacao': ['warn', 'sem confirmação atual'], decidir: ['warn', 'decidir'], revisando: ['info', 'revisando'], esperando: ['mute', 'esperando'],
   'sem-automatica': ['warn', 'sem automática'], retry: ['info', 'nova tentativa'],
   estacionado: ['bad', 'estacionado'], 'saiu-de-cena': ['mute', 'saiu de cena'],
   'limite-plano': ['mute', 'limite do plano'], 'espera-grupo': ['mute', 'espera do grupo'],
@@ -100,13 +101,36 @@ function motivoDaPendencia(p) {
   return p.espera === 'ci' ? ESPERA_CI : '';
 }
 
+function itemDaSessao(op) {
+  return itemDoPr(op.pr, op.prTag, { op, fila: { estado: 'revisando', motivo: '' } });
+}
+
+function sobreporSessoesVivas(porTag, ops) {
+  const extras = [], ocupadas = new Set();
+  for (const o of ops.filter((op) => op.situacao !== 'interrompida')) {
+    if (ocupadas.has(o.prTag)) {
+      extras.push(itemDaSessao(o));
+      continue;
+    }
+    sobrepor(porTag, o, 'op', 'revisando');
+    ocupadas.add(o.prTag);
+  }
+  return extras;
+}
+
 export function itensDaFila(dev, { listas, pendencias, operacoes } = {}) {
   const porTag = new Map(linhasDoAparelho(listas, dev).map((it) => [it.prTag, it]));
   const pends = lista(pendencias).filter((p) => p && p.dev === dev && p.prTag && !p.visto);
-  const ops = lista(operacoes).filter((o) => o && o.dev === dev && o.prTag && o.tipo !== 'self');
+  const ops = lista(operacoes).filter((o) => o && o.dev === dev && o.prTag);
   for (const p of pends) sobrepor(porTag, p, 'pend', 'decidir', motivoDaPendencia(p));
-  for (const o of ops) sobrepor(porTag, o, 'op', 'revisando');
-  return [...porTag.values()];
+  // Um sinal vencido não pode esconder uma decisão ou anunciar execução atual.
+  for (const o of ops.filter((op) => op.situacao === 'interrompida')) {
+    const atual = porTag.get(o.prTag);
+    if (atual && ['decidir', 'visto', 'ignorado'].includes(atual.fila?.estado)) continue;
+    sobrepor(porTag, o, 'op', 'sem-confirmacao');
+  }
+  const extras = sobreporSessoesVivas(porTag, ops);
+  return [...porTag.values(), ...extras];
 }
 
 function esperaOCi(f) {
@@ -159,7 +183,7 @@ function fraseDaPendencia(p, f) {
 function fraseDoItem(item, agora) {
   const f = item.fila || {};
   if (f.estado === 'decidir' && item.pend) return fraseDaPendencia(item.pend, f);
-  if (f.estado === 'revisando' && item.op) return `revisando agora: ${resumoDaOperacao(item.op)}`;
+  if (f.estado === 'revisando' && item.op) return `${item.op.tipo === 'self' ? 'autoanálise em andamento' : 'revisando agora'}: ${resumoDaOperacao(item.op)}`;
   return FRASE[f.estado] ? FRASE[f.estado](item, f, agora) : '';
 }
 
@@ -179,6 +203,7 @@ function fraseDecidir(it, f) {
 }
 
 const FRASE = {
+  'sem-confirmacao': () => 'o sinal da sessão venceu; o estado atual no executor é desconhecido',
   revisando: () => 'revisando agora',
   decidir: fraseDecidir,
   esperando: () => 'na fila, a revisão automática vai pegar',
@@ -204,6 +229,7 @@ const ACOES = {
   ignorado: [['restaurar', 'Restaurar']],
 };
 const SEM_ACAO = {
+  'sem-confirmacao': () => 'aguardando um sinal atual do aparelho; não há prova de execução nem de término',
   'limite-plano': (f) => (f.ate ? `sem ação até o reset, às ${fmtClock(f.ate)}` : 'sem ação até o reset do plano'),
   'espera-grupo': () => 'sem ação: sai sozinho quando o grupo liberar',
 };
@@ -236,7 +262,8 @@ function motivoSemTransferir(o, ctx) {
 
 function acoesDaSessao(item, ctx) {
   const o = item.op;
-  const vivo = botao('ap-ao-vivo', 'Ver ao vivo', ` data-tag="${esc(item.prTag)}"`, '', item);
+  const vivo = botao('ap-ao-vivo', 'Ver ao vivo', ` data-op="${esc(o.opId)}" data-tag="${esc(item.prTag)}"`, '', item);
+  if (o.tipo === 'self') return vivo; // comandos atuais são por PR; não distinguem duas sessões
   const transferir = botao('md-transferir', 'Transferir', ` data-op="${esc(o.opId)}"`, motivoSemTransferir(o, ctx), item);
   return `${vivo}${transferir}${botao('md-cancelar', 'Cancelar', ` data-op="${esc(o.opId)}"`, ctx.desligadoBase, item)}`;
 }
@@ -259,11 +286,14 @@ function acoesDoItem(item, ctx) {
   }).join('');
 }
 
-// o mesmo feed que o aparelho dono mostra: as 6 últimas linhas e o resto recolhido
+// Resumo limitado publicado pelo executor; não é o feed completo da sessão local.
 function aoVivoHtml(item, aberto) {
   if (!aberto || !item.op) return '';
   const feed = feedDaOperacaoHtml(item.op.feed);
-  return feed ? `<div class="fila-ao-vivo">${feed}</div>` : '';
+  if (item.op.espelho?.estado === 'completo') return `<div class="fila-ao-vivo">${espelhoDaSessaoHtml(item.op)}</div>`;
+  const espelho = espelhoDaSessaoHtml(item.op);
+  const aviso = '<p class="section-sub">Resumo remoto limitado: mostra até 12 linhas de sistema e nomes de ferramentas. As descrições dos comandos e as mensagens do Claude ficam no aparelho executor. Não é um espelho da sessão completa.</p>';
+  return `<div class="fila-ao-vivo">${espelho}${aviso}${feed || '<p>Sem linhas compartilhadas nesta leitura.</p>'}</div>`;
 }
 
 // o que só existe no item de pendência ou de sessão: os motivos por extenso e o nó vencido
@@ -296,7 +326,7 @@ function itemHtml(item, ctx) {
       <div class="pr-ref">${pr}${conta}</div>
       ${titulo}${sub}
       <div class="fila-estado"><span class="sync-chip ${classe}">${esc(rotulo)}</span><span>${esc(frase)}</span></div>
-      ${detalheDoItem(item)}${aoVivoHtml(item, ctx.aoVivo && ctx.aoVivo.has(item.prTag))}${retorno}
+      ${detalheDoItem(item)}${aoVivoHtml(item, ctx.aoVivo && ctx.aoVivo.has(item.op?.opId || item.prTag))}${retorno}
     </div>
     <div class="pr-actions">${acoesDoItem(item, ctx)}</div>
   </article>`;
@@ -316,7 +346,7 @@ const MIOLO = {
   antiga: (nome, s, versao) => `<div class="fila-antiga"><b>Atualize o Farol no ${esc(nome)}</b><p>Este aparelho está na versão ${esc(versao || 'antiga')}, que ainda não publica a fila nem aceita os comandos novos do admin. Por isso não há fila para mostrar aqui, e não é que ela esteja vazia. Atualize no próprio aparelho; depois disso a fila aparece sozinha.</p></div>`,
 };
 
-// `ctx`: { nome, filtro, desligado, semSinal, pausado, executores, agora, versao, aoVivo:Set,
+// `ctx`: { nome, filtro, desligado, semSinal, executores, agora, versao, aoVivo:Set,
 // retornoDe(prTag)->html, pendenteDe(prTag)->bool }
 export function filaDoAparelhoHtml(itens, situacao, ctx) {
   const c = ctx || {};
