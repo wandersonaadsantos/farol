@@ -155,6 +155,8 @@ test('aprovação reconfirma base, objeções, declaração e CI na fronteira co
     e.bloqueadoPorChecks = async () => ({ verifiedHead: head, faltando: [] });
     receipt.evidence = approvalGaps(result({ analysisStatus: 'partial' }));
     assert.equal((await approvalRefusal(e, pr, payload)).blocked, 'technical_review', 'o clique não libera análise incompleta');
+    receipt.evidence = {};
+    assert.equal((await approvalRefusal(e, pr, payload)).blocked, 'technical_review', 'prova persistida inválida vira recusa identificável');
     receipt.evidence = [];
     technicalRuntime.reviewSnapshot = async () => ({ fingerprint: 'changed' });
     assert.equal((await approvalRefusal(e, pr, payload)).blocked, 'technical_review');
@@ -180,11 +182,20 @@ test('ferramenta indisponível é inconclusiva e não interrompe a análise de c
 });
 
 test('projeção mostra resultado técnico sem expor catálogo ou achados privados', () => {
-  const ui = decisionForUi({ technicalReview: report(), verdict: 'approve' });
+  const ui = decisionForUi({ technicalReview: report(), approvalEvidence: [], verdict: 'approve' });
   assert.equal(ui.technical.state, 'pass');
   assert.equal(ui.technicalReview, undefined);
   assert.equal(ui.technical.catalogFingerprint, undefined);
   assert.match(technicalSummary(report({ verdict: 'fail' })).message, /violação/);
+  const partial = decisionForUi({ technicalReview: report(), approvalEvidence: ['análise incompleta'], verdict: 'approve' });
+  assert.equal(partial.technical.state, 'pending');
+  assert.match(partial.technical.message, /análise incompleta/);
+  assert.equal(decisionForUi({ technicalReview: report() }).technical.state, 'pending');
+  assert.equal(decisionForUi({ technicalReview: report(), approvalEvidence: ['ci_em_andamento'] }).technical.state, 'pass');
+  assert.equal(decisionForUi({ technicalReview: report({ rules: {} }), approvalEvidence: [] }).technical.state, 'pending');
+  assert.equal(decisionForUi({ technicalReview: report({ rules: [null] }), approvalEvidence: [] }).technical.state, 'pending');
+  assert.equal(technicalSummary(report({ toolCommit: 'antigo', verdict: 'fail' })).state, 'pending');
+  assert.equal(technicalSummary(report({ verdict: 'fail' })).state, 'violation');
 });
 
 const toolHome = path.join(os.homedir(), '.farol', 'toolchains', `eng-behaviour@${TOOL.version}`);

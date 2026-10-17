@@ -117,6 +117,20 @@ test('staleCardMeta: commit novo vence a espera do CI, e card sem espera não mu
   assert.match(comum.verdictHtml, /APROVÁVEL/);
 });
 
+test('card pendente e espera legada não anunciam prontidão sem prova técnica', () => {
+  for (const [state, expected] of [['pending', 'VERIFICAÇÃO PENDENTE'], ['violation', 'BLOQUEIO TÉCNICO']]) {
+    const technical = { state, message: 'Prova necessária não comprovada.' };
+    for (const esperaCi of [undefined, { desde: 1, checks: [] }]) {
+      const meta = P.staleCardMeta({ verdict: 'approve', technical, esperaCi });
+      assert.match(meta.verdictHtml, new RegExp(expected));
+      assert.doesNotMatch(meta.verdictHtml, /APROVÁVEL|ESPERANDO O CI/);
+      assert.equal(meta.approveDisabled, true);
+    }
+  }
+  assert.match(P.staleCardMeta({ verdict: 'approve', technical: { state: 'pass' } }).verdictHtml, /APROVÁVEL/);
+  assert.equal(P.staleCardMeta({ verdict: 'approve', technical: { state: 'pass' } }).approveDisabled, false);
+});
+
 test('reviewBoxHtml: a caixa da revisão em espera do CI não diz "precisa de você"', () => {
   const html = P.reviewBoxHtml(esperando());
   assert.match(html, /Esperando o CI para aprovar sozinho/);

@@ -167,14 +167,27 @@ export function separarPendentes(pending) {
 // Farol aprova sozinho quando o CI fechar verde neste commit. O clique também espera
 // os checks obrigatórios. O motivo com os checks já vem em
 // `reasons`; a caixa só diz o que acontece agora.
+const TECHNICAL_LABEL = {
+  violation: { title: 'Bloqueio técnico', cls: 'rc' },
+  pending: { title: 'Verificação pendente', cls: 'pending' },
+};
+const technicalLabel = d => TECHNICAL_LABEL[d?.technical?.state];
+
 export function esperaCiCardMeta(d) {
+  const label = technicalLabel(d);
   const st = {
     tom: 'info', icone: 'hourglass',
     lead: 'Esperando o CI obrigatório.',
     texto: 'Aprovo sozinho quando ele fechar verde neste commit; com CI vermelho não aprovo. Se chegar commit novo, reviso de novo. Você não precisa fazer nada. A aprovação manual também exige os checks obrigatórios verdes.',
   };
+  let verdictHtml = '<span class="verdict approve">ESPERANDO O CI</span>';
+  if (label) {
+    st.lead = label.title;
+    st.texto = d.technical.message || 'A aprovação exige avaliação técnica suficiente e checks obrigatórios verdes.';
+    verdictHtml = `<span class="verdict ${label.cls}">${esc(label.title.toUpperCase())}</span>`;
+  }
   return {
-    stale: false, cardClass: 'working', verdictHtml: '<span class="verdict approve">ESPERANDO O CI</span>',
+    stale: false, cardClass: 'working', approveDisabled: true, verdictHtml,
     reasons: Array.isArray(d.reasons) ? d.reasons : [], statusHtml: reRoundBoxHtml(st), reviewBtn: '',
   };
 }
@@ -187,9 +200,11 @@ export function staleCardMeta(d, r) {
   const stale = !!(d && d.blockedKind === 'stale_head');
   if (!stale && d && d.esperaCi) return esperaCiCardMeta(d);
   const legado = d && d.blockedReason ? `<div class="dec-blocked">🚫 <span><b>Bloqueado:</b> ${esc(d.blockedReason)}</span></div>` : '';
-  const verdictComum = d && d.verdict === 'approve' ? '<span class="verdict approve">APROVÁVEL</span>' : '<span class="verdict rc">COM BLOCKER</span>';
+  let verdictComum = d && d.verdict === 'approve' ? '<span class="verdict approve">APROVÁVEL</span>' : '<span class="verdict rc">COM BLOCKER</span>';
+  const label = technicalLabel(d);
+  if (label) verdictComum = `<span class="verdict ${label.cls}">${esc(label.title.toUpperCase())}</span>`;
   if (!stale) {
-    return { stale, cardClass: d && d.verdict === 'approve' ? 'urgent' : 'blocked', verdictHtml: verdictComum, reasons, statusHtml: legado, reviewBtn: '' };
+    return { stale, approveDisabled: !!label, cardClass: d && d.verdict === 'approve' ? 'urgent' : 'blocked', verdictHtml: verdictComum, reasons, statusHtml: legado, reviewBtn: '' };
   }
   const st = reRoundStatus(r, d);
   if (!st) return { stale, cardClass: d.verdict === 'approve' ? 'urgent' : 'blocked', verdictHtml: verdictComum, reasons, statusHtml: legado, reviewBtn: 'primary' };
@@ -210,11 +225,11 @@ export function reviewBoxHtml(d) {
   if (!d) return `<div class="empty">Nenhuma revisão registrada pra este PR no histórico do Farol.</div>`;
   let v = VERDICT_LABEL[d.verdict] || d.verdict || 'sem veredito';
   let cls = d.verdict === 'approve' ? 'approve' : 'rc';
-  if (d.technical?.state === 'violation') { v = 'Bloqueio técnico'; cls = 'rc'; }
-  if (d.technical?.state === 'pending') { v = 'Verificação pendente'; cls = 'pending'; }
+  const label = technicalLabel(d);
+  if (label) { v = label.title; cls = label.cls; }
   const autor = (d.pr && d.pr.author) || d.author || '';
   const razoes = Array.isArray(d.reasons) ? d.reasons : [];
-  const titulo = d.esperaCi ? 'Esperando o CI para aprovar sozinho' : 'Por que precisa de você';
+  const titulo = d.esperaCi && !label ? 'Esperando o CI para aprovar sozinho' : 'Por que precisa de você';
   return `<div class="review-box">
     <div class="review-box-head">
       <span class="verdict ${cls}">${esc(v)}</span>
