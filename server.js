@@ -65,7 +65,7 @@ import skipMod from './lib/engine/skip-review.js';
 import destravaMod from './lib/engine/destrava.js';
 import vistosMod from './lib/engine/vistos-reconciliacao.js';
 import checksMod from './lib/engine/checks-exigidos.js';
-import esperaCiMod from './lib/engine/espera-ci.js';
+import esperaProvaMod from './lib/engine/espera-prova.js';
 import signalMod from './lib/engine/review-signal.js';
 import usageMod from './lib/engine/usage.js';
 import falhasMod from './lib/engine/falhas.js';
@@ -903,8 +903,10 @@ class Engine extends EventEmitter {
       // do reconcilePending de propósito, pra nunca reenviar em cima de uma pendência que
       // já foi atendida por fora nesse mesmo ciclo.
       // aprovação que esperava o CI obrigatório sai sozinha quando ele fecha verde no mesmo
-      // head (lib/engine/espera-ci.js): antes do reenvio, que assume a postagem que falhar aqui
-      try { await this.aprovarQuandoOCiFechar(); } catch (e) { this.log('WARN', `espera do CI: ${e.message}`); }
+      // head (lib/engine/espera-ci.js): antes do reenvio, que assume a postagem que falhar aqui.
+      // Na mesma varredura, a que esperava a prova técnica revisa de novo sozinha quando o PR
+      // muda (lib/engine/espera-prova.js, 17/10/2026), sem nunca postar com lacuna
+      try { await this.varrerEsperas(); } catch (e) { this.log('WARN', `esperas automáticas: ${e.message}`); }
       try { await this.retryFailedPosts(); } catch (e) { this.log('WARN', `retryFailedPosts: ${e.message}`); }
       // pushback automático: contestação do autor a um review meu (fire-and-forget:
       // roda em background pra não segurar a checagem, com guarda anti-concorrência)
@@ -1521,7 +1523,7 @@ class Engine extends EventEmitter {
   async myReviewStates(pr, headSha) { return decisionMod.myReviewStates(this, pr, headSha); }
   async reconcilePending(keys) { return decisionMod.reconcilePending(this, keys); }
   async retryFailedPosts() { return decisionMod.retryFailedPosts(this); }
-  async aprovarQuandoOCiFechar() { return esperaCiMod.aprovarQuandoOCiFechar(this); }
+  async varrerEsperas() { return esperaProvaMod.varrerEsperas(this); }
   shouldAutoApprove(pr, result) { return decisionMod.shouldAutoApprove(this, pr, result); }
   shouldAutoReject(pr, result) { return decisionMod.shouldAutoReject(this, pr, result); }
   rejectBodyWithMark(body) { return decisionMod.rejectBodyWithMark(this, body); }

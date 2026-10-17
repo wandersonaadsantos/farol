@@ -38,7 +38,10 @@ test('o gate não tem mais motivo que mande um aprovável para a mesa por fora d
 });
 
 test('os dois motivos do CI são espera automática, tratada pelo espera-ci.js', () => {
-  assert.match(REVIEW, /esperaCi\.armar\(autoDec\.motivo, result, pontos\)/);
+  // o funil das esperas (17/10/2026) passa primeiro pelo do CI, sem mudar o vocabulário dele
+  assert.match(REVIEW, /esperaProva\.armarEspera\(engine, pr, autoDec\.motivo, result, pontos\)/);
+  const FUNIL = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'engine', 'espera-prova.js'), 'utf8');
+  assert.match(FUNIL, /const ci = esperaCi\.armar\(motivo, result, pontos\);\n {2}if \(ci\) return/);
   const ESPERA = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'engine', 'espera-ci.js'), 'utf8');
   assert.match(ESPERA, /MOTIVOS_DE_ESPERA = \['ci_vermelho', 'ci_em_andamento'\]/);
 });

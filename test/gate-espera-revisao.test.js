@@ -152,10 +152,10 @@ test('check obrigatório ainda rodando: nada é postado, e o resultado fica ESPE
 
 test('CI fecha verde no mesmo head: a aprovação sai sozinha, ancorada no head lido, sem clique', async () => {
   const e = await emEspera(2);
-  assert.equal(await e.aprovarQuandoOCiFechar(), 0, 'pipe ainda rodando: segue esperando');
+  assert.equal(await e.varrerEsperas(), 0, 'pipe ainda rodando: segue esperando');
   assert.deepEqual(envios, []);
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
-  assert.equal(await e.aprovarQuandoOCiFechar(), 1);
+  assert.equal(await e.varrerEsperas(), 1);
   assert.equal(envios.length, 1, 'um APPROVE, e só um');
   assert.equal(envios[0].event, 'APPROVE');
   assert.equal(envios[0].commit_id, HEAD);
@@ -168,7 +168,7 @@ test('CI fecha verde no mesmo head: a aprovação sai sozinha, ancorada no head 
   assert.deepEqual(textos(r), [], 'o motivo da espera sai do registro');
   assert.deepEqual(e.eventos, [['auto-approved', 'acme/app#2', 0]]);
   assert.ok(e.toasts.some((t) => /o CI fechou verde e a aprovação saiu sozinha, sem ressalvas/.test(t)));
-  assert.equal(await e.aprovarQuandoOCiFechar(), 0, 'ciclo seguinte não tem o que fazer');
+  assert.equal(await e.varrerEsperas(), 0, 'ciclo seguinte não tem o que fazer');
   assert.equal(envios.length, 1, 'nunca posta duas vezes');
 });
 
@@ -176,7 +176,7 @@ test('CI VERMELHO: espera, nunca aprova por cima e nunca pede clique, por quanto
   const e = await emEspera(3, { checks: [{ nome: 'audit', estado: 'vermelho' }] });
   assert.match(textos(pendente(e, 3))[0], /check obrigatório vermelho no head \(audit\)/);
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'FAILURE')];
-  for (let ciclo = 0; ciclo < 5; ciclo++) assert.equal(await e.aprovarQuandoOCiFechar(), 0);
+  for (let ciclo = 0; ciclo < 5; ciclo++) assert.equal(await e.varrerEsperas(), 0);
   assert.deepEqual(envios, [], 'CI vermelho nunca vira APPROVE');
   assert.ok(pendente(e, 3).esperaCi, 'segue esperando');
   assert.deepEqual(e.eventos, [], 'e segue sem pedir você');
@@ -185,14 +185,14 @@ test('CI VERMELHO: espera, nunca aprova por cima e nunca pede clique, por quanto
   assert.equal(chamadas - e.chamadasAntes, 6);
   // a pipe foi relançada e fechou: a rodada mais recente do check é a que vale
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'FAILURE'), { ...check('audit', 'SUCCESS'), startedAt: '2026-09-30T13:00:00Z' }];
-  assert.equal(await e.aprovarQuandoOCiFechar(), 1);
+  assert.equal(await e.varrerEsperas(), 1);
   assert.equal(envios.length, 1);
 });
 
 test('o card acompanha a pipe: rodando vira vermelho, e continua sendo espera', async () => {
   const e = await emEspera(4);
   gh.rollup = [check('test', 'FAILURE'), check('audit', 'SUCCESS')];
-  await e.aprovarQuandoOCiFechar();
+  await e.varrerEsperas();
   const d = pendente(e, 4);
   assert.deepEqual(d.esperaCi.checks, [{ nome: 'test', estado: 'vermelho' }]);
   assert.equal(textos(d).filter((t) => /check obrigatório/.test(t)).length, 1, 'um motivo de CI só, trocado e não empilhado');
@@ -204,14 +204,14 @@ test('head andou durante a espera: NÃO posta, larga a espera e devolve o PR ao 
   const e = await emEspera(5);
   gh.head = HEAD_NOVO;
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
-  assert.equal(await e.aprovarQuandoOCiFechar(), 0);
+  assert.equal(await e.varrerEsperas(), 0);
   assert.deepEqual(envios, [], 'CI verde no head NOVO não aprova o texto do head antigo');
   const d = pendente(e, 5);
   assert.equal(d.esperaCi, null);
   assert.equal(d.blockedKind, 'stale_head', 'é o carimbo que o round automático (reReviewTargets) destrava');
   assert.equal(d.blockedHead, HEAD_NOVO);
   assert.match(textos(d)[0], /commit novo enquanto a aprovação esperava o CI \(706cc81 -> b8722a3\)/);
-  assert.equal(await e.aprovarQuandoOCiFechar(), 0, 'e a espera não volta');
+  assert.equal(await e.varrerEsperas(), 0, 'e a espera não volta');
   assert.equal(leiturasDoCi, 1, 'pendência sem espera não custa leitura');
 });
 
@@ -219,18 +219,18 @@ test('leitura que falha NÃO libera: sem prova do CI e do head, espera o próxim
   const e = await emEspera(6);
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
   gh.leituraFalha = true;
-  assert.equal(await e.aprovarQuandoOCiFechar(), 0);
+  assert.equal(await e.varrerEsperas(), 0);
   gh.leituraFalha = false;
   gh.rollup = null;
-  assert.equal(await e.aprovarQuandoOCiFechar(), 0, 'rollup ilegível não é CI verde');
+  assert.equal(await e.varrerEsperas(), 0, 'rollup ilegível não é CI verde');
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
   gh.exigidos = { message: 'Not Found' };
   e.checksExigidosCache = new Map();
-  assert.equal(await e.aprovarQuandoOCiFechar(), 0, 'exigência da branch desconhecida não é CI verde');
+  assert.equal(await e.varrerEsperas(), 0, 'exigência da branch desconhecida não é CI verde');
   assert.deepEqual(envios, []);
   assert.ok(pendente(e, 6).esperaCi, 'continua esperando, sem ir para a mesa');
   gh.exigidos = ['test', 'audit'];
-  assert.equal(await e.aprovarQuandoOCiFechar(), 1);
+  assert.equal(await e.varrerEsperas(), 1);
 });
 
 test('com ressalvas e conta que aprova com ressalvas: espera o CI e aprova, com a ressalva visível', async () => {
@@ -238,7 +238,7 @@ test('com ressalvas e conta que aprova com ressalvas: espera o CI e aprova, com 
   const d = pendente(e, 7);
   assert.equal(d.esperaCi.pontos.length, 1);
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
-  assert.equal(await e.aprovarQuandoOCiFechar(), 1);
+  assert.equal(await e.varrerEsperas(), 1);
   assert.equal(envios.length, 1);
   const r = resolvida(e, 7);
   assert.deepEqual(r.attention.map((p) => p.text), ['vale olhar a validação do upload']);
@@ -254,7 +254,7 @@ test('conta que manda esperar você: vai para a mesa pela POLÍTICA, não entra 
   assert.ok(textos(d).includes('ressalva da revisão'));
   assert.deepEqual(e.eventos, [['needs-decision', 'acme/app#8']]);
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
-  assert.equal(await e.aprovarQuandoOCiFechar(), 0);
+  assert.equal(await e.varrerEsperas(), 0);
   assert.deepEqual(envios, [], 'a política mandou esperar você: CI verde não aprova');
   assert.equal(leiturasDoCi, 0);
 });
@@ -263,7 +263,7 @@ test('a política mudou para "esperar você" durante a espera: larga a espera e 
   const e = await emEspera(9);
   e.politica = ['wait', 'wait'];
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
-  assert.equal(await e.aprovarQuandoOCiFechar(), 0);
+  assert.equal(await e.varrerEsperas(), 0);
   assert.deepEqual(envios, []);
   const d = pendente(e, 9);
   assert.equal(d.esperaCi, null);
@@ -280,7 +280,7 @@ test('round 2: a conta não está mais em reviewRequests e a aprovação sai do 
   const e = await emEspera(10);
   gh.pedidos = [{ __typename: 'User', login: 'outra-pessoa' }];
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
-  assert.equal(await e.aprovarQuandoOCiFechar(), 1);
+  assert.equal(await e.varrerEsperas(), 1);
   assert.equal(envios.length, 1, 'o APPROVE saiu');
   assert.equal(pendente(e, 10), undefined);
 });
@@ -289,7 +289,7 @@ test('PR fechado ou mergeado na espera: não posta (quem tira a pendência é o 
   const e = await emEspera(11);
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
   gh.state = 'MERGED';
-  assert.equal(await e.aprovarQuandoOCiFechar(), 0);
+  assert.equal(await e.varrerEsperas(), 0);
   assert.deepEqual(envios, []);
   assert.equal(await e.reconcilePending(), 1);
   assert.equal(resolvida(e, 11).status, 'already_merged');
@@ -299,7 +299,7 @@ test('você aprovou por fora durante a espera: resolve sem postar de novo', asyn
   const e = await emEspera(12);
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
   gh.meusReviews = [{ state: 'APPROVED', submitted_at: '2026-09-30T12:30:00Z', commit_id: HEAD }];
-  assert.equal(await e.aprovarQuandoOCiFechar(), 1);
+  assert.equal(await e.varrerEsperas(), 1);
   assert.deepEqual(envios, []);
   assert.equal(resolvida(e, 12).status, 'already_reviewed');
 });
@@ -311,7 +311,7 @@ test('o clique em Aprovar continua valendo durante a espera', async () => {
   assert.equal(envios.length, 1);
   assert.equal(resolvida(e, 13).status, 'posted');
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
-  assert.equal(await e.aprovarQuandoOCiFechar(), 0);
+  assert.equal(await e.varrerEsperas(), 0);
   assert.equal(envios.length, 1, 'a espera morreu junto com a pendência');
 });
 
@@ -321,7 +321,7 @@ test('a espera sobrevive a reinício: a marca vai gravada na decisão', async ()
   const depois = motor([]);
   depois.decisions = disco;
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
-  assert.equal(await depois.aprovarQuandoOCiFechar(), 1);
+  assert.equal(await depois.varrerEsperas(), 1);
   assert.equal(envios.length, 1);
   assert.equal(envios[0].commit_id, HEAD);
 });
@@ -330,7 +330,7 @@ test('a postagem falhou depois do CI verde: passageira vai para o reenvio de sem
   const e = await emEspera(15);
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
   gh.postFalha = 'gh: No server is currently available to service your request. Sorry about that. (HTTP 503)';
-  assert.equal(await e.aprovarQuandoOCiFechar(), 0);
+  assert.equal(await e.varrerEsperas(), 0);
   const d = pendente(e, 15);
   assert.equal(d.esperaCi, null);
   assert.deepEqual(d.postRetry, { event: 'approve', attempts: 0 }, 'o retryFailedPosts assume');
@@ -343,7 +343,7 @@ test('a postagem falhou depois do CI verde: passageira vai para o reenvio de sem
 
   const f = await emEspera(16);
   gh.postFalha = 'gh: Resource not accessible by personal access token (HTTP 403)';
-  assert.equal(await f.aprovarQuandoOCiFechar(), 0);
+  assert.equal(await f.varrerEsperas(), 0);
   const p = pendente(f, 16);
   assert.equal(p.esperaCi, null);
   assert.equal(p.postRetry, null);
@@ -362,10 +362,10 @@ const review = (quem, state, extra = {}) => ({ quem, tipo: 'User', state, commit
 test('uma pessoa pediu mudanças no mesmo commit durante a espera: NÃO aprova por cima, vai para a mesa dizendo isso', async () => {
   const e = await emEspera(20);
   gh.reviewsAlheios = [review('ana', 'CHANGES_REQUESTED')];
-  for (let ciclo = 0; ciclo < 3; ciclo++) assert.equal(await e.aprovarQuandoOCiFechar(), 0);
+  for (let ciclo = 0; ciclo < 3; ciclo++) assert.equal(await e.varrerEsperas(), 0);
   assert.equal(leiturasDeReviewsAlheios, 0, 'com a pipe ainda rodando, nenhuma leitura de reviews: o custo é só na hora do post');
   gh.rollup = VERDE();
-  assert.equal(await e.aprovarQuandoOCiFechar(), 0);
+  assert.equal(await e.varrerEsperas(), 0);
   assert.deepEqual(envios, [], 'nenhum APPROVE por cima do pedido de mudanças');
   assert.equal(leiturasDeReviewsAlheios, 1);
   const d = pendente(e, 20);
@@ -376,7 +376,7 @@ test('uma pessoa pediu mudanças no mesmo commit durante a espera: NÃO aprova p
   assert.match(e.decisionForUi(d).reasons[0].text, /uma pessoa pediu mudanças neste commit enquanto eu esperava o CI/, 'o texto chega à tela como foi escrito');
   assert.deepEqual(e.eventos, [['needs-decision', 'acme/app#20']]);
   assert.equal(e.toasts.filter((t) => /acme\/app#20 precisa da sua atenção/.test(t)).length, 1, 'um toast só');
-  assert.equal(await e.aprovarQuandoOCiFechar(), 0, 'e não volta a tentar');
+  assert.equal(await e.varrerEsperas(), 0, 'e não volta a tentar');
   assert.deepEqual(envios, []);
   assert.equal(leiturasDeReviewsAlheios, 1);
 });
@@ -385,7 +385,7 @@ test('review de ferramenta (acrity) durante a espera não é pessoa: a aprovaç�
   const e = await emEspera(21);
   gh.rollup = VERDE();
   gh.reviewsAlheios = [review('acrity', 'CHANGES_REQUESTED'), review('acrity-review-bot', 'CHANGES_REQUESTED', { tipo: 'Bot' })];
-  assert.equal(await e.aprovarQuandoOCiFechar(), 1);
+  assert.equal(await e.varrerEsperas(), 1);
   assert.equal(envios.length, 1);
   assert.equal(resolvida(e, 21).status, 'auto_approved');
 });
@@ -394,12 +394,12 @@ test('uma aprovação de pessoa não segura (a automática vale como a segunda);
   const e = await emEspera(22);
   gh.rollup = VERDE();
   gh.reviewsAlheios = [review('ana', 'APPROVED')];
-  assert.equal(await e.aprovarQuandoOCiFechar(), 1);
+  assert.equal(await e.varrerEsperas(), 1);
   assert.equal(envios.length, 1);
 
   const f = await emEspera(23);
   gh.reviewsAlheios = [review('ana', 'APPROVED'), review('bia', 'APPROVED')];
-  assert.equal(await f.aprovarQuandoOCiFechar(), 0);
+  assert.equal(await f.varrerEsperas(), 0);
   assert.equal(envios.length, 1, 'nada novo postado');
   assert.match(textos(pendente(f, 23))[0], /o PR já tem duas aprovações de pessoas neste commit \(@ana, @bia\)/);
 });
@@ -408,7 +408,7 @@ test('pedido de mudanças em commit ANTERIOR não segura, e quem pediu e depois 
   const e = await emEspera(24);
   gh.rollup = VERDE();
   gh.reviewsAlheios = [review('ana', 'CHANGES_REQUESTED', { commit_id: HEAD_NOVO }), review('bia', 'CHANGES_REQUESTED'), review('bia', 'APPROVED')];
-  assert.equal(await e.aprovarQuandoOCiFechar(), 1);
+  assert.equal(await e.varrerEsperas(), 1);
   assert.equal(envios.length, 1);
 });
 
@@ -449,7 +449,7 @@ test('sem check pendente e sem ressalva, a aprovação automática segue saindo 
 test('check() roda a espera do CI depois do reconcilePending e antes do retryFailedPosts', () => {
   const fonte = fs.readFileSync(path.join(import.meta.dirname, '..', 'server.js'), 'utf8');
   const pend = fonte.indexOf('await this.reconcilePending();');
-  const espera = fonte.indexOf('await this.aprovarQuandoOCiFechar();');
+  const espera = fonte.indexOf('await this.varrerEsperas();');
   const retry = fonte.indexOf('await this.retryFailedPosts();');
   assert.ok(pend > 0 && pend < espera && espera < retry);
 });
@@ -495,7 +495,7 @@ test('desligar a espera antiga não dispensa a prova do CI', async () => {
   const e = await emEspera(33, { checks: [{ nome: 'audit', estado: 'vermelho' }] });
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'FAILURE')];
   e.config.aguardarCiParaAprovar = false;
-  assert.equal(await e.aprovarQuandoOCiFechar(), 0);
+  assert.equal(await e.varrerEsperas(), 0);
   assert.equal(envios.length, 0);
   assert.ok(pendente(e, 33).esperaCi);
 });
@@ -504,7 +504,7 @@ test('espera desligada não afrouxa o head: commit novo na espera continua larga
   const e = await emEspera(34);
   e.config.aguardarCiParaAprovar = false;
   gh.head = HEAD_NOVO;
-  assert.equal(await e.aprovarQuandoOCiFechar(), 0);
+  assert.equal(await e.varrerEsperas(), 0);
   assert.deepEqual(envios, []);
   assert.equal(pendente(e, 34).blockedKind, 'stale_head');
 });
@@ -548,9 +548,9 @@ test('consulta de CI que perde a prova imediatamente antes de postar mantém a e
   assert.ok(pendente(e, 501).esperaCi);
   assert.deepEqual(envios, []);
   gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
-  assert.equal(await e.aprovarQuandoOCiFechar(), 0);
+  assert.equal(await e.varrerEsperas(), 0);
   assert.ok(pendente(e, 501).esperaCi, 'a falha transitória da reconferência não larga a espera');
   e.postReview = originalPost;
-  assert.equal(await e.aprovarQuandoOCiFechar(), 1);
+  assert.equal(await e.varrerEsperas(), 1);
   assert.equal(envios.length, 1);
 });

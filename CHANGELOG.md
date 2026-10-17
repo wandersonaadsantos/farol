@@ -9,6 +9,19 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.72.3
+
+Com a aprovação automática ligada, um PR aprovável que ainda não tem a prova técnica completa deixa de esperar o seu clique.
+
+### Correções
+
+- Nada é aprovado sem a prova técnica, como antes. A diferença é o que vem depois: o PR sai de "Precisa de você" e fica esperando a prova, e o Farol revisa de novo sozinho quando chega commit novo, quando alguém revisa o PR ou quando a dependência citada é mergeada ou fechada.
+- Quando o que faltou é da própria revisão (cobertura, alcance, protocolo, verificação ou avaliação técnica), o Farol revisa de novo sozinho até duas vezes no mesmo commit; depois disso espera o PR mudar, sem voltar a pedir você.
+- Os outros aparelhos também mostram o PR como "esperando a prova", fora da contagem de "pedem você" e sem aviso de decisão.
+- Dependência mergeada ou review novo que chegam logo depois da revisão, antes da primeira conferência, também fazem o Farol revisar de novo.
+- Se a revisão relançada parar (cancelada, falha ou estacionada), o PR volta para "Precisa de você" com o motivo e o botão de revisar, em vez de ficar parado num card que dizia não precisar de você.
+- Com a coordenação entre aparelhos ligada, a revisão relançada no mesmo commit deixa de ser recusada pelo recibo da revisão anterior, que nada publicou.
+
 ## v2.72.2
 
 A aprovação passa a exigir admissibilidade técnica e provas atuais antes da preferência de publicação da conta.
