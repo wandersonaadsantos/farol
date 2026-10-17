@@ -425,17 +425,20 @@ test('dependência em aberto declarada pela revisão é ressalva: a conta que es
   assert.deepEqual(envios, []);
   const d = pendente(e, 17);
   assert.equal(d.esperaCi, undefined, 'dependência não é espera automática');
-  assert.match(textos(d)[0], /dependência necessária/);
+  assert.match(textos(d)[0], /aprovável com ressalvas/);
   assert.ok(textos(d).some((t) => /acme\/infra#189 ainda aberto/.test(t)), JSON.stringify(d.reasons));
 });
 
-test('dependência necessária impede aprovação mesmo com ressalvas liberadas', async () => {
+// De 16 a 17/10/2026 (PR #244) a dependência era lacuna obrigatória e este caso não aprovava em
+// política nenhuma. Decisão do dono de 17/10/2026: volta a ser ressalva, porque a dependência
+// aberta costuma ser o PR irmão do mesmo card, também esperando aprovação.
+test('a mesma dependência, em conta que aprova com ressalvas: aprova sozinho e a ressalva fica no app', async () => {
   const e = motor([], ['approve', 'approve']);
   sessao(e, { dependenciasAbertas: ['acme/infra#189 ainda aberto'] });
   await e.runHeadlessReview(PR(18));
-  assert.equal(envios.length, 0);
-  assert.equal(resolvida(e, 18), undefined);
-  assert.match(textos(pendente(e, 18)).join(' | '), /dependência necessária.*infra#189/);
+  assert.equal(envios.length, 1);
+  assert.doesNotMatch(JSON.stringify(envios[0]), /infra#189/, 'a ressalva não entra no texto do PR');
+  assert.ok(resolvida(e, 18).attention.some((p) => /acme\/infra#189 ainda aberto/.test(p.text)), JSON.stringify(resolvida(e, 18).attention));
 });
 
 test('sem check pendente e sem ressalva, a aprovação automática segue saindo na hora', async () => {

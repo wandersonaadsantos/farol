@@ -99,6 +99,9 @@ test('2: provasDaDecisao resume decision, cobertura, alcance, checks, protocolo 
   assert.deepEqual(p.alcance, { declarados: 1 });
   assert.deepEqual(p.checksNaoVerdes, ['typecheck:vermelho']);
   assert.deepEqual(p.dependenciasAbertas, ['acme/infra#9 aberto']);
+  assert.deepEqual(p.card, { inteiro: true, parteDestePr: null }, 'parte deste PR não declarada é null');
+  assert.deepEqual(provasDaDecisao(envelope({ cardMet: false, cardParteDestePr: true })).card, { inteiro: false, parteDestePr: true });
+  assert.deepEqual(provasDaDecisao(envelope({ cardParteDestePr: 'true' })).card.parteDestePr, null, 'só booleano vale');
   assert.deepEqual(p.paraQuemMergeia, [PONTO]);
   assert.deepEqual(p.protocolo, { prReviewer: 'dispensado', motivo: 'diff só de configuração' });
 });

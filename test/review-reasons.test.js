@@ -151,8 +151,9 @@ test('card não comprovado: o card mostra a ressalva do card ao lado da polític
   const e = engineComEnvelope(envelope({ decision: 'needs_decision', cardMet: false }), { policy: 'approve', ressalvas: 'wait' });
   await e.runHeadlessReview(PR);
   const item = e.decisions.pending[0];
-  assert.match(texto(item.reasons[0]), /critérios necessários do card não comprovados/);
-  assert.ok(textos(item.reasons).some(r => /critérios necessários do card não comprovados/.test(r)), JSON.stringify(item.reasons));
+  // de 16 a 17/10/2026 (PR #244) o card não comprovado era lacuna obrigatória; voltou a ser ressalva
+  assert.match(texto(item.reasons[0]), /aprovável com ressalvas/);
+  assert.ok(textos(item.reasons).some(r => /card não foi totalmente comprovado/.test(r)), JSON.stringify(item.reasons));
 });
 
 test('zero ponto de atenção é limpo: a política do limpo decide, e a recusa diz "sem ressalvas"', async () => {

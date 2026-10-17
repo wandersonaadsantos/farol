@@ -108,8 +108,10 @@ const pendente = (e) => e.decisions.pending.find((x) => x.key === PR.key);
 const textos = (d) => (d.reasons || []).map((r) => r.text || r);
 // lacuna que a própria sessão preenche ao revisar de novo (envelope)
 const SEM_PROTOCOLO = { protocolo: { prReviewer: 'pulado' } };
-// lacuna que só o mundo resolve (estado)
-const COM_DEPENDENCIA = { dependenciasAbertas: ['acme/lib#7 precisa entrar antes deste PR'] };
+// lacuna que só o mundo resolve (estado). Desde 17/10/2026 a dependência sozinha é ressalva;
+// a lacuna é a sessão dizendo que a parte do card deste PR não foi entregue, e a dependência
+// citada segue sendo lida a cada ciclo, porque ela fechar é estado novo para revisar de novo.
+const COM_DEPENDENCIA = { card: 'CARD-1', cardMet: false, cardParteDestePr: false, dependenciasAbertas: ['acme/lib#7 precisa entrar antes deste PR'] };
 
 async function revisado(e, extra) {
   sessao(e, extra);

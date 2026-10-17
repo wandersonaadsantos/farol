@@ -14,6 +14,7 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.72.4', ['O PR que entrega a parte dele de um card dividido entre vários repositórios volta a ser aprovado sozinho: o que falta nos PRs irmãos e a dependência em aberto viram ressalva, e a sua configuração de ressalvas decide.', 'Continua bloqueando: a revisão dizer que a parte do card deste PR não foi entregue, CI vermelho ou rodando, violação técnica e lacuna na leitura.']],
   ['2.72.3', ['Com a aprovação automática ligada, PR aprovável sem a prova técnica completa deixa de esperar o seu clique: nada é aprovado sem a prova, e o Farol revisa de novo sozinho quando o PR muda.', 'Quando o que faltou é da própria revisão, o Farol revisa de novo sozinho até duas vezes no mesmo commit, e depois espera o PR mudar, sem pedir você.']],
   ['2.72.2', ['A aprovação exige critérios técnicos e provas atuais antes da política da conta.', 'Clique, reenvio, endosso e espera de CI passam pela mesma conferência; checks obrigatórios não podem ser dispensados.', 'A revisão distingue bloqueio técnico, verificação pendente e conformidade, com material isolado e cadastro privado por repositório.']],
   ['2.72.1', ['Corrige o erro ao abrir Ver ao vivo pelo navegador.', 'Linhas longas continuam válidas depois de ocultar credenciais, incluindo chaves em JSON, AWS, GitLab e Slack.', 'Fechar a observação retira o pedido no próximo ciclo, com nova tentativa quando a rede falha.']],

@@ -54,7 +54,7 @@ for (const [name, patch] of Object.entries({
   checkpoint: { verificationCheckpoint: { malformed: true } },
   incompleta: { analysisStatus: 'partial' },
   checksDesconhecidos: { checksVerifiedHead: null },
-  dependencia: { dependenciasAbertas: ['API ainda não disponível'] },
+  parteDoCard: { card: 'CARD-1', cardMet: false, cardParteDestePr: false },
 })) test(`política de ressalvas não atravessa ${name}`, () => {
   assert.equal(shouldAutoApprove(engine, { requested: true }, result(patch)).ok, false);
 });
