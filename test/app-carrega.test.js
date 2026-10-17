@@ -27,11 +27,8 @@ import { arquivosDasTelas } from './helpers/fontes-ui.js';
 import { strip } from '../tools/quality/strip.js';
 import { telasRegistradas } from '../ui/telas/registro.js';
 
-// NOTA sobre o `--test-force-exit` no script de test: carregar o app.js liga os
-// timers dele (countdown, tick de elapsed, backoff de reconexão do SSE). O stub já
-// faz unref e neutraliza o setInterval, mas o runner do node ainda espera o event
-// loop drenar e a suíte inteira pendurava. A flag encerra quando os testes acabam.
-// Medido: com ela, os 1383 testes seguem passando iguais.
+// Carregar o app liga countdown e reconexões. O DOM de teste mantém os timers
+// reais durante as asserções e os encerra no after da suíte, como fechar a página.
 
 const { emitir, listeners } = instalarDom();
 // carrega DEPOIS do stub: o app.js toca `document` no topo

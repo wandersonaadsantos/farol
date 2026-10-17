@@ -16,6 +16,8 @@
 // nada de CSS, nada de comportamento de clique. Verde aqui não diz que a tela está
 // certa; diz que ela não explode.
 
+import { after } from 'node:test';
+
 function criaElemento(tag = 'div') {
   return {
     tagName: String(tag).toUpperCase(),
@@ -71,6 +73,19 @@ function criaElemento(tag = 'div') {
 }
 
 export function instalarDom() {
+  // O app mantém relógios e reconexões enquanto a página existe. Os timers
+  // continuam reais durante as asserções; o fim da suíte descarta essa página.
+  const timers = new Set();
+  const timeout = globalThis.setTimeout;
+  const interval = globalThis.setInterval;
+  globalThis.setTimeout = (...args) => { const t = timeout(...args); timers.add(t); return t; };
+  globalThis.setInterval = (...args) => { const t = interval(...args); timers.add(t); return t; };
+  after(() => {
+    for (const t of timers) { clearTimeout(t); clearInterval(t); }
+    timers.clear();
+    globalThis.setTimeout = timeout;
+    globalThis.setInterval = interval;
+  });
   // cache por seletor: o app.js guarda referências e espera que a MESMA consulta
   // devolva o MESMO elemento entre chamadas
   const cache = new Map();
