@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.72.5
+
+Acaba o teto de rodadas automáticas por dia: a revisão automática de um PR não para mais por ter rodado três vezes no dia entre os seus aparelhos.
+
+### Correções
+
+- Repositório sem declaração técnica cadastrada deixa de impedir a aprovação automática. Antes, todo PR de repositório fora do cadastro saía com "avaliação técnica obrigatória não concluída" e esperava você para sempre. Agora isso aparece como ressalva, e a sua configuração de ressalvas decide. A aprovação continua exigindo a leitura completa do PR e os checks obrigatórios verdes no commit aprovado, e nos repositórios com declaração técnica nada muda.
+- O aviso "Teto de rodadas automáticas de hoje atingido entre seus aparelhos. Volta amanhã" deixa de existir: com o compartilhamento ligado, a rodada automática não é mais recusada pelo número de rodadas do dia. Contra laço continuam a revisão única por commit e a espera de o PR ficar quieto antes de revisar de novo.
+
 ## v2.72.4
 
 Com a aprovação automática ligada, o PR que entrega a parte dele de um card dividido entre vários repositórios volta a ser aprovado sozinho, sem esperar os PRs irmãos.
