@@ -700,9 +700,13 @@ amanhã, anunciado por um toast de 5 segundos. No lugar entrou a contagem de
 `reReviewLaunched` segue `{ head, dia, rodadas, at }` (`at` novo na v2.59.3, quando o
 round saiu); `dia`/`rodadas` continuam gravados por compatibilidade com a âncora do
 reinício, mas nenhum gate lê mais o contador. **O teto COMPARTILHADO entre aparelhos
-(`SYNC.DAILY_ROUNDS_MAX`, D13) NÃO mudou**: é contrato da sincronização e só vale com
-ela ligada; lá o esgotado vira espera da coordenação e o card mostra "outro aparelho
-seu está cuidando deste PR". Alinhar os dois exige revisar o contrato D13, e ficou fora.
+(`SYNC.DAILY_ROUNDS_MAX`, D13) também caiu, em 17/10/2026 (v2.72.5)**, por decisão do
+dono: três rodadas por PR e por dia, somadas entre os aparelhos, viravam "volta amanhã"
+num PR que precisava de revisão hoje. O coordenador (`reservarRodada` em
+`lib/sync/coordinator.js`) segue reservando a rodada no nó do dia, porque a reserva é que
+amarra a rodada ao lease, mas pede com `max: Infinity`, então o esgotado não acontece
+mais. Contra laço valem o dedup por head e a espera de PR quieto (com a espera longa
+depois de rodadas presas em sequência).
 
 **Gatilho B NUNCA entra no pulo de push trivial** (`pushTrivial`, mesmo arquivo): a
 prova salva que o pulo compara é do head ANTERIOR ao bloqueio, e o payload da

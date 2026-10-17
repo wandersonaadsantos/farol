@@ -107,7 +107,8 @@ const bloqueio = (reason, detail = {}) => ({ blocked: true, coordination: { admi
 const resultado = (envelope, handle) => ({ text: JSON.stringify({ result: JSON.stringify(envelope) }), sessionId: 's1', coordination: handle });
 
 // Até a v2.59.2 o gate local espelhava este número (MAX_RODADAS_AUTO_DIA). O teto
-// diário local caiu; o compartilhado é contrato da sincronização e mora só aqui.
+// diário local caiu; o número fica só como padrão da reserva da sincronização, que a
+// coordenação pede sem teto desde 17/10/2026 (test/sync-coordinator.test.js).
 
 test('o teto diário vive só na sincronização: o gate local não tem cópia', () => {
   assert.equal(SYNC.DAILY_ROUNDS_MAX, 3);
