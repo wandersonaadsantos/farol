@@ -15,6 +15,7 @@ Acaba o teto de rodadas automáticas por dia: a revisão automática de um PR n�
 
 ### Correções
 
+- Repositório sem declaração técnica cadastrada deixa de impedir a aprovação automática. Antes, todo PR de repositório fora do cadastro saía com "avaliação técnica obrigatória não concluída" e esperava você para sempre. Agora isso aparece como ressalva, e a sua configuração de ressalvas decide. A aprovação continua exigindo a leitura completa do PR e os checks obrigatórios verdes no commit aprovado, e nos repositórios com declaração técnica nada muda.
 - O aviso "Teto de rodadas automáticas de hoje atingido entre seus aparelhos. Volta amanhã" deixa de existir: com o compartilhamento ligado, a rodada automática não é mais recusada pelo número de rodadas do dia. Contra laço continuam a revisão única por commit e a espera de o PR ficar quieto antes de revisar de novo.
 
 ## v2.72.4
