@@ -48,7 +48,16 @@ jobs:
         run: npm run lint
 
       - name: Testes
-        run: npm test
+        shell: bash
+        run: |
+          # O encerramento forçado pode truncar o protocolo dos filhos no macOS.
+          # https://github.com/nodejs/node/issues/64833
+          # Todos os testes continuam rodando, com os mesmos limites de tempo.
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            npm test -- --no-test-force-exit
+          else
+            npm test
+          fi
 
   electron:
     name: electron
