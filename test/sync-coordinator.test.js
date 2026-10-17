@@ -326,14 +326,13 @@ test('releitura sob lease: recibo gravado por outro aparelho entre a primeira le
   assert.ok(e.seen.has(PR_KEY));
 });
 
-test('rodada automática com o teto do dia esgotado: esgotado e lease liberado', async () => {
+test('sem teto diário: rodada automática com muitas já iniciadas no dia ainda é admitida (17/10/2026)', async () => {
   const dia = brasiliaDay(AGORA);
   const cheio = {};
-  for (let i = 0; i < SYNC.DAILY_ROUNDS_MAX; i++) cheio['s' + i] = { operationFingerprint: 'f', leaseId: 'L' + i, state: 'started', reservedAt: 1, startedAt: 2, expiresAt: 3 };
+  for (let i = 0; i < SYNC.DAILY_ROUNDS_MAX + 5; i++) cheio['s' + i] = { operationFingerprint: 'f', leaseId: 'L' + i, state: 'started', reservedAt: 1, startedAt: 2, expiresAt: 3 };
   fake.setTree({ users: { u1: { dailyRounds: { [IDS.accountHash]: { [IDS.prHash]: { [dia]: { dayPolicy: SYNC.DAY_TZ, updatedAt: 1, reservations: cheio } } } } } } });
   const a = await admit(motor(), ctxDe({ contaRodada: true }));
-  assert.deepEqual(a, { admitted: false, reason: 'esgotado', detail: { day: dia, started: SYNC.DAILY_ROUNDS_MAX } });
-  assert.equal(leaseNoBanco(), undefined, 'lease liberado');
+  assert.equal(a.admitted, true, `admitida sem teto (reason: ${a.reason})`);
 });
 
 test('rodada automática com lugar: reserva iniciada com o lease e o attemptId do handle, no dia de Brasília', async () => {
