@@ -32,6 +32,7 @@ function isolateTechnicalTool() {
       base: 'b'.repeat(40), initial: { rules: [], findings: [], excerpt: '' } };
   };
   technicalRuntime.finishTechnicalReview = async context => technicalReport(context.head, context.repo);
+  technicalRuntime.cleanup = () => {};
   return () => {
     Object.assign(technicalRuntime, original);
     technicalPublication.approvalRefusal = publication;

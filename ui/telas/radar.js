@@ -119,7 +119,7 @@ function renderDecisions() {
         ${(meta.reviewBtn === 'primary' || meta.reviewBtn === 'secondary') && d.pr?.url
           ? `<button class="btn${meta.reviewBtn === 'primary' ? ' primary' : ''} sm act-review" data-url="${esc(d.pr.url)}" title="Revisa de novo agora, no commit atual do PR">Revisar agora</button>`
           : ''}
-        ${meta.stale ? '' : `<button class="btn primary sm dec-act" data-action="approve">Aprovar</button>
+        ${meta.stale ? '' : `<button class="btn primary sm dec-act" data-action="approve"${d.esperaCi ? ' disabled title="A aprovação exige CI obrigatório verde"' : ''}>Aprovar</button>
         <button class="btn sm dec-act dec-rc" data-action="request_changes">Pedir mudanças</button>
         <button class="btn sm dec-act" data-action="comment">Só comentar</button>`}
         <button class="btn sm act-chat" data-key="${esc(d.key)}" data-url="${esc(d.pr?.url || '')}">💬 Conversar${chatBadge(d.key, estado()?.chats)}</button>

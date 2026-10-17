@@ -164,14 +164,14 @@ export function separarPendentes(pending) {
 }
 
 // Card da aprovação que espera o CI obrigatório (30/09/2026): não é "precisa de você", o
-// Farol aprova sozinho quando o CI fechar verde neste commit. Os botões continuam, porque
-// aprovar na mão sem esperar segue sendo direito seu. O motivo com os checks já vem em
+// Farol aprova sozinho quando o CI fechar verde neste commit. O clique também espera
+// os checks obrigatórios. O motivo com os checks já vem em
 // `reasons`; a caixa só diz o que acontece agora.
 export function esperaCiCardMeta(d) {
   const st = {
     tom: 'info', icone: 'hourglass',
     lead: 'Esperando o CI obrigatório.',
-    texto: 'Aprovo sozinho quando ele fechar verde neste commit; com CI vermelho não aprovo. Se chegar commit novo, reviso de novo. Você não precisa fazer nada, e o botão Aprovar continua valendo se não quiser esperar.',
+    texto: 'Aprovo sozinho quando ele fechar verde neste commit; com CI vermelho não aprovo. Se chegar commit novo, reviso de novo. Você não precisa fazer nada. A aprovação manual também exige os checks obrigatórios verdes.',
   };
   return {
     stale: false, cardClass: 'working', verdictHtml: '<span class="verdict approve">ESPERANDO O CI</span>',

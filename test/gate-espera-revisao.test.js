@@ -62,6 +62,9 @@ io.run = async (_cmd, args) => {
 const { Engine } = await import('../server.js');
 const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
 isolateTechnicalTool();
+const { technicalRuntime } = await import('../lib/technical-review/runtime.js');
+const { cleanup } = await import('../lib/technical-review/cleanup.js');
+const { STATE_DIR } = await import('../lib/paths.js');
 
 
 after(() => {
@@ -511,4 +514,43 @@ test('a opção legada não pode dispensar a prova necessária do CI', async () 
   for (const value of [true, false, undefined, 0, 'true']) {
     assert.equal(aguardaCiParaAprovar({ aguardarCiParaAprovar: value }), true);
   }
+});
+
+test('falha da sessão antes do resultado limpa o material privado e libera a revisão ativa', async () => {
+  const prepare = technicalRuntime.prepareTechnicalReview;
+  const clean = technicalRuntime.cleanup;
+  let snapshot;
+  technicalRuntime.prepareTechnicalReview = async (...args) => {
+    const context = await prepare(...args);
+    const parent = path.join(STATE_DIR, 'technical-review');
+    fs.mkdirSync(parent, { recursive: true });
+    snapshot = fs.mkdtempSync(path.join(parent, 'review-'));
+    fs.writeFileSync(path.join(snapshot, 'privado.js'), 'material privado');
+    return { ...context, snapshot };
+  };
+  technicalRuntime.cleanup = cleanup;
+  const e = motor([]);
+  e.runClaudeStream = async () => { throw new Error('fixture: sessão interrompida antes do resultado'); };
+  try {
+    await assert.rejects(e.runHeadlessReview(PR(500)), /sessão interrompida/);
+    assert.ok(snapshot);
+    assert.equal(fs.existsSync(snapshot), false);
+    assert.equal(e.activeReviews.size, 0);
+  } finally { technicalRuntime.prepareTechnicalReview = prepare; technicalRuntime.cleanup = clean; }
+});
+
+test('consulta de CI que perde a prova imediatamente antes de postar mantém a espera automática', async () => {
+  const e = motor([]);
+  sessao(e);
+  const originalPost = e.postReview.bind(e);
+  e.postReview = async () => ({ ok: false, waitForCi: true, error: 'CI obrigatório não confirmado' });
+  await e.runHeadlessReview(PR(501));
+  assert.ok(pendente(e, 501).esperaCi);
+  assert.deepEqual(envios, []);
+  gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
+  assert.equal(await e.aprovarQuandoOCiFechar(), 0);
+  assert.ok(pendente(e, 501).esperaCi, 'a falha transitória da reconferência não larga a espera');
+  e.postReview = originalPost;
+  assert.equal(await e.aprovarQuandoOCiFechar(), 1);
+  assert.equal(envios.length, 1);
 });

@@ -102,6 +102,8 @@ test('staleCardMeta: card em espera do CI diz que aprova sozinho, mantém os mot
   assert.match(m.statusHtml, /Esperando o CI obrigatório\./);
   assert.match(m.statusHtml, /Aprovo sozinho quando ele fechar verde neste commit; com CI vermelho não aprovo/);
   assert.match(m.statusHtml, /Você não precisa fazer nada/);
+  assert.match(m.statusHtml, /A aprovação manual também exige os checks obrigatórios verdes/);
+  assert.doesNotMatch(m.statusHtml, /não quiser esperar/);
   assert.equal(m.reasons.length, 2, 'o motivo com os checks e a ressalva continuam visíveis');
   assert.equal(m.reviewBtn, '');
   semTravessao(m.statusHtml);

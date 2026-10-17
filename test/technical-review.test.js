@@ -52,6 +52,7 @@ for (const [name, patch] of Object.entries({
   semAvaliacao: { technicalReview: undefined },
   leitura: { coverage: { total: 1, reviewed: [], missing: ['a.md'] } },
   checkpoint: { verificationCheckpoint: { malformed: true } },
+  incompleta: { analysisStatus: 'partial' },
   checksDesconhecidos: { checksVerifiedHead: null },
   dependencia: { dependenciasAbertas: ['API ainda não disponível'] },
 })) test(`política de ressalvas não atravessa ${name}`, () => {
@@ -61,6 +62,7 @@ for (const [name, patch] of Object.entries({
 test('CI obrigatório segura mesmo com a opção antiga de espera desligada', () => {
   const r = result({ checksObrigatorios: [{ nome: 'test', estado: 'vermelho' }] });
   assert.equal(shouldAutoApprove(engine, { requested: true }, r).motivo, 'ci_vermelho');
+  assert.equal(shouldAutoApprove(engine, { requested: true }, result({ checksVerifiedHead: null })).motivo, 'ci_em_andamento');
 });
 
 test('alteração de declaração e troca de repositório invalidam prova', () => {
@@ -145,6 +147,15 @@ test('aprovação reconfirma base, objeções, declaração e CI na fronteira co
   const payload = { event: 'APPROVE', commit_id: head };
   try {
     assert.equal(await approvalRefusal(e, pr, payload), null);
+    const receipt = e.technicalApprovals.get(pr.key);
+    receipt.evidence = approvalGaps(result({ checksVerifiedHead: null }));
+    assert.equal(await approvalRefusal(e, pr, payload), null, 'a consulta atual verde recupera a falha transitória anterior');
+    e.bloqueadoPorChecks = async () => ({ faltando: [] });
+    assert.equal((await approvalRefusal(e, pr, payload)).blocked, 'technical_review', 'a falta de prova atual continua segurando');
+    e.bloqueadoPorChecks = async () => ({ verifiedHead: head, faltando: [] });
+    receipt.evidence = approvalGaps(result({ analysisStatus: 'partial' }));
+    assert.equal((await approvalRefusal(e, pr, payload)).blocked, 'technical_review', 'o clique não libera análise incompleta');
+    receipt.evidence = [];
     technicalRuntime.reviewSnapshot = async () => ({ fingerprint: 'changed' });
     assert.equal((await approvalRefusal(e, pr, payload)).blocked, 'technical_review');
     technicalRuntime.reviewSnapshot = async () => ({ fingerprint: 'human' });

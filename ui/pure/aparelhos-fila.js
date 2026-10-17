@@ -245,8 +245,8 @@ function botao(classe, rotulo, attrs, desligado, item, primario = false) {
   return `<button class="btn sm${primario ? ' primary' : ''} ${classe}"${attrs}${dis} aria-label="${esc(`${rotulo}: ${ref(item)}`)}">${esc(rotulo)}</button>`;
 }
 
-// Quem espera o CI segue com o Decidir (aprovar na mão sem esperar é direito seu, como no
-// card local), só que sem o destaque de ação principal: ali o esperado é não fazer nada.
+// Quem espera o CI pode abrir Decidir; a aprovação também exige os checks verdes.
+// Sem destaque de ação principal: o esperado é aguardar o CI.
 function acoesDaPendencia(item, ctx) {
   const p = item.pend;
   const decidir = botao('md-decidir', 'Decidir', ` data-item="${esc(p.itemId)}" data-dev="${esc(p.dev)}" data-aparelho="${esc(p.aparelho || ctx.nome)}"`, ctx.desligadoBase, item, !esperaOCi(item.fila));
