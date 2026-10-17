@@ -220,7 +220,10 @@ export function staleCardMeta(d, r) {
   const reasons = Array.isArray(d && d.reasons) ? d.reasons : [];
   const stale = !!(d && d.blockedKind === 'stale_head');
   if (!stale && d && d.esperaCi) return esperaCiCardMeta(d);
-  if (d && d.esperaProva && (!stale || d.blockedHead === d.headSha)) return esperaProvaCardMeta(d);
+  // rodada da prova relançada no mesmo commit que parou (estacionou, cancelada): não é mais
+  // automática, então vale o card de commit novo, com o motivo e o Revisar agora
+  const rodadaParada = !!(r && r.estado === 'parado');
+  if (d && d.esperaProva && (!stale || (d.blockedHead === d.headSha && !rodadaParada))) return esperaProvaCardMeta(d);
   const legado = d && d.blockedReason ? `<div class="dec-blocked">🚫 <span><b>Bloqueado:</b> ${esc(d.blockedReason)}</span></div>` : '';
   let verdictComum = d && d.verdict === 'approve' ? '<span class="verdict approve">APROVÁVEL</span>' : '<span class="verdict rc">COM BLOCKER</span>';
   const label = technicalLabel(d);

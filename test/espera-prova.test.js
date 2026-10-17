@@ -274,3 +274,102 @@ test('outros aparelhos: a espera da prova viaja como fato e não pede ninguém',
   const f = fila.estadoDaFila(PR.key, { pendentes: new Map([[PR.key, 5]]), esperandoProva: new Set([PR.key]) });
   assert.deepEqual(f, { estado: 'decidir', motivo: 'espera-prova', desde: 5, ate: 0 });
 });
+
+// Revisão do Codex no PR #245 (17/10/2026): três furos, cada um provado aqui antes da correção.
+
+test('furo 1: dependência que fechou ENTRE a decisão e o primeiro ciclo não é engolida como estado inicial', async () => {
+  const e = motor();
+  await revisado(e, COM_DEPENDENCIA);
+  gh.dependencia = 'MERGED';
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1, 'a revisão viu a dependência aberta; fechada agora é estado novo');
+  assert.equal(pendente(e).blockedKind, 'stale_head');
+});
+
+test('furo 1: review de alguém chegado depois da leitura da sessão relança já no primeiro ciclo; review antigo não', async () => {
+  const e = motor();
+  await revisado(e, COM_DEPENDENCIA);
+  gh.reviews = [{ author: { login: 'colega' }, state: 'COMMENTED', submittedAt: '2026-01-01T00:00:00Z' }];
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0, 'review anterior à leitura: a sessão já o tinha');
+  const e2 = motor();
+  await revisado(e2, COM_DEPENDENCIA);
+  gh.reviews = [{ author: { login: 'colega' }, state: 'CHANGES_REQUESTED', submittedAt: new Date(Date.now() + 60000).toISOString() }];
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e2), 1);
+});
+
+test('furo 2: rodada relançada que estacionou volta para a mesa, com o motivo e o botão de revisar', async () => {
+  const e = motor();
+  await revisado(e, SEM_PROTOCOLO);
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
+  e.autoReviewParked.add(PR.key);
+  e.parkedMotivos = { [PR.key]: { tipo: 'falha', motivo: 'saiu com código 1', at: new Date().toISOString() } };
+  await esperaProva.reverQuandoAProvaMudar(e);
+  const d = pendente(e);
+  assert.equal(d.esperaProva, null, 'estacionado não relança sozinho: a marca de espera sai');
+  assert.equal(d.blockedKind, 'stale_head');
+  assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
+  const tela = e.decisionForUi(d);
+  assert.equal(separarPendentes([tela]).precisam.length, 1, 'conta em Precisa de você');
+  // e a tela, entre um ciclo e outro, não promete revisão automática de rodada parada
+  const marcada = { ...tela, esperaProva: { tentativas: 1 } };
+  const meta = staleCardMeta(marcada, { estado: 'parado', motivo: 'estacionado', headRound: HEAD });
+  assert.equal(/Revisando de novo para fechar a prova/.test(meta.statusHtml), false);
+  assert.equal(meta.reviewBtn, 'primary');
+});
+
+test('furo 2: rodada relançada que saiu e não concluiu (âncora queimada, fora da fila) também volta para a mesa', async () => {
+  const e = motor();
+  await revisado(e, SEM_PROTOCOLO);
+  await esperaProva.reverQuandoAProvaMudar(e);
+  e.reReviewLaunched[PR.key] = { head: HEAD, dia: '', rodadas: 1, at: Date.now() - 3600 * 1000 };
+  await esperaProva.reverQuandoAProvaMudar(e);
+  assert.equal(pendente(e).esperaProva, null);
+  assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
+});
+
+function coordenado(e, recibo, { leituraFalha = false } = {}) {
+  const apagados = [];
+  e.config.sync = { enabled: true, coordination: { enabled: true } };
+  e.syncCoordenacaoAtiva = () => true;
+  e.sync = {
+    status: 'conectado', uid: 'u1', deviceId: 'este', recibosVistos: { [PR.key]: {} }, agora: () => Date.now(),
+    client: {
+      get: async () => (leituraFalha ? { ok: false, code: 'indisponivel' } : { ok: true, data: recibo, etag: 'etag-1' }),
+      del: async (caminho, opcoes) => { apagados.push([caminho, opcoes.ifMatch]); return { ok: true }; },
+    },
+  };
+  return apagados;
+}
+
+test('furo 3: com coordenação, o recibo pendente DESTE aparelho para este head é invalidado antes do relançamento', async () => {
+  const e = motor();
+  await revisado(e, SEM_PROTOCOLO);
+  const apagados = coordenado(e, { outcome: 'completed', publicationState: 'pending', deviceId: 'este', expiresAt: Date.now() + 1e9 });
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
+  assert.equal(apagados.length, 1, 'o recibo que barraria a admissão como "recibo" sai');
+  assert.equal(apagados[0][1], 'etag-1', 'condicionado ao etag lido');
+  assert.match(apagados[0][0], /\/receipts\/.+\/review_/);
+  assert.equal(e.sync.recibosVistos[PR.key], undefined);
+  assert.equal(pendente(e).blockedKind, 'stale_head');
+});
+
+test('furo 3: recibo publicado, de outro aparelho ou leitura que falha: não apaga e não relança', async () => {
+  for (const [recibo, opcoes] of [
+    [{ outcome: 'completed', publicationState: 'published', deviceId: 'este', expiresAt: Date.now() + 1e9 }, {}],
+    [{ outcome: 'completed', publicationState: 'pending', deviceId: 'outro', expiresAt: Date.now() + 1e9 }, {}],
+    [null, { leituraFalha: true }],
+  ]) {
+    const e = motor();
+    await revisado(e, SEM_PROTOCOLO);
+    const apagados = coordenado(e, recibo, opcoes);
+    e.salvas = 0;
+    assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
+    assert.deepEqual(apagados, []);
+    assert.equal(pendente(e).blockedKind, undefined);
+    assert.equal(e.salvas, 0);
+  }
+  const e = motor();
+  await revisado(e, SEM_PROTOCOLO);
+  const apagados = coordenado(e, null);
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1, 'sem recibo nenhum, relança normalmente');
+  assert.deepEqual(apagados, []);
+});
