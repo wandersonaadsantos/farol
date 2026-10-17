@@ -15,17 +15,19 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const { Engine } = await import('../server.js');
+const { provenResult } = await import('./helpers/technical-proof.js');
+
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
 
 const PR = { key: 'o/r#1', repo: 'o/r', number: 1, url: 'https://github.com/o/r/pull/1', requested: true };
 
 function approvableResult(extra) {
-  return {
+  return provenResult({
     analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     payloads: { approve: { event: 'APPROVE', body: 'ok' } },
     ...extra
-  };
+  });
 }
 
 function engineWithPolicy(policy) {
@@ -141,7 +143,7 @@ test('contestação e cobertura deixaram de ser motivo de recusa: o motivo é se
   });
   assert.deepEqual(e.shouldAutoApprove(PR, contestado), { ok: false, motivo: 'politica' });
   const comLacuna = approvableResult({ coverage: { total: 3, reviewed: ['a.ts'], missing: ['b.ts', 'c.ts'] } });
-  assert.deepEqual(e.shouldAutoApprove(PR, comLacuna), { ok: false, motivo: 'politica' });
+  assert.deepEqual(e.shouldAutoApprove(PR, comLacuna), { ok: false, motivo: 'prova_tecnica_incompleta' });
   assert.ok(e.attentionPoints(comLacuna).some(p => /cobertura da leitura tem 2 pendência/.test(p.text)), 'a lacuna aparece como ressalva');
 });
 
@@ -185,7 +187,7 @@ test('a contestação nunca passa por cima da política de ressalvas, e também 
 test('contestação junto de cobertura e checkpoint: tudo ressalva, e o clique segue sem postar', () => {
   const contested = [{ source: 'Acrity', claim: 'x', label: 'pre_existente', evidence: 'prova' }];
   const tudo = approvableResult({ contested, coverage: { total: 3, reviewed: ['a.ts'], missing: ['b.ts'] }, verificationCheckpoint: { malformed: true } });
-  assert.deepEqual(enginePorClasse('wait', 'approve').shouldAutoApprove(PR, tudo), { ok: true, motivo: null });
+  assert.deepEqual(enginePorClasse('wait', 'approve').shouldAutoApprove(PR, tudo), { ok: false, motivo: 'prova_tecnica_incompleta' });
   assert.equal(enginePorClasse('wait', 'approve').attentionPoints(tudo).length, 3, 'uma ressalva visível para cada coisa');
   assert.equal(enginePorClasse('approve', 'approve').shouldAutoApprove({ ...PR, requested: false }, tudo).motivo, 'clique');
 });

@@ -1,0 +1,18 @@
+{
+  "pacote": "eng-behaviour",
+  "commit": "63c8d65cfec69ecfb173825a48bba6509bd05328",
+  "origem": "https://github.com/wandersonaadsantos/eng-behaviour.git",
+  "construcao": [
+    [
+      "pnpm",
+      "install",
+      "--frozen-lockfile"
+    ],
+    [
+      "pnpm",
+      "build"
+    ]
+  ],
+  "version": "0.17.0",
+  "buildStamp": "dist/.farol-construido-de"
+}

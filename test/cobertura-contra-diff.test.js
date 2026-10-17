@@ -74,22 +74,18 @@ test('a sessão diz que leu tudo, mas o diff medido tem um arquivo a mais: conta
   assert.ok(d, 'a decisão ficou registrada');
   assert.equal(d.status, 'pending');
   const motivos = (d.reasons || []).map((r) => (typeof r === 'string' ? r : r.text)).join(' | ');
-  assert.match(motivos, /aprovável com ressalvas/, motivos);
+  assert.match(motivos, /cobertura da leitura/, motivos);
   assert.match(motivos, /cobertura da leitura tem/, motivos);
   assert.match(motivos, /src\/b\.js/, motivos);
 });
 
-test('a mesma lacuna, em conta que aprova com ressalvas: aprova sozinho e a lacuna fica visível como ressalva', async () => {
+test('lacuna medida bloqueia mesmo quando a conta aprova ressalvas', async () => {
   const e = motor(['src/a.js', 'src/b.js'], { total: 1, reviewed: ['src/a.js'], missing: [] }, 'approve');
   await e.runHeadlessReview({ ...PR });
-  assert.equal(e.postados.length, 1, 'o APPROVE saiu');
-  assert.equal(e.postados[0].event, 'APPROVE');
-  assert.doesNotMatch(String(e.postados[0].body), /cobertura/, 'a ressalva não vai para o texto do PR');
+  assert.equal(e.postados.length, 0);
   const d = decisaoDe(e);
-  assert.equal(d.status, 'auto_approved');
-  const ressalvas = (d.attention || []).map((r) => r.text).join(' | ');
-  assert.match(ressalvas, /cobertura da leitura tem/, ressalvas);
-  assert.match(ressalvas, /src\/b\.js/, ressalvas);
+  assert.equal(d.status, 'pending');
+  assert.match(d.reasons.map(r => r.text || r).join(' | '), /src\/b\.js/);
 });
 
 test('a cobertura bate com o diff medido: o gate de cobertura não segura', async () => {

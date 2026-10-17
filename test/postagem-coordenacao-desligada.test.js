@@ -14,6 +14,9 @@ import assert from 'node:assert/strict';
 
 const io = (await import('../lib/io.js')).default;
 const { Engine } = await import('../server.js');
+const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
+isolateTechnicalTool();
+
 const skip = await import('../lib/engine/skip-review.js');
 
 const runReal = io.run;
@@ -70,6 +73,7 @@ function pendencia(extra = {}) {
     payloads: { approve: { event: 'APPROVE', body: CORPO, comments: [] } }, ...extra,
   };
 }
+
 
 test('pré-condição: engine de teste nasce com a coordenação desligada', () => {
   assert.equal(motor().syncCoordenacaoAtiva(), false);

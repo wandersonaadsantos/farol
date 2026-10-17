@@ -24,6 +24,9 @@ import assert from 'node:assert/strict';
 import { SYNC } from '../lib/constants.js';
 
 const { Engine } = await import('../server.js');
+const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
+isolateTechnicalTool();
+
 const reviewMod = (await import('../lib/engine/review.js')).default;
 const fanout = (await import('../lib/engine/fanout.js')).default;
 const io = (await import('../lib/io.js')).default;
@@ -49,7 +52,7 @@ const prDe = (key, extra = {}) => ({ key, repo: key.split('#')[0], number: Numbe
 
 function envelopeApprove() {
   return {
-    analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+    protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     reportMarkdown: 'relatório', payloads: { approve: { event: 'APPROVE', body: 'Leitura atenta, tudo certo por aqui.' } },
   };
 }
@@ -76,7 +79,7 @@ function motor({ resposta, policy = 'approve', coordenacao = true } = {}) {
   e.log = (nivel, msg) => { e.logs.push(`${nivel} ${msg}`); };
   e.prState = async () => 'OPEN';
   e.headSha = async () => HEAD;
-  e.fetchPrFiles = async () => null;
+  e.fetchPrFiles = async () => [];
   e.bloqueadoPorChecks = async () => ({ faltando: [] });
   e.bloqueadoPorHistorico = async () => ({ bloqueado: false, head: '', quem: [], decisivos: [] });
   e.approvePolicyFor = () => policy;
@@ -105,6 +108,7 @@ const resultado = (envelope, handle) => ({ text: JSON.stringify({ result: JSON.s
 
 // Até a v2.59.2 o gate local espelhava este número (MAX_RODADAS_AUTO_DIA). O teto
 // diário local caiu; o compartilhado é contrato da sincronização e mora só aqui.
+
 test('o teto diário vive só na sincronização: o gate local não tem cópia', () => {
   assert.equal(SYNC.DAILY_ROUNDS_MAX, 3);
   assert.equal(reviewMod.MAX_RODADAS_AUTO_DIA, undefined);
@@ -413,7 +417,7 @@ for (const [nome, marcar] of [['antes de o resultado chegar ao gate', (h) => { h
 test('handle perdido depois de o provedor resolver também segura o REQUEST_CHANGES', async () => {
   const h = handleFalso();
   const env = {
-    analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
+    protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
     reasons: ['bloqueio real'], reportMarkdown: 'relatório',
     payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'Tem um problema na validação do redirect.' } },
   };
@@ -482,7 +486,7 @@ test('retomada recusada que recomeça do zero não reserva outra rodada', async 
 // do recibo. Na ordem inversa, um aparelho que assumisse o head novo no intervalo teria a
 // label dele (mesma conta, mesmo nome) apagada pela remoção atrasada do finally.
 const ENV_REJEITA = {
-  analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
+  protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
   reasons: ['bloqueio real'], reportMarkdown: 'relatório',
   payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'Tem um problema na validação do redirect.' } },
 };

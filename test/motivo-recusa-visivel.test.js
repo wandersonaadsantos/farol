@@ -12,7 +12,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 const REVIEW = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'engine', 'review.js'), 'utf8');
-const DECISION = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'engine', 'decision.js'), 'utf8');
+const DECISION = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'engine', 'approval-policy.js'), 'utf8');
 
 // os motivos que o gate sabe devolver, lidos do FONTE (nunca de uma lista curada
 // aqui, que envelheceria calada quando alguém acrescentasse o sexto motivo)

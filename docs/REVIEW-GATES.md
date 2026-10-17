@@ -1,3 +1,18 @@
+> Política vigente: admissibilidade técnica e prova suficiente são obrigatórias antes
+> de qualquer APPROVE. Esta regra substitui os trechos históricos que tratavam lacunas
+> de leitura, checkpoint, dependência necessária ou CI obrigatório como ressalvas
+> dispensáveis pela configuração. Clique e coassinatura também não dispensam prova.
+> O critério técnico aparece na caixa de revisão; resultado antigo sem avaliação pede
+> revisão atual, e não recebe selo de conformidade durante migração.
+>
+> Runtime privado: `node lib/technical-review/setup.js` instala a versão fixada da
+> ferramenta, usando acesso autorizado à origem privada. A declaração por repositório
+> fica em `~/.farol/technical-review/repositories.json`, com a forma
+> `{"repositories":{"org/repo":{"declaration":{"scopes":["core"]}}}}`.
+> Declare diretórios e condições reais conforme o contrato do catálogo. Ausência ou
+> corrupção desse cadastro deixa a avaliação pendente, sem alterar o repositório alvo.
+> Baselines existentes podem ser fornecidos no perfil privado; o revisor não os cria.
+
 # Gates de revisão e postagem do Farol
 
 Extraído do `CLAUDE.md` na Fase 1.5 da reorganização. O `CLAUDE.md` da raiz é o sumário, e os

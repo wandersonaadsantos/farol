@@ -48,7 +48,6 @@ const CHAMADA = /\b(?:execFileSync|spawnSync|execFile|spawn)\s*\(\s*['"]git['"]/
  * deixou de se aplicar reprova, para a lista nao virar deposito de dispensa velha.
  */
 const EXCECOES = new Map([
-  ['tools/git-env.js', 'e ele que DESCOBRE a lista de variaveis a remover, entao limpar antes seria circular; e a pergunta que ele faz (rev-parse --local-env-vars) devolve os nomes que o binario conhece, que nao dependem de para qual repositorio o ambiente aponta'],
 ]);
 
 // Este arquivo cita o padrao para procura-lo, e nao dispara git nenhum. A dispensa

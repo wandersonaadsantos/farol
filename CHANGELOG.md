@@ -9,6 +9,22 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.72.2
+
+A aprovação passa a exigir admissibilidade técnica e provas atuais antes da preferência de publicação da conta.
+
+### Correções
+
+- Regras obrigatórias, leitura incompleta, dependências necessárias e checks sem sucesso deixam de ser ressalvas dispensáveis.
+- Clique, chat, endosso, reenvio e espera de CI passam pela mesma conferência técnica antes de aprovar.
+- Mudanças na base, no commit, na declaração técnica ou nas objeções invalidam a prova anterior.
+
+### Melhorias
+
+- A revisão usa uma cópia privada do material e distingue verificações automáticas de avaliações contextuais, sem inserir arquivos no repositório avaliado.
+- A caixa de revisão distingue bloqueio técnico, verificação pendente e conformidade. O CI obrigatório deixa de ter opção de dispensa.
+- A ferramenta técnica usa runtime privado fixado. Repositórios sem cadastro ou sem ferramenta disponível continuam sendo analisados, com a aprovação pendente até a verificação necessária.
+
 ## v2.72.1
 
 O acompanhamento remoto abre pela rota correta e deixa de transmitir quando a janela é fechada.

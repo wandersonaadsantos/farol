@@ -11,6 +11,9 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 const { Engine } = await import('../server.js');
+const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
+isolateTechnicalTool();
+
 const fanout = (await import('../lib/engine/fanout.js')).default;
 const io = (await import('../lib/io.js')).default;
 
@@ -29,9 +32,9 @@ const prDe = (key) => ({ key, repo: key.split('#')[0], number: Number(key.split(
 
 function envelope(tipo) {
   if (tipo === 'approve') {
-    return { analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [], reportMarkdown: 'relatório', payloads: { approve: { event: 'APPROVE', body: 'Leitura atenta, tudo certo por aqui.' } } };
+    return { protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [], reportMarkdown: 'relatório', payloads: { approve: { event: 'APPROVE', body: 'Leitura atenta, tudo certo por aqui.' } } };
   }
-  return { analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: true, reasons: ['bloqueio real'], reportMarkdown: 'relatório', payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'Tem um problema na validação do redirect.' } } };
+  return { protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: true, reasons: ['bloqueio real'], reportMarkdown: 'relatório', payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'Tem um problema na validação do redirect.' } } };
 }
 
 function handleFalso() {
@@ -53,7 +56,7 @@ function motor(post, handle, tipo) {
   e.log = (nivel, msg) => { e.logs.push(`${nivel} ${msg}`); };
   e.prState = async () => 'OPEN';
   e.headSha = async () => HEAD;
-  e.fetchPrFiles = async () => null;
+  e.fetchPrFiles = async () => [];
   e.bloqueadoPorChecks = async () => ({ faltando: [] });
   e.bloqueadoPorHistorico = async () => ({ bloqueado: false, head: '', quem: [], decisivos: [] });
   e.approvePolicyFor = () => 'approve';
@@ -81,7 +84,7 @@ for (const tipo of ['approve', 'request_changes']) {
     const h = handleFalso();
     const e = motor({ ok: true, estado: 'confirmada' }, h, tipo);
     await e.runHeadlessReview(prDe('o/r#1'));
-    assert.equal(e.chamadas.length, 1);
+    assert.equal(e.chamadas.length, 1, JSON.stringify({pending:e.decisions.pending,logs:e.logs}));
     assert.equal(e.chamadas[0].opcoes.via, 'revisao');
     assert.equal(e.chamadas[0].opcoes.handle, h);
   });
@@ -92,6 +95,7 @@ for (const tipo of ['approve', 'request_changes']) {
     assert.equal(e.decisions.pending.some((d) => d.key === 'o/r#2'), false);
   });
 }
+
 
 test('postagem incerta: vira pendência com o motivo, sem lançar', async () => {
   const e = motor(INCERTA, handleFalso(), 'approve');

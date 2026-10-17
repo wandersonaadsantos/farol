@@ -526,7 +526,7 @@ test('identidade: sem o arquivo da ferramenta adotada, nada e aceito', () => {
 test('o arquivo versionado fixa a versao adotada e um commit completo', () => {
   const f = ferramentaAdotada();
   // a versao adotada acompanha a migracao do baseline (0.12.0 ate 17/09/2026, 0.13.0 ate 18/09/2026 de manha, 0.15.0 ate a noite, 0.16.0 depois)
-  assert.equal(f.versao, '0.16.0', 'a mesma versao do catalogVersion do baseline');
+  assert.equal(f.versao, '0.17.0', 'a mesma versao do catalogVersion do baseline');
   assert.match(f.commit, /^[0-9a-f]{40}$/);
   assert.ok(Array.isArray(f.construcao) && f.construcao.length > 0, 'o comando de construcao fica registrado');
   const baselines = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '..', 'tools', 'eng-behaviour', 'baselines.json'), 'utf8'));
@@ -558,6 +558,6 @@ test('o gate, rodado de verdade, falha com codigo 2 quando a CLI apontada nao e 
     env: { ...envGitLimpo(), FAROL_ENG_BEHAVIOUR_HOME: home }, encoding: 'utf8', timeout: 50_000,
   });
   assert.equal(r.status, 2);
-  assert.match(r.stderr, /declara a versao 0\.14\.0, e o Farol adota a 0\.16\.0/);
+  assert.match(r.stderr, /declara a versao 0\.14\.0, e o Farol adota a 0\.17\.0/);
   assert.doesNotMatch(r.stdout, /Veredito/, 'nem chega a rodar a CLI');
 });

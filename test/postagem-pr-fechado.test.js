@@ -28,6 +28,9 @@ io.run = async (cmd, args) => {
 };
 
 const { Engine } = await import('../server.js');
+const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
+isolateTechnicalTool();
+
 
 after(() => {
   io.run = runReal;
@@ -48,6 +51,7 @@ function motor() {
 const PR = { key: 'acme/app#7', repo: 'acme/app', number: 7, url: 'https://github.com/acme/app/pull/7' };
 const APROVAR = { event: 'APPROVE', body: 'Leitura completa, sem bloqueios.' };
 const PEDIR = { event: 'REQUEST_CHANGES', body: 'O teste novo não cobre o caso vazio.' };
+
 
 test('PR mergeado: nem APPROVE nem REQUEST_CHANGES saem, e o motivo é dito', async () => {
   estado = { ok: true, stdout: '{"state":"MERGED"}' };

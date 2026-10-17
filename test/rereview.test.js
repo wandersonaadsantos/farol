@@ -211,17 +211,11 @@ const ARQUIVOS = [
   { path: 'src/b.ts', sha: 'blob-b', status: 'added', lines: 5 },
 ];
 
-test('launchReReviews: push que não muda o diff efetivo NÃO gasta sessão (âncora fica)', async () => {
+test('launchReReviews reavalia a decisão mesmo quando o diff é idêntico', async () => {
   const e = engineBase();
-  saveFileProof(KEY, { head: 'sha-velho', files: ARQUIVOS, reviewed: ['src/a.ts', 'src/b.ts'] });
-  // o diff atual é byte a byte o que a última sessão leu (rebase limpo, merge da base)
-  e.fetchPrFiles = async () => ARQUIVOS.map(f => ({ ...f }));
+  e.fetchPrFiles = async () => [{ path: 'a.ts', sha: 'blob1', status: 'modified' }];
   await reviewMod.launchReReviews(e);
-  assert.deepEqual(e.enq, [], 'diff efetivo idêntico: nenhuma sessão aberta');
-  assert.equal(e.reReviewLaunched[KEY].head, 'sha-novo',
-    'a âncora do head novo fica gravada: o pulo vale até o próximo push de verdade');
-  assert.ok(e.toasts.some(t => t.ev === 'toast' && /não mudou o diff efetivo/.test(t.payload.text)),
-    'o pulo é avisado, nunca silencioso');
+  assert.equal(e.enq.length, 1, 'a leitura pode ser herdada, mas as regras atuais precisam ser avaliadas');
 });
 
 test('launchReReviews: push com mudança real relança normalmente mesmo com prova salva', async () => {

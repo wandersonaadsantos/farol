@@ -20,6 +20,9 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const { Engine } = await import('../server.js');
+const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
+isolateTechnicalTool();
+
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 
@@ -38,6 +41,7 @@ function engineComToken(token) {
   e.chamouGh = false;
   return e;
 }
+
 
 test('sem token da conta dona, o review NÃO vai pro GitHub', async () => {
   const e = engineComToken(null);

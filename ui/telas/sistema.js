@@ -156,7 +156,6 @@ function renderSettings() {
   $('#notaAprovarJuntoSemEfeito').hidden = !revisarJunto;
   $('#sys-row-coassinar').classList.toggle('sem-efeito', revisarJunto);
   $('#setAguardarCi').checked = c.aguardarCiParaRevisar === true;
-  $('#setAguardarCiAprovar').checked = c.aguardarCiParaAprovar === true;
   $('#setReReviewResume').checked = c.reReviewResume === true;
   $('#setAutoPushback').checked = !!c.autoPushback;
   $('#setAutoUpdate').checked = c.autoUpdate !== false;

@@ -16,6 +16,9 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const { Engine } = await import('../server.js');
+const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
+isolateTechnicalTool();
+
 const fanout = (await import('../lib/engine/fanout.js')).default;
 
 // runHeadlessReview chama fanoutMod.prMetrics por acesso de propriedade em tempo de
@@ -38,7 +41,7 @@ const textos = rs => (rs || []).map(texto);
 
 function envelope(extra) {
   return {
-    analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+    protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     reportMarkdown: 'relatório', payloads: { approve: { event: 'APPROVE', body: 'ok' } },
     ...extra
   };
@@ -54,10 +57,13 @@ function engineComEnvelope(data, { policy = 'approve', ressalvas = policy } = {}
   e.rejectPolicyFor = () => 'wait';
   e.scopeLabel = () => 'Conta Trabalho';
   e.myReviewStates = async () => null;
+  e.headSha = async () => 'a'.repeat(40);
+  e.bloqueadoPorChecks = async () => ({ faltando: [] });
   e.postReview = async () => { throw new Error('não era pra postar neste teste'); };
   e.runClaudeStream = async () => ({ text: JSON.stringify({ result: JSON.stringify(data) }), sessionId: 's1' });
   return e;
 }
+
 
 test('recusa por política da conta lidera as reasons com a explicação da política', async () => {
   const e = engineComEnvelope(envelope(), { policy: 'wait' });
@@ -109,7 +115,7 @@ test('lacuna de cobertura entra UMA vez nas reasons, como ressalva, com a amostr
   }), { policy: 'approve', ressalvas: 'wait' });
   await e.runHeadlessReview(PR);
   const item = e.decisions.pending[0];
-  assert.match(texto(item.reasons[0]), /aprovável com ressalvas, e a política da conta .+ é aguardar você/, 'quem segurou foi a política de ressalvas');
+  assert.match(texto(item.reasons[0]), /cobertura da leitura/, 'a prova insuficiente prevalece sobre a política');
   const deCobertura = textos(item.reasons).filter(r => /cobertura da leitura/.test(r));
   assert.equal(deCobertura.length, 1, `cobertura virou ${deCobertura.length} motivo(s): ${deCobertura.join(' | ')}`);
   assert.match(deCobertura[0], /b\.ts/, 'a redação que fica é a que mostra a amostra');
@@ -126,7 +132,7 @@ test('fora da política (clique), a lacuna de cobertura segue explicando por que
   const item = e.decisions.pending[0];
   const deCobertura = textos(item.reasons).filter(r => /cobertura da leitura/.test(r));
   assert.equal(deCobertura.length, 1);
-  assert.match(deCobertura[0], /não posto sozinho/);
+  assert.match(deCobertura[0], /cobertura da leitura/);
   assert.ok(textos(item.reasons).some(r => /revisão iniciada por você/.test(r)));
 });
 
@@ -145,8 +151,8 @@ test('card não comprovado: o card mostra a ressalva do card ao lado da polític
   const e = engineComEnvelope(envelope({ decision: 'needs_decision', cardMet: false }), { policy: 'approve', ressalvas: 'wait' });
   await e.runHeadlessReview(PR);
   const item = e.decisions.pending[0];
-  assert.match(texto(item.reasons[0]), /aprovável com ressalvas/);
-  assert.ok(textos(item.reasons).some(r => /card não foi totalmente comprovado/.test(r)), JSON.stringify(item.reasons));
+  assert.match(texto(item.reasons[0]), /critérios necessários do card não comprovados/);
+  assert.ok(textos(item.reasons).some(r => /critérios necessários do card não comprovados/.test(r)), JSON.stringify(item.reasons));
 });
 
 test('zero ponto de atenção é limpo: a política do limpo decide, e a recusa diz "sem ressalvas"', async () => {
