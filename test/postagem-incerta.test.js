@@ -16,6 +16,9 @@ import { TEMPOS } from '../lib/constants.js';
 
 const io = (await import('../lib/io.js')).default;
 const { Engine } = await import('../server.js');
+const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
+isolateTechnicalTool();
+
 const { createRtdbClient } = await import('../lib/sync/rtdb.js');
 const registro = await import('../lib/engine/registro-postagem.js');
 
@@ -65,6 +68,7 @@ function pendencia() {
 async function estado(e) {
   return (await registro.lerRegistro(e, CTX_REG)).efetivo.estado;
 }
+
 
 test('publicação aceita e queda antes do desfecho: fica enviando, ninguém reposta, a reconciliação confirma', async () => {
   const a = aparelho('dA');

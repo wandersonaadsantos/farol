@@ -201,20 +201,18 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
 1. **Zero dependências além do Electron.** O engine roda com Node puro (`node server.js`). Não adicione pacotes npm.
 2. **Dados em `~/.farol`, nunca em AppData/Library.** No Windows o motivo é o MSIX virtualizar `%LOCALAPPDATA%`; no macOS mantemos o mesmo caminho por simetria (o estado migra entre máquinas copiando uma pasta só).
 3. **Log só de falhas.** `farol.log` não recebe ruído operacional; o Diagnóstico usa esse log como fonte. **A classificação dessas falhas mora só em `lib/log-taxonomy.js`** (desde a v2.37.0): quem decide retry (`runOneHeadless`) e quem monta o Diagnóstico leem a MESMA tabela. Duplicar a regra foi o que deixou o painel mostrando 159 linhas cruas de 4 episódios enquanto o motor achava que entendia o erro.
-4. **Nada é postado no GitHub sem gate.** Auto-approve exige revisão pedida a mim
-   (`requested === true`), veredito `approve` e payload `APPROVE`, com a política por conta (o padrão da conta nova, desde 01/10/2026, aprova e
-   reprova sozinho; quem prefere revisar desliga no cartão da conta); co-assinar é opt-in; clique manual nunca é bloqueado pelos
-   gates automáticos. **A configuração de aprovar sozinho cumpre o que promete (30/09/2026)**:
-   um resultado aprovável é limpo (nenhum ponto de atenção) ou com ressalvas, e SÓ a política
-   da conta decide entre postar e esperar você; discordância de outro review, lacuna de
-   cobertura, checkpoint, dependência em aberto e card não comprovado são ressalva visível
-   (`lib/engine/ressalvas.js`), nunca gate. A espera do CI na aprovação é opt-in desde
-   02/10/2026 (`config.aguardarCiParaAprovar`, padrão desligado): desligada, a aprovação sai
-   na hora e o estado do CI vira ressalva no app; ligada, check obrigatório vermelho ou ainda
-   sem resultado nunca sai como APPROVE nem vai para a mesa: espera e posta sozinho quando
-   fecha verde no mesmo head (`lib/engine/gate-espera.js`, `lib/engine/espera-ci.js`). O desenho
-   completo, com o porquê de cada gate e os incidentes que os criaram, está em
-   [`docs/REVIEW-GATES.md`](docs/REVIEW-GATES.md).
+4. **Nada é postado no GitHub sem gate.** A admissibilidade técnica e a suficiência
+   da prova vêm antes da política da conta. Violação obrigatória ou avaliação necessária
+   inconclusiva impedem APPROVE, inclusive no clique, chat, coassinatura, reenvio e espera.
+   Um resultado tecnicamente admissível continua seguindo a preferência de publicação
+   da conta e exige revisão pedida a mim para sair automaticamente. CI obrigatório sem
+   sucesso confirmado espera; a opção antiga de espera não dispensa essa prova.
+   Leitura pode ser herdada, mas a avaliação precisa corresponder ao catálogo, declaração,
+   repositório, base e head vigentes. Dívida anterior só é absorvida pelo baseline finito
+   já registrado, sem criar permissão para novo desvio. Dados e ferramentas da avaliação
+   vivem no armazenamento privado do Farol, nunca no repositório revisado.
+   Ver [`docs/REVIEW-GATES.md`](docs/REVIEW-GATES.md).
+
 5. **Toda diferença de SO passa por `IS_WIN`/`IS_MAC`/`IS_LINUX`** (fonte única em `lib/paths.js`), nunca por checagens soltas espalhadas. Doutrina desde a v2.45.0: o que é POSIX genuíno (runShell, spawn headless, killTree, PATH do boot) ramifica em `!IS_WIN` e vale pra mac E linux; o que é mac de verdade (`open`, `Farol.app`) usa `IS_MAC`; o ramo Linux (experimental) fica ao lado, ver [`docs/MACOS.md`](docs/MACOS.md#linux-experimental-v2450), que também traz os pontos com branch de plataforma.
 6. **Texto da UI e comentários em português, sem travessão.** Use vírgula, parênteses ou dois pontos.
 7. **O zip de distribuição é auditado** (`make-package.ps1` falha se detectar estado, config, token ou conta pessoal). Não enfraqueça a auditoria. Desde 16/09/2026 a varredura de conteúdo lê TODO arquivo do pacote, sem lista de extensão (a lista anterior deixava `ui/favicon.svg` e `installer/farol.nsi` fora, medido no caminho real), e `test/pacote-auditoria.test.js` reprova quem reintroduzir o filtro.

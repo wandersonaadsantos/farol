@@ -24,6 +24,9 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const { Engine } = await import('../server.js');
+const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
+isolateTechnicalTool();
+
 const fanout = (await import('../lib/engine/fanout.js')).default;
 
 const prMetricsOriginal = fanout.prMetrics;
@@ -34,8 +37,8 @@ after(() => {
   try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ }
 });
 
-const HEAD_ANTIGO = '7af663eb1c0a';
-const HEAD_NOVO = '2187af82d4e9';
+const HEAD_ANTIGO = '7af663eb1c0a0000000000000000000000000000';
+const HEAD_NOVO = '2187af82d4e90000000000000000000000000000';
 
 const PR = {
   key: 'o/r#742', repo: 'o/r', number: 742, url: 'https://github.com/o/r/pull/742',
@@ -44,7 +47,7 @@ const PR = {
 
 function envelopeReject() {
   return {
-    analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
+    protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: true,
     reasons: ['Open redirect ainda ativo no head novo'],
     reportMarkdown: 'relatório',
     payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'o redirect não fechou' } }
@@ -53,7 +56,7 @@ function envelopeReject() {
 
 function envelopeApprove() {
   return {
-    analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+    protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     reportMarkdown: 'relatório',
     payloads: { approve: { event: 'APPROVE', body: 'ok' } }
   };
@@ -80,6 +83,7 @@ function engineCom(envelope, { meusReviews, head, policyReject = 'wait', policyA
 const revisao = (state, commit) => [{ state, at: Date.parse('2026-08-11T15:27:45Z'), commit }];
 
 /* ---------- a unidade: myReviewStates filtra por head ---------- */
+
 
 test('myReviewStates: review meu num commit ANTIGO não conta pro dedup do head atual', async () => {
   const e = engineCom(envelopeReject(), { meusReviews: revisao('CHANGES_REQUESTED', HEAD_ANTIGO), head: HEAD_NOVO });

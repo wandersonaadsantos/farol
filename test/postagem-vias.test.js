@@ -14,6 +14,9 @@ import { montarAparelho } from './helpers/aparelho-coordenado.js';
 
 const io = (await import('../lib/io.js')).default;
 const { Engine } = await import('../server.js');
+const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
+isolateTechnicalTool();
+
 const { createRtdbClient } = await import('../lib/sync/rtdb.js');
 const { admit } = await import('../lib/sync/coordinator.js');
 const registro = await import('../lib/engine/registro-postagem.js');
@@ -77,6 +80,7 @@ async function revisaoAdmitida(e) {
   handles.push(adm.handle);
   return adm.handle;
 }
+
 
 test('dois cliques em aparelhos diferentes: um único POST', async () => {
   const a = aparelho('dA');

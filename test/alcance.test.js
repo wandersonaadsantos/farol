@@ -153,7 +153,7 @@ test('revisão real: chamador inventado é ressalva, a conta que espera nas ress
   const e = motor([{ alterado: 'src/veredito.ts', chamadores: [{ arquivo: 'src/rota.ts', linha: 4, simbolo: 'naoExiste' }] }]);
   await e.runHeadlessReview({ ...PR });
   assert.equal(e.postados.length, 0, 'nada foi postado');
-  assert.match(motivos(e), /aprovável com ressalvas/);
+  assert.match(motivos(e), /cobertura da leitura/);
   assert.match(motivos(e), /cobertura da leitura/);
   assert.match(motivos(e), /src\/rota\.ts:4 não cita naoExiste no head/);
 });

@@ -147,7 +147,7 @@ test('gatilho A (review meu stale) continua pulando quando o diff efetivo é id�
 
   await e.launchReReviews();
 
-  assert.equal(enfileirados.length, 0, 'push trivial no gatilho A continua pulando');
+  assert.equal(enfileirados.length, 1, 'diff idêntico não dispensa avaliação sob as regras vigentes');
 });
 
 // FIX 1: poda de headQuietoDesde e avisoRodadasDia (cresciam pra sempre em

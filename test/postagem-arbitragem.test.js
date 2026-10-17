@@ -16,6 +16,9 @@ import { SYNC } from '../lib/constants.js';
 
 const io = (await import('../lib/io.js')).default;
 const { Engine } = await import('../server.js');
+const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
+isolateTechnicalTool();
+
 const { createRtdbClient } = await import('../lib/sync/rtdb.js');
 const { admit } = await import('../lib/sync/coordinator.js');
 const { adquirirPosseDePostagem } = await import('../lib/sync/posse-postagem.js');
@@ -69,6 +72,7 @@ async function revisaoAdmitida(e) {
   handles.push(adm.handle);
   return adm.handle;
 }
+
 
 test('posse perdida durante a espera na fila por processo: o io.run não é chamado', async () => {
   const a = aparelho('dA');

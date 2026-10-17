@@ -454,7 +454,7 @@
             <label class="set-row" id="sys-row-coassinar">
               <span class="set-txt">
                 <span class="set-title">Aprovar junto com quem pegou o PR</span>
-                <span class="set-desc">Quando outra pessoa do time já está revisando um PR com o Farol, o Farol sai de cena e avisa aqui no app, sem postar nada no PR (um Farol por PR, pra não empilhar revisão em cima da mesma coisa). O sinal é a label <code>&lt;conta&gt;:revisando</code> que o Farol dela põe no PR: quem revisa sem o Farol não é detectado. Com esta chave ligada, ele ainda aprova <b>em seu nome</b> quando essa pessoa aprova o mesmo head, sem abrir sessão nem gastar do seu limite. Só vale em conta que revisa sozinha, e a conta cujo aprovável sem ressalvas espera você também não co-assina. <b>Nunca co-assina onde você é dono do código pelo CODEOWNERS</b>, nem quando o CODEOWNERS não pode ser lido: ali a sua aprovação precisa vir de revisão de verdade. O preço é explícito: você endossa uma revisão que não fez e não tem como saber com que rigor ou com que modelo ela foi feita. Desligado (padrão), o PR simplesmente espera você, e o botão Revisar continua funcionando normalmente.</span>
+                <span class="set-desc">Quando outra pessoa já está revisando, o Farol pode sair de cena para evitar duplicar trabalho e avisa no app, sem postar nada no PR. Esta opção permite endossar a aprovação no mesmo commit somente quando também houver uma avaliação técnica própria, atual e suficiente. A aprovação de outra pessoa não substitui essa prova. Nunca co-assina onde você é dono do código pelo CODEOWNERS. Conta que espera você também não co-assina; sem prova própria, use Revisar.</span>
                 <span class="set-nota" id="notaAprovarJuntoSemEfeito" hidden>Sem efeito agora: com “Revisar sozinho mesmo com outra pessoa revisando” ligada, o Farol não sai de cena e não há quem co-assinar.</span>
               </span>
               <span class="set-ctl"><input id="setCoAssinarReview" type="checkbox"><span class="switch"></span></span>
@@ -473,13 +473,12 @@
               </span>
               <span class="set-ctl"><input id="setAguardarCi" type="checkbox"><span class="switch"></span></span>
             </label>
-            <label class="set-row" id="sys-row-aguardarciaprovar">
+            <div class="set-row" id="sys-row-aguardarciaprovar">
               <span class="set-txt">
-                <span class="set-title">Esperar o CI para aprovar</span>
-                <span class="set-desc">Com a chave ligada, a aprovação automática não sai enquanto algum check <b>obrigatório</b> do PR estiver vermelho ou rodando: o card fica em "Esperando o CI (aprova sozinho)" e o Farol posta quando a pipe fecha verde no mesmo commit. Desligado (padrão), a aprovação sai assim que a revisão termina, e o estado do CI fica registrado como ressalva aqui no app, nunca no PR. O botão Aprovar nunca espera.</span>
+                <span class="set-title">CI obrigatório antes da aprovação</span>
+                <span class="set-desc">A aprovação espera os checks obrigatórios concluírem com sucesso no commit revisado. Falha de consulta mantém a verificação pendente. A preferência de publicação da conta continua valendo depois dessa confirmação.</span>
               </span>
-              <span class="set-ctl"><input id="setAguardarCiAprovar" type="checkbox"><span class="switch"></span></span>
-            </label>
+            </div>
             <label class="set-row" id="sys-row-reviewfast">
               <span class="set-txt">
                 <span class="set-title">Modo rápido da revisão</span>

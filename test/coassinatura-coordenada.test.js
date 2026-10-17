@@ -14,6 +14,9 @@ import { montarAparelho } from './helpers/aparelho-coordenado.js';
 
 const io = (await import('../lib/io.js')).default;
 const { Engine } = await import('../server.js');
+const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
+isolateTechnicalTool();
+
 const { createRtdbClient } = await import('../lib/sync/rtdb.js');
 const { admit } = await import('../lib/sync/coordinator.js');
 const skip = await import('../lib/engine/skip-review.js');
@@ -64,6 +67,7 @@ function anaAprovou(commitId = HEAD) {
 function ctxRevisao() {
   return { prKey: PR.key, account: 'eu', materialVersion: HEAD, headSha: HEAD, contaRodada: false, manual: false, semCoordenacao: false, ignorarRecibo: false, pr: PR, operationKind: 'review', opId: '' };
 }
+
 
 test('aprovouNoMesmoSha: só APPROVED da pessoa no mesmo commit', () => {
   assert.equal(aprovouNoMesmoSha([{ quem: 'Ana', state: 'APPROVED', commit: HEAD }], 'ana', HEAD), true);

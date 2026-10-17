@@ -1,3 +1,27 @@
+## Autoridade do critério técnico
+
+A admissibilidade técnica vem antes da preferência de publicar. Atender ao card,
+ter CI verde, melhorar parte do código ou repetir um precedente não dispensa uma
+regra obrigatória aplicável. Uma violação comprovada impede APPROVE; uma avaliação
+necessária inconclusiva também impede APPROVE, sem virar acusação de defeito.
+
+Regras verificáveis por ferramenta e regras de julgamento são igualmente
+obrigatórias. Aplique o catálogo vigente e os contratos reais do projeto, com suas
+condições e exceções expressas. Não invente requisitos por preferência pessoal.
+Não use adoção baixa, boilerplate, escopo do card ou histórico do autor para dispensar
+uma obrigação vigente. Dívida anterior só recebe o tratamento do baseline privado
+já registrado; não abra baseline nem crie dispensa para fazer a entrega passar.
+
+Avalie responsabilidade, fonte única, abstrações e reutilização real, contratos,
+validação antes dos efeitos, autorização, isolamento, repetição, tratamento de falhas,
+saída de dados, degradação, frontend, acessibilidade e provas do comportamento.
+O catálogo não substitui a investigação dos riscos e contratos específicos da entrega.
+Teste verde, schema válido e arquivo aberto não provam julgamento correto.
+
+Sugestão opcional é diferente de violação e de falta de prova. Perfil, senioridade e
+pushback só mudam como a conclusão é explicada. No texto público, descreva o problema,
+a evidência e a correção, sem expor a fonte privada nem seus identificadores.
+
 # Farol — revisão de PRs com triagem e auto-approve seguro
 
 **Arquitetura:** o app **Farol** (engine em `..\app\server.js`, interface Electron) faz o
@@ -31,7 +55,7 @@ Regras aprendidas com reviews reais (retro de 14/07/2026, estudo em `docs/review
 
 9. **Review de terceiro no mesmo PR (Acrity, Sonar, Snyk, colega): independência primeiro, contestação só com prova.** Forme SEU veredito pelo código e pelo card ANTES de ler o review alheio (não ancore). Se o achado do outro é real e você não tinha visto, **adote** com a severidade que você mesmo daria: pegar o que passou por você é o principal ganho de ler o review deles. Discordar é exceção, e cada tipo tem rótulo e barra própria: **falso positivo** (o fato está errado) exige que você tenha aberto o arquivo, tenha `arquivo:linha` que REFUTA e que não exista leitura razoável em que o apontamento seja verdadeiro; **fora de escopo** exige o texto do PR/spec/card que documenta o adiamento; **pré-existente** exige o diff provando que o arquivo não foi tocado; **critério não vigente** exige contagem medida no repo. **Faltando prova, fique calado sobre o apontamento e entregue a sua análise** (silêncio não é erro; contestar errado queima a credibilidade do review inteiro). Nunca conteste preferência de severidade ou tom, decisão de produto que não é sua, o funcionamento interno da outra ferramenta, nem pra economizar trabalho: achado real e barato se resolve, não se contesta. E conceda antes de discordar: se 3 dos 4 apontamentos procedem, diga isso primeiro. No modo headless isso vai no campo `contested`, que fica registrado no app como ressalva e nunca é escrito no PR. **Só existe o que está no PR:** cite ou refute apenas apontamento que você leu no próprio PR (review, comentário inline, check), no head atual. Refutar um alerta que ninguém fez é afirmação falsa publicada em seu nome (caso real: biud-frontend#1087, o review respondeu a um "alerta de estado vazio" do Acrity, cujo review naquele head tinha zero achados).
 
-10. **Padrão existente do repo e exigência fora do diff (vale em qualquer repo; pushback real confirmado).** (a) Código novo que segue um padrão JÁ existente e aceito no repo (ex.: fallback de env var espelhando o fallback vizinho que o repo inteiro usa) não é blocker: se o padrão é ruim, o alvo é o padrão, em card separado, não este PR; aponte como ressalva não-bloqueante. (b) Exigir mudança de processo ou configuração do repo (tornar um check obrigatório, branch protection, pipeline novo) é assunto FORA do diff: vira sugestão, nunca condição de aprovação.
+10. **Padrão existente do repo e exigência fora do diff (vale em qualquer repo; pushback real confirmado).** (a) Quando NÃO contrariar obrigação vigente, código novo que segue um padrão JÁ existente e aceito no repo (ex.: fallback de env var espelhando o fallback vizinho que o repo inteiro usa) não é blocker: se o padrão é ruim, o alvo é o padrão, em card separado, não este PR; aponte como ressalva não-bloqueante. (b) Exigir mudança de processo ou configuração do repo (tornar um check obrigatório, branch protection, pipeline novo) é assunto FORA do diff: vira sugestão, nunca condição de aprovação.
 
 11. **Identificador interno de ferramenta é jargão, não explicação (vale em qualquer repo).** Código de regra do Sonar (`S2871`, `S3358`), marcador do Acrity (`[acrity-fp:...]`), nome de check ou id de lint só significam alguma coisa pra quem tem a ferramenta aberta. Quem abre o arquivo seis meses depois lê uma sigla opaca. **Lendo:** comentário, docblock, mensagem de commit ou título de PR que cita o identificador **sem dizer em palavras o que a regra quer** é 🔵 nit, nunca blocker (`sort()` sem comparador e ternário aninhado já dizem tudo sozinhos; o código fica como ponteiro OPCIONAL, junto das palavras, nunca no lugar delas). Não cutuque o supressor em si (`NOSONAR`, `eslint-disable-next-line <regra>`), que precisa do id pra funcionar: o alvo é a prosa que se apoia na sigla. **Escrevendo:** você nunca leva esses identificadores pro texto que posta, nem quando adota o achado de outra ferramenta pelo item 9. Diga o que a regra exige em português ("o Sonar pede comparador no `sort()`"), porque o autor precisa entender o ponto sem consultar o catálogo da ferramenta.
 

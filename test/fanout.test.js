@@ -9,6 +9,8 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const { Engine } = await import('../server.js');
+const { provenResult } = await import('./helpers/technical-proof.js');
+
 const fanout = (await import('../lib/engine/fanout.js')).default;
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
@@ -148,20 +150,20 @@ function alcanceSintetico(extra = {}) {
 // conta que aprova com ressalvas aprova, a que espera espera (motivo: política), e a lacuna
 // aparece no card com o texto concreto.
 function ehRessalvaDeCobertura(r) {
-  assert.deepEqual(engineLiberado().shouldAutoApprove(PR, r), { ok: true, motivo: null }, 'conta que aprova com ressalvas aprova');
+  assert.deepEqual(engineLiberado().shouldAutoApprove(PR, r), { ok: false, motivo: 'prova_tecnica_incompleta' }, 'lacuna obrigatória impede aprovação');
   const espera = engineLiberado();
   espera.approvePolicyFor = (_conta, limpo) => (limpo ? 'approve' : 'wait');
-  assert.deepEqual(espera.shouldAutoApprove(PR, r), { ok: false, motivo: 'politica' }, 'conta que espera nas ressalvas espera');
+  assert.deepEqual(espera.shouldAutoApprove(PR, r), { ok: false, motivo: 'prova_tecnica_incompleta' }, 'preferência da conta não dispensa a prova');
   assert.ok(espera.attentionPoints(r).some((p) => /A cobertura da leitura tem \d+ pendência/.test(p.text) && p.kind === 'gate'), 'a lacuna é ressalva visível');
 }
 function aprovavel(extra) {
-  return {
+  return provenResult({
     analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     payloads: { approve: { event: 'APPROVE', body: 'ok' } }, alcance: alcanceSintetico(extra), ...extra
-  };
+  });
 }
 
-test('cobertura completa é limpo; lacuna declarada é ressalva e a política decide', () => {
+test('cobertura completa é limpo; lacuna declarada bloqueia aprovação', () => {
   const e = engineLiberado();
   const completa = aprovavel({ coverage: { total: 2, reviewed: ['a.ts', 'b.ts'], missing: [] } });
   assert.equal(e.shouldAutoApprove(PR, completa).ok, true, 'leu tudo e está limpo: aprova');

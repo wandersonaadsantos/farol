@@ -27,6 +27,9 @@ io.run = function runEspiao(cmd, args, opts) {
 };
 
 const { Engine } = await import('../server.js');
+const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
+isolateTechnicalTool();
+
 
 after(() => {
   io.run = runReal;
@@ -52,12 +55,14 @@ function novoEngine() {
   engine.refreshTokens = async () => { };
   engine.log = () => { };
   engine.on('toast', () => { });
+  engine.headSha = async () => 'a'.repeat(40);
+  engine.bloqueadoPorChecks = async () => ({ faltando: [] });
   return engine;
 }
 
 function resultado(extra) {
   return {
-    analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+    protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     payloads: { approve: { event: 'APPROVE', body: 'ok' } },
     reportMarkdown: '# ok', ...extra
   };
@@ -75,6 +80,7 @@ function roteadorPost() {
 function arquivoAutor(login) {
   return path.join(FAROL_HOME, 'workspace', 'state', 'authors', `${login}.md`);
 }
+
 
 test('recordDecision ignora o pr do envelope: a identidade vem da fila', () => {
   const engine = novoEngine();
@@ -169,7 +175,7 @@ test('caminho automático: auto-reject também atribui a memória pela fila', as
   const meuPR = prDaFila(44, { requested: true });
   engine.runClaudeStream = async () => ({
     text: JSON.stringify({
-      analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: false, reasons: ['blocker X'],
+      protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'request_changes', decision: 'needs_decision', cardMet: false, reasons: ['blocker X'],
       payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'muda X' } },
       reportMarkdown: '# x',
       pr: { repo: 'evil/repo', number: 1, author: 'hera' },

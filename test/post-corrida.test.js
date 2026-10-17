@@ -41,6 +41,9 @@ io.run = function runEspiao(cmd, args, opts) {
 };
 
 const { Engine } = await import('../server.js');
+const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
+isolateTechnicalTool();
+
 const D = (await import('../lib/engine/decision.js')).default;
 const { TEMPOS } = await import('../lib/constants.js');
 
@@ -70,6 +73,7 @@ function engineDeTeste() {
 function ghLento(ms = 30, ok = true) {
   return async () => { await new Promise(r => setTimeout(r, ms)); return { ok, stdout: '{}', stderr: ok ? '' : 'boom' }; };
 }
+
 
 test('duas vias postando o MESMO veredito no mesmo head ao mesmo tempo: só uma vai pro GitHub', async () => {
   const e = engineDeTeste();

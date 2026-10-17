@@ -170,7 +170,6 @@ const settingsMap = [
   ['#setCoAssinarReview', 'coAssinarReview', el => el.checked],
   ['#setRevisarJunto', 'revisarComOutrosRevisando', el => el.checked],
   ['#setAguardarCi', 'aguardarCiParaRevisar', el => el.checked],
-  ['#setAguardarCiAprovar', 'aguardarCiParaAprovar', el => el.checked],
   ['#setReReviewResume', 'reReviewResume', el => el.checked],
   ['#setSkipPerms', 'skipPermissions', el => el.checked],
   ['#setSound', 'soundEnabled', el => el.checked],

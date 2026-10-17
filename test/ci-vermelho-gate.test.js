@@ -19,6 +19,8 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const { Engine } = await import('../server.js');
+const { provenResult } = await import('./helpers/technical-proof.js');
+
 const { checksVermelhos } = await import('../lib/engine/decision.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
@@ -26,11 +28,11 @@ after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: 
 const PR = { key: 'o/r#1', repo: 'o/r', number: 1, url: 'https://github.com/o/r/pull/1', requested: true };
 
 function approvableResult(extra) {
-  return {
+  return provenResult({
     analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     payloads: { approve: { event: 'APPROVE', body: 'ok' } },
     ...extra
-  };
+  });
 }
 
 function engineWithPolicy(policy) {
@@ -94,10 +96,10 @@ test('check ainda rodando ou que nem começou segura a aprovação automática, 
 
 // De 27 a 30/09/2026 a dependência em aberto devolvia { ok: false, motivo: 'dependencia' } em
 // qualquer política. Agora é ressalva com o texto da dependência, e a política decide.
-test('dependência em aberto declarada pela revisão é ressalva: a política da conta decide', () => {
+test('dependência em aberto declarada pela revisão impede aprovação em qualquer política', () => {
   const r = approvableResult({ dependenciasAbertas: ['biudtech/infra-k8s#189 ainda aberto'] });
-  assert.deepEqual(enginePorClasse('approve', 'approve').shouldAutoApprove(PR, r), { ok: true, motivo: null });
-  assert.deepEqual(enginePorClasse('approve', 'wait').shouldAutoApprove(PR, r), { ok: false, motivo: 'politica' });
+  assert.deepEqual(enginePorClasse('approve', 'approve').shouldAutoApprove(PR, r), { ok: false, motivo: 'prova_tecnica_incompleta' });
+  assert.deepEqual(enginePorClasse('approve', 'wait').shouldAutoApprove(PR, r), { ok: false, motivo: 'prova_tecnica_incompleta' });
   const pts = enginePorClasse('approve', 'wait').attentionPoints(r);
   assert.equal(pts.length, 1);
   assert.match(pts[0].text, /depende de algo que estava em aberto na leitura: biudtech\/infra-k8s#189 ainda aberto/);

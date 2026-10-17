@@ -9,6 +9,8 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const { Engine } = await import('../server.js');
+const { provenResult } = await import('./helpers/technical-proof.js');
+
 const { checkpointGap } = await import('../lib/engine/decision.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
@@ -16,11 +18,11 @@ after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: 
 const PR = { key: 'o/r#1', repo: 'o/r', number: 1, url: 'https://github.com/o/r/pull/1', requested: true };
 
 function approvableResult(extra) {
-  return {
+  return provenResult({
     analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     payloads: { approve: { event: 'APPROVE', body: 'ok' } },
     ...extra
-  };
+  });
 }
 
 function engineWithPolicy(policy) {
@@ -56,15 +58,15 @@ test('checkpointGap: verificationCheckpoint limpo (sem conflito), não bloqueia'
 // qualquer política. Agora o problema do checkpoint é RESSALVA: a conta que aprova com
 // ressalvas aprova, a que espera espera, e o card mostra o que divergiu.
 function ehRessalvaDoCheckpoint(r, trecho) {
-  assert.deepEqual(enginePorClasse('approve', 'approve').shouldAutoApprove(PR, r), { ok: true, motivo: null });
-  assert.deepEqual(enginePorClasse('approve', 'wait').shouldAutoApprove(PR, r), { ok: false, motivo: 'politica' });
+  assert.deepEqual(enginePorClasse('approve', 'approve').shouldAutoApprove(PR, r), { ok: false, motivo: 'prova_tecnica_incompleta' });
+  assert.deepEqual(enginePorClasse('approve', 'wait').shouldAutoApprove(PR, r), { ok: false, motivo: 'prova_tecnica_incompleta' });
   const pts = enginePorClasse('approve', 'wait').attentionPoints(r);
   assert.equal(pts.length, 1);
   assert.match(pts[0].text, trecho);
   assert.equal(pts[0].kind, 'gate');
 }
 
-test('checkpointGap: verificationCheckpoint com conflito é ressalva visível, e a política decide', () => {
+test('checkpointGap: verificationCheckpoint com conflito impede aprovação em qualquer política', () => {
   const r = approvableResult({
     verificationCheckpoint: {
       total: 2, confirmedCount: 1,
@@ -74,7 +76,7 @@ test('checkpointGap: verificationCheckpoint com conflito é ressalva visível, e
   ehRessalvaDoCheckpoint(r, /verificação de afirmações ficou com problema: divergência de veredito/);
 });
 
-test('checkpointGap: verificationCheckpoint malformado é ressalva visível, e a política decide', () => {
+test('checkpointGap: verificationCheckpoint malformado impede aprovação em qualquer política', () => {
   const r = approvableResult({ verificationCheckpoint: { malformed: true } });
   ehRessalvaDoCheckpoint(r, /checkpoint de verificação malformado/);
 });

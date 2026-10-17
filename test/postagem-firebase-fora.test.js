@@ -19,6 +19,9 @@ import assert from 'node:assert/strict';
 
 const io = (await import('../lib/io.js')).default;
 const { Engine } = await import('../server.js');
+const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
+isolateTechnicalTool();
+
 const arbitragem = (await import('../lib/engine/postagem-arbitragem.js')).default;
 
 const HEAD = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2';
@@ -55,6 +58,7 @@ async function motorForaDoAr() {
 const PR = (n) => ({ key: `org/app#${n}`, repo: 'org/app', number: n, account: 'eu' });
 const APPROVE = { event: 'APPROVE', body: 'Leitura atenta, tudo certo por aqui.', commit_id: HEAD };
 const NOOP = { noop: true, valido: () => true, validoPor: () => true, lost: false };
+
 
 test('a premissa: coordenação ligada e sem conexão', async () => {
   const e = await motorForaDoAr();

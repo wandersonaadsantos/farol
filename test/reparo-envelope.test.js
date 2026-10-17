@@ -19,6 +19,9 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const { Engine } = await import('../server.js');
+const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
+isolateTechnicalTool();
+
 const fanout = (await import('../lib/engine/fanout.js')).default;
 const reparo = (await import('../lib/engine/reparo-envelope.js')).default;
 
@@ -29,7 +32,7 @@ after(() => {
   try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ }
 });
 
-const HEAD = '2187af82d4e9';
+const HEAD = '2187af82d4e90000000000000000000000000000';
 const PR = {
   key: 'o/r#1123', repo: 'o/r', number: 1123, url: 'https://github.com/o/r/pull/1123',
   requested: true, title: 'fix: alguma coisa', author: 'alguem'
@@ -39,7 +42,7 @@ const PROSA = 'Concluí a análise do PR. O diff está correto e não encontrei 
 
 function envelope() {
   return {
-    analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
+    protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true, reasons: [],
     reportMarkdown: 'relatório', payloads: { approve: { event: 'APPROVE', body: 'ok' } }
   };
 }
@@ -67,6 +70,7 @@ function engineCom(respostas) {
   e.chamadas = chamadas;
   return e;
 }
+
 
 test('prosa depois da sessão inteira: UM reparo na mesma sessão salva a revisão', async () => {
   const e = engineCom([{ texto: PROSA, sid: 's1' }, { sid: 's1' }]);

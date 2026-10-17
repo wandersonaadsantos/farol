@@ -208,8 +208,10 @@ export function staleCardMeta(d, r) {
 
 export function reviewBoxHtml(d) {
   if (!d) return `<div class="empty">Nenhuma revisão registrada pra este PR no histórico do Farol.</div>`;
-  const v = VERDICT_LABEL[d.verdict] || d.verdict || 'sem veredito';
-  const cls = d.verdict === 'approve' ? 'approve' : 'rc';
+  let v = VERDICT_LABEL[d.verdict] || d.verdict || 'sem veredito';
+  let cls = d.verdict === 'approve' ? 'approve' : 'rc';
+  if (d.technical?.state === 'violation') { v = 'Bloqueio técnico'; cls = 'rc'; }
+  if (d.technical?.state === 'pending') { v = 'Verificação pendente'; cls = 'pending'; }
   const autor = (d.pr && d.pr.author) || d.author || '';
   const razoes = Array.isArray(d.reasons) ? d.reasons : [];
   const titulo = d.esperaCi ? 'Esperando o CI para aprovar sozinho' : 'Por que precisa de você';
@@ -221,6 +223,7 @@ export function reviewBoxHtml(d) {
     </div>
     ${d.pr && d.pr.title ? `<div class="dec-title">${esc(d.pr.title)}</div>` : ''}
     ${autor ? `<div class="dec-author">PR de ${personMention(autor, 'xs')}</div>` : ''}
+    ${d.technical ? `<div class="review-box-context"><strong>Critério técnico</strong><p>${esc(d.technical.message)}</p></div>` : ''}
     ${d.status === 'pending' && razoes.length
       ? `<div class="review-box-context"><strong>${titulo}</strong>${reasonGroupsHtml(razoes, d.postRetry)}</div>`
       : ''}

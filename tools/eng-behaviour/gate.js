@@ -10,6 +10,7 @@
 //
 // Exit codes: 0 limpo, 1 achado no repositório, 2 o gate não conseguiu rodar.
 import fs from 'node:fs';
+import { TOOL } from '../../lib/technical-review/verdict.js';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { executadoDireto } from '../../lib/paths.js';
@@ -142,12 +143,15 @@ function mesmoDiretorio(a, b) {
 const CAMINHO_DA_FERRAMENTA = 'tools/eng-behaviour/ferramenta.json';
 
 /** O que a construção grava em `dist/`, para o build ficar amarrado ao commit. */
-const CARIMBO_DO_BUILD = path.join('dist', '.farol-construido-de');
+const CARIMBO_DO_BUILD = TOOL.buildStamp;
 
 const COMMIT_COMPLETO = /^[0-9a-f]{40}$/;
 
 function ferramentaAdotada(raiz = RAIZ) {
-  return leituraSemRastro(path.join(raiz, CAMINHO_DA_FERRAMENTA));
+  const reference = leituraSemRastro(path.join(raiz, CAMINHO_DA_FERRAMENTA));
+  if (!reference?.manifest) return reference;
+  const tool = leituraSemRastro(path.join(raiz, reference.manifest));
+  return tool ? { ...tool, versao: tool.version } : null;
 }
 
 /**

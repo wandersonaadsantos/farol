@@ -22,6 +22,8 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const { Engine } = await import('../server.js');
+const { provenResult } = await import('./helpers/technical-proof.js');
+
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 
@@ -29,7 +31,7 @@ const PR = { key: 'acme/api#1', repo: 'acme/api', number: 1, url: 'u', author: '
 
 // envelope APROVÁVEL: veredito + payload no formato que o gate exige, análise
 // completa, card comprovado e nada que trave (sem contestação, sem lacuna).
-const aprovavel = () => ({
+const aprovavel = () => provenResult({
   analysisStatus: 'complete', coverage: { total: 1, reviewed: ['a.ts'], missing: [] }, alcance: [{ alterado: 'a.ts', chamadores: [], semChamador: 'fixture sintética sem consumidor' }], verdict: 'approve', decision: 'auto_approve', cardMet: true,
   payloads: { approve: { event: 'APPROVE', body: 'ok' } },
 });

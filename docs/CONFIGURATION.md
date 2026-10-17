@@ -1,3 +1,5 @@
+> A aprovação agora exige admissibilidade técnica. Consulte a política e a instalação privada em [REVIEW-GATES.md](REVIEW-GATES.md).
+
 # Configuração operacional do Farol
 
 Extraído do `CLAUDE.md` na Fase 1.5 da reorganização. O `CLAUDE.md` da raiz é o sumário, e os
