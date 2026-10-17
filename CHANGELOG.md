@@ -18,6 +18,7 @@ Com a aprovação automática ligada, o PR que entrega a parte dele de um card d
 - O card que ainda não foi entregue por inteiro deixa de impedir a aprovação. Quando a revisão confirma que a parte do card que cabe a este PR está entregue, o que falta em outros PRs aparece como ressalva, e a sua configuração de ressalvas decide se aprova sozinho ou espera você.
 - A dependência em aberto citada pela revisão (em geral o PR irmão do mesmo card, também esperando aprovação) volta a ser ressalva. Antes, cada PR esperava o outro e nenhum era aprovado.
 - A aprovação continua bloqueada quando a revisão diz que a parte do card que cabe a este PR não foi entregue, com CI vermelho ou ainda rodando, com violação técnica confirmada e com lacuna na leitura do PR.
+- Instalação cuja atualização é administrada por uma tarefa externa (`FAROL_UPDATE_MANAGER=external`, como no servidor da Hostinger) não tenta mais se atualizar sozinha nem pelo botão, e o botão diz quem atualiza. Antes isso era um ajuste local no servidor, e cada versão nova entrava em conflito com ele e não era instalada.
 - O card que o Farol não conseguiu ler no Jira continua aparecendo como ressalva, sem bloquear.
 
 ## v2.72.3
