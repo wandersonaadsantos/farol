@@ -119,7 +119,7 @@ export function memGroupHead(user) {
 export function attentionCount(user) {
   const u = String(user).toLowerCase();
   const q = (estado().queue || []).filter(p => String(prUser(p)).toLowerCase() === u).length;
-  const d = (estado().decisions?.pending || []).filter(p => !p.esperaCi && String(prUser(p)).toLowerCase() === u).length;
+  const d = (estado().decisions?.pending || []).filter(p => !p.esperaCi && !p.esperaProva && String(prUser(p)).toLowerCase() === u).length;
   return q + d;
 }
 

@@ -20,20 +20,27 @@ import { botaoDoReviewHtml, motivosDaPendenciaHtml, motivosOmitidosDe } from './
 // no mesmo motivo: a linha do Panorama (`fila.motivo`, lib/sync/fila.js) e a pendência
 // (`espera`, lib/sync/pendencia.js). Aparelho em versão anterior não manda nenhum dos dois,
 // e o item dele continua em "Pedem você", como era.
+// A que espera a prova técnica (17/10/2026, motivo `espera-prova` e `espera: 'prova'`) também
+// não pede você: o aparelho dono revisa de novo sozinho quando o PR muda. Fica no mesmo grupo.
 const ESPERA_CI = 'espera-ci';
-const CHIP_ESPERA_CI = ['info', 'esperando o CI'];
-const FRASE_ESPERA_CI = 'aprovável, esperando o CI obrigatório: o aparelho aprova sozinho quando ele fechar verde';
+const ESPERA_PROVA = 'espera-prova';
+const CHIP_DA_ESPERA = { [ESPERA_CI]: ['info', 'esperando o CI'], [ESPERA_PROVA]: ['info', 'esperando a prova'] };
+const FRASE_DA_ESPERA = {
+  [ESPERA_CI]: 'aprovável, esperando o CI obrigatório: o aparelho aprova sozinho quando ele fechar verde',
+  [ESPERA_PROVA]: 'aprovável, falta prova técnica: o aparelho revisa de novo sozinho quando o PR mudar',
+};
+const MOTIVO_DA_ESPERA = { ci: ESPERA_CI, prova: ESPERA_PROVA };
 
 // grupos fixos, nesta ordem (HANDOFF, seção 1); "Esperando o CI" entrou em 01/10/2026
 const GRUPOS = [
   { id: 'pedem', titulo: 'Pedem você', sub: 'O aparelho revisou e espera sua decisão.' },
-  { id: 'ci', titulo: 'Esperando o CI (aprova sozinho)', sub: 'Não precisam de você: o aparelho aprova quando o CI fechar verde.' },
+  { id: 'ci', titulo: 'Aprova sozinho (esperando o CI ou a prova)', sub: 'Não precisam de você: o aparelho aprova quando o CI fechar verde, ou revisa de novo quando o PR mudar.' },
   { id: 'revisando', titulo: 'Revisando agora', sub: 'Sessões do executor, sincronizadas a cada 10 s.' },
   { id: 'fila', titulo: 'Na fila', sub: 'Ainda não começaram.' },
   { id: 'parados', titulo: 'Parados', sub: 'Bloqueados ou sem confirmação atual. Cada um diz o porquê.' },
   { id: 'feitos', titulo: 'Revisados e ignorados', sub: 'Saíram da fila.' },
 ];
-const FILTROS = [['tudo', 'Tudo'], ['pedem', 'Pedem você'], ['ci', 'Esperando o CI'], ['revisando', 'Revisando'], ['fila', 'Na fila'], ['parados', 'Parados'], ['feitos', 'Feitos']];
+const FILTROS = [['tudo', 'Tudo'], ['pedem', 'Pedem você'], ['ci', 'Aprova sozinho'], ['revisando', 'Revisando'], ['fila', 'Na fila'], ['parados', 'Parados'], ['feitos', 'Feitos']];
 
 const GRUPO_DO_ESTADO = {
   decidir: 'pedem', revisando: 'revisando',
@@ -98,7 +105,7 @@ function sobrepor(porTag, fonte, campo, estado, motivo = '') {
 
 // só o valor do vocabulário vira espera; ausente (versão anterior) ou lixo é pendência comum
 function motivoDaPendencia(p) {
-  return p.espera === 'ci' ? ESPERA_CI : '';
+  return Object.hasOwn(MOTIVO_DA_ESPERA, p.espera) ? MOTIVO_DA_ESPERA[p.espera] : '';
 }
 
 function itemDaSessao(op) {
@@ -134,7 +141,7 @@ export function itensDaFila(dev, { listas, pendencias, operacoes } = {}) {
 }
 
 function esperaOCi(f) {
-  return !!f && f.estado === 'decidir' && f.motivo === ESPERA_CI;
+  return !!f && f.estado === 'decidir' && Object.hasOwn(FRASE_DA_ESPERA, f.motivo);
 }
 
 export function grupoDoItem(item) {
@@ -169,7 +176,7 @@ export function situacaoDaFila(dev, listas, { antigo = false, fontesLidas = true
 // A contagem soma os motivos que o dono não conseguiu mandar (`motivosOmitidos`), para a
 // lista parcial nunca parecer completa; o bloqueio por commit novo vai junto.
 function aberturaDaPendencia(p, f) {
-  if (esperaOCi(f)) return FRASE_ESPERA_CI;
+  if (esperaOCi(f)) return FRASE_DA_ESPERA[f.motivo];
   return `revisado: ${textoDoVeredito(p.veredito)}`;
 }
 
@@ -198,7 +205,7 @@ function fraseLimite(it, f) {
 }
 
 function fraseDecidir(it, f) {
-  if (esperaOCi(f)) return FRASE_ESPERA_CI;
+  if (esperaOCi(f)) return FRASE_DA_ESPERA[f.motivo];
   return 'revisado, esperando sua decisão';
 }
 
@@ -304,7 +311,7 @@ function detalheDoItem(item) {
 }
 
 function chipDe(f) {
-  if (esperaOCi(f)) return CHIP_ESPERA_CI;
+  if (esperaOCi(f)) return CHIP_DA_ESPERA[f.motivo];
   return CHIP[f.estado] || ['mute', f.estado || 'sem estado'];
 }
 

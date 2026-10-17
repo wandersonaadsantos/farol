@@ -56,13 +56,13 @@ test('espera do CI pela pendência: grupo próprio, fora de "pedem você", com o
   assert.equal(cont.pedem, 0, 'o selo e o contador de "pedem você" não contam a espera');
   assert.equal(cont.ci, 1);
   const html = P.filaDoAparelhoHtml(itens, { miolo: 'lista', lidoEm: AGORA }, { nome: 'Celular da Ana', agora: AGORA });
-  assert.match(html, /<h3>Esperando o CI \(aprova sozinho\)<\/h3>/);
+  assert.match(html, /<h3>Aprova sozinho \(esperando o CI ou a prova\)<\/h3>/);
   assert.equal(html.includes('<h3>Pedem você</h3>'), false, 'o grupo que pede gente nem aparece');
   assert.match(html, /sync-chip info">esperando o CI</);
   assert.match(html, /aprova sozinho quando ele fechar verde/);
   assert.match(html, /class="btn sm md-decidir"[^>]*data-item="p1"/, 'aprovar na mão continua possível, sem destaque de ação principal');
   assert.match(html, /data-filtro="pedem"[^>]*>Pedem você <span>0<\/span>/, 'sem o destaque de urgência');
-  assert.match(html, /data-filtro="ci"[^>]*>Esperando o CI <span>1<\/span>/);
+  assert.match(html, /data-filtro="ci"[^>]*>Aprova sozinho <span>1<\/span>/);
   const faixa = P.faixaDeAparelhosHtml([AP, { ...AP, deviceId: 'dTablet', nome: 'Tablet' }], AP.deviceId, { [AP.deviceId]: cont }, AGORA);
   assert.match(faixa, /Celular da Ana<\/b><small>Android · nada pede você/, 'a faixa que troca de aparelho também não conta a espera');
 });
@@ -86,7 +86,7 @@ test('aparelho em versão anterior (sem motivo na linha e sem espera na pendênc
   assert.match(html, /<h3>Pedem você<\/h3>/);
   assert.match(html, /sync-chip warn">decidir</);
   assert.match(html, /class="btn sm primary md-decidir"/);
-  assert.equal(html.includes('<h3>Esperando o CI'), false);
+  assert.equal(html.includes('<h3>Aprova sozinho'), false);
 });
 
 test('a pendência é mais nova que a linha: espera largada sai de "esperando o CI" na hora, e lixo no campo não vira espera', () => {

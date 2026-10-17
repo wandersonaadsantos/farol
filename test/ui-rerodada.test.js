@@ -163,15 +163,16 @@ test('reviewChip: no Panorama, pendência em espera do CI não diz "aguardando v
 test('todo contador local de pendência exclui a espera do CI, e a tela tem a seção própria', async () => {
   const fs = await import('node:fs');
   const ler = (rel) => fs.readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8');
-  assert.match(ler('main.js'), /pending \|\| \[\]\)\.filter\(d => d && !d\.esperaCi\)\.length/, 'badge e tooltip da bandeja');
-  assert.match(ler('ui/telas/contas.js'), /filter\(p => !p\.esperaCi && /, 'contagem por conta');
-  assert.match(ler('ui/telas/paleta.js'), /filter\(d => !d\.esperaCi\)\.filter\(scopeVisible\)/, 'lote da paleta');
+  // a espera da prova técnica (17/10/2026) também não pede você
+  assert.match(ler('main.js'), /pending \|\| \[\]\)\.filter\(d => d && !d\.esperaCi && !d\.esperaProva\)\.length/, 'badge e tooltip da bandeja');
+  assert.match(ler('ui/telas/contas.js'), /filter\(p => !p\.esperaCi && !p\.esperaProva && /, 'contagem por conta');
+  assert.match(ler('ui/telas/paleta.js'), /filter\(d => !d\.esperaCi && !d\.esperaProva\)\.filter\(scopeVisible\)/, 'lote da paleta');
   const radar = ler('ui/telas/radar.js');
   assert.match(radar, /const \{ precisam: pending, esperandoCi \} = separarPendentes\(/);
   assert.match(radar, /\$\('#decisionsCount'\)\.textContent = pending\.length/, 'o contador da seção (e o da sub-aba, que o lê) só vê quem precisa de você');
   assert.match(radar, /\$\('#esperaCi'\)\.innerHTML = esperandoCi\.map\(card\)/);
   const html = ler('ui/index.html');
-  assert.match(html, /<h2>Esperando o CI \(aprova sozinho\) <span id="esperaCiCount"/);
+  assert.match(html, /<h2>Aprova sozinho \(esperando o CI ou a prova\) <span id="esperaCiCount"/);
   assert.match(html, /id="esperaCi" class="cards"/);
   assert.match(ler('ui/telas/acoes.js'), /\$\('#esperaCi'\)\.addEventListener\('click', cliqueNoCardDeDecisao\)/, 'o botão Aprovar continua funcionando na seção nova');
 });

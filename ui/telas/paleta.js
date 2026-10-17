@@ -41,7 +41,7 @@ function cmdStatic() { return [
   ...(() => {
     // e deixa de fora o que espera o CI: aprovar em lote por cima de pipe vermelha ou
     // rodando não é o que "as pendentes" promete (um a um continua valendo)
-    const visiveis = (estado()?.decisions?.pending || []).filter(d => !d.esperaCi).filter(scopeVisible);
+    const visiveis = (estado()?.decisions?.pending || []).filter(d => !d.esperaCi && !d.esperaProva).filter(scopeVisible);
     return visiveis.length > 1
       ? [{ kind: 'lote', label: `Aprovar as ${visiveis.length} pendentes`, hint: 'lote',
           run: async () => { for (const d of visiveis) await decide(d.id, 'approve'); } }]
