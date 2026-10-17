@@ -95,11 +95,13 @@ test('check ainda rodando ou que nem começou segura a aprovação automática, 
 });
 
 // De 27 a 30/09/2026 a dependência em aberto devolvia { ok: false, motivo: 'dependencia' } em
-// qualquer política. Agora é ressalva com o texto da dependência, e a política decide.
-test('dependência em aberto declarada pela revisão impede aprovação em qualquer política', () => {
+// qualquer política; de 16 a 17/10/2026 (PR #244) era lacuna obrigatória. Desde 17/10/2026 é
+// de novo ressalva com o texto da dependência, e a política decide: a dependência aberta
+// costuma ser o PR irmão do mesmo card, também esperando aprovação.
+test('dependência em aberto declarada pela revisão é ressalva: a política de ressalvas decide', () => {
   const r = approvableResult({ dependenciasAbertas: ['biudtech/infra-k8s#189 ainda aberto'] });
-  assert.deepEqual(enginePorClasse('approve', 'approve').shouldAutoApprove(PR, r), { ok: false, motivo: 'prova_tecnica_incompleta' });
-  assert.deepEqual(enginePorClasse('approve', 'wait').shouldAutoApprove(PR, r), { ok: false, motivo: 'prova_tecnica_incompleta' });
+  assert.deepEqual(enginePorClasse('approve', 'approve').shouldAutoApprove(PR, r), { ok: true, motivo: null });
+  assert.deepEqual(enginePorClasse('approve', 'wait').shouldAutoApprove(PR, r), { ok: false, motivo: 'politica' });
   const pts = enginePorClasse('approve', 'wait').attentionPoints(r);
   assert.equal(pts.length, 1);
   assert.match(pts[0].text, /depende de algo que estava em aberto na leitura: biudtech\/infra-k8s#189 ainda aberto/);

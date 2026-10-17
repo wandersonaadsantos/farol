@@ -9,6 +9,17 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.72.4
+
+Com a aprovação automática ligada, o PR que entrega a parte dele de um card dividido entre vários repositórios volta a ser aprovado sozinho, sem esperar os PRs irmãos.
+
+### Correções
+
+- O card que ainda não foi entregue por inteiro deixa de impedir a aprovação. Quando a revisão confirma que a parte do card que cabe a este PR está entregue, o que falta em outros PRs aparece como ressalva, e a sua configuração de ressalvas decide se aprova sozinho ou espera você.
+- A dependência em aberto citada pela revisão (em geral o PR irmão do mesmo card, também esperando aprovação) volta a ser ressalva. Antes, cada PR esperava o outro e nenhum era aprovado.
+- A aprovação continua bloqueada quando a revisão diz que a parte do card que cabe a este PR não foi entregue, com CI vermelho ou ainda rodando, com violação técnica confirmada e com lacuna na leitura do PR.
+- O card que o Farol não conseguiu ler no Jira continua aparecendo como ressalva, sem bloquear.
+
 ## v2.72.3
 
 Com a aprovação automática ligada, um PR aprovável que ainda não tem a prova técnica completa deixa de esperar o seu clique.
