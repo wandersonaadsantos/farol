@@ -52,6 +52,16 @@ test('filtro pelo PR não inclui dados de outro trabalho e não aceita caminho o
   assert.equal(comando.sanearComando({ tipo: 'diagnosticar', args: { prTag: 0 } }), null);
 });
 
+test('coleta sem filtro inclui fila comum e retomada durável sem sessão ativa', async () => {
+  const e = motor();
+  e.activeReviews.clear();
+  fs.mkdirSync(STATE_DIR, { recursive: true });
+  fs.writeFileSync(path.join(STATE_DIR, 'inflight.json'), JSON.stringify([{ key: 'org/repo#19', account: 'revisor', retomarSid: 'sessao-antiga' }]));
+  const r = await coletarIdentidade(e, { run: async () => ({ ok: true, stdout: 'revisor' }) });
+  assert.ok(r.itens.some(p => p.key === PR.key && p.fonte === 'queue'));
+  assert.ok(r.itens.some(p => p.key === 'org/repo#19' && p.fonte === 'inflight.json'));
+});
+
 test('diagnóstico atravessa o transporte cifrado com limite do banco, alvo e comando conferidos', async () => {
   const e = motor();
   const material = { id: randomBytes(32).toString('base64'), enc: { g1: randomBytes(32).toString('base64') } };

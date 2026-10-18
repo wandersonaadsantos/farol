@@ -5,7 +5,8 @@ import { versaoAntiga } from '../pure/aparelhos-painel.js';
 
 const MINIMA = '2.73.0';
 const INTERVALO_MS = 2000;
-const TENTATIVAS = 30;
+const MINUTO_MS = 60 * 1000;
+const JANELA_MS = 15 * MINUTO_MS;
 const COLETAS = new Map();
 
 function diagnosticoHtml(ap, desligado) {
@@ -18,7 +19,7 @@ function diagnosticoHtml(ap, desligado) {
   return `<section aria-label="Diagnóstico remoto"><h3>Diagnóstico remoto</h3>${aviso}${botao}<p role="status">${esc(coleta?.mensagem || motivo)}</p>${resultado}</section>`;
 }
 
-async function aguardarDiagnostico(dev, cmdId, render, tentativa = 0) {
+async function aguardarDiagnostico(dev, cmdId, render) {
   const coleta = COLETAS.get(dev);
   if (coleta?.cmdId !== cmdId) return;
   try {
@@ -30,23 +31,24 @@ async function aguardarDiagnostico(dev, cmdId, render, tentativa = 0) {
       render();
       return;
     }
-    if (tentativa >= TENTATIVAS || !['diagnostico_aguardando', 'diagnostico_incompleto'].includes(r?.code)) {
+    if (Date.now() >= coleta.ate || !['diagnostico_aguardando', 'diagnostico_incompleto'].includes(r?.code)) {
       coleta.pendente = false;
       coleta.mensagem = `A coleta não foi concluída (${r?.code || 'sem resposta'}). Confira a conexão e tente novamente.`;
       render();
       return;
     }
-    setTimeout(() => aguardarDiagnostico(dev, cmdId, render, tentativa + 1), INTERVALO_MS);
+    setTimeout(() => aguardarDiagnostico(dev, cmdId, render), INTERVALO_MS);
   } catch {
-    coleta.pendente = false;
-    coleta.mensagem = 'A conexão falhou durante a coleta. Tente novamente.';
+    coleta.pendente = Date.now() < coleta.ate;
+    coleta.mensagem = coleta.pendente ? 'A conexão falhou. A coleta continua aguardando o aparelho…' : 'A coleta expirou. Tente novamente.';
     render();
+    if (coleta.pendente) setTimeout(() => aguardarDiagnostico(dev, cmdId, render), INTERVALO_MS);
   }
 }
 
 async function coletarDiagnostico(dev, render) {
   if (COLETAS.get(dev)?.pendente) return;
-  const coleta = { pendente: true, mensagem: 'Solicitando ao aparelho…' };
+  const coleta = { pendente: true, ate: Date.now() + JANELA_MS, mensagem: 'Solicitando ao aparelho…' };
   COLETAS.set(dev, coleta);
   render();
   try {
