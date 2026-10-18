@@ -31,6 +31,9 @@ lembrarAbertos($('#decisions'), radarAbertos);
 lembrarAbertos($('#esperaCi'), radarAbertos);
 lembrarAbertos($('#resolved'), radarAbertos);
 
+// a sub-aba à mostra, para o endereço da página (ui/telas/rota.js)
+function radarSubAtual() { return RADAR_SUB; }
+
 function switchRadarSub(nome) {
   if (nome) RADAR_SUB = nome;
   document.querySelectorAll('.rsub').forEach(b => {
@@ -283,5 +286,5 @@ function initResolvedTriggers() {
 
 export {
   renderDecisions, submitPushback, renderResolved, renderQueue, renderPanorama,
-  renderRadarNav, switchRadarSub, initResolvedTriggers,
+  renderRadarNav, switchRadarSub, radarSubAtual, initResolvedTriggers,
 };
