@@ -28,6 +28,12 @@ function report(extra = {}) {
     base: 'b'.repeat(40), head, profile: 'profile', catalogFingerprint: 'catalog',
     humanReviewFingerprint: 'human', verdict: 'pass', rules: [{ rule: 'core.file.single-responsibility', verdict: 'pass' }], findings: [], ...extra };
 }
+
+test('recuperação não invalida evidência completa da versão anterior com os mesmos critérios', () => {
+  const ui = decisionForUi({ verdict: 'approve', technicalReview: report(), approvalEvidence: [],
+    provaEsgotada: true, approvalEvidenceVersion: 2 });
+  assert.equal(ui.technical.state, 'pass');
+});
 function result(extra = {}) {
   return { analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve', cardMet: true,
     headSha: head, checksVerifiedHead: head, checksObrigatorios: [], technicalReview: report(), reasons: [],
