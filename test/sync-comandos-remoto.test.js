@@ -141,6 +141,41 @@ test('diagnóstico só coleta após comando assinado aceito pelo alvo e sobe cif
   assert.equal(r.ok, true);
   assert.ok(r.diagnostico.itens.some(p => p.key === PR.key));
   assert.equal(JSON.stringify(arvore().live.operations).includes(PR.key), false);
+  e.sync.comandosEmitidos = [];
+  const aposReinicio = await lerDiagnostico(e, { cmdId: outroId });
+  assert.equal(aposReinicio.ok, true, 'o comando assinado recupera o vínculo após perder o cache do admin');
+  const caminho = `/users/${e.sync.uid}/live/commands/${outroId}`;
+  await e.sync.client.put(caminho, { ...arvore().live.commands[outroId], sig: 'assinatura-adulterada' }, {});
+  assert.equal((await lerDiagnostico(e, { cmdId: outroId })).code, 'comando_desconhecido');
+});
+
+test('diagnóstico interrompido retoma do registro executando sem repetir comandos mutantes', async () => {
+  const e = await motor();
+  e.tokens = {};
+  e.token = null;
+  const cmdId = await emitirPara(e, e.sync.deviceId, 'diagnosticar', {});
+  comoExecutor(e);
+  const put = e.sync.client.put.bind(e.sync.client);
+  let partes = 0;
+  let interromper = true;
+  e.sync.client.put = async (p, no, opts) => {
+    if (p.includes('/live/operations/')) {
+      partes++;
+      if (interromper && partes === 2) throw new Error('queda durante publicação');
+      const anterior = arvore().live.operations?.[p.split('/').at(-1)];
+      if (anterior) assert.equal(no.t0, anterior.t0, 'a retomada preserva a identidade do nó exigida pelo banco');
+    }
+    return put(p, no, opts);
+  };
+  await comandos.cicloDosComandos(e, e.config.sync);
+  assert.equal(comandos.lerFeitos()[cmdId].estado, 'executando');
+  assert.equal(recibo(cmdId), undefined);
+  interromper = false;
+  await comandos.cicloDosComandos(e, e.config.sync, { agora: Date.now() + 1000 });
+  assert.equal(recibo(cmdId).estado, 'aplicado');
+  const antes = partes;
+  await comandos.cicloDosComandos(e, e.config.sync);
+  assert.equal(partes, antes, 'um diagnóstico concluído não executa outra vez');
 });
 
 test('repetir: enfileira sem virar clique manual, e o recibo é o desfecho', async () => {

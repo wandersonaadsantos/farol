@@ -62,20 +62,23 @@ test('diagnóstico atravessa o transporte cifrado com limite do banco, alvo e co
   };
   e.sync = { uid: 'u1', deviceId: 'android', cur: 'g1', material, client };
   io.run = async () => ({ ok: true, stdout: 'autor' });
-  assert.deepEqual(await publicarDiagnostico(e, CMD, {}, T), { estado: 'aplicado', code: '' });
+  const publicadoEm = T + 120000;
+  assert.deepEqual(await publicarDiagnostico(e, CMD, {}, T, T, () => publicadoEm), { estado: 'aplicado', code: '' });
+  assert.ok([...arvore.values()].every(no => no.t0 === T && no.x === publicadoEm + 300000));
   const leitor = { sync: { ...e.sync, deviceId: 'pc', comandosEmitidos: [{ cmdId: CMD, tipo: 'diagnosticar', alvo: 'android' }] } };
-  const recebido = await lerDiagnostico(leitor, { cmdId: CMD }, T + 1);
+  const recebido = await lerDiagnostico(leitor, { cmdId: CMD }, publicadoEm + 1);
   assert.equal(recebido.ok, true);
   assert.equal(recebido.diagnostico.contas[0].estado, 'divergente');
+  assert.equal(recebido.diagnostico.capturadoEm, T);
   assert.equal(JSON.stringify([...arvore.values()]).includes('org/repo'), false);
   leitor.sync.comandosEmitidos[0].alvo = 'terceiro';
-  assert.equal((await lerDiagnostico(leitor, { cmdId: CMD }, T + 1)).ok, false);
+  assert.equal((await lerDiagnostico(leitor, { cmdId: CMD }, publicadoEm + 1)).ok, false);
   leitor.sync.comandosEmitidos[0].alvo = 'android';
-  assert.equal((await lerDiagnostico(leitor, { cmdId: CMD }, T + 300001)).ok, false);
+  assert.equal((await lerDiagnostico(leitor, { cmdId: CMD }, publicadoEm + 300001)).ok, false);
   arvore.delete([...arvore.keys()][0]);
-  assert.equal((await lerDiagnostico(leitor, { cmdId: CMD }, T + 1)).code, 'diagnostico_incompleto');
+  assert.equal((await lerDiagnostico(leitor, { cmdId: CMD }, publicadoEm + 1)).code, 'diagnostico_incompleto');
   leitor.sync.comandosEmitidos = [];
-  assert.equal((await lerDiagnostico(leitor, { cmdId: CMD }, T + 1)).code, 'comando_desconhecido');
+  assert.equal((await lerDiagnostico(leitor, { cmdId: CMD }, publicadoEm + 1)).code, 'comando_desconhecido');
 });
 
 test('estado antigo malformado não impede carregar o motor nem coletar o diagnóstico', async () => {
