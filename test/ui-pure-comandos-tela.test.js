@@ -75,7 +75,7 @@ test('iniciar: a lista do conjunto nomeia o PR pelo catálogo, ou o owner sem in
   assert.match(html, /acme-exemplo\/app-web#51/);
   assert.match(html, /Corrige o cabeçalho/);
   assert.match(html, /esperando há 1m</);
-  assert.match(html, /1 aparelho pode executar/);
+  assert.match(html, /1 aparelho se ofereceu/);
   const semNome = candidatosDoConjuntoHtml([{ ...CAND, pr: null }], { podeComandar: true });
   assert.match(semNome, /Um PR de acme-exemplo, sem nome nesta tela/);
   assert.doesNotMatch(semNome, /app-web#51/);
@@ -94,6 +94,23 @@ const DESTINOS = {
     { deviceId: 'dVelho', nome: 'Celular antigo', apto: false, motivo: 'versao-antiga', souEu: false },
   ],
 };
+
+test('candidato mostra a identidade exigida e a falta de login local, sem prometer vaga', () => {
+  const conta = { nome: 'reviewer', conhecida: true, configuradaAqui: true, autenticadaAqui: false };
+  const html = candidatosDoConjuntoHtml([{ ...CAND, conta }], { podeComandar: true });
+  assert.match(html, /revisão como @reviewer/);
+  assert.match(html, /esta conta precisa estar autenticada neste aparelho/);
+  assert.doesNotMatch(html, /aparelho pode executar/);
+  const autenticada = candidatosDoConjuntoHtml([{ ...CAND, conta: { ...conta, autenticadaAqui: true } }], {});
+  assert.doesNotMatch(autenticada, /precisa estar autenticada/);
+  const ausente = candidatosDoConjuntoHtml([{ ...CAND, conta: { ...conta, configuradaAqui: false } }], {});
+  assert.match(ausente, /precisa ser adicionada e autenticada/);
+  const desconhecida = candidatosDoConjuntoHtml([{ ...CAND, conta: { nome: '12345678', conhecida: false } }], {});
+  assert.match(desconhecida, /conta 12345678 \(nome indisponível\)/);
+  const injetada = candidatosDoConjuntoHtml([{ ...CAND, conta: { ...conta, nome: '<img src=x>' } }], {});
+  assert.doesNotMatch(injetada, /<img src=x>/);
+  assert.match(injetada, /&lt;img src=x&gt;/);
+});
 
 test('iniciar: o diálogo oferece só quem publicou e está apto, e explica os outros', () => {
   const d = inicioDialogo(DESTINOS, CAND);

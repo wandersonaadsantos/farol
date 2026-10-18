@@ -155,16 +155,28 @@ function faltaParaIniciar({ c, publicadores, atribuido }) {
 function candidatoHtml(c, ctx) {
   const acoes = acoesDoCandidato(c, ctx);
   const espera = c.desde ? `esperando há ${esc(fmtDur(Math.max(0, (ctx.agora || Date.now()) - c.desde)))}` : 'esperando colocação';
-  const quantos = `${c.publicadores.length === 1 ? '1 aparelho pode executar' : `${c.publicadores.length} aparelhos podem executar`}`;
+  const quantos = `${c.publicadores.length === 1 ? '1 aparelho se ofereceu' : `${c.publicadores.length} aparelhos se ofereceram`}`;
   const botao = acoes.iniciar.pode
     ? `<button class="btn sm ghost md-iniciar" data-item="${esc(c.itemId)}">Começar em um aparelho…</button>`
     : `<span class="md-nota">Começar agora: indisponível, ${esc(acoes.iniciar.motivo)}</span>`;
   return `<div class="card md-op">
     <div class="md-linha"><span class="sync-chip mute">esperando distribuição</span><span class="md-espaco"></span><span class="md-fraco">${esc(espera)}</span></div>
     <div class="md-titulo">${tituloDoCandidato(c)}</div>
-    <div class="md-sub">${esc(quantos)}</div>
+    <div class="md-sub">${esc(quantos)}${contaDoCandidatoHtml(c.conta)}</div>
     <div class="md-acoes">${botao}</div>
   </div>`;
+}
+
+function contaDoCandidatoHtml(conta) {
+  if (!conta) return '';
+  const nome = conta.conhecida ? `@${conta.nome}` : `conta ${conta.nome} (nome indisponível)`;
+  let falta = '';
+  if (!conta.autenticadaAqui) {
+    falta = conta.configuradaAqui
+      ? ' · esta conta precisa estar autenticada neste aparelho para ele assumir a revisão'
+      : ' · esta conta precisa ser adicionada e autenticada neste aparelho para ele assumir a revisão';
+  }
+  return ` · revisão como ${esc(nome)}${esc(falta)}`;
 }
 
 // `sync.distribuicao.candidatos` só existe no aparelho que agenda (o admin). Vazio não
