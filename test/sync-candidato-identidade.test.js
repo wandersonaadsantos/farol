@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { anotarFilaDoConjunto } from '../lib/engine/sync-candidatos.js';
 import { acctTag, prTag } from '../lib/sync/tags.js';
 import { motivoDoDestino } from '../lib/sync/transferencia.js';
+import { bootSync, statusForUi } from '../lib/engine/sync.js';
+import { candidatosDoConjuntoHtml } from '../ui/pure/compartilhado-posse.js';
 
 const kId = Buffer.alloc(32, 7);
 const tagDaConta = acctTag(kId, 'reviewer');
@@ -13,6 +15,7 @@ const item = { itemId: `${tagDoPr}_${'b'.repeat(32)}`, prTag: tagDoPr, acctTag: 
 function engine({ conhecida = true, local = false, token = false } = {}) {
   return {
     sync: {
+      ...bootSync({}),
       material: { id: kId.toString('base64url') }, client: {},
       listasRemotas: { escopos: new Map(conhecida ? [['remote', { scope: tagDaConta, conta: 'reviewer' }]] : []) },
       catalogoLru: new Map([[tagDoPr, { key: 'acme/app#10', title: 'Correção', author: 'author', repo: 'acme/app' }]]),
@@ -28,6 +31,30 @@ test('candidato identifica a conta revisora, sem atribuir a conta local da organ
   assert.equal(linha.pr.account, 'reviewer');
   assert.deepEqual(linha.conta, { nome: 'reviewer', conhecida: true, configuradaAqui: false, autenticadaAqui: false });
   assert.equal(linha.pr.author, 'author');
+});
+
+test('a identidade atravessa statusForUi e a serialização do SSE até a renderização real', async () => {
+  const e = engine();
+  e.config = { sync: cfg };
+  await anotarFilaDoConjunto(e, cfg, { itens: [item], agora: 1000 });
+  e.sync.filaDoConjunto[0].conta.token = 'campo-que-nao-pode-sair';
+  const evento = JSON.stringify(statusForUi(e));
+  const candidatos = JSON.parse(evento).distribuicao.candidatos;
+  assert.equal(candidatos[0].conta.nome, 'reviewer');
+  assert.equal(candidatos[0].conta.autenticadaAqui, false);
+  assert.equal(evento.includes('campo-que-nao-pode-sair'), false);
+  const html = candidatosDoConjuntoHtml(candidatos, {});
+  assert.match(html, /revisão como @reviewer/);
+  assert.match(html, /precisa ser adicionada e autenticada neste aparelho/);
+});
+
+test('candidato anterior sem metadados de conta continua serializável', () => {
+  const e = engine();
+  e.config = { sync: cfg };
+  e.sync.filaDoConjunto = [{ ...item }];
+  const candidatos = JSON.parse(JSON.stringify(statusForUi(e))).distribuicao.candidatos;
+  assert.equal('conta' in candidatos[0], false);
+  assert.doesNotThrow(() => candidatosDoConjuntoHtml(candidatos, {}));
 });
 
 test('conta desconhecida não é substituída pela conta do catálogo', async () => {
