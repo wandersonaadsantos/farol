@@ -223,6 +223,13 @@ function esperaProvaCardMeta(d) {
 // reviewBtn: 'primary' (você precisa agir), 'secondary' (atalho: o Farol já vai agir),
 // 'none' (revisão nova já rodando) ou '' (card comum, sem o botão).
 export function staleCardMeta(d, r) {
+  const meta = metaDoCard(d, r);
+  // PR da própria conta que revisa (v2.72.6): o GitHub recusa APPROVE e REQUEST_CHANGES do autor,
+  // então o card não oferece os dois (Só comentar e Pular continuam)
+  return d && d.prProprio === true ? { ...meta, semDecisivos: true, approveDisabled: true } : meta;
+}
+
+function metaDoCard(d, r) {
   const reasons = Array.isArray(d && d.reasons) ? d.reasons : [];
   const stale = !!(d && d.blockedKind === 'stale_head');
   if (!stale && d && d.esperaCi) return esperaCiCardMeta(d);

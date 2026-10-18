@@ -48,7 +48,8 @@ isolateTechnicalTool();
 const esperaProva = (await import('../lib/engine/espera-prova.js')).default;
 const { VERSAO_DAS_REGRAS } = await import('../lib/technical-review/evidence.js');
 const { shouldAutoApprove, shouldAutoReject } = await import('../lib/engine/approval-policy.js');
-const { separarPendentes } = await import('../ui/pure/review.js');
+const { separarPendentes, staleCardMeta } = await import('../ui/pure/review.js');
+const reviewMod = (await import('../lib/engine/review.js')).default;
 
 after(() => {
   io.run = runReal;
@@ -276,5 +277,54 @@ test('espera do CI que já existia em PR da própria conta também é largada', 
   assert.equal(pendente(e).esperaCi, null);
   assert.equal(textos(pendente(e))[0], TEXTO_PROPRIO);
   assert.deepEqual(envios, []);
+  assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
+});
+
+// Revisão do PR #248 (Codex, 17/10/2026). Cada caso abaixo reprovava no head 38f8300.
+
+test('PR #248, achado 3: o portão de postagem recusa APPROVE e REQUEST_CHANGES em PR da própria conta, por qualquer via', async () => {
+  const e = motor();
+  const pr = { ...PROPRIO };
+  for (const event of ['APPROVE', 'REQUEST_CHANGES']) {
+    const r = await e.postReview(pr, { event, body: 'Leitura completa, sem bloqueios.', commit_id: HEAD }, { via: 'clique' });
+    assert.equal(r.ok, false, event);
+    assert.equal(r.blocked, 'pr_proprio', event);
+    assert.match(r.error, /própria conta que revisa \(@eu\)/);
+  }
+  assert.deepEqual(envios, [], 'nada chegou ao GitHub');
+  const comentario = await e.postReview(pr, { event: 'COMMENT', body: 'Anotei um ponto para depois.' }, { via: 'clique' });
+  assert.notEqual(comentario.blocked, 'pr_proprio', 'comentar o próprio PR continua permitido');
+});
+
+test('PR #248, achado 3: a pendência de PR próprio não oferece Aprovar nem Pedir mudanças', async () => {
+  const e = motor();
+  const d = await revisado(e, PROPRIO, {});
+  const tela = e.decisionForUi(d);
+  assert.equal(tela.prProprio, true);
+  const meta = staleCardMeta(tela, null);
+  assert.equal(meta.semDecisivos, true);
+  assert.equal(meta.approveDisabled, true);
+  // a decisão pelo clique também não sai
+  envios = [];
+  await e.decide(d.id, 'approve').catch(() => { });
+  assert.deepEqual(envios, []);
+  assert.equal(staleCardMeta(e.decisionForUi(await revisado(motor(), PR, SEM_PROTOCOLO)), null).semDecisivos, undefined, 'PR de outra pessoa segue com os botões');
+});
+
+test('PR #248, achado 4: largar a espera de PR próprio durante a rodada complementar limpa o estado de commit novo', async () => {
+  const e = motor();
+  await revisado(e, PR, SEM_PROTOCOLO);
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1, 'a busca relançou no mesmo head');
+  assert.equal(pendente(e).blockedKind, 'stale_head');
+  pendente(e).pr.author = 'eu';
+  assert.equal(await esperaProva.varrerEsperas(e), 1);
+  const d = pendente(e);
+  assert.equal(d.esperaProva, null);
+  assert.equal(d.blockedKind, undefined, 'sem stale_head');
+  assert.equal(d.blockedHead, undefined);
+  assert.equal(reviewMod.explicaReRound(e, { ...PR }, new Set(), Date.now()).estado, 'sem_gatilho', 'o round automático não mira mais o PR');
+  const meta = staleCardMeta(e.decisionForUi(d), null);
+  assert.equal(meta.stale, false, 'sem card de commit novo');
+  assert.equal(meta.semDecisivos, true);
   assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
 });

@@ -48,11 +48,20 @@ const busca = (await import('../lib/engine/busca-da-prova.js')).default;
 const reviewMod = (await import('../lib/engine/review.js')).default;
 
 const finishOriginal = technicalRuntime.finishTechnicalReview;
+const targetOriginal = technicalRuntime.targetFor;
+const snapshotOriginal = technicalRuntime.reviewSnapshot;
+const { decisionForUi } = await import('../lib/engine/public-review.js');
+const { staleCardMeta } = await import('../ui/pure/review.js');
 after(() => {
   io.run = runReal;
   try { fs.rmSync(FAROL_HOME, { recursive: true, force: true }); } catch { /* limpeza best-effort do temporário */ }
 });
-beforeEach(() => { envios = []; technicalRuntime.finishTechnicalReview = finishOriginal; });
+beforeEach(() => {
+  envios = [];
+  technicalRuntime.finishTechnicalReview = finishOriginal;
+  technicalRuntime.targetFor = targetOriginal;
+  technicalRuntime.reviewSnapshot = snapshotOriginal;
+});
 
 // `politica` = [limpo, com ressalvas]
 function motor(politica = ['approve', 'approve']) {
@@ -209,6 +218,9 @@ test('publicação: com a prova esgotada a avaliação técnica inconclusiva nã
     const head = 'a'.repeat(40);
     const pr = { key: `${repo}#1`, repo };
     const inconclusivo = { ...technicalReport(head, repo), profile: profileFor(repo).fingerprint, verdict: 'not-run', rules: [{ rule: 'x', verdict: 'not-run' }] };
+    // o contexto que a revisão leu segue o mesmo (base e objeções): a revisão do PR #248 cobre a mudança
+    technicalRuntime.targetFor = async () => ({ base: inconclusivo.base, head });
+    technicalRuntime.reviewSnapshot = async () => ({ fingerprint: inconclusivo.humanReviewFingerprint });
     const motorDe = (report, provaEsgotada) => ({
       technicalApprovals: new Map([[pr.key, { report, evidence: [], provaEsgotada }]]), decisions: { pending: [] },
       bloqueadoPorChecks: async () => ({ verifiedHead: head, faltando: [] }),
@@ -224,4 +236,60 @@ test('publicação: com a prova esgotada a avaliação técnica inconclusiva nã
     ciVermelho.bloqueadoPorChecks = async () => ({ verifiedHead: head, faltando: [{ nome: 'test', estado: 'vermelho' }] });
     assert.equal((await approvalRefusal(ciVermelho, pr, payload)).waitForCi, true, 'os checks continuam obrigatórios');
   } finally { fs.rmSync(PROFILE_FILE, { force: true }); }
+});
+
+// Revisão do PR #248 (Codex, 17/10/2026). Cada caso abaixo reprovava no head 38f8300.
+
+function comCadastro(repo, corpo) {
+  fs.mkdirSync(path.dirname(PROFILE_FILE), { recursive: true });
+  fs.writeFileSync(PROFILE_FILE, JSON.stringify({ repositories: { [repo]: { declaration: { scopes: ['core'] } } } }));
+  return Promise.resolve().then(corpo).finally(() => fs.rmSync(PROFILE_FILE, { force: true }));
+}
+
+test('PR #248, achado 1: com a prova esgotada, base nova ou objeção nova recusam a publicação', () => comCadastro('org/declarado', async () => {
+  const repo = 'org/declarado';
+  const head = 'a'.repeat(40);
+  const pr = { key: `${repo}#1`, repo };
+  const report = { ...technicalReport(head, repo), profile: profileFor(repo).fingerprint, verdict: 'not-run', rules: [{ rule: 'x', verdict: 'not-run' }] };
+  const motor = (rep, extra = {}) => ({
+    technicalApprovals: new Map([[pr.key, { report: rep, evidence: [], provaEsgotada: true }]]), decisions: { pending: [] }, saveDecisions: () => { },
+    bloqueadoPorChecks: async () => ({ verifiedHead: head, faltando: [] }), ...extra,
+  });
+  const payload = { event: 'APPROVE', commit_id: head };
+  technicalRuntime.targetFor = async () => ({ base: 'c'.repeat(40), head });
+  technicalRuntime.reviewSnapshot = async () => ({ fingerprint: report.humanReviewFingerprint });
+  const baseNova = await approvalRefusal(motor(report), pr, payload);
+  assert.equal(baseNova && baseNova.error, 'a base mudou depois da avaliação técnica');
+  technicalRuntime.targetFor = async () => ({ base: report.base, head });
+  technicalRuntime.reviewSnapshot = async () => ({ fingerprint: 'outra' });
+  const objecaoNova = await approvalRefusal(motor(report), pr, payload);
+  assert.equal(objecaoNova && objecaoNova.error, 'histórico de objeções mudou depois da revisão');
+  technicalRuntime.reviewSnapshot = async () => ({ fingerprint: report.humanReviewFingerprint });
+  assert.equal(await approvalRefusal(motor(report), pr, payload), null, 'contexto igual: sai');
+  // sem base nem impressão gravadas (a avaliação falhou antes de ler): a conferência é o gate de consciência
+  const semContexto = { schema: 1, verdict: 'not-run', error: 'ferramenta ausente' };
+  const comPedido = motor(semContexto, { bloqueadoPorHistorico: async () => ({ bloqueado: true, decisivos: [{ quem: 'colega', state: 'CHANGES_REQUESTED' }] }) });
+  assert.equal((await approvalRefusal(comPedido, pr, payload)).error, 'há pedido de mudanças de outra pessoa neste commit');
+  const semPedido = motor(semContexto, { bloqueadoPorHistorico: async () => ({ bloqueado: false, decisivos: [] }) });
+  assert.equal(await approvalRefusal(semPedido, pr, payload), null);
+  const leituraFalha = motor(report);
+  technicalRuntime.targetFor = async () => { throw new Error('rede'); };
+  assert.equal((await approvalRefusal(leituraFalha, pr, payload)).error, 'não foi possível reconfirmar a base e as objeções da revisão');
+}));
+
+test('PR #248, achado 2: com a prova esgotada e a política esperando você, o Aprovar fica ligado', () => {
+  const head = 'a'.repeat(40);
+  const inconclusivo = { ...technicalReport(head), verdict: 'not-run', rules: [{ rule: 'x', verdict: 'not-run' }] };
+  const base = { id: 'd1', key: PR.key, status: 'pending', verdict: 'approve', headSha: head, technicalReview: inconclusivo, approvalEvidence: [], reasons: [] };
+  const esgotada = decisionForUi({ ...base, provaEsgotada: true });
+  assert.equal(esgotada.provaEsgotada, true, 'a marca chega à tela');
+  assert.equal(esgotada.technical.state, 'ressalva');
+  assert.match(esgotada.technical.message, /avaliação técnica inconclusiva; depois de duas tentativas minhas neste commit, segue como ressalva/);
+  assert.equal(staleCardMeta(esgotada, null).approveDisabled, false);
+  const exigida = decisionForUi(base);
+  assert.equal(exigida.technical.state, 'pending', 'sem esgotar, segue exigida');
+  assert.equal(staleCardMeta(exigida, null).approveDisabled, true);
+  const violada = decisionForUi({ ...base, provaEsgotada: true, technicalReview: { ...inconclusivo, verdict: 'fail', rules: [{ rule: 'x', verdict: 'fail' }] } });
+  assert.equal(violada.technical.state, 'violation', 'violação nunca vira ressalva');
+  assert.equal(staleCardMeta(violada, null).approveDisabled, true);
 });
