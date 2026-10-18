@@ -184,6 +184,32 @@ test('recuperação sem head original preserva prazo e detecta rodada órfã ap�
   assert.deepEqual(e.eventos, []);
 });
 
+test('pendência antiga com lista vazia não esconde a prova técnica ausente', async () => {
+  const e = motor();
+  const d = await revisado(e, SEM_PROTOCOLO);
+  delete d.esperaProva;
+  delete d.technicalReview;
+  d.approvalEvidence = [];
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
+  assert.ok(d.esperaProva);
+  assert.ok(d.esperaProva.lacunas.includes('avaliação técnica atual ausente'));
+  assert.deepEqual(e.eventos, []);
+  assert.deepEqual(envios, []);
+  await revisado(e, {});
+  assert.deepEqual(envios.map(x => x.event), ['APPROVE']);
+});
+
+test('análise incompleta se recupera mesmo com lista de lacunas vazia', async () => {
+  const e = motor();
+  const d = await revisado(e, { analysisStatus: 'incomplete' });
+  delete d.esperaProva;
+  d.approvalEvidence = [];
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
+  assert.ok(d.esperaProva.lacunas.some(x => /análise incompleta/.test(x)));
+  assert.deepEqual(e.eventos, []);
+  assert.deepEqual(envios, []);
+});
+
 test('publicação manual recebe uma análise concluída, nunca uma decisão sem prova', async () => {
   const e = motor(['wait', 'wait']);
   const d = await revisado(e, SEM_PROTOCOLO);
