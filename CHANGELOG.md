@@ -13,6 +13,10 @@ e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
 Com a conta configurada para aprovar ou reprovar sozinha, o Farol decide sozinho e não manda mais o PR para "Precisa de você" por desculpa.
 
+### Novidades
+
+- O endereço da página passa a refletir a tela: aba, sub-aba do Radar, aparelho escolhido, seção do Sistema, filtros de Entregas e a revisão aberta entram na URL. Voltar e avançar do navegador funcionam, e abrir um link leva direto para a mesma tela.
+
 ### Melhorias
 
 - Revisão que você mandou rodar (clique no Panorama, link colado, Revisar agora pelo aparelho admin, comandos e fila compartilhada entre aparelhos) passa a aprovar ou pedir mudanças pela configuração da conta, como a revisão da sua fila.
