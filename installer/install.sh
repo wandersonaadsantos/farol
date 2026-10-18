@@ -59,7 +59,7 @@ preparar_runtime 'electron/dist/Electron.app/Contents/MacOS/Electron' "$SRC/inst
 # --- encerra instancias em execucao ---------------------------------------------
 step 'Encerrando instancias do Farol em execucao (se houver)'
 pkill -f '\.farol/app' 2>/dev/null || true
-pkill -f '/Applications/Farol[.]app/Contents/MacOS/Electron' 2>/dev/null || true
+pkill -f '/Applications/Farol[.]app/Contents/MacOS/(Electron|Farol)' 2>/dev/null || true
 sleep 1
 
 # --- copia do app ----------------------------------------------------------------

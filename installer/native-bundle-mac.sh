@@ -19,6 +19,8 @@ set_string() {
 set_string CFBundleName 'Farol'
 set_string CFBundleDisplayName 'Farol'
 set_string CFBundleIdentifier 'com.biud.farol'
+mv "$BUNDLE/Contents/MacOS/Electron" "$BUNDLE/Contents/MacOS/Farol"
+set_string CFBundleExecutable 'Farol'
 set_string LSMinimumSystemVersion '13.0'
 set_string CFBundleIconFile 'farol.icns'
 VERSION="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$APP/package.json" | head -1)"

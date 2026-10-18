@@ -45,7 +45,8 @@ app.whenReady().then(() => {
     assert.equal(lerPlist('CFBundleIdentifier'), 'com.biud.farol');
     assert.equal(lerPlist('CFBundleName'), 'Farol');
     assert.equal(lerPlist('CFBundleVersion'), '9.9.9');
-    execFileSync(path.join(bundle, 'Contents/MacOS/Electron'), [], { env, timeout: PRAZO_BUNDLE_MS });
+    assert.equal(lerPlist('CFBundleExecutable'), 'Farol');
+    execFileSync(path.join(bundle, 'Contents/MacOS', lerPlist('CFBundleExecutable')), [], { env, timeout: PRAZO_BUNDLE_MS });
     const [nome, packaged, appPath, menu] = fs.readFileSync(path.join(appDir, 'ready.txt'), 'utf8').split('\n');
     assert.equal(nome, 'Farol');
     assert.equal(packaged, 'true');
