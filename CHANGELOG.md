@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.72.7
+
+A fila compartilhada explica qual conta precisa estar conectada no aparelho que vai revisar.
+
+### Correções
+
+- Cada candidato mostra a identidade revisora exigida, em vez de confundi-la com a conta que monitora a organização no aparelho do admin.
+- Ao escolher onde começar, a falta de credencial aparece antes do aviso genérico de que o aparelho não publicou o candidato. A conta precisa ser autorizada no destino; nenhuma credencial é copiada entre aparelhos.
+- A contagem de aparelhos informa quantos se ofereceram para o item, sem afirmar que todos têm vaga para começar agora. A coordenação, as reviews em andamento e os critérios de aprovação permanecem iguais.
+
 ## v2.72.6
 
 Com a aprovação automática ligada, o Farol vai atrás da prova que faltou em vez de esperar o PR mudar, e depois de duas tentativas não exige mais: o que faltar vira ressalva.

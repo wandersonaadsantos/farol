@@ -508,7 +508,7 @@ test('com a distribuição ligada, o item vira candidato e fica visível esperan
   assert.deepEqual(r, { ok: true, via: 'distribuicao' });
   assert.equal(e.headlessQueue.length, 0, 'não entra na fila local');
   assert.ok(e.headlessDistribuindo.get('dono/repo#7'), 'o PR fica visível como esperando distribuição');
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await esperarAte(() => e.sync.candidatos instanceof Map && e.sync.candidatos.size === 1);
   assert.equal(Object.keys(no('live/queue')).length, 1);
 });
 
@@ -520,10 +520,18 @@ test('PR sem head conhecido distribui: o head é lido antes de publicar', async 
   const e = motorFila(await motorDistribuidor());
   let pedidos = 0;
   e.headSha = async () => { pedidos += 1; return 'sha-lido-do-gh'; };
+  // A confirmação pode chegar depois de o servidor já ter escrito o candidato.
+  // A leitura espera o desfecho, não uma suposição de 50 ms de rede local.
+  const put = e.sync.client.put.bind(e.sync.client);
+  e.sync.client.put = async (...args) => {
+    const resposta = await put(...args);
+    await new Promise(resolve => setTimeout(resolve, 75));
+    return resposta;
+  };
   comoExecutor(e);
   const r = reviewMod.enqueueHeadless(e, prDe(11, { headSha: undefined }));
   assert.deepEqual(r, { ok: true, via: 'distribuicao' });
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await esperarAte(() => e.sync.candidatos instanceof Map && e.sync.candidatos.size === 1);
   assert.equal(pedidos, 1, 'o head é lido uma vez, no aparelho que publica');
   assert.equal(e.headlessQueue.length, 0, 'não cai no ramo local');
   assert.equal(Object.keys(no('live/queue')).length, 1);
@@ -539,7 +547,7 @@ test('head que não se lê devolve o item ao ramo local, sem publicar', async ()
   comoExecutor(e);
   const r = reviewMod.enqueueHeadless(e, prDe(12, { headSha: undefined }));
   assert.deepEqual(r, { ok: true, via: 'distribuicao' });
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await esperarAte(() => e.headlessQueue.length === 1);
   assert.equal(e.headlessQueue.length, 1, 'o PR volta para o escalonador local');
   assert.deepEqual(Object.keys(no('live/queue')), [], 'nada foi publicado');
 });
@@ -552,7 +560,7 @@ test('head do relançamento manda: knownHead viaja, e o gh não é consultado', 
   e.headSha = async () => { pedidos += 1; return 'sha-mais-novo'; };
   comoExecutor(e);
   reviewMod.enqueueHeadless(e, prDe(13, { headSha: undefined, knownHead: 'sha-da-rerodada' }));
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await esperarAte(() => e.sync.candidatos instanceof Map && e.sync.candidatos.size === 1);
   assert.equal(pedidos, 0, 'o head já conhecido dispensa a consulta');
   const publicados = [...e.sync.candidatos.values()].map((c) => c.pr.headSha);
   assert.deepEqual(publicados, ['sha-da-rerodada']);
