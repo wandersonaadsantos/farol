@@ -14,6 +14,9 @@ for (const renomeado of [false, true]) test(`janela tem identidade, ícone e rea
   skip: process.platform !== 'win32' || !fs.existsSync(executable), timeout: 30000,
 }, async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-desktop-'));
+  // O shell e o antivírus podem reter o perfil após o processo sair no Windows.
+  // Recolhe após os dois cenários, com repetição limitada e falha observável.
+  test.after(() => fs.promises.rm(tmp, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }), { timeout: 30000 });
   const ready = path.join(tmp, 'ready.json');
   fs.mkdirSync(path.join(tmp, 'assets'));
   fs.copyFileSync(path.join(raiz, 'assets/farol.ico'), path.join(tmp, 'assets/farol.ico'));
@@ -67,6 +70,5 @@ app.setPath('userData', ${JSON.stringify(path.join(tmp, 'profile'))});
     }
     await exited;
     if (renomeado) fs.unlinkSync(runtime);
-    fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
