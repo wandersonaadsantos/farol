@@ -9,6 +9,17 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.72.9
+
+A fila explica a espera manual, e as recusas do Admin mostram o motivo e como prosseguir.
+
+### Correções
+
+- O card informa quando a revisão automática está desativada para a conta neste aparelho e indica o botão para iniciar manualmente.
+- Avisos de análise em outro aparelho continuam visíveis. Conta com automação desligada não promete retomada automática após o limite do plano.
+- Recusas técnicas do comando Decidir mostram uma explicação e o próximo passo, em vez de apenas um código interno. Recibos antigos recebem uma orientação geral sem inventar o motivo.
+- O recibo transmite somente categorias conhecidas de recusa, sem expor o erro livre. Os critérios para aprovar e as permissões do Admin permanecem iguais.
+
 ## v2.72.8
 
 A aprovação exige prova técnica completa, independentemente da política da conta ou do número de tentativas.

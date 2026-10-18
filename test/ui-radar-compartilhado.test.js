@@ -442,3 +442,35 @@ test('aparelho que não aceitou o controle não aparece na aba nem soa o aviso d
   assert.equal($('#toasts').children.length, antesDosToasts, 'a decisão dele não soa aqui');
   assert.equal($('#mdSeusAparelhos').innerHTML, '');
 });
+
+
+test('card explica automação desligada por conta e acompanha a mudança do snapshot', () => {
+  const snap = estado();
+  const pr = { key: 'acme-exemplo/engine-ai#483', url: 'https://github.com/acme-exemplo/engine-ai/pull/483', title: 'Filtros das métricas', author: 'bruno-exemplo', account: 'alice', updatedAt: new Date().toISOString() };
+  snap.queue = [pr];
+  snap.accounts[0].autoReview = false;
+  emitir('state', snap);
+  assert.match($('#queue').innerHTML, /Revisão automática desativada para esta conta neste aparelho/);
+  assert.match($('#queue').innerHTML, /Para iniciar aqui, clique em Revisar\./);
+  assert.match($('#queue').innerHTML, /act-review/);
+  snap.accounts[0].autoReview = true;
+  emitir('state', snap);
+  assert.doesNotMatch($('#queue').innerHTML, /Revisão automática desativada/);
+  delete snap.accounts[0].autoReview;
+  emitir('state', snap);
+  assert.doesNotMatch($('#queue').innerHTML, /Revisão automática desativada/);
+});
+
+test('automação local desligada preserva aviso do outro aparelho e não promete retomada pelo limite', () => {
+  const snap = estado();
+  const pr = { key: 'acme-exemplo/engine-ai#483', url: 'https://github.com/acme-exemplo/engine-ai/pull/483', title: 'Filtros', author: 'bruno-exemplo', account: 'alice', updatedAt: new Date().toISOString() };
+  snap.accounts[0].autoReview = false;
+  snap.accounts[0].limitePlanoAte = Date.now() + 600000;
+  snap.queue = [pr, { ...pr, key: 'acme-exemplo/engine-ai#484' }];
+  snap.sync.leasesVistos = { [pr.key]: { deviceName: 'Hostinger' } };
+  emitir('state', snap);
+  const html = $('#queue').innerHTML;
+  assert.match(html, /Em análise no Hostinger/);
+  assert.equal((html.match(/Revisão automática desativada/g) || []).length, 2);
+  assert.doesNotMatch(html, /recomeço sozinho|Esperando o limite do plano/);
+});

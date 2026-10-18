@@ -556,3 +556,30 @@ test('o alvo é conferido contra o nó do comando, não só contra a memória da
   assert.equal(r.conferencia, 'do-alvo');
   assert.equal(r.recibo.estado, 'aplicado');
 });
+
+
+test('recusa técnica do Admin chega ao recibo com motivo seguro e próximo passo na tela', async () => {
+  const { reciboEstado } = await import('../ui/pure/compartilhado.js');
+  for (const [error, codigo, mensagem] of [
+    ['avaliação técnica atual ausente', 'technical_review:avaliacao-ausente', /Revise novamente o commit atual/],
+    ['violação técnica confirmada', 'technical_review:violacao', /Corrija os pontos do review/],
+    ['checks necessários à aprovação ainda não comprovados', 'technical_review:checks', /aguarde a confirmação/],
+    ['erro privado em /home/segredo com token=nao-publicar', 'technical_review', /Abra o review completo/],
+  ]) {
+    fake.setTree(null);
+    fs.rmSync(comandos.caminhoDosFeitos(), { force: true });
+    const e = await motor();
+    e.decisions.pending.unshift({ id: 'tecnica', key: PR.key, createdAt: Date.now() });
+    e.decide = async () => ({ ok: false, blocked: 'technical_review', error, attempted: false });
+    const cmdId = await emitirPara(e, e.sync.deviceId, 'decidir', { itemId: itemIdDe(kId(e), e.sync.deviceId, 'tecnica'), acao: 'approve' });
+    await comandos.cicloDosComandos(e, e.config.sync);
+    const r = recibo(cmdId);
+    assert.equal(r.estado, 'recusado');
+    assert.equal(r.code, codigo);
+    assert.doesNotMatch(JSON.stringify(r), /segredo|token=|nao-publicar/);
+    const tela = reciboEstado({}, r);
+    assert.match(tela.detalhe, mensagem);
+    assert.doesNotMatch(tela.detalhe, /código technical_review/);
+    assert.equal(e.decisions.pending[0].id, 'tecnica', 'a recusa mantém a pendência');
+  }
+});
