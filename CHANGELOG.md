@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.72.8
+
+A aprovação exige prova técnica completa, independentemente da política da conta ou do número de tentativas.
+
+### Correções
+
+- Repositório sem declaração técnica volta a impedir aprovação.
+- Esgotar tentativas de buscar prova mantém avaliações ausentes ou inconclusivas bloqueadas.
+- O botão Aprovar e todos os caminhos de publicação usam a mesma exigência. Decisões antigas também passam pelo gate atual.
+
 ## v2.72.7
 
 A fila compartilhada explica qual conta precisa estar conectada no aparelho que vai revisar.
