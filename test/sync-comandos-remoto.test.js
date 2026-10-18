@@ -121,6 +121,28 @@ test('quem não é admin da geração vigente não emite', async () => {
   assert.equal(r.code, 'nao-e-admin');
 });
 
+test('diagnóstico só coleta após comando assinado aceito pelo alvo e sobe cifrado', async () => {
+  const e = await motor();
+  e.tokens = {};
+  e.token = null;
+  const cmdId = await emitirPara(e, e.sync.deviceId, 'diagnosticar', { prTag: prTag(kId(e), PR.key) });
+  comoExecutor(e);
+  e.config.sync.aceitarAdmin = false;
+  await comandos.cicloDosComandos(e, e.config.sync);
+  assert.equal(recibo(cmdId).code, 'nao-aceita-admin');
+  assert.equal(Object.keys(arvore().live.operations || {}).length, 0);
+  e.config.sync.aceitarAdmin = true;
+  const outroId = await emitirPara(e, e.sync.deviceId, 'diagnosticar', { prTag: prTag(kId(e), PR.key) });
+  await comandos.cicloDosComandos(e, e.config.sync);
+  assert.equal(recibo(outroId).estado, 'aplicado');
+  e.sync.comandosEmitidos = [{ cmdId: outroId, tipo: 'diagnosticar', alvo: e.sync.deviceId }];
+  const { lerDiagnostico } = await import('../lib/engine/sync-diagnostico.js');
+  const r = await lerDiagnostico(e, { cmdId: outroId });
+  assert.equal(r.ok, true);
+  assert.ok(r.diagnostico.itens.some(p => p.key === PR.key));
+  assert.equal(JSON.stringify(arvore().live.operations).includes(PR.key), false);
+});
+
 test('repetir: enfileira sem virar clique manual, e o recibo é o desfecho', async () => {
   const e = await motor();
   const enfileirados = [];
