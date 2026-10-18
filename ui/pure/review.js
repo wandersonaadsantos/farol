@@ -196,8 +196,8 @@ export function esperaCiCardMeta(d) {
 }
 
 // Card da aprovação que busca a prova técnica (17/10/2026): nada é postado com lacuna, e o
-// Farol revisa de novo sozinho no MESMO commit, até duas vezes. Depois delas, o que faltar vira
-// ressalva e a política da conta decide. A revisão relançada também cai aqui (stale_head com o
+// Farol revisa de novo sozinho no MESMO commit, até duas vezes. Depois delas, a aprovação
+// permanece bloqueada sem prova. A revisão relançada também cai aqui (stale_head com o
 // head igual ao lido), e é ela a tentativa em curso.
 const TENTATIVAS_DA_PROVA = 2;
 function tentativaDaProva(d) {
@@ -210,7 +210,7 @@ function esperaProvaCardMeta(d) {
   const st = {
     tom: 'info', icone: 'hourglass',
     lead: `Buscando a prova (tentativa ${tentativaDaProva(d)} de ${TENTATIVAS_DA_PROVA}).`,
-    texto: 'Aprovável, mas faltou prova técnica, então nada foi postado ainda. Reviso de novo sozinho neste commit para buscar a prova; depois de duas tentativas, o que faltar vira ressalva e a política da conta decide. Você não precisa fazer nada.',
+    texto: 'Faltou prova técnica, então nada foi postado. Reviso de novo sozinho neste commit até duas vezes. Se a prova continuar incompleta, a aprovação permanece bloqueada e você pode usar Revisar agora após resolver o impedimento.',
   };
   return {
     stale: false, cardClass: 'working', approveDisabled: !!label,
@@ -242,7 +242,8 @@ function metaDoCard(d, r) {
   const label = technicalLabel(d);
   if (label) verdictComum = `<span class="verdict ${label.cls}">${esc(label.title.toUpperCase())}</span>`;
   if (!stale) {
-    return { stale, approveDisabled: !!label, cardClass: d && d.verdict === 'approve' ? 'urgent' : 'blocked', verdictHtml: verdictComum, reasons, statusHtml: legado, reviewBtn: '' };
+    const reviewBtn = d && d.provaEsgotada === true && label ? 'primary' : '';
+    return { stale, approveDisabled: !!label, cardClass: d && d.verdict === 'approve' ? 'urgent' : 'blocked', verdictHtml: verdictComum, reasons, statusHtml: legado, reviewBtn };
   }
   const st = reRoundStatus(r, d);
   if (!st) return { stale, cardClass: d.verdict === 'approve' ? 'urgent' : 'blocked', verdictHtml: verdictComum, reasons, statusHtml: legado, reviewBtn: 'primary' };
