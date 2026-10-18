@@ -159,7 +159,7 @@ export function reRoundBoxHtml(st) {
 // viaja desde 01/10/2026 (motivo `espera-ci` na fila e `espera` na pendência), e a tela deles
 // separa do mesmo jeito em ui/pure/aparelhos-fila.js.
 // A que busca a prova técnica (17/10/2026, lib/engine/espera-prova.js) também não precisa:
-// o Farol revisa de novo sozinho no mesmo commit, até duas vezes, e ela vai para a mesma seção.
+// o Farol recupera a análise no mesmo commit, com recuo entre tentativas, na mesma seção.
 const aprovaSozinho = d => !!(d.esperaCi || d.esperaProva);
 export function separarPendentes(pending) {
   const lista = Array.isArray(pending) ? pending.filter(Boolean) : [];
@@ -195,26 +195,26 @@ export function esperaCiCardMeta(d) {
   };
 }
 
-// Card da aprovação que busca a prova técnica (17/10/2026): nada é postado com lacuna, e o
-// Farol revisa de novo sozinho no MESMO commit, até duas vezes. Depois delas, a aprovação
-// permanece bloqueada sem prova. A revisão relançada também cai aqui (stale_head com o
-// head igual ao lido), e é ela a tentativa em curso.
-const TENTATIVAS_DA_PROVA = 2;
+// Recuperação automática da análise, inclusive quando uma execução foi interrompida.
 function tentativaDaProva(d) {
   const feitas = Number(d && d.esperaProva && d.esperaProva.tentativas) || 0;
   const n = d && d.blockedKind === 'stale_head' ? feitas : feitas + 1;
-  return Math.min(Math.max(n, 1), TENTATIVAS_DA_PROVA);
+  return Math.max(n, 1);
 }
 function esperaProvaCardMeta(d) {
-  const label = technicalLabel(d);
+  const marca = d.esperaProva || {};
+  const horario = marca.proximaEm > Date.now() ? new Date(marca.proximaEm).toLocaleString('pt-BR') : '';
+  let texto = 'A análise ainda não produziu toda a evidência necessária. Nada foi publicado. ';
+  if (horario) texto += `Próxima tentativa a partir de ${horario}. `;
+  texto += 'O Farol retoma sozinho e publica a decisão quando a análise e a política permitirem. Você não precisa aprovar manualmente.';
   const st = {
     tom: 'info', icone: 'hourglass',
-    lead: `Buscando a prova (tentativa ${tentativaDaProva(d)} de ${TENTATIVAS_DA_PROVA}).`,
-    texto: 'Faltou prova técnica, então nada foi postado. Reviso de novo sozinho neste commit até duas vezes. Se a prova continuar incompleta, a aprovação permanece bloqueada e você pode usar Revisar agora após resolver o impedimento.',
+    lead: marca.impedimento ? 'Recuperação pausada.' : `Concluindo a análise (tentativa ${tentativaDaProva(d)}).`,
+    texto: marca.impedimento || texto,
   };
   return {
-    stale: false, cardClass: 'working', approveDisabled: !!label,
-    verdictHtml: '<span class="verdict approve">BUSCANDO A PROVA</span>',
+    stale: false, cardClass: 'working', approveDisabled: true,
+    verdictHtml: '<span class="verdict pending">RECUPERANDO A ANÁLISE</span>',
     reasons: Array.isArray(d.reasons) ? d.reasons : [], statusHtml: reRoundBoxHtml(st), reviewBtn: '',
   };
 }
@@ -233,10 +233,8 @@ function metaDoCard(d, r) {
   const reasons = Array.isArray(d && d.reasons) ? d.reasons : [];
   const stale = !!(d && d.blockedKind === 'stale_head');
   if (!stale && d && d.esperaCi) return esperaCiCardMeta(d);
-  // rodada da prova relançada no mesmo commit que parou (estacionou, cancelada): não é mais
-  // automática, então vale o card de commit novo, com o motivo e o Revisar agora
-  const rodadaParada = !!(r && r.estado === 'parado');
-  if (d && d.esperaProva && (!stale || (d.blockedHead === d.headSha && !rodadaParada))) return esperaProvaCardMeta(d);
+  // A recuperação mantém seu estado próprio também quando aguarda ambiente ou cancelamento.
+  if (d && d.esperaProva && (!stale || d.blockedHead === d.headSha)) return esperaProvaCardMeta(d);
   const legado = d && d.blockedReason ? `<div class="dec-blocked">🚫 <span><b>Bloqueado:</b> ${esc(d.blockedReason)}</span></div>` : '';
   let verdictComum = d && d.verdict === 'approve' ? '<span class="verdict approve">APROVÁVEL</span>' : '<span class="verdict rc">COM BLOCKER</span>';
   const label = technicalLabel(d);
@@ -269,7 +267,7 @@ export function reviewBoxHtml(d) {
   const autor = (d.pr && d.pr.author) || d.author || '';
   const razoes = Array.isArray(d.reasons) ? d.reasons : [];
   let titulo = d.esperaCi && !label ? 'Esperando o CI para aprovar sozinho' : 'Por que precisa de você';
-  if (d.esperaProva) titulo = `Buscando a prova (tentativa ${tentativaDaProva(d)} de ${TENTATIVAS_DA_PROVA}), reviso de novo sozinho`;
+  if (d.esperaProva) titulo = `Recuperando a análise (tentativa ${tentativaDaProva(d)}), sem decisão manual`;
   return `<div class="review-box">
     <div class="review-box-head">
       <span class="verdict ${cls}">${esc(v)}</span>
@@ -298,7 +296,7 @@ const CHIP_DO_GH = {
 export function reviewChip(pr, actions, estadosGh) {
   const a = (actions || {})[pr.key];
   if (a && a.kind === 'pending' && a.esperaCi) return '<span class="badge rev-ok" title="Aprovável. O Farol espera o CI obrigatório e aprova sozinho quando ele fechar verde neste commit">⏳ esperando o CI</span>';
-  if (a && a.kind === 'pending' && a.esperaProva) return '<span class="badge rev-ok" title="Aprovável, mas faltou prova técnica. O Farol revisa de novo sozinho neste commit, até duas vezes">⏳ buscando a prova</span>';
+  if (a && a.kind === 'pending' && a.esperaProva) return '<span class="badge rev-pend" title="A análise está em recuperação automática. Nada é publicado sem evidência; não exige decisão manual">⏳ recuperando a análise</span>';
   if (a && a.kind === 'pending') return '<span class="badge rev-pend" title="A análise terminou e está esperando a sua decisão em Precisa de você">🟡 aguardando você</span>';
   const gh = String((estadosGh || {})[pr.key]);
   if (Object.hasOwn(CHIP_DO_GH, gh)) return CHIP_DO_GH[gh];

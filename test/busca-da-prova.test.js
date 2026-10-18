@@ -129,17 +129,22 @@ test('o prompt da rodada complementar lista o que faltou, como dado delimitado',
   await revisado(e, SEM_PROTOCOLO);
   await esperaProva.reverQuandoAProvaMudar(e);
   const prompt = e.headlessPromptFor(PR.url, 'dev');
-  assert.match(prompt, /## Revisão complementar \(tentativa 1 de 2 neste commit\)/);
+  assert.match(prompt, /## Revisão complementar \(tentativa 1 neste commit\)/);
   assert.match(prompt, /<<<LACUNAS-DA-TENTATIVA-ANTERIOR\n- protocolo de revisão não comprovado\nLACUNAS-DA-TENTATIVA-ANTERIOR/);
 });
 
-test('duas tentativas esgotadas mantêm a aprovação bloqueada, sem terceira busca', async () => {
+test('duas tentativas rápidas mantêm a aprovação bloqueada e programam a próxima busca', async () => {
   const e = motor();
   await ateEsgotar(e);
   const d = await revisado(e, SEM_PROTOCOLO);
   assert.deepEqual(envios, []);
   assert.ok(d.approvalEvidence.includes('protocolo de revisão não comprovado'));
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
+  assert.ok(d.esperaProva.proximaEm > Date.now());
+  assert.deepEqual(e.eventos, []);
+  d.esperaProva.proximaEm = Date.now() - 1;
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
+  assert.equal(d.esperaProva.tentativas, 3);
   assert.equal(e.eventos.some(x => x[0] === 'auto-approved'), false);
 });
 
@@ -163,25 +168,25 @@ test('esgotada não converte CI vermelho: a aprovação espera o CI sozinha, sem
   assert.deepEqual(e.eventos, []);
 });
 
-test('esgotada não converte violação técnica confirmada: vai para a mesa', async () => {
+test('violação técnica confirmada continua bloqueada e pede fundamentação em nova análise', async () => {
   const e = motor();
   await ateEsgotar(e);
   technicalRuntime.finishTechnicalReview = async (ctx) => ({ ...technicalReport(ctx.head, ctx.repo), verdict: 'fail', rules: [{ rule: 'x', verdict: 'fail' }] });
   const d = await revisado(e, SEM_PROTOCOLO);
   assert.deepEqual(envios, []);
-  assert.equal(d.esperaProva, undefined);
+  assert.ok(d.esperaProva);
   assert.ok(textos(d).includes('violação técnica confirmada'), textos(d).join(' | '));
-  assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
+  assert.deepEqual(e.eventos, []);
 });
 
-test('esgotada não converte a parte do card deste PR dita não entregue: vai para a mesa', async () => {
+test('parte do card não comprovada continua bloqueada e é reavaliada sem decisão inútil', async () => {
   const e = motor();
   await ateEsgotar(e);
   const d = await revisado(e, { card: 'CARD-1', cardMet: false, cardParteDestePr: false });
   assert.deepEqual(envios, []);
-  assert.equal(d.esperaProva, undefined, 'sem terceira busca: as tentativas deste commit acabaram');
+  assert.ok(d.esperaProva.proximaEm > Date.now(), 'nova análise programada sem dispensar evidência');
   assert.ok(textos(d).includes('a parte do card que cabe a este PR não foi comprovada'), textos(d).join(' | '));
-  assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
+  assert.deepEqual(e.eventos, []);
 });
 
 test('todas as lacunas continuam obrigatórias depois das tentativas', () => {
