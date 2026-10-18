@@ -115,7 +115,8 @@ test('lacuna de cobertura entra UMA vez nas reasons, como ressalva, com a amostr
   }), { policy: 'approve', ressalvas: 'wait' });
   await e.runHeadlessReview(PR);
   const item = e.decisions.pending[0];
-  assert.match(texto(item.reasons[0]), /cobertura da leitura/, 'a prova insuficiente prevalece sobre a política');
+  assert.match(texto(item.reasons[0]), /análise técnica pendente/, 'a recuperação da prova prevalece sobre a política de publicação');
+  assert.ok(item.esperaProva, 'a lacuna não deve pedir uma decisão ainda bloqueada');
   const deCobertura = textos(item.reasons).filter(r => /cobertura da leitura/.test(r));
   assert.equal(deCobertura.length, 1, `cobertura virou ${deCobertura.length} motivo(s): ${deCobertura.join(' | ')}`);
   assert.match(deCobertura[0], /b\.ts/, 'a redação que fica é a que mostra a amostra');

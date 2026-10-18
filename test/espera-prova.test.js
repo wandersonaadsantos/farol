@@ -143,12 +143,18 @@ test('aprovável com prova incompleta: nada é postado, e a pendência BUSCA A P
   assert.match(meta.verdictHtml, /RECUPERANDO A ANÁLISE/);
 });
 
-test('conta que manda esperar você: a lacuna vai para a mesa, como antes', async () => {
+test('publicação manual recebe uma análise concluída, nunca uma decisão sem prova', async () => {
   const e = motor(['wait', 'wait']);
   const d = await revisado(e, SEM_PROTOCOLO);
-  assert.equal(d.esperaProva, undefined);
-  assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
+  assert.ok(d.esperaProva);
+  assert.deepEqual(e.eventos, []);
   assert.deepEqual(envios, []);
+  await esperaProva.reverQuandoAProvaMudar(e);
+  const pronta = await revisado(e, {});
+  assert.equal(pronta.esperaProva, undefined);
+  assert.equal(e.decisionForUi(pronta).technical.state, 'pass');
+  assert.deepEqual(envios, [], 'política manual não é permissão para publicar');
+  assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
 });
 
 test('armar: só prova_tecnica_incompleta, sem violação confirmada, com a política aprovando', () => {
@@ -198,14 +204,18 @@ test('ciclo: PR fechado é do reconcilePending, leitura que falha espera, coorde
   assert.equal(leiturasDoPr, 0, 'coordenação ligada e fora do ar: espera a conexão, como o reenvio');
 });
 
-test('a política mudou durante a espera: aí sim vai para a mesa, dizendo qual configuração segurou', async () => {
+test('mudança para publicação manual não abandona a análise ainda bloqueada', async () => {
   const e = motor();
-  await revisado(e, COM_DEPENDENCIA);
+  await revisado(e, SEM_PROTOCOLO);
   e.approvePolicyFor = () => 'wait';
-  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
-  const d = pendente(e);
-  assert.equal(d.esperaProva, null);
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
+  assert.ok(pendente(e).esperaProva);
+  assert.deepEqual(e.eventos, []);
+  const pronta = await revisado(e, {});
+  assert.equal(pronta.esperaProva, undefined);
+  assert.equal(e.decisionForUi(pronta).technical.state, 'pass');
   assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
+  assert.deepEqual(envios, []);
 });
 
 test('outros aparelhos: a espera da prova viaja como fato e não pede ninguém', () => {
