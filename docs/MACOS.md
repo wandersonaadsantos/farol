@@ -1,5 +1,7 @@
 # macOS, Linux e os pontos com branch de plataforma
 
+O instalador macOS agora monta `~/Applications/Farol.app` com o runtime Electron dentro do bundle, identidade `com.biud.farol`, ícone e menus nativos. O bootstrap carrega o código em `~/.farol/app`; o runtime original do npm fica intacto. A montagem aplica e verifica assinatura local ad hoc antes de substituir o bundle anterior. Isso não equivale a uma distribuição notarizada pela Apple. A validação de Finder, Dock, Cmd+Tab e atualização em Mac real continua necessária; `node --test test/native-bundle-mac.test.js` cobre montagem, assinatura e abertura nativa quando executado no macOS.
+
 Extraído do `CLAUDE.md` na Fase 1.5 da reorganização. O `CLAUDE.md` da raiz é o sumário, e os
 invariantes continuam lá.
 
