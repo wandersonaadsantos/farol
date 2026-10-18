@@ -281,9 +281,13 @@ test('atribuição viva é respondida uma vez: o giro seguinte não reescreve ne
   const r = await publicarComoExecutor(e, prDe(41), { agora: T });
   comoExecutor(e);
   await publicacao.publicarCapacidade(e, e.config.sync);
-  await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
+  const agenda = await dist.cicloDoAgendador(e, e.config.sync, { agora: T });
   const primeira = await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T });
-  assert.equal(primeira.aceitas.length, 1);
+  assert.equal(primeira.aceitas.length, 1, JSON.stringify({
+    agendou: !!agenda.atribuido,
+    motivos: agenda.relatorio?.avaliados?.map(a => a.motivo || a.desfecho),
+    recusas: primeira.recusas.map(r => r.problema || r.code),
+  }));
   const respondido = JSON.stringify(no('live/ack')[r.itemId]);
   const segunda = await dist.aceitarAtribuicoes(e, e.config.sync, no('live/assign'), { agora: T + 10000 });
   assert.deepEqual(segunda, { aceitas: [], recusas: [] }, 'nada a responder: a atribuição é a mesma');
