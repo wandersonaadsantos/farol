@@ -9,6 +9,24 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.72.9
+
+Com a conta configurada para aprovar ou reprovar sozinha, o Farol decide sozinho e não manda mais o PR para "Precisa de você" por desculpa.
+
+### Melhorias
+
+- Revisão que você mandou rodar (clique no Panorama, link colado, Revisar agora pelo aparelho admin, comandos e fila compartilhada entre aparelhos) passa a aprovar ou pedir mudanças pela configuração da conta, como a revisão da sua fila.
+- PR com violação técnica confirmada, achado técnico não resolvido ou a parte do card dele não entregue recebe o pedido de mudanças na hora, com os pontos apontados, quando a conta reprova sozinha.
+- PR com CI obrigatório vermelho recebe o pedido de mudanças citando os checks, uma vez por commit, quando a conta reprova sozinha. A aprovação continua esperando e sai sozinha quando a pipe fechar verde no mesmo commit.
+- Duas aprovações de pessoas no commit resolvem a revisão como "aprovação automática não necessária", sem postar nada. Pedido de mudanças de uma pessoa não segura mais a revisão do Farol: ele fica registrado no GitHub e a sua configuração decide.
+- PR aberto pela própria conta que revisa recebe a revisão como comentário, já que o GitHub não aceita aprovação nem pedido de mudanças do autor.
+- Revisão que volta incompleta é refeita sozinha no mesmo commit, até duas vezes.
+- Texto de revisão barrado pela trava de linguagem é refeito uma vez sem o trecho barrado antes de desistir.
+
+### Correções
+
+- "Precisa de você" fica só para a configuração que pede você, para a prova técnica que continua faltando sem defeito do PR e para falha de postagem ou de sessão, sempre com o motivo no card. Nunca sai aprovação com CI vermelho ou pendente, violação confirmada, commit não confirmado ou commit que mudou durante a revisão.
+
 ## v2.72.8
 
 A aprovação exige prova técnica completa, independentemente da política da conta ou do número de tentativas.
