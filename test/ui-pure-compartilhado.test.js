@@ -515,3 +515,11 @@ test('a nota da espera e a nota do comando dão o MESMO nome ao aparelho sem nom
   assert.match(naEspera, /aparelho dSemNome/, 'o id curto aparece, e é o mesmo em toda tela');
   assert.equal(naEspera.includes('um aparelho sem nome nesta tela'), false);
 });
+
+
+test('recibo técnico antigo explica a recusa sem inventar o motivo específico', () => {
+  const estado = P.reciboEstado({}, { estado: 'recusado', code: 'technical_review', at: AGORA });
+  assert.match(estado.detalhe, /prova técnica necessária não está confirmada/);
+  assert.match(estado.detalhe, /Admin não dispensa essa prova/);
+  assert.doesNotMatch(estado.detalhe, /código technical_review/);
+});
