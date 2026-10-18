@@ -73,6 +73,7 @@ function motor(politica = ['approve', 'approve']) {
   e.config.accounts = [{ user: 'eu', owners: ['acme'] }];
   e.approvePolicyFor = (_conta, limpo) => (limpo ? politica[0] : politica[1]);
   e.autoReviewFor = () => true;
+  e.rejectPolicyFor = () => 'wait';
   e.decisions = { pending: [], resolved: [] };
   e.salvas = 0;
   e.saveDecisions = () => { e.salvas++; };
@@ -158,7 +159,7 @@ test('armar: só prova_tecnica_incompleta, sem violação confirmada, com a pol�
   assert.ok(esperaProva.armar(e, PR, 'prova_tecnica_incompleta', { ...base, approvalEvidence: ['violação técnica confirmada'] }, []), 'nova análise deve fundamentar o pedido de mudanças, nunca aprovar a violação');
   assert.equal(esperaProva.armar(e, PR, 'prova_tecnica_incompleta', { ...base, headSha: '' }, []), null, 'sem head lido não há o que conferir');
   assert.ok(esperaProva.armar(e, PR, 'prova_tecnica_incompleta', { ...base, technicalRecheck: true }, []));
-  assert.equal(esperaProva.armar(motor(['approve', 'wait']), PR, 'prova_tecnica_incompleta', base, [{ text: 'ressalva', kind: 'content' }]), null);
+  assert.ok(esperaProva.armar(motor(['approve', 'wait']), PR, 'prova_tecnica_incompleta', base, [{ text: 'ressalva', kind: 'content' }]), 'a análise precisa terminar antes de classificar a publicação');
   const ci = esperaProva.armarEspera(e, PR, 'ci_em_andamento', { checksObrigatorios: [] }, []);
   assert.ok(ci && ci.extra.esperaCi, 'a espera do CI segue com o mesmo funil');
 });
@@ -396,6 +397,30 @@ test('clique avulso e PR da própria conta não ganham recuperação com publica
   const r = { headSha: HEAD, approvalEvidence: ['avaliação técnica atual ausente'] };
   assert.equal(esperaProva.armar(e, { ...PR, requested: false }, 'prova_tecnica_incompleta', r, []), null);
   assert.equal(esperaProva.armar(e, { ...PR, author: 'eu' }, 'prova_tecnica_incompleta', r, []), null);
+});
+
+test('reprovação automática também recupera a análise quando a aprovação é manual', async () => {
+  const e = motor(['wait', 'wait']);
+  e.rejectPolicyFor = () => 'request_changes';
+  const d = await revisado(e, SEM_PROTOCOLO);
+  assert.ok(d.esperaProva);
+  assert.deepEqual(e.eventos, []);
+  await esperaProva.reverQuandoAProvaMudar(e);
+  await revisado(e, { verdict: 'request_changes', payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'A alteração remove a validação antes da gravação. Preserve essa validação.' } } });
+  assert.equal(envios.length, 1);
+  assert.equal(envios[0].event, 'REQUEST_CHANGES');
+  assert.equal(pendente(e), undefined);
+});
+
+test('ressalva real após recuperar a prova continua obedecendo à aprovação manual', async () => {
+  const e = motor(['approve', 'wait']);
+  await revisado(e, SEM_PROTOCOLO);
+  await esperaProva.reverQuandoAProvaMudar(e);
+  const d = await revisado(e, { card: 'CARD-1', cardMet: false });
+  assert.equal(d.esperaProva, undefined);
+  assert.equal(e.decisionForUi(d).technical.state, 'pass', 'a decisão manual agora tem evidência suficiente');
+  assert.deepEqual(envios, []);
+  assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
 });
 
 function coordenado(e, recibo, { leituraFalha = false } = {}) {

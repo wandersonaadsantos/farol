@@ -63,6 +63,7 @@ function motor(politica = ['approve', 'approve']) {
   e.config.accounts = [{ user: 'eu', owners: ['acme'] }];
   e.approvePolicyFor = (_conta, limpo) => (limpo ? politica[0] : politica[1]);
   e.autoReviewFor = () => true;
+  e.rejectPolicyFor = () => 'wait';
   e.decisions = { pending: [], resolved: [] };
   e.saveDecisions = () => { };
   e.saveReReviewLaunched = () => { };
@@ -148,13 +149,16 @@ test('duas tentativas rápidas mantêm a aprovação bloqueada e programam a pr�
   assert.equal(e.eventos.some(x => x[0] === 'auto-approved'), false);
 });
 
-test('esgotada, quem decide é a política da conta: com ressalvas em "esperar você" vai para a mesa', async () => {
+test('falta de prova não é ressalva que transfere uma decisão ainda bloqueada', async () => {
   const e = motor(['approve', 'wait']);
-  // com lacuna, a classe é "com ressalvas" desde o começo: a espera nem arma, e é a política que segura
   const d = await revisado(e, SEM_PROTOCOLO);
-  assert.equal(d.esperaProva, undefined);
+  assert.ok(d.esperaProva);
   assert.deepEqual(envios, []);
-  assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
+  assert.deepEqual(e.eventos, []);
+  await esperaProva.reverQuandoAProvaMudar(e);
+  await revisado(e, {});
+  assert.equal(envios.length, 1);
+  assert.equal(pendente(e), undefined);
 });
 
 test('esgotada não converte CI vermelho: a aprovação espera o CI sozinha, sem postar e sem chamar ninguém', async () => {
