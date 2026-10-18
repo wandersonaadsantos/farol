@@ -9,7 +9,7 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.72.10
+## v2.72.11
 
 A recuperação da análise técnica continua sozinha, sem pedir uma decisão manual que permaneceria bloqueada.
 
@@ -19,6 +19,15 @@ A recuperação da análise técnica continua sozinha, sem pedir uma decisão ma
 - Execuções interrompidas e pendências antigas voltam à recuperação automática. O prazo sobrevive ao reinício; fila, sessão e retentativa existentes impedem revisões concorrentes.
 - Recusas técnicas na publicação retornam ao mesmo fluxo de análise. Uma nova revisão pode fundamentar a aprovação ou o pedido de mudanças, conforme a política da conta.
 - O card mostra a próxima tentativa ou o impedimento do ambiente. Cancelamento explícito, automação desligada, autenticação e configuração ausente são respeitados, sem pedir uma aprovação que não resolveria a causa.
+
+## v2.72.10
+
+O Farol passa a ter identidade própria nas superfícies nativas do Windows e do macOS.
+
+### Correções
+
+- A janela do Windows declara identificador, ícone e comando de reabertura próprios para evitar o agrupamento com outros aplicativos Electron na barra de tarefas.
+- O instalador macOS cria um aplicativo com executável e identidade próprios, ícone e menus nativos. A assinatura local é verificada antes de substituir o bundle anterior; os dados continuam no mesmo diretório.
 
 ## v2.72.9
 

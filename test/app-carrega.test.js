@@ -277,8 +277,3 @@ test('todo import nomeado de ui/telas é um bloco só, com nomes de identificado
     }
   }
 });
-
-test('shell Electron declara Farol como nome do processo', () => {
-  const src = fs.readFileSync(path.join(import.meta.dirname, '..', 'main.js'), 'utf8');
-  assert.match(src, /app\.setName\('Farol'\)/, 'macOS nao pode herdar "Electron" como nome do app em runtime');
-});

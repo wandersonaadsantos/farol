@@ -14,7 +14,8 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
-  ['2.72.10', ['A análise técnica se recupera automaticamente após falhas, com intervalos crescentes e sem dispensar provas.', 'Pendências antigas e execuções interrompidas são retomadas; o card mostra a próxima tentativa ou o impedimento real do ambiente.']],
+  ['2.72.11', ['A análise técnica se recupera automaticamente após falhas, com intervalos crescentes e sem dispensar provas.', 'Pendências antigas e execuções interrompidas são retomadas; o card mostra a próxima tentativa ou o impedimento real do ambiente.']],
+  ['2.72.10', ['A janela do Windows usa identidade, ícone e reabertura próprios para evitar agrupamento com outros aplicativos.', 'O macOS recebe um aplicativo com executável, ícone e menus próprios, preservando dados e configurações.']],
   ['2.72.9', ['O card explica quando a revisão automática está desativada para a conta neste aparelho e indica como iniciar manualmente.', 'Recusas técnicas dos comandos do Admin mostram o motivo e o próximo passo, preservando a exigência de prova técnica para aprovar. Recibos antigos recebem uma orientação geral.']],
   ['2.72.8', ['A aprovação exige avaliação técnica completa, mesmo com aprovação automática configurada.', 'Falta de cadastro ou de prova não vira ressalva após novas tentativas. O botão Aprovar e a publicação permanecem bloqueados até a comprovação.']],
   ['2.72.7', ['A fila compartilhada mostra a conta que precisa assinar cada revisão e avisa quando ela não está autenticada neste aparelho.', 'A falta de credencial deixa de ficar escondida atrás de "não publicou este candidato" ao escolher onde começar.', 'A contagem mostra quantos aparelhos se ofereceram, sem prometer vaga disponível. Não muda a identidade de quem revisa, não copia credenciais e não interrompe as reviews em andamento.']],
