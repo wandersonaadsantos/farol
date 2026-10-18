@@ -62,6 +62,23 @@ test('coleta sem filtro inclui fila comum e retomada durável sem sessão ativa'
   assert.ok(r.itens.some(p => p.key === 'org/repo#19' && p.fonte === 'inflight.json'));
 });
 
+test('fila grande não elimina sessões, pendências, retries ou entrada do boot', async () => {
+  const e = motor();
+  e.queue = Array.from({ length: 100 }, (_, i) => ({ ...PR, key: `org/repo#${i + 100}` }));
+  e.panorama = [...e.queue];
+  e.decisions.pending = [{ key: 'org/repo#9', pr: PR }];
+  e.retryAfterNet = new Map([['retry', { pr: { ...PR, key: 'org/repo#8' } }]]);
+  fs.writeFileSync(path.join(STATE_DIR, 'inflight.json'), JSON.stringify([{ ...PR, account: '' }]));
+  const { coletarIdentidade: aposBoot } = await import('../lib/engine/diagnostico-identidade.js?prova-boot');
+  const r = await aposBoot(e, { run: async () => ({ ok: true, stdout: 'revisor' }) });
+  assert.equal(r.itens.length, 60);
+  assert.ok(r.omitidos > 0);
+  for (const fonte of ['activeReviews', 'pending', 'retryAfterNet', 'inflight.json', 'boot:inflight.json', 'queue', 'panorama']) assert.ok(r.itens.some(p => p.fonte === fonte), fonte);
+  const boot = r.itens.find(p => p.fonte === 'boot:inflight.json');
+  assert.equal(boot.account, '');
+  assert.equal(boot.resolvida, 'padrao');
+});
+
 test('diagnóstico atravessa o transporte cifrado com limite do banco, alvo e comando conferidos', async () => {
   const e = motor();
   const material = { id: randomBytes(32).toString('base64'), enc: { g1: randomBytes(32).toString('base64') } };
