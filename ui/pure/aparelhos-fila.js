@@ -24,17 +24,17 @@ import { botaoDoReviewHtml, motivosDaPendenciaHtml, motivosOmitidosDe } from './
 // não pede você: o aparelho dono revisa de novo sozinho quando o PR muda. Fica no mesmo grupo.
 const ESPERA_CI = 'espera-ci';
 const ESPERA_PROVA = 'espera-prova';
-const CHIP_DA_ESPERA = { [ESPERA_CI]: ['info', 'esperando o CI'], [ESPERA_PROVA]: ['info', 'esperando a prova'] };
+const CHIP_DA_ESPERA = { [ESPERA_CI]: ['info', 'esperando o CI'], [ESPERA_PROVA]: ['info', 'buscando a prova'] };
 const FRASE_DA_ESPERA = {
   [ESPERA_CI]: 'aprovável, esperando o CI obrigatório: o aparelho aprova sozinho quando ele fechar verde',
-  [ESPERA_PROVA]: 'aprovável, falta prova técnica: o aparelho revisa de novo sozinho quando o PR mudar',
+  [ESPERA_PROVA]: 'aprovável, faltou prova técnica: o aparelho revisa de novo sozinho neste commit, até duas vezes, e depois o que faltar vira ressalva',
 };
 const MOTIVO_DA_ESPERA = { ci: ESPERA_CI, prova: ESPERA_PROVA };
 
 // grupos fixos, nesta ordem (HANDOFF, seção 1); "Esperando o CI" entrou em 01/10/2026
 const GRUPOS = [
   { id: 'pedem', titulo: 'Pedem você', sub: 'O aparelho revisou e espera sua decisão.' },
-  { id: 'ci', titulo: 'Aprova sozinho (esperando o CI ou a prova)', sub: 'Não precisam de você: o aparelho aprova quando o CI fechar verde, ou revisa de novo quando o PR mudar.' },
+  { id: 'ci', titulo: 'Aprova sozinho (esperando o CI ou a prova)', sub: 'Não precisam de você: o aparelho aprova quando o CI fechar verde, ou revisa de novo sozinho para buscar a prova.' },
   { id: 'revisando', titulo: 'Revisando agora', sub: 'Sessões do executor, sincronizadas a cada 10 s.' },
   { id: 'fila', titulo: 'Na fila', sub: 'Ainda não começaram.' },
   { id: 'parados', titulo: 'Parados', sub: 'Bloqueados ou sem confirmação atual. Cada um diz o porquê.' },

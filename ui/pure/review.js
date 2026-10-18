@@ -158,8 +158,8 @@ export function reRoundBoxHtml(st) {
 // número e o rótulo dizerem a mesma coisa que o engine faz. Para os OUTROS aparelhos o fato
 // viaja desde 01/10/2026 (motivo `espera-ci` na fila e `espera` na pendência), e a tela deles
 // separa do mesmo jeito em ui/pure/aparelhos-fila.js.
-// A que espera a prova técnica (17/10/2026, lib/engine/espera-prova.js) também não precisa:
-// o Farol revisa de novo sozinho quando o PR muda, e ela vai para a mesma seção.
+// A que busca a prova técnica (17/10/2026, lib/engine/espera-prova.js) também não precisa:
+// o Farol revisa de novo sozinho no mesmo commit, até duas vezes, e ela vai para a mesma seção.
 const aprovaSozinho = d => !!(d.esperaCi || d.esperaProva);
 export function separarPendentes(pending) {
   const lista = Array.isArray(pending) ? pending.filter(Boolean) : [];
@@ -195,20 +195,26 @@ export function esperaCiCardMeta(d) {
   };
 }
 
-// Card da aprovação que espera a prova técnica (17/10/2026): nada é postado com lacuna, e o
-// Farol revisa de novo sozinho quando o PR muda ou quando a lacuna é do próprio envelope. A
-// revisão relançada no mesmo commit também cai aqui (stale_head com o head igual ao lido).
+// Card da aprovação que busca a prova técnica (17/10/2026): nada é postado com lacuna, e o
+// Farol revisa de novo sozinho no MESMO commit, até duas vezes. Depois delas, o que faltar vira
+// ressalva e a política da conta decide. A revisão relançada também cai aqui (stale_head com o
+// head igual ao lido), e é ela a tentativa em curso.
+const TENTATIVAS_DA_PROVA = 2;
+function tentativaDaProva(d) {
+  const feitas = Number(d && d.esperaProva && d.esperaProva.tentativas) || 0;
+  const n = d && d.blockedKind === 'stale_head' ? feitas : feitas + 1;
+  return Math.min(Math.max(n, 1), TENTATIVAS_DA_PROVA);
+}
 function esperaProvaCardMeta(d) {
   const label = technicalLabel(d);
-  const relancada = d.blockedKind === 'stale_head';
   const st = {
     tom: 'info', icone: 'hourglass',
-    lead: relancada ? 'Revisando de novo para fechar a prova técnica.' : 'Esperando a prova técnica.',
-    texto: 'Aprovável, mas falta prova técnica, então nada foi postado. Reviso de novo sozinho quando o PR mudar (commit novo, review novo ou dependência resolvida). Você não precisa fazer nada.',
+    lead: `Buscando a prova (tentativa ${tentativaDaProva(d)} de ${TENTATIVAS_DA_PROVA}).`,
+    texto: 'Aprovável, mas faltou prova técnica, então nada foi postado ainda. Reviso de novo sozinho neste commit para buscar a prova; depois de duas tentativas, o que faltar vira ressalva e a política da conta decide. Você não precisa fazer nada.',
   };
   return {
     stale: false, cardClass: 'working', approveDisabled: !!label,
-    verdictHtml: '<span class="verdict approve">ESPERANDO A PROVA</span>',
+    verdictHtml: '<span class="verdict approve">BUSCANDO A PROVA</span>',
     reasons: Array.isArray(d.reasons) ? d.reasons : [], statusHtml: reRoundBoxHtml(st), reviewBtn: '',
   };
 }
@@ -255,7 +261,7 @@ export function reviewBoxHtml(d) {
   const autor = (d.pr && d.pr.author) || d.author || '';
   const razoes = Array.isArray(d.reasons) ? d.reasons : [];
   let titulo = d.esperaCi && !label ? 'Esperando o CI para aprovar sozinho' : 'Por que precisa de você';
-  if (d.esperaProva) titulo = 'Esperando a prova técnica, reviso de novo sozinho';
+  if (d.esperaProva) titulo = `Buscando a prova (tentativa ${tentativaDaProva(d)} de ${TENTATIVAS_DA_PROVA}), reviso de novo sozinho`;
   return `<div class="review-box">
     <div class="review-box-head">
       <span class="verdict ${cls}">${esc(v)}</span>
@@ -284,7 +290,7 @@ const CHIP_DO_GH = {
 export function reviewChip(pr, actions, estadosGh) {
   const a = (actions || {})[pr.key];
   if (a && a.kind === 'pending' && a.esperaCi) return '<span class="badge rev-ok" title="Aprovável. O Farol espera o CI obrigatório e aprova sozinho quando ele fechar verde neste commit">⏳ esperando o CI</span>';
-  if (a && a.kind === 'pending' && a.esperaProva) return '<span class="badge rev-ok" title="Aprovável, mas falta prova técnica. O Farol revisa de novo sozinho quando o PR mudar">⏳ esperando a prova</span>';
+  if (a && a.kind === 'pending' && a.esperaProva) return '<span class="badge rev-ok" title="Aprovável, mas faltou prova técnica. O Farol revisa de novo sozinho neste commit, até duas vezes">⏳ buscando a prova</span>';
   if (a && a.kind === 'pending') return '<span class="badge rev-pend" title="A análise terminou e está esperando a sua decisão em Precisa de você">🟡 aguardando você</span>';
   const gh = String((estadosGh || {})[pr.key]);
   if (Object.hasOwn(CHIP_DO_GH, gh)) return CHIP_DO_GH[gh];

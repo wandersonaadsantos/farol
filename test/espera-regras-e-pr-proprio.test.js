@@ -32,9 +32,9 @@ io.run = async (_cmd, args) => {
     envios.push(JSON.parse(fs.readFileSync(args[args.indexOf('--input') + 1], 'utf8')));
     return { ok: true, code: 0, stdout: '{"id":1}', stderr: '' };
   }
-  if (sub.includes('--json state,headRefOid,updatedAt,reviewDecision,reviews')) {
+  if (sub.includes('--json state,headRefOid,author')) {
     leiturasDoPr++;
-    return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ state: 'OPEN', headRefOid: HEAD, updatedAt: '', reviewDecision: '', reviews: [], author: { login: gh.autor } }) };
+    return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ state: 'OPEN', headRefOid: HEAD, author: { login: gh.autor } }) };
   }
   if (/pulls\/\d+\/reviews/.test(sub)) return { ok: true, code: 0, stdout: '[]', stderr: '' };
   if (sub.includes('--json headRefOid')) return { ok: true, code: 0, stdout: HEAD, stderr: '' };
@@ -121,57 +121,51 @@ test('a marca nasce com a versão das regras do gate vigente', async () => {
 });
 
 for (const [nome, regras] of [['sem carimbo (armada antes da v2.72.6)', undefined], ['com carimbo anterior', VERSAO_DAS_REGRAS - 1]]) {
-  test(`espera ${nome}: relança UMA revisão no mesmo head, carimba e não entra em laço`, async () => {
+  test(`espera ${nome}: relança no mesmo head sem gastar tentativa e sai carimbada`, async () => {
     const e = motor();
     await revisado(e, PR, SEM_PROTOCOLO);
     const marca = pendente(e).esperaProva;
-    // como o celular mostrou: lacuna de estado de uma regra que saiu, contador de envelope esgotado
-    Object.assign(marca, { regras, soEnvelope: false, tentativas: esperaProva.MAX_TENTATIVAS, lacunas: ['critérios necessários do card não comprovados'] });
+    Object.assign(marca, { regras, tentativas: 1, lacunas: ['critérios necessários do card não comprovados'] });
     if (regras === undefined) delete marca.regras;
     e.reReviewLaunched[PR.key] = { head: HEAD, dia: '', rodadas: 1, at: Date.now() };
-    // o PR não mudou nada: só a regra
     assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
     const d = pendente(e);
-    assert.ok(d.esperaProva.assinatura, 'o estado lido fica gravado para a comparação seguinte');
     assert.equal(d.blockedKind, 'stale_head', 'o round automático de sempre relança');
     assert.equal(d.blockedHead, HEAD, 'no MESMO head');
     assert.equal(d.esperaProva.regras, VERSAO_DAS_REGRAS, 'carimbada: não relança de novo pela regra');
-    assert.equal(d.esperaProva.tentativas, esperaProva.MAX_TENTATIVAS, 'o contador do envelope não é tocado');
+    assert.equal(d.esperaProva.tentativas, 1, 'a troca de regra não gasta tentativa');
     assert.equal(e.reReviewLaunched[PR.key].head, '', 'a âncora do head foi liberada');
-    assert.match(textos(d)[0], /regras/);
+    assert.match(textos(d)[0], /regras do gate mudaram/);
     assert.deepEqual(envios, []);
     assert.deepEqual(e.eventos, []);
   });
 }
 
-test('rodada da regra concluída com a mesma lacuna: espera calada, sem novo relançamento', async () => {
+test('espera do celular (biud-messaging-waba#52): sem carimbo e com as tentativas gastas, a rodada nova fecha o caso sem laço', async () => {
   const e = motor();
   await revisado(e, PR, SEM_PROTOCOLO);
   const marca = pendente(e).esperaProva;
   delete marca.regras;
-  marca.tentativas = esperaProva.MAX_TENTATIVAS;
+  Object.assign(marca, { tentativas: esperaProva.MAX_TENTATIVAS, lacunas: ['dependência necessária ainda aberta'] });
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1, 'relança pela regra');
-  // a revisão relançada volta com a lacuna de sempre, herda a marca e é carimbada de novo
-  const d = await revisado(e, PR, SEM_PROTOCOLO);
-  assert.equal(d.esperaProva.regras, VERSAO_DAS_REGRAS);
-  assert.equal(d.blockedKind, undefined);
-  await esperaProva.reverQuandoAProvaMudar(e);
-  e.salvas = 0;
-  for (let ciclo = 0; ciclo < 3; ciclo++) assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
-  assert.equal(e.salvas, 0, 'carimbo atual e PR parado: nada gravado');
-  assert.equal(pendente(e).blockedKind, undefined);
-  assert.deepEqual(envios, []);
+  assert.equal(pendente(e).esperaProva.tentativas, esperaProva.MAX_TENTATIVAS);
+  // a rodada relançada é a da prova esgotada: a lacuna que sobrou vira ressalva e a política aprova
+  await revisado(e, PR, SEM_PROTOCOLO);
+  assert.equal(envios.length, 1, 'aprovou com ressalvas');
+  assert.equal(envios[0].event, 'APPROVE');
+  assert.equal(pendente(e), undefined, 'nada mais esperando');
+  for (let ciclo = 0; ciclo < 2; ciclo++) assert.equal(await esperaProva.varrerEsperas(e), 0);
 });
 
-test('carimbo atual e nada mudou: calado, como antes', async () => {
+test('carimbo atual: a busca gasta tentativa normalmente', async () => {
   const e = motor();
-  await revisado(e, PR, { card: 'CARD-1', cardMet: false, cardParteDestePr: false });
-  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0, 'primeiro ciclo registra o estado');
-  e.salvas = 0;
-  for (let ciclo = 0; ciclo < 3; ciclo++) assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
-  assert.equal(e.salvas, 0);
-  assert.equal(pendente(e).blockedKind, undefined);
+  await revisado(e, PR, SEM_PROTOCOLO);
+  assert.equal(pendente(e).esperaProva.regras, VERSAO_DAS_REGRAS);
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
+  assert.equal(pendente(e).esperaProva.tentativas, 1);
+  assert.doesNotMatch(textos(pendente(e))[0], /regras do gate/);
 });
+
 
 test('relançamento pela regra respeita o recibo de outro aparelho: não relança nem carimba', async () => {
   const e = motor();
