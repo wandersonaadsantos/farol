@@ -17,36 +17,6 @@ step() { printf '  -> %s\n' "$1"; }
 ok()   { printf '     %s\n' "$1"; }
 die()  { printf '  x  %s\n' "$1"; exit 1; }
 
-plist_set_string() {
-  local plist="$1"
-  local key="$2"
-  local value="$3"
-  awk -v key="$key" -v value="$value" '
-    $0 ~ "<key>" key "</key>" {
-      if ($0 ~ /<string>[^<]*<\/string>/) {
-        sub(/<string>[^<]*<\/string>/, "<string>" value "</string>")
-        print
-        next
-      }
-      print
-      if (getline > 0) {
-        sub(/<string>[^<]*<\/string>/, "<string>" value "</string>")
-        print
-      }
-      next
-    }
-    { print }
-  ' "$plist" > "$plist.tmp" && mv "$plist.tmp" "$plist"
-}
-
-brand_electron_bundle() {
-  local plist="$APP/node_modules/electron/dist/Electron.app/Contents/Info.plist"
-  [ -f "$plist" ] || return 0
-  plist_set_string "$plist" 'CFBundleName' 'Farol'
-  plist_set_string "$plist" 'CFBundleDisplayName' 'Farol'
-  plist_set_string "$plist" 'CFBundleIdentifier' 'com.biud.farol.electron'
-  ok 'Identidade do bundle interno do Electron ajustada para Farol'
-}
 
 echo
 echo '  Farol . instalador (macOS)'
@@ -89,6 +59,7 @@ preparar_runtime 'electron/dist/Electron.app/Contents/MacOS/Electron' "$SRC/inst
 # --- encerra instancias em execucao ---------------------------------------------
 step 'Encerrando instancias do Farol em execucao (se houver)'
 pkill -f '\.farol/app' 2>/dev/null || true
+pkill -f '/Applications/Farol[.]app/Contents/MacOS/Electron' 2>/dev/null || true
 sleep 1
 
 # --- copia do app ----------------------------------------------------------------
@@ -126,7 +97,6 @@ chmod +x "$ELECTRON_BIN" 2>/dev/null || true
 # validar so ele declarava sucesso numa instalacao que nao abre (falha silenciosa)
 NATIVE="$APP/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
 [ -x "$NATIVE" ] || die "Electron nao instalado (faltou $NATIVE). Rode: cd $APP && npm install"
-brand_electron_bundle
 
 # --- workspace do Claude -----------------------------------------------------------
 # protocolo sempre atualizado a partir do template; state/ nunca e tocado
@@ -138,45 +108,9 @@ cp -R "$APP/workspace-template/.claude" "$WS/.claude"
 mkdir -p "$WS/prompts"
 cp -R "$APP/workspace-template/prompts/." "$WS/prompts/"
 
-# --- lancador ~/Applications/Farol.app ----------------------------------------------
-# bundle minimo: um script que executa o Electron apontando pro app instalado.
-# Sem assinatura/notarizacao: e criado localmente, o Gatekeeper nao reclama.
-step 'Criando o lancador ~/Applications/Farol.app'
-# sem node de proposito (modo offline): a versao sai do JSON por sed
-VER="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$SRC/package.json" | head -1)"
-[ -n "$VER" ] || VER='0.0.0'
-BUNDLE="$HOME/Applications/Farol.app"
-mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources"
-cat > "$BUNDLE/Contents/Info.plist" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>CFBundleName</key><string>Farol</string>
-  <key>CFBundleDisplayName</key><string>Farol</string>
-  <key>CFBundleIdentifier</key><string>com.biud.farol</string>
-  <key>CFBundleVersion</key><string>$VER</string>
-  <key>CFBundleShortVersionString</key><string>$VER</string>
-  <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleExecutable</key><string>Farol</string>
-  <key>CFBundleIconFile</key><string>farol</string>
-  <key>LSMinimumSystemVersion</key><string>13.0</string>
-</dict>
-</plist>
-PLIST
-cat > "$BUNDLE/Contents/MacOS/Farol" <<'LAUNCH'
-#!/bin/bash
-# exec no binario NATIVO do Electron, nunca no .bin/electron: aquele e um script
-# node (#!/usr/bin/env node) e Finder/Spotlight lancam com PATH minimo, sem node,
-# entao o wrapper morreria em silencio ("cliquei e nao abriu")
-exec "$HOME/.farol/app/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" "$HOME/.farol/app"
-LAUNCH
-chmod +x "$BUNDLE/Contents/MacOS/Farol"
-if [ -f "$SRC/assets/farol.icns" ]; then
-  cp "$SRC/assets/farol.icns" "$BUNDLE/Contents/Resources/farol.icns"
-else
-  ok 'sem assets/farol.icns (icone generico); gere com: bash tools/make-icns.sh'
-fi
+# --- bundle nativo do macOS -------------------------------------------------------
+step 'Criando o aplicativo ~/Applications/Farol.app'
+bash "$APP/installer/native-bundle-mac.sh"
 
 echo
 echo '  Instalacao concluida.'

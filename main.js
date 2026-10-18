@@ -14,6 +14,7 @@ import { aplicarAutostartMac } from './lib/autostart-mac.js';
 // motivo viaja como { text, kind } desde a v2.48.0; interpolar o objeto cru
 // escreve "[object Object]" na notificação (achado do Wanderson em 20/08/2026)
 import { reasonText } from './lib/format.js';
+import { identificarAplicativo, identificarJanela, instalarMenuMac } from './lib/desktop-identity.js';
 
 let win = null;
 let tray = null;
@@ -29,17 +30,17 @@ const reabertura = consumirReaberturaSilenciosa();
 
 // Quando o macOS executa o binário cru do Electron, a barra de menu pode herdar
 // "Electron" do bundle nativo. O nome do app precisa ser afirmado pelo processo.
-app.setName('Farol');
+identificarAplicativo(app);
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
-  app.setAppUserModelId('com.biud.farol');
 
   app.on('second-instance', () => showWindow());
 
   app.whenReady().then(() => {
+    instalarMenuMac(Menu);
     const { engine: eng } = farol.start((url, err) => {
       if (err) {
         // porta ocupada: provavelmente ja existe um Farol rodando em modo servidor.
@@ -95,6 +96,7 @@ function createWindow() {
   // por notificação (não rouba foco); o ícone da bandeja reabre quando você quiser.
   if (reabertura) opts.show = false;
   win = new BrowserWindow(opts);
+  identificarJanela(win, app);
   win.setMenuBarVisibility(false);
   win.loadURL(appUrl);
   // a janela nunca apareceu, então o aviso de "continua por aqui" do close não faz
