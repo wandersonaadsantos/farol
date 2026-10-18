@@ -18,6 +18,7 @@ A aprovação exige prova técnica completa, independentemente da política da c
 - Repositório sem declaração técnica volta a impedir aprovação.
 - Esgotar tentativas de buscar prova mantém avaliações ausentes ou inconclusivas bloqueadas.
 - O botão Aprovar e todos os caminhos de publicação usam a mesma exigência. Decisões antigas também passam pelo gate atual.
+- Decisões antigas que descartavam lacunas exigem uma revisão nova. Após esgotar as tentativas, Revisar agora permite refazer a avaliação sem pular a decisão nem liberar aprovação.
 
 ## v2.72.7
 

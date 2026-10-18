@@ -34,6 +34,7 @@ isolateTechnicalTool();
 const { technicalRuntime } = await import('../lib/technical-review/runtime.js');
 const { approvalRefusal } = await import('../lib/technical-review/publication.js');
 const { PROFILE_FILE, profileFor } = await import('../lib/technical-review/profiles.js');
+const { VERSAO_DAS_REGRAS } = await import('../lib/technical-review/verdict.js');
 const esperaProva = (await import('../lib/engine/espera-prova.js')).default;
 const busca = (await import('../lib/engine/busca-da-prova.js')).default;
 const reviewMod = (await import('../lib/engine/review.js')).default;
@@ -206,7 +207,7 @@ test('publicação: prova esgotada não dispensa avaliação inconclusiva nem vi
     technicalRuntime.targetFor = async () => ({ base: inconclusivo.base, head });
     technicalRuntime.reviewSnapshot = async () => ({ fingerprint: inconclusivo.humanReviewFingerprint });
     const motorDe = (report, provaEsgotada) => ({
-      technicalApprovals: new Map([[pr.key, { report, evidence: [], provaEsgotada }]]), decisions: { pending: [] },
+      technicalApprovals: new Map([[pr.key, { report, evidence: [], provaEsgotada, evidenceVersion: VERSAO_DAS_REGRAS }]]), decisions: { pending: [] },
       bloqueadoPorChecks: async () => ({ verifiedHead: head, faltando: [] }),
     });
     const payload = { event: 'APPROVE', commit_id: head };
@@ -236,7 +237,7 @@ test('PR #248, achado 1: com a prova esgotada, base nova ou objeção nova recus
   const pr = { key: `${repo}#1`, repo };
   const report = { ...technicalReport(head, repo), profile: profileFor(repo).fingerprint };
   const motor = (rep, extra = {}) => ({
-    technicalApprovals: new Map([[pr.key, { report: rep, evidence: [], provaEsgotada: true }]]), decisions: { pending: [] }, saveDecisions: () => { },
+    technicalApprovals: new Map([[pr.key, { report: rep, evidence: [], provaEsgotada: true, evidenceVersion: VERSAO_DAS_REGRAS }]]), decisions: { pending: [] }, saveDecisions: () => { },
     bloqueadoPorChecks: async () => ({ verifiedHead: head, faltando: [] }), ...extra,
   });
   const payload = { event: 'APPROVE', commit_id: head };
