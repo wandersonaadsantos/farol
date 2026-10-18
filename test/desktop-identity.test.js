@@ -15,7 +15,7 @@ for (const renomeado of [false, true]) test(`janela tem identidade, ícone e rea
 }, async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-desktop-'));
   // O shell e o antivírus podem reter o perfil após o processo sair no Windows.
-  // Recolhe após os dois cenários, com repetição limitada e falha observável.
+  // Recolhe após cada cenário, com repetição limitada e falha observável.
   test.after(() => fs.promises.rm(tmp, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }), { timeout: 30000 });
   const ready = path.join(tmp, 'ready.json');
   fs.mkdirSync(path.join(tmp, 'assets'));
