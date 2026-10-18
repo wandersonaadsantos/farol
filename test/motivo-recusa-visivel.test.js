@@ -46,22 +46,28 @@ test('os dois motivos do CI são espera automática, tratada pelo espera-ci.js',
   assert.match(ESPERA, /MOTIVOS_DE_ESPERA = \['ci_vermelho', 'ci_em_andamento'\]/);
 });
 
+// Desde 17/10/2026 os textos moram junto dos motivos (TEXTOS_DA_RECUSA em approval-policy.js),
+// e o runHeadlessReview os lê por textoDaRecusa: o motivo novo (pr_proprio) nasceu ali.
 test('todo motivo de recusa tem tradução no runHeadlessReview', () => {
+  assert.ok(REVIEW.includes('textoDaRecusa(engine, pr, autoDec.motivo, result)'), 'o runHeadlessReview lê a tradução');
   for (const motivo of new Set(MOTIVOS)) {
     // Substring, e não regex montada com o motivo interpolado: a comparação é literal
     // por natureza, e montar padrão obrigaria a escapar metacaractere a cada leitura.
     const tratado = REVIEW.includes(`autoDec.motivo === '${motivo}'`)
-      || REVIEW.includes('pr.requested !== true');   // o motivo `clique` é dito por este outro caminho
+      || DECISION.includes(`  ${motivo}: (`)
+      || (motivo === 'clique' && REVIEW.includes('pr.requested !== true'))   // `clique` é dito por este outro caminho
+      // a prova incompleta é dita pelas próprias lacunas, que entram em reasons antes do gate
+      || (motivo === 'prova_tecnica_incompleta' && REVIEW.includes('lacunasTecnicas.map(g => gateReason(g))'));
     assert.ok(tratado, `o motivo ${motivo} não vira razão nenhuma na tela`);
   }
 });
 
 test('envelope incompleto é explicado como envelope, não como achado do código', () => {
-  assert.match(REVIEW, /status incompleto/);
-  assert.match(REVIEW, /não devolveu o APPROVE pronto pra postar/);
+  assert.match(DECISION, /status incompleto/);
+  assert.match(DECISION, /não devolveu o APPROVE pronto pra postar/);
 });
 
 test('nao_aprovavel só fala quando a revisão concluiu aprovar', () => {
-  assert.match(REVIEW, /autoDec\.motivo === 'nao_aprovavel' && result\.verdict === 'approve'/,
+  assert.match(DECISION, /nao_aprovavel: \(_e, _pr, r\) => \(r\.verdict === 'approve' \?/,
     'em request_changes e needs_decision esse motivo é o caminho normal e falar dele seria ruído');
 });

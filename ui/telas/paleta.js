@@ -34,14 +34,15 @@ function cmdStatic() { return [
       kind: 'decisão', label: `${rotulo} ${ref}`, hint: 'decisão',
       run: () => decideComConfirmacao(d.id, action, ref)
     });
-    return [acao('Aprovar', 'approve'), acao('Pedir mudanças em', 'request_changes')];
+    // PR da própria conta (v2.72.6): o GitHub recusa a decisão do autor, então ela nem é oferecida
+    return d.prProprio ? [] : [acao('Aprovar', 'approve'), acao('Pedir mudanças em', 'request_changes')];
   }),
   // o lote respeita o ESCOPO: aprova só o que o filtro de conta mostra, nunca a
   // fila inteira (agravante do achado A5, regra R13 do plano mestre)
   ...(() => {
     // e deixa de fora o que espera o CI: aprovar em lote por cima de pipe vermelha ou
     // rodando não é o que "as pendentes" promete (um a um continua valendo)
-    const visiveis = (estado()?.decisions?.pending || []).filter(d => !d.esperaCi && !d.esperaProva).filter(scopeVisible);
+    const visiveis = (estado()?.decisions?.pending || []).filter(d => !d.esperaCi && !d.esperaProva && !d.prProprio).filter(scopeVisible);
     return visiveis.length > 1
       ? [{ kind: 'lote', label: `Aprovar as ${visiveis.length} pendentes`, hint: 'lote',
           run: async () => { for (const d of visiveis) await decide(d.id, 'approve'); } }]

@@ -9,7 +9,7 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.72.6
+## v2.72.7
 
 A fila compartilhada explica qual conta precisa estar conectada no aparelho que vai revisar.
 
@@ -18,6 +18,21 @@ A fila compartilhada explica qual conta precisa estar conectada no aparelho que 
 - Cada candidato mostra a identidade revisora exigida, em vez de confundi-la com a conta que monitora a organização no aparelho do admin.
 - Ao escolher onde começar, a falta de credencial aparece antes do aviso genérico de que o aparelho não publicou o candidato. A conta precisa ser autorizada no destino; nenhuma credencial é copiada entre aparelhos.
 - A contagem de aparelhos informa quantos se ofereceram para o item, sem afirmar que todos têm vaga para começar agora. A coordenação, as reviews em andamento e os critérios de aprovação permanecem iguais.
+
+## v2.72.6
+
+Com a aprovação automática ligada, o Farol vai atrás da prova que faltou em vez de esperar o PR mudar, e depois de duas tentativas não exige mais: o que faltar vira ressalva.
+
+### Melhorias
+
+- PR aprovável com prova incompleta não espera mais commit novo, review novo ou dependência resolvida. O Farol revisa de novo o mesmo commit na hora, dizendo à revisão o que faltou, até duas vezes. O card mostra "Buscando a prova (tentativa 1 de 2)".
+- Depois das duas tentativas, a prova que ainda faltar aparece como ressalva, com o texto dela, e a sua configuração de ressalvas decide se aprova sozinho ou espera você. Quando espera você, o botão Aprovar fica disponível. Se a base do PR mudou ou alguém pediu mudanças depois da revisão, a aprovação não sai.
+- Continuam bloqueando sempre: CI obrigatório vermelho ou rodando (a aprovação espera o CI sozinha), violação técnica confirmada, a revisão dizer que a parte do card deste PR não foi entregue e commit que mudou durante a revisão.
+
+### Correções
+
+- PR aberto pela própria conta que revisa deixa de ficar em "Aprova sozinho" para sempre. O GitHub não aceita a aprovação nem o pedido de mudanças do autor, então o Farol não tenta postar e mostra o PR em "Precisa de você" dizendo que outra pessoa precisa aprovar. As esperas que já existiam nesse caso são liberadas sozinhas, e o card desse PR não oferece mais Aprovar nem Pedir mudanças (só comentar).
+- Esperas criadas antes de uma mudança nas regras de aprovação são revistas uma vez com as regras atuais. Antes, elas seguiam mostrando motivos que não valem mais e esperavam para sempre.
 
 ## v2.72.5
 
