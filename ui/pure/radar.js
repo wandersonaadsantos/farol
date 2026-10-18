@@ -160,16 +160,19 @@ export function queueCardHtml(pr, ctx) {
   const seloRascunho = pr.isDraft ? '<span class="badge">rascunho</span>' : '';
   const seloRepedida = pr.reRequested ? '<span class="badge rev-pend">pedida de novo</span>' : '';
   const papel = pr.author ? ` ${papelPicker(pr.author, ctx.people)}` : '';
-  // Uma nota de revisão automática por card, na precedência do Claude Design (02/10/2026,
+  // Os avisos da execução seguem a precedência do Claude Design (02/10/2026,
   // ui/pure/revisando.js): parada, depois limite do plano, depois coordenação. Com alguém
   // revisando e a chave de revisar junto desligada, limite e coordenação somem, porque
   // falam de uma revisão automática que não vai acontecer.
+  const automaticaDesativada = m.acct?.autoReview === false;
   const parkedInfo = (ctx.parked || {})[pr.key];
-  const av = avisosDoCard(pr, { temParada: !!parkedInfo, limiteAtivo: Number(ctx.limiteAte) > Date.now(), limiteNoTopo: !!ctx.limiteNoTopo, revisarJunto: !!ctx.revisarJunto });
+  const av = avisosDoCard(pr, { temParada: !!parkedInfo, limiteAtivo: !automaticaDesativada && Number(ctx.limiteAte) > Date.now(), limiteNoTopo: !!ctx.limiteNoTopo, revisarJunto: !automaticaDesativada && !!ctx.revisarJunto });
   const parked = parkedNoteHtml(parkedInfo, av.rotulo);
   const pessoas = av.forma ? othersLineHtml(av.logins, av.forma) : '';
   const limite = av.nota === 'limite' ? limitNoteHtml(ctx.limiteAte, av.formaLimite, av.rotulo) : '';
   const coord = av.nota === 'coordenacao' ? prCoordNoteHtml(pr.key, ctx.sync) : '';
+  // A política local continua visível mesmo quando outro aparelho já está analisando.
+  const manual = automaticaDesativada ? `<div class="pr-coord">Revisão automática desativada para esta conta neste aparelho. Para iniciar aqui, clique em ${esc(av.rotulo)}.</div>` : '';
   const acaoRevisar = `<button class="btn primary sm act-review" data-url="${esc(pr.url)}">${av.rotulo}</button>`;
   // O ponto da conta abre a linha do PR, e não é filho do card: a grade tem uma coluna
   // por filho (avatar, conteúdo, ações, na anatomia do Claude Design), e um quarto filho
@@ -181,7 +184,7 @@ export function queueCardHtml(pr, ctx) {
         <div class="pr-ref">${m.dot}<a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}${seloRascunho}${seloRepedida}</div>
         <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
         <div class="pr-sub">${personMention(pr.author, 'xs')} · atualizado ${fmtRel(pr.updatedAt)}${papel}</div>
-        ${parked}${pessoas}${limite}${coord}
+        ${parked}${pessoas}${limite}${coord}${manual}
       </div>
       <div class="pr-actions">
         ${acaoRevisar}

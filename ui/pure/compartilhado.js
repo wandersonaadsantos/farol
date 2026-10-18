@@ -352,6 +352,19 @@ const RECIBO = {
 };
 
 const CODIGO = {
+  technical_review: 'Aprovação bloqueada: a prova técnica necessária não está confirmada. Abra o review completo no aparelho responsável para conferir as pendências; o comando do Admin não dispensa essa prova.',
+  'technical_review:declaracao-ausente': 'Aprovação bloqueada: falta cadastrar a declaração técnica do repositório no aparelho responsável. Depois do cadastro, revise o commit atual.',
+  'technical_review:avaliacao-ausente': 'Aprovação bloqueada: falta uma avaliação técnica válida. Revise novamente o commit atual no aparelho responsável.',
+  'technical_review:commit-mudou': 'Aprovação bloqueada: a avaliação é de outro commit. Revise novamente o commit atual.',
+  'technical_review:declaracao-mudou': 'Aprovação bloqueada: a declaração técnica mudou. Revise novamente com a declaração atual.',
+  'technical_review:inconclusiva': 'Aprovação bloqueada: a avaliação técnica não concluiu. Abra o review completo e conclua a revisão antes de aprovar.',
+  'technical_review:violacao': 'Aprovação bloqueada: há uma violação técnica confirmada. Corrija os pontos do review e revise novamente.',
+  'technical_review:achados': 'Aprovação bloqueada: há achados técnicos não resolvidos. Confira o review completo, corrija os pontos e revise novamente.',
+  'technical_review:prova-antiga': 'Aprovação bloqueada: a prova antiga não atende à verificação atual. Revise novamente o commit atual.',
+  'technical_review:base-mudou': 'Aprovação bloqueada: a branch de destino mudou depois da avaliação. Revise novamente com a base atual.',
+  'technical_review:objecoes-mudaram': 'Aprovação bloqueada: o histórico de objeções mudou. Revise novamente considerando os reviews atuais.',
+  'technical_review:checks': 'Aprovação bloqueada: os checks necessários ainda não foram comprovados no commit revisado. Confira os checks e aguarde a confirmação.',
+  'technical_review:reconfirmacao': 'Aprovação bloqueada: não foi possível reconfirmar a prova técnica. Confira a conexão e o diagnóstico no aparelho responsável antes de tentar novamente.',
   'nao-aceita-admin': 'aquele aparelho não aceita comandos do admin',
   geracao: 'veio de outra geração de admin', assinatura: 'a assinatura não confere',
   autoridade: 'o admin estava sem sinal fresco', vencido: 'o comando venceu antes de ser lido',
