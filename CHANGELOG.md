@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.72.10
+
+O Farol passa a ter identidade própria nas superfícies nativas do Windows e do macOS.
+
+### Correções
+
+- A janela do Windows declara identificador, ícone e comando de reabertura próprios para evitar o agrupamento com outros aplicativos Electron na barra de tarefas.
+- O instalador macOS cria um aplicativo com executável e identidade próprios, ícone e menus nativos. A assinatura local é verificada antes de substituir o bundle anterior; os dados continuam no mesmo diretório.
+
 ## v2.72.9
 
 A fila explica a espera manual, e as recusas do Admin mostram o motivo e como prosseguir.
