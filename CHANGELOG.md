@@ -9,14 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.72.11
+## v2.72.12
 
 A recuperação da análise técnica continua sozinha, sem pedir uma decisão manual que permaneceria bloqueada.
 
 ### Correções
 
 - A análise com evidência incompleta mantém duas tentativas rápidas e continua com intervalos crescentes, de 15 minutos até seis horas, sem dispensar os critérios de aprovação.
-- Execuções interrompidas e pendências antigas voltam à recuperação automática. O prazo sobrevive ao reinício; fila, sessão e retentativa existentes impedem revisões concorrentes.
+- Execuções interrompidas e pendências antigas voltam à recuperação automática, inclusive quando o commit não pôde ser confirmado. O prazo sobrevive ao reinício; fila, sessão e retentativa existentes impedem revisões concorrentes.
 - Recusas técnicas na publicação retornam ao mesmo fluxo de análise. Uma nova revisão pode fundamentar a aprovação ou o pedido de mudanças, conforme a política da conta.
 - O card mostra a próxima tentativa ou o impedimento do ambiente. Cancelamento explícito, automação desligada, autenticação e configuração ausente são respeitados, sem pedir uma aprovação que não resolveria a causa.
 

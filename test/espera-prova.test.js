@@ -143,6 +143,47 @@ test('aprovável com prova incompleta: nada é postado, e a pendência BUSCA A P
   assert.match(meta.verdictHtml, /RECUPERANDO A ANÁLISE/);
 });
 
+test('head não confirmado entra na recuperação e só publica após uma nova análise ancorada', async () => {
+  const e = motor();
+  gh.head = '';
+  const d = await revisado(e, SEM_PROTOCOLO);
+  assert.ok(d.esperaProva);
+  assert.equal(d.headSha || '', '');
+  assert.deepEqual(e.eventos, []);
+  assert.deepEqual(envios, []);
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0, 'não relança sem ler o head');
+  gh.head = HEAD;
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
+  assert.equal(d.blockedHead, HEAD);
+  assert.equal(d.headSha || '', '', 'o alvo novo não altera o commit da análise anterior');
+  assert.equal(e.reReviewTargets(new Set()).length, 1);
+  assert.match(staleCardMeta(e.decisionForUi(d), null).verdictHtml, /RECUPERANDO A ANÁLISE/);
+  await revisado(e, {});
+  assert.equal(pendente(e), undefined);
+  assert.deepEqual(envios.map(x => [x.event, x.commit_id]), [['APPROVE', HEAD]]);
+  assert.deepEqual(e.eventos, [['auto-approved', PR.key]]);
+});
+
+test('recuperação sem head original preserva prazo e detecta rodada órfã após reinício', async () => {
+  const e = motor();
+  gh.head = '';
+  const d = await revisado(e, SEM_PROTOCOLO);
+  delete d.esperaProva;
+  gh.head = HEAD;
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1, 'migra a pendência antiga');
+  e.reReviewLaunched[PR.key] = { head: HEAD, at: 1 };
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1, 'reagenda órfã mesmo sem head original');
+  assert.equal(d.blockedKind, undefined);
+  assert.equal(d.esperaProva.tentativas, 1);
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0, 'prazo continua respeitado');
+  d.esperaProva.proximaEm = Date.now() - 1;
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
+  assert.equal(d.esperaProva.tentativas, 2);
+  assert.equal(d.blockedHead, HEAD);
+  assert.deepEqual(envios, []);
+  assert.deepEqual(e.eventos, []);
+});
+
 test('publicação manual recebe uma análise concluída, nunca uma decisão sem prova', async () => {
   const e = motor(['wait', 'wait']);
   const d = await revisado(e, SEM_PROTOCOLO);
@@ -163,7 +204,8 @@ test('armar: só prova_tecnica_incompleta, sem violação confirmada, com a pol�
   assert.ok(esperaProva.armar(e, PR, 'prova_tecnica_incompleta', base, []));
   assert.equal(esperaProva.armar(e, PR, 'politica', base, []), null);
   assert.ok(esperaProva.armar(e, PR, 'prova_tecnica_incompleta', { ...base, approvalEvidence: ['violação técnica confirmada'] }, []), 'nova análise deve fundamentar o pedido de mudanças, nunca aprovar a violação');
-  assert.equal(esperaProva.armar(e, PR, 'prova_tecnica_incompleta', { ...base, headSha: '' }, []), null, 'sem head lido não há o que conferir');
+  assert.ok(esperaProva.armar(e, PR, 'prova_tecnica_incompleta', { ...base, headSha: '' }, []), 'a recuperação consulta o head antes de relançar');
+  assert.equal(esperaProva.armar(e, { ...PR, url: '' }, 'prova_tecnica_incompleta', { ...base, headSha: '' }, []), null, 'sem head nem endereço não há alvo verificável');
   assert.ok(esperaProva.armar(e, PR, 'prova_tecnica_incompleta', { ...base, technicalRecheck: true }, []));
   assert.ok(esperaProva.armar(motor(['approve', 'wait']), PR, 'prova_tecnica_incompleta', base, [{ text: 'ressalva', kind: 'content' }]), 'a análise precisa terminar antes de classificar a publicação');
   const ci = esperaProva.armarEspera(e, PR, 'ci_em_andamento', { checksObrigatorios: [] }, []);

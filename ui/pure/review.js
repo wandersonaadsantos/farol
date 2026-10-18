@@ -234,7 +234,7 @@ function metaDoCard(d, r) {
   const stale = !!(d && d.blockedKind === 'stale_head');
   if (!stale && d && d.esperaCi) return esperaCiCardMeta(d);
   // A recuperação mantém seu estado próprio também quando aguarda ambiente ou cancelamento.
-  if (d && d.esperaProva && (!stale || d.blockedHead === d.headSha)) return esperaProvaCardMeta(d);
+  if (d && d.esperaProva) return esperaProvaCardMeta(d);
   const legado = d && d.blockedReason ? `<div class="dec-blocked">🚫 <span><b>Bloqueado:</b> ${esc(d.blockedReason)}</span></div>` : '';
   let verdictComum = d && d.verdict === 'approve' ? '<span class="verdict approve">APROVÁVEL</span>' : '<span class="verdict rc">COM BLOCKER</span>';
   const label = technicalLabel(d);
