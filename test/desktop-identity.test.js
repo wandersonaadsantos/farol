@@ -9,8 +9,9 @@ import { setTimeout as esperar } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 
 const raiz = path.resolve(import.meta.dirname, '..');
+const executable = path.join(raiz, 'node_modules/electron/dist/electron.exe');
 test('janela tem identidade, ícone e reabertura próprios no Windows', {
-  skip: process.platform !== 'win32', timeout: 30000,
+  skip: process.platform !== 'win32' || !fs.existsSync(executable), timeout: 30000,
 }, async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-desktop-'));
   const ready = path.join(tmp, 'ready.json');
@@ -37,7 +38,6 @@ app.setPath('userData', ${JSON.stringify(path.join(tmp, 'profile'))});
 `);
   const env = { ...process.env };
   delete env.ELECTRON_RUN_AS_NODE;
-  const executable = path.join(raiz, 'node_modules/electron/dist/electron.exe');
   const child = spawn(executable, [bootstrap], { env, stdio: ['pipe', 'ignore', 'ignore'] });
   const exited = new Promise((resolve) => {
     child.once('error', resolve);

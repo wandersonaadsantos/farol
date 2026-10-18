@@ -83,6 +83,10 @@ jobs:
           node node_modules/electron/install.js
           node lib/electron-runtime.js check-installed .
 
+      - name: Validar identidade nativa de desktop
+        if: runner.os != 'Linux'
+        run: node --test test/desktop-identity.test.js test/native-bundle-mac.test.js
+
       - name: Preparar desktop Linux
         if: runner.os == 'Linux'
         run: |

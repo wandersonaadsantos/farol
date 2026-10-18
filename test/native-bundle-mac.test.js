@@ -8,10 +8,11 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
 const PRAZO_BUNDLE_MS = 120000;
+const raiz = path.resolve(import.meta.dirname, '..');
+const temRuntime = fs.existsSync(path.join(raiz, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron'));
 test('bundle macOS assinado abre com identidade própria', {
-  skip: process.platform !== 'darwin', timeout: PRAZO_BUNDLE_MS,
+  skip: process.platform !== 'darwin' || !temRuntime, timeout: PRAZO_BUNDLE_MS,
 }, () => {
-  const raiz = path.resolve(import.meta.dirname, '..');
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-bundle-'));
   const appDir = path.join(home, '.farol', 'app');
   try {
