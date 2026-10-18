@@ -9,6 +9,9 @@ O relatório contém:
 - conta pretendida e login que o GitHub autentica com a credencial dessa conta;
 - autor e conta presentes na fila, nas sessões ativas, nas pendências e nas retomadas;
 - metadados de entrada do boot, capturados antes da recuperação das sessões;
+- eventos conhecidos de retomada, busca de prova e falha, com horário e conta do registro
+  durável, sem texto livre do log nem mensagens de erro. São até 60 eventos das últimas
+  mil linhas do log e 60 falhas duráveis; o relatório informa os itens omitidos;
 - versão, plataforma, versão do Node e hashes dos arquivos que resolvem a identidade.
 
 A resposta só aparece após o executor responder ao comando assinado. Ela é cifrada,

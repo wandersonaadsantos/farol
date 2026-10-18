@@ -8,7 +8,7 @@ process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-diagnostic
 const { coletarIdentidade } = await import('../lib/engine/diagnostico-identidade.js');
 const { publicarDiagnostico, lerDiagnostico } = await import('../lib/engine/sync-diagnostico.js');
 const { prTag } = await import('../lib/sync/tags.js');
-const { STATE_DIR } = await import('../lib/paths.js');
+const { STATE_DIR, LOG_FILE } = await import('../lib/paths.js');
 const io = (await import('../lib/io.js')).default;
 const comando = (await import('../lib/sync/comando.js')).default;
 const rodar = io.run;
@@ -77,6 +77,21 @@ test('fila grande não elimina sessões, pendências, retries ou entrada do boot
   const boot = r.itens.find(p => p.fonte === 'boot:inflight.json');
   assert.equal(boot.account, '');
   assert.equal(boot.resolvida, 'padrao');
+});
+
+test('histórico identifica gatilho e sessão sem enviar prosa, tokens ou stderr', async () => {
+  fs.writeFileSync(LOG_FILE, [
+    `[2026-10-18 17:09:20 -03:00] [INFO] ${PR.key}: busca da prova relançada no head abc1234 (causa com segredo-do-log, tentativa 1).`,
+    `[2026-10-18 17:39:20 -03:00] [ERROR] revisao autonoma ${PR.key}: tempo esgotado segredo-do-log`,
+    '[2026-10-18 17:40:20 -03:00] [ERROR] segredo-do-log',
+  ].join('\n'));
+  fs.writeFileSync(path.join(STATE_DIR, 'falhas-sessao.json'), JSON.stringify({ falhas: [{ ref: PR.key, account: 'revisor', sessionId: 'a123', cliSessionId: 'sessao-1234', classe: 'tempo-esgotado', at: T, motivo: 'segredo-do-registro' }] }));
+  const r = await coletarIdentidade(motor(), { run: async () => ({ ok: true, stdout: 'revisor' }) });
+  assert.deepEqual(r.historico.eventos.map(e => e.evento), ['busca-prova-relancada', 'falha-revisao']);
+  assert.equal(r.historico.eventos[0].fuso, '-03:00');
+  assert.equal(r.historico.falhas[0].account, 'revisor');
+  assert.equal(r.historico.falhas[0].sessao, 'a123');
+  assert.equal(JSON.stringify(r).includes('segredo-do-'), false);
 });
 
 test('diagnóstico atravessa o transporte cifrado com limite do banco, alvo e comando conferidos', async () => {
