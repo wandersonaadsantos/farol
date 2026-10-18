@@ -5,8 +5,9 @@
 // alcance, critérios do card, dependência em aberto) e o resultado foi para "Precisa de você"
 // esperando um clique que nunca deveria ser preciso. A regra do dono: com aprovação automática
 // configurada, o desfecho nunca depende de ação humana. O invariante 4 não afrouxa: com lacuna
-// NADA é postado. O que muda é o que vem depois: o app espera o PR mudar (ou completa o
-// envelope revisando de novo, até duas vezes) e revisa sozinho, pelo round automático de sempre.
+// exigida NADA é postado. O que muda é o que vem depois: desde a v2.72.6 o app BUSCA a prova
+// sozinho, revisando de novo o mesmo commit na hora, até duas vezes; depois delas o que faltar
+// vira ressalva (test/busca-da-prova.test.js cobre o desfecho).
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -33,10 +34,10 @@ io.run = async (_cmd, args) => {
     envios.push(JSON.parse(fs.readFileSync(args[args.indexOf('--input') + 1], 'utf8')));
     return { ok: true, code: 0, stdout: '{"id":1}', stderr: '' };
   }
-  if (sub.includes('--json state,headRefOid,updatedAt,reviewDecision,reviews')) {
+  if (sub.includes('--json state,headRefOid,author')) {
     leiturasDoPr++;
     if (gh.leituraFalha) return { ok: false, code: 1, stdout: '', stderr: 'HTTP 502' };
-    return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ state: gh.state, headRefOid: gh.head, updatedAt: gh.updatedAt, reviewDecision: gh.reviewDecision, reviews: gh.reviews }) };
+    return { ok: true, code: 0, stderr: '', stdout: JSON.stringify({ state: gh.state, headRefOid: gh.head, author: { login: 'dev' } }) };
   }
   if (sub.startsWith('pr view 7 --repo acme/lib --json state')) {
     leiturasDeDependencia++;
@@ -119,7 +120,7 @@ async function revisado(e, extra) {
   return pendente(e);
 }
 
-test('aprovável com prova incompleta: nada é postado, e a pendência ESPERA A PROVA, sem pedir você', async () => {
+test('aprovável com prova incompleta: nada é postado, e a pendência BUSCA A PROVA, sem pedir você', async () => {
   const e = motor();
   const d = await revisado(e, SEM_PROTOCOLO);
   assert.deepEqual(envios, [], 'nenhum APPROVE com lacuna (invariante 4)');
@@ -129,7 +130,7 @@ test('aprovável com prova incompleta: nada é postado, e a pendência ESPERA A 
   assert.ok(d.esperaProva.lacunas.includes('protocolo de revisão não comprovado'), d.esperaProva.lacunas.join(' | '));
   assert.equal(d.reasons[0].espera, true, 'o motivo da espera é marcado, como na espera do CI');
   assert.deepEqual(e.eventos, [], 'sem needs-decision');
-  assert.ok(e.toasts.some((t) => t === '⏳ acme/app#1: aprovável, falta prova (protocolo de revisão não comprovado); reviso de novo sozinho quando o PR mudar'), e.toasts.join(' | '));
+  assert.ok(e.toasts.some((t) => t === '⏳ acme/app#1: aprovável, faltou prova (protocolo de revisão não comprovado); busco a prova sozinho (tentativa 1 de 2)'), e.toasts.join(' | '));
   assert.equal(e.toasts.some((t) => /precisa da sua atenção/.test(t)), false);
   const tela = e.decisionForUi(d);
   assert.equal(tela.esperaProva.tentativas, 0, 'a tela sabe que é espera');
@@ -138,7 +139,9 @@ test('aprovável com prova incompleta: nada é postado, e a pendência ESPERA A 
   assert.equal(precisam.length, 0, 'fora de Precisa de você');
   assert.equal(esperandoCi.length, 1);
   const meta = staleCardMeta(tela, null);
-  assert.match(meta.statusHtml, /reviso de novo sozinho/i);
+  assert.match(meta.statusHtml, /Buscando a prova \(tentativa 1 de 2\)/);
+  assert.match(meta.statusHtml, /Reviso de novo sozinho neste commit/);
+  assert.match(meta.verdictHtml, /BUSCANDO A PROVA/);
 });
 
 test('conta que manda esperar você: a lacuna vai para a mesa, como antes', async () => {
@@ -174,67 +177,6 @@ test('ciclo: commit novo larga a espera e carimba stale_head', async () => {
   assert.equal(d.reasons.some((r) => r && r.espera === true), false);
   assert.match(textos(d)[0], /commit novo/);
   assert.deepEqual(envios, []);
-  assert.deepEqual(e.eventos, []);
-});
-
-test('ciclo: dependência só muda de estado lá fora; sem mudança espera calado, com mudança relança', async () => {
-  const e = motor();
-  await revisado(e, COM_DEPENDENCIA);
-  assert.deepEqual(pendente(e).esperaProva.dependencias, ['acme/lib#7']);
-  e.salvas = 0;
-  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0, 'primeiro ciclo só registra o estado');
-  assert.equal(e.salvas, 1);
-  assert.ok(pendente(e).esperaProva.assinatura);
-  assert.equal(leiturasDoPr, 1, 'uma leitura do PR por ciclo');
-  assert.equal(leiturasDeDependencia, 1);
-  e.salvas = 0;
-  for (let ciclo = 0; ciclo < 3; ciclo++) assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
-  assert.equal(e.salvas, 0, 'nada mudou: o decisions.json não é regravado');
-  assert.equal(pendente(e).blockedKind, undefined);
-  gh.dependencia = 'MERGED';
-  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
-  const d = pendente(e);
-  assert.equal(d.blockedKind, 'stale_head', 'o round automático de sempre relança');
-  assert.equal(d.blockedHead, HEAD, 'no mesmo head');
-  assert.ok(d.esperaProva, 'a marca segue, para a revisão nova herdar o contador');
-  assert.deepEqual(envios, []);
-  assert.deepEqual(e.eventos, []);
-});
-
-test('ciclo: review novo de alguém é estado novo', async () => {
-  const e = motor();
-  await revisado(e, COM_DEPENDENCIA);
-  await esperaProva.reverQuandoAProvaMudar(e);
-  gh.reviews = [{ author: { login: 'colega' }, state: 'COMMENTED', submittedAt: '2026-10-17T13:00:00Z' }];
-  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
-  assert.equal(pendente(e).blockedKind, 'stale_head');
-});
-
-test('ciclo: lacuna só de envelope relança até duas vezes e depois espera o PR mudar', async () => {
-  const e = motor();
-  await revisado(e, SEM_PROTOCOLO);
-  e.reReviewLaunched[PR.key] = { head: HEAD, dia: '', rodadas: 1, at: 1 };
-  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
-  let d = pendente(e);
-  assert.equal(d.esperaProva.tentativas, 1);
-  assert.equal(d.blockedKind, 'stale_head');
-  assert.equal(e.reReviewLaunched[PR.key].head, '', 'a âncora do head é liberada para o round sair de novo');
-  // o round automático de sempre aceita o alvo (com o relógio de PR quieto vencido)
-  const gate = reviewMod.explicaReRound(e, { ...PR }, new Set(), Date.now() + 24 * 3600 * 1000);
-  assert.equal(gate.estado, 'relanca', JSON.stringify(gate));
-  // a revisão relançada volta com a mesma lacuna e herda o contador
-  d = await revisado(e, SEM_PROTOCOLO);
-  assert.equal(e.decisions.pending.length, 1, 'a pendência antiga foi substituída');
-  assert.equal(d.esperaProva.tentativas, 1);
-  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
-  d = await revisado(e, SEM_PROTOCOLO);
-  assert.equal(d.esperaProva.tentativas, 2);
-  assert.match(textos(d)[0], /já revisei de novo 2 vezes/);
-  e.salvas = 0;
-  for (let ciclo = 0; ciclo < 3; ciclo++) assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0, 'sem mudança depois de duas: espera calado');
-  assert.equal(e.salvas, 0, 'nada mudou, nada gravado');
-  assert.equal(pendente(e).blockedKind, undefined, 'não volta para a mesa');
-  assert.deepEqual(envios, [], 'nunca posta APPROVE com lacuna');
   assert.deepEqual(e.eventos, []);
 });
 
@@ -278,25 +220,6 @@ test('outros aparelhos: a espera da prova viaja como fato e não pede ninguém',
 });
 
 // Revisão do Codex no PR #245 (17/10/2026): três furos, cada um provado aqui antes da correção.
-
-test('furo 1: dependência que fechou ENTRE a decisão e o primeiro ciclo não é engolida como estado inicial', async () => {
-  const e = motor();
-  await revisado(e, COM_DEPENDENCIA);
-  gh.dependencia = 'MERGED';
-  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1, 'a revisão viu a dependência aberta; fechada agora é estado novo');
-  assert.equal(pendente(e).blockedKind, 'stale_head');
-});
-
-test('furo 1: review de alguém chegado depois da leitura da sessão relança já no primeiro ciclo; review antigo não', async () => {
-  const e = motor();
-  await revisado(e, COM_DEPENDENCIA);
-  gh.reviews = [{ author: { login: 'colega' }, state: 'COMMENTED', submittedAt: '2026-01-01T00:00:00Z' }];
-  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0, 'review anterior à leitura: a sessão já o tinha');
-  const e2 = motor();
-  await revisado(e2, COM_DEPENDENCIA);
-  gh.reviews = [{ author: { login: 'colega' }, state: 'CHANGES_REQUESTED', submittedAt: new Date(Date.now() + 60000).toISOString() }];
-  assert.equal(await esperaProva.reverQuandoAProvaMudar(e2), 1);
-});
 
 test('furo 2: rodada relançada que estacionou volta para a mesa, com o motivo e o botão de revisar', async () => {
   const e = motor();
