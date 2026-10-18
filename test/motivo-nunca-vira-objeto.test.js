@@ -68,10 +68,14 @@ test('main.js usa a fonte única do unwrap (lib/format.js)', () => {
 });
 
 // o engine também: a cópia local dele foi removida na v2.51.1
+// o desfecho da revisão (que usa o unwrap) saiu do review.js para o desfecho-da-revisao.js
+// em 18/10/2026: os dois seguem sem cópia local, e quem usa importa do lib/format.js
 test('review.js usa a fonte única, sem cópia local', () => {
   const fonte = fs.readFileSync(path.join(RAIZ, 'lib', 'engine', 'review.js'), 'utf8');
   assert.doesNotMatch(fonte, /function reasonText/);
+  const desfecho = fs.readFileSync(path.join(RAIZ, 'lib', 'engine', 'desfecho-da-revisao.js'), 'utf8');
+  assert.doesNotMatch(desfecho, /function reasonText/);
   // a lista de nomes importados pode crescer (o staleHeadText entrou junto na v2.51.2);
   // o que o teste trava é a ORIGEM ser o lib/format.js, não o tamanho da chave
-  assert.match(fonte, /import \{[^}]*\breasonText\b[^}]*\} from '\.\.\/format\.js'/);
+  assert.match(desfecho, /import \{[^}]*\breasonText\b[^}]*\} from '\.\.\/format\.js'/);
 });

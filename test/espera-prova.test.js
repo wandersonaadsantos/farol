@@ -74,6 +74,9 @@ function motor(politica = ['approve', 'approve']) {
   e.tokens = { eu: 'token-falso' };
   e.config.accounts = [{ user: 'eu', owners: ['acme'] }];
   e.approvePolicyFor = (_conta, limpo) => (limpo ? politica[0] : politica[1]);
+  // a conta não reprova sozinha: com ela reprovando, a parte do card deste PR dita não
+  // entregue (COM_DEPENDENCIA) vira REQUEST_CHANGES na hora (test/decisao-sem-mesa.test.js)
+  e.rejectPolicyFor = () => 'wait';
   e.autoReviewFor = () => true;
   e.decisions = { pending: [], resolved: [] };
   e.salvas = 0;

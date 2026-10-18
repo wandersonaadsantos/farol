@@ -350,6 +350,8 @@ const RESOLVED_LABELS = {
   auto_rejected: ['🔴', 'mudanças pedidas sozinho'],
   posted: ['📬', 'postado por você'],
   already_reviewed: ['✔', 'já revisado por você (não repostei)'],
+  commented_own_pr: ['💬', 'comentado sozinho (PR da própria conta)'],
+  approval_not_needed: ['👥', 'aprovação automática não necessária (duas pessoas aprovaram)'],
   already_merged: ['🔀', 'já foi mergeado (cancelei a revisão pendente)'],
   already_closed: ['🚫', 'PR fechado sem merge (cancelei a revisão pendente)'],
   skipped: ['⏭', 'pulado'],
@@ -416,7 +418,7 @@ export function resolvedRow(r, ctx) {
   // só "postado por você" e engolia o motivo de o PR ter caído na sua mesa, então uma
   // recusa por contestação ou cobertura era lida como se a chave de aprovar sozinho
   // estivesse quebrada. O motivo já estava gravado em `reasons`, faltava a superfície.
-  const COM_REASONS = ['auto_approved', 'auto_rejected', 'already_reviewed', 'posted'];
+  const COM_REASONS = ['auto_approved', 'auto_rejected', 'already_reviewed', 'posted', 'approval_not_needed'];
   const attn = pontosDeAtencao(r, COM_REASONS);
   const plural = attn.length > 1;
   const attnLabel = rotuloDosPontos(r.status, plural);

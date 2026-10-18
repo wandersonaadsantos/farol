@@ -122,9 +122,9 @@ test('lacuna de cobertura entra UMA vez nas reasons, como ressalva, com a amostr
   assert.doesNotMatch(deCobertura[0], /não posto sozinho/, 'ressalva não promete recusa: quem decide é a política');
 });
 
-// A lacuna continua explicando a recusa onde o resultado NÃO chega à política: revisão
-// iniciada por clique e pedido de mudanças (o shouldAutoReject segue recusando).
-test('fora da política (clique), a lacuna de cobertura segue explicando por que nada saiu sozinho', async () => {
+// A lacuna continua explicando a recusa onde o resultado NÃO chega à política: revisão de
+// origem desconhecida (desde 18/10/2026 o clique do dono chega à política) e pedido de mudanças.
+test('fora da política (origem desconhecida), a lacuna de cobertura segue explicando por que nada saiu sozinho', async () => {
   const e = engineComEnvelope(envelope({
     coverage: { total: 3, reviewed: ['a.ts'], missing: ['b.ts', 'c.ts'] }
   }), { policy: 'approve' });
@@ -133,7 +133,7 @@ test('fora da política (clique), a lacuna de cobertura segue explicando por que
   const deCobertura = textos(item.reasons).filter(r => /cobertura da leitura/.test(r));
   assert.equal(deCobertura.length, 1);
   assert.match(deCobertura[0], /cobertura da leitura/);
-  assert.ok(textos(item.reasons).some(r => /revisão iniciada por você/.test(r)));
+  assert.ok(textos(item.reasons).some(r => /revisão de origem desconhecida/.test(r)));
 });
 
 // A classe escondida: zero ponto de atenção com `decision` diferente de auto_approve caía em

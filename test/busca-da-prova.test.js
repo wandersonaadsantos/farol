@@ -152,8 +152,12 @@ test('esgotada, quem decide é a política da conta: com ressalvas em "esperar v
   assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
 });
 
+// Os três casos abaixo são da conta que NÃO reprova sozinha (onReject: wait). Com ela
+// reprovando sozinha, CI vermelho e defeito do PR viram REQUEST_CHANGES automático
+// (test/decisao-sem-mesa.test.js, 18/10/2026).
 test('esgotada não converte CI vermelho: a aprovação espera o CI sozinha, sem postar e sem chamar ninguém', async () => {
   const e = motor();
+  e.rejectPolicyFor = () => 'wait';
   await ateEsgotar(e);
   e.bloqueadoPorChecks = async () => ({ faltando: [{ nome: 'test', estado: 'vermelho' }] });
   const d = await revisado(e, {});
@@ -163,8 +167,9 @@ test('esgotada não converte CI vermelho: a aprovação espera o CI sozinha, sem
   assert.deepEqual(e.eventos, []);
 });
 
-test('esgotada não converte violação técnica confirmada: vai para a mesa', async () => {
+test('esgotada não converte violação técnica confirmada: com a conta sem reprovar sozinha, vai para a mesa', async () => {
   const e = motor();
+  e.rejectPolicyFor = () => 'wait';
   await ateEsgotar(e);
   technicalRuntime.finishTechnicalReview = async (ctx) => ({ ...technicalReport(ctx.head, ctx.repo), verdict: 'fail', rules: [{ rule: 'x', verdict: 'fail' }] });
   const d = await revisado(e, SEM_PROTOCOLO);
@@ -174,8 +179,9 @@ test('esgotada não converte violação técnica confirmada: vai para a mesa', a
   assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
 });
 
-test('esgotada não converte a parte do card deste PR dita não entregue: vai para a mesa', async () => {
+test('esgotada não converte a parte do card deste PR dita não entregue: com a conta sem reprovar sozinha, vai para a mesa', async () => {
   const e = motor();
+  e.rejectPolicyFor = () => 'wait';
   await ateEsgotar(e);
   const d = await revisado(e, { card: 'CARD-1', cardMet: false, cardParteDestePr: false });
   assert.deepEqual(envios, []);

@@ -98,11 +98,15 @@ test('reprovação seguida de aprovação da MESMA pessoa conta como aprovação
   assert.equal(r.bloqueado, false, 'a ressalva dela foi atendida e virou a primeira aprovação');
 });
 
-test('bloqueia com CHANGES_REQUESTED de outra pessoa no head ativo', async (t) => {
+// A decisão sem mesa (18/10/2026): pedido de mudanças de gente não segura mais a revisão
+// automática. Ele fica no GitHub, a revisão do Farol sai pela política da conta, e o retorno
+// diz quem pediu (para o log), sem bloquear.
+test('CHANGES_REQUESTED de outra pessoa no head ativo NÃO bloqueia (fica registrado e a política decide)', async (t) => {
   const e = engineFalso();
   t.after(espiaReviews(e, [{ quem: 'ana', state: 'CHANGES_REQUESTED', commit_id: 'sha1' }]));
   const r = await skip.bloqueadoPorHistorico(e, { ...PR });
-  assert.equal(r.bloqueado, true);
+  assert.equal(r.bloqueado, false);
+  assert.deepEqual(r.pediramMudancas, ['ana']);
 });
 
 // regra explícita: review de ferramenta não dispensa olho humano nem o substitui
@@ -197,17 +201,18 @@ test('lista de reviews indisponível (rede) NÃO bloqueia', async (t) => {
   assert.equal(r.head, 'sha1', 'o head foi lido, o que faltou foi a lista');
 });
 
-test('reprovação lidera o bloqueio e quem sai sem caixa duplicada', async (t) => {
+test('duas aprovações com um pedido de mudanças aberto NÃO dispensam a automática, e quem sai sem caixa duplicada', async (t) => {
   const e = engineFalso();
   t.after(espiaReviews(e, [
     { quem: 'Zoe', state: 'APPROVED', commit_id: 'sha1' },
     { quem: 'ana', state: 'CHANGES_REQUESTED', commit_id: 'sha1' },
+    { quem: 'bia', state: 'APPROVED', commit_id: 'sha1' },
     { quem: 'zoe', state: 'APPROVED', commit_id: 'sha1' },
   ]));
   const r = await skip.bloqueadoPorHistorico(e, { ...PR });
-  assert.equal(r.bloqueado, true, 'a reprovação da ana segura sozinha');
-  assert.deepEqual(r.quem, ['ana'], 'o toast nomeia quem segura (a reprovação), não os aprovadores');
-  assert.deepEqual(r.decisivos, [{ quem: 'ana', state: 'CHANGES_REQUESTED' }]);
+  assert.equal(r.bloqueado, false, 'com pedido de mudanças aberto o PR não está pronto: a revisão do Farol segue');
+  assert.deepEqual(r.quem, []);
+  assert.deepEqual(r.pediramMudancas, ['ana']);
 });
 
 /* ---------- o texto do toast (PURO) ---------- */

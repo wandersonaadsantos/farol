@@ -70,7 +70,8 @@ test('recordDecision sem pr.isDraft grava false, nunca undefined', () => {
 });
 
 test('os dois pontos de bloqueio por stale_head carimbam blockedKind e blockedHead', () => {
-  const review = fs.readFileSync(new URL('../lib/engine/review.js', import.meta.url), 'utf8');
+  // o desfecho da revisão mora em desfecho-da-revisao.js desde 18/10/2026
+  const review = fs.readFileSync(new URL('../lib/engine/desfecho-da-revisao.js', import.meta.url), 'utf8');
   const decision = fs.readFileSync(new URL('../lib/engine/decision.js', import.meta.url), 'utf8');
   // review.js: o recordDecision do pending tem que poder receber o carimbo
   assert.match(review, /staleHeadNovo/, 'review.js precisa capturar o head novo observado no gate');

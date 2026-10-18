@@ -7,7 +7,7 @@
     "profundidadeExcedida": 2
   },
   "lib/engine/decision.js": {
-    "maxLines": 259,
+    "maxLines": 257,
     "jsonParseCru": 1,
     "jsonStringifyCru": 2,
     "tempoMagico": 2,
@@ -30,9 +30,9 @@
     "profundidadeExcedida": 1
   },
   "lib/engine/review.js": {
-    "maxLines": 841,
+    "maxLines": 710,
     "ternarioAninhado": 1,
-    "profundidadeExcedida": 13
+    "profundidadeExcedida": 3
   },
   "lib/engine/selfpr.js": {
     "maxLines": 356,
