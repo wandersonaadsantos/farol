@@ -36,6 +36,7 @@ export * from './pure/pessoas.js';
 export * from './pure/pr-compartilhado.js';
 export * from './pure/radar.js';
 export * from './pure/review.js';
+export * from './pure/rota.js';
 export * from './pure/revisando.js';
 export * from './pure/sessao.js';
 export * from './pure/sistema.js';
