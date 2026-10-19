@@ -11,7 +11,10 @@ import path from 'node:path';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-const REVIEW = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'engine', 'review.js'), 'utf8');
+// o desfecho da revisão saiu do review.js para o desfecho-da-revisao.js em 18/10/2026: os dois
+// são lidos juntos, porque a pergunta é se ALGUM ponto do runHeadlessReview diz o motivo
+const REVIEW = ['review.js', 'desfecho-da-revisao.js']
+  .map((f) => fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'engine', f), 'utf8')).join('\n');
 const DECISION = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'engine', 'approval-policy.js'), 'utf8');
 
 // os motivos que o gate sabe devolver, lidos do FONTE (nunca de uma lista curada
@@ -19,7 +22,7 @@ const DECISION = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'en
 const MOTIVOS = [...DECISION.matchAll(/motivo: '([a-z_]+)'/g)].map(m => m[1]);
 
 test('o gate devolve os motivos que este teste conhece', () => {
-  for (const esperado of ['analise_incompleta', 'nao_aprovavel', 'sem_texto', 'clique', 'politica']) {
+  for (const esperado of ['analise_incompleta', 'nao_aprovavel', 'sem_texto', 'origem_desconhecida', 'politica']) {
     assert.ok(MOTIVOS.includes(esperado), `motivo ${esperado} sumiu do gate`);
   }
 });
@@ -55,7 +58,8 @@ test('todo motivo de recusa tem tradução no runHeadlessReview', () => {
     // por natureza, e montar padrão obrigaria a escapar metacaractere a cada leitura.
     const tratado = REVIEW.includes(`autoDec.motivo === '${motivo}'`)
       || DECISION.includes(`  ${motivo}: (`)
-      || (motivo === 'clique' && REVIEW.includes('pr.requested !== true'))   // `clique` é dito por este outro caminho
+      // a origem desconhecida é dita por este outro caminho (o clique do dono posta desde 18/10/2026)
+      || (motivo === 'origem_desconhecida' && REVIEW.includes('!auto.origemDoDono(pr) && VEREDITOS.includes(result.verdict)'))
       // a prova incompleta é dita pelas próprias lacunas, que entram em reasons antes do gate
       || (motivo === 'prova_tecnica_incompleta' && REVIEW.includes('lacunasTecnicas.map(g => gateReason(g))'));
     assert.ok(tratado, `o motivo ${motivo} não vira razão nenhuma na tela`);

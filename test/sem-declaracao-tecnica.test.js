@@ -1,3 +1,11 @@
+// Repositório sem declaração técnica cadastrada (17/10/2026).
+//
+// Medido no admin (v2.72.4): só o próprio Farol tem declaração em
+// ~/.farol/technical-review/repositories.json, então todo PR de outro repositório saía com
+// "avaliação técnica atual ausente" e nunca era aprovado sozinho. Regra do dono: a aprovação
+// não depende dele; bloqueiam só CI vermelho ou pendente, violação técnica confirmada e
+// lacuna de leitura. Sem declaração não há avaliação técnica configurada, e isso não é
+// violação: vira ressalva. Com declaração, toda lacuna técnica continua bloqueando.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -30,13 +38,11 @@ function engineCom(onCaveats) {
 }
 const PEDIDO = { requested: true };
 
-test('o runtime registra ausência de declaração como avaliação não executada', async () => {
+test('o runtime marca o repositório sem declaração, e só ele', async () => {
   const ctx = await prepareTechnicalReview({}, { repo: 'org/sem-declaracao' }, head);
-  assert.equal(ctx.semDeclaracao, undefined);
-  assert.match(ctx.error, /declaração técnica.*ausente/);
+  assert.equal(ctx.semDeclaracao, true);
   const fim = await finishTechnicalReview(ctx, [{ semDeclaracao: false }]);
-  assert.equal(fim.verdict, 'not-run');
-  assert.equal(fim.semDeclaracao, undefined);
+  assert.deepEqual(fim, SEM_DECLARACAO);
   // com declaração, a ferramenta ausente é outra falha e não ganha a marca
   fs.mkdirSync(path.dirname(PROFILE_FILE), { recursive: true });
   fs.writeFileSync(PROFILE_FILE, JSON.stringify({ repositories: { 'org/declarado': { declaration: { scopes: ['core'] } } } }));
@@ -49,13 +55,13 @@ test('o runtime registra ausência de declaração como avaliação não executa
   } finally { fs.rmSync(PROFILE_FILE, { force: true }); }
 });
 
-test('sem declaração o prompt impede concluir pela aprovação', () => {
-  assert.match(technicalPrompt({ error: 'x', semDeclaracao: true }), /não conclua pela aprovação/);
+test('sem declaração o prompt não manda segurar a aprovação', () => {
+  assert.equal(technicalPrompt({ error: 'x', semDeclaracao: true }), '');
   assert.match(technicalPrompt({ error: 'ferramenta ausente' }), /não conclua pela aprovação/);
 });
 
-test('marca legada de sem declaração não dispensa prova', () => {
-  assert.deepEqual(approvalGaps(result()), ['avaliação técnica atual ausente']);
+test('a marca de sem declaração tira a lacuna técnica; com declaração a lacuna fica', () => {
+  assert.deepEqual(approvalGaps(result()), []);
   const comDeclaracao = result({ technicalReview: { schema: 1, verdict: 'not-run', error: 'ferramenta ausente' } });
   assert.deepEqual(approvalGaps(comDeclaracao), ['avaliação técnica atual ausente']);
   assert.deepEqual(approvalGaps(result({ technicalReview: { ...SEM_DECLARACAO, semDeclaracao: 'true' } })), ['avaliação técnica atual ausente'],
@@ -64,19 +70,19 @@ test('marca legada de sem declaração não dispensa prova', () => {
     'lacuna de leitura continua bloqueando sem declaração');
 });
 
-test('nenhuma política de ressalvas dispensa a avaliação técnica', () => {
+test('sem declaração vira ressalva com texto próprio, e a política de ressalvas decide', () => {
   const textos = attentionPoints(null, result()).map((p) => p.text);
   assert.ok(textos.some((t) => /não tem declaração técnica cadastrada, então a avaliação técnica automática não rodou/.test(t)), textos.join(' | '));
-  assert.deepEqual(shouldAutoApprove(engineCom('approve'), PEDIDO, result()), { ok: false, motivo: 'prova_tecnica_incompleta' });
-  assert.deepEqual(shouldAutoApprove(engineCom('wait'), PEDIDO, result()), { ok: false, motivo: 'prova_tecnica_incompleta' });
+  assert.deepEqual(shouldAutoApprove(engineCom('approve'), PEDIDO, result()), { ok: true, motivo: null });
+  assert.deepEqual(shouldAutoApprove(engineCom('wait'), PEDIDO, result()), { ok: false, motivo: 'politica' });
   const vermelho = result({ checksObrigatorios: [{ nome: 'test', estado: 'vermelho' }] });
-  assert.equal(shouldAutoApprove(engineCom('approve'), PEDIDO, vermelho).motivo, 'prova_tecnica_incompleta', 'a falta de prova já bloqueia antes do CI');
+  assert.equal(shouldAutoApprove(engineCom('approve'), PEDIDO, vermelho).motivo, 'ci_vermelho', 'CI vermelho continua bloqueando');
 });
 
-test('a tela mantém a aprovação pendente sem declaração', () => {
+test('a tela diz que não há declaração, sem o rótulo de verificação pendente', () => {
   const s = technicalSummary(SEM_DECLARACAO, []);
-  assert.equal(s.state, 'pending');
-  assert.match(s.message, /declaração técnica.*cadastrada/);
+  assert.equal(s.state, 'sem-declaracao');
+  assert.match(s.message, /não tem declaração técnica cadastrada/);
   assert.equal(technicalSummary(SEM_DECLARACAO, ['análise incompleta']).state, 'pending', 'outra lacuna continua pendente');
 });
 
@@ -93,22 +99,22 @@ function motorDaPublicacao(checks) {
 }
 const PR = { key: 'org/sem-declaracao#1', repo: 'org/sem-declaracao' };
 
-test('publicação sem declaração: recusa mesmo com checks verdes e commit confirmado', async () => {
+test('publicação sem declaração: sai com commit confirmado e checks verdes nele', async () => {
   const e = motorDaPublicacao({ verifiedHead: head, faltando: [] });
-  assert.equal((await approvalRefusal(e, PR, { event: 'APPROVE', commit_id: head })).error, 'declaração técnica do repositório ausente');
+  assert.equal(await approvalRefusal(e, PR, { event: 'APPROVE', commit_id: head }), null);
 });
 
 test('publicação sem declaração: checks pendentes esperam, commit ausente e prova com lacuna recusam', async () => {
   const pendente = await approvalRefusal(motorDaPublicacao({ verifiedHead: head, faltando: [{ nome: 'test', estado: 'rodando' }] }), PR, { event: 'APPROVE', commit_id: head });
   assert.equal(pendente.blocked, 'technical_review');
-  assert.equal(pendente.waitForCi, false);
+  assert.equal(pendente.waitForCi, true);
   const outroHead = await approvalRefusal(motorDaPublicacao({ verifiedHead: 'c'.repeat(40), faltando: [] }), PR, { event: 'APPROVE', commit_id: head });
-  assert.equal(outroHead.waitForCi, false, 'ausência de declaração bloqueia antes dos checks');
+  assert.equal(outroHead.waitForCi, true, 'checks lidos em outro commit não provam este');
   const semCommit = await approvalRefusal(motorDaPublicacao({ verifiedHead: head, faltando: [] }), PR, { event: 'APPROVE' });
-  assert.equal(semCommit.error, 'declaração técnica do repositório ausente');
+  assert.equal(semCommit.error, 'aprovação sem commit confirmado');
   const comLacuna = motorDaPublicacao({ verifiedHead: head, faltando: [] });
   comLacuna.technicalApprovals.get(PR.key).evidence = ['análise incompleta'];
-  assert.equal((await approvalRefusal(comLacuna, PR, { event: 'APPROVE', commit_id: head })).error, 'declaração técnica do repositório ausente');
+  assert.equal((await approvalRefusal(comLacuna, PR, { event: 'APPROVE', commit_id: head })).error, 'análise incompleta');
   const falhou = motorDaPublicacao(null);
   falhou.bloqueadoPorChecks = async () => { throw new Error('rede'); };
   assert.equal((await approvalRefusal(falhou, PR, { event: 'APPROVE', commit_id: head })).blocked, 'technical_review');

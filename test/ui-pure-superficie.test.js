@@ -11,6 +11,10 @@ import assert from 'node:assert/strict';
 import { arquivosDosPuros } from './helpers/fontes-ui.js';
 
 const CONGELADA = [
+  // a URL reflete a tela (18/10/2026): ui/pure/rota.js traduz hash <-> rota
+  "escreverRota",
+  "lerRota",
+  "mudancaDeRota",
   // conflito e PR superado pela base, no card de Meus PRs: a nota provisória da v2.71.10
   // (notaDaBaseHtml) saiu com o desenho do Claude Design de 10/10/2026
   "avisoDaBaseNoCard",

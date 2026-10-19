@@ -72,6 +72,9 @@ function motor(politica = ['approve', 'approve']) {
   e.tokens = { eu: 'token-falso' };
   e.config.accounts = [{ user: 'eu', owners: ['acme'] }];
   e.approvePolicyFor = (_conta, limpo) => (limpo ? politica[0] : politica[1]);
+  // a conta não reprova sozinha: com ela reprovando, a parte do card deste PR dita não
+  // entregue (COM_DEPENDENCIA) vira REQUEST_CHANGES na hora (test/decisao-sem-mesa.test.js)
+  e.rejectPolicyFor = () => 'wait';
   e.autoReviewFor = () => true;
   e.rejectPolicyFor = () => 'wait';
   e.decisions = { pending: [], resolved: [] };
@@ -229,7 +232,8 @@ test('armar: só prova_tecnica_incompleta, sem violação confirmada, com a pol�
   const base = { headSha: HEAD, approvalEvidence: ['protocolo de revisão não comprovado'], reasons: [] };
   assert.ok(esperaProva.armar(e, PR, 'prova_tecnica_incompleta', base, []));
   assert.equal(esperaProva.armar(e, PR, 'politica', base, []), null);
-  assert.ok(esperaProva.armar(e, PR, 'prova_tecnica_incompleta', { ...base, approvalEvidence: ['violação técnica confirmada'] }, []), 'nova análise deve fundamentar o pedido de mudanças, nunca aprovar a violação');
+  // decisão do dono de 19/10/2026: defeito do PR não é recuperação (o desfecho pede mudanças ou a mesa decide)
+  assert.equal(esperaProva.armar(e, PR, 'prova_tecnica_incompleta', { ...base, approvalEvidence: ['violação técnica confirmada'] }, []), null, 'violação não arma recuo');
   assert.ok(esperaProva.armar(e, PR, 'prova_tecnica_incompleta', { ...base, headSha: '' }, []), 'a recuperação consulta o head antes de relançar');
   assert.equal(esperaProva.armar(e, { ...PR, url: '' }, 'prova_tecnica_incompleta', { ...base, headSha: '' }, []), null, 'sem head nem endereço não há alvo verificável');
   assert.ok(esperaProva.armar(e, PR, 'prova_tecnica_incompleta', { ...base, technicalRecheck: true }, []));
@@ -240,7 +244,7 @@ test('armar: só prova_tecnica_incompleta, sem violação confirmada, com a pol�
 
 test('ciclo: commit novo larga a espera e carimba stale_head', async () => {
   const e = motor();
-  await revisado(e, COM_DEPENDENCIA);
+  await revisado(e, SEM_PROTOCOLO);
   gh.head = HEAD_NOVO;
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
   const d = pendente(e);
@@ -376,16 +380,15 @@ test('análise parcial com avaliação técnica executada também é concluída 
   assert.equal(pendente(e), undefined);
 });
 
-test('achado confirmado se transforma em pedido de mudanças fundamentado pela nova análise', async () => {
+// Decisão sem mesa (v2.73.2) com a do dono de 19/10/2026: o achado confirmado vira pedido de
+// mudanças na hora, com o texto que a revisão escreveu, sem nada do catálogo privado.
+test('achado confirmado se transforma em pedido de mudanças fundamentado, sem recuo', async () => {
   const e = motor();
   e.rejectPolicyFor = () => 'request_changes';
   technicalRuntime.finishTechnicalReview = async ctx => ({ ...technicalReport(ctx.head, ctx.repo), verdict: 'fail', rules: [{ rule: 'privada', verdict: 'fail' }] });
-  await revisado(e, {});
-  assert.ok(pendente(e).esperaProva);
-  assert.deepEqual(envios, []);
-  await esperaProva.reverQuandoAProvaMudar(e);
-  await revisado(e, { verdict: 'request_changes', decision: 'needs_decision',
-    payloads: { request_changes: { event: 'REQUEST_CHANGES', body: 'A remoção da validação permite gravar valores inválidos. Preserve a validação antes da gravação.' } } });
+  await revisado(e, { payloads: {
+    approve: { event: 'APPROVE', body: 'Leitura completa, sem bloqueios.' },
+    request_changes: { event: 'REQUEST_CHANGES', body: 'A remoção da validação permite gravar valores inválidos. Preserve a validação antes da gravação.' } } });
   assert.equal(pendente(e), undefined);
   assert.equal(envios.length, 1);
   assert.equal(envios[0].event, 'REQUEST_CHANGES');

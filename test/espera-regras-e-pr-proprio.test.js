@@ -7,8 +7,10 @@
 //    varredura relança UMA revisão pelo caminho de sempre e carimba a versão nova.
 // 2. PR da própria conta que revisa esperava para sempre: biudtech/biud-frontend#1479 era da
 //    conta que revisava, e o GitHub não aceita APPROVE (nem pedido de mudanças) do autor.
-//    Nenhuma prova destrava isso: a espera não arma, a que já existia é largada, e o card vai
-//    para a mesa dizendo que outra pessoa precisa aprovar.
+//    Nenhuma prova destrava isso: a espera não arma e a que já existia é largada.
+//    Desde 18/10/2026 (a decisão sem mesa), com a política da classe automática a revisão sai
+//    como COMMENT (que o GitHub aceita do autor) e a pendência é resolvida como
+//    `commented_own_pr`; a mesa sobra para a conta que espera você.
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -79,6 +81,7 @@ function motor() {
   e.on('needs-decision', (p) => e.eventos.push(['needs-decision', p.item.key]));
   e.on('auto-approved', (p) => e.eventos.push(['auto-approved', p.result.key]));
   e.on('auto-rejected', (p) => e.eventos.push(['auto-rejected', p.result.key]));
+  e.on('auto-commented', (p) => e.eventos.push(['auto-commented', p.result.key]));
   e.bloqueadoPorChecks = async () => ({ faltando: [] });
   return e;
 }
@@ -98,6 +101,9 @@ function sessao(e, extra) {
 const PR = { key: 'acme/app#1', repo: 'acme/app', number: 1, url: 'https://github.com/acme/app/pull/1', title: 'PR', author: 'dev', requested: true, account: 'eu' };
 const PROPRIO = { ...PR, author: 'Eu' };
 const pendente = (e) => e.decisions.pending.find((x) => x.key === PR.key);
+const resolvida = (e) => e.decisions.resolved.find((x) => x.key === PR.key);
+// a conta que espera você: a mesa é escolha dela, e o PR próprio vai para lá com o motivo
+const esperaVoce = (e) => { e.approvePolicyFor = () => 'wait'; e.rejectPolicyFor = () => 'wait'; return e; };
 const textos = (d) => (d.reasons || []).map((r) => r.text || r);
 const SEM_PROTOCOLO = { protocolo: { prReviewer: 'pulado' } };
 const REPROVA = {
@@ -150,10 +156,11 @@ test('espera do celular (biud-messaging-waba#52): sem carimbo e com as tentativa
   Object.assign(marca, { tentativas: esperaProva.MAX_TENTATIVAS, lacunas: ['dependência necessária ainda aberta'] });
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1, 'relança pela regra');
   assert.equal(pendente(e).esperaProva.tentativas, esperaProva.MAX_TENTATIVAS);
-  // A rodada aplica as regras novas sem dispensar a prova que continua faltando.
+  // a rodada relançada é a da prova esgotada: a lacuna que sobrou vira ressalva e a política aprova
   await revisado(e, PR, SEM_PROTOCOLO);
-  assert.equal(envios.length, 0, 'sem prova não aprova');
-  assert.ok(pendente(e).approvalEvidence.includes('protocolo de revisão não comprovado'));
+  assert.equal(envios.length, 1, 'aprovou com ressalvas');
+  assert.equal(envios[0].event, 'APPROVE');
+  assert.equal(pendente(e), undefined, 'nada mais esperando');
   for (let ciclo = 0; ciclo < 2; ciclo++) assert.equal(await esperaProva.varrerEsperas(e), 0);
 });
 
@@ -198,8 +205,8 @@ test('gate: PR da própria conta nunca é aprovado nem reprovado sozinho (caixa 
   assert.equal(esperaProva.armarEspera(e, PROPRIO, 'pr_proprio', { headSha: HEAD, approvalEvidence: ['protocolo de revisão não comprovado'], reasons: [] }, []), null);
 });
 
-test('PR da própria conta com prova incompleta: nenhuma espera, mesa com o motivo', async () => {
-  const e = motor();
+test('PR da própria conta com a conta esperando você: nenhuma espera, mesa com o motivo', async () => {
+  const e = esperaVoce(motor());
   const d = await revisado(e, PROPRIO, SEM_PROTOCOLO);
   assert.equal(d.esperaProva, undefined);
   assert.equal(d.esperaCi, undefined);
@@ -209,18 +216,37 @@ test('PR da própria conta com prova incompleta: nenhuma espera, mesa com o moti
   assert.equal(separarPendentes([e.decisionForUi(d)]).precisam.length, 1, 'em Precisa de você, nunca em Aprova sozinho');
 });
 
-test('PR da própria conta aprovável e limpo: não posta, mesa com o motivo', async () => {
+test('PR da própria conta aprovável, conta aprovando sozinha: sai como COMMENT e resolve, sem mesa', async () => {
   const e = motor();
   const d = await revisado(e, PROPRIO, {});
-  assert.deepEqual(envios, [], 'o GitHub recusaria o APPROVE do autor');
-  assert.equal(d.esperaCi, undefined);
-  assert.equal(d.esperaProva, undefined);
-  assert.ok(textos(d).includes(TEXTO_PROPRIO), textos(d).join(' | '));
-  assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
+  assert.equal(d, undefined, 'nada fica pendente');
+  assert.equal(envios.length, 1);
+  assert.equal(envios[0].event, 'COMMENT', 'o GitHub recusaria o APPROVE do autor');
+  assert.equal(envios[0].body, 'Leitura completa, sem bloqueios.');
+  assert.equal(envios[0].commit_id, HEAD, 'ancorado no commit lido');
+  assert.equal(resolvida(e).status, 'commented_own_pr');
+  assert.deepEqual(e.eventos, [['auto-commented', PR.key]]);
 });
 
-test('PR da própria conta com reprovação: o REQUEST_CHANGES não é postado', async () => {
+test('PR da própria conta com prova incompleta: o comentário sai mesmo assim (COMMENT não é aprovação)', async () => {
   const e = motor();
+  await revisado(e, PROPRIO, SEM_PROTOCOLO);
+  assert.equal(envios.length, 1);
+  assert.equal(envios[0].event, 'COMMENT');
+  assert.equal(resolvida(e).status, 'commented_own_pr');
+});
+
+test('PR da própria conta com reprovação, conta reprovando sozinha: o pedido sai como COMMENT', async () => {
+  const e = motor();
+  await revisado(e, PROPRIO, REPROVA);
+  assert.equal(envios.length, 1);
+  assert.equal(envios[0].event, 'COMMENT');
+  assert.equal(envios[0].body, 'Falta tratar o erro de rede.');
+  assert.deepEqual(e.eventos, [['auto-commented', PR.key]]);
+});
+
+test('PR da própria conta com reprovação e a conta esperando você: nada é postado, mesa com o motivo', async () => {
+  const e = esperaVoce(motor());
   const d = await revisado(e, PROPRIO, REPROVA);
   assert.deepEqual(envios, []);
   assert.ok(textos(d).some((t) => /própria conta que revisa \(@eu\).*pedido de mudanças/.test(t)), textos(d).join(' | '));
@@ -239,10 +265,24 @@ test('controle: PR de outra pessoa segue aprovando e reprovando sozinho', async 
   assert.equal(envios[0].event, 'REQUEST_CHANGES');
 });
 
-test('espera da prova que já existia em PR da própria conta: a varredura larga, mesa com o motivo, aviso uma vez', async () => {
+test('espera da prova que já existia em PR da própria conta, conta aprovando sozinha: a varredura comenta e resolve', async () => {
   const e = motor();
   await revisado(e, PR, SEM_PROTOCOLO);
   pendente(e).pr.author = 'EU';
+  assert.equal(await esperaProva.varrerEsperas(e), 1);
+  assert.equal(pendente(e), undefined);
+  assert.equal(resolvida(e).status, 'commented_own_pr');
+  assert.deepEqual(envios.map((p) => p.event), ['COMMENT']);
+  assert.equal(leiturasDoPr, 0, 'autor gravado basta, sem leitura gh do PR');
+  for (let ciclo = 0; ciclo < 2; ciclo++) assert.equal(await esperaProva.varrerEsperas(e), 0);
+  assert.deepEqual(e.eventos, [['auto-commented', PR.key]]);
+});
+
+test('espera da prova que já existia em PR da própria conta, conta esperando você: larga, mesa com o motivo, aviso uma vez', async () => {
+  const e = motor();
+  await revisado(e, PR, SEM_PROTOCOLO);
+  pendente(e).pr.author = 'EU';
+  esperaVoce(e);
   assert.equal(await esperaProva.varrerEsperas(e), 1);
   const d = pendente(e);
   assert.equal(d.esperaProva, null);
@@ -254,24 +294,38 @@ test('espera da prova que já existia em PR da própria conta: a varredura larga
   assert.equal(separarPendentes([e.decisionForUi(d)]).precisam.length, 1);
 });
 
-test('espera sem autor gravado: o autor lido do GitHub na varredura também larga', async () => {
+test('espera sem autor gravado: o autor lido do GitHub na varredura também conta, e o comentário sai', async () => {
   const e = motor();
   await revisado(e, PR, SEM_PROTOCOLO);
   pendente(e).pr.author = '';
   gh.autor = 'eu';
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
-  assert.equal(pendente(e).esperaProva, null);
-  assert.equal(textos(pendente(e))[0], TEXTO_PROPRIO);
-  assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
+  assert.equal(pendente(e), undefined);
+  assert.equal(resolvida(e).status, 'commented_own_pr');
+  assert.deepEqual(e.eventos, [['auto-commented', PR.key]]);
 });
 
-test('espera do CI que já existia em PR da própria conta também é largada', async () => {
+test('espera do CI que já existia em PR da própria conta também é largada e comentada', async () => {
   const e = motor();
   await revisado(e, PR, SEM_PROTOCOLO);
   const d = pendente(e);
   d.esperaProva = null;
   d.esperaCi = { desde: 1, checks: [], pontos: [] };
   d.pr.author = 'eu';
+  assert.equal(await esperaProva.varrerEsperas(e), 1);
+  assert.equal(pendente(e), undefined);
+  assert.deepEqual(envios.map((p) => p.event), ['COMMENT']);
+  assert.deepEqual(e.eventos, [['auto-commented', PR.key]]);
+});
+
+test('espera do CI em PR da própria conta com a conta esperando você: larga e vai para a mesa', async () => {
+  const e = motor();
+  await revisado(e, PR, SEM_PROTOCOLO);
+  const d = pendente(e);
+  d.esperaProva = null;
+  d.esperaCi = { desde: 1, checks: [], pontos: [] };
+  d.pr.author = 'eu';
+  esperaVoce(e);
   assert.equal(await esperaProva.varrerEsperas(e), 1);
   assert.equal(pendente(e).esperaCi, null);
   assert.equal(textos(pendente(e))[0], TEXTO_PROPRIO);
@@ -296,7 +350,7 @@ test('PR #248, achado 3: o portão de postagem recusa APPROVE e REQUEST_CHANGES 
 });
 
 test('PR #248, achado 3: a pendência de PR próprio não oferece Aprovar nem Pedir mudanças', async () => {
-  const e = motor();
+  const e = esperaVoce(motor());
   const d = await revisado(e, PROPRIO, {});
   const tela = e.decisionForUi(d);
   assert.equal(tela.prProprio, true);
@@ -316,6 +370,7 @@ test('PR #248, achado 4: largar a espera de PR próprio durante a rodada complem
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1, 'a busca relançou no mesmo head');
   assert.equal(pendente(e).blockedKind, 'stale_head');
   pendente(e).pr.author = 'eu';
+  esperaVoce(e);
   assert.equal(await esperaProva.varrerEsperas(e), 1);
   const d = pendente(e);
   assert.equal(d.esperaProva, null);

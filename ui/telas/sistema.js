@@ -32,6 +32,9 @@ function switchSistemaSection(name) {
   document.querySelectorAll('.sys-section').forEach(s => s.classList.toggle('active', s.id === 'sys-' + SISTEMA_SECTION));
 }
 
+// a seção à mostra, para o endereço da página (ui/telas/rota.js)
+function secaoDoSistema() { return SISTEMA_SECTION; }
+
 $('#sysNav').addEventListener('click', (e) => {
   const btn = e.target.closest('.sys-nav-item');
   if (!btn) return;
@@ -190,4 +193,4 @@ registrarTela({
   aoEstado: () => { if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); renderAparelhos(); renderGrupos(); } },
 });
 
-export { switchSistemaSection, sysSearchFilter, sysGoTo, renderSettings };
+export { switchSistemaSection, secaoDoSistema, sysSearchFilter, sysGoTo, renderSettings };

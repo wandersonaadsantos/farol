@@ -119,7 +119,15 @@ export function instalarDom() {
   // navigator no Node moderno e getter-only: define por propriedade em vez de atribuir
   try { g.navigator = { userAgent: 'node-test', platform: 'test' }; }
   catch { Object.defineProperty(g, 'navigator', { value: { userAgent: 'node-test', platform: 'test' }, configurable: true }); }
-  g.location = { href: 'http://localhost/', origin: 'http://localhost', reload() { } };
+  g.location = { href: 'http://localhost/', origin: 'http://localhost', hash: '', reload() { } };
+  // histórico de mentira que só REGISTRA: o endereço da página (ui/telas/rota.js) escreve
+  // aqui, e o teste confere o que foi escrito. O hash acompanha, como no navegador.
+  g.history = {
+    state: null, chamadas: [],
+    pushState(estado, _t, url) { this.state = estado; this.chamadas.push(['push', url]); g.location.hash = url; },
+    replaceState(estado, _t, url) { this.state = estado; this.chamadas.push(['replace', url]); g.location.hash = url; },
+    back() { this.chamadas.push(['back']); },
+  };
   g.localStorage = {
     getItem: k => (store.has(k) ? store.get(k) : null),
     setItem: (k, v) => store.set(k, String(v)),

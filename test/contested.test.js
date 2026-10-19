@@ -152,10 +152,12 @@ test('shouldAutoApprove expõe o motivo da recusa: política da conta', () => {
   assert.deepEqual(e.shouldAutoApprove(PR, approvableResult()), { ok: false, motivo: 'politica' });
 });
 
-test('shouldAutoApprove expõe o motivo da recusa: clique no panorama e não-aprovável', () => {
+test('shouldAutoApprove expõe o motivo da recusa: origem desconhecida e não-aprovável (o clique do dono aprova)', () => {
   const e = engineWithPolicy('approve');
   assert.deepEqual(e.shouldAutoApprove({ ...PR, requested: false }, approvableResult()),
-    { ok: false, motivo: 'clique' });
+    { ok: false, motivo: 'origem_desconhecida' });
+  assert.deepEqual(e.shouldAutoApprove({ ...PR, requested: false, manual: true }, approvableResult()),
+    { ok: true, motivo: null });
   assert.deepEqual(e.shouldAutoApprove(PR, approvableResult({ verdict: 'request_changes' })),
     { ok: false, motivo: 'nao_aprovavel' });
 });
@@ -184,12 +186,12 @@ test('a contestação nunca passa por cima da política de ressalvas, e também 
   }
 });
 
-test('contestação junto de cobertura e checkpoint: tudo ressalva, e o clique segue sem postar', () => {
+test('contestação junto de cobertura e checkpoint: tudo ressalva, e a origem desconhecida segue sem postar', () => {
   const contested = [{ source: 'Acrity', claim: 'x', label: 'pre_existente', evidence: 'prova' }];
   const tudo = approvableResult({ contested, coverage: { total: 3, reviewed: ['a.ts'], missing: ['b.ts'] }, verificationCheckpoint: { malformed: true } });
   assert.deepEqual(enginePorClasse('wait', 'approve').shouldAutoApprove(PR, tudo), { ok: false, motivo: 'prova_tecnica_incompleta' });
   assert.equal(enginePorClasse('wait', 'approve').attentionPoints(tudo).length, 3, 'uma ressalva visível para cada coisa');
-  assert.equal(enginePorClasse('approve', 'approve').shouldAutoApprove({ ...PR, requested: false }, tudo).motivo, 'clique');
+  assert.equal(enginePorClasse('approve', 'approve').shouldAutoApprove({ ...PR, requested: false }, tudo).motivo, 'origem_desconhecida');
 });
 
 test('a chave autoApproveContested não existe mais: nem preferência, nem método do engine', async () => {

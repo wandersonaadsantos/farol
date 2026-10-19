@@ -118,7 +118,8 @@ async function checkWindow() {
         autostartHidden: getComputedStyle(document.querySelector('#rowAutostart')).display === 'none' } : null;
     })()`);
   }, 'UI real renderizar o estado do servidor');
-  assert.equal(win.webContents.getURL(), origin + '/', 'renderer deve estar na raiz HTTP loopback isolada');
+  // Desde a v2.72.12 a UI escreve a tela no hash (ui/pure/rota.js); a raiz é o que conta.
+  assert.equal(win.webContents.getURL().split('#')[0], origin + '/', 'renderer deve estar na raiz HTTP loopback isolada');
   // O renderer consulta um caminho literal da própria origem já verificada.
   // Nenhum conteúdo do arquivo de configuração compõe a URL da requisição.
   const response = await win.webContents.executeJavaScript(`(async () => {

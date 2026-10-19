@@ -90,6 +90,9 @@ function motor(checks, politica = ['approve', 'approve']) {
   e.config.aguardarCiParaAprovar = true;
   e.politica = politica;
   e.approvePolicyFor = (_conta, limpo) => (limpo ? e.politica[0] : e.politica[1]);
+  // a conta não reprova sozinha: com ela reprovando, o CI vermelho vira REQUEST_CHANGES
+  // automático e a espera continua (test/decisao-sem-mesa.test.js, 18/10/2026)
+  e.rejectPolicyFor = () => 'wait';
   e.decisions = { pending: [], resolved: [] };
   e.saveDecisions = () => { };
   e.pushState = () => { };
@@ -359,26 +362,22 @@ test('a postagem falhou depois do CI verde: passageira vai para o reenvio de sem
 const VERDE = () => [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
 const review = (quem, state, extra = {}) => ({ quem, tipo: 'User', state, commit_id: HEAD, ...extra });
 
-test('uma pessoa pediu mudanças no mesmo commit durante a espera: NÃO aprova por cima, vai para a mesa dizendo isso', async () => {
+// A decisão sem mesa (18/10/2026): o pedido de mudanças de uma pessoa fica registrado no
+// GitHub e não segura a aprovação que a conta mandou sair sozinha; nada vai para a mesa.
+test('uma pessoa pediu mudanças no mesmo commit durante a espera: o APPROVE sai pela política, sem mesa', async () => {
   const e = await emEspera(20);
   gh.reviewsAlheios = [review('ana', 'CHANGES_REQUESTED')];
   for (let ciclo = 0; ciclo < 3; ciclo++) assert.equal(await e.varrerEsperas(), 0);
   assert.equal(leiturasDeReviewsAlheios, 0, 'com a pipe ainda rodando, nenhuma leitura de reviews: o custo é só na hora do post');
   gh.rollup = VERDE();
-  assert.equal(await e.varrerEsperas(), 0);
-  assert.deepEqual(envios, [], 'nenhum APPROVE por cima do pedido de mudanças');
+  assert.equal(await e.varrerEsperas(), 1);
   assert.equal(leiturasDeReviewsAlheios, 1);
-  const d = pendente(e, 20);
-  assert.equal(d.esperaCi, null, 'a espera foi largada, de forma durável');
-  assert.match(textos(d)[0], /uma pessoa pediu mudanças neste commit enquanto eu esperava o CI \(@ana\)/);
-  assert.equal(d.reasons[0].kind, 'gate');
-  assert.equal(textos(d).some((t) => /esperando o CI e sai sozinha/.test(t)), false, 'o motivo da espera saiu do card');
-  assert.match(e.decisionForUi(d).reasons[0].text, /uma pessoa pediu mudanças neste commit enquanto eu esperava o CI/, 'o texto chega à tela como foi escrito');
-  assert.deepEqual(e.eventos, [['needs-decision', 'acme/app#20']]);
-  assert.equal(e.toasts.filter((t) => /acme\/app#20 precisa da sua atenção/.test(t)).length, 1, 'um toast só');
-  assert.equal(await e.varrerEsperas(), 0, 'e não volta a tentar');
-  assert.deepEqual(envios, []);
-  assert.equal(leiturasDeReviewsAlheios, 1);
+  assert.equal(envios.length, 1);
+  assert.equal(envios[0].event, 'APPROVE');
+  assert.equal(envios[0].commit_id, HEAD, 'no commit que a sessão leu');
+  assert.equal(pendente(e, 20), undefined);
+  assert.equal(resolvida(e, 20).status, 'auto_approved');
+  assert.equal(e.eventos.some(([tipo]) => tipo === 'needs-decision'), false, 'nada vai para a mesa');
 });
 
 test('review de ferramenta (acrity) durante a espera não é pessoa: a aprovação sai', async () => {
@@ -390,7 +389,7 @@ test('review de ferramenta (acrity) durante a espera não é pessoa: a aprovaç�
   assert.equal(resolvida(e, 21).status, 'auto_approved');
 });
 
-test('uma aprovação de pessoa não segura (a automática vale como a segunda); duas seguram', async () => {
+test('uma aprovação de pessoa não segura (a automática vale como a segunda); duas dispensam a automática, sem mesa', async () => {
   const e = await emEspera(22);
   gh.rollup = VERDE();
   gh.reviewsAlheios = [review('ana', 'APPROVED')];
@@ -399,9 +398,14 @@ test('uma aprovação de pessoa não segura (a automática vale como a segunda);
 
   const f = await emEspera(23);
   gh.reviewsAlheios = [review('ana', 'APPROVED'), review('bia', 'APPROVED')];
-  assert.equal(await f.varrerEsperas(), 0);
+  assert.equal(await f.varrerEsperas(), 1, 'a espera se resolve');
   assert.equal(envios.length, 1, 'nada novo postado');
-  assert.match(textos(pendente(f, 23))[0], /o PR já tem duas aprovações de pessoas neste commit \(@ana, @bia\)/);
+  assert.equal(pendente(f, 23), undefined, 'nada fica pendente');
+  const d = resolvida(f, 23);
+  assert.equal(d.status, 'approval_not_needed');
+  assert.match(textos(d)[0], /o PR já tem duas aprovações de pessoas neste commit \(@ana, @bia\)/);
+  assert.equal(f.eventos.some(([tipo]) => tipo === 'needs-decision'), false);
+  assert.equal(await f.varrerEsperas(), 0, 'e não volta a ler nada');
 });
 
 test('pedido de mudanças em commit ANTERIOR não segura, e quem pediu e depois aprovou conta como aprovação', async () => {
