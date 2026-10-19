@@ -18,6 +18,10 @@ Diagnóstico remoto da identidade das revisões, sem acesso ao terminal do apare
 - Em Radar > Aparelhos, o admin pode solicitar um retrato das contas autenticadas, da fila e das retomadas do executor. A resposta exige o consentimento já configurado no aparelho, chega cifrada e expira em cinco minutos.
 - A coleta compara a conta pretendida com o login que o GitHub confirma, preserva os metadados de entrada do boot e não envia tokens, configuração completa, comandos nem arquivos arbitrários.
 
+### Correções
+
+- A reinstalação macOS prepara código, runtime, protocolo e bundle antes de substituir a versão instalada. Falhas na troca ou no registro restauram a instalação anterior, preservando configuração, histórico e prompts pessoais.
+
 ## v2.72.11
 
 O Farol recupera análises técnicas incompletas sozinho e preserva sua identidade nativa no Windows e no macOS.
