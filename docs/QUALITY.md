@@ -293,7 +293,9 @@ existe, e o próximo a mexer ali não vai ter aviso nenhum.
 npm run check && npm run lint && npm test
 ```
 
-`check` = `tools/check-syntax.js`, que **descobre** todo `.js` do projeto (ESM nativo desde a migração da fase 13; o gate imprime quantos achou, e por isso o número não é escrito aqui) e valida a sintaxe rodando `node --check` por processo filho em cada um (`execFileSync`, sem `vm.Script`: `node --check` já entende ESM direto, então não precisa de wrapper nenhum). Era uma lista fixa de três arquivos, e por isso os 19 módulos de `lib/` ficavam de fora. `test` = `node --test test/` (a rede). Verde nos dois é pré-requisito de qualquer entrega.
+`check` = `tools/check-syntax.js`, que **descobre** todo `.js` do projeto (ESM nativo desde a migração da fase 13; o gate imprime quantos achou, e por isso o número não é escrito aqui) e valida a sintaxe rodando `node --check` por processo filho em cada um (`execFileSync`, sem `vm.Script`: `node --check` já entende ESM direto, então não precisa de wrapper nenhum). Era uma lista fixa de três arquivos, e por isso os 19 módulos de `lib/` ficavam de fora. `test` usa `tools/rodar-testes.js` para executar a rede completa no runner nativo do Node. Verde nos dois é pré-requisito de qualquer entrega.
+
+A suíte executa até quatro arquivos em paralelo. Em máquina ocupada, `FAROL_TEST_CONCORRENCIA` aceita um inteiro de 1 a 4 para reduzir a disputa por recursos; casos, asserções, limites de tempo e código de saída continuam os mesmos. No PowerShell, por exemplo: `$env:FAROL_TEST_CONCORRENCIA = '1'; npm test`. A matriz de CI mantém o padrão de quatro arquivos.
 
 Os dois testes estruturais da rede trazem **piso anti-vacuidade** (`facades.test.js` exige um mínimo de fachadas casadas, `check-syntax.js` um mínimo de arquivos encontrados): verificação dirigida por varredura que deixa de casar vira laço vazio e fica verde sem verificar nada, que é a pior falha possível num gate.
 
