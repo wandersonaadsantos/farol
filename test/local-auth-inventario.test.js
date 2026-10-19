@@ -41,9 +41,9 @@ test('nenhuma rota aparece em duas classes', () => {
 // A edição de conta por operação acrescentou /api/accounts/edit, na mesma classe de /api/settings (73 virou 74).
 // A exportação do chat acrescentou /api/chat/export, leitura sensível como /api/chat: leva a conversa inteira (74 virou 75).
 // O espelho sob demanda acrescentou /api/sync/mirror (75 virou 76).
-test('as classes da spec cobrem os 76 caminhos, e as públicas são só as duas de autenticação', () => {
+test('as classes da spec cobrem os 77 caminhos, e as públicas são só as duas de autenticação', () => {
   const naoPublicas = Object.entries(CLASSES).filter(([c]) => c !== 'autenticacao-publica').flatMap(([, rotas]) => rotas);
-  assert.equal(naoPublicas.length, 76);
+  assert.equal(naoPublicas.length, 77);
   assert.deepEqual(CLASSES['autenticacao-publica'].slice().sort(), ['/api/auth/pair', '/api/auth/status']);
   assert.deepEqual(Object.keys(CLASSES).sort(), ['autenticacao-publica', 'demais', 'destrutiva', 'escreve-github', 'evento', 'leitura-baixo-risco', 'leitura-sensivel', 'recebe-segredo', 'sessao-paga']);
 });

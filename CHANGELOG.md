@@ -9,9 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.72.12
+## v2.73.0
 
-Mudanças no histórico de reviews passam a pedir uma nova análise sem deixar uma aprovação antiga habilitada.
+Diagnóstico remoto da identidade das revisões, sem acesso ao terminal do aparelho.
+
+### Novidades
+
+- Em Radar > Aparelhos, o admin pode solicitar um retrato das contas autenticadas, da fila e das retomadas do executor. A resposta exige o consentimento já configurado no aparelho, chega cifrada e expira em cinco minutos.
+- A coleta compara a conta pretendida com o login que o GitHub confirma, preserva os metadados de entrada do boot e não envia tokens, configuração completa, comandos nem arquivos arbitrários.
 
 ### Correções
 
