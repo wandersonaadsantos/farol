@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fonteDosPuros, fonteDasTelas } from './helpers/fontes-ui.js';
+import { comandosDasPendencias } from '../ui/pure/paleta-decisoes.js';
 
 const APPJS = fonteDasTelas();
 const SERVERJS = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'http-server.js'), 'utf8');
@@ -52,7 +53,8 @@ test('a paleta de comandos usa funções de decisão que EXISTEM no app.js', () 
   // usuário achava que tinha aprovado
   assert.match(APPJS, /function decide\(/, 'decide() definida');
   assert.match(APPJS, /async function decideComConfirmacao\(/, 'decideComConfirmacao() definida');
-  assert.match(APPJS, /run: \(\) => decideComConfirmacao\(/, 'a paleta chama a versão com confirmação');
+  assert.match(fonteDosPuros(), /run: \(\) => decideComConfirmacao\(/, 'a paleta chama a versão com confirmação');
+  assert.match(APPJS, /comandosDasPendencias\(estado\(\)\?\.decisions\?\.pending, \{ scopeVisible, decide, decideComConfirmacao \}\)/);
 });
 
 test('o clique num item da paleta fecha a paleta ANTES de rodar e captura a rejeição', () => {
@@ -60,18 +62,22 @@ test('o clique num item da paleta fecha a paleta ANTES de rodar e captura a reje
   assert.match(APPJS, /cmdClose\(\); Promise\.resolve\(\)\.then\(\(\) => items\[idx\]\.run\(\)\)\.catch\(/);
 });
 
-test('o lote "Aprovar as N pendentes" só alcança as decisões visíveis no escopo', () => {
-  // agravante do A5 (regra R13 do plano mestre): aprovar em lote não pode alcançar
-  // decisões que o filtro de conta esconde; o lote itera a lista passada por
-  // scopeVisible, nunca estado().decisions.pending inteiro
-  // desde 30/09/2026 o lote também deixa de fora o que espera o CI: aprovar em lote por cima
-  // de pipe vermelha ou rodando não é o que "as pendentes" promete
-  assert.match(APPJS, /const visiveis = \(estado\(\)\?\.decisions\?\.pending \|\| \[\]\)\.filter\(d => !d\.esperaCi && !d\.esperaProva && !d\.prProprio\)\.filter\(scopeVisible\);/,
-    'o lote nasce da lista filtrada por scopeVisible, sem a espera do CI');
-  assert.match(APPJS, /for \(const d of visiveis\) await decide\(d\.id, 'approve'\);/,
-    'a iteração do lote é sobre as visíveis');
-  assert.doesNotMatch(APPJS, /for \(const d of \[\.\.\.estado\(\)\.decisions\.pending\]\)/,
-    'a iteração antiga sobre a fila inteira saiu');
+test('paleta individual e lote excluem reconferência, espera e autoria; lote respeita o escopo', async () => {
+  const normal = id => ({ id, key: `acme/repo#${id}`, verdict: 'approve', technical: { state: 'pass' } });
+  const pendentes = [normal('1'), { ...normal('2'), blockedKind: 'technical_recheck' },
+    { ...normal('3'), esperaProva: {} }, { ...normal('4'), esperaCi: {} }, { ...normal('5'), prProprio: true },
+    { ...normal('6'), oculta: true }, normal('7'), { ...normal('8'), blockedKind: 'stale_head' }];
+  const chamadas = [], confirmadas = [];
+  const comandos = comandosDasPendencias(pendentes, { scopeVisible: d => !d.oculta,
+    decide: async (...args) => chamadas.push(args), decideComConfirmacao: (...args) => confirmadas.push(args) });
+  assert.deepEqual(comandos.filter(c => c.kind === 'decisão' && c.label.startsWith('Aprovar')).map(c => c.label),
+    ['Aprovar acme/repo#1', 'Aprovar acme/repo#6', 'Aprovar acme/repo#7']);
+  const lote = comandos.find(c => c.kind === 'lote');
+  assert.equal(lote.label, 'Aprovar as 2 pendentes');
+  await lote.run();
+  assert.deepEqual(chamadas, [['1', 'approve'], ['7', 'approve']]);
+  await comandos.find(c => c.label === 'Aprovar acme/repo#1').run();
+  assert.deepEqual(confirmadas, [['1', 'approve', 'acme/repo#1']]);
 });
 
 /* ---------- contrato da navegação interna (data-goto) ----------

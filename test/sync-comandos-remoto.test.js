@@ -72,6 +72,8 @@ const PR = { key: 'dono/repo#7', headSha: 'sha7', title: 'Titulo', repo: 'dono/r
 
 async function motor() {
   const e = new Engine();
+  // Os casos conduzem os ciclos; configurar a conta não deve disparar polling concorrente.
+  e.checkNow = () => { };
   e.log = () => { };
   e.pushState = () => { };
   e.emit = () => true;

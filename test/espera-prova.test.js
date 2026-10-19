@@ -380,7 +380,7 @@ test('análise parcial com avaliação técnica executada também é concluída 
   assert.equal(pendente(e), undefined);
 });
 
-// Decisão sem mesa (v2.73.1) com a do dono de 19/10/2026: o achado confirmado vira pedido de
+// Decisão sem mesa (v2.73.2) com a do dono de 19/10/2026: o achado confirmado vira pedido de
 // mudanças na hora, com o texto que a revisão escreveu, sem nada do catálogo privado.
 test('achado confirmado se transforma em pedido de mudanças fundamentado, sem recuo', async () => {
   const e = motor();
@@ -410,6 +410,82 @@ test('recusa técnica durante a publicação entra na recuperação única e nã
   assert.equal(pendente(e), undefined);
   assert.equal(envios.length, 1);
 });
+
+for (const origem of ['fila', 'sessao', 'retry']) {
+  test(`reconferência em ${origem} preserva a substituição da decisão antiga`, async () => {
+    const e = motor(['wait', 'wait']);
+    const d = await revisado(e, {});
+    d.technicalRecheck = false;
+    d.blockedKind = 'technical_recheck';
+    if (origem === 'fila') e.headlessQueue.push(PR);
+    if (origem === 'sessao') e.activeReviews.set('outra', { keys: [PR.key] });
+    if (origem === 'retry') e.retryAfterNet.set(PR.key, { at: Date.now() });
+    assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
+    assert.equal(d.blockedKind, 'technical_recheck');
+    assert.ok(d.esperaProva, 'a recuperação acompanha a rodada já aceita sem lançar outra');
+    e.headlessQueue = [];
+    e.activeReviews.clear();
+    e.retryAfterNet.clear();
+    e.approvePolicyFor = () => 'approve';
+    await revisado(e, {});
+    assert.equal(pendente(e), undefined, 'a nova decisão substitui a antiga');
+    assert.ok(e.decisions.resolved.some(x => x.id === d.id && x.status === 'superseded'));
+    assert.equal(envios.length, 1);
+    assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0, 'não inicia outra rodada órfã');
+  });
+}
+
+test('sessão aparece durante a recuperação e ainda substitui a decisão anterior', async () => {
+  const e = motor(['wait', 'wait']);
+  const d = await revisado(e, {});
+  d.technicalRecheck = false;
+  d.blockedKind = 'technical_recheck';
+  const recuperando = esperaProva.reverQuandoAProvaMudar(e);
+  // A preparação já saiu da fila; a sessão torna-se visível durante o await da recuperação.
+  e.activeReviews.set('preparando', { keys: [PR.key] });
+  assert.equal(await recuperando, 0);
+  e.activeReviews.clear();
+  e.approvePolicyFor = () => 'approve';
+  await revisado(e, {});
+  assert.equal(pendente(e), undefined, 'a sessão em preparação precisa substituir a decisão antiga');
+  assert.ok(e.decisions.resolved.some(x => x.id === d.id && x.status === 'superseded'));
+  assert.equal(envios.length, 1);
+});
+
+test('falha de rede sem reconferência mantém o reenvio e não inicia análise nova', async () => {
+  const e = motor(['wait', 'wait']);
+  const d = await revisado(e, {});
+  d.postRetry = { event: 'approve', attempts: 1 };
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
+  assert.deepEqual(d.postRetry, { event: 'approve', attempts: 1 });
+  assert.equal(d.esperaProva, undefined);
+  assert.deepEqual(envios, []);
+});
+
+for (const retry of [null, { event: 'approve', attempts: 3, exhausted: true }]) {
+  test(`reconferência consumida pela fila retoma após reinício, com retry ${retry ? 'esgotado' : 'ausente'}`, async () => {
+    const e = motor(['wait', 'wait']);
+    const d = await revisado(e, {});
+    d.technicalRecheck = false;
+    d.blockedKind = 'technical_recheck';
+    d.postRetry = retry;
+    e.decisions = JSON.parse(JSON.stringify(e.decisions));
+    e.approvePolicyFor = () => 'approve';
+    e.eventos = [];
+    const tela = e.decisionForUi(pendente(e));
+    assert.equal(tela.technical.state, 'pending', 'a prova anterior não continua verde');
+    const card = staleCardMeta(tela, null);
+    assert.equal(card.approveDisabled, true, 'clicar de novo não pode publicar a análise antiga');
+    assert.equal(card.reviewBtn, 'primary');
+    assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
+    assert.ok(pendente(e).esperaProva, 'o motivo durável recupera a marca já consumida pela fila');
+    assert.equal(pendente(e).postRetry, null, 'a reconferência substitui o reenvio do texto antigo');
+    assert.deepEqual(envios, []);
+    await revisado(e, {});
+    assert.equal(pendente(e), undefined);
+    assert.equal(envios.length, 1, 'só a nova análise pode produzir a aprovação');
+  });
+}
 
 test('pendência antiga esgotada volta à recuperação sem perder o bloqueio técnico', async () => {
   const e = motor();

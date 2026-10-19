@@ -12,6 +12,7 @@ import { decide, decideComConfirmacao } from './acoes.js';
 import { switchSistemaSection } from './sistema.js';
 import { openChat } from './chat.js';
 import { kbdHelp } from './atalhos.js';
+import { comandosDasPendencias } from '../pure/paleta-decisoes.js';
 
 /* ---------- paleta de comando (Ctrl+K / Cmd+K) ----------
    Os handlers moram no TOPO do módulo, na mesma profundidade que tinham
@@ -27,27 +28,7 @@ let _switchTab = null;
    abertura. Em janela estreita a paleta deixa de ser atalho de gente avançada e vira a
    rota principal pra tudo que não cabe na tira de abas. */
 function cmdStatic() { return [
-  // as decisões pendentes primeiro: são a única ação urgente e destrutiva do app
-  ...(estado()?.decisions?.pending || []).flatMap(d => {
-    const ref = d.key || '';
-    const acao = (rotulo, action) => ({
-      kind: 'decisão', label: `${rotulo} ${ref}`, hint: 'decisão',
-      run: () => decideComConfirmacao(d.id, action, ref)
-    });
-    // PR da própria conta (v2.72.6): o GitHub recusa a decisão do autor, então ela nem é oferecida
-    return d.prProprio ? [] : [acao('Aprovar', 'approve'), acao('Pedir mudanças em', 'request_changes')];
-  }),
-  // o lote respeita o ESCOPO: aprova só o que o filtro de conta mostra, nunca a
-  // fila inteira (agravante do achado A5, regra R13 do plano mestre)
-  ...(() => {
-    // e deixa de fora o que espera o CI: aprovar em lote por cima de pipe vermelha ou
-    // rodando não é o que "as pendentes" promete (um a um continua valendo)
-    const visiveis = (estado()?.decisions?.pending || []).filter(d => !d.esperaCi && !d.esperaProva && !d.prProprio).filter(scopeVisible);
-    return visiveis.length > 1
-      ? [{ kind: 'lote', label: `Aprovar as ${visiveis.length} pendentes`, hint: 'lote',
-          run: async () => { for (const d of visiveis) await decide(d.id, 'approve'); } }]
-      : [];
-  })(),
+  ...comandosDasPendencias(estado()?.decisions?.pending, { scopeVisible, decide, decideComConfirmacao }),
   ...[...document.querySelectorAll('.nav-item')].filter(b => !b.hidden).map(b => ({ kind: 'tab', label: `Ir para ${b.textContent}`, hint: 'aba', run: () => _switchTab(b.dataset.tab) })),
   // as 9 seções do Sistema, lidas do DOM: seção nova entra aqui sozinha.
   // .trim() porque o botão tem um <svg aria-hidden="true"> antes do texto e sobra espaço em branco.

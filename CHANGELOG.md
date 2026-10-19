@@ -9,7 +9,7 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.73.1
+## v2.73.2
 
 Com a conta configurada para aprovar ou reprovar sozinha, o Farol decide sozinho e não manda mais o PR para "Precisa de você" por desculpa.
 
@@ -31,7 +31,7 @@ Com a conta configurada para aprovar ou reprovar sozinha, o Farol decide sozinho
 
 - Repositório sem declaração técnica e prova que faltou depois das duas tentativas do Farol no mesmo commit voltam a ser ressalva, e a configuração da conta decide. A aprovação continua exigindo o commit confirmado, os checks obrigatórios verdes nesse commit e que a base e as objeções lidas pela revisão não tenham mudado. Violação técnica, achado não resolvido, a parte do card deste PR não entregue e CI vermelho ou pendente continuam impedindo.
 - "Precisa de você" fica só para a configuração que pede você, para o commit que não deu para confirmar e para falha de postagem ou de sessão, sempre com o motivo no card. Nunca sai aprovação com CI vermelho ou pendente, violação confirmada, commit não confirmado ou commit que mudou durante a revisão.
-## v2.73.0
+## v2.73.1
 
 Diagnóstico remoto da identidade das revisões, sem acesso ao terminal do aparelho.
 
@@ -39,6 +39,14 @@ Diagnóstico remoto da identidade das revisões, sem acesso ao terminal do apare
 
 - Em Radar > Aparelhos, o admin pode solicitar um retrato das contas autenticadas, da fila e das retomadas do executor. A resposta exige o consentimento já configurado no aparelho, chega cifrada e expira em cinco minutos.
 - A coleta compara a conta pretendida com o login que o GitHub confirma, preserva os metadados de entrada do boot e não envia tokens, configuração completa, comandos nem arquivos arbitrários.
+
+### Correções
+
+- A reconferência técnica retoma mesmo quando a fila já consumiu o marcador da primeira tentativa, inclusive depois de reiniciar o Farol.
+- Pendências antigas de reconferência entram na recuperação automática; um reenvio esgotado não impede a análise do contexto atualizado.
+- O card mostra verificação pendente e bloqueia Aprovar enquanto a análise anterior precisa ser refeita. A paleta de comandos e os outros aparelhos respeitam o mesmo bloqueio; Revisar de novo permanece disponível.
+- Uma revisão já na fila ou em execução termina e substitui a decisão antiga sem criar outra pendência órfã.
+- Reviews publicados durante uma análise continuam invalidando sua aprovação: a nova rodada precisa comprovar o contexto atualizado antes de postar.
 
 ## v2.72.11
 
