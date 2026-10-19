@@ -29,7 +29,8 @@ Com a conta configurada para aprovar ou reprovar sozinha, o Farol decide sozinho
 
 ### Correções
 
-- "Precisa de você" fica só para a configuração que pede você, para a prova técnica que continua faltando sem defeito do PR e para falha de postagem ou de sessão, sempre com o motivo no card. Nunca sai aprovação com CI vermelho ou pendente, violação confirmada, commit não confirmado ou commit que mudou durante a revisão.
+- Repositório sem declaração técnica e prova que faltou depois das duas tentativas do Farol no mesmo commit voltam a ser ressalva, e a configuração da conta decide. A aprovação continua exigindo o commit confirmado, os checks obrigatórios verdes nesse commit e que a base e as objeções lidas pela revisão não tenham mudado. Violação técnica, achado não resolvido, a parte do card deste PR não entregue e CI vermelho ou pendente continuam impedindo.
+- "Precisa de você" fica só para a configuração que pede você, para o commit que não deu para confirmar e para falha de postagem ou de sessão, sempre com o motivo no card. Nunca sai aprovação com CI vermelho ou pendente, violação confirmada, commit não confirmado ou commit que mudou durante a revisão.
 
 ## v2.72.11
 

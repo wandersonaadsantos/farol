@@ -156,10 +156,11 @@ test('espera do celular (biud-messaging-waba#52): sem carimbo e com as tentativa
   Object.assign(marca, { tentativas: esperaProva.MAX_TENTATIVAS, lacunas: ['dependência necessária ainda aberta'] });
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1, 'relança pela regra');
   assert.equal(pendente(e).esperaProva.tentativas, esperaProva.MAX_TENTATIVAS);
-  // A rodada aplica as regras novas sem dispensar a prova que continua faltando.
+  // a rodada relançada é a da prova esgotada: a lacuna que sobrou vira ressalva e a política aprova
   await revisado(e, PR, SEM_PROTOCOLO);
-  assert.equal(envios.length, 0, 'sem prova não aprova');
-  assert.ok(pendente(e).approvalEvidence.includes('protocolo de revisão não comprovado'));
+  assert.equal(envios.length, 1, 'aprovou com ressalvas');
+  assert.equal(envios[0].event, 'APPROVE');
+  assert.equal(pendente(e), undefined, 'nada mais esperando');
   for (let ciclo = 0; ciclo < 2; ciclo++) assert.equal(await esperaProva.varrerEsperas(e), 0);
 });
 

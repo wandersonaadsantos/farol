@@ -217,10 +217,15 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
    reenvio e espera. O card inteiro não comprovado e a dependência em aberto são ressalva,
    e a política da conta decide (17/10/2026: card BIUD é multi-repo e a dependência
    costuma ser o PR irmão); só a sessão dizendo que a parte do card que cabe a ESTE PR não
-   foi entregue (`cardParteDestePr === false`) impede APPROVE. Repositório sem declaração
-   técnica cadastrada impede APPROVE (v2.72.8). O Farol vai atrás da prova sozinho: lacuna
-   de prova relança na hora até duas revisões complementares no MESMO commit, e esgotar as
-   tentativas não converte lacuna em ressalva (v2.72.8). Nunca saem como APPROVE: CI
+   foi entregue (`cardParteDestePr === false`) impede APPROVE. **Decisão do dono de
+   18/10/2026, que supera a regra do PR #250 (v2.72.8):** repositório sem declaração técnica
+   cadastrada (`technicalReview.semDeclaracao`, marca só do runtime) é ressalva, e a prova
+   que faltou depois das duas revisões complementares do Farol no MESMO commit
+   (`provaEsgotada`) também é ressalva quando a lacuna não é dura; a política da conta
+   decide. A publicação aceita os dois exigindo `commit_id`, nenhuma outra lacuna obrigatória,
+   os checks obrigatórios verdes naquele commit e o contexto da revisão ainda valendo (base e
+   objeções, quando gravadas). O que é ressalva é o engine que decide, nunca o modelo: prova
+   gravada por regras anteriores (`VERSAO_DAS_REGRAS`) pede revisão nova. Nunca saem como APPROVE: CI
    obrigatório vermelho ou pendente, violação técnica confirmada ou achado não resolvido, a
    parte do card deste PR dita não entregue, commit não confirmado e head que andou.
    **A decisão sem mesa (18/10/2026, v2.72.12), regra do dono:** "Se foi configurado pra
@@ -236,8 +241,8 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
    Farol; PR da própria conta sai como COMMENT (o GitHub recusa a revisão decisiva do
    autor); resultado incompleto da sessão relança no mesmo commit até duas vezes; texto
    barrado pela trava de linguagem é reconstruído uma vez. A mesa que sobra tem motivo
-   dito no card: política em `wait`, prova que falta depois das tentativas sem defeito do
-   PR, infra (falha permanente ao postar, sessão que estacionou, dado corrompido). CI
+   dito no card: política em `wait`, lacuna dura que não é defeito do PR (commit não
+   confirmado, avaliação de outro commit), infra (falha permanente ao postar, sessão que estacionou, dado corrompido). CI
    obrigatório sem sucesso confirmado espera; a opção antiga de espera não dispensa essa
    prova. Leitura pode ser herdada, mas a avaliação precisa corresponder ao catálogo,
    declaração, repositório, base e head vigentes. Dívida anterior só é absorvida pelo

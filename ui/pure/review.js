@@ -196,8 +196,8 @@ export function esperaCiCardMeta(d) {
 }
 
 // Card da aprovação que busca a prova técnica (17/10/2026): nada é postado com lacuna, e o
-// Farol revisa de novo sozinho no MESMO commit, até duas vezes. Depois delas, a aprovação
-// permanece bloqueada sem prova. A revisão relançada também cai aqui (stale_head com o
+// Farol revisa de novo sozinho no MESMO commit, até duas vezes. Depois delas, o que faltar vira
+// ressalva e a política da conta decide (decisão do dono de 18/10/2026, que supera o PR #250). A revisão relançada também cai aqui (stale_head com o
 // head igual ao lido), e é ela a tentativa em curso.
 const TENTATIVAS_DA_PROVA = 2;
 function tentativaDaProva(d) {
@@ -210,7 +210,7 @@ function esperaProvaCardMeta(d) {
   const st = {
     tom: 'info', icone: 'hourglass',
     lead: `Buscando a prova (tentativa ${tentativaDaProva(d)} de ${TENTATIVAS_DA_PROVA}).`,
-    texto: 'Faltou prova técnica, então nada foi postado. Reviso de novo sozinho neste commit até duas vezes. Se a prova continuar incompleta, a aprovação permanece bloqueada e você pode usar Revisar agora após resolver o impedimento.',
+    texto: 'Aprovável, mas faltou prova técnica, então nada foi postado ainda. Reviso de novo sozinho neste commit para buscar a prova; depois de duas tentativas, o que faltar vira ressalva e a política da conta decide. Você não precisa fazer nada.',
   };
   return {
     stale: false, cardClass: 'working', approveDisabled: !!label,
