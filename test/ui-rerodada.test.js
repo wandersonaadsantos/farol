@@ -172,7 +172,7 @@ test('todo contador local de pendência exclui a espera do CI, e a tela tem a se
   assert.match(radar, /\$\('#decisionsCount'\)\.textContent = pending\.length/, 'o contador da seção (e o da sub-aba, que o lê) só vê quem precisa de você');
   assert.match(radar, /\$\('#esperaCi'\)\.innerHTML = esperandoCi\.map\(card\)/);
   const html = ler('ui/index.html');
-  assert.match(html, /<h2>Aprova sozinho \(esperando o CI ou a prova\) <span id="esperaCiCount"/);
+  assert.match(html, /<h2>Resolução automática \(CI ou análise\) <span id="esperaCiCount"/);
   assert.match(html, /id="esperaCi" class="cards"/);
   assert.match(ler('ui/telas/acoes.js'), /\$\('#esperaCi'\)\.addEventListener\('click', cliqueNoCardDeDecisao\)/, 'o botão Aprovar continua funcionando na seção nova');
 });

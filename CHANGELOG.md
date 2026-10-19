@@ -20,10 +20,14 @@ Diagnóstico remoto da identidade das revisões, sem acesso ao terminal do apare
 
 ## v2.72.11
 
-O Farol passa a ter identidade própria nas superfícies nativas do Windows e do macOS.
+O Farol recupera análises técnicas incompletas sozinho e preserva sua identidade nativa no Windows e no macOS.
 
 ### Correções
 
+- A análise com evidência incompleta mantém duas tentativas rápidas e continua com intervalos crescentes, de 15 minutos até seis horas, sem dispensar os critérios de aprovação.
+- Execuções interrompidas e pendências antigas voltam à recuperação automática, inclusive quando o commit não pôde ser confirmado. O prazo sobrevive ao reinício; fila, sessão e retentativa existentes impedem revisões concorrentes.
+- Recusas técnicas na publicação retornam ao mesmo fluxo de análise. Uma nova revisão pode fundamentar a aprovação ou o pedido de mudanças, conforme a política da conta.
+- O card mostra a próxima tentativa ou o impedimento do ambiente. Cancelamento explícito, automação desligada, autenticação e configuração ausente são respeitados, sem pedir uma aprovação que não resolveria a causa.
 - A reabertura pela barra de tarefas preserva o caminho do aplicativo mesmo quando o instalador usa o executável renomeado.
 - A janela do Windows declara identificador, ícone e comando de reabertura próprios para evitar o agrupamento com outros aplicativos Electron na barra de tarefas.
 - O instalador macOS cria um aplicativo com executável e identidade próprios, ícone e menus nativos. A assinatura local é verificada antes de substituir o bundle anterior; os dados continuam no mesmo diretório.

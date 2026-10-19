@@ -56,13 +56,13 @@ test('espera do CI pela pendência: grupo próprio, fora de "pedem você", com o
   assert.equal(cont.pedem, 0, 'o selo e o contador de "pedem você" não contam a espera');
   assert.equal(cont.ci, 1);
   const html = P.filaDoAparelhoHtml(itens, { miolo: 'lista', lidoEm: AGORA }, { nome: 'Celular da Ana', agora: AGORA });
-  assert.match(html, /<h3>Aprova sozinho \(esperando o CI ou a prova\)<\/h3>/);
+  assert.match(html, /<h3>Resolução automática \(CI ou análise\)<\/h3>/);
   assert.equal(html.includes('<h3>Pedem você</h3>'), false, 'o grupo que pede gente nem aparece');
   assert.match(html, /sync-chip info">esperando o CI</);
   assert.match(html, /aprova sozinho quando ele fechar verde/);
   assert.match(html, /class="btn sm md-decidir"[^>]*data-item="p1"/, 'aprovar na mão continua possível, sem destaque de ação principal');
   assert.match(html, /data-filtro="pedem"[^>]*>Pedem você <span>0<\/span>/, 'sem o destaque de urgência');
-  assert.match(html, /data-filtro="ci"[^>]*>Aprova sozinho <span>1<\/span>/);
+  assert.match(html, /data-filtro="ci"[^>]*>Automáticos <span>1<\/span>/);
   const faixa = P.faixaDeAparelhosHtml([AP, { ...AP, deviceId: 'dTablet', nome: 'Tablet' }], AP.deviceId, { [AP.deviceId]: cont }, AGORA);
   assert.match(faixa, /Celular da Ana<\/b><small>Android · nada pede você/, 'a faixa que troca de aparelho também não conta a espera');
 });
@@ -76,6 +76,15 @@ test('espera do CI só pela linha (pendência ainda não lida): mesmo grupo, sem
   assert.equal(html.includes('ap-cmd'), false);
 });
 
+test('recuperação técnica no Admin não oferece uma decisão manual ainda bloqueada', () => {
+  const itens = P.itensDaFila(DEV, { listas: listas([]), pendencias: [{ ...PEND_CI, espera: 'prova' }], operacoes: [] });
+  assert.equal(P.grupoDoItem(itens[0]), 'ci');
+  const html = P.filaDoAparelhoHtml(itens, { miolo: 'lista', lidoEm: AGORA }, { nome: 'Celular da Ana', agora: AGORA });
+  assert.match(html, /recuperando a análise/);
+  assert.match(html, /nenhuma prova é dispensada/);
+  assert.doesNotMatch(html, /md-decidir|vira ressalva|até duas vezes/);
+});
+
 test('aparelho em versão anterior (sem motivo na linha e sem espera na pendência) segue em "pedem você"', () => {
   const antiga = { ...PEND_CI };
   delete antiga.espera;
@@ -86,7 +95,7 @@ test('aparelho em versão anterior (sem motivo na linha e sem espera na pendênc
   assert.match(html, /<h3>Pedem você<\/h3>/);
   assert.match(html, /sync-chip warn">decidir</);
   assert.match(html, /class="btn sm primary md-decidir"/);
-  assert.equal(html.includes('<h3>Aprova sozinho'), false);
+  assert.equal(html.includes('<h3>Resolução automática'), false);
 });
 
 test('a pendência é mais nova que a linha: espera largada sai de "esperando o CI" na hora, e lixo no campo não vira espera', () => {
