@@ -380,7 +380,7 @@ test('análise parcial com avaliação técnica executada também é concluída 
   assert.equal(pendente(e), undefined);
 });
 
-// Decisão sem mesa (v2.72.12) com a do dono de 19/10/2026: o achado confirmado vira pedido de
+// Decisão sem mesa (v2.73.1) com a do dono de 19/10/2026: o achado confirmado vira pedido de
 // mudanças na hora, com o texto que a revisão escreveu, sem nada do catálogo privado.
 test('achado confirmado se transforma em pedido de mudanças fundamentado, sem recuo', async () => {
   const e = motor();

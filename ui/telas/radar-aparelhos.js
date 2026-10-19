@@ -25,6 +25,7 @@ import { registrarTela } from './registro.js';
 import { dadosDasListas } from './listas-remotas.js';
 import { dadosDoConjunto, emitirComando, aoMudarConjunto, aoClicarCompartilhado } from './radar-compartilhado.js';
 import { lerPoliticaAtual, publicarPolitica } from './sistema-aparelhos.js';
+import { diagnosticoHtml, coletarDiagnostico } from './radar-diagnostico.js';
 
 const APAR = { selecionado: '', filtro: 'tudo', aoVivo: new Set() };
 
@@ -113,6 +114,7 @@ function renderPagina(s) {
     ${andamentoAtrasadoHtml(conjunto.andamentoEm, agora, conjunto.andamentoFalhaEm, { estado: conjunto.estadoOperacoes })}
     <section aria-label="Fila do aparelho" id="aparFila">${filaDoAparelhoHtml(itens, situacao, ctxFila)}</section>
     <section aria-label="Contas do aparelho">${contasDoAparelhoHtml(ap, { desligado, retornoConta: r.daConta })}</section>
+    ${diagnosticoHtml(ap, desligadoBase)}
     <section aria-label="Comandos enviados">${comandosDoAparelhoHtml(s.comandosEmitidos, dadosDoConjunto().recibos, ap.deviceId, { agora })}</section>`;
   const pedem = Object.values(contagens).reduce((t, c) => t + c.pedem, 0);
   const rc = $('#rcApar');
@@ -186,6 +188,8 @@ async function mudarPolitica(dev, mudanca) {
 }
 
 function aoClicar(e) {
+  const diagnostico = e.target.closest('.ap-diagnostico');
+  if (diagnostico && !diagnostico.disabled) { coletarDiagnostico(diagnostico.dataset.dev, renderAparelhos); return; }
   const troca = e.target.closest('.apar-troca-item');
   if (troca) { APAR.selecionado = troca.dataset.dev; renderAparelhos(); return; }
   const filtro = e.target.closest('.fila-filtro');
