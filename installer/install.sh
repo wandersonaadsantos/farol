@@ -8,7 +8,7 @@
 # desenho e o checklist de validacao.
 set -euo pipefail
 
-SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 ROOT="$HOME/.farol"
 APP="$ROOT/app"
 WS="$ROOT/workspace"
@@ -16,6 +16,12 @@ WS="$ROOT/workspace"
 step() { printf '  -> %s\n' "$1"; }
 ok()   { printf '     %s\n' "$1"; }
 die()  { printf '  x  %s\n' "$1"; exit 1; }
+
+APP_REAL="$APP"
+if [ -d "$APP" ]; then APP_REAL="$(cd "$APP" && pwd -P)"; fi
+case "$SRC/" in
+  "$APP_REAL/"*) die 'Execute a partir de um repositorio fora da instalacao existente.' ;;
+esac
 
 
 echo

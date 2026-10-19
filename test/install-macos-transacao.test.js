@@ -21,10 +21,11 @@ function gravar(arquivo, texto) {
   fs.writeFileSync(arquivo, texto, { mode: 0o755 });
 }
 
-function bancada({ falha = '', nova = false, mutar = (texto) => texto } = {}) {
+function bancada({ falha = '', nova = false, origem = '', mutar = (texto) => texto } = {}) {
   const temporario = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-instalar-mac-'));
   const home = path.join(temporario, 'home com espaco');
-  const fonte = path.join(temporario, 'fonte');
+  const origens = { interna: path.join(home, '.farol/app/repo'), vizinha: path.join(home, '.farol/app-vizinho') };
+  const fonte = origens[origem] || path.join(temporario, 'fonte');
   const ferramentas = path.join(temporario, 'ferramentas');
   const app = path.join(home, '.farol/app');
   const bundle = path.join(home, 'Applications/Farol.app');
@@ -77,7 +78,7 @@ cp "$1/main.js" "$2/Contents/codigo"
     env: { ...process.env, FALHA: falha },
     encoding: 'utf8', timeout: PRAZO_INSTALADOR_MS,
   });
-  return { temporario, home, app, bundle, resultado };
+  return { temporario, home, fonte, app, bundle, resultado };
 }
 
 function dadosPreservados({ home }) {
@@ -139,5 +140,24 @@ test('contraprova: copiar codigo antes da preparacao rompe a preservacao', { ski
   try {
     assert.equal(caso.resultado.status, 27, caso.resultado.stderr);
     assert.throws(() => anteriorPreservado(caso), assert.AssertionError);
+  } finally { fs.rmSync(caso.temporario, { recursive: true, force: true }); }
+});
+
+test('instalador macOS recusa clone dentro do app e conserva a fonte', { skip: !fs.existsSync(bash) }, () => {
+  const caso = bancada({ origem: 'interna' });
+  try {
+    assert.equal(caso.resultado.status, 1, caso.resultado.stdout + caso.resultado.stderr);
+    assert.match(caso.resultado.stdout, /fora da instalacao/);
+    anteriorPreservado(caso);
+    assert.equal(fs.readFileSync(path.join(caso.fonte, 'main.js'), 'utf8'), 'novo main.js');
+  } finally { fs.rmSync(caso.temporario, { recursive: true, force: true }); }
+});
+
+test('instalador macOS aceita clone vizinho sem confundir prefixo com descendencia', { skip: !fs.existsSync(bash) }, () => {
+  const caso = bancada({ origem: 'vizinha' });
+  try {
+    assert.equal(caso.resultado.status, 0, caso.resultado.stdout + caso.resultado.stderr);
+    assert.equal(fs.readFileSync(path.join(caso.fonte, 'main.js'), 'utf8'), 'novo main.js');
+    dadosPreservados(caso);
   } finally { fs.rmSync(caso.temporario, { recursive: true, force: true }); }
 });
