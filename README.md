@@ -80,6 +80,7 @@ app instalado: [`docs/REVIEW-GATES.md`](docs/REVIEW-GATES.md),
 ```
 
 - **Radar**: sua fila de revisão + panorama de todos os PRs abertos das orgs monitoradas. Automático, só o que pediram a sua revisão; qualquer outro PR do panorama tem o botão **Revisar** pra rodar sob demanda, e nesses o resultado sempre cai em "Precisa de você" (nada é postado sem o seu clique).
+- **Aparelhos**: em Radar, o admin pode [coletar um diagnóstico remoto](docs/DIAGNOSTICO-REMOTO.md) das contas, da fila e das retomadas de um executor conectado, pelo canal cifrado existente. A coleta não envia credenciais nem permite acesso ao terminal.
 - **Meus PRs (autoanálise)**: a seção lista os PRs abertos de autoria sua (inclusive rascunhos). O botão **Analisar** roda o provedor do perfil associado sobre o seu próprio PR e devolve, só pra você, um veredito (**aprovável** ou **precisa de ajuste**), o que ajustar antes de pedir review e dicas de melhoria não-bloqueantes. É diagnóstico puro: **nenhuma ação no git ou no GitHub**, nada é postado, o resultado fica na tela (e some sozinho quando o PR fecha, ou no botão **Descartar**).
 - **Destaques**: os momentos exemplares registrados nos reviews, com o botão que compila internamente o resumo de kudos (resultado na tela, com copiar). O Diagnóstico em Sistema roda interno do mesmo jeito.
 - **Time**: a memória por autor (recorrências e ganhos observados a cada review).
