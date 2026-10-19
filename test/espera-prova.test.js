@@ -408,6 +408,30 @@ test('recusa técnica durante a publicação entra na recuperação única e nã
   assert.equal(envios.length, 1);
 });
 
+for (const origem of ['fila', 'sessao', 'retry']) {
+  test(`reconferência em ${origem} preserva a substituição da decisão antiga`, async () => {
+    const e = motor(['wait', 'wait']);
+    const d = await revisado(e, {});
+    d.technicalRecheck = false;
+    d.blockedKind = 'technical_recheck';
+    if (origem === 'fila') e.headlessQueue.push(PR);
+    if (origem === 'sessao') e.activeReviews.set('outra', { keys: [PR.key] });
+    if (origem === 'retry') e.retryAfterNet.set(PR.key, { at: Date.now() });
+    assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
+    assert.equal(d.blockedKind, 'technical_recheck');
+    assert.equal(d.esperaProva, undefined, 'a rodada já aceita continua dona da reconferência');
+    e.headlessQueue = [];
+    e.activeReviews.clear();
+    e.retryAfterNet.clear();
+    e.approvePolicyFor = () => 'approve';
+    await revisado(e, {});
+    assert.equal(pendente(e), undefined, 'a nova decisão substitui a antiga');
+    assert.ok(e.decisions.resolved.some(x => x.id === d.id && x.status === 'superseded'));
+    assert.equal(envios.length, 1);
+    assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0, 'não inicia outra rodada órfã');
+  });
+}
+
 test('falha de rede sem reconferência mantém o reenvio e não inicia análise nova', async () => {
   const e = motor(['wait', 'wait']);
   const d = await revisado(e, {});

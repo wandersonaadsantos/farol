@@ -174,7 +174,11 @@ const TECHNICAL_LABEL = {
   violation: { title: 'Bloqueio técnico', cls: 'rc' },
   pending: { title: 'Verificação pendente', cls: 'pending' },
 };
-const technicalLabel = d => TECHNICAL_LABEL[d?.technical?.state];
+function technicalLabel(d) {
+  const label = TECHNICAL_LABEL[d?.technical?.state];
+  if (label) return label;
+  if (d?.blockedKind === 'technical_recheck') return TECHNICAL_LABEL.pending;
+}
 
 export function esperaCiCardMeta(d) {
   const label = technicalLabel(d);

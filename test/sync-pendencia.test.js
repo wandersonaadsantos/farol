@@ -40,6 +40,15 @@ test('relatório interno, corpo do review, título, repo e login não sobem', ()
   }
 });
 
+for (const marca of [{ technicalRecheck: true, blockedKind: '' }, { technicalRecheck: false, blockedKind: 'technical_recheck' }]) {
+  test(`reconferência compartilhada não oferece aprovação, marcador ${marca.technicalRecheck}`, () => {
+    const p = pendencia.projetarPendencia({ ...ITEM, ...marca,
+      payloads: { approve: {}, request_changes: {}, comment: {} } }, { kId: K });
+    assert.equal(p.bloqueio, 'technical_recheck');
+    assert.deepEqual(p.acoes, ['request_changes', 'comment', 'skip']);
+  });
+}
+
 test('veredito e bloqueio fora da lista viram vazio', () => {
   const p = pendencia.projetarPendencia({ ...ITEM, verdict: '<script>', blockedKind: 'qualquer' }, { kId: K });
   assert.equal(p.veredito, '');
