@@ -63,9 +63,14 @@ test('todo job do CI declara timeout-minutes', () => {
    MAIOR que o job devolveria o silencio de hoje, com uma configuracao a mais para manter. */
 const TETO_DO_RUNNER = /--test-timeout=(\d+)/;
 
-test('a suite declara teto de tempo POR TESTE, para trava virar falha com nome', () => {
+function fonteDoExecutor() {
   const pkg = JSON.parse(fs.readFileSync(PKG, 'utf8'));
-  const script = String((pkg.scripts || {}).test || '');
+  assert.equal(pkg.scripts.test, 'node tools/rodar-testes.js', 'a guarda precisa ler o executor que npm test realmente chama');
+  return fs.readFileSync(path.join(import.meta.dirname, '../tools/rodar-testes.js'), 'utf8');
+}
+
+test('a suite declara teto de tempo POR TESTE, para trava virar falha com nome', () => {
+  const script = fonteDoExecutor();
   const m = TETO_DO_RUNNER.exec(script);
   assert.ok(m, 'npm test sem --test-timeout: trava vira job cancelado sem culpado, que foi o que aconteceu tres vezes em 23/09/2026');
   const ms = Number(m[1]);
@@ -74,8 +79,7 @@ test('a suite declara teto de tempo POR TESTE, para trava virar falha com nome',
 });
 
 test('o teto por teste cabe dentro do teto do job, senao o job mata antes de a trava se nomear', () => {
-  const pkg = JSON.parse(fs.readFileSync(PKG, 'utf8'));
-  const ms = Number(TETO_DO_RUNNER.exec(String((pkg.scripts || {}).test || ''))[1]);
+  const ms = Number(TETO_DO_RUNNER.exec(fonteDoExecutor())[1]);
   const jobs = jobsDo(fs.readFileSync(CI, 'utf8'));
   const tetos = jobs.map(j => Number(/^ {4}timeout-minutes:\s*(\d+)\s*$/m.exec(j.corpo)[1]) * 60000);
   const menor = Math.min(...tetos);

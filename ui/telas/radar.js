@@ -220,7 +220,10 @@ function renderQueue() {
   // 2 ou mais cards na mesma espera ganha um aviso só no topo, e os cards a forma curta
   const revisarJunto = estado().config?.revisarComOutrosRevisando === true;
   const contaDe = (pr) => (acctOf(pr) || {}).user || '';
-  const limiteDe = (pr) => (acctOf(pr) || {}).limitePlanoAte || 0;
+  const limiteDe = (pr) => {
+    const conta = acctOf(pr) || {};
+    return conta.autoReview === false ? 0 : conta.limitePlanoAte || 0;
+  };
   const noTopo = contasNoLimiteDaFila(q, { contaDe, limiteDe, parked, revisarJunto });
   const varias = Object.keys(noTopo).length > 1;
   const avisos = Object.entries(noTopo).map(([conta, v]) => queueLimitHtml(acctOf({ account: conta }), v.ate, v.n, varias)).join('');

@@ -1,8 +1,8 @@
-// A decisão sem mesa (18/10/2026, v2.72.9). Regra do dono: "Se foi configurado pra aprovar
+// A decisão sem mesa (18/10/2026, v2.72.12). Regra do dono: "Se foi configurado pra aprovar
 // sozinho ele aprova sozinho, se foi configurado pra reprovar sozinho ele reprova sozinho, sem
 // depender da minha ação. Não quero desculpas pra entregar a decisão pra mim."
 //
-// Cada caso abaixo ia para "Precisa de você" na v2.72.8 com a conta em automático:
+// Cada caso abaixo ia para "Precisa de você" até a v2.72.11 com a conta em automático:
 //   - revisão mandada pelo dono por clique, admin, comando ou distribuição (`requested` falso);
 //   - veredito aprovar com defeito do PR (violação técnica confirmada, achado técnico não
 //     resolvido, a parte do card deste PR não entregue), com a conta reprovando sozinha;

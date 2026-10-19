@@ -59,6 +59,16 @@ function montaPacoteDeUpdate() {
     fs.writeFileSync(path.join(src, 'docs', guia), `# ${guia}\n`);
   }
   fs.copyFileSync(INSTALL_SH, path.join(src, 'installer', 'install.sh'));
+  // A criação e assinatura do bundle é uma fronteira nativa, exercitada no Mac.
+  // Esta bancada POSIX mede cópia/update do app sem exigir ferramentas Apple.
+  fs.writeFileSync(path.join(src, 'installer', 'native-bundle-mac.sh'), `#!/bin/bash
+set -eu
+bundle="$HOME/Applications/Farol.app/Contents"
+mkdir -p "$bundle/MacOS"
+cp "$HOME/.farol/app/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" "$bundle/MacOS/Electron"
+echo '<key>CFBundleVersion</key><string>9.9.9</string><key>LSMinimumSystemVersion</key><string>13.0</string>' > "$bundle/Info.plist"
+`);
+
   fs.copyFileSync(path.join(RAIZ, 'installer/electron-runtime.sh'), path.join(src, 'installer/electron-runtime.sh'));
   assert.equal(fs.existsSync(path.join(src, 'node_modules')), false, 'a fonte simula o zip de update: sem node_modules');
   return src;
@@ -117,7 +127,7 @@ test('install.sh a partir do pacote de update PRESERVA o Electron instalado', { 
   assert.ok(fs.statSync(nativo).mode & 0o111, 'o binário nativo continua executável');
 });
 
-test('install.sh ajusta a identidade visível do Electron preservado', { skip: temBash ? false : 'só roda em POSIX com bash' }, () => {
+test('install.sh preserva a identidade original do runtime npm', { skip: temBash ? false : 'só roda em POSIX com bash' }, () => {
   const src = montaPacoteDeUpdate();
   const { home } = montaInstalacaoExistente();
 
@@ -128,9 +138,9 @@ test('install.sh ajusta a identidade visível do Electron preservado', { skip: t
 
   assert.equal(r.status, 0, `installer falhou: ${(r.stdout || '') + (r.stderr || '')}`);
   const plist = fs.readFileSync(path.join(home, '.farol', 'app', 'node_modules', 'electron', 'dist', 'Electron.app', 'Contents', 'Info.plist'), 'utf8');
-  assert.match(plist, /<key>CFBundleName<\/key><string>Farol<\/string>/, 'menu/Cmd-Tab nao podem herdar Electron como nome');
-  assert.match(plist, /<key>CFBundleDisplayName<\/key><string>Farol<\/string>/, 'nome visivel do bundle interno vira Farol');
-  assert.match(plist, /<key>CFBundleIdentifier<\/key><string>com\.biud\.farol\.electron<\/string>/, 'bundle interno deixa de usar o identificador generico do Electron');
+  assert.match(plist, /<key>CFBundleName<\/key><string>Electron<\/string>/, 'runtime npm fica intacto');
+  assert.match(plist, /<key>CFBundleDisplayName<\/key><string>Electron<\/string>/, 'branding fica no bundle externo');
+  assert.match(plist, /<key>CFBundleIdentifier<\/key><string>com\.github\.Electron<\/string>/, 'assinatura do runtime original não é invalidada');
   assert.match(plist, /<key>CFBundleExecutable<\/key><string>Electron<\/string>/, 'executavel nativo continua sendo o binario real do Electron');
 });
 
@@ -144,7 +154,7 @@ test('install.sh a partir do pacote de update ainda recria o lançador e o app',
   });
 
   assert.equal(r.status, 0, `installer falhou: ${(r.stdout || '') + (r.stderr || '')}`);
-  const lancador = path.join(home, 'Applications', 'Farol.app', 'Contents', 'MacOS', 'Farol');
+  const lancador = path.join(home, 'Applications', 'Farol.app', 'Contents', 'MacOS', 'Electron');
   assert.ok(fs.existsSync(lancador), 'lançador recriado');
   assert.ok(fs.existsSync(path.join(home, '.farol', 'app', 'server.js')), 'código novo copiado');
   const plist = fs.readFileSync(path.join(home, 'Applications', 'Farol.app', 'Contents', 'Info.plist'), 'utf8');

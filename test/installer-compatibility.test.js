@@ -115,8 +115,8 @@ for (const is64 of [false, true]) {
 }
 
 test('launcher macOS declara o minimo do Electron 44', () => {
-  const texto = fs.readFileSync(path.join(RAIZ, 'installer/install.sh'), 'utf8');
-  assert.match(texto, /<key>LSMinimumSystemVersion<\/key><string>13\.0<\/string>/);
+  const texto = fs.readFileSync(path.join(RAIZ, 'installer/native-bundle-mac.sh'), 'utf8');
+  assert.match(texto, /set_string LSMinimumSystemVersion '13\.0'/);
 });
 
 for (const arch of ['armv7l', 'arm64', 'x64']) {

@@ -9,7 +9,7 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.72.9
+## v2.72.12
 
 Com a conta configurada para aprovar ou reprovar sozinha, o Farol decide sozinho e não manda mais o PR para "Precisa de você" por desculpa.
 
@@ -30,6 +30,27 @@ Com a conta configurada para aprovar ou reprovar sozinha, o Farol decide sozinho
 ### Correções
 
 - "Precisa de você" fica só para a configuração que pede você, para a prova técnica que continua faltando sem defeito do PR e para falha de postagem ou de sessão, sempre com o motivo no card. Nunca sai aprovação com CI vermelho ou pendente, violação confirmada, commit não confirmado ou commit que mudou durante a revisão.
+
+## v2.72.11
+
+O Farol passa a ter identidade própria nas superfícies nativas do Windows e do macOS.
+
+### Correções
+
+- A reabertura pela barra de tarefas preserva o caminho do aplicativo mesmo quando o instalador usa o executável renomeado.
+- A janela do Windows declara identificador, ícone e comando de reabertura próprios para evitar o agrupamento com outros aplicativos Electron na barra de tarefas.
+- O instalador macOS cria um aplicativo com executável e identidade próprios, ícone e menus nativos. A assinatura local é verificada antes de substituir o bundle anterior; os dados continuam no mesmo diretório.
+
+## v2.72.9
+
+A fila explica a espera manual, e as recusas do Admin mostram o motivo e como prosseguir.
+
+### Correções
+
+- O card informa quando a revisão automática está desativada para a conta neste aparelho e indica o botão para iniciar manualmente.
+- Avisos de análise em outro aparelho continuam visíveis. Conta com automação desligada não promete retomada automática após o limite do plano.
+- Recusas técnicas do comando Decidir mostram uma explicação e o próximo passo, em vez de apenas um código interno. Recibos antigos recebem uma orientação geral sem inventar o motivo.
+- O recibo transmite somente categorias conhecidas de recusa, sem expor o erro livre. Os critérios para aprovar e as permissões do Admin permanecem iguais.
 
 ## v2.72.8
 
