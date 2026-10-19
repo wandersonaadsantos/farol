@@ -79,9 +79,12 @@ test('nova revisão substitui a decisão esgotada e persiste a versão para a pu
   assert.equal(publicationEvidence(e, pr).evidenceVersion, VERSAO_DAS_REGRAS);
 });
 
-test('a busca ativa não promete dispensa e a recuperação manual não libera Aprovar', () => {
+// Decisão do dono de 18/10/2026, que supera o PR #250: depois das duas tentativas o que faltar
+// vira ressalva e a política da conta decide, e o card diz isso. A prova esgotada que ainda
+// mostra lacuna pendente (de regras anteriores, por exemplo) continua sem liberar o Aprovar.
+test('a busca ativa diz que o que faltar vira ressalva, e a lacuna ainda pendente não libera Aprovar', () => {
   const active = staleCardMeta({ esperaProva: { tentativas: 1 }, technical: { state: 'pending' } });
-  assert.doesNotMatch(active.statusHtml, /vira ressalva|política da conta decide|Aprovável/);
+  assert.match(active.statusHtml, /vira ressalva e a política da conta decide/);
   const blocked = staleCardMeta({ provaEsgotada: true, technical: { state: 'pending' }, verdict: 'approve' });
   assert.equal(blocked.reviewBtn, 'primary');
   assert.equal(blocked.approveDisabled, true);
