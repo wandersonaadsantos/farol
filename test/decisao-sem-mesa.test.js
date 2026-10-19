@@ -443,3 +443,67 @@ test('payloadDoPrProprio prefere o comentário que a revisão escreveu', () => {
   assert.deepEqual(auto.payloadDoPrProprio({ verdict: 'approve', payloads: { approve: { event: 'APPROVE', body: 'a' } } }).body, 'a');
   assert.equal(auto.payloadDoPrProprio({ verdict: 'approve', payloads: {} }), null);
 });
+
+// ---------------------------------------------------------------- revisão do Codex sobre 8c1a1e2
+
+test('Codex 1: o pedido de mudanças que o próprio Farol postou pelo CI não resolve a espera na reconciliação', async () => {
+  const e = motor({ checks: [{ nome: 'audit', estado: 'vermelho' }] });
+  await revisar(e, 60);
+  assert.equal(pendente(e, 60).esperaCi.rcHead, HEAD);
+  gh.meusReviews = [{ state: 'CHANGES_REQUESTED', submitted_at: new Date(Date.now() + 1000).toISOString(), commit_id: HEAD }];
+  await e.reconcilePending();
+  assert.ok(pendente(e, 60), 'a espera continua: aquele pedido é o do CI, não uma decisão de fora');
+  gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
+  assert.equal(await e.varrerEsperas(), 1);
+  assert.deepEqual(envios.map((p) => p.event), ['REQUEST_CHANGES', 'APPROVE']);
+});
+
+test('Codex 1: uma aprovação minha neste commit continua resolvendo a espera do CI', async () => {
+  const e = motor({ checks: [{ nome: 'audit', estado: 'vermelho' }] });
+  await revisar(e, 61);
+  gh.meusReviews = [{ state: 'APPROVED', submitted_at: new Date(Date.now() + 1000).toISOString(), commit_id: HEAD }];
+  await e.reconcilePending();
+  assert.equal(pendente(e, 61), undefined);
+});
+
+test('Codex 2: comentário anterior e alheio da conta no mesmo commit não cala o comentário do PR próprio', async () => {
+  const e = motor();
+  gh.meusReviews = [{ state: 'COMMENTED', submitted_at: '2026-10-18T10:00:00Z', commit_id: HEAD, body: 'vou olhar depois' }];
+  sessao(e);
+  await e.runHeadlessReview({ ...PR(62), author: 'eu' });
+  assert.deepEqual(envios.map((p) => p.event), ['COMMENT']);
+  assert.equal(resolvida(e, 62).status, 'commented_own_pr');
+});
+
+test('Codex 2: o MESMO comentário já publicado neste commit não é repetido', async () => {
+  const e = motor();
+  gh.meusReviews = [{ state: 'COMMENTED', submitted_at: '2026-10-18T10:00:00Z', commit_id: HEAD, body: 'Leitura completa.' }];
+  sessao(e);
+  await e.runHeadlessReview({ ...PR(63), author: 'eu' });
+  assert.deepEqual(envios, []);
+  assert.equal(resolvida(e, 63).status, 'already_reviewed');
+});
+
+test('Codex 7: o texto reconstruído na espera do CI é o que fica para o reenvio', async () => {
+  const e = motor({ checks: [{ nome: 'test', estado: 'rodando' }] });
+  await revisar(e, 64, { extra: { payloads: { approve: { event: 'APPROVE', body: 'Leitura completa, sem bloqueios.\n\nEsta revisão foi gerada pelo Farol.' } } } });
+  gh.postFalha = 'HTTP 502: Bad Gateway';
+  gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
+  await e.varrerEsperas();
+  const d = pendente(e, 64);
+  assert.deepEqual(d.postRetry, { event: 'approve', attempts: 0 });
+  assert.equal(d.payloads.approve.body, 'Leitura completa, sem bloqueios.', 'o reenvio manda o texto que passou na trava');
+  gh.postFalha = '';
+  envios = [];
+  assert.equal(await e.retryFailedPosts(), 1);
+  assert.deepEqual(envios.map((p) => p.body), ['Leitura completa, sem bloqueios.']);
+});
+
+test('Codex 8: o comentário automático chega à tela (SSE) e à notificação nativa', () => {
+  const http = fs.readFileSync(path.join(import.meta.dirname, '..', 'lib', 'http-server.js'), 'utf8');
+  const main = fs.readFileSync(path.join(import.meta.dirname, '..', 'main.js'), 'utf8');
+  const app = fs.readFileSync(path.join(import.meta.dirname, '..', 'ui', 'app.js'), 'utf8');
+  assert.match(http, /engine\.on\('auto-commented', p => broadcast\('auto-commented', p\)\)/);
+  assert.match(main, /engine\.on\('auto-commented'/);
+  assert.match(app, /addEventListener\('auto-commented'/);
+});

@@ -111,3 +111,53 @@ test('clique que não muda nada não escreve no histórico', () => {
   disparar('keydown');
   assert.equal(history.chamadas.length, n);
 });
+
+// ---------------------------------------------------------------- revisão do Codex sobre 8c1a1e2
+
+test('Codex 4: conta que não está configurada no endereço cai em Todas na hora, e o endereço é corrigido', () => {
+  location.hash = '#/radar/panorama?conta=bob';
+  disparar('popstate');
+  assert.equal(escopo(), 'bob', 'controle: conta configurada vale');
+  location.hash = '#/radar/panorama?conta=fulano';
+  disparar('popstate');
+  assert.equal(escopo(), 'all', 'conta desconhecida não vira escopo, nem guardado');
+  assert.equal(localStorage.getItem('farol-scope'), 'all');
+  assert.deepEqual(ultima(), ['replace', '#/radar/panorama']);
+});
+
+test('Codex 5: link só com ?repo= ou ?pessoa= troca o agrupamento para o do foco', async () => {
+  const { filtrosDeEntregas } = await import('../ui/telas/entregas.js');
+  emitir('state', { ...ESTADO, config: { ...ESTADO.config, deliveriesEnabled: true } });
+  localStorage.setItem('farol-deliv-by', 'author');
+  location.hash = '#/entregas?pessoa=carol';
+  disparar('popstate');
+  assert.equal(filtrosDeEntregas().agrupar, 'author');
+  location.hash = '#/entregas?repo=acme/api';
+  disparar('popstate');
+  assert.equal(filtrosDeEntregas().agrupar, 'repo', 'o grupo do repositório só existe na visão por repositório');
+  assert.equal(filtrosDeEntregas().repo, 'acme/api');
+  location.hash = '#/entregas?pessoa=carol';
+  disparar('popstate');
+  assert.equal(filtrosDeEntregas().agrupar, 'author');
+  emitir('state', ESTADO);
+});
+
+test('Codex 6: caixa de revisão cuja busca termina depois de a rota mudar não abre nem empilha', async () => {
+  const { caixaAberta } = await import('../ui/telas/caixa-revisao.js');
+  let liberar;
+  const real = globalThis.fetch;
+  globalThis.fetch = (url) => (String(url).includes('/api/decision')
+    ? new Promise((r) => { liberar = () => r({ ok: true, status: 200, json: async () => ({ found: true, decision: { key: 'acme/api#9', verdict: 'approve', reasons: [] } }) }); })
+    : real(url));
+  try {
+    location.hash = '#/consumo?pr=acme%2Fapi%239';
+    disparar('popstate');
+    location.hash = '#/consumo';
+    disparar('popstate');
+    const n = history.chamadas.length;
+    liberar();
+    for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
+    assert.equal(caixaAberta(), '', 'a busca velha não abre a caixa');
+    assert.equal(history.chamadas.slice(n).some(([tipo]) => tipo === 'push'), false, 'e não empilha nada');
+  } finally { globalThis.fetch = real; }
+});

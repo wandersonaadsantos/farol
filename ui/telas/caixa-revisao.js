@@ -22,18 +22,29 @@ function decisaoLocal(key) {
 // (ui/telas/rota.js), e o Voltar do navegador a fecha.
 let CAIXA = null;
 
-function caixaAberta() { return CAIXA ? CAIXA.key : ''; }
+// Cada pedido de abertura ganha uma geração; fechar ou pedir outra caixa a invalida. A busca da
+// decisão é assíncrona, e a que termina depois de a rota mudar não abre nem empilha nada
+// (revisão do Codex sobre a 8c1a1e2, achado 6). Enquanto a busca corre, a chave pedida já é a
+// caixa da rota: o endereço não a perde, e trocar de rota a cancela.
+let GERACAO = 0;
+let PEDIDA = '';
 
-function fecharCaixaRevisao() { if (CAIXA) CAIXA.fechar(); }
+function caixaAberta() { return CAIXA ? CAIXA.key : PEDIDA; }
+
+function fecharCaixaRevisao() { GERACAO++; PEDIDA = ''; if (CAIXA) CAIXA.fechar(); }
 
 async function abrirCaixaRevisao(key) {
   // o get() devolve null em QUALQUER falha, por isso a rota responde envelope:
   // sem ele, "não há revisão desse PR" e "a busca falhou" seriam a mesma coisa
   // na tela, e o clique ficaria indistinguível de bug.
+  const geracao = ++GERACAO;
   let d = decisaoLocal(key);
   if (!d) {
+    PEDIDA = key;
     const env = await get('/api/decision?key=' + encodeURIComponent(key));
-    if (!env) { toast('error', 'Não consegui buscar a revisão agora. Tente de novo.'); return; }
+    if (geracao !== GERACAO) return;   // a rota mudou durante a busca: este pedido envelheceu
+    PEDIDA = '';
+    if (!env) { toast('error', 'Não consegui buscar a revisão agora. Tente de novo.'); avisarNavegacao(); return; }
     d = env.decision;
   }
   // outra caixa ainda aberta (o Avançar do navegador para outro PR): sai calada, quem

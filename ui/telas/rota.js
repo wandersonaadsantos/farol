@@ -18,7 +18,7 @@
    O login do Google devolve para `/` sem hash; aí a tela abre como sempre (o que estava
    guardado) e o endereço passa a dizer onde ela está. */
 
-import { lerRota, escreverRota, mudancaDeRota, accountBarVisible } from '../pure.js';
+import { lerRota, escreverRota, mudancaDeRota, accountBarVisible, validScope } from '../pure.js';
 import { estado, abaAtual, escopo, definirEscopo } from './estado.js';
 import { $ } from './infra.js';
 import { aoNavegar } from './registro.js';
@@ -73,6 +73,9 @@ function sincronizarUrl(substituir = false) {
 function aplicarConta(rota) {
   let alvo = rota.conta || '';
   if (!alvo && accountBarVisible(nContas(), rota.aba)) alvo = 'all';
+  // a mesma régua da barra de contas (validScope): conta que não está configurada aqui não
+  // vira escopo nem fica guardada; cai em Todas na hora, e o endereço é corrigido
+  if (alvo) alvo = validScope(alvo, ((estado() && estado().accounts) || []).map((a) => a.user));
   if (!alvo || alvo === escopo()) return;
   definirEscopo(alvo);
   guardarEscopo(alvo);
@@ -96,7 +99,8 @@ function aplicarCaixa(pr) {
   // a caixa abre quando a rota de entrada é reaplicada, com o estado já carregado
   if (!estado()) return;
   if (pr && caixaAberta() !== pr) abrirCaixaRevisao(pr);
-  if (!pr && caixaAberta()) fecharCaixaRevisao();
+  // sem caixa na rota: fecha a aberta e invalida a busca de uma que ainda não abriu
+  if (!pr) fecharCaixaRevisao();
 }
 
 function aplicarRota(rota) {

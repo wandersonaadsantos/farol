@@ -201,7 +201,9 @@ test('lista de reviews indisponível (rede) NÃO bloqueia', async (t) => {
   assert.equal(r.head, 'sha1', 'o head foi lido, o que faltou foi a lista');
 });
 
-test('duas aprovações com um pedido de mudanças aberto NÃO dispensam a automática, e quem sai sem caixa duplicada', async (t) => {
+// Revisão do Codex (8c1a1e2, achado 3): pedido de mudanças de gente não segura o Farol, nem
+// para cancelar a dispensa: com duas aprovações de gente a automática não é necessária.
+test('duas aprovações dispensam a automática mesmo com um pedido de mudanças de outra pessoa, e quem sai sem caixa duplicada', async (t) => {
   const e = engineFalso();
   t.after(espiaReviews(e, [
     { quem: 'Zoe', state: 'APPROVED', commit_id: 'sha1' },
@@ -210,8 +212,8 @@ test('duas aprovações com um pedido de mudanças aberto NÃO dispensam a autom
     { quem: 'zoe', state: 'APPROVED', commit_id: 'sha1' },
   ]));
   const r = await skip.bloqueadoPorHistorico(e, { ...PR });
-  assert.equal(r.bloqueado, false, 'com pedido de mudanças aberto o PR não está pronto: a revisão do Farol segue');
-  assert.deepEqual(r.quem, []);
+  assert.equal(r.bloqueado, true, 'duas aprovações de gente: a automática não é necessária');
+  assert.deepEqual(r.quem, ['bia', 'Zoe']);
   assert.deepEqual(r.pediramMudancas, ['ana']);
 });
 

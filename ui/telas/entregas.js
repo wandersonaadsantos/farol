@@ -250,7 +250,10 @@ function aplicarFiltrosDeEntregas(f, switchTab) {
   if (f.dias !== null && f.dias !== undefined && f.dias !== deliveriesDays) {
     deliveriesDays = f.dias; localStorage.setItem('farol-deliv-days', String(f.dias)); recarregar = true;
   }
-  const by = f.agrupar || deliveriesBy;
+  // o grupo em foco só existe na visão dele (como no gotoDeliv): ?repo= agrupa por repositório
+  // e ?pessoa= por pessoa, valha o que estiver guardado
+  const focoBy = (f.repo && 'repo') || (f.pessoa && 'author') || '';
+  const by = focoBy || f.agrupar || deliveriesBy;
   if (by !== deliveriesBy) { deliveriesBy = by; localStorage.setItem('farol-deliv-by', by); }
   marcarSeg(document.querySelectorAll('#delivBy .seg-btn'), x => x.dataset.by === deliveriesBy);
   marcarDelivDays();

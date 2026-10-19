@@ -418,6 +418,7 @@ function connect() {
   es.addEventListener('meu-pr-base', (e) => { const d = safeJsonParse(e.data); if (d) avisoDaBase(d, (url) => focusPr(url)); });
   es.addEventListener('auto-approved', () => ping());
   es.addEventListener('auto-rejected', () => ping());
+  es.addEventListener('auto-commented', () => ping());
   es.addEventListener('needs-decision', (e) => {
     ping();
     const d = safeJsonParse(e.data); if (!d) return; const { pr, item } = d;
