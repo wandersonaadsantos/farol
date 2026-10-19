@@ -12,16 +12,19 @@ SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 ROOT="$HOME/.farol"
 APP="$ROOT/app"
 WS="$ROOT/workspace"
+BUNDLE="$HOME/Applications/Farol.app"
 
 step() { printf '  -> %s\n' "$1"; }
 ok()   { printf '     %s\n' "$1"; }
 die()  { printf '  x  %s\n' "$1"; exit 1; }
 
-APP_REAL="$APP"
-if [ -d "$APP" ]; then APP_REAL="$(cd "$APP" && pwd -P)"; fi
-case "$SRC/" in
-  "$APP_REAL/"*) die 'Execute a partir de um repositorio fora da instalacao existente.' ;;
-esac
+for destino in "$APP" "$BUNDLE" "$WS/.claude" "$WS/prompts"; do
+  DEST_REAL="$destino"
+  if [ -d "$destino" ]; then DEST_REAL="$(cd "$destino" && pwd -P)"; fi
+  case "$SRC/" in
+    "$DEST_REAL/"*) die 'Execute a partir de um repositorio fora da instalacao existente.' ;;
+  esac
+done
 
 
 echo
@@ -64,7 +67,6 @@ preparar_runtime 'electron/dist/Electron.app/Contents/MacOS/Electron' "$SRC/inst
 
 LIVE_APP="$APP"
 LIVE_WS="$WS"
-BUNDLE="$HOME/Applications/Farol.app"
 mkdir -p "$ROOT" "$HOME/Applications"
 STAGE="$(mktemp -d "$ROOT/.farol-instalar.XXXXXX")"
 BUNDLE_STAGE=''
