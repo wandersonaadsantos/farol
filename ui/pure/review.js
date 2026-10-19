@@ -240,7 +240,7 @@ function metaDoCard(d, r) {
   const label = technicalLabel(d);
   if (label) verdictComum = `<span class="verdict ${label.cls}">${esc(label.title.toUpperCase())}</span>`;
   if (!stale) {
-    const reviewBtn = d && d.provaEsgotada === true && label ? 'primary' : '';
+    const reviewBtn = d && (d.provaEsgotada === true || d.blockedKind === 'technical_recheck') && label ? 'primary' : '';
     return { stale, approveDisabled: !!label, cardClass: d && d.verdict === 'approve' ? 'urgent' : 'blocked', verdictHtml: verdictComum, reasons, statusHtml: legado, reviewBtn };
   }
   const st = reRoundStatus(r, d);

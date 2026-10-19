@@ -9,6 +9,17 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.72.12
+
+Mudanças no histórico de reviews passam a pedir uma nova análise sem deixar uma aprovação antiga habilitada.
+
+### Correções
+
+- A reconferência técnica retoma mesmo quando a fila já consumiu o marcador da primeira tentativa, inclusive depois de reiniciar o Farol.
+- Pendências antigas de reconferência entram na recuperação automática; um reenvio esgotado não impede a análise do contexto atualizado.
+- O card mostra verificação pendente e bloqueia Aprovar enquanto a análise anterior precisa ser refeita. Revisar de novo permanece disponível.
+- Reviews publicados durante uma análise continuam invalidando sua aprovação: a nova rodada precisa comprovar o contexto atualizado antes de postar.
+
 ## v2.72.11
 
 O Farol recupera análises técnicas incompletas sozinho e preserva sua identidade nativa no Windows e no macOS.

@@ -408,6 +408,41 @@ test('recusa técnica durante a publicação entra na recuperação única e nã
   assert.equal(envios.length, 1);
 });
 
+test('falha de rede sem reconferência mantém o reenvio e não inicia análise nova', async () => {
+  const e = motor(['wait', 'wait']);
+  const d = await revisado(e, {});
+  d.postRetry = { event: 'approve', attempts: 1 };
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
+  assert.deepEqual(d.postRetry, { event: 'approve', attempts: 1 });
+  assert.equal(d.esperaProva, undefined);
+  assert.deepEqual(envios, []);
+});
+
+for (const retry of [null, { event: 'approve', attempts: 3, exhausted: true }]) {
+  test(`reconferência consumida pela fila retoma após reinício, com retry ${retry ? 'esgotado' : 'ausente'}`, async () => {
+    const e = motor(['wait', 'wait']);
+    const d = await revisado(e, {});
+    d.technicalRecheck = false;
+    d.blockedKind = 'technical_recheck';
+    d.postRetry = retry;
+    e.decisions = JSON.parse(JSON.stringify(e.decisions));
+    e.approvePolicyFor = () => 'approve';
+    e.eventos = [];
+    const tela = e.decisionForUi(pendente(e));
+    assert.equal(tela.technical.state, 'pending', 'a prova anterior não continua verde');
+    const card = staleCardMeta(tela, null);
+    assert.equal(card.approveDisabled, true, 'clicar de novo não pode publicar a análise antiga');
+    assert.equal(card.reviewBtn, 'primary');
+    assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
+    assert.ok(pendente(e).esperaProva, 'o motivo durável recupera a marca já consumida pela fila');
+    assert.equal(pendente(e).postRetry, null, 'a reconferência substitui o reenvio do texto antigo');
+    assert.deepEqual(envios, []);
+    await revisado(e, {});
+    assert.equal(pendente(e), undefined);
+    assert.equal(envios.length, 1, 'só a nova análise pode produzir a aprovação');
+  });
+}
+
 test('pendência antiga esgotada volta à recuperação sem perder o bloqueio técnico', async () => {
   const e = motor();
   const d = await revisado(e, SEM_PROTOCOLO);
