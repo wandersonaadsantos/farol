@@ -14,7 +14,9 @@ test('bundle macOS assinado abre com identidade própria', {
   skip: process.platform !== 'darwin' || !temRuntime, timeout: PRAZO_BUNDLE_MS,
 }, () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-bundle-'));
-  const appDir = path.join(home, '.farol', 'app');
+  const installedDir = path.join(home, '.farol', 'app');
+  const appDir = path.join(home, '.farol', 'candidato');
+  const stagedBundle = path.join(home, 'Applications', '.candidato', 'Farol.app');
   try {
     fs.mkdirSync(path.join(appDir, 'node_modules'), { recursive: true });
     fs.symlinkSync(path.join(raiz, 'node_modules/electron'), path.join(appDir, 'node_modules/electron'));
@@ -36,10 +38,12 @@ app.whenReady().then(() => {
 `);
     const env = { ...process.env, HOME: home };
     delete env.ELECTRON_RUN_AS_NODE;
-    execFileSync('/bin/bash', [path.join(raiz, 'installer/native-bundle-mac.sh')], {
+    execFileSync('/bin/bash', [path.join(raiz, 'installer/native-bundle-mac.sh'), appDir, stagedBundle], {
       env, timeout: PRAZO_BUNDLE_MS, stdio: 'pipe',
     });
     const bundle = path.join(home, 'Applications/Farol.app');
+    fs.renameSync(appDir, installedDir);
+    fs.renameSync(stagedBundle, bundle);
     const plist = path.join(bundle, 'Contents/Info.plist');
     const lerPlist = (key) => execFileSync('/usr/libexec/PlistBuddy', ['-c', `Print :${key}`, plist], { encoding: 'utf8' }).trim();
     assert.equal(lerPlist('CFBundleIdentifier'), 'com.biud.farol');
@@ -47,7 +51,7 @@ app.whenReady().then(() => {
     assert.equal(lerPlist('CFBundleVersion'), '9.9.9');
     assert.equal(lerPlist('CFBundleExecutable'), 'Farol');
     execFileSync(path.join(bundle, 'Contents/MacOS', lerPlist('CFBundleExecutable')), [], { env, timeout: PRAZO_BUNDLE_MS });
-    const [nome, packaged, appPath, menu] = fs.readFileSync(path.join(appDir, 'ready.txt'), 'utf8').split('\n');
+    const [nome, packaged, appPath, menu] = fs.readFileSync(path.join(installedDir, 'ready.txt'), 'utf8').split('\n');
     assert.equal(nome, 'Farol');
     assert.equal(packaged, 'true');
     assert.equal(fs.realpathSync(appPath), fs.realpathSync(path.join(bundle, 'Contents/Resources/app')));

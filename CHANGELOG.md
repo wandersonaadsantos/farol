@@ -9,9 +9,9 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.73.0
+## v2.73.1
 
-Diagnóstico remoto da identidade das revisões, sem acesso ao terminal do aparelho.
+Reconferência de reviews recuperada automaticamente, diagnóstico remoto e reinstalação segura no macOS.
 
 ### Novidades
 
@@ -19,6 +19,8 @@ Diagnóstico remoto da identidade das revisões, sem acesso ao terminal do apare
 - A coleta compara a conta pretendida com o login que o GitHub confirma, preserva os metadados de entrada do boot e não envia tokens, configuração completa, comandos nem arquivos arbitrários.
 
 ### Correções
+
+- A reinstalação macOS prepara código, runtime, protocolo e bundle antes de substituir a versão instalada. Falhas na troca ou no registro restauram a instalação anterior, preservando configuração, histórico e prompts pessoais.
 
 - A reconferência técnica retoma mesmo quando a fila já consumiu o marcador da primeira tentativa, inclusive depois de reiniciar o Farol.
 - Pendências antigas de reconferência entram na recuperação automática; um reenvio esgotado não impede a análise do contexto atualizado.

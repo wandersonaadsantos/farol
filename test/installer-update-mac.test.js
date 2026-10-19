@@ -58,14 +58,17 @@ function montaPacoteDeUpdate() {
   for (const guia of ['CONFIGURATION.md', 'REVIEW-GATES.md', 'MACOS.md', 'RELEASE.md']) {
     fs.writeFileSync(path.join(src, 'docs', guia), `# ${guia}\n`);
   }
-  fs.copyFileSync(INSTALL_SH, path.join(src, 'installer', 'install.sh'));
+  const registro = '/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister';
+  // Registro Apple é simulado nesta bancada POSIX; a transação continua real.
+  fs.writeFileSync(path.join(src, 'installer', 'install.sh'), fs.readFileSync(INSTALL_SH, 'utf8').replaceAll(registro, 'true'));
   // A criação e assinatura do bundle é uma fronteira nativa, exercitada no Mac.
   // Esta bancada POSIX mede cópia/update do app sem exigir ferramentas Apple.
   fs.writeFileSync(path.join(src, 'installer', 'native-bundle-mac.sh'), `#!/bin/bash
 set -eu
-bundle="$HOME/Applications/Farol.app/Contents"
+app="$1"
+bundle="$2/Contents"
 mkdir -p "$bundle/MacOS"
-cp "$HOME/.farol/app/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" "$bundle/MacOS/Electron"
+cp "$app/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" "$bundle/MacOS/Electron"
 echo '<key>CFBundleVersion</key><string>9.9.9</string><key>LSMinimumSystemVersion</key><string>13.0</string>' > "$bundle/Info.plist"
 `);
 
