@@ -5,6 +5,8 @@ O instalador macOS agora monta `~/Applications/Farol.app` com o runtime Electron
 Extraído do `CLAUDE.md` na Fase 1.5 da reorganização. O `CLAUDE.md` da raiz é o sumário, e os
 invariantes continuam lá.
 
+A reinstalação prepara o aplicativo e o bundle antes de encerrar a versão em uso. Se a preparação falhar, a instalação anterior continua disponível. Falhas durante a troca ou o registro restauram o código, o bundle e o protocolo anteriores; configuração, histórico e prompts pessoais são preservados. Corrija o erro informado e execute novamente o instalador.
+
 <!-- indice:inicio (gerado; test/guias-navegaveis.test.js reprova se divergir das seções) -->
 
 ## Índice
