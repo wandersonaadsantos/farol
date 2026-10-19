@@ -14,6 +14,8 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { startFakeRtdb } from './helpers/fake-rtdb.js';
 import { startFakeIdentity } from './helpers/fake-identity.js';
+import { opcoesDaDecisao } from '../ui/pure/compartilhado-decisao.js';
+import { textoDoBloqueio } from '../ui/pure/compartilhado.js';
 import { SYNC } from '../lib/constants.js';
 
 const { Engine } = await import('../server.js');
@@ -166,6 +168,18 @@ test('sem frota a conferência não apaga nada', async () => {
   e.sync.devices = { dOutro: { contract: 1, keyReady: false, lastSeenAt: Date.now() } };
   assert.deepEqual(await pend.apagarOrfas(e, e.config.sync, no('pending')), []);
   assert.equal(Object.keys(no('pending')).length, 1);
+});
+
+test('o admin recebe a reconferência cifrada e seu diálogo não oferece Aprovar', async () => {
+  const e = await motorPronto();
+  pendenciaLocal(e, 'd1', { technicalRecheck: false, blockedKind: 'technical_recheck',
+    payloads: { approve: { event: 'APPROVE', body: 'Texto anterior.' }, comment: { event: 'COMMENT', body: 'Comentário.' } } });
+  await pend.sincronizarPendencias(e, e.config.sync);
+  const [lida] = pend.lerPendencias(outroAparelho(e), no('pending'), {});
+  assert.equal(lida.bloqueio, 'technical_recheck');
+  assert.match(textoDoBloqueio(lida.bloqueio), /nova análise/);
+  assert.deepEqual(opcoesDaDecisao(lida.acoes).map(o => o.valor), ['skip', 'comment']);
+  assert.equal(JSON.stringify(fake.tree()).includes('technical_recheck'), false, 'o motivo continua cifrado');
 });
 
 test('o outro aparelho lê, é avisado uma vez, e o próprio não aparece para si', async () => {

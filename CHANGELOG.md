@@ -18,6 +18,14 @@ Diagnóstico remoto da identidade das revisões, sem acesso ao terminal do apare
 - Em Radar > Aparelhos, o admin pode solicitar um retrato das contas autenticadas, da fila e das retomadas do executor. A resposta exige o consentimento já configurado no aparelho, chega cifrada e expira em cinco minutos.
 - A coleta compara a conta pretendida com o login que o GitHub confirma, preserva os metadados de entrada do boot e não envia tokens, configuração completa, comandos nem arquivos arbitrários.
 
+### Correções
+
+- A reconferência técnica retoma mesmo quando a fila já consumiu o marcador da primeira tentativa, inclusive depois de reiniciar o Farol.
+- Pendências antigas de reconferência entram na recuperação automática; um reenvio esgotado não impede a análise do contexto atualizado.
+- O card mostra verificação pendente e bloqueia Aprovar enquanto a análise anterior precisa ser refeita. A paleta de comandos e os outros aparelhos respeitam o mesmo bloqueio; Revisar de novo permanece disponível.
+- Uma revisão já na fila ou em execução termina e substitui a decisão antiga sem criar outra pendência órfã.
+- Reviews publicados durante uma análise continuam invalidando sua aprovação: a nova rodada precisa comprovar o contexto atualizado antes de postar.
+
 ## v2.72.11
 
 O Farol recupera análises técnicas incompletas sozinho e preserva sua identidade nativa no Windows e no macOS.

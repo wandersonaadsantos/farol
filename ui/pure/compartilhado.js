@@ -237,7 +237,10 @@ export function comandoPermitido(sync) {
    usa: veredito, bloqueio, etapa, herança da memória, tempo e o feed ao vivo. */
 
 const VEREDITO = { approve: 'aprovar', request_changes: 'pedir mudanças', comment: 'só comentar', skip: 'pular' };
-const BLOQUEIO_PEND = { stale_head: 'o PR ganhou commit novo depois da análise' };
+const BLOQUEIO_PEND = {
+  stale_head: 'o PR ganhou commit novo depois da análise',
+  technical_recheck: 'o contexto da revisão mudou; uma nova análise é necessária antes de aprovar',
+};
 
 export function textoDoVeredito(v) {
   return VEREDITO[v] || 'sem veredito';
