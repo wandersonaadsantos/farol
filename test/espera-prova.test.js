@@ -419,7 +419,7 @@ for (const origem of ['fila', 'sessao', 'retry']) {
     if (origem === 'retry') e.retryAfterNet.set(PR.key, { at: Date.now() });
     assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
     assert.equal(d.blockedKind, 'technical_recheck');
-    assert.equal(d.esperaProva, undefined, 'a rodada já aceita continua dona da reconferência');
+    assert.ok(d.esperaProva, 'a recuperação acompanha a rodada já aceita sem lançar outra');
     e.headlessQueue = [];
     e.activeReviews.clear();
     e.retryAfterNet.clear();
@@ -431,6 +431,23 @@ for (const origem of ['fila', 'sessao', 'retry']) {
     assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0, 'não inicia outra rodada órfã');
   });
 }
+
+test('sessão aparece durante a recuperação e ainda substitui a decisão anterior', async () => {
+  const e = motor(['wait', 'wait']);
+  const d = await revisado(e, {});
+  d.technicalRecheck = false;
+  d.blockedKind = 'technical_recheck';
+  const recuperando = esperaProva.reverQuandoAProvaMudar(e);
+  // A preparação já saiu da fila; a sessão torna-se visível durante o await da recuperação.
+  e.activeReviews.set('preparando', { keys: [PR.key] });
+  assert.equal(await recuperando, 0);
+  e.activeReviews.clear();
+  e.approvePolicyFor = () => 'approve';
+  await revisado(e, {});
+  assert.equal(pendente(e), undefined, 'a sessão em preparação precisa substituir a decisão antiga');
+  assert.ok(e.decisions.resolved.some(x => x.id === d.id && x.status === 'superseded'));
+  assert.equal(envios.length, 1);
+});
 
 test('falha de rede sem reconferência mantém o reenvio e não inicia análise nova', async () => {
   const e = motor(['wait', 'wait']);

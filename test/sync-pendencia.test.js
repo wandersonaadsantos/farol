@@ -49,6 +49,13 @@ for (const marca of [{ technicalRecheck: true, blockedKind: '' }, { technicalRec
   });
 }
 
+test('a recuperação compartilhada conserva o bloqueio de Aprovar depois de armar a nova rodada', () => {
+  const p = pendencia.projetarPendencia({ ...ITEM, blockedKind: 'stale_head', esperaProva: {},
+    payloads: { approve: {}, comment: {} } }, { kId: K });
+  assert.equal(p.espera, 'prova');
+  assert.deepEqual(p.acoes, ['comment', 'skip']);
+});
+
 test('veredito e bloqueio fora da lista viram vazio', () => {
   const p = pendencia.projetarPendencia({ ...ITEM, verdict: '<script>', blockedKind: 'qualquer' }, { kId: K });
   assert.equal(p.veredito, '');
