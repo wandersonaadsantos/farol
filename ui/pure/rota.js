@@ -44,14 +44,20 @@ function decodificar(pedaco) {
   try { return decodeURIComponent(String(pedaco).replace(/\+/g, ' ')); } catch { return ''; }
 }
 
+// Só os nomes que a rota conhece saem da consulta: o nome vem do endereço, e escrever
+// propriedade com nome livre deixaria `__proto__` e parentes mexerem no objeto.
+const NOMES_DA_CONSULTA = ['conta', 'pr', 'org', 'dias', 'agrupar', 'busca', 'repo', 'pessoa'];
+
 function lerConsulta(texto) {
-  const consulta = {};
+  const lidos = new Map();
   for (const par of String(texto || '').split('&')) {
     if (!par) continue;
     const i = par.indexOf('=');
     const nome = decodificar(i < 0 ? par : par.slice(0, i));
-    if (nome && !(nome in consulta)) consulta[nome] = i < 0 ? '' : decodificar(par.slice(i + 1));
+    if (nome && !lidos.has(nome)) lidos.set(nome, i < 0 ? '' : decodificar(par.slice(i + 1)));
   }
+  const consulta = {};
+  for (const nome of NOMES_DA_CONSULTA) if (lidos.has(nome)) consulta[nome] = lidos.get(nome);
   return consulta;
 }
 

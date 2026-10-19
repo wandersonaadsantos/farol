@@ -166,3 +166,11 @@ test('empilhar x substituir no histórico', () => {
   assert.equal(mudancaDeRota(r('#/consumo?pr=a%2Fb%231'), r('#/sistema')), 'push', 'fechar e trocar de aba empilha');
   assert.equal(mudancaDeRota(r('#/radar?conta=x&pr=a%2Fb%231'), r('#/radar')), 'replace', 'fechar e mudar filtro substitui');
 });
+
+test('nome de consulta fora da lista não chega ao objeto, nem __proto__', async () => {
+  const { lerRota } = await import('../ui/pure/rota.js');
+  const r = lerRota('#/entregas?__proto__=x&constructor=y&dias=7');
+  assert.equal(Object.getPrototypeOf(r), Object.prototype);
+  assert.equal(({}).x, undefined);
+  assert.equal(r.dias, 7);
+});
