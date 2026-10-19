@@ -94,6 +94,14 @@ test('histórico identifica gatilho e sessão sem enviar prosa, tokens ou stderr
   assert.equal(JSON.stringify(r).includes('segredo-do-'), false);
 });
 
+test('relatório acima do limite recusa de forma terminal antes de publicar partes', async () => {
+  const e = motor();
+  e.queue[0].author = 'a'.repeat(300000);
+  e.sync = { uid: 'u1', deviceId: 'android', cur: 'g1', material: { id: randomBytes(32).toString('base64') }, client: { put: async () => assert.fail('não pode publicar resposta que excede o limite') } };
+  io.run = async () => ({ ok: true, stdout: 'revisor' });
+  assert.deepEqual(await publicarDiagnostico(e, CMD, {}, T), { estado: 'recusado', code: 'diagnostico_grande' });
+});
+
 test('diagnóstico atravessa o transporte cifrado com limite do banco, alvo e comando conferidos', async () => {
   const e = motor();
   const material = { id: randomBytes(32).toString('base64'), enc: { g1: randomBytes(32).toString('base64') } };
