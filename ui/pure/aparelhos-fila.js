@@ -24,23 +24,23 @@ import { botaoDoReviewHtml, motivosDaPendenciaHtml, motivosOmitidosDe } from './
 // não pede você: o aparelho dono revisa de novo sozinho quando o PR muda. Fica no mesmo grupo.
 const ESPERA_CI = 'espera-ci';
 const ESPERA_PROVA = 'espera-prova';
-const CHIP_DA_ESPERA = { [ESPERA_CI]: ['info', 'esperando o CI'], [ESPERA_PROVA]: ['info', 'buscando a prova'] };
+const CHIP_DA_ESPERA = { [ESPERA_CI]: ['info', 'esperando o CI'], [ESPERA_PROVA]: ['info', 'recuperando a análise'] };
 const FRASE_DA_ESPERA = {
   [ESPERA_CI]: 'aprovável, esperando o CI obrigatório: o aparelho aprova sozinho quando ele fechar verde',
-  [ESPERA_PROVA]: 'aprovável, faltou prova técnica: o aparelho revisa de novo sozinho neste commit, até duas vezes, e depois o que faltar vira ressalva',
+  [ESPERA_PROVA]: 'análise em recuperação automática: o aparelho retoma a revisão com intervalos crescentes e publica a decisão conforme a política; nenhuma prova é dispensada e não exige aprovação manual',
 };
 const MOTIVO_DA_ESPERA = { ci: ESPERA_CI, prova: ESPERA_PROVA };
 
 // grupos fixos, nesta ordem (HANDOFF, seção 1); "Esperando o CI" entrou em 01/10/2026
 const GRUPOS = [
   { id: 'pedem', titulo: 'Pedem você', sub: 'O aparelho revisou e espera sua decisão.' },
-  { id: 'ci', titulo: 'Aprova sozinho (esperando o CI ou a prova)', sub: 'Não precisam de você: o aparelho aprova quando o CI fechar verde, ou revisa de novo sozinho para buscar a prova.' },
+  { id: 'ci', titulo: 'Resolução automática (CI ou análise)', sub: 'O aparelho aguarda o CI ou recupera a análise e publica a decisão conforme a política. Não exige aprovação manual.' },
   { id: 'revisando', titulo: 'Revisando agora', sub: 'Sessões do executor, sincronizadas a cada 10 s.' },
   { id: 'fila', titulo: 'Na fila', sub: 'Ainda não começaram.' },
   { id: 'parados', titulo: 'Parados', sub: 'Bloqueados ou sem confirmação atual. Cada um diz o porquê.' },
   { id: 'feitos', titulo: 'Revisados e ignorados', sub: 'Saíram da fila.' },
 ];
-const FILTROS = [['tudo', 'Tudo'], ['pedem', 'Pedem você'], ['ci', 'Aprova sozinho'], ['revisando', 'Revisando'], ['fila', 'Na fila'], ['parados', 'Parados'], ['feitos', 'Feitos']];
+const FILTROS = [['tudo', 'Tudo'], ['pedem', 'Pedem você'], ['ci', 'Automáticos'], ['revisando', 'Revisando'], ['fila', 'Na fila'], ['parados', 'Parados'], ['feitos', 'Feitos']];
 
 const GRUPO_DO_ESTADO = {
   decidir: 'pedem', revisando: 'revisando',
@@ -256,6 +256,7 @@ function botao(classe, rotulo, attrs, desligado, item, primario = false) {
 // Sem destaque de ação principal: o esperado é aguardar o CI.
 function acoesDaPendencia(item, ctx) {
   const p = item.pend;
+  if (item.fila.motivo === ESPERA_PROVA) return botaoDoReviewHtml(p);
   const decidir = botao('md-decidir', 'Decidir', ` data-item="${esc(p.itemId)}" data-dev="${esc(p.dev)}" data-aparelho="${esc(p.aparelho || ctx.nome)}"`, ctx.desligadoBase, item, !esperaOCi(item.fila));
   return `${decidir}${botaoDoReviewHtml(p)}`;
 }

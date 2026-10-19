@@ -72,6 +72,7 @@ function motor(politica = ['approve', 'approve']) {
   e.config.accounts = [{ user: 'eu', owners: ['acme'] }];
   e.approvePolicyFor = (_conta, limpo) => (limpo ? politica[0] : politica[1]);
   e.autoReviewFor = () => true;
+  e.rejectPolicyFor = () => 'wait';
   e.decisions = { pending: [], resolved: [] };
   e.saveDecisions = () => { };
   e.saveReReviewLaunched = () => { };
@@ -138,7 +139,7 @@ test('o prompt da rodada complementar lista o que faltou, como dado delimitado',
   await revisado(e, SEM_PROTOCOLO);
   await esperaProva.reverQuandoAProvaMudar(e);
   const prompt = e.headlessPromptFor(PR.url, 'dev');
-  assert.match(prompt, /## Revisão complementar \(tentativa 1 de 2 neste commit\)/);
+  assert.match(prompt, /## Revisão complementar \(tentativa 1 neste commit\)/);
   assert.match(prompt, /<<<LACUNAS-DA-TENTATIVA-ANTERIOR\n- protocolo de revisão não comprovado\nLACUNAS-DA-TENTATIVA-ANTERIOR/);
 });
 
@@ -157,13 +158,16 @@ test('no máximo duas buscas por commit; a rodada seguinte aprova com a lacuna c
   assert.equal(pendente(e), undefined);
 });
 
-test('esgotada, quem decide é a política da conta: com ressalvas em "esperar você" vai para a mesa', async () => {
+test('falta de prova não é ressalva que transfere uma decisão ainda bloqueada', async () => {
   const e = motor(['approve', 'wait']);
-  // com lacuna, a classe é "com ressalvas" desde o começo: a espera nem arma, e é a política que segura
   const d = await revisado(e, SEM_PROTOCOLO);
-  assert.equal(d.esperaProva, undefined);
+  assert.ok(d.esperaProva);
   assert.deepEqual(envios, []);
-  assert.deepEqual(e.eventos, [['needs-decision', PR.key]]);
+  assert.deepEqual(e.eventos, []);
+  await esperaProva.reverQuandoAProvaMudar(e);
+  await revisado(e, {});
+  assert.equal(envios.length, 1);
+  assert.equal(pendente(e), undefined);
 });
 
 // Os três casos abaixo são da conta que NÃO reprova sozinha (onReject: wait). Com ela

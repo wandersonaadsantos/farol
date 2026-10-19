@@ -178,8 +178,8 @@ test('veredito aprovar com violação técnica confirmada e a conta reprovando s
   const corpo = envios[0].body;
   assert.match(corpo, /^Antes do merge, isto precisa ser resolvido:/);
   assert.match(corpo, /violação confirmada de um padrão técnico/);
-  assert.match(corpo, /a regra de desconto foi copiada em dois lugares/);
-  assert.match(corpo, /`src\/a\.ts:12`: regra de negócio duplicada no controller/);
+  // nome de regra, causa e achado vêm do catálogo privado da avaliação técnica: nunca no texto público (PR #253)
+  assert.doesNotMatch(corpo, /core\.duplication|regra de desconto|src\/a\.ts/);
   assert.match(corpo, /Revise o tratamento de erro antes do merge\./, 'o pedido que a sessão escreveu vem junto');
   assert.equal(envios[0].commit_id, HEAD);
   assert.deepEqual(publicReviewLanguageIssues(envios[0], 'eu'), [], 'passa pela trava de linguagem');
@@ -197,7 +197,7 @@ test('achado técnico não resolvido sem regra reprovada também é defeito do P
   await revisar(e, 11);
   assert.deepEqual(envios.map((p) => p.event), ['REQUEST_CHANGES']);
   assert.match(envios[0].body, /achados técnicos que ainda não foram resolvidos/);
-  assert.match(envios[0].body, /`b\.ts`: erro engolido no catch/);
+  assert.doesNotMatch(envios[0].body, /erro engolido/, 'o achado da ferramenta não vai ao texto público');
 });
 
 test('a parte do card deste PR dita não entregue: REQUEST_CHANGES com a conta reprovando sozinha', async () => {
@@ -349,14 +349,15 @@ test('texto todo barrado: nada sai, e o card diz que foi a postagem (infra)', as
 
 // ---------------------------------------------------------------- resultado incompleto
 
-test('análise incompleta com a conta em automático: revisa de novo sozinho no mesmo commit, sem mesa', async () => {
+// Resultado incompleto entra na recuperação durável do PR #253 (recuperacao-prova.js), quando a
+// origem é do dono; a política da conta é aplicada depois que a análise fecha.
+test('análise incompleta com a revisão mandada pelo dono: recuperação automática no mesmo commit, sem mesa', async () => {
   const e = motor();
-  await revisar(e, 40, { extra: { analysisStatus: 'incomplete', verdict: 'request_changes', payloads: { approve: { event: 'APPROVE', body: '' } } } });
+  await revisar(e, 40, { marcas: { manual: true }, extra: { analysisStatus: 'incomplete', verdict: 'request_changes', payloads: { approve: { event: 'APPROVE', body: '' } } } });
   const d = pendente(e, 40);
-  assert.ok(d.esperaProva, 'busca automática armada');
-  assert.equal(d.esperaProva.envelope, true);
-  assert.deepEqual(d.esperaProva.lacunas, ['análise incompleta']);
-  assert.match(textos(d)[0], /a revisão voltou incompleta \(análise incompleta\); reviso de novo sozinho/);
+  assert.ok(d.esperaProva, 'recuperação armada também para o clique do dono');
+  assert.ok(d.esperaProva.lacunas.includes('análise incompleta'), d.esperaProva.lacunas.join(' | '));
+  assert.match(textos(d)[0], /análise técnica pendente/);
   assert.deepEqual(envios, []);
   semMesa(e);
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1, 'relança no mesmo head');
@@ -364,24 +365,37 @@ test('análise incompleta com a conta em automático: revisa de novo sozinho no 
   assert.equal(pendente(e, 40).blockedHead, HEAD);
 });
 
-test('aprovação em branco (sem texto) também é resultado incompleto: revisa de novo, no máximo duas vezes', async () => {
+test('aprovação em branco (sem texto) também é resultado incompleto: segue na recuperação depois das duas tentativas, com recuo', async () => {
   const e = motor();
   const branco = { payloads: { approve: { event: 'APPROVE', body: ' ' } } };
   await revisar(e, 41, { extra: branco });
-  assert.equal(pendente(e, 41).esperaProva.envelope, true);
+  assert.ok(pendente(e, 41).esperaProva);
   pendente(e, 41).esperaProva.tentativas = esperaProva.MAX_TENTATIVAS;
   await revisar(e, 41, { extra: branco });
   const d = pendente(e, 41);
-  assert.equal(d.esperaProva, undefined, 'as tentativas deste commit acabaram');
-  assert.ok(textos(d).some((t) => /aprovou sem escrever nada/.test(t)), textos(d).join(' | '));
-  assert.deepEqual(e.eventos, [['needs-decision', 'acme/app#41']]);
+  assert.ok(d.esperaProva, 'resultado incompleto não vira ressalva: a recuperação continua');
+  assert.ok(d.esperaProva.proximaEm > Date.now(), 'com recuo depois das duas tentativas rápidas');
+  semMesa(e);
 });
 
-test('resultado incompleto com a conta que decide tudo: a mesa é a escolha da conta', async () => {
-  const e = motor({ aprova: 'wait', reprova: 'wait' });
-  await revisar(e, 42, { extra: { analysisStatus: 'incomplete' } });
+test('origem desconhecida com resultado incompleto não ganha recuperação com publicação', async () => {
+  const e = motor();
+  await revisar(e, 42, { marcas: {}, extra: { analysisStatus: 'incomplete' } });
   assert.equal(pendente(e, 42).esperaProva, undefined);
-  assert.deepEqual(e.eventos, [['needs-decision', 'acme/app#42']]);
+});
+
+// Decisão do dono de 19/10/2026: depois das duas tentativas, a lacuna que não é dura vira
+// ressalva e a política decide; a recuperação com recuo NÃO continua para ela.
+test('prova esgotada com lacuna que não é dura: vira ressalva e aprova pela política, sem recuo', async () => {
+  const e = motor();
+  const semProtocolo = { protocolo: { prReviewer: 'pulado' } };
+  await revisar(e, 43, { extra: semProtocolo });
+  assert.ok(pendente(e, 43).esperaProva);
+  pendente(e, 43).esperaProva.tentativas = esperaProva.MAX_TENTATIVAS;
+  await revisar(e, 43, { extra: semProtocolo });
+  assert.deepEqual(envios.map((p) => p.event), ['APPROVE']);
+  assert.equal(resolvida(e, 43).status, 'auto_approved');
+  assert.ok((resolvida(e, 43).attention || []).some((r) => /faltou prova depois das minhas 2 tentativas/.test(r.text || r)));
 });
 
 // ---------------------------------------------------------------- reenvio do comentário de PR próprio
@@ -418,7 +432,8 @@ test('defeitosDoPr: só violação, achado e a parte do card; prova incompleta n
 });
 
 test('os textos que o Farol monta passam pela trava de linguagem, sem travessão', () => {
-  const rc = auto.payloadDoDefeito({ technicalReview: { rules: [{ verdict: 'fail', causa: 'x duplicado' }], findings: [{ file: 'a.ts', message: 'y' }] } }, ['violação técnica confirmada']);
+  const rc = auto.payloadDoDefeito({ technicalReview: { rules: [{ rule: 'privada', verdict: 'fail', causa: 'x duplicado' }], findings: [{ file: 'a.ts', message: 'y' }] } }, ['violação técnica confirmada']);
+  assert.doesNotMatch(rc.body, /privada|x duplicado|a\.ts/, 'nada do catálogo privado no texto público');
   const ci = auto.payloadDoCiVermelho([{ nome: 'audit' }, { nome: 'lint' }], HEAD);
   for (const p of [rc, ci]) {
     assert.deepEqual(publicReviewLanguageIssues(p, 'eu'), [], p.body);
