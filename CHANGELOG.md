@@ -18,12 +18,13 @@ Diagnóstico remoto da identidade das revisões, sem acesso ao terminal do apare
 - Em Radar > Aparelhos, o admin pode solicitar um retrato das contas autenticadas, da fila e das retomadas do executor. A resposta exige o consentimento já configurado no aparelho, chega cifrada e expira em cinco minutos.
 - A coleta compara a conta pretendida com o login que o GitHub confirma, preserva os metadados de entrada do boot e não envia tokens, configuração completa, comandos nem arquivos arbitrários.
 
-## v2.72.10
+## v2.72.11
 
 O Farol passa a ter identidade própria nas superfícies nativas do Windows e do macOS.
 
 ### Correções
 
+- A reabertura pela barra de tarefas preserva o caminho do aplicativo mesmo quando o instalador usa o executável renomeado.
 - A janela do Windows declara identificador, ícone e comando de reabertura próprios para evitar o agrupamento com outros aplicativos Electron na barra de tarefas.
 - O instalador macOS cria um aplicativo com executável e identidade próprios, ícone e menus nativos. A assinatura local é verificada antes de substituir o bundle anterior; os dados continuam no mesmo diretório.
 

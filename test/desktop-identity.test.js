@@ -10,10 +10,13 @@ import { pathToFileURL } from 'node:url';
 
 const raiz = path.resolve(import.meta.dirname, '..');
 const executable = path.join(raiz, 'node_modules/electron/dist/electron.exe');
-test('janela tem identidade, ícone e reabertura próprios no Windows', {
+for (const renomeado of [false, true]) test(`janela tem identidade, ícone e reabertura próprios no Windows (${renomeado ? 'instalado' : 'desenvolvimento'})`, {
   skip: process.platform !== 'win32' || !fs.existsSync(executable), timeout: 30000,
 }, async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-desktop-'));
+  // O shell e o antivírus podem reter o perfil após o processo sair no Windows.
+  // Recolhe após cada cenário, com repetição limitada e falha observável.
+  test.after(() => fs.promises.rm(tmp, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }), { timeout: 30000 });
   const ready = path.join(tmp, 'ready.json');
   fs.mkdirSync(path.join(tmp, 'assets'));
   fs.copyFileSync(path.join(raiz, 'assets/farol.ico'), path.join(tmp, 'assets/farol.ico'));
@@ -32,13 +35,15 @@ app.setPath('userData', ${JSON.stringify(path.join(tmp, 'profile'))});
   identificarJanela(win, app);
   fs.writeFileSync(${JSON.stringify(ready)}, JSON.stringify({
     handle: win.getNativeWindowHandle().readBigUInt64LE().toString(),
-    executable: process.execPath, appPath: app.getAppPath(), name: app.getName(),
+    executable: process.execPath, appPath: app.getAppPath(), name: app.getName(), packaged: app.isPackaged,
   }));
 })().catch((error) => { console.error(error); app.exit(1); });
 `);
   const env = { ...process.env };
   delete env.ELECTRON_RUN_AS_NODE;
-  const child = spawn(executable, [bootstrap], { env, stdio: ['pipe', 'ignore', 'ignore'] });
+  const runtime = renomeado ? path.join(path.dirname(executable), `Farol-${path.basename(tmp)}.exe`) : executable;
+  if (renomeado) fs.linkSync(executable, runtime);
+  const child = spawn(runtime, [bootstrap], { env, stdio: ['pipe', 'ignore', 'ignore'] });
   const exited = new Promise((resolve) => {
     child.once('error', resolve);
     child.once('exit', resolve);
@@ -52,6 +57,7 @@ app.setPath('userData', ${JSON.stringify(path.join(tmp, 'profile'))});
       path.join(raiz, 'test/helpers/window-identity.ps1'), '-Handle', info.handle,
     ], { encoding: 'utf8' }));
     assert.equal(info.name, 'Farol');
+    assert.equal(info.packaged, renomeado, 'o nome do executável altera isPackaged');
     assert.equal(native.appId, 'com.biud.farol');
     assert.equal(native.name, 'Farol');
     assert.equal(native.icon, path.join(info.appPath, 'assets', 'farol.ico') + ',0');
@@ -63,6 +69,6 @@ app.setPath('userData', ${JSON.stringify(path.join(tmp, 'profile'))});
       execFileSync('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
     }
     await exited;
-    fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    if (renomeado) fs.unlinkSync(runtime);
   }
 });
