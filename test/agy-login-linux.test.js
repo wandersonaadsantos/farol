@@ -16,6 +16,7 @@ import fs from 'node:fs';
 import readline from 'node:readline';
 if (!process.stdin.isTTY) process.exit(42);
 process.on('SIGTERM', () => { if (!process.env.AGY_FALSO_IGNORAR_TERM) process.exit(0); });
+if (process.env.AGY_FALSO_IGNORAR_TERM) setInterval(() => {}, 1000);
 fs.writeFileSync(process.env.HOME + '/filho.pid', String(process.pid));
 console.log('https://accounts.google.com/o/oauth2/auth?teste=1');
 readline.createInterface({ input: process.stdin }).on('line', (codigo) => {
@@ -69,7 +70,10 @@ for (const automatico of [false, true]) {
     const child = e.loginsWeb.get(r.loginId).child;
     const pid = Number(fs.readFileSync(path.join(AGY_DIR, 'cancelar', 'filho.pid'), 'utf8'));
     const fechado = once(child, 'close');
-    if (!automatico) web.cancelar(e, r.loginId);
+    if (!automatico) {
+      web.cancelar(e, r.loginId);
+      assert.ok(child.stdin.writableEnded || child.stdin.destroyed, 'cancelar fecha a entrada do wrapper');
+    }
     await fechado;
     // O wrapper só pode fechar depois de recolher o filho, inclusive sem init reaper.
     assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
@@ -103,6 +107,7 @@ test('Linux: CLI que ignora TERM é forçado e recolhido pelo wrapper', { skip: 
   const pid = Number(fs.readFileSync(path.join(AGY_DIR, 'ignora', 'filho.pid'), 'utf8'));
   const fechado = once(child, 'close');
   web.cancelar(e, r.loginId);
+  assert.ok(child.stdin.writableEnded || child.stdin.destroyed, 'fecha a entrada mesmo quando o CLI ignora TERM');
   assert.equal((await fechado)[0], 137);
   assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
 });
