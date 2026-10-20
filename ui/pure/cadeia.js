@@ -38,7 +38,7 @@ function quando(ms, agora) {
 
 /** O estado de um perfil da cadeia em palavras. */
 function estadoDaCadeiaTexto(entrada, agora = Date.now()) {
-  const e = entrada || {};
+  const e = entrada ?? {};
   const base = ESTADOS[e.estado] || ESTADOS.pronto;
   if (e.estado !== 'limite' || !(e.ate > 0)) return base.rotulo;
   return `No limite até ${quando(e.ate, agora)}${e.estimado ? ' (estimado)' : ''}`;
@@ -106,7 +106,7 @@ function linhaDaCadeia(e, i, total, agora) {
  * @param {{ entradas?: Array<{id:string,label:string,provedorRotulo:string,ativo:boolean,estado:string,ate:number,estimado:boolean}>, todosNoLimite?: boolean, contasComPerfilProprio?: Array<{user:string,perfil:string}> }} cadeia
  */
 function cadeiaHtml(cadeia, agora = Date.now()) {
-  const c = cadeia || {};
+  const c = cadeia ?? {};
   const entradas = Array.isArray(c.entradas) ? c.entradas : [];
   if (!entradas.length) {
     return `<div class="card cad-card"><div class="set-title">Ordem de uso</div>
