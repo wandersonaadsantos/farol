@@ -36,6 +36,8 @@ import chatMod from './lib/engine/chat.js';
 import toolsMod from './lib/engine/tools.js';
 import pushbackMod from './lib/engine/pushback.js';
 import { carregarLimites, limiteAte } from './lib/engine/limite-plano.js';
+import cadeiaMod from './lib/engine/cadeia-perfis.js';
+import { provedoresParaTela } from './lib/engine/provedores.js';
 import decisionMod from './lib/engine/decision.js';
 import arbitragemMod from './lib/engine/postagem-arbitragem.js';
 import ghMod from './lib/engine/gh-queries.js';
@@ -140,6 +142,7 @@ const PARSERS = {
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
   sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort,
   sanitizeParallelReviews, sanitizeGlobalParallelReviews, parseJiraSites, parseSyncConfig,
+  normalizarCadeia: cadeiaMod.normalizarCadeia,
 };
 
 // carência anti-lag do índice de busca do GitHub: logo após EU postar um review, o PR
@@ -176,6 +179,7 @@ class Engine extends EventEmitter {
     // resolveClaudeConfigDir/allClaudeAuthInfo/ghEnv, quebrando toda busca de PR).
     this.config.claudeProfiles = normalizeClaudeProfiles(this.config.claudeProfiles);
     this.config.claudeProfileId = normalizeClaudeProfileId(this.config.claudeProfileId);
+    cadeiaMod.reconciliar(this.config); // cadeia de perfis: nasce do perfil padrão (migração)
     this.config.claudeConfigDir = sanitizeClaudeDir(this.config.claudeConfigDir);
     // A configuracao nasceu compartilhada entre os CLIs. Agora cada provedor tem o
     // proprio par: um alias Claude nunca pode rotular uma sessao Codex, e vice-versa.
@@ -1618,16 +1622,7 @@ class Engine extends EventEmitter {
   // 1) accounts[].claudeProfileId da própria conta; 2) claudeProfileId global (padrão do
   // Farol); 3) sem profiles configurados (ou id não encontrado/perfil sem o campo
   // obrigatório do seu kind), cai no claudeConfigDir legado (sempre kind dir).
-  resolveClaudeAuth(user) {
-    const acc = (this.config.accounts || []).find(a => a && a.user === user);
-    const profiles = this.config.claudeProfiles || [];
-    if (profiles.length) {
-      const id = acc?.claudeProfileId || this.config.claudeProfileId || '';
-      const resolved = authFromProfile(profiles.find(p => p.id === id));
-      if (resolved) return resolved;
-    }
-    return { kind: 'dir', id: '', dir: this.config.claudeConfigDir || '' };
-  }
+  resolveClaudeAuth(user) { return cadeiaMod.authDaConta(this, user); }
 
   // compat: quem só quer "o dir, se houver" (nenhum call site de produção deveria
   // sobrar depois da migração das Tasks 2/3/5, mas mantido por garantia). Devolve ''
@@ -1808,6 +1803,7 @@ class Engine extends EventEmitter {
       this.config[k] = v;
     }
     contasConfig.depoisDeAplicar(this, politicaAntes, patch, origem);
+    cadeiaMod.reconciliar(this.config, patch); // perfil removido sai da cadeia, padrão derivado
     // a guarda do celular depende de localAuth, que pode ter mudado no mesmo patch
     this.config.sync = this.syncComGuardaDoCelular(this.config.sync);
     env.setDebugSpawns(this.config.debugSpawns); // liga/desliga o logger na hora
@@ -1823,7 +1819,7 @@ class Engine extends EventEmitter {
     // cor/rótulo/tipo/org/claudeProfileId de uma conta não muda o resultado de
     // allClaudeAuthInfo() (ela só lê claudeProfiles), então redisparar doctor() aqui só
     // gastava 3 subprocessos + 1 chamada de rede (checkUpdate) à toa (achado da revisão final).
-    if ('claudeProfiles' in patch || 'claudeProfileId' in patch) {
+    if ('claudeProfiles' in patch || 'claudeProfileId' in patch || 'cadeiaPerfis' in patch) {
       this.doctor().catch(() => {});
     }
     this.emit('settings-changed', this.config);
@@ -1924,6 +1920,7 @@ class Engine extends EventEmitter {
       // catálogo de seleções (lib/modelos.js), de onde a tela monta os seletores, é outra coisa
       app: { name: APP_NAME, version: APP_VERSION, platform: process.platform },
       modelos: catalogoDeModelos(this.claudeVersao || null),
+      cadeiaPerfis: cadeiaMod.cadeiaParaTela(this), provedores: provedoresParaTela(this.config),
       // perfil apontado que a cascata não usa (A2): a queda para o legado deixou de ser silenciosa
       claudePerfis: { problemas: perfilMod.problemasDePerfil(this.config) },
       // capacidade implementada que NÃO está valendo: a tela não pode prometer o que o engine não aplica
