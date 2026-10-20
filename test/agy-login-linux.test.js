@@ -4,7 +4,6 @@ import os from 'node:os';
 import path from 'node:path';
 import cp from 'node:child_process';
 import { once } from 'node:events';
-import { setTimeout as esperar } from 'node:timers/promises';
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -16,7 +15,7 @@ fs.writeFileSync(falso, `
 import fs from 'node:fs';
 import readline from 'node:readline';
 if (!process.stdin.isTTY) process.exit(42);
-process.on('SIGTERM', () => process.exit(0));
+process.on('SIGTERM', () => { if (!process.env.AGY_FALSO_IGNORAR_TERM) process.exit(0); });
 fs.writeFileSync(process.env.HOME + '/filho.pid', String(process.pid));
 console.log('https://accounts.google.com/o/oauth2/auth?teste=1');
 readline.createInterface({ input: process.stdin }).on('line', (codigo) => {
@@ -72,12 +71,7 @@ for (const automatico of [false, true]) {
     const fechado = once(child, 'close');
     if (!automatico) web.cancelar(e, r.loginId);
     await fechado;
-    // O kernel pode ainda estar recolhendo o filho quando fecha o pipe do wrapper.
-    const prazo = Date.now() + 2000;
-    while (Date.now() < prazo) {
-      try { process.kill(pid, 0); } catch { break; }
-      await esperar(25);
-    }
+    // O wrapper só pode fechar depois de recolher o filho, inclusive sem init reaper.
     assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
     assert.equal(e.loginsWeb.size, 0);
   });
@@ -97,4 +91,18 @@ test('Linux: cancelamento com saída zero não confirma código em trânsito', {
   assert.equal((await fechado)[0], 0, 'simula o CLI que sai normalmente ao receber TERM');
   assert.equal(resultado.ok, false);
   assert.equal(resultado.code, 'expirou');
+});
+
+test('Linux: CLI que ignora TERM é forçado e recolhido pelo wrapper', { skip: !IS_LINUX, timeout: 10000 }, async (t) => {
+  const e = engine();
+  e.ghEnv = () => ({ ...process.env, AGY_FALSO_IGNORAR_TERM: '1' });
+  const r = await web.iniciar(e, 'ignora');
+  t.after(() => web.cancelar(e, r.loginId));
+  assert.equal(r.ok, true, JSON.stringify(r));
+  const child = e.loginsWeb.get(r.loginId).child;
+  const pid = Number(fs.readFileSync(path.join(AGY_DIR, 'ignora', 'filho.pid'), 'utf8'));
+  const fechado = once(child, 'close');
+  web.cancelar(e, r.loginId);
+  assert.equal((await fechado)[0], 137);
+  assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
 });
