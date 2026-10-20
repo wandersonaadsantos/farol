@@ -9,6 +9,18 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.75.1
+
+Os endereços do Farol viram caminhos de página, sem o `/#/`, e a instância de teste não nasce mais revisando sozinha.
+
+### Melhorias
+
+- O endereço de cada tela é um caminho de página: `https://farol.usealways.com/#/radar/pra-mim` passa a ser `https://farol.usealways.com/radar/pra-mim`. Link antigo com `#/` (favorito, notificação) continua funcionando e é trocado pelo caminho novo na entrada. Recarregar ou abrir direto um endereço profundo leva à mesma tela.
+
+### Correções
+
+- Um Farol novo configurado com `"autoReview": false` no arquivo de configuração, como o guia ensina para testar, nascia com a conta revisando e aprovando sozinha. Agora a chave escrita no arquivo vale para a conta detectada. Instalações que já tinham conta não mudam.
+
 ## v2.75.0
 
 Várias assinaturas em ordem de prioridade: quando a principal chega ao limite do plano, o Farol segue para a próxima sozinho e volta à principal depois do reset.
