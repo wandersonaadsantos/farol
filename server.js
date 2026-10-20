@@ -1644,7 +1644,7 @@ class Engine extends EventEmitter {
   resolveConfigDirForLogin(profileId) {
     const profiles = this.config.claudeProfiles || [];
     const p = profileId ? profiles.find(x => x.id === profileId) : null;
-    if (p?.dir) return p.dir;
+    if (p?.dir || p?.kind === 'maquina') return p.dir || '';
     return this.config.claudeConfigDir || '';
   }
 
@@ -1713,7 +1713,7 @@ class Engine extends EventEmitter {
       if (p.kind === 'apikey') return { configDir: null, account: null, ready: !!p.apiKey, apiKeyMode: true };
       if (p.kind === 'openrouter') return { configDir: null, account: null, ready: !!p.apiKey, openrouterMode: true };
       if (p.kind === 'codex') return { configDir: null, account: null, ready: true, codexMode: true };
-      return this.claudeAuthInfo(p.dir);
+      return this.claudeAuthInfo(p.dir || ''); // '' é o perfil `maquina`: lê ~/.claude.json
     };
     return [legacy, ...profiles.map(p => ({
       id: p.id,

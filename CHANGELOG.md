@@ -9,6 +9,19 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.74.0
+
+O login padrão da máquina aparece na lista de perfis com o nome que você der, o login de um perfil novo pode ser feito pela própria tela, sem terminal, e a limpeza presa da revisão técnica no Windows não estaciona mais o PR.
+
+### Novidades
+
+- Em Sistema > Plano e chaves, o login padrão da máquina (o que o Claude Code usa quando nenhuma pasta é indicada) pode ser listado como perfil, com nome próprio, orçamento e o selo da conta. Dá para escolhê-lo como padrão do Farol, numa conta do GitHub ou num grupo de consumo. A sessão continua entrando exatamente como antes.
+- Onde não há terminal para abrir, como no Farol rodando em servidor, o "Abrir sessão de login" abre um painel na tela: você abre a página de login da Anthropic, entra com a conta da assinatura e cola aqui o código que ela mostra. O comando de terminal continua no painel, como alternativa.
+
+### Correções
+
+- No Windows, arquivo da revisão técnica preso por outro processo na hora da limpeza não derruba mais a revisão nem estaciona o PR esperando clique: o material temporário sai na limpeza seguinte.
+
 ## v2.73.2
 
 Com a conta configurada para aprovar ou reprovar sozinha, o Farol decide sozinho e não manda mais o PR para "Precisa de você" por desculpa.
