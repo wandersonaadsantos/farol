@@ -230,13 +230,12 @@ test('confirmação que não é true literal não grava', () => {
   assert.deepEqual(e.config.claudeProfiles, []);
 });
 
-test('quem já tem perfil ou usa o padrão da máquina não tem o que adotar', () => {
-  const comPerfil = engineCom({ claudeProfiles: [{ id: 'p1', label: 'A', dir: DIR_A }], claudeProfileId: 'p1', accounts: [] });
+// sem pasta legada, o que se adota desde 20/10/2026 é o login padrão da máquina
+// (test/perfil-maquina.test.js); com pasta legada e perfis salvos, não há o que adotar
+test('quem já tem perfil e uma pasta legada não tem o que adotar', () => {
+  const comPerfil = engineCom({ claudeProfiles: [{ id: 'p1', label: 'A', dir: DIR_A }], claudeProfileId: 'p1', claudeConfigDir: DIR_A, accounts: [] });
   assert.equal(comPerfil.claudeAdotarLegado({ confirmar: true }).code, 'ja-tem-perfis');
-  const semPasta = engineCom({ claudeProfiles: [], claudeProfileId: '', claudeConfigDir: '', accounts: [] });
-  const r = semPasta.claudeAdotarLegado({ confirmar: true });
-  assert.equal(r.code, 'padrao-da-maquina');
-  assert.deepEqual(semPasta.config.claudeProfiles, []);
+  assert.equal(comPerfil.config.claudeProfiles.length, 1);
 });
 
 // --- selo depois do login ---------------------------------------------------------

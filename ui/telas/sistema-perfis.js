@@ -7,26 +7,60 @@
    único ponto de contato é cp-remove, que precisa limpar a referência ao perfil removido
    nas contas que a têm; por isso a única direção de import é DESTA tela PARA aquela. */
 
-import { claudeProfilesHtml, genId, perfilTesteHtml, perfilProblemasHtml } from '../pure.js';
+import { claudeProfilesHtml, genId, perfilTesteHtml, perfilProblemasHtml, loginWebHtml } from '../pure.js';
 import { estado, ehWin } from './estado.js';
-import { $, api, toast, copyToClipboard } from './infra.js';
+import { $, api, toast } from './infra.js';
 import { rebuildAccounts } from './contas.js';
 import { renderAccountsManager } from './sistema-contas.js';
 
-// Sem terminal para abrir (celular, ou Linux sem emulador), o engine devolve o comando de
-// login, com HOME, PATH e a pasta do perfil já certos (lib/engine/login-celular.js). No
-// proot ele entra pelo Termux, fora do Ubuntu; fora do proot, roda num terminal do mesmo
-// sistema. Copiado, basta colar; sem a cópia, o comando vai no próprio aviso.
-const ONDE_RODAR = {
-  termux: 'no Termux, numa sessão fora do Ubuntu',
-  terminal: 'num terminal deste sistema',
-};
-async function copiarComandoDeLogin(comando, onde) {
-  const copiou = await copyToClipboard(comando);
-  const lugar = ONDE_RODAR[onde] || ONDE_RODAR.terminal;
-  const passos = `Cole e rode ${lugar}; o Claude abre direto na pasta deste perfil (rode /login se pedir). Depois clique em Revisar nos PRs parados.`;
-  const texto = copiou ? `Comando de login copiado. ${passos}` : `Rode ${lugar}: ${comando}`;
-  toast('ok', texto, 15000);
+// Sem terminal para abrir (modo servidor, celular, Linux sem emulador), o engine devolve o
+// comando de login (lib/engine/login-celular.js) e a tela abre o login por aqui mesmo: o
+// engine roda o `claude auth login` e devolve o link, e o código colado volta para ele
+// (lib/engine/login-web.js). O comando segue no painel, como alternativa.
+let loginWeb = null;
+
+function renderLoginWeb() {
+  const alvo = $('#cpLoginWeb');
+  if (alvo) alvo.innerHTML = loginWebHtml(loginWeb || {});
+}
+
+function nomeDoPerfil(id) {
+  const p = (estado().config.claudeProfiles || []).find(x => x.id === id);
+  return p ? p.label : 'Padrão da máquina';
+}
+
+function abrirLoginWeb(profileId, comando, onde) {
+  loginWeb = { estado: 'abrindo', perfil: nomeDoPerfil(profileId), comando, onde };
+  renderLoginWeb();
+  api('/api/claude/login-web/start', { profileId }).then((r) => {
+    if (!loginWeb) return;
+    if (r && r.ok) loginWeb = { ...loginWeb, estado: 'link', url: r.url, loginId: r.loginId };
+    else loginWeb = { ...loginWeb, estado: 'erro', motivo: (r && r.motivo) || 'não deu para abrir o login agora' };
+    renderLoginWeb();
+  });
+}
+
+function enviarCodigoDoLogin() {
+  const campo = $('#cpLoginWebCodigo');
+  const code = ((campo && campo.value) || '').trim();
+  if (!loginWeb || !loginWeb.loginId) return;
+  if (!code) { toast('info', 'Cole o código que a página de login mostrou.', 3500); return; }
+  loginWeb = { ...loginWeb, estado: 'enviando', motivo: '' };
+  renderLoginWeb();
+  api('/api/claude/login-web/code', { loginId: loginWeb.loginId, code }).then((r) => {
+    if (!loginWeb) return;
+    if (r && r.ok) loginWeb = { estado: 'feito', perfil: loginWeb.perfil };
+    // login que expirou ou que o CLI recusou não volta: o link é de uso único
+    else if (r && r.code === 'codigo-invalido') loginWeb = { ...loginWeb, estado: 'erro', motivo: r.motivo };
+    else loginWeb = { ...loginWeb, estado: 'erro', url: '', motivo: `${(r && r.motivo) || 'o login não deu certo'}. Clique de novo em Abrir sessão de login para recomeçar.` };
+    renderLoginWeb();
+  });
+}
+
+function fecharLoginWeb() {
+  if (loginWeb && loginWeb.loginId && loginWeb.estado !== 'feito') api('/api/claude/login-web/cancel', { loginId: loginWeb.loginId });
+  loginWeb = null;
+  renderLoginWeb();
 }
 
 // Gerenciador de perfis de assinatura Claude (Sistema): cada perfil é {id,label,dir}
@@ -65,6 +99,7 @@ export function renderClaudeProfiles() {
   box.innerHTML = perfilProblemasHtml((estado().claudePerfis || {}).problemas)
     + claudeProfilesHtml({ config: estado().config, usage: estado().usage, doctor: estado().doctor, ehWin: ehWin() });
   renderTestes();
+  renderLoginWeb();
   // efeito de DOM, não de markup: o listener do seletor mostra de volta no modo Chave de API
   const hint = $('#cpAddHint'); if (hint) hint.hidden = true;
 }
@@ -247,26 +282,33 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
   if (t.classList.contains('cp-login')) {
     const id = t.dataset.id || '';
     api('/api/claude-login', { profileId: id }).then((r) => {
-      // no celular não há terminal para abrir: o engine devolve o comando para o Termux
-      if (r && r.comando) { copiarComandoDeLogin(r.comando, r.onde); return; }
+      // sem terminal para abrir, o login acontece nesta tela
+      if (r && r.comando) { abrirLoginWeb(id, r.comando, r.onde); return; }
       toast('ok', 'Abrindo sessão de terminal pra login. Rode /login lá, se pedir, e pode fechar quando terminar.', 4500);
     });
     return;
   }
   // adoção do legado (A2): quem grava é o engine, e só com confirmação literal. A tela
   // não monta o perfil por fora, senão seriam duas regras de "o que é o perfil legado".
+  if (t.id === 'cpLoginWebEnviar') { enviarCodigoDoLogin(); return; }
+  if (t.id === 'cpLoginWebCancelar') { fecharLoginWeb(); return; }
   if (t.id === 'btnClaudeMigrate') {
     const label = ($('#claudeMigrateLabel').value || '').trim() || 'Perfil atual';
     api('/api/claude/profile-adopt', { confirmar: true, label }).then((r) => {
       if (r && r.escreveu) {
-        toast('ok', 'Perfil criado e escolhido como padrão do Farol.', 3500);
+        toast('ok', 'Perfil salvo na lista.', 3500);
         return;
       }
-      toast('error', (r && r.code === 'ja-tem-perfis') ? 'Já existem perfis salvos.' : 'Não deu para criar o perfil agora.', 4000);
+      toast('error', MOTIVO_DA_ADOCAO[r && r.code] || 'Não deu para criar o perfil agora.', 4000);
     });
     return;
   }
 });
+const MOTIVO_DA_ADOCAO = {
+  'ja-tem-perfis': 'Já existem perfis salvos.',
+  'maquina-ja-listada': 'O login padrão desta máquina já está na lista.',
+};
+
 // aplica uma transformação num perfil e devolve a lista inteira, que é o que o
 // PATCH /api/settings espera (claudeProfiles é substituído por completo). Existe
 // pra os handlers de orçamento não repetirem o mesmo .map cinco vezes.

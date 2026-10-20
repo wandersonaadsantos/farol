@@ -196,7 +196,11 @@ export function budgetEditorHtml(p, info) {
   </div>`;
 }
 
+// o login padrão da máquina não tem pasta para editar: a sessão roda sem CLAUDE_CONFIG_DIR
+const TEXTO_MAQUINA = 'Login padrão desta máquina: a conta que o Claude Code usa quando nenhuma pasta é indicada (~/.claude e ~/.claude.json). Dar um nome aqui não muda como a sessão entra; serve para escolher este login como padrão, numa conta do GitHub ou num grupo de consumo.';
+
 function profileFieldsHtml(p, isApiKey, isCodex, isOpenRouter, camposChave, camposDir, camposOrcamento, camposOpenRouter) {
+  if (p.kind === 'maquina') return `<div class="a-hint">${esc(TEXTO_MAQUINA)}</div>` + camposOrcamento;
   if (isCodex) {
     return '<div class="a-hint">Usa o Codex CLI local com login ChatGPT. O Farol registra os tokens das automações, mas o CLI não informa saldo da cota nem custo por sessão. Use o botão de login se o diagnóstico acusar falta de autenticação.</div>';
   }
@@ -220,7 +224,20 @@ export function claudeProfilesHtml(ctx) {
       <button class="btn sm" id="btnClaudeMigrate">Salvar como perfil</button>
     </div>
   </div>`;
-  const migrateCard = (!profiles.length && c.claudeConfigDir) ? cartaoMigracao : '';
+  // sem pasta legada, quem fica fora da lista é o login padrão da máquina: o cartão oferece
+  // listá-lo com um nome (a gravação é do engine, pela mesma rota da adoção)
+  const cartaoMaquina = `<div class="card acct-add">
+    <div class="a-add-title">Login padrão desta máquina</div>
+    <div class="a-hint">Hoje o Farol usa este login sem nome. Liste-o como perfil para dar um nome a ele e escolher onde ele vale; a sessão continua entrando do mesmo jeito.</div>
+    <div class="a-editrow">
+      <input id="claudeMigrateLabel" placeholder="nome do perfil (ex.: BIUD Max 20X)" value="Login padrão desta máquina" spellcheck="false">
+      <button class="btn sm" id="btnClaudeMigrate">Listar como perfil</button>
+    </div>
+  </div>`;
+  const temMaquina = profiles.some(p => p.kind === 'maquina');
+  let migrateCard = '';
+  if (c.claudeConfigDir) migrateCard = profiles.length ? '' : cartaoMigracao;
+  else if (!temMaquina) migrateCard = cartaoMaquina;
   // se o legado (claudeConfigDir) ainda estiver preenchido, "Padrão da máquina" na
   // verdade cai nele por baixo dos panos (ver resolveClaudeConfigDir) - deixa isso
   // visível aqui, já que a Task 6 tirou o campo texto que mostrava esse valor.
@@ -319,7 +336,7 @@ export function claudeProfilesHtml(ctx) {
     <div class="a-hint" id="cpAddOpenRouterHint" hidden>Chave em openrouter.ai. O Farol aponta o Claude Code pra https://openrouter.ai/api (Anthropic Skin). Modelos não-Anthropic pelo Skin não são garantia do Claude Code.</div>
     <div class="a-hint" id="cpAddCodexHint" hidden>Usa a cota do plano ChatGPT pelo Codex CLI local. API key do Codex não é aceita nesse perfil.</div>
   </div>`;
-  return migrateCard + defaultRow + rows + addForm;
+  return '<div id="cpLoginWeb"></div>' + migrateCard + defaultRow + rows + addForm;
 }
 
 // As palavras da política da conta, um lugar só (30/09/2026): o cartão de Sistema > Contas e
