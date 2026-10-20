@@ -7,7 +7,7 @@
    único ponto de contato é cp-remove, que precisa limpar a referência ao perfil removido
    nas contas que a têm; por isso a única direção de import é DESTA tela PARA aquela. */
 
-import { claudeProfilesHtml, genId, perfilTesteHtml, perfilProblemasHtml, loginWebHtml } from '../pure.js';
+import { claudeProfilesHtml, genId, perfilTesteHtml, perfilProblemasHtml, loginWebHtml, cadeiaHtml, moverNaCadeia, alternarNaCadeia } from '../pure.js';
 import { estado, ehWin } from './estado.js';
 import { $, api, toast } from './infra.js';
 import { rebuildAccounts } from './contas.js';
@@ -99,7 +99,45 @@ function renderTestes() {
   }
 }
 
+/* Cadeia de perfis (20/10/2026): a ordem em que as assinaturas pagam a revisão. O estado
+   de cada perfil (em uso, no limite até, sem login) vem avaliado do engine
+   (estado().cadeiaPerfis); a tela só manda a ordem nova, inteira, pelo /api/settings. */
+function renderCadeia() {
+  const box = $('#cadeiaPerfis'); if (!box) return;
+  if (document.activeElement && box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
+  box.innerHTML = cadeiaHtml(estado().cadeiaPerfis || {});
+}
+
+function salvarCadeia(lista) {
+  estado().config.cadeiaPerfis = lista;
+  // reflexo imediato da ordem; o estado de cada perfil volta reavaliado no próximo push
+  const atual = estado().cadeiaPerfis || {};
+  const porId = new Map((atual.entradas || []).map(e => [e.id, e]));
+  estado().cadeiaPerfis = { ...atual, entradas: lista.map(e => ({ ...(porId.get(e.id) || { id: e.id, label: '' }), ativo: e.ativo })) };
+  renderCadeia();
+  api('/api/settings', { cadeiaPerfis: lista }).then(r => {
+    if (r?.ok) toast('ok', '✓ Ordem de uso salva', 2000);
+    else toast('error', 'Erro ao salvar a ordem de uso');
+  });
+}
+
+function entradasDaCadeia() { return (estado().cadeiaPerfis || {}).entradas || []; }
+
+$('#cadeiaPerfis').addEventListener('click', (e) => {
+  const b = e.target.closest('.cad-subir, .cad-descer');
+  if (!b || b.disabled) return;
+  salvarCadeia(moverNaCadeia(entradasDaCadeia(), b.dataset.id, b.classList.contains('cad-subir') ? -1 : 1));
+});
+
+$('#cadeiaPerfis').addEventListener('change', (e) => {
+  const t = e.target;
+  if (!t.classList.contains('cad-ativo')) return;
+  t.blur();
+  salvarCadeia(alternarNaCadeia(entradasDaCadeia(), t.dataset.id));
+});
+
 export function renderClaudeProfiles() {
+  renderCadeia();
   const box = $('#claudeProfilesManager'); if (!box) return;
   // guarda de foco: não reconstrói enquanto você digita num campo deste bloco
   if (document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
@@ -326,18 +364,6 @@ function mapProfile(id, fn) {
 
 $('#claudeProfilesManager').addEventListener('change', (e) => {
   const t = e.target;
-  if (t.id === 'claudeProfileDefault') {
-    estado().config.claudeProfileId = t.value;
-    const patch = api('/api/settings', { claudeProfileId: t.value });
-    // tira o foco do select: renderClaudeProfiles() tem uma guarda que pula o re-render
-    // enquanto INPUT/SELECT do gerenciador estiver focado (pra não atrapalhar quem está
-    // digitando), e trocar de opção não tira o foco sozinho. Sem o blur, o botão "Abrir
-    // sessão de login" ficava com o data-id do perfil ANTERIOR até o próximo re-render
-    // manual (achado de bug real). O blur libera o próximo re-render legítimo (o push de
-    // 'settings' via SSE que já acontece depois de qualquer PATCH em /api/settings).
-    t.blur();
-    return patch;
-  }
   // teto por dia da semana: mesmo caminho dos outros campos, só que o valor mora
   // num mapa em vez de num campo solto. Vazio APAGA a chave (o dia volta ao teto
   // base), nunca grava 0, porque 0 é um teto válido que bloquearia o dia inteiro.

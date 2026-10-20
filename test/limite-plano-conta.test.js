@@ -20,6 +20,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const { Engine } = await import('../server.js');
 const { LIMITE_PLANO_FILE } = await import('../lib/paths.js');
+const { comPerfilDaSessao } = await import('../lib/engine/limite-na-cadeia.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
 
@@ -93,7 +94,8 @@ test('clique manual atravessa o limite (invariante 4), e sessão que dá certo l
   const e = engineBase();
   await estourarLimite(e);
   let abriu = 0;
-  e.runHeadlessReview = async () => { abriu++; };
+  // a sessão de verdade conclui pelo comPerfilDaSessao, que libera a assinatura que ela usou
+  e.runHeadlessReview = async () => { abriu++; await comPerfilDaSessao(e, Promise.resolve({}), e.resolveClaudeAuth('eu')); };
   await e.runOneHeadless(prDe('o/r#5', { manual: true }), 'eu');
   assert.equal(abriu, 1, 'quem mandou revisar foi você: talvez a cota tenha voltado antes, ou você comprou uso extra');
   assert.equal(e.limiteDoPlanoAte('eu'), 0, 'a sessão que funcionou prova que a cota voltou');
@@ -125,11 +127,20 @@ test('o relançamento também respeita o limite da assinatura, mesmo com a esper
   assert.deepEqual(e.retryTargets(new Set(), new Set()).map((p) => p.key), []);
 });
 
-test('limite sem hora de reset não trava a assinatura: sem hora não dá para saber até quando', async () => {
+// Decisão de 20/10/2026 (cadeia de perfis): sem hora citada, a assinatura fica travada por um
+// prazo ESTIMADO de uma hora, marcado como estimado. Antes ela não era registrada, e cada PR
+// descobria o limite sozinho a cada ciclo; com a cadeia isso seria a fila inteira batendo no
+// mesmo perfil em vez de seguir para o próximo.
+test('limite sem hora de reset trava a assinatura por um prazo estimado de uma hora', async () => {
   const e = engineBase();
+  const antes = Date.now();
   e.runHeadlessReview = async () => { throw new Error("claude saiu com código 1: You've hit your limit"); };
   await e.runOneHeadless(prDe('o/r#7'), 'eu');
-  assert.equal(e.limiteDoPlanoAte('eu'), 0);
+  const ate = e.limiteDoPlanoAte('eu');
+  assert.ok(ate >= antes + 3600 * 1000 && ate <= Date.now() + 3600 * 1000, 'uma hora a partir da falha');
+  const gravado = JSON.parse(fs.readFileSync(LIMITE_PLANO_FILE, 'utf8'));
+  assert.equal(Object.values(gravado)[0].estimado, true, 'a tela diz que a hora é estimada');
+  assert.equal(e.retryAfterNet.get('o/r#7').notBefore, ate, 'o PR espera o prazo, sem relançar a cada ciclo');
 });
 
 test('a fila automática não enfileira PR de assinatura no limite (mesmo lugar do gate de orçamento)', () => {

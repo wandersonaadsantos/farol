@@ -238,30 +238,6 @@ export function claudeProfilesHtml(ctx) {
   let migrateCard = '';
   if (c.claudeConfigDir) migrateCard = profiles.length ? '' : cartaoMigracao;
   else if (!temMaquina) migrateCard = cartaoMaquina;
-  // se o legado (claudeConfigDir) ainda estiver preenchido, "Padrão da máquina" na
-  // verdade cai nele por baixo dos panos (ver resolveClaudeConfigDir) - deixa isso
-  // visível aqui, já que a Task 6 tirou o campo texto que mostrava esse valor.
-  const defaultEmptyLabel = c.claudeConfigDir ? `Padrão da máquina (legado: ${esc(c.claudeConfigDir)})` : 'Padrão da máquina';
-  const defaultOptions = [`<option value="">${defaultEmptyLabel}</option>`]
-    .concat(profiles.map(p => `<option value="${esc(p.id)}"${sel(c.claudeProfileId === p.id)}>${esc(p.label)}</option>`))
-    .join('');
-  // botão de login da linha padrão: data-id dinâmico (era fixo "" antes desta feature,
-  // então sempre abria o legado ao clicar, mesmo com outro perfil selecionado no dropdown
-  // - bug preexistente, corrigido junto por ser exigido pra esconder o botão certo).
-  const defaultProfile = profiles.find(p => p.id === (c.claudeProfileId || ''));
-  const defaultNeedsClaudeLogin = !defaultProfile
-    || (defaultProfile.kind !== 'apikey' && defaultProfile.kind !== 'openrouter');
-  const defaultLoginBtn = defaultNeedsClaudeLogin ? `<button class="btn sm cp-login" data-id="${esc(c.claudeProfileId || '')}">Abrir sessão de login</button>` : '';
-  const defaultRow = `<div class="card set-row">
-    <div class="set-txt">
-      <span class="set-title">Perfil padrão do Farol</span>
-      <span class="set-desc">Vale pra toda conta do GitHub que não tiver um perfil próprio (painel Contas).</span>
-    </div>
-    <div class="set-ctl">
-      <select id="claudeProfileDefault">${defaultOptions}</select>
-      ${defaultLoginBtn}
-    </div>
-  </div>`;
   const rows = profiles.map(p => {
     const isApiKey = p.kind === 'apikey';
     const isCodex = p.kind === 'codex';
@@ -336,7 +312,7 @@ export function claudeProfilesHtml(ctx) {
     <div class="a-hint" id="cpAddOpenRouterHint" hidden>Chave em openrouter.ai. O Farol aponta o Claude Code pra https://openrouter.ai/api (Anthropic Skin). Modelos não-Anthropic pelo Skin não são garantia do Claude Code.</div>
     <div class="a-hint" id="cpAddCodexHint" hidden>Usa a cota do plano ChatGPT pelo Codex CLI local. API key do Codex não é aceita nesse perfil.</div>
   </div>`;
-  return '<div id="cpLoginWeb"></div>' + migrateCard + defaultRow + rows + addForm;
+  return '<div id="cpLoginWeb"></div>' + migrateCard + rows + addForm;
 }
 
 // As palavras da política da conta, um lugar só (30/09/2026): o cartão de Sistema > Contas e
@@ -443,7 +419,7 @@ export function accountsManagerHtml(ctx) {
             </select></div>
           <div class="a-pol-item"><span class="a-fieldlabel">login do Claude (plano)</span>
             <select class="acct-claudeprofile" data-user="${esc(a.user)}" title="Qual login do Claude (e o plano dele) roda as sessões desta conta. O modelo e o raciocínio vêm de Sistema > Automação, iguais para todas as contas">
-              <option value="">usa o perfil padrão do Farol</option>
+              <option value="">usa a ordem de uso (Plano e chaves)</option>
               ${(ctx.config.claudeProfiles || []).map(p => `<option value="${esc(p.id)}"${sel(a.claudeProfileId === p.id)}>${esc(p.label)}</option>`).join('')}
             </select>
             ${claudeAuthBadge(a.claudeProfileId || ctx.config.claudeProfileId || '', ctx)}

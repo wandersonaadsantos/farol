@@ -2488,3 +2488,21 @@ body.parear > *:not(.par-raiz) { display: none !important; }
 .toast.base { align-items: flex-start; }
 .toast.base .t-corpo { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; min-width: 0; }
 .toast.base .t-fechar { font-size: 16px; line-height: 1; }
+
+/* Cadeia de perfis em Plano e chaves (20/10/2026, ui/pure/cadeia.js): a ordem em que as
+   assinaturas pagam a revisão. Cada linha: posição, nome e estado, subir/descer e ligar. */
+.cad-card { margin-bottom: var(--sp-3); }
+.cad-lista { list-style: none; margin: var(--sp-2) 0 0; padding: 0; }
+.cad-item { display: flex; align-items: center; gap: var(--sp-3); padding: 10px 0; }
+.cad-item + .cad-item { border-top: 1px solid var(--border-soft); }
+.cad-item.cad-off .cad-txt { opacity: .6; }
+.cad-pos { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.cad-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.cad-prov { color: var(--muted); font-weight: 400; font-size: 12px; }
+.cad-ctl { flex: none; display: flex; align-items: center; gap: 6px; }
+.cad-liga { position: relative; display: inline-flex; cursor: pointer; }
+.cad-liga input { position: absolute; opacity: 0; }
+.cad-liga input:checked + .switch { background: var(--accent); border-color: var(--accent); }
+.cad-liga input:checked + .switch::after { left: 18px; background: var(--accent-ink); }
+.cad-liga input:focus-visible + .switch { outline: 2px solid var(--accent); outline-offset: 2px; }
+#sys-plans-modelo { margin-bottom: var(--sp-3); }
