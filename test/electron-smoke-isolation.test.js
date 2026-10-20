@@ -53,7 +53,7 @@ test('UI iniciando comprova snapshot HTTP e navegação sem inventar uma checage
   const expected = { expectedApp: '2.57.5', platform: 'win32' };
   const snapshot = { app: { name: 'Farol', version: '2.57.5', platform: 'win32' }, status: 'starting', lastCheckAt: null };
   const dom = { title: 'Farol', brand: 'Farol', version: 'v2.57.5', status: 'iniciando…',
-    navigation: ['consumo', 'radar'].map(tab => ({ tab, selected: true, visible: true, activePanels: 1, bodyTab: tab })) };
+    navigation: ['consumo', 'radar'].map(tab => ({ tab, selected: true, visible: true, activePanels: 1, bodyTab: tab, path: tab === 'radar' ? '/radar/pra-mim' : `/${tab}` })) };
   assert.doesNotThrow(() => validateWindowEvidence(200, snapshot, dom, expected));
   assert.throws(() => validateWindowEvidence(503, snapshot, dom, expected), /HTTP/);
   assert.throws(() => validateWindowEvidence(200, { ...snapshot, app: undefined }, dom, expected), /snapshot/);
@@ -61,6 +61,11 @@ test('UI iniciando comprova snapshot HTTP e navegação sem inventar uma checage
   assert.throws(() => validateWindowEvidence(200, snapshot, { ...dom, navigation: [] }, expected), /navegação/);
   const brokenNavigation = dom.navigation.map(item => ({ ...item, visible: false }));
   assert.throws(() => validateWindowEvidence(200, snapshot, { ...dom, navigation: brokenNavigation }, expected), /painel/);
+  // a rota da tela mora no caminho (20/10/2026): endereço que não diz a aba, ou com hash, reprova
+  for (const path of ['/', '/#/consumo', '/radar/pra-mim']) {
+    const semRota = dom.navigation.map(item => (item.tab === 'consumo' ? { ...item, path } : item));
+    assert.throws(() => validateWindowEvidence(200, snapshot, { ...dom, navigation: semRota }, expected), /endereço/, path);
+  }
 });
 
 test('exit zero não aceita relatório antigo nem runtime/app diferentes em diretório reutilizado', () => {

@@ -32,6 +32,9 @@ function switchSistemaSection(name) {
   document.querySelectorAll('.sys-section').forEach(s => s.classList.toggle('active', s.id === 'sys-' + SISTEMA_SECTION));
 }
 
+// a seção à mostra, para o endereço da página (ui/telas/rota.js)
+function secaoDoSistema() { return SISTEMA_SECTION; }
+
 $('#sysNav').addEventListener('click', (e) => {
   const btn = e.target.closest('.sys-nav-item');
   if (!btn) return;
@@ -56,11 +59,12 @@ const SYS_INDEX = [
   // revisar e aprovar sozinho são da conta desde 30/09/2026: a busca leva ao cartão dela
   { sec: 'accounts', at: '#accountsManager', title: 'Revisar e aprovar sozinho (por conta)', hint: 'auto review, revisão na hora, fila, auto approve, ressalva, aprovação, reprovar' },
   { sec: 'automation', at: '#sys-row-pushback', title: 'Detectar pushback automaticamente', hint: 'contestação, autor, desfecho' },
-  { sec: 'automation', at: '#sys-row-provedor', title: 'Configuração do provedor', hint: 'claude, codex, openrouter, perfil, conta, provedor' },
-  { sec: 'automation', at: '#sys-row-modelo', title: 'Modelo das sessões autônomas', hint: 'opus, sonnet, haiku, fable, auto, best, codex, gpt, sol, terra, luna, modelo, limite do plano, openrouter' },
+  { sec: 'plans', at: '#cadeiaPerfis', title: 'Ordem de uso dos perfis', hint: 'cadeia, prioridade, fallback, principal, limite do plano, reset, assinatura, trocar, gemini, antigravity' },
+  { sec: 'plans', at: '#sys-row-provedor', title: 'Configuração do provedor', hint: 'claude, codex, antigravity, gemini, agy, openrouter, perfil, conta, provedor' },
+  { sec: 'plans', at: '#sys-row-modelo', title: 'Modelo das sessões autônomas', hint: 'opus, sonnet, haiku, fable, auto, best, codex, gpt, sol, terra, luna, modelo, limite do plano, openrouter' },
   { sec: 'automation', at: '#sys-row-paralelas', title: 'Revisões paralelas por conta', hint: 'paralelo, simultâneo, série, fila, velocidade' },
   { sec: 'automation', at: '#sys-row-teto-global', title: 'Teto total deste aparelho', hint: 'teto, total, global, paralelismo, simultâneo, aparelho' },
-  { sec: 'automation', at: '#sys-row-esforco', title: 'Esforço de raciocínio', hint: 'effort, pensar, raciocínio, alto, baixo, xhigh' },
+  { sec: 'plans', at: '#sys-row-esforco', title: 'Esforço de raciocínio', hint: 'effort, pensar, raciocínio, alto, baixo, xhigh' },
   { sec: 'automation', at: '#sys-row-intervalo', title: 'Intervalo de checagem', hint: 'polling, minutos, frequência' },
   { sec: 'automation', at: '#sys-row-skipperms', title: 'Sessão no terminal sem pedir permissões', hint: 'dangerously skip permissions, prompts' },
   // saiu de Sistema > Conexões em 03/10/2026, com a seção (merge-bloqueado.js)
@@ -190,4 +194,4 @@ registrarTela({
   aoEstado: () => { if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); renderAparelhos(); renderGrupos(); } },
 });
 
-export { switchSistemaSection, sysSearchFilter, sysGoTo, renderSettings };
+export { switchSistemaSection, secaoDoSistema, sysSearchFilter, sysGoTo, renderSettings };

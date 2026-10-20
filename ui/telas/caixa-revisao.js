@@ -5,6 +5,7 @@
 import { esc, reviewBoxHtml } from '../pure.js';
 import { estado } from './estado.js';
 import { get, toast } from './infra.js';
+import { avisarNavegacao } from './registro.js';
 
 /* ---------- caixa de revisão por chave (atalho da tabela de Consumo) ----------
    O snapshot manda só as 30 revisões mais recentes (com relatório, cada decisão
@@ -17,21 +18,49 @@ function decisaoLocal(key) {
   return (d.pending || []).find(x => x.key === key) || (d.resolved || []).find(x => x.key === key) || null;
 }
 
+// A caixa aberta agora (no máximo uma): a chave do PR vai para o endereço da página
+// (ui/telas/rota.js), e o Voltar do navegador a fecha.
+let CAIXA = null;
+
+// Cada pedido de abertura ganha uma geração; fechar ou pedir outra caixa a invalida. A busca da
+// decisão é assíncrona, e a que termina depois de a rota mudar não abre nem empilha nada
+// (revisão do Codex sobre a 8c1a1e2, achado 6). Enquanto a busca corre, a chave pedida já é a
+// caixa da rota: o endereço não a perde, e trocar de rota a cancela.
+let GERACAO = 0;
+let PEDIDA = '';
+
+function caixaAberta() { return CAIXA ? CAIXA.key : PEDIDA; }
+
+function fecharCaixaRevisao() { GERACAO++; PEDIDA = ''; if (CAIXA) CAIXA.fechar(); }
+
 async function abrirCaixaRevisao(key) {
   // o get() devolve null em QUALQUER falha, por isso a rota responde envelope:
   // sem ele, "não há revisão desse PR" e "a busca falhou" seriam a mesma coisa
   // na tela, e o clique ficaria indistinguível de bug.
+  const geracao = ++GERACAO;
   let d = decisaoLocal(key);
   if (!d) {
+    PEDIDA = key;
     const env = await get('/api/decision?key=' + encodeURIComponent(key));
-    if (!env) { toast('error', 'Não consegui buscar a revisão agora. Tente de novo.'); return; }
+    if (geracao !== GERACAO) return;   // a rota mudou durante a busca: este pedido envelheceu
+    PEDIDA = '';
+    if (!env) { toast('error', 'Não consegui buscar a revisão agora. Tente de novo.'); avisarNavegacao(); return; }
     d = env.decision;
   }
-  overlayModal(`Revisão de ${esc(key)}`, reviewBoxHtml(d));
+  // outra caixa ainda aberta (o Avançar do navegador para outro PR): sai calada, quem
+  // avisa a troca é a abertura desta
+  if (CAIXA) { const velha = CAIXA; CAIXA = null; velha.fechar(); }
+  const ov = overlayModal(`Revisão de ${esc(key)}`, reviewBoxHtml(d), () => {
+    if (!CAIXA || CAIXA.ov !== ov) return;
+    CAIXA = null;
+    avisarNavegacao();
+  });
+  CAIXA = { key, ov, fechar: ov.fechar };
+  avisarNavegacao();
 }
 
 // overlay de leitura (sem confirmar/cancelar), no mesmo esqueleto do confirmModal
-function overlayModal(titulo, corpo) {
+function overlayModal(titulo, corpo, aoFechar) {
   const ov = document.createElement('div');
   ov.className = 'modal-overlay';
   ov.innerHTML = `<div class="modal-card wide" role="dialog" aria-modal="true" aria-labelledby="revBoxTitle">
@@ -40,12 +69,14 @@ function overlayModal(titulo, corpo) {
     <div class="modal-actions"><button class="btn sm primary modal-ok">Fechar</button></div>
   </div>`;
   document.body.appendChild(ov);
-  const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+  const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); aoFechar(); };
   const onKey = (e) => { if (e.key === 'Escape') close(); };
   ov.querySelector('.modal-ok').onclick = close;
   ov.onclick = (e) => { if (e.target === ov) close(); };
   document.addEventListener('keydown', onKey);
   setTimeout(() => ov.querySelector('.modal-ok').focus(), 30);
+  ov.fechar = close;
+  return ov;
 }
 
 // registrada pelo bootstrap (ui/app.js) no mesmo ponto relativo em que o listener
@@ -59,4 +90,4 @@ function initCaixaRevisao() {
   });
 }
 
-export { initCaixaRevisao };
+export { initCaixaRevisao, abrirCaixaRevisao, fecharCaixaRevisao, caixaAberta };

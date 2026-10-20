@@ -7,26 +7,73 @@
    único ponto de contato é cp-remove, que precisa limpar a referência ao perfil removido
    nas contas que a têm; por isso a única direção de import é DESTA tela PARA aquela. */
 
-import { claudeProfilesHtml, genId, perfilTesteHtml, perfilProblemasHtml } from '../pure.js';
+import { claudeProfilesHtml, genId, perfilTesteHtml, perfilProblemasHtml, loginWebHtml, cadeiaHtml, moverNaCadeia, alternarNaCadeia } from '../pure.js';
 import { estado, ehWin } from './estado.js';
-import { $, api, toast, copyToClipboard } from './infra.js';
+import { $, api, toast } from './infra.js';
 import { rebuildAccounts } from './contas.js';
 import { renderAccountsManager } from './sistema-contas.js';
 
-// Sem terminal para abrir (celular, ou Linux sem emulador), o engine devolve o comando de
-// login, com HOME, PATH e a pasta do perfil já certos (lib/engine/login-celular.js). No
-// proot ele entra pelo Termux, fora do Ubuntu; fora do proot, roda num terminal do mesmo
-// sistema. Copiado, basta colar; sem a cópia, o comando vai no próprio aviso.
-const ONDE_RODAR = {
-  termux: 'no Termux, numa sessão fora do Ubuntu',
-  terminal: 'num terminal deste sistema',
-};
-async function copiarComandoDeLogin(comando, onde) {
-  const copiou = await copyToClipboard(comando);
-  const lugar = ONDE_RODAR[onde] || ONDE_RODAR.terminal;
-  const passos = `Cole e rode ${lugar}; o Claude abre direto na pasta deste perfil (rode /login se pedir). Depois clique em Revisar nos PRs parados.`;
-  const texto = copiou ? `Comando de login copiado. ${passos}` : `Rode ${lugar}: ${comando}`;
-  toast('ok', texto, 15000);
+// Sem terminal para abrir (modo servidor, celular, Linux sem emulador), o engine devolve o
+// comando de login (lib/engine/login-celular.js) e a tela abre o login por aqui mesmo: o
+// engine roda o `claude auth login` e devolve o link, e o código colado volta para ele
+// (lib/engine/login-web.js). O comando segue no painel, como alternativa.
+let loginWeb = null;
+// cada abertura ganha um número, e a resposta de uma tentativa que já foi fechada ou
+// substituída não mexe no painel atual (o engine só mantém um login vivo por vez)
+let tentativa = 0;
+const vigente = (n) => loginWeb && loginWeb.tentativa === n;
+
+function renderLoginWeb() {
+  const alvo = $('#cpLoginWeb');
+  if (alvo) alvo.innerHTML = loginWebHtml(loginWeb || {});
+}
+
+function nomeDoPerfil(id) {
+  const p = (estado().config.claudeProfiles || []).find(x => x.id === id);
+  return p ? p.label : 'Padrão da máquina';
+}
+
+// o painel diz de qual provedor é o login (o Antigravity entra pelo mesmo painel)
+function provedorDoLogin(id) {
+  const p = (estado().config.claudeProfiles || []).find(x => x.id === id);
+  return p && p.kind === 'agy' ? 'agy' : 'claude';
+}
+
+function abrirLoginWeb(profileId, comando, onde) {
+  const n = ++tentativa;
+  loginWeb = { estado: 'abrindo', perfil: nomeDoPerfil(profileId), provedor: provedorDoLogin(profileId), comando, onde, tentativa: n };
+  renderLoginWeb();
+  api('/api/claude/login-web/start', { profileId }).then((r) => {
+    // fechado antes do link chegar: o login aberto no engine não tem mais tela, encerra
+    if (!vigente(n)) { if (r && r.ok) api('/api/claude/login-web/cancel', { loginId: r.loginId }); return; }
+    if (r && r.ok) loginWeb = { ...loginWeb, estado: 'link', url: r.url, loginId: r.loginId };
+    else loginWeb = { ...loginWeb, estado: 'erro', motivo: (r && r.motivo) || 'não deu para abrir o login agora' };
+    renderLoginWeb();
+  });
+}
+
+function enviarCodigoDoLogin() {
+  const campo = $('#cpLoginWebCodigo');
+  const code = ((campo && campo.value) || '').trim();
+  if (!loginWeb || !loginWeb.loginId) return;
+  if (!code) { toast('info', 'Cole o código que a página de login mostrou.', 3500); return; }
+  const n = loginWeb.tentativa;
+  loginWeb = { ...loginWeb, estado: 'enviando', motivo: '' };
+  renderLoginWeb();
+  api('/api/claude/login-web/code', { loginId: loginWeb.loginId, code }).then((r) => {
+    if (!vigente(n)) return;
+    if (r && r.ok) loginWeb = { estado: 'feito', perfil: loginWeb.perfil, provedor: loginWeb.provedor, tentativa: n };
+    // login que expirou ou que o CLI recusou não volta: o link é de uso único
+    else if (r && r.code === 'codigo-invalido') loginWeb = { ...loginWeb, estado: 'erro', motivo: r.motivo };
+    else loginWeb = { ...loginWeb, estado: 'erro', url: '', motivo: `${(r && r.motivo) || 'o login não deu certo'}. Clique de novo em Abrir sessão de login para recomeçar.` };
+    renderLoginWeb();
+  });
+}
+
+function fecharLoginWeb() {
+  if (loginWeb && loginWeb.loginId && loginWeb.estado !== 'feito') api('/api/claude/login-web/cancel', { loginId: loginWeb.loginId });
+  loginWeb = null;
+  renderLoginWeb();
 }
 
 // Gerenciador de perfis de assinatura Claude (Sistema): cada perfil é {id,label,dir}
@@ -58,13 +105,52 @@ function renderTestes() {
   }
 }
 
+/* Cadeia de perfis (20/10/2026): a ordem em que as assinaturas pagam a revisão. O estado
+   de cada perfil (em uso, no limite até, sem login) vem avaliado do engine
+   (estado().cadeiaPerfis); a tela só manda a ordem nova, inteira, pelo /api/settings. */
+function renderCadeia() {
+  const box = $('#cadeiaPerfis'); if (!box) return;
+  if (document.activeElement && box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
+  box.innerHTML = cadeiaHtml(estado().cadeiaPerfis || {});
+}
+
+function salvarCadeia(lista) {
+  estado().config.cadeiaPerfis = lista;
+  // reflexo imediato da ordem; o estado de cada perfil volta reavaliado no próximo push
+  const atual = estado().cadeiaPerfis || {};
+  const porId = new Map((atual.entradas || []).map(e => [e.id, e]));
+  estado().cadeiaPerfis = { ...atual, entradas: lista.map(e => ({ ...(porId.get(e.id) || { id: e.id, label: '' }), ativo: e.ativo })) };
+  renderCadeia();
+  api('/api/settings', { cadeiaPerfis: lista }).then(r => {
+    if (r?.ok) toast('ok', '✓ Ordem de uso salva', 2000);
+    else toast('error', 'Erro ao salvar a ordem de uso');
+  });
+}
+
+function entradasDaCadeia() { return (estado().cadeiaPerfis || {}).entradas || []; }
+
+$('#cadeiaPerfis').addEventListener('click', (e) => {
+  const b = e.target.closest('.cad-subir, .cad-descer');
+  if (!b || b.disabled) return;
+  salvarCadeia(moverNaCadeia(entradasDaCadeia(), b.dataset.id, b.classList.contains('cad-subir') ? -1 : 1));
+});
+
+$('#cadeiaPerfis').addEventListener('change', (e) => {
+  const t = e.target;
+  if (!t.classList.contains('cad-ativo')) return;
+  t.blur();
+  salvarCadeia(alternarNaCadeia(entradasDaCadeia(), t.dataset.id));
+});
+
 export function renderClaudeProfiles() {
+  renderCadeia();
   const box = $('#claudeProfilesManager'); if (!box) return;
   // guarda de foco: não reconstrói enquanto você digita num campo deste bloco
   if (document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
   box.innerHTML = perfilProblemasHtml((estado().claudePerfis || {}).problemas)
-    + claudeProfilesHtml({ config: estado().config, usage: estado().usage, doctor: estado().doctor, ehWin: ehWin() });
+    + claudeProfilesHtml({ config: estado().config, usage: estado().usage, doctor: estado().doctor, cadeia: estado().cadeiaPerfis, ehWin: ehWin() });
   renderTestes();
+  renderLoginWeb();
   // efeito de DOM, não de markup: o listener do seletor mostra de volta no modo Chave de API
   const hint = $('#cpAddHint'); if (hint) hint.hidden = true;
 }
@@ -147,8 +233,11 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
     const isApiKey = seg.dataset.kind === 'apikey';
     const isOpenRouter = seg.dataset.kind === 'openrouter';
     const isCodex = seg.dataset.kind === 'codex';
+    const isAgy = seg.dataset.kind === 'agy';
     const usaChave = isApiKey || isOpenRouter;
-    $('#cpAddDir').hidden = usaChave || isCodex;
+    $('#cpAddDir').hidden = usaChave || isCodex || isAgy;
+    $('#cpAddEmail').hidden = !isAgy;
+    $('#cpAddAgyHint').hidden = !isAgy;
     $('#cpAddApiKey').hidden = !usaChave;
     $('#cpAddBaseUrl').hidden = !usaChave;
     $('#cpAddHint').hidden = !isApiKey;
@@ -178,6 +267,14 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
     const isApiKey = kindBtn && kindBtn.dataset.kind === 'apikey';
     const isOpenRouter = kindBtn && kindBtn.dataset.kind === 'openrouter';
     const isCodex = kindBtn && kindBtn.dataset.kind === 'codex';
+    // Antigravity: a pasta é do Farol (~/.farol/agy/<id>), então o perfil é só nome e e-mail
+    if (kindBtn && kindBtn.dataset.kind === 'agy') {
+      if (!label) return toast('error', 'Preencha o nome do perfil.', 3000);
+      const email = ($('#cpAddEmail').value || '').trim();
+      $('#cpAddLabel').value = ''; $('#cpAddEmail').value = '';
+      saveClaudeProfiles([...(estado().config.claudeProfiles || []), { id: genId(), label, kind: 'agy', email }]);
+      return;
+    }
     if (isCodex) {
       if (!label) return toast('error', 'Preencha o nome do perfil.', 3000);
       const profiles = [...(estado().config.claudeProfiles || []), { id: genId(), label, kind: 'codex' }];
@@ -247,26 +344,34 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
   if (t.classList.contains('cp-login')) {
     const id = t.dataset.id || '';
     api('/api/claude-login', { profileId: id }).then((r) => {
-      // no celular não há terminal para abrir: o engine devolve o comando para o Termux
-      if (r && r.comando) { copiarComandoDeLogin(r.comando, r.onde); return; }
+      // sem terminal para abrir, o login acontece nesta tela
+      if (r && r.comando) { abrirLoginWeb(id, r.comando, r.onde); return; }
       toast('ok', 'Abrindo sessão de terminal pra login. Rode /login lá, se pedir, e pode fechar quando terminar.', 4500);
     });
     return;
   }
   // adoção do legado (A2): quem grava é o engine, e só com confirmação literal. A tela
   // não monta o perfil por fora, senão seriam duas regras de "o que é o perfil legado".
+  if (t.id === 'cpLoginWebEnviar') { enviarCodigoDoLogin(); return; }
+  if (t.id === 'cpLoginWebCancelar') { fecharLoginWeb(); return; }
   if (t.id === 'btnClaudeMigrate') {
     const label = ($('#claudeMigrateLabel').value || '').trim() || 'Perfil atual';
     api('/api/claude/profile-adopt', { confirmar: true, label }).then((r) => {
       if (r && r.escreveu) {
-        toast('ok', 'Perfil criado e escolhido como padrão do Farol.', 3500);
+        toast('ok', 'Perfil salvo na lista.', 3500);
         return;
       }
-      toast('error', (r && r.code === 'ja-tem-perfis') ? 'Já existem perfis salvos.' : 'Não deu para criar o perfil agora.', 4000);
+      toast('error', MOTIVO_DA_ADOCAO[r && r.code] || 'Não deu para criar o perfil agora.', 4000);
     });
     return;
   }
 });
+const MOTIVO_DA_ADOCAO = {
+  'ja-tem-perfis': 'Já existem perfis salvos.',
+  'maquina-ja-listada': 'O login padrão desta máquina já está na lista.',
+  'id-maquina-ocupado': 'Já existe um perfil com o id "maquina" na configuração; troque o id dele no config.json para listar o login desta máquina.',
+};
+
 // aplica uma transformação num perfil e devolve a lista inteira, que é o que o
 // PATCH /api/settings espera (claudeProfiles é substituído por completo). Existe
 // pra os handlers de orçamento não repetirem o mesmo .map cinco vezes.
@@ -276,23 +381,11 @@ function mapProfile(id, fn) {
 
 $('#claudeProfilesManager').addEventListener('change', (e) => {
   const t = e.target;
-  if (t.id === 'claudeProfileDefault') {
-    estado().config.claudeProfileId = t.value;
-    const patch = api('/api/settings', { claudeProfileId: t.value });
-    // tira o foco do select: renderClaudeProfiles() tem uma guarda que pula o re-render
-    // enquanto INPUT/SELECT do gerenciador estiver focado (pra não atrapalhar quem está
-    // digitando), e trocar de opção não tira o foco sozinho. Sem o blur, o botão "Abrir
-    // sessão de login" ficava com o data-id do perfil ANTERIOR até o próximo re-render
-    // manual (achado de bug real). O blur libera o próximo re-render legítimo (o push de
-    // 'settings' via SSE que já acontece depois de qualquer PATCH em /api/settings).
-    t.blur();
-    return patch;
-  }
   // teto por dia da semana: mesmo caminho dos outros campos, só que o valor mora
   // num mapa em vez de num campo solto. Vazio APAGA a chave (o dia volta ao teto
   // base), nunca grava 0, porque 0 é um teto válido que bloquearia o dia inteiro.
   if (t.classList.contains('cp-budget-dow')) return salvaTetoDoDia(t.dataset.id, t.dataset.dow, t.value.trim());
-  const camposEditaveis = ['cp-label', 'cp-dir', 'cp-apikey', 'cp-baseurl', 'cp-budget-daily', 'cp-budget-total', 'cp-budget-since'];
+  const camposEditaveis = ['cp-label', 'cp-dir', 'cp-apikey', 'cp-baseurl', 'cp-email', 'cp-budget-daily', 'cp-budget-total', 'cp-budget-since'];
   if (camposEditaveis.some(cls => t.classList.contains(cls))) {
     const id = t.dataset.id;
     if ((t.classList.contains('cp-dir') || t.classList.contains('cp-apikey') || t.classList.contains('cp-baseurl'))
@@ -307,6 +400,7 @@ $('#claudeProfilesManager').addEventListener('change', (e) => {
       if (t.classList.contains('cp-dir')) next.dir = t.value.trim();
       if (t.classList.contains('cp-apikey')) next.apiKey = t.value.trim();
       if (t.classList.contains('cp-baseurl')) next.baseUrl = t.value.trim();
+      if (t.classList.contains('cp-email')) next.email = t.value.trim();
       if (t.classList.contains('cp-budget-daily')) {
         const v = t.value.trim();
         if (v === '') delete next.budgetDaily; else next.budgetDaily = Number(v);

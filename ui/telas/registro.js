@@ -23,4 +23,12 @@ function telasRegistradas() { return [...TELAS.values()]; }
 
 function telaPorId(id) { return TELAS.get(id) || null; }
 
-export { registrarTela, telasRegistradas, telaPorId };
+// Quem precisa saber que a tela mudou de lugar FORA de um clique ou tecla (a caixa de
+// revisão abre depois de buscar a decisão; o endereço da página, ui/telas/rota.js, ouve).
+// Mora aqui pela mesma razão do registro: a tela avisa sem importar quem escuta, e quem
+// escuta não vira ciclo com ela.
+const OUVINTES_DE_NAVEGACAO = [];
+function aoNavegar(fn) { OUVINTES_DE_NAVEGACAO.push(fn); }
+function avisarNavegacao() { for (const fn of OUVINTES_DE_NAVEGACAO) fn(); }
+
+export { registrarTela, telasRegistradas, telaPorId, aoNavegar, avisarNavegacao };

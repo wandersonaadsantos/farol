@@ -23,6 +23,10 @@ let deliveriesQuery = ''; // busca livre, só em memória (não persiste entre s
 let deliveriesExpanded = new Set(); // chaves 'repo:x'/'author:x' com paginação expandida
 let deliveriesOpen = new Set(); // disclosures abertos da visão Pessoas (default: todos fechados)
 let deliveriesDataContext = null; // org/período da última resposta aceita
+// grupo levado ao centro pelo atalho (data-goto deliv:repo / deliv:author): vai ao endereço
+// da página como ?repo= ou ?pessoa=, e sai quando outro filtro muda a lista
+let deliveriesFoco = null; // { by: 'repo'|'author', valor }
+let focoPendente = false;  // aplicado pelo endereço antes da carga: rola quando a carga chega
 function resetDeliveriesDisclosure() { deliveriesOpen = new Set(); }
 // token de requisição: trocar org/período dispara cargas concorrentes e a resposta
 // VELHA não pode vencer a nova (mesma guarda que o openChat faz por chave)
@@ -82,6 +86,7 @@ async function loadDeliveries() {
   deliveriesExpanded = new Set(); // dado novo: paginação de grupo velha não faz sentido
   closeOp(opId, 'done');
   renderDeliveries();
+  if (focoPendente && deliveriesFoco) { focoPendente = false; rolarAoGrupo(deliveriesFoco.by, deliveriesFoco.valor); }
 }
 
 function renderDeliveries() {
@@ -110,6 +115,7 @@ function renderDeliveries() {
 }
 $('#delivOrg').addEventListener('change', (e) => {
   deliveriesOrg = e.target.value || '';
+  deliveriesFoco = null;
   localStorage.setItem('farol-deliv-org', deliveriesOrg);
   resetDeliveriesDisclosure();
   loadDeliveries();
@@ -120,6 +126,7 @@ $('#delivDays').addEventListener('click', (e) => {
   const nextDays = [0, 7, 15, 30].includes(v) ? v : 7;
   if (nextDays === deliveriesDays) return;
   deliveriesDays = nextDays;
+  deliveriesFoco = null;
   localStorage.setItem('farol-deliv-days', String(deliveriesDays));
   marcarDelivDays();
   resetDeliveriesDisclosure();
@@ -129,12 +136,14 @@ $('#delivBy').addEventListener('click', (e) => {
   const b = e.target.closest('.seg-btn');
   if (!b) return;
   deliveriesBy = b.dataset.by === 'author' ? 'author' : 'repo';
+  deliveriesFoco = null;
   localStorage.setItem('farol-deliv-by', deliveriesBy);
   marcarSeg(document.querySelectorAll('#delivBy .seg-btn'), x => x.dataset.by === deliveriesBy);
   renderDeliveries(); // troca de fatia é só re-render, sem novo fetch
 });
 $('#delivQuery').addEventListener('input', (e) => {
   deliveriesQuery = e.target.value || '';
+  deliveriesFoco = null;
   renderDeliveries();
 });
 // O evento nativo `toggle` de <details> não borbulha. Capture mantém um único
@@ -163,6 +172,7 @@ $('#deliveries').addEventListener('click', (e) => {
   if (!acao) return;
   if (acao.dataset.delivAction === 'ver30') {
     deliveriesDays = 30;
+    deliveriesFoco = null;
     localStorage.setItem('farol-deliv-days', '30');
     marcarDelivDays();
     resetDeliveriesDisclosure();
@@ -182,6 +192,7 @@ function gotoDeliv(kind, valor, switchTab) {
   // de abrir/rolar o grupo: a resposta assíncrona substituiria o DOM recém-alvo.
   if (abaAtual() !== 'entregas') switchTab('entregas');
   if (kind === 'days') {
+    deliveriesFoco = null;
     const d = parseInt(valor, 10);
     deliveriesDays = [0, 7, 15, 30].includes(d) ? d : deliveriesDays;
     localStorage.setItem('farol-deliv-days', String(deliveriesDays));
@@ -201,7 +212,14 @@ function gotoDeliv(kind, valor, switchTab) {
   if (deliveriesQuery) { deliveriesQuery = ''; const q = $('#delivQuery'); if (q) q.value = ''; }
   if (by === 'author') deliveriesOpen.add('author:' + valor);
   renderDeliveries();
-  // o grupo é montado no render acima; achar pelo groupKey do próprio pure.js
+  deliveriesFoco = { by, valor };
+  // vindo de outra aba, a carga do aoEntrar ainda vai redesenhar a lista: rola de novo quando ela chegar
+  focoPendente = true;
+  rolarAoGrupo(by, valor);
+}
+
+// o grupo é montado no render; achar pelo groupKey do próprio pure.js
+function rolarAoGrupo(by, valor) {
   setTimeout(() => {
     const key = `${by === 'author' ? 'author' : 'repo'}:${valor}`;
     const alvo = [...document.querySelectorAll('#deliveries .deliv-card')]
@@ -215,6 +233,43 @@ function gotoDeliv(kind, valor, switchTab) {
   }, 0);
 }
 
+// O que a tela de Entregas mostra, no vocabulário do endereço (ui/pure/rota.js).
+function filtrosDeEntregas() {
+  const foco = deliveriesFoco || { by: '', valor: '' };
+  const repo = foco.by === 'repo' ? foco.valor : '';
+  const pessoa = foco.by === 'author' ? foco.valor : '';
+  return { org: deliveriesOrg, dias: deliveriesDays, agrupar: deliveriesBy, busca: deliveriesQuery, repo, pessoa };
+}
+
+// Leva a tela ao que o endereço diz (Voltar, Avançar, link aberto direto). Campo ausente
+// mantém o atual (org, período e agrupamento têm memória própria); a busca e o foco são o
+// que o endereço diz, inclusive vazios. Carrega de novo só se org ou período mudaram.
+function aplicarFiltrosDeEntregas(f, switchTab) {
+  let recarregar = false;
+  if (f.org && f.org !== deliveriesOrg) { deliveriesOrg = f.org; localStorage.setItem('farol-deliv-org', f.org); recarregar = true; }
+  if (f.dias !== null && f.dias !== undefined && f.dias !== deliveriesDays) {
+    deliveriesDays = f.dias; localStorage.setItem('farol-deliv-days', String(f.dias)); recarregar = true;
+  }
+  // o grupo em foco só existe na visão dele (como no gotoDeliv): ?repo= agrupa por repositório
+  // e ?pessoa= por pessoa, valha o que estiver guardado
+  const focoBy = (f.repo && 'repo') || (f.pessoa && 'author') || '';
+  const by = focoBy || f.agrupar || deliveriesBy;
+  if (by !== deliveriesBy) { deliveriesBy = by; localStorage.setItem('farol-deliv-by', by); }
+  marcarSeg(document.querySelectorAll('#delivBy .seg-btn'), x => x.dataset.by === deliveriesBy);
+  marcarDelivDays();
+  deliveriesQuery = f.busca || '';
+  const q = $('#delivQuery'); if (q) q.value = deliveriesQuery;
+  if (recarregar) resetDeliveriesDisclosure();
+  const foco = f.repo ? { by: 'repo', valor: f.repo } : null;
+  deliveriesFoco = foco || (f.pessoa ? { by: 'author', valor: f.pessoa } : null);
+  if (deliveriesFoco && deliveriesFoco.by === 'author') deliveriesOpen.add('author:' + deliveriesFoco.valor);
+  focoPendente = !!deliveriesFoco;
+  if (abaAtual() !== 'entregas') { switchTab('entregas'); return; }
+  if (recarregar) { loadDeliveries(); return; }
+  renderDeliveries();
+  if (deliveriesFoco) { focoPendente = false; rolarAoGrupo(deliveriesFoco.by, deliveriesFoco.valor); }
+}
+
 registrarTela({ id: 'entregas', aoEntrar: () => loadDeliveries() });
 
-export { gotoDeliv };
+export { gotoDeliv, filtrosDeEntregas, aplicarFiltrosDeEntregas };

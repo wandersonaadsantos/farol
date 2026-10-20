@@ -51,7 +51,7 @@ const MSG = {
 test('CLASSES: toda classe tem os cinco campos e um kind válido', () => {
   const KINDS = ['operacional', 'espera-reset', 'transitorio', 'permanente'];
   const GRUPOS = ['operacional', 'ambiente', 'credencial', 'rede', 'app'];
-  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 20, 'são 20 classes (update-runtime e busca-sem-mensagem entraram em 16/10/2026)');
+  assert.ok(Array.isArray(CLASSES) && CLASSES.length === 26, 'são 26 classes (as cinco do Antigravity entraram em 20/10/2026)');
   for (const c of CLASSES) {
     assert.equal(typeof c.id, 'string');
     assert.ok(c.label, `${c.id} precisa de label humano`);
@@ -72,9 +72,11 @@ test('CLASSES: a ordem é a documentada (primeira que casar vence)', () => {
   assert.deepEqual(CLASSES.map(c => c.id), [
     // limite-da-organizacao ANTES de limite-plano: várias frases de teto da organização
     // contêm "usage limit" e seriam lidas como limite de janela (test/limite-do-claude.test.js)
-    'restart-fila', 'console-fechado', 'limite-da-organizacao', 'limite-plano', 'assinatura-bloqueada',
+    // as do Antigravity logo depois de limite-plano, com a capacidade do modelo antes da cota
+    'restart-fila', 'console-fechado', 'limite-da-organizacao', 'limite-plano',
+    'capacidade-agy', 'limite-agy', 'agy-print-timeout', 'agy-conta-trocada', 'agy-sem-login', 'assinatura-bloqueada',
     'oauth-expirado', 'credencial-invalida', 'credito-insuficiente', 'resultado-invalido', 'coordenacao-indisponivel', 'rate-limit-github', 'rede', 'github-indisponivel',
-    'provedor-indisponivel', 'token-gh', 'skip-permissions-root', 'tempo-esgotado', 'update-runtime', 'busca-sem-mensagem', 'ferramenta'
+    'provedor-indisponivel', 'arquivo-local-preso', 'token-gh', 'skip-permissions-root', 'tempo-esgotado', 'update-runtime', 'busca-sem-mensagem', 'ferramenta'
   ]);
 });
 

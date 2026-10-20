@@ -205,6 +205,33 @@ test('sem conta nenhuma, as chaves antigas ficam esperando a conta ser detectada
   assert.deepEqual(comConta.descartar, ['autoReview']);
 });
 
+// Medido em 20/10/2026 (v2.73.2): a carga sem conta grava `esquemaConfig`, e a conta
+// detectada DEPOIS nascia com o padrão novo (revisa e aprova sozinha), ignorando o
+// `autoReview: false` que ainda estava no arquivo. Uma instância de teste aberta como o
+// CLAUDE.md ensina passou a revisar e aprovar na conta real de quem a abriu.
+test('instância de teste: carga sem conta e depois a conta detectada, a chave do arquivo ainda vale', () => {
+  const engine = { config: { port: 47180, autoReview: false }, log() { } };
+  C.aplicarMigracao(engine); // a carga, antes de a conta do gh ser detectada
+  assert.equal(engine.config.esquemaConfig, M.ESQUEMA_PARALELISMO, 'o marcador é gravado já na primeira carga');
+  assert.equal(engine.config.autoReview, false, 'a chave fica esperando a conta');
+  engine.config.ghUser = 'detectada';
+  engine.config.owners = ['biudtech'];
+  C.aplicarMigracao(engine); // server.js, quando a conta é detectada
+  const [conta] = engine.config.accounts;
+  assert.equal(conta.autoReview, false, 'a conta detectada não revisa sozinha');
+  assert.equal(conta.onCaveats, 'wait');
+  assert.equal(conta.onReject, 'wait');
+  assert.equal('autoReview' in engine.config, false, 'e só então a chave antiga sai');
+});
+
+test('chave antiga presente com o marcador gravado só existe sem conta, e nunca afrouxa', () => {
+  // instalação já migrada e com conta não tem mais a chave: a conta nova segue o padrão novo
+  assert.equal(M.migrarPolitica({ esquemaConfig: 1, accounts: [{ user: 'nova', owners: [] }] }).contas[0].autoReview, true);
+  // com a chave escrita à mão como `true`, a conta revisa, mas espera você nas ressalvas e na reprovação
+  const r = M.migrarPolitica({ esquemaConfig: 1, autoReview: true, ghUser: 'x', owners: [] });
+  assert.deepEqual(r.contas[0], { user: 'x', owners: [], autoReview: true, onClean: 'approve', onCaveats: 'wait', onReject: 'wait' });
+});
+
 /* ---------- no engine: carga da config, gravação e rastro ---------- */
 
 test('a carga da config migra, grava o arquivo sem as chaves gerais e registra uma vez', () => {

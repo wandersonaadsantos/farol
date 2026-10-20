@@ -86,7 +86,16 @@ function pedidosDeStream() {
 
 const outro = createRtdbClient({ databaseUrl: rtdb.url, getIdToken: async () => ({ ok: true, idToken: TOKEN_OUTRO }) });
 function ids(prKey) { return { uid: 'u1', accountHash: accountHash(CONTA), prHash: prHash(prKey) }; }
-function dadosDoLease(leaseId, deviceId, nowMs = Date.now()) {
+// O "outro aparelho" carimba o lease no relógio do servidor, como a produção faz
+// (lib/engine/sync.js monta o lease com `nowMs: rt.agora()`). Com `Date.now()` puro, o
+// teste misturava dois relógios: o `skewMs` medido na presença é negativo no valor da
+// latência, e a espera do timer de vencimento passava do TTL quando a latência superava
+// o tempo entre o lease e a leitura (intermitente em runner carregado, 20/10/2026).
+function relogioDoServidor() {
+  return engine.sync && typeof engine.sync.agora === 'function' ? engine.sync.agora() : Date.now();
+}
+
+function dadosDoLease(leaseId, deviceId, nowMs = relogioDoServidor()) {
   return { leaseId, deviceId, operationKind: 'review', headSha: 'abc123', nowMs, farolVersion: '9.9.9' };
 }
 

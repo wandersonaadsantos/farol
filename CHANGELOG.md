@@ -9,7 +9,89 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.73.0
+## v2.76.1
+
+A reinstalação no macOS não deixa mais a instalação anterior inutilizada quando uma etapa falha.
+
+### Correções
+
+- A reinstalação macOS prepara código, runtime, protocolo e bundle antes de substituir a versão instalada. Falhas na troca ou no registro restauram a instalação anterior, preservando configuração, histórico e prompts pessoais.
+
+## v2.76.0
+
+O Antigravity (agy) entra como provedor de revisão: contas Google com o plano do Antigravity podem pagar as revisões antes do Claude, na ordem de uso de Plano e chaves.
+
+### Novidades
+
+- Em Sistema > Plano e chaves, adicione perfis do tipo Antigravity, um por conta Google, e faça o login de cada um pela própria tela (vale também no Farol em servidor). Cada conta fica numa pasta própria, então duas contas rodam lado a lado sem relogar.
+- O Farol lê a cota de cada conta antes de abrir a revisão, sem gastar nada. Conta esgotada fica fora até a hora em que a cota volta, e a revisão segue no próximo perfil da ordem de uso; quando a cota renova, a conta volta a ser usada sozinha.
+- A revisão no Antigravity usa o Gemini 3.8 Flash (High), sem subagente, a configuração que acertou o veredito nas medições. O modelo e o esforço do provedor ficam em Plano e chaves.
+- A cota de cada perfil aparece ao vivo, por grupo de modelos, com a hora do reset. O Farol confere se a conta que entrou é a esperada e para com o motivo dito se não for.
+
+## v2.75.1
+
+Os endereços do Farol viram caminhos de página, sem o `/#/`, e a instância de teste não nasce mais revisando sozinha.
+
+### Melhorias
+
+- O endereço de cada tela é um caminho de página: `https://farol.usealways.com/#/radar/pra-mim` passa a ser `https://farol.usealways.com/radar/pra-mim`. Link antigo com `#/` (favorito, notificação) continua funcionando e é trocado pelo caminho novo na entrada. Recarregar ou abrir direto um endereço profundo leva à mesma tela.
+
+### Correções
+
+- Um Farol novo configurado com `"autoReview": false` no arquivo de configuração, como o guia ensina para testar, nascia com a conta revisando e aprovando sozinha. Agora a chave escrita no arquivo vale para a conta detectada. Instalações que já tinham conta não mudam.
+
+## v2.75.0
+
+Várias assinaturas em ordem de prioridade: quando a principal chega ao limite do plano, o Farol segue para a próxima sozinho e volta à principal depois do reset.
+
+### Novidades
+
+- Em Sistema > Plano e chaves, a ordem de uso: suba, desça, ligue e desligue cada perfil (assinatura do Claude, chave de API ou Codex). O primeiro perfil ligado paga as revisões. Quando ele chega ao limite do plano, o Farol guarda a hora em que o limite volta e retoma a revisão no próximo perfil, sem esperar clique; passado o reset, o primeiro volta a ser usado sozinho.
+- Cada perfil mostra o estado ao vivo: em uso, no limite até a hora do reset, sem login ou com problema.
+- Com todos os perfis no limite, as revisões esperam o primeiro reset, sem estacionar nenhum PR e sem abrir sessão até lá.
+- O modelo e o esforço de cada provedor (Claude Code e Codex) ficam em Plano e chaves, junto da ordem de uso. O lugar do Antigravity já aparece, desligado, enquanto ele é medido.
+
+### Melhorias
+
+- Quando o provedor não informa a hora do reset, o perfil fica fora por uma hora, com a hora marcada como estimada, em vez de cada PR descobrir o limite de novo a cada ciclo.
+- Quem atualiza continua com o mesmo perfil de antes: a ordem nasce com o perfil padrão ligado e os outros desligados. Perfil novo entra desligado. Conta do GitHub com perfil próprio usa só ele, e o orçamento estourado continua pausando a automação, sem trocar de perfil.
+
+## v2.74.0
+
+O login padrão da máquina aparece na lista de perfis com o nome que você der, o login de um perfil novo pode ser feito pela própria tela, sem terminal, e a limpeza presa da revisão técnica no Windows não estaciona mais o PR.
+
+### Novidades
+
+- Em Sistema > Plano e chaves, o login padrão da máquina (o que o Claude Code usa quando nenhuma pasta é indicada) pode ser listado como perfil, com nome próprio, orçamento e o selo da conta. Dá para escolhê-lo como padrão do Farol, numa conta do GitHub ou num grupo de consumo. A sessão continua entrando exatamente como antes.
+- Onde não há terminal para abrir, como no Farol rodando em servidor, o "Abrir sessão de login" abre um painel na tela: você abre a página de login da Anthropic, entra com a conta da assinatura e cola aqui o código que ela mostra. O comando de terminal continua no painel, como alternativa.
+
+### Correções
+
+- No Windows, arquivo da revisão técnica preso por outro processo na hora da limpeza não derruba mais a revisão nem estaciona o PR esperando clique: o material temporário sai na limpeza seguinte.
+
+## v2.73.2
+
+Com a conta configurada para aprovar ou reprovar sozinha, o Farol decide sozinho e não manda mais o PR para "Precisa de você" por desculpa.
+
+### Novidades
+
+- O endereço da página passa a refletir a tela: aba, sub-aba do Radar, aparelho escolhido, seção do Sistema, filtros de Entregas e a revisão aberta entram na URL. Voltar e avançar do navegador funcionam, e abrir um link leva direto para a mesma tela.
+
+### Melhorias
+
+- Revisão que você mandou rodar (clique no Panorama, link colado, Revisar agora pelo aparelho admin, comandos e fila compartilhada entre aparelhos) passa a aprovar ou pedir mudanças pela configuração da conta, como a revisão da sua fila.
+- PR com violação técnica confirmada, achado técnico não resolvido ou a parte do card dele não entregue recebe o pedido de mudanças na hora, com os pontos apontados, quando a conta reprova sozinha.
+- PR com CI obrigatório vermelho recebe o pedido de mudanças citando os checks, uma vez por commit, quando a conta reprova sozinha. A aprovação continua esperando e sai sozinha quando a pipe fechar verde no mesmo commit.
+- Duas aprovações de pessoas no commit resolvem a revisão como "aprovação automática não necessária", sem postar nada. Pedido de mudanças de uma pessoa não segura mais a revisão do Farol: ele fica registrado no GitHub e a sua configuração decide.
+- PR aberto pela própria conta que revisa recebe a revisão como comentário, já que o GitHub não aceita aprovação nem pedido de mudanças do autor.
+- Revisão que volta incompleta entra na recuperação automática no mesmo commit, quando foi você quem mandou revisar (fila, clique, admin, comandos ou fila compartilhada).
+- Texto de revisão barrado pela trava de linguagem é refeito uma vez sem o trecho barrado antes de desistir.
+
+### Correções
+
+- Repositório sem declaração técnica e prova que faltou depois das duas tentativas do Farol no mesmo commit voltam a ser ressalva, e a configuração da conta decide. A aprovação continua exigindo o commit confirmado, os checks obrigatórios verdes nesse commit e que a base e as objeções lidas pela revisão não tenham mudado. Violação técnica, achado não resolvido, a parte do card deste PR não entregue e CI vermelho ou pendente continuam impedindo.
+- "Precisa de você" fica só para a configuração que pede você, para o commit que não deu para confirmar e para falha de postagem ou de sessão, sempre com o motivo no card. Nunca sai aprovação com CI vermelho ou pendente, violação confirmada, commit não confirmado ou commit que mudou durante a revisão.
+## v2.73.1
 
 Diagnóstico remoto da identidade das revisões, sem acesso ao terminal do aparelho.
 
@@ -20,7 +102,11 @@ Diagnóstico remoto da identidade das revisões, sem acesso ao terminal do apare
 
 ### Correções
 
-- A reinstalação macOS prepara código, runtime, protocolo e bundle antes de substituir a versão instalada. Falhas na troca ou no registro restauram a instalação anterior, preservando configuração, histórico e prompts pessoais.
+- A reconferência técnica retoma mesmo quando a fila já consumiu o marcador da primeira tentativa, inclusive depois de reiniciar o Farol.
+- Pendências antigas de reconferência entram na recuperação automática; um reenvio esgotado não impede a análise do contexto atualizado.
+- O card mostra verificação pendente e bloqueia Aprovar enquanto a análise anterior precisa ser refeita. A paleta de comandos e os outros aparelhos respeitam o mesmo bloqueio; Revisar de novo permanece disponível.
+- Uma revisão já na fila ou em execução termina e substitui a decisão antiga sem criar outra pendência órfã.
+- Reviews publicados durante uma análise continuam invalidando sua aprovação: a nova rodada precisa comprovar o contexto atualizado antes de postar.
 
 ## v2.72.11
 

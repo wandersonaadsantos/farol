@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
 <title>Farol</title>
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="app.css">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/app.css">
 </head>
 <body>
 
@@ -507,30 +507,6 @@
               </span>
               <span class="set-ctl"><input id="setAutoPushback" type="checkbox"><span class="switch"></span></span>
             </label>
-            <div class="set-row" id="sys-row-provedor">
-              <div class="set-txt">
-                <span class="set-title">Configuração do provedor</span>
-                <span class="set-desc">Edite separadamente o modelo e o raciocínio de cada CLI. Na execução, cada conta usa o perfil associado no painel Contas. No Claude, Auto (qualidade primeiro) revisa todo PR com o Opus, no mesmo raciocínio do Opus fixo, e sobe o raciocínio para xhigh em repositório crítico, caminho sensível ou PR muito grande, só na revisão headless.</span>
-              </div>
-              <div class="set-ctl">
-                <div class="seg" id="setAutomationProvider" role="group" aria-label="Provedor que está sendo configurado">
-                  <button type="button" class="seg-btn active" data-provider="claude" aria-pressed="true">Claude Code</button>
-                  <button type="button" class="seg-btn" data-provider="codex" aria-pressed="false">Codex</button>
-                </div>
-              </div>
-            </div>
-            <div class="set-row" id="sys-row-modelo">
-              <div class="set-txt">
-                <span class="set-title">Modelo das sessões autônomas</span>
-                <p class="set-desc" id="reviewModelHint"></p>
-              </div>
-              <div class="set-ctl">
-                <!-- as opções vêm do catálogo do engine (lib/modelos.js), preenchidas pela tela
-                     de Automação: uma lista fixa aqui seria uma segunda lista das seleções -->
-                <select id="setReviewModel" aria-label="Modelo do Claude Code"></select>
-                <select id="setCodexReviewModel" aria-label="Modelo do Codex" hidden></select>
-              </div>
-            </div>
             <div class="set-row" id="sys-row-paralelas">
               <div class="set-txt">
                 <label class="set-title" for="setParallelReviews">Revisões paralelas por conta</label>
@@ -560,84 +536,6 @@
                   <option value="6">6 no total</option>
                   <option value="8">8 no total</option>
                 </select>
-              </div>
-            </div>
-            <div class="set-row set-row-block" id="sys-row-esforco">
-              <div class="set-txt wide">
-                <span class="set-title">Esforço de raciocínio</span>
-                <p class="set-desc" id="effortHint"></p>
-                <div class="effort-cards" id="setReviewEffort" role="radiogroup" aria-label="Esforço de raciocínio do Claude Code">
-                  <label class="effort-card">
-                    <input type="radio" name="reviewEffort" value="">
-                    <span class="ec-name">Padrão do Claude</span>
-                    <span class="ec-value">o CLI decide pelo modelo</span>
-                    <span class="ec-cap">é o que o Farol sempre fez</span>
-                  </label>
-                  <label class="effort-card">
-                    <input type="radio" name="reviewEffort" value="low">
-                    <span class="ec-name">Baixo</span>
-                    <span class="ec-value">responde rápido</span>
-                    <span class="ec-cap">o que menos consome do limite</span>
-                    <span class="ec-note">serve pra PR pequeno e direto</span>
-                  </label>
-                  <label class="effort-card">
-                    <input type="radio" name="reviewEffort" value="medium">
-                    <span class="ec-name">Médio</span>
-                    <span class="ec-value">meio termo</span>
-                    <span class="ec-cap">consumo moderado</span>
-                  </label>
-                  <label class="effort-card">
-                    <input type="radio" name="reviewEffort" value="high">
-                    <span class="ec-name">Alto</span>
-                    <span class="ec-value">pensa antes de responder</span>
-                    <span class="ec-cap">é o padrão da maioria dos modelos</span>
-                  </label>
-                  <label class="effort-card">
-                    <input type="radio" name="reviewEffort" value="xhigh">
-                    <span class="ec-name">Muito alto</span>
-                    <span class="ec-value">raciocínio mais longo</span>
-                    <span class="ec-cap">acha mais coisa e gasta bem mais</span>
-                    <span class="ec-note">só os Opus, Sonnet e Fable recentes aceitam</span>
-                  </label>
-                </div>
-                <div class="effort-cards" id="setCodexReviewEffort" role="radiogroup" aria-label="Esforço de raciocínio do Codex" hidden>
-                  <label class="effort-card">
-                    <input type="radio" name="codexReviewEffort" value="">
-                    <span class="ec-name">Padrão do Codex</span>
-                    <span class="ec-value">o CLI decide pelo modelo</span>
-                    <span class="ec-cap">recomendado pra acompanhar a conta</span>
-                  </label>
-                  <label class="effort-card">
-                    <input type="radio" name="codexReviewEffort" value="minimal">
-                    <span class="ec-name">Mínimo</span>
-                    <span class="ec-value">menor raciocínio</span>
-                    <span class="ec-cap">prioriza velocidade e cota</span>
-                  </label>
-                  <label class="effort-card">
-                    <input type="radio" name="codexReviewEffort" value="low">
-                    <span class="ec-name">Baixo</span>
-                    <span class="ec-value">resposta mais rápida</span>
-                    <span class="ec-cap">bom pra PR pequeno e direto</span>
-                  </label>
-                  <label class="effort-card">
-                    <input type="radio" name="codexReviewEffort" value="medium">
-                    <span class="ec-name">Médio</span>
-                    <span class="ec-value">equilíbrio</span>
-                    <span class="ec-cap">ponto de partida geral</span>
-                  </label>
-                  <label class="effort-card">
-                    <input type="radio" name="codexReviewEffort" value="high">
-                    <span class="ec-name">Alto</span>
-                    <span class="ec-value">análise mais profunda</span>
-                    <span class="ec-cap">consome mais da cota</span>
-                  </label>
-                  <label class="effort-card">
-                    <input type="radio" name="codexReviewEffort" value="xhigh">
-                    <span class="ec-name">Muito alto</span>
-                    <span class="ec-value">raciocínio mais longo</span>
-                    <span class="ec-cap">depende do modelo escolhido</span>
-                  </label>
-                </div>
               </div>
             </div>
             <div class="set-row" id="sys-row-intervalo">
@@ -720,9 +618,148 @@
         <!-- Plano e chaves -->
         <div class="sys-section" id="sys-plans" role="tabpanel" aria-labelledby="sysbtn-plans" tabindex="0">
           <div class="section-head"><h2>Plano e chaves</h2></div>
-          <p class="section-desc">A assinatura do Claude que paga as revisões. Um perfil por assinatura, e cada conta do GitHub pode usar um perfil diferente.</p>
+          <p class="section-desc">As assinaturas que pagam as revisões, em ordem de prioridade, o modelo que cada provedor usa e os perfis salvos.</p>
+          <div id="cadeiaPerfis"></div>
+          <div class="card set-list" id="sys-plans-modelo">
+            <div class="set-row" id="sys-row-provedor">
+              <div class="set-txt">
+                <span class="set-title">Configuração do provedor</span>
+                <span class="set-desc">Cada provedor tem o próprio modelo e esforço, e a revisão usa o par do provedor do perfil que a cadeia escolheu: modelo de um nunca vai para a linha de comando do outro. No Claude, Auto (qualidade primeiro) revisa todo PR com o Opus, no mesmo raciocínio do Opus fixo, e sobe o raciocínio para xhigh em repositório crítico, caminho sensível ou PR muito grande, só na revisão headless.</span>
+              </div>
+              <div class="set-ctl">
+                <div class="seg" id="setAutomationProvider" role="group" aria-label="Provedor que está sendo configurado">
+                  <button type="button" class="seg-btn active" data-provider="claude" aria-pressed="true">Claude Code</button>
+                  <button type="button" class="seg-btn" data-provider="codex" aria-pressed="false">Codex</button>
+                  <button type="button" class="seg-btn" data-provider="agy" aria-pressed="false">Antigravity</button>
+                </div>
+              </div>
+            </div>
+            <div class="set-row" id="sys-row-modelo">
+              <div class="set-txt">
+                <span class="set-title">Modelo das sessões autônomas</span>
+                <p class="set-desc" id="reviewModelHint"></p>
+              </div>
+              <div class="set-ctl">
+                <!-- as opções vêm do catálogo do engine (lib/modelos.js), preenchidas pela tela
+                     de Automação: uma lista fixa aqui seria uma segunda lista das seleções -->
+                <select id="setReviewModel" aria-label="Modelo do Claude Code"></select>
+                <select id="setCodexReviewModel" aria-label="Modelo do Codex" hidden></select>
+                <select id="setAgyReviewModel" aria-label="Modelo do Antigravity" hidden></select>
+              </div>
+            </div>
+            <div class="set-row set-row-block" id="sys-row-esforco">
+              <div class="set-txt wide">
+                <span class="set-title">Esforço de raciocínio</span>
+                <p class="set-desc" id="effortHint"></p>
+                <div class="effort-cards" id="setReviewEffort" role="radiogroup" aria-label="Esforço de raciocínio do Claude Code">
+                  <label class="effort-card">
+                    <input type="radio" name="reviewEffort" value="">
+                    <span class="ec-name">Padrão do Claude</span>
+                    <span class="ec-value">o CLI decide pelo modelo</span>
+                    <span class="ec-cap">é o que o Farol sempre fez</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="reviewEffort" value="low">
+                    <span class="ec-name">Baixo</span>
+                    <span class="ec-value">responde rápido</span>
+                    <span class="ec-cap">o que menos consome do limite</span>
+                    <span class="ec-note">serve pra PR pequeno e direto</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="reviewEffort" value="medium">
+                    <span class="ec-name">Médio</span>
+                    <span class="ec-value">meio termo</span>
+                    <span class="ec-cap">consumo moderado</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="reviewEffort" value="high">
+                    <span class="ec-name">Alto</span>
+                    <span class="ec-value">pensa antes de responder</span>
+                    <span class="ec-cap">é o padrão da maioria dos modelos</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="reviewEffort" value="xhigh">
+                    <span class="ec-name">Muito alto</span>
+                    <span class="ec-value">raciocínio mais longo</span>
+                    <span class="ec-cap">acha mais coisa e gasta bem mais</span>
+                    <span class="ec-note">só os Opus, Sonnet e Fable recentes aceitam</span>
+                  </label>
+                </div>
+                <div class="effort-cards" id="setCodexReviewEffort" role="radiogroup" aria-label="Esforço de raciocínio do Codex" hidden>
+                  <label class="effort-card">
+                    <input type="radio" name="codexReviewEffort" value="">
+                    <span class="ec-name">Padrão do Codex</span>
+                    <span class="ec-value">o CLI decide pelo modelo</span>
+                    <span class="ec-cap">recomendado pra acompanhar a conta</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="codexReviewEffort" value="minimal">
+                    <span class="ec-name">Mínimo</span>
+                    <span class="ec-value">menor raciocínio</span>
+                    <span class="ec-cap">prioriza velocidade e cota</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="codexReviewEffort" value="low">
+                    <span class="ec-name">Baixo</span>
+                    <span class="ec-value">resposta mais rápida</span>
+                    <span class="ec-cap">bom pra PR pequeno e direto</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="codexReviewEffort" value="medium">
+                    <span class="ec-name">Médio</span>
+                    <span class="ec-value">equilíbrio</span>
+                    <span class="ec-cap">ponto de partida geral</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="codexReviewEffort" value="high">
+                    <span class="ec-name">Alto</span>
+                    <span class="ec-value">análise mais profunda</span>
+                    <span class="ec-cap">consome mais da cota</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="codexReviewEffort" value="xhigh">
+                    <span class="ec-name">Muito alto</span>
+                    <span class="ec-value">raciocínio mais longo</span>
+                    <span class="ec-cap">depende do modelo escolhido</span>
+                  </label>
+                </div>
+                <div class="effort-cards" id="setAgyReviewEffort" role="radiogroup" aria-label="Esforço de raciocínio do Antigravity" hidden>
+                  <label class="effort-card">
+                    <input type="radio" name="agyReviewEffort" value="">
+                    <span class="ec-name">Padrão do modelo</span>
+                    <span class="ec-value">no Gemini o nível já está no nome</span>
+                    <span class="ec-cap">recomendado</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="agyReviewEffort" value="low">
+                    <span class="ec-name">Baixo</span>
+                    <span class="ec-value">só Claude e GPT</span>
+                    <span class="ec-cap">o que menos consome da cota</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="agyReviewEffort" value="medium">
+                    <span class="ec-name">Médio</span>
+                    <span class="ec-value">só Claude e GPT</span>
+                    <span class="ec-cap">consumo moderado</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="agyReviewEffort" value="high">
+                    <span class="ec-name">Alto</span>
+                    <span class="ec-value">só Claude e GPT</span>
+                    <span class="ec-cap">pensa antes de responder</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="agyReviewEffort" value="xhigh">
+                    <span class="ec-name">Muito alto</span>
+                    <span class="ec-value">só Claude e GPT</span>
+                    <span class="ec-cap">gasta bem mais da cota</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
           <div id="claudeProfilesManager" class="cards"></div>
-          <p class="section-desc section-note">Cada perfil aponta pra um diretório de config próprio. Faça <code>claude login</code> nesse diretório uma vez, FORA do Farol (ex.: <code>$env:CLAUDE_CONFIG_DIR="C:\caminho"; claude login</code>), antes de usá-lo aqui. O perfil padrão vale pra toda conta do GitHub que não tiver um perfil próprio (dropdown na conta, seção Contas). Sem nenhum perfil salvo, o Farol usa o login padrão da máquina.</p>
+          <p class="section-desc section-note">Perfil de assinatura aponta pra um diretório de config próprio: faça o login nele uma vez, pelo botão Abrir sessão de login do cartão ou FORA do Farol (ex.: <code>$env:CLAUDE_CONFIG_DIR="C:\caminho"; claude login</code>). A ordem de uso vale pra toda conta do GitHub que não tiver um perfil próprio (dropdown na conta, seção Contas). Sem nenhum perfil ligado, o Farol usa o login padrão da máquina.</p>
         </div>
 
         <!-- Reviewers -->
@@ -946,6 +983,6 @@
 
 <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
 <!-- app.js e modulo ES nativo: importa as funcoes puras direto de pure.js (esc, md, fmtRel...). -->
-<script type="module" src="app.js"></script>
+<script type="module" src="/app.js"></script>
 </body>
 </html>

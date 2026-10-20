@@ -44,6 +44,7 @@ import { initPerfilPessoa } from './telas/perfil-pessoa.js';
 import { registrarTelaRadarCompartilhado, aoAndamentoRemoto, aoPendenciasRemotas } from './telas/radar-compartilhado.js';
 import { initListasRemotas, aoListasRemotas } from './telas/listas-remotas.js';
 import { registrarTelaRadarAparelhos, renderAparelhos } from './telas/radar-aparelhos.js';
+import { initRota, depoisDoEstado, sincronizarUrl } from './telas/rota.js';
 
 const isElectron = ehElectron();
 if (isElectron) document.body.classList.add('electron');
@@ -268,6 +269,7 @@ function focusPr(url, tentativa = 0) {
     if (sub) sub.click();
   }
   card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  sincronizarUrl();   // chegou por notificação, não por clique: o endereço acompanha aqui
   card.classList.add('pulse-focus');
   setTimeout(() => card.classList.remove('pulse-focus'), 2600);
 }
@@ -315,6 +317,7 @@ function repintarPorEstado() {
   syncAnalysisOps();
   renderSettings(); renderTools(); renderUpdate(); tickCountdown();
   for (const tela of telasRegistradas()) if (tela.aoEstado) tela.aoEstado();
+  depoisDoEstado();   // o endereço da página acompanha o que o estado novo pôs na tela
 }
 
 // Prova de vida do stream. O engine manda um evento `ping` a cada 25 s; enquanto ele
@@ -415,6 +418,7 @@ function connect() {
   es.addEventListener('meu-pr-base', (e) => { const d = safeJsonParse(e.data); if (d) avisoDaBase(d, (url) => focusPr(url)); });
   es.addEventListener('auto-approved', () => ping());
   es.addEventListener('auto-rejected', () => ping());
+  es.addEventListener('auto-commented', () => ping());
   es.addEventListener('needs-decision', (e) => {
     ping();
     const d = safeJsonParse(e.data); if (!d) return; const { pr, item } = d;
@@ -467,6 +471,11 @@ registrarTelaRadarAparelhos();
 // Panorama e Meus PRs de outros aparelhos: quando chega projeção nova, as duas abas (e as
 // contagens das sub-abas) se redesenham pelas funções que o bootstrap já chama por snapshot
 initListasRemotas(() => { renderMyPRs(); renderPanorama(); renderRadarNav(); renderAparelhos(); });
+
+/* O endereço da página reflete a tela (telas/rota.js): por último, para o ouvinte de clique
+   e tecla dele rodar depois de todos os handlers acima, e com todas as telas registradas
+   (o switchTab que ele recebe chama o aoEntrar de cada uma). */
+initRota({ switchTab, rerenderScope });
 
 /* A4: antes de qualquer coisa, a página pergunta se este navegador pode entrar. Com a
    exigência ligada e sem credencial, a interface inteira vira o pareamento: nada do estado,

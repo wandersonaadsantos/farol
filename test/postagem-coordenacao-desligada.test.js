@@ -40,7 +40,7 @@ const HEAD = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2';
 const PR = { key: 'o/r#1', repo: 'o/r', number: 1, url: 'https://github.com/o/r/pull/1', author: 'dev', account: 'eu' };
 const CORPO = 'Leitura atenta, tudo certo por aqui.';
 const POST = ['api', 'repos/o/r/pulls/1/reviews', '--input', '<arquivo>'];
-const MEUS = ['api', 'repos/o/r/pulls/1/reviews', '--jq', '[.[] | select((.user.login | ascii_downcase) == "eu") | {state, submitted_at, commit_id}]'];
+const MEUS = ['api', 'repos/o/r/pulls/1/reviews', '--jq', '[.[] | select((.user.login | ascii_downcase) == "eu") | {state, submitted_at, commit_id, body}]'];
 const OUTROS = ['api', 'repos/o/r/pulls/1/reviews', '--jq', '[.[] | select((.user.login | ascii_downcase) != "eu") | {quem: .user.login, tipo: .user.type, state, commit_id}]'];
 const VAZIO = { ok: true, code: 0, stdout: '[]', stderr: '' };
 const OK_POST = { ok: true, code: 0, stdout: '{"id":1}', stderr: '' };

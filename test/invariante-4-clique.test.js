@@ -1,5 +1,4 @@
-// Invariante 4, a metade que ninguém estava guardando: revisão iniciada por CLIQUE
-// nunca auto-posta.
+// Invariante 4, a régua de ORIGEM: de onde a revisão saiu decide se ela pode postar sozinha.
 //
 // Por que este arquivo existe. Numa auditoria de 17/08/2026 eu removi a trava
 // `pr.requested === false` das duas funções de gate e rodei a suíte inteira:
@@ -7,13 +6,16 @@
 //   shouldAutoApprove  -> 2 testes reprovaram   (a trava estava guardada)
 //   shouldAutoReject   -> 1249 passando, 0 falhando   (ninguém percebeu)
 //
-// Ou seja: dava pra apagar a trava do lado do REQUEST_CHANGES, passar em `npm test`,
-// no `npm run lint` e no CI dos três sistemas, e o Farol passaria a pedir mudanças
-// sozinho num PR que a pessoa só clicou pra ver. Isso é o oposto do que o invariante
-// 4 promete, e é o tipo de regressão que só aparece em produção, no PR de alguém.
+// As duas metades ficam aqui juntas, e de propósito: separadas foi como uma delas ficou
+// sem guarda.
 //
-// As duas metades ficam aqui juntas, e de propósito: separadas foi como uma delas
-// ficou sem guarda. Runner nativo, ZERO deps.
+// A régua mudou em 18/10/2026 (a decisão sem mesa). Regra do dono: "Se foi configurado pra
+// aprovar sozinho ele aprova sozinho, se foi configurado pra reprovar sozinho ele reprova
+// sozinho, sem depender da minha ação." Clique no Panorama, URL colada, pedido do aparelho
+// admin, comando remoto e distribuição entre aparelhos são TODOS o dono mandando revisar, e
+// saem pela política da conta como a fila. O que continua sem postar sozinho é a origem
+// desconhecida: um objeto de PR sem marca nenhuma (desfecho-automatico.js, origemDoDono).
+// Runner nativo, ZERO deps.
 import os from 'node:os';
 import path from 'node:path';
 process.env.FAROL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-test-inv4-'));
@@ -42,7 +44,7 @@ const reprovavel = () => ({
 });
 
 // engine com a política mais PERMISSIVA possível: se algo ainda barrar, foi a trava
-// do clique, que é o que se quer provar.
+// de origem, que é o que se quer provar.
 function enginePermissivo() {
   const e = new Engine();
   e.config = { ...e.config, autoApproveAll: true };
@@ -52,45 +54,43 @@ function enginePermissivo() {
   return e;
 }
 
-test('APPROVE: com tudo liberado, o clique ainda barra', () => {
-  const e = enginePermissivo();
-  assert.deepEqual(e.shouldAutoApprove({ ...PR, requested: true }, aprovavel()), { ok: true, motivo: null },
-    'controle: pedido a mim, com política permissiva, passa');
-  assert.deepEqual(e.shouldAutoApprove({ ...PR, requested: false }, aprovavel()), { ok: false, motivo: 'clique' },
-    'iniciado por clique NUNCA auto-posta, por mais permissiva que seja a conta');
-});
+// as marcas que cada caminho de lançamento carimba no PR
+const ORIGENS_DO_DONO = {
+  fila: { requested: true },
+  'clique no Panorama ou URL colada': { requested: false, manual: true },
+  'pedido do aparelho admin': { viaAdmin: true },
+  'comando remoto (repetir, tomar, transferir)': { viaComando: true },
+  'distribuição entre aparelhos': { viaComando: true, viaDistribuicao: true },
+  'pendência relançada (reconferência técnica)': { origemDono: true },
+};
 
-test('REQUEST_CHANGES: com tudo liberado, o clique ainda barra', () => {
-  // esta é a que faltava: mesma prova, do lado do reject
-  const e = enginePermissivo();
-  assert.equal(e.shouldAutoReject({ ...PR, requested: true }, reprovavel()), true,
-    'controle: pedido a mim, com a conta optando por reprovar sozinho, passa');
-  assert.equal(e.shouldAutoReject({ ...PR, requested: false }, reprovavel()), false,
-    'iniciado por clique NUNCA auto-posta, nem pra pedir mudanças');
-});
+for (const [origem, marcas] of Object.entries(ORIGENS_DO_DONO)) {
+  test(`origem do dono (${origem}): aprova e reprova pela política da conta`, () => {
+    const e = enginePermissivo();
+    assert.deepEqual(e.shouldAutoApprove({ ...PR, ...marcas }, aprovavel()), { ok: true, motivo: null });
+    assert.equal(e.shouldAutoReject({ ...PR, ...marcas }, reprovavel()), true);
+  });
+}
 
-test('a trava vale pros dois lados na MESMA execução', () => {
-  // guarda contra a assimetria que a auditoria achou: alguém proteger um lado e
-  // esquecer o outro de novo
-  const e = enginePermissivo();
-  const clique = { ...PR, requested: false };
-  assert.equal(e.shouldAutoApprove(clique, aprovavel()).ok, false);
-  assert.equal(e.shouldAutoReject(clique, reprovavel()), false);
-});
-
-// Até 26/09/2026 este caso travava o contrário (`=== false`, "campo ausente não é
-// rebaixado"). O inventário dos caminhos de postagem mostrou quem chega sem o campo: os
-// comandos remotos (repetir, tomar, transferir; prDoComando o remove) e o executor da
-// distribuição sem o PR na fila dele. Todo caminho automático legítimo carimba `true`
-// (a fila em resolverPr e a rodada nova em launchReReviews), então ausência é "não sei se
-// foi pedido a mim", e o invariante 4 exige saber.
-test('requested ausente (undefined) não posta sozinho: o invariante 4 exige requested === true', () => {
+test('origem desconhecida (nenhuma marca): nada sai sozinho, dos dois lados na MESMA execução', () => {
+  // guarda contra a assimetria que a auditoria achou: alguém proteger um lado e esquecer o outro
   const e = enginePermissivo();
   const semCampo = { ...PR };
-  delete semCampo.requested;
-  assert.deepEqual(e.shouldAutoApprove(semCampo, aprovavel()), { ok: false, motivo: 'clique' });
+  assert.deepEqual(e.shouldAutoApprove(semCampo, aprovavel()), { ok: false, motivo: 'origem_desconhecida' });
   assert.equal(e.shouldAutoReject(semCampo, reprovavel()), false);
-  assert.equal(e.shouldAutoApprove({ ...PR, requested: true }, aprovavel()).ok, true, 'pedido a mim segue aprovando');
+  // `requested: false` sozinho também não é marca de dono: o clique carimba `manual`
+  assert.equal(e.shouldAutoApprove({ ...PR, requested: false }, aprovavel()).ok, false);
+  assert.equal(e.shouldAutoReject({ ...PR, requested: false }, reprovavel()), false);
+  // marca com valor que não é o booleano verdadeiro não conta
+  assert.equal(e.shouldAutoApprove({ ...PR, manual: 'sim', viaAdmin: 1 }, aprovavel()).ok, false);
+});
+
+test('a política da conta continua mandando: origem do dono com a conta esperando você não posta', () => {
+  const e = enginePermissivo();
+  e.approvePolicyFor = () => 'wait';
+  e.rejectPolicyFor = () => 'wait';
+  assert.deepEqual(e.shouldAutoApprove({ ...PR, manual: true }, aprovavel()), { ok: false, motivo: 'politica' });
+  assert.equal(e.shouldAutoReject({ ...PR, manual: true }, reprovavel()), false);
 });
 
 /* ---------- APPROVE em branco não sai sozinho (31/08/2026) ----------

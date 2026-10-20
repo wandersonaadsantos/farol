@@ -49,7 +49,7 @@ after(async () => {
   await identity.close();
   try { fs.rmSync(BASE, { recursive: true, force: true }); } catch { /* limpeza best-effort do temporário */ }
 });
-beforeEach(() => { fake.setTree(null); fake.requests.length = 0; });
+beforeEach(() => { T = Date.now(); fake.setTree(null); fake.requests.length = 0; });
 
 async function fetchDosDubles(url, init) {
   const alvo = String(url).replace(ORIGEM_EMULADOR_AUTH, identity.url);
@@ -66,6 +66,8 @@ function syncCfg(extra = {}) {
 
 async function motorPronto({ comFrota = true } = {}) {
   const e = new Engine();
+  // Os casos conduzem os ciclos; configurar a conta não deve disparar polling concorrente.
+  e.checkNow = () => { };
   e.log = () => { };
   e.pushState = () => { };
   e.sync.fetchImpl = fetchDosDubles;
@@ -81,7 +83,7 @@ async function motorPronto({ comFrota = true } = {}) {
 }
 
 
-const T = Date.now();
+let T = Date.now();
 
 // O admin nunca publica candidato (revisão final, 28/09/2026). A bancada de um motor só faz
 // os dois papéis alternando: publicar é o trecho em que ele é o EXECUTOR que conhece o PR,

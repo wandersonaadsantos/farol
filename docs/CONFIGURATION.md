@@ -12,6 +12,7 @@ invariantes continuam lá.
 - [Uma decisão, uma configuração (30/09/2026)](#uma-decisão-uma-configuração-30092026)
 - [Modelo e esforço das sessões autônomas](#modelo-e-esforço-das-sessões-autônomas)
 - [Assinatura do Claude (qual conta/plano o Farol usa, e como alternar)](#assinatura-do-claude-qual-contaplano-o-farol-usa-e-como-alternar)
+- [Cadeia de perfis e provedores (20/10/2026)](#cadeia-de-perfis-e-provedores-20102026)
 - [Jira multi-tenant (v2.52.0)](#jira-multi-tenant-v2520)
 - [Padrões do time na revisão (v2.72.0)](#padrões-do-time-na-revisão-v2720)
 
@@ -80,7 +81,11 @@ Como o Farol espalha `process.env` pros filhos, por padrão ele herda o login da
 
 1. **Máquina toda:** `claude login` (troca a conta pra tudo, inclusive seu Claude Code interativo de codar). Simples, mas não isola o Farol.
 2. **Um diretório de config isolado (o que já existia):** aponte `config.claudeConfigDir` pra um diretório próprio. O engine injeta `CLAUDE_CONFIG_DIR` nesse dir em TODAS as sessões do Farol, então elas usam a assinatura logada ali, sem mexer no `claude` principal da máquina.
-3. **Perfis nomeados de assinatura, um por conta GitHub monitorada (recomendado, desde a v2.27.0):** em Sistema > **"Assinatura do Claude"**, o campo único virou um gerenciador de perfis. Cada perfil tem um nome (ex.: "BIUD Trabalho", "Pessoal Max") e um diretório de config próprio. Escolha um perfil como **padrão do Farol** e, se quiser, atribua um perfil diferente a uma conta GitHub específica (Sistema > Contas, override por conta). Sem override, a conta usa o padrão global; sem nenhum perfil criado, vale o `claudeConfigDir` legado como sempre valeu (compatibilidade total).
+3. **Perfis nomeados de assinatura, um por conta GitHub monitorada (recomendado, desde a v2.27.0):** em Sistema > **"Plano e chaves"**, o campo único virou um gerenciador de perfis. Cada perfil tem um nome (ex.: "BIUD Trabalho", "Pessoal Max") e um diretório de config próprio. Desde a v2.75.0 o padrão do Farol é o primeiro perfil ligado da **ordem de uso** (ver [Cadeia de perfis e provedores](#cadeia-de-perfis-e-provedores-20102026)) e, se quiser, atribua um perfil diferente a uma conta GitHub específica (Sistema > Contas, override por conta). Sem override, a conta usa a cadeia; sem nenhum perfil ligado, vale o `claudeConfigDir` legado como sempre valeu (compatibilidade total).
+
+**O login padrão da máquina como perfil (kind `maquina`, 20/10/2026):** sem pasta indicada, o Claude Code usa o login de `~/.claude` com a conta em `~/.claude.json`, e até aqui esse login não aparecia na lista de perfis. Agora ele se lista pelo cartão "Login padrão desta máquina" em Sistema > Plano e chaves (a gravação é do engine, pela mesma rota da adoção, `POST /api/claude/profile-adopt`): vira o perfil de id fixo `maquina`, com nome editável e orçamento, que se escolhe como padrão do Farol, numa conta do GitHub ou num grupo de consumo. Ele **não aponta `CLAUDE_CONFIG_DIR` para lugar nenhum**: a sessão entra exatamente como entrava sem perfil. Medido com o Claude Code 2.1.295: com `CLAUDE_CONFIG_DIR=~/.claude` o CLI passa a ler a conta de `~/.claude/.claude.json` (diz que o arquivo não existe e cria `backups/`), não de `~/.claude.json`, ou seja, é outro login; no macOS o item do keychain também ganha sufixo derivado da pasta. Listar não troca a assinatura de ninguém: o padrão do Farol só vira `maquina` quando estava vazio, e vazio já era esse mesmo login.
+
+**Login de perfil pela própria tela (20/10/2026, `lib/engine/login-web.js`):** sem terminal para abrir (modo servidor, como a instância da Hostinger, e Linux sem emulador), o "Abrir sessão de login" abre um painel na tela: o engine roda `claude auth login` com a pasta do perfil, mostra o link de autorização e um campo para colar o código que a página da Anthropic mostra no fim. Medido com o Claude Code 2.1.295 sem TTY (stdin em pipe): o CLI imprime o link (com `redirect_uri` na página da Anthropic que exibe o código, então o navegador pode estar em outra máquina), escreve `Paste code here if prompted >` e lê o código do stdin; código falso devolve `Login failed: Request failed with status code 400` e sai com 1. Zero dependência nova. O código é credencial de uso único: vai só para o stdin do CLI (rota `recebe-segredo` no inventário da A4) e nunca para log, snapshot ou toast. Não medido: o login que dá certo (o sucesso é a saída 0, conferida pelo doctor) e o CLI tentando abrir navegador numa máquina sem nenhum. O comando de terminal segue no painel como alternativa.
 
 **Perfil por chave de API (desde a v2.34.0):** cada perfil pode ser "login por assinatura" (o de sempre, `CLAUDE_CONFIG_DIR`) ou "chave de API" (`ANTHROPIC_API_KEY` + `ANTHROPIC_BASE_URL` opcional, billing por token em vez de assinatura). Os dois convivem no mesmo gerenciador de perfis e são escolhidos por conta GitHub do mesmo jeito. Perfil de chave não tem fluxo de `claude login` (a chave já é a credencial) e cobre tanto as sessões headless quanto a sessão de terminal interativa da fila, a sessão de LOGIN em si (botão "Abrir sessão de login") segue existindo só pro tipo assinatura. URL base é um escape hatch genérico pra qualquer endpoint compatível com a API de Mensagens da Anthropic (proxy próprio, gateway corporativo).
 
@@ -147,6 +152,140 @@ $env:CLAUDE_CONFIG_DIR="C:\Users\voce\.claude-pessoal"; claude login
 `OAuth access token has expired` é credencial expirada, mesmo quando a mensagem contém tentativas de reconexão. A taxonomia estaciona a revisão na primeira falha e a fila orienta renovar o login do perfil, inclusive para registros antigos estacionados por esgotamento de retries. Remover `CLAUDE_CODE_OAUTH_TOKEN` herdado isola o perfil escolhido; não renova uma credencial já expirada.
 
 O que acontece com a revisão estacionada, e quando ela volta a rodar, está em [`REVIEW-GATES.md`](REVIEW-GATES.md#ciclo-de-vida-e-higiene-onda-3-dos-gaps-da-auditoria-de-15082026).
+
+## Cadeia de perfis e provedores (20/10/2026)
+
+Pedido do dono: "definir por ordem qual a conta que consome primeiro e qual é fallback da conta prioritária, assim sempre vou ter algumas opções sem travar o Farol". Com o exemplo dele: Gemini X principal, Gemini Y fallback 1, Claude Max BIUD fallback 2. "Caso estourou a conta Gemini X, salva quando volta o limite e vai direto pra Gemini Y, e assim por diante, e segue a prioridade de qual vai consumir primeiro."
+
+### A cadeia
+
+`config.cadeiaPerfis` é a lista ordenada `[{ id, ativo }]` com TODOS os perfis salvos, editada em Sistema > Plano e chaves > Ordem de uso (subir, descer, ligar, desligar; `POST /api/settings` com a lista inteira, porque a ordem é o conteúdo). `lib/engine/cadeia-perfis.js` escolhe, a cada pergunta, o perfil de uma conta (`authDaConta`, que é o corpo do `Engine.resolveClaudeAuth`):
+
+1. conta do GitHub com perfil próprio (`accounts[].claudeProfileId`): SÓ esse perfil, como antes;
+2. senão, o primeiro perfil **ligado** e **pronto** da cadeia;
+3. sem nenhum pronto, o de **reset mais cedo** entre os que estão no limite (a fila espera por ele);
+4. sem limite nenhum, o primeiro **sem login** (o que a cadeia de um perfil só já fazia: tenta e mostra a falha);
+5. sem perfil ligado, o `claudeConfigDir` legado.
+
+O estado de cada perfil: `desligado`, `problema` (falta pasta ou chave: `authFromProfile` devolve null), `limite` (registro de `lib/engine/limite-plano.js` ainda valendo), `sem-login` (o último diagnóstico disse `ready: false`; a cadeia não lê disco a cada pergunta) e `pronto`. A tela recebe a cadeia avaliada no snapshot (`cadeiaPerfis`, `cadeiaParaTela`), com o `em-uso` marcado, a hora do reset e se ela é estimada.
+
+**Limite do plano.** Não existe segundo registro: o "no limite até" é o de `lib/engine/limite-plano.js`, por chave de assinatura, em disco. O que mudou nele:
+
+- a sessão amarra o desfecho à assinatura que USOU (`comPerfilDaSessao` no `runProvedor`, sem a chave): a falha leva `err.perfilDaSessao` e o limite é registrado nela, e o sucesso libera exatamente esse perfil. Pela conta não dava: com a cadeia, quando o desfecho chega a conta já pode resolver para outro perfil (duas sessões no mesmo perfil, uma estoura e a outra conclui);
+- reset citado pelo provedor substitui o prazo estimado do mesmo perfil, mesmo quando é mais cedo;
+- todo perfil Codex usa o mesmo login do Codex CLI da máquina, então o limite é um só (`codex:`) e vale para todos eles; perfil Codex com o plano ChatGPT sem login (`codexChatGPT: false` no diagnóstico) conta como sem login. A cota do Codex (`codex: cota do plano atingida; resets ...`) está na classe `limite-plano` da taxonomia;
+- **reset desconhecido** (o provedor não disse a hora): o perfil fica fora por `TEMPOS.LIMITE_PLANO_SEM_HORA_MS` (uma hora), marcado `estimado`, visível na tela como "(estimado)". Antes o limite sem hora não era registrado e cada PR descobria o limite de novo a cada ciclo, até o teto de tentativas e o estacionamento; com a cadeia isso seria a fila inteira batendo no perfil esgotado em vez de seguir para o próximo. Uma hora fica entre o ciclo de polling (relançar a cada 3 minutos é pagar sessão para redescobrir o limite) e a janela de 5 horas do plano. Uma sessão que dá certo libera o perfil antes;
+- **revisão que morre por limite no meio** (`lib/engine/limite-na-cadeia.js`, `aposLimite`): registra o limite no perfil usado e, se a cadeia tem outro perfil livre para a conta, o PR entra no retry com `notBefore: null` e relança no ciclo seguinte, no perfil seguinte, sem clique e sem gastar o teto de tentativas (a troca não conta, e com perfil livre o PR não estaciona). A varredura de pushback segue a mesma regra: limite sem hora vira prazo estimado no perfil usado, e a cadeia segue para o próximo. A referência de retomada da sessão anterior é descartada pelo contexto (provedor e perfil mudaram, `lib/engine/retomada-duravel.js`): a revisão nova começa do zero;
+- **todos no limite**: o `limiteAte` da conta passa a ser o primeiro reset. A boca da sessão, o retry e a fila automática já consultavam esse valor, então o PR espera sem abrir sessão, sem estacionar e sem gastar tentativa. Quando o reset passa, o registro vence sozinho e o perfil prioritário volta a ser o escolhido, porque a escolha é refeita a cada pergunta. Clique manual continua passando (invariante 4).
+
+**A relação com o que já existia, e nada fica mais permissivo:**
+
+| peça | com a cadeia |
+|---|---|
+| perfil padrão do Farol (`claudeProfileId`) | continua existindo, DERIVADO: o primeiro perfil ligado da cadeia. Gravação que só troca o padrão (adoção do legado, listar o login da máquina) põe o escolhido no topo, ligado |
+| perfil por conta do GitHub | fixo, fora da cadeia. Deixar a conta transbordar faria uma conta presa à assinatura do trabalho gastar a pessoal. Cadeia própria por conta fica para quando houver o pedido |
+| orçamento por perfil | não troca de perfil: estourou, a automação pausa como antes (o orçamento é ritmo escolhido pelo dono, e a cadeia não é jeito de contorná-lo) |
+| grupo de consumo | vale sobre o perfil escolhido, como valia sobre o padrão |
+| política do admin (sincronização) | não fala de perfil; teto e pausa continuam valendo por cima |
+| perfil novo | entra desligado: nenhuma assinatura passa a gastar sem escolha |
+
+**Migração.** Config sem `cadeiaPerfis` (`def: null` em `lib/settings.js`) ganha, no boot, a cadeia com o perfil padrão de hoje ligado e os outros desligados (`reconciliar`, idempotente, também roda depois de toda gravação de configuração). Comportamento idêntico ao de antes. Perfil removido sai da cadeia na mesma gravação.
+
+### Modelo e esforço por provedor
+
+Cada provedor tem o próprio par de campos (`reviewModel`/`reviewEffort` do Claude, `codexReviewModel`/`codexReviewEffort` do Codex, `agyReviewModel`/`agyReviewEffort` do Antigravity), escolhidos em Plano e chaves junto da cadeia. A sessão usa o par do provedor do perfil que a cadeia escolheu. Modelo de um provedor nunca chega à linha de comando de outro: cada par passa pelo saneador do próprio provedor em `lib/parse.js`, que continua sendo a única porta de valor de config para a linha de comando, e o vocabulário de um é recusado pelo outro (`test/settings-model-effort.test.js`, `test/cadeia-perfis.test.js`).
+
+### O contrato de um provedor novo
+
+`lib/engine/provedores.js` é o registro. O Antigravity CLI (`agy`) foi o primeiro a entrar por este contrato (20/10/2026, seção seguinte); `RESERVADOS` ficou vazio. Um provedor novo só precisa declarar:
+
+1. **como roda**: os `kinds` de perfil que são dele, e o ramo de execução no `runProvedor` (`lib/engine/session.js`), que deve passar a promessa por `comPerfilDaSessao` para o desfecho levar a assinatura usada; se todos os perfis do provedor dividem um login só, como no Codex, `chaveDaAssinatura` dá a eles a mesma chave;
+2. **quais modelos aceita**: `campoModelo` e `campoEsforco` (chaves novas em `lib/settings.js`), `saneiaModelo` e `saneiaEsforco` em `lib/parse.js` (allowlist, nunca escaping) e o catálogo da tela em `lib/modelos.js`;
+3. **como sinaliza o limite com a hora do reset**: `limiteDaMensagem(msg, agora)` devolve `{ limite, ate }`. O padrão (`limitePelaTaxonomia`) lê a classe `espera-reset` de `lib/log-taxonomy.js` e a hora com `resetAtFrom`; provedor com frase própria cadastra a classe lá (a tabela é a fonte única de classificação, invariante 3) ou declara a leitura dele. `ate: null` vira o prazo estimado.
+
+A cadeia, o registro de limite, a escolha de perfil e a tela não mudam. A chave do limite (`chaveDaAssinatura`) é `<kind>:<id>` para perfil sem pasta, então o provedor novo já tem o registro dele.
+
+### Antigravity CLI (agy, 20/10/2026)
+
+Gemini pela cota do plano Google, pelo `agy` 1.4.3. Medição, números e riscos em
+`docs/superpowers/specs/2026-10-20-agy-provedor.md`; o código mora em `lib/agy/`.
+
+**Perfil.** Kind `agy` em Sistema > Plano e chaves: nome e, opcional, o e-mail da conta Google
+esperada (`{ id, label, kind: 'agy', email? }`, saneado em `lib/parse.js`). A pasta da conta é
+`~/.farol/agy/<id>/`, derivada do id e nunca escrita na config: é a home do `agy` daquele perfil
+(token do login Google em arquivo, configuração, logs, conversas), 0700 no POSIX, fora do
+workspace da sessão, do pacote, do diagnóstico e da sincronização. O login é sempre pela tela
+(o mesmo painel do Claude, `lib/engine/login-web.js`): o `agy -p /usage` na pasta do perfil
+imprime o link do Google e lê o código pela entrada padrão por 60 segundos; o comando
+equivalente aparece no painel para quem prefere o terminal.
+
+**Várias contas na mesma máquina.** Por padrão o `agy` guarda o login numa vaga única do
+chaveiro do sistema. Com `SSH_CLIENT` no ambiente ele usa um arquivo dentro da home, e o filho
+recebe `USERPROFILE=<pasta>` (Windows, com HOME intacto, porque o `git` lê HOME) ou
+`HOME=<pasta>` com `GIT_CONFIG_GLOBAL` para o `~/.gitconfig` real (POSIX). `GEMINI_API_KEY`,
+`GOOGLE_API_KEY` e `AGY_ADC_AUTH` herdados saem (cobrariam por token ou por conta de
+aplicativo); o `GH_TOKEN` da conta segue. Isso é detecção de ambiente do CLI, não contrato do
+produto: antes de cada sessão o Farol lê no log do `/usage` a conta que autenticou e se o token
+veio de arquivo. Token do chaveiro, ou conta diferente do e-mail esperado, param com a classe
+permanente `agy-conta-trocada`, que a cadeia não confunde com cota. Sem e-mail registrado, só a
+origem do token é conferida.
+
+**Modelo e esforço.** O padrão é `gemini-3.8-flash-high` (`agyReviewModel`), o único que repetiu o
+veredito certo na medição, e o `agy` nunca sai sem `--model` (o padrão da conta pode ser outro).
+`gemini-*-flash-low` fica fora da allowlist (inventou o alcance e aprovou errado); `claude-*` e
+`gpt-*` pela cota do Google são aceitos só por escolha explícita (outro balde, cerca de quatro
+vezes o custo). No Gemini o esforço está no nome do modelo, então `--effort` só vai para Claude
+e GPT; `max` fica fora, como no Claude.
+
+**Sem o subagente.** A revisão no `agy` roda sem o `pr-reviewer`: o prompt ganha no fim o bloco
+do provedor (`lib/agy/protocolo.js`), que manda a sessão principal fazer a revisão dele e
+declarar `protocolo.prReviewer = "dispensado"` com o motivo, o que o gate aceita
+(`lib/technical-review/evidence.js`). O marcador `FAROL_CHECKPOINT: {...}` vai como linha de texto
+(não há `description` de Bash), e o envelope é a última mensagem, sozinho.
+
+**Protocolo inteiro.** O `agy` não lê `CLAUDE.md`; lê `.agents/rules/` e corta cada arquivo em
+24.000 bytes. A cada sessão o `CLAUDE.md` do workspace é partido por seção em
+`.agents/rules/farol-protocolo-NN.md`, cada parte abaixo do teto (`test/agy-puro.test.js` reprova
+parte acima dele).
+
+**Resultado.** O texto do ÚLTIMO passo `agent_response` do stream, nunca o `result.response`, que
+é o turno inteiro e, com prosa e marcador antes, não começa no envelope. O teto de tempo do
+`agy` (`[agy] print timeout`) devolve SUCCESS vazio e é falha transitória; saída sem `result` é
+falha; o teto de 30 minutos do Farol continua.
+
+**Cota e cadeia.** `agy -p /usage --output-format json` (zero token) dá, por grupo de modelos, a
+fração restante e o reset de cada bucket. Antes de abrir a sessão o perfil é lido (cache de 60
+segundos, `TEMPOS.AGY_COTA_CACHE_MS`; a ordem de uso também agenda a leitura sem esperar por
+ela). Grupo do modelo com bucket esgotado registra o perfil "no limite até" o maior reset dos
+buckets esgotados, no mesmo `lib/engine/limite-plano.js` (chave `agy:<id>:<grupo>`: o limite do
+Gemini não trava o balde Claude e GPT), e a cadeia passa para o próximo perfil sem abrir nada no
+esgotado. Falha de cota no meio (`AGY_ERROR:` com saída 3, `RESOURCE_EXHAUSTED`, `You have
+exhausted your quota`, `QUOTA_EXHAUSTED`, `individual quota reached`) é confirmada pelo `/usage`:
+a mensagem ganha a frase `resets <Mon> <dia> at <h:mm>am` e o erro leva `err.limitePlano.ate`, que
+o `aposLimite` lê antes do texto. `MODEL_CAPACITY_EXHAUSTED` e 503 sem capacidade são
+passageiros (`capacidade-agy`). As classes estão em `lib/log-taxonomy.js`.
+
+**Consumo.** Tokens do principal (entrada, saída, raciocínio, leitura de cache) pelo `usage` do
+`result`, que já é o total do turno: os passos só valem quando o `result` não chega. Custo em
+dólar `desconhecido`, como o Codex; teto em US$ e grupo de consumo tratam o `agy` como não
+controlado (`semCustoEmDolar` em `lib/engine/provedores.js`).
+
+**Chat por PR e retomada.** O `--resume <id>` vira `--conversation <id>`. Id que o `agy` não
+conhece não falha: ele abre outra conversa calado. O `conversation_id` do `init` diferente do
+pedido para a sessão antes do modelo, com a frase de retomada recusada que o chat e a retomada
+já tratam como "recomece sem retomar".
+
+**Disco.** `brain/`, `conversations/` e `log/` crescem por sessão. Conversa de ferramenta e
+pushback sai no fim da sessão; as outras saem depois de um dia, menos a do chat por PR e a da
+revisão pendente que o chat herda; ficam os 30 logs mais novos.
+
+**Diagnóstico.** O doctor diz a versão do `agy` e, por perfil, se há login e a última cota lida;
+o aviso de runtime acusa `agy` ausente ou perfil sem login. A pasta do token nunca é listada.
+
+**O que não está coberto.** O MCP do Jira na home da sessão (o card continua entrando no prompt
+pelo bloco do Farol); a cobertura e o uso do subagente pelo transcrito (o subagente não roda); o
+catálogo de modelos lido por conta pelo `agy models` (a lista da tela é fixa, a allowlist aceita
+slug novo escrito à mão).
 
 ## Jira multi-tenant (v2.52.0)
 

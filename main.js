@@ -281,6 +281,11 @@ function wireEngine() {
     const motivo = reasonText((result.reasons || [])[0]) || 'ver relatório';
     notify('Farol · reprovado 🔴', `${pr.key}: mudanças pedidas. Motivo: ${motivo}`, pr.url);
   });
+  // PR da própria conta que revisa: o GitHub não aceita a revisão decisiva do autor, e ela sai
+  // como comentário (lib/engine/desfecho-da-revisao.js e espera-pr-proprio.js, v2.72.12)
+  engine.on('auto-commented', ({ pr }) => {
+    notify('Farol · comentado 💬', `${pr.key}: o PR é da própria conta que revisa, então a revisão saiu como comentário.`, pr.url);
+  });
   engine.on('tool-done', ({ name, label }) => {
     notify(`Farol · ${label}`, name === 'kudos' ? 'Kudos prontos pra copiar na aba Destaques.' : 'Relatório disponível na aba Sistema.');
   });

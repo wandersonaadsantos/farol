@@ -211,6 +211,15 @@ function aoMudar(e) {
   configConta(sel.dataset.acct, sel.dataset.campo, sel.value, sel.dataset.conta);
 }
 
+// O aparelho à mostra e a escolha dele pelo endereço da página (ui/telas/rota.js). Id que
+// não existe na frota é corrigido no próximo render, pela mesma regra do clique (selecionado).
+function aparelhoSelecionado() { return APAR.selecionado; }
+function selecionarAparelho(dev) {
+  if (!dev || dev === APAR.selecionado) return;
+  APAR.selecionado = dev;
+  renderAparelhos();
+}
+
 function abrirAparelho(dev) {
   APAR.selecionado = dev;
   const b = $('#rsub-apar');
@@ -238,4 +247,7 @@ function registrarTelaRadarAparelhos() {
   aoMudarConjunto(renderAparelhos);
 }
 
-export { registrarTelaRadarAparelhos, renderAparelhos, abrirAparelho, configConta, mudarPolitica };
+export {
+  registrarTelaRadarAparelhos, renderAparelhos, abrirAparelho, configConta, mudarPolitica,
+  aparelhoSelecionado, selecionarAparelho,
+};

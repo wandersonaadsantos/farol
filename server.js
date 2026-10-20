@@ -27,7 +27,7 @@ import {
   parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople,
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId, workspaceTrust,
   applyClaudeAuthEnv, claudeAuthShellLines,
-  sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort,
+  sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort, sanitizeAgyModel, sanitizeAgyEffort,
   sanitizeParallelReviews, sanitizeGlobalParallelReviews
 } from './lib/parse.js';
 import io, { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, prependPathDirs, priorizarNoPath } from './lib/io.js';
@@ -36,6 +36,8 @@ import chatMod from './lib/engine/chat.js';
 import toolsMod from './lib/engine/tools.js';
 import pushbackMod from './lib/engine/pushback.js';
 import { carregarLimites, limiteAte } from './lib/engine/limite-plano.js';
+import cadeiaMod from './lib/engine/cadeia-perfis.js';
+import { provedoresParaTela } from './lib/engine/provedores.js';
 import decisionMod from './lib/engine/decision.js';
 import arbitragemMod from './lib/engine/postagem-arbitragem.js';
 import ghMod from './lib/engine/gh-queries.js';
@@ -46,6 +48,7 @@ import contasConfig from './lib/engine/contas-config.js';
 import contaQueAge from './lib/engine/conta-que-age.js';
 import versaoClaude from './lib/engine/versao-claude.js';
 import codexAuth from './lib/codex/auth.js';
+import agyDoctor from './lib/agy/doctor.js';
 import { catalogoParaTela as catalogoDeModelos } from './lib/modelos.js';
 import sessionMod from './lib/engine/session.js';
 import selfMod from './lib/engine/selfpr.js';
@@ -88,7 +91,7 @@ import { startServer } from './lib/http-server.js';
 
 function codexWindowsPathDirs() {
   const root = path.join(os.homedir(), 'AppData', 'Local', 'OpenAI', 'Codex', 'bin');
-  const dirs = [path.join(os.homedir(), 'AppData', 'Roaming', 'npm')];
+  const dirs = [path.join(os.homedir(), 'AppData', 'Roaming', 'npm'), path.join(os.homedir(), 'AppData', 'Local', 'agy', 'bin')];
   try {
     for (const item of fs.readdirSync(root, { withFileTypes: true })) {
       if (item.isDirectory()) dirs.push(path.join(root, item.name));
@@ -138,8 +141,9 @@ const DEFAULTS = settingsDefaults(DEFAULT_PORT);
 const PARSERS = {
   parseAccounts, parseProjectReviewers, parseDefaultReviewers, parsePeople,
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
-  sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort,
+  sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort, sanitizeAgyModel, sanitizeAgyEffort,
   sanitizeParallelReviews, sanitizeGlobalParallelReviews, parseJiraSites, parseSyncConfig,
+  normalizarCadeia: cadeiaMod.normalizarCadeia,
 };
 
 // carência anti-lag do índice de busca do GitHub: logo após EU postar um review, o PR
@@ -176,6 +180,7 @@ class Engine extends EventEmitter {
     // resolveClaudeConfigDir/allClaudeAuthInfo/ghEnv, quebrando toda busca de PR).
     this.config.claudeProfiles = normalizeClaudeProfiles(this.config.claudeProfiles);
     this.config.claudeProfileId = normalizeClaudeProfileId(this.config.claudeProfileId);
+    cadeiaMod.reconciliar(this.config); // cadeia de perfis: nasce do perfil padrão (migração)
     this.config.claudeConfigDir = sanitizeClaudeDir(this.config.claudeConfigDir);
     // A configuracao nasceu compartilhada entre os CLIs. Agora cada provedor tem o
     // proprio par: um alias Claude nunca pode rotular uma sessao Codex, e vice-versa.
@@ -1618,16 +1623,7 @@ class Engine extends EventEmitter {
   // 1) accounts[].claudeProfileId da própria conta; 2) claudeProfileId global (padrão do
   // Farol); 3) sem profiles configurados (ou id não encontrado/perfil sem o campo
   // obrigatório do seu kind), cai no claudeConfigDir legado (sempre kind dir).
-  resolveClaudeAuth(user) {
-    const acc = (this.config.accounts || []).find(a => a && a.user === user);
-    const profiles = this.config.claudeProfiles || [];
-    if (profiles.length) {
-      const id = acc?.claudeProfileId || this.config.claudeProfileId || '';
-      const resolved = authFromProfile(profiles.find(p => p.id === id));
-      if (resolved) return resolved;
-    }
-    return { kind: 'dir', id: '', dir: this.config.claudeConfigDir || '' };
-  }
+  resolveClaudeAuth(user) { return cadeiaMod.authDaConta(this, user); }
 
   // compat: quem só quer "o dir, se houver" (nenhum call site de produção deveria
   // sobrar depois da migração das Tasks 2/3/5, mas mantido por garantia). Devolve ''
@@ -1644,7 +1640,7 @@ class Engine extends EventEmitter {
   resolveConfigDirForLogin(profileId) {
     const profiles = this.config.claudeProfiles || [];
     const p = profileId ? profiles.find(x => x.id === profileId) : null;
-    if (p?.dir) return p.dir;
+    if (p?.dir || p?.kind === 'maquina') return p.dir || '';
     return this.config.claudeConfigDir || '';
   }
 
@@ -1657,7 +1653,7 @@ class Engine extends EventEmitter {
     if (resolved) {
       // login não precisa do id no shape (openClaudeLoginSession só olha kind/dir)
       if (resolved.kind === 'dir') return { kind: 'dir', dir: resolved.dir };
-      if (resolved.kind === 'codex') return { kind: 'codex' };
+      if (resolved.kind === 'codex' || resolved.kind === 'agy') return { kind: resolved.kind, id: resolved.id };
       return { kind: resolved.kind, apiKey: resolved.apiKey, baseUrl: resolved.baseUrl || '' };
     }
     return { kind: 'dir', dir: this.config.claudeConfigDir || '' };
@@ -1669,12 +1665,10 @@ class Engine extends EventEmitter {
   // segundo lado da defesa.
   openClaudeLoginSession(profileId) {
     const auth = this.resolveAuthForLogin(profileId);
-    if (auth.kind === 'apikey' || auth.kind === 'openrouter') {
-      return { ok: false, error: 'perfis de chave de API não usam login: a chave já é a credencial' };
-    }
-    if (auth.kind === 'codex') {
-      return this.spawnCodexLoginConsole();
-    }
+    if (auth.kind === 'apikey' || auth.kind === 'openrouter') return { ok: false, error: 'perfis de chave de API não usam login: a chave já é a credencial' };
+    if (auth.kind === 'codex') return this.spawnCodexLoginConsole();
+    // Antigravity: o login é sempre pela tela (lib/agy/login.js), com o comando como alternativa
+    if (auth.kind === 'agy') return { ok: true, comando: agyDoctor.comandoManual(auth.id), onde: 'terminal' };
     return this.spawnLoginConsole(auth.dir);
   }
 
@@ -1713,7 +1707,8 @@ class Engine extends EventEmitter {
       if (p.kind === 'apikey') return { configDir: null, account: null, ready: !!p.apiKey, apiKeyMode: true };
       if (p.kind === 'openrouter') return { configDir: null, account: null, ready: !!p.apiKey, openrouterMode: true };
       if (p.kind === 'codex') return { configDir: null, account: null, ready: true, codexMode: true };
-      return this.claudeAuthInfo(p.dir);
+      if (p.kind === 'agy') return { configDir: null, account: null, ready: agyDoctor.temLogin(p.id), agyMode: true };
+      return this.claudeAuthInfo(p.dir || ''); // '' é o perfil `maquina`: lê ~/.claude.json
     };
     return [legacy, ...profiles.map(p => ({
       id: p.id,
@@ -1727,10 +1722,9 @@ class Engine extends EventEmitter {
   }
 
   async doctor() {
-    const tokenArgs = ['auth', 'token'];
     const primary = this.primaryUser();
-    if (primary) tokenArgs.push('--user', primary);
-    const [gh, claude, codex, codexLogin, auth] = await Promise.all([
+    const tokenArgs = primary ? ['auth', 'token', '--user', primary] : ['auth', 'token'];
+    const [gh, claude, codex, codexLogin, auth, agy] = await Promise.all([
       io.run('gh', ['--version']),
       io.runShell('claude --version'),
       io.runShell('codex --version'),
@@ -1741,7 +1735,8 @@ class Engine extends EventEmitter {
       // pro lado pior, o de dizer que da pra rodar. Com conta primaria o --user
       // ja lia o keyring; passar o env mantem os dois casos falando da mesma
       // identidade. ghEnv() sem user nunca lanca (o contrato legado do doctor).
-      io.run('gh', tokenArgs, { env: this.ghEnv() })
+      io.run('gh', tokenArgs, { env: this.ghEnv() }),
+      agyDoctor.versao(),
     ]);
     // a leitura do `codex login status` mora em lib/codex/auth.js, junto da regra do plano
     const loginCodex = codexAuth.leituraDoLogin(codexLogin);
@@ -1752,6 +1747,7 @@ class Engine extends EventEmitter {
       codex: codex.ok ? codex.stdout.trim().split('\n')[0] : null,
       codexChatGPT: loginCodex.chatGPT,
       codexLoginDetail: loginCodex.detalhe,
+      agy, agyPerfis: agyDoctor.perfis(this), // versão do Antigravity CLI e login e cota de cada perfil
       ghAuth: auth.ok && !!auth.stdout.trim(),
       gitBash: this.gitBash,
       // rodar como root quebra a revisão autônoma INTEIRA, e não é opção de
@@ -1808,6 +1804,7 @@ class Engine extends EventEmitter {
       this.config[k] = v;
     }
     contasConfig.depoisDeAplicar(this, politicaAntes, patch, origem);
+    cadeiaMod.reconciliar(this.config, patch); // perfil removido sai da cadeia, padrão derivado
     // a guarda do celular depende de localAuth, que pode ter mudado no mesmo patch
     this.config.sync = this.syncComGuardaDoCelular(this.config.sync);
     env.setDebugSpawns(this.config.debugSpawns); // liga/desliga o logger na hora
@@ -1823,7 +1820,7 @@ class Engine extends EventEmitter {
     // cor/rótulo/tipo/org/claudeProfileId de uma conta não muda o resultado de
     // allClaudeAuthInfo() (ela só lê claudeProfiles), então redisparar doctor() aqui só
     // gastava 3 subprocessos + 1 chamada de rede (checkUpdate) à toa (achado da revisão final).
-    if ('claudeProfiles' in patch || 'claudeProfileId' in patch) {
+    if ('claudeProfiles' in patch || 'claudeProfileId' in patch || 'cadeiaPerfis' in patch) {
       this.doctor().catch(() => {});
     }
     this.emit('settings-changed', this.config);
@@ -1924,6 +1921,7 @@ class Engine extends EventEmitter {
       // catálogo de seleções (lib/modelos.js), de onde a tela monta os seletores, é outra coisa
       app: { name: APP_NAME, version: APP_VERSION, platform: process.platform },
       modelos: catalogoDeModelos(this.claudeVersao || null),
+      cadeiaPerfis: cadeiaMod.cadeiaParaTela(this), provedores: provedoresParaTela(this.config),
       // perfil apontado que a cascata não usa (A2): a queda para o legado deixou de ser silenciosa
       claudePerfis: { problemas: perfilMod.problemasDePerfil(this.config) },
       // capacidade implementada que NÃO está valendo: a tela não pode prometer o que o engine não aplica

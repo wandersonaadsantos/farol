@@ -19,6 +19,7 @@
 // renomeada deixava um escopo orfao que esvaziava o Radar pra sempre (B15).
 // Compara sem caixa e preserva o valor original quando ele e valido.
 import { esc, fmtMoney, fmtClock } from './comum.js';
+import { camposAgyHtml } from './agy.js';
 
 export function validScope(scope, users) {
   if (!scope || scope === 'all') return 'all';
@@ -109,6 +110,11 @@ export function claudeAuthBadge(id, ctx) {
       : `<span class="a-claude bad" title="${esc(detail)}">SEM CODEX</span>`;
   }
   if (info.openrouterMode) return '<span class="a-claude ok" title="Claude Code via OpenRouter (Anthropic Skin)">OpenRouter</span>';
+  if (info.agyMode) {
+    return info.ready
+      ? '<span class="a-claude ok" title="Antigravity CLI com login na pasta deste perfil">Antigravity</span>'
+      : '<span class="a-claude bad" title="Use Abrir sessão de login neste cartão">SEM LOGIN</span>';
+  }
   if (info.apiKeyMode) return `<span class="a-claude ok" title="Autenticação por chave de API">🔑 chave configurada</span>`;
   if (info.ready === false) return `<span class="a-claude bad" title="rode claude login nesse diretório">SEM LOGIN</span>`;
   if (info.account) return `<span class="a-claude ok" title="${esc(info.configDir || 'padrão da máquina')}">@${esc(info.account)}</span>`;
@@ -196,7 +202,11 @@ export function budgetEditorHtml(p, info) {
   </div>`;
 }
 
+// o login padrão da máquina não tem pasta para editar: a sessão roda sem CLAUDE_CONFIG_DIR
+const TEXTO_MAQUINA = 'Login padrão desta máquina: a conta que o Claude Code usa quando nenhuma pasta é indicada (~/.claude e ~/.claude.json). Dar um nome aqui não muda como a sessão entra; serve para escolher este login como padrão, numa conta do GitHub ou num grupo de consumo.';
+
 function profileFieldsHtml(p, isApiKey, isCodex, isOpenRouter, camposChave, camposDir, camposOrcamento, camposOpenRouter) {
+  if (p.kind === 'maquina') return `<div class="a-hint">${esc(TEXTO_MAQUINA)}</div>` + camposOrcamento;
   if (isCodex) {
     return '<div class="a-hint">Usa o Codex CLI local com login ChatGPT. O Farol registra os tokens das automações, mas o CLI não informa saldo da cota nem custo por sessão. Use o botão de login se o diagnóstico acusar falta de autenticação.</div>';
   }
@@ -220,31 +230,20 @@ export function claudeProfilesHtml(ctx) {
       <button class="btn sm" id="btnClaudeMigrate">Salvar como perfil</button>
     </div>
   </div>`;
-  const migrateCard = (!profiles.length && c.claudeConfigDir) ? cartaoMigracao : '';
-  // se o legado (claudeConfigDir) ainda estiver preenchido, "Padrão da máquina" na
-  // verdade cai nele por baixo dos panos (ver resolveClaudeConfigDir) - deixa isso
-  // visível aqui, já que a Task 6 tirou o campo texto que mostrava esse valor.
-  const defaultEmptyLabel = c.claudeConfigDir ? `Padrão da máquina (legado: ${esc(c.claudeConfigDir)})` : 'Padrão da máquina';
-  const defaultOptions = [`<option value="">${defaultEmptyLabel}</option>`]
-    .concat(profiles.map(p => `<option value="${esc(p.id)}"${sel(c.claudeProfileId === p.id)}>${esc(p.label)}</option>`))
-    .join('');
-  // botão de login da linha padrão: data-id dinâmico (era fixo "" antes desta feature,
-  // então sempre abria o legado ao clicar, mesmo com outro perfil selecionado no dropdown
-  // - bug preexistente, corrigido junto por ser exigido pra esconder o botão certo).
-  const defaultProfile = profiles.find(p => p.id === (c.claudeProfileId || ''));
-  const defaultNeedsClaudeLogin = !defaultProfile
-    || (defaultProfile.kind !== 'apikey' && defaultProfile.kind !== 'openrouter');
-  const defaultLoginBtn = defaultNeedsClaudeLogin ? `<button class="btn sm cp-login" data-id="${esc(c.claudeProfileId || '')}">Abrir sessão de login</button>` : '';
-  const defaultRow = `<div class="card set-row">
-    <div class="set-txt">
-      <span class="set-title">Perfil padrão do Farol</span>
-      <span class="set-desc">Vale pra toda conta do GitHub que não tiver um perfil próprio (painel Contas).</span>
-    </div>
-    <div class="set-ctl">
-      <select id="claudeProfileDefault">${defaultOptions}</select>
-      ${defaultLoginBtn}
+  // sem pasta legada, quem fica fora da lista é o login padrão da máquina: o cartão oferece
+  // listá-lo com um nome (a gravação é do engine, pela mesma rota da adoção)
+  const cartaoMaquina = `<div class="card acct-add">
+    <div class="a-add-title">Login padrão desta máquina</div>
+    <div class="a-hint">Hoje o Farol usa este login sem nome. Liste-o como perfil para dar um nome a ele e escolher onde ele vale; a sessão continua entrando do mesmo jeito.</div>
+    <div class="a-editrow">
+      <input id="claudeMigrateLabel" placeholder="nome do perfil (ex.: BIUD Max 20X)" value="Login padrão desta máquina" spellcheck="false">
+      <button class="btn sm" id="btnClaudeMigrate">Listar como perfil</button>
     </div>
   </div>`;
+  const temMaquina = profiles.some(p => p.kind === 'maquina');
+  let migrateCard = '';
+  if (c.claudeConfigDir) migrateCard = profiles.length ? '' : cartaoMigracao;
+  else if (!temMaquina) migrateCard = cartaoMaquina;
   const rows = profiles.map(p => {
     const isApiKey = p.kind === 'apikey';
     const isCodex = p.kind === 'codex';
@@ -280,7 +279,9 @@ export function claudeProfilesHtml(ctx) {
       <div class="a-editrow">
         <input class="cp-dir" data-id="${esc(p.id)}" value="${esc(p.dir || '')}" placeholder="${ctx.ehWin ? 'C:\\Users\\voce\\.claude-perfil' : '~/.claude-perfil'}" spellcheck="false">
       </div>`;
-    const fields = profileFieldsHtml(p, isApiKey, isCodex, isOpenRouter, camposChave, camposDir, camposOrcamento, camposOpenRouter);
+    const cotaAgy = ((ctx.cadeia && ctx.cadeia.entradas) || []).find(e => e.id === p.id);
+    const fields = p.kind === 'agy' ? camposAgyHtml(p, cotaAgy && cotaAgy.cota)
+      : profileFieldsHtml(p, isApiKey, isCodex, isOpenRouter, camposChave, camposDir, camposOrcamento, camposOpenRouter);
     const semLogin = isApiKey || isOpenRouter;
     return `<div class="card acct-card">
     <div class="a-body">
@@ -306,6 +307,7 @@ export function claudeProfilesHtml(ctx) {
         <button type="button" class="seg-btn" data-kind="apikey">Chave de API</button>
         <button type="button" class="seg-btn" data-kind="openrouter">OpenRouter</button>
         <button type="button" class="seg-btn" data-kind="codex">Codex</button>
+        <button type="button" class="seg-btn" data-kind="agy">Antigravity</button>
       </div>
     </div>
     <div class="a-editrow">
@@ -313,13 +315,15 @@ export function claudeProfilesHtml(ctx) {
       <input id="cpAddDir" placeholder="diretório de config (ex.: ${ctx.ehWin ? 'C:\\Users\\voce\\.claude-biud-trabalho' : '~/.claude-biud-trabalho'})" spellcheck="false">
       <input id="cpAddApiKey" type="password" placeholder="chave de API" spellcheck="false" autocomplete="off" hidden>
       <input id="cpAddBaseUrl" placeholder="URL base (opcional)" spellcheck="false" hidden>
+      <input id="cpAddEmail" placeholder="e-mail da conta Google esperada (opcional)" spellcheck="false" autocomplete="off" hidden>
       <button class="btn sm" id="btnCpAdd">Adicionar</button>
     </div>
     <div class="a-hint" id="cpAddHint">Deixe em branco pra usar a Anthropic direto. Um endpoint customizado precisa falar a API de Mensagens da Anthropic.</div>
     <div class="a-hint" id="cpAddOpenRouterHint" hidden>Chave em openrouter.ai. O Farol aponta o Claude Code pra https://openrouter.ai/api (Anthropic Skin). Modelos não-Anthropic pelo Skin não são garantia do Claude Code.</div>
     <div class="a-hint" id="cpAddCodexHint" hidden>Usa a cota do plano ChatGPT pelo Codex CLI local. API key do Codex não é aceita nesse perfil.</div>
+    <div class="a-hint" id="cpAddAgyHint" hidden>Usa a cota do plano Google pelo Antigravity CLI (Gemini), com uma pasta só deste perfil. Depois de adicionar, use Abrir sessão de login no cartão dele. O e-mail serve para o Farol conferir que a conta certa entrou.</div>
   </div>`;
-  return migrateCard + defaultRow + rows + addForm;
+  return '<div id="cpLoginWeb"></div>' + migrateCard + rows + addForm;
 }
 
 // As palavras da política da conta, um lugar só (30/09/2026): o cartão de Sistema > Contas e
@@ -426,7 +430,7 @@ export function accountsManagerHtml(ctx) {
             </select></div>
           <div class="a-pol-item"><span class="a-fieldlabel">login do Claude (plano)</span>
             <select class="acct-claudeprofile" data-user="${esc(a.user)}" title="Qual login do Claude (e o plano dele) roda as sessões desta conta. O modelo e o raciocínio vêm de Sistema > Automação, iguais para todas as contas">
-              <option value="">usa o perfil padrão do Farol</option>
+              <option value="">usa a ordem de uso (Plano e chaves)</option>
               ${(ctx.config.claudeProfiles || []).map(p => `<option value="${esc(p.id)}"${sel(a.claudeProfileId === p.id)}>${esc(p.label)}</option>`).join('')}
             </select>
             ${claudeAuthBadge(a.claudeProfileId || ctx.config.claudeProfileId || '', ctx)}

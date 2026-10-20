@@ -174,7 +174,11 @@ const TECHNICAL_LABEL = {
   violation: { title: 'Bloqueio técnico', cls: 'rc' },
   pending: { title: 'Verificação pendente', cls: 'pending' },
 };
-const technicalLabel = d => TECHNICAL_LABEL[d?.technical?.state];
+function technicalLabel(d) {
+  const label = TECHNICAL_LABEL[d?.technical?.state];
+  if (label) return label;
+  if (d?.blockedKind === 'technical_recheck') return TECHNICAL_LABEL.pending;
+}
 
 export function esperaCiCardMeta(d) {
   const label = technicalLabel(d);
@@ -195,7 +199,9 @@ export function esperaCiCardMeta(d) {
   };
 }
 
-// Recuperação automática da análise, inclusive quando uma execução foi interrompida.
+// Recuperação automática da análise, inclusive quando uma execução foi interrompida (PR #253).
+// Depois de duas tentativas no mesmo commit, o que faltar e não for impeditivo vira ressalva e a
+// política da conta decide (decisão do dono de 19/10/2026, que supera o PR #250 e o PR #253).
 function tentativaDaProva(d) {
   const feitas = Number(d && d.esperaProva && d.esperaProva.tentativas) || 0;
   const n = d && d.blockedKind === 'stale_head' ? feitas : feitas + 1;
@@ -206,7 +212,7 @@ function esperaProvaCardMeta(d) {
   const horario = marca.proximaEm > Date.now() ? new Date(marca.proximaEm).toLocaleString('pt-BR') : '';
   let texto = 'A análise ainda não produziu toda a evidência necessária. Nada foi publicado. ';
   if (horario) texto += `Próxima tentativa a partir de ${horario}. `;
-  texto += 'O Farol retoma sozinho e publica a decisão quando a análise e a política permitirem. Você não precisa aprovar manualmente.';
+  texto += 'O Farol retoma sozinho; depois de duas tentativas neste commit, o que faltar e não for impeditivo vira ressalva e a política da conta decide. Você não precisa aprovar manualmente.';
   const st = {
     tom: 'info', icone: 'hourglass',
     lead: marca.impedimento ? 'Recuperação pausada.' : `Concluindo a análise (tentativa ${tentativaDaProva(d)}).`,
@@ -240,7 +246,7 @@ function metaDoCard(d, r) {
   const label = technicalLabel(d);
   if (label) verdictComum = `<span class="verdict ${label.cls}">${esc(label.title.toUpperCase())}</span>`;
   if (!stale) {
-    const reviewBtn = d && d.provaEsgotada === true && label ? 'primary' : '';
+    const reviewBtn = d && (d.provaEsgotada === true || d.blockedKind === 'technical_recheck') && label ? 'primary' : '';
     return { stale, approveDisabled: !!label, cardClass: d && d.verdict === 'approve' ? 'urgent' : 'blocked', verdictHtml: verdictComum, reasons, statusHtml: legado, reviewBtn };
   }
   const st = reRoundStatus(r, d);
@@ -348,6 +354,8 @@ const RESOLVED_LABELS = {
   auto_rejected: ['🔴', 'mudanças pedidas sozinho'],
   posted: ['📬', 'postado por você'],
   already_reviewed: ['✔', 'já revisado por você (não repostei)'],
+  commented_own_pr: ['💬', 'comentado sozinho (PR da própria conta)'],
+  approval_not_needed: ['👥', 'aprovação automática não necessária (duas pessoas aprovaram)'],
   already_merged: ['🔀', 'já foi mergeado (cancelei a revisão pendente)'],
   already_closed: ['🚫', 'PR fechado sem merge (cancelei a revisão pendente)'],
   skipped: ['⏭', 'pulado'],
@@ -414,7 +422,7 @@ export function resolvedRow(r, ctx) {
   // só "postado por você" e engolia o motivo de o PR ter caído na sua mesa, então uma
   // recusa por contestação ou cobertura era lida como se a chave de aprovar sozinho
   // estivesse quebrada. O motivo já estava gravado em `reasons`, faltava a superfície.
-  const COM_REASONS = ['auto_approved', 'auto_rejected', 'already_reviewed', 'posted'];
+  const COM_REASONS = ['auto_approved', 'auto_rejected', 'already_reviewed', 'posted', 'approval_not_needed'];
   const attn = pontosDeAtencao(r, COM_REASONS);
   const plural = attn.length > 1;
   const attnLabel = rotuloDosPontos(r.status, plural);

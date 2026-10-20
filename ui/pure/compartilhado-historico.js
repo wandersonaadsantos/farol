@@ -24,6 +24,7 @@ const VEREDITO_CHIP = {
 const STATUS = {
   pending: 'esperando decisão', posted: 'postado', auto_approved: 'aprovado sozinho',
   auto_rejected: 'reprovado sozinho', already_reviewed: 'já revisado', skipped: 'pulado', superseded: 'substituído',
+  commented_own_pr: 'comentado sozinho', approval_not_needed: 'aprovação não necessária',
 };
 
 function chipDoVeredito(v) {
