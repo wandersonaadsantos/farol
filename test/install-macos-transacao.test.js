@@ -61,9 +61,9 @@ function bancada({ falha = '', nova = false, origem = '', mutar = (texto) => tex
     pkill: 'exit 1',
     sleep: 'exit 0',
     npm: 'exit 30',
-    cp: '[ "$FALHA" != copia ] || [[ "$2" != */ui ]] || exit 24; [ "$FALHA" != dependencias ] || [[ "$2" != */node_modules ]] || exit 23; exec /usr/bin/cp "$@"',
+    cp: '[ "$FALHA" != copia ] || [[ "$2" != */ui ]] || exit 24; [ "$FALHA" != dependencias ] || [[ "$2" != */node_modules ]] || exit 23; exec /bin/cp "$@"',
     lsregister: '[ "$FALHA" != registro ] || exit 25',
-    mv: '[ "$FALHA" != workspace ] || [ "$2" != "$HOME/.farol/workspace/.claude" ] || [[ "$1" = */workspace-anterior/.claude ]] || exit 31; [ "$FALHA" != app ] || [ "$2" != "$HOME/.farol/app" ] || [[ "$1" = */anterior ]] || exit 28; [ "$FALHA" != troca ] || [ "$2" != "$HOME/Applications/Farol.app" ] || [[ "$1" = */anterior.app ]] || exit 26; exec /usr/bin/mv "$@"',
+    mv: '[ "$FALHA" != workspace ] || [ "$2" != "$HOME/.farol/workspace/.claude" ] || [[ "$1" = */workspace-anterior/.claude ]] || exit 31; [ "$FALHA" != app ] || [ "$2" != "$HOME/.farol/app" ] || [[ "$1" = */anterior ]] || exit 28; [ "$FALHA" != troca ] || [ "$2" != "$HOME/Applications/Farol.app" ] || [[ "$1" = */anterior.app ]] || exit 26; exec /bin/mv "$@"',
   };
   for (const [nome, corpo] of Object.entries(mocks)) gravar(path.join(ferramentas, nome), `#!/bin/bash\n${corpo}\n`);
   gravar(path.join(fonte, 'installer/native-bundle-mac.sh'), `#!/bin/bash
