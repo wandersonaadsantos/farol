@@ -81,21 +81,21 @@ test('reserveRound em dia vazio grava o nó inteiro com a reserva', async () => 
   assert.equal(fake.requests.find((q) => q.method === 'PUT').headers['if-match'], 'null_etag');
 });
 
-test('teto: DAILY_ROUNDS_MAX rodadas iniciadas esgotam o dia', async () => {
+test('muitas rodadas iniciadas não limitam novas reservas no mesmo dia', async () => {
   const cheio = {};
-  for (let i = 0; i < SYNC.DAILY_ROUNDS_MAX; i++) cheio['s' + i] = iniciada(i);
+  for (let i = 0; i < 100; i++) cheio['s' + i] = iniciada(i);
   semear(DIA, cheio);
   const r = await reserveRound(cliente(), IDS, DIA, reservaDe('t1'));
-  assert.deepEqual(r, { ok: false, reason: 'esgotado', started: SYNC.DAILY_ROUNDS_MAX });
-  assert.equal(Object.keys(noDia().reservations).length, SYNC.DAILY_ROUNDS_MAX, 'nada foi escrito');
+  assert.equal(r.ok, true);
+  assert.equal(Object.keys(noDia().reservations).length, 101);
 });
 
-test('reserva viva conta contra o teto', async () => {
+test('reservas vivas são preservadas sem limitar novas reservas', async () => {
   semear(DIA, { s0: iniciada(0), s1: iniciada(1), r2: { operationFingerprint: 'f', leaseId: 'Lx', state: 'reserved', reservedAt: AGORA, expiresAt: AGORA + 1 } });
   const r = await reserveRound(cliente(), IDS, DIA, reservaDe('t1'));
-  assert.equal(r.ok, false);
-  assert.equal(r.reason, 'esgotado');
-  assert.equal(r.started, 2);
+  assert.equal(r.ok, true);
+  assert.ok(noDia().reservations.r2);
+  assert.ok(noDia().reservations.t1);
 });
 
 test('reserva vencida não conta: a sessão que reservou morreu antes de começar', async () => {
@@ -106,25 +106,26 @@ test('reserva vencida não conta: a sessão que reservou morreu antes de começa
   assert.ok(noDia().reservations.r2, 'a reserva antiga fica no nó (a poda é por dia)');
 });
 
-test('parâmetro max sobrescreve o teto padrão', async () => {
+test('parâmetro legado max não reintroduz limite diário', async () => {
   semear(DIA, { s0: iniciada(0) });
   const r = await reserveRound(cliente(), IDS, DIA, { ...reservaDe('t1'), max: 1 });
-  assert.deepEqual(r, { ok: false, reason: 'esgotado', started: 1 });
+  assert.equal(r.ok, true);
+  assert.equal(Object.keys(noDia().reservations).length, 2);
 });
 
-test('dois aparelhos disputando o último lugar do dia: só um passa', async () => {
+test('duas reservas simultâneas passam sem perder o histórico nem uma à outra', async () => {
   semear(DIA, { s0: iniciada(0), s1: iniciada(1) });
   const [a, b] = await Promise.all([
     reserveRound(cliente(), IDS, DIA, reservaDe('tA')),
     reserveRound(cliente(), IDS, DIA, reservaDe('tB')),
   ]);
   const passaram = [a, b].filter((r) => r.ok);
-  assert.equal(passaram.length, 1, 'exatamente um');
-  const barrado = [a, b].find((r) => !r.ok);
-  assert.equal(barrado.reason, 'esgotado');
+  assert.equal(passaram.length, 2);
   const res = noDia().reservations;
-  assert.equal(Object.keys(res).length, 3);
-  assert.equal(countStarted(noDia()) + countReservedVivas(noDia(), AGORA), SYNC.DAILY_ROUNDS_MAX);
+  assert.equal(Object.keys(res).length, 4);
+  assert.equal(countStarted(noDia()) + countReservedVivas(noDia(), AGORA), 4);
+  assert.ok(res.tA);
+  assert.ok(res.tB);
 });
 
 test('startRound marca a reserva como iniciada', async () => {
