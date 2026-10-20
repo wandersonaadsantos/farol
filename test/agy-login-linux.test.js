@@ -111,3 +111,22 @@ test('Linux: CLI que ignora TERM é forçado e recolhido pelo wrapper', { skip: 
   assert.equal((await fechado)[0], 137);
   assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
 });
+
+test('Linux: kernel sem children usa PPID e recolhe CLI que ignora TERM e EOF', { skip: !IS_LINUX, timeout: 10000 }, async (t) => {
+  const ler = fs.readFileSync;
+  t.mock.method(fs, 'readFileSync', (alvo, ...args) => {
+    if (String(alvo).endsWith('/children')) throw Object.assign(new Error('sem children'), { code: 'ENOENT' });
+    return ler(alvo, ...args);
+  });
+  const e = engine();
+  e.ghEnv = () => ({ ...process.env, AGY_FALSO_IGNORAR_TERM: '1' });
+  const r = await web.iniciar(e, 'semchildren');
+  t.after(() => web.cancelar(e, r.loginId));
+  assert.equal(r.ok, true, JSON.stringify(r));
+  const child = e.loginsWeb.get(r.loginId).child;
+  const pid = Number(fs.readFileSync(path.join(AGY_DIR, 'semchildren', 'filho.pid'), 'utf8'));
+  const fechado = once(child, 'close');
+  web.cancelar(e, r.loginId);
+  assert.equal((await fechado)[0], 137);
+  assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
+});
