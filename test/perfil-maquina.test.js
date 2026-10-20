@@ -98,3 +98,20 @@ test('a tela oferece listar o login da máquina enquanto ele não está na lista
   const legado = claudeProfilesHtml({ config: { claudeProfiles: [], claudeConfigDir: '/home/farol/.claude-x' }, ehWin: false });
   assert.match(legado, /Perfil atual detectado/);
 });
+
+// Revisão do PR #262: o perfil maquina é assinatura também para o grupo de consumo.
+test('o grupo de consumo trata o perfil maquina como assinatura', async () => {
+  const { grupoTipoDoPerfil } = await import('../ui/pure.js');
+  assert.equal(grupoTipoDoPerfil(MAQUINA), 'assinatura');
+});
+
+// Revisão do PR #262: um perfil antigo já com o id `maquina` (config editada à mão) não pode
+// ganhar um gêmeo; a cascata escolheria o primeiro e o Remover levaria os dois.
+test('id maquina já ocupado por outro perfil: ele fica, e o da máquina não entra', () => {
+  const antigo = { id: 'maquina', label: 'Antigo', dir: '/home/farol/.claude-antigo' };
+  assert.deepEqual(normalizeClaudeProfiles([antigo, { id: 'maquina', label: 'Máquina', kind: 'maquina' }]), [antigo]);
+  assert.deepEqual(normalizeClaudeProfiles([{ id: 'maquina', label: 'Máquina', kind: 'maquina' }, antigo]), [antigo]);
+  const e = engineCom({ claudeProfiles: [antigo], claudeProfileId: 'maquina', claudeConfigDir: '', accounts: [] });
+  assert.equal(e.claudeAdotarLegado({ confirmar: true }).code, 'id-maquina-ocupado');
+  assert.deepEqual(e.config.claudeProfiles, [antigo]);
+});

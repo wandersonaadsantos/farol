@@ -18,6 +18,10 @@ import { renderAccountsManager } from './sistema-contas.js';
 // engine roda o `claude auth login` e devolve o link, e o código colado volta para ele
 // (lib/engine/login-web.js). O comando segue no painel, como alternativa.
 let loginWeb = null;
+// cada abertura ganha um número, e a resposta de uma tentativa que já foi fechada ou
+// substituída não mexe no painel atual (o engine só mantém um login vivo por vez)
+let tentativa = 0;
+const vigente = (n) => loginWeb && loginWeb.tentativa === n;
 
 function renderLoginWeb() {
   const alvo = $('#cpLoginWeb');
@@ -30,10 +34,12 @@ function nomeDoPerfil(id) {
 }
 
 function abrirLoginWeb(profileId, comando, onde) {
-  loginWeb = { estado: 'abrindo', perfil: nomeDoPerfil(profileId), comando, onde };
+  const n = ++tentativa;
+  loginWeb = { estado: 'abrindo', perfil: nomeDoPerfil(profileId), comando, onde, tentativa: n };
   renderLoginWeb();
   api('/api/claude/login-web/start', { profileId }).then((r) => {
-    if (!loginWeb) return;
+    // fechado antes do link chegar: o login aberto no engine não tem mais tela, encerra
+    if (!vigente(n)) { if (r && r.ok) api('/api/claude/login-web/cancel', { loginId: r.loginId }); return; }
     if (r && r.ok) loginWeb = { ...loginWeb, estado: 'link', url: r.url, loginId: r.loginId };
     else loginWeb = { ...loginWeb, estado: 'erro', motivo: (r && r.motivo) || 'não deu para abrir o login agora' };
     renderLoginWeb();
@@ -45,11 +51,12 @@ function enviarCodigoDoLogin() {
   const code = ((campo && campo.value) || '').trim();
   if (!loginWeb || !loginWeb.loginId) return;
   if (!code) { toast('info', 'Cole o código que a página de login mostrou.', 3500); return; }
+  const n = loginWeb.tentativa;
   loginWeb = { ...loginWeb, estado: 'enviando', motivo: '' };
   renderLoginWeb();
   api('/api/claude/login-web/code', { loginId: loginWeb.loginId, code }).then((r) => {
-    if (!loginWeb) return;
-    if (r && r.ok) loginWeb = { estado: 'feito', perfil: loginWeb.perfil };
+    if (!vigente(n)) return;
+    if (r && r.ok) loginWeb = { estado: 'feito', perfil: loginWeb.perfil, tentativa: n };
     // login que expirou ou que o CLI recusou não volta: o link é de uso único
     else if (r && r.code === 'codigo-invalido') loginWeb = { ...loginWeb, estado: 'erro', motivo: r.motivo };
     else loginWeb = { ...loginWeb, estado: 'erro', url: '', motivo: `${(r && r.motivo) || 'o login não deu certo'}. Clique de novo em Abrir sessão de login para recomeçar.` };
@@ -345,6 +352,7 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
 const MOTIVO_DA_ADOCAO = {
   'ja-tem-perfis': 'Já existem perfis salvos.',
   'maquina-ja-listada': 'O login padrão desta máquina já está na lista.',
+  'id-maquina-ocupado': 'Já existe um perfil com o id "maquina" na configuração; troque o id dele no config.json para listar o login desta máquina.',
 };
 
 // aplica uma transformação num perfil e devolve a lista inteira, que é o que o
