@@ -119,13 +119,19 @@ export function instalarDom() {
   // navigator no Node moderno e getter-only: define por propriedade em vez de atribuir
   try { g.navigator = { userAgent: 'node-test', platform: 'test' }; }
   catch { Object.defineProperty(g, 'navigator', { value: { userAgent: 'node-test', platform: 'test' }, configurable: true }); }
-  g.location = { href: 'http://localhost/', origin: 'http://localhost', hash: '', reload() { } };
+  g.location = { href: 'http://localhost/', origin: 'http://localhost', pathname: '/', search: '', hash: '', reload() { } };
+  // troca o endereço como o navegador: um endereço relativo à página atual resolve contra
+  // ela (um `#/x` só troca o hash), e caminho, consulta e hash acompanham
+  const irPara = (url) => {
+    const u = new URL(String(url), g.location.href);
+    Object.assign(g.location, { href: u.href, pathname: u.pathname, search: u.search, hash: u.hash });
+  };
   // histórico de mentira que só REGISTRA: o endereço da página (ui/telas/rota.js) escreve
-  // aqui, e o teste confere o que foi escrito. O hash acompanha, como no navegador.
+  // aqui, e o teste confere o que foi escrito. O endereço acompanha, como no navegador.
   g.history = {
     state: null, chamadas: [],
-    pushState(estado, _t, url) { this.state = estado; this.chamadas.push(['push', url]); g.location.hash = url; },
-    replaceState(estado, _t, url) { this.state = estado; this.chamadas.push(['replace', url]); g.location.hash = url; },
+    pushState(estado, _t, url) { this.state = estado; this.chamadas.push(['push', url]); irPara(url); },
+    replaceState(estado, _t, url) { this.state = estado; this.chamadas.push(['replace', url]); irPara(url); },
     back() { this.chamadas.push(['back']); },
   };
   g.localStorage = {
@@ -156,5 +162,5 @@ export function instalarDom() {
     for (const fn of fns) fn({ data: JSON.stringify(dados) });
     return fns.length;
   };
-  return { doc, emitir, listeners };
+  return { doc, emitir, listeners, irPara };
 }

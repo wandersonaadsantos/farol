@@ -1,10 +1,12 @@
 /* Farol · UI: o endereço da página reflete a tela, e a tela obedece ao endereço (18/10/2026).
 
    Pedido do dono: "As URLs não refletem exatamente o que vejo em tela". A rota mora no
-   hash (`#/radar/aparelhos/<id>`, `#/sistema/contas`, `#/entregas?dias=7`), porque o engine
-   serve um index.html só e o proxy e o login do Google devolvem para `/`: caminho não
-   sobreviveria. A tradução (e o que pode ou não entrar no endereço) é de ui/pure/rota.js;
-   aqui só se LÊ a tela e se APLICA a rota.
+   caminho (`/radar/aparelhos/<id>`, `/sistema/contas`, `/entregas?dias=7`) desde 20/10/2026;
+   o servidor devolve o index.html para toda navegação fora de /api (lib/http-ui.js), então
+   abrir e recarregar um caminho profundo chega aqui. O link antigo, com a rota no hash
+   (`/#/sistema/contas`), é convertido na entrada pelo caminho equivalente, substituindo.
+   A tradução (e o que pode ou não entrar no endereço) é de ui/pure/rota.js; aqui só se LÊ
+   a tela e se APLICA a rota.
 
    Quando o endereço muda:
    - depois de todo clique, tecla, troca e digitação (ouvinte na window, em bolha: roda
@@ -15,10 +17,10 @@
    Lugar novo (aba, sub-aba, aparelho, seção, caixa aberta) empilha no histórico; filtro e
    conta substituem. Voltar e Avançar aplicam a rota da entrada.
 
-   O login do Google devolve para `/` sem hash; aí a tela abre como sempre (o que estava
-   guardado) e o endereço passa a dizer onde ela está. */
+   Quem chega em `/` (o login do Google, quando não guarda o caminho pedido) vê a tela como
+   sempre (o que estava guardado), e o endereço passa a dizer onde ela está. */
 
-import { lerRota, escreverRota, mudancaDeRota, accountBarVisible, validScope } from '../pure.js';
+import { enderecoDaPagina, lerRota, escreverRota, mudancaDeRota, accountBarVisible, validScope } from '../pure.js';
 import { estado, abaAtual, escopo, definirEscopo } from './estado.js';
 import { $ } from './infra.js';
 import { aoNavegar } from './registro.js';
@@ -31,13 +33,21 @@ import { caixaAberta, abrirCaixaRevisao, fecharCaixaRevisao } from './caixa-revi
 
 let _switchTab = null;
 let _rerenderScope = null;
-let ULTIMO_HASH = '';      // o que este módulo escreveu (ou aplicou) por último
+let ULTIMO_ENDERECO = '';  // o que este módulo escreveu (ou aplicou) por último
 let APLICANDO = false;     // aplicando uma rota: a tela muda, mas não é navegação nova
 let ROTA_DE_ENTRADA = null; // a do endereço aberto, reaplicada quando o primeiro estado chega
 
 function historicoDisponivel() {
   return typeof history !== 'undefined' && typeof history.pushState === 'function'
-    && typeof location !== 'undefined' && typeof location.hash === 'string';
+    && typeof location !== 'undefined' && typeof location.pathname === 'string';
+}
+
+function enderecoAtual() { return enderecoDaPagina(location); }
+
+// link antigo (rota no hash): troca pelo caminho equivalente, sem empilhar
+function converterAntigo(rota) {
+  ULTIMO_ENDERECO = escreverRota(rota);
+  history.replaceState({ farol: true, caixa: false }, '', ULTIMO_ENDERECO);
 }
 
 function nContas() { return ((estado() && estado().accounts) || []).length; }
@@ -60,14 +70,14 @@ function estadoDaEntrada(rota) {
 function sincronizarUrl(substituir = false) {
   if (APLICANDO || !_switchTab || !historicoDisponivel()) return;
   const rota = capturarRota();
-  const hash = escreverRota(rota);
-  if (hash === ULTIMO_HASH) return;
-  const modo = substituir ? 'replace' : mudancaDeRota(lerRota(ULTIMO_HASH), rota);
-  ULTIMO_HASH = hash;
-  if (modo === 'push') { history.pushState({ farol: true, caixa: !!rota.pr }, '', hash); return; }
+  const endereco = escreverRota(rota);
+  if (endereco === ULTIMO_ENDERECO) return;
+  const modo = substituir ? 'replace' : mudancaDeRota(lerRota(ULTIMO_ENDERECO), rota);
+  ULTIMO_ENDERECO = endereco;
+  if (modo === 'push') { history.pushState({ farol: true, caixa: !!rota.pr }, '', endereco); return; }
   // fechar a caixa que a abertura empilhou volta aquela entrada, em vez de empilhar outra igual
   if (modo === 'fechou-caixa' && history.state && history.state.caixa === true) { history.back(); return; }
-  history.replaceState(estadoDaEntrada(rota), '', hash);
+  history.replaceState(estadoDaEntrada(rota), '', endereco);
 }
 
 function aplicarConta(rota) {
@@ -117,12 +127,14 @@ function aplicarRota(rota) {
   }
 }
 
-// Voltar, Avançar e hash editado à mão. O navegador dispara popstate E hashchange para a
-// mesma troca: o segundo encontra o endereço já aplicado e não faz nada.
+// Voltar, Avançar e hash antigo colado à mão. O navegador dispara popstate E hashchange
+// para a troca de hash: o segundo encontra o endereço já convertido e não faz nada.
 function aoMudarEndereco() {
-  if (location.hash === ULTIMO_HASH) return;
-  const rota = lerRota(location.hash) || lerRota('#/radar');
-  ULTIMO_HASH = location.hash;
+  const { endereco, antigo } = enderecoAtual();
+  if (!antigo && endereco === ULTIMO_ENDERECO) return;
+  const rota = lerRota(endereco) || lerRota('/radar');
+  if (antigo) converterAntigo(rota);
+  else ULTIMO_ENDERECO = endereco;
   // sem estado ainda, as telas não sabem desenhar: a rota espera o primeiro estado
   if (!estado()) { ROTA_DE_ENTRADA = rota; return; }
   ROTA_DE_ENTRADA = null;
@@ -158,9 +170,12 @@ function initRota(deps) {
   if (!historicoDisponivel()) return;
   // A rota de entrada espera o primeiro estado: antes dele as telas não sabem desenhar
   // (Sistema, por exemplo, lê o snapshot ao entrar) e as abas opcionais nem existem. O
-  // endereço fica como veio até lá, para não apagar o que a pessoa abriu.
-  const rota = lerRota(location.hash);
-  ULTIMO_HASH = location.hash;
+  // endereço fica como veio até lá (o antigo só troca de grafia), para não apagar o que a
+  // pessoa abriu.
+  const { endereco, antigo } = enderecoAtual();
+  const rota = lerRota(endereco);
+  ULTIMO_ENDERECO = endereco;
+  if (rota && antigo) converterAntigo(rota);
   if (rota) ROTA_DE_ENTRADA = rota;
   window.addEventListener('popstate', aoMudarEndereco);
   window.addEventListener('hashchange', aoMudarEndereco);

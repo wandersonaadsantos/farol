@@ -99,7 +99,8 @@ async function checkNavigation(win) {
       button.click();
       return { tab: '${tab}', selected: button.getAttribute('aria-selected') === 'true',
         visible: getComputedStyle(document.querySelector('#tab-${tab}')).display !== 'none',
-        activePanels: document.querySelectorAll('.tabpane.active').length, bodyTab: document.body.dataset.tab };
+        activePanels: document.querySelectorAll('.tabpane.active').length, bodyTab: document.body.dataset.tab,
+        path: location.pathname };
     })()`));
   }
   return navigation;
@@ -118,8 +119,11 @@ async function checkWindow() {
         autostartHidden: getComputedStyle(document.querySelector('#rowAutostart')).display === 'none' } : null;
     })()`);
   }, 'UI real renderizar o estado do servidor');
-  // Desde a v2.72.12 a UI escreve a tela no hash (ui/pure/rota.js); a raiz é o que conta.
-  assert.equal(win.webContents.getURL().split('#')[0], origin + '/', 'renderer deve estar na raiz HTTP loopback isolada');
+  // Desde 20/10/2026 a UI escreve a tela no CAMINHO (ui/pure/rota.js): a janela abre a raiz e
+  // o endereço passa a dizer a tela (`/radar/pra-mim`), sem hash. A origem é o que isola.
+  const aberta = new URL(win.webContents.getURL());
+  assert.equal(aberta.origin, origin, 'renderer deve estar na origem HTTP loopback isolada');
+  assert.equal(aberta.hash, '', 'a rota da tela não usa hash');
   // O renderer consulta um caminho literal da própria origem já verificada.
   // Nenhum conteúdo do arquivo de configuração compõe a URL da requisição.
   const response = await win.webContents.executeJavaScript(`(async () => {
@@ -145,8 +149,27 @@ async function checkWindow() {
   assert.equal(image.isEmpty(), false);
   const screenshot = config.name + '-window.png';
   fs.writeFileSync(path.join(config.output, screenshot), image.toPNG());
-  report.checks.window = { status: 'passed', dom, bounds: win.getBounds(), url: win.webContents.getURL(), screenshot,
+  const url = win.webContents.getURL();
+  const reload = await checkReload(win);
+  report.checks.window = { status: 'passed', dom, bounds: win.getBounds(), url, screenshot, reload,
     httpSnapshot: { status: response.status, app: snapshot.app, engineStatus: snapshot.status, lastCheckAt: snapshot.lastCheckAt } };
+}
+
+// Recarregar num caminho profundo: o servidor devolve a página (lib/http-ui.js) e a tela volta
+// para onde estava. Depois, de volta ao Radar, para a bandeja reabrir a tela de sempre.
+async function checkReload(win) {
+  await win.webContents.executeJavaScript(`document.querySelector('#tabbtn-consumo').click()`);
+  const antes = new URL(win.webContents.getURL()).pathname;
+  assert.equal(antes, '/consumo', 'o clique escreve a tela no caminho');
+  win.webContents.reload();
+  const depois = await waitFor(async () => {
+    if (win.webContents.isLoading()) return null;
+    return win.webContents.executeJavaScript(`(() => document.querySelector('#appVer')?.textContent
+      ? { path: location.pathname, bodyTab: document.body.dataset.tab } : null)()`);
+  }, 'página recarregar no caminho profundo');
+  assert.deepEqual(depois, { path: '/consumo', bodyTab: 'consumo' }, 'recarregar mantém a tela do caminho');
+  await win.webContents.executeJavaScript(`document.querySelector('#tabbtn-radar').click()`);
+  return { path: depois.path, bodyTab: depois.bodyTab };
 }
 
 async function checkTray() {
