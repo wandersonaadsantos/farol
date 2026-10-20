@@ -129,3 +129,56 @@ test('o painel mostra o link só se for https, e o comando de terminal como alte
   assert.equal(loginWebHtml({}), '');
   assert.match(loginWebHtml({ estado: 'enviando', url: LINK }), /disabled/);
 });
+
+// Revisão do PR #262. `/bin/sh -lc` lê /etc/profile e ~/.profile DEPOIS do ambiente limpo:
+// um profile que exporte CLAUDE_CONFIG_DIR ou ANTHROPIC_* gravava o login no lugar errado.
+// Prova num shell de login de verdade, com um `claude` falso que imprime o que recebeu.
+test('o shell de login não deixa o ~/.profile trocar a pasta nem vazar chave', { skip: process.platform === 'win32' }, async () => {
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const cp = await import('node:child_process');
+  const { LINHA_DO_PATH } = await import('../lib/engine/login-celular.js');
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-login-profile-'));
+  try {
+    fs.writeFileSync(path.join(home, '.profile'), 'export CLAUDE_CONFIG_DIR=/errado\nexport ANTHROPIC_API_KEY=vazou\n');
+    fs.mkdirSync(path.join(home, '.local', 'bin'), { recursive: true });
+    fs.writeFileSync(path.join(home, '.local', 'bin', 'claude'), '#!/bin/sh\necho "dir=${CLAUDE_CONFIG_DIR:-} chave=${ANTHROPIC_API_KEY:-}"\n', { mode: 0o755 });
+    const rodar = (linha) => cp.spawnSync('/bin/sh', ['-lc', linha], { env: { HOME: home, PATH: '/usr/bin:/bin' }, encoding: 'utf8' }).stdout.trim();
+    // a linha antiga: o profile vence
+    assert.equal(rodar(`${LINHA_DO_PATH}; exec claude auth login`), 'dir=/errado chave=vazou');
+    assert.equal(rodar(loginWeb.linhaPosix('/home/farol/.claude-pessoal')), 'dir=/home/farol/.claude-pessoal chave=');
+    // login padrão da máquina: sem pasta nenhuma, como a sessão headless
+    assert.equal(rodar(loginWeb.linhaPosix('')), 'dir= chave=');
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('a linha POSIX reaplica a autenticação do perfil depois do PATH', () => {
+  const linha = loginWeb.linhaPosix('/home/farol/.claude-x');
+  assert.match(linha, /^export PATH="\$HOME\/\.local\/bin:\$PATH"; unset [^;]*CLAUDE_CONFIG_DIR[^;]*; export CLAUDE_CONFIG_DIR='\/home\/farol\/\.claude-x'; exec claude auth login$/);
+  assert.doesNotMatch(loginWeb.linhaPosix(''), /export CLAUDE_CONFIG_DIR/);
+});
+
+// Revisão do PR #262: o CLI pode fechar a entrada enquanto o código chega. Sem ouvinte, o
+// EPIPE assíncrono do stdin vira exceção não tratada e derruba o engine inteiro.
+test('EPIPE no stdin do login não derruba o processo e volta como falha', async () => {
+  const { Writable } = await import('node:stream');
+  const e = engineFalso({});
+  const spawn = () => {
+    const child = new EventEmitter();
+    child.pid = 999997;
+    child.stdout = new PassThrough(); child.stderr = new PassThrough();
+    child.stdin = new Writable({ write(_c, _e, cb) { cb(Object.assign(new Error('write EPIPE'), { code: 'EPIPE' })); } });
+    setImmediate(() => child.stdout.write(`visit: ${LINK}\nPaste code here if prompted > `));
+    child.stdin.on('finish', () => { });
+    child.saida = () => setImmediate(() => child.emit('exit', 1));
+    child.stdin.once('error', () => child.saida());
+    return child;
+  };
+  const r = await loginWeb.iniciar(e, '', { spawn });
+  const fim = await loginWeb.enviarCodigo(e, r.loginId, 'codigoDeVerdade123#estado456');
+  assert.equal(fim.ok, false);
+  assert.equal(fim.code, 'recusado');
+});
