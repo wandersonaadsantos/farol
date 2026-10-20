@@ -19,6 +19,7 @@ export * from './pure/compartilhado-historico.js';
 export * from './pure/compartilhado-posse.js';
 export * from './pure/consumo.js';
 export * from './pure/contas.js';
+export * from './pure/cadeia.js';
 export * from './pure/contas-gh.js';
 export * from './pure/diagnostico.js';
 export * from './pure/entregas.js';

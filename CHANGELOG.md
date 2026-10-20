@@ -9,6 +9,22 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.75.0
+
+Várias assinaturas em ordem de prioridade: quando a principal chega ao limite do plano, o Farol segue para a próxima sozinho e volta à principal depois do reset.
+
+### Novidades
+
+- Em Sistema > Plano e chaves, a ordem de uso: suba, desça, ligue e desligue cada perfil (assinatura do Claude, chave de API ou Codex). O primeiro perfil ligado paga as revisões. Quando ele chega ao limite do plano, o Farol guarda a hora em que o limite volta e retoma a revisão no próximo perfil, sem esperar clique; passado o reset, o primeiro volta a ser usado sozinho.
+- Cada perfil mostra o estado ao vivo: em uso, no limite até a hora do reset, sem login ou com problema.
+- Com todos os perfis no limite, as revisões esperam o primeiro reset, sem estacionar nenhum PR e sem abrir sessão até lá.
+- O modelo e o esforço de cada provedor (Claude Code e Codex) ficam em Plano e chaves, junto da ordem de uso. O lugar do Antigravity já aparece, desligado, enquanto ele é medido.
+
+### Melhorias
+
+- Quando o provedor não informa a hora do reset, o perfil fica fora por uma hora, com a hora marcada como estimada, em vez de cada PR descobrir o limite de novo a cada ciclo.
+- Quem atualiza continua com o mesmo perfil de antes: a ordem nasce com o perfil padrão ligado e os outros desligados. Perfil novo entra desligado. Conta do GitHub com perfil próprio usa só ele, e o orçamento estourado continua pausando a automação, sem trocar de perfil.
+
 ## v2.74.0
 
 O login padrão da máquina aparece na lista de perfis com o nome que você der, o login de um perfil novo pode ser feito pela própria tela, sem terminal, e a limpeza presa da revisão técnica no Windows não estaciona mais o PR.
