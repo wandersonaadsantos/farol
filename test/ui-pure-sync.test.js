@@ -319,7 +319,7 @@ test('syncConfirmacoesDoClique: resposta sem coordenação não produz nada', ()
 
 /* ---------- U3: a nota no card da fila ---------- */
 
-test('prCoordNoteHtml: espera vira nota azul; indisponível e teto viram âmbar', () => {
+test('prCoordNoteHtml: espera vira nota azul; indisponível vira âmbar; teto legado não aparece', () => {
   const alheio = P.prCoordNoteHtml('o/r#1', { espera: { 'o/r#1': { reason: 'alheio', deviceName: 'Celular' } } });
   assert.match(alheio, /class="pr-coord"/, 'espera é azul, sem modificador');
   assert.match(alheio, /Em análise no Celular/);
@@ -327,8 +327,7 @@ test('prCoordNoteHtml: espera vira nota azul; indisponível e teto viram âmbar'
   const ind = P.prCoordNoteHtml('o/r#1', { espera: { 'o/r#1': { reason: 'indisponivel' } } });
   assert.match(ind, /class="pr-coord warn"/);
   const teto = P.prCoordNoteHtml('o/r#1', { espera: { 'o/r#1': { reason: 'esgotado' } } });
-  assert.match(teto, /class="pr-coord warn"/);
-  assert.match(teto, /Teto de 3|Teto de rodadas/);
+  assert.equal(teto, '');
 
   assert.doesNotMatch(alheio + ind + teto, /pr-parked/, 'nunca o vermelho do estacionamento: segurar não é falhar');
 });

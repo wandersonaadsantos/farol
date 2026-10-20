@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.76.1
+
+Revisões sem teto diário interno de quantidade, incluindo a reserva entre aparelhos.
+
+### Correções
+
+- Removidos o teto residual de rodadas por PR/dia e a espera até amanhã. Registros antigos desse limite não seguram a fila. A coordenação continua protegendo contra revisão duplicada entre aparelhos.
+- Testes de sessão usam o Git Bash no Windows, sem confundir o Bash do WSL com um shell que aceita os caminhos e as variáveis do aplicativo.
+- Limites externos da assinatura do provedor e orçamentos configurados continuam sendo informados separadamente.
+
 ## v2.76.0
 
 O Antigravity (agy) entra como provedor de revisão: contas Google com o plano do Antigravity podem pagar as revisões antes do Claude, na ordem de uso de Plano e chaves.

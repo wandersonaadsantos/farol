@@ -67,6 +67,6 @@ test('alheio apontando para o próprio aparelho não manda esperar por si mesmo'
 });
 
 test('os outros motivos seguem intactos', () => {
-  assert.match(bloqueio('esgotado', {}), /rodadas automáticas de hoje/);
+  assert.doesNotMatch(bloqueio('esgotado', {}), /rodadas automáticas de hoje|amanhã/);
   assert.match(bloqueio('indisponivel', { motivo: 'sem rede' }), /coordenação entre aparelhos indisponível \(sem rede\)/);
 });
