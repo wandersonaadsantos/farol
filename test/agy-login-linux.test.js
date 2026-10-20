@@ -16,9 +16,11 @@ fs.writeFileSync(falso, `
 import fs from 'node:fs';
 import readline from 'node:readline';
 if (!process.stdin.isTTY) process.exit(42);
+process.on('SIGTERM', () => process.exit(0));
 fs.writeFileSync(process.env.HOME + '/filho.pid', String(process.pid));
 console.log('https://accounts.google.com/o/oauth2/auth?teste=1');
 readline.createInterface({ input: process.stdin }).on('line', (codigo) => {
+  if (process.env.AGY_FALSO_AGUARDAR) return;
   console.log('codigo recebido');
   process.exit(codigo === '4/bom-codigo_123' ? 0 : 7);
 });
@@ -60,23 +62,39 @@ for (const [codigo, esperado] of [['4/bom-codigo_123', 0], ['4/ruim-codigo', 7]]
 }
 
 for (const automatico of [false, true]) {
-test(`Linux: ${automatico ? 'prazo vencido' : 'cancelar'} encerra também o CLI na sessão do pseudoterminal`, { skip: !IS_LINUX, timeout: 10000 }, async (t) => {
+  test(`Linux: ${automatico ? 'prazo vencido' : 'cancelar'} encerra também o CLI na sessão do pseudoterminal`, { skip: !IS_LINUX, timeout: 10000 }, async (t) => {
+    const e = engine();
+    const r = await web.iniciar(e, 'cancelar', { prazoTotalMs: automatico ? 2000 : 10000 });
+    t.after(() => web.cancelar(e, r.loginId));
+    assert.equal(r.ok, true, JSON.stringify(r));
+    const child = e.loginsWeb.get(r.loginId).child;
+    const pid = Number(fs.readFileSync(path.join(AGY_DIR, 'cancelar', 'filho.pid'), 'utf8'));
+    const fechado = once(child, 'close');
+    if (!automatico) web.cancelar(e, r.loginId);
+    await fechado;
+    // O kernel pode ainda estar recolhendo o filho quando fecha o pipe do wrapper.
+    const prazo = Date.now() + 2000;
+    while (Date.now() < prazo) {
+      try { process.kill(pid, 0); } catch { break; }
+      await esperar(25);
+    }
+    assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
+    assert.equal(e.loginsWeb.size, 0);
+  });
+}
+
+test('Linux: cancelamento com saída zero não confirma código em trânsito', { skip: !IS_LINUX, timeout: 10000 }, async (t) => {
   const e = engine();
-  const r = await web.iniciar(e, 'cancelar', { prazoTotalMs: automatico ? 500 : 10000 });
+  e.ghEnv = () => ({ ...process.env, AGY_FALSO_AGUARDAR: '1' });
+  const r = await web.iniciar(e, 'interrompido');
   t.after(() => web.cancelar(e, r.loginId));
   assert.equal(r.ok, true, JSON.stringify(r));
   const child = e.loginsWeb.get(r.loginId).child;
-  const pid = Number(fs.readFileSync(path.join(AGY_DIR, 'cancelar', 'filho.pid'), 'utf8'));
   const fechado = once(child, 'close');
-  if (!automatico) web.cancelar(e, r.loginId);
-  await fechado;
-  // O kernel pode ainda estar recolhendo o filho quando fecha o pipe do wrapper.
-  const prazo = Date.now() + 2000;
-  while (Date.now() < prazo) {
-    try { process.kill(pid, 0); } catch { break; }
-    await esperar(25);
-  }
-  assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
-  assert.equal(e.loginsWeb.size, 0);
+  const envio = web.enviarCodigo(e, r.loginId, '4/bom-codigo_123');
+  web.cancelar(e, r.loginId);
+  const resultado = await envio;
+  assert.equal((await fechado)[0], 0, 'simula o CLI que sai normalmente ao receber TERM');
+  assert.equal(resultado.ok, false);
+  assert.equal(resultado.code, 'expirou');
 });
-}
