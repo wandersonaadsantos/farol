@@ -153,7 +153,7 @@ test('Automação: "por conta" é sempre por conta, e o total do aparelho tem um
   const porConta = HTML.slice(HTML.indexOf('id="sys-row-paralelas"'), HTML.indexOf('id="sys-row-teto-global"'));
   assert.match(porConta, /É sempre por conta, com ou sem o compartilhamento entre aparelhos/);
   assert.doesNotMatch(porConta, /passa a ser o total do aparelho/);
-  const total = HTML.slice(HTML.indexOf('id="sys-row-teto-global"'), HTML.indexOf('id="sys-row-esforco"'));
+  const total = HTML.slice(HTML.indexOf('id="sys-row-teto-global"'), HTML.indexOf('id="sys-row-intervalo"'));
   assert.match(total, /<label class="set-title" for="setGlobalParallelReviews">Teto total deste aparelho<\/label>/);
   assert.match(total, /"Teto total do aparelho", em Sistema → Aparelhos e em Radar → Aparelhos\): vale o menor dos dois/);
   assert.match(total, /<option value="0">Sem teto total \(padrão\)<\/option>/);

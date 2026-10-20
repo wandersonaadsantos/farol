@@ -202,15 +202,17 @@ test('retryTargets: passado o notBefore, o PR volta', () => {
   assert.deepEqual(e.retryTargets(new Set(), new Set(), reset + 1).map(p => p.key), ['o/r#1']);
 });
 
-test('runOneHeadless: limite de plano SEM hora nenhuma segue o caminho antigo (notBefore null, retenta no próximo ciclo)', async () => {
+test('runOneHeadless: limite de plano SEM hora espera o prazo estimado da assinatura (20/10/2026)', async () => {
   const e = engineBase();
   e.prState = async () => 'OPEN';
   e.runHeadlessReview = async () => { throw new Error(MSG_LIMITE_SEM_HORA); };
+  const antes = Date.now();
   await e.runOneHeadless(prDe('o/r#3'), 'eu');
   const guardado = e.retryAfterNet.get('o/r#3');
   assert.equal(guardado.tries, 1);
-  assert.equal(guardado.notBefore, null, 'sem hora extraível, nada muda: retenta no próximo ciclo até o teto');
-  assert.deepEqual(e.retryTargets(new Set(), new Set()).map(p => p.key), ['o/r#3']);
+  assert.ok(guardado.notBefore >= antes + 3600 * 1000, 'sem hora citada, espera o prazo estimado de uma hora em vez de relançar a cada ciclo');
+  assert.deepEqual(e.retryTargets(new Set(), new Set()).map(p => p.key), []);
+  assert.deepEqual(e.retryTargets(new Set(), new Set(), guardado.notBefore).map(p => p.key), ['o/r#3'], 'passado o prazo, volta sozinho');
 });
 
 test('runOneHeadless: o teto de 12 do limite de plano continua valendo pras tentativas que acontecem', async () => {
