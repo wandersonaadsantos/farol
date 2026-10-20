@@ -1,12 +1,16 @@
 /* Farol · UI: a ROTA, o endereço que diz o que está na tela (18/10/2026).
 
-   Pedido do dono: "As URLs não refletem exatamente o que vejo em tela". O engine serve um
-   index.html só, e o proxy do Hostinger e o login do Google devolvem para `/`, então a rota
-   mora no HASH (nunca no caminho): `#/<aba>[/<sub>[/<aparelho>]]?<filtros>`.
+   Pedido do dono: "As URLs não refletem exatamente o que vejo em tela". A rota mora no
+   CAMINHO desde 20/10/2026 (`/<aba>[/<sub>[/<aparelho>]]?<filtros>`), também pedido do dono:
+   "usualmente associamos o uso de # pra referenciar um id, e aquilo na realidade são
+   páginas". Na primeira versão ela morava no hash; o link antigo (`/#/radar/pra-mim`)
+   continua valendo e é convertido na entrada (enderecoDaPagina). Quem faz o caminho
+   profundo chegar à página é o servidor: toda navegação fora de /api devolve o index.html
+   (lib/http-ui.js).
 
-   Aqui é só a tradução, sem DOM: lerRota (hash -> rota normalizada), escreverRota (rota ->
-   hash canônico) e mudancaDeRota (empilha ou substitui no histórico). Quem lê a tela e
-   aplica a rota é ui/telas/rota.js.
+   Aqui é só a tradução, sem DOM: enderecoDaPagina (location -> endereço da rota), lerRota
+   (endereço -> rota normalizada), escreverRota (rota -> caminho canônico) e mudancaDeRota
+   (empilha ou substitui no histórico). Quem lê a tela e aplica a rota é ui/telas/rota.js.
 
    Nada que identifique credencial entra no endereço: cada campo é validado por formato
    fechado (aba e seção de lista conhecida, conta e org no formato de login do GitHub, PR
@@ -106,11 +110,26 @@ function lerCaminho(rota, partes) {
   }
 }
 
-/* Hash -> rota normalizada. Hash vazio (ou só `#`/`#/`) devolve null: não há rota pedida, e
-   quem chama mantém a tela como está. Qualquer outra coisa devolve rota VÁLIDA, caindo no
-   padrão (Radar > Pra mim) no que não reconhece, sem lançar. */
-export function lerRota(hash) {
-  const bruto = String(hash || '').replace(/^#/, '').replace(/^\/+/, '');
+/* O endereço da página -> o texto que lerRota entende, e se ele veio na grafia antiga (a
+   rota no hash, até 20/10/2026). O hash só é rota antiga na raiz e sem consulta, que é como
+   o app escrevia; fora disso ele é pedaço do endereço, nunca a rota (o `#` cru de um
+   `?pr=a/b#1` digitado à mão, por exemplo). */
+export function enderecoDaPagina(loc) {
+  const l = loc || {};
+  const caminho = String(l.pathname || '/');
+  const consulta = String(l.search || '');
+  const raiz = caminho === '/' || caminho === '/index.html';
+  const hash = String(l.hash || '').replace(/^#/, '').replace(/^\/+/, '');
+  if (raiz && !consulta && hash.trim()) return { endereco: `/${hash}`, antigo: true };
+  return { endereco: (raiz ? '' : caminho) + consulta, antigo: false };
+}
+
+/* Endereço (caminho e consulta, ou o hash antigo) -> rota normalizada. Endereço vazio (ou só
+   `/`, `#`, `#/`) devolve null: não há rota pedida, e quem chama mantém a tela como está.
+   Qualquer outra coisa devolve rota VÁLIDA, caindo no padrão (Radar > Pra mim) no que não
+   reconhece, sem lançar. */
+export function lerRota(endereco) {
+  const bruto = String(endereco || '').replace(/^#/, '').replace(/^\/+/, '');
   if (!bruto.trim()) return null;
   const q = bruto.indexOf('?');
   const caminho = q < 0 ? bruto : bruto.slice(0, q);
@@ -129,7 +148,7 @@ function pedacoDeConsulta(nome, valor) {
   return `${nome}=${encodeURIComponent(String(valor))}`;
 }
 
-/* Rota -> hash canônico, sempre com a aba e (no Radar e no Sistema) a sub-aba ou seção
+/* Rota -> caminho canônico, sempre com a aba e (no Radar e no Sistema) a sub-aba ou seção
    explícitas, para o endereço dizer por extenso o que está na tela. Passa pela mesma
    validação da leitura: escrever e ler de volta dá a mesma rota. */
 export function escreverRota(r) {
@@ -152,7 +171,7 @@ export function escreverRota(r) {
   if (rota.conta) consulta.push(pedacoDeConsulta('conta', rota.conta));
   if (rota.pr) consulta.push(pedacoDeConsulta('pr', rota.pr));
   const sufixo = consulta.length ? `?${consulta.join('&')}` : '';
-  return `#/${caminho.map(encodeURIComponent).join('/')}${sufixo}`;
+  return `/${caminho.map(encodeURIComponent).join('/')}${sufixo}`;
 }
 
 // normaliza um objeto de rota vindo da tela com as MESMAS regras da leitura
