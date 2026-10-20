@@ -10,38 +10,59 @@ Windows 11, Node 24.15.0. Antecede este documento a medição do Gemini CLI
 (`docs/superpowers/specs/2026-10-20-gemini-cli-provedor.md`, branch `docs/gemini-cli-provedor`),
 que concluiu que o login Google não serve mais para o Gemini CLI e que o sucessor é o `agy`.
 
-## Conclusão em oito linhas
+## Conclusão em nove linhas
 
 1. **Uma revisão de ponta a ponta rodou no `agy` com o prompt real e devolveu o envelope do
    contrato**, que o `parseHeadlessResult` do Farol aceitou como está (seção 7). 13 minutos,
    `pr-reviewer` rodou como subagente, seis marcadores `FAROL_CHECKPOINT` saíram no stream.
-2. **A cota do plano é legível sem gastar nada**: `agy -p "/usage" --output-format json`
+2. **Essa revisão, de um PR de sete linhas, gastou cerca de metade da cota semanal de Gemini
+   da conta** (97% para 45%, seção 3). Com o modelo padrão (`gemini-3.8-flash-high`) e o
+   protocolo de hoje, cada conta aguenta perto de duas revisões por semana. É o número que
+   decide se o `agy` vale como provedor principal; ver "Decisão que vem antes".
+3. **A cota do plano é legível sem gastar nada**: `agy -p "/usage" --output-format json`
    devolve, por grupo de modelos, a fração restante e a hora exata do reset em UTC. É a melhor
    fonte que o Farol já teve para "limite acabou, volta às HH:MM" (seção 3 e o contrato).
-3. **Várias contas na mesma máquina: por padrão, não.** O login mora numa vaga única do
-   chaveiro do sistema (`gemini:antigravity`), igual para qualquer pasta. **Mas** com uma
-   variável `SSH_*` no ambiente o `agy` passa a guardar o token em arquivo dentro da home do
-   processo, e com `USERPROFILE` (Windows) ou `HOME` (POSIX) por conta isso vira uma pasta por
-   conta. Medido que a troca de armazenamento acontece; a alternância entre as duas contas
-   reais depende do login delas e está na seção 2.
-4. O modo sem terminal cobre o que a revisão usa: subagente, MCP filtrado por ferramenta,
+4. **Várias contas na mesma máquina: por padrão, não; com um truque, sim, e provado.** O login
+   mora numa vaga única do chaveiro do sistema (`gemini:antigravity`), igual para qualquer
+   pasta. Com uma variável `SSH_*` no ambiente o `agy` guarda o token em arquivo dentro da
+   home do processo, e com `USERPROFILE` (Windows) ou `HOME` (POSIX) por conta isso vira uma
+   pasta por conta. As duas contas do dono rodaram **ao mesmo tempo**, cada uma na sua pasta,
+   sem relogar (seção 2).
+5. O modo sem terminal cobre o que a revisão usa: subagente, MCP filtrado por ferramenta,
    retomada por id, escolha de modelo e esforço, cancelamento, uso de tokens.
-5. O que degrada: a lista de comandos permitidos casa só a linha exata (a revisão precisa de
+6. O que degrada: a lista de comandos permitidos casa só a linha exata (a revisão precisa de
    `--dangerously-skip-permissions`, a mesma postura do Claude hoje); o `usage` do `result` não
    inclui o subagente; o teto de tempo devolve **sucesso** com resposta vazia; retomar um id
    inexistente abre conversa nova calado; o subagente lê o PR pela web, não pelo `gh`.
-6. Não medido: a mensagem e o código de saída reais de cota esgotada (a conta está com 97 a 100%
-   da semana). O formato está no binário e no changelog (`AGY_ERROR: {...}`, saída 3), e o
+7. Não medido: a mensagem e o código de saída reais de cota esgotada (nenhuma conta chegou a
+   zero). O formato está no binário e no changelog (`AGY_ERROR: {...}`, saída 3), e o
    `/usage` dispensa depender dele.
-7. Login sem terminal gráfico funciona: `agy -p` sem credencial imprime o link de autorização e
+8. Login sem terminal gráfico funciona: `agy -p` sem credencial imprime o link de autorização e
    lê o código pela entrada padrão, o mesmo formato do login do Claude pela tela (PR #262).
-8. Estimativa: **3 dias** para o provedor com troca entre contas pelo `/usage`; o maior risco
-   é o truque do `SSH_*`, que não é contrato do produto (seção 2).
+9. Estimativa: **3 dias** para o provedor com troca entre contas pelo `/usage`; os riscos são o
+   truque do `SSH_*`, que não é contrato do produto (seção 2), e o custo em cota do item 2.
+
+## Decisão que vem antes (é do dono)
+
+Com perto de duas revisões por semana por conta no modelo padrão, duas contas dão umas
+quatro revisões semanais antes de cair no Claude Max. Antes de implementar, vale medir o que
+muda o número:
+
+| alavanca | o que medir |
+|---|---|
+| `--model gemini-3.8-flash-low` ou `-medium` | o mesmo PR, a mesma revisão: quanto da cota cai e se o envelope continua certo |
+| subagente | a revisão sem o `pr-reviewer` gastaria cerca de metade (o subagente leu o PR de novo pela web e consumiu mais que o principal) |
+| grupo "Claude e GPT" | `claude-sonnet-4-6` usa outro balde de cota, intocado nas duas contas; é uma terceira fonte, com outro modelo |
+
+Se nenhuma alavanca trouxer a revisão para uns 10% da cota, o `agy` serve como reforço e
+segunda opinião, não como provedor principal da fila.
 
 ## Como a medição foi feita
 
-- Tudo com o CLI real e o modelo real, pela conta Google que já estava logada na máquina (o
-  chaveiro tinha a credencial; nenhuma credencial nem código foi digitado por esta medição).
+- Tudo com o CLI real e o modelo real. Até a seção 2, pela conta Google que já estava no
+  chaveiro (a Gmail, inclusive a revisão de ponta a ponta); na seção 2, pelas duas contas do
+  dono, cada uma logada por ele numa pasta própria. Nenhuma credencial nem código de
+  autorização foi digitado por esta medição.
   O e-mail da conta não aparece aqui; onde importou saber que duas execuções usaram a mesma
   conta, a comparação foi pelo resumo SHA-256 da linha de log, sem o texto.
 - Pastas temporárias como home (`USERPROFILE=<tmp>`) para não tocar `~/.gemini` real, exceto o
@@ -160,19 +181,48 @@ Então `SSH_CLIENT=<qualquer coisa>` mais `USERPROFILE=<pasta da conta>` (Window
 `brain/` separados. Os scripts `C:\Users\wanderson\agy-medicao\login-conta-x.cmd` e
 `login-conta-y.cmd` fazem exatamente isso para o login de cada conta.
 
-**Prova da alternância entre as duas contas: pendente do login delas.** O resultado entra aqui
-quando o dono rodar os dois scripts (pedido feito na sessão de 20/10/2026). O que falta provar:
-as duas pastas autenticam como contas diferentes, uma não desloga a outra, e as duas rodam em
-paralelo.
+### A prova com as duas contas do dono
+
+O dono fez o login uma vez em cada pasta, pelos dois scripts (link, página do Google, código
+colado no terminal). Cada pasta ganhou um arquivo `.gemini\antigravity-cli\antigravity-oauth-token`
+(1.751 bytes) e o log `Using file-based token storage because SSH session detected` seguido de
+`ChainedAuth: interactive auth completed via consumer`. Depois, sem login nenhum, três
+execuções **ao mesmo tempo** (início 04:59:45, fim 05:00:52):
+
+| execução | ambiente | conta que autenticou (log, mascarado) | resposta |
+|---|---|---|---|
+| conta X | `SSH_CLIENT` + `USERPROFILE=...\conta-x` | `wa***@gmail.com` | `SUCCESS`, `conta x`, saída 0 |
+| conta Y | `SSH_CLIENT` + `USERPROFILE=...\conta-y` | `wa***@icloud.com` | `SUCCESS`, `conta y`, saída 0 |
+| padrão | nada | `wa***@icloud.com` (a do chaveiro) | `SUCCESS`, `padrao`, saída 0 |
+
+E o `/usage` de cada pasta mostra cotas diferentes, o que prova que são assinaturas
+diferentes e não só rótulos:
+
+```text
+conta X  Gemini Models          Weekly Limit Remaining  45%   2026-10-27T07:08:29Z
+conta X  Claude and GPT models  Weekly Limit Remaining  100%  2026-10-27T08:02:11Z
+conta Y  Gemini Models          Weekly Limit Remaining  99%   2026-10-27T07:45:34Z
+conta Y  Claude and GPT models  Weekly Limit Remaining  100%  2026-10-27T08:02:15Z
+```
+
+O log do modo arquivo segue dizendo `ChainedAuth: authenticated via keyring`: o nome
+interno não muda, o armazenamento sim. Quem confere a identidade lê a linha
+`OAuth: authenticated successfully as ...`, não essa.
+
+A vaga única também apareceu sem querer: às 04:40, durante a medição, um `agy` interativo na
+home real saiu da conta Gmail e entrou na conta iCloud (o log mostra as duas na mesma
+execução). Dali em diante **toda** execução no modo padrão passou a ser a conta iCloud, sem
+aviso, inclusive as que já tinham uma pasta própria de configuração.
 
 Riscos do caminho:
 
 - **Não é contrato do produto.** É detecção de ambiente; uma versão pode passar a exigir
   chaveiro, ou mudar o critério. O provedor tem de conferir, a cada sessão, que a conta que
   autenticou é a esperada (seção do contrato) e parar com motivo claro se não for.
-- O token fica em arquivo na pasta da conta, sem a proteção do chaveiro. A pasta tem de estar
-  em `~/.farol/agy/<perfil>/`, com permissão restrita no POSIX, e fora de qualquer pacote ou
-  sincronização (o invariante 7 já audita o pacote).
+- O token fica em arquivo na pasta da conta, **em JSON legível** (`{"token":{...,"ya29...`),
+  sem a proteção do chaveiro. A pasta tem de estar em `~/.farol/agy/<perfil>/`, com permissão
+  restrita no POSIX, e fora de qualquer pacote, sincronização ou diagnóstico (o invariante 7
+  já audita o pacote; o `diagnostico.js` não pode listar a pasta).
 - `USERPROFILE` mudado é herdado pelos comandos que o agente roda. No Windows o `gh` lê a
   configuração de `%APPDATA%` e o `git` lê `HOME`, então os dois seguem iguais desde que o Farol
   mude **só** o `USERPROFILE`. No POSIX, mudar `HOME` tira o `gh` e o `git` da configuração do
@@ -197,10 +247,21 @@ agy -p "/usage" --output-format json
   horas em outros planos, então o Farol tem de ler todos os buckets, não só o semanal),
   `remaining_fraction` de 0 a 1 e `reset_time` em ISO UTC. Na saída para terminal a hora sai no
   fuso local; no `--json` e em pipe sai sempre em UTC (changelog).
-- Observado e não explicado: depois da revisão de ponta a ponta (247 mil tokens no principal,
-  mais 252 mil no subagente) o grupo Gemini foi de 97% para **100%**, e o `reset_time` andou de
-  `07:08:29Z` para `07:45:34Z`. Sugere janela móvel ou arredondamento. Por isso o contrato usa
-  o `/usage` como fonte do **reset**, e a falha da sessão como fonte do **esgotamento**.
+- **A janela semanal começa no primeiro uso.** O `reset_time` da conta Gmail é `07:08:29Z`
+  de 27/10, sete dias depois do primeiro uso dela nesta medição (04:08 de Brasília); o da conta
+  iCloud é `07:45:34Z`, sete dias depois do primeiro uso dela. O Farol não pode prever o reset
+  por calendário; tem de ler.
+- Num grupo intocado (`remaining_fraction: 1`) o `reset_time` é só "agora mais sete dias" e
+  anda a cada leitura (`07:23:38Z`, depois `07:50:18Z`, depois `08:02:11Z`): não significa nada.
+- **Quanto custa uma revisão.** A conta Gmail estava com 97% do grupo Gemini na primeira
+  leitura (por volta de 04:20, depois de três execuções curtas); depois
+  da revisão de ponta a ponta (principal: 214.608 de entrada, 32.295 de saída, 23.085 de
+  raciocínio, 2.061.458 de cache; subagente: mais 231.149, 21.131 e 4.006.053) e de umas
+  vinte execuções curtas no `flash-low`, ficou com **45%**. As execuções curtas somam poucos
+  pontos (as três primeiras, somadas a algum uso anterior nesta máquina, custaram 3), então a revisão de um PR de
+  sete linhas custou perto de **50% da semana**. Uma leitura no meio da medição deu 100% e
+  parecia contradizer isso: era a outra conta, porque o chaveiro trocou de conta às 04:40
+  (seção 2). Lição para o desenho: o `/usage` só vale lido na pasta da conta certa.
 - `/credits` nesta conta: `error: /credits failed: retrieving credits: no credits info found`,
   saída 0. O ajuste `useG1Credits` (créditos de IA depois da cota) existe e vem desligado; o
   Farol nunca deve ligá-lo, porque transformaria a cota do plano em gasto.
@@ -297,9 +358,10 @@ error: authentication failed or timed out
 - É o formato do login do Claude pela tela (PR #262): link, página do Google que mostra o
   código, código colado na entrada padrão. O mesmo painel serve, com **60 segundos** de prazo
   em vez de esperar indefinidamente.
-- No Linux sem chaveiro o token vai para arquivo dentro da `HOME`, então no servidor (Hostinger,
-  Termux) a pasta por conta funciona sem o truque do `SSH_*`. Medido só até o pedido de login;
-  o login que dá certo no Linux não foi feito.
+- No Linux sem chaveiro o token vai para arquivo dentro da `HOME` (no Windows, com o `SSH_*`,
+  o arquivo é `<home>/.gemini/antigravity-cli/antigravity-oauth-token`), então no servidor
+  (Hostinger, Termux) a pasta por conta funciona sem o truque. Medido no Linux só até o pedido
+  de login; o login que dá certo foi feito e provado no Windows (seção 2), não no Linux.
 - Alternativas oficiais para servidor: `GEMINI_API_KEY` com `"modelProvider": "gemini"` no
   `settings.json` (cobra por token) e `AGY_ADC_AUTH=true` com credencial de aplicativo do GCP
   (conta de negócio). Nenhuma das duas usa a cota do plano pessoal, que é o objetivo.
@@ -464,6 +526,8 @@ roda o `/usage` (zero token, cerca de um segundo). A regra:
 
 - `remaining_fraction > 0` no grupo do modelo: pode rodar.
 - `remaining_fraction <= 0`: registra `registrarLimite(..., reset_time)` e devolve "volta em".
+  Só o `reset_time` de bucket esgotado conta; o de bucket cheio é "agora mais sete dias" e
+  anda a cada leitura (seção 3).
   A cadeia passa para o próximo perfil **sem abrir sessão**.
 - Quando o `ate` registrado vence, `limiteAte` devolve 0 sozinho (é o comportamento atual do
   `limite-plano.js`); o provedor ainda confere o `/usage` uma vez antes da primeira sessão
