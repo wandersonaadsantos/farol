@@ -234,6 +234,7 @@ const CONGELADA = [
   "logSummaryLines",
   "logSummaryShort",
   "logTailLines",
+  "loginWebHtml",
   "md",
   "mergeToastKind",
   "mesclarListaRemota",
