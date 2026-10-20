@@ -35,7 +35,7 @@ const { runClaudeStream, buildSessionScriptMac, buildLoginScriptMac, killTree } 
 const { claudeAuthShellLines, claudeAuthPosixPrefix } = await import('../lib/parse.js');
 const { WORKSPACE, IS_WIN } = await import('../lib/paths.js');
 const { bashDoTeste } = await import('./helpers/bash-real.js');
-import { execFileSync, execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 after(() => {
   childProcess.spawn = realSpawn;

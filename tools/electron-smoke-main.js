@@ -290,7 +290,11 @@ async function runSmoke() {
     app.setPath('sessionData', config.dirs.sessionData);
     isolateProcesses();
     isolateAutostart();
-    app.on('browser-window-created', (_event, win) => watchRenderer(win));
+    app.on('browser-window-created', (_event, win) => {
+      // Janela coberta não pode congelar a animação que o smoke precisa capturar.
+      win.webContents.setBackgroundThrottling(false);
+      watchRenderer(win);
+    });
     await app.whenReady();
     stage('electron-ready');
     session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
