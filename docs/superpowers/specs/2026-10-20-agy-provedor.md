@@ -16,9 +16,9 @@ que concluiu que o login Google não serve mais para o Gemini CLI e que o sucess
    contrato**, que o `parseHeadlessResult` do Farol aceitou como está (seção 7). 13 minutos,
    `pr-reviewer` rodou como subagente, seis marcadores `FAROL_CHECKPOINT` saíram no stream.
 2. **Essa revisão, de um PR de sete linhas, gastou cerca de metade da cota semanal de Gemini
-   da conta** (97% para 45%, seção 3). Com o modelo padrão (`gemini-3.8-flash-high`) e o
-   protocolo de hoje, cada conta aguenta perto de duas revisões por semana. É o número que
-   decide se o `agy` vale como provedor principal; ver "Decisão que vem antes".
+   da conta** (97% para 45%, seção 3), e aprovou um PR que quebra teste. A medição das
+   alavancas (seção 8) achou o padrão: **`flash-high` sem o subagente** custa 16 pontos, deu o
+   veredito certo duas vezes seguidas e dá cerca de seis revisões por semana por conta.
 3. **A cota do plano é legível sem gastar nada**: `agy -p "/usage" --output-format json`
    devolve, por grupo de modelos, a fração restante e a hora exata do reset em UTC. É a melhor
    fonte que o Farol já teve para "limite acabou, volta às HH:MM" (seção 3 e o contrato).
@@ -43,6 +43,9 @@ que concluiu que o login Google não serve mais para o Gemini CLI e que o sucess
    truque do `SSH_*`, que não é contrato do produto (seção 2), e o custo em cota do item 2.
 
 ## Decisão que vem antes (é do dono)
+
+**Medida na seção 8**: a configuração recomendada é `flash-high` sem subagente, com o `agy`
+como principal da cadeia e o Claude Max atrás. A tabela abaixo é o plano que levou à medição.
 
 Com perto de duas revisões por semana por conta no modelo padrão, duas contas dão umas
 quatro revisões semanais antes de cair no Claude Max. Antes de implementar, vale medir o que
@@ -393,15 +396,129 @@ Resultado:
   (`lib/engine/session.js`) aceitou: `verdict: approve`, `decision: needs_decision`,
   `analysisStatus: complete`, `protocolo.prReviewer: rodou`, `coverage` com o único arquivo do
   PR, `payloads` com `approve`, `request_changes` e `comment`. Motivos: checks de build em
-  FAILURE no CI e ausência de card do Jira (repositório sem Jira). As duas leituras estão
-  certas para o PR.
+  FAILURE no CI e ausência de card do Jira (repositório sem Jira). **O veredito estava
+  errado**: o PR quebra um teste existente e não corrige o caso da própria issue (gabarito na
+  seção 8). O contrato foi cumprido; a revisão, não.
 - Nada foi postado: o envelope é a saída, e o `gh` só leu.
 - Tokens: principal 214.608 de entrada, 32.295 de saída, 23.085 de raciocínio, 2.061.458 de
   leitura de cache; subagente mais 231.149, 21.131 e 4.006.053.
 
 O que isso prova e o que não prova: o modelo padrão da conta seguiu o protocolo de 22 KB e
-devolveu o contrato, num PR trivial. Não prova qualidade de revisão num PR real da BIUD, nem o
+devolveu o contrato, num PR trivial, mas com o veredito errado e o protocolo cortado em 24 KB
+(seção 8). Não prova qualidade de revisão num PR real da BIUD, nem o
 comportamento com o card do Jira (o MCP do Jira não estava na sessão).
+
+## 8. As alavancas de custo (medição de 20/10/2026, tarde)
+
+Pedido do dono depois do item 2 da conclusão: medir modelo, subagente e o balde "Claude e
+GPT" antes de construir o provedor. Mesmo PR (cli/cli#13788), mesmo prompt real, mesmo
+critério (envelope aceito pelo `parseHeadlessResult`), cada rodada numa pasta de workspace
+nova, com o `/usage` lido antes e depois e um vigia que matava a rodada se algum grupo da conta
+caísse abaixo de 15% (nenhuma precisou). As contas X e Y foram alternadas, e duas rodadas só
+rodaram juntas quando eram de contas diferentes.
+
+### O gabarito
+
+Para dizer qual revisão acertou, o PR foi conferido fora do `agy`, com o código no head
+(`2537a3b`) e na base (`b300f2e`), Go 1.26.5:
+
+1. **O PR quebra um teste existente, e é isso que deixa o CI vermelho.**
+   `pkg/cmd/workflow/view` passa na base e falha no head (`TestViewRun/web_with_yaml`: esperava
+   `.../blob/trunk/.github/workflows/flow.yml`, veio `.../.github%2Fworkflows%2Fflow.yml`).
+   As outras falhas do `go test ./...` local (`internal/ghcmd`, `skills/list` e mais duas)
+   falham também na base: são do ambiente Windows, não do PR.
+2. **O PR não corrige o caso da própria issue.** `DisplayURL` com
+   `compare/main...test-%22quoted%22-branch-pr` devolve `test-"quoted"-branch-pr`, igual a
+   antes; `%20` e `%C3%A9` também saem decodificados. Só `%2F` é preservado, porque o Go só
+   preenche `u.RawPath` quando o escape difere do canônico. A correção certa é
+   `u.EscapedPath()`.
+3. Nenhum teste novo cobre a mudança.
+
+Veredito certo: **request_changes**, pelo item 2 e pelo item 1.
+
+### A tabela
+
+Pontos = queda da `remaining_fraction` do grupo, em pontos percentuais, entre o `/usage` de
+antes e o de depois. Tokens do principal (entrada, saída, raciocínio); o subagente à parte.
+"Alcance" = citações de uso fora do diff que conferem com o código no head dentro da folga de
+3 linhas do `lib/engine/alcance.js` (o que o gate do Farol faz). "Defeito" = achou o item 2 do
+gabarito como motivo do pedido de mudanças.
+
+| configuração | conta | Gemini | Claude e GPT | tempo | tokens do principal | subagente | envelope | veredito | defeito | CI atribuído ao PR | alcance |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `flash-high` com subagente (a do item 2) | X | **cerca de 50** (inferido, seção 3) | 0 | 13,0 min | 214.608 / 32.295 / 23.085 | rodou, pela web: 231.149 / 21.131 | aceito | approve, errado | citou `EscapedPath` sem bloquear | não ("reexecutar") | 4 de 4 |
+| `flash-high` sem subagente | Y | **16,5** | 0 | 9,1 min | 172.091 / 26.595 / 15.270 | não | aceito | **request_changes, certo** | **sim (`%22`, `%20`)** | não | 6 de 6 |
+| `flash-high` sem subagente, repetição | Y | **15,7** | 0 | 7,2 min | 168.774 / 23.480 / 15.631 | não | aceito | **request_changes, certo** | **sim (`%22`, `%20`)** | não | 3 de 3 |
+| `flash-medium` com subagente | Y | 22,1 | 0 | 10,1 min | 161.004 / 17.009 / 10.094 | rodou, pela web: 105.818 / 14.993 | aceito | request_changes, certo | sim (`%20`, `EscapedPath`) | não | 0 de 4 |
+| `flash-medium`, subagente no diff local | X | 19,4 | 0 | 8,0 min | 151.562 / 16.502 / 8.393 | rodou, só `view_file`, zero web: 77.992 / 18.593 | aceito | request_changes, certo | não (pediu teste e CI) | em parte ("testes falhando, rode `go test`") | 4 de 4 |
+| `flash-medium` sem subagente | Y | 18,5 | 0 | 8,0 min | 189.817 / 28.713 / 18.322 | não | aceito | approve, errado | não | não | 3 de 3 |
+| `flash-low` com subagente disponível | Y | 5,3 | 0 | 2,6 min | 86.609 / 3.552 / 0 | **dispensado pelo modelo** ("diff de 7 linhas") | aceito | approve, errado | não | não ("HTTP 410 no log") | 0 de 1 |
+| `flash-low` sem subagente | X | 5,1 | 0 | 1,7 min | 75.247 / 2.449 / 0 | não | aceito | approve, errado | não | não | 0 de 3 |
+| `claude-sonnet-4-6` com subagente | X | 0 | **59,5** | 6,4 min | sem `result` | rodou | **nenhum: saída 2 no meio da resposta**, sem erro no log nem no stderr | | | | |
+| `claude-sonnet-4-6` com subagente | Y | 0 | **62,9** | 5,7 min | 78.218 / 15.309 / 0 | rodou, pela web: 72.631 / 2.549 | **recusado** (`JSON da sessão inválido`); aceito pelo último passo (abaixo) | request_changes, certo | em parte (recomenda `EscapedPath` como API, sem o caso `%22`) | **sim** (conferiu que a trunk estava verde) | 0 de 10 (todas na linha 1) |
+
+### O que a tabela mostra
+
+- **O subagente é a maior parte do custo e não melhorou a revisão.** No `flash-high`, tirar o
+  `pr-reviewer` levou de cerca de 50 para 16 pontos e trocou um approve errado por um
+  request_changes certo, duas vezes. O subagente releu o PR pela web (`read_url_content`,
+  `search_web`) em vez de pelo `gh`, e não alcançaria repositório privado. Ler o diff local
+  (rodada `difflocal`) tirou a web dele, mas o custo ficou parecido (19,4 contra 22,1).
+- **O `flash-low` é barato e inútil para APPROVE.** Cinco pontos, envelope aceito, mas aprovou
+  um PR que quebra teste, não achou o defeito e errou **todas** as linhas do alcance (14 a 200
+  linhas fora): no Farol o `verificarAlcance` abriria lacuna e o APPROVE não sairia. Também
+  dispensou o subagente sozinho, o que o protocolo permite com motivo.
+- **O `flash-medium` não é estável.** Com subagente, achou o defeito; sem subagente, aprovou.
+  Custo de 18 a 22 pontos, mais que o `flash-high` sem subagente.
+- **O `flash-high` sem subagente foi estável nas duas rodadas**: 16,5 e 15,7 pontos, mesmo
+  veredito, mesmo motivo, alcance certo. É a única configuração que repetiu o resultado certo.
+  Nenhuma configuração Gemini atribuiu o CI vermelho ao PR; todas o registraram como ponto
+  para quem mergeia, o que o protocolo aceita, mas uma revisão humana teria rodado o teste.
+- **O balde "Claude e GPT" é separado de verdade.** As rodadas Sonnet gastaram 59,5 e 62,9
+  pontos dele e **zero** do Gemini; as rodadas Gemini gastaram zero dele. Mas o Sonnet custa
+  quatro vezes mais por revisão (menos de duas por semana por conta), falhou uma vez em cada
+  duas sem `result` (saída 2, sem `AGY_ERROR`, log cortado no meio de uma resposta) e citou o
+  alcance sem linha. Foi o único que acertou a causa do CI vermelho.
+- **Leitura do envelope: o `result.response` não serve.** O Sonnet escreveu linhas
+  `FAROL_CHECKPOINT {...}` no mesmo turno, e como o `response` traz o texto do turno inteiro, o
+  primeiro `{` deixou de ser o envelope. Pegar só o texto do **último passo**
+  `agent_response` do stream resolveu as sete rodadas que têm resultado (as seis Gemini e o
+  Sonnet da Y), sem quebrar nenhuma. O `runAgyStream` tem de montar o resultado assim, nunca
+  pelo `response`.
+- **O protocolo chega cortado.** Todas as rodadas logaram
+  `Rule file <ws>\AGENTS.md truncated by 1974 bytes (original 25958 bytes, limit 24000 bytes)`:
+  o `agy` limita arquivo de regra a 24 KB e o `CLAUDE.md` do workspace tem 25,9 KB. O fim do
+  protocolo nunca chegou ao modelo nestas medições. O provedor tem de partir o protocolo em
+  `.agents/rules/` (um arquivo por seção) ou mandá-lo no prompt.
+- Ruído: entre duas leituras sem uso, a fração subiu de 0,5 a 1,1 ponto algumas vezes (por
+  exemplo Y de 70,8% para 71,3%). Diferenças abaixo de 2 pontos não são medida.
+
+Estabilidade: só o `flash-high` sem subagente teve duas rodadas, e elas bateram em custo (0,8
+ponto de diferença) e em conclusão. As outras configurações têm uma rodada cada; o
+`flash-medium` já mostrou conclusões opostas entre variantes parecidas. O PR é minúsculo: em
+PR grande o custo sobe, e nenhum número aqui vale para ele.
+
+### Recomendação
+
+- **Padrão do provedor: `gemini-3.8-flash-high`, sem o `pr-reviewer`.** O provedor monta a
+  sessão sem o agente e com a substituição no prompt ("faça você mesmo a revisão do
+  `pr-reviewer`, declare `protocolo.prReviewer = "dispensado"` com o motivo"); o gate aceita o
+  dispensado com motivo (`lib/technical-review/evidence.js`, linha 36), e a cobertura vem do
+  próprio principal. O `flash-low` fica proibido (o alcance inventado barraria o APPROVE), e o
+  balde Claude e GPT fica fora do padrão.
+- **Quantas revisões por conta**: perto de 16 pontos por revisão de PR pequeno dá **cerca de
+  seis por semana por conta**, doze com X e Y, contando desde o primeiro uso da janela de cada
+  uma. PR médio ou grande vai custar mais; o número real sai do `/usage` depois das primeiras
+  semanas, e a cadeia não precisa dele, porque troca de conta pela cota lida.
+- **Lugar na cadeia: principal, com o Claude Max logo atrás.** A cadeia do PR #263 troca de
+  perfil sozinha quando a cota acaba, então pôr o `agy` primeiro gasta as doze revisões
+  gratuitas no começo da semana e passa o resto ao Claude Max sem clique. Isso só vale **depois**
+  de três correções que esta medição mostrou serem obrigatórias: envelope pelo último passo,
+  protocolo sem o corte de 24 KB, e o prompt sem subagente. Sem elas, o `agy` fica como reforço
+  (segunda opinião), não na fila.
+- O que segue sem medir: PR grande, PR privado (o `gh` do principal alcança; o subagente pela
+  web não), e se o `flash-high` sem subagente com o protocolo inteiro (sem o corte) passa a
+  atribuir o CI vermelho ao PR.
 
 ## Onde o Codex tocou (o mapa que o `agy` segue)
 
@@ -417,11 +534,11 @@ perfis, automação e consumo, e cerca de 25 testes).
 
 | arquivo | papel |
 |---|---|
-| `lib/agy/stream.js` | `runAgyStream`, no molde do `lib/codex/stream.js`: argumentos, ambiente da conta, prompt pela entrada padrão em `stream-json`, leitura dos três eventos, buffer de linha para `FAROL_CHECKPOINT`, `conversation_id` do `init` como sid, registro de uso, teto de 30 min, `killTree`. Decide pelo `status` do `result`; `[agy] print timeout` no stderr vira falha transitória; `AGY_ERROR:` no stderr vira a mensagem da falha |
+| `lib/agy/stream.js` | `runAgyStream`, no molde do `lib/codex/stream.js`: argumentos, ambiente da conta, prompt pela entrada padrão em `stream-json`, leitura dos três eventos, **resultado montado do último passo `agent_response`, nunca do `result.response`** (seção 8), buffer de linha para `FAROL_CHECKPOINT`, `conversation_id` do `init` como sid, registro de uso, teto de 30 min, `killTree`. Decide pelo `status` do `result`; `[agy] print timeout` no stderr vira falha transitória; `AGY_ERROR:` no stderr vira a mensagem da falha |
 | `lib/agy/home.js` | a pasta da conta e a home da sessão: `~/.farol/agy/<perfil>/` (token, persistente) e, por sessão, o `settings.json` (permissões) e o `mcp_config.json` só com o Jira do PR. Limpa `brain/` e `conversations/` de sessão encerrada, preservando a do chat do PR |
 | `lib/agy/ambiente.js` | PURO: o ambiente do filho por SO. Windows: `USERPROFILE=<pasta da conta>`, `SSH_CLIENT=farol 0 0`, `HOME` intacto. POSIX: `HOME=<pasta da conta>`, `SSH_CLIENT` (inofensivo onde não há chaveiro), `GIT_CONFIG_GLOBAL` para o `.gitconfig` real, `GH_TOKEN` como hoje. Tira `GEMINI_API_KEY`, `GOOGLE_API_KEY` e `AGY_ADC_AUTH` herdados (mesma regra do `codexEnv`) |
 | `lib/agy/cota.js` | PURO e IO: `lerCota(perfil)` roda `agy -p "/usage" --output-format json` no ambiente da conta e devolve os grupos; `cotaDoModelo(cota, modelo)` escolhe o grupo pelo modelo (`gemini-*` no grupo Gemini, `claude-*` e `gpt-*` no outro); `esgotada(grupo)` e `voltaEm(grupo)` (maior `reset_time` dos buckets com `remaining_fraction <= 0`) |
-| `lib/agy/agente.js` | PURO: traduz `workspace-template/.claude/agents/*.md` para `.agents/agents/` (tira `tools:` e `model:`, que o `agy` não entende do jeito do Claude) e escreve `AGENTS.md` a partir do `CLAUDE.md` |
+| `lib/agy/agente.js` | PURO: o protocolo em `.agents/rules/` em pedaços abaixo de 24 KB (o `AGENTS.md` inteiro é cortado, seção 8), a substituição do prompt que dispensa o `pr-reviewer` com motivo (o padrão da seção 8) e, só se um dia o subagente voltar, a tradução de `workspace-template/.claude/agents/*.md` para `.agents/agents/` sem `tools:` e `model:` |
 | `lib/agy/cobertura.js` | lê o transcrito do subagente (`subagent_info.subagents[].log_uri`) e devolve as leituras (`view_file`, `read_url_content`) para a cobertura do `selfpr.js`, e soma o `usage` do subagente ao da sessão |
 | `lib/agy/login.js` | o login pela tela: `agy -p "Responda apenas: ok"` no ambiente da conta, link e código pelo painel do PR #262, 60 s de prazo; e a conferência de identidade (seção do contrato) |
 | `test/agy-*.test.js` | argumentos, ambiente por SO, leitura do stream com os eventos desta medição como fixture, timeout que devolve sucesso, id de conversa trocado, `/usage` com os dois grupos, contrato do limite |
