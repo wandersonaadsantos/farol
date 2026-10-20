@@ -9,6 +9,11 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.76.4
+
+- A leitura de cota do Antigravity registra a consulta em andamento antes de resolver a cadeia de perfis, evitando recursão, consultas duplicadas e esgotamento de processos na hospedagem.
+- Falhas temporárias de criação de processo (`spawn EAGAIN`) voltam à fila de tentativas automáticas, sem serem confundidas com login expirado ou cota esgotada.
+
 ## v2.76.3
 
 O login do Antigravity pela tela funciona no Linux, e o Farol atrás de um login (como o portão do Google no servidor) não manda mais parear o navegador quando a sessão desse login vence.
