@@ -16,7 +16,9 @@ const { comPerfilDaSessao } = await import('../lib/engine/limite-na-cadeia.js');
 const { classify } = await import('../lib/log-taxonomy.js');
 const pushback = await import('../lib/engine/pushback.js');
 const prov = (await import('../lib/engine/provedores.js')).default;
-const { runClaudeStream } = await import('../lib/engine/session.js');
+const { runClaudeStream, projectSessions } = await import('../lib/engine/session.js');
+const { atualizarLoginDoTerminal, encerrarTerminal } = await import('../lib/engine/terminal-encerrado.js');
+const { registrarLoginIndisponivel, loginIndisponivel } = await import('../lib/engine/login-indisponivel.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
 
@@ -63,11 +65,13 @@ test('OAuth expirado avança pelos perfis ligados até Codex, sem estacionar nem
   const e = engineCom({ cadeia: TODOS_LIGADOS });
   const usados = [];
   sessaoSemLogin(e, usados);
-  const pr = { ...prDe('o/r#801'), retomarSid: 'sid-antigo' };
+  const pr = { ...prDe('o/r#801'), retomarSid: 'sid-antigo', resumeSid: 'sid-incremental' };
+  e.config.reReviewResume = true;
   await e.runOneHeadless(pr, 'eu');
   assert.equal(e.resolveClaudeAuth('eu').id, 'gy');
   assert.equal(e.autoReviewParked.has(pr.key), false);
   assert.equal(e.retryAfterNet.get(pr.key).pr.retomarSid, '');
+  assert.equal(e.retryAfterNet.get(pr.key).pr.resumeSid, '');
   assert.equal(e.retryAfterNet.get(pr.key).notBefore, null);
   assert.equal(cadeiaMod.cadeiaParaTela(e).entradas[0].estado, 'sem-login');
   assert.equal(e.limitesDePlano.size, 0, 'login expirado não inventa cota nem hora de reset');
@@ -88,6 +92,45 @@ test('OAuth expirado sem alternativa pronta estaciona, sem loop nem transbordar 
     assert.equal(e.autoReviewParked.has('o/r#802'), true);
     assert.equal(e.retryAfterNet.has('o/r#802'), false);
   }
+});
+
+test('conta fixa com maiúsculas não transborda quando o escalonador normaliza o login', async () => {
+  const e = engineCom({ cadeia: TODOS_LIGADOS });
+  e.config.accounts = [{ user: 'PessoaGitHub', owners: ['o'], claudeProfileId: 'gy' }];
+  e.accountForPr = () => 'PessoaGitHub';
+  let usado;
+  e.runHeadlessReview = async () => {
+    usado = e.resolveClaudeAuth(e.accountForPr());
+    throw Object.assign(new Error(MSG_OAUTH), { perfilDaSessao: usado });
+  };
+  const pr = prDe('o/r#807');
+  await e.runOneHeadless(pr, e.headlessAcct(pr));
+  assert.equal(usado.id, 'gy');
+  assert.equal(e.autoReviewParked.has(pr.key), true);
+  assert.equal(e.retryAfterNet.has(pr.key), false);
+});
+
+test('login renovado pelo terminal libera Claude em keychain e Codex somente com status confirmado', async () => {
+  for (const auth of [{ kind: 'dir', id: X.id, dir: X.dir }, { kind: 'codex', id: Z.id }]) {
+    const e = engineCom({ cadeia: TODOS_LIGADOS });
+    if (auth.kind === 'codex') e.config.cadeiaPerfis = [{ id: Z.id, ativo: true }, { id: X.id, ativo: true }];
+    registrarLoginIndisponivel(e, auth);
+    await atualizarLoginDoTerminal(e, auth, { statusClaude: async () => ({ loggedIn: false }), statusCodex: async () => ({ ok: false }) });
+    assert.equal(loginIndisponivel(e, auth), true, 'fechar um terminal sem login não libera o perfil');
+    assert.notEqual(e.resolveClaudeAuth('eu').id, auth.id);
+    await atualizarLoginDoTerminal(e, auth, { statusClaude: async () => ({ loggedIn: true }), statusCodex: async () => ({ ok: true, stdout: 'Logged in using ChatGPT' }) });
+    assert.equal(loginIndisponivel(e, auth), false, 'a confirmação do CLI vale mesmo sem alteração no arquivo local');
+    assert.equal(e.resolveClaudeAuth('eu').id, auth.id);
+  }
+});
+
+test('fechamento de terminal de revisão não libera uma credencial sem login', () => {
+  const e = engineCom({ cadeia: TODOS_LIGADOS });
+  const auth = e.resolveClaudeAuth('eu');
+  registrarLoginIndisponivel(e, auth);
+  encerrarTerminal(e, { id: 'x', keys: [], label: 'Revisão', login: false, loginAuth: auth });
+  assert.equal(loginIndisponivel(e, auth), true);
+  assert.deepEqual(projectSessions([{ id: 'x', loginAuth: auth }]), [{ id: 'x' }], 'a autenticação interna do terminal não vai para o snapshot');
 });
 
 test('fallback OAuth não escolhe perfil desligado, limitado, sem login ou alias da credencial vencida', async () => {
