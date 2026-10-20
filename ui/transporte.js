@@ -73,6 +73,17 @@ export function separarEventos(texto) {
   return { eventos, resto };
 }
 
+// O `error` do corpo JSON de uma recusa. Corpo ausente ou que não é JSON devolve '', e quem
+// chama trata como a recusa do próprio Farol (o comportamento de antes).
+export async function motivoDaRecusa(resposta) {
+  try {
+    const corpo = typeof resposta.json === 'function' ? await resposta.json() : null;
+    return corpo && typeof corpo.error === 'string' ? corpo.error : '';
+  } catch {
+    return '';
+  }
+}
+
 export class FonteDeEventosAutenticada {
   constructor(url, obterToken = tokenLocal, fetchImpl = (u, init) => globalThis.fetch(u, init), agendar = (fn, ms) => setTimeout(fn, ms)) {
     this.url = url;
@@ -116,9 +127,17 @@ export class FonteDeEventosAutenticada {
   async ler() {
     const init = { headers: comAutorizacao({ Accept: 'text/event-stream' }, this.obterToken()), signal: this.controle.signal };
     const resposta = await this.fetchImpl(this.url, init);
-    // 401 é a credencial vencida ou revogada no meio do uso: quem ouve leva de volta ao
-    // pareamento. A reconexão continua, porque parear de novo faz o stream voltar sozinho.
-    if (resposta.status === 401) this.emitir('nao-autenticado', '');
+    // 401 do próprio Farol (`nao_autenticado`) é a credencial vencida ou revogada no meio do
+    // uso: quem ouve leva de volta ao pareamento, e a reconexão continua, porque parear de novo
+    // faz o stream voltar sozinho. 401 com OUTRO motivo vem de quem está na frente do Farol
+    // (medido em 20/10/2026 na Hostinger: o portão do login Google devolve
+    // `google_login_required` quando a sessão dele vence); parear não resolve, entrar de novo
+    // no portão resolve, e por isso ele sai como `login-externo`.
+    if (resposta.status === 401) {
+      const motivo = await motivoDaRecusa(resposta);
+      if (motivo && motivo !== 'nao_autenticado') this.emitir('login-externo', motivo);
+      else this.emitir('nao-autenticado', '');
+    }
     if (!resposta.ok || !resposta.body) return false;
     // conexão de pé: o recuo volta ao início, senão uma queda longa deixaria a próxima
     // reconexão lenta pelo resto da sessão

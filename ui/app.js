@@ -409,6 +409,13 @@ function connect() {
     es.close();
     trocarPeloPareamento('A credencial deste navegador expirou ou foi revogada. Pareie de novo para voltar.');
   });
+  // recusa de quem está na frente do Farol (o portão do login Google, no servidor): parear
+  // não resolve; recarregar leva ao login dele. Uma vez por minuto, para não entrar em laço.
+  es.addEventListener('login-externo', () => {
+    es.close();
+    if (podeRecarregarPeloLogin()) location.reload();
+    else toast('error', 'O acesso a este Farol pede login de novo. Recarregue a página para entrar.');
+  });
   es.addEventListener('toast', (e) => {
     const t = safeJsonParse(e.data); if (!t) return;
     toast(t.kind || 'info', t.text);
@@ -480,6 +487,20 @@ initRota({ switchTab, rerenderScope });
 /* A4: antes de qualquer coisa, a página pergunta se este navegador pode entrar. Com a
    exigência ligada e sem credencial, a interface inteira vira o pareamento: nada do estado,
    do log, do chat ou dos eventos é pedido antes. Sem exigência, nada muda. */
+// A recarga pelo login de fora fica marcada nesta aba: se o portão devolver 401 de novo em
+// menos de um minuto, a página avisa em vez de recarregar outra vez (sem laço).
+const RECARGA_PELO_LOGIN = 'farol-recarga-pelo-login';
+function podeRecarregarPeloLogin(agora = Date.now()) {
+  try {
+    const ultima = Number(sessionStorage.getItem(RECARGA_PELO_LOGIN)) || 0;
+    if (agora - ultima < 60 * 1000) return false;
+    sessionStorage.setItem(RECARGA_PELO_LOGIN, String(agora));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function trocarPeloPareamento(aviso) {
   const raiz = document.getElementById('pareamento');
   if (!raiz || document.body.classList.contains('parear')) return;

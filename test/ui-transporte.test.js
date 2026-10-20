@@ -4,7 +4,7 @@
 // ser carregado direto no Node.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { tokenLocal, comAutorizacao, separarEventos, FonteDeEventosAutenticada, salvarToken, esquecerToken } from '../ui/transporte.js';
+import { tokenLocal, comAutorizacao, separarEventos, FonteDeEventosAutenticada, salvarToken, esquecerToken, motivoDaRecusa } from '../ui/transporte.js';
 
 const TOKEN = 'a'.repeat(21) + '_' + 'B'.repeat(20) + '-';
 
@@ -115,4 +115,34 @@ test('stream recusado com 401 avisa que a credencial caiu; outra recusa não avi
     fonte.close();
     assert.equal(avisos, espera, `status ${status}`);
   }
+});
+
+// Medido em 20/10/2026 na Hostinger: o portão do login Google na frente do Farol devolve 401
+// `{"error":"google_login_required"}` quando a sessão dele vence. A tela mandava parear, o
+// que não resolve; agora só o 401 do próprio Farol leva ao pareamento.
+test('401 com motivo de fora do Farol vira login-externo; o do Farol continua pedindo pareamento', async () => {
+  const casos = [
+    [{ error: 'google_login_required' }, 'login-externo'],
+    [{ error: 'nao_autenticado' }, 'nao-autenticado'],
+    [null, 'nao-autenticado'],
+  ];
+  for (const [corpo, esperado] of casos) {
+    const recebidos = [];
+    const agendados = [];
+    const resposta = { status: 401, ok: false, body: null, json: async () => { if (!corpo) throw new Error('sem json'); return corpo; } };
+    const fonte = new FonteDeEventosAutenticada('/api/events', () => TOKEN, async () => resposta, (fn) => agendados.push(fn));
+    fonte.addEventListener('nao-autenticado', () => recebidos.push('nao-autenticado'));
+    fonte.addEventListener('login-externo', (e) => recebidos.push(`login-externo:${e.data}`));
+    await agendados.shift()();
+    fonte.close();
+    assert.equal(recebidos.length, 1, JSON.stringify(corpo));
+    assert.ok(recebidos[0].startsWith(esperado), `${JSON.stringify(corpo)} -> ${recebidos[0]}`);
+  }
+});
+
+test('motivoDaRecusa não lança com corpo ausente ou malformado', async () => {
+  assert.equal(await motivoDaRecusa({}), '');
+  assert.equal(await motivoDaRecusa({ json: async () => { throw new Error('x'); } }), '');
+  assert.equal(await motivoDaRecusa({ json: async () => ({ error: 'google_login_required' }) }), 'google_login_required');
+  assert.equal(await motivoDaRecusa({ json: async () => ({ error: 7 }) }), '');
 });
