@@ -60,6 +60,7 @@ function validateWindowEvidence(httpStatus, snapshot, dom, expected) {
     assert.equal(item.visible, true, 'painel da aba deve ficar visível');
     assert.equal(item.activePanels, 1, 'só um painel deve ficar ativo');
     assert.equal(item.bodyTab, item.tab, 'handler real atualiza a aba no body');
+    assert.ok(item.path === `/${item.tab}` || String(item.path).startsWith(`/${item.tab}/`), 'o endereço diz a aba, no caminho');
   }
 }
 
