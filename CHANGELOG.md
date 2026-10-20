@@ -9,6 +9,17 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.76.0
+
+O Antigravity (agy) entra como provedor de revisão: contas Google com o plano do Antigravity podem pagar as revisões antes do Claude, na ordem de uso de Plano e chaves.
+
+### Novidades
+
+- Em Sistema > Plano e chaves, adicione perfis do tipo Antigravity, um por conta Google, e faça o login de cada um pela própria tela (vale também no Farol em servidor). Cada conta fica numa pasta própria, então duas contas rodam lado a lado sem relogar.
+- O Farol lê a cota de cada conta antes de abrir a revisão, sem gastar nada. Conta esgotada fica fora até a hora em que a cota volta, e a revisão segue no próximo perfil da ordem de uso; quando a cota renova, a conta volta a ser usada sozinha.
+- A revisão no Antigravity usa o Gemini 3.8 Flash (High), sem subagente, a configuração que acertou o veredito nas medições. O modelo e o esforço do provedor ficam em Plano e chaves.
+- A cota de cada perfil aparece ao vivo, por grupo de modelos, com a hora do reset. O Farol confere se a conta que entrou é a esperada e para com o motivo dito se não for.
+
 ## v2.75.1
 
 Os endereços do Farol viram caminhos de página, sem o `/#/`, e a instância de teste não nasce mais revisando sozinha.
