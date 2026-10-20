@@ -778,8 +778,9 @@ reinício, mas nenhum gate lê mais o contador. **O teto COMPARTILHADO entre apa
 dono: três rodadas por PR e por dia, somadas entre os aparelhos, viravam "volta amanhã"
 num PR que precisava de revisão hoje. O coordenador (`reservarRodada` em
 `lib/sync/coordinator.js`) segue reservando a rodada no nó do dia, porque a reserva é que
-amarra a rodada ao lease, mas pede com `max: Infinity`, então o esgotado não acontece
-mais. Contra laço valem o dedup por head e a espera de PR quieto (com a espera longa
+amarra a rodada ao lease. A reserva não aceita teto diário e a constante antiga foi
+removida; esperas legadas por quantidade esgotada não seguram a fila. Contra laço
+valem o dedup por head e a espera de PR quieto (com a espera longa
 depois de rodadas presas em sequência).
 
 **Gatilho B NUNCA entra no pulo de push trivial** (`pushTrivial`, mesmo arquivo): a

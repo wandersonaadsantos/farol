@@ -11,10 +11,13 @@ e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
 ## v2.76.1
 
-A reinstalação no macOS não deixa mais a instalação anterior inutilizada quando uma etapa falha.
+Revisões sem teto diário interno de quantidade, incluindo a reserva entre aparelhos, e a reinstalação no macOS que não deixa mais a instalação anterior inutilizada quando uma etapa falha.
 
 ### Correções
 
+- Removidos o teto residual de rodadas por PR/dia e a espera até amanhã. Registros antigos desse limite não seguram a fila. A coordenação continua protegendo contra revisão duplicada entre aparelhos.
+- Testes de sessão usam o Git Bash no Windows, sem confundir o Bash do WSL com um shell que aceita os caminhos e as variáveis do aplicativo.
+- Limites externos da assinatura do provedor e orçamentos configurados continuam sendo informados separadamente.
 - A reinstalação macOS prepara código, runtime, protocolo e bundle antes de substituir a versão instalada. Falhas na troca ou no registro restauram a instalação anterior, preservando configuração, histórico e prompts pessoais.
 
 ## v2.76.0

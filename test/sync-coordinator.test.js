@@ -329,10 +329,11 @@ test('releitura sob lease: recibo gravado por outro aparelho entre a primeira le
 test('sem teto diário: rodada automática com muitas já iniciadas no dia ainda é admitida (17/10/2026)', async () => {
   const dia = brasiliaDay(AGORA);
   const cheio = {};
-  for (let i = 0; i < SYNC.DAILY_ROUNDS_MAX + 5; i++) cheio['s' + i] = { operationFingerprint: 'f', leaseId: 'L' + i, state: 'started', reservedAt: 1, startedAt: 2, expiresAt: 3 };
+  for (let i = 0; i < 100; i++) cheio['s' + i] = { operationFingerprint: 'f', leaseId: 'L' + i, state: 'started', reservedAt: 1, startedAt: 2, expiresAt: 3 };
   fake.setTree({ users: { u1: { dailyRounds: { [IDS.accountHash]: { [IDS.prHash]: { [dia]: { dayPolicy: SYNC.DAY_TZ, updatedAt: 1, reservations: cheio } } } } } } });
   const a = await admit(motor(), ctxDe({ contaRodada: true }));
   assert.equal(a.admitted, true, `admitida sem teto (reason: ${a.reason})`);
+  await a.handle.abort();
 });
 
 test('rodada automática com lugar: reserva iniciada com o lease e o attemptId do handle, no dia de Brasília', async () => {

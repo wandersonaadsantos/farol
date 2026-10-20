@@ -35,8 +35,9 @@ const {
   buildCodexLoginScript, buildCodexLoginScriptMac, codexLoginConsoleEnv,
   spawnLoginConsole, spawnCodexLoginConsole
 } = await import('../lib/engine/session.js');
+const { bashDoTeste } = await import('./helpers/bash-real.js');
 import { EventEmitter } from 'node:events';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 after(() => {
   childProcess.spawn = realSpawn;
@@ -294,12 +295,7 @@ test('buildLoginScriptMac: sem dir, não exporta CLAUDE_CONFIG_DIR', () => {
 // bash pode não estar no PATH (ex.: Windows sem Git Bash/WSL configurado no PATH) - checa
 // antes de rodar o teste de verdade, pra pular com mensagem clara em vez de estourar ENOENT
 // confuso e derrubar a suíte inteira.
-let bashDisponivel = true;
-try {
-  execSync('bash --version', { stdio: 'ignore' });
-} catch {
-  bashDisponivel = false;
-}
+const bashDisponivel = !!bashDoTeste;
 
 // Prova de verdade (execução real com bash, não só leitura do template literal) de que
 // um `dir` com aspa simples não escapa da atribuição `export CLAUDE_CONFIG_DIR='...'`
@@ -324,7 +320,7 @@ test(
     let out;
     try {
       try {
-        out = execSync(`bash "${tmpScript}"`).toString();
+        out = execFileSync(bashDoTeste, [tmpScript], { windowsHide: true, timeout: 5000 }).toString();
       } finally {
         try { fsMod.unlinkSync(tmpScript); } catch { /* best-effort */ }
       }

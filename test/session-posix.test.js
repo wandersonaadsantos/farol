@@ -34,7 +34,8 @@ childProcess.spawn = function mockableSpawn(...args) {
 const { runClaudeStream, buildSessionScriptMac, buildLoginScriptMac, killTree } = await import('../lib/engine/session.js');
 const { claudeAuthShellLines, claudeAuthPosixPrefix } = await import('../lib/parse.js');
 const { WORKSPACE, IS_WIN } = await import('../lib/paths.js');
-import { execFileSync, execSync } from 'node:child_process';
+const { bashDoTeste } = await import('./helpers/bash-real.js');
+import { execFileSync } from 'node:child_process';
 
 after(() => {
   childProcess.spawn = realSpawn;
@@ -216,12 +217,7 @@ test('buildLoginScriptMac (padrão da máquina): unset sem export de dir nenhum'
 // Prova de EXECUÇÃO (não só leitura do texto montado), no mesmo padrão da prova de injeção
 // que já existe em test/session-claude-profile.test.js: um profile sujo é sourceado e o
 // prefixo roda depois dele, exatamente como o `/bin/sh -lc` faz com o `-l`.
-let bashDisponivel = true;
-try {
-  execSync('bash --version', { stdio: 'ignore' });
-} catch {
-  bashDisponivel = false;
-}
+const bashDisponivel = !!bashDoTeste;
 
 function rodaComProfileSujo(prefixo, extraEnv = {}) {
   /* Diretório EXCLUSIVO (mkdtemp), e não um nome derivado do pid dentro do tmp
@@ -246,7 +242,7 @@ function rodaComProfileSujo(prefixo, extraEnv = {}) {
   // `. profile` é o que o -l faz por dentro; o prefixo vem DEPOIS, como na linha real
   fs.writeFileSync(script, `#!/bin/bash\n. '${profile}'\n${prefixo}echo "[$ANTHROPIC_API_KEY|$ANTHROPIC_AUTH_TOKEN|$ANTHROPIC_BASE_URL|$CLAUDE_CONFIG_DIR|$CLAUDE_CODE_OAUTH_TOKEN]"\n`);
   try {
-    return execFileSync('bash', [script], { env: { ...process.env, ...extraEnv } }).toString().trim();
+    return execFileSync(bashDoTeste, [script], { env: { ...process.env, ...extraEnv }, windowsHide: true, timeout: 5000 }).toString().trim();
   } finally {
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* best-effort */ }
   }
@@ -273,7 +269,7 @@ test('prefixo posix: apikey remove OAuth do profile sem apagar a chave/base do p
   const prefixo = claudeAuthPosixPrefix(auth);
   assert.doesNotMatch(prefixo, /sk-ant-resolvida/);
   const script = `export CLAUDE_CODE_OAUTH_TOKEN=oauth-expirado-do-profile; ${prefixo}echo "[$ANTHROPIC_API_KEY|$ANTHROPIC_BASE_URL|$CLAUDE_CODE_OAUTH_TOKEN]"`;
-  const saida = execFileSync('bash', ['-c', script], {
+  const saida = execFileSync(bashDoTeste, ['-c', script], {
     env: { ...process.env, ANTHROPIC_API_KEY: auth.apiKey, ANTHROPIC_BASE_URL: auth.baseUrl },
   }).toString().trim();
   assert.equal(saida, '[sk-ant-resolvida|https://proxy.x|]');

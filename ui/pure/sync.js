@@ -423,10 +423,9 @@ export function syncConfirmacoesDoClique(resposta) {
 const SYNC_ESPERA_FRASE = {
   alheio: (onde) => `Em análise no ${onde}. A revisão automática espera por aqui.`,
   indisponivel: () => 'Coordenação entre dispositivos indisponível agora. A revisão automática espera a conexão voltar.',
-  esgotado: () => 'Teto de rodadas automáticas de hoje atingido entre seus aparelhos. Volta amanhã; o Revisar vale agora.',
 };
 
-const SYNC_ESPERA_CLASSE = { alheio: '', indisponivel: ' warn', esgotado: ' warn' };
+const SYNC_ESPERA_CLASSE = { alheio: '', indisponivel: ' warn' };
 
 function notaDeEsperaHtml(key, s) {
   const espera = (s.espera || {})[key];

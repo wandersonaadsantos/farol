@@ -18,7 +18,7 @@ test('SYNC: lease sem renovação vence ANTES do teto que as regras aceitam', ()
 test('SYNC: tempos e tetos são números positivos', () => {
   for (const k of ['LEASE_TTL_MS', 'LEASE_TTL_MAX_MS', 'HEARTBEAT_MS', 'PRESENCE_TICK_MS', 'TOKEN_MARGIN_MS',
     'REQUEST_TIMEOUT_MS', 'STREAM_RECONNECT_MS', 'STREAM_RECONNECT_MAX_MS', 'ESPERA_ALHEIO_MS', 'RECEIPT_TTL_MS',
-    'ROUNDS_TTL_MS', 'ORPHAN_AFTER_MS', 'DAILY_ROUNDS_MAX', 'OUTBOX_BATCH', 'OUTBOX_MAX_REJEICOES', 'STREAM_IDLE_MS',
+    'ROUNDS_TTL_MS', 'ORPHAN_AFTER_MS', 'OUTBOX_BATCH', 'OUTBOX_MAX_REJEICOES', 'STREAM_IDLE_MS',
     'FAXINA_MS', 'FAXINA_MAX_PRS']) {
     assert.equal(typeof SYNC[k], 'number', k);
     assert.ok(Number.isFinite(SYNC[k]) && SYNC[k] > 0, k);

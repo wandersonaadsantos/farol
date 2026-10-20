@@ -106,12 +106,8 @@ function motor({ resposta, policy = 'approve', coordenacao = true } = {}) {
 const bloqueio = (reason, detail = {}) => ({ blocked: true, coordination: { admitted: false, reason, detail }, text: '', sessionId: null });
 const resultado = (envelope, handle) => ({ text: JSON.stringify({ result: JSON.stringify(envelope) }), sessionId: 's1', coordination: handle });
 
-// Até a v2.59.2 o gate local espelhava este número (MAX_RODADAS_AUTO_DIA). O teto
-// diário local caiu; o número fica só como padrão da reserva da sincronização, que a
-// coordenação pede sem teto desde 17/10/2026 (test/sync-coordinator.test.js).
-
-test('o teto diário vive só na sincronização: o gate local não tem cópia', () => {
-  assert.equal(SYNC.DAILY_ROUNDS_MAX, 3);
+test('não existe teto diário local nem compartilhado de reviews', () => {
+  assert.equal(SYNC.DAILY_ROUNDS_MAX, undefined);
   assert.equal(reviewMod.MAX_RODADAS_AUTO_DIA, undefined);
 });
 
@@ -182,13 +178,24 @@ test('bloqueio por recibo: não estaciona, não re-enfileira e não anota espera
   assert.equal(ghCalls.some((c) => c.includes('--add-label') || c.includes('--remove-label')), false, 'a label nem entrou: a recusa veio antes');
 });
 
-test('bloqueio por teto de rodadas: espera até a virada do dia em Brasília', async () => {
+test('recusa legada por teto de rodadas não cria espera até amanhã', async () => {
   const e = motor({ resposta: bloqueio('esgotado', { day: '2026-09-11', started: 3 }) });
   const pr = prDe('o/r#5');
   await e.runOneHeadless(pr, 'eu');
-  assert.equal(e.sync.espera[pr.key].reason, 'esgotado');
-  assert.ok(e.sync.espera[pr.key].until > Date.now());
+  assert.equal(e.sync.espera[pr.key], undefined);
   assert.equal(e.autoReviewParked.has(pr.key), false);
+});
+
+test('espera legada por teto diário não segura a fila automática', async () => {
+  const e = motor();
+  e.sync.status = 'conectado';
+  const pr = prDe('o/r#5');
+  e.queue = [pr];
+  e.sync.espera[pr.key] = { reason: 'esgotado', until: Date.now() + 24 * 60 * 60 * 1000 };
+  const lancados = [];
+  e.launchReview = async (urls) => { lancados.push(...urls); return { ok: true }; };
+  await e._dispararAutomacoes([]);
+  assert.deepEqual(lancados, [pr.url]);
 });
 
 test('lease perdido no meio da sessão: não estaciona, não entra no retry e não posta', async () => {
