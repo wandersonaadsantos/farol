@@ -49,6 +49,103 @@ function engineCom(config) {
 
 const TODOS_LIGADOS = [{ id: 'gx', ativo: true }, { id: 'gy', ativo: true }, { id: 'cmax', ativo: true }];
 
+const MSG_OAUTH = 'Failed to authenticate: OAuth session expired and could not be refreshed';
+
+function sessaoSemLogin(e, usados) {
+  e.runHeadlessReview = async () => {
+    const auth = e.resolveClaudeAuth('eu');
+    usados.push(auth.id);
+    throw Object.assign(new Error(MSG_OAUTH), { perfilDaSessao: auth, sessionId: 'sid-do-perfil-anterior' });
+  };
+}
+
+test('OAuth expirado avança pelos perfis ligados até Codex, sem estacionar nem retomar SID de outro perfil', async () => {
+  const e = engineCom({ cadeia: TODOS_LIGADOS });
+  const usados = [];
+  sessaoSemLogin(e, usados);
+  const pr = { ...prDe('o/r#801'), retomarSid: 'sid-antigo' };
+  await e.runOneHeadless(pr, 'eu');
+  assert.equal(e.resolveClaudeAuth('eu').id, 'gy');
+  assert.equal(e.autoReviewParked.has(pr.key), false);
+  assert.equal(e.retryAfterNet.get(pr.key).pr.retomarSid, '');
+  assert.equal(e.retryAfterNet.get(pr.key).notBefore, null);
+  assert.equal(cadeiaMod.cadeiaParaTela(e).entradas[0].estado, 'sem-login');
+  assert.equal(e.limitesDePlano.size, 0, 'login expirado não inventa cota nem hora de reset');
+  await e.runOneHeadless(e.retryAfterNet.get(pr.key).pr, 'eu');
+  assert.equal(e.resolveClaudeAuth('eu').id, 'cmax');
+  e.runHeadlessReview = async () => { usados.push(e.resolveClaudeAuth('eu').id); };
+  await e.runOneHeadless(e.retryAfterNet.get(pr.key).pr, 'eu');
+  assert.deepEqual(usados, ['gx', 'gy', 'cmax']);
+  assert.equal(e.retryAfterNet.has(pr.key), false);
+});
+
+test('OAuth expirado sem alternativa pronta estaciona, sem loop nem transbordar conta fixa', async () => {
+  for (const fixo of [false, true]) {
+    const e = engineCom({ cadeia: fixo ? TODOS_LIGADOS : [{ id: 'gx', ativo: true }] });
+    if (fixo) e.config.accounts[0].claudeProfileId = 'gx';
+    sessaoSemLogin(e, []);
+    await e.runOneHeadless(prDe('o/r#802'), 'eu');
+    assert.equal(e.autoReviewParked.has('o/r#802'), true);
+    assert.equal(e.retryAfterNet.has('o/r#802'), false);
+  }
+});
+
+test('fallback OAuth não escolhe perfil desligado, limitado, sem login ou alias da credencial vencida', async () => {
+  const e = engineCom({ cadeia: TODOS_LIGADOS });
+  e.config.claudeProfiles.push({ ...X, id: 'alias' });
+  e.config.cadeiaPerfis.splice(1, 0, { id: 'alias', ativo: true });
+  e.limitesDePlano.set('dir:/perfis/y', { ate: Date.now() + 3600e3, em: Date.now() });
+  e.doctorInfo = { codexChatGPT: false };
+  sessaoSemLogin(e, []);
+  await e.runOneHeadless(prDe('o/r#803'), 'eu');
+  assert.equal(e.autoReviewParked.has('o/r#803'), true);
+  assert.equal(e.retryAfterNet.has('o/r#803'), false);
+  assert.equal(cadeiaMod.cadeiaParaTela(e).entradas.find(a => a.id === 'alias').estado, 'sem-login');
+});
+
+test('doctor local pronto não apaga falha OAuth; credencial renovada e sucesso real restauram a prioridade', async () => {
+  const e = engineCom({ cadeia: TODOS_LIGADOS });
+  const dir = fs.mkdtempSync(path.join(process.env.FAROL_HOME, 'perfil-'));
+  e.config.claudeProfiles[0] = { ...X, dir };
+  sessaoSemLogin(e, []);
+  await e.runOneHeadless(prDe('o/r#804'), 'eu');
+  e.doctorInfo = { claudeAuth: [{ id: 'gx', ready: true }, { id: 'gy', ready: true }] };
+  assert.equal(e.resolveClaudeAuth('eu').id, 'gy');
+  fs.writeFileSync(path.join(dir, '.credentials.json'), '{}');
+  assert.equal(e.resolveClaudeAuth('eu').id, 'gx');
+  await e.runOneHeadless(prDe('o/r#804'), 'eu');
+  assert.equal(e.resolveClaudeAuth('eu').id, 'gy');
+  await comPerfilDaSessao(e, Promise.resolve({}), { kind: 'dir', id: X.id, dir });
+  assert.equal(e.resolveClaudeAuth('eu').id, 'gx');
+});
+
+test('erros de autenticação genéricos e cancelamento não acionam fallback OAuth', async () => {
+  for (const erro of [new Error('HTTP 401'), Object.assign(new Error(MSG_OAUTH), { cancelled: true })]) {
+    const e = engineCom({ cadeia: TODOS_LIGADOS });
+    e.runHeadlessReview = async () => { throw Object.assign(erro, { perfilDaSessao: e.resolveClaudeAuth('eu') }); };
+    await e.runOneHeadless(prDe('o/r#805'), 'eu');
+    assert.equal(e.resolveClaudeAuth('eu').id, 'gx');
+    assert.equal(e.retryAfterNet.has('o/r#805'), false);
+  }
+});
+
+test('erro OAuth do processo real chega à fila e a próxima tentativa usa outro ambiente de autenticação', async () => {
+  const e = engineCom({ cadeia: TODOS_LIGADOS });
+  fs.mkdirSync(path.join(process.env.FAROL_HOME, 'workspace'), { recursive: true });
+  process.env.FAROL_HEADLESS_CMD = `node -e "const expired=process.env.CLAUDE_CONFIG_DIR.includes('/x');console.log(JSON.stringify({type:'result',is_error:expired,result:expired?'OAuth session expired and could not be refreshed':process.env.CLAUDE_CONFIG_DIR}))"`;
+  let resultado;
+  e.runHeadlessReview = async () => { resultado = await runClaudeStream(e, 'x', { account: 'eu', id: 'oauth-processo' }); };
+  try {
+    await e.runOneHeadless(prDe('o/r#806'), 'eu');
+    assert.equal(e.autoReviewParked.has('o/r#806'), false);
+    const retry = e.retryAfterNet.get('o/r#806');
+    assert.ok(retry);
+    await e.runOneHeadless(retry.pr, 'eu');
+    assert.equal(resultado.text, '/perfis/y');
+    assert.equal(e.retryAfterNet.has('o/r#806'), false);
+  } finally { delete process.env.FAROL_HEADLESS_CMD; }
+});
+
 // a sessão de mentira usa o perfil que a cadeia escolheu naquele instante, como o
 // runProvedor, e o primeiro perfil bate no limite
 function sessaoQueEstouraEm(e, ids, usados) {

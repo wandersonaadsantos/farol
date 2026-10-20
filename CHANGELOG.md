@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.76.2
+
+Login expirado também aciona o fallback das revisões para o próximo perfil disponível.
+
+### Correções
+
+- Quando o provedor recusa a revisão por OAuth expirado, o Farol sinaliza o perfil como sem login e continua automaticamente no próximo perfil ligado e disponível da ordem de uso, inclusive de outro provedor.
+- A troca começa uma sessão nova, sem reutilizar a sessão do perfil anterior. Sem alternativa válida, a revisão para com o erro de autenticação, sem repetir indefinidamente.
+- Contas com perfil próprio continuam usando somente esse perfil. Renovar a credencial ou concluir uma sessão com sucesso devolve o perfil à prioridade original. Cota externa e login expirado permanecem estados distintos; não existe teto diário interno de reviews.
+
 ## v2.76.1
 
 Revisões sem teto diário interno de quantidade, incluindo a reserva entre aparelhos, e a reinstalação no macOS que não deixa mais a instalação anterior inutilizada quando uma etapa falha.

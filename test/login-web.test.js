@@ -8,6 +8,7 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import loginWeb from '../lib/engine/login-web.js';
 import { loginWebHtml } from '../ui/pure.js';
+import { registrarLoginIndisponivel, loginIndisponivel } from '../lib/engine/login-indisponivel.js';
 
 const LINK = 'https://claude.com/cai/oauth/authorize?code=true&client_id=x&redirect_uri=https%3A%2F%2Fplatform.claude.com%2Foauth%2Fcode%2Fcallback&state=abc';
 
@@ -69,6 +70,21 @@ test('o login padrão da máquina roda sem CLAUDE_CONFIG_DIR', async () => {
   assert.equal(r.ok, true);
   assert.equal('CLAUDE_CONFIG_DIR' in cli.chamadas[0].env, false);
   loginWeb.cancelar(e, r.loginId);
+});
+
+test('somente login confirmado pelo CLI libera o perfil com OAuth expirado', async () => {
+  const auth = { kind: 'dir', dir: '/perfil-login-renovado' };
+  const e = engineFalso({ p: auth });
+  registrarLoginIndisponivel(e, auth);
+  const recusado = cliFalso({ falha: 'Request failed with status code 400' });
+  const primeira = await loginWeb.iniciar(e, 'p', { spawn: recusado.spawn });
+  await loginWeb.enviarCodigo(e, primeira.loginId, 'codigofalso#estadofalso');
+  assert.equal(loginIndisponivel(e, auth), true);
+  const aceito = cliFalso();
+  const segunda = await loginWeb.iniciar(e, 'p', { spawn: aceito.spawn });
+  const resultado = await loginWeb.enviarCodigo(e, segunda.loginId, 'codigoaceito#estadoaceito');
+  assert.equal(resultado.ok, true);
+  assert.equal(loginIndisponivel(e, auth), false);
 });
 
 test('código que o CLI recusa volta com o motivo, sem o link', async () => {
