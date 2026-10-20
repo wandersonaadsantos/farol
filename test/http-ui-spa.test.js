@@ -42,6 +42,9 @@ function pedir(caminho, { method = 'GET', host } = {}) {
     const headers = { host: host || `127.0.0.1:${porta}` };
     const req = http.request({ host: '127.0.0.1', port: porta, path: caminho, method, headers }, (res) => {
       let corpo = '';
+      // texto, não Buffer: somar pedaços crus parte o caractere de vários bytes que cai na
+      // divisa de dois pedaços (apareceu quando o index.html cresceu, em 20/10/2026)
+      res.setEncoding('utf8');
       res.on('data', (c) => (corpo += c));
       res.on('end', () => resolve({ status: res.statusCode, tipo: res.headers['content-type'] || '', corpo }));
     });

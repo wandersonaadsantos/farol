@@ -630,7 +630,7 @@
                 <div class="seg" id="setAutomationProvider" role="group" aria-label="Provedor que está sendo configurado">
                   <button type="button" class="seg-btn active" data-provider="claude" aria-pressed="true">Claude Code</button>
                   <button type="button" class="seg-btn" data-provider="codex" aria-pressed="false">Codex</button>
-                  <button type="button" class="seg-btn" data-provider="agy" aria-pressed="false" disabled title="Antigravity (Gemini): em medição, entra numa versão seguinte">Antigravity (em breve)</button>
+                  <button type="button" class="seg-btn" data-provider="agy" aria-pressed="false">Antigravity</button>
                 </div>
               </div>
             </div>
@@ -644,6 +644,7 @@
                      de Automação: uma lista fixa aqui seria uma segunda lista das seleções -->
                 <select id="setReviewModel" aria-label="Modelo do Claude Code"></select>
                 <select id="setCodexReviewModel" aria-label="Modelo do Codex" hidden></select>
+                <select id="setAgyReviewModel" aria-label="Modelo do Antigravity" hidden></select>
               </div>
             </div>
             <div class="set-row set-row-block" id="sys-row-esforco">
@@ -720,6 +721,38 @@
                     <span class="ec-name">Muito alto</span>
                     <span class="ec-value">raciocínio mais longo</span>
                     <span class="ec-cap">depende do modelo escolhido</span>
+                  </label>
+                </div>
+                <div class="effort-cards" id="setAgyReviewEffort" role="radiogroup" aria-label="Esforço de raciocínio do Antigravity" hidden>
+                  <label class="effort-card">
+                    <input type="radio" name="agyReviewEffort" value="">
+                    <span class="ec-name">Padrão do modelo</span>
+                    <span class="ec-value">no Gemini o nível já está no nome</span>
+                    <span class="ec-cap">recomendado</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="agyReviewEffort" value="low">
+                    <span class="ec-name">Baixo</span>
+                    <span class="ec-value">só Claude e GPT</span>
+                    <span class="ec-cap">o que menos consome da cota</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="agyReviewEffort" value="medium">
+                    <span class="ec-name">Médio</span>
+                    <span class="ec-value">só Claude e GPT</span>
+                    <span class="ec-cap">consumo moderado</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="agyReviewEffort" value="high">
+                    <span class="ec-name">Alto</span>
+                    <span class="ec-value">só Claude e GPT</span>
+                    <span class="ec-cap">pensa antes de responder</span>
+                  </label>
+                  <label class="effort-card">
+                    <input type="radio" name="agyReviewEffort" value="xhigh">
+                    <span class="ec-name">Muito alto</span>
+                    <span class="ec-value">só Claude e GPT</span>
+                    <span class="ec-cap">gasta bem mais da cota</span>
                   </label>
                 </div>
               </div>

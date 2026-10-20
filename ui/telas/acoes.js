@@ -158,11 +158,13 @@ const settingsMap = [
   ['#setInterval', 'intervalSeconds', el => parseInt(el.value, 10)],
   ['#setReviewModel', 'reviewModel', el => el.value],
   ['#setCodexReviewModel', 'codexReviewModel', el => el.value],
+  ['#setAgyReviewModel', 'agyReviewModel', el => el.value],
   ['#setParallelReviews', 'parallelReviews', el => parseInt(el.value, 10)],
   ['#setGlobalParallelReviews', 'globalParallelReviews', el => parseInt(el.value, 10)],
   // radio: o change borbulha até o container, então e.target já é o rádio marcado
   ['#setReviewEffort', 'reviewEffort', el => el.value],
   ['#setCodexReviewEffort', 'codexReviewEffort', el => el.value],
+  ['#setAgyReviewEffort', 'agyReviewEffort', el => el.value],
   ['#setAutoPushback', 'autoPushback', el => el.checked],
   ['#setAutoUpdate', 'autoUpdate', el => el.checked],
   ['#setDebugSpawns', 'debugSpawns', el => el.checked],

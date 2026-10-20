@@ -193,17 +193,99 @@ O estado de cada perfil: `desligado`, `problema` (falta pasta ou chave: `authFro
 
 ### Modelo e esforço por provedor
 
-Cada provedor tem o próprio par de campos (`reviewModel`/`reviewEffort` do Claude, `codexReviewModel`/`codexReviewEffort` do Codex), escolhidos em Plano e chaves junto da cadeia. A sessão usa o par do provedor do perfil que a cadeia escolheu. Modelo de um provedor nunca chega à linha de comando de outro: cada par passa pelo saneador do próprio provedor em `lib/parse.js`, que continua sendo a única porta de valor de config para a linha de comando, e o vocabulário de um é recusado pelo outro (`test/settings-model-effort.test.js`, `test/cadeia-perfis.test.js`).
+Cada provedor tem o próprio par de campos (`reviewModel`/`reviewEffort` do Claude, `codexReviewModel`/`codexReviewEffort` do Codex, `agyReviewModel`/`agyReviewEffort` do Antigravity), escolhidos em Plano e chaves junto da cadeia. A sessão usa o par do provedor do perfil que a cadeia escolheu. Modelo de um provedor nunca chega à linha de comando de outro: cada par passa pelo saneador do próprio provedor em `lib/parse.js`, que continua sendo a única porta de valor de config para a linha de comando, e o vocabulário de um é recusado pelo outro (`test/settings-model-effort.test.js`, `test/cadeia-perfis.test.js`).
 
 ### O contrato de um provedor novo
 
-`lib/engine/provedores.js` é o registro. O Antigravity CLI (`agy`, medido em `docs/superpowers/specs/2026-10-20-agy-provedor.md`) aparece como RESERVADO: a tela mostra o lugar desligado, e nada dele chega à linha de comando. Um provedor novo só precisa declarar:
+`lib/engine/provedores.js` é o registro. O Antigravity CLI (`agy`) foi o primeiro a entrar por este contrato (20/10/2026, seção seguinte); `RESERVADOS` ficou vazio. Um provedor novo só precisa declarar:
 
 1. **como roda**: os `kinds` de perfil que são dele, e o ramo de execução no `runProvedor` (`lib/engine/session.js`), que deve passar a promessa por `comPerfilDaSessao` para o desfecho levar a assinatura usada; se todos os perfis do provedor dividem um login só, como no Codex, `chaveDaAssinatura` dá a eles a mesma chave;
 2. **quais modelos aceita**: `campoModelo` e `campoEsforco` (chaves novas em `lib/settings.js`), `saneiaModelo` e `saneiaEsforco` em `lib/parse.js` (allowlist, nunca escaping) e o catálogo da tela em `lib/modelos.js`;
 3. **como sinaliza o limite com a hora do reset**: `limiteDaMensagem(msg, agora)` devolve `{ limite, ate }`. O padrão (`limitePelaTaxonomia`) lê a classe `espera-reset` de `lib/log-taxonomy.js` e a hora com `resetAtFrom`; provedor com frase própria cadastra a classe lá (a tabela é a fonte única de classificação, invariante 3) ou declara a leitura dele. `ate: null` vira o prazo estimado.
 
 A cadeia, o registro de limite, a escolha de perfil e a tela não mudam. A chave do limite (`chaveDaAssinatura`) é `<kind>:<id>` para perfil sem pasta, então o provedor novo já tem o registro dele.
+
+### Antigravity CLI (agy, 20/10/2026)
+
+Gemini pela cota do plano Google, pelo `agy` 1.4.3. Medição, números e riscos em
+`docs/superpowers/specs/2026-10-20-agy-provedor.md`; o código mora em `lib/agy/`.
+
+**Perfil.** Kind `agy` em Sistema > Plano e chaves: nome e, opcional, o e-mail da conta Google
+esperada (`{ id, label, kind: 'agy', email? }`, saneado em `lib/parse.js`). A pasta da conta é
+`~/.farol/agy/<id>/`, derivada do id e nunca escrita na config: é a home do `agy` daquele perfil
+(token do login Google em arquivo, configuração, logs, conversas), 0700 no POSIX, fora do
+workspace da sessão, do pacote, do diagnóstico e da sincronização. O login é sempre pela tela
+(o mesmo painel do Claude, `lib/engine/login-web.js`): o `agy -p /usage` na pasta do perfil
+imprime o link do Google e lê o código pela entrada padrão por 60 segundos; o comando
+equivalente aparece no painel para quem prefere o terminal.
+
+**Várias contas na mesma máquina.** Por padrão o `agy` guarda o login numa vaga única do
+chaveiro do sistema. Com `SSH_CLIENT` no ambiente ele usa um arquivo dentro da home, e o filho
+recebe `USERPROFILE=<pasta>` (Windows, com HOME intacto, porque o `git` lê HOME) ou
+`HOME=<pasta>` com `GIT_CONFIG_GLOBAL` para o `~/.gitconfig` real (POSIX). `GEMINI_API_KEY`,
+`GOOGLE_API_KEY` e `AGY_ADC_AUTH` herdados saem (cobrariam por token ou por conta de
+aplicativo); o `GH_TOKEN` da conta segue. Isso é detecção de ambiente do CLI, não contrato do
+produto: antes de cada sessão o Farol lê no log do `/usage` a conta que autenticou e se o token
+veio de arquivo. Token do chaveiro, ou conta diferente do e-mail esperado, param com a classe
+permanente `agy-conta-trocada`, que a cadeia não confunde com cota. Sem e-mail registrado, só a
+origem do token é conferida.
+
+**Modelo e esforço.** O padrão é `gemini-3.8-flash-high` (`agyReviewModel`), o único que repetiu o
+veredito certo na medição, e o `agy` nunca sai sem `--model` (o padrão da conta pode ser outro).
+`gemini-*-flash-low` fica fora da allowlist (inventou o alcance e aprovou errado); `claude-*` e
+`gpt-*` pela cota do Google são aceitos só por escolha explícita (outro balde, cerca de quatro
+vezes o custo). No Gemini o esforço está no nome do modelo, então `--effort` só vai para Claude
+e GPT; `max` fica fora, como no Claude.
+
+**Sem o subagente.** A revisão no `agy` roda sem o `pr-reviewer`: o prompt ganha no fim o bloco
+do provedor (`lib/agy/protocolo.js`), que manda a sessão principal fazer a revisão dele e
+declarar `protocolo.prReviewer = "dispensado"` com o motivo, o que o gate aceita
+(`lib/technical-review/evidence.js`). O marcador `FAROL_CHECKPOINT: {...}` vai como linha de texto
+(não há `description` de Bash), e o envelope é a última mensagem, sozinho.
+
+**Protocolo inteiro.** O `agy` não lê `CLAUDE.md`; lê `.agents/rules/` e corta cada arquivo em
+24.000 bytes. A cada sessão o `CLAUDE.md` do workspace é partido por seção em
+`.agents/rules/farol-protocolo-NN.md`, cada parte abaixo do teto (`test/agy-puro.test.js` reprova
+parte acima dele).
+
+**Resultado.** O texto do ÚLTIMO passo `agent_response` do stream, nunca o `result.response`, que
+é o turno inteiro e, com prosa e marcador antes, não começa no envelope. O teto de tempo do
+`agy` (`[agy] print timeout`) devolve SUCCESS vazio e é falha transitória; saída sem `result` é
+falha; o teto de 30 minutos do Farol continua.
+
+**Cota e cadeia.** `agy -p /usage --output-format json` (zero token) dá, por grupo de modelos, a
+fração restante e o reset de cada bucket. Antes de abrir a sessão o perfil é lido (cache de 60
+segundos, `TEMPOS.AGY_COTA_CACHE_MS`; a ordem de uso também agenda a leitura sem esperar por
+ela). Grupo do modelo com bucket esgotado registra o perfil "no limite até" o maior reset dos
+buckets esgotados, no mesmo `lib/engine/limite-plano.js` (chave `agy:<id>:<grupo>`: o limite do
+Gemini não trava o balde Claude e GPT), e a cadeia passa para o próximo perfil sem abrir nada no
+esgotado. Falha de cota no meio (`AGY_ERROR:` com saída 3, `RESOURCE_EXHAUSTED`, `You have
+exhausted your quota`, `QUOTA_EXHAUSTED`, `individual quota reached`) é confirmada pelo `/usage`:
+a mensagem ganha a frase `resets <Mon> <dia> at <h:mm>am` e o erro leva `err.limitePlano.ate`, que
+o `aposLimite` lê antes do texto. `MODEL_CAPACITY_EXHAUSTED` e 503 sem capacidade são
+passageiros (`capacidade-agy`). As classes estão em `lib/log-taxonomy.js`.
+
+**Consumo.** Tokens do principal (entrada, saída, raciocínio, leitura de cache) pelo `usage` do
+`result`, que já é o total do turno: os passos só valem quando o `result` não chega. Custo em
+dólar `desconhecido`, como o Codex; teto em US$ e grupo de consumo tratam o `agy` como não
+controlado (`semCustoEmDolar` em `lib/engine/provedores.js`).
+
+**Chat por PR e retomada.** O `--resume <id>` vira `--conversation <id>`. Id que o `agy` não
+conhece não falha: ele abre outra conversa calado. O `conversation_id` do `init` diferente do
+pedido para a sessão antes do modelo, com a frase de retomada recusada que o chat e a retomada
+já tratam como "recomece sem retomar".
+
+**Disco.** `brain/`, `conversations/` e `log/` crescem por sessão. Conversa de ferramenta e
+pushback sai no fim da sessão; as outras saem depois de um dia, menos a do chat por PR e a da
+revisão pendente que o chat herda; ficam os 30 logs mais novos.
+
+**Diagnóstico.** O doctor diz a versão do `agy` e, por perfil, se há login e a última cota lida;
+o aviso de runtime acusa `agy` ausente ou perfil sem login. A pasta do token nunca é listada.
+
+**O que não está coberto.** O MCP do Jira na home da sessão (o card continua entrando no prompt
+pelo bloco do Farol); a cobertura e o uso do subagente pelo transcrito (o subagente não roda); o
+catálogo de modelos lido por conta pelo `agy models` (a lista da tela é fixa, a allowlist aceita
+slug novo escrito à mão).
 
 ## Jira multi-tenant (v2.52.0)
 

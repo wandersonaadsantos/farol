@@ -28,7 +28,8 @@ function comandoAlternativo(comando, onde) {
 function loginWebHtml(dados = {}) {
   const d = dados || {};
   if (!d.estado) return '';
-  const titulo = `<div class="a-add-title">Login do Claude${d.perfil ? ` em ${esc(d.perfil)}` : ''}</div>`;
+  const nome = d.provedor === 'agy' ? 'Antigravity' : 'Claude';
+  const titulo = `<div class="a-add-title">Login do ${nome}${d.perfil ? ` em ${esc(d.perfil)}` : ''}</div>`;
   const cancelar = '<button class="btn sm ghost" id="cpLoginWebCancelar">Fechar</button>';
   if (d.estado === 'abrindo') return `<div class="card acct-add cp-login-web">${titulo}<span class="pill busy">abrindo o login…</span></div>`;
   if (d.estado === 'feito') {
@@ -46,7 +47,7 @@ function loginWebHtml(dados = {}) {
     ${titulo}
     <div class="a-hint">1. Abra a página de login e entre com a conta desta assinatura.</div>
     <div class="a-editrow"><a class="btn sm" href="${esc(url)}" target="_blank" rel="noreferrer">Abrir a página de login</a></div>
-    <div class="a-hint">2. Cole aqui o código que a página mostrar no fim.</div>
+    <div class="a-hint">2. Cole aqui o código que a página mostrar no fim.${d.provedor === 'agy' ? ' O Antigravity espera o código por 60 segundos; passou disso, abra o login de novo.' : ''}</div>
     <div class="a-editrow">
       <input id="cpLoginWebCodigo" placeholder="código de autorização" spellcheck="false" autocomplete="off"${trava}>
       <button class="btn sm" id="cpLoginWebEnviar"${trava}>${rotulo}</button>
