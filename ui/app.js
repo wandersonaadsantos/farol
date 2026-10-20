@@ -4,7 +4,7 @@ import {
   safeJsonParse, parseGoto,
 } from './pure.js';
 import { telasRegistradas, telaPorId } from './telas/registro.js';
-import { tokenLocal, FonteDeEventosAutenticada, OCIOSO_MS } from './transporte.js';
+import { tokenLocal, FonteDeEventosAutenticada, OCIOSO_MS, recusaDeLoginExterno } from './transporte.js';
 import { montarPareamento, precisaParear, voltarDoPareamento } from './telas/pareamento.js';
 import {
   estado, abaAtual, definirEstado, definirEscopo, definirAba,
@@ -411,11 +411,7 @@ function connect() {
   });
   // recusa de quem está na frente do Farol (o portão do login Google, no servidor): parear
   // não resolve; recarregar leva ao login dele. Uma vez por minuto, para não entrar em laço.
-  es.addEventListener('login-externo', () => {
-    es.close();
-    if (podeRecarregarPeloLogin()) location.reload();
-    else toast('error', 'O acesso a este Farol pede login de novo. Recarregue a página para entrar.');
-  });
+  es.addEventListener('login-externo', () => irParaLoginExterno(es));
   es.addEventListener('toast', (e) => {
     const t = safeJsonParse(e.data); if (!t) return;
     toast(t.kind || 'info', t.text);
@@ -441,6 +437,9 @@ function connect() {
   // das abas, e o app parece só ter parado de atualizar. A faixa entra NO FLUXO, onde
   // você está olhando, e conta as tentativas.
   es.onerror = () => {
+    // sem token, o EventSource nativo não mostra o motivo da queda: uma sondagem diz se foi
+    // o login de fora do Farol que venceu (o caso medido na Hostinger, 20/10/2026)
+    if (!(es instanceof FonteDeEventosAutenticada)) sondarLoginExterno(es);
     $('#statusPill').className = 'pill err';
     $('#statusPill').textContent = 'reconectando…';
     TENTATIVAS_RECONEXAO++;
@@ -499,6 +498,21 @@ function podeRecarregarPeloLogin(agora = Date.now()) {
   } catch {
     return false;
   }
+}
+
+// recusa de quem está na frente do Farol: parear não resolve; recarregar leva ao login dele
+function irParaLoginExterno(es) {
+  es.close();
+  if (podeRecarregarPeloLogin()) location.reload();
+  else toast('error', 'O acesso a este Farol pede login de novo. Recarregue a página para entrar.');
+}
+
+// no máximo uma sondagem a cada 30 s: a reconexão do EventSource tenta de novo sozinha
+let ultimaSondagem = 0;
+function sondarLoginExterno(es, agora = Date.now()) {
+  if (agora - ultimaSondagem < 30 * 1000) return;
+  ultimaSondagem = agora;
+  recusaDeLoginExterno().then((r) => { if (r === 'login-externo' && streamAtual === es) irParaLoginExterno(es); });
 }
 
 function trocarPeloPareamento(aviso) {

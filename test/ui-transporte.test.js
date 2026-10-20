@@ -4,7 +4,7 @@
 // ser carregado direto no Node.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { tokenLocal, comAutorizacao, separarEventos, FonteDeEventosAutenticada, salvarToken, esquecerToken, motivoDaRecusa } from '../ui/transporte.js';
+import { tokenLocal, comAutorizacao, separarEventos, FonteDeEventosAutenticada, salvarToken, esquecerToken, motivoDaRecusa, recusaDeLoginExterno } from '../ui/transporte.js';
 
 const TOKEN = 'a'.repeat(21) + '_' + 'B'.repeat(20) + '-';
 
@@ -145,4 +145,19 @@ test('motivoDaRecusa não lança com corpo ausente ou malformado', async () => {
   assert.equal(await motivoDaRecusa({ json: async () => { throw new Error('x'); } }), '');
   assert.equal(await motivoDaRecusa({ json: async () => ({ error: 'google_login_required' }) }), 'google_login_required');
   assert.equal(await motivoDaRecusa({ json: async () => ({ error: 7 }) }), '');
+});
+
+// Sem token, a página usa o EventSource nativo, que não mostra o motivo da queda (achado da
+// revisão do PR #272): a sondagem pede o estado uma vez e classifica a recusa.
+test('recusaDeLoginExterno: só o 401 de fora do Farol vira login-externo', async () => {
+  const resposta = (status, corpo) => async () => ({ status, ok: status === 200, json: async () => corpo });
+  assert.equal(await recusaDeLoginExterno(resposta(401, { error: 'google_login_required' })), 'login-externo');
+  assert.equal(await recusaDeLoginExterno(resposta(401, { error: 'nao_autenticado' })), '');
+  assert.equal(await recusaDeLoginExterno(resposta(200, {})), '');
+  assert.equal(await recusaDeLoginExterno(resposta(502, { error: 'x' })), '');
+  assert.equal(await recusaDeLoginExterno(async () => { throw new TypeError('fetch failed'); }), '');
+  let pedido = null;
+  await recusaDeLoginExterno(async (url, init) => { pedido = { url, init }; return { status: 200 }; });
+  assert.equal(pedido.url, '/api/state');
+  assert.equal(pedido.init.headers.Authorization, undefined, 'a sondagem sem token não inventa credencial');
 });

@@ -84,6 +84,20 @@ export async function motivoDaRecusa(resposta) {
   }
 }
 
+// O EventSource nativo (o caminho sem token) não mostra o status nem o corpo de uma recusa.
+// Quando ele cai, esta sondagem pede o estado uma vez e diz se a queda foi um login de fora do
+// Farol vencido ('login-externo'). Qualquer outra resposta, ou falha de rede, é ''.
+export async function recusaDeLoginExterno(fetchImpl = (u, init) => globalThis.fetch(u, init)) {
+  try {
+    const resposta = await fetchImpl('/api/state', { headers: { 'x-farol': '1' } });
+    if (!resposta || resposta.status !== 401) return '';
+    const motivo = await motivoDaRecusa(resposta);
+    return motivo && motivo !== 'nao_autenticado' ? 'login-externo' : '';
+  } catch {
+    return '';
+  }
+}
+
 export class FonteDeEventosAutenticada {
   constructor(url, obterToken = tokenLocal, fetchImpl = (u, init) => globalThis.fetch(u, init), agendar = (fn, ms) => setTimeout(fn, ms)) {
     this.url = url;
