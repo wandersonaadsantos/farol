@@ -11,7 +11,9 @@ import assert from 'node:assert/strict';
 import { arquivosDosPuros } from './helpers/fontes-ui.js';
 
 const CONGELADA = [
-  // a URL reflete a tela (18/10/2026): ui/pure/rota.js traduz hash <-> rota
+  // a URL reflete a tela (18/10/2026): ui/pure/rota.js traduz endereço <-> rota; desde
+  // 20/10/2026 a rota mora no caminho, e enderecoDaPagina converte o hash antigo
+  "enderecoDaPagina",
   "escreverRota",
   "lerRota",
   "mudancaDeRota",
