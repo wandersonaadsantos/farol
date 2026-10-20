@@ -221,6 +221,12 @@ workspace da sessão, do pacote, do diagnóstico e da sincronização. O login �
 imprime o link do Google e lê o código pela entrada padrão por 60 segundos; o comando
 equivalente aparece no painel para quem prefere o terminal.
 
+No Linux, o login pela tela usa o pseudoterminal do util-linux (`/usr/bin/script`) e
+`stty`, exigidos pelo `agy` 1.4.3 para oferecer o link com entrada aberta. O eco do código
+fica desligado e a transcrição vai para `/dev/null`. Cancelamento e prazo encerram também
+o CLI na sessão do terminal; uma saída zero depois do cancelamento não confirma o login.
+Windows e macOS continuam com a entrada padrão direta.
+
 **Várias contas na mesma máquina.** Por padrão o `agy` guarda o login numa vaga única do
 chaveiro do sistema. Com `SSH_CLIENT` no ambiente ele usa um arquivo dentro da home, e o filho
 recebe `USERPROFILE=<pasta>` (Windows, com HOME intacto, porque o `git` lê HOME) ou

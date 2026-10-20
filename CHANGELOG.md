@@ -11,10 +11,11 @@ e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
 ## v2.76.3
 
-O Farol atrás de um login (como o portão do Google no servidor) não manda mais parear o navegador quando a sessão desse login vence.
+O login do Antigravity pela tela funciona no Linux, e o Farol atrás de um login (como o portão do Google no servidor) não manda mais parear o navegador quando a sessão desse login vence.
 
 ### Correções
 
+- O login do Antigravity pela tela funciona no Linux da hospedagem: o CLI recebe um terminal, sem eco do código de autorização nem transcrição em disco. Cancelar o login encerra também o CLI; códigos recusados continuam sendo tratados como falha.
 - Quando quem está na frente do Farol recusa a conexão por login vencido, a página recarrega e leva ao login dele, em vez de mostrar "a credencial deste navegador expirou ou foi revogada" e pedir um pareamento que não resolve. A recusa do próprio Farol continua levando ao pareamento.
 - As notas da v2.76.1 e da v2.76.2 foram acertadas: a correção da reinstalação no macOS saiu na v2.76.2.
 
