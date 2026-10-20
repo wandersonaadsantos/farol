@@ -440,7 +440,8 @@ sessão segue como nova, com o aviso no registro.
 
 ### Arquivos tocados
 
-Os mesmos do Codex, com `kind: 'agy'` ao lado de `kind: 'codex'`: `lib/parse.js` (perfil
+Os mesmos do Codex, com `kind: 'agy'` ao lado de `kind: 'codex'`, mais a entrada em
+`lib/engine/provedores.js` do PR #263 (seção do contrato): `lib/parse.js` (perfil
 `agy` com a pasta da conta e o rótulo, saneamento do slug por `^[a-z0-9.-]+$` e do esforço pela
 lista medida), `perfil-claude.js` (`authFromProfile`, `testarPerfil` lê `/usage` e
 `agy models`), `session.js` (`runProvedor` desvia para `runAgyStream`; terminal de login),
@@ -463,20 +464,43 @@ UI de perfis, automação e consumo, e o `workspace-template/prompts/pr-review-a
 
 ## O contrato com a cadeia de prioridade
 
-A cadeia (outra sessão, a partir de `feat/login-da-maquina-e-pela-tela`) ordena perfis, por
-exemplo Gemini X, Gemini Y, Claude Max BIUD, e precisa de três respostas de cada provedor:
+A cadeia está no PR #263 (`feat/cadeia-de-perfis`, v2.75.0, aberto em 20/10/2026): ordena
+perfis (Gemini X, Gemini Y, Claude Max BIUD), registra o limite **por assinatura** no
+`lib/engine/limite-plano.js` (a sessão que falha leva `err.perfilDaSessao`, e
+`registrarLimite(engine, conta, ate, agora, { auth, estimado })` grava na assinatura usada),
+trata reset desconhecido como uma hora estimada (`TEMPOS.LIMITE_PLANO_SEM_HORA_MS`) e reserva
+o lugar do `agy` em `lib/engine/provedores.js` (`RESERVADOS`). Cada provedor declara ali
+`kinds`, o par de campos de modelo e esforço com os saneadores e
+`limiteDaMensagem(msg, agora) -> { limite, ate }`. A cadeia pergunta, por perfil,
 **posso rodar agora?**, **acabou, volta quando?** e **voltou?**. O que o provedor `agy`
-garante:
+entrega para caber nessa interface, sem mudar a cadeia:
+
+### 0. A entrada em `provedores.js`
+
+```js
+{ id: 'agy', rotulo: 'Antigravity (Gemini)', kinds: ['agy'],
+  campoModelo: 'agyReviewModel', campoEsforco: 'agyReviewEffort',
+  saneiaModelo: sanitizeAgyModel, saneiaEsforco: sanitizeAgyEffort,
+  limiteDaMensagem: limitePelaTaxonomia }
+```
+
+A leitura padrão (`limitePelaTaxonomia`) serve porque o próprio `runAgyStream` escreve na
+mensagem de erro a frase com a hora tirada do `/usage` (item 2 abaixo). O provedor não
+precisa de leitor próprio de limite; precisa só de classes na taxonomia que reconheçam o texto
+do `agy` como `espera-reset`. Sai de `RESERVADOS` na mesma entrega.
 
 ### 1. Identidade da assinatura
 
 `chaveDaAssinatura(auth)` em `lib/engine/limite-plano.js` ganha o caso
-`kind === 'agy'` → `agy:<id do perfil>`. Cada pasta de conta é uma assinatura; duas contas do
-GitHub no mesmo perfil `agy` dividem a mesma cota, como no Claude. **Mais um nível**: o limite
-do `agy` é por **grupo de cota**, não pela conta inteira (Gemini e "Claude e GPT" se esgotam
-separados). A chave registrada é `agy:<perfil>:<grupo>`, com o grupo vindo do modelo do perfil
-(`gemini` ou `3p`, os `id` dos buckets sem o sufixo `-weekly`). Quem consulta pelo perfil
-consulta pelo grupo do modelo que vai usar.
+`kind === 'agy'`. Cada pasta de conta é uma assinatura; duas contas do GitHub no mesmo perfil
+`agy` dividem a mesma cota, como no Claude. **Mais um nível**: o limite do `agy` é por
+**grupo de cota**, não pela conta inteira (Gemini e "Claude e GPT" se esgotam separados).
+A chave é `agy:<perfil>:<grupo>`, com o grupo vindo do modelo configurado para o provedor
+(`gemini` ou `3p`, os `id` dos buckets sem o sufixo `-weekly`). Como o `resolveClaudeAuth`
+devolve o `auth` do perfil, o grupo entra no próprio `auth` (`{ kind: 'agy', id, grupo }`),
+montado com o modelo do `modeloDoProvedor(config, 'agy')`; assim trocar o modelo de Gemini
+para Claude Sonnet faz a cadeia enxergar a conta livre no outro balde, e nenhuma linha da
+cadeia muda.
 
 ### 2. "Acabou, volta às HH:MM"
 
@@ -494,12 +518,13 @@ Quando a sessão termina com sinal de cota:
    máquina. Converter do `reset_time` UTC para essa frase é do provedor, com `Date` local, sem
    biblioteca.
 2. O erro carrega também o instante exato, para não depender do texto:
-   `err.limitePlano = { ate: <ms epoch do reset_time>, grupo: 'gemini', fonte: 'usage' }`.
-   O `review.js` (linha do `registrarLimite`) passa a preferir `err.limitePlano.ate` ao
-   `resetAtFrom(msg)` quando existir. O mesmo vale para o `pushback.js`.
-3. Sem `/usage` legível (rede, CLI antigo), a hora fica de fora e vale a regra de hoje:
-   `limite-plano` sem hora não registra a trava da assinatura, só o retry do PR com o atraso
-   padrão.
+   `err.limitePlano = { ate: <ms epoch do reset_time>, grupo: 'gemini', fonte: 'usage' }`,
+   ao lado do `err.perfilDaSessao` que o `runProvedor` do PR #263 já estampa. Hoje a cadeia lê
+   só a mensagem; aceitar `err.limitePlano.ate` antes do `limiteDaMensagem` é uma linha no
+   `review.js` e no `pushback.js`, e evita a volta pelo texto em fuso local. Opcional: a frase
+   já basta.
+3. Sem `/usage` legível (rede, CLI antigo), a hora fica de fora e vale a regra do PR #263:
+   uma hora estimada, marcada como estimada na tela.
 
 A taxonomia ganha, antes de `limite-plano`, os textos do `agy` na mesma classe (é limite de
 janela, `kind: 'espera-reset'`):
