@@ -33,9 +33,15 @@ function nomeDoPerfil(id) {
   return p ? p.label : 'Padrão da máquina';
 }
 
+// o painel diz de qual provedor é o login (o Antigravity entra pelo mesmo painel)
+function provedorDoLogin(id) {
+  const p = (estado().config.claudeProfiles || []).find(x => x.id === id);
+  return p && p.kind === 'agy' ? 'agy' : 'claude';
+}
+
 function abrirLoginWeb(profileId, comando, onde) {
   const n = ++tentativa;
-  loginWeb = { estado: 'abrindo', perfil: nomeDoPerfil(profileId), comando, onde, tentativa: n };
+  loginWeb = { estado: 'abrindo', perfil: nomeDoPerfil(profileId), provedor: provedorDoLogin(profileId), comando, onde, tentativa: n };
   renderLoginWeb();
   api('/api/claude/login-web/start', { profileId }).then((r) => {
     // fechado antes do link chegar: o login aberto no engine não tem mais tela, encerra
@@ -56,7 +62,7 @@ function enviarCodigoDoLogin() {
   renderLoginWeb();
   api('/api/claude/login-web/code', { loginId: loginWeb.loginId, code }).then((r) => {
     if (!vigente(n)) return;
-    if (r && r.ok) loginWeb = { estado: 'feito', perfil: loginWeb.perfil, tentativa: n };
+    if (r && r.ok) loginWeb = { estado: 'feito', perfil: loginWeb.perfil, provedor: loginWeb.provedor, tentativa: n };
     // login que expirou ou que o CLI recusou não volta: o link é de uso único
     else if (r && r.code === 'codigo-invalido') loginWeb = { ...loginWeb, estado: 'erro', motivo: r.motivo };
     else loginWeb = { ...loginWeb, estado: 'erro', url: '', motivo: `${(r && r.motivo) || 'o login não deu certo'}. Clique de novo em Abrir sessão de login para recomeçar.` };
@@ -142,7 +148,7 @@ export function renderClaudeProfiles() {
   // guarda de foco: não reconstrói enquanto você digita num campo deste bloco
   if (document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
   box.innerHTML = perfilProblemasHtml((estado().claudePerfis || {}).problemas)
-    + claudeProfilesHtml({ config: estado().config, usage: estado().usage, doctor: estado().doctor, ehWin: ehWin() });
+    + claudeProfilesHtml({ config: estado().config, usage: estado().usage, doctor: estado().doctor, cadeia: estado().cadeiaPerfis, ehWin: ehWin() });
   renderTestes();
   renderLoginWeb();
   // efeito de DOM, não de markup: o listener do seletor mostra de volta no modo Chave de API
@@ -227,8 +233,11 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
     const isApiKey = seg.dataset.kind === 'apikey';
     const isOpenRouter = seg.dataset.kind === 'openrouter';
     const isCodex = seg.dataset.kind === 'codex';
+    const isAgy = seg.dataset.kind === 'agy';
     const usaChave = isApiKey || isOpenRouter;
-    $('#cpAddDir').hidden = usaChave || isCodex;
+    $('#cpAddDir').hidden = usaChave || isCodex || isAgy;
+    $('#cpAddEmail').hidden = !isAgy;
+    $('#cpAddAgyHint').hidden = !isAgy;
     $('#cpAddApiKey').hidden = !usaChave;
     $('#cpAddBaseUrl').hidden = !usaChave;
     $('#cpAddHint').hidden = !isApiKey;
@@ -258,6 +267,14 @@ $('#claudeProfilesManager').addEventListener('click', (e) => {
     const isApiKey = kindBtn && kindBtn.dataset.kind === 'apikey';
     const isOpenRouter = kindBtn && kindBtn.dataset.kind === 'openrouter';
     const isCodex = kindBtn && kindBtn.dataset.kind === 'codex';
+    // Antigravity: a pasta é do Farol (~/.farol/agy/<id>), então o perfil é só nome e e-mail
+    if (kindBtn && kindBtn.dataset.kind === 'agy') {
+      if (!label) return toast('error', 'Preencha o nome do perfil.', 3000);
+      const email = ($('#cpAddEmail').value || '').trim();
+      $('#cpAddLabel').value = ''; $('#cpAddEmail').value = '';
+      saveClaudeProfiles([...(estado().config.claudeProfiles || []), { id: genId(), label, kind: 'agy', email }]);
+      return;
+    }
     if (isCodex) {
       if (!label) return toast('error', 'Preencha o nome do perfil.', 3000);
       const profiles = [...(estado().config.claudeProfiles || []), { id: genId(), label, kind: 'codex' }];
@@ -368,7 +385,7 @@ $('#claudeProfilesManager').addEventListener('change', (e) => {
   // num mapa em vez de num campo solto. Vazio APAGA a chave (o dia volta ao teto
   // base), nunca grava 0, porque 0 é um teto válido que bloquearia o dia inteiro.
   if (t.classList.contains('cp-budget-dow')) return salvaTetoDoDia(t.dataset.id, t.dataset.dow, t.value.trim());
-  const camposEditaveis = ['cp-label', 'cp-dir', 'cp-apikey', 'cp-baseurl', 'cp-budget-daily', 'cp-budget-total', 'cp-budget-since'];
+  const camposEditaveis = ['cp-label', 'cp-dir', 'cp-apikey', 'cp-baseurl', 'cp-email', 'cp-budget-daily', 'cp-budget-total', 'cp-budget-since'];
   if (camposEditaveis.some(cls => t.classList.contains(cls))) {
     const id = t.dataset.id;
     if ((t.classList.contains('cp-dir') || t.classList.contains('cp-apikey') || t.classList.contains('cp-baseurl'))
@@ -383,6 +400,7 @@ $('#claudeProfilesManager').addEventListener('change', (e) => {
       if (t.classList.contains('cp-dir')) next.dir = t.value.trim();
       if (t.classList.contains('cp-apikey')) next.apiKey = t.value.trim();
       if (t.classList.contains('cp-baseurl')) next.baseUrl = t.value.trim();
+      if (t.classList.contains('cp-email')) next.email = t.value.trim();
       if (t.classList.contains('cp-budget-daily')) {
         const v = t.value.trim();
         if (v === '') delete next.budgetDaily; else next.budgetDaily = Number(v);

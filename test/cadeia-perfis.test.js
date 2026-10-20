@@ -228,13 +228,15 @@ test('cada perfil tem um provedor, e o modelo de um nunca vale para o outro', ()
   assert.equal(prov.provedorDoPerfil({ kind: 'maquina' }).id, 'claude');
   assert.equal(prov.provedorDoPerfil({ kind: 'apikey' }).id, 'claude');
   assert.equal(prov.provedorDoPerfil(Z).id, 'codex');
-  assert.equal(prov.provedorDoKind('agy'), null, 'o agy está reservado, não roda');
-  const config = { reviewModel: 'opus', reviewEffort: 'high', codexReviewModel: 'opus', codexReviewEffort: 'max' };
+  assert.equal(prov.provedorDoKind('agy').id, 'agy', 'o agy saiu dos reservados e roda (20/10/2026)');
+  const config = { reviewModel: 'opus', reviewEffort: 'high', codexReviewModel: 'opus', codexReviewEffort: 'max', agyReviewModel: 'opus', agyReviewEffort: 'max' };
   assert.deepEqual(prov.modeloDoProvedor(config, 'claude'), { modelo: 'opus', esforco: 'high' });
   assert.deepEqual(prov.modeloDoProvedor(config, 'codex'), { modelo: '', esforco: '' }, 'alias do Claude não entra na linha do Codex');
+  // alias do Claude e esforço max ficam fora do agy: o modelo cai no padrão medido
+  assert.deepEqual(prov.modeloDoProvedor(config, 'agy'), { modelo: 'gemini-3.8-flash-high', esforco: '' });
   const tela = prov.provedoresParaTela(config);
-  assert.deepEqual(tela.ativos.map((p) => p.id), ['claude', 'codex']);
-  assert.deepEqual(tela.reservados.map((p) => p.id), ['agy']);
+  assert.deepEqual(tela.ativos.map((p) => p.id), ['claude', 'codex', 'agy']);
+  assert.deepEqual(tela.reservados.map((p) => p.id), []);
 });
 
 test('o limite de cada provedor é lido pela tabela única de falhas', () => {

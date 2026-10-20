@@ -268,8 +268,24 @@ export function runtimeChecks(doctor, config = {}, claudePerfis = {}) {
       detail: d.codexChatGPT === true ? 'autenticado no plano ChatGPT' : loginDetail
     });
   }
+  checks.push(...checksDoAgy(d, perfis));
   for (const p of (claudePerfis && Array.isArray(claudePerfis.problemas)) ? claudePerfis.problemas : []) {
     checks.push({ ok: false, label: 'Perfil de assinatura', goto: 'sys:plans:#claudeProfilesManager', detail: perfilProblemaTexto(p) });
+  }
+  return checks;
+}
+
+// Antigravity (20/10/2026): com perfil `agy` salvo, o CLI ausente e o perfil sem login
+// derrubam a sessão no começo. O doctor diz a versão e se cada pasta tem login (lib/agy/doctor.js).
+function checksDoAgy(d, perfis) {
+  const agy = perfis.filter(p => p && p.kind === 'agy');
+  if (!agy.length) return [];
+  const goto = 'sys:plans:#claudeProfilesManager';
+  const checks = [{ ok: !!d.agy, label: 'Antigravity CLI', goto, detail: d.agy ? `versão ${d.agy}` : 'agy não encontrado: instale o Antigravity CLI pelo instalador oficial' }];
+  const lidos = Array.isArray(d.agyPerfis) ? d.agyPerfis : [];
+  for (const p of agy) {
+    const lido = lidos.find(x => x && x.id === p.id);
+    if (lido && lido.login === false) checks.push({ ok: false, label: `Login do Antigravity em ${p.label || p.id}`, goto, detail: 'sem login na pasta deste perfil: use Abrir sessão de login no cartão dele' });
   }
   return checks;
 }

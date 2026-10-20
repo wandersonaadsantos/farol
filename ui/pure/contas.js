@@ -19,6 +19,7 @@
 // renomeada deixava um escopo orfao que esvaziava o Radar pra sempre (B15).
 // Compara sem caixa e preserva o valor original quando ele e valido.
 import { esc, fmtMoney, fmtClock } from './comum.js';
+import { camposAgyHtml } from './agy.js';
 
 export function validScope(scope, users) {
   if (!scope || scope === 'all') return 'all';
@@ -109,6 +110,11 @@ export function claudeAuthBadge(id, ctx) {
       : `<span class="a-claude bad" title="${esc(detail)}">SEM CODEX</span>`;
   }
   if (info.openrouterMode) return '<span class="a-claude ok" title="Claude Code via OpenRouter (Anthropic Skin)">OpenRouter</span>';
+  if (info.agyMode) {
+    return info.ready
+      ? '<span class="a-claude ok" title="Antigravity CLI com login na pasta deste perfil">Antigravity</span>'
+      : '<span class="a-claude bad" title="Use Abrir sessão de login neste cartão">SEM LOGIN</span>';
+  }
   if (info.apiKeyMode) return `<span class="a-claude ok" title="Autenticação por chave de API">🔑 chave configurada</span>`;
   if (info.ready === false) return `<span class="a-claude bad" title="rode claude login nesse diretório">SEM LOGIN</span>`;
   if (info.account) return `<span class="a-claude ok" title="${esc(info.configDir || 'padrão da máquina')}">@${esc(info.account)}</span>`;
@@ -273,7 +279,9 @@ export function claudeProfilesHtml(ctx) {
       <div class="a-editrow">
         <input class="cp-dir" data-id="${esc(p.id)}" value="${esc(p.dir || '')}" placeholder="${ctx.ehWin ? 'C:\\Users\\voce\\.claude-perfil' : '~/.claude-perfil'}" spellcheck="false">
       </div>`;
-    const fields = profileFieldsHtml(p, isApiKey, isCodex, isOpenRouter, camposChave, camposDir, camposOrcamento, camposOpenRouter);
+    const cotaAgy = ((ctx.cadeia && ctx.cadeia.entradas) || []).find(e => e.id === p.id);
+    const fields = p.kind === 'agy' ? camposAgyHtml(p, cotaAgy && cotaAgy.cota)
+      : profileFieldsHtml(p, isApiKey, isCodex, isOpenRouter, camposChave, camposDir, camposOrcamento, camposOpenRouter);
     const semLogin = isApiKey || isOpenRouter;
     return `<div class="card acct-card">
     <div class="a-body">
@@ -299,6 +307,7 @@ export function claudeProfilesHtml(ctx) {
         <button type="button" class="seg-btn" data-kind="apikey">Chave de API</button>
         <button type="button" class="seg-btn" data-kind="openrouter">OpenRouter</button>
         <button type="button" class="seg-btn" data-kind="codex">Codex</button>
+        <button type="button" class="seg-btn" data-kind="agy">Antigravity</button>
       </div>
     </div>
     <div class="a-editrow">
@@ -306,11 +315,13 @@ export function claudeProfilesHtml(ctx) {
       <input id="cpAddDir" placeholder="diretório de config (ex.: ${ctx.ehWin ? 'C:\\Users\\voce\\.claude-biud-trabalho' : '~/.claude-biud-trabalho'})" spellcheck="false">
       <input id="cpAddApiKey" type="password" placeholder="chave de API" spellcheck="false" autocomplete="off" hidden>
       <input id="cpAddBaseUrl" placeholder="URL base (opcional)" spellcheck="false" hidden>
+      <input id="cpAddEmail" placeholder="e-mail da conta Google esperada (opcional)" spellcheck="false" autocomplete="off" hidden>
       <button class="btn sm" id="btnCpAdd">Adicionar</button>
     </div>
     <div class="a-hint" id="cpAddHint">Deixe em branco pra usar a Anthropic direto. Um endpoint customizado precisa falar a API de Mensagens da Anthropic.</div>
     <div class="a-hint" id="cpAddOpenRouterHint" hidden>Chave em openrouter.ai. O Farol aponta o Claude Code pra https://openrouter.ai/api (Anthropic Skin). Modelos não-Anthropic pelo Skin não são garantia do Claude Code.</div>
     <div class="a-hint" id="cpAddCodexHint" hidden>Usa a cota do plano ChatGPT pelo Codex CLI local. API key do Codex não é aceita nesse perfil.</div>
+    <div class="a-hint" id="cpAddAgyHint" hidden>Usa a cota do plano Google pelo Antigravity CLI (Gemini), com uma pasta só deste perfil. Depois de adicionar, use Abrir sessão de login no cartão dele. O e-mail serve para o Farol conferir que a conta certa entrou.</div>
   </div>`;
   return '<div id="cpLoginWeb"></div>' + migrateCard + rows + addForm;
 }

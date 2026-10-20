@@ -21,7 +21,7 @@ import { esc, fmtMoney, fmtClock, identidadeDeAparelho } from './comum.js';
 // propósito (lib/parse.js) e é assinatura; kind desconhecido NÃO vira tipo, porque o
 // engine só mede os tipos que conhece e tipo inventado prometeria medição inexistente.
 // O perfil `maquina` (login padrão da máquina, 20/10/2026) é assinatura como o de pasta.
-const TIPO_POR_KIND = { apikey: 'api', openrouter: 'openrouter', codex: 'codex', maquina: 'assinatura' };
+const TIPO_POR_KIND = { apikey: 'api', openrouter: 'openrouter', codex: 'codex', agy: 'agy', maquina: 'assinatura' };
 
 export function grupoTipoDoPerfil(perfil) {
   const kind = perfil && perfil.kind;

@@ -76,6 +76,8 @@ test('Plano e chaves reúne a cadeia, o modelo por provedor e os perfis, nessa o
   const pos = ['id="cadeiaPerfis"', 'id="sys-row-provedor"', 'id="sys-row-modelo"', 'id="sys-row-esforco"', 'id="claudeProfilesManager"'].map((m) => sec.indexOf(m));
   assert.ok(pos.every((p) => p > 0), 'tudo dentro da seção');
   assert.deepEqual([...pos].sort((a, b) => a - b), pos);
-  assert.match(sec, /data-provider="agy"[^>]*disabled/, 'o lugar do Antigravity existe e não roda');
+  assert.match(sec, /data-provider="agy"/, 'o Antigravity tem o lugar dele');
+  assert.doesNotMatch(sec, /data-provider="agy"[^>]*disabled/, 'e roda desde 20/10/2026');
+  assert.ok(sec.includes('id="setAgyReviewModel"') && sec.includes('id="setAgyReviewEffort"'), 'com o próprio modelo e esforço');
   assert.doesNotMatch(sec, /Perfil padrão do Farol/, 'o padrão virou o primeiro da cadeia');
 });

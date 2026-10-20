@@ -15,8 +15,10 @@ const ROTULOS = {
   tipoAuth: 'Tipo de autenticação',
   plano: 'Plano',
   chave: 'Chave',
+  contaConfere: 'Conta esperada',
+  cota: 'Cota do plano',
 };
-const ORDEM = ['configDir', 'chave', 'login', 'email', 'tipoAuth', 'plano'];
+const ORDEM = ['configDir', 'chave', 'login', 'email', 'contaConfere', 'tipoAuth', 'plano', 'cota'];
 const SIM_NAO = { true: 'ativo', false: 'sem login' };
 
 function valorLegivel(campo) {

@@ -11,6 +11,9 @@ import assert from 'node:assert/strict';
 import { arquivosDosPuros } from './helpers/fontes-ui.js';
 
 const CONGELADA = [
+  // o Antigravity em Plano e chaves (20/10/2026, ui/pure/agy.js): a cota ao vivo e o cartão
+  "camposAgyHtml",
+  "cotaAgyHtml",
   // cadeia de perfis em Plano e chaves (20/10/2026, ui/pure/cadeia.js)
   "alternarNaCadeia",
   "cadeiaHtml",

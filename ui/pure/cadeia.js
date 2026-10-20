@@ -10,6 +10,7 @@
    edição parcial que faça sentido. */
 import { esc } from './comum.js';
 import { personMention } from './mencoes.js';
+import { cotaAgyHtml } from './agy.js';
 
 const ESTADOS = Object.freeze({
   'em-uso': { rotulo: 'Em uso', classe: 'ok' },
@@ -83,6 +84,8 @@ function linhaDaCadeia(e, i, total, agora) {
   const sobe = i === 0 ? ' disabled' : '';
   const desce = i === total - 1 ? ' disabled' : '';
   const ligado = e.ativo ? ' checked' : '';
+  // Antigravity: a cota lida por grupo, com a hora em que volta (lib/agy/cota.js)
+  const cota = e.provedor === 'agy' ? cotaAgyHtml(e.cota) : '';
   const titulo = e.ativo ? 'Desligar: a cadeia deixa de usar este perfil' : 'Ligar: a cadeia passa a usar este perfil na posição dele';
   return `<li class="cad-item${desligado}" data-cadeia-id="${id}">
     <span class="cad-pos" aria-hidden="true">${i + 1}</span>
@@ -90,6 +93,7 @@ function linhaDaCadeia(e, i, total, agora) {
       <span class="set-title">${esc(e.label || 'Perfil sem nome')} <span class="cad-prov">${esc(e.provedorRotulo || '')}</span></span>
       <span class="pill ${est.classe} cad-estado">${esc(estadoDaCadeiaTexto(e, agora))}</span>
       ${dica}
+      ${cota}
     </span>
     <span class="cad-ctl">
       <button type="button" class="btn icon sm ghost cad-subir" data-id="${id}" title="Subir na prioridade" aria-label="Subir ${esc(e.label)} na prioridade"${sobe}>↑</button>

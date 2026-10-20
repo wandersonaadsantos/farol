@@ -27,7 +27,7 @@ import {
   parseProjectReviewers, parseDefaultReviewers, parseAccounts, parsePeople, migrateSeniorityToPeople,
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId, workspaceTrust,
   applyClaudeAuthEnv, claudeAuthShellLines,
-  sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort,
+  sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort, sanitizeAgyModel, sanitizeAgyEffort,
   sanitizeParallelReviews, sanitizeGlobalParallelReviews
 } from './lib/parse.js';
 import io, { ensureDir, readJson, writeJsonAtomic, writeTextAtomic, copyRecursive, detectGitBash, prependPathDirs, priorizarNoPath } from './lib/io.js';
@@ -48,6 +48,7 @@ import contasConfig from './lib/engine/contas-config.js';
 import contaQueAge from './lib/engine/conta-que-age.js';
 import versaoClaude from './lib/engine/versao-claude.js';
 import codexAuth from './lib/codex/auth.js';
+import agyDoctor from './lib/agy/doctor.js';
 import { catalogoParaTela as catalogoDeModelos } from './lib/modelos.js';
 import sessionMod from './lib/engine/session.js';
 import selfMod from './lib/engine/selfpr.js';
@@ -90,7 +91,7 @@ import { startServer } from './lib/http-server.js';
 
 function codexWindowsPathDirs() {
   const root = path.join(os.homedir(), 'AppData', 'Local', 'OpenAI', 'Codex', 'bin');
-  const dirs = [path.join(os.homedir(), 'AppData', 'Roaming', 'npm')];
+  const dirs = [path.join(os.homedir(), 'AppData', 'Roaming', 'npm'), path.join(os.homedir(), 'AppData', 'Local', 'agy', 'bin')];
   try {
     for (const item of fs.readdirSync(root, { withFileTypes: true })) {
       if (item.isDirectory()) dirs.push(path.join(root, item.name));
@@ -140,7 +141,7 @@ const DEFAULTS = settingsDefaults(DEFAULT_PORT);
 const PARSERS = {
   parseAccounts, parseProjectReviewers, parseDefaultReviewers, parsePeople,
   sanitizeClaudeDir, normalizeClaudeProfiles, normalizeClaudeProfileId,
-  sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort,
+  sanitizeClaudeModel, sanitizeClaudeEffort, sanitizeCodexModel, sanitizeCodexEffort, sanitizeAgyModel, sanitizeAgyEffort,
   sanitizeParallelReviews, sanitizeGlobalParallelReviews, parseJiraSites, parseSyncConfig,
   normalizarCadeia: cadeiaMod.normalizarCadeia,
 };
@@ -1652,7 +1653,7 @@ class Engine extends EventEmitter {
     if (resolved) {
       // login não precisa do id no shape (openClaudeLoginSession só olha kind/dir)
       if (resolved.kind === 'dir') return { kind: 'dir', dir: resolved.dir };
-      if (resolved.kind === 'codex') return { kind: 'codex' };
+      if (resolved.kind === 'codex' || resolved.kind === 'agy') return { kind: resolved.kind, id: resolved.id };
       return { kind: resolved.kind, apiKey: resolved.apiKey, baseUrl: resolved.baseUrl || '' };
     }
     return { kind: 'dir', dir: this.config.claudeConfigDir || '' };
@@ -1664,12 +1665,10 @@ class Engine extends EventEmitter {
   // segundo lado da defesa.
   openClaudeLoginSession(profileId) {
     const auth = this.resolveAuthForLogin(profileId);
-    if (auth.kind === 'apikey' || auth.kind === 'openrouter') {
-      return { ok: false, error: 'perfis de chave de API não usam login: a chave já é a credencial' };
-    }
-    if (auth.kind === 'codex') {
-      return this.spawnCodexLoginConsole();
-    }
+    if (auth.kind === 'apikey' || auth.kind === 'openrouter') return { ok: false, error: 'perfis de chave de API não usam login: a chave já é a credencial' };
+    if (auth.kind === 'codex') return this.spawnCodexLoginConsole();
+    // Antigravity: o login é sempre pela tela (lib/agy/login.js), com o comando como alternativa
+    if (auth.kind === 'agy') return { ok: true, comando: agyDoctor.comandoManual(auth.id), onde: 'terminal' };
     return this.spawnLoginConsole(auth.dir);
   }
 
@@ -1708,6 +1707,7 @@ class Engine extends EventEmitter {
       if (p.kind === 'apikey') return { configDir: null, account: null, ready: !!p.apiKey, apiKeyMode: true };
       if (p.kind === 'openrouter') return { configDir: null, account: null, ready: !!p.apiKey, openrouterMode: true };
       if (p.kind === 'codex') return { configDir: null, account: null, ready: true, codexMode: true };
+      if (p.kind === 'agy') return { configDir: null, account: null, ready: agyDoctor.temLogin(p.id), agyMode: true };
       return this.claudeAuthInfo(p.dir || ''); // '' é o perfil `maquina`: lê ~/.claude.json
     };
     return [legacy, ...profiles.map(p => ({
@@ -1722,10 +1722,9 @@ class Engine extends EventEmitter {
   }
 
   async doctor() {
-    const tokenArgs = ['auth', 'token'];
     const primary = this.primaryUser();
-    if (primary) tokenArgs.push('--user', primary);
-    const [gh, claude, codex, codexLogin, auth] = await Promise.all([
+    const tokenArgs = primary ? ['auth', 'token', '--user', primary] : ['auth', 'token'];
+    const [gh, claude, codex, codexLogin, auth, agy] = await Promise.all([
       io.run('gh', ['--version']),
       io.runShell('claude --version'),
       io.runShell('codex --version'),
@@ -1736,7 +1735,8 @@ class Engine extends EventEmitter {
       // pro lado pior, o de dizer que da pra rodar. Com conta primaria o --user
       // ja lia o keyring; passar o env mantem os dois casos falando da mesma
       // identidade. ghEnv() sem user nunca lanca (o contrato legado do doctor).
-      io.run('gh', tokenArgs, { env: this.ghEnv() })
+      io.run('gh', tokenArgs, { env: this.ghEnv() }),
+      agyDoctor.versao(),
     ]);
     // a leitura do `codex login status` mora em lib/codex/auth.js, junto da regra do plano
     const loginCodex = codexAuth.leituraDoLogin(codexLogin);
@@ -1747,6 +1747,7 @@ class Engine extends EventEmitter {
       codex: codex.ok ? codex.stdout.trim().split('\n')[0] : null,
       codexChatGPT: loginCodex.chatGPT,
       codexLoginDetail: loginCodex.detalhe,
+      agy, agyPerfis: agyDoctor.perfis(this), // versão do Antigravity CLI e login e cota de cada perfil
       ghAuth: auth.ok && !!auth.stdout.trim(),
       gitBash: this.gitBash,
       // rodar como root quebra a revisão autônoma INTEIRA, e não é opção de

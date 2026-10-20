@@ -9,7 +9,8 @@ let AUTOMATION_PROVIDER = null;
 function providerInicial(c) {
   const profiles = Array.isArray(c.claudeProfiles) ? c.claudeProfiles : [];
   const padrao = profiles.find(p => p.id === c.claudeProfileId);
-  return padrao && padrao.kind === 'codex' ? 'codex' : 'claude';
+  const kind = padrao && padrao.kind;
+  return kind === 'codex' || kind === 'agy' ? kind : 'claude';
 }
 
 // Redesenha as opções só quando o catálogo muda: o snapshot chega a cada poucos segundos,
@@ -42,12 +43,16 @@ function renderEffortBox(box, eff) {
 function renderAutomationSettings(c) {
   if (!AUTOMATION_PROVIDER) AUTOMATION_PROVIDER = providerInicial(c);
   const codex = AUTOMATION_PROVIDER === 'codex';
+  const agy = AUTOMATION_PROVIDER === 'agy';
   const botoes = [...document.querySelectorAll('#setAutomationProvider .seg-btn')];
   marcarSeg(botoes, b => b.dataset.provider === AUTOMATION_PROVIDER);
-  $('#setReviewModel').hidden = codex;
+  $('#setReviewModel').hidden = codex || agy;
   $('#setCodexReviewModel').hidden = !codex;
-  $('#setReviewEffort').hidden = codex;
+  $('#setAgyReviewModel').hidden = !agy;
+  $('#setReviewEffort').hidden = codex || agy;
   $('#setCodexReviewEffort').hidden = !codex;
+  $('#setAgyReviewEffort').hidden = !agy;
+  renderAgy(c);
 
   const claudeModel = String(c.reviewModel || '');
   const codexModel = String(c.codexReviewModel || '');
@@ -66,7 +71,10 @@ function renderAutomationSettings(c) {
   const selecao = (modelos.claude || []).find(s => s.valor === claudeModel) || null;
   const semEsforco = !selecaoAceitaEsforco(modelos.claude, claudeModel);
   $('#setReviewEffort').classList.toggle('disabled', semEsforco);
-  if (codex) {
+  if (agy) {
+    $('#reviewModelHint').textContent = 'Modelo usado pelo Antigravity nas revisões. O recomendado é o Gemini Flash High: na medição, foi o único que repetiu o veredito certo, sem o subagente. Claude e GPT pela cota do Google usam outro balde e custam bem mais por revisão.';
+    $('#effortHint').textContent = 'No Gemini o nível de raciocínio já está no nome do modelo, e o Farol não passa a flag. O esforço daqui só vale para Claude e GPT.';
+  } else if (codex) {
     $('#reviewModelHint').textContent = 'Modelo usado pelo Codex nas revisões, pushback, autoanálise e ferramentas. O padrão acompanha a seleção do CLI e costuma ser a opção mais compatível com o teu plano.';
     $('#effortHint').textContent = 'Quanto o Codex raciocina nas sessões autônomas. O CLI aceita minimal, low, medium, high e xhigh; o último depende do modelo.';
   } else {
@@ -80,6 +88,15 @@ function renderAutomationSettings(c) {
     }
     $('#effortHint').textContent = effortHint;
   }
+}
+
+// O par do Antigravity (lib/modelos.js, catálogo `agy`): vazio na config roda no padrão medido.
+function renderAgy(c) {
+  const modelo = String(c.agyReviewModel || '');
+  preencherSeletor($('#setAgyReviewModel'), (estado().modelos || {}).agy);
+  addCustomOption($('#setAgyReviewModel'), modelo);
+  $('#setAgyReviewModel').value = modelo;
+  renderEffortBox($('#setAgyReviewEffort'), String(c.agyReviewEffort || ''));
 }
 
 $('#setAutomationProvider').addEventListener('click', (e) => {
