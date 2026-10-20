@@ -62,7 +62,7 @@ test('subir, descer, ligar e desligar devolvem a lista inteira', () => {
 test('conta com perfil próprio aparece como fora da cadeia, com menção navegável', () => {
   const html = P.cadeiaHtml({ ...CADEIA, contasComPerfilProprio: [{ user: 'fulano', perfil: 'gx' }] }, AGORA);
   assert.match(html, /fica fora da cadeia/);
-  assert.match(html, /github\.com\/fulano/);
+  assert.ok(html.includes('href="https://github.com/fulano"'), 'a menção leva ao perfil no GitHub');
 });
 
 test('sem perfil salvo, a cadeia explica o que ela faz em vez de uma lista vazia', () => {

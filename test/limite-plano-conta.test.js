@@ -20,6 +20,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const { Engine } = await import('../server.js');
 const { LIMITE_PLANO_FILE } = await import('../lib/paths.js');
+const { comPerfilDaSessao } = await import('../lib/engine/limite-na-cadeia.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { } });
 
@@ -93,7 +94,8 @@ test('clique manual atravessa o limite (invariante 4), e sessão que dá certo l
   const e = engineBase();
   await estourarLimite(e);
   let abriu = 0;
-  e.runHeadlessReview = async () => { abriu++; };
+  // a sessão de verdade conclui pelo comPerfilDaSessao, que libera a assinatura que ela usou
+  e.runHeadlessReview = async () => { abriu++; await comPerfilDaSessao(e, Promise.resolve({}), e.resolveClaudeAuth('eu')); };
   await e.runOneHeadless(prDe('o/r#5', { manual: true }), 'eu');
   assert.equal(abriu, 1, 'quem mandou revisar foi você: talvez a cota tenha voltado antes, ou você comprou uso extra');
   assert.equal(e.limiteDoPlanoAte('eu'), 0, 'a sessão que funcionou prova que a cota voltou');

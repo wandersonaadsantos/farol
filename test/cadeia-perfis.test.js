@@ -12,7 +12,9 @@ import assert from 'node:assert/strict';
 const { Engine } = await import('../server.js');
 const { LIMITE_PLANO_FILE } = await import('../lib/paths.js');
 const cadeiaMod = (await import('../lib/engine/cadeia-perfis.js')).default;
-const { comPerfilNaFalha } = await import('../lib/engine/limite-na-cadeia.js');
+const { comPerfilDaSessao } = await import('../lib/engine/limite-na-cadeia.js');
+const { classify } = await import('../lib/log-taxonomy.js');
+const pushback = await import('../lib/engine/pushback.js');
 const prov = (await import('../lib/engine/provedores.js')).default;
 const { runClaudeStream } = await import('../lib/engine/session.js');
 
@@ -90,7 +92,7 @@ test('todos no limite: o PR espera o PRIMEIRO reset, sem estacionar e sem abrir 
   const agora = Date.now();
   e.limitesDePlano.set('dir:/perfis/x', { ate: agora + 3 * 3600e3, em: agora });
   e.limitesDePlano.set('dir:/perfis/y', { ate: agora + 3600e3, em: agora });
-  e.limitesDePlano.set('codex:cmax', { ate: agora + 2 * 3600e3, em: agora });
+  e.limitesDePlano.set('codex:', { ate: agora + 2 * 3600e3, em: agora });
   assert.equal(e.resolveClaudeAuth('eu').id, 'gy', 'o de reset mais cedo');
   assert.equal(e.limiteDoPlanoAte('eu'), agora + 3600e3);
   let abriu = 0;
@@ -146,7 +148,7 @@ test('a sessão real estampa na falha a assinatura que usou (runProvedor, os doi
     delete process.env.FAROL_HEADLESS_CMD;
   }
   const erro = new Error('x');
-  await assert.rejects(comPerfilNaFalha(Promise.reject(erro), { kind: 'apikey', id: 'k', apiKey: 'segredo' }));
+  await assert.rejects(comPerfilDaSessao(e, Promise.reject(erro), { kind: 'apikey', id: 'k', apiKey: 'segredo' }));
   assert.deepEqual(erro.perfilDaSessao, { kind: 'apikey', id: 'k', dir: '' });
 });
 
@@ -242,4 +244,80 @@ test('o limite de cada provedor é lido pela tabela única de falhas', () => {
   assert.equal(new Date(lido.ate).getHours(), 17);
   assert.deepEqual(prov.limiteDaMensagem('claude', 'ECONNRESET', agora), { limite: false, ate: null });
   assert.deepEqual(prov.limiteDaMensagem('claude', "You've hit your limit", agora), { limite: true, ate: null });
+});
+
+/* ---------- revisão do PR #263 ---------- */
+
+test('sessão que conclui libera o perfil que ELA usou, não o que a conta resolve agora', async () => {
+  const e = engineCom({ cadeia: TODOS_LIGADOS });
+  // duas sessões começaram no Gemini X; uma estourou e travou o X, a conta já resolve para o Y
+  e.limitesDePlano.set('dir:/perfis/x', { ate: Date.now() + 3600e3, em: Date.now(), estimado: true });
+  e.limitesDePlano.set('dir:/perfis/y', { ate: Date.now() + 1800e3, em: Date.now() });
+  await comPerfilDaSessao(e, Promise.resolve({ text: 'ok' }), { kind: 'dir', id: 'gx', dir: '/perfis/x' });
+  assert.equal(e.limitesDePlano.has('dir:/perfis/x'), false, 'a outra sessão no X concluiu: o X voltou');
+  assert.equal(e.limitesDePlano.has('dir:/perfis/y'), true, 'o Y continua no limite dele');
+  assert.equal(e.resolveClaudeAuth('eu').id, 'gx');
+});
+
+test('a cota do Codex é limite do plano: a cadeia troca de perfil em vez de estacionar', async () => {
+  // a mensagem que lib/codex/stream.js monta (erroDeCotaCodex)
+  const msg = 'codex: cota do plano atingida; resets 5:50pm';
+  assert.equal(classify(msg).kind, 'espera-reset');
+  assert.equal(new Date(prov.limiteDaMensagem('codex', msg).ate).getHours(), 17);
+  const e = engineCom({ cadeia: [{ id: 'cmax', ativo: true }, { id: 'gx', ativo: true }, { id: 'gy', ativo: false }] });
+  e.runHeadlessReview = async () => {
+    throw Object.assign(new Error(msg), { perfilDaSessao: { kind: 'codex', id: 'cmax', dir: '' } });
+  };
+  await e.runOneHeadless(prDe('o/r#9'), 'eu');
+  assert.equal(e.autoReviewParked.has('o/r#9'), false);
+  assert.equal(e.retryAfterNet.get('o/r#9').notBefore, null);
+  assert.equal(e.resolveClaudeAuth('eu').id, 'gx');
+});
+
+test('perfis Codex dividem a mesma cota: o limite de um vale para todos', () => {
+  const e = engineCom({ cadeia: [] });
+  e.config.claudeProfiles = [{ id: 'c1', label: 'Codex 1', kind: 'codex' }, { id: 'c2', label: 'Codex 2', kind: 'codex' }, X];
+  e.config.cadeiaPerfis = [{ id: 'c1', ativo: true }, { id: 'c2', ativo: true }, { id: 'gx', ativo: true }];
+  e.limitesDePlano.set('codex:', { ate: Date.now() + 3600e3, em: Date.now() });
+  assert.equal(e.resolveClaudeAuth('eu').id, 'gx', 'o segundo Codex é o mesmo login esgotado: a cadeia pula para o Gemini X');
+});
+
+test('Codex sem login no plano ChatGPT é pulado enquanto houver outro pronto', () => {
+  const e = engineCom({ cadeia: [{ id: 'cmax', ativo: true }, { id: 'gx', ativo: true }, { id: 'gy', ativo: false }] });
+  e.doctorInfo = { codexChatGPT: false, claudeAuth: [{ id: 'cmax', ready: true }, { id: 'gx', ready: true }] };
+  assert.equal(e.resolveClaudeAuth('eu').id, 'gx');
+  assert.equal(cadeiaMod.cadeiaParaTela(e).entradas[0].estado, 'sem-login');
+});
+
+test('reset citado pelo provedor substitui o prazo estimado, mesmo mais cedo', async () => {
+  const e = engineCom({ cadeia: TODOS_LIGADOS });
+  const { registrarLimite } = await import('../lib/engine/limite-plano.js');
+  const agora = Date.now();
+  const auth = { kind: 'dir', id: 'gx', dir: '/perfis/x' };
+  registrarLimite(e, 'eu', agora + 3600e3, agora, { auth, estimado: true });
+  registrarLimite(e, 'eu', agora + 600e3, agora, { auth });
+  assert.deepEqual(e.limitesDePlano.get('dir:/perfis/x'), { ate: agora + 600e3, em: agora, estimado: false });
+  // e um novo palpite não desfaz o reset confirmado
+  registrarLimite(e, 'eu', agora + 300e3, agora, { auth, estimado: true });
+  assert.equal(e.limitesDePlano.get('dir:/perfis/x').ate, agora + 600e3);
+});
+
+test('trocar de perfil não gasta o teto de tentativas, nem estaciona com perfil livre', async () => {
+  const e = engineCom({ cadeia: TODOS_LIGADOS });
+  e.retryAfterNet.set('o/r#10', { tries: 12, pr: prDe('o/r#10'), notBefore: null });
+  sessaoQueEstouraEm(e, ['gx'], []);
+  await e.runOneHeadless(prDe('o/r#10'), 'eu');
+  assert.equal(e.autoReviewParked.has('o/r#10'), false, 'com o Gemini Y livre, o PR não estaciona');
+  assert.equal(e.retryAfterNet.get('o/r#10').tries, 12, 'a troca não conta como tentativa');
+  assert.equal(e.limitesDePlano.has('dir:/perfis/x'), true, 'o limite do X fica registrado mesmo no teto');
+});
+
+test('pushback sem hora de reset trava o perfil usado por prazo estimado e deixa a cadeia seguir', () => {
+  const e = engineCom({ cadeia: TODOS_LIGADOS });
+  const agora = Date.now();
+  const ate = pushback.default.esperarResetDePlano(e, "sessão retornou erro: You've hit your limit", agora, 'eu', { kind: 'dir', id: 'gx', dir: '/perfis/x' });
+  assert.equal(ate, agora + 3600e3);
+  assert.equal(e.limitesDePlano.get('dir:/perfis/x').estimado, true);
+  assert.equal(pushback.default.esperandoResetDePlano(e, agora), false, 'a varredura não para inteira: o próximo perfil atende');
+  assert.equal(e.resolveClaudeAuth('eu').id, 'gy');
 });
