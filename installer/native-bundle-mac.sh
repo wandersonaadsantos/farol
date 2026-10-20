@@ -1,13 +1,13 @@
 #!/bin/bash
 # Cria um bundle executável próprio, sem alterar o runtime canônico do npm.
 set -euo pipefail
-APP="$HOME/.farol/app"
+APP="${1:-$HOME/.farol/app}"
 RUNTIME="$APP/node_modules/electron/dist/Electron.app"
-DEST="$HOME/Applications/Farol.app"
+DEST="${2:-$HOME/Applications/Farol.app}"
 [ "$(uname -s)" = Darwin ] || { echo 'Este instalador exige macOS.' >&2; exit 1; }
 [ -x "$RUNTIME/Contents/MacOS/Electron" ] || { echo 'Runtime Electron ausente.' >&2; exit 1; }
-mkdir -p "$HOME/Applications"
-STAGE="$(mktemp -d "$HOME/Applications/.farol-bundle.XXXXXX")"
+mkdir -p "$(dirname "$DEST")"
+STAGE="$(mktemp -d "$(dirname "$DEST")/.farol-bundle.XXXXXX")"
 trap 'rm -rf "${STAGE:?}"' EXIT
 BUNDLE="$STAGE/Farol.app"
 /usr/bin/ditto "$RUNTIME" "$BUNDLE"
@@ -62,5 +62,7 @@ if ! mv "$BUNDLE" "$DEST"; then
   [ ! -e "$STAGE/anterior.app" ] || mv "$STAGE/anterior.app" "$DEST"
   exit 1
 fi
-/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$DEST"
+if [ "$DEST" = "$HOME/Applications/Farol.app" ]; then
+  /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$DEST"
+fi
 echo "Bundle nativo instalado: $DEST"
