@@ -122,6 +122,37 @@ const resolvida = (e, n) => e.decisions.resolved.find((x) => x.key === `acme/app
 const textos = (d) => (d.reasons || []).map((r) => r.text || r);
 const semMesa = (e) => assert.equal(e.eventos.some(([t]) => t === 'needs-decision'), false, JSON.stringify(e.eventos));
 
+for (const caso of ['ci', 'reenvio', 'commit novo']) {
+  test(`silenciada depois da análise: conclusão persistida com ${caso}`, async () => {
+    const e = motor({ checks: [{ nome: 'test', estado: 'rodando' }] });
+    sessao(e);
+    await e.runHeadlessReview(PR(130));
+    assert.ok(pendente(e, 130).trabalhoIniciado);
+    assert.equal(envios.length, 0);
+    e.decisions = JSON.parse(JSON.stringify(e.decisions));
+    e.config.accounts[0].muted = true;
+    gh.rollup = [check('test', 'SUCCESS'), check('audit', 'SUCCESS')];
+    if (caso === 'commit novo') {
+      gh.head = HEAD_NOVO;
+      assert.equal(await e.varrerEsperas(), 0);
+      assert.equal(envios.length, 0);
+      return;
+    }
+    if (caso === 'reenvio') {
+      gh.postFalha = 'HTTP 502: Bad Gateway';
+      await e.varrerEsperas();
+      assert.ok(pendente(e, 130).postRetry);
+      gh.postFalha = '';
+      envios = [];
+      assert.equal(await e.retryFailedPosts(), 1);
+    } else assert.equal(await e.varrerEsperas(), 1);
+    assert.deepEqual(envios.map(p => p.event), ['APPROVE']);
+    assert.equal(envios[0].commit_id, HEAD);
+    assert.equal(resolvida(e, 130).status, 'auto_approved');
+    assert.equal(e.config.accounts[0].muted, true);
+  });
+}
+
 async function revisar(e, n, { marcas, extra } = {}) {
   sessao(e, extra);
   await e.runHeadlessReview(PR(n, marcas));

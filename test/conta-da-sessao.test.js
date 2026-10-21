@@ -63,8 +63,9 @@ test('prDaSessao leva a conta do item, não a do dono do repositório', () => {
   assert.equal(prDaSessao(e, semConta).account, 'normal', 'sem conta no item, vale a regra de sempre');
 });
 
-test('revisão headless: a sessão ativa da conta silenciada é da conta silenciada', async () => {
+test('revisão headless: a sessão ativa preserva a conta admitida sem org própria', async () => {
   const e = engineComSilenciada();
+  e.config.accounts[1].muted = false;
   const vistos = capturarRegistro(e);
   await assert.rejects(e.runHeadlessReview({ ...PR }), PAROU);
   assert.equal(vistos.length, 1);

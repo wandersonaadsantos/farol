@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.76.6
+
+Silenciar uma conta deixa o trabalho em andamento terminar.
+
+**Correções**
+- Revisões já iniciadas continuam até a postagem pela conta original quando ela é silenciada. Novas sessões ficam bloqueadas, e itens ainda não iniciados voltam à fila visível.
+- Resultados produzidos nessa sessão podem concluir depois do CI ou de uma falha de postagem, restritos à mesma conta e ao mesmo commit. As demais verificações de publicação continuam valendo.
+
 ## v2.76.5
 
 Revisões longas continuam enquanto houver progresso, com recuperação preservada nos três provedores.
