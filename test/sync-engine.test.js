@@ -415,3 +415,37 @@ test('(m) login com um start em voo conecta com a credencial NOVA', async () => 
   assert.equal(e.sync.uid, 'u2', 'a conexão é da conta nova, não da que o start em voo leu');
   assert.equal(e.sync.email, EMAIL2);
 });
+
+test('Firebase 500 reconecta no próximo ciclo sem cancelar sessão nem perder a fila', async () => {
+  const e = new Engine();
+  const ctrl = { chamadas: 0, fora: false };
+  const localFetch = fetchDosDubles(ctrl);
+  let recusar = false;
+  e.log = () => {};
+  e.sync.fetchImpl = (url, init) => recusar && String(url).startsWith(rtdb.url)
+    ? Promise.resolve(new Response('{"error":"Internal server error."}', { status: 500 }))
+    : localFetch(url, init);
+  e.updateSettings({ sync: syncCfg() });
+  if (e.sync.iniciando) await e.sync.iniciando;
+  assert.equal((await e.syncLogin({ email: EMAIL, password: SENHA })).ok, true);
+  const active = { id: 'viva', keys: ['o/r#1'], mode: 'auto', startedAt: Date.now() };
+  const running = { child: null, cancelled: false };
+  e.activeReviews.set(active.id, active);
+  e.running.set(active.id, running);
+  e.headlessWaiting = ['o/r#2'];
+  recusar = true;
+  e.sync.lastPresenceAt = 0;
+  assert.equal((await e.syncTick()).ok, false);
+  assert.equal(e.sync.lastError.code, 'indisponivel');
+  assert.equal(e.activeReviews.get(active.id), active);
+  assert.equal(e.running.get(active.id), running);
+  assert.equal(running.cancelled, false);
+  assert.deepEqual(e.headlessWaiting, ['o/r#2']);
+  recusar = false;
+  assert.equal((await e.syncTick()).ok, true);
+  assert.equal(e.sync.status, 'conectado');
+  assert.equal(e.sync.lastError, null);
+  assert.equal(e.activeReviews.get(active.id), active);
+  assert.deepEqual(e.headlessWaiting, ['o/r#2']);
+  e.syncStop();
+});

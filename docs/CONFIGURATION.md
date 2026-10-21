@@ -259,7 +259,9 @@ parte acima dele).
 **Resultado.** O texto do ÚLTIMO passo `agent_response` do stream, nunca o `result.response`, que
 é o turno inteiro e, com prosa e marcador antes, não começa no envelope. O teto de tempo do
 `agy` (`[agy] print timeout`) devolve SUCCESS vazio e é falha transitória; saída sem `result` é
-falha; o teto de 30 minutos do Farol continua.
+falha. Nos três provedores, o Farol interrompe após 30 minutos sem eventos de progresso
+ou no teto absoluto de duas horas. Eventos de resposta e ferramentas renovam a janela;
+ruído de saída e tentativas de reconexão não renovam. O cancelamento continua imediato.
 
 **Cota e cadeia.** `agy -p /usage --output-format json` (zero token) dá, por grupo de modelos, a
 fração restante e o reset de cada bucket. Antes de abrir a sessão o perfil é lido (cache de 60
@@ -267,7 +269,9 @@ segundos, `TEMPOS.AGY_COTA_CACHE_MS`; a ordem de uso também agenda a leitura se
 ela). Grupo do modelo com bucket esgotado registra o perfil "no limite até" o maior reset dos
 buckets esgotados, no mesmo `lib/engine/limite-plano.js` (chave `agy:<id>:<grupo>`: o limite do
 Gemini não trava o balde Claude e GPT), e a cadeia passa para o próximo perfil sem abrir nada no
-esgotado. Falha de cota no meio (`AGY_ERROR:` com saída 3, `RESOURCE_EXHAUSTED`, `You have
+esgotado. Saldo positivo libera também um bloqueio com reset confirmado quando a consulta
+começou depois do bloqueio, está recente e confirma a conta esperada no arquivo do perfil.
+Leitura antiga, falha ou de outra conta não libera o bloqueio. Falha de cota no meio (`AGY_ERROR:` com saída 3, `RESOURCE_EXHAUSTED`, `You have
 exhausted your quota`, `QUOTA_EXHAUSTED`, `individual quota reached`) é confirmada pelo `/usage`:
 a mensagem ganha a frase `resets <Mon> <dia> at <h:mm>am` e o erro leva `err.limitePlano.ate`, que
 o `aposLimite` lê antes do texto. `MODEL_CAPACITY_EXHAUSTED` e 503 sem capacidade são

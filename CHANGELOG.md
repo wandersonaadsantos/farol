@@ -9,6 +9,17 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.76.5
+
+Revisões longas continuam enquanto houver progresso, com recuperação preservada nos três provedores.
+
+### Correções
+
+- Claude Code, Codex e Antigravity deixam de interromper trabalho ativo aos 30 minutos: agora param após 30 minutos sem progresso ou no teto absoluto de duas horas. Ruído de saída e tentativas de reconexão não renovam o prazo.
+- Timeouts do Codex e do Antigravity preservam o identificador da conversa para a retomada automática, evitando recomeçar a leitura por perda dessa referência.
+- O sinal de revisão em andamento acompanha o novo teto, para outro executor não tratar uma revisão longa como abandonada antes da hora.
+- Uma consulta recente e com a conta confirmada do Antigravity libera o bloqueio antigo quando a cota volta antes do reset previsto. Leituras antigas, sem identidade ou de outra conta não liberam o perfil.
+
 ## v2.76.4
 
 - A leitura de cota do Antigravity registra a consulta em andamento antes de resolver a cadeia de perfis, evitando recursão, consultas duplicadas e esgotamento de processos na hospedagem.
