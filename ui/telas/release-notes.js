@@ -14,6 +14,7 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.76.6', ['Silenciar bloqueia novos trabalhos e permite que revisões em andamento concluam e publiquem pela conta original, inclusive após a espera do CI ou um reenvio no mesmo commit.']],
   ['2.76.5', ['Revisões com progresso seguem além de 30 minutos, até duas horas; sem progresso, param em 30 minutos. A regra vale para Claude Code, Codex e Antigravity.', 'Timeouts preservam a conversa do Codex e do Antigravity para continuar a revisão. O sinal entre executores acompanha o novo prazo.', 'Cota recuperada do Antigravity libera o bloqueio antigo com leitura recente e conta confirmada.']],
   ['2.76.4', ['A leitura da cota do Antigravity não abre consultas duplicadas quando resolve a ordem dos perfis, evitando recursão e esgotamento de processos.', 'Quando a hospedagem recusa temporariamente a criação do processo (EAGAIN), a revisão volta à fila e tenta de novo.']],
   ['2.76.3', ['O login do Antigravity pela tela funciona no Linux, sem eco do código de autorização nem transcrição em disco. Cancelar encerra também o CLI, e a recusa do código continua sendo falha.', 'Com o Farol atrás de um login (como o portão do Google no servidor), a sessão desse login vencida recarrega a página e leva ao login, em vez de pedir um pareamento do navegador que não resolve.']],
