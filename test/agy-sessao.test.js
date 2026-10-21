@@ -19,6 +19,7 @@ const { runProvedor } = await import('../lib/engine/session.js');
 const { aposLimite } = await import('../lib/engine/limite-na-cadeia.js');
 const { classify } = await import('../lib/log-taxonomy.js');
 const { killTree } = await import('../lib/engine/session.js');
+const { lerCota } = await import('../lib/agy/cota.js');
 
 after(() => { try { fs.rmSync(process.env.FAROL_HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
 
@@ -55,6 +56,27 @@ function engineCom(perfis, ordem) {
 const X = { id: 'gx', label: 'Gemini X', kind: 'agy', email: 'eu@exemplo.com' };
 const Y = { id: 'gy', label: 'Gemini Y', kind: 'agy' };
 const OPTS = { id: 'a-agy1', account: 'eu', ref: 'o/r#1', operationKind: 'review' };
+
+test('cota: resolver a cadeia dentro de ghEnv compartilha uma leitura por perfil, inclusive forçada', async () => {
+  logar('gx'); logar('gy');
+  const e = engineCom([X, Y], [{ id: 'gx', ativo: true }, { id: 'gy', ativo: true }]);
+  let chamadas = 0;
+  e.ghEnv = () => {
+    chamadas++;
+    // Interrompe a regressão cedo, sem esgotar a pilha ou abrir centenas de processos.
+    if (chamadas > 2) throw new Error('reentrada abriu uma leitura duplicada');
+    e.resolveClaudeAuth('eu');
+    return { ...process.env, GH_TOKEN: 'gho_da_conta' };
+  };
+  e.resolveClaudeAuth('eu');
+  const primeira = lerCota(e, 'gx');
+  assert.equal(lerCota(e, 'gx', { forcar: true }), primeira);
+  const leituras = await Promise.all([primeira, lerCota(e, 'gy')]);
+  assert.equal(chamadas, 2, 'resolver a cadeia não abre uma segunda leitura do mesmo perfil');
+  assert.ok(leituras.every(l => l.ok), 'os dois perfis autenticam e devolvem sua cota');
+  assert.equal(registro().filter(r => r.modo === 'usage').length, 2);
+  assert.equal(registro().filter(r => r.modo === 'sessao').length, 0);
+});
 
 test('revisão no agy: resultado do último passo, ambiente da pasta, protocolo e consumo sem contar duas vezes', async () => {
   logar('gx');

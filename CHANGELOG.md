@@ -9,16 +9,60 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.76.6
+
+Silenciar uma conta deixa o trabalho em andamento terminar.
+
+**Correções**
+- Revisões já iniciadas continuam até a postagem pela conta original quando ela é silenciada. Novas sessões ficam bloqueadas, e itens ainda não iniciados voltam à fila visível.
+- Resultados produzidos nessa sessão podem concluir depois do CI ou de uma falha de postagem, restritos à mesma conta e ao mesmo commit. As demais verificações de publicação continuam valendo.
+
+## v2.76.5
+
+Revisões longas continuam enquanto houver progresso, com recuperação preservada nos três provedores.
+
+### Correções
+
+- Claude Code, Codex e Antigravity deixam de interromper trabalho ativo aos 30 minutos: agora param após 30 minutos sem progresso ou no teto absoluto de duas horas. Ruído de saída e tentativas de reconexão não renovam o prazo.
+- Timeouts do Codex e do Antigravity preservam o identificador da conversa para a retomada automática, evitando recomeçar a leitura por perda dessa referência.
+- O sinal de revisão em andamento acompanha o novo teto, para outro executor não tratar uma revisão longa como abandonada antes da hora.
+- Uma consulta recente e com a conta confirmada do Antigravity libera o bloqueio antigo quando a cota volta antes do reset previsto. Leituras antigas, sem identidade ou de outra conta não liberam o perfil.
+
+## v2.76.4
+
+- A leitura de cota do Antigravity registra a consulta em andamento antes de resolver a cadeia de perfis, evitando recursão, consultas duplicadas e esgotamento de processos na hospedagem.
+- Falhas temporárias de criação de processo (`spawn EAGAIN`) voltam à fila de tentativas automáticas, sem serem confundidas com login expirado ou cota esgotada.
+
+## v2.76.3
+
+O login do Antigravity pela tela funciona no Linux, e o Farol atrás de um login (como o portão do Google no servidor) não manda mais parear o navegador quando a sessão desse login vence.
+
+### Correções
+
+- O login do Antigravity pela tela funciona no Linux da hospedagem: o CLI recebe um terminal, sem eco do código de autorização nem transcrição em disco. Cancelar o login encerra também o CLI; códigos recusados continuam sendo tratados como falha.
+- Quando quem está na frente do Farol recusa a conexão por login vencido, a página recarrega e leva ao login dele, em vez de mostrar "a credencial deste navegador expirou ou foi revogada" e pedir um pareamento que não resolve. A recusa do próprio Farol continua levando ao pareamento.
+- As notas da v2.76.1 e da v2.76.2 foram acertadas: a correção da reinstalação no macOS saiu na v2.76.2.
+
+## v2.76.2
+
+Login expirado também aciona o fallback das revisões para o próximo perfil disponível, e a reinstalação no macOS não deixa mais a instalação anterior inutilizada quando uma etapa falha.
+
+### Correções
+
+- Quando o provedor recusa a revisão por OAuth expirado, o Farol sinaliza o perfil como sem login e continua automaticamente no próximo perfil ligado e disponível da ordem de uso, inclusive de outro provedor.
+- A troca começa uma sessão nova, sem reutilizar a sessão do perfil anterior. Sem alternativa válida, a revisão para com o erro de autenticação, sem repetir indefinidamente.
+- Contas com perfil próprio continuam usando somente esse perfil. Renovar a credencial ou concluir uma sessão com sucesso devolve o perfil à prioridade original. Cota externa e login expirado permanecem estados distintos; não existe teto diário interno de reviews.
+- A reinstalação macOS prepara código, runtime, protocolo e bundle antes de substituir a versão instalada. Falhas na troca ou no registro restauram a instalação anterior, preservando configuração, histórico e prompts pessoais.
+
 ## v2.76.1
 
-Revisões sem teto diário interno de quantidade, incluindo a reserva entre aparelhos, e a reinstalação no macOS que não deixa mais a instalação anterior inutilizada quando uma etapa falha.
+Revisões sem teto diário interno de quantidade, incluindo a reserva entre aparelhos.
 
 ### Correções
 
 - Removidos o teto residual de rodadas por PR/dia e a espera até amanhã. Registros antigos desse limite não seguram a fila. A coordenação continua protegendo contra revisão duplicada entre aparelhos.
 - Testes de sessão usam o Git Bash no Windows, sem confundir o Bash do WSL com um shell que aceita os caminhos e as variáveis do aplicativo.
 - Limites externos da assinatura do provedor e orçamentos configurados continuam sendo informados separadamente.
-- A reinstalação macOS prepara código, runtime, protocolo e bundle antes de substituir a versão instalada. Falhas na troca ou no registro restauram a instalação anterior, preservando configuração, histórico e prompts pessoais.
 
 ## v2.76.0
 

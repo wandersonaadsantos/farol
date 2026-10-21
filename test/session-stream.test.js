@@ -55,6 +55,36 @@ function engineFalso() {
   };
 }
 
+test('Claude com eventos úteis segue além de 30min; ruído e api_retry não sustentam sessão parada', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const child = filhoStream();
+  const engine = engineFalso();
+  const killed = [];
+  engine.killTree = pid => killed.push(pid);
+  spawnImpl = () => child;
+  const p = runClaudeStream(engine, 'prompt', { id: 'progresso' });
+  spawnImpl = null;
+  const rejected = assert.rejects(p, err => {
+    assert.match(err.message, /sem progresso/);
+    assert.equal(err.sessionId, 'sessao-retomavel');
+    return true;
+  });
+  child.stdout.write('{"type":"system","subtype":"init","session_id":"sessao-retomavel"}\n');
+  for (let i = 0; i < 3; i++) {
+    t.mock.timers.tick(15 * 60 * 1000);
+    child.stdout.write('{"type":"assistant","message":{"content":[{"type":"text","text":"lendo"}]}}\n');
+    assert.equal(killed.length, 0);
+  }
+  t.mock.timers.tick(15 * 60 * 1000);
+  child.stderr.emit('data', 'ruído de rede');
+  child.stdout.write('{"type":"system","subtype":"api_retry","attempt":1,"max_retries":3}\n');
+  child.stdout.write('linha inválida\n');
+  t.mock.timers.tick(15 * 60 * 1000);
+  await rejected;
+  assert.deepEqual(killed, [child.pid]);
+  child.emit('close', null);
+});
+
 test('runClaudeStream: multibyte cortado no limite do chunk não vira U+FFFD (M4)', async () => {
   const child = filhoStream();
   spawnImpl = () => child;

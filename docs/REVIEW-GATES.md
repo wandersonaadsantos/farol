@@ -142,7 +142,7 @@ em automático na classe do resultado:
 - falha permanente ao postar (credencial, texto todo barrado, PR de org que nenhuma conta cobre, a `reserva` do `atribuicaoDoPr`), e o reenvio que esgotou as tentativas: infra, dita no card;
 - pendência gravada sem o commit lido ou sem o payload (dado corrompido): o Farol não posta sem saber de que código o texto fala;
 - PR da própria conta com a conta em `wait`, ou sem texto para comentar;
-- conta silenciada, sem token ou fora do orçamento: o Farol não age com essa identidade, e o motivo aparece onde sempre apareceu.
+- conta silenciada não inicia novos trabalhos; a revisão já iniciada pode concluir e postar pela conta original. A conclusão adiada pelo CI ou por falha de envio exige o mesmo commit e uma decisão persistida dessa sessão. Silenciar não cancela sessões nem remove credenciais. Sem token ou fora do orçamento, o impedimento continua aparecendo onde sempre apareceu.
 
 ## Todos os caminhos que produzem parecer ou postagem (26/09/2026)
 
@@ -1024,7 +1024,7 @@ vira ação**, e poda errada não pode custar sessão paga.
   vence a incapaz, empate mantém a primeira. Antes, a primeira vencia sempre e o PR
   ficava mudo, preso numa identidade que nunca dispara aviso nem auto-revisão.
   Desde 06/10/2026 o mesmo critério vale no dedup do panorama e na conta de uma org
-  (`accountForOwner`, `atribuicaoDoPr`), e a conta silenciada não age nem pelo clique:
+  (`accountForOwner`, `atribuicaoDoPr`), e a conta silenciada não inicia ações nem pelo clique:
   revisão, terminal, chat, postagem, reviewers e merge recusam com o motivo na tela
   (`lib/engine/conta-que-age.js`, travado em `test/conta-silenciada-nao-age.test.js`).
 - **Guarda `mergeInFlight`** (G19, `lib/engine/selfpr.js`): Set por key, segunda

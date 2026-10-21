@@ -1,4 +1,4 @@
-// Conta silenciada continua monitorada, mas nunca é a identidade que age (06/10/2026).
+// Conta silenciada não inicia ações; revisões já admitidas podem concluir pela conta original.
 //
 // Incidente: no Farol de um celular, o `gh` tinha duas contas cobrindo a org `biudtech`, a
 // primeira silenciada (`wandersonbiuder`) e a segunda ativa (`Alexpraxedes`). O dono quis agir
@@ -33,6 +33,7 @@ const contasGh = (await import('../lib/engine/contas-gh.js')).default;
 const porta = (await import('../lib/engine/porta-de-execucao.js')).default;
 const contaQueAge = (await import('../lib/engine/conta-que-age.js')).default;
 const P = await import('../ui/pure.js');
+const continuidade = await import('../lib/engine/continuidade-revisao.js');
 fs.mkdirSync(STATE_DIR, { recursive: true });
 
 after(() => {
@@ -41,6 +42,79 @@ after(() => {
 });
 
 beforeEach(() => { chamadas.length = 0; });
+
+test('silenciar durante terminal/chat permite concluir pela identidade admitida, mas não abrir outra sessão', async () => {
+  for (const source of ['terminal', 'chat']) {
+    const e = engineDoIncidente();
+    e.config.accounts[0].muted = false;
+    const cap = e.createReviewPostCapability([KEY_76], SILENCIADA, source, 'em-curso');
+    e.config.accounts[0].muted = true;
+    const r = await e.postReviewFromSession({ key: KEY_76, payload: { event: 'COMMENT', body: 'Verificação concluída.' } }, cap);
+    assert.equal(r.ok, true);
+    assert.equal(escritas().at(-1).env.GH_TOKEN, 'tok-silenciada');
+    assert.equal(e.createReviewPostCapability([KEY_76], SILENCIADA, source, 'nova'), '');
+    assert.equal((await e.postReview({ key: KEY_76, account: SILENCIADA }, { event: 'COMMENT', body: 'Outra ação.' }, { via: 'sessao', continuidade: {} })).blocked, 'conta_silenciada');
+    assert.equal((await e.postReviewFromSession({ key: 'biudtech/app#99', payload: { event: 'COMMENT', body: 'Outro PR.' } }, cap)).blocked, 'capability');
+    chamadas.length = 0;
+  }
+});
+
+test('revogar sessão revoga também a permissão de concluir silenciada', async () => {
+  const e = engineDoIncidente();
+  const cap = e.createReviewPostCapability([KEY_76], ATIVA, 'terminal', 't1');
+  const permissao = e.reviewPostCaps.get(cap).continuidade.get(KEY_76);
+  e.config.accounts[1].muted = true;
+  e.revokeReviewPostCapability(cap);
+  const r = await e.postReview({ key: KEY_76, account: ATIVA }, { event: 'COMMENT', body: 'Concluí.' }, { continuidade: permissao });
+  assert.equal(r.blocked, 'conta_silenciada');
+  assert.equal(escritas().length, 0);
+});
+
+test('decisão persistida mantém continuação no mesmo head, nunca em outra conta ou commit', async () => {
+  const e = engineDoIncidente();
+  e.config.accounts[0].muted = false;
+  const pr = { key: KEY_76, account: SILENCIADA, repo: 'biudtech/internal-auth', number: 76 };
+  const permissao = continuidade.iniciarTrabalho(e, pr);
+  const item = e.recordDecision(pr, { headSha: 'abc123', verdict: 'approve', analysisStatus: 'complete', payloads: {} }, { status: 'pending' });
+  continuidade.encerrarTrabalho(permissao);
+  // Reinício: o objeto canônico é o lido do estado, não o token efêmero da sessão.
+  e.decisions = JSON.parse(JSON.stringify(e.decisions));
+  const salva = e.decisions.pending.find(d => d.id === item.id);
+  assert.ok(salva.trabalhoIniciado);
+  e.config.accounts[0].muted = true;
+  const payload = { event: 'COMMENT', body: 'Verificação concluída.', commit_id: 'abc123' };
+  for (const [alvo, texto, autorizacao] of [
+    [pr, { ...payload, commit_id: 'outro' }, salva],
+    [{ ...pr, account: 'alice' }, payload, salva],
+    [pr, payload, { ...salva }],
+  ]) assert.equal(continuidade.podeConcluir(e, alvo, texto, autorizacao), false);
+  assert.equal((await e.postReview(pr, payload, { continuidade: salva })).ok, true);
+  assert.equal(escritas().at(-1).env.GH_TOKEN, 'tok-silenciada');
+});
+
+test('modelo não pode fabricar recibo de trabalho anterior', () => {
+  const e = engineSoSilenciada();
+  const item = e.recordDecision({ key: KEY_76, account: SILENCIADA }, {
+    headSha: 'abc', trabalhoIniciado: { key: KEY_76, account: SILENCIADA, startedAt: 1, headSha: 'abc' },
+  });
+  assert.equal(item.trabalhoIniciado, null);
+});
+
+test('silenciar devolve fila não iniciada e preserva sessão ativa sem cancelamento', () => {
+  const e = engineSoSilenciada();
+  const pr = { key: KEY_76, account: SILENCIADA };
+  const ativa = { id: 'a1', keys: ['biudtech/app#20'], pr: { account: SILENCIADA } };
+  e.activeReviews.set('a1', ativa);
+  e.headlessQueue = [pr];
+  e.seen.add(pr.key);
+  e.runOneHeadless = () => { throw new Error('não pode iniciar'); };
+  e.processHeadless();
+  assert.equal(e.headlessQueue.length, 0);
+  assert.ok(e.queue.some(p => p.key === pr.key));
+  assert.equal(e.seen.has(pr.key), false);
+  assert.equal(e.activeReviews.get('a1'), ativa);
+  assert.equal(ativa.cancelled, undefined);
+});
 
 const SILENCIADA = 'wandersonbiuder';
 const ATIVA = 'Alexpraxedes';
