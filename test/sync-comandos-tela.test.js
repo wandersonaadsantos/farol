@@ -574,7 +574,9 @@ test('designar: o admin perde a autoridade antes de o destino ler, e o destino i
   assert.deepEqual(await cicloDoExecutor(), [['ignorado', 'autoridade']]);
   assert.equal(exec.sync.designacaoAdmin || null, null, 'nenhum pedido acende sem autoridade');
   telaDeAparelhos();
-  assert.equal(await Aparelhos.lerRecibosDaDesignacao(d, { forcar: true }), true);
+  // O render anterior pode ter lido o recibo sozinho. Verificar o desfecho
+  // visivel, nao qual das duas leituras chegou primeiro.
+  await Aparelhos.lerRecibosDaDesignacao(d, { forcar: true });
   assert.match(telaDeAparelhos(), /ignorou a designação/);
   assert.match(await lerReciboNaTela(), /o admin estava sem sinal fresco/);
 });
