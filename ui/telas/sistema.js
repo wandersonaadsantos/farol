@@ -20,6 +20,7 @@ import { renderAbout } from './sistema-sobre.js';
 import { renderInterventionSettings } from './intervention-settings.js';
 import { initSpecialists, renderSpecialistAccounts } from './specialists.js';
 import { initReviewAudits } from './review-audits.js';
+import { initCapacity } from './capacity.js';
 import { renderAutomationSettings } from './sistema-automacao.js';
 
 /* ---------- sistema: sub-navegação sidebar ---------- */
@@ -51,6 +52,7 @@ $('#sysNav').addEventListener('click', (e) => {
    e empilhava tudo na vertical. Com índice, o resultado é uma lista curta que aponta
    pra UMA linha. 'at' é o seletor do alvo, e todo alvo tem que existir no HTML. */
 const SYS_INDEX = [
+  { sec: 'plans', at: '#capacityManager', title: 'Reserva de cota e recursos', hint: 'cota, reserva, percentual, janela, memória, ram, cpu, processos, recursos' },
   { sec: 'reviewers', at: '#auditManager', title: 'Auditoria de reviews', hint: 'auditoria, amostra, qualidade, humano, falso positivo, omissão, custo' },
   { sec: 'overview', at: '#updateBox', title: 'Versão e atualização', hint: 'update, atualizar, versão, release' },
   { sec: 'overview', at: '#doctor', title: 'Saúde do ambiente', hint: 'doctor, gh, claude, git bash, diagnóstico' },
@@ -197,6 +199,7 @@ function renderSettings() {
 // depois do import de telas/time.js.
 initSpecialists();
 initReviewAudits();
+initCapacity();
 registrarTela({
   id: 'sistema',
   aoEntrar: () => { switchSistemaSection(); loadLog(); renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); carregarAparelhos(); renderGrupos(); loadReviewerCands(); },

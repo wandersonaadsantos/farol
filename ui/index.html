@@ -620,6 +620,24 @@
           <div class="section-head"><h2>Plano e chaves</h2></div>
           <p class="section-desc">As assinaturas que pagam as revisões, em ordem de prioridade, o modelo que cada provedor usa e os perfis salvos.</p>
           <div id="cadeiaPerfis"></div>
+          <section class="settings card" id="capacityManager" aria-labelledby="capacityHeading">
+            <h3 id="capacityHeading">Reserva de cota e recursos</h3>
+            <p>Uma política por perfil. A fonte precisa comprovar identidade, janela, atualização e reset. Atualmente a leitura verificável integrada é o /usage do Antigravity; demais provedores mostram cota indisponível.</p>
+            <button type="button" class="btn" id="capacityLoad">Carregar cotas e políticas</button>
+            <div class="field"><label for="capacityProfile">Perfil</label><select id="capacityProfile"></select></div>
+            <div class="field"><label for="capacityMode">Política de novos trabalhos</label><select id="capacityMode"><option value="off">Desligada</option><option value="observe">Observar e avisar</option><option value="enforce">Reservar: bloquear novas sessões no teto ou sem medição</option></select></div>
+            <div class="field"><label for="capacityMax">Uso máximo em qualquer janela do grupo (1–99%)</label><input type="number" id="capacityMax" min="1" max="99" step="1" value="70"></div>
+            <p><button type="button" class="btn" id="capacitySave">Salvar política deste perfil</button></p>
+            <p>Comece em observação. Reservar com cota indisponível aguarda fonte válida ou outra opção já habilitada da cadeia. Conta com perfil exclusivo não transborda. Orçamentos, grupos e políticas do aparelho continuam valendo.</p>
+            <p>Sessões iniciadas podem concluir e ultrapassar o percentual. Isso não garante uma reserva rígida de 30% nem separa o consumo de outros aplicativos que usam a mesma assinatura. Sessões interativas de terminal ficam fora desta admissão headless.</p>
+            <p id="capacityMessage" role="status" aria-live="polite"></p>
+            <div id="capacityQuotas"></div>
+            <details><summary>Últimas observações de admissão</summary><div id="capacityHistory"></div></details>
+            <h4>Recursos deste aparelho</h4>
+            <button type="button" class="btn" id="capacityMeasure">Medir recursos agora</button>
+            <p>Coleta sob demanda, cache de cinco segundos. CPU precisa de duas amostras e é normalizada pela capacidade total da máquina. RAM de processos é soma de RSS/working set, incluindo páginas compartilhadas; não equivale a RAM física exclusiva. O coletor também tem custo. Não ajusta concorrência ou encerra processos.</p>
+            <div id="capacityResources" class="table-scroll"></div>
+          </section>
           <div class="card set-list" id="sys-plans-modelo">
             <div class="set-row" id="sys-row-provedor">
               <div class="set-txt">

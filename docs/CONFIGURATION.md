@@ -20,6 +20,7 @@ invariantes continuam lá.
 
 - [Especialistas por repositório](#especialistas-por-repositório)
 - [Auditoria de reviews](#auditoria-de-reviews)
+- [Reserva de cota e recursos](#reserva-de-cota-e-recursos)
 
 <!-- indice:fim -->
 
@@ -603,3 +604,74 @@ acrescentar fontes e confirmar a curadoria separadamente. Contestação ou mudan
 avaliação invalida a lição derivada. Auditoria nunca ativa conhecimento automaticamente.
 Não há sincronização das auditorias, comparação humana preenchida por IA nem selo
 de “assertividade” nesta etapa. A voz permanece desligada por padrão.
+
+## Reserva de cota e recursos
+
+Em **Sistema > Plano e chaves > Reserva de cota e recursos**, carregue os perfis e
+escolha uma política: **desligada**, **observar e avisar** ou **reservar**. Nenhuma
+reserva vem habilitada por padrão. O percentual máximo, de 1 a 99, vale para cada
+janela do grupo de modelos usado pelo perfil, exatamente como o provedor a informou.
+Uma janela semanal não é apresentada como janela de cinco horas.
+
+A fonte integrada verificável é o `/usage` do Antigravity. Usa o leitor e o cache
+existentes, sem chamada ao modelo. Todos os buckets precisam estar válidos, com
+fração numérica, IDs únicos, janela e reset. A identidade tem que conferir com a
+conta configurada e o token precisa vir da pasta do perfil. A leitura vale por até
+um minuto; leitura vencida, futura, parcial, reset vencido ou identidade não comprovada
+é **cota desconhecida**, nunca zero usado. O painel mostra fonte e horário da coleta.
+Claude e Codex continuam sem uma medição verificável integrada nesta versão; tokens,
+custo em dólar e estimativa de reset não são convertidos em percentual de cota.
+
+**Observar** informa quando o percentual chega ao máximo, mas não barra sessões.
+**Reservar** impede novas sessões headless naquele perfil quando o teto é atingido
+ou a fonte é desconhecida. A cadeia pode usar somente outra opção já habilitada;
+não liga perfis novos, não troca associações da conta e não cria fallback para o
+login legado quando todos estão reservados. Conta com perfil próprio permanece
+presa a ele. Perfis reconhecidos da mesma assinatura compartilham a política mais
+restritiva: Codex usa o login único da máquina; pastas Claude usam a identidade
+canônica existente; perfis Antigravity com a mesma conta configurada compartilham
+a reserva do grupo. Quando houver política de reserva efetiva em algum alias,
+ela prevalece sobre observação nos demais. A tela mostra os perfis de origem da
+política efetiva, sem expor chave, caminho ou identidade de login completa.
+
+Orçamentos do perfil e do grupo, silêncio da conta, admissão, política do aparelho
+e limites de concorrência continuam sendo exigências independentes. A reserva não
+autoriza contornar orçamento. A revisão impedida volta à fila sem gastar tentativa
+nem publicar review; uma nova coleta pode liberar sua admissão. A checagem ocorre
+antes do provedor, inclusive nos caminhos de autoanálise, pushback, ferramentas e
+chat headless. Terminal interativo continua fora desta admissão headless.
+
+Sessão iniciada não é cancelada ao cruzar o percentual. O consumo continua no diário
+existente, e observações antes/depois são preservadas sob `state/quota-admissions/`
+em registros imutáveis com versão e integridade. O painel lista as trinta observações
+mais recentes; não apaga as anteriores. Fonte final ausente é desconhecida; registro
+sem fim é sessão em andamento ou interrompida, não prova de ausência de ultrapassagem.
+Corrupção fica explícita e os arquivos permanecem preservados.
+
+Não há garantia rígida de “30% preservados”: uma sessão longa ou outro aplicativo
+na mesma assinatura pode consumir essa margem. A medição final diz o que foi
+observado depois da sessão, não atribui todo o consumo da janela exclusivamente a
+ela. A reserva é local ao aparelho; não é uma transação de cota entre todos os
+clientes do provedor. Custos medidos, estimados e indisponíveis permanecem separados
+no Consumo. Desligar a política libera novas admissões, preservando histórico.
+
+**Medir recursos agora** coleta sob demanda, com cache de cinco segundos e uma
+consulta em andamento por engine. Separa máquina inteira, processo principal do
+Farol, subprocessos observados do app, CLIs rastreados e seus descendentes, com uma
+linha por sessão. A seleção usa PIDs, parentesco e nascimento; processo encerrado,
+inacessível ou PID reciclado não é atribuído à sessão como se estivesse medido.
+No Windows usa CIM; em macOS/Linux, `ps`. Não coleta linha de comando, nome de
+usuário, ambiente, caminho de executável ou credenciais para apresentar o diagnóstico.
+
+CPU precisa de duas amostras e é normalizada pela capacidade total da máquina.
+A primeira leitura e processos novos mostram CPU indisponível, sem inventar 0%.
+RAM dos processos é soma de RSS/working set, que pode contar páginas compartilhadas
+mais de uma vez; não equivale à RAM física exclusiva. A memória disponível ao processo
+reaproveita a métrica da admissão existente, incluindo limite de container quando
+disponível. A coleta tem custo e inclui processos acessíveis no snapshot, não uma
+prova de completude de processos inacessíveis. Falha de consulta fica indisponível.
+
+Alertas de RAM e CPU são observações no painel. Não mudam paralelismo, não encerram
+processos nem reinterpretam o piso de memória já existente. Ajuste automático exige
+medição posterior. Nenhuma política de cota ou medição de recursos liga a voz; seu
+padrão permanece desligado.
