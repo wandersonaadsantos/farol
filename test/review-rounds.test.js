@@ -130,6 +130,23 @@ test('ciclo em um ramo não fica escondido por outra rodada válida', () => {
   assert.match(store.historyIssues([a, b, independent]).join(' '), /ciclo/);
 });
 
+test('rodada posterior não torna válido um ciclo entre seus ancestrais', () => {
+  const a = round({ parents: ['b'.repeat(32)] });
+  const b = round({ id: 'b'.repeat(32), parents: [a.id] });
+  const child = round({ id: 'c'.repeat(32), parents: [a.id] });
+  assert.deepEqual(store.frontier([a, b, child]), [child]);
+  assert.match(store.historyIssues([a, b, child]).join(' '), /ciclo/);
+});
+
+test('ramos que compartilham ancestral não são confundidos com ciclo', () => {
+  const a = round();
+  const b = round({ id: 'b'.repeat(32), parents: [a.id] });
+  const c = round({ id: 'c'.repeat(32), parents: [a.id] });
+  const child = round({ id: 'd'.repeat(32), parents: [b.id, c.id] });
+  assert.deepEqual(store.historyIssues([a, b, c, child]), []);
+  assert.match(store.historyIssues([b, c, child]).join(' '), /indisponível/);
+});
+
 test('processos distintos preservam as duas escritas no mesmo PR', async () => {
   const shared = store.scopeFor('o/r#concurrent', 'eu');
   const moduleUrl = new URL('../lib/engine/review-round-store.js', import.meta.url).href;
