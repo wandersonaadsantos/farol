@@ -605,8 +605,12 @@ sessão já iniciada pode ultrapassá-la. Custo estimado entra no orçamento; in
 suspende novas amostras naquele dia. Desligar a amostragem impede novos inícios, mas
 não cancela a auditoria atual. Repetição manual de uma auditoria concluída exige marcar
 nova tentativa e gera novo consumo, preservando a anterior. Uma tentativa sem resultado
-fica interrompida; não equivale a zero problemas. Locks de execução não são quebrados
-automaticamente: antes de remover um lock restante de queda, confirme que o escritor
+fica interrompida; não equivale a zero problemas. A execução ativa é identificada pelo
+ID da auditoria: iniciar outra não faz um registro interrompido aparecer em andamento.
+O lock registra cada processo concorrente separadamente e recupera automaticamente
+somente donos cuja morte o sistema operacional confirmou, sem apagar a tentativa.
+Um processo vivo ou uma identidade ilegível mantém o bloqueio. Locks de formato
+antigo, sem identidade verificável, são preservados; confirme que o escritor
 e seus processos filhos terminaram. Dados corrompidos permanecem preservados e não
 são interpretados como histórico vazio.
 

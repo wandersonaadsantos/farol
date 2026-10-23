@@ -66,6 +66,7 @@ test('revisão real: os 132 arquivos paginados chegam aos lotes, à cobertura e 
   assert.equal(d.inventarioDiff.status, 'complete');
   assert.equal(d.inventarioDiff.headSha, HEAD);
   assert.equal(d.inventarioDiff.changedFiles, 132);
+  assert.deepEqual(d.inventarioDiff.files, FILES, 'a decisão preserva os arquivos medidos pelo engine');
   assert.equal(queries.filter(q => q.includes('--paginate')).length, 1);
   assert.equal(queries.some(q => q.includes('additions,deletions,changedFiles,files')), false);
   assert.equal(e.postados.length, 1);

@@ -5,13 +5,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { request as httpRequest } from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-audits-'));
 process.env.FAROL_HOME = home;
 const { Engine } = await import('../server.js');
 const io = (await import('../lib/io.js')).default, previousRun = io.run;
 const { auditFixture } = await import('./helpers/audit-fixture.js');
-const { command, view, tick } = await import('../lib/review-audit/commands.js');
+const { command, view, tick, candidates } = await import('../lib/review-audit/commands.js');
 const { running } = await import('../lib/review-audit/runner.js');
 const store = await import('../lib/review-audit/store.js');
 const { targetFor, snapshotFor } = await import('../lib/review-audit/source.js');
@@ -45,6 +46,48 @@ test('tick real escolhe maior risco, executa amostra paga uma vez e para na quan
   assert.equal(values.length, 1); assert.equal(values[0].job.target.decisionId, high.decision.id);
   assert.equal(values[0].job.mode, 'automatic'); assert.equal(values[0].result.status, 'completed');
   await tick(high.engine); assert.equal(store.jobs().length, 1);
+});
+
+test('decisão produzida pela revisão real preserva inventário e pode ser auditada', async () => {
+  const f = fixture(), e = f.engine, inventory = f.decision.inventarioDiff;
+  const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
+  const restore = isolateTechnicalTool(), runSession = e.runClaudeStream.bind(e);
+  e.decisions = { pending: [], resolved: [] };
+  e.fetchPrInventory = async () => inventory;
+  e.headSha = async () => f.remote.second; e.myReviewStates = async () => [];
+  e.bloqueadoPorChecks = async () => ({ faltando: [], verifiedHead: f.remote.second });
+  e.approvePolicyFor = () => 'wait'; e.rejectPolicyFor = () => 'wait';
+  e.postReview = () => assert.fail('revisão configurada para aguardar');
+  e.runClaudeStream = async () => ({ sessionId: 'review-fixture', text: JSON.stringify({
+    protocolo: { prReviewer: 'rodou' }, analysisStatus: 'complete', verdict: 'approve', decision: 'auto_approve',
+    cardMet: true, reasons: [], reportMarkdown: 'Contrato conferido.', findings: f.round.findings,
+    coverage: { total: 1, reviewed: ['src/a.ts'], missing: [] },
+    alcance: [{ alterado: 'src/a.ts', chamadores: [], semChamador: 'entrypoint sintético' }],
+    payloads: { approve: { event: 'APPROVE', body: 'Contrato conferido.' } },
+  }) });
+  try {
+    await e.runHeadlessReview({ ...f.decision.pr, key: f.decision.key, url: `https://github.com/${f.decision.pr.repo}/pull/1`, author: 'other', requested: true });
+  } finally { e.runClaudeStream = runSession; restore(); }
+  const decision = [...e.decisions.pending, ...e.decisions.resolved][0];
+  assert.ok(decision, 'o engine gravou uma decisão');
+  assert.deepEqual(decision.inventarioDiff.files, inventory.files);
+  assert.ok(candidates(e).some(c => c.id === decision.id));
+  f.decision = decision;
+  assert.equal((await audit(f)).status, 'completed');
+});
+
+test('só a auditoria ativa aparece em execução; a anterior continua interrompida', async () => {
+  const old = fixture(), id = digest(['old-running', old.decision.id]).slice(0, 32);
+  store.write(id, 'job', { schema: 1, id, at: Date.now(), mode: 'manual', target: targetFor(old.engine, old.decision.id, 'dev'), usageIds: [`f-${randomUUID()}`, `f-${randomUUID()}`] });
+  const f = fixture();
+  const result = await command(f.engine, { action: 'start', decisionId: f.decision.id, account: 'dev', confirmed: true });
+  assert.equal(result.ok, true);
+  try {
+    const current = view(f.engine).jobs;
+    assert.equal(current.find(v => v.job.id === id).status, 'interrupted');
+    assert.equal(current.find(v => v.job.id === result.id).status, 'running');
+  } finally { await running(f.engine); }
+  assert.equal(view(f.engine).jobs.find(v => v.job.id === id).status, 'interrupted');
 });
 
 test('auditoria usa dois processos novos, retrato histórico e consumo reais; não publica ou muda decisões', async () => {
@@ -175,6 +218,8 @@ test('rota HTTP real protege sessão, origem e método; relatório neutraliza HT
 test('interrupção preserva tentativa e exige repetição manual; corrupção nunca vira histórico vazio', async () => {
   const f = fixture(), id = digest(['interrupted', f.decision.id]).slice(0, 32);
   store.write(id, 'job', { schema: 1, id, at: Date.now(), mode: 'manual', target: targetFor(f.engine, f.decision.id, 'dev'), usageIds: [`f-${randomUUID()}`, `f-${randomUUID()}`] });
+  assert.equal(execFileSync(process.execPath, [path.join(import.meta.dirname, 'helpers', 'audit-lock-owner.js'), store.ROOT],
+    { encoding: 'utf8', timeout: 15000 }), 'locked', 'o processo encerra sem liberar seu lock');
   const args = { action: 'start', decisionId: f.decision.id, account: 'dev', confirmed: true };
   assert.equal((await command(f.engine, args)).repeated, true); assert.equal(running(f.engine), null);
   const retry = await command(f.engine, { ...args, retry: true }); assert.equal(retry.ok, true); await running(f.engine);

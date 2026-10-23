@@ -104,6 +104,26 @@ test('sessão iniciada termina apesar de ultrapassar o teto; diário e consumo s
   delete process.env.AGY_FALSO_ZERA_APOS;
 });
 
+test('fallback após /usage observa somente o perfil que realmente executou a sessão', async () => {
+  const f = fixture(), previous = process.env.FAROL_HEADLESS_CMD;
+  const { runProvedor } = await import('../lib/engine/session.js');
+  f.e.config.quotaReservations.backup = { mode: 'observe', maxUsedPercent: 70 };
+  process.env.AGY_FALSO_COTA = '0';
+  process.env.FAROL_HEADLESS_CMD = `"${process.execPath}" "${path.join(import.meta.dirname, '..', 'tools', 'smoke-fixtures', 'audit-provider.js')}"`;
+  try {
+    const result = await runProvedor(f.e, '{}', { id: 'f-switched', account: 'dev', operationKind: 'tool' });
+    assert.ok(result.text);
+    const records = history().items.filter(v => v.start.sessionId === 'f-switched');
+    assert.equal(records.length, 1);
+    assert.equal(records[0].start.profileId, 'backup');
+    assert.equal(records[0].end.outcome, 'finished');
+    assert.ok(f.e.usageSessions.sessions.some(s => s.id === 'f-switched' && s.profileId === 'backup'));
+  } finally {
+    process.env.AGY_FALSO_COTA = '0.8';
+    if (previous === undefined) delete process.env.FAROL_HEADLESS_CMD; else process.env.FAROL_HEADLESS_CMD = previous;
+  }
+});
+
 test('revisão bloqueada volta à fila sem gastar tentativa e sem publicar', async () => {
   const f = fixture(); f.e.config.accounts[0].claudeProfileId = f.id; f.e.config.quotaReservations[f.id].mode = 'enforce';
   process.env.AGY_FALSO_COTA = '0.2';
