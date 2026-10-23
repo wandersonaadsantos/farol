@@ -1149,6 +1149,9 @@ e a fila local recusa duplicatas. Isso não altera a deduplicação das revisõe
 Ao salvar um novo relatório, os anteriores ficam em `history` no mesmo registro
 persistido; uma falha antes de salvar conserva o relatório atual. Somente o resultado
 atual participa dos gates, com o head e a cobertura observados pela nova sessão.
+O histórico não entra no snapshot da tela. Merge adquire o mesmo lease das análises
+e o mantém até o GitHub responder; análise local pendente ou posse indisponível
+bloqueiam a operação, inclusive em modos auto/admin.
 
 **Persistir vencido EXIGIU um código de gate novo, e essa é a parte que não pode ser
 esquecida por quem mexer aqui.** `EVIDENCE_STALE` NÃO cobre o caso: ele compara

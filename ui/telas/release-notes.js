@@ -14,7 +14,7 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
-  ['2.76.7', ['Reanalisar no mesmo commit permite uma nova autoanálise, mantendo o bloqueio de sessões simultâneas entre aparelhos.', 'Relatórios anteriores ficam preservados no histórico persistido.']],
+  ['2.76.7', ['Reanalisar no mesmo commit permite uma nova autoanálise, mantendo o bloqueio de sessões simultâneas entre aparelhos.', 'Relatórios anteriores ficam preservados em disco, sem pesar nas atualizações da tela.', 'Reanálise e merge não se sobrepõem, inclusive entre aparelhos.']],
   ['2.76.6', ['Silenciar bloqueia novos trabalhos e permite que revisões em andamento concluam e publiquem pela conta original, inclusive após a espera do CI ou um reenvio no mesmo commit.']],
   ['2.76.5', ['Revisões com progresso seguem além de 30 minutos, até duas horas; sem progresso, param em 30 minutos. A regra vale para Claude Code, Codex e Antigravity.', 'Timeouts preservam a conversa do Codex e do Antigravity para continuar a revisão. O sinal entre executores acompanha o novo prazo.', 'Cota recuperada do Antigravity libera o bloqueio antigo com leitura recente e conta confirmada.']],
   ['2.76.4', ['A leitura da cota do Antigravity não abre consultas duplicadas quando resolve a ordem dos perfis, evitando recursão e esgotamento de processos.', 'Quando a hospedagem recusa temporariamente a criação do processo (EAGAIN), a revisão volta à fila e tenta de novo.']],

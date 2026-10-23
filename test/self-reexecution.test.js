@@ -9,7 +9,7 @@ process.env.FAROL_HOME = home;
 const io = (await import('../lib/io.js')).default;
 const originalRun = io.run;
 const { Engine } = await import('../server.js');
-const { saveSelfAnalyses, qualityOf } = await import('../lib/engine/selfpr.js');
+const { saveSelfAnalyses, qualityOf, projectSelfAnalyses } = await import('../lib/engine/selfpr.js');
 const { startFakeRtdb } = await import('./helpers/fake-rtdb.js');
 const { createRtdbClient } = await import('../lib/sync/rtdb.js');
 const { admit } = await import('../lib/sync/coordinator.js');
@@ -71,6 +71,9 @@ test('Reanalisar repete o mesmo head sob lease e preserva os relatórios no disc
     assert.deepEqual(atual.history[0], antigo);
     assert.equal(atual.history[1].reportMarkdown, '# novo');
     assert.equal(atual.history[1].history, undefined, 'histórico plano');
+    const snapshot = projectSelfAnalyses(e.selfAnalyses)[pr.key];
+    assert.equal(snapshot.history, undefined, 'relatórios antigos não viajam no estado da tela');
+    assert.equal(snapshot.reportMarkdown, atual.reportMarkdown);
     saveSelfAnalyses(e);
     const restaurado = new Engine().selfAnalyses[pr.key];
     assert.deepEqual(restaurado, atual, 'histórico e relatório sobrevivem ao reinício');
