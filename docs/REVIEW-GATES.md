@@ -53,6 +53,8 @@ invariantes continuam lá.
 - [Autoanálise: parecer do modelo x decisão do app (P0a v2.54.8, P0b v2.55.0)](#autoanálise-parecer-do-modelo-x-decisão-do-app-p0a-v2548-p0b-v2550)
 - [Checkpoint de verificação (memória entre passadas da revisão, v2.36.0)](#checkpoint-de-verificação-memória-entre-passadas-da-revisão-v2360)
 
+- [Inventário único do diff](#inventário-único-do-diff)
+
 <!-- indice:fim -->
 
 ## Invariante 4, em detalhe
@@ -1283,3 +1285,25 @@ Contrato: CT-RET da spec `docs/superpowers/specs/2026-09-15-operacao-multidispos
 - **Validar antes de reutilizar** (`validarRetomada`): mesmo PR, contexto local igual (`provedor` = kind do auth resolvido, `perfilId`), nenhuma decisão do mesmo head criada depois da referência, head salvo presente, head atual **confirmado pelo GitHub** e igual. O head salvo e o `knownHead` do G8 são evidência da tentativa anterior, nunca confirmação: sem head confirmado a revisão espera no `retryAfterNet` sem gastar tentativa e sem abrir sessão. Descarte segue em sessão nova sem o bloco "não releia" e sem confirmação humana. Inflight legado da v2.57.3 não tem contexto e por isso não retoma.
 - **Diagnóstico:** `resumeOutcome` em `'retomada' | 'recusada' | 'nova' | 'nenhuma'` no registro ativo, no `opts` do `runClaudeStream` e no `result` do `recordDecision`. O desfecho não vai pro `farol.log` (invariante 3); persistir em uso e decisão é da A1.
 - **Escopo:** só o `retomarSid`. O `resumeSid` do round incremental segue opt-in e sem mudança.
+
+
+## Inventário único do diff
+
+A revisão headless coleta uma lista paginada de arquivos, compartilhada entre os lotes,
+a cobertura declarada e a herança por blob. Antes e depois da paginação, confere o head,
+a base e a quantidade de arquivos do PR. A medição só é completa quando as duas leituras
+concordam, o head corresponde ao da sessão e a lista contém a quantidade esperada de
+caminhos distintos. Paginar não elimina o limite do endpoint: lista curta é incompleta.
+
+Inventário incompleto ou indisponível permite continuar a análise em passe único, sem
+herança de leitura e sem prometer cobertura integral. O diagnóstico fica no log e no
+registro interno da decisão. Nenhuma postagem automática sai nesse estado, inclusive
+reprovação, comentário em PR próprio ou caminhos alternativos por defeito e CI. Esgotar
+tentativas de buscar prova não transforma inventário desconhecido em verificado. A
+intervenção manual continua sujeita às autorizações e guardas de publicação existentes.
+
+O prompt recebe os caminhos também em passe único. A sessão declara somente a leitura
+que fez; a reconciliação da cobertura herdada continua no engine. A lista do modelo não
+substitui a medição. Caminhos exatos prevalecem, preservando caixa e espaços legítimos;
+atalhos só são reconciliados quando identificam um único caminho. A conferência de usos
+fora do diff continua obrigatória. Declaração de cobertura não prova compreensão do código.

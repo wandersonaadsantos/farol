@@ -26,6 +26,7 @@ function engine() {
   e.tokenFor = () => '';
   e.headSha = async () => HEAD;
   e.fetchPrFiles = async () => [];
+  e.fetchPrInventory = async () => ({ status: 'complete', files: await e.fetchPrFiles(), headSha: HEAD });
   e.bloqueadoPorChecks = async () => ({ bloqueado: false, faltando: [] });
   e.myReviewStates = async () => [];
   e.approvePolicyFor = () => 'approve';

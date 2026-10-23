@@ -694,11 +694,7 @@ class Engine extends EventEmitter {
   // por que o PR ficou com essa conta (busca, org ou reserva); ver lib/engine/contas-gh.js
   atribuicaoDoPr(pr) { return contasGh.atribuicaoDoPr(this, pr); }
 
-  accountForPr(pr) {
-    if (pr && pr.account) return pr.account;
-    const repo = (pr && (pr.repo || (pr.key || '').split('#')[0])) || '';
-    return this.accountForOwner(repo.split('/')[0]);
-  }
+  accountForPr(pr) { return contasGh.accountForPr(this, pr); }
 
   // Lista efetiva de reviewers de um repo: a EXCECAO do repo (projectReviewers) se
   // houver, senao o PADRAO da org (defaultReviewers). Vazio se nao houver nenhum.
@@ -796,6 +792,7 @@ class Engine extends EventEmitter {
   async headSha(pr) { return ghMod.headSha(this, pr); }
   async prCardSources(pr) { return ghMod.prCardSources(this, pr); }
   async fetchPrFiles(pr) { return fileProofMod.fetchPrFiles(this, pr); }
+  async fetchPrInventory(pr, headSha) { return fileProofMod.fetchPrInventory(this, pr, headSha); }
   deliveriesSince(days) { return ghMod.deliveriesSince(this, days); }
   async fetchDeliveries(days, owner) { return ghMod.fetchDeliveries(this, days, owner); }
   async refreshContributors() { return ghMod.refreshContributors(this); }

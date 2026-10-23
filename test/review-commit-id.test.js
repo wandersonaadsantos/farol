@@ -148,6 +148,7 @@ after(() => { fanout.prMetrics = prMetricsOriginal; });
 test('runHeadlessReview usa knownHead quando o fetch do headSha falha', async () => {
   const e = new Engine();
   const KNOWN = 'c'.repeat(40);
+  e.fetchPrInventory = async () => ({ status: 'complete', headSha: KNOWN, files: [], changedFiles: 0 });
   const shasConsultados = [];
   const postados = [];
   e.accountForPr = () => 'trabalho';
@@ -186,6 +187,7 @@ test('runHeadlessReview usa knownHead quando o fetch do headSha falha', async ()
 test('runHeadlessReview usa knownHead quando o headSha devolve vazio (o caminho real)', async () => {
   const e = new Engine();
   const KNOWN = 'c'.repeat(40);
+  e.fetchPrInventory = async () => ({ status: 'complete', headSha: KNOWN, files: [], changedFiles: 0 });
   const shasConsultados = [];
   const postados = [];
   e.accountForPr = () => 'trabalho';
