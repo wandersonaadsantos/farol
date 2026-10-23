@@ -6,6 +6,7 @@ import { app, BrowserWindow, Tray, Menu, Notification, shell, nativeImage } from
 import path from 'node:path';
 
 import farol from './server.js';
+import { interventionEvent, quietNow } from './ui/pure/interventions.js';
 import { consumirReaberturaSilenciosa } from './lib/engine/update.js';
 
 // fonte única do branch de plataforma (lib/paths.js), como no resto do app
@@ -22,6 +23,7 @@ let engine = null;
 let appUrl = null;
 let quitting = false;
 let hideHintShown = false;
+let balloonTarget = null;
 let attachedToExisting = false; // porta ocupada: esta janela é só um VISOR da instância que já roda
 // reabertura DEPOIS de um auto-update: sobe direto na bandeja, sem roubar o foco
 // de quem está trabalhando (pedido do Wanderson, 20/08/2026). O marcador é lido
@@ -188,25 +190,25 @@ function createTray() {
   ]);
   tray.setContextMenu(menu);
   tray.on('click', showWindow);
-  tray.on('balloon-click', showWindow);
+  tray.on('balloon-click', () => balloonTarget ? balloonTarget() : showWindow());
 }
 
-function notify(title, body, prUrl) {
+function notify(title, body, prUrl, onOpen, silent = false) {
   // janela em foco = você já está vendo o toast dentro do app; a notificação
   // do sistema em cima viraria ruído duplicado
   if (win && !win.isDestroyed() && win.isFocused()) return;
-  const goto = () => { showWindow(); if (prUrl && engine) engine.focusPr(prUrl); };
+  const goto = () => { showWindow(); if (onOpen) onOpen(); else if (prUrl && engine) engine.focusPr(prUrl); };
   try {
     if (Notification.isSupported()) {
       // PNG e nao .ico: o macOS nao decodifica ICO e a notificacao sairia sem icone
-      const n = new Notification({ title, body, icon: path.join(import.meta.dirname, 'assets', 'png', 'farol-256.png') });
+      const n = new Notification({ title, body, silent, icon: path.join(import.meta.dirname, 'assets', 'png', 'farol-256.png') });
       n.on('click', goto);
-      n.on('failed', () => balloon(title, body));
+      n.on('failed', () => balloon(title, body, goto, silent));
       n.show();
       return;
     }
   } catch { /* cai pro balao */ }
-  balloon(title, body);
+  balloon(title, body, goto, silent);
 }
 
 // Badge de pendencias: da pra saber se ha decisoes esperando sem abrir a janela.
@@ -249,8 +251,9 @@ function updateBadge(snapshot) {
   } catch { /* badge e cosmetico, nunca derruba o shell */ }
 }
 
-function balloon(title, content) {
-  try { tray && tray.displayBalloon({ title, content, icon: trayIcon() }); } catch { }
+function balloon(title, content, onOpen, silent) {
+  balloonTarget = onOpen || null;
+  try { tray && tray.displayBalloon({ title, content, noSound: !!silent, icon: trayIcon() }); } catch { }
 }
 
 function tituloDePrsNovos(n, auto) {
@@ -289,11 +292,10 @@ function wireEngine() {
   engine.on('tool-done', ({ name, label }) => {
     notify(`Farol · ${label}`, name === 'kudos' ? 'Kudos prontos pra copiar na aba Destaques.' : 'Relatório disponível na aba Sistema.');
   });
-  engine.on('needs-decision', ({ pr, item }) => {
-    const motivo = reasonText((item.reasons || [])[0]) || 'ver relatório';
-    const extra = (item.reasons || []).length > 1 ? ` (+${item.reasons.length - 1} motivo(s))` : '';
-    notify('Farol · precisa da sua atenção 🟡', `${pr.key}: ${motivo}${extra}`, pr.url);
-    if (win) win.flashFrame(true);
+  engine.on('intervention', raw => {
+    const event = interventionEvent(raw); if (!event) return;
+    notify(`Farol · ${event.title}`, event.body, null, () => engine.emit('focus-intervention', event.target), quietNow(engine.config));
+    if (win && !win.isDestroyed() && !win.isFocused()) win.flashFrame(true);
   });
   // PR meu em conflito ou já absorvido pela base (lib/engine/meus-prs-base.js), uma vez por head
   // o título não repete "Farol": o sistema já mostra o nome do app no cabeçalho. No aviso

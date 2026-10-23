@@ -25,7 +25,8 @@ import {
 import { gotoDeliv } from './telas/entregas.js';
 import { loadHighlights, loadTeam } from './telas/time.js';
 import { renderTools } from './telas/ferramentas.js';
-import { ping, notifyNewPRs, notifyNeedsDecision, avisoDaBase } from './telas/avisos.js';
+import { ping, notifyNewPRs, avisoDaBase } from './telas/avisos.js';
+import { interventionReceived, interventionsFromState } from './telas/interventions.js';
 import { initTweaks } from './telas/acoes.js';
 import { registrarTelaConsumo } from './telas/consumo.js';
 import { renderStatus, tickCountdown, renderActive, handleActivity } from './telas/sessoes.js';
@@ -250,6 +251,17 @@ document.addEventListener('keydown', (e) => {
 
 // Deep-link de alerta: rola até o card do PR e dá um pulso de destaque.
 // Ordem de busca = onde a ação mora (decisão > fila > meus PRs > panorama > recentes).
+function openIntervention(target) {
+  if (target?.type === 'pr') {
+    if (target.account && estado()?.accounts?.some(a => a.user.toLowerCase() === target.account.toLowerCase())) {
+      definirEscopo(target.account); renderAccountBar(); rerenderScope();
+    }
+    return focusPr(target.url);
+  }
+  if (target?.type !== 'system') return;
+  switchTab('sistema'); sysGoTo(target.section);
+}
+
 function focusPr(url, tentativa = 0) {
   if (!url) return;
   switchTab('radar');
@@ -353,7 +365,7 @@ function connect() {
   es.addEventListener('state', (e) => {
     marcarSinalDoEngine();
     const d = safeJsonParse(e.data); if (!d) return;
-    definirEstado(d);
+    definirEstado(d); interventionsFromState(d, openIntervention);
     repintarPorEstado();
   });
   // Estado por DIFERENÇA (lib/estado-delta.js): o engine manda só os campos de topo
@@ -367,7 +379,7 @@ function connect() {
     if (!atual || !Object.keys(atual).length) return;
     const novo = { ...atual, ...d.campos };
     for (const chave of d.removidos || []) delete novo[chave];
-    definirEstado(novo);
+    definirEstado(novo); interventionsFromState(novo, openIntervention);
     repintarPorEstado();
   });
   // o app.js só entrega o evento: quem calcula o que ele significa é quem é
@@ -422,13 +434,8 @@ function connect() {
   es.addEventListener('auto-approved', () => ping());
   es.addEventListener('auto-rejected', () => ping());
   es.addEventListener('auto-commented', () => ping());
-  es.addEventListener('needs-decision', (e) => {
-    ping();
-    const d = safeJsonParse(e.data); if (!d) return; const { pr, item } = d;
-    // a política de quando notificar (Electron, permissão) é de telas/avisos.js;
-    // focusPr é navegação, e essa fica no bootstrap
-    notifyNeedsDecision(pr, item, () => focusPr(pr.url));
-  });
+  es.addEventListener('intervention', e => interventionReceived(safeJsonParse(e.data), openIntervention));
+  es.addEventListener('focus-intervention', e => openIntervention(safeJsonParse(e.data)));
   es.addEventListener('focus-pr', (e) => {
     const d = safeJsonParse(e.data); if (!d) return; const { url } = d;
     focusPr(url);

@@ -1685,7 +1685,7 @@ body.sem-engine #statusPill { animation: pulse-soft 1.4s infinite; }
    do sistema: e ela que denuncia a tela que nao passou por desenho. Uma regra por
    lugar (a especificidade de cada um ja vence uma regra generica em `select`), e a
    cor da seta troca junto com o tema pelo token --seta-select. */
-.set-ctl select,
+.set-ctl select:not([multiple]),
 .acct-card .a-pol-item select,
 .field select,
 .papel-level, .dom-level,

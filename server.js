@@ -78,6 +78,7 @@ import syncMod from './lib/engine/sync.js';
 import consumoGrupoMod from './lib/engine/sync-consumo-grupo.js';
 import telasMod from './lib/engine/sync-telas.js';
 import diagnosticoMod from './lib/engine/diagnostico.js';
+import interventionMod from './lib/engine/interventions.js';
 import capacidadesMod from './lib/engine/capacidades.js';
 import { detectarModoCelular } from './lib/local-auth/modo.js';
 import syncUsageMod from './lib/engine/sync-usage.js';
@@ -1923,7 +1924,7 @@ class Engine extends EventEmitter {
       claudePerfis: { problemas: perfilMod.problemasDePerfil(this.config) },
       // capacidade implementada que NÃO está valendo: a tela não pode prometer o que o engine não aplica
       capacidades: this.estadoDasCapacidades(),
-      status: this.status,
+      status: this.status, interventions: interventionMod.forUi(this),
       error: this.lastError,
       account: { user: this.primaryUser(), tokenOk: this.tokenOk },
       // a projecao de cada conta pra tela mora em lib/engine/contas-gh.js, junto do resto
@@ -2201,7 +2202,7 @@ class Engine extends EventEmitter {
     return !!(profile && this.profileBudgetStatus(profile).blocked);
   }
 
-  pushState() { this.emit('state', this.snapshot()); }
+  pushState() { interventionMod.pushState(this); }
 
   // Deep-link de alerta: o shell (clique na notificação) pede pra UI levar
   // o usuário direto ao card do PR (a UI rola e destaca via SSE 'focus-pr').

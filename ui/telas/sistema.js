@@ -17,6 +17,7 @@ import { renderAparelhos, carregarAparelhos } from './sistema-aparelhos.js';
 import { renderGrupos } from './sistema-grupos.js';
 import { renderDoctor } from './sistema-ambiente.js';
 import { renderAbout } from './sistema-sobre.js';
+import { renderInterventionSettings } from './intervention-settings.js';
 import { renderAutomationSettings } from './sistema-automacao.js';
 
 /* ---------- sistema: sub-navegação sidebar ---------- */
@@ -73,6 +74,7 @@ const SYS_INDEX = [
   { sec: 'reviewers', at: '#reviewersEditor', title: 'Reviewers por projeto', hint: 'revisor, time, padrão da org, exceção, repo' },
   { sec: 'prefs', at: '#sys-row-identity', title: 'Identidade nos cards', hint: 'barra, etiqueta, ponto, marcador' },
   { sec: 'prefs', at: '#sys-row-mutedview', title: 'Contas silenciadas', hint: 'recolher, esmaecer, ocultar, exibição' },
+  { sec: 'prefs', at: '#sys-row-interventions', title: 'Avisos de intervenção e voz', hint: 'voz, som, lembrete, silêncio, acesso, pendência' },
   { sec: 'prefs', at: '#sys-row-sound', title: 'Som ao chegar PR novo', hint: 'som, aviso, notificação' },
   { sec: 'prefs', at: '#sys-row-teamhighlights', title: 'Destaques do time', hint: 'destaques, kudos, elogios, memória, time, equipe' },
   { sec: 'prefs', at: '#sys-row-deliveries', title: 'Entregas', hint: 'entregas, merges, prs mergeados, github, atividade' },
@@ -166,6 +168,7 @@ function renderSettings() {
   $('#setDebugSpawns').checked = !!c.debugSpawns;
   $('#setSkipPerms').checked = !!c.skipPermissions;
   $('#setSound').checked = !!c.soundEnabled;
+  renderInterventionSettings(c);
   $('#setTeamHighlights').checked = c.teamHighlights === true;
   $('#setDeliveriesEnabled').checked = c.deliveriesEnabled === true;
   $('#setAutostart').checked = !!c.autostart;

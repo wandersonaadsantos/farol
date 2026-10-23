@@ -811,6 +811,43 @@
               </span>
               <span class="set-ctl"><input id="setSound" type="checkbox"><span class="switch"></span></span>
             </label>
+            <div id="sys-row-interventions">
+              <label class="set-row">
+                <span class="set-txt"><span class="set-title">Voz nos avisos de intervenção</span><span class="set-desc">Usa uma voz local deste cliente. Fala apenas o tipo de atenção, sem nomes, repositórios ou conteúdo da revisão. Os avisos visuais continuam ativos.</span></span>
+                <span class="set-ctl"><input id="setVoiceEnabled" type="checkbox"><span class="switch"></span></span>
+              </label>
+              <div class="set-row">
+                <div class="set-txt"><label class="set-title" for="setVoiceEvents">Eventos com voz</label><p class="set-desc">Selecione um ou mais tipos. Use Ctrl ou Command para alterar a seleção.</p></div>
+                <div class="set-ctl"><select id="setVoiceEvents" multiple size="4">
+                  <option value="decision">Decisão pendente</option><option value="access">Acesso vencido ou ausente</option>
+                  <option value="failure">Falha sem recuperação</option><option value="operational">Bloqueio de configuração</option>
+                </select></div>
+              </div>
+              <div class="set-row">
+                <div class="set-txt"><label class="set-title" for="setVoiceVolume">Volume da voz</label><p class="set-desc">De 0 a 100, sujeito ao volume do sistema.</p></div>
+                <div class="set-ctl field"><input id="setVoiceVolume" type="number" min="0" max="100" step="1"></div>
+              </div>
+              <label class="set-row">
+                <span class="set-txt"><span class="set-title">Horário silencioso</span><span class="set-desc">Silencia a voz e os toques no horário local deste cliente. Início e fim iguais deixam o intervalo desativado.</span></span>
+                <span class="set-ctl"><input id="setVoiceQuietEnabled" type="checkbox"><span class="switch"></span></span>
+              </label>
+              <div class="set-row">
+                <div class="set-txt"><label class="set-title" for="setVoiceQuietStart">Início do silêncio</label></div>
+                <div class="set-ctl field"><input id="setVoiceQuietStart" type="time"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-txt"><label class="set-title" for="setVoiceQuietEnd">Fim do silêncio</label></div>
+                <div class="set-ctl field"><input id="setVoiceQuietEnd" type="time"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-txt"><label class="set-title" for="setInterventionReminder">Relembrar pendências a cada</label><p class="set-desc">Em minutos: 0 desliga; mínimo efetivo de 5. O lembrete ocorre na próxima atualização do estado. Avisos novos e mudanças relevantes continuam imediatos.</p></div>
+                <div class="set-ctl field"><input id="setInterventionReminder" type="number" min="0" max="1440" step="5"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-txt"><p id="interventionVoiceStatus" role="status">A voz depende da disponibilidade de um sintetizador local neste cliente.</p></div>
+                <div class="set-ctl"><button id="testInterventionVoice" type="button" class="btn sm">Testar voz</button></div>
+              </div>
+            </div>
             <label class="set-row" id="sys-row-teamhighlights">
               <span class="set-txt">
                 <span class="set-title">Destaques do time</span>

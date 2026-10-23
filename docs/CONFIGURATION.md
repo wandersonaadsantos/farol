@@ -16,6 +16,8 @@ invariantes continuam lá.
 - [Jira multi-tenant (v2.52.0)](#jira-multi-tenant-v2520)
 - [Padrões do time na revisão (v2.72.0)](#padrões-do-time-na-revisão-v2720)
 
+- [Avisos de intervenção e voz](#avisos-de-intervenção-e-voz)
+
 <!-- indice:fim -->
 
 ## Uma decisão, uma configuração (30/09/2026)
@@ -414,3 +416,52 @@ padrão e conserva o comportamento anterior das decisões, exibindo as comparaç
 ativa os novos gates somente após validar a amostra de reviews e atualizar os executores.
 O campo não liga compartilhamento nem troca as políticas de aprovação e reprovação da conta.
 Veja [Memória de achados entre rodadas](REVIEW-GATES.md#memória-de-achados-entre-rodadas).
+
+
+## Avisos de intervenção e voz
+
+Em **Sistema > Preferências**, o Farol oferece voz opcional para quatro tipos de
+atenção: decisão pendente, acesso ausente ou vencido, revisão estacionada por falha
+sem recuperação automática e sincronização bloqueada por credencial/configuração.
+Cancelamento voluntário, orçamento, CI, prova técnica e retry ainda ativo não são
+tratados como uma decisão aguardando a pessoa. Um head novo só fica sem alerta
+quando o estado de re-revisão comprova espera ou execução automática.
+
+Os avisos aproveitam o estado e os caminhos existentes: bandeja e Notification do
+Electron no desktop, eventos/SSE no servidor e toast com **Abrir pendência** no
+cliente. Clicar abre o PR e seleciona a conta da pendência; falha sem PR visível
+abre o Diagnóstico, acesso abre Contas e sincronização abre sua seção no Sistema.
+O servidor headless nunca tenta tocar áudio. No navegador, a notificação do sistema
+depende da permissão já concedida; o toast permanece disponível sem ela.
+
+A identidade do aviso é o tipo + conta/PR (ou configuração afetada), não o ID da
+sessão nem a data de cada polling. Mudança de head, motivo ou bloqueio gera aviso
+novo. Os recibos locais em `state/interventions.json` guardam apenas hashes e
+horários, sobrevivem ao reinício e são retirados quando a condição deixa de existir.
+Arquivo corrompido é preservado pelo mecanismo de leitura existente; falha de
+persistência deixa log e não interrompe revisões. Uma queda entre aviso e gravação
+não oferece garantia de entrega exatamente uma vez.
+
+`interventionReminderMinutes` começa em **0** (sem repetição). Entre 5 e 1440,
+relembra na primeira atualização de estado depois do intervalo; valores menores que
+5 não armam lembretes. Reconectar ou recarregar um cliente recupera os avisos ainda
+ativos pelo snapshot, sem disparar outra notificação nativa do engine. Clientes
+distintos podem avisar a mesma pendência; não existe eleição de um aparelho para
+concentrar áudio.
+
+`voiceEnabled` começa desligado. `voiceEvents` seleciona `decision`, `access`,
+`failure` e/ou `operational`; `voiceVolume` varia de 0 a 100, inicialmente 50.
+A fala é genérica: não inclui nomes, repositórios, credenciais nem conteúdo de
+reviews. Somente vozes marcadas como locais pelo sintetizador do cliente são usadas.
+Sem API/voz disponível ou com erro, o estado aparece junto de **Testar voz** e os
+avisos visuais continuam. Rajadas não criam uma fila de falas; uma síntese que não
+termina em 15 segundos é cancelada e sinalizada como falha.
+
+`voiceQuietEnabled`, `voiceQuietStart` e `voiceQuietEnd` definem o silêncio no fuso
+local do cliente (padrão 22:00–08:00, intervalo inicialmente desligado). Início e fim
+iguais desativam o intervalo. O silêncio impede voz e toques do app; a notificação
+visual de intervenção pede modo silencioso ao navegador/Electron, inclusive ao
+balão de reserva do Windows. O shell usa o relógio da máquina em que está rodando.
+As preferências ficam no engine ao qual o cliente se conecta; a disponibilidade e
+o volume final do áudio dependem do sistema de cada cliente. Desligar a voz não
+altera gates, pendências nem resultados de revisão.
