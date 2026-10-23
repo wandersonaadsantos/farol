@@ -3,7 +3,7 @@ import { captureWindow } from './electron-smoke-capture.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import io, { safeStringify } from '../lib/io.js';
+import io from '../lib/io.js';
 async function checkJourneys(main, waitFor, output) {
   const e = main.engine, web = main.win.webContents;
   const previousRun = io.run;
@@ -36,8 +36,7 @@ async function checkJourneys(main, waitFor, output) {
   assert.equal(await web.executeJavaScript(`document.querySelector('.sess-progress[data-id="${id}"]').hasAttribute('aria-valuenow')`), false);
   assert.match(await web.executeJavaScript(`document.querySelector('.session-agent-details').textContent`), /Leitor.*Conferindo contratos/);
   await web.executeJavaScript(`document.querySelector('#tabbtn-sistema').click();document.querySelector('#sysbtn-overview').click();if(!document.querySelector('#setupManager').open)document.querySelector('#setupManager summary').click();document.querySelector('[data-setup-step="plans"]').click()`);
-  const document = { type: 'farol-preferences', schema: 1, values: { theme: 'light' } };
-  await web.executeJavaScript(`(() => { const d=new DataTransfer();d.items.add(new File([${safeStringify(safeStringify(document))}], 'preferences.json', {type:'application/json'}));const f=window.document.querySelector('#preferencesFile');f.files=d.files;f.dispatchEvent(new Event('change'));window.document.querySelector('#preferencesInspect').click(); })()`);
+  await web.executeJavaScript(`(() => { const d=new DataTransfer();d.items.add(new File([JSON.stringify({type:'farol-preferences',schema:1,values:{theme:'light'}})], 'preferences.json', {type:'application/json'}));const f=window.document.querySelector('#preferencesFile');f.files=d.files;f.dispatchEvent(new Event('change'));window.document.querySelector('#preferencesInspect').click(); })()`);
   await waitFor(() => web.executeJavaScript(`!!document.querySelector('[data-preference-key="theme"]')`), 'prévia sem gravação');
   assert.equal(e.config.theme, 'dark');
   await web.executeJavaScript(`(() => { const c=document.querySelector('[data-preference-key="theme"]');c.click();document.querySelector('#preferencesApply').click(); })()`);

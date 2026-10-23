@@ -76,8 +76,7 @@ test('aliases conhecidos da assinatura compartilham reserva sem vazar identidade
   const f = fixture(); f.e.config.claudeProfiles.push({ ...f.profile, id: 'alias' });
   f.e.config.quotaReservations[f.id].mode = 'enforce';
   const policy = quota.policyFor(f.e, { id: 'alias', kind: 'agy', grupo: 'gemini' });
-  assert.equal(policy.mode, 'enforce'); assert.equal(policy.maxUsedPercent, 70);
-  assert.doesNotMatch(JSON.stringify(policy), /exemplo.com/);
+  assert.deepEqual(policy, { mode: 'enforce', maxUsedPercent: 70, profiles: [f.id] });
   f.e.config.claudeProfiles = [{ id: 'one', kind: 'codex' }, { id: 'two', kind: 'codex' }];
   f.e.config.quotaReservations = { one: { mode: 'enforce', maxUsedPercent: 70 } };
   assert.equal(quota.blockFor(f.e, { id: 'two', kind: 'codex' }).blocked, true);
@@ -122,6 +121,25 @@ test('política valida limites, tem CAS e não fica ativa só na memória se fal
   f.e.saveConfig = () => { throw Error('fixture disk'); };
   assert.equal((await command(f.e, { action: 'configure', profileId: f.id, expected: current.version, mode: 'enforce', maxUsedPercent: 70 })).ok, false);
   assert.equal(f.e.config.quotaReservations[f.id].mode, 'observe');
+});
+
+test('configurar ou desligar reserva muda só o perfil autorizado e recusa chaves especiais', async () => {
+  const f = fixture(); let saved = 0;
+  f.e.saveConfig = () => { saved++; };
+  f.e.config.quotaReservations.backup = { mode: 'observe', maxUsedPercent: 60 };
+  const configure = (profileId, mode) => command(f.e, { action: 'configure', profileId,
+    expected: view(f.e).version, mode, maxUsedPercent: 75 });
+  assert.equal((await configure(f.id, 'enforce')).ok, true);
+  assert.deepEqual(f.e.config.quotaReservations[f.id], { mode: 'enforce', maxUsedPercent: 75 });
+  assert.equal((await configure(f.id, 'off')).ok, true);
+  assert.deepEqual(f.e.config.quotaReservations, { backup: { mode: 'observe', maxUsedPercent: 60 } });
+  for (const id of ['__proto__', 'constructor', 'prototype', 'ausente']) {
+    assert.equal((await configure(id, 'enforce')).ok, false);
+    assert.equal((await configure(id, 'off')).ok, false);
+  }
+  assert.equal(saved, 2);
+  assert.equal(Object.getPrototypeOf(f.e.config.quotaReservations), Object.prototype);
+  assert.deepEqual(f.e.config.quotaReservations, { backup: { mode: 'observe', maxUsedPercent: 60 } });
 });
 
 test('avisos só se repetem com transição material, não a cada leitura', () => {

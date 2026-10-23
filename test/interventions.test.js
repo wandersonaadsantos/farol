@@ -47,8 +47,16 @@ test('recibos sobrevivem a reinício; resolução permite um incidente posterior
   assert.equal(observe(restarted, snapshot, { file, now: 3 }).length, 0);
   observe(restarted, { ...snapshot, decisions: { pending: [] } }, { file, now: 4 });
   assert.equal(observe(restarted, snapshot, { file, now: 5 }).length, 1);
-  const data = fs.readFileSync(file, 'utf8');
-  assert.ok(!data.includes('github.com')); assert.ok(!data.includes('Confirmar regra'));
+  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  assert.deepEqual(Object.keys(data).sort(), ['receipts', 'schema']);
+  assert.equal(data.schema, 1);
+  assert.equal(Object.keys(data.receipts).length, 1);
+  for (const [id, receipt] of Object.entries(data.receipts)) {
+    assert.match(id, /^[a-f0-9]{64}$/);
+    assert.deepEqual(Object.keys(receipt).sort(), ['fingerprint', 'notifiedAt']);
+    assert.match(receipt.fingerprint, /^[a-f0-9]{64}$/);
+    assert.equal(receipt.notifiedAt, 5);
+  }
 });
 
 test('lembrete é opt-in, respeita intervalo e não cresce a cada polling', () => {
@@ -87,7 +95,11 @@ test('eventos operacionais são explícitos; áudio e conteúdo não nascem do s
   assert.deepEqual(events.map(e => e.kind).sort(), ['access', 'access', 'failure', 'operational']);
   const publicEvents = events.map(({ fingerprint, ...e }) => e);
   assert.ok(!JSON.stringify(publicEvents).includes('SECRET'));
-  assert.ok(publicEvents.every(e => !e.speech.includes('github.com')));
+  assert.deepEqual([...new Set(publicEvents.map(e => e.speech))].sort(), [
+    'Farol. Um acesso precisa ser renovado ou configurado no Farol.',
+    'Farol. Uma configuração impede a automação de continuar. Confira o Sistema no Farol.',
+    'Farol. Uma revisão parou sem recuperação automática. Confira a pendência no Farol.',
+  ].sort());
   assert.ok(publicEvents.every(interventionEvent));
 });
 
