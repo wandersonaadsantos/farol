@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.76.8
+
+Reanalisar um PR no mesmo commit funciona após corrigir o ambiente.
+
+**Correções**
+- O clique em Reanalisar permite uma nova autoanálise mesmo quando existe recibo anterior, mantendo a coordenação entre aparelhos e o bloqueio de sessões simultâneas.
+- Relatórios anteriores são preservados no histórico persistido ao concluir uma nova análise, sem serem reenviados a cada atualização da tela. Falhas da nova tentativa conservam o relatório atual.
+- Merge e reanálise disputam a mesma posse entre aparelhos. Uma análise em execução impede o merge baseado no relatório anterior, e uma operação de merge impede iniciar análise concorrente.
+
 ## v2.76.7
 
 O orçamento do perfil deixa claro que vazio e 0 são coisas opostas.

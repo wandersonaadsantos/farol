@@ -14,6 +14,7 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.76.8', ['Reanalisar no mesmo commit permite uma nova autoanálise, mantendo o bloqueio de sessões simultâneas entre aparelhos.', 'Relatórios anteriores ficam preservados em disco, sem pesar nas atualizações da tela.', 'Reanálise e merge não se sobrepõem, inclusive entre aparelhos.']],
   ['2.76.7', ['O orçamento do perfil diz a diferença entre vazio e 0: campo vazio é sem teto, e 0 pausa a revisão automática do perfil (o clique manual continua valendo). Com teto 0 valendo hoje, a linha do gasto diz que a revisão automática está pausada e de onde vem o 0.', 'O botão Revisar funciona com o orçamento do perfil estourado; antes, o PR estacionado por orçamento estacionava de novo a cada clique.']],
   ['2.76.6', ['Silenciar bloqueia novos trabalhos e permite que revisões em andamento concluam e publiquem pela conta original, inclusive após a espera do CI ou um reenvio no mesmo commit.']],
   ['2.76.5', ['Revisões com progresso seguem além de 30 minutos, até duas horas; sem progresso, param em 30 minutos. A regra vale para Claude Code, Codex e Antigravity.', 'Timeouts preservam a conversa do Codex e do Antigravity para continuar a revisão. O sinal entre executores acompanha o novo prazo.', 'Cota recuperada do Antigravity libera o bloqueio antigo com leitura recente e conta confirmada.']],
