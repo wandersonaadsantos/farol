@@ -15,7 +15,10 @@ O orçamento do perfil deixa claro que vazio e 0 são coisas opostas.
 
 **Melhorias**
 - Os campos de teto dizem "vazio = sem teto", e uma linha abaixo explica que 0 pausa a revisão automática do perfil (o clique manual continua valendo).
-- Com teto 0 valendo hoje, a linha do gasto diz "teto 0: revisão automática pausada" em vez de só mostrar US$ 0.00.
+- Com teto 0 valendo hoje, a linha do gasto diz "teto 0: revisão automática pausada" em vez de só mostrar US$ 0.00, e diz de onde vem o 0 quando ele é do dia da semana ou de uma data.
+
+**Correções**
+- O botão Revisar funciona com o orçamento do perfil estourado. Antes, o PR estacionado por orçamento estacionava de novo a cada clique enquanto o teto seguisse estourado.
 
 ## v2.76.6
 

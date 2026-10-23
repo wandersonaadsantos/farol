@@ -25,6 +25,13 @@ test('com teto 0 valendo hoje, a linha do gasto diz que está pausado', () => {
   assert.match(html, /teto 0: revisão automática pausada/);
 });
 
+test('teto 0 vindo do dia da semana ou da data diz de onde vem', () => {
+  const semana = budgetEditorHtml({ ...perfil, budgetDaily: 50 }, { today: 3, capHoje: 0, capOrigem: 'semana' });
+  assert.match(semana, /teto 0 deste dia da semana: revisão automática pausada/);
+  const data = budgetEditorHtml({ ...perfil, budgetDaily: 50 }, { today: 3, capHoje: 0, capOrigem: 'data' });
+  assert.match(data, /teto 0 só hoje: revisão automática pausada/);
+});
+
 test('sem teto, a linha do gasto segue dizendo sem teto', () => {
   const html = budgetEditorHtml(perfil, { today: 3, capHoje: null });
   assert.match(html, /\(sem teto\)/);

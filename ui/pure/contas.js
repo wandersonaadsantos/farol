@@ -137,9 +137,13 @@ function linhaGastoHoje(info) {
   if (!info) return '';
   const gasto = fmtMoney(info.today || 0);
   if (!Number.isFinite(info.capHoje)) return `Hoje: ${gasto} (sem teto)`;
-  // 0 é teto de verdade: o número sozinho ("de US$ 0.00") não dizia que a automação parou
-  if (info.capHoje === 0) return `Hoje: ${gasto} · teto 0: revisão automática pausada`;
   const origem = CAP_ORIGEM_LABEL[info.capOrigem] || '';
+  // 0 é teto de verdade: o número sozinho ("de US$ 0.00") não dizia que a automação parou.
+  // A origem fica junto, senão um 0 do dia da semana ou da data não diz onde mudar.
+  if (info.capHoje === 0) {
+    const de = info.capOrigem === 'base' || !origem ? '' : ` ${origem}`;
+    return `Hoje: ${gasto} · teto 0${de}: revisão automática pausada`;
+  }
   const marca = info.capOrigem === 'base' ? '' : ` · teto ${origem}`;
   return `Hoje: ${gasto} de ${fmtMoney(info.capHoje)}${marca}`;
 }
