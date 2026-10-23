@@ -138,6 +138,12 @@ function linhaGastoHoje(info) {
   const gasto = fmtMoney(info.today || 0);
   if (!Number.isFinite(info.capHoje)) return `Hoje: ${gasto} (sem teto)`;
   const origem = CAP_ORIGEM_LABEL[info.capOrigem] || '';
+  // 0 é teto de verdade: o número sozinho ("de US$ 0.00") não dizia que a automação parou.
+  // A origem fica junto, senão um 0 do dia da semana ou da data não diz onde mudar.
+  if (info.capHoje === 0) {
+    const de = info.capOrigem === 'base' || !origem ? '' : ` ${origem}`;
+    return `Hoje: ${gasto} · teto 0${de}: revisão automática pausada`;
+  }
   const marca = info.capOrigem === 'base' ? '' : ` · teto ${origem}`;
   return `Hoje: ${gasto} de ${fmtMoney(info.capHoje)}${marca}`;
 }
@@ -176,13 +182,14 @@ export function budgetEditorHtml(p, info) {
   return `<div class="cp-budget">
     <div class="cp-budget-head"><strong>Orçamento</strong><span class="a-hint">${esc(linhaGastoHoje(info))}</span></div>
     <div class="a-editrow">
-      <input class="cp-budget-daily" type="number" min="0" step="0.01" data-id="${id}" value="${valorTeto(p.budgetDaily)}" placeholder="Teto por dia (US$, opcional)">
+      <input class="cp-budget-daily" type="number" min="0" step="0.01" data-id="${id}" value="${valorTeto(p.budgetDaily)}" placeholder="Teto por dia (US$, vazio = sem teto)">
       ${botaoSugestao(p, info)}
     </div>
     <div class="a-editrow">
-      <input class="cp-budget-total" type="number" min="0" step="0.01" data-id="${id}" value="${valorTeto(p.budgetTotal)}" placeholder="Teto total (US$, opcional)">
+      <input class="cp-budget-total" type="number" min="0" step="0.01" data-id="${id}" value="${valorTeto(p.budgetTotal)}" placeholder="Teto total (US$, vazio = sem teto)">
       <input class="cp-budget-since" type="date" data-id="${id}" value="${esc(p.budgetSince || '')}" title="Contar o teto total a partir desta data">
     </div>
+    <p class="a-hint">Campo vazio: sem teto. 0 pausa a revisão automática deste perfil (o clique manual continua valendo).</p>
     <details class="cp-budget-mais">
       <summary>Ajustar por dia</summary>
       <div class="a-editrow cp-atalhos">
@@ -191,7 +198,7 @@ export function budgetEditorHtml(p, info) {
         <button class="btn sm ghost cp-budget-limpa-dow" data-id="${id}" title="Remove os tetos por dia da semana (volta todos ao padrão)">limpar</button>
       </div>
       <div class="cp-dows">${DIAS_DO_TETO.map(d => campoDia(p, d)).join('')}</div>
-      <p class="a-hint">Dia em branco usa o teto por dia lá de cima.</p>
+      <p class="a-hint">Dia em branco usa o teto por dia lá de cima; 0 pausa naquele dia.</p>
       <div class="a-editrow">
         <input class="cp-budget-date-new" type="date" data-id="${id}" title="Data com teto próprio">
         <input class="cp-budget-date-val" type="number" min="0" step="0.01" data-id="${id}" placeholder="Teto só nesse dia (US$)">
