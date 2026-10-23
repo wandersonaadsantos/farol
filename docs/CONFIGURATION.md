@@ -124,6 +124,13 @@ Como o Farol espalha `process.env` pros filhos, por padrão ele herda o login da
    **meio-dia local** (`new Date(day + 'T12:00:00')`): com meia-noite, a virada de
    horário de verão jogaria a data pro dia anterior em parte do ano.
 
+   **A tela diz a diferença entre vazio e 0** (23/10/2026). Os campos dizem "vazio = sem
+   teto", uma linha logo abaixo explica que 0 pausa a revisão automática do perfil (o
+   clique manual continua valendo), e com teto 0 valendo hoje a linha do gasto diz
+   "teto 0: revisão automática pausada" em vez de só "de US$ 0.00". Nasceu de um 0
+   digitado para tirar o limite, que parou as revisões de uma conta inteira com "o
+   orçamento estourou". Travado em `test/teto-vazio-x-zero-na-tela.test.js`.
+
    O campo de teto vem **preenchido com uma sugestão** (`sugestaoTetoDiario`, PURA): a
    mediana do gasto dos DIAS ÚTEIS dos últimos 30 dias. Dia útil e não todo dia porque o
    fim de semana tem poucos dias medidos e distorce (em 20/08/2026: 8 dias úteis com
