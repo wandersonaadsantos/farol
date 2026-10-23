@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import childProcess from 'node:child_process';
 import { syncBuiltinESMExports } from 'node:module';
 import { app, Notification, session } from 'electron';
+import { checkSpecialists } from './electron-smoke-specialists.js';
 import { checkInterventions } from './electron-smoke-interventions.js';
 import { localRequest, validateWindowEvidence, validateLoginItem, createIsolatedLoginSetter, loopbackOrigin } from './electron-smoke-lib.js';
 import { readJson, writeJsonAtomic } from '../lib/io.js';
@@ -314,6 +315,7 @@ async function runSmoke() {
     checkAutostart();
     await checkNotification();
     report.checks.interventions = await checkInterventions(main, waitFor, config.output);
+    report.checks.specialists = await checkSpecialists(main, waitFor, config.output);
     assert.deepEqual(report.isolation.externalProcesses, []);
     assert.deepEqual(report.errors, []);
     report.status = 'passed';

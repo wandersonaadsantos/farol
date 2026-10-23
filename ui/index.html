@@ -772,6 +772,27 @@
               <small>Por repo, escolha as pessoas e times da lista (sem digitar handle na mão). É o que o botão "Reviewers" (em Meus PRs) aplica num clique.</small>
             </div>
           </div>
+          <section class="settings card" id="specialistManager" aria-labelledby="specialistHeading">
+            <h3 id="specialistHeading">Especialistas por repositório</h3>
+            <p class="section-desc">Contexto curado usado pelo revisor existente. Fontes alteradas ficam fora do prompt. Lições propostas precisam da sua confirmação; nenhum conteúdo muda os gates.</p>
+            <div class="field"><label for="specialistAccount">Conta</label><select id="specialistAccount"></select></div>
+            <div class="field"><label for="specialistRepo">Repositório (organização/nome)</label><input id="specialistRepo" type="text" placeholder="organização/projeto" autocomplete="off"></div>
+            <div class="field"><label for="specialistBranch">Branch de destino do PR</label><input id="specialistBranch" type="text" placeholder="main ou staging" autocomplete="off"></div>
+            <p><button type="button" class="btn" id="specialistLoad">Carregar e conferir fontes</button> <button type="button" class="btn" id="specialistNew">Nova conclusão</button></p>
+            <p id="specialistCurrent">Escolha conta, repositório e branch.</p>
+            <p id="specialistMessage" role="status" aria-live="polite"></p>
+            <div id="specialistEntries" class="specialist-evidence"></div>
+            <details><summary>Lições propostas pelos pushbacks confirmados</summary><p>Propostas do repositório, incluindo registros legados sem conta de origem. Confira a procedência antes de curar para a conta escolhida.</p><div id="specialistProposals"></div></details>
+            <h4>Conclusão e evidências</h4>
+            <p id="specialistOrigin">Origem: curadoria manual.</p>
+            <div class="field"><label for="specialistKind">Tipo</label><select id="specialistKind"><option value="architecture">Arquitetura</option><option value="contract">Contrato</option><option value="convention">Convenção</option><option value="critical">Ponto crítico</option><option value="lesson">Lição</option></select></div>
+            <div class="field"><label for="specialistTitle">Título</label><input id="specialistTitle" type="text" maxlength="140"></div>
+            <div class="field"><label for="specialistText">Conclusão a conferir no código atual</label><textarea id="specialistText" rows="3" maxlength="2000"></textarea></div>
+            <div class="field"><label for="specialistSources">Evidências (uma por linha: caminho:início-fim)</label><textarea id="specialistSources" rows="3" placeholder="CLAUDE.md:1-10"></textarea><small>De 1 a 8 evidências, até 20 linhas por trecho. Não inclua credenciais ou dados pessoais.</small></div>
+            <p><button type="button" class="btn" id="specialistBuild">Pré-visualizar fontes</button> <button type="button" class="btn primary" id="specialistConfirm" disabled>Confirmar curadoria</button></p>
+            <div id="specialistPreview" class="specialist-evidence"></div>
+            <details><summary>Histórico e reversão</summary><div class="field"><label for="specialistVersions">Versão anterior</label><select id="specialistVersions"></select></div><p>Restaurar preserva o histórico e recupera conclusões desativadas. Reconstrua cada uma para conferir suas fontes antes de reativar.</p><button type="button" class="btn" id="specialistRestore">Restaurar como inativo</button></details>
+          </section>
         </div>
 
         <!-- Preferências -->

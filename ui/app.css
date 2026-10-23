@@ -2506,3 +2506,6 @@ body.parear > *:not(.par-raiz) { display: none !important; }
 .cad-liga input:checked + .switch::after { left: 18px; background: var(--accent-ink); }
 .cad-liga input:focus-visible + .switch { outline: 2px solid var(--accent); outline-offset: 2px; }
 #sys-plans-modelo { margin-bottom: var(--sp-3); }
+
+/* Trechos curados: usam os tokens existentes e não alargam a página. */
+.specialist-evidence pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; padding: var(--sp-3); background: var(--surface-2); border: 1px solid var(--border); border-radius: .5rem; }

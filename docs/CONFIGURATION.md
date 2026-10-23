@@ -18,6 +18,8 @@ invariantes continuam lá.
 
 - [Avisos de intervenção e voz](#avisos-de-intervenção-e-voz)
 
+- [Especialistas por repositório](#especialistas-por-repositório)
+
 <!-- indice:fim -->
 
 ## Uma decisão, uma configuração (30/09/2026)
@@ -465,3 +467,69 @@ balão de reserva do Windows. O shell usa o relógio da máquina em que está ro
 As preferências ficam no engine ao qual o cliente se conecta; a disponibilidade e
 o volume final do áudio dependem do sistema de cada cliente. Desligar a voz não
 altera gates, pendências nem resultados de revisão.
+
+
+## Especialistas por repositório
+
+Em **Sistema > Reviewers > Especialistas por repositório**, configure contexto para
+uma conta, um repositório e uma branch de destino de PR. O especialista é um
+contexto versionado entregue ao revisor existente; não abre outro agente nem cria
+sessão paga. Continua aproveitando os padrões da conta, as instruções do projeto e
+a memória de pushback que já existiam.
+
+Cada conclusão tem um tipo (arquitetura, contrato, convenção, ponto crítico ou lição),
+título, texto e de uma a oito evidências no formato `caminho:início-fim`. A prévia
+consulta o GitHub pela conta escolhida e fixa commit, blob, linhas e trecho. Confira
+a conclusão e as fontes antes de clicar em **Confirmar curadoria**. A prévia expira
+em dez minutos; mudança de branch, versão ou origem da lição exige nova prévia.
+Não existe geração automática de conclusões arquiteturais nem aceitação por
+confiança declarada de um modelo nesta versão.
+
+O revisor só recebe conclusões ativas cujos arquivos declarados continuam com os
+mesmos blobs no head efetivamente analisado. A branch de destino vem do PR e é
+conferida contra o inventário de head/base. Branch, conta ou repositório diferentes
+não herdam o contexto. Mudança ou remoção de fonte marca a conclusão como vencida;
+falha de consulta, árvore parcial ou incompatibilidade deixa o estado não
+verificável. Em ambos os casos a conclusão fica fora do prompt, sem impedir a
+revisão completa pelos mecanismos existentes. Não há consulta adicional de fontes
+para um repositório sem especialista local.
+
+**Fontes conferidas** significa somente que o conteúdo declarado foi encontrado
+com o mesmo blob. Não comprova que uma conclusão continua semanticamente correta:
+um consumidor ou uma configuração fora dessas fontes pode mudar o comportamento.
+Cabe à curadoria incluir dependências relevantes nas evidências; o revisor continua
+obrigado a verificar interações e o código atual. Conteúdo de fontes e lições é dado
+não confiável, sem autoridade para alterar ferramentas, autorização, cobertura,
+gates ou formato público da revisão. O registro interno da decisão guarda a versão
+e o head usados, sem aceitar esses metadados do envelope do modelo.
+
+Pushbacks confirmados que deram razão ao autor, integralmente ou em parte, aparecem
+apenas como propostas de lição. Registros legados podem não identificar a conta de
+origem; a tela informa isso e exige conferir a procedência para o escopo escolhido.
+É necessário acrescentar evidências e confirmar a curadoria. Alterar, retirar ou
+reabrir a origem de uma lição curada a torna vencida. O fluxo anterior de pushbacks
+permanece independente, como contexto de tom e postura; sua confirmação não ativa
+uma conclusão no especialista automaticamente.
+
+**Reconstruir / revisar** abre a conclusão e suas referências para nova leitura das
+fontes e nova confirmação. **Desativar** retira a conclusão do contexto, inclusive
+offline. **Restaurar como inativo** cria uma versão nova com o conteúdo de uma
+anterior, sem apagar o histórico nem reativar conclusões sem conferência. Cada
+conclusão restaurada precisa de reconstrução e curadoria para voltar ao prompt.
+
+As versões são locais, sob `state/specialists/`, isoladas por hashes do escopo, com
+IDs únicos, escrita imutável e controle de concorrência por versão esperada e lock
+exclusivo. Um conflito exige recarregar; histórico corrompido ou com lacunas é
+preservado e fica indisponível, em vez de parecer vazio. Não há limpeza automática,
+sincronização entre aparelhos ou importação de especialistas nesta etapa. Um
+executor sem esse contexto local revisa sem ele; não deve fingir que o recebeu.
+Lock restante após queda não é quebrado automaticamente: antes de removê-lo, é
+preciso confirmar que não existe escritor ativo naquele escopo.
+
+Os limites são explícitos: 50 conclusões por escopo, 20 arquivos distintos, até 20
+linhas e 4.000 caracteres por trecho, 2.000 caracteres por conclusão e 64 KiB de
+contexto ativo. Excesso é recusado, nunca truncado. Arquivos de fonte acima de 1 MiB,
+conteúdo binário, symlinks, submódulos e árvores incompletas não são aceitos como
+prova. Caminhos de credenciais e padrões conhecidos de segredo, e-mail ou diretório
+pessoal são recusados. Essa proteção é conservadora e não substitui conferir o que
+se pretende guardar; não cole dados pessoais nem credenciais na curadoria.

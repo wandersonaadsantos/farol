@@ -18,6 +18,7 @@ import { renderGrupos } from './sistema-grupos.js';
 import { renderDoctor } from './sistema-ambiente.js';
 import { renderAbout } from './sistema-sobre.js';
 import { renderInterventionSettings } from './intervention-settings.js';
+import { initSpecialists, renderSpecialistAccounts } from './specialists.js';
 import { renderAutomationSettings } from './sistema-automacao.js';
 
 /* ---------- sistema: sub-navegação sidebar ---------- */
@@ -75,6 +76,7 @@ const SYS_INDEX = [
   { sec: 'prefs', at: '#sys-row-identity', title: 'Identidade nos cards', hint: 'barra, etiqueta, ponto, marcador' },
   { sec: 'prefs', at: '#sys-row-mutedview', title: 'Contas silenciadas', hint: 'recolher, esmaecer, ocultar, exibição' },
   { sec: 'prefs', at: '#sys-row-interventions', title: 'Avisos de intervenção e voz', hint: 'voz, som, lembrete, silêncio, acesso, pendência' },
+  { sec: 'reviewers', at: '#specialistManager', title: 'Especialistas por repositório', hint: 'contexto, arquitetura, contratos, fontes, lições, curadoria' },
   { sec: 'prefs', at: '#sys-row-sound', title: 'Som ao chegar PR novo', hint: 'som, aviso, notificação' },
   { sec: 'prefs', at: '#sys-row-teamhighlights', title: 'Destaques do time', hint: 'destaques, kudos, elogios, memória, time, equipe' },
   { sec: 'prefs', at: '#sys-row-deliveries', title: 'Entregas', hint: 'entregas, merges, prs mergeados, github, atividade' },
@@ -168,7 +170,7 @@ function renderSettings() {
   $('#setDebugSpawns').checked = !!c.debugSpawns;
   $('#setSkipPerms').checked = !!c.skipPermissions;
   $('#setSound').checked = !!c.soundEnabled;
-  renderInterventionSettings(c);
+  renderInterventionSettings(c); renderSpecialistAccounts();
   $('#setTeamHighlights').checked = c.teamHighlights === true;
   $('#setDeliveriesEnabled').checked = c.deliveriesEnabled === true;
   $('#setAutostart').checked = !!c.autostart;
@@ -191,6 +193,7 @@ function renderSettings() {
 // ele poderia passar à frente de 'sistema' dependendo da ordem dos imports. 'sistema'
 // não tem essa restrição: só precisa que o IMPORT deste módulo, no app.js, venha
 // depois do import de telas/time.js.
+initSpecialists();
 registrarTela({
   id: 'sistema',
   aoEntrar: () => { switchSistemaSection(); loadLog(); renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); carregarAparelhos(); renderGrupos(); loadReviewerCands(); },
