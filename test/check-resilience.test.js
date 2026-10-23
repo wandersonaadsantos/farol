@@ -444,6 +444,24 @@ test('runOneHeadless re-checa o orçamento antes de abrir a sessão (G16)', asyn
   assert.equal(toasts.filter(t => t.kind === 'info').length, 1, 'um único toast informativo');
 });
 
+// Invariante 4: clique manual nunca é barrado pelos gates automáticos. O limite do plano
+// logo acima já respeitava `pr.manual`, e o orçamento não: com teto 0 (ou estourado) o
+// botão Revisar estacionava o PR de novo, contra o que o guia e a tela prometem.
+test('runOneHeadless: clique manual atravessa o orçamento estourado e abre a sessão', async () => {
+  const e = checkEngine();
+  e.tokens = { me: 'tok-me' };
+  e.prState = async () => 'OPEN';
+  e.budgetBlockedFor = () => ({ id: 'p1', label: 'P1' });
+  let abriu = false;
+  e.runHeadlessReview = async () => { abriu = true; throw new Error('sessão de teste'); };
+  e.headlessBusyAccounts.set('me', 1);
+
+  await e.runOneHeadless({ ...PR, manual: true }, 'me');
+
+  assert.equal(abriu, true, 'o clique abre a sessão mesmo com o orçamento estourado');
+  assert.notEqual(((e.parkedMotivos || {})[PR.key] || {}).tipo, 'orcamento', 'o clique não estaciona por orçamento');
+});
+
 // M3 (revisão final da onda 3): o estouro no meio de um LOTE estaciona PR por PR, e
 // cada um emitia o próprio toast. Lote de 8 PRs = 8 toasts empilhados dizendo a mesma
 // coisa sobre o mesmo perfil, no mesmo segundo. O aviso único é o padrão que o gate de
