@@ -12,6 +12,7 @@ const originalRun = io.run;
 const { Engine } = await import('../server.js');
 const { createRtdbClient } = await import('../lib/sync/rtdb.js');
 const { admit } = await import('../lib/sync/coordinator.js');
+const { executarMerge } = await import('../lib/engine/self-merge.js');
 const head = 'a'.repeat(40);
 const pr = { key: 'acme/app#42', repo: 'acme/app', number: 42,
   url: 'https://github.com/acme/app/pull/42', author: 'eu', account: 'eu' };
@@ -82,4 +83,22 @@ test('coordenação indisponível ou análise local pendente não libera merge',
   e.activeReviews.set('s1', { mode: 'self', keys: [pr.key] });
   assert.equal((await e.mergeSelfPR(pr.url)).ok, false);
   assert.equal(calls, 0);
+});
+
+test('bloqueio por ruleset registra chave própria sem alterar o protótipo do mapa', async () => {
+  const e = motor(null, 'local');
+  e.adminBlockedRepos = { 'existing/repo': true };
+  const prototype = Object.getPrototypeOf(e.adminBlockedRepos);
+  io.run = async (cmd, args) => {
+    if (args[1] === 'view') return { ok: true, stdout: JSON.stringify({ state: 'OPEN', author: { login: 'eu' }, headRefOid: head }) };
+    if (args[1] === 'merge') return { ok: false, stderr: 'repository rule violations' };
+    return { ok: true, stdout: '', stderr: '' };
+  };
+  const r = await executarMerge(e, { url: pr.url, key: pr.key, repo: '__proto__',
+    acc: 'eu', me: 'eu', env: {}, analysis: { headSha: head }, mode: 'admin' }, null);
+  assert.equal(r.blocked, 'rule');
+  assert.equal(Object.hasOwn(e.adminBlockedRepos, '__proto__'), true);
+  assert.equal(e.adminBlockedRepos.__proto__, true);
+  assert.equal(e.adminBlockedRepos['existing/repo'], true);
+  assert.equal(Object.getPrototypeOf(e.adminBlockedRepos), prototype);
 });
