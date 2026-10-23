@@ -19,6 +19,7 @@ invariantes continuam lá.
 - [Avisos de intervenção e voz](#avisos-de-intervenção-e-voz)
 
 - [Especialistas por repositório](#especialistas-por-repositório)
+- [Auditoria de reviews](#auditoria-de-reviews)
 
 <!-- indice:fim -->
 
@@ -533,3 +534,72 @@ conteúdo binário, symlinks, submódulos e árvores incompletas não são aceit
 prova. Caminhos de credenciais e padrões conhecidos de segredo, e-mail ou diretório
 pessoal são recusados. Essa proteção é conservadora e não substitui conferir o que
 se pretende guardar; não cole dados pessoais nem credenciais na curadoria.
+
+## Auditoria de reviews
+
+Em **Sistema > Reviewers > Auditoria de reviews**, carregue as revisões elegíveis e
+escolha uma para auditar. O botão informa o consumo de duas sessões de IA. A primeira
+recebe somente o retrato histórico do código; a segunda recebe essa leitura e o
+parecer original para comparar. São conversas novas, sem retomada da sessão revisora,
+sem contexto do especialista e em modo somente leitura do executor existente.
+Não há capability de postagem, outro review público, mudança de decisão ou gate.
+O provedor continua sendo o autorizado para a conta; a primeira versão admite os
+caminhos Claude e Codex com contrato de leitura. Isso reduz ancoragem, mas modelos
+da mesma família podem compartilhar erros; não é validação humana independente.
+
+São elegíveis registros locais de análise completa, com inventário e rodada
+compatíveis pertencentes à conta escolhida. Legados sem essas provas ficam fora.
+A comparação usa base e head originais por SHA e confere os arquivos e blobs contra
+o inventário registrado. Um push posterior não transforma a auditoria antiga em
+auditoria do head atual. As duas versões dos arquivos do diff, a leitura independente,
+o relatório e suas impressões ficam preservados em `state/review-audits/`.
+Nenhum contexto de outro repositório é importado. Conteúdo de fontes é dado sem
+autoridade; caminhos sensíveis e padrões conhecidos de segredo/PII são recusados.
+
+Os limites desta versão são 100 arquivos e 256 KiB somando fontes das duas versões,
+além dos limites de texto da curadoria. Fontes binárias, symlinks, submódulos, árvore
+parcial, comparação incompatível ou excedente deixam a auditoria **inconclusiva**,
+sem truncamento. Dependências fora do diff são limitações declaradas pelo auditor;
+uma auditoria sobre esse retrato não comprova ausência de defeitos no sistema.
+
+O relatório separa achados confirmados pelo auditor, possíveis falsos positivos,
+possíveis omissões e inconclusivos. Cada achado original e cada observação da leitura
+independente precisa de resposta; citações são conferidas contra o retrato por caminho,
+lado e linhas. A classificação é uma opinião do auditor com evidência, não verdade
+automática. Para cada item, a pessoa pode concordar, discordar ou registrar que não
+consegue concluir, com justificativa. Avaliações são versionadas; conflito exige
+recarregar e o histórico não é apagado. Compare os mesmos PRs com uma amostra de
+referência avaliada por pessoas antes de afirmar ganho de qualidade.
+
+Concordância mostra somente os itens efetivamente julgados por uma pessoa, excluindo
+inconclusivos do denominador. Possíveis omissões ou falsos positivos viram erros
+confirmados somente após concordância humana. Custo por erro permanece indisponível
+sem erro confirmado ou quando faltar custo de alguma auditoria. Valores estimados são
+identificados, separados de medidos e indisponíveis. As sessões entram no Consumo como
+Ferramentas, com referência de auditoria, reaproveitando o diário de tentativas.
+
+A amostragem automática começa **desligada**. Habilitá-la exige escolher contas,
+máximo diário (até dez), orçamento diário e reserva estimada por auditoria de duas
+sessões. O tick usa uma ordem de risco explícita: aprovações, volume, pendências de
+rodada e nomes de caminhos sensíveis. É uma heurística de seleção, não uma nota de
+precisão. Um mesmo retrato não é reamostrado automaticamente. Revisões na fila e
+sessões ativas têm prioridade. Contas silenciadas ou sem token e perfis sem orçamento
+não iniciam auditoria. Falhas não têm retentativa automática.
+
+Quantidade e orçamento são **locais deste aparelho**, não uma cota compartilhada da
+frota. A reserva controla admissão: não é um limite rígido imposto ao provedor, e uma
+sessão já iniciada pode ultrapassá-la. Custo estimado entra no orçamento; indisponível
+suspende novas amostras naquele dia. Desligar a amostragem impede novos inícios, mas
+não cancela a auditoria atual. Repetição manual de uma auditoria concluída exige marcar
+nova tentativa e gera novo consumo, preservando a anterior. Uma tentativa sem resultado
+fica interrompida; não equivale a zero problemas. Locks de execução não são quebrados
+automaticamente: antes de remover um lock restante de queda, confirme que o escritor
+e seus processos filhos terminaram. Dados corrompidos permanecem preservados e não
+são interpretados como histórico vazio.
+
+Depois da avaliação humana favorável, possíveis omissões e falsos positivos oferecem
+**propostas** na curadoria dos especialistas da mesma conta e repositório. É preciso
+acrescentar fontes e confirmar a curadoria separadamente. Contestação ou mudança da
+avaliação invalida a lição derivada. Auditoria nunca ativa conhecimento automaticamente.
+Não há sincronização das auditorias, comparação humana preenchida por IA nem selo
+de “assertividade” nesta etapa. A voz permanece desligada por padrão.

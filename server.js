@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { EventEmitter } from 'node:events';
+import { tick as tickReviewAudits } from './lib/review-audit/commands.js';
 
 // Camada base: versão, plataforma e caminhos (compartilhada com os módulos de lib/).
 import {
@@ -914,6 +915,7 @@ class Engine extends EventEmitter {
       // pushback automático: contestação do autor a um review meu (fire-and-forget:
       // roda em background pra não segurar a checagem, com guarda anti-concorrência)
       this.scanPushbacks().catch(e => this.log('WARN', `scanPushbacks: ${e.message}`));
+      tickReviewAudits(this).catch(() => this.log('WARN', 'Amostragem de auditorias indisponível; registros preservados.'));
       // atualizacao (releases do GitHub pras copias distribuidas) a cada ciclo; depois de
       // detectar, tenta aplicar sozinho quando ocioso (v2.46.0, maybeAutoUpdate). Fire-and-
       // forget dos dois: nao segura o ciclo, e falha vira WARN, nunca derruba o polling.
