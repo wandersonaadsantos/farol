@@ -55,6 +55,8 @@ invariantes continuam lá.
 
 - [Inventário único do diff](#inventário-único-do-diff)
 
+- [Memória de achados entre rodadas](#memória-de-achados-entre-rodadas)
+
 <!-- indice:fim -->
 
 ## Invariante 4, em detalhe
@@ -1307,3 +1309,42 @@ que fez; a reconciliação da cobertura herdada continua no engine. A lista do m
 substitui a medição. Caminhos exatos prevalecem, preservando caixa e espaços legítimos;
 atalhos só são reconciliados quando identificam um único caminho. A conferência de usos
 fora do diff continua obrigatória. Declaração de cobertura não prova compreensão do código.
+
+
+## Memória de achados entre rodadas
+
+Cada análise concluída conserva achados estruturados e o inventário do head e da base,
+num diário local isolado por conta e PR. IDs são únicos; a numeração da tela é só um
+rótulo. Rodadas concorrentes formam ramos e a análise seguinte recebe todas as pontas,
+inclusive blockers que outra rodada deixou sem resposta. Escritas são imutáveis e
+idempotentes. Corrupção ou formato incompatível fica preservado e explícito, nunca vira
+histórico vazio. Ausência no Panorama não apaga a memória; nesta etapa não há poda automática.
+
+A análise e o desfecho de publicação têm registros separados. Uma análise registrada não
+prova postagem. Resultado incompleto não cria rodada concluída. Envelope sem findings é
+legado; lista vazia é uma declaração explícita. Severidade inválida, referências desconhecidas
+ou repetidas e resoluções sem evidência são inconclusivas. Blockers não desaparecem por
+limites de quantidade ou por downgrade: retirada precisa de referência e justificativa.
+
+O compartilhamento, quando já habilitado, usa o transporte cifrado e write-once do histórico,
+com domínio e esquema próprios, sem registrar essas rodadas no índice público de revisões.
+O marco de compartilhamento existente é respeitado: memória anterior não é exportada automaticamente.
+Registros grandes são fragmentados; o manifesto só é confirmado depois de todos os fragmentos.
+Arquivo, fragmento ou ancestral ausente impede afirmar completude. A transferência confirma
+o envio da memória antes de encerrar a origem. Outro executor sem suporte é informado como
+incompatível; com a comparação ativa, transferência para ele é recusada. A frota deve ser
+atualizada antes de ativar a política em todos os aparelhos: versões antigas não executam
+os novos gates. Não há migração da sessão do CLI.
+
+`reviewRoundsMode` começa em `observe`: coleta, compara e mostra os diagnósticos, mantendo
+as políticas anteriores. Em `enforce`, memória inconclusiva, blocker sem resposta, referência
+inválida e suspeitas de achado tardio ou resolução em arquivo inalterado impedem postagem
+automática. A política vigente é conferida também na fronteira de postagem, cobrindo reenvio
+e espera de CI. Registros antigos exigem nova análise nesse modo. A decisão manual explícita
+continua sujeita às outras autorizações e aos gates existentes.
+
+Blob igual é somente um indício: mudança de base torna a comparação de contexto desconhecida;
+renomeação, mudança de consumidor ou correção em outro arquivo exigem reavaliação. A interface
+mostra contagens e estado da memória, sem entregar findings brutos ou texto interno ao review
+público. O prompt recebe todas as pendências; se o modelo não conseguir concluir a leitura,
+deve devolver análise incompleta.

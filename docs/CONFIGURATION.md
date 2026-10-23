@@ -407,3 +407,10 @@ Cada conta, em **Sistema > Contas**, tem o campo **padrões do time na revisão*
 - **Onde fica:** no campo `padroesRevisao` da conta, no `config.json`. Não fica no workspace porque o protocolo do workspace é regravado a cada boot.
 - **Como entra:** delimitado e rotulado como dado, no mesmo molde do card do Jira. Não muda o protocolo, os critérios para aprovar sozinho nem a política da conta. Segredo colado por engano sai mascarado; o prompt leva até 6.000 caracteres (o resto é cortado com aviso) e a conta guarda até 20.000.
 - **Regras do repositório:** além dos padrões da conta, a revisão lê o que o repositório revisado declara (`CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING`, ADRs) e cita qual regra embasou cada cobrança. Se uma regra do repositório conflita com um padrão do time, vale a do repositório para aquele PR.
+
+
+A memória de rodadas é configurada por `reviewRoundsMode` no config local: `observe` é o
+padrão e conserva o comportamento anterior das decisões, exibindo as comparações. `enforce`
+ativa os novos gates somente após validar a amostra de reviews e atualizar os executores.
+O campo não liga compartilhamento nem troca as políticas de aprovação e reprovação da conta.
+Veja [Memória de achados entre rodadas](REVIEW-GATES.md#memória-de-achados-entre-rodadas).

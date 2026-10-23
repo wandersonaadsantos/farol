@@ -405,6 +405,12 @@ function resumoDoPushback(pending, pb) {
   return '↩ pushback?';
 }
 
+function roundsLine(rounds) {
+  if (!rounds) return '';
+  const mode = rounds.mode === 'enforce' ? 'comparação ativa' : 'comparação em observação';
+  return `<span class="rr-round">Rodada ${Number(rounds.ordinal) || 1}: ${mode}, ${Number(rounds.droppedCount) || 0} apontamento(s) sem resposta, ${Number(rounds.lateCount) || 0} novo(s) em arquivo inalterado${rounds.unverified ? ', memória não verificada' : ''}</span>`;
+}
+
 export function resolvedRow(r, ctx) {
   ctx = ctx || {};
   const [icon, label] = RESOLVED_LABELS[r.status] || ['•', r.status];
@@ -433,7 +439,7 @@ export function resolvedRow(r, ctx) {
     ? `Verificação de afirmações: ${vc.confirmedCount} confirmadas de ${vc.total}`
       + (vcConflicts ? ` · ⚠ ${vcConflicts} divergência(s) entre passadas` : '')
     : '';
-  const stLine = stagesLine(r.stages);
+  const stLine = stagesLine(r.stages) + roundsLine(r.rounds);
   // O que a pessoa abriu sobrevive ao redesenho, na mesma convenção de Entregas
   // (openKeys em ui/pure/entregas.js): a tela guarda as chaves num Set, um listener de
   // `toggle` o mantém em dia, e o HTML sai com `open`. Sem isso, com uma revisão em
