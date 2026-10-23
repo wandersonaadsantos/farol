@@ -1,3 +1,4 @@
+import { captureWindow } from './electron-smoke-capture.js';
 // DOM, API, curadoria e armazenamento reais; só GitHub/IA são sintéticos.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -47,7 +48,7 @@ async function checkReviewAudits(main, waitFor, output) {
     })`);
     const visible = await main.win.webContents.executeJavaScript(`document.querySelector('#auditManager').getBoundingClientRect().top < innerHeight`);
     assert.equal(visible, true, 'formulário da auditoria visível na captura');
-    const image = await main.win.webContents.capturePage(); fs.writeFileSync(path.join(output, 'review-audits.png'), image.toPNG());
+    const image = await captureWindow(main.win, 'audits'); fs.writeFileSync(path.join(output, 'review-audits.png'), image.toPNG());
     return { status: 'passed', boundaries: 'GitHub and AI synthetic; real DOM, HTTP, store and usage ledger',
       twoFreshSessions: true, blindFirst: true, humanAssessment: true, lessonProposalOnly: true, costUsd: 0.24, automaticDefault: false };
   } finally { io.run = previousRun; e.runClaudeStream = previousStream; }

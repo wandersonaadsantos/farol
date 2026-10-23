@@ -26,8 +26,9 @@ function selectProfile() {
 async function load() { const result = await request('view'); if (result) render(result); }
 async function mutate(action, extra) {
   if (busy) return; busy = true;
+  $('#capacitySave').disabled = true;
   try { const result = await request(action, extra); if (result) render(result); }
-  finally { busy = false; }
+  finally { busy = false; $('#capacitySave').disabled = false; }
 }
 function initCapacity() {
   $('#capacityLoad').onclick = load;

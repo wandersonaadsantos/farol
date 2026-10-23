@@ -149,8 +149,17 @@ test('recursos reais incluem um filho Node da sessão e a coleta não muda conco
   const startedAt = Date.now(), child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { windowsHide: true, stdio: 'ignore' });
   await once(child, 'spawn'); f.e.running.set('child', { child }); f.e.activeReviews.set('child', { startedAt });
   try {
-    const [one, two] = await Promise.all([resources(f.e), resources(f.e)]);
-    assert.equal(one, two); assert.ok(one.farol.count >= 1); assert.ok(one.clis.count >= 1, 'CLI filho deve estar no snapshot real');
+    let one;
+    // A mesma atualização manual que o painel oferece: não transforma indisponível em prova.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const pair = await Promise.all([resources(f.e), resources(f.e)]);
+      [one] = pair; assert.equal(one, pair[1]);
+      if (one.farol.status !== 'unavailable') break;
+      assert.equal(one.farol.count, null); assert.equal(one.clis.cpuPercent, null);
+      assert.ok(one.alerts.some(a => a.includes('indisponíveis')));
+      if (attempt < 2) await delay(5100);
+    }
+    assert.ok(one.farol.count >= 1); assert.ok(one.clis.count >= 1, 'CLI filho deve estar no snapshot real');
     assert.equal(one.clis.cpuPercent, null); assert.equal(one.cliSessions[0].id, 'child');
     assert.deepEqual([f.e.config.parallelReviews, f.e.config.globalParallelReviews], limits);
     assert.doesNotMatch(JSON.stringify(one), /CommandLine|synthetic-fixture|antigravity-oauth-token/);

@@ -282,7 +282,7 @@ $('#myPRs').addEventListener('click', (e) => {
       cancel: { path: '/api/self-review/cancel', body: { key: prKey } },
       container: run.closest('.mypr-card') || run.parentElement
     });
-    updateOp(opId, { step: 'Iniciando…', progress: 5 });
+    updateOp(opId, { step: 'Iniciando…', progress: null });
     api('/api/self-review', { url: run.dataset.url }).then(r => {
       if (!r?.ok) {
         closeOp(opId, 'error', r?.error || 'falha ao iniciar');
@@ -291,7 +291,7 @@ $('#myPRs').addEventListener('click', (e) => {
       } else {
         // daqui em diante quem move a barra é o feed real da sessão (evento
         // 'activity'); prometer "Lendo arquivos… 25%" aqui era chute
-        updateOp(opId, { step: 'Preparando a sessão…', progress: 8 });
+        updateOp(opId, { step: 'Preparando a sessão…', progress: null });
       }
     });
     return;
@@ -478,7 +478,7 @@ function updateAnalysisProgress(id, item) {
     const sess = (estado()?.activeSessions || []).find(x => x.id === id) || {};
     updateOp(op.id, {
       step: (item && item.text) || op.step,
-      progress: Math.max(op.progress || 0, Math.floor(progressoDaSessao({ ...sess, ultimoSinalEm: item && item.t }).pct))
+      progress: progressoDaSessao({ ...sess, ultimoSinalEm: item && item.t }).pct
     });
   }
 }

@@ -1,3 +1,4 @@
+import { captureWindow } from './electron-smoke-capture.js';
 // Jornada da política real; cota e tabela de processos sintéticas, sem comandos externos.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -27,6 +28,7 @@ async function checkCapacity(main, waitFor, output) {
     assert.deepEqual(e.config.quotaReservations, {}); assert.equal(e.config.voiceEnabled, false);
     await main.win.webContents.executeJavaScript(`(() => { document.querySelector('#capacityProfile').value='quota-fixture'; document.querySelector('#capacityProfile').dispatchEvent(new Event('change')); document.querySelector('#capacityMode').value='observe'; document.querySelector('#capacitySave').click(); })()`);
     await waitFor(() => e.config.quotaReservations['quota-fixture']?.mode === 'observe', 'salvar modo de observação');
+    await waitFor(() => main.win.webContents.executeJavaScript(`!document.querySelector('#capacitySave').disabled && document.querySelector('#capacityMode').value==='observe'`), 'confirmação da observação na tela');
     assert.equal(e.resolveClaudeAuth('dev').id, 'quota-fixture');
     await main.win.webContents.executeJavaScript(`(() => { document.querySelector('#capacityMode').value='enforce'; document.querySelector('#capacitySave').click(); })()`);
     await waitFor(() => e.config.quotaReservations['quota-fixture']?.mode === 'enforce', 'salvar reserva efetiva');
@@ -35,7 +37,7 @@ async function checkCapacity(main, waitFor, output) {
     await main.win.webContents.executeJavaScript(`document.querySelector('#capacityMeasure').click()`);
     await waitFor(() => main.win.webContents.executeJavaScript(`document.querySelector('#capacityResources').textContent.includes('Farol e subprocessos')`), 'diagnóstico de recursos separado por escopo');
     await main.win.webContents.executeJavaScript(`new Promise(resolve => { document.querySelector('#capacityManager').scrollIntoView({block:'start',behavior:'instant'}); requestAnimationFrame(() => requestAnimationFrame(resolve)); })`);
-    const image = await main.win.webContents.capturePage(); fs.writeFileSync(path.join(output, 'capacity.png'), image.toPNG());
+    const image = await captureWindow(main.win, 'capacity'); fs.writeFileSync(path.join(output, 'capacity.png'), image.toPNG());
     return { status: 'passed', boundaries: 'synthetic quota and process table; real DOM, HTTP, policy and chain',
       defaultOff: true, observationPreservesProfile: true, authorizedFallback: true, exclusiveProfilePreserved: true, resourcesSeparated: true, voiceDefault: false };
   } finally { io.run = previousRun; }

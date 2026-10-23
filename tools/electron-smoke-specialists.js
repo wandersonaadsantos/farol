@@ -1,3 +1,4 @@
+import { captureWindow } from './electron-smoke-capture.js';
 // Jornada real de curadoria via DOM, API e persistência. Só o GitHub é sintético.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -49,7 +50,7 @@ async function checkSpecialists(main, waitFor, output) {
     await waitFor(() => main.win.webContents.executeJavaScript(`document.querySelector('#specialistCurrent').textContent.includes('Versão 3') && document.querySelector('#specialistEntries').textContent.includes('Desativado')`), 'lição incorreta desativada');
     await main.win.webContents.executeJavaScript(`(() => { const s=document.querySelector('#specialistVersions'); s.value=s.options[0].value; document.querySelector('#specialistRestore').click(); })()`);
     await waitFor(() => main.win.webContents.executeJavaScript(`document.querySelector('#specialistCurrent').textContent.includes('Versão 4') && document.querySelector('#specialistEntries').textContent.includes('Desativado')`), 'versão anterior restaurada sem reativação automática');
-    const image = await main.win.webContents.capturePage(); fs.writeFileSync(path.join(output, 'specialists.png'), image.toPNG());
+    const image = await captureWindow(main.win, 'specialists'); fs.writeFileSync(path.join(output, 'specialists.png'), image.toPNG());
     return { status: 'passed', github: 'synthetic boundary with real Git blob hashes',
       previewCurate: true, staleDetected: true, rebuilt: true, deactivated: true, restoredInactive: true };
   } finally { io.run = previousRun; }

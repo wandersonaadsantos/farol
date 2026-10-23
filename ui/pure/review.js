@@ -1,3 +1,4 @@
+import { roundSummaryHtml } from './round-summary.js';
 // Decisão, revisão e pushback: a caixa de revisão, os motivos agrupados por eixo, o card
 // de commit novo, o selo e o contador de chat do card, o controle de pushback e a linha
 // inteira de Revisões recentes. Extraído do ui/pure.js na Fase 1a da reorganização; o
@@ -405,12 +406,6 @@ function resumoDoPushback(pending, pb) {
   return '↩ pushback?';
 }
 
-function roundsLine(rounds) {
-  if (!rounds) return '';
-  const mode = rounds.mode === 'enforce' ? 'comparação ativa' : 'comparação em observação';
-  return `<span class="rr-round">Rodada ${Number(rounds.ordinal) || 1}: ${mode}, ${Number(rounds.droppedCount) || 0} apontamento(s) sem resposta, ${Number(rounds.lateCount) || 0} novo(s) em arquivo inalterado${rounds.unverified ? ', memória não verificada' : ''}</span>`;
-}
-
 export function resolvedRow(r, ctx) {
   ctx = ctx || {};
   const [icon, label] = RESOLVED_LABELS[r.status] || ['•', r.status];
@@ -439,7 +434,7 @@ export function resolvedRow(r, ctx) {
     ? `Verificação de afirmações: ${vc.confirmedCount} confirmadas de ${vc.total}`
       + (vcConflicts ? ` · ⚠ ${vcConflicts} divergência(s) entre passadas` : '')
     : '';
-  const stLine = stagesLine(r.stages) + roundsLine(r.rounds);
+  const stLine = stagesLine(r.stages);
   // O que a pessoa abriu sobrevive ao redesenho, na mesma convenção de Entregas
   // (openKeys em ui/pure/entregas.js): a tela guarda as chaves num Set, um listener de
   // `toggle` o mantém em dia, e o HTML sai com `open`. Sem isso, com uma revisão em
@@ -455,6 +450,7 @@ export function resolvedRow(r, ctx) {
   const motivos = disclosure('motivos');
   const relatorio = disclosure('relatorio');
   const pushback = disclosure('pushback');
+  const rounds = disclosure('rodada');
   return `<div class="rrow${attn.length ? ' has-attn' : ''}">
     <span class="rr-icon" aria-hidden="true">${icon}</span>
     <div class="rr-main">
@@ -469,6 +465,7 @@ export function resolvedRow(r, ctx) {
       <div class="rr-disc">
         ${vcLine ? `<div class="rr-verification">${esc(vcLine)}</div>` : ''}
         ${stLine ? `<div class="rr-stages">${esc(stLine)}</div>` : ''}
+        ${roundSummaryHtml(r.rounds, rounds.attrs)}
         ${attn.length ? `<details class="resolved-attn"${motivos.attrs}><summary>⚠ ${attn.length} ${attnLabel}</summary>${reasonGroupsHtml(attn, r.postRetry)}</details>` : ''}
         ${r.reportMarkdown ? `<details class="dec-report"${relatorio.attrs}><summary>Ver relatório completo</summary><div class="report">${md(r.reportMarkdown)}</div></details>` : ''}
         ${pushbackControl(r, ctx.pushbacks, { chave: pushback.chave, aberto: abertas.has(pushback.chave) })}

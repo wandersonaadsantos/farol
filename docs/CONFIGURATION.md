@@ -21,6 +21,7 @@ invariantes continuam lá.
 - [Especialistas por repositório](#especialistas-por-repositório)
 - [Auditoria de reviews](#auditoria-de-reviews)
 - [Reserva de cota e recursos](#reserva-de-cota-e-recursos)
+- [Interface, retomada e preferências portáveis](#interface-retomada-e-preferências-portáveis)
 
 <!-- indice:fim -->
 
@@ -660,7 +661,8 @@ consulta em andamento por engine. Separa máquina inteira, processo principal do
 Farol, subprocessos observados do app, CLIs rastreados e seus descendentes, com uma
 linha por sessão. A seleção usa PIDs, parentesco e nascimento; processo encerrado,
 inacessível ou PID reciclado não é atribuído à sessão como se estivesse medido.
-No Windows usa CIM; em macOS/Linux, `ps`. Não coleta linha de comando, nome de
+No Windows usa CIM para buscar somente a árvore do Farol, sem materializar métricas
+de outros aplicativos; em macOS/Linux, `ps`. Não coleta linha de comando, nome de
 usuário, ambiente, caminho de executável ou credenciais para apresentar o diagnóstico.
 
 CPU precisa de duas amostras e é normalizada pela capacidade total da máquina.
@@ -675,3 +677,46 @@ Alertas de RAM e CPU são observações no painel. Não mudam paralelismo, não 
 processos nem reinterpretam o piso de memória já existente. Ajuste automático exige
 medição posterior. Nenhuma política de cota ou medição de recursos liga a voz; seu
 padrão permanece desligado.
+
+
+## Interface, retomada e preferências portáveis
+
+No Radar, **Agrupar fila** alterna entre lista, conta e repositório. O agrupamento
+altera só a apresentação; não muda a ordem de execução, o escopo ou a autorização.
+Cada grupo pode ser recolhido pelo resumo com mouse ou teclado. A escolha e os
+grupos recolhidos ficam neste navegador e sobrevivem à atualização do estado e à
+recarga. A contagem e **Revisar tudo** continuam incluindo os itens recolhidos.
+
+Rodadas compatíveis nas pendências e revisões recentes têm um resumo expansível:
+identificador, pais, pendências, apontamentos sem resposta e mudança de contexto.
+Ausência de resumo não significa zero achados. Memória não verificada tem aviso;
+a evidência continua no relatório. O resumo é interno, não entra no review público.
+
+O andamento mostra a etapa e os agentes observados, incluindo sua tarefa e estado
+em uma lista acessível. Tempo decorrido, mediana histórica e número de eventos não
+são convertidos em porcentagem de conclusão. A fração de arquivos declarados lidos
+pode aparecer, identificada como leitura declarada, sem substituir a prova de cobertura.
+Fechamento e saída da sessão não prometem sucesso da análise ou da postagem; consulte
+o resultado da revisão. Silêncio do stream continua visível.
+
+Em **Sistema > Visão geral > Configuração e retomada**, o roteiro guarda o último
+passo escolhido e o recolhimento neste navegador. Sem conta configurada ele começa
+aberto; nas demais instalações pode ser aberto quando necessário. Login, organizações e prontidão do último diagnóstico
+são informações distintas de configuração preenchida. Use **Reverificar saúde** para
+atualizar o diagnóstico. O roteiro não ativa automação nem aprova a política da conta.
+
+**Preferências entre instalações** exporta JSON versão 1 com apenas tema, toque
+sonoro e intervalo de lembretes de intervenção. Não é backup nem migração de conta:
+credenciais, caminhos locais, perfis, voz, dados de revisão, sincronização e políticas
+de automação ficam fora. Arquivo com campo adicional ou versão incompatível é recusado.
+
+Importar exige arquivo de até 16 KiB, prévia de diferenças, seleção explícita e
+**Aplicar diferenças selecionadas**. A prévia não grava; valores iguais não são
+selecionáveis. Se o arquivo ou as preferências do destino mudarem, gere outra prévia.
+Falha de gravação restaura os valores em memória. Não há descoberta de instalação,
+cópia de pasta, contratação de serviço ou alteração da instalação original.
+
+Tema claro e escuro usam os tokens existentes. A preferência persistida do engine
+prevalece quando chega o estado; o navegador mantém o último tema para o primeiro
+paint. Sem armazenamento local, as escolhas continuam funcionando nesta janela.
+A voz permanece desligada por padrão e não pode ser ativada pela importação.

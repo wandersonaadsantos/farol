@@ -21,6 +21,9 @@ import { renderInterventionSettings } from './intervention-settings.js';
 import { initSpecialists, renderSpecialistAccounts } from './specialists.js';
 import { initReviewAudits } from './review-audits.js';
 import { initCapacity } from './capacity.js';
+import { initSetup, renderSetup } from './setup.js';
+import { initPreferencesTransfer } from './preferences-transfer.js';
+import { syncTheme } from './tema.js';
 import { renderAutomationSettings } from './sistema-automacao.js';
 
 /* ---------- sistema: sub-navegação sidebar ---------- */
@@ -52,6 +55,8 @@ $('#sysNav').addEventListener('click', (e) => {
    e empilhava tudo na vertical. Com índice, o resultado é uma lista curta que aponta
    pra UMA linha. 'at' é o seletor do alvo, e todo alvo tem que existir no HTML. */
 const SYS_INDEX = [
+  { sec: 'overview', at: '#setupManager', title: 'Configuração e retomada', hint: 'onboarding, começar, roteiro, configurar, retomar' },
+  { sec: 'overview', at: '#preferencesTransfer', title: 'Importar preferências', hint: 'importação, exportação, arquivo, tema, toque, lembretes, diferenças' },
   { sec: 'plans', at: '#capacityManager', title: 'Reserva de cota e recursos', hint: 'cota, reserva, percentual, janela, memória, ram, cpu, processos, recursos' },
   { sec: 'reviewers', at: '#auditManager', title: 'Auditoria de reviews', hint: 'auditoria, amostra, qualidade, humano, falso positivo, omissão, custo' },
   { sec: 'overview', at: '#updateBox', title: 'Versão e atualização', hint: 'update, atualizar, versão, release' },
@@ -149,6 +154,8 @@ function renderSettings() {
   renderReleaseNotes();
   renderAbout();
   const c = estado().config;
+  syncTheme(c);
+  if (!document.activeElement || !$('#setupSteps').contains(document.activeElement)) renderSetup();
   renderReposBloqueados();
   renderReviewersEditor();
   renderClaudeProfiles();
@@ -200,6 +207,8 @@ function renderSettings() {
 initSpecialists();
 initReviewAudits();
 initCapacity();
+initSetup();
+initPreferencesTransfer();
 registrarTela({
   id: 'sistema',
   aoEntrar: () => { switchSistemaSection(); loadLog(); renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); carregarAparelhos(); renderGrupos(); loadReviewerCands(); },

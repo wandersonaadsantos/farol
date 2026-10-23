@@ -2509,3 +2509,17 @@ body.parear > *:not(.par-raiz) { display: none !important; }
 
 /* Trechos curados: usam os tokens existentes e não alargam a página. */
 .specialist-evidence pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; padding: var(--sp-3); background: var(--surface-2); border: 1px solid var(--border); border-radius: .5rem; }
+
+/* Agrupamento e roteiro usam os mesmos tokens nos dois temas. */
+.queue-group { padding: var(--sp-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.queue-group > summary { cursor: pointer; color: var(--text); font-weight: 600; }
+.queue-group > .cards { margin-top: var(--sp-3); }
+#queueGrouping { max-width: 13rem; }
+.round-summary, .session-agent-details { margin-block: var(--sp-2); overflow-wrap: anywhere; }
+.round-summary summary, .session-agent-details summary { cursor: pointer; }
+#setupSteps > li { margin-block: var(--sp-3); }
+#preferencesPreview .field { display: flex; align-items: center; gap: var(--sp-2); }
+#preferencesPreview input { width: auto; }
+
+#setupManager > summary { cursor: pointer; }
+#setupManager > summary h3 { display: inline; }

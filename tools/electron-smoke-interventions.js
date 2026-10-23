@@ -1,3 +1,4 @@
+import { captureWindow } from './electron-smoke-capture.js';
 // Integração real engine -> SSE -> renderer e engine -> notificação nativa.
 // O clique é emitido na Notification real; não simula um clique físico do SO.
 import fs from 'node:fs';
@@ -61,7 +62,7 @@ async function checkInterventions(main, waitFor, output) {
     }
     await main.win.webContents.executeJavaScript(`document.querySelector('#sys-row-interventions').scrollIntoView({block:'start'})`);
     await waitFor(() => main.win.webContents.executeJavaScript(`document.querySelector('#sys-row-interventions').getBoundingClientRect().top < 130`), 'preferências de voz visíveis para captura');
-    const image = await main.win.webContents.capturePage();
+    const image = await captureWindow(main.win, 'interventions');
     fs.writeFileSync(path.join(output, 'intervention-settings.png'), image.toPNG());
     // Cliente reaberto recebe a pendência pelo snapshot, sem nova notificação nativa.
     await main.win.webContents.reload();

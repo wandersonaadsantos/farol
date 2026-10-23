@@ -1,3 +1,4 @@
+import { diagnostics as captureDiagnostics } from './electron-smoke-capture.js';
 // Bootstrap de integração: importa o main.js real, que constrói BrowserWindow,
 // Tray e servidor HTTP reais. Só o monitor externo fica desativado; seu contrato
 // (gh, autenticação, revisões e update) pertence a outras verificações.
@@ -11,6 +12,7 @@ import { app, Notification, session } from 'electron';
 import { checkSpecialists } from './electron-smoke-specialists.js';
 import { checkReviewAudits } from './electron-smoke-audits.js';
 import { checkCapacity } from './electron-smoke-capacity.js';
+import { checkJourneys } from './electron-smoke-journeys.js';
 import { checkInterventions } from './electron-smoke-interventions.js';
 import { localRequest, validateWindowEvidence, validateLoginItem, createIsolatedLoginSetter, loopbackOrigin } from './electron-smoke-lib.js';
 import { readJson, writeJsonAtomic } from '../lib/io.js';
@@ -25,7 +27,7 @@ const origin = loopbackOrigin(config.port);
 const report = { status: 'running', probeId: config.name, platform: process.platform, versions: { ...process.versions },
   expectedElectron: config.expectedElectron, expectedApp: config.expectedApp,
   isolation: { monitoring: 'disabled at Engine.start/schedule only', externalProcesses: [], blockedRequests: [] },
-  errors: [], checks: {} };
+  errors: [], checks: {}, captureRetries: captureDiagnostics };
 let main;
 let notification;
 let nativeLoginSetter;
@@ -316,16 +318,23 @@ async function runSmoke() {
     await checkTray();
     checkAutostart();
     await checkNotification();
+    report.probe = 'interventions';
     report.checks.interventions = await checkInterventions(main, waitFor, config.output);
+    report.probe = 'specialists';
     report.checks.specialists = await checkSpecialists(main, waitFor, config.output);
+    report.probe = 'reviewAudits';
     report.checks.reviewAudits = await checkReviewAudits(main, waitFor, config.output);
+    report.probe = 'capacity';
     report.checks.capacity = await checkCapacity(main, waitFor, config.output);
+    report.probe = 'journeys';
+    report.checks.journeys = await checkJourneys(main, waitFor, config.output);
     assert.deepEqual(report.isolation.externalProcesses, []);
     assert.deepEqual(report.errors, []);
     report.status = 'passed';
   } catch (err) {
     report.status = 'failed';
     report.error = err.message;
+    report.errorStack = err.stack;
   } finally {
     try { cleanup(); }
     catch (err) { report.status = 'failed'; report.cleanupError = err.message; }

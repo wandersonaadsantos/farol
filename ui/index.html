@@ -122,6 +122,7 @@
 
     <div id="queueSection" class="section-head">
       <h2>Sua fila <span id="queueCount" class="count" hidden></span></h2>
+      <label for="queueGrouping">Agrupar fila</label><select id="queueGrouping"><option value="none">Sem agrupamento</option><option value="account">Por conta</option><option value="repo">Por repositório</option></select>
       <button id="btnReviewAll" class="btn primary sm" hidden>Revisar tudo</button>
     </div>
     <p class="section-desc">PRs em que pediram a sua revisão e que ainda esperam uma decisão.</p>
@@ -432,6 +433,8 @@
           </div>
           <p class="section-desc">Saúde do ambiente, versão instalada e onde ficam os teus dados.</p>
           <div class="sys-stack lg">
+            <details class="card" id="setupManager" aria-labelledby="setupTitle"><summary><h3 id="setupTitle">Configuração e retomada</h3></summary><p>Retome o roteiro quando precisar. Os indicadores usam o estado atual e o último diagnóstico; nenhum passo ativa automação ou dispensa os gates.</p><ol id="setupSteps"></ol></details>
+            <section class="card" id="preferencesTransfer" aria-labelledby="preferencesTitle"><h3 id="preferencesTitle">Preferências entre instalações</h3><p>Transfere apenas tema, toque sonoro e intervalo de lembretes. Contas, credenciais, perfis, voz e autorização de automação não entram no arquivo.</p><button class="btn" type="button" id="preferencesExport">Exportar preferências</button><div class="field"><label for="preferencesFile">Arquivo JSON de preferências (até 16 KiB)</label><input type="file" id="preferencesFile" accept="application/json,.json"></div><button class="btn" type="button" id="preferencesInspect">Ver diferenças</button><div id="preferencesPreview"></div><button class="btn" type="button" id="preferencesApply" disabled>Aplicar diferenças selecionadas</button><p id="preferencesMessage" role="status"></p></section>
             <div id="updateBox" class="card update-box">…</div>
             <div id="doctor" class="doctor-grid"></div>
           </div>
