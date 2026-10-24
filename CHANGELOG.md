@@ -9,6 +9,27 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.77.0
+
+Revisões com cobertura verificável e memória entre rodadas, especialistas por repositório e auditorias independentes, com mais clareza sobre filas e limites dos provedores.
+
+**Novidades**
+- Especialistas por repositório usam fontes identificadas e verificam quando elas mudaram. Lições dependem de curadoria humana para entrar em uso; uma revisão não altera sozinha as regras do time.
+- Auditorias independentes comparam duas análises antes de mostrar a conclusão anterior, permitem avaliação humana e amostragem por risco com orçamento explícito. Não publicam reviews nem promovem lições automaticamente.
+- A memória entre rodadas preserva achados e evidências em registros imutáveis, distinguindo análise concluída de publicação confirmada no GitHub.
+
+**Melhorias**
+- A cobertura usa o inventário completo e paginado do diff, vinculado à base e ao commit revisado. O modo de observação permite acompanhar a cobertura antes de optar pela exigência adicional.
+- Intervenções agrupam pendências acionáveis e evitam avisos repetidos. A voz é opcional e permanece desligada por padrão; importar preferências não a ativa.
+- A cota do Antigravity considera conta, atualização da leitura e janelas de consumo. Reservas são configuráveis; provedores sem medição confiável aparecem sem percentual inventado. A observação de recursos não encerra revisões em andamento.
+- Filas podem ser agrupadas e recolhidas, o progresso mostra fatos da execução e a configuração pode ser retomada. A importação de preferências oferece prévia e seleção, sem transportar credenciais ou políticas de revisão.
+
+**Correções**
+- Auditorias recebem o inventário real da revisão e recuperam o bloqueio deixado por um processo comprovadamente encerrado, preservando exclusão entre executores. Apenas a auditoria ativa aparece como em execução.
+- Falha ao gravar a memória remota continua visível e bloqueia a publicação quando essa garantia é exigida, mesmo que a consulta seguinte devolva uma lista vazia.
+- Após trocar o perfil do Antigravity por falta de cota, o consumo é atribuído somente ao perfil que efetivamente executou a revisão.
+- A leitura de regras identifica ciclos ancestrais alcançáveis; caminhos e arquivos temporários recebem validações adicionais de segurança.
+
 ## v2.76.7
 
 O orçamento do perfil deixa claro que vazio e 0 são coisas opostas.
