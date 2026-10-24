@@ -119,8 +119,13 @@ test('fila local em espera aparece uma vez e não duplica um item acionável', (
   const snap = estado();
   snap.panorama = [pr];
   snap.headlessWaiting = [pr.key];
+  snap.headlessWaitingDetails = { [pr.key]: {
+    posicao: 3, total: 7, motivo: 'limite-conta', ocupadas: 2, limite: 2,
+  } };
   emitir('state', snap);
   assert.match($('#queue').innerHTML, /Na fila de execução/);
+  assert.match($('#queue').innerHTML, /Posição 3 de 7/);
+  assert.match($('#queue').innerHTML, /Limite de revisões simultâneas desta conta atingido \(2\/2\)/);
   assert.doesNotMatch($('#queue').innerHTML, /act-review/);
 
   snap.queue = [pr];

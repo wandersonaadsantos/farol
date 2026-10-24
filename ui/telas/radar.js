@@ -256,6 +256,7 @@ function renderQueue() {
     revisarJunto, limiteAte: limiteDe(pr), limiteNoTopo: !!noTopo[contaDe(pr)],
   }) })).concat(aguardando.map(pr => ({ account: contaDe(pr), repo: pr.repo, html: queueWaitingCardHtml(pr, {
     mark: acctMark(pr), sync: estado().sync, distribuindo: distribuindo.has(pr.key),
+    espera: (estado().headlessWaitingDetails || {})[pr.key],
   }) })));
   box.innerHTML = avisos + groupedQueue(rows, queueGrouping, closedQueueGroups);
 }

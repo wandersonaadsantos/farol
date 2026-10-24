@@ -33,6 +33,18 @@ Revisões com cobertura verificável e memória entre rodadas, especialistas por
 - Após trocar o perfil do Antigravity por falta de cota, o consumo é atribuído somente ao perfil que efetivamente executou a revisão.
 - A leitura de regras identifica ciclos ancestrais alcançáveis; caminhos e arquivos temporários recebem validações adicionais de segurança.
 
+## v2.76.8
+
+A fila explica por que uma revisão espera, e configurações de ferramentas não geram uma exigência indevida de chamadores.
+
+**Melhorias**
+- Cada revisão na fila local mostra sua posição de entrada e o motivo observado pelo agendador, com a ocupação e o limite quando disponíveis. A ordem de execução continua respeitando o rodízio entre organizações e as vagas de cada conta.
+- A espera distingue limite por conta, limite do aparelho, falta de vaga, memória insuficiente, provedor indisponível, presença desatualizada e limite compartilhado não verificável. Quando o motivo ainda não foi confirmado, a tela informa isso.
+
+**Correções**
+- Arquivos convencionais de configuração de ferramentas, como `eslint.config.mjs`, não exigem prova de chamadores fora do diff. A leitura desses arquivos no diff e os demais gates de aprovação continuam obrigatórios; configurações de runtime da aplicação continuam exigindo alcance.
+- Esperas antigas são reavaliadas sob a nova versão das regras de evidência, evitando manter o bloqueio retirado por esta correção.
+
 ## v2.76.7
 
 O orçamento do perfil deixa claro que vazio e 0 são coisas opostas.
