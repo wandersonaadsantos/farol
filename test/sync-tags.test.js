@@ -47,7 +47,7 @@ test('o valor entra inteiro na pré-imagem: NUL dentro do valor não é engolido
 
 test('domínio fora da lista lança, em vez de gravar num espaço inventado', () => {
   assert.throws(() => tags.tag(K, 'inventado', 'x'), /domínio/i);
-  assert.deepEqual([...tags.DOMINIOS], ['acct', 'pr', 'org', 'mat', 'event', 'review', 'pending']);
+  assert.deepEqual([...tags.DOMINIOS], ['acct', 'pr', 'org', 'mat', 'event', 'review', 'pending', 'review-rounds']);
 });
 
 test('chave que não tem 32 bytes lança: K_id malformada nunca produz identificador', () => {

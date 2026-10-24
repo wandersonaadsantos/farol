@@ -1,3 +1,4 @@
+import { roundSummaryHtml } from './round-summary.js';
 // Decisão, revisão e pushback: a caixa de revisão, os motivos agrupados por eixo, o card
 // de commit novo, o selo e o contador de chat do card, o controle de pushback e a linha
 // inteira de Revisões recentes. Extraído do ui/pure.js na Fase 1a da reorganização; o
@@ -449,6 +450,7 @@ export function resolvedRow(r, ctx) {
   const motivos = disclosure('motivos');
   const relatorio = disclosure('relatorio');
   const pushback = disclosure('pushback');
+  const rounds = disclosure('rodada');
   return `<div class="rrow${attn.length ? ' has-attn' : ''}">
     <span class="rr-icon" aria-hidden="true">${icon}</span>
     <div class="rr-main">
@@ -463,6 +465,7 @@ export function resolvedRow(r, ctx) {
       <div class="rr-disc">
         ${vcLine ? `<div class="rr-verification">${esc(vcLine)}</div>` : ''}
         ${stLine ? `<div class="rr-stages">${esc(stLine)}</div>` : ''}
+        ${roundSummaryHtml(r.rounds, rounds.attrs)}
         ${attn.length ? `<details class="resolved-attn"${motivos.attrs}><summary>⚠ ${attn.length} ${attnLabel}</summary>${reasonGroupsHtml(attn, r.postRetry)}</details>` : ''}
         ${r.reportMarkdown ? `<details class="dec-report"${relatorio.attrs}><summary>Ver relatório completo</summary><div class="report">${md(r.reportMarkdown)}</div></details>` : ''}
         ${pushbackControl(r, ctx.pushbacks, { chave: pushback.chave, aberto: abertas.has(pushback.chave) })}

@@ -14,6 +14,7 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.77.0', ['Especialistas por repositório e auditorias independentes, com comparação entre análises, avaliação humana e amostragem por risco; lições exigem curadoria antes de entrar em uso.', 'Cobertura verificável do diff completo e memória imutável entre rodadas, distinguindo análise concluída de publicação confirmada.', 'Pendências agrupadas com menos avisos repetidos. A voz continua desligada por padrão e importar preferências não a ativa.', 'Cota do Antigravity vinculada à conta e à leitura recente, com reservas configuráveis. Provedores sem medição confiável não recebem percentual inventado.', 'Filas agrupadas e recolhíveis, progresso baseado na execução, configuração retomável e importação de preferências com prévia, sem credenciais nem políticas.', 'Auditorias recuperam bloqueios de processos encerrados e mostram somente o trabalho ativo como em execução. Falhas na memória remota permanecem visíveis; consumo após fallback pertence ao perfil que executou.']],
   ['2.76.8', [
     'A fila mostra a posição de entrada e o motivo efetivo da espera, incluindo os limites de execução e a falta de memória.',
     'Configurações de ferramentas, como eslint.config.mjs, deixam de bloquear a aprovação por falta de chamadores. A leitura do diff e os demais gates continuam obrigatórios.',

@@ -206,3 +206,15 @@ test('protocolo: PR de outro repositório é lido com -R ou URL, nunca com dono/
   assert.match(protocolo, /gh pr view 439 -R biudtech\/biud-core/);
   assert.match(protocolo, /A forma `dono\/repo#N` \*\*não existe\*\* no `gh pr view`/);
 });
+
+test('passe único recebe o inventário medido pela fachada, sem duplicar os lotes', () => {
+  const engine = new Engine();
+  const metrics = { lines: 2, changedFiles: 2, files: [{ path: 'a.ts' }, { path: 'b.ts' }] };
+  const prompt = engine.headlessPromptFor(URL_PR, 'alice', null, metrics);
+  assert.match(prompt, /Arquivos do diff \(2\)/);
+  assert.match(prompt, /"b\.ts"/);
+  assert.match(prompt, /coverage\.reviewed/);
+  const comLotes = engine.headlessPromptFor(URL_PR, 'alice', LOTES, METRICS);
+  assert.doesNotMatch(comLotes, /## Arquivos do diff/);
+  assert.match(comLotes, /cruza .*lista real/);
+});

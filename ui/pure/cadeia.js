@@ -16,12 +16,18 @@ const ESTADOS = Object.freeze({
   'em-uso': { rotulo: 'Em uso', classe: 'ok' },
   pronto: { rotulo: 'Pronto, na espera', classe: '' },
   limite: { rotulo: 'No limite', classe: 'warn' },
+  'cota-reservada': { rotulo: 'Cota reservada', classe: 'warn' },
+  'cota-desconhecida': { rotulo: 'Cota não verificada', classe: 'warn' },
+  orcamento: { rotulo: 'Orçamento esgotado', classe: 'warn' },
   'sem-login': { rotulo: 'Sem login', classe: 'err' },
   problema: { rotulo: 'Com problema', classe: 'err' },
   desligado: { rotulo: 'Desligado', classe: '' },
 });
 
 const DICA_DO_ESTADO = Object.freeze({
+  'cota-reservada': 'Não inicia sessões novas neste perfil; a cadeia só usa alternativas já habilitadas. Sessões iniciadas podem concluir.',
+  'cota-desconhecida': 'Reserva ativa sem saldo verificável: aguarda fonte válida ou outra opção autorizada. Perfil próprio de conta não transborda.',
+  orcamento: 'O orçamento continua segurando este perfil; a reserva não autoriza contorná-lo.',
   'sem-login': 'A cadeia pula este perfil enquanto houver outro pronto. Use Abrir sessão de login no cartão dele, abaixo.',
   problema: 'Falta o que este perfil precisa para rodar (a pasta ou a chave). Complete no cartão dele, abaixo.',
 });

@@ -122,6 +122,7 @@
 
     <div id="queueSection" class="section-head">
       <h2>Sua fila <span id="queueCount" class="count" hidden></span></h2>
+      <label for="queueGrouping">Agrupar fila</label><select id="queueGrouping"><option value="none">Sem agrupamento</option><option value="account">Por conta</option><option value="repo">Por repositório</option></select>
       <button id="btnReviewAll" class="btn primary sm" hidden>Revisar tudo</button>
     </div>
     <p class="section-desc">PRs em que pediram a sua revisão e que ainda esperam uma decisão.</p>
@@ -432,6 +433,8 @@
           </div>
           <p class="section-desc">Saúde do ambiente, versão instalada e onde ficam os teus dados.</p>
           <div class="sys-stack lg">
+            <details class="card" id="setupManager" aria-labelledby="setupTitle"><summary><h3 id="setupTitle">Configuração e retomada</h3></summary><p>Retome o roteiro quando precisar. Os indicadores usam o estado atual e o último diagnóstico; nenhum passo ativa automação ou dispensa os gates.</p><ol id="setupSteps"></ol></details>
+            <section class="card" id="preferencesTransfer" aria-labelledby="preferencesTitle"><h3 id="preferencesTitle">Preferências entre instalações</h3><p>Transfere apenas tema, toque sonoro e intervalo de lembretes. Contas, credenciais, perfis, voz e autorização de automação não entram no arquivo.</p><button class="btn" type="button" id="preferencesExport">Exportar preferências</button><div class="field"><label for="preferencesFile">Arquivo JSON de preferências (até 16 KiB)</label><input type="file" id="preferencesFile" accept="application/json,.json"></div><button class="btn" type="button" id="preferencesInspect">Ver diferenças</button><div id="preferencesPreview"></div><button class="btn" type="button" id="preferencesApply" disabled>Aplicar diferenças selecionadas</button><p id="preferencesMessage" role="status"></p></section>
             <div id="updateBox" class="card update-box">…</div>
             <div id="doctor" class="doctor-grid"></div>
           </div>
@@ -620,6 +623,24 @@
           <div class="section-head"><h2>Plano e chaves</h2></div>
           <p class="section-desc">As assinaturas que pagam as revisões, em ordem de prioridade, o modelo que cada provedor usa e os perfis salvos.</p>
           <div id="cadeiaPerfis"></div>
+          <section class="settings card" id="capacityManager" aria-labelledby="capacityHeading">
+            <h3 id="capacityHeading">Reserva de cota e recursos</h3>
+            <p>Uma política por perfil. A fonte precisa comprovar identidade, janela, atualização e reset. Atualmente a leitura verificável integrada é o /usage do Antigravity; demais provedores mostram cota indisponível.</p>
+            <button type="button" class="btn" id="capacityLoad">Carregar cotas e políticas</button>
+            <div class="field"><label for="capacityProfile">Perfil</label><select id="capacityProfile"></select></div>
+            <div class="field"><label for="capacityMode">Política de novos trabalhos</label><select id="capacityMode"><option value="off">Desligada</option><option value="observe">Observar e avisar</option><option value="enforce">Reservar: bloquear novas sessões no teto ou sem medição</option></select></div>
+            <div class="field"><label for="capacityMax">Uso máximo em qualquer janela do grupo (1–99%)</label><input type="number" id="capacityMax" min="1" max="99" step="1" value="70"></div>
+            <p><button type="button" class="btn" id="capacitySave">Salvar política deste perfil</button></p>
+            <p>Comece em observação. Reservar com cota indisponível aguarda fonte válida ou outra opção já habilitada da cadeia. Conta com perfil exclusivo não transborda. Orçamentos, grupos e políticas do aparelho continuam valendo.</p>
+            <p>Sessões iniciadas podem concluir e ultrapassar o percentual. Isso não garante uma reserva rígida de 30% nem separa o consumo de outros aplicativos que usam a mesma assinatura. Sessões interativas de terminal ficam fora desta admissão headless.</p>
+            <p id="capacityMessage" role="status" aria-live="polite"></p>
+            <div id="capacityQuotas"></div>
+            <details><summary>Últimas observações de admissão</summary><div id="capacityHistory"></div></details>
+            <h4>Recursos deste aparelho</h4>
+            <button type="button" class="btn" id="capacityMeasure">Medir recursos agora</button>
+            <p>Coleta sob demanda, cache de cinco segundos. CPU precisa de duas amostras e é normalizada pela capacidade total da máquina. RAM de processos é soma de RSS/working set, incluindo páginas compartilhadas; não equivale a RAM física exclusiva. O coletor também tem custo. Não ajusta concorrência ou encerra processos.</p>
+            <div id="capacityResources" class="table-scroll"></div>
+          </section>
           <div class="card set-list" id="sys-plans-modelo">
             <div class="set-row" id="sys-row-provedor">
               <div class="set-txt">
@@ -772,6 +793,48 @@
               <small>Por repo, escolha as pessoas e times da lista (sem digitar handle na mão). É o que o botão "Reviewers" (em Meus PRs) aplica num clique.</small>
             </div>
           </div>
+          <section class="settings card" id="specialistManager" aria-labelledby="specialistHeading">
+            <h3 id="specialistHeading">Especialistas por repositório</h3>
+            <p class="section-desc">Contexto curado usado pelo revisor existente. Fontes alteradas ficam fora do prompt. Lições propostas precisam da sua confirmação; nenhum conteúdo muda os gates.</p>
+            <div class="field"><label for="specialistAccount">Conta</label><select id="specialistAccount"></select></div>
+            <div class="field"><label for="specialistRepo">Repositório (organização/nome)</label><input id="specialistRepo" type="text" placeholder="organização/projeto" autocomplete="off"></div>
+            <div class="field"><label for="specialistBranch">Branch de destino do PR</label><input id="specialistBranch" type="text" placeholder="main ou staging" autocomplete="off"></div>
+            <p><button type="button" class="btn" id="specialistLoad">Carregar e conferir fontes</button> <button type="button" class="btn" id="specialistNew">Nova conclusão</button></p>
+            <p id="specialistCurrent">Escolha conta, repositório e branch.</p>
+            <p id="specialistMessage" role="status" aria-live="polite"></p>
+            <div id="specialistEntries" class="specialist-evidence"></div>
+            <details><summary>Lições propostas por pushbacks e auditorias</summary><p>Auditorias exigem avaliação humana favorável. Pushbacks podem incluir registros legados sem conta de origem. Confira a procedência antes de curar para a conta escolhida.</p><div id="specialistProposals"></div></details>
+            <h4>Conclusão e evidências</h4>
+            <p id="specialistOrigin">Origem: curadoria manual.</p>
+            <div class="field"><label for="specialistKind">Tipo</label><select id="specialistKind"><option value="architecture">Arquitetura</option><option value="contract">Contrato</option><option value="convention">Convenção</option><option value="critical">Ponto crítico</option><option value="lesson">Lição</option></select></div>
+            <div class="field"><label for="specialistTitle">Título</label><input id="specialistTitle" type="text" maxlength="140"></div>
+            <div class="field"><label for="specialistText">Conclusão a conferir no código atual</label><textarea id="specialistText" rows="3" maxlength="2000"></textarea></div>
+            <div class="field"><label for="specialistSources">Evidências (uma por linha: caminho:início-fim)</label><textarea id="specialistSources" rows="3" placeholder="CLAUDE.md:1-10"></textarea><small>De 1 a 8 evidências, até 20 linhas por trecho. Não inclua credenciais ou dados pessoais.</small></div>
+            <p><button type="button" class="btn" id="specialistBuild">Pré-visualizar fontes</button> <button type="button" class="btn primary" id="specialistConfirm" disabled>Confirmar curadoria</button></p>
+            <div id="specialistPreview" class="specialist-evidence"></div>
+            <details><summary>Histórico e reversão</summary><div class="field"><label for="specialistVersions">Versão anterior</label><select id="specialistVersions"></select></div><p>Restaurar preserva o histórico e recupera conclusões desativadas. Reconstrua cada uma para conferir suas fontes antes de reativar.</p><button type="button" class="btn" id="specialistRestore">Restaurar como inativo</button></details>
+          </section>
+          <section class="settings card" id="auditManager" aria-labelledby="auditHeading">
+            <h3 id="auditHeading">Auditoria de reviews</h3>
+            <p>Segunda leitura do head original em duas sessões novas de IA. Não publica outro review nem altera decisões. A avaliação humana é separada; concordância entre modelos não comprova precisão.</p>
+            <button type="button" class="btn" id="auditLoad">Carregar auditorias e revisões elegíveis</button>
+            <div class="field"><label for="auditCandidate">Revisão registrada (ordem de risco)</label><select id="auditCandidate"></select></div>
+            <label><input type="checkbox" id="auditRetry"> Criar nova tentativa de uma auditoria já concluída (novo consumo)</label>
+            <p><button type="button" class="btn primary" id="auditStart">Iniciar auditoria · usa duas sessões de IA</button></p>
+            <p id="auditMessage" role="status" aria-live="polite"></p>
+            <p>Use Carregar para atualizar o andamento e o resultado. Registros antigos sem inventário e rodada verificáveis não são elegíveis. Limites: 100 arquivos e 256 KiB; excesso fica inconclusivo.</p>
+            <details><summary>Amostragem automática · desligada por padrão</summary>
+              <label><input type="checkbox" id="auditEnabled"> Habilitar amostragem por risco neste aparelho</label>
+              <div class="field"><label for="auditAccounts">Contas autorizadas, separadas por vírgula</label><input id="auditAccounts" type="text" autocomplete="off"></div>
+              <div class="field"><label for="auditLimit">Máximo de auditorias automáticas por dia (0–10)</label><input id="auditLimit" type="number" min="0" max="10" step="1" value="0"></div>
+              <div class="field"><label for="auditBudget">Orçamento diário de admissão em US$</label><input id="auditBudget" type="number" min="0" max="1000" step="0.01" value="0"></div>
+              <div class="field"><label for="auditReserve">Reserva estimada para cada auditoria (duas sessões) em US$</label><input id="auditReserve" type="number" min="0" max="1000" step="0.01" value="0"></div>
+              <p>A reserva controla novas admissões, não é teto rígido do provedor. Um trabalho pode ultrapassá-la. Custo indisponível suspende novas amostras no dia. As revisões em andamento têm prioridade. Quantidade e orçamento são locais, não compartilhados entre aparelhos.</p>
+              <button type="button" class="btn" id="auditSavePolicy">Salvar amostragem</button>
+            </details>
+            <p id="auditMetrics"></p>
+            <div id="auditJobs" class="specialist-evidence"></div>
+          </section>
         </div>
 
         <!-- Preferências -->
@@ -811,6 +874,43 @@
               </span>
               <span class="set-ctl"><input id="setSound" type="checkbox"><span class="switch"></span></span>
             </label>
+            <div id="sys-row-interventions">
+              <label class="set-row">
+                <span class="set-txt"><span class="set-title">Voz nos avisos de intervenção</span><span class="set-desc">Usa uma voz local deste cliente. Fala apenas o tipo de atenção, sem nomes, repositórios ou conteúdo da revisão. Os avisos visuais continuam ativos.</span></span>
+                <span class="set-ctl"><input id="setVoiceEnabled" type="checkbox"><span class="switch"></span></span>
+              </label>
+              <div class="set-row">
+                <div class="set-txt"><label class="set-title" for="setVoiceEvents">Eventos com voz</label><p class="set-desc">Selecione um ou mais tipos. Use Ctrl ou Command para alterar a seleção.</p></div>
+                <div class="set-ctl"><select id="setVoiceEvents" multiple size="4">
+                  <option value="decision">Decisão pendente</option><option value="access">Acesso vencido ou ausente</option>
+                  <option value="failure">Falha sem recuperação</option><option value="operational">Bloqueio de configuração</option>
+                </select></div>
+              </div>
+              <div class="set-row">
+                <div class="set-txt"><label class="set-title" for="setVoiceVolume">Volume da voz</label><p class="set-desc">De 0 a 100, sujeito ao volume do sistema.</p></div>
+                <div class="set-ctl field"><input id="setVoiceVolume" type="number" min="0" max="100" step="1"></div>
+              </div>
+              <label class="set-row">
+                <span class="set-txt"><span class="set-title">Horário silencioso</span><span class="set-desc">Silencia a voz e os toques no horário local deste cliente. Início e fim iguais deixam o intervalo desativado.</span></span>
+                <span class="set-ctl"><input id="setVoiceQuietEnabled" type="checkbox"><span class="switch"></span></span>
+              </label>
+              <div class="set-row">
+                <div class="set-txt"><label class="set-title" for="setVoiceQuietStart">Início do silêncio</label></div>
+                <div class="set-ctl field"><input id="setVoiceQuietStart" type="time"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-txt"><label class="set-title" for="setVoiceQuietEnd">Fim do silêncio</label></div>
+                <div class="set-ctl field"><input id="setVoiceQuietEnd" type="time"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-txt"><label class="set-title" for="setInterventionReminder">Relembrar pendências a cada</label><p class="set-desc">Em minutos: 0 desliga; mínimo efetivo de 5. O lembrete ocorre na próxima atualização do estado. Avisos novos e mudanças relevantes continuam imediatos.</p></div>
+                <div class="set-ctl field"><input id="setInterventionReminder" type="number" min="0" max="1440" step="5"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-txt"><p id="interventionVoiceStatus" role="status">A voz depende da disponibilidade de um sintetizador local neste cliente.</p></div>
+                <div class="set-ctl"><button id="testInterventionVoice" type="button" class="btn sm">Testar voz</button></div>
+              </div>
+            </div>
             <label class="set-row" id="sys-row-teamhighlights">
               <span class="set-txt">
                 <span class="set-title">Destaques do time</span>

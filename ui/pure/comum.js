@@ -18,6 +18,10 @@ export function safeJsonParse(texto) {
   if (typeof texto !== 'string' || texto === '') return null;
   try { return JSON.parse(texto); } catch { return null; }
 }
+// Persistência e exportação da UI compartilham a mesma fronteira de serialização.
+export function safeJsonStringify(value, spacing) {
+  try { return JSON.stringify(value, null, spacing); } catch { return null; }
+}
 
 export function fmtClock(ts) {
   if (!ts) return '';

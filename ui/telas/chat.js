@@ -96,7 +96,7 @@ function renderChat(c) {
       });
       // fase generica so no primeiro paint; depois quem escreve step E
       // progresso e o handler de chat-activity (regua unica sessionProgress)
-      updateOp(chatOpId, { step: c.sessionId ? 'Lendo PR…' : CHAT_TEXTOS.iniciando, progress: 5 });
+      updateOp(chatOpId, { step: c.sessionId ? 'Lendo PR…' : CHAT_TEXTOS.iniciando, progress: null });
     }
   } else {
     closeOp(chatOpId, 'done', 'Resposta recebida');
@@ -268,7 +268,7 @@ function handleChatActivity(key, text) {
     if (!ACTIVE_OPS.has(opId)) showOp(opId, { type: 'chat', title: 'Claude respondendo', inline: true, container: el });
     const op = ACTIVE_OPS.get(opId);
     const n = (op.chatEvents = (op.chatEvents || 0) + 1);
-    updateOp(opId, { step: text, progress: Math.max(op.progress || 0, sessionProgress(n)) });
+    updateOp(opId, { step: text, progress: sessionProgress(n) });
   }
 }
 

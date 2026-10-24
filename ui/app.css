@@ -1685,7 +1685,7 @@ body.sem-engine #statusPill { animation: pulse-soft 1.4s infinite; }
    do sistema: e ela que denuncia a tela que nao passou por desenho. Uma regra por
    lugar (a especificidade de cada um ja vence uma regra generica em `select`), e a
    cor da seta troca junto com o tema pelo token --seta-select. */
-.set-ctl select,
+.set-ctl select:not([multiple]),
 .acct-card .a-pol-item select,
 .field select,
 .papel-level, .dom-level,
@@ -2506,3 +2506,20 @@ body.parear > *:not(.par-raiz) { display: none !important; }
 .cad-liga input:checked + .switch::after { left: 18px; background: var(--accent-ink); }
 .cad-liga input:focus-visible + .switch { outline: 2px solid var(--accent); outline-offset: 2px; }
 #sys-plans-modelo { margin-bottom: var(--sp-3); }
+
+/* Trechos curados: usam os tokens existentes e não alargam a página. */
+.specialist-evidence pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; padding: var(--sp-3); background: var(--surface-2); border: 1px solid var(--border); border-radius: .5rem; }
+
+/* Agrupamento e roteiro usam os mesmos tokens nos dois temas. */
+.queue-group { padding: var(--sp-3); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.queue-group > summary { cursor: pointer; color: var(--text); font-weight: 600; }
+.queue-group > .cards { margin-top: var(--sp-3); }
+#queueGrouping { max-width: 13rem; }
+.round-summary, .session-agent-details { margin-block: var(--sp-2); overflow-wrap: anywhere; }
+.round-summary summary, .session-agent-details summary { cursor: pointer; }
+#setupSteps > li { margin-block: var(--sp-3); }
+#preferencesPreview .field { display: flex; align-items: center; gap: var(--sp-2); }
+#preferencesPreview input { width: auto; }
+
+#setupManager > summary { cursor: pointer; }
+#setupManager > summary h3 { display: inline; }

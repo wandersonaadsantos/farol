@@ -20,17 +20,8 @@
 // widget recém-nascido fecharia como "concluído". headlessWaiting também carrega keys
 // de revisão normal, sem colisão na prática (o GitHub não pede review pro autor).
 //
-// Progresso de sessão: a régua ÚNICA do app.
-// Regra do Wanderson (16/08/2026): previsibilidade com qualidade, centralizada
-// e acessível pra todo o sistema. Antes cada fluxo chutava seu percentual (a
-// autoanálise ficava em 25% fixo e concluía do nada, o chat idem) e a revisão
-// automática nem barra tinha. sessionProgress é a régua única: converte a
-// contagem de eventos REAIS da sessão (feed do SSE 'activity', ou contagem
-// local no chat) num percentual sempre crescente, assintótico a 90 (os 10
-// finais pertencem ao fechamento real, decidido pelo snapshot). Barra nova no
-// app usa ESTA função, nunca um número escrito à mão; quem mudar a curva muda
-// pra todos os fluxos de uma vez. selfSessionKey acha o PR da sessão de
-// autoanálise dona de um evento de atividade (roteio feed -> widget).
+// Etapas e sinais de atividade são observações. Sem denominador conhecido,
+// widgets não apresentam porcentagem de conclusão.
 //
 // Cartão da sessão ao vivo.
 // O bloco que aparece enquanto o Claude está trabalhando num PR. Os `data-id`/`data-started`
@@ -81,27 +72,8 @@ export const STAGE_FLOW_ORDER = [
 // que faz o acompanhamento parecer inventado, então a tela passa a dizer o que sabe.
 export const SEM_SINAL_MS = 45000;
 
-// Progresso da sessão (09/10/2026): porcentagem sobre dado REAL, que nunca estaciona.
-// Desenho e textos do Claude Design, handoff em
-// docs/superpowers/specs/2026-10-09-progresso-da-sessao-anexos/HANDOFF.md.
-//
-// Revisão: tempo decorrido sobre o tempo TÍPICO de revisões parecidas, que o engine mede
-// no histórico de decisões e manda em `s.estimativa` (lib/engine/estimativa-sessao.js).
-// Até o tempo típico a barra anda em linha reta de 2% a 92%; depois dele ela segue
-// subindo, cada vez mais devagar, rumo a 95%, e o texto diz que passou do típico em vez
-// de a barra fingir que sabe. Autoanálise: os arquivos do PR já lidos sobre o total que
-// o engine materializou (`lidos`/`totalArquivos`). Etapa real é piso: chegou na
-// verificação, pelo menos 55%; modelo concluiu, 97%. 100% é só o fim de verdade, e quem
-// garante que a barra nunca volta é a tela (ela guarda o maior valor já mostrado).
-//
-// Sem histórico (instalação nova) a barra anda pelo tempo típico PADRÃO, mas o texto não
-// promete prazo nenhum: estimativa que o app não tem não vira "faltam 3 min".
-export const TIPICO_PADRAO_MS = 6 * 60000;
-export const PISO_VERIFICACAO = 55;
-export const PCT_FECHANDO = 97;
-const TETO_PASSOU = 95;
-
-const minutosArredondados = (ms) => Math.max(1, Math.round(ms / 60000));
+// Tempo típico é referência histórica, nunca percentual de conclusão da IA.
+// Só a fração de arquivos declarados lidos tem denominador observável.
 const minutosDecimais = (ms) => (ms / 60000).toFixed(1).replace('.', ',');
 
 // "45s", "1min 10s": o formato do desenho (o fmtDur do app escreve "1m10s")
@@ -123,54 +95,27 @@ function baseDaEstimativa(est) {
   return `típico: ${minutosDecimais(est.tipicoMs)} min (mediana geral)`;
 }
 
-function pctDaSessao(s, flow, agora, tipico) {
-  const r = s.startedAt ? Math.max(0, agora - s.startedAt) / tipico : 0;
-  let pct = r <= 1 ? 2 + 90 * r : 92 + (TETO_PASSOU - 92) * (1 - Math.exp(-(r - 1)));
-  const total = Number(s.totalArquivos) || 0;
-  if (total) pct = Math.max(pct, 2 + 83 * (Math.min(total, Number(s.lidos) || 0) / total));
-  const verificando = (flow || []).some(n => n && n.id === 'verificacao' && n.state !== 'pending');
-  if (verificando) pct = Math.max(pct, PISO_VERIFICACAO);
-  // uma casa decimal: a largura da barra anda de forma contínua mesmo quando o número
-  // inteiro mostrado demora a mudar (depois do tempo típico, a subida é lenta)
-  return { pct: Math.min(TETO_PASSOU, Math.floor(pct * 10) / 10), r };
-}
-
-// { pct, estado: 'viva' | 'muda', texto, base, aria }, com `pct` em uma casa decimal (a
-// tela mostra o inteiro e usa o decimal na largura). Os textos são os do desenho, um
-// por estado; `aria` é o aria-valuetext da barra.
 export function progressoDaSessao(s = {}, flow = [], agora = Date.now()) {
-  if (s.fase === 'fechando') {
-    return { pct: PCT_FECHANDO, estado: 'viva', texto: 'modelo concluiu · decidindo e postando', base: '', aria: `${PCT_FECHANDO}%, modelo concluiu, decidindo e postando` };
-  }
-  const est = s.estimativa && s.estimativa.tipicoMs > 0 ? s.estimativa : null;
-  const { pct, r } = pctDaSessao(s, flow, agora, est ? est.tipicoMs : TIPICO_PADRAO_MS);
-  const mudoHa = s.ultimoSinalEm ? agora - s.ultimoSinalEm : 0;
-  if (mudoHa > SEM_SINAL_MS) {
-    return { pct, estado: 'muda', texto: `sem sinal há ${duracaoCurta(mudoHa)}`, base: 'a barra volta a andar quando chegar evento', aria: `${Math.floor(pct)}%, parado, sem sinal há ${duracaoFalada(mudoHa)}` };
-  }
-  const total = Number(s.totalArquivos) || 0;
-  const viva = (texto, base, falado) => ({ pct, estado: 'viva', texto, base, aria: `${Math.floor(pct)}%, ${falado || texto}` });
-  if (!s.ultimoSinalEm && !s.lidos) return viva('preparando', 'aguardando o primeiro evento');
-  if (total) {
-    const lidos = Math.min(total, Number(s.lidos) || 0);
-    return viva(`${lidos} de ${total} arquivos lidos`, '');
-  }
-  if (!est) return viva('em andamento', 'ainda sem histórico para estimar o tempo', 'em andamento, sem estimativa de tempo');
-  if (r > 1) {
-    const m = minutosArredondados(est.tipicoMs);
-    return viva(`passou do tempo típico (~${m} min)`, 'ainda trabalhando', `passou do tempo típico de cerca de ${m} minutos, ainda trabalhando`);
-  }
-  const falta = est.tipicoMs - (agora - s.startedAt);
-  if (falta < 60000) return viva('menos de 1 min', baseDaEstimativa(est), 'menos de 1 minuto restante');
-  const m = minutosArredondados(falta);
-  const falado = m === 1 ? 'cerca de 1 minuto restante' : `cerca de ${m} minutos restantes`;
-  return viva(`~${m} min restantes`, baseDaEstimativa(est), falado);
+  const base = 'Etapas observadas não medem a conclusão da análise.';
+  if (s.fase === 'fechando') return { pct: null, estado: 'viva', texto: 'modelo concluiu · verificando e decidindo', base, aria: 'modelo concluiu, verificando e decidindo, conclusão não medida' };
+  const total = Number.isInteger(s.totalArquivos) && s.totalArquivos > 0 ? s.totalArquivos : 0;
+  const lidos = Number.isInteger(s.lidos) && s.lidos >= 0 ? Math.min(total, s.lidos) : 0;
+  const pct = total ? Math.floor(lidos / total * 100) : null;
+  const cobertura = total ? `${lidos} de ${total} arquivos declarados lidos` : '';
+  const mudoHa = s.ultimoSinalEm ? Math.max(0, agora - s.ultimoSinalEm) : 0;
+  if (mudoHa > SEM_SINAL_MS) return { pct, estado: 'muda', texto: `sem sinal há ${duracaoCurta(mudoHa)}`, base: cobertura || 'Sem evento novo; não é possível medir a conclusão.', aria: `sem sinal há ${duracaoFalada(mudoHa)}, conclusão não medida` };
+  if (total) return { pct, estado: 'viva', texto: cobertura, base: 'Percentual de leitura declarada, não de conclusão nem prova de cobertura.', aria: `${pct}% dos arquivos declarados lidos, análise ainda em andamento` };
+  const stage = etapaAtiva(flow);
+  const texto = stage || (s.ultimoSinalEm ? 'em andamento' : 'preparando');
+  const est = s.estimativa;
+  const referencia = est?.tipicoMs > 0 ? baseDaEstimativa(est) : 'ainda sem histórico de duração';
+  return { pct: null, estado: 'viva', texto, base: `${referencia}. ${base}`, aria: `${texto}, conclusão não medida` };
 }
 
-// estado 8: o fim real. O cartão fica assim por um instante antes de sair.
+// Saída observada do snapshot. Não prova sucesso da análise ou da postagem.
 export function conclusaoDaSessao(s = {}, agora = Date.now()) {
   const dur = s.startedAt ? `em ${duracaoCurta(agora - s.startedAt)}` : '';
-  return { pct: 100, estado: 'concluida', texto: 'concluída', base: dur, aria: '100%, concluída' };
+  return { pct: null, estado: 'encerrada', texto: 'sessão encerrada', base: `${dur} · consulte o resultado da revisão`, aria: 'sessão encerrada, consulte o resultado da revisão' };
 }
 
 // Rótulo da etapa ATIVA da esteira, que é a etapa de verdade (item.s do engine). Substitui
@@ -248,10 +193,8 @@ export function selfSessionKey(sessions, id) {
   return (s && s.keys && s.keys[0]) || null;
 }
 
-export function sessionProgress(count) {
-  const n = Math.max(0, Number(count) || 0);
-  return Math.min(90, 5 + Math.round(85 * (1 - Math.exp(-n / 18))));
-}
+// Compatibilidade dos widgets: quantidade de eventos não mede conclusão.
+export function sessionProgress() { return null; }
 
 // `outros`: quem MAIS está revisando o PR desta sessão (estado 5 do desenho de 02/10/2026,
 // ui/pure/revisando.js), só a linha curta e sem botão.
@@ -277,8 +220,8 @@ export function sessionCardHtml(s = {}, stages = '', outros = []) {
           <span class="session-elapsed" data-started="${s.startedAt}"></span>
           ${cancelar}
         </div>
-        <div class="op-progress sess-progress" data-id="${id}" data-estado="viva" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-          <span class="sess-pct">0%</span>
+        <div class="op-progress sess-progress" data-id="${id}" data-estado="viva" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="Andamento da sessão" aria-valuetext="Conclusão não medida">
+          <span class="sess-pct">Em andamento</span>
           <div class="op-bar"><div class="op-bar-fill" style="width:0%"></div></div>
           <span class="sess-sinal" aria-hidden="true"></span>
           <div class="sess-txt"><span class="sess-estado"></span><span class="sess-base"></span></div>
@@ -286,6 +229,7 @@ export function sessionCardHtml(s = {}, stages = '', outros = []) {
         </div>
         ${othersLineHtml(outros, 'sessao')}
         <div class="stage-flow" data-id="${id}" hidden></div>
+        <details class="session-agent-details" data-id="${id}" hidden><summary>Equipe da sessão</summary><ul></ul></details>
         <div class="activity-feed" data-id="${id}"></div>
       </div>`;
 }

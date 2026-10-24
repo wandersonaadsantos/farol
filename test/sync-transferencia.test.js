@@ -34,6 +34,7 @@ const kek = (await import('../lib/sync/kek.js')).default;
 const { prTag, acctTag, matTag } = await import('../lib/sync/tags.js');
 const { checkpointPath, appendCheckpointEntry } = await import('../lib/engine/verification-checkpoint.js');
 
+const { scopeFor, saveRound } = await import('../lib/engine/review-round-store.js');
 const API_KEY = 'chave-web-de-teste';
 const EMAIL = 'a@b.com';
 const SENHA = 'senha-de-teste';
@@ -251,4 +252,28 @@ test('a capacidade publicada leva o que a aptidão do destino precisa ler', asyn
   for (const campo of ['contas', 'contasComToken', 'token', 'iaPronta', 'paralelismo', 'pausado', 'admissao']) {
     assert.ok(campo in cap, `a aptidão do destino lê ${campo}`);
   }
+});
+
+test('modo ativo recusa transferir para executor sem suporte, preservando a sessão', async () => {
+  const e = await motor();
+  e.config.reviewRoundsMode = 'enforce';
+  await capacidadeDoDestino(e);
+  const r = await transfEng.transferir(e, e.config.sync, argsDaTransferencia(e));
+  assert.equal(r.ok, false);
+  assert.match(r.motivo, /não suporta/);
+  assert.deepEqual(e.cancelados, []);
+});
+
+test('falha ao enviar memória de rodada não encerra a origem', async () => {
+  const e = await motor();
+  await capacidadeDoDestino(e, { reviewRoundsSchema: 1 });
+  e.sync.historicoDesde = 1;
+  saveRound({ schema: 1, id: 'd'.repeat(32), scope: scopeFor(PR.key, LOGIN), parents: [],
+    headSha: PR.headSha, baseSha: 'base', at: 1, findings: [], unresolved: [], files: [] });
+  const put = e.sync.client.put.bind(e.sync.client);
+  e.sync.client.put = async (key, ...args) => key.includes('/reviewBodies/') ? { ok: false } : put(key, ...args);
+  const r = await transfEng.transferir(e, e.config.sync, argsDaTransferencia(e));
+  assert.equal(r.ok, false);
+  assert.match(r.motivo, /memória/);
+  assert.deepEqual(e.cancelados, []);
 });

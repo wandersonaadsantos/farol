@@ -53,6 +53,10 @@ invariantes continuam lá.
 - [Autoanálise: parecer do modelo x decisão do app (P0a v2.54.8, P0b v2.55.0)](#autoanálise-parecer-do-modelo-x-decisão-do-app-p0a-v2548-p0b-v2550)
 - [Checkpoint de verificação (memória entre passadas da revisão, v2.36.0)](#checkpoint-de-verificação-memória-entre-passadas-da-revisão-v2360)
 
+- [Inventário único do diff](#inventário-único-do-diff)
+
+- [Memória de achados entre rodadas](#memória-de-achados-entre-rodadas)
+
 <!-- indice:fim -->
 
 ## Invariante 4, em detalhe
@@ -1283,3 +1287,64 @@ Contrato: CT-RET da spec `docs/superpowers/specs/2026-09-15-operacao-multidispos
 - **Validar antes de reutilizar** (`validarRetomada`): mesmo PR, contexto local igual (`provedor` = kind do auth resolvido, `perfilId`), nenhuma decisão do mesmo head criada depois da referência, head salvo presente, head atual **confirmado pelo GitHub** e igual. O head salvo e o `knownHead` do G8 são evidência da tentativa anterior, nunca confirmação: sem head confirmado a revisão espera no `retryAfterNet` sem gastar tentativa e sem abrir sessão. Descarte segue em sessão nova sem o bloco "não releia" e sem confirmação humana. Inflight legado da v2.57.3 não tem contexto e por isso não retoma.
 - **Diagnóstico:** `resumeOutcome` em `'retomada' | 'recusada' | 'nova' | 'nenhuma'` no registro ativo, no `opts` do `runClaudeStream` e no `result` do `recordDecision`. O desfecho não vai pro `farol.log` (invariante 3); persistir em uso e decisão é da A1.
 - **Escopo:** só o `retomarSid`. O `resumeSid` do round incremental segue opt-in e sem mudança.
+
+
+## Inventário único do diff
+
+A revisão headless coleta uma lista paginada de arquivos, compartilhada entre os lotes,
+a cobertura declarada e a herança por blob. Antes e depois da paginação, confere o head,
+a base e a quantidade de arquivos do PR. A medição só é completa quando as duas leituras
+concordam, o head corresponde ao da sessão e a lista contém a quantidade esperada de
+caminhos distintos. Paginar não elimina o limite do endpoint: lista curta é incompleta.
+
+Inventário incompleto ou indisponível permite continuar a análise em passe único, sem
+herança de leitura e sem prometer cobertura integral. O diagnóstico fica no log e no
+registro interno da decisão. Nenhuma postagem automática sai nesse estado, inclusive
+reprovação, comentário em PR próprio ou caminhos alternativos por defeito e CI. Esgotar
+tentativas de buscar prova não transforma inventário desconhecido em verificado. A
+intervenção manual continua sujeita às autorizações e guardas de publicação existentes.
+
+O prompt recebe os caminhos também em passe único. A sessão declara somente a leitura
+que fez; a reconciliação da cobertura herdada continua no engine. A lista do modelo não
+substitui a medição. Caminhos exatos prevalecem, preservando caixa e espaços legítimos;
+atalhos só são reconciliados quando identificam um único caminho. A conferência de usos
+fora do diff continua obrigatória. Declaração de cobertura não prova compreensão do código.
+
+
+## Memória de achados entre rodadas
+
+Cada análise concluída conserva achados estruturados e o inventário do head e da base,
+num diário local isolado por conta e PR. IDs são únicos; a numeração da tela é só um
+rótulo. Rodadas concorrentes formam ramos e a análise seguinte recebe todas as pontas,
+inclusive blockers que outra rodada deixou sem resposta. Escritas são imutáveis e
+idempotentes. Corrupção ou formato incompatível fica preservado e explícito, nunca vira
+histórico vazio. Ausência no Panorama não apaga a memória; nesta etapa não há poda automática.
+
+A análise e o desfecho de publicação têm registros separados. Uma análise registrada não
+prova postagem. Resultado incompleto não cria rodada concluída. Envelope sem findings é
+legado; lista vazia é uma declaração explícita. Severidade inválida, referências desconhecidas
+ou repetidas e resoluções sem evidência são inconclusivas. Blockers não desaparecem por
+limites de quantidade ou por downgrade: retirada precisa de referência e justificativa.
+
+O compartilhamento, quando já habilitado, usa o transporte cifrado e write-once do histórico,
+com domínio e esquema próprios, sem registrar essas rodadas no índice público de revisões.
+O marco de compartilhamento existente é respeitado: memória anterior não é exportada automaticamente.
+Registros grandes são fragmentados; o manifesto só é confirmado depois de todos os fragmentos.
+Arquivo, fragmento ou ancestral ausente impede afirmar completude. A transferência confirma
+o envio da memória antes de encerrar a origem. Outro executor sem suporte é informado como
+incompatível; com a comparação ativa, transferência para ele é recusada. A frota deve ser
+atualizada antes de ativar a política em todos os aparelhos: versões antigas não executam
+os novos gates. Não há migração da sessão do CLI.
+
+`reviewRoundsMode` começa em `observe`: coleta, compara e mostra os diagnósticos, mantendo
+as políticas anteriores. Em `enforce`, memória inconclusiva, blocker sem resposta, referência
+inválida e suspeitas de achado tardio ou resolução em arquivo inalterado impedem postagem
+automática. A política vigente é conferida também na fronteira de postagem, cobrindo reenvio
+e espera de CI. Registros antigos exigem nova análise nesse modo. A decisão manual explícita
+continua sujeita às outras autorizações e aos gates existentes.
+
+Blob igual é somente um indício: mudança de base torna a comparação de contexto desconhecida;
+renomeação, mudança de consumidor ou correção em outro arquivo exigem reavaliação. A interface
+mostra contagens e estado da memória, sem entregar findings brutos ou texto interno ao review
+público. O prompt recebe todas as pendências; se o modelo não conseguir concluir a leitura,
+deve devolver análise incompleta.

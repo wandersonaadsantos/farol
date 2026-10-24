@@ -135,6 +135,7 @@ function numeros(medida) {
   const mb = (Number(m.bytes) || 0) / (1024 * 1024);
   return `<div class="md-numeros">
     <span><span class="md-fraco">revisões anteriores</span> <b>${fmtTok(m.categorias && m.categorias.revisoes)}</b></span>
+    ${m.categorias?.rodadas ? `<span><span class="md-fraco">rodadas anteriores</span> <b>${fmtTok(m.categorias.rodadas)}</b></span>` : ''}
     <span><span class="md-fraco">a enviar</span> <b>${fmtTok(m.pendentes)}</b></span>
     <span><span class="md-fraco">tamanho cifrado, medido</span> <b>${esc(mb.toFixed(1).replace('.', ','))} MB</b></span>
   </div>`;
@@ -171,7 +172,8 @@ function faseMedida(e) {
     return { corpo: '<span class="md-fraco">Nada a enviar: todo o histórico anterior deste aparelho já está compartilhado.</span>', botoes: '<button class="btn sm ghost md-medir">Medir de novo</button>' };
   }
   const aviso = Number(m.bytes) > ENVIO_GRANDE_BYTES ? '<span class="md-fraco">É um volume grande: envie com internet estável. O envio é retomável se cair.</span>' : '';
-  return { corpo: `${numeros(m)}${aviso}`, botoes: `<button class="btn sm primary md-enviar">Enviar ${fmtTok(m.pendentes)} revisões</button><button class="btn sm ghost md-medir">Medir de novo</button>` };
+  const registros = m.categorias?.rodadas ? 'registros' : 'revisões';
+  return { corpo: `${numeros(m)}${aviso}`, botoes: `<button class="btn sm primary md-enviar">Enviar ${fmtTok(m.pendentes)} ${registros}</button><button class="btn sm ghost md-medir">Medir de novo</button>` };
 }
 
 // Falha no meio de um envio já começado é INTERROMPIDO, e continuar usa a mesma medida:
@@ -194,7 +196,7 @@ export function envioHistoricoHtml(estadoDoEnvio) {
   if (e.fase === 'medido') fase = faseMedida(e);
   if (e.fase === 'falha') fase = faseFalha(e);
   return `<div class="card md-envio">
-    <span class="md-nota">Só sobe sozinho o que aconteceu depois de a visão compartilhada ser ligada aqui. O histórico anterior sobe por este envio explícito, cifrado, em lotes, e pode ser interrompido e retomado. Nunca sobem credenciais, a configuração inteira nem o histórico do Claude Code.</span>
+    <span class="md-nota">Só sobe sozinho o que aconteceu depois de a visão compartilhada ser ligada aqui. Revisões e memória de rodadas anteriores sobem por este envio explícito, cifrado, em lotes, e podem ser interrompidas e retomadas. Nunca sobem credenciais, a configuração inteira nem o histórico do Claude Code.</span>
     <div class="md-linha">${fase.corpo}</div>
     <div class="md-acoes">${fase.botoes}</div>
   </div>`;

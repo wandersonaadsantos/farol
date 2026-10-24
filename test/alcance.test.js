@@ -158,6 +158,10 @@ function motor(alcance) {
   e.log = () => { };
   e.on('toast', () => { });
   e.fetchPrFiles = async () => [{ path: 'src/veredito.ts', sha: 'b1', status: 'modified', lines: 10 }];
+  e.fetchPrInventory = async (_pr, headSha) => {
+    const files = await e.fetchPrFiles(_pr);
+    return { status: 'complete', reason: '', headSha, baseSha: 'base', changedFiles: files.length, files };
+  };
   e.headSha = async () => 'abc1234';
   e.postados = [];
   e.postReview = async (_pr, payload) => { e.postados.push(payload); return { ok: true }; };

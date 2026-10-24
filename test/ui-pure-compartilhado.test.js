@@ -523,3 +523,10 @@ test('recibo técnico antigo explica a recusa sem inventar o motivo específico'
   assert.match(estado.detalhe, /Admin não dispensa essa prova/);
   assert.doesNotMatch(estado.detalhe, /código technical_review/);
 });
+
+test('confirmação distingue as rodadas anteriores dos relatos de revisão', () => {
+  const html = P.envioHistoricoHtml({ fase: 'medido', medida: { categorias: { revisoes: 2, rodadas: 3 }, pendentes: 5, bytes: 2048 } });
+  assert.match(html, /rodadas anteriores/);
+  assert.match(html, /Enviar 5 registros/);
+  assert.match(html, /envio explícito/);
+});
