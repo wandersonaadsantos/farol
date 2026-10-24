@@ -1,4 +1,5 @@
-import { captureWindow } from './electron-smoke-capture.js';
+import { captureReviewTools } from './electron-smoke-visual.js';
+import { captureWindow, reloadWindow } from './electron-smoke-capture.js';
 // DOM, SSE, HTTP e disco reais; PRs, sessões e transporte GitHub sintéticos.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -50,10 +51,14 @@ async function checkJourneys(main, waitFor, output) {
     await web.executeJavaScript(`new Promise(resolve => { document.querySelector('#setupManager').scrollIntoView({block:'start',behavior:'instant'}); requestAnimationFrame(() => requestAnimationFrame(resolve)); })`);
     fs.writeFileSync(path.join(output, `journeys-${theme}.png`), (await captureWindow(main.win, 'journeys')).toPNG());
   }
-  web.reload();
+  await captureReviewTools(main, output, 'setup', '#setupManager');
+  await captureReviewTools(main, output, 'preferences', '#preferencesTransfer');
+  await reloadWindow(main.win);
   await waitFor(() => web.executeJavaScript(`!!document.querySelector('[data-setup-step="plans"][aria-pressed="true"]')`).catch(() => false), 'retomada do roteiro após recarga');
   await web.executeJavaScript(`document.querySelector('#tabbtn-radar').click()`);
   await waitFor(() => web.executeJavaScript(`document.querySelectorAll('.queue-group').length===2 && !document.querySelector('.queue-group').open`), 'grupo e recolhimento após recarga');
+  await captureReviewTools(main, output, 'queue', '#queueSection');
+  await captureReviewTools(main, output, 'session', '#activeWrap');
   e.activeReviews.delete(id); e.pushState();
   return { status: 'passed', boundaries: 'real DOM/SSE/HTTP/configuration; synthetic GitHub transport, PRs and session', keyboardCollapse: true, collapseSurvivesReload: true, noInferredCompletion: true, agentsAccessible: true, setupResumed: true, importPreviewAndSelection: true, themes: ['light', 'dark'], voiceDefault: false };
   } finally { io.run = previousRun; }

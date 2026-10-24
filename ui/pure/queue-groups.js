@@ -11,6 +11,6 @@ function queueGroups(items, mode) {
 }
 function groupedQueue(items, mode, closed = new Set()) {
   if (!['account', 'repo'].includes(mode)) return items.map(item => item.html).join('');
-  return queueGroups(items, mode).map(g => `<details class="queue-group" data-queue-group="${esc(g.key)}"${closed.has(g.key) ? '' : ' open'}><summary>${esc(g.label)} · ${g.rows.length} PR(s)</summary><div class="cards">${g.rows.map(item => item.html).join('')}</div></details>`).join('');
+  return queueGroups(items, mode).map(g => `<details class="queue-group review-tools rgroup" data-queue-group="${esc(g.key)}"${closed.has(g.key) ? '' : ' open'}><summary class="rgroup-head"><span class="chev" aria-hidden="true"></span><span>${esc(g.label)}</span><span class="count ambient">${g.rows.length} PR(s)</span></summary><div class="cards">${g.rows.map(item => item.html).join('')}</div></details>`).join('');
 }
 export { queueGroups, groupedQueue };

@@ -1,3 +1,4 @@
+import { captureReviewTools } from './electron-smoke-visual.js';
 import { captureWindow } from './electron-smoke-capture.js';
 // DOM, API, curadoria e armazenamento reais; só GitHub/IA são sintéticos.
 import fs from 'node:fs';
@@ -27,7 +28,8 @@ async function checkReviewAudits(main, waitFor, output) {
     await running(e);
     assert.doesNotMatch(prompts[0], /Revisão original aprovada|Valor mutável/);
     await main.win.webContents.executeJavaScript(`document.querySelector('#auditLoad').click()`);
-    await waitFor(() => main.win.webContents.executeJavaScript(`document.querySelector('#auditJobs').textContent.includes('completed') && !!document.querySelector('[data-audit-assess]')`), 'relatório com custo e avaliação humana');
+    await waitFor(() => main.win.webContents.executeJavaScript(`document.querySelector('#auditJobs').textContent.includes('Concluída') && !!document.querySelector('[data-audit-assess]')`), 'relatório com custo e avaliação humana');
+    await main.win.webContents.executeJavaScript(`document.querySelector('#auditJobs > details > summary').click()`);
     const cost = await main.win.webContents.executeJavaScript(`document.querySelector('#auditJobs').textContent`); assert.match(cost, /0\.2400/);
     await main.win.webContents.executeJavaScript(`(() => {
       const button = document.querySelector('[data-audit-assess][data-verdict="agree"]');
@@ -35,6 +37,7 @@ async function checkReviewAudits(main, waitFor, output) {
       button.click();
     })()`);
     await waitFor(() => main.win.webContents.executeJavaScript(`document.querySelector('#auditMetrics').textContent.includes('100.0%')`), 'comparação humana persistida');
+    await main.win.webContents.executeJavaScript(`document.querySelector('#auditMetrics summary').click()`);
     await main.win.webContents.executeJavaScript(`(() => {
       for (const [id,value] of [['specialistAccount','dev'],['specialistRepo',${safeStringify(fixture.decision.pr.repo)}],['specialistBranch','main']]) {
         const el=document.getElementById(id); el.value=value; el.dispatchEvent(new Event('input',{bubbles:true}));
@@ -49,6 +52,7 @@ async function checkReviewAudits(main, waitFor, output) {
     const visible = await main.win.webContents.executeJavaScript(`document.querySelector('#auditManager').getBoundingClientRect().top < innerHeight`);
     assert.equal(visible, true, 'formulário da auditoria visível na captura');
     const image = await captureWindow(main.win, 'audits'); fs.writeFileSync(path.join(output, 'review-audits.png'), image.toPNG());
+    await captureReviewTools(main, output, 'audits', '#auditManager');
     return { status: 'passed', boundaries: 'GitHub and AI synthetic; real DOM, HTTP, store and usage ledger',
       twoFreshSessions: true, blindFirst: true, humanAssessment: true, lessonProposalOnly: true, costUsd: 0.24, automaticDefault: false };
   } finally { io.run = previousRun; e.runClaudeStream = previousStream; }

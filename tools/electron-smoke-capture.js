@@ -1,5 +1,6 @@
 // O compositor pode rejeitar uma captura transitória; nunca substitui a imagem.
 import { setTimeout as delay } from 'node:timers/promises';
+import { once } from 'node:events';
 const CAPTURE_RETRY_DELAY_MS = 250;
 const diagnostics = [];
 async function captureWindow(window, label) {
@@ -15,4 +16,9 @@ async function captureWindow(window, label) {
     }
   }
 }
-export { captureWindow, diagnostics };
+async function reloadWindow(window) {
+  const loaded = once(window.webContents, 'did-finish-load', { signal: AbortSignal.timeout(15000) });
+  window.webContents.reload();
+  await loaded;
+}
+export { captureWindow, reloadWindow, diagnostics };

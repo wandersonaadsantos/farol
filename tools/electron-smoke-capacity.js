@@ -1,3 +1,4 @@
+import { captureReviewTools } from './electron-smoke-visual.js';
 import { captureWindow } from './electron-smoke-capture.js';
 // Jornada da política real; cota e tabela de processos sintéticas, sem comandos externos.
 import fs from 'node:fs';
@@ -38,6 +39,7 @@ async function checkCapacity(main, waitFor, output) {
     await waitFor(() => main.win.webContents.executeJavaScript(`document.querySelector('#capacityResources').textContent.includes('Farol e subprocessos')`), 'diagnóstico de recursos separado por escopo');
     await main.win.webContents.executeJavaScript(`new Promise(resolve => { document.querySelector('#capacityManager').scrollIntoView({block:'start',behavior:'instant'}); requestAnimationFrame(() => requestAnimationFrame(resolve)); })`);
     const image = await captureWindow(main.win, 'capacity'); fs.writeFileSync(path.join(output, 'capacity.png'), image.toPNG());
+    await captureReviewTools(main, output, 'capacity', '#capacityManager');
     return { status: 'passed', boundaries: 'synthetic quota and process table; real DOM, HTTP, policy and chain',
       defaultOff: true, observationPreservesProfile: true, authorizedFallback: true, exclusiveProfilePreserved: true, resourcesSeparated: true, voiceDefault: false };
   } finally { io.run = previousRun; }

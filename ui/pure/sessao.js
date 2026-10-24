@@ -229,7 +229,7 @@ export function sessionCardHtml(s = {}, stages = '', outros = []) {
         </div>
         ${othersLineHtml(outros, 'sessao')}
         <div class="stage-flow" data-id="${id}" hidden></div>
-        <details class="session-agent-details" data-id="${id}" hidden><summary>Equipe da sessão</summary><ul></ul></details>
+        <details class="session-agent-details review-tools disc agents" data-id="${id}" hidden><summary>Equipe da sessão</summary><ul class="agent-list"></ul></details>
         <div class="activity-feed" data-id="${id}"></div>
       </div>`;
 }

@@ -195,10 +195,11 @@ export function envioHistoricoHtml(estadoDoEnvio) {
   if (ENVIO_FASE[e.fase]) fase = ENVIO_FASE[e.fase](e);
   if (e.fase === 'medido') fase = faseMedida(e);
   if (e.fase === 'falha') fase = faseFalha(e);
-  return `<div class="card md-envio">
+  return `<div class="card set-list review-tools md-envio">
+    <div class="set-head"><div><h3>Enviar histórico deste aparelho</h3><p>Meça antes de autorizar o envio das revisões e rodadas anteriores.</p></div></div>
     <span class="md-nota">Só sobe sozinho o que aconteceu depois de a visão compartilhada ser ligada aqui. Revisões e memória de rodadas anteriores sobem por este envio explícito, cifrado, em lotes, e podem ser interrompidas e retomadas. Nunca sobem credenciais, a configuração inteira nem o histórico do Claude Code.</span>
-    <div class="md-linha">${fase.corpo}</div>
-    <div class="md-acoes">${fase.botoes}</div>
+    <div class="md-linha set-block" role="status" aria-live="polite">${fase.corpo}</div>
+    <div class="md-acoes set-actions">${fase.botoes}</div>
   </div>`;
 }
 

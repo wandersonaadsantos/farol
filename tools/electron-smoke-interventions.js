@@ -1,4 +1,5 @@
-import { captureWindow } from './electron-smoke-capture.js';
+import { captureReviewTools } from './electron-smoke-visual.js';
+import { captureWindow, reloadWindow } from './electron-smoke-capture.js';
 // Integração real engine -> SSE -> renderer e engine -> notificação nativa.
 // O clique é emitido na Notification real; não simula um clique físico do SO.
 import fs from 'node:fs';
@@ -33,16 +34,23 @@ async function checkInterventions(main, waitFor, output) {
     notifications[0].notification.emit('click');
     await waitFor(async () => main.win.isVisible() && main.win.webContents.executeJavaScript(
       `!!document.querySelector('[data-url="https://github.com/smoke/intervention/pull/1"].pulse-focus')`), 'clique chegar à pendência correta');
+    await waitFor(() => main.win.webContents.executeJavaScript(`!!document.querySelector('#interventionsInbox [data-intervention-id]')`), 'caixa recuperar intervenção pelo SSE');
+    await main.win.webContents.executeJavaScript(`document.querySelector('#interventionsInbox summary').click()`);
+    engine.pushState();
+    await waitFor(() => main.win.webContents.executeJavaScript(`document.querySelector('#interventionsInbox').open && document.querySelectorAll('#interventionsInbox [data-intervention-id]').length === 1`), 'polling preservar caixa aberta sem duplicar aviso');
+    await captureReviewTools(main, output, 'interventions', '#interventionsInbox');
     const controls = await main.win.webContents.executeJavaScript(`(async () => {
       document.querySelector('#tabbtn-sistema').click();
       document.querySelector('#sysbtn-prefs').click();
       const enabled = document.querySelector('#setVoiceEnabled');
       const selected = Array.from(document.querySelector('#setVoiceEvents').options).filter(o => o.selected).length;
-      return { enabled: enabled.checked, selected, volume: document.querySelector('#setVoiceVolume').value,
+      return { enabled: enabled.checked, selected, optionsHidden: document.querySelector('#interventionVoiceOptions').hidden,
+        multiple: document.querySelector('#setVoiceEvents').multiple, volume: document.querySelector('#setVoiceVolume').value,
         testButton: !!document.querySelector('#testInterventionVoice'),
         voices: (window.speechSynthesis?.getVoices() || []).filter(v => v.localService).length };
     })()`);
     assert.equal(controls.enabled, false); assert.equal(controls.selected, 4);
+    assert.equal(controls.optionsHidden, true); assert.equal(controls.multiple, true);
     assert.equal(controls.volume, '50'); assert.equal(controls.testButton, true);
     await main.win.webContents.executeJavaScript(`document.querySelector('#setVoiceEnabled').click()`);
     await waitFor(() => engine.config.voiceEnabled === true, 'preferência de voz salva pelo formulário real');
@@ -64,8 +72,12 @@ async function checkInterventions(main, waitFor, output) {
     await waitFor(() => main.win.webContents.executeJavaScript(`document.querySelector('#sys-row-interventions').getBoundingClientRect().top < 130`), 'preferências de voz visíveis para captura');
     const image = await captureWindow(main.win, 'interventions');
     fs.writeFileSync(path.join(output, 'intervention-settings.png'), image.toPNG());
+    await main.win.webContents.executeJavaScript(`document.querySelector('#setVoiceEnabled').click()`);
+    await waitFor(() => engine.config.voiceEnabled === false, 'desligar voz depois do teste opt-in');
+    await waitFor(() => main.win.webContents.executeJavaScript(`document.querySelector('#interventionVoiceOptions').hidden`), 'opções recolhidas com voz desligada');
+    await captureReviewTools(main, output, 'voice', '#sys-row-interventions');
     // Cliente reaberto recebe a pendência pelo snapshot, sem nova notificação nativa.
-    await main.win.webContents.reload();
+    await reloadWindow(main.win);
     await waitFor(() => main.win.webContents.executeJavaScript(
       `Array.from(document.querySelectorAll('.t-acao')).some(b => b.textContent === 'Abrir pendência')`), 'reconexão recuperar aviso ativo');
     assert.equal(notifications.length, 1);
