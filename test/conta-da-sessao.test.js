@@ -103,6 +103,20 @@ test('snapshot expõe as chaves em distribuição além da fila de execução', 
   assert.deepEqual(e.snapshot().headlessDistributing, [PR.key]);
 });
 
+test('snapshot leva a posição e a recusa efetiva do agendador à tela', () => {
+  const e = engineComSilenciada();
+  e.config.parallelReviews = 1;
+  e.config.globalParallelReviews = 2;
+  e.headlessQueue = [{ ...PR, account: 'normal' }];
+  e.headlessBusyAccounts.set('normal', 1);
+  e.processHeadless();
+  assert.deepEqual(e.snapshot().headlessWaitingDetails[PR.key], {
+    posicao: 1, total: 1, motivo: 'limite-conta', ocupadas: 1, limite: 1,
+  });
+  assert.equal(e.activeReviews.size, 0, 'a leitura não abre uma sessão');
+  assert.equal(e.headlessBusyAccounts.get('normal'), 1, 'a execução já contabilizada permanece intacta');
+});
+
 test('lista de espera: a conta silenciada não entra nela nem pelo clique', async () => {
   const e = engineComSilenciada();
   e.processHeadless = () => { };

@@ -232,6 +232,7 @@ function renderQueue() {
     revisarJunto, limiteAte: limiteDe(pr), limiteNoTopo: !!noTopo[contaDe(pr)],
   })).join('') + aguardando.map(pr => queueWaitingCardHtml(pr, {
     mark: acctMark(pr), sync: estado().sync, distribuindo: distribuindo.has(pr.key),
+    espera: (estado().headlessWaitingDetails || {})[pr.key],
   })).join('');
 }
 
