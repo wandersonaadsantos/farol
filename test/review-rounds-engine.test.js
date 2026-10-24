@@ -13,6 +13,7 @@ const { isolateTechnicalTool } = await import('./helpers/technical-proof.js');
 const restore = isolateTechnicalTool();
 const { readRounds, scopeFor, roundsPath } = await import('../lib/engine/review-round-store.js');
 const { resolvedRow } = await import('../ui/pure/review.js');
+const { publicationRefusal } = await import('../lib/engine/review-rounds.js');
 after(() => { restore(); io.run = originalRun; fs.rmSync(home, { recursive: true, force: true }); });
 
 let serial = 0;
@@ -168,4 +169,35 @@ test('blocker declarado persistente não combina com aprovação automática, ma
   assert.match(d.reasons.map(r => r.text || r).join(' '), /persistem/);
   await run([{ ...blocker, ref, status: 'persiste' }], 'request_changes');
   assert.equal(e.postados.length, 2);
+});
+
+test('contrato interno forjado sem findings não libera aprovação', async () => {
+  const { run, e } = motor();
+  const d = await run(undefined, 'approve', { findingContract: { status: 'complete', findings: [], issues: [] } });
+  assert.equal(d.status, 'pending');
+  assert.equal(e.postados.length, 0);
+  assert.match(d.roundReview.integrity.join(' '), /legacy/);
+});
+
+test('pedido de mudanças em PR próprio atravessa a fronteira como comentário sem virar aprovação', async () => {
+  const { run, e, pr } = motor();
+  pr.author = 'eu';
+  e.postReview = async (_pr, payload, options) => {
+    const refused = publicationRefusal(e, options, payload);
+    if (refused) return refused;
+    e.postados.push(payload);
+    return { ok: true };
+  };
+  const d = await run([blocker], 'request_changes');
+  assert.equal(d.status, 'commented_own_pr');
+  assert.equal(e.postados.length, 1);
+  assert.equal(e.postados[0].event, 'COMMENT');
+  const options = { via: 'reenvio', continuidade: { verdict: 'request_changes', roundReview: d.roundReview } };
+  assert.equal(publicationRefusal(e, options, { event: 'COMMENT' }), null);
+  assert.equal(publicationRefusal(e, options, { event: 'APPROVE' }).blocked, 'round_memory');
+  options.continuidade.verdict = 'approve';
+  assert.equal(publicationRefusal(e, options, { event: 'COMMENT' }).blocked, 'round_memory');
+  options.continuidade.verdict = 'request_changes';
+  options.continuidade.roundReview.integrity = ['memória indisponível'];
+  assert.equal(publicationRefusal(e, options, { event: 'COMMENT' }).blocked, 'round_memory');
 });

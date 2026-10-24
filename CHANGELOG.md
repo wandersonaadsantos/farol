@@ -25,6 +25,8 @@ Revisões com cobertura verificável e memória entre rodadas, especialistas por
 - Filas podem ser agrupadas e recolhidas, o progresso mostra fatos da execução e a configuração pode ser retomada. A importação de preferências oferece prévia e seleção, sem transportar credenciais ou políticas de revisão.
 
 **Correções**
+- Rodadas anteriores ao compartilhamento entram no envio explícito do histórico, com tamanho cifrado medido e confirmação do conteúdo. O envio confirmado continua reconhecido após reiniciar.
+- A revisão ignora contratos internos fornecidos pelo modelo e valida os achados declarados. Pedidos de mudança em PR próprio preservam seu significado ao serem publicados como comentário.
 - Auditorias recebem o inventário real da revisão e recuperam o bloqueio deixado por um processo comprovadamente encerrado, preservando exclusão entre executores. Apenas a auditoria ativa aparece como em execução.
 - Auditorias preservam a grafia da conta configurada ao consultar credenciais, fontes e perfis. Suspeitas independentes sem prova suficiente podem ser concluídas como inconclusivas, sem perder a resposta obrigatória aos achados originais.
 - Falha ao gravar a memória remota continua visível e bloqueia a publicação quando essa garantia é exigida, mesmo que a consulta seguinte devolva uma lista vazia.
