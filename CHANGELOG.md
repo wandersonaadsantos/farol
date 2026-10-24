@@ -26,6 +26,7 @@ Revisões com cobertura verificável e memória entre rodadas, especialistas por
 
 **Correções**
 - Auditorias recebem o inventário real da revisão e recuperam o bloqueio deixado por um processo comprovadamente encerrado, preservando exclusão entre executores. Apenas a auditoria ativa aparece como em execução.
+- Auditorias preservam a grafia da conta configurada ao consultar credenciais, fontes e perfis. Suspeitas independentes sem prova suficiente podem ser concluídas como inconclusivas, sem perder a resposta obrigatória aos achados originais.
 - Falha ao gravar a memória remota continua visível e bloqueia a publicação quando essa garantia é exigida, mesmo que a consulta seguinte devolva uma lista vazia.
 - Após trocar o perfil do Antigravity por falta de cota, o consumo é atribuído somente ao perfil que efetivamente executou a revisão.
 - A leitura de regras identifica ciclos ancestrais alcançáveis; caminhos e arquivos temporários recebem validações adicionais de segurança.

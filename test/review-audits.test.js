@@ -160,6 +160,23 @@ test('classificações exigem cada referência original, observação cega e cit
   assert.throws(() => blindResult(JSON.stringify({ observations: [], limitations: ['private@example.com'] }), snapshot));
 });
 
+test('suspeita independente sem confirmação pode ser inconclusiva sem perder cobertura e unicidade', async () => {
+  const f = fixture(), snapshot = await snapshotFor(f.engine, targetFor(f.engine, f.decision.id, 'dev'));
+  const blind = blindResult(JSON.stringify({ observations: [{ title: 'Contrato ausente', explanation: 'Consumidor não fornecido.',
+    evidence: [{ path: 'src/a.ts', side: 'head', start: 1, end: 1, quote: 'export const value = 1;' }] }], limitations: [] }), snapshot);
+  const item = { kind: 'inconclusive', ref: null, blindRef: 'b1', title: 'Contrato ausente', explanation: 'Não há prova suficiente para afirmar omissão.', evidence: [] };
+  const report = (items, findings = []) => reportResult(JSON.stringify({ items, limitations: [] }), snapshot, blind, { findings });
+  assert.equal(report([item]).items[0].kind, 'inconclusive');
+  assert.throws(() => report([{ ...item, blindRef: null }]));
+  assert.throws(() => report([{ ...item, blindRef: 'b2' }]));
+  assert.throws(() => report([item, item]));
+  for (const kind of ['confirmed', 'incorrect']) assert.throws(() => report([{ ...item, kind }]));
+  assert.throws(() => report([item], f.round.findings), 'achados originais ainda exigem resposta');
+  const original = { ...item, ref: f.round.findings[0].id, blindRef: null };
+  assert.equal(report([original, item], f.round.findings).items.length, 2);
+  assert.throws(() => report([original, original, item], f.round.findings));
+});
+
 test('avaliação humana tem CAS e contestação; proposta exige concordância e curadoria separada', async () => {
   const f = fixture(); await audit(f);
   const value = view(f.engine).jobs.find(v => v.job.target.decisionId === f.decision.id), id = value.job.id, item = value.result.report.items[0].id;
