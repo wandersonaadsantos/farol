@@ -2716,6 +2716,13 @@ label.set-row:has(input:disabled).review-tools, .review-tools label.set-row:has(
 .review-tools :is(input,select,textarea,button):focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 .review-tools .count { color: var(--accent-text); }
 #interventionsInbox, .review-tools.queue-group, .review-tools.agents { scroll-margin-top: calc(var(--topbar-h) + 3.5rem); }
+.session-card .sess-progress { grid-template-columns: minmax(0, 1fr) auto; }
+.session-card .sess-progress .sess-pct { text-align: left; }
+.session-card .sess-progress .sess-sinal { grid-column: 2; grid-row: 1; }
+.session-card .sess-progress .op-bar, .session-card .sess-progress .sess-txt { grid-column: 1 / -1; }
+.session-card .sess-progress:not([aria-valuenow]) .op-bar { display: none; }
+.session-card .sess-progress .sess-base { flex-basis: 100%; }
+#activeWrap { scroll-margin-top: calc(var(--topbar-h) + 3.5rem); }
 .review-tools .set-head > div, .review-tools .field { min-width: 0; }
 .review-tools .irow-head h4, .review-tools h4.set-title { margin: 0; font: inherit; font-weight: 600; }
 .review-tools .set-head .row-actions, .review-tools .set-ctl { max-width: 100%; }
