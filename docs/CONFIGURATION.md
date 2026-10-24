@@ -52,6 +52,30 @@ Três consequências que valem saber:
 - **As chaves antigas no arquivo são entrada da migração, sempre.** `{"port": 47180, "autoReview": false}` numa instância de teste continua valendo: enquanto não existe conta, as chaves esperam; quando o login do `gh` é detectado, a conta nasce com `autoReview: false`. Para deixar explícito, escreva a conta: `{"accounts": [{"user": "login", "owners": [], "autoReview": false}]}`.
 - **A única diferença de comportamento, e ela só restringe:** conta com `onClean: wait` e `onCaveats: approve` por escolha própria aprovava sozinha o PR com ressalvas e segurava o limpo. Agora ela espera você nos dois, e a migração grava `onCaveats: wait` nela.
 
+### Review por organização e autor
+
+Em Sistema → Contas, cada cartão tem o bloco **Review por organização e autor**.
+Uma regra pode escolher **Automático** ou **Manual** para uma organização inteira,
+ou para um login de autor dentro dela. O autor tem precedência sobre a organização;
+sem exceção vale a organização e, sem regra para ela, vale a configuração atual da
+conta revisora. A conta em "só põe na fila" continua impedindo o início automático.
+As organizações monitoradas no panorama não são uma lista de permissão: regras também
+se aplicam a PRs de outras organizações encontrados por pedido de revisão.
+
+As regras ficam no campo opcional `accounts[].reviewRules`, por exemplo:
+`{"acme":{"mode":"manual","authors":{"joao":"auto","maria":"manual"}}}`.
+Ausência do campo não exige migração nem muda as opções já salvas. "Seguir conta",
+"Seguir organização" e Remover eliminam apenas a regra escolhida, restaurando sua
+herança; editar uma regra não regrava as demais regras nem as políticas de publicação.
+
+**Manual** permite o clique Revisar, mas impede retentativas automáticas, mesmo de
+uma sessão iniciada por clique, e novas rodadas após push ou resultado em head antigo.
+Sem regras novas, as retentativas mantêm o contrato anterior. O engine consulta a
+regra atual ao selecionar, enfileirar e iniciar a sessão; um item que passou a manual
+enquanto esperava vaga volta à fila visível, sem perder a referência de retomada.
+Uma sessão que já começou não é cancelada pela edição. Aprovar e pedir mudanças
+continuam obedecendo às opções de publicação existentes na conta.
+
 ### Paralelismo: cada número diz uma coisa só
 
 | número | onde | o que é |

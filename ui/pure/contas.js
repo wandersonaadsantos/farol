@@ -19,6 +19,7 @@
 // renomeada deixava um escopo orfao que esvaziava o Radar pra sempre (B15).
 // Compara sem caixa e preserva o valor original quando ele e valido.
 import { esc, fmtMoney, fmtClock } from './comum.js';
+import { reviewScopeHtml } from './review-scope.js';
 import { camposAgyHtml } from './agy.js';
 
 export function validScope(scope, users) {
@@ -455,6 +456,7 @@ export function accountsManagerHtml(ctx) {
             <small class="a-hint">A revisão lê também as regras que o próprio repositório declara (CLAUDE.md, AGENTS.md, CONTRIBUTING, ADRs). Salva ao sair do campo.</small>
           </div>
         </div>
+        ${reviewScopeHtml(a)}
       </div>
       ${barraAcoes}
     </div>`;

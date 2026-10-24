@@ -9,6 +9,18 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.77.1
+
+Controle de review automático ou manual por organização e autor do PR, preservando as configurações existentes.
+
+**Melhorias**
+- Em Sistema > Contas, escolha o modo de revisão de cada organização e crie exceções para autores dentro dela. A regra do autor tem prioridade sobre a organização; sem regra nova, permanece a configuração atual da conta.
+- Remover uma regra restaura a herança da organização ou da conta. As opções de aprovar e pedir mudanças continuam independentes e não são alteradas.
+
+**Correções**
+- A escolha de revisão manual também vale para PRs encontrados fora das organizações do panorama, retentativas e novas rodadas após push. Revisar por clique continua disponível.
+- Se a regra mudar enquanto o PR espera uma vaga ou uma consulta, o início automático é reconferido e o PR permanece visível para revisão manual. Sessões já iniciadas não são interrompidas.
+
 ## v2.77.0
 
 Revisões com cobertura verificável e memória entre rodadas, especialistas por repositório e auditorias independentes, com mais clareza sobre filas e limites dos provedores.
