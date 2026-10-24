@@ -1,9 +1,11 @@
+import { repescarRetry } from './lib/engine/review-retry.js';
 // Farol: engine de monitoramento de PRs + servidor http local da UI.
 // Porta a logica do antigo pr-reviewer.ps1: o polling do GitHub roda aqui
 // (so comandos gh, sem gastar tokens de IA); a revisao em si abre uma sessao
 // interativa do Claude Code em um terminal proprio, com /pr-review <urls>.
 // Zero dependencias externas: roda com Node puro (e dentro do Electron).
 import fs from 'node:fs';
+import { politicaDeInicio, normalizarRegras } from './lib/engine/review-scope.js';
 import path from 'node:path';
 import os from 'node:os';
 import { EventEmitter } from 'node:events';
@@ -634,6 +636,7 @@ class Engine extends EventEmitter {
         color: (a && a.color != null) ? String(a.color).trim() : '',
         kind: (a && a.kind != null) ? String(a.kind).trim() : '',
         muted: !!(a && a.muted),
+        ...(a?.reviewRules && { reviewRules: normalizarRegras(a.reviewRules) }),
         // política de automação da conta: a gravação escreve os quatro por extenso
         autoReview: (a && (a.autoReview === true || a.autoReview === false)) ? a.autoReview : undefined,
         onClean: (a && (a.onClean === 'approve' || a.onClean === 'wait')) ? a.onClean : undefined,
@@ -1175,6 +1178,7 @@ class Engine extends EventEmitter {
       const toReview = this.queue.filter(p => {
         const acct = this.accountForPr(p);
         if (this.isMuted(acct) || !this.autoReviewFor(acct) || !this.tokenFor(acct)) return false;
+        if (!politicaDeInicio(this, p).automatic) return false;
         if (inflight.has(p.key)) return false;
         if (this.autoReviewParked.has(p.key)) return false;
         if (this.retryAfterNet.has(p.key)) return false;
@@ -1231,55 +1235,7 @@ class Engine extends EventEmitter {
   // Repesca do retry pós-transitório (extraído do _dispararAutomacoes quando o
   // gate de consciência entrou no caminho, pra manter a profundidade no teto do
   // gate de qualidade). O comportamento é o de sempre, mais o gate novo no meio.
-  async _repescarRetry(fresh, inflight) {
-    if (!this.retryAfterNet.size) return;
-    const retry = this.retryTargets(new Set(fresh.map(f => f.key)), inflight);
-    if (!retry.length) return;
-    // poda PRs que foram mergeados/fechados enquanto esperavam no retry,
-    // ANTES de notificar e lançar: sem isso cada ciclo gera uma cascata
-    // de "relançando..." + "já mergeado, cancelei" pra cada PR fechado
-    const stillOpen = [];
-    for (const pr of retry) {
-      let state = null;
-      try { state = await this.prState(pr); } catch {}
-      if (state === 'MERGED' || state === 'CLOSED') {
-        this.retryAfterNet.delete(pr.key);
-        // PR fechado não volta: a referência de retomada dele é consumida aqui, senão
-        // ficaria no inflight.json pra sempre
-        retomadaMod.consumirRetomada(this, pr.key);
-      } else {
-        stillOpen.push(pr);
-      }
-    }
-    // gate de consciência do review automático (28/08/2026 à tarde): head ativo
-    // com review decisivo de outra pessoa deixa o retry aguardando ação manual.
-    // A entrada do retry morre junto (a promessa "retomo sozinho" caducou:
-    // alguém decisivo se manifestou, e insistir seria reconsultar o mesmo head
-    // a cada ciclo); o card segue visível na fila, deixado lá pela falha
-    // transitória original, com o botão Revisar valendo. Roda ANTES do toast de
-    // relançamento pra nunca anunciar um relançamento que não vai acontecer.
-    const relancaveis = [];
-    for (const pr of stillOpen) {
-      if (await this.bloqueiaAutomatico(pr)) this.retryAfterNet.delete(pr.key);
-      else relancaveis.push(pr);
-    }
-    if (!relancaveis.length) return;
-    this.emit('toast', { kind: 'info', text: `Conexão de volta: relançando a revisão de ${relancaveis.map(p => p.key).join(', ')}.` });
-    // G9: relança o OBJETO guardado (era o motivo de guardá-lo): relançar
-    // por URL re-resolvia no panorama e requested virava false, rebaixando
-    // um round automático a manual com a reason errada
-    for (const pr of relancaveis) {
-      // a falha transitória original (runOneHeadless) fez unsee + queue.push
-      // pra deixar o card visível "aguardando você" enquanto esperava o retry.
-      // O launchReview desfazia os dois (markSeen + saída da fila) no
-      // relançamento; enqueueHeadless sozinho não faz isso, e o card mentia
-      // "aguardando você" com o botão Revisar ativo enquanto a revisão
-      // relançada já estava rodando.
-      this.markSeen(pr.key);
-      this.queue = this.queue.filter(p => p.key !== pr.key);
-      this.enqueueHeadless(pr);
-    }
-  }
+  async _repescarRetry(fresh, inflight) { return repescarRetry(this, fresh, inflight); }
 
   setStatus(s) { this.status = s; this.pushState(); }
 
