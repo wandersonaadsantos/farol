@@ -176,6 +176,16 @@ test('clique novo ultrapassa manual e limpa a marca da retentativa anterior', as
   assert.equal(e.headlessQueue[0].automaticRetry, false);
 });
 
+test('lançamento automático bloqueado pela regra informa espera manual e conserva a fila', async () => {
+  const e = engine(manual);
+  e.queue = [pr()];
+  const r = await e.launchReview([pr().url], 'auto', 'auto');
+  assert.equal(r.ok, false);
+  assert.match(r.error, /manual/);
+  assert.equal(e.queue.length, 1);
+  assert.equal(e.headlessQueue.length, 0);
+});
+
 test('novas rodadas por push e por pendência respeitam o autor e não queimam âncora', async () => {
   for (const gatilho of ['push', 'pendencia']) {
     const e = engine(manual);
@@ -237,6 +247,25 @@ test('troca para manual durante o gate de nova rodada não consome a âncora', a
   assert.equal(e.reReviewLaunched[pr().key], undefined);
 });
 
+test('mudança durante consulta libera apenas a vaga original e preserva a próxima revisão', async () => {
+  const e = engine(automatico);
+  e.config.parallelReviews = 1;
+  e.headlessBusyAccounts.set('revisor', 1);
+  const seguinte = { ...pr('outro', 'outra'), manual: true };
+  const terceiro = { ...seguinte, key: 'outra/app#2', number: 2, url: 'https://github.com/outra/app/pull/2' };
+  e.headlessQueue = [seguinte, terceiro];
+  const iniciados = [];
+  // A próxima sessão fica ocupando sua vaga; só o efeito externo da sessão é dublado.
+  e.runOneHeadless = p => { iniciados.push(p.key); };
+  e.processHeadless = () => Engine.prototype.processHeadless.call(e);
+  e.prState = async () => { e.config.accounts[0].reviewRules = manual; return 'OPEN'; };
+  await Engine.prototype.runOneHeadless.call(e, { ...pr(), manual: true, automaticRetry: true }, 'revisor');
+  assert.deepEqual(iniciados, [seguinte.key]);
+  assert.equal(e.headlessBusyAccounts.get('revisor'), 1, 'a próxima sessão ainda ocupa a conta');
+  assert.equal(e.headlessQueue.length, 1, 'o terceiro PR continua esperando sua vaga');
+  assert.equal(e.queue[0].key, pr().key, 'o PR bloqueado continua visível');
+});
+
 test('tela distingue herança, autor, publicação e conta manual, e escapa texto', () => {
   const html = reviewScopeHtml({ user: 'revisor', autoReview: false, reviewRules: { acme: { mode: 'manual', authors: { joao: 'auto' } } } });
   assert.match(html, /Review por organização e autor/);
@@ -246,5 +275,5 @@ test('tela distingue herança, autor, publicação e conta manual, e escapa text
   assert.match(html, /a publicação segue as opções acima/);
   assert.match(html, /data-author="joao"/);
   assert.match(html, /aria-label="Modo de review: acme, @joao"/);
-  assert.doesNotMatch(reviewScopeHtml({ user: '"><script>alert(1)</script>' }), /<script>/);
+  assert.doesNotMatch(reviewScopeHtml({ user: '"><script>alert(1)</script>' }), /<script>/i);
 });
