@@ -9,7 +9,7 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.77.1
+## v2.77.2
 
 Interface consistente nos fluxos de revisão, com menos sobreposições.
 
@@ -18,6 +18,20 @@ Interface consistente nos fluxos de revisão, com menos sobreposições.
 - Intervenções ficam agrupadas e recolhidas no Radar, com as ações existentes, sem um aviso sobreposto por pendência.
 - As opções de voz aparecem apenas quando ativadas; a voz continua desligada por padrão. Importar preferências não a ativa.
 - O envio explícito de histórico mantém medição e confirmação, com ações e avisos no padrão visual existente. Custos de auditoria continuam distinguindo medido, estimado e indisponível.
+- O texto do progresso da sessão usa a largura do cartão. Sem conclusão medida, a interface não apresenta uma barra de 0%.
+
+## v2.77.1
+
+Controle de review automático ou manual por organização e autor do PR, preservando as configurações existentes.
+
+**Melhorias**
+- Em Sistema > Contas, escolha o modo de revisão de cada organização e crie exceções para autores dentro dela. A regra do autor tem prioridade sobre a organização; sem regra nova, permanece a configuração atual da conta.
+- Remover uma regra restaura a herança da organização ou da conta. As opções de aprovar e pedir mudanças continuam independentes e não são alteradas.
+
+**Correções**
+- A escolha de revisão manual também vale para PRs encontrados fora das organizações do panorama, retentativas e novas rodadas após push. Revisar por clique continua disponível.
+- Se a regra mudar enquanto o PR espera uma vaga ou uma consulta, o início automático é reconferido e o PR permanece visível para revisão manual. Sessões já iniciadas não são interrompidas.
+
 
 ## v2.77.0
 

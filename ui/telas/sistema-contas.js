@@ -1,4 +1,5 @@
 /* Farol · UI: gerenciador de contas do GitHub (Sistema). */
+import { configurarRegrasDeReview } from './review-scope.js';
 
 import { esc, accountsManagerHtml, contasGhHtml, camposDaEdicao } from '../pure.js';
 import { estado, escopo, definirEscopo } from './estado.js';
@@ -39,9 +40,14 @@ function renderContasGh() {
 export function renderAccountsManager() {
   renderContasGh();
   const box = $('#accountsManager'); if (!box) return;
+  if (box.querySelector('.review-scope[data-saving="true"]')) return;
   if (document.activeElement && box.contains(document.activeElement) && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  const abertos = new Set([...box.querySelectorAll('.review-scope[open]')].map(b => b.dataset.user));
   box.innerHTML = accountsManagerHtml({ accounts: estado().accounts, config: estado().config, acct: ACCT, doctor: estado().doctor, usage: estado().usage });
+  for (const bloco of box.querySelectorAll('.review-scope')) bloco.open = abertos.has(bloco.dataset.user);
 }
+
+configurarRegrasDeReview(renderAccountsManager);
 
 /* editor de contas: mudar cor / rótulo / tipo / orgs */
 $('#accountsManager').addEventListener('change', (e) => {

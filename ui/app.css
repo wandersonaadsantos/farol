@@ -770,6 +770,29 @@ label.set-row { cursor: pointer; }
 .acct-card .a-auth.ok { color: var(--ok); }
 .acct-card .a-actions { display: flex; flex-direction: column; gap: 6px; flex: none; align-items: stretch; }
 .acct-card.muted { opacity: .72; }
+.review-scope { margin-top: 1rem; border-top: 1px solid var(--border-soft); padding-top: .75rem; }
+.review-scope summary { cursor: pointer; font-weight: 600; font-size: .8125rem; }
+.review-scope-count { color: var(--muted); font-size: .75rem; font-weight: 400; margin-left: .5rem; }
+.review-scope-note, .scope-status { color: var(--muted); font-size: .75rem; line-height: 1.5; margin: .625rem 0; }
+.review-scope-row { display: flex; align-items: center; flex-wrap: wrap; gap: .625rem; padding: .625rem 0; border-bottom: 1px solid var(--border-soft); }
+.review-scope-target { display: flex; flex: 1 1 10rem; flex-direction: column; min-width: 0; overflow-wrap: anywhere; font-size: .8125rem; }
+.review-scope-target span { color: var(--muted); font-size: .75rem; }
+.review-scope-form { display: flex; flex-wrap: wrap; gap: .625rem; align-items: end; margin-top: .875rem; }
+.review-scope-form label { display: flex; flex: 1 1 9rem; flex-direction: column; gap: .25rem; color: var(--muted); font-size: .75rem; min-width: 0; }
+.review-scope input, .review-scope select { min-width: 0; max-width: 100%; box-sizing: border-box; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: .4375rem; padding: .5rem; font: inherit; font-size: .8125rem; }
+.review-scope :is(input, select, button, summary):focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+.review-scope .scope-warning { color: var(--accent); font-size: .75rem; line-height: 1.5; }
+@media (max-width: 30rem) {
+  .acct-card { flex-wrap: wrap; }
+  .acct-card .a-body { flex-basis: calc(100% - 2.75rem); }
+  .acct-card .a-actions { width: 100%; flex-direction: row; justify-content: flex-end; }
+  .acct-card .a-pol-item { max-width: 100%; }
+  .acct-card .a-pol-item select { max-width: 100%; box-sizing: border-box; }
+  .review-scope-form label { flex-basis: 100%; }
+  .review-scope-form button { width: 100%; }
+  .review-scope-target { flex-basis: 100%; }
+  .review-scope-row select { flex: 1; }
+}
 .acct-add { display: block; }
 .acct-add .a-add-title { font-weight: 650; font-size: 13px; margin-bottom: 10px; }
 .acct-add .a-editrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
