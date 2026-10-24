@@ -17,6 +17,7 @@ import { avatar, personMention } from './mencoes.js';
 import { papelPicker } from './pessoas.js';
 import { chatBadge, reviewChip } from './review.js';
 import { prCoordNoteHtml } from './sync.js';
+import { filaEsperaHtml } from './fila-espera.js';
 import { avisosDoCard, limitNoteHtml, othersLineHtml, pwOthersHtml } from './revisando.js';
 
 /* A automação está pausada por teto de gasto? PURA.
@@ -213,13 +214,14 @@ export function queueWaitingCardHtml(pr, ctx) {
   const distribuindo = ctx.distribuindo === true;
   const estado = distribuindo ? 'Esperando distribuição' : 'Na fila de execução';
   const detalhe = distribuindo ? prCoordNoteHtml(pr.key, ctx.sync) : '';
+  const espera = distribuindo ? '' : filaEsperaHtml(ctx.espera);
   return `<div class="card pr-card" data-key="${esc(pr.key)}" data-url="${esc(pr.url)}" style="${m.style}">
     ${avatar(pr.author)}
     <div class="info">
       <div class="pr-ref">${m.dot}<a href="${esc(pr.url)}" target="_blank" rel="noreferrer">${esc(pr.key)}</a>${m.chip}</div>
       <div class="pr-title" title="${esc(pr.title)}">${esc(pr.title)}</div>
       <div class="pr-sub">${personMention(pr.author, 'xs')} · atualizado ${fmtRel(pr.updatedAt)}</div>
-      <div class="pr-coord">${estado}. Ainda não há resultado desta execução.</div>${detalhe}
+      <div class="pr-coord">${estado}. Ainda não há resultado desta execução.</div>${espera}${detalhe}
     </div>
     <div class="pr-actions"><a class="btn sm ghost" href="${esc(pr.url)}" target="_blank" rel="noreferrer">Abrir PR ↗</a></div>
   </div>`;

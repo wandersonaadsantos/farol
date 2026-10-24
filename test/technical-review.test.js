@@ -48,6 +48,31 @@ test('conformidade técnica e prova suficiente permitem a preferência de aprova
   assert.deepEqual(approvalGaps(result()), []);
   assert.equal(shouldAutoApprove(engine, { requested: true }, result()).ok, true);
 });
+
+test('configuração de ferramenta lida no diff não bloqueia a aprovação por falta de chamadores', async () => {
+  const evidence = result({ diffMedido: ['eslint.config.mjs'],
+    coverage: { total: 1, reviewed: ['eslint.config.mjs'], missing: [] } });
+  assert.deepEqual(approvalGaps(evidence), []);
+  const e = { ...engine, technicalApprovals: new Map([['org/repo#1',
+    { report: evidence.technicalReview, evidence: approvalGaps(evidence) }]]),
+    bloqueadoPorChecks: async () => ({ verifiedHead: head, faltando: [] }) };
+  const pr = { key: 'org/repo#1', repo: 'org/repo' };
+  const original = { ...technicalRuntime };
+  technicalRuntime.requireTool = async () => 'tool';
+  technicalRuntime.targetFor = async () => ({ head, base: evidence.technicalReview.base });
+  technicalRuntime.reviewSnapshot = async () => ({ fingerprint: 'human' });
+  fs.mkdirSync(path.dirname(PROFILE_FILE), { recursive: true });
+  fs.writeFileSync(PROFILE_FILE, JSON.stringify({ repositories: { 'org/repo': { declaration: { scopes: ['core'] } } } }));
+  evidence.technicalReview.profile = profileFor('org/repo').fingerprint;
+  try {
+    assert.equal(await approvalRefusal(e, pr, { event: 'APPROVE', commit_id: head }), null);
+    e.technicalApprovals.get(pr.key).evidence = approvalGaps(result({
+      diffMedido: ['eslint.config.mjs', 'src/service.ts'], alcance: [],
+      coverage: { total: 2, reviewed: ['eslint.config.mjs', 'src/service.ts'], missing: [] },
+    }));
+    assert.equal((await approvalRefusal(e, pr, { event: 'APPROVE', commit_id: head })).blocked, 'technical_review');
+  } finally { Object.assign(technicalRuntime, original); }
+});
 for (const [name, patch] of Object.entries({
   violacao: { technicalReview: report({ verdict: 'fail', findings: [{ file: 'a.ts', message: 'regra duplicada' }] }) },
   julgamento: { technicalReview: report({ rules: [{ verdict: 'fail' }] }) },
