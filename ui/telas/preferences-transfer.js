@@ -10,6 +10,11 @@ async function request(body) {
   return result;
 }
 function invalidate() { generation++; pending = null; $('#preferencesApply').disabled = true; $('#preferencesPreview').replaceChildren(); }
+function preferenceValue(key, value) {
+  if (key === 'theme') return value === 'light' ? 'Claro' : 'Escuro';
+  if (key === 'soundEnabled') return value ? 'Ligado' : 'Desligado';
+  return Number(value) === 0 ? 'Desligado' : `${value} minutos`;
+}
 async function preview() {
   invalidate();
   const attempt = generation;
@@ -20,11 +25,12 @@ async function preview() {
   const result = await request({ action: 'preview', document }); if (!result) return;
   if (attempt !== generation) return;
   pending = { ...result, document };
-  $('#preferencesPreview').innerHTML = result.changes.map(c => {
+  const rows = result.changes.map(c => {
     const disabled = c.changed ? '' : ' disabled';
     const suffix = c.changed ? '' : ' (igual)';
-    return `<label class="field"><input type="checkbox" data-preference-key="${esc(c.key)}"${disabled}> ${esc(LABELS[c.key])}: ${esc(String(c.current))} → ${esc(String(c.incoming))}${suffix}</label>`;
+    return `<label class="diff-row${c.changed ? '' : ' same'}"><input type="checkbox" data-preference-key="${esc(c.key)}"${disabled}><span>${esc(LABELS[c.key])}${suffix}</span><span class="was">${esc(preferenceValue(c.key, c.current))}</span><span class="new">${esc(preferenceValue(c.key, c.incoming))}</span></label>`;
   }).join('');
+  $('#preferencesPreview').innerHTML = `<div class="set-block"><h4 class="set-subtitle">Diferenças encontradas</h4><div class="diff" role="group" aria-label="Preferências a aplicar"><div class="diff-row head" aria-hidden="true"><span></span><span>Preferência</span><span>Atual</span><span>No arquivo</span></div>${rows}</div></div>`;
   message('Confira as diferenças e selecione o que aplicar. Nenhuma alteração foi salva.');
 }
 async function apply() {

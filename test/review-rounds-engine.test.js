@@ -105,7 +105,7 @@ test('modo observação mantém a política anterior e exibe a comparação sem 
   assert.equal(ui.roundReview, undefined);
   assert.doesNotMatch(JSON.stringify(ui), /Validação ausente|Entrada chega/);
   const html = resolvedRow(ui, {});
-  assert.match(html, /<details class="round-summary"/);
+  assert.match(html, /<details class="round-summary(?:\s|")/);
   assert.match(html, /Rodada 2 · 1 pendência\(s\) rastreada\(s\)/);
   assert.match(html, /Comparação em observação/);
 });

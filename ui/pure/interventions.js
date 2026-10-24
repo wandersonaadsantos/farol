@@ -1,4 +1,5 @@
 import { canonicalGithubPrUrl } from './mencoes.js';
+import { esc } from './comum.js';
 
 // Contrato do aviso recebido e política de áudio, compartilhados pelo shell e UI.
 const INTERVENTION_KINDS = ['decision', 'access', 'failure', 'operational'];
@@ -38,4 +39,14 @@ function voiceAllowed(config, event, date = new Date()) {
   return config?.voiceEnabled === true && Array.isArray(config.voiceEvents)
     && config.voiceEvents.includes(event.kind) && !quietNow(config, date);
 }
-export { INTERVENTION_KINDS, interventionEvent, interventionTarget, clockMinutes, quietNow, voiceAllowed };
+function interventionInboxHtml(events) {
+  const labels = { decision: 'Decisões pendentes', access: 'Acesso', failure: 'Falhas sem recuperação', operational: 'Configuração' };
+  const groups = new Map();
+  for (const event of events) {
+    if (!groups.has(event.kind)) groups.set(event.kind, []);
+    groups.get(event.kind).push(event);
+  }
+  const rows = [...groups].map(([kind, items]) => `<section class="set-block"><h4 class="set-subtitle">${esc(labels[kind])} · ${items.length}</h4><div class="ilist">${items.map(event => `<div class="irow"><div class="irow-main"><div class="irow-head">${esc(event.title)}</div><p class="irow-sub">${esc(event.body)}</p></div><div class="irow-acts"><button type="button" class="btn sm t-acao" data-intervention-id="${esc(event.id)}">Abrir pendência</button></div></div>`).join('')}</div></section>`).join('');
+  return `<summary class="intv-head"><span class="set-title">Intervenções <span class="count">${events.length}</span></span><span class="set-desc">Pendências agrupadas · abra quando precisar</span></summary>${rows}<div class="intv-foot"><button type="button" class="btn sm ghost" data-goto="sys:prefs:#sys-row-interventions">Preferências de avisos</button></div>`;
+}
+export { INTERVENTION_KINDS, interventionEvent, interventionTarget, clockMinutes, quietNow, voiceAllowed, interventionInboxHtml };

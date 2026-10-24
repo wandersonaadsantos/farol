@@ -13,8 +13,8 @@ async function load() {
   const result = await request('view'); if (!result) return;
   model = result;
   $('#auditCandidate').innerHTML = result.candidates.map((c, i) => `<option value="${i}">${esc(c.account)} · ${esc(c.key)} · ${esc(c.head.slice(0, 7))} · risco ${c.risk}</option>`).join('');
-  $('#auditJobs').innerHTML = result.jobs.map(auditJob).join('') || '<p>Nenhuma auditoria registrada.</p>';
-  $('#auditMetrics').textContent = auditMetrics(result.metrics);
+  $('#auditJobs').innerHTML = result.jobs.map(auditJob).join('') || '<p class="empty">Nenhuma auditoria registrada.</p>';
+  $('#auditMetrics').innerHTML = `<details class="disc"><summary>Métricas e limites da comparação</summary><div class="disc-body"><p>${esc(auditMetrics(result.metrics))}</p></div></details>`;
   $('#auditEnabled').checked = result.policy.enabled;
   $('#auditAccounts').value = result.policy.accounts.join(', ');
   $('#auditLimit').value = result.policy.dailyLimit;

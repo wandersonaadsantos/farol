@@ -71,7 +71,7 @@ test('resumo da rodada distingue dado ausente e informação interna neutralizad
   assert.match(html, /Rodada 2/); assert.match(html, /Memória não verificada/); assert.match(html, /não informado pendência/);
   assert.doesNotMatch(html, /<img>/); assert.match(html, /sem resposta: 3/);
   const row = resolvedRow({ key: 'org/repo#1', status: 'posted', rounds: { schema: 1, ordinal: 2, unresolvedCount: 2 } });
-  assert.match(row, /<details class="round-summary"/); assert.match(row, /2 pendência\(s\) rastreada\(s\)/);
+  assert.match(row, /<details class="round-summary(?:\s|")/); assert.match(row, /2 pendência\(s\) rastreada\(s\)/);
   assert.doesNotMatch(row, /&lt;details/);
 });
 test('rota de transferência exige autenticação local e origem correta', async () => {

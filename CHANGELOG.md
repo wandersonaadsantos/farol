@@ -9,6 +9,16 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.77.1
+
+Interface consistente nos fluxos de revisão, com menos sobreposições.
+
+**Correções**
+- Especialistas, auditorias, cotas, roteiro de configuração e preferências seguem os cartões, espaçamentos e controles do Farol, com detalhes técnicos recolhíveis e adaptação a telas estreitas.
+- Intervenções ficam agrupadas e recolhidas no Radar, com as ações existentes, sem um aviso sobreposto por pendência.
+- As opções de voz aparecem apenas quando ativadas; a voz continua desligada por padrão. Importar preferências não a ativa.
+- O envio explícito de histórico mantém medição e confirmação, com ações e avisos no padrão visual existente. Custos de auditoria continuam distinguindo medido, estimado e indisponível.
+
 ## v2.77.0
 
 Revisões com cobertura verificável e memória entre rodadas, especialistas por repositório e auditorias independentes, com mais clareza sobre filas e limites dos provedores.

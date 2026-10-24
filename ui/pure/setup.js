@@ -15,7 +15,12 @@ function setupSteps(state = {}) {
 function setupHtml(state, selected) {
   return setupSteps(state).map(step => {
     const status = step.checked ? 'Verificado no último estado recebido. ' : 'A conferir. ';
-    return `<li><button class="btn" type="button" data-setup-step="${step.id}" aria-pressed="${selected === step.id}">${esc(step.label)}</button><p>${status}${esc(step.detail)}</p><button class="btn sm" type="button" data-goto="${esc(step.goto)}">Abrir configuração</button></li>`;
+    const rowClass = step.checked ? ' ok' : '';
+    const chipClass = step.checked ? 'ok' : 'off';
+    const label = step.checked ? 'Verificado' : 'A conferir';
+    return `<li class="step${rowClass}"><span class="led" aria-hidden="true"></span><div>
+      <div class="step-title"><button class="link-btn setup-step" type="button" data-setup-step="${step.id}" aria-pressed="${selected === step.id}">${esc(step.label)}</button><span class="chip ${chipClass}">${label}</span></div>
+      <p class="step-detail">${status}${esc(step.detail)}</p></div><div class="step-act"><button class="btn sm" type="button" data-goto="${esc(step.goto)}">Abrir configuração</button></div></li>`;
   }).join('');
 }
 export { setupSteps, setupHtml };

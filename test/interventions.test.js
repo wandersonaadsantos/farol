@@ -8,7 +8,7 @@ const home = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-interventions-'));
 process.env.FAROL_HOME = home;
 const { observe, candidates, pushState } = await import('../lib/engine/interventions.js');
 const { Engine } = await import('../server.js');
-const { interventionEvent, quietNow, voiceAllowed } = await import('../ui/pure/interventions.js');
+const { interventionEvent, quietNow, voiceAllowed, interventionInboxHtml } = await import('../ui/pure/interventions.js');
 const { sanear } = await import('../lib/settings.js');
 after(() => fs.rmSync(home, { recursive: true, force: true }));
 
@@ -165,4 +165,20 @@ test('entrada inválida nunca navega e configuração numérica não aceita infi
   assert.equal(sanear('voiceQuietStart', { toString: null }, {}, {}), '22:00');
   assert.equal(sanear('voiceVolume', { toString: null }, {}, {}), 50);
   assert.deepEqual(sanear('voiceEvents', ['decision', 'bad', 'decision'], {}, {}), ['decision']);
+});
+
+ test('caixa agrupa por tipo, escapa conteúdo e mantém o alvo exato de cada aviso', () => {
+  const events = [
+    { id: 'a'.repeat(64), kind:'decision', title:'<img src=x onerror=alert(1)>', body:'" & pendência' },
+    { id: 'b'.repeat(64), kind:'decision', title:'Outro PR', body:'Conferir regra' },
+    { id: 'c'.repeat(64), kind:'access', title:'Acesso', body:'Autenticar' },
+  ];
+  const html = interventionInboxHtml(events);
+  assert.equal((html.match(/Decisões pendentes · 2/g)||[]).length, 1);
+  assert.match(html, /Acesso · 1/);
+  assert.ok(!html.includes('<img'));
+  assert.match(html, /&lt;img/);
+  for(const event of events) assert.ok(html.includes('data-intervention-id="'+event.id+'"'));
+  assert.equal((html.match(/Abrir pendência/g)||[]).length, 3);
+  assert.ok(!html.includes('Dispensar'));
 });

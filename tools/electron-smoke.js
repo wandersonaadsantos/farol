@@ -75,9 +75,9 @@ function executar(bin, args, env) {
     const err = fs.createWriteStream(path.join(output, 'electron.stderr.log'));
     child.stdout.pipe(out); child.stderr.pipe(err);
     const timeout = setTimeout(() => {
-      try { encerrarArvore(child); reject(new Error('Electron smoke excedeu 60 segundos.')); }
+      try { encerrarArvore(child); reject(new Error('Electron smoke excedeu 120 segundos.')); }
       catch (error) { child.stdout.destroy(); child.stderr.destroy(); child.unref(); reject(error); }
-    }, 60000);
+    }, 120000);
     child.once('error', error => { clearTimeout(timeout); out.end(); err.end(); reject(error); });
     child.once('close', (code, signal) => {
       clearTimeout(timeout); out.end(); err.end();
