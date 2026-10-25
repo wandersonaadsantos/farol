@@ -71,13 +71,15 @@ Fontes: [parser 7.28.5](https://registry.npmjs.org/@babel/parser/7.28.5),
 [parser 8.0.8](https://registry.npmjs.org/@babel/parser/8.0.8).
 
 Medição pontual reproduzível com `node tools/medir-parser-frontend.js`, 120 arquivos
-TSX sintéticos, Windows x64, sem modelo. Valores são observações locais, não promessa
-de consumo de uma revisão real:
+TSX sintéticos, Windows x64, sem modelo, checkpoint
+`2b44fa46f5d42374e3f1a3011210622700e74740`, diff rastreado vazio. Esta tabela usa
+o asset canônico, sem `NODE_PATH`. Valores são observações locais, não promessa de
+consumo de uma revisão real:
 
 | Runtime | Primeira análise | Outra análise, mesmos blobs autorizados | Cache serializado | Heap do worker após parse | Pico RSS do processo |
 |---|---:|---:|---:|---:|---:|
-| Node 22.12.0 | 71,97 ms, 120 parses | 0,40 ms, zero parses | 59.900 bytes | 10,41 MB | 67.900 KiB |
-| Node 24.15.0 | 62,89 ms, 120 parses | 0,34 ms, zero parses | 59.900 bytes | 11,24 MB | 74.776 KiB |
+| Node 22.12.0 | 72,34 ms, 120 parses | 0,35 ms, zero parses | 59.900 bytes | 11,91 MB | 63.512 KiB |
+| Node 24.15.0 | 60,06 ms, 120 parses | 0,33 ms, zero parses | 59.900 bytes | 12,08 MB | 75.388 KiB |
 
 CPU e RSS incluem o processo inteiro e suas threads. Heap antes/depois é uma amostra
 do isolate, não o pico. Outra conta refaz os 120 parses; outro processo também começa
@@ -92,9 +94,11 @@ SHA-256. Esse é o caminho canônico, sem fallback npm. Source maps, declaraçõ
 `@babel/types` não são necessários no runtime. A dependência de desenvolvimento e
 o lock servem à reprodução/verificação do asset. O pacote npm completo permanece
 apenas como custo comparativo; o custo de distribuição efetivo é bundle, licença
-e manifesto. As medições iniciais acima precedem essa troca de carregador; os
-gates focados e o benchmark são repetidos no checkpoint com o asset e identificados
-no pacote de evidências.
+e manifesto. Os benchmarks canônicos registram commit, hash do diff e manifesto
+do asset. O gate focado com 56 testes passou no Node 22.12.0 nesse mesmo checkpoint;
+56 testes também passaram no Node 24.15.0 após a troca de carregador, no checkpoint
+`136b84cb9a4939c59a55d0caec60ee937e21ed1a`. Isso é validação focada, separada da suíte
+completa exigida para encerrar compatibilidade.
 
 O grafo registra declaração de import/reexport e caminho candidato, sem inferir
 compatibilidade de props, contrato de hooks, binding usado por `export *` ou chamadas.
