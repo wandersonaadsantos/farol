@@ -1,8 +1,9 @@
 # Fontes, contexto e desempenho, entrega local
 
 Base de desenvolvimento: `3f9b8685ab0966a0d4cd339a462bfa5b29367c86` (v2.77.2).
-A entrega mantém Node/Electron e não adiciona dependências npm, embeddings, banco
-vetorial, serviço externo ou análise paga de PRs.
+A entrega mantém Node/Electron, sem embeddings, banco vetorial, serviço externo ou
+análise paga de PRs. A rodada de fechamento acrescenta o parser oficial autocontido
+com licença e hashes; o pin npm é usado apenas para reproduzir o artefato distribuído.
 
 ## Decisões
 
@@ -16,8 +17,8 @@ vetorial, serviço externo ou análise paga de PRs.
   foco, seleção, rascunho e FileList precisam sobreviver às atualizações.
 - Dados históricos de consumo podem ser reutilizados com invalidação explícita.
   Orçamentos e falhas continuam vivos; gravações mantêm fsync e confirmação síncrona.
-- O mapa é navegação candidata. O parser nativo evita uma dependência nova, mas tem limites
-  declarados, sobretudo em TypeScript no piso Node e nas relações dinâmicas.
+- O mapa é navegação candidata. A bateria frontend demonstrou a lacuna do parser nativo;
+  o parser distribuído cobre JS/TS/JSX/TSX também no Node 22.12, com limites declarados.
 
 ## Comparação reproduzível
 
@@ -39,6 +40,12 @@ Há três cenários: regressão conhecida, mudança compatível e fonte insufici
 O controle que só contém o diff é sintético; ele não representa o Farol anterior
 completo, que já dispunha de buscas adicionais. Execute em processo novo para o
 cache frio do parser; a reutilização sintática é limitada à memória do processo.
+O fechamento também compara os engines completos, nos dois fluxos, com fontes
+congeladas e reinícios: [método e resultados](COMPARACAO-CONTEXTO-ENGINE.md).
+Nesses casos, `assist` recupera evidência adicional e aumenta o prompt completo;
+redução da memória de rodadas não demonstra economia total de tokens.
+`tools/benchmark-ui-native.js` complementa o lote com cadências espaçadas, Electron
+real e preservação de estado/ações, sem converter contagens DOM em economia de CPU.
 
 O smoke nativo usa `tools/electron-smoke.js --allow-desktop --output <pasta>` e runtime
 isolado compatível. Dados, contas, rede e processos externos são controlados pela

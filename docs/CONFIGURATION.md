@@ -786,7 +786,7 @@ aberta. Instalar ou reiniciar exige uma operação posterior autorizada.
   "reviewContextMode": "off",
   "reviewContextTokens": 3000,
   "reviewContextLimits": { "files": 600, "bytes": 8388608, "fileBytes": 262144, "timeMs": 30000, "depth": 2, "paths": 120 },
-  "sourceCacheLimits": { "maxBytes": 2147483648, "reserveBytes": 536870912, "concurrency": 1, "maxQueued": 8 }
+  "sourceCacheLimits": { "maxBytes": 2147483648, "reserveBytes": 536870912, "globalMaxBytes": 4294967296, "globalReserveBytes": 1073741824, "acquisitionReserveBytes": 16777216, "monitorIntervalMs": 250, "concurrency": 1, "maxQueued": 8 }
 }
 ```
 
@@ -798,23 +798,28 @@ Se o mapa falhar ou ficar incompleto em assist, não se herda validade de análi
 porque o blob não mudou. Conteúdo disponível, leitura observada e análise válida são fatos
 distintos. Nenhum desses modos muda os gates ou a política de publicação da conta.
 
-O parser usa V8 em worker limitado, sem ligar ou executar o código do projeto. JavaScript
-ESM tem imports sintáticos; definições e consumidores são candidatos, sem resolução
-semântica completa. Em runtime com `stripTypeScriptTypes`, TypeScript pode usar o parser
-nativo para imports de runtime. No piso Node 22.12, em TSX/JSX ou sintaxe não suportada,
-há degradação explícita para caminhos/busca textual. Imports somente de tipos, CommonJS,
-eventos e dependências dinâmicas exigem investigação adicional. JSONC/extends e resoluções
-não suportadas são limitações, nunca prova de ausência de uso. Análises sintáticas têm
-cache em memória limitado a 4 MiB; relações são reconstruídas para H/M e configuração.
+O parser distribuído `@babel/parser` 7.28.5 roda em worker limitado, sem ligar ou executar
+o código do projeto. O pacote inclui o artefato oficial autocontido, licença e hashes;
+upgrades não dependem de instalar um módulo novo no `node_modules` preservado.
+JS, TS, JSX, TSX, imports de tipos e reexports têm relações sintáticas. Isso não constitui
+resolução semântica de props, bindings ou chamadas. CommonJS, aliases e dependências
+dinâmicas conservam confiança e limitações explícitas. Sintaxe não suportada amplia a
+investigação textual, sem excluir silenciosamente arquivos. JSONC/extends e resoluções
+não suportadas nunca provam ausência de uso. O cache de 4 MiB contabiliza apenas a
+serialização das análises retidas, não a memória total do worker ou do processo.
+Relações são reconstruídas para H/M e configuração. Veja [a bateria e os modos](CONTEXTO-FRONTEND.md).
 O orçamento de tempo do levantamento é verificado entre leituras; cada consulta de rede
 também tem seu timeout próprio. Não representa prazo máximo rígido de ponta a ponta.
 
-O limite de 2 GiB é **por escopo autorizado**, não uma quota global somada de todos os
-repositórios. A reserva de 512 MiB protege o espaço livre da unidade em cada admissão.
-Objetos, metadados e materializações entram na contabilidade, com estimativas Git
-identificadas. Material ativo nunca é removido para cumprir quota; falta de espaço ou
-lock/lease sem prova de liberação adia aquele escopo. Os dados de capacidade mostram
-o último escopo medido, não uma varredura global por atualização da interface.
+O limite de 2 GiB por escopo é coordenado com orçamento global lógico de 4 GiB e piso
+global livre de 1 GiB. Reservas duráveis coordenam admissões simultâneas; aquisição
+desconhecida é monitorada e interrompida quando o orçamento deixa de ser atendido.
+Objetos, Git, temporários, metadados e materiais ativos ou pendentes entram na medição.
+Legados são observados separadamente, sem remoção nem inclusão retroativa no teto de
+4 GiB. O limite é lógico e amostrado; não promete overshoot físico zero. Material ativo
+nunca é eliminado para cumprir quota. Estado incerto adia o trabalho. Veja
+[contabilização, precisão e exclusões](SOURCE-STORAGE.md). Os dados de capacidade não
+fazem uma varredura global por atualização da interface.
 
 Materiais técnicos novos têm manifesto de propriedade e consumidores. A coleta é
 assíncrona, limitada e independente da próxima review. Falha de remoção tem retry;
