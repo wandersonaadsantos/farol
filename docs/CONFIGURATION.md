@@ -807,7 +807,8 @@ dinâmicas conservam confiança e limitações explícitas. Sintaxe não suporta
 investigação textual, sem excluir silenciosamente arquivos. JSONC/extends e resoluções
 não suportadas nunca provam ausência de uso. O cache de 4 MiB contabiliza apenas a
 serialização das análises retidas, não a memória total do worker ou do processo.
-Relações são reconstruídas para H/M e configuração. Veja [a bateria e os modos](CONTEXTO-FRONTEND.md).
+Relações são reconstruídas para H/M e configuração. A bateria e os detalhes dos modos
+estão em `docs/CONTEXTO-FRONTEND.md`, na documentação de desenvolvimento do repositório.
 O orçamento de tempo do levantamento é verificado entre leituras; cada consulta de rede
 também tem seu timeout próprio. Não representa prazo máximo rígido de ponta a ponta.
 
@@ -818,7 +819,7 @@ Objetos, Git, temporários, metadados e materiais ativos ou pendentes entram na 
 Legados são observados separadamente, sem remoção nem inclusão retroativa no teto de
 4 GiB. O limite é lógico e amostrado; não promete overshoot físico zero. Material ativo
 nunca é eliminado para cumprir quota. Estado incerto adia o trabalho. Veja
-[contabilização, precisão e exclusões](SOURCE-STORAGE.md). Os dados de capacidade não
+`docs/SOURCE-STORAGE.md`, no repositório, para contabilização, precisão e exclusões. Os dados de capacidade não
 fazem uma varredura global por atualização da interface.
 
 Materiais técnicos novos têm manifesto de propriedade e consumidores. A coleta é

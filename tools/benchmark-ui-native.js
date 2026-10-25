@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { estadoInicial } from './bench/ui-fixture.js';
 import { executarTraco } from './bench/ui-native-trace.js';
 import { parseJson, safeStringify, writeJsonAtomic } from '../lib/io.js';
+import { envSemRepositorioHerdado } from '../lib/git-env.js';
 const args = process.argv.slice(2);
 function argumento(nome) {
   const i = args.indexOf(nome);
@@ -32,7 +33,7 @@ const report = { method: 'UI completa de cada revisão, DOM/SSE/janela nativos, 
   results: {}, status: 'running' };
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const hash = text => createHash('sha256').update(text).digest('hex');
-const git = (root, ...command) => execFileSync('git', command, { cwd: root, encoding: 'utf8', windowsHide: true }).trim();
+const git = (root, ...command) => execFileSync('git', command, { cwd: root, encoding: 'utf8', windowsHide: true, env: envSemRepositorioHerdado() }).trim();
 function manifesto(root, files) {
   return [...files].sort().map(file => ({ file: path.relative(root, file).replaceAll('\\', '/'),
     bytes: fs.statSync(file).size, sha256: hash(fs.readFileSync(file)) }));
