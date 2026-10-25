@@ -68,8 +68,9 @@ fontes históricas. Há provas locais de recuperação e de redução de repeti�
 
 Legados sem posse verificável não são removidos automaticamente. As rodadas locais
 anteriores não executaram push, PR ou merge. A rodada de Node 24 autoriza publicar
-a branch e integrar após os gates; o estado efetivo consta do relatório de entrega.
-Continuam vedados limpeza real de snapshots, release, instalação ou restart do usuário.
+a branch e integrar após os gates; o pedido posterior autoriza também a release
+com notas e artefatos conferidos. O estado efetivo consta do relatório de entrega.
+Continuam vedados limpeza real de snapshots, instalação ou restart do usuário.
 Após reinício, materiais novos interrompidos só são recuperados quando há decisão
 final correspondente ao PR/head/conta, sem sessão/fila/retomada referenciando, e o
 SO comprova o término do proprietário e dos consumidores. Queda sem esse desfecho,

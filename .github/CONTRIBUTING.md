@@ -14,7 +14,7 @@ organizado e verificado).
 Estão detalhados no `CLAUDE.md`, seção "Invariantes do projeto". Resumo do que reprova
 um PR na hora:
 
-1. **Zero dependências além do Electron.** O engine roda com Node puro. Não adicione pacote npm.
+1. **Electron é a única dependência npm de runtime.** O parser Babel autocontido é a exceção autorizada descrita no `CLAUDE.md`; seu pin npm é de desenvolvimento. Não adicione outros pacotes sem autorização.
 2. **Dados em `~/.farol`**, nunca em AppData ou Library.
 3. **`farol.log` só recebe falha**, nunca ruído operacional, e a classificação delas mora só em `lib/log-taxonomy.js`.
 4. **Nada é postado no GitHub sem gate.** Auto-approve e auto-reject passam por `shouldAutoApprove` / `shouldAutoReject`. Não afrouxe esses gates.
