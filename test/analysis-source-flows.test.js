@@ -152,3 +152,45 @@ test('falha do índice em assist permite fluxo existente e registra limitação 
     assert.equal(handle.releases(), 1); assert.equal(e.activeReviews.size, 0);
   }
 });
+
+test('observe preserva prompt completo e resultado decisório de off nos dois fluxos; assist injeta só navegação', async () => {
+  for (const flow of ['runHeadlessReview', 'runSelfAnalysis']) {
+    const measured = [];
+    for (const mode of ['off', 'observe', 'assist']) {
+      // Cada modo recebe o mesmo estado inicial da memória comum, em fixture privada.
+      fs.rmSync(path.join(home, 'workspace', 'state', 'review-rounds'), { recursive: true, force: true });
+      const e = setup(), handle = source(), calls = []; e.config.reviewContextMode = mode;
+      sourceRuntime.prepareSources = async () => { calls.push('sources'); return handle; };
+      sourceRuntime.buildMap = async () => { calls.push('map'); return { complete: true, head: { metrics: {} }, previous: { metrics: {} } }; };
+      sourceRuntime.selectContext = async () => {
+        calls.push('selection');
+        return { schema: 1, snippets: [], references: [{ path: 'src/caller.js', reason: 'consumidor fixture', origin: 'parser', confidence: 'candidate' }],
+          omitted: [], limitations: [], impactedPaths: ['src/caller.js'], metrics: { budgetTokens: 1000, tokenEstimate: 50 } };
+      };
+      let completePrompt;
+      e.runClaudeStream = async (prompt, options) => {
+        const session = e.activeReviews.get(options.id), scopeRoot = session.scopeRoot;
+        completePrompt = prompt.replaceAll(JSON.stringify(scopeRoot).slice(1, -1), 'FROZEN_SCOPE_ROOT')
+          .replaceAll(scopeRoot, 'FROZEN_SCOPE_ROOT').replaceAll(options.id, 'FROZEN_SESSION_ID');
+        return { text: JSON.stringify(flow === 'runHeadlessReview' ? reviewResult() : selfResult()) };
+      };
+      await e[flow]({ ...pr });
+      const item = flow === 'runHeadlessReview' ? e.decisions.pending[0] : e.selfAnalyses[pr.key];
+      assert.ok(item); assert.equal(handle.releases(), 1);
+      measured.push({ prompt: completePrompt, result: { verdict: item.verdict, status: item.status, decision: item.decision,
+        approvable: item.approvable, reasons: item.reasons, payloads: item.payloads }, work: item.contextEvidence.work });
+      assert.deepEqual(calls, mode === 'off' ? ['sources'] : ['sources', 'map', 'selection']);
+    }
+    let difference = 0;
+    while (difference < measured[0].prompt.length && measured[1].prompt[difference] === measured[0].prompt[difference]) difference++;
+    assert.ok(measured[1].prompt === measured[0].prompt,
+      `observe alterou prompt em ${difference}: ${JSON.stringify(measured.map(item => item.prompt.slice(Math.max(0, difference - 60), difference + 120)))}`);
+    assert.deepEqual(measured[1].result, measured[0].result, 'observe mantém resultado decisório e payload');
+    assert.equal(measured[0].prompt.includes('## Navegação do código na revisão fixada'), false);
+    assert.equal(measured[1].prompt.includes('## Navegação do código na revisão fixada'), false);
+    assert.equal(measured[2].prompt.includes('## Navegação do código na revisão fixada'), true);
+    assert.deepEqual(measured[0].work, { sources: true, map: false, selection: false, injection: false });
+    assert.deepEqual(measured[1].work, { sources: true, map: true, selection: true, injection: false });
+    assert.deepEqual(measured[2].work, { sources: true, map: true, selection: true, injection: true });
+  }
+});

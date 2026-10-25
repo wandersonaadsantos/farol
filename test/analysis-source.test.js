@@ -112,6 +112,41 @@ test('assist só herda validade dos arquivos não afetados por relações novas 
   assert.deepEqual(result.unchanged, ['src/other.js']); assert.deepEqual(result.changed, ['src/a.js', 'src/caller.js']);
   assert.deepEqual(result.contextRevisit, ['src/caller.js']); assert.equal(result.ativa, true);
 });
+
+test('matriz dos modos mede aquisição, mapa, seleção e injeção sem trabalho exclusivo em off', async () => {
+  for (const mode of ['off', 'observe', 'assist']) {
+    const calls = [], handle = source(), e = engine('auto', mode);
+    analysis.sourceRuntime.prepareSources = async () => { calls.push('sources'); return handle; };
+    analysis.sourceRuntime.buildMap = async () => { calls.push('map'); return map(); };
+    analysis.sourceRuntime.selectContext = async () => { calls.push('selection'); return selection(); };
+    const prepared = await analysis.prepareAnalysisSource(e, pr, 's1', H);
+    assert.deepEqual(calls, mode === 'off' ? ['sources'] : ['sources', 'map', 'selection']);
+    assert.deepEqual(prepared.diagnostics.work, { sources: true, map: mode !== 'off', selection: mode !== 'off', injection: mode === 'assist' });
+    assert.equal(prepared.block.length > 0, mode === 'assist');
+    assert.ok(prepared.diagnostics.timings.acquisitionMs >= 0);
+    assert.ok(prepared.diagnostics.timings.contextMs >= 0);
+    if (mode === 'off') assert.equal(prepared.diagnostics.timings.contextMs, 0);
+    const inherited = { ativa: true, unchanged: ['src/caller.js'], changed: [] };
+    if (mode !== 'assist') assert.equal(analysis.inheritanceForContext(inherited, prepared), inherited);
+    await analysis.releaseAnalysisSource(prepared, e); assert.equal(handle.releases(), 1);
+  }
+});
+test('falha observacional não injeta bloco nem altera herança, e assist informa tentativa sem bloco parcial', async () => {
+  for (const mode of ['observe', 'assist']) {
+    const e = engine('self', mode), handle = source();
+    analysis.sourceRuntime.prepareSources = async () => handle;
+    analysis.sourceRuntime.buildMap = async () => map();
+    analysis.sourceRuntime.selectContext = async () => { throw new Error('Seleção indisponível na fixture.'); };
+    const prepared = await analysis.prepareAnalysisSource(e, pr, 's1', H);
+    assert.equal(prepared.block, ''); assert.equal(prepared.selection, null);
+    assert.equal(prepared.diagnostics.indexStatus, 'unavailable');
+    assert.deepEqual(prepared.diagnostics.work, { sources: true, map: true, selection: true, injection: false });
+    const inherited = { ativa: true, unchanged: ['src/caller.js'], changed: [] };
+    if (mode === 'observe') assert.equal(analysis.inheritanceForContext(inherited, prepared), inherited);
+    else assert.equal(analysis.inheritanceForContext(inherited, prepared).ativa, false);
+    await analysis.releaseAnalysisSource(prepared, e);
+  }
+});
 test('assist sem mapa completo exige releitura em vez de presumir análise herdada válida', () => {
   const inherited = { ativa: true, unchanged: ['src/caller.js'], changed: ['src/a.js'] };
   for (const prepared of [{ mode: 'assist', map: null, selection: null }, { mode: 'assist', map: { complete: false }, selection: selection() }]) {

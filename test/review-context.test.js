@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
-import * as modules from 'node:module';
 import { buildMap, impactPaths } from '../lib/review-context/map.js';
 import { selectContext, contextBlock } from '../lib/review-context/select.js';
 import { parseSources } from '../lib/review-context/parser.js';
@@ -21,9 +20,9 @@ const fixture = {
   'test/page.test.js': "import { show } from '../src/page.js';\nexport const exercise = () => show();",
 };
 
-test('parser V8 reconhece imports sintáticos sem executar código nem importar dependências', async () => {
+test('parser AST reconhece imports sintáticos sem executar código nem importar dependências', async () => {
   const [file] = (await parseSources([{ path: 'a.js', blob: digest('parser-fixture'), text: "import x from './safe.js';\nthrow new Error('NAO EXECUTAR');\n// import z from './fake.js'" }], { account: 'a', repo: 'x/y' })).analyses;
-  assert.equal(file.backend, 'v8-module');
+  assert.equal(file.backend, 'babel-parser-7.28.5');
   assert.deepEqual(file.imports.map(i => i.specifier), ['./safe.js']);
   assert.equal(file.imports[0].origin, 'parser');
 });
@@ -77,11 +76,11 @@ test('índice incompleto e limites não viram mapa completo ou evidência favor�
   assert.equal(map.approvable, undefined);
 });
 
-test('parser TS depende do runtime e a degradação é explícita', async () => {
+test('parser TS preserva imports no runtime mínimo suportado', async () => {
   const text = "import {x} from './x.js'; export const y: number=x;";
   const file = (await parseSources([{ path: 'typed.ts', blob: digest(text), text }], { account: 'a', repo: 'ts/repo' })).analyses[0];
-  assert.equal(file.backend, typeof modules.stripTypeScriptTypes === 'function' ? 'amaro-v8' : 'textual');
-  if (file.backend === 'textual') assert.ok(file.limitations.length);
+  assert.equal(file.backend, 'babel-parser-7.28.5');
+  assert.equal(file.imports[0].specifier, './x.js');
 });
 
 test('cancelamento libera a fila de parser para a próxima operação', async () => {
