@@ -9,6 +9,15 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.77.6
+
+A confirmação de presença acompanha a fila sem esperar consultas longas ao GitHub.
+
+**Correções**
+- A sincronização começa em paralelo à checagem inicial e renova a presença pelo relógio existente, mantendo a cadência de cinco minutos. A fila continua exigindo uma confirmação válida; falha de rede não fabrica presença nem dispensa os gates.
+- Parar a sincronização enquanto uma confirmação está pendente impede a continuação tardia daquele relógio.
+- A seção Analisando agora fica oculta quando só há pedidos esperando execução. Os pedidos continuam visíveis na fila, com o motivo da espera. Voz e seleção de contexto permanecem desligadas por padrão.
+
 ## v2.77.5
 
 A revisão em andamento deixa de aparecer ao mesmo tempo na fila de espera.

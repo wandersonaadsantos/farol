@@ -14,6 +14,7 @@
 import { NOTAS_ATE_2_59 } from './release-notes-ate-2.59.js';
 
 const RELEASE_NOTES_RECENTES = [
+  ['2.77.6', ['A sincronização confirma presença sem esperar consultas longas ao GitHub. Falhas de rede continuam impedindo a admissão quando não há presença válida. Analisando agora só aparece com sessões; pedidos em espera continuam na fila.']],
   ['2.77.5', ['Uma revisão em andamento sai da fila de espera da mesma conta, incluindo os contadores e Revisar tudo. Pedidos de outra conta continuam visíveis; sem decisão ao terminar, o PR pode voltar à fila.']],
   ['2.77.4', [
     'Review e autoanálise reaproveitam fontes fixadas no PR, separadas por conta e repositório, com autorização reconferida.',

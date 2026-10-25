@@ -2172,6 +2172,8 @@ class Engine extends EventEmitter {
     this.migrarIgnorados();
     this.checkUpdate().catch(() => {});
     this.doctor().catch(() => {});
+    // A presença não espera a consulta ao GitHub; a admissão continua exigindo confirmação.
+    this._tickSeguro().catch(() => {});
     // label presa por morte do processo: limpa antes do primeiro ciclo, pra a
     // frota não continuar saindo de cena por uma sessão que não existe mais
     if (this.inflightRecuperado && this.inflightRecuperado.length) {

@@ -13,7 +13,7 @@ process.env.FAROL_HOME = path.join(BASE, 'farol');
 process.env.HOME = CASA;
 process.env.USERPROFILE = CASA;
 
-import { test, before, after, beforeEach } from 'node:test';
+import { test, before, after, beforeEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { startFakeRtdb } from './helpers/fake-rtdb.js';
 import { startFakeIdentity } from './helpers/fake-identity.js';
@@ -23,6 +23,8 @@ const { Engine } = await import('../server.js');
 const syncMod = (await import('../lib/engine/sync.js')).default;
 const andamentoEng = await import('../lib/engine/sync-andamento.js');
 const andamento = (await import('../lib/sync/andamento.js')).default;
+const admissao = (await import('../lib/engine/admissao.js')).default;
+const { pararManutencaoMaterial } = await import('../lib/technical-review/material-maintenance.js');
 
 const API_KEY = 'chave-web-de-teste';
 const EMAIL = 'a@b.com';
@@ -282,4 +284,67 @@ test('frota velha na memória: o relógio relê a lista e publica no mesmo giro'
   const r2 = await andamentoEng.ciclo(e, e.config.sync, { agora: T + 2000 });
   assert.equal(r2.code, 'sem-frota');
   assert.equal(fake.requests.filter((q) => q.method === 'GET' && q.path === '/users/u1/devices.json').length, 0, 'uma releitura por minuto, não por giro');
+});
+
+test('o relógio renova presença antes de retomar a fila mesmo com a consulta GitHub em andamento', async () => {
+  const e = await motorPronto();
+  andamentoEng.desligarRelogio(e.sync);
+  e.sync.lastPresenceAt = Date.now() - SYNC.PRESENCE_TICK_MS * 4;
+  e.checking = true;
+  let idadeAoRetomar = Infinity;
+  e.processHeadless = () => { idadeAoRetomar = Date.now() - e.sync.lastPresenceAt; };
+  const ag = agendadorFalso();
+  andamentoEng.ligarRelogio(e, x => x.config.sync, ag);
+  try {
+    await ag.fn();
+    assert.ok(idadeAoRetomar < SYNC.PRESENCE_TICK_MS, 'retomada depende do anúncio confirmado');
+    const escritas = fake.requests.filter(q => q.method === 'PATCH' && q.path.includes('/devices/'));
+    assert.equal(escritas.length, 1, 'presença escrita pelo cliente RTDB real no servidor local');
+    await ag.fn();
+    assert.equal(fake.requests.filter(q => q.method === 'PATCH' && q.path.includes('/devices/')).length, 1, 'respeita a cadência existente de cinco minutos');
+  } finally { andamentoEng.desligarRelogio(e.sync); }
+});
+
+test('falha do anúncio não fabrica presença fresca nem libera a admissão', async () => {
+  const e = await motorPronto();
+  andamentoEng.desligarRelogio(e.sync);
+  const anterior = Date.now() - SYNC.PRESENCE_TICK_MS * 4;
+  e.sync.lastPresenceAt = anterior;
+  const patch = mock.method(e.sync.client, 'patch', async () => ({ ok: false, code: 'indisponivel' }));
+  const ag = agendadorFalso();
+  andamentoEng.ligarRelogio(e, x => x.config.sync, ag);
+  try {
+    await ag.fn();
+    assert.equal(e.sync.lastPresenceAt, anterior);
+    assert.equal(admissao.reservar(e).motivo, 'presenca-vencida');
+  } finally { patch.mock.restore(); andamentoEng.desligarRelogio(e.sync); }
+});
+
+test('o início da sincronização não aguarda uma consulta GitHub longa', async () => {
+  const e = new Engine();
+  e.migrarIgnorados = () => {};
+  e.checkUpdate = e.doctor = async () => {};
+  let anunciado = false, liberar;
+  e._tickSeguro = async () => { anunciado = true; };
+  e.check = () => new Promise(resolve => { liberar = resolve; });
+  const inicio = e.start();
+  try {
+    assert.equal(anunciado, true, 'a conexão pode iniciar enquanto a busca segue pendente');
+  } finally { liberar(); await inicio; e.syncStop(); pararManutencaoMaterial(); }
+});
+
+test('parar o relógio durante a confirmação de presença impede trabalho tardio', async () => {
+  const e = await motorPronto();
+  andamentoEng.desligarRelogio(e.sync);
+  e.sync.lastPresenceAt = 0;
+  let liberar, retomadas = 0;
+  e.syncTick = () => new Promise(resolve => { liberar = resolve; });
+  e.processHeadless = () => { retomadas++; };
+  const ag = agendadorFalso();
+  andamentoEng.ligarRelogio(e, x => x.config.sync, ag);
+  const tique = ag.fn();
+  andamentoEng.desligarRelogio(e.sync);
+  liberar({ ok: true });
+  await tique;
+  assert.equal(retomadas, 0);
 });

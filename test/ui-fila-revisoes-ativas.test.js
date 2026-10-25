@@ -89,3 +89,15 @@ test('Revisar tudo envia somente os pedidos que continuam na fila, sem reenfilei
   const enviados = pedidos.slice(antes).filter(p => p.url === '/api/review');
   assert.deepEqual(enviados.map(p => p.body.urls), [[outro.url, terceiro.url]]);
 });
+
+test('somente pedidos em espera não abrem a seção Analisando agora', () => {
+  const snap = snapshot();
+  snap.queue = [];
+  snap.headlessWaiting = [pr.key, outro.key];
+  snap.headlessWaitingContas = { [pr.key]: 'alice', [outro.key]: 'alice' };
+  receber(snap);
+  assert.equal($('#queueCount').textContent, '2');
+  assert.equal($('#activeWrap').hidden, true);
+  assert.match($('#queue').innerHTML, /Na fila de execução/);
+  assert.doesNotMatch($('#queue').innerHTML, /act-review/);
+});

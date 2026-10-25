@@ -272,7 +272,7 @@ function renderActive() {
     estado().activeSessions || [], prUser,
   ).filter(scopeVisible).map(pr => pr.key);
   const wrap = $('#activeWrap');
-  wrap.hidden = sessions.length === 0 && waiting.length === 0;
+  wrap.hidden = sessions.length === 0;
   $('#activeCount').textContent = vivas.length || '';
   $('#activeWaiting').textContent = waiting.length
     ? `na fila (${waiting.length}): ${waiting.join(' · ')}`
