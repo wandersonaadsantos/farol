@@ -6,7 +6,7 @@
   "main": "main.js",
   "type": "module",
   "engines": {
-    "node": ">=24.15.0 <25"
+    "node": ">=24.16.0 <25"
   },
   "author": "Wanderson Santos",
   "license": "MIT",

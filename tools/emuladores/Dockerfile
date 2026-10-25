@@ -4,7 +4,7 @@
 #
 # Construção (a partir da raiz do repositório):
 #   docker build -t farol-emuladores:15.30.1 tools/emuladores
-FROM node:24.15.0-trixie-slim
+FROM node:24.16.0-trixie-slim
 
 # Java para o emulador do Realtime Database; git para a suíte POSIX do Farol
 RUN apt-get update \

@@ -25,7 +25,7 @@ function runtimeFixture(aceita, npmMode, bundled = false, nodeIncompativel = fal
   temporarios.push(dir);
   const src = path.join(dir, 'source'), app = path.join(dir, 'installed');
   fs.mkdirSync(src);
-  fs.writeFileSync(path.join(src, 'package.json'), '{"type":"module","engines":{"node":">=24.15.0 <25"},"dependencies":{"electron":"^44.1.0"}}');
+  fs.writeFileSync(path.join(src, 'package.json'), '{"type":"module","engines":{"node":">=24.16.0 <25"},"dependencies":{"electron":"^44.1.0"}}');
   copiarNodeRuntime(src);
   if (nodeIncompativel) {
     const manifest = JSON.parse(fs.readFileSync(path.join(src, 'package.json'), 'utf8'));
@@ -166,7 +166,7 @@ for (const fail of [true, false]) {
       const src = path.join(dir, 'source'), app = path.join(dir, 'installed');
       fs.mkdirSync(src);
       fs.mkdirSync(path.join(app, 'node_modules/electron/dist'), { recursive: true });
-      fs.writeFileSync(path.join(src, 'package.json'), '{"type":"module","engines":{"node":">=24.15.0 <25"},"dependencies":{"electron":"^44.1.0"}}');
+      fs.writeFileSync(path.join(src, 'package.json'), '{"type":"module","engines":{"node":">=24.16.0 <25"},"dependencies":{"electron":"^44.1.0"}}');
       copiarNodeRuntime(src);
       const previous = path.join(app, 'node_modules/electron/dist/electron.exe');
       fs.writeFileSync(previous, '43.1.0');

@@ -1,14 +1,25 @@
 # Contrato de runtime
 
 Desenvolvimento, testes e execução externa do motor suportam somente **Node 24
-LTS, `>=24.15.0 <25`**. O piso concreto é 24.15.0; não se declara suporte desde
+LTS, `>=24.16.0 <25`**. O piso concreto é 24.16.0; não se declara suporte desde
 24.0 nem para futuras majors. `package.json` é a fonte do contrato; o lockfile,
 `.nvmrc`, a CI nos três sistemas e a imagem de emuladores seguem esse piso.
 
+## Por que o piso é 24.16.0
+
+O piso inicial 24.15.0 foi revisto por evidência upstream: um encerramento nativo
+em conexões TCP no Windows foi relatado nessa versão, e um mantenedor confirmou
+a correção em 24.16.0 na [issue Node #63620](https://github.com/nodejs/node/issues/63620).
+As [notas oficiais de 24.16.0](https://nodejs.org/en/blog/release/v24.16.0)
+registram libuv 1.52.1 e a correção de inicialização de estrutura Windows.
+O crash local do Farol com `0xC0000409` não possui pilha nativa correlacionada;
+semelhança de assinatura não comprova a mesma causa. Logs e medições de 24.15.0
+são preservados como histórico. Os gates devem validar o novo piso.
+
 ## Selecionar o runtime
 
-No ambiente do projeto, use `nvm install 24.15.0` e `nvm use` (ou o equivalente
-no seu gerenciador). No nvm-windows, execute `nvm use 24.15.0`. Confira
+No ambiente do projeto, use `nvm install 24.16.0` e `nvm use` (ou o equivalente
+no seu gerenciador). No nvm-windows, execute `nvm use 24.16.0`. Confira
 `node --version` e `node lib/node-runtime.js` antes de `npm install`.
 Depois execute `npm run check`, `npm run lint`, `npm run eng` e `npm test`.
 Não altere outros projetos ou instâncias em execução para validar o Farol.

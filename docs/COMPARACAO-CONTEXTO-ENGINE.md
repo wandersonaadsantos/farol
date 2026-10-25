@@ -106,7 +106,7 @@ No Node 24.15.0, a revisão baseline/assist levou 126,82/575,98 ms na primeira a
 com pico RSS de 77.488/94.164 KiB. Autoanálise levou 84,20/531,50 ms e
 73.348/92.652 KiB. Esses resultados são diagnósticos complementares e não substituem
 os gates do Node 22.12.0 na rodada histórica. O contrato vigente passou a Node 24
-LTS (`>=24.15.0 <25`); a ocorrência sem causa determinada no runtime retirado
+LTS (`>=24.16.0 <25`); a ocorrência sem causa determinada no runtime retirado
 permanece registrada, sem alegação de correção.
 
 ## Reuso e reinício

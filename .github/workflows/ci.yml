@@ -36,7 +36,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '24.15.0'
+          node-version: '24.16.0'
 
       # Sem npm install de propósito: o parser é um artefato distribuído e a
       # suíte usa o runner nativo `node --test`, que não toca em
@@ -72,7 +72,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '24.15.0'
+          node-version: '24.16.0'
 
       # Testar o piso declarado, sem deixar o caret escolher outra release.
       - name: Instalar o Electron declarado

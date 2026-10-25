@@ -11,13 +11,13 @@ const ROOT = path.resolve(import.meta.dirname, '..');
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-node-runtime-'));
 after(() => fs.rmSync(scratch, { recursive: true, force: true }));
 
-test('contrato suporta piso 24.15.0 e patches da linha 24, sem prometer Node 22 ou majors futuras', () => {
+test('contrato suporta piso 24.16.0 e patches da linha 24, sem prometer Node 22 ou majors futuras', () => {
   const range = packageNodeRequirement();
-  assert.equal(range, '>=24.15.0 <25');
-  for (const version of ['24.15.0', '24.15.1', '24.19.0']) assert.equal(nodeVersionSatisfies(version, range), true, version);
-  for (const version of ['22.12.0', '24.0.0', '24.14.9', '25.0.0', '26.0.0', '24.15.0-rc.1', 'indisponivel']) {
+  assert.equal(range, '>=24.16.0 <25');
+  for (const version of ['24.16.0', '24.16.1', '24.19.0']) assert.equal(nodeVersionSatisfies(version, range), true, version);
+  for (const version of ['22.12.0', '24.0.0', '24.14.9', '24.15.0', '24.15.9', '25.0.0', '26.0.0', '24.16.0-rc.1', 'indisponivel']) {
     assert.equal(nodeVersionSatisfies(version, range), false, version);
-    assert.throws(() => assertExternalNodeRuntime({ version, electron: undefined }), /Node.*incompatível.*Node >=24\.15\.0 <25.*nvm install/);
+    assert.throws(() => assertExternalNodeRuntime({ version, electron: undefined }), /Node.*incompatível.*Node >=24\.16\.0 <25.*nvm install/);
   }
 });
 
@@ -36,7 +36,7 @@ test('CLI recusa runtime incompatível com mensagem acionável e código 1', () 
 
 test('manifesto ausente ou range aberto não é aceito como suporte', () => {
   const manifest = path.join(scratch, 'invalid.json');
-  for (const engines of [{}, { node: '>=24.15.0' }, { node: '24' }]) {
+  for (const engines of [{}, { node: '>=24.16.0' }, { node: '24' }]) {
     fs.writeFileSync(manifest, JSON.stringify({ engines }));
     assert.throws(() => packageNodeRequirement(manifest), /Contrato Node ausente ou inválido/);
   }
@@ -45,9 +45,9 @@ test('manifesto ausente ou range aberto não é aceito como suporte', () => {
 test('lockfile, versão local e CI preservam o piso e os três sistemas', () => {
   const lock = JSON.parse(fs.readFileSync(path.join(ROOT, 'package-lock.json'), 'utf8'));
   assert.equal(lock.packages[''].engines.node, packageNodeRequirement());
-  assert.equal(fs.readFileSync(path.join(ROOT, '.nvmrc'), 'utf8').trim(), '24.15.0');
+  assert.equal(fs.readFileSync(path.join(ROOT, '.nvmrc'), 'utf8').trim(), '24.16.0');
   const workflow = fs.readFileSync(path.join(ROOT, '.github/workflows/ci.yml'), 'utf8');
-  assert.equal((workflow.match(/node-version: '24\.15\.0'/g) || []).length, 2);
+  assert.equal((workflow.match(/node-version: '24\.16\.0'/g) || []).length, 2);
   assert.equal((workflow.match(/os: \[ubuntu-latest, windows-latest, macos-latest\]/g) || []).length, 2);
   assert.match(workflow, /needs: \[gate, electron\]/);
 });
