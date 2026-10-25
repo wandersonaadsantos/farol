@@ -19,6 +19,10 @@ O consumo inclui os subagentes do Claude e separa o gasto novo nas retomadas, co
 - **Retomadas não repetem o gasto anterior.** O cursor de consumo fica vinculado à conta, ao perfil e à sessão do provedor. O diário preserva essa identidade durante interrupções e o boot não deixa o parcial já registrado entrar novamente no próximo total.
 - **Falha com custo zerado não vira cursor confiável.** Quando não é possível separar o gasto novo, o custo continua desconhecido. Os registros antigos são preservados.
 
+- **Os padrões do time continuam visíveis ao reabrir Contas.** O texto salvo volta para a interface junto da configuração da conta.
+- **A autoanálise pode ser reexecutada no mesmo commit por clique explícito.** Os relatórios anteriores ficam em histórico persistido, e uma falha preserva o último resultado. Somente a análise atual participa dos gates.
+- **Merge e autoanálise respeitam a mesma posse entre aparelhos.** Nas operações coordenadas, o merge reconfere a posse e fixa o commit antes da escrita no GitHub; uma coordenação indisponível impede a operação.
+
 **Melhorias**
 
 - **Formato de saída pública única preparado para avaliação, desligado por padrão.** A investigação, os achados, as evidências, as ressalvas e os gates de publicação continuam necessários. A economia de tokens e a equivalência de julgamento ainda dependem de comparação em novas execuções; esta versão não reduz modelo ou esforço nem ativa o piloto pago.
