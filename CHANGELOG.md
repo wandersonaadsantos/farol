@@ -21,6 +21,8 @@ Revisões com fontes reaproveitáveis e investigação de contexto opcional, arm
 - Desenvolvimento, testes e execução externa do motor passam a exigir Node 24 LTS, de 24.22.1 até antes de 25. Atualize o runtime do serviço antes de aplicar esta versão em servidor que ainda usa Node 22. O desktop mantém o Node embarcado no Electron e a instalação offline dispensa Node externo. A ocorrência histórica do Node 22 continua sem causa determinada; retirar seu suporte não é uma correção do crash.
 
 **Correções**
+- Reexecutar a autoanálise preserva o histórico e coordena a operação com o merge. O merge reconfere a posse e o commit analisado; o snapshot da interface expõe somente a análise atual.
+- Os padrões de revisão do time voltam a aparecer na tela de Contas.
 - Contenção transitória ao salvar registros do cache é tratada sem truncar o registro anterior. Falhas definitivas continuam visíveis, preservando os dados e a causa original mesmo se a limpeza também falhar.
 - Electron 44.9.3 mitiga certificados TLS comprometidos, e o motor externo exige o patch de segurança Node 24.22.1. O lock atualiza Undici de download para 7.30.1. Limitação: o desktop ainda embarca Node 24.22.0/Undici 7.29.1, com o DoS de `fetch` GHSA-xjj6-f33q-929c pendente de correção upstream; atualizar o pacote npm não corrige esse componente interno.
 - A liberação de materiais Git reconhece aliases do caminho no macOS e no Windows, remove apenas o registro correspondente e preserva a proteção do material se a limpeza falhar.

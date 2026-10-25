@@ -93,6 +93,9 @@ test('os padrões sobrevivem ao reinício: moram na conta, que o boot não regra
   b.prepareHome();
   const conta = b.accountList().find((x) => x.user === 'alex');
   assert.equal(conta && conta.padroesRevisao, TEXTO);
+  // e o que a tela recebe: a projeção das contas no snapshot leva o texto (antes o campo ficava de fora)
+  const naTela = b.snapshot().accounts.find((x) => x.user === 'alex');
+  assert.equal(naTela && naTela.padroesRevisao, TEXTO);
 });
 
 test('o protocolo manda ler as regras do repositório revisado e citar a regra usada', () => {

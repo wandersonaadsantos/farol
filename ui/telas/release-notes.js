@@ -19,6 +19,7 @@ const RELEASE_NOTES_RECENTES = [
     'Mapa de JS, TS, JSX e TSX para investigar consumidores e contratos. A seleção de contexto continua desligada por padrão; relações não resolvidas ampliam a investigação e não provam ausência de impacto.',
     'Quota global configurável para o cache gerenciado, com reservas concorrentes e proteção de materiais ativos. Falta de espaço adia trabalho novo; legados não são apagados.',
     'Atualizações de tela agrupadas preservam foco, rascunhos e arquivos selecionados. Histórico de consumo e memória de rodadas reduzem trabalho repetido, mantendo confirmação de persistência.',
+    'Reexecutar a autoanálise preserva o histórico e coordena o merge com o commit analisado. Os padrões de revisão do time voltam a aparecer em Contas.',
     'O motor externo, desenvolvimento e testes exigem Node 24 LTS, de 24.22.1 até antes de 25. O desktop mantém o Node do Electron e dispensa Node externo na instalação offline. Node 22 deixa o contrato sem alegação de correção do crash histórico.',
     'Electron 44.9.3 mitiga certificados TLS comprometidos. O desktop ainda depende de patch upstream para o DoS de fetch GHSA-xjj6-f33q-929c no Undici embarcado; o pacote npm atualizado não elimina essa limitação.',
     'A voz permanece desligada por padrão. O contexto opcional não dispensa os gates de revisão nem comprova ganhos de qualidade ou economia total de tokens.',
