@@ -19,7 +19,7 @@ com licença e hashes; o pin npm é usado apenas para reproduzir o artefato dist
   Orçamentos e falhas continuam vivos; gravações mantêm fsync e confirmação síncrona.
 - O mapa é navegação candidata. A bateria frontend demonstrou a lacuna do parser nativo;
   o parser distribuído cobre JS/TS/JSX/TSX, com limites declarados.
-- O contrato externo vigente é Node 24 LTS, `>=24.16.0 <25`. O suporte a Node 22
+- O contrato externo vigente é Node 24 LTS, `>=24.22.1 <25`. O suporte a Node 22
   foi encerrado por decisão de produto, sem atribuir causa ao crash histórico.
   A política e o procedimento de atualização estão em [RUNTIME.md](RUNTIME.md).
 

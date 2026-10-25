@@ -6,7 +6,7 @@
   "main": "main.js",
   "type": "module",
   "engines": {
-    "node": ">=24.16.0 <25"
+    "node": ">=24.22.1 <25"
   },
   "author": "Wanderson Santos",
   "license": "MIT",
@@ -29,7 +29,7 @@
     "preeng": "node lib/node-runtime.js"
   },
   "dependencies": {
-    "electron": "^44.1.0"
+    "electron": "^44.9.3"
   },
   "devDependencies": {
     "@babel/parser": "7.28.5"

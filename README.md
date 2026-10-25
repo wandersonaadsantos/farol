@@ -22,7 +22,7 @@ Ainda são necessários o **GitHub CLI** (`gh auth login`) e pelo menos um prove
 
 ### Jeito leve (precisa de Node)
 
-1. Pré-requisitos: Node.js 24 LTS (24.16.0 até antes de 25) quando for baixar o Electron com npm; o instalador offline dispensa Node externo. GitHub CLI (`gh`, autenticado na conta de trabalho: `gh auth login`) e Claude Code (`claude`) ou Codex CLI (`codex`) autenticado na sua própria conta.
+1. Pré-requisitos: Node.js 24 LTS (24.22.1 até antes de 25) quando for baixar o Electron com npm; o instalador offline dispensa Node externo. GitHub CLI (`gh`, autenticado na conta de trabalho: `gh auth login`) e Claude Code (`claude`) ou Codex CLI (`codex`) autenticado na sua própria conta.
 2. Dê dois cliques em `Instalar.cmd` (ou rode `installer\install.ps1`). O Electron é baixado via `npm` na primeira vez.
 3. Abra o **Farol** pelo Menu Iniciar.
 
@@ -34,7 +34,7 @@ Para desinstalar: `Desinstalar.cmd`. O estado é preservado por padrão (`uninst
 
 ### macOS
 
-1. Pré-requisitos: Node.js 24 LTS (24.16.0 até antes de 25) quando for baixar o Electron com npm; o instalador offline dispensa Node externo. GitHub CLI (`gh auth login`) e Claude Code ou Codex CLI no PATH.
+1. Pré-requisitos: Node.js 24 LTS (24.22.1 até antes de 25) quando for baixar o Electron com npm; o instalador offline dispensa Node externo. GitHub CLI (`gh auth login`) e Claude Code ou Codex CLI no PATH.
 2. No Terminal, na pasta do Farol: `bash Instalar.command` (o zip vindo do Windows não preserva a permissão de execução, então a primeira vez é com `bash`, não duplo clique).
 3. Abra o **Farol** por `~/Applications` (ou Spotlight).
 
@@ -45,16 +45,21 @@ O instalador copia o app para `~/.farol/app` e cria o lançador `~/Applications/
 ## Runtime suportado
 
 Desenvolvimento, testes e motor externo (`node server.js`) usam **Node 24 LTS,
-`>=24.16.0 <25`**. A CI valida o piso 24.16.0 em Linux, Windows e macOS.
-Use `nvm install 24.16.0` e `nvm use` neste projeto, confira `node --version`,
+`>=24.22.1 <25`**. A CI valida o piso 24.22.1 em Linux, Windows e macOS.
+Use `nvm install 24.22.1` e `nvm use` neste projeto, confira `node --version`,
 depois execute `node lib/node-runtime.js`, `npm install` e os comandos usuais.
 Com outro gerenciador, selecione a mesma versão somente no ambiente do Farol.
 Não é necessário mudar o Node dos demais projetos.
 
-O desktop usa o Node embarcado no **Electron 44.1.0** (ou release compatível com
-`^44.1.0`), validado por smoke nativo; atualizar Node no PATH não muda esse runtime.
+O desktop usa o Node embarcado no **Electron 44.9.3** (ou release compatível com
+`^44.9.3`), validado por smoke nativo; atualizar Node no PATH não muda esse runtime.
 O instalador offline e o lançador nativo não precisam do Node externo. O fallback
 de instalação por npm exige o contrato acima e o confere antes de alterar o app.
+
+Electron 44.9.3 mitiga os certificados TLS comprometidos. Seu Node embarcado
+24.22.0 ainda contém Undici 7.29.1: permanece a limitação de DoS de `fetch`
+GHSA-xjj6-f33q-929c. Atualizar a dependência npm de download não altera esse
+componente interno; não se declara segurança total do desktop.
 
 Node 22 deixou de fazer parte do suporte. O crash observado em 22.12 permanece
 como **“Ocorrência sem causa determinada em runtime que deixou de fazer parte do
@@ -199,7 +204,7 @@ Sai um `dist\farol-vX.Y.Z.zip` **auditado automaticamente**: o script falha se d
 
 Cada pessoa do time precisa, na própria máquina:
 
-1. **Node.js 24 LTS**, de 24.16.0 até antes de 25, para desenvolvimento e download do Electron via npm. Instaladores offline dispensam Node externo.
+1. **Node.js 24 LTS**, de 24.22.1 até antes de 25, para desenvolvimento e download do Electron via npm. Instaladores offline dispensam Node externo.
 2. **GitHub CLI** autenticado na conta corporativa dela: `gh auth login`.
 3. **Claude Code** ou **Codex CLI** logado na conta dela (o CLI escolhido precisa estar no PATH).
 4. Opcional, recomendado para perfis Claude: o conector do **Jira/Atlassian** configurado no Claude Code dela, pro review ler os cards BT. Sem ele o fluxo continua funcionando, só trata todo card como "não-verificável" (não faz auto-approve sozinho).

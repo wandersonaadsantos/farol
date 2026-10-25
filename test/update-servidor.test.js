@@ -50,7 +50,7 @@ function instalacao() {
 function pacote() {
   const origem = pasta('pacote');
   escrever(origem, 'server.js', 'novo');
-  escrever(origem, 'package.json', JSON.stringify({ name: 'farol', version: '2.71.15', engines: { node: '>=24.16.0 <25' } }));
+  escrever(origem, 'package.json', JSON.stringify({ name: 'farol', version: '2.71.15', engines: { node: '>=24.22.1 <25' } }));
   escrever(origem, 'lib/so-no-novo.js', 'novo');
   // os três instaladores, como no pacote leve: a checagem de integridade procura o do SO
   for (const inst of ['install-linux.sh', 'install.sh', 'install.ps1']) escrever(origem, `installer/${inst}`, '#');
