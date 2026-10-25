@@ -121,6 +121,17 @@ test('custo zerado depois de um total positivo também invalida o cursor antes d
   assert.equal(next.total_cost_usd, 0);
 });
 
+test('falha que zera também todos os contadores não transforma zero em cursor válido', () => {
+  const first = accountResult(event(), [], identity);
+  const failed = accountResult({ ...event(0), total_cost_usd: 0, is_error: true, farol_resumed: true }, [row(first)], identity);
+  assert.equal(failed.farol_accounting.snapshot.costUsd, null);
+  const next = accountResult({ ...event(3), farol_resumed: true }, [row(first), row(failed)], identity);
+  assert.equal(next.farol_custo_desconhecido, true);
+  assert.equal(next.total_cost_usd, 0);
+  const known = accountResult({ ...event(4), farol_resumed: true }, [row(first), row(failed), row(next)], identity);
+  assert.equal(known.total_cost_usd, 1);
+});
+
 test('sessão legada de outro provedor pode repetir id sem herdar semântica cumulativa Claude', () => {
   const e = { session_id: 'other-provider', usage: { output_tokens: 10 }, total_cost_usd: 1 };
   const first = accountResult(e, [], identity);
