@@ -23,7 +23,9 @@
     "hooks:install": "git config core.hooksPath tools/hooks"
   },
   "dependencies": {
-    "@babel/parser": "7.28.5",
     "electron": "^44.1.0"
+  },
+  "devDependencies": {
+    "@babel/parser": "7.28.5"
   }
 }
