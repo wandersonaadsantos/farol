@@ -369,7 +369,7 @@ test('parar o relógio durante a confirmação de presença impede trabalho tard
   andamentoEng.desligarRelogio(e.sync);
   e.sync.lastPresenceAt = 0;
   let liberar, retomadas = 0;
-  e.syncPresenca = () => new Promise(resolve => { liberar = resolve; });
+  e.syncConfirmarConexao = () => new Promise(resolve => { liberar = resolve; });
   e.processHeadless = () => { retomadas++; };
   const ag = agendadorFalso();
   andamentoEng.ligarRelogio(e, x => x.config.sync, ag);

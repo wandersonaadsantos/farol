@@ -1854,7 +1854,7 @@ class Engine extends EventEmitter {
   syncTest() { return syncMod.syncTest(this); }
   syncStop() { return syncMod.stopSync(this); }
   syncTick() { return syncMod.syncTick(this); }
-  syncPresenca() { return syncMod.syncTick(this, { apenasConexao: true }); }
+  syncConfirmarConexao() { return syncMod.syncTick(this, { apenasConexao: true }); }
   syncAplicarConfig() { return syncMod.aplicarConfig(this); }
   syncAdmit(ctx) { return syncMod.admit(this, ctx); }
   syncPreflightManual(pr) { return syncMod.preflightManual(this, pr); }
