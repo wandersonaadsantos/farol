@@ -9,6 +9,14 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.77.5
+
+A revisão em andamento deixa de aparecer ao mesmo tempo na fila de espera.
+
+**Correções**
+- O Radar retira da fila o PR que já está sendo analisado pela mesma conta e ajusta os contadores de atenção e o botão Revisar tudo. Um pedido de outra conta continua visível.
+- Ao terminar a sessão sem uma decisão, o PR pode voltar à fila; a correção não apaga pedidos nem interrompe revisões em andamento. Voz e seleção de contexto continuam desligadas por padrão.
+
 ## v2.77.4
 
 Revisões com fontes reaproveitáveis, contexto opcional e interface mais estável, com Node 24 LTS no motor externo.

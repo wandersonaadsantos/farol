@@ -7,6 +7,7 @@
 import { esc, hexToRgba, ownerFromUrl, validScope, personMention, fmtRel, accountBarVisible } from '../pure.js';
 import { estado, escopo, abaAtual, definirEscopo } from './estado.js';
 import { $, selo } from './infra.js';
+import { filaSemRevisoesAtivas } from '../pure/fila.js';
 
 function identGuardada() {
   const v = localStorage.getItem('farol-identity-style');
@@ -119,7 +120,8 @@ export function memGroupHead(user) {
 // o CI fica de fora: o Farol aprova sozinho, ela não pede você (30/09/2026).
 export function attentionCount(user) {
   const u = String(user).toLowerCase();
-  const q = (estado().queue || []).filter(p => String(prUser(p)).toLowerCase() === u).length;
+  const q = filaSemRevisoesAtivas(estado().queue || [], estado().activeSessions || [], prUser)
+    .filter(p => String(prUser(p)).toLowerCase() === u).length;
   const d = (estado().decisions?.pending || []).filter(p => !p.esperaCi && !p.esperaProva && String(prUser(p)).toLowerCase() === u).length;
   return q + d;
 }
