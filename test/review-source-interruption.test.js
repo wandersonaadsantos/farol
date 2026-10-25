@@ -103,4 +103,12 @@ test('proteção anterior ao spawn impede limpeza mesmo se diagnóstico posterio
   assert.equal((await store.budget.inventory()).reservations, 1);
   release(destination); assert.equal(enqueue(destination), false);
   await assert.rejects(store.budget.reserve('next', 1), /não confirmado/);
+  const otherLease = await store.acquire({});
+  assert.ok((await store.gitConsumers(otherLease)).includes(lease));
+  const gitDir = path.join(store.root, 'repository.git'); await fs.mkdir(gitDir);
+  const sentinel = path.join(gitDir, 'partial'); await fs.writeFile(sentinel, 'descendant-owned');
+  const otherGit = new GitSource({ ghEnv: () => ({}) }, store, otherLease, {}, {});
+  await assert.rejects(otherGit.evictInactive(), /ativos.*removidos/);
+  await assert.rejects(git.evictInactive(), /não confirmado/);
+  assert.equal(await fs.readFile(sentinel, 'utf8'), 'descendant-owned');
 });
