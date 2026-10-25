@@ -175,6 +175,32 @@ test('recuperação com CI obrigatório vermelho não agenda nem conta outra ten
   assert.equal(d.esperaProva.tentativas, 1);
 });
 
+for (const headAtual of [HEAD, HEAD_NOVO]) {
+test(`retomada pela fila normal substitui a recuperação sem knownHead, no head ${headAtual.slice(0, 7)}`, async () => {
+  const e = motor();
+  const d = await revisado(e, SEM_PROTOCOLO);
+  e.processHeadless = () => {};
+  e.config.aguardarCiParaRevisar = true;
+  e.bloqueadoPorChecks = async () => ({ bloqueado: false, faltando: [], verifiedHead: HEAD });
+  await esperaProva.reverQuandoAProvaMudar(e);
+  await e.launchReReviews();
+  const pr = e.headlessQueue.shift();
+  e.prState = async () => 'OPEN';
+  e.bloqueadoPorChecks = async () => ({ bloqueado: true, faltando: [{ nome: 'ci', estado: 'vermelho' }], verifiedHead: HEAD });
+  await e.runOneHeadless(pr, 'eu');
+  assert.equal(d.esperaProva.aguardandoCi, true);
+  const marcaAnterior = d.esperaProva;
+  sessao(e, {});
+  gh.head = headAtual;
+  e.bloqueadoPorChecks = async () => ({ bloqueado: false, faltando: [], verifiedHead: headAtual });
+  await e.runOneHeadless({ ...PR }, 'eu');
+  assert.equal(pendente(e), undefined, 'recordDecision real remove a recuperação anterior');
+  assert.deepEqual(envios.map(x => [x.event, x.commit_id]), [['APPROVE', headAtual]]);
+  assert.equal(marcaAnterior.tentativas, headAtual === HEAD ? 1 : 0, 'commit novo não consome tentativa do anterior');
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0, 'não agenda outra rodada depois da aprovação');
+});
+}
+
 test('CI muda após o agendamento: ciclo completo espera sem virar órfã e retoma com uma tentativa', async () => {
   const e = motor();
   const d = await revisado(e, SEM_PROTOCOLO);
@@ -194,6 +220,9 @@ test('CI muda após o agendamento: ciclo completo espera sem virar órfã e reto
   assert.equal(executadas, 0);
   assert.equal(d.blockedKind, undefined);
   assert.equal(d.esperaProva.tentativas, 0);
+  const projetada = e.decisionForUi(d);
+  assert.equal(projetada.esperaProva.aguardandoCi, true);
+  assert.match(staleCardMeta(projetada, null).statusHtml, /Aguardando o CI antes de retomar/);
   e.reReviewLaunched[PR.key] = { head: HEAD, at: 1 };
   assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
   assert.equal(d.esperaProva.interrupcoes, 0);

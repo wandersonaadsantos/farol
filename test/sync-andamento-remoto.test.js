@@ -320,6 +320,37 @@ test('falha do anúncio não fabrica presença fresca nem libera a admissão', a
   } finally { patch.mock.restore(); andamentoEng.desligarRelogio(e.sync); }
 });
 
+test('consumo pendente não bloqueia confirmação de presença nem atualização ao vivo', async () => {
+  const e = await motorPronto();
+  andamentoEng.desligarRelogio(e.sync);
+  const usage = (await import('../lib/engine/sync-usage.js')).default;
+  let liberar;
+  const pendente = new Promise(resolve => { liberar = resolve; });
+  const envio = mock.method(usage, 'flushUsage', () => pendente);
+  e.sync.lastPresenceAt = Date.now();
+  const consumo = e.syncTick();
+  await new Promise(resolve => setImmediate(resolve));
+  andamentoEng.desligarRelogio(e.sync);
+  e.sync.lastPresenceAt = 0;
+  let retomadas = 0, timer;
+  e.processHeadless = () => { retomadas++; };
+  const ag = agendadorFalso();
+  andamentoEng.ligarRelogio(e, x => x.config.sync, ag);
+  try {
+    const terminou = await Promise.race([ag.fn().then(() => true), new Promise(resolve => { timer = setTimeout(() => resolve(false), 2000); })]);
+    assert.equal(terminou, true, 'o relógio não aguarda a outbox de consumo');
+    assert.equal(retomadas, 1);
+    assert.ok(e.sync.lastPresenceAt > 0);
+    assert.equal(envio.mock.callCount(), 1, 'somente o tick completo envia consumo');
+  } finally {
+    clearTimeout(timer);
+    liberar({ ok: true });
+    await consumo;
+    envio.mock.restore();
+    andamentoEng.desligarRelogio(e.sync);
+  }
+});
+
 test('o início da sincronização não aguarda uma consulta GitHub longa', async () => {
   const e = new Engine();
   e.migrarIgnorados = () => {};
@@ -338,7 +369,7 @@ test('parar o relógio durante a confirmação de presença impede trabalho tard
   andamentoEng.desligarRelogio(e.sync);
   e.sync.lastPresenceAt = 0;
   let liberar, retomadas = 0;
-  e.syncTick = () => new Promise(resolve => { liberar = resolve; });
+  e.syncPresenca = () => new Promise(resolve => { liberar = resolve; });
   e.processHeadless = () => { retomadas++; };
   const ag = agendadorFalso();
   andamentoEng.ligarRelogio(e, x => x.config.sync, ag);
