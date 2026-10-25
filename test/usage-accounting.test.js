@@ -115,7 +115,7 @@ test('cursor corrompido e custo zerado com gasto reportado não viram medição 
 test('custo zerado depois de um total positivo também invalida o cursor antes da comparação', () => {
   const first = accountResult(event(), [], identity);
   const failed = accountResult({ ...event(2), total_cost_usd: 0, is_error: true, farol_resumed: true }, [row(first)], identity);
-  assert.equal(failed.farol_accounting.snapshot.costUsd, null);
+  assert.equal(failed.farol_accounting.snapshot, null);
   const next = accountResult({ ...event(3), farol_resumed: true }, [row(first), row(failed)], identity);
   assert.equal(next.farol_custo_desconhecido, true);
   assert.equal(next.total_cost_usd, 0);
@@ -124,7 +124,7 @@ test('custo zerado depois de um total positivo também invalida o cursor antes d
 test('falha que zera também todos os contadores não transforma zero em cursor válido', () => {
   const first = accountResult(event(), [], identity);
   const failed = accountResult({ ...event(0), total_cost_usd: 0, is_error: true, farol_resumed: true }, [row(first)], identity);
-  assert.equal(failed.farol_accounting.snapshot.costUsd, null);
+  assert.equal(failed.farol_accounting.snapshot, null);
   const next = accountResult({ ...event(3), farol_resumed: true }, [row(first), row(failed)], identity);
   assert.equal(next.farol_custo_desconhecido, true);
   assert.equal(next.total_cost_usd, 0);
@@ -146,4 +146,27 @@ test('modelo que só teve gasto anterior não conta como participante do turno r
     modelUsage: { opus: model(), haiku: model() } }, [row(first)], identity);
   const buckets = modelBuckets(next, extractUsage(next, 'opus'), 'opus');
   assert.deepEqual(buckets.map(([name]) => name), ['haiku']);
+});
+
+test('sequência regressiva 200/2, 100/1, 300/3 não reabilita o cursor ruim nem duplica o gasto', () => {
+  const first = accountResult(event(2), [], identity);
+  const regression = accountResult({ ...event(), farol_resumed: true }, [row(first)], identity);
+  assert.equal(regression.farol_accounting.snapshot, null);
+  assert.equal(regression.farol_accounting.observedSnapshot.costUsd, 1);
+  const next = accountResult({ ...event(3), farol_resumed: true }, [row(first), row(regression)], identity);
+  assert.equal(next.farol_custo_desconhecido, true);
+  assert.equal(next.total_cost_usd, 0);
+  assert.equal(next.usage.output_tokens, 5);
+  assert.equal(first.usage.output_tokens + regression.usage.output_tokens + next.usage.output_tokens, 210);
+  const stable = accountResult({ ...event(4), farol_resumed: true }, [row(first), row(regression), row(next)], identity);
+  assert.equal(stable.total_cost_usd, 1);
+  assert.equal(stable.usage.output_tokens, 100);
+});
+
+test('falha zerada na primeira retomada sem cursor também não cria uma base válida', () => {
+  const failed = accountResult({ ...event(), total_cost_usd: 0, is_error: true, farol_resumed: true }, [], identity);
+  assert.equal(failed.farol_accounting.snapshot, null);
+  const next = accountResult({ ...event(3), farol_resumed: true }, [row(failed)], identity);
+  assert.equal(next.farol_custo_desconhecido, true);
+  assert.equal(next.total_cost_usd, 0);
 });
