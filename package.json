@@ -6,7 +6,7 @@
   "main": "main.js",
   "type": "module",
   "engines": {
-    "node": ">=22.12"
+    "node": ">=24.15.0 <25"
   },
   "author": "Wanderson Santos",
   "license": "MIT",
@@ -20,7 +20,13 @@
     "eng": "node tools/eng-behaviour/gate.js",
     "sync:rules": "node tools/sync-rules.js",
     "test": "node tools/rodar-testes.js",
-    "hooks:install": "git config core.hooksPath tools/hooks"
+    "hooks:install": "git config core.hooksPath tools/hooks",
+    "prestart": "node lib/node-runtime.js",
+    "preserver": "node lib/node-runtime.js",
+    "pretest": "node lib/node-runtime.js",
+    "precheck": "node lib/node-runtime.js",
+    "prelint": "node lib/node-runtime.js",
+    "preeng": "node lib/node-runtime.js"
   },
   "dependencies": {
     "electron": "^44.1.0"

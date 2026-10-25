@@ -65,6 +65,9 @@ function Prepare-ElectronRuntime {
   if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
     Die 'O Electron exigido nao esta disponivel e npm nao foi encontrado. Use o instalador offline. A instalacao existente foi preservada.'
   }
+  if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Die 'Node 24 LTS necessario para baixar o Electron. Use o instalador offline ou atualize o Node deste ambiente.' }
+  & node (Join-Path $Src 'lib\node-runtime.js') (Join-Path $Src 'package.json')
+  if ($LASTEXITCODE -ne 0) { Die 'Runtime Node incompatível. Atualize o Node deste ambiente conforme a mensagem acima ou use o instalador offline. A instalacao existente foi preservada.' }
   $stage = Join-Path ([IO.Path]::GetTempPath()) ('farol-runtime-' + [Guid]::NewGuid().ToString('N'))
   try {
     New-Item -ItemType Directory -Path $stage | Out-Null

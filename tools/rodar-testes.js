@@ -1,8 +1,10 @@
 // Mantém os mesmos testes e limites; a máquina pode reduzir o paralelismo.
 import path from 'node:path';
+import { assertExternalNodeRuntime } from '../lib/node-runtime.js';
 import { spawnSync } from 'node:child_process';
 import { testConcurrency, semAsVariaveis } from '../lib/env.js';
 
+assertExternalNodeRuntime();
 const concorrencia = Number(testConcurrency() || 4);
 if (!Number.isInteger(concorrencia) || concorrencia < 1 || concorrencia > 4) {
   throw new Error('FAROL_TEST_CONCORRENCIA deve ser um inteiro entre 1 e 4');

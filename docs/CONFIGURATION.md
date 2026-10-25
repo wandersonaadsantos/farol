@@ -5,6 +5,13 @@
 Extraído do `CLAUDE.md` na Fase 1.5 da reorganização. O `CLAUDE.md` da raiz é o sumário, e os
 invariantes continuam lá.
 
+O motor externo, o desenvolvimento e os testes exigem Node 24 LTS,
+`>=24.15.0 <25`. Selecione 24.15.0 no gerenciador do ambiente do Farol, confira
+`node --version` e reinicie o serviço somente em uma janela apropriada depois
+de aplicar a atualização. O desktop usa o Node embarcado no Electron, validado
+separadamente; o instalador offline dispensa Node externo. O contrato completo
+e a orientação para atualizar estão na seção Runtime suportado do `README.md`.
+
 <!-- indice:inicio (gerado; test/guias-navegaveis.test.js reprova se divergir das seções) -->
 
 ## Índice

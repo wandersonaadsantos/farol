@@ -13,6 +13,7 @@ Dependências dinâmicas e falhas do parser permanecem não resolvidas explicita
 | JS/JSX, consumidor de componente e mudança de props | Import do componente e consumidor fora do patch recuperado | Uso sintático não prova compatibilidade das props |
 | TS/TSX, hooks e contrato compartilhado | Caminhos hook → contrato e componente → hook, inclusive no M | Sem inferência de tipos, chamadas ou fluxo de dados |
 | Imports somente de tipos | Relação preservada com natureza `type` | Não confundir com dependência de runtime |
+| Import sem destino resolvido, inclusive `./api.js` em fonte TS e alias desconhecido | Mapa incompleto, consumidor candidato e herança reaberta em `assist` | Não resolve substituição de extensão do TypeScript nem distingue pacote externo de alias não configurado |
 | Alias configurado | Configuração e destino existente registrados | Candidato, sem executar config ou resolver plugins |
 | Barrels, reexports e `export *` | Arestas consumidor → barrel → origem | `export *` não prova qual binding foi usado |
 | CommonJS misturado com ESM | `require` literal como candidato; import estático como sintaxe | Binding `require` pode estar sombreado |
@@ -64,7 +65,7 @@ O lock resolvido nesta entrega inclui `@babel/types` 7.29.11, também cerca de 2
 essa versão estava presente na instalação npm das primeiras medições. O bundle do
 parser não a carrega em runtime.
 TypeScript 5.9.3 completo teria cerca de 23,6 MB. Babel 8.0.8 exige Node 22.18 ou
-24.11 e não atende ao mínimo 22.12. O parser 7.28.5 declara Node >=6.0.
+24.11 e não atendia ao mínimo 22.12 vigente na avaliação histórica. O parser 7.28.5 declara Node >=6.0.
 Fontes: [parser 7.28.5](https://registry.npmjs.org/@babel/parser/7.28.5),
 [types 7.28.5](https://registry.npmjs.org/@babel/types/7.28.5),
 [TypeScript 5.9.3](https://registry.npmjs.org/typescript/5.9.3),
@@ -107,3 +108,11 @@ package exports, plugins de bundler e resolução dependente de ambiente continu
 exigindo investigação. CommonJS sombreado e import calculado nunca viram prova de
 ausência. Falha sintática mantém o arquivo, candidatos textuais marcados e amplia
 referências de investigação sob os mesmos limites de seleção.
+
+Qualquer dependência não resolvida torna o mapa incompleto e amplia os candidatos
+de código sob os limites existentes. Em `assist`, a herança de análise é reaberta;
+`observe` mantém o comportamento comum. Isso inclui imports relativos com extensão
+de saída (`./api.js` cujo fonte é `api.ts`), aliases desconhecidos e pacotes externos:
+sem resolução demonstrada, o mapa não distingue essas situações com segurança.
+Essa política conservadora pode aumentar a investigação, mas não promove ausência
+de aresta a prova de ausência de impacto.

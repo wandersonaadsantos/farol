@@ -1,4 +1,6 @@
+import { assertExternalNodeRuntime } from './lib/node-runtime.js';
 import { repescarRetry } from './lib/engine/review-retry.js';
+assertExternalNodeRuntime();
 // Farol: engine de monitoramento de PRs + servidor http local da UI.
 // Porta a logica do antigo pr-reviewer.ps1: o polling do GitHub roda aqui
 // (so comandos gh, sem gastar tokens de IA); a revisao em si abre uma sessao

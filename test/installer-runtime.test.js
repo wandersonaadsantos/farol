@@ -13,12 +13,25 @@ const temporarios = [];
 after(() => { for (const dir of temporarios) fs.rmSync(dir, { recursive: true, force: true }); });
 const slash = s => s.replaceAll('\\', '/');
 
-function runtimeFixture(aceita, npmMode, bundled = false) {
+function copiarNodeRuntime(src) {
+  fs.mkdirSync(path.join(src, 'lib'));
+  for (const name of ['node-runtime.js', 'io.js', 'paths.js', 'env.js', 'constants.js', 'spawnlog.js', 'persistence-metrics.js']) {
+    fs.copyFileSync(path.join(RAIZ, 'lib', name), path.join(src, 'lib', name));
+  }
+}
+
+function runtimeFixture(aceita, npmMode, bundled = false, nodeIncompativel = false) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'farol-runtime-test-'));
   temporarios.push(dir);
   const src = path.join(dir, 'source'), app = path.join(dir, 'installed');
   fs.mkdirSync(src);
-  fs.writeFileSync(path.join(src, 'package.json'), '{"dependencies":{"electron":"^44.1.0"}}');
+  fs.writeFileSync(path.join(src, 'package.json'), '{"type":"module","engines":{"node":">=24.15.0 <25"},"dependencies":{"electron":"^44.1.0"}}');
+  copiarNodeRuntime(src);
+  if (nodeIncompativel) {
+    const manifest = JSON.parse(fs.readFileSync(path.join(src, 'package.json'), 'utf8'));
+    manifest.engines.node = '>=99.0.0 <100';
+    fs.writeFileSync(path.join(src, 'package.json'), JSON.stringify(manifest));
+  }
   const stub = status => `#!/bin/bash\n[ "$ELECTRON_RUN_AS_NODE" = 1 ] || exit 8\n[ "$2" = check-running ] || exit 9\nexit ${status}\n`;
   const writeNative = (base, status) => {
     const file = path.join(base, 'node_modules/electron/dist/electron');
@@ -62,6 +75,51 @@ test('runtime compativel instalado: preserva sem chamar npm', { skip }, () => {
   assert.equal(fs.readFileSync(f.previous, 'utf8'), f.before);
   assert.equal(fs.existsSync(path.join(f.dir, 'npm.log')), false);
 });
+
+test('fallback npm recusa Node incompatível antes de baixar ou alterar o app', { skip }, () => {
+  const f = runtimeFixture(false, 'ok', false, true);
+  const r = f.run(true);
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout + r.stderr, /Node.*incompatível/);
+  assert.equal(fs.existsSync(path.join(f.dir, 'npm.log')), false);
+  assert.equal(fs.readFileSync(f.previous, 'utf8'), f.before);
+  assert.equal(fs.readFileSync(path.join(f.app, 'server.js'), 'utf8'), 'codigo anterior');
+});
+
+test('Electron instalado compatível dispensa Node externo mesmo com contrato externo incompatível', { skip }, () => {
+  const f = runtimeFixture(true, 'fail', false, true);
+  const r = f.run(true);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.equal(fs.existsSync(path.join(f.dir, 'npm.log')), false);
+  assert.equal(fs.readFileSync(f.previous, 'utf8'), f.before);
+});
+
+test('Windows: fallback recusa Node incompatível antes de npm e preserva o app',
+  { skip: process.platform === 'win32' ? false : 'PowerShell nativo Windows' }, () => {
+    const f = runtimeFixture(false, 'ok', false, true);
+    const script = path.join(f.dir, 'recusa.ps1');
+    fs.writeFileSync(script, `
+      $ErrorActionPreference='Stop'
+      $Src=$env:TEST_SRC; $App=$env:TEST_APP
+      function Die($msg) { Write-Output $msg; exit 1 }; function Ok($msg) {}; function Step($msg) {}
+      . $env:TEST_HELPER
+      function Test-ElectronRuntime($Candidate) { return $false }
+      function npm { Set-Content -LiteralPath $env:TEST_MARKER 'npm chamado'; $global:LASTEXITCODE=0 }
+      Prepare-ElectronRuntime
+      exit 9
+    `);
+    const marker = path.join(f.dir, 'npm-win.log');
+    const r = cp.spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script], {
+      env: { ...process.env, TEST_SRC: path.join(f.dir, 'source'), TEST_APP: f.app,
+        TEST_HELPER: path.join(RAIZ, 'installer/electron-runtime.ps1'), TEST_MARKER: marker },
+      encoding: 'utf8', timeout: 30000,
+    });
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(r.stdout + r.stderr, /Node.*incompat/);
+    assert.equal(fs.existsSync(marker), false);
+    assert.equal(fs.readFileSync(f.previous, 'utf8'), f.before);
+    assert.equal(fs.readFileSync(path.join(f.app, 'server.js'), 'utf8'), 'codigo anterior');
+  });
 
 for (const mode of ['fail', 'invalid']) {
   test(`runtime antigo com preparo ${mode}: falha preservando o app anterior`, { skip }, () => {
@@ -108,7 +166,8 @@ for (const fail of [true, false]) {
       const src = path.join(dir, 'source'), app = path.join(dir, 'installed');
       fs.mkdirSync(src);
       fs.mkdirSync(path.join(app, 'node_modules/electron/dist'), { recursive: true });
-      fs.writeFileSync(path.join(src, 'package.json'), '{"dependencies":{"electron":"^44.1.0"}}');
+      fs.writeFileSync(path.join(src, 'package.json'), '{"type":"module","engines":{"node":">=24.15.0 <25"},"dependencies":{"electron":"^44.1.0"}}');
+      copiarNodeRuntime(src);
       const previous = path.join(app, 'node_modules/electron/dist/electron.exe');
       fs.writeFileSync(previous, '43.1.0');
       const script = `

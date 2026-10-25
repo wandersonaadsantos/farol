@@ -24,7 +24,7 @@ um PR na hora:
 
 ## Ambiente
 
-- Node.js >= 22.12
+- Node.js 24 LTS, de 24.15.0 até antes de 25 (`nvm use`)
 - GitHub CLI (`gh`) autenticado
 - Claude Code (`claude`) no PATH, se for mexer no caminho de revisão
 

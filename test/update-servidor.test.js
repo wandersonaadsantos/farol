@@ -50,7 +50,7 @@ function instalacao() {
 function pacote() {
   const origem = pasta('pacote');
   escrever(origem, 'server.js', 'novo');
-  escrever(origem, 'package.json', JSON.stringify({ name: 'farol', version: '2.71.15' }));
+  escrever(origem, 'package.json', JSON.stringify({ name: 'farol', version: '2.71.15', engines: { node: '>=24.15.0 <25' } }));
   escrever(origem, 'lib/so-no-novo.js', 'novo');
   // os três instaladores, como no pacote leve: a checagem de integridade procura o do SO
   for (const inst of ['install-linux.sh', 'install.sh', 'install.ps1']) escrever(origem, `installer/${inst}`, '#');
@@ -73,6 +73,16 @@ test('a troca no lugar põe o pacote novo e preserva o que ele não traz', () =>
   assert.equal(fs.readFileSync(path.join(raiz, 'hostinger-entry.cjs'), 'utf8'), 'entrada da hostinger');
   assert.equal(fs.readFileSync(path.join(raiz, 'node_modules/algum/index.js'), 'utf8'), 'dependencia');
   assert.deepEqual(fs.readdirSync(raiz).filter((n) => /\.(novo|velho)-/.test(n)), [], 'nenhuma sobra da troca');
+});
+
+test('update com Node incompatível é recusado antes de copiar arquivos', () => {
+  const raiz = instalacao();
+  const origem = pacote();
+  escrever(origem, 'package.json', JSON.stringify({ version: '2.71.15', engines: { node: '>=99.0.0 <100' } }));
+  assert.throws(() => servidor.trocarArquivos(origem, raiz), /Node.*incompatível/);
+  assert.equal(fs.readFileSync(path.join(raiz, 'server.js'), 'utf8'), 'velho');
+  assert.equal(fs.existsSync(path.join(raiz, 'lib/so-no-velho.js')), true);
+  assert.deepEqual(fs.readdirSync(raiz).filter(n => /\.(novo|velho)-/.test(n)), []);
 });
 
 test('pacote sem server.js não toca na instalação', () => {

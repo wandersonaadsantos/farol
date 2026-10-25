@@ -18,7 +18,10 @@ com licença e hashes; o pin npm é usado apenas para reproduzir o artefato dist
 - Dados históricos de consumo podem ser reutilizados com invalidação explícita.
   Orçamentos e falhas continuam vivos; gravações mantêm fsync e confirmação síncrona.
 - O mapa é navegação candidata. A bateria frontend demonstrou a lacuna do parser nativo;
-  o parser distribuído cobre JS/TS/JSX/TSX também no Node 22.12, com limites declarados.
+  o parser distribuído cobre JS/TS/JSX/TSX, com limites declarados.
+- O contrato externo vigente é Node 24 LTS, `>=24.15.0 <25`. O suporte a Node 22
+  foi encerrado por decisão de produto, sem atribuir causa ao crash histórico.
+  A política e o procedimento de atualização estão em [RUNTIME.md](RUNTIME.md).
 
 ## Comparação reproduzível
 
@@ -63,8 +66,10 @@ economia faturada ou redução de CPU da instalação aberta. A bateria controla
 provedores e julgamento humano permanece uma avaliação posterior, sem contaminar
 fontes históricas. Há provas locais de recuperação e de redução de repetição.
 
-Legados sem posse verificável não são removidos automaticamente. Esta entrega não
-executa limpeza real, push, PR, merge, release, instalação ou restart do usuário.
+Legados sem posse verificável não são removidos automaticamente. As rodadas locais
+anteriores não executaram push, PR ou merge. A rodada de Node 24 autoriza publicar
+a branch e integrar após os gates; o estado efetivo consta do relatório de entrega.
+Continuam vedados limpeza real de snapshots, release, instalação ou restart do usuário.
 Após reinício, materiais novos interrompidos só são recuperados quando há decisão
 final correspondente ao PR/head/conta, sem sessão/fila/retomada referenciando, e o
 SO comprova o término do proprietário e dos consumidores. Queda sem esse desfecho,
