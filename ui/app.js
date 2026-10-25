@@ -36,7 +36,7 @@ import {
 } from './telas/radar.js';
 import { renderMyPRs, initReviewersButton, updateAnalysisProgress, contagemMeusPrs } from './telas/meus-prs.js';
 import { renderUpdate } from './telas/sistema-atualizacao.js';
-import { sysGoTo, renderSettings } from './telas/sistema.js';
+import { sysGoTo, renderSettings, renderPlatformSettings } from './telas/sistema.js';
 import { initCaixaRevisao } from './telas/caixa-revisao.js';
 import { initAtalhos } from './telas/atalhos.js';
 import { initPaleta, rotularBtnCmdK } from './telas/paleta.js';
@@ -68,6 +68,7 @@ if (isElectron) document.body.classList.add('electron');
 function aplicaPlataforma(p) {
   definirPlataforma(p);
   document.body.classList.toggle('mac', ehMac());
+  renderPlatformSettings();
   rotularBtnCmdK();   // o botão é da paleta; quem sabe rotulá-lo é telas/paleta.js
 }
 aplicaPlataforma();
