@@ -1,6 +1,7 @@
 // O compositor pode rejeitar uma captura transitória; nunca substitui a imagem.
 import { setTimeout as delay } from 'node:timers/promises';
 import { once } from 'node:events';
+import { safeStringify } from '../lib/io.js';
 const CAPTURE_RETRY_DELAY_MS = 250;
 const diagnostics = [];
 async function captureWindow(window, label) {
@@ -21,4 +22,28 @@ async function reloadWindow(window) {
   window.webContents.reload();
   await loaded;
 }
-export { captureWindow, reloadWindow, diagnostics };
+async function waitForWindowGeometry(window, expected, timeoutMs = 15000) {
+  const polling = new AbortController();
+  let observed, stopped = false, timer;
+  const deadline = new Promise((_resolve, reject) => {
+    timer = setTimeout(() => {
+      stopped = true;
+      reject(new Error(`Geometria da janela não confirmou o resize: ${safeStringify({ expected, observed })}`));
+    }, timeoutMs);
+  });
+  const measure = async () => {
+    while (!stopped) {
+      const viewport = await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve({width:innerWidth,height:innerHeight}))))');
+      if (stopped) return;
+      const contentSize = window.getContentSize(), bounds = window.getBounds();
+      observed = { contentSize, bounds, viewport };
+      const [width, height] = expected.contentSize;
+      if (contentSize[0] === width && contentSize[1] === height && viewport.width === width && viewport.height === height
+        && (!expected.bounds || (bounds.width === expected.bounds.width && bounds.height === expected.bounds.height))) return observed;
+      await delay(50, undefined, { signal: polling.signal });
+    }
+  };
+  try { return await Promise.race([measure(), deadline]); }
+  finally { stopped = true; clearTimeout(timer); polling.abort(); }
+}
+export { captureWindow, reloadWindow, waitForWindowGeometry, diagnostics };

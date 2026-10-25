@@ -4,7 +4,7 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import { safeStringify } from '../lib/io.js';
 import { setTimeout as delay } from 'node:timers/promises';
-import { captureWindow } from './electron-smoke-capture.js';
+import { captureWindow, waitForWindowGeometry } from './electron-smoke-capture.js';
 
 async function settleTheme(web, theme) {
   if (await web.executeJavaScript('document.documentElement.dataset.theme') !== theme) {
@@ -49,13 +49,22 @@ async function captureVariant(win, output, label, selector, width, theme) {
   return measurements;
 }
 
+function restoreThrottling(web, throttling, progress, failure) {
+  try { web.setBackgroundThrottling(throttling); }
+  catch (error) {
+    progress('throttling-restore-failed', { error: error.message });
+    if (!failure) throw error;
+  }
+}
+
 async function captureReviewTools(main, output, label, selector) {
   const win = main.win, web = win.webContents;
-  const bounds = win.getBounds(), minimum = win.getMinimumSize();
+  const bounds = win.getBounds(), contentSize = win.getContentSize(), minimum = win.getMinimumSize();
   const throttling = web.getBackgroundThrottling();
   const theme = await web.executeJavaScript('document.documentElement.dataset.theme');
   const measurements = [];
-  const progress = stage => fs.appendFileSync(path.join(output, 'visual-progress.jsonl'), safeStringify({label,stage,at:new Date().toISOString()}) + '\n');
+  let failure;
+  const progress = (stage, detail = {}) => fs.appendFileSync(path.join(output, 'visual-progress.jsonl'), safeStringify({label,stage,...detail,at:new Date().toISOString()}) + '\n');
   progress('start');
   try {
     // A janela de teste pode estar encoberta enquanto o usuário trabalha.
@@ -66,19 +75,29 @@ async function captureReviewTools(main, output, label, selector) {
     win.setMinimumSize(320, 480);
     for (const width of [1280, 1024, 390]) {
       win.setContentSize(width, 800);
+      await waitForWindowGeometry(win, { contentSize: [width, 800] });
+      progress(`resize-${width}-confirmed`);
       for (const currentTheme of ['dark', 'light']) {
         measurements.push(...await captureVariant(win, output, label, selector, width, currentTheme));
       }
     }
     fs.writeFileSync(path.join(output, `${label}-layout.json`), safeStringify(measurements, null, 2));
     progress('captured');
+  } catch (error) {
+    failure = error;
+    throw error;
   } finally {
-    await settleTheme(web, theme);
-    progress('theme-restored');
-    win.setMinimumSize(...minimum);
-    win.setBounds(bounds);
-    web.setBackgroundThrottling(throttling);
-    progress('bounds-restored');
+    try {
+      win.setMinimumSize(...minimum);
+      win.setBounds(bounds);
+      await waitForWindowGeometry(win, { contentSize, bounds });
+      progress('bounds-restored');
+      await settleTheme(web, theme);
+      progress('theme-restored');
+    } catch (error) {
+      progress('restore-failed', { error: error.message });
+      if (!failure) throw error;
+    } finally { restoreThrottling(web, throttling, progress, failure); }
   }
 }
 export { captureReviewTools };
