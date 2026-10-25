@@ -4,13 +4,17 @@
    mesma ordem de sempre. */
 
 import {
-  statusBannerHtml, fmtClock, feedLine, agentsTitle, stageFlowFrom, stageFlowHtml, esc,
+  statusBannerHtml, fmtClock, feedLine, agentsTitle, stageFlowHtml, esc,
   sessionCardHtml, progressoDaSessao, conclusaoDaSessao, etapaAtiva,
 } from '../pure.js';
 import { estado } from './estado.js';
 import { $, ACTIVE_OPS, showOp, closeOp } from './infra.js';
 import { prUser, scopeVisible } from './contas.js';
 import { atualizarCancelamento } from './sessao-cancelar.js';
+import { registrarAtividadeVisual, fluxoDaAtividade } from './atividade-visual.js';
+import { telaVisivel } from './pintura.js';
+const feedsPintados = new WeakMap();
+const atividadeNova = new Set();
 
 /* ---------- evento 'activity' do SSE (feed ao vivo de uma sessão) ----------
    Chamado pelo connect() do ui/app.js: aqui é quem sabe o que uma linha de
@@ -18,20 +22,16 @@ import { atualizarCancelamento } from './sessao-cancelar.js';
    evento). Empilha no feed de estado().activity, escreve no DOM se o card
    está aberto, e atualiza a barra de progresso e a esteira de etapas. */
 function handleActivity(id, item) {
-  if (estado()?.activity) (estado().activity[id] = estado().activity[id] || []).push(item);
-  const feed = document.querySelector(`.activity-feed[data-id="${CSS.escape(id)}"]`);
-  if (feed) {
-    const stick = feed.scrollTop + feed.clientHeight >= feed.scrollHeight - 30;
-    feed.insertAdjacentHTML('beforeend', feedLine(item));
-    if (stick) feed.scrollTop = feed.scrollHeight;
-  }
+  if (!estado()) return;
+  if (!estado().activity) estado().activity = {};
   // linha nova é sinal de vida: o carimbo vale já (o snapshot só chega no ciclo), o
   // ponto da barra pisca e o progresso é recalculado a cada evento
   const sess = (estado()?.activeSessions || []).find(x => x.id === id);
+  registrarAtividadeVisual(estado().activity, id, item, sess?.startedAt);
   if (sess && item && item.t) sess.ultimoSinalEm = item.t;
-  piscar(id);
-  updateSessionBar(id);
-  updateStageFlow(id);
+  if (sess) atividadeNova.add(id);
+  const vivas = new Set((estado().activeSessions || []).map(s => s.id));
+  for (const pendente of atividadeNova) if (!vivas.has(pendente)) atividadeNova.delete(pendente);
 }
 
 /* ---------- render: topo/status ---------- */
@@ -88,7 +88,7 @@ function renderStatus() {
 }
 
 function tickCountdown() {
-  if (!estado()) return;
+  if (!estado() || document.hidden) return;
   const el = $('#metaCheck');
   const last = estado().lastCheckAt ? `Última checagem ${fmtClock(estado().lastCheckAt)}` : 'Primeira checagem em andamento';
   // Engine fora do ar: contar para a próxima checagem seria prometer uma coisa que não
@@ -106,6 +106,7 @@ function tickCountdown() {
 setInterval(tickCountdown, 1000);
 
 function tickElapsed() {
+  if (!telaVisivel('radar', 'mim')) return;
   document.querySelectorAll('.session-elapsed').forEach(el => {
     const started = parseInt(el.dataset.started, 10);
     if (!started) return;
@@ -123,7 +124,7 @@ function tickElapsed() {
     const id = el.dataset.id;
     const sess = (estado().activeSessions || []).find(x => x.id === id);
     if (!sess) return;
-    const flow = stageFlowFrom(estado().activity && estado().activity[id], sess.startedAt);
+    const flow = fluxoDaAtividade(id, estado().activity && estado().activity[id], sess.startedAt);
     const etapa = sess.fase === 'fechando' ? 'fechando' : etapaAtiva(flow);
     el.textContent = etapa ? `(${etapa})` : '(iniciando…)';
   });
@@ -138,7 +139,7 @@ function updateStageFlow(id) {
   const el = document.querySelector(`.stage-flow[data-id="${CSS.escape(id)}"]`);
   if (!el) return;
   const sess = (estado().activeSessions || []).find(x => x.id === id);
-  const html = stageFlowHtml(stageFlowFrom(estado().activity && estado().activity[id], sess && sess.startedAt));
+  const html = stageFlowHtml(fluxoDaAtividade(id, estado().activity && estado().activity[id], sess && sess.startedAt));
   el.hidden = !html;
   if (html) el.innerHTML = html;
 }
@@ -159,9 +160,14 @@ function updateSessionAgents(el, s) {
 }
 
 function fillFeed(feed, items) {
-  const stick = feed.scrollTop + feed.clientHeight >= feed.scrollHeight - 30;
-  feed.innerHTML = (items || []).map(feedLine).join('') ||
+  const selecionado = document.getSelection?.();
+  if (selecionado && !selecionado.isCollapsed && feed.contains(selecionado.anchorNode)) return;
+  const html = (items || []).map(feedLine).join('') ||
     '<div class="feed-line k-info"><span class="feed-x">preparando a sessão…</span></div>';
+  if (feedsPintados.get(feed) === html) return;
+  const stick = feed.scrollTop + feed.clientHeight >= feed.scrollHeight - 30;
+  feed.innerHTML = html;
+  feedsPintados.set(feed, html);
   if (stick) feed.scrollTop = feed.scrollHeight;
 }
 // a sessão pertence à conta do PR que ela revisa (pelo owner do repo); sem conta
@@ -224,7 +230,7 @@ function updateSessionBar(id) {
   const saindo = SAINDO.get(id);
   if (saindo) return pintarBarra(wrap, id, conclusaoDaSessao(saindo.sess, saindo.fim));
   const sess = (estado().activeSessions || []).find(x => x.id === id) || {};
-  const p = progressoDaSessao(sess, stageFlowFrom(estado().activity && estado().activity[id], sess.startedAt));
+  const p = progressoDaSessao(sess, fluxoDaAtividade(id, estado().activity && estado().activity[id], sess.startedAt));
   pintarBarra(wrap, id, p);
 }
 
@@ -277,6 +283,7 @@ function renderActive() {
     if (!box.querySelector(`.session-card[data-id="${CSS.escape(s.id)}"]`)) box.insertAdjacentHTML('beforeend', sessionCardHtml(s, '(iniciando…)', outrosDe(s)));
   }
   for (const s of vivas) {
+    if (atividadeNova.delete(s.id)) piscar(s.id);
     atualizarCancelamento(s, box);
     const feed = box.querySelector(`.activity-feed[data-id="${CSS.escape(s.id)}"]`);
     if (feed) fillFeed(feed, estado().activity && estado().activity[s.id]);
@@ -294,6 +301,8 @@ function renderActive() {
     updateSessionAgents(box.querySelector(`.session-agents[data-id="${CSS.escape(s.id)}"]`), s);
   }
   tickElapsed();
+  const ids = new Set(vivas.map(s => s.id));
+  for (const id of atividadeNova) if (!ids.has(id)) atividadeNova.delete(id);
 }
 
 export { renderStatus, tickCountdown, updateStageFlow, updateSessionBar, renderActive, handleActivity };

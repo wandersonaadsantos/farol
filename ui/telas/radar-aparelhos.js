@@ -26,6 +26,7 @@ import { dadosDasListas } from './listas-remotas.js';
 import { dadosDoConjunto, emitirComando, aoMudarConjunto, aoClicarCompartilhado } from './radar-compartilhado.js';
 import { lerPoliticaAtual, publicarPolitica } from './sistema-aparelhos.js';
 import { diagnosticoHtml, coletarDiagnostico } from './radar-diagnostico.js';
+import { telaVisivel } from './pintura.js';
 
 const APAR = { selecionado: '', filtro: 'tudo', aoVivo: new Set() };
 
@@ -89,11 +90,16 @@ function renderPagina(s) {
   const alvo = $('#aparPagina');
   const executores = executoresDoConjunto(s, { aoVivo: sinaisAoVivo() });
   const ap = selecionado(executores);
-  if (!ap) { alvo.innerHTML = nenhumExecutorHtml(); return; }
+  if (!ap) { if (telaVisivel('radar', 'apar')) alvo.innerHTML = nenhumExecutorHtml(); return; }
   const agora = Date.now();
   const f = fontes();
   const porAparelho = Object.fromEntries(executores.map((x) => [x.deviceId, itensDaFila(x.deviceId, f)]));
   const contagens = Object.fromEntries(executores.map((x) => [x.deviceId, contagemDaFila(porAparelho[x.deviceId])]));
+  const pedem = Object.values(contagens).reduce((t, c) => t + c.pedem, 0);
+  const rc = $('#rcApar');
+  rc.textContent = pedem || '';
+  rc.hidden = !pedem;
+  if (!telaVisivel('radar', 'apar')) return;
   const itens = porAparelho[ap.deviceId];
   const permissao = comandoPermitido(s);
   const base = { podeComandar: permissao.pode, motivoSemComando: permissao.motivo, agora };
@@ -116,10 +122,6 @@ function renderPagina(s) {
     <section aria-label="Contas do aparelho">${contasDoAparelhoHtml(ap, { desligado, retornoConta: r.daConta })}</section>
     ${diagnosticoHtml(ap, desligadoBase)}
     <section aria-label="Comandos enviados">${comandosDoAparelhoHtml(s.comandosEmitidos, dadosDoConjunto().recibos, ap.deviceId, { agora })}</section>`;
-  const pedem = Object.values(contagens).reduce((t, c) => t + c.pedem, 0);
-  const rc = $('#rcApar');
-  rc.textContent = pedem || '';
-  rc.hidden = !pedem;
 }
 
 function renderSeusAparelhos(s) {
@@ -133,12 +135,13 @@ function renderSeusAparelhos(s) {
 }
 
 function renderAparelhos() {
+  if (!telaVisivel('radar')) return;
   const s = syncAtual();
   const on = ligada(s);
   $('#rsub-apar').hidden = !on;
   $('#mdSeusAparelhos').hidden = !on;
   if (!on) return;
-  renderSeusAparelhos(s);
+  if (telaVisivel('radar', 'mim')) renderSeusAparelhos(s);
   renderPagina(s);
 }
 
@@ -238,7 +241,7 @@ function registrarTelaRadarAparelhos() {
     if (b) abrirAparelho(b.dataset.dev);
   });
   const espelhoTick = setInterval(() => {
-    if (document.hidden || $('#tab-radar')?.hidden || !$('#rpane-apar') || $('#rpane-apar').hidden) return;
+    if (!telaVisivel('radar', 'apar')) return;
     for (const op of dadosDoConjunto().operacoes) {
       if (op.dev === APAR.selecionado && APAR.aoVivo.has(op.opId)) api('/api/sync/mirror', { opId: op.opId, aberto: true });
     }

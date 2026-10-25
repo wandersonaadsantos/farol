@@ -7,7 +7,7 @@ import { roundSummaryHtml } from '../pure/round-summary.js';
    sempre. */
 
 import {
-  esc, fmtStamp, fmtWhenDay, personMention, papelPicker, reasonGroupsHtml, chatBadge, md,
+  esc, fmtStamp, fmtWhenDay, personMention, papelPicker, reasonGroupsHtml, chatBadge,
   resolvedRow, listViewState, queueEmptyOkHtml, aprovadosHoje, orgsMonitoradas,
   automacaoPausadaPor, queueCardHtml, panoramaRowHtml, staleCardMeta, separarPendentes,
   contasNoLimiteDaFila, queueLimitHtml, queueWaitingCardHtml,
@@ -16,8 +16,9 @@ import { estado, escopo, peopleOf } from './estado.js';
 import { $, api, textoDaListaVazia, toast, copyToClipboard, lembrarAbertos } from './infra.js';
 import { scopeVisible, acctMark, acctOf } from './contas.js';
 import { revisarUrls } from './consumo.js';
-import { renderPanoramaRemoto } from './listas-remotas.js';
+import { renderPanoramaRemoto, contarRemotos } from './listas-remotas.js';
 import { groupedQueue } from '../pure/queue-groups.js';
+import { markdownReutilizado as md } from './markdown.js';
 
 let queueGrouping = 'none';
 const closedQueueGroups = new Set();
@@ -46,6 +47,8 @@ $('#queue').addEventListener('toggle', event => {
    (.radar-nav), que em janela estreita rolava horizontalmente e escondia metade dos
    destinos sem avisar que existiam. */
 let RADAR_SUB = 'mim';
+let subabaAlterada = null;
+function aoMudarRadarSub(fn) { subabaAlterada = fn; }
 
 // Os <details> que a pessoa abriu nas decisões pendentes e em Revisões recentes. As duas
 // listas se redesenham a cada estado do SSE; é daqui que o `open` volta (lembrarAbertos).
@@ -59,22 +62,26 @@ function radarSubAtual() { return RADAR_SUB; }
 
 function switchRadarSub(nome) {
   if (nome) RADAR_SUB = nome;
+  document.body.dataset.radarSub = RADAR_SUB;
   document.querySelectorAll('.rsub').forEach(b => {
     const ativo = b.dataset.sub === RADAR_SUB;
     b.classList.toggle('active', ativo);
     b.setAttribute('aria-selected', ativo ? 'true' : 'false');
   });
   document.querySelectorAll('.rpane').forEach(p => p.classList.toggle('active', p.id === 'rpane-' + RADAR_SUB));
+  if (subabaAlterada) subabaAlterada();
 }
 
 // Contagem das sub-abas. 'Pra mim' soma a fila visível e o que espera decisão sua;
 // as outras duas são contexto e usam a contagem neutra.
-function renderRadarNav() {
+function renderRadarNav(meus) {
   const num = sel => { const e = $(sel); return (!e || e.hidden) ? 0 : (parseInt(e.textContent, 10) || 0); };
   const poe = (sel, n) => { const e = $(sel); if (!e) return; e.textContent = n || ''; e.hidden = !n; };
-  poe('#rcMim', num('#decisionsCount') + num('#queueCount'));
-  poe('#rcMeus', num('#myPRsCount'));
-  poe('#rcPano', num('#panoCount'));
+  const { precisam } = separarPendentes((estado().decisions?.pending || []).filter(scopeVisible));
+  const lista = (estado().panorama || []).filter(scopeVisible);
+  poe('#rcMim', precisam.length + dadosDaFila().total);
+  poe('#rcMeus', meus ?? num('#myPRsCount'));
+  poe('#rcPano', lista.length + contarRemotos(lista, 'panorama', scopeVisible));
 }
 // menu ··· do card: abre um por vez, e fecha ao clicar fora
 document.addEventListener('click', (e) => {
@@ -189,6 +196,7 @@ function renderResolved() {
   const pushbacks = estado().pushbacks || {};
   $('#resolved').innerHTML = resolved.map(r => resolvedRow(r, {
     pushbacks,
+    markdown: md,
     openKeys: radarAbertos,
     chip: acctMark(r).chip,
     chatBadge: chatBadge(r.key, estado()?.chats)
@@ -196,10 +204,7 @@ function renderResolved() {
 }
 
 /* ---------- render: radar ---------- */
-function renderQueue() {
-  // guarda de foco: não reconstrói a fila enquanto você mexe no seletor de papel de um card
-  const qbox = $('#queue');
-  if (document.activeElement && qbox.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
+function dadosDaFila() {
   const q = (estado().queue || []).filter(scopeVisible);
   const ativos = new Set((estado().activeSessions || []).flatMap(s => s.keys || []));
   const decisoes = new Set((estado().decisions?.pending || []).map(d => d.key));
@@ -209,6 +214,13 @@ function renderQueue() {
   const aguardando = (estado().panorama || []).filter(pr => pr.mine && scopeVisible(pr)
     && esperando.has(pr.key) && !acionaveis.has(pr.key) && !ativos.has(pr.key) && !decisoes.has(pr.key));
   const total = q.length + aguardando.length;
+  return { q, aguardando, distribuindo, total };
+}
+function renderQueue() {
+  // A seleção do papel e os rascunhos não são substituídos por um snapshot.
+  const qbox = $('#queue');
+  if (document.activeElement && qbox.contains(document.activeElement) && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+  const { q, aguardando, distribuindo, total } = dadosDaFila();
   const people = peopleOf();   // idem renderDecisions: um mapa só pra toda a passada
   $('#queueCount').hidden = total === 0;
   $('#queueCount').textContent = total;
@@ -315,5 +327,5 @@ function initResolvedTriggers() {
 
 export {
   renderDecisions, submitPushback, renderResolved, renderQueue, renderPanorama,
-  renderRadarNav, switchRadarSub, radarSubAtual, initResolvedTriggers,
+  renderRadarNav, switchRadarSub, radarSubAtual, initResolvedTriggers, aoMudarRadarSub,
 };

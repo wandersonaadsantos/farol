@@ -29,13 +29,16 @@ import { startFakeIdentity } from './helpers/fake-identity.js';
 import { comoExecutor } from './helpers/papel.js';
 import { fixarMemoriaLivre, restaurarMemoriaLivre } from './helpers/memoria-livre.js';
 import { instalarDom } from './helpers/dom-stub.js';
+import { controlarQuadros } from './helpers/quadros-ui.js';
 import { SYNC } from '../lib/constants.js';
 
 // a admissão recusa abaixo do piso de memória: sem fixar, a memória da máquina decide
 fixarMemoriaLivre();
 
 const fetchReal = globalThis.fetch;
-const { emitir } = instalarDom();
+const { emitir: receber } = instalarDom();
+const quadros = controlarQuadros();
+function emitir(...args) { const n = receber(...args); quadros.pintar(); return n; }
 
 const { Engine } = await import('../server.js');
 const { startServer } = await import('../lib/http-server.js');
@@ -163,11 +166,13 @@ afterEach(async () => {
 
 await import('../ui/app.js');
 const Tela = await import('../ui/telas/radar-compartilhado.js');
+const { switchRadarSub } = await import('../ui/telas/radar.js');
 const Aparelhos = await import('../ui/telas/sistema-aparelhos.js');
 const { api: apiDaTela } = await import('../ui/telas/infra.js');
 const $ = (s) => document.querySelector(s);
 
 beforeEach(async () => {
+  switchRadarSub('mim');
   fake.setTree(null);
   PEDIDOS.length = 0;
   for (const f of [comandos.caminhoDosFeitos(), path.join(STATE_DIR, 'sync-historico.json')]) {

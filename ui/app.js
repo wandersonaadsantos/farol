@@ -32,20 +32,24 @@ import { registrarTelaConsumo } from './telas/consumo.js';
 import { renderStatus, tickCountdown, renderActive, handleActivity } from './telas/sessoes.js';
 import { renderChat, chatKeyAtual, initChatTriggers, handleChatActivity } from './telas/chat.js';
 import {
-  renderDecisions, renderQueue, renderPanorama, renderRadarNav, initResolvedTriggers,
+  renderDecisions, renderQueue, renderPanorama, renderRadarNav, initResolvedTriggers, aoMudarRadarSub, switchRadarSub,
 } from './telas/radar.js';
-import { renderMyPRs, initReviewersButton, updateAnalysisProgress } from './telas/meus-prs.js';
+import { renderMyPRs, initReviewersButton, updateAnalysisProgress, contagemMeusPrs } from './telas/meus-prs.js';
 import { renderUpdate } from './telas/sistema-atualizacao.js';
 import { sysGoTo, renderSettings } from './telas/sistema.js';
 import { initCaixaRevisao } from './telas/caixa-revisao.js';
 import { initAtalhos } from './telas/atalhos.js';
 import { initPaleta, rotularBtnCmdK } from './telas/paleta.js';
-import { initTema } from './telas/tema.js';
+import { initTema, syncTheme } from './telas/tema.js';
 import { initPerfilPessoa } from './telas/perfil-pessoa.js';
 import { registrarTelaRadarCompartilhado, aoAndamentoRemoto, aoPendenciasRemotas } from './telas/radar-compartilhado.js';
 import { initListasRemotas, aoListasRemotas } from './telas/listas-remotas.js';
-import { registrarTelaRadarAparelhos, renderAparelhos } from './telas/radar-aparelhos.js';
+import { registrarTelaRadarAparelhos } from './telas/radar-aparelhos.js';
 import { initRota, depoisDoEstado, sincronizarUrl } from './telas/rota.js';
+import { criarAgendaVisual } from './telas/pintura.js';
+import { gruposDaPintura } from './telas/pintura-estado.js';
+import { limitarAtividadeVisual } from './telas/atividade-visual.js';
+import { criarPreservacaoDeFormulario } from './telas/formularios.js';
 
 const isElectron = ehElectron();
 if (isElectron) document.body.classList.add('electron');
@@ -93,9 +97,8 @@ function syncOptionalTabsVisibility() {
 // telas sem conta própria; rerenderScope só isso, mais destaques/time se
 // estiverem na aba ativa).
 function renderScopedSections() {
-  renderAccountBar(); renderIdentity();
-  renderActive(); renderDecisions(); renderQueue(); renderMyPRs(); renderPanorama(); renderSilenced();
-  renderRadarNav();
+  pinturas.invalidar();
+  pinturas.pintar();
 }
 
 // re-render das seções sensíveis ao escopo (sem esperar novo state do engine). Morava em
@@ -176,6 +179,7 @@ function switchTab(name) {
   document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
   if (estado()) renderAccountBar();   // mostra/esconde a barra de contas conforme a aba
   const tela = telaPorId(name);
+  if (estado()) { pinturas.invalidar(); pinturas.pintar(); }
   if (tela && tela.aoEntrar) tela.aoEntrar();
 }
 $('#nav').addEventListener('click', (e) => {
@@ -262,8 +266,20 @@ function openIntervention(target) {
   switchTab('sistema'); sysGoTo(target.section);
 }
 
+function subabaDoPr(url) {
+  const s = estado() || {};
+  if ((s.decisions?.pending || []).some(d => d.pr?.url === url)) return 'mim';
+  if ((s.queue || []).some(pr => pr.url === url)) return 'mim';
+  const esperando = new Set([...(s.headlessWaiting || []), ...(s.headlessDistributing || [])]);
+  if ((s.panorama || []).some(pr => pr.url === url && esperando.has(pr.key))) return 'mim';
+  if ((s.myPRs || []).some(pr => pr.url === url)) return 'meus';
+  if ((s.panorama || []).some(pr => pr.url === url)) return 'pano';
+  return 'mim';
+}
 function focusPr(url, tentativa = 0) {
   if (!url) return;
+  // O painel pode ainda não ter DOM: escolhe pelos dados antes de procurar o card.
+  switchRadarSub(subabaDoPr(url));
   switchTab('radar');
   const sel = ['#decisions .decision', '#esperaCi .decision', '#queue .pr-card', '#myPRs .mypr-card', '#panorama [data-url]', '#resolved [data-url]']
     .map(s => `${s}[data-url="${CSS.escape(url)}"]`).join(', ');
@@ -320,17 +336,39 @@ let streamAtual = null;
 // A repintura por estado novo, num lugar só: o `state` inteiro e o `state-patch`
 // terminam no MESMO caminho, senão a tela que recebe diferença renderizaria menos
 // coisa do que a que recebe o snapshot, e o defeito só apareceria em uma das duas.
-function repintarPorEstado() {
-  aplicaPlataforma(estado().app && estado().app.platform);   // engine manda; o userAgent era só o palpite inicial
-  syncOptionalTabsVisibility();
-  rebuildAccounts();
-  renderStatus();
-  renderScopedSections();
-  syncAnalysisOps();
-  renderSettings(); renderTools(); renderUpdate(); tickCountdown();
-  for (const tela of telasRegistradas()) if (tela.aoEstado) tela.aoEstado();
-  depoisDoEstado();   // o endereço da página acompanha o que o estado novo pôs na tela
+function pintarTelaRegistrada(id) {
+  const tela = telaPorId(id);
+  if (tela?.aoEstado) tela.aoEstado();
 }
+const preservarConfiguracao = criarPreservacaoDeFormulario();
+const pinturas = criarAgendaVisual({
+  grupos: gruposDaPintura({
+    plataforma: () => aplicaPlataforma(estado().app?.platform),
+    contas: () => { rebuildAccounts(); renderAccountBar(); renderIdentity(); },
+    status: renderStatus, sessoes: renderActive, decisoes: renderDecisions, fila: renderQueue,
+    meus: () => { renderMyPRs(); syncAnalysisOps(); }, panorama: renderPanorama,
+    silenciadas: renderSilenced, navegacao: () => renderRadarNav(contagemMeusPrs()), operacoes: syncAnalysisOps,
+    configuracoes: () => preservarConfiguracao($('#tab-sistema'), () => { renderSettings(); pintarTelaRegistrada('sistema'); }),
+    ferramentas: renderTools, atualizacao: renderUpdate, relogio: tickCountdown,
+    consumo: () => pintarTelaRegistrada('consumo'),
+    compartilhado: () => pintarTelaRegistrada('radar-compartilhado'),
+    aparelhos: () => pintarTelaRegistrada('radar-aparelhos'),
+  }),
+  oculta: () => document.hidden,
+  agendar: fn => requestAnimationFrame(fn),
+});
+aoMudarRadarSub(() => { if (estado()) { pinturas.invalidar(); pinturas.pintar(); } });
+function repintarPorEstado(campos, imediato = false) {
+  if (!campos || campos.includes('config')) { syncTheme(estado().config); syncOptionalTabsVisibility(); }
+  pinturas.invalidar(campos);
+  // A rota é aplicada com estado atual, sem esperar animação ou uma janela reaparecer.
+  depoisDoEstado();
+  if (imediato) pinturas.pintar();
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { pinturas.pintar(); tickCountdown(); } });
+document.addEventListener('focusout', () => queueMicrotask(() => pinturas.pintar()));
+document.addEventListener('selectionchange', () => queueMicrotask(() => pinturas.pintar()));
+document.addEventListener('click', () => queueMicrotask(() => pinturas.pintar()));
 
 // Prova de vida do stream. O engine manda um evento `ping` a cada 25 s; enquanto ele
 // chega, a conexão está de pé mesmo sem nada acontecendo. Sem ele o socket pode estar
@@ -365,8 +403,10 @@ function connect() {
   es.addEventListener('state', (e) => {
     marcarSinalDoEngine();
     const d = safeJsonParse(e.data); if (!d) return;
-    definirEstado(d); interventionsFromState(d, openIntervention);
-    repintarPorEstado();
+    const primeiro = !estado();
+    definirEstado({ ...d, activity: limitarAtividadeVisual(d.activity, d.activeSessions) });
+    interventionsFromState(d, openIntervention);
+    repintarPorEstado(null, primeiro);
   });
   // Estado por DIFERENÇA (lib/estado-delta.js): o engine manda só os campos de topo
   // que mudaram, e a tela mescla no que já tem. O `state` inteiro continua existindo
@@ -379,8 +419,9 @@ function connect() {
     if (!atual || !Object.keys(atual).length) return;
     const novo = { ...atual, ...d.campos };
     for (const chave of d.removidos || []) delete novo[chave];
+    if (Object.hasOwn(d.campos, 'activity')) novo.activity = limitarAtividadeVisual(novo.activity, novo.activeSessions);
     definirEstado(novo); interventionsFromState(novo, openIntervention);
-    repintarPorEstado();
+    repintarPorEstado([...Object.keys(d.campos), ...(d.removidos || [])]);
   });
   // o app.js só entrega o evento: quem calcula o que ele significa é quem é
   // dono do assunto (telas/sessoes.js, o feed e a barra de progresso da sessão;
@@ -388,6 +429,7 @@ function connect() {
   es.addEventListener('activity', (e) => {
     const d = safeJsonParse(e.data); if (!d) return; const { id, item } = d;
     handleActivity(id, item);
+    pinturas.invalidar(['activity']);
     updateAnalysisProgress(id, item);
   });
   es.addEventListener('chat', (e) => {
@@ -483,7 +525,7 @@ registrarTelaRadarCompartilhado();
 registrarTelaRadarAparelhos();
 // Panorama e Meus PRs de outros aparelhos: quando chega projeção nova, as duas abas (e as
 // contagens das sub-abas) se redesenham pelas funções que o bootstrap já chama por snapshot
-initListasRemotas(() => { renderMyPRs(); renderPanorama(); renderRadarNav(); renderAparelhos(); });
+initListasRemotas(() => { pinturas.invalidar(['myPRs', 'panorama', 'sync']); });
 
 /* O endereço da página reflete a tela (telas/rota.js): por último, para o ouvinte de clique
    e tecla dele rodar depois de todos os handlers acima, e com todas as telas registradas

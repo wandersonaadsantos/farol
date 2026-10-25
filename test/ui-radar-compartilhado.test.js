@@ -12,8 +12,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { instalarDom } from './helpers/dom-stub.js';
+import { controlarQuadros } from './helpers/quadros-ui.js';
 
-const { emitir } = instalarDom();
+const { emitir: receber } = instalarDom();
+const quadros = controlarQuadros();
+function emitir(...args) { const n = receber(...args); quadros.pintar(); return n; }
 
 // cada chamada à API fica registrada; a resposta sai do mapa por rota
 const PEDIDOS = [];
@@ -29,6 +32,7 @@ globalThis.fetch = async (url, init = {}) => {
 await import('../ui/app.js');
 const Tela = await import('../ui/telas/radar-compartilhado.js');
 const Apar = await import('../ui/telas/radar-aparelhos.js');
+const { switchRadarSub } = await import('../ui/telas/radar.js');
 const $ = (s) => document.querySelector(s);
 
 const DEVICES = [{ deviceId: 'dEu', name: 'Notebook de teste', euMesmo: true }, { deviceId: 'dOutro', name: 'Desktop antigo' }];
@@ -58,6 +62,7 @@ const OP_COMPLETA = { ...OP, opId: 'op2', matTag: 'c'.repeat(32), pr: { key: 'ac
 const PEND = { itemId: 'ab12', dev: 'dOutro', aparelho: 'Desktop antigo', at: 1, visto: false, veredito: 'approve', motivos: [], bloqueio: '', prTag: 'e'.repeat(32) };
 
 beforeEach(() => {
+  switchRadarSub('mim');
   PEDIDOS.length = 0;
   RESPOSTAS = {};
 });
@@ -141,7 +146,9 @@ test('sync-live chega à tela pelo bootstrap e desenha o andamento', () => {
   emitir('state', estado({ sync: { admin: ADMIN } }));
   assert.equal(emitir('sync-live', { operacoes: [OP] }), 1, 'o bootstrap escuta sync-live');
   // desde o controle do celular (28/09/2026) a sessão aparece na página do aparelho dono
+  switchRadarSub('apar'); // o painel oculto só pinta ao ser aberto
   assert.match($('#aparPagina').innerHTML, /md-cancelar" data-op="op1"/);
+  switchRadarSub('apar'); // o painel oculto só pinta ao ser aberto
   assert.doesNotMatch($('#aparPagina').innerHTML, /leitura atrasada/, 'leitura recém-chegada não é atrasada');
 });
 
@@ -149,6 +156,7 @@ test('sync-pending chega à tela, conta as abertas e oferece decidir ao admin', 
   emitir('state', estado({ sync: { admin: ADMIN } }));
   assert.equal(emitir('sync-pending', { pendencias: [PEND], novas: ['ab12'] }), 1, 'o bootstrap escuta sync-pending');
   // a pendência mora no grupo "Pedem você" do aparelho dono, e conta na sub-aba Aparelhos
+  switchRadarSub('apar'); // o painel oculto só pinta ao ser aberto
   assert.match($('#aparPagina').innerHTML, /md-decidir" data-item="ab12"/);
   assert.equal($('#rcApar').hidden, false);
   assert.equal($('#rcApar').textContent, '1');
@@ -204,6 +212,7 @@ test('marcar visto manda só o itemId', async () => {
   RESPOSTAS['/api/sync/seen'] = { ok: true };
   assert.equal(await Tela.marcarVisto('ab12'), true);
   assert.deepEqual(pedidosPara('/api/sync/seen').map((p) => p.corpo), [{ itemId: 'ab12' }]);
+  switchRadarSub('apar'); // o painel oculto só pinta ao ser aberto
   assert.doesNotMatch($('#aparPagina').innerHTML, /md-decidir" data-item="ab12"/, 'vista, a pendência sai de Pedem você');
 });
 
@@ -211,6 +220,7 @@ test('marcar visto que falha não finge ter marcado', async () => {
   emitir('sync-pending', { pendencias: [PEND], novas: [] });
   RESPOSTAS['/api/sync/seen'] = { ok: false, code: 'indisponivel', motivo: 'não deu' };
   assert.equal(await Tela.marcarVisto('ab12'), false);
+  switchRadarSub('apar'); // o painel oculto só pinta ao ser aberto
   assert.match($('#aparPagina').innerHTML, /md-decidir" data-item="ab12"/, 'o visto que falhou não tira a pendência');
 });
 
@@ -274,6 +284,7 @@ test('transferir: com o commit no andamento o botão aparece, e sem ele o motivo
   emitir('state', estado({ sync: { admin: ADMIN } }));
   // dois PRs diferentes: um com o commit no andamento, outro sem
   emitir('sync-live', { operacoes: [OP, { ...OP_COMPLETA, prTag: 'd'.repeat(32) }] });
+  switchRadarSub('apar'); // o painel oculto só pinta ao ser aberto
   const html = $('#aparPagina').innerHTML;
   assert.match(html, /md-transferir" data-op="op2" aria-label/, 'com o commit, o botão sai habilitado');
   assert.match(html, /md-transferir" data-op="op1" aria-disabled="true" title="o andamento não traz o commit, que a transferência exige"/);
@@ -420,6 +431,7 @@ const DEVICES_NOVOS = [{ deviceId: 'dEu', name: 'Notebook de teste', euMesmo: tr
 
 test('a página do aparelho mostra o painel e as contas publicadas, e Pra mim ganha o resumo', () => {
   emitir('state', estado({ sync: { admin: ADMIN, devices: DEVICES_NOVOS, paineis: { aparelhos: [PAINEL] } } }));
+  switchRadarSub('apar'); // o painel oculto só pinta ao ser aberto
   const pagina = $('#aparPagina').innerHTML;
   assert.match(pagina, /Painel do aparelho/);
   assert.match(pagina, /Desktop antigo/);
@@ -442,7 +454,9 @@ test('aparelho que não aceitou o controle não aparece na aba nem soa o aviso d
   const antesDosToasts = $('#toasts').children.length;
   emitir('sync-pending', { pendencias: [{ ...PEND, itemId: 'zz99' }], novas: ['zz99'] });
   emitir('sync-live', { operacoes: [OP] });
+  switchRadarSub('apar'); // o painel oculto só pinta ao ser aberto
   assert.doesNotMatch($('#aparPagina').innerHTML, /md-decidir|md-cancelar|Desktop antigo/, 'nada do aparelho de terceiro');
+  switchRadarSub('apar'); // o painel oculto só pinta ao ser aberto
   assert.match($('#aparPagina').innerHTML, /Nenhum aparelho aceitou o controle deste computador/);
   assert.equal($('#toasts').children.length, antesDosToasts, 'a decisão dele não soa aqui');
   assert.equal($('#mdSeusAparelhos').innerHTML, '');

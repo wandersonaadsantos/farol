@@ -211,8 +211,8 @@ initSetup();
 initPreferencesTransfer();
 registrarTela({
   id: 'sistema',
-  aoEntrar: () => { switchSistemaSection(); loadLog(); renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); carregarAparelhos(); renderGrupos(); loadReviewerCands(); },
-  aoEstado: () => { if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); renderClaudeProfiles(); renderJiraSites(); renderSync(); renderAparelhos(); renderGrupos(); } },
+  aoEntrar: () => { switchSistemaSection(); loadLog(); carregarAparelhos(); loadReviewerCands(); },
+  aoEstado: () => { if ($('#tab-sistema').classList.contains('active')) { renderDoctor(); renderAccountsManager(); renderAparelhos(); renderGrupos(); } },
 });
 
 export { switchSistemaSection, secaoDoSistema, sysSearchFilter, sysGoTo, renderSettings };

@@ -344,7 +344,10 @@ test('o Sistema desenha as duas seções ao entrar e a cada estado, e lê as lei
   const entrar = registro.slice(registro.indexOf('aoEntrar'), registro.indexOf('aoEstado'));
   const aoEstado = registro.slice(registro.indexOf('aoEstado'));
   assert.match(entrar, /carregarAparelhos\(\)/);
-  assert.match(entrar, /renderGrupos\(\)/);
+  // A entrada passa pela mesma projeção seletiva dos deltas, antes das leituras avulsas.
+  const bootstrap = fs.readFileSync(path.join(RAIZ, 'ui', 'app.js'), 'utf8');
+  assert.match(bootstrap, /if \(estado\(\)\) \{ pinturas.invalidar\(\); pinturas.pintar\(\); \}/);
+  assert.match(bootstrap, /configuracoes:.*renderSettings\(\); pintarTelaRegistrada\('sistema'\)/);
   assert.match(aoEstado, /renderAparelhos\(\)/);
   assert.match(aoEstado, /renderGrupos\(\)/);
   assert.ok(!/carregarAparelhos/.test(aoEstado), 'ler o banco a cada snapshot faria uma chamada de rede por ciclo');

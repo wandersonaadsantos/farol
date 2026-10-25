@@ -12,8 +12,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { instalarDom } from './helpers/dom-stub.js';
+import { controlarQuadros } from './helpers/quadros-ui.js';
 
-const { emitir } = instalarDom();
+const { emitir: receber } = instalarDom();
+const quadros = controlarQuadros();
+function emitir(...args) { const n = receber(...args); quadros.pintar(); return n; }
 
 const PEDIDOS = [];
 let RESPOSTAS = {};
@@ -27,8 +30,9 @@ globalThis.fetch = async (url, init = {}) => {
 
 await import('../ui/app.js');
 const Est = await import('../ui/telas/estado.js');
+const { switchRadarSub } = await import('../ui/telas/radar.js');
 const $ = (s) => document.querySelector(s);
-const esperar = () => new Promise((r) => setTimeout(r, 0));
+const esperar = () => new Promise((r) => setTimeout(r, 0)).then(() => quadros.pintar());
 
 const CONTAS = [{ user: 'alice', owners: ['acme'] }, { user: 'bob', owners: ['beta'] }];
 
@@ -70,6 +74,7 @@ const PROJ = projecao([
 ]);
 
 beforeEach(() => {
+  switchRadarSub('pano');
   PEDIDOS.length = 0;
   RESPOSTAS = {};
   Est.definirEscopo('all');
@@ -96,6 +101,7 @@ test('sync-lists chega pelo bootstrap: origem, sem dobra, e a contagem da aba so
   assert.match(html, />Notebook</);
   assert.equal($('#panoramaRemoto').hidden, false);
   assert.equal($('#panoCount').textContent, '3', 'um daqui e dois de lá');
+  switchRadarSub('meus');
   assert.match($('#myPRsRemoto').innerHTML, /do Notebook, só leitura/);
   assert.equal($('#myPRsCount').textContent, '1');
 });
@@ -110,6 +116,7 @@ test('o escopo de conta da barra filtra as linhas remotas', () => {
 });
 
 test('PR oculto em Meus PRs também some da linha remota', () => {
+  switchRadarSub('meus');
   emitir('sync-lists', PROJ);
   const e = estado();
   e.hiddenPRs = ['acme/app#36'];
@@ -144,11 +151,15 @@ test('sync-live com falha diz que a leitura falhou e mantém o andamento', () =>
   emitir('state', estado());
   const op = { opId: 'op1', dev: 'dA', aparelho: 'Notebook', etapa: 'leitura', msPorEtapa: {}, subagentes: [], tipo: 'review', prTag: 'a'.repeat(32) };
   emitir('sync-live', { operacoes: [op] });
+  switchRadarSub('apar'); // o painel oculto só pinta ao ser aberto
   assert.doesNotMatch($('#aparPagina').innerHTML, /falhou/);
   emitir('sync-live', { operacoes: [op], falhaEm: Date.now() });
+  switchRadarSub('apar'); // o painel oculto só pinta ao ser aberto
   assert.match($('#aparPagina').innerHTML, /A última leitura falhou/);
+  switchRadarSub('apar'); // o painel oculto só pinta ao ser aberto
   assert.match($('#aparPagina').innerHTML, /fila-item/, 'o andamento anterior continua');
   emitir('sync-live', { operacoes: [op] });
+  switchRadarSub('apar'); // o painel oculto só pinta ao ser aberto
   assert.doesNotMatch($('#aparPagina').innerHTML, /A última leitura falhou/, 'leitura boa limpa o aviso');
 });
 
@@ -187,6 +198,7 @@ test('a falha do andamento mostra a hora da última leitura BOA, não a da falha
   const op = { opId: 'op9', dev: 'dA', aparelho: 'Notebook', etapa: 'leitura', msPorEtapa: {}, subagentes: [], tipo: 'review', prTag: 'a'.repeat(32) };
   comRelogio(T0, () => { emitir('state', estado()); emitir('sync-live', { operacoes: [op] }); });
   comRelogio(T0 + 5 * 60000, () => emitir('sync-live', { operacoes: [op], falhaEm: T0 + 5 * 60000 }));
+  switchRadarSub('apar'); // o painel oculto só pinta ao ser aberto
   const html = $('#aparPagina').innerHTML;
   assert.match(html, /falhou às 10:05/);
   assert.match(html, /Mostrando o andamento de 10:00/);

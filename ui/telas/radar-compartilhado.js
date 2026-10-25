@@ -23,6 +23,7 @@ import {
 import { estado } from './estado.js';
 import { $, api, confirmModal, toast } from './infra.js';
 import { registrarTela } from './registro.js';
+import { telaVisivel } from './pintura.js';
 
 // o relógio do andamento gira a cada 10 s; a tela reavalia a idade do que mostra no mesmo passo
 const ANDAMENTO_TIQUE_MS = 10000;
@@ -135,11 +136,13 @@ function renderHistorico(s) {
 }
 
 function renderCompartilhado() {
+  if (!telaVisivel('radar')) return;
   const s = syncAtual();
   const faixa = $('#mdFaixa');
   const topo = `${compartilhadoBloqueioHtml(s)}${modoDistribuicaoHtml(s, cfgSyncAtual())}`;
   faixa.innerHTML = topo;
   faixa.hidden = !topo;
+  if (!telaVisivel('radar', 'mim')) return;
   const ligada = visaoCompartilhada(s) === 'ligada' && secoesDaFrota(s);
   $('#mdCompartilhado').hidden = !ligada;
   $('#mdHistorico').hidden = !ligada;
