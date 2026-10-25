@@ -62,8 +62,10 @@ test('a regra de git virou "não mutar", não "não executar"', () => {
 });
 
 test('o prompt manda ler o escopo materializado, e não substituir por gh pr diff', () => {
-  assert.match(SELF, /ferramenta `Read`, um por vez/i);
-  assert.match(SELF, /comprova cobertura/i);
+  assert.match(SELF, /Atribua cada\s+arquivo ou lote a um responsável, que lê com `Read` naquele diretório/i);
+  assert.match(SELF, /leitura observada\s+dos subagentes também conta/i);
+  assert.match(SELF, /Um arquivo sem leitura observada continua não analisado; cache não substitui essa prova/i);
+  assert.match(SELF, /não substitua isso por `gh pr diff`/i);
 });
 
 test('o prompt diz que coverageLimitations só SUBTRAI, e não existe campo que some', () => {

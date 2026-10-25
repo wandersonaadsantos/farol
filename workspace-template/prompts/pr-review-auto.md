@@ -86,6 +86,11 @@ Siga o protocolo do `CLAUDE.md` deste diretório (identidade → card do Jira �
 
 ## Regras de decisão
 
+- Quando houver "Fontes e patches preparados", use os patches dessa revisão. Atribua
+  arquivos ou lotes aos responsáveis e consolide achados, cobertura e referências.
+  Releitura para validar um achado ou interação é necessária; releitura integral por
+  todos os participantes não é. Cache, leitura observada e análise válida são fatos distintos.
+
 - `analysisStatus = "complete"` somente quando a análise técnica terminou. Falha fatal, diff não lido ou resultado sem substância usa `"incomplete"`; nesse estado nenhuma ação pode ser postada automaticamente.
 - `decision = "auto_approve"` **somente** se TODAS valem: zero findings `issue (blocking)` **e** `cardMet === true` (card do Jira lido e critérios atendidos; no sync de linhagem verificado, a procedência provada É o requisito, ver a regra própria abaixo) **e** CI não está vermelho.
 - **CI vermelho = check obrigatório em FAILURE.** `security/snyk` em ERROR (cota) NÃO conta e não entra em `reasons`; check IN_PROGRESS impede confirmar verde, e a reason correta é "CI em andamento" (nunca "CI vermelho").
