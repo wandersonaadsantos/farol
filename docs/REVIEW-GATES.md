@@ -1146,6 +1146,17 @@ reproduzir o que já tinha sido pago.
 | head andou (`enrichMyPRBranches`) | `delete` + `marcarDesfecho('descartada')` | `observed.stale = true` + `marcarDesfecho('parcial')`; o relatório fica, o veredito não vale |
 | PR saiu da busca (`check`) | `delete` SEM log, SEM carimbo de consumo, SEM limpar `mergeStates` | duas ausências seguidas (`SELF_PRUNE_STRIKES`) e um WARN nomeando o PR |
 
+**Reanalisar no mesmo commit.** O clique explícito em Meus PRs permite outra
+sessão mesmo com recibo anterior, inclusive quando o ambiente foi corrigido depois
+de uma análise inconclusiva. A aquisição do lease entre aparelhos continua obrigatória,
+e a fila local recusa duplicatas. Isso não altera a deduplicação das revisões automáticas.
+Ao salvar um novo relatório, os anteriores ficam em `history` no mesmo registro
+persistido; uma falha antes de salvar conserva o relatório atual. Somente o resultado
+atual participa dos gates, com o head e a cobertura observados pela nova sessão.
+O histórico não entra no snapshot da tela. Merge adquire o mesmo lease das análises
+e o mantém até o GitHub responder; análise local pendente ou posse indisponível
+bloqueiam a operação, inclusive em modos auto/admin.
+
 **Persistir vencido EXIGIU um código de gate novo, e essa é a parte que não pode ser
 esquecida por quem mexer aqui.** `EVIDENCE_STALE` NÃO cobre o caso: ele compara
 `analysis.headSha` com `observed.headSha`, os dois carimbados pela mesma sessão no mesmo
