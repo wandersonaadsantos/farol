@@ -70,3 +70,43 @@ test('destino fora da raiz privada é recusado antes de buscar objetos', async t
   await assert.rejects(first.source.materialize(path.join(fx.root, 'review-outside')), /fora da raiz/);
   assert.equal(fx.fetches(), 0);
 });
+
+test('limpeza por ancestral alias remove somente o registro canônico do destino já removido', async t => {
+  const fx = await gitFixture(t), first = await fx.make('aliased'), second = await fx.make('preserved');
+  await first.source.materialize(first.destination); await second.source.materialize(second.destination);
+  const registered = await fs.realpath(first.destination), other = await fs.realpath(second.destination);
+  const alias = path.join(fx.root, 'materials-alias');
+  await fs.symlink(path.dirname(first.destination), alias, 'junction');
+  const absentAlias = path.join(alias, path.basename(first.destination));
+  assert.notEqual(path.resolve(absentAlias), registered, 'a regressão precisa de caminhos diferentes para o mesmo material');
+  await fs.rm(first.destination, { recursive: true, force: true });
+  await first.source.removeWorktreeRegistration(absentAlias);
+  const list = await second.source.run(['worktree', 'list', '--porcelain']);
+  assert.ok(!list.includes(registered.replaceAll('\\', '/')), 'registro canônico removido');
+  assert.ok(list.includes(other.replaceAll('\\', '/')), 'outro registro preservado');
+  assert.equal(await fs.readFile(path.join(second.destination, 'source.js'), 'utf8'), 'export const x = 2;\n');
+});
+
+test('falha ao remover registro Git conserva lease e refs; retry conclui sem tocar outro material', async t => {
+  const fx = await gitFixture(t), material = await fx.make('cleanup-failure'), other = await fx.make('cleanup-preserved');
+  await material.source.materialize(material.destination); await other.source.materialize(other.destination);
+  await fs.rm(material.destination, { recursive: true, force: true });
+  const original = io.run;
+  io.run = (command, args, options) => args.includes('worktree') && args.includes('remove')
+    ? Promise.resolve({ ok: false, code: 1, stdout: '', stderr: 'falha de limpeza injetada' })
+    : original(command, args, options);
+  try { await assert.rejects(releaseMaterialReference(material.reference, material.destination, fx.options), /objetos Git/); }
+  finally { io.run = original; }
+  assert.equal((await fx.store.lease(material.leaseId)).state, 'active');
+  const refs = await material.source.run(['show-ref']);
+  assert.ok(refs.includes(material.source.ref('head')));
+  assert.equal((await fx.store.lease(other.leaseId)).state, 'active');
+  assert.equal(await fs.readFile(path.join(other.destination, 'source.js'), 'utf8'), 'export const x = 2;\n');
+  await releaseMaterialReference(material.reference, material.destination, fx.options);
+  assert.equal((await fx.store.lease(material.leaseId)).state, 'released');
+  const after = await other.source.run(['show-ref']);
+  assert.ok(!after.includes(material.source.ref('head')));
+  assert.ok(after.includes(other.source.ref('head')));
+  assert.equal((await fx.store.lease(other.leaseId)).state, 'active');
+  assert.equal(await fs.readFile(path.join(other.destination, 'source.js'), 'utf8'), 'export const x = 2;\n');
+});
