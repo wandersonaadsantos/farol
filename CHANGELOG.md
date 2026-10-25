@@ -9,6 +9,20 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
+## v2.77.3
+
+O consumo inclui os subagentes do Claude e separa o gasto novo nas retomadas, com medição mais clara quando faltam dados confiáveis.
+
+**Correções**
+
+- **Tokens dos subagentes entram na contagem.** Quando o CLI informa o total completo, o consumo inclui a árvore da revisão e atribui o uso aos modelos que participaram. O raciocínio informado não é somado outra vez à saída.
+- **Retomadas não repetem o gasto anterior.** O cursor de consumo fica vinculado à conta, ao perfil e à sessão do provedor. O diário preserva essa identidade durante interrupções e o boot não deixa o parcial já registrado entrar novamente no próximo total.
+- **Falha com custo zerado não vira cursor confiável.** Quando não é possível separar o gasto novo, o custo continua desconhecido. Os registros antigos são preservados.
+
+**Melhorias**
+
+- **Formato de saída pública única preparado para avaliação, desligado por padrão.** A investigação, os achados, as evidências, as ressalvas e os gates de publicação continuam necessários. A economia de tokens e a equivalência de julgamento ainda dependem de comparação em novas execuções; esta versão não reduz modelo ou esforço nem ativa o piloto pago.
+
 ## v2.77.2
 
 Interface consistente nos fluxos de revisão, com menos sobreposições.
