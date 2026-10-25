@@ -85,6 +85,57 @@ test('coordenação indisponível ou análise local pendente não libera merge',
   assert.equal(calls, 0);
 });
 
+test('tomada de posse antes do merge recusa a escrita mesmo antes do heartbeat', async () => {
+  const fake = await startFakeRtdb({ token: 'falso' });
+  const client = createRtdbClient({ databaseUrl: fake.url,
+    getIdToken: async () => ({ ok: true, idToken: 'falso' }) });
+  const local = motor(client, 'local');
+  const remoto = motor(client, 'remoto');
+  let sucessor;
+  let merges = 0;
+  io.run = async (cmd, args) => {
+    if (args[1] === 'view') return { ok: true, stdout: JSON.stringify({ state: 'OPEN',
+      author: { login: 'eu' }, headRefOid: head, headRefName: 'feature/x' }) };
+    if (args[1] === 'edit') {
+      const tomada = await admit(remoto, { ...contexto, tomar: true, confirmado: true });
+      assert.equal(tomada.admitted, true);
+      sucessor = tomada.handle;
+    }
+    if (args[1] === 'merge') merges++;
+    return { ok: true, stdout: '', stderr: '' };
+  };
+  try {
+    const result = await local.mergeSelfPR(pr.url);
+    assert.equal(result.ok, false);
+    assert.match(result.error, /posse/);
+    assert.equal(merges, 0);
+    assert.ok(local.selfAnalyses[pr.key], 'a recusa preserva a análise anterior');
+    assert.equal(await sucessor.geracaoCorrente(), true, 'o dono antigo não libera a posse sucessora');
+  } finally { if (sucessor) await sucessor.abort(); await fake.close(); }
+});
+
+test('falha ao conferir geração recusa merge e o head fica fixado na escrita permitida', async () => {
+  const e = motor(null, 'local');
+  let merges = 0;
+  io.run = async (cmd, args) => {
+    if (args[1] === 'view') return { ok: true, stdout: JSON.stringify({ state: 'OPEN',
+      author: { login: 'eu' }, headRefOid: head, headRefName: 'feature/x' }) };
+    if (args[1] === 'merge') {
+      merges++;
+      assert.equal(args[args.indexOf('--match-head-commit') + 1], head);
+    }
+    return { ok: true, stdout: '', stderr: '' };
+  };
+  const input = { url: pr.url, key: pr.key, repo: pr.repo, acc: 'eu', me: 'eu',
+    env: {}, analysis: { headSha: head }, mode: 'normal' };
+  const unavailable = { geracaoCorrente: async () => false, validoPor: () => true };
+  assert.equal((await executarMerge(e, input, unavailable)).ok, false);
+  assert.equal(merges, 0);
+  const valid = { geracaoCorrente: async () => true, validoPor: () => true };
+  assert.equal((await executarMerge(e, input, valid)).ok, true);
+  assert.equal(merges, 1);
+});
+
 test('bloqueio por ruleset registra chave própria sem alterar o protótipo do mapa', async () => {
   const e = motor(null, 'local');
   e.adminBlockedRepos = { 'existing/repo': true };
