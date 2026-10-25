@@ -62,9 +62,11 @@ test('sessão Claude: tentativa aberta antes do provedor, parcial gravado e fech
   const [aberta] = diario();
   assert.equal(aberta.sessionId, 'a-fio');
   assert.equal(aberta.provedor, 'claude');
+  c.stdout.write(JSON.stringify({ type: 'system', subtype: 'init', session_id: 'provider-fio' }) + '\n');
   c.stdout.write(JSON.stringify({ type: 'assistant', message: { id: 'msg_1', stop_reason: 'tool_use', content: [{ type: 'text', text: 'lendo' }], usage: { output_tokens: 30 } } }) + '\n');
   await tick();
   assert.equal(diario()[0].parcial.output_tokens, 30);
+  assert.equal(diario()[0].providerSessionId, 'provider-fio');
   c.stdout.write(JSON.stringify({ type: 'result', is_error: false, result: 'ok', usage: { output_tokens: 30 }, total_cost_usd: 0.3 }) + '\n');
   c.stdout.once('end', () => c.emit('close', 0));
   c.stdout.end();
