@@ -18,7 +18,7 @@ import { scopeVisible, acctMark, acctOf, prUser } from './contas.js';
 import { revisarUrls } from './consumo.js';
 import { renderPanoramaRemoto, contarRemotos } from './listas-remotas.js';
 import { groupedQueue } from '../pure/queue-groups.js';
-import { filaSemRevisoesAtivas } from '../pure/fila.js';
+import { filaSemRevisoesAtivas, revisaoAtiva } from '../pure/fila.js';
 import { markdownReutilizado as md } from './markdown.js';
 
 let queueGrouping = 'none';
@@ -115,6 +115,14 @@ $('#radarSubs').addEventListener('click', (e) => {
 });
 
 /* ---------- render: decisoes pendentes ---------- */
+function execucaoDaDecisao(d) {
+  const pr = { ...d.pr, key: d.key, account: d.account || d.pr?.account };
+  return {
+    ativa: revisaoAtiva(pr, estado().activeSessions || [], prUser),
+    aguardando: (estado().headlessWaiting || []).includes(d.key),
+  };
+}
+
 function renderDecisions() {
   // guarda de foco: não reconstrói os cards enquanto você mexe no seletor de papel
   // (ou em outro input) de um card; ainda assim atualiza Revisões recentes
@@ -134,7 +142,7 @@ function renderDecisions() {
     const m = acctMark(d);
     const author = (d.pr && d.pr.author) || d.author || '';
     // card de commit novo (v2.59.3): barra, veredito, motivos, aviso e botões saem daqui
-    const meta = staleCardMeta(d, (estado().reRounds || {})[d.key]);
+    const meta = staleCardMeta(d, (estado().reRounds || {})[d.key], execucaoDaDecisao(d));
     return `
     <div class="card decision ${meta.cardClass}" data-id="${esc(d.id)}" data-url="${esc(d.pr?.url || '')}" style="${m.style}">
       <div class="decision-head">
@@ -197,6 +205,7 @@ function renderResolved() {
   const pushbacks = estado().pushbacks || {};
   $('#resolved').innerHTML = resolved.map(r => resolvedRow(r, {
     pushbacks,
+    revisando: execucaoDaDecisao(r).ativa,
     markdown: md,
     openKeys: radarAbertos,
     chip: acctMark(r).chip,
@@ -317,7 +326,7 @@ function initResolvedTriggers() {
     // global (o da fila é escutado dentro do #queue, o do panorama dentro do #panorama),
     // então a seção escuta o seu. O botão desabilita até o próximo estado re-renderizar.
     const rev = e.target.closest('.act-review');
-    if (rev) { rev.disabled = true; revisarUrls([rev.dataset.url]); return; }
+    if (rev) { if (rev.disabled) return; rev.disabled = true; revisarUrls([rev.dataset.url]); return; }
     const cp = e.target.closest('.rr-copy');
     if (cp) {
       const ok = await copyToClipboard(cp.dataset.url || cp.dataset.key || '');

@@ -101,3 +101,34 @@ test('somente pedidos em espera não abrem a seção Analisando agora', () => {
   assert.match($('#queue').innerHTML, /Na fila de execução/);
   assert.doesNotMatch($('#queue').innerHTML, /act-review/);
 });
+
+test('decisões e histórico deixam de oferecer nova revisão do mesmo PR e conta enquanto ativo', () => {
+  const snap = snapshot();
+  const d = { id: 'd1', key: pr.key, pr, verdict: 'approve', blockedKind: 'stale_head', reasons: [], reportMarkdown: 'Relatório preservado', status: 'posted', action: 'approve' };
+  snap.decisions = { pending: [d], resolved: [d] };
+  receber(snap);
+  assert.match($('#decisions').innerHTML, /Revisar agora/);
+  snap.activeSessions = [sessao()];
+  receber(snap);
+  assert.doesNotMatch($('#decisions').innerHTML, /Revisar agora/);
+  assert.match($('#resolved').innerHTML, /disabled title="Revisão em andamento"/);
+  assert.match($('#resolved').innerHTML, /Relatório preservado/);
+  snap.activeSessions = [sessao({ ...pr, account: 'bob' })];
+  receber(snap);
+  assert.match($('#decisions').innerHTML, /Revisar agora/);
+  assert.doesNotMatch($('#resolved').innerHTML, /disabled title="Revisão em andamento"/);
+});
+
+test('recuperação mostra agenda, executor e execução conforme o snapshot real', () => {
+  const snap = snapshot();
+  snap.decisions.pending = [{ id: 'rec', key: pr.key, pr, verdict: 'approve', reasons: [], esperaProva: { tentativas: 0 } }];
+  receber(snap);
+  assert.match($('#esperaCi').innerHTML, /Recuperação agendada/);
+  assert.doesNotMatch($('#esperaCi').innerHTML, /Concluindo a análise/);
+  snap.headlessWaiting = [pr.key];
+  receber(snap);
+  assert.match($('#esperaCi').innerHTML, /Aguardando executor/);
+  snap.activeSessions = [sessao()];
+  receber(snap);
+  assert.match($('#esperaCi').innerHTML, /Concluindo a análise/);
+});

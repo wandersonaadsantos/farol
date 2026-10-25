@@ -8,3 +8,7 @@ export function filaSemRevisoesAtivas(fila, sessoes, contaDe) {
     (s.keys || []).map(key => identidade({ ...s.pr, key }))));
   return fila.filter(pr => !ativos.has(identidade(pr)));
 }
+
+export function revisaoAtiva(pr, sessoes, contaDe) {
+  return filaSemRevisoesAtivas([pr], sessoes, contaDe).length === 0;
+}

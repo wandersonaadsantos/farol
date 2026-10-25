@@ -141,9 +141,38 @@ test('aprovável com prova incompleta: nada é postado, e a pendência BUSCA A P
   assert.equal(precisam.length, 0, 'fora de Precisa de você');
   assert.equal(esperandoCi.length, 1);
   const meta = staleCardMeta(tela, null);
-  assert.match(meta.statusHtml, /Concluindo a análise \(tentativa 1\)/);
+  assert.match(meta.statusHtml, /Recuperação agendada/);
   assert.match(meta.statusHtml, /Farol retoma sozinho/);
   assert.match(meta.verdictHtml, /RECUPERANDO A ANÁLISE/);
+});
+
+test('recuperação entrega as 44 lacunas completas após persistir a marca, sem cortar caminhos', async () => {
+  const e = motor();
+  const { coverageGap } = await import('../lib/engine/file-proof.js');
+  const { blocoDaTentativa } = await import('../lib/engine/busca-da-prova.js');
+  const arquivos = Array.from({ length: 44 }, (_, i) => `src/components/design-system/foundations/arquivo-muito-longo-${i}.ts`);
+  const result = { headSha: HEAD, verdict: 'approve', analysisStatus: 'complete',
+    coverage: { total: 44, reviewed: arquivos, missing: [] }, diffMedido: arquivos, alcance: [],
+    approvalEvidence: ['a cobertura da leitura tem 44 pendências'], technicalReview: { semDeclaracao: true } };
+  const espera = esperaProva.armar(e, PR, 'prova_tecnica_incompleta', result, []);
+  const marca = JSON.parse(JSON.stringify(espera.extra.esperaProva));
+  assert.deepEqual(marca.pendenciasCobertura, coverageGap(result));
+  e.decisions.pending = [{ key: PR.key, headSha: HEAD, esperaProva: marca }];
+  const bloco = blocoDaTentativa(e, PR);
+  for (const arquivo of arquivos) assert.ok(bloco.includes(arquivo), arquivo);
+});
+
+test('recuperação com CI obrigatório vermelho não agenda nem conta outra tentativa', async () => {
+  const e = motor();
+  const d = await revisado(e, SEM_PROTOCOLO);
+  e.config.aguardarCiParaRevisar = true;
+  e.bloqueadoPorChecks = async () => ({ bloqueado: true, faltando: [{ nome: 'ci', estado: 'vermelho' }] });
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 0);
+  assert.equal(d.esperaProva.tentativas, 0);
+  assert.match(d.esperaProva.impedimento, /Aguardando os checks/);
+  e.bloqueadoPorChecks = async () => ({ bloqueado: false, faltando: [] });
+  assert.equal(await esperaProva.reverQuandoAProvaMudar(e), 1);
+  assert.equal(d.esperaProva.tentativas, 1);
 });
 
 test('head não confirmado entra na recuperação e só publica após uma nova análise ancorada', async () => {
