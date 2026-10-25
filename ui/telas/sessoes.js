@@ -4,7 +4,7 @@
    mesma ordem de sempre. */
 
 import {
-  statusBannerHtml, fmtClock, feedLine, agentsTitle, stageFlowFrom, stageFlowHtml,
+  statusBannerHtml, fmtClock, feedLine, agentsTitle, stageFlowFrom, stageFlowHtml, esc,
   sessionCardHtml, progressoDaSessao, conclusaoDaSessao, etapaAtiva,
 } from '../pure.js';
 import { estado } from './estado.js';
@@ -147,6 +147,11 @@ function updateStageFlow(id) {
 function updateSessionAgents(el, s) {
   if (!el) return;
   const lista = s.agents || [];
+  const details = document.querySelector(`.session-agent-details[data-id="${CSS.escape(s.id)}"]`);
+  if (details) {
+    details.hidden = !lista.length;
+    details.querySelector('ul').innerHTML = agentsTitle(lista).split('\n').map(line => `<li>${esc(line)}</li>`).join('');
+  }
   el.hidden = !lista.length;
   if (!lista.length) return;
   el.textContent = `👥 ${s.agentsLive || 0}/${lista.length}`;
@@ -165,13 +170,7 @@ function sessionVisible(s) {
   const u = s && s.pr ? prUser(s.pr) : '';
   return !u || scopeVisible({ account: u });
 }
-/* Progresso do card de sessão (09/10/2026, desenho do Claude Design em
-   docs/superpowers/specs/2026-10-09-progresso-da-sessao-anexos/HANDOFF.md). A conta é
-   do progressoDaSessao (ui/pure/sessao.js), sobre o tempo típico que o engine mede e os
-   arquivos lidos; aqui mora o que é de TELA: a barra nunca volta (maior valor já
-   mostrado), para no lugar quando o stream fica mudo, o ponto pisca a cada evento, e o
-   aria-valuetext só muda quando o texto muda ou a cada 10 pontos. */
-const PCT_MOSTRADO = new Map();
+// O andamento descreve os dados observados, sem converter tempo em conclusão.
 const ARIA_MOSTRADO = new Map();
 const ULTIMA_PISCADA = new Map();
 // última versão de cada sessão vista no snapshot, e as que estão no estado 8 (concluída)
@@ -199,20 +198,19 @@ function pintarBarra(wrap, id, p) {
     card.classList.toggle('sess-muda', p.estado === 'muda');
     card.classList.toggle('sess-concluida', p.estado === 'concluida');
   }
-  const inteiro = Math.floor(p.pct);
-  wrap.querySelector('.sess-pct').textContent = `${inteiro}%`;
-  wrap.querySelector('.op-bar-fill').style.width = `${p.pct}%`;
+  const medido = Number.isFinite(p.pct);
+  wrap.querySelector('.sess-pct').textContent = medido ? `${Math.floor(p.pct)}%` : 'Em andamento';
+  wrap.querySelector('.op-bar-fill').style.width = medido ? `${p.pct}%` : '0%';
+  wrap.querySelector('.op-bar').hidden = !medido;
   wrap.querySelector('.sess-estado').textContent = p.texto;
   const base = wrap.querySelector('.sess-base');
   base.textContent = p.base;
   base.hidden = !p.base;
-  wrap.setAttribute('aria-valuenow', String(inteiro));
-  // no estado mudo o contador anda a cada segundo: a chave ignora o número
-  const chave = p.estado === 'muda' ? 'muda' : p.texto;
-  const ant = ARIA_MOSTRADO.get(id);
-  if (!ant || ant.chave !== chave || Math.abs(p.pct - ant.pct) >= 10) {
+  if (medido) wrap.setAttribute('aria-valuenow', String(Math.floor(p.pct)));
+  else wrap.removeAttribute('aria-valuenow');
+  if (ARIA_MOSTRADO.get(id) !== p.aria) {
     wrap.setAttribute('aria-valuetext', p.aria);
-    ARIA_MOSTRADO.set(id, { chave, pct: p.pct });
+    ARIA_MOSTRADO.set(id, p.aria);
   }
   // o silêncio é anunciado UMA vez, ao entrar no estado
   const aviso = wrap.querySelector('.sess-aviso');
@@ -227,15 +225,10 @@ function updateSessionBar(id) {
   if (saindo) return pintarBarra(wrap, id, conclusaoDaSessao(saindo.sess, saindo.fim));
   const sess = (estado().activeSessions || []).find(x => x.id === id) || {};
   const p = progressoDaSessao(sess, stageFlowFrom(estado().activity && estado().activity[id], sess.startedAt));
-  const antes = PCT_MOSTRADO.get(id) || 0;
-  const pct = p.estado === 'muda' ? antes : Math.max(antes, p.pct);
-  PCT_MOSTRADO.set(id, pct);
-  pintarBarra(wrap, id, { ...p, pct, aria: p.aria.replace(/^d+%/, `${Math.floor(pct)}%`) });
+  pintarBarra(wrap, id, p);
 }
 
-// Estado 8: a sessão que saiu do snapshot DEPOIS que o modelo concluiu fica em 100% por
-// um instante e sai. Saída antes disso (cancelamento, falha) não é conclusão, e o cartão
-// some na hora, como sempre.
+// Fim observado depois do modelo: encerra a apresentação sem inferir sucesso.
 function marcarConcluidas(box, vivas) {
   const ids = new Set(vivas.map(s => s.id));
   for (const el of box.querySelectorAll('.session-card')) {
@@ -252,7 +245,7 @@ function marcarConcluidas(box, vivas) {
   for (const s of vivas) ULTIMA_VISTA.set(s.id, s);
 }
 function esquecer(id) {
-  for (const m of [PCT_MOSTRADO, ARIA_MOSTRADO, ULTIMA_PISCADA, ULTIMA_VISTA, SAINDO]) m.delete(id);
+  for (const m of [ARIA_MOSTRADO, ULTIMA_PISCADA, ULTIMA_VISTA, SAINDO]) m.delete(id);
 }
 function sair(id) {
   const el = document.querySelector(`.session-card[data-id="${CSS.escape(id)}"]`);

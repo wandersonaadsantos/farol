@@ -188,7 +188,7 @@ Cumpre os critérios do BT-385, mexe só nos arquivos previstos e o CI está ver
 
 Regras de link/precisão:
 - Links de linha sempre com `headRefOid`. **Não** invente nomes/paths/linhas; se não confirmou, não cita.
-- **Não** repita o que o diff já mostra. Diff grande (>500 linhas / >10 arquivos): priorize regra de negócio > segurança > regressão > estilo e diga o que ficou de fora.
+- **Não** repita o que o diff já mostra. Leitura completa do diff é obrigatória. O que não couber nesta passada fica nomeado por caminho em `missing` (headless) ou no relatório. Na revisão incremental, declare somente o que leu nesta sessão; o engine reconcilia a herança, e mudanças de contrato exigem conferir os consumidores afetados.
 - `draft`/já `APPROVED`: sinalize no topo. Bug pré-existente fora do PR → 🔵 nit em "Fora do escopo" (não bloqueia).
 
 # Voz — técnica e enxuta, que ensina

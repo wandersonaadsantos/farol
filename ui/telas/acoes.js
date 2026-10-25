@@ -175,6 +175,13 @@ const settingsMap = [
   ['#setReReviewResume', 'reReviewResume', el => el.checked],
   ['#setSkipPerms', 'skipPermissions', el => el.checked],
   ['#setSound', 'soundEnabled', el => el.checked],
+  ['#setVoiceEnabled', 'voiceEnabled', el => el.checked],
+  ['#setVoiceEvents', 'voiceEvents', el => Array.from(el.selectedOptions, o => o.value)],
+  ['#setVoiceVolume', 'voiceVolume', el => Number(el.value)],
+  ['#setVoiceQuietEnabled', 'voiceQuietEnabled', el => el.checked],
+  ['#setVoiceQuietStart', 'voiceQuietStart', el => el.value],
+  ['#setVoiceQuietEnd', 'voiceQuietEnd', el => el.value],
+  ['#setInterventionReminder', 'interventionReminderMinutes', el => Number(el.value)],
   ['#setTeamHighlights', 'teamHighlights', el => el.checked],
   ['#setDeliveriesEnabled', 'deliveriesEnabled', el => el.checked],
   ['#setAutostart', 'autostart', el => el.checked]

@@ -20,9 +20,12 @@ const runReal = io.run;
 let arquivos = [];
 io.run = function runDuble(cmd, args) {
   const sub = (args || []).join(' ');
-  if (sub.includes('additions,deletions,changedFiles,files')) {
-    const files = arquivos.map((p) => ({ path: p, additions: 5, deletions: 5 }));
-    return Promise.resolve({ ok: true, stdout: JSON.stringify({ additions: 5 * files.length, deletions: 5 * files.length, changedFiles: files.length, files }), stderr: '' });
+  if (/repos\/[^/]+\/[^/]+\/pulls\/\d+\/files/.test(sub)) {
+    const files = arquivos.map(p => ({ path: p, sha: 'blob', status: 'modified', lines: 10 }));
+    return Promise.resolve({ ok: true, stdout: JSON.stringify(files), stderr: '' });
+  }
+  if (/repos\/[^/]+\/[^/]+\/pulls\/\d+ --jq/.test(sub)) {
+    return Promise.resolve({ ok: true, stdout: JSON.stringify({ headSha: 'a'.repeat(40), baseSha: 'b'.repeat(40), changedFiles: arquivos.length }), stderr: '' });
   }
   if (/pulls\/\d+\/reviews/.test(sub) && sub.includes('--jq')) return Promise.resolve({ ok: true, stdout: '[]', stderr: '' });
   return Promise.resolve({ ok: true, stdout: '', stderr: '' });
@@ -40,6 +43,7 @@ function motor(autoOpus) {
   e.token = 'token-falso';
   e.tokens = { eu: 'token-falso' };
   e.config.accounts = [{ user: 'eu', owners: ['acme'] }];
+  e.headSha = async () => 'a'.repeat(40);
   e.config.reviewModel = 'auto';
   e.config.autoOpus = autoOpus;
   e.saveDecisions = () => { };

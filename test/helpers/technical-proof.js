@@ -23,7 +23,13 @@ function isolateTechnicalTool() {
   const original = { ...technicalRuntime };
   const publication = technicalPublication.approvalRefusal;
   const measured = Engine.prototype.fetchPrFiles;
+  const inventory = Engine.prototype.fetchPrInventory;
   Engine.prototype.fetchPrFiles = async () => [];
+  Engine.prototype.fetchPrInventory = async function(pr, headSha) {
+    const files = await this.fetchPrFiles(pr);
+    return { status: Array.isArray(files) ? 'complete' : 'unavailable', reason: 'fixture de medição',
+      headSha, baseSha: 'b'.repeat(40), changedFiles: files?.length ?? null, files: files || [] };
+  };
   technicalPublication.approvalRefusal = async () => null;
   technicalRuntime.prepareTechnicalReview = async (engine, pr, head) => {
     const check = engine.bloqueadoPorChecks?.bind(engine);
@@ -37,6 +43,7 @@ function isolateTechnicalTool() {
     Object.assign(technicalRuntime, original);
     technicalPublication.approvalRefusal = publication;
     Engine.prototype.fetchPrFiles = measured;
+    Engine.prototype.fetchPrInventory = inventory;
   };
 }
 

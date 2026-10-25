@@ -16,6 +16,13 @@ invariantes continuam lá.
 - [Jira multi-tenant (v2.52.0)](#jira-multi-tenant-v2520)
 - [Padrões do time na revisão (v2.72.0)](#padrões-do-time-na-revisão-v2720)
 
+- [Avisos de intervenção e voz](#avisos-de-intervenção-e-voz)
+
+- [Especialistas por repositório](#especialistas-por-repositório)
+- [Auditoria de reviews](#auditoria-de-reviews)
+- [Reserva de cota e recursos](#reserva-de-cota-e-recursos)
+- [Interface, retomada e preferências portáveis](#interface-retomada-e-preferências-portáveis)
+
 <!-- indice:fim -->
 
 ## Uma decisão, uma configuração (30/09/2026)
@@ -44,6 +51,30 @@ Três consequências que valem saber:
 - **O modo simples virou conta.** Config sem `accounts` valia pela conta única `ghUser` + `owners`, que não tinha onde guardar política e que a tela de Contas não conseguia editar. A migração escreve essa conta na lista, com o mesmo login e as mesmas orgs. Com UMA conta na lista, os campos de Conexões (conta e organizações) continuam editando essa conta.
 - **As chaves antigas no arquivo são entrada da migração, sempre.** `{"port": 47180, "autoReview": false}` numa instância de teste continua valendo: enquanto não existe conta, as chaves esperam; quando o login do `gh` é detectado, a conta nasce com `autoReview: false`. Para deixar explícito, escreva a conta: `{"accounts": [{"user": "login", "owners": [], "autoReview": false}]}`.
 - **A única diferença de comportamento, e ela só restringe:** conta com `onClean: wait` e `onCaveats: approve` por escolha própria aprovava sozinha o PR com ressalvas e segurava o limpo. Agora ela espera você nos dois, e a migração grava `onCaveats: wait` nela.
+
+### Review por organização e autor
+
+Em Sistema → Contas, cada cartão tem o bloco **Review por organização e autor**.
+Uma regra pode escolher **Automático** ou **Manual** para uma organização inteira,
+ou para um login de autor dentro dela. O autor tem precedência sobre a organização;
+sem exceção vale a organização e, sem regra para ela, vale a configuração atual da
+conta revisora. A conta em "só põe na fila" continua impedindo o início automático.
+As organizações monitoradas no panorama não são uma lista de permissão: regras também
+se aplicam a PRs de outras organizações encontrados por pedido de revisão.
+
+As regras ficam no campo opcional `accounts[].reviewRules`, por exemplo:
+`{"acme":{"mode":"manual","authors":{"joao":"auto","maria":"manual"}}}`.
+Ausência do campo não exige migração nem muda as opções já salvas. "Seguir conta",
+"Seguir organização" e Remover eliminam apenas a regra escolhida, restaurando sua
+herança; editar uma regra não regrava as demais regras nem as políticas de publicação.
+
+**Manual** permite o clique Revisar, mas impede retentativas automáticas, mesmo de
+uma sessão iniciada por clique, e novas rodadas após push ou resultado em head antigo.
+Sem regras novas, as retentativas mantêm o contrato anterior. O engine consulta a
+regra atual ao selecionar, enfileirar e iniciar a sessão; um item que passou a manual
+enquanto esperava vaga volta à fila visível, sem perder a referência de retomada.
+Uma sessão que já começou não é cancelada pela edição. Aprovar e pedir mudanças
+continuam obedecendo às opções de publicação existentes na conta.
 
 ### Paralelismo: cada número diz uma coisa só
 
@@ -418,3 +449,313 @@ Cada conta, em **Sistema > Contas**, tem o campo **padrões do time na revisão*
 - **Onde fica:** no campo `padroesRevisao` da conta, no `config.json`. Não fica no workspace porque o protocolo do workspace é regravado a cada boot.
 - **Como entra:** delimitado e rotulado como dado, no mesmo molde do card do Jira. Não muda o protocolo, os critérios para aprovar sozinho nem a política da conta. Segredo colado por engano sai mascarado; o prompt leva até 6.000 caracteres (o resto é cortado com aviso) e a conta guarda até 20.000.
 - **Regras do repositório:** além dos padrões da conta, a revisão lê o que o repositório revisado declara (`CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING`, ADRs) e cita qual regra embasou cada cobrança. Se uma regra do repositório conflita com um padrão do time, vale a do repositório para aquele PR.
+
+
+A memória de rodadas é configurada por `reviewRoundsMode` no config local: `observe` é o
+padrão e conserva o comportamento anterior das decisões, exibindo as comparações. `enforce`
+ativa os novos gates somente após validar a amostra de reviews e atualizar os executores.
+O campo não liga compartilhamento nem troca as políticas de aprovação e reprovação da conta.
+Veja [Memória de achados entre rodadas](REVIEW-GATES.md#memória-de-achados-entre-rodadas).
+
+
+## Avisos de intervenção e voz
+
+Em **Sistema > Preferências**, o Farol oferece voz opcional para quatro tipos de
+atenção: decisão pendente, acesso ausente ou vencido, revisão estacionada por falha
+sem recuperação automática e sincronização bloqueada por credencial/configuração.
+Cancelamento voluntário, orçamento, CI, prova técnica e retry ainda ativo não são
+tratados como uma decisão aguardando a pessoa. Um head novo só fica sem alerta
+quando o estado de re-revisão comprova espera ou execução automática.
+
+Os avisos aproveitam o estado e os caminhos existentes: bandeja e Notification do
+Electron no desktop, eventos/SSE no servidor e toast com **Abrir pendência** no
+cliente. Clicar abre o PR e seleciona a conta da pendência; falha sem PR visível
+abre o Diagnóstico, acesso abre Contas e sincronização abre sua seção no Sistema.
+O servidor headless nunca tenta tocar áudio. No navegador, a notificação do sistema
+depende da permissão já concedida; o toast permanece disponível sem ela.
+
+A identidade do aviso é o tipo + conta/PR (ou configuração afetada), não o ID da
+sessão nem a data de cada polling. Mudança de head, motivo ou bloqueio gera aviso
+novo. Os recibos locais em `state/interventions.json` guardam apenas hashes e
+horários, sobrevivem ao reinício e são retirados quando a condição deixa de existir.
+Arquivo corrompido é preservado pelo mecanismo de leitura existente; falha de
+persistência deixa log e não interrompe revisões. Uma queda entre aviso e gravação
+não oferece garantia de entrega exatamente uma vez.
+
+`interventionReminderMinutes` começa em **0** (sem repetição). Entre 5 e 1440,
+relembra na primeira atualização de estado depois do intervalo; valores menores que
+5 não armam lembretes. Reconectar ou recarregar um cliente recupera os avisos ainda
+ativos pelo snapshot, sem disparar outra notificação nativa do engine. Clientes
+distintos podem avisar a mesma pendência; não existe eleição de um aparelho para
+concentrar áudio.
+
+`voiceEnabled` começa desligado. `voiceEvents` seleciona `decision`, `access`,
+`failure` e/ou `operational`; `voiceVolume` varia de 0 a 100, inicialmente 50.
+A fala é genérica: não inclui nomes, repositórios, credenciais nem conteúdo de
+reviews. Somente vozes marcadas como locais pelo sintetizador do cliente são usadas.
+Sem API/voz disponível ou com erro, o estado aparece junto de **Testar voz** e os
+avisos visuais continuam. Rajadas não criam uma fila de falas; uma síntese que não
+termina em 15 segundos é cancelada e sinalizada como falha.
+
+`voiceQuietEnabled`, `voiceQuietStart` e `voiceQuietEnd` definem o silêncio no fuso
+local do cliente (padrão 22:00–08:00, intervalo inicialmente desligado). Início e fim
+iguais desativam o intervalo. O silêncio impede voz e toques do app; a notificação
+visual de intervenção pede modo silencioso ao navegador/Electron, inclusive ao
+balão de reserva do Windows. O shell usa o relógio da máquina em que está rodando.
+As preferências ficam no engine ao qual o cliente se conecta; a disponibilidade e
+o volume final do áudio dependem do sistema de cada cliente. Desligar a voz não
+altera gates, pendências nem resultados de revisão.
+
+
+## Especialistas por repositório
+
+Em **Sistema > Reviewers > Especialistas por repositório**, configure contexto para
+uma conta, um repositório e uma branch de destino de PR. O especialista é um
+contexto versionado entregue ao revisor existente; não abre outro agente nem cria
+sessão paga. Continua aproveitando os padrões da conta, as instruções do projeto e
+a memória de pushback que já existiam.
+
+Cada conclusão tem um tipo (arquitetura, contrato, convenção, ponto crítico ou lição),
+título, texto e de uma a oito evidências no formato `caminho:início-fim`. A prévia
+consulta o GitHub pela conta escolhida e fixa commit, blob, linhas e trecho. Confira
+a conclusão e as fontes antes de clicar em **Confirmar curadoria**. A prévia expira
+em dez minutos; mudança de branch, versão ou origem da lição exige nova prévia.
+Não existe geração automática de conclusões arquiteturais nem aceitação por
+confiança declarada de um modelo nesta versão.
+
+O revisor só recebe conclusões ativas cujos arquivos declarados continuam com os
+mesmos blobs no head efetivamente analisado. A branch de destino vem do PR e é
+conferida contra o inventário de head/base. Branch, conta ou repositório diferentes
+não herdam o contexto. Mudança ou remoção de fonte marca a conclusão como vencida;
+falha de consulta, árvore parcial ou incompatibilidade deixa o estado não
+verificável. Em ambos os casos a conclusão fica fora do prompt, sem impedir a
+revisão completa pelos mecanismos existentes. Não há consulta adicional de fontes
+para um repositório sem especialista local.
+
+**Fontes conferidas** significa somente que o conteúdo declarado foi encontrado
+com o mesmo blob. Não comprova que uma conclusão continua semanticamente correta:
+um consumidor ou uma configuração fora dessas fontes pode mudar o comportamento.
+Cabe à curadoria incluir dependências relevantes nas evidências; o revisor continua
+obrigado a verificar interações e o código atual. Conteúdo de fontes e lições é dado
+não confiável, sem autoridade para alterar ferramentas, autorização, cobertura,
+gates ou formato público da revisão. O registro interno da decisão guarda a versão
+e o head usados, sem aceitar esses metadados do envelope do modelo.
+
+Pushbacks confirmados que deram razão ao autor, integralmente ou em parte, aparecem
+apenas como propostas de lição. Registros legados podem não identificar a conta de
+origem; a tela informa isso e exige conferir a procedência para o escopo escolhido.
+É necessário acrescentar evidências e confirmar a curadoria. Alterar, retirar ou
+reabrir a origem de uma lição curada a torna vencida. O fluxo anterior de pushbacks
+permanece independente, como contexto de tom e postura; sua confirmação não ativa
+uma conclusão no especialista automaticamente.
+
+**Reconstruir / revisar** abre a conclusão e suas referências para nova leitura das
+fontes e nova confirmação. **Desativar** retira a conclusão do contexto, inclusive
+offline. **Restaurar como inativo** cria uma versão nova com o conteúdo de uma
+anterior, sem apagar o histórico nem reativar conclusões sem conferência. Cada
+conclusão restaurada precisa de reconstrução e curadoria para voltar ao prompt.
+
+As versões são locais, sob `state/specialists/`, isoladas por hashes do escopo, com
+IDs únicos, escrita imutável e controle de concorrência por versão esperada e lock
+exclusivo. Um conflito exige recarregar; histórico corrompido ou com lacunas é
+preservado e fica indisponível, em vez de parecer vazio. Não há limpeza automática,
+sincronização entre aparelhos ou importação de especialistas nesta etapa. Um
+executor sem esse contexto local revisa sem ele; não deve fingir que o recebeu.
+Lock restante após queda não é quebrado automaticamente: antes de removê-lo, é
+preciso confirmar que não existe escritor ativo naquele escopo.
+
+Os limites são explícitos: 50 conclusões por escopo, 20 arquivos distintos, até 20
+linhas e 4.000 caracteres por trecho, 2.000 caracteres por conclusão e 64 KiB de
+contexto ativo. Excesso é recusado, nunca truncado. Arquivos de fonte acima de 1 MiB,
+conteúdo binário, symlinks, submódulos e árvores incompletas não são aceitos como
+prova. Caminhos de credenciais e padrões conhecidos de segredo, e-mail ou diretório
+pessoal são recusados. Essa proteção é conservadora e não substitui conferir o que
+se pretende guardar; não cole dados pessoais nem credenciais na curadoria.
+
+## Auditoria de reviews
+
+Em **Sistema > Reviewers > Auditoria de reviews**, carregue as revisões elegíveis e
+escolha uma para auditar. O botão informa o consumo de duas sessões de IA. A primeira
+recebe somente o retrato histórico do código; a segunda recebe essa leitura e o
+parecer original para comparar. São conversas novas, sem retomada da sessão revisora,
+sem contexto do especialista e em modo somente leitura do executor existente.
+Não há capability de postagem, outro review público, mudança de decisão ou gate.
+O provedor continua sendo o autorizado para a conta; a primeira versão admite os
+caminhos Claude e Codex com contrato de leitura. Isso reduz ancoragem, mas modelos
+da mesma família podem compartilhar erros; não é validação humana independente.
+
+São elegíveis registros locais de análise completa, com inventário e rodada
+compatíveis pertencentes à conta escolhida. Legados sem essas provas ficam fora.
+A comparação usa base e head originais por SHA e confere os arquivos e blobs contra
+o inventário registrado. Um push posterior não transforma a auditoria antiga em
+auditoria do head atual. As duas versões dos arquivos do diff, a leitura independente,
+o relatório e suas impressões ficam preservados em `state/review-audits/`.
+Nenhum contexto de outro repositório é importado. Conteúdo de fontes é dado sem
+autoridade; caminhos sensíveis e padrões conhecidos de segredo/PII são recusados.
+
+Os limites desta versão são 100 arquivos e 256 KiB somando fontes das duas versões,
+além dos limites de texto da curadoria. Fontes binárias, symlinks, submódulos, árvore
+parcial, comparação incompatível ou excedente deixam a auditoria **inconclusiva**,
+sem truncamento. Dependências fora do diff são limitações declaradas pelo auditor;
+uma auditoria sobre esse retrato não comprova ausência de defeitos no sistema.
+
+O relatório separa achados confirmados pelo auditor, possíveis falsos positivos,
+possíveis omissões e inconclusivos. Cada achado original e cada observação da leitura
+independente precisa de resposta; citações são conferidas contra o retrato por caminho,
+lado e linhas. A classificação é uma opinião do auditor com evidência, não verdade
+automática. Para cada item, a pessoa pode concordar, discordar ou registrar que não
+consegue concluir, com justificativa. Avaliações são versionadas; conflito exige
+recarregar e o histórico não é apagado. Compare os mesmos PRs com uma amostra de
+referência avaliada por pessoas antes de afirmar ganho de qualidade.
+
+Concordância mostra somente os itens efetivamente julgados por uma pessoa, excluindo
+inconclusivos do denominador. Possíveis omissões ou falsos positivos viram erros
+confirmados somente após concordância humana. Custo por erro permanece indisponível
+sem erro confirmado ou quando faltar custo de alguma auditoria. Valores estimados são
+identificados, separados de medidos e indisponíveis. As sessões entram no Consumo como
+Ferramentas, com referência de auditoria, reaproveitando o diário de tentativas.
+
+A amostragem automática começa **desligada**. Habilitá-la exige escolher contas,
+máximo diário (até dez), orçamento diário e reserva estimada por auditoria de duas
+sessões. O tick usa uma ordem de risco explícita: aprovações, volume, pendências de
+rodada e nomes de caminhos sensíveis. É uma heurística de seleção, não uma nota de
+precisão. Um mesmo retrato não é reamostrado automaticamente. Revisões na fila e
+sessões ativas têm prioridade. Contas silenciadas ou sem token e perfis sem orçamento
+não iniciam auditoria. Falhas não têm retentativa automática.
+
+Quantidade e orçamento são **locais deste aparelho**, não uma cota compartilhada da
+frota. A reserva controla admissão: não é um limite rígido imposto ao provedor, e uma
+sessão já iniciada pode ultrapassá-la. Custo estimado entra no orçamento; indisponível
+suspende novas amostras naquele dia. Desligar a amostragem impede novos inícios, mas
+não cancela a auditoria atual. Repetição manual de uma auditoria concluída exige marcar
+nova tentativa e gera novo consumo, preservando a anterior. Uma tentativa sem resultado
+fica interrompida; não equivale a zero problemas. A execução ativa é identificada pelo
+ID da auditoria: iniciar outra não faz um registro interrompido aparecer em andamento.
+O lock registra cada processo concorrente separadamente e recupera automaticamente
+somente donos cuja morte o sistema operacional confirmou, sem apagar a tentativa.
+Um processo vivo ou uma identidade ilegível mantém o bloqueio. Locks de formato
+antigo, sem identidade verificável, são preservados; confirme que o escritor
+e seus processos filhos terminaram. Dados corrompidos permanecem preservados e não
+são interpretados como histórico vazio.
+
+Depois da avaliação humana favorável, possíveis omissões e falsos positivos oferecem
+**propostas** na curadoria dos especialistas da mesma conta e repositório. É preciso
+acrescentar fontes e confirmar a curadoria separadamente. Contestação ou mudança da
+avaliação invalida a lição derivada. Auditoria nunca ativa conhecimento automaticamente.
+Não há sincronização das auditorias, comparação humana preenchida por IA nem selo
+de “assertividade” nesta etapa. A voz permanece desligada por padrão.
+
+## Reserva de cota e recursos
+
+Em **Sistema > Plano e chaves > Reserva de cota e recursos**, carregue os perfis e
+escolha uma política: **desligada**, **observar e avisar** ou **reservar**. Nenhuma
+reserva vem habilitada por padrão. O percentual máximo, de 1 a 99, vale para cada
+janela do grupo de modelos usado pelo perfil, exatamente como o provedor a informou.
+Uma janela semanal não é apresentada como janela de cinco horas.
+
+A fonte integrada verificável é o `/usage` do Antigravity. Usa o leitor e o cache
+existentes, sem chamada ao modelo. Todos os buckets precisam estar válidos, com
+fração numérica, IDs únicos, janela e reset. A identidade tem que conferir com a
+conta configurada e o token precisa vir da pasta do perfil. A leitura vale por até
+um minuto; leitura vencida, futura, parcial, reset vencido ou identidade não comprovada
+é **cota desconhecida**, nunca zero usado. O painel mostra fonte e horário da coleta.
+Claude e Codex continuam sem uma medição verificável integrada nesta versão; tokens,
+custo em dólar e estimativa de reset não são convertidos em percentual de cota.
+
+**Observar** informa quando o percentual chega ao máximo, mas não barra sessões.
+**Reservar** impede novas sessões headless naquele perfil quando o teto é atingido
+ou a fonte é desconhecida. A cadeia pode usar somente outra opção já habilitada;
+não liga perfis novos, não troca associações da conta e não cria fallback para o
+login legado quando todos estão reservados. Conta com perfil próprio permanece
+presa a ele. Perfis reconhecidos da mesma assinatura compartilham a política mais
+restritiva: Codex usa o login único da máquina; pastas Claude usam a identidade
+canônica existente; perfis Antigravity com a mesma conta configurada compartilham
+a reserva do grupo. Quando houver política de reserva efetiva em algum alias,
+ela prevalece sobre observação nos demais. A tela mostra os perfis de origem da
+política efetiva, sem expor chave, caminho ou identidade de login completa.
+
+Orçamentos do perfil e do grupo, silêncio da conta, admissão, política do aparelho
+e limites de concorrência continuam sendo exigências independentes. A reserva não
+autoriza contornar orçamento. A revisão impedida volta à fila sem gastar tentativa
+nem publicar review; uma nova coleta pode liberar sua admissão. A checagem ocorre
+antes do provedor, inclusive nos caminhos de autoanálise, pushback, ferramentas e
+chat headless. Terminal interativo continua fora desta admissão headless.
+
+Sessão iniciada não é cancelada ao cruzar o percentual. O consumo continua no diário
+existente, e observações antes/depois são preservadas sob `state/quota-admissions/`
+em registros imutáveis com versão e integridade. O painel lista as trinta observações
+mais recentes; não apaga as anteriores. Fonte final ausente é desconhecida; registro
+sem fim é sessão em andamento ou interrompida, não prova de ausência de ultrapassagem.
+Corrupção fica explícita e os arquivos permanecem preservados.
+
+Não há garantia rígida de “30% preservados”: uma sessão longa ou outro aplicativo
+na mesma assinatura pode consumir essa margem. A medição final diz o que foi
+observado depois da sessão, não atribui todo o consumo da janela exclusivamente a
+ela. A reserva é local ao aparelho; não é uma transação de cota entre todos os
+clientes do provedor. Custos medidos, estimados e indisponíveis permanecem separados
+no Consumo. Desligar a política libera novas admissões, preservando histórico.
+
+**Medir recursos agora** coleta sob demanda, com cache de cinco segundos e uma
+consulta em andamento por engine. Separa máquina inteira, processo principal do
+Farol, subprocessos observados do app, CLIs rastreados e seus descendentes, com uma
+linha por sessão. A seleção usa PIDs, parentesco e nascimento; processo encerrado,
+inacessível ou PID reciclado não é atribuído à sessão como se estivesse medido.
+No Windows usa CIM para buscar somente a árvore do Farol, sem materializar métricas
+de outros aplicativos; em macOS/Linux, `ps`. Não coleta linha de comando, nome de
+usuário, ambiente, caminho de executável ou credenciais para apresentar o diagnóstico.
+
+CPU precisa de duas amostras e é normalizada pela capacidade total da máquina.
+A primeira leitura e processos novos mostram CPU indisponível, sem inventar 0%.
+RAM dos processos é soma de RSS/working set, que pode contar páginas compartilhadas
+mais de uma vez; não equivale à RAM física exclusiva. A memória disponível ao processo
+reaproveita a métrica da admissão existente, incluindo limite de container quando
+disponível. A coleta tem custo e inclui processos acessíveis no snapshot, não uma
+prova de completude de processos inacessíveis. Falha de consulta fica indisponível.
+
+Alertas de RAM e CPU são observações no painel. Não mudam paralelismo, não encerram
+processos nem reinterpretam o piso de memória já existente. Ajuste automático exige
+medição posterior. Nenhuma política de cota ou medição de recursos liga a voz; seu
+padrão permanece desligado.
+
+
+## Interface, retomada e preferências portáveis
+
+No Radar, **Agrupar fila** alterna entre lista, conta e repositório. O agrupamento
+altera só a apresentação; não muda a ordem de execução, o escopo ou a autorização.
+Cada grupo pode ser recolhido pelo resumo com mouse ou teclado. A escolha e os
+grupos recolhidos ficam neste navegador e sobrevivem à atualização do estado e à
+recarga. A contagem e **Revisar tudo** continuam incluindo os itens recolhidos.
+
+Rodadas compatíveis nas pendências e revisões recentes têm um resumo expansível:
+identificador, pais, pendências, apontamentos sem resposta e mudança de contexto.
+Ausência de resumo não significa zero achados. Memória não verificada tem aviso;
+a evidência continua no relatório. O resumo é interno, não entra no review público.
+
+O andamento mostra a etapa e os agentes observados, incluindo sua tarefa e estado
+em uma lista acessível. Tempo decorrido, mediana histórica e número de eventos não
+são convertidos em porcentagem de conclusão. A fração de arquivos declarados lidos
+pode aparecer, identificada como leitura declarada, sem substituir a prova de cobertura.
+Fechamento e saída da sessão não prometem sucesso da análise ou da postagem; consulte
+o resultado da revisão. Silêncio do stream continua visível.
+
+Em **Sistema > Visão geral > Configuração e retomada**, o roteiro guarda o último
+passo escolhido e o recolhimento neste navegador. Sem conta configurada ele começa
+aberto; nas demais instalações pode ser aberto quando necessário. Login, organizações e prontidão do último diagnóstico
+são informações distintas de configuração preenchida. Use **Reverificar saúde** para
+atualizar o diagnóstico. O roteiro não ativa automação nem aprova a política da conta.
+
+**Preferências entre instalações** exporta JSON versão 1 com apenas tema, toque
+sonoro e intervalo de lembretes de intervenção. Não é backup nem migração de conta:
+credenciais, caminhos locais, perfis, voz, dados de revisão, sincronização e políticas
+de automação ficam fora. Arquivo com campo adicional ou versão incompatível é recusado.
+
+Importar exige arquivo de até 16 KiB, prévia de diferenças, seleção explícita e
+**Aplicar diferenças selecionadas**. A prévia não grava; valores iguais não são
+selecionáveis. Se o arquivo ou as preferências do destino mudarem, gere outra prévia.
+Falha de gravação restaura os valores em memória. Não há descoberta de instalação,
+cópia de pasta, contratação de serviço ou alteração da instalação original.
+
+Tema claro e escuro usam os tokens existentes. A preferência persistida do engine
+prevalece quando chega o estado; o navegador mantém o último tema para o primeiro
+paint. Sem armazenamento local, as escolhas continuam funcionando nesta janela.
+A voz permanece desligada por padrão e não pode ser ativada pela importação.

@@ -45,6 +45,34 @@ test('só código de produção exige declaração: teste, documentação, confi
   }
 });
 
+test('configurações convencionais de ferramentas não exigem chamadores de produção', () => {
+  for (const arquivo of ['eslint.config.mjs', 'tools/eslint.config.cjs', './eslint.config.js',
+    'packages/web/vite.config.ts', 'jest.config.cjs', 'vitest.config.ts', 'webpack.config.js',
+    'playwright.config.ts', 'tailwind.config.js', '.eslintrc.cjs', '.babelrc.js']) {
+    assert.equal(ehCodigoDeProducao(arquivo), false, arquivo);
+    assert.deepEqual(alcanceGap({ diffMedido: [arquivo] }), [], arquivo);
+  }
+});
+
+test('configuração de runtime da aplicação continua exigindo alcance', () => {
+  for (const arquivo of ['src/config.ts', 'src/precos.config.ts', 'config/database.js',
+    'src/config/eslint.service.ts', 'src/meu-eslint.config.js']) {
+    assert.equal(ehCodigoDeProducao(arquivo), true, arquivo);
+    assert.deepEqual(alcanceGap({ diffMedido: [arquivo], alcance: [] }),
+      [`${arquivo}: uso fora do diff não declarado`]);
+  }
+});
+
+test('eslint.config.mjs ainda precisa ser lido no diff e não dispensa alcance do código alterado junto', () => {
+  const config = 'eslint.config.mjs';
+  assert.deepEqual(coverageGap({ diffMedido: [config],
+    coverage: { total: 1, reviewed: [config], missing: [] } }), []);
+  assert.ok(coverageGap({ diffMedido: [config],
+    coverage: { total: 1, reviewed: [], missing: [config] } }).length > 0);
+  assert.deepEqual(alcanceGap({ diffMedido: [config, 'src/veredito.ts'], alcance: [] }),
+    ['src/veredito.ts: uso fora do diff não declarado']);
+});
+
 test('conferirChamador: o símbolo precisa aparecer perto da linha declarada', () => {
   assert.equal(conferirChamador(CHAMADOR, 4, 'montar'), true);
   assert.equal(conferirChamador(CHAMADOR, 6, 'montar'), true, 'até 3 linhas de folga');
@@ -130,6 +158,10 @@ function motor(alcance) {
   e.log = () => { };
   e.on('toast', () => { });
   e.fetchPrFiles = async () => [{ path: 'src/veredito.ts', sha: 'b1', status: 'modified', lines: 10 }];
+  e.fetchPrInventory = async (_pr, headSha) => {
+    const files = await e.fetchPrFiles(_pr);
+    return { status: 'complete', reason: '', headSha, baseSha: 'base', changedFiles: files.length, files };
+  };
   e.headSha = async () => 'abc1234';
   e.postados = [];
   e.postReview = async (_pr, payload) => { e.postados.push(payload); return { ok: true }; };

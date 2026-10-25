@@ -31,3 +31,11 @@ test('protocolo do workspace carrega as calibrações vindas de pushback confirm
   assert.match(protocolo, /Padrão existente do repo e exigência fora do diff/, 'item 10 existe');
   assert.match(protocolo, /nunca condição de aprovação/, 'processo fora do diff não condiciona approve');
 });
+
+test('protocolo exige cobertura completa e não autoriza omissão genérica', () => {
+  assert.doesNotMatch(agente, /diga o que ficou de fora/);
+  assert.match(agente, /Leitura completa do diff é obrigatória/);
+  const prompt = fs.readFileSync(path.join(TEMPLATE_DIR, 'prompts', 'pr-review-auto.md'), 'utf8');
+  assert.match(prompt, /cruza `reviewed` com a lista real/);
+  assert.match(agente, /engine reconcilia a herança/);
+});

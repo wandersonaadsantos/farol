@@ -9,14 +9,65 @@ Convenção: cada versão tem uma linha de resumo e os grupos **Novidades**,
 o `publish-release.ps1` anexa sozinho o rodapé padrão (**Instalar / Atualizar**
 e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
-## v2.76.8
+## v2.77.2
 
-Reanalisar um PR no mesmo commit funciona após corrigir o ambiente.
+Interface consistente nos fluxos de revisão, com menos sobreposições.
 
 **Correções**
-- O clique em Reanalisar permite uma nova autoanálise mesmo quando existe recibo anterior, mantendo a coordenação entre aparelhos e o bloqueio de sessões simultâneas.
-- Relatórios anteriores são preservados no histórico persistido ao concluir uma nova análise, sem serem reenviados a cada atualização da tela. Falhas da nova tentativa conservam o relatório atual.
-- Merge e reanálise disputam a mesma posse entre aparelhos. Uma análise em execução impede o merge baseado no relatório anterior, e uma operação de merge impede iniciar análise concorrente.
+- Especialistas, auditorias, cotas, roteiro de configuração e preferências seguem os cartões, espaçamentos e controles do Farol, com detalhes técnicos recolhíveis e adaptação a telas estreitas.
+- Intervenções ficam agrupadas e recolhidas no Radar, com as ações existentes, sem um aviso sobreposto por pendência.
+- As opções de voz aparecem apenas quando ativadas; a voz continua desligada por padrão. Importar preferências não a ativa.
+- O envio explícito de histórico mantém medição e confirmação, com ações e avisos no padrão visual existente. Custos de auditoria continuam distinguindo medido, estimado e indisponível.
+- O texto do progresso da sessão usa a largura do cartão. Sem conclusão medida, a interface não apresenta uma barra de 0%.
+
+## v2.77.1
+
+Controle de review automático ou manual por organização e autor do PR, preservando as configurações existentes.
+
+**Melhorias**
+- Em Sistema > Contas, escolha o modo de revisão de cada organização e crie exceções para autores dentro dela. A regra do autor tem prioridade sobre a organização; sem regra nova, permanece a configuração atual da conta.
+- Remover uma regra restaura a herança da organização ou da conta. As opções de aprovar e pedir mudanças continuam independentes e não são alteradas.
+
+**Correções**
+- A escolha de revisão manual também vale para PRs encontrados fora das organizações do panorama, retentativas e novas rodadas após push. Revisar por clique continua disponível.
+- Se a regra mudar enquanto o PR espera uma vaga ou uma consulta, o início automático é reconferido e o PR permanece visível para revisão manual. Sessões já iniciadas não são interrompidas.
+
+
+## v2.77.0
+
+Revisões com cobertura verificável e memória entre rodadas, especialistas por repositório e auditorias independentes, com mais clareza sobre filas e limites dos provedores.
+
+**Novidades**
+- Especialistas por repositório usam fontes identificadas e verificam quando elas mudaram. Lições dependem de curadoria humana para entrar em uso; uma revisão não altera sozinha as regras do time.
+- Auditorias independentes comparam duas análises antes de mostrar a conclusão anterior, permitem avaliação humana e amostragem por risco com orçamento explícito. Não publicam reviews nem promovem lições automaticamente.
+- A memória entre rodadas preserva achados e evidências em registros imutáveis, distinguindo análise concluída de publicação confirmada no GitHub.
+
+**Melhorias**
+- A cobertura usa o inventário completo e paginado do diff, vinculado à base e ao commit revisado. O modo de observação permite acompanhar a cobertura antes de optar pela exigência adicional.
+- Intervenções agrupam pendências acionáveis e evitam avisos repetidos. A voz é opcional e permanece desligada por padrão; importar preferências não a ativa.
+- A cota do Antigravity considera conta, atualização da leitura e janelas de consumo. Reservas são configuráveis; provedores sem medição confiável aparecem sem percentual inventado. A observação de recursos não encerra revisões em andamento.
+- Filas podem ser agrupadas e recolhidas, o progresso mostra fatos da execução e a configuração pode ser retomada. A importação de preferências oferece prévia e seleção, sem transportar credenciais ou políticas de revisão.
+
+**Correções**
+- Rodadas anteriores ao compartilhamento entram no envio explícito do histórico, com tamanho cifrado medido e confirmação do conteúdo. O envio confirmado continua reconhecido após reiniciar.
+- A revisão ignora contratos internos fornecidos pelo modelo e valida os achados declarados. Pedidos de mudança em PR próprio preservam seu significado ao serem publicados como comentário.
+- Auditorias recebem o inventário real da revisão e recuperam o bloqueio deixado por um processo comprovadamente encerrado, preservando exclusão entre executores. Apenas a auditoria ativa aparece como em execução.
+- Auditorias preservam a grafia da conta configurada ao consultar credenciais, fontes e perfis. Suspeitas independentes sem prova suficiente podem ser concluídas como inconclusivas, sem perder a resposta obrigatória aos achados originais.
+- Falha ao gravar a memória remota continua visível e bloqueia a publicação quando essa garantia é exigida, mesmo que a consulta seguinte devolva uma lista vazia.
+- Após trocar o perfil do Antigravity por falta de cota, o consumo é atribuído somente ao perfil que efetivamente executou a revisão.
+- A leitura de regras identifica ciclos ancestrais alcançáveis; caminhos e arquivos temporários recebem validações adicionais de segurança.
+
+## v2.76.8
+
+A fila explica por que uma revisão espera, e configurações de ferramentas não geram uma exigência indevida de chamadores.
+
+**Melhorias**
+- Cada revisão na fila local mostra sua posição de entrada e o motivo observado pelo agendador, com a ocupação e o limite quando disponíveis. A ordem de execução continua respeitando o rodízio entre organizações e as vagas de cada conta.
+- A espera distingue limite por conta, limite do aparelho, falta de vaga, memória insuficiente, provedor indisponível, presença desatualizada e limite compartilhado não verificável. Quando o motivo ainda não foi confirmado, a tela informa isso.
+
+**Correções**
+- Arquivos convencionais de configuração de ferramentas, como `eslint.config.mjs`, não exigem prova de chamadores fora do diff. A leitura desses arquivos no diff e os demais gates de aprovação continuam obrigatórios; configurações de runtime da aplicação continuam exigindo alcance.
+- Esperas antigas são reavaliadas sob a nova versão das regras de evidência, evitando manter o bloqueio retirado por esta correção.
 
 ## v2.76.7
 
