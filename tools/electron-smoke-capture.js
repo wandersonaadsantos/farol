@@ -33,7 +33,7 @@ async function waitForWindowGeometry(window, expected, timeoutMs = 15000) {
   });
   const measure = async () => {
     while (!stopped) {
-      const viewport = await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve({width:innerWidth,height:innerHeight}))))');
+      const viewport = await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve({width:innerWidth,height:innerHeight,availableHeight:screen.availHeight}))))');
       if (stopped) return;
       const contentSize = window.getContentSize(), bounds = window.getBounds();
       observed = { contentSize, bounds, viewport };
@@ -46,4 +46,13 @@ async function waitForWindowGeometry(window, expected, timeoutMs = 15000) {
   try { return await Promise.race([measure(), deadline]); }
   finally { stopped = true; clearTimeout(timer); polling.abort(); }
 }
-export { captureWindow, reloadWindow, waitForWindowGeometry, diagnostics };
+async function captureHeightForWorkArea(window) {
+  const observed = await waitForWindowGeometry(window, { contentSize: window.getContentSize() });
+  const availableHeight = observed.viewport.availableHeight;
+  const frameHeight = observed.bounds.height - observed.contentSize[1];
+  if (!Number.isInteger(availableHeight) || !Number.isInteger(frameHeight) || frameHeight < 0 || availableHeight <= frameHeight) {
+    throw new Error(`Área útil da captura indisponível: ${safeStringify({ availableHeight, frameHeight })}`);
+  }
+  return { height: Math.min(800, availableHeight - frameHeight), availableHeight, frameHeight };
+}
+export { captureWindow, reloadWindow, waitForWindowGeometry, captureHeightForWorkArea, diagnostics };
