@@ -211,6 +211,8 @@ Cada pessoa do time precisa, na própria máquina:
 
 A revisão autônoma vem **ligada** de fábrica (é o propósito do app): ao chegar PR, o provedor associado à conta roda o review internamente e posta APPROVE quando o protocolo permite, na conta dela. Quem preferir só ser notificado desliga em **Sistema → Revisar automaticamente**. O modo terminal sem prompts (`--dangerously-skip-permissions`, no Claude) segue desligado por padrão.
 
+O registro de tokens, a contabilidade de retomadas e a avaliação da saída pública estão descritos em [Consumo e saída dos reviews](https://github.com/wandersonaadsantos/farol/blob/main/docs/CONSUMO-REVIEWS.md).
+
 ## Privacidade e responsabilidade
 
 O Farol **não coleta nem envia nenhum dado ao mantenedor**. Não existe telemetria, analytics nem servidor do projeto: tudo o que o app registra fica na sua máquina, em `~/.farol` (log de falhas, consumo das automações de IA, decisões de review, configurações). O app inclusive desliga a telemetria do próprio GitHub CLI nas sessões que dispara (`GH_TELEMETRY=false`).

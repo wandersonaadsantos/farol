@@ -11,9 +11,10 @@ e **Anexos**, de `tools/release-footer.md`) e o título **Farol vX.Y.Z**.
 
 ## v2.77.3
 
-Revisões com fontes reaproveitáveis e investigação de contexto opcional, armazenamento controlado e interface mais estável.
+Revisões com fontes reaproveitáveis, contexto opcional e interface mais estável, com consumo que inclui subagentes e separa o gasto novo nas retomadas.
 
 **Melhorias**
+- Formato de saída pública única preparado para avaliação, desligado por padrão. A investigação, os achados, as evidências, as ressalvas e os gates continuam necessários. A equivalência de julgamento e a economia de tokens ainda dependem de comparação em novas execuções; nenhum modelo ou esforço foi reduzido e nenhum piloto pago foi ativado.
 - Review e autoanálise compartilham fontes fixadas no head, base e merge-base do PR, com cache separado por conta e repositório. O reaproveitamento reconfere autorização e preserva materiais ainda utilizados.
 - O mapa sintático de JS, TS, JSX e TSX ajuda a localizar consumidores, tipos e reexports. A seleção de contexto permanece desligada por padrão (`off`); `observe` apenas mede e `assist` acrescenta contexto candidato com limites, procedência e fallback. O código analisado não é executado e o mapa não comprova ausência de impacto nem substitui os gates de review.
 - O cache gerenciado tem quota global configurável, por padrão 4 GiB, além do limite por escopo. Reservas coordenam aquisições simultâneas e monitoram crescimento; material ativo ou com término incerto é preservado. A contabilização é lógica e amostrada, com legados separados, e não garante um teto físico exato.
@@ -21,7 +22,10 @@ Revisões com fontes reaproveitáveis e investigação de contexto opcional, arm
 - Desenvolvimento, testes e execução externa do motor passam a exigir Node 24 LTS, de 24.22.1 até antes de 25. Atualize o runtime do serviço antes de aplicar esta versão em servidor que ainda usa Node 22. O desktop mantém o Node embarcado no Electron e a instalação offline dispensa Node externo. A ocorrência histórica do Node 22 continua sem causa determinada; retirar seu suporte não é uma correção do crash.
 
 **Correções**
-- Reexecutar a autoanálise preserva o histórico e coordena a operação com o merge. O merge reconfere a posse e o commit analisado; o snapshot da interface expõe somente a análise atual.
+- Quando o CLI informa o total completo, a contagem inclui os subagentes do Claude e atribui uso aos modelos participantes. O raciocínio informado não é somado novamente à saída.
+- Retomadas descontam o gasto anterior com cursor vinculado à conta, ao perfil e à sessão do provedor. O diário conserva essa identidade durante interrupções e o boot evita repetir o parcial já registrado.
+- Falha com custo zerado não cria cursor confiável. Quando o gasto novo não pode ser separado, o custo permanece desconhecido e os registros anteriores são preservados.
+- Reexecutar a autoanálise no mesmo commit por clique explícito preserva o histórico; falhas conservam o último resultado e somente a análise atual participa dos gates e do snapshot. Merge e autoanálise compartilham a posse entre aparelhos; o merge reconfere a posse e fixa o commit, e uma coordenação indisponível impede a operação.
 - Os padrões de revisão do time voltam a aparecer na tela de Contas.
 - Contenção transitória ao salvar registros do cache é tratada sem truncar o registro anterior. Falhas definitivas continuam visíveis, preservando os dados e a causa original mesmo se a limpeza também falhar.
 - Electron 44.9.3 mitiga certificados TLS comprometidos, e o motor externo exige o patch de segurança Node 24.22.1. O lock atualiza Undici de download para 7.30.1. Limitação: o desktop ainda embarca Node 24.22.0/Undici 7.29.1, com o DoS de `fetch` GHSA-xjj6-f33q-929c pendente de correção upstream; atualizar o pacote npm não corrige esse componente interno.

@@ -121,6 +121,25 @@ test('com evento final, registra ELE e não o acumulado: senão conta duas vezes
   assert.equal(registros[0].ev.total_cost_usd, 2, 'custo MEDIDO, não estimado');
 });
 
+test('stream preserva totais por modelo e marca retomada Claude para descontar cursor no registro', async () => {
+  const registros = [];
+  const child = filhoStream();
+  spawnImpl = () => child;
+  const pending = runClaudeStream(engineFalso(registros), 'prompt', { id: 'a-tree', account: 'dev', extraArgs: ['--resume', 'existing'] });
+  spawnImpl = null;
+  child.stdout.write(JSON.stringify({ type: 'system', session_id: 'existing' }) + '\n');
+  const modelUsage = { opus: { inputTokens: 10, outputTokens: 100, cacheReadInputTokens: 20, cacheCreationInputTokens: 2, costUSD: 1 } };
+  child.stdout.write(JSON.stringify({ type: 'result', result: 'ok', usage: { output_tokens: 5 }, total_cost_usd: 1, modelUsage }) + '\n');
+  child.stdout.once('end', () => child.emit('close', 0));
+  child.stdout.end();
+  await pending;
+  assert.equal(registros.length, 1);
+  assert.equal(registros[0].ev.session_id, 'existing');
+  assert.equal(registros[0].ev.farol_provider, 'claude');
+  assert.equal(registros[0].ev.farol_resumed, true);
+  assert.deepEqual(registros[0].ev.modelUsage, modelUsage);
+});
+
 test('sessão que morre sem gastar nada não inventa registro', async () => {
   const registros = [];
   const child = filhoStream();
