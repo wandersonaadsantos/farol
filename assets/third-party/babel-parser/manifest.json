@@ -1,0 +1,17 @@
+{
+  "name": "@babel/parser",
+  "version": "7.28.5",
+  "license": "MIT",
+  "source": "https://registry.npmjs.org/@babel/parser/-/parser-7.28.5.tgz",
+  "npmIntegrity": "sha512-KKBU1VGYR7ORr3At5HAtUQ+TV3SzRCXmA/8OdDZiLDBIZxVyzXuztPjfLd3BV1PRAQGCMWWSHYhL0F8d5uHBDQ==",
+  "files": {
+    "dist/parser.cjs": {
+      "bytes": 512279,
+      "sha256": "4fad5d076afb8c346159a06bb942d6e14c6167d590082b7c3bdebd4c108af201"
+    },
+    "LICENSE": {
+      "bytes": 1086,
+      "sha256": "2e97627cb278aa7556fb9e8817368302301a595b6c7582512b8d74c57b773652"
+    }
+  }
+}

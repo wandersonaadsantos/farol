@@ -223,7 +223,7 @@ Radar de Pull Requests em Electron. O engine (`server.js`, Node puro) monitora o
 
 ## Invariantes do projeto (não negociar)
 
-1. **Zero dependências além do Electron.** O engine roda com Node puro (`node server.js`). Não adicione pacotes npm.
+1. **Electron é a única dependência npm de runtime.** O engine roda com Node puro (`node server.js`). A exceção autorizada é o parser sintático `@babel/parser` 7.28.5: seu artefato autocontido e licença MIT viajam em `assets/third-party/babel-parser/`, verificados por manifesto/hash, sem resolução em `node_modules`. O pin npm de desenvolvimento serve apenas à reprodução desse artefato. Não adicione outros pacotes sem autorização.
 2. **Dados em `~/.farol`, nunca em AppData/Library.** No Windows o motivo é o MSIX virtualizar `%LOCALAPPDATA%`; no macOS mantemos o mesmo caminho por simetria (o estado migra entre máquinas copiando uma pasta só).
 3. **Log só de falhas.** `farol.log` não recebe ruído operacional; o Diagnóstico usa esse log como fonte. **A classificação dessas falhas mora só em `lib/log-taxonomy.js`** (desde a v2.37.0): quem decide retry (`runOneHeadless`) e quem monta o Diagnóstico leem a MESMA tabela. Duplicar a regra foi o que deixou o painel mostrando 159 linhas cruas de 4 episódios enquanto o motor achava que entendia o erro.
 4. **Nada é postado no GitHub sem gate.** A admissibilidade técnica e a suficiência
