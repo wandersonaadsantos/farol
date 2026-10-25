@@ -12,6 +12,8 @@ import { estadoInicial } from './bench/ui-fixture.js';
 import { executarTraco } from './bench/ui-native-trace.js';
 import { parseJson, safeStringify, writeJsonAtomic } from '../lib/io.js';
 import { envSemRepositorioHerdado } from '../lib/git-env.js';
+import { readRegularFile } from '../lib/bounded-file.js';
+import { sourceManifest as manifesto, UI_SOURCE_MAX_BYTES } from './bench/ui-source-manifest.js';
 const args = process.argv.slice(2);
 function argumento(nome) {
   const i = args.indexOf(nome);
@@ -34,10 +36,6 @@ const report = { method: 'UI completa de cada revisão, DOM/SSE/janela nativos, 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const hash = text => createHash('sha256').update(text).digest('hex');
 const git = (root, ...command) => execFileSync('git', command, { cwd: root, encoding: 'utf8', windowsHide: true, env: envSemRepositorioHerdado() }).trim();
-function manifesto(root, files) {
-  return [...files].sort().map(file => ({ file: path.relative(root, file).replaceAll('\\', '/'),
-    bytes: fs.statSync(file).size, sha256: hash(fs.readFileSync(file)) }));
-}
 function servidor(root) {
   const streams = new Set(), requests = [], files = new Set();
   const fixture = estadoInicial();
@@ -57,12 +55,18 @@ function servidor(root) {
     const relative = decodeURIComponent(pathname).replace(/^\/+/, '');
     let file = path.resolve(root, 'ui', relative || 'index.html');
     if (!file.startsWith(path.resolve(root, 'ui') + path.sep)) { res.writeHead(403); res.end(); return; }
-    if (!fs.existsSync(file) && !path.extname(file)) file = path.join(root, 'ui/index.html');
-    if (!fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404); res.end(); return; }
+    let content;
+    try { content = readRegularFile(file, UI_SOURCE_MAX_BYTES); }
+    catch (error) {
+      if (error.code !== 'ENOENT' || path.extname(file)) { res.writeHead(404); res.end(); return; }
+      file = path.join(root, 'ui/index.html');
+      try { content = readRegularFile(file, UI_SOURCE_MAX_BYTES); }
+      catch { res.writeHead(404); res.end(); return; }
+    }
     files.add(file);
     const mime = { '.js': 'text/javascript', '.html': 'text/html', '.css': 'text/css', '.svg': 'image/svg+xml' };
     res.writeHead(200, { 'content-type': mime[path.extname(file)] || 'application/octet-stream' });
-    fs.createReadStream(file).pipe(res);
+    res.end(content);
   });
   function enviar(event, data) { for (const stream of streams) stream.write(`event: ${event}\ndata: ${safeStringify(data)}\n\n`); }
   return { server, requests, streams, files, enviar };
@@ -106,7 +110,8 @@ async function medir(nome, root) {
 async function main() {
   await app.whenReady();
   try {
-    const tools = ['tools/benchmark-ui-native.js', 'tools/bench/ui-native-trace.js', 'tools/bench/ui-fixture.js'];
+    const tools = ['tools/benchmark-ui-native.js', 'tools/bench/ui-native-trace.js', 'tools/bench/ui-fixture.js',
+      'tools/bench/ui-source-manifest.js', 'lib/bounded-file.js'];
     report.fixtureManifest = manifesto(path.resolve(import.meta.dirname, '..'), tools.map(file => path.resolve(import.meta.dirname, '..', file)));
     for (const [nome, root] of Object.entries(roots)) report.results[nome] = await medir(nome, root);
     assert.deepEqual(report.results.entrega.finalState, report.results.baseline.finalState, 'mesmo estado funcional final');

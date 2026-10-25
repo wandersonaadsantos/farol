@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { parseJson, safeStringify } from '../lib/io.js';
 import { executadoDireto } from '../lib/paths.js';
+import { readRegularFile } from '../lib/bounded-file.js';
 
 const ID = /^review-[A-Za-z0-9]+$/;
 const SID = /^[A-Za-z0-9-]{8,64}$/;
@@ -34,8 +35,7 @@ function classifyLegacy(id, request, { records, inflight, sessions }, resultPres
 }
 function read(file) {
   try {
-    if (!fs.lstatSync(file).isFile() || fs.lstatSync(file).isSymbolicLink() || fs.statSync(file).size > 32 * 1024 ** 2) return null;
-    return parseJson(fs.readFileSync(file, 'utf8'));
+    return parseJson(readRegularFile(file, 32 * 1024 ** 2).toString('utf8'));
   } catch { return null; }
 }
 function packBytes(directory) {
